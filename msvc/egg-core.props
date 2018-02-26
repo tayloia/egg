@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ImportGroup Label="PropertySheets" />
+  <PropertyGroup Label="UserMacros">
+    <EggRoot>$(SolutionDir)..</EggRoot>
+  </PropertyGroup>
+  <PropertyGroup>
+    <OutDir>$(SolutionDir)obj\$(Configuration.ToLower()).$(PlatformTarget.ToLower()))\</OutDir>
+    <IntDir>$(SolutionDir)bin\$(Configuration.ToLower()).$(PlatformTarget.ToLower())\</IntDir>
+    <IncludePath>$(EggRoot)\include;$(IncludePath)</IncludePath>
+  </PropertyGroup>
+  <ItemDefinitionGroup>
+    <ClCompile>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+    </ClCompile>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup>
+    <ClCompile>
+      <WarningLevel>EnableAllWarnings</WarningLevel>
+    </ClCompile>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup>
+    <ClCompile>
+      <TreatWarningAsError>true</TreatWarningAsError>
+      <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
+      <DisableLanguageExtensions>true</DisableLanguageExtensions>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+    </ClCompile>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <BuildMacro Include="EggRoot">
+      <Value>$(EggRoot)</Value>
+    </BuildMacro>
+    <BuildMacro Include="EggFlavour" />
+  </ItemGroup>
+</Project>
