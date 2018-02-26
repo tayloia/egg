@@ -21,6 +21,13 @@
   <ItemGroup>
     <ClCompile Include="..\source\egg0\main.cpp" />
   </ItemGroup>
+  <ItemGroup>
+    <Image Include="..\resources\egg.ico" />
+    <Image Include="..\resources\egg.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\resources\egg_text.svg" />
+  </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>15.0</VCProjectVersion>
     <ProjectGuid>{13BCA2B3-5B5C-4186-91E4-262089D6B187}</ProjectGuid>

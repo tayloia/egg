@@ -19,4 +19,17 @@
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
+  <ItemGroup>
+    <Image Include="..\resources\egg.ico">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="..\resources\egg.png">
+      <Filter>Resource Files</Filter>
+    </Image>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\resources\egg_text.svg">
+      <Filter>Resource Files</Filter>
+    </None>
+  </ItemGroup>
 </Project>
