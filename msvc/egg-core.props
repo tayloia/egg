@@ -5,9 +5,9 @@
     <EggRoot>$(SolutionDir)..</EggRoot>
   </PropertyGroup>
   <PropertyGroup>
-    <OutDir>$(SolutionDir)obj\$(Configuration.ToLower()).$(PlatformTarget.ToLower()))\</OutDir>
-    <IntDir>$(SolutionDir)bin\$(Configuration.ToLower()).$(PlatformTarget.ToLower())\</IntDir>
-    <IncludePath>$(EggRoot)\include;$(IncludePath)</IncludePath>
+    <OutDir>$(SolutionDir)bin\$(Configuration.ToLower()).$(PlatformTarget.ToLower())\</OutDir>
+    <IntDir>$(SolutionDir)obj\$(Configuration.ToLower()).$(PlatformTarget.ToLower())\</IntDir>
+    <IncludePath>$(EggRoot)\inc;$(IncludePath)</IncludePath>
   </PropertyGroup>
   <ItemDefinitionGroup>
     <ClCompile>

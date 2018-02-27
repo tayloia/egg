@@ -20,13 +20,20 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\src\egg0\main.cpp" />
+    <ClCompile Include="..\src\egg0\program.cpp" />
   </ItemGroup>
   <ItemGroup>
     <Image Include="..\data\egg.ico" />
     <Image Include="..\data\egg.png" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="..\data\egg0\example.egg" />
     <None Include="..\data\egg_text.svg" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\inc\egg0\egg0.h" />
+    <ClInclude Include="..\inc\egg0\lexer.h" />
+    <ClInclude Include="..\inc\egg0\program.h" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>15.0</VCProjectVersion>
@@ -70,6 +77,7 @@
   <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
     <Import Project="egg-core.props" />
+    <Import Project="egg-core-debug.props" />
   </ImportGroup>
   <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
@@ -78,6 +86,7 @@
   <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
     <Import Project="egg-core.props" />
+    <Import Project="egg-core-debug.props" />
   </ImportGroup>
   <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
@@ -109,6 +118,10 @@
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
     </Link>
+    <PostBuildEvent>
+      <Command>echo xcopy /Y /S "$(EggRoot)\data\egg0\*" "$(OutputPath)"</Command>
+      <Message>Copying data files...</Message>
+    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
@@ -123,6 +136,10 @@
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
     </Link>
+    <PostBuildEvent>
+      <Command>echo xcopy /Y /S "$(EggRoot)\data\egg0\*" "$(OutputPath)"</Command>
+      <Message>Copying data files...</Message>
+    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <ClCompile>
@@ -141,6 +158,10 @@
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
     </Link>
+    <PostBuildEvent>
+      <Command>echo xcopy /Y /S "$(EggRoot)\data\egg0\*" "$(OutputPath)"</Command>
+      <Message>Copying data files...</Message>
+    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
@@ -159,6 +180,10 @@
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
     </Link>
+    <PostBuildEvent>
+      <Command>echo xcopy /Y /S "$(EggRoot)\data\egg0\*" "$(OutputPath)"</Command>
+      <Message>Copying data files...</Message>
+    </PostBuildEvent>
   </ItemDefinitionGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
