@@ -19,14 +19,14 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="..\source\egg0\main.cpp" />
+    <ClCompile Include="..\src\egg0\main.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <Image Include="..\resources\egg.ico" />
-    <Image Include="..\resources\egg.png" />
+    <Image Include="..\data\egg.ico" />
+    <Image Include="..\data\egg.png" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="..\resources\egg_text.svg" />
+    <None Include="..\data\egg_text.svg" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>15.0</VCProjectVersion>
