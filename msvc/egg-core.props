@@ -3,11 +3,12 @@
   <ImportGroup Label="PropertySheets" />
   <PropertyGroup Label="UserMacros">
     <EggRoot>$(SolutionDir)..</EggRoot>
+    <GoogleTest>$(EggRoot)\thirdparty\googletest</GoogleTest>
   </PropertyGroup>
   <PropertyGroup>
-    <OutDir>$(SolutionDir)bin\$(Configuration.ToLower()).$(PlatformTarget.ToLower())\</OutDir>
-    <IntDir>$(SolutionDir)obj\$(Configuration.ToLower()).$(PlatformTarget.ToLower())\</IntDir>
-    <IncludePath>$(EggRoot)\cpp;$(IncludePath)</IncludePath>
+    <OutDir>$(SolutionDir)bin\$(ProjectName).$(Configuration.ToLower()).$(PlatformTarget.ToLower())\</OutDir>
+    <IntDir>$(SolutionDir)obj\$(ProjectName).$(Configuration.ToLower()).$(PlatformTarget.ToLower())\</IntDir>
+    <IncludePath>$(EggRoot)\cpp;$(GoogleTest)\include;$(IncludePath)</IncludePath>
   </PropertyGroup>
   <ItemDefinitionGroup>
     <ClCompile>
@@ -34,6 +35,8 @@
     <BuildMacro Include="EggRoot">
       <Value>$(EggRoot)</Value>
     </BuildMacro>
-    <BuildMacro Include="EggFlavour" />
+    <BuildMacro Include="GoogleTest">
+      <Value>$(GoogleTest)</Value>
+    </BuildMacro>
   </ItemGroup>
 </Project>
