@@ -19,6 +19,7 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="..\cpp\files.cpp" />
     <ClCompile Include="..\cpp\test\gtest.cpp">
       <AdditionalIncludeDirectories Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">$(GoogleTest)</AdditionalIncludeDirectories>
       <AdditionalIncludeDirectories Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">$(GoogleTest)</AdditionalIncludeDirectories>
@@ -41,7 +42,11 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="..\cpp\files.h" />
+    <ClInclude Include="..\cpp\macros.h" />
     <ClInclude Include="..\cpp\platform.h" />
+    <ClInclude Include="..\cpp\streams.h" />
+    <ClInclude Include="..\cpp\strings.h" />
     <ClInclude Include="..\cpp\test\gtest.h" />
     <ClInclude Include="..\cpp\yolk.h" />
   </ItemGroup>
