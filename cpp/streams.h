@@ -51,11 +51,11 @@ namespace egg::yolk {
     EGG_NO_COPY(CharStream);
   private:
     ByteStream& bytes;
-    bool allowBOM;
+    bool swallowBOM;
   public:
     static const int BOM = INT_MAX;
-    explicit CharStream(ByteStream& bytes, bool allowBOM = true)
-      : bytes(bytes), allowBOM(allowBOM) {
+    explicit CharStream(ByteStream& bytes, bool swallowBOM = true)
+      : bytes(bytes), swallowBOM(swallowBOM) {
     }
     int get();
     const std::string& filename() const {

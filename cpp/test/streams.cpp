@@ -49,3 +49,15 @@ TEST(TestStreams, FileCharStream) {
   ASSERT_EQ(7839, size);
   ASSERT_EQ(-1, fcs.get());
 }
+
+TEST(TestStreams, FileCharStreamWithBOM) {
+  egg::yolk::FileCharStream fcs("~/cpp/test/data/utf-8-demo.bom.txt");
+  ASSERT_ENDSWITH(fcs.filename(), "utf-8-demo.bom.txt");
+  size_t size = 0;
+  for (auto ch = fcs.get(); ch >= 0; ch = fcs.get()) {
+    ASSERT_LE(ch, 0x10FFFF);
+    size++;
+  }
+  ASSERT_EQ(7839, size);
+  ASSERT_EQ(-1, fcs.get());
+}
