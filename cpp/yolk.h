@@ -10,6 +10,7 @@
 #include <vector>
 
 #include "macros.h"
+#include "exceptions.h"
 #include "files.h"
 #include "streams.h"
 #include "strings.h"

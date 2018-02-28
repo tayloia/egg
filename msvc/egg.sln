@@ -3,8 +3,6 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 15
 VisualStudioVersion = 15.0.27130.2036
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "egg0", "egg0.vcxproj", "{13BCA2B3-5B5C-4186-91E4-262089D6B187}"
-EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Repo Files", "Repo Files", "{3A001F0B-0CF3-4D26-A9EE-0172340BDD30}"
 	ProjectSection(SolutionItems) = preProject
 		..\.gitattributes = ..\.gitattributes
@@ -25,14 +23,6 @@ Global
 		Release|x86 = Release|x86
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
-		{13BCA2B3-5B5C-4186-91E4-262089D6B187}.Debug|x64.ActiveCfg = Debug|x64
-		{13BCA2B3-5B5C-4186-91E4-262089D6B187}.Debug|x64.Build.0 = Debug|x64
-		{13BCA2B3-5B5C-4186-91E4-262089D6B187}.Debug|x86.ActiveCfg = Debug|Win32
-		{13BCA2B3-5B5C-4186-91E4-262089D6B187}.Debug|x86.Build.0 = Debug|Win32
-		{13BCA2B3-5B5C-4186-91E4-262089D6B187}.Release|x64.ActiveCfg = Release|x64
-		{13BCA2B3-5B5C-4186-91E4-262089D6B187}.Release|x64.Build.0 = Release|x64
-		{13BCA2B3-5B5C-4186-91E4-262089D6B187}.Release|x86.ActiveCfg = Release|Win32
-		{13BCA2B3-5B5C-4186-91E4-262089D6B187}.Release|x86.Build.0 = Release|Win32
 		{F6D77923-DA76-4356-9A6E-E0790A422FE7}.Debug|x64.ActiveCfg = Debug|x64
 		{F6D77923-DA76-4356-9A6E-E0790A422FE7}.Debug|x64.Build.0 = Debug|x64
 		{F6D77923-DA76-4356-9A6E-E0790A422FE7}.Debug|x86.ActiveCfg = Debug|Win32

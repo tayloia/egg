@@ -19,6 +19,7 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="..\cpp\exceptions.cpp" />
     <ClCompile Include="..\cpp\files.cpp" />
     <ClCompile Include="..\cpp\test\gtest.cpp">
       <AdditionalIncludeDirectories Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">$(GoogleTest)</AdditionalIncludeDirectories>
@@ -42,6 +43,7 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="..\cpp\exceptions.h" />
     <ClInclude Include="..\cpp\files.h" />
     <ClInclude Include="..\cpp\macros.h" />
     <ClInclude Include="..\cpp\platform.h" />

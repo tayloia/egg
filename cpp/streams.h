@@ -9,7 +9,7 @@ namespace egg::yolk {
     FileStream(const std::string& unresolved, const std::string& resolved, ios_base::openmode mode)
       : std::fstream(resolved, mode) {
       if (this->fail()) {
-        throw std::runtime_error("Failed to open file for reading: " + unresolved); // TODO
+        EGG_THROW("Failed to open file for reading: " + unresolved); // TODO
       }
     }
   };
@@ -29,7 +29,7 @@ namespace egg::yolk {
         return int(uint8_t(ch));
       }
       if (this->stream.bad()) {
-        throw std::runtime_error("Failed to read byte from binary file: " + this->name); // TODO
+        EGG_THROW("Failed to read byte from binary file: " + this->name); // TODO
       }
       return -1;
     }

@@ -3,6 +3,10 @@
 #include "gtest/gtest.h"
 #pragma warning(pop)
 
+// Add some useful extra macros
+#define ASSERT_STARTSWITH(haystack, needle) ASSERT_TRUE(egg::yolk::String::startsWith(haystack, needle))
+#define ASSERT_ENDSWITH(haystack, needle)   ASSERT_TRUE(egg::yolk::String::endsWith(haystack, needle))
+
 namespace egg::yolk::test {
   int main(int argc, char** argv);
 }

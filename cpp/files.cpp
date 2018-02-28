@@ -50,7 +50,7 @@ std::string egg::yolk::File::getTildeDirectory() {
 
 std::string egg::yolk::File::resolvePath(const std::string& path) {
   auto resolved = path;
-  if (String::beginsWith(resolved, "~/")) {
+  if (String::startsWith(resolved, "~/")) {
     resolved = File::getTildeDirectory() + resolved.substr(2);
   }
 #if EGG_PLATFORM == EGG_PLATFORM_MSVC
