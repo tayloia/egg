@@ -61,3 +61,29 @@ TEST(TestStreams, FileCharStreamWithBOM) {
   ASSERT_EQ(7839, size);
   ASSERT_EQ(-1, fcs.get());
 }
+
+TEST(TestStreams, FileTextStream) {
+  egg::yolk::FileTextStream fts("~/cpp/test/data/utf-8-demo.txt");
+  ASSERT_ENDSWITH(fts.filename(), "utf-8-demo.txt");
+  size_t size = 0;
+  for (auto ch = fts.get(); ch >= 0; ch = fts.get()) {
+    ASSERT_LE(ch, 0x10FFFF);
+    size++;
+  }
+  ASSERT_EQ(7839, size);
+  ASSERT_EQ(-1, fts.get());
+}
+
+static size_t countLines(const std::string& path) {
+  egg::yolk::FileTextStream fts(path);
+  while (fts.get() >= 0) {
+    // Slurp the whole file
+  }
+  return fts.getCurrentLine();
+}
+
+TEST(TestStreams, FileTextStreamLines) {
+  ASSERT_EQ(213, countLines("~/cpp/test/data/utf-8-demo.txt"));
+  ASSERT_EQ(213, countLines("~/cpp/test/data/utf-8-demo.cr.txt"));
+  ASSERT_EQ(213, countLines("~/cpp/test/data/utf-8-demo.lf.txt"));
+}

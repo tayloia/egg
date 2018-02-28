@@ -1,0 +1,48 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <ClCompile Include="..\cpp\test\exceptions.cpp">
+      <Filter>Test Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\cpp\test\files.cpp">
+      <Filter>Test Files</Filter>
+    </ClCompile>
+    <ClCompile Include="pch.cpp">
+      <Filter>Test Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\cpp\test\streams.cpp">
+      <Filter>Test Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\cpp\test\strings.cpp">
+      <Filter>Test Files</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="Data Files">
+      <UniqueIdentifier>{014777ce-0e38-45b5-8346-7cc09301dee5}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Test Files">
+      <UniqueIdentifier>{f8183c1a-ec54-45fd-ba1d-9f1205a078b1}</UniqueIdentifier>
+      <Extensions>.cpp</Extensions>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\cpp\test\data\example.egg">
+      <Filter>Data Files</Filter>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="..\cpp\test\data\utf-8-demo.bom.txt">
+      <Filter>Data Files</Filter>
+    </Text>
+    <Text Include="..\cpp\test\data\utf-8-demo.txt">
+      <Filter>Data Files</Filter>
+    </Text>
+    <Text Include="..\cpp\test\data\utf-8-demo.cr.txt">
+      <Filter>Data Files</Filter>
+    </Text>
+    <Text Include="..\cpp\test\data\utf-8-demo.lf.txt">
+      <Filter>Data Files</Filter>
+    </Text>
+  </ItemGroup>
+</Project>

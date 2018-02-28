@@ -53,7 +53,6 @@ namespace egg::yolk {
     ByteStream& bytes;
     bool swallowBOM;
   public:
-    static const int BOM = INT_MAX;
     explicit CharStream(ByteStream& bytes, bool swallowBOM = true)
       : bytes(bytes), swallowBOM(swallowBOM) {
     }
@@ -68,8 +67,48 @@ namespace egg::yolk {
   private:
     FileByteStream fbs;
   public:
-    explicit FileCharStream(const std::string& path)
-      : CharStream(fbs), fbs(path) {
+    explicit FileCharStream(const std::string& path, bool swallowBOM = true)
+      : CharStream(fbs, swallowBOM), fbs(path) {
+    }
+  };
+
+  class TextStream {
+    EGG_NO_COPY(TextStream);
+  private:
+    CharStream& chars;
+    int next;
+    size_t line;
+    size_t column;
+  public:
+    explicit TextStream(CharStream& chars)
+      : chars(chars), next(0), line(0), column(1) {
+    }
+    int get();
+    int peek() {
+      this->initialize();
+      return this->next;
+    }
+    const std::string& filename() const {
+      return this->chars.filename();
+    }
+    size_t getCurrentLine() {
+      this->initialize();
+      return this->line;
+    }
+    size_t getCurrentColumn() {
+      return this->column;
+    }
+  private:
+    void initialize();
+  };
+
+  class FileTextStream : public TextStream {
+    EGG_NO_COPY(FileTextStream);
+  private:
+    FileCharStream fcs;
+  public:
+    explicit FileTextStream(const std::string& path, bool swallowBOM = true)
+      : TextStream(fcs), fcs(path, swallowBOM) {
     }
   };
 }

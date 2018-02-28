@@ -35,6 +35,15 @@
       <Project>{05a72ea2-0b14-4e92-86f1-c98e7fdffbba}</Project>
     </ProjectReference>
   </ItemGroup>
+  <ItemGroup>
+    <None Include="..\cpp\test\data\example.egg" />
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="..\cpp\test\data\utf-8-demo.bom.txt" />
+    <Text Include="..\cpp\test\data\utf-8-demo.cr.txt" />
+    <Text Include="..\cpp\test\data\utf-8-demo.lf.txt" />
+    <Text Include="..\cpp\test\data\utf-8-demo.txt" />
+  </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>15.0</VCProjectVersion>
     <ProjectGuid>{F6D77923-DA76-4356-9A6E-E0790A422FE7}</ProjectGuid>

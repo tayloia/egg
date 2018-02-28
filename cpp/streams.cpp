@@ -52,3 +52,42 @@ int egg::yolk::CharStream::get() {
   }
   return codepoint;
 }
+
+int egg::yolk::TextStream::get() {
+  if (this->line == 0) {
+    // This is our first read
+    this->line = 1;
+    this->column = 1;
+    this->next = this->chars.get();
+  }
+  int current = this->next;
+  if (current < 0) {
+    // Already at EOF
+    return -1;
+  }
+  this->next = this->chars.get();
+  switch (current) {
+  case '\r':
+    if (this->next != '\n') {
+      // Don't delay the line advance until next time
+      this->line++;
+      this->column = 1;
+    }
+    return '\r';
+  case '\n':
+    // Newline
+    this->line++;
+    this->column = 1;
+    return '\n';
+  }
+  return current;
+}
+
+void egg::yolk::TextStream::initialize() {
+  if (this->line == 0) {
+    // This is our first access
+    this->line = 1;
+    this->column = 1;
+    this->next = this->chars.get();
+  }
+}
