@@ -1,7 +1,7 @@
-#include "egg0.h"
+#include "yolk.h"
 #include "program.h"
 
-void egg0::Program::main(const std::vector<std::string>& args)
+void egg0::Program::main(const std::vector<std::string>&)
 {
   std::ifstream ifs("example.egg");
   if (!ifs.is_open())

@@ -1,4 +1,4 @@
-#include "gtest.h"
+#include "yolk.h"
 
 TEST(TestCaseName, TestName) {
   EXPECT_EQ(1, 1);

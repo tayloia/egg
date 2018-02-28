@@ -35,6 +35,9 @@
     </None>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="..\cpp\egg0.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
     <ClInclude Include="..\cpp\lexer.h">
       <Filter>Header Files</Filter>
     </ClInclude>
