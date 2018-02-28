@@ -9,48 +9,48 @@
       <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
       <Extensions>h;hh;hpp;hxx;hm;inl;inc;xsd</Extensions>
     </Filter>
-    <Filter Include="Resource Files">
-      <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
-      <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
-    </Filter>
     <Filter Include="Script Files">
       <UniqueIdentifier>{fc4c9eae-4384-4571-950d-b4384559df3e}</UniqueIdentifier>
       <Extensions>*.egg</Extensions>
     </Filter>
-  </ItemGroup>
-  <ItemGroup>
-    <ClCompile Include="..\src\egg0\main.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="..\src\egg0\program.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
+    <Filter Include="Data Files">
+      <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
+      <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <Image Include="..\data\egg.ico">
-      <Filter>Resource Files</Filter>
+      <Filter>Data Files</Filter>
     </Image>
     <Image Include="..\data\egg.png">
-      <Filter>Resource Files</Filter>
+      <Filter>Data Files</Filter>
     </Image>
   </ItemGroup>
   <ItemGroup>
     <None Include="..\data\egg_text.svg">
-      <Filter>Resource Files</Filter>
+      <Filter>Data Files</Filter>
     </None>
-    <None Include="..\data\egg0\example.egg">
+    <None Include="..\cpp\test\data\example.egg">
       <Filter>Script Files</Filter>
     </None>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="..\inc\egg0\egg0.h">
+    <ClInclude Include="..\cpp\egg0.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\inc\egg0\lexer.h">
+    <ClInclude Include="..\cpp\lexer.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\inc\egg0\program.h">
+    <ClInclude Include="..\cpp\program.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="..\cpp\main.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\cpp\program.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
 </Project>

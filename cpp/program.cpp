@@ -1,5 +1,5 @@
-#include "egg0/egg0.h"
-#include "egg0/program.h"
+#include "egg0.h"
+#include "program.h"
 
 void egg0::Program::main(const std::vector<std::string>& args)
 {

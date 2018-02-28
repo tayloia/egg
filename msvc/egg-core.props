@@ -7,7 +7,7 @@
   <PropertyGroup>
     <OutDir>$(SolutionDir)bin\$(Configuration.ToLower()).$(PlatformTarget.ToLower())\</OutDir>
     <IntDir>$(SolutionDir)obj\$(Configuration.ToLower()).$(PlatformTarget.ToLower())\</IntDir>
-    <IncludePath>$(EggRoot)\inc;$(IncludePath)</IncludePath>
+    <IncludePath>$(EggRoot)\cpp;$(IncludePath)</IncludePath>
   </PropertyGroup>
   <ItemDefinitionGroup>
     <ClCompile>
