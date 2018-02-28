@@ -11,28 +11,41 @@ TEST(TestStreams, FileStreamInMissing) {
   ASSERT_THROW(egg::yolk::FileStream("~/missing"), egg::yolk::Exception);
 }
 
-TEST(TestStreams, ByteStreamIn) {
-  egg::yolk::FileStream fsi("~/cpp/test/data/utf-8-demo.txt");
-  egg::yolk::ByteStream bsi(fsi, "utf-8-demo.txt");
-  ASSERT_EQ("utf-8-demo.txt", bsi.filename());
+TEST(TestStreams, ByteStream) {
+  egg::yolk::FileStream fs("~/cpp/test/data/utf-8-demo.txt");
+  egg::yolk::ByteStream bs(fs, "utf-8-demo.txt");
+  ASSERT_EQ("utf-8-demo.txt", bs.filename());
   size_t size = 0;
-  for (auto ch = bsi.get(); ch >= 0; ch = bsi.get()) {
+  for (auto ch = bs.get(); ch >= 0; ch = bs.get()) {
     size++;
   }
   ASSERT_EQ(14270, size);
-  ASSERT_EQ(-1, bsi.get());
+  ASSERT_EQ(-1, bs.get());
 }
 
-TEST(TestByteStream, FileByteStreamIn) {
-  egg::yolk::FileByteStream fbsi("~/cpp/test/data/utf-8-demo.txt");
+TEST(TestByteStream, FileByteStream) {
+  egg::yolk::FileByteStream fbs("~/cpp/test/data/utf-8-demo.txt");
+  ASSERT_ENDSWITH(fbs.filename(), "utf-8-demo.txt");
   size_t size = 0;
-  for (auto ch = fbsi.get(); ch >= 0; ch = fbsi.get()) {
+  for (auto ch = fbs.get(); ch >= 0; ch = fbs.get()) {
     size++;
   }
   ASSERT_EQ(14270, size);
-  ASSERT_EQ(-1, fbsi.get());
+  ASSERT_EQ(-1, fbs.get());
 }
 
-TEST(TestByteStream, FileByteStreamInMissing) {
+TEST(TestByteStream, FileByteStreamMissing) {
   ASSERT_THROW(egg::yolk::FileByteStream("~/missing"), egg::yolk::Exception);
+}
+
+TEST(TestStreams, FileCharStream) {
+  egg::yolk::FileCharStream fcs("~/cpp/test/data/utf-8-demo.txt");
+  ASSERT_ENDSWITH(fcs.filename(), "utf-8-demo.txt");
+  size_t size = 0;
+  for (auto ch = fcs.get(); ch >= 0; ch = fcs.get()) {
+    ASSERT_LE(ch, 0x10FFFF);
+    size++;
+  }
+  ASSERT_EQ(7839, size);
+  ASSERT_EQ(-1, fcs.get());
 }

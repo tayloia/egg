@@ -21,6 +21,7 @@
   <ItemGroup>
     <ClCompile Include="..\cpp\exceptions.cpp" />
     <ClCompile Include="..\cpp\files.cpp" />
+    <ClCompile Include="..\cpp\streams.cpp" />
     <ClCompile Include="..\cpp\test\gtest.cpp">
       <AdditionalIncludeDirectories Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">$(GoogleTest)</AdditionalIncludeDirectories>
       <AdditionalIncludeDirectories Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">$(GoogleTest)</AdditionalIncludeDirectories>
