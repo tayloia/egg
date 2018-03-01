@@ -117,28 +117,50 @@ bool egg::yolk::TextStream::readline(std::vector<int>& text) {
   return true;
 }
 
-std::vector<int> egg::yolk::TextStream::slurp() {
-  std::vector<int> text;
-  int ch = this->get();
-  while (ch >= 0) {
-    text.push_back(ch);
-    ch = this->get();
+void egg::yolk::TextStream::slurp(std::string& text, int eol) {
+  if (eol < 0) {
+    // Don't perform end-of-line substitution
+    int ch = this->get();
+    while (ch >= 0) {
+      String::push_utf8(text, ch);
+      ch = this->get();
+    }
+  } else {
+    // Perform end-of-line substitution
+    auto curr = this->getCurrentLine();
+    int ch = this->get();
+    while (ch >= 0) {
+      if (!isEndOfLine(ch)) {
+        String::push_utf8(text, ch);
+      } else if (this->line != curr) {
+        String::push_utf8(text, eol);
+        curr = this->line;
+      }
+      ch = this->get();
+    }
   }
-  return text;
 }
 
-std::vector<int> egg::yolk::TextStream::slurp(int eol) {
-  std::vector<int> text;
-  auto curr = this->getCurrentLine();
-  int ch = this->get();
-  while (ch >= 0) {
-    if (!isEndOfLine(ch)) {
-      text.push_back(ch);
-    } else if (this->line != curr) {
-      text.push_back(eol);
-      curr = this->line;
+void egg::yolk::TextStream::slurp(std::u32string& text, int eol) {
+  if (eol < 0) {
+    // Don't perform end-of-line substitution
+    int ch = this->get();
+    while (ch >= 0) {
+      text.push_back(char32_t(ch));
+      ch = this->get();
     }
-    ch = this->get();
+  } else {
+    // Perform end-of-line substitution
+    auto curr = this->getCurrentLine();
+    int ch = this->get();
+    while (ch >= 0) {
+      if (!isEndOfLine(ch)) {
+        text.push_back(char32_t(ch));
+      } else if (this->line != curr) {
+        text.push_back(char32_t(eol));
+        curr = this->line;
+      }
+      ch = this->get();
+    }
   }
-  return text;
 }

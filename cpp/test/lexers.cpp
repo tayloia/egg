@@ -13,16 +13,14 @@ namespace {
   }
   void lexerStepWhitespace(ILexer& lexer, std::string expected_verbatim) {
     auto value = lexerStep(lexer, LexerKind::Whitespace, expected_verbatim);
-    ASSERT_EQ(true, value.valid);
     ASSERT_EQ("", value.s);
   }
   void lexerStepComment(ILexer& lexer, std::string expected_verbatim) {
     auto value = lexerStep(lexer, LexerKind::Comment, expected_verbatim);
-    ASSERT_EQ(true, value.valid);
     ASSERT_EQ("", value.s);
   }
-  void lexerStepInt(ILexer& lexer, std::string expected_verbatim, int expected_value) {
-    auto value = lexerStep(lexer, LexerKind::Int, expected_verbatim);
+  void lexerStepInteger(ILexer& lexer, std::string expected_verbatim, int expected_value) {
+    auto value = lexerStep(lexer, LexerKind::Integer, expected_verbatim);
     ASSERT_EQ(expected_value, value.i);
     ASSERT_EQ("", value.s);
   }
@@ -33,34 +31,42 @@ namespace {
   }
   void lexerStepString(ILexer& lexer, std::string expected_verbatim, std::string expected_value) {
     auto value = lexerStep(lexer, LexerKind::String, expected_verbatim);
-    ASSERT_EQ(true, value.valid);
     ASSERT_EQ(expected_value, value.s);
   }
   void lexerStepOperator(ILexer& lexer, std::string expected_verbatim) {
     auto value = lexerStep(lexer, LexerKind::Operator, expected_verbatim);
-    ASSERT_EQ(true, value.valid);
     ASSERT_EQ("", value.s);
   }
   void lexerStepIdentifier(ILexer& lexer, std::string expected_verbatim) {
     auto value = lexerStep(lexer, LexerKind::Identifier, expected_verbatim);
-    ASSERT_EQ(true, value.valid);
     ASSERT_EQ("", value.s);
   }
   void lexerStepEndOfFile(ILexer& lexer) {
     auto value = lexerStep(lexer, LexerKind::EndOfFile, "");
-    ASSERT_EQ(true, value.valid);
     ASSERT_EQ("", value.s);
   }
 }
 
 TEST(TestLexers, Verbatim) {
-  //TODO FileTextStream("~/cpp/test/data/example.egg").slurp();
+  std::string path = "~/cpp/test/data/example.egg";
+  std::string slurped;
+  FileTextStream(path).slurp(slurped);
+  std::string verbatim;
+  auto lexer = LexerFactory::createFromPath(path);
+  LexerItem item;
+  while (lexer->next(item) != LexerKind::EndOfFile) {
+    verbatim.append(item.verbatim);
+  }
+  ASSERT_EQ("", item.verbatim);
+  ASSERT_EQ(slurped, verbatim);
 }
 
 TEST(TestLexers, Factory) {
   FileTextStream stream("~/cpp/test/data/example.egg");
   auto lexer = LexerFactory::createFromTextStream(stream);
+  // "// This is a test file\r\n"
   lexerStepComment(*lexer, "// This is a test file\r\n");
+  // "var result = first--second;"
   lexerStepIdentifier(*lexer, "var");
   lexerStepWhitespace(*lexer, " ");
   lexerStepIdentifier(*lexer, "result");
@@ -72,6 +78,31 @@ TEST(TestLexers, Factory) {
   lexerStepIdentifier(*lexer, "second");
   lexerStepOperator(*lexer, ";");
   lexerStepWhitespace(*lexer, "\r\n");
+  // "string greeting="Hello World";"
+  lexerStepIdentifier(*lexer, "string");
+  lexerStepWhitespace(*lexer, " ");
+  lexerStepIdentifier(*lexer, "greeting");
+  lexerStepOperator(*lexer, "=");
+  lexerStepString(*lexer, "\"Hello World\"", "Hello World");
+  lexerStepOperator(*lexer, ";");
+  lexerStepWhitespace(*lexer, "\r\n");
+  // "greeting=`Hello\r\nWorld`;"
+  lexerStepIdentifier(*lexer, "greeting");
+  lexerStepOperator(*lexer, "=");
+  lexerStepString(*lexer, "`Hello\r\nWorld`", "Hello\r\nWorld");
+  lexerStepOperator(*lexer, ";");
+  lexerStepWhitespace(*lexer, "\r\n");
+  // "int answer = 42;"
+  lexerStepIdentifier(*lexer, "int");
+  lexerStepWhitespace(*lexer, " ");
+  lexerStepIdentifier(*lexer, "answer");
+  lexerStepWhitespace(*lexer, " ");
+  lexerStepOperator(*lexer, "=");
+  lexerStepWhitespace(*lexer, " ");
+  lexerStepInteger(*lexer, "42", 42);
+  lexerStepOperator(*lexer, ";");
+  lexerStepWhitespace(*lexer, "\r\n");
+  // EOF
   lexerStepEndOfFile(*lexer);
   lexerStepEndOfFile(*lexer);
 }

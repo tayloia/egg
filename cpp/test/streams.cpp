@@ -122,12 +122,55 @@ TEST(TestStreams, FileTextStreamReadLine) {
 }
 
 TEST(TestStreams, FileTextStreamSlurp) {
-  ASSERT_EQ(7839, egg::yolk::FileTextStream("~/cpp/test/data/utf-8-demo.txt").slurp().size());
-  ASSERT_EQ(7839, egg::yolk::FileTextStream("~/cpp/test/data/utf-8-demo.bom.txt").slurp().size());
-  ASSERT_EQ(7627, egg::yolk::FileTextStream("~/cpp/test/data/utf-8-demo.cr.txt").slurp().size());
-  ASSERT_EQ(7627, egg::yolk::FileTextStream("~/cpp/test/data/utf-8-demo.lf.txt").slurp().size());
-  ASSERT_EQ(7627, egg::yolk::FileTextStream("~/cpp/test/data/utf-8-demo.txt").slurp('\n').size());
-  ASSERT_EQ(7627, egg::yolk::FileTextStream("~/cpp/test/data/utf-8-demo.bom.txt").slurp('\n').size());
-  ASSERT_EQ(7627, egg::yolk::FileTextStream("~/cpp/test/data/utf-8-demo.cr.txt").slurp('\n').size());
-  ASSERT_EQ(7627, egg::yolk::FileTextStream("~/cpp/test/data/utf-8-demo.lf.txt").slurp('\n').size());
+  std::string slurped;
+  egg::yolk::FileTextStream("~/cpp/test/data/utf-8-demo.txt").slurp(slurped);
+  ASSERT_EQ(14270, slurped.size());
+  slurped.clear();
+  egg::yolk::FileTextStream("~/cpp/test/data/utf-8-demo.bom.txt").slurp(slurped);
+  ASSERT_EQ(14270, slurped.size());
+  slurped.clear();
+  egg::yolk::FileTextStream("~/cpp/test/data/utf-8-demo.cr.txt").slurp(slurped);
+  ASSERT_EQ(14058, slurped.size());
+  slurped.clear();
+  egg::yolk::FileTextStream("~/cpp/test/data/utf-8-demo.lf.txt").slurp(slurped);
+  ASSERT_EQ(14058, slurped.size());
+  slurped.clear();
+  egg::yolk::FileTextStream("~/cpp/test/data/utf-8-demo.txt").slurp(slurped, '\n');
+  ASSERT_EQ(14058, slurped.size());
+  slurped.clear();
+  egg::yolk::FileTextStream("~/cpp/test/data/utf-8-demo.bom.txt").slurp(slurped, '\n');
+  ASSERT_EQ(14058, slurped.size());
+  slurped.clear();
+  egg::yolk::FileTextStream("~/cpp/test/data/utf-8-demo.cr.txt").slurp(slurped, '\n');
+  ASSERT_EQ(14058, slurped.size());
+  slurped.clear();
+  egg::yolk::FileTextStream("~/cpp/test/data/utf-8-demo.lf.txt").slurp(slurped, '\n');
+  ASSERT_EQ(14058, slurped.size());
+}
+
+TEST(TestStreams, FileTextStreamSlurp32) {
+  std::u32string slurped;
+  egg::yolk::FileTextStream("~/cpp/test/data/utf-8-demo.txt").slurp(slurped);
+  ASSERT_EQ(7839, slurped.size());
+  slurped.clear();
+  egg::yolk::FileTextStream("~/cpp/test/data/utf-8-demo.bom.txt").slurp(slurped);
+  ASSERT_EQ(7839, slurped.size());
+  slurped.clear();
+  egg::yolk::FileTextStream("~/cpp/test/data/utf-8-demo.cr.txt").slurp(slurped);
+  ASSERT_EQ(7627, slurped.size());
+  slurped.clear();
+  egg::yolk::FileTextStream("~/cpp/test/data/utf-8-demo.lf.txt").slurp(slurped);
+  ASSERT_EQ(7627, slurped.size());
+  slurped.clear();
+  egg::yolk::FileTextStream("~/cpp/test/data/utf-8-demo.txt").slurp(slurped, '\n');
+  ASSERT_EQ(7627, slurped.size());
+  slurped.clear();
+  egg::yolk::FileTextStream("~/cpp/test/data/utf-8-demo.bom.txt").slurp(slurped, '\n');
+  ASSERT_EQ(7627, slurped.size());
+  slurped.clear();
+  egg::yolk::FileTextStream("~/cpp/test/data/utf-8-demo.cr.txt").slurp(slurped, '\n');
+  ASSERT_EQ(7627, slurped.size());
+  slurped.clear();
+  egg::yolk::FileTextStream("~/cpp/test/data/utf-8-demo.lf.txt").slurp(slurped, '\n');
+  ASSERT_EQ(7627, slurped.size());
 }

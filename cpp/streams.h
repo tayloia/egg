@@ -85,8 +85,8 @@ namespace egg::yolk {
     }
     int get();
     bool readline(std::vector<int>& text);
-    std::vector<int> slurp();
-    std::vector<int> slurp(int eol);
+    void slurp(std::string& text, int eol = -1);
+    void slurp(std::u32string& text, int eol = -1);
     int peek(size_t index = 0) {
       if (this->ensure(index + 1)) {
         // Microsoft's std::deque indexer is borked

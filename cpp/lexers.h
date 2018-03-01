@@ -2,7 +2,7 @@ namespace egg::yolk {
   enum class LexerKind {
     Whitespace,
     Comment,
-    Int,
+    Integer,
     Float,
     String,
     Operator,
@@ -14,7 +14,6 @@ namespace egg::yolk {
     union {
       int64_t i;
       double f;
-      bool valid;
     };
     std::string s;
   };
@@ -34,6 +33,7 @@ namespace egg::yolk {
 
   class LexerFactory {
   public:
+    static std::shared_ptr<ILexer> createFromPath(const std::string& path, bool swallowBOM = true);
     static std::shared_ptr<ILexer> createFromTextStream(TextStream& stream);
   };
 }

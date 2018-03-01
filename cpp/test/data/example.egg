@@ -1,2 +1,6 @@
 // This is a test file
 var result = first--second;
+string greeting="Hello World";
+greeting=`Hello
+World`;
+int answer = 42;
