@@ -1,4 +1,5 @@
 #include "yolk.h"
+#include "gtest.h"
 
 // Reduce the warning level in MSVC
 #if defined(_MSC_VER)

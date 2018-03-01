@@ -1,6 +1,7 @@
 #include "platform.h"
 
 #include <algorithm>
+#include <cassert>
 #include <cctype>
 #include <deque>
 #include <fstream>
@@ -15,5 +16,4 @@
 #include "files.h"
 #include "streams.h"
 #include "strings.h"
-
-#include "test/gtest.h"
+#include "lexers.h"

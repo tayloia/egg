@@ -1,10 +1,4 @@
-// TODO legacy lexer
-namespace egg0 {
-  struct LexerLocation {
-    size_t line;
-    size_t column;
-  };
-
+namespace egg::yolk {
   enum class LexerKind {
     Whitespace,
     Comment,
@@ -28,8 +22,8 @@ namespace egg0 {
   struct LexerItem {
     LexerKind kind;
     LexerValue value;
-    LexerLocation start;
-    LexerLocation finish;
+    size_t line;
+    size_t column;
     std::string verbatim;
   };
 
@@ -38,7 +32,8 @@ namespace egg0 {
     virtual LexerKind next(LexerItem& item) = 0;
   };
 
-  namespace LexerFactory {
-    std::shared_ptr<ILexer> createFromStream(std::istream& stream, const std::string& filename);
+  class LexerFactory {
+  public:
+    static std::shared_ptr<ILexer> createFromTextStream(TextStream& stream);
   };
 }

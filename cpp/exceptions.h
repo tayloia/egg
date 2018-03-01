@@ -3,7 +3,9 @@ namespace egg::yolk {
   private:
     std::string location;
   public:
+    Exception(const std::string& what, const std::string& location);
     Exception(const std::string& what, const std::string& file, size_t line);
+    Exception(const std::string& what, const std::string& file, size_t line, size_t column);
     virtual const std::string& where() const {
       return this->location;
     }

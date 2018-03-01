@@ -1,94 +1,34 @@
 #include "yolk.h"
 
-/*TODO legacy lexer
 namespace {
-  using namespace egg0;
-
-  struct CodeUnit {
-    int ch;
-    CharacterStream::Advance advance;
-    LexerLocation location;
-    LexerLocation nextLocation() const {
-      LexerLocation location = this->location;
-      switch (this->advance) {
-      case CharacterStream::Advance::Column:
-        location.column++;
-        break;
-      case CharacterStream::Advance::Line:
-        location.line++;
-        location.column = 1;
-        break;
-      }
-      return location;
-    }
-  };
-
-  class Reader {
-  private:
-    CharacterStream stream;
-    std::deque<CodeUnit> deque;
-  public:
-    explicit Reader(std::istream& stream, const std::string& filename) : stream(stream, filename) {
-      this->deque.push_back(this->first());
-    }
-    const CodeUnit& peek(size_t index) {
-      this->ensure(index + 1);
-      return this->deque[index];
-    }
-    const CodeUnit& advance() {
-      this->ensure(2);
-      this->deque.pop_front();
-      return this->peek(0);
-    }
-    void unexpected(const std::string& what) {
-      const auto& unit = this->peek(0);
-      throw std::runtime_error("Unexpected " + what + " in " + this->stream.filename() + " at line " + std::to_string(unit.location.line));
-    }
-  private:
-    void ensure(size_t count) {
-      while (this->deque.size() < count) {
-        this->deque.push_back(this->next());
-      }
-    }
-    CodeUnit first() {
-      CodeUnit unit;
-      unit.advance = this->stream.get(unit.ch);
-      unit.location.line = 1;
-      unit.location.column = 1;
-      return unit;
-    }
-    CodeUnit next() {
-      const auto& prev = this->deque.back();
-      CodeUnit unit;
-      unit.advance = this->stream.get(unit.ch);
-      unit.location = prev.nextLocation();
-      return unit;
-    }
-  };
+  using namespace egg::yolk;
 
   class Lexer : public ILexer {
+    EGG_NO_COPY(Lexer);
   private:
-    Reader reader;
-    std::string filename;
+    TextStream& stream;
   public:
-    Lexer(std::istream& stream, const std::string& filename) : reader(stream, filename) {
-      this->filename = filename;
+    explicit Lexer(TextStream& stream)
+      : stream(stream) {
     }
     virtual LexerKind next(LexerItem& item) override {
       item.verbatim.clear();
+      item.value.valid = true;
       item.value.s.clear();
-      const auto& peek = this->reader.peek(0);
-      item.start = peek.location;
-      if (peek.ch < 0) {
+      auto peek = this->stream.peek();
+      item.line = this->stream.getCurrentLine();
+      item.column = this->stream.getCurrentColumn();
+      if (peek < 0) {
+        item.value.valid = true;
         item.kind = LexerKind::EndOfFile;
-      } else if (std::isspace(peek.ch)) {
-        this->nextWhitespace(item);
-      } else if (std::isalpha(peek.ch) || (peek.ch == '_')) {
+      } else if (Lexer::isWhitespace(peek)) {
+        item.value.valid = this->nextWhitespace(item);
+      } else if (Lexer::isIdentifierStart(peek)) {
         item.value.valid = this->nextIdentifier(item);
-      } else if (std::isdigit(peek.ch)) {
-        this->nextNumber(item);
-      } else if (peek.ch == '/') {
-        switch (this->reader.peek(1).ch) {
+      } else if (Lexer::isDigit(peek)) {
+        item.value.valid = this->nextNumber(item);
+      } else if (peek == '/') {
+        switch (this->stream.peek(1)) {
         case '/':
           item.value.valid = this->nextCommentSingleLine(item);
           break;
@@ -96,51 +36,64 @@ namespace {
           item.value.valid = this->nextCommentMultiLine(item);
           break;
         default:
-          this->nextOperator(item);
+          item.value.valid = this->nextOperator(item);
           break;
         }
-      } else if (peek.ch == '"') {
-        this->nextQuoted(item);
-      } else if (peek.ch == '`') {
-        this->nextBackquoted(item);
-      } else if (peek.ch < 32) {
-        this->reader.unexpected("control code");
-      } else if (peek.ch > 126) {
-        this->reader.unexpected("code point");
+      } else if (peek == '"') {
+        item.value.valid = this->nextQuoted(item);
+      } else if (peek == '`') {
+        item.value.valid = this->nextBackquoted(item);
+      } else if (Lexer::isOperator(peek)) {
+        item.value.valid = this->nextOperator(item);
       } else {
-        this->nextOperator(item);
+        this->unexpected("code point");
       }
       return item.kind;
     }
   private:
-    const CodeUnit& eat(LexerItem& item, bool advance = true) {
-      const auto& curr = this->reader.peek(0);
-      item.finish = advance ? curr.nextLocation() : curr.location;
-      item.verbatim.push_back(char(curr.ch));
-      return this->reader.advance();
+    static bool isWhitespace(int ch) {
+      return std::isspace(ch);
     }
-    void nextWhitespace(LexerItem& item) {
+    static bool isIdentifierStart(int ch) {
+      return std::isalpha(ch) || (ch == '_');
+    }
+    static bool isIdentifierContinue(int ch) {
+      return std::isalnum(ch) || (ch == '_');
+    }
+    static bool isDigit(int ch) {
+      return std::isdigit(ch);
+    }
+    static bool isOperator(int ch) {
+      return std::strchr("!$%&()*+,-./:;<=>?[]^{|}~", ch) != nullptr;
+    }
+    int eat(LexerItem& item) {
+      auto curr = this->stream.get();
+      item.verbatim.push_back(char(curr));
+      return this->stream.peek();
+    }
+    bool nextWhitespace(LexerItem& item) {
       item.kind = LexerKind::Whitespace;
       int ch;
       do {
-        ch = this->eat(item).ch;
-      } while (std::isspace(ch));
+        ch = this->eat(item);
+      } while (Lexer::isWhitespace(ch));
+      return true;
     }
     bool nextCommentSingleLine(LexerItem& item) {
       item.kind = LexerKind::Comment;
-      auto line = this->eat(item).location.line;
+      auto line = this->stream.getCurrentLine();
       int ch;
       do {
-        ch = this->eat(item, false).ch;
-      } while ((ch >= 0) && (this->reader.peek(0).location.line == line));
+        ch = this->eat(item);
+      } while ((ch >= 0) && (this->stream.getCurrentLine() == line));
       return true;
     }
     bool nextCommentMultiLine(LexerItem& item) {
       item.kind = LexerKind::Comment;
       this->eat(item);
       this->eat(item);
-      int ch0 = this->eat(item).ch;
-      int ch1 = this->eat(item).ch;
+      int ch0 = this->eat(item);
+      int ch1 = this->eat(item);
       while ((ch0 != '*') || (ch1 != '/')) {
         if (ch1 < 0) {
           return false;
@@ -148,15 +101,25 @@ namespace {
       }
       return true;
     }
+    bool nextOperator(LexerItem& item) {
+      item.kind = LexerKind::Operator;
+      int ch;
+      do {
+        ch = this->eat(item);
+      } while (Lexer::isOperator(ch));
+      return true;
+    }
     bool nextIdentifier(LexerItem& item) {
       item.kind = LexerKind::Identifier;
       int ch;
       do {
-        ch = this->eat(item).ch;
-      } while (std::isalnum(ch) || (ch == '_'));
+        ch = this->eat(item);
+      } while (Lexer::isIdentifierContinue(ch));
       return true;
     }
-    void nextNumber(LexerItem& item) {
+    bool nextNumber(LexerItem&) {
+      this->unexpected("TODO quoted");
+      /* TODO nextNumber
       auto ch = this->eat(item).ch;
       if (ch == '0') {
         switch (this->reader.peek(1).ch) {
@@ -169,21 +132,24 @@ namespace {
           break;
         }
       }
+      */
+      return false;
     }
-    void nextQuoted(LexerItem& item) {
-      this->reader.unexpected("TODO quoted");
+    bool nextQuoted(LexerItem&) {
+      this->unexpected("TODO quoted");
+      return false;
     }
-    void nextBackquoted(LexerItem& item) {
-      this->reader.unexpected("TODO backquoted");
+    bool nextBackquoted(LexerItem&) {
+      this->unexpected("TODO backquoted");
+      return false;
     }
-    void nextOperator(LexerItem& item) {
-      this->reader.unexpected("TODO operator");
+    void unexpected(std::string message) {
+      throw egg::yolk::Exception(message, this->stream.getFilename(), this->stream.getCurrentLine(), this->stream.getCurrentLine());
     }
   };
 }
 
-std::shared_ptr<egg0::ILexer> egg0::LexerFactory::createFromStream(std::istream& stream, const std::string& filename) {
-  auto lexer = std::make_shared<Lexer>(stream, filename);
+std::shared_ptr<egg::yolk::ILexer> egg::yolk::LexerFactory::createFromTextStream(egg::yolk::TextStream& stream) {
+  auto lexer = std::make_shared<Lexer>(stream);
   return lexer;
 }
-*/

@@ -6,11 +6,11 @@ namespace {
     do {
       auto b = stream.get();
       if (b < 0) {
-        EGG_THROW("Invalid UTF-8 encoding (truncated continuation): " + stream.filename());
+        EGG_THROW("Invalid UTF-8 encoding (truncated continuation): " + stream.getFilename());
       }
       b ^= 0x80;
       if (b > 0x3F) {
-        EGG_THROW("Invalid UTF-8 encoding (invalid continuation): " + stream.filename());
+        EGG_THROW("Invalid UTF-8 encoding (invalid continuation): " + stream.getFilename());
       }
       value = (value << 6) | b;
     } while (--count);
@@ -23,7 +23,7 @@ namespace {
       return b;
     }
     if (b < 0xC0) {
-      EGG_THROW("Invalid UTF-8 encoding (unexpected continuation): " + stream.filename());
+      EGG_THROW("Invalid UTF-8 encoding (unexpected continuation): " + stream.getFilename());
     }
     if (b < 0xE0) {
       // One continuation byte
@@ -37,7 +37,7 @@ namespace {
       // Three continuation bytes
       return readContinuation(stream, b & 0x07, 3);
     }
-    EGG_THROW("Invalid UTF-8 encoding (bad lead byte): " + stream.filename());
+    EGG_THROW("Invalid UTF-8 encoding (bad lead byte): " + stream.getFilename());
   }
 }
 
@@ -51,6 +51,24 @@ int egg::yolk::CharStream::get() {
     }
   }
   return codepoint;
+}
+
+bool egg::yolk::TextStream::ensure(size_t count) {
+  int ch = 0;
+  if (this->upcoming.empty()) {
+    // This is our first access
+    ch = this->chars.get();
+    this->upcoming.push_back(ch);
+  }
+  assert(!this->upcoming.empty());
+  while (this->upcoming.size() < count) {
+    if (ch < 0) {
+      return false;
+    }
+    ch = this->chars.get();
+    this->upcoming.push_back(ch);
+  }
+  return true;
 }
 
 int egg::yolk::TextStream::get() {
@@ -79,20 +97,21 @@ int egg::yolk::TextStream::get() {
   return result;
 }
 
-bool egg::yolk::TextStream::ensure(size_t count) {
-  int ch = 0;
-  if (this->upcoming.empty()) {
-    // This is our first access
-    ch = this->chars.get();
-    this->upcoming.push_back(ch);
+bool egg::yolk::TextStream::readline(std::vector<int>& text) {
+  text.clear();
+  if (this->peek() < 0) {
+    // Already at EOF
+    return false;
   }
-  assert(!this->upcoming.empty());
-  while (this->upcoming.size() < count) {
+  auto start = this->line;
+  do {
+    auto ch = this->get();
     if (ch < 0) {
-      return false;
+      break;
     }
-    ch = this->chars.get();
-    this->upcoming.push_back(ch);
-  }
+    if ((ch != '\r') && (ch != '\n')) {
+      text.push_back(ch);
+    }
+  } while (this->line == start);
   return true;
 }

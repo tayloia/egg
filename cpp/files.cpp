@@ -1,5 +1,7 @@
 #include "yolk.h"
 
+#include <direct.h>
+
 std::string egg::yolk::File::normalizePath(const std::string& path, bool trailingSlash) {
 #if EGG_PLATFORM == EGG_PLATFORM_MSVC
   auto result = String::transform(path, [](char x) { return (x == '\\') ? '/' : char(std::tolower(x)); });

@@ -17,10 +17,10 @@ namespace egg::yolk {
     EGG_NO_COPY(ByteStream);
   private:
     std::iostream& stream;
-    std::string name;
+    std::string filename;
   public:
-    ByteStream(std::iostream& stream, const std::string& name)
-      : stream(stream), name(name) {
+    ByteStream(std::iostream& stream, const std::string& filename)
+      : stream(stream), filename(filename) {
     }
     int get() {
       char ch;
@@ -28,12 +28,12 @@ namespace egg::yolk {
         return int(uint8_t(ch));
       }
       if (this->stream.bad()) {
-        EGG_THROW("Failed to read byte from binary file: " + this->name);
+        EGG_THROW("Failed to read byte from binary file: " + this->filename);
       }
       return -1;
     }
-    const std::string& filename() const {
-      return this->name;
+    const std::string& getFilename() const {
+      return this->filename;
     }
   };
 
@@ -57,8 +57,8 @@ namespace egg::yolk {
       : bytes(bytes), swallowBOM(swallowBOM) {
     }
     int get();
-    const std::string& filename() const {
-      return this->bytes.filename();
+    const std::string& getFilename() const {
+      return this->bytes.getFilename();
     }
   };
 
@@ -84,6 +84,8 @@ namespace egg::yolk {
       : chars(chars), upcoming(), line(1), column(1) {
     }
     int get();
+    bool readline(std::vector<int>& text);
+    std::vector<int> slurp();
     int peek(size_t index = 0) {
       if (this->ensure(index + 1)) {
         // Microsoft's std::deque indexer is borked
@@ -91,8 +93,8 @@ namespace egg::yolk {
       }
       return -1;
     }
-    const std::string& filename() const {
-      return this->chars.filename();
+    const std::string& getFilename() const {
+      return this->chars.getFilename();
     }
     size_t getCurrentLine() {
       this->ensure(1);
