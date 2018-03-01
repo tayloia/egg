@@ -87,3 +87,14 @@ TEST(TestStreams, FileTextStreamLines) {
   ASSERT_EQ(213, countLines("~/cpp/test/data/utf-8-demo.cr.txt"));
   ASSERT_EQ(213, countLines("~/cpp/test/data/utf-8-demo.lf.txt"));
 }
+
+TEST(TestStreams, FileTextStreamPeek) {
+  egg::yolk::FileTextStream fts("~/cpp/test/data/utf-8-demo.txt");
+  ASSERT_EQ('\r', fts.peek());
+  ASSERT_EQ('\n', fts.peek(1));
+  ASSERT_EQ('U', fts.peek(2));
+  ASSERT_EQ('T', fts.peek(3));
+  ASSERT_EQ('F', fts.peek(4));
+  ASSERT_EQ('-', fts.peek(5));
+  ASSERT_EQ('8', fts.peek(6));
+}

@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <deque>
 #include <fstream>
 #include <functional>
 #include <iostream>

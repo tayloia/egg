@@ -76,30 +76,33 @@ namespace egg::yolk {
     EGG_NO_COPY(TextStream);
   private:
     CharStream& chars;
-    int next;
+    std::deque<int> upcoming;
     size_t line;
     size_t column;
   public:
     explicit TextStream(CharStream& chars)
-      : chars(chars), next(0), line(0), column(1) {
+      : chars(chars), upcoming(), line(1), column(1) {
     }
     int get();
-    int peek() {
-      this->initialize();
-      return this->next;
+    int peek(size_t index = 0) {
+      if (this->ensure(index + 1)) {
+        // Microsoft's std::deque indexer is borked
+        return *(this->upcoming.begin() + ptrdiff_t(index));
+      }
+      return -1;
     }
     const std::string& filename() const {
       return this->chars.filename();
     }
     size_t getCurrentLine() {
-      this->initialize();
+      this->ensure(1);
       return this->line;
     }
     size_t getCurrentColumn() {
       return this->column;
     }
   private:
-    void initialize();
+    bool ensure(size_t count);
   };
 
   class FileTextStream : public TextStream {

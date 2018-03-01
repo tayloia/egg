@@ -54,21 +54,17 @@ int egg::yolk::CharStream::get() {
 }
 
 int egg::yolk::TextStream::get() {
-  if (this->line == 0) {
-    // This is our first read
-    this->line = 1;
-    this->column = 1;
-    this->next = this->chars.get();
-  }
-  int current = this->next;
-  if (current < 0) {
-    // Already at EOF
+  if (!this->ensure(2)) {
+    // There's only the EOF marker left
+    assert(this->upcoming.size() == 1);
+    assert(this->upcoming.front() < 0);
     return -1;
   }
-  this->next = this->chars.get();
-  switch (current) {
+  auto result = this->upcoming.front();
+  this->upcoming.pop_front();
+  switch (result) {
   case '\r':
-    if (this->next != '\n') {
+    if (this->upcoming.front() != '\n') {
       // Don't delay the line advance until next time
       this->line++;
       this->column = 1;
@@ -80,14 +76,23 @@ int egg::yolk::TextStream::get() {
     this->column = 1;
     return '\n';
   }
-  return current;
+  return result;
 }
 
-void egg::yolk::TextStream::initialize() {
-  if (this->line == 0) {
+bool egg::yolk::TextStream::ensure(size_t count) {
+  int ch = 0;
+  if (this->upcoming.empty()) {
     // This is our first access
-    this->line = 1;
-    this->column = 1;
-    this->next = this->chars.get();
+    ch = this->chars.get();
+    this->upcoming.push_back(ch);
   }
+  assert(!this->upcoming.empty());
+  while (this->upcoming.size() < count) {
+    if (ch < 0) {
+      return false;
+    }
+    ch = this->chars.get();
+    this->upcoming.push_back(ch);
+  }
+  return true;
 }
