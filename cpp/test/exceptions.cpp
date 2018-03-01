@@ -2,6 +2,7 @@
 
 TEST(TestExceptions, Throw) {
   ASSERT_THROW(EGG_THROW("Hello world"), egg::yolk::Exception);
+  ASSERT_THROW_E(EGG_THROW("Hello world"), egg::yolk::Exception, ASSERT_EQ("Hello world", e.reason()));
 }
 
 TEST(TestExceptions, Catch) {
@@ -11,8 +12,9 @@ TEST(TestExceptions, Catch) {
   try {
     EGG_THROW(expected_message);
   } catch (const egg::yolk::Exception& exception) {
-    ASSERT_EQ(expected_message, exception.what());
     auto ending = expected_file + "(" + std::to_string(expected_line) + ")";
+    ASSERT_ENDSWITH(exception.what(), ending + ": " + expected_message);
+    ASSERT_EQ(expected_message, exception.reason());
     ASSERT_ENDSWITH(exception.where(), ending);
   }
 }

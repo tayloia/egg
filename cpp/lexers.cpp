@@ -87,15 +87,17 @@ namespace {
     }
     void nextCommentMultiLine(LexerItem& item) {
       item.kind = LexerKind::Comment;
-      this->eat(item);
-      this->eat(item);
-      int ch0 = this->eat(item);
+      this->eat(item); // swallow the initial '/'
+      int ch0 = this->eat(item); // swallow the initial '*'
       int ch1 = this->eat(item);
       while ((ch0 != '*') || (ch1 != '/')) {
         if (ch1 < 0) {
           this->unexpected(item, "Unexpected end of file found in comment");
         }
+        ch0 = ch1;
+        ch1 = this->eat(item);
       }
+      this->eat(item); // swallow the trailing '/'
     }
     void nextOperator(LexerItem& item) {
       item.kind = LexerKind::Operator;
@@ -160,16 +162,32 @@ namespace {
   private:
     FileTextStream stream;
   public:
-    explicit FileLexer(const std::string& path, bool swallowBOM)
+    FileLexer(const std::string& path, bool swallowBOM)
       : Lexer(stream), stream(path, swallowBOM) {
     }
     virtual ~FileLexer() {
+    }
+  };
+
+  class StringLexer : public Lexer {
+    EGG_NO_COPY(StringLexer);
+  private:
+    StringTextStream stream;
+  public:
+    explicit StringLexer(const std::string& text)
+      : Lexer(stream), stream(text) {
+    }
+    virtual ~StringLexer() {
     }
   };
 }
 
 std::shared_ptr<egg::yolk::ILexer> egg::yolk::LexerFactory::createFromPath(const std::string& path, bool swallowBOM) {
   return std::make_shared<FileLexer>(path, swallowBOM);
+}
+
+std::shared_ptr<egg::yolk::ILexer> egg::yolk::LexerFactory::createFromString(const std::string& text) {
+  return std::make_shared<StringLexer>(text);
 }
 
 std::shared_ptr<egg::yolk::ILexer> egg::yolk::LexerFactory::createFromTextStream(egg::yolk::TextStream& stream) {

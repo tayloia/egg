@@ -7,7 +7,6 @@
 #pragma warning(pop)
 #endif
 
-
 namespace egg::yolk::test {
   // This is the default entry-point for Google Test runners
   int main(int argc, char** argv);
@@ -24,3 +23,19 @@ namespace egg::yolk::test {
 #define ASSERT_NOTCONTAINS(haystack, needle) ASSERT_PRED_FORMAT2(egg::yolk::test::assertNotContains, haystack, needle)
 #define ASSERT_STARTSWITH(haystack, needle) ASSERT_PRED_FORMAT2(egg::yolk::test::assertStartsWith, haystack, needle)
 #define ASSERT_ENDSWITH(haystack, needle)   ASSERT_PRED_FORMAT2(egg::yolk::test::assertEndsWith, haystack, needle)
+
+// See https://stackoverflow.com/a/43569017
+#define ASSERT_THROW_E(statement, expected_exception, caught) \
+  try \
+  { \
+    GTEST_SUPPRESS_UNREACHABLE_CODE_WARNING_BELOW_(statement);\
+    FAIL() << "Expected: " #statement " throws an exception of type " #expected_exception ".\n  Actual: it throws nothing."; \
+  } \
+  catch (const expected_exception& e) \
+  { \
+    GTEST_SUPPRESS_UNREACHABLE_CODE_WARNING_BELOW_(caught); \
+  } \
+  catch (...) \
+  { \
+    FAIL() << "Expected: " #statement " throws an exception of type " #expected_exception ".\n  Actual: it throws a different type."; \
+  }

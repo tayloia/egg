@@ -1,7 +1,7 @@
 #include "yolk.h"
 
-egg::yolk::Exception::Exception(const std::string& what, const std::string& location)
-  : std::runtime_error(what), location(location) {
+egg::yolk::Exception::Exception(const std::string& reason, const std::string& where)
+  : std::runtime_error(where + ": " + reason), reason_value(reason), where_value(where) {
 }
 
 egg::yolk::Exception::Exception(const std::string& what, const std::string& file, size_t line)

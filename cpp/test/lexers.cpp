@@ -61,9 +61,25 @@ TEST(TestLexers, Verbatim) {
   ASSERT_EQ(slurped, verbatim);
 }
 
+TEST(TestLexers, Comment) {
+  auto lexer = LexerFactory::createFromString("// Comment");
+  lexerStepComment(*lexer, "// Comment");
+  lexer = LexerFactory::createFromString("// Comment\n...");
+  lexerStepComment(*lexer, "// Comment\n");
+  lexer = LexerFactory::createFromString("/* Comment */...");
+  lexerStepComment(*lexer, "/* Comment */");
+  lexer = LexerFactory::createFromString("/* Multiline \n Comment */...");
+  lexerStepComment(*lexer, "/* Multiline \n Comment */");
+}
+
+TEST(TestLexers, CommentBad) {
+  auto lexer = LexerFactory::createFromString("/* Comment");
+  LexerItem item;
+  ASSERT_THROW_E(lexer->next(item), Exception, ASSERT_CONTAINS(e.reason(), "Unexpected end of file found in comment"));
+}
+
 TEST(TestLexers, Factory) {
-  FileTextStream stream("~/cpp/test/data/example.egg");
-  auto lexer = LexerFactory::createFromTextStream(stream);
+  auto lexer = LexerFactory::createFromPath("~/cpp/test/data/example.egg");
   // "// This is a test file\r\n"
   lexerStepComment(*lexer, "// This is a test file\r\n");
   // "var result = first--second;"

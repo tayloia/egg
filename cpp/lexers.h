@@ -34,6 +34,7 @@ namespace egg::yolk {
   class LexerFactory {
   public:
     static std::shared_ptr<ILexer> createFromPath(const std::string& path, bool swallowBOM = true);
+    static std::shared_ptr<ILexer> createFromString(const std::string& text);
     static std::shared_ptr<ILexer> createFromTextStream(TextStream& stream);
   };
 }
