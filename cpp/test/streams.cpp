@@ -1,5 +1,9 @@
 #include "test.h"
 
+// For ~/cpp/test/data/utf-8-demo*.txt
+// As per https://www.cl.cam.ac.uk/~mgk25/ucs/examples/UTF-8-demo.txt
+static const size_t expected_lengths[] = { 0,36,36,0,79,0,0,64,49,0,0,75,0,25,0,57,57,57,57,57,57,57,57,57,0,29,0,38,40,0,4,0,34,0,37,0,46,46,46,46,46,46,46,46,46,46,46,46,46,46,46,46,46,0,21,0,38,0,21,0,19,0,25,26,24,27,0,26,22,27,29,0,53,0,59,53,48,55,52,60,61,61,60,61,59,54,58,61,53,36,0,29,0,9,0,39,0,65,60,61,60,59,62,64,0,8,0,39,0,66,71,69,70,68,69,0,19,0,71,21,0,57,63,64,68,62,58,65,65,60,0,70,70,21,0,10,0,35,0,22,22,18,28,21,17,14,26,19,32,30,31,20,28,28,19,25,21,0,6,0,58,0,69,69,60,0,8,0,23,0,45,46,45,42,52,26,0,39,0,43,45,48,53,42,39,49,52,35,0,68,0,36,0,40,40,40,40,0,31,0,36,0,71,71,79,79,79,79,71,71,79,53,SIZE_MAX };
+
 TEST(TestStreams, FileStreamIn) {
   egg::yolk::FileStream fsi("~/cpp/test/data/utf-8-demo.txt");
   std::stringstream ss;
@@ -99,7 +103,7 @@ TEST(TestStreams, FileTextStreamPeek) {
   ASSERT_EQ('8', fts.peek(6));
 }
 
-static void readLines(const std::string& path, const size_t* expected_lengths) {
+static void readLines(const std::string& path) {
   egg::yolk::FileTextStream fts(path);
   ASSERT_EQ(1, fts.getCurrentLine());
   std::vector<int> text;
@@ -111,9 +115,19 @@ static void readLines(const std::string& path, const size_t* expected_lengths) {
 }
 
 TEST(TestStreams, FileTextStreamReadLine) {
-  const size_t expected_lengths[] = { 0,36,36,0,79,0,0,64,49,0,0,75,0,25,0,57,57,57,57,57,57,57,57,57,0,29,0,38,40,0,4,0,34,0,37,0,46,46,46,46,46,46,46,46,46,46,46,46,46,46,46,46,46,0,21,0,38,0,21,0,19,0,25,26,24,27,0,26,22,27,29,0,53,0,59,53,48,55,52,60,61,61,60,61,59,54,58,61,53,36,0,29,0,9,0,39,0,65,60,61,60,59,62,64,0,8,0,39,0,66,71,69,70,68,69,0,19,0,71,21,0,57,63,64,68,62,58,65,65,60,0,70,70,21,0,10,0,35,0,22,22,18,28,21,17,14,26,19,32,30,31,20,28,28,19,25,21,0,6,0,58,0,69,69,60,0,8,0,23,0,45,46,45,42,52,26,0,39,0,43,45,48,53,42,39,49,52,35,0,68,0,36,0,40,40,40,40,0,31,0,36,0,71,71,79,79,79,79,71,71,79,53,SIZE_MAX };
-  readLines("~/cpp/test/data/utf-8-demo.txt", expected_lengths);
-  readLines("~/cpp/test/data/utf-8-demo.bom.txt", expected_lengths);
-  readLines("~/cpp/test/data/utf-8-demo.cr.txt", expected_lengths);
-  readLines("~/cpp/test/data/utf-8-demo.lf.txt", expected_lengths);
+  readLines("~/cpp/test/data/utf-8-demo.txt");
+  readLines("~/cpp/test/data/utf-8-demo.bom.txt");
+  readLines("~/cpp/test/data/utf-8-demo.cr.txt");
+  readLines("~/cpp/test/data/utf-8-demo.lf.txt");
+}
+
+TEST(TestStreams, FileTextStreamSlurp) {
+  ASSERT_EQ(7839, egg::yolk::FileTextStream("~/cpp/test/data/utf-8-demo.txt").slurp().size());
+  ASSERT_EQ(7839, egg::yolk::FileTextStream("~/cpp/test/data/utf-8-demo.bom.txt").slurp().size());
+  ASSERT_EQ(7627, egg::yolk::FileTextStream("~/cpp/test/data/utf-8-demo.cr.txt").slurp().size());
+  ASSERT_EQ(7627, egg::yolk::FileTextStream("~/cpp/test/data/utf-8-demo.lf.txt").slurp().size());
+  ASSERT_EQ(7627, egg::yolk::FileTextStream("~/cpp/test/data/utf-8-demo.txt").slurp('\n').size());
+  ASSERT_EQ(7627, egg::yolk::FileTextStream("~/cpp/test/data/utf-8-demo.bom.txt").slurp('\n').size());
+  ASSERT_EQ(7627, egg::yolk::FileTextStream("~/cpp/test/data/utf-8-demo.cr.txt").slurp('\n').size());
+  ASSERT_EQ(7627, egg::yolk::FileTextStream("~/cpp/test/data/utf-8-demo.lf.txt").slurp('\n').size());
 }

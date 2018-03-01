@@ -1,6 +1,9 @@
 #include "yolk.h"
 
 namespace {
+  bool isEndOfLine(int ch) {
+    return (ch == '\r') || (ch == '\n');
+  }
   // See https://en.wikipedia.org/wiki/UTF-8
   int readContinuation(egg::yolk::ByteStream& stream, int value, size_t count) {
     do {
@@ -80,19 +83,17 @@ int egg::yolk::TextStream::get() {
   }
   auto result = this->upcoming.front();
   this->upcoming.pop_front();
-  switch (result) {
-  case '\r':
-    if (this->upcoming.front() != '\n') {
-      // Don't delay the line advance until next time
-      this->line++;
-      this->column = 1;
-    }
+  if ((result == '\r') && (this->upcoming.front() == '\n')) {
+    // Delay the line advance until next time
     return '\r';
-  case '\n':
+  }
+  if (isEndOfLine(result)) {
     // Newline
     this->line++;
     this->column = 1;
-    return '\n';
+  } else {
+    // Any other character
+    this->column++;
   }
   return result;
 }
@@ -114,4 +115,30 @@ bool egg::yolk::TextStream::readline(std::vector<int>& text) {
     }
   } while (this->line == start);
   return true;
+}
+
+std::vector<int> egg::yolk::TextStream::slurp() {
+  std::vector<int> text;
+  int ch = this->get();
+  while (ch >= 0) {
+    text.push_back(ch);
+    ch = this->get();
+  }
+  return text;
+}
+
+std::vector<int> egg::yolk::TextStream::slurp(int eol) {
+  std::vector<int> text;
+  auto curr = this->getCurrentLine();
+  int ch = this->get();
+  while (ch >= 0) {
+    if (!isEndOfLine(ch)) {
+      text.push_back(ch);
+    } else if (this->line != curr) {
+      text.push_back(eol);
+      curr = this->line;
+    }
+    ch = this->get();
+  }
+  return text;
 }
