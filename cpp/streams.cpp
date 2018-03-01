@@ -9,11 +9,11 @@ namespace {
     do {
       auto b = stream.get();
       if (b < 0) {
-        EGG_THROW("Invalid UTF-8 encoding (truncated continuation): " + stream.getFilename());
+        EGG_THROW("Invalid UTF-8 encoding (truncated continuation): " + stream.getResourceName());
       }
       b ^= 0x80;
       if (b > 0x3F) {
-        EGG_THROW("Invalid UTF-8 encoding (invalid continuation): " + stream.getFilename());
+        EGG_THROW("Invalid UTF-8 encoding (invalid continuation): " + stream.getResourceName());
       }
       value = (value << 6) | b;
     } while (--count);
@@ -26,7 +26,7 @@ namespace {
       return b;
     }
     if (b < 0xC0) {
-      EGG_THROW("Invalid UTF-8 encoding (unexpected continuation): " + stream.getFilename());
+      EGG_THROW("Invalid UTF-8 encoding (unexpected continuation): " + stream.getResourceName());
     }
     if (b < 0xE0) {
       // One continuation byte
@@ -40,7 +40,7 @@ namespace {
       // Three continuation bytes
       return readContinuation(stream, b & 0x07, 3);
     }
-    EGG_THROW("Invalid UTF-8 encoding (bad lead byte): " + stream.getFilename());
+    EGG_THROW("Invalid UTF-8 encoding (bad lead byte): " + stream.getResourceName());
   }
 }
 
@@ -54,6 +54,12 @@ int egg::yolk::CharStream::get() {
     }
   }
   return codepoint;
+}
+
+void egg::yolk::CharStream::slurp(std::u32string& text) {
+  for (auto ch = this->get(); ch >= 0; ch = this->get()) {
+    text.push_back(char32_t(ch));
+  }
 }
 
 bool egg::yolk::TextStream::ensure(size_t count) {
@@ -83,22 +89,22 @@ int egg::yolk::TextStream::get() {
   }
   auto result = this->upcoming.front();
   this->upcoming.pop_front();
-  if ((result == '\r') && (this->upcoming.front() == '\n')) {
-    // Delay the line advance until next time
-    return '\r';
-  }
   if (isEndOfLine(result)) {
     // Newline
+    if ((result == '\r') && (this->upcoming.front() == '\n')) {
+      // Delay the line advance until next time
+      return '\r';
+    }
     this->line++;
     this->column = 1;
-  } else {
+  } else if (result >= 0) {
     // Any other character
     this->column++;
   }
   return result;
 }
 
-bool egg::yolk::TextStream::readline(std::vector<int>& text) {
+bool egg::yolk::TextStream::readline(std::string& text) {
   text.clear();
   if (this->peek() < 0) {
     // Already at EOF
@@ -110,8 +116,27 @@ bool egg::yolk::TextStream::readline(std::vector<int>& text) {
     if (ch < 0) {
       break;
     }
-    if ((ch != '\r') && (ch != '\n')) {
-      text.push_back(ch);
+    if (!isEndOfLine(ch)) {
+      String::push_utf8(text, ch);
+    }
+  } while (this->line == start);
+  return true;
+}
+
+bool egg::yolk::TextStream::readline(std::u32string& text) {
+  text.clear();
+  if (this->peek() < 0) {
+    // Already at EOF
+    return false;
+  }
+  auto start = this->line;
+  do {
+    auto ch = this->get();
+    if (ch < 0) {
+      break;
+    }
+    if (!isEndOfLine(ch)) {
+      text.push_back(char32_t(ch));
     }
   } while (this->line == start);
   return true;

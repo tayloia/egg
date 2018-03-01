@@ -13,37 +13,37 @@ namespace {
   }
   void lexerStepWhitespace(ILexer& lexer, std::string expected_verbatim) {
     auto value = lexerStep(lexer, LexerKind::Whitespace, expected_verbatim);
-    ASSERT_EQ("", value.s);
+    ASSERT_TRUE(value.s.empty());
   }
   void lexerStepComment(ILexer& lexer, std::string expected_verbatim) {
     auto value = lexerStep(lexer, LexerKind::Comment, expected_verbatim);
-    ASSERT_EQ("", value.s);
+    ASSERT_TRUE(value.s.empty());
   }
   void lexerStepInteger(ILexer& lexer, std::string expected_verbatim, int expected_value) {
     auto value = lexerStep(lexer, LexerKind::Integer, expected_verbatim);
     ASSERT_EQ(expected_value, value.i);
-    ASSERT_EQ("", value.s);
+    ASSERT_TRUE(value.s.empty());
   }
   void lexerStepFloat(ILexer& lexer, std::string expected_verbatim, double expected_value) {
     auto value = lexerStep(lexer, LexerKind::Float, expected_verbatim);
     ASSERT_EQ(expected_value, value.f);
-    ASSERT_EQ("", value.s);
+    ASSERT_TRUE(value.s.empty());
   }
-  void lexerStepString(ILexer& lexer, std::string expected_verbatim, std::string expected_value) {
+  void lexerStepString(ILexer& lexer, std::string expected_verbatim, std::u32string expected_value) {
     auto value = lexerStep(lexer, LexerKind::String, expected_verbatim);
     ASSERT_EQ(expected_value, value.s);
   }
   void lexerStepOperator(ILexer& lexer, std::string expected_verbatim) {
     auto value = lexerStep(lexer, LexerKind::Operator, expected_verbatim);
-    ASSERT_EQ("", value.s);
+    ASSERT_TRUE(value.s.empty());
   }
   void lexerStepIdentifier(ILexer& lexer, std::string expected_verbatim) {
     auto value = lexerStep(lexer, LexerKind::Identifier, expected_verbatim);
-    ASSERT_EQ("", value.s);
+    ASSERT_TRUE(value.s.empty());
   }
   void lexerStepEndOfFile(ILexer& lexer) {
     auto value = lexerStep(lexer, LexerKind::EndOfFile, "");
-    ASSERT_EQ("", value.s);
+    ASSERT_TRUE(value.s.empty());
   }
 }
 
@@ -83,13 +83,13 @@ TEST(TestLexers, Factory) {
   lexerStepWhitespace(*lexer, " ");
   lexerStepIdentifier(*lexer, "greeting");
   lexerStepOperator(*lexer, "=");
-  lexerStepString(*lexer, "\"Hello World\"", "Hello World");
+  lexerStepString(*lexer, "\"Hello World\"", U"Hello World");
   lexerStepOperator(*lexer, ";");
   lexerStepWhitespace(*lexer, "\r\n");
   // "greeting=`Hello\r\nWorld`;"
   lexerStepIdentifier(*lexer, "greeting");
   lexerStepOperator(*lexer, "=");
-  lexerStepString(*lexer, "`Hello\r\nWorld`", "Hello\r\nWorld");
+  lexerStepString(*lexer, "`Hello\r\nWorld`", U"Hello\r\nWorld");
   lexerStepOperator(*lexer, ";");
   lexerStepWhitespace(*lexer, "\r\n");
   // "int answer = 42;"

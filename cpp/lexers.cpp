@@ -12,41 +12,39 @@ namespace {
       : stream(stream) {
     }
     virtual LexerKind next(LexerItem& item) override {
-      auto valid = true;
       item.verbatim.clear();
       item.value.s.clear();
       auto peek = this->stream.peek();
       item.line = this->stream.getCurrentLine();
       item.column = this->stream.getCurrentColumn();
       if (peek < 0) {
-        valid = true;
         item.kind = LexerKind::EndOfFile;
       } else if (Lexer::isWhitespace(peek)) {
-        valid = this->nextWhitespace(item);
+        this->nextWhitespace(item);
       } else if (Lexer::isIdentifierStart(peek)) {
-        valid = this->nextIdentifier(item);
+        this->nextIdentifier(item);
       } else if (Lexer::isDigit(peek)) {
-        valid = this->nextNumber(item);
+        this->nextNumber(item);
       } else if (peek == '/') {
         switch (this->stream.peek(1)) {
         case '/':
-          valid = this->nextCommentSingleLine(item);
+          this->nextCommentSingleLine(item);
           break;
         case '*':
-          valid = this->nextCommentMultiLine(item);
+          this->nextCommentMultiLine(item);
           break;
         default:
-          valid = this->nextOperator(item);
+          this->nextOperator(item);
           break;
         }
       } else if (peek == '"') {
-        valid = this->nextQuoted(item);
+        this->nextQuoted(item);
       } else if (peek == '`') {
-        valid = this->nextBackquoted(item);
+        this->nextBackquoted(item);
       } else if (Lexer::isOperator(peek)) {
-        valid = this->nextOperator(item);
+        this->nextOperator(item);
       } else {
-        this->unexpected("Unexpected code point");
+        this->unexpected(item, "Unexpected code point");
       }
       return item.kind;
     }
@@ -68,27 +66,26 @@ namespace {
     }
     int eat(LexerItem& item) {
       auto curr = this->stream.get();
-      item.verbatim.push_back(char(curr));
+      assert(curr >= 0);
+      String::push_utf8(item.verbatim, char(curr));
       return this->stream.peek();
     }
-    bool nextWhitespace(LexerItem& item) {
+    void nextWhitespace(LexerItem& item) {
       item.kind = LexerKind::Whitespace;
       int ch;
       do {
         ch = this->eat(item);
       } while (Lexer::isWhitespace(ch));
-      return true;
     }
-    bool nextCommentSingleLine(LexerItem& item) {
+    void nextCommentSingleLine(LexerItem& item) {
       item.kind = LexerKind::Comment;
       auto line = this->stream.getCurrentLine();
       int ch;
       do {
         ch = this->eat(item);
       } while ((ch >= 0) && (this->stream.getCurrentLine() == line));
-      return true;
     }
-    bool nextCommentMultiLine(LexerItem& item) {
+    void nextCommentMultiLine(LexerItem& item) {
       item.kind = LexerKind::Comment;
       this->eat(item);
       this->eat(item);
@@ -96,28 +93,25 @@ namespace {
       int ch1 = this->eat(item);
       while ((ch0 != '*') || (ch1 != '/')) {
         if (ch1 < 0) {
-          return false;
+          this->unexpected(item, "Unexpected end of file found in comment");
         }
       }
-      return true;
     }
-    bool nextOperator(LexerItem& item) {
+    void nextOperator(LexerItem& item) {
       item.kind = LexerKind::Operator;
       int ch;
       do {
         ch = this->eat(item);
       } while (Lexer::isOperator(ch));
-      return true;
     }
-    bool nextIdentifier(LexerItem& item) {
+    void nextIdentifier(LexerItem& item) {
       item.kind = LexerKind::Identifier;
       int ch;
       do {
         ch = this->eat(item);
       } while (Lexer::isIdentifierContinue(ch));
-      return true;
     }
-    bool nextNumber(LexerItem& item) {
+    void nextNumber(LexerItem& item) {
       // TODO floats and hex constants
       item.kind = LexerKind::Integer;
       int ch;
@@ -125,40 +119,39 @@ namespace {
         ch = this->eat(item);
       } while (Lexer::isDigit(ch));
       item.value.i = std::stoi(item.verbatim);
-      return true;
     }
-    bool nextQuoted(LexerItem& item) {
+    void nextQuoted(LexerItem& item) {
       item.kind = LexerKind::String;
       auto ch = this->eat(item);
-      do {
-        item.value.s.push_back(char(ch)); // TODO unicode
+      while (ch >= 0) {
+        item.value.s.push_back(char32_t(ch));
         ch = this->eat(item);
         if (ch == '"') {
           this->eat(item);
-          return true;
+          return;
         }
         if (this->stream.getCurrentLine() != item.line) {
           // There's an EOL in the middle of the string
-          break;
+          this->unexpected(item, "Unexpected end of line found in quoted string");
         }
-      } while (ch >= 0);
-      return false;
+      }
+      this->unexpected(item, "Unexpected end of file found in quoted string");
     }
-    bool nextBackquoted(LexerItem& item) {
+    void nextBackquoted(LexerItem& item) {
       item.kind = LexerKind::String;
       auto ch = this->eat(item);
-      do {
-        item.value.s.push_back(char(ch)); // TODO unicode
+      while (ch >= 0) {
+        item.value.s.push_back(char32_t(ch));
         ch = this->eat(item);
         if (ch == '`') {
           this->eat(item);
-          return true;
+          return;
         }
-      } while (ch >= 0);
-      return false;
+      }
+      this->unexpected(item, "Unexpected end of file found in backquoted string");
     }
-    void unexpected(std::string message) {
-      throw egg::yolk::Exception(message, this->stream.getFilename(), this->stream.getCurrentLine(), this->stream.getCurrentLine());
+    void unexpected(const LexerItem& item, std::string message) {
+      throw egg::yolk::Exception(message, this->stream.getResourceName(), item.line, item.column);
     }
   };
 

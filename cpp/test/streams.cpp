@@ -18,7 +18,7 @@ TEST(TestStreams, FileStreamInMissing) {
 TEST(TestStreams, ByteStream) {
   egg::yolk::FileStream fs("~/cpp/test/data/utf-8-demo.txt");
   egg::yolk::ByteStream bs(fs, "utf-8-demo.txt");
-  ASSERT_EQ("utf-8-demo.txt", bs.getFilename());
+  ASSERT_EQ("utf-8-demo.txt", bs.getResourceName());
   size_t size = 0;
   for (auto ch = bs.get(); ch >= 0; ch = bs.get()) {
     size++;
@@ -29,7 +29,7 @@ TEST(TestStreams, ByteStream) {
 
 TEST(TestByteStream, FileByteStream) {
   egg::yolk::FileByteStream fbs("~/cpp/test/data/utf-8-demo.txt");
-  ASSERT_ENDSWITH(fbs.getFilename(), "utf-8-demo.txt");
+  ASSERT_ENDSWITH(fbs.getResourceName(), "utf-8-demo.txt");
   size_t size = 0;
   for (auto ch = fbs.get(); ch >= 0; ch = fbs.get()) {
     size++;
@@ -42,9 +42,19 @@ TEST(TestByteStream, FileByteStreamMissing) {
   ASSERT_THROW(egg::yolk::FileByteStream("~/missing"), egg::yolk::Exception);
 }
 
+TEST(TestByteStream, StringByteStream) {
+  egg::yolk::StringByteStream sbs("Hello World!");
+  size_t size = 0;
+  for (auto ch = sbs.get(); ch >= 0; ch = sbs.get()) {
+    size++;
+  }
+  ASSERT_EQ(12, size);
+  ASSERT_EQ(-1, sbs.get());
+}
+
 TEST(TestStreams, FileCharStream) {
   egg::yolk::FileCharStream fcs("~/cpp/test/data/utf-8-demo.txt");
-  ASSERT_ENDSWITH(fcs.getFilename(), "utf-8-demo.txt");
+  ASSERT_ENDSWITH(fcs.getResourceName(), "utf-8-demo.txt");
   size_t size = 0;
   for (auto ch = fcs.get(); ch >= 0; ch = fcs.get()) {
     ASSERT_LE(ch, 0x10FFFF);
@@ -56,7 +66,7 @@ TEST(TestStreams, FileCharStream) {
 
 TEST(TestStreams, FileCharStreamWithBOM) {
   egg::yolk::FileCharStream fcs("~/cpp/test/data/utf-8-demo.bom.txt");
-  ASSERT_ENDSWITH(fcs.getFilename(), "utf-8-demo.bom.txt");
+  ASSERT_ENDSWITH(fcs.getResourceName(), "utf-8-demo.bom.txt");
   size_t size = 0;
   for (auto ch = fcs.get(); ch >= 0; ch = fcs.get()) {
     ASSERT_LE(ch, 0x10FFFF);
@@ -66,9 +76,29 @@ TEST(TestStreams, FileCharStreamWithBOM) {
   ASSERT_EQ(-1, fcs.get());
 }
 
+TEST(TestStreams, StringCharStream) {
+  egg::yolk::StringCharStream scs("Hello World!");
+  std::u32string text;
+  scs.slurp(text);
+  ASSERT_EQ(12, text.size());
+}
+
+TEST(TestStreams, StringCharStreamBad) {
+  // See http://www.cl.cam.ac.uk/~mgk25/ucs/examples/UTF-8-test.txt
+  std::u32string text;
+  // Invalid UTF-8 encoding (unexpected continuation)
+  ASSERT_THROW(egg::yolk::StringCharStream("\x80").slurp(text), egg::yolk::Exception);
+  // Invalid UTF-8 encoding (truncated continuation)
+  ASSERT_THROW(egg::yolk::StringCharStream("\xC0").slurp(text), egg::yolk::Exception);
+  // Invalid UTF-8 encoding (invalid continuation)
+  ASSERT_THROW(egg::yolk::StringCharStream("\xC0\x01").slurp(text), egg::yolk::Exception);
+  // Invalid UTF-8 encoding (bad lead byte)
+  ASSERT_THROW(egg::yolk::StringCharStream("\xFF").slurp(text), egg::yolk::Exception);
+}
+
 TEST(TestStreams, FileTextStream) {
   egg::yolk::FileTextStream fts("~/cpp/test/data/utf-8-demo.txt");
-  ASSERT_ENDSWITH(fts.getFilename(), "utf-8-demo.txt");
+  ASSERT_ENDSWITH(fts.getResourceName(), "utf-8-demo.txt");
   size_t size = 0;
   for (auto ch = fts.get(); ch >= 0; ch = fts.get()) {
     ASSERT_LE(ch, 0x10FFFF);
@@ -76,6 +106,35 @@ TEST(TestStreams, FileTextStream) {
   }
   ASSERT_EQ(7839, size);
   ASSERT_EQ(-1, fts.get());
+}
+
+TEST(TestStreams, StringTextStream) {
+  egg::yolk::StringTextStream sts("one\n!two\nthree");
+  std::string text;
+  // "one"
+  ASSERT_EQ(1, sts.getCurrentLine());
+  ASSERT_EQ(1, sts.getCurrentColumn());
+  ASSERT_TRUE(sts.readline(text));
+  ASSERT_EQ("one", text);
+  // "two"
+  ASSERT_EQ(2, sts.getCurrentLine());
+  ASSERT_EQ(1, sts.getCurrentColumn());
+  ASSERT_EQ('!', sts.get());
+  ASSERT_EQ(2, sts.getCurrentLine());
+  ASSERT_EQ(2, sts.getCurrentColumn());
+  ASSERT_TRUE(sts.readline(text));
+  ASSERT_EQ("two", text);
+  // "three"
+  ASSERT_EQ(3, sts.getCurrentLine());
+  ASSERT_EQ(1, sts.getCurrentColumn());
+  ASSERT_TRUE(sts.readline(text));
+  ASSERT_EQ("three", text);
+  // EOF
+  ASSERT_EQ(3, sts.getCurrentLine());
+  ASSERT_EQ(6, sts.getCurrentColumn());
+  ASSERT_FALSE(sts.readline(text));
+  ASSERT_EQ("", text);
+  ASSERT_EQ(-1, sts.get());
 }
 
 static size_t lastLine(const std::string& path) {
@@ -106,7 +165,7 @@ TEST(TestStreams, FileTextStreamPeek) {
 static void readLines(const std::string& path) {
   egg::yolk::FileTextStream fts(path);
   ASSERT_EQ(1, fts.getCurrentLine());
-  std::vector<int> text;
+  std::u32string text;
   size_t line;
   for (line = 0; fts.readline(text); ++line) {
     ASSERT_EQ(expected_lengths[line], text.size());

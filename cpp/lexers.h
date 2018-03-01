@@ -15,7 +15,7 @@ namespace egg::yolk {
       int64_t i;
       double f;
     };
-    std::string s;
+    std::u32string s;
   };
 
   struct LexerItem {
