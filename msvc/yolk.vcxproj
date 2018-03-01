@@ -21,6 +21,7 @@
   <ItemGroup>
     <ClCompile Include="..\cpp\exceptions.cpp" />
     <ClCompile Include="..\cpp\files.cpp" />
+    <ClCompile Include="..\cpp\lexers.cpp" />
     <ClCompile Include="..\cpp\streams.cpp" />
     <ClCompile Include="..\cpp\test\gtest.cpp">
       <AdditionalIncludeDirectories Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">$(GoogleTest)</AdditionalIncludeDirectories>
@@ -36,7 +37,7 @@
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">NotUsing</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">NotUsing</PrecompiledHeader>
     </ClCompile>
-    <ClCompile Include="pch.cpp">
+    <ClCompile Include="yolk.pch.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>
@@ -46,6 +47,7 @@
   <ItemGroup>
     <ClInclude Include="..\cpp\exceptions.h" />
     <ClInclude Include="..\cpp\files.h" />
+    <ClInclude Include="..\cpp\lexers.h" />
     <ClInclude Include="..\cpp\macros.h" />
     <ClInclude Include="..\cpp\platform.h" />
     <ClInclude Include="..\cpp\streams.h" />

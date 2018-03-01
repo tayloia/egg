@@ -7,13 +7,16 @@
     <ClCompile Include="..\cpp\test\files.cpp">
       <Filter>Test Files</Filter>
     </ClCompile>
-    <ClCompile Include="pch.cpp">
-      <Filter>Test Files</Filter>
-    </ClCompile>
     <ClCompile Include="..\cpp\test\streams.cpp">
       <Filter>Test Files</Filter>
     </ClCompile>
     <ClCompile Include="..\cpp\test\strings.cpp">
+      <Filter>Test Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\cpp\test\lexers.cpp">
+      <Filter>Test Files</Filter>
+    </ClCompile>
+    <ClCompile Include="test.pch.cpp">
       <Filter>Test Files</Filter>
     </ClCompile>
   </ItemGroup>

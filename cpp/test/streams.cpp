@@ -1,4 +1,4 @@
-#include "yolk.h"
+#include "test.h"
 
 TEST(TestStreams, FileStreamIn) {
   egg::yolk::FileStream fsi("~/cpp/test/data/utf-8-demo.txt");

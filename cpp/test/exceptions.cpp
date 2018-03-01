@@ -1,4 +1,4 @@
-#include "yolk.h"
+#include "test.h"
 
 TEST(TestExceptions, Throw) {
   ASSERT_THROW(EGG_THROW("Hello world"), egg::yolk::Exception);

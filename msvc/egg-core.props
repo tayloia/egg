@@ -33,6 +33,7 @@
     <Link>
       <AdditionalDependencies>
       </AdditionalDependencies>
+      <TreatLinkerWarningAsErrors>true</TreatLinkerWarningAsErrors>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
