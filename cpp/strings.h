@@ -1,6 +1,9 @@
 namespace egg::yolk {
   class String {
   public:
+    static bool contains(const std::string& haystack, const std::string& needle) {
+      return haystack.find(needle) != std::string::npos;
+    }
     static bool startsWith(const std::string& haystack, const std::string& needle) {
       return (haystack.size() >= needle.size()) && std::equal(needle.begin(), needle.end(), haystack.begin());
     }

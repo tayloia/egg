@@ -15,6 +15,8 @@ TEST(TestStrings, EndsWith) {
 }
 
 TEST(TestStrings, AssertMacros) {
+  ASSERT_CONTAINS("Hello World", "lo");
+  ASSERT_NOTCONTAINS("Hello World", "Goodbye");
   ASSERT_STARTSWITH("Hello World", "Hello");
   ASSERT_ENDSWITH("Hello World", "World");
 }
