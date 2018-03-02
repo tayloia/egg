@@ -50,6 +50,10 @@ namespace {
       }
       return item.kind;
     }
+    virtual std::string resource() const {
+      return this->stream.getResourceName();
+    }
+
   private:
     static bool isWhitespace(int ch) {
       return std::isspace(ch);
@@ -323,16 +327,7 @@ namespace {
       throw egg::yolk::Exception(message, this->stream.getResourceName(), item.line, item.column);
     }
     void unexpected(const LexerItem& item, const std::string& message, int ch) {
-      std::stringstream ss;
-      ss << message;
-      if ((ch >= 32) && (ch <= 126)) {
-        ss << ": '" << char(ch) << "'";
-      } else if (ch < 0) {
-        ss << ": <EOF>";
-      } else {
-        ss << ": U+" << std::uppercase << std::setfill('0') << std::setw(4) << std::hex << ch;
-      }
-      this->unexpected(item, ss.str());
+      this->unexpected(item, message + ": " + String::unicodeToString(ch));
     }
   };
 

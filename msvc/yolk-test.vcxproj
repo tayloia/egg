@@ -21,6 +21,7 @@
   <ItemGroup>
     <ClCompile Include="..\cpp\test\exceptions.cpp" />
     <ClCompile Include="..\cpp\test\files.cpp" />
+    <ClCompile Include="..\cpp\test\json-tokenizer.cpp" />
     <ClCompile Include="..\cpp\test\lexers.cpp" />
     <ClCompile Include="..\cpp\test\streams.cpp" />
     <ClCompile Include="..\cpp\test\strings.cpp" />
@@ -46,6 +47,7 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="..\cpp\test\data\example.egg" />
+    <None Include="..\cpp\test\data\example.json" />
   </ItemGroup>
   <ItemGroup>
     <Text Include="..\cpp\test\data\utf-8-demo.bom.txt" />

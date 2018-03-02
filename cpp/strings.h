@@ -88,5 +88,16 @@ namespace egg::yolk {
         str.push_back(char(0x80 + (utf8 & 0x2F)));
       }
     }
+    static std::string unicodeToString(int ch) {
+      std::stringstream ss;
+      if ((ch >= 32) && (ch <= 126)) {
+        ss << '\'' << char(ch) << '\'';
+      } else if (ch < 0) {
+        ss << "<EOF>";
+      } else {
+        ss << "U+" << std::uppercase << std::setfill('0') << std::setw(4) << std::hex << ch;
+      }
+      return ss.str();
+    }
   };
 }

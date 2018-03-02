@@ -1,3 +1,6 @@
+// This is a context-free lexical analyser.
+// It is usually necessary to wrapper this in a tokenizer
+// to handle disambiguition such as "a--b"
 namespace egg::yolk {
   enum class LexerKind {
     Whitespace,
@@ -29,6 +32,7 @@ namespace egg::yolk {
   class ILexer {
   public:
     virtual LexerKind next(LexerItem& item) = 0;
+    virtual std::string resource() const = 0;
   };
 
   class LexerFactory {

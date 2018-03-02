@@ -18,3 +18,4 @@
 #include "streams.h"
 #include "strings.h"
 #include "lexers.h"
+#include "json-tokenizer.h"
