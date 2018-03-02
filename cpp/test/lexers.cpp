@@ -19,7 +19,7 @@ namespace {
     auto value = lexerStep(lexer, LexerKind::Comment, expected_verbatim);
     ASSERT_TRUE(value.s.empty());
   }
-  void lexerStepInteger(ILexer& lexer, std::string expected_verbatim, int expected_value) {
+  void lexerStepInteger(ILexer& lexer, std::string expected_verbatim, uint64_t expected_value) {
     auto value = lexerStep(lexer, LexerKind::Integer, expected_verbatim);
     ASSERT_EQ(expected_value, value.i);
     ASSERT_TRUE(value.s.empty());
@@ -44,6 +44,10 @@ namespace {
   void lexerStepEndOfFile(ILexer& lexer) {
     auto value = lexerStep(lexer, LexerKind::EndOfFile, "");
     ASSERT_TRUE(value.s.empty());
+  }
+  void lexerThrowContains(ILexer& lexer, const std::string& needle) {
+    LexerItem item;
+    ASSERT_THROW_E(lexer.next(item), Exception, ASSERT_CONTAINS(e.reason(), needle))
   }
 }
 
@@ -74,8 +78,79 @@ TEST(TestLexers, Comment) {
 
 TEST(TestLexers, CommentBad) {
   auto lexer = LexerFactory::createFromString("/* Comment");
-  LexerItem item;
-  ASSERT_THROW_E(lexer->next(item), Exception, ASSERT_CONTAINS(e.reason(), "Unexpected end of file found in comment"));
+  lexerThrowContains(*lexer, "Unexpected end of file found in comment");
+}
+
+TEST(TestLexers, Integer) {
+  auto lexer = LexerFactory::createFromString("0");
+  lexerStepInteger(*lexer, "0", 0);
+  lexer = LexerFactory::createFromString("123");
+  lexerStepInteger(*lexer, "123", 123);
+  lexer = LexerFactory::createFromString("0x0");
+  lexerStepInteger(*lexer, "0x0", 0);
+  lexer = LexerFactory::createFromString("0x123");
+  lexerStepInteger(*lexer, "0x123", 0x123);
+}
+
+TEST(TestLexers, IntegerBad) {
+  auto lexer = LexerFactory::createFromString("00");
+  lexerThrowContains(*lexer, "Invalid integer constant (extraneous leading '0')");
+  lexer = LexerFactory::createFromString("01");
+  lexerThrowContains(*lexer, "Invalid integer constant (extraneous leading '0')");
+  lexer = LexerFactory::createFromString("123xxx");
+  lexerThrowContains(*lexer, "Unexpected letter in integer constant");
+  lexer = LexerFactory::createFromString("123456789012345678901234567890");
+  lexerThrowContains(*lexer, "Invalid integer constant");
+  lexer = LexerFactory::createFromString("0x");
+  lexerThrowContains(*lexer, "Truncated hexadecimal constant");
+  lexer = LexerFactory::createFromString("0x0123456789ABCDEF0");
+  lexerThrowContains(*lexer, "Hexadecimal constant too long");
+  lexer = LexerFactory::createFromString("0x0Z");
+  lexerThrowContains(*lexer, "Unexpected letter in hexadecimal constant");
+}
+
+TEST(TestLexers, Float) {
+  auto lexer = LexerFactory::createFromString("0.0");
+  lexerStepFloat(*lexer, "0.0", 0.0);
+  lexer = LexerFactory::createFromString("1.0");
+  lexerStepFloat(*lexer, "1.0", 1.0);
+  lexer = LexerFactory::createFromString("1.000000");
+  lexerStepFloat(*lexer, "1.000000", 1.0);
+  lexer = LexerFactory::createFromString("1.23");
+  lexerStepFloat(*lexer, "1.23", 1.23);
+  lexer = LexerFactory::createFromString("1e3");
+  lexerStepFloat(*lexer, "1e3", 1e3);
+  lexer = LexerFactory::createFromString("1.2e3");
+  lexerStepFloat(*lexer, "1.2e3", 1.2e3);
+  lexer = LexerFactory::createFromString("1.2E03");
+  lexerStepFloat(*lexer, "1.2E03", 1.2E03);
+  lexer = LexerFactory::createFromString("1.2e+03");
+  lexerStepFloat(*lexer, "1.2e+03", 1.2e+03);
+  lexer = LexerFactory::createFromString("1.2e-03");
+  lexerStepFloat(*lexer, "1.2e-03", 1.2e-03);
+}
+
+TEST(TestLexers, FloatBad) {
+  double value = -123;
+  auto lexer = LexerFactory::createFromString("1.");
+  lexerThrowContains(*lexer, "Expected digit to follow decimal point in floating-point constant");
+  lexer = LexerFactory::createFromString("1.0xxx");
+  lexerThrowContains(*lexer, "Unexpected letter in floating-point constant");
+  lexer = LexerFactory::createFromString("1.23xxx");
+  lexerThrowContains(*lexer, "Unexpected letter in floating-point constant");
+  lexer = LexerFactory::createFromString("1e3xxx");
+  lexerThrowContains(*lexer, "Unexpected letter in exponent of floating-point constant");
+  lexer = LexerFactory::createFromString("1.2e3xxx");
+  lexerThrowContains(*lexer, "Unexpected letter in exponent of floating-point constant");
+  lexer = LexerFactory::createFromString("1.2e+xx");
+  lexerThrowContains(*lexer, "Expected digit in exponent of floating-point constant");
+  lexer = LexerFactory::createFromString("1e-999");
+  lexerThrowContains(*lexer, "Invalid floating-point constant");
+  lexer = LexerFactory::createFromString("1e+999");
+  lexerThrowContains(*lexer, "Invalid floating-point constant");
+  lexer = LexerFactory::createFromString("1e999");
+  lexerThrowContains(*lexer, "Invalid floating-point constant");
+  ASSERT_EQ(-123, value);
 }
 
 TEST(TestLexers, Factory) {

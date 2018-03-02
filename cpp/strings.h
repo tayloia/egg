@@ -33,9 +33,10 @@ namespace egg::yolk {
     static bool tryParseSigned(int64_t& dst, const std::string& src, int base = 10) {
       if (!src.empty()) {
         errno = 0;
+        auto* str = src.c_str();
         char* end = nullptr;
-        auto value = std::strtoll(src.c_str(), &end, base);
-        if ((errno == 0) && (end == &*src.end())) {
+        auto value = std::strtoll(str, &end, base);
+        if ((errno == 0) && (end == (str + src.size()))) {
           dst = value;
           return true;
         }
@@ -45,9 +46,10 @@ namespace egg::yolk {
     static bool tryParseUnsigned(uint64_t& dst, const std::string& src, int base = 10) {
       if (!src.empty()) {
         errno = 0;
+        auto* str = src.c_str();
         char* end = nullptr;
-        auto value = std::strtoull(src.c_str(), &end, base);
-        if ((errno == 0) && (end == &*src.end())) {
+        auto value = std::strtoull(str, &end, base);
+        if ((errno == 0) && (end == (str + src.size()))) {
           dst = value;
           return true;
         }
@@ -57,9 +59,10 @@ namespace egg::yolk {
     static bool tryParseFloat(double& dst, const std::string& src) {
       if (!src.empty()) {
         errno = 0;
+        auto* str = src.c_str();
         char* end = nullptr;
-        auto value = std::strtod(src.c_str(), &end);
-        if ((errno == 0) && (end == &*src.end())) {
+        auto value = std::strtod(str, &end);
+        if ((errno == 0) && (end == (str + src.size()))) {
           dst = value;
           return true;
         }

@@ -12,7 +12,7 @@ namespace egg::yolk {
 
   struct LexerValue {
     union {
-      int64_t i;
+      uint64_t i;
       double f;
     };
     std::u32string s;

@@ -61,6 +61,12 @@ namespace {
     static bool isDigit(int ch) {
       return std::isdigit(ch);
     }
+    static bool isHexadecimal(int ch) {
+      return std::isxdigit(ch);
+    }
+    static bool isLetter(int ch) {
+      return std::isalpha(ch);
+    }
     static bool isOperator(int ch) {
       return std::strchr("!$%&()*+,-./:;<=>?[]^{|}~", ch) != nullptr;
     }
@@ -114,13 +120,96 @@ namespace {
       } while (Lexer::isIdentifierContinue(ch));
     }
     void nextNumber(LexerItem& item) {
-      // TODO floats and hex constants
+      // See http://json.org/ but with the addition of hexadecimals
+      if (this->stream.peek() == '0') {
+        auto peek = this->stream.peek(1);
+        if ((peek == 'x') || (peek == 'X')) {
+          nextHexadecimal(item);
+          return;
+        }
+        if (Lexer::isDigit(peek)) {
+          this->unexpected(item, "Invalid integer constant (extraneous leading '0')");
+        }
+      }
+      auto ch = this->eat(item);
+      while (Lexer::isDigit(ch)) {
+        ch = this->eat(item);
+      }
+      switch (ch) {
+      case '.':
+        nextFloatFraction(item);
+        return;
+      case 'e':
+      case 'E':
+        nextFloatExponent(item);
+        return;
+      }
+      if (Lexer::isLetter(ch)) {
+        this->unexpected(item, "Unexpected letter in integer constant");
+      }
       item.kind = LexerKind::Integer;
-      int ch;
+      if (!String::tryParseUnsigned(item.value.i, item.verbatim)) {
+        this->unexpected(item, "Invalid integer constant");
+      }
+    }
+    void nextHexadecimal(LexerItem& item) {
+      assert(this->stream.peek() == '0');
+      assert(this->stream.peek(1) == 'x');
+      this->eat(item); // swallow '0'
+      auto ch = this->eat(item); // swallow 'x'
+      while (Lexer::isHexadecimal(ch)) {
+        ch = this->eat(item);
+      }
+      if (Lexer::isLetter(ch)) {
+        this->unexpected(item, "Unexpected letter in hexadecimal constant");
+      }
+      if (item.verbatim.size() <= 2) {
+        this->unexpected(item, "Truncated hexadecimal constant");
+      }
+      if (item.verbatim.size() > 18) {
+        this->unexpected(item, "Hexadecimal constant too long");
+      }
+      item.kind = LexerKind::Integer;
+      if (!String::tryParseUnsigned(item.value.i, item.verbatim, 16)) {
+        this->unexpected(item, "Invalid hexadecimal integer constant");
+      }
+    }
+    void nextFloatFraction(LexerItem& item) {
+      assert(this->stream.peek() == '.');
+      item.kind = LexerKind::Float;
+      auto ch = this->eat(item);
+      if (!Lexer::isDigit(ch)) {
+        this->unexpected(item, "Expected digit to follow decimal point in floating-point constant");
+      }
       do {
         ch = this->eat(item);
       } while (Lexer::isDigit(ch));
-      item.value.i = std::stoi(item.verbatim);
+      if ((ch == 'e') || (ch == 'E')) {
+        nextFloatExponent(item);
+      } else if (Lexer::isLetter(ch)) {
+        this->unexpected(item, "Unexpected letter in floating-point constant");
+      } else if (!String::tryParseFloat(item.value.f, item.verbatim)) {
+        this->unexpected(item, "Invalid floating-point constant");
+      }
+    }
+    void nextFloatExponent(LexerItem& item) {
+      assert((this->stream.peek() == 'e') || (this->stream.peek() == 'E'));
+      item.kind = LexerKind::Float;
+      auto ch = this->eat(item);
+      if ((ch == '+') || (ch == '-')) {
+        ch = this->eat(item);
+      }
+      if (!Lexer::isDigit(ch)) {
+        this->unexpected(item, "Expected digit in exponent of floating-point constant");
+      }
+      do {
+        ch = this->eat(item);
+      } while (Lexer::isDigit(ch));
+      if (Lexer::isLetter(ch)) {
+        this->unexpected(item, "Unexpected letter in exponent of floating-point constant");
+      } else if (!String::tryParseFloat(item.value.f, item.verbatim)) {
+        this->unexpected(item, "Invalid floating-point constant");
+      }
     }
     void nextQuoted(LexerItem& item) {
       item.kind = LexerKind::String;
