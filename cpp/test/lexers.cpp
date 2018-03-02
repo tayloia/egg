@@ -171,6 +171,7 @@ TEST(TestLexers, QuotedString) {
   lexerStepString(*lexer, "\"\\0\"", std::u32string(U"", 1));
   lexer = LexerFactory::createFromString(R"("\U00000041B"...)");
   lexerStepString(*lexer, "\"\\U00000041B\"", U"AB");
+  // Early Unicode termination (custom)
   lexer = LexerFactory::createFromString(R"("\U41;B"...)");
   lexerStepString(*lexer, "\"\\U41;B\"", U"AB");
 }
@@ -197,6 +198,29 @@ TEST(TestLexers, QuotedStringBad) {
   lexerThrowContains(*lexer, "Invalid Unicode code point value in '\\U' escape sequence in quoted string");
   lexer = LexerFactory::createFromString(R"("\U110000;X")");
   lexerThrowContains(*lexer, "Invalid Unicode code point value in '\\U' escape sequence in quoted string");
+}
+
+TEST(TestLexers, BackquotedString) {
+  auto lexer = LexerFactory::createFromString("``...");
+  lexerStepString(*lexer, "``", U"");
+  lexer = LexerFactory::createFromString("`Hello world`...");
+  lexerStepString(*lexer, "`Hello world`", U"Hello world");
+  lexer = LexerFactory::createFromString("`Hello\nworld`...");
+  lexerStepString(*lexer, "`Hello\nworld`", U"Hello\nworld");
+  lexer = LexerFactory::createFromString(R"(`\" \\ \/ \b \f \n \r \t`...)");
+  lexerStepString(*lexer, "`\\\" \\\\ \\/ \\b \\f \\n \\r \\t`", U"\\\" \\\\ \\/ \\b \\f \\n \\r \\t");
+  lexer = LexerFactory::createFromString(R"(`"quoted"`)");
+  lexerStepString(*lexer, "`\"quoted\"`", U"\"quoted\"");
+  lexer = LexerFactory::createFromString(R"(````)");
+  lexerStepString(*lexer, "````", U"`");
+}
+
+TEST(TestLexers, BackquotedStringBad) {
+  // See http://en.cppreference.com/w/cpp/language/string_literal
+  auto lexer = LexerFactory::createFromString(R"(`)");
+  lexerThrowContains(*lexer, "Unexpected end of file found in backquoted string");
+  lexer = LexerFactory::createFromString(R"(```)");
+  lexerThrowContains(*lexer, "Unexpected end of file found in backquoted string");
 }
 
 TEST(TestLexers, Factory) {

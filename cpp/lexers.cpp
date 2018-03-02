@@ -304,15 +304,18 @@ namespace {
       return int(value);
     }
     void nextBackquoted(LexerItem& item) {
+      assert((this->stream.peek() == '`'));
       item.kind = LexerKind::String;
       auto ch = this->eat(item);
       while (ch >= 0) {
+        if (ch == '`') {
+          ch = this->eat(item);
+          if (ch != '`') {
+            return;
+          }
+        }
         item.value.s.push_back(char32_t(ch));
         ch = this->eat(item);
-        if (ch == '`') {
-          this->eat(item);
-          return;
-        }
       }
       this->unexpected(item, "Unexpected end of file found in backquoted string");
     }
