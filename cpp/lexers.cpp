@@ -1,5 +1,7 @@
 #include "yolk.h"
 
+#include <iomanip>
+
 namespace {
   using namespace egg::yolk;
 
@@ -44,7 +46,7 @@ namespace {
       } else if (Lexer::isOperator(peek)) {
         this->nextOperator(item);
       } else {
-        this->unexpected(item, "Unexpected code point");
+        this->unexpected(item, "Unexpected character", peek);
       }
       return item.kind;
     }
@@ -145,7 +147,7 @@ namespace {
         return;
       }
       if (Lexer::isLetter(ch)) {
-        this->unexpected(item, "Unexpected letter in integer constant");
+        this->unexpected(item, "Unexpected letter in integer constant", ch);
       }
       item.kind = LexerKind::Integer;
       if (!String::tryParseUnsigned(item.value.i, item.verbatim)) {
@@ -161,7 +163,7 @@ namespace {
         ch = this->eat(item);
       }
       if (Lexer::isLetter(ch)) {
-        this->unexpected(item, "Unexpected letter in hexadecimal constant");
+        this->unexpected(item, "Unexpected letter in hexadecimal constant", ch);
       }
       if (item.verbatim.size() <= 2) {
         this->unexpected(item, "Truncated hexadecimal constant");
@@ -179,7 +181,7 @@ namespace {
       item.kind = LexerKind::Float;
       auto ch = this->eat(item);
       if (!Lexer::isDigit(ch)) {
-        this->unexpected(item, "Expected digit to follow decimal point in floating-point constant");
+        this->unexpected(item, "Expected digit to follow decimal point in floating-point constant", ch);
       }
       do {
         ch = this->eat(item);
@@ -187,7 +189,7 @@ namespace {
       if ((ch == 'e') || (ch == 'E')) {
         nextFloatExponent(item);
       } else if (Lexer::isLetter(ch)) {
-        this->unexpected(item, "Unexpected letter in floating-point constant");
+        this->unexpected(item, "Unexpected letter in floating-point constant", ch);
       } else if (!String::tryParseFloat(item.value.f, item.verbatim)) {
         this->unexpected(item, "Invalid floating-point constant");
       }
@@ -200,33 +202,106 @@ namespace {
         ch = this->eat(item);
       }
       if (!Lexer::isDigit(ch)) {
-        this->unexpected(item, "Expected digit in exponent of floating-point constant");
+        this->unexpected(item, "Expected digit in exponent of floating-point constant", ch);
       }
       do {
         ch = this->eat(item);
       } while (Lexer::isDigit(ch));
       if (Lexer::isLetter(ch)) {
-        this->unexpected(item, "Unexpected letter in exponent of floating-point constant");
+        this->unexpected(item, "Unexpected letter in exponent of floating-point constant", ch);
       } else if (!String::tryParseFloat(item.value.f, item.verbatim)) {
         this->unexpected(item, "Invalid floating-point constant");
       }
     }
     void nextQuoted(LexerItem& item) {
+      assert((this->stream.peek() == '"'));
       item.kind = LexerKind::String;
       auto ch = this->eat(item);
       while (ch >= 0) {
-        item.value.s.push_back(char32_t(ch));
-        ch = this->eat(item);
-        if (ch == '"') {
+        if (ch == '\\') {
+          ch = this->eat(item);
+          switch (ch) {
+          case '"':
+          case '\\':
+          case '/':
+            break;
+          case '0':
+            ch = '\0';
+            break;
+          case 'b':
+            ch = '\b';
+            break;
+          case 'f':
+            ch = '\f';
+            break;
+          case 'n':
+            ch = '\n';
+            break;
+          case 'r':
+            ch = '\r';
+            break;
+          case 't':
+            ch = '\t';
+            break;
+          case 'u':
+            ch = nextQuotedUnicode16(item);
+            break;
+          case 'U':
+            ch = nextQuotedUnicode32(item);
+            break;
+          default:
+            this->unexpected(item, "Invalid escaped character in quoted string", ch);
+            break;
+          }
+        } else if (ch == '"') {
+          if (this->stream.getCurrentLine() != item.line) {
+            // There's an EOL in the middle of the string
+            this->unexpected(item, "Unexpected end of line found in quoted string");
+          }
           this->eat(item);
           return;
         }
-        if (this->stream.getCurrentLine() != item.line) {
-          // There's an EOL in the middle of the string
-          this->unexpected(item, "Unexpected end of line found in quoted string");
-        }
+        item.value.s.push_back(char32_t(ch));
+        ch = this->eat(item);
       }
       this->unexpected(item, "Unexpected end of file found in quoted string");
+    }
+    int nextQuotedUnicode16(LexerItem& item) {
+      assert((this->stream.peek() == 'u'));
+      char hex[5];
+      for (size_t i = 0; i < 4; ++i) {
+        auto ch = this->eat(item);
+        if (!Lexer::isHexadecimal(ch)) {
+          this->unexpected(item, "Expected hexadecimal digit in '\\u' escape sequence in quoted string", ch);
+        }
+        hex[i] = char(ch);
+      }
+      hex[4] = '\0';
+      auto value = std::strtol(hex, nullptr, 16);
+      assert((value >= 0x0000) && (value <= 0xFFFF));
+      return int(value);
+    }
+    int nextQuotedUnicode32(LexerItem& item) {
+      assert((this->stream.peek() == 'U'));
+      size_t length;
+      char hex[9];
+      for (length = 0; length < 8; ++length) {
+        auto ch = this->eat(item);
+        if (!Lexer::isHexadecimal(ch)) {
+          if ((ch == ';') && (length > 0)) {
+            break;
+          }
+          this->unexpected(item, "Expected hexadecimal digit in '\\U' escape sequence in quoted string", ch);
+        }
+        hex[length] = char(ch);
+      }
+      assert((length > 0) && (length < sizeof(hex)));
+      hex[length] = '\0';
+      auto value = std::strtol(hex, nullptr, 16);
+      if ((value < 0x0000) || (value > 0x10FFFF)) {
+        this->unexpected(item, "Invalid Unicode code point value in '\\U' escape sequence in quoted string", int(value));
+      }
+      return int(value);
     }
     void nextBackquoted(LexerItem& item) {
       item.kind = LexerKind::String;
@@ -241,8 +316,20 @@ namespace {
       }
       this->unexpected(item, "Unexpected end of file found in backquoted string");
     }
-    void unexpected(const LexerItem& item, std::string message) {
+    void unexpected(const LexerItem& item, const std::string& message) {
       throw egg::yolk::Exception(message, this->stream.getResourceName(), item.line, item.column);
+    }
+    void unexpected(const LexerItem& item, const std::string& message, int ch) {
+      std::stringstream ss;
+      ss << message;
+      if ((ch >= 32) && (ch <= 126)) {
+        ss << ": '" << char(ch) << "'";
+      } else if (ch < 0) {
+        ss << ": <EOF>";
+      } else {
+        ss << ": U+" << std::uppercase << std::setfill('0') << std::setw(4) << std::hex << ch;
+      }
+      this->unexpected(item, ss.str());
     }
   };
 

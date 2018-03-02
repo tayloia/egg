@@ -19,6 +19,7 @@
 #include <algorithm>
 #include <fstream>
 #include <functional>
+#include <iomanip>
 #include <memory>
 #include <string>
 #include <sstream>

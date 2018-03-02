@@ -82,13 +82,13 @@ TEST(TestLexers, CommentBad) {
 }
 
 TEST(TestLexers, Integer) {
-  auto lexer = LexerFactory::createFromString("0");
+  auto lexer = LexerFactory::createFromString("0+...");
   lexerStepInteger(*lexer, "0", 0);
-  lexer = LexerFactory::createFromString("123");
+  lexer = LexerFactory::createFromString("123+...");
   lexerStepInteger(*lexer, "123", 123);
-  lexer = LexerFactory::createFromString("0x0");
+  lexer = LexerFactory::createFromString("0x0+...");
   lexerStepInteger(*lexer, "0x0", 0);
-  lexer = LexerFactory::createFromString("0x123");
+  lexer = LexerFactory::createFromString("0x123+...");
   lexerStepInteger(*lexer, "0x123", 0x123);
 }
 
@@ -110,23 +110,23 @@ TEST(TestLexers, IntegerBad) {
 }
 
 TEST(TestLexers, Float) {
-  auto lexer = LexerFactory::createFromString("0.0");
+  auto lexer = LexerFactory::createFromString("0.0+...");
   lexerStepFloat(*lexer, "0.0", 0.0);
-  lexer = LexerFactory::createFromString("1.0");
+  lexer = LexerFactory::createFromString("1.0+...");
   lexerStepFloat(*lexer, "1.0", 1.0);
-  lexer = LexerFactory::createFromString("1.000000");
+  lexer = LexerFactory::createFromString("1.000000+...");
   lexerStepFloat(*lexer, "1.000000", 1.0);
-  lexer = LexerFactory::createFromString("1.23");
+  lexer = LexerFactory::createFromString("1.23+...");
   lexerStepFloat(*lexer, "1.23", 1.23);
-  lexer = LexerFactory::createFromString("1e3");
+  lexer = LexerFactory::createFromString("1e3+...");
   lexerStepFloat(*lexer, "1e3", 1e3);
-  lexer = LexerFactory::createFromString("1.2e3");
+  lexer = LexerFactory::createFromString("1.2e3+...");
   lexerStepFloat(*lexer, "1.2e3", 1.2e3);
-  lexer = LexerFactory::createFromString("1.2E03");
+  lexer = LexerFactory::createFromString("1.2E03+...");
   lexerStepFloat(*lexer, "1.2E03", 1.2E03);
-  lexer = LexerFactory::createFromString("1.2e+03");
+  lexer = LexerFactory::createFromString("1.2e+03+...");
   lexerStepFloat(*lexer, "1.2e+03", 1.2e+03);
-  lexer = LexerFactory::createFromString("1.2e-03");
+  lexer = LexerFactory::createFromString("1.2e-03+...");
   lexerStepFloat(*lexer, "1.2e-03", 1.2e-03);
 }
 
@@ -151,6 +151,52 @@ TEST(TestLexers, FloatBad) {
   lexer = LexerFactory::createFromString("1e999");
   lexerThrowContains(*lexer, "Invalid floating-point constant");
   ASSERT_EQ(-123, value);
+}
+
+TEST(TestLexers, QuotedString) {
+  // See http://en.cppreference.com/w/cpp/language/string_literal
+  auto lexer = LexerFactory::createFromString(R"(""...)");
+  lexerStepString(*lexer, "\"\"", U"");
+  lexer = LexerFactory::createFromString(R"("Hello world"...)");
+  lexerStepString(*lexer, "\"Hello world\"", U"Hello world");
+  // JSON escapes
+  lexer = LexerFactory::createFromString(R"("\" \\ \/ \b \f \n \r \t"...)");
+  lexerStepString(*lexer, "\"\\\" \\\\ \\/ \\b \\f \\n \\r \\t\"", U"\" \\ / \b \f \n \r \t");
+  lexer = LexerFactory::createFromString(R"("\u0000"...)");
+  lexerStepString(*lexer, "\"\\u0000\"", std::u32string(U"", 1));
+  lexer = LexerFactory::createFromString(R"("\u0041B"...)");
+  lexerStepString(*lexer, "\"\\u0041B\"", U"AB");
+  // See http://en.cppreference.com/w/cpp/language/escape
+  lexer = LexerFactory::createFromString(R"("\0"...)");
+  lexerStepString(*lexer, "\"\\0\"", std::u32string(U"", 1));
+  lexer = LexerFactory::createFromString(R"("\U00000041B"...)");
+  lexerStepString(*lexer, "\"\\U00000041B\"", U"AB");
+  lexer = LexerFactory::createFromString(R"("\U41;B"...)");
+  lexerStepString(*lexer, "\"\\U41;B\"", U"AB");
+}
+
+TEST(TestLexers, QuotedStringBad) {
+  // See http://en.cppreference.com/w/cpp/language/string_literal
+  auto lexer = LexerFactory::createFromString(R"(")");
+  lexerThrowContains(*lexer, "Unexpected end of file found in quoted string");
+  lexer = LexerFactory::createFromString("\"\n\"");
+  lexerThrowContains(*lexer, "Unexpected end of line found in quoted string");
+  lexer = LexerFactory::createFromString(R"("\a")");
+  lexerThrowContains(*lexer, "Invalid escaped character in quoted string");
+  lexer = LexerFactory::createFromString(R"("\u")");
+  lexerThrowContains(*lexer, "Expected hexadecimal digit in '\\u' escape sequence in quoted string");
+  lexer = LexerFactory::createFromString(R"("\u123X")");
+  lexerThrowContains(*lexer, "Expected hexadecimal digit in '\\u' escape sequence in quoted string");
+  lexer = LexerFactory::createFromString(R"("\U")");
+  lexerThrowContains(*lexer, "Expected hexadecimal digit in '\\U' escape sequence in quoted string");
+  lexer = LexerFactory::createFromString(R"("\U;")");
+  lexerThrowContains(*lexer, "Expected hexadecimal digit in '\\U' escape sequence in quoted string");
+  lexer = LexerFactory::createFromString(R"("\U123X")");
+  lexerThrowContains(*lexer, "Expected hexadecimal digit in '\\U' escape sequence in quoted string");
+  lexer = LexerFactory::createFromString(R"("\U12345678X")");
+  lexerThrowContains(*lexer, "Invalid Unicode code point value in '\\U' escape sequence in quoted string");
+  lexer = LexerFactory::createFromString(R"("\U110000;X")");
+  lexerThrowContains(*lexer, "Invalid Unicode code point value in '\\U' escape sequence in quoted string");
 }
 
 TEST(TestLexers, Factory) {
