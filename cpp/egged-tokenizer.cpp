@@ -27,6 +27,7 @@ namespace {
       item.line = this->upcoming.line;
       item.column = this->upcoming.column;
       item.value.s.clear();
+      item.contiguous = true;
       bool skip;
       do {
         skip = false;
@@ -34,6 +35,7 @@ namespace {
         case LexerKind::Whitespace:
         case LexerKind::Comment:
           // Skip whitespace and comments
+          item.contiguous = false;
           skip = true;
           break;
         case LexerKind::Integer:

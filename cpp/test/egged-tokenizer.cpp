@@ -190,6 +190,31 @@ TEST(TestEggedTokenizer, OperatorBad) {
   ASSERT_THROW_E(tokenizer->next(item), Exception, ASSERT_CONTAINS(e.what(), "Unexpected character: '+'"));
 }
 
+TEST(TestEggedTokenizer, Contiguous) {
+  EggedTokenizerItem item;
+  auto tokenizer = EggedTokenizerFactory::createFromString("/*comment*/{}/*comment*/");
+  ASSERT_EQ(EggedTokenizerKind::ObjectStart, tokenizer->next(item));
+  ASSERT_FALSE(item.contiguous);
+  ASSERT_EQ(EggedTokenizerKind::ObjectEnd, tokenizer->next(item));
+  ASSERT_TRUE(item.contiguous);
+  ASSERT_EQ(EggedTokenizerKind::EndOfFile, tokenizer->next(item));
+  ASSERT_FALSE(item.contiguous);
+  tokenizer = EggedTokenizerFactory::createFromString("\"hello\"\"world\"");
+  ASSERT_EQ(EggedTokenizerKind::String, tokenizer->next(item));
+  ASSERT_TRUE(item.contiguous);
+  ASSERT_EQ(EggedTokenizerKind::String, tokenizer->next(item));
+  ASSERT_TRUE(item.contiguous);
+  ASSERT_EQ(EggedTokenizerKind::EndOfFile, tokenizer->next(item));
+  ASSERT_TRUE(item.contiguous);
+  tokenizer = EggedTokenizerFactory::createFromString(" \"hello\" \"world\" ");
+  ASSERT_EQ(EggedTokenizerKind::String, tokenizer->next(item));
+  ASSERT_FALSE(item.contiguous);
+  ASSERT_EQ(EggedTokenizerKind::String, tokenizer->next(item));
+  ASSERT_FALSE(item.contiguous);
+  ASSERT_EQ(EggedTokenizerKind::EndOfFile, tokenizer->next(item));
+  ASSERT_FALSE(item.contiguous);
+}
+
 TEST(TestEggedTokenizer, ExampleFile) {
   EggedTokenizerItem item;
   auto tokenizer = EggedTokenizerFactory::createFromPath("~/cpp/test/data/example.egd");

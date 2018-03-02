@@ -29,6 +29,7 @@ namespace egg::yolk {
     EggedTokenizerValue value;
     size_t line;
     size_t column;
+    bool contiguous;
   };
 
   class IEggedTokenizer {

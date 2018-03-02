@@ -1,3 +1,9 @@
+// This is an "egged" version of a JSON file
+// In particular it:
+//  * Permits comments
+//  * Supports backquoted, multiline strings
+//  * Allows unquoted object property names
+//  * Makes commas optional
 {
   firstName: "John"
   lastName: "Smith"

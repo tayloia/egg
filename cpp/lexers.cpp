@@ -112,11 +112,12 @@ namespace {
       this->eat(item); // swallow the trailing '/'
     }
     void nextOperator(LexerItem& item) {
+      // We mustn't consume extra slashes as this breaks the comment detection
       item.kind = LexerKind::Operator;
       int ch;
       do {
         ch = this->eat(item);
-      } while (Lexer::isOperator(ch));
+      } while ((ch != '/') && Lexer::isOperator(ch));
     }
     void nextIdentifier(LexerItem& item) {
       item.kind = LexerKind::Identifier;

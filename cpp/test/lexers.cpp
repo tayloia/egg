@@ -74,6 +74,11 @@ TEST(TestLexers, Comment) {
   lexerStepComment(*lexer, "/* Comment */");
   lexer = LexerFactory::createFromString("/* Multiline \n Comment */...");
   lexerStepComment(*lexer, "/* Multiline \n Comment */");
+  // Check for operators not hiding comment slashes
+  lexer = LexerFactory::createFromString(".../* Comment */...");
+  lexerStepOperator(*lexer, "...");
+  lexerStepComment(*lexer, "/* Comment */");
+  lexerStepOperator(*lexer, "...");
 }
 
 TEST(TestLexers, CommentBad) {
