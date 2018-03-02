@@ -40,3 +40,107 @@ TEST(TestStrings, Terminate) {
   egg::yolk::String::terminate(str, '!');
   ASSERT_EQ("Hello World!", str);
 }
+
+TEST(TestStrings, TryParseSigned) {
+  int64_t value = 1;
+  ASSERT_TRUE(egg::yolk::String::tryParseSigned(value, "0"));
+  ASSERT_EQ(0, value);
+  ASSERT_TRUE(egg::yolk::String::tryParseSigned(value, "1234567890"));
+  ASSERT_EQ(1234567890, value);
+  ASSERT_TRUE(egg::yolk::String::tryParseSigned(value, "-1234567890"));
+  ASSERT_EQ(-1234567890, value);
+  ASSERT_TRUE(egg::yolk::String::tryParseSigned(value, "1234567890ABCDEF", 16));
+  ASSERT_EQ(0x1234567890ABCDEF, value);
+  ASSERT_TRUE(egg::yolk::String::tryParseSigned(value, "-1234567890ABCDEF", 16));
+  ASSERT_EQ(-0x1234567890ABCDEF, value);
+  ASSERT_TRUE(egg::yolk::String::tryParseSigned(value, "0x1234567890ABCDEF", 16));
+  ASSERT_EQ(0x1234567890ABCDEF, value);
+  ASSERT_TRUE(egg::yolk::String::tryParseSigned(value, "-0x1234567890ABCDEF", 16));
+  ASSERT_EQ(-0x1234567890ABCDEF, value);
+}
+
+TEST(TestStrings, TryParseSignedBad) {
+  int64_t value = -123;
+  ASSERT_FALSE(egg::yolk::String::tryParseSigned(value, ""));
+  ASSERT_FALSE(egg::yolk::String::tryParseSigned(value, "xxx"));
+  ASSERT_FALSE(egg::yolk::String::tryParseSigned(value, "123xxx"));
+  ASSERT_FALSE(egg::yolk::String::tryParseSigned(value, "0x123xxx"));
+  ASSERT_EQ(-123, value);
+}
+
+TEST(TestStrings, TryParseUnsigned) {
+  uint64_t value = 1;
+  ASSERT_TRUE(egg::yolk::String::tryParseUnsigned(value, "0"));
+  ASSERT_EQ(0, value);
+  ASSERT_TRUE(egg::yolk::String::tryParseUnsigned(value, "1234567890"));
+  ASSERT_EQ(1234567890, value);
+  ASSERT_TRUE(egg::yolk::String::tryParseUnsigned(value, "1234567890ABCDEF", 16));
+  ASSERT_EQ(0x1234567890ABCDEF, value);
+  ASSERT_TRUE(egg::yolk::String::tryParseUnsigned(value, "0x1234567890ABCDEF", 16));
+  ASSERT_EQ(0x1234567890ABCDEF, value);
+}
+
+TEST(TestStrings, TryParseUnsignedBad) {
+  uint64_t value = 123;
+  ASSERT_FALSE(egg::yolk::String::tryParseUnsigned(value, ""));
+  ASSERT_FALSE(egg::yolk::String::tryParseUnsigned(value, "xxx"));
+  ASSERT_FALSE(egg::yolk::String::tryParseUnsigned(value, "123xxx"));
+  ASSERT_FALSE(egg::yolk::String::tryParseUnsigned(value, "0x123"));
+  ASSERT_EQ(123, value);
+}
+
+TEST(TestStrings, TryParseFloat) {
+  double value = 1;
+  ASSERT_TRUE(egg::yolk::String::tryParseFloat(value, "0"));
+  ASSERT_EQ(0, value);
+  ASSERT_TRUE(egg::yolk::String::tryParseFloat(value, "1234567890"));
+  ASSERT_EQ(1234567890, value);
+  ASSERT_TRUE(egg::yolk::String::tryParseFloat(value, "-1234567890"));
+  ASSERT_EQ(-1234567890, value);
+  ASSERT_TRUE(egg::yolk::String::tryParseFloat(value, "1.0"));
+  ASSERT_EQ(1.0, value);
+  ASSERT_TRUE(egg::yolk::String::tryParseFloat(value, "-1.0"));
+  ASSERT_EQ(-1.0, value);
+  ASSERT_TRUE(egg::yolk::String::tryParseFloat(value, "1.23"));
+  ASSERT_EQ(1.23, value);
+  ASSERT_TRUE(egg::yolk::String::tryParseFloat(value, "-1.23"));
+  ASSERT_EQ(-1.23, value);
+  ASSERT_TRUE(egg::yolk::String::tryParseFloat(value, "1e3"));
+  ASSERT_EQ(1e3, value);
+  ASSERT_TRUE(egg::yolk::String::tryParseFloat(value, "-1e3"));
+  ASSERT_EQ(-1e3, value);
+  ASSERT_TRUE(egg::yolk::String::tryParseFloat(value, "1.2e3"));
+  ASSERT_EQ(1.2e3, value);
+  ASSERT_TRUE(egg::yolk::String::tryParseFloat(value, "-1.2e3"));
+  ASSERT_EQ(-1.2e3, value);
+  ASSERT_TRUE(egg::yolk::String::tryParseFloat(value, "1.2e+03"));
+  ASSERT_EQ(1.2e+03, value);
+  ASSERT_TRUE(egg::yolk::String::tryParseFloat(value, "-1.2e+03"));
+  ASSERT_EQ(-1.2e+03, value);
+  ASSERT_TRUE(egg::yolk::String::tryParseFloat(value, "1.2e-03"));
+  ASSERT_EQ(1.2e-03, value);
+  ASSERT_TRUE(egg::yolk::String::tryParseFloat(value, "-1.2e-03"));
+  ASSERT_EQ(-1.2e-03, value);
+}
+
+TEST(TestStrings, TryParseFloatBad) {
+  double value = -123;
+  ASSERT_FALSE(egg::yolk::String::tryParseFloat(value, ""));
+  ASSERT_FALSE(egg::yolk::String::tryParseFloat(value, "xxx"));
+  ASSERT_FALSE(egg::yolk::String::tryParseFloat(value, "123xxx"));
+  ASSERT_FALSE(egg::yolk::String::tryParseFloat(value, "1.0xxx"));
+  ASSERT_FALSE(egg::yolk::String::tryParseFloat(value, "-1.0xxx"));
+  ASSERT_FALSE(egg::yolk::String::tryParseFloat(value, "1.23xxx"));
+  ASSERT_FALSE(egg::yolk::String::tryParseFloat(value, "-1.23xxx"));
+  ASSERT_FALSE(egg::yolk::String::tryParseFloat(value, "1e3xxx"));
+  ASSERT_FALSE(egg::yolk::String::tryParseFloat(value, "-1e3xxx"));
+  ASSERT_FALSE(egg::yolk::String::tryParseFloat(value, "1.2e3xxx"));
+  ASSERT_FALSE(egg::yolk::String::tryParseFloat(value, "-1.2e3xxx"));
+  ASSERT_FALSE(egg::yolk::String::tryParseFloat(value, "1.2e+xx"));
+  ASSERT_FALSE(egg::yolk::String::tryParseFloat(value, "-1.2e+xx"));
+  ASSERT_FALSE(egg::yolk::String::tryParseFloat(value, "1e-999"));
+  ASSERT_FALSE(egg::yolk::String::tryParseFloat(value, "-1e-999"));
+  ASSERT_FALSE(egg::yolk::String::tryParseFloat(value, "1e999"));
+  ASSERT_FALSE(egg::yolk::String::tryParseFloat(value, "-1e999"));
+  ASSERT_EQ(-123, value);
+}

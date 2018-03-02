@@ -30,6 +30,42 @@ namespace egg::yolk {
         str.push_back(terminator);
       }
     }
+    static bool tryParseSigned(int64_t& dst, const std::string& src, int base = 10) {
+      if (!src.empty()) {
+        errno = 0;
+        char* end = nullptr;
+        auto value = std::strtoll(src.c_str(), &end, base);
+        if ((errno == 0) && (end == &*src.end())) {
+          dst = value;
+          return true;
+        }
+      }
+      return false;
+    }
+    static bool tryParseUnsigned(uint64_t& dst, const std::string& src, int base = 10) {
+      if (!src.empty()) {
+        errno = 0;
+        char* end = nullptr;
+        auto value = std::strtoull(src.c_str(), &end, base);
+        if ((errno == 0) && (end == &*src.end())) {
+          dst = value;
+          return true;
+        }
+      }
+      return false;
+    }
+    static bool tryParseFloat(double& dst, const std::string& src) {
+      if (!src.empty()) {
+        errno = 0;
+        char* end = nullptr;
+        auto value = std::strtod(src.c_str(), &end);
+        if ((errno == 0) && (end == &*src.end())) {
+          dst = value;
+          return true;
+        }
+      }
+      return false;
+    }
     static void push_utf8(std::string& str, int utf8) {
       // See https://en.wikipedia.org/wiki/UTF-8
       assert((utf8 >= 0) && (utf8 <= 0x10FFFF));
