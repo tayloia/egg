@@ -216,11 +216,42 @@ TEST(TestLexers, BackquotedString) {
 }
 
 TEST(TestLexers, BackquotedStringBad) {
-  // See http://en.cppreference.com/w/cpp/language/string_literal
   auto lexer = LexerFactory::createFromString(R"(`)");
   lexerThrowContains(*lexer, "Unexpected end of file found in backquoted string");
   lexer = LexerFactory::createFromString(R"(```)");
   lexerThrowContains(*lexer, "Unexpected end of file found in backquoted string");
+}
+
+TEST(TestLexers, Operator) {
+  auto lexer = LexerFactory::createFromString("+xxx");
+  lexerStepOperator(*lexer, "+");
+  lexer = LexerFactory::createFromString("++xxx");
+  lexerStepOperator(*lexer, "++");
+  lexer = LexerFactory::createFromString("+=xxx");
+  lexerStepOperator(*lexer, "+=");
+  lexer = LexerFactory::createFromString(".xxx");
+  lexerStepOperator(*lexer, ".");
+  lexer = LexerFactory::createFromString(">>>xxx");
+  lexerStepOperator(*lexer, ">>>");
+}
+
+TEST(TestLexers, Identifier) {
+  auto lexer = LexerFactory::createFromString("xxx");
+  lexerStepIdentifier(*lexer, "xxx");
+  lexer = LexerFactory::createFromString("xxx...");
+  lexerStepIdentifier(*lexer, "xxx");
+  lexer = LexerFactory::createFromString("x123...");
+  lexerStepIdentifier(*lexer, "x123");
+  lexer = LexerFactory::createFromString("x_123...");
+  lexerStepIdentifier(*lexer, "x_123");
+  lexer = LexerFactory::createFromString("x_123_...");
+  lexerStepIdentifier(*lexer, "x_123_");
+  lexer = LexerFactory::createFromString("x-123...");
+  lexerStepIdentifier(*lexer, "x");
+  lexer = LexerFactory::createFromString("_...");
+  lexerStepIdentifier(*lexer, "_");
+  lexer = LexerFactory::createFromString("_123...");
+  lexerStepIdentifier(*lexer, "_123");
 }
 
 TEST(TestLexers, Factory) {
