@@ -22,6 +22,9 @@
     <ClCompile Include="..\cpp\test\json-tokenizer.cpp">
       <Filter>Test Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\cpp\test\egged-tokenizer.cpp">
+      <Filter>Test Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Data Files">
@@ -37,6 +40,9 @@
       <Filter>Data Files</Filter>
     </None>
     <None Include="..\cpp\test\data\example.json">
+      <Filter>Data Files</Filter>
+    </None>
+    <None Include="..\cpp\test\data\example.egd">
       <Filter>Data Files</Filter>
     </None>
   </ItemGroup>

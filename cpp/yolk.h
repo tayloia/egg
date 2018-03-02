@@ -19,3 +19,4 @@
 #include "strings.h"
 #include "lexers.h"
 #include "json-tokenizer.h"
+#include "egged-tokenizer.h"

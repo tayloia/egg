@@ -137,7 +137,7 @@ TEST(TestJsonTokenizer, SequentialOperators) {
   ASSERT_EQ(JsonTokenizerKind::EndOfFile, tokenizer->next(item));
 }
 
-TEST(TestJsonTokenizer, CommentCharacter) {
+TEST(TestJsonTokenizer, CharacterBad) {
   JsonTokenizerItem item;
   auto tokenizer = JsonTokenizerFactory::createFromString("\a");
   ASSERT_THROW_E(tokenizer->next(item), Exception, ASSERT_CONTAINS(e.what(), "Unexpected character: U+0007")); 
