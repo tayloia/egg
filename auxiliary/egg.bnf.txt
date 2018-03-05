@@ -1,0 +1,251 @@
+/* EBNF of the Egg programming language */
+/* For use in http://www.bottlecaps.de/rr/ui */
+
+module ::= statement+
+
+statement ::= simple-statement ';'
+            | compound-statement
+            | function-definition
+            | flow-statement
+
+simple-statement ::= type-definition
+                   | variable-definition
+                   | assignment-statement
+                   | void-function-call
+
+compound-statement ::= '{' statement* '}'
+
+type-definition ::= attribute* 'typedef' typedef-identifier '=' type-expression
+
+type-expression ::= compound-type
+                  | '(' type-list ')' '?'?
+                  | type-expression '[' type-expression? ']' '?'?
+
+type-list ::= type-expression
+            | type-list ',' type-expression
+
+compound-type ::= optional-simple-type
+                | ( optional-simple-type-or-void '|' )+ optional-simple-type-or-void
+                | function-declaration
+
+optional-simple-type-or-void ::= optional-simple-type
+                               | 'void'
+
+optional-simple-type ::= simple-type '?'?
+
+simple-type ::= 'any'
+              | 'bool'
+              | 'int'
+              | 'float'
+              | 'string'
+              | 'object'
+              | 'type' object-value
+              | typedef-identifier
+              | type-expression '*'
+
+typedef-identifier ::= identifier
+                     | identifier '<' type-list '>'
+
+function-definition ::= attribute* function-return-type function-identifier '(' function-parameter-list? ')' compound-statement
+
+function-return-type ::= type-expression
+                       | 'void'
+
+function-identifier ::= identifier
+
+function-parameter-list ::= function-parameter
+                          | function-parameter-list ',' function-parameter
+
+function-parameter ::= attribute* type-expression variable-identifier ( '=' 'null' )?
+                     | attribute* '...' type-expression '[' ']' variable-identifier
+
+function-declaration ::= 'function' function-return-type '(' function-parameter-list? ')'
+
+variable-definition ::= attribute* variable-definition-type variable-identifier ( '=' expression )?
+
+variable-definition-type ::= type-expression
+                           | 'var'
+
+variable-identifier ::= identifier
+
+assignment-statement ::= assignment-list assignment-operator expression-list
+                       | '++' assignment-target
+                       | '--' assignment-target
+
+assignment-list ::= assignment-target
+                  | assignment-list ',' assignment-target
+
+assignment-target ::= variable-identifier
+                    | '*'+ expression
+                    | expression '[' expression ']'
+                    | expression '.' identifier
+
+assignment-operator ::= '='
+                      | '*='
+                      | '/='
+                      | '%='
+                      | '+='
+                      | '-='
+                      | '<<='
+                      | '>>='
+                      | '>>>='
+                      | '&='
+                      | '^='
+                      | '|='
+
+flow-statement ::= branch-statement
+                 | jump-statement
+
+branch-statement ::= 'if' '(' condition ')' compound-statement ( 'else' compound-statement )?
+                   | 'switch' '(' expression ')' compound-statement
+                   | 'while' '(' condition ')' compound-statement
+                   | 'do' compound-statement 'while' '(' expression ')' ';'
+                   | 'for' '(' simple-statement? ';' condition? ';' simple-statement? ')' compound-statement
+                   | 'for' '(' variable-definition-type? variable-identifier ':' expression ')' compound-statement
+                   | 'try' compound-statement ( 'catch' '(' variable-definition-type variable-identifier? )? ( 'finally' compound-statement )?
+
+jump-statement ::= 'continue' ';'
+                 | 'break' ';'
+                 | 'return' expression-list? ';'
+                 | 'yield' expression? ';'
+                 | 'yield' '...' expression ';'
+
+condition ::= expression
+            | variable-definition-type variable-identifier '=' expression
+
+expression ::= conditional-expression
+
+expression-list ::= expression
+                  | expression-list ',' expression
+
+conditional-expression ::= null-coalescing-expression
+                         | null-coalescing-expression '?' expression ':' conditional-expression
+
+null-coalescing-expression ::= logical-or-expression
+                             | null-coalescing-expression '??' logical-or-expression
+
+logical-or-expression ::= logical-and-expression
+                        | logical-or-expression '||' logical-and-expression
+
+logical-and-expression ::= inclusive-or-expression
+                         | logical-and-expression '&&' inclusive-or-expression
+
+inclusive-or-expression ::= exclusive-or-expression
+                          | inclusive-or-expression '|' exclusive-or-expression
+
+exclusive-or-expression ::= and-expression
+                          | exclusive-or-expression '^' and-expression
+
+and-expression ::= equality-expression
+                 | and-expression '&' equality-expression
+
+equality-expression ::= relational-expression
+                      | equality-expression '==' relational-expression
+                      | equality-expression '!=' relational-expression
+
+relational-expression ::= shift-expression
+                        | relational-expression '<' shift-expression
+                        | relational-expression '>' shift-expression
+                        | relational-expression '<=' shift-expression
+                        | relational-expression '>=' shift-expression
+
+shift-expression ::= additive-expression
+                   | shift-expression '<<' additive-expression
+                   | shift-expression '>>' additive-expression
+                   | shift-expression '>>>' additive-expression
+
+additive-expression ::= multiplicative-expression
+                      | additive-expression '+' multiplicative-expression
+                      | additive-expression '-' multiplicative-expression
+
+multiplicative-expression ::= unary-expression
+                            | multiplicative-expression '*' unary-expression
+                            | multiplicative-expression '/' unary-expression
+                            | multiplicative-expression '%' unary-expression
+
+unary-expression ::= postfix-expression
+                   | unary-operator unary-expression
+
+unary-operator ::= '&'
+                 | '*'
+                 | '-'
+                 | '~'
+                 | '!'
+
+postfix-expression ::= primary-expression
+                     | null-detecting-expression '[' expression ']'
+                     | null-detecting-expression '(' parameter-list? ')'
+                     | null-detecting-expression '.' identifier
+
+null-detecting-expression ::= postfix-expression '?'?
+
+primary-expression ::= identifier
+                     | constant-literal
+                     | object-value
+                     | array-value
+                     | lambda-value
+                     | '(' expression ')'
+                     | cast-specifier '(' expression ')'
+
+cast-specifier ::= identifier
+                 | 'bool'
+                 | 'int'
+                 | 'float'
+                 | 'string'
+                 | 'type'
+                 | typedef-identifier
+                 | '(' type-expression ')'
+
+void-function-call ::= null-detecting-expression '(' parameter-list? ')'
+
+object-value ::= '{' object-value-list* '}'
+
+object-value-list ::= object-value-entry
+                    | object-value-list ','? object-value-entry
+
+object-value-entry ::= object-value-key ':' expression
+                     | '...' expression
+
+object-value-key ::= identifier
+                   | string
+
+array-value ::= '[' array-value-list* ']'
+
+array-value-list ::= array-value-entry
+                   | array-value-list ','? array-value-entry
+
+array-value-entry ::= expression
+                    | '...' expression
+
+parameter-list ::= positional-parameter-list
+                 | positional-parameter-list ',' named-parameter-list
+                 | named-parameter-list
+
+positional-parameter-list ::= positional-parameter
+                            | positional-parameter-list ',' positional-parameter
+
+positional-parameter ::= expression
+                       | '...' expression
+
+named-parameter-list ::= named-parameter
+                       | named-parameter-list ',' named-parameter
+
+named-parameter ::= variable-identifier '=' expression
+
+lambda-value ::= 'function' function-return-type? '(' lambda-parameter-list? ')' compound-statement
+               | lambda-parameter '->' expression
+
+lambda-parameter-list ::= lambda-parameter
+                        | lambda-parameter-list ',' lambda-parameter
+
+lambda-parameter ::= type-expression? variable-identifier ( '=' 'null' )?
+                   | '...' type-expression '[' ']' variable-identifier
+
+attribute ::= '@' identifier ( '(' parameter-list ')' )*
+
+/* TODO: Generics */
+/* TODO: Generators */
+/* TODO: yield ...range; */
+/* TODO: [ ...before, after ] and for objects */
+/* TODO: [ before, ...after ] and for objects */
+/* TODO: @capture */
