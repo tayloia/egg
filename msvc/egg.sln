@@ -15,6 +15,11 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "yolk-test", "yolk-test.vcxp
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "yolk", "yolk.vcxproj", "{05A72EA2-0B14-4E92-86F1-C98E7FDFFBBA}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Auxiliary Files", "Auxiliary Files", "{3A0C1E75-6808-444E-AAF5-812F75DFEDA8}"
+	ProjectSection(SolutionItems) = preProject
+		..\auxiliary\c.bnf.txt = ..\auxiliary\c.bnf.txt
+	EndProjectSection
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x64 = Debug|x64
