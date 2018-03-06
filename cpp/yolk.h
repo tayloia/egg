@@ -21,3 +21,4 @@
 #include "json-tokenizer.h"
 #include "egg-tokenizer.h"
 #include "egged-tokenizer.h"
+#include "egg-parser.h"
