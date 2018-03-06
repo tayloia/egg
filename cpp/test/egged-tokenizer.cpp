@@ -2,23 +2,34 @@
 
 using namespace egg::yolk;
 
+namespace {
+  std::shared_ptr<IEggedTokenizer> createFromString(const std::string& text) {
+    auto lexer = LexerFactory::createFromString(text);
+    return EggedTokenizerFactory::createFromLexer(lexer);
+  }
+  std::shared_ptr<IEggedTokenizer> createFromPath(const std::string& path) {
+    auto lexer = LexerFactory::createFromPath(path);
+    return EggedTokenizerFactory::createFromLexer(lexer);
+  }
+}
+
 TEST(TestEggedTokenizer, EmptyFile) {
   EggedTokenizerItem item;
-  auto tokenizer = EggedTokenizerFactory::createFromString("");
+  auto tokenizer = createFromString("");
   ASSERT_EQ(EggedTokenizerKind::EndOfFile, tokenizer->next(item));
 }
 
 TEST(TestEggedTokenizer, Comment) {
   EggedTokenizerItem item;
-  auto tokenizer = EggedTokenizerFactory::createFromString("// Comment\nnull");
+  auto tokenizer = createFromString("// Comment\nnull");
   ASSERT_EQ(EggedTokenizerKind::Null, tokenizer->next(item));
-  tokenizer = EggedTokenizerFactory::createFromString("/* Comment */null");
+  tokenizer = createFromString("/* Comment */null");
   ASSERT_EQ(EggedTokenizerKind::Null, tokenizer->next(item));
 }
 
 TEST(TestEggedTokenizer, EmptyObject) {
   EggedTokenizerItem item;
-  auto tokenizer = EggedTokenizerFactory::createFromString("{}");
+  auto tokenizer = createFromString("{}");
   ASSERT_EQ(EggedTokenizerKind::ObjectStart, tokenizer->next(item));
   ASSERT_EQ(EggedTokenizerKind::ObjectEnd, tokenizer->next(item));
   ASSERT_EQ(EggedTokenizerKind::EndOfFile, tokenizer->next(item));
@@ -26,14 +37,14 @@ TEST(TestEggedTokenizer, EmptyObject) {
 
 TEST(TestEggedTokenizer, EmptyArray) {
   EggedTokenizerItem item;
-  auto tokenizer = EggedTokenizerFactory::createFromString("[]");
+  auto tokenizer = createFromString("[]");
   ASSERT_EQ(EggedTokenizerKind::ArrayStart, tokenizer->next(item));
   ASSERT_EQ(EggedTokenizerKind::ArrayEnd, tokenizer->next(item));
 }
 
 TEST(TestEggedTokenizer, Null) {
   EggedTokenizerItem item;
-  auto tokenizer = EggedTokenizerFactory::createFromString("{ \"null\": null }");
+  auto tokenizer = createFromString("{ \"null\": null }");
   ASSERT_EQ(EggedTokenizerKind::ObjectStart, tokenizer->next(item));
   ASSERT_EQ(EggedTokenizerKind::String, tokenizer->next(item));
   ASSERT_EQ("null", item.value.s);
@@ -45,7 +56,7 @@ TEST(TestEggedTokenizer, Null) {
 
 TEST(TestEggedTokenizer, BooleanFalse) {
   EggedTokenizerItem item;
-  auto tokenizer = EggedTokenizerFactory::createFromString("{ \"no\": false }");
+  auto tokenizer = createFromString("{ \"no\": false }");
   ASSERT_EQ(EggedTokenizerKind::ObjectStart, tokenizer->next(item));
   ASSERT_EQ(EggedTokenizerKind::String, tokenizer->next(item));
   ASSERT_EQ("no", item.value.s);
@@ -58,7 +69,7 @@ TEST(TestEggedTokenizer, BooleanFalse) {
 
 TEST(TestEggedTokenizer, BooleanTrue) {
   EggedTokenizerItem item;
-  auto tokenizer = EggedTokenizerFactory::createFromString("{ \"yes\": true }");
+  auto tokenizer = createFromString("{ \"yes\": true }");
   ASSERT_EQ(EggedTokenizerKind::ObjectStart, tokenizer->next(item));
   ASSERT_EQ(EggedTokenizerKind::String, tokenizer->next(item));
   ASSERT_EQ("yes", item.value.s);
@@ -71,7 +82,7 @@ TEST(TestEggedTokenizer, BooleanTrue) {
 
 TEST(TestEggedTokenizer, Integer) {
   EggedTokenizerItem item;
-  auto tokenizer = EggedTokenizerFactory::createFromString("{ \"positive\": 123 \"negative\": -123 }");
+  auto tokenizer = createFromString("{ \"positive\": 123 \"negative\": -123 }");
   ASSERT_EQ(EggedTokenizerKind::ObjectStart, tokenizer->next(item));
   ASSERT_EQ(EggedTokenizerKind::String, tokenizer->next(item));
   ASSERT_EQ("positive", item.value.s);
@@ -89,7 +100,7 @@ TEST(TestEggedTokenizer, Integer) {
 
 TEST(TestEggedTokenizer, Float) {
   EggedTokenizerItem item;
-  auto tokenizer = EggedTokenizerFactory::createFromString("{ positive: 3.14159 negative: -3.14159 }");
+  auto tokenizer = createFromString("{ positive: 3.14159 negative: -3.14159 }");
   ASSERT_EQ(EggedTokenizerKind::ObjectStart, tokenizer->next(item));
   ASSERT_EQ(EggedTokenizerKind::Identifier, tokenizer->next(item));
   ASSERT_EQ("positive", item.value.s);
@@ -107,7 +118,7 @@ TEST(TestEggedTokenizer, Float) {
 
 TEST(TestEggedTokenizer, String) {
   EggedTokenizerItem item;
-  auto tokenizer = EggedTokenizerFactory::createFromString("{ \"greeting\": \"hello world\" }");
+  auto tokenizer = createFromString("{ \"greeting\": \"hello world\" }");
   ASSERT_EQ(EggedTokenizerKind::ObjectStart, tokenizer->next(item));
   ASSERT_EQ(EggedTokenizerKind::String, tokenizer->next(item));
   ASSERT_EQ("greeting", item.value.s);
@@ -117,7 +128,7 @@ TEST(TestEggedTokenizer, String) {
   ASSERT_EQ(EggedTokenizerKind::ObjectEnd, tokenizer->next(item));
   ASSERT_EQ(EggedTokenizerKind::EndOfFile, tokenizer->next(item));
 
-  tokenizer = EggedTokenizerFactory::createFromString("{ `greeting`: `hello\nworld` }");
+  tokenizer = createFromString("{ `greeting`: `hello\nworld` }");
   ASSERT_EQ(EggedTokenizerKind::ObjectStart, tokenizer->next(item));
   ASSERT_EQ(EggedTokenizerKind::String, tokenizer->next(item));
   ASSERT_EQ("greeting", item.value.s);
@@ -130,14 +141,14 @@ TEST(TestEggedTokenizer, String) {
 
 TEST(TestEggedTokenizer, Identifier) {
   EggedTokenizerItem item;
-  auto tokenizer = EggedTokenizerFactory::createFromString("identifier");
+  auto tokenizer = createFromString("identifier");
   ASSERT_EQ(EggedTokenizerKind::Identifier, tokenizer->next(item));
   ASSERT_EQ("identifier", item.value.s);
 }
 
 TEST(TestEggedTokenizer, SequentialOperators) {
   EggedTokenizerItem item;
-  auto tokenizer = EggedTokenizerFactory::createFromString("{:-1}");
+  auto tokenizer = createFromString("{:-1}");
   ASSERT_EQ(EggedTokenizerKind::ObjectStart, tokenizer->next(item));
   ASSERT_EQ(EggedTokenizerKind::Colon, tokenizer->next(item));
   ASSERT_EQ(EggedTokenizerKind::Integer, tokenizer->next(item));
@@ -148,65 +159,65 @@ TEST(TestEggedTokenizer, SequentialOperators) {
 
 TEST(TestEggedTokenizer, CharacterBad) {
   EggedTokenizerItem item;
-  auto tokenizer = EggedTokenizerFactory::createFromString("\a");
+  auto tokenizer = createFromString("\a");
   ASSERT_THROW_E(tokenizer->next(item), Exception, ASSERT_CONTAINS(e.what(), "Unexpected character: U+0007")); 
-  tokenizer = EggedTokenizerFactory::createFromString("$");
+  tokenizer = createFromString("$");
   ASSERT_THROW_E(tokenizer->next(item), Exception, ASSERT_CONTAINS(e.what(), "Unexpected character"));
 }
 
 TEST(TestEggedTokenizer, NumberBad) {
   EggedTokenizerItem item;
-  auto tokenizer = EggedTokenizerFactory::createFromString("18446744073709551616");
+  auto tokenizer = createFromString("18446744073709551616");
   ASSERT_THROW_E(tokenizer->next(item), Exception, ASSERT_CONTAINS(e.what(), "Invalid integer constant"));
-  tokenizer = EggedTokenizerFactory::createFromString("-9223372036854775809");
+  tokenizer = createFromString("-9223372036854775809");
   ASSERT_THROW_E(tokenizer->next(item), Exception, ASSERT_CONTAINS(e.what(), "Invalid negative integer constant"));
-  tokenizer = EggedTokenizerFactory::createFromString("1e999");
+  tokenizer = createFromString("1e999");
   ASSERT_THROW_E(tokenizer->next(item), Exception, ASSERT_CONTAINS(e.what(), "Invalid floating-point constant"));
-  tokenizer = EggedTokenizerFactory::createFromString("00");
+  tokenizer = createFromString("00");
   ASSERT_THROW_E(tokenizer->next(item), Exception, ASSERT_CONTAINS(e.what(), "Invalid integer constant (extraneous leading '0')"));
-  tokenizer = EggedTokenizerFactory::createFromString("0.x");
+  tokenizer = createFromString("0.x");
   ASSERT_THROW_E(tokenizer->next(item), Exception, ASSERT_CONTAINS(e.what(), "Expected digit to follow decimal point in floating-point constant"));
-  tokenizer = EggedTokenizerFactory::createFromString("0ex");
+  tokenizer = createFromString("0ex");
   ASSERT_THROW_E(tokenizer->next(item), Exception, ASSERT_CONTAINS(e.what(), "Expected digit in exponent of floating-point constant"));
-  tokenizer = EggedTokenizerFactory::createFromString("0e+x");
+  tokenizer = createFromString("0e+x");
   ASSERT_THROW_E(tokenizer->next(item), Exception, ASSERT_CONTAINS(e.what(), "Expected digit in exponent of floating-point constant"));
-  tokenizer = EggedTokenizerFactory::createFromString("-x");
+  tokenizer = createFromString("-x");
   ASSERT_THROW_E(tokenizer->next(item), Exception, ASSERT_CONTAINS(e.what(), "Expected number to follow minus sign"));
 }
 
 TEST(TestEggedTokenizer, StringBad) {
   EggedTokenizerItem item;
-  auto tokenizer = EggedTokenizerFactory::createFromString("\"");
+  auto tokenizer = createFromString("\"");
   ASSERT_THROW_E(tokenizer->next(item), Exception, ASSERT_CONTAINS(e.what(), "Unexpected end of file found in quoted string"));
-  tokenizer = EggedTokenizerFactory::createFromString("\"\n\"");
+  tokenizer = createFromString("\"\n\"");
   ASSERT_THROW_E(tokenizer->next(item), Exception, ASSERT_CONTAINS(e.what(), "Unexpected end of line found in quoted string"));
-  tokenizer = EggedTokenizerFactory::createFromString("`");
+  tokenizer = createFromString("`");
   ASSERT_THROW_E(tokenizer->next(item), Exception, ASSERT_CONTAINS(e.what(), "Unexpected end of file found in backquoted string"));
 }
 
 TEST(TestEggedTokenizer, OperatorBad) {
   EggedTokenizerItem item;
-  auto tokenizer = EggedTokenizerFactory::createFromString("+1");
+  auto tokenizer = createFromString("+1");
   ASSERT_THROW_E(tokenizer->next(item), Exception, ASSERT_CONTAINS(e.what(), "Unexpected character: '+'"));
 }
 
 TEST(TestEggedTokenizer, Contiguous) {
   EggedTokenizerItem item;
-  auto tokenizer = EggedTokenizerFactory::createFromString("/*comment*/{}/*comment*/");
+  auto tokenizer = createFromString("/*comment*/{}/*comment*/");
   ASSERT_EQ(EggedTokenizerKind::ObjectStart, tokenizer->next(item));
   ASSERT_FALSE(item.contiguous);
   ASSERT_EQ(EggedTokenizerKind::ObjectEnd, tokenizer->next(item));
   ASSERT_TRUE(item.contiguous);
   ASSERT_EQ(EggedTokenizerKind::EndOfFile, tokenizer->next(item));
   ASSERT_FALSE(item.contiguous);
-  tokenizer = EggedTokenizerFactory::createFromString("\"hello\"\"world\"");
+  tokenizer = createFromString("\"hello\"\"world\"");
   ASSERT_EQ(EggedTokenizerKind::String, tokenizer->next(item));
   ASSERT_TRUE(item.contiguous);
   ASSERT_EQ(EggedTokenizerKind::String, tokenizer->next(item));
   ASSERT_TRUE(item.contiguous);
   ASSERT_EQ(EggedTokenizerKind::EndOfFile, tokenizer->next(item));
   ASSERT_TRUE(item.contiguous);
-  tokenizer = EggedTokenizerFactory::createFromString(" \"hello\" \"world\" ");
+  tokenizer = createFromString(" \"hello\" \"world\" ");
   ASSERT_EQ(EggedTokenizerKind::String, tokenizer->next(item));
   ASSERT_FALSE(item.contiguous);
   ASSERT_EQ(EggedTokenizerKind::String, tokenizer->next(item));
@@ -217,7 +228,7 @@ TEST(TestEggedTokenizer, Contiguous) {
 
 TEST(TestEggedTokenizer, ExampleFile) {
   EggedTokenizerItem item;
-  auto tokenizer = EggedTokenizerFactory::createFromPath("~/cpp/test/data/example.egd");
+  auto tokenizer = createFromPath("~/cpp/test/data/example.egd");
   size_t count = 0;
   while (tokenizer->next(item) != EggedTokenizerKind::EndOfFile) {
     count++;

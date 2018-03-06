@@ -139,14 +139,5 @@ namespace egg::yolk {
   class EggTokenizerFactory {
   public:
     static std::shared_ptr<IEggTokenizer> createFromLexer(const std::shared_ptr<ILexer>& lexer);
-    static std::shared_ptr<IEggTokenizer> createFromPath(const std::string& path, bool swallowBOM = true) {
-      return EggTokenizerFactory::createFromLexer(LexerFactory::createFromPath(path, swallowBOM));
-    }
-    static std::shared_ptr<IEggTokenizer> createFromString(const std::string& text) {
-      return EggTokenizerFactory::createFromLexer(LexerFactory::createFromString(text));
-    }
-    static std::shared_ptr<IEggTokenizer> createFromTextStream(TextStream& stream) {
-      return EggTokenizerFactory::createFromLexer(LexerFactory::createFromTextStream(stream));
-    }
   };
 }

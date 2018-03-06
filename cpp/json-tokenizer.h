@@ -40,14 +40,5 @@ namespace egg::yolk {
   class JsonTokenizerFactory {
   public:
     static std::shared_ptr<IJsonTokenizer> createFromLexer(const std::shared_ptr<ILexer>& lexer);
-    static std::shared_ptr<IJsonTokenizer> createFromPath(const std::string& path, bool swallowBOM = true) {
-      return JsonTokenizerFactory::createFromLexer(LexerFactory::createFromPath(path, swallowBOM));
-    }
-    static std::shared_ptr<IJsonTokenizer> createFromString(const std::string& text) {
-      return JsonTokenizerFactory::createFromLexer(LexerFactory::createFromString(text));
-    }
-    static std::shared_ptr<IJsonTokenizer> createFromTextStream(TextStream& stream) {
-      return JsonTokenizerFactory::createFromLexer(LexerFactory::createFromTextStream(stream));
-    }
   };
 }

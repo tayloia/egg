@@ -2,6 +2,17 @@
 
 using namespace egg::yolk;
 
+namespace {
+  std::shared_ptr<IEggTokenizer> createFromString(const std::string& text) {
+    auto lexer = LexerFactory::createFromString(text);
+    return EggTokenizerFactory::createFromLexer(lexer);
+  }
+  std::shared_ptr<IEggTokenizer> createFromPath(const std::string& path) {
+    auto lexer = LexerFactory::createFromPath(path);
+    return EggTokenizerFactory::createFromLexer(lexer);
+  }
+}
+
 TEST(TestEggTokenizer, GetKeywordString) {
   ASSERT_EQ("any", EggTokenizerState::getKeywordString(EggTokenizerKeyword::Any));
   ASSERT_EQ("yield", EggTokenizerState::getKeywordString(EggTokenizerKeyword::Yield));
@@ -40,23 +51,23 @@ TEST(TestEggTokenizer, TryParseOperator) {
 
 TEST(TestEggTokenizer, EmptyFile) {
   EggTokenizerItem item;
-  auto tokenizer = EggTokenizerFactory::createFromString("");
+  auto tokenizer = createFromString("");
   EggTokenizerState state = EggTokenizerState::ExpectNone;
   ASSERT_EQ(EggTokenizerKind::EndOfFile, tokenizer->next(item, state));
 }
 
 TEST(TestEggTokenizer, Comment) {
   EggTokenizerItem item;
-  auto tokenizer = EggTokenizerFactory::createFromString("// Comment\n0");
+  auto tokenizer = createFromString("// Comment\n0");
   EggTokenizerState state = EggTokenizerState::ExpectNone;
   ASSERT_EQ(EggTokenizerKind::Integer, tokenizer->next(item, state));
-  tokenizer = EggTokenizerFactory::createFromString("/* Comment */0");
+  tokenizer = createFromString("/* Comment */0");
   ASSERT_EQ(EggTokenizerKind::Integer, tokenizer->next(item, state));
 }
 
 TEST(TestEggTokenizer, Integer) {
   EggTokenizerItem item;
-  auto tokenizer = EggTokenizerFactory::createFromString("12345 -12345");
+  auto tokenizer = createFromString("12345 -12345");
   EggTokenizerState state = EggTokenizerState::ExpectNumberLiteral;
   ASSERT_EQ(EggTokenizerKind::Integer, tokenizer->next(item, state));
   ASSERT_EQ(12345, item.value.i);
@@ -66,7 +77,7 @@ TEST(TestEggTokenizer, Integer) {
 
 TEST(TestEggTokenizer, Float) {
   EggTokenizerItem item;
-  auto tokenizer = EggTokenizerFactory::createFromString("3.14159 -3.14159");
+  auto tokenizer = createFromString("3.14159 -3.14159");
   EggTokenizerState state = EggTokenizerState::ExpectNumberLiteral;
   ASSERT_EQ(EggTokenizerKind::Float, tokenizer->next(item, state));
   ASSERT_EQ(3.14159, item.value.f);
@@ -76,7 +87,7 @@ TEST(TestEggTokenizer, Float) {
 
 TEST(TestEggTokenizer, String) {
   EggTokenizerItem item;
-  auto tokenizer = EggTokenizerFactory::createFromString("\"hello\" `world`");
+  auto tokenizer = createFromString("\"hello\" `world`");
   EggTokenizerState state = EggTokenizerState::ExpectNone;
   ASSERT_EQ(EggTokenizerKind::String, tokenizer->next(item, state));
   ASSERT_EQ("hello", item.value.s);
@@ -86,7 +97,7 @@ TEST(TestEggTokenizer, String) {
 
 TEST(TestEggTokenizer, Keyword) {
   EggTokenizerItem item;
-  auto tokenizer = EggTokenizerFactory::createFromString("null false true any bool int float string object yield");
+  auto tokenizer = createFromString("null false true any bool int float string object yield");
   EggTokenizerState state = EggTokenizerState::ExpectNone;
   ASSERT_EQ(EggTokenizerKind::Keyword, tokenizer->next(item, state));
   ASSERT_EQ(EggTokenizerKeyword::Null, item.value.k);
@@ -113,7 +124,7 @@ TEST(TestEggTokenizer, Keyword) {
 
 TEST(TestEggTokenizer, Operator) {
   EggTokenizerItem item;
-  auto tokenizer = EggTokenizerFactory::createFromString("!??->>>>=~ $");
+  auto tokenizer = createFromString("!??->>>>=~ $");
   EggTokenizerState state = EggTokenizerState::ExpectNone;
   ASSERT_EQ(EggTokenizerKind::Operator, tokenizer->next(item, state));
   ASSERT_EQ(EggTokenizerOperator::Bang, item.value.o);
@@ -130,7 +141,7 @@ TEST(TestEggTokenizer, Operator) {
 
 TEST(TestEggTokenizer, Identifier) {
   EggTokenizerItem item;
-  auto tokenizer = EggTokenizerFactory::createFromString("unknown _");
+  auto tokenizer = createFromString("unknown _");
   EggTokenizerState state = EggTokenizerState::ExpectNone;
   ASSERT_EQ(EggTokenizerKind::Identifier, tokenizer->next(item, state));
   ASSERT_EQ("unknown", item.value.s);
@@ -141,7 +152,7 @@ TEST(TestEggTokenizer, Identifier) {
 
 TEST(TestEggTokenizer, Attribute) {
   EggTokenizerItem item;
-  auto tokenizer = EggTokenizerFactory::createFromString("@test @and.this .@@twice(2)");
+  auto tokenizer = createFromString("@test @and.this .@@twice(2)");
   EggTokenizerState state = EggTokenizerState::ExpectNone;
   ASSERT_EQ(EggTokenizerKind::Attribute, tokenizer->next(item, state));
   ASSERT_EQ("@test", item.value.s);
@@ -157,7 +168,7 @@ TEST(TestEggTokenizer, Vexatious) {
   EggTokenizerItem item;
 
   // Parsed as "-|-|x"
-  auto tokenizer = EggTokenizerFactory::createFromString("--x");
+  auto tokenizer = createFromString("--x");
   EggTokenizerState state = EggTokenizerState::ExpectNone;
   ASSERT_EQ(EggTokenizerKind::Operator, tokenizer->next(item, state));
   ASSERT_EQ(EggTokenizerOperator::Minus, item.value.o);
@@ -168,7 +179,7 @@ TEST(TestEggTokenizer, Vexatious) {
   ASSERT_EQ(EggTokenizerKind::EndOfFile, tokenizer->next(item, state));
 
   // Parsed as "--|x"
-  tokenizer = EggTokenizerFactory::createFromString("--x");
+  tokenizer = createFromString("--x");
   state = EggTokenizerState::ExpectIncrement;
   ASSERT_EQ(EggTokenizerKind::Operator, tokenizer->next(item, state));
   ASSERT_EQ(EggTokenizerOperator::MinusMinus, item.value.o);
@@ -177,7 +188,7 @@ TEST(TestEggTokenizer, Vexatious) {
   ASSERT_EQ(EggTokenizerKind::EndOfFile, tokenizer->next(item, state));
 
   // Parsed as "-|-|x"
-  tokenizer = EggTokenizerFactory::createFromString("--x");
+  tokenizer = createFromString("--x");
   state = EggTokenizerState::ExpectNumberLiteral;
   ASSERT_EQ(EggTokenizerKind::Operator, tokenizer->next(item, state));
   ASSERT_EQ(EggTokenizerOperator::Minus, item.value.o);
@@ -188,7 +199,7 @@ TEST(TestEggTokenizer, Vexatious) {
   ASSERT_EQ(EggTokenizerKind::EndOfFile, tokenizer->next(item, state));
 
   // Parsed as "x|-|-|1"
-  tokenizer = EggTokenizerFactory::createFromString("x--1");
+  tokenizer = createFromString("x--1");
   state = EggTokenizerState::ExpectNone;
   ASSERT_EQ(EggTokenizerKind::Identifier, tokenizer->next(item, state));
   ASSERT_EQ("x", item.value.s);
@@ -201,7 +212,7 @@ TEST(TestEggTokenizer, Vexatious) {
   ASSERT_EQ(EggTokenizerKind::EndOfFile, tokenizer->next(item, state));
 
   // Parsed as "x|--|1"
-  tokenizer = EggTokenizerFactory::createFromString("x--1");
+  tokenizer = createFromString("x--1");
   state = EggTokenizerState::ExpectIncrement;
   ASSERT_EQ(EggTokenizerKind::Identifier, tokenizer->next(item, state));
   ASSERT_EQ("x", item.value.s);
@@ -212,7 +223,7 @@ TEST(TestEggTokenizer, Vexatious) {
   ASSERT_EQ(EggTokenizerKind::EndOfFile, tokenizer->next(item, state));
 
   // Parsed as "x|-|-1"
-  tokenizer = EggTokenizerFactory::createFromString("x--1");
+  tokenizer = createFromString("x--1");
   state = EggTokenizerState::ExpectNumberLiteral;
   ASSERT_EQ(EggTokenizerKind::Identifier, tokenizer->next(item, state));
   ASSERT_EQ("x", item.value.s);
@@ -223,7 +234,7 @@ TEST(TestEggTokenizer, Vexatious) {
   ASSERT_EQ(EggTokenizerKind::EndOfFile, tokenizer->next(item, state));
 
   // Parsed as "-|1"
-  tokenizer = EggTokenizerFactory::createFromString("-1");
+  tokenizer = createFromString("-1");
   state = EggTokenizerState::ExpectNone;
   ASSERT_EQ(EggTokenizerKind::Operator, tokenizer->next(item, state));
   ASSERT_EQ(EggTokenizerOperator::Minus, item.value.o);
@@ -232,7 +243,7 @@ TEST(TestEggTokenizer, Vexatious) {
   ASSERT_EQ(EggTokenizerKind::EndOfFile, tokenizer->next(item, state));
 
   // Parsed as "-|1"
-  tokenizer = EggTokenizerFactory::createFromString("-1");
+  tokenizer = createFromString("-1");
   state = EggTokenizerState::ExpectIncrement;
   ASSERT_EQ(EggTokenizerKind::Operator, tokenizer->next(item, state));
   ASSERT_EQ(EggTokenizerOperator::Minus, item.value.o);
@@ -241,7 +252,7 @@ TEST(TestEggTokenizer, Vexatious) {
   ASSERT_EQ(EggTokenizerKind::EndOfFile, tokenizer->next(item, state));
 
   // Parsed as "-1"
-  tokenizer = EggTokenizerFactory::createFromString("-1");
+  tokenizer = createFromString("-1");
   state = EggTokenizerState::ExpectNumberLiteral;
   ASSERT_EQ(EggTokenizerKind::Integer, tokenizer->next(item, state));
   ASSERT_EQ(-1, item.value.i);
@@ -250,7 +261,7 @@ TEST(TestEggTokenizer, Vexatious) {
 
 TEST(TestEggTokenizer, ExampleFile) {
   EggTokenizerItem item;
-  auto tokenizer = EggTokenizerFactory::createFromPath("~/cpp/test/data/example.egg");
+  auto tokenizer = createFromPath("~/cpp/test/data/example.egg");
   EggTokenizerState state = EggTokenizerState::ExpectNone;
   size_t count = 0;
   while (tokenizer->next(item, state) != EggTokenizerKind::EndOfFile) {
