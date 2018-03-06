@@ -19,6 +19,7 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="..\cpp\test\egg-tokenizer.cpp" />
     <ClCompile Include="..\cpp\test\egged-tokenizer.cpp" />
     <ClCompile Include="..\cpp\test\exceptions.cpp" />
     <ClCompile Include="..\cpp\test\files.cpp" />

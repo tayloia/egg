@@ -90,7 +90,7 @@ namespace {
                   this->unexpected("Invalid negative integer constant in JSON");
                 }
               } else {
-                this->unexpected("Unexpected number to follow minus sign in JSON");
+                this->unexpected("Expected number to follow minus sign in JSON");
               }
               this->lexer->next(this->upcoming);
               return item.kind;

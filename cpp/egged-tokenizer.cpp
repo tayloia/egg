@@ -89,7 +89,7 @@ namespace {
                   this->unexpected("Invalid negative integer constant");
                 }
               } else {
-                this->unexpected("Unexpected number to follow minus sign");
+                this->unexpected("Expected number to follow minus sign");
               }
               this->lexer->next(this->upcoming);
               return item.kind;

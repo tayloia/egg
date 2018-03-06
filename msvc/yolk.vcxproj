@@ -19,6 +19,7 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="..\cpp\egg-tokenizer.cpp" />
     <ClCompile Include="..\cpp\egged-tokenizer.cpp" />
     <ClCompile Include="..\cpp\exceptions.cpp" />
     <ClCompile Include="..\cpp\files.cpp" />
@@ -47,6 +48,7 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="..\cpp\egg-tokenizer.h" />
     <ClInclude Include="..\cpp\egged-tokenizer.h" />
     <ClInclude Include="..\cpp\exceptions.h" />
     <ClInclude Include="..\cpp\files.h" />

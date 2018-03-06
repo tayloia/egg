@@ -176,7 +176,7 @@ TEST(TestJsonTokenizer, NumberBad) {
   tokenizer = JsonTokenizerFactory::createFromString("0e+x");
   ASSERT_THROW_E(tokenizer->next(item), Exception, ASSERT_CONTAINS(e.what(), "Expected digit in exponent of floating-point constant"));
   tokenizer = JsonTokenizerFactory::createFromString("-x");
-  ASSERT_THROW_E(tokenizer->next(item), Exception, ASSERT_CONTAINS(e.what(), "Unexpected number to follow minus sign in JSON"));
+  ASSERT_THROW_E(tokenizer->next(item), Exception, ASSERT_CONTAINS(e.what(), "Expected number to follow minus sign in JSON"));
 }
 
 TEST(TestJsonTokenizer, StringBad) {
