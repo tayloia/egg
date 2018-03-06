@@ -2,10 +2,6 @@
 
 #include <codecvt>
 
-const egg::yolk::EggTokenizerState egg::yolk::EggTokenizerState::ExpectNone = { false, false };
-const egg::yolk::EggTokenizerState egg::yolk::EggTokenizerState::ExpectIncrement = { true, false };
-const egg::yolk::EggTokenizerState egg::yolk::EggTokenizerState::ExpectNumberLiteral = { false, true };
-
 #define EGG_TOKENIZER_KEYWORD_DEFINE(key, text) \
   { egg::yolk::EggTokenizerKeyword::key, sizeof(text)-1, text },
 #define EGG_TOKENIZER_OPERATOR_DEFINE(key, text) \
@@ -30,19 +26,19 @@ namespace {
   };
 }
 
-std::string egg::yolk::EggTokenizerState::getKeywordString(EggTokenizerKeyword value) {
+std::string egg::yolk::EggTokenizerValue::getKeywordString(EggTokenizerKeyword value) {
   size_t index = size_t(value);
   assert(index < EGG_NELEMS(keywords));
   return keywords[index].text;
 }
 
-std::string egg::yolk::EggTokenizerState::getOperatorString(EggTokenizerOperator value) {
+std::string egg::yolk::EggTokenizerValue::getOperatorString(EggTokenizerOperator value) {
   size_t index = size_t(value);
   assert(index < EGG_NELEMS(operators));
   return operators[index].text;
 }
 
-bool egg::yolk::EggTokenizerState::tryParseKeyword(const std::string& text, EggTokenizerKeyword& value) {
+bool egg::yolk::EggTokenizerValue::tryParseKeyword(const std::string& text, EggTokenizerKeyword& value) {
   // OPTIMIZE
   for (size_t i = 0; i < EGG_NELEMS(keywords); ++i) {
     if (text == keywords[i].text) {
@@ -53,7 +49,7 @@ bool egg::yolk::EggTokenizerState::tryParseKeyword(const std::string& text, EggT
   return false;
 }
 
-bool egg::yolk::EggTokenizerState::tryParseOperator(const std::string& text, EggTokenizerOperator& value, size_t& length) {
+bool egg::yolk::EggTokenizerValue::tryParseOperator(const std::string& text, EggTokenizerOperator& value, size_t& length) {
   // OPTIMIZE
   auto* data = text.data();
   auto size = text.size();
@@ -85,7 +81,7 @@ namespace {
     }
     virtual ~EggTokenizer() {
     }
-    virtual EggTokenizerKind next(EggTokenizerItem& item, const EggTokenizerState& state) override {
+    virtual EggTokenizerKind next(EggTokenizerItem& item) override {
       if (this->upcoming.line == 0) {
         // This is the first time through
         this->lexer->next(this->upcoming);
@@ -105,7 +101,7 @@ namespace {
           skip = true;
           break;
         case LexerKind::Integer:
-          // This is an unsigned integer without a preceding '-'
+          // This is an unsigned integer excluding any preceding sign
           item.value.i = int64_t(this->upcoming.value.i);
           if (item.value.i < 0) {
             this->unexpected("Invalid integer constant");
@@ -113,7 +109,7 @@ namespace {
           item.kind = EggTokenizerKind::Integer;
           break;
         case LexerKind::Float:
-          // This is a float without a preceding '-'
+          // This is a float excluding any preceding sign
           item.value.f = this->upcoming.value.f;
           item.kind = EggTokenizerKind::Float;
           break;
@@ -122,17 +118,13 @@ namespace {
           item.kind = EggTokenizerKind::String;
           break;
         case LexerKind::Operator:
-          switch (this->upcoming.verbatim.front()) {
-          case '+':
-          case '-':
-            return this->nextSign(item, state);
-          case '@':
+          if (this->upcoming.verbatim.front() == '@') {
             return this->nextAttribute(item);
           }
           return this->nextOperator(item);
         case LexerKind::Identifier:
           item.value.s = this->upcoming.verbatim;
-          if (EggTokenizerState::tryParseKeyword(item.value.s, item.value.k)) {
+          if (EggTokenizerValue::tryParseKeyword(item.value.s, item.value.k)) {
             item.kind = EggTokenizerKind::Keyword;
           } else {
             item.kind = EggTokenizerKind::Identifier;
@@ -149,83 +141,21 @@ namespace {
       } while (skip);
       return item.kind;
     }
+    virtual std::string resource() const override {
+      return this->lexer->resource();
+    }
   private:
     EggTokenizerKind nextOperator(EggTokenizerItem& item) {
       // Look for the longest operator that matches the beginning of the upcoming text
       assert(this->upcoming.kind == LexerKind::Operator);
       size_t length = 0;
-      if (!EggTokenizerState::tryParseOperator(this->upcoming.verbatim, item.value.o, length)) {
+      if (!EggTokenizerValue::tryParseOperator(this->upcoming.verbatim, item.value.o, length)) {
         this->unexpected("Unexpected character: " + String::unicodeToString(this->upcoming.verbatim.front()));
       }
       assert(length > 0);
       this->eatOperator(length);
       item.kind = EggTokenizerKind::Operator;
       return EggTokenizerKind::Operator;
-    }
-    EggTokenizerKind nextSign(EggTokenizerItem& item, const EggTokenizerState& state) {
-      assert(this->upcoming.kind == LexerKind::Operator);
-      auto ch0 = this->upcoming.verbatim.front();
-      assert((ch0 == '+') || (ch0 == '-'));
-      auto sign = (ch0 == '+') ? EggTokenizerOperator::Plus : EggTokenizerOperator::Minus;
-      if (this->upcoming.verbatim.size() == 1) {
-        // There's no contiguously-following operator character
-        auto kind = lexer->next(this->upcoming);
-        if (state.expectNumberLiteral) {
-          // Could be a sign attached to a number literal
-          if (kind == LexerKind::Integer) {
-            // Something like "-" "12.345"
-            return this->nextSignInteger(item, sign);
-          }
-          if (kind == LexerKind::Float) {
-            // Something like "-" "12345"
-            return this->nextSignFloat(item, sign);
-          }
-        }
-        // Treat the sign as an operator (unary or binary)
-        item.kind = EggTokenizerKind::Operator;
-        item.value.o = sign;
-        return item.kind;
-      }
-      assert(this->upcoming.verbatim.size() > 1);
-      auto ch1 = this->upcoming.verbatim[1];
-      if (ch0 == ch1) {
-        // Could be "++" or "--"
-        if (!state.expectIncrement) {
-          // But we aren't expecting increment/decrement so assume it's a single character
-          this->eatOperator(1);
-          item.kind = EggTokenizerKind::Operator;
-          item.value.o = sign;
-          return item.kind;
-        }
-      }
-      return this->nextOperator(item);
-    }
-    EggTokenizerKind nextSignInteger(EggTokenizerItem& item, EggTokenizerOperator sign) {
-      assert(this->upcoming.kind == LexerKind::Integer);
-      assert((sign == EggTokenizerOperator::Plus) || (sign == EggTokenizerOperator::Minus));
-      item.kind = EggTokenizerKind::Integer;
-      if (sign == EggTokenizerOperator::Plus) {
-        item.value.i = int64_t(this->upcoming.value.i);
-      } else {
-        item.value.i = -int64_t(this->upcoming.value.i);
-        if (item.value.i > 0) {
-          this->unexpected("Invalid negative integer constant");
-        }
-      }
-      this->lexer->next(this->upcoming);
-      return EggTokenizerKind::Integer;
-    }
-    EggTokenizerKind nextSignFloat(EggTokenizerItem& item, EggTokenizerOperator sign) {
-      assert(this->upcoming.kind == LexerKind::Float);
-      assert((sign == EggTokenizerOperator::Plus) || (sign == EggTokenizerOperator::Minus));
-      item.kind = EggTokenizerKind::Float;
-      if (sign == EggTokenizerOperator::Plus) {
-        item.value.f = this->upcoming.value.f;
-      } else {
-        item.value.f = -this->upcoming.value.f;
-      }
-      this->lexer->next(this->upcoming);
-      return EggTokenizerKind::Float;
     }
     EggTokenizerKind nextAttribute(EggTokenizerItem& item) {
       assert(this->upcoming.kind == LexerKind::Operator);
