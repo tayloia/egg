@@ -121,6 +121,11 @@ namespace egg::yolk {
     bool expectIncrement : 1;
     bool expectNumberLiteral : 1;
 
+    static std::string getKeywordString(EggTokenizerKeyword value);
+    static std::string getOperatorString(EggTokenizerOperator value);
+    static bool tryParseKeyword(const std::string& text, EggTokenizerKeyword& value);
+    static bool tryParseOperator(const std::string& text, EggTokenizerOperator& value, size_t& length);
+
     static const EggTokenizerState ExpectNone;
     static const EggTokenizerState ExpectIncrement;
     static const EggTokenizerState ExpectNumberLiteral;

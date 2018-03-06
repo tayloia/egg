@@ -30,6 +30,44 @@ namespace {
   };
 }
 
+std::string egg::yolk::EggTokenizerState::getKeywordString(EggTokenizerKeyword value) {
+  size_t index = size_t(value);
+  assert(index < EGG_NELEMS(keywords));
+  return keywords[index].text;
+}
+
+std::string egg::yolk::EggTokenizerState::getOperatorString(EggTokenizerOperator value) {
+  size_t index = size_t(value);
+  assert(index < EGG_NELEMS(operators));
+  return operators[index].text;
+}
+
+bool egg::yolk::EggTokenizerState::tryParseKeyword(const std::string& text, EggTokenizerKeyword& value) {
+  // OPTIMIZE
+  for (size_t i = 0; i < EGG_NELEMS(keywords); ++i) {
+    if (text == keywords[i].text) {
+      value = keywords[i].key;
+      return true;
+    }
+  }
+  return false;
+}
+
+bool egg::yolk::EggTokenizerState::tryParseOperator(const std::string& text, EggTokenizerOperator& value, size_t& length) {
+  // OPTIMIZE
+  auto* data = text.data();
+  auto size = text.size();
+  for (size_t i = EGG_NELEMS(operators); i > 0; --i) {
+    auto& candidate = operators[i - 1];
+    if ((candidate.length <= size) && (std::strncmp(candidate.text, data, candidate.length) == 0)) {
+      value = candidate.key;
+      length = candidate.length;
+      return true;
+    }
+  }
+  return false;
+}
+
 namespace {
   using namespace egg::yolk;
 
@@ -87,12 +125,18 @@ namespace {
           switch (this->upcoming.verbatim.front()) {
           case '+':
           case '-':
-            return nextSign(item, state);
+            return this->nextSign(item, state);
+          case '@':
+            return this->nextAttribute(item);
           }
-          return nextOperator(item);
+          return this->nextOperator(item);
         case LexerKind::Identifier:
           item.value.s = this->upcoming.verbatim;
-          item.kind = EggTokenizerKind::Identifier;
+          if (EggTokenizerState::tryParseKeyword(item.value.s, item.value.k)) {
+            item.kind = EggTokenizerKind::Keyword;
+          } else {
+            item.kind = EggTokenizerKind::Identifier;
+          }
           break;
         case LexerKind::EndOfFile:
           item.kind = EggTokenizerKind::EndOfFile;
@@ -109,20 +153,13 @@ namespace {
     EggTokenizerKind nextOperator(EggTokenizerItem& item) {
       // Look for the longest operator that matches the beginning of the upcoming text
       assert(this->upcoming.kind == LexerKind::Operator);
-      auto incoming = this->upcoming.verbatim.data();
-      auto length = this->upcoming.verbatim.size();
-      // OPTIMIZE
-      for (size_t i = EGG_NELEMS(operators); i > 0; --i) {
-        auto& candidate = operators[i - 1];
-        if ((candidate.length <= length) && (std::strncmp(candidate.text, incoming, candidate.length) == 0)) {
-          // Found a match
-          this->eatOperator(candidate.length);
-          item.kind = EggTokenizerKind::Operator;
-          item.value.o = candidate.key;
-          return EggTokenizerKind::Operator;
-        }
+      size_t length = 0;
+      if (!EggTokenizerState::tryParseOperator(this->upcoming.verbatim, item.value.o, length)) {
+        this->unexpected("Unexpected character: " + String::unicodeToString(this->upcoming.verbatim.front()));
       }
-      this->unexpected("Unexpected character: " + String::unicodeToString(this->upcoming.verbatim.front()));
+      assert(length > 0);
+      this->eatOperator(length);
+      item.kind = EggTokenizerKind::Operator;
       return EggTokenizerKind::Operator;
     }
     EggTokenizerKind nextSign(EggTokenizerItem& item, const EggTokenizerState& state) {
@@ -189,6 +226,28 @@ namespace {
       }
       this->lexer->next(this->upcoming);
       return EggTokenizerKind::Float;
+    }
+    EggTokenizerKind nextAttribute(EggTokenizerItem& item) {
+      assert(this->upcoming.kind == LexerKind::Operator);
+      assert(this->upcoming.verbatim.front() == '@');
+      for (auto ch : this->upcoming.verbatim) {
+        if (ch != '@') {
+          this->unexpected("Expected attribute name to follow '@', not " + String::unicodeToString(ch));
+        }
+      }
+      item.value.s = this->upcoming.verbatim;
+      if (this->lexer->next(this->upcoming) != LexerKind::Identifier) {
+        this->unexpected("Expected attribute name to follow '@'");
+      }
+      item.value.s += this->upcoming.verbatim;
+      while ((this->lexer->next(this->upcoming) == LexerKind::Operator) && (this->upcoming.verbatim == ".")) {
+        if (this->lexer->next(this->upcoming) != LexerKind::Identifier) {
+          this->unexpected("Expected attribute name component to follow '.' in attribute name");
+        }
+        item.value.s += '.' + this->upcoming.verbatim;
+      }
+      item.kind = EggTokenizerKind::Attribute;
+      return EggTokenizerKind::Attribute;
     }
     void eatOperator(size_t characters) {
       assert(this->upcoming.kind == LexerKind::Operator);

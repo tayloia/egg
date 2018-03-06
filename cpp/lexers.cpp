@@ -74,7 +74,7 @@ namespace {
       return std::isalpha(ch);
     }
     static bool isOperator(int ch) {
-      return std::strchr("!$%&()*+,-./:;<=>?[]^{|}~", ch) != nullptr;
+      return std::strchr("!$%&()*+,-./:;<=>?@[]^{|}~", ch) != nullptr;
     }
     int eat(LexerItem& item) {
       auto curr = this->stream.get();
