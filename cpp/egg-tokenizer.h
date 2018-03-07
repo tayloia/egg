@@ -36,6 +36,7 @@
   macro(Percent, "%") \
   macro(PercentEqual, "%=") \
   macro(Ampersand, "&") \
+  macro(AmpersandAmpersand, "&&") \
   macro(AmpersandEqual, "&=") \
   macro(ParenthesisLeft, "(") \
   macro(ParenthesisRight, ")") \
@@ -52,7 +53,7 @@
   macro(Dot, ".") \
   macro(Ellipsis, "...") \
   macro(Slash, "/") \
-  macro(SlahEqual, "/=") \
+  macro(SlashEqual, "/=") \
   macro(Colon, ":") \
   macro(Semicolon, ";") \
   macro(Less, "<") \
@@ -76,6 +77,7 @@
   macro(CurlyLeft, "{") \
   macro(Bar, "|") \
   macro(BarEqual, "|=") \
+  macro(BarBar, "||") \
   macro(CurlyRight, "}") \
   macro(Tilde, "~")
 #define EGG_TOKENIZER_OPERATOR_DECLARE(key, text) key,
@@ -120,6 +122,14 @@ namespace egg::yolk {
     size_t line;
     size_t column;
     bool contiguous;
+
+    bool isKeyword(EggTokenizerKeyword keyword) const {
+      return (this->kind == EggTokenizerKind::Keyword) && (this->value.k == keyword);
+    }
+    bool isOperator(EggTokenizerOperator op) const {
+      return (this->kind == EggTokenizerKind::Operator) && (this->value.o == op);
+    }
+    std::string to_string() const;
   };
 
   class IEggTokenizer {

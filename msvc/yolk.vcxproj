@@ -20,6 +20,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\cpp\egg-parser.cpp" />
+    <ClCompile Include="..\cpp\egg-syntax.cpp" />
     <ClCompile Include="..\cpp\egg-tokenizer.cpp" />
     <ClCompile Include="..\cpp\egged-tokenizer.cpp" />
     <ClCompile Include="..\cpp\exceptions.cpp" />
@@ -50,6 +51,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\cpp\egg-parser.h" />
+    <ClInclude Include="..\cpp\egg-syntax.h" />
     <ClInclude Include="..\cpp\egg-tokenizer.h" />
     <ClInclude Include="..\cpp\egged-tokenizer.h" />
     <ClInclude Include="..\cpp\exceptions.h" />

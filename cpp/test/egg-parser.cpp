@@ -21,5 +21,5 @@ TEST(TestEggParser, ExampleFile) {
   auto lexer = LexerFactory::createFromPath("~/cpp/test/data/example.egg");
   auto tokenizer = EggTokenizerFactory::createFromLexer(lexer);
   auto parser = EggParserFactory::create(EggSyntaxNodeKind::Module);
-  ASSERT_THROW(auto root = parser->parse(*tokenizer), Exception);
+  auto root = parser->parse(*tokenizer);
 }

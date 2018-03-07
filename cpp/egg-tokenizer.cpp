@@ -64,6 +64,29 @@ bool egg::yolk::EggTokenizerValue::tryParseOperator(const std::string& text, Egg
   return false;
 }
 
+std::string egg::yolk::EggTokenizerItem::to_string() const {
+  switch (this->kind) {
+  case EggTokenizerKind::Integer:
+    return "integer";
+  case EggTokenizerKind::Float:
+    return "float";
+  case EggTokenizerKind::String:
+    return "string";
+  case EggTokenizerKind::Keyword:
+    return "keyword: '" + EggTokenizerValue::getKeywordString(this->value.k) + "'";
+  case EggTokenizerKind::Operator:
+    return "operator: '" + EggTokenizerValue::getOperatorString(this->value.o) + "'";
+  case EggTokenizerKind::Identifier:
+    return "identifier: '" + this->value.s + "'";
+  case EggTokenizerKind::Attribute:
+    return "attribute: '" + this->value.s + "'";
+  case EggTokenizerKind::EndOfFile:
+    return "end-of-file";
+  default:
+    return "unknown EggTokenizerItem";
+  }
+}
+
 namespace {
   using namespace egg::yolk;
 
