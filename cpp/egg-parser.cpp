@@ -9,13 +9,14 @@
   std::unique_ptr<IEggSyntaxNode> parent(const char* expected) { \
     EggParserBacktrackMark mark(this->backtrack); \
     auto expr = this->child(expected); \
-    for (auto* token = &mark.peek(0); condition; token = &mark.peek(0)) { \
+    for (auto* token = &mark.peek(0); expr && (condition); token = &mark.peek(0)) { \
       std::string expectation = "Expected expression after binary " + token->to_string(); \
       mark.advance(1); \
       auto lhs = std::move(expr); \
       auto rhs = this->child(expectation.c_str()); \
       expr = std::make_unique<EggSyntaxNode_BinaryOperator>(token->value.o, std::move(lhs), std::move(rhs)); \
     } \
+    mark.accept(0); \
     return expr; \
   }
 #define PARSE_BINARY1_LTR(parent, child, op) \
@@ -29,8 +30,6 @@
 
 namespace {
   using namespace egg::yolk;
-
-  class EggParserBacktrackMark;
 
   class EggParserLookahead {
     EGG_NO_COPY(EggParserLookahead);
@@ -121,6 +120,7 @@ namespace {
       this->cursor = previous;
     }
     size_t advance(size_t count) {
+      // Called by EggParserBacktrackMark advance
       this->cursor += count;
       return this->cursor;
     }
@@ -134,6 +134,9 @@ namespace {
   public:
     explicit EggParserBacktrackMark(EggParserBacktrack& backtrack)
       : backtrack(backtrack), previous(backtrack.mark()) {
+    }
+    ~EggParserBacktrackMark() {
+      this->backtrack.abandon(this->previous);
     }
     const EggTokenizerItem& peek(size_t index) {
       return this->backtrack.peek(index);
@@ -216,10 +219,10 @@ std::unique_ptr<IEggSyntaxNode> EggParserContext::parseModule() {
   /*
   module ::= statement+
   */
-  EggParserBacktrackMark mark(this->backtrack);
   auto module = std::make_unique<EggSyntaxNode_Module>();
-  while (mark.peek(0).kind != EggTokenizerKind::EndOfFile) {
+  while (this->backtrack.peek(0).kind != EggTokenizerKind::EndOfFile) {
     module->addChild(std::move(this->parseStatement()));
+    this->backtrack.commit();
   }
   return module;
 }
@@ -236,8 +239,7 @@ std::unique_ptr<IEggSyntaxNode> EggParserContext::parseStatement() {
                          | assignment-statement
                          | void-function-call
   */
-  EggParserBacktrackMark mark(this->backtrack);
-  auto& p0 = mark.peek(0);
+  auto& p0 = this->backtrack.peek(0);
   switch (p0.kind) {
   case EggTokenizerKind::Integer:
   case EggTokenizerKind::Float:
@@ -347,17 +349,20 @@ std::unique_ptr<IEggSyntaxNode> EggParserContext::parseExpressionTernary(const c
   */
   EggParserBacktrackMark mark(this->backtrack);
   auto expr = this->parseExpressionNullCoalescing(expected);
-  if (expr && mark.peek(0).isOperator(EggTokenizerOperator::Query)) {
-    // Expect <expression> ? <expression> : <conditional-expression>
-    mark.advance(1);
-    auto exprTrue = this->parseExpression("Expected expression after '?' of ternary operator '?:'");
-    if (!mark.peek(0).isOperator(EggTokenizerOperator::Colon)) {
-      this->unexpected("Expected ':' as part of ternary operator '?:', not " + mark.peek(0).to_string());
+  if (expr) {
+    if (mark.peek(0).isOperator(EggTokenizerOperator::Query)) {
+      // Expect <expression> ? <expression> : <conditional-expression>
+      mark.advance(1);
+      auto exprTrue = this->parseExpression("Expected expression after '?' of ternary operator '?:'");
+      if (!mark.peek(0).isOperator(EggTokenizerOperator::Colon)) {
+        this->unexpected("Expected ':' as part of ternary operator '?:', not " + mark.peek(0).to_string());
+      }
+      mark.advance(1);
+      auto exprFalse = this->parseExpression("Expected expression after '?' of ternary operator '?:'");
+      mark.accept(0);
+      return std::make_unique<EggSyntaxNode_TernaryOperator>(std::move(expr), std::move(exprTrue), std::move(exprFalse));
     }
-    mark.advance(1);
-    auto exprFalse = this->parseExpression("Expected expression after '?' of ternary operator '?:'");
     mark.accept(0);
-    return std::make_unique<EggSyntaxNode_TernaryOperator>(std::move(expr), std::move(exprTrue), std::move(exprFalse));
   }
   return expr;
 }
@@ -373,9 +378,8 @@ std::unique_ptr<IEggSyntaxNode> EggParserContext::parseExpressionUnary(const cha
                        | '~'
                        | '!'
 */
-  EggParserBacktrackMark mark(this->backtrack);
   // '-' is never seen because of prefix '--' confusion
-  auto& p0 = mark.peek(0);
+  auto& p0 = this->backtrack.peek(0);
   assert(!p0.isOperator(EggTokenizerOperator::Minus));
   if (p0.isOperator(EggTokenizerOperator::Ampersand)) {
     expected = "Expected expression after prefix '&' operator";
@@ -388,6 +392,7 @@ std::unique_ptr<IEggSyntaxNode> EggParserContext::parseExpressionUnary(const cha
   } else {
     return this->parseExpressionPostfix(expected);
   }
+  EggParserBacktrackMark mark(this->backtrack);
   mark.advance(1);
   auto expr = this->parseExpressionUnary(expected);
   mark.accept(0);
