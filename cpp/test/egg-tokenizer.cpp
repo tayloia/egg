@@ -159,6 +159,36 @@ TEST(TestEggTokenizer, Attribute) {
   ASSERT_EQ("@@twice", item.value.s);
 }
 
+TEST(TestEggTokenizer, Line) {
+  EggTokenizerItem item;
+  auto tokenizer = createFromString("1 2.3\r\n\r\n`hello\nworld` foo");
+  ASSERT_EQ(EggTokenizerKind::Integer, tokenizer->next(item));
+  ASSERT_EQ(1, item.line);
+  ASSERT_EQ(EggTokenizerKind::Float, tokenizer->next(item));
+  ASSERT_EQ(1, item.line);
+  ASSERT_EQ(EggTokenizerKind::String, tokenizer->next(item));
+  ASSERT_EQ(3, item.line);
+  ASSERT_EQ(EggTokenizerKind::Identifier, tokenizer->next(item));
+  ASSERT_EQ(4, item.line);
+  ASSERT_EQ(EggTokenizerKind::EndOfFile, tokenizer->next(item));
+  ASSERT_EQ(4, item.line);
+}
+
+TEST(TestEggTokenizer, Column) {
+  EggTokenizerItem item;
+  auto tokenizer = createFromString("1 2.3 \"hello\" foo");
+  ASSERT_EQ(EggTokenizerKind::Integer, tokenizer->next(item));
+  ASSERT_EQ(1, item.column);
+  ASSERT_EQ(EggTokenizerKind::Float, tokenizer->next(item));
+  ASSERT_EQ(3, item.column);
+  ASSERT_EQ(EggTokenizerKind::String, tokenizer->next(item));
+  ASSERT_EQ(7, item.column);
+  ASSERT_EQ(EggTokenizerKind::Identifier, tokenizer->next(item));
+  ASSERT_EQ(15, item.column);
+  ASSERT_EQ(EggTokenizerKind::EndOfFile, tokenizer->next(item));
+  ASSERT_EQ(18, item.column);
+}
+
 TEST(TestEggTokenizer, Vexatious) {
   EggTokenizerItem item;
 

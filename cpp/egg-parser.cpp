@@ -10,7 +10,7 @@
     EggParserBacktrackMark mark(this->backtrack); \
     auto expr = this->child(expected); \
     for (auto* token = &mark.peek(0); expr && (condition); token = &mark.peek(0)) { \
-      std::string expectation = "Expected expression after binary " + token->to_string(); \
+      std::string expectation = "Expected expression after binary '" + EggTokenizerValue::getOperatorString(token->value.o) + "' operator"; \
       mark.advance(1); \
       auto lhs = std::move(expr); \
       auto rhs = this->child(expectation.c_str()); \
@@ -161,6 +161,7 @@ namespace {
     void unexpected(const EggTokenizerItem& item) {
       throw Exception("Unexpected " + item.to_string(), this->backtrack.resource(), item.line, item.column);
     }
+    void parseEndOfFile(const char* expected);
     std::unique_ptr<IEggSyntaxNode> parseCompoundStatement();
     std::unique_ptr<IEggSyntaxNode> parseExpression(const char* expected);
     std::unique_ptr<IEggSyntaxNode> parseExpressionTernary(const char* expected);
@@ -213,7 +214,10 @@ namespace {
   public:
     virtual std::shared_ptr<IEggSyntaxNode> parse(IEggTokenizer& tokenizer) override {
       EggParserContext context(tokenizer);
-      return context.parseStatement();
+      auto result = context.parseStatement();
+      assert(result != nullptr);
+      context.parseEndOfFile("Expected end of input after statement");
+      return result;
     }
   };
 
@@ -221,9 +225,19 @@ namespace {
   public:
     virtual std::shared_ptr<IEggSyntaxNode> parse(IEggTokenizer& tokenizer) override {
       EggParserContext context(tokenizer);
-      return context.parseExpression("Expression expected");
+      auto result = context.parseExpression("Expression expected");
+      assert(result != nullptr);
+      context.parseEndOfFile("Expected end of input after expression");
+      return result;
     }
   };
+}
+
+void EggParserContext::parseEndOfFile(const char* expected) {
+  auto& p0 = this->backtrack.peek(0);
+  if (p0.kind != EggTokenizerKind::EndOfFile) {
+    this->unexpected(std::string(expected) + ", not " + p0.to_string());
+  }
 }
 
 std::unique_ptr<IEggSyntaxNode> EggParserContext::parseModule() {

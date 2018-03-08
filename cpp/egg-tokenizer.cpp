@@ -109,13 +109,13 @@ namespace {
         // This is the first time through
         this->lexer->next(this->upcoming);
       }
-      item.line = this->upcoming.line;
-      item.column = this->upcoming.column;
       item.value.s.clear();
       item.contiguous = true;
       bool skip;
       do {
         skip = false;
+        item.line = this->upcoming.line;
+        item.column = this->upcoming.column;
         switch (this->upcoming.kind) {
         case LexerKind::Whitespace:
         case LexerKind::Comment:

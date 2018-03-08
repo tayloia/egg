@@ -52,6 +52,12 @@ TEST(TestEggParser, ModuleTwoStatements) {
   ASSERT_EQ("(module (declare 'foo' (type 'var')) (declare 'bar' (type 'var')))", printToString(*root));
 }
 
+TEST(TestEggParser, Extraneous) {
+  // Bad
+  ASSERT_PARSE_BAD(parseStatementToString("var foo; bar"), "(1, 10): Expected end of input after statement, not identifier: 'bar'");
+  ASSERT_PARSE_BAD(parseExpressionToString("foo bar"), "(1, 5): Expected end of input after expression, not identifier: 'bar'");
+}
+
 TEST(TestEggParser, VariableDeclaration) {
   //TODO should we allow 'var' without an initializer?
   // Good
@@ -68,8 +74,8 @@ TEST(TestEggParser, VariableInitialization) {
   ASSERT_PARSE_GOOD(parseStatementToString("any? bar = `hello`;"), "(initialize 'bar' (type 'any?') (literal string 'hello'))");
   // Bad
   ASSERT_PARSE_BAD(parseStatementToString("var foo ="), "(1, 10): Expected expression after assignment");
-  ASSERT_PARSE_BAD(parseStatementToString("var foo = ;"), "(1, 10): Expected expression after assignment");
-  ASSERT_PARSE_BAD(parseStatementToString("var foo = var"), "(1, 10): Expected expression after assignment");
+  ASSERT_PARSE_BAD(parseStatementToString("var foo = ;"), "(1, 11): Expected expression after assignment");
+  ASSERT_PARSE_BAD(parseStatementToString("var foo = var"), "(1, 11): Expected expression after assignment");
 }
 
 TEST(TestEggParser, Assignment) {
@@ -88,8 +94,8 @@ TEST(TestEggParser, Assignment) {
   ASSERT_PARSE_GOOD(parseStatementToString("lhs >>>= rhs;"), "(assign '>>>=' (identifier 'lhs') (identifier 'rhs'))");
   // Bad
   ASSERT_PARSE_BAD(parseStatementToString("lhs = rhs"), "(1, 10): Expected semicolon after assignment statement");
-  ASSERT_PARSE_BAD(parseStatementToString("lhs *= var"), "(1, 7): Expected expression after assignment '*=' operator");
-  ASSERT_PARSE_BAD(parseStatementToString("lhs = rhs extra"), "(1, 10): Expected semicolon after assignment statement");
+  ASSERT_PARSE_BAD(parseStatementToString("lhs *= var"), "(1, 8): Expected expression after assignment '*=' operator");
+  ASSERT_PARSE_BAD(parseStatementToString("lhs = rhs extra"), "(1, 11): Expected semicolon after assignment statement");
 }
 
 TEST(TestEggParser, ExpressionTernary) {
@@ -98,7 +104,15 @@ TEST(TestEggParser, ExpressionTernary) {
   ASSERT_PARSE_GOOD(parseExpressionToString("a ? b : c ? d : e"), "(ternary (identifier 'a') (identifier 'b') (ternary (identifier 'c') (identifier 'd') (identifier 'e')))");
   ASSERT_PARSE_GOOD(parseExpressionToString("a ? b ? c : d : e"), "(ternary (identifier 'a') (ternary (identifier 'b') (identifier 'c') (identifier 'd')) (identifier 'e'))");
   // Bad
-  ASSERT_PARSE_BAD(parseExpressionToString("a ? : c"), "(1, 4): Expected expression after '?' of ternary operator");
+  ASSERT_PARSE_BAD(parseExpressionToString("a ? : c"), "(1, 5): Expected expression after '?' of ternary operator");
+  ASSERT_PARSE_BAD(parseExpressionToString("a ? b :"), "(1, 8): Expected expression after ':' of ternary operator");
+}
+
+TEST(TestEggParser, ExpressionBinary) {
+  // Good
+  ASSERT_PARSE_GOOD(parseExpressionToString("a + b"), "(binary '+' (identifier 'a') (identifier 'b'))");
+  // Bad
+  ASSERT_PARSE_BAD(parseExpressionToString("a +"), "(1, 4): Expected expression after binary '+' operator");
   ASSERT_PARSE_BAD(parseExpressionToString("a ? b :"), "(1, 8): Expected expression after ':' of ternary operator");
 }
 
