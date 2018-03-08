@@ -1,7 +1,7 @@
 namespace egg::yolk {
   class IEggParser {
   public:
-    virtual std::shared_ptr<const IEggSyntaxNode> parse(IEggTokenizer& tokenizer) = 0;
+    virtual std::shared_ptr<IEggSyntaxNode> parse(IEggTokenizer& tokenizer) = 0;
   };
 
   class EggParserFactory {

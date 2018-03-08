@@ -83,7 +83,6 @@ namespace {
     }
     void push() {
       this->tokenizer.next(this->upcoming.emplace_back());
-      std::cout << "WIBBLE: EggParserLookahead read " << this->upcoming.back().to_string() << std::endl;
     }
   };
 
@@ -208,7 +207,7 @@ namespace {
 
   class EggParserModule : public IEggParser {
   public:
-    virtual std::shared_ptr<const IEggSyntaxNode> parse(IEggTokenizer& tokenizer) override {
+    virtual std::shared_ptr<IEggSyntaxNode> parse(IEggTokenizer& tokenizer) override {
       EggParserContext context(tokenizer);
       return context.parseModule();
     }

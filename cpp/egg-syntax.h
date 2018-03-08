@@ -12,8 +12,28 @@
 #define EGG_SYNTAX_NODE_DECLARE(value) value,
 
 namespace egg::yolk {
+  class IEggSyntaxNode;
+
   enum class EggSyntaxNodeKind {
     EGG_SYNTAX_NODES(EGG_SYNTAX_NODE_DECLARE)
+  };
+
+  class IEggSyntaxNodeVisitor {
+  public:
+    virtual void node(const std::string& prefix, IEggSyntaxNode* children[], size_t count) = 0;
+
+    // Helpers
+    template<size_t N>
+    void node(const std::string& prefix, const std::unique_ptr<IEggSyntaxNode> (&children)[N]) {
+      IEggSyntaxNode* pointers[N];
+      for (size_t i = 0; i < N; ++i) {
+        pointers[i] = children[i].get();
+      }
+      this->node(prefix, pointers, N);
+    }
+    void node(const std::string& prefix, const std::vector<std::unique_ptr<IEggSyntaxNode>>& children);
+    void node(const std::string& prefix, const std::unique_ptr<IEggSyntaxNode>& child);
+    void node(const std::string& prefix);
   };
 
   class IEggSyntaxNode {
@@ -22,6 +42,7 @@ namespace egg::yolk {
     virtual size_t getChildren() const = 0;
     virtual IEggSyntaxNode* tryGetChild(size_t index) const = 0;
     virtual const EggTokenizerOperator* tryGetOperator() const = 0;
+    virtual void visit(IEggSyntaxNodeVisitor& visitor) = 0;
 
     // Helpers
     IEggSyntaxNode& getChild(size_t index) const;
@@ -117,6 +138,7 @@ namespace egg::yolk {
     virtual const EggTokenizerOperator* tryGetOperator() const override {
       return nullptr;
     }
+    virtual void visit(IEggSyntaxNodeVisitor& visitor) override;
     void addChild(std::unique_ptr<IEggSyntaxNode>&& child) {
       this->children.emplace_back(std::move(child));
     }
@@ -143,6 +165,7 @@ namespace egg::yolk {
     bool isInferred() const {
       return (this->allowed & ~Void) == 0;
     }
+    virtual void visit(IEggSyntaxNodeVisitor& visitor) override;
   };
 
   class EggSyntaxNode_VariableDeclaration : public EggSyntaxNodeChildren1<EggSyntaxNodeKind::VariableDeclaration> {
@@ -153,6 +176,7 @@ namespace egg::yolk {
     EggSyntaxNode_VariableDeclaration(std::string name, std::unique_ptr<IEggSyntaxNode>&& type)
       : EggSyntaxNodeChildren1(std::move(type)), name(name) {
     }
+    virtual void visit(IEggSyntaxNodeVisitor& visitor) override;
   };
 
   class EggSyntaxNode_VariableDefinition : public EggSyntaxNodeChildrenN<EggSyntaxNodeKind::VariableDefinition, 2> {
@@ -167,6 +191,7 @@ namespace egg::yolk {
       this->child[0] = std::move(type);
       this->child[1] = std::move(expr);
     }
+    virtual void visit(IEggSyntaxNodeVisitor& visitor) override;
   };
 
   class EggSyntaxNode_Assignment : public EggSyntaxNodeChildrenN<EggSyntaxNodeKind::Assignment, 2> {
@@ -181,6 +206,7 @@ namespace egg::yolk {
       this->child[0] = std::move(lhs);
       this->child[1] = std::move(rhs);
     }
+    virtual void visit(IEggSyntaxNodeVisitor& visitor) override;
   };
 
   class EggSyntaxNode_UnaryOperator : public EggSyntaxNodeChildren1<EggSyntaxNodeKind::UnaryOperator> {
@@ -194,6 +220,7 @@ namespace egg::yolk {
     virtual const EggTokenizerOperator* tryGetOperator() const override {
       return &this->op;
     }
+    virtual void visit(IEggSyntaxNodeVisitor& visitor) override;
   };
 
   class EggSyntaxNode_BinaryOperator : public EggSyntaxNodeChildrenN<EggSyntaxNodeKind::BinaryOperator, 2> {
@@ -211,6 +238,7 @@ namespace egg::yolk {
     virtual const EggTokenizerOperator* tryGetOperator() const override {
       return &this->op;
     }
+    virtual void visit(IEggSyntaxNodeVisitor& visitor) override;
   };
 
   class EggSyntaxNode_TernaryOperator : public EggSyntaxNodeChildrenN<EggSyntaxNodeKind::TernaryOperator, 3> {
@@ -224,6 +252,7 @@ namespace egg::yolk {
       this->child[1] = std::move(whenTrue);
       this->child[2] = std::move(whenFalse);
     }
+    virtual void visit(IEggSyntaxNodeVisitor& visitor) override;
   };
 
   class EggSyntaxNode_Identifier : public EggSyntaxNodeChildren0<EggSyntaxNodeKind::Identifier> {
@@ -234,6 +263,7 @@ namespace egg::yolk {
     explicit EggSyntaxNode_Identifier(std::string name)
       : name(name) {
     }
+    virtual void visit(IEggSyntaxNodeVisitor& visitor) override;
   };
 
   class EggSyntaxNode_Literal : public EggSyntaxNodeChildren0<EggSyntaxNodeKind::Literal> {
@@ -245,5 +275,11 @@ namespace egg::yolk {
     EggSyntaxNode_Literal(EggTokenizerKind kind, const EggTokenizerValue& value)
       : kind(kind), value(value) {
     }
+    virtual void visit(IEggSyntaxNodeVisitor& visitor) override;
+  };
+
+  class EggSyntaxNode {
+  public:
+    static std::ostream& printToStream(std::ostream& os, IEggSyntaxNode& tree);
   };
 }
