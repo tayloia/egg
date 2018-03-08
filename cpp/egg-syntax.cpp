@@ -26,6 +26,24 @@ namespace {
       *this->os << ')';
     }
   };
+
+  class EggSyntaxNodeVisitorConcise : public IEggSyntaxNodeVisitor {
+  private:
+    std::ostream* os;
+  public:
+    explicit EggSyntaxNodeVisitorConcise(std::ostream& os)
+      : os(&os) {
+    }
+    virtual void node(const std::string& prefix, IEggSyntaxNode* children[], size_t count) override {
+      *this->os << '(' << prefix;
+      for (size_t i = 0; i < count; ++i) {
+        *this->os << ' ';
+        assert(children[i] != nullptr);
+        children[i]->visit(*this);
+      }
+      *this->os << ')';
+    }
+  };
 }
 
 void egg::yolk::IEggSyntaxNodeVisitor::node(const std::string & prefix, const std::vector<std::unique_ptr<IEggSyntaxNode>>& children) {
@@ -100,8 +118,8 @@ void egg::yolk::EggSyntaxNode_VariableDeclaration::visit(IEggSyntaxNodeVisitor& 
   visitor.node("declare '" + this->name + "'", this->child);
 }
 
-void egg::yolk::EggSyntaxNode_VariableDefinition::visit(IEggSyntaxNodeVisitor& visitor) {
-  visitor.node("define '" + this->name + "'", this->child);
+void egg::yolk::EggSyntaxNode_VariableInitialization::visit(IEggSyntaxNodeVisitor& visitor) {
+  visitor.node("initialize '" + this->name + "'", this->child);
 }
 
 void egg::yolk::EggSyntaxNode_Assignment::visit(IEggSyntaxNodeVisitor& visitor) {
@@ -151,8 +169,13 @@ std::string egg::yolk::EggSyntaxNode_Literal::to_string() const {
   }
 }
 
-std::ostream& egg::yolk::EggSyntaxNode::printToStream(std::ostream& os, IEggSyntaxNode& tree) {
-  EggSyntaxNodeVisitor visitor(os);
-  tree.visit(visitor);
+std::ostream& egg::yolk::EggSyntaxNode::printToStream(std::ostream& os, IEggSyntaxNode& tree, bool concise) {
+  if (concise) {
+    EggSyntaxNodeVisitorConcise visitor(os);
+    tree.visit(visitor);
+  } else {
+    EggSyntaxNodeVisitor visitor(os);
+    tree.visit(visitor);
+  }
   return os;
 };

@@ -2,7 +2,7 @@
   macro(Module) \
   macro(Type) \
   macro(VariableDeclaration) \
-  macro(VariableDefinition) \
+  macro(VariableInitialization) \
   macro(Assignment) \
   macro(UnaryOperator) \
   macro(BinaryOperator) \
@@ -179,12 +179,12 @@ namespace egg::yolk {
     virtual void visit(IEggSyntaxNodeVisitor& visitor) override;
   };
 
-  class EggSyntaxNode_VariableDefinition : public EggSyntaxNodeChildrenN<EggSyntaxNodeKind::VariableDefinition, 2> {
-    EGG_NO_COPY(EggSyntaxNode_VariableDefinition);
+  class EggSyntaxNode_VariableInitialization : public EggSyntaxNodeChildrenN<EggSyntaxNodeKind::VariableInitialization, 2> {
+    EGG_NO_COPY(EggSyntaxNode_VariableInitialization);
   private:
     std::string name;
   public:
-    EggSyntaxNode_VariableDefinition(std::string name, std::unique_ptr<IEggSyntaxNode>&& type, std::unique_ptr<IEggSyntaxNode>&& expr)
+    EggSyntaxNode_VariableInitialization(std::string name, std::unique_ptr<IEggSyntaxNode>&& type, std::unique_ptr<IEggSyntaxNode>&& expr)
       : name(name) {
       assert(type != nullptr);
       assert(expr != nullptr);
@@ -281,6 +281,6 @@ namespace egg::yolk {
 
   class EggSyntaxNode {
   public:
-    static std::ostream& printToStream(std::ostream& os, IEggSyntaxNode& tree);
+    static std::ostream& printToStream(std::ostream& os, IEggSyntaxNode& tree, bool concise);
   };
 }

@@ -208,6 +208,14 @@ namespace {
       return context.parseModule();
     }
   };
+
+  class EggParserStatement : public IEggParser {
+  public:
+    virtual std::shared_ptr<IEggSyntaxNode> parse(IEggTokenizer& tokenizer) override {
+      EggParserContext context(tokenizer);
+      return context.parseStatement();
+    }
+  };
 }
 
 std::unique_ptr<IEggSyntaxNode> EggParserContext::parseModule() {
@@ -590,9 +598,11 @@ std::unique_ptr<IEggSyntaxNode> EggParserContext::parseStatementType(std::unique
         this->unexpected("Expected semicolon at end of initialization statement");
       }
       mark.accept(1);
-      return std::make_unique<EggSyntaxNode_VariableDefinition>(p0.value.s, std::move(type), std::move(expr));
+      return std::make_unique<EggSyntaxNode_VariableInitialization>(p0.value.s, std::move(type), std::move(expr));
     }
+    this->unexpected("Malformed variable declaration or initialization", p1);
   }
+  this->unexpected("Malformed statement", p0);
   return nullptr;
 }
 
@@ -647,9 +657,10 @@ std::unique_ptr<IEggSyntaxNode> EggParserContext::parseTypeDefinition() {
   TODO();
 }
 
-std::shared_ptr<egg::yolk::IEggParser> egg::yolk::EggParserFactory::create(EggSyntaxNodeKind kind) {
-  if (kind != EggSyntaxNodeKind::Module) {
-    EGG_THROW("Not implemented: EggParseFactory for that kind"); // TODO
-  }
+std::shared_ptr<egg::yolk::IEggParser> egg::yolk::EggParserFactory::createModuleParser() {
   return std::make_shared<EggParserModule>();
+}
+
+std::shared_ptr<egg::yolk::IEggParser> egg::yolk::EggParserFactory::createStatementParser() {
+  return std::make_shared<EggParserStatement>();
 }

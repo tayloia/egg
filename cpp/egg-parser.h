@@ -6,6 +6,7 @@ namespace egg::yolk {
 
   class EggParserFactory {
   public:
-    static std::shared_ptr<IEggParser> create(EggSyntaxNodeKind kind);
+    static std::shared_ptr<IEggParser> createModuleParser();
+    static std::shared_ptr<IEggParser> createStatementParser();
   };
 }
