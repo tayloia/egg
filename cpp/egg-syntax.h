@@ -50,7 +50,6 @@ namespace egg::yolk {
 
   template<EggSyntaxNodeKind KIND>
   class EggSyntaxNodeChildren0 : public IEggSyntaxNode {
-    EGG_NO_COPY(EggSyntaxNodeChildren0);
   public:
     EggSyntaxNodeChildren0() {
     }
@@ -73,7 +72,7 @@ namespace egg::yolk {
   template<EggSyntaxNodeKind KIND, typename TYPE = IEggSyntaxNode>
   class EggSyntaxNodeChildren1 : public IEggSyntaxNode {
     EGG_NO_COPY(EggSyntaxNodeChildren1);
-  public:
+  protected:
     std::unique_ptr<TYPE> child;
   public:
     explicit EggSyntaxNodeChildren1(std::unique_ptr<TYPE>&& child)
@@ -99,7 +98,7 @@ namespace egg::yolk {
   template<EggSyntaxNodeKind KIND, size_t N, typename TYPE = IEggSyntaxNode>
   class EggSyntaxNodeChildrenN : public IEggSyntaxNode {
     EGG_NO_COPY(EggSyntaxNodeChildrenN);
-  public:
+  protected:
     std::unique_ptr<TYPE> child[N];
   public:
     EggSyntaxNodeChildrenN() {
@@ -171,7 +170,7 @@ namespace egg::yolk {
 
   class EggSyntaxNode_VariableDeclaration : public EggSyntaxNodeChildren1<EggSyntaxNodeKind::VariableDeclaration> {
     EGG_NO_COPY(EggSyntaxNode_VariableDeclaration);
-  public:
+  private:
     std::string name;
   public:
     EggSyntaxNode_VariableDeclaration(std::string name, std::unique_ptr<IEggSyntaxNode>&& type)
@@ -182,7 +181,7 @@ namespace egg::yolk {
 
   class EggSyntaxNode_VariableDefinition : public EggSyntaxNodeChildrenN<EggSyntaxNodeKind::VariableDefinition, 2> {
     EGG_NO_COPY(EggSyntaxNode_VariableDefinition);
-  public:
+  private:
     std::string name;
   public:
     EggSyntaxNode_VariableDefinition(std::string name, std::unique_ptr<IEggSyntaxNode>&& type, std::unique_ptr<IEggSyntaxNode>&& expr)
@@ -197,7 +196,7 @@ namespace egg::yolk {
 
   class EggSyntaxNode_Assignment : public EggSyntaxNodeChildrenN<EggSyntaxNodeKind::Assignment, 2> {
     EGG_NO_COPY(EggSyntaxNode_Assignment);
-  public:
+  private:
     EggTokenizerOperator op;
   public:
     EggSyntaxNode_Assignment(EggTokenizerOperator op, std::unique_ptr<IEggSyntaxNode>&& lhs, std::unique_ptr<IEggSyntaxNode>&& rhs)
@@ -258,7 +257,7 @@ namespace egg::yolk {
 
   class EggSyntaxNode_Identifier : public EggSyntaxNodeChildren0<EggSyntaxNodeKind::Identifier> {
     EGG_NO_COPY(EggSyntaxNode_Identifier);
-  public:
+  private:
     std::string name;
   public:
     explicit EggSyntaxNode_Identifier(std::string name)
@@ -269,7 +268,7 @@ namespace egg::yolk {
 
   class EggSyntaxNode_Literal : public EggSyntaxNodeChildren0<EggSyntaxNodeKind::Literal> {
     EGG_NO_COPY(EggSyntaxNode_Literal);
-  public:
+  private:
     EggTokenizerKind kind;
     EggTokenizerValue value;
   public:

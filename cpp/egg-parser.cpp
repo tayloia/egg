@@ -32,13 +32,12 @@ namespace {
   using namespace egg::yolk;
 
   class EggParserLookahead {
-    EGG_NO_COPY(EggParserLookahead);
   private:
-    IEggTokenizer& tokenizer;
+    IEggTokenizer* tokenizer;
     std::deque<EggTokenizerItem> upcoming;
   public:
     explicit EggParserLookahead(IEggTokenizer& tokenizer)
-      : tokenizer(tokenizer) {
+      : tokenizer(&tokenizer) {
     }
     const EggTokenizerItem& peek(size_t index) {
       if (!this->ensure(index + 1)) {
@@ -64,7 +63,7 @@ namespace {
       }
     }
     std::string resource() const {
-      return this->tokenizer.resource();
+      return this->tokenizer->resource();
     }
   private:
     bool ensure(size_t count) {
@@ -82,12 +81,11 @@ namespace {
       return true;
     }
     void push() {
-      this->tokenizer.next(this->upcoming.emplace_back());
+      this->tokenizer->next(this->upcoming.emplace_back());
     }
   };
 
   class EggParserBacktrack {
-    EGG_NO_COPY(EggParserBacktrack);
     friend class EggParserBacktrackMark;
   private:
     EggParserLookahead lookahead;
@@ -126,30 +124,28 @@ namespace {
   };
 
   class EggParserBacktrackMark {
-    EGG_NO_COPY(EggParserBacktrackMark);
   private:
-    EggParserBacktrack& backtrack;
+    EggParserBacktrack* backtrack;
     size_t previous;
   public:
     explicit EggParserBacktrackMark(EggParserBacktrack& backtrack)
-      : backtrack(backtrack), previous(backtrack.mark()) {
+      : backtrack(&backtrack), previous(backtrack.mark()) {
     }
     ~EggParserBacktrackMark() {
-      this->backtrack.abandon(this->previous);
+      this->backtrack->abandon(this->previous);
     }
     const EggTokenizerItem& peek(size_t index) {
-      return this->backtrack.peek(index);
+      return this->backtrack->peek(index);
     }
     void advance(size_t count) {
-      this->backtrack.advance(count);
+      this->backtrack->advance(count);
     }
     void accept(size_t count) {
-      this->previous = this->backtrack.advance(count);
+      this->previous = this->backtrack->advance(count);
     }
   };
 
   class EggParserContext {
-    EGG_NO_COPY(EggParserContext);
   private:
     EggParserBacktrack backtrack;
   public:
