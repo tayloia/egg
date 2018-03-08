@@ -611,7 +611,7 @@ std::unique_ptr<IEggSyntaxNode> EggParserContext::parseStatementYield() {
 std::unique_ptr<IEggSyntaxNode> EggParserContext::parseType() {
   auto& p0 = this->backtrack.peek(0);
   if (p0.isKeyword(EggTokenizerKeyword::Var)) {
-    return parseTypeSimple(EggSyntaxNode_Type::Void);
+    return parseTypeSimple(EggSyntaxNode_Type::Inferred);
   }
   if (p0.isKeyword(EggTokenizerKeyword::Bool)) {
     return parseTypeSimple(EggSyntaxNode_Type::Bool);
@@ -626,10 +626,10 @@ std::unique_ptr<IEggSyntaxNode> EggParserContext::parseType() {
     return parseTypeSimple(EggSyntaxNode_Type::String);
   }
   if (p0.isKeyword(EggTokenizerKeyword::Object)) {
-    return parseTypeSimple(EggSyntaxNode_Type::Other);
+    return parseTypeSimple(EggSyntaxNode_Type::Object);
   }
   if (p0.isKeyword(EggTokenizerKeyword::Any)) {
-    auto any = EggSyntaxNode_Type::Allowed(EggSyntaxNode_Type::Bool | EggSyntaxNode_Type::Int | EggSyntaxNode_Type::Float | EggSyntaxNode_Type::String | EggSyntaxNode_Type::Other);
+    auto any = EggSyntaxNode_Type::Allowed(EggSyntaxNode_Type::Bool | EggSyntaxNode_Type::Int | EggSyntaxNode_Type::Float | EggSyntaxNode_Type::String | EggSyntaxNode_Type::Object);
     return parseTypeSimple(any);
   }
   return nullptr; // TODO

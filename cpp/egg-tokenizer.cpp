@@ -129,11 +129,13 @@ namespace {
           if (item.value.i < 0) {
             this->unexpected("Invalid integer constant");
           }
+          item.value.s = this->upcoming.verbatim;
           item.kind = EggTokenizerKind::Integer;
           break;
         case LexerKind::Float:
           // This is a float excluding any preceding sign
           item.value.f = this->upcoming.value.f;
+          item.value.s = this->upcoming.verbatim;
           item.kind = EggTokenizerKind::Float;
           break;
         case LexerKind::String:

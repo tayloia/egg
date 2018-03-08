@@ -154,7 +154,7 @@ namespace egg::yolk {
       Int = 0x04,
       Float = 0x08,
       String = 0x10,
-      Other = 0x20
+      Object = 0x20
     };
   private:
     Allowed allowed;
@@ -162,10 +162,11 @@ namespace egg::yolk {
     explicit EggSyntaxNode_Type(Allowed allowed)
       : allowed(allowed) {
     }
+    virtual void visit(IEggSyntaxNodeVisitor& visitor) override;
     bool isInferred() const {
       return (this->allowed & ~Void) == 0;
     }
-    virtual void visit(IEggSyntaxNodeVisitor& visitor) override;
+    static std::string to_string(Allowed allowed);
   };
 
   class EggSyntaxNode_VariableDeclaration : public EggSyntaxNodeChildren1<EggSyntaxNodeKind::VariableDeclaration> {
@@ -276,6 +277,7 @@ namespace egg::yolk {
       : kind(kind), value(value) {
     }
     virtual void visit(IEggSyntaxNodeVisitor& visitor) override;
+    std::string to_string() const;
   };
 
   class EggSyntaxNode {

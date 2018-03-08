@@ -6,25 +6,33 @@ namespace {
   class EggSyntaxNodeVisitor : public IEggSyntaxNodeVisitor {
   private:
     std::ostream* os;
+    size_t indent;
   public:
     explicit EggSyntaxNodeVisitor(std::ostream& os)
-      : os(&os) {
+      : os(&os), indent(0) {
     }
     virtual void node(const std::string& prefix, IEggSyntaxNode* children[], size_t count) override {
+      for (size_t i = 0; i < this->indent; ++i) {
+        this->os->write("  ", 2);
+      }
       *this->os << '(' << prefix;
+      this->indent++;
       for (size_t i = 0; i < count; ++i) {
-        *this->os << ' ';
+        *this->os << std::endl;
+        assert(children[i] != nullptr);
         children[i]->visit(*this);
       }
+      this->indent--;
       *this->os << ')';
     }
   };
 }
+
 void egg::yolk::IEggSyntaxNodeVisitor::node(const std::string & prefix, const std::vector<std::unique_ptr<IEggSyntaxNode>>& children) {
   std::vector<IEggSyntaxNode*> pointers(children.size());
   auto dst = pointers.begin();
   for (auto& src : children) {
-    *dst = src.get();
+    *(dst++) = src.get();
   }
   this->node(prefix, pointers.data(), pointers.size());
 }
@@ -51,41 +59,96 @@ void egg::yolk::EggSyntaxNode_Module::visit(IEggSyntaxNodeVisitor& visitor) {
 }
 
 void egg::yolk::EggSyntaxNode_Type::visit(IEggSyntaxNodeVisitor& visitor) {
-  visitor.node("type");
+  visitor.node("type '" + EggSyntaxNode_Type::to_string(this->allowed) + "'");
+}
+
+static void EggSyntaxNode_Type_component(std::string& dst, const char* text, int mask) {
+  if (mask) {
+    if (!dst.empty()) {
+      dst.assign("|");
+    }
+    dst.append(text);
+  }
+}
+
+std::string egg::yolk::EggSyntaxNode_Type::to_string(Allowed allowed) {
+  if (allowed == Inferred) {
+    return "var";
+  }
+  if (allowed == Void) {
+    return "void";
+  }
+  if (allowed == (Bool|Int|Float|String|Object)) {
+    return "any";
+  }
+  if (allowed == (Void|Bool|Int|Float|String|Object)) {
+    return "any?";
+  }
+  std::string result;
+  EggSyntaxNode_Type_component(result, "bool", allowed & Bool);
+  EggSyntaxNode_Type_component(result, "int", allowed & Int);
+  EggSyntaxNode_Type_component(result, "float", allowed & Float);
+  EggSyntaxNode_Type_component(result, "string", allowed & String);
+  EggSyntaxNode_Type_component(result, "object", allowed & Object);
+  if (allowed & Void) {
+    result.append("?");
+  }
+  return result;
 }
 
 void egg::yolk::EggSyntaxNode_VariableDeclaration::visit(IEggSyntaxNodeVisitor& visitor) {
-  visitor.node("declare " + this->name, this->child);
+  visitor.node("declare '" + this->name + "'", this->child);
 }
 
 void egg::yolk::EggSyntaxNode_VariableDefinition::visit(IEggSyntaxNodeVisitor& visitor) {
-  visitor.node("define " + this->name, this->child);
+  visitor.node("define '" + this->name + "'", this->child);
 }
 
 void egg::yolk::EggSyntaxNode_Assignment::visit(IEggSyntaxNodeVisitor& visitor) {
-  visitor.node("binary", this->child);
+  auto prefix = "assign '" + EggTokenizerValue::getOperatorString(this->op) + "'";
+  visitor.node(prefix, this->child);
 }
 
 void egg::yolk::EggSyntaxNode_UnaryOperator::visit(IEggSyntaxNodeVisitor& visitor) {
-  visitor.node("unary", this->child);
+  auto prefix = "unary '" + EggTokenizerValue::getOperatorString(this->op) + "'";
+  visitor.node(prefix, this->child);
 }
 
 void egg::yolk::EggSyntaxNode_BinaryOperator::visit(IEggSyntaxNodeVisitor& visitor) {
   IEggSyntaxNode* pointers[] = { this->child[0].get(), this->child[1].get() };
-  visitor.node("binary", pointers, EGG_NELEMS(pointers));
+  auto prefix = "binary '" + EggTokenizerValue::getOperatorString(this->op) + "'";
+  visitor.node(prefix, pointers, EGG_NELEMS(pointers));
 }
 
 void egg::yolk::EggSyntaxNode_TernaryOperator::visit(IEggSyntaxNodeVisitor& visitor) {
   IEggSyntaxNode* pointers[] = { this->child[0].get(), this->child[1].get(), this->child[2].get() };
-  visitor.node("ternary", pointers, 3);
+  visitor.node("ternary '?:'", pointers, 3);
 }
 
 void egg::yolk::EggSyntaxNode_Identifier::visit(IEggSyntaxNodeVisitor& visitor) {
-  visitor.node("identifier " + this->name);
+  visitor.node("identifier '" + this->name + "'");
 }
 
 void egg::yolk::EggSyntaxNode_Literal::visit(IEggSyntaxNodeVisitor& visitor) {
-  visitor.node("literal");
+  visitor.node("literal " + this->to_string());
+}
+
+std::string egg::yolk::EggSyntaxNode_Literal::to_string() const {
+  switch (this->kind) {
+  case EggTokenizerKind::Integer:
+    return "int " + this->value.s;
+  case EggTokenizerKind::Float:
+    return "float " + this->value.s;
+  case EggTokenizerKind::String:
+    return "string '" + this->value.s + "'";
+  case EggTokenizerKind::Keyword:
+  case EggTokenizerKind::Operator:
+  case EggTokenizerKind::Identifier:
+  case EggTokenizerKind::Attribute:
+  case EggTokenizerKind::EndOfFile:
+  default:
+    return "unknown type";
+  }
 }
 
 std::ostream& egg::yolk::EggSyntaxNode::printToStream(std::ostream& os, IEggSyntaxNode& tree) {
