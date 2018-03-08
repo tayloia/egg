@@ -185,13 +185,12 @@ namespace {
     std::unique_ptr<IEggSyntaxNode> parseStatementBreak();
     std::unique_ptr<IEggSyntaxNode> parseStatementCase();
     std::unique_ptr<IEggSyntaxNode> parseStatementContinue();
-    std::unique_ptr<IEggSyntaxNode> parseStatementDecrement();
+    std::unique_ptr<IEggSyntaxNode> parseStatementDecrementIncrement(EggTokenizerOperator op, const std::string& what, const char* expected);
     std::unique_ptr<IEggSyntaxNode> parseStatementDefault();
     std::unique_ptr<IEggSyntaxNode> parseStatementDo();
     std::unique_ptr<IEggSyntaxNode> parseStatementExpression(std::unique_ptr<IEggSyntaxNode>&& expr);
     std::unique_ptr<IEggSyntaxNode> parseStatementFor();
     std::unique_ptr<IEggSyntaxNode> parseStatementIf();
-    std::unique_ptr<IEggSyntaxNode> parseStatementIncrement();
     std::unique_ptr<IEggSyntaxNode> parseStatementReturn();
     std::unique_ptr<IEggSyntaxNode> parseStatementSwitch();
     std::unique_ptr<IEggSyntaxNode> parseStatementTry();
@@ -330,9 +329,9 @@ std::unique_ptr<IEggSyntaxNode> EggParserContext::parseStatement() {
   case EggTokenizerKind::Operator:
     // Handle spcial cases for prefix decrement/increment and compound statements
     if (p0.value.o == EggTokenizerOperator::MinusMinus) {
-      return this->parseStatementDecrement();
+      return this->parseStatementDecrementIncrement(EggTokenizerOperator::MinusMinus, "decrement", "Expected expression after decrement '--' operator");
     } else if (p0.value.o == EggTokenizerOperator::PlusPlus) {
-      return this->parseStatementIncrement();
+      return this->parseStatementDecrementIncrement(EggTokenizerOperator::PlusPlus, "increment", "Expected expression after increment '++' operator");
     } else if (p0.value.o == EggTokenizerOperator::CurlyLeft) {
       return this->parseCompoundStatement();
     }
@@ -540,8 +539,22 @@ std::unique_ptr<IEggSyntaxNode> EggParserContext::parseStatementContinue() {
   TODO();
 }
 
-std::unique_ptr<IEggSyntaxNode> EggParserContext::parseStatementDecrement() {
-  TODO();
+std::unique_ptr<IEggSyntaxNode> EggParserContext::parseStatementDecrementIncrement(EggTokenizerOperator op, const std::string& what, const char* expected) {
+  /*
+      assignment-statement ::= assignment-list assignment-operator expression-list
+                             | '++' assignment-target
+                             | '--' assignment-target
+  */
+  EggParserBacktrackMark mark(this->backtrack);
+  assert(mark.peek(0).isOperator(op));
+  mark.advance(1);
+  auto expr = this->parseExpression(expected);
+  auto& px = mark.peek(0);
+  if (!px.isOperator(EggTokenizerOperator::Semicolon)) {
+    this->unexpected("Expected semicolon after " + what + " statement, not " + px.to_string(), px);
+  }
+  mark.accept(1);
+  return std::make_unique<EggSyntaxNode_Mutate>(op, std::move(expr));
 }
 
 std::unique_ptr<IEggSyntaxNode> EggParserContext::parseStatementDefault() {
@@ -617,10 +630,6 @@ std::unique_ptr<IEggSyntaxNode> EggParserContext::parseStatementFor() {
 }
 
 std::unique_ptr<IEggSyntaxNode> EggParserContext::parseStatementIf() {
-  TODO();
-}
-
-std::unique_ptr<IEggSyntaxNode> EggParserContext::parseStatementIncrement() {
   TODO();
 }
 

@@ -98,6 +98,15 @@ TEST(TestEggParser, Assignment) {
   ASSERT_PARSE_BAD(parseStatementToString("lhs = rhs extra"), "(1, 11): Expected semicolon after assignment statement");
 }
 
+TEST(TestEggParser, Mutate) {
+  // Good
+  ASSERT_PARSE_GOOD(parseStatementToString("++x;"), "(mutate '++' (identifier 'x'))");
+  ASSERT_PARSE_GOOD(parseStatementToString("--x;"), "(mutate '--' (identifier 'x'))");
+  // Bad
+  ASSERT_PARSE_BAD(parseStatementToString("x++;"), "(1, 2): Unexpected '+' after infix '+' operator");
+  ASSERT_PARSE_BAD(parseStatementToString("x--;"), "(1, 4): Expected expression after prefix '-' operator");
+}
+
 TEST(TestEggParser, ExpressionTernary) {
   // Good
   ASSERT_PARSE_GOOD(parseExpressionToString("a ? b : c"), "(ternary (identifier 'a') (identifier 'b') (identifier 'c'))");

@@ -127,6 +127,11 @@ void egg::yolk::EggSyntaxNode_Assignment::visit(IEggSyntaxNodeVisitor& visitor) 
   visitor.node(prefix, this->child);
 }
 
+void egg::yolk::EggSyntaxNode_Mutate::visit(IEggSyntaxNodeVisitor& visitor) {
+  auto prefix = "mutate '" + EggTokenizerValue::getOperatorString(this->op) + "'";
+  visitor.node(prefix, this->child);
+}
+
 void egg::yolk::EggSyntaxNode_UnaryOperator::visit(IEggSyntaxNodeVisitor& visitor) {
   auto prefix = "unary '" + EggTokenizerValue::getOperatorString(this->op) + "'";
   visitor.node(prefix, this->child);

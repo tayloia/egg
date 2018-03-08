@@ -4,6 +4,7 @@
   macro(VariableDeclaration) \
   macro(VariableInitialization) \
   macro(Assignment) \
+  macro(Mutate) \
   macro(UnaryOperator) \
   macro(BinaryOperator) \
   macro(TernaryOperator) \
@@ -205,6 +206,20 @@ namespace egg::yolk {
       assert(rhs != nullptr);
       this->child[0] = std::move(lhs);
       this->child[1] = std::move(rhs);
+    }
+    virtual void visit(IEggSyntaxNodeVisitor& visitor) override;
+  };
+
+  class EggSyntaxNode_Mutate : public EggSyntaxNodeChildren1<EggSyntaxNodeKind::Mutate> {
+    EGG_NO_COPY(EggSyntaxNode_Mutate);
+  private:
+    EggTokenizerOperator op;
+  public:
+    EggSyntaxNode_Mutate(EggTokenizerOperator op, std::unique_ptr<IEggSyntaxNode>&& expr)
+      : EggSyntaxNodeChildren1(std::move(expr)), op(op) {
+    }
+    virtual const EggTokenizerOperator* tryGetOperator() const override {
+      return &this->op;
     }
     virtual void visit(IEggSyntaxNodeVisitor& visitor) override;
   };
