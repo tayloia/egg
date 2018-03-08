@@ -21,6 +21,11 @@ namespace {
     auto root = parseFromString(*parser, text);
     return printToString(*root, concise);
   }
+  std::string parseExpressionToString(const std::string& text, bool concise = true) {
+    auto parser = EggParserFactory::createExpressionParser();
+    auto root = parseFromString(*parser, text);
+    return printToString(*root, concise);
+  }
 }
 
 TEST(TestEggParser, ModuleEmpty) {
@@ -48,6 +53,7 @@ TEST(TestEggParser, ModuleTwoStatements) {
 }
 
 TEST(TestEggParser, VariableDeclaration) {
+  //TODO should we allow 'var' without an initializer?
   // Good
   ASSERT_PARSE_GOOD(parseStatementToString("var foo;"), "(declare 'foo' (type 'var'))");
   ASSERT_PARSE_GOOD(parseStatementToString("any? bar;"), "(declare 'bar' (type 'any?'))");
@@ -64,6 +70,36 @@ TEST(TestEggParser, VariableInitialization) {
   ASSERT_PARSE_BAD(parseStatementToString("var foo ="), "(1, 10): Expected expression after assignment");
   ASSERT_PARSE_BAD(parseStatementToString("var foo = ;"), "(1, 10): Expected expression after assignment");
   ASSERT_PARSE_BAD(parseStatementToString("var foo = var"), "(1, 10): Expected expression after assignment");
+}
+
+TEST(TestEggParser, Assignment) {
+  // Good
+  ASSERT_PARSE_GOOD(parseStatementToString("lhs = rhs;"), "(assign '=' (identifier 'lhs') (identifier 'rhs'))");
+  ASSERT_PARSE_GOOD(parseStatementToString("lhs += rhs;"), "(assign '+=' (identifier 'lhs') (identifier 'rhs'))");
+  ASSERT_PARSE_GOOD(parseStatementToString("lhs -= rhs;"), "(assign '-=' (identifier 'lhs') (identifier 'rhs'))");
+  ASSERT_PARSE_GOOD(parseStatementToString("lhs *= rhs;"), "(assign '*=' (identifier 'lhs') (identifier 'rhs'))");
+  ASSERT_PARSE_GOOD(parseStatementToString("lhs /= rhs;"), "(assign '/=' (identifier 'lhs') (identifier 'rhs'))");
+  ASSERT_PARSE_GOOD(parseStatementToString("lhs %= rhs;"), "(assign '%=' (identifier 'lhs') (identifier 'rhs'))");
+  ASSERT_PARSE_GOOD(parseStatementToString("lhs &= rhs;"), "(assign '&=' (identifier 'lhs') (identifier 'rhs'))");
+  ASSERT_PARSE_GOOD(parseStatementToString("lhs |= rhs;"), "(assign '|=' (identifier 'lhs') (identifier 'rhs'))");
+  ASSERT_PARSE_GOOD(parseStatementToString("lhs ^= rhs;"), "(assign '^=' (identifier 'lhs') (identifier 'rhs'))");
+  ASSERT_PARSE_GOOD(parseStatementToString("lhs <<= rhs;"), "(assign '<<=' (identifier 'lhs') (identifier 'rhs'))");
+  ASSERT_PARSE_GOOD(parseStatementToString("lhs >>= rhs;"), "(assign '>>=' (identifier 'lhs') (identifier 'rhs'))");
+  ASSERT_PARSE_GOOD(parseStatementToString("lhs >>>= rhs;"), "(assign '>>>=' (identifier 'lhs') (identifier 'rhs'))");
+  // Bad
+  ASSERT_PARSE_BAD(parseStatementToString("lhs = rhs"), "(1, 10): Expected semicolon after assignment statement");
+  ASSERT_PARSE_BAD(parseStatementToString("lhs *= var"), "(1, 7): Expected expression after assignment '*=' operator");
+  ASSERT_PARSE_BAD(parseStatementToString("lhs = rhs extra"), "(1, 10): Expected semicolon after assignment statement");
+}
+
+TEST(TestEggParser, ExpressionTernary) {
+  // Good
+  ASSERT_PARSE_GOOD(parseExpressionToString("a ? b : c"), "(ternary (identifier 'a') (identifier 'b') (identifier 'c'))");
+  ASSERT_PARSE_GOOD(parseExpressionToString("a ? b : c ? d : e"), "(ternary (identifier 'a') (identifier 'b') (ternary (identifier 'c') (identifier 'd') (identifier 'e')))");
+  ASSERT_PARSE_GOOD(parseExpressionToString("a ? b ? c : d : e"), "(ternary (identifier 'a') (ternary (identifier 'b') (identifier 'c') (identifier 'd')) (identifier 'e'))");
+  // Bad
+  ASSERT_PARSE_BAD(parseExpressionToString("a ? : c"), "(1, 4): Expected expression after '?' of ternary operator");
+  ASSERT_PARSE_BAD(parseExpressionToString("a ? b :"), "(1, 8): Expected expression after ':' of ternary operator");
 }
 
 TEST(TestEggParser, ExampleFile) {

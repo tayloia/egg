@@ -8,5 +8,6 @@ namespace egg::yolk {
   public:
     static std::shared_ptr<IEggParser> createModuleParser();
     static std::shared_ptr<IEggParser> createStatementParser();
+    static std::shared_ptr<IEggParser> createExpressionParser();
   };
 }

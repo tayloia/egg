@@ -216,6 +216,14 @@ namespace {
       return context.parseStatement();
     }
   };
+
+  class EggParserExpression : public IEggParser {
+  public:
+    virtual std::shared_ptr<IEggSyntaxNode> parse(IEggTokenizer& tokenizer) override {
+      EggParserContext context(tokenizer);
+      return context.parseExpression("Expression expected");
+    }
+  };
 }
 
 std::unique_ptr<IEggSyntaxNode> EggParserContext::parseModule() {
@@ -361,7 +369,7 @@ std::unique_ptr<IEggSyntaxNode> EggParserContext::parseExpressionTernary(const c
         this->unexpected("Expected ':' as part of ternary operator '?:', not " + mark.peek(0).to_string());
       }
       mark.advance(1);
-      auto exprFalse = this->parseExpression("Expected expression after '?' of ternary operator '?:'");
+      auto exprFalse = this->parseExpression("Expected expression after ':' of ternary operator '?:'");
       mark.accept(0);
       return std::make_unique<EggSyntaxNode_TernaryOperator>(std::move(expr), std::move(exprTrue), std::move(exprFalse));
     }
@@ -414,25 +422,16 @@ std::unique_ptr<IEggSyntaxNode> EggParserContext::parseExpressionPostfix(const c
   EggParserBacktrackMark mark(this->backtrack);
   auto expr = this->parseExpressionPrimary(expected);
   if (expr) {
-    auto nullDetecting = mark.peek(0).isOperator(EggTokenizerOperator::Query);
-    if (nullDetecting) {
-      mark.advance(1);
-    }
     auto& p0 = mark.peek(0);
     if (p0.isOperator(EggTokenizerOperator::BracketLeft)) {
       // Expect <expression> '[' <expression> ']' 
       TODO();
-    }
-    if (p0.isOperator(EggTokenizerOperator::ParenthesisLeft)) {
+    } else if (p0.isOperator(EggTokenizerOperator::ParenthesisLeft)) {
       // Expect <expression> '(' <expression> ')' 
       TODO();
-    }
-    if (p0.isOperator(EggTokenizerOperator::Dot)) {
+    } else if (p0.isOperator(EggTokenizerOperator::Dot)) {
       // Expect <expression> '.' <identifer>
       TODO();
-    }
-    if (nullDetecting) {
-      this->unexpected("Expected '[', '(' or '.' to follow '?', not " + p0.to_string(), p0);
     }
     mark.accept(0);
   }
@@ -548,8 +547,9 @@ std::unique_ptr<IEggSyntaxNode> EggParserContext::parseStatementExpression(std::
   }
   mark.advance(1);
   auto rhs = this->parseExpression(expected);
-  if (!mark.peek(0).isOperator(EggTokenizerOperator::Semicolon)) {
-    this->unexpected("Expected semicolon after assignment statement, not " + p0.to_string(), p0);
+  auto& px = mark.peek(0);
+  if (!px.isOperator(EggTokenizerOperator::Semicolon)) {
+    this->unexpected("Expected semicolon after assignment statement, not " + px.to_string(), px);
   }
   mark.accept(1);
   return std::make_unique<EggSyntaxNode_Assignment>(p0.value.o, std::move(expr), std::move(rhs));
@@ -663,4 +663,8 @@ std::shared_ptr<egg::yolk::IEggParser> egg::yolk::EggParserFactory::createModule
 
 std::shared_ptr<egg::yolk::IEggParser> egg::yolk::EggParserFactory::createStatementParser() {
   return std::make_shared<EggParserStatement>();
+}
+
+std::shared_ptr<egg::yolk::IEggParser> egg::yolk::EggParserFactory::createExpressionParser() {
+  return std::make_shared<EggParserExpression>();
 }

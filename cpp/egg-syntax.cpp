@@ -140,7 +140,7 @@ void egg::yolk::EggSyntaxNode_BinaryOperator::visit(IEggSyntaxNodeVisitor& visit
 
 void egg::yolk::EggSyntaxNode_TernaryOperator::visit(IEggSyntaxNodeVisitor& visitor) {
   IEggSyntaxNode* pointers[] = { this->child[0].get(), this->child[1].get(), this->child[2].get() };
-  visitor.node("ternary '?:'", pointers, 3);
+  visitor.node("ternary", pointers, 3);
 }
 
 void egg::yolk::EggSyntaxNode_Identifier::visit(IEggSyntaxNodeVisitor& visitor) {
