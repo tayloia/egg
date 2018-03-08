@@ -176,6 +176,7 @@ namespace {
     PARSE_BINARY3_LTR(parseExpressionShift, parseExpressionAdditive, EggTokenizerOperator::ShiftLeft, EggTokenizerOperator::ShiftRight, EggTokenizerOperator::ShiftRightUnsigned)
     PARSE_BINARY3_LTR(parseExpressionMultiplicative, parseExpressionUnary, EggTokenizerOperator::Star, EggTokenizerOperator::Slash, EggTokenizerOperator::Percent)
     std::unique_ptr<IEggSyntaxNode> parseExpressionAdditive(const char* expected);
+    std::unique_ptr<IEggSyntaxNode> parseExpressionNegative();
     std::unique_ptr<IEggSyntaxNode> parseExpressionUnary(const char* expected);
     std::unique_ptr<IEggSyntaxNode> parseExpressionPostfix(const char* expected);
     std::unique_ptr<IEggSyntaxNode> parseExpressionPrimary(const char* expected);
@@ -406,9 +407,8 @@ std::unique_ptr<IEggSyntaxNode> EggParserContext::parseExpressionAdditive(const 
     } else if (token->isOperator(EggTokenizerOperator::MinusMinus)) {
       // Handle the special case of 'a--b' or 'a--1'
       mark.advance(1);
-      auto neg = this->parseExpressionUnary("Expected expression after prefix '-' operator");
       auto lhs = std::move(expr);
-      auto rhs = std::make_unique<EggSyntaxNode_UnaryOperator>(EggTokenizerOperator::Minus, std::move(neg));
+      auto rhs = this->parseExpressionNegative();
       expr = std::make_unique<EggSyntaxNode_BinaryOperator>(EggTokenizerOperator::Minus, std::move(lhs), std::move(rhs));
       continue;
     } else {
@@ -423,6 +423,12 @@ std::unique_ptr<IEggSyntaxNode> EggParserContext::parseExpressionAdditive(const 
   return expr;
 }
 
+std::unique_ptr<IEggSyntaxNode> EggParserContext::parseExpressionNegative() {
+  // TODO explicitly negative numeric literals
+  auto expr = this->parseExpressionUnary("Expected expression after prefix '-' operator");
+  return std::make_unique<EggSyntaxNode_UnaryOperator>(EggTokenizerOperator::Minus, std::move(expr));
+}
+
 std::unique_ptr<IEggSyntaxNode> EggParserContext::parseExpressionUnary(const char* expected) {
   /*
       unary-expression ::= postfix-expression
@@ -434,13 +440,19 @@ std::unique_ptr<IEggSyntaxNode> EggParserContext::parseExpressionUnary(const cha
                        | '~'
                        | '!'
 */
-  // '-' is never seen because of prefix '--' confusion
   auto& p0 = this->backtrack.peek(0);
-  assert(!p0.isOperator(EggTokenizerOperator::Minus));
   if (p0.isOperator(EggTokenizerOperator::Ampersand)) {
     expected = "Expected expression after prefix '&' operator";
   } else if (p0.isOperator(EggTokenizerOperator::Star)) {
     expected = "Expected expression after prefix '*' operator";
+  } else if (p0.isOperator(EggTokenizerOperator::Minus)) {
+    expected = "Expected expression after prefix '-' operator";
+  } else if (p0.isOperator(EggTokenizerOperator::MinusMinus)) {
+    EggParserBacktrackMark mark(this->backtrack);
+    mark.advance(1);
+    auto negative = this->parseExpressionNegative();
+    mark.accept(0);
+    return std::make_unique<EggSyntaxNode_UnaryOperator>(EggTokenizerOperator::Minus, std::move(negative));
   } else if (p0.isOperator(EggTokenizerOperator::Tilde)) {
     expected = "Expected expression after prefix '~' operator";
   } else if (p0.isOperator(EggTokenizerOperator::Bang)) {
