@@ -111,9 +111,32 @@ TEST(TestEggParser, ExpressionTernary) {
 TEST(TestEggParser, ExpressionBinary) {
   // Good
   ASSERT_PARSE_GOOD(parseExpressionToString("a + b"), "(binary '+' (identifier 'a') (identifier 'b'))");
+  ASSERT_PARSE_GOOD(parseExpressionToString("a + b + c"), "(binary '+' (binary '+' (identifier 'a') (identifier 'b')) (identifier 'c'))");
+  ASSERT_PARSE_GOOD(parseExpressionToString("a + b - c"), "(binary '-' (binary '+' (identifier 'a') (identifier 'b')) (identifier 'c'))");
+  ASSERT_PARSE_GOOD(parseExpressionToString("a - b + c"), "(binary '+' (binary '-' (identifier 'a') (identifier 'b')) (identifier 'c'))");
+  ASSERT_PARSE_GOOD(parseExpressionToString("a - b"), "(binary '-' (identifier 'a') (identifier 'b'))");
+  ASSERT_PARSE_GOOD(parseExpressionToString("a * b"), "(binary '*' (identifier 'a') (identifier 'b'))");
+  ASSERT_PARSE_GOOD(parseExpressionToString("a / b"), "(binary '/' (identifier 'a') (identifier 'b'))");
+  ASSERT_PARSE_GOOD(parseExpressionToString("a % b"), "(binary '%' (identifier 'a') (identifier 'b'))");
+  ASSERT_PARSE_GOOD(parseExpressionToString("a & b"), "(binary '&' (identifier 'a') (identifier 'b'))");
+  ASSERT_PARSE_GOOD(parseExpressionToString("a | b"), "(binary '|' (identifier 'a') (identifier 'b'))");
+  ASSERT_PARSE_GOOD(parseExpressionToString("a ^ b"), "(binary '^' (identifier 'a') (identifier 'b'))");
+  ASSERT_PARSE_GOOD(parseExpressionToString("a << b"), "(binary '<<' (identifier 'a') (identifier 'b'))");
+  ASSERT_PARSE_GOOD(parseExpressionToString("a >> b"), "(binary '>>' (identifier 'a') (identifier 'b'))");
+  ASSERT_PARSE_GOOD(parseExpressionToString("a >>> b"), "(binary '>>>' (identifier 'a') (identifier 'b'))");
+  ASSERT_PARSE_GOOD(parseExpressionToString("a && b"), "(binary '&&' (identifier 'a') (identifier 'b'))");
+  ASSERT_PARSE_GOOD(parseExpressionToString("a || b"), "(binary '||' (identifier 'a') (identifier 'b'))");
+  ASSERT_PARSE_GOOD(parseExpressionToString("a == b"), "(binary '==' (identifier 'a') (identifier 'b'))");
+  ASSERT_PARSE_GOOD(parseExpressionToString("a != b"), "(binary '!=' (identifier 'a') (identifier 'b'))");
+  ASSERT_PARSE_GOOD(parseExpressionToString("a < b"), "(binary '<' (identifier 'a') (identifier 'b'))");
+  ASSERT_PARSE_GOOD(parseExpressionToString("a <= b"), "(binary '<=' (identifier 'a') (identifier 'b'))");
+  ASSERT_PARSE_GOOD(parseExpressionToString("a > b"), "(binary '>' (identifier 'a') (identifier 'b'))");
+  ASSERT_PARSE_GOOD(parseExpressionToString("a >= b"), "(binary '>=' (identifier 'a') (identifier 'b'))");
+  ASSERT_PARSE_GOOD(parseExpressionToString("a ?? b"), "(binary '??' (identifier 'a') (identifier 'b'))");
   // Bad
-  ASSERT_PARSE_BAD(parseExpressionToString("a +"), "(1, 4): Expected expression after binary '+' operator");
-  ASSERT_PARSE_BAD(parseExpressionToString("a ? b :"), "(1, 8): Expected expression after ':' of ternary operator");
+  ASSERT_PARSE_BAD(parseExpressionToString("a +"), "(1, 4): Expected expression after infix '+' operator");
+  ASSERT_PARSE_BAD(parseExpressionToString("++a"), "(1, 1): Expression expected, not operator: '++'");
+  ASSERT_PARSE_BAD(parseExpressionToString("a--"), "(1, 4): Expected expression after prefix '-' operator");
 }
 
 TEST(TestEggParser, ExampleFile) {

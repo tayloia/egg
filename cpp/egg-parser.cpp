@@ -9,8 +9,8 @@
   std::unique_ptr<IEggSyntaxNode> parent(const char* expected) { \
     EggParserBacktrackMark mark(this->backtrack); \
     auto expr = this->child(expected); \
-    for (auto* token = &mark.peek(0); expr && (condition); token = &mark.peek(0)) { \
-      std::string expectation = "Expected expression after binary '" + EggTokenizerValue::getOperatorString(token->value.o) + "' operator"; \
+    for (auto* token = &mark.peek(0); (expr != nullptr) && (condition); token = &mark.peek(0)) { \
+      std::string expectation = "Expected expression after prefix '" + EggTokenizerValue::getOperatorString(token->value.o) + "' operator"; \
       mark.advance(1); \
       auto lhs = std::move(expr); \
       auto rhs = this->child(expectation.c_str()); \
@@ -174,8 +174,8 @@ namespace {
     PARSE_BINARY2_LTR(parseExpressionEquality, parseExpressionRelational, EggTokenizerOperator::EqualEqual, EggTokenizerOperator::BangEqual)
     PARSE_BINARY4_LTR(parseExpressionRelational, parseExpressionShift, EggTokenizerOperator::Less, EggTokenizerOperator::LessEqual, EggTokenizerOperator::Greater, EggTokenizerOperator::GreaterEqual)
     PARSE_BINARY3_LTR(parseExpressionShift, parseExpressionAdditive, EggTokenizerOperator::ShiftLeft, EggTokenizerOperator::ShiftRight, EggTokenizerOperator::ShiftRightUnsigned)
-    PARSE_BINARY4_LTR(parseExpressionAdditive, parseExpressionMultiplicative, EggTokenizerOperator::Plus, EggTokenizerOperator::Minus, EggTokenizerOperator::PlusPlus, EggTokenizerOperator::MinusMinus)
     PARSE_BINARY3_LTR(parseExpressionMultiplicative, parseExpressionUnary, EggTokenizerOperator::Star, EggTokenizerOperator::Slash, EggTokenizerOperator::Percent)
+    std::unique_ptr<IEggSyntaxNode> parseExpressionAdditive(const char* expected);
     std::unique_ptr<IEggSyntaxNode> parseExpressionUnary(const char* expected);
     std::unique_ptr<IEggSyntaxNode> parseExpressionPostfix(const char* expected);
     std::unique_ptr<IEggSyntaxNode> parseExpressionPrimary(const char* expected);
@@ -389,6 +389,37 @@ std::unique_ptr<IEggSyntaxNode> EggParserContext::parseExpressionTernary(const c
     }
     mark.accept(0);
   }
+  return expr;
+}
+
+std::unique_ptr<IEggSyntaxNode> EggParserContext::parseExpressionAdditive(const char* expected) {
+  EggParserBacktrackMark mark(this->backtrack);
+  auto expr = this->parseExpressionMultiplicative(expected);
+  for (auto* token = &mark.peek(0); (expr != nullptr); token = &mark.peek(0)) {
+    if (token->isOperator(EggTokenizerOperator::Plus)) {
+      expected = "Expected expression after infix '+' operator";
+    } else if (token->isOperator(EggTokenizerOperator::Minus)) {
+      expected = "Expected expression after infix '-' operator";
+    } else if (token->isOperator(EggTokenizerOperator::PlusPlus)) {
+      // We don't handle the special case of 'a++b' or 'a++1' because we have no unary plus operator
+      this->unexpected("Unexpected '+' after infix '+' operator");
+    } else if (token->isOperator(EggTokenizerOperator::MinusMinus)) {
+      // Handle the special case of 'a--b' or 'a--1'
+      mark.advance(1);
+      auto neg = this->parseExpressionUnary("Expected expression after prefix '-' operator");
+      auto lhs = std::move(expr);
+      auto rhs = std::make_unique<EggSyntaxNode_UnaryOperator>(EggTokenizerOperator::Minus, std::move(neg));
+      expr = std::make_unique<EggSyntaxNode_BinaryOperator>(EggTokenizerOperator::Minus, std::move(lhs), std::move(rhs));
+      continue;
+    } else {
+      break;
+    }
+    mark.advance(1);
+    auto lhs = std::move(expr);
+    auto rhs = this->parseExpressionMultiplicative(expected);
+    expr = std::make_unique<EggSyntaxNode_BinaryOperator>(token->value.o, std::move(lhs), std::move(rhs));
+  }
+  mark.accept(0);
   return expr;
 }
 
