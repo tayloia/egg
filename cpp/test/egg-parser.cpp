@@ -201,6 +201,40 @@ TEST(TestEggParser, StatementCompound) {
   ASSERT_PARSE_BAD(parseStatementToString(";"), "(1, 1): Unexpected ';' (empty statements are not permitted)");
 }
 
+TEST(TestEggParser, StatementBreak) {
+  // Good
+  ASSERT_PARSE_GOOD(parseStatementToString("break;"), "(break)");
+  // Bad
+  ASSERT_PARSE_BAD(parseStatementToString("break"), "(1, 6): Expected semicolon after 'break' keyword");
+  ASSERT_PARSE_BAD(parseStatementToString("break 0;"), "(1, 7): Expected semicolon after 'break' keyword");
+}
+
+TEST(TestEggParser, StatementCase) {
+  // Good
+  ASSERT_PARSE_GOOD(parseStatementToString("case 0:"), "(case (literal int 0))");
+  ASSERT_PARSE_GOOD(parseStatementToString("case a + b:"), "(case (binary '+' (identifier 'a') (identifier 'b')))");
+  // Bad
+  ASSERT_PARSE_BAD(parseStatementToString("case"), "(1, 5): Expected expression after 'case' keyword");
+  ASSERT_PARSE_BAD(parseStatementToString("case 0"), "(1, 7): Expected colon after 'case' expression");
+  ASSERT_PARSE_BAD(parseStatementToString("case a +"), "(1, 9): Expected expression after infix '+' operator");
+}
+
+TEST(TestEggParser, StatementContinue) {
+  // Good
+  ASSERT_PARSE_GOOD(parseStatementToString("continue;"), "(continue)");
+  // Bad
+  ASSERT_PARSE_BAD(parseStatementToString("continue"), "(1, 9): Expected semicolon after 'continue' keyword");
+  ASSERT_PARSE_BAD(parseStatementToString("continue 0;"), "(1, 10): Expected semicolon after 'continue' keyword");
+}
+
+TEST(TestEggParser, StatementDefault) {
+  // Good
+  ASSERT_PARSE_GOOD(parseStatementToString("default:"), "(default)");
+  // Bad
+  ASSERT_PARSE_BAD(parseStatementToString("default"), "(1, 8): Expected colon after 'default' keyword");
+  ASSERT_PARSE_BAD(parseStatementToString("default 0:"), "(1, 9): Expected colon after 'default' keyword");
+}
+
 TEST(TestEggParser, Vexatious) {
   ASSERT_PARSE_GOOD(parseExpressionToString("a--b"), "(binary '-' (identifier 'a') (unary '-' (identifier 'b')))");
   ASSERT_PARSE_GOOD(parseExpressionToString("a--1"), "(binary '-' (identifier 'a') (unary '-' (literal int 1)))");

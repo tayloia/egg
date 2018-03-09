@@ -136,6 +136,22 @@ void egg::yolk::EggSyntaxNode_Mutate::visit(IEggSyntaxNodeVisitor& visitor) {
   visitor.node(prefix, this->child);
 }
 
+void egg::yolk::EggSyntaxNode_Break::visit(IEggSyntaxNodeVisitor& visitor) {
+  visitor.node("break");
+}
+
+void egg::yolk::EggSyntaxNode_Case::visit(IEggSyntaxNodeVisitor& visitor) {
+  visitor.node("case", this->child);
+}
+
+void egg::yolk::EggSyntaxNode_Continue::visit(IEggSyntaxNodeVisitor& visitor) {
+  visitor.node("continue");
+}
+
+void egg::yolk::EggSyntaxNode_Default::visit(IEggSyntaxNodeVisitor& visitor) {
+  visitor.node("default");
+}
+
 void egg::yolk::EggSyntaxNode_UnaryOperator::visit(IEggSyntaxNodeVisitor& visitor) {
   auto prefix = "unary '" + EggTokenizerValue::getOperatorString(this->op) + "'";
   visitor.node(prefix, this->child);

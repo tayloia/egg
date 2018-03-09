@@ -10,7 +10,7 @@
     EggParserBacktrackMark mark(this->backtrack); \
     auto expr = this->child(expected); \
     for (auto* token = &mark.peek(0); (expr != nullptr) && (condition); token = &mark.peek(0)) { \
-      std::string expectation = "Expected expression after prefix '" + EggTokenizerValue::getOperatorString(token->value.o) + "' operator"; \
+      std::string expectation = "Expected expression after infix '" + EggTokenizerValue::getOperatorString(token->value.o) + "' operator"; \
       mark.advance(1); \
       auto lhs = std::move(expr); \
       auto rhs = this->child(expectation.c_str()); \
@@ -690,15 +690,45 @@ std::unique_ptr<IEggSyntaxNode> EggParserContext::parseStatementAssignment(std::
 }
 
 std::unique_ptr<IEggSyntaxNode> EggParserContext::parseStatementBreak() {
-  TODO();
+  /*
+      break-statement ::= 'break' ';'
+  */
+  assert(this->backtrack.peek(0).isKeyword(EggTokenizerKeyword::Break));
+  auto& p1 = this->backtrack.peek(1);
+  if (!p1.isOperator(EggTokenizerOperator::Semicolon)) {
+    this->unexpected("Expected semicolon after 'break' keyword", p1);
+  }
+  this->backtrack.advance(2);
+  return std::make_unique<EggSyntaxNode_Break>();
 }
 
 std::unique_ptr<IEggSyntaxNode> EggParserContext::parseStatementCase() {
-  TODO();
+  /*
+      case-statement ::= 'case' <expression> ':'
+  */
+  EggParserBacktrackMark mark(this->backtrack);
+  assert(mark.peek(0).isKeyword(EggTokenizerKeyword::Case));
+  mark.advance(1);
+  auto expr = this->parseExpression("Expected expression after 'case' keyword");
+  auto& px = mark.peek(0);
+  if (!px.isOperator(EggTokenizerOperator::Colon)) {
+    this->unexpected("Expected colon after 'case' expression", px);
+  }
+  mark.accept(1);
+  return std::make_unique<EggSyntaxNode_Case>(std::move(expr));
 }
 
 std::unique_ptr<IEggSyntaxNode> EggParserContext::parseStatementContinue() {
-  TODO();
+  /*
+      continue-statement ::= 'continue' ';'
+  */
+  assert(this->backtrack.peek(0).isKeyword(EggTokenizerKeyword::Continue));
+  auto& p1 = this->backtrack.peek(1);
+  if (!p1.isOperator(EggTokenizerOperator::Semicolon)) {
+    this->unexpected("Expected semicolon after 'continue' keyword", p1);
+  }
+  this->backtrack.advance(2);
+  return std::make_unique<EggSyntaxNode_Continue>();
 }
 
 std::unique_ptr<IEggSyntaxNode> EggParserContext::parseStatementDecrementIncrement(EggTokenizerOperator op, const std::string& what, const char* expected) {
@@ -720,7 +750,16 @@ std::unique_ptr<IEggSyntaxNode> EggParserContext::parseStatementDecrementIncreme
 }
 
 std::unique_ptr<IEggSyntaxNode> EggParserContext::parseStatementDefault() {
-  TODO();
+  /*
+      default-statement ::= 'default' ':'
+  */
+  assert(this->backtrack.peek(0).isKeyword(EggTokenizerKeyword::Default));
+  auto& p1 = this->backtrack.peek(1);
+  if (!p1.isOperator(EggTokenizerOperator::Colon)) {
+    this->unexpected("Expected colon after 'default' keyword", p1);
+  }
+  this->backtrack.advance(2);
+  return std::make_unique<EggSyntaxNode_Default>();
 }
 
 std::unique_ptr<IEggSyntaxNode> EggParserContext::parseStatementDo() {

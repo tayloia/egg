@@ -6,6 +6,11 @@
   macro(VariableInitialization) \
   macro(Assignment) \
   macro(Mutate) \
+  macro(Break) \
+  macro(Case) \
+  macro(Continue) \
+  macro(Default) \
+  macro(Switch) \
   macro(UnaryOperator) \
   macro(BinaryOperator) \
   macro(TernaryOperator) \
@@ -229,6 +234,9 @@ namespace egg::yolk {
       this->child[0] = std::move(lhs);
       this->child[1] = std::move(rhs);
     }
+    virtual const EggTokenizerOperator* tryGetOperator() const override {
+      return &this->op;
+    }
     virtual void visit(IEggSyntaxNodeVisitor& visitor) override;
   };
 
@@ -242,6 +250,39 @@ namespace egg::yolk {
     }
     virtual const EggTokenizerOperator* tryGetOperator() const override {
       return &this->op;
+    }
+    virtual void visit(IEggSyntaxNodeVisitor& visitor) override;
+  };
+
+  class EggSyntaxNode_Break : public EggSyntaxNodeChildren0<EggSyntaxNodeKind::Break> {
+    EGG_NO_COPY(EggSyntaxNode_Break);
+  public:
+    EggSyntaxNode_Break() {
+    }
+    virtual void visit(IEggSyntaxNodeVisitor& visitor) override;
+  };
+
+  class EggSyntaxNode_Case : public EggSyntaxNodeChildren1<EggSyntaxNodeKind::Case> {
+    EGG_NO_COPY(EggSyntaxNode_Case);
+  public:
+    EggSyntaxNode_Case(std::unique_ptr<IEggSyntaxNode>&& expr)
+      : EggSyntaxNodeChildren1(std::move(expr)) {
+    }
+    virtual void visit(IEggSyntaxNodeVisitor& visitor) override;
+  };
+
+  class EggSyntaxNode_Continue : public EggSyntaxNodeChildren0<EggSyntaxNodeKind::Continue> {
+    EGG_NO_COPY(EggSyntaxNode_Continue);
+  public:
+    EggSyntaxNode_Continue() {
+    }
+    virtual void visit(IEggSyntaxNodeVisitor& visitor) override;
+  };
+
+  class EggSyntaxNode_Default : public EggSyntaxNodeChildren0<EggSyntaxNodeKind::Default> {
+    EGG_NO_COPY(EggSyntaxNode_Default);
+  public:
+    EggSyntaxNode_Default() {
     }
     virtual void visit(IEggSyntaxNodeVisitor& visitor) override;
   };
