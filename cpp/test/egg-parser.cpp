@@ -235,6 +235,19 @@ TEST(TestEggParser, StatementDefault) {
   ASSERT_PARSE_BAD(parseStatementToString("default 0:"), "(1, 9): Expected colon after 'default' keyword");
 }
 
+TEST(TestEggParser, StatementDo) {
+  // Good
+  ASSERT_PARSE_GOOD(parseStatementToString("do {} while (a);"), "(do (identifier 'a') (block))");
+  // Bad
+  ASSERT_PARSE_BAD(parseStatementToString("do ("), "(1, 4): Expected '{' after 'do' keyword");
+  ASSERT_PARSE_BAD(parseStatementToString("do {"), "(1, 5): Expected statement");
+  ASSERT_PARSE_BAD(parseStatementToString("do {}"), "(1, 6): Expected 'while' after '}' in 'do' statement");
+  ASSERT_PARSE_BAD(parseStatementToString("do {} do"), "(1, 7): Expected 'while' after '}' in 'do' statement");
+  ASSERT_PARSE_BAD(parseStatementToString("do {} while"), "(1, 12): Expected '(' after 'while' keyword in 'do' statement");
+  ASSERT_PARSE_BAD(parseStatementToString("do {} while ()"), "(1, 14): Expected condition expression after 'while (' in 'do' statement");
+  ASSERT_PARSE_BAD(parseStatementToString("do {} while (a)"), "(1, 16): Expected ';' after ')' at end of 'do' statement");
+}
+
 TEST(TestEggParser, StatementSwitch) {
   // Good
   ASSERT_PARSE_GOOD(parseStatementToString("switch (a) {}"), "(switch (identifier 'a') (block))");

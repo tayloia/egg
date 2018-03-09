@@ -162,6 +162,8 @@ namespace {
     void parseParameterList(std::function<void(std::unique_ptr<IEggSyntaxNode>&& node)> adder);
     void parseEndOfFile(const char* expected);
     std::unique_ptr<IEggSyntaxNode> parseCompoundStatement();
+    std::unique_ptr<IEggSyntaxNode> parseConditionGuarded(const char* expected);
+    std::unique_ptr<IEggSyntaxNode> parseConditionUnguarded(const char* expected);
     std::unique_ptr<IEggSyntaxNode> parseExpression(const char* expected);
     std::unique_ptr<IEggSyntaxNode> parseExpressionTernary(const char* expected);
     PARSE_BINARY1_LTR(parseExpressionNullCoalescing, parseExpressionLogicalOr, EggTokenizerOperator::QueryQuery)
@@ -180,7 +182,6 @@ namespace {
     std::unique_ptr<IEggSyntaxNode> parseExpressionPostfix(const char* expected);
     std::unique_ptr<IEggSyntaxNode> parseExpressionPostfixGreedy(std::unique_ptr<IEggSyntaxNode>&& expr);
     std::unique_ptr<IEggSyntaxNode> parseExpressionPrimary(const char* expected);
-    std::unique_ptr<IEggSyntaxNode> parseGuardedCondition(const char* expected);
     std::unique_ptr<IEggSyntaxNode> parseModule();
     std::unique_ptr<IEggSyntaxNode> parseStatement();
     std::unique_ptr<IEggSyntaxNode> parseStatementAssignment(std::unique_ptr<IEggSyntaxNode>&& lhs);
@@ -582,9 +583,18 @@ std::unique_ptr<IEggSyntaxNode> EggParserContext::parseExpressionPrimary(const c
   }
 }
 
-std::unique_ptr<IEggSyntaxNode> EggParserContext::parseGuardedCondition(const char* expected) {
+std::unique_ptr<IEggSyntaxNode> EggParserContext::parseConditionGuarded(const char* expected) {
   /*
       guarded-condition ::= expression -- TODO
+  */
+  auto expr = this->parseExpression(expected);
+  assert(expr != nullptr);
+  return expr;
+}
+
+std::unique_ptr<IEggSyntaxNode> EggParserContext::parseConditionUnguarded(const char* expected) {
+  /*
+      unguarded-condition ::= expression
   */
   auto expr = this->parseExpression(expected);
   assert(expr != nullptr);
@@ -773,7 +783,32 @@ std::unique_ptr<IEggSyntaxNode> EggParserContext::parseStatementDefault() {
 }
 
 std::unique_ptr<IEggSyntaxNode> EggParserContext::parseStatementDo() {
-  TODO();
+  /*
+      do-statement ::= 'do' <compound-statement> 'while' '(' <expression> ')' ';'
+  */
+  EggParserBacktrackMark mark(this->backtrack);
+  assert(mark.peek(0).isKeyword(EggTokenizerKeyword::Do));
+  mark.advance(1);
+  if (!mark.peek(0).isOperator(EggTokenizerOperator::CurlyLeft)) {
+    this->unexpected("Expected '{' after 'do' keyword", mark.peek(0));
+  }
+  auto block = this->parseCompoundStatement();
+  if (!mark.peek(0).isKeyword(EggTokenizerKeyword::While)) {
+    this->unexpected("Expected 'while' after '}' in 'do' statement", mark.peek(0));
+  }
+  if (!mark.peek(1).isOperator(EggTokenizerOperator::ParenthesisLeft)) {
+    this->unexpected("Expected '(' after 'while' keyword in 'do' statement", mark.peek(1));
+  }
+  mark.advance(2);
+  auto expr = this->parseConditionUnguarded("Expected condition expression after 'while (' in 'do' statement");
+  if (!mark.peek(0).isOperator(EggTokenizerOperator::ParenthesisRight)) {
+    this->unexpected("Expected ')' after 'do' condition expression", mark.peek(0));
+  }
+  if (!mark.peek(1).isOperator(EggTokenizerOperator::Semicolon)) {
+    this->unexpected("Expected ';' after ')' at end of 'do' statement", mark.peek(1));
+  }
+  mark.accept(2);
+  return std::make_unique<EggSyntaxNode_Do>(std::move(expr), std::move(block));
 }
 
 std::unique_ptr<IEggSyntaxNode> EggParserContext::parseStatementExpression(std::unique_ptr<IEggSyntaxNode>&& expr) {
@@ -812,7 +847,7 @@ std::unique_ptr<IEggSyntaxNode> EggParserContext::parseStatementSwitch() {
     this->unexpected("Expected '(' after 'switch' keyword", mark.peek(1));
   }
   mark.advance(2);
-  auto expr = this->parseGuardedCondition("Expected condition expression after '(' in 'switch' statement");
+  auto expr = this->parseConditionGuarded("Expected condition expression after '(' in 'switch' statement");
   if (!mark.peek(0).isOperator(EggTokenizerOperator::ParenthesisRight)) {
     this->unexpected("Expected ')' after 'switch' condition expression", mark.peek(0));
   }

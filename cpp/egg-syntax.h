@@ -10,7 +10,13 @@
   macro(Case) \
   macro(Continue) \
   macro(Default) \
+  macro(Do) \
+  macro(For) \
+  macro(ForEach) \
+  macro(If) \
   macro(Switch) \
+  macro(Try) \
+  macro(While) \
   macro(UnaryOperator) \
   macro(BinaryOperator) \
   macro(TernaryOperator) \
@@ -109,9 +115,16 @@ namespace egg::yolk {
     EGG_NO_COPY(EggSyntaxNodeChildrenN);
   protected:
     std::unique_ptr<TYPE> child[N];
-  public:
     EggSyntaxNodeChildrenN() {
     }
+    EggSyntaxNodeChildrenN(std::unique_ptr<TYPE>&& child0, std::unique_ptr<TYPE>&& child1) {
+      // It's quite common to have exactly two children, so this construct makes derived classes more concise
+      assert(child0 != nullptr);
+      assert(child1 != nullptr);
+      this->child[0] = std::move(child0);
+      this->child[1] = std::move(child1);
+    }
+  public:
     virtual ~EggSyntaxNodeChildrenN() {
     }
     virtual EggSyntaxNodeKind getKind() const override {
@@ -213,11 +226,7 @@ namespace egg::yolk {
     std::string name;
   public:
     EggSyntaxNode_VariableInitialization(const std::string& name, std::unique_ptr<IEggSyntaxNode>&& type, std::unique_ptr<IEggSyntaxNode>&& expr)
-      : name(name) {
-      assert(type != nullptr);
-      assert(expr != nullptr);
-      this->child[0] = std::move(type);
-      this->child[1] = std::move(expr);
+      : EggSyntaxNodeChildrenN(std::move(type), std::move(expr)), name(name) {
     }
     virtual void visit(IEggSyntaxNodeVisitor& visitor) override;
   };
@@ -228,11 +237,7 @@ namespace egg::yolk {
     EggTokenizerOperator op;
   public:
     EggSyntaxNode_Assignment(EggTokenizerOperator op, std::unique_ptr<IEggSyntaxNode>&& lhs, std::unique_ptr<IEggSyntaxNode>&& rhs)
-      : op(op) {
-      assert(lhs != nullptr);
-      assert(rhs != nullptr);
-      this->child[0] = std::move(lhs);
-      this->child[1] = std::move(rhs);
+      : EggSyntaxNodeChildrenN(std::move(lhs), std::move(rhs)), op(op) {
     }
     virtual const EggTokenizerOperator* tryGetOperator() const override {
       return &this->op;
@@ -287,14 +292,20 @@ namespace egg::yolk {
     virtual void visit(IEggSyntaxNodeVisitor& visitor) override;
   };
 
+  class EggSyntaxNode_Do : public EggSyntaxNodeChildrenN<EggSyntaxNodeKind::Do, 2> {
+    EGG_NO_COPY(EggSyntaxNode_Do);
+  public:
+    EggSyntaxNode_Do(std::unique_ptr<IEggSyntaxNode>&& cond, std::unique_ptr<IEggSyntaxNode>&& block)
+      : EggSyntaxNodeChildrenN(std::move(cond), std::move(block)) {
+    }
+    virtual void visit(IEggSyntaxNodeVisitor& visitor) override;
+  };
+
   class EggSyntaxNode_Switch : public EggSyntaxNodeChildrenN<EggSyntaxNodeKind::Switch, 2> {
     EGG_NO_COPY(EggSyntaxNode_Switch);
   public:
-    EggSyntaxNode_Switch(std::unique_ptr<IEggSyntaxNode>&& expr, std::unique_ptr<IEggSyntaxNode>&& block) {
-      assert(expr != nullptr);
-      assert(block != nullptr);
-      this->child[0] = std::move(expr);
-      this->child[1] = std::move(block);
+    EggSyntaxNode_Switch(std::unique_ptr<IEggSyntaxNode>&& expr, std::unique_ptr<IEggSyntaxNode>&& block)
+      : EggSyntaxNodeChildrenN(std::move(expr), std::move(block)) {
     }
     virtual void visit(IEggSyntaxNodeVisitor& visitor) override;
   };
@@ -319,11 +330,7 @@ namespace egg::yolk {
     EggTokenizerOperator op;
   public:
     EggSyntaxNode_BinaryOperator(EggTokenizerOperator op, std::unique_ptr<IEggSyntaxNode>&& lhs, std::unique_ptr<IEggSyntaxNode>&& rhs)
-      : op(op) {
-      assert(lhs != nullptr);
-      assert(rhs != nullptr);
-      this->child[0] = std::move(lhs);
-      this->child[1] = std::move(rhs);
+      : EggSyntaxNodeChildrenN(std::move(lhs), std::move(rhs)), op(op) {
     }
     virtual const EggTokenizerOperator* tryGetOperator() const override {
       return &this->op;
