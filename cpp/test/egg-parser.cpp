@@ -265,6 +265,25 @@ TEST(TestEggParser, StatementIf) {
   ASSERT_PARSE_BAD(parseStatementToString("if (a) {} else {"), "(1, 17): Expected statement");
 }
 
+TEST(TestEggParser, StatementReturn) {
+  // Good
+  ASSERT_PARSE_GOOD(parseStatementToString("return;"), "(return)");
+  ASSERT_PARSE_GOOD(parseStatementToString("return a;"), "(return (identifier 'a'))");
+  ASSERT_PARSE_GOOD(parseStatementToString("return a, b;"), "(return (identifier 'a') (identifier 'b'))");
+  ASSERT_PARSE_GOOD(parseStatementToString("return a, b, c;"), "(return (identifier 'a') (identifier 'b') (identifier 'c'))");
+  ASSERT_PARSE_GOOD(parseStatementToString("return ...a;"), "(return (unary '...' (identifier 'a')))");
+  // Bad
+  ASSERT_PARSE_BAD(parseStatementToString("return"), "(1, 7): Expected semicolon at end of 'return' statement");
+  ASSERT_PARSE_BAD(parseStatementToString("return a"), "(1, 9): Expected semicolon at end of 'return' statement");
+  ASSERT_PARSE_BAD(parseStatementToString("return a,"), "(1, 10): Expected expression after ',' in 'return' statement");
+  ASSERT_PARSE_BAD(parseStatementToString("return a b"), "(1, 10): Expected semicolon at end of 'return' statement");
+  ASSERT_PARSE_BAD(parseStatementToString("return a,;"), "(1, 10): Expected expression after ',' in 'return' statement");
+  ASSERT_PARSE_BAD(parseStatementToString("return ..."), "(1, 11): Expected expression after '...' in 'return' statement");
+  ASSERT_PARSE_BAD(parseStatementToString("return ...;"), "(1, 11): Expected expression after '...' in 'return' statement");
+  ASSERT_PARSE_BAD(parseStatementToString("return ...a"), "(1, 12): Expected semicolon at end of 'return' statement");
+  ASSERT_PARSE_BAD(parseStatementToString("return ...a,"),  "(1, 12): Expected semicolon at end of 'return' statement");
+}
+
 TEST(TestEggParser, StatementSwitch) {
   // Good
   ASSERT_PARSE_GOOD(parseStatementToString("switch (a) {}"), "(switch (identifier 'a') (block))");
@@ -286,6 +305,24 @@ TEST(TestEggParser, StatementWhile) {
   ASSERT_PARSE_BAD(parseStatementToString("while (a)"), "(1, 10): Expected '{' after ')' in 'while' statement");
   ASSERT_PARSE_BAD(parseStatementToString("while (a) do"), "(1, 11): Expected '{' after ')' in 'while' statement");
   ASSERT_PARSE_BAD(parseStatementToString("while (a) {"), "(1, 12): Expected statement");
+}
+
+TEST(TestEggParser, StatementYield) {
+  // Good
+  ASSERT_PARSE_GOOD(parseStatementToString("yield a;"), "(yield (identifier 'a'))");
+  ASSERT_PARSE_GOOD(parseStatementToString("yield ...a;"), "(yield (unary '...' (identifier 'a')))");
+  // Bad
+  ASSERT_PARSE_BAD(parseStatementToString("yield"), "(1, 6): Expected expression in 'yield' statement");
+  ASSERT_PARSE_BAD(parseStatementToString("yield;"), "(1, 6): Expected expression in 'yield' statement");
+  ASSERT_PARSE_BAD(parseStatementToString("yield a"), "(1, 8): Expected semicolon at end of 'yield' statement");
+  ASSERT_PARSE_BAD(parseStatementToString("yield a,"), "(1, 8): Expected semicolon at end of 'yield' statement");
+  ASSERT_PARSE_BAD(parseStatementToString("yield a b"), "(1, 9): Expected semicolon at end of 'yield' statement");
+  ASSERT_PARSE_BAD(parseStatementToString("yield a,;"), "(1, 8): Expected semicolon at end of 'yield' statement");
+  ASSERT_PARSE_BAD(parseStatementToString("yield a, b;"), "(1, 8): Expected semicolon at end of 'yield' statement");
+  ASSERT_PARSE_BAD(parseStatementToString("yield ..."), "(1, 10): Expected expression after '...' in 'yield' statement");
+  ASSERT_PARSE_BAD(parseStatementToString("yield ...;"), "(1, 10): Expected expression after '...' in 'yield' statement");
+  ASSERT_PARSE_BAD(parseStatementToString("yield ...a"), "(1, 11): Expected semicolon at end of 'yield' statement");
+  ASSERT_PARSE_BAD(parseStatementToString("yield ...a,"), "(1, 11): Expected semicolon at end of 'yield' statement");
 }
 
 TEST(TestEggParser, Vexatious) {

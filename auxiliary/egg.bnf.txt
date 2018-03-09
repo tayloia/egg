@@ -107,6 +107,7 @@ branch-statement ::= 'if' '(' condition ')' compound-statement ( 'else' compound
 jump-statement ::= 'continue' ';'
                  | 'break' ';'
                  | 'return' expression-list? ';'
+                 | 'return' '...' expression ';'
                  | 'yield' expression? ';'
                  | 'yield' '...' expression ';'
 

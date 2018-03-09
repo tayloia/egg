@@ -159,6 +159,7 @@ namespace {
     void unexpected(const std::string& expected, const EggTokenizerItem& item) {
       throw Exception(expected + ", not " + item.to_string(), this->backtrack.resource(), item.line, item.column);
     }
+    void parseExpressionList(std::function<void(std::unique_ptr<IEggSyntaxNode>&& node)> adder, const char* expected0, const char* expected1);
     void parseParameterList(std::function<void(std::unique_ptr<IEggSyntaxNode>&& node)> adder);
     void parseEndOfFile(const char* expected);
     std::unique_ptr<IEggSyntaxNode> parseCompoundStatement();
@@ -601,6 +602,26 @@ std::unique_ptr<IEggSyntaxNode> EggParserContext::parseConditionUnguarded(const 
   return expr;
 }
 
+void EggParserContext::parseExpressionList(std::function<void(std::unique_ptr<IEggSyntaxNode>&& node)> adder, const char* expected0, const char* expected1) {
+  /*
+      expression-list ::= expression
+                        | expression-list ',' expression
+  */
+  EggParserBacktrackMark mark(this->backtrack);
+  auto expr = this->parseExpression(expected0);
+  if (expr != nullptr) {
+    // There's at least one expression
+    adder(std::move(expr));
+    while (mark.peek(0).isOperator(EggTokenizerOperator::Comma)) {
+      mark.advance(1);
+      expr = this->parseExpression(expected1);
+      assert(expr != nullptr);
+      adder(std::move(expr));
+    }
+    mark.accept(0);
+  }
+}
+
 void EggParserContext::parseParameterList(std::function<void(std::unique_ptr<IEggSyntaxNode>&& node)> adder) {
   /*
       parameter-list ::= positional-parameter-list
@@ -863,7 +884,28 @@ std::unique_ptr<IEggSyntaxNode> EggParserContext::parseStatementIf() {
 }
 
 std::unique_ptr<IEggSyntaxNode> EggParserContext::parseStatementReturn() {
-  TODO();
+  /*
+      return-statement ::= 'return' expression-list? ';'
+                         | 'return' '...' expression ';'
+  */
+  EggParserBacktrackMark mark(this->backtrack);
+  assert(mark.peek(0).isKeyword(EggTokenizerKeyword::Return));
+  auto results = std::make_unique<EggSyntaxNode_Return>();
+  if (mark.peek(1).isOperator(EggTokenizerOperator::Ellipsis)) {
+    mark.advance(2);
+    auto expr = this->parseExpression("Expected expression after '...' in 'return' statement");
+    auto ellipsis = std::make_unique<EggSyntaxNode_UnaryOperator>(EggTokenizerOperator::Ellipsis, std::move(expr));
+    results->addChild(std::move(ellipsis));
+  } else {
+    mark.advance(1);
+    this->parseExpressionList([&results](auto&& node) { results->addChild(std::move(node)); }, nullptr, "Expected expression after ',' in 'return' statement");
+  }
+  auto& px = mark.peek(0);
+  if (!px.isOperator(EggTokenizerOperator::Semicolon)) {
+    this->unexpected("Expected semicolon at end of 'return' statement", px);
+  }
+  mark.accept(1);
+  return std::move(results);
 }
 
 std::unique_ptr<IEggSyntaxNode> EggParserContext::parseStatementSwitch() {
@@ -944,7 +986,27 @@ std::unique_ptr<IEggSyntaxNode> EggParserContext::parseStatementWhile() {
 }
 
 std::unique_ptr<IEggSyntaxNode> EggParserContext::parseStatementYield() {
-  TODO();
+  /*
+      yield-statement ::= 'yield' expression ';'
+                        | 'yield' '...' expression ';'
+  */
+  EggParserBacktrackMark mark(this->backtrack);
+  std::unique_ptr<IEggSyntaxNode> expr;
+  assert(mark.peek(0).isKeyword(EggTokenizerKeyword::Yield));
+  if (mark.peek(1).isOperator(EggTokenizerOperator::Ellipsis)) {
+    mark.advance(2);
+    auto ellipsis = this->parseExpression("Expected expression after '...' in 'yield' statement");
+    expr = std::make_unique<EggSyntaxNode_UnaryOperator>(EggTokenizerOperator::Ellipsis, std::move(ellipsis));
+  } else {
+    mark.advance(1);
+    expr = this->parseExpression("Expected expression in 'yield' statement");
+  }
+  auto& px = mark.peek(0);
+  if (!px.isOperator(EggTokenizerOperator::Semicolon)) {
+    this->unexpected("Expected semicolon at end of 'yield' statement", px);
+  }
+  mark.accept(1);
+  return std::make_unique<EggSyntaxNode_Yield>(std::move(expr));
 }
 
 std::unique_ptr<IEggSyntaxNode> EggParserContext::parseType() {

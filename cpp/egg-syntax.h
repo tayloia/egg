@@ -14,9 +14,11 @@
   macro(For) \
   macro(ForEach) \
   macro(If) \
+  macro(Return) \
   macro(Switch) \
   macro(Try) \
   macro(While) \
+  macro(Yield) \
   macro(UnaryOperator) \
   macro(BinaryOperator) \
   macro(TernaryOperator) \
@@ -311,6 +313,14 @@ namespace egg::yolk {
     virtual void visit(IEggSyntaxNodeVisitor& visitor) override;
   };
 
+  class EggSyntaxNode_Return : public EggSyntaxNodeChildrenV<EggSyntaxNodeKind::Return> {
+    EGG_NO_COPY(EggSyntaxNode_Return);
+  public:
+    EggSyntaxNode_Return() {
+    }
+    virtual void visit(IEggSyntaxNodeVisitor& visitor) override;
+  };
+
   class EggSyntaxNode_Switch : public EggSyntaxNodeChildrenN<EggSyntaxNodeKind::Switch, 2> {
     EGG_NO_COPY(EggSyntaxNode_Switch);
   public:
@@ -325,6 +335,15 @@ namespace egg::yolk {
   public:
     EggSyntaxNode_While(std::unique_ptr<IEggSyntaxNode>&& cond, std::unique_ptr<IEggSyntaxNode>&& block)
       : EggSyntaxNodeChildrenN(std::move(cond), std::move(block)) {
+    }
+    virtual void visit(IEggSyntaxNodeVisitor& visitor) override;
+  };
+
+  class EggSyntaxNode_Yield : public EggSyntaxNodeChildren1<EggSyntaxNodeKind::Yield> {
+    EGG_NO_COPY(EggSyntaxNode_Yield);
+  public:
+    EggSyntaxNode_Yield(std::unique_ptr<IEggSyntaxNode>&& expr)
+      : EggSyntaxNodeChildren1(std::move(expr)) {
     }
     virtual void visit(IEggSyntaxNodeVisitor& visitor) override;
   };

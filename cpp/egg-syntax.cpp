@@ -160,12 +160,20 @@ void egg::yolk::EggSyntaxNode_If::visit(IEggSyntaxNodeVisitor& visitor) {
   visitor.node("if", this->child);
 }
 
+void egg::yolk::EggSyntaxNode_Return::visit(IEggSyntaxNodeVisitor& visitor) {
+  visitor.node("return", this->child);
+}
+
 void egg::yolk::EggSyntaxNode_Switch::visit(IEggSyntaxNodeVisitor& visitor) {
   visitor.node("switch", this->child);
 }
 
 void egg::yolk::EggSyntaxNode_While::visit(IEggSyntaxNodeVisitor& visitor) {
   visitor.node("while", this->child);
+}
+
+void egg::yolk::EggSyntaxNode_Yield::visit(IEggSyntaxNodeVisitor& visitor) {
+  visitor.node("yield", this->child);
 }
 
 void egg::yolk::EggSyntaxNode_UnaryOperator::visit(IEggSyntaxNodeVisitor& visitor) {
