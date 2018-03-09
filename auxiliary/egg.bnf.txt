@@ -173,11 +173,10 @@ unary-operator ::= '&'
                  | '!'
 
 postfix-expression ::= primary-expression
-                     | null-detecting-expression '[' expression ']'
-                     | null-detecting-expression '(' parameter-list? ')'
-                     | null-detecting-expression '.' identifier
-
-null-detecting-expression ::= postfix-expression '?'?
+                     | postfix-expression '[' expression ']'
+                     | postfix-expression '(' parameter-list? ')'
+                     | postfix-expression '.' identifier
+                     | postfix-expression '?.' identifier
 
 primary-expression ::= identifier
                      | constant-literal
@@ -196,7 +195,7 @@ cast-specifier ::= identifier
                  | typedef-identifier
                  | '(' type-expression ')'
 
-void-function-call ::= null-detecting-expression '(' parameter-list? ')'
+void-function-call ::= postfix-expression '(' parameter-list? ')'
 
 object-value ::= '{' object-value-list* '}'
 
@@ -230,7 +229,7 @@ positional-parameter ::= expression
 named-parameter-list ::= named-parameter
                        | named-parameter-list ',' named-parameter
 
-named-parameter ::= variable-identifier '=' expression
+named-parameter ::= variable-identifier ':' expression
 
 lambda-value ::= 'function' function-return-type? '(' lambda-parameter-list? ')' compound-statement
                | lambda-parameter '->' expression

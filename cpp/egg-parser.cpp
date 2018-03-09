@@ -179,7 +179,9 @@ namespace {
     std::unique_ptr<IEggSyntaxNode> parseExpressionNegative();
     std::unique_ptr<IEggSyntaxNode> parseExpressionUnary(const char* expected);
     std::unique_ptr<IEggSyntaxNode> parseExpressionPostfix(const char* expected);
+    std::unique_ptr<IEggSyntaxNode> parseExpressionPostfixGreedy(std::unique_ptr<IEggSyntaxNode>&& expr);
     std::unique_ptr<IEggSyntaxNode> parseExpressionPrimary(const char* expected);
+    std::vector<std::unique_ptr<IEggSyntaxNode>> parseParameterList();
     std::unique_ptr<IEggSyntaxNode> parseModule();
     std::unique_ptr<IEggSyntaxNode> parseStatement();
     std::unique_ptr<IEggSyntaxNode> parseStatementBreak();
@@ -467,31 +469,66 @@ std::unique_ptr<IEggSyntaxNode> EggParserContext::parseExpressionUnary(const cha
 }
 
 std::unique_ptr<IEggSyntaxNode> EggParserContext::parseExpressionPostfix(const char* expected) {
+  auto expr = this->parseExpressionPrimary(expected);
+  return (expr == nullptr) ? nullptr : this->parseExpressionPostfixGreedy(std::move(expr));
+}
+
+std::unique_ptr<IEggSyntaxNode> EggParserContext::parseExpressionPostfixGreedy(std::unique_ptr<IEggSyntaxNode>&& expr) {
   /*
       postfix-expression ::= primary-expression
-                           | null-detecting-expression '[' expression ']'
-                           | null-detecting-expression '(' parameter-list? ')'
-                           | null-detecting-expression '.' identifier
-
-      null-detecting-expression ::= postfix-expression '?'?
+                           | postfix-expression '[' expression ']'
+                           | postfix-expression '(' parameter-list? ')'
+                           | postfix-expression '.' identifier
+                           | postfix-expression '?.' identifier
   */
-  EggParserBacktrackMark mark(this->backtrack);
-  auto expr = this->parseExpressionPrimary(expected);
-  if (expr) {
-    auto& p0 = mark.peek(0);
+  for (;;) {
+    auto& p0 = this->backtrack.peek(0);
     if (p0.isOperator(EggTokenizerOperator::BracketLeft)) {
       // Expect <expression> '[' <expression> ']' 
-      TODO();
+      EggParserBacktrackMark mark(this->backtrack);
+      mark.advance(1);
+      auto index = this->parseExpression("Expected expression inside indexing '[]' operators");
+      auto& p1 = mark.peek(0);
+      if (!p1.isOperator(EggTokenizerOperator::BracketRight)) {
+        this->unexpected("Expected ']' after indexing expression following '[', not " + p1.to_string(), p1);
+      }
+      mark.accept(1);
+      expr = std::make_unique<EggSyntaxNode_BinaryOperator>(EggTokenizerOperator::BracketLeft, std::move(expr), std::move(index));
     } else if (p0.isOperator(EggTokenizerOperator::ParenthesisLeft)) {
-      // Expect <expression> '(' <expression> ')' 
-      TODO();
+      // Expect <expression> '(' <parameter-list>? ')'
+      auto list = this->parseParameterList();
+      expr = std::make_unique<EggSyntaxNode_Call>(std::move(expr), std::move(list));
     } else if (p0.isOperator(EggTokenizerOperator::Dot)) {
       // Expect <expression> '.' <identifer>
-      TODO();
+      EggParserBacktrackMark mark(this->backtrack);
+      auto& p1 = mark.peek(1);
+      if (p1.kind != EggTokenizerKind::Identifier) {
+        this->unexpected("Expected field name to follow '.' operator, not " + p1.to_string(), p1);
+      }
+      auto field = std::make_unique<EggSyntaxNode_Identifier>(p1.value.s);
+      mark.accept(2);
+      expr = std::make_unique<EggSyntaxNode_BinaryOperator>(EggTokenizerOperator::Dot, std::move(expr), std::move(field));
+    } else if (p0.isOperator(EggTokenizerOperator::Query)) {
+      // Expect <expression> '?.' <identifer>
+      EggParserBacktrackMark mark(this->backtrack);
+      auto& p1 = mark.peek(1);
+      // We use contiguous sequential operators to disambiguate "a?...x:y" from "a?.b"
+      if (!p1.isOperator(EggTokenizerOperator::Dot) || !p1.contiguous) {
+        break;
+      }
+      auto& p2 = mark.peek(2);
+      if (p2.kind != EggTokenizerKind::Identifier) {
+        this->unexpected("Expected field name to follow '?.' operator, not " + p2.to_string(), p2);
+      }
+      auto field = std::make_unique<EggSyntaxNode_Identifier>(p2.value.s);
+      mark.accept(3);
+      expr = std::make_unique<EggSyntaxNode_BinaryOperator>(EggTokenizerOperator::Query, std::move(expr), std::move(field));
+    } else {
+      // No postfix operator, return just the expression
+      break;
     }
-    mark.accept(0);
   }
-  return expr;
+  return std::move(expr);
 }
 
 std::unique_ptr<IEggSyntaxNode> EggParserContext::parseExpressionPrimary(const char* expected) {
@@ -525,6 +562,56 @@ std::unique_ptr<IEggSyntaxNode> EggParserContext::parseExpressionPrimary(const c
     }
     return nullptr;
   }
+}
+
+std::vector<std::unique_ptr<IEggSyntaxNode>> EggParserContext::parseParameterList() {
+  /*
+      parameter-list ::= positional-parameter-list
+                       | positional-parameter-list ',' named-parameter-list
+                       | named-parameter-list
+
+      positional-parameter-list ::= positional-parameter
+                                  | positional-parameter-list ',' positional-parameter
+
+      positional-parameter ::= expression
+                             | '...' expression
+
+      named-parameter-list ::= named-parameter
+                             | named-parameter-list ',' named-parameter
+
+      named-parameter ::= variable-identifier ':' expression
+  */
+  EggParserBacktrackMark mark(this->backtrack);
+  assert(mark.peek(0).isOperator(EggTokenizerOperator::ParenthesisLeft));
+  std::vector<std::unique_ptr<IEggSyntaxNode>> list;
+  if (mark.peek(1).isOperator(EggTokenizerOperator::ParenthesisRight)) {
+    // This is an empty parameter list: '(' ')'
+    mark.accept(2);
+  } else {
+    // Don't worry about the order of positional and named parameters at this stage
+    const EggTokenizerItem* p0;
+    do {
+      mark.advance(1);
+      p0 = &mark.peek(0);
+      if ((p0->kind == EggTokenizerKind::Identifier) && mark.peek(1).isOperator(EggTokenizerOperator::Colon)) {
+        // Expect <identifier> ':' <expression>
+        mark.advance(2);
+        auto expr = this->parseExpression("Expected expression for named function call parameter value");
+        auto named = std::make_unique<EggSyntaxNode_Named>(p0->value.s, std::move(expr));
+        list.emplace_back(std::move(named));
+      } else {
+        // Expect <expression>
+        auto expr = this->parseExpression("Expected expression for function call parameter value");
+        list.emplace_back(std::move(expr));
+      }
+      p0 = &mark.peek(0);
+    } while (p0->isOperator(EggTokenizerOperator::Comma));
+    if (!p0->isOperator(EggTokenizerOperator::ParenthesisRight)) {
+      this->unexpected("Expected ')' at end of function call parameter list, not " + p0->to_string(), *p0);
+    }
+    mark.accept(1);
+  }
+  return list;
 }
 
 std::unique_ptr<IEggSyntaxNode> EggParserContext::parseStatementBreak() {

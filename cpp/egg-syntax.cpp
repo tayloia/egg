@@ -148,6 +148,14 @@ void egg::yolk::EggSyntaxNode_TernaryOperator::visit(IEggSyntaxNodeVisitor& visi
   visitor.node("ternary", pointers, 3);
 }
 
+void egg::yolk::EggSyntaxNode_Call::visit(IEggSyntaxNodeVisitor& visitor) {
+  visitor.node("call", this->child);
+}
+
+void egg::yolk::EggSyntaxNode_Named::visit(IEggSyntaxNodeVisitor& visitor) {
+  visitor.node("named '" + this->name + "'", this->child);
+}
+
 void egg::yolk::EggSyntaxNode_Identifier::visit(IEggSyntaxNodeVisitor& visitor) {
   visitor.node("identifier '" + this->name + "'");
 }

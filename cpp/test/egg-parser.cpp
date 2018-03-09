@@ -167,10 +167,24 @@ TEST(TestEggParser, ExpressionUnary) {
   ASSERT_PARSE_BAD(parseExpressionToString("-var"), "(1, 2): Expected expression after prefix '-' operator");
 }
 
+TEST(TestEggParser, ExpressionPostfix) {
+  // TODO
+  ASSERT_PARSE_GOOD(parseExpressionToString("a[0]"), "(binary '[' (identifier 'a') (literal int 0))");
+  ASSERT_PARSE_GOOD(parseExpressionToString("a()"), "(call (identifier 'a'))");
+  ASSERT_PARSE_GOOD(parseExpressionToString("a(x)"), "(call (identifier 'a') (identifier 'x'))");
+  ASSERT_PARSE_GOOD(parseExpressionToString("a(x,y)"), "(call (identifier 'a') (identifier 'x') (identifier 'y'))");
+  ASSERT_PARSE_GOOD(parseExpressionToString("a(x,y,name:z)"), "(call (identifier 'a') (identifier 'x') (identifier 'y') (named 'name' (identifier 'z')))");
+  ASSERT_PARSE_GOOD(parseExpressionToString("a.b"), "(binary '.' (identifier 'a') (identifier 'b'))");
+  ASSERT_PARSE_GOOD(parseExpressionToString("a.b.c"), "(binary '.' (binary '.' (identifier 'a') (identifier 'b')) (identifier 'c'))");
+  ASSERT_PARSE_GOOD(parseExpressionToString("a?.b"), "(binary '?' (identifier 'a') (identifier 'b'))");
+  ASSERT_PARSE_GOOD(parseExpressionToString("a?.b?.c"), "(binary '?' (binary '?' (identifier 'a') (identifier 'b')) (identifier 'c'))");
+}
+
 TEST(TestEggParser, Vexatious) {
   ASSERT_PARSE_GOOD(parseExpressionToString("a--b"), "(binary '-' (identifier 'a') (unary '-' (identifier 'b')))");
   ASSERT_PARSE_GOOD(parseExpressionToString("a--1"), "(binary '-' (identifier 'a') (unary '-' (literal int 1)))");
   ASSERT_PARSE_GOOD(parseExpressionToString("-1"), "(unary '-' (literal int 1))");
+  //TODO ASSERT_PARSE_GOOD(parseExpressionToString("a?...b:c"), "(ternary ...)");
 }
 
 TEST(TestEggParser, ExampleFile) {

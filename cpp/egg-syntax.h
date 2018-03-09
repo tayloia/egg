@@ -8,6 +8,8 @@
   macro(UnaryOperator) \
   macro(BinaryOperator) \
   macro(TernaryOperator) \
+  macro(Call) \
+  macro(Named) \
   macro(Identifier) \
   macro(Literal)
 #define EGG_SYNTAX_NODE_DECLARE(value) value,
@@ -133,7 +135,7 @@ namespace egg::yolk {
       return this->children.size();
     }
     virtual IEggSyntaxNode* tryGetChild(size_t index) const override {
-      return this->children[index].get();
+      return (index < this->children.size()) ? this->children[index].get() : nullptr;
     }
     virtual const EggTokenizerOperator* tryGetOperator() const override {
       return nullptr;
@@ -174,7 +176,7 @@ namespace egg::yolk {
   private:
     std::string name;
   public:
-    EggSyntaxNode_VariableDeclaration(std::string name, std::unique_ptr<IEggSyntaxNode>&& type)
+    EggSyntaxNode_VariableDeclaration(const std::string& name, std::unique_ptr<IEggSyntaxNode>&& type)
       : EggSyntaxNodeChildren1(std::move(type)), name(name) {
     }
     virtual void visit(IEggSyntaxNodeVisitor& visitor) override;
@@ -185,7 +187,7 @@ namespace egg::yolk {
   private:
     std::string name;
   public:
-    EggSyntaxNode_VariableInitialization(std::string name, std::unique_ptr<IEggSyntaxNode>&& type, std::unique_ptr<IEggSyntaxNode>&& expr)
+    EggSyntaxNode_VariableInitialization(const std::string& name, std::unique_ptr<IEggSyntaxNode>&& type, std::unique_ptr<IEggSyntaxNode>&& expr)
       : name(name) {
       assert(type != nullptr);
       assert(expr != nullptr);
@@ -270,12 +272,51 @@ namespace egg::yolk {
     virtual void visit(IEggSyntaxNodeVisitor& visitor) override;
   };
 
+  class EggSyntaxNode_Call : public IEggSyntaxNode {
+    EGG_NO_COPY(EggSyntaxNode_Call);
+  private:
+    std::vector<std::unique_ptr<IEggSyntaxNode>> child;
+  public:
+    EggSyntaxNode_Call(std::unique_ptr<IEggSyntaxNode>&& callee, std::vector<std::unique_ptr<IEggSyntaxNode>>&& parameters)
+      : child(std::move(parameters)) {
+      assert(callee != nullptr);
+      this->child.insert(this->child.begin(), std::move(callee));
+    }
+    virtual ~EggSyntaxNode_Call() {
+    }
+    virtual EggSyntaxNodeKind getKind() const override {
+      return EggSyntaxNodeKind::Module;
+    }
+    virtual size_t getChildren() const override {
+      return this->child.size();
+    }
+    virtual IEggSyntaxNode* tryGetChild(size_t index) const override {
+      return (index < this->child.size()) ? this->child[index].get() : nullptr;
+    }
+    virtual const EggTokenizerOperator* tryGetOperator() const override {
+      static const EggTokenizerOperator op = EggTokenizerOperator::ParenthesisLeft;
+      return &op;
+    }
+    virtual void visit(IEggSyntaxNodeVisitor& visitor) override;
+  };
+
+  class EggSyntaxNode_Named : public EggSyntaxNodeChildren1<EggSyntaxNodeKind::Named> {
+    EGG_NO_COPY(EggSyntaxNode_Named);
+  private:
+    std::string name;
+  public:
+    EggSyntaxNode_Named(const std::string& name, std::unique_ptr<IEggSyntaxNode>&& expr)
+      : EggSyntaxNodeChildren1(std::move(expr)), name(name) {
+    }
+    virtual void visit(IEggSyntaxNodeVisitor& visitor) override;
+  };
+
   class EggSyntaxNode_Identifier : public EggSyntaxNodeChildren0<EggSyntaxNodeKind::Identifier> {
     EGG_NO_COPY(EggSyntaxNode_Identifier);
   private:
     std::string name;
   public:
-    explicit EggSyntaxNode_Identifier(std::string name)
+    explicit EggSyntaxNode_Identifier(const std::string& name)
       : name(name) {
     }
     virtual void visit(IEggSyntaxNodeVisitor& visitor) override;
