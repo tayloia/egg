@@ -97,6 +97,11 @@ namespace {
     const EggTokenizerItem& peek(size_t index) {
       return this->lookahead.peek(this->cursor + index);
     }
+    size_t advance(size_t count) {
+      // Called by EggParserBacktrackMark advance
+      this->cursor += count;
+      return this->cursor;
+    }
     void commit() {
       if (this->cursor > 0) {
         this->lookahead.pop(this->cursor);
@@ -115,11 +120,6 @@ namespace {
       // Called by EggParserBacktrackMark dtor
       assert(previous <= this->cursor);
       this->cursor = previous;
-    }
-    size_t advance(size_t count) {
-      // Called by EggParserBacktrackMark advance
-      this->cursor += count;
-      return this->cursor;
     }
   };
 
@@ -153,14 +153,13 @@ namespace {
       : backtrack(tokenizer) {
     }
     void unexpected(const std::string& message) {
-      this->unexpected(message, this->backtrack.peek(0));
-    }
-    void unexpected(const std::string& message, const EggTokenizerItem& item) {
+      auto& item = this->backtrack.peek(0);
       throw Exception(message, this->backtrack.resource(), item.line, item.column);
     }
-    void unexpected(const EggTokenizerItem& item) {
-      throw Exception("Unexpected " + item.to_string(), this->backtrack.resource(), item.line, item.column);
+    void unexpected(const std::string& expected, const EggTokenizerItem& item) {
+      throw Exception(expected + ", not " + item.to_string(), this->backtrack.resource(), item.line, item.column);
     }
+    void parseParameterList(std::function<void(std::unique_ptr<IEggSyntaxNode>&& node)> adder);
     void parseEndOfFile(const char* expected);
     std::unique_ptr<IEggSyntaxNode> parseCompoundStatement();
     std::unique_ptr<IEggSyntaxNode> parseExpression(const char* expected);
@@ -181,9 +180,9 @@ namespace {
     std::unique_ptr<IEggSyntaxNode> parseExpressionPostfix(const char* expected);
     std::unique_ptr<IEggSyntaxNode> parseExpressionPostfixGreedy(std::unique_ptr<IEggSyntaxNode>&& expr);
     std::unique_ptr<IEggSyntaxNode> parseExpressionPrimary(const char* expected);
-    std::vector<std::unique_ptr<IEggSyntaxNode>> parseParameterList();
     std::unique_ptr<IEggSyntaxNode> parseModule();
     std::unique_ptr<IEggSyntaxNode> parseStatement();
+    std::unique_ptr<IEggSyntaxNode> parseStatementAssignment(std::unique_ptr<IEggSyntaxNode>&& lhs);
     std::unique_ptr<IEggSyntaxNode> parseStatementBreak();
     std::unique_ptr<IEggSyntaxNode> parseStatementCase();
     std::unique_ptr<IEggSyntaxNode> parseStatementContinue();
@@ -238,7 +237,7 @@ namespace {
 void EggParserContext::parseEndOfFile(const char* expected) {
   auto& p0 = this->backtrack.peek(0);
   if (p0.kind != EggTokenizerKind::EndOfFile) {
-    this->unexpected(std::string(expected) + ", not " + p0.to_string());
+    this->unexpected(expected, p0);
   }
 }
 
@@ -325,7 +324,7 @@ std::unique_ptr<IEggSyntaxNode> EggParserContext::parseStatement() {
     case EggTokenizerKeyword::Yield:
       return this->parseStatementYield();
     default:
-      this->unexpected("Internal egg parser error (statement keyword)");
+      this->unexpected("Internal egg parser error, expected statement", p0);
     }
     break;
   case EggTokenizerKind::Operator:
@@ -336,13 +335,18 @@ std::unique_ptr<IEggSyntaxNode> EggParserContext::parseStatement() {
       return this->parseStatementDecrementIncrement(EggTokenizerOperator::PlusPlus, "increment", "Expected expression after increment '++' operator");
     } else if (p0.value.o == EggTokenizerOperator::CurlyLeft) {
       return this->parseCompoundStatement();
+    } else if (p0.value.o == EggTokenizerOperator::CurlyRight) {
+      this->unexpected("Unexpected '}' (no matching '{' seen before)");
+    } else if (p0.value.o == EggTokenizerOperator::Semicolon) {
+      this->unexpected("Unexpected ';' (empty statements are not permitted)");
     }
     break;
   case EggTokenizerKind::Identifier:
     break;
   case EggTokenizerKind::Attribute:
-    this->unexpected("TODO Attribute"); // TODO
+    this->unexpected("Unimplemented attribute"); // TODO
   case EggTokenizerKind::EndOfFile:
+    this->unexpected("Expected statement", p0);
   default:
     this->unexpected("Internal egg parser error (statement kind)");
   }
@@ -354,12 +358,24 @@ std::unique_ptr<IEggSyntaxNode> EggParserContext::parseStatement() {
   if (type) {
     return this->parseStatementType(std::move(type));
   }
-  this->unexpected(p0); // TODO
+  this->unexpected("Unexpected " + p0.to_string()); // TODO
   return nullptr;
 }
 
 std::unique_ptr<IEggSyntaxNode> EggParserContext::parseCompoundStatement() {
-  TODO();
+  /*
+      compound-statement ::= '{' statement* '}'
+  */
+  assert(this->backtrack.peek(0).isOperator(EggTokenizerOperator::CurlyLeft));
+  this->backtrack.advance(1); // skip '{'
+  auto block = std::make_unique<EggSyntaxNode_Block>();
+  while (!this->backtrack.peek(0).isOperator(EggTokenizerOperator::CurlyRight)) {
+    block->addChild(std::move(this->parseStatement()));
+    this->backtrack.commit();
+  }
+  this->backtrack.advance(1); // skip '}'
+  this->backtrack.commit();
+  return block;
 }
 
 std::unique_ptr<IEggSyntaxNode> EggParserContext::parseExpression(const char* expected) {
@@ -382,7 +398,7 @@ std::unique_ptr<IEggSyntaxNode> EggParserContext::parseExpressionTernary(const c
       mark.advance(1);
       auto exprTrue = this->parseExpression("Expected expression after '?' of ternary operator '?:'");
       if (!mark.peek(0).isOperator(EggTokenizerOperator::Colon)) {
-        this->unexpected("Expected ':' as part of ternary operator '?:', not " + mark.peek(0).to_string());
+        this->unexpected("Expected ':' as part of ternary operator '?:'", mark.peek(0));
       }
       mark.advance(1);
       auto exprFalse = this->parseExpression("Expected expression after ':' of ternary operator '?:'");
@@ -490,20 +506,21 @@ std::unique_ptr<IEggSyntaxNode> EggParserContext::parseExpressionPostfixGreedy(s
       auto index = this->parseExpression("Expected expression inside indexing '[]' operators");
       auto& p1 = mark.peek(0);
       if (!p1.isOperator(EggTokenizerOperator::BracketRight)) {
-        this->unexpected("Expected ']' after indexing expression following '[', not " + p1.to_string(), p1);
+        this->unexpected("Expected ']' after indexing expression following '['", p1);
       }
       mark.accept(1);
       expr = std::make_unique<EggSyntaxNode_BinaryOperator>(EggTokenizerOperator::BracketLeft, std::move(expr), std::move(index));
     } else if (p0.isOperator(EggTokenizerOperator::ParenthesisLeft)) {
       // Expect <expression> '(' <parameter-list>? ')'
-      auto list = this->parseParameterList();
-      expr = std::make_unique<EggSyntaxNode_Call>(std::move(expr), std::move(list));
+      auto call = std::make_unique<EggSyntaxNode_Call>(std::move(expr));
+      this->parseParameterList([&call](auto&& node) { call->addChild(std::move(node)); });
+      expr = std::move(call);
     } else if (p0.isOperator(EggTokenizerOperator::Dot)) {
       // Expect <expression> '.' <identifer>
       EggParserBacktrackMark mark(this->backtrack);
       auto& p1 = mark.peek(1);
       if (p1.kind != EggTokenizerKind::Identifier) {
-        this->unexpected("Expected field name to follow '.' operator, not " + p1.to_string(), p1);
+        this->unexpected("Expected field name to follow '.' operator", p1);
       }
       auto field = std::make_unique<EggSyntaxNode_Identifier>(p1.value.s);
       mark.accept(2);
@@ -518,7 +535,7 @@ std::unique_ptr<IEggSyntaxNode> EggParserContext::parseExpressionPostfixGreedy(s
       }
       auto& p2 = mark.peek(2);
       if (p2.kind != EggTokenizerKind::Identifier) {
-        this->unexpected("Expected field name to follow '?.' operator, not " + p2.to_string(), p2);
+        this->unexpected("Expected field name to follow '?.' operator", p2);
       }
       auto field = std::make_unique<EggSyntaxNode_Identifier>(p2.value.s);
       mark.accept(3);
@@ -558,13 +575,13 @@ std::unique_ptr<IEggSyntaxNode> EggParserContext::parseExpressionPrimary(const c
   case EggTokenizerKind::EndOfFile:
   default:
     if (expected) {
-      this->unexpected(std::string(expected) + ", not " + p0.to_string(), p0);
+      this->unexpected(expected, p0);
     }
     return nullptr;
   }
 }
 
-std::vector<std::unique_ptr<IEggSyntaxNode>> EggParserContext::parseParameterList() {
+void EggParserContext::parseParameterList(std::function<void(std::unique_ptr<IEggSyntaxNode>&& node)> adder) {
   /*
       parameter-list ::= positional-parameter-list
                        | positional-parameter-list ',' named-parameter-list
@@ -583,7 +600,6 @@ std::vector<std::unique_ptr<IEggSyntaxNode>> EggParserContext::parseParameterLis
   */
   EggParserBacktrackMark mark(this->backtrack);
   assert(mark.peek(0).isOperator(EggTokenizerOperator::ParenthesisLeft));
-  std::vector<std::unique_ptr<IEggSyntaxNode>> list;
   if (mark.peek(1).isOperator(EggTokenizerOperator::ParenthesisRight)) {
     // This is an empty parameter list: '(' ')'
     mark.accept(2);
@@ -598,61 +614,22 @@ std::vector<std::unique_ptr<IEggSyntaxNode>> EggParserContext::parseParameterLis
         mark.advance(2);
         auto expr = this->parseExpression("Expected expression for named function call parameter value");
         auto named = std::make_unique<EggSyntaxNode_Named>(p0->value.s, std::move(expr));
-        list.emplace_back(std::move(named));
+        adder(std::move(named));
       } else {
         // Expect <expression>
         auto expr = this->parseExpression("Expected expression for function call parameter value");
-        list.emplace_back(std::move(expr));
+        adder(std::move(expr));
       }
       p0 = &mark.peek(0);
     } while (p0->isOperator(EggTokenizerOperator::Comma));
     if (!p0->isOperator(EggTokenizerOperator::ParenthesisRight)) {
-      this->unexpected("Expected ')' at end of function call parameter list, not " + p0->to_string(), *p0);
+      this->unexpected("Expected ')' at end of function call parameter list", *p0);
     }
     mark.accept(1);
   }
-  return list;
 }
 
-std::unique_ptr<IEggSyntaxNode> EggParserContext::parseStatementBreak() {
-  TODO();
-}
-
-std::unique_ptr<IEggSyntaxNode> EggParserContext::parseStatementCase() {
-  TODO();
-}
-
-std::unique_ptr<IEggSyntaxNode> EggParserContext::parseStatementContinue() {
-  TODO();
-}
-
-std::unique_ptr<IEggSyntaxNode> EggParserContext::parseStatementDecrementIncrement(EggTokenizerOperator op, const std::string& what, const char* expected) {
-  /*
-      assignment-statement ::= assignment-list assignment-operator expression-list
-                             | '++' assignment-target
-                             | '--' assignment-target
-  */
-  EggParserBacktrackMark mark(this->backtrack);
-  assert(mark.peek(0).isOperator(op));
-  mark.advance(1);
-  auto expr = this->parseExpression(expected);
-  auto& px = mark.peek(0);
-  if (!px.isOperator(EggTokenizerOperator::Semicolon)) {
-    this->unexpected("Expected semicolon after " + what + " statement, not " + px.to_string(), px);
-  }
-  mark.accept(1);
-  return std::make_unique<EggSyntaxNode_Mutate>(op, std::move(expr));
-}
-
-std::unique_ptr<IEggSyntaxNode> EggParserContext::parseStatementDefault() {
-  TODO();
-}
-
-std::unique_ptr<IEggSyntaxNode> EggParserContext::parseStatementDo() {
-  TODO();
-}
-
-std::unique_ptr<IEggSyntaxNode> EggParserContext::parseStatementExpression(std::unique_ptr<IEggSyntaxNode>&& expr) {
+std::unique_ptr<IEggSyntaxNode> EggParserContext::parseStatementAssignment(std::unique_ptr<IEggSyntaxNode>&& lhs) {
   /*
       assignment-target ::= variable-identifier
                           | '*'+ expression
@@ -700,16 +677,68 @@ std::unique_ptr<IEggSyntaxNode> EggParserContext::parseStatementExpression(std::
   } else if (p0.isOperator(EggTokenizerOperator::BarEqual)) {
     expected = "Expected expression after assignment '|=' operator";
   } else {
-    this->unexpected("Expected assignment operator after expression, not " + p0.to_string(), p0);
+    this->unexpected("Expected assignment operator after expression", p0);
   }
   mark.advance(1);
   auto rhs = this->parseExpression(expected);
   auto& px = mark.peek(0);
   if (!px.isOperator(EggTokenizerOperator::Semicolon)) {
-    this->unexpected("Expected semicolon after assignment statement, not " + px.to_string(), px);
+    this->unexpected("Expected semicolon after assignment statement", px);
   }
   mark.accept(1);
-  return std::make_unique<EggSyntaxNode_Assignment>(p0.value.o, std::move(expr), std::move(rhs));
+  return std::make_unique<EggSyntaxNode_Assignment>(p0.value.o, std::move(lhs), std::move(rhs));
+}
+
+std::unique_ptr<IEggSyntaxNode> EggParserContext::parseStatementBreak() {
+  TODO();
+}
+
+std::unique_ptr<IEggSyntaxNode> EggParserContext::parseStatementCase() {
+  TODO();
+}
+
+std::unique_ptr<IEggSyntaxNode> EggParserContext::parseStatementContinue() {
+  TODO();
+}
+
+std::unique_ptr<IEggSyntaxNode> EggParserContext::parseStatementDecrementIncrement(EggTokenizerOperator op, const std::string& what, const char* expected) {
+  /*
+      assignment-statement ::= assignment-list assignment-operator expression-list
+                             | '++' assignment-target
+                             | '--' assignment-target
+  */
+  EggParserBacktrackMark mark(this->backtrack);
+  assert(mark.peek(0).isOperator(op));
+  mark.advance(1);
+  auto expr = this->parseExpression(expected);
+  auto& px = mark.peek(0);
+  if (!px.isOperator(EggTokenizerOperator::Semicolon)) {
+    this->unexpected("Expected semicolon after " + what + " statement", px);
+  }
+  mark.accept(1);
+  return std::make_unique<EggSyntaxNode_Mutate>(op, std::move(expr));
+}
+
+std::unique_ptr<IEggSyntaxNode> EggParserContext::parseStatementDefault() {
+  TODO();
+}
+
+std::unique_ptr<IEggSyntaxNode> EggParserContext::parseStatementDo() {
+  TODO();
+}
+
+std::unique_ptr<IEggSyntaxNode> EggParserContext::parseStatementExpression(std::unique_ptr<IEggSyntaxNode>&& expr) {
+  // Expect <lhs> <assignment-operator> <rhs> ';'
+  //     or <function-call> ';'
+  if (!this->backtrack.peek(0).isOperator(EggTokenizerOperator::Semicolon)) {
+    return this->parseStatementAssignment(std::move(expr));
+  }
+  if (expr->getKind() != EggSyntaxNodeKind::Call) {
+    this->unexpected("Expected assignment operator after expression, not end of statement");
+  }
+  EggParserBacktrackMark mark(this->backtrack);
+  mark.accept(1);
+  return std::move(expr);
 }
 
 std::unique_ptr<IEggSyntaxNode> EggParserContext::parseStatementFor() {
@@ -753,9 +782,9 @@ std::unique_ptr<IEggSyntaxNode> EggParserContext::parseStatementType(std::unique
       mark.accept(1);
       return std::make_unique<EggSyntaxNode_VariableInitialization>(p0.value.s, std::move(type), std::move(expr));
     }
-    this->unexpected("Malformed variable declaration or initialization", p1);
+    this->unexpected("Malformed variable declaration or initialization");
   }
-  this->unexpected("Malformed statement", p0);
+  this->unexpected("Expected variable identifier after type", p0);
   return nullptr;
 }
 

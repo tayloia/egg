@@ -73,7 +73,11 @@ egg::yolk::IEggSyntaxNode& egg::yolk::IEggSyntaxNode::getChild(size_t index) con
 }
 
 void egg::yolk::EggSyntaxNode_Module::visit(IEggSyntaxNodeVisitor& visitor) {
-  visitor.node("module", this->children);
+  visitor.node("module", this->child);
+}
+
+void egg::yolk::EggSyntaxNode_Block::visit(IEggSyntaxNodeVisitor& visitor) {
+  visitor.node("block", this->child);
 }
 
 void egg::yolk::EggSyntaxNode_Type::visit(IEggSyntaxNodeVisitor& visitor) {

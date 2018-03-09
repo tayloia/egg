@@ -1,5 +1,6 @@
 #define EGG_SYNTAX_NODES(macro) \
   macro(Module) \
+  macro(Block) \
   macro(Type) \
   macro(VariableDeclaration) \
   macro(VariableInitialization) \
@@ -122,28 +123,47 @@ namespace egg::yolk {
     }
   };
 
-  class EggSyntaxNode_Module : public IEggSyntaxNode {
-  private:
-    std::vector<std::unique_ptr<IEggSyntaxNode>> children;
+  template<EggSyntaxNodeKind KIND, typename TYPE = IEggSyntaxNode>
+  class EggSyntaxNodeChildrenV : public IEggSyntaxNode {
+    EGG_NO_COPY(EggSyntaxNodeChildrenV);
+  protected:
+    std::vector<std::unique_ptr<TYPE>> child;
   public:
-    virtual ~EggSyntaxNode_Module() {
+    EggSyntaxNodeChildrenV() {
+    }
+    virtual ~EggSyntaxNodeChildrenV() {
     }
     virtual EggSyntaxNodeKind getKind() const override {
-      return EggSyntaxNodeKind::Module;
+      return KIND;
     }
     virtual size_t getChildren() const override {
-      return this->children.size();
+      return this->child.size();
     }
     virtual IEggSyntaxNode* tryGetChild(size_t index) const override {
-      return (index < this->children.size()) ? this->children[index].get() : nullptr;
+      return (index < this->child.size()) ? this->child[index].get() : nullptr;
     }
     virtual const EggTokenizerOperator* tryGetOperator() const override {
       return nullptr;
     }
-    virtual void visit(IEggSyntaxNodeVisitor& visitor) override;
-    void addChild(std::unique_ptr<IEggSyntaxNode>&& child) {
-      this->children.emplace_back(std::move(child));
+    void addChild(std::unique_ptr<TYPE>&& node) {
+      this->child.emplace_back(std::move(node));
     }
+  };
+
+  class EggSyntaxNode_Module : public EggSyntaxNodeChildrenV<EggSyntaxNodeKind::Module> {
+    EGG_NO_COPY(EggSyntaxNode_Module);
+  public:
+    EggSyntaxNode_Module() {
+    }
+    virtual void visit(IEggSyntaxNodeVisitor& visitor) override;
+  };
+
+  class EggSyntaxNode_Block : public EggSyntaxNodeChildrenV<EggSyntaxNodeKind::Block> {
+    EGG_NO_COPY(EggSyntaxNode_Block);
+  public:
+    EggSyntaxNode_Block() {
+    }
+    virtual void visit(IEggSyntaxNodeVisitor& visitor) override;
   };
 
   class EggSyntaxNode_Type : public EggSyntaxNodeChildren0<EggSyntaxNodeKind::Type> {
@@ -272,30 +292,11 @@ namespace egg::yolk {
     virtual void visit(IEggSyntaxNodeVisitor& visitor) override;
   };
 
-  class EggSyntaxNode_Call : public IEggSyntaxNode {
+  class EggSyntaxNode_Call : public EggSyntaxNodeChildrenV<EggSyntaxNodeKind::Call> {
     EGG_NO_COPY(EggSyntaxNode_Call);
-  private:
-    std::vector<std::unique_ptr<IEggSyntaxNode>> child;
   public:
-    EggSyntaxNode_Call(std::unique_ptr<IEggSyntaxNode>&& callee, std::vector<std::unique_ptr<IEggSyntaxNode>>&& parameters)
-      : child(std::move(parameters)) {
-      assert(callee != nullptr);
-      this->child.insert(this->child.begin(), std::move(callee));
-    }
-    virtual ~EggSyntaxNode_Call() {
-    }
-    virtual EggSyntaxNodeKind getKind() const override {
-      return EggSyntaxNodeKind::Module;
-    }
-    virtual size_t getChildren() const override {
-      return this->child.size();
-    }
-    virtual IEggSyntaxNode* tryGetChild(size_t index) const override {
-      return (index < this->child.size()) ? this->child[index].get() : nullptr;
-    }
-    virtual const EggTokenizerOperator* tryGetOperator() const override {
-      static const EggTokenizerOperator op = EggTokenizerOperator::ParenthesisLeft;
-      return &op;
+    explicit EggSyntaxNode_Call(std::unique_ptr<IEggSyntaxNode>&& callee) {
+      this->addChild(std::move(callee));
     }
     virtual void visit(IEggSyntaxNodeVisitor& visitor) override;
   };

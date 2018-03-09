@@ -64,8 +64,8 @@ TEST(TestEggParser, VariableDeclaration) {
   ASSERT_PARSE_GOOD(parseStatementToString("var foo;"), "(declare 'foo' (type 'var'))");
   ASSERT_PARSE_GOOD(parseStatementToString("any? bar;"), "(declare 'bar' (type 'any?'))");
   // Bad
-  ASSERT_PARSE_BAD(parseStatementToString("var"), "(1, 4): Malformed statement");
-  ASSERT_PARSE_BAD(parseStatementToString("var foo"), "(1, 8): Malformed variable declaration or initialization");
+  ASSERT_PARSE_BAD(parseStatementToString("var"), "(1, 4): Expected variable identifier after type");
+  ASSERT_PARSE_BAD(parseStatementToString("var foo"), "(1, 5): Malformed variable declaration or initialization");
 }
 
 TEST(TestEggParser, VariableInitialization) {
@@ -168,7 +168,7 @@ TEST(TestEggParser, ExpressionUnary) {
 }
 
 TEST(TestEggParser, ExpressionPostfix) {
-  // TODO
+  // Good
   ASSERT_PARSE_GOOD(parseExpressionToString("a[0]"), "(binary '[' (identifier 'a') (literal int 0))");
   ASSERT_PARSE_GOOD(parseExpressionToString("a()"), "(call (identifier 'a'))");
   ASSERT_PARSE_GOOD(parseExpressionToString("a(x)"), "(call (identifier 'a') (identifier 'x'))");
@@ -178,6 +178,27 @@ TEST(TestEggParser, ExpressionPostfix) {
   ASSERT_PARSE_GOOD(parseExpressionToString("a.b.c"), "(binary '.' (binary '.' (identifier 'a') (identifier 'b')) (identifier 'c'))");
   ASSERT_PARSE_GOOD(parseExpressionToString("a?.b"), "(binary '?' (identifier 'a') (identifier 'b'))");
   ASSERT_PARSE_GOOD(parseExpressionToString("a?.b?.c"), "(binary '?' (binary '?' (identifier 'a') (identifier 'b')) (identifier 'c'))");
+  // Bad
+  ASSERT_PARSE_BAD(parseExpressionToString("a[]"), "(1, 3): Expected expression inside indexing '[]' operators");
+  ASSERT_PARSE_BAD(parseExpressionToString("a[0,1]"), "(1, 4): Expected ']' after indexing expression following '['");
+  ASSERT_PARSE_BAD(parseExpressionToString("a(var)"), "(1, 3): Expected expression for function call parameter value");
+  ASSERT_PARSE_BAD(parseExpressionToString("a(,)"), "(1, 3): Expected expression for function call parameter value");
+  ASSERT_PARSE_BAD(parseExpressionToString("a(name=z)"), "(1, 7): Expected ')' at end of function call parameter list");
+  ASSERT_PARSE_BAD(parseExpressionToString("a..b"), "(1, 3): Expected field name to follow '.' operator");
+  ASSERT_PARSE_BAD(parseExpressionToString("a.?b"), "(1, 3): Expected field name to follow '.' operator");
+  ASSERT_PARSE_BAD(parseExpressionToString("a?.?b"), "(1, 4): Expected field name to follow '?.' operator");
+}
+
+TEST(TestEggParser, StatementCompound) {
+  // Good
+  ASSERT_PARSE_GOOD(parseStatementToString("{}"), "(block)");
+  ASSERT_PARSE_GOOD(parseStatementToString("{{}}"), "(block (block))");
+  ASSERT_PARSE_GOOD(parseStatementToString("{{}{}}"), "(block (block) (block))");
+  ASSERT_PARSE_GOOD(parseStatementToString("{a();}"), "(block (call (identifier 'a')))");
+  // Bad
+  ASSERT_PARSE_BAD(parseStatementToString("{"), "(1, 2): Expected statement, not end-of-file");
+  ASSERT_PARSE_BAD(parseStatementToString("}"), "(1, 1): Unexpected '}' (no matching '{' seen before)");
+  ASSERT_PARSE_BAD(parseStatementToString(";"), "(1, 1): Unexpected ';' (empty statements are not permitted)");
 }
 
 TEST(TestEggParser, Vexatious) {
