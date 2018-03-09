@@ -176,6 +176,10 @@ void egg::yolk::EggSyntaxNode_Switch::visit(IEggSyntaxNodeVisitor& visitor) {
   visitor.node("switch", this->child);
 }
 
+void egg::yolk::EggSyntaxNode_Throw::visit(IEggSyntaxNodeVisitor& visitor) {
+  visitor.node("throw", this->child);
+}
+
 void egg::yolk::EggSyntaxNode_Try::visit(IEggSyntaxNodeVisitor& visitor) {
   visitor.node("try", this->child);
 }

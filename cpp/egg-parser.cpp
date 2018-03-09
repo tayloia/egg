@@ -938,7 +938,24 @@ std::unique_ptr<IEggSyntaxNode> EggParserContext::parseStatementSwitch() {
 }
 
 std::unique_ptr<IEggSyntaxNode> EggParserContext::parseStatementThrow() {
-  TODO();
+  /*
+      throw-statement ::= 'throw' expression? ';'
+  */
+  EggParserBacktrackMark mark(this->backtrack);
+  assert(mark.peek(0).isKeyword(EggTokenizerKeyword::Throw));
+  mark.advance(1);
+  auto expr = this->parseExpression(nullptr);
+  auto result = std::make_unique<EggSyntaxNode_Throw>();
+  if (expr != nullptr) {
+    result->addChild(std::move(expr));
+    if (!mark.peek(0).isOperator(EggTokenizerOperator::Semicolon)) {
+      this->unexpected("Expected semicolon at end of 'throw' statement", mark.peek(0));
+    }
+  } else if (!mark.peek(0).isOperator(EggTokenizerOperator::Semicolon)) {
+    this->unexpected("Expected expression or semicolon after 'throw' keyword", mark.peek(0));
+  }
+  mark.accept(1);
+  return std::move(result);
 }
 
 std::unique_ptr<IEggSyntaxNode> EggParserContext::parseStatementTry() {

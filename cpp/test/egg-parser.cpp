@@ -294,6 +294,20 @@ TEST(TestEggParser, StatementSwitch) {
   ASSERT_PARSE_BAD(parseStatementToString("switch (a) }"), "(1, 12): Expected '{' after ')' in 'switch' statement");
 }
 
+TEST(TestEggParser, StatementThrow) {
+  // Good
+  ASSERT_PARSE_GOOD(parseStatementToString("throw;"), "(throw)");
+  ASSERT_PARSE_GOOD(parseStatementToString("throw a;"), "(throw (identifier 'a'))");
+  // Bad
+  ASSERT_PARSE_BAD(parseStatementToString("throw"), "(1, 6): Expected expression or semicolon after 'throw' keyword");
+  ASSERT_PARSE_BAD(parseStatementToString("throw a"), "(1, 8): Expected semicolon at end of 'throw' statement");
+  ASSERT_PARSE_BAD(parseStatementToString("throw a,"), "(1, 8): Expected semicolon at end of 'throw' statement");
+  ASSERT_PARSE_BAD(parseStatementToString("throw a b"), "(1, 9): Expected semicolon at end of 'throw' statement");
+  ASSERT_PARSE_BAD(parseStatementToString("throw a,;"), "(1, 8): Expected semicolon at end of 'throw' statement");
+  ASSERT_PARSE_BAD(parseStatementToString("throw a, b;"), "(1, 8): Expected semicolon at end of 'throw' statement");
+  ASSERT_PARSE_BAD(parseStatementToString("throw ...a"), "(1, 7): Expected expression or semicolon after 'throw' keyword");
+}
+
 TEST(TestEggParser, StatementTry) {
   // Good
   ASSERT_PARSE_GOOD(parseStatementToString("try {} catch (object a) {}"), "(try (block) (catch 'a' (type 'object') (block)))");

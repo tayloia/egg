@@ -18,6 +18,7 @@
   macro(If) \
   macro(Return) \
   macro(Switch) \
+  macro(Throw) \
   macro(Try) \
   macro(While) \
   macro(Yield) \
@@ -350,6 +351,14 @@ namespace egg::yolk {
   public:
     EggSyntaxNode_Switch(std::unique_ptr<IEggSyntaxNode>&& expr, std::unique_ptr<IEggSyntaxNode>&& block)
       : EggSyntaxNodeChildrenN(std::move(expr), std::move(block)) {
+    }
+    virtual void visit(IEggSyntaxNodeVisitor& visitor) override;
+  };
+
+  class EggSyntaxNode_Throw : public EggSyntaxNodeChildrenV<EggSyntaxNodeKind::Throw> {
+    EGG_NO_COPY(EggSyntaxNode_Throw);
+  public:
+    EggSyntaxNode_Throw() {
     }
     virtual void visit(IEggSyntaxNodeVisitor& visitor) override;
   };
