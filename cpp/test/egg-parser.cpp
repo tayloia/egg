@@ -248,6 +248,23 @@ TEST(TestEggParser, StatementDo) {
   ASSERT_PARSE_BAD(parseStatementToString("do {} while (a)"), "(1, 16): Expected ';' after ')' at end of 'do' statement");
 }
 
+TEST(TestEggParser, StatementIf) {
+  // Good
+  ASSERT_PARSE_GOOD(parseStatementToString("if (a) {}"), "(if (identifier 'a') (block))");
+  ASSERT_PARSE_GOOD(parseStatementToString("if (a) {} else {}"), "(if (identifier 'a') (block) (block))");
+  // Bad
+  ASSERT_PARSE_BAD(parseStatementToString("if {"), "(1, 4): Expected '(' after 'if' keyword");
+  ASSERT_PARSE_BAD(parseStatementToString("if ("), "(1, 5): Expected condition expression after '(' in 'if' statement");
+  ASSERT_PARSE_BAD(parseStatementToString("if ()"), "(1, 5): Expected condition expression after '(' in 'if' statement");
+  ASSERT_PARSE_BAD(parseStatementToString("if (a"), "(1, 6): Expected ')' after 'if' condition expression");
+  ASSERT_PARSE_BAD(parseStatementToString("if (a)"), "(1, 7): Expected '{' after ')' in 'if' statement");
+  ASSERT_PARSE_BAD(parseStatementToString("if (a) do"), "(1, 8): Expected '{' after ')' in 'if' statement");
+  ASSERT_PARSE_BAD(parseStatementToString("if (a) {"), "(1, 9): Expected statement");
+  ASSERT_PARSE_BAD(parseStatementToString("if (a) {} else"), "(1, 15): Expected '{' after 'else' in 'if' statement");
+  ASSERT_PARSE_BAD(parseStatementToString("if (a) {} else do"), "(1, 16): Expected '{' after 'else' in 'if' statement");
+  ASSERT_PARSE_BAD(parseStatementToString("if (a) {} else {"), "(1, 17): Expected statement");
+}
+
 TEST(TestEggParser, StatementSwitch) {
   // Good
   ASSERT_PARSE_GOOD(parseStatementToString("switch (a) {}"), "(switch (identifier 'a') (block))");

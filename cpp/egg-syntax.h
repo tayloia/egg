@@ -301,6 +301,16 @@ namespace egg::yolk {
     virtual void visit(IEggSyntaxNodeVisitor& visitor) override;
   };
 
+  class EggSyntaxNode_If : public EggSyntaxNodeChildrenV<EggSyntaxNodeKind::If> {
+    EGG_NO_COPY(EggSyntaxNode_If);
+  public:
+    EggSyntaxNode_If(std::unique_ptr<IEggSyntaxNode>&& cond, std::unique_ptr<IEggSyntaxNode>&& block) {
+      this->addChild(std::move(cond));
+      this->addChild(std::move(block));
+    }
+    virtual void visit(IEggSyntaxNodeVisitor& visitor) override;
+  };
+
   class EggSyntaxNode_Switch : public EggSyntaxNodeChildrenN<EggSyntaxNodeKind::Switch, 2> {
     EGG_NO_COPY(EggSyntaxNode_Switch);
   public:
