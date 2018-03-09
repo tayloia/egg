@@ -52,10 +52,7 @@ namespace egg::yolk {
   private:
     std::stringstream ss;
   public:
-    explicit StringByteStream(const std::string& text)
-      : StringByteStream(text, "<string>") {
-    }
-    StringByteStream(const std::string& text, const std::string& name)
+    explicit StringByteStream(const std::string& text, const std::string& name = std::string())
       : ByteStream(ss, name), ss(text) {
     }
   };

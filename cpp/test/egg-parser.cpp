@@ -235,6 +235,16 @@ TEST(TestEggParser, StatementDefault) {
   ASSERT_PARSE_BAD(parseStatementToString("default 0:"), "(1, 9): Expected colon after 'default' keyword");
 }
 
+TEST(TestEggParser, StatementSwitch) {
+  // Good
+  ASSERT_PARSE_GOOD(parseStatementToString("switch (a) {}"), "(switch (identifier 'a') (block))");
+  // Bad
+  ASSERT_PARSE_BAD(parseStatementToString("switch {}"), "(1, 8): Expected '(' after 'switch' keyword");
+  ASSERT_PARSE_BAD(parseStatementToString("switch () {}"), "(1, 9): Expected condition expression after '(' in 'switch' statement");
+  ASSERT_PARSE_BAD(parseStatementToString("switch (a {}"), "(1, 11): Expected ')' after 'switch' condition expression");
+  ASSERT_PARSE_BAD(parseStatementToString("switch (a) }"), "(1, 12): Expected '{' after ')' in 'switch' statement");
+}
+
 TEST(TestEggParser, Vexatious) {
   ASSERT_PARSE_GOOD(parseExpressionToString("a--b"), "(binary '-' (identifier 'a') (unary '-' (identifier 'b')))");
   ASSERT_PARSE_GOOD(parseExpressionToString("a--1"), "(binary '-' (identifier 'a') (unary '-' (literal int 1)))");

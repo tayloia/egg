@@ -180,6 +180,7 @@ namespace {
     std::unique_ptr<IEggSyntaxNode> parseExpressionPostfix(const char* expected);
     std::unique_ptr<IEggSyntaxNode> parseExpressionPostfixGreedy(std::unique_ptr<IEggSyntaxNode>&& expr);
     std::unique_ptr<IEggSyntaxNode> parseExpressionPrimary(const char* expected);
+    std::unique_ptr<IEggSyntaxNode> parseGuardedCondition(const char* expected);
     std::unique_ptr<IEggSyntaxNode> parseModule();
     std::unique_ptr<IEggSyntaxNode> parseStatement();
     std::unique_ptr<IEggSyntaxNode> parseStatementAssignment(std::unique_ptr<IEggSyntaxNode>&& lhs);
@@ -581,6 +582,15 @@ std::unique_ptr<IEggSyntaxNode> EggParserContext::parseExpressionPrimary(const c
   }
 }
 
+std::unique_ptr<IEggSyntaxNode> EggParserContext::parseGuardedCondition(const char* expected) {
+  /*
+      guarded-condition ::= expression -- TODO
+  */
+  auto expr = this->parseExpression(expected);
+  assert(expr != nullptr);
+  return expr;
+}
+
 void EggParserContext::parseParameterList(std::function<void(std::unique_ptr<IEggSyntaxNode>&& node)> adder) {
   /*
       parameter-list ::= positional-parameter-list
@@ -793,7 +803,26 @@ std::unique_ptr<IEggSyntaxNode> EggParserContext::parseStatementReturn() {
 }
 
 std::unique_ptr<IEggSyntaxNode> EggParserContext::parseStatementSwitch() {
-  TODO();
+  /*
+      switch-statement ::= 'switch' '(' <expression> ')' <compound-statement>
+  */
+  EggParserBacktrackMark mark(this->backtrack);
+  assert(mark.peek(0).isKeyword(EggTokenizerKeyword::Case));
+  if (!mark.peek(1).isOperator(EggTokenizerOperator::ParenthesisLeft)) {
+    this->unexpected("Expected '(' after 'switch' keyword", mark.peek(1));
+  }
+  mark.advance(2);
+  auto expr = this->parseGuardedCondition("Expected condition expression after '(' in 'switch' statement");
+  if (!mark.peek(0).isOperator(EggTokenizerOperator::ParenthesisRight)) {
+    this->unexpected("Expected ')' after 'switch' condition expression", mark.peek(0));
+  }
+  mark.advance(1);
+  if (!mark.peek(0).isOperator(EggTokenizerOperator::CurlyLeft)) {
+    this->unexpected("Expected '{' after ')' in 'switch' statement", mark.peek(0));
+  }
+  auto block = this->parseCompoundStatement();
+  mark.accept(0);
+  return std::make_unique<EggSyntaxNode_Switch>(std::move(expr), std::move(block));
 }
 
 std::unique_ptr<IEggSyntaxNode> EggParserContext::parseStatementTry() {

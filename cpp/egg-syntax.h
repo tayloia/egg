@@ -265,7 +265,7 @@ namespace egg::yolk {
   class EggSyntaxNode_Case : public EggSyntaxNodeChildren1<EggSyntaxNodeKind::Case> {
     EGG_NO_COPY(EggSyntaxNode_Case);
   public:
-    EggSyntaxNode_Case(std::unique_ptr<IEggSyntaxNode>&& expr)
+    explicit EggSyntaxNode_Case(std::unique_ptr<IEggSyntaxNode>&& expr)
       : EggSyntaxNodeChildren1(std::move(expr)) {
     }
     virtual void visit(IEggSyntaxNodeVisitor& visitor) override;
@@ -283,6 +283,18 @@ namespace egg::yolk {
     EGG_NO_COPY(EggSyntaxNode_Default);
   public:
     EggSyntaxNode_Default() {
+    }
+    virtual void visit(IEggSyntaxNodeVisitor& visitor) override;
+  };
+
+  class EggSyntaxNode_Switch : public EggSyntaxNodeChildrenN<EggSyntaxNodeKind::Switch, 2> {
+    EGG_NO_COPY(EggSyntaxNode_Switch);
+  public:
+    EggSyntaxNode_Switch(std::unique_ptr<IEggSyntaxNode>&& expr, std::unique_ptr<IEggSyntaxNode>&& block) {
+      assert(expr != nullptr);
+      assert(block != nullptr);
+      this->child[0] = std::move(expr);
+      this->child[1] = std::move(block);
     }
     virtual void visit(IEggSyntaxNodeVisitor& visitor) override;
   };
