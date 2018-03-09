@@ -258,6 +258,19 @@ TEST(TestEggParser, StatementSwitch) {
   ASSERT_PARSE_BAD(parseStatementToString("switch (a) }"), "(1, 12): Expected '{' after ')' in 'switch' statement");
 }
 
+TEST(TestEggParser, StatementWhile) {
+  // Good
+  ASSERT_PARSE_GOOD(parseStatementToString("while (a) {}"), "(while (identifier 'a') (block))");
+  // Bad
+  ASSERT_PARSE_BAD(parseStatementToString("while {"), "(1, 7): Expected '(' after 'while' keyword");
+  ASSERT_PARSE_BAD(parseStatementToString("while ("), "(1, 8): Expected condition expression after '(' in 'while' statement");
+  ASSERT_PARSE_BAD(parseStatementToString("while ()"), "(1, 8): Expected condition expression after '(' in 'while' statement");
+  ASSERT_PARSE_BAD(parseStatementToString("while (a"), "(1, 9): Expected ')' after 'while' condition expression");
+  ASSERT_PARSE_BAD(parseStatementToString("while (a)"), "(1, 10): Expected '{' after ')' in 'while' statement");
+  ASSERT_PARSE_BAD(parseStatementToString("while (a) do"), "(1, 11): Expected '{' after ')' in 'while' statement");
+  ASSERT_PARSE_BAD(parseStatementToString("while (a) {"), "(1, 12): Expected statement");
+}
+
 TEST(TestEggParser, Vexatious) {
   ASSERT_PARSE_GOOD(parseExpressionToString("a--b"), "(binary '-' (identifier 'a') (unary '-' (identifier 'b')))");
   ASSERT_PARSE_GOOD(parseExpressionToString("a--1"), "(binary '-' (identifier 'a') (unary '-' (literal int 1)))");

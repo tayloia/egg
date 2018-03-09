@@ -892,7 +892,26 @@ std::unique_ptr<IEggSyntaxNode> EggParserContext::parseStatementType(std::unique
 }
 
 std::unique_ptr<IEggSyntaxNode> EggParserContext::parseStatementWhile() {
-  TODO();
+  /*
+  do-statement ::= 'while' '(' <condition-expression> ')' <compound-statement>
+  */
+  EggParserBacktrackMark mark(this->backtrack);
+  assert(mark.peek(0).isKeyword(EggTokenizerKeyword::While));
+  if (!mark.peek(1).isOperator(EggTokenizerOperator::ParenthesisLeft)) {
+    this->unexpected("Expected '(' after 'while' keyword", mark.peek(1));
+  }
+  mark.advance(2);
+  auto expr = this->parseConditionGuarded("Expected condition expression after '(' in 'while' statement");
+  if (!mark.peek(0).isOperator(EggTokenizerOperator::ParenthesisRight)) {
+    this->unexpected("Expected ')' after 'while' condition expression", mark.peek(0));
+  }
+  mark.advance(1);
+  if (!mark.peek(0).isOperator(EggTokenizerOperator::CurlyLeft)) {
+    this->unexpected("Expected '{' after ')' in 'while' statement", mark.peek(0));
+  }
+  auto block = this->parseCompoundStatement();
+  mark.accept(0);
+  return std::make_unique<EggSyntaxNode_While>(std::move(expr), std::move(block));
 }
 
 std::unique_ptr<IEggSyntaxNode> EggParserContext::parseStatementYield() {

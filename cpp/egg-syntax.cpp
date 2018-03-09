@@ -160,6 +160,10 @@ void egg::yolk::EggSyntaxNode_Switch::visit(IEggSyntaxNodeVisitor& visitor) {
   visitor.node("switch", this->child);
 }
 
+void egg::yolk::EggSyntaxNode_While::visit(IEggSyntaxNodeVisitor& visitor) {
+  visitor.node("while", this->child);
+}
+
 void egg::yolk::EggSyntaxNode_UnaryOperator::visit(IEggSyntaxNodeVisitor& visitor) {
   auto prefix = "unary '" + EggTokenizerValue::getOperatorString(this->op) + "'";
   visitor.node(prefix, this->child);
