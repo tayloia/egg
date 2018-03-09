@@ -20,10 +20,12 @@
   macro(Return, "return") \
   macro(String, "string") \
   macro(Switch, "switch") \
+  macro(Throw, "throw") \
   macro(True, "true") \
   macro(Try, "try") \
   macro(Type, "type") \
   macro(Typedef, "typedef") \
+  macro(Using, "using") \
   macro(Var, "var") \
   macro(Void, "void") \
   macro(While, "while") \

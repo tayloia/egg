@@ -197,11 +197,13 @@ namespace {
     std::unique_ptr<IEggSyntaxNode> parseStatementIf();
     std::unique_ptr<IEggSyntaxNode> parseStatementReturn();
     std::unique_ptr<IEggSyntaxNode> parseStatementSwitch();
+    std::unique_ptr<IEggSyntaxNode> parseStatementThrow();
     std::unique_ptr<IEggSyntaxNode> parseStatementTry();
     std::unique_ptr<IEggSyntaxNode> parseStatementType(std::unique_ptr<IEggSyntaxNode>&& type);
+    std::unique_ptr<IEggSyntaxNode> parseStatementUsing();
     std::unique_ptr<IEggSyntaxNode> parseStatementWhile();
     std::unique_ptr<IEggSyntaxNode> parseStatementYield();
-    std::unique_ptr<IEggSyntaxNode> parseType();
+    std::unique_ptr<IEggSyntaxNode> parseType(const char* expected);
     std::unique_ptr<IEggSyntaxNode> parseTypeSimple(EggSyntaxNode_Type::Allowed allowed);
     std::unique_ptr<IEggSyntaxNode> parseTypeDefinition();
   };
@@ -316,12 +318,16 @@ std::unique_ptr<IEggSyntaxNode> EggParserContext::parseStatement() {
       return this->parseStatementReturn();
     case EggTokenizerKeyword::Switch:
       return this->parseStatementSwitch();
+    case EggTokenizerKeyword::Throw:
+      return this->parseStatementThrow();
     case EggTokenizerKeyword::True:
       this->unexpected("Unexpected 'true' at start of statement");
     case EggTokenizerKeyword::Try:
       return this->parseStatementTry();
     case EggTokenizerKeyword::Typedef:
       return this->parseTypeDefinition();
+    case EggTokenizerKeyword::Using:
+      return this->parseStatementUsing();
     case EggTokenizerKeyword::While:
       return this->parseStatementWhile();
     case EggTokenizerKeyword::Yield:
@@ -357,7 +363,7 @@ std::unique_ptr<IEggSyntaxNode> EggParserContext::parseStatement() {
   if (expression) {
     return this->parseStatementExpression(std::move(expression));
   }
-  auto type = this->parseType();
+  auto type = this->parseType(nullptr);
   if (type) {
     return this->parseStatementType(std::move(type));
   }
@@ -931,8 +937,67 @@ std::unique_ptr<IEggSyntaxNode> EggParserContext::parseStatementSwitch() {
   return std::make_unique<EggSyntaxNode_Switch>(std::move(expr), std::move(block));
 }
 
-std::unique_ptr<IEggSyntaxNode> EggParserContext::parseStatementTry() {
+std::unique_ptr<IEggSyntaxNode> EggParserContext::parseStatementThrow() {
   TODO();
+}
+
+std::unique_ptr<IEggSyntaxNode> EggParserContext::parseStatementTry() {
+  /*
+      try-statement ::= 'if' '(' <condition-expression> ')' <compound-statement> <else-clause>?
+
+      catch-clause ::= 'catch' '(' <type> <identifier> ')' <compound-statement>
+
+      finally-clause ::= 'finally' <compound-statement>
+  */
+  EggParserBacktrackMark mark(this->backtrack);
+  assert(mark.peek(0).isKeyword(EggTokenizerKeyword::Try));
+  mark.advance(1);
+  if (!mark.peek(0).isOperator(EggTokenizerOperator::CurlyLeft)) {
+    this->unexpected("Expected '{' after 'try' keyword", mark.peek(0));
+  }
+  auto block = this->parseCompoundStatement();
+  auto result = std::make_unique<EggSyntaxNode_Try>(std::move(block));
+  size_t catches = 0;
+  while (mark.peek(0).isKeyword(EggTokenizerKeyword::Catch)) {
+    // Expect 'catch' '(' <type> <identifier> ')' <compound-statement>
+    if (!mark.peek(1).isOperator(EggTokenizerOperator::ParenthesisLeft)) {
+      this->unexpected("Expected '(' after 'catch' keyword in 'try' statement", mark.peek(1));
+    }
+    mark.advance(2);
+    auto type = this->parseType("Expected exception type after '(' in 'catch' clause of 'try' statement");
+    auto& p0 = mark.peek(0);
+    if (p0.kind != EggTokenizerKind::Identifier) {
+      this->unexpected("Expected identifier after exception type in 'catch' clause of 'try' statement", p0);
+    }
+    auto name = p0.value.s;
+    if (!mark.peek(1).isOperator(EggTokenizerOperator::ParenthesisRight)) {
+      this->unexpected("Expected ')' after identifier in 'catch' clause of 'try' statement", mark.peek(1));
+    }
+    if (!mark.peek(2).isOperator(EggTokenizerOperator::CurlyLeft)) {
+      this->unexpected("Expected '{' after 'catch' clause of 'try' statement", mark.peek(2));
+    }
+    mark.advance(2);
+    result->addChild(std::make_unique<EggSyntaxNode_Catch>(name, std::move(type), this->parseCompoundStatement()));
+    catches++;
+  }
+  if (mark.peek(0).isKeyword(EggTokenizerKeyword::Finally)) {
+    // Expect 'finally' <compound-statement>
+    if (!mark.peek(1).isOperator(EggTokenizerOperator::CurlyLeft)) {
+      this->unexpected("Expected '{' after 'finally' keyword of 'try' statement", mark.peek(1));
+    }
+    mark.advance(1);
+    result->addChild(std::make_unique<EggSyntaxNode_Finally>(this->parseCompoundStatement()));
+    if (mark.peek(0).isKeyword(EggTokenizerKeyword::Catch)) {
+      this->unexpected("Unexpected 'catch' clause after 'finally' clause in 'try' statement");
+    }
+    if (mark.peek(0).isKeyword(EggTokenizerKeyword::Finally)) {
+      this->unexpected("Unexpected second 'finally' clause in 'try' statement");
+    }
+  } else if (catches == 0) {
+    this->unexpected("Expected at least one 'catch' or 'finally' clause in 'try' statement", mark.peek(0));
+  }
+  mark.accept(0);
+  return result;
 }
 
 std::unique_ptr<IEggSyntaxNode> EggParserContext::parseStatementType(std::unique_ptr<IEggSyntaxNode>&& type) {
@@ -960,6 +1025,10 @@ std::unique_ptr<IEggSyntaxNode> EggParserContext::parseStatementType(std::unique
   }
   this->unexpected("Expected variable identifier after type", p0);
   return nullptr;
+}
+
+std::unique_ptr<IEggSyntaxNode> EggParserContext::parseStatementUsing() {
+  TODO();
 }
 
 std::unique_ptr<IEggSyntaxNode> EggParserContext::parseStatementWhile() {
@@ -1009,7 +1078,7 @@ std::unique_ptr<IEggSyntaxNode> EggParserContext::parseStatementYield() {
   return std::make_unique<EggSyntaxNode_Yield>(std::move(expr));
 }
 
-std::unique_ptr<IEggSyntaxNode> EggParserContext::parseType() {
+std::unique_ptr<IEggSyntaxNode> EggParserContext::parseType(const char* expected) {
   auto& p0 = this->backtrack.peek(0);
   if (p0.isKeyword(EggTokenizerKeyword::Var)) {
     return parseTypeSimple(EggSyntaxNode_Type::Inferred);
@@ -1032,6 +1101,9 @@ std::unique_ptr<IEggSyntaxNode> EggParserContext::parseType() {
   if (p0.isKeyword(EggTokenizerKeyword::Any)) {
     auto any = EggSyntaxNode_Type::Allowed(EggSyntaxNode_Type::Bool | EggSyntaxNode_Type::Int | EggSyntaxNode_Type::Float | EggSyntaxNode_Type::String | EggSyntaxNode_Type::Object);
     return parseTypeSimple(any);
+  }
+  if (expected != nullptr) {
+    this->unexpected(expected, p0);
   }
   return nullptr; // TODO
 }

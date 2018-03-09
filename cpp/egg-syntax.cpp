@@ -144,6 +144,10 @@ void egg::yolk::EggSyntaxNode_Case::visit(IEggSyntaxNodeVisitor& visitor) {
   visitor.node("case", this->child);
 }
 
+void egg::yolk::EggSyntaxNode_Catch::visit(IEggSyntaxNodeVisitor& visitor) {
+  visitor.node("catch '" + this->name + "'", this->child);
+}
+
 void egg::yolk::EggSyntaxNode_Continue::visit(IEggSyntaxNodeVisitor& visitor) {
   visitor.node("continue");
 }
@@ -160,12 +164,20 @@ void egg::yolk::EggSyntaxNode_If::visit(IEggSyntaxNodeVisitor& visitor) {
   visitor.node("if", this->child);
 }
 
+void egg::yolk::EggSyntaxNode_Finally::visit(IEggSyntaxNodeVisitor& visitor) {
+  visitor.node("finally", this->child);
+}
+
 void egg::yolk::EggSyntaxNode_Return::visit(IEggSyntaxNodeVisitor& visitor) {
   visitor.node("return", this->child);
 }
 
 void egg::yolk::EggSyntaxNode_Switch::visit(IEggSyntaxNodeVisitor& visitor) {
   visitor.node("switch", this->child);
+}
+
+void egg::yolk::EggSyntaxNode_Try::visit(IEggSyntaxNodeVisitor& visitor) {
+  visitor.node("try", this->child);
 }
 
 void egg::yolk::EggSyntaxNode_While::visit(IEggSyntaxNodeVisitor& visitor) {

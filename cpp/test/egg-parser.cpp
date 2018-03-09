@@ -294,6 +294,35 @@ TEST(TestEggParser, StatementSwitch) {
   ASSERT_PARSE_BAD(parseStatementToString("switch (a) }"), "(1, 12): Expected '{' after ')' in 'switch' statement");
 }
 
+TEST(TestEggParser, StatementTry) {
+  // Good
+  ASSERT_PARSE_GOOD(parseStatementToString("try {} catch (object a) {}"), "(try (block) (catch 'a' (type 'object') (block)))");
+  ASSERT_PARSE_GOOD(parseStatementToString("try {} finally {}"), "(try (block) (finally (block)))");
+  ASSERT_PARSE_GOOD(parseStatementToString("try {} catch (object a) {} finally {}"), "(try (block) (catch 'a' (type 'object') (block)) (finally (block)))");
+  ASSERT_PARSE_GOOD(parseStatementToString("try {} catch (string a) {} catch (object b) {}"), "(try (block) (catch 'a' (type 'string') (block)) (catch 'b' (type 'object') (block)))");
+  ASSERT_PARSE_GOOD(parseStatementToString("try {} catch (string a) {} catch (object b) {} finally {}"), "(try (block) (catch 'a' (type 'string') (block)) (catch 'b' (type 'object') (block)) (finally (block)))");
+  // Bad
+  ASSERT_PARSE_BAD(parseStatementToString("catch"), "(1, 1): Unexpected 'catch' clause without matching 'try'");
+  ASSERT_PARSE_BAD(parseStatementToString("finally"), "(1, 1): Unexpected 'finally' clause without matching 'try'");
+  ASSERT_PARSE_BAD(parseStatementToString("try"), "(1, 4): Expected '{' after 'try' keyword");
+  ASSERT_PARSE_BAD(parseStatementToString("try catch"), "(1, 5): Expected '{' after 'try' keyword");
+  ASSERT_PARSE_BAD(parseStatementToString("try {"), "(1, 6): Expected statement");
+  ASSERT_PARSE_BAD(parseStatementToString("try {}"), "(1, 7): Expected at least one 'catch' or 'finally' clause in 'try' statement");
+  ASSERT_PARSE_BAD(parseStatementToString("try {} catch"), "(1, 13): Expected '(' after 'catch' keyword in 'try' statement");
+  ASSERT_PARSE_BAD(parseStatementToString("try {} catch {"), "(1, 14): Expected '(' after 'catch' keyword in 'try' statement");
+  ASSERT_PARSE_BAD(parseStatementToString("try {} catch ("), "(1, 15): Expected exception type after '(' in 'catch' clause of 'try' statement");
+  ASSERT_PARSE_BAD(parseStatementToString("try {} catch (object"), "(1, 21): Expected identifier after exception type in 'catch' clause of 'try' statement");
+  ASSERT_PARSE_BAD(parseStatementToString("try {} catch (object)"), "(1, 21): Expected identifier after exception type in 'catch' clause of 'try' statement");
+  ASSERT_PARSE_BAD(parseStatementToString("try {} catch (object a"), "(1, 23): Expected ')' after identifier in 'catch' clause of 'try' statement");
+  ASSERT_PARSE_BAD(parseStatementToString("try {} catch (object a)"), "(1, 24): Expected '{' after 'catch' clause of 'try' statement");
+  ASSERT_PARSE_BAD(parseStatementToString("try {} catch (object a) {"), "(1, 26): Expected statement");
+  ASSERT_PARSE_BAD(parseStatementToString("try {} catch (object a) {} finally"), "(1, 35): Expected '{' after 'finally' keyword of 'try' statement");
+  ASSERT_PARSE_BAD(parseStatementToString("try {} catch (object a) {} finally {"), "(1, 37): Expected statement");
+  ASSERT_PARSE_BAD(parseStatementToString("try {} catch (object a) {} finally {} catch"), "(1, 39): Unexpected 'catch' clause after 'finally' clause in 'try' statement");
+  ASSERT_PARSE_BAD(parseStatementToString("try {} catch (object a) {} finally {} finally"), "(1, 39): Unexpected second 'finally' clause in 'try' statement");
+  ASSERT_PARSE_BAD(parseStatementToString("try {} finally {} finally"), "(1, 19): Unexpected second 'finally' clause in 'try' statement");
+}
+
 TEST(TestEggParser, StatementWhile) {
   // Good
   ASSERT_PARSE_GOOD(parseStatementToString("while (a) {}"), "(while (identifier 'a') (block))");

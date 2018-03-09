@@ -8,9 +8,11 @@
   macro(Mutate) \
   macro(Break) \
   macro(Case) \
+  macro(Catch) \
   macro(Continue) \
   macro(Default) \
   macro(Do) \
+  macro(Finally) \
   macro(For) \
   macro(ForEach) \
   macro(If) \
@@ -278,6 +280,17 @@ namespace egg::yolk {
     virtual void visit(IEggSyntaxNodeVisitor& visitor) override;
   };
 
+  class EggSyntaxNode_Catch : public EggSyntaxNodeChildrenN<EggSyntaxNodeKind::Catch, 2> {
+    EGG_NO_COPY(EggSyntaxNode_Catch);
+  private:
+    std::string name;
+  public:
+    EggSyntaxNode_Catch(const std::string& name, std::unique_ptr<IEggSyntaxNode>&& type, std::unique_ptr<IEggSyntaxNode>&& block)
+      : EggSyntaxNodeChildrenN(std::move(type), std::move(block)), name(name) {
+    }
+    virtual void visit(IEggSyntaxNodeVisitor& visitor) override;
+  };
+
   class EggSyntaxNode_Continue : public EggSyntaxNodeChildren0<EggSyntaxNodeKind::Continue> {
     EGG_NO_COPY(EggSyntaxNode_Continue);
   public:
@@ -313,6 +326,17 @@ namespace egg::yolk {
     virtual void visit(IEggSyntaxNodeVisitor& visitor) override;
   };
 
+  class EggSyntaxNode_Finally : public EggSyntaxNodeChildren1<EggSyntaxNodeKind::Finally> {
+    EGG_NO_COPY(EggSyntaxNode_Finally);
+  private:
+    std::string name;
+  public:
+    EggSyntaxNode_Finally(std::unique_ptr<IEggSyntaxNode>&& block)
+      : EggSyntaxNodeChildren1(std::move(block)) {
+    }
+    virtual void visit(IEggSyntaxNodeVisitor& visitor) override;
+  };
+
   class EggSyntaxNode_Return : public EggSyntaxNodeChildrenV<EggSyntaxNodeKind::Return> {
     EGG_NO_COPY(EggSyntaxNode_Return);
   public:
@@ -326,6 +350,15 @@ namespace egg::yolk {
   public:
     EggSyntaxNode_Switch(std::unique_ptr<IEggSyntaxNode>&& expr, std::unique_ptr<IEggSyntaxNode>&& block)
       : EggSyntaxNodeChildrenN(std::move(expr), std::move(block)) {
+    }
+    virtual void visit(IEggSyntaxNodeVisitor& visitor) override;
+  };
+
+  class EggSyntaxNode_Try : public EggSyntaxNodeChildrenV<EggSyntaxNodeKind::Try> {
+    EGG_NO_COPY(EggSyntaxNode_Try);
+  public:
+    EggSyntaxNode_Try(std::unique_ptr<IEggSyntaxNode>&& block) {
+      this->addChild(std::move(block));
     }
     virtual void visit(IEggSyntaxNodeVisitor& visitor) override;
   };
