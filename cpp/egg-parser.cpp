@@ -4,16 +4,17 @@
 #define TODO_LOCATION(file, line) file " at line " TODO_LINE(line)
 #define TODO() EGG_THROW(TODO_LOCATION(__FILE__, __LINE__) ": " __FUNCTION__ " TODO")
 
-// TODO stop creating strings that are only used on error
+#define EGG_TOKENIZER_OPERATOR_EXPECTATION(key, text) \
+  "Expected expression after infix '" text "' operator",
+
 #define PARSE_BINARY_LTR(parent, child, condition) \
   std::unique_ptr<IEggSyntaxNode> parent(const char* expected) { \
     EggParserBacktrackMark mark(this->backtrack); \
     auto expr = this->child(expected); \
     for (auto* token = &mark.peek(0); (expr != nullptr) && (condition); token = &mark.peek(0)) { \
-      std::string expectation = "Expected expression after infix '" + EggTokenizerValue::getOperatorString(token->value.o) + "' operator"; \
       mark.advance(1); \
       auto lhs = std::move(expr); \
-      auto rhs = this->child(expectation.c_str()); \
+      auto rhs = this->child(getInfixOperatorExpectation(token->value.o)); \
       expr = std::make_unique<EggSyntaxNode_BinaryOperator>(token->value.o, std::move(lhs), std::move(rhs)); \
     } \
     mark.accept(0); \
@@ -30,6 +31,15 @@
 
 namespace {
   using namespace egg::yolk;
+
+  const char* getInfixOperatorExpectation(EggTokenizerOperator value) {
+    static const char* const table[] = {
+      EGG_TOKENIZER_OPERATORS(EGG_TOKENIZER_OPERATOR_EXPECTATION)
+    };
+    auto i = size_t(value);
+    assert(i < EGG_NELEMS(table));
+    return table[i];
+  }
 
   class EggParserLookahead {
   private:
@@ -1045,7 +1055,52 @@ std::unique_ptr<IEggSyntaxNode> EggParserContext::parseStatementType(std::unique
 }
 
 std::unique_ptr<IEggSyntaxNode> EggParserContext::parseStatementUsing() {
-  TODO();
+  /*
+      using-statement ::= 'using' '(' variable-definition-type variable-identifier '=' expression ')' compound-statement
+  */
+  EggParserBacktrackMark mark(this->backtrack);
+  assert(mark.peek(0).isKeyword(EggTokenizerKeyword::Using));
+  if (!mark.peek(1).isOperator(EggTokenizerOperator::ParenthesisLeft)) {
+    this->unexpected("Expected '(' after 'using' keyword", mark.peek(1));
+  }
+  mark.advance(2);
+  auto expr = this->parseExpression(nullptr);
+  if (expr != nullptr) {
+    // Expect 'using' '(' <type> <identifier> '=' <expression> ')' <compound-statement>
+    if (!mark.peek(0).isOperator(EggTokenizerOperator::ParenthesisRight)) {
+      this->unexpected("Expected ')' after expression in 'using' statement", mark.peek(0));
+    }
+    mark.advance(1);
+    if (!mark.peek(0).isOperator(EggTokenizerOperator::CurlyLeft)) {
+      this->unexpected("Expected '{' after ')' in 'using' statement", mark.peek(0));
+    }
+    auto block = this->parseCompoundStatement();
+    mark.accept(0);
+    return std::make_unique<EggSyntaxNode_With>(std::move(expr), std::move(block));
+  }
+  // Expect 'using' '(' <expression> ')' <compound-statement>
+  auto type = this->parseType("Expected expression or type after '(' in 'using' statement");
+  auto& p0 = mark.peek(0);
+  if (p0.kind != EggTokenizerKind::Identifier) {
+    this->unexpected("Expected variable identifier after type in 'using' statement", p0);
+  }
+  auto name = p0.value.s;
+  auto& p1 = mark.peek(1);
+  if (!p1.isOperator(EggTokenizerOperator::Equal)) {
+    this->unexpected("Expected '=' after variable identifier in 'using' statement", p1);
+  }
+  mark.advance(2);
+  expr = this->parseExpression("Expected expression after '=' in 'using' statement");
+  if (!mark.peek(0).isOperator(EggTokenizerOperator::ParenthesisRight)) {
+    this->unexpected("Expected ')' after 'using' variable definition", mark.peek(0));
+  }
+  mark.advance(1);
+  if (!mark.peek(0).isOperator(EggTokenizerOperator::CurlyLeft)) {
+    this->unexpected("Expected '{' after ')' in 'using' statement", mark.peek(0));
+  }
+  auto block = this->parseCompoundStatement();
+  mark.accept(0);
+  return std::make_unique<EggSyntaxNode_Using>(name, std::move(type), std::move(expr), std::move(block));
 }
 
 std::unique_ptr<IEggSyntaxNode> EggParserContext::parseStatementWhile() {

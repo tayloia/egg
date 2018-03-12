@@ -350,6 +350,24 @@ TEST(TestEggParser, StatementWhile) {
   ASSERT_PARSE_BAD(parseStatementToString("while (a) {"), "(1, 12): Expected statement");
 }
 
+TEST(TestEggParser, StatementUsing) {
+  // Good
+  ASSERT_PARSE_GOOD(parseStatementToString("using (a) {}"), "(with (identifier 'a') (block))");
+  ASSERT_PARSE_GOOD(parseStatementToString("using (var a = b) {}"), "(using 'a' (type 'var') (identifier 'b') (block))");
+  // Bad
+  ASSERT_PARSE_BAD(parseStatementToString("using {"), "(1, 7): Expected '(' after 'using' keyword");
+  ASSERT_PARSE_BAD(parseStatementToString("using ("), "(1, 8): Expected expression or type after '(' in 'using' statement");
+  ASSERT_PARSE_BAD(parseStatementToString("using ()"), "(1, 8): Expected expression or type after '(' in 'using' statement");
+  ASSERT_PARSE_BAD(parseStatementToString("using (a"), "(1, 9): Expected ')' after expression in 'using' statement");
+  ASSERT_PARSE_BAD(parseStatementToString("using (a) do"), "(1, 11): Expected '{' after ')' in 'using' statement");
+  ASSERT_PARSE_BAD(parseStatementToString("using (a) {"), "(1, 12): Expected statement");
+  ASSERT_PARSE_BAD(parseStatementToString("using (var)"), "(1, 11): Expected variable identifier after type in 'using' statement");
+  ASSERT_PARSE_BAD(parseStatementToString("using (var a)"), "(1, 13): Expected '=' after variable identifier in 'using' statement");
+  ASSERT_PARSE_BAD(parseStatementToString("using (var a =)"), "(1, 15): Expected expression after '=' in 'using' statement");
+  ASSERT_PARSE_BAD(parseStatementToString("using (var a = b) do"), "(1, 19): Expected '{' after ')' in 'using' statement");
+  ASSERT_PARSE_BAD(parseStatementToString("using (var a = b) {"), "(1, 20): Expected statement");
+}
+
 TEST(TestEggParser, StatementYield) {
   // Good
   ASSERT_PARSE_GOOD(parseStatementToString("yield a;"), "(yield (identifier 'a'))");
@@ -372,7 +390,6 @@ TEST(TestEggParser, Vexatious) {
   ASSERT_PARSE_GOOD(parseExpressionToString("a--b"), "(binary '-' (identifier 'a') (unary '-' (identifier 'b')))");
   ASSERT_PARSE_GOOD(parseExpressionToString("a--1"), "(binary '-' (identifier 'a') (unary '-' (literal int 1)))");
   ASSERT_PARSE_GOOD(parseExpressionToString("-1"), "(unary '-' (literal int 1))");
-  //TODO ASSERT_PARSE_GOOD(parseExpressionToString("a?...b:c"), "(ternary ...)");
 }
 
 TEST(TestEggParser, ExampleFile) {

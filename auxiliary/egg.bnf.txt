@@ -95,6 +95,7 @@ assignment-operator ::= '='
 
 flow-statement ::= branch-statement
                  | jump-statement
+                 | using-statement
 
 branch-statement ::= 'if' '(' condition ')' compound-statement ( 'else' compound-statement )?
                    | 'switch' '(' expression ')' compound-statement
@@ -110,6 +111,8 @@ jump-statement ::= 'continue' ';'
                  | 'return' '...' expression ';'
                  | 'yield' expression? ';'
                  | 'yield' '...' expression ';'
+
+using-statement ::= 'using' '(' variable-definition-type variable-identifier '=' expression ')' compound-statement
 
 condition ::= expression
             | variable-definition-type variable-identifier '=' expression

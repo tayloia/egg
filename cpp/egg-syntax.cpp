@@ -184,8 +184,16 @@ void egg::yolk::EggSyntaxNode_Try::visit(IEggSyntaxNodeVisitor& visitor) {
   visitor.node("try", this->child);
 }
 
+void egg::yolk::EggSyntaxNode_Using::visit(IEggSyntaxNodeVisitor& visitor) {
+  visitor.node("using '" + this->name + "'", this->child);
+}
+
 void egg::yolk::EggSyntaxNode_While::visit(IEggSyntaxNodeVisitor& visitor) {
   visitor.node("while", this->child);
+}
+
+void egg::yolk::EggSyntaxNode_With::visit(IEggSyntaxNodeVisitor& visitor) {
+  visitor.node("with", this->child);
 }
 
 void egg::yolk::EggSyntaxNode_Yield::visit(IEggSyntaxNodeVisitor& visitor) {
