@@ -6,7 +6,7 @@ using namespace egg::yolk;
 #define ASSERT_PARSE_BAD(parsed, needle) ASSERT_THROW_E(parsed, Exception, ASSERT_CONTAINS(e.what(), needle))
 
 namespace {
-  std::shared_ptr<IEggSyntaxNode> parseFromString(IEggParser& parser, const std::string& text) {
+  std::shared_ptr<IEggSyntaxNode> parseFromString(IEggSyntaxParser& parser, const std::string& text) {
     auto lexer = LexerFactory::createFromString(text);
     auto tokenizer = EggTokenizerFactory::createFromLexer(lexer);
     return parser.parse(*tokenizer);
@@ -17,48 +17,48 @@ namespace {
     return oss.str();
   }
   std::string parseStatementToString(const std::string& text, bool concise = true) {
-    auto parser = EggParserFactory::createStatementParser();
+    auto parser = EggParserFactory::createStatementSyntaxParser();
     auto root = parseFromString(*parser, text);
     return printToString(*root, concise);
   }
   std::string parseExpressionToString(const std::string& text, bool concise = true) {
-    auto parser = EggParserFactory::createExpressionParser();
+    auto parser = EggParserFactory::createExpressionSyntaxParser();
     auto root = parseFromString(*parser, text);
     return printToString(*root, concise);
   }
 }
 
-TEST(TestEggParser, ModuleEmpty) {
-  auto parser = EggParserFactory::createModuleParser();
+TEST(TestEggSyntaxParser, ModuleEmpty) {
+  auto parser = EggParserFactory::createModuleSyntaxParser();
   auto root = parseFromString(*parser, "");
   ASSERT_EQ(EggSyntaxNodeKind::Module, root->getKind());
   ASSERT_EQ(0, root->getChildren());
   ASSERT_EQ("(module)", printToString(*root));
 }
 
-TEST(TestEggParser, ModuleOneStatement) {
-  auto parser = EggParserFactory::createModuleParser();
+TEST(TestEggSyntaxParser, ModuleOneStatement) {
+  auto parser = EggParserFactory::createModuleSyntaxParser();
   auto root = parseFromString(*parser, "var foo;");
   ASSERT_EQ(EggSyntaxNodeKind::Module, root->getKind());
   ASSERT_EQ(1, root->getChildren());
   ASSERT_EQ("(module (declare 'foo' (type 'var')))", printToString(*root));
 }
 
-TEST(TestEggParser, ModuleTwoStatements) {
-  auto parser = EggParserFactory::createModuleParser();
+TEST(TestEggSyntaxParser, ModuleTwoStatements) {
+  auto parser = EggParserFactory::createModuleSyntaxParser();
   auto root = parseFromString(*parser, "var foo;\nvar bar;");
   ASSERT_EQ(EggSyntaxNodeKind::Module, root->getKind());
   ASSERT_EQ(2, root->getChildren());
   ASSERT_EQ("(module (declare 'foo' (type 'var')) (declare 'bar' (type 'var')))", printToString(*root));
 }
 
-TEST(TestEggParser, Extraneous) {
+TEST(TestEggSyntaxParser, Extraneous) {
   // Bad
   ASSERT_PARSE_BAD(parseStatementToString("var foo; bar"), "(1, 10): Expected end of input after statement, not identifier: 'bar'");
   ASSERT_PARSE_BAD(parseExpressionToString("foo bar"), "(1, 5): Expected end of input after expression, not identifier: 'bar'");
 }
 
-TEST(TestEggParser, VariableDeclaration) {
+TEST(TestEggSyntaxParser, VariableDeclaration) {
   //TODO should we allow 'var' without an initializer?
   // Good
   ASSERT_PARSE_GOOD(parseStatementToString("var foo;"), "(declare 'foo' (type 'var'))");
@@ -68,7 +68,7 @@ TEST(TestEggParser, VariableDeclaration) {
   ASSERT_PARSE_BAD(parseStatementToString("var foo"), "(1, 5): Malformed variable declaration or initialization");
 }
 
-TEST(TestEggParser, VariableInitialization) {
+TEST(TestEggSyntaxParser, VariableInitialization) {
   // Good
   ASSERT_PARSE_GOOD(parseStatementToString("var foo = 42;"), "(initialize 'foo' (type 'var') (literal int 42))");
   ASSERT_PARSE_GOOD(parseStatementToString("any? bar = `hello`;"), "(initialize 'bar' (type 'any?') (literal string 'hello'))");
@@ -78,7 +78,7 @@ TEST(TestEggParser, VariableInitialization) {
   ASSERT_PARSE_BAD(parseStatementToString("var foo = var"), "(1, 11): Expected expression after assignment");
 }
 
-TEST(TestEggParser, Assignment) {
+TEST(TestEggSyntaxParser, Assignment) {
   // Good
   ASSERT_PARSE_GOOD(parseStatementToString("lhs = rhs;"), "(assign '=' (identifier 'lhs') (identifier 'rhs'))");
   ASSERT_PARSE_GOOD(parseStatementToString("lhs += rhs;"), "(assign '+=' (identifier 'lhs') (identifier 'rhs'))");
@@ -98,7 +98,7 @@ TEST(TestEggParser, Assignment) {
   ASSERT_PARSE_BAD(parseStatementToString("lhs = rhs extra"), "(1, 11): Expected ';' after assignment statement");
 }
 
-TEST(TestEggParser, Mutate) {
+TEST(TestEggSyntaxParser, Mutate) {
   // Good
   ASSERT_PARSE_GOOD(parseStatementToString("++x;"), "(mutate '++' (identifier 'x'))");
   ASSERT_PARSE_GOOD(parseStatementToString("--x;"), "(mutate '--' (identifier 'x'))");
@@ -107,7 +107,7 @@ TEST(TestEggParser, Mutate) {
   ASSERT_PARSE_BAD(parseStatementToString("x--;"), "(1, 4): Expected expression after prefix '-' operator");
 }
 
-TEST(TestEggParser, ExpressionTernary) {
+TEST(TestEggSyntaxParser, ExpressionTernary) {
   // Good
   ASSERT_PARSE_GOOD(parseExpressionToString("a ? b : c"), "(ternary (identifier 'a') (identifier 'b') (identifier 'c'))");
   ASSERT_PARSE_GOOD(parseExpressionToString("a ? b : c ? d : e"), "(ternary (identifier 'a') (identifier 'b') (ternary (identifier 'c') (identifier 'd') (identifier 'e')))");
@@ -117,7 +117,7 @@ TEST(TestEggParser, ExpressionTernary) {
   ASSERT_PARSE_BAD(parseExpressionToString("a ? b :"), "(1, 8): Expected expression after ':' of ternary operator");
 }
 
-TEST(TestEggParser, ExpressionBinary) {
+TEST(TestEggSyntaxParser, ExpressionBinary) {
   // Good
   ASSERT_PARSE_GOOD(parseExpressionToString("a + b"), "(binary '+' (identifier 'a') (identifier 'b'))");
   ASSERT_PARSE_GOOD(parseExpressionToString("a - b"), "(binary '-' (identifier 'a') (identifier 'b'))");
@@ -150,7 +150,7 @@ TEST(TestEggParser, ExpressionBinary) {
   ASSERT_PARSE_BAD(parseExpressionToString("a--"), "(1, 4): Expected expression after prefix '-' operator");
 }
 
-TEST(TestEggParser, ExpressionUnary) {
+TEST(TestEggSyntaxParser, ExpressionUnary) {
   // Good
   ASSERT_PARSE_GOOD(parseExpressionToString("-a"), "(unary '-' (identifier 'a'))");
   ASSERT_PARSE_GOOD(parseExpressionToString("--a"), "(unary '-' (unary '-' (identifier 'a')))");
@@ -167,7 +167,7 @@ TEST(TestEggParser, ExpressionUnary) {
   ASSERT_PARSE_BAD(parseExpressionToString("-var"), "(1, 2): Expected expression after prefix '-' operator");
 }
 
-TEST(TestEggParser, ExpressionPostfix) {
+TEST(TestEggSyntaxParser, ExpressionPostfix) {
   // Good
   ASSERT_PARSE_GOOD(parseExpressionToString("a[0]"), "(binary '[' (identifier 'a') (literal int 0))");
   ASSERT_PARSE_GOOD(parseExpressionToString("a()"), "(call (identifier 'a'))");
@@ -189,7 +189,7 @@ TEST(TestEggParser, ExpressionPostfix) {
   ASSERT_PARSE_BAD(parseExpressionToString("a?.?b"), "(1, 4): Expected field name to follow '?.' operator");
 }
 
-TEST(TestEggParser, StatementCompound) {
+TEST(TestEggSyntaxParser, StatementCompound) {
   // Good
   ASSERT_PARSE_GOOD(parseStatementToString("{}"), "(block)");
   ASSERT_PARSE_GOOD(parseStatementToString("{{}}"), "(block (block))");
@@ -201,7 +201,7 @@ TEST(TestEggParser, StatementCompound) {
   ASSERT_PARSE_BAD(parseStatementToString(";"), "(1, 1): Unexpected ';' (empty statements are not permitted)");
 }
 
-TEST(TestEggParser, StatementBreak) {
+TEST(TestEggSyntaxParser, StatementBreak) {
   // Good
   ASSERT_PARSE_GOOD(parseStatementToString("break;"), "(break)");
   // Bad
@@ -209,7 +209,7 @@ TEST(TestEggParser, StatementBreak) {
   ASSERT_PARSE_BAD(parseStatementToString("break 0;"), "(1, 7): Expected ';' after 'break' keyword");
 }
 
-TEST(TestEggParser, StatementCase) {
+TEST(TestEggSyntaxParser, StatementCase) {
   // Good
   ASSERT_PARSE_GOOD(parseStatementToString("case 0:"), "(case (literal int 0))");
   ASSERT_PARSE_GOOD(parseStatementToString("case a + b:"), "(case (binary '+' (identifier 'a') (identifier 'b')))");
@@ -219,7 +219,7 @@ TEST(TestEggParser, StatementCase) {
   ASSERT_PARSE_BAD(parseStatementToString("case a +"), "(1, 9): Expected expression after infix '+' operator");
 }
 
-TEST(TestEggParser, StatementContinue) {
+TEST(TestEggSyntaxParser, StatementContinue) {
   // Good
   ASSERT_PARSE_GOOD(parseStatementToString("continue;"), "(continue)");
   // Bad
@@ -227,7 +227,7 @@ TEST(TestEggParser, StatementContinue) {
   ASSERT_PARSE_BAD(parseStatementToString("continue 0;"), "(1, 10): Expected ';' after 'continue' keyword");
 }
 
-TEST(TestEggParser, StatementDefault) {
+TEST(TestEggSyntaxParser, StatementDefault) {
   // Good
   ASSERT_PARSE_GOOD(parseStatementToString("default:"), "(default)");
   // Bad
@@ -235,7 +235,7 @@ TEST(TestEggParser, StatementDefault) {
   ASSERT_PARSE_BAD(parseStatementToString("default 0:"), "(1, 9): Expected colon after 'default' keyword");
 }
 
-TEST(TestEggParser, StatementDo) {
+TEST(TestEggSyntaxParser, StatementDo) {
   // Good
   ASSERT_PARSE_GOOD(parseStatementToString("do {} while (a);"), "(do (identifier 'a') (block))");
   // Bad
@@ -248,7 +248,7 @@ TEST(TestEggParser, StatementDo) {
   ASSERT_PARSE_BAD(parseStatementToString("do {} while (a)"), "(1, 16): Expected ';' after ')' at end of 'do' statement");
 }
 
-TEST(TestEggParser, StatementFor) {
+TEST(TestEggSyntaxParser, StatementFor) {
   // Good
   ASSERT_PARSE_GOOD(parseStatementToString("for (;;) {}"), "(for () () () (block))");
   ASSERT_PARSE_GOOD(parseStatementToString("for (int i = 0; i < 10; ++i) {}"), "(for (initialize 'i' (type 'int') (literal int 0)) (binary '<' (identifier 'i') (literal int 10)) (mutate '++' (identifier 'i')) (block))");
@@ -265,7 +265,7 @@ TEST(TestEggParser, StatementFor) {
   ASSERT_PARSE_BAD(parseStatementToString("for (;;) {"), "(1, 11): Expected statement");
 }
 
-TEST(TestEggParser, StatementIf) {
+TEST(TestEggSyntaxParser, StatementIf) {
   // Good
   ASSERT_PARSE_GOOD(parseStatementToString("if (a) {}"), "(if (identifier 'a') (block))");
   ASSERT_PARSE_GOOD(parseStatementToString("if (a) {} else {}"), "(if (identifier 'a') (block) (block))");
@@ -282,7 +282,7 @@ TEST(TestEggParser, StatementIf) {
   ASSERT_PARSE_BAD(parseStatementToString("if (a) {} else {"), "(1, 17): Expected statement");
 }
 
-TEST(TestEggParser, StatementReturn) {
+TEST(TestEggSyntaxParser, StatementReturn) {
   // Good
   ASSERT_PARSE_GOOD(parseStatementToString("return;"), "(return)");
   ASSERT_PARSE_GOOD(parseStatementToString("return a;"), "(return (identifier 'a'))");
@@ -301,7 +301,7 @@ TEST(TestEggParser, StatementReturn) {
   ASSERT_PARSE_BAD(parseStatementToString("return ...a,"),  "(1, 12): Expected ';' at end of 'return' statement");
 }
 
-TEST(TestEggParser, StatementSwitch) {
+TEST(TestEggSyntaxParser, StatementSwitch) {
   // Good
   ASSERT_PARSE_GOOD(parseStatementToString("switch (a) {}"), "(switch (identifier 'a') (block))");
   // Bad
@@ -311,7 +311,7 @@ TEST(TestEggParser, StatementSwitch) {
   ASSERT_PARSE_BAD(parseStatementToString("switch (a) }"), "(1, 12): Expected '{' after ')' in 'switch' statement");
 }
 
-TEST(TestEggParser, StatementThrow) {
+TEST(TestEggSyntaxParser, StatementThrow) {
   // Good
   ASSERT_PARSE_GOOD(parseStatementToString("throw;"), "(throw)");
   ASSERT_PARSE_GOOD(parseStatementToString("throw a;"), "(throw (identifier 'a'))");
@@ -325,7 +325,7 @@ TEST(TestEggParser, StatementThrow) {
   ASSERT_PARSE_BAD(parseStatementToString("throw ...a"), "(1, 7): Expected expression or ';' after 'throw' keyword");
 }
 
-TEST(TestEggParser, StatementTry) {
+TEST(TestEggSyntaxParser, StatementTry) {
   // Good
   ASSERT_PARSE_GOOD(parseStatementToString("try {} catch (object a) {}"), "(try (block) (catch 'a' (type 'object') (block)))");
   ASSERT_PARSE_GOOD(parseStatementToString("try {} finally {}"), "(try (block) (finally (block)))");
@@ -354,7 +354,7 @@ TEST(TestEggParser, StatementTry) {
   ASSERT_PARSE_BAD(parseStatementToString("try {} finally {} finally"), "(1, 19): Unexpected second 'finally' clause in 'try' statement");
 }
 
-TEST(TestEggParser, StatementWhile) {
+TEST(TestEggSyntaxParser, StatementWhile) {
   // Good
   ASSERT_PARSE_GOOD(parseStatementToString("while (a) {}"), "(while (identifier 'a') (block))");
   // Bad
@@ -367,7 +367,7 @@ TEST(TestEggParser, StatementWhile) {
   ASSERT_PARSE_BAD(parseStatementToString("while (a) {"), "(1, 12): Expected statement");
 }
 
-TEST(TestEggParser, StatementUsing) {
+TEST(TestEggSyntaxParser, StatementUsing) {
   // Good
   ASSERT_PARSE_GOOD(parseStatementToString("using (a) {}"), "(using (identifier 'a') (block))");
   ASSERT_PARSE_GOOD(parseStatementToString("using (var a = b) {}"), "(using (initialize 'a' (type 'var') (identifier 'b')) (block))");
@@ -385,7 +385,7 @@ TEST(TestEggParser, StatementUsing) {
   ASSERT_PARSE_BAD(parseStatementToString("using (var a = b) {"), "(1, 20): Expected statement");
 }
 
-TEST(TestEggParser, StatementYield) {
+TEST(TestEggSyntaxParser, StatementYield) {
   // Good
   ASSERT_PARSE_GOOD(parseStatementToString("yield a;"), "(yield (identifier 'a'))");
   ASSERT_PARSE_GOOD(parseStatementToString("yield ...a;"), "(yield (unary '...' (identifier 'a')))");
@@ -403,16 +403,16 @@ TEST(TestEggParser, StatementYield) {
   ASSERT_PARSE_BAD(parseStatementToString("yield ...a,"), "(1, 11): Expected ';' at end of 'yield' statement");
 }
 
-TEST(TestEggParser, Vexatious) {
+TEST(TestEggSyntaxParser, Vexatious) {
   ASSERT_PARSE_GOOD(parseExpressionToString("a--b"), "(binary '-' (identifier 'a') (unary '-' (identifier 'b')))");
   ASSERT_PARSE_GOOD(parseExpressionToString("a--1"), "(binary '-' (identifier 'a') (unary '-' (literal int 1)))");
   ASSERT_PARSE_GOOD(parseExpressionToString("-1"), "(unary '-' (literal int 1))");
 }
 
-TEST(TestEggParser, ExampleFile) {
+TEST(TestEggSyntaxParser, ExampleFile) {
   auto lexer = LexerFactory::createFromPath("~/cpp/test/data/example.egg");
   auto tokenizer = EggTokenizerFactory::createFromLexer(lexer);
-  auto parser = EggParserFactory::createModuleParser();
+  auto parser = EggParserFactory::createModuleSyntaxParser();
   auto root = parser->parse(*tokenizer);
   EggSyntaxNode::printToStream(std::cout, *root, false);
   std::cout << std::endl;

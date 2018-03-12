@@ -1,13 +1,13 @@
 namespace egg::yolk {
-  class IEggParser {
+  class IEggSyntaxParser {
   public:
     virtual std::shared_ptr<IEggSyntaxNode> parse(IEggTokenizer& tokenizer) = 0;
   };
 
   class EggParserFactory {
   public:
-    static std::shared_ptr<IEggParser> createModuleParser();
-    static std::shared_ptr<IEggParser> createStatementParser();
-    static std::shared_ptr<IEggParser> createExpressionParser();
+    static std::shared_ptr<IEggSyntaxParser> createModuleSyntaxParser();
+    static std::shared_ptr<IEggSyntaxParser> createStatementSyntaxParser();
+    static std::shared_ptr<IEggSyntaxParser> createExpressionSyntaxParser();
   };
 }
