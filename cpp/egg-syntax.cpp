@@ -72,6 +72,10 @@ egg::yolk::IEggSyntaxNode& egg::yolk::IEggSyntaxNode::getChild(size_t index) con
   return *child;
 }
 
+void egg::yolk::EggSyntaxNode_Empty::visit(IEggSyntaxNodeVisitor& visitor) {
+  visitor.node("");
+}
+
 void egg::yolk::EggSyntaxNode_Module::visit(IEggSyntaxNodeVisitor& visitor) {
   visitor.node("module", this->child);
 }
@@ -168,6 +172,14 @@ void egg::yolk::EggSyntaxNode_Finally::visit(IEggSyntaxNodeVisitor& visitor) {
   visitor.node("finally", this->child);
 }
 
+void egg::yolk::EggSyntaxNode_For::visit(IEggSyntaxNodeVisitor& visitor) {
+  visitor.node("for", this->child);
+}
+
+void egg::yolk::EggSyntaxNode_Foreach::visit(IEggSyntaxNodeVisitor& visitor) {
+  visitor.node("foreach", this->child);
+}
+
 void egg::yolk::EggSyntaxNode_Return::visit(IEggSyntaxNodeVisitor& visitor) {
   visitor.node("return", this->child);
 }
@@ -185,15 +197,11 @@ void egg::yolk::EggSyntaxNode_Try::visit(IEggSyntaxNodeVisitor& visitor) {
 }
 
 void egg::yolk::EggSyntaxNode_Using::visit(IEggSyntaxNodeVisitor& visitor) {
-  visitor.node("using '" + this->name + "'", this->child);
+  visitor.node("using", this->child);
 }
 
 void egg::yolk::EggSyntaxNode_While::visit(IEggSyntaxNodeVisitor& visitor) {
   visitor.node("while", this->child);
-}
-
-void egg::yolk::EggSyntaxNode_With::visit(IEggSyntaxNodeVisitor& visitor) {
-  visitor.node("with", this->child);
 }
 
 void egg::yolk::EggSyntaxNode_Yield::visit(IEggSyntaxNodeVisitor& visitor) {
