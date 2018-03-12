@@ -1,4 +1,6 @@
 #include "yolk.h"
+#include "lexers.h"
+#include "egg-tokenizer.h"
 
 #include <codecvt>
 

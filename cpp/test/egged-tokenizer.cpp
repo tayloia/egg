@@ -1,4 +1,6 @@
 #include "test.h"
+#include "lexers.h"
+#include "egged-tokenizer.h"
 
 using namespace egg::yolk;
 

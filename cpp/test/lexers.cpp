@@ -1,4 +1,5 @@
 #include "test.h"
+#include "lexers.h"
 
 using namespace egg::yolk;
 

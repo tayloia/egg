@@ -1,4 +1,8 @@
 #include "yolk.h"
+#include "lexers.h"
+#include "egg-tokenizer.h"
+#include "egg-syntax.h"
+#include "egg-parser.h"
 
 namespace {
   using namespace egg::yolk;
@@ -29,16 +33,14 @@ namespace {
     }
     SyntaxDump& add(const std::vector<std::unique_ptr<IEggSyntaxNode>>& children) {
       for (auto& child : children) {
-        *this->os << ' ';
-        child->dump(*this->os);
+        this->add(child);
       }
       return *this;
     }
     template<size_t N>
     SyntaxDump& add(const std::unique_ptr<IEggSyntaxNode> (&children)[N]) {
       for (auto& child : children) {
-        *this->os << ' ';
-        child->dump(*this->os);
+        this->add(child);
       }
       return *this;
     }

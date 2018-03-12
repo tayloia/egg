@@ -1,4 +1,8 @@
 #include "yolk.h"
+#include "lexers.h"
+#include "egg-tokenizer.h"
+#include "egg-syntax.h"
+#include "egg-parser.h"
 
 namespace {
   using namespace egg::yolk;
