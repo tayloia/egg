@@ -31,6 +31,9 @@
     <ClCompile Include="..\cpp\test\egg-parser.cpp">
       <Filter>Test Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\cpp\test\egg-syntax.cpp">
+      <Filter>Test Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Data Files">

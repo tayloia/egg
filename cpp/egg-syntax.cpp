@@ -3,89 +3,62 @@
 namespace {
   using namespace egg::yolk;
 
-  class EggSyntaxNodeVisitor : public IEggSyntaxNodeVisitor {
+  class SyntaxDump {
   private:
     std::ostream* os;
-    size_t indent;
   public:
-    explicit EggSyntaxNodeVisitor(std::ostream& os)
-      : os(&os), indent(0) {
+    SyntaxDump(std::ostream& os, const char* text)
+      :os(&os) {
+      *this->os << '(' << text;
     }
-    virtual void node(const std::string& prefix, IEggSyntaxNode* children[], size_t count) override {
-      for (size_t i = 0; i < this->indent; ++i) {
-        this->os->write("  ", 2);
-      }
-      *this->os << '(' << prefix;
-      this->indent++;
-      for (size_t i = 0; i < count; ++i) {
-        *this->os << std::endl;
-        assert(children[i] != nullptr);
-        children[i]->visit(*this);
-      }
-      this->indent--;
+    ~SyntaxDump() {
       *this->os << ')';
     }
-  };
-
-  class EggSyntaxNodeVisitorConcise : public IEggSyntaxNodeVisitor {
-  private:
-    std::ostream* os;
-  public:
-    explicit EggSyntaxNodeVisitorConcise(std::ostream& os)
-      : os(&os) {
+    SyntaxDump& add(const std::string& text) {
+      *this->os << ' ' << '\'' << text << '\'';
+      return *this;
     }
-    virtual void node(const std::string& prefix, IEggSyntaxNode* children[], size_t count) override {
-      *this->os << '(' << prefix;
-      for (size_t i = 0; i < count; ++i) {
+    SyntaxDump& add(EggTokenizerOperator op) {
+      *this->os << ' ' << '\'' << EggTokenizerValue::getOperatorString(op) << '\'';
+      return *this;
+    }
+    SyntaxDump& add(const std::unique_ptr<IEggSyntaxNode>& child) {
+      *this->os << ' ';
+      child->dump(*this->os);
+      return *this;
+    }
+    SyntaxDump& add(const std::vector<std::unique_ptr<IEggSyntaxNode>>& children) {
+      for (auto& child : children) {
         *this->os << ' ';
-        assert(children[i] != nullptr);
-        children[i]->visit(*this);
+        child->dump(*this->os);
       }
-      *this->os << ')';
+      return *this;
+    }
+    template<size_t N>
+    SyntaxDump& add(const std::unique_ptr<IEggSyntaxNode> (&children)[N]) {
+      for (auto& child : children) {
+        *this->os << ' ';
+        child->dump(*this->os);
+      }
+      return *this;
     }
   };
 }
 
-void egg::yolk::IEggSyntaxNodeVisitor::node(const std::string & prefix, const std::vector<std::unique_ptr<IEggSyntaxNode>>& children) {
-  std::vector<IEggSyntaxNode*> pointers(children.size());
-  auto dst = pointers.begin();
-  for (auto& src : children) {
-    *(dst++) = src.get();
-  }
-  this->node(prefix, pointers.data(), pointers.size());
+void egg::yolk::EggSyntaxNode_Empty::dump(std::ostream& os) const {
+  SyntaxDump(os, "");
 }
 
-void egg::yolk::IEggSyntaxNodeVisitor::node(const std::string & prefix, const std::unique_ptr<IEggSyntaxNode>& child) {
-  IEggSyntaxNode* pointer = child.get();
-  this->node(prefix, &pointer, 1);
+void egg::yolk::EggSyntaxNode_Module::dump(std::ostream& os) const {
+  SyntaxDump(os, "module").add(this->child);
 }
 
-void egg::yolk::IEggSyntaxNodeVisitor::node(const std::string & prefix) {
-  this->node(prefix, nullptr, 0);
+void egg::yolk::EggSyntaxNode_Block::dump(std::ostream& os) const {
+  SyntaxDump(os, "block").add(this->child);
 }
 
-egg::yolk::IEggSyntaxNode& egg::yolk::IEggSyntaxNode::getChild(size_t index) const {
-  auto* child = this->tryGetChild(index);
-  if (child == nullptr) {
-    EGG_THROW("No such child in syntax tree node");
-  }
-  return *child;
-}
-
-void egg::yolk::EggSyntaxNode_Empty::visit(IEggSyntaxNodeVisitor& visitor) {
-  visitor.node("");
-}
-
-void egg::yolk::EggSyntaxNode_Module::visit(IEggSyntaxNodeVisitor& visitor) {
-  visitor.node("module", this->child);
-}
-
-void egg::yolk::EggSyntaxNode_Block::visit(IEggSyntaxNodeVisitor& visitor) {
-  visitor.node("block", this->child);
-}
-
-void egg::yolk::EggSyntaxNode_Type::visit(IEggSyntaxNodeVisitor& visitor) {
-  visitor.node("type '" + EggSyntaxNode_Type::to_string(this->allowed) + "'");
+void egg::yolk::EggSyntaxNode_Type::dump(std::ostream& os) const {
+  SyntaxDump(os, "type").add(EggSyntaxNode_Type::to_string(this->allowed));
 }
 
 static void EggSyntaxNode_Type_component(std::string& dst, const char* text, int mask) {
@@ -122,152 +95,135 @@ std::string egg::yolk::EggSyntaxNode_Type::to_string(Allowed allowed) {
   return result;
 }
 
-void egg::yolk::EggSyntaxNode_VariableDeclaration::visit(IEggSyntaxNodeVisitor& visitor) {
-  visitor.node("declare '" + this->name + "'", this->child);
+void egg::yolk::EggSyntaxNode_VariableDeclaration::dump(std::ostream& os) const {
+  SyntaxDump(os, "declare").add(this->name).add(this->child);
 }
 
-void egg::yolk::EggSyntaxNode_VariableInitialization::visit(IEggSyntaxNodeVisitor& visitor) {
-  visitor.node("initialize '" + this->name + "'", this->child);
+void egg::yolk::EggSyntaxNode_VariableInitialization::dump(std::ostream& os) const {
+  SyntaxDump(os, "initialize").add(this->name).add(this->child);
 }
 
-void egg::yolk::EggSyntaxNode_Assignment::visit(IEggSyntaxNodeVisitor& visitor) {
-  auto prefix = "assign '" + EggTokenizerValue::getOperatorString(this->op) + "'";
-  visitor.node(prefix, this->child);
+void egg::yolk::EggSyntaxNode_Assignment::dump(std::ostream& os) const {
+  SyntaxDump(os, "assign").add(this->op).add(this->child);
 }
 
-void egg::yolk::EggSyntaxNode_Mutate::visit(IEggSyntaxNodeVisitor& visitor) {
-  auto prefix = "mutate '" + EggTokenizerValue::getOperatorString(this->op) + "'";
-  visitor.node(prefix, this->child);
+void egg::yolk::EggSyntaxNode_Mutate::dump(std::ostream& os) const {
+  SyntaxDump(os, "mutate").add(this->op).add(this->child);
 }
 
-void egg::yolk::EggSyntaxNode_Break::visit(IEggSyntaxNodeVisitor& visitor) {
-  visitor.node("break");
+void egg::yolk::EggSyntaxNode_Break::dump(std::ostream& os) const {
+  SyntaxDump(os, "break");
 }
 
-void egg::yolk::EggSyntaxNode_Case::visit(IEggSyntaxNodeVisitor& visitor) {
-  visitor.node("case", this->child);
+void egg::yolk::EggSyntaxNode_Case::dump(std::ostream& os) const {
+  SyntaxDump(os, "case").add(this->child);
 }
 
-void egg::yolk::EggSyntaxNode_Catch::visit(IEggSyntaxNodeVisitor& visitor) {
-  visitor.node("catch '" + this->name + "'", this->child);
+void egg::yolk::EggSyntaxNode_Catch::dump(std::ostream& os) const {
+  SyntaxDump(os, "catch").add(this->name).add(this->child);
 }
 
-void egg::yolk::EggSyntaxNode_Continue::visit(IEggSyntaxNodeVisitor& visitor) {
-  visitor.node("continue");
+void egg::yolk::EggSyntaxNode_Continue::dump(std::ostream& os) const {
+  SyntaxDump(os, "continue");
 }
 
-void egg::yolk::EggSyntaxNode_Default::visit(IEggSyntaxNodeVisitor& visitor) {
-  visitor.node("default");
+void egg::yolk::EggSyntaxNode_Default::dump(std::ostream& os) const {
+  SyntaxDump(os, "default");
 }
 
-void egg::yolk::EggSyntaxNode_Do::visit(IEggSyntaxNodeVisitor& visitor) {
-  visitor.node("do", this->child);
+void egg::yolk::EggSyntaxNode_Do::dump(std::ostream& os) const {
+  SyntaxDump(os, "do").add(this->child);
 }
 
-void egg::yolk::EggSyntaxNode_If::visit(IEggSyntaxNodeVisitor& visitor) {
-  visitor.node("if", this->child);
+void egg::yolk::EggSyntaxNode_If::dump(std::ostream& os) const {
+  SyntaxDump(os, "if").add(this->child);
 }
 
-void egg::yolk::EggSyntaxNode_Finally::visit(IEggSyntaxNodeVisitor& visitor) {
-  visitor.node("finally", this->child);
+void egg::yolk::EggSyntaxNode_Finally::dump(std::ostream& os) const {
+  SyntaxDump(os, "finally").add(this->child);
 }
 
-void egg::yolk::EggSyntaxNode_For::visit(IEggSyntaxNodeVisitor& visitor) {
-  visitor.node("for", this->child);
+void egg::yolk::EggSyntaxNode_For::dump(std::ostream& os) const {
+  SyntaxDump(os, "for").add(this->child);
 }
 
-void egg::yolk::EggSyntaxNode_Foreach::visit(IEggSyntaxNodeVisitor& visitor) {
-  visitor.node("foreach", this->child);
+void egg::yolk::EggSyntaxNode_Foreach::dump(std::ostream& os) const {
+  SyntaxDump(os, "foreach").add(this->child);
 }
 
-void egg::yolk::EggSyntaxNode_Return::visit(IEggSyntaxNodeVisitor& visitor) {
-  visitor.node("return", this->child);
+void egg::yolk::EggSyntaxNode_Return::dump(std::ostream& os) const {
+  SyntaxDump(os, "return").add(this->child);
 }
 
-void egg::yolk::EggSyntaxNode_Switch::visit(IEggSyntaxNodeVisitor& visitor) {
-  visitor.node("switch", this->child);
+void egg::yolk::EggSyntaxNode_Switch::dump(std::ostream& os) const {
+  SyntaxDump(os, "switch").add(this->child);
 }
 
-void egg::yolk::EggSyntaxNode_Throw::visit(IEggSyntaxNodeVisitor& visitor) {
-  visitor.node("throw", this->child);
+void egg::yolk::EggSyntaxNode_Throw::dump(std::ostream& os) const {
+  SyntaxDump(os, "throw").add(this->child);
 }
 
-void egg::yolk::EggSyntaxNode_Try::visit(IEggSyntaxNodeVisitor& visitor) {
-  visitor.node("try", this->child);
+void egg::yolk::EggSyntaxNode_Try::dump(std::ostream& os) const {
+  SyntaxDump(os, "try").add(this->child);
 }
 
-void egg::yolk::EggSyntaxNode_Using::visit(IEggSyntaxNodeVisitor& visitor) {
-  visitor.node("using", this->child);
+void egg::yolk::EggSyntaxNode_Using::dump(std::ostream& os) const {
+  SyntaxDump(os, "using").add(this->child);
 }
 
-void egg::yolk::EggSyntaxNode_While::visit(IEggSyntaxNodeVisitor& visitor) {
-  visitor.node("while", this->child);
+void egg::yolk::EggSyntaxNode_While::dump(std::ostream& os) const {
+  SyntaxDump(os, "while").add(this->child);
 }
 
-void egg::yolk::EggSyntaxNode_Yield::visit(IEggSyntaxNodeVisitor& visitor) {
-  visitor.node("yield", this->child);
+void egg::yolk::EggSyntaxNode_Yield::dump(std::ostream& os) const {
+  SyntaxDump(os, "yield").add(this->child);
 }
 
-void egg::yolk::EggSyntaxNode_UnaryOperator::visit(IEggSyntaxNodeVisitor& visitor) {
-  auto prefix = "unary '" + EggTokenizerValue::getOperatorString(this->op) + "'";
-  visitor.node(prefix, this->child);
+void egg::yolk::EggSyntaxNode_UnaryOperator::dump(std::ostream& os) const {
+  SyntaxDump(os, "unary").add(this->op).add(this->child);
 }
 
-void egg::yolk::EggSyntaxNode_BinaryOperator::visit(IEggSyntaxNodeVisitor& visitor) {
-  IEggSyntaxNode* pointers[] = { this->child[0].get(), this->child[1].get() };
-  auto prefix = "binary '" + EggTokenizerValue::getOperatorString(this->op) + "'";
-  visitor.node(prefix, pointers, EGG_NELEMS(pointers));
+void egg::yolk::EggSyntaxNode_BinaryOperator::dump(std::ostream& os) const {
+  SyntaxDump(os, "binary").add(this->op).add(this->child);
 }
 
-void egg::yolk::EggSyntaxNode_TernaryOperator::visit(IEggSyntaxNodeVisitor& visitor) {
-  IEggSyntaxNode* pointers[] = { this->child[0].get(), this->child[1].get(), this->child[2].get() };
-  visitor.node("ternary", pointers, 3);
+void egg::yolk::EggSyntaxNode_TernaryOperator::dump(std::ostream& os) const {
+  SyntaxDump(os, "ternary").add(this->child);
 }
 
-void egg::yolk::EggSyntaxNode_Call::visit(IEggSyntaxNodeVisitor& visitor) {
-  visitor.node("call", this->child);
+void egg::yolk::EggSyntaxNode_Call::dump(std::ostream& os) const {
+  SyntaxDump(os, "call").add(this->child);
 }
 
-void egg::yolk::EggSyntaxNode_Named::visit(IEggSyntaxNodeVisitor& visitor) {
-  visitor.node("named '" + this->name + "'", this->child);
+void egg::yolk::EggSyntaxNode_Named::dump(std::ostream& os) const {
+  SyntaxDump(os, "named").add(this->name).add(this->child);
 }
 
-void egg::yolk::EggSyntaxNode_Identifier::visit(IEggSyntaxNodeVisitor& visitor) {
-  visitor.node("identifier '" + this->name + "'");
+void egg::yolk::EggSyntaxNode_Identifier::dump(std::ostream& os) const {
+  SyntaxDump(os, "identifier").add(this->name);
 }
 
-void egg::yolk::EggSyntaxNode_Literal::visit(IEggSyntaxNodeVisitor& visitor) {
-  visitor.node("literal " + this->to_string());
-}
-
-std::string egg::yolk::EggSyntaxNode_Literal::to_string() const {
+void egg::yolk::EggSyntaxNode_Literal::dump(std::ostream& os) const {
   switch (this->kind) {
   case EggTokenizerKind::Integer:
-    return "int " + this->value.s;
+    SyntaxDump(os, ("literal int " + this->value.s).c_str());
+    break;
   case EggTokenizerKind::Float:
-    return "float " + this->value.s;
+    SyntaxDump(os, ("literal float " + this->value.s).c_str());
+    break;
   case EggTokenizerKind::String:
-    return "string '" + this->value.s + "'";
+    SyntaxDump(os, "literal string").add(this->value.s);
+    break;
   case EggTokenizerKind::Keyword:
   case EggTokenizerKind::Operator:
   case EggTokenizerKind::Identifier:
   case EggTokenizerKind::Attribute:
   case EggTokenizerKind::EndOfFile:
   default:
-    return "unknown type";
+    SyntaxDump(os, "literal unknown");
+    break;
   }
 }
-
-std::ostream& egg::yolk::EggSyntaxNode::printToStream(std::ostream& os, IEggSyntaxNode& tree, bool concise) {
-  if (concise) {
-    EggSyntaxNodeVisitorConcise visitor(os);
-    tree.visit(visitor);
-  } else {
-    EggSyntaxNodeVisitor visitor(os);
-    tree.visit(visitor);
-  }
-  return os;
-};
 
 #define EGG_TOKENIZER_OPERATOR_EXPECTATION(key, text) \
   "Expected expression after infix '" text "' operator",
@@ -1147,11 +1103,8 @@ std::unique_ptr<IEggSyntaxNode> EggSyntaxParserContext::parseStatementExpression
   if (!this->backtrack.peek(0).isOperator(terminal)) {
     return this->parseStatementAssignment(std::move(expr), terminal);
   }
-  if (expr->getKind() != EggSyntaxNodeKind::Call) {
-    this->unexpected("Expected assignment operator after expression, not end of statement");
-  }
-  EggSyntaxParserBacktrackMark mark(this->backtrack);
-  mark.accept(1);
+  // Assume function call expression
+  this->backtrack.advance(1);
   return std::move(expr);
 }
 
