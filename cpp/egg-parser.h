@@ -5,6 +5,7 @@
   macro(Negate, "-") \
   macro(Ellipsis, "...") \
   macro(BitwiseNot, "~")
+#define EGG_PARSER_UNARY_OPERATOR_DECLARE(name, text) name,
 
 #define EGG_PARSER_BINARY_OPERATORS(macro) \
   macro(Remainder, "%") \
@@ -29,25 +30,20 @@
   macro(BitwiseXor, "^") \
   macro(BitwiseOr, "|") \
   macro(LogicalOr, "||")
+#define EGG_PARSER_BINARY_OPERATOR_DECLARE(name, text) name,
 
 namespace egg::yolk {
   class EggParserType {
-  public:
-    enum class Simple {
-      Void = 0x00,
-      Null = 0x01,
-      Bool = 0x02,
-      Int = 0x04,
-      Float = 0x08,
-      String = 0x10,
-      Object = 0x20
-    };
-    class Complex;
+    using Tag = egg::lang::VariantTag;
   private:
-    Simple simple;
+    Tag tag;
   public:
-    explicit EggParserType(Simple simple) : simple(simple) {
+    explicit EggParserType(Tag tag) : tag(tag) {
     }
+    std::string tagToString() const {
+      return EggParserType::tagToString(this->tag);
+    }
+    static std::string tagToString(Tag tag);
   };
 
   class IEggParserNode {
@@ -56,12 +52,19 @@ namespace egg::yolk {
     virtual void dump(std::ostream& os) const = 0;
   };
 
+  enum class EggParserUnary {
+    EGG_PARSER_UNARY_OPERATORS(EGG_PARSER_UNARY_OPERATOR_DECLARE)
+  };
+
+  enum class EggParserBinary {
+    EGG_PARSER_BINARY_OPERATORS(EGG_PARSER_BINARY_OPERATOR_DECLARE)
+  };
+
   enum class EggParserAllowed {
     Empty = 0x01,
-    Block = 0x02,
-    Break = 0x04,
-    Continue = 0x08,
-    Default = 0x10
+    Break = 0x02,
+    Continue = 0x04,
+    Default = 0x08
   };
 
   class IEggParserContext {

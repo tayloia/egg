@@ -86,6 +86,7 @@ size_t egg::yolk::EggTokenizerItem::width() const {
 }
 
 std::string egg::yolk::EggTokenizerItem::to_string() const {
+  // This is only used for creating error messages
   switch (this->kind) {
   case EggTokenizerKind::Integer:
     return "integer";

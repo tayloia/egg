@@ -1,5 +1,4 @@
 namespace egg::yolk {
-  class IEggSyntaxNode;
   class IEggParserNode;
   class IEggParserContext;
 
@@ -118,28 +117,15 @@ namespace egg::yolk {
 
   class EggSyntaxNode_Type : public EggSyntaxNodeBase {
     EGG_NO_COPY(EggSyntaxNode_Type);
-  public:
-    enum Allowed {
-      Inferred = 0x00,
-      Void = 0x01,
-      Bool = 0x02,
-      Int = 0x04,
-      Float = 0x08,
-      String = 0x10,
-      Object = 0x20
-    };
+    using Tag = egg::lang::VariantTag;
   private:
-    Allowed allowed;
+    Tag tag;
   public:
-    explicit EggSyntaxNode_Type(const EggSyntaxNodeLocation& location, Allowed allowed)
-      : EggSyntaxNodeBase(location), allowed(allowed) {
+    explicit EggSyntaxNode_Type(const EggSyntaxNodeLocation& location, Tag tag)
+      : EggSyntaxNodeBase(location), tag(tag) {
     }
     virtual void dump(std::ostream& os) const override;
-    bool isInferred() const {
-      return (this->allowed & ~Void) == 0;
-    }
     virtual std::shared_ptr<IEggParserNode> promote(IEggParserContext& context) override;
-    static std::string to_string(Allowed allowed);
   };
 
   class EggSyntaxNode_VariableDeclaration : public EggSyntaxNodeChildren1 {

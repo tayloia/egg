@@ -10,6 +10,7 @@
 #include <memory>
 #include <sstream>
 #include <string>
+#include <type_traits>
 #include <vector>
 
 #include "macros.h"
@@ -17,3 +18,5 @@
 #include "files.h"
 #include "streams.h"
 #include "strings.h"
+
+#include "lang.h"

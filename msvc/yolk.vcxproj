@@ -57,6 +57,7 @@
     <ClInclude Include="..\cpp\exceptions.h" />
     <ClInclude Include="..\cpp\files.h" />
     <ClInclude Include="..\cpp\json-tokenizer.h" />
+    <ClInclude Include="..\cpp\lang.h" />
     <ClInclude Include="..\cpp\lexers.h" />
     <ClInclude Include="..\cpp\macros.h" />
     <ClInclude Include="..\cpp\platform.h" />

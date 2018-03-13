@@ -27,3 +27,15 @@ TEST(TestEggParser, ModuleEmpty) {
   auto root = parseFromString(*parser, "");
   ASSERT_PARSE_GOOD(dumpToString(*root), "(module)");
 }
+
+TEST(TestEggParser, ModuleBlock) {
+  auto parser = EggParserFactory::createModuleParser();
+  auto root = parseFromString(*parser, "{}");
+  ASSERT_PARSE_GOOD(dumpToString(*root), "(module (block))");
+}
+
+TEST(TestEggParser, ModuleSimple) {
+  auto parser = EggParserFactory::createModuleParser();
+  auto root = parseFromString(*parser, "var a = b; a = c;");
+  ASSERT_PARSE_GOOD(dumpToString(*root), "(module (declare 'a' (type 'var') (identifier 'b')) (assign '==' (identifier 'a') (identifier 'c')))");
+}
