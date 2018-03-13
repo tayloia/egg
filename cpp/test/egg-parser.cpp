@@ -6,6 +6,9 @@
 
 using namespace egg::yolk;
 
+#define ASSERT_PARSE_GOOD(parsed, expected) ASSERT_EQ(expected, parsed)
+#define ASSERT_PARSE_BAD(parsed, needle) ASSERT_THROW_E(parsed, Exception, ASSERT_CONTAINS(e.what(), needle))
+
 namespace {
   std::shared_ptr<IEggParserNode> parseFromString(IEggParser& parser, const std::string& text) {
     auto lexer = LexerFactory::createFromString(text);
@@ -22,6 +25,5 @@ namespace {
 TEST(TestEggParser, ModuleEmpty) {
   auto parser = EggParserFactory::createModuleParser();
   auto root = parseFromString(*parser, "");
-  auto dumped = dumpToString(*root);
-  ASSERT_EQ("(module)", dumped);
+  ASSERT_PARSE_GOOD(dumpToString(*root), "(module)");
 }

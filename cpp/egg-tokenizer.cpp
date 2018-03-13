@@ -66,6 +66,25 @@ bool egg::yolk::EggTokenizerValue::tryParseOperator(const std::string& text, Egg
   return false;
 }
 
+size_t egg::yolk::EggTokenizerItem::width() const {
+  switch (this->kind) {
+  case EggTokenizerKind::String:
+    return 1;
+  case EggTokenizerKind::Keyword:
+    return EggTokenizerValue::getKeywordString(this->value.k).size();
+  case EggTokenizerKind::Operator:
+    return EggTokenizerValue::getOperatorString(this->value.o).size();
+  case EggTokenizerKind::Integer:
+  case EggTokenizerKind::Float:
+  case EggTokenizerKind::Identifier:
+  case EggTokenizerKind::Attribute:
+    return this->value.s.size();
+  case EggTokenizerKind::EndOfFile:
+  default:
+    return 0;
+  }
+}
+
 std::string egg::yolk::EggTokenizerItem::to_string() const {
   switch (this->kind) {
   case EggTokenizerKind::Integer:

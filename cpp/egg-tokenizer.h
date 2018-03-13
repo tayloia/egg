@@ -131,6 +131,7 @@ namespace egg::yolk {
     bool isOperator(EggTokenizerOperator op) const {
       return (this->kind == EggTokenizerKind::Operator) && (this->value.o == op);
     }
+    size_t width() const;
     std::string to_string() const;
   };
 
