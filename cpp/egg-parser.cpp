@@ -7,7 +7,12 @@
 namespace {
   using namespace egg::yolk;
 
-  const EggParserType typeVoid(egg::lang::TypeStorage::Void);
+  // Constants
+  const EggParserType typeVoid{ egg::lang::TypeStorage::Void };
+
+  SyntaxException exceptionFromToken(const IEggParserContext& context, const std::string& reason, const EggSyntaxNodeBase& node) {
+    return SyntaxException(reason, context.getResource(), node, node.token());
+  }
 
   void tagToStringComponent(std::string& dst, const char* text, bool bit) {
     if (bit) {
@@ -65,6 +70,7 @@ namespace {
     }
     static std::string unaryToString(EggParserUnary op);
     static std::string binaryToString(EggParserBinary op);
+    static std::string assignToString(EggParserAssign op);
   };
 
   class EggParserNode_Empty : public EggParserNodeBase {
@@ -130,19 +136,19 @@ namespace {
     }
   };
 
-  class EggParserNode_Assignment : public EggParserNodeBase {
+  class EggParserNode_Set : public EggParserNodeBase {
   private:
-    EggParserBinary op;
+    EggParserAssign op;
     std::shared_ptr<IEggParserNode> lhs;
     std::shared_ptr<IEggParserNode> rhs;
   public:
-    EggParserNode_Assignment(EggParserBinary op, const std::shared_ptr<IEggParserNode>& lhs, const std::shared_ptr<IEggParserNode>& rhs)
+    EggParserNode_Set(EggParserAssign op, const std::shared_ptr<IEggParserNode>& lhs, const std::shared_ptr<IEggParserNode>& rhs)
       : op(op), lhs(lhs), rhs(rhs) {
       assert(lhs != nullptr);
       assert(rhs != nullptr);
     }
     virtual void dump(std::ostream & os) const override {
-      ParserDump(os, "assign").add(EggParserNodeBase::binaryToString(this->op)).add(this->lhs).add(this->rhs);
+      ParserDump(os, "set").add(EggParserNodeBase::assignToString(this->op)).add(this->lhs).add(this->rhs);
     }
   };
 
@@ -159,8 +165,18 @@ namespace {
   };
 
   class EggParserContext : public IEggParserContext {
+  private:
+    std::string resource;
   public:
-    virtual bool isAllowed(EggParserAllowed) override {
+    explicit EggParserContext(const std::string& resource)
+      : resource(resource) {
+    }
+    virtual ~EggParserContext() {
+    }
+    virtual std::string getResource() const {
+      return this->resource;
+    }
+    virtual bool isAllowed(EggParserAllowed) const override {
       return false; // TODO
     }
   };
@@ -170,7 +186,7 @@ namespace {
     virtual std::shared_ptr<IEggParserNode> parse(IEggTokenizer& tokenizer) override {
       auto syntax = EggParserFactory::createModuleSyntaxParser();
       auto ast = syntax->parse(tokenizer);
-      EggParserContext context;
+      EggParserContext context(tokenizer.resource());
       return ast->promote(context);
     }
   };
@@ -223,6 +239,15 @@ std::string EggParserNodeBase::binaryToString(egg::yolk::EggParserBinary op) {
   return table[index];
 }
 
+std::string EggParserNodeBase::assignToString(egg::yolk::EggParserAssign op) {
+  static const char* const table[] = {
+    EGG_PARSER_ASSIGN_OPERATORS(EGG_PARSER_OPERATOR_STRING)
+  };
+  auto index = static_cast<size_t>(op);
+  assert(index < EGG_NELEMS(table));
+  return table[index];
+}
+
 std::shared_ptr<egg::yolk::IEggParserNode> egg::yolk::EggSyntaxNode_Empty::promote(egg::yolk::IEggParserContext&) {
   EGG_THROW(__FUNCTION__ " TODO"); // TODO
 }
@@ -257,7 +282,85 @@ std::shared_ptr<egg::yolk::IEggParserNode> egg::yolk::EggSyntaxNode_VariableInit
 }
 
 std::shared_ptr<egg::yolk::IEggParserNode> egg::yolk::EggSyntaxNode_Assignment::promote(egg::yolk::IEggParserContext& context) {
-  return std::make_shared<EggParserNode_Assignment>(EggParserBinary::Equal /*TODO*/, this->child[0]->promote(context), this->child[1]->promote(context));
+  EggParserAssign aop;
+  switch (this->op) {
+    case EggTokenizerOperator::PercentEqual:
+      aop = EggParserAssign::Remainder;
+      break;
+    case EggTokenizerOperator::AmpersandEqual:
+      aop = EggParserAssign::BitwiseAnd;
+      break;
+    case EggTokenizerOperator::StarEqual:
+      aop = EggParserAssign::Multiply;
+      break;
+    case EggTokenizerOperator::PlusEqual:
+      aop = EggParserAssign::Plus;
+      break;
+    case EggTokenizerOperator::MinusEqual:
+      aop = EggParserAssign::Minus;
+      break;
+    case EggTokenizerOperator::SlashEqual:
+      aop = EggParserAssign::Divide;
+      break;
+    case EggTokenizerOperator::ShiftLeftEqual:
+      aop = EggParserAssign::ShiftLeft;
+      break;
+    case EggTokenizerOperator::Equal:
+      aop = EggParserAssign::Assign;
+      break;
+    case EggTokenizerOperator::ShiftRightEqual:
+      aop = EggParserAssign::ShiftRight;
+      break;
+    case EggTokenizerOperator::ShiftRightUnsignedEqual:
+      aop = EggParserAssign::ShiftRightUnsigned;
+      break;
+    case EggTokenizerOperator::CaretEqual:
+      aop = EggParserAssign::BitwiseXor;
+      break;
+    case EggTokenizerOperator::BarEqual:
+      aop = EggParserAssign::BitwiseOr;
+      break;
+    case EggTokenizerOperator::Bang:
+    case EggTokenizerOperator::BangEqual:
+    case EggTokenizerOperator::Percent:
+    case EggTokenizerOperator::Ampersand:
+    case EggTokenizerOperator::AmpersandAmpersand:
+    case EggTokenizerOperator::ParenthesisLeft:
+    case EggTokenizerOperator::ParenthesisRight:
+    case EggTokenizerOperator::Star:
+    case EggTokenizerOperator::Plus:
+    case EggTokenizerOperator::PlusPlus:
+    case EggTokenizerOperator::Comma:
+    case EggTokenizerOperator::Minus:
+    case EggTokenizerOperator::MinusMinus:
+    case EggTokenizerOperator::Lambda:
+    case EggTokenizerOperator::Dot:
+    case EggTokenizerOperator::Ellipsis:
+    case EggTokenizerOperator::Slash:
+    case EggTokenizerOperator::Colon:
+    case EggTokenizerOperator::Semicolon:
+    case EggTokenizerOperator::Less:
+    case EggTokenizerOperator::ShiftLeft:
+    case EggTokenizerOperator::LessEqual:
+    case EggTokenizerOperator::EqualEqual:
+    case EggTokenizerOperator::Greater:
+    case EggTokenizerOperator::GreaterEqual:
+    case EggTokenizerOperator::ShiftRight:
+    case EggTokenizerOperator::ShiftRightUnsigned:
+    case EggTokenizerOperator::Query:
+    case EggTokenizerOperator::QueryQuery:
+    case EggTokenizerOperator::BracketLeft:
+    case EggTokenizerOperator::BracketRight:
+    case EggTokenizerOperator::Caret:
+    case EggTokenizerOperator::CurlyLeft:
+    case EggTokenizerOperator::Bar:
+    case EggTokenizerOperator::BarBar:
+    case EggTokenizerOperator::CurlyRight:
+    case EggTokenizerOperator::Tilde:
+    default:
+      throw exceptionFromToken(context, "Unknown assignment operator", *this);
+  }
+  return std::make_shared<EggParserNode_Set>(aop, this->child[0]->promote(context), this->child[1]->promote(context));
 }
 
 std::shared_ptr<egg::yolk::IEggParserNode> egg::yolk::EggSyntaxNode_Mutate::promote(egg::yolk::IEggParserContext&) {

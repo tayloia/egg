@@ -32,6 +32,21 @@
   macro(LogicalOr, "||")
 #define EGG_PARSER_BINARY_OPERATOR_DECLARE(name, text) name,
 
+#define EGG_PARSER_ASSIGN_OPERATORS(macro) \
+  macro(Remainder, "%=") \
+  macro(BitwiseAnd, "&=") \
+  macro(Multiply, "*=") \
+  macro(Plus, "+=") \
+  macro(Minus, "-=") \
+  macro(Divide, "/=") \
+  macro(ShiftLeft, "<<=") \
+  macro(Assign, "=") \
+  macro(ShiftRight, ">>=") \
+  macro(ShiftRightUnsigned, ">>>=") \
+  macro(BitwiseXor, "^=") \
+  macro(BitwiseOr, "|=")
+#define EGG_PARSER_ASSIGN_OPERATOR_DECLARE(name, text) name,
+
 namespace egg::yolk {
   class EggParserType {
     using Tag = egg::lang::VariantTag;
@@ -60,6 +75,10 @@ namespace egg::yolk {
     EGG_PARSER_BINARY_OPERATORS(EGG_PARSER_BINARY_OPERATOR_DECLARE)
   };
 
+  enum class EggParserAssign {
+    EGG_PARSER_ASSIGN_OPERATORS(EGG_PARSER_ASSIGN_OPERATOR_DECLARE)
+  };
+
   enum class EggParserAllowed {
     Empty = 0x01,
     Break = 0x02,
@@ -69,7 +88,8 @@ namespace egg::yolk {
 
   class IEggParserContext {
   public:
-    virtual bool isAllowed(EggParserAllowed allowed) = 0;
+    virtual std::string getResource() const = 0;
+    virtual bool isAllowed(EggParserAllowed allowed) const = 0;
   };
 
   // Program parser

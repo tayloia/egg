@@ -118,11 +118,9 @@ namespace egg::yolk {
     static bool tryParseOperator(const std::string& text, EggTokenizerOperator& value, size_t& length);
   };
 
-  struct EggTokenizerItem {
+  struct EggTokenizerItem : public ExceptionLocation {
     EggTokenizerKind kind;
     EggTokenizerValue value;
-    size_t line;
-    size_t column;
     bool contiguous;
 
     bool isKeyword(EggTokenizerKeyword keyword) const {

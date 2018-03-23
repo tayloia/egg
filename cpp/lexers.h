@@ -21,11 +21,9 @@ namespace egg::yolk {
     std::u32string s;
   };
 
-  struct LexerItem {
+  struct LexerItem : public ExceptionLocation {
     LexerKind kind;
     LexerValue value;
-    size_t line;
-    size_t column;
     std::string verbatim;
   };
 

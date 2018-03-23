@@ -326,10 +326,11 @@ namespace {
       this->unexpected(item, "Unexpected end of file found in backquoted string");
     }
     void unexpected(const LexerItem& item, const std::string& message) {
-      throw egg::yolk::Exception(message, this->stream.getResourceName(), item.line, item.column);
+      throw egg::yolk::SyntaxException(message, this->stream.getResourceName(), item);
     }
     void unexpected(const LexerItem& item, const std::string& message, int ch) {
-      this->unexpected(item, message + ": " + String::unicodeToString(ch));
+      auto token = String::unicodeToString(ch);
+      throw egg::yolk::SyntaxException(message + ": " + token, this->stream.getResourceName(), item, token);
     }
   };
 

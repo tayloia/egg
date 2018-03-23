@@ -98,7 +98,7 @@ namespace {
             }
             /* DROPTHROUGH */
           default:
-            this->unexpected("Unexpected character: " + String::unicodeToString(this->upcoming.verbatim.front()));
+            this->unexpected("Unexpected character", String::unicodeToString(this->upcoming.verbatim.front()));
             break;
           }
           if (this->upcoming.verbatim.size() > 1) {
@@ -126,7 +126,7 @@ namespace {
           item.kind = EggedTokenizerKind::EndOfFile;
           return EggedTokenizerKind::EndOfFile;
         default:
-          this->unexpected("Internal tokenizer error: " + this->upcoming.verbatim);
+          this->unexpected("Internal tokenizer error", this->upcoming.verbatim);
           break;
         }
         this->lexer->next(this->upcoming);
@@ -135,7 +135,10 @@ namespace {
     }
   private:
     void unexpected(const std::string& message) {
-      throw Exception(message, this->lexer->resource(), this->upcoming.line, this->upcoming.column);
+      throw SyntaxException(message, this->lexer->resource(), this->upcoming);
+    }
+    void unexpected(const std::string& message, const std::string& token) {
+      throw SyntaxException(message + ": " + token, this->lexer->resource(), this->upcoming, token);
     }
   };
 }

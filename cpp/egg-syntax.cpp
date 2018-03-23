@@ -193,6 +193,58 @@ void egg::yolk::EggSyntaxNode_Literal::dump(std::ostream& os) const {
   }
 }
 
+std::string egg::yolk::EggSyntaxNodeBase::token() const {
+  return std::string();
+}
+
+std::string egg::yolk::EggSyntaxNode_Type::token() const {
+  return EggParserType::tagToString(this->tag);
+}
+
+std::string egg::yolk::EggSyntaxNode_VariableDeclaration::token() const {
+  return this->name;
+}
+
+std::string egg::yolk::EggSyntaxNode_VariableInitialization::token() const {
+  return this->name;
+}
+
+std::string egg::yolk::EggSyntaxNode_Assignment::token() const {
+  return EggTokenizerValue::getOperatorString(this->op);
+}
+
+std::string egg::yolk::EggSyntaxNode_Mutate::token() const {
+  return EggTokenizerValue::getOperatorString(this->op);
+}
+
+std::string egg::yolk::EggSyntaxNode_Catch::token() const {
+  return this->name;
+}
+
+std::string egg::yolk::EggSyntaxNode_UnaryOperator::token() const {
+  return EggTokenizerValue::getOperatorString(this->op);
+}
+
+std::string egg::yolk::EggSyntaxNode_BinaryOperator::token() const {
+  return EggTokenizerValue::getOperatorString(this->op);
+}
+
+std::string egg::yolk::EggSyntaxNode_TernaryOperator::token() const {
+  return "?:";
+}
+
+std::string egg::yolk::EggSyntaxNode_Named::token() const {
+  return this->name;
+}
+
+std::string egg::yolk::EggSyntaxNode_Identifier::token() const {
+  return this->name;
+}
+
+std::string egg::yolk::EggSyntaxNode_Literal::token() const {
+  return this->value.s;
+}
+
 #define EGG_TOKENIZER_OPERATOR_EXPECTATION(key, text) \
   "Expected expression after infix '" text "' operator",
 
@@ -354,10 +406,11 @@ namespace {
     }
     void unexpected(const std::string& message) {
       auto& item = this->backtrack.peek(0);
-      throw Exception(message, this->backtrack.resource(), item.line, item.column);
+      throw SyntaxException(message, this->backtrack.resource(), item);
     }
     void unexpected(const std::string& expected, const EggTokenizerItem& item) {
-      throw Exception(expected + ", not " + item.to_string(), this->backtrack.resource(), item.line, item.column);
+      auto token = item.to_string();
+      throw SyntaxException(expected + ", not " + token, this->backtrack.resource(), item, token);
     }
     void parseExpressionList(std::function<void(std::unique_ptr<IEggSyntaxNode>&& node)> adder, const char* expected0, const char* expected1);
     void parseParameterList(std::function<void(std::unique_ptr<IEggSyntaxNode>&& node)> adder);
