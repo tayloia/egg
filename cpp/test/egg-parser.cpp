@@ -39,3 +39,12 @@ TEST(TestEggParser, ModuleSimple) {
   auto root = parseFromString(*parser, "var a = b; a = c;");
   ASSERT_PARSE_GOOD(dumpToString(*root), "(module (declare 'a' (type 'var') (identifier 'b')) (set '=' (identifier 'a') (identifier 'c')))");
 }
+
+TEST(TestEggParser, ExampleFile) {
+  auto parser = EggParserFactory::createModuleParser();
+  auto lexer = LexerFactory::createFromPath("~/cpp/test/data/example.egg"); //TODO
+  auto tokenizer = EggTokenizerFactory::createFromLexer(lexer);
+  auto root = parser->parse(*tokenizer);
+  root->dump(std::cout);
+  std::cout << std::endl;
+}
