@@ -2,12 +2,6 @@ namespace egg::yolk {
   class IEggParserNode;
   class IEggParserContext;
 
-  class IEggSyntaxNode {
-  public:
-    virtual void dump(std::ostream& os) const = 0;
-    virtual std::shared_ptr<IEggParserNode> promote(IEggParserContext& context) = 0;
-  };
-
   struct EggSyntaxNodeLocation : public ExceptionLocationRange {
     explicit EggSyntaxNodeLocation(const EggTokenizerItem& token) {
       this->setLocationBegin(token);
@@ -27,6 +21,14 @@ namespace egg::yolk {
     }
   };
 
+  class IEggSyntaxNode {
+  public:
+    virtual EggTokenizerKeyword keyword() const = 0;
+    virtual const EggSyntaxNodeLocation& location() const = 0;
+    virtual void dump(std::ostream& os) const = 0;
+    virtual std::shared_ptr<IEggParserNode> promote(IEggParserContext& context) const = 0;
+  };
+
   class EggSyntaxNodeBase : public IEggSyntaxNode, public EggSyntaxNodeLocation {
   public:
     explicit EggSyntaxNodeBase(const EggSyntaxNodeLocation& location)
@@ -34,6 +36,8 @@ namespace egg::yolk {
     }
     virtual ~EggSyntaxNodeBase() {
     }
+    virtual EggTokenizerKeyword keyword() const;
+    virtual const EggSyntaxNodeLocation& location() const;
     virtual std::string token() const;
   };
 
@@ -86,7 +90,7 @@ namespace egg::yolk {
       : EggSyntaxNodeBase(location) {
     }
     virtual void dump(std::ostream& os) const override;
-    virtual std::shared_ptr<IEggParserNode> promote(IEggParserContext& context) override;
+    virtual std::shared_ptr<IEggParserNode> promote(IEggParserContext& context) const override;
   };
 
   class EggSyntaxNode_Module : public EggSyntaxNodeChildrenV {
@@ -96,7 +100,7 @@ namespace egg::yolk {
       : EggSyntaxNodeChildrenV(location) {
     }
     virtual void dump(std::ostream& os) const override;
-    virtual std::shared_ptr<IEggParserNode> promote(IEggParserContext& context) override;
+    virtual std::shared_ptr<IEggParserNode> promote(IEggParserContext& context) const override;
   };
 
   class EggSyntaxNode_Block : public EggSyntaxNodeChildrenV {
@@ -106,7 +110,7 @@ namespace egg::yolk {
       : EggSyntaxNodeChildrenV(location) {
     }
     virtual void dump(std::ostream& os) const override;
-    virtual std::shared_ptr<IEggParserNode> promote(IEggParserContext& context) override;
+    virtual std::shared_ptr<IEggParserNode> promote(IEggParserContext& context) const override;
   };
 
   class EggSyntaxNode_Type : public EggSyntaxNodeBase {
@@ -120,7 +124,7 @@ namespace egg::yolk {
     }
     virtual void dump(std::ostream& os) const override;
     virtual std::string token() const override;
-    virtual std::shared_ptr<IEggParserNode> promote(IEggParserContext& context) override;
+    virtual std::shared_ptr<IEggParserNode> promote(IEggParserContext& context) const override;
   };
 
   class EggSyntaxNode_VariableDeclaration : public EggSyntaxNodeChildren1 {
@@ -133,7 +137,7 @@ namespace egg::yolk {
     }
     virtual void dump(std::ostream& os) const override;
     virtual std::string token() const override;
-    virtual std::shared_ptr<IEggParserNode> promote(IEggParserContext& context) override;
+    virtual std::shared_ptr<IEggParserNode> promote(IEggParserContext& context) const override;
   };
 
   class EggSyntaxNode_VariableInitialization : public EggSyntaxNodeChildrenN<2> {
@@ -146,7 +150,7 @@ namespace egg::yolk {
     }
     virtual void dump(std::ostream& os) const override;
     virtual std::string token() const override;
-    virtual std::shared_ptr<IEggParserNode> promote(IEggParserContext& context) override;
+    virtual std::shared_ptr<IEggParserNode> promote(IEggParserContext& context) const override;
   };
 
   class EggSyntaxNode_Assignment : public EggSyntaxNodeChildrenN<2> {
@@ -159,10 +163,10 @@ namespace egg::yolk {
     }
     virtual void dump(std::ostream& os) const override;
     virtual std::string token() const override;
-    virtual std::shared_ptr<IEggParserNode> promote(IEggParserContext& context) override;
+    virtual std::shared_ptr<IEggParserNode> promote(IEggParserContext& context) const override;
   private:
     template<typename T>
-    std::shared_ptr<IEggParserNode> promoteAssign(IEggParserContext& context) {
+    std::shared_ptr<IEggParserNode> promoteAssign(IEggParserContext& context) const {
       auto lhs = this->child[0]->promote(context);
       auto rhs = this->child[1]->promote(context);
       return std::make_shared<T>(lhs, rhs);
@@ -179,7 +183,7 @@ namespace egg::yolk {
     }
     virtual void dump(std::ostream& os) const override;
     virtual std::string token() const override;
-    virtual std::shared_ptr<IEggParserNode> promote(IEggParserContext& context) override;
+    virtual std::shared_ptr<IEggParserNode> promote(IEggParserContext& context) const override;
   };
 
   class EggSyntaxNode_Break : public EggSyntaxNodeBase {
@@ -188,8 +192,9 @@ namespace egg::yolk {
     explicit EggSyntaxNode_Break(const EggSyntaxNodeLocation& location)
       : EggSyntaxNodeBase(location) {
     }
+    virtual EggTokenizerKeyword keyword() const override;
     virtual void dump(std::ostream& os) const override;
-    virtual std::shared_ptr<IEggParserNode> promote(IEggParserContext& context) override;
+    virtual std::shared_ptr<IEggParserNode> promote(IEggParserContext& context) const override;
   };
 
   class EggSyntaxNode_Case : public EggSyntaxNodeChildren1 {
@@ -198,8 +203,9 @@ namespace egg::yolk {
     EggSyntaxNode_Case(const EggSyntaxNodeLocation& location, std::unique_ptr<IEggSyntaxNode>&& expr)
       : EggSyntaxNodeChildren1(location, std::move(expr)) {
     }
+    virtual EggTokenizerKeyword keyword() const override;
     virtual void dump(std::ostream& os) const override;
-    virtual std::shared_ptr<IEggParserNode> promote(IEggParserContext& context) override;
+    virtual std::shared_ptr<IEggParserNode> promote(IEggParserContext& context) const override;
   };
 
   class EggSyntaxNode_Catch : public EggSyntaxNodeChildrenN<2> {
@@ -210,9 +216,10 @@ namespace egg::yolk {
     EggSyntaxNode_Catch(const EggSyntaxNodeLocation& location, const std::string& name, std::unique_ptr<IEggSyntaxNode>&& type, std::unique_ptr<IEggSyntaxNode>&& block)
       : EggSyntaxNodeChildrenN(location, std::move(type), std::move(block)), name(name) {
     }
+    virtual EggTokenizerKeyword keyword() const override;
     virtual void dump(std::ostream& os) const override;
     virtual std::string token() const override;
-    virtual std::shared_ptr<IEggParserNode> promote(IEggParserContext& context) override;
+    virtual std::shared_ptr<IEggParserNode> promote(IEggParserContext& context) const override;
   };
 
   class EggSyntaxNode_Continue : public EggSyntaxNodeBase {
@@ -221,8 +228,9 @@ namespace egg::yolk {
     explicit EggSyntaxNode_Continue(const EggSyntaxNodeLocation& location)
       : EggSyntaxNodeBase(location) {
     }
+    virtual EggTokenizerKeyword keyword() const override;
     virtual void dump(std::ostream& os) const override;
-    virtual std::shared_ptr<IEggParserNode> promote(IEggParserContext& context) override;
+    virtual std::shared_ptr<IEggParserNode> promote(IEggParserContext& context) const override;
   };
 
   class EggSyntaxNode_Default : public EggSyntaxNodeBase {
@@ -231,8 +239,9 @@ namespace egg::yolk {
     explicit EggSyntaxNode_Default(const EggSyntaxNodeLocation& location)
       : EggSyntaxNodeBase(location) {
     }
+    virtual EggTokenizerKeyword keyword() const override;
     virtual void dump(std::ostream& os) const override;
-    virtual std::shared_ptr<IEggParserNode> promote(IEggParserContext& context) override;
+    virtual std::shared_ptr<IEggParserNode> promote(IEggParserContext& context) const override;
   };
 
   class EggSyntaxNode_Do : public EggSyntaxNodeChildrenN<2> {
@@ -241,8 +250,9 @@ namespace egg::yolk {
     EggSyntaxNode_Do(const EggSyntaxNodeLocation& location, std::unique_ptr<IEggSyntaxNode>&& cond, std::unique_ptr<IEggSyntaxNode>&& block)
       : EggSyntaxNodeChildrenN(location, std::move(cond), std::move(block)) {
     }
+    virtual EggTokenizerKeyword keyword() const override;
     virtual void dump(std::ostream& os) const override;
-    virtual std::shared_ptr<IEggParserNode> promote(IEggParserContext& context) override;
+    virtual std::shared_ptr<IEggParserNode> promote(IEggParserContext& context) const override;
   };
 
   class EggSyntaxNode_If : public EggSyntaxNodeChildrenV {
@@ -253,8 +263,9 @@ namespace egg::yolk {
       this->addChild(std::move(cond));
       this->addChild(std::move(block));
     }
+    virtual EggTokenizerKeyword keyword() const override;
     virtual void dump(std::ostream& os) const override;
-    virtual std::shared_ptr<IEggParserNode> promote(IEggParserContext& context) override;
+    virtual std::shared_ptr<IEggParserNode> promote(IEggParserContext& context) const override;
   };
 
   class EggSyntaxNode_Finally : public EggSyntaxNodeChildren1 {
@@ -265,8 +276,9 @@ namespace egg::yolk {
     EggSyntaxNode_Finally(const EggSyntaxNodeLocation& location, std::unique_ptr<IEggSyntaxNode>&& block)
       : EggSyntaxNodeChildren1(location, std::move(block)) {
     }
+    virtual EggTokenizerKeyword keyword() const override;
     virtual void dump(std::ostream& os) const override;
-    virtual std::shared_ptr<IEggParserNode> promote(IEggParserContext& context) override;
+    virtual std::shared_ptr<IEggParserNode> promote(IEggParserContext& context) const override;
   };
 
   class EggSyntaxNode_For : public EggSyntaxNodeChildrenN<4> {
@@ -279,8 +291,9 @@ namespace egg::yolk {
       this->child[2] = std::move(post);
       this->child[3] = std::move(block);
     }
+    virtual EggTokenizerKeyword keyword() const override;
     virtual void dump(std::ostream& os) const override;
-    virtual std::shared_ptr<IEggParserNode> promote(IEggParserContext& context) override;
+    virtual std::shared_ptr<IEggParserNode> promote(IEggParserContext& context) const override;
   };
 
   class EggSyntaxNode_Foreach : public EggSyntaxNodeChildrenN<3> {
@@ -291,8 +304,9 @@ namespace egg::yolk {
       assert(block != nullptr);
       this->child[2] = std::move(block);
     }
+    virtual EggTokenizerKeyword keyword() const override;
     virtual void dump(std::ostream& os) const override;
-    virtual std::shared_ptr<IEggParserNode> promote(IEggParserContext& context) override;
+    virtual std::shared_ptr<IEggParserNode> promote(IEggParserContext& context) const override;
   };
 
   class EggSyntaxNode_Return : public EggSyntaxNodeChildrenV {
@@ -301,8 +315,9 @@ namespace egg::yolk {
     explicit EggSyntaxNode_Return(const EggSyntaxNodeLocation& location)
       : EggSyntaxNodeChildrenV(location) {
     }
+    virtual EggTokenizerKeyword keyword() const override;
     virtual void dump(std::ostream& os) const override;
-    virtual std::shared_ptr<IEggParserNode> promote(IEggParserContext& context) override;
+    virtual std::shared_ptr<IEggParserNode> promote(IEggParserContext& context) const override;
   };
 
   class EggSyntaxNode_Switch : public EggSyntaxNodeChildrenN<2> {
@@ -311,8 +326,9 @@ namespace egg::yolk {
     EggSyntaxNode_Switch(const EggSyntaxNodeLocation& location, std::unique_ptr<IEggSyntaxNode>&& expr, std::unique_ptr<IEggSyntaxNode>&& block)
       : EggSyntaxNodeChildrenN(location, std::move(expr), std::move(block)) {
     }
+    virtual EggTokenizerKeyword keyword() const override;
     virtual void dump(std::ostream& os) const override;
-    virtual std::shared_ptr<IEggParserNode> promote(IEggParserContext& context) override;
+    virtual std::shared_ptr<IEggParserNode> promote(IEggParserContext& context) const override;
   };
 
   class EggSyntaxNode_Throw : public EggSyntaxNodeChildrenV {
@@ -321,8 +337,9 @@ namespace egg::yolk {
     explicit EggSyntaxNode_Throw(const EggSyntaxNodeLocation& location)
       : EggSyntaxNodeChildrenV(location) {
     }
+    virtual EggTokenizerKeyword keyword() const override;
     virtual void dump(std::ostream& os) const override;
-    virtual std::shared_ptr<IEggParserNode> promote(IEggParserContext& context) override;
+    virtual std::shared_ptr<IEggParserNode> promote(IEggParserContext& context) const override;
   };
 
   class EggSyntaxNode_Try : public EggSyntaxNodeChildrenV {
@@ -332,8 +349,9 @@ namespace egg::yolk {
       : EggSyntaxNodeChildrenV(location) {
       this->addChild(std::move(block));
     }
+    virtual EggTokenizerKeyword keyword() const override;
     virtual void dump(std::ostream& os) const override;
-    virtual std::shared_ptr<IEggParserNode> promote(IEggParserContext& context) override;
+    virtual std::shared_ptr<IEggParserNode> promote(IEggParserContext& context) const override;
   };
 
   class EggSyntaxNode_Using : public EggSyntaxNodeChildrenN<2> {
@@ -342,8 +360,9 @@ namespace egg::yolk {
     EggSyntaxNode_Using(const EggSyntaxNodeLocation& location, std::unique_ptr<IEggSyntaxNode>&& expr, std::unique_ptr<IEggSyntaxNode>&& block)
       : EggSyntaxNodeChildrenN(location, std::move(expr), std::move(block)) {
     }
+    virtual EggTokenizerKeyword keyword() const override;
     virtual void dump(std::ostream& os) const override;
-    virtual std::shared_ptr<IEggParserNode> promote(IEggParserContext& context) override;
+    virtual std::shared_ptr<IEggParserNode> promote(IEggParserContext& context) const override;
   };
 
   class EggSyntaxNode_While : public EggSyntaxNodeChildrenN<2> {
@@ -352,8 +371,9 @@ namespace egg::yolk {
     EggSyntaxNode_While(const EggSyntaxNodeLocation& location, std::unique_ptr<IEggSyntaxNode>&& cond, std::unique_ptr<IEggSyntaxNode>&& block)
       : EggSyntaxNodeChildrenN(location, std::move(cond), std::move(block)) {
     }
+    virtual EggTokenizerKeyword keyword() const override;
     virtual void dump(std::ostream& os) const override;
-    virtual std::shared_ptr<IEggParserNode> promote(IEggParserContext& context) override;
+    virtual std::shared_ptr<IEggParserNode> promote(IEggParserContext& context) const override;
   };
 
   class EggSyntaxNode_Yield : public EggSyntaxNodeChildren1 {
@@ -362,8 +382,9 @@ namespace egg::yolk {
     EggSyntaxNode_Yield(const EggSyntaxNodeLocation& location, std::unique_ptr<IEggSyntaxNode>&& expr)
       : EggSyntaxNodeChildren1(location, std::move(expr)) {
     }
+    virtual EggTokenizerKeyword keyword() const override;
     virtual void dump(std::ostream& os) const override;
-    virtual std::shared_ptr<IEggParserNode> promote(IEggParserContext& context) override;
+    virtual std::shared_ptr<IEggParserNode> promote(IEggParserContext& context) const override;
   };
 
   class EggSyntaxNode_UnaryOperator : public EggSyntaxNodeChildren1 {
@@ -376,10 +397,10 @@ namespace egg::yolk {
     }
     virtual void dump(std::ostream& os) const override;
     virtual std::string token() const override;
-    virtual std::shared_ptr<IEggParserNode> promote(IEggParserContext& context) override;
+    virtual std::shared_ptr<IEggParserNode> promote(IEggParserContext& context) const override;
   private:
     template<typename T>
-    std::shared_ptr<IEggParserNode> promoteUnary(IEggParserContext& context) {
+    std::shared_ptr<IEggParserNode> promoteUnary(IEggParserContext& context) const {
       auto expr = this->child->promote(context);
       return std::make_shared<T>(expr);
     }
@@ -395,10 +416,10 @@ namespace egg::yolk {
     }
     virtual void dump(std::ostream& os) const override;
     virtual std::string token() const override;
-    virtual std::shared_ptr<IEggParserNode> promote(IEggParserContext& context) override;
+    virtual std::shared_ptr<IEggParserNode> promote(IEggParserContext& context) const override;
   private:
     template<typename T>
-    std::shared_ptr<IEggParserNode> promoteBinary(IEggParserContext& context) {
+    std::shared_ptr<IEggParserNode> promoteBinary(IEggParserContext& context) const {
       auto lhs = this->child[0]->promote(context);
       auto rhs = this->child[1]->promote(context);
       return std::make_shared<T>(lhs, rhs);
@@ -419,7 +440,7 @@ namespace egg::yolk {
     }
     virtual void dump(std::ostream& os) const override;
     virtual std::string token() const override;
-    virtual std::shared_ptr<IEggParserNode> promote(IEggParserContext& context) override;
+    virtual std::shared_ptr<IEggParserNode> promote(IEggParserContext& context) const override;
   };
 
   class EggSyntaxNode_Call : public EggSyntaxNodeChildrenV {
@@ -430,7 +451,7 @@ namespace egg::yolk {
       this->addChild(std::move(callee));
     }
     virtual void dump(std::ostream& os) const override;
-    virtual std::shared_ptr<IEggParserNode> promote(IEggParserContext& context) override;
+    virtual std::shared_ptr<IEggParserNode> promote(IEggParserContext& context) const override;
   };
 
   class EggSyntaxNode_Named : public EggSyntaxNodeChildren1 {
@@ -443,7 +464,7 @@ namespace egg::yolk {
     }
     virtual void dump(std::ostream& os) const override;
     virtual std::string token() const override;
-    virtual std::shared_ptr<IEggParserNode> promote(IEggParserContext& context) override;
+    virtual std::shared_ptr<IEggParserNode> promote(IEggParserContext& context) const override;
   };
 
   class EggSyntaxNode_Identifier : public EggSyntaxNodeBase {
@@ -456,7 +477,7 @@ namespace egg::yolk {
     }
     virtual void dump(std::ostream& os) const override;
     virtual std::string token() const override;
-    virtual std::shared_ptr<IEggParserNode> promote(IEggParserContext& context) override;
+    virtual std::shared_ptr<IEggParserNode> promote(IEggParserContext& context) const override;
   };
 
   class EggSyntaxNode_Literal : public EggSyntaxNodeBase {
@@ -470,6 +491,6 @@ namespace egg::yolk {
     }
     virtual void dump(std::ostream& os) const override;
     virtual std::string token() const override;
-    virtual std::shared_ptr<IEggParserNode> promote(IEggParserContext& context) override;
+    virtual std::shared_ptr<IEggParserNode> promote(IEggParserContext& context) const override;
   };
 }

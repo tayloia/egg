@@ -20,8 +20,8 @@ namespace {
   const EggParserType typeFloat{ egg::lang::TypeStorage::Float };
   const EggParserType typeString{ egg::lang::TypeStorage::String };
 
-  SyntaxException exceptionFromLocation(const IEggParserContext& context, const std::string& reason, const EggSyntaxNodeBase& node) {
-    return SyntaxException(reason, context.getResource(), node);
+  SyntaxException exceptionFromLocation(const IEggParserContext& context, const std::string& reason, const EggSyntaxNodeLocation& location) {
+    return SyntaxException(reason, context.getResource(), location);
   }
 
   SyntaxException exceptionFromToken(const IEggParserContext& context, const std::string& reason, const EggSyntaxNodeBase& node) {
@@ -53,6 +53,10 @@ namespace {
       *this->os << ' ' << '\'' << text << '\'';
       return *this;
     }
+    ParserDump& add(int64_t number) {
+      *this->os << ' ' << number;
+      return *this;
+    }
     ParserDump& add(const std::shared_ptr<IEggParserNode>& child) {
       if (child != nullptr) {
         *this->os << ' ';
@@ -62,7 +66,8 @@ namespace {
       }
       return *this;
     }
-    ParserDump& add(const std::vector<std::shared_ptr<IEggParserNode>>& children) {
+    template<typename T>
+    ParserDump& add(const std::vector<std::shared_ptr<T>>& children) {
       for (auto& child : children) {
         this->add(child);
       }
@@ -87,7 +92,7 @@ namespace {
   private:
     std::vector<std::shared_ptr<IEggParserNode>> child;
   public:
-    virtual void dump(std::ostream & os) const override {
+    virtual void dump(std::ostream& os) const override {
       ParserDump(os, "module").add(this->child);
     }
     void addChild(const std::shared_ptr<IEggParserNode>& statement) {
@@ -100,7 +105,7 @@ namespace {
   private:
     std::vector<std::shared_ptr<IEggParserNode>> child;
   public:
-    virtual void dump(std::ostream & os) const override {
+    virtual void dump(std::ostream& os) const override {
       ParserDump(os, "block").add(this->child);
     }
     void addChild(const std::shared_ptr<IEggParserNode>& statement) {
@@ -119,7 +124,7 @@ namespace {
     virtual const EggParserType& getType() const override {
       return this->type;
     }
-    virtual void dump(std::ostream & os) const override {
+    virtual void dump(std::ostream& os) const override {
       ParserDump(os, "type").add(this->type.tagToString());
     }
   };
@@ -134,7 +139,7 @@ namespace {
       : name(name), type(type), init(init) {
       assert(type != nullptr);
     }
-    virtual void dump(std::ostream & os) const override {
+    virtual void dump(std::ostream& os) const override {
       ParserDump(os, "declare").add(this->name).add(this->type).add(this->init);
     }
   };
@@ -148,14 +153,14 @@ namespace {
       : op(op), lvalue(lvalue) {
       assert(lvalue != nullptr);
     }
-    virtual void dump(std::ostream & os) const override {
+    virtual void dump(std::ostream& os) const override {
       ParserDump(os, "mutate").add(EggParserNodeBase::mutateToString(this->op)).add(this->lvalue);
     }
   };
 
   class EggParserNode_Break : public EggParserNodeBase {
   public:
-    virtual void dump(std::ostream & os) const override {
+    virtual void dump(std::ostream& os) const override {
       ParserDump(os, "break");
     }
   };
@@ -171,14 +176,14 @@ namespace {
       assert(type != nullptr);
       assert(block != nullptr);
     }
-    virtual void dump(std::ostream & os) const override {
+    virtual void dump(std::ostream& os) const override {
       ParserDump(os, "catch").add(this->name).add(this->type).add(this->block);
     }
   };
 
   class EggParserNode_Continue : public EggParserNodeBase {
   public:
-    virtual void dump(std::ostream & os) const override {
+    virtual void dump(std::ostream& os) const override {
       ParserDump(os, "continue");
     }
   };
@@ -193,7 +198,7 @@ namespace {
       assert(condition != nullptr);
       assert(block != nullptr);
     }
-    virtual void dump(std::ostream & os) const override {
+    virtual void dump(std::ostream& os) const override {
       ParserDump(os, "do").add(this->condition).add(this->block);
     }
   };
@@ -210,7 +215,7 @@ namespace {
       assert(trueBlock != nullptr);
       // falseBlock may be null if the 'else' clause is missing
     }
-    virtual void dump(std::ostream & os) const override {
+    virtual void dump(std::ostream& os) const override {
       ParserDump(os, "if").add(this->condition).add(this->trueBlock).add(this->falseBlock);
     }
   };
@@ -227,7 +232,7 @@ namespace {
       // pre/cond/post may be null
       assert(block != nullptr);
     }
-    virtual void dump(std::ostream & os) const override {
+    virtual void dump(std::ostream& os) const override {
       ParserDump(os, "for").add(this->pre).add(this->cond).add(this->post).add(this->block);
     }
   };
@@ -244,7 +249,7 @@ namespace {
       assert(expr != nullptr);
       assert(block != nullptr);
     }
-    virtual void dump(std::ostream & os) const override {
+    virtual void dump(std::ostream& os) const override {
       ParserDump(os, "foreach").add(this->target).add(this->expr).add(this->block);
     }
   };
@@ -253,12 +258,88 @@ namespace {
   private:
     std::vector<std::shared_ptr<IEggParserNode>> child;
   public:
-    virtual void dump(std::ostream & os) const override {
+    virtual void dump(std::ostream& os) const override {
       ParserDump(os, "return").add(this->child);
     }
     void addChild(const std::shared_ptr<IEggParserNode>& value) {
       assert(value != nullptr);
       this->child.push_back(value);
+    }
+  };
+
+  class EggParserNode_Case : public EggParserNodeBase {
+  private:
+    std::vector<std::shared_ptr<IEggParserNode>> child;
+    std::shared_ptr<EggParserNode_Block> block;
+  public:
+    EggParserNode_Case()
+      : block(std::make_shared<EggParserNode_Block>()) {
+      assert(this->block != nullptr);
+    }
+    virtual void dump(std::ostream& os) const override {
+      ParserDump(os, "case").add(this->child).add(this->block);
+    }
+    void addValue(const std::shared_ptr<IEggParserNode>& value) {
+      assert(value != nullptr);
+      this->child.push_back(value);
+    }
+    void addStatement(const std::shared_ptr<IEggParserNode>& statement) {
+      assert(statement != nullptr);
+      this->block->addChild(statement);
+    }
+  };
+
+  class EggParserNode_Switch : public EggParserNodeBase {
+  private:
+    std::shared_ptr<IEggParserNode> expr;
+    int64_t defaultIndex;
+    std::vector<std::shared_ptr<EggParserNode_Case>> child;
+  public:
+    explicit EggParserNode_Switch(const std::shared_ptr<IEggParserNode>& expr)
+      : expr(expr), defaultIndex(-1) {
+      assert(expr != nullptr);
+    }
+    virtual void dump(std::ostream& os) const override {
+      ParserDump(os, "switch").add(this->expr).add(this->defaultIndex).add(this->child);
+    }
+    void newClause() {
+      this->child.emplace_back(std::make_shared<EggParserNode_Case>());
+    }
+    bool addCase(const std::shared_ptr<IEggParserNode>& value) {
+      // TODO: Check for duplicate case values
+      if (this->child.empty()) {
+        return false;
+      }
+      this->child.back()->addValue(value);
+      return true;
+    }
+    bool addDefault() {
+      // Make sure we don't set this default twice
+      if (!this->child.empty() && (this->defaultIndex < 0)) {
+        this->defaultIndex = static_cast<int64_t>(this->child.size()) - 1;
+        return true;
+      }
+      return false;
+    }
+    bool addStatement(const std::shared_ptr<IEggParserNode>& statement) {
+      if (this->child.empty()) {
+        return false;
+      }
+      this->child.back()->addStatement(statement);
+      return true;
+    }
+  };
+
+  class EggParserNode_Yield : public EggParserNodeBase {
+  private:
+    std::shared_ptr<IEggParserNode> expr;
+  public:
+    explicit EggParserNode_Yield(const std::shared_ptr<IEggParserNode>& expr)
+      : expr(expr) {
+      assert(expr != nullptr);
+    }
+    virtual void dump(std::ostream& os) const override {
+      ParserDump(os, "yield").add(this->expr);
     }
   };
 
@@ -269,7 +350,7 @@ namespace {
     explicit EggParserNode_Identifier(const std::string& name)
       : name(name) {
     }
-    virtual void dump(std::ostream & os) const override {
+    virtual void dump(std::ostream& os) const override {
       ParserDump(os, "identifier").add(this->name);
     }
   };
@@ -284,7 +365,7 @@ namespace {
     virtual const EggParserType& getType() const override {
       return typeInt;
     }
-    virtual void dump(std::ostream & os) const override {
+    virtual void dump(std::ostream& os) const override {
       ParserDump(os, "literal int").add(std::to_string(this->value));
     }
   };
@@ -299,7 +380,7 @@ namespace {
     virtual const EggParserType& getType() const override {
       return typeFloat;
     }
-    virtual void dump(std::ostream & os) const override {
+    virtual void dump(std::ostream& os) const override {
       ParserDump(os, "literal float").add(std::to_string(this->value));
     }
   };
@@ -314,7 +395,7 @@ namespace {
     virtual const EggParserType& getType() const override {
       return typeString;
     }
-    virtual void dump(std::ostream & os) const override {
+    virtual void dump(std::ostream& os) const override {
       ParserDump(os, "literal string").add(this->value);
     }
   };
@@ -328,7 +409,7 @@ namespace {
       assert(expr != nullptr);
     }
   public:
-    virtual void dump(std::ostream & os) const override {
+    virtual void dump(std::ostream& os) const override {
       ParserDump(os, "unary").add(EggParserNodeBase::unaryToString(this->op)).add(this->expr);
     }
   };
@@ -354,7 +435,7 @@ namespace {
       assert(rhs != nullptr);
     }
   public:
-    virtual void dump(std::ostream & os) const override {
+    virtual void dump(std::ostream& os) const override {
       ParserDump(os, "binary").add(EggParserNodeBase::binaryToString(this->op)).add(this->lhs).add(this->rhs);
     }
   };
@@ -380,7 +461,7 @@ namespace {
       assert(rhs != nullptr);
     }
   public:
-    virtual void dump(std::ostream & os) const override {
+    virtual void dump(std::ostream& os) const override {
       ParserDump(os, "assign").add(EggParserNodeBase::assignToString(this->op)).add(this->lhs).add(this->rhs);
     }
   };
@@ -402,6 +483,9 @@ namespace {
       : allowed(static_cast<EggParserAllowedUnderlying>(allowed)) {
     }
     virtual ~EggParserContextBase() {
+    }
+    virtual IEggParserBlockVisitor* getBlockVisitor() {
+      return nullptr;
     }
     virtual bool isAllowed(EggParserAllowed bit) const override {
       return (this->allowed & static_cast<EggParserAllowedUnderlying>(bit)) != 0;
@@ -426,7 +510,7 @@ namespace {
   };
 
   class EggParserContextNested : public EggParserContextBase {
-  private:
+  protected:
     IEggParserContext* parent;
   public:
     EggParserContextNested(IEggParserContext& parent, EggParserAllowed allowed, EggParserAllowed inherited = EggParserAllowed::None)
@@ -435,6 +519,78 @@ namespace {
     }
     virtual std::string getResource() const {
       return this->parent->getResource();
+    }
+  };
+
+  class EggParserContextSwitch : public EggParserContextNested, public IEggParserBlockVisitor {
+  private:
+    const EggSyntaxNode_Switch* unpromoted;
+    std::shared_ptr<EggParserNode_Switch> promoted;
+    EggTokenizerKeyword previous;
+  public:
+    EggParserContextSwitch(IEggParserContext& parent, const EggSyntaxNode_Switch& switchStatement, const IEggSyntaxNode& switchExpression)
+      : EggParserContextNested(parent, EggParserAllowed::Break|EggParserAllowed::Case|EggParserAllowed::Continue, EggParserAllowed::Rethrow|EggParserAllowed::Return|EggParserAllowed::Yield),
+        unpromoted(&switchStatement),
+        promoted(std::make_shared<EggParserNode_Switch>(switchExpression.promote(parent))),
+        previous(EggTokenizerKeyword::Null) {
+      assert(this->unpromoted != nullptr);
+      assert(this->promoted != nullptr);
+    }
+    virtual IEggParserBlockVisitor* getBlockVisitor() {
+      return this;
+    }
+    virtual void visitBegin() override {
+      // Make sure we don't think we've seens any statements yet
+      assert(this->previous == EggTokenizerKeyword::Null);
+    }
+    virtual void visitStatement(const IEggSyntaxNode& statement) override {
+      auto keyword = statement.keyword();
+      if (keyword == EggTokenizerKeyword::Case) {
+        this->visitCase(statement);
+      } else if (keyword == EggTokenizerKeyword::Default) {
+        this->visitDefault(statement);
+      } else {
+        this->visitOther(statement);
+      }
+      this->previous = keyword;
+      assert(this->previous != EggTokenizerKeyword::Null);
+    }
+    virtual std::shared_ptr<IEggParserNode> visitEnd() override {
+      // TODO check that the last thing in each clause was 'break' or 'continue'
+      return this->promoted;
+    }
+  private:
+    void visitCase(const IEggSyntaxNode& statement) {
+      // Promoting the case statement produces the case value
+      if ((this->previous != EggTokenizerKeyword::Case) && (this->previous != EggTokenizerKeyword::Default)) {
+        this->promoted->newClause();
+      }
+      if (!this->promoted->addCase(statement.promote(*this))) {
+        throw exceptionFromLocation(*this, "Duplicate 'case' constant in 'switch' statement", statement.location());
+      }
+    }
+    void visitDefault(const IEggSyntaxNode& statement) {
+      if ((this->previous != EggTokenizerKeyword::Case) && (this->previous != EggTokenizerKeyword::Default)) {
+        this->promoted->newClause();
+      }
+      if (!this->promoted->addDefault()) {
+        throw exceptionFromLocation(*this, "More than one 'default' statement in 'switch' statement", statement.location());
+      }
+    }
+    void visitOther(const IEggSyntaxNode& statement) {
+      if (this->previous == EggTokenizerKeyword::Null) {
+        // We're at the very beginning of the switch statement
+        throw exceptionFromLocation(*this, "Expected 'case' or 'default' statement at beginning of 'switch' statement", statement.location());
+      } else if (this->previous == EggTokenizerKeyword::Break) {
+        // We're after an unconditional 'break'
+        throw exceptionFromLocation(*this, "Expected 'case' or 'default' statement to follow 'break' in 'switch' statement", statement.location());
+      } else if (this->previous == EggTokenizerKeyword::Continue) {
+        // We're after an unconditional 'continue'
+        throw exceptionFromLocation(*this, "Expected 'case' or 'default' statement to follow 'continue' in 'switch' statement", statement.location());
+      }
+      if (!this->promoted->addStatement(statement.promote(*this))) {
+        throw exceptionFromLocation(*this, "Malformed 'switch' statement", statement.location());
+      }
     }
   };
 
@@ -514,14 +670,14 @@ std::string EggParserNodeBase::mutateToString(egg::yolk::EggParserMutate op) {
   return table[index];
 }
 
-std::shared_ptr<egg::yolk::IEggParserNode> egg::yolk::EggSyntaxNode_Empty::promote(egg::yolk::IEggParserContext& context) {
+std::shared_ptr<egg::yolk::IEggParserNode> egg::yolk::EggSyntaxNode_Empty::promote(egg::yolk::IEggParserContext& context) const {
   if (!context.isAllowed(EggParserAllowed::Empty)) {
     throw exceptionFromLocation(context, "Empty statements are not permitted in this context", *this);
   }
   return nullptr;
 }
 
-std::shared_ptr<egg::yolk::IEggParserNode> egg::yolk::EggSyntaxNode_Module::promote(egg::yolk::IEggParserContext& context) {
+std::shared_ptr<egg::yolk::IEggParserNode> egg::yolk::EggSyntaxNode_Module::promote(egg::yolk::IEggParserContext& context) const {
   auto module = std::make_shared<EggParserNode_Module>();
   for (auto& statement : this->child) {
     module->addChild(statement->promote(context));
@@ -529,7 +685,16 @@ std::shared_ptr<egg::yolk::IEggParserNode> egg::yolk::EggSyntaxNode_Module::prom
   return module;
 }
 
-std::shared_ptr<egg::yolk::IEggParserNode> egg::yolk::EggSyntaxNode_Block::promote(egg::yolk::IEggParserContext& context) {
+std::shared_ptr<egg::yolk::IEggParserNode> egg::yolk::EggSyntaxNode_Block::promote(egg::yolk::IEggParserContext& context) const {
+  auto* blockVisitor = context.getBlockVisitor();
+  if (blockVisitor != nullptr) {
+    // Defer our processing to the 'switch' statement visitor
+    blockVisitor->visitBegin();
+    for (auto& statement : this->child) {
+      blockVisitor->visitStatement(*statement);
+    }
+    return blockVisitor->visitEnd();
+  }
   auto module = std::make_shared<EggParserNode_Block>();
   for (auto& statement : this->child) {
     module->addChild(statement->promote(context));
@@ -537,20 +702,20 @@ std::shared_ptr<egg::yolk::IEggParserNode> egg::yolk::EggSyntaxNode_Block::promo
   return module;
 }
 
-std::shared_ptr<egg::yolk::IEggParserNode> egg::yolk::EggSyntaxNode_Type::promote(egg::yolk::IEggParserContext&) {
+std::shared_ptr<egg::yolk::IEggParserNode> egg::yolk::EggSyntaxNode_Type::promote(egg::yolk::IEggParserContext&) const {
   auto type = std::make_shared<EggParserNode_Type>(EggParserType(this->tag));
   return type;
 }
 
-std::shared_ptr<egg::yolk::IEggParserNode> egg::yolk::EggSyntaxNode_VariableDeclaration::promote(egg::yolk::IEggParserContext& context) {
+std::shared_ptr<egg::yolk::IEggParserNode> egg::yolk::EggSyntaxNode_VariableDeclaration::promote(egg::yolk::IEggParserContext& context) const {
   return std::make_shared<EggParserNode_Declare>(this->name, this->child->promote(context));
 }
 
-std::shared_ptr<egg::yolk::IEggParserNode> egg::yolk::EggSyntaxNode_VariableInitialization::promote(egg::yolk::IEggParserContext& context) {
+std::shared_ptr<egg::yolk::IEggParserNode> egg::yolk::EggSyntaxNode_VariableInitialization::promote(egg::yolk::IEggParserContext& context) const {
   return std::make_shared<EggParserNode_Declare>(this->name, this->child[0]->promote(context), this->child[1]->promote(context));
 }
 
-std::shared_ptr<egg::yolk::IEggParserNode> egg::yolk::EggSyntaxNode_Assignment::promote(egg::yolk::IEggParserContext& context) {
+std::shared_ptr<egg::yolk::IEggParserNode> egg::yolk::EggSyntaxNode_Assignment::promote(egg::yolk::IEggParserContext& context) const {
   switch (this->op) {
     case EggTokenizerOperator::PercentEqual:
       return this->promoteAssign<EggParserNode_AssignRemainder>(context);
@@ -618,7 +783,7 @@ std::shared_ptr<egg::yolk::IEggParserNode> egg::yolk::EggSyntaxNode_Assignment::
   }
 }
 
-std::shared_ptr<egg::yolk::IEggParserNode> egg::yolk::EggSyntaxNode_Mutate::promote(egg::yolk::IEggParserContext& context) {
+std::shared_ptr<egg::yolk::IEggParserNode> egg::yolk::EggSyntaxNode_Mutate::promote(egg::yolk::IEggParserContext& context) const {
   EggParserMutate mop;
   if (this->op == EggTokenizerOperator::PlusPlus) {
     mop = EggParserMutate::Increment;
@@ -630,14 +795,14 @@ std::shared_ptr<egg::yolk::IEggParserNode> egg::yolk::EggSyntaxNode_Mutate::prom
   return std::make_shared<EggParserNode_Mutate>(mop, this->child->promote(context));
 }
 
-std::shared_ptr<egg::yolk::IEggParserNode> egg::yolk::EggSyntaxNode_Break::promote(egg::yolk::IEggParserContext& context) {
+std::shared_ptr<egg::yolk::IEggParserNode> egg::yolk::EggSyntaxNode_Break::promote(egg::yolk::IEggParserContext& context) const {
   if (!context.isAllowed(EggParserAllowed::Break)) {
     throw exceptionFromLocation(context, "The 'break' statement may only be used within loops or switch statements", *this);
   }
   return std::make_shared<EggParserNode_Break>();
 }
 
-std::shared_ptr<egg::yolk::IEggParserNode> egg::yolk::EggSyntaxNode_Case::promote(egg::yolk::IEggParserContext& context) {
+std::shared_ptr<egg::yolk::IEggParserNode> egg::yolk::EggSyntaxNode_Case::promote(egg::yolk::IEggParserContext& context) const {
   // The logic is handled by the 'switch' node, so just promote the value expression
   if (!context.isAllowed(EggParserAllowed::Case)) {
     throw exceptionFromLocation(context, "The 'case' statement may only be used within switch statements", *this);
@@ -645,33 +810,33 @@ std::shared_ptr<egg::yolk::IEggParserNode> egg::yolk::EggSyntaxNode_Case::promot
   return this->child->promote(context);
 }
 
-std::shared_ptr<egg::yolk::IEggParserNode> egg::yolk::EggSyntaxNode_Catch::promote(egg::yolk::IEggParserContext& context) {
+std::shared_ptr<egg::yolk::IEggParserNode> egg::yolk::EggSyntaxNode_Catch::promote(egg::yolk::IEggParserContext& context) const {
   auto type = this->child[0]->promote(context);
   EggParserContextNested nested(context, EggParserAllowed::Rethrow|EggParserAllowed::Return|EggParserAllowed::Yield);
   auto block = this->child[1]->promote(nested);
   return std::make_shared<EggParserNode_Catch>(this->name, type, block);
 }
 
-std::shared_ptr<egg::yolk::IEggParserNode> egg::yolk::EggSyntaxNode_Continue::promote(egg::yolk::IEggParserContext& context) {
+std::shared_ptr<egg::yolk::IEggParserNode> egg::yolk::EggSyntaxNode_Continue::promote(egg::yolk::IEggParserContext& context) const {
   if (!context.isAllowed(EggParserAllowed::Continue)) {
     throw exceptionFromLocation(context, "The 'continue' statement may only be used within loops or switch statements", *this);
   }
   return std::make_shared<EggParserNode_Continue>();
 }
 
-std::shared_ptr<egg::yolk::IEggParserNode> egg::yolk::EggSyntaxNode_Default::promote(egg::yolk::IEggParserContext& context) {
+std::shared_ptr<egg::yolk::IEggParserNode> egg::yolk::EggSyntaxNode_Default::promote(egg::yolk::IEggParserContext& context) const {
   // The logic is handled by the 'switch' node, so just assume it's a misplaced 'default'
   throw exceptionFromLocation(context, "The 'default' statement may only be used within switch statements", *this);
 }
 
-std::shared_ptr<egg::yolk::IEggParserNode> egg::yolk::EggSyntaxNode_Do::promote(egg::yolk::IEggParserContext& context) {
+std::shared_ptr<egg::yolk::IEggParserNode> egg::yolk::EggSyntaxNode_Do::promote(egg::yolk::IEggParserContext& context) const {
   auto condition = this->child[0]->promote(context);
   EggParserContextNested nested(context, EggParserAllowed::Break|EggParserAllowed::Continue, EggParserAllowed::Rethrow|EggParserAllowed::Return|EggParserAllowed::Yield);
   auto block = this->child[1]->promote(nested);
   return std::make_shared<EggParserNode_Do>(condition, block);
 }
 
-std::shared_ptr<egg::yolk::IEggParserNode> egg::yolk::EggSyntaxNode_If::promote(egg::yolk::IEggParserContext& context) {
+std::shared_ptr<egg::yolk::IEggParserNode> egg::yolk::EggSyntaxNode_If::promote(egg::yolk::IEggParserContext& context) const {
   assert((this->child.size() == 2) || (this->child.size() == 3));
   auto condition = this->child[0]->promote(context);
   auto trueBlock = this->child[1]->promote(context);
@@ -682,12 +847,12 @@ std::shared_ptr<egg::yolk::IEggParserNode> egg::yolk::EggSyntaxNode_If::promote(
   return std::make_shared<EggParserNode_If>(condition, trueBlock, falseBlock);
 }
 
-std::shared_ptr<egg::yolk::IEggParserNode> egg::yolk::EggSyntaxNode_Finally::promote(egg::yolk::IEggParserContext& context) {
+std::shared_ptr<egg::yolk::IEggParserNode> egg::yolk::EggSyntaxNode_Finally::promote(egg::yolk::IEggParserContext& context) const {
   // The logic is handled by the 'try' node, so just assume it's a misplaced 'finally'
   throw exceptionFromLocation(context, "The 'finally' statement may only be used as part of a 'try' statement", *this);
 }
 
-std::shared_ptr<egg::yolk::IEggParserNode> egg::yolk::EggSyntaxNode_For::promote(egg::yolk::IEggParserContext& context) {
+std::shared_ptr<egg::yolk::IEggParserNode> egg::yolk::EggSyntaxNode_For::promote(egg::yolk::IEggParserContext& context) const {
   // We allow empty statements but not flow control in the three 'for' clauses
   EggParserContextNested nested1(context, EggParserAllowed::Empty);
   auto pre = this->child[0]->promote(nested1);
@@ -698,7 +863,7 @@ std::shared_ptr<egg::yolk::IEggParserNode> egg::yolk::EggSyntaxNode_For::promote
   return std::make_shared<EggParserNode_For>(pre, cond, post, block);
 }
 
-std::shared_ptr<egg::yolk::IEggParserNode> egg::yolk::EggSyntaxNode_Foreach::promote(egg::yolk::IEggParserContext& context) {
+std::shared_ptr<egg::yolk::IEggParserNode> egg::yolk::EggSyntaxNode_Foreach::promote(egg::yolk::IEggParserContext& context) const {
   auto target = this->child[0]->promote(context);
   auto expr = this->child[1]->promote(context);
   EggParserContextNested nested(context, EggParserAllowed::Break|EggParserAllowed::Continue, EggParserAllowed::Rethrow|EggParserAllowed::Return|EggParserAllowed::Yield);
@@ -706,7 +871,10 @@ std::shared_ptr<egg::yolk::IEggParserNode> egg::yolk::EggSyntaxNode_Foreach::pro
   return std::make_shared<EggParserNode_Foreach>(target, expr, block);
 }
 
-std::shared_ptr<egg::yolk::IEggParserNode> egg::yolk::EggSyntaxNode_Return::promote(egg::yolk::IEggParserContext& context) {
+std::shared_ptr<egg::yolk::IEggParserNode> egg::yolk::EggSyntaxNode_Return::promote(egg::yolk::IEggParserContext& context) const {
+  if (!context.isAllowed(EggParserAllowed::Return)) {
+    throw exceptionFromLocation(context, "The 'return' statement may only be used within functions", *this);
+  }
   auto result = std::make_shared<EggParserNode_Return>();
   for (auto& i : this->child) {
     result->addChild(i->promote(context));
@@ -714,31 +882,35 @@ std::shared_ptr<egg::yolk::IEggParserNode> egg::yolk::EggSyntaxNode_Return::prom
   return result;
 }
 
-std::shared_ptr<egg::yolk::IEggParserNode> egg::yolk::EggSyntaxNode_Switch::promote(egg::yolk::IEggParserContext&) {
+std::shared_ptr<egg::yolk::IEggParserNode> egg::yolk::EggSyntaxNode_Switch::promote(egg::yolk::IEggParserContext& context) const {
+  EggParserContextSwitch nested(context, *this, *this->child[0]);
+  return this->child[1]->promote(nested);
+}
+
+std::shared_ptr<egg::yolk::IEggParserNode> egg::yolk::EggSyntaxNode_Throw::promote(egg::yolk::IEggParserContext&) const {
   EGG_THROW(__FUNCTION__ " TODO"); // TODO
 }
 
-std::shared_ptr<egg::yolk::IEggParserNode> egg::yolk::EggSyntaxNode_Throw::promote(egg::yolk::IEggParserContext&) {
+std::shared_ptr<egg::yolk::IEggParserNode> egg::yolk::EggSyntaxNode_Try::promote(egg::yolk::IEggParserContext&) const {
   EGG_THROW(__FUNCTION__ " TODO"); // TODO
 }
 
-std::shared_ptr<egg::yolk::IEggParserNode> egg::yolk::EggSyntaxNode_Try::promote(egg::yolk::IEggParserContext&) {
+std::shared_ptr<egg::yolk::IEggParserNode> egg::yolk::EggSyntaxNode_Using::promote(egg::yolk::IEggParserContext&) const {
   EGG_THROW(__FUNCTION__ " TODO"); // TODO
 }
 
-std::shared_ptr<egg::yolk::IEggParserNode> egg::yolk::EggSyntaxNode_Using::promote(egg::yolk::IEggParserContext&) {
+std::shared_ptr<egg::yolk::IEggParserNode> egg::yolk::EggSyntaxNode_While::promote(egg::yolk::IEggParserContext&) const {
   EGG_THROW(__FUNCTION__ " TODO"); // TODO
 }
 
-std::shared_ptr<egg::yolk::IEggParserNode> egg::yolk::EggSyntaxNode_While::promote(egg::yolk::IEggParserContext&) {
-  EGG_THROW(__FUNCTION__ " TODO"); // TODO
+std::shared_ptr<egg::yolk::IEggParserNode> egg::yolk::EggSyntaxNode_Yield::promote(egg::yolk::IEggParserContext& context) const {
+  if (!context.isAllowed(EggParserAllowed::Yield)) {
+    throw exceptionFromLocation(context, "The 'yield' statement may only be used within generator functions", *this);
+  }
+  return std::make_shared<EggParserNode_Yield>(this->child->promote(context));
 }
 
-std::shared_ptr<egg::yolk::IEggParserNode> egg::yolk::EggSyntaxNode_Yield::promote(egg::yolk::IEggParserContext&) {
-  EGG_THROW(__FUNCTION__ " TODO"); // TODO
-}
-
-std::shared_ptr<egg::yolk::IEggParserNode> egg::yolk::EggSyntaxNode_UnaryOperator::promote(egg::yolk::IEggParserContext& context) {
+std::shared_ptr<egg::yolk::IEggParserNode> egg::yolk::EggSyntaxNode_UnaryOperator::promote(egg::yolk::IEggParserContext& context) const {
   if (this->op == EggTokenizerOperator::Bang) {
     return this->promoteUnary<EggParserNode_UnaryLogicalNot>(context);
   }
@@ -760,7 +932,7 @@ std::shared_ptr<egg::yolk::IEggParserNode> egg::yolk::EggSyntaxNode_UnaryOperato
   throw exceptionFromToken(context, "Unknown unary operator", *this);
 }
 
-std::shared_ptr<egg::yolk::IEggParserNode> egg::yolk::EggSyntaxNode_BinaryOperator::promote(egg::yolk::IEggParserContext& context) {
+std::shared_ptr<egg::yolk::IEggParserNode> egg::yolk::EggSyntaxNode_BinaryOperator::promote(egg::yolk::IEggParserContext& context) const {
   switch (this->op) {
   case EggTokenizerOperator::Percent:
     return this->promoteBinary<EggParserNode_BinaryRemainder>(context);
@@ -838,23 +1010,23 @@ std::shared_ptr<egg::yolk::IEggParserNode> egg::yolk::EggSyntaxNode_BinaryOperat
   }
 }
 
-std::shared_ptr<egg::yolk::IEggParserNode> egg::yolk::EggSyntaxNode_TernaryOperator::promote(egg::yolk::IEggParserContext&) {
+std::shared_ptr<egg::yolk::IEggParserNode> egg::yolk::EggSyntaxNode_TernaryOperator::promote(egg::yolk::IEggParserContext&) const {
   EGG_THROW(__FUNCTION__ " TODO"); // TODO
 }
 
-std::shared_ptr<egg::yolk::IEggParserNode> egg::yolk::EggSyntaxNode_Call::promote(egg::yolk::IEggParserContext&) {
+std::shared_ptr<egg::yolk::IEggParserNode> egg::yolk::EggSyntaxNode_Call::promote(egg::yolk::IEggParserContext&) const {
   EGG_THROW(__FUNCTION__ " TODO"); // TODO
 }
 
-std::shared_ptr<egg::yolk::IEggParserNode> egg::yolk::EggSyntaxNode_Named::promote(egg::yolk::IEggParserContext&) {
+std::shared_ptr<egg::yolk::IEggParserNode> egg::yolk::EggSyntaxNode_Named::promote(egg::yolk::IEggParserContext&) const {
   EGG_THROW(__FUNCTION__ " TODO"); // TODO
 }
 
-std::shared_ptr<egg::yolk::IEggParserNode> egg::yolk::EggSyntaxNode_Identifier::promote(egg::yolk::IEggParserContext&) {
+std::shared_ptr<egg::yolk::IEggParserNode> egg::yolk::EggSyntaxNode_Identifier::promote(egg::yolk::IEggParserContext&) const {
   return std::make_shared<EggParserNode_Identifier>(this->name);
 }
 
-std::shared_ptr<egg::yolk::IEggParserNode> egg::yolk::EggSyntaxNode_Literal::promote(egg::yolk::IEggParserContext& context) {
+std::shared_ptr<egg::yolk::IEggParserNode> egg::yolk::EggSyntaxNode_Literal::promote(egg::yolk::IEggParserContext& context) const {
   if (this->kind == EggTokenizerKind::Integer) {
     return std::make_shared<EggParserNode_LiteralInteger>(this->value.i);
   }

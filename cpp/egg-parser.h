@@ -100,9 +100,19 @@ namespace egg::yolk {
     Yield = 0x40
   };
 
+  class IEggParserContext;
+
+  class IEggParserBlockVisitor {
+  public:
+    virtual void visitBegin() = 0;
+    virtual void visitStatement(const IEggSyntaxNode& statement) = 0;
+    virtual std::shared_ptr<egg::yolk::IEggParserNode> visitEnd() = 0;
+  };
+
   class IEggParserContext {
   public:
     virtual std::string getResource() const = 0;
+    virtual IEggParserBlockVisitor* getBlockVisitor() = 0;
     virtual bool isAllowed(EggParserAllowed allowed) const = 0;
     virtual EggParserAllowed inheritAllowed(EggParserAllowed allow, EggParserAllowed inherit) const = 0;
   };

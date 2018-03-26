@@ -193,6 +193,82 @@ void egg::yolk::EggSyntaxNode_Literal::dump(std::ostream& os) const {
   }
 }
 
+egg::yolk::EggTokenizerKeyword egg::yolk::EggSyntaxNodeBase::keyword() const {
+  return EggTokenizerKeyword::Void;
+}
+
+egg::yolk::EggTokenizerKeyword egg::yolk::EggSyntaxNode_Break::keyword() const {
+  return EggTokenizerKeyword::Break;
+}
+
+egg::yolk::EggTokenizerKeyword egg::yolk::EggSyntaxNode_Case::keyword() const {
+  return EggTokenizerKeyword::Case;
+}
+
+egg::yolk::EggTokenizerKeyword egg::yolk::EggSyntaxNode_Catch::keyword() const {
+  return EggTokenizerKeyword::Catch;
+}
+
+egg::yolk::EggTokenizerKeyword egg::yolk::EggSyntaxNode_Continue::keyword() const {
+  return EggTokenizerKeyword::Continue;
+}
+
+egg::yolk::EggTokenizerKeyword egg::yolk::EggSyntaxNode_Default::keyword() const {
+  return EggTokenizerKeyword::Default;
+}
+
+egg::yolk::EggTokenizerKeyword egg::yolk::EggSyntaxNode_Do::keyword() const {
+  return EggTokenizerKeyword::Do;
+}
+
+egg::yolk::EggTokenizerKeyword egg::yolk::EggSyntaxNode_If::keyword() const {
+  return EggTokenizerKeyword::If;
+}
+
+egg::yolk::EggTokenizerKeyword egg::yolk::EggSyntaxNode_Finally::keyword() const {
+  return EggTokenizerKeyword::Finally;
+}
+
+egg::yolk::EggTokenizerKeyword egg::yolk::EggSyntaxNode_For::keyword() const {
+  return EggTokenizerKeyword::For;
+}
+
+egg::yolk::EggTokenizerKeyword egg::yolk::EggSyntaxNode_Foreach::keyword() const {
+  return EggTokenizerKeyword::For;
+}
+
+egg::yolk::EggTokenizerKeyword egg::yolk::EggSyntaxNode_Return::keyword() const {
+  return EggTokenizerKeyword::Return;
+}
+
+egg::yolk::EggTokenizerKeyword egg::yolk::EggSyntaxNode_Switch::keyword() const {
+  return EggTokenizerKeyword::Switch;
+}
+
+egg::yolk::EggTokenizerKeyword egg::yolk::EggSyntaxNode_Throw::keyword() const {
+  return EggTokenizerKeyword::Throw;
+}
+
+egg::yolk::EggTokenizerKeyword egg::yolk::EggSyntaxNode_Try::keyword() const {
+  return EggTokenizerKeyword::Try;
+}
+
+egg::yolk::EggTokenizerKeyword egg::yolk::EggSyntaxNode_Using::keyword() const {
+  return EggTokenizerKeyword::Using;
+}
+
+egg::yolk::EggTokenizerKeyword egg::yolk::EggSyntaxNode_While::keyword() const {
+  return EggTokenizerKeyword::While;
+}
+
+egg::yolk::EggTokenizerKeyword egg::yolk::EggSyntaxNode_Yield::keyword() const {
+  return EggTokenizerKeyword::Yield;
+}
+
+const EggSyntaxNodeLocation& egg::yolk::EggSyntaxNodeBase::location() const {
+  return *this;
+}
+
 std::string egg::yolk::EggSyntaxNodeBase::token() const {
   return std::string();
 }
