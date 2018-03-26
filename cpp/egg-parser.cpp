@@ -68,14 +68,6 @@ namespace {
       }
       return *this;
     }
-    template<size_t N>
-    ParserDump& add(const std::shared_ptr<IEggParserNode>(&children)[N]) {
-      // TODO remove?
-      for (auto& child : children) {
-        this->add(child);
-      }
-      return *this;
-    }
   };
 
   class EggParserNodeBase : public IEggParserNode {
@@ -144,22 +136,6 @@ namespace {
     }
     virtual void dump(std::ostream & os) const override {
       ParserDump(os, "declare").add(this->name).add(this->type).add(this->init);
-    }
-  };
-
-  class EggParserNode_Set : public EggParserNodeBase {
-  private:
-    EggParserAssign op;
-    std::shared_ptr<IEggParserNode> lhs;
-    std::shared_ptr<IEggParserNode> rhs;
-  public:
-    EggParserNode_Set(EggParserAssign op, const std::shared_ptr<IEggParserNode>& lhs, const std::shared_ptr<IEggParserNode>& rhs)
-      : op(op), lhs(lhs), rhs(rhs) {
-      assert(lhs != nullptr);
-      assert(rhs != nullptr);
-    }
-    virtual void dump(std::ostream & os) const override {
-      ParserDump(os, "set").add(EggParserNodeBase::assignToString(this->op)).add(this->lhs).add(this->rhs);
     }
   };
 
@@ -363,6 +339,7 @@ namespace {
     EggParserNode_Unary##name(const std::shared_ptr<IEggParserNode>& expr) \
       : EggParserNode_Unary(EggParserUnary::name, expr) { \
     } \
+    virtual const EggParserType& getType() const override; \
   };
   EGG_PARSER_UNARY_OPERATORS(EGG_PARSER_UNARY_OPERATOR_DEFINE)
 
@@ -388,10 +365,36 @@ namespace {
     EggParserNode_Binary##name(const std::shared_ptr<IEggParserNode>& lhs, const std::shared_ptr<IEggParserNode>& rhs) \
       : EggParserNode_Binary(EggParserBinary::name, lhs, rhs) { \
     } \
+    virtual const EggParserType& getType() const override; \
   };
   EGG_PARSER_BINARY_OPERATORS(EGG_PARSER_BINARY_OPERATOR_DEFINE)
 
-  class EggParserContextBase : public IEggParserContext {
+  class EggParserNode_Assign : public EggParserNodeBase {
+  protected:
+    EggParserAssign op;
+    std::shared_ptr<IEggParserNode> lhs;
+    std::shared_ptr<IEggParserNode> rhs;
+    EggParserNode_Assign(EggParserAssign op, const std::shared_ptr<IEggParserNode>& lhs, const std::shared_ptr<IEggParserNode>& rhs)
+      : op(op), lhs(lhs), rhs(rhs) {
+      assert(lhs != nullptr);
+      assert(rhs != nullptr);
+    }
+  public:
+    virtual void dump(std::ostream & os) const override {
+      ParserDump(os, "assign").add(EggParserNodeBase::assignToString(this->op)).add(this->lhs).add(this->rhs);
+    }
+  };
+
+#define EGG_PARSER_ASSIGN_OPERATOR_DEFINE(name, text) \
+  class EggParserNode_Assign##name : public EggParserNode_Assign { \
+  public: \
+    EggParserNode_Assign##name(const std::shared_ptr<IEggParserNode>& lhs, const std::shared_ptr<IEggParserNode>& rhs) \
+      : EggParserNode_Assign(EggParserAssign::name, lhs, rhs) { \
+    } \
+  };
+  EGG_PARSER_ASSIGN_OPERATORS(EGG_PARSER_ASSIGN_OPERATOR_DEFINE)
+
+    class EggParserContextBase : public IEggParserContext {
   private:
     EggParserAllowedUnderlying allowed;
   public:
@@ -548,44 +551,31 @@ std::shared_ptr<egg::yolk::IEggParserNode> egg::yolk::EggSyntaxNode_VariableInit
 }
 
 std::shared_ptr<egg::yolk::IEggParserNode> egg::yolk::EggSyntaxNode_Assignment::promote(egg::yolk::IEggParserContext& context) {
-  EggParserAssign aop;
   switch (this->op) {
     case EggTokenizerOperator::PercentEqual:
-      aop = EggParserAssign::Remainder;
-      break;
+      return this->promoteAssign<EggParserNode_AssignRemainder>(context);
     case EggTokenizerOperator::AmpersandEqual:
-      aop = EggParserAssign::BitwiseAnd;
-      break;
+      return this->promoteAssign<EggParserNode_AssignBitwiseAnd>(context);
     case EggTokenizerOperator::StarEqual:
-      aop = EggParserAssign::Multiply;
-      break;
+      return this->promoteAssign<EggParserNode_AssignMultiply>(context);
     case EggTokenizerOperator::PlusEqual:
-      aop = EggParserAssign::Plus;
-      break;
+      return this->promoteAssign<EggParserNode_AssignPlus>(context);
     case EggTokenizerOperator::MinusEqual:
-      aop = EggParserAssign::Minus;
-      break;
+      return this->promoteAssign<EggParserNode_AssignMinus>(context);
     case EggTokenizerOperator::SlashEqual:
-      aop = EggParserAssign::Divide;
-      break;
+      return this->promoteAssign<EggParserNode_AssignDivide>(context);
     case EggTokenizerOperator::ShiftLeftEqual:
-      aop = EggParserAssign::ShiftLeft;
-      break;
+      return this->promoteAssign<EggParserNode_AssignShiftLeft>(context);
     case EggTokenizerOperator::Equal:
-      aop = EggParserAssign::Assign;
-      break;
+      return this->promoteAssign<EggParserNode_AssignEqual>(context);
     case EggTokenizerOperator::ShiftRightEqual:
-      aop = EggParserAssign::ShiftRight;
-      break;
+      return this->promoteAssign<EggParserNode_AssignShiftRight>(context);
     case EggTokenizerOperator::ShiftRightUnsignedEqual:
-      aop = EggParserAssign::ShiftRightUnsigned;
-      break;
+      return this->promoteAssign<EggParserNode_AssignShiftRightUnsigned>(context);
     case EggTokenizerOperator::CaretEqual:
-      aop = EggParserAssign::BitwiseXor;
-      break;
+      return this->promoteAssign<EggParserNode_AssignBitwiseXor>(context);
     case EggTokenizerOperator::BarEqual:
-      aop = EggParserAssign::BitwiseOr;
-      break;
+      return this->promoteAssign<EggParserNode_AssignBitwiseOr>(context);
     case EggTokenizerOperator::Bang:
     case EggTokenizerOperator::BangEqual:
     case EggTokenizerOperator::Percent:
@@ -626,7 +616,6 @@ std::shared_ptr<egg::yolk::IEggParserNode> egg::yolk::EggSyntaxNode_Assignment::
     default:
       throw exceptionFromToken(context, "Unknown assignment operator", *this);
   }
-  return std::make_shared<EggParserNode_Set>(aop, this->child[0]->promote(context), this->child[1]->promote(context));
 }
 
 std::shared_ptr<egg::yolk::IEggParserNode> egg::yolk::EggSyntaxNode_Mutate::promote(egg::yolk::IEggParserContext& context) {
@@ -876,6 +865,119 @@ std::shared_ptr<egg::yolk::IEggParserNode> egg::yolk::EggSyntaxNode_Literal::pro
     return std::make_shared<EggParserNode_LiteralString>(this->value.s);
   }
   throw exceptionFromToken(context, "Unknown literal value type", *this);
+}
+
+const egg::yolk::EggParserType& EggParserNode_UnaryLogicalNot::getType() const {
+  return typeBool;
+}
+
+const egg::yolk::EggParserType& EggParserNode_UnaryRef::getType() const {
+  EGG_THROW(__FUNCTION__ " TODO"); // TODO
+}
+
+const egg::yolk::EggParserType& EggParserNode_UnaryDeref::getType() const {
+  EGG_THROW(__FUNCTION__ " TODO"); // TODO
+}
+
+const egg::yolk::EggParserType& EggParserNode_UnaryNegate::getType() const {
+  return this->expr->getType();
+}
+
+const egg::yolk::EggParserType& EggParserNode_UnaryEllipsis::getType() const {
+  EGG_THROW(__FUNCTION__ " TODO"); // TODO
+}
+
+const egg::yolk::EggParserType& EggParserNode_UnaryBitwiseNot::getType() const {
+  return typeInt;
+}
+
+const egg::yolk::EggParserType& EggParserNode_BinaryRemainder::getType() const {
+  // See http://mindprod.com/jgloss/modulus.html
+  return this->lhs->getType();
+}
+
+const egg::yolk::EggParserType& EggParserNode_BinaryBitwiseAnd::getType() const {
+  return typeInt;
+}
+
+const egg::yolk::EggParserType& EggParserNode_BinaryLogicalAnd::getType() const {
+  return typeBool;
+}
+
+const egg::yolk::EggParserType& EggParserNode_BinaryMultiply::getType() const {
+  EGG_THROW(__FUNCTION__ " TODO"); // TODO
+}
+
+const egg::yolk::EggParserType& EggParserNode_BinaryPlus::getType() const {
+  EGG_THROW(__FUNCTION__ " TODO"); // TODO
+}
+
+const egg::yolk::EggParserType& EggParserNode_BinaryMinus::getType() const {
+  EGG_THROW(__FUNCTION__ " TODO"); // TODO
+}
+
+const egg::yolk::EggParserType& EggParserNode_BinaryLambda::getType() const {
+  EGG_THROW(__FUNCTION__ " TODO"); // TODO
+}
+
+const egg::yolk::EggParserType& EggParserNode_BinaryDot::getType() const {
+  EGG_THROW(__FUNCTION__ " TODO"); // TODO
+}
+
+const egg::yolk::EggParserType& EggParserNode_BinaryDivide::getType() const {
+  EGG_THROW(__FUNCTION__ " TODO"); // TODO
+}
+
+const egg::yolk::EggParserType& EggParserNode_BinaryLess::getType() const {
+  return typeBool;
+}
+
+const egg::yolk::EggParserType& EggParserNode_BinaryShiftLeft::getType() const {
+  return typeInt;
+}
+
+const egg::yolk::EggParserType& EggParserNode_BinaryLessEqual::getType() const {
+  return typeBool;
+}
+
+const egg::yolk::EggParserType& EggParserNode_BinaryEqual::getType() const {
+  return typeBool;
+}
+
+const egg::yolk::EggParserType& EggParserNode_BinaryGreater::getType() const {
+  return typeBool;
+}
+
+const egg::yolk::EggParserType& EggParserNode_BinaryGreaterEqual::getType() const {
+  return typeBool;
+}
+
+const egg::yolk::EggParserType& EggParserNode_BinaryShiftRight::getType() const {
+  return typeInt;
+}
+
+const egg::yolk::EggParserType& EggParserNode_BinaryShiftRightUnsigned::getType() const {
+  return typeInt;
+}
+
+const egg::yolk::EggParserType& EggParserNode_BinaryNullCoalescing::getType() const {
+  EGG_THROW(__FUNCTION__ " TODO"); // TODO
+}
+
+const egg::yolk::EggParserType& EggParserNode_BinaryBrackets::getType() const {
+  EGG_THROW(__FUNCTION__ " TODO"); // TODO
+}
+
+const egg::yolk::EggParserType& EggParserNode_BinaryBitwiseXor::getType() const {
+  return typeInt;
+}
+
+const egg::yolk::EggParserType& EggParserNode_BinaryBitwiseOr::getType() const {
+  return typeInt;
+}
+
+const egg::yolk::EggParserType& EggParserNode_BinaryLogicalOr::getType() const {
+  return typeBool;
 }
 
 std::shared_ptr<egg::yolk::IEggParser> egg::yolk::EggParserFactory::createModuleParser() {

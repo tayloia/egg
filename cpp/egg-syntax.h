@@ -160,6 +160,13 @@ namespace egg::yolk {
     virtual void dump(std::ostream& os) const override;
     virtual std::string token() const override;
     virtual std::shared_ptr<IEggParserNode> promote(IEggParserContext& context) override;
+  private:
+    template<typename T>
+    std::shared_ptr<IEggParserNode> promoteAssign(IEggParserContext& context) {
+      auto lhs = this->child[0]->promote(context);
+      auto rhs = this->child[1]->promote(context);
+      return std::make_shared<T>(lhs, rhs);
+    }
   };
 
   class EggSyntaxNode_Mutate : public EggSyntaxNodeChildren1 {
@@ -371,7 +378,8 @@ namespace egg::yolk {
     virtual std::string token() const override;
     virtual std::shared_ptr<IEggParserNode> promote(IEggParserContext& context) override;
   private:
-    template<typename T> std::shared_ptr<IEggParserNode> promoteUnary(IEggParserContext& context) {
+    template<typename T>
+    std::shared_ptr<IEggParserNode> promoteUnary(IEggParserContext& context) {
       auto expr = this->child->promote(context);
       return std::make_shared<T>(expr);
     }
@@ -389,7 +397,8 @@ namespace egg::yolk {
     virtual std::string token() const override;
     virtual std::shared_ptr<IEggParserNode> promote(IEggParserContext& context) override;
   private:
-    template<typename T> std::shared_ptr<IEggParserNode> promoteBinary(IEggParserContext& context) {
+    template<typename T>
+    std::shared_ptr<IEggParserNode> promoteBinary(IEggParserContext& context) {
       auto lhs = this->child[0]->promote(context);
       auto rhs = this->child[1]->promote(context);
       return std::make_shared<T>(lhs, rhs);

@@ -8,6 +8,7 @@
 #define EGG_PARSER_UNARY_OPERATOR_DECLARE(name, text) name,
 
 #define EGG_PARSER_BINARY_OPERATORS(macro) \
+  macro(Unequal, "!=") \
   macro(Remainder, "%") \
   macro(BitwiseAnd, "&") \
   macro(LogicalAnd, "&&") \
@@ -40,7 +41,7 @@
   macro(Minus, "-=") \
   macro(Divide, "/=") \
   macro(ShiftLeft, "<<=") \
-  macro(Assign, "=") \
+  macro(Equal, "=") \
   macro(ShiftRight, ">>=") \
   macro(ShiftRightUnsigned, ">>>=") \
   macro(BitwiseXor, "^=") \

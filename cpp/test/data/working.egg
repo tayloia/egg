@@ -1,0 +1,10 @@
+// This is a test file
+var s = 0;
+for (var i = 0; i < 100; ++i) {
+  s += i;
+}
+var result = first--second;
+string greeting="Hello World";
+greeting=`Hello
+World`;
+int answer = 42;
