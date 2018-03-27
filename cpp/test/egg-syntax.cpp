@@ -404,10 +404,10 @@ TEST(TestEggSyntaxParser, StatementYield) {
 TEST(TestEggSyntaxParser, Literals) {
   ASSERT_PARSE_GOOD(parseExpressionToString("0"), "(literal int 0)");
   ASSERT_PARSE_GOOD(parseExpressionToString("123"), "(literal int 123)");
-  //TODO ASSERT_PARSE_GOOD(parseExpressionToString("-123"), "(literal int -123)");
+  ASSERT_PARSE_GOOD(parseExpressionToString("-123"), "(literal int -123)");
   ASSERT_PARSE_GOOD(parseExpressionToString("0.0"), "(literal float 0.0)");
   ASSERT_PARSE_GOOD(parseExpressionToString("123.45"), "(literal float 123.45)");
-  //TODO ASSERT_PARSE_GOOD(parseExpressionToString("-123.45"), "(literal float -123.45)");
+  ASSERT_PARSE_GOOD(parseExpressionToString("-123.45"), "(literal float -123.45)");
   ASSERT_PARSE_GOOD(parseExpressionToString("\"hi\""), "(literal string 'hi')");
   ASSERT_PARSE_GOOD(parseExpressionToString("`hello\nworld`"), "(literal string 'hello\nworld')");
   ASSERT_PARSE_GOOD(parseExpressionToString("null"), "(literal null)");
@@ -417,8 +417,9 @@ TEST(TestEggSyntaxParser, Literals) {
 
 TEST(TestEggSyntaxParser, Vexatious) {
   ASSERT_PARSE_GOOD(parseExpressionToString("a--b"), "(binary '-' (identifier 'a') (unary '-' (identifier 'b')))");
-  ASSERT_PARSE_GOOD(parseExpressionToString("a--1"), "(binary '-' (identifier 'a') (unary '-' (literal int 1)))");
-  ASSERT_PARSE_GOOD(parseExpressionToString("-1"), "(unary '-' (literal int 1))");
+  ASSERT_PARSE_GOOD(parseExpressionToString("a--1"), "(binary '-' (identifier 'a') (literal int -1))");
+  ASSERT_PARSE_GOOD(parseExpressionToString("a-1"), "(binary '-' (identifier 'a') (literal int 1))");
+  ASSERT_PARSE_GOOD(parseExpressionToString("a-- 1"), "(binary '-' (identifier 'a') (unary '-' (literal int 1)))");
 }
 
 TEST(TestEggSyntaxParser, ExampleFile) {

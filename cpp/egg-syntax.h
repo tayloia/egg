@@ -26,8 +26,9 @@ namespace egg::yolk {
     virtual EggTokenizerKeyword keyword() const = 0;
     virtual const EggSyntaxNodeLocation& location() const = 0;
     virtual const std::vector<std::unique_ptr<IEggSyntaxNode>>* children() const = 0;
-    virtual void dump(std::ostream& os) const = 0;
     virtual std::shared_ptr<IEggParserNode> promote(IEggParserContext& context) const = 0;
+    virtual bool negate() = 0;
+    virtual void dump(std::ostream& os) const = 0;
   };
 
   class EggSyntaxNodeBase : public IEggSyntaxNode, public EggSyntaxNodeLocation {
@@ -40,6 +41,7 @@ namespace egg::yolk {
     virtual EggTokenizerKeyword keyword() const;
     virtual const EggSyntaxNodeLocation& location() const;
     virtual const std::vector<std::unique_ptr<IEggSyntaxNode>>* children() const;
+    virtual bool negate();
     virtual std::string token() const;
   };
 
@@ -497,5 +499,6 @@ namespace egg::yolk {
     virtual void dump(std::ostream& os) const override;
     virtual std::string token() const override;
     virtual std::shared_ptr<IEggParserNode> promote(IEggParserContext& context) const override;
+    virtual bool negate() override;
   };
 }

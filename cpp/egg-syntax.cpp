@@ -283,6 +283,10 @@ const std::vector<std::unique_ptr<IEggSyntaxNode>>* egg::yolk::EggSyntaxNodeBase
   return nullptr;
 }
 
+bool egg::yolk::EggSyntaxNodeBase::negate() {
+  return false;
+}
+
 std::string egg::yolk::EggSyntaxNodeBase::token() const {
   return std::string();
 }
@@ -333,6 +337,23 @@ std::string egg::yolk::EggSyntaxNode_Identifier::token() const {
 
 std::string egg::yolk::EggSyntaxNode_Literal::token() const {
   return this->value.s;
+}
+
+bool egg::yolk::EggSyntaxNode_Literal::negate() {
+  // Try to negate (times-minus-one) as literal value
+  if (this->kind == EggTokenizerKind::Integer) {
+    auto negative = -this->value.i;
+    if (negative <= 0) {
+      this->value.i = negative;
+      this->value.s = "-" + this->value.s;
+      return true;
+    }
+  } else if (this->kind == EggTokenizerKind::Float) {
+    this->value.f = -this->value.f;
+    this->value.s = "-" + this->value.s;
+    return true;
+  }
+  return false;
 }
 
 #define EGG_TOKENIZER_OPERATOR_EXPECTATION(key, text) \
@@ -828,8 +849,12 @@ std::unique_ptr<IEggSyntaxNode> EggSyntaxParserContext::parseExpressionAdditive(
 }
 
 std::unique_ptr<IEggSyntaxNode> EggSyntaxParserContext::parseExpressionNegative(const EggSyntaxNodeLocation& location) {
-  // TODO explicitly negative numeric literals
+  auto& p0 = this->backtrack.peek(0);
   auto expr = this->parseExpressionUnary("Expected expression after prefix '-' operator");
+  if (p0.contiguous && expr->negate()) {
+    // Successfully negated the literal
+    return expr;
+  }
   return std::make_unique<EggSyntaxNode_UnaryOperator>(location, EggTokenizerOperator::Minus, std::move(expr));
 }
 
@@ -850,13 +875,13 @@ std::unique_ptr<IEggSyntaxNode> EggSyntaxParserContext::parseExpressionUnary(con
   } else if (p0.isOperator(EggTokenizerOperator::Star)) {
     expected = "Expected expression after prefix '*' operator";
   } else if (p0.isOperator(EggTokenizerOperator::Minus)) {
-    expected = "Expected expression after prefix '-' operator";
-  } else if (p0.isOperator(EggTokenizerOperator::MinusMinus)) {
-    EggSyntaxParserBacktrackMark mark(this->backtrack);
+    this->backtrack.advance(1);
     EggSyntaxNodeLocation location(p0, 1);
-    mark.advance(1);
+    return this->parseExpressionNegative(location);
+  } else if (p0.isOperator(EggTokenizerOperator::MinusMinus)) {
+    this->backtrack.advance(1);
+    EggSyntaxNodeLocation location(p0, 1);
     auto negative = this->parseExpressionNegative(location);
-    mark.accept(0);
     return std::make_unique<EggSyntaxNode_UnaryOperator>(location, EggTokenizerOperator::Minus, std::move(negative));
   } else if (p0.isOperator(EggTokenizerOperator::Tilde)) {
     expected = "Expected expression after prefix '~' operator";
