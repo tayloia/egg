@@ -15,6 +15,7 @@ namespace {
 
   // Constants
   const EggParserType typeVoid{ egg::lang::TypeStorage::Void };
+  const EggParserType typeNull{ egg::lang::TypeStorage::Null };
   const EggParserType typeBool{ egg::lang::TypeStorage::Bool };
   const EggParserType typeInt{ egg::lang::TypeStorage::Int };
   const EggParserType typeFloat{ egg::lang::TypeStorage::Float };
@@ -53,10 +54,6 @@ namespace {
       *this->os << ' ' << '\'' << text << '\'';
       return *this;
     }
-    ParserDump& add(int64_t number) {
-      *this->os << ' ' << number;
-      return *this;
-    }
     ParserDump& add(const std::shared_ptr<IEggParserNode>& child) {
       if (child != nullptr) {
         *this->os << ' ';
@@ -71,6 +68,11 @@ namespace {
       for (auto& child : children) {
         this->add(child);
       }
+      return *this;
+    }
+    template<typename T>
+    ParserDump& raw(T item) {
+      *this->os << ' ' << item;
       return *this;
     }
   };
@@ -300,7 +302,7 @@ namespace {
       assert(expr != nullptr);
     }
     virtual void dump(std::ostream& os) const override {
-      ParserDump(os, "switch").add(this->expr).add(this->defaultIndex).add(this->child);
+      ParserDump(os, "switch").add(this->expr).raw(this->defaultIndex).add(this->child);
     }
     void newClause() {
       this->child.emplace_back(std::make_shared<EggParserNode_Case>());
@@ -419,6 +421,34 @@ namespace {
     }
   };
 
+  class EggParserNode_LiteralNull : public EggParserNodeBase {
+  public:
+    virtual const EggParserType& getType() const override {
+      return typeNull;
+    }
+    virtual void dump(std::ostream& os) const override {
+      ParserDump(os, "literal null");
+    }
+  };
+  const std::shared_ptr<IEggParserNode> constNull = std::make_shared<EggParserNode_LiteralNull>();
+
+  class EggParserNode_LiteralBool : public EggParserNodeBase {
+  private:
+    bool value;
+  public:
+    explicit EggParserNode_LiteralBool(bool value)
+      : value(value) {
+    }
+    virtual const EggParserType& getType() const override {
+      return typeBool;
+    }
+    virtual void dump(std::ostream& os) const override {
+      ParserDump(os, "literal bool").raw(this->value);
+    }
+  };
+  const std::shared_ptr<IEggParserNode> constFalse = std::make_shared<EggParserNode_LiteralBool>(false);
+  const std::shared_ptr<IEggParserNode> constTrue = std::make_shared<EggParserNode_LiteralBool>(true);
+
   class EggParserNode_LiteralInteger : public EggParserNodeBase {
   private:
     int64_t value;
@@ -430,7 +460,7 @@ namespace {
       return typeInt;
     }
     virtual void dump(std::ostream& os) const override {
-      ParserDump(os, "literal int").add(std::to_string(this->value));
+      ParserDump(os, "literal int").raw(this->value);
     }
   };
 
@@ -445,7 +475,7 @@ namespace {
       return typeFloat;
     }
     virtual void dump(std::ostream& os) const override {
-      ParserDump(os, "literal float").add(std::to_string(this->value));
+      ParserDump(os, "literal float").raw(this->value);
     }
   };
 
@@ -513,6 +543,24 @@ namespace {
     virtual const EggParserType& getType() const override; \
   };
   EGG_PARSER_BINARY_OPERATORS(EGG_PARSER_BINARY_OPERATOR_DEFINE)
+
+  class EggParserNode_Ternary : public EggParserNodeBase {
+  private:
+    std::shared_ptr<IEggParserNode> condition;
+    std::shared_ptr<IEggParserNode> whenTrue;
+    std::shared_ptr<IEggParserNode> whenFalse;
+  public:
+    EggParserNode_Ternary(const std::shared_ptr<IEggParserNode>& condition, const std::shared_ptr<IEggParserNode>& whenTrue, const std::shared_ptr<IEggParserNode>& whenFalse)
+      : condition(condition), whenTrue(whenTrue), whenFalse(whenFalse) {
+      assert(condition != nullptr);
+      assert(whenTrue != nullptr);
+      assert(whenFalse != nullptr);
+    }
+    virtual void dump(std::ostream& os) const override {
+      ParserDump(os, "ternary").add(this->condition).add(this->whenTrue).add(this->whenFalse);
+    }
+    virtual const EggParserType& getType() const override;
+  };
 
   class EggParserNode_Assign : public EggParserNodeBase {
   protected:
@@ -1125,8 +1173,11 @@ std::shared_ptr<egg::yolk::IEggParserNode> egg::yolk::EggSyntaxNode_BinaryOperat
   }
 }
 
-std::shared_ptr<egg::yolk::IEggParserNode> egg::yolk::EggSyntaxNode_TernaryOperator::promote(egg::yolk::IEggParserContext&) const {
-  EGG_THROW(__FUNCTION__ " TODO"); // TODO
+std::shared_ptr<egg::yolk::IEggParserNode> egg::yolk::EggSyntaxNode_TernaryOperator::promote(egg::yolk::IEggParserContext& context) const {
+  auto condition = this->child[0]->promote(context);
+  auto whenTrue = this->child[1]->promote(context);
+  auto whenFalse = this->child[2]->promote(context);
+  return std::make_shared<EggParserNode_Ternary>(condition, whenTrue, whenFalse);
 }
 
 std::shared_ptr<egg::yolk::IEggParserNode> egg::yolk::EggSyntaxNode_Call::promote(egg::yolk::IEggParserContext&) const {
@@ -1151,7 +1202,19 @@ std::shared_ptr<egg::yolk::IEggParserNode> egg::yolk::EggSyntaxNode_Literal::pro
   if (this->kind == EggTokenizerKind::String) {
     return std::make_shared<EggParserNode_LiteralString>(this->value.s);
   }
-  throw exceptionFromToken(context, "Unknown literal value type", *this);
+  if (this->kind != EggTokenizerKind::Keyword) {
+    throw exceptionFromToken(context, "Unknown literal value type", *this);
+  }
+  if (this->value.k == EggTokenizerKeyword::Null) {
+    return constNull;
+  }
+  if (this->value.k == EggTokenizerKeyword::False) {
+    return constFalse;
+  }
+  if (this->value.k == EggTokenizerKeyword::True) {
+    return constTrue;
+  }
+  throw exceptionFromToken(context, "Unknown literal value keyword", *this);
 }
 
 const egg::yolk::EggParserType& EggParserNode_UnaryLogicalNot::getType() const {
@@ -1265,6 +1328,10 @@ const egg::yolk::EggParserType& EggParserNode_BinaryBitwiseOr::getType() const {
 
 const egg::yolk::EggParserType& EggParserNode_BinaryLogicalOr::getType() const {
   return typeBool;
+}
+
+const egg::yolk::EggParserType& EggParserNode_Ternary::getType() const {
+  EGG_THROW(__FUNCTION__ " TODO"); // TODO
 }
 
 std::shared_ptr<egg::yolk::IEggParser> egg::yolk::EggParserFactory::createModuleParser() {

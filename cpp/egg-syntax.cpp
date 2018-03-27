@@ -183,6 +183,16 @@ void egg::yolk::EggSyntaxNode_Literal::dump(std::ostream& os) const {
     ParserDump(os, "literal string").add(this->value.s);
     break;
   case EggTokenizerKind::Keyword:
+    if (this->value.k == EggTokenizerKeyword::Null) {
+      ParserDump(os, "literal null");
+    } else if (this->value.k == EggTokenizerKeyword::False) {
+      ParserDump(os, "literal bool false");
+    } else if (this->value.k == EggTokenizerKeyword::True) {
+      ParserDump(os, "literal bool true");
+    } else {
+      ParserDump(os, "literal keyword unknown");
+    }
+    break;
   case EggTokenizerKind::Operator:
   case EggTokenizerKind::Identifier:
   case EggTokenizerKind::Attribute:
@@ -953,6 +963,11 @@ std::unique_ptr<IEggSyntaxNode> EggSyntaxParserContext::parseExpressionPrimary(c
     mark.accept(1);
     return std::make_unique<EggSyntaxNode_Identifier>(EggSyntaxNodeLocation(p0), p0.value.s);
   case EggTokenizerKind::Keyword:
+    if ((p0.value.k == EggTokenizerKeyword::Null) || (p0.value.k == EggTokenizerKeyword::False) || (p0.value.k == EggTokenizerKeyword::True)) {
+      mark.accept(1);
+      return std::make_unique<EggSyntaxNode_Literal>(EggSyntaxNodeLocation(p0), p0.kind, p0.value);
+    }
+    /* DROP THROUGH */
   case EggTokenizerKind::Operator:
   case EggTokenizerKind::Attribute:
   case EggTokenizerKind::EndOfFile:
