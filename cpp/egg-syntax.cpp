@@ -279,6 +279,10 @@ const EggSyntaxNodeLocation& egg::yolk::EggSyntaxNodeBase::location() const {
   return *this;
 }
 
+const std::vector<std::unique_ptr<IEggSyntaxNode>>* egg::yolk::EggSyntaxNodeBase::children() const {
+  return nullptr;
+}
+
 std::string egg::yolk::EggSyntaxNodeBase::token() const {
   return std::string();
 }

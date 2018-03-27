@@ -25,6 +25,7 @@ namespace egg::yolk {
   public:
     virtual EggTokenizerKeyword keyword() const = 0;
     virtual const EggSyntaxNodeLocation& location() const = 0;
+    virtual const std::vector<std::unique_ptr<IEggSyntaxNode>>* children() const = 0;
     virtual void dump(std::ostream& os) const = 0;
     virtual std::shared_ptr<IEggParserNode> promote(IEggParserContext& context) const = 0;
   };
@@ -38,6 +39,7 @@ namespace egg::yolk {
     }
     virtual EggTokenizerKeyword keyword() const;
     virtual const EggSyntaxNodeLocation& location() const;
+    virtual const std::vector<std::unique_ptr<IEggSyntaxNode>>* children() const;
     virtual std::string token() const;
   };
 
@@ -80,6 +82,9 @@ namespace egg::yolk {
   public:
     void addChild(std::unique_ptr<IEggSyntaxNode>&& node) {
       this->child.emplace_back(std::move(node));
+    }
+    virtual const std::vector<std::unique_ptr<IEggSyntaxNode>>* children() const {
+      return &this->child;
     }
   };
 
@@ -167,8 +172,8 @@ namespace egg::yolk {
   private:
     template<typename T>
     std::shared_ptr<IEggParserNode> promoteAssign(IEggParserContext& context) const {
-      auto lhs = this->child[0]->promote(context);
-      auto rhs = this->child[1]->promote(context);
+      auto lhs = context.promote(*this->child[0]);
+      auto rhs = context.promote(*this->child[1]);
       return std::make_shared<T>(lhs, rhs);
     }
   };
@@ -401,7 +406,7 @@ namespace egg::yolk {
   private:
     template<typename T>
     std::shared_ptr<IEggParserNode> promoteUnary(IEggParserContext& context) const {
-      auto expr = this->child->promote(context);
+      auto expr = context.promote(*this->child);
       return std::make_shared<T>(expr);
     }
   };
@@ -420,8 +425,8 @@ namespace egg::yolk {
   private:
     template<typename T>
     std::shared_ptr<IEggParserNode> promoteBinary(IEggParserContext& context) const {
-      auto lhs = this->child[0]->promote(context);
-      auto rhs = this->child[1]->promote(context);
+      auto lhs = context.promote(*this->child[0]);
+      auto rhs = context.promote(*this->child[1]);
       return std::make_shared<T>(lhs, rhs);
     }
   };

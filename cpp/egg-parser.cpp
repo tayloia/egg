@@ -409,6 +409,37 @@ namespace {
     }
   };
 
+  class EggParserNode_Call : public EggParserNodeBase {
+  private:
+    std::shared_ptr<IEggParserNode> callee;
+    std::vector<std::shared_ptr<IEggParserNode>> child;
+  public:
+    explicit EggParserNode_Call(const std::shared_ptr<IEggParserNode>& callee)
+      : callee(callee) {
+      assert(callee != nullptr);
+    }
+    virtual void dump(std::ostream& os) const override {
+      ParserDump(os, "call").add(this->callee).add(this->child);
+    }
+    void addParameter(const std::shared_ptr<IEggParserNode>& parameter) {
+      this->child.emplace_back(parameter);
+    }
+  };
+
+  class EggParserNode_Named : public EggParserNodeBase {
+  private:
+    std::string name;
+    std::shared_ptr<IEggParserNode> expr;
+  public:
+    EggParserNode_Named(const std::string& name, const std::shared_ptr<IEggParserNode>& expr)
+      : name(name), expr(expr) {
+      assert(expr != nullptr);
+    }
+    virtual void dump(std::ostream& os) const override {
+      ParserDump(os, "named").add(this->name).add(this->expr);
+    }
+  };
+
   class EggParserNode_Identifier : public EggParserNodeBase {
   private:
     std::string name;
@@ -587,7 +618,7 @@ namespace {
   };
   EGG_PARSER_ASSIGN_OPERATORS(EGG_PARSER_ASSIGN_OPERATOR_DEFINE)
 
-    class EggParserContextBase : public IEggParserContext {
+  class EggParserContextBase : public IEggParserContext {
   private:
     EggParserAllowedUnderlying allowed;
   public:
@@ -596,9 +627,6 @@ namespace {
     }
     virtual ~EggParserContextBase() {
     }
-    virtual IEggParserBlockVisitor* getBlockVisitor() {
-      return nullptr;
-    }
     virtual bool isAllowed(EggParserAllowed bit) const override {
       return (this->allowed & static_cast<EggParserAllowedUnderlying>(bit)) != 0;
     }
@@ -606,8 +634,10 @@ namespace {
       auto inherited = this->allowed & static_cast<EggParserAllowedUnderlying>(inherit);
       return static_cast<EggParserAllowed>(inherited | static_cast<EggParserAllowedUnderlying>(allow));
     }
+    virtual std::shared_ptr<IEggParserNode> promote(const IEggSyntaxNode& node) override {
+      return node.promote(*this);
+    }
   };
-
 
   class EggParserContext : public EggParserContextBase {
   private:
@@ -634,42 +664,51 @@ namespace {
     }
   };
 
-  class EggParserContextSwitch : public EggParserContextNested, public IEggParserBlockVisitor {
+  class EggParserContextSwitch : public IEggParserContext {
   private:
-    const EggSyntaxNode_Switch* unpromoted;
+    EggParserContextNested nested;
     std::shared_ptr<EggParserNode_Switch> promoted;
     EggTokenizerKeyword previous;
   public:
-    EggParserContextSwitch(IEggParserContext& parent, const EggSyntaxNode_Switch& switchStatement, const IEggSyntaxNode& switchExpression)
-      : EggParserContextNested(parent, EggParserAllowed::Break|EggParserAllowed::Case|EggParserAllowed::Continue, EggParserAllowed::Rethrow|EggParserAllowed::Return|EggParserAllowed::Yield),
-        unpromoted(&switchStatement),
-        promoted(std::make_shared<EggParserNode_Switch>(switchExpression.promote(parent))),
+    EggParserContextSwitch(IEggParserContext& parent, const IEggSyntaxNode& switchExpression)
+      : nested(parent, EggParserAllowed::Break|EggParserAllowed::Case|EggParserAllowed::Continue, EggParserAllowed::Rethrow|EggParserAllowed::Return|EggParserAllowed::Yield),
+        promoted(std::make_shared<EggParserNode_Switch>(parent.promote(switchExpression))),
         previous(EggTokenizerKeyword::Null) {
-      assert(this->unpromoted != nullptr);
       assert(this->promoted != nullptr);
     }
-    virtual IEggParserBlockVisitor* getBlockVisitor() {
-      return this;
+    virtual ~EggParserContextSwitch() {
     }
-    virtual void visitBegin() override {
+    virtual std::string getResource() const {
+      return this->nested.getResource();
+    }
+    virtual bool isAllowed(EggParserAllowed bit) const override {
+      return this->nested.isAllowed(bit);
+    }
+    virtual EggParserAllowed inheritAllowed(EggParserAllowed allow, EggParserAllowed inherit) const {
+      return this->nested.inheritAllowed(allow, inherit);
+    }
+    virtual std::shared_ptr<IEggParserNode> promote(const IEggSyntaxNode& node) override {
+      // This will be the block of the switch statement
+      auto* children = node.children();
+      if (children == nullptr) {
+        EGG_THROW("Internal parser error: 'switch' statement context");
+      }
       // Make sure we don't think we've seens any statements yet
       assert(this->previous == EggTokenizerKeyword::Null);
-    }
-    virtual void visitStatement(const IEggSyntaxNode& statement) override {
-      auto keyword = statement.keyword();
-      if (keyword == EggTokenizerKeyword::Case) {
-        this->visitCase(statement);
-      } else if (keyword == EggTokenizerKeyword::Default) {
-        this->visitDefault(statement);
-      } else {
-        this->visitOther(statement);
+      for (auto& statement : *children) {
+        auto keyword = statement->keyword();
+        if (keyword == EggTokenizerKeyword::Case) {
+          this->visitCase(*statement);
+        } else if (keyword == EggTokenizerKeyword::Default) {
+          this->visitDefault(*statement);
+        } else {
+          this->visitOther(*statement);
+        }
+        this->previous = keyword;
+        assert(this->previous != EggTokenizerKeyword::Null);
       }
-      this->previous = keyword;
-      assert(this->previous != EggTokenizerKeyword::Null);
-    }
-    virtual std::shared_ptr<IEggParserNode> visitEnd() override {
       // Check that the last thing in each clause was 'break' or 'continue' or some other flow control
-      this->clauseEnd(*this->unpromoted);
+      this->clauseEnd(node.location());
       return this->promoted;
     }
   private:
@@ -686,7 +725,7 @@ namespace {
     void visitCase(const IEggSyntaxNode& statement) {
       // Promoting the 'case' statement produces the case expression
       this->visitLabel(statement);
-      if (!this->promoted->addCase(statement.promote(*this))) {
+      if (!this->promoted->addCase(this->nested.promote(statement))) {
         throw exceptionFromLocation(*this, "Duplicate 'case' constant in 'switch' statement", statement.location());
       }
     }
@@ -708,7 +747,7 @@ namespace {
         // We're after an unconditional 'continue'
         throw exceptionFromLocation(*this, "Expected 'case' or 'default' statement to follow 'continue' in 'switch' statement", statement.location());
       }
-      if (!this->promoted->addStatement(statement.promote(*this))) {
+      if (!this->promoted->addStatement(this->nested.promote(statement))) {
         throw exceptionFromLocation(*this, "Malformed 'switch' statement", statement.location());
       }
     }
@@ -729,7 +768,7 @@ namespace {
       auto syntax = EggParserFactory::createModuleSyntaxParser();
       auto ast = syntax->parse(tokenizer);
       EggParserContext context(tokenizer.resource());
-      return ast->promote(context);
+      return context.promote(*ast);
     }
   };
 }
@@ -809,24 +848,15 @@ std::shared_ptr<egg::yolk::IEggParserNode> egg::yolk::EggSyntaxNode_Empty::promo
 std::shared_ptr<egg::yolk::IEggParserNode> egg::yolk::EggSyntaxNode_Module::promote(egg::yolk::IEggParserContext& context) const {
   auto module = std::make_shared<EggParserNode_Module>();
   for (auto& statement : this->child) {
-    module->addChild(statement->promote(context));
+    module->addChild(context.promote(*statement));
   }
   return module;
 }
 
 std::shared_ptr<egg::yolk::IEggParserNode> egg::yolk::EggSyntaxNode_Block::promote(egg::yolk::IEggParserContext& context) const {
-  auto* blockVisitor = context.getBlockVisitor();
-  if (blockVisitor != nullptr) {
-    // Defer our processing to the 'switch' statement visitor
-    blockVisitor->visitBegin();
-    for (auto& statement : this->child) {
-      blockVisitor->visitStatement(*statement);
-    }
-    return blockVisitor->visitEnd();
-  }
   auto module = std::make_shared<EggParserNode_Block>();
   for (auto& statement : this->child) {
-    module->addChild(statement->promote(context));
+    module->addChild(context.promote(*statement));
   }
   return module;
 }
@@ -837,11 +867,11 @@ std::shared_ptr<egg::yolk::IEggParserNode> egg::yolk::EggSyntaxNode_Type::promot
 }
 
 std::shared_ptr<egg::yolk::IEggParserNode> egg::yolk::EggSyntaxNode_VariableDeclaration::promote(egg::yolk::IEggParserContext& context) const {
-  return std::make_shared<EggParserNode_Declare>(this->name, this->child->promote(context));
+  return std::make_shared<EggParserNode_Declare>(this->name, context.promote(*this->child));
 }
 
 std::shared_ptr<egg::yolk::IEggParserNode> egg::yolk::EggSyntaxNode_VariableInitialization::promote(egg::yolk::IEggParserContext& context) const {
-  return std::make_shared<EggParserNode_Declare>(this->name, this->child[0]->promote(context), this->child[1]->promote(context));
+  return std::make_shared<EggParserNode_Declare>(this->name, context.promote(*this->child[0]), context.promote(*this->child[1]));
 }
 
 std::shared_ptr<egg::yolk::IEggParserNode> egg::yolk::EggSyntaxNode_Assignment::promote(egg::yolk::IEggParserContext& context) const {
@@ -921,7 +951,7 @@ std::shared_ptr<egg::yolk::IEggParserNode> egg::yolk::EggSyntaxNode_Mutate::prom
   } else {
     throw exceptionFromToken(context, "Unknown increment/decrement operator", *this);
   }
-  return std::make_shared<EggParserNode_Mutate>(mop, this->child->promote(context));
+  return std::make_shared<EggParserNode_Mutate>(mop, context.promote(*this->child));
 }
 
 std::shared_ptr<egg::yolk::IEggParserNode> egg::yolk::EggSyntaxNode_Break::promote(egg::yolk::IEggParserContext& context) const {
@@ -936,13 +966,13 @@ std::shared_ptr<egg::yolk::IEggParserNode> egg::yolk::EggSyntaxNode_Case::promot
   if (!context.isAllowed(EggParserAllowed::Case)) {
     throw exceptionFromLocation(context, "The 'case' statement may only be used within switch statements", *this);
   }
-  return this->child->promote(context);
+  return context.promote(*this->child);
 }
 
 std::shared_ptr<egg::yolk::IEggParserNode> egg::yolk::EggSyntaxNode_Catch::promote(egg::yolk::IEggParserContext& context) const {
-  auto type = this->child[0]->promote(context);
+  auto type = context.promote(*this->child[0]);
   EggParserContextNested nested(context, EggParserAllowed::Rethrow|EggParserAllowed::Return|EggParserAllowed::Yield);
-  auto block = this->child[1]->promote(nested);
+  auto block = context.promote(*this->child[1]);
   return std::make_shared<EggParserNode_Catch>(this->name, type, block);
 }
 
@@ -959,19 +989,19 @@ std::shared_ptr<egg::yolk::IEggParserNode> egg::yolk::EggSyntaxNode_Default::pro
 }
 
 std::shared_ptr<egg::yolk::IEggParserNode> egg::yolk::EggSyntaxNode_Do::promote(egg::yolk::IEggParserContext& context) const {
-  auto condition = this->child[0]->promote(context);
+  auto condition = context.promote(*this->child[0]);
   EggParserContextNested nested(context, EggParserAllowed::Break|EggParserAllowed::Continue, EggParserAllowed::Rethrow|EggParserAllowed::Return|EggParserAllowed::Yield);
-  auto block = this->child[1]->promote(nested);
+  auto block = context.promote(*this->child[1]);
   return std::make_shared<EggParserNode_Do>(condition, block);
 }
 
 std::shared_ptr<egg::yolk::IEggParserNode> egg::yolk::EggSyntaxNode_If::promote(egg::yolk::IEggParserContext& context) const {
   assert((this->child.size() == 2) || (this->child.size() == 3));
-  auto condition = this->child[0]->promote(context);
-  auto trueBlock = this->child[1]->promote(context);
+  auto condition = context.promote(*this->child[0]);
+  auto trueBlock = context.promote(*this->child[1]);
   std::shared_ptr<egg::yolk::IEggParserNode> falseBlock = nullptr;
   if (this->child.size() == 3) {
-    falseBlock = this->child[2]->promote(context);
+    falseBlock = context.promote(*this->child[2]);
   }
   return std::make_shared<EggParserNode_If>(condition, trueBlock, falseBlock);
 }
@@ -984,19 +1014,19 @@ std::shared_ptr<egg::yolk::IEggParserNode> egg::yolk::EggSyntaxNode_Finally::pro
 std::shared_ptr<egg::yolk::IEggParserNode> egg::yolk::EggSyntaxNode_For::promote(egg::yolk::IEggParserContext& context) const {
   // We allow empty statements but not flow control in the three 'for' clauses
   EggParserContextNested nested1(context, EggParserAllowed::Empty);
-  auto pre = this->child[0]->promote(nested1);
-  auto cond = this->child[1]->promote(nested1);
-  auto post = this->child[2]->promote(nested1);
+  auto pre = nested1.promote(*this->child[0]);
+  auto cond = nested1.promote(*this->child[1]);
+  auto post = nested1.promote(*this->child[2]);
   EggParserContextNested nested2(context, EggParserAllowed::Break|EggParserAllowed::Continue, EggParserAllowed::Rethrow|EggParserAllowed::Return|EggParserAllowed::Yield);
-  auto block = this->child[3]->promote(nested2);
+  auto block = nested2.promote(*this->child[3]);
   return std::make_shared<EggParserNode_For>(pre, cond, post, block);
 }
 
 std::shared_ptr<egg::yolk::IEggParserNode> egg::yolk::EggSyntaxNode_Foreach::promote(egg::yolk::IEggParserContext& context) const {
-  auto target = this->child[0]->promote(context);
-  auto expr = this->child[1]->promote(context);
+  auto target = context.promote(*this->child[0]);
+  auto expr = context.promote(*this->child[1]);
   EggParserContextNested nested(context, EggParserAllowed::Break|EggParserAllowed::Continue, EggParserAllowed::Rethrow|EggParserAllowed::Return|EggParserAllowed::Yield);
-  auto block = this->child[2]->promote(nested);
+  auto block = nested.promote(*this->child[2]);
   return std::make_shared<EggParserNode_Foreach>(target, expr, block);
 }
 
@@ -1006,21 +1036,21 @@ std::shared_ptr<egg::yolk::IEggParserNode> egg::yolk::EggSyntaxNode_Return::prom
   }
   auto result = std::make_shared<EggParserNode_Return>();
   for (auto& i : this->child) {
-    result->addChild(i->promote(context));
+    result->addChild(context.promote(*i));
   }
   return result;
 }
 
 std::shared_ptr<egg::yolk::IEggParserNode> egg::yolk::EggSyntaxNode_Switch::promote(egg::yolk::IEggParserContext& context) const {
-  EggParserContextSwitch nested(context, *this, *this->child[0]);
-  return this->child[1]->promote(nested);
+  EggParserContextSwitch nested(context, *this->child[0]);
+  return nested.promote(*this->child[1]);
 }
 
 std::shared_ptr<egg::yolk::IEggParserNode> egg::yolk::EggSyntaxNode_Throw::promote(egg::yolk::IEggParserContext& context) const {
   // This is a throw or a rethrow: 'throw <expr>;' or 'throw;'
   std::shared_ptr<egg::yolk::IEggParserNode> expr = nullptr;
   if (!this->child.empty()) {
-    expr = this->child[0]->promote(context);
+    expr = context.promote(*this->child[0]);
   } else if (!context.isAllowed(EggParserAllowed::Rethrow)) {
     throw exceptionFromLocation(context, "The 'throw' statement may only be used to rethrow exceptions inside a 'catch' statement", *this);
   }
@@ -1033,36 +1063,36 @@ std::shared_ptr<egg::yolk::IEggParserNode> egg::yolk::EggSyntaxNode_Try::promote
   EggParserContextNested nested1(context, EggParserAllowed::None, EggParserAllowed::Rethrow|EggParserAllowed::Return|EggParserAllowed::Yield);
   auto clauses = this->child.size();
   assert(clauses >= 2);
-  auto block = this->child[0]->promote(nested1);
+  auto block = nested1.promote(*this->child[0]);
   auto result = std::make_shared<EggParserNode_Try>(block);
   EggParserContextNested nested2(context, EggParserAllowed::Rethrow, EggParserAllowed::Return|EggParserAllowed::Yield);
   for (size_t i = 1; i < clauses; ++i) {
     auto& clause = *this->child[i];
     if (clause.keyword() == EggTokenizerKeyword::Catch) {
       // We can have any number of 'catch' clauses; where we allow rethrows
-      result->addCatch(clause.promote(nested2));
+      result->addCatch(nested2.promote(clause));
     } else if (clause.keyword() != EggTokenizerKeyword::Finally) {
       throw exceptionFromLocation(context, "Expected only 'catch' and 'finally' statements in 'try' statement", clause.location());
     } else if (i != (clauses - 1)) {
       throw exceptionFromLocation(context, "The 'finally' statement must be the last clause in a 'try' statement", clause.location());
     } else {
       // We can only have one 'finally' clause; where we allow inherited rethrows only
-      result->addFinally(clause.promote(nested1));
+      result->addFinally(nested1.promote(clause));
     }
   }
   return result;
 }
 
 std::shared_ptr<egg::yolk::IEggParserNode> egg::yolk::EggSyntaxNode_Using::promote(egg::yolk::IEggParserContext& context) const {
-  auto expr = this->child[0]->promote(context);
-  auto block = this->child[1]->promote(context);
+  auto expr = context.promote(*this->child[0]);
+  auto block = context.promote(*this->child[1]);
   return std::make_shared<EggParserNode_Using>(expr, block);
 }
 
 std::shared_ptr<egg::yolk::IEggParserNode> egg::yolk::EggSyntaxNode_While::promote(egg::yolk::IEggParserContext& context) const {
-  auto condition = this->child[0]->promote(context);
+  auto condition = context.promote(*this->child[0]);
   EggParserContextNested nested(context, EggParserAllowed::Break|EggParserAllowed::Continue, EggParserAllowed::Rethrow|EggParserAllowed::Return|EggParserAllowed::Yield);
-  auto block = this->child[1]->promote(nested);
+  auto block = nested.promote(*this->child[1]);
   return std::make_shared<EggParserNode_While>(condition, block);
 }
 
@@ -1070,7 +1100,7 @@ std::shared_ptr<egg::yolk::IEggParserNode> egg::yolk::EggSyntaxNode_Yield::promo
   if (!context.isAllowed(EggParserAllowed::Yield)) {
     throw exceptionFromLocation(context, "The 'yield' statement may only be used within generator functions", *this);
   }
-  return std::make_shared<EggParserNode_Yield>(this->child->promote(context));
+  return std::make_shared<EggParserNode_Yield>(context.promote(*this->child));
 }
 
 std::shared_ptr<egg::yolk::IEggParserNode> egg::yolk::EggSyntaxNode_UnaryOperator::promote(egg::yolk::IEggParserContext& context) const {
@@ -1097,6 +1127,8 @@ std::shared_ptr<egg::yolk::IEggParserNode> egg::yolk::EggSyntaxNode_UnaryOperato
 
 std::shared_ptr<egg::yolk::IEggParserNode> egg::yolk::EggSyntaxNode_BinaryOperator::promote(egg::yolk::IEggParserContext& context) const {
   switch (this->op) {
+  case EggTokenizerOperator::BangEqual:
+    return this->promoteBinary<EggParserNode_BinaryUnequal>(context);
   case EggTokenizerOperator::Percent:
     return this->promoteBinary<EggParserNode_BinaryRemainder>(context);
   case EggTokenizerOperator::Ampersand:
@@ -1142,7 +1174,6 @@ std::shared_ptr<egg::yolk::IEggParserNode> egg::yolk::EggSyntaxNode_BinaryOperat
   case EggTokenizerOperator::BarBar:
     return this->promoteBinary<EggParserNode_BinaryLogicalOr>(context);
   case EggTokenizerOperator::Bang:
-  case EggTokenizerOperator::BangEqual:
   case EggTokenizerOperator::PercentEqual:
   case EggTokenizerOperator::AmpersandEqual:
   case EggTokenizerOperator::ParenthesisLeft:
@@ -1174,18 +1205,25 @@ std::shared_ptr<egg::yolk::IEggParserNode> egg::yolk::EggSyntaxNode_BinaryOperat
 }
 
 std::shared_ptr<egg::yolk::IEggParserNode> egg::yolk::EggSyntaxNode_TernaryOperator::promote(egg::yolk::IEggParserContext& context) const {
-  auto condition = this->child[0]->promote(context);
-  auto whenTrue = this->child[1]->promote(context);
-  auto whenFalse = this->child[2]->promote(context);
+  auto condition = context.promote(*this->child[0]);
+  auto whenTrue = context.promote(*this->child[1]);
+  auto whenFalse = context.promote(*this->child[2]);
   return std::make_shared<EggParserNode_Ternary>(condition, whenTrue, whenFalse);
 }
 
-std::shared_ptr<egg::yolk::IEggParserNode> egg::yolk::EggSyntaxNode_Call::promote(egg::yolk::IEggParserContext&) const {
-  EGG_THROW(__FUNCTION__ " TODO"); // TODO
+std::shared_ptr<egg::yolk::IEggParserNode> egg::yolk::EggSyntaxNode_Call::promote(egg::yolk::IEggParserContext& context) const {
+  auto children = this->child.size();
+  assert(children >= 1);
+  auto callee = context.promote(*this->child[0]);
+  auto result = std::make_shared<EggParserNode_Call>(callee);
+  for (size_t i = 1; i < children; ++i) {
+    result->addParameter(context.promote(*this->child[i]));
+  }
+  return result;
 }
 
-std::shared_ptr<egg::yolk::IEggParserNode> egg::yolk::EggSyntaxNode_Named::promote(egg::yolk::IEggParserContext&) const {
-  EGG_THROW(__FUNCTION__ " TODO"); // TODO
+std::shared_ptr<egg::yolk::IEggParserNode> egg::yolk::EggSyntaxNode_Named::promote(egg::yolk::IEggParserContext& context) const {
+  return std::make_shared<EggParserNode_Named>(this->name, context.promote(*this->child));
 }
 
 std::shared_ptr<egg::yolk::IEggParserNode> egg::yolk::EggSyntaxNode_Identifier::promote(egg::yolk::IEggParserContext&) const {
@@ -1239,6 +1277,10 @@ const egg::yolk::EggParserType& EggParserNode_UnaryEllipsis::getType() const {
 
 const egg::yolk::EggParserType& EggParserNode_UnaryBitwiseNot::getType() const {
   return typeInt;
+}
+
+const egg::yolk::EggParserType& EggParserNode_BinaryUnequal::getType() const {
+  return typeBool;
 }
 
 const egg::yolk::EggParserType& EggParserNode_BinaryRemainder::getType() const {
