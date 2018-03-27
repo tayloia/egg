@@ -13,6 +13,81 @@ namespace {
     return static_cast<EggParserAllowed>(static_cast<EggParserAllowedUnderlying>(lhs) | static_cast<EggParserAllowedUnderlying>(rhs));
   }
 
+  class EggParserTypeBase : public IEggParserType, public std::enable_shared_from_this<EggParserTypeBase> {
+  public:
+    virtual ~EggParserTypeBase() {
+    }
+  protected:
+    std::shared_ptr<IEggParserType> share() const {
+      return const_cast<EggParserTypeBase*>(this)->shared_from_this();
+    }
+  };
+
+  class EggParserTypeSimple : public EggParserTypeBase {
+  private:
+    Tag tag;
+  public:
+    explicit EggParserTypeSimple(Tag tag) : tag(tag) {
+    }
+    virtual bool hasSimpleType(Tag bit) const {
+      return this->tag.hasBit(bit);
+    }
+    virtual egg::lang::TypeStorage arithmeticTypes() const {
+      return this->tag.mask(egg::lang::TypeStorage::Arithmetic);
+    }
+    virtual std::shared_ptr<IEggParserType> dereferencedType() const {
+      // Return a dummy value for now
+      return std::make_shared<EggParserTypeSimple>(egg::lang::TypeStorage::Void);
+    }
+    virtual std::shared_ptr<IEggParserType> nullableType(bool nullable) const {
+      if (nullable ^ this->tag.hasBit(egg::lang::TypeStorage::Null)) {
+        // We need to flip the bit
+        return std::make_shared<EggParserTypeSimple>(this->tag ^ egg::lang::TypeStorage::Null);
+      }
+      return this->share();
+    }
+    virtual std::shared_ptr<IEggParserType> unionWith(IEggParserType& other) const {
+      return other.unionWithSimple(this->tag);
+    }
+    virtual std::shared_ptr<IEggParserType> unionWithSimple(Tag other) const {
+      return std::make_shared<EggParserTypeSimple>(this->tag.onion(other));
+    }
+    virtual std::string to_string() const {
+      return EggSyntaxNode_Type::tagToString(this->tag);
+    }
+  };
+
+  class EggParserTypeReference : public EggParserTypeBase {
+  private:
+    std::shared_ptr<IEggParserType> underlying;
+    bool canBeNull;
+  public:
+    EggParserTypeReference(const std::shared_ptr<IEggParserType>& underlying, bool nullable)
+      : underlying(underlying), canBeNull(nullable) {
+    }
+    virtual bool hasSimpleType(Tag tag) const {
+      return (tag == egg::lang::TypeStorage::Null) && this->canBeNull;
+    }
+    virtual egg::lang::TypeStorage arithmeticTypes() const {
+      return egg::lang::TypeStorage::None;
+    }
+    virtual std::shared_ptr<IEggParserType> dereferencedType() const {
+      return this->underlying;
+    }
+    virtual std::shared_ptr<IEggParserType> nullableType(bool nullable) const {
+      return (nullable ^ this->canBeNull) ? std::make_shared<EggParserTypeReference>(this->underlying, nullable) : this->share();
+    }
+    virtual std::shared_ptr<IEggParserType> unionWith(IEggParserType&) const {
+      EGG_THROW(__FUNCTION__ " TODO"); // TODO
+    }
+    virtual std::shared_ptr<IEggParserType> unionWithSimple(Tag) const {
+      EGG_THROW(__FUNCTION__ " TODO"); // TODO
+    }
+    virtual std::string to_string() const {
+      return this->underlying->to_string() + "*";
+    }
+  };
+
   // Constants
   const std::shared_ptr<IEggParserType> typeVoid = std::make_shared<EggParserTypeSimple>(egg::lang::TypeStorage::Void);
   const std::shared_ptr<IEggParserType> typeNull = std::make_shared<EggParserTypeSimple>(egg::lang::TypeStorage::Null);
@@ -29,9 +104,10 @@ namespace {
     Both = egg::lang::TypeStorage::Arithmetic
   };
 
-  EggParserArithmetic getArithmeticTypes(IEggParserNode& node) {
-    auto underlying = node.getType();
-    return (underlying == nullptr) ? EggParserArithmetic::None : EggParserArithmetic(underlying->arithmeticTypes());
+  EggParserArithmetic getArithmeticTypes(const std::shared_ptr<IEggParserNode>& node) {
+    auto underlying = node->getType();
+    assert(underlying != nullptr);
+    return EggParserArithmetic(underlying->arithmeticTypes());
   }
 
   std::shared_ptr<IEggParserType> makeArithmeticType(EggParserArithmetic arithmetic) {
@@ -49,14 +125,16 @@ namespace {
     return nullptr;
   }
 
-  std::shared_ptr<IEggParserType> binaryArithmeticType(EggParserArithmetic lhs, EggParserArithmetic rhs) {
-    if ((lhs == EggParserArithmetic::None) || (rhs == EggParserArithmetic::None)) {
-      return nullptr;
+  std::shared_ptr<IEggParserType> binaryArithmeticTypes(const std::shared_ptr<IEggParserNode>& lhs, const std::shared_ptr<IEggParserNode>& rhs) {
+    auto lhsa = getArithmeticTypes(lhs);
+    auto rhsa = getArithmeticTypes(rhs);
+    if ((lhsa == EggParserArithmetic::None) || (rhsa == EggParserArithmetic::None)) {
+      return typeVoid;
     }
-    if ((lhs == EggParserArithmetic::Int) && (rhs == EggParserArithmetic::Int)) {
+    if ((lhsa == EggParserArithmetic::Int) && (rhsa == EggParserArithmetic::Int)) {
       return typeInt;
     }
-    if ((lhs == EggParserArithmetic::Float) || (rhs == EggParserArithmetic::Float)) {
+    if ((lhsa == EggParserArithmetic::Float) || (rhsa == EggParserArithmetic::Float)) {
       return typeFloat;
     }
     return typeArithmetic;
@@ -69,15 +147,6 @@ namespace {
   SyntaxException exceptionFromToken(const IEggParserContext& context, const std::string& reason, const EggSyntaxNodeBase& node) {
     auto token = node.token();
     return SyntaxException(reason + ": '" + token, context.getResource(), node, token);
-  }
-
-  void tagToStringComponent(std::string& dst, const char* text, bool bit) {
-    if (bit) {
-      if (!dst.empty()) {
-        dst.append("|");
-      }
-      dst.append(text);
-    }
   }
 
   class ParserDump {
@@ -824,36 +893,6 @@ namespace {
   };
 }
 
-std::string egg::yolk::EggParserTypeSimple::tagToString(Tag tag) {
-  using egg::lang::TypeStorage;
-  if (tag == TypeStorage::Inferred) {
-    return "var";
-  }
-  if (tag == TypeStorage::Void) {
-    return "void";
-  }
-  if (tag == TypeStorage::Null) {
-    return "null";
-  }
-  if (tag == TypeStorage::Any) {
-    return "any";
-  }
-  if (tag == (TypeStorage::Null | TypeStorage::Any)) {
-    return "any?";
-  }
-  std::string result;
-  tagToStringComponent(result, "bool", tag.hasBit(TypeStorage::Bool));
-  tagToStringComponent(result, "int", tag.hasBit(TypeStorage::Int));
-  tagToStringComponent(result, "float", tag.hasBit(TypeStorage::Float));
-  tagToStringComponent(result, "string", tag.hasBit(TypeStorage::String));
-  tagToStringComponent(result, "type", tag.hasBit(TypeStorage::Type));
-  tagToStringComponent(result, "object", tag.hasBit(TypeStorage::Object));
-  if (tag.hasBit(TypeStorage::Null)) {
-    result.append("?");
-  }
-  return result;
-}
-
 #define EGG_PARSER_OPERATOR_STRING(name, text) text,
 
 std::string EggParserNodeBase::unaryToString(egg::yolk::EggParserUnary op) {
@@ -1315,16 +1354,18 @@ std::shared_ptr<egg::yolk::IEggParserType> EggParserNode_UnaryLogicalNot::getTyp
 
 std::shared_ptr<egg::yolk::IEggParserType> EggParserNode_UnaryRef::getType() const {
   auto underlying = this->expr->getType();
-  return (underlying == nullptr) ? underlying : std::make_shared<EggParserTypeReference>(underlying);
+  assert(underlying != nullptr);
+  return std::make_shared<EggParserTypeReference>(underlying, false);
 }
 
 std::shared_ptr<egg::yolk::IEggParserType> EggParserNode_UnaryDeref::getType() const {
   auto underlying = this->expr->getType();
-  return (underlying == nullptr) ? underlying : underlying->dereferencedType();
+  assert(underlying != nullptr);
+  return underlying->dereferencedType();
 }
 
 std::shared_ptr<egg::yolk::IEggParserType> EggParserNode_UnaryNegate::getType() const {
-  auto arithmetic = getArithmeticTypes(*this->expr);
+  auto arithmetic = getArithmeticTypes(this->expr);
   return makeArithmeticType(arithmetic);
 }
 
@@ -1343,7 +1384,7 @@ std::shared_ptr<egg::yolk::IEggParserType> EggParserNode_BinaryUnequal::getType(
 std::shared_ptr<egg::yolk::IEggParserType> EggParserNode_BinaryRemainder::getType() const {
   // See http://mindprod.com/jgloss/modulus.html
   // Turn out this equates to the rules for binary-multiply too
-  return binaryArithmeticType(getArithmeticTypes(*this->lhs), getArithmeticTypes(*this->rhs));
+  return binaryArithmeticTypes(this->lhs, this->rhs);
 }
 
 std::shared_ptr<egg::yolk::IEggParserType> EggParserNode_BinaryBitwiseAnd::getType() const {
@@ -1355,15 +1396,15 @@ std::shared_ptr<egg::yolk::IEggParserType> EggParserNode_BinaryLogicalAnd::getTy
 }
 
 std::shared_ptr<egg::yolk::IEggParserType> EggParserNode_BinaryMultiply::getType() const {
-  return binaryArithmeticType(getArithmeticTypes(*this->lhs), getArithmeticTypes(*this->rhs));
+  return binaryArithmeticTypes(this->lhs, this->rhs);
 }
 
 std::shared_ptr<egg::yolk::IEggParserType> EggParserNode_BinaryPlus::getType() const {
-  return binaryArithmeticType(getArithmeticTypes(*this->lhs), getArithmeticTypes(*this->rhs));
+  return binaryArithmeticTypes(this->lhs, this->rhs);
 }
 
 std::shared_ptr<egg::yolk::IEggParserType> EggParserNode_BinaryMinus::getType() const {
-  return binaryArithmeticType(getArithmeticTypes(*this->lhs), getArithmeticTypes(*this->rhs));
+  return binaryArithmeticTypes(this->lhs, this->rhs);
 }
 
 std::shared_ptr<egg::yolk::IEggParserType> EggParserNode_BinaryLambda::getType() const {
@@ -1375,7 +1416,7 @@ std::shared_ptr<egg::yolk::IEggParserType> EggParserNode_BinaryDot::getType() co
 }
 
 std::shared_ptr<egg::yolk::IEggParserType> EggParserNode_BinaryDivide::getType() const {
-  return binaryArithmeticType(getArithmeticTypes(*this->lhs), getArithmeticTypes(*this->rhs));
+  return binaryArithmeticTypes(this->lhs, this->rhs);
 }
 
 std::shared_ptr<egg::yolk::IEggParserType> EggParserNode_BinaryLess::getType() const {
@@ -1411,7 +1452,15 @@ std::shared_ptr<egg::yolk::IEggParserType> EggParserNode_BinaryShiftRightUnsigne
 }
 
 std::shared_ptr<egg::yolk::IEggParserType> EggParserNode_BinaryNullCoalescing::getType() const {
-  EGG_THROW(__FUNCTION__ " TODO"); // TODO
+  auto type1 = this->lhs->getType();
+  assert(type1 != nullptr);
+  if (!type1->hasSimpleType(egg::lang::TypeStorage::Null)) {
+    // The left-hand-side cannot be null, so the right side is irrelevant
+    return type1;
+  }
+  auto type2 = this->rhs->getType();
+  assert(type2 != nullptr);
+  return type1->nullableType(false)->unionWith(*type2);
 }
 
 std::shared_ptr<egg::yolk::IEggParserType> EggParserNode_BinaryBrackets::getType() const {
@@ -1431,7 +1480,17 @@ std::shared_ptr<egg::yolk::IEggParserType> EggParserNode_BinaryLogicalOr::getTyp
 }
 
 std::shared_ptr<egg::yolk::IEggParserType> EggParserNode_Ternary::getType() const {
-  EGG_THROW(__FUNCTION__ " TODO"); // TODO
+  auto type1 = this->condition->getType();
+  assert(type1 != nullptr);
+  if (!type1->hasSimpleType(egg::lang::TypeStorage::Bool)) {
+    // The condition is not a bool, so the other values are irrelevant
+    return typeVoid;
+  }
+  auto type2 = this->whenTrue->getType();
+  assert(type2 != nullptr);
+  auto type3 = this->whenFalse->getType();
+  assert(type3 != nullptr);
+  return type2->unionWith(*type3);
 }
 
 std::shared_ptr<egg::yolk::IEggParser> egg::yolk::EggParserFactory::createModuleParser() {

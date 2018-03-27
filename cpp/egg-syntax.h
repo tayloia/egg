@@ -132,6 +132,7 @@ namespace egg::yolk {
     virtual void dump(std::ostream& os) const override;
     virtual std::string token() const override;
     virtual std::shared_ptr<IEggParserNode> promote(IEggParserContext& context) const override;
+    static std::string tagToString(egg::lang::VariantTag tag);
   };
 
   class EggSyntaxNode_VariableDeclaration : public EggSyntaxNodeChildren1 {

@@ -27,6 +27,10 @@ namespace egg::lang {
     TypeStorage mask(TypeStorage bit) const {
       return TypeStorage(underlying(this->bits) & underlying(bit));
     }
+    TypeStorage onion(TypeStorage bit) const {
+      // Because 'union' is a reserved word
+      return TypeStorage(underlying(this->bits) | underlying(bit));
+    }
     bool hasBit(TypeStorage bit) const {
       return (underlying(this->bits) & underlying(bit)) != 0;
     }
@@ -38,5 +42,9 @@ namespace egg::lang {
   inline VariantTag operator|(TypeStorage lhs, TypeStorage rhs) {
     // See http://blog.bitwigglers.org/using-enum-classes-as-type-safe-bitmasks/
     return static_cast<TypeStorage>(VariantTag::underlying(lhs) | VariantTag::underlying(rhs));
+  }
+
+  inline VariantTag operator^(TypeStorage lhs, TypeStorage rhs) {
+    return static_cast<TypeStorage>(VariantTag::underlying(lhs) ^ VariantTag::underlying(rhs));
   }
 }

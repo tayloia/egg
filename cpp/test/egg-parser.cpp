@@ -25,7 +25,7 @@ namespace {
     auto tokenizer = EggTokenizerFactory::createFromLexer(lexer);
     auto parser = EggParserFactory::createExpressionParser();
     auto type = parser->parse(*tokenizer)->getType();
-    return (type == nullptr) ? "(bad)" : type->to_string();
+    return (type == nullptr) ? "(nullptr)" : type->to_string();
   }
 }
 
@@ -57,12 +57,15 @@ TEST(TestEggParser, ExpressionType) {
   ASSERT_PARSE_GOOD(typeFromExpression("\"hi\""), "string");
   ASSERT_PARSE_GOOD(typeFromExpression("`bye`"), "string");
   ASSERT_PARSE_GOOD(typeFromExpression("&123"), "int*"); // TODO
-  ASSERT_PARSE_GOOD(typeFromExpression("*123"), "(bad)");
+  ASSERT_PARSE_GOOD(typeFromExpression("*123"), "void");
+  ASSERT_PARSE_GOOD(typeFromExpression("!true"), "bool");
+  ASSERT_PARSE_GOOD(typeFromExpression("- 123"), "int");
+  ASSERT_PARSE_GOOD(typeFromExpression("~123"), "int");
   ASSERT_PARSE_GOOD(typeFromExpression("1+2"), "int");
   ASSERT_PARSE_GOOD(typeFromExpression("1.0+2"), "float");
   ASSERT_PARSE_GOOD(typeFromExpression("1+2.0"), "float");
   ASSERT_PARSE_GOOD(typeFromExpression("1.0+2.0"), "float");
-  ASSERT_PARSE_GOOD(typeFromExpression("1.0+null"), "(bad)");
+  ASSERT_PARSE_GOOD(typeFromExpression("1.0+null"), "void");
   ASSERT_PARSE_GOOD(typeFromExpression("1-2"), "int");
   ASSERT_PARSE_GOOD(typeFromExpression("1.0-2.0"), "float");
   ASSERT_PARSE_GOOD(typeFromExpression("1*2"), "int");
@@ -71,6 +74,26 @@ TEST(TestEggParser, ExpressionType) {
   ASSERT_PARSE_GOOD(typeFromExpression("1.0/2.0"), "float");
   ASSERT_PARSE_GOOD(typeFromExpression("1%2"), "int");
   ASSERT_PARSE_GOOD(typeFromExpression("1.0%2.0"), "float");
+  ASSERT_PARSE_GOOD(typeFromExpression("1&2"), "int");
+  ASSERT_PARSE_GOOD(typeFromExpression("1|2"), "int");
+  ASSERT_PARSE_GOOD(typeFromExpression("1^2"), "int");
+  ASSERT_PARSE_GOOD(typeFromExpression("1<<2"), "int");
+  ASSERT_PARSE_GOOD(typeFromExpression("1>>2"), "int");
+  ASSERT_PARSE_GOOD(typeFromExpression("1>>>2"), "int");
+  ASSERT_PARSE_GOOD(typeFromExpression("true&&true"), "bool");
+  ASSERT_PARSE_GOOD(typeFromExpression("true||true"), "bool");
+  ASSERT_PARSE_GOOD(typeFromExpression("1<2"), "bool");
+  ASSERT_PARSE_GOOD(typeFromExpression("1<=2"), "bool");
+  ASSERT_PARSE_GOOD(typeFromExpression("1==2"), "bool");
+  ASSERT_PARSE_GOOD(typeFromExpression("1!=2"), "bool");
+  ASSERT_PARSE_GOOD(typeFromExpression("1>=2"), "bool");
+  ASSERT_PARSE_GOOD(typeFromExpression("1>2"), "bool");
+  ASSERT_PARSE_GOOD(typeFromExpression("true??123"), "bool");
+  ASSERT_PARSE_GOOD(typeFromExpression("null??123"), "int");
+  ASSERT_PARSE_GOOD(typeFromExpression("null?123:123.45"), "void");
+  ASSERT_PARSE_GOOD(typeFromExpression("true?123:null"), "int?");
+  ASSERT_PARSE_GOOD(typeFromExpression("true?123:123.45"), "int|float");
+  ASSERT_PARSE_GOOD(typeFromExpression("true?123:true?123.45:`hi`"), "int|float|string");
 }
 
 TEST(TestEggParser, ExampleFile) {

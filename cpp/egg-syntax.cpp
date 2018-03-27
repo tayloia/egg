@@ -60,7 +60,7 @@ void egg::yolk::EggSyntaxNode_Block::dump(std::ostream& os) const {
 }
 
 void egg::yolk::EggSyntaxNode_Type::dump(std::ostream& os) const {
-  ParserDump(os, "type").add(EggParserTypeSimple::tagToString(this->tag));
+  ParserDump(os, "type").add(EggSyntaxNode_Type::tagToString(this->tag));
 }
 
 void egg::yolk::EggSyntaxNode_VariableDeclaration::dump(std::ostream& os) const {
@@ -292,7 +292,7 @@ std::string egg::yolk::EggSyntaxNodeBase::token() const {
 }
 
 std::string egg::yolk::EggSyntaxNode_Type::token() const {
-  return EggParserTypeSimple::tagToString(this->tag);
+  return EggSyntaxNode_Type::tagToString(this->tag);
 }
 
 std::string egg::yolk::EggSyntaxNode_VariableDeclaration::token() const {
@@ -1703,6 +1703,45 @@ std::unique_ptr<IEggSyntaxNode> EggSyntaxParserContext::parseTypeSimple(egg::lan
 
 std::unique_ptr<IEggSyntaxNode> EggSyntaxParserContext::parseTypeDefinition() {
   EGG_THROW(__FUNCTION__ " TODO"); // TODO
+}
+
+static void tagToStringComponent(std::string& dst, const char* text, bool bit) {
+  if (bit) {
+    if (!dst.empty()) {
+      dst.append("|");
+    }
+    dst.append(text);
+  }
+}
+
+std::string egg::yolk::EggSyntaxNode_Type::tagToString(egg::lang::VariantTag tag) {
+  using egg::lang::TypeStorage;
+  if (tag == TypeStorage::Inferred) {
+    return "var";
+  }
+  if (tag == TypeStorage::Void) {
+    return "void";
+  }
+  if (tag == TypeStorage::Null) {
+    return "null";
+  }
+  if (tag == TypeStorage::Any) {
+    return "any";
+  }
+  if (tag == (TypeStorage::Null | TypeStorage::Any)) {
+    return "any?";
+  }
+  std::string result;
+  tagToStringComponent(result, "bool", tag.hasBit(TypeStorage::Bool));
+  tagToStringComponent(result, "int", tag.hasBit(TypeStorage::Int));
+  tagToStringComponent(result, "float", tag.hasBit(TypeStorage::Float));
+  tagToStringComponent(result, "string", tag.hasBit(TypeStorage::String));
+  tagToStringComponent(result, "type", tag.hasBit(TypeStorage::Type));
+  tagToStringComponent(result, "object", tag.hasBit(TypeStorage::Object));
+  if (tag.hasBit(TypeStorage::Null)) {
+    result.append("?");
+  }
+  return result;
 }
 
 std::shared_ptr<egg::yolk::IEggSyntaxParser> egg::yolk::EggParserFactory::createModuleSyntaxParser() {

@@ -60,50 +60,10 @@ namespace egg::yolk {
     virtual bool hasSimpleType(Tag bit) const = 0;
     virtual egg::lang::TypeStorage arithmeticTypes() const = 0;
     virtual std::shared_ptr<IEggParserType> dereferencedType() const = 0;
+    virtual std::shared_ptr<IEggParserType> nullableType(bool nullable) const = 0;
+    virtual std::shared_ptr<IEggParserType> unionWith(IEggParserType& other) const = 0;
+    virtual std::shared_ptr<IEggParserType> unionWithSimple(Tag other) const = 0;
     virtual std::string to_string() const = 0;
-  };
-
-  class EggParserTypeSimple : public IEggParserType {
-  private:
-    Tag tag;
-  public:
-    explicit EggParserTypeSimple(Tag tag) : tag(tag) {
-    }
-    virtual bool hasSimpleType(Tag bit) const {
-      return this->tag.hasBit(bit);
-    }
-    virtual egg::lang::TypeStorage arithmeticTypes() const {
-      return this->tag.mask(egg::lang::TypeStorage::Arithmetic);
-    }
-    virtual std::shared_ptr<IEggParserType> dereferencedType() const {
-      return nullptr;
-    }
-    virtual std::string to_string() const {
-      return EggParserTypeSimple::tagToString(this->tag);
-    }
-    static std::string tagToString(Tag tag);
-  };
-
-  class EggParserTypeReference : public IEggParserType {
-  private:
-    std::shared_ptr<IEggParserType> underlying;
-  public:
-    explicit EggParserTypeReference(const std::shared_ptr<IEggParserType>& underlying) : underlying(underlying) {
-    }
-    virtual ~EggParserTypeReference() {
-    }
-    virtual bool hasSimpleType(Tag) const {
-      return false;
-    }
-    virtual egg::lang::TypeStorage arithmeticTypes() const {
-      return egg::lang::TypeStorage::None;
-    }
-    virtual std::shared_ptr<IEggParserType> dereferencedType() const {
-      return this->underlying;
-    }
-    virtual std::string to_string() const {
-      return this->underlying->to_string() + "*";
-    }
   };
 
   class IEggParserNode {
