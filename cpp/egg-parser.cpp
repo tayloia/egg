@@ -14,12 +14,53 @@ namespace {
   }
 
   // Constants
-  const EggParserType typeVoid{ egg::lang::TypeStorage::Void };
-  const EggParserType typeNull{ egg::lang::TypeStorage::Null };
-  const EggParserType typeBool{ egg::lang::TypeStorage::Bool };
-  const EggParserType typeInt{ egg::lang::TypeStorage::Int };
-  const EggParserType typeFloat{ egg::lang::TypeStorage::Float };
-  const EggParserType typeString{ egg::lang::TypeStorage::String };
+  const std::shared_ptr<IEggParserType> typeVoid = std::make_shared<EggParserTypeSimple>(egg::lang::TypeStorage::Void);
+  const std::shared_ptr<IEggParserType> typeNull = std::make_shared<EggParserTypeSimple>(egg::lang::TypeStorage::Null);
+  const std::shared_ptr<IEggParserType> typeBool = std::make_shared<EggParserTypeSimple>(egg::lang::TypeStorage::Bool);
+  const std::shared_ptr<IEggParserType> typeInt = std::make_shared<EggParserTypeSimple>(egg::lang::TypeStorage::Int);
+  const std::shared_ptr<IEggParserType> typeFloat = std::make_shared<EggParserTypeSimple>(egg::lang::TypeStorage::Float);
+  const std::shared_ptr<IEggParserType> typeArithmetic = std::make_shared<EggParserTypeSimple>(egg::lang::TypeStorage::Arithmetic);
+  const std::shared_ptr<IEggParserType> typeString = std::make_shared<EggParserTypeSimple>(egg::lang::TypeStorage::String);
+
+  enum class EggParserArithmetic {
+    None = egg::lang::TypeStorage::None,
+    Int = egg::lang::TypeStorage::Int,
+    Float = egg::lang::TypeStorage::Float,
+    Both = egg::lang::TypeStorage::Arithmetic
+  };
+
+  EggParserArithmetic getArithmeticTypes(IEggParserNode& node) {
+    auto underlying = node.getType();
+    return (underlying == nullptr) ? EggParserArithmetic::None : EggParserArithmetic(underlying->arithmeticTypes());
+  }
+
+  std::shared_ptr<IEggParserType> makeArithmeticType(EggParserArithmetic arithmetic) {
+    switch (arithmetic) {
+    case EggParserArithmetic::Int:
+      return typeInt;
+    case EggParserArithmetic::Float:
+      return typeFloat;
+    case EggParserArithmetic::Both:
+      return typeArithmetic;
+    case EggParserArithmetic::None:
+    default:
+      break;
+    }
+    return nullptr;
+  }
+
+  std::shared_ptr<IEggParserType> binaryArithmeticType(EggParserArithmetic lhs, EggParserArithmetic rhs) {
+    if ((lhs == EggParserArithmetic::None) || (rhs == EggParserArithmetic::None)) {
+      return nullptr;
+    }
+    if ((lhs == EggParserArithmetic::Int) && (rhs == EggParserArithmetic::Int)) {
+      return typeInt;
+    }
+    if ((lhs == EggParserArithmetic::Float) || (rhs == EggParserArithmetic::Float)) {
+      return typeFloat;
+    }
+    return typeArithmetic;
+  }
 
   SyntaxException exceptionFromLocation(const IEggParserContext& context, const std::string& reason, const EggSyntaxNodeLocation& location) {
     return SyntaxException(reason, context.getResource(), location);
@@ -81,7 +122,7 @@ namespace {
   public:
     virtual ~EggParserNodeBase() {
     }
-    virtual const EggParserType& getType() const override {
+    virtual std::shared_ptr<IEggParserType> getType() const override {
       return typeVoid;
     }
     static std::string unaryToString(EggParserUnary op);
@@ -118,16 +159,16 @@ namespace {
 
   class EggParserNode_Type : public EggParserNodeBase {
   private:
-    EggParserType type;
+    std::shared_ptr<IEggParserType> type;
   public:
-    explicit EggParserNode_Type(EggParserType type)
+    explicit EggParserNode_Type(const std::shared_ptr<IEggParserType>& type)
       : type(type) {
     }
-    virtual const EggParserType& getType() const override {
+    virtual std::shared_ptr<IEggParserType> getType() const override {
       return this->type;
     }
     virtual void dump(std::ostream& os) const override {
-      ParserDump(os, "type").add(this->type.tagToString());
+      ParserDump(os, "type").add(this->type->to_string());
     }
   };
 
@@ -454,7 +495,7 @@ namespace {
 
   class EggParserNode_LiteralNull : public EggParserNodeBase {
   public:
-    virtual const EggParserType& getType() const override {
+    virtual std::shared_ptr<IEggParserType> getType() const override {
       return typeNull;
     }
     virtual void dump(std::ostream& os) const override {
@@ -470,7 +511,7 @@ namespace {
     explicit EggParserNode_LiteralBool(bool value)
       : value(value) {
     }
-    virtual const EggParserType& getType() const override {
+    virtual std::shared_ptr<IEggParserType> getType() const override {
       return typeBool;
     }
     virtual void dump(std::ostream& os) const override {
@@ -487,7 +528,7 @@ namespace {
     explicit EggParserNode_LiteralInteger(int64_t value)
       : value(value) {
     }
-    virtual const EggParserType& getType() const override {
+    virtual std::shared_ptr<IEggParserType> getType() const override {
       return typeInt;
     }
     virtual void dump(std::ostream& os) const override {
@@ -502,7 +543,7 @@ namespace {
     explicit EggParserNode_LiteralFloat(double value)
       : value(value) {
     }
-    virtual const EggParserType& getType() const override {
+    virtual std::shared_ptr<IEggParserType> getType() const override {
       return typeFloat;
     }
     virtual void dump(std::ostream& os) const override {
@@ -517,7 +558,7 @@ namespace {
     explicit EggParserNode_LiteralString(const std::string& value)
       : value(value) {
     }
-    virtual const EggParserType& getType() const override {
+    virtual std::shared_ptr<IEggParserType> getType() const override {
       return typeString;
     }
     virtual void dump(std::ostream& os) const override {
@@ -545,7 +586,7 @@ namespace {
     EggParserNode_Unary##name(const std::shared_ptr<IEggParserNode>& expr) \
       : EggParserNode_Unary(EggParserUnary::name, expr) { \
     } \
-    virtual const EggParserType& getType() const override; \
+    virtual std::shared_ptr<IEggParserType> getType() const override; \
   };
   EGG_PARSER_UNARY_OPERATORS(EGG_PARSER_UNARY_OPERATOR_DEFINE)
 
@@ -571,7 +612,7 @@ namespace {
     EggParserNode_Binary##name(const std::shared_ptr<IEggParserNode>& lhs, const std::shared_ptr<IEggParserNode>& rhs) \
       : EggParserNode_Binary(EggParserBinary::name, lhs, rhs) { \
     } \
-    virtual const EggParserType& getType() const override; \
+    virtual std::shared_ptr<IEggParserType> getType() const override; \
   };
   EGG_PARSER_BINARY_OPERATORS(EGG_PARSER_BINARY_OPERATOR_DEFINE)
 
@@ -590,7 +631,7 @@ namespace {
     virtual void dump(std::ostream& os) const override {
       ParserDump(os, "ternary").add(this->condition).add(this->whenTrue).add(this->whenFalse);
     }
-    virtual const EggParserType& getType() const override;
+    virtual std::shared_ptr<IEggParserType> getType() const override;
   };
 
   class EggParserNode_Assign : public EggParserNodeBase {
@@ -771,15 +812,28 @@ namespace {
       return context.promote(*ast);
     }
   };
+
+  class EggParserExpression : public IEggParser {
+  public:
+    virtual std::shared_ptr<IEggParserNode> parse(IEggTokenizer& tokenizer) override {
+      auto syntax = EggParserFactory::createExpressionSyntaxParser();
+      auto ast = syntax->parse(tokenizer);
+      EggParserContext context(tokenizer.resource());
+      return context.promote(*ast);
+    }
+  };
 }
 
-std::string egg::yolk::EggParserType::tagToString(Tag tag) {
+std::string egg::yolk::EggParserTypeSimple::tagToString(Tag tag) {
   using egg::lang::TypeStorage;
   if (tag == TypeStorage::Inferred) {
     return "var";
   }
   if (tag == TypeStorage::Void) {
     return "void";
+  }
+  if (tag == TypeStorage::Null) {
+    return "null";
   }
   if (tag == TypeStorage::Any) {
     return "any";
@@ -794,7 +848,7 @@ std::string egg::yolk::EggParserType::tagToString(Tag tag) {
   tagToStringComponent(result, "string", tag.hasBit(TypeStorage::String));
   tagToStringComponent(result, "type", tag.hasBit(TypeStorage::Type));
   tagToStringComponent(result, "object", tag.hasBit(TypeStorage::Object));
-  if (tag.hasBit(TypeStorage::Void)) {
+  if (tag.hasBit(TypeStorage::Null)) {
     result.append("?");
   }
   return result;
@@ -862,8 +916,8 @@ std::shared_ptr<egg::yolk::IEggParserNode> egg::yolk::EggSyntaxNode_Block::promo
 }
 
 std::shared_ptr<egg::yolk::IEggParserNode> egg::yolk::EggSyntaxNode_Type::promote(egg::yolk::IEggParserContext&) const {
-  auto type = std::make_shared<EggParserNode_Type>(EggParserType(this->tag));
-  return type;
+  auto type = std::make_shared<EggParserTypeSimple>(this->tag);
+  return std::make_shared<EggParserNode_Type>(type);
 }
 
 std::shared_ptr<egg::yolk::IEggParserNode> egg::yolk::EggSyntaxNode_VariableDeclaration::promote(egg::yolk::IEggParserContext& context) const {
@@ -1255,127 +1309,135 @@ std::shared_ptr<egg::yolk::IEggParserNode> egg::yolk::EggSyntaxNode_Literal::pro
   throw exceptionFromToken(context, "Unknown literal value keyword", *this);
 }
 
-const egg::yolk::EggParserType& EggParserNode_UnaryLogicalNot::getType() const {
+std::shared_ptr<egg::yolk::IEggParserType> EggParserNode_UnaryLogicalNot::getType() const {
   return typeBool;
 }
 
-const egg::yolk::EggParserType& EggParserNode_UnaryRef::getType() const {
+std::shared_ptr<egg::yolk::IEggParserType> EggParserNode_UnaryRef::getType() const {
+  auto underlying = this->expr->getType();
+  return (underlying == nullptr) ? underlying : std::make_shared<EggParserTypeReference>(underlying);
+}
+
+std::shared_ptr<egg::yolk::IEggParserType> EggParserNode_UnaryDeref::getType() const {
+  auto underlying = this->expr->getType();
+  return (underlying == nullptr) ? underlying : underlying->dereferencedType();
+}
+
+std::shared_ptr<egg::yolk::IEggParserType> EggParserNode_UnaryNegate::getType() const {
+  auto arithmetic = getArithmeticTypes(*this->expr);
+  return makeArithmeticType(arithmetic);
+}
+
+std::shared_ptr<egg::yolk::IEggParserType> EggParserNode_UnaryEllipsis::getType() const {
   EGG_THROW(__FUNCTION__ " TODO"); // TODO
 }
 
-const egg::yolk::EggParserType& EggParserNode_UnaryDeref::getType() const {
-  EGG_THROW(__FUNCTION__ " TODO"); // TODO
-}
-
-const egg::yolk::EggParserType& EggParserNode_UnaryNegate::getType() const {
-  return this->expr->getType();
-}
-
-const egg::yolk::EggParserType& EggParserNode_UnaryEllipsis::getType() const {
-  EGG_THROW(__FUNCTION__ " TODO"); // TODO
-}
-
-const egg::yolk::EggParserType& EggParserNode_UnaryBitwiseNot::getType() const {
+std::shared_ptr<egg::yolk::IEggParserType> EggParserNode_UnaryBitwiseNot::getType() const {
   return typeInt;
 }
 
-const egg::yolk::EggParserType& EggParserNode_BinaryUnequal::getType() const {
+std::shared_ptr<egg::yolk::IEggParserType> EggParserNode_BinaryUnequal::getType() const {
   return typeBool;
 }
 
-const egg::yolk::EggParserType& EggParserNode_BinaryRemainder::getType() const {
+std::shared_ptr<egg::yolk::IEggParserType> EggParserNode_BinaryRemainder::getType() const {
   // See http://mindprod.com/jgloss/modulus.html
-  return this->lhs->getType();
+  // Turn out this equates to the rules for binary-multiply too
+  return binaryArithmeticType(getArithmeticTypes(*this->lhs), getArithmeticTypes(*this->rhs));
 }
 
-const egg::yolk::EggParserType& EggParserNode_BinaryBitwiseAnd::getType() const {
+std::shared_ptr<egg::yolk::IEggParserType> EggParserNode_BinaryBitwiseAnd::getType() const {
   return typeInt;
 }
 
-const egg::yolk::EggParserType& EggParserNode_BinaryLogicalAnd::getType() const {
+std::shared_ptr<egg::yolk::IEggParserType> EggParserNode_BinaryLogicalAnd::getType() const {
   return typeBool;
 }
 
-const egg::yolk::EggParserType& EggParserNode_BinaryMultiply::getType() const {
+std::shared_ptr<egg::yolk::IEggParserType> EggParserNode_BinaryMultiply::getType() const {
+  return binaryArithmeticType(getArithmeticTypes(*this->lhs), getArithmeticTypes(*this->rhs));
+}
+
+std::shared_ptr<egg::yolk::IEggParserType> EggParserNode_BinaryPlus::getType() const {
+  return binaryArithmeticType(getArithmeticTypes(*this->lhs), getArithmeticTypes(*this->rhs));
+}
+
+std::shared_ptr<egg::yolk::IEggParserType> EggParserNode_BinaryMinus::getType() const {
+  return binaryArithmeticType(getArithmeticTypes(*this->lhs), getArithmeticTypes(*this->rhs));
+}
+
+std::shared_ptr<egg::yolk::IEggParserType> EggParserNode_BinaryLambda::getType() const {
   EGG_THROW(__FUNCTION__ " TODO"); // TODO
 }
 
-const egg::yolk::EggParserType& EggParserNode_BinaryPlus::getType() const {
+std::shared_ptr<egg::yolk::IEggParserType> EggParserNode_BinaryDot::getType() const {
   EGG_THROW(__FUNCTION__ " TODO"); // TODO
 }
 
-const egg::yolk::EggParserType& EggParserNode_BinaryMinus::getType() const {
-  EGG_THROW(__FUNCTION__ " TODO"); // TODO
+std::shared_ptr<egg::yolk::IEggParserType> EggParserNode_BinaryDivide::getType() const {
+  return binaryArithmeticType(getArithmeticTypes(*this->lhs), getArithmeticTypes(*this->rhs));
 }
 
-const egg::yolk::EggParserType& EggParserNode_BinaryLambda::getType() const {
-  EGG_THROW(__FUNCTION__ " TODO"); // TODO
-}
-
-const egg::yolk::EggParserType& EggParserNode_BinaryDot::getType() const {
-  EGG_THROW(__FUNCTION__ " TODO"); // TODO
-}
-
-const egg::yolk::EggParserType& EggParserNode_BinaryDivide::getType() const {
-  EGG_THROW(__FUNCTION__ " TODO"); // TODO
-}
-
-const egg::yolk::EggParserType& EggParserNode_BinaryLess::getType() const {
+std::shared_ptr<egg::yolk::IEggParserType> EggParserNode_BinaryLess::getType() const {
   return typeBool;
 }
 
-const egg::yolk::EggParserType& EggParserNode_BinaryShiftLeft::getType() const {
+std::shared_ptr<egg::yolk::IEggParserType> EggParserNode_BinaryShiftLeft::getType() const {
   return typeInt;
 }
 
-const egg::yolk::EggParserType& EggParserNode_BinaryLessEqual::getType() const {
+std::shared_ptr<egg::yolk::IEggParserType> EggParserNode_BinaryLessEqual::getType() const {
   return typeBool;
 }
 
-const egg::yolk::EggParserType& EggParserNode_BinaryEqual::getType() const {
+std::shared_ptr<egg::yolk::IEggParserType> EggParserNode_BinaryEqual::getType() const {
   return typeBool;
 }
 
-const egg::yolk::EggParserType& EggParserNode_BinaryGreater::getType() const {
+std::shared_ptr<egg::yolk::IEggParserType> EggParserNode_BinaryGreater::getType() const {
   return typeBool;
 }
 
-const egg::yolk::EggParserType& EggParserNode_BinaryGreaterEqual::getType() const {
+std::shared_ptr<egg::yolk::IEggParserType> EggParserNode_BinaryGreaterEqual::getType() const {
   return typeBool;
 }
 
-const egg::yolk::EggParserType& EggParserNode_BinaryShiftRight::getType() const {
+std::shared_ptr<egg::yolk::IEggParserType> EggParserNode_BinaryShiftRight::getType() const {
   return typeInt;
 }
 
-const egg::yolk::EggParserType& EggParserNode_BinaryShiftRightUnsigned::getType() const {
+std::shared_ptr<egg::yolk::IEggParserType> EggParserNode_BinaryShiftRightUnsigned::getType() const {
   return typeInt;
 }
 
-const egg::yolk::EggParserType& EggParserNode_BinaryNullCoalescing::getType() const {
+std::shared_ptr<egg::yolk::IEggParserType> EggParserNode_BinaryNullCoalescing::getType() const {
   EGG_THROW(__FUNCTION__ " TODO"); // TODO
 }
 
-const egg::yolk::EggParserType& EggParserNode_BinaryBrackets::getType() const {
+std::shared_ptr<egg::yolk::IEggParserType> EggParserNode_BinaryBrackets::getType() const {
   EGG_THROW(__FUNCTION__ " TODO"); // TODO
 }
 
-const egg::yolk::EggParserType& EggParserNode_BinaryBitwiseXor::getType() const {
+std::shared_ptr<egg::yolk::IEggParserType> EggParserNode_BinaryBitwiseXor::getType() const {
   return typeInt;
 }
 
-const egg::yolk::EggParserType& EggParserNode_BinaryBitwiseOr::getType() const {
+std::shared_ptr<egg::yolk::IEggParserType> EggParserNode_BinaryBitwiseOr::getType() const {
   return typeInt;
 }
 
-const egg::yolk::EggParserType& EggParserNode_BinaryLogicalOr::getType() const {
+std::shared_ptr<egg::yolk::IEggParserType> EggParserNode_BinaryLogicalOr::getType() const {
   return typeBool;
 }
 
-const egg::yolk::EggParserType& EggParserNode_Ternary::getType() const {
+std::shared_ptr<egg::yolk::IEggParserType> EggParserNode_Ternary::getType() const {
   EGG_THROW(__FUNCTION__ " TODO"); // TODO
 }
 
 std::shared_ptr<egg::yolk::IEggParser> egg::yolk::EggParserFactory::createModuleParser() {
   return std::make_shared<EggParserModule>();
+}
+
+std::shared_ptr<egg::yolk::IEggParser> egg::yolk::EggParserFactory::createExpressionParser() {
+  return std::make_shared<EggParserExpression>();
 }

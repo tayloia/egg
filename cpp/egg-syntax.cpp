@@ -60,7 +60,7 @@ void egg::yolk::EggSyntaxNode_Block::dump(std::ostream& os) const {
 }
 
 void egg::yolk::EggSyntaxNode_Type::dump(std::ostream& os) const {
-  ParserDump(os, "type").add(EggParserType::tagToString(this->tag));
+  ParserDump(os, "type").add(EggParserTypeSimple::tagToString(this->tag));
 }
 
 void egg::yolk::EggSyntaxNode_VariableDeclaration::dump(std::ostream& os) const {
@@ -292,7 +292,7 @@ std::string egg::yolk::EggSyntaxNodeBase::token() const {
 }
 
 std::string egg::yolk::EggSyntaxNode_Type::token() const {
-  return EggParserType::tagToString(this->tag);
+  return EggParserTypeSimple::tagToString(this->tag);
 }
 
 std::string egg::yolk::EggSyntaxNode_VariableDeclaration::token() const {

@@ -9,3 +9,8 @@ case 234:
 default:
   break;
 }
+try {
+  func(named:a,b,c);
+} catch (any ex) {
+  throw;
+}

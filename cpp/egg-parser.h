@@ -54,22 +54,61 @@
 #define EGG_PARSER_MUTATE_OPERATOR_DECLARE(name, text) name,
 
 namespace egg::yolk {
-  class EggParserType {
+  class IEggParserType {
+  public:
     using Tag = egg::lang::VariantTag;
+    virtual bool hasSimpleType(Tag bit) const = 0;
+    virtual egg::lang::TypeStorage arithmeticTypes() const = 0;
+    virtual std::shared_ptr<IEggParserType> dereferencedType() const = 0;
+    virtual std::string to_string() const = 0;
+  };
+
+  class EggParserTypeSimple : public IEggParserType {
   private:
     Tag tag;
   public:
-    explicit EggParserType(Tag tag) : tag(tag) {
+    explicit EggParserTypeSimple(Tag tag) : tag(tag) {
     }
-    std::string tagToString() const {
-      return EggParserType::tagToString(this->tag);
+    virtual bool hasSimpleType(Tag bit) const {
+      return this->tag.hasBit(bit);
+    }
+    virtual egg::lang::TypeStorage arithmeticTypes() const {
+      return this->tag.mask(egg::lang::TypeStorage::Arithmetic);
+    }
+    virtual std::shared_ptr<IEggParserType> dereferencedType() const {
+      return nullptr;
+    }
+    virtual std::string to_string() const {
+      return EggParserTypeSimple::tagToString(this->tag);
     }
     static std::string tagToString(Tag tag);
   };
 
+  class EggParserTypeReference : public IEggParserType {
+  private:
+    std::shared_ptr<IEggParserType> underlying;
+  public:
+    explicit EggParserTypeReference(const std::shared_ptr<IEggParserType>& underlying) : underlying(underlying) {
+    }
+    virtual ~EggParserTypeReference() {
+    }
+    virtual bool hasSimpleType(Tag) const {
+      return false;
+    }
+    virtual egg::lang::TypeStorage arithmeticTypes() const {
+      return egg::lang::TypeStorage::None;
+    }
+    virtual std::shared_ptr<IEggParserType> dereferencedType() const {
+      return this->underlying;
+    }
+    virtual std::string to_string() const {
+      return this->underlying->to_string() + "*";
+    }
+  };
+
   class IEggParserNode {
   public:
-    virtual const EggParserType& getType() const = 0;
+    virtual std::shared_ptr<IEggParserType> getType() const = 0;
     virtual void dump(std::ostream& os) const = 0;
   };
 
@@ -129,5 +168,6 @@ namespace egg::yolk {
 
     // AST parsers
     static std::shared_ptr<IEggParser> createModuleParser();
+    static std::shared_ptr<IEggParser> createExpressionParser();
   };
 }

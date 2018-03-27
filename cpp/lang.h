@@ -1,15 +1,17 @@
 namespace egg::lang {
   enum class TypeStorage {
     Inferred = -1,
-    Void = 0,
-    Null = 1 << 0,
-    Bool = 1 << 1,
-    Int = 1 << 2,
-    Float = 1 << 3,
-    String = 1 << 4,
-    Type = 1 << 5,
-    Object = 1 << 6,
-    Any = Bool | Int | Float | String | Type | Object
+    None = 0,
+    Void = 1 << 0,
+    Null = 1 << 1,
+    Bool = 1 << 2,
+    Int = 1 << 3,
+    Float = 1 << 4,
+    String = 1 << 5,
+    Type = 1 << 6,
+    Object = 1 << 7,
+    Any = Bool | Int | Float | String | Type | Object,
+    Arithmetic = Int | Float
   };
 
   class VariantTag {
@@ -21,6 +23,9 @@ namespace egg::lang {
     }
     operator TypeStorage() const {
       return this->bits;
+    }
+    TypeStorage mask(TypeStorage bit) const {
+      return TypeStorage(underlying(this->bits) & underlying(bit));
     }
     bool hasBit(TypeStorage bit) const {
       return (underlying(this->bits) & underlying(bit)) != 0;
