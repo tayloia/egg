@@ -56,6 +56,9 @@
     <ClInclude Include="..\cpp\lang.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="..\cpp\egg-engine.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\cpp\test\gtest.cpp">
@@ -89,6 +92,12 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="..\cpp\egg-syntax.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\cpp\egg-engine.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\cpp\strings.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

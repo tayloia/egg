@@ -99,5 +99,14 @@ namespace egg::yolk {
       }
       return ss.str();
     }
+    struct StringFromEnum {
+      int value;
+      const char* text;
+    };
+    template<typename E, size_t N>
+    static std::string fromEnum(E value, const StringFromEnum (&table)[N]) {
+      return String::fromEnum(static_cast<int>(value), table, table + N);
+    }
+    static std::string fromEnum(int value, const StringFromEnum* tableBegin, const StringFromEnum* tableEnd);
   };
 }

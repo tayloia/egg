@@ -1,4 +1,18 @@
 namespace egg::lang {
+  enum class LogSource {
+    Compiler = 1 << 0,
+    Runtime = 1 << 1,
+    User = 1 << 2
+  };
+
+  enum class LogSeverity {
+    Debug = 1 << 0,
+    Verbose = 1 << 1,
+    Information = 1 << 2,
+    Warning = 1 << 3,
+    Error = 1 << 4
+  };
+
   enum class TypeStorage {
     Inferred = -1,
     None = 0,

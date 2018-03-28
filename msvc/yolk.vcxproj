@@ -19,6 +19,7 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="..\cpp\egg-engine.cpp" />
     <ClCompile Include="..\cpp\egg-parser.cpp" />
     <ClCompile Include="..\cpp\egg-syntax.cpp" />
     <ClCompile Include="..\cpp\egg-tokenizer.cpp" />
@@ -28,6 +29,7 @@
     <ClCompile Include="..\cpp\json-tokenizer.cpp" />
     <ClCompile Include="..\cpp\lexers.cpp" />
     <ClCompile Include="..\cpp\streams.cpp" />
+    <ClCompile Include="..\cpp\strings.cpp" />
     <ClCompile Include="..\cpp\test\gtest.cpp">
       <AdditionalIncludeDirectories Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">$(GoogleTest)</AdditionalIncludeDirectories>
       <AdditionalIncludeDirectories Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">$(GoogleTest)</AdditionalIncludeDirectories>
@@ -50,6 +52,7 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="..\cpp\egg-engine.h" />
     <ClInclude Include="..\cpp\egg-parser.h" />
     <ClInclude Include="..\cpp\egg-syntax.h" />
     <ClInclude Include="..\cpp\egg-tokenizer.h" />

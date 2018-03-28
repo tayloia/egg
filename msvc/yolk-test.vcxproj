@@ -19,6 +19,7 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="..\cpp\test\egg-engine.cpp" />
     <ClCompile Include="..\cpp\test\egg-parser.cpp" />
     <ClCompile Include="..\cpp\test\egg-syntax.cpp" />
     <ClCompile Include="..\cpp\test\egg-tokenizer.cpp" />
