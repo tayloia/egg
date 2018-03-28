@@ -6,6 +6,7 @@ namespace egg::lang {
   };
 
   enum class LogSeverity {
+    None = 0,
     Debug = 1 << 0,
     Verbose = 1 << 1,
     Information = 1 << 2,

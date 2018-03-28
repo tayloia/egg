@@ -126,6 +126,9 @@ namespace egg::yolk {
     static std::shared_ptr<IEggSyntaxParser> createStatementSyntaxParser();
     static std::shared_ptr<IEggSyntaxParser> createExpressionSyntaxParser();
 
+    // All-in-one parser (used mainly for testing)
+    static std::shared_ptr<IEggParserNode> parseModule(TextStream& stream);
+
     // AST parsers
     static std::shared_ptr<IEggParser> createModuleParser();
     static std::shared_ptr<IEggParser> createExpressionParser();

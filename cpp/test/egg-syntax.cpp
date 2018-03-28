@@ -423,7 +423,7 @@ TEST(TestEggSyntaxParser, Vexatious) {
 }
 
 TEST(TestEggSyntaxParser, ExampleFile) {
-  auto lexer = LexerFactory::createFromPath("~/cpp/test/data/example.egg"); //TODO
+  auto lexer = LexerFactory::createFromPath("~/cpp/test/data/example.egg");
   auto tokenizer = EggTokenizerFactory::createFromLexer(lexer);
   auto parser = EggParserFactory::createModuleSyntaxParser();
   auto root = parser->parse(*tokenizer);

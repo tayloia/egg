@@ -1493,6 +1493,13 @@ std::shared_ptr<egg::yolk::IEggParserType> EggParserNode_Ternary::getType() cons
   return type2->unionWith(*type3);
 }
 
+std::shared_ptr<egg::yolk::IEggParserNode> egg::yolk::EggParserFactory::parseModule(TextStream& stream) {
+  auto lexer = LexerFactory::createFromTextStream(stream);
+  auto tokenizer = EggTokenizerFactory::createFromLexer(lexer);
+  EggParserModule parser;
+  return parser.parse(*tokenizer);
+}
+
 std::shared_ptr<egg::yolk::IEggParser> egg::yolk::EggParserFactory::createModuleParser() {
   return std::make_shared<EggParserModule>();
 }

@@ -9,7 +9,7 @@ namespace {
   class Lexer : public ILexer {
     EGG_NO_COPY(Lexer);
   private:
-    TextStream & stream;
+    TextStream& stream;
   public:
     explicit Lexer(TextStream& stream)
       : stream(stream) {

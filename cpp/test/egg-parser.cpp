@@ -97,10 +97,8 @@ TEST(TestEggParser, ExpressionType) {
 }
 
 TEST(TestEggParser, ExampleFile) {
-  auto parser = EggParserFactory::createModuleParser();
-  auto lexer = LexerFactory::createFromPath("~/cpp/test/data/working.egg"); //TODO
-  auto tokenizer = EggTokenizerFactory::createFromLexer(lexer);
-  auto root = parser->parse(*tokenizer);
+  FileTextStream stream("~/cpp/test/data/example.egg");
+  auto root = EggParserFactory::parseModule(stream);
   root->dump(std::cout);
   std::cout << std::endl;
 }
