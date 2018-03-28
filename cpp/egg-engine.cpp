@@ -8,6 +8,18 @@
 namespace {
   using namespace egg::yolk;
 
+  template<typename ACTION>
+  void captureExceptions(egg::lang::LogSource source, IEggEngineLogger& logger, ACTION action) {
+    try {
+      action();
+    } catch (const Exception& ex) {
+      // We have an opportunity to extract more information in the future
+      logger.log(source, egg::lang::LogSeverity::Error, ex.what());
+    } catch (const std::exception& ex) {
+      logger.log(source, egg::lang::LogSeverity::Error, ex.what());
+    }
+  }
+
   template<class BASE>
   class EggEngineBaseContext : public BASE {
   protected:
@@ -94,8 +106,10 @@ namespace {
       if (this->program != nullptr) {
         preparation.log(egg::lang::LogSource::Compiler, egg::lang::LogSeverity::Error, "Program prepared more than once");
       } else {
-        auto root = EggParserFactory::parseModule(*this->stream);
-        this->program = std::make_unique<EggEngineProgram>(root);
+        captureExceptions(egg::lang::LogSource::Compiler, preparation, [this]{
+          auto root = EggParserFactory::parseModule(*this->stream);
+          this->program = std::make_unique<EggEngineProgram>(root);
+        });
       }
       return preparation.getMaximumSeverity();
     }
@@ -125,4 +139,3 @@ std::shared_ptr<egg::yolk::IEggEngine> egg::yolk::EggEngineFactory::createEngine
 std::shared_ptr<egg::yolk::IEggEngine> egg::yolk::EggEngineFactory::createEngineFromParsed(const std::shared_ptr<IEggParserNode>& root) {
   return std::make_shared<EggEngineParsed>(root);
 }
-

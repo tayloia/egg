@@ -64,7 +64,16 @@ TEST(TestEggEngine, CreateEngineFromTextStream) {
   ASSERT_EQ("USER:INFO:execute\n", logger->logged);
 }
 
-TEST(TestEggEngine, ExecuteDoublyPrepared) {
+TEST(TestEggEngine, CreateEngineFromGarbage) {
+  StringTextStream stream("$");
+  auto engine = EggEngineFactory::createEngineFromTextStream(stream);
+  auto logger = std::make_shared<Logger>();
+  auto preparation = EggEngineFactory::createPreparationContext(logger);
+  ASSERT_EQ(egg::lang::LogSeverity::Error, engine->prepare(*preparation));
+  ASSERT_EQ("COMPILER:ERROR:(1, 1): Unexpected character: '$'\n", logger->logged);
+}
+
+TEST(TestEggEngine, PrepareTwice) {
   FileTextStream stream("~/cpp/test/data/example.egg");
   auto engine = EggEngineFactory::createEngineFromTextStream(stream);
   auto logger = std::make_shared<Logger>();
