@@ -68,8 +68,8 @@ TEST(TestEggSyntaxParser, VariableDeclaration) {
 
 TEST(TestEggSyntaxParser, VariableInitialization) {
   // Good
-  ASSERT_PARSE_GOOD(parseStatementToString("var foo = 42;"), "(initialize 'foo' (type 'var') (literal int 42))");
-  ASSERT_PARSE_GOOD(parseStatementToString("any? bar = `hello`;"), "(initialize 'bar' (type 'any?') (literal string 'hello'))");
+  ASSERT_PARSE_GOOD(parseStatementToString("var foo = 42;"), "(declare 'foo' (type 'var') (literal int 42))");
+  ASSERT_PARSE_GOOD(parseStatementToString("any? bar = `hello`;"), "(declare 'bar' (type 'any?') (literal string 'hello'))");
   // Bad
   ASSERT_PARSE_BAD(parseStatementToString("var foo ="), "(1, 10): Expected expression after assignment");
   ASSERT_PARSE_BAD(parseStatementToString("var foo = ;"), "(1, 11): Expected expression after assignment");
@@ -249,7 +249,7 @@ TEST(TestEggSyntaxParser, StatementDo) {
 TEST(TestEggSyntaxParser, StatementFor) {
   // Good
   ASSERT_PARSE_GOOD(parseStatementToString("for (;;) {}"), "(for () () () (block))");
-  ASSERT_PARSE_GOOD(parseStatementToString("for (int i = 0; i < 10; ++i) {}"), "(for (initialize 'i' (type 'int') (literal int 0)) (binary '<' (identifier 'i') (literal int 10)) (mutate '++' (identifier 'i')) (block))");
+  ASSERT_PARSE_GOOD(parseStatementToString("for (int i = 0; i < 10; ++i) {}"), "(for (declare 'i' (type 'int') (literal int 0)) (binary '<' (identifier 'i') (literal int 10)) (mutate '++' (identifier 'i')) (block))");
   ASSERT_PARSE_GOOD(parseStatementToString("for (a : b) {}"), "(foreach (identifier 'a') (identifier 'b') (block))");
   ASSERT_PARSE_GOOD(parseStatementToString("for (*a : b) {}"), "(foreach (unary '*' (identifier 'a')) (identifier 'b') (block))");
   ASSERT_PARSE_GOOD(parseStatementToString("for (var a : b) {}"), "(foreach (declare 'a' (type 'var')) (identifier 'b') (block))");
@@ -368,7 +368,7 @@ TEST(TestEggSyntaxParser, StatementWhile) {
 TEST(TestEggSyntaxParser, StatementUsing) {
   // Good
   ASSERT_PARSE_GOOD(parseStatementToString("using (a) {}"), "(using (identifier 'a') (block))");
-  ASSERT_PARSE_GOOD(parseStatementToString("using (var a = b) {}"), "(using (initialize 'a' (type 'var') (identifier 'b')) (block))");
+  ASSERT_PARSE_GOOD(parseStatementToString("using (var a = b) {}"), "(using (declare 'a' (type 'var') (identifier 'b')) (block))");
   // Bad
   ASSERT_PARSE_BAD(parseStatementToString("using {"), "(1, 7): Expected '(' after 'using' keyword");
   ASSERT_PARSE_BAD(parseStatementToString("using ("), "(1, 8): Expected expression or type after '(' in 'using' statement");

@@ -63,12 +63,8 @@ void egg::yolk::EggSyntaxNode_Type::dump(std::ostream& os) const {
   ParserDump(os, "type").add(EggSyntaxNode_Type::tagToString(this->tag));
 }
 
-void egg::yolk::EggSyntaxNode_VariableDeclaration::dump(std::ostream& os) const {
+void egg::yolk::EggSyntaxNode_Declare::dump(std::ostream& os) const {
   ParserDump(os, "declare").add(this->name).add(this->child);
-}
-
-void egg::yolk::EggSyntaxNode_VariableInitialization::dump(std::ostream& os) const {
-  ParserDump(os, "initialize").add(this->name).add(this->child);
 }
 
 void egg::yolk::EggSyntaxNode_Assignment::dump(std::ostream& os) const {
@@ -295,11 +291,7 @@ std::string egg::yolk::EggSyntaxNode_Type::token() const {
   return EggSyntaxNode_Type::tagToString(this->tag);
 }
 
-std::string egg::yolk::EggSyntaxNode_VariableDeclaration::token() const {
-  return this->name;
-}
-
-std::string egg::yolk::EggSyntaxNode_VariableInitialization::token() const {
+std::string egg::yolk::EggSyntaxNode_Declare::token() const {
   return this->name;
 }
 
@@ -1343,7 +1335,7 @@ std::unique_ptr<IEggSyntaxNode> EggSyntaxParserContext::parseStatementForeach() 
     if (p0.kind != EggTokenizerKind::Identifier) {
       return nullptr;
     }
-    target = std::make_unique<EggSyntaxNode_VariableDeclaration>(EggSyntaxNodeLocation(p0), p0.value.s, std::move(type));
+    target = std::make_unique<EggSyntaxNode_Declare>(EggSyntaxNodeLocation(p0), p0.value.s, std::move(type));
     mark.advance(1);
   } else {
     // Expect <expression> ':' <expression>
@@ -1549,7 +1541,7 @@ std::unique_ptr<IEggSyntaxNode> EggSyntaxParserContext::parseStatementType(std::
     if (p1.isOperator(terminal)) {
       // Found <type> <identifier> ';'
       mark.accept(2);
-      return std::make_unique<EggSyntaxNode_VariableDeclaration>(EggSyntaxNodeLocation(p0), p0.value.s, std::move(type));
+      return std::make_unique<EggSyntaxNode_Declare>(EggSyntaxNodeLocation(p0), p0.value.s, std::move(type));
     }
     if (p1.isOperator(EggTokenizerOperator::Equal)) {
       // Expect <type> <identifier> = <expression> ';'
@@ -1559,7 +1551,7 @@ std::unique_ptr<IEggSyntaxNode> EggSyntaxParserContext::parseStatementType(std::
         this->unexpected("Expected '" + EggTokenizerValue::getOperatorString(terminal) + "' at end of initialization statement");
       }
       mark.accept(1);
-      return std::make_unique<EggSyntaxNode_VariableInitialization>(EggSyntaxNodeLocation(p0), p0.value.s, std::move(type), std::move(expr));
+      return std::make_unique<EggSyntaxNode_Declare>(EggSyntaxNodeLocation(p0), p0.value.s, std::move(type), std::move(expr));
     }
     this->unexpected("Malformed variable declaration or initialization");
   }
@@ -1593,7 +1585,7 @@ std::unique_ptr<IEggSyntaxNode> EggSyntaxParserContext::parseStatementUsing() {
     }
     mark.advance(2);
     auto rhs = this->parseExpression("Expected expression after '=' in 'using' statement");
-    expr = std::make_unique<EggSyntaxNode_VariableInitialization>(location, p0.value.s, std::move(type), std::move(rhs));
+    expr = std::make_unique<EggSyntaxNode_Declare>(location, p0.value.s, std::move(type), std::move(rhs));
   }
   if (!mark.peek(0).isOperator(EggTokenizerOperator::ParenthesisRight)) {
     this->unexpected("Expected ')' after expression in 'using' statement", mark.peek(0));
@@ -1707,6 +1699,8 @@ std::unique_ptr<IEggSyntaxNode> EggSyntaxParserContext::parseTypeDefinition() {
 
 std::string egg::yolk::EggSyntaxNode_Type::tagToString(egg::lang::Discriminator tag) {
   static const egg::yolk::String::StringFromEnum table[] = {
+    { int(egg::lang::Discriminator::Any), "any" },
+    { int(egg::lang::Discriminator::Void), "void" },
     { int(egg::lang::Discriminator::Bool), "bool" },
     { int(egg::lang::Discriminator::Int), "int" },
     { int(egg::lang::Discriminator::Float), "float" },
@@ -1717,6 +1711,9 @@ std::string egg::yolk::EggSyntaxNode_Type::tagToString(egg::lang::Discriminator 
   };
   if (tag == egg::lang::Discriminator::Inferred) {
     return "var";
+  }
+  if (tag == egg::lang::Discriminator::Null) {
+    return "null";
   }
   if (egg::lang::Bits::hasAnySet(tag, egg::lang::Discriminator::Null)) {
     return String::fromEnum(egg::lang::Bits::clear(tag, egg::lang::Discriminator::Null), table) + "?";

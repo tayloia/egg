@@ -67,10 +67,23 @@ namespace egg::yolk {
     virtual std::string to_string() const = 0;
   };
 
+  struct EggParserSymbol {
+    std::string name;
+    std::shared_ptr<IEggParserType> type;
+    bool omnipresent; // Available in this block before its declaration (e.g. functions)
+
+    inline void set(const std::string& name0, const std::shared_ptr<IEggParserType>& type0, bool omnipresent0 = false) {
+      this->name = name0;
+      this->type = type0;
+      this->omnipresent = omnipresent0;
+    }
+  };
+
   class IEggParserNode {
   public:
     virtual std::shared_ptr<IEggParserType> getType() const = 0;
-    virtual egg::lang::ExecutionResult execute(IEggEngineExecutionContext& execution) const;
+    virtual bool symbol(EggParserSymbol& declaration) const = 0;
+    virtual egg::lang::ExecutionResult execute(IEggEngineExecutionContext& execution) const = 0;
     virtual void dump(std::ostream& os) const = 0;
   };
 

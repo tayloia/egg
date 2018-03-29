@@ -134,26 +134,22 @@ namespace egg::yolk {
     static std::string tagToString(egg::lang::Discriminator tag);
   };
 
-  class EggSyntaxNode_VariableDeclaration : public EggSyntaxNodeChildren1 {
-    EGG_NO_COPY(EggSyntaxNode_VariableDeclaration);
+  class EggSyntaxNode_Declare : public EggSyntaxNodeChildrenV {
+    EGG_NO_COPY(EggSyntaxNode_Declare);
   private:
     std::string name;
   public:
-    EggSyntaxNode_VariableDeclaration(const EggSyntaxNodeLocation& location, const std::string& name, std::unique_ptr<IEggSyntaxNode>&& type)
-      : EggSyntaxNodeChildren1(location,  std::move(type)), name(name) {
+    EggSyntaxNode_Declare(const EggSyntaxNodeLocation& location, const std::string& name, std::unique_ptr<IEggSyntaxNode>&& type)
+      : EggSyntaxNodeChildrenV(location), name(name) {
+      assert(type != nullptr);
+      this->addChild(std::move(type));
     }
-    virtual void dump(std::ostream& os) const override;
-    virtual std::string token() const override;
-    virtual std::shared_ptr<IEggParserNode> promote(IEggParserContext& context) const override;
-  };
-
-  class EggSyntaxNode_VariableInitialization : public EggSyntaxNodeChildrenN<2> {
-    EGG_NO_COPY(EggSyntaxNode_VariableInitialization);
-  private:
-    std::string name;
-  public:
-    EggSyntaxNode_VariableInitialization(const EggSyntaxNodeLocation& location, const std::string& name, std::unique_ptr<IEggSyntaxNode>&& type, std::unique_ptr<IEggSyntaxNode>&& expr)
-      : EggSyntaxNodeChildrenN(location, std::move(type), std::move(expr)), name(name) {
+    EggSyntaxNode_Declare(const EggSyntaxNodeLocation& location, const std::string& name, std::unique_ptr<IEggSyntaxNode>&& type, std::unique_ptr<IEggSyntaxNode>&& expr)
+      : EggSyntaxNodeChildrenV(location), name(name) {
+      assert(type != nullptr);
+      assert(expr != nullptr);
+      this->addChild(std::move(type));
+      this->addChild(std::move(expr));
     }
     virtual void dump(std::ostream& os) const override;
     virtual std::string token() const override;
