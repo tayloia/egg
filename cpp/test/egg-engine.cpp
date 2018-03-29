@@ -49,7 +49,7 @@ TEST(TestEggEngine, CreateEngineFromParsed) {
   auto logger = std::make_shared<Logger>();
   auto execution = EggEngineFactory::createExecutionContext(logger);
   ASSERT_EQ(egg::lang::LogSeverity::Information, engine->execute(*execution));
-  ASSERT_EQ("USER:INFO:execute\n", logger->logged);
+  ASSERT_STARTSWITH(logger->logged, "USER:INFO:");
 }
 
 TEST(TestEggEngine, CreateEngineFromTextStream) {
@@ -61,7 +61,7 @@ TEST(TestEggEngine, CreateEngineFromTextStream) {
   ASSERT_EQ("", logger->logged);
   auto execution = EggEngineFactory::createExecutionContext(logger);
   ASSERT_EQ(egg::lang::LogSeverity::Information, engine->execute(*execution));
-  ASSERT_EQ("USER:INFO:execute\n", logger->logged);
+  ASSERT_STARTSWITH(logger->logged, "USER:INFO:");
 }
 
 TEST(TestEggEngine, CreateEngineFromGarbage) {
@@ -102,5 +102,5 @@ TEST(TestEggEngine, WorkingFile) {
   ASSERT_EQ("", logger->logged);
   auto execution = EggEngineFactory::createExecutionContext(logger);
   ASSERT_EQ(egg::lang::LogSeverity::Information, engine->execute(*execution));
-  ASSERT_EQ("USER:INFO:execute\n", logger->logged);
+  ASSERT_STARTSWITH(logger->logged, "USER:INFO:");
 }

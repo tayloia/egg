@@ -21,6 +21,7 @@
   <ItemGroup>
     <ClCompile Include="..\cpp\egg-engine.cpp" />
     <ClCompile Include="..\cpp\egg-parser.cpp" />
+    <ClCompile Include="..\cpp\egg-program.cpp" />
     <ClCompile Include="..\cpp\egg-syntax.cpp" />
     <ClCompile Include="..\cpp\egg-tokenizer.cpp" />
     <ClCompile Include="..\cpp\egged-tokenizer.cpp" />
@@ -54,6 +55,7 @@
   <ItemGroup>
     <ClInclude Include="..\cpp\egg-engine.h" />
     <ClInclude Include="..\cpp\egg-parser.h" />
+    <ClInclude Include="..\cpp\egg-program.h" />
     <ClInclude Include="..\cpp\egg-syntax.h" />
     <ClInclude Include="..\cpp\egg-tokenizer.h" />
     <ClInclude Include="..\cpp\egged-tokenizer.h" />

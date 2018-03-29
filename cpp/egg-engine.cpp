@@ -4,6 +4,7 @@
 #include "egg-syntax.h"
 #include "egg-parser.h"
 #include "egg-engine.h"
+#include "egg-program.h"
 
 namespace {
   using namespace egg::yolk;
@@ -62,16 +63,6 @@ namespace {
     }
   };
 
-  class EggEngineProgram {
-  private:
-    std::shared_ptr<IEggParserNode> root;
-  public:
-    explicit EggEngineProgram(const std::shared_ptr<IEggParserNode>& root)
-      : root(root) {
-      assert(root != nullptr);
-    }
-  };
-
   class EggEngineParsed : public IEggEngine {
   private:
     EggEngineProgram program;
@@ -86,7 +77,7 @@ namespace {
       return preparation.getMaximumSeverity();
     }
     virtual Severity execute(IEggEngineExecutionContext& execution) {
-      execution.print("execute");
+      this->program.execute(execution);
       return execution.getMaximumSeverity();
     }
   };
@@ -117,7 +108,7 @@ namespace {
       if (this->program == nullptr) {
         execution.log(egg::lang::LogSource::Runtime, egg::lang::LogSeverity::Error, "Program not prepared before execution");
       } else {
-        execution.print("execute");
+        this->program->execute(execution);
       }
       return execution.getMaximumSeverity();
     }
