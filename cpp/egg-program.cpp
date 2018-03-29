@@ -10,11 +10,19 @@ namespace {
   using namespace egg::yolk;
 }
 
-void egg::yolk::IEggParserNode::execute(IEggEngineExecutionContext& execution) const {
+egg::lang::ExecutionResult egg::yolk::IEggParserNode::execute(IEggEngineExecutionContext& execution) const {
   // TODO remove and make pure virtual
   std::stringstream ss;
   this->dump(ss);
   execution.print("EXECUTE:" + ss.str());
+  return{};
+}
+
+egg::lang::ExecutionResult IEggEngineExecutionContext::executeModule(const IEggParserNode&, const std::vector<std::shared_ptr<IEggParserNode>>& statements) {
+  for (auto& statement : statements) {
+    statement->execute(*this);
+  }
+  return egg::lang::ExecutionResult::Void;
 }
 
 void egg::yolk::EggEngineProgram::execute(IEggEngineExecutionContext& execution) {

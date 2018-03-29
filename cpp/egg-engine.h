@@ -13,8 +13,14 @@ namespace egg::yolk {
 
   class IEggEngineExecutionContext : public IEggEngineLogger {
   public:
-    virtual void print(const std::string& text) = 0;
     virtual LogSeverity getMaximumSeverity() const = 0;
+
+    // TODO
+    virtual void print(const std::string& text) = 0;
+
+    // Decoupled entry points
+    egg::lang::ExecutionResult executeModule(const IEggParserNode& module, const std::vector<std::shared_ptr<IEggParserNode>>& statements);
+    egg::lang::ExecutionResult executeDeclare(const IEggParserNode& declare, const std::vector<std::shared_ptr<IEggParserNode>>& statements);
   };
 
   class IEggEngine {

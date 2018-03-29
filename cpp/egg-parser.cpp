@@ -3,6 +3,7 @@
 #include "egg-tokenizer.h"
 #include "egg-syntax.h"
 #include "egg-parser.h"
+#include "egg-engine.h"
 
 namespace {
   using namespace egg::yolk;
@@ -25,32 +26,32 @@ namespace {
 
   class EggParserTypeSimple : public EggParserTypeBase {
   private:
-    Tag tag;
+    egg::lang::Discriminator tag;
   public:
-    explicit EggParserTypeSimple(Tag tag) : tag(tag) {
+    explicit EggParserTypeSimple(egg::lang::Discriminator tag) : tag(tag) {
     }
-    virtual bool hasSimpleType(Tag bit) const {
-      return this->tag.hasBit(bit);
+    virtual bool hasSimpleType(egg::lang::Discriminator bit) const {
+      return egg::lang::Bits::hasAnySet(this->tag, bit);
     }
-    virtual egg::lang::TypeStorage arithmeticTypes() const {
-      return this->tag.mask(egg::lang::TypeStorage::Arithmetic);
+    virtual egg::lang::Discriminator arithmeticTypes() const {
+      return egg::lang::Bits::mask(this->tag, egg::lang::Discriminator::Arithmetic);
     }
     virtual std::shared_ptr<IEggParserType> dereferencedType() const {
-      // Return a dummy value for now
-      return std::make_shared<EggParserTypeSimple>(egg::lang::TypeStorage::Void);
+      // TODO Return a dummy value for now
+      return std::make_shared<EggParserTypeSimple>(egg::lang::Discriminator::Void);
     }
     virtual std::shared_ptr<IEggParserType> nullableType(bool nullable) const {
-      if (nullable ^ this->tag.hasBit(egg::lang::TypeStorage::Null)) {
+      if (nullable ^ egg::lang::Bits::hasAnySet(this->tag, egg::lang::Discriminator::Null)) {
         // We need to flip the bit
-        return std::make_shared<EggParserTypeSimple>(this->tag ^ egg::lang::TypeStorage::Null);
+        return std::make_shared<EggParserTypeSimple>(egg::lang::Bits::invert(this->tag, egg::lang::Discriminator::Null));
       }
       return this->share();
     }
     virtual std::shared_ptr<IEggParserType> unionWith(IEggParserType& other) const {
       return other.unionWithSimple(this->tag);
     }
-    virtual std::shared_ptr<IEggParserType> unionWithSimple(Tag other) const {
-      return std::make_shared<EggParserTypeSimple>(this->tag.onion(other));
+    virtual std::shared_ptr<IEggParserType> unionWithSimple(egg::lang::Discriminator other) const {
+      return std::make_shared<EggParserTypeSimple>(egg::lang::Bits::set(this->tag, other));
     }
     virtual std::string to_string() const {
       return EggSyntaxNode_Type::tagToString(this->tag);
@@ -65,11 +66,11 @@ namespace {
     EggParserTypeReference(const std::shared_ptr<IEggParserType>& underlying, bool nullable)
       : underlying(underlying), canBeNull(nullable) {
     }
-    virtual bool hasSimpleType(Tag tag) const {
-      return (tag == egg::lang::TypeStorage::Null) && this->canBeNull;
+    virtual bool hasSimpleType(egg::lang::Discriminator tag) const {
+      return (tag == egg::lang::Discriminator::Null) && this->canBeNull;
     }
-    virtual egg::lang::TypeStorage arithmeticTypes() const {
-      return egg::lang::TypeStorage::None;
+    virtual egg::lang::Discriminator arithmeticTypes() const {
+      return egg::lang::Discriminator::None;
     }
     virtual std::shared_ptr<IEggParserType> dereferencedType() const {
       return this->underlying;
@@ -80,7 +81,7 @@ namespace {
     virtual std::shared_ptr<IEggParserType> unionWith(IEggParserType&) const {
       EGG_THROW(__FUNCTION__ " TODO"); // TODO
     }
-    virtual std::shared_ptr<IEggParserType> unionWithSimple(Tag) const {
+    virtual std::shared_ptr<IEggParserType> unionWithSimple(egg::lang::Discriminator) const {
       EGG_THROW(__FUNCTION__ " TODO"); // TODO
     }
     virtual std::string to_string() const {
@@ -89,19 +90,19 @@ namespace {
   };
 
   // Constants
-  const std::shared_ptr<IEggParserType> typeVoid = std::make_shared<EggParserTypeSimple>(egg::lang::TypeStorage::Void);
-  const std::shared_ptr<IEggParserType> typeNull = std::make_shared<EggParserTypeSimple>(egg::lang::TypeStorage::Null);
-  const std::shared_ptr<IEggParserType> typeBool = std::make_shared<EggParserTypeSimple>(egg::lang::TypeStorage::Bool);
-  const std::shared_ptr<IEggParserType> typeInt = std::make_shared<EggParserTypeSimple>(egg::lang::TypeStorage::Int);
-  const std::shared_ptr<IEggParserType> typeFloat = std::make_shared<EggParserTypeSimple>(egg::lang::TypeStorage::Float);
-  const std::shared_ptr<IEggParserType> typeArithmetic = std::make_shared<EggParserTypeSimple>(egg::lang::TypeStorage::Arithmetic);
-  const std::shared_ptr<IEggParserType> typeString = std::make_shared<EggParserTypeSimple>(egg::lang::TypeStorage::String);
+  const std::shared_ptr<IEggParserType> typeVoid = std::make_shared<EggParserTypeSimple>(egg::lang::Discriminator::Void);
+  const std::shared_ptr<IEggParserType> typeNull = std::make_shared<EggParserTypeSimple>(egg::lang::Discriminator::Null);
+  const std::shared_ptr<IEggParserType> typeBool = std::make_shared<EggParserTypeSimple>(egg::lang::Discriminator::Bool);
+  const std::shared_ptr<IEggParserType> typeInt = std::make_shared<EggParserTypeSimple>(egg::lang::Discriminator::Int);
+  const std::shared_ptr<IEggParserType> typeFloat = std::make_shared<EggParserTypeSimple>(egg::lang::Discriminator::Float);
+  const std::shared_ptr<IEggParserType> typeArithmetic = std::make_shared<EggParserTypeSimple>(egg::lang::Discriminator::Arithmetic);
+  const std::shared_ptr<IEggParserType> typeString = std::make_shared<EggParserTypeSimple>(egg::lang::Discriminator::String);
 
   enum class EggParserArithmetic {
-    None = egg::lang::TypeStorage::None,
-    Int = egg::lang::TypeStorage::Int,
-    Float = egg::lang::TypeStorage::Float,
-    Both = egg::lang::TypeStorage::Arithmetic
+    None = egg::lang::Discriminator::None,
+    Int = egg::lang::Discriminator::Int,
+    Float = egg::lang::Discriminator::Float,
+    Both = egg::lang::Discriminator::Arithmetic
   };
 
   EggParserArithmetic getArithmeticTypes(const std::shared_ptr<IEggParserNode>& node) {
@@ -204,6 +205,9 @@ namespace {
   private:
     std::vector<std::shared_ptr<IEggParserNode>> child;
   public:
+    virtual egg::lang::ExecutionResult execute(IEggEngineExecutionContext& execution) const override {
+      return execution.executeModule(*this, this->child);
+    }
     virtual void dump(std::ostream& os) const override {
       ParserDump(os, "module").add(this->child);
     }
@@ -1454,7 +1458,7 @@ std::shared_ptr<egg::yolk::IEggParserType> EggParserNode_BinaryShiftRightUnsigne
 std::shared_ptr<egg::yolk::IEggParserType> EggParserNode_BinaryNullCoalescing::getType() const {
   auto type1 = this->lhs->getType();
   assert(type1 != nullptr);
-  if (!type1->hasSimpleType(egg::lang::TypeStorage::Null)) {
+  if (!type1->hasSimpleType(egg::lang::Discriminator::Null)) {
     // The left-hand-side cannot be null, so the right side is irrelevant
     return type1;
   }
@@ -1482,7 +1486,7 @@ std::shared_ptr<egg::yolk::IEggParserType> EggParserNode_BinaryLogicalOr::getTyp
 std::shared_ptr<egg::yolk::IEggParserType> EggParserNode_Ternary::getType() const {
   auto type1 = this->condition->getType();
   assert(type1 != nullptr);
-  if (!type1->hasSimpleType(egg::lang::TypeStorage::Bool)) {
+  if (!type1->hasSimpleType(egg::lang::Discriminator::Bool)) {
     // The condition is not a bool, so the other values are irrelevant
     return typeVoid;
   }

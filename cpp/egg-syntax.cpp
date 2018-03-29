@@ -570,7 +570,7 @@ namespace {
     std::unique_ptr<IEggSyntaxNode> parseStatementWhile();
     std::unique_ptr<IEggSyntaxNode> parseStatementYield();
     std::unique_ptr<IEggSyntaxNode> parseType(const char* expected);
-    std::unique_ptr<IEggSyntaxNode> parseTypeSimple(egg::lang::VariantTag tag);
+    std::unique_ptr<IEggSyntaxNode> parseTypeSimple(egg::lang::Discriminator tag);
     std::unique_ptr<IEggSyntaxNode> parseTypeDefinition();
   };
 
@@ -1660,25 +1660,25 @@ std::unique_ptr<IEggSyntaxNode> EggSyntaxParserContext::parseStatementYield() {
 std::unique_ptr<IEggSyntaxNode> EggSyntaxParserContext::parseType(const char* expected) {
   auto& p0 = this->backtrack.peek(0);
   if (p0.isKeyword(EggTokenizerKeyword::Var)) {
-    return parseTypeSimple(egg::lang::TypeStorage::Inferred);
+    return parseTypeSimple(egg::lang::Discriminator::Inferred);
   }
   if (p0.isKeyword(EggTokenizerKeyword::Bool)) {
-    return parseTypeSimple(egg::lang::TypeStorage::Bool);
+    return parseTypeSimple(egg::lang::Discriminator::Bool);
   }
   if (p0.isKeyword(EggTokenizerKeyword::Int)) {
-    return parseTypeSimple(egg::lang::TypeStorage::Int);
+    return parseTypeSimple(egg::lang::Discriminator::Int);
   }
   if (p0.isKeyword(EggTokenizerKeyword::Float)) {
-    return parseTypeSimple(egg::lang::TypeStorage::Float);
+    return parseTypeSimple(egg::lang::Discriminator::Float);
   }
   if (p0.isKeyword(EggTokenizerKeyword::String)) {
-    return parseTypeSimple(egg::lang::TypeStorage::String);
+    return parseTypeSimple(egg::lang::Discriminator::String);
   }
   if (p0.isKeyword(EggTokenizerKeyword::Object)) {
-    return parseTypeSimple(egg::lang::TypeStorage::Object);
+    return parseTypeSimple(egg::lang::Discriminator::Object);
   }
   if (p0.isKeyword(EggTokenizerKeyword::Any)) {
-    return parseTypeSimple(egg::lang::TypeStorage::Any);
+    return parseTypeSimple(egg::lang::Discriminator::Any);
   }
   if (expected != nullptr) {
     this->unexpected(expected, p0);
@@ -1686,13 +1686,13 @@ std::unique_ptr<IEggSyntaxNode> EggSyntaxParserContext::parseType(const char* ex
   return nullptr; // TODO
 }
 
-std::unique_ptr<IEggSyntaxNode> EggSyntaxParserContext::parseTypeSimple(egg::lang::VariantTag tag) {
+std::unique_ptr<IEggSyntaxNode> EggSyntaxParserContext::parseTypeSimple(egg::lang::Discriminator tag) {
   // Expect <simple-type> '?'?
   EggSyntaxParserBacktrackMark mark(this->backtrack);
   EggSyntaxNodeLocation location(mark.peek(0));
   auto& p1 = mark.peek(1);
   if (p1.isOperator(EggTokenizerOperator::Query) && p1.contiguous) {
-    tag = tag | egg::lang::TypeStorage::Null;
+    tag = tag | egg::lang::Discriminator::Null;
     location.setLocationEnd(p1, 1);
     mark.accept(2);
   } else {
@@ -1705,43 +1705,23 @@ std::unique_ptr<IEggSyntaxNode> EggSyntaxParserContext::parseTypeDefinition() {
   EGG_THROW(__FUNCTION__ " TODO"); // TODO
 }
 
-static void tagToStringComponent(std::string& dst, const char* text, bool bit) {
-  if (bit) {
-    if (!dst.empty()) {
-      dst.append("|");
-    }
-    dst.append(text);
-  }
-}
-
-std::string egg::yolk::EggSyntaxNode_Type::tagToString(egg::lang::VariantTag tag) {
-  using egg::lang::TypeStorage;
-  if (tag == TypeStorage::Inferred) {
+std::string egg::yolk::EggSyntaxNode_Type::tagToString(egg::lang::Discriminator tag) {
+  static const egg::yolk::String::StringFromEnum table[] = {
+    { int(egg::lang::Discriminator::Bool), "bool" },
+    { int(egg::lang::Discriminator::Int), "int" },
+    { int(egg::lang::Discriminator::Float), "float" },
+    { int(egg::lang::Discriminator::String), "string" },
+    { int(egg::lang::Discriminator::Type), "type" },
+    { int(egg::lang::Discriminator::Object), "object" },
+    { int(egg::lang::Discriminator::FlowControl), "flow" }
+  };
+  if (tag == egg::lang::Discriminator::Inferred) {
     return "var";
   }
-  if (tag == TypeStorage::Void) {
-    return "void";
+  if (egg::lang::Bits::hasAnySet(tag, egg::lang::Discriminator::Null)) {
+    return String::fromEnum(egg::lang::Bits::clear(tag, egg::lang::Discriminator::Null), table) + "?";
   }
-  if (tag == TypeStorage::Null) {
-    return "null";
-  }
-  if (tag == TypeStorage::Any) {
-    return "any";
-  }
-  if (tag == (TypeStorage::Null | TypeStorage::Any)) {
-    return "any?";
-  }
-  std::string result;
-  tagToStringComponent(result, "bool", tag.hasBit(TypeStorage::Bool));
-  tagToStringComponent(result, "int", tag.hasBit(TypeStorage::Int));
-  tagToStringComponent(result, "float", tag.hasBit(TypeStorage::Float));
-  tagToStringComponent(result, "string", tag.hasBit(TypeStorage::String));
-  tagToStringComponent(result, "type", tag.hasBit(TypeStorage::Type));
-  tagToStringComponent(result, "object", tag.hasBit(TypeStorage::Object));
-  if (tag.hasBit(TypeStorage::Null)) {
-    result.append("?");
-  }
-  return result;
+  return String::fromEnum(tag, table);
 }
 
 std::shared_ptr<egg::yolk::IEggSyntaxParser> egg::yolk::EggParserFactory::createModuleSyntaxParser() {

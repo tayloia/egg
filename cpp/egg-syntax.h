@@ -122,17 +122,16 @@ namespace egg::yolk {
 
   class EggSyntaxNode_Type : public EggSyntaxNodeBase {
     EGG_NO_COPY(EggSyntaxNode_Type);
-    using Tag = egg::lang::VariantTag;
   private:
-    Tag tag;
+    egg::lang::Discriminator tag;
   public:
-    explicit EggSyntaxNode_Type(const EggSyntaxNodeLocation& location, Tag tag)
+    explicit EggSyntaxNode_Type(const EggSyntaxNodeLocation& location, egg::lang::Discriminator tag)
       : EggSyntaxNodeBase(location), tag(tag) {
     }
     virtual void dump(std::ostream& os) const override;
     virtual std::string token() const override;
     virtual std::shared_ptr<IEggParserNode> promote(IEggParserContext& context) const override;
-    static std::string tagToString(egg::lang::VariantTag tag);
+    static std::string tagToString(egg::lang::Discriminator tag);
   };
 
   class EggSyntaxNode_VariableDeclaration : public EggSyntaxNodeChildren1 {

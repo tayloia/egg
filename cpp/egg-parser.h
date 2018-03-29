@@ -58,20 +58,19 @@ namespace egg::yolk {
     
   class IEggParserType {
   public:
-    using Tag = egg::lang::VariantTag;
-    virtual bool hasSimpleType(Tag bit) const = 0;
-    virtual egg::lang::TypeStorage arithmeticTypes() const = 0;
+    virtual bool hasSimpleType(egg::lang::Discriminator bit) const = 0;
+    virtual egg::lang::Discriminator arithmeticTypes() const = 0;
     virtual std::shared_ptr<IEggParserType> dereferencedType() const = 0;
     virtual std::shared_ptr<IEggParserType> nullableType(bool nullable) const = 0;
     virtual std::shared_ptr<IEggParserType> unionWith(IEggParserType& other) const = 0;
-    virtual std::shared_ptr<IEggParserType> unionWithSimple(Tag other) const = 0;
+    virtual std::shared_ptr<IEggParserType> unionWithSimple(egg::lang::Discriminator other) const = 0;
     virtual std::string to_string() const = 0;
   };
 
   class IEggParserNode {
   public:
     virtual std::shared_ptr<IEggParserType> getType() const = 0;
-    virtual void execute(IEggEngineExecutionContext& execution) const;
+    virtual egg::lang::ExecutionResult execute(IEggEngineExecutionContext& execution) const;
     virtual void dump(std::ostream& os) const = 0;
   };
 

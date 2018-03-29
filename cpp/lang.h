@@ -1,4 +1,38 @@
 namespace egg::lang {
+  class Bits {
+  public:
+    template<typename T>
+    static bool hasAnySet(T value, T bits) {
+      auto a = static_cast<std::underlying_type_t<T>>(value);
+      auto b = static_cast<std::underlying_type_t<T>>(bits);
+      return (a & b) != 0;
+    }
+    template<typename T>
+    static T mask(T value, T bits) {
+      auto a = static_cast<std::underlying_type_t<T>>(value);
+      auto b = static_cast<std::underlying_type_t<T>>(bits);
+      return static_cast<T>(a & b);
+    }
+    template<typename T>
+    static T set(T value, T bits) {
+      auto a = static_cast<std::underlying_type_t<T>>(value);
+      auto b = static_cast<std::underlying_type_t<T>>(bits);
+      return static_cast<T>(a | b);
+    }
+    template<typename T>
+    static T clear(T value, T bits) {
+      auto a = static_cast<std::underlying_type_t<T>>(value);
+      auto b = static_cast<std::underlying_type_t<T>>(bits);
+      return static_cast<T>(a & ~b);
+    }
+    template<typename T>
+    static T invert(T value, T bits) {
+      auto a = static_cast<std::underlying_type_t<T>>(value);
+      auto b = static_cast<std::underlying_type_t<T>>(bits);
+      return static_cast<T>(a ^ b);
+    }
+  };
+
   enum class LogSource {
     Compiler = 1 << 0,
     Runtime = 1 << 1,
@@ -14,7 +48,7 @@ namespace egg::lang {
     Error = 1 << 4
   };
 
-  enum class TypeStorage {
+  enum class Discriminator {
     Inferred = -1,
     None = 0,
     Void = 1 << 0,
@@ -26,40 +60,16 @@ namespace egg::lang {
     Type = 1 << 6,
     Object = 1 << 7,
     Any = Bool | Int | Float | String | Type | Object,
-    Arithmetic = Int | Float
+    Arithmetic = Int | Float,
+    FlowControl = 1 << 8
   };
+  inline Discriminator operator|(Discriminator lhs, Discriminator rhs) {
+    return Bits::set(lhs, rhs);
+  }
 
-  class VariantTag {
-  private:
-    TypeStorage bits;
+  class ExecutionResult {
+    // TODO
   public:
-    VariantTag(TypeStorage bits)
-      : bits(bits) {
-    }
-    operator TypeStorage() const {
-      return this->bits;
-    }
-    TypeStorage mask(TypeStorage bit) const {
-      return TypeStorage(underlying(this->bits) & underlying(bit));
-    }
-    TypeStorage onion(TypeStorage bit) const {
-      // Because 'union' is a reserved word
-      return TypeStorage(underlying(this->bits) | underlying(bit));
-    }
-    bool hasBit(TypeStorage bit) const {
-      return (underlying(this->bits) & underlying(bit)) != 0;
-    }
-    static std::underlying_type<TypeStorage>::type underlying(TypeStorage bits) {
-      return static_cast<std::underlying_type<TypeStorage>::type>(bits);
-    }
+    static const ExecutionResult Void;
   };
-
-  inline VariantTag operator|(TypeStorage lhs, TypeStorage rhs) {
-    // See http://blog.bitwigglers.org/using-enum-classes-as-type-safe-bitmasks/
-    return static_cast<TypeStorage>(VariantTag::underlying(lhs) | VariantTag::underlying(rhs));
-  }
-
-  inline VariantTag operator^(TypeStorage lhs, TypeStorage rhs) {
-    return static_cast<TypeStorage>(VariantTag::underlying(lhs) ^ VariantTag::underlying(rhs));
-  }
 }
