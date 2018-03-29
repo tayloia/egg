@@ -54,7 +54,7 @@
 #define EGG_PARSER_MUTATE_OPERATOR_DECLARE(name, text) name,
 
 namespace egg::yolk {
-  class IEggEngineExecutionContext;
+  class EggEngineProgramContext;
     
   class IEggParserType {
   public:
@@ -83,7 +83,7 @@ namespace egg::yolk {
   public:
     virtual std::shared_ptr<IEggParserType> getType() const = 0;
     virtual bool symbol(EggParserSymbol& declaration) const = 0;
-    virtual egg::lang::ExecutionResult execute(IEggEngineExecutionContext& execution) const = 0;
+    virtual egg::lang::Value execute(EggEngineProgramContext& context) const = 0;
     virtual void dump(std::ostream& os) const = 0;
   };
 

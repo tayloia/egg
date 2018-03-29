@@ -1717,8 +1717,7 @@ std::string egg::yolk::EggSyntaxNode_Type::tagToString(egg::lang::Discriminator 
     { int(egg::lang::Discriminator::Float), "float" },
     { int(egg::lang::Discriminator::String), "string" },
     { int(egg::lang::Discriminator::Type), "type" },
-    { int(egg::lang::Discriminator::Object), "object" },
-    { int(egg::lang::Discriminator::FlowControl), "flow" }
+    { int(egg::lang::Discriminator::Object), "object" }
   };
   if (tag == egg::lang::Discriminator::Inferred) {
     return "var";

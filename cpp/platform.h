@@ -23,6 +23,7 @@
 #include <fstream>
 #include <functional>
 #include <iomanip>
+#include <map>
 #include <memory>
 #include <string>
 #include <sstream>

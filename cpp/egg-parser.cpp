@@ -4,6 +4,7 @@
 #include "egg-syntax.h"
 #include "egg-parser.h"
 #include "egg-engine.h"
+#include "egg-program.h"
 
 namespace {
   using namespace egg::yolk;
@@ -210,8 +211,8 @@ namespace {
   private:
     std::vector<std::shared_ptr<IEggParserNode>> child;
   public:
-    virtual egg::lang::ExecutionResult execute(IEggEngineExecutionContext& execution) const override {
-      return execution.executeModule(*this, this->child);
+    virtual egg::lang::Value execute(EggEngineProgramContext& context) const override {
+      return context.executeModule(*this, this->child);
     }
     virtual void dump(std::ostream& os) const override {
       ParserDump(os, "module").add(this->child);
@@ -226,8 +227,8 @@ namespace {
   private:
     std::vector<std::shared_ptr<IEggParserNode>> child;
   public:
-    virtual egg::lang::ExecutionResult execute(IEggEngineExecutionContext& execution) const override {
-      return execution.executeBlock(*this, this->child);
+    virtual egg::lang::Value execute(EggEngineProgramContext& context) const override {
+      return context.executeBlock(*this, this->child);
     }
     virtual void dump(std::ostream& os) const override {
       ParserDump(os, "block").add(this->child);
@@ -249,8 +250,8 @@ namespace {
     virtual std::shared_ptr<IEggParserType> getType() const override {
       return this->type;
     }
-    virtual egg::lang::ExecutionResult execute(IEggEngineExecutionContext& execution) const override {
-      return execution.executeType(*this, *this->type);
+    virtual egg::lang::Value execute(EggEngineProgramContext& context) const override {
+      return context.executeType(*this, *this->type);
     }
     virtual void dump(std::ostream& os) const override {
       ParserDump(os, "type").add(this->type->to_string());
@@ -272,8 +273,8 @@ namespace {
       declaration.set(this->name, this->type->getType());
       return true;
     }
-    virtual egg::lang::ExecutionResult execute(IEggEngineExecutionContext& execution) const override {
-      return execution.executeDeclare(*this, this->name, *this->type, this->init.get());
+    virtual egg::lang::Value execute(EggEngineProgramContext& context) const override {
+      return context.executeDeclare(*this, this->name, *this->type, this->init.get());
     }
     virtual void dump(std::ostream& os) const override {
       ParserDump(os, "declare").add(this->name).add(this->type).add(this->init);
@@ -289,8 +290,8 @@ namespace {
       : op(op), lvalue(lvalue) {
       assert(lvalue != nullptr);
     }
-    virtual egg::lang::ExecutionResult execute(IEggEngineExecutionContext& execution) const override {
-      return execution.executeMutate(*this, this->op, *this->lvalue);
+    virtual egg::lang::Value execute(EggEngineProgramContext& context) const override {
+      return context.executeMutate(*this, this->op, *this->lvalue);
     }
     virtual void dump(std::ostream& os) const override {
       ParserDump(os, "mutate").add(EggParserNodeBase::mutateToString(this->op)).add(this->lvalue);
@@ -299,8 +300,8 @@ namespace {
 
   class EggParserNode_Break : public EggParserNodeBase {
   public:
-    virtual egg::lang::ExecutionResult execute(IEggEngineExecutionContext& execution) const override {
-      return execution.executeBreak(*this);
+    virtual egg::lang::Value execute(EggEngineProgramContext& context) const override {
+      return context.executeBreak(*this);
     }
     virtual void dump(std::ostream& os) const override {
       ParserDump(os, "break");
@@ -323,8 +324,8 @@ namespace {
       declaration.set(this->name, this->type->getType());
       return true;
     }
-    virtual egg::lang::ExecutionResult execute(IEggEngineExecutionContext& execution) const override {
-      return execution.executeCatch(*this, this->name, *this->type, *this->block);
+    virtual egg::lang::Value execute(EggEngineProgramContext& context) const override {
+      return context.executeCatch(*this, this->name, *this->type, *this->block);
     }
     virtual void dump(std::ostream& os) const override {
       ParserDump(os, "catch").add(this->name).add(this->type).add(this->block);
@@ -333,8 +334,8 @@ namespace {
 
   class EggParserNode_Continue : public EggParserNodeBase {
   public:
-    virtual egg::lang::ExecutionResult execute(IEggEngineExecutionContext& execution) const override {
-      return execution.executeContinue(*this);
+    virtual egg::lang::Value execute(EggEngineProgramContext& context) const override {
+      return context.executeContinue(*this);
     }
     virtual void dump(std::ostream& os) const override {
       ParserDump(os, "continue");
@@ -351,8 +352,8 @@ namespace {
       assert(condition != nullptr);
       assert(block != nullptr);
     }
-    virtual egg::lang::ExecutionResult execute(IEggEngineExecutionContext& execution) const override {
-      return execution.executeDo(*this, *this->condition, *this->block);
+    virtual egg::lang::Value execute(EggEngineProgramContext& context) const override {
+      return context.executeDo(*this, *this->condition, *this->block);
     }
     virtual void dump(std::ostream& os) const override {
       ParserDump(os, "do").add(this->condition).add(this->block);
@@ -375,8 +376,8 @@ namespace {
       // A symbol may be declared in the condition
       return this->condition->symbol(declaration);
     }
-    virtual egg::lang::ExecutionResult execute(IEggEngineExecutionContext& execution) const override {
-      return execution.executeIf(*this, *this->condition, *this->trueBlock, this->falseBlock.get());
+    virtual egg::lang::Value execute(EggEngineProgramContext& context) const override {
+      return context.executeIf(*this, *this->condition, *this->trueBlock, this->falseBlock.get());
     }
     virtual void dump(std::ostream& os) const override {
       ParserDump(os, "if").add(this->condition).add(this->trueBlock).add(this->falseBlock);
@@ -399,8 +400,8 @@ namespace {
       // A symbol may be declared in the first clause
       return (this->pre != nullptr) && this->pre->symbol(declaration);
     }
-    virtual egg::lang::ExecutionResult execute(IEggEngineExecutionContext& execution) const override {
-      return execution.executeFor(*this, this->pre.get(), this->cond.get(), this->post.get(), *this->block);
+    virtual egg::lang::Value execute(EggEngineProgramContext& context) const override {
+      return context.executeFor(*this, this->pre.get(), this->cond.get(), this->post.get(), *this->block);
     }
     virtual void dump(std::ostream& os) const override {
       ParserDump(os, "for").add(this->pre).add(this->cond).add(this->post).add(this->block);
@@ -423,8 +424,8 @@ namespace {
       // A symbol may be declared in the target
       return this->target->symbol(declaration);
     }
-    virtual egg::lang::ExecutionResult execute(IEggEngineExecutionContext& execution) const override {
-      return execution.executeForeach(*this, *this->target, *this->expr, *this->block);
+    virtual egg::lang::Value execute(EggEngineProgramContext& context) const override {
+      return context.executeForeach(*this, *this->target, *this->expr, *this->block);
     }
     virtual void dump(std::ostream& os) const override {
       ParserDump(os, "foreach").add(this->target).add(this->expr).add(this->block);
@@ -435,8 +436,8 @@ namespace {
   private:
     std::vector<std::shared_ptr<IEggParserNode>> child;
   public:
-    virtual egg::lang::ExecutionResult execute(IEggEngineExecutionContext& execution) const override {
-      return execution.executeReturn(*this, this->child);
+    virtual egg::lang::Value execute(EggEngineProgramContext& context) const override {
+      return context.executeReturn(*this, this->child);
     }
     virtual void dump(std::ostream& os) const override {
       ParserDump(os, "return").add(this->child);
@@ -456,8 +457,8 @@ namespace {
       : block(std::make_shared<EggParserNode_Block>()) {
       assert(this->block != nullptr);
     }
-    virtual egg::lang::ExecutionResult execute(IEggEngineExecutionContext& execution) const override {
-      return execution.executeCase(*this, this->child, *this->block);
+    virtual egg::lang::Value execute(EggEngineProgramContext& context) const override {
+      return context.executeCase(*this, this->child, *this->block);
     }
     virtual void dump(std::ostream& os) const override {
       ParserDump(os, "case").add(this->child).add(this->block);
@@ -487,8 +488,8 @@ namespace {
       // A symbol may be declared in the expression
       return this->expr->symbol(declaration);
     }
-    virtual egg::lang::ExecutionResult execute(IEggEngineExecutionContext& execution) const override {
-      return execution.executeSwitch(*this, *this->expr, this->defaultIndex, this->child);
+    virtual egg::lang::Value execute(EggEngineProgramContext& context) const override {
+      return context.executeSwitch(*this, *this->expr, this->defaultIndex, this->child);
     }
     virtual void dump(std::ostream& os) const override {
       ParserDump(os, "switch").add(this->expr).raw(this->defaultIndex).add(this->child);
@@ -529,8 +530,8 @@ namespace {
     explicit EggParserNode_Throw(const std::shared_ptr<IEggParserNode>& expr = nullptr)
       : expr(expr) {
     }
-    virtual egg::lang::ExecutionResult execute(IEggEngineExecutionContext& execution) const override {
-      return execution.executeThrow(*this, this->expr.get());
+    virtual egg::lang::Value execute(EggEngineProgramContext& context) const override {
+      return context.executeThrow(*this, this->expr.get());
     }
     virtual void dump(std::ostream& os) const override {
       ParserDump(os, "throw").add(this->expr);
@@ -547,8 +548,8 @@ namespace {
       : block(block) {
       assert(block != nullptr);
     }
-    virtual egg::lang::ExecutionResult execute(IEggEngineExecutionContext& execution) const override {
-      return execution.executeTry(*this, *this->block, this->catches, this->final.get());
+    virtual egg::lang::Value execute(EggEngineProgramContext& context) const override {
+      return context.executeTry(*this, *this->block, this->catches, this->final.get());
     }
     virtual void dump(std::ostream& os) const override {
       ParserDump(os, "try").add(this->block).add(this->catches).add(this->final);
@@ -576,8 +577,8 @@ namespace {
       // A symbol may be declared in the expression
       return this->expr->symbol(declaration);
     }
-    virtual egg::lang::ExecutionResult execute(IEggEngineExecutionContext& execution) const override {
-      return execution.executeUsing(*this, *this->expr, *this->block);
+    virtual egg::lang::Value execute(EggEngineProgramContext& context) const override {
+      return context.executeUsing(*this, *this->expr, *this->block);
     }
     virtual void dump(std::ostream& os) const override {
       ParserDump(os, "using").add(this->expr).add(this->block);
@@ -598,8 +599,8 @@ namespace {
       // A symbol may be declared in the condition
       return this->condition->symbol(declaration);
     }
-    virtual egg::lang::ExecutionResult execute(IEggEngineExecutionContext& execution) const override {
-      return execution.executeWhile(*this, *this->condition, *this->block);
+    virtual egg::lang::Value execute(EggEngineProgramContext& context) const override {
+      return context.executeWhile(*this, *this->condition, *this->block);
     }
     virtual void dump(std::ostream& os) const override {
       ParserDump(os, "while").add(this->condition).add(this->block);
@@ -614,8 +615,8 @@ namespace {
       : expr(expr) {
       assert(expr != nullptr);
     }
-    virtual egg::lang::ExecutionResult execute(IEggEngineExecutionContext& execution) const override {
-      return execution.executeYield(*this, *this->expr);
+    virtual egg::lang::Value execute(EggEngineProgramContext& context) const override {
+      return context.executeYield(*this, *this->expr);
     }
     virtual void dump(std::ostream& os) const override {
       ParserDump(os, "yield").add(this->expr);
@@ -631,8 +632,8 @@ namespace {
       : callee(callee) {
       assert(callee != nullptr);
     }
-    virtual egg::lang::ExecutionResult execute(IEggEngineExecutionContext& execution) const override {
-      return execution.executeCall(*this, *this->callee, this->child);
+    virtual egg::lang::Value execute(EggEngineProgramContext& context) const override {
+      return context.executeCall(*this, *this->callee, this->child);
     }
     virtual void dump(std::ostream& os) const override {
       ParserDump(os, "call").add(this->callee).add(this->child);
@@ -656,9 +657,9 @@ namespace {
       declaration.set(this->name, this->expr->getType());
       return true;
     }
-    virtual egg::lang::ExecutionResult execute(IEggEngineExecutionContext& execution) const override {
+    virtual egg::lang::Value execute(EggEngineProgramContext& context) const override {
       // The name has already been extracted via 'symbol' so just propagate the value
-      return this->expr->execute(execution);
+      return this->expr->execute(context);
     }
     virtual void dump(std::ostream& os) const override {
       ParserDump(os, "named").add(this->name).add(this->expr);
@@ -672,8 +673,8 @@ namespace {
     explicit EggParserNode_Identifier(const std::string& name)
       : name(name) {
     }
-    virtual egg::lang::ExecutionResult execute(IEggEngineExecutionContext& execution) const override {
-      return execution.executeIdentifier(*this, this->name);
+    virtual egg::lang::Value execute(EggEngineProgramContext& context) const override {
+      return context.executeIdentifier(*this, this->name);
     }
     virtual void dump(std::ostream& os) const override {
       ParserDump(os, "identifier").add(this->name);
@@ -685,8 +686,8 @@ namespace {
     virtual std::shared_ptr<IEggParserType> getType() const override {
       return typeNull;
     }
-    virtual egg::lang::ExecutionResult execute(IEggEngineExecutionContext& execution) const override {
-      return execution.executeLiteral(*this, nullptr);
+    virtual egg::lang::Value execute(EggEngineProgramContext& context) const override {
+      return context.executeLiteral(*this, nullptr);
     }
     virtual void dump(std::ostream& os) const override {
       ParserDump(os, "literal null");
@@ -704,8 +705,8 @@ namespace {
     virtual std::shared_ptr<IEggParserType> getType() const override {
       return typeBool;
     }
-    virtual egg::lang::ExecutionResult execute(IEggEngineExecutionContext& execution) const override {
-      return execution.executeLiteral(*this, this->value);
+    virtual egg::lang::Value execute(EggEngineProgramContext& context) const override {
+      return context.executeLiteral(*this, this->value);
     }
     virtual void dump(std::ostream& os) const override {
       ParserDump(os, "literal bool").raw(this->value);
@@ -724,8 +725,8 @@ namespace {
     virtual std::shared_ptr<IEggParserType> getType() const override {
       return typeInt;
     }
-    virtual egg::lang::ExecutionResult execute(IEggEngineExecutionContext& execution) const override {
-      return execution.executeLiteral(*this, this->value);
+    virtual egg::lang::Value execute(EggEngineProgramContext& context) const override {
+      return context.executeLiteral(*this, this->value);
     }
     virtual void dump(std::ostream& os) const override {
       ParserDump(os, "literal int").raw(this->value);
@@ -742,8 +743,8 @@ namespace {
     virtual std::shared_ptr<IEggParserType> getType() const override {
       return typeFloat;
     }
-    virtual egg::lang::ExecutionResult execute(IEggEngineExecutionContext& execution) const override {
-      return execution.executeLiteral(*this, this->value);
+    virtual egg::lang::Value execute(EggEngineProgramContext& context) const override {
+      return context.executeLiteral(*this, this->value);
     }
     virtual void dump(std::ostream& os) const override {
       ParserDump(os, "literal float").raw(this->value);
@@ -760,8 +761,8 @@ namespace {
     virtual std::shared_ptr<IEggParserType> getType() const override {
       return typeString;
     }
-    virtual egg::lang::ExecutionResult execute(IEggEngineExecutionContext& execution) const override {
-      return execution.executeLiteral(*this, this->value);
+    virtual egg::lang::Value execute(EggEngineProgramContext& context) const override {
+      return context.executeLiteral(*this, this->value);
     }
     virtual void dump(std::ostream& os) const override {
       ParserDump(os, "literal string").add(this->value);
@@ -777,8 +778,8 @@ namespace {
       assert(expr != nullptr);
     }
   public:
-    virtual egg::lang::ExecutionResult execute(IEggEngineExecutionContext& execution) const override {
-      return execution.executeUnary(*this, this->op, *this->expr);
+    virtual egg::lang::Value execute(EggEngineProgramContext& context) const override {
+      return context.executeUnary(*this, this->op, *this->expr);
     }
     virtual void dump(std::ostream& os) const override {
       ParserDump(os, "unary").add(EggParserNodeBase::unaryToString(this->op)).add(this->expr);
@@ -806,8 +807,8 @@ namespace {
       assert(rhs != nullptr);
     }
   public:
-    virtual egg::lang::ExecutionResult execute(IEggEngineExecutionContext& execution) const override {
-      return execution.executeBinary(*this, this->op, *this->lhs, *this->rhs);
+    virtual egg::lang::Value execute(EggEngineProgramContext& context) const override {
+      return context.executeBinary(*this, this->op, *this->lhs, *this->rhs);
     }
     virtual void dump(std::ostream& os) const override {
       ParserDump(os, "binary").add(EggParserNodeBase::binaryToString(this->op)).add(this->lhs).add(this->rhs);
@@ -836,8 +837,8 @@ namespace {
       assert(whenTrue != nullptr);
       assert(whenFalse != nullptr);
     }
-    virtual egg::lang::ExecutionResult execute(IEggEngineExecutionContext& execution) const override {
-      return execution.executeTernary(*this, *this->condition, *this->whenTrue, *this->whenFalse);
+    virtual egg::lang::Value execute(EggEngineProgramContext& context) const override {
+      return context.executeTernary(*this, *this->condition, *this->whenTrue, *this->whenFalse);
     }
     virtual void dump(std::ostream& os) const override {
       ParserDump(os, "ternary").add(this->condition).add(this->whenTrue).add(this->whenFalse);
@@ -856,8 +857,8 @@ namespace {
       assert(rhs != nullptr);
     }
   public:
-    virtual egg::lang::ExecutionResult execute(IEggEngineExecutionContext& execution) const override {
-      return execution.executeAssign(*this, this->op, *this->lhs, *this->rhs);
+    virtual egg::lang::Value execute(EggEngineProgramContext& context) const override {
+      return context.executeAssign(*this, this->op, *this->lhs, *this->rhs);
     }
     virtual void dump(std::ostream& os) const override {
       ParserDump(os, "assign").add(EggParserNodeBase::assignToString(this->op)).add(this->lhs).add(this->rhs);

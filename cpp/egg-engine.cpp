@@ -10,41 +10,37 @@ namespace {
   using namespace egg::yolk;
 
   template<typename ACTION>
-  void captureExceptions(egg::lang::LogSource source, IEggEngineLogger& logger, ACTION action) {
+  egg::lang::LogSeverity captureExceptions(egg::lang::LogSource source, IEggEngineLogger& logger, ACTION action) {
     try {
-      action();
+      return action();
     } catch (const Exception& ex) {
       // We have an opportunity to extract more information in the future
       logger.log(source, egg::lang::LogSeverity::Error, ex.what());
     } catch (const std::exception& ex) {
       logger.log(source, egg::lang::LogSeverity::Error, ex.what());
     }
+    return egg::lang::LogSeverity::Error;
   }
 
   template<class BASE>
   class EggEngineBaseContext : public BASE {
   protected:
     std::shared_ptr<IEggEngineLogger> logger;
-    egg::lang::LogSeverity maximumSeverity;
   public:
     explicit EggEngineBaseContext(const std::shared_ptr<IEggEngineLogger>& logger)
-      : logger(logger), maximumSeverity(egg::lang::LogSeverity::None) {
+      : logger(logger) {
       assert(logger != nullptr);
     }
     virtual ~EggEngineBaseContext() {
     }
     virtual void log(egg::lang::LogSource source, egg::lang::LogSeverity severity, const std::string& message) {
-      if (severity > this->maximumSeverity) {
-        this->maximumSeverity = severity;
-      }
       this->logger->log(source, severity, message);
-    }
-    virtual egg::lang::LogSeverity getMaximumSeverity() const {
-      return this->maximumSeverity;
     }
   };
 
   class EggEnginePreparationContext : public EggEngineBaseContext<IEggEnginePreparationContext> {
+  private:
+    std::shared_ptr<IEggEngineLogger> logger;
   public:
     explicit EggEnginePreparationContext(const std::shared_ptr<IEggEngineLogger>& logger)
       : EggEngineBaseContext(logger) {
@@ -59,7 +55,7 @@ namespace {
       assert(logger != nullptr);
     }
     virtual void print(const std::string& text) {
-      this->log(LogSource::User, LogSeverity::Information, text);
+      this->log(egg::lang::LogSource::User, egg::lang::LogSeverity::Information, text);
     }
   };
 
@@ -72,13 +68,14 @@ namespace {
     }
     virtual ~EggEngineParsed() {
     }
-    virtual Severity prepare(IEggEnginePreparationContext& preparation) {
+    virtual egg::lang::LogSeverity prepare(IEggEnginePreparationContext& preparation) {
       preparation.log(egg::lang::LogSource::Compiler, egg::lang::LogSeverity::Error, "Unnecessary program preparation");
-      return preparation.getMaximumSeverity();
+      return egg::lang::LogSeverity::Error;
     }
-    virtual Severity execute(IEggEngineExecutionContext& execution) {
-      this->program.execute(execution);
-      return execution.getMaximumSeverity();
+    virtual egg::lang::LogSeverity execute(IEggEngineExecutionContext& execution) {
+      EggEngineProgramContext context(execution);
+      this->program.execute(context);
+      return context.getMaximumSeverity();
     }
   };
 
@@ -93,24 +90,25 @@ namespace {
     }
     virtual ~EggEngineTextStream() {
     }
-    virtual Severity prepare(IEggEnginePreparationContext& preparation) {
+    virtual egg::lang::LogSeverity prepare(IEggEnginePreparationContext& preparation) {
       if (this->program != nullptr) {
         preparation.log(egg::lang::LogSource::Compiler, egg::lang::LogSeverity::Error, "Program prepared more than once");
-      } else {
-        captureExceptions(egg::lang::LogSource::Compiler, preparation, [this]{
-          auto root = EggParserFactory::parseModule(*this->stream);
-          this->program = std::make_unique<EggEngineProgram>(root);
-        });
+        return egg::lang::LogSeverity::Error;
       }
-      return preparation.getMaximumSeverity();
+      return captureExceptions(egg::lang::LogSource::Compiler, preparation, [this]{
+        auto root = EggParserFactory::parseModule(*this->stream);
+        this->program = std::make_unique<EggEngineProgram>(root);
+        return egg::lang::LogSeverity::None;
+      });
     }
-    virtual Severity execute(IEggEngineExecutionContext& execution) {
+    virtual egg::lang::LogSeverity execute(IEggEngineExecutionContext& execution) {
       if (this->program == nullptr) {
         execution.log(egg::lang::LogSource::Runtime, egg::lang::LogSeverity::Error, "Program not prepared before execution");
-      } else {
-        this->program->execute(execution);
+        return egg::lang::LogSeverity::Error;
       }
-      return execution.getMaximumSeverity();
+      EggEngineProgramContext context(execution);
+      this->program->execute(context);
+      return context.getMaximumSeverity();
     }
   };
 }

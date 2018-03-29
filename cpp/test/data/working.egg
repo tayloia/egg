@@ -1,9 +1,10 @@
 // This is a test file
+var a;
 var s = 0;
 for (var i = 0; i < 100; ++i) {
   s += i;
 }
-switch (s) {
+switch (var ss = s) {
 case 123:
 case 234:
 default:

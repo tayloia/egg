@@ -61,15 +61,55 @@ namespace egg::lang {
     Object = 1 << 7,
     Any = Bool | Int | Float | String | Type | Object,
     Arithmetic = Int | Float,
-    FlowControl = 1 << 8
+    Break = 1 << 8,
+    Continue = 1 << 9,
+    Return = 1 << 10,
+    Yield = 1 << 11,
+    Exception = 1 << 12,
+    FlowControl = Break | Continue | Return | Yield | Exception
   };
   inline Discriminator operator|(Discriminator lhs, Discriminator rhs) {
     return Bits::set(lhs, rhs);
   }
 
-  class ExecutionResult {
-    // TODO
+  class IObject {
   public:
-    static const ExecutionResult Void;
+    virtual IObject* acquire() const = 0;
+    virtual void release() const = 0;
+  };
+
+  class Value final {
+  private:
+    Discriminator tag;
+    union {
+      bool b;
+      int64_t i;
+      double f;
+      std::string* s;
+      IObject* o;
+      Value* v;
+    };
+    explicit Value(Discriminator tag) : tag(tag) { this->o = nullptr; }
+    void addref();
+  public:
+    inline explicit Value(bool value) : tag(Discriminator::Bool) { this->b = value; }
+    inline explicit Value(int value) : tag(Discriminator::Int) { this->i = value; }
+    inline explicit Value(double value) : tag(Discriminator::Float) { this->f = value; }
+    inline explicit Value(const std::string& value) : tag(Discriminator::String) { this->s = new std::string(value); }
+    Value(const Value& value);
+    Value(Value&& value);
+    Value& operator=(const Value& value);
+    Value& operator=(Value&& value);
+    ~Value();
+    inline bool is(Discriminator bits) const { return Bits::mask(this->tag, bits) != Discriminator::None; }
+    inline bool getBool() const { assert(this->is(Discriminator::Bool)); return this->b; }
+    inline int64_t getInt() const { assert(this->is(Discriminator::Int)); return this->i; }
+    inline double getFloat() const { assert(this->is(Discriminator::Float)); return this->f; }
+    inline const std::string& getString() const { assert(this->is(Discriminator::String)); return *this->s; }
+    inline IObject& getType() const { assert(this->is(Discriminator::Type)); return *this->o; }
+    inline IObject& getObject() const { assert(this->is(Discriminator::Object)); return *this->o; }
+    inline Value& getFlowControl() const { assert(this->is(Discriminator::FlowControl)); return *this->v; }
+    static const Value Void;
+    static const Value Null;
   };
 }
