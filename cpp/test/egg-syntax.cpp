@@ -269,9 +269,9 @@ TEST(TestEggSyntaxParser, StatementIf) {
   ASSERT_PARSE_GOOD(parseStatementToString("if (a) {} else {}"), "(if (identifier 'a') (block) (block))");
   // Bad
   ASSERT_PARSE_BAD(parseStatementToString("if {"), "(1, 4): Expected '(' after 'if' keyword");
-  ASSERT_PARSE_BAD(parseStatementToString("if ("), "(1, 5): Expected condition expression after '(' in 'if' statement");
-  ASSERT_PARSE_BAD(parseStatementToString("if ()"), "(1, 5): Expected condition expression after '(' in 'if' statement");
-  ASSERT_PARSE_BAD(parseStatementToString("if (a"), "(1, 6): Expected ')' after 'if' condition expression");
+  ASSERT_PARSE_BAD(parseStatementToString("if ("), "(1, 5): Expected expression or type after '(' in 'if' statement");
+  ASSERT_PARSE_BAD(parseStatementToString("if ()"), "(1, 5): Expected expression or type after '(' in 'if' statement");
+  ASSERT_PARSE_BAD(parseStatementToString("if (a"), "(1, 6): Expected ')' after expression in 'if' statement");
   ASSERT_PARSE_BAD(parseStatementToString("if (a)"), "(1, 7): Expected '{' after ')' in 'if' statement");
   ASSERT_PARSE_BAD(parseStatementToString("if (a) do"), "(1, 8): Expected '{' after ')' in 'if' statement");
   ASSERT_PARSE_BAD(parseStatementToString("if (a) {"), "(1, 9): Expected statement");
@@ -304,8 +304,8 @@ TEST(TestEggSyntaxParser, StatementSwitch) {
   ASSERT_PARSE_GOOD(parseStatementToString("switch (a) {}"), "(switch (identifier 'a') (block))");
   // Bad
   ASSERT_PARSE_BAD(parseStatementToString("switch {}"), "(1, 8): Expected '(' after 'switch' keyword");
-  ASSERT_PARSE_BAD(parseStatementToString("switch () {}"), "(1, 9): Expected condition expression after '(' in 'switch' statement");
-  ASSERT_PARSE_BAD(parseStatementToString("switch (a {}"), "(1, 11): Expected ')' after 'switch' condition expression");
+  ASSERT_PARSE_BAD(parseStatementToString("switch () {}"), "(1, 9): Expected expression or type after '(' in 'switch' statement");
+  ASSERT_PARSE_BAD(parseStatementToString("switch (a {}"), "(1, 11): Expected ')' after expression in 'switch' statement");
   ASSERT_PARSE_BAD(parseStatementToString("switch (a) }"), "(1, 12): Expected '{' after ')' in 'switch' statement");
 }
 
@@ -357,9 +357,9 @@ TEST(TestEggSyntaxParser, StatementWhile) {
   ASSERT_PARSE_GOOD(parseStatementToString("while (a) {}"), "(while (identifier 'a') (block))");
   // Bad
   ASSERT_PARSE_BAD(parseStatementToString("while {"), "(1, 7): Expected '(' after 'while' keyword");
-  ASSERT_PARSE_BAD(parseStatementToString("while ("), "(1, 8): Expected condition expression after '(' in 'while' statement");
-  ASSERT_PARSE_BAD(parseStatementToString("while ()"), "(1, 8): Expected condition expression after '(' in 'while' statement");
-  ASSERT_PARSE_BAD(parseStatementToString("while (a"), "(1, 9): Expected ')' after 'while' condition expression");
+  ASSERT_PARSE_BAD(parseStatementToString("while ("), "(1, 8): Expected expression or type after '(' in 'while' statement");
+  ASSERT_PARSE_BAD(parseStatementToString("while ()"), "(1, 8): Expected expression or type after '(' in 'while' statement");
+  ASSERT_PARSE_BAD(parseStatementToString("while (a"), "(1, 9): Expected ')' after expression in 'while' statement");
   ASSERT_PARSE_BAD(parseStatementToString("while (a)"), "(1, 10): Expected '{' after ')' in 'while' statement");
   ASSERT_PARSE_BAD(parseStatementToString("while (a) do"), "(1, 11): Expected '{' after ')' in 'while' statement");
   ASSERT_PARSE_BAD(parseStatementToString("while (a) {"), "(1, 12): Expected statement");

@@ -11,16 +11,16 @@ namespace {
 }
 
 egg::lang::ExecutionResult IEggEngineExecutionContext::executeModule(const IEggParserNode&, const std::vector<std::shared_ptr<IEggParserNode>>& statements) {
-  this->print("execute!");
   for (auto& statement : statements) {
-    statement->dump(std::cout);
-    std::cout << std::endl;
+    //statement->dump(std::cout);
+    //std::cout << std::endl;
     //statement->execute(*this);
     EggParserSymbol symbol;
     if (statement->symbol(symbol)) {
       std::cout << "SYMBOL:" << symbol.name << std::endl;
     }
   }
+  this->print("execute");
   return egg::lang::ExecutionResult::Void;
 }
 

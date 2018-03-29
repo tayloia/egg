@@ -519,8 +519,7 @@ namespace {
     void parseParameterList(std::function<void(std::unique_ptr<IEggSyntaxNode>&& node)> adder);
     void parseEndOfFile(const char* expected);
     std::unique_ptr<IEggSyntaxNode> parseCompoundStatement();
-    std::unique_ptr<IEggSyntaxNode> parseConditionGuarded(const char* expected);
-    std::unique_ptr<IEggSyntaxNode> parseConditionUnguarded(const char* expected);
+    std::unique_ptr<IEggSyntaxNode> parseCondition(const char* expected);
     std::unique_ptr<IEggSyntaxNode> parseExpression(const char* expected);
     std::unique_ptr<IEggSyntaxNode> parseExpressionTernary(const char* expected);
     PARSE_BINARY1_LTR(parseExpressionNullCoalescing, parseExpressionLogicalOr, EggTokenizerOperator::QueryQuery)
@@ -539,6 +538,7 @@ namespace {
     std::unique_ptr<IEggSyntaxNode> parseExpressionPostfix(const char* expected);
     std::unique_ptr<IEggSyntaxNode> parseExpressionPostfixGreedy(std::unique_ptr<IEggSyntaxNode>&& expr);
     std::unique_ptr<IEggSyntaxNode> parseExpressionPrimary(const char* expected);
+    std::unique_ptr<IEggSyntaxNode> parseExpressionDeclaration();
     std::unique_ptr<IEggSyntaxNode> parseModule();
     std::unique_ptr<IEggSyntaxNode> parseStatement();
     std::unique_ptr<IEggSyntaxNode> parseStatementSimple(const char* expected, EggTokenizerOperator terminal);
@@ -1000,21 +1000,56 @@ std::unique_ptr<IEggSyntaxNode> EggSyntaxParserContext::parseExpressionPrimary(c
   }
 }
 
-std::unique_ptr<IEggSyntaxNode> EggSyntaxParserContext::parseConditionGuarded(const char* expected) {
+std::unique_ptr<IEggSyntaxNode> EggSyntaxParserContext::parseCondition(const char* expected) {
   /*
-      guarded-condition ::= expression -- TODO
+      condition ::= expression
   */
+  assert(expected != nullptr);
   auto expr = this->parseExpression(expected);
   assert(expr != nullptr);
   return expr;
 }
 
-std::unique_ptr<IEggSyntaxNode> EggSyntaxParserContext::parseConditionUnguarded(const char* expected) {
+std::unique_ptr<IEggSyntaxNode> EggSyntaxParserContext::parseExpressionDeclaration() {
   /*
-      unguarded-condition ::= expression
+      expression-declaration ::= keyword '(' variable-definition-type variable-identifier '=' expression ')'
+                               | keyword '(' expression ')'
   */
-  auto expr = this->parseExpression(expected);
-  assert(expr != nullptr);
+  EggSyntaxParserBacktrackMark mark(this->backtrack);
+  auto& pk = mark.peek(0);
+  assert(pk.kind == EggTokenizerKind::Keyword);
+  auto keyword = EggTokenizerValue::getKeywordString(pk.value.k);
+  EggSyntaxNodeLocation location(pk);
+  if (!mark.peek(1).isOperator(EggTokenizerOperator::ParenthesisLeft)) {
+    this->unexpected("Expected '(' after '" + keyword + "' keyword", mark.peek(1));
+  }
+  mark.advance(2);
+  auto expr = this->parseExpression(nullptr);
+  if (expr == nullptr) {
+    // Expect <keyword> '(' <type> <identifier> '=' <expression> ')' <compound-statement>
+    auto type = this->parseType(nullptr);
+    if (type == nullptr) {
+      this->unexpected("Expected expression or type after '(' in '" + keyword + "' statement", mark.peek(0));
+    }
+    auto& p0 = mark.peek(0);
+    if (p0.kind != EggTokenizerKind::Identifier) {
+      this->unexpected("Expected variable identifier after type in '" + keyword + "' statement", p0);
+    }
+    auto& p1 = mark.peek(1);
+    if (!p1.isOperator(EggTokenizerOperator::Equal)) {
+      this->unexpected("Expected '=' after variable identifier in '" + keyword + "' statement", p1);
+    }
+    mark.advance(2);
+    auto rhs = this->parseExpression(nullptr);
+    if (rhs == nullptr) {
+      this->unexpected("Expected expression after '=' in '" + keyword + "' statement", mark.peek(0));
+    }
+    expr = std::make_unique<EggSyntaxNode_Declare>(location, p0.value.s, std::move(type), std::move(rhs));
+  }
+  if (!mark.peek(0).isOperator(EggTokenizerOperator::ParenthesisRight)) {
+    this->unexpected("Expected ')' after expression in '" + keyword + "' statement", mark.peek(0));
+  }
+  mark.accept(1);
   return expr;
 }
 
@@ -1246,7 +1281,7 @@ std::unique_ptr<IEggSyntaxNode> EggSyntaxParserContext::parseStatementDo() {
     this->unexpected("Expected '(' after 'while' keyword in 'do' statement", mark.peek(1));
   }
   mark.advance(2);
-  auto expr = this->parseConditionUnguarded("Expected condition expression after 'while (' in 'do' statement");
+  auto expr = this->parseCondition("Expected condition expression after 'while (' in 'do' statement");
   if (!mark.peek(0).isOperator(EggTokenizerOperator::ParenthesisRight)) {
     this->unexpected("Expected ')' after 'do' condition expression", mark.peek(0));
   }
@@ -1298,7 +1333,7 @@ std::unique_ptr<IEggSyntaxNode> EggSyntaxParserContext::parseStatementFor() {
     mark.advance(1); // skip ';'
     cond = std::make_unique<EggSyntaxNode_Empty>(location);
   } else {
-    cond = this->parseConditionUnguarded("Expected condition expression as second clause in 'for' statement");
+    cond = this->parseCondition("Expected condition expression as second clause in 'for' statement");
     if (!mark.peek(0).isOperator(EggTokenizerOperator::Semicolon)) {
       this->unexpected("Expected ';' after condition expression of 'for' statement", mark.peek(0));
     }
@@ -1372,15 +1407,7 @@ std::unique_ptr<IEggSyntaxNode> EggSyntaxParserContext::parseStatementIf() {
   EggSyntaxParserBacktrackMark mark(this->backtrack);
   auto& p0 = mark.peek(0);
   assert(p0.isKeyword(EggTokenizerKeyword::If));
-  if (!mark.peek(1).isOperator(EggTokenizerOperator::ParenthesisLeft)) {
-    this->unexpected("Expected '(' after 'if' keyword", mark.peek(1));
-  }
-  mark.advance(2);
-  auto expr = this->parseConditionGuarded("Expected condition expression after '(' in 'if' statement");
-  if (!mark.peek(0).isOperator(EggTokenizerOperator::ParenthesisRight)) {
-    this->unexpected("Expected ')' after 'if' condition expression", mark.peek(0));
-  }
-  mark.advance(1);
+  auto expr = this->parseExpressionDeclaration();
   if (!mark.peek(0).isOperator(EggTokenizerOperator::CurlyLeft)) {
     this->unexpected("Expected '{' after ')' in 'if' statement", mark.peek(0));
   }
@@ -1426,20 +1453,12 @@ std::unique_ptr<IEggSyntaxNode> EggSyntaxParserContext::parseStatementReturn() {
 
 std::unique_ptr<IEggSyntaxNode> EggSyntaxParserContext::parseStatementSwitch() {
   /*
-      switch-statement ::= 'switch' '(' <expression> ')' <compound-statement>
+      switch-statement ::= 'switch' '(' <condition-expression> ')' <compound-statement>
   */
   EggSyntaxParserBacktrackMark mark(this->backtrack);
   auto& p0 = mark.peek(0);
   assert(p0.isKeyword(EggTokenizerKeyword::Switch));
-  if (!mark.peek(1).isOperator(EggTokenizerOperator::ParenthesisLeft)) {
-    this->unexpected("Expected '(' after 'switch' keyword", mark.peek(1));
-  }
-  mark.advance(2);
-  auto expr = this->parseConditionGuarded("Expected condition expression after '(' in 'switch' statement");
-  if (!mark.peek(0).isOperator(EggTokenizerOperator::ParenthesisRight)) {
-    this->unexpected("Expected ')' after 'switch' condition expression", mark.peek(0));
-  }
-  mark.advance(1);
+  auto expr = this->parseExpressionDeclaration();
   if (!mark.peek(0).isOperator(EggTokenizerOperator::CurlyLeft)) {
     this->unexpected("Expected '{' after ')' in 'switch' statement", mark.peek(0));
   }
@@ -1472,7 +1491,7 @@ std::unique_ptr<IEggSyntaxNode> EggSyntaxParserContext::parseStatementThrow() {
 
 std::unique_ptr<IEggSyntaxNode> EggSyntaxParserContext::parseStatementTry() {
   /*
-      try-statement ::= 'if' '(' <condition-expression> ')' <compound-statement> <else-clause>?
+      try-statement ::= 'try' '(' <condition-expression> ')' <compound-statement> <catch-clause>* <finally-clause>?
 
       catch-clause ::= 'catch' '(' <type> <identifier> ')' <compound-statement>
 
@@ -1601,20 +1620,12 @@ std::unique_ptr<IEggSyntaxNode> EggSyntaxParserContext::parseStatementUsing() {
 
 std::unique_ptr<IEggSyntaxNode> EggSyntaxParserContext::parseStatementWhile() {
   /*
-      do-statement ::= 'while' '(' <condition-expression> ')' <compound-statement>
+      while-statement ::= 'while' '(' <condition-expression> ')' <compound-statement>
   */
   EggSyntaxParserBacktrackMark mark(this->backtrack);
   auto& p0 = mark.peek(0);
   assert(p0.isKeyword(EggTokenizerKeyword::While));
-  if (!mark.peek(1).isOperator(EggTokenizerOperator::ParenthesisLeft)) {
-    this->unexpected("Expected '(' after 'while' keyword", mark.peek(1));
-  }
-  mark.advance(2);
-  auto expr = this->parseConditionGuarded("Expected condition expression after '(' in 'while' statement");
-  if (!mark.peek(0).isOperator(EggTokenizerOperator::ParenthesisRight)) {
-    this->unexpected("Expected ')' after 'while' condition expression", mark.peek(0));
-  }
-  mark.advance(1);
+  auto expr = this->parseExpressionDeclaration();
   if (!mark.peek(0).isOperator(EggTokenizerOperator::CurlyLeft)) {
     this->unexpected("Expected '{' after ')' in 'while' statement", mark.peek(0));
   }
