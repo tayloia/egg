@@ -70,7 +70,7 @@ namespace egg::yolk {
   struct EggParserSymbol {
     std::string name;
     std::shared_ptr<IEggParserType> type;
-    bool omnipresent; // Available in this block before its declaration (e.g. functions)
+    bool omnipresent; // Available in this block before its declaration (e.g. functions) -- TODO remove?
 
     inline void set(const std::string& name0, const std::shared_ptr<IEggParserType>& type0, bool omnipresent0 = false) {
       this->name = name0;

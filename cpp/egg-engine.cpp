@@ -73,9 +73,7 @@ namespace {
       return egg::lang::LogSeverity::Error;
     }
     virtual egg::lang::LogSeverity execute(IEggEngineExecutionContext& execution) {
-      EggEngineProgramContext context(execution);
-      this->program.execute(context);
-      return context.getMaximumSeverity();
+      return this->program.execute(execution);
     }
   };
 
@@ -106,9 +104,7 @@ namespace {
         execution.log(egg::lang::LogSource::Runtime, egg::lang::LogSeverity::Error, "Program not prepared before execution");
         return egg::lang::LogSeverity::Error;
       }
-      EggEngineProgramContext context(execution);
-      this->program->execute(context);
-      return context.getMaximumSeverity();
+      return this->program->execute(execution);
     }
   };
 }

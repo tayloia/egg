@@ -107,6 +107,11 @@ TEST(TestEggEngine, LogFromEngine) {
   ASSERT_EQ("USER:INFO:execute\n", logFromEngine(stream));
 }
 
+TEST(TestEggEngine, DuplicateSymbols) {
+  StringTextStream stream("var a = 1;\nvar a;");
+  ASSERT_EQ("COMPILER:ERROR:Duplicate symbol declared at module level: 'a'\n", logFromEngine(stream));
+}
+
 TEST(TestEggEngine, WorkingFile) {
   FileTextStream stream("~/cpp/test/data/working.egg");
   auto engine = EggEngineFactory::createEngineFromTextStream(stream);

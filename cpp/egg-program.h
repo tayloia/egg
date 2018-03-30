@@ -7,17 +7,19 @@ namespace egg::yolk {
       : root(root) {
       assert(root != nullptr);
     }
-    void execute(EggEngineProgramContext& context);
+    egg::lang::LogSeverity execute(IEggEngineExecutionContext& execution);
   };
 
   class EggEngineProgramContext {
+  public:
+    class SymbolTable;
   private:
     IEggEngineExecutionContext* execution;
+    SymbolTable* symtable;
     egg::lang::LogSeverity maximumSeverity;
   public:
-    explicit EggEngineProgramContext(IEggEngineExecutionContext& execution)
-      : execution(&execution) {
-      assert(this->execution != nullptr);
+    EggEngineProgramContext(IEggEngineExecutionContext& execution, SymbolTable& symtable)
+      : execution(&execution), symtable(&symtable), maximumSeverity(egg::lang::LogSeverity::None) {
     }
     void log(egg::lang::LogSource source, egg::lang::LogSeverity severity, const std::string& message);
     egg::lang::LogSeverity getMaximumSeverity() const {
@@ -51,5 +53,9 @@ namespace egg::yolk {
     egg::lang::Value executeUnary(const IEggParserNode& self, EggParserUnary op, const IEggParserNode& value);
     egg::lang::Value executeBinary(const IEggParserNode& self, EggParserBinary op, const IEggParserNode& lhs, const IEggParserNode& rhs);
     egg::lang::Value executeTernary(const IEggParserNode& self, const IEggParserNode& condition, const IEggParserNode& whenTrue, const IEggParserNode& whenFalse);
+    void statement(const IEggParserNode& node);
+    void expression(const IEggParserNode& node);
+    void set(const std::string& name, const IEggParserNode& rvalue);
+    void assign(EggParserAssign op, const IEggParserNode& lvalue, const IEggParserNode& rvalue);
   };
 }
