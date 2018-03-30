@@ -3,6 +3,7 @@
 #include "egg-tokenizer.h"
 #include "egg-syntax.h"
 #include "egg-parser.h"
+#include "egg-program.h"
 
 using namespace egg::yolk;
 
@@ -10,12 +11,12 @@ using namespace egg::yolk;
 #define ASSERT_PARSE_BAD(parsed, needle) ASSERT_THROW_E(parsed, Exception, ASSERT_CONTAINS(e.what(), needle))
 
 namespace {
-  std::shared_ptr<IEggParserNode> parseFromString(IEggParser& parser, const std::string& text) {
+  std::shared_ptr<IEggProgramNode> parseFromString(IEggParser& parser, const std::string& text) {
     auto lexer = LexerFactory::createFromString(text);
     auto tokenizer = EggTokenizerFactory::createFromLexer(lexer);
     return parser.parse(*tokenizer);
   }
-  std::string dumpToString(IEggParserNode& tree) {
+  std::string dumpToString(IEggProgramNode& tree) {
     std::ostringstream oss;
     tree.dump(oss);
     return oss.str();

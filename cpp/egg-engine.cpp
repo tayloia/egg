@@ -61,9 +61,9 @@ namespace {
 
   class EggEngineParsed : public IEggEngine {
   private:
-    EggEngineProgram program;
+    EggProgram program;
   public:
-    explicit EggEngineParsed(const std::shared_ptr<IEggParserNode>& root)
+    explicit EggEngineParsed(const std::shared_ptr<IEggProgramNode>& root)
       : program(root) {
     }
     virtual ~EggEngineParsed() {
@@ -81,7 +81,7 @@ namespace {
     EGG_NO_COPY(EggEngineTextStream);
   private:
     TextStream* stream;
-    std::unique_ptr<EggEngineProgram> program;
+    std::unique_ptr<EggProgram> program;
   public:
     explicit EggEngineTextStream(TextStream& stream)
       : stream(&stream) {
@@ -95,7 +95,7 @@ namespace {
       }
       return captureExceptions(egg::lang::LogSource::Compiler, preparation, [this]{
         auto root = EggParserFactory::parseModule(*this->stream);
-        this->program = std::make_unique<EggEngineProgram>(root);
+        this->program = std::make_unique<EggProgram>(root);
         return egg::lang::LogSeverity::None;
       });
     }
@@ -121,6 +121,6 @@ std::shared_ptr<egg::yolk::IEggEngine> egg::yolk::EggEngineFactory::createEngine
   return std::make_shared<EggEngineTextStream>(stream);
 }
 
-std::shared_ptr<egg::yolk::IEggEngine> egg::yolk::EggEngineFactory::createEngineFromParsed(const std::shared_ptr<IEggParserNode>& root) {
+std::shared_ptr<egg::yolk::IEggEngine> egg::yolk::EggEngineFactory::createEngineFromParsed(const std::shared_ptr<IEggProgramNode>& root) {
   return std::make_shared<EggEngineParsed>(root);
 }

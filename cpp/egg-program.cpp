@@ -3,12 +3,111 @@
 #include "egg-tokenizer.h"
 #include "egg-syntax.h"
 #include "egg-parser.h"
-#include "egg-engine.h"
 #include "egg-program.h"
+#include "egg-engine.h"
 
 #include <set>
 
-class egg::yolk::EggEngineProgramContext::SymbolTable {
+namespace {
+  class EggProgramAssignee : public egg::yolk::IEggProgramAssignee {
+  public:
+    virtual egg::lang::Value get() const override {
+      return egg::lang::Value::raise("TODO EggProgramAssignee get()"); // TODO
+    }
+    virtual egg::lang::Value set(const egg::lang::Value&) {
+      return egg::lang::Value::raise("TODO EggProgramAssignee set()"); // TODO
+    }
+  };
+
+  egg::lang::Value plusInt(int64_t lhs, int64_t rhs) {
+    return egg::lang::Value(lhs + rhs);
+  }
+  egg::lang::Value minusInt(int64_t lhs, int64_t rhs) {
+    return egg::lang::Value(lhs - rhs);
+  }
+  egg::lang::Value multiplyInt(int64_t lhs, int64_t rhs) {
+    return egg::lang::Value(lhs * rhs);
+  }
+  egg::lang::Value divideInt(int64_t lhs, int64_t rhs) {
+    return egg::lang::Value(lhs / rhs);
+  }
+  egg::lang::Value remainderInt(int64_t lhs, int64_t rhs) {
+    return egg::lang::Value(lhs % rhs);
+  }
+  egg::lang::Value bitwiseAndInt(int64_t lhs, int64_t rhs) {
+    return egg::lang::Value(lhs & rhs);
+  }
+  egg::lang::Value bitwiseOrInt(int64_t lhs, int64_t rhs) {
+    return egg::lang::Value(lhs | rhs);
+  }
+  egg::lang::Value bitwiseXorInt(int64_t lhs, int64_t rhs) {
+    return egg::lang::Value(lhs ^ rhs);
+  }
+  egg::lang::Value shiftLeftInt(int64_t lhs, int64_t rhs) {
+    return egg::lang::Value(lhs << rhs);
+  }
+  egg::lang::Value shiftRightInt(int64_t lhs, int64_t rhs) {
+    return egg::lang::Value(lhs >> rhs);
+  }
+  egg::lang::Value shiftRightUnsignedInt(int64_t lhs, int64_t rhs) {
+    return egg::lang::Value(int64_t(uint64_t(lhs) >> rhs));
+  }
+  egg::lang::Value plusFloat(double lhs, double rhs) {
+    return egg::lang::Value(lhs + rhs);
+  }
+  egg::lang::Value minusFloat(double lhs, double rhs) {
+    return egg::lang::Value(lhs - rhs);
+  }
+  egg::lang::Value multiplyFloat(double lhs, double rhs) {
+    return egg::lang::Value(lhs * rhs);
+  }
+  egg::lang::Value divideFloat(double lhs, double rhs) {
+    return egg::lang::Value(lhs / rhs);
+  }
+  egg::lang::Value remainderFloat(double lhs, double rhs) {
+    return egg::lang::Value(std::remainder(lhs, rhs));
+  }
+}
+
+#define EGG_PROGRAM_OPERATOR_STRING(name, text) text,
+
+std::string egg::yolk::EggProgram::unaryToString(egg::yolk::EggProgramUnary op) {
+  static const char* const table[] = {
+    EGG_PROGRAM_UNARY_OPERATORS(EGG_PROGRAM_OPERATOR_STRING)
+  };
+  auto index = static_cast<size_t>(op);
+  assert(index < EGG_NELEMS(table));
+  return table[index];
+}
+
+std::string egg::yolk::EggProgram::binaryToString(egg::yolk::EggProgramBinary op) {
+  static const char* const table[] = {
+    EGG_PROGRAM_BINARY_OPERATORS(EGG_PROGRAM_OPERATOR_STRING)
+  };
+  auto index = static_cast<size_t>(op);
+  assert(index < EGG_NELEMS(table));
+  return table[index];
+}
+
+std::string egg::yolk::EggProgram::assignToString(egg::yolk::EggProgramAssign op) {
+  static const char* const table[] = {
+    EGG_PROGRAM_ASSIGN_OPERATORS(EGG_PROGRAM_OPERATOR_STRING)
+  };
+  auto index = static_cast<size_t>(op);
+  assert(index < EGG_NELEMS(table));
+  return table[index];
+}
+
+std::string egg::yolk::EggProgram::mutateToString(egg::yolk::EggProgramMutate op) {
+  static const char* const table[] = {
+    EGG_PROGRAM_MUTATE_OPERATORS(EGG_PROGRAM_OPERATOR_STRING)
+  };
+  auto index = static_cast<size_t>(op);
+  assert(index < EGG_NELEMS(table));
+  return table[index];
+}
+
+class egg::yolk::EggProgram::SymbolTable {
   EGG_NO_COPY(SymbolTable);
 public:
   struct Symbol {
@@ -42,46 +141,55 @@ public:
   }
 };
 
-void egg::yolk::EggEngineProgramContext::log(egg::lang::LogSource source, egg::lang::LogSeverity severity, const std::string& message) {
-  if (severity > this->maximumSeverity) {
-    this->maximumSeverity = severity;
+void egg::yolk::EggProgramContext::log(egg::lang::LogSource source, egg::lang::LogSeverity severity, const std::string& message) {
+  if (severity > *this->maximumSeverity) {
+    *this->maximumSeverity = severity;
   }
   this->execution->log(source, severity, message);
 }
 
-egg::lang::Value egg::yolk::EggEngineProgramContext::executeModule(const IEggParserNode& self, const std::vector<std::shared_ptr<IEggParserNode>>& statements) {
-  this->statement(self);
-  this->symtable->addSymbol("print")->value = egg::lang::Value("TODO print");
-  {
-    // Add all the omnipresent symbols whilst checking for duplicate symbols
-    std::set<std::string> seen;
-    for (auto& statement : statements) {
-      EggParserSymbol symbol;
-      if (statement->symbol(symbol)) {
-        if (!seen.insert(symbol.name).second) {
-          // Already seen
-          this->log(egg::lang::LogSource::Compiler, egg::lang::LogSeverity::Error, "Duplicate symbol declared at module level: '" + symbol.name + "'");
-        }
-        if (symbol.omnipresent) {
-          this->symtable->addSymbol(symbol.name)->value = egg::lang::Value("TODO omnipresent function");
-        }
+bool egg::yolk::EggProgramContext::findDuplicateSymbols(const std::vector<std::shared_ptr<IEggProgramNode>>& statements) {
+  // Check for duplicate symbols
+  bool error = false;
+  std::string name;
+  std::shared_ptr<IEggProgramType> type;
+  std::set<std::string> seen;
+  for (auto& statement : statements) {
+    if (statement->symbol(name, type)) {
+      if (!seen.insert(name).second) {
+        // Already seen at this level
+        this->log(egg::lang::LogSource::Compiler, egg::lang::LogSeverity::Error, "Duplicate symbol declared at module level: '" + name + "'");
+        error = true;
+      } else if (this->symtable->findSymbol(name) != nullptr) {
+        // Seen at an enclosing level
+        this->log(egg::lang::LogSource::Compiler, egg::lang::LogSeverity::Warning, "Symbol name hides previously declared symbol in enclosing level: '" + name + "'");
       }
     }
-    if (this->getMaximumSeverity() == egg::lang::LogSeverity::Error) {
-      return egg::lang::Value::Null; // TODO
-    }
   }
-  // Now execute the statements
+  return error;
+}
+
+egg::lang::Value egg::yolk::EggProgramContext::executeStatements(const std::vector<std::shared_ptr<IEggProgramNode>>& statements) {
+  // Execute all the statements one after another
+  std::string name;
+  std::shared_ptr<IEggProgramType> type;
   for (auto& statement : statements) {
-    EggParserSymbol symbol;
-    if (statement->symbol(symbol) && !symbol.omnipresent) {
-      // We've checked for duplicate symbols above
-      this->symtable->addSymbol(symbol.name);
+    if (statement->symbol(name, type)) {
+      // We've checked for duplicate symbols already
+      this->symtable->addSymbol(name);
     }
     statement->execute(*this);
   }
   this->execution->print("execute");
   return egg::lang::Value::Void;
+}
+
+egg::lang::Value egg::yolk::EggProgramContext::executeModule(const IEggProgramNode& self, const std::vector<std::shared_ptr<IEggProgramNode>>& statements) {
+  this->statement(self);
+  if (this->findDuplicateSymbols(statements)) {
+    return egg::lang::Value::raise("Execution halted due to previous errors");
+  }
+  return this->executeStatements(statements);
 }
 
 static egg::lang::Value WIBBLE(std::string function, ...) {
@@ -91,170 +199,445 @@ static egg::lang::Value WIBBLE(std::string function, ...) {
   return egg::lang::Value::Null;
 }
 
-egg::lang::Value egg::yolk::EggEngineProgramContext::executeBlock(const IEggParserNode& self, const std::vector<std::shared_ptr<IEggParserNode>>& statements) {
+egg::lang::Value egg::yolk::EggProgramContext::executeBlock(const IEggProgramNode& self, const std::vector<std::shared_ptr<IEggProgramNode>>& statements) {
   this->statement(self);
-  return WIBBLE(__FUNCTION__, &self, &statements);
+  EggProgram::SymbolTable nested(this->symtable);
+  EggProgramContext context(*this, nested);
+  if (context.findDuplicateSymbols(statements)) {
+    return egg::lang::Value::raise("Execution halted due to previous errors");
+  }
+  return context.executeStatements(statements);
 }
 
-egg::lang::Value egg::yolk::EggEngineProgramContext::executeType(const IEggParserNode& self, const IEggParserType& type) {
+egg::lang::Value egg::yolk::EggProgramContext::executeType(const IEggProgramNode& self, const IEggProgramType& type) {
   this->expression(self);
   return WIBBLE(__FUNCTION__, &self, &type);
 }
 
-egg::lang::Value egg::yolk::EggEngineProgramContext::executeDeclare(const IEggParserNode& self, const std::string& name, const IEggParserNode&, const IEggParserNode* rvalue) {
+egg::lang::Value egg::yolk::EggProgramContext::executeDeclare(const IEggProgramNode& self, const std::string& name, const IEggProgramNode&, const IEggProgramNode* rvalue) {
   // The type information has already been used in the symbol declaration phase
   this->statement(self);
   if (rvalue != nullptr) {
-    this->set(name, *rvalue);
+    // The declaration contains an initial value
+    return this->set(name, *rvalue);
   }
   return egg::lang::Value::Void;
 }
 
-egg::lang::Value egg::yolk::EggEngineProgramContext::executeAssign(const IEggParserNode& self, EggParserAssign op, const IEggParserNode& lvalue, const IEggParserNode& rvalue) {
+egg::lang::Value egg::yolk::EggProgramContext::executeAssign(const IEggProgramNode& self, EggProgramAssign op, const IEggProgramNode& lvalue, const IEggProgramNode& rvalue) {
   this->statement(self);
-  this->assign(op, lvalue, rvalue);
+  return this->assign(op, lvalue, rvalue);
+}
+
+egg::lang::Value egg::yolk::EggProgramContext::executeMutate(const IEggProgramNode& self, EggProgramMutate op, const IEggProgramNode& lvalue) {
+  this->statement(self);
+  return this->mutate(op, lvalue);
+}
+
+egg::lang::Value egg::yolk::EggProgramContext::executeBreak(const IEggProgramNode& self) {
+  this->statement(self);
+  return egg::lang::Value::Break;
+}
+
+egg::lang::Value egg::yolk::EggProgramContext::executeCatch(const IEggProgramNode& self, const std::string&, const IEggProgramNode&, const IEggProgramNode& block) {
+  // The symbol information has already been used to match this catch clause
+  this->statement(self);
+  return block.execute(*this);
+}
+
+egg::lang::Value egg::yolk::EggProgramContext::executeContinue(const IEggProgramNode& self) {
+  this->statement(self);
+  return egg::lang::Value::Continue;
+}
+
+egg::lang::Value egg::yolk::EggProgramContext::executeDo(const IEggProgramNode& self, const IEggProgramNode& cond, const IEggProgramNode& block) {
+  this->statement(self);
+  egg::lang::Value retval;
+  do {
+    retval = block.execute(*this);
+    if (retval.is(egg::lang::Discriminator::Break)) {
+      // Just leave the loop
+      return egg::lang::Value::Void;
+    }
+    if (!retval.is(egg::lang::Discriminator::Void | egg::lang::Discriminator::Continue)) {
+      // Probably an exception
+      return retval;
+    }
+    retval = this->condition(cond);
+    if (!retval.is(egg::lang::Discriminator::Bool)) {
+      // Condition evaluation failed
+      return retval;
+    }
+  } while (retval.getBool());
   return egg::lang::Value::Void;
 }
 
-egg::lang::Value egg::yolk::EggEngineProgramContext::executeMutate(const IEggParserNode& self, EggParserMutate op, const IEggParserNode& lvalue) {
+egg::lang::Value egg::yolk::EggProgramContext::executeIf(const IEggProgramNode& self, const IEggProgramNode& cond, const IEggProgramNode& trueBlock, const IEggProgramNode* falseBlock) {
   this->statement(self);
-  return WIBBLE(__FUNCTION__, &self, &op, &lvalue);
+  egg::lang::Value retval = this->condition(cond);
+  if (!retval.is(egg::lang::Discriminator::Bool)) {
+    return retval;
+  }
+  if (retval.getBool()) {
+    return trueBlock.execute(*this);
+  }
+  if (falseBlock != nullptr) {
+    return falseBlock ->execute(*this);
+  }
+  return egg::lang::Value::Void;
 }
 
-egg::lang::Value egg::yolk::EggEngineProgramContext::executeBreak(const IEggParserNode& self) {
+egg::lang::Value egg::yolk::EggProgramContext::executeFor(const IEggProgramNode& self, const IEggProgramNode* pre, const IEggProgramNode* cond, const IEggProgramNode* post, const IEggProgramNode& block) {
   this->statement(self);
-  return WIBBLE(__FUNCTION__, &self);
+  egg::lang::Value retval;
+  if (pre != nullptr) {
+    retval = pre->execute(*this);
+    if (!retval.is(egg::lang::Discriminator::Void)) {
+      // Probably an exception in the pre-loop statement
+      return retval;
+    }
+  }
+  if (cond == nullptr) {
+    // There's no explicit condition
+    for (;;) {
+      retval = block.execute(*this);
+      if (retval.is(egg::lang::Discriminator::Break)) {
+        // Just leave the loop
+        return egg::lang::Value::Void;
+      }
+      if (!retval.is(egg::lang::Discriminator::Void | egg::lang::Discriminator::Continue)) {
+        // Probably an exception in the condition expression
+        return retval;
+      }
+      if (post != nullptr) {
+        retval = post->execute(*this);
+        if (!retval.is(egg::lang::Discriminator::Void)) {
+          // Probably an exception in the post-loop statement
+          return retval;
+        }
+      }
+    }
+  }
+  retval = this->condition(*cond);
+  while (retval.is(egg::lang::Discriminator::Bool)) {
+    if (!retval.getBool()) {
+      // The condition was false
+      return egg::lang::Value::Void;
+    }
+    retval = block.execute(*this);
+    if (retval.is(egg::lang::Discriminator::Break)) {
+      // Just leave the loop
+      return egg::lang::Value::Void;
+    }
+    if (!retval.is(egg::lang::Discriminator::Void | egg::lang::Discriminator::Continue)) {
+      // Probably an exception in the condition expression
+      return retval;
+    }
+    if (post != nullptr) {
+      retval = post->execute(*this);
+      if (!retval.is(egg::lang::Discriminator::Void)) {
+        // Probably an exception in the post-loop statement
+        return retval;
+      }
+    }
+    retval = this->condition(*cond);
+  }
+  return retval;
 }
 
-egg::lang::Value egg::yolk::EggEngineProgramContext::executeCatch(const IEggParserNode& self, const std::string& name, const IEggParserNode& type, const IEggParserNode& block) {
-  this->statement(self);
-  return WIBBLE(__FUNCTION__, &self, &name, &type, &block);
-}
-
-egg::lang::Value egg::yolk::EggEngineProgramContext::executeContinue(const IEggParserNode& self) {
-  this->statement(self);
-  return WIBBLE(__FUNCTION__, &self);
-}
-
-egg::lang::Value egg::yolk::EggEngineProgramContext::executeDo(const IEggParserNode& self, const IEggParserNode& condition, const IEggParserNode& block) {
-  this->statement(self);
-  return WIBBLE(__FUNCTION__, &self, &condition, &block);
-}
-
-egg::lang::Value egg::yolk::EggEngineProgramContext::executeIf(const IEggParserNode& self, const IEggParserNode& condition, const IEggParserNode& trueBlock, const IEggParserNode* falseBlock) {
-  this->statement(self);
-  return WIBBLE(__FUNCTION__, &self, &condition, &trueBlock, &falseBlock);
-}
-
-egg::lang::Value egg::yolk::EggEngineProgramContext::executeFor(const IEggParserNode& self, const IEggParserNode* pre, const IEggParserNode* cond, const IEggParserNode* post, const IEggParserNode& block) {
-  this->statement(self);
-  return WIBBLE(__FUNCTION__, &self, &pre, &cond, &post, &block);
-}
-
-egg::lang::Value egg::yolk::EggEngineProgramContext::executeForeach(const IEggParserNode& self, const IEggParserNode& lvalue, const IEggParserNode& rvalue, const IEggParserNode& block) {
+egg::lang::Value egg::yolk::EggProgramContext::executeForeach(const IEggProgramNode& self, const IEggProgramNode& lvalue, const IEggProgramNode& rvalue, const IEggProgramNode& block) {
   this->statement(self);
   return WIBBLE(__FUNCTION__, &self, &lvalue, &rvalue, &block);
 }
 
-egg::lang::Value egg::yolk::EggEngineProgramContext::executeReturn(const IEggParserNode& self, const std::vector<std::shared_ptr<IEggParserNode>>& values) {
+egg::lang::Value egg::yolk::EggProgramContext::executeReturn(const IEggProgramNode& self, const std::vector<std::shared_ptr<IEggProgramNode>>& values) {
   this->statement(self);
   return WIBBLE(__FUNCTION__, &self, &values);
 }
 
-egg::lang::Value egg::yolk::EggEngineProgramContext::executeCase(const IEggParserNode& self, const std::vector<std::shared_ptr<IEggParserNode>>& values, const IEggParserNode& block) {
+egg::lang::Value egg::yolk::EggProgramContext::executeCase(const IEggProgramNode& self, const std::vector<std::shared_ptr<IEggProgramNode>>& values, const IEggProgramNode& block) {
   this->statement(self);
   return WIBBLE(__FUNCTION__, &self, &values, &block);
 }
 
-egg::lang::Value egg::yolk::EggEngineProgramContext::executeSwitch(const IEggParserNode& self, const IEggParserNode& value, int64_t defaultIndex, const std::vector<std::shared_ptr<IEggParserNode>>& cases) {
+egg::lang::Value egg::yolk::EggProgramContext::executeSwitch(const IEggProgramNode& self, const IEggProgramNode& value, int64_t defaultIndex, const std::vector<std::shared_ptr<IEggProgramNode>>& cases) {
   this->statement(self);
   return WIBBLE(__FUNCTION__, &self, &value, &defaultIndex, &cases);
 }
 
-egg::lang::Value egg::yolk::EggEngineProgramContext::executeThrow(const IEggParserNode& self, const IEggParserNode* exception) {
+egg::lang::Value egg::yolk::EggProgramContext::executeThrow(const IEggProgramNode& self, const IEggProgramNode* exception) {
   this->statement(self);
   return WIBBLE(__FUNCTION__, &self, &exception);
 }
 
-egg::lang::Value egg::yolk::EggEngineProgramContext::executeTry(const IEggParserNode& self, const IEggParserNode& block, const std::vector<std::shared_ptr<IEggParserNode>>& catches, const IEggParserNode* final) {
+egg::lang::Value egg::yolk::EggProgramContext::executeTry(const IEggProgramNode& self, const IEggProgramNode& block, const std::vector<std::shared_ptr<IEggProgramNode>>& catches, const IEggProgramNode* final) {
   this->statement(self);
   return WIBBLE(__FUNCTION__, &self, &block, &catches, &final);
 }
 
-egg::lang::Value egg::yolk::EggEngineProgramContext::executeUsing(const IEggParserNode& self, const IEggParserNode& value, const IEggParserNode& block) {
+egg::lang::Value egg::yolk::EggProgramContext::executeUsing(const IEggProgramNode& self, const IEggProgramNode& value, const IEggProgramNode& block) {
   this->statement(self);
   return WIBBLE(__FUNCTION__, &self, &value, &block);
 }
 
-egg::lang::Value egg::yolk::EggEngineProgramContext::executeWhile(const IEggParserNode& self, const IEggParserNode& condition, const IEggParserNode& block) {
+egg::lang::Value egg::yolk::EggProgramContext::executeWhile(const IEggProgramNode& self, const IEggProgramNode& cond, const IEggProgramNode& block) {
   this->statement(self);
-  return WIBBLE(__FUNCTION__, &self, &condition, &block);
+  return WIBBLE(__FUNCTION__, &self, &cond, &block);
 }
 
-egg::lang::Value egg::yolk::EggEngineProgramContext::executeYield(const IEggParserNode& self, const IEggParserNode& value) {
+egg::lang::Value egg::yolk::EggProgramContext::executeYield(const IEggProgramNode& self, const IEggProgramNode& value) {
   this->statement(self);
   return WIBBLE(__FUNCTION__, &self, &value);
 }
 
-egg::lang::Value egg::yolk::EggEngineProgramContext::executeCall(const IEggParserNode& self, const IEggParserNode& callee, const std::vector<std::shared_ptr<IEggParserNode>>& parameters) {
+egg::lang::Value egg::yolk::EggProgramContext::executeCall(const IEggProgramNode& self, const IEggProgramNode& callee, const std::vector<std::shared_ptr<IEggProgramNode>>& parameters) {
   this->expression(self);
   return WIBBLE(__FUNCTION__, &self, &callee, &parameters);
 }
 
-egg::lang::Value egg::yolk::EggEngineProgramContext::executeIdentifier(const IEggParserNode& self, const std::string& name) {
+egg::lang::Value egg::yolk::EggProgramContext::executeIdentifier(const IEggProgramNode& self, const std::string& name) {
   this->expression(self);
   return WIBBLE(__FUNCTION__, &self, &name);
 }
 
-egg::lang::Value egg::yolk::EggEngineProgramContext::executeLiteral(const IEggParserNode& self, ...) {
+egg::lang::Value egg::yolk::EggProgramContext::executeLiteral(const IEggProgramNode& self, const egg::lang::Value& value) {
   this->expression(self);
-  return WIBBLE(__FUNCTION__, &self);
+  return value;
 }
 
-egg::lang::Value egg::yolk::EggEngineProgramContext::executeLiteral(const IEggParserNode& self, const std::string& value) {
+egg::lang::Value egg::yolk::EggProgramContext::executeUnary(const IEggProgramNode& self, EggProgramUnary op, const IEggProgramNode& value) {
   this->expression(self);
-  return WIBBLE(__FUNCTION__, &self, &value);
+  return this->unary(op, value);
 }
 
-egg::lang::Value egg::yolk::EggEngineProgramContext::executeUnary(const IEggParserNode& self, EggParserUnary op, const IEggParserNode& value) {
+egg::lang::Value egg::yolk::EggProgramContext::executeBinary(const IEggProgramNode& self, EggProgramBinary op, const IEggProgramNode& lhs, const IEggProgramNode& rhs) {
   this->expression(self);
-  return WIBBLE(__FUNCTION__, &self, &op, &value);
+  return this->binary(op, lhs, rhs);
 }
 
-egg::lang::Value egg::yolk::EggEngineProgramContext::executeBinary(const IEggParserNode& self, EggParserBinary op, const IEggParserNode& lhs, const IEggParserNode& rhs) {
+egg::lang::Value egg::yolk::EggProgramContext::executeTernary(const IEggProgramNode& self, const IEggProgramNode& cond, const IEggProgramNode& whenTrue, const IEggProgramNode& whenFalse) {
   this->expression(self);
-  return WIBBLE(__FUNCTION__, &self, &op, &lhs, &rhs);
+  auto retval = this->condition(cond);
+  if (retval.is(egg::lang::Discriminator::Bool)) {
+    return retval.getBool() ? whenTrue.execute(*this) : whenFalse.execute(*this);
+  }
+  return retval;
 }
 
-egg::lang::Value egg::yolk::EggEngineProgramContext::executeTernary(const IEggParserNode& self, const IEggParserNode& condition, const IEggParserNode& whenTrue, const IEggParserNode& whenFalse) {
-  this->expression(self);
-  return WIBBLE(__FUNCTION__, &self, &condition, &whenTrue, &whenFalse);
-}
-
-egg::lang::LogSeverity egg::yolk::EggEngineProgram::execute(IEggEngineExecutionContext& execution) {
-  EggEngineProgramContext::SymbolTable symtable(nullptr);
+egg::lang::LogSeverity egg::yolk::EggProgram::execute(IEggEngineExecutionContext& execution) {
+  EggProgram::SymbolTable symtable(nullptr);
+  symtable.addSymbol("print")->value = egg::lang::Value("TODO print");
   // TODO add built-in symbol to symbol table here
-  EggEngineProgramContext context(execution, symtable);
+  return this->execute(execution, symtable);
+}
+
+egg::lang::LogSeverity egg::yolk::EggProgram::execute(IEggEngineExecutionContext& execution, EggProgram::SymbolTable& symtable) {
+  egg::lang::LogSeverity severity = egg::lang::LogSeverity::None;
+  EggProgramContext context(execution, symtable, severity);
   this->root->execute(context);
-  return context.getMaximumSeverity();
+  return severity;
 }
 
-void egg::yolk::EggEngineProgramContext::statement(const IEggParserNode&) {
+void egg::yolk::EggProgramContext::statement(const IEggProgramNode&) {
   // TODO
 }
 
-void egg::yolk::EggEngineProgramContext::expression(const IEggParserNode&) {
+void egg::yolk::EggProgramContext::expression(const IEggProgramNode&) {
   // TODO
 }
 
-void egg::yolk::EggEngineProgramContext::set(const std::string& name, const IEggParserNode& rvalue) {
+egg::lang::Value egg::yolk::EggProgramContext::set(const std::string& name, const IEggProgramNode& rvalue) {
   // TODO
   auto symbol = this->symtable->findSymbol(name);
   assert(symbol != nullptr);
   symbol->value = rvalue.execute(*this);
+  return egg::lang::Value::Void;
 }
 
-void egg::yolk::EggEngineProgramContext::assign(EggParserAssign op, const IEggParserNode& lvalue, const IEggParserNode& rvalue) {
+egg::lang::Value egg::yolk::EggProgramContext::assign(EggProgramAssign op, const IEggProgramNode& lvalue, const IEggProgramNode& rvalue) {
   // TODO
-  WIBBLE(__FUNCTION__, &op, &lvalue, &rvalue);
+  auto dst = this->assignee(lvalue);
+  auto lhs = dst->get();
+  if (lhs.is(egg::lang::Discriminator::FlowControl)) {
+    return lhs;
+  }
+  egg::lang::Value rhs;
+  switch (op) {
+  case EggProgramAssign::Remainder:
+    rhs = arithmeticIntFloat(lhs, rvalue, "remainder assignment '%='", remainderInt, remainderFloat);
+    break;
+  case EggProgramAssign::BitwiseAnd:
+    rhs = arithmeticInt(lhs, rvalue, "bitwise-and assignment '&='", bitwiseAndInt);
+    break;
+  case EggProgramAssign::Multiply:
+    rhs = arithmeticIntFloat(lhs, rvalue, "multiplication assignment '*='", multiplyInt, multiplyFloat);
+    break;
+  case EggProgramAssign::Plus:
+    rhs = arithmeticIntFloat(lhs, rvalue, "addition assignment '+='", plusInt, plusFloat);
+    break;
+  case EggProgramAssign::Minus:
+    rhs = arithmeticIntFloat(lhs, rvalue, "subtraction assignment '-='", minusInt, minusFloat);
+    break;
+  case EggProgramAssign::Divide:
+    rhs = arithmeticIntFloat(lhs, rvalue, "division assignment '/='", divideInt, divideFloat);
+    break;
+  case EggProgramAssign::ShiftLeft:
+    rhs = arithmeticInt(lhs, rvalue, "shift-left assignment '<<='", shiftLeftInt);
+    break;
+  case EggProgramAssign::Equal:
+    rhs = rvalue.execute(*this);
+    break;
+  case EggProgramAssign::ShiftRight:
+    rhs = arithmeticInt(lhs, rvalue, "shift-right assignment '>>='", shiftRightInt);
+    break;
+  case EggProgramAssign::ShiftRightUnsigned:
+    rhs = arithmeticInt(lhs, rvalue, "shift-right-unsigned assignment '>>>='", shiftRightUnsignedInt);
+    break;
+  case EggProgramAssign::BitwiseXor:
+    rhs = arithmeticInt(lhs, rvalue, "bitwise-xor assignment '^='", bitwiseXorInt);
+    break;
+  case EggProgramAssign::BitwiseOr:
+    rhs = arithmeticInt(lhs, rvalue, "bitwise-or assignment '|='", bitwiseOrInt);
+    break;
+  default:
+    return egg::lang::Value::raise("Internal runtime error: Unknown assignment operator: '" + EggProgram::assignToString(op) + "'");
+  }
+  if (rhs.is(egg::lang::Discriminator::FlowControl)) {
+    return rhs;
+  }
+  return dst->set(rhs);
+}
+
+egg::lang::Value egg::yolk::EggProgramContext::mutate(EggProgramMutate op, const IEggProgramNode& lvalue) {
+  // TODO
+  return WIBBLE(__FUNCTION__, &op, &lvalue);
+}
+
+egg::lang::Value egg::yolk::EggProgramContext::condition(const IEggProgramNode& expression) {
+  auto retval = expression.execute(*this);
+  if (retval.is(egg::lang::Discriminator::Bool | egg::lang::Discriminator::FlowControl)) {
+    return retval;
+  }
+  return egg::lang::Value::raise("Expected condition to evaluate to a 'bool', but got '" + retval.getTagString() + "' instead");
+}
+
+egg::lang::Value egg::yolk::EggProgramContext::unary(EggProgramUnary op, const IEggProgramNode& value) {
+  egg::lang::Value result;
+  switch (op) {
+  case EggProgramUnary::LogicalNot:
+    if (this->operand(result, value, egg::lang::Discriminator::Bool, "Expected operand of logical-not operator '!' to be 'bool'")) {
+      return egg::lang::Value(!result.getBool());
+    }
+    return result;
+  case EggProgramUnary::Negate:
+    if (this->operand(result, value, egg::lang::Discriminator::Arithmetic, "Expected operand of negation operator '-' to be 'int' or 'float'")) {
+      return result.is(egg::lang::Discriminator::Int) ? egg::lang::Value(-result.getInt()) : egg::lang::Value(-result.getFloat());
+    }
+    return result;
+  case EggProgramUnary::BitwiseNot:
+    if (this->operand(result, value, egg::lang::Discriminator::Int, "Expected operand of bitwise-not operator '~' to be 'int'")) {
+      return egg::lang::Value(~result.getInt());
+    }
+    return result;
+  case EggProgramUnary::Ref:
+  case EggProgramUnary::Deref:
+  case EggProgramUnary::Ellipsis:
+  default:
+    return egg::lang::Value::raise("TODO " __FUNCTION__ " not fully implemented"); // TODO
+  }
+}
+
+egg::lang::Value egg::yolk::EggProgramContext::binary(EggProgramBinary op, const IEggProgramNode& lhs, const IEggProgramNode& rhs) {
+  egg::lang::Value result1;
+  egg::lang::Value result2;
+  switch (op) {
+  case EggProgramBinary::Unequal:
+    if (!this->operand(result1, lhs, egg::lang::Discriminator::Any | egg::lang::Discriminator::Null, "Expected left operand of inequality operator '!=' to be a value")) {
+      return result1;
+    }
+    if (!this->operand(result2, rhs, egg::lang::Discriminator::Any | egg::lang::Discriminator::Null, "Expected right operand of inequality operator '!=' to be a value")) {
+      return result2;
+    }
+    return egg::lang::Value(result1 != result2);
+  case EggProgramBinary::Remainder:
+  case EggProgramBinary::BitwiseAnd:
+  case EggProgramBinary::LogicalAnd:
+  case EggProgramBinary::Multiply:
+  case EggProgramBinary::Plus:
+  case EggProgramBinary::Minus:
+  case EggProgramBinary::Lambda:
+  case EggProgramBinary::Dot:
+  case EggProgramBinary::Divide:
+  case EggProgramBinary::Less:
+  case EggProgramBinary::ShiftLeft:
+  case EggProgramBinary::LessEqual:
+  case EggProgramBinary::Equal:
+  case EggProgramBinary::Greater:
+  case EggProgramBinary::GreaterEqual:
+  case EggProgramBinary::ShiftRight:
+  case EggProgramBinary::ShiftRightUnsigned:
+  case EggProgramBinary::NullCoalescing:
+  case EggProgramBinary::Brackets:
+  case EggProgramBinary::BitwiseXor:
+  case EggProgramBinary::BitwiseOr:
+  case EggProgramBinary::LogicalOr:
+  default:
+    return egg::lang::Value::raise("TODO " __FUNCTION__ " not fully implemented"); // TODO
+  }
+}
+
+bool egg::yolk::EggProgramContext::operand(egg::lang::Value& dst, const IEggProgramNode& src, egg::lang::Discriminator expected, const char* expectation) {
+  dst = src.execute(*this);
+  if (dst.is(expected)) {
+    return true;
+  }
+  if (!dst.is(egg::lang::Discriminator::FlowControl)) {
+    dst = EggProgramContext::unexpected(expectation, dst);
+  }
+  return false;
+}
+
+std::unique_ptr<egg::yolk::IEggProgramAssignee> egg::yolk::EggProgramContext::assignee(const IEggProgramNode&) {
+  return std::make_unique<EggProgramAssignee>();
+}
+
+egg::lang::Value egg::yolk::EggProgramContext::arithmeticIntFloat(const egg::lang::Value& lhs, const IEggProgramNode& rvalue, const char* operation, ArithmeticInt ints, ArithmeticFloat floats) {
+  if (!lhs.is(egg::lang::Discriminator::Arithmetic)) {
+    return EggProgramContext::unexpected("Expected left-hand side of " + std::string(operation) + " to be 'int' or 'float'", lhs);
+  }
+  egg::lang::Value rhs = rvalue.execute(*this);
+  if (rhs.is(egg::lang::Discriminator::Int)) {
+    if (lhs.is(egg::lang::Discriminator::Int)) {
+      return ints(lhs.getInt(), rhs.getInt());
+    }
+    return floats(lhs.getFloat(), static_cast<double>(rhs.getInt()));
+  }
+  if (rhs.is(egg::lang::Discriminator::Float)) {
+    if (lhs.is(egg::lang::Discriminator::Int)) {
+      return floats(static_cast<double>(lhs.getInt()), rhs.getFloat());
+    }
+    return floats(lhs.getFloat(), rhs.getFloat());
+  }
+  if (rhs.is(egg::lang::Discriminator::FlowControl)) {
+    return rhs;
+  }
+  return EggProgramContext::unexpected("Expected right-hand side of " + std::string(operation) + " to be 'int' or 'float'", rhs);
+}
+
+egg::lang::Value egg::yolk::EggProgramContext::arithmeticInt(const egg::lang::Value& lhs, const IEggProgramNode& rvalue, const char* operation, ArithmeticInt ints) {
+  if (!lhs.is(egg::lang::Discriminator::Int)) {
+    return EggProgramContext::unexpected("Expected left-hand side of " + std::string(operation) + " to be 'int'", lhs);
+  }
+  egg::lang::Value rhs = rvalue.execute(*this);
+  if (rhs.is(egg::lang::Discriminator::Int)) {
+    return ints(lhs.getInt(), rhs.getInt());
+  }
+  if (rhs.is(egg::lang::Discriminator::FlowControl)) {
+    return rhs;
+  }
+  return EggProgramContext::unexpected("Expected right-hand side of " + std::string(operation) + " to be 'int'", rhs);
+}
+
+egg::lang::Value egg::yolk::EggProgramContext::unexpected(const std::string& expectation, const egg::lang::Value& value) {
+  return egg::lang::Value::raise(expectation + ", but got '" + value.getTagString() + "' instead");
 }

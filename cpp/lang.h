@@ -89,11 +89,13 @@ namespace egg::lang {
       IObject* o;
       Value* v;
     };
-    explicit Value(Discriminator tag) : tag(tag) { this->o = nullptr; }
+    explicit Value(Discriminator tag, Value* child = nullptr) : tag(tag) { this->v = child; }
     void addref();
   public:
+    inline Value() : tag(Discriminator::Void) { this->o = nullptr; }
+    inline explicit Value(nullptr_t) : tag(Discriminator::Null) { this->o = nullptr; }
     inline explicit Value(bool value) : tag(Discriminator::Bool) { this->b = value; }
-    inline explicit Value(int value) : tag(Discriminator::Int) { this->i = value; }
+    inline explicit Value(int64_t value) : tag(Discriminator::Int) { this->i = value; }
     inline explicit Value(double value) : tag(Discriminator::Float) { this->f = value; }
     inline explicit Value(const std::string& value) : tag(Discriminator::String) { this->s = new std::string(value); }
     Value(const Value& value);
@@ -101,6 +103,8 @@ namespace egg::lang {
     Value& operator=(const Value& value);
     Value& operator=(Value&& value);
     ~Value();
+    inline bool operator==(const Value& other) const { return Value::equal(*this, other); }
+    inline bool operator!=(const Value& other) const { return Value::equal(*this, other); }
     inline bool is(Discriminator bits) const { return Bits::mask(this->tag, bits) != Discriminator::None; }
     inline bool getBool() const { assert(this->is(Discriminator::Bool)); return this->b; }
     inline int64_t getInt() const { assert(this->is(Discriminator::Int)); return this->i; }
@@ -109,7 +113,13 @@ namespace egg::lang {
     inline IObject& getType() const { assert(this->is(Discriminator::Type)); return *this->o; }
     inline IObject& getObject() const { assert(this->is(Discriminator::Object)); return *this->o; }
     inline Value& getFlowControl() const { assert(this->is(Discriminator::FlowControl)); return *this->v; }
+    inline std::string getTagString() const { return Value::getTagString(this->tag); }
+    static std::string getTagString(Discriminator tag);
+    static bool equal(const Value& lhs, const Value& rhs);
+    static Value raise(const std::string& exception);
     static const Value Void;
     static const Value Null;
+    static const Value Break;
+    static const Value Continue;
   };
 }

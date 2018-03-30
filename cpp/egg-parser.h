@@ -1,13 +1,13 @@
-#define EGG_PARSER_UNARY_OPERATORS(macro) \
+#define EGG_PROGRAM_UNARY_OPERATORS(macro) \
   macro(LogicalNot, "!") \
   macro(Ref, "&") \
   macro(Deref, "*") \
   macro(Negate, "-") \
   macro(Ellipsis, "...") \
   macro(BitwiseNot, "~")
-#define EGG_PARSER_UNARY_OPERATOR_DECLARE(name, text) name,
+#define EGG_PROGRAM_UNARY_OPERATOR_DECLARE(name, text) name,
 
-#define EGG_PARSER_BINARY_OPERATORS(macro) \
+#define EGG_PROGRAM_BINARY_OPERATORS(macro) \
   macro(Unequal, "!=") \
   macro(Remainder, "%") \
   macro(BitwiseAnd, "&") \
@@ -31,9 +31,9 @@
   macro(BitwiseXor, "^") \
   macro(BitwiseOr, "|") \
   macro(LogicalOr, "||")
-#define EGG_PARSER_BINARY_OPERATOR_DECLARE(name, text) name,
+#define EGG_PROGRAM_BINARY_OPERATOR_DECLARE(name, text) name,
 
-#define EGG_PARSER_ASSIGN_OPERATORS(macro) \
+#define EGG_PROGRAM_ASSIGN_OPERATORS(macro) \
   macro(Remainder, "%=") \
   macro(BitwiseAnd, "&=") \
   macro(Multiply, "*=") \
@@ -46,63 +46,14 @@
   macro(ShiftRightUnsigned, ">>>=") \
   macro(BitwiseXor, "^=") \
   macro(BitwiseOr, "|=")
-#define EGG_PARSER_ASSIGN_OPERATOR_DECLARE(name, text) name,
+#define EGG_PROGRAM_ASSIGN_OPERATOR_DECLARE(name, text) name,
 
-#define EGG_PARSER_MUTATE_OPERATORS(macro) \
+#define EGG_PROGRAM_MUTATE_OPERATORS(macro) \
   macro(Increment, "++") \
   macro(Decrement, "--")
-#define EGG_PARSER_MUTATE_OPERATOR_DECLARE(name, text) name,
+#define EGG_PROGRAM_MUTATE_OPERATOR_DECLARE(name, text) name,
 
 namespace egg::yolk {
-  class EggEngineProgramContext;
-    
-  class IEggParserType {
-  public:
-    virtual bool hasSimpleType(egg::lang::Discriminator bit) const = 0;
-    virtual egg::lang::Discriminator arithmeticTypes() const = 0;
-    virtual std::shared_ptr<IEggParserType> dereferencedType() const = 0;
-    virtual std::shared_ptr<IEggParserType> nullableType(bool nullable) const = 0;
-    virtual std::shared_ptr<IEggParserType> unionWith(IEggParserType& other) const = 0;
-    virtual std::shared_ptr<IEggParserType> unionWithSimple(egg::lang::Discriminator other) const = 0;
-    virtual std::string to_string() const = 0;
-  };
-
-  struct EggParserSymbol {
-    std::string name;
-    std::shared_ptr<IEggParserType> type;
-    bool omnipresent; // Available in this block before its declaration (e.g. functions) -- TODO remove?
-
-    inline void set(const std::string& name0, const std::shared_ptr<IEggParserType>& type0, bool omnipresent0 = false) {
-      this->name = name0;
-      this->type = type0;
-      this->omnipresent = omnipresent0;
-    }
-  };
-
-  class IEggParserNode {
-  public:
-    virtual std::shared_ptr<IEggParserType> getType() const = 0;
-    virtual bool symbol(EggParserSymbol& declaration) const = 0;
-    virtual egg::lang::Value execute(EggEngineProgramContext& context) const = 0;
-    virtual void dump(std::ostream& os) const = 0;
-  };
-
-  enum class EggParserUnary {
-    EGG_PARSER_UNARY_OPERATORS(EGG_PARSER_UNARY_OPERATOR_DECLARE)
-  };
-
-  enum class EggParserBinary {
-    EGG_PARSER_BINARY_OPERATORS(EGG_PARSER_BINARY_OPERATOR_DECLARE)
-  };
-
-  enum class EggParserAssign {
-    EGG_PARSER_ASSIGN_OPERATORS(EGG_PARSER_ASSIGN_OPERATOR_DECLARE)
-  };
-
-  enum class EggParserMutate {
-    EGG_PARSER_MUTATE_OPERATORS(EGG_PARSER_ASSIGN_OPERATOR_DECLARE)
-  };
-
   enum class EggParserAllowed {
     None = 0x00,
     Break = 0x01,
@@ -119,13 +70,13 @@ namespace egg::yolk {
     virtual std::string getResource() const = 0;
     virtual bool isAllowed(EggParserAllowed allowed) const = 0;
     virtual EggParserAllowed inheritAllowed(EggParserAllowed allow, EggParserAllowed inherit) const = 0;
-    virtual std::shared_ptr<IEggParserNode> promote(const IEggSyntaxNode& node) = 0;
+    virtual std::shared_ptr<IEggProgramNode> promote(const IEggSyntaxNode& node) = 0;
   };
 
   // Program parser
   class IEggParser {
   public:
-    virtual std::shared_ptr<IEggParserNode> parse(IEggTokenizer& tokenizer) = 0;
+    virtual std::shared_ptr<IEggProgramNode> parse(IEggTokenizer& tokenizer) = 0;
   };
 
   // Syntax parser (used internally and for testing)
@@ -142,7 +93,7 @@ namespace egg::yolk {
     static std::shared_ptr<IEggSyntaxParser> createExpressionSyntaxParser();
 
     // All-in-one parser (used mainly for testing)
-    static std::shared_ptr<IEggParserNode> parseModule(TextStream& stream);
+    static std::shared_ptr<IEggProgramNode> parseModule(TextStream& stream);
 
     // AST parsers
     static std::shared_ptr<IEggParser> createModuleParser();

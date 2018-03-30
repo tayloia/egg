@@ -60,7 +60,7 @@ void egg::yolk::EggSyntaxNode_Block::dump(std::ostream& os) const {
 }
 
 void egg::yolk::EggSyntaxNode_Type::dump(std::ostream& os) const {
-  ParserDump(os, "type").add(EggSyntaxNode_Type::tagToString(this->tag));
+  ParserDump(os, "type").add(egg::lang::Value::getTagString(this->tag));
 }
 
 void egg::yolk::EggSyntaxNode_Declare::dump(std::ostream& os) const {
@@ -288,7 +288,7 @@ std::string egg::yolk::EggSyntaxNodeBase::token() const {
 }
 
 std::string egg::yolk::EggSyntaxNode_Type::token() const {
-  return EggSyntaxNode_Type::tagToString(this->tag);
+  return egg::lang::Value::getTagString(this->tag);
 }
 
 std::string egg::yolk::EggSyntaxNode_Declare::token() const {
@@ -1706,29 +1706,6 @@ std::unique_ptr<IEggSyntaxNode> EggSyntaxParserContext::parseTypeSimple(egg::lan
 
 std::unique_ptr<IEggSyntaxNode> EggSyntaxParserContext::parseTypeDefinition() {
   EGG_THROW(__FUNCTION__ " TODO"); // TODO
-}
-
-std::string egg::yolk::EggSyntaxNode_Type::tagToString(egg::lang::Discriminator tag) {
-  static const egg::yolk::String::StringFromEnum table[] = {
-    { int(egg::lang::Discriminator::Any), "any" },
-    { int(egg::lang::Discriminator::Void), "void" },
-    { int(egg::lang::Discriminator::Bool), "bool" },
-    { int(egg::lang::Discriminator::Int), "int" },
-    { int(egg::lang::Discriminator::Float), "float" },
-    { int(egg::lang::Discriminator::String), "string" },
-    { int(egg::lang::Discriminator::Type), "type" },
-    { int(egg::lang::Discriminator::Object), "object" }
-  };
-  if (tag == egg::lang::Discriminator::Inferred) {
-    return "var";
-  }
-  if (tag == egg::lang::Discriminator::Null) {
-    return "null";
-  }
-  if (egg::lang::Bits::hasAnySet(tag, egg::lang::Discriminator::Null)) {
-    return String::fromEnum(egg::lang::Bits::clear(tag, egg::lang::Discriminator::Null), table) + "?";
-  }
-  return String::fromEnum(tag, table);
 }
 
 std::shared_ptr<egg::yolk::IEggSyntaxParser> egg::yolk::EggParserFactory::createModuleSyntaxParser() {

@@ -25,6 +25,6 @@ namespace egg::yolk {
     static std::shared_ptr<IEggEnginePreparationContext> createPreparationContext(const std::shared_ptr<IEggEngineLogger>& logger);
     static std::shared_ptr<IEggEngineExecutionContext> createExecutionContext(const std::shared_ptr<IEggEngineLogger>& logger);
     static std::shared_ptr<IEggEngine> createEngineFromTextStream(TextStream& stream);
-    static std::shared_ptr<IEggEngine> createEngineFromParsed(const std::shared_ptr<IEggParserNode>& root);
+    static std::shared_ptr<IEggEngine> createEngineFromParsed(const std::shared_ptr<IEggProgramNode>& root);
   };
 }
