@@ -380,13 +380,81 @@ egg::lang::Value egg::yolk::EggProgramContext::executeReturn(const IEggProgramNo
 }
 
 egg::lang::Value egg::yolk::EggProgramContext::executeCase(const IEggProgramNode& self, const std::vector<std::shared_ptr<IEggProgramNode>>& values, const IEggProgramNode& block) {
+  if (this->switchExpression != nullptr) {
+    // We're matching against values
+    for (size_t i = 0; i < values.size(); ++i) {
+      auto value = values[i]->execute(*this);
+      if (value.is(egg::lang::Discriminator::FlowControl)) {
+        return value;
+      }
+      if (value == *this->switchExpression) {
+        // Found a match, so return the index of the block
+        return egg::lang::Value(int64_t(i));
+      }
+    }
+    // No match; the switch may have a 'default' clause however
+    return egg::lang::Value::Null;
+  }
   this->statement(self);
-  return WIBBLE(__FUNCTION__, &self, &values, &block);
+  return block.execute(*this);
 }
 
 egg::lang::Value egg::yolk::EggProgramContext::executeSwitch(const IEggProgramNode& self, const IEggProgramNode& value, int64_t defaultIndex, const std::vector<std::shared_ptr<IEggProgramNode>>& cases) {
   this->statement(self);
-  return WIBBLE(__FUNCTION__, &self, &value, &defaultIndex, &cases);
+  // This is a nasty, two-phase process:
+  // Phase 1 evaluates the case values (switchExpression != nullptr)
+  // Phase 2 executes the blocks as appropriate (switchExpression == nullptr)
+  assert(this->switchExpression == nullptr);
+  auto expr = value.execute(*this);
+  if (expr.is(egg::lang::Discriminator::FlowControl)) {
+    return expr;
+  }
+  egg::lang::Value matched;
+  try {
+    this->switchExpression = &expr;
+    matched = this->executeSwitchPhase1(cases);
+    this->switchExpression = nullptr;
+  } catch (...) {
+    this->switchExpression = nullptr;
+    throw;
+  }
+  if (matched.is(egg::lang::Discriminator::Int)) {
+    // An integer indicates the index of the case statement to actually execute
+    return this->executeSwitchPhase2(matched.getInt(), cases);
+  }
+  return this->executeSwitchPhase2(defaultIndex, cases);
+}
+
+egg::lang::Value egg::yolk::EggProgramContext::executeSwitchPhase1(const std::vector<std::shared_ptr<IEggProgramNode>>& cases) {
+  // Phase 1 evaluates the case values (switchExpression != nullptr)
+  for (size_t index = 0; index < cases.size(); ++index) {
+    auto retval = cases[index]->execute(*this);
+    if (retval.is(egg::lang::Discriminator::FlowControl)) {
+      // Failed to evaluate a case label
+      return retval;
+    }
+    if (retval.is(egg::lang::Discriminator::Bool) && retval.getBool()) {
+      // This was a match
+      return egg::lang::Value(int64_t(index));
+    }
+  }
+  return egg::lang::Value::Void;
+}
+
+egg::lang::Value egg::yolk::EggProgramContext::executeSwitchPhase2(int64_t index, const std::vector<std::shared_ptr<IEggProgramNode>>& cases) {
+  // Phase 2 executes the blocks as appropriate (switchExpression == nullptr)
+  for (size_t i = size_t(index); i < cases.size(); ++i) {
+    auto retval = cases[i]->execute(*this);
+    if (retval.is(egg::lang::Discriminator::Break)) {
+      // Explicit end of case clause
+      break;
+    }
+    if (!retval.is(egg::lang::Discriminator::Continue)) {
+      // Probably some other flow control such as a return or exception
+      return retval;
+    }
+  }
+  return egg::lang::Value::Void;
 }
 
 egg::lang::Value egg::yolk::EggProgramContext::executeThrow(const IEggProgramNode& self, const IEggProgramNode* exception) {

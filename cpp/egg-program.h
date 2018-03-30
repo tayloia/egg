@@ -63,13 +63,14 @@ namespace egg::yolk {
   };
 
   class EggProgramContext {
-  protected:
+  private:
     IEggEngineExecutionContext* execution;
     EggProgram::SymbolTable* symtable;
     egg::lang::LogSeverity* maximumSeverity;
+    const egg::lang::Value* switchExpression;
   public:
     EggProgramContext(EggProgramContext& parent, EggProgram::SymbolTable& symtable)
-      : execution(parent.execution), symtable(&symtable), maximumSeverity(parent.maximumSeverity) {
+      : execution(parent.execution), symtable(&symtable), maximumSeverity(parent.maximumSeverity), switchExpression(nullptr) {
     }
     EggProgramContext(IEggEngineExecutionContext& execution, EggProgram::SymbolTable& symtable, egg::lang::LogSeverity& maximumSeverity)
       : execution(&execution), symtable(&symtable), maximumSeverity(&maximumSeverity) {
@@ -121,5 +122,7 @@ namespace egg::yolk {
     egg::lang::Value arithmeticIntFloat(const egg::lang::Value& lhs, const egg::yolk::IEggProgramNode& rvalue, const char* operation, ArithmeticInt ints, ArithmeticFloat floats);
     egg::lang::Value arithmeticInt(const egg::lang::Value& lhs, const egg::yolk::IEggProgramNode& rvalue, const char* operation, ArithmeticInt ints);
     static egg::lang::Value unexpected(const std::string& expectation, const egg::lang::Value& value);
+    egg::lang::Value executeSwitchPhase1(const std::vector<std::shared_ptr<IEggProgramNode>>& cases);
+    egg::lang::Value executeSwitchPhase2(int64_t index, const std::vector<std::shared_ptr<IEggProgramNode>>& cases);
   };
 }
