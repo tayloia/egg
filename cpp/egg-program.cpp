@@ -34,6 +34,18 @@ namespace {
   egg::lang::Value remainderInt(int64_t lhs, int64_t rhs) {
     return egg::lang::Value(lhs % rhs);
   }
+  egg::lang::Value lessInt(int64_t lhs, int64_t rhs) {
+    return egg::lang::Value(lhs < rhs);
+  }
+  egg::lang::Value lessEqualInt(int64_t lhs, int64_t rhs) {
+    return egg::lang::Value(lhs <= rhs);
+  }
+  egg::lang::Value greaterEqualInt(int64_t lhs, int64_t rhs) {
+    return egg::lang::Value(lhs >= rhs);
+  }
+  egg::lang::Value greaterInt(int64_t lhs, int64_t rhs) {
+    return egg::lang::Value(lhs > rhs);
+  }
   egg::lang::Value bitwiseAndInt(int64_t lhs, int64_t rhs) {
     return egg::lang::Value(lhs & rhs);
   }
@@ -66,6 +78,18 @@ namespace {
   }
   egg::lang::Value remainderFloat(double lhs, double rhs) {
     return egg::lang::Value(std::remainder(lhs, rhs));
+  }
+  egg::lang::Value lessFloat(double lhs, double rhs) {
+    return egg::lang::Value(lhs < rhs);
+  }
+  egg::lang::Value lessEqualFloat(double lhs, double rhs) {
+    return egg::lang::Value(lhs <= rhs);
+  }
+  egg::lang::Value greaterEqualFloat(double lhs, double rhs) {
+    return egg::lang::Value(lhs >= rhs);
+  }
+  egg::lang::Value greaterFloat(double lhs, double rhs) {
+    return egg::lang::Value(lhs > rhs);
   }
 }
 
@@ -397,7 +421,7 @@ egg::lang::Value egg::yolk::EggProgramContext::executeCall(const IEggProgramNode
 
 egg::lang::Value egg::yolk::EggProgramContext::executeIdentifier(const IEggProgramNode& self, const std::string& name) {
   this->expression(self);
-  return WIBBLE(__FUNCTION__, &self, &name);
+  return this->get(name);
 }
 
 egg::lang::Value egg::yolk::EggProgramContext::executeLiteral(const IEggProgramNode& self, const egg::lang::Value& value) {
@@ -446,8 +470,18 @@ void egg::yolk::EggProgramContext::expression(const IEggProgramNode&) {
   // TODO
 }
 
+egg::lang::Value egg::yolk::EggProgramContext::get(const std::string& name) {
+  auto symbol = this->symtable->findSymbol(name);
+  if (symbol == nullptr) {
+    return egg::lang::Value::raise("Unknown identifier: '" + name + "'");
+  }
+  if (symbol->value.is(egg::lang::Discriminator::Void)) {
+    return egg::lang::Value::raise("Uninitialized identifier: '" + name + "'");
+  }
+  return symbol->value;
+}
+
 egg::lang::Value egg::yolk::EggProgramContext::set(const std::string& name, const IEggProgramNode& rvalue) {
-  // TODO
   auto symbol = this->symtable->findSymbol(name);
   assert(symbol != nullptr);
   symbol->value = rvalue.execute(*this);
@@ -455,7 +489,6 @@ egg::lang::Value egg::yolk::EggProgramContext::set(const std::string& name, cons
 }
 
 egg::lang::Value egg::yolk::EggProgramContext::assign(EggProgramAssign op, const IEggProgramNode& lvalue, const IEggProgramNode& rvalue) {
-  // TODO
   auto dst = this->assignee(lvalue);
   auto lhs = dst->get();
   if (lhs.is(egg::lang::Discriminator::FlowControl)) {
@@ -509,8 +542,32 @@ egg::lang::Value egg::yolk::EggProgramContext::assign(EggProgramAssign op, const
 }
 
 egg::lang::Value egg::yolk::EggProgramContext::mutate(EggProgramMutate op, const IEggProgramNode& lvalue) {
-  // TODO
-  return WIBBLE(__FUNCTION__, &op, &lvalue);
+  auto dst = this->assignee(lvalue);
+  auto lhs = dst->get();
+  if (lhs.is(egg::lang::Discriminator::FlowControl)) {
+    return lhs;
+  }
+  egg::lang::Value rhs;
+  switch (op) {
+  case EggProgramMutate::Increment:
+    if (!lhs.is(egg::lang::Discriminator::Int)) {
+      return EggProgramContext::unexpected("Expected operand of increment operator '++' to be 'int'", lhs);
+    }
+    rhs = plusInt(lhs.getInt(), 1);
+    break;
+  case EggProgramMutate::Decrement:
+    if (!lhs.is(egg::lang::Discriminator::Int)) {
+      return EggProgramContext::unexpected("Expected operand of decrement operator '--' to be 'int'", lhs);
+    }
+    rhs = minusInt(lhs.getInt(), 1);
+    break;
+  default:
+    return egg::lang::Value::raise("Internal runtime error: Unknown mutation operator: '" + EggProgram::mutateToString(op) + "'");
+  }
+  if (rhs.is(egg::lang::Discriminator::FlowControl)) {
+    return rhs;
+  }
+  return dst->set(rhs);
 }
 
 egg::lang::Value egg::yolk::EggProgramContext::condition(const IEggProgramNode& expression) {
@@ -542,47 +599,96 @@ egg::lang::Value egg::yolk::EggProgramContext::unary(EggProgramUnary op, const I
   case EggProgramUnary::Ref:
   case EggProgramUnary::Deref:
   case EggProgramUnary::Ellipsis:
-  default:
     return egg::lang::Value::raise("TODO " __FUNCTION__ " not fully implemented"); // TODO
+  default:
+    return egg::lang::Value::raise("Internal runtime error: Unknown unary operator: '" + EggProgram::unaryToString(op) + "'");
   }
 }
 
 egg::lang::Value egg::yolk::EggProgramContext::binary(EggProgramBinary op, const IEggProgramNode& lhs, const IEggProgramNode& rhs) {
-  egg::lang::Value result1;
-  egg::lang::Value result2;
+  egg::lang::Value left = lhs.execute(*this);
+  if (left.is(egg::lang::Discriminator::FlowControl)) {
+    return left;
+  }
   switch (op) {
   case EggProgramBinary::Unequal:
-    if (!this->operand(result1, lhs, egg::lang::Discriminator::Any | egg::lang::Discriminator::Null, "Expected left operand of inequality operator '!=' to be a value")) {
-      return result1;
+    if (left.is(egg::lang::Discriminator::Any | egg::lang::Discriminator::Null)) {
+      egg::lang::Value right;
+      if (!this->operand(right, rhs, egg::lang::Discriminator::Any | egg::lang::Discriminator::Null, "Expected right operand of inequality '!=' to be a value")) {
+        return right;
+      }
+      return egg::lang::Value(left != right);
     }
-    if (!this->operand(result2, rhs, egg::lang::Discriminator::Any | egg::lang::Discriminator::Null, "Expected right operand of inequality operator '!=' to be a value")) {
-      return result2;
-    }
-    return egg::lang::Value(result1 != result2);
+    return EggProgramContext::unexpected("Expected left operand of inequality '!=' to be a value", left);
   case EggProgramBinary::Remainder:
+    return this->arithmeticIntFloat(left, rhs, "remainder '%'", remainderInt, remainderFloat);
   case EggProgramBinary::BitwiseAnd:
+    return this->arithmeticInt(left, rhs, "bitwise-and '&'", bitwiseAndInt);
   case EggProgramBinary::LogicalAnd:
+    if (left.is(egg::lang::Discriminator::Bool)) {
+      if (!left.getBool()) {
+        return left;
+      }
+      egg::lang::Value right;
+      (void)this->operand(right, rhs, egg::lang::Discriminator::Bool, "Expected right operand of logical-and '&&' to be 'bool'");
+      return right;
+    }
+    return EggProgramContext::unexpected("Expected left operand of logical-and '&&' to be 'bool'", left);
   case EggProgramBinary::Multiply:
+    return this->arithmeticIntFloat(left, rhs, "multiplication '*'", multiplyInt, multiplyFloat);
   case EggProgramBinary::Plus:
+    return this->arithmeticIntFloat(left, rhs, "addition '+'", plusInt, plusFloat);
   case EggProgramBinary::Minus:
+    return this->arithmeticIntFloat(left, rhs, "subtraction '-'", minusInt, minusFloat);
   case EggProgramBinary::Lambda:
-  case EggProgramBinary::Dot:
-  case EggProgramBinary::Divide:
-  case EggProgramBinary::Less:
-  case EggProgramBinary::ShiftLeft:
-  case EggProgramBinary::LessEqual:
-  case EggProgramBinary::Equal:
-  case EggProgramBinary::Greater:
-  case EggProgramBinary::GreaterEqual:
-  case EggProgramBinary::ShiftRight:
-  case EggProgramBinary::ShiftRightUnsigned:
-  case EggProgramBinary::NullCoalescing:
-  case EggProgramBinary::Brackets:
-  case EggProgramBinary::BitwiseXor:
-  case EggProgramBinary::BitwiseOr:
-  case EggProgramBinary::LogicalOr:
-  default:
     return egg::lang::Value::raise("TODO " __FUNCTION__ " not fully implemented"); // TODO
+  case EggProgramBinary::Dot:
+    return egg::lang::Value::raise("TODO " __FUNCTION__ " not fully implemented"); // TODO
+  case EggProgramBinary::Divide:
+    return this->arithmeticIntFloat(left, rhs, "division '/'", divideInt, divideFloat);
+  case EggProgramBinary::Less:
+    return this->arithmeticIntFloat(left, rhs, "comparison '<'", lessInt, lessFloat);
+  case EggProgramBinary::ShiftLeft:
+    return this->arithmeticInt(left, rhs, "shift-left '<<'", shiftLeftInt);
+  case EggProgramBinary::LessEqual:
+    return this->arithmeticIntFloat(left, rhs, "comparison '<='", lessEqualInt, lessEqualFloat);
+  case EggProgramBinary::Equal:
+    if (left.is(egg::lang::Discriminator::Any | egg::lang::Discriminator::Null)) {
+      egg::lang::Value right;
+      if (!this->operand(right, rhs, egg::lang::Discriminator::Any | egg::lang::Discriminator::Null, "Expected right operand of equality '==' to be a value")) {
+        return right;
+      }
+      return egg::lang::Value(left == right);
+    }
+    return EggProgramContext::unexpected("Expected left operand of equality '==' to be a value", left);
+  case EggProgramBinary::Greater:
+    return this->arithmeticIntFloat(left, rhs, "comparison '>'", greaterInt, greaterFloat);
+  case EggProgramBinary::GreaterEqual:
+    return this->arithmeticIntFloat(left, rhs, "comparison '>='", greaterEqualInt, greaterEqualFloat);
+  case EggProgramBinary::ShiftRight:
+    return this->arithmeticInt(left, rhs, "shift-right '>>'", shiftRightInt);
+  case EggProgramBinary::ShiftRightUnsigned:
+    return this->arithmeticInt(left, rhs, "shift-right-unsigned '>>>'", shiftRightUnsignedInt);
+  case EggProgramBinary::NullCoalescing:
+    return left.is(egg::lang::Discriminator::Null) ? rhs.execute(*this) : left;
+  case EggProgramBinary::Brackets:
+    return egg::lang::Value::raise("TODO " __FUNCTION__ " not fully implemented"); // TODO
+  case EggProgramBinary::BitwiseXor:
+    return this->arithmeticInt(left, rhs, "bitwise-xor '^'", bitwiseXorInt);
+  case EggProgramBinary::BitwiseOr:
+    return this->arithmeticInt(left, rhs, "bitwise-or '|'", bitwiseOrInt);
+  case EggProgramBinary::LogicalOr:
+    if (left.is(egg::lang::Discriminator::Bool)) {
+      if (left.getBool()) {
+        return left;
+      }
+      egg::lang::Value right;
+      (void)this->operand(right, rhs, egg::lang::Discriminator::Bool, "Expected right operand of logical-or '||' to be 'bool'");
+      return right;
+    }
+    return EggProgramContext::unexpected("Expected left operand of logical-or '||' to be 'bool'", left);
+  default:
+    return egg::lang::Value::raise("Internal runtime error: Unknown binary operator: '" + EggProgram::binaryToString(op) + "'");
   }
 }
 

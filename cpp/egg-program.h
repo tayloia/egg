@@ -104,6 +104,7 @@ namespace egg::yolk {
     egg::lang::Value executeTernary(const IEggProgramNode& self, const IEggProgramNode& cond, const IEggProgramNode& whenTrue, const IEggProgramNode& whenFalse);
     void statement(const IEggProgramNode& node); // TODO remove?
     void expression(const IEggProgramNode& node); // TODO remove?
+    egg::lang::Value get(const std::string& name);
     egg::lang::Value set(const std::string& name, const IEggProgramNode& rvalue);
     egg::lang::Value assign(EggProgramAssign op, const IEggProgramNode& lvalue, const IEggProgramNode& rvalue);
     egg::lang::Value mutate(EggProgramMutate op, const IEggProgramNode& lvalue);
