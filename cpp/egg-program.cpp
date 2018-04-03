@@ -213,7 +213,6 @@ egg::lang::Value egg::yolk::EggProgramContext::executeStatements(const std::vect
       return retval;
     }
   }
-  this->execution->print("execute");
   return egg::lang::Value::Void;
 }
 
@@ -222,7 +221,11 @@ egg::lang::Value egg::yolk::EggProgramContext::executeModule(const IEggProgramNo
   if (this->findDuplicateSymbols(statements)) {
     return egg::lang::Value::raise("Execution halted due to previous errors");
   }
-  return this->executeStatements(statements);
+  auto retval = this->executeStatements(statements);
+  if (retval.is(egg::lang::Discriminator::Void)) {
+    this->execution->print("execute");
+  }
+  return retval;
 }
 
 static egg::lang::Value WIBBLE(std::string function, ...) {
@@ -441,7 +444,19 @@ egg::lang::Value egg::yolk::EggProgramContext::executeCase(const IEggProgramNode
 
 egg::lang::Value egg::yolk::EggProgramContext::executeThrow(const IEggProgramNode& self, const IEggProgramNode* exception) {
   this->statement(self);
-  return WIBBLE(__FUNCTION__, &self, &exception);
+  if (exception == nullptr) {
+    // This is a rethrow
+    return egg::lang::Value::Rethrow;
+  }
+  // TODO non-string exceptions
+  auto value = exception->execute(*this);
+  if (value.is(egg::lang::Discriminator::FlowControl)) {
+    return value;
+  }
+  if (!value.is(egg::lang::Discriminator::String)) {
+    return this->unexpected("TODO: Unimplemented: non-string exceptions", value);
+  }
+  return egg::lang::Value::raise(value.getString());
 }
 
 egg::lang::Value egg::yolk::EggProgramContext::executeTry(const IEggProgramNode& self, const IEggProgramNode& block, const std::vector<std::shared_ptr<IEggProgramNode>>& catches, const IEggProgramNode* final) {
@@ -449,9 +464,8 @@ egg::lang::Value egg::yolk::EggProgramContext::executeTry(const IEggProgramNode&
   auto retval = block.execute(*this);
   if (retval.is(egg::lang::Discriminator::Exception)) {
     // An exception has indeed been thrown
-    const auto& exception = retval.getFlowControl();
     for (auto& i : catches) {
-      auto match = i->executeWithExpression(*this, exception);
+      auto match = i->executeWithExpression(*this, retval);
       if (!match.is(egg::lang::Discriminator::Bool)) {
         // Failed to evaluate the catch condition
         return this->executeFinally(match, final);
@@ -465,11 +479,25 @@ egg::lang::Value egg::yolk::EggProgramContext::executeTry(const IEggProgramNode&
   return this->executeFinally(retval, final);
 }
 
-egg::lang::Value egg::yolk::EggProgramContext::executeCatch(const IEggProgramNode& self, const std::string& name, const IEggProgramNode& type, const IEggProgramNode& block, const egg::lang::Value& exception) {
+egg::lang::Value egg::yolk::EggProgramContext::executeCatch(const IEggProgramNode& self, const std::string&, const IEggProgramNode&, const IEggProgramNode& block, const egg::lang::Value& exception) {
   this->statement(self);
-  // TODO if typeof(exception) == type then set name = exception, run block and return true
-  // TODO else return false
-  return WIBBLE(__FUNCTION__, &self, &name, &type, &block, &exception);
+  // TODO return false if typeof(exception) != type
+  auto retval = block.execute(*this);
+  if (retval.is(egg::lang::Discriminator::FlowControl)) {
+    if (retval.is(egg::lang::Discriminator::Exception)) {
+      // Check for a rethrow
+      auto& inner = retval.getFlowControl();
+      if (inner.is(egg::lang::Discriminator::Void)) {
+        return exception;
+      }
+    }
+    return retval;
+  }
+  if (retval.is(egg::lang::Discriminator::Void)) {
+    // Return 'true' to indicate to the 'try' statement that we ran this 'catch' block
+    return egg::lang::Value::True;
+  }
+  return retval;
 }
 
 egg::lang::Value egg::yolk::EggProgramContext::executeFinally(const egg::lang::Value& retval, const IEggProgramNode* final) {
@@ -565,11 +593,15 @@ egg::lang::LogSeverity egg::yolk::EggProgram::execute(IEggEngineExecutionContext
   EggProgramContext context(execution, symtable, severity);
   auto retval = this->root->execute(context);
   if (!retval.is(egg::lang::Discriminator::Void)) {
-    if (retval.is(egg::lang::Discriminator::Exception)) {
-      auto& exception = retval.getFlowControl();
-      context.log(egg::lang::LogSource::Runtime, egg::lang::LogSeverity::Error, exception.getString());
-    } else {
+    if (!retval.is(egg::lang::Discriminator::Exception)) {
       context.log(egg::lang::LogSource::Runtime, egg::lang::LogSeverity::Error, "Expected statement to return 'void', but got '" + retval.getTagString() + "' instead");
+    } else {
+      auto& exception = retval.getFlowControl();
+      if (exception.is(egg::lang::Discriminator::String)) {
+        context.log(egg::lang::LogSource::Runtime, egg::lang::LogSeverity::Error, exception.getString());
+      } else {
+        context.log(egg::lang::LogSource::Runtime, egg::lang::LogSeverity::Error, "Unexpected exception rethrow"); // TODO
+      }
     }
   }
   return severity;
