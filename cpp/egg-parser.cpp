@@ -438,17 +438,16 @@ namespace {
 
   class EggParserNode_Return : public EggParserNodeBase {
   private:
-    std::vector<std::shared_ptr<IEggProgramNode>> child;
+    std::shared_ptr<IEggProgramNode> expr;
   public:
+    explicit EggParserNode_Return(const std::shared_ptr<IEggProgramNode>& expr = nullptr)
+      : expr(expr) {
+    }
     virtual egg::lang::Value execute(EggProgramContext& context) const override {
-      return context.executeReturn(*this, this->child);
+      return context.executeReturn(*this, this->expr.get());
     }
     virtual void dump(std::ostream& os) const override {
-      ParserDump(os, "return").add(this->child);
-    }
-    void addChild(const std::shared_ptr<IEggProgramNode>& value) {
-      assert(value != nullptr);
-      this->child.push_back(value);
+      ParserDump(os, "return").add(this->expr);
     }
   };
 
@@ -1244,11 +1243,11 @@ std::shared_ptr<egg::yolk::IEggProgramNode> egg::yolk::EggSyntaxNode_Return::pro
   if (!context.isAllowed(EggParserAllowed::Return)) {
     throw exceptionFromLocation(context, "The 'return' statement may only be used within functions", *this);
   }
-  auto result = std::make_shared<EggParserNode_Return>();
-  for (auto& i : this->child) {
-    result->addChild(context.promote(*i));
+  if (this->child.empty()) {
+    return std::make_shared<EggParserNode_Return>();
   }
-  return result;
+  assert(this->child.size() == 1);
+  return std::make_shared<EggParserNode_Return>(context.promote(*this->child[0]));
 }
 
 std::shared_ptr<egg::yolk::IEggProgramNode> egg::yolk::EggSyntaxNode_Switch::promote(egg::yolk::IEggParserContext& context) const {

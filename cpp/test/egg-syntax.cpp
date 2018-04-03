@@ -284,19 +284,11 @@ TEST(TestEggSyntaxParser, StatementReturn) {
   // Good
   ASSERT_PARSE_GOOD(parseStatementToString("return;"), "(return)");
   ASSERT_PARSE_GOOD(parseStatementToString("return a;"), "(return (identifier 'a'))");
-  ASSERT_PARSE_GOOD(parseStatementToString("return a, b;"), "(return (identifier 'a') (identifier 'b'))");
-  ASSERT_PARSE_GOOD(parseStatementToString("return a, b, c;"), "(return (identifier 'a') (identifier 'b') (identifier 'c'))");
-  ASSERT_PARSE_GOOD(parseStatementToString("return ...a;"), "(return (unary '...' (identifier 'a')))");
   // Bad
   ASSERT_PARSE_BAD(parseStatementToString("return"), "(1, 7): Expected ';' at end of 'return' statement");
   ASSERT_PARSE_BAD(parseStatementToString("return a"), "(1, 9): Expected ';' at end of 'return' statement");
-  ASSERT_PARSE_BAD(parseStatementToString("return a,"), "(1, 10): Expected expression after ',' in 'return' statement");
+  ASSERT_PARSE_BAD(parseStatementToString("return a,"), "(1, 9): Expected ';' at end of 'return' statement");
   ASSERT_PARSE_BAD(parseStatementToString("return a b"), "(1, 10): Expected ';' at end of 'return' statement");
-  ASSERT_PARSE_BAD(parseStatementToString("return a,;"), "(1, 10): Expected expression after ',' in 'return' statement");
-  ASSERT_PARSE_BAD(parseStatementToString("return ..."), "(1, 11): Expected expression after '...' in 'return' statement");
-  ASSERT_PARSE_BAD(parseStatementToString("return ...;"), "(1, 11): Expected expression after '...' in 'return' statement");
-  ASSERT_PARSE_BAD(parseStatementToString("return ...a"), "(1, 12): Expected ';' at end of 'return' statement");
-  ASSERT_PARSE_BAD(parseStatementToString("return ...a,"), "(1, 12): Expected ';' at end of 'return' statement");
 }
 
 TEST(TestEggSyntaxParser, StatementSwitch) {

@@ -118,7 +118,7 @@ namespace egg::lang {
     inline std::string getTagString() const { return Value::getTagString(this->tag); }
     static std::string getTagString(Discriminator tag);
     static bool equal(const Value& lhs, const Value& rhs);
-    static Value raise();
+    static Value makeFlowControl(Discriminator tag, Value* value);
     static Value raise(const std::string& exception);
     static const Value Void;
     static const Value Null;

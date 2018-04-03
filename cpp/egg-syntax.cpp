@@ -515,7 +515,6 @@ namespace {
       auto token = item.to_string();
       throw SyntaxException(expected + ", not " + token, this->backtrack.resource(), item, token);
     }
-    void parseExpressionList(std::function<void(std::unique_ptr<IEggSyntaxNode>&& node)> adder, const char* expected0, const char* expected1);
     void parseParameterList(std::function<void(std::unique_ptr<IEggSyntaxNode>&& node)> adder);
     void parseEndOfFile(const char* expected);
     std::unique_ptr<IEggSyntaxNode> parseCompoundStatement();
@@ -1053,26 +1052,6 @@ std::unique_ptr<IEggSyntaxNode> EggSyntaxParserContext::parseExpressionDeclarati
   return expr;
 }
 
-void EggSyntaxParserContext::parseExpressionList(std::function<void(std::unique_ptr<IEggSyntaxNode>&& node)> adder, const char* expected0, const char* expected1) {
-  /*
-      expression-list ::= expression
-                        | expression-list ',' expression
-  */
-  EggSyntaxParserBacktrackMark mark(this->backtrack);
-  auto expr = this->parseExpression(expected0);
-  if (expr != nullptr) {
-    // There's at least one expression
-    adder(std::move(expr));
-    while (mark.peek(0).isOperator(EggTokenizerOperator::Comma)) {
-      mark.advance(1);
-      expr = this->parseExpression(expected1);
-      assert(expr != nullptr);
-      adder(std::move(expr));
-    }
-    mark.accept(0);
-  }
-}
-
 void EggSyntaxParserContext::parseParameterList(std::function<void(std::unique_ptr<IEggSyntaxNode>&& node)> adder) {
   /*
       parameter-list ::= positional-parameter-list
@@ -1426,22 +1405,16 @@ std::unique_ptr<IEggSyntaxNode> EggSyntaxParserContext::parseStatementIf() {
 
 std::unique_ptr<IEggSyntaxNode> EggSyntaxParserContext::parseStatementReturn() {
   /*
-      return-statement ::= 'return' expression-list? ';'
-                         | 'return' '...' expression ';'
+      return-statement ::= 'return' expression? ';'
   */
   EggSyntaxParserBacktrackMark mark(this->backtrack);
   auto& p0 = mark.peek(0);
   assert(p0.isKeyword(EggTokenizerKeyword::Return));
   auto results = std::make_unique<EggSyntaxNode_Return>(EggSyntaxNodeLocation(p0));
-  auto& p1 = mark.peek(1);
-  if (p1.isOperator(EggTokenizerOperator::Ellipsis)) {
-    mark.advance(2);
-    auto expr = this->parseExpression("Expected expression after '...' in 'return' statement");
-    auto ellipsis = std::make_unique<EggSyntaxNode_UnaryOperator>(EggSyntaxNodeLocation(p1), EggTokenizerOperator::Ellipsis, std::move(expr));
-    results->addChild(std::move(ellipsis));
-  } else {
-    mark.advance(1);
-    this->parseExpressionList([&results](auto&& node) { results->addChild(std::move(node)); }, nullptr, "Expected expression after ',' in 'return' statement");
+  mark.advance(1);
+  auto expr = this->parseExpression(nullptr);
+  if (expr != nullptr) {
+    results->addChild(std::move(expr));
   }
   auto& px = mark.peek(0);
   if (!px.isOperator(EggTokenizerOperator::Semicolon)) {

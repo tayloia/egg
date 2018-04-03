@@ -101,6 +101,12 @@ bool egg::lang::Value::equal(const Value& lhs, const Value& rhs) {
   return (lhs.v == rhs.v) || ((lhs.v != nullptr) && (rhs.v != nullptr) && Value::equal(*lhs.v, *rhs.v));
 }
 
+egg::lang::Value egg::lang::Value::makeFlowControl(egg::lang::Discriminator tag, egg::lang::Value* value) {
+  Value result{ tag, value };
+  assert(result.is(Discriminator::FlowControl));
+  return result;
+}
+  
 egg::lang::Value egg::lang::Value::raise(const std::string& exception) {
   return Value(Discriminator::Exception, new Value(exception));
 }

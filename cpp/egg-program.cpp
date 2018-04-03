@@ -380,9 +380,17 @@ egg::lang::Value egg::yolk::EggProgramContext::executeForeach(const IEggProgramN
   return WIBBLE(__FUNCTION__, &self, &lvalue, &rvalue, &block);
 }
 
-egg::lang::Value egg::yolk::EggProgramContext::executeReturn(const IEggProgramNode& self, const std::vector<std::shared_ptr<IEggProgramNode>>& values) {
+egg::lang::Value egg::yolk::EggProgramContext::executeReturn(const IEggProgramNode& self, const IEggProgramNode* value) {
   this->statement(self);
-  return WIBBLE(__FUNCTION__, &self, &values);
+  if (value == nullptr) {
+    // This is a void return
+    return egg::lang::Value::makeFlowControl(egg::lang::Discriminator::Return, new egg::lang::Value(egg::lang::Value::Void));
+  }
+  auto result = value->execute(*this);
+  if (result.is(egg::lang::Discriminator::FlowControl)) {
+    return result;
+  }
+  return egg::lang::Value::makeFlowControl(egg::lang::Discriminator::Return, new egg::lang::Value(result));
 }
 
 egg::lang::Value egg::yolk::EggProgramContext::executeSwitch(const IEggProgramNode& self, const IEggProgramNode& value, int64_t defaultIndex, const std::vector<std::shared_ptr<IEggProgramNode>>& cases) {
@@ -517,7 +525,20 @@ egg::lang::Value egg::yolk::EggProgramContext::executeUsing(const IEggProgramNod
 
 egg::lang::Value egg::yolk::EggProgramContext::executeWhile(const IEggProgramNode& self, const IEggProgramNode& cond, const IEggProgramNode& block) {
   this->statement(self);
-  return WIBBLE(__FUNCTION__, &self, &cond, &block);
+  auto retval = this->condition(cond);
+  while (retval.is(egg::lang::Discriminator::Bool)) {
+    retval = block.execute(*this);
+    if (retval.is(egg::lang::Discriminator::Break)) {
+      // Just leave the loop
+      return egg::lang::Value::Void;
+    }
+    if (!retval.is(egg::lang::Discriminator::Void | egg::lang::Discriminator::Continue)) {
+      // Probably an exception
+      break;
+    }
+    retval = this->condition(cond);
+  }
+  return retval;
 }
 
 egg::lang::Value egg::yolk::EggProgramContext::executeYield(const IEggProgramNode& self, const IEggProgramNode& value) {
