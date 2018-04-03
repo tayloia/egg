@@ -19,8 +19,6 @@ namespace {
       : lexer(lexer) {
       this->upcoming.line = 0;
     }
-    virtual ~JsonTokenizer() {
-    }
     virtual JsonTokenizerKind next(JsonTokenizerItem& item) override {
       if (this->upcoming.line == 0) {
         // This is the first time through

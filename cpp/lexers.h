@@ -29,6 +29,7 @@ namespace egg::yolk {
 
   class ILexer {
   public:
+    virtual ~ILexer() {}
     virtual LexerKind next(LexerItem& item) = 0;
     virtual std::string resource() const = 0;
   };

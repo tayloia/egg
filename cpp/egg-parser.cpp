@@ -16,8 +16,6 @@ namespace {
 
   class EggParserTypeBase : public IEggProgramType, public std::enable_shared_from_this<EggParserTypeBase> {
   public:
-    virtual ~EggParserTypeBase() {
-    }
   protected:
     std::shared_ptr<IEggProgramType> share() const {
       return const_cast<EggParserTypeBase*>(this)->shared_from_this();
@@ -190,8 +188,6 @@ namespace {
 
   class EggParserNodeBase : public IEggProgramNode {
   public:
-    virtual ~EggParserNodeBase() {
-    }
     virtual std::shared_ptr<IEggProgramType> getType() const override {
       // By default, nodes are statements (i.e. void return type)
       return typeVoid;
@@ -203,6 +199,10 @@ namespace {
     virtual egg::lang::Value executeWithExpression(EggProgramContext&, const egg::lang::Value&) const override {
       // By default, we fail if asked to execute with an expression (used only in switch/catch statements, etc)
       return egg::lang::Value::raise("Internal parser error : Inappropriate 'executeWithExpression' call");
+    }
+    virtual std::unique_ptr<IEggProgramAssignee> assignee(EggProgramContext&) const override {
+      // By default, we fail if asked to create an assignee
+      return nullptr;
     }
   };
 
@@ -686,6 +686,9 @@ namespace {
     virtual egg::lang::Value execute(EggProgramContext& context) const override {
       return context.executeIdentifier(*this, this->name);
     }
+    virtual std::unique_ptr<IEggProgramAssignee> assignee(EggProgramContext& context) const override {
+      return context.assigneeIdentifier(*this, this->name);
+    }
     virtual void dump(std::ostream& os) const override {
       ParserDump(os, "identifier").add(this->name);
     }
@@ -891,8 +894,6 @@ namespace {
     explicit EggParserContextBase(EggParserAllowed allowed)
       : allowed(static_cast<EggParserAllowedUnderlying>(allowed)) {
     }
-    virtual ~EggParserContextBase() {
-    }
     virtual bool isAllowed(EggParserAllowed bit) const override {
       return (this->allowed & static_cast<EggParserAllowedUnderlying>(bit)) != 0;
     }
@@ -941,8 +942,6 @@ namespace {
         promoted(std::make_shared<EggParserNode_Switch>(parent.promote(switchExpression))),
         previous(EggTokenizerKeyword::Null) {
       assert(this->promoted != nullptr);
-    }
-    virtual ~EggParserContextSwitch() {
     }
     virtual std::string getResource() const {
       return this->nested.getResource();

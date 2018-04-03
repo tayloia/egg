@@ -7,44 +7,64 @@ const egg::lang::Value egg::lang::Value::True{ true };
 const egg::lang::Value egg::lang::Value::Break{ Discriminator::Break };
 const egg::lang::Value egg::lang::Value::Continue{ Discriminator::Continue };
 
-namespace {
-  void cloneValue(egg::lang::Value& dst, const egg::lang::Value& src) {
-    std::memcpy(&dst, &src, sizeof(egg::lang::Value));
-  }
-  void zeroValue(egg::lang::Value& dst) {
-    std::memset(&dst, 0, sizeof(egg::lang::Value));
+void egg::lang::Value::copyInternals(const Value& other) {
+  this->tag = other.tag;
+  if (this->is(Discriminator::FlowControl)) {
+    this->v = (other.v == nullptr) ? nullptr : new Value(*other.v);
+  } else if (this->is(Discriminator::Type | Discriminator::Object)) {
+    this->o = other.o->acquire();
+  } else if (this->is(Discriminator::String)) {
+    this->s = new std::string(*other.s);
+  } else if (this->is(Discriminator::Float)) {
+    this->f = other.f;
+  } else if (this->is(Discriminator::Int)) {
+    this->i = other.i;
+  } else if (this->is(Discriminator::Bool)) {
+    this->b = other.b;
+  } else {
+    this->v = nullptr;
   }
 }
 
-void egg::lang::Value::addref() {
-  if (this->is(Discriminator::String)) {
-    this->s = new std::string(*this->s);
+void egg::lang::Value::moveInternals(Value& other) {
+  this->tag = other.tag;
+  if (this->is(Discriminator::FlowControl)) {
+    this->v = other.v;
   } else if (this->is(Discriminator::Type | Discriminator::Object)) {
-    this->o = this->o->acquire();
-  } else if (this->is(Discriminator::FlowControl)) {
-    this->v = new Value(this->v);
+    this->o = other.o;
+  } else if (this->is(Discriminator::String)) {
+    this->s = other.s;
+  } else if (this->is(Discriminator::Float)) {
+    this->f = other.f;
+  } else if (this->is(Discriminator::Int)) {
+    this->i = other.i;
+  } else if (this->is(Discriminator::Bool)) {
+    this->b = other.b;
+  } else {
+    this->v = nullptr;
   }
+  other.tag = Discriminator::None;
 }
 
 egg::lang::Value::Value(const Value& value) {
-  cloneValue(*this, value);
-  this->addref();
+  this->copyInternals(value);
 }
 
 egg::lang::Value::Value(Value&& value) {
-  cloneValue(*this, value);
-  zeroValue(value);
+  this->moveInternals(value);
 }
 
 egg::lang::Value& egg::lang::Value::operator=(const Value& value) {
-  cloneValue(*this, value);
-  this->addref();
+  if (this != &value) {
+    this->copyInternals(value);
+  }
   return *this;
 }
 
 egg::lang::Value& egg::lang::Value::operator=(Value&& value) {
-  cloneValue(*this, value);
-  zeroValue(value);
+  if (this != &value) {
+    this->moveInternals(value);
+  }
   return *this;
 }
 

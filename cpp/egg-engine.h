@@ -1,21 +1,25 @@
 namespace egg::yolk {
   class IEggEngineLogger {
   public:
+    virtual ~IEggEngineLogger() {}
     virtual void log(egg::lang::LogSource source, egg::lang::LogSeverity severity, const std::string& message) = 0;
   };
 
   class IEggEnginePreparationContext : public IEggEngineLogger {
   public:
+    virtual ~IEggEnginePreparationContext() {}
   };
 
   class IEggEngineExecutionContext : public IEggEngineLogger {
   public:
     // TODO
+    virtual ~IEggEngineExecutionContext() {}
     virtual void print(const std::string& text) = 0;
   };
 
   class IEggEngine {
   public:
+    virtual ~IEggEngine() {}
     virtual egg::lang::LogSeverity prepare(IEggEnginePreparationContext& preparation) = 0;
     virtual egg::lang::LogSeverity execute(IEggEngineExecutionContext& execution) = 0;
   };

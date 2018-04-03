@@ -9,13 +9,19 @@
 #include <set>
 
 namespace {
-  class EggProgramAssignee : public egg::yolk::IEggProgramAssignee {
+  class EggProgramAssigneeIdentifier : public egg::yolk::IEggProgramAssignee {
+  private:
+    egg::yolk::EggProgramContext* context;
+    std::string name;
   public:
-    virtual egg::lang::Value get() const override {
-      return egg::lang::Value::raise("TODO EggProgramAssignee get()"); // TODO
+    EggProgramAssigneeIdentifier(egg::yolk::EggProgramContext& context, const std::string& name)
+      : context(&context), name(name) {
     }
-    virtual egg::lang::Value set(const egg::lang::Value&) {
-      return egg::lang::Value::raise("TODO EggProgramAssignee set()"); // TODO
+    virtual egg::lang::Value get() const override {
+      return context->get(this->name);
+    }
+    virtual egg::lang::Value set(const egg::lang::Value& value) override {
+      return context->set(this->name, value);
     }
   };
 
@@ -202,7 +208,10 @@ egg::lang::Value egg::yolk::EggProgramContext::executeStatements(const std::vect
       // We've checked for duplicate symbols already
       this->symtable->addSymbol(name);
     }
-    statement->execute(*this);
+    auto retval = statement->execute(*this);
+    if (!retval.is(egg::lang::Discriminator::Void)) {
+      return retval;
+    }
   }
   this->execution->print("execute");
   return egg::lang::Value::Void;
@@ -243,7 +252,7 @@ egg::lang::Value egg::yolk::EggProgramContext::executeDeclare(const IEggProgramN
   this->statement(self);
   if (rvalue != nullptr) {
     // The declaration contains an initial value
-    return this->set(name, *rvalue);
+    return this->set(name, rvalue->execute(*this));
   }
   return egg::lang::Value::Void;
 }
@@ -490,7 +499,24 @@ egg::lang::Value egg::yolk::EggProgramContext::executeYield(const IEggProgramNod
 
 egg::lang::Value egg::yolk::EggProgramContext::executeCall(const IEggProgramNode& self, const IEggProgramNode& callee, const std::vector<std::shared_ptr<IEggProgramNode>>& parameters) {
   this->expression(self);
-  return WIBBLE(__FUNCTION__, &self, &callee, &parameters);
+  auto func = callee.execute(*this);
+  std::vector<egg::lang::Value> positional;
+  positional.reserve(parameters.size());
+  std::map<std::string, egg::lang::Value> named;
+  std::string name;
+  std::shared_ptr<IEggProgramType> type;
+  for (auto& i : parameters) {
+    auto value = i->execute(*this);
+    if (value.is(egg::lang::Discriminator::FlowControl)) {
+      return value;
+    }
+    if (i->symbol(name, type)) {
+      named.emplace(name, value);
+    } else {
+      positional.push_back(value);
+    }
+  }
+  return this->call(func, positional, named);
 }
 
 egg::lang::Value egg::yolk::EggProgramContext::executeIdentifier(const IEggProgramNode& self, const std::string& name) {
@@ -522,6 +548,11 @@ egg::lang::Value egg::yolk::EggProgramContext::executeTernary(const IEggProgramN
   return retval;
 }
 
+std::unique_ptr<egg::yolk::IEggProgramAssignee> egg::yolk::EggProgramContext::assigneeIdentifier(const IEggProgramNode& self, const std::string& name) {
+  this->expression(self);
+  return std::make_unique<EggProgramAssigneeIdentifier>(*this, name);
+}
+
 egg::lang::LogSeverity egg::yolk::EggProgram::execute(IEggEngineExecutionContext& execution) {
   EggProgram::SymbolTable symtable(nullptr);
   symtable.addSymbol("print")->value = egg::lang::Value("TODO print");
@@ -532,7 +563,15 @@ egg::lang::LogSeverity egg::yolk::EggProgram::execute(IEggEngineExecutionContext
 egg::lang::LogSeverity egg::yolk::EggProgram::execute(IEggEngineExecutionContext& execution, EggProgram::SymbolTable& symtable) {
   egg::lang::LogSeverity severity = egg::lang::LogSeverity::None;
   EggProgramContext context(execution, symtable, severity);
-  this->root->execute(context);
+  auto retval = this->root->execute(context);
+  if (!retval.is(egg::lang::Discriminator::Void)) {
+    if (retval.is(egg::lang::Discriminator::Exception)) {
+      auto& exception = retval.getFlowControl();
+      context.log(egg::lang::LogSource::Runtime, egg::lang::LogSeverity::Error, exception.getString());
+    } else {
+      context.log(egg::lang::LogSource::Runtime, egg::lang::LogSeverity::Error, "Expected statement to return 'void', but got '" + retval.getTagString() + "' instead");
+    }
+  }
   return severity;
 }
 
@@ -555,15 +594,21 @@ egg::lang::Value egg::yolk::EggProgramContext::get(const std::string& name) {
   return symbol->value;
 }
 
-egg::lang::Value egg::yolk::EggProgramContext::set(const std::string& name, const IEggProgramNode& rvalue) {
+egg::lang::Value egg::yolk::EggProgramContext::set(const std::string& name, const egg::lang::Value& rvalue) {
+  if (rvalue.is(egg::lang::Discriminator::FlowControl)) {
+    return rvalue;
+  }
   auto symbol = this->symtable->findSymbol(name);
   assert(symbol != nullptr);
-  symbol->value = rvalue.execute(*this);
+  symbol->value = rvalue;
   return egg::lang::Value::Void;
 }
 
 egg::lang::Value egg::yolk::EggProgramContext::assign(EggProgramAssign op, const IEggProgramNode& lvalue, const IEggProgramNode& rvalue) {
-  auto dst = this->assignee(lvalue);
+  auto dst = lvalue.assignee(*this);
+  if (dst == nullptr) {
+    return egg::lang::Value::raise("Left-hand side of assignment operator '" + EggProgram::assignToString(op) + "' is not a valid target");
+  }
   auto lhs = dst->get();
   if (lhs.is(egg::lang::Discriminator::FlowControl)) {
     return lhs;
@@ -616,7 +661,10 @@ egg::lang::Value egg::yolk::EggProgramContext::assign(EggProgramAssign op, const
 }
 
 egg::lang::Value egg::yolk::EggProgramContext::mutate(EggProgramMutate op, const IEggProgramNode& lvalue) {
-  auto dst = this->assignee(lvalue);
+  auto dst = lvalue.assignee(*this);
+  if (dst == nullptr) {
+    return egg::lang::Value::raise("Operand of mutation operator '" + EggProgram::mutateToString(op) + "' is not a valid target");
+  }
   auto lhs = dst->get();
   if (lhs.is(egg::lang::Discriminator::FlowControl)) {
     return lhs;
@@ -777,10 +825,6 @@ bool egg::yolk::EggProgramContext::operand(egg::lang::Value& dst, const IEggProg
   return false;
 }
 
-std::unique_ptr<egg::yolk::IEggProgramAssignee> egg::yolk::EggProgramContext::assignee(const IEggProgramNode&) {
-  return std::make_unique<EggProgramAssignee>();
-}
-
 egg::lang::Value egg::yolk::EggProgramContext::arithmeticIntFloat(const egg::lang::Value& lhs, const IEggProgramNode& rvalue, const char* operation, ArithmeticInt ints, ArithmeticFloat floats) {
   if (!lhs.is(egg::lang::Discriminator::Arithmetic)) {
     return EggProgramContext::unexpected("Expected left-hand side of " + std::string(operation) + " to be 'int' or 'float'", lhs);
@@ -816,6 +860,10 @@ egg::lang::Value egg::yolk::EggProgramContext::arithmeticInt(const egg::lang::Va
     return rhs;
   }
   return EggProgramContext::unexpected("Expected right-hand side of " + std::string(operation) + " to be 'int'", rhs);
+}
+
+egg::lang::Value egg::yolk::EggProgramContext::call(const egg::lang::Value& callee, const std::vector<egg::lang::Value>& positional, const std::map<std::string, egg::lang::Value>& named) {
+  return WIBBLE(__FUNCTION__, &callee, &positional, &named);
 }
 
 egg::lang::Value egg::yolk::EggProgramContext::unexpected(const std::string& expectation, const egg::lang::Value& value) {

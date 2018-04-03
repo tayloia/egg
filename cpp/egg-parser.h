@@ -67,6 +67,7 @@ namespace egg::yolk {
 
   class IEggParserContext {
   public:
+    virtual ~IEggParserContext() {}
     virtual std::string getResource() const = 0;
     virtual bool isAllowed(EggParserAllowed allowed) const = 0;
     virtual EggParserAllowed inheritAllowed(EggParserAllowed allow, EggParserAllowed inherit) const = 0;
@@ -76,12 +77,14 @@ namespace egg::yolk {
   // Program parser
   class IEggParser {
   public:
+    virtual ~IEggParser() {}
     virtual std::shared_ptr<IEggProgramNode> parse(IEggTokenizer& tokenizer) = 0;
   };
 
   // Syntax parser (used internally and for testing)
   class IEggSyntaxParser {
   public:
+    virtual ~IEggSyntaxParser() {}
     virtual std::shared_ptr<IEggSyntaxNode> parse(IEggTokenizer& tokenizer) = 0;
   };
 

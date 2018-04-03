@@ -124,8 +124,6 @@ namespace {
       : lexer(lexer) {
       this->upcoming.line = 0;
     }
-    virtual ~EggTokenizer() {
-    }
     virtual EggTokenizerKind next(EggTokenizerItem& item) override {
       if (this->upcoming.line == 0) {
         // This is the first time through

@@ -74,6 +74,7 @@ namespace egg::lang {
 
   class IObject {
   public:
+    virtual ~IObject() {}
     virtual IObject* acquire() const = 0;
     virtual void release() const = 0;
   };
@@ -90,7 +91,8 @@ namespace egg::lang {
       Value* v;
     };
     explicit Value(Discriminator tag, Value* child = nullptr) : tag(tag) { this->v = child; }
-    void addref();
+    void copyInternals(const Value& other);
+    void moveInternals(Value& other);
   public:
     inline Value() : tag(Discriminator::Void) { this->o = nullptr; }
     inline explicit Value(nullptr_t) : tag(Discriminator::Null) { this->o = nullptr; }

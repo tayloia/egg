@@ -10,8 +10,6 @@ using namespace egg::yolk;
 namespace {
   class Logger : public IEggEngineLogger {
   public:
-    virtual ~Logger() {
-    }
     virtual void log(egg::lang::LogSource source, egg::lang::LogSeverity severity, const std::string& message) {
       auto text = Logger::logSourceToString(source) + ":" + Logger::logSeverityToString(severity) + ":" + message;
       std::cout << text << std::endl;
@@ -57,8 +55,8 @@ TEST(TestEggEngine, CreateEngineFromParsed) {
   auto engine = EggEngineFactory::createEngineFromParsed(root);
   auto logger = std::make_shared<Logger>();
   auto execution = EggEngineFactory::createExecutionContext(logger);
-  ASSERT_EQ(egg::lang::LogSeverity::None, engine->execute(*execution));
-  ASSERT_STARTSWITH(logger->logged, "USER:INFO:");
+  ASSERT_EQ(egg::lang::LogSeverity::Error, engine->execute(*execution));
+  ASSERT_STARTSWITH(logger->logged, "RUNTIME:ERROR:Unknown identifier: 'first'");
 }
 
 TEST(TestEggEngine, CreateEngineFromTextStream) {
@@ -69,8 +67,8 @@ TEST(TestEggEngine, CreateEngineFromTextStream) {
   ASSERT_EQ(egg::lang::LogSeverity::None, engine->prepare(*preparation));
   ASSERT_EQ("", logger->logged);
   auto execution = EggEngineFactory::createExecutionContext(logger);
-  ASSERT_EQ(egg::lang::LogSeverity::None, engine->execute(*execution));
-  ASSERT_STARTSWITH(logger->logged, "USER:INFO:");
+  ASSERT_EQ(egg::lang::LogSeverity::Error, engine->execute(*execution));
+  ASSERT_STARTSWITH(logger->logged, "RUNTIME:ERROR:Unknown identifier: 'first'");
 }
 
 TEST(TestEggEngine, CreateEngineFromGarbage) {
@@ -109,7 +107,7 @@ TEST(TestEggEngine, LogFromEngine) {
 
 TEST(TestEggEngine, DuplicateSymbols) {
   StringTextStream stream("var a = 1;\nvar a;");
-  ASSERT_EQ("COMPILER:ERROR:Duplicate symbol declared at module level: 'a'\n", logFromEngine(stream));
+  ASSERT_STARTSWITH(logFromEngine(stream), "COMPILER:ERROR:Duplicate symbol declared at module level: 'a'\n");
 }
 
 TEST(TestEggEngine, WorkingFile) {

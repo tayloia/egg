@@ -23,6 +23,7 @@ namespace egg::yolk {
 
   class IEggSyntaxNode {
   public:
+    virtual ~IEggSyntaxNode() {}
     virtual EggTokenizerKeyword keyword() const = 0;
     virtual const EggSyntaxNodeLocation& location() const = 0;
     virtual const std::vector<std::unique_ptr<IEggSyntaxNode>>* children() const = 0;
@@ -35,8 +36,6 @@ namespace egg::yolk {
   public:
     explicit EggSyntaxNodeBase(const EggSyntaxNodeLocation& location)
       : EggSyntaxNodeLocation(location) {
-    }
-    virtual ~EggSyntaxNodeBase() {
     }
     virtual EggTokenizerKeyword keyword() const;
     virtual const EggSyntaxNodeLocation& location() const;

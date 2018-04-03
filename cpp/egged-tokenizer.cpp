@@ -19,8 +19,6 @@ namespace {
       : lexer(lexer) {
       this->upcoming.line = 0;
     }
-    virtual ~EggedTokenizer() {
-    }
     virtual EggedTokenizerKind next(EggedTokenizerItem& item) override {
       if (this->upcoming.line == 0) {
         // This is the first time through

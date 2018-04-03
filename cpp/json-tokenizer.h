@@ -34,6 +34,7 @@ namespace egg::yolk {
 
   class IJsonTokenizer {
   public:
+    virtual ~IJsonTokenizer() {}
     virtual JsonTokenizerKind next(JsonTokenizerItem& item) = 0;
   };
 

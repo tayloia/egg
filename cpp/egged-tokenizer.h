@@ -34,6 +34,7 @@ namespace egg::yolk {
 
   class IEggedTokenizer {
   public:
+    virtual ~IEggedTokenizer() {}
     virtual EggedTokenizerKind next(EggedTokenizerItem& item) = 0;
   };
 

@@ -342,8 +342,6 @@ namespace {
     FileLexer(const std::string& path, bool swallowBOM)
       : Lexer(stream), stream(path, swallowBOM) {
     }
-    virtual ~FileLexer() {
-    }
   };
 
   class StringLexer : public Lexer {
@@ -353,8 +351,6 @@ namespace {
   public:
     explicit StringLexer(const std::string& text)
       : Lexer(stream), stream(text) {
-    }
-    virtual ~StringLexer() {
     }
   };
 }

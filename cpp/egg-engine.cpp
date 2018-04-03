@@ -31,8 +31,6 @@ namespace {
       : logger(logger) {
       assert(logger != nullptr);
     }
-    virtual ~EggEngineBaseContext() {
-    }
     virtual void log(egg::lang::LogSource source, egg::lang::LogSeverity severity, const std::string& message) {
       this->logger->log(source, severity, message);
     }
@@ -66,8 +64,6 @@ namespace {
     explicit EggEngineParsed(const std::shared_ptr<IEggProgramNode>& root)
       : program(root) {
     }
-    virtual ~EggEngineParsed() {
-    }
     virtual egg::lang::LogSeverity prepare(IEggEnginePreparationContext& preparation) {
       preparation.log(egg::lang::LogSource::Compiler, egg::lang::LogSeverity::Error, "Unnecessary program preparation");
       return egg::lang::LogSeverity::Error;
@@ -85,8 +81,6 @@ namespace {
   public:
     explicit EggEngineTextStream(TextStream& stream)
       : stream(&stream) {
-    }
-    virtual ~EggEngineTextStream() {
     }
     virtual egg::lang::LogSeverity prepare(IEggEnginePreparationContext& preparation) {
       if (this->program != nullptr) {
