@@ -18,7 +18,7 @@ namespace egg::yolk {
     virtual std::shared_ptr<IEggProgramType> getType() const = 0;
     virtual bool symbol(std::string& nameOut, std::shared_ptr<IEggProgramType>& typeOut) const = 0;
     virtual egg::lang::Value execute(EggProgramContext& context) const = 0;
-    virtual egg::lang::Value match(EggProgramContext& context, egg::lang::Value& expression) const = 0;
+    virtual egg::lang::Value executeWithExpression(EggProgramContext& context, const egg::lang::Value& expression) const = 0;
     virtual void dump(std::ostream& os) const = 0;
   };
 
@@ -83,7 +83,7 @@ namespace egg::yolk {
     egg::lang::Value executeAssign(const IEggProgramNode& self, EggProgramAssign op, const IEggProgramNode& lvalue, const IEggProgramNode& rvalue);
     egg::lang::Value executeMutate(const IEggProgramNode& self, EggProgramMutate op, const IEggProgramNode& lvalue);
     egg::lang::Value executeBreak(const IEggProgramNode& self);
-    egg::lang::Value executeCatch(const IEggProgramNode& self, const std::string& name, const IEggProgramNode& type, const IEggProgramNode& block);
+    egg::lang::Value executeCatch(const IEggProgramNode& self, const std::string& name, const IEggProgramNode& type, const IEggProgramNode& block, const egg::lang::Value& exception);
     egg::lang::Value executeContinue(const IEggProgramNode& self);
     egg::lang::Value executeDo(const IEggProgramNode& self, const IEggProgramNode& cond, const IEggProgramNode& block);
     egg::lang::Value executeIf(const IEggProgramNode& self, const IEggProgramNode& cond, const IEggProgramNode& trueBlock, const IEggProgramNode* falseBlock);
@@ -115,6 +115,7 @@ namespace egg::yolk {
   private:
     bool findDuplicateSymbols(const std::vector<std::shared_ptr<IEggProgramNode>>& statements);
     egg::lang::Value executeStatements(const std::vector<std::shared_ptr<IEggProgramNode>>& statements);
+    egg::lang::Value executeFinally(const egg::lang::Value& retval, const IEggProgramNode* block);
     bool operand(egg::lang::Value& dst, const IEggProgramNode& src, egg::lang::Discriminator expected, const char* expectation);
     std::unique_ptr<IEggProgramAssignee> assignee(const IEggProgramNode& lvalue);
     typedef egg::lang::Value(*ArithmeticInt)(int64_t lhs, int64_t rhs);

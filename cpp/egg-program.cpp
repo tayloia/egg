@@ -263,12 +263,6 @@ egg::lang::Value egg::yolk::EggProgramContext::executeBreak(const IEggProgramNod
   return egg::lang::Value::Break;
 }
 
-egg::lang::Value egg::yolk::EggProgramContext::executeCatch(const IEggProgramNode& self, const std::string&, const IEggProgramNode&, const IEggProgramNode& block) {
-  // The symbol information has already been used to match this catch clause
-  this->statement(self);
-  return block.execute(*this);
-}
-
 egg::lang::Value egg::yolk::EggProgramContext::executeContinue(const IEggProgramNode& self) {
   this->statement(self);
   return egg::lang::Value::Continue;
@@ -379,26 +373,6 @@ egg::lang::Value egg::yolk::EggProgramContext::executeReturn(const IEggProgramNo
   return WIBBLE(__FUNCTION__, &self, &values);
 }
 
-egg::lang::Value egg::yolk::EggProgramContext::executeCase(const IEggProgramNode& self, const std::vector<std::shared_ptr<IEggProgramNode>>& values, const IEggProgramNode& block, const egg::lang::Value* against) {
-  if (against != nullptr) {
-    // We're matching against values
-    for (auto& i : values) {
-      auto value = i->execute(*this);
-      if (value.is(egg::lang::Discriminator::FlowControl)) {
-        return value;
-      }
-      if (value == *against) {
-        // Found a match, so return 'true'
-        return egg::lang::Value::True;
-      }
-    }
-    // No match; the switch may have a 'default' clause however
-    return egg::lang::Value::False;
-  }
-  this->statement(self);
-  return block.execute(*this);
-}
-
 egg::lang::Value egg::yolk::EggProgramContext::executeSwitch(const IEggProgramNode& self, const IEggProgramNode& value, int64_t defaultIndex, const std::vector<std::shared_ptr<IEggProgramNode>>& cases) {
   this->statement(self);
   // This is a two-phase process:
@@ -410,12 +384,12 @@ egg::lang::Value egg::yolk::EggProgramContext::executeSwitch(const IEggProgramNo
   }
   auto matched = size_t(defaultIndex);
   for (size_t index = 0; index < cases.size(); ++index) {
-    auto retval = cases[index]->match(*this, expr);
-    if (retval.is(egg::lang::Discriminator::FlowControl)) {
+    auto retval = cases[index]->executeWithExpression(*this, expr);
+    if (!retval.is(egg::lang::Discriminator::Bool)) {
       // Failed to evaluate a case label
       return retval;
     }
-    if (retval.is(egg::lang::Discriminator::Bool) && retval.getBool()) {
+    if (retval.getBool()) {
       // This was a match
       matched = index;
       break;
@@ -436,6 +410,26 @@ egg::lang::Value egg::yolk::EggProgramContext::executeSwitch(const IEggProgramNo
   return egg::lang::Value::Void;
 }
 
+egg::lang::Value egg::yolk::EggProgramContext::executeCase(const IEggProgramNode& self, const std::vector<std::shared_ptr<IEggProgramNode>>& values, const IEggProgramNode& block, const egg::lang::Value* against) {
+  if (against != nullptr) {
+    // We're matching against values
+    for (auto& i : values) {
+      auto value = i->execute(*this);
+      if (value.is(egg::lang::Discriminator::FlowControl)) {
+        return value;
+      }
+      if (value == *against) {
+        // Found a match, so return 'true'
+        return egg::lang::Value::True;
+      }
+    }
+    // No match; the switch may have a 'default' clause however
+    return egg::lang::Value::False;
+  }
+  this->statement(self);
+  return block.execute(*this);
+}
+
 egg::lang::Value egg::yolk::EggProgramContext::executeThrow(const IEggProgramNode& self, const IEggProgramNode* exception) {
   this->statement(self);
   return WIBBLE(__FUNCTION__, &self, &exception);
@@ -443,7 +437,40 @@ egg::lang::Value egg::yolk::EggProgramContext::executeThrow(const IEggProgramNod
 
 egg::lang::Value egg::yolk::EggProgramContext::executeTry(const IEggProgramNode& self, const IEggProgramNode& block, const std::vector<std::shared_ptr<IEggProgramNode>>& catches, const IEggProgramNode* final) {
   this->statement(self);
-  return WIBBLE(__FUNCTION__, &self, &block, &catches, &final);
+  auto retval = block.execute(*this);
+  if (retval.is(egg::lang::Discriminator::Exception)) {
+    // An exception has indeed been thrown
+    const auto& exception = retval.getFlowControl();
+    for (auto& i : catches) {
+      auto match = i->executeWithExpression(*this, exception);
+      if (!match.is(egg::lang::Discriminator::Bool)) {
+        // Failed to evaluate the catch condition
+        return this->executeFinally(match, final);
+      }
+      if (match.getBool()) {
+        // This catch clause has been successfully executed
+        return this->executeFinally(egg::lang::Value::Void, final);
+      }
+    }
+  }
+  return this->executeFinally(retval, final);
+}
+
+egg::lang::Value egg::yolk::EggProgramContext::executeCatch(const IEggProgramNode& self, const std::string& name, const IEggProgramNode& type, const IEggProgramNode& block, const egg::lang::Value& exception) {
+  this->statement(self);
+  // TODO if typeof(exception) == type then set name = exception, run block and return true
+  // TODO else return false
+  return WIBBLE(__FUNCTION__, &self, &name, &type, &block, &exception);
+}
+
+egg::lang::Value egg::yolk::EggProgramContext::executeFinally(const egg::lang::Value& retval, const IEggProgramNode* final) {
+  if (final != nullptr) {
+    auto secondary = final->execute(*this);
+    if (!secondary.is(egg::lang::Discriminator::Void)) {
+      return secondary;
+    }
+  }
+  return retval;
 }
 
 egg::lang::Value egg::yolk::EggProgramContext::executeUsing(const IEggProgramNode& self, const IEggProgramNode& value, const IEggProgramNode& block) {

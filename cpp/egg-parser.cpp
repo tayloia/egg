@@ -200,9 +200,9 @@ namespace {
       // By default, nodes do not declare symbols
       return false;
     }
-    virtual egg::lang::Value match(EggProgramContext&, egg::lang::Value&) const override {
-      // By default, we fail if asked to match an expression (used only in swtch statements, etc)
-      return egg::lang::Value::raise("Internal parser error : Invalid 'match' call");
+    virtual egg::lang::Value executeWithExpression(EggProgramContext&, const egg::lang::Value&) const override {
+      // By default, we fail if asked to execute with an expression (used only in switch/catch statements, etc)
+      return egg::lang::Value::raise("Internal parser error : Inappropriate 'executeWithExpression' call");
     }
   };
 
@@ -325,8 +325,11 @@ namespace {
       typeOut = this->type->getType();
       return true;
     }
-    virtual egg::lang::Value execute(EggProgramContext& context) const override {
-      return context.executeCatch(*this, this->name, *this->type, *this->block);
+    virtual egg::lang::Value execute(EggProgramContext&) const override {
+      return egg::lang::Value::raise("Internal parser error : Inappropriate 'execute' call for 'catch' statement");
+    }
+    virtual egg::lang::Value executeWithExpression(EggProgramContext& context, const egg::lang::Value& expression) const override {
+      return context.executeCatch(*this, this->name, *this->type, *this->block, expression);
     }
     virtual void dump(std::ostream& os) const override {
       ParserDump(os, "catch").add(this->name).add(this->type).add(this->block);
@@ -462,7 +465,7 @@ namespace {
       // We actually want to execute the block of the 'case' statement
       return context.executeCase(*this, this->child, *this->block, nullptr);
     }
-    virtual egg::lang::Value match(EggProgramContext& context, egg::lang::Value& expression) const override {
+    virtual egg::lang::Value executeWithExpression(EggProgramContext& context, const egg::lang::Value& expression) const override {
       // We're matching values in the 'case' statement
       return context.executeCase(*this, this->child, *this->block, &expression);
     }
