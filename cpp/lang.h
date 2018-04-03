@@ -119,6 +119,8 @@ namespace egg::lang {
     static Value raise(const std::string& exception);
     static const Value Void;
     static const Value Null;
+    static const Value False;
+    static const Value True;
     static const Value Break;
     static const Value Continue;
   };

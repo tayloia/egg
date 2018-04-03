@@ -200,6 +200,10 @@ namespace {
       // By default, nodes do not declare symbols
       return false;
     }
+    virtual egg::lang::Value match(EggProgramContext&, egg::lang::Value&) const override {
+      // By default, we fail if asked to match an expression (used only in swtch statements, etc)
+      return egg::lang::Value::raise("Internal parser error : Invalid 'match' call");
+    }
   };
 
   class EggParserNode_Module : public EggParserNodeBase {
@@ -455,7 +459,12 @@ namespace {
       assert(this->block != nullptr);
     }
     virtual egg::lang::Value execute(EggProgramContext& context) const override {
-      return context.executeCase(*this, this->child, *this->block);
+      // We actually want to execute the block of the 'case' statement
+      return context.executeCase(*this, this->child, *this->block, nullptr);
+    }
+    virtual egg::lang::Value match(EggProgramContext& context, egg::lang::Value& expression) const override {
+      // We're matching values in the 'case' statement
+      return context.executeCase(*this, this->child, *this->block, &expression);
     }
     virtual void dump(std::ostream& os) const override {
       ParserDump(os, "case").add(this->child).add(this->block);

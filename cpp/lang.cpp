@@ -2,6 +2,8 @@
 
 const egg::lang::Value egg::lang::Value::Void{ Discriminator::Void };
 const egg::lang::Value egg::lang::Value::Null{ Discriminator::Null };
+const egg::lang::Value egg::lang::Value::False{ false };
+const egg::lang::Value egg::lang::Value::True{ true };
 const egg::lang::Value egg::lang::Value::Break{ Discriminator::Break };
 const egg::lang::Value egg::lang::Value::Continue{ Discriminator::Continue };
 

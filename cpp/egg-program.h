@@ -18,6 +18,7 @@ namespace egg::yolk {
     virtual std::shared_ptr<IEggProgramType> getType() const = 0;
     virtual bool symbol(std::string& nameOut, std::shared_ptr<IEggProgramType>& typeOut) const = 0;
     virtual egg::lang::Value execute(EggProgramContext& context) const = 0;
+    virtual egg::lang::Value match(EggProgramContext& context, egg::lang::Value& expression) const = 0;
     virtual void dump(std::ostream& os) const = 0;
   };
 
@@ -67,10 +68,9 @@ namespace egg::yolk {
     IEggEngineExecutionContext* execution;
     EggProgram::SymbolTable* symtable;
     egg::lang::LogSeverity* maximumSeverity;
-    const egg::lang::Value* switchExpression;
   public:
     EggProgramContext(EggProgramContext& parent, EggProgram::SymbolTable& symtable)
-      : execution(parent.execution), symtable(&symtable), maximumSeverity(parent.maximumSeverity), switchExpression(nullptr) {
+      : execution(parent.execution), symtable(&symtable), maximumSeverity(parent.maximumSeverity) {
     }
     EggProgramContext(IEggEngineExecutionContext& execution, EggProgram::SymbolTable& symtable, egg::lang::LogSeverity& maximumSeverity)
       : execution(&execution), symtable(&symtable), maximumSeverity(&maximumSeverity) {
@@ -90,7 +90,7 @@ namespace egg::yolk {
     egg::lang::Value executeFor(const IEggProgramNode& self, const IEggProgramNode* pre, const IEggProgramNode* cond, const IEggProgramNode* post, const IEggProgramNode& block);
     egg::lang::Value executeForeach(const IEggProgramNode& self, const IEggProgramNode& lvalue, const IEggProgramNode& rvalue, const IEggProgramNode& block);
     egg::lang::Value executeReturn(const IEggProgramNode& self, const std::vector<std::shared_ptr<IEggProgramNode>>& values);
-    egg::lang::Value executeCase(const IEggProgramNode& self, const std::vector<std::shared_ptr<IEggProgramNode>>& values, const IEggProgramNode& block);
+    egg::lang::Value executeCase(const IEggProgramNode& self, const std::vector<std::shared_ptr<IEggProgramNode>>& values, const IEggProgramNode& block, const egg::lang::Value* against);
     egg::lang::Value executeSwitch(const IEggProgramNode& self, const IEggProgramNode& value, int64_t defaultIndex, const std::vector<std::shared_ptr<IEggProgramNode>>& cases);
     egg::lang::Value executeThrow(const IEggProgramNode& self, const IEggProgramNode* exception);
     egg::lang::Value executeTry(const IEggProgramNode& self, const IEggProgramNode& block, const std::vector<std::shared_ptr<IEggProgramNode>>& catches, const IEggProgramNode* final);
@@ -122,7 +122,5 @@ namespace egg::yolk {
     egg::lang::Value arithmeticIntFloat(const egg::lang::Value& lhs, const egg::yolk::IEggProgramNode& rvalue, const char* operation, ArithmeticInt ints, ArithmeticFloat floats);
     egg::lang::Value arithmeticInt(const egg::lang::Value& lhs, const egg::yolk::IEggProgramNode& rvalue, const char* operation, ArithmeticInt ints);
     static egg::lang::Value unexpected(const std::string& expectation, const egg::lang::Value& value);
-    egg::lang::Value executeSwitchPhase1(const std::vector<std::shared_ptr<IEggProgramNode>>& cases);
-    egg::lang::Value executeSwitchPhase2(int64_t index, const std::vector<std::shared_ptr<IEggProgramNode>>& cases);
   };
 }
