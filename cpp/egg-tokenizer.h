@@ -110,7 +110,7 @@ namespace egg::yolk {
       EggTokenizerKeyword k;
       EggTokenizerOperator o;
     };
-    std::string s; // verbatim for integers and floats
+    egg::lang::String s; // verbatim for integers and floats
 
     static std::string getKeywordString(EggTokenizerKeyword value);
     static std::string getOperatorString(EggTokenizerOperator value);

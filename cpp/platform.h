@@ -19,6 +19,7 @@
 // TODO _SILENCE_CXX17_CODECVT_HEADER_DEPRECATION_WARNING
 #define _SILENCE_CXX17_CODECVT_HEADER_DEPRECATION_WARNING
 #include <algorithm>
+#include <atomic>
 #include <codecvt>
 #include <fstream>
 #include <functional>

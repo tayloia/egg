@@ -11,7 +11,7 @@ namespace egg::yolk {
     virtual std::shared_ptr<IEggProgramType> nullableType(bool nullable) const = 0;
     virtual std::shared_ptr<IEggProgramType> unionWith(IEggProgramType& other) const = 0;
     virtual std::shared_ptr<IEggProgramType> unionWithSimple(egg::lang::Discriminator other) const = 0;
-    virtual std::string to_string() const = 0;
+    virtual egg::lang::String toString() const = 0;
   };
 
   class IEggProgramAssignee {
@@ -25,7 +25,7 @@ namespace egg::yolk {
   public:
     virtual ~IEggProgramNode() {}
     virtual std::shared_ptr<IEggProgramType> getType() const = 0;
-    virtual bool symbol(std::string& nameOut, std::shared_ptr<IEggProgramType>& typeOut) const = 0;
+    virtual bool symbol(egg::lang::String& nameOut, std::shared_ptr<IEggProgramType>& typeOut) const = 0;
     virtual egg::lang::Value execute(EggProgramContext& context) const = 0;
     virtual egg::lang::Value executeWithExpression(EggProgramContext& context, const egg::lang::Value& expression) const = 0;
     virtual std::unique_ptr<IEggProgramAssignee> assignee(EggProgramContext& context) const = 0;
@@ -83,11 +83,11 @@ namespace egg::yolk {
     egg::lang::Value executeModule(const IEggProgramNode& self, const std::vector<std::shared_ptr<IEggProgramNode>>& statements);
     egg::lang::Value executeBlock(const IEggProgramNode& self, const std::vector<std::shared_ptr<IEggProgramNode>>& statements);
     egg::lang::Value executeType(const IEggProgramNode& self, const IEggProgramType& type);
-    egg::lang::Value executeDeclare(const IEggProgramNode& self, const std::string& name, const IEggProgramNode& type, const IEggProgramNode* rvalue);
+    egg::lang::Value executeDeclare(const IEggProgramNode& self, const egg::lang::String& name, const IEggProgramNode& type, const IEggProgramNode* rvalue);
     egg::lang::Value executeAssign(const IEggProgramNode& self, EggProgramAssign op, const IEggProgramNode& lvalue, const IEggProgramNode& rvalue);
     egg::lang::Value executeMutate(const IEggProgramNode& self, EggProgramMutate op, const IEggProgramNode& lvalue);
     egg::lang::Value executeBreak(const IEggProgramNode& self);
-    egg::lang::Value executeCatch(const IEggProgramNode& self, const std::string& name, const IEggProgramNode& type, const IEggProgramNode& block, const egg::lang::Value& exception);
+    egg::lang::Value executeCatch(const IEggProgramNode& self, const egg::lang::String& name, const IEggProgramNode& type, const IEggProgramNode& block, const egg::lang::Value& exception);
     egg::lang::Value executeContinue(const IEggProgramNode& self);
     egg::lang::Value executeDo(const IEggProgramNode& self, const IEggProgramNode& cond, const IEggProgramNode& block);
     egg::lang::Value executeIf(const IEggProgramNode& self, const IEggProgramNode& cond, const IEggProgramNode& trueBlock, const IEggProgramNode* falseBlock);
@@ -102,22 +102,22 @@ namespace egg::yolk {
     egg::lang::Value executeWhile(const IEggProgramNode& self, const IEggProgramNode& cond, const IEggProgramNode& block);
     egg::lang::Value executeYield(const IEggProgramNode& self, const IEggProgramNode& value);
     egg::lang::Value executeCall(const IEggProgramNode& self, const IEggProgramNode& callee, const std::vector<std::shared_ptr<IEggProgramNode>>& parameters);
-    egg::lang::Value executeIdentifier(const IEggProgramNode& self, const std::string& name);
+    egg::lang::Value executeIdentifier(const IEggProgramNode& self, const egg::lang::String& name);
     egg::lang::Value executeLiteral(const IEggProgramNode& self, const egg::lang::Value& value);
     egg::lang::Value executeUnary(const IEggProgramNode& self, EggProgramUnary op, const IEggProgramNode& value);
     egg::lang::Value executeBinary(const IEggProgramNode& self, EggProgramBinary op, const IEggProgramNode& lhs, const IEggProgramNode& rhs);
     egg::lang::Value executeTernary(const IEggProgramNode& self, const IEggProgramNode& cond, const IEggProgramNode& whenTrue, const IEggProgramNode& whenFalse);
-    std::unique_ptr<IEggProgramAssignee> assigneeIdentifier(const IEggProgramNode& self, const std::string& name);
+    std::unique_ptr<IEggProgramAssignee> assigneeIdentifier(const IEggProgramNode& self, const egg::lang::String& name);
     void statement(const IEggProgramNode& node); // TODO remove?
     void expression(const IEggProgramNode& node); // TODO remove?
-    egg::lang::Value get(const std::string& name);
-    egg::lang::Value set(const std::string& name, const egg::lang::Value& rvalue);
+    egg::lang::Value get(const egg::lang::String& name);
+    egg::lang::Value set(const egg::lang::String& name, const egg::lang::Value& rvalue);
     egg::lang::Value assign(EggProgramAssign op, const IEggProgramNode& lvalue, const IEggProgramNode& rvalue);
     egg::lang::Value mutate(EggProgramMutate op, const IEggProgramNode& lvalue);
     egg::lang::Value condition(const IEggProgramNode& expression);
     egg::lang::Value unary(EggProgramUnary op, const IEggProgramNode& value);
     egg::lang::Value binary(EggProgramBinary op, const IEggProgramNode& lhs, const IEggProgramNode& rhs);
-    egg::lang::Value call(const egg::lang::Value& callee, const std::vector<egg::lang::Value>& positional, const std::map<std::string, egg::lang::Value>& named);
+    egg::lang::Value call(const egg::lang::Value& callee, const egg::lang::IParameters& parameters);
   private:
     bool findDuplicateSymbols(const std::vector<std::shared_ptr<IEggProgramNode>>& statements);
     egg::lang::Value executeStatements(const std::vector<std::shared_ptr<IEggProgramNode>>& statements);

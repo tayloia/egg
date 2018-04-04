@@ -1,6 +1,7 @@
 #include "platform.h"
 
 #include <algorithm>
+#include <atomic>
 #include <cassert>
 #include <cctype>
 #include <deque>
@@ -15,6 +16,7 @@
 
 #include "macros.h"
 #include "exceptions.h"
+#include "gc.h"
 #include "files.h"
 #include "streams.h"
 #include "strings.h"

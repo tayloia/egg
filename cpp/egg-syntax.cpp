@@ -22,6 +22,10 @@ namespace {
       *this->os << ' ' << '\'' << text << '\'';
       return *this;
     }
+    ParserDump& add(const egg::lang::String& text) {
+      *this->os << ' ' << '\'' << text << '\'';
+      return *this;
+    }
     ParserDump& add(EggTokenizerOperator op) {
       *this->os << ' ' << '\'' << EggTokenizerValue::getOperatorString(op) << '\'';
       return *this;
@@ -170,13 +174,13 @@ void egg::yolk::EggSyntaxNode_Identifier::dump(std::ostream& os) const {
 void egg::yolk::EggSyntaxNode_Literal::dump(std::ostream& os) const {
   switch (this->kind) {
   case EggTokenizerKind::Integer:
-    ParserDump(os, ("literal int " + this->value.s).c_str());
+    ParserDump(os, ("literal int " + this->value.s.toUTF8()).c_str());
     break;
   case EggTokenizerKind::Float:
-    ParserDump(os, ("literal float " + this->value.s).c_str());
+    ParserDump(os, ("literal float " + this->value.s.toUTF8()).c_str());
     break;
   case EggTokenizerKind::String:
-    ParserDump(os, "literal string").add(this->value.s);
+    ParserDump(os, "literal string").add(this->value.s.toUTF8());
     break;
   case EggTokenizerKind::Keyword:
     if (this->value.k == EggTokenizerKeyword::Null) {
@@ -283,51 +287,51 @@ bool egg::yolk::EggSyntaxNodeBase::negate() {
   return false;
 }
 
-std::string egg::yolk::EggSyntaxNodeBase::token() const {
-  return std::string();
+egg::lang::String egg::yolk::EggSyntaxNodeBase::token() const {
+  return egg::lang::String::Empty;
 }
 
-std::string egg::yolk::EggSyntaxNode_Type::token() const {
-  return egg::lang::Value::getTagString(this->tag);
+egg::lang::String egg::yolk::EggSyntaxNode_Type::token() const {
+  return egg::lang::String::fromUTF8(egg::lang::Value::getTagString(this->tag));
 }
 
-std::string egg::yolk::EggSyntaxNode_Declare::token() const {
+egg::lang::String egg::yolk::EggSyntaxNode_Declare::token() const {
   return this->name;
 }
 
-std::string egg::yolk::EggSyntaxNode_Assignment::token() const {
-  return EggTokenizerValue::getOperatorString(this->op);
+egg::lang::String egg::yolk::EggSyntaxNode_Assignment::token() const {
+  return egg::lang::String::fromUTF8(EggTokenizerValue::getOperatorString(this->op));
 }
 
-std::string egg::yolk::EggSyntaxNode_Mutate::token() const {
-  return EggTokenizerValue::getOperatorString(this->op);
+egg::lang::String egg::yolk::EggSyntaxNode_Mutate::token() const {
+  return egg::lang::String::fromUTF8(EggTokenizerValue::getOperatorString(this->op));
 }
 
-std::string egg::yolk::EggSyntaxNode_Catch::token() const {
+egg::lang::String egg::yolk::EggSyntaxNode_Catch::token() const {
   return this->name;
 }
 
-std::string egg::yolk::EggSyntaxNode_UnaryOperator::token() const {
-  return EggTokenizerValue::getOperatorString(this->op);
+egg::lang::String egg::yolk::EggSyntaxNode_UnaryOperator::token() const {
+  return egg::lang::String::fromUTF8(EggTokenizerValue::getOperatorString(this->op));
 }
 
-std::string egg::yolk::EggSyntaxNode_BinaryOperator::token() const {
-  return EggTokenizerValue::getOperatorString(this->op);
+egg::lang::String egg::yolk::EggSyntaxNode_BinaryOperator::token() const {
+  return egg::lang::String::fromUTF8(EggTokenizerValue::getOperatorString(this->op));
 }
 
-std::string egg::yolk::EggSyntaxNode_TernaryOperator::token() const {
-  return "?:";
+egg::lang::String egg::yolk::EggSyntaxNode_TernaryOperator::token() const {
+  return egg::lang::String::fromUTF8("?:");
 }
 
-std::string egg::yolk::EggSyntaxNode_Named::token() const {
+egg::lang::String egg::yolk::EggSyntaxNode_Named::token() const {
   return this->name;
 }
 
-std::string egg::yolk::EggSyntaxNode_Identifier::token() const {
+egg::lang::String egg::yolk::EggSyntaxNode_Identifier::token() const {
   return this->name;
 }
 
-std::string egg::yolk::EggSyntaxNode_Literal::token() const {
+egg::lang::String egg::yolk::EggSyntaxNode_Literal::token() const {
   return this->value.s;
 }
 
@@ -337,12 +341,12 @@ bool egg::yolk::EggSyntaxNode_Literal::negate() {
     auto negative = -this->value.i;
     if (negative <= 0) {
       this->value.i = negative;
-      this->value.s = "-" + this->value.s;
+      this->value.s = egg::lang::String::concat("-", this->value.s.toUTF8());
       return true;
     }
   } else if (this->kind == EggTokenizerKind::Float) {
     this->value.f = -this->value.f;
-    this->value.s = "-" + this->value.s;
+    this->value.s = egg::lang::String::concat("-", this->value.s);
     return true;
   }
   return false;

@@ -51,8 +51,8 @@ namespace {
     virtual std::shared_ptr<IEggProgramType> unionWithSimple(egg::lang::Discriminator other) const {
       return std::make_shared<EggParserTypeSimple>(egg::lang::Bits::set(this->tag, other));
     }
-    virtual std::string to_string() const {
-      return egg::lang::Value::getTagString(this->tag);
+    virtual egg::lang::String toString() const {
+      return egg::lang::String::fromUTF8(egg::lang::Value::getTagString(this->tag));
     }
   };
 
@@ -82,8 +82,8 @@ namespace {
     virtual std::shared_ptr<IEggProgramType> unionWithSimple(egg::lang::Discriminator) const {
       EGG_THROW(__FUNCTION__ " TODO"); // TODO
     }
-    virtual std::string to_string() const {
-      return this->underlying->to_string() + "*";
+    virtual egg::lang::String toString() const {
+      return egg::lang::String::concat(this->underlying->toString(), "*");
     }
   };
 
@@ -144,8 +144,8 @@ namespace {
   }
 
   SyntaxException exceptionFromToken(const IEggParserContext& context, const std::string& reason, const EggSyntaxNodeBase& node) {
-    auto token = node.token();
-    return SyntaxException(reason + ": '" + token, context.getResource(), node, token);
+    auto token = node.token().toUTF8();
+    return SyntaxException(reason + ": '" + token + "'", context.getResource(), node, token);
   }
 
   class ParserDump {
@@ -160,6 +160,10 @@ namespace {
       *this->os << ')';
     }
     ParserDump& add(const std::string& text) {
+      *this->os << ' ' << '\'' << text << '\'';
+      return *this;
+    }
+    ParserDump& add(const egg::lang::String& text) {
       *this->os << ' ' << '\'' << text << '\'';
       return *this;
     }
@@ -192,7 +196,7 @@ namespace {
       // By default, nodes are statements (i.e. void return type)
       return typeVoid;
     }
-    virtual bool symbol(std::string&, std::shared_ptr<IEggProgramType>&) const override {
+    virtual bool symbol(egg::lang::String&, std::shared_ptr<IEggProgramType>&) const override {
       // By default, nodes do not declare symbols
       return false;
     }
@@ -253,21 +257,21 @@ namespace {
       return context.executeType(*this, *this->type);
     }
     virtual void dump(std::ostream& os) const override {
-      ParserDump(os, "type").add(this->type->to_string());
+      ParserDump(os, "type").add(this->type->toString());
     }
   };
 
   class EggParserNode_Declare : public EggParserNodeBase {
   private:
-    std::string name;
+    egg::lang::String name;
     std::shared_ptr<IEggProgramNode> type;
     std::shared_ptr<IEggProgramNode> init;
   public:
-    EggParserNode_Declare(const std::string& name, const std::shared_ptr<IEggProgramNode>& type, const std::shared_ptr<IEggProgramNode>& init = nullptr)
+    EggParserNode_Declare(const egg::lang::String& name, const std::shared_ptr<IEggProgramNode>& type, const std::shared_ptr<IEggProgramNode>& init = nullptr)
       : name(name), type(type), init(init) {
       assert(type != nullptr);
     }
-    virtual bool symbol(std::string& nameOut, std::shared_ptr<IEggProgramType>& typeOut) const override {
+    virtual bool symbol(egg::lang::String& nameOut, std::shared_ptr<IEggProgramType>& typeOut) const override {
       // The symbol is obviously the variable being declared
       nameOut = this->name;
       typeOut = this->type->getType();
@@ -310,16 +314,16 @@ namespace {
 
   class EggParserNode_Catch : public EggParserNodeBase {
   private:
-    std::string name;
+    egg::lang::String name;
     std::shared_ptr<IEggProgramNode> type;
     std::shared_ptr<IEggProgramNode> block;
   public:
-    EggParserNode_Catch(const std::string& name, const std::shared_ptr<IEggProgramNode>& type, const std::shared_ptr<IEggProgramNode>& block)
+    EggParserNode_Catch(const egg::lang::String& name, const std::shared_ptr<IEggProgramNode>& type, const std::shared_ptr<IEggProgramNode>& block)
       : name(name), type(type), block(block) {
       assert(type != nullptr);
       assert(block != nullptr);
     }
-    virtual bool symbol(std::string& nameOut, std::shared_ptr<IEggProgramType>& typeOut) const override {
+    virtual bool symbol(egg::lang::String& nameOut, std::shared_ptr<IEggProgramType>& typeOut) const override {
       // A symbol is always declared in a catch clause
       nameOut = this->name;
       typeOut = this->type->getType();
@@ -376,7 +380,7 @@ namespace {
       assert(trueBlock != nullptr);
       // falseBlock may be null if the 'else' clause is missing
     }
-    virtual bool symbol(std::string& nameOut, std::shared_ptr<IEggProgramType>& typeOut) const override {
+    virtual bool symbol(egg::lang::String& nameOut, std::shared_ptr<IEggProgramType>& typeOut) const override {
       // A symbol may be declared in the condition
       return this->condition->symbol(nameOut, typeOut);
     }
@@ -400,7 +404,7 @@ namespace {
       // pre/cond/post may be null
       assert(block != nullptr);
     }
-    virtual bool symbol(std::string& nameOut, std::shared_ptr<IEggProgramType>& typeOut) const override {
+    virtual bool symbol(egg::lang::String& nameOut, std::shared_ptr<IEggProgramType>& typeOut) const override {
       // A symbol may be declared in the first clause
       return (this->pre != nullptr) && this->pre->symbol(nameOut, typeOut);
     }
@@ -424,7 +428,7 @@ namespace {
       assert(expr != nullptr);
       assert(block != nullptr);
     }
-    virtual bool symbol(std::string& nameOut, std::shared_ptr<IEggProgramType>& typeOut) const override {
+    virtual bool symbol(egg::lang::String& nameOut, std::shared_ptr<IEggProgramType>& typeOut) const override {
       // A symbol may be declared in the target
       return this->target->symbol(nameOut, typeOut);
     }
@@ -492,7 +496,7 @@ namespace {
       : expr(expr), defaultIndex(-1) {
       assert(expr != nullptr);
     }
-    virtual bool symbol(std::string& nameOut, std::shared_ptr<IEggProgramType>& typeOut) const override {
+    virtual bool symbol(egg::lang::String& nameOut, std::shared_ptr<IEggProgramType>& typeOut) const override {
       // A symbol may be declared in the expression
       return this->expr->symbol(nameOut, typeOut);
     }
@@ -581,7 +585,7 @@ namespace {
       assert(expr != nullptr);
       assert(block != nullptr);
     }
-    virtual bool symbol(std::string& nameOut, std::shared_ptr<IEggProgramType>& typeOut) const override {
+    virtual bool symbol(egg::lang::String& nameOut, std::shared_ptr<IEggProgramType>& typeOut) const override {
       // A symbol may be declared in the expression
       return this->expr->symbol(nameOut, typeOut);
     }
@@ -603,7 +607,7 @@ namespace {
       assert(condition != nullptr);
       assert(block != nullptr);
     }
-    virtual bool symbol(std::string& nameOut, std::shared_ptr<IEggProgramType>& typeOut) const override {
+    virtual bool symbol(egg::lang::String& nameOut, std::shared_ptr<IEggProgramType>& typeOut) const override {
       // A symbol may be declared in the condition
       return this->condition->symbol(nameOut, typeOut);
     }
@@ -653,14 +657,14 @@ namespace {
 
   class EggParserNode_Named : public EggParserNodeBase {
   private:
-    std::string name;
+    egg::lang::String name;
     std::shared_ptr<IEggProgramNode> expr;
   public:
-    EggParserNode_Named(const std::string& name, const std::shared_ptr<IEggProgramNode>& expr)
+    EggParserNode_Named(const egg::lang::String& name, const std::shared_ptr<IEggProgramNode>& expr)
       : name(name), expr(expr) {
       assert(expr != nullptr);
     }
-    virtual bool symbol(std::string& nameOut, std::shared_ptr<IEggProgramType>& typeOut) const override {
+    virtual bool symbol(egg::lang::String& nameOut, std::shared_ptr<IEggProgramType>& typeOut) const override {
       // Use the symbol to extract the parameter name
       nameOut = this->name;
       typeOut = this->expr->getType();
@@ -677,9 +681,9 @@ namespace {
 
   class EggParserNode_Identifier : public EggParserNodeBase {
   private:
-    std::string name;
+    egg::lang::String name;
   public:
-    explicit EggParserNode_Identifier(const std::string& name)
+    explicit EggParserNode_Identifier(const egg::lang::String& name)
       : name(name) {
     }
     virtual egg::lang::Value execute(EggProgramContext& context) const override {
@@ -765,9 +769,9 @@ namespace {
 
   class EggParserNode_LiteralString : public EggParserNodeBase {
   private:
-    std::string value;
+    egg::lang::String value;
   public:
-    explicit EggParserNode_LiteralString(const std::string& value)
+    explicit EggParserNode_LiteralString(const egg::lang::String& value)
       : value(value) {
     }
     virtual std::shared_ptr<IEggProgramType> getType() const override {

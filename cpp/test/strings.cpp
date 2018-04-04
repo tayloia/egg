@@ -1,5 +1,25 @@
 #include "test.h"
 
+TEST(TestStrings, Empty) {
+  egg::lang::String s1;
+  ASSERT_EQ(0, s1.length());
+  auto s2 = s1;
+  ASSERT_EQ(0, s2.length());
+  s1 = egg::lang::String::fromUTF8("nothing");
+  ASSERT_EQ(7, s1.length());
+  ASSERT_EQ(0, s2.length());
+}
+
+TEST(TestStrings, UTF8) {
+  auto s1 = egg::lang::String::fromUTF8("hello world");
+  ASSERT_EQ(11, s1.length());
+  auto s2 = s1;
+  ASSERT_EQ(11, s2.length());
+  s1 = egg::lang::String::Empty;
+  ASSERT_EQ(0, s1.length());
+  ASSERT_EQ(11, s2.length());
+}
+
 TEST(TestStrings, StartsWith) {
   ASSERT_TRUE(egg::yolk::String::startsWith("Hello World", "Hello"));
   ASSERT_TRUE(egg::yolk::String::startsWith("Hello World", "Hello World"));

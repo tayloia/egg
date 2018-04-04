@@ -1,4 +1,7 @@
 namespace egg::lang {
+  class String;
+  class Value;
+
   class Bits {
   public:
     template<typename T>
@@ -72,11 +75,86 @@ namespace egg::lang {
     return Bits::set(lhs, rhs);
   }
 
+  class IString : public egg::gc::ReferenceCounted {
+    IString(const IString&) = delete;
+    IString& operator=(const IString&) = delete;
+  public:
+    inline IString() {}
+    virtual size_t length() const = 0;
+    virtual bool empty() const = 0;
+    virtual bool equal(const IString& other) const = 0;
+    virtual bool less(const IString& other) const = 0;
+    virtual std::string toUTF8() const = 0;
+  };
+
+  class IParameters {
+  public:
+    virtual ~IParameters() {}
+  };
+
   class IObject {
   public:
     virtual ~IObject() {}
-    virtual IObject* acquire() const = 0;
-    virtual void release() const = 0;
+    virtual IObject* acquire() = 0;
+    virtual void release() = 0;
+    virtual bool dispose() = 0;
+    virtual Value call(const IParameters& parameters) = 0;
+  };
+
+  class StringBuilder {
+    StringBuilder(const StringBuilder&) = delete;
+    StringBuilder& operator=(const StringBuilder&) = delete;
+  private:
+    std::stringstream ss;
+  public:
+    StringBuilder() {
+    }
+    template<typename T>
+    StringBuilder& add(T value) {
+      this->ss << value;
+      return *this;
+    }
+    template<typename T, typename... ARGS>
+    StringBuilder& add(T value, ARGS... args) {
+      return this->add(value).add(args...);
+    }
+    String str() const;
+  };
+
+  class String : public egg::gc::HardRef<const IString> {
+  private:
+    static const IString& emptyBuffer;
+  public:
+    inline explicit String(const IString& rhs = emptyBuffer) : HardRef(&rhs) {
+    }
+    String(const String& rhs) : HardRef(rhs.get()) {
+    }
+    // Properties
+    inline size_t length() const {
+      return this->get()->length();
+    }
+    inline std::string toUTF8() const {
+      return this->get()->toUTF8();
+    }
+    // Operators
+    inline String& operator=(const String& rhs) {
+      this->set(rhs.get());
+      return *this;
+    }
+    inline bool operator==(const String& rhs) const {
+      return this->get()->equal(*rhs);
+    }
+    inline bool operator<(const String& rhs) const {
+      return this->get()->less(*rhs);
+    }
+    // Factories
+    static String fromUTF8(const std::string& str);
+    template<typename... ARGS>
+    static String concat(ARGS... args) {
+      return StringBuilder().add(args...).str();
+    }
+    // Constants
+    static const String Empty;
   };
 
   class Value final {
@@ -86,7 +164,7 @@ namespace egg::lang {
       bool b;
       int64_t i;
       double f;
-      std::string* s;
+      const IString* s;
       IObject* o;
       Value* v;
     };
@@ -99,7 +177,7 @@ namespace egg::lang {
     inline explicit Value(bool value) : tag(Discriminator::Bool) { this->b = value; }
     inline explicit Value(int64_t value) : tag(Discriminator::Int) { this->i = value; }
     inline explicit Value(double value) : tag(Discriminator::Float) { this->f = value; }
-    inline explicit Value(const std::string& value) : tag(Discriminator::String) { this->s = new std::string(value); }
+    inline explicit Value(const String& value) : tag(Discriminator::String) { this->s = value.acquire(); }
     Value(const Value& value);
     Value(Value&& value);
     Value& operator=(const Value& value);
@@ -111,7 +189,7 @@ namespace egg::lang {
     inline bool getBool() const { assert(this->is(Discriminator::Bool)); return this->b; }
     inline int64_t getInt() const { assert(this->is(Discriminator::Int)); return this->i; }
     inline double getFloat() const { assert(this->is(Discriminator::Float)); return this->f; }
-    inline const std::string& getString() const { assert(this->is(Discriminator::String)); return *this->s; }
+    inline String getString() const { assert(this->is(Discriminator::String)); return String(*this->s); }
     inline IObject& getType() const { assert(this->is(Discriminator::Type)); return *this->o; }
     inline IObject& getObject() const { assert(this->is(Discriminator::Object)); return *this->o; }
     inline Value& getFlowControl() const { assert(this->is(Discriminator::FlowControl)); return *this->v; }
@@ -119,7 +197,8 @@ namespace egg::lang {
     static std::string getTagString(Discriminator tag);
     static bool equal(const Value& lhs, const Value& rhs);
     static Value makeFlowControl(Discriminator tag, Value* value);
-    static Value raise(const std::string& exception);
+    inline static Value raise(const std::string& exception) { return Value::raise(egg::lang::String::fromUTF8(exception)); }
+    static Value raise(const egg::lang::String& exception);
     static const Value Void;
     static const Value Null;
     static const Value False;
@@ -129,3 +208,5 @@ namespace egg::lang {
     static const Value Rethrow;
   };
 }
+
+std::ostream& operator<<(std::ostream& os, const egg::lang::String& text);

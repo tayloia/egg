@@ -9,12 +9,28 @@
 #include <set>
 
 namespace {
+  class EggProgramParameters : public egg::lang::IParameters {
+  private:
+    std::vector<egg::lang::Value> positional;
+    std::map<egg::lang::String, egg::lang::Value> named;
+  public:
+    explicit EggProgramParameters(size_t count) {
+      this->positional.reserve(count);
+    }
+    void addPositional(const egg::lang::Value& value) {
+      this->positional.push_back(value);
+    }
+    void addNamed(const egg::lang::String& name, const egg::lang::Value& value) {
+      this->named.emplace(name, value);
+    }
+  };
+
   class EggProgramAssigneeIdentifier : public egg::yolk::IEggProgramAssignee {
   private:
     egg::yolk::EggProgramContext* context;
-    std::string name;
+    egg::lang::String name;
   public:
-    EggProgramAssigneeIdentifier(egg::yolk::EggProgramContext& context, const std::string& name)
+    EggProgramAssigneeIdentifier(egg::yolk::EggProgramContext& context, const egg::lang::String& name)
       : context(&context), name(name) {
     }
     virtual egg::lang::Value get() const override {
@@ -141,25 +157,25 @@ class egg::yolk::EggProgram::SymbolTable {
   EGG_NO_COPY(SymbolTable);
 public:
   struct Symbol {
-    std::string name;
+    egg::lang::String name;
     egg::lang::Value value;
-    explicit Symbol(const std::string& name)
+    explicit Symbol(const egg::lang::String& name)
       : name(name), value(egg::lang::Value::Void) {
     }
   };
 private:
-  std::map<std::string, std::shared_ptr<Symbol>> map;
+  std::map<egg::lang::String, std::shared_ptr<Symbol>> map;
   SymbolTable* parent;
 public:
   explicit SymbolTable(SymbolTable* parent = nullptr)
     : parent(parent) {
   }
-  std::shared_ptr<Symbol> addSymbol(const std::string& name) {
+  std::shared_ptr<Symbol> addSymbol(const egg::lang::String& name) {
     auto result = this->map.emplace(name, std::make_shared<Symbol>(name));
     assert(result.second);
     return result.first->second;
   }
-  std::shared_ptr<Symbol> findSymbol(const std::string& name, bool includeParents = true) const {
+  std::shared_ptr<Symbol> findSymbol(const egg::lang::String& name, bool includeParents = true) const {
     auto found = this->map.find(name);
     if (found != this->map.end()) {
       return found->second;
@@ -181,18 +197,18 @@ void egg::yolk::EggProgramContext::log(egg::lang::LogSource source, egg::lang::L
 bool egg::yolk::EggProgramContext::findDuplicateSymbols(const std::vector<std::shared_ptr<IEggProgramNode>>& statements) {
   // Check for duplicate symbols
   bool error = false;
-  std::string name;
+  egg::lang::String name;
   std::shared_ptr<IEggProgramType> type;
-  std::set<std::string> seen;
+  std::set<egg::lang::String> seen;
   for (auto& statement : statements) {
     if (statement->symbol(name, type)) {
       if (!seen.insert(name).second) {
         // Already seen at this level
-        this->log(egg::lang::LogSource::Compiler, egg::lang::LogSeverity::Error, "Duplicate symbol declared at module level: '" + name + "'");
+        this->log(egg::lang::LogSource::Compiler, egg::lang::LogSeverity::Error, "Duplicate symbol declared at module level: '" + name.toUTF8() + "'");
         error = true;
       } else if (this->symtable->findSymbol(name) != nullptr) {
         // Seen at an enclosing level
-        this->log(egg::lang::LogSource::Compiler, egg::lang::LogSeverity::Warning, "Symbol name hides previously declared symbol in enclosing level: '" + name + "'");
+        this->log(egg::lang::LogSource::Compiler, egg::lang::LogSeverity::Warning, "Symbol name hides previously declared symbol in enclosing level: '" + name.toUTF8() + "'");
       }
     }
   }
@@ -201,7 +217,7 @@ bool egg::yolk::EggProgramContext::findDuplicateSymbols(const std::vector<std::s
 
 egg::lang::Value egg::yolk::EggProgramContext::executeStatements(const std::vector<std::shared_ptr<IEggProgramNode>>& statements) {
   // Execute all the statements one after another
-  std::string name;
+  egg::lang::String name;
   std::shared_ptr<IEggProgramType> type;
   for (auto& statement : statements) {
     if (statement->symbol(name, type)) {
@@ -228,13 +244,6 @@ egg::lang::Value egg::yolk::EggProgramContext::executeModule(const IEggProgramNo
   return retval;
 }
 
-static egg::lang::Value WIBBLE(std::string function, ...) {
-  if (!function.empty()) {
-    EGG_THROW(function + " unimplemented: TODO");
-  }
-  return egg::lang::Value::Null;
-}
-
 egg::lang::Value egg::yolk::EggProgramContext::executeBlock(const IEggProgramNode& self, const std::vector<std::shared_ptr<IEggProgramNode>>& statements) {
   this->statement(self);
   EggProgram::SymbolTable nested(this->symtable);
@@ -245,12 +254,12 @@ egg::lang::Value egg::yolk::EggProgramContext::executeBlock(const IEggProgramNod
   return context.executeStatements(statements);
 }
 
-egg::lang::Value egg::yolk::EggProgramContext::executeType(const IEggProgramNode& self, const IEggProgramType& type) {
+egg::lang::Value egg::yolk::EggProgramContext::executeType(const IEggProgramNode& self, const IEggProgramType&) {
   this->expression(self);
-  return WIBBLE(__FUNCTION__, &self, &type);
+  EGG_THROW(__FUNCTION__ " unimplemented: TODO");
 }
 
-egg::lang::Value egg::yolk::EggProgramContext::executeDeclare(const IEggProgramNode& self, const std::string& name, const IEggProgramNode&, const IEggProgramNode* rvalue) {
+egg::lang::Value egg::yolk::EggProgramContext::executeDeclare(const IEggProgramNode& self, const egg::lang::String& name, const IEggProgramNode&, const IEggProgramNode* rvalue) {
   // The type information has already been used in the symbol declaration phase
   this->statement(self);
   if (rvalue != nullptr) {
@@ -377,7 +386,28 @@ egg::lang::Value egg::yolk::EggProgramContext::executeFor(const IEggProgramNode&
 
 egg::lang::Value egg::yolk::EggProgramContext::executeForeach(const IEggProgramNode& self, const IEggProgramNode& lvalue, const IEggProgramNode& rvalue, const IEggProgramNode& block) {
   this->statement(self);
-  return WIBBLE(__FUNCTION__, &self, &lvalue, &rvalue, &block);
+  auto dst = lvalue.assignee(*this);
+  if (dst == nullptr) {
+    return egg::lang::Value::raise("Iteration target in 'for' statement is not valid");
+  }
+  auto src = rvalue.execute(*this);
+  if (src.is(egg::lang::Discriminator::FlowControl)) {
+    return src;
+  }
+  auto retval = dst->set(src);
+  while (!retval.is(egg::lang::Discriminator::FlowControl | egg::lang::Discriminator::Void)) {
+    retval = block.execute(*this);
+    if (retval.is(egg::lang::Discriminator::Break)) {
+      // Just leave the loop
+      return egg::lang::Value::Void;
+    }
+    if (!retval.is(egg::lang::Discriminator::Void | egg::lang::Discriminator::Continue)) {
+      // Probably an exception in the condition expression
+      return retval;
+    }
+    retval = dst->set(src);
+  }
+  return retval;
 }
 
 egg::lang::Value egg::yolk::EggProgramContext::executeReturn(const IEggProgramNode& self, const IEggProgramNode* value) {
@@ -487,7 +517,7 @@ egg::lang::Value egg::yolk::EggProgramContext::executeTry(const IEggProgramNode&
   return this->executeFinally(retval, final);
 }
 
-egg::lang::Value egg::yolk::EggProgramContext::executeCatch(const IEggProgramNode& self, const std::string&, const IEggProgramNode&, const IEggProgramNode& block, const egg::lang::Value& exception) {
+egg::lang::Value egg::yolk::EggProgramContext::executeCatch(const IEggProgramNode& self, const egg::lang::String&, const IEggProgramNode&, const IEggProgramNode& block, const egg::lang::Value& exception) {
   this->statement(self);
   // TODO return false if typeof(exception) != type
   auto retval = block.execute(*this);
@@ -520,7 +550,21 @@ egg::lang::Value egg::yolk::EggProgramContext::executeFinally(const egg::lang::V
 
 egg::lang::Value egg::yolk::EggProgramContext::executeUsing(const IEggProgramNode& self, const IEggProgramNode& value, const IEggProgramNode& block) {
   this->statement(self);
-  return WIBBLE(__FUNCTION__, &self, &value, &block);
+  auto expr = value.execute(*this);
+  if (expr.is(egg::lang::Discriminator::FlowControl)) {
+    return expr;
+  }
+  if (!expr.is(egg::lang::Discriminator::Null | egg::lang::Discriminator::Object)) {
+    return this->unexpected("Expected expression in 'using' statement to be 'null' or an object", expr);
+  }
+  auto retval = block.execute(*this);
+  if (expr.is(egg::lang::Discriminator::Object)) {
+    auto& object = expr.getObject();
+    if (!object.dispose()) {
+      return egg::lang::Value::raise("Failed to 'dispose' object instance at end of 'using' statement");
+    }
+  }
+  return retval;
 }
 
 egg::lang::Value egg::yolk::EggProgramContext::executeWhile(const IEggProgramNode& self, const IEggProgramNode& cond, const IEggProgramNode& block) {
@@ -543,32 +587,37 @@ egg::lang::Value egg::yolk::EggProgramContext::executeWhile(const IEggProgramNod
 
 egg::lang::Value egg::yolk::EggProgramContext::executeYield(const IEggProgramNode& self, const IEggProgramNode& value) {
   this->statement(self);
-  return WIBBLE(__FUNCTION__, &self, &value);
+  auto result = value.execute(*this);
+  if (result.is(egg::lang::Discriminator::FlowControl)) {
+    return result;
+  }
+  return egg::lang::Value::makeFlowControl(egg::lang::Discriminator::Return, new egg::lang::Value(result));
 }
 
 egg::lang::Value egg::yolk::EggProgramContext::executeCall(const IEggProgramNode& self, const IEggProgramNode& callee, const std::vector<std::shared_ptr<IEggProgramNode>>& parameters) {
   this->expression(self);
   auto func = callee.execute(*this);
-  std::vector<egg::lang::Value> positional;
-  positional.reserve(parameters.size());
-  std::map<std::string, egg::lang::Value> named;
-  std::string name;
+  if (func.is(egg::lang::Discriminator::FlowControl)) {
+    return func;
+  }
+  EggProgramParameters params(parameters.size());
+  egg::lang::String name;
   std::shared_ptr<IEggProgramType> type;
-  for (auto& i : parameters) {
-    auto value = i->execute(*this);
+  for (auto& parameter : parameters) {
+    auto value = parameter->execute(*this);
     if (value.is(egg::lang::Discriminator::FlowControl)) {
       return value;
     }
-    if (i->symbol(name, type)) {
-      named.emplace(name, value);
+    if (parameter->symbol(name, type)) {
+      params.addNamed(name, value);
     } else {
-      positional.push_back(value);
+      params.addPositional(value);
     }
   }
-  return this->call(func, positional, named);
+  return this->call(func, params);
 }
 
-egg::lang::Value egg::yolk::EggProgramContext::executeIdentifier(const IEggProgramNode& self, const std::string& name) {
+egg::lang::Value egg::yolk::EggProgramContext::executeIdentifier(const IEggProgramNode& self, const egg::lang::String& name) {
   this->expression(self);
   return this->get(name);
 }
@@ -597,14 +646,14 @@ egg::lang::Value egg::yolk::EggProgramContext::executeTernary(const IEggProgramN
   return retval;
 }
 
-std::unique_ptr<egg::yolk::IEggProgramAssignee> egg::yolk::EggProgramContext::assigneeIdentifier(const IEggProgramNode& self, const std::string& name) {
+std::unique_ptr<egg::yolk::IEggProgramAssignee> egg::yolk::EggProgramContext::assigneeIdentifier(const IEggProgramNode& self, const egg::lang::String& name) {
   this->expression(self);
   return std::make_unique<EggProgramAssigneeIdentifier>(*this, name);
 }
 
 egg::lang::LogSeverity egg::yolk::EggProgram::execute(IEggEngineExecutionContext& execution) {
   EggProgram::SymbolTable symtable(nullptr);
-  symtable.addSymbol("print")->value = egg::lang::Value("TODO print");
+  symtable.addSymbol(egg::lang::String::fromUTF8("print"))->value = egg::lang::Value(egg::lang::String::concat("TODO print"));
   // TODO add built-in symbol to symbol table here
   return this->execute(execution, symtable);
 }
@@ -619,7 +668,7 @@ egg::lang::LogSeverity egg::yolk::EggProgram::execute(IEggEngineExecutionContext
     } else {
       auto& exception = retval.getFlowControl();
       if (exception.is(egg::lang::Discriminator::String)) {
-        context.log(egg::lang::LogSource::Runtime, egg::lang::LogSeverity::Error, exception.getString());
+        context.log(egg::lang::LogSource::Runtime, egg::lang::LogSeverity::Error, exception.getString().toUTF8());
       } else {
         context.log(egg::lang::LogSource::Runtime, egg::lang::LogSeverity::Error, "Unexpected exception rethrow"); // TODO
       }
@@ -636,18 +685,18 @@ void egg::yolk::EggProgramContext::expression(const IEggProgramNode&) {
   // TODO
 }
 
-egg::lang::Value egg::yolk::EggProgramContext::get(const std::string& name) {
+egg::lang::Value egg::yolk::EggProgramContext::get(const egg::lang::String& name) {
   auto symbol = this->symtable->findSymbol(name);
   if (symbol == nullptr) {
-    return egg::lang::Value::raise("Unknown identifier: '" + name + "'");
+    return egg::lang::Value::raise(egg::lang::String::concat("Unknown identifier: '", name, "'"));
   }
   if (symbol->value.is(egg::lang::Discriminator::Void)) {
-    return egg::lang::Value::raise("Uninitialized identifier: '" + name + "'");
+    return egg::lang::Value::raise(egg::lang::String::concat("Uninitialized identifier: '", name.toUTF8(), "'"));
   }
   return symbol->value;
 }
 
-egg::lang::Value egg::yolk::EggProgramContext::set(const std::string& name, const egg::lang::Value& rvalue) {
+egg::lang::Value egg::yolk::EggProgramContext::set(const egg::lang::String& name, const egg::lang::Value& rvalue) {
   if (rvalue.is(egg::lang::Discriminator::FlowControl)) {
     return rvalue;
   }
@@ -915,8 +964,12 @@ egg::lang::Value egg::yolk::EggProgramContext::arithmeticInt(const egg::lang::Va
   return EggProgramContext::unexpected("Expected right-hand side of " + std::string(operation) + " to be 'int'", rhs);
 }
 
-egg::lang::Value egg::yolk::EggProgramContext::call(const egg::lang::Value& callee, const std::vector<egg::lang::Value>& positional, const std::map<std::string, egg::lang::Value>& named) {
-  return WIBBLE(__FUNCTION__, &callee, &positional, &named);
+egg::lang::Value egg::yolk::EggProgramContext::call(const egg::lang::Value& callee, const egg::lang::IParameters& parameters) {
+  if (!callee.is(egg::lang::Discriminator::Object)) {
+    return EggProgramContext::unexpected("Expected function-like expression to be 'object'", callee);
+  }
+  auto& object = callee.getObject();
+  return object.call(parameters);
 }
 
 egg::lang::Value egg::yolk::EggProgramContext::unexpected(const std::string& expectation, const egg::lang::Value& value) {

@@ -78,7 +78,7 @@ size_t egg::yolk::EggTokenizerItem::width() const {
   case EggTokenizerKind::Float:
   case EggTokenizerKind::Identifier:
   case EggTokenizerKind::Attribute:
-    return this->value.s.size();
+    return this->value.s.length();
   case EggTokenizerKind::EndOfFile:
   default:
     return 0;
@@ -99,9 +99,9 @@ std::string egg::yolk::EggTokenizerItem::to_string() const {
   case EggTokenizerKind::Operator:
     return "operator: '" + EggTokenizerValue::getOperatorString(this->value.o) + "'";
   case EggTokenizerKind::Identifier:
-    return "identifier: '" + this->value.s + "'";
+    return "identifier: '" + this->value.s.toUTF8() + "'";
   case EggTokenizerKind::Attribute:
-    return "attribute: '" + this->value.s + "'";
+    return "attribute: '" + this->value.s.toUTF8() + "'";
   case EggTokenizerKind::EndOfFile:
     return "end-of-file";
   default:
@@ -129,7 +129,7 @@ namespace {
         // This is the first time through
         this->lexer->next(this->upcoming);
       }
-      item.value.s.clear();
+      item.value.s = egg::lang::String::Empty;
       item.contiguous = true;
       bool skip;
       do {
@@ -149,17 +149,17 @@ namespace {
           if (item.value.i < 0) {
             this->unexpected("Invalid integer constant");
           }
-          item.value.s = this->upcoming.verbatim;
+          item.value.s = egg::lang::String::fromUTF8(this->upcoming.verbatim);
           item.kind = EggTokenizerKind::Integer;
           break;
         case LexerKind::Float:
           // This is a float excluding any preceding sign
           item.value.f = this->upcoming.value.f;
-          item.value.s = this->upcoming.verbatim;
+          item.value.s = egg::lang::String::fromUTF8(this->upcoming.verbatim);
           item.kind = EggTokenizerKind::Float;
           break;
         case LexerKind::String:
-          item.value.s = convert.to_bytes(reinterpret_cast<const int32_t*>(this->upcoming.value.s.data()));
+          item.value.s = egg::lang::String::fromUTF8(convert.to_bytes(reinterpret_cast<const int32_t*>(this->upcoming.value.s.data())));
           item.kind = EggTokenizerKind::String;
           break;
         case LexerKind::Operator:
@@ -168,8 +168,8 @@ namespace {
           }
           return this->nextOperator(item);
         case LexerKind::Identifier:
-          item.value.s = this->upcoming.verbatim;
-          if (EggTokenizerValue::tryParseKeyword(item.value.s, item.value.k)) {
+          item.value.s = egg::lang::String::fromUTF8(this->upcoming.verbatim);
+          if (EggTokenizerValue::tryParseKeyword(this->upcoming.verbatim, item.value.k)) {
             item.kind = EggTokenizerKind::Keyword;
           } else {
             item.kind = EggTokenizerKind::Identifier;
@@ -210,17 +210,19 @@ namespace {
           this->unexpected("Expected attribute name to follow '@'", String::unicodeToString(ch));
         }
       }
-      item.value.s = this->upcoming.verbatim;
+      egg::lang::StringBuilder sb;
+      sb.add(this->upcoming.verbatim);
       if (this->lexer->next(this->upcoming) != LexerKind::Identifier) {
         this->unexpected("Expected attribute name to follow '@'");
       }
-      item.value.s += this->upcoming.verbatim;
+      sb.add(this->upcoming.verbatim);
       while ((this->lexer->next(this->upcoming) == LexerKind::Operator) && (this->upcoming.verbatim == ".")) {
         if (this->lexer->next(this->upcoming) != LexerKind::Identifier) {
           this->unexpected("Expected attribute name component to follow '.' in attribute name");
         }
-        item.value.s += '.' + this->upcoming.verbatim;
+        sb.add('.').add(this->upcoming.verbatim);
       }
+      item.value.s = sb.str();
       item.kind = EggTokenizerKind::Attribute;
       return EggTokenizerKind::Attribute;
     }

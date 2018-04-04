@@ -62,6 +62,7 @@
     <ClInclude Include="..\cpp\egged-tokenizer.h" />
     <ClInclude Include="..\cpp\exceptions.h" />
     <ClInclude Include="..\cpp\files.h" />
+    <ClInclude Include="..\cpp\gc.h" />
     <ClInclude Include="..\cpp\json-tokenizer.h" />
     <ClInclude Include="..\cpp\lang.h" />
     <ClInclude Include="..\cpp\lexers.h" />

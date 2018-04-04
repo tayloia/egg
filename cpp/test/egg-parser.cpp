@@ -26,7 +26,7 @@ namespace {
     auto tokenizer = EggTokenizerFactory::createFromLexer(lexer);
     auto parser = EggParserFactory::createExpressionParser();
     auto type = parser->parse(*tokenizer)->getType();
-    return (type == nullptr) ? "(nullptr)" : type->to_string();
+    return (type == nullptr) ? "(nullptr)" : type->toString().toUTF8();
   }
 }
 

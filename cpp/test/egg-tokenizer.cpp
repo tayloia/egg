@@ -91,9 +91,9 @@ TEST(TestEggTokenizer, String) {
   EggTokenizerItem item;
   auto tokenizer = createFromString("\"hello\" `world`");
   ASSERT_EQ(EggTokenizerKind::String, tokenizer->next(item));
-  ASSERT_EQ("hello", item.value.s);
+  ASSERT_EQ("hello", item.value.s.toUTF8());
   ASSERT_EQ(EggTokenizerKind::String, tokenizer->next(item));
-  ASSERT_EQ("world", item.value.s);
+  ASSERT_EQ("world", item.value.s.toUTF8());
 }
 
 TEST(TestEggTokenizer, Keyword) {
@@ -142,9 +142,9 @@ TEST(TestEggTokenizer, Identifier) {
   EggTokenizerItem item;
   auto tokenizer = createFromString("unknown _");
   ASSERT_EQ(EggTokenizerKind::Identifier, tokenizer->next(item));
-  ASSERT_EQ("unknown", item.value.s);
+  ASSERT_EQ("unknown", item.value.s.toUTF8());
   ASSERT_EQ(EggTokenizerKind::Identifier, tokenizer->next(item));
-  ASSERT_EQ("_", item.value.s);
+  ASSERT_EQ("_", item.value.s.toUTF8());
   ASSERT_EQ(EggTokenizerKind::EndOfFile, tokenizer->next(item));
 }
 
@@ -152,13 +152,13 @@ TEST(TestEggTokenizer, Attribute) {
   EggTokenizerItem item;
   auto tokenizer = createFromString("@test @and.this .@@twice(2)");
   ASSERT_EQ(EggTokenizerKind::Attribute, tokenizer->next(item));
-  ASSERT_EQ("@test", item.value.s);
+  ASSERT_EQ("@test", item.value.s.toUTF8());
   ASSERT_EQ(EggTokenizerKind::Attribute, tokenizer->next(item));
-  ASSERT_EQ("@and.this", item.value.s);
+  ASSERT_EQ("@and.this", item.value.s.toUTF8());
   ASSERT_EQ(EggTokenizerKind::Operator, tokenizer->next(item));
   ASSERT_EQ(EggTokenizerOperator::Dot, item.value.o);
   ASSERT_EQ(EggTokenizerKind::Attribute, tokenizer->next(item));
-  ASSERT_EQ("@@twice", item.value.s);
+  ASSERT_EQ("@@twice", item.value.s.toUTF8());
 }
 
 TEST(TestEggTokenizer, Line) {
@@ -199,13 +199,13 @@ TEST(TestEggTokenizer, Vexatious) {
   ASSERT_EQ(EggTokenizerKind::Operator, tokenizer->next(item));
   ASSERT_EQ(EggTokenizerOperator::MinusMinus, item.value.o);
   ASSERT_EQ(EggTokenizerKind::Identifier, tokenizer->next(item));
-  ASSERT_EQ("x", item.value.s);
+  ASSERT_EQ("x", item.value.s.toUTF8());
   ASSERT_EQ(EggTokenizerKind::EndOfFile, tokenizer->next(item));
 
   // Parsed as "x|--|1"
   tokenizer = createFromString("x--1");
   ASSERT_EQ(EggTokenizerKind::Identifier, tokenizer->next(item));
-  ASSERT_EQ("x", item.value.s);
+  ASSERT_EQ("x", item.value.s.toUTF8());
   ASSERT_EQ(EggTokenizerKind::Operator, tokenizer->next(item));
   ASSERT_EQ(EggTokenizerOperator::MinusMinus, item.value.o);
   ASSERT_EQ(EggTokenizerKind::Integer, tokenizer->next(item));
