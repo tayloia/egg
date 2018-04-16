@@ -12,9 +12,7 @@ namespace egg::yolk {
 
   class IEggEngineExecutionContext : public IEggEngineLogger {
   public:
-    // TODO
     virtual ~IEggEngineExecutionContext() {}
-    virtual void print(const std::string& text) = 0;
   };
 
   class IEggEngine {

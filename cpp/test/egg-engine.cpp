@@ -101,8 +101,8 @@ TEST(TestEggEngine, ExecuteUnprepared) {
 }
 
 TEST(TestEggEngine, LogFromEngine) {
-  StringTextStream stream("");
-  ASSERT_EQ("USER:INFO:execute\n", logFromEngine(stream));
+  StringTextStream stream("print(`hello`, 123);");
+  ASSERT_EQ("USER:INFO:hello123\n", logFromEngine(stream));
 }
 
 TEST(TestEggEngine, DuplicateSymbols) {
@@ -118,7 +118,6 @@ TEST(TestEggEngine, WorkingFile) {
   ASSERT_EQ(egg::lang::LogSeverity::None, engine->prepare(*preparation));
   ASSERT_EQ("", logger->logged);
   auto execution = EggEngineFactory::createExecutionContext(logger);
-  ASSERT_EQ(egg::lang::LogSeverity::None, engine->execute(*execution));
-  ASSERT_EQ("USER:INFO:execute\n", logger->logged);
-  //ASSERT_STARTSWITH(logger->logged, "USER:INFO:");
+  ASSERT_EQ(egg::lang::LogSeverity::Information, engine->execute(*execution));
+  ASSERT_EQ("USER:INFO:4950\n", logger->logged);
 }

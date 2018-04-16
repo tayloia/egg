@@ -516,7 +516,7 @@ namespace {
       throw SyntaxException(message, this->backtrack.resource(), item);
     }
     void unexpected(const std::string& expected, const EggTokenizerItem& item) {
-      auto token = item.to_string();
+      auto token = item.toString();
       throw SyntaxException(expected + ", not " + token, this->backtrack.resource(), item, token);
     }
     void parseParameterList(std::function<void(std::unique_ptr<IEggSyntaxNode>&& node)> adder);
@@ -730,7 +730,7 @@ std::unique_ptr<IEggSyntaxNode> EggSyntaxParserContext::parseStatement() {
   if (type != nullptr) {
     return this->parseStatementType(std::move(type), EggTokenizerOperator::Semicolon);
   }
-  this->unexpected("Unexpected " + p0.to_string()); // TODO
+  this->unexpected("Unexpected " + p0.toString()); // TODO
   return nullptr;
 }
 

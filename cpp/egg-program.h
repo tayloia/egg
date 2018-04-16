@@ -67,17 +67,17 @@ namespace egg::yolk {
     static std::string mutateToString(EggProgramMutate op);
   };
 
-  class EggProgramContext {
+  class EggProgramContext : public egg::lang::IExecution {
   private:
-    IEggEngineExecutionContext* execution;
+    IEggEngineExecutionContext* engine;
     EggProgram::SymbolTable* symtable;
     egg::lang::LogSeverity* maximumSeverity;
   public:
     EggProgramContext(EggProgramContext& parent, EggProgram::SymbolTable& symtable)
-      : execution(parent.execution), symtable(&symtable), maximumSeverity(parent.maximumSeverity) {
+      : engine(parent.engine), symtable(&symtable), maximumSeverity(parent.maximumSeverity) {
     }
     EggProgramContext(IEggEngineExecutionContext& execution, EggProgram::SymbolTable& symtable, egg::lang::LogSeverity& maximumSeverity)
-      : execution(&execution), symtable(&symtable), maximumSeverity(&maximumSeverity) {
+      : engine(&execution), symtable(&symtable), maximumSeverity(&maximumSeverity) {
     }
     void log(egg::lang::LogSource source, egg::lang::LogSeverity severity, const std::string& message);
     egg::lang::Value executeModule(const IEggProgramNode& self, const std::vector<std::shared_ptr<IEggProgramNode>>& statements);
@@ -118,6 +118,8 @@ namespace egg::yolk {
     egg::lang::Value unary(EggProgramUnary op, const IEggProgramNode& value);
     egg::lang::Value binary(EggProgramBinary op, const IEggProgramNode& lhs, const IEggProgramNode& rhs);
     egg::lang::Value call(const egg::lang::Value& callee, const egg::lang::IParameters& parameters);
+    // Inherited via IExecution
+    virtual void print(const std::string & utf8) override;
   private:
     bool findDuplicateSymbols(const std::vector<std::shared_ptr<IEggProgramNode>>& statements);
     egg::lang::Value executeStatements(const std::vector<std::shared_ptr<IEggProgramNode>>& statements);

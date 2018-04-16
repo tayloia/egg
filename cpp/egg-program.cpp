@@ -23,6 +23,23 @@ namespace {
     void addNamed(const egg::lang::String& name, const egg::lang::Value& value) {
       this->named.emplace(name, value);
     }
+    virtual size_t getPositionalCount() const override {
+      return this->positional.size();
+    }
+    virtual egg::lang::Value getPositional(size_t index) const override {
+      return this->positional.at(index);
+    }
+    virtual size_t getNamedCount() const override {
+      return this->named.size();
+    }
+    virtual egg::lang::String getName(size_t index) const override {
+      auto iter = this->named.begin();
+      std::advance(iter, index);
+      return iter->first;
+    }
+    virtual egg::lang::Value getNamed(const egg::lang::String& name) const override {
+      return this->named.at(name);
+    }
   };
 
   class EggProgramAssigneeIdentifier : public egg::yolk::IEggProgramAssignee {
@@ -191,7 +208,7 @@ void egg::yolk::EggProgramContext::log(egg::lang::LogSource source, egg::lang::L
   if (severity > *this->maximumSeverity) {
     *this->maximumSeverity = severity;
   }
-  this->execution->log(source, severity, message);
+  this->engine->log(source, severity, message);
 }
 
 bool egg::yolk::EggProgramContext::findDuplicateSymbols(const std::vector<std::shared_ptr<IEggProgramNode>>& statements) {
@@ -237,11 +254,7 @@ egg::lang::Value egg::yolk::EggProgramContext::executeModule(const IEggProgramNo
   if (this->findDuplicateSymbols(statements)) {
     return egg::lang::Value::raise("Execution halted due to previous errors");
   }
-  auto retval = this->executeStatements(statements);
-  if (retval.is(egg::lang::Discriminator::Void)) {
-    this->execution->print("execute");
-  }
-  return retval;
+  return this->executeStatements(statements);
 }
 
 egg::lang::Value egg::yolk::EggProgramContext::executeBlock(const IEggProgramNode& self, const std::vector<std::shared_ptr<IEggProgramNode>>& statements) {
@@ -653,7 +666,7 @@ std::unique_ptr<egg::yolk::IEggProgramAssignee> egg::yolk::EggProgramContext::as
 
 egg::lang::LogSeverity egg::yolk::EggProgram::execute(IEggEngineExecutionContext& execution) {
   EggProgram::SymbolTable symtable(nullptr);
-  symtable.addSymbol(egg::lang::String::fromUTF8("print"))->value = egg::lang::Value(egg::lang::String::concat("TODO print"));
+  symtable.addSymbol(egg::lang::String::fromUTF8("print"))->value = egg::lang::Value::Print;
   // TODO add built-in symbol to symbol table here
   return this->execute(execution, symtable);
 }
@@ -969,9 +982,13 @@ egg::lang::Value egg::yolk::EggProgramContext::call(const egg::lang::Value& call
     return EggProgramContext::unexpected("Expected function-like expression to be 'object'", callee);
   }
   auto& object = callee.getObject();
-  return object.call(parameters);
+  return object.call(*this, parameters);
 }
 
 egg::lang::Value egg::yolk::EggProgramContext::unexpected(const std::string& expectation, const egg::lang::Value& value) {
   return egg::lang::Value::raise(expectation + ", but got '" + value.getTagString() + "' instead");
+}
+
+void egg::yolk::EggProgramContext::print(const std::string & utf8) {
+  return this->log(egg::lang::LogSource::User, egg::lang::LogSeverity::Information, utf8);
 }

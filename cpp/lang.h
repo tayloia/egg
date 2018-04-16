@@ -86,10 +86,22 @@ namespace egg::lang {
     virtual bool less(const IString& other) const = 0;
     virtual std::string toUTF8() const = 0;
   };
+  typedef egg::gc::HardRef<const IString> IStringRef;
+
+  class IExecution {
+  public:
+    virtual ~IExecution() {}
+    virtual void print(const std::string& utf8) = 0;
+  };
 
   class IParameters {
   public:
     virtual ~IParameters() {}
+    virtual size_t getPositionalCount() const = 0;
+    virtual Value getPositional(size_t index) const = 0;
+    virtual size_t getNamedCount() const = 0;
+    virtual String getName(size_t index) const = 0;
+    virtual Value getNamed(const String& name) const = 0;
   };
 
   class IObject {
@@ -98,8 +110,10 @@ namespace egg::lang {
     virtual IObject* acquire() = 0;
     virtual void release() = 0;
     virtual bool dispose() = 0;
-    virtual Value call(const IParameters& parameters) = 0;
+    virtual Value toString() = 0;
+    virtual Value call(IExecution& execution, const IParameters& parameters) = 0;
   };
+  typedef egg::gc::HardRef<IObject> IObjectRef;
 
   class StringBuilder {
     StringBuilder(const StringBuilder&) = delete;
@@ -121,13 +135,13 @@ namespace egg::lang {
     String str() const;
   };
 
-  class String : public egg::gc::HardRef<const IString> {
+  class String : public IStringRef {
   private:
     static const IString& emptyBuffer;
   public:
-    inline explicit String(const IString& rhs = emptyBuffer) : HardRef(&rhs) {
+    inline explicit String(const IString& rhs = emptyBuffer) : IStringRef(&rhs) {
     }
-    String(const String& rhs) : HardRef(rhs.get()) {
+    String(const String& rhs) : IStringRef(rhs.get()) {
     }
     // Properties
     inline size_t length() const {
@@ -168,7 +182,7 @@ namespace egg::lang {
       IObject* o;
       Value* v;
     };
-    explicit Value(Discriminator tag, Value* child = nullptr) : tag(tag) { this->v = child; }
+    inline explicit Value(Discriminator tag, Value* child = nullptr) : tag(tag) { this->v = child; }
     void copyInternals(const Value& other);
     void moveInternals(Value& other);
   public:
@@ -178,6 +192,7 @@ namespace egg::lang {
     inline explicit Value(int64_t value) : tag(Discriminator::Int) { this->i = value; }
     inline explicit Value(double value) : tag(Discriminator::Float) { this->f = value; }
     inline explicit Value(const String& value) : tag(Discriminator::String) { this->s = value.acquire(); }
+    inline explicit Value(IObject& object) : tag(Discriminator::Object) { this->o = object.acquire(); }
     Value(const Value& value);
     Value(Value&& value);
     Value& operator=(const Value& value);
@@ -199,6 +214,9 @@ namespace egg::lang {
     static Value makeFlowControl(Discriminator tag, Value* value);
     inline static Value raise(const std::string& exception) { return Value::raise(egg::lang::String::fromUTF8(exception)); }
     static Value raise(const egg::lang::String& exception);
+    std::string toString() const;
+
+    // Constants
     static const Value Void;
     static const Value Null;
     static const Value False;
@@ -206,6 +224,9 @@ namespace egg::lang {
     static const Value Break;
     static const Value Continue;
     static const Value Rethrow;
+
+    // Built-ins
+    static Value Print;
   };
 }
 

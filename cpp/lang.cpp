@@ -209,3 +209,29 @@ std::string egg::lang::Value::getTagString(Discriminator tag) {
   }
   return egg::yolk::String::fromEnum(tag, table);
 }
+
+std::string egg::lang::Value::toString() const {
+  if (this->tag == Discriminator::Null) {
+    return "null";
+  }
+  if (this->tag == Discriminator::Bool) {
+    return this->b ? "true" : "false";
+  }
+  if (this->tag == Discriminator::Int) {
+    return std::to_string(this->i);
+  }
+  if (this->tag == Discriminator::Float) {
+    return std::to_string(this->f);
+  }
+  if (this->tag == Discriminator::String) {
+    return this->s->toUTF8();
+  }
+  if ((this->tag == Discriminator::Type) || (this->tag == Discriminator::Object)) {
+    auto str = this->o->toString();
+    if (str.is(Discriminator::String)) {
+      return str.toString();
+    }
+    return "[invalid]";
+  }
+  return "[" + Value::getTagString(this->tag) + "]";
+}
