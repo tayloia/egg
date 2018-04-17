@@ -212,9 +212,10 @@ namespace egg::lang {
     static std::string getTagString(Discriminator tag);
     static bool equal(const Value& lhs, const Value& rhs);
     static Value makeFlowControl(Discriminator tag, Value* value);
-    inline static Value raise(const std::string& exception) { return Value::raise(egg::lang::String::fromUTF8(exception)); }
-    static Value raise(const egg::lang::String& exception);
-    std::string toString() const;
+    inline static Value raise(const std::string& utf8) { return Value::raise(String::fromUTF8(utf8)); }
+    static Value raise(const String& exception);
+    inline static Value fromUTF8(const std::string& utf8) { return Value(String::fromUTF8(utf8)); }
+    std::string toUTF8() const;
 
     // Constants
     static const Value Void;

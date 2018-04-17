@@ -45,7 +45,7 @@ TEST(TestEggParser, ModuleBlock) {
 TEST(TestEggParser, ModuleSimple) {
   auto parser = EggParserFactory::createModuleParser();
   auto root = parseFromString(*parser, "var a = b; a = c;");
-  ASSERT_PARSE_GOOD(dumpToString(*root), "(module (declare 'a' (type 'var') (identifier 'b')) (assign '=' (identifier 'a') (identifier 'c')))");
+  ASSERT_PARSE_GOOD(dumpToString(*root), "(module (declare 'a' 'var' (identifier 'b')) (assign '=' (identifier 'a') (identifier 'c')))");
 }
 
 TEST(TestEggParser, ExpressionType) {

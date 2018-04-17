@@ -31,7 +31,7 @@ namespace {
       std::string utf8;
       for (size_t i = 0; i < n; ++i) {
         auto parameter = parameters.getPositional(i);
-        utf8 += parameter.toString();
+        utf8 += parameter.toUTF8();
       }
       execution.print(utf8);
       return Value::Void;

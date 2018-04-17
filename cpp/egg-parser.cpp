@@ -51,6 +51,9 @@ namespace {
     virtual std::shared_ptr<IEggProgramType> unionWithSimple(egg::lang::Discriminator other) const {
       return std::make_shared<EggParserTypeSimple>(egg::lang::Bits::set(this->tag, other));
     }
+    virtual egg::lang::Value decantParameters(const egg::lang::IParameters&, Setter) const {
+      return egg::lang::Value::raise("Internal parse error: Cannot decant parameters for simple type");
+    }
     virtual egg::lang::String toString() const {
       return egg::lang::String::fromUTF8(egg::lang::Value::getTagString(this->tag));
     }
@@ -82,8 +85,76 @@ namespace {
     virtual std::shared_ptr<IEggProgramType> unionWithSimple(egg::lang::Discriminator) const {
       EGG_THROW(__FUNCTION__ " TODO"); // TODO
     }
+    virtual egg::lang::Value decantParameters(const egg::lang::IParameters&, Setter) const {
+      return egg::lang::Value::raise("Internal parse error: Cannot decant parameters for reference type");
+    }
     virtual egg::lang::String toString() const {
       return egg::lang::String::concat(this->underlying->toString(), "*");
+    }
+  };
+
+  class EggParserTypeFunction : public EggParserTypeBase {
+  public:
+    struct Parameter {
+      egg::lang::String name;
+      std::shared_ptr<IEggProgramType> type;
+      bool optional;
+      Parameter(const egg::lang::String& name, const std::shared_ptr<IEggProgramType>& type, bool optional)
+        : name(name), type(type), optional(optional) {
+        assert(type != nullptr);
+      }
+    };
+  private:
+    std::shared_ptr<IEggProgramType> retval;
+    std::vector<Parameter> expected;
+  public:
+    explicit EggParserTypeFunction(const std::shared_ptr<IEggProgramType>& retval)
+      : retval(retval) {
+      assert(retval != nullptr);
+    }
+    virtual bool hasSimpleType(egg::lang::Discriminator) const override {
+      return false;
+    }
+    virtual egg::lang::Discriminator arithmeticTypes() const override {
+      return egg::lang::Discriminator::None;
+    }
+    virtual std::shared_ptr<IEggProgramType> dereferencedType() const override {
+      // TODO Return a dummy value for now
+      return std::make_shared<EggParserTypeSimple>(egg::lang::Discriminator::Void);
+    }
+    virtual std::shared_ptr<IEggProgramType> nullableType(bool) const override {
+      EGG_THROW(__FUNCTION__ " TODO"); // TODO
+    }
+    virtual std::shared_ptr<IEggProgramType> unionWith(IEggProgramType&) const override {
+      EGG_THROW(__FUNCTION__ " TODO"); // TODO
+    }
+    virtual std::shared_ptr<IEggProgramType> unionWithSimple(egg::lang::Discriminator) const override {
+      EGG_THROW(__FUNCTION__ " TODO"); // TODO
+    }
+    virtual egg::lang::Value decantParameters(const egg::lang::IParameters& supplied, Setter setter) const {
+      if (supplied.getNamedCount() > 0) {
+        return egg::lang::Value::raise("Named parameters in function calls are not yet supported"); // TODO
+      }
+      size_t given = supplied.getPositionalCount();
+      if (given < this->expected.size()) {
+        auto message = "Too few parameters in function call: Expected " + std::to_string(this->expected.size()) + ", but got " + std::to_string(given);
+        return egg::lang::Value::raise(message);
+      }
+      if (given > this->expected.size()) {
+        auto message = "Too many parameters in function call: Expected " + std::to_string(this->expected.size()) + ", but got " + std::to_string(given);
+        return egg::lang::Value::raise(message);
+      }
+      // TODO: Value type checking
+      for (size_t i = 0; i < given; ++i) {
+        setter(this->expected[i].name, supplied.getPositional(i));
+      }
+      return egg::lang::Value::Void;
+    }
+    virtual egg::lang::String toString() const override {
+      return egg::lang::String::fromUTF8("function"); // TODO
+    }
+    void addParameter(const egg::lang::String& name, const std::shared_ptr<IEggProgramType>& type, bool optional) {
+      this->expected.emplace_back(name, type, optional);
     }
   };
 
@@ -202,7 +273,7 @@ namespace {
     }
     virtual egg::lang::Value executeWithExpression(EggProgramContext&, const egg::lang::Value&) const override {
       // By default, we fail if asked to execute with an expression (used only in switch/catch statements, etc)
-      return egg::lang::Value::raise("Internal parser error : Inappropriate 'executeWithExpression' call");
+      return egg::lang::Value::raise("Internal parser error: Inappropriate 'executeWithExpression' call");
     }
     virtual std::unique_ptr<IEggProgramAssignee> assignee(EggProgramContext&) const override {
       // By default, we fail if asked to create an assignee
@@ -253,8 +324,8 @@ namespace {
     virtual std::shared_ptr<IEggProgramType> getType() const override {
       return this->type;
     }
-    virtual egg::lang::Value execute(EggProgramContext& context) const override {
-      return context.executeType(*this, *this->type);
+    virtual egg::lang::Value execute(EggProgramContext&) const override {
+      return egg::lang::Value::raise("Internal parser error: Inappropriate 'execute' call for 'type' node");
     }
     virtual void dump(std::ostream& os) const override {
       ParserDump(os, "type").add(this->type->toString());
@@ -264,24 +335,24 @@ namespace {
   class EggParserNode_Declare : public EggParserNodeBase {
   private:
     egg::lang::String name;
-    std::shared_ptr<IEggProgramNode> type;
+    std::shared_ptr<IEggProgramType> type;
     std::shared_ptr<IEggProgramNode> init;
   public:
-    EggParserNode_Declare(const egg::lang::String& name, const std::shared_ptr<IEggProgramNode>& type, const std::shared_ptr<IEggProgramNode>& init = nullptr)
+    EggParserNode_Declare(const egg::lang::String& name, const std::shared_ptr<IEggProgramType>& type, const std::shared_ptr<IEggProgramNode>& init = nullptr)
       : name(name), type(type), init(init) {
       assert(type != nullptr);
     }
     virtual bool symbol(egg::lang::String& nameOut, std::shared_ptr<IEggProgramType>& typeOut) const override {
       // The symbol is obviously the variable being declared
       nameOut = this->name;
-      typeOut = this->type->getType();
+      typeOut = this->type;
       return true;
     }
     virtual egg::lang::Value execute(EggProgramContext& context) const override {
       return context.executeDeclare(*this, this->name, *this->type, this->init.get());
     }
     virtual void dump(std::ostream& os) const override {
-      ParserDump(os, "declare").add(this->name).add(this->type).add(this->init);
+      ParserDump(os, "declare").add(this->name).add(this->type->toString()).add(this->init);
     }
   };
 
@@ -330,7 +401,7 @@ namespace {
       return true;
     }
     virtual egg::lang::Value execute(EggProgramContext&) const override {
-      return egg::lang::Value::raise("Internal parser error : Inappropriate 'execute' call for 'catch' statement");
+      return egg::lang::Value::raise("Internal parser error: Inappropriate 'execute' call for 'catch' statement");
     }
     virtual egg::lang::Value executeWithExpression(EggProgramContext& context, const egg::lang::Value& expression) const override {
       return context.executeCatch(*this, this->name, *this->type, *this->block, expression);
@@ -437,6 +508,55 @@ namespace {
     }
     virtual void dump(std::ostream& os) const override {
       ParserDump(os, "foreach").add(this->target).add(this->expr).add(this->block);
+    }
+  };
+
+  class EggParserNode_FunctionDefinition : public EggParserNodeBase {
+  private:
+    egg::lang::String name;
+    std::shared_ptr<IEggProgramType> type;
+    std::shared_ptr<IEggProgramNode> block;
+  public:
+    EggParserNode_FunctionDefinition(const egg::lang::String& name, const std::shared_ptr<IEggProgramType>& type, const std::shared_ptr<IEggProgramNode>& block)
+      : name(name), type(type), block(block) {
+      assert(type != nullptr);
+      assert(block != nullptr);
+    }
+    virtual bool symbol(egg::lang::String& nameOut, std::shared_ptr<IEggProgramType>& typeOut) const override {
+      // The symbol is obviously the identifier being defined
+      nameOut = this->name;
+      typeOut = this->type;
+      return true;
+    }
+    virtual egg::lang::Value execute(EggProgramContext& context) const override {
+      return context.executeFunctionDefinition(*this, this->name, this->type, this->block);
+    }
+    virtual void dump(std::ostream& os) const override {
+      ParserDump(os, "function").add(this->name).add(this->type->toString()).add(this->block);
+    }
+  };
+
+  class EggParserNode_FunctionParameter : public EggParserNodeBase {
+  private:
+    egg::lang::String name;
+    std::shared_ptr<IEggProgramType> type;
+    bool optional;
+  public:
+    EggParserNode_FunctionParameter(const egg::lang::String& name, const std::shared_ptr<IEggProgramType>& type, bool optional)
+      : name(name), type(type), optional(optional) {
+      assert(type != nullptr);
+    }
+    virtual bool symbol(egg::lang::String& nameOut, std::shared_ptr<IEggProgramType>& typeOut) const override {
+      // Beware: the return value is the optionality flag!
+      nameOut = this->name;
+      typeOut = this->type;
+      return this->optional;
+    }
+    virtual egg::lang::Value execute(EggProgramContext&) const override {
+      return egg::lang::Value::raise("Internal parser error: Inappropriate 'execute' call for function parameter");
+    }
+    virtual void dump(std::ostream& os) const override {
+      ParserDump(os, this->optional ? "parameter?" : "parameter").add(this->name).add(this->type->toString());
     }
   };
 
@@ -1080,11 +1200,12 @@ std::shared_ptr<egg::yolk::IEggProgramNode> egg::yolk::EggSyntaxNode_Type::promo
 }
 
 std::shared_ptr<egg::yolk::IEggProgramNode> egg::yolk::EggSyntaxNode_Declare::promote(egg::yolk::IEggParserContext& context) const {
+  auto type = context.promote(*this->child[0])->getType();
   if (this->child.size() == 1) {
-    return std::make_shared<EggParserNode_Declare>(this->name, context.promote(*this->child[0]));
+    return std::make_shared<EggParserNode_Declare>(this->name, type);
   }
   assert(this->child.size() == 2);
-  return std::make_shared<EggParserNode_Declare>(this->name, context.promote(*this->child[0]), context.promote(*this->child[1]));
+  return std::make_shared<EggParserNode_Declare>(this->name, type, context.promote(*this->child[1]));
 }
 
 std::shared_ptr<egg::yolk::IEggProgramNode> egg::yolk::EggSyntaxNode_Assignment::promote(egg::yolk::IEggParserContext& context) const {
@@ -1241,6 +1362,29 @@ std::shared_ptr<egg::yolk::IEggProgramNode> egg::yolk::EggSyntaxNode_Foreach::pr
   EggParserContextNested nested(context, EggParserAllowed::Break|EggParserAllowed::Continue, EggParserAllowed::Rethrow|EggParserAllowed::Return|EggParserAllowed::Yield);
   auto block = nested.promote(*this->child[2]);
   return std::make_shared<EggParserNode_Foreach>(target, expr, block);
+}
+
+std::shared_ptr<egg::yolk::IEggProgramNode> egg::yolk::EggSyntaxNode_FunctionDefinition::promote(egg::yolk::IEggParserContext& context) const {
+  // The children are: <type> <parameter>* <block>
+  assert(this->child.size() >= 2);
+  size_t parameters = this->child.size() - 2;
+  auto function = std::make_shared<EggParserTypeFunction>(context.promote(*this->child[0])->getType());
+  egg::lang::String parameter_name;
+  std::shared_ptr<IEggProgramType> parameter_type;
+  for (size_t i = 1; i <= parameters; ++i) {
+    // We promote the parameter, extract the name/type/optional information and then discard it
+    auto parameter = context.promote(*this->child[i]);
+    auto parameter_optional = parameter->symbol(parameter_name, parameter_type);
+    function->addParameter(parameter_name, parameter_type, parameter_optional);
+  }
+  EggParserContextNested nested(context, EggParserAllowed::Return|EggParserAllowed::Yield);
+  auto block = nested.promote(*this->child[parameters + 1]);
+  return std::make_shared<EggParserNode_FunctionDefinition>(this->name, function, block);
+}
+
+std::shared_ptr<egg::yolk::IEggProgramNode> egg::yolk::EggSyntaxNode_Parameter::promote(egg::yolk::IEggParserContext& context) const {
+  auto type = context.promote(*this->child)->getType();
+  return std::make_shared<EggParserNode_FunctionParameter>(this->name, type, this->optional);
 }
 
 std::shared_ptr<egg::yolk::IEggProgramNode> egg::yolk::EggSyntaxNode_Return::promote(egg::yolk::IEggParserContext& context) const {

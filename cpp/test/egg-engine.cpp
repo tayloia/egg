@@ -119,5 +119,5 @@ TEST(TestEggEngine, WorkingFile) {
   ASSERT_EQ("", logger->logged);
   auto execution = EggEngineFactory::createExecutionContext(logger);
   ASSERT_EQ(egg::lang::LogSeverity::Information, engine->execute(*execution));
-  ASSERT_EQ("USER:INFO:4950\n", logger->logged);
+  ASSERT_EQ("USER:INFO:55\nUSER:INFO:4950\n", logger->logged);
 }

@@ -42,6 +42,36 @@ namespace {
     }
   };
 
+  class EggProgramFunction : public egg::lang::IObject, public egg::gc::ReferenceCounted {
+    EGG_NO_COPY(EggProgramFunction);
+  private:
+    egg::yolk::EggProgramContext& program;
+    std::shared_ptr<egg::yolk::IEggProgramType> type;
+    std::shared_ptr<egg::yolk::IEggProgramNode> block;
+  public:
+    EggProgramFunction(egg::yolk::EggProgramContext& program, const std::shared_ptr<egg::yolk::IEggProgramType>& type, const std::shared_ptr<egg::yolk::IEggProgramNode>& block)
+      : program(program), type(type), block(block) {
+      assert(type != nullptr);
+      assert(block != nullptr);
+    }
+    virtual IObject* acquire() override {
+      this->acquireHard();
+      return this;
+    }
+    virtual void release() override {
+      this->releaseHard();
+    }
+    virtual bool dispose() override {
+      return false;
+    }
+    virtual egg::lang::Value toString() override {
+      return egg::lang::Value(egg::lang::String::concat("[", type->toString(), "]"));
+    }
+    virtual egg::lang::Value call(egg::lang::IExecution&, const egg::lang::IParameters& parameters) override {
+      return this->program.executeFunctionCall(*this->type, parameters, *this->block);
+    }
+  };
+
   class EggProgramAssigneeIdentifier : public egg::yolk::IEggProgramAssignee {
   private:
     egg::yolk::EggProgramContext* context;
@@ -267,12 +297,7 @@ egg::lang::Value egg::yolk::EggProgramContext::executeBlock(const IEggProgramNod
   return context.executeStatements(statements);
 }
 
-egg::lang::Value egg::yolk::EggProgramContext::executeType(const IEggProgramNode& self, const IEggProgramType&) {
-  this->expression(self);
-  EGG_THROW(__FUNCTION__ " unimplemented: TODO");
-}
-
-egg::lang::Value egg::yolk::EggProgramContext::executeDeclare(const IEggProgramNode& self, const egg::lang::String& name, const IEggProgramNode&, const IEggProgramNode* rvalue) {
+egg::lang::Value egg::yolk::EggProgramContext::executeDeclare(const IEggProgramNode& self, const egg::lang::String& name, const IEggProgramType&, const IEggProgramNode* rvalue) {
   // The type information has already been used in the symbol declaration phase
   this->statement(self);
   if (rvalue != nullptr) {
@@ -423,6 +448,27 @@ egg::lang::Value egg::yolk::EggProgramContext::executeForeach(const IEggProgramN
   return retval;
 }
 
+egg::lang::Value egg::yolk::EggProgramContext::executeFunctionDefinition(const IEggProgramNode& self, const egg::lang::String& name, const std::shared_ptr<IEggProgramType>& type, const std::shared_ptr<IEggProgramNode>& block) {
+  // This defines a function, it doesn't call it
+  this->statement(self);
+  egg::lang::Value function{ *new EggProgramFunction(*this, type, block) };
+  return this->set(name, function);
+}
+
+egg::lang::Value egg::yolk::EggProgramContext::executeFunctionCall(const IEggProgramType& type, const egg::lang::IParameters& parameters, const IEggProgramNode& block) {
+  // This actually calls a function
+  EggProgram::SymbolTable nested(this->symtable);
+  auto retval = type.decantParameters(parameters, [&nested](const egg::lang::String& k, const egg::lang::Value& v) { nested.addSymbol(k)->value = v; });
+  if (!retval.is(egg::lang::Discriminator::FlowControl)) {
+    EggProgramContext context(*this, nested);
+    retval = block.execute(context);
+    if (retval.is(egg::lang::Discriminator::Return)) {
+      retval = retval.getFlowControl();
+    }
+  }
+  return retval;
+}
+
 egg::lang::Value egg::yolk::EggProgramContext::executeReturn(const IEggProgramNode& self, const IEggProgramNode* value) {
   this->statement(self);
   if (value == nullptr) {
@@ -499,13 +545,12 @@ egg::lang::Value egg::yolk::EggProgramContext::executeThrow(const IEggProgramNod
     // This is a rethrow
     return egg::lang::Value::Rethrow;
   }
-  // TODO non-string exceptions
   auto value = exception->execute(*this);
   if (value.is(egg::lang::Discriminator::FlowControl)) {
     return value;
   }
-  if (!value.is(egg::lang::Discriminator::String)) {
-    return this->unexpected("TODO: Unimplemented: non-string exceptions", value);
+  if (!value.is(egg::lang::Discriminator::Any)) {
+    return egg::lang::Value::raise("Cannot 'throw' a value of type '" + value.getTagString() + "'");
   }
   return egg::lang::Value::raise(value.getString());
 }
@@ -676,15 +721,11 @@ egg::lang::LogSeverity egg::yolk::EggProgram::execute(IEggEngineExecutionContext
   EggProgramContext context(execution, symtable, severity);
   auto retval = this->root->execute(context);
   if (!retval.is(egg::lang::Discriminator::Void)) {
-    if (!retval.is(egg::lang::Discriminator::Exception)) {
-      context.log(egg::lang::LogSource::Runtime, egg::lang::LogSeverity::Error, "Expected statement to return 'void', but got '" + retval.getTagString() + "' instead");
+    if (retval.is(egg::lang::Discriminator::Exception)) {
+      // TODO exception location
+      context.log(egg::lang::LogSource::Runtime, egg::lang::LogSeverity::Error, retval.getFlowControl().toUTF8());
     } else {
-      auto& exception = retval.getFlowControl();
-      if (exception.is(egg::lang::Discriminator::String)) {
-        context.log(egg::lang::LogSource::Runtime, egg::lang::LogSeverity::Error, exception.getString().toUTF8());
-      } else {
-        context.log(egg::lang::LogSource::Runtime, egg::lang::LogSeverity::Error, "Unexpected exception rethrow"); // TODO
-      }
+      context.log(egg::lang::LogSource::Runtime, egg::lang::LogSeverity::Error, "Expected statement to return 'void', but got '" + retval.getTagString() + "' instead");
     }
   }
   return severity;

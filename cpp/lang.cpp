@@ -210,7 +210,7 @@ std::string egg::lang::Value::getTagString(Discriminator tag) {
   return egg::yolk::String::fromEnum(tag, table);
 }
 
-std::string egg::lang::Value::toString() const {
+std::string egg::lang::Value::toUTF8() const {
   if (this->tag == Discriminator::Null) {
     return "null";
   }
@@ -229,7 +229,7 @@ std::string egg::lang::Value::toString() const {
   if ((this->tag == Discriminator::Type) || (this->tag == Discriminator::Object)) {
     auto str = this->o->toString();
     if (str.is(Discriminator::String)) {
-      return str.toString();
+      return str.toUTF8();
     }
     return "[invalid]";
   }

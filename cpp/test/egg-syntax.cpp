@@ -263,6 +263,17 @@ TEST(TestEggSyntaxParser, StatementFor) {
   ASSERT_PARSE_BAD(parseStatementToString("for (;;) {"), "(1, 11): Expected statement");
 }
 
+TEST(TestEggSyntaxParser, StatementFunction) {
+  // Good
+  ASSERT_PARSE_GOOD(parseStatementToString("void func() {}"), "(function 'func' (type 'void') (block))");
+  ASSERT_PARSE_GOOD(parseStatementToString("int func() { return 123; }"), "(function 'func' (type 'int') (block (return (literal int 123))))");
+  ASSERT_PARSE_GOOD(parseStatementToString("int? func() { return null; }"), "(function 'func' (type 'int?') (block (return (literal null))))");
+  ASSERT_PARSE_GOOD(parseStatementToString("void func(int a) {}"), "(function 'func' (type 'void') (parameter 'a' (type 'int')) (block))");
+  ASSERT_PARSE_GOOD(parseStatementToString("void func(int a, string b) {}"), "(function 'func' (type 'void') (parameter 'a' (type 'int')) (parameter 'b' (type 'string')) (block))");
+  ASSERT_PARSE_GOOD(parseStatementToString("void func(int a, string? b) {}"), "(function 'func' (type 'void') (parameter 'a' (type 'int')) (parameter 'b' (type 'string?')) (block))");
+  ASSERT_PARSE_GOOD(parseStatementToString("void func(int a, string? b = null) {}"), "(function 'func' (type 'void') (parameter 'a' (type 'int')) (parameter? 'b' (type 'string?')) (block))");
+}
+
 TEST(TestEggSyntaxParser, StatementIf) {
   // Good
   ASSERT_PARSE_GOOD(parseStatementToString("if (a) {}"), "(if (identifier 'a') (block))");
