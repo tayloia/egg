@@ -189,27 +189,60 @@ TEST(TestStrings, FromFloat) {
   ASSERT_EQ("-1.2345", egg::yolk::String::fromFloat(-1.2345));
   ASSERT_EQ("0.012345", egg::yolk::String::fromFloat(0.012345));
   ASSERT_EQ("-0.012345", egg::yolk::String::fromFloat(-0.012345));
-  ASSERT_EQ("1234567890.0", egg::yolk::String::fromFloat(1234567890.0));
+  ASSERT_EQ("1234567890.0", egg::yolk::String::fromFloat(1234567890));
   // Large values
-  ASSERT_EQ("1e30", egg::yolk::String::fromFloat(1e30)); // WIBBLE
-  ASSERT_EQ("-1e30", egg::yolk::String::fromFloat(-1e30)); // WIBBLE
-  ASSERT_EQ("1e300", egg::yolk::String::fromFloat(1e300)); // WIBBLE
-  ASSERT_EQ("-1e300", egg::yolk::String::fromFloat(-1e300)); // WIBBLE
+  ASSERT_EQ("1.0e+030", egg::yolk::String::fromFloat(1e30));
+  ASSERT_EQ("-1.0e+030", egg::yolk::String::fromFloat(-1e30));
+  ASSERT_EQ("1.0e+300", egg::yolk::String::fromFloat(1e300));
+  ASSERT_EQ("-1.0e+300", egg::yolk::String::fromFloat(-1e300));
   // Small values
-  //ASSERT_EQ("1e-30", egg::yolk::String::fromFloat(1e-30)); // WIBBLE dtoa produces "0.0"
-  //ASSERT_EQ("-1e-30", egg::yolk::String::fromFloat(-1e-30)); // WIBBLE dtoa produces "-0.0"
-  //ASSERT_EQ("1e-300", egg::yolk::String::fromFloat(1e-300)); // WIBBLE dtoa produces "0.0"
-  //ASSERT_EQ("-1e-300", egg::yolk::String::fromFloat(-1e-300)); // WIBBLE dtoa produces "-0.0"
+  ASSERT_EQ("1.0e-030", egg::yolk::String::fromFloat(1e-30));
+  ASSERT_EQ("-1.0e-030", egg::yolk::String::fromFloat(-1e-30));
+  ASSERT_EQ("1.0e-300", egg::yolk::String::fromFloat(1e-300));
+  ASSERT_EQ("-1.0e-300", egg::yolk::String::fromFloat(-1e-300));
   // Denormalized values
-  //ASSERT_EQ("1e-310", egg::yolk::String::fromFloat(1e-310)); // WIBBLE dtoa produces "0.0"
-  //ASSERT_EQ("-1e-310", egg::yolk::String::fromFloat(-1e-310)); // WIBBLE dtoa produces "-0.0"
+  ASSERT_EQ("1.0e-310", egg::yolk::String::fromFloat(1e-310));
+  ASSERT_EQ("-1.0e-310", egg::yolk::String::fromFloat(-1e-310));
   // Rounded values
-  ASSERT_EQ("0.3333333333333333", egg::yolk::String::fromFloat(1.0 / 3.0));
-  ASSERT_EQ("-0.3333333333333333", egg::yolk::String::fromFloat(-1.0 / 3.0));
-  //ASSERT_EQ("0.6666666666666667", egg::yolk::String::fromFloat(2.0 / 3.0)); // WIBBLE dtoa produces "0.6666666666666666"
-  //ASSERT_EQ("-0.6666666666666667", egg::yolk::String::fromFloat(-2.0 / 3.0)); // WIBBLE dtoa produces "-0.6666666666666666"
-  ASSERT_EQ("0.0077519379844961", egg::yolk::String::fromFloat(1.0 / 129.0));
-  ASSERT_EQ("3.141592653589793", egg::yolk::String::fromFloat(3.1415926535897932384626433832795));
+  ASSERT_EQ("0.333333333333", egg::yolk::String::fromFloat(1.0 / 3.0));
+  ASSERT_EQ("-0.333333333333", egg::yolk::String::fromFloat(-1.0 / 3.0));
+  ASSERT_EQ("0.666666666667", egg::yolk::String::fromFloat(2.0 / 3.0));
+  ASSERT_EQ("-0.666666666667", egg::yolk::String::fromFloat(-2.0 / 3.0));
+  ASSERT_EQ("0.00775193798450", egg::yolk::String::fromFloat(1.0 / 129.0)); // Note trailing zero
+  ASSERT_EQ("3.14159265359", egg::yolk::String::fromFloat(3.1415926535897932384626433832795));
+  // Scientific notation
+  ASSERT_EQ("0.000000000000001", egg::yolk::String::fromFloat(1e-15));
+  ASSERT_EQ("1.0e-016", egg::yolk::String::fromFloat(1e-16));
+  ASSERT_EQ("100000000000000.0", egg::yolk::String::fromFloat(1e14));
+  ASSERT_EQ("1.0e+015", egg::yolk::String::fromFloat(1e15));
+  ASSERT_EQ("1.23e-015", egg::yolk::String::fromFloat(1.23e-15));
+  ASSERT_EQ("1.23e-014", egg::yolk::String::fromFloat(1.23e-14));
+  ASSERT_EQ("0.000000000000123", egg::yolk::String::fromFloat(1.23e-13));
+  ASSERT_EQ("12300000000000.0", egg::yolk::String::fromFloat(1.23e13));
+  ASSERT_EQ("123000000000000.0", egg::yolk::String::fromFloat(1.23e14));
+  ASSERT_EQ("1.23e+015", egg::yolk::String::fromFloat(1.23e15));
+  // Significant digits
+  ASSERT_EQ("1.0e+005", egg::yolk::String::fromFloat(123456, 1));
+  ASSERT_EQ("1.2e+005", egg::yolk::String::fromFloat(123456, 2));
+  ASSERT_EQ("123000.0", egg::yolk::String::fromFloat(123456, 3));
+  ASSERT_EQ("123500.0", egg::yolk::String::fromFloat(123456, 4));
+  ASSERT_EQ("123460.0", egg::yolk::String::fromFloat(123456, 5));
+  ASSERT_EQ("123456.0", egg::yolk::String::fromFloat(123456, 6));
+  ASSERT_EQ("123456.0", egg::yolk::String::fromFloat(123456, 7));
+  ASSERT_EQ("0.1", egg::yolk::String::fromFloat(0.123456, 1));
+  ASSERT_EQ("0.12", egg::yolk::String::fromFloat(0.123456, 2));
+  ASSERT_EQ("0.123", egg::yolk::String::fromFloat(0.123456, 3));
+  ASSERT_EQ("0.1235", egg::yolk::String::fromFloat(0.123456, 4));
+  ASSERT_EQ("0.12346", egg::yolk::String::fromFloat(0.123456, 5));
+  ASSERT_EQ("0.123456", egg::yolk::String::fromFloat(0.123456, 6));
+  ASSERT_EQ("0.123456", egg::yolk::String::fromFloat(0.123456, 7));
+  ASSERT_EQ("0.0001", egg::yolk::String::fromFloat(0.000123456, 1));
+  ASSERT_EQ("0.00012", egg::yolk::String::fromFloat(0.000123456, 2));
+  ASSERT_EQ("0.000123", egg::yolk::String::fromFloat(0.000123456, 3));
+  ASSERT_EQ("0.0001235", egg::yolk::String::fromFloat(0.000123456, 4));
+  ASSERT_EQ("0.00012346", egg::yolk::String::fromFloat(0.000123456, 5));
+  ASSERT_EQ("0.000123456", egg::yolk::String::fromFloat(0.000123456, 6));
+  ASSERT_EQ("0.000123456", egg::yolk::String::fromFloat(0.000123456, 7));
 }
 
 TEST(TestStrings, FromFloatBad) {

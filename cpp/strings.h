@@ -110,6 +110,7 @@ namespace egg::yolk {
     static std::string fromEnum(int value, const StringFromEnum* tableBegin, const StringFromEnum* tableEnd);
     static std::string fromSigned(int64_t value);
     static std::string fromUnsigned(uint64_t value);
-    static std::string fromFloat(double value);
+    static std::string fromFloat(double value, size_t sigfigs = 12);
+    static void writeFloat(std::ostream& os, double value, size_t sigfigs, size_t max_before, size_t max_after);
   };
 }

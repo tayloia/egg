@@ -221,7 +221,8 @@ std::string egg::lang::Value::toUTF8() const {
     return egg::yolk::String::fromSigned(this->i);
   }
   if (this->tag == Discriminator::Float) {
-    return egg::yolk::String::fromFloat(this->f);
+    // Use up to sixteen significant digits
+    return egg::yolk::String::fromFloat(this->f, 16);
   }
   if (this->tag == Discriminator::String) {
     return this->s->toUTF8();
