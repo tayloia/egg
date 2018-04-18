@@ -61,6 +61,12 @@
     <None Include="..\examples\example-0003.egg" />
     <None Include="..\examples\example-0004.egg" />
     <None Include="..\examples\example-0005.egg" />
+    <None Include="..\examples\example-0006.egg" />
+    <None Include="..\examples\example-0007.egg" />
+    <None Include="..\examples\example-0008.egg" />
+    <None Include="..\examples\example-0009.egg" />
+    <None Include="..\examples\example-0010.egg" />
+    <None Include="..\examples\example-0011.egg" />
   </ItemGroup>
   <ItemGroup>
     <Text Include="..\cpp\test\data\utf-8-demo.bom.txt" />
