@@ -164,3 +164,62 @@ TEST(TestStrings, TryParseFloatBad) {
   ASSERT_FALSE(egg::yolk::String::tryParseFloat(value, "-1e999"));
   ASSERT_EQ(-123, value);
 }
+
+TEST(TestStrings, FromUnsigned) {
+  ASSERT_EQ("0", egg::yolk::String::fromUnsigned(0));
+  ASSERT_EQ("10", egg::yolk::String::fromUnsigned(10));
+  ASSERT_EQ("123456789", egg::yolk::String::fromUnsigned(123456789));
+  ASSERT_EQ("18446744073709551615", egg::yolk::String::fromUnsigned(18446744073709551615));
+}
+
+TEST(TestStrings, FromSigned) {
+  ASSERT_EQ("-9223372036854775808", egg::yolk::String::fromSigned(-9223372036854775807 - 1));
+  ASSERT_EQ("-123456789", egg::yolk::String::fromSigned(-123456789));
+  ASSERT_EQ("-10", egg::yolk::String::fromSigned(-10));
+  ASSERT_EQ("0", egg::yolk::String::fromSigned(0));
+  ASSERT_EQ("10", egg::yolk::String::fromSigned(10));
+  ASSERT_EQ("123456789", egg::yolk::String::fromSigned(123456789));
+  ASSERT_EQ("9223372036854775807", egg::yolk::String::fromSigned(9223372036854775807));
+}
+
+TEST(TestStrings, FromFloat) {
+  ASSERT_EQ("0.0", egg::yolk::String::fromFloat(0.0));
+  ASSERT_EQ("-0.0", egg::yolk::String::fromFloat(-0.0));
+  ASSERT_EQ("1.2345", egg::yolk::String::fromFloat(1.2345));
+  ASSERT_EQ("-1.2345", egg::yolk::String::fromFloat(-1.2345));
+  ASSERT_EQ("0.012345", egg::yolk::String::fromFloat(0.012345));
+  ASSERT_EQ("-0.012345", egg::yolk::String::fromFloat(-0.012345));
+  ASSERT_EQ("1234567890.0", egg::yolk::String::fromFloat(1234567890.0));
+  // Large values
+  ASSERT_EQ("1e30", egg::yolk::String::fromFloat(1e30)); // WIBBLE
+  ASSERT_EQ("-1e30", egg::yolk::String::fromFloat(-1e30)); // WIBBLE
+  ASSERT_EQ("1e300", egg::yolk::String::fromFloat(1e300)); // WIBBLE
+  ASSERT_EQ("-1e300", egg::yolk::String::fromFloat(-1e300)); // WIBBLE
+  // Small values
+  //ASSERT_EQ("1e-30", egg::yolk::String::fromFloat(1e-30)); // WIBBLE dtoa produces "0.0"
+  //ASSERT_EQ("-1e-30", egg::yolk::String::fromFloat(-1e-30)); // WIBBLE dtoa produces "-0.0"
+  //ASSERT_EQ("1e-300", egg::yolk::String::fromFloat(1e-300)); // WIBBLE dtoa produces "0.0"
+  //ASSERT_EQ("-1e-300", egg::yolk::String::fromFloat(-1e-300)); // WIBBLE dtoa produces "-0.0"
+  // Denormalized values
+  //ASSERT_EQ("1e-310", egg::yolk::String::fromFloat(1e-310)); // WIBBLE dtoa produces "0.0"
+  //ASSERT_EQ("-1e-310", egg::yolk::String::fromFloat(-1e-310)); // WIBBLE dtoa produces "-0.0"
+  // Rounded values
+  ASSERT_EQ("0.3333333333333333", egg::yolk::String::fromFloat(1.0 / 3.0));
+  ASSERT_EQ("-0.3333333333333333", egg::yolk::String::fromFloat(-1.0 / 3.0));
+  //ASSERT_EQ("0.6666666666666667", egg::yolk::String::fromFloat(2.0 / 3.0)); // WIBBLE dtoa produces "0.6666666666666666"
+  //ASSERT_EQ("-0.6666666666666667", egg::yolk::String::fromFloat(-2.0 / 3.0)); // WIBBLE dtoa produces "-0.6666666666666666"
+  ASSERT_EQ("0.0077519379844961", egg::yolk::String::fromFloat(1.0 / 129.0));
+  ASSERT_EQ("3.141592653589793", egg::yolk::String::fromFloat(3.1415926535897932384626433832795));
+}
+
+TEST(TestStrings, FromFloatBad) {
+  // These aren't really bad, they're just special
+  const double pnan = std::nan("");
+  ASSERT_EQ("nan", egg::yolk::String::fromFloat(pnan));
+  const double nnan = std::copysign(pnan, -1);
+  ASSERT_EQ("-nan", egg::yolk::String::fromFloat(nnan));
+  const double pinf = std::numeric_limits<double>::infinity();
+  ASSERT_EQ("inf", egg::yolk::String::fromFloat(pinf));
+  const double ninf = std::copysign(pinf, -1);
+  ASSERT_EQ("-inf", egg::yolk::String::fromFloat(ninf));
+}

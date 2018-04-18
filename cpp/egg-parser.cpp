@@ -137,11 +137,11 @@ namespace {
       }
       size_t given = supplied.getPositionalCount();
       if (given < this->expected.size()) {
-        auto message = "Too few parameters in function call: Expected " + std::to_string(this->expected.size()) + ", but got " + std::to_string(given);
+        auto message = "Too few parameters in function call: Expected " + String::fromUnsigned(this->expected.size()) + ", but got " + String::fromUnsigned(given);
         return egg::lang::Value::raise(message);
       }
       if (given > this->expected.size()) {
-        auto message = "Too many parameters in function call: Expected " + std::to_string(this->expected.size()) + ", but got " + std::to_string(given);
+        auto message = "Too many parameters in function call: Expected " + String::fromUnsigned(this->expected.size()) + ", but got " + String::fromUnsigned(given);
         return egg::lang::Value::raise(message);
       }
       // TODO: Value type checking

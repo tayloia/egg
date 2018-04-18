@@ -108,5 +108,8 @@ namespace egg::yolk {
       return String::fromEnum(static_cast<int>(value), table, table + N);
     }
     static std::string fromEnum(int value, const StringFromEnum* tableBegin, const StringFromEnum* tableEnd);
+    static std::string fromSigned(int64_t value);
+    static std::string fromUnsigned(uint64_t value);
+    static std::string fromFloat(double value);
   };
 }

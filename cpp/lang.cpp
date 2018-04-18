@@ -218,10 +218,10 @@ std::string egg::lang::Value::toUTF8() const {
     return this->b ? "true" : "false";
   }
   if (this->tag == Discriminator::Int) {
-    return std::to_string(this->i);
+    return egg::yolk::String::fromSigned(this->i);
   }
   if (this->tag == Discriminator::Float) {
-    return std::to_string(this->f);
+    return egg::yolk::String::fromFloat(this->f);
   }
   if (this->tag == Discriminator::String) {
     return this->s->toUTF8();

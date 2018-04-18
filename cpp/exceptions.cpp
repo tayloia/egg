@@ -21,7 +21,7 @@ egg::yolk::Exception::Exception(const std::string& reason, const std::string& wh
 }
 
 egg::yolk::Exception::Exception(const std::string& reason, const std::string& file, size_t line)
-  : Exception(reason, File::normalizePath(file) + "(" + std::to_string(line) + ")") {
+  : Exception(reason, File::normalizePath(file) + "(" + String::fromUnsigned(line) + ")") {
 }
 
 egg::yolk::SyntaxException::SyntaxException(const std::string& reason, const std::string& resource, const ExceptionLocation& location, const std::string& token)
