@@ -52,9 +52,6 @@ namespace {
       : EggEngineBaseContext(logger) {
       assert(logger != nullptr);
     }
-    virtual void print(const std::string& text) {
-      this->log(egg::lang::LogSource::User, egg::lang::LogSeverity::Information, text);
-    }
   };
 
   class EggEngineParsed : public IEggEngine {

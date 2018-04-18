@@ -12,7 +12,7 @@ TEST(TestExceptions, Catch) {
   try {
     EGG_THROW(expected_message);
   } catch (const egg::yolk::Exception& exception) {
-    auto ending = expected_file + "(" + std::to_string(expected_line) + ")";
+    auto ending = expected_file + "(" + egg::yolk::String::fromSigned(expected_line) + ")";
     ASSERT_ENDSWITH(exception.what(), ending + ": " + expected_message);
     ASSERT_EQ(expected_message, exception.reason());
     ASSERT_ENDSWITH(exception.where(), ending);

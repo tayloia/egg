@@ -37,6 +37,9 @@
     <ClCompile Include="..\cpp\test\egg-engine.cpp">
       <Filter>Test Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\cpp\test\examples.cpp">
+      <Filter>Test Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Data Files">
@@ -45,6 +48,9 @@
     <Filter Include="Test Files">
       <UniqueIdentifier>{f8183c1a-ec54-45fd-ba1d-9f1205a078b1}</UniqueIdentifier>
       <Extensions>.cpp</Extensions>
+    </Filter>
+    <Filter Include="Example Files">
+      <UniqueIdentifier>{5a94480c-c1c0-4f87-ae70-ece0f8ebcf01}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
@@ -59,6 +65,21 @@
     </None>
     <None Include="..\cpp\test\data\working.egg">
       <Filter>Data Files</Filter>
+    </None>
+    <None Include="..\examples\example-0001.egg">
+      <Filter>Example Files</Filter>
+    </None>
+    <None Include="..\examples\example-0002.egg">
+      <Filter>Example Files</Filter>
+    </None>
+    <None Include="..\examples\example-0003.egg">
+      <Filter>Example Files</Filter>
+    </None>
+    <None Include="..\examples\example-0004.egg">
+      <Filter>Example Files</Filter>
+    </None>
+    <None Include="..\examples\example-0005.egg">
+      <Filter>Example Files</Filter>
     </None>
   </ItemGroup>
   <ItemGroup>

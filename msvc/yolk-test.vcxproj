@@ -24,6 +24,7 @@
     <ClCompile Include="..\cpp\test\egg-syntax.cpp" />
     <ClCompile Include="..\cpp\test\egg-tokenizer.cpp" />
     <ClCompile Include="..\cpp\test\egged-tokenizer.cpp" />
+    <ClCompile Include="..\cpp\test\examples.cpp" />
     <ClCompile Include="..\cpp\test\exceptions.cpp" />
     <ClCompile Include="..\cpp\test\files.cpp" />
     <ClCompile Include="..\cpp\test\json-tokenizer.cpp" />
@@ -55,6 +56,11 @@
     <None Include="..\cpp\test\data\example.egg" />
     <None Include="..\cpp\test\data\example.json" />
     <None Include="..\cpp\test\data\working.egg" />
+    <None Include="..\examples\example-0001.egg" />
+    <None Include="..\examples\example-0002.egg" />
+    <None Include="..\examples\example-0003.egg" />
+    <None Include="..\examples\example-0004.egg" />
+    <None Include="..\examples\example-0005.egg" />
   </ItemGroup>
   <ItemGroup>
     <Text Include="..\cpp\test\data\utf-8-demo.bom.txt" />

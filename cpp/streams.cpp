@@ -62,6 +62,10 @@ void egg::yolk::CharStream::slurp(std::u32string& text) {
   }
 }
 
+bool egg::yolk::CharStream::rewind() {
+  return this->bytes.rewind();
+}
+
 bool egg::yolk::TextStream::ensure(size_t count) {
   int ch = 0;
   if (this->upcoming.empty()) {
@@ -188,4 +192,14 @@ void egg::yolk::TextStream::slurp(std::u32string& text, int eol) {
       ch = this->get();
     }
   }
+}
+
+bool egg::yolk::TextStream::rewind() {
+  if (this->chars.rewind()) {
+    this->upcoming.clear();
+    this->line = 1;
+    this->column = 1;
+    return true;
+  }
+  return false;
 }
