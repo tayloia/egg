@@ -6,20 +6,19 @@ namespace {
   class BuiltinType : public egg::gc::NotReferenceCounted<IType> {
   private:
     String name;
+    String signature;
   public:
-    inline explicit BuiltinType(const std::string& name)
-      : name(String::fromUTF8(name)) {
+    inline BuiltinType(const String& name, const String& signature)
+      : name(name), signature(signature) {
     }
     virtual String toString() const override {
-      return this->name;
+      return this->signature;
     }
-    virtual bool canAssignFrom(const IType&, String& problem) const override {
-      problem = String::fromUTF8("WIBBLE" __FUNCTION__);
-      return false;
+    virtual Value canAlwaysAssignFrom(const IType&) const override {
+      return Value::raise("Cannot re-assign built-in function '", this->name, "'");
     }
-    virtual bool tryAssignFrom(Value&, const Value&, String& problem) const override {
-      problem = String::fromUTF8("WIBBLE" __FUNCTION__);
-      return false;
+    virtual Value promoteAssignment(const Value&) const override {
+      return Value::raise("Cannot re-assign built-in function '", this->name, "'");
     }
   };
 
@@ -28,8 +27,8 @@ namespace {
     String name;
     BuiltinType type;
   public:
-    inline Builtin(const std::string& name, const std::string& type)
-      : name(String::fromUTF8(name)), type(type) {
+    inline Builtin(const String& name, const String& signature)
+      : name(name), type(name, signature) {
     }
     virtual bool dispose() override {
       // We don't allow disposing of built-ins
@@ -46,7 +45,7 @@ namespace {
 
   class Print : public Builtin {
   public:
-    inline Print() : Builtin("[print]", "void print(...)") {}
+    inline Print() : Builtin(String::fromUTF8("print"), String::fromUTF8("void print(...)")) {}
     virtual Value call(IExecution& execution, const IParameters& parameters) override {
       if (parameters.getNamedCount() > 0) {
         return Value::raise("print(): Named parameters are not supported");

@@ -62,11 +62,10 @@ namespace {
     virtual egg::lang::ITypeRef referencedType() const override {
       return this->referenced;
     }
-
-    virtual bool canAssignFrom(const IType&, egg::lang::String&) const override {
+    virtual egg::lang::Value canAlwaysAssignFrom(const egg::lang::IType&) const override {
       EGG_THROW("WIBBLE" __FUNCTION__);
     }
-    virtual bool tryAssignFrom(egg::lang::Value&, const egg::lang::Value&, egg::lang::String&) const override {
+    virtual egg::lang::Value promoteAssignment(const egg::lang::Value&) const override {
       EGG_THROW("WIBBLE" __FUNCTION__);
     }
   };
@@ -92,10 +91,10 @@ namespace {
       }
       return egg::lang::Type::makeUnion(*this, other);
     }
-    virtual bool canAssignFrom(const IType&, egg::lang::String&) const override {
+    virtual egg::lang::Value canAlwaysAssignFrom(const egg::lang::IType&) const override {
       EGG_THROW("WIBBLE" __FUNCTION__);
     }
-    virtual bool tryAssignFrom(egg::lang::Value&, const egg::lang::Value&, egg::lang::String&) const override {
+    virtual egg::lang::Value promoteAssignment(const egg::lang::Value&) const override {
       EGG_THROW("WIBBLE" __FUNCTION__);
     }
   };
@@ -118,11 +117,10 @@ namespace {
     virtual egg::lang::String toString() const override {
       return egg::lang::String::concat(this->a->toString(), "|", this->b->toString());
     }
-
-    virtual bool canAssignFrom(const IType&, egg::lang::String&) const override {
+    virtual egg::lang::Value canAlwaysAssignFrom(const egg::lang::IType&) const override {
       EGG_THROW("WIBBLE" __FUNCTION__);
     }
-    virtual bool tryAssignFrom(egg::lang::Value&, const egg::lang::Value&, egg::lang::String&) const override {
+    virtual egg::lang::Value promoteAssignment(const egg::lang::Value&) const override {
       EGG_THROW("WIBBLE" __FUNCTION__);
     }
   };
@@ -259,10 +257,6 @@ egg::lang::Value egg::lang::Value::makeFlowControl(egg::lang::Discriminator tag,
   assert(result.is(Discriminator::FlowControl));
   return result;
 }
-  
-egg::lang::Value egg::lang::Value::raise(const egg::lang::String& exception) {
-  return Value(Discriminator::Exception, new Value(exception));
-}
 
 std::string egg::lang::Value::getTagString(Discriminator tag) {
   static const egg::yolk::String::StringFromEnum table[] = {
@@ -356,8 +350,7 @@ egg::lang::ITypeRef egg::lang::IType::denulledType() const {
 
 egg::lang::Value egg::lang::IType::decantParameters(const egg::lang::IParameters&, Setter) const {
   // The default implementation is to return an error (only function-like types decant parameters)
-  auto message = String::concat("Internal type error: Cannot decant parameters for type '", this->toString(), "'");
-  return egg::lang::Value::raise(message);
+  return egg::lang::Value::raise("Internal type error: Cannot decant parameters for type '", this->toString(), "'");
 }
 
 egg::lang::Discriminator egg::lang::IType::getSimpleTypes() const {

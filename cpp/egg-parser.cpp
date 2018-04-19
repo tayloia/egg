@@ -45,32 +45,36 @@ namespace {
       }
       return egg::lang::ITypeRef(this);
     }
-    virtual bool canAssignFrom(const egg::lang::IType& rtype, egg::lang::String& problem) const {
-      auto simple = rtype.getSimpleTypes();
-      if (egg::lang::Bits::hasAnySet(simple, this->tag)) {
-        // There's at least one assignment that will work -- TODO
-        return true;
+    virtual egg::lang::Value canAlwaysAssignFrom(const egg::lang::IType& rhs) const override {
+      auto simple = rhs.getSimpleTypes();
+      if (simple != egg::lang::Discriminator::None) {
+        // The source is a simple type
+        auto intersection = egg::lang::Bits::mask(this->tag, simple);
+        if (intersection == this->tag) {
+          // All possible source values can be accommodated in the destination
+          return egg::lang::Value::True;
+        }
+        if (intersection != egg::lang::Discriminator::None) {
+          // Only some of the source values can be accommodated in the destination
+          return egg::lang::Value::False;
+        }
+        if (this->hasNativeType(egg::lang::Discriminator::Float) && rhs.hasNativeType(egg::lang::Discriminator::Int)) {
+          // We allow type promotion int->float
+          return egg::lang::Value::False;
+        }
       }
-      if (this->hasNativeType(egg::lang::Discriminator::Float) && rtype.hasNativeType(egg::lang::Discriminator::Int)) {
-        // We allow type promotion int->float
-        return true;
-      }
-      problem = egg::lang::String::concat("Cannot assign a value of type '", rtype.toString(), "' to a target of type '", egg::lang::Value::getTagString(this->tag), "'");
-      return false;
+      return egg::lang::Value::raise("Cannot assign a value of type '", rhs.toString(), "' to a target of type '", egg::lang::Value::getTagString(this->tag), "'");
     }
-    virtual bool tryAssignFrom(egg::lang::Value& lhs, const egg::lang::Value& rhs, egg::lang::String& problem) const override {
+    virtual egg::lang::Value promoteAssignment(const egg::lang::Value& rhs) const override {
       if (rhs.is(this->tag)) {
         // It's an exact type match
-        lhs = rhs;
-        return true;
+        return rhs;
       }
       if (this->hasNativeType(egg::lang::Discriminator::Float) && rhs.is(egg::lang::Discriminator::Int)) {
         // We allow type promotion int->float
-        lhs = egg::lang::Value(double(rhs.getInt())); // TODO overflows?
-        return true;
+        return egg::lang::Value(double(rhs.getInt())); // TODO overflows?
       }
-      problem = egg::lang::String::concat("Cannot assign a value of type '", rhs.getRuntimeType().toString(), "' to a target of type '", egg::lang::Value::getTagString(this->tag), "'");
-      return false;
+      return egg::lang::Value::raise("Cannot promote a value of type '", rhs.getRuntimeType().toString(), "' to a target of type '", egg::lang::Value::getTagString(this->tag), "'");
     }
     virtual egg::lang::String toString() const {
       return egg::lang::String::fromUTF8(egg::lang::Value::getTagString(this->tag));
@@ -95,13 +99,11 @@ namespace {
     explicit EggParserTypeFunction(const egg::lang::IType& retval)
       : retval(&retval) {
     }
-    virtual bool canAssignFrom(const egg::lang::IType& rtype, egg::lang::String& problem) const {
-      problem = egg::lang::String::concat("TODO: Assignment of a value of type '", rtype.toString(), "' to a target of type '", this->toString(), "' is currently unimplemented"); // TODO
-      return false;
+    virtual egg::lang::Value canAlwaysAssignFrom(const egg::lang::IType& rhs) const override {
+      return egg::lang::Value::raise("TODO: Assignment of a value of type '", rhs.toString(), "' to a target of type '", this->toString(), "' is currently unimplemented"); // TODO
     }
-    virtual bool tryAssignFrom(egg::lang::Value&, const egg::lang::Value& rhs, egg::lang::String& problem) const {
-      problem = egg::lang::String::concat("TODO: Assignment of a value of type '", rhs.getRuntimeType().toString(), "' to a target of type '", this->toString(), "' is currently unimplemented"); // TODO
-      return false;
+    virtual egg::lang::Value promoteAssignment(const egg::lang::Value& rhs) const {
+      return egg::lang::Value::raise("TODO: Promotion of a value of type '", rhs.getRuntimeType().toString(), "' to a target of type '", this->toString(), "' is currently unimplemented"); // TODO
     }
     virtual egg::lang::Value decantParameters(const egg::lang::IParameters& supplied, Setter setter) const override {
       if (supplied.getNamedCount() > 0) {
@@ -109,12 +111,10 @@ namespace {
       }
       size_t given = supplied.getPositionalCount();
       if (given < this->expected.size()) {
-        auto message = "Too few parameters in function call: Expected " + String::fromUnsigned(this->expected.size()) + ", but got " + String::fromUnsigned(given);
-        return egg::lang::Value::raise(message);
+        return egg::lang::Value::raise("Too few parameters in function call: Expected ", this->expected.size(), ", but got ", given);
       }
       if (given > this->expected.size()) {
-        auto message = "Too many parameters in function call: Expected " + String::fromUnsigned(this->expected.size()) + ", but got " + String::fromUnsigned(given);
-        return egg::lang::Value::raise(message);
+        return egg::lang::Value::raise("Too many parameters in function call: Expected ", this->expected.size(), ", but got ", given);
       }
       // TODO: Value type checking
       for (size_t i = 0; i < given; ++i) {

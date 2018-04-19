@@ -208,9 +208,11 @@ public:
     void assign(const egg::lang::Value& rhs) {
       // Ask the type to assign the value so that type promotion can occur
       egg::lang::String problem;
-      if (!this->type->tryAssignFrom(this->value, rhs, problem)) {
-        EGG_THROW(problem.toUTF8()); // TODO don't throw here!
+      auto promoted = this->type->promoteAssignment(rhs);
+      if (promoted.is(egg::lang::Discriminator::Exception)) {
+        EGG_THROW(promoted.getFlowControl().getString().toUTF8()); // TODO don't throw here!
       }
+      this->value = promoted;
     }
   };
 private:
@@ -303,17 +305,12 @@ egg::lang::Value egg::yolk::EggProgramContext::executeBlock(const IEggProgramNod
   return context.executeStatements(statements);
 }
 
-egg::lang::Value egg::yolk::EggProgramContext::executeDeclare(const IEggProgramNode& self, const egg::lang::String& name, const egg::lang::IType& type, const IEggProgramNode* rvalue) {
+egg::lang::Value egg::yolk::EggProgramContext::executeDeclare(const IEggProgramNode& self, const egg::lang::String& name, const egg::lang::IType&, const IEggProgramNode* rvalue) {
   // The type information has already been used in the symbol declaration phase
   this->statement(self);
   if (rvalue != nullptr) {
-    // The declaration contains an initial value, so type-check it
-    auto rtype = rvalue->getType();
-    egg::lang::String problem;
-    if (type.canAssignFrom(*rtype, problem)) {
-      return this->set(name, rvalue->execute(*this));
-    }
-    return egg::lang::Value::raise(problem);
+    // The declaration contains an initial value
+    return this->set(name, rvalue->execute(*this));
   }
   return egg::lang::Value::Void;
 }
@@ -569,7 +566,7 @@ egg::lang::Value egg::yolk::EggProgramContext::executeThrow(const IEggProgramNod
     return value;
   }
   if (!value.is(egg::lang::Discriminator::Any)) {
-    return egg::lang::Value::raise("Cannot 'throw' a value of type '" + value.getTagString() + "'");
+    return egg::lang::Value::raise("Cannot 'throw' a value of type '", value.getTagString(), "'");
   }
   return egg::lang::Value::raise(value.getString());
 }
@@ -761,10 +758,10 @@ void egg::yolk::EggProgramContext::expression(const IEggProgramNode&) {
 egg::lang::Value egg::yolk::EggProgramContext::get(const egg::lang::String& name) {
   auto symbol = this->symtable->findSymbol(name);
   if (symbol == nullptr) {
-    return egg::lang::Value::raise(egg::lang::String::concat("Unknown identifier: '", name, "'"));
+    return egg::lang::Value::raise("Unknown identifier: '", name, "'");
   }
   if (symbol->value.is(egg::lang::Discriminator::Void)) {
-    return egg::lang::Value::raise(egg::lang::String::concat("Uninitialized identifier: '", name.toUTF8(), "'"));
+    return egg::lang::Value::raise("Uninitialized identifier: '", name.toUTF8(), "'");
   }
   return symbol->value;
 }
@@ -782,7 +779,7 @@ egg::lang::Value egg::yolk::EggProgramContext::set(const egg::lang::String& name
 egg::lang::Value egg::yolk::EggProgramContext::assign(EggProgramAssign op, const IEggProgramNode& lvalue, const IEggProgramNode& rvalue) {
   auto dst = lvalue.assignee(*this);
   if (dst == nullptr) {
-    return egg::lang::Value::raise("Left-hand side of assignment operator '" + EggProgram::assignToString(op) + "' is not a valid target");
+    return egg::lang::Value::raise("Left-hand side of assignment operator '", EggProgram::assignToString(op), "' is not a valid target");
   }
   auto lhs = dst->get();
   if (lhs.is(egg::lang::Discriminator::FlowControl)) {
@@ -827,7 +824,7 @@ egg::lang::Value egg::yolk::EggProgramContext::assign(EggProgramAssign op, const
     rhs = arithmeticInt(lhs, rvalue, "bitwise-or assignment '|='", bitwiseOrInt);
     break;
   default:
-    return egg::lang::Value::raise("Internal runtime error: Unknown assignment operator: '" + EggProgram::assignToString(op) + "'");
+    return egg::lang::Value::raise("Internal runtime error: Unknown assignment operator: '", EggProgram::assignToString(op), "'");
   }
   if (rhs.is(egg::lang::Discriminator::FlowControl)) {
     return rhs;
@@ -838,7 +835,7 @@ egg::lang::Value egg::yolk::EggProgramContext::assign(EggProgramAssign op, const
 egg::lang::Value egg::yolk::EggProgramContext::mutate(EggProgramMutate op, const IEggProgramNode& lvalue) {
   auto dst = lvalue.assignee(*this);
   if (dst == nullptr) {
-    return egg::lang::Value::raise("Operand of mutation operator '" + EggProgram::mutateToString(op) + "' is not a valid target");
+    return egg::lang::Value::raise("Operand of mutation operator '", EggProgram::mutateToString(op), "' is not a valid target");
   }
   auto lhs = dst->get();
   if (lhs.is(egg::lang::Discriminator::FlowControl)) {
@@ -859,7 +856,7 @@ egg::lang::Value egg::yolk::EggProgramContext::mutate(EggProgramMutate op, const
     rhs = minusInt(lhs.getInt(), 1);
     break;
   default:
-    return egg::lang::Value::raise("Internal runtime error: Unknown mutation operator: '" + EggProgram::mutateToString(op) + "'");
+    return egg::lang::Value::raise("Internal runtime error: Unknown mutation operator: '", EggProgram::mutateToString(op), "'");
   }
   if (rhs.is(egg::lang::Discriminator::FlowControl)) {
     return rhs;
@@ -872,7 +869,7 @@ egg::lang::Value egg::yolk::EggProgramContext::condition(const IEggProgramNode& 
   if (retval.is(egg::lang::Discriminator::Bool | egg::lang::Discriminator::FlowControl)) {
     return retval;
   }
-  return egg::lang::Value::raise("Expected condition to evaluate to a 'bool', but got '" + retval.getTagString() + "' instead");
+  return egg::lang::Value::raise("Expected condition to evaluate to a 'bool', but got '", retval.getTagString(), "' instead");
 }
 
 egg::lang::Value egg::yolk::EggProgramContext::unary(EggProgramUnary op, const IEggProgramNode& value) {
@@ -898,7 +895,7 @@ egg::lang::Value egg::yolk::EggProgramContext::unary(EggProgramUnary op, const I
   case EggProgramUnary::Ellipsis:
     return egg::lang::Value::raise("TODO " __FUNCTION__ " not fully implemented"); // TODO
   default:
-    return egg::lang::Value::raise("Internal runtime error: Unknown unary operator: '" + EggProgram::unaryToString(op) + "'");
+    return egg::lang::Value::raise("Internal runtime error: Unknown unary operator: '", EggProgram::unaryToString(op), "'");
   }
 }
 
@@ -985,7 +982,7 @@ egg::lang::Value egg::yolk::EggProgramContext::binary(EggProgramBinary op, const
     }
     return EggProgramContext::unexpected("Expected left operand of logical-or '||' to be 'bool'", left);
   default:
-    return egg::lang::Value::raise("Internal runtime error: Unknown binary operator: '" + EggProgram::binaryToString(op) + "'");
+    return egg::lang::Value::raise("Internal runtime error: Unknown binary operator: '", EggProgram::binaryToString(op), "'");
   }
 }
 
@@ -1046,7 +1043,7 @@ egg::lang::Value egg::yolk::EggProgramContext::call(const egg::lang::Value& call
 }
 
 egg::lang::Value egg::yolk::EggProgramContext::unexpected(const std::string& expectation, const egg::lang::Value& value) {
-  return egg::lang::Value::raise(expectation + ", but got '" + value.getTagString() + "' instead");
+  return egg::lang::Value::raise(expectation, ", but got '", value.getTagString(), "' instead");
 }
 
 void egg::yolk::EggProgramContext::print(const std::string & utf8) {

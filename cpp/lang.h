@@ -117,6 +117,8 @@ namespace egg::lang {
     virtual IType* acquireHard() const = 0;
     virtual void releaseHard() const = 0;
     virtual String toString() const = 0;
+    virtual Value canAlwaysAssignFrom(const IType& rhs) const = 0;
+    virtual Value promoteAssignment(const Value& rhs) const = 0;
 
     virtual Discriminator getSimpleTypes() const; // Default implementation returns 'None'
     virtual Ref referencedType() const; // Default implementation returns 'Type*'
@@ -125,9 +127,6 @@ namespace egg::lang {
     virtual Ref unionWith(const IType& other) const; // Default implementation calls Type::makeUnion()
     typedef std::function<void(const String& name, const IType& type, const Value& value)> Setter;
     virtual Value decantParameters(const IParameters& supplied, Setter setter) const; // Default implementation returns an error
-
-    virtual bool canAssignFrom(const IType& rtype, String& problem) const = 0;
-    virtual bool tryAssignFrom(Value& lhs, const Value& rhs, String& problem) const = 0;
 
     // Helpers
     inline bool hasNativeType(Discriminator native) const {
@@ -257,9 +256,11 @@ namespace egg::lang {
     static std::string getTagString(Discriminator tag);
     static bool equal(const Value& lhs, const Value& rhs);
     static Value makeFlowControl(Discriminator tag, Value* value);
-    inline static Value raise(const std::string& utf8) { return Value::raise(String::fromUTF8(utf8)); }
-    static Value raise(const String& exception);
-    inline static Value fromUTF8(const std::string& utf8) { return Value(String::fromUTF8(utf8)); }
+    template<typename... ARGS>
+    static Value raise(ARGS... args) {
+      auto message = StringBuilder().add(args...).str();
+      return Value(Discriminator::Exception, new Value(message));
+    }
     std::string toUTF8() const;
     const IType& getRuntimeType() const;
 
