@@ -122,10 +122,10 @@ namespace egg::yolk {
   class EggSyntaxNode_Type : public EggSyntaxNodeBase {
     EGG_NO_COPY(EggSyntaxNode_Type);
   private:
-    egg::lang::Discriminator tag;
+    egg::lang::ITypeRef type;
   public:
-    explicit EggSyntaxNode_Type(const EggSyntaxNodeLocation& location, egg::lang::Discriminator tag)
-      : EggSyntaxNodeBase(location), tag(tag) {
+    explicit EggSyntaxNode_Type(const EggSyntaxNodeLocation& location, const egg::lang::IType& type)
+      : EggSyntaxNodeBase(location), type(&type) {
     }
     virtual void dump(std::ostream& os) const override;
     virtual egg::lang::String token() const override;

@@ -9,77 +9,9 @@ namespace {
   using namespace egg::yolk;
 
   // This is the integer representation of the enum bit-mask
-  typedef std::underlying_type_t<EggParserAllowed> EggParserAllowedUnderlying;
   inline EggParserAllowed operator|(EggParserAllowed lhs, EggParserAllowed rhs) {
-    return static_cast<EggParserAllowed>(static_cast<EggParserAllowedUnderlying>(lhs) | static_cast<EggParserAllowedUnderlying>(rhs));
+    return egg::lang::Bits::set(lhs, rhs);
   }
-
-  // WIBBLE remove?
-  class EggParserTypeSimple : public egg::gc::HardReferenceCounted<egg::lang::IType> {
-    EGG_NO_COPY(EggParserTypeSimple);
-  private:
-    egg::lang::Discriminator tag;
-  public:
-    explicit EggParserTypeSimple(egg::lang::Discriminator tag) : tag(tag) {
-    }
-    virtual egg::lang::Discriminator getSimpleTypes() const override {
-      return this->tag;
-    }
-    virtual egg::lang::ITypeRef denulledType() const override {
-      if (egg::lang::Bits::hasAnySet(this->tag, egg::lang::Discriminator::Null)) {
-        // We need to clear the bit
-        return egg::lang::ITypeRef::make<EggParserTypeSimple>(egg::lang::Bits::clear(this->tag, egg::lang::Discriminator::Null));
-      }
-      return egg::lang::ITypeRef(this);
-    }
-    virtual egg::lang::ITypeRef unionWith(const IType& other) const {
-      auto simple = other.getSimpleTypes();
-      if (simple == egg::lang::Discriminator::None) {
-        // The other type is not simple
-        return egg::lang::Type::makeUnion(*this, other);
-      }
-      auto both = egg::lang::Bits::set(this->tag, simple);
-      if (both != this->tag) {
-        // There's a new simple type that we don't support, so create a new type
-        return egg::lang::ITypeRef::make<EggParserTypeSimple>(both);
-      }
-      return egg::lang::ITypeRef(this);
-    }
-    virtual egg::lang::Value canAlwaysAssignFrom(const egg::lang::IType& rhs) const override {
-      auto simple = rhs.getSimpleTypes();
-      if (simple != egg::lang::Discriminator::None) {
-        // The source is a simple type
-        auto intersection = egg::lang::Bits::mask(this->tag, simple);
-        if (intersection == this->tag) {
-          // All possible source values can be accommodated in the destination
-          return egg::lang::Value::True;
-        }
-        if (intersection != egg::lang::Discriminator::None) {
-          // Only some of the source values can be accommodated in the destination
-          return egg::lang::Value::False;
-        }
-        if (this->hasNativeType(egg::lang::Discriminator::Float) && rhs.hasNativeType(egg::lang::Discriminator::Int)) {
-          // We allow type promotion int->float
-          return egg::lang::Value::False;
-        }
-      }
-      return egg::lang::Value::raise("Cannot assign a value of type '", rhs.toString(), "' to a target of type '", egg::lang::Value::getTagString(this->tag), "'");
-    }
-    virtual egg::lang::Value promoteAssignment(const egg::lang::Value& rhs) const override {
-      if (rhs.is(this->tag)) {
-        // It's an exact type match
-        return rhs;
-      }
-      if (this->hasNativeType(egg::lang::Discriminator::Float) && rhs.is(egg::lang::Discriminator::Int)) {
-        // We allow type promotion int->float
-        return egg::lang::Value(double(rhs.getInt())); // TODO overflows?
-      }
-      return egg::lang::Value::raise("Cannot promote a value of type '", rhs.getRuntimeType().toString(), "' to a target of type '", egg::lang::Value::getTagString(this->tag), "'");
-    }
-    virtual egg::lang::String toString() const {
-      return egg::lang::String::fromUTF8(egg::lang::Value::getTagString(this->tag));
-    }
-  };
 
   class EggParserTypeFunction : public egg::gc::HardReferenceCounted<egg::lang::IType> {
     EGG_NO_COPY(EggParserTypeFunction);
@@ -130,15 +62,6 @@ namespace {
     }
   };
 
-  // Constants WIBBLE
-  const egg::lang::ITypeRef typeVoid{ new EggParserTypeSimple(egg::lang::Discriminator::Void) };
-  const egg::lang::ITypeRef typeNull{ new EggParserTypeSimple(egg::lang::Discriminator::Null) };
-  const egg::lang::ITypeRef typeBool{ new EggParserTypeSimple(egg::lang::Discriminator::Bool) };
-  const egg::lang::ITypeRef typeInt{ new EggParserTypeSimple(egg::lang::Discriminator::Int) };
-  const egg::lang::ITypeRef typeFloat{ new EggParserTypeSimple(egg::lang::Discriminator::Float) };
-  const egg::lang::ITypeRef typeArithmetic{ new EggParserTypeSimple(egg::lang::Discriminator::Arithmetic) };
-  const egg::lang::ITypeRef typeString{ new EggParserTypeSimple(egg::lang::Discriminator::String) };
-
   enum class EggParserArithmetic {
     None,
     Int,
@@ -157,31 +80,31 @@ namespace {
   egg::lang::ITypeRef makeArithmeticType(EggParserArithmetic arithmetic) {
     switch (arithmetic) {
     case EggParserArithmetic::Int:
-      return typeInt;
+      return egg::lang::Type::Int;
     case EggParserArithmetic::Float:
-      return typeFloat;
+      return egg::lang::Type::Float;
     case EggParserArithmetic::Both:
-      return typeArithmetic;
+      return egg::lang::Type::Arithmetic;
     case EggParserArithmetic::None:
     default:
       break;
     }
-    return egg::lang::Type::Null; // TODO WIBBLE
+    return egg::lang::Type::Null; // WIBBLE
   }
 
   egg::lang::ITypeRef binaryArithmeticTypes(const std::shared_ptr<IEggProgramNode>& lhs, const std::shared_ptr<IEggProgramNode>& rhs) {
     auto lhsa = getArithmeticTypes(*lhs);
     auto rhsa = getArithmeticTypes(*rhs);
     if ((lhsa == EggParserArithmetic::None) || (rhsa == EggParserArithmetic::None)) {
-      return typeVoid;
+      return egg::lang::Type::Void;
     }
     if ((lhsa == EggParserArithmetic::Int) && (rhsa == EggParserArithmetic::Int)) {
-      return typeInt;
+      return egg::lang::Type::Int;
     }
     if ((lhsa == EggParserArithmetic::Float) || (rhsa == EggParserArithmetic::Float)) {
-      return typeFloat;
+      return egg::lang::Type::Float;
     }
-    return typeArithmetic;
+    return egg::lang::Type::Arithmetic;
   }
 
   SyntaxException exceptionFromLocation(const IEggParserContext& context, const std::string& reason, const EggSyntaxNodeLocation& location) {
@@ -239,7 +162,7 @@ namespace {
   public:
     virtual egg::lang::ITypeRef getType() const override {
       // By default, nodes are statements (i.e. void return type)
-      return typeVoid;
+      return egg::lang::Type::Void;
     }
     virtual bool symbol(egg::lang::String&, egg::lang::ITypeRef&) const override {
       // By default, nodes do not declare symbols
@@ -790,7 +713,7 @@ namespace {
   class EggParserNode_LiteralNull : public EggParserNodeBase {
   public:
     virtual egg::lang::ITypeRef getType() const override {
-      return typeNull;
+      return egg::lang::Type::Null;
     }
     virtual egg::lang::Value execute(EggProgramContext& context) const override {
       return context.executeLiteral(*this, egg::lang::Value::Null);
@@ -809,7 +732,7 @@ namespace {
       : value(value) {
     }
     virtual egg::lang::ITypeRef getType() const override {
-      return typeBool;
+      return egg::lang::Type::Bool;
     }
     virtual egg::lang::Value execute(EggProgramContext& context) const override {
       return context.executeLiteral(*this, egg::lang::Value(this->value));
@@ -829,7 +752,7 @@ namespace {
       : value(value) {
     }
     virtual egg::lang::ITypeRef getType() const override {
-      return typeInt;
+      return egg::lang::Type::Int;
     }
     virtual egg::lang::Value execute(EggProgramContext& context) const override {
       return context.executeLiteral(*this, egg::lang::Value(this->value));
@@ -847,7 +770,7 @@ namespace {
       : value(value) {
     }
     virtual egg::lang::ITypeRef getType() const override {
-      return typeFloat;
+      return egg::lang::Type::Float;
     }
     virtual egg::lang::Value execute(EggProgramContext& context) const override {
       return context.executeLiteral(*this, egg::lang::Value(this->value));
@@ -865,7 +788,7 @@ namespace {
       : value(value) {
     }
     virtual egg::lang::ITypeRef getType() const override {
-      return typeString;
+      return egg::lang::Type::String;
     }
     virtual egg::lang::Value execute(EggProgramContext& context) const override {
       return context.executeLiteral(*this, egg::lang::Value(this->value));
@@ -982,17 +905,16 @@ namespace {
 
   class EggParserContextBase : public IEggParserContext {
   private:
-    EggParserAllowedUnderlying allowed;
+    EggParserAllowed allowed;
   public:
     explicit EggParserContextBase(EggParserAllowed allowed)
-      : allowed(static_cast<EggParserAllowedUnderlying>(allowed)) {
+      : allowed(allowed) {
     }
     virtual bool isAllowed(EggParserAllowed bit) const override {
-      return (this->allowed & static_cast<EggParserAllowedUnderlying>(bit)) != 0;
+      return egg::lang::Bits::hasAnySet(this->allowed, bit);
     }
     virtual EggParserAllowed inheritAllowed(EggParserAllowed allow, EggParserAllowed inherit) const {
-      auto inherited = this->allowed & static_cast<EggParserAllowedUnderlying>(inherit);
-      return static_cast<EggParserAllowed>(inherited | static_cast<EggParserAllowedUnderlying>(allow));
+      return egg::lang::Bits::mask(this->allowed, inherit) | allow;
     }
     virtual std::shared_ptr<IEggProgramNode> promote(const IEggSyntaxNode& node) override {
       return node.promote(*this);
@@ -1165,8 +1087,7 @@ std::shared_ptr<egg::yolk::IEggProgramNode> egg::yolk::EggSyntaxNode_Block::prom
 }
 
 std::shared_ptr<egg::yolk::IEggProgramNode> egg::yolk::EggSyntaxNode_Type::promote(egg::yolk::IEggParserContext&) const {
-  auto type = new EggParserTypeSimple(this->tag);
-  return std::make_shared<EggParserNode_Type>(*type);
+  return std::make_shared<EggParserNode_Type>(*this->type);
 }
 
 std::shared_ptr<egg::yolk::IEggProgramNode> egg::yolk::EggSyntaxNode_Declare::promote(egg::yolk::IEggParserContext& context) const {
@@ -1585,7 +1506,7 @@ std::shared_ptr<egg::yolk::IEggProgramNode> egg::yolk::EggSyntaxNode_Literal::pr
 }
 
 egg::lang::ITypeRef EggParserNode_UnaryLogicalNot::getType() const {
-  return typeBool;
+  return egg::lang::Type::Bool;
 }
 
 egg::lang::ITypeRef EggParserNode_UnaryRef::getType() const {
@@ -1609,11 +1530,11 @@ egg::lang::ITypeRef EggParserNode_UnaryEllipsis::getType() const {
 }
 
 egg::lang::ITypeRef EggParserNode_UnaryBitwiseNot::getType() const {
-  return typeInt;
+  return egg::lang::Type::Int;
 }
 
 egg::lang::ITypeRef EggParserNode_BinaryUnequal::getType() const {
-  return typeBool;
+  return egg::lang::Type::Bool;
 }
 
 egg::lang::ITypeRef EggParserNode_BinaryRemainder::getType() const {
@@ -1623,11 +1544,11 @@ egg::lang::ITypeRef EggParserNode_BinaryRemainder::getType() const {
 }
 
 egg::lang::ITypeRef EggParserNode_BinaryBitwiseAnd::getType() const {
-  return typeInt;
+  return egg::lang::Type::Int;
 }
 
 egg::lang::ITypeRef EggParserNode_BinaryLogicalAnd::getType() const {
-  return typeBool;
+  return egg::lang::Type::Bool;
 }
 
 egg::lang::ITypeRef EggParserNode_BinaryMultiply::getType() const {
@@ -1655,35 +1576,35 @@ egg::lang::ITypeRef EggParserNode_BinaryDivide::getType() const {
 }
 
 egg::lang::ITypeRef EggParserNode_BinaryLess::getType() const {
-  return typeBool;
+  return egg::lang::Type::Bool;
 }
 
 egg::lang::ITypeRef EggParserNode_BinaryShiftLeft::getType() const {
-  return typeInt;
+  return egg::lang::Type::Int;
 }
 
 egg::lang::ITypeRef EggParserNode_BinaryLessEqual::getType() const {
-  return typeBool;
+  return egg::lang::Type::Bool;
 }
 
 egg::lang::ITypeRef EggParserNode_BinaryEqual::getType() const {
-  return typeBool;
+  return egg::lang::Type::Bool;
 }
 
 egg::lang::ITypeRef EggParserNode_BinaryGreater::getType() const {
-  return typeBool;
+  return egg::lang::Type::Bool;
 }
 
 egg::lang::ITypeRef EggParserNode_BinaryGreaterEqual::getType() const {
-  return typeBool;
+  return egg::lang::Type::Bool;
 }
 
 egg::lang::ITypeRef EggParserNode_BinaryShiftRight::getType() const {
-  return typeInt;
+  return egg::lang::Type::Int;
 }
 
 egg::lang::ITypeRef EggParserNode_BinaryShiftRightUnsigned::getType() const {
-  return typeInt;
+  return egg::lang::Type::Int;
 }
 
 egg::lang::ITypeRef EggParserNode_BinaryNullCoalescing::getType() const {
@@ -1693,7 +1614,7 @@ egg::lang::ITypeRef EggParserNode_BinaryNullCoalescing::getType() const {
     return type1;
   }
   auto type2 = this->rhs->getType();
-  return type1->denulledType()->unionWith(*type2);
+  return type1->coallescedType(*type2);
 }
 
 egg::lang::ITypeRef EggParserNode_BinaryBrackets::getType() const {
@@ -1701,22 +1622,22 @@ egg::lang::ITypeRef EggParserNode_BinaryBrackets::getType() const {
 }
 
 egg::lang::ITypeRef EggParserNode_BinaryBitwiseXor::getType() const {
-  return typeInt;
+  return egg::lang::Type::Int;
 }
 
 egg::lang::ITypeRef EggParserNode_BinaryBitwiseOr::getType() const {
-  return typeInt;
+  return egg::lang::Type::Int;
 }
 
 egg::lang::ITypeRef EggParserNode_BinaryLogicalOr::getType() const {
-  return typeBool;
+  return egg::lang::Type::Bool;
 }
 
 egg::lang::ITypeRef EggParserNode_Ternary::getType() const {
   auto type1 = this->condition->getType();
   if (!type1->hasNativeType(egg::lang::Discriminator::Bool)) {
     // The condition is not a bool, so the other values are irrelevant
-    return typeVoid;
+    return egg::lang::Type::Void;
   }
   auto type2 = this->whenTrue->getType();
   auto type3 = this->whenFalse->getType();

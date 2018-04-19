@@ -64,7 +64,7 @@ void egg::yolk::EggSyntaxNode_Block::dump(std::ostream& os) const {
 }
 
 void egg::yolk::EggSyntaxNode_Type::dump(std::ostream& os) const {
-  ParserDump(os, "type").add(egg::lang::Value::getTagString(this->tag));
+  ParserDump(os, "type").add(this->type->toString());
 }
 
 void egg::yolk::EggSyntaxNode_Declare::dump(std::ostream& os) const {
@@ -300,7 +300,7 @@ egg::lang::String egg::yolk::EggSyntaxNodeBase::token() const {
 }
 
 egg::lang::String egg::yolk::EggSyntaxNode_Type::token() const {
-  return egg::lang::String::fromUTF8(egg::lang::Value::getTagString(this->tag));
+  return this->type->toString();
 }
 
 egg::lang::String egg::yolk::EggSyntaxNode_Declare::token() const {
@@ -1749,7 +1749,8 @@ std::unique_ptr<IEggSyntaxNode> EggSyntaxParserContext::parseTypeSimple(egg::lan
   } else {
     mark.accept(1);
   }
-  return std::make_unique<EggSyntaxNode_Type>(location, tag);
+  auto simple = egg::lang::Type::makeSimple(tag);
+  return std::make_unique<EggSyntaxNode_Type>(location, *simple);
 }
 
 std::unique_ptr<IEggSyntaxNode> EggSyntaxParserContext::parseTypeDefinition() {

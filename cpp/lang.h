@@ -123,7 +123,7 @@ namespace egg::lang {
     virtual Discriminator getSimpleTypes() const; // Default implementation returns 'None'
     virtual Ref referencedType() const; // Default implementation returns 'Type*'
     virtual Ref dereferencedType() const; // Default implementation returns 'Void'
-    virtual Ref denulledType() const; // Default implementation returns self 'Type'
+    virtual Ref coallescedType(const IType& rhs) const; // Default implementation calls Type::makeUnion()
     virtual Ref unionWith(const IType& other) const; // Default implementation calls Type::makeUnion()
     typedef std::function<void(const String& name, const IType& type, const Value& value)> Setter;
     virtual Value decantParameters(const IParameters& supplied, Setter setter) const; // Default implementation returns an error
@@ -142,7 +142,14 @@ namespace egg::lang {
   public:
     static const Type Void;
     static const Type Null;
+    static const Type Bool;
+    static const Type Int;
+    static const Type Float;
+    static const Type String;
+    static const Type Arithmetic;
+    static const Type Any;
 
+    static ITypeRef makeSimple(Discriminator simple);
     static ITypeRef makeUnion(const IType& lhs, const IType& rhs);
   };
 

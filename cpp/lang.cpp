@@ -1,6 +1,39 @@
 #include "yolk.h"
 
 namespace {
+  egg::lang::Value canAlwaysAssignSimple(egg::lang::Discriminator lhs, egg::lang::Discriminator rhs) {
+    assert(lhs != egg::lang::Discriminator::None);
+    if (rhs != egg::lang::Discriminator::None) {
+      // The source is a simple type
+      auto intersection = egg::lang::Bits::mask(lhs, rhs);
+      if (intersection == lhs) {
+        // All possible source values can be accommodated in the destination
+        return egg::lang::Value::True;
+      }
+      if (intersection != egg::lang::Discriminator::None) {
+        // Only some of the source values can be accommodated in the destination
+        return egg::lang::Value::False;
+      }
+      if (egg::lang::Bits::hasAnySet(lhs, egg::lang::Discriminator::Float) && egg::lang::Bits::hasAnySet(rhs, egg::lang::Discriminator::Int)) {
+        // We allow type promotion int->float unless there's an overflow
+        return egg::lang::Value::False;
+      }
+    }
+    return egg::lang::Value::raise("Cannot assign a value of type '", egg::lang::Value::getTagString(rhs), "' to a target of type '", egg::lang::Value::getTagString(lhs), "'");
+  }
+
+  egg::lang::Value promoteAssignmentSimple(egg::lang::Discriminator lhs, const egg::lang::Value& rhs) {
+    if (rhs.is(lhs)) {
+      // It's an exact type match
+      return rhs;
+    }
+    if (egg::lang::Bits::hasAnySet(lhs, egg::lang::Discriminator::Float) && rhs.is(egg::lang::Discriminator::Int)) {
+      // We allow type promotion int->float
+      return egg::lang::Value(double(rhs.getInt())); // TODO overflows?
+    }
+    return egg::lang::Value::raise("Cannot promote a value of type '", rhs.getRuntimeType().toString(), "' to a target of type '", egg::lang::Value::getTagString(lhs), "'");
+  }
+
   class StringBufferUTF8 : public egg::gc::HardReferenceCounted<egg::lang::IString> {
     EGG_NO_COPY(StringBufferUTF8);
   private:
@@ -70,6 +103,40 @@ namespace {
     }
   };
 
+  class TypeNull : public egg::gc::NotReferenceCounted<egg::lang::IType>{
+  private:
+    egg::lang::String name;
+  public:
+    inline TypeNull()
+      : name(egg::lang::String::fromUTF8("null")) {
+    }
+    virtual egg::lang::String toString() const override {
+      return this->name;
+    }
+    virtual egg::lang::Discriminator getSimpleTypes() const override {
+      return egg::lang::Discriminator::Null;
+    }
+    virtual egg::lang::ITypeRef coallescedType(const IType& rhs) const override {
+      // We're always null, so the type is just the type of the rhs
+      return egg::lang::ITypeRef(&rhs);
+    }
+    virtual egg::lang::ITypeRef unionWith(const IType& other) const {
+      auto simple = other.getSimpleTypes();
+      if (egg::lang::Bits::hasAnySet(simple, egg::lang::Discriminator::Null)) {
+        // The other type supports Null anyway
+        return egg::lang::ITypeRef(&other);
+      }
+      return egg::lang::Type::makeUnion(*this, other);
+    }
+    virtual egg::lang::Value canAlwaysAssignFrom(const egg::lang::IType&) const override {
+      return egg::lang::Value::raise("Cannot assign to 'null' value");
+    }
+    virtual egg::lang::Value promoteAssignment(const egg::lang::Value&) const override {
+      return egg::lang::Value::raise("Cannot assign to 'null' value");
+    }
+  };
+  const TypeNull typeNull{};
+
   template<egg::lang::Discriminator TAG>
   class TypeNative : public egg::gc::NotReferenceCounted<egg::lang::IType> {
   private:
@@ -77,6 +144,7 @@ namespace {
   public:
     inline TypeNative()
       : name(egg::lang::String::fromUTF8(egg::lang::Value::getTagString(TAG))) {
+      assert(!egg::lang::Bits::hasAnySet(TAG, egg::lang::Discriminator::Null));
     }
     virtual egg::lang::String toString() const override {
       return this->name;
@@ -91,19 +159,62 @@ namespace {
       }
       return egg::lang::Type::makeUnion(*this, other);
     }
-    virtual egg::lang::Value canAlwaysAssignFrom(const egg::lang::IType&) const override {
-      EGG_THROW("WIBBLE" __FUNCTION__);
+    virtual egg::lang::Value canAlwaysAssignFrom(const egg::lang::IType& rhs) const override {
+      return canAlwaysAssignSimple(TAG, rhs.getSimpleTypes());
     }
-    virtual egg::lang::Value promoteAssignment(const egg::lang::Value&) const override {
-      EGG_THROW("WIBBLE" __FUNCTION__);
+    virtual egg::lang::Value promoteAssignment(const egg::lang::Value& rhs) const override {
+      return promoteAssignmentSimple(TAG, rhs);
     }
   };
   const TypeNative<egg::lang::Discriminator::Void> typeVoid{};
-  const TypeNative<egg::lang::Discriminator::Void> typeNull{};
-  const TypeNative<egg::lang::Discriminator::Void> typeBool{};
-  const TypeNative<egg::lang::Discriminator::Void> typeInt{};
-  const TypeNative<egg::lang::Discriminator::Void> typeFloat{};
-  const TypeNative<egg::lang::Discriminator::Void> typeString{};
+  const TypeNative<egg::lang::Discriminator::Bool> typeBool{};
+  const TypeNative<egg::lang::Discriminator::Int> typeInt{};
+  const TypeNative<egg::lang::Discriminator::Float> typeFloat{};
+  const TypeNative<egg::lang::Discriminator::String> typeString{};
+  const TypeNative<egg::lang::Discriminator::Arithmetic> typeArithmetic{};
+  const TypeNative<egg::lang::Discriminator::Any> typeAny{};
+
+  class TypeSimple : public egg::gc::HardReferenceCounted<egg::lang::IType> {
+    EGG_NO_COPY(TypeSimple);
+  private:
+    egg::lang::Discriminator tag;
+  public:
+    explicit TypeSimple(egg::lang::Discriminator tag) : tag(tag) {
+    }
+    virtual egg::lang::Discriminator getSimpleTypes() const override {
+      return this->tag;
+    }
+    virtual egg::lang::ITypeRef coallescedType(const IType& rhs) const override {
+      auto denulled = egg::lang::Bits::clear(this->tag, egg::lang::Discriminator::Null);
+      if (this->tag != denulled) {
+        // We need to clear the bit
+        return egg::lang::Type::makeSimple(denulled)->unionWith(rhs);
+      }
+      return this->unionWith(rhs);
+    }
+    virtual egg::lang::ITypeRef unionWith(const IType& other) const {
+      auto simple = other.getSimpleTypes();
+      if (simple == egg::lang::Discriminator::None) {
+        // The other type is not simple
+        return egg::lang::Type::makeUnion(*this, other);
+      }
+      auto both = egg::lang::Bits::set(this->tag, simple);
+      if (both != this->tag) {
+        // There's a new simple type that we don't support, so create a new type
+        return egg::lang::Type::makeSimple(both);
+      }
+      return egg::lang::ITypeRef(this);
+    }
+    virtual egg::lang::Value canAlwaysAssignFrom(const egg::lang::IType& rhs) const override {
+      return canAlwaysAssignSimple(this->tag, rhs.getSimpleTypes());
+    }
+    virtual egg::lang::Value promoteAssignment(const egg::lang::Value& rhs) const override {
+      return promoteAssignmentSimple(this->tag, rhs);
+    }
+    virtual egg::lang::String toString() const {
+      return egg::lang::String::fromUTF8(egg::lang::Value::getTagString(this->tag));
+    }
+  };
 
   class TypeUnion : public egg::gc::HardReferenceCounted<egg::lang::IType> {
     EGG_NO_COPY(TypeUnion);
@@ -125,6 +236,16 @@ namespace {
     }
   };
 }
+
+// Native types
+const egg::lang::Type egg::lang::Type::Void{ typeVoid };
+const egg::lang::Type egg::lang::Type::Null{ typeNull };
+const egg::lang::Type egg::lang::Type::Bool{ typeBool };
+const egg::lang::Type egg::lang::Type::Int{ typeInt };
+const egg::lang::Type egg::lang::Type::Float{ typeFloat };
+const egg::lang::Type egg::lang::Type::String{ typeString };
+const egg::lang::Type egg::lang::Type::Arithmetic{ typeArithmetic };
+const egg::lang::Type egg::lang::Type::Any{ typeAny };
 
 // Empty constants
 const egg::lang::IString& egg::lang::String::emptyBuffer = stringEmpty;
@@ -330,9 +451,6 @@ std::string egg::lang::Value::toUTF8() const {
   return "[" + Value::getTagString(this->tag) + "]";
 }
 
-const egg::lang::Type egg::lang::Type::Void{ typeVoid };
-const egg::lang::Type egg::lang::Type::Null{ typeNull };
-
 egg::lang::ITypeRef egg::lang::IType::referencedType() const {
   // The default implementation is to return a new type 'Type*'
   return egg::lang::ITypeRef::make<TypeReference>(*this);
@@ -343,9 +461,9 @@ egg::lang::ITypeRef egg::lang::IType::dereferencedType() const {
   return Type::Void;
 }
 
-egg::lang::ITypeRef egg::lang::IType::denulledType() const {
-  // The default implementation is to return self 'Type' as most types aren't nullable
-  return egg::lang::ITypeRef(this);
+egg::lang::ITypeRef egg::lang::IType::coallescedType(const IType& rhs) const {
+  // The default implementation is to create the union
+  return this->unionWith(rhs);
 }
 
 egg::lang::Value egg::lang::IType::decantParameters(const egg::lang::IParameters&, Setter) const {
@@ -363,6 +481,41 @@ egg::lang::ITypeRef egg::lang::IType::unionWith(const IType& other) const {
   return Type::makeUnion(*this, other);
 }
 
+egg::lang::ITypeRef egg::lang::Type::makeSimple(Discriminator simple) {
+  // Try to use non-reference-counted globals
+  if (simple == Discriminator::Void) {
+    return ITypeRef(&typeVoid);
+  }
+  if (simple == Discriminator::Null) {
+    return ITypeRef(&typeNull);
+  }
+  if (simple == Discriminator::Bool) {
+    return ITypeRef(&typeBool);
+  }
+  if (simple == Discriminator::Int) {
+    return ITypeRef(&typeInt);
+  }
+  if (simple == Discriminator::Float) {
+    return ITypeRef(&typeFloat);
+  }
+  if (simple == Discriminator::String) {
+    return ITypeRef(&typeString);
+  }
+  if (simple == Discriminator::Arithmetic) {
+    return ITypeRef(&typeArithmetic);
+  }
+  if (simple == Discriminator::Any) {
+    return ITypeRef(&typeAny);
+  }
+  return Type::make<TypeSimple>(simple);
+}
+
 egg::lang::ITypeRef egg::lang::Type::makeUnion(const egg::lang::IType& a, const egg::lang::IType& b) {
-  return ITypeRef::make<TypeUnion>(a, b);
+  // If they are both simple types, just union the tags
+  auto sa = a.getSimpleTypes();
+  auto sb = b.getSimpleTypes();
+  if ((sa != Discriminator::None) && (sb != Discriminator::None)) {
+    return Type::makeSimple(sa | sb);
+  }
+  return Type::make<TypeUnion>(a, b);
 }
