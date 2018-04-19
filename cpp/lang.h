@@ -5,6 +5,12 @@ namespace egg::lang {
   class Bits {
   public:
     template<typename T>
+    static bool hasAllSet(T value, T bits) {
+      auto a = static_cast<std::underlying_type_t<T>>(value);
+      auto b = static_cast<std::underlying_type_t<T>>(bits);
+      return (a & b) == b;
+    }
+    template<typename T>
     static bool hasAnySet(T value, T bits) {
       auto a = static_cast<std::underlying_type_t<T>>(value);
       auto b = static_cast<std::underlying_type_t<T>>(bits);
@@ -105,23 +111,28 @@ namespace egg::lang {
   };
 
   class IType {
+    typedef egg::gc::HardRef<const IType> Ref; // Local typedef
   public:
     virtual ~IType() {}
     virtual IType* acquireHard() const = 0;
     virtual void releaseHard() const = 0;
     virtual String toString() const = 0;
 
-    // WIBBLE from IEggProgramType
+    virtual Discriminator getSimpleTypes() const; // Default implementation returns 'None'
+    virtual Ref referencedType() const; // Default implementation returns 'Type*'
+    virtual Ref dereferencedType() const; // Default implementation returns 'Void'
+    virtual Ref denulledType() const; // Default implementation returns self 'Type'
+    virtual Ref unionWith(const IType& other) const; // Default implementation calls Type::makeUnion()
     typedef std::function<void(const String& name, const IType& type, const Value& value)> Setter;
-    virtual bool hasSimpleType(Discriminator bit) const = 0;
-    virtual Discriminator arithmeticTypes() const = 0;
-    virtual egg::gc::HardRef<const IType> dereferencedType() const = 0;
-    virtual egg::gc::HardRef<const IType> nullableType(bool nullable) const = 0;
-    virtual egg::gc::HardRef<const IType> unionWith(const IType& other) const = 0;
-    virtual egg::gc::HardRef<const IType> unionWithSimple(Discriminator other) const = 0;
-    virtual Value decantParameters(const IParameters& supplied, Setter setter) const = 0;
+    virtual Value decantParameters(const IParameters& supplied, Setter setter) const; // Default implementation returns an error
+
     virtual bool canAssignFrom(const IType& rtype, String& problem) const = 0;
     virtual bool tryAssignFrom(Value& lhs, const Value& rhs, String& problem) const = 0;
+
+    // Helpers
+    inline bool hasNativeType(Discriminator native) const {
+      return egg::lang::Bits::hasAllSet(this->getSimpleTypes(), native);
+    }
   };
   typedef egg::gc::HardRef<const IType> ITypeRef;
 
@@ -132,6 +143,8 @@ namespace egg::lang {
   public:
     static const Type Void;
     static const Type Null;
+
+    static ITypeRef makeUnion(const IType& lhs, const IType& rhs);
   };
 
   class IObject {

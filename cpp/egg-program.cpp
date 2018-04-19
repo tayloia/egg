@@ -492,13 +492,13 @@ egg::lang::Value egg::yolk::EggProgramContext::executeReturn(const IEggProgramNo
   this->statement(self);
   if (value == nullptr) {
     // This is a void return
-    return egg::lang::Value::makeFlowControl(egg::lang::Discriminator::Return, new egg::lang::Value(egg::lang::Value::Void));
+    return egg::lang::Value::makeFlowControl(egg::lang::Discriminator::Return, new egg::lang::Value(egg::lang::Value::Void)); // WIBBLE
   }
   auto result = value->execute(*this);
   if (result.is(egg::lang::Discriminator::FlowControl)) {
     return result;
   }
-  return egg::lang::Value::makeFlowControl(egg::lang::Discriminator::Return, new egg::lang::Value(result));
+  return egg::lang::Value::makeFlowControl(egg::lang::Discriminator::Return, new egg::lang::Value(result)); // WIBBLE
 }
 
 egg::lang::Value egg::yolk::EggProgramContext::executeSwitch(const IEggProgramNode& self, const IEggProgramNode& value, int64_t defaultIndex, const std::vector<std::shared_ptr<IEggProgramNode>>& cases) {
@@ -668,7 +668,7 @@ egg::lang::Value egg::yolk::EggProgramContext::executeYield(const IEggProgramNod
   if (result.is(egg::lang::Discriminator::FlowControl)) {
     return result;
   }
-  return egg::lang::Value::makeFlowControl(egg::lang::Discriminator::Return, new egg::lang::Value(result));
+  return egg::lang::Value::makeFlowControl(egg::lang::Discriminator::Return, new egg::lang::Value(result)); // WIBBLE
 }
 
 egg::lang::Value egg::yolk::EggProgramContext::executeCall(const IEggProgramNode& self, const IEggProgramNode& callee, const std::vector<std::shared_ptr<IEggProgramNode>>& parameters) {

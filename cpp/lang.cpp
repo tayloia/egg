@@ -28,18 +28,8 @@ namespace {
     }
   };
 
-  class StringEmpty : public egg::lang::IString {
-    EGG_NO_COPY(StringEmpty);
+  class StringEmpty : public egg::gc::NotReferenceCounted<egg::lang::IString> {
   public:
-    inline StringEmpty() {
-      // We're not reference counted
-    }
-    virtual IString* acquireHard() const override {
-      return const_cast<StringEmpty*>(this);
-    }
-    virtual void releaseHard() const override {
-      // We're never destroyed
-    }
     virtual size_t length() const override {
       return 0;
     }
@@ -58,44 +48,49 @@ namespace {
   };
   const StringEmpty stringEmpty{};
 
-  class TypeSimple : public egg::lang::IType {
+  class TypeReference : public egg::gc::HardReferenceCounted<egg::lang::IType> {
+    EGG_NO_COPY(TypeReference);
   private:
-    egg::lang::Discriminator tag;
+    egg::lang::ITypeRef referenced;
+  public:
+    inline explicit TypeReference(const egg::lang::IType& referenced)
+      : referenced(&referenced) {
+    }
+    virtual egg::lang::String toString() const override {
+      return egg::lang::String::concat(this->referenced->toString(), "*");
+    }
+    virtual egg::lang::ITypeRef referencedType() const override {
+      return this->referenced;
+    }
+
+    virtual bool canAssignFrom(const IType&, egg::lang::String&) const override {
+      EGG_THROW("WIBBLE" __FUNCTION__);
+    }
+    virtual bool tryAssignFrom(egg::lang::Value&, const egg::lang::Value&, egg::lang::String&) const override {
+      EGG_THROW("WIBBLE" __FUNCTION__);
+    }
+  };
+
+  template<egg::lang::Discriminator TAG>
+  class TypeNative : public egg::gc::NotReferenceCounted<egg::lang::IType> {
+  private:
     egg::lang::String name;
   public:
-    inline TypeSimple(egg::lang::Discriminator tag, const std::string& utf8)
-      : tag(tag), name(egg::lang::String::fromUTF8(utf8)) {
-    }
-    virtual IType* acquireHard() const override {
-      // We're not reference-counted
-      return const_cast<TypeSimple*>(this);
-    }
-    virtual void releaseHard() const override {
-      // We're not reference-counted
+    inline TypeNative()
+      : name(egg::lang::String::fromUTF8(egg::lang::Value::getTagString(TAG))) {
     }
     virtual egg::lang::String toString() const override {
       return this->name;
     }
-    virtual bool hasSimpleType(egg::lang::Discriminator) const override {
-      EGG_THROW("WIBBLE" __FUNCTION__);
+    virtual egg::lang::Discriminator getSimpleTypes() const override {
+      return TAG;
     }
-    virtual egg::lang::Discriminator arithmeticTypes() const override {
-      return egg::lang::Bits::mask(this->tag, egg::lang::Discriminator::Arithmetic);
-    }
-    virtual egg::gc::HardRef<const IType> dereferencedType() const override {
-      EGG_THROW("WIBBLE" __FUNCTION__);
-    }
-    virtual egg::gc::HardRef<const IType> nullableType(bool) const override {
-      EGG_THROW("WIBBLE" __FUNCTION__);
-    }
-    virtual egg::gc::HardRef<const IType> unionWith(const IType&) const override {
-      EGG_THROW("WIBBLE" __FUNCTION__);
-    }
-    virtual egg::gc::HardRef<const IType> unionWithSimple(egg::lang::Discriminator) const override {
-      EGG_THROW("WIBBLE" __FUNCTION__);
-    }
-    virtual egg::lang::Value decantParameters(const egg::lang::IParameters&, Setter) const override {
-      EGG_THROW("WIBBLE" __FUNCTION__);
+    virtual egg::lang::ITypeRef unionWith(const IType& other) const {
+      if (other.getSimpleTypes() == TAG) {
+        // It's the identical native type
+        return egg::lang::ITypeRef(this);
+      }
+      return egg::lang::Type::makeUnion(*this, other);
     }
     virtual bool canAssignFrom(const IType&, egg::lang::String&) const override {
       EGG_THROW("WIBBLE" __FUNCTION__);
@@ -104,8 +99,33 @@ namespace {
       EGG_THROW("WIBBLE" __FUNCTION__);
     }
   };
-  const TypeSimple typeVoid(egg::lang::Discriminator::Void, "void");
-  const TypeSimple typeNull(egg::lang::Discriminator::Null, "null");
+  const TypeNative<egg::lang::Discriminator::Void> typeVoid{};
+  const TypeNative<egg::lang::Discriminator::Void> typeNull{};
+  const TypeNative<egg::lang::Discriminator::Void> typeBool{};
+  const TypeNative<egg::lang::Discriminator::Void> typeInt{};
+  const TypeNative<egg::lang::Discriminator::Void> typeFloat{};
+  const TypeNative<egg::lang::Discriminator::Void> typeString{};
+
+  class TypeUnion : public egg::gc::HardReferenceCounted<egg::lang::IType> {
+    EGG_NO_COPY(TypeUnion);
+  private:
+    egg::lang::ITypeRef a;
+    egg::lang::ITypeRef b;
+  public:
+    inline TypeUnion(const egg::lang::IType& a, const egg::lang::IType& b)
+      : a(&a), b(&b) {
+    }
+    virtual egg::lang::String toString() const override {
+      return egg::lang::String::concat(this->a->toString(), "|", this->b->toString());
+    }
+
+    virtual bool canAssignFrom(const IType&, egg::lang::String&) const override {
+      EGG_THROW("WIBBLE" __FUNCTION__);
+    }
+    virtual bool tryAssignFrom(egg::lang::Value&, const egg::lang::Value&, egg::lang::String&) const override {
+      EGG_THROW("WIBBLE" __FUNCTION__);
+    }
+  };
 }
 
 // Empty constants
@@ -319,3 +339,37 @@ std::string egg::lang::Value::toUTF8() const {
 const egg::lang::Type egg::lang::Type::Void{ typeVoid };
 const egg::lang::Type egg::lang::Type::Null{ typeNull };
 
+egg::lang::ITypeRef egg::lang::IType::referencedType() const {
+  // The default implementation is to return a new type 'Type*'
+  return egg::lang::ITypeRef::make<TypeReference>(*this);
+}
+
+egg::lang::ITypeRef egg::lang::IType::dereferencedType() const {
+  // The default implementation is to return 'Void' indicating that this is NOT dereferencable
+  return Type::Void;
+}
+
+egg::lang::ITypeRef egg::lang::IType::denulledType() const {
+  // The default implementation is to return self 'Type' as most types aren't nullable
+  return egg::lang::ITypeRef(this);
+}
+
+egg::lang::Value egg::lang::IType::decantParameters(const egg::lang::IParameters&, Setter) const {
+  // The default implementation is to return an error (only function-like types decant parameters)
+  auto message = String::concat("Internal type error: Cannot decant parameters for type '", this->toString(), "'");
+  return egg::lang::Value::raise(message);
+}
+
+egg::lang::Discriminator egg::lang::IType::getSimpleTypes() const {
+  // The default implementation is to say we don't support any simple types
+  return egg::lang::Discriminator::None;
+}
+
+egg::lang::ITypeRef egg::lang::IType::unionWith(const IType& other) const {
+  // The default implementation is to simply make a new union (native and simple types can be more clever)
+  return Type::makeUnion(*this, other);
+}
+
+egg::lang::ITypeRef egg::lang::Type::makeUnion(const egg::lang::IType& a, const egg::lang::IType& b) {
+  return ITypeRef::make<TypeUnion>(a, b);
+}

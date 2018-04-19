@@ -36,6 +36,16 @@ namespace egg::gc {
   };
 
   template<class T>
+  class NotReferenceCounted : public T {
+  public:
+    virtual T* acquireHard() const override {
+      return const_cast<NotReferenceCounted*>(this);
+    }
+    virtual void releaseHard() const override {
+    }
+  };
+
+  template<class T>
   class HardReferenceCounted : public T {
     HardReferenceCounted(const HardReferenceCounted&) = delete;
     HardReferenceCounted& operator=(const HardReferenceCounted&) = delete;
@@ -95,6 +105,12 @@ namespace egg::gc {
     }
     T* operator->() const {
       return this->ptr;
+    }
+
+    template<typename U, typename... ARGS>
+    static HardRef<T> make(ARGS&&... args) {
+      // Use perfect forwarding to the constructor
+      return HardRef<T>(new U(std::forward<ARGS>(args)...));
     }
   };
 }

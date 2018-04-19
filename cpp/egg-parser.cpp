@@ -14,6 +14,7 @@ namespace {
     return static_cast<EggParserAllowed>(static_cast<EggParserAllowedUnderlying>(lhs) | static_cast<EggParserAllowedUnderlying>(rhs));
   }
 
+  // WIBBLE remove?
   class EggParserTypeSimple : public egg::gc::HardReferenceCounted<egg::lang::IType> {
     EGG_NO_COPY(EggParserTypeSimple);
   private:
@@ -21,35 +22,36 @@ namespace {
   public:
     explicit EggParserTypeSimple(egg::lang::Discriminator tag) : tag(tag) {
     }
-    virtual bool hasSimpleType(egg::lang::Discriminator bit) const {
-      return egg::lang::Bits::hasAnySet(this->tag, bit);
+    virtual egg::lang::Discriminator getSimpleTypes() const override {
+      return this->tag;
     }
-    virtual egg::lang::Discriminator arithmeticTypes() const {
-      return egg::lang::Bits::mask(this->tag, egg::lang::Discriminator::Arithmetic);
-    }
-    virtual egg::lang::ITypeRef dereferencedType() const {
-      // TODO Return a dummy value for now
-      return egg::lang::ITypeRef(new EggParserTypeSimple(egg::lang::Discriminator::Void));
-    }
-    virtual egg::lang::ITypeRef nullableType(bool nullable) const {
-      if (nullable ^ egg::lang::Bits::hasAnySet(this->tag, egg::lang::Discriminator::Null)) {
-        // We need to flip the bit
-        return egg::lang::ITypeRef(new EggParserTypeSimple(egg::lang::Bits::invert(this->tag, egg::lang::Discriminator::Null)));
+    virtual egg::lang::ITypeRef denulledType() const override {
+      if (egg::lang::Bits::hasAnySet(this->tag, egg::lang::Discriminator::Null)) {
+        // We need to clear the bit
+        return egg::lang::ITypeRef::make<EggParserTypeSimple>(egg::lang::Bits::clear(this->tag, egg::lang::Discriminator::Null));
       }
       return egg::lang::ITypeRef(this);
     }
     virtual egg::lang::ITypeRef unionWith(const IType& other) const {
-      return other.unionWithSimple(this->tag);
-    }
-    virtual egg::lang::ITypeRef unionWithSimple(egg::lang::Discriminator other) const {
-      return egg::lang::ITypeRef(new EggParserTypeSimple(egg::lang::Bits::set(this->tag, other)));
+      auto simple = other.getSimpleTypes();
+      if (simple == egg::lang::Discriminator::None) {
+        // The other type is not simple
+        return egg::lang::Type::makeUnion(*this, other);
+      }
+      auto both = egg::lang::Bits::set(this->tag, simple);
+      if (both != this->tag) {
+        // There's a new simple type that we don't support, so create a new type
+        return egg::lang::ITypeRef::make<EggParserTypeSimple>(both);
+      }
+      return egg::lang::ITypeRef(this);
     }
     virtual bool canAssignFrom(const egg::lang::IType& rtype, egg::lang::String& problem) const {
-      if (rtype.hasSimpleType(this->tag)) {
-        // There's at least one assignment that will work
+      auto simple = rtype.getSimpleTypes();
+      if (egg::lang::Bits::hasAnySet(simple, this->tag)) {
+        // There's at least one assignment that will work -- TODO
         return true;
       }
-      if (this->hasSimpleType(egg::lang::Discriminator::Float) && rtype.hasSimpleType(egg::lang::Discriminator::Int)) {
+      if (this->hasNativeType(egg::lang::Discriminator::Float) && rtype.hasNativeType(egg::lang::Discriminator::Int)) {
         // We allow type promotion int->float
         return true;
       }
@@ -62,7 +64,7 @@ namespace {
         lhs = rhs;
         return true;
       }
-      if (this->hasSimpleType(egg::lang::Discriminator::Float) && rhs.is(egg::lang::Discriminator::Int)) {
+      if (this->hasNativeType(egg::lang::Discriminator::Float) && rhs.is(egg::lang::Discriminator::Int)) {
         // We allow type promotion int->float
         lhs = egg::lang::Value(double(rhs.getInt())); // TODO overflows?
         return true;
@@ -70,54 +72,8 @@ namespace {
       problem = egg::lang::String::concat("Cannot assign a value of type '", rhs.getRuntimeType().toString(), "' to a target of type '", egg::lang::Value::getTagString(this->tag), "'");
       return false;
     }
-    virtual egg::lang::Value decantParameters(const egg::lang::IParameters&, Setter) const {
-      return egg::lang::Value::raise("Internal parse error: Cannot decant parameters for simple type");
-    }
     virtual egg::lang::String toString() const {
       return egg::lang::String::fromUTF8(egg::lang::Value::getTagString(this->tag));
-    }
-  };
-
-  class EggParserTypeReference : public egg::gc::HardReferenceCounted<egg::lang::IType> {
-    EGG_NO_COPY(EggParserTypeReference);
-  private:
-    egg::lang::ITypeRef underlying;
-    bool canBeNull;
-  public:
-    EggParserTypeReference(const egg::lang::IType& underlying, bool nullable)
-      : underlying(&underlying), canBeNull(nullable) {
-    }
-    virtual bool hasSimpleType(egg::lang::Discriminator tag) const {
-      return (tag == egg::lang::Discriminator::Null) && this->canBeNull;
-    }
-    virtual egg::lang::Discriminator arithmeticTypes() const {
-      return egg::lang::Discriminator::None;
-    }
-    virtual egg::lang::ITypeRef dereferencedType() const {
-      return this->underlying;
-    }
-    virtual egg::lang::ITypeRef nullableType(bool nullable) const {
-      return egg::lang::ITypeRef((nullable ^ this->canBeNull) ? new EggParserTypeReference(*this->underlying, nullable) : this);
-    }
-    virtual egg::lang::ITypeRef unionWith(const egg::lang::IType&) const {
-      EGG_THROW(__FUNCTION__ " TODO"); // TODO
-    }
-    virtual egg::lang::ITypeRef unionWithSimple(egg::lang::Discriminator) const {
-      EGG_THROW(__FUNCTION__ " TODO"); // TODO
-    }
-    virtual bool canAssignFrom(const egg::lang::IType& rtype, egg::lang::String& problem) const {
-      problem = egg::lang::String::concat("TODO: Assignment of a value of type '", rtype.toString(), "' to a target of type '", this->toString(), "' is currently unimplemented"); // TODO
-      return false;
-    }
-    virtual bool tryAssignFrom(egg::lang::Value&, const egg::lang::Value& rhs, egg::lang::String& problem) const {
-      problem = egg::lang::String::concat("TODO: Assignment of a value of type '", rhs.getRuntimeType().toString(), "' to a target of type '", this->toString(), "' is currently unimplemented"); // TODO
-      return false;
-    }
-    virtual egg::lang::Value decantParameters(const egg::lang::IParameters&, Setter) const {
-      return egg::lang::Value::raise("Internal parse error: Cannot decant parameters for reference type");
-    }
-    virtual egg::lang::String toString() const {
-      return egg::lang::String::concat(this->underlying->toString(), "*");
     }
   };
 
@@ -139,25 +95,6 @@ namespace {
     explicit EggParserTypeFunction(const egg::lang::IType& retval)
       : retval(&retval) {
     }
-    virtual bool hasSimpleType(egg::lang::Discriminator) const override {
-      return false;
-    }
-    virtual egg::lang::Discriminator arithmeticTypes() const override {
-      return egg::lang::Discriminator::None;
-    }
-    virtual egg::lang::ITypeRef dereferencedType() const override {
-      // TODO Return a dummy value for now
-      return egg::lang::ITypeRef(new EggParserTypeSimple(egg::lang::Discriminator::Void));
-    }
-    virtual egg::lang::ITypeRef nullableType(bool) const override {
-      EGG_THROW(__FUNCTION__ " TODO"); // TODO
-    }
-    virtual egg::lang::ITypeRef unionWith(const egg::lang::IType&) const override {
-      EGG_THROW(__FUNCTION__ " TODO"); // TODO
-    }
-    virtual egg::lang::ITypeRef unionWithSimple(egg::lang::Discriminator) const override {
-      EGG_THROW(__FUNCTION__ " TODO"); // TODO
-    }
     virtual bool canAssignFrom(const egg::lang::IType& rtype, egg::lang::String& problem) const {
       problem = egg::lang::String::concat("TODO: Assignment of a value of type '", rtype.toString(), "' to a target of type '", this->toString(), "' is currently unimplemented"); // TODO
       return false;
@@ -166,7 +103,7 @@ namespace {
       problem = egg::lang::String::concat("TODO: Assignment of a value of type '", rhs.getRuntimeType().toString(), "' to a target of type '", this->toString(), "' is currently unimplemented"); // TODO
       return false;
     }
-    virtual egg::lang::Value decantParameters(const egg::lang::IParameters& supplied, Setter setter) const {
+    virtual egg::lang::Value decantParameters(const egg::lang::IParameters& supplied, Setter setter) const override {
       if (supplied.getNamedCount() > 0) {
         return egg::lang::Value::raise("Named parameters in function calls are not yet supported"); // TODO
       }
@@ -193,7 +130,7 @@ namespace {
     }
   };
 
-  // Constants
+  // Constants WIBBLE
   const egg::lang::ITypeRef typeVoid{ new EggParserTypeSimple(egg::lang::Discriminator::Void) };
   const egg::lang::ITypeRef typeNull{ new EggParserTypeSimple(egg::lang::Discriminator::Null) };
   const egg::lang::ITypeRef typeBool{ new EggParserTypeSimple(egg::lang::Discriminator::Bool) };
@@ -203,15 +140,18 @@ namespace {
   const egg::lang::ITypeRef typeString{ new EggParserTypeSimple(egg::lang::Discriminator::String) };
 
   enum class EggParserArithmetic {
-    None = int(egg::lang::Discriminator::None),
-    Int = int(egg::lang::Discriminator::Int),
-    Float = int(egg::lang::Discriminator::Float),
-    Both = int(egg::lang::Discriminator::Arithmetic)
+    None,
+    Int,
+    Float,
+    Both
   };
 
-  EggParserArithmetic getArithmeticTypes(const std::shared_ptr<IEggProgramNode>& node) {
-    auto underlying = node->getType();
-    return EggParserArithmetic(underlying->arithmeticTypes());
+  EggParserArithmetic getArithmeticTypes(const IEggProgramNode& node) {
+    auto underlying = node.getType();
+    if (underlying->hasNativeType(egg::lang::Discriminator::Float)) {
+      return underlying->hasNativeType(egg::lang::Discriminator::Int) ? EggParserArithmetic::Both : EggParserArithmetic::Float;
+    }
+    return underlying->hasNativeType(egg::lang::Discriminator::Int) ? EggParserArithmetic::Int : EggParserArithmetic::None;
   }
 
   egg::lang::ITypeRef makeArithmeticType(EggParserArithmetic arithmetic) {
@@ -230,8 +170,8 @@ namespace {
   }
 
   egg::lang::ITypeRef binaryArithmeticTypes(const std::shared_ptr<IEggProgramNode>& lhs, const std::shared_ptr<IEggProgramNode>& rhs) {
-    auto lhsa = getArithmeticTypes(lhs);
-    auto rhsa = getArithmeticTypes(rhs);
+    auto lhsa = getArithmeticTypes(*lhs);
+    auto rhsa = getArithmeticTypes(*rhs);
     if ((lhsa == EggParserArithmetic::None) || (rhsa == EggParserArithmetic::None)) {
       return typeVoid;
     }
@@ -1650,16 +1590,17 @@ egg::lang::ITypeRef EggParserNode_UnaryLogicalNot::getType() const {
 
 egg::lang::ITypeRef EggParserNode_UnaryRef::getType() const {
   auto underlying = this->expr->getType();
-  return egg::lang::ITypeRef(new EggParserTypeReference(*underlying, false));
+  return underlying->referencedType();
 }
 
 egg::lang::ITypeRef EggParserNode_UnaryDeref::getType() const {
+  // Returns type 'Void' if not dereferencable
   auto underlying = this->expr->getType();
   return underlying->dereferencedType();
 }
 
 egg::lang::ITypeRef EggParserNode_UnaryNegate::getType() const {
-  auto arithmetic = getArithmeticTypes(this->expr);
+  auto arithmetic = getArithmeticTypes(*this->expr);
   return makeArithmeticType(arithmetic);
 }
 
@@ -1747,12 +1688,12 @@ egg::lang::ITypeRef EggParserNode_BinaryShiftRightUnsigned::getType() const {
 
 egg::lang::ITypeRef EggParserNode_BinaryNullCoalescing::getType() const {
   auto type1 = this->lhs->getType();
-  if (!type1->hasSimpleType(egg::lang::Discriminator::Null)) {
+  if (!type1->hasNativeType(egg::lang::Discriminator::Null)) {
     // The left-hand-side cannot be null, so the right side is irrelevant
     return type1;
   }
   auto type2 = this->rhs->getType();
-  return type1->nullableType(false)->unionWith(*type2);
+  return type1->denulledType()->unionWith(*type2);
 }
 
 egg::lang::ITypeRef EggParserNode_BinaryBrackets::getType() const {
@@ -1773,7 +1714,7 @@ egg::lang::ITypeRef EggParserNode_BinaryLogicalOr::getType() const {
 
 egg::lang::ITypeRef EggParserNode_Ternary::getType() const {
   auto type1 = this->condition->getType();
-  if (!type1->hasSimpleType(egg::lang::Discriminator::Bool)) {
+  if (!type1->hasNativeType(egg::lang::Discriminator::Bool)) {
     // The condition is not a bool, so the other values are irrelevant
     return typeVoid;
   }

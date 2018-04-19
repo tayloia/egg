@@ -3,38 +3,15 @@
 namespace {
   using namespace egg::lang;
 
-  class BuiltinType : public IType {
+  class BuiltinType : public egg::gc::NotReferenceCounted<IType> {
+  private:
+    String name;
   public:
-    virtual IType* acquireHard() const override {
-      // We don't actually reference count built-in types; they are never destroyed
-      return const_cast<BuiltinType*>(this);
-    }
-    virtual void releaseHard() const override {
-      // We don't actually reference count built-in types; they are never destroyed
+    inline explicit BuiltinType(const std::string& name)
+      : name(String::fromUTF8(name)) {
     }
     virtual String toString() const override {
-      return String::fromUTF8("WIBBLE" __FUNCTION__);
-    }
-    virtual bool hasSimpleType(Discriminator) const override {
-      return false;
-    }
-    virtual Discriminator arithmeticTypes() const override {
-      return Discriminator::None;
-    }
-    virtual egg::gc::HardRef<const IType> dereferencedType() const override {
-      return egg::gc::HardRef<const IType>{nullptr};
-    }
-    virtual egg::gc::HardRef<const IType> nullableType(bool) const override {
-      return egg::gc::HardRef<const IType>{nullptr};
-    }
-    virtual egg::gc::HardRef<const IType> unionWith(const IType&) const override {
-      return egg::gc::HardRef<const IType>{nullptr};
-    }
-    virtual egg::gc::HardRef<const IType> unionWithSimple(Discriminator) const override {
-      return egg::gc::HardRef<const IType>{nullptr};
-    }
-    virtual Value decantParameters(const IParameters&, Setter) const override {
-      return Value::raise("WIBBLE" __FUNCTION__);
+      return this->name;
     }
     virtual bool canAssignFrom(const IType&, String& problem) const override {
       problem = String::fromUTF8("WIBBLE" __FUNCTION__);
@@ -46,20 +23,20 @@ namespace {
     }
   };
 
-  class Builtin : public IObject {
+  class Builtin : public egg::gc::NotReferenceCounted<IObject> {
   private:
+    String name;
     BuiltinType type;
   public:
-    virtual IObject* acquireHard() const override {
-      // We don't actually reference count built-ins; they are never destroyed
-      return const_cast<Builtin*>(this);
-    }
-    virtual void releaseHard() const override {
-      // We don't actually reference count built-ins; they are never destroyed
+    inline Builtin(const std::string& name, const std::string& type)
+      : name(String::fromUTF8(name)), type(type) {
     }
     virtual bool dispose() override {
       // We don't allow disposing of built-ins
       return false;
+    }
+    virtual Value toString() const override {
+      return Value(this->name);
     }
     virtual Value getRuntimeType() const override {
       // Fetch the runtime type
@@ -69,9 +46,7 @@ namespace {
 
   class Print : public Builtin {
   public:
-    virtual Value toString() const override {
-      return Value("[print]");
-    }
+    inline Print() : Builtin("[print]", "void print(...)") {}
     virtual Value call(IExecution& execution, const IParameters& parameters) override {
       if (parameters.getNamedCount() > 0) {
         return Value::raise("print(): Named parameters are not supported");
