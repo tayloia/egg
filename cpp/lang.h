@@ -231,9 +231,8 @@ namespace egg::lang {
       const IString* s;
       IObject* o;
       IType* t;
-      Value* v;
     };
-    inline explicit Value(Discriminator tag, Value* child = nullptr) : tag(tag) { this->v = child; }
+    inline explicit Value(Discriminator tag) : tag(tag) {}
     void copyInternals(const Value& other);
     void moveInternals(Value& other);
   public:
@@ -252,21 +251,26 @@ namespace egg::lang {
     ~Value();
     inline bool operator==(const Value& other) const { return Value::equal(*this, other); }
     inline bool operator!=(const Value& other) const { return Value::equal(*this, other); }
-    inline bool is(Discriminator bits) const { return Bits::mask(this->tag, bits) != Discriminator::None; }
-    inline bool getBool() const { assert(this->is(Discriminator::Bool)); return this->b; }
-    inline int64_t getInt() const { assert(this->is(Discriminator::Int)); return this->i; }
-    inline double getFloat() const { assert(this->is(Discriminator::Float)); return this->f; }
-    inline String getString() const { assert(this->is(Discriminator::String)); return String(*this->s); }
-    inline IObject& getObject() const { assert(this->is(Discriminator::Object)); return *this->o; }
-    inline Value& getFlowControl() const { assert(this->is(Discriminator::FlowControl)); return *this->v; }
+    inline bool has(Discriminator bits) const { return Bits::mask(this->tag, bits) != Discriminator::None; }
+    inline bool getBool() const { assert(this->has(Discriminator::Bool)); return this->b; }
+    inline int64_t getInt() const { assert(this->has(Discriminator::Int)); return this->i; }
+    inline double getFloat() const { assert(this->has(Discriminator::Float)); return this->f; }
+    inline String getString() const { assert(this->has(Discriminator::String)); return String(*this->s); }
+    inline IObject& getObject() const { assert(this->has(Discriminator::Object)); return *this->o; }
+    void addFlowControl(Discriminator bits);
+    bool stripFlowControl(Discriminator bits);
     inline std::string getTagString() const { return Value::getTagString(this->tag); }
     static std::string getTagString(Discriminator tag);
     static bool equal(const Value& lhs, const Value& rhs);
-    static Value makeFlowControl(Discriminator tag, Value* value);
     template<typename... ARGS>
     static Value raise(ARGS... args) {
       auto message = StringBuilder().add(args...).str();
-      return Value(Discriminator::Exception, new Value(message));
+      return Value::raise(message);
+    }
+    static Value raise(const String& message) {
+      Value result{ message };
+      result.addFlowControl(Discriminator::Exception);
+      return result;
     }
     std::string toUTF8() const;
     const IType& getRuntimeType() const;
@@ -279,6 +283,7 @@ namespace egg::lang {
     static const Value Break;
     static const Value Continue;
     static const Value Rethrow;
+    static const Value ReturnVoid;
 
     // Built-ins
     static Value Print;

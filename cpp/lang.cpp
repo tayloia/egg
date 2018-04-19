@@ -23,11 +23,11 @@ namespace {
   }
 
   egg::lang::Value promoteAssignmentSimple(egg::lang::Discriminator lhs, const egg::lang::Value& rhs) {
-    if (rhs.is(lhs)) {
+    if (rhs.has(lhs)) {
       // It's an exact type match
       return rhs;
     }
-    if (egg::lang::Bits::hasAnySet(lhs, egg::lang::Discriminator::Float) && rhs.is(egg::lang::Discriminator::Int)) {
+    if (egg::lang::Bits::hasAnySet(lhs, egg::lang::Discriminator::Float) && rhs.has(egg::lang::Discriminator::Int)) {
       // We allow type promotion int->float
       return egg::lang::Value(double(rhs.getInt())); // TODO overflows?
     }
@@ -96,10 +96,10 @@ namespace {
       return this->referenced;
     }
     virtual egg::lang::Value canAlwaysAssignFrom(const egg::lang::IType&) const override {
-      EGG_THROW("WIBBLE" __FUNCTION__);
+      return egg::lang::Value::raise("TODO: Cannot yet assign to reference value"); // TODO
     }
     virtual egg::lang::Value promoteAssignment(const egg::lang::Value&) const override {
-      EGG_THROW("WIBBLE" __FUNCTION__);
+      return egg::lang::Value::raise("TODO: Cannot yet assign to reference value"); // TODO
     }
   };
 
@@ -229,10 +229,10 @@ namespace {
       return egg::lang::String::concat(this->a->toString(), "|", this->b->toString());
     }
     virtual egg::lang::Value canAlwaysAssignFrom(const egg::lang::IType&) const override {
-      EGG_THROW("WIBBLE" __FUNCTION__);
+      return egg::lang::Value::raise("TODO: Cannot yet assign to union value"); // TODO
     }
     virtual egg::lang::Value promoteAssignment(const egg::lang::Value&) const override {
-      EGG_THROW("WIBBLE" __FUNCTION__);
+      return egg::lang::Value::raise("TODO: Cannot yet assign to union value"); // TODO
     }
   };
 }
@@ -263,53 +263,47 @@ std::ostream& operator<<(std::ostream& os, const egg::lang::String& text) {
   return os << text.toUTF8();
 }
 
+// Trivial constant values
 const egg::lang::Value egg::lang::Value::Void{ Discriminator::Void };
 const egg::lang::Value egg::lang::Value::Null{ Discriminator::Null };
 const egg::lang::Value egg::lang::Value::False{ false };
 const egg::lang::Value egg::lang::Value::True{ true };
 const egg::lang::Value egg::lang::Value::Break{ Discriminator::Break };
 const egg::lang::Value egg::lang::Value::Continue{ Discriminator::Continue };
-const egg::lang::Value egg::lang::Value::Rethrow{ Discriminator::Exception, new Value{ Discriminator::Void } };
+const egg::lang::Value egg::lang::Value::Rethrow{ Discriminator::Exception | Discriminator::Void };
+const egg::lang::Value egg::lang::Value::ReturnVoid{ Discriminator::Return | Discriminator::Void };
 
 void egg::lang::Value::copyInternals(const Value& other) {
   this->tag = other.tag;
-  if (this->is(Discriminator::FlowControl)) {
-    this->v = (other.v == nullptr) ? nullptr : new Value(*other.v);
-  } else if (this->is(Discriminator::Type)) {
+  if (this->has(Discriminator::Type)) {
     this->t = other.t->acquireHard();
-  } else if (this->is(Discriminator::Object)) {
+  } else if (this->has(Discriminator::Object)) {
     this->o = other.o->acquireHard();
-  } else if (this->is(Discriminator::String)) {
+  } else if (this->has(Discriminator::String)) {
     this->s = other.s->acquireHard();
-  } else if (this->is(Discriminator::Float)) {
+  } else if (this->has(Discriminator::Float)) {
     this->f = other.f;
-  } else if (this->is(Discriminator::Int)) {
+  } else if (this->has(Discriminator::Int)) {
     this->i = other.i;
-  } else if (this->is(Discriminator::Bool)) {
+  } else if (this->has(Discriminator::Bool)) {
     this->b = other.b;
-  } else {
-    this->v = nullptr;
   }
 }
 
 void egg::lang::Value::moveInternals(Value& other) {
   this->tag = other.tag;
-  if (this->is(Discriminator::FlowControl)) {
-    this->v = other.v;
-  } else if (this->is(Discriminator::Type)) {
+  if (this->has(Discriminator::Type)) {
     this->t = other.t;
-  } else if (this->is(Discriminator::Object)) {
+  } else if (this->has(Discriminator::Object)) {
     this->o = other.o;
-  } else if (this->is(Discriminator::String)) {
+  } else if (this->has(Discriminator::String)) {
     this->s = other.s;
-  } else if (this->is(Discriminator::Float)) {
+  } else if (this->has(Discriminator::Float)) {
     this->f = other.f;
-  } else if (this->is(Discriminator::Int)) {
+  } else if (this->has(Discriminator::Int)) {
     this->i = other.i;
-  } else if (this->is(Discriminator::Bool)) {
+  } else if (this->has(Discriminator::Bool)) {
     this->b = other.b;
-  } else {
-    this->v = nullptr;
   }
   other.tag = Discriminator::None;
 }
@@ -337,14 +331,12 @@ egg::lang::Value& egg::lang::Value::operator=(Value&& value) {
 }
 
 egg::lang::Value::~Value() {
-  if (this->is(Discriminator::String)) {
+  if (this->has(Discriminator::String)) {
     this->s->releaseHard();
-  } else if (this->is(Discriminator::Type)) {
+  } else if (this->has(Discriminator::Type)) {
     this->t->releaseHard();
-  } else if (this->is(Discriminator::Object)) {
+  } else if (this->has(Discriminator::Object)) {
     this->o->releaseHard();
-  } else if (this->is(Discriminator::FlowControl)) {
-    delete this->v;
   }
 }
 
@@ -367,16 +359,25 @@ bool egg::lang::Value::equal(const Value& lhs, const Value& rhs) {
   if (lhs.tag == Discriminator::Type) {
     return lhs.t == rhs.t;
   }
-  if (lhs.tag == Discriminator::Object) {
-    return lhs.o == rhs.o;
-  }
-  return (lhs.v == rhs.v) || ((lhs.v != nullptr) && (rhs.v != nullptr) && Value::equal(*lhs.v, *rhs.v));
+  return lhs.o == rhs.o;
 }
 
-egg::lang::Value egg::lang::Value::makeFlowControl(egg::lang::Discriminator tag, egg::lang::Value* value) {
-  Value result{ tag, value };
-  assert(result.is(Discriminator::FlowControl));
-  return result;
+void egg::lang::Value::addFlowControl(Discriminator bits) {
+  assert(Bits::mask(bits, Discriminator::FlowControl) == bits);
+  assert(!this->has(Discriminator::FlowControl));
+  this->tag = this->tag | bits;
+  assert(this->has(Discriminator::FlowControl));
+}
+
+bool egg::lang::Value::stripFlowControl(Discriminator bits) {
+  assert(Bits::mask(bits, Discriminator::FlowControl) == bits);
+  if (Bits::hasAnySet(this->tag, bits)) {
+    assert(this->has(egg::lang::Discriminator::FlowControl));
+    this->tag = Bits::clear(this->tag, bits);
+    assert(!this->has(egg::lang::Discriminator::FlowControl));
+    return true;
+  }
+  return false;
 }
 
 std::string egg::lang::Value::getTagString(Discriminator tag) {
@@ -415,7 +416,7 @@ const egg::lang::IType& egg::lang::Value::getRuntimeType() const {
   if (this->tag == Discriminator::Object) {
     // Ask the object for its type
     auto runtime = this->o->getRuntimeType();
-    if (runtime.is(Discriminator::Type)) {
+    if (runtime.has(Discriminator::Type)) {
       return *runtime.t;
     }
   }
@@ -443,7 +444,7 @@ std::string egg::lang::Value::toUTF8() const {
   }
   if (this->tag == Discriminator::Object) {
     auto str = this->o->toString();
-    if (str.is(Discriminator::String)) {
+    if (str.has(Discriminator::String)) {
       return str.toUTF8();
     }
     return "[invalid]";

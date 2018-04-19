@@ -209,8 +209,8 @@ public:
       // Ask the type to assign the value so that type promotion can occur
       egg::lang::String problem;
       auto promoted = this->type->promoteAssignment(rhs);
-      if (promoted.is(egg::lang::Discriminator::Exception)) {
-        EGG_THROW(promoted.getFlowControl().getString().toUTF8()); // TODO don't throw here!
+      if (promoted.stripFlowControl(egg::lang::Discriminator::Exception)) {
+        EGG_THROW(promoted.getString().toUTF8()); // TODO don't throw here!
       }
       this->value = promoted;
     }
@@ -280,7 +280,7 @@ egg::lang::Value egg::yolk::EggProgramContext::executeStatements(const std::vect
       this->symtable->addSymbol(name, *type);
     }
     auto retval = statement->execute(*this);
-    if (!retval.is(egg::lang::Discriminator::Void)) {
+    if (!retval.has(egg::lang::Discriminator::Void)) {
       return retval;
     }
   }
@@ -340,16 +340,16 @@ egg::lang::Value egg::yolk::EggProgramContext::executeDo(const IEggProgramNode& 
   egg::lang::Value retval;
   do {
     retval = block.execute(*this);
-    if (retval.is(egg::lang::Discriminator::Break)) {
+    if (retval.has(egg::lang::Discriminator::Break)) {
       // Just leave the loop
       return egg::lang::Value::Void;
     }
-    if (!retval.is(egg::lang::Discriminator::Void | egg::lang::Discriminator::Continue)) {
+    if (!retval.has(egg::lang::Discriminator::Void | egg::lang::Discriminator::Continue)) {
       // Probably an exception
       return retval;
     }
     retval = this->condition(cond);
-    if (!retval.is(egg::lang::Discriminator::Bool)) {
+    if (!retval.has(egg::lang::Discriminator::Bool)) {
       // Condition evaluation failed
       return retval;
     }
@@ -360,7 +360,7 @@ egg::lang::Value egg::yolk::EggProgramContext::executeDo(const IEggProgramNode& 
 egg::lang::Value egg::yolk::EggProgramContext::executeIf(const IEggProgramNode& self, const IEggProgramNode& cond, const IEggProgramNode& trueBlock, const IEggProgramNode* falseBlock) {
   this->statement(self);
   egg::lang::Value retval = this->condition(cond);
-  if (!retval.is(egg::lang::Discriminator::Bool)) {
+  if (!retval.has(egg::lang::Discriminator::Bool)) {
     return retval;
   }
   if (retval.getBool()) {
@@ -377,7 +377,7 @@ egg::lang::Value egg::yolk::EggProgramContext::executeFor(const IEggProgramNode&
   egg::lang::Value retval;
   if (pre != nullptr) {
     retval = pre->execute(*this);
-    if (!retval.is(egg::lang::Discriminator::Void)) {
+    if (!retval.has(egg::lang::Discriminator::Void)) {
       // Probably an exception in the pre-loop statement
       return retval;
     }
@@ -386,17 +386,17 @@ egg::lang::Value egg::yolk::EggProgramContext::executeFor(const IEggProgramNode&
     // There's no explicit condition
     for (;;) {
       retval = block.execute(*this);
-      if (retval.is(egg::lang::Discriminator::Break)) {
+      if (retval.has(egg::lang::Discriminator::Break)) {
         // Just leave the loop
         return egg::lang::Value::Void;
       }
-      if (!retval.is(egg::lang::Discriminator::Void | egg::lang::Discriminator::Continue)) {
+      if (!retval.has(egg::lang::Discriminator::Void | egg::lang::Discriminator::Continue)) {
         // Probably an exception in the condition expression
         return retval;
       }
       if (post != nullptr) {
         retval = post->execute(*this);
-        if (!retval.is(egg::lang::Discriminator::Void)) {
+        if (!retval.has(egg::lang::Discriminator::Void)) {
           // Probably an exception in the post-loop statement
           return retval;
         }
@@ -404,23 +404,23 @@ egg::lang::Value egg::yolk::EggProgramContext::executeFor(const IEggProgramNode&
     }
   }
   retval = this->condition(*cond);
-  while (retval.is(egg::lang::Discriminator::Bool)) {
+  while (retval.has(egg::lang::Discriminator::Bool)) {
     if (!retval.getBool()) {
       // The condition was false
       return egg::lang::Value::Void;
     }
     retval = block.execute(*this);
-    if (retval.is(egg::lang::Discriminator::Break)) {
+    if (retval.has(egg::lang::Discriminator::Break)) {
       // Just leave the loop
       return egg::lang::Value::Void;
     }
-    if (!retval.is(egg::lang::Discriminator::Void | egg::lang::Discriminator::Continue)) {
+    if (!retval.has(egg::lang::Discriminator::Void | egg::lang::Discriminator::Continue)) {
       // Probably an exception in the condition expression
       return retval;
     }
     if (post != nullptr) {
       retval = post->execute(*this);
-      if (!retval.is(egg::lang::Discriminator::Void)) {
+      if (!retval.has(egg::lang::Discriminator::Void)) {
         // Probably an exception in the post-loop statement
         return retval;
       }
@@ -437,17 +437,17 @@ egg::lang::Value egg::yolk::EggProgramContext::executeForeach(const IEggProgramN
     return egg::lang::Value::raise("Iteration target in 'for' statement is not valid");
   }
   auto src = rvalue.execute(*this);
-  if (src.is(egg::lang::Discriminator::FlowControl)) {
+  if (src.has(egg::lang::Discriminator::FlowControl)) {
     return src;
   }
   auto retval = dst->set(src);
-  while (!retval.is(egg::lang::Discriminator::FlowControl | egg::lang::Discriminator::Void)) {
+  while (!retval.has(egg::lang::Discriminator::FlowControl | egg::lang::Discriminator::Void)) {
     retval = block.execute(*this);
-    if (retval.is(egg::lang::Discriminator::Break)) {
+    if (retval.has(egg::lang::Discriminator::Break)) {
       // Just leave the loop
       return egg::lang::Value::Void;
     }
-    if (!retval.is(egg::lang::Discriminator::Void | egg::lang::Discriminator::Continue)) {
+    if (!retval.has(egg::lang::Discriminator::Void | egg::lang::Discriminator::Continue)) {
       // Probably an exception in the condition expression
       return retval;
     }
@@ -463,7 +463,7 @@ egg::lang::Value egg::yolk::EggProgramContext::executeFunctionDefinition(const I
   assert(symbol != nullptr);
   // We can store this directly in the symbol table without going through the type system
   // otherwise we get issues with function assignment
-  assert(symbol->value.is(egg::lang::Discriminator::Void));
+  assert(symbol->value.has(egg::lang::Discriminator::Void));
   symbol->value = egg::lang::Value(*new EggProgramFunction(*this, type, block));
   return egg::lang::Value::Void;
 }
@@ -475,11 +475,11 @@ egg::lang::Value egg::yolk::EggProgramContext::executeFunctionCall(const egg::la
     nested.addSymbol(k, t)->assign(v);
   };
   auto retval = type.decantParameters(parameters, setter);
-  if (!retval.is(egg::lang::Discriminator::FlowControl)) {
+  if (!retval.has(egg::lang::Discriminator::FlowControl)) {
     EggProgramContext context(*this, nested);
     retval = block.execute(context);
-    if (retval.is(egg::lang::Discriminator::Return)) {
-      retval = retval.getFlowControl();
+    if (retval.stripFlowControl(egg::lang::Discriminator::Return)) {
+      return retval;
     }
   }
   return retval;
@@ -489,13 +489,14 @@ egg::lang::Value egg::yolk::EggProgramContext::executeReturn(const IEggProgramNo
   this->statement(self);
   if (value == nullptr) {
     // This is a void return
-    return egg::lang::Value::makeFlowControl(egg::lang::Discriminator::Return, new egg::lang::Value(egg::lang::Value::Void)); // WIBBLE
+    return egg::lang::Value::ReturnVoid;
   }
   auto result = value->execute(*this);
-  if (result.is(egg::lang::Discriminator::FlowControl)) {
-    return result;
+  if (!result.has(egg::lang::Discriminator::FlowControl)) {
+    // Need to convert the result to a return flow control
+    result.addFlowControl(egg::lang::Discriminator::Return);
   }
-  return egg::lang::Value::makeFlowControl(egg::lang::Discriminator::Return, new egg::lang::Value(result)); // WIBBLE
+  return result;
 }
 
 egg::lang::Value egg::yolk::EggProgramContext::executeSwitch(const IEggProgramNode& self, const IEggProgramNode& value, int64_t defaultIndex, const std::vector<std::shared_ptr<IEggProgramNode>>& cases) {
@@ -504,13 +505,13 @@ egg::lang::Value egg::yolk::EggProgramContext::executeSwitch(const IEggProgramNo
   // Phase 1 evaluates the case values
   // Phase 2 executes the block(s) as appropriate
   auto expr = value.execute(*this);
-  if (expr.is(egg::lang::Discriminator::FlowControl)) {
+  if (expr.has(egg::lang::Discriminator::FlowControl)) {
     return expr;
   }
   auto matched = size_t(defaultIndex);
   for (size_t index = 0; index < cases.size(); ++index) {
     auto retval = cases[index]->executeWithExpression(*this, expr);
-    if (!retval.is(egg::lang::Discriminator::Bool)) {
+    if (!retval.has(egg::lang::Discriminator::Bool)) {
       // Failed to evaluate a case label
       return retval;
     }
@@ -522,11 +523,11 @@ egg::lang::Value egg::yolk::EggProgramContext::executeSwitch(const IEggProgramNo
   }
   while (matched < cases.size()) {
     auto retval = cases[matched]->execute(*this);
-    if (retval.is(egg::lang::Discriminator::Break)) {
+    if (retval.has(egg::lang::Discriminator::Break)) {
       // Explicit end of case clause
       break;
     }
-    if (!retval.is(egg::lang::Discriminator::Continue)) {
+    if (!retval.has(egg::lang::Discriminator::Continue)) {
       // Probably some other flow control such as a return or exception
       return retval;
     }
@@ -540,7 +541,7 @@ egg::lang::Value egg::yolk::EggProgramContext::executeCase(const IEggProgramNode
     // We're matching against values
     for (auto& i : values) {
       auto value = i->execute(*this);
-      if (value.is(egg::lang::Discriminator::FlowControl)) {
+      if (value.has(egg::lang::Discriminator::FlowControl)) {
         return value;
       }
       if (value == *against) {
@@ -562,10 +563,10 @@ egg::lang::Value egg::yolk::EggProgramContext::executeThrow(const IEggProgramNod
     return egg::lang::Value::Rethrow;
   }
   auto value = exception->execute(*this);
-  if (value.is(egg::lang::Discriminator::FlowControl)) {
+  if (value.has(egg::lang::Discriminator::FlowControl)) {
     return value;
   }
-  if (!value.is(egg::lang::Discriminator::Any)) {
+  if (!value.has(egg::lang::Discriminator::Any)) {
     return egg::lang::Value::raise("Cannot 'throw' a value of type '", value.getTagString(), "'");
   }
   return egg::lang::Value::raise(value.getString());
@@ -574,11 +575,11 @@ egg::lang::Value egg::yolk::EggProgramContext::executeThrow(const IEggProgramNod
 egg::lang::Value egg::yolk::EggProgramContext::executeTry(const IEggProgramNode& self, const IEggProgramNode& block, const std::vector<std::shared_ptr<IEggProgramNode>>& catches, const IEggProgramNode* final) {
   this->statement(self);
   auto retval = block.execute(*this);
-  if (retval.is(egg::lang::Discriminator::Exception)) {
+  if (retval.has(egg::lang::Discriminator::Exception)) {
     // An exception has indeed been thrown
     for (auto& i : catches) {
       auto match = i->executeWithExpression(*this, retval);
-      if (!match.is(egg::lang::Discriminator::Bool)) {
+      if (!match.has(egg::lang::Discriminator::Bool)) {
         // Failed to evaluate the catch condition
         return this->executeFinally(match, final);
       }
@@ -595,17 +596,14 @@ egg::lang::Value egg::yolk::EggProgramContext::executeCatch(const IEggProgramNod
   this->statement(self);
   // TODO return false if typeof(exception) != type
   auto retval = block.execute(*this);
-  if (retval.is(egg::lang::Discriminator::FlowControl)) {
-    if (retval.is(egg::lang::Discriminator::Exception)) {
-      // Check for a rethrow
-      auto& inner = retval.getFlowControl();
-      if (inner.is(egg::lang::Discriminator::Void)) {
-        return exception;
-      }
+  if (retval.has(egg::lang::Discriminator::FlowControl)) {
+    // Check for a rethrow
+    if (retval.has(egg::lang::Discriminator::Exception | egg::lang::Discriminator::Void)) {
+      return exception;
     }
     return retval;
   }
-  if (retval.is(egg::lang::Discriminator::Void)) {
+  if (retval.has(egg::lang::Discriminator::Void)) {
     // Return 'true' to indicate to the 'try' statement that we ran this 'catch' block
     return egg::lang::Value::True;
   }
@@ -615,7 +613,7 @@ egg::lang::Value egg::yolk::EggProgramContext::executeCatch(const IEggProgramNod
 egg::lang::Value egg::yolk::EggProgramContext::executeFinally(const egg::lang::Value& retval, const IEggProgramNode* final) {
   if (final != nullptr) {
     auto secondary = final->execute(*this);
-    if (!secondary.is(egg::lang::Discriminator::Void)) {
+    if (!secondary.has(egg::lang::Discriminator::Void)) {
       return secondary;
     }
   }
@@ -625,14 +623,14 @@ egg::lang::Value egg::yolk::EggProgramContext::executeFinally(const egg::lang::V
 egg::lang::Value egg::yolk::EggProgramContext::executeUsing(const IEggProgramNode& self, const IEggProgramNode& value, const IEggProgramNode& block) {
   this->statement(self);
   auto expr = value.execute(*this);
-  if (expr.is(egg::lang::Discriminator::FlowControl)) {
+  if (expr.has(egg::lang::Discriminator::FlowControl)) {
     return expr;
   }
-  if (!expr.is(egg::lang::Discriminator::Null | egg::lang::Discriminator::Object)) {
+  if (!expr.has(egg::lang::Discriminator::Null | egg::lang::Discriminator::Object)) {
     return this->unexpected("Expected expression in 'using' statement to be 'null' or an object", expr);
   }
   auto retval = block.execute(*this);
-  if (expr.is(egg::lang::Discriminator::Object)) {
+  if (expr.has(egg::lang::Discriminator::Object)) {
     auto& object = expr.getObject();
     if (!object.dispose()) {
       return egg::lang::Value::raise("Failed to 'dispose' object instance at end of 'using' statement");
@@ -644,13 +642,13 @@ egg::lang::Value egg::yolk::EggProgramContext::executeUsing(const IEggProgramNod
 egg::lang::Value egg::yolk::EggProgramContext::executeWhile(const IEggProgramNode& self, const IEggProgramNode& cond, const IEggProgramNode& block) {
   this->statement(self);
   auto retval = this->condition(cond);
-  while (retval.is(egg::lang::Discriminator::Bool)) {
+  while (retval.has(egg::lang::Discriminator::Bool)) {
     retval = block.execute(*this);
-    if (retval.is(egg::lang::Discriminator::Break)) {
+    if (retval.has(egg::lang::Discriminator::Break)) {
       // Just leave the loop
       return egg::lang::Value::Void;
     }
-    if (!retval.is(egg::lang::Discriminator::Void | egg::lang::Discriminator::Continue)) {
+    if (!retval.has(egg::lang::Discriminator::Void | egg::lang::Discriminator::Continue)) {
       // Probably an exception
       break;
     }
@@ -662,16 +660,17 @@ egg::lang::Value egg::yolk::EggProgramContext::executeWhile(const IEggProgramNod
 egg::lang::Value egg::yolk::EggProgramContext::executeYield(const IEggProgramNode& self, const IEggProgramNode& value) {
   this->statement(self);
   auto result = value.execute(*this);
-  if (result.is(egg::lang::Discriminator::FlowControl)) {
-    return result;
+  if (!result.has(egg::lang::Discriminator::FlowControl)) {
+    // Need to convert the result to a return flow control
+    result.addFlowControl(egg::lang::Discriminator::Yield);
   }
-  return egg::lang::Value::makeFlowControl(egg::lang::Discriminator::Return, new egg::lang::Value(result)); // WIBBLE
+  return result;
 }
 
 egg::lang::Value egg::yolk::EggProgramContext::executeCall(const IEggProgramNode& self, const IEggProgramNode& callee, const std::vector<std::shared_ptr<IEggProgramNode>>& parameters) {
   this->expression(self);
   auto func = callee.execute(*this);
-  if (func.is(egg::lang::Discriminator::FlowControl)) {
+  if (func.has(egg::lang::Discriminator::FlowControl)) {
     return func;
   }
   EggProgramParameters params(parameters.size());
@@ -679,7 +678,7 @@ egg::lang::Value egg::yolk::EggProgramContext::executeCall(const IEggProgramNode
   auto type = egg::lang::Type::Void;
   for (auto& parameter : parameters) {
     auto value = parameter->execute(*this);
-    if (value.is(egg::lang::Discriminator::FlowControl)) {
+    if (value.has(egg::lang::Discriminator::FlowControl)) {
       return value;
     }
     if (parameter->symbol(name, type)) {
@@ -714,7 +713,7 @@ egg::lang::Value egg::yolk::EggProgramContext::executeBinary(const IEggProgramNo
 egg::lang::Value egg::yolk::EggProgramContext::executeTernary(const IEggProgramNode& self, const IEggProgramNode& cond, const IEggProgramNode& whenTrue, const IEggProgramNode& whenFalse) {
   this->expression(self);
   auto retval = this->condition(cond);
-  if (retval.is(egg::lang::Discriminator::Bool)) {
+  if (retval.has(egg::lang::Discriminator::Bool)) {
     return retval.getBool() ? whenTrue.execute(*this) : whenFalse.execute(*this);
   }
   return retval;
@@ -736,10 +735,10 @@ egg::lang::LogSeverity egg::yolk::EggProgram::execute(IEggEngineExecutionContext
   egg::lang::LogSeverity severity = egg::lang::LogSeverity::None;
   EggProgramContext context(execution, symtable, severity);
   auto retval = this->root->execute(context);
-  if (!retval.is(egg::lang::Discriminator::Void)) {
-    if (retval.is(egg::lang::Discriminator::Exception)) {
+  if (!retval.has(egg::lang::Discriminator::Void)) {
+    if (retval.stripFlowControl(egg::lang::Discriminator::Exception)) {
       // TODO exception location
-      context.log(egg::lang::LogSource::Runtime, egg::lang::LogSeverity::Error, retval.getFlowControl().toUTF8());
+      context.log(egg::lang::LogSource::Runtime, egg::lang::LogSeverity::Error, retval.getString().toUTF8());
     } else {
       context.log(egg::lang::LogSource::Runtime, egg::lang::LogSeverity::Error, "Expected statement to return 'void', but got '" + retval.getTagString() + "' instead");
     }
@@ -760,14 +759,14 @@ egg::lang::Value egg::yolk::EggProgramContext::get(const egg::lang::String& name
   if (symbol == nullptr) {
     return egg::lang::Value::raise("Unknown identifier: '", name, "'");
   }
-  if (symbol->value.is(egg::lang::Discriminator::Void)) {
+  if (symbol->value.has(egg::lang::Discriminator::Void)) {
     return egg::lang::Value::raise("Uninitialized identifier: '", name.toUTF8(), "'");
   }
   return symbol->value;
 }
 
 egg::lang::Value egg::yolk::EggProgramContext::set(const egg::lang::String& name, const egg::lang::Value& rvalue) {
-  if (rvalue.is(egg::lang::Discriminator::FlowControl)) {
+  if (rvalue.has(egg::lang::Discriminator::FlowControl)) {
     return rvalue;
   }
   auto symbol = this->symtable->findSymbol(name);
@@ -782,7 +781,7 @@ egg::lang::Value egg::yolk::EggProgramContext::assign(EggProgramAssign op, const
     return egg::lang::Value::raise("Left-hand side of assignment operator '", EggProgram::assignToString(op), "' is not a valid target");
   }
   auto lhs = dst->get();
-  if (lhs.is(egg::lang::Discriminator::FlowControl)) {
+  if (lhs.has(egg::lang::Discriminator::FlowControl)) {
     return lhs;
   }
   egg::lang::Value rhs;
@@ -826,7 +825,7 @@ egg::lang::Value egg::yolk::EggProgramContext::assign(EggProgramAssign op, const
   default:
     return egg::lang::Value::raise("Internal runtime error: Unknown assignment operator: '", EggProgram::assignToString(op), "'");
   }
-  if (rhs.is(egg::lang::Discriminator::FlowControl)) {
+  if (rhs.has(egg::lang::Discriminator::FlowControl)) {
     return rhs;
   }
   return dst->set(rhs);
@@ -838,19 +837,19 @@ egg::lang::Value egg::yolk::EggProgramContext::mutate(EggProgramMutate op, const
     return egg::lang::Value::raise("Operand of mutation operator '", EggProgram::mutateToString(op), "' is not a valid target");
   }
   auto lhs = dst->get();
-  if (lhs.is(egg::lang::Discriminator::FlowControl)) {
+  if (lhs.has(egg::lang::Discriminator::FlowControl)) {
     return lhs;
   }
   egg::lang::Value rhs;
   switch (op) {
   case EggProgramMutate::Increment:
-    if (!lhs.is(egg::lang::Discriminator::Int)) {
+    if (!lhs.has(egg::lang::Discriminator::Int)) {
       return EggProgramContext::unexpected("Expected operand of increment operator '++' to be 'int'", lhs);
     }
     rhs = plusInt(lhs.getInt(), 1);
     break;
   case EggProgramMutate::Decrement:
-    if (!lhs.is(egg::lang::Discriminator::Int)) {
+    if (!lhs.has(egg::lang::Discriminator::Int)) {
       return EggProgramContext::unexpected("Expected operand of decrement operator '--' to be 'int'", lhs);
     }
     rhs = minusInt(lhs.getInt(), 1);
@@ -858,7 +857,7 @@ egg::lang::Value egg::yolk::EggProgramContext::mutate(EggProgramMutate op, const
   default:
     return egg::lang::Value::raise("Internal runtime error: Unknown mutation operator: '", EggProgram::mutateToString(op), "'");
   }
-  if (rhs.is(egg::lang::Discriminator::FlowControl)) {
+  if (rhs.has(egg::lang::Discriminator::FlowControl)) {
     return rhs;
   }
   return dst->set(rhs);
@@ -866,7 +865,7 @@ egg::lang::Value egg::yolk::EggProgramContext::mutate(EggProgramMutate op, const
 
 egg::lang::Value egg::yolk::EggProgramContext::condition(const IEggProgramNode& expression) {
   auto retval = expression.execute(*this);
-  if (retval.is(egg::lang::Discriminator::Bool | egg::lang::Discriminator::FlowControl)) {
+  if (retval.has(egg::lang::Discriminator::Bool | egg::lang::Discriminator::FlowControl)) {
     return retval;
   }
   return egg::lang::Value::raise("Expected condition to evaluate to a 'bool', but got '", retval.getTagString(), "' instead");
@@ -882,7 +881,7 @@ egg::lang::Value egg::yolk::EggProgramContext::unary(EggProgramUnary op, const I
     return result;
   case EggProgramUnary::Negate:
     if (this->operand(result, value, egg::lang::Discriminator::Arithmetic, "Expected operand of negation operator '-' to be 'int' or 'float'")) {
-      return result.is(egg::lang::Discriminator::Int) ? egg::lang::Value(-result.getInt()) : egg::lang::Value(-result.getFloat());
+      return result.has(egg::lang::Discriminator::Int) ? egg::lang::Value(-result.getInt()) : egg::lang::Value(-result.getFloat());
     }
     return result;
   case EggProgramUnary::BitwiseNot:
@@ -901,12 +900,12 @@ egg::lang::Value egg::yolk::EggProgramContext::unary(EggProgramUnary op, const I
 
 egg::lang::Value egg::yolk::EggProgramContext::binary(EggProgramBinary op, const IEggProgramNode& lhs, const IEggProgramNode& rhs) {
   egg::lang::Value left = lhs.execute(*this);
-  if (left.is(egg::lang::Discriminator::FlowControl)) {
+  if (left.has(egg::lang::Discriminator::FlowControl)) {
     return left;
   }
   switch (op) {
   case EggProgramBinary::Unequal:
-    if (left.is(egg::lang::Discriminator::Any | egg::lang::Discriminator::Null)) {
+    if (left.has(egg::lang::Discriminator::Any | egg::lang::Discriminator::Null)) {
       egg::lang::Value right;
       if (!this->operand(right, rhs, egg::lang::Discriminator::Any | egg::lang::Discriminator::Null, "Expected right operand of inequality '!=' to be a value")) {
         return right;
@@ -919,7 +918,7 @@ egg::lang::Value egg::yolk::EggProgramContext::binary(EggProgramBinary op, const
   case EggProgramBinary::BitwiseAnd:
     return this->arithmeticInt(left, rhs, "bitwise-and '&'", bitwiseAndInt);
   case EggProgramBinary::LogicalAnd:
-    if (left.is(egg::lang::Discriminator::Bool)) {
+    if (left.has(egg::lang::Discriminator::Bool)) {
       if (!left.getBool()) {
         return left;
       }
@@ -947,7 +946,7 @@ egg::lang::Value egg::yolk::EggProgramContext::binary(EggProgramBinary op, const
   case EggProgramBinary::LessEqual:
     return this->arithmeticIntFloat(left, rhs, "comparison '<='", lessEqualInt, lessEqualFloat);
   case EggProgramBinary::Equal:
-    if (left.is(egg::lang::Discriminator::Any | egg::lang::Discriminator::Null)) {
+    if (left.has(egg::lang::Discriminator::Any | egg::lang::Discriminator::Null)) {
       egg::lang::Value right;
       if (!this->operand(right, rhs, egg::lang::Discriminator::Any | egg::lang::Discriminator::Null, "Expected right operand of equality '==' to be a value")) {
         return right;
@@ -964,7 +963,7 @@ egg::lang::Value egg::yolk::EggProgramContext::binary(EggProgramBinary op, const
   case EggProgramBinary::ShiftRightUnsigned:
     return this->arithmeticInt(left, rhs, "shift-right-unsigned '>>>'", shiftRightUnsignedInt);
   case EggProgramBinary::NullCoalescing:
-    return left.is(egg::lang::Discriminator::Null) ? rhs.execute(*this) : left;
+    return left.has(egg::lang::Discriminator::Null) ? rhs.execute(*this) : left;
   case EggProgramBinary::Brackets:
     return egg::lang::Value::raise("TODO " __FUNCTION__ " not fully implemented"); // TODO
   case EggProgramBinary::BitwiseXor:
@@ -972,7 +971,7 @@ egg::lang::Value egg::yolk::EggProgramContext::binary(EggProgramBinary op, const
   case EggProgramBinary::BitwiseOr:
     return this->arithmeticInt(left, rhs, "bitwise-or '|'", bitwiseOrInt);
   case EggProgramBinary::LogicalOr:
-    if (left.is(egg::lang::Discriminator::Bool)) {
+    if (left.has(egg::lang::Discriminator::Bool)) {
       if (left.getBool()) {
         return left;
       }
@@ -988,54 +987,54 @@ egg::lang::Value egg::yolk::EggProgramContext::binary(EggProgramBinary op, const
 
 bool egg::yolk::EggProgramContext::operand(egg::lang::Value& dst, const IEggProgramNode& src, egg::lang::Discriminator expected, const char* expectation) {
   dst = src.execute(*this);
-  if (dst.is(expected)) {
+  if (dst.has(expected)) {
     return true;
   }
-  if (!dst.is(egg::lang::Discriminator::FlowControl)) {
+  if (!dst.has(egg::lang::Discriminator::FlowControl)) {
     dst = EggProgramContext::unexpected(expectation, dst);
   }
   return false;
 }
 
 egg::lang::Value egg::yolk::EggProgramContext::arithmeticIntFloat(const egg::lang::Value& lhs, const IEggProgramNode& rvalue, const char* operation, ArithmeticInt ints, ArithmeticFloat floats) {
-  if (!lhs.is(egg::lang::Discriminator::Arithmetic)) {
+  if (!lhs.has(egg::lang::Discriminator::Arithmetic)) {
     return EggProgramContext::unexpected("Expected left-hand side of " + std::string(operation) + " to be 'int' or 'float'", lhs);
   }
   egg::lang::Value rhs = rvalue.execute(*this);
-  if (rhs.is(egg::lang::Discriminator::Int)) {
-    if (lhs.is(egg::lang::Discriminator::Int)) {
+  if (rhs.has(egg::lang::Discriminator::Int)) {
+    if (lhs.has(egg::lang::Discriminator::Int)) {
       return ints(lhs.getInt(), rhs.getInt());
     }
     return floats(lhs.getFloat(), static_cast<double>(rhs.getInt()));
   }
-  if (rhs.is(egg::lang::Discriminator::Float)) {
-    if (lhs.is(egg::lang::Discriminator::Int)) {
+  if (rhs.has(egg::lang::Discriminator::Float)) {
+    if (lhs.has(egg::lang::Discriminator::Int)) {
       return floats(static_cast<double>(lhs.getInt()), rhs.getFloat());
     }
     return floats(lhs.getFloat(), rhs.getFloat());
   }
-  if (rhs.is(egg::lang::Discriminator::FlowControl)) {
+  if (rhs.has(egg::lang::Discriminator::FlowControl)) {
     return rhs;
   }
   return EggProgramContext::unexpected("Expected right-hand side of " + std::string(operation) + " to be 'int' or 'float'", rhs);
 }
 
 egg::lang::Value egg::yolk::EggProgramContext::arithmeticInt(const egg::lang::Value& lhs, const IEggProgramNode& rvalue, const char* operation, ArithmeticInt ints) {
-  if (!lhs.is(egg::lang::Discriminator::Int)) {
+  if (!lhs.has(egg::lang::Discriminator::Int)) {
     return EggProgramContext::unexpected("Expected left-hand side of " + std::string(operation) + " to be 'int'", lhs);
   }
   egg::lang::Value rhs = rvalue.execute(*this);
-  if (rhs.is(egg::lang::Discriminator::Int)) {
+  if (rhs.has(egg::lang::Discriminator::Int)) {
     return ints(lhs.getInt(), rhs.getInt());
   }
-  if (rhs.is(egg::lang::Discriminator::FlowControl)) {
+  if (rhs.has(egg::lang::Discriminator::FlowControl)) {
     return rhs;
   }
   return EggProgramContext::unexpected("Expected right-hand side of " + std::string(operation) + " to be 'int'", rhs);
 }
 
 egg::lang::Value egg::yolk::EggProgramContext::call(const egg::lang::Value& callee, const egg::lang::IParameters& parameters) {
-  if (!callee.is(egg::lang::Discriminator::Object)) {
+  if (!callee.has(egg::lang::Discriminator::Object)) {
     return EggProgramContext::unexpected("Expected function-like expression to be 'object'", callee);
   }
   auto& object = callee.getObject();

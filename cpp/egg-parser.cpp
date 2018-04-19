@@ -89,7 +89,7 @@ namespace {
     default:
       break;
     }
-    return egg::lang::Type::Null; // WIBBLE
+    return egg::lang::Type::Void;
   }
 
   egg::lang::ITypeRef binaryArithmeticTypes(const std::shared_ptr<IEggProgramNode>& lhs, const std::shared_ptr<IEggProgramNode>& rhs) {
