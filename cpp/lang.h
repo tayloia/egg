@@ -237,7 +237,7 @@ namespace egg::lang {
     void moveInternals(Value& other);
   public:
     inline Value() : tag(Discriminator::Void) { this->o = nullptr; }
-    inline explicit Value(nullptr_t) : tag(Discriminator::Null) { this->o = nullptr; }
+    inline explicit Value(std::nullptr_t) : tag(Discriminator::Null) { this->o = nullptr; }
     inline explicit Value(bool value) : tag(Discriminator::Bool) { this->b = value; }
     inline explicit Value(int64_t value) : tag(Discriminator::Int) { this->i = value; }
     inline explicit Value(double value) : tag(Discriminator::Float) { this->f = value; }

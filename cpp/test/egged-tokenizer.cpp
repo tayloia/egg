@@ -235,5 +235,5 @@ TEST(TestEggedTokenizer, ExampleFile) {
   while (tokenizer->next(item) != EggedTokenizerKind::EndOfFile) {
     count++;
   }
-  ASSERT_EQ(55, count);
+  ASSERT_EQ(55u, count);
 }

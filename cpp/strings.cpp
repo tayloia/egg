@@ -1,5 +1,8 @@
 #include "yolk.h"
 
+#include <cmath>
+#include <cstring>
+
 namespace {
   struct FloatParts {
     bool negative;

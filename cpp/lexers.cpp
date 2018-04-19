@@ -1,6 +1,7 @@
 #include "yolk.h"
 #include "lexers.h"
 
+#include <cstring>
 #include <iomanip>
 
 namespace {

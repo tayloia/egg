@@ -1,4 +1,5 @@
 #define EGG_PLATFORM_MSVC 1
+#define EGG_PLATFORM_GCC 2
 
 #if defined(_MSC_VER)
 
@@ -30,6 +31,16 @@
 #include <sstream>
 #include <vector>
 #pragma warning(pop)
+
+#elif defined(__GNUC__)
+
+// GNU GCC
+#define EGG_PLATFORM EGG_PLATFORM_GCC
+
+// See https://stackoverflow.com/a/16472469
+#ifdef __STRICT_ANSI__
+#undef __STRICT_ANSI__
+#endif
 
 #else
 

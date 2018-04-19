@@ -1,23 +1,25 @@
 #include "test.h"
 
+#include <cmath>
+
 TEST(TestStrings, Empty) {
   egg::lang::String s1;
-  ASSERT_EQ(0, s1.length());
+  ASSERT_EQ(0u, s1.length());
   auto s2 = s1;
-  ASSERT_EQ(0, s2.length());
+  ASSERT_EQ(0u, s2.length());
   s1 = egg::lang::String::fromUTF8("nothing");
-  ASSERT_EQ(7, s1.length());
-  ASSERT_EQ(0, s2.length());
+  ASSERT_EQ(7u, s1.length());
+  ASSERT_EQ(0u, s2.length());
 }
 
 TEST(TestStrings, UTF8) {
   auto s1 = egg::lang::String::fromUTF8("hello world");
-  ASSERT_EQ(11, s1.length());
+  ASSERT_EQ(11u, s1.length());
   auto s2 = s1;
-  ASSERT_EQ(11, s2.length());
+  ASSERT_EQ(11u, s2.length());
   s1 = egg::lang::String::Empty;
-  ASSERT_EQ(0, s1.length());
-  ASSERT_EQ(11, s2.length());
+  ASSERT_EQ(0u, s1.length());
+  ASSERT_EQ(11u, s2.length());
 }
 
 TEST(TestStrings, StartsWith) {
@@ -91,22 +93,22 @@ TEST(TestStrings, TryParseSignedBad) {
 TEST(TestStrings, TryParseUnsigned) {
   uint64_t value = 1;
   ASSERT_TRUE(egg::yolk::String::tryParseUnsigned(value, "0"));
-  ASSERT_EQ(0, value);
+  ASSERT_EQ(0u, value);
   ASSERT_TRUE(egg::yolk::String::tryParseUnsigned(value, "1234567890"));
-  ASSERT_EQ(1234567890, value);
+  ASSERT_EQ(1234567890u, value);
   ASSERT_TRUE(egg::yolk::String::tryParseUnsigned(value, "1234567890ABCDEF", 16));
-  ASSERT_EQ(0x1234567890ABCDEF, value);
+  ASSERT_EQ(0x1234567890ABCDEFu, value);
   ASSERT_TRUE(egg::yolk::String::tryParseUnsigned(value, "0x1234567890ABCDEF", 16));
-  ASSERT_EQ(0x1234567890ABCDEF, value);
+  ASSERT_EQ(0x1234567890ABCDEFu, value);
 }
 
 TEST(TestStrings, TryParseUnsignedBad) {
-  uint64_t value = 123;
+  uint64_t value = 123456;
   ASSERT_FALSE(egg::yolk::String::tryParseUnsigned(value, ""));
   ASSERT_FALSE(egg::yolk::String::tryParseUnsigned(value, "xxx"));
   ASSERT_FALSE(egg::yolk::String::tryParseUnsigned(value, "123xxx"));
   ASSERT_FALSE(egg::yolk::String::tryParseUnsigned(value, "0x123"));
-  ASSERT_EQ(123, value);
+  ASSERT_EQ(123456u, value);
 }
 
 TEST(TestStrings, TryParseFloat) {
@@ -166,10 +168,10 @@ TEST(TestStrings, TryParseFloatBad) {
 }
 
 TEST(TestStrings, FromUnsigned) {
-  ASSERT_EQ("0", egg::yolk::String::fromUnsigned(0));
-  ASSERT_EQ("10", egg::yolk::String::fromUnsigned(10));
-  ASSERT_EQ("123456789", egg::yolk::String::fromUnsigned(123456789));
-  ASSERT_EQ("18446744073709551615", egg::yolk::String::fromUnsigned(18446744073709551615));
+  ASSERT_EQ("0", egg::yolk::String::fromUnsigned(0u));
+  ASSERT_EQ("10", egg::yolk::String::fromUnsigned(10u));
+  ASSERT_EQ("123456789", egg::yolk::String::fromUnsigned(123456789u));
+  ASSERT_EQ("18446744073709551615", egg::yolk::String::fromUnsigned(18446744073709551615u));
 }
 
 TEST(TestStrings, FromSigned) {

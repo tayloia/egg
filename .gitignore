@@ -2,3 +2,5 @@
 .vs/
 msvc/bin/
 msvc/obj/
+gcc/bin/
+gcc/obj/

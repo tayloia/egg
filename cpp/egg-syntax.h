@@ -167,11 +167,7 @@ namespace egg::yolk {
     virtual std::shared_ptr<IEggProgramNode> promote(IEggParserContext& context) const override;
   private:
     template<typename T>
-    std::shared_ptr<IEggProgramNode> promoteAssign(IEggParserContext& context) const {
-      auto lhs = context.promote(*this->child[0]);
-      auto rhs = context.promote(*this->child[1]);
-      return std::make_shared<T>(lhs, rhs);
-    }
+    std::shared_ptr<IEggProgramNode> promoteAssign(IEggParserContext& context) const;
   };
 
   class EggSyntaxNode_Mutate : public EggSyntaxNodeChildren1 {
@@ -427,10 +423,7 @@ namespace egg::yolk {
     virtual std::shared_ptr<IEggProgramNode> promote(IEggParserContext& context) const override;
   private:
     template<typename T>
-    std::shared_ptr<IEggProgramNode> promoteUnary(IEggParserContext& context) const {
-      auto expr = context.promote(*this->child);
-      return std::make_shared<T>(expr);
-    }
+    std::shared_ptr<IEggProgramNode> promoteUnary(IEggParserContext& context) const;
   };
 
   class EggSyntaxNode_BinaryOperator : public EggSyntaxNodeChildrenN<2> {
@@ -446,11 +439,7 @@ namespace egg::yolk {
     virtual std::shared_ptr<IEggProgramNode> promote(IEggParserContext& context) const override;
   private:
     template<typename T>
-    std::shared_ptr<IEggProgramNode> promoteBinary(IEggParserContext& context) const {
-      auto lhs = context.promote(*this->child[0]);
-      auto rhs = context.promote(*this->child[1]);
-      return std::make_shared<T>(lhs, rhs);
-    }
+    std::shared_ptr<IEggProgramNode> promoteBinary(IEggParserContext& context) const;
   };
 
   class EggSyntaxNode_TernaryOperator : public EggSyntaxNodeChildrenN<3> {

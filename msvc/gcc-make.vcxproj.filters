@@ -1,0 +1,12 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <None Include="..\Makefile" />
+    <None Include="..\gcc\gcc-common.mak" />
+    <None Include="..\gcc\gcc-debug.mak" />
+    <None Include="..\gcc\gcc-release.mak" />
+  </ItemGroup>
+  <ItemGroup>
+    <CustomBuild Include="..\build.cmd" />
+  </ItemGroup>
+</Project>

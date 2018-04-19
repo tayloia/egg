@@ -82,7 +82,7 @@ TEST(TestJsonTokenizer, IntegerPositive) {
   ASSERT_EQ("positive", item.value.s);
   ASSERT_EQ(JsonTokenizerKind::Colon, tokenizer->next(item));
   ASSERT_EQ(JsonTokenizerKind::Unsigned, tokenizer->next(item));
-  ASSERT_EQ(123, item.value.u);
+  ASSERT_EQ(123u, item.value.u);
   ASSERT_EQ(JsonTokenizerKind::ObjectEnd, tokenizer->next(item));
   ASSERT_EQ(JsonTokenizerKind::EndOfFile, tokenizer->next(item));
 }
@@ -216,5 +216,5 @@ TEST(TestJsonTokenizer, ExampleFile) {
   while (tokenizer->next(item) != JsonTokenizerKind::EndOfFile) {
     count++;
   }
-  ASSERT_EQ(65, count);
+  ASSERT_EQ(65u, count);
 }

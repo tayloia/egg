@@ -3,6 +3,7 @@
 #include "egg-tokenizer.h"
 
 #include <codecvt>
+#include <cstring>
 
 #define EGG_TOKENIZER_KEYWORD_DEFINE(key, text) \
   { egg::yolk::EggTokenizerKeyword::key, sizeof(text)-1, text },

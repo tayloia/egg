@@ -420,7 +420,7 @@ namespace {
         return this->upcoming.back();
       }
       // Microsoft's std::deque indexer is borked
-      return *(this->upcoming.begin() + ptrdiff_t(index));
+      return *(this->upcoming.begin() + std::ptrdiff_t(index));
     }
     void pop(size_t count = 1) {
       assert(count > 0);
@@ -456,7 +456,9 @@ namespace {
       return true;
     }
     void push() {
-      this->tokenizer->next(this->upcoming.emplace_back());
+      // In C++ 14 std::vector::emplace_back did not return a value!
+      this->upcoming.emplace_back();
+      this->tokenizer->next(this->upcoming.back());
     }
   };
 
@@ -1754,7 +1756,7 @@ std::unique_ptr<IEggSyntaxNode> EggSyntaxParserContext::parseTypeSimple(egg::lan
 }
 
 std::unique_ptr<IEggSyntaxNode> EggSyntaxParserContext::parseTypeDefinition() {
-  EGG_THROW(__FUNCTION__ " TODO"); // TODO
+  EGG_THROW("TODO"); // TODO
 }
 
 std::shared_ptr<egg::yolk::IEggSyntaxParser> egg::yolk::EggParserFactory::createModuleSyntaxParser() {

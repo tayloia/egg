@@ -6,6 +6,8 @@
 #include "egg-program.h"
 #include "egg-engine.h"
 
+#include <cmath>
+#include <map>
 #include <set>
 
 namespace {
@@ -892,7 +894,7 @@ egg::lang::Value egg::yolk::EggProgramContext::unary(EggProgramUnary op, const I
   case EggProgramUnary::Ref:
   case EggProgramUnary::Deref:
   case EggProgramUnary::Ellipsis:
-    return egg::lang::Value::raise("TODO " __FUNCTION__ " not fully implemented"); // TODO
+    return egg::lang::Value::raise("TODO unary() not fully implemented"); // TODO
   default:
     return egg::lang::Value::raise("Internal runtime error: Unknown unary operator: '", EggProgram::unaryToString(op), "'");
   }
@@ -934,9 +936,9 @@ egg::lang::Value egg::yolk::EggProgramContext::binary(EggProgramBinary op, const
   case EggProgramBinary::Minus:
     return this->arithmeticIntFloat(left, rhs, "subtraction '-'", minusInt, minusFloat);
   case EggProgramBinary::Lambda:
-    return egg::lang::Value::raise("TODO " __FUNCTION__ " not fully implemented"); // TODO
+    return egg::lang::Value::raise("TODO binary(Lambda) not fully implemented"); // TODO
   case EggProgramBinary::Dot:
-    return egg::lang::Value::raise("TODO " __FUNCTION__ " not fully implemented"); // TODO
+    return egg::lang::Value::raise("TODO binary(Dot) not fully implemented"); // TODO
   case EggProgramBinary::Divide:
     return this->arithmeticIntFloat(left, rhs, "division '/'", divideInt, divideFloat);
   case EggProgramBinary::Less:
@@ -965,7 +967,7 @@ egg::lang::Value egg::yolk::EggProgramContext::binary(EggProgramBinary op, const
   case EggProgramBinary::NullCoalescing:
     return left.has(egg::lang::Discriminator::Null) ? rhs.execute(*this) : left;
   case EggProgramBinary::Brackets:
-    return egg::lang::Value::raise("TODO " __FUNCTION__ " not fully implemented"); // TODO
+    return egg::lang::Value::raise("TODO binary(Brackets) not fully implemented"); // TODO
   case EggProgramBinary::BitwiseXor:
     return this->arithmeticInt(left, rhs, "bitwise-xor '^'", bitwiseXorInt);
   case EggProgramBinary::BitwiseOr:

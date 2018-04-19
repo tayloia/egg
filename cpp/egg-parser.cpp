@@ -5,6 +5,27 @@
 #include "egg-parser.h"
 #include "egg-program.h"
 
+// WIBBLE
+template<typename T>
+inline std::shared_ptr<egg::yolk::IEggProgramNode> egg::yolk::EggSyntaxNode_Assignment::promoteAssign(IEggParserContext & context) const {
+  auto lhs = context.promote(*this->child[0]);
+  auto rhs = context.promote(*this->child[1]);
+  return std::make_shared<T>(lhs, rhs);
+}
+
+template<typename T>
+inline std::shared_ptr<egg::yolk::IEggProgramNode> egg::yolk::EggSyntaxNode_UnaryOperator::promoteUnary(IEggParserContext & context) const {
+  auto expr = context.promote(*this->child);
+  return std::make_shared<T>(expr);
+}
+
+template<typename T>
+inline std::shared_ptr<egg::yolk::IEggProgramNode> egg::yolk::EggSyntaxNode_BinaryOperator::promoteBinary(IEggParserContext & context) const {
+  auto lhs = context.promote(*this->child[0]);
+  auto rhs = context.promote(*this->child[1]);
+  return std::make_shared<T>(lhs, rhs);
+}
+
 namespace {
   using namespace egg::yolk;
 
@@ -1526,7 +1547,7 @@ egg::lang::ITypeRef EggParserNode_UnaryNegate::getType() const {
 }
 
 egg::lang::ITypeRef EggParserNode_UnaryEllipsis::getType() const {
-  EGG_THROW(__FUNCTION__ " TODO"); // TODO
+  EGG_THROW("TODO"); // TODO
 }
 
 egg::lang::ITypeRef EggParserNode_UnaryBitwiseNot::getType() const {
@@ -1564,11 +1585,11 @@ egg::lang::ITypeRef EggParserNode_BinaryMinus::getType() const {
 }
 
 egg::lang::ITypeRef EggParserNode_BinaryLambda::getType() const {
-  EGG_THROW(__FUNCTION__ " TODO"); // TODO
+  EGG_THROW("TODO"); // TODO
 }
 
 egg::lang::ITypeRef EggParserNode_BinaryDot::getType() const {
-  EGG_THROW(__FUNCTION__ " TODO"); // TODO
+  EGG_THROW("TODO"); // TODO
 }
 
 egg::lang::ITypeRef EggParserNode_BinaryDivide::getType() const {
@@ -1618,7 +1639,7 @@ egg::lang::ITypeRef EggParserNode_BinaryNullCoalescing::getType() const {
 }
 
 egg::lang::ITypeRef EggParserNode_BinaryBrackets::getType() const {
-  EGG_THROW(__FUNCTION__ " TODO"); // TODO
+  EGG_THROW("TODO"); // TODO
 }
 
 egg::lang::ITypeRef EggParserNode_BinaryBitwiseXor::getType() const {

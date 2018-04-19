@@ -40,13 +40,13 @@ TEST(TestEggTokenizer, TryParseOperator) {
   size_t length = 0;
   ASSERT_TRUE(EggTokenizerValue::tryParseOperator("&x", op, length));
   ASSERT_EQ(op, EggTokenizerOperator::Ampersand);
-  ASSERT_EQ(length, 1);
+  ASSERT_EQ(length, 1u);
   ASSERT_TRUE(EggTokenizerValue::tryParseOperator("--x", op, length));
   ASSERT_EQ(op, EggTokenizerOperator::MinusMinus);
-  ASSERT_EQ(length, 2);
+  ASSERT_EQ(length, 2u);
   ASSERT_TRUE(EggTokenizerValue::tryParseOperator(">>>=", op, length));
   ASSERT_EQ(op, EggTokenizerOperator::ShiftRightUnsignedEqual);
-  ASSERT_EQ(length, 4);
+  ASSERT_EQ(length, 4u);
   ASSERT_FALSE(EggTokenizerValue::tryParseOperator("", op, length));
   ASSERT_FALSE(EggTokenizerValue::tryParseOperator("@", op, length));
 }
@@ -165,30 +165,30 @@ TEST(TestEggTokenizer, Line) {
   EggTokenizerItem item;
   auto tokenizer = createFromString("1 2.3\r\n\r\n`hello\nworld` foo");
   ASSERT_EQ(EggTokenizerKind::Integer, tokenizer->next(item));
-  ASSERT_EQ(1, item.line);
+  ASSERT_EQ(1u, item.line);
   ASSERT_EQ(EggTokenizerKind::Float, tokenizer->next(item));
-  ASSERT_EQ(1, item.line);
+  ASSERT_EQ(1u, item.line);
   ASSERT_EQ(EggTokenizerKind::String, tokenizer->next(item));
-  ASSERT_EQ(3, item.line);
+  ASSERT_EQ(3u, item.line);
   ASSERT_EQ(EggTokenizerKind::Identifier, tokenizer->next(item));
-  ASSERT_EQ(4, item.line);
+  ASSERT_EQ(4u, item.line);
   ASSERT_EQ(EggTokenizerKind::EndOfFile, tokenizer->next(item));
-  ASSERT_EQ(4, item.line);
+  ASSERT_EQ(4u, item.line);
 }
 
 TEST(TestEggTokenizer, Column) {
   EggTokenizerItem item;
   auto tokenizer = createFromString("1 2.3 \"hello\" foo");
   ASSERT_EQ(EggTokenizerKind::Integer, tokenizer->next(item));
-  ASSERT_EQ(1, item.column);
+  ASSERT_EQ(1u, item.column);
   ASSERT_EQ(EggTokenizerKind::Float, tokenizer->next(item));
-  ASSERT_EQ(3, item.column);
+  ASSERT_EQ(3u, item.column);
   ASSERT_EQ(EggTokenizerKind::String, tokenizer->next(item));
-  ASSERT_EQ(7, item.column);
+  ASSERT_EQ(7u, item.column);
   ASSERT_EQ(EggTokenizerKind::Identifier, tokenizer->next(item));
-  ASSERT_EQ(15, item.column);
+  ASSERT_EQ(15u, item.column);
   ASSERT_EQ(EggTokenizerKind::EndOfFile, tokenizer->next(item));
-  ASSERT_EQ(18, item.column);
+  ASSERT_EQ(18u, item.column);
 }
 
 TEST(TestEggTokenizer, Vexatious) {
@@ -228,5 +228,5 @@ TEST(TestEggTokenizer, ExampleFile) {
   while (tokenizer->next(item) != EggTokenizerKind::EndOfFile) {
     count++;
   }
-  ASSERT_EQ(21, count);
+  ASSERT_EQ(21u, count);
 }
