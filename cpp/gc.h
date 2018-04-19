@@ -16,26 +16,41 @@ namespace egg::gc {
     }
   };
 
-  class ReferenceCounted {
-    ReferenceCounted(const ReferenceCounted&) = delete;
-    ReferenceCounted& operator=(const ReferenceCounted&) = delete;
+  class ReferenceCount {
+    ReferenceCount(const ReferenceCount&) = delete;
+    ReferenceCount& operator=(const ReferenceCount&) = delete;
   protected:
     mutable Atomic<int64_t> atomic;
   public:
-    inline ReferenceCounted() {}
-    virtual ~ReferenceCounted() {}
-    inline size_t acquireHard() const {
+    inline ReferenceCount() {}
+    inline size_t acquire() const {
       auto after = this->atomic.add(1) + 1;
       assert(after > 0);
       return static_cast<size_t>(after);
     }
-    inline size_t releaseHard() const {
-      auto after = this->atomic.add(-1) -1;
+    inline size_t release() const {
+      auto after = this->atomic.add(-1) - 1;
       assert(after >= 0);
-      if (after == 0) {
+      return static_cast<size_t>(after);
+    }
+  };
+
+  template<class T>
+  class HardReferenceCounted : public T {
+    HardReferenceCounted(const HardReferenceCounted&) = delete;
+    HardReferenceCounted& operator=(const HardReferenceCounted&) = delete;
+  private:
+    ReferenceCount hard;
+  public:
+    inline HardReferenceCounted() {}
+    virtual T* acquireHard() const override {
+      this->hard.acquire();
+      return const_cast<HardReferenceCounted*>(this);
+    }
+    virtual void releaseHard() const override {
+      if (this->hard.release() == 0) {
         delete this;
       }
-      return static_cast<size_t>(after);
     }
   };
 
@@ -45,13 +60,16 @@ namespace egg::gc {
   private:
     T* ptr;
   public:
-    explicit HardRef(T* ptr) : ptr(ptr) {
+    inline explicit HardRef(const T* rhs) : ptr(rhs->acquireHard()) {
       assert(this->ptr != nullptr);
-      this->ptr->acquireHard();
     }
-    template<class U>
-    explicit HardRef(HardRef<U> rhs) : ptr(rhs.acquire()) {
+    inline HardRef(const HardRef& rhs) : ptr(rhs.acquireHard()) {
       assert(this->ptr != nullptr);
+    }
+    HardRef& operator=(const HardRef& rhs) {
+      assert(this->ptr != nullptr);
+      this->set(rhs.get());
+      return *this;
     }
     ~HardRef() {
       assert(this->ptr != nullptr);
@@ -61,17 +79,16 @@ namespace egg::gc {
       assert(this->ptr != nullptr);
       return this->ptr;
     }
-    T* acquire() const {
+    T* acquireHard() const {
       assert(this->ptr != nullptr);
-      this->ptr->acquireHard();
-      return this->ptr;
+      return this->ptr->acquireHard();
     }
     void set(T* rhs) {
       assert(rhs != nullptr);
-      rhs->acquireHard();
-      assert(this->ptr != nullptr);
-      this->ptr->releaseHard();
-      this->ptr = rhs;
+      auto* old = this->ptr;
+      assert(old != nullptr);
+      this->ptr = rhs->acquireHard();
+      old->releaseHard();
     }
     T& operator*() const {
       return *this->ptr;

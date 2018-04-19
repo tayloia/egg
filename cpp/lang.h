@@ -75,11 +75,11 @@ namespace egg::lang {
     return Bits::set(lhs, rhs);
   }
 
-  class IString : public egg::gc::ReferenceCounted {
-    IString(const IString&) = delete;
-    IString& operator=(const IString&) = delete;
+  class IString {
   public:
-    inline IString() {}
+    virtual ~IString() {}
+    virtual IString* acquireHard() const = 0;
+    virtual void releaseHard() const = 0;
     virtual size_t length() const = 0;
     virtual bool empty() const = 0;
     virtual bool equal(const IString& other) const = 0;
@@ -104,13 +104,44 @@ namespace egg::lang {
     virtual Value getNamed(const String& name) const = 0;
   };
 
+  class IType {
+  public:
+    virtual ~IType() {}
+    virtual IType* acquireHard() const = 0;
+    virtual void releaseHard() const = 0;
+    virtual String toString() const = 0;
+
+    // WIBBLE from IEggProgramType
+    typedef std::function<void(const String& name, const IType& type, const Value& value)> Setter;
+    virtual bool hasSimpleType(Discriminator bit) const = 0;
+    virtual Discriminator arithmeticTypes() const = 0;
+    virtual egg::gc::HardRef<const IType> dereferencedType() const = 0;
+    virtual egg::gc::HardRef<const IType> nullableType(bool nullable) const = 0;
+    virtual egg::gc::HardRef<const IType> unionWith(const IType& other) const = 0;
+    virtual egg::gc::HardRef<const IType> unionWithSimple(Discriminator other) const = 0;
+    virtual Value decantParameters(const IParameters& supplied, Setter setter) const = 0;
+    virtual bool canAssignFrom(const IType& rtype, String& problem) const = 0;
+    virtual bool tryAssignFrom(Value& lhs, const Value& rhs, String& problem) const = 0;
+  };
+  typedef egg::gc::HardRef<const IType> ITypeRef;
+
+  class Type : public ITypeRef {
+    Type() = delete;
+  private:
+    inline explicit Type(const IType& rhs) : ITypeRef(&rhs) {}
+  public:
+    static const Type Void;
+    static const Type Null;
+  };
+
   class IObject {
   public:
     virtual ~IObject() {}
-    virtual IObject* acquire() = 0;
-    virtual void release() = 0;
+    virtual IObject* acquireHard() const = 0;
+    virtual void releaseHard() const = 0;
     virtual bool dispose() = 0;
-    virtual Value toString() = 0;
+    virtual Value toString() const = 0;
+    virtual Value getRuntimeType() const = 0;
     virtual Value call(IExecution& execution, const IParameters& parameters) = 0;
   };
   typedef egg::gc::HardRef<IObject> IObjectRef;
@@ -180,6 +211,7 @@ namespace egg::lang {
       double f;
       const IString* s;
       IObject* o;
+      IType* t;
       Value* v;
     };
     inline explicit Value(Discriminator tag, Value* child = nullptr) : tag(tag) { this->v = child; }
@@ -191,8 +223,9 @@ namespace egg::lang {
     inline explicit Value(bool value) : tag(Discriminator::Bool) { this->b = value; }
     inline explicit Value(int64_t value) : tag(Discriminator::Int) { this->i = value; }
     inline explicit Value(double value) : tag(Discriminator::Float) { this->f = value; }
-    inline explicit Value(const String& value) : tag(Discriminator::String) { this->s = value.acquire(); }
-    inline explicit Value(IObject& object) : tag(Discriminator::Object) { this->o = object.acquire(); }
+    inline explicit Value(const String& value) : tag(Discriminator::String) { this->s = value.acquireHard(); }
+    inline explicit Value(const IType& type) : tag(Discriminator::Type) { this->t = type.acquireHard(); }
+    inline explicit Value(IObject& object) : tag(Discriminator::Object) { this->o = object.acquireHard(); }
     Value(const Value& value);
     Value(Value&& value);
     Value& operator=(const Value& value);
@@ -205,7 +238,6 @@ namespace egg::lang {
     inline int64_t getInt() const { assert(this->is(Discriminator::Int)); return this->i; }
     inline double getFloat() const { assert(this->is(Discriminator::Float)); return this->f; }
     inline String getString() const { assert(this->is(Discriminator::String)); return String(*this->s); }
-    inline IObject& getType() const { assert(this->is(Discriminator::Type)); return *this->o; }
     inline IObject& getObject() const { assert(this->is(Discriminator::Object)); return *this->o; }
     inline Value& getFlowControl() const { assert(this->is(Discriminator::FlowControl)); return *this->v; }
     inline std::string getTagString() const { return Value::getTagString(this->tag); }
@@ -216,6 +248,7 @@ namespace egg::lang {
     static Value raise(const String& exception);
     inline static Value fromUTF8(const std::string& utf8) { return Value(String::fromUTF8(utf8)); }
     std::string toUTF8() const;
+    const IType& getRuntimeType() const;
 
     // Constants
     static const Value Void;

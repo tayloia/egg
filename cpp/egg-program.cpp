@@ -42,30 +42,25 @@ namespace {
     }
   };
 
-  class EggProgramFunction : public egg::lang::IObject, public egg::gc::ReferenceCounted {
+  class EggProgramFunction : public egg::gc::HardReferenceCounted<egg::lang::IObject>{
     EGG_NO_COPY(EggProgramFunction);
   private:
     egg::yolk::EggProgramContext& program;
-    std::shared_ptr<egg::yolk::IEggProgramType> type;
+    egg::lang::ITypeRef type;
     std::shared_ptr<egg::yolk::IEggProgramNode> block;
   public:
-    EggProgramFunction(egg::yolk::EggProgramContext& program, const std::shared_ptr<egg::yolk::IEggProgramType>& type, const std::shared_ptr<egg::yolk::IEggProgramNode>& block)
-      : program(program), type(type), block(block) {
-      assert(type != nullptr);
+    EggProgramFunction(egg::yolk::EggProgramContext& program, const egg::lang::IType& type, const std::shared_ptr<egg::yolk::IEggProgramNode>& block)
+      : program(program), type(&type), block(block) {
       assert(block != nullptr);
-    }
-    virtual IObject* acquire() override {
-      this->acquireHard();
-      return this;
-    }
-    virtual void release() override {
-      this->releaseHard();
     }
     virtual bool dispose() override {
       return false;
     }
-    virtual egg::lang::Value toString() override {
+    virtual egg::lang::Value toString() const override {
       return egg::lang::Value(egg::lang::String::concat("[", type->toString(), "]"));
+    }
+    virtual egg::lang::Value getRuntimeType() const override {
+      return egg::lang::Value(*this->type);
     }
     virtual egg::lang::Value call(egg::lang::IExecution&, const egg::lang::IParameters& parameters) override {
       return this->program.executeFunctionCall(*this->type, parameters, *this->block);
@@ -205,9 +200,17 @@ class egg::yolk::EggProgram::SymbolTable {
 public:
   struct Symbol {
     egg::lang::String name;
+    egg::lang::ITypeRef type;
     egg::lang::Value value;
-    explicit Symbol(const egg::lang::String& name)
-      : name(name), value(egg::lang::Value::Void) {
+    Symbol(const egg::lang::String& name, const egg::lang::IType& type)
+      : name(name), type(&type), value(egg::lang::Value::Void) {
+    }
+    void assign(const egg::lang::Value& rhs) {
+      // Ask the type to assign the value so that type promotion can occur
+      egg::lang::String problem;
+      if (!this->type->tryAssignFrom(this->value, rhs, problem)) {
+        EGG_THROW(problem.toUTF8()); // TODO don't throw here!
+      }
     }
   };
 private:
@@ -217,8 +220,11 @@ public:
   explicit SymbolTable(SymbolTable* parent = nullptr)
     : parent(parent) {
   }
-  std::shared_ptr<Symbol> addSymbol(const egg::lang::String& name) {
-    auto result = this->map.emplace(name, std::make_shared<Symbol>(name));
+  void addBuiltin(const std::string& name, const egg::lang::Value& value) {
+    this->addSymbol(egg::lang::String::fromUTF8(name), value.getRuntimeType())->value = value;
+  }
+  std::shared_ptr<Symbol> addSymbol(const egg::lang::String& name, const egg::lang::IType& type) {
+    auto result = this->map.emplace(name, std::make_shared<Symbol>(name, type));
     assert(result.second);
     return result.first->second;
   }
@@ -245,7 +251,7 @@ bool egg::yolk::EggProgramContext::findDuplicateSymbols(const std::vector<std::s
   // Check for duplicate symbols
   bool error = false;
   egg::lang::String name;
-  std::shared_ptr<IEggProgramType> type;
+  auto type = egg::lang::Type::Void;
   std::set<egg::lang::String> seen;
   for (auto& statement : statements) {
     if (statement->symbol(name, type)) {
@@ -265,11 +271,11 @@ bool egg::yolk::EggProgramContext::findDuplicateSymbols(const std::vector<std::s
 egg::lang::Value egg::yolk::EggProgramContext::executeStatements(const std::vector<std::shared_ptr<IEggProgramNode>>& statements) {
   // Execute all the statements one after another
   egg::lang::String name;
-  std::shared_ptr<IEggProgramType> type;
+  auto type = egg::lang::Type::Void;
   for (auto& statement : statements) {
     if (statement->symbol(name, type)) {
       // We've checked for duplicate symbols already
-      this->symtable->addSymbol(name);
+      this->symtable->addSymbol(name, *type);
     }
     auto retval = statement->execute(*this);
     if (!retval.is(egg::lang::Discriminator::Void)) {
@@ -297,12 +303,17 @@ egg::lang::Value egg::yolk::EggProgramContext::executeBlock(const IEggProgramNod
   return context.executeStatements(statements);
 }
 
-egg::lang::Value egg::yolk::EggProgramContext::executeDeclare(const IEggProgramNode& self, const egg::lang::String& name, const IEggProgramType&, const IEggProgramNode* rvalue) {
+egg::lang::Value egg::yolk::EggProgramContext::executeDeclare(const IEggProgramNode& self, const egg::lang::String& name, const egg::lang::IType& type, const IEggProgramNode* rvalue) {
   // The type information has already been used in the symbol declaration phase
   this->statement(self);
   if (rvalue != nullptr) {
-    // The declaration contains an initial value
-    return this->set(name, rvalue->execute(*this));
+    // The declaration contains an initial value, so type-check it
+    auto rtype = rvalue->getType();
+    egg::lang::String problem;
+    if (type.canAssignFrom(*rtype, problem)) {
+      return this->set(name, rvalue->execute(*this));
+    }
+    return egg::lang::Value::raise(problem);
   }
   return egg::lang::Value::Void;
 }
@@ -448,17 +459,25 @@ egg::lang::Value egg::yolk::EggProgramContext::executeForeach(const IEggProgramN
   return retval;
 }
 
-egg::lang::Value egg::yolk::EggProgramContext::executeFunctionDefinition(const IEggProgramNode& self, const egg::lang::String& name, const std::shared_ptr<IEggProgramType>& type, const std::shared_ptr<IEggProgramNode>& block) {
+egg::lang::Value egg::yolk::EggProgramContext::executeFunctionDefinition(const IEggProgramNode& self, const egg::lang::String& name, const egg::lang::IType& type, const std::shared_ptr<IEggProgramNode>& block) {
   // This defines a function, it doesn't call it
   this->statement(self);
-  egg::lang::Value function{ *new EggProgramFunction(*this, type, block) };
-  return this->set(name, function);
+  auto symbol = this->symtable->findSymbol(name);
+  assert(symbol != nullptr);
+  // We can store this directly in the symbol table without going through the type system
+  // otherwise we get issues with function assignment
+  assert(symbol->value.is(egg::lang::Discriminator::Void));
+  symbol->value = egg::lang::Value(*new EggProgramFunction(*this, type, block));
+  return egg::lang::Value::Void;
 }
 
-egg::lang::Value egg::yolk::EggProgramContext::executeFunctionCall(const IEggProgramType& type, const egg::lang::IParameters& parameters, const IEggProgramNode& block) {
+egg::lang::Value egg::yolk::EggProgramContext::executeFunctionCall(const egg::lang::IType& type, const egg::lang::IParameters& parameters, const IEggProgramNode& block) {
   // This actually calls a function
   EggProgram::SymbolTable nested(this->symtable);
-  auto retval = type.decantParameters(parameters, [&nested](const egg::lang::String& k, const egg::lang::Value& v) { nested.addSymbol(k)->value = v; });
+  egg::lang::IType::Setter setter = [&nested](const egg::lang::String& k, const egg::lang::IType& t, const egg::lang::Value& v) {
+    nested.addSymbol(k, t)->assign(v);
+  };
+  auto retval = type.decantParameters(parameters, setter);
   if (!retval.is(egg::lang::Discriminator::FlowControl)) {
     EggProgramContext context(*this, nested);
     retval = block.execute(context);
@@ -660,7 +679,7 @@ egg::lang::Value egg::yolk::EggProgramContext::executeCall(const IEggProgramNode
   }
   EggProgramParameters params(parameters.size());
   egg::lang::String name;
-  std::shared_ptr<IEggProgramType> type;
+  auto type = egg::lang::Type::Void;
   for (auto& parameter : parameters) {
     auto value = parameter->execute(*this);
     if (value.is(egg::lang::Discriminator::FlowControl)) {
@@ -711,7 +730,7 @@ std::unique_ptr<egg::yolk::IEggProgramAssignee> egg::yolk::EggProgramContext::as
 
 egg::lang::LogSeverity egg::yolk::EggProgram::execute(IEggEngineExecutionContext& execution) {
   EggProgram::SymbolTable symtable(nullptr);
-  symtable.addSymbol(egg::lang::String::fromUTF8("print"))->value = egg::lang::Value::Print;
+  symtable.addBuiltin("print", egg::lang::Value::Print);
   // TODO add built-in symbol to symbol table here
   return this->execute(execution, symtable);
 }
@@ -756,7 +775,7 @@ egg::lang::Value egg::yolk::EggProgramContext::set(const egg::lang::String& name
   }
   auto symbol = this->symtable->findSymbol(name);
   assert(symbol != nullptr);
-  symbol->value = rvalue;
+  symbol->assign(rvalue);
   return egg::lang::Value::Void;
 }
 

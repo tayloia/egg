@@ -1,7 +1,7 @@
 #include "yolk.h"
 
 namespace {
-  class StringBufferUTF8 : public egg::lang::IString {
+  class StringBufferUTF8 : public egg::gc::HardReferenceCounted<egg::lang::IString> {
     EGG_NO_COPY(StringBufferUTF8);
   private:
     std::string utf8;
@@ -31,9 +31,14 @@ namespace {
   class StringEmpty : public egg::lang::IString {
     EGG_NO_COPY(StringEmpty);
   public:
-    StringEmpty() {
-      // Increment our hard reference count so we're never released
-      this->acquireHard();
+    inline StringEmpty() {
+      // We're not reference counted
+    }
+    virtual IString* acquireHard() const override {
+      return const_cast<StringEmpty*>(this);
+    }
+    virtual void releaseHard() const override {
+      // We're never destroyed
     }
     virtual size_t length() const override {
       return 0;
@@ -51,12 +56,61 @@ namespace {
       return std::string();
     }
   };
-  const StringEmpty empty{};
+  const StringEmpty stringEmpty{};
+
+  class TypeSimple : public egg::lang::IType {
+  private:
+    egg::lang::Discriminator tag;
+    egg::lang::String name;
+  public:
+    inline TypeSimple(egg::lang::Discriminator tag, const std::string& utf8)
+      : tag(tag), name(egg::lang::String::fromUTF8(utf8)) {
+    }
+    virtual IType* acquireHard() const override {
+      // We're not reference-counted
+      return const_cast<TypeSimple*>(this);
+    }
+    virtual void releaseHard() const override {
+      // We're not reference-counted
+    }
+    virtual egg::lang::String toString() const override {
+      return this->name;
+    }
+    virtual bool hasSimpleType(egg::lang::Discriminator) const override {
+      EGG_THROW("WIBBLE" __FUNCTION__);
+    }
+    virtual egg::lang::Discriminator arithmeticTypes() const override {
+      return egg::lang::Bits::mask(this->tag, egg::lang::Discriminator::Arithmetic);
+    }
+    virtual egg::gc::HardRef<const IType> dereferencedType() const override {
+      EGG_THROW("WIBBLE" __FUNCTION__);
+    }
+    virtual egg::gc::HardRef<const IType> nullableType(bool) const override {
+      EGG_THROW("WIBBLE" __FUNCTION__);
+    }
+    virtual egg::gc::HardRef<const IType> unionWith(const IType&) const override {
+      EGG_THROW("WIBBLE" __FUNCTION__);
+    }
+    virtual egg::gc::HardRef<const IType> unionWithSimple(egg::lang::Discriminator) const override {
+      EGG_THROW("WIBBLE" __FUNCTION__);
+    }
+    virtual egg::lang::Value decantParameters(const egg::lang::IParameters&, Setter) const override {
+      EGG_THROW("WIBBLE" __FUNCTION__);
+    }
+    virtual bool canAssignFrom(const IType&, egg::lang::String&) const override {
+      EGG_THROW("WIBBLE" __FUNCTION__);
+    }
+    virtual bool tryAssignFrom(egg::lang::Value&, const egg::lang::Value&, egg::lang::String&) const override {
+      EGG_THROW("WIBBLE" __FUNCTION__);
+    }
+  };
+  const TypeSimple typeVoid(egg::lang::Discriminator::Void, "void");
+  const TypeSimple typeNull(egg::lang::Discriminator::Null, "null");
 }
 
 // Empty constants
-const egg::lang::IString& egg::lang::String::emptyBuffer = empty;
-const egg::lang::String egg::lang::String::Empty{ empty };
+const egg::lang::IString& egg::lang::String::emptyBuffer = stringEmpty;
+const egg::lang::String egg::lang::String::Empty{ stringEmpty };
 
 egg::lang::String egg::lang::String::fromUTF8(const std::string& utf8) {
   return String(*new StringBufferUTF8(utf8));
@@ -82,11 +136,12 @@ void egg::lang::Value::copyInternals(const Value& other) {
   this->tag = other.tag;
   if (this->is(Discriminator::FlowControl)) {
     this->v = (other.v == nullptr) ? nullptr : new Value(*other.v);
-  } else if (this->is(Discriminator::Type | Discriminator::Object)) {
-    this->o = other.o->acquire();
+  } else if (this->is(Discriminator::Type)) {
+    this->t = other.t->acquireHard();
+  } else if (this->is(Discriminator::Object)) {
+    this->o = other.o->acquireHard();
   } else if (this->is(Discriminator::String)) {
-    this->s = other.s;
-    this->s->acquireHard();
+    this->s = other.s->acquireHard();
   } else if (this->is(Discriminator::Float)) {
     this->f = other.f;
   } else if (this->is(Discriminator::Int)) {
@@ -102,7 +157,9 @@ void egg::lang::Value::moveInternals(Value& other) {
   this->tag = other.tag;
   if (this->is(Discriminator::FlowControl)) {
     this->v = other.v;
-  } else if (this->is(Discriminator::Type | Discriminator::Object)) {
+  } else if (this->is(Discriminator::Type)) {
+    this->t = other.t;
+  } else if (this->is(Discriminator::Object)) {
     this->o = other.o;
   } else if (this->is(Discriminator::String)) {
     this->s = other.s;
@@ -143,8 +200,10 @@ egg::lang::Value& egg::lang::Value::operator=(Value&& value) {
 egg::lang::Value::~Value() {
   if (this->is(Discriminator::String)) {
     this->s->releaseHard();
-  } else if (this->is(Discriminator::Type | Discriminator::Object)) {
-    this->o->release();
+  } else if (this->is(Discriminator::Type)) {
+    this->t->releaseHard();
+  } else if (this->is(Discriminator::Object)) {
+    this->o->releaseHard();
   } else if (this->is(Discriminator::FlowControl)) {
     delete this->v;
   }
@@ -166,7 +225,10 @@ bool egg::lang::Value::equal(const Value& lhs, const Value& rhs) {
   if (lhs.tag == Discriminator::String) {
     return lhs.s->equal(*rhs.s);
   }
-  if ((lhs.tag == Discriminator::Type) || (lhs.tag == Discriminator::Object)) {
+  if (lhs.tag == Discriminator::Type) {
+    return lhs.t == rhs.t;
+  }
+  if (lhs.tag == Discriminator::Object) {
     return lhs.o == rhs.o;
   }
   return (lhs.v == rhs.v) || ((lhs.v != nullptr) && (rhs.v != nullptr) && Value::equal(*lhs.v, *rhs.v));
@@ -210,6 +272,21 @@ std::string egg::lang::Value::getTagString(Discriminator tag) {
   return egg::yolk::String::fromEnum(tag, table);
 }
 
+const egg::lang::IType& egg::lang::Value::getRuntimeType() const {
+  if (this->tag == Discriminator::Type) {
+    // TODO Is the runtime type of a type just the type itself?
+    return *this->t;
+  }
+  if (this->tag == Discriminator::Object) {
+    // Ask the object for its type
+    auto runtime = this->o->getRuntimeType();
+    if (runtime.is(Discriminator::Type)) {
+      return *runtime.t;
+    }
+  }
+  EGG_THROW("TODO No egg::lang::Value::getType()"); // TODO
+}
+
 std::string egg::lang::Value::toUTF8() const {
   if (this->tag == Discriminator::Null) {
     return "null";
@@ -226,7 +303,10 @@ std::string egg::lang::Value::toUTF8() const {
   if (this->tag == Discriminator::String) {
     return this->s->toUTF8();
   }
-  if ((this->tag == Discriminator::Type) || (this->tag == Discriminator::Object)) {
+  if (this->tag == Discriminator::Type) {
+    return "[type]"; // TODO
+  }
+  if (this->tag == Discriminator::Object) {
     auto str = this->o->toString();
     if (str.is(Discriminator::String)) {
       return str.toUTF8();
@@ -235,3 +315,7 @@ std::string egg::lang::Value::toUTF8() const {
   }
   return "[" + Value::getTagString(this->tag) + "]";
 }
+
+const egg::lang::Type egg::lang::Type::Void{ typeVoid };
+const egg::lang::Type egg::lang::Type::Null{ typeNull };
+

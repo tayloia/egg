@@ -14,15 +14,8 @@ namespace {
     return static_cast<EggParserAllowed>(static_cast<EggParserAllowedUnderlying>(lhs) | static_cast<EggParserAllowedUnderlying>(rhs));
   }
 
-  class EggParserTypeBase : public IEggProgramType, public std::enable_shared_from_this<EggParserTypeBase> {
-  public:
-  protected:
-    std::shared_ptr<IEggProgramType> share() const {
-      return const_cast<EggParserTypeBase*>(this)->shared_from_this();
-    }
-  };
-
-  class EggParserTypeSimple : public EggParserTypeBase {
+  class EggParserTypeSimple : public egg::gc::HardReferenceCounted<egg::lang::IType> {
+    EGG_NO_COPY(EggParserTypeSimple);
   private:
     egg::lang::Discriminator tag;
   public:
@@ -34,22 +27,48 @@ namespace {
     virtual egg::lang::Discriminator arithmeticTypes() const {
       return egg::lang::Bits::mask(this->tag, egg::lang::Discriminator::Arithmetic);
     }
-    virtual std::shared_ptr<IEggProgramType> dereferencedType() const {
+    virtual egg::lang::ITypeRef dereferencedType() const {
       // TODO Return a dummy value for now
-      return std::make_shared<EggParserTypeSimple>(egg::lang::Discriminator::Void);
+      return egg::lang::ITypeRef(new EggParserTypeSimple(egg::lang::Discriminator::Void));
     }
-    virtual std::shared_ptr<IEggProgramType> nullableType(bool nullable) const {
+    virtual egg::lang::ITypeRef nullableType(bool nullable) const {
       if (nullable ^ egg::lang::Bits::hasAnySet(this->tag, egg::lang::Discriminator::Null)) {
         // We need to flip the bit
-        return std::make_shared<EggParserTypeSimple>(egg::lang::Bits::invert(this->tag, egg::lang::Discriminator::Null));
+        return egg::lang::ITypeRef(new EggParserTypeSimple(egg::lang::Bits::invert(this->tag, egg::lang::Discriminator::Null)));
       }
-      return this->share();
+      return egg::lang::ITypeRef(this);
     }
-    virtual std::shared_ptr<IEggProgramType> unionWith(IEggProgramType& other) const {
+    virtual egg::lang::ITypeRef unionWith(const IType& other) const {
       return other.unionWithSimple(this->tag);
     }
-    virtual std::shared_ptr<IEggProgramType> unionWithSimple(egg::lang::Discriminator other) const {
-      return std::make_shared<EggParserTypeSimple>(egg::lang::Bits::set(this->tag, other));
+    virtual egg::lang::ITypeRef unionWithSimple(egg::lang::Discriminator other) const {
+      return egg::lang::ITypeRef(new EggParserTypeSimple(egg::lang::Bits::set(this->tag, other)));
+    }
+    virtual bool canAssignFrom(const egg::lang::IType& rtype, egg::lang::String& problem) const {
+      if (rtype.hasSimpleType(this->tag)) {
+        // There's at least one assignment that will work
+        return true;
+      }
+      if (this->hasSimpleType(egg::lang::Discriminator::Float) && rtype.hasSimpleType(egg::lang::Discriminator::Int)) {
+        // We allow type promotion int->float
+        return true;
+      }
+      problem = egg::lang::String::concat("Cannot assign a value of type '", rtype.toString(), "' to a target of type '", egg::lang::Value::getTagString(this->tag), "'");
+      return false;
+    }
+    virtual bool tryAssignFrom(egg::lang::Value& lhs, const egg::lang::Value& rhs, egg::lang::String& problem) const override {
+      if (rhs.is(this->tag)) {
+        // It's an exact type match
+        lhs = rhs;
+        return true;
+      }
+      if (this->hasSimpleType(egg::lang::Discriminator::Float) && rhs.is(egg::lang::Discriminator::Int)) {
+        // We allow type promotion int->float
+        lhs = egg::lang::Value(double(rhs.getInt())); // TODO overflows?
+        return true;
+      }
+      problem = egg::lang::String::concat("Cannot assign a value of type '", rhs.getRuntimeType().toString(), "' to a target of type '", egg::lang::Value::getTagString(this->tag), "'");
+      return false;
     }
     virtual egg::lang::Value decantParameters(const egg::lang::IParameters&, Setter) const {
       return egg::lang::Value::raise("Internal parse error: Cannot decant parameters for simple type");
@@ -59,13 +78,14 @@ namespace {
     }
   };
 
-  class EggParserTypeReference : public EggParserTypeBase {
+  class EggParserTypeReference : public egg::gc::HardReferenceCounted<egg::lang::IType> {
+    EGG_NO_COPY(EggParserTypeReference);
   private:
-    std::shared_ptr<IEggProgramType> underlying;
+    egg::lang::ITypeRef underlying;
     bool canBeNull;
   public:
-    EggParserTypeReference(const std::shared_ptr<IEggProgramType>& underlying, bool nullable)
-      : underlying(underlying), canBeNull(nullable) {
+    EggParserTypeReference(const egg::lang::IType& underlying, bool nullable)
+      : underlying(&underlying), canBeNull(nullable) {
     }
     virtual bool hasSimpleType(egg::lang::Discriminator tag) const {
       return (tag == egg::lang::Discriminator::Null) && this->canBeNull;
@@ -73,17 +93,25 @@ namespace {
     virtual egg::lang::Discriminator arithmeticTypes() const {
       return egg::lang::Discriminator::None;
     }
-    virtual std::shared_ptr<IEggProgramType> dereferencedType() const {
+    virtual egg::lang::ITypeRef dereferencedType() const {
       return this->underlying;
     }
-    virtual std::shared_ptr<IEggProgramType> nullableType(bool nullable) const {
-      return (nullable ^ this->canBeNull) ? std::make_shared<EggParserTypeReference>(this->underlying, nullable) : this->share();
+    virtual egg::lang::ITypeRef nullableType(bool nullable) const {
+      return egg::lang::ITypeRef((nullable ^ this->canBeNull) ? new EggParserTypeReference(*this->underlying, nullable) : this);
     }
-    virtual std::shared_ptr<IEggProgramType> unionWith(IEggProgramType&) const {
+    virtual egg::lang::ITypeRef unionWith(const egg::lang::IType&) const {
       EGG_THROW(__FUNCTION__ " TODO"); // TODO
     }
-    virtual std::shared_ptr<IEggProgramType> unionWithSimple(egg::lang::Discriminator) const {
+    virtual egg::lang::ITypeRef unionWithSimple(egg::lang::Discriminator) const {
       EGG_THROW(__FUNCTION__ " TODO"); // TODO
+    }
+    virtual bool canAssignFrom(const egg::lang::IType& rtype, egg::lang::String& problem) const {
+      problem = egg::lang::String::concat("TODO: Assignment of a value of type '", rtype.toString(), "' to a target of type '", this->toString(), "' is currently unimplemented"); // TODO
+      return false;
+    }
+    virtual bool tryAssignFrom(egg::lang::Value&, const egg::lang::Value& rhs, egg::lang::String& problem) const {
+      problem = egg::lang::String::concat("TODO: Assignment of a value of type '", rhs.getRuntimeType().toString(), "' to a target of type '", this->toString(), "' is currently unimplemented"); // TODO
+      return false;
     }
     virtual egg::lang::Value decantParameters(const egg::lang::IParameters&, Setter) const {
       return egg::lang::Value::raise("Internal parse error: Cannot decant parameters for reference type");
@@ -93,24 +121,23 @@ namespace {
     }
   };
 
-  class EggParserTypeFunction : public EggParserTypeBase {
+  class EggParserTypeFunction : public egg::gc::HardReferenceCounted<egg::lang::IType> {
+    EGG_NO_COPY(EggParserTypeFunction);
   public:
     struct Parameter {
       egg::lang::String name;
-      std::shared_ptr<IEggProgramType> type;
+      egg::lang::ITypeRef type;
       bool optional;
-      Parameter(const egg::lang::String& name, const std::shared_ptr<IEggProgramType>& type, bool optional)
-        : name(name), type(type), optional(optional) {
-        assert(type != nullptr);
+      Parameter(const egg::lang::String& name, const egg::lang::IType& type, bool optional)
+        : name(name), type(&type), optional(optional) {
       }
     };
   private:
-    std::shared_ptr<IEggProgramType> retval;
+    egg::lang::ITypeRef retval;
     std::vector<Parameter> expected;
   public:
-    explicit EggParserTypeFunction(const std::shared_ptr<IEggProgramType>& retval)
-      : retval(retval) {
-      assert(retval != nullptr);
+    explicit EggParserTypeFunction(const egg::lang::IType& retval)
+      : retval(&retval) {
     }
     virtual bool hasSimpleType(egg::lang::Discriminator) const override {
       return false;
@@ -118,18 +145,26 @@ namespace {
     virtual egg::lang::Discriminator arithmeticTypes() const override {
       return egg::lang::Discriminator::None;
     }
-    virtual std::shared_ptr<IEggProgramType> dereferencedType() const override {
+    virtual egg::lang::ITypeRef dereferencedType() const override {
       // TODO Return a dummy value for now
-      return std::make_shared<EggParserTypeSimple>(egg::lang::Discriminator::Void);
+      return egg::lang::ITypeRef(new EggParserTypeSimple(egg::lang::Discriminator::Void));
     }
-    virtual std::shared_ptr<IEggProgramType> nullableType(bool) const override {
+    virtual egg::lang::ITypeRef nullableType(bool) const override {
       EGG_THROW(__FUNCTION__ " TODO"); // TODO
     }
-    virtual std::shared_ptr<IEggProgramType> unionWith(IEggProgramType&) const override {
+    virtual egg::lang::ITypeRef unionWith(const egg::lang::IType&) const override {
       EGG_THROW(__FUNCTION__ " TODO"); // TODO
     }
-    virtual std::shared_ptr<IEggProgramType> unionWithSimple(egg::lang::Discriminator) const override {
+    virtual egg::lang::ITypeRef unionWithSimple(egg::lang::Discriminator) const override {
       EGG_THROW(__FUNCTION__ " TODO"); // TODO
+    }
+    virtual bool canAssignFrom(const egg::lang::IType& rtype, egg::lang::String& problem) const {
+      problem = egg::lang::String::concat("TODO: Assignment of a value of type '", rtype.toString(), "' to a target of type '", this->toString(), "' is currently unimplemented"); // TODO
+      return false;
+    }
+    virtual bool tryAssignFrom(egg::lang::Value&, const egg::lang::Value& rhs, egg::lang::String& problem) const {
+      problem = egg::lang::String::concat("TODO: Assignment of a value of type '", rhs.getRuntimeType().toString(), "' to a target of type '", this->toString(), "' is currently unimplemented"); // TODO
+      return false;
     }
     virtual egg::lang::Value decantParameters(const egg::lang::IParameters& supplied, Setter setter) const {
       if (supplied.getNamedCount() > 0) {
@@ -146,26 +181,26 @@ namespace {
       }
       // TODO: Value type checking
       for (size_t i = 0; i < given; ++i) {
-        setter(this->expected[i].name, supplied.getPositional(i));
+        setter(this->expected[i].name, *this->expected[i].type, supplied.getPositional(i));
       }
       return egg::lang::Value::Void;
     }
     virtual egg::lang::String toString() const override {
       return egg::lang::String::fromUTF8("function"); // TODO
     }
-    void addParameter(const egg::lang::String& name, const std::shared_ptr<IEggProgramType>& type, bool optional) {
+    void addParameter(const egg::lang::String& name, const egg::lang::IType& type, bool optional) {
       this->expected.emplace_back(name, type, optional);
     }
   };
 
   // Constants
-  const std::shared_ptr<IEggProgramType> typeVoid = std::make_shared<EggParserTypeSimple>(egg::lang::Discriminator::Void);
-  const std::shared_ptr<IEggProgramType> typeNull = std::make_shared<EggParserTypeSimple>(egg::lang::Discriminator::Null);
-  const std::shared_ptr<IEggProgramType> typeBool = std::make_shared<EggParserTypeSimple>(egg::lang::Discriminator::Bool);
-  const std::shared_ptr<IEggProgramType> typeInt = std::make_shared<EggParserTypeSimple>(egg::lang::Discriminator::Int);
-  const std::shared_ptr<IEggProgramType> typeFloat = std::make_shared<EggParserTypeSimple>(egg::lang::Discriminator::Float);
-  const std::shared_ptr<IEggProgramType> typeArithmetic = std::make_shared<EggParserTypeSimple>(egg::lang::Discriminator::Arithmetic);
-  const std::shared_ptr<IEggProgramType> typeString = std::make_shared<EggParserTypeSimple>(egg::lang::Discriminator::String);
+  const egg::lang::ITypeRef typeVoid{ new EggParserTypeSimple(egg::lang::Discriminator::Void) };
+  const egg::lang::ITypeRef typeNull{ new EggParserTypeSimple(egg::lang::Discriminator::Null) };
+  const egg::lang::ITypeRef typeBool{ new EggParserTypeSimple(egg::lang::Discriminator::Bool) };
+  const egg::lang::ITypeRef typeInt{ new EggParserTypeSimple(egg::lang::Discriminator::Int) };
+  const egg::lang::ITypeRef typeFloat{ new EggParserTypeSimple(egg::lang::Discriminator::Float) };
+  const egg::lang::ITypeRef typeArithmetic{ new EggParserTypeSimple(egg::lang::Discriminator::Arithmetic) };
+  const egg::lang::ITypeRef typeString{ new EggParserTypeSimple(egg::lang::Discriminator::String) };
 
   enum class EggParserArithmetic {
     None = int(egg::lang::Discriminator::None),
@@ -176,11 +211,10 @@ namespace {
 
   EggParserArithmetic getArithmeticTypes(const std::shared_ptr<IEggProgramNode>& node) {
     auto underlying = node->getType();
-    assert(underlying != nullptr);
     return EggParserArithmetic(underlying->arithmeticTypes());
   }
 
-  std::shared_ptr<IEggProgramType> makeArithmeticType(EggParserArithmetic arithmetic) {
+  egg::lang::ITypeRef makeArithmeticType(EggParserArithmetic arithmetic) {
     switch (arithmetic) {
     case EggParserArithmetic::Int:
       return typeInt;
@@ -192,10 +226,10 @@ namespace {
     default:
       break;
     }
-    return nullptr;
+    return egg::lang::Type::Null; // TODO WIBBLE
   }
 
-  std::shared_ptr<IEggProgramType> binaryArithmeticTypes(const std::shared_ptr<IEggProgramNode>& lhs, const std::shared_ptr<IEggProgramNode>& rhs) {
+  egg::lang::ITypeRef binaryArithmeticTypes(const std::shared_ptr<IEggProgramNode>& lhs, const std::shared_ptr<IEggProgramNode>& rhs) {
     auto lhsa = getArithmeticTypes(lhs);
     auto rhsa = getArithmeticTypes(rhs);
     if ((lhsa == EggParserArithmetic::None) || (rhsa == EggParserArithmetic::None)) {
@@ -263,11 +297,11 @@ namespace {
 
   class EggParserNodeBase : public IEggProgramNode {
   public:
-    virtual std::shared_ptr<IEggProgramType> getType() const override {
+    virtual egg::lang::ITypeRef getType() const override {
       // By default, nodes are statements (i.e. void return type)
       return typeVoid;
     }
-    virtual bool symbol(egg::lang::String&, std::shared_ptr<IEggProgramType>&) const override {
+    virtual bool symbol(egg::lang::String&, egg::lang::ITypeRef&) const override {
       // By default, nodes do not declare symbols
       return false;
     }
@@ -315,13 +349,12 @@ namespace {
 
   class EggParserNode_Type : public EggParserNodeBase {
   private:
-    std::shared_ptr<IEggProgramType> type;
+    egg::lang::ITypeRef type;
   public:
-    explicit EggParserNode_Type(const std::shared_ptr<IEggProgramType>& type)
-      : type(type) {
-      assert(type != nullptr);
+    explicit EggParserNode_Type(const egg::lang::IType& type)
+      : type(&type) {
     }
-    virtual std::shared_ptr<IEggProgramType> getType() const override {
+    virtual egg::lang::ITypeRef getType() const override {
       return this->type;
     }
     virtual egg::lang::Value execute(EggProgramContext&) const override {
@@ -335,14 +368,13 @@ namespace {
   class EggParserNode_Declare : public EggParserNodeBase {
   private:
     egg::lang::String name;
-    std::shared_ptr<IEggProgramType> type;
+    egg::lang::ITypeRef type;
     std::shared_ptr<IEggProgramNode> init;
   public:
-    EggParserNode_Declare(const egg::lang::String& name, const std::shared_ptr<IEggProgramType>& type, const std::shared_ptr<IEggProgramNode>& init = nullptr)
-      : name(name), type(type), init(init) {
-      assert(type != nullptr);
+    EggParserNode_Declare(const egg::lang::String& name, const egg::lang::IType& type, const std::shared_ptr<IEggProgramNode>& init = nullptr)
+      : name(name), type(&type), init(init) {
     }
-    virtual bool symbol(egg::lang::String& nameOut, std::shared_ptr<IEggProgramType>& typeOut) const override {
+    virtual bool symbol(egg::lang::String& nameOut, egg::lang::ITypeRef& typeOut) const override {
       // The symbol is obviously the variable being declared
       nameOut = this->name;
       typeOut = this->type;
@@ -394,7 +426,7 @@ namespace {
       assert(type != nullptr);
       assert(block != nullptr);
     }
-    virtual bool symbol(egg::lang::String& nameOut, std::shared_ptr<IEggProgramType>& typeOut) const override {
+    virtual bool symbol(egg::lang::String& nameOut, egg::lang::ITypeRef& typeOut) const override {
       // A symbol is always declared in a catch clause
       nameOut = this->name;
       typeOut = this->type->getType();
@@ -451,7 +483,7 @@ namespace {
       assert(trueBlock != nullptr);
       // falseBlock may be null if the 'else' clause is missing
     }
-    virtual bool symbol(egg::lang::String& nameOut, std::shared_ptr<IEggProgramType>& typeOut) const override {
+    virtual bool symbol(egg::lang::String& nameOut, egg::lang::ITypeRef& typeOut) const override {
       // A symbol may be declared in the condition
       return this->condition->symbol(nameOut, typeOut);
     }
@@ -475,7 +507,7 @@ namespace {
       // pre/cond/post may be null
       assert(block != nullptr);
     }
-    virtual bool symbol(egg::lang::String& nameOut, std::shared_ptr<IEggProgramType>& typeOut) const override {
+    virtual bool symbol(egg::lang::String& nameOut, egg::lang::ITypeRef& typeOut) const override {
       // A symbol may be declared in the first clause
       return (this->pre != nullptr) && this->pre->symbol(nameOut, typeOut);
     }
@@ -499,7 +531,7 @@ namespace {
       assert(expr != nullptr);
       assert(block != nullptr);
     }
-    virtual bool symbol(egg::lang::String& nameOut, std::shared_ptr<IEggProgramType>& typeOut) const override {
+    virtual bool symbol(egg::lang::String& nameOut, egg::lang::ITypeRef& typeOut) const override {
       // A symbol may be declared in the target
       return this->target->symbol(nameOut, typeOut);
     }
@@ -514,22 +546,21 @@ namespace {
   class EggParserNode_FunctionDefinition : public EggParserNodeBase {
   private:
     egg::lang::String name;
-    std::shared_ptr<IEggProgramType> type;
+    egg::lang::ITypeRef type;
     std::shared_ptr<IEggProgramNode> block;
   public:
-    EggParserNode_FunctionDefinition(const egg::lang::String& name, const std::shared_ptr<IEggProgramType>& type, const std::shared_ptr<IEggProgramNode>& block)
-      : name(name), type(type), block(block) {
-      assert(type != nullptr);
+    EggParserNode_FunctionDefinition(const egg::lang::String& name, const egg::lang::IType& type, const std::shared_ptr<IEggProgramNode>& block)
+      : name(name), type(&type), block(block) {
       assert(block != nullptr);
     }
-    virtual bool symbol(egg::lang::String& nameOut, std::shared_ptr<IEggProgramType>& typeOut) const override {
+    virtual bool symbol(egg::lang::String& nameOut, egg::lang::ITypeRef& typeOut) const override {
       // The symbol is obviously the identifier being defined
       nameOut = this->name;
       typeOut = this->type;
       return true;
     }
     virtual egg::lang::Value execute(EggProgramContext& context) const override {
-      return context.executeFunctionDefinition(*this, this->name, this->type, this->block);
+      return context.executeFunctionDefinition(*this, this->name, *this->type, this->block);
     }
     virtual void dump(std::ostream& os) const override {
       ParserDump(os, "function").add(this->name).add(this->type->toString()).add(this->block);
@@ -539,14 +570,13 @@ namespace {
   class EggParserNode_FunctionParameter : public EggParserNodeBase {
   private:
     egg::lang::String name;
-    std::shared_ptr<IEggProgramType> type;
+    egg::lang::ITypeRef type;
     bool optional;
   public:
-    EggParserNode_FunctionParameter(const egg::lang::String& name, const std::shared_ptr<IEggProgramType>& type, bool optional)
-      : name(name), type(type), optional(optional) {
-      assert(type != nullptr);
+    EggParserNode_FunctionParameter(const egg::lang::String& name, const egg::lang::IType& type, bool optional)
+      : name(name), type(&type), optional(optional) {
     }
-    virtual bool symbol(egg::lang::String& nameOut, std::shared_ptr<IEggProgramType>& typeOut) const override {
+    virtual bool symbol(egg::lang::String& nameOut, egg::lang::ITypeRef& typeOut) const override {
       // Beware: the return value is the optionality flag!
       nameOut = this->name;
       typeOut = this->type;
@@ -616,7 +646,7 @@ namespace {
       : expr(expr), defaultIndex(-1) {
       assert(expr != nullptr);
     }
-    virtual bool symbol(egg::lang::String& nameOut, std::shared_ptr<IEggProgramType>& typeOut) const override {
+    virtual bool symbol(egg::lang::String& nameOut, egg::lang::ITypeRef& typeOut) const override {
       // A symbol may be declared in the expression
       return this->expr->symbol(nameOut, typeOut);
     }
@@ -705,7 +735,7 @@ namespace {
       assert(expr != nullptr);
       assert(block != nullptr);
     }
-    virtual bool symbol(egg::lang::String& nameOut, std::shared_ptr<IEggProgramType>& typeOut) const override {
+    virtual bool symbol(egg::lang::String& nameOut, egg::lang::ITypeRef& typeOut) const override {
       // A symbol may be declared in the expression
       return this->expr->symbol(nameOut, typeOut);
     }
@@ -727,7 +757,7 @@ namespace {
       assert(condition != nullptr);
       assert(block != nullptr);
     }
-    virtual bool symbol(egg::lang::String& nameOut, std::shared_ptr<IEggProgramType>& typeOut) const override {
+    virtual bool symbol(egg::lang::String& nameOut, egg::lang::ITypeRef& typeOut) const override {
       // A symbol may be declared in the condition
       return this->condition->symbol(nameOut, typeOut);
     }
@@ -784,7 +814,7 @@ namespace {
       : name(name), expr(expr) {
       assert(expr != nullptr);
     }
-    virtual bool symbol(egg::lang::String& nameOut, std::shared_ptr<IEggProgramType>& typeOut) const override {
+    virtual bool symbol(egg::lang::String& nameOut, egg::lang::ITypeRef& typeOut) const override {
       // Use the symbol to extract the parameter name
       nameOut = this->name;
       typeOut = this->expr->getType();
@@ -819,7 +849,7 @@ namespace {
 
   class EggParserNode_LiteralNull : public EggParserNodeBase {
   public:
-    virtual std::shared_ptr<IEggProgramType> getType() const override {
+    virtual egg::lang::ITypeRef getType() const override {
       return typeNull;
     }
     virtual egg::lang::Value execute(EggProgramContext& context) const override {
@@ -838,7 +868,7 @@ namespace {
     explicit EggParserNode_LiteralBool(bool value)
       : value(value) {
     }
-    virtual std::shared_ptr<IEggProgramType> getType() const override {
+    virtual egg::lang::ITypeRef getType() const override {
       return typeBool;
     }
     virtual egg::lang::Value execute(EggProgramContext& context) const override {
@@ -858,7 +888,7 @@ namespace {
     explicit EggParserNode_LiteralInteger(int64_t value)
       : value(value) {
     }
-    virtual std::shared_ptr<IEggProgramType> getType() const override {
+    virtual egg::lang::ITypeRef getType() const override {
       return typeInt;
     }
     virtual egg::lang::Value execute(EggProgramContext& context) const override {
@@ -876,7 +906,7 @@ namespace {
     explicit EggParserNode_LiteralFloat(double value)
       : value(value) {
     }
-    virtual std::shared_ptr<IEggProgramType> getType() const override {
+    virtual egg::lang::ITypeRef getType() const override {
       return typeFloat;
     }
     virtual egg::lang::Value execute(EggProgramContext& context) const override {
@@ -894,7 +924,7 @@ namespace {
     explicit EggParserNode_LiteralString(const egg::lang::String& value)
       : value(value) {
     }
-    virtual std::shared_ptr<IEggProgramType> getType() const override {
+    virtual egg::lang::ITypeRef getType() const override {
       return typeString;
     }
     virtual egg::lang::Value execute(EggProgramContext& context) const override {
@@ -928,7 +958,7 @@ namespace {
     EggParserNode_Unary##name(const std::shared_ptr<IEggProgramNode>& expr) \
       : EggParserNode_Unary(EggProgramUnary::name, expr) { \
     } \
-    virtual std::shared_ptr<IEggProgramType> getType() const override; \
+    virtual egg::lang::ITypeRef getType() const override; \
   };
   EGG_PROGRAM_UNARY_OPERATORS(EGG_PARSER_UNARY_OPERATOR_DEFINE)
 
@@ -957,7 +987,7 @@ namespace {
     EggParserNode_Binary##name(const std::shared_ptr<IEggProgramNode>& lhs, const std::shared_ptr<IEggProgramNode>& rhs) \
       : EggParserNode_Binary(EggProgramBinary::name, lhs, rhs) { \
     } \
-    virtual std::shared_ptr<IEggProgramType> getType() const override; \
+    virtual egg::lang::ITypeRef getType() const override; \
   };
   EGG_PROGRAM_BINARY_OPERATORS(EGG_PARSER_BINARY_OPERATOR_DEFINE)
 
@@ -979,7 +1009,7 @@ namespace {
     virtual void dump(std::ostream& os) const override {
       ParserDump(os, "ternary").add(this->condition).add(this->whenTrue).add(this->whenFalse);
     }
-    virtual std::shared_ptr<IEggProgramType> getType() const override;
+    virtual egg::lang::ITypeRef getType() const override;
   };
 
   class EggParserNode_Assign : public EggParserNodeBase {
@@ -1195,17 +1225,17 @@ std::shared_ptr<egg::yolk::IEggProgramNode> egg::yolk::EggSyntaxNode_Block::prom
 }
 
 std::shared_ptr<egg::yolk::IEggProgramNode> egg::yolk::EggSyntaxNode_Type::promote(egg::yolk::IEggParserContext&) const {
-  auto type = std::make_shared<EggParserTypeSimple>(this->tag);
-  return std::make_shared<EggParserNode_Type>(type);
+  auto type = new EggParserTypeSimple(this->tag);
+  return std::make_shared<EggParserNode_Type>(*type);
 }
 
 std::shared_ptr<egg::yolk::IEggProgramNode> egg::yolk::EggSyntaxNode_Declare::promote(egg::yolk::IEggParserContext& context) const {
   auto type = context.promote(*this->child[0])->getType();
   if (this->child.size() == 1) {
-    return std::make_shared<EggParserNode_Declare>(this->name, type);
+    return std::make_shared<EggParserNode_Declare>(this->name, *type);
   }
   assert(this->child.size() == 2);
-  return std::make_shared<EggParserNode_Declare>(this->name, type, context.promote(*this->child[1]));
+  return std::make_shared<EggParserNode_Declare>(this->name, *type, context.promote(*this->child[1]));
 }
 
 std::shared_ptr<egg::yolk::IEggProgramNode> egg::yolk::EggSyntaxNode_Assignment::promote(egg::yolk::IEggParserContext& context) const {
@@ -1368,23 +1398,25 @@ std::shared_ptr<egg::yolk::IEggProgramNode> egg::yolk::EggSyntaxNode_FunctionDef
   // The children are: <type> <parameter>* <block>
   assert(this->child.size() >= 2);
   size_t parameters = this->child.size() - 2;
-  auto function = std::make_shared<EggParserTypeFunction>(context.promote(*this->child[0])->getType());
+  auto retval = context.promote(*this->child[0])->getType();
+  auto* underlying = new EggParserTypeFunction(*retval);
+  egg::lang::ITypeRef function{ underlying }; // takes ownership
   egg::lang::String parameter_name;
-  std::shared_ptr<IEggProgramType> parameter_type;
+  auto parameter_type = egg::lang::Type::Void;
   for (size_t i = 1; i <= parameters; ++i) {
     // We promote the parameter, extract the name/type/optional information and then discard it
     auto parameter = context.promote(*this->child[i]);
     auto parameter_optional = parameter->symbol(parameter_name, parameter_type);
-    function->addParameter(parameter_name, parameter_type, parameter_optional);
+    underlying->addParameter(parameter_name, *parameter_type, parameter_optional);
   }
   EggParserContextNested nested(context, EggParserAllowed::Return|EggParserAllowed::Yield);
   auto block = nested.promote(*this->child[parameters + 1]);
-  return std::make_shared<EggParserNode_FunctionDefinition>(this->name, function, block);
+  return std::make_shared<EggParserNode_FunctionDefinition>(this->name, *function, block);
 }
 
 std::shared_ptr<egg::yolk::IEggProgramNode> egg::yolk::EggSyntaxNode_Parameter::promote(egg::yolk::IEggParserContext& context) const {
   auto type = context.promote(*this->child)->getType();
-  return std::make_shared<EggParserNode_FunctionParameter>(this->name, type, this->optional);
+  return std::make_shared<EggParserNode_FunctionParameter>(this->name, *type, this->optional);
 }
 
 std::shared_ptr<egg::yolk::IEggProgramNode> egg::yolk::EggSyntaxNode_Return::promote(egg::yolk::IEggParserContext& context) const {
@@ -1612,148 +1644,141 @@ std::shared_ptr<egg::yolk::IEggProgramNode> egg::yolk::EggSyntaxNode_Literal::pr
   throw exceptionFromToken(context, "Unknown literal value keyword", *this);
 }
 
-std::shared_ptr<egg::yolk::IEggProgramType> EggParserNode_UnaryLogicalNot::getType() const {
+egg::lang::ITypeRef EggParserNode_UnaryLogicalNot::getType() const {
   return typeBool;
 }
 
-std::shared_ptr<egg::yolk::IEggProgramType> EggParserNode_UnaryRef::getType() const {
+egg::lang::ITypeRef EggParserNode_UnaryRef::getType() const {
   auto underlying = this->expr->getType();
-  assert(underlying != nullptr);
-  return std::make_shared<EggParserTypeReference>(underlying, false);
+  return egg::lang::ITypeRef(new EggParserTypeReference(*underlying, false));
 }
 
-std::shared_ptr<egg::yolk::IEggProgramType> EggParserNode_UnaryDeref::getType() const {
+egg::lang::ITypeRef EggParserNode_UnaryDeref::getType() const {
   auto underlying = this->expr->getType();
-  assert(underlying != nullptr);
   return underlying->dereferencedType();
 }
 
-std::shared_ptr<egg::yolk::IEggProgramType> EggParserNode_UnaryNegate::getType() const {
+egg::lang::ITypeRef EggParserNode_UnaryNegate::getType() const {
   auto arithmetic = getArithmeticTypes(this->expr);
   return makeArithmeticType(arithmetic);
 }
 
-std::shared_ptr<egg::yolk::IEggProgramType> EggParserNode_UnaryEllipsis::getType() const {
+egg::lang::ITypeRef EggParserNode_UnaryEllipsis::getType() const {
   EGG_THROW(__FUNCTION__ " TODO"); // TODO
 }
 
-std::shared_ptr<egg::yolk::IEggProgramType> EggParserNode_UnaryBitwiseNot::getType() const {
+egg::lang::ITypeRef EggParserNode_UnaryBitwiseNot::getType() const {
   return typeInt;
 }
 
-std::shared_ptr<egg::yolk::IEggProgramType> EggParserNode_BinaryUnequal::getType() const {
+egg::lang::ITypeRef EggParserNode_BinaryUnequal::getType() const {
   return typeBool;
 }
 
-std::shared_ptr<egg::yolk::IEggProgramType> EggParserNode_BinaryRemainder::getType() const {
+egg::lang::ITypeRef EggParserNode_BinaryRemainder::getType() const {
   // See http://mindprod.com/jgloss/modulus.html
   // Turn out this equates to the rules for binary-multiply too
   return binaryArithmeticTypes(this->lhs, this->rhs);
 }
 
-std::shared_ptr<egg::yolk::IEggProgramType> EggParserNode_BinaryBitwiseAnd::getType() const {
+egg::lang::ITypeRef EggParserNode_BinaryBitwiseAnd::getType() const {
   return typeInt;
 }
 
-std::shared_ptr<egg::yolk::IEggProgramType> EggParserNode_BinaryLogicalAnd::getType() const {
+egg::lang::ITypeRef EggParserNode_BinaryLogicalAnd::getType() const {
   return typeBool;
 }
 
-std::shared_ptr<egg::yolk::IEggProgramType> EggParserNode_BinaryMultiply::getType() const {
+egg::lang::ITypeRef EggParserNode_BinaryMultiply::getType() const {
   return binaryArithmeticTypes(this->lhs, this->rhs);
 }
 
-std::shared_ptr<egg::yolk::IEggProgramType> EggParserNode_BinaryPlus::getType() const {
+egg::lang::ITypeRef EggParserNode_BinaryPlus::getType() const {
   return binaryArithmeticTypes(this->lhs, this->rhs);
 }
 
-std::shared_ptr<egg::yolk::IEggProgramType> EggParserNode_BinaryMinus::getType() const {
+egg::lang::ITypeRef EggParserNode_BinaryMinus::getType() const {
   return binaryArithmeticTypes(this->lhs, this->rhs);
 }
 
-std::shared_ptr<egg::yolk::IEggProgramType> EggParserNode_BinaryLambda::getType() const {
+egg::lang::ITypeRef EggParserNode_BinaryLambda::getType() const {
   EGG_THROW(__FUNCTION__ " TODO"); // TODO
 }
 
-std::shared_ptr<egg::yolk::IEggProgramType> EggParserNode_BinaryDot::getType() const {
+egg::lang::ITypeRef EggParserNode_BinaryDot::getType() const {
   EGG_THROW(__FUNCTION__ " TODO"); // TODO
 }
 
-std::shared_ptr<egg::yolk::IEggProgramType> EggParserNode_BinaryDivide::getType() const {
+egg::lang::ITypeRef EggParserNode_BinaryDivide::getType() const {
   return binaryArithmeticTypes(this->lhs, this->rhs);
 }
 
-std::shared_ptr<egg::yolk::IEggProgramType> EggParserNode_BinaryLess::getType() const {
+egg::lang::ITypeRef EggParserNode_BinaryLess::getType() const {
   return typeBool;
 }
 
-std::shared_ptr<egg::yolk::IEggProgramType> EggParserNode_BinaryShiftLeft::getType() const {
+egg::lang::ITypeRef EggParserNode_BinaryShiftLeft::getType() const {
   return typeInt;
 }
 
-std::shared_ptr<egg::yolk::IEggProgramType> EggParserNode_BinaryLessEqual::getType() const {
+egg::lang::ITypeRef EggParserNode_BinaryLessEqual::getType() const {
   return typeBool;
 }
 
-std::shared_ptr<egg::yolk::IEggProgramType> EggParserNode_BinaryEqual::getType() const {
+egg::lang::ITypeRef EggParserNode_BinaryEqual::getType() const {
   return typeBool;
 }
 
-std::shared_ptr<egg::yolk::IEggProgramType> EggParserNode_BinaryGreater::getType() const {
+egg::lang::ITypeRef EggParserNode_BinaryGreater::getType() const {
   return typeBool;
 }
 
-std::shared_ptr<egg::yolk::IEggProgramType> EggParserNode_BinaryGreaterEqual::getType() const {
+egg::lang::ITypeRef EggParserNode_BinaryGreaterEqual::getType() const {
   return typeBool;
 }
 
-std::shared_ptr<egg::yolk::IEggProgramType> EggParserNode_BinaryShiftRight::getType() const {
+egg::lang::ITypeRef EggParserNode_BinaryShiftRight::getType() const {
   return typeInt;
 }
 
-std::shared_ptr<egg::yolk::IEggProgramType> EggParserNode_BinaryShiftRightUnsigned::getType() const {
+egg::lang::ITypeRef EggParserNode_BinaryShiftRightUnsigned::getType() const {
   return typeInt;
 }
 
-std::shared_ptr<egg::yolk::IEggProgramType> EggParserNode_BinaryNullCoalescing::getType() const {
+egg::lang::ITypeRef EggParserNode_BinaryNullCoalescing::getType() const {
   auto type1 = this->lhs->getType();
-  assert(type1 != nullptr);
   if (!type1->hasSimpleType(egg::lang::Discriminator::Null)) {
     // The left-hand-side cannot be null, so the right side is irrelevant
     return type1;
   }
   auto type2 = this->rhs->getType();
-  assert(type2 != nullptr);
   return type1->nullableType(false)->unionWith(*type2);
 }
 
-std::shared_ptr<egg::yolk::IEggProgramType> EggParserNode_BinaryBrackets::getType() const {
+egg::lang::ITypeRef EggParserNode_BinaryBrackets::getType() const {
   EGG_THROW(__FUNCTION__ " TODO"); // TODO
 }
 
-std::shared_ptr<egg::yolk::IEggProgramType> EggParserNode_BinaryBitwiseXor::getType() const {
+egg::lang::ITypeRef EggParserNode_BinaryBitwiseXor::getType() const {
   return typeInt;
 }
 
-std::shared_ptr<egg::yolk::IEggProgramType> EggParserNode_BinaryBitwiseOr::getType() const {
+egg::lang::ITypeRef EggParserNode_BinaryBitwiseOr::getType() const {
   return typeInt;
 }
 
-std::shared_ptr<egg::yolk::IEggProgramType> EggParserNode_BinaryLogicalOr::getType() const {
+egg::lang::ITypeRef EggParserNode_BinaryLogicalOr::getType() const {
   return typeBool;
 }
 
-std::shared_ptr<egg::yolk::IEggProgramType> EggParserNode_Ternary::getType() const {
+egg::lang::ITypeRef EggParserNode_Ternary::getType() const {
   auto type1 = this->condition->getType();
-  assert(type1 != nullptr);
   if (!type1->hasSimpleType(egg::lang::Discriminator::Bool)) {
     // The condition is not a bool, so the other values are irrelevant
     return typeVoid;
   }
   auto type2 = this->whenTrue->getType();
-  assert(type2 != nullptr);
   auto type3 = this->whenFalse->getType();
-  assert(type3 != nullptr);
   return type2->unionWith(*type3);
 }
 
