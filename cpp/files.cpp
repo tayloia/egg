@@ -75,7 +75,9 @@ namespace {
 std::string egg::yolk::File::getCurrentDirectory() {
   // Gets the current working directory in normalized form with a trailing slash
   char buffer[2048];
-  _getcwd(buffer, sizeof(buffer));
+  if (_getcwd(buffer, sizeof(buffer)) == nullptr) {
+    return "./";
+  }
   return File::normalizePath(buffer, true);
 }
 

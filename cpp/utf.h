@@ -20,17 +20,11 @@ namespace egg::utf {
     }
   }
 
-  // TODO legacy of codecvt
-  inline void push_utf8(std::string& utf8, int utf32) {
-    utf32_to_utf8(std::back_inserter(utf8), char32_t(utf32));
-  }
-
-  // TODO legacy of codecvt
-  inline std::string to_bytes(const char32_t* utf32) {
+  inline std::string to_utf8(const std::u32string& utf32) {
     std::string utf8;
-    auto target = std::back_inserter<std::string>(utf8);
-    for (auto p = utf32; *p != 0; ++p) {
-      utf32_to_utf8(target, *p);
+    auto target = std::back_inserter(utf8);
+    for (auto ch : utf32) {
+      utf32_to_utf8(target, ch);
     }
     return utf8;
   }

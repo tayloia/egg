@@ -15,13 +15,14 @@ namespace egg::yolk {
     EndOfFile
   };
 
+  // TODO use egg::lang::Value
   struct EggedTokenizerValue {
     union {
       bool b;
       int64_t i;
       double f;
     };
-    std::string s;
+    std::string s; // utf8
   };
 
   struct EggedTokenizerItem {

@@ -47,7 +47,7 @@ namespace {
           item.kind = EggedTokenizerKind::Float;
           break;
         case LexerKind::String:
-          item.value.s = egg::utf::to_bytes(this->upcoming.value.s.c_str());
+          item.value.s = egg::utf::to_utf8(this->upcoming.value.s);
           item.kind = EggedTokenizerKind::String;
           break;
         case LexerKind::Operator:

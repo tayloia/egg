@@ -48,7 +48,7 @@ namespace {
           if (this->upcoming.verbatim.front() == '`') {
             this->unexpected("Strict JSON does not permit backquoted strings");
           }
-          item.value.s = egg::utf::to_bytes(this->upcoming.value.s.c_str());
+          item.value.s = egg::utf::to_utf8(this->upcoming.value.s);
           item.kind = JsonTokenizerKind::String;
           break;
         case LexerKind::Operator:

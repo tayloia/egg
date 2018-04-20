@@ -114,6 +114,7 @@ bool egg::yolk::TextStream::readline(std::string& text) {
     // Already at EOF
     return false;
   }
+  auto target = std::back_inserter(text);
   auto start = this->line;
   do {
     auto ch = this->get();
@@ -121,7 +122,8 @@ bool egg::yolk::TextStream::readline(std::string& text) {
       break;
     }
     if (!isEndOfLine(ch)) {
-      egg::utf::push_utf8(text, ch);
+      egg::utf::utf32_to_utf8(target, char32_t(ch));
+
     }
   } while (this->line == start);
   return true;
@@ -147,11 +149,12 @@ bool egg::yolk::TextStream::readline(std::u32string& text) {
 }
 
 void egg::yolk::TextStream::slurp(std::string& text, int eol) {
+  auto target = std::back_inserter(text);
   if (eol < 0) {
     // Don't perform end-of-line substitution
     int ch = this->get();
     while (ch >= 0) {
-      egg::utf::push_utf8(text, ch);
+      egg::utf::utf32_to_utf8(target, char32_t(ch));
       ch = this->get();
     }
   } else {
@@ -160,9 +163,9 @@ void egg::yolk::TextStream::slurp(std::string& text, int eol) {
     int ch = this->get();
     while (ch >= 0) {
       if (!isEndOfLine(ch)) {
-        egg::utf::push_utf8(text, ch);
+        egg::utf::utf32_to_utf8(target, char32_t(ch));
       } else if (this->line != curr) {
-        egg::utf::push_utf8(text, eol);
+        egg::utf::utf32_to_utf8(target, char32_t(eol));
         curr = this->line;
       }
       ch = this->get();

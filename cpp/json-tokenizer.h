@@ -22,7 +22,7 @@ namespace egg::yolk {
       int64_t i;
       double f;
     };
-    std::string s;
+    std::string s; // utf8
   };
 
   struct JsonTokenizerItem {

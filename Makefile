@@ -108,7 +108,7 @@ $(BIN_DIR)/egg-testsuite.exe: $(EGG_OBJS) $(TEST_OBJS)
 
 # Pseudo-target to build the binaries
 bin: $(BIN_DIR)/egg-testsuite.exe
-	$(noop)
+	$(call noop)
 
 # Pseudo-target to build and run the test suite
 test: $(BIN_DIR)/egg-testsuite.exe
