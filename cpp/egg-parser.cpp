@@ -5,33 +5,27 @@
 #include "egg-parser.h"
 #include "egg-program.h"
 
-// WIBBLE
-template<typename T>
-inline std::shared_ptr<egg::yolk::IEggProgramNode> egg::yolk::EggSyntaxNode_Assignment::promoteAssign(IEggParserContext & context) const {
-  auto lhs = context.promote(*this->child[0]);
-  auto rhs = context.promote(*this->child[1]);
-  return std::make_shared<T>(lhs, rhs);
-}
-
-template<typename T>
-inline std::shared_ptr<egg::yolk::IEggProgramNode> egg::yolk::EggSyntaxNode_UnaryOperator::promoteUnary(IEggParserContext & context) const {
-  auto expr = context.promote(*this->child);
-  return std::make_shared<T>(expr);
-}
-
-template<typename T>
-inline std::shared_ptr<egg::yolk::IEggProgramNode> egg::yolk::EggSyntaxNode_BinaryOperator::promoteBinary(IEggParserContext & context) const {
-  auto lhs = context.promote(*this->child[0]);
-  auto rhs = context.promote(*this->child[1]);
-  return std::make_shared<T>(lhs, rhs);
-}
-
 namespace {
   using namespace egg::yolk;
 
-  // This is the integer representation of the enum bit-mask
   inline EggParserAllowed operator|(EggParserAllowed lhs, EggParserAllowed rhs) {
     return egg::lang::Bits::set(lhs, rhs);
+  }
+
+  template<typename T>
+  inline std::shared_ptr<IEggProgramNode> promoteUnary(IEggParserContext& context, const std::unique_ptr<IEggSyntaxNode>& child) {
+    assert(child != nullptr);
+    auto expr = context.promote(*child);
+    return std::make_shared<T>(expr);
+  }
+
+  template<typename T>
+  inline std::shared_ptr<IEggProgramNode> promoteBinary(IEggParserContext& context, const std::unique_ptr<IEggSyntaxNode> children[2]) {
+    assert(children[0] != nullptr);
+    assert(children[1] != nullptr);
+    auto lhs = context.promote(*children[0]);
+    auto rhs = context.promote(*children[1]);
+    return std::make_shared<T>(lhs, rhs);
   }
 
   class EggParserTypeFunction : public egg::gc::HardReferenceCounted<egg::lang::IType> {
@@ -1123,29 +1117,29 @@ std::shared_ptr<egg::yolk::IEggProgramNode> egg::yolk::EggSyntaxNode_Declare::pr
 std::shared_ptr<egg::yolk::IEggProgramNode> egg::yolk::EggSyntaxNode_Assignment::promote(egg::yolk::IEggParserContext& context) const {
   switch (this->op) {
     case EggTokenizerOperator::PercentEqual:
-      return this->promoteAssign<EggParserNode_AssignRemainder>(context);
+      return promoteBinary<EggParserNode_AssignRemainder>(context, this->child);
     case EggTokenizerOperator::AmpersandEqual:
-      return this->promoteAssign<EggParserNode_AssignBitwiseAnd>(context);
+      return promoteBinary<EggParserNode_AssignBitwiseAnd>(context, this->child);
     case EggTokenizerOperator::StarEqual:
-      return this->promoteAssign<EggParserNode_AssignMultiply>(context);
+      return promoteBinary<EggParserNode_AssignMultiply>(context, this->child);
     case EggTokenizerOperator::PlusEqual:
-      return this->promoteAssign<EggParserNode_AssignPlus>(context);
+      return promoteBinary<EggParserNode_AssignPlus>(context, this->child);
     case EggTokenizerOperator::MinusEqual:
-      return this->promoteAssign<EggParserNode_AssignMinus>(context);
+      return promoteBinary<EggParserNode_AssignMinus>(context, this->child);
     case EggTokenizerOperator::SlashEqual:
-      return this->promoteAssign<EggParserNode_AssignDivide>(context);
+      return promoteBinary<EggParserNode_AssignDivide>(context, this->child);
     case EggTokenizerOperator::ShiftLeftEqual:
-      return this->promoteAssign<EggParserNode_AssignShiftLeft>(context);
+      return promoteBinary<EggParserNode_AssignShiftLeft>(context, this->child);
     case EggTokenizerOperator::Equal:
-      return this->promoteAssign<EggParserNode_AssignEqual>(context);
+      return promoteBinary<EggParserNode_AssignEqual>(context, this->child);
     case EggTokenizerOperator::ShiftRightEqual:
-      return this->promoteAssign<EggParserNode_AssignShiftRight>(context);
+      return promoteBinary<EggParserNode_AssignShiftRight>(context, this->child);
     case EggTokenizerOperator::ShiftRightUnsignedEqual:
-      return this->promoteAssign<EggParserNode_AssignShiftRightUnsigned>(context);
+      return promoteBinary<EggParserNode_AssignShiftRightUnsigned>(context, this->child);
     case EggTokenizerOperator::CaretEqual:
-      return this->promoteAssign<EggParserNode_AssignBitwiseXor>(context);
+      return promoteBinary<EggParserNode_AssignBitwiseXor>(context, this->child);
     case EggTokenizerOperator::BarEqual:
-      return this->promoteAssign<EggParserNode_AssignBitwiseOr>(context);
+      return promoteBinary<EggParserNode_AssignBitwiseOr>(context, this->child);
     case EggTokenizerOperator::Bang:
     case EggTokenizerOperator::BangEqual:
     case EggTokenizerOperator::Percent:
@@ -1376,22 +1370,22 @@ std::shared_ptr<egg::yolk::IEggProgramNode> egg::yolk::EggSyntaxNode_Yield::prom
 
 std::shared_ptr<egg::yolk::IEggProgramNode> egg::yolk::EggSyntaxNode_UnaryOperator::promote(egg::yolk::IEggParserContext& context) const {
   if (this->op == EggTokenizerOperator::Bang) {
-    return this->promoteUnary<EggParserNode_UnaryLogicalNot>(context);
+    return promoteUnary<EggParserNode_UnaryLogicalNot>(context, this->child);
   }
   if (this->op == EggTokenizerOperator::Ampersand) {
-    return this->promoteUnary<EggParserNode_UnaryRef>(context);
+    return promoteUnary<EggParserNode_UnaryRef>(context, this->child);
   }
   if (this->op == EggTokenizerOperator::Star) {
-    return this->promoteUnary<EggParserNode_UnaryDeref>(context);
+    return promoteUnary<EggParserNode_UnaryDeref>(context, this->child);
   }
   if (this->op == EggTokenizerOperator::Minus) {
-    return this->promoteUnary<EggParserNode_UnaryNegate>(context);
+    return promoteUnary<EggParserNode_UnaryNegate>(context, this->child);
   }
   if (this->op == EggTokenizerOperator::Ellipsis) {
-    return this->promoteUnary<EggParserNode_UnaryEllipsis>(context);
+    return promoteUnary<EggParserNode_UnaryEllipsis>(context, this->child);
   }
   if (this->op == EggTokenizerOperator::Tilde) {
-    return this->promoteUnary<EggParserNode_UnaryBitwiseNot>(context);
+    return promoteUnary<EggParserNode_UnaryBitwiseNot>(context, this->child);
   }
   throw exceptionFromToken(context, "Unknown unary operator", *this);
 }
@@ -1399,51 +1393,51 @@ std::shared_ptr<egg::yolk::IEggProgramNode> egg::yolk::EggSyntaxNode_UnaryOperat
 std::shared_ptr<egg::yolk::IEggProgramNode> egg::yolk::EggSyntaxNode_BinaryOperator::promote(egg::yolk::IEggParserContext& context) const {
   switch (this->op) {
   case EggTokenizerOperator::BangEqual:
-    return this->promoteBinary<EggParserNode_BinaryUnequal>(context);
+    return promoteBinary<EggParserNode_BinaryUnequal>(context, this->child);
   case EggTokenizerOperator::Percent:
-    return this->promoteBinary<EggParserNode_BinaryRemainder>(context);
+    return promoteBinary<EggParserNode_BinaryRemainder>(context, this->child);
   case EggTokenizerOperator::Ampersand:
-    return this->promoteBinary<EggParserNode_BinaryBitwiseAnd>(context);
+    return promoteBinary<EggParserNode_BinaryBitwiseAnd>(context, this->child);
   case EggTokenizerOperator::AmpersandAmpersand:
-    return this->promoteBinary<EggParserNode_BinaryLogicalAnd>(context);
+    return promoteBinary<EggParserNode_BinaryLogicalAnd>(context, this->child);
   case EggTokenizerOperator::Star:
-    return this->promoteBinary<EggParserNode_BinaryMultiply>(context);
+    return promoteBinary<EggParserNode_BinaryMultiply>(context, this->child);
   case EggTokenizerOperator::Plus:
-    return this->promoteBinary<EggParserNode_BinaryPlus>(context);
+    return promoteBinary<EggParserNode_BinaryPlus>(context, this->child);
   case EggTokenizerOperator::Minus:
-    return this->promoteBinary<EggParserNode_BinaryMinus>(context);
+    return promoteBinary<EggParserNode_BinaryMinus>(context, this->child);
   case EggTokenizerOperator::Lambda:
-    return this->promoteBinary<EggParserNode_BinaryLambda>(context);
+    return promoteBinary<EggParserNode_BinaryLambda>(context, this->child);
   case EggTokenizerOperator::Dot:
-    return this->promoteBinary<EggParserNode_BinaryDot>(context);
+    return promoteBinary<EggParserNode_BinaryDot>(context, this->child);
   case EggTokenizerOperator::Slash:
-    return this->promoteBinary<EggParserNode_BinaryDivide>(context);
+    return promoteBinary<EggParserNode_BinaryDivide>(context, this->child);
   case EggTokenizerOperator::Less:
-    return this->promoteBinary<EggParserNode_BinaryLess>(context);
+    return promoteBinary<EggParserNode_BinaryLess>(context, this->child);
   case EggTokenizerOperator::ShiftLeft:
-    return this->promoteBinary<EggParserNode_BinaryShiftLeft>(context);
+    return promoteBinary<EggParserNode_BinaryShiftLeft>(context, this->child);
   case EggTokenizerOperator::LessEqual:
-    return this->promoteBinary<EggParserNode_BinaryLessEqual>(context);
+    return promoteBinary<EggParserNode_BinaryLessEqual>(context, this->child);
   case EggTokenizerOperator::EqualEqual:
-    return this->promoteBinary<EggParserNode_BinaryEqual>(context);
+    return promoteBinary<EggParserNode_BinaryEqual>(context, this->child);
   case EggTokenizerOperator::Greater:
-    return this->promoteBinary<EggParserNode_BinaryGreater>(context);
+    return promoteBinary<EggParserNode_BinaryGreater>(context, this->child);
   case EggTokenizerOperator::GreaterEqual:
-    return this->promoteBinary<EggParserNode_BinaryGreaterEqual>(context);
+    return promoteBinary<EggParserNode_BinaryGreaterEqual>(context, this->child);
   case EggTokenizerOperator::ShiftRight:
-    return this->promoteBinary<EggParserNode_BinaryShiftRight>(context);
+    return promoteBinary<EggParserNode_BinaryShiftRight>(context, this->child);
   case EggTokenizerOperator::ShiftRightUnsigned:
-    return this->promoteBinary<EggParserNode_BinaryShiftRightUnsigned>(context);
+    return promoteBinary<EggParserNode_BinaryShiftRightUnsigned>(context, this->child);
   case EggTokenizerOperator::QueryQuery:
-    return this->promoteBinary<EggParserNode_BinaryNullCoalescing>(context);
+    return promoteBinary<EggParserNode_BinaryNullCoalescing>(context, this->child);
   case EggTokenizerOperator::BracketLeft:
-    return this->promoteBinary<EggParserNode_BinaryBrackets>(context);
+    return promoteBinary<EggParserNode_BinaryBrackets>(context, this->child);
   case EggTokenizerOperator::Caret:
-    return this->promoteBinary<EggParserNode_BinaryBitwiseXor>(context);
+    return promoteBinary<EggParserNode_BinaryBitwiseXor>(context, this->child);
   case EggTokenizerOperator::Bar:
-    return this->promoteBinary<EggParserNode_BinaryBitwiseOr>(context);
+    return promoteBinary<EggParserNode_BinaryBitwiseOr>(context, this->child);
   case EggTokenizerOperator::BarBar:
-    return this->promoteBinary<EggParserNode_BinaryLogicalOr>(context);
+    return promoteBinary<EggParserNode_BinaryLogicalOr>(context, this->child);
   case EggTokenizerOperator::Bang:
   case EggTokenizerOperator::PercentEqual:
   case EggTokenizerOperator::AmpersandEqual:

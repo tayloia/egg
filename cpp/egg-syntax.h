@@ -165,9 +165,6 @@ namespace egg::yolk {
     virtual void dump(std::ostream& os) const override;
     virtual egg::lang::String token() const override;
     virtual std::shared_ptr<IEggProgramNode> promote(IEggParserContext& context) const override;
-  private:
-    template<typename T>
-    std::shared_ptr<IEggProgramNode> promoteAssign(IEggParserContext& context) const;
   };
 
   class EggSyntaxNode_Mutate : public EggSyntaxNodeChildren1 {
@@ -421,9 +418,6 @@ namespace egg::yolk {
     virtual void dump(std::ostream& os) const override;
     virtual egg::lang::String token() const override;
     virtual std::shared_ptr<IEggProgramNode> promote(IEggParserContext& context) const override;
-  private:
-    template<typename T>
-    std::shared_ptr<IEggProgramNode> promoteUnary(IEggParserContext& context) const;
   };
 
   class EggSyntaxNode_BinaryOperator : public EggSyntaxNodeChildrenN<2> {
@@ -437,9 +431,6 @@ namespace egg::yolk {
     virtual void dump(std::ostream& os) const override;
     virtual egg::lang::String token() const override;
     virtual std::shared_ptr<IEggProgramNode> promote(IEggParserContext& context) const override;
-  private:
-    template<typename T>
-    std::shared_ptr<IEggProgramNode> promoteBinary(IEggParserContext& context) const;
   };
 
   class EggSyntaxNode_TernaryOperator : public EggSyntaxNodeChildrenN<3> {
