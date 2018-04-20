@@ -17,6 +17,6 @@ for /f "tokens=3" %%F in ('%MAKE% --version') do echo Using make %%F & goto n2
 :n2
 for /f "tokens=4" %%F in ('%GCC% --version') do echo Using gcc %%F & goto n1
 :n1
-%MAKE% %*
+%MAKE% --jobs=8 %*
 :end
 endlocal

@@ -33,6 +33,7 @@ directories = $(patsubst %,%.,$(sort $(dir $(1))))
 #############################################################################
 
 ECHO = @echo
+SUBMAKE = @$(MAKE) --no-print-directory
 
 OBJ_ROOT = $(TOOLCHAIN)/obj
 BIN_ROOT = $(TOOLCHAIN)/bin
@@ -54,9 +55,9 @@ ALL_DIRS = $(call directories,$(ALL_OBJS)) $(BIN_DIR)/.
 #############################################################################
 
 # This is the thing that is built when you just type 'make'
-default: test
+default: bin test
 
-.PHONY: default test clean nuke
+.PHONY: default bin test clean nuke release debug all rebuild
 
 # We need to create certain directories or our toolchain fails
 %/.:
@@ -65,7 +66,7 @@ default: test
 
 # We create dependency files (*.d) at the same time as compiling the source
 $(OBJ_DIR)/%.o: %.cpp
-	$(ECHO) Compiling $<
+	$(ECHO) Compiling %CONFIGURATION% $<
 	$(call compile,$<,$(OBJ_DIR)/$*.o,$(OBJ_DIR)/$*.d)
 
 # Include the generated dependencies
@@ -99,6 +100,13 @@ $(BIN_DIR)/egg.exe: $(EGG_OBJS)
 # Testsuite dependencies
 $(BIN_DIR)/egg-testsuite.exe: $(EGG_OBJS) $(TEST_OBJS)
 
+#############################################################################
+# PSEUDO-TARGETS
+#############################################################################
+
+# Pseudo-target to build the binaries
+bin: $(BIN_DIR)/egg-testsuite.exe
+
 # Pseudo-target to build and run the test suite
 test: $(BIN_DIR)/egg-testsuite.exe
 	$(ECHO) Running tests $<
@@ -115,3 +123,24 @@ nuke:
 	$(call rmdir,$(OBJ_ROOT))
 	$(ECHO) Nuking directory $(BIN_ROOT)
 	$(call rmdir,$(BIN_ROOT))
+
+#############################################################################
+# SUBMAKES
+#############################################################################
+
+# Pseudo-target for 'release' binaries
+release:
+	$(SUBMAKE) CONFIGURATION=release bin
+
+# Pseudo-target for 'debug' binaries
+debug:
+	$(SUBMAKE) CONFIGURATION=debug bin
+
+# Pseudo-target for all binaries and tests
+all: release debug
+	$(SUBMAKE) CONFIGURATION=release test
+	$(SUBMAKE) CONFIGURATION=debug test
+
+# Pseudo-target for everything from scratch
+rebuild: nuke
+	$(SUBMAKE) all
