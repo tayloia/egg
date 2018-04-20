@@ -18,9 +18,11 @@ EXCLUDE_SRCS = cpp/main.cpp
 ifeq ($(OS),Windows_NT)
 	mkdir = @mkdir "$(1)"
 	rmdir = @if exist "$(1)" rmdir /s /q "$(1)"
+  noop  = @:
 else
 	mkdir = @mkdir -p $(1)
 	rmdir = @rm -rf $(1)
+  noop  = @;
 endif
 
 # Search for various files
@@ -55,7 +57,7 @@ ALL_DIRS = $(call directories,$(ALL_OBJS)) $(BIN_DIR)/.
 #############################################################################
 
 # This is the thing that is built when you just type 'make'
-default: bin test
+default: all
 
 .PHONY: default bin test clean nuke release debug all rebuild
 
@@ -106,6 +108,7 @@ $(BIN_DIR)/egg-testsuite.exe: $(EGG_OBJS) $(TEST_OBJS)
 
 # Pseudo-target to build the binaries
 bin: $(BIN_DIR)/egg-testsuite.exe
+	$(noop)
 
 # Pseudo-target to build and run the test suite
 test: $(BIN_DIR)/egg-testsuite.exe
@@ -136,11 +139,11 @@ release:
 debug:
 	$(SUBMAKE) CONFIGURATION=debug bin
 
-# Pseudo-target for all binaries and tests
+# Pseudo-target for all binaries and tests (parallel-friendly)
 all: release debug
 	$(SUBMAKE) CONFIGURATION=release test
 	$(SUBMAKE) CONFIGURATION=debug test
 
-# Pseudo-target for everything from scratch
+# Pseudo-target for everything from scratch (parallel-friendly)
 rebuild: nuke
 	$(SUBMAKE) all

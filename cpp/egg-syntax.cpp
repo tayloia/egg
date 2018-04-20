@@ -8,31 +8,32 @@ namespace {
   using namespace egg::yolk;
 
   class ParserDump {
+    EGG_NO_COPY(ParserDump);
   private:
-    std::ostream* os;
+    std::ostream& os;
   public:
     ParserDump(std::ostream& os, const char* text)
-      :os(&os) {
-      *this->os << '(' << text;
+      :os(os) {
+      this->os << '(' << text;
     }
     ~ParserDump() {
-      *this->os << ')';
+      this->os << ')';
     }
     ParserDump& add(const std::string& text) {
-      *this->os << ' ' << '\'' << text << '\'';
+      this->os << ' ' << '\'' << text << '\'';
       return *this;
     }
     ParserDump& add(const egg::lang::String& text) {
-      *this->os << ' ' << '\'' << text << '\'';
+      this->os << ' ' << '\'' << text << '\'';
       return *this;
     }
     ParserDump& add(EggTokenizerOperator op) {
-      *this->os << ' ' << '\'' << EggTokenizerValue::getOperatorString(op) << '\'';
+      this->os << ' ' << '\'' << EggTokenizerValue::getOperatorString(op) << '\'';
       return *this;
     }
     ParserDump& add(const std::unique_ptr<IEggSyntaxNode>& child) {
-      *this->os << ' ';
-      child->dump(*this->os);
+      this->os << ' ';
+      child->dump(this->os);
       return *this;
     }
     ParserDump& add(const std::vector<std::unique_ptr<IEggSyntaxNode>>& children) {

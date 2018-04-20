@@ -56,6 +56,7 @@ namespace egg::yolk {
   };
 
   class EggProgramContext : public egg::lang::IExecution {
+    EGG_NO_COPY(EggProgramContext);
   private:
     IEggEngineExecutionContext* engine;
     EggProgram::SymbolTable* symtable;

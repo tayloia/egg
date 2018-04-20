@@ -70,18 +70,19 @@ namespace {
   };
 
   class EggProgramAssigneeIdentifier : public egg::yolk::IEggProgramAssignee {
+    EGG_NO_COPY(EggProgramAssigneeIdentifier);
   private:
-    egg::yolk::EggProgramContext* context;
+    egg::yolk::EggProgramContext& context;
     egg::lang::String name;
   public:
     EggProgramAssigneeIdentifier(egg::yolk::EggProgramContext& context, const egg::lang::String& name)
-      : context(&context), name(name) {
+      : context(context), name(name) {
     }
     virtual egg::lang::Value get() const override {
-      return context->get(this->name);
+      return this->context.get(this->name);
     }
     virtual egg::lang::Value set(const egg::lang::Value& value) override {
-      return context->set(this->name, value);
+      return this->context.set(this->name, value);
     }
   };
 

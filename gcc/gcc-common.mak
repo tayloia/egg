@@ -1,4 +1,3 @@
-# WIBBLE TODO -Wall
 CXXFLAGS += -std=c++17 -Werror -Wextra -iquote ./cpp
 AR = @ar
 CXX = @g++
