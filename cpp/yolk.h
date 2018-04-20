@@ -20,6 +20,9 @@
 #include "gc.h"
 #include "files.h"
 #include "streams.h"
+#include "utf.h"
+
+// TODO candidates for removal
 #include "strings.h"
 
 #include "lang.h"

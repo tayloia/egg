@@ -72,6 +72,7 @@
     <ClInclude Include="..\cpp\streams.h" />
     <ClInclude Include="..\cpp\strings.h" />
     <ClInclude Include="..\cpp\test\gtest.h" />
+    <ClInclude Include="..\cpp\utf.h" />
     <ClInclude Include="..\cpp\yolk.h" />
   </ItemGroup>
   <PropertyGroup Label="Globals">

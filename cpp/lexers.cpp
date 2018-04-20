@@ -81,7 +81,7 @@ namespace {
     int eat(LexerItem& item) {
       auto curr = this->stream.get();
       assert(curr >= 0);
-      String::push_utf8(item.verbatim, char(curr));
+      egg::utf::push_utf8(item.verbatim, curr);
       return this->stream.peek();
     }
     void nextWhitespace(LexerItem& item) {

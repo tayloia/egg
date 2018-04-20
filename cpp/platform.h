@@ -17,11 +17,8 @@
 // Include some base headers with lower warning levels here
 #pragma warning(push)
 #pragma warning(disable: 4365 4623 4625 4626 4774 5026 5027)
-// TODO _SILENCE_CXX17_CODECVT_HEADER_DEPRECATION_WARNING
-#define _SILENCE_CXX17_CODECVT_HEADER_DEPRECATION_WARNING
 #include <algorithm>
 #include <atomic>
-#include <codecvt>
 #include <fstream>
 #include <functional>
 #include <iomanip>

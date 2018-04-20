@@ -126,8 +126,7 @@ namespace {
       auto m = v * std::pow(10.0, -d);
       if (m < 0.1) {
         // Handle edge-case rounding errors
-        m *= 10.0;
-        e--;
+        m = 0.1;
       }
       assert((m >= 0.1) && (m < 1.0));
       return m;

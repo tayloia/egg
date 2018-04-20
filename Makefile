@@ -64,7 +64,7 @@ default: test
 	$(call mkdir,$*)
 
 # We create dependency files (*.d) at the same time as compiling the source
-$(OBJ_DIR)/%.o $(OBJ_DIR)/%.d: %.cpp
+$(OBJ_DIR)/%.o: %.cpp
 	$(ECHO) Compiling $<
 	$(call compile,$<,$(OBJ_DIR)/$*.o,$(OBJ_DIR)/$*.d)
 
@@ -85,7 +85,7 @@ $(OBJ_DIR)/%.o $(OBJ_DIR)/%.d: %.cpp
 # SPECIFIC RULES
 #############################################################################
 
-# This source files needs additional include directories for Google Test
+# These source files need additional include directories for Google Test
 $(OBJ_DIR)/cpp/test/%: CXXFLAGS += -iquote ./thirdparty/googletest/include
 $(OBJ_DIR)/cpp/test/gtest.%: CXXFLAGS += -iquote ./thirdparty/googletest
 

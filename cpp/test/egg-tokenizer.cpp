@@ -47,6 +47,9 @@ TEST(TestEggTokenizer, TryParseOperator) {
   ASSERT_TRUE(EggTokenizerValue::tryParseOperator(">>>=", op, length));
   ASSERT_EQ(op, EggTokenizerOperator::ShiftRightUnsignedEqual);
   ASSERT_EQ(length, 4u);
+  ASSERT_TRUE(EggTokenizerValue::tryParseOperator("??", op, length));
+  ASSERT_EQ(op, EggTokenizerOperator::QueryQuery);
+  ASSERT_EQ(length, 2u);
   ASSERT_FALSE(EggTokenizerValue::tryParseOperator("", op, length));
   ASSERT_FALSE(EggTokenizerValue::tryParseOperator("@", op, length));
 }
@@ -124,11 +127,13 @@ TEST(TestEggTokenizer, Keyword) {
 
 TEST(TestEggTokenizer, Operator) {
   EggTokenizerItem item;
-  auto tokenizer = createFromString("!??->>>>=~ $");
+  auto tokenizer = createFromString("!??.->>>>=~ $");
   ASSERT_EQ(EggTokenizerKind::Operator, tokenizer->next(item));
   ASSERT_EQ(EggTokenizerOperator::Bang, item.value.o);
   ASSERT_EQ(EggTokenizerKind::Operator, tokenizer->next(item));
   ASSERT_EQ(EggTokenizerOperator::QueryQuery, item.value.o);
+  ASSERT_EQ(EggTokenizerKind::Operator, tokenizer->next(item));
+  ASSERT_EQ(EggTokenizerOperator::Dot, item.value.o);
   ASSERT_EQ(EggTokenizerKind::Operator, tokenizer->next(item));
   ASSERT_EQ(EggTokenizerOperator::Lambda, item.value.o);
   ASSERT_EQ(EggTokenizerKind::Operator, tokenizer->next(item));

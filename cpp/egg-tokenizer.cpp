@@ -2,7 +2,6 @@
 #include "lexers.h"
 #include "egg-tokenizer.h"
 
-#include <codecvt>
 #include <cstring>
 
 #define EGG_TOKENIZER_KEYWORD_DEFINE(key, text) \
@@ -61,6 +60,13 @@ bool egg::yolk::EggTokenizerValue::tryParseOperator(const std::string& text, Egg
     if ((candidate.length <= size) && (std::strncmp(candidate.text, data, candidate.length) == 0)) {
       value = candidate.key;
       length = candidate.length;
+      // WIBBLE
+      if (value == EggTokenizerOperator::Caret) {
+        std::cout << "CARET '" << candidate.text << "' " << candidate.length << " = " << int(candidate.key) << std::endl;
+      }
+      if (value == EggTokenizerOperator::QueryQuery) {
+        std::cout << "QUERYQUERY '" << candidate.text << "' " << candidate.length << " = " << int(candidate.key) << std::endl;
+      }
       return true;
     }
   }
@@ -113,9 +119,6 @@ std::string egg::yolk::EggTokenizerItem::toString() const {
 namespace {
   using namespace egg::yolk;
 
-  // See https://stackoverflow.com/a/31302660 and https://stackoverflow.com/a/35103224
-  std::wstring_convert<std::codecvt_utf8<int32_t>, int32_t> convert;
-
   class EggTokenizer : public IEggTokenizer {
   private:
     std::shared_ptr<ILexer> lexer;
@@ -160,7 +163,7 @@ namespace {
           item.kind = EggTokenizerKind::Float;
           break;
         case LexerKind::String:
-          item.value.s = egg::lang::String::fromUTF8(convert.to_bytes(reinterpret_cast<const int32_t*>(this->upcoming.value.s.data())));
+          item.value.s = egg::lang::String::fromUTF8(egg::utf::to_bytes(this->upcoming.value.s.c_str()));
           item.kind = EggTokenizerKind::String;
           break;
         case LexerKind::Operator:
@@ -194,12 +197,16 @@ namespace {
     EggTokenizerKind nextOperator(EggTokenizerItem& item) {
       // Look for the longest operator that matches the beginning of the upcoming text
       assert(this->upcoming.kind == LexerKind::Operator);
+      std::cout << "WIBBLE next '" << this->upcoming.verbatim << "'" << std::endl;
       size_t length = 0;
       if (!EggTokenizerValue::tryParseOperator(this->upcoming.verbatim, item.value.o, length)) {
         this->unexpected("Unexpected character", String::unicodeToString(this->upcoming.verbatim.front()));
       }
       assert(length > 0);
+      std::cout << "WIBBLE operator '" << this->upcoming.verbatim.substr(0, length) << "' = " << int(item.value.o) << std::endl;
+      std::cout << "WIBBLE before '" << this->upcoming.verbatim << "'" << std::endl;
       this->eatOperator(length);
+      std::cout << "WIBBLE after '" << this->upcoming.verbatim << "'" << std::endl;
       item.kind = EggTokenizerKind::Operator;
       return EggTokenizerKind::Operator;
     }

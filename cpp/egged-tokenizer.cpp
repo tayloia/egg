@@ -2,13 +2,8 @@
 #include "lexers.h"
 #include "egged-tokenizer.h"
 
-#include <codecvt>
-
 namespace {
   using namespace egg::yolk;
-
-  // See https://stackoverflow.com/a/31302660 and https://stackoverflow.com/a/35103224
-  std::wstring_convert<std::codecvt_utf8<int32_t>, int32_t> convert;
 
   class EggedTokenizer : public IEggedTokenizer {
   private:
@@ -52,7 +47,7 @@ namespace {
           item.kind = EggedTokenizerKind::Float;
           break;
         case LexerKind::String:
-          item.value.s = convert.to_bytes(reinterpret_cast<const int32_t*>(this->upcoming.value.s.data()));
+          item.value.s = egg::utf::to_bytes(this->upcoming.value.s.c_str());
           item.kind = EggedTokenizerKind::String;
           break;
         case LexerKind::Operator:

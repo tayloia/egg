@@ -69,25 +69,6 @@ namespace egg::yolk {
       }
       return false;
     }
-    static void push_utf8(std::string& str, int utf8) {
-      // See https://en.wikipedia.org/wiki/UTF-8
-      assert((utf8 >= 0) && (utf8 <= 0x10FFFF));
-      if (utf8 < 0x80) {
-        str.push_back(char(utf8));
-      } else if (utf8 < 0x800) {
-        str.push_back(char(0xC0 + (utf8 >> 6)));
-        str.push_back(char(0x80 + (utf8 & 0x2F)));
-      } else if (utf8 < 0x10000) {
-        str.push_back(char(0xE0 + (utf8 >> 12)));
-        str.push_back(char(0x80 + (utf8 >> 6) & 0x2F));
-        str.push_back(char(0x80 + (utf8 & 0x2F)));
-      } else {
-        str.push_back(char(0xF0 + (utf8 >> 18)));
-        str.push_back(char(0x80 + (utf8 >> 12) & 0x2F));
-        str.push_back(char(0x80 + (utf8 >> 6) & 0x2F));
-        str.push_back(char(0x80 + (utf8 & 0x2F)));
-      }
-    }
     static std::string unicodeToString(int ch) {
       std::stringstream ss;
       if ((ch >= 32) && (ch <= 126)) {
