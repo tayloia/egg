@@ -350,8 +350,8 @@ namespace {
   private:
     StringTextStream stream;
   public:
-    explicit StringLexer(const std::string& text)
-      : Lexer(stream), stream(text) {
+    explicit StringLexer(const std::string& text, const std::string& resource)
+      : Lexer(stream), stream(text, resource) {
     }
   };
 }
@@ -360,8 +360,8 @@ std::shared_ptr<egg::yolk::ILexer> egg::yolk::LexerFactory::createFromPath(const
   return std::make_shared<FileLexer>(path, swallowBOM);
 }
 
-std::shared_ptr<egg::yolk::ILexer> egg::yolk::LexerFactory::createFromString(const std::string& text) {
-  return std::make_shared<StringLexer>(text);
+std::shared_ptr<egg::yolk::ILexer> egg::yolk::LexerFactory::createFromString(const std::string& text, const std::string& resource) {
+  return std::make_shared<StringLexer>(text, resource);
 }
 
 std::shared_ptr<egg::yolk::ILexer> egg::yolk::LexerFactory::createFromTextStream(egg::yolk::TextStream& stream) {

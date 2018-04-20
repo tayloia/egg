@@ -30,6 +30,23 @@ namespace {
     auto root = parseFromString(*parser, text);
     return dumpToString(*root);
   }
+  void expectSyntaxException(const SyntaxException& e) {
+    ASSERT_STREQ("<string>(1, 5): Expected variable identifier after type, not keyword: 'null'", e.what());
+    ASSERT_EQ("Expected variable identifier after type, not keyword: 'null'", e.reason());
+    ASSERT_EQ("<string>", e.resource());
+    ASSERT_EQ("keyword: 'null'", e.token());
+    ASSERT_EQ(1u, e.location().begin.line);
+    ASSERT_EQ(5u, e.location().begin.column);
+    ASSERT_EQ(0u, e.location().end.line);
+    ASSERT_EQ(0u, e.location().end.column);
+  }
+}
+
+TEST(TestEggSyntaxParser, SyntaxException) {
+  auto parser = EggParserFactory::createModuleSyntaxParser();
+  auto lexer = LexerFactory::createFromString("var null", "<string>");
+  auto tokenizer = EggTokenizerFactory::createFromLexer(lexer);
+  ASSERT_THROW_E(parser->parse(*tokenizer), SyntaxException, expectSyntaxException(e));
 }
 
 TEST(TestEggSyntaxParser, ModuleEmpty) {

@@ -1,5 +1,10 @@
 # Visual Studio 2015 cache/options directory
 .vs/
+
+# OpenCppCoverage
+msvc/LastCoverageResults.log
+
+# Output directories
 msvc/bin/
 msvc/obj/
 gcc/bin/

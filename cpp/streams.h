@@ -56,8 +56,8 @@ namespace egg::yolk {
   private:
     std::stringstream ss;
   public:
-    inline explicit StringByteStream(const std::string& text, const std::string& name = std::string())
-      : ByteStream(ss, name), ss(text) {
+    inline explicit StringByteStream(const std::string& text, const std::string& resource = std::string())
+      : ByteStream(ss, resource), ss(text) {
     }
   };
 
@@ -93,11 +93,8 @@ namespace egg::yolk {
   private:
     StringByteStream sbs;
   public:
-    inline explicit StringCharStream(const std::string& text)
-      : CharStream(sbs, false), sbs(text) {
-    }
-    inline StringCharStream(const std::string& text, const std::string& name)
-      : CharStream(sbs, false), sbs(text, name) {
+    inline explicit StringCharStream(const std::string& text, const std::string& resource = std::string())
+      : CharStream(sbs, false), sbs(text, resource) {
     }
   };
 
@@ -154,11 +151,8 @@ namespace egg::yolk {
   private:
     StringCharStream scs;
   public:
-    inline explicit StringTextStream(const std::string& text)
-      : TextStream(scs), scs(text) {
-    }
-    inline StringTextStream(const std::string& text, const std::string& name)
-      : TextStream(scs), scs(text, name) {
+    inline explicit StringTextStream(const std::string& text, const std::string& resource = std::string())
+      : TextStream(scs), scs(text, resource) {
     }
   };
 }
