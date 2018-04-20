@@ -174,6 +174,35 @@ namespace {
   const TypeNative<egg::lang::Discriminator::Arithmetic> typeArithmetic{};
   const TypeNative<egg::lang::Discriminator::Any> typeAny{};
 
+  const egg::lang::IType* typeNative(egg::lang::Discriminator tag) {
+    // OPTIMIZE
+    if (tag == egg::lang::Discriminator::Void) {
+      return &typeVoid;
+    }
+    if (tag == egg::lang::Discriminator::Null) {
+      return &typeNull;
+    }
+    if (tag == egg::lang::Discriminator::Bool) {
+      return &typeBool;
+    }
+    if (tag == egg::lang::Discriminator::Int) {
+      return &typeInt;
+    }
+    if (tag == egg::lang::Discriminator::Float) {
+      return &typeFloat;
+    }
+    if (tag == egg::lang::Discriminator::String) {
+      return &typeString;
+    }
+    if (tag == egg::lang::Discriminator::Arithmetic) {
+      return &typeArithmetic;
+    }
+    if (tag == egg::lang::Discriminator::Any) {
+      return &typeAny;
+    }
+    return nullptr;
+  }
+
   class TypeSimple : public egg::gc::HardReferenceCounted<egg::lang::IType> {
     EGG_NO_COPY(TypeSimple);
   private:
@@ -420,7 +449,11 @@ const egg::lang::IType& egg::lang::Value::getRuntimeType() const {
       return *runtime.t;
     }
   }
-  EGG_THROW("TODO No egg::lang::Value::getType()"); // TODO
+  auto* native = typeNative(this->tag);
+  if (native != nullptr) {
+    return *native;
+  }
+  EGG_THROW("Internal type error: Unknown runtime type");
 }
 
 std::string egg::lang::Value::toUTF8() const {
@@ -484,29 +517,9 @@ egg::lang::ITypeRef egg::lang::IType::unionWith(const IType& other) const {
 
 egg::lang::ITypeRef egg::lang::Type::makeSimple(Discriminator simple) {
   // Try to use non-reference-counted globals
-  if (simple == Discriminator::Void) {
-    return ITypeRef(&typeVoid);
-  }
-  if (simple == Discriminator::Null) {
-    return ITypeRef(&typeNull);
-  }
-  if (simple == Discriminator::Bool) {
-    return ITypeRef(&typeBool);
-  }
-  if (simple == Discriminator::Int) {
-    return ITypeRef(&typeInt);
-  }
-  if (simple == Discriminator::Float) {
-    return ITypeRef(&typeFloat);
-  }
-  if (simple == Discriminator::String) {
-    return ITypeRef(&typeString);
-  }
-  if (simple == Discriminator::Arithmetic) {
-    return ITypeRef(&typeArithmetic);
-  }
-  if (simple == Discriminator::Any) {
-    return ITypeRef(&typeAny);
+  auto* native = typeNative(simple);
+  if (native != nullptr) {
+    return ITypeRef(native);
   }
   return Type::make<TypeSimple>(simple);
 }

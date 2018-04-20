@@ -208,14 +208,16 @@ public:
     Symbol(const egg::lang::String& name, const egg::lang::IType& type)
       : name(name), type(&type), value(egg::lang::Value::Void) {
     }
-    void assign(const egg::lang::Value& rhs) {
+    egg::lang::Value assign(const egg::lang::Value& rhs) {
       // Ask the type to assign the value so that type promotion can occur
       egg::lang::String problem;
       auto promoted = this->type->promoteAssignment(rhs);
-      if (promoted.stripFlowControl(egg::lang::Discriminator::Exception)) {
-        EGG_THROW(promoted.getString().toUTF8()); // TODO don't throw here!
+      if (promoted.has(egg::lang::Discriminator::FlowControl)) {
+        // The assignment failed
+        return promoted;
       }
       this->value = promoted;
+      return egg::lang::Value::Void;
     }
   };
 private:
@@ -475,7 +477,8 @@ egg::lang::Value egg::yolk::EggProgramContext::executeFunctionCall(const egg::la
   // This actually calls a function
   EggProgram::SymbolTable nested(this->symtable);
   egg::lang::IType::Setter setter = [&nested](const egg::lang::String& k, const egg::lang::IType& t, const egg::lang::Value& v) {
-    nested.addSymbol(k, t)->assign(v);
+    auto retval = nested.addSymbol(k, t)->assign(v);
+    assert(!retval.has(egg::lang::Discriminator::FlowControl));
   };
   auto retval = type.decantParameters(parameters, setter);
   if (!retval.has(egg::lang::Discriminator::FlowControl)) {
@@ -774,8 +777,7 @@ egg::lang::Value egg::yolk::EggProgramContext::set(const egg::lang::String& name
   }
   auto symbol = this->symtable->findSymbol(name);
   assert(symbol != nullptr);
-  symbol->assign(rvalue);
-  return egg::lang::Value::Void;
+  return symbol->assign(rvalue);
 }
 
 egg::lang::Value egg::yolk::EggProgramContext::assign(EggProgramAssign op, const IEggProgramNode& lvalue, const IEggProgramNode& rvalue) {
