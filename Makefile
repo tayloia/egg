@@ -102,7 +102,7 @@ $(BIN_DIR)/egg-testsuite.exe: $(EGG_OBJS) $(TEST_OBJS)
 # Pseudo-target to build and run the test suite
 test: $(BIN_DIR)/egg-testsuite.exe
 	$(ECHO) Running tests $<
-	@./$<
+	@runtest $<
 
 # Pseudo-target to clean the intermediates for the current configuration
 clean:

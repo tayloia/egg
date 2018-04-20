@@ -60,13 +60,6 @@ bool egg::yolk::EggTokenizerValue::tryParseOperator(const std::string& text, Egg
     if ((candidate.length <= size) && (std::strncmp(candidate.text, data, candidate.length) == 0)) {
       value = candidate.key;
       length = candidate.length;
-      // WIBBLE
-      if (value == EggTokenizerOperator::Caret) {
-        std::cout << "CARET '" << candidate.text << "' " << candidate.length << " = " << int(candidate.key) << std::endl;
-      }
-      if (value == EggTokenizerOperator::QueryQuery) {
-        std::cout << "QUERYQUERY '" << candidate.text << "' " << candidate.length << " = " << int(candidate.key) << std::endl;
-      }
       return true;
     }
   }
@@ -197,16 +190,12 @@ namespace {
     EggTokenizerKind nextOperator(EggTokenizerItem& item) {
       // Look for the longest operator that matches the beginning of the upcoming text
       assert(this->upcoming.kind == LexerKind::Operator);
-      std::cout << "WIBBLE next '" << this->upcoming.verbatim << "'" << std::endl;
       size_t length = 0;
       if (!EggTokenizerValue::tryParseOperator(this->upcoming.verbatim, item.value.o, length)) {
         this->unexpected("Unexpected character", String::unicodeToString(this->upcoming.verbatim.front()));
       }
       assert(length > 0);
-      std::cout << "WIBBLE operator '" << this->upcoming.verbatim.substr(0, length) << "' = " << int(item.value.o) << std::endl;
-      std::cout << "WIBBLE before '" << this->upcoming.verbatim << "'" << std::endl;
       this->eatOperator(length);
-      std::cout << "WIBBLE after '" << this->upcoming.verbatim << "'" << std::endl;
       item.kind = EggTokenizerKind::Operator;
       return EggTokenizerKind::Operator;
     }

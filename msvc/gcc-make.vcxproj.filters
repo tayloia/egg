@@ -5,6 +5,7 @@
     <None Include="..\gcc\gcc-common.mak" />
     <None Include="..\gcc\gcc-debug.mak" />
     <None Include="..\gcc\gcc-release.mak" />
+    <None Include="..\runtest.cmd" />
   </ItemGroup>
   <ItemGroup>
     <CustomBuild Include="..\build.cmd" />

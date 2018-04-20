@@ -125,15 +125,20 @@
       <Command Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(EggRoot)\build.cmd CONFIGURATION=debug</Command>
       <Command Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">$(EggRoot)\build.cmd CONFIGURATION=release</Command>
       <Command Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(EggRoot)\build.cmd CONFIGURATION=release</Command>
-      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">$(EggRoot)\gcc\bin\debug\egg-testsuite.exe;%(Outputs)</Outputs>
-      <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">$(EggRoot)\gcc\bin\release\egg-testsuite.exe;%(Outputs)</Outputs>
-      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(EggRoot)\gcc\bin\debug\egg-testsuite.exe;%(Outputs)</Outputs>
-      <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(EggRoot)\gcc\bin\release\egg-testsuite.exe;%(Outputs)</Outputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">$(EggRoot)\gcc\bin\debug\egg-testsuite.exe.log;%(Outputs)</Outputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">$(EggRoot)\gcc\bin\release\egg-testsuite.exe.log;%(Outputs)</Outputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(EggRoot)\gcc\bin\debug\egg-testsuite.exe.log;%(Outputs)</Outputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(EggRoot)\gcc\bin\release\egg-testsuite.exe.log;%(Outputs)</Outputs>
+      <Message Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Building GCC makefile</Message>
+      <Message Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Building GCC makefile</Message>
+      <Message Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Building GCC makefile</Message>
+      <Message Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Building GCC makefile</Message>
     </CustomBuild>
     <None Include="..\gcc\gcc-common.mak" />
     <None Include="..\gcc\gcc-debug.mak" />
     <None Include="..\gcc\gcc-release.mak" />
     <None Include="..\Makefile" />
+    <None Include="..\runtest.cmd" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
