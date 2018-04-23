@@ -13,6 +13,7 @@ namespace egg::yolk {
   public:
     virtual ~IEggProgramNode() {}
     virtual egg::lang::ITypeRef getType() const = 0;
+    virtual egg::lang::LocationSource location() const = 0;
     virtual bool symbol(egg::lang::String& nameOut, egg::lang::ITypeRef& typeOut) const = 0;
     virtual egg::lang::Value execute(EggProgramContext& context) const = 0;
     virtual egg::lang::Value executeWithExpression(EggProgramContext& context, const egg::lang::Value& expression) const = 0;
@@ -58,15 +59,16 @@ namespace egg::yolk {
   class EggProgramContext : public egg::lang::IExecution {
     EGG_NO_COPY(EggProgramContext);
   private:
+    egg::lang::LocationRuntime location;
     IEggEngineExecutionContext* engine;
     EggProgram::SymbolTable* symtable;
     egg::lang::LogSeverity* maximumSeverity;
   public:
     EggProgramContext(EggProgramContext& parent, EggProgram::SymbolTable& symtable)
-      : engine(parent.engine), symtable(&symtable), maximumSeverity(parent.maximumSeverity) {
+      : location(parent.location), engine(parent.engine), symtable(&symtable), maximumSeverity(parent.maximumSeverity) {
     }
     EggProgramContext(IEggEngineExecutionContext& execution, EggProgram::SymbolTable& symtable, egg::lang::LogSeverity& maximumSeverity)
-      : engine(&execution), symtable(&symtable), maximumSeverity(&maximumSeverity) {
+      : location(), engine(&execution), symtable(&symtable), maximumSeverity(&maximumSeverity) {
     }
     void log(egg::lang::LogSource source, egg::lang::LogSeverity severity, const std::string& message);
     egg::lang::Value executeModule(const IEggProgramNode& self, const std::vector<std::shared_ptr<IEggProgramNode>>& statements);
@@ -109,7 +111,8 @@ namespace egg::yolk {
     egg::lang::Value binary(EggProgramBinary op, const IEggProgramNode& lhs, const IEggProgramNode& rhs);
     egg::lang::Value call(const egg::lang::Value& callee, const egg::lang::IParameters& parameters);
     // Inherited via IExecution
-    virtual void print(const std::string & utf8) override;
+    virtual egg::lang::Value raise(const egg::lang::String& message) override;
+    virtual void print(const std::string& utf8) override;
   private:
     bool findDuplicateSymbols(const std::vector<std::shared_ptr<IEggProgramNode>>& statements);
     egg::lang::Value executeStatements(const std::vector<std::shared_ptr<IEggProgramNode>>& statements);
@@ -119,6 +122,6 @@ namespace egg::yolk {
     typedef egg::lang::Value (*ArithmeticFloat)(double lhs, double rhs);
     egg::lang::Value arithmeticIntFloat(const egg::lang::Value& lhs, const egg::yolk::IEggProgramNode& rvalue, const char* operation, ArithmeticInt ints, ArithmeticFloat floats);
     egg::lang::Value arithmeticInt(const egg::lang::Value& lhs, const egg::yolk::IEggProgramNode& rvalue, const char* operation, ArithmeticInt ints);
-    static egg::lang::Value unexpected(const std::string& expectation, const egg::lang::Value& value);
+    egg::lang::Value unexpected(const std::string& expectation, const egg::lang::Value& value);
   };
 }

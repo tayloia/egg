@@ -208,10 +208,10 @@ public:
     Symbol(const egg::lang::String& name, const egg::lang::IType& type)
       : name(name), type(&type), value(egg::lang::Value::Void) {
     }
-    egg::lang::Value assign(const egg::lang::Value& rhs) {
+    egg::lang::Value assign(egg::lang::IExecution& execution, const egg::lang::Value& rhs) {
       // Ask the type to assign the value so that type promotion can occur
       egg::lang::String problem;
-      auto promoted = this->type->promoteAssignment(rhs);
+      auto promoted = this->type->promoteAssignment(execution, rhs);
       if (promoted.has(egg::lang::Discriminator::FlowControl)) {
         // The assignment failed
         return promoted;
@@ -295,7 +295,7 @@ egg::lang::Value egg::yolk::EggProgramContext::executeStatements(const std::vect
 egg::lang::Value egg::yolk::EggProgramContext::executeModule(const IEggProgramNode& self, const std::vector<std::shared_ptr<IEggProgramNode>>& statements) {
   this->statement(self);
   if (this->findDuplicateSymbols(statements)) {
-    return egg::lang::Value::raise("Execution halted due to previous errors");
+    return this->raiseFormat("Execution halted due to previous errors");
   }
   return this->executeStatements(statements);
 }
@@ -305,7 +305,7 @@ egg::lang::Value egg::yolk::EggProgramContext::executeBlock(const IEggProgramNod
   EggProgram::SymbolTable nested(this->symtable);
   EggProgramContext context(*this, nested);
   if (context.findDuplicateSymbols(statements)) {
-    return egg::lang::Value::raise("Execution halted due to previous errors");
+    return this->raiseFormat("Execution halted due to previous errors");
   }
   return context.executeStatements(statements);
 }
@@ -439,7 +439,7 @@ egg::lang::Value egg::yolk::EggProgramContext::executeForeach(const IEggProgramN
   this->statement(self);
   auto dst = lvalue.assignee(*this);
   if (dst == nullptr) {
-    return egg::lang::Value::raise("Iteration target in 'for' statement is not valid");
+    return this->raiseFormat("Iteration target in 'for' statement is not valid");
   }
   auto src = rvalue.execute(*this);
   if (src.has(egg::lang::Discriminator::FlowControl)) {
@@ -476,11 +476,11 @@ egg::lang::Value egg::yolk::EggProgramContext::executeFunctionDefinition(const I
 egg::lang::Value egg::yolk::EggProgramContext::executeFunctionCall(const egg::lang::IType& type, const egg::lang::IParameters& parameters, const IEggProgramNode& block) {
   // This actually calls a function
   EggProgram::SymbolTable nested(this->symtable);
-  egg::lang::IType::Setter setter = [&nested](const egg::lang::String& k, const egg::lang::IType& t, const egg::lang::Value& v) {
-    auto retval = nested.addSymbol(k, t)->assign(v);
+  egg::lang::IType::Setter setter = [&](const egg::lang::String& k, const egg::lang::IType& t, const egg::lang::Value& v) {
+    auto retval = nested.addSymbol(k, t)->assign(*this, v);
     assert(!retval.has(egg::lang::Discriminator::FlowControl));
   };
-  auto retval = type.decantParameters(parameters, setter);
+  auto retval = type.decantParameters(*this, parameters, setter);
   if (!retval.has(egg::lang::Discriminator::FlowControl)) {
     EggProgramContext context(*this, nested);
     retval = block.execute(context);
@@ -573,9 +573,9 @@ egg::lang::Value egg::yolk::EggProgramContext::executeThrow(const IEggProgramNod
     return value;
   }
   if (!value.has(egg::lang::Discriminator::Any)) {
-    return egg::lang::Value::raise("Cannot 'throw' a value of type '", value.getTagString(), "'");
+    return this->raiseFormat("Cannot 'throw' a value of type '", value.getTagString(), "'");
   }
-  return egg::lang::Value::raise(value.getString());
+  return this->raise(value.getString());
 }
 
 egg::lang::Value egg::yolk::EggProgramContext::executeTry(const IEggProgramNode& self, const IEggProgramNode& block, const std::vector<std::shared_ptr<IEggProgramNode>>& catches, const IEggProgramNode* final) {
@@ -639,7 +639,7 @@ egg::lang::Value egg::yolk::EggProgramContext::executeUsing(const IEggProgramNod
   if (expr.has(egg::lang::Discriminator::Object)) {
     auto& object = expr.getObject();
     if (!object.dispose()) {
-      return egg::lang::Value::raise("Failed to 'dispose' object instance at end of 'using' statement");
+      return this->raiseFormat("Failed to 'dispose' object instance at end of 'using' statement");
     }
   }
   return retval;
@@ -742,31 +742,37 @@ egg::lang::LogSeverity egg::yolk::EggProgram::execute(IEggEngineExecutionContext
   EggProgramContext context(execution, symtable, severity);
   auto retval = this->root->execute(context);
   if (!retval.has(egg::lang::Discriminator::Void)) {
+    std::string message;
     if (retval.stripFlowControl(egg::lang::Discriminator::Exception)) {
       // TODO exception location
-      context.log(egg::lang::LogSource::Runtime, egg::lang::LogSeverity::Error, retval.getString().toUTF8());
+      message = retval.toUTF8();
     } else {
-      context.log(egg::lang::LogSource::Runtime, egg::lang::LogSeverity::Error, "Expected statement to return 'void', but got '" + retval.getTagString() + "' instead");
+      message = "Expected statement to return 'void', but got '" + retval.getTagString() + "' instead";
     }
+    context.log(egg::lang::LogSource::Runtime, egg::lang::LogSeverity::Error, message);
   }
   return severity;
 }
 
-void egg::yolk::EggProgramContext::statement(const IEggProgramNode&) {
-  // TODO
+void egg::yolk::EggProgramContext::statement(const IEggProgramNode& node) {
+  // TODO use runtime location, not location
+  egg::lang::LocationSource& source = this->location;
+  source = node.location();
 }
 
-void egg::yolk::EggProgramContext::expression(const IEggProgramNode&) {
-  // TODO
+void egg::yolk::EggProgramContext::expression(const IEggProgramNode& node) {
+  // TODO use runtime location, not location
+  egg::lang::LocationSource& source = this->location;
+  source = node.location();
 }
 
 egg::lang::Value egg::yolk::EggProgramContext::get(const egg::lang::String& name) {
   auto symbol = this->symtable->findSymbol(name);
   if (symbol == nullptr) {
-    return egg::lang::Value::raise("Unknown identifier: '", name, "'");
+    return this->raiseFormat("Unknown identifier: '", name, "'");
   }
   if (symbol->value.has(egg::lang::Discriminator::Void)) {
-    return egg::lang::Value::raise("Uninitialized identifier: '", name.toUTF8(), "'");
+    return this->raiseFormat("Uninitialized identifier: '", name.toUTF8(), "'");
   }
   return symbol->value;
 }
@@ -777,13 +783,13 @@ egg::lang::Value egg::yolk::EggProgramContext::set(const egg::lang::String& name
   }
   auto symbol = this->symtable->findSymbol(name);
   assert(symbol != nullptr);
-  return symbol->assign(rvalue);
+  return symbol->assign(*this, rvalue);
 }
 
 egg::lang::Value egg::yolk::EggProgramContext::assign(EggProgramAssign op, const IEggProgramNode& lvalue, const IEggProgramNode& rvalue) {
   auto dst = lvalue.assignee(*this);
   if (dst == nullptr) {
-    return egg::lang::Value::raise("Left-hand side of assignment operator '", EggProgram::assignToString(op), "' is not a valid target");
+    return this->raiseFormat("Left-hand side of assignment operator '", EggProgram::assignToString(op), "' is not a valid target");
   }
   auto lhs = dst->get();
   if (lhs.has(egg::lang::Discriminator::FlowControl)) {
@@ -828,7 +834,7 @@ egg::lang::Value egg::yolk::EggProgramContext::assign(EggProgramAssign op, const
     rhs = arithmeticInt(lhs, rvalue, "bitwise-or assignment '|='", bitwiseOrInt);
     break;
   default:
-    return egg::lang::Value::raise("Internal runtime error: Unknown assignment operator: '", EggProgram::assignToString(op), "'");
+    return this->raiseFormat("Internal runtime error: Unknown assignment operator: '", EggProgram::assignToString(op), "'");
   }
   if (rhs.has(egg::lang::Discriminator::FlowControl)) {
     return rhs;
@@ -839,7 +845,7 @@ egg::lang::Value egg::yolk::EggProgramContext::assign(EggProgramAssign op, const
 egg::lang::Value egg::yolk::EggProgramContext::mutate(EggProgramMutate op, const IEggProgramNode& lvalue) {
   auto dst = lvalue.assignee(*this);
   if (dst == nullptr) {
-    return egg::lang::Value::raise("Operand of mutation operator '", EggProgram::mutateToString(op), "' is not a valid target");
+    return this->raiseFormat("Operand of mutation operator '", EggProgram::mutateToString(op), "' is not a valid target");
   }
   auto lhs = dst->get();
   if (lhs.has(egg::lang::Discriminator::FlowControl)) {
@@ -860,7 +866,7 @@ egg::lang::Value egg::yolk::EggProgramContext::mutate(EggProgramMutate op, const
     rhs = minusInt(lhs.getInt(), 1);
     break;
   default:
-    return egg::lang::Value::raise("Internal runtime error: Unknown mutation operator: '", EggProgram::mutateToString(op), "'");
+    return this->raiseFormat("Internal runtime error: Unknown mutation operator: '", EggProgram::mutateToString(op), "'");
   }
   if (rhs.has(egg::lang::Discriminator::FlowControl)) {
     return rhs;
@@ -873,7 +879,7 @@ egg::lang::Value egg::yolk::EggProgramContext::condition(const IEggProgramNode& 
   if (retval.has(egg::lang::Discriminator::Bool | egg::lang::Discriminator::FlowControl)) {
     return retval;
   }
-  return egg::lang::Value::raise("Expected condition to evaluate to a 'bool', but got '", retval.getTagString(), "' instead");
+  return this->raiseFormat("Expected condition to evaluate to a 'bool', but got '", retval.getTagString(), "' instead");
 }
 
 egg::lang::Value egg::yolk::EggProgramContext::unary(EggProgramUnary op, const IEggProgramNode& value) {
@@ -897,9 +903,9 @@ egg::lang::Value egg::yolk::EggProgramContext::unary(EggProgramUnary op, const I
   case EggProgramUnary::Ref:
   case EggProgramUnary::Deref:
   case EggProgramUnary::Ellipsis:
-    return egg::lang::Value::raise("TODO unary() not fully implemented"); // TODO
+    return this->raiseFormat("TODO unary() not fully implemented"); // TODO
   default:
-    return egg::lang::Value::raise("Internal runtime error: Unknown unary operator: '", EggProgram::unaryToString(op), "'");
+    return this->raiseFormat("Internal runtime error: Unknown unary operator: '", EggProgram::unaryToString(op), "'");
   }
 }
 
@@ -939,9 +945,9 @@ egg::lang::Value egg::yolk::EggProgramContext::binary(EggProgramBinary op, const
   case EggProgramBinary::Minus:
     return this->arithmeticIntFloat(left, rhs, "subtraction '-'", minusInt, minusFloat);
   case EggProgramBinary::Lambda:
-    return egg::lang::Value::raise("TODO binary(Lambda) not fully implemented"); // TODO
+    return this->raiseFormat("TODO binary(Lambda) not fully implemented"); // TODO
   case EggProgramBinary::Dot:
-    return egg::lang::Value::raise("TODO binary(Dot) not fully implemented"); // TODO
+    return this->raiseFormat("TODO binary(Dot) not fully implemented"); // TODO
   case EggProgramBinary::Divide:
     return this->arithmeticIntFloat(left, rhs, "division '/'", divideInt, divideFloat);
   case EggProgramBinary::Less:
@@ -970,7 +976,7 @@ egg::lang::Value egg::yolk::EggProgramContext::binary(EggProgramBinary op, const
   case EggProgramBinary::NullCoalescing:
     return left.has(egg::lang::Discriminator::Null) ? rhs.execute(*this) : left;
   case EggProgramBinary::Brackets:
-    return egg::lang::Value::raise("TODO binary(Brackets) not fully implemented"); // TODO
+    return this->raiseFormat("TODO binary(Brackets) not fully implemented"); // TODO
   case EggProgramBinary::BitwiseXor:
     return this->arithmeticInt(left, rhs, "bitwise-xor '^'", bitwiseXorInt);
   case EggProgramBinary::BitwiseOr:
@@ -986,7 +992,7 @@ egg::lang::Value egg::yolk::EggProgramContext::binary(EggProgramBinary op, const
     }
     return EggProgramContext::unexpected("Expected left operand of logical-or '||' to be 'bool'", left);
   default:
-    return egg::lang::Value::raise("Internal runtime error: Unknown binary operator: '", EggProgram::binaryToString(op), "'");
+    return this->raiseFormat("Internal runtime error: Unknown binary operator: '", EggProgram::binaryToString(op), "'");
   }
 }
 
@@ -1047,9 +1053,13 @@ egg::lang::Value egg::yolk::EggProgramContext::call(const egg::lang::Value& call
 }
 
 egg::lang::Value egg::yolk::EggProgramContext::unexpected(const std::string& expectation, const egg::lang::Value& value) {
-  return egg::lang::Value::raise(expectation, ", but got '", value.getTagString(), "' instead");
+  return this->raiseFormat(expectation, ", but got '", value.getTagString(), "' instead");
 }
 
-void egg::yolk::EggProgramContext::print(const std::string & utf8) {
+egg::lang::Value egg::yolk::EggProgramContext::raise(const egg::lang::String& message) {
+  return egg::lang::Value::raise(this->location, message);
+}
+
+void egg::yolk::EggProgramContext::print(const std::string& utf8) {
   return this->log(egg::lang::LogSource::User, egg::lang::LogSeverity::Information, utf8);
 }

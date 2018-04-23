@@ -14,11 +14,11 @@ namespace {
     virtual String toString() const override {
       return this->signature;
     }
-    virtual Value canAlwaysAssignFrom(const IType&) const override {
-      return Value::raise("Cannot re-assign built-in function '", this->name, "'");
+    virtual Value canAlwaysAssignFrom(IExecution& execution, const IType&) const override {
+      return execution.raiseFormat("Cannot re-assign built-in function '", this->name, "'");
     }
-    virtual Value promoteAssignment(const Value&) const override {
-      return Value::raise("Cannot re-assign built-in function '", this->name, "'");
+    virtual Value promoteAssignment(IExecution& execution, const Value&) const override {
+      return execution.raiseFormat("Cannot re-assign built-in function '", this->name, "'");
     }
   };
 
@@ -48,7 +48,7 @@ namespace {
     inline Print() : Builtin(String::fromUTF8("print"), String::fromUTF8("void print(...)")) {}
     virtual Value call(IExecution& execution, const IParameters& parameters) override {
       if (parameters.getNamedCount() > 0) {
-        return Value::raise("print(): Named parameters are not supported");
+        return execution.raiseFormat("print(): Named parameters are not supported");
       }
       auto n = parameters.getPositionalCount();
       std::string utf8;

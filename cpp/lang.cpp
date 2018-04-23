@@ -1,7 +1,7 @@
 #include "yolk.h"
 
 namespace {
-  egg::lang::Value canAlwaysAssignSimple(egg::lang::Discriminator lhs, egg::lang::Discriminator rhs) {
+  egg::lang::Value canAlwaysAssignSimple(egg::lang::IExecution& execution, egg::lang::Discriminator lhs, egg::lang::Discriminator rhs) {
     assert(lhs != egg::lang::Discriminator::None);
     if (rhs != egg::lang::Discriminator::None) {
       // The source is a simple type
@@ -19,10 +19,10 @@ namespace {
         return egg::lang::Value::False;
       }
     }
-    return egg::lang::Value::raise("Cannot assign a value of type '", egg::lang::Value::getTagString(rhs), "' to a target of type '", egg::lang::Value::getTagString(lhs), "'");
+    return execution.raiseFormat("Cannot assign a value of type '", egg::lang::Value::getTagString(rhs), "' to a target of type '", egg::lang::Value::getTagString(lhs), "'");
   }
 
-  egg::lang::Value promoteAssignmentSimple(egg::lang::Discriminator lhs, const egg::lang::Value& rhs) {
+  egg::lang::Value promoteAssignmentSimple(egg::lang::IExecution& execution, egg::lang::Discriminator lhs, const egg::lang::Value& rhs) {
     if (rhs.has(lhs)) {
       // It's an exact type match
       return rhs;
@@ -31,7 +31,16 @@ namespace {
       // We allow type promotion int->float
       return egg::lang::Value(double(rhs.getInt())); // TODO overflows?
     }
-    return egg::lang::Value::raise("Cannot promote a value of type '", rhs.getRuntimeType().toString(), "' to a target of type '", egg::lang::Value::getTagString(lhs), "'");
+    return execution.raiseFormat("Cannot promote a value of type '", rhs.getRuntimeType().toString(), "' to a target of type '", egg::lang::Value::getTagString(lhs), "'");
+  }
+
+  void formatSourceLocation(egg::lang::StringBuilder& sb, const egg::lang::LocationSource& location) {
+    sb.add(location.file);
+    if (location.column > 0) {
+      sb.add("(").add(location.line).add(",").add(location.column).add(")");
+    } else if (location.line > 0) {
+      sb.add("(").add(location.line).add(")");
+    }
   }
 
   class StringBufferUTF8 : public egg::gc::HardReferenceCounted<egg::lang::IString> {
@@ -95,11 +104,11 @@ namespace {
     virtual egg::lang::ITypeRef referencedType() const override {
       return this->referenced;
     }
-    virtual egg::lang::Value canAlwaysAssignFrom(const egg::lang::IType&) const override {
-      return egg::lang::Value::raise("TODO: Cannot yet assign to reference value"); // TODO
+    virtual egg::lang::Value canAlwaysAssignFrom(egg::lang::IExecution& execution, const egg::lang::IType&) const override {
+      return execution.raiseFormat("TODO: Cannot yet assign to reference value"); // TODO
     }
-    virtual egg::lang::Value promoteAssignment(const egg::lang::Value&) const override {
-      return egg::lang::Value::raise("TODO: Cannot yet assign to reference value"); // TODO
+    virtual egg::lang::Value promoteAssignment(egg::lang::IExecution& execution, const egg::lang::Value&) const override {
+      return execution.raiseFormat("TODO: Cannot yet assign to reference value"); // TODO
     }
   };
 
@@ -128,11 +137,11 @@ namespace {
       }
       return egg::lang::Type::makeUnion(*this, other);
     }
-    virtual egg::lang::Value canAlwaysAssignFrom(const egg::lang::IType&) const override {
-      return egg::lang::Value::raise("Cannot assign to 'null' value");
+    virtual egg::lang::Value canAlwaysAssignFrom(egg::lang::IExecution& execution, const egg::lang::IType&) const override {
+      return execution.raiseFormat("Cannot assign to 'null' value");
     }
-    virtual egg::lang::Value promoteAssignment(const egg::lang::Value&) const override {
-      return egg::lang::Value::raise("Cannot assign to 'null' value");
+    virtual egg::lang::Value promoteAssignment(egg::lang::IExecution& execution, const egg::lang::Value&) const override {
+      return execution.raiseFormat("Cannot assign to 'null' value");
     }
   };
   const TypeNull typeNull{};
@@ -159,11 +168,11 @@ namespace {
       }
       return egg::lang::Type::makeUnion(*this, other);
     }
-    virtual egg::lang::Value canAlwaysAssignFrom(const egg::lang::IType& rhs) const override {
-      return canAlwaysAssignSimple(TAG, rhs.getSimpleTypes());
+    virtual egg::lang::Value canAlwaysAssignFrom(egg::lang::IExecution& execution, const egg::lang::IType& rhs) const override {
+      return canAlwaysAssignSimple(execution, TAG, rhs.getSimpleTypes());
     }
-    virtual egg::lang::Value promoteAssignment(const egg::lang::Value& rhs) const override {
-      return promoteAssignmentSimple(TAG, rhs);
+    virtual egg::lang::Value promoteAssignment(egg::lang::IExecution& execution, const egg::lang::Value& rhs) const override {
+      return promoteAssignmentSimple(execution, TAG, rhs);
     }
   };
   const TypeNative<egg::lang::Discriminator::Void> typeVoid{};
@@ -234,11 +243,11 @@ namespace {
       }
       return egg::lang::ITypeRef(this);
     }
-    virtual egg::lang::Value canAlwaysAssignFrom(const egg::lang::IType& rhs) const override {
-      return canAlwaysAssignSimple(this->tag, rhs.getSimpleTypes());
+    virtual egg::lang::Value canAlwaysAssignFrom(egg::lang::IExecution& execution, const egg::lang::IType& rhs) const override {
+      return canAlwaysAssignSimple(execution, this->tag, rhs.getSimpleTypes());
     }
-    virtual egg::lang::Value promoteAssignment(const egg::lang::Value& rhs) const override {
-      return promoteAssignmentSimple(this->tag, rhs);
+    virtual egg::lang::Value promoteAssignment(egg::lang::IExecution& execution, const egg::lang::Value& rhs) const override {
+      return promoteAssignmentSimple(execution, this->tag, rhs);
     }
     virtual egg::lang::String toString() const {
       return egg::lang::String::fromUTF8(egg::lang::Value::getTagString(this->tag));
@@ -257,13 +266,55 @@ namespace {
     virtual egg::lang::String toString() const override {
       return egg::lang::String::concat(this->a->toString(), "|", this->b->toString());
     }
-    virtual egg::lang::Value canAlwaysAssignFrom(const egg::lang::IType&) const override {
-      return egg::lang::Value::raise("TODO: Cannot yet assign to union value"); // TODO
+    virtual egg::lang::Value canAlwaysAssignFrom(egg::lang::IExecution& execution, const egg::lang::IType&) const override {
+      return execution.raiseFormat("TODO: Cannot yet assign to union value"); // TODO
     }
-    virtual egg::lang::Value promoteAssignment(const egg::lang::Value&) const override {
-      return egg::lang::Value::raise("TODO: Cannot yet assign to union value"); // TODO
+    virtual egg::lang::Value promoteAssignment(egg::lang::IExecution& execution, const egg::lang::Value&) const override {
+      return execution.raiseFormat("TODO: Cannot yet assign to union value"); // TODO
     }
   };
+
+  class ExceptionType : public egg::gc::NotReferenceCounted<egg::lang::IType> {
+  public:
+    virtual egg::lang::String toString() const override {
+      return egg::lang::String::fromUTF8("exception");
+    }
+    virtual egg::lang::Value canAlwaysAssignFrom(egg::lang::IExecution& execution, const egg::lang::IType&) const override {
+      return execution.raiseFormat("Cannot re-assign exceptions");
+    }
+    virtual egg::lang::Value promoteAssignment(egg::lang::IExecution& execution, const egg::lang::Value&) const override {
+      return execution.raiseFormat("Cannot re-assign exceptions");
+    }
+  };
+
+  class Exception : public egg::gc::HardReferenceCounted<egg::lang::IObject> {
+    EGG_NO_COPY(Exception);
+  private:
+    static const ExceptionType type;
+    egg::lang::LocationRuntime location;
+    egg::lang::String message;
+  public:
+    inline explicit Exception(const egg::lang::LocationRuntime& location, const egg::lang::String& message)
+      : location(location), message(message) {
+    }
+    virtual bool dispose() override {
+      return false;
+    }
+    virtual egg::lang::Value toString() const override {
+      auto where = this->location.toSourceString();
+      if (where.length() > 0) {
+        return egg::lang::Value(egg::lang::String::concat(where, ": ", this->message));
+      }
+      return egg::lang::Value(this->message);
+    }
+    virtual egg::lang::Value getRuntimeType() const override {
+      return egg::lang::Value(Exception::type);
+    }
+    virtual egg::lang::Value call(egg::lang::IExecution& execution, const egg::lang::IParameters&) override {
+      return execution.raiseFormat("Exceptions cannot be called");
+    }
+  };
+  const ExceptionType Exception::type{};
 }
 
 // Native types
@@ -360,12 +411,12 @@ egg::lang::Value& egg::lang::Value::operator=(Value&& value) {
 }
 
 egg::lang::Value::~Value() {
-  if (this->has(Discriminator::String)) {
-    this->s->releaseHard();
-  } else if (this->has(Discriminator::Type)) {
+  if (this->has(Discriminator::Type)) {
     this->t->releaseHard();
   } else if (this->has(Discriminator::Object)) {
     this->o->releaseHard();
+  } else if (this->has(Discriminator::String)) {
+    this->s->releaseHard();
   }
 }
 
@@ -389,6 +440,30 @@ bool egg::lang::Value::equal(const Value& lhs, const Value& rhs) {
     return lhs.t == rhs.t;
   }
   return lhs.o == rhs.o;
+}
+
+egg::lang::String egg::lang::LocationSource::toSourceString() const {
+  StringBuilder sb;
+  formatSourceLocation(sb, *this);
+  return sb.str();
+}
+
+egg::lang::String egg::lang::LocationRuntime::toRuntimeString() const {
+  StringBuilder sb;
+  formatSourceLocation(sb, *this);
+  if (!this->function.empty()) {
+    if (sb.empty()) {
+      sb.add(" ");
+    }
+    sb.add("[").add(this->function).add("]");
+  }
+  return sb.str();
+}
+
+egg::lang::Value egg::lang::Value::raise(const LocationRuntime& location, const String& message) {
+  auto exception = Value::make<Exception>(location, message);
+  exception.addFlowControl(Discriminator::Exception);
+  return exception;
 }
 
 void egg::lang::Value::addFlowControl(Discriminator bits) {
@@ -500,9 +575,9 @@ egg::lang::ITypeRef egg::lang::IType::coallescedType(const IType& rhs) const {
   return this->unionWith(rhs);
 }
 
-egg::lang::Value egg::lang::IType::decantParameters(const egg::lang::IParameters&, Setter) const {
+egg::lang::Value egg::lang::IType::decantParameters(egg::lang::IExecution& execution, const egg::lang::IParameters&, Setter) const {
   // The default implementation is to return an error (only function-like types decant parameters)
-  return egg::lang::Value::raise("Internal type error: Cannot decant parameters for type '", this->toString(), "'");
+  return execution.raiseFormat("Internal type error: Cannot decant parameters for type '", this->toString(), "'");
 }
 
 egg::lang::Discriminator egg::lang::IType::getSimpleTypes() const {

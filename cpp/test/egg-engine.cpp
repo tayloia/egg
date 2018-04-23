@@ -56,7 +56,7 @@ TEST(TestEggEngine, CreateEngineFromParsed) {
   auto logger = std::make_shared<TestLogger>();
   auto execution = EggEngineFactory::createExecutionContext(logger);
   ASSERT_EQ(egg::lang::LogSeverity::Error, engine->execute(*execution));
-  ASSERT_STARTSWITH(logger->logged, "RUNTIME:ERROR:Unknown identifier: 'first'");
+  ASSERT_STARTSWITH(logger->logged, "RUNTIME:ERROR:~/cpp/test/data/example.egg(2,14): Unknown identifier: 'first'");
 }
 
 TEST(TestEggEngine, CreateEngineFromTextStream) {
@@ -68,7 +68,7 @@ TEST(TestEggEngine, CreateEngineFromTextStream) {
   ASSERT_EQ("", logger->logged);
   auto execution = EggEngineFactory::createExecutionContext(logger);
   ASSERT_EQ(egg::lang::LogSeverity::Error, engine->execute(*execution));
-  ASSERT_STARTSWITH(logger->logged, "RUNTIME:ERROR:Unknown identifier: 'first'");
+  ASSERT_STARTSWITH(logger->logged, "RUNTIME:ERROR:~/cpp/test/data/example.egg(2,14): Unknown identifier: 'first'");
 }
 
 TEST(TestEggEngine, CreateEngineFromGarbage) {

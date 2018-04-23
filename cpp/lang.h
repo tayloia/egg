@@ -97,7 +97,12 @@ namespace egg::lang {
   class IExecution {
   public:
     virtual ~IExecution() {}
+    virtual Value raise(const String& message) = 0;
     virtual void print(const std::string& utf8) = 0;
+
+    // Useful helper
+    template<typename... ARGS>
+    inline Value raiseFormat(ARGS... args);
   };
 
   class IParameters {
@@ -117,8 +122,8 @@ namespace egg::lang {
     virtual IType* acquireHard() const = 0;
     virtual void releaseHard() const = 0;
     virtual String toString() const = 0;
-    virtual Value canAlwaysAssignFrom(const IType& rhs) const = 0;
-    virtual Value promoteAssignment(const Value& rhs) const = 0;
+    virtual Value canAlwaysAssignFrom(IExecution& execution, const IType& rhs) const = 0; // TODO unused?
+    virtual Value promoteAssignment(IExecution& execution, const Value& rhs) const = 0;
 
     virtual Discriminator getSimpleTypes() const; // Default implementation returns 'None'
     virtual Ref referencedType() const; // Default implementation returns 'Type*'
@@ -126,7 +131,7 @@ namespace egg::lang {
     virtual Ref coallescedType(const IType& rhs) const; // Default implementation calls Type::makeUnion()
     virtual Ref unionWith(const IType& other) const; // Default implementation calls Type::makeUnion()
     typedef std::function<void(const String& name, const IType& type, const Value& value)> Setter;
-    virtual Value decantParameters(const IParameters& supplied, Setter setter) const; // Default implementation returns an error
+    virtual Value decantParameters(IExecution& execution, const IParameters& supplied, Setter setter) const; // Default implementation returns an error
 
     // Helpers
     inline bool hasNativeType(Discriminator native) const {
@@ -182,6 +187,9 @@ namespace egg::lang {
     StringBuilder& add(T value, ARGS... args) {
       return this->add(value).add(args...);
     }
+    bool empty() const {
+      return this->ss.rdbuf()->in_avail() == 0;
+    }
     String str() const;
   };
 
@@ -196,6 +204,9 @@ namespace egg::lang {
     // Properties
     inline size_t length() const {
       return this->get()->length();
+    }
+    inline bool empty() const {
+      return this->get()->empty();
     }
     inline std::string toUTF8() const {
       return this->get()->toUTF8();
@@ -219,6 +230,21 @@ namespace egg::lang {
     }
     // Constants
     static const String Empty;
+  };
+
+  struct LocationSource {
+    String file;
+    size_t line;
+    size_t column;
+
+    String toSourceString() const;
+  };
+
+  struct LocationRuntime : public LocationSource {
+    String function;
+    const LocationRuntime* parent;
+
+    String toRuntimeString() const;
   };
 
   class Value final {
@@ -263,17 +289,19 @@ namespace egg::lang {
     static std::string getTagString(Discriminator tag);
     static bool equal(const Value& lhs, const Value& rhs);
     template<typename... ARGS>
-    static Value raise(ARGS... args) {
+    static Value raise(const LocationRuntime& location, ARGS... args) {
       auto message = StringBuilder().add(args...).str();
-      return Value::raise(message);
+      return Value::raise(location, message);
     }
-    static Value raise(const String& message) {
-      Value result{ message };
-      result.addFlowControl(Discriminator::Exception);
-      return result;
-    }
+    static Value raise(const LocationRuntime& location, const String& message);
     std::string toUTF8() const;
     const IType& getRuntimeType() const;
+
+    template<typename U, typename... ARGS>
+    static Value make(ARGS&&... args) {
+      // Use perfect forwarding to the constructor
+      return Value(*new U(std::forward<ARGS>(args)...));
+    }
 
     // Constants
     static const Value Void;
@@ -291,3 +319,9 @@ namespace egg::lang {
 }
 
 std::ostream& operator<<(std::ostream& os, const egg::lang::String& text);
+
+template<typename... ARGS>
+inline egg::lang::Value egg::lang::IExecution::raiseFormat(ARGS... args) {
+  auto message = StringBuilder().add(args...).str();
+  return this->raise(message);
+}
