@@ -10,12 +10,12 @@ namespace egg::utf {
       target = char(0x80 + (utf32 & 0x2F));
     } else if (utf32 < 0x10000) {
       target = char(0xE0 + (utf32 >> 12));
-      target = char(0x80 + (utf32 >> 6) & 0x2F);
+      target = char(0x80 + ((utf32 >> 6) & 0x2F));
       target = char(0x80 + (utf32 & 0x2F));
     } else {
       target = char(0xF0 + (utf32 >> 18));
-      target = char(0x80 + (utf32 >> 12) & 0x2F);
-      target = char(0x80 + (utf32 >> 6) & 0x2F);
+      target = char(0x80 + ((utf32 >> 12) & 0x2F));
+      target = char(0x80 + ((utf32 >> 6) & 0x2F));
       target = char(0x80 + (utf32 & 0x2F));
     }
   }

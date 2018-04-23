@@ -1,4 +1,4 @@
-CXXFLAGS += -std=c++17 -Werror -Wextra -iquote ./cpp
+CXXFLAGS += -std=c++17 -Werror -Wall -Wextra -iquote ./cpp
 AR = @ar
 CXX = @g++
 LD = @g++
