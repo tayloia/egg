@@ -7,12 +7,35 @@
 namespace {
   using namespace egg::yolk;
 
+  egg::lang::Discriminator keywordToDiscriminator(const EggTokenizerItem& item) {
+    // Accept only cast-like keywords: bool, int, float, string, type and object
+    if (item.isKeyword(EggTokenizerKeyword::Bool)) {
+      return egg::lang::Discriminator::Bool;
+    }
+    if (item.isKeyword(EggTokenizerKeyword::Int)) {
+      return egg::lang::Discriminator::Int;
+    }
+    if (item.isKeyword(EggTokenizerKeyword::Float)) {
+      return egg::lang::Discriminator::Float;
+    }
+    if (item.isKeyword(EggTokenizerKeyword::String)) {
+      return egg::lang::Discriminator::String;
+    }
+    if (item.isKeyword(EggTokenizerKeyword::Type)) {
+      return egg::lang::Discriminator::Type;
+    }
+    if (item.isKeyword(EggTokenizerKeyword::Object)) {
+      return egg::lang::Discriminator::Object;
+    }
+    return egg::lang::Discriminator::None;
+  }
+
   class ParserDump {
     EGG_NO_COPY(ParserDump);
   private:
     std::ostream& os;
   public:
-    ParserDump(std::ostream& os, const char* text)
+    ParserDump(std::ostream& os, const std::string& text)
       :os(os) {
       this->os << '(' << text;
     }
@@ -172,6 +195,10 @@ void egg::yolk::EggSyntaxNode_Call::dump(std::ostream& os) const {
   ParserDump(os, "call").add(this->child);
 }
 
+void egg::yolk::EggSyntaxNode_Cast::dump(std::ostream& os) const {
+  ParserDump(os, "cast " + egg::lang::Value::getTagString(this->tag)).add(this->child);
+}
+
 void egg::yolk::EggSyntaxNode_Named::dump(std::ostream& os) const {
   ParserDump(os, "named").add(this->name).add(this->child);
 }
@@ -183,10 +210,10 @@ void egg::yolk::EggSyntaxNode_Identifier::dump(std::ostream& os) const {
 void egg::yolk::EggSyntaxNode_Literal::dump(std::ostream& os) const {
   switch (this->kind) {
   case EggTokenizerKind::Integer:
-    ParserDump(os, ("literal int " + this->value.s.toUTF8()).c_str());
+    ParserDump(os, "literal int " + this->value.s.toUTF8());
     break;
   case EggTokenizerKind::Float:
-    ParserDump(os, ("literal float " + this->value.s.toUTF8()).c_str());
+    ParserDump(os, "literal float " + this->value.s.toUTF8());
     break;
   case EggTokenizerKind::String:
     ParserDump(os, "literal string").add(this->value.s.toUTF8());
@@ -996,6 +1023,7 @@ std::unique_ptr<IEggSyntaxNode> EggSyntaxParserContext::parseExpressionPrimary(c
                            | cast-specifier '(' expression ')'
   */
   EggSyntaxParserBacktrackMark mark(this->backtrack);
+  egg::lang::Discriminator simple;
   auto& p0 = mark.peek(0);
   switch (p0.kind) {
   case EggTokenizerKind::Integer:
@@ -1010,6 +1038,19 @@ std::unique_ptr<IEggSyntaxNode> EggSyntaxParserContext::parseExpressionPrimary(c
     if ((p0.value.k == EggTokenizerKeyword::Null) || (p0.value.k == EggTokenizerKeyword::False) || (p0.value.k == EggTokenizerKeyword::True)) {
       mark.accept(1);
       return std::make_unique<EggSyntaxNode_Literal>(EggSyntaxNodeLocation(p0), p0.kind, p0.value);
+    }
+    simple = keywordToDiscriminator(p0);
+    if (simple != egg::lang::Discriminator::None) {
+      // It could be a constructor like 'string(...)'
+      if (mark.peek(1).isOperator(EggTokenizerOperator::ParenthesisLeft)) {
+        // Expect <type> '(' <parameter-list>? ')'
+        mark.advance(1);
+        auto cast = std::make_unique<EggSyntaxNode_Cast>(EggSyntaxNodeLocation(p0), simple);
+        this->parseParameterList([&cast](auto&& node) { cast->addChild(std::move(node)); });
+        cast->setLocationEnd(mark.peek(0), 1);
+        mark.accept(1); // skip ')'
+        return cast;
+      }
     }
     /* DROP THROUGH */
   case EggTokenizerKind::Operator:
@@ -1420,8 +1461,7 @@ std::unique_ptr<IEggSyntaxNode> EggSyntaxParserContext::parseStatementFunction(s
     if (optional) {
       auto& p2 = mark.peek(1);
       if (!p2.isKeyword(EggTokenizerKeyword::Null)) {
-        auto expected = "Expected 'null' as default value for parameter '" + p1.value.s->toUTF8() + "'";
-        this->unexpected(expected.c_str(), p2);
+        this->unexpected("Expected 'null' as default value for parameter '" + p1.value.s->toUTF8() + "'", p2);
       }
       mark.advance(2);
     }
@@ -1716,20 +1756,9 @@ std::unique_ptr<IEggSyntaxNode> EggSyntaxParserContext::parseType(const char* ex
     // TODO Don't allow a trailing '?'
     return parseTypeSimple(egg::lang::Discriminator::Void);
   }
-  if (p0.isKeyword(EggTokenizerKeyword::Bool)) {
-    return parseTypeSimple(egg::lang::Discriminator::Bool);
-  }
-  if (p0.isKeyword(EggTokenizerKeyword::Int)) {
-    return parseTypeSimple(egg::lang::Discriminator::Int);
-  }
-  if (p0.isKeyword(EggTokenizerKeyword::Float)) {
-    return parseTypeSimple(egg::lang::Discriminator::Float);
-  }
-  if (p0.isKeyword(EggTokenizerKeyword::String)) {
-    return parseTypeSimple(egg::lang::Discriminator::String);
-  }
-  if (p0.isKeyword(EggTokenizerKeyword::Object)) {
-    return parseTypeSimple(egg::lang::Discriminator::Object);
+  auto simple = keywordToDiscriminator(p0);
+  if (simple != egg::lang::Discriminator::None) {
+    return parseTypeSimple(simple);
   }
   if (p0.isKeyword(EggTokenizerKeyword::Any)) {
     return parseTypeSimple(egg::lang::Discriminator::Any);

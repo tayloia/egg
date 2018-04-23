@@ -132,6 +132,7 @@ namespace egg::lang {
     virtual Ref unionWith(const IType& other) const; // Default implementation calls Type::makeUnion()
     typedef std::function<void(const String& name, const IType& type, const Value& value)> Setter;
     virtual Value decantParameters(IExecution& execution, const IParameters& supplied, Setter setter) const; // Default implementation returns an error
+    virtual Value cast(IExecution& execution, const IParameters& parameters) const; // Default implementation returns an error
 
     // Helpers
     bool hasNativeType(Discriminator native) const {
@@ -154,6 +155,7 @@ namespace egg::lang {
     static const Type Arithmetic;
     static const Type Any;
 
+    static const egg::lang::IType* getNative(egg::lang::Discriminator tag);
     static ITypeRef makeSimple(Discriminator simple);
     static ITypeRef makeUnion(const IType& lhs, const IType& rhs);
   };
@@ -294,6 +296,7 @@ namespace egg::lang {
       return Value::raise(location, message);
     }
     static Value raise(const LocationRuntime& location, const String& message);
+    String toString() const;
     std::string toUTF8() const;
     const IType& getRuntimeType() const;
 
@@ -309,6 +312,7 @@ namespace egg::lang {
     static const Value False;
     static const Value True;
     static const Value Break;
+    static const Value EmptyString;
     static const Value Continue;
     static const Value Rethrow;
     static const Value ReturnVoid;

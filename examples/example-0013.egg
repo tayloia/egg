@@ -1,0 +1,3 @@
+var s = string("Hello, ", "World!");
+print(s);
+///>Hello, World!

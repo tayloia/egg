@@ -94,6 +94,7 @@ namespace egg::yolk {
     egg::lang::Value executeWhile(const IEggProgramNode& self, const IEggProgramNode& cond, const IEggProgramNode& block);
     egg::lang::Value executeYield(const IEggProgramNode& self, const IEggProgramNode& value);
     egg::lang::Value executeCall(const IEggProgramNode& self, const IEggProgramNode& callee, const std::vector<std::shared_ptr<IEggProgramNode>>& parameters);
+    egg::lang::Value executeCast(const IEggProgramNode& self, egg::lang::Discriminator tag, const std::vector<std::shared_ptr<IEggProgramNode>>& parameters);
     egg::lang::Value executeIdentifier(const IEggProgramNode& self, const egg::lang::String& name);
     egg::lang::Value executeLiteral(const IEggProgramNode& self, const egg::lang::Value& value);
     egg::lang::Value executeUnary(const IEggProgramNode& self, EggProgramUnary op, const IEggProgramNode& value);
@@ -110,6 +111,7 @@ namespace egg::yolk {
     egg::lang::Value unary(EggProgramUnary op, const IEggProgramNode& value);
     egg::lang::Value binary(EggProgramBinary op, const IEggProgramNode& lhs, const IEggProgramNode& rhs);
     egg::lang::Value call(const egg::lang::Value& callee, const egg::lang::IParameters& parameters);
+    egg::lang::Value cast(egg::lang::Discriminator tag, const egg::lang::IParameters& parameters);
     // Inherited via IExecution
     virtual egg::lang::Value raise(const egg::lang::String& message) override;
     virtual void print(const std::string& utf8) override;

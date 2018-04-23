@@ -34,6 +34,45 @@ namespace {
     return execution.raiseFormat("Cannot promote a value of type '", rhs.getRuntimeType().toString(), "' to a target of type '", egg::lang::Value::getTagString(lhs), "'");
   }
 
+  egg::lang::Value castString(const egg::lang::IParameters& parameters) {
+    assert(parameters.getNamedCount() == 0);
+    auto n = parameters.getPositionalCount();
+    switch (n) {
+    case 0:
+      return egg::lang::Value::EmptyString;
+    case 1:
+      return egg::lang::Value{ parameters.getPositional(0).toString() };
+    }
+    egg::lang::StringBuilder sb;
+    for (size_t i = 0; i < n; ++i) {
+      sb.add(parameters.getPositional(i).toString());
+    }
+    return egg::lang::Value{ sb.str() };
+  }
+
+  egg::lang::Value castSimple(egg::lang::IExecution& execution, egg::lang::Discriminator tag, const egg::lang::IParameters& parameters) {
+    if (parameters.getNamedCount() != 0) {
+      return execution.raiseFormat("Named parameters in type-casts are not supported");
+    }
+    if (tag == egg::lang::Discriminator::String) {
+      return castString(parameters);
+    }
+    if (parameters.getPositionalCount() != 1) {
+      return execution.raiseFormat("Type-cast expected a single parameter: '", egg::lang::Value::getTagString(tag), "()'");
+
+    }
+    auto rhs = parameters.getPositional(0);
+    if (rhs.has(tag)) {
+      // It's an exact type match
+      return rhs;
+    }
+    if (egg::lang::Bits::hasAnySet(tag, egg::lang::Discriminator::Float) && rhs.has(egg::lang::Discriminator::Int)) {
+      // We allow type promotion int->float
+      return egg::lang::Value(double(rhs.getInt())); // TODO overflows?
+    }
+    return execution.raiseFormat("Cannot cast a value of type '", rhs.getRuntimeType().toString(), "' to type '", egg::lang::Value::getTagString(tag), "'");
+  }
+
   void formatSourceLocation(egg::lang::StringBuilder& sb, const egg::lang::LocationSource& location) {
     sb.add(location.file);
     if (location.column > 0) {
@@ -174,6 +213,9 @@ namespace {
     virtual egg::lang::Value promoteAssignment(egg::lang::IExecution& execution, const egg::lang::Value& rhs) const override {
       return promoteAssignmentSimple(execution, TAG, rhs);
     }
+    virtual egg::lang::Value cast(egg::lang::IExecution& execution, const egg::lang::IParameters& parameters) const override {
+      return castSimple(execution, TAG, parameters);
+    }
   };
   const TypeNative<egg::lang::Discriminator::Void> typeVoid{};
   const TypeNative<egg::lang::Discriminator::Bool> typeBool{};
@@ -182,35 +224,6 @@ namespace {
   const TypeNative<egg::lang::Discriminator::String> typeString{};
   const TypeNative<egg::lang::Discriminator::Arithmetic> typeArithmetic{};
   const TypeNative<egg::lang::Discriminator::Any> typeAny{};
-
-  const egg::lang::IType* typeNative(egg::lang::Discriminator tag) {
-    // OPTIMIZE
-    if (tag == egg::lang::Discriminator::Void) {
-      return &typeVoid;
-    }
-    if (tag == egg::lang::Discriminator::Null) {
-      return &typeNull;
-    }
-    if (tag == egg::lang::Discriminator::Bool) {
-      return &typeBool;
-    }
-    if (tag == egg::lang::Discriminator::Int) {
-      return &typeInt;
-    }
-    if (tag == egg::lang::Discriminator::Float) {
-      return &typeFloat;
-    }
-    if (tag == egg::lang::Discriminator::String) {
-      return &typeString;
-    }
-    if (tag == egg::lang::Discriminator::Arithmetic) {
-      return &typeArithmetic;
-    }
-    if (tag == egg::lang::Discriminator::Any) {
-      return &typeAny;
-    }
-    return nullptr;
-  }
 
   class TypeSimple : public egg::gc::HardReferenceCounted<egg::lang::IType> {
     EGG_NO_COPY(TypeSimple);
@@ -348,6 +361,7 @@ const egg::lang::Value egg::lang::Value::Void{ Discriminator::Void };
 const egg::lang::Value egg::lang::Value::Null{ Discriminator::Null };
 const egg::lang::Value egg::lang::Value::False{ false };
 const egg::lang::Value egg::lang::Value::True{ true };
+const egg::lang::Value egg::lang::Value::EmptyString{ String::Empty };
 const egg::lang::Value egg::lang::Value::Break{ Discriminator::Break };
 const egg::lang::Value egg::lang::Value::Continue{ Discriminator::Continue };
 const egg::lang::Value egg::lang::Value::Rethrow{ Discriminator::Exception | Discriminator::Void };
@@ -524,11 +538,23 @@ const egg::lang::IType& egg::lang::Value::getRuntimeType() const {
       return *runtime.t;
     }
   }
-  auto* native = typeNative(this->tag);
+  auto* native = Type::getNative(this->tag);
   if (native != nullptr) {
     return *native;
   }
   EGG_THROW("Internal type error: Unknown runtime type");
+}
+
+egg::lang::String egg::lang::Value::toString() const {
+  // OPTIMIZE
+  if (this->tag == Discriminator::Object) {
+    auto str = this->o->toString();
+    if (str.tag == Discriminator::String) {
+      return str.getString();
+    }
+    return String::fromUTF8("[invalid]");
+  }
+  return String::fromUTF8(this->toUTF8());
 }
 
 std::string egg::lang::Value::toUTF8() const {
@@ -552,8 +578,8 @@ std::string egg::lang::Value::toUTF8() const {
   }
   if (this->tag == Discriminator::Object) {
     auto str = this->o->toString();
-    if (str.has(Discriminator::String)) {
-      return str.toUTF8();
+    if (str.tag == Discriminator::String) {
+      return str.getString().toUTF8();
     }
     return "[invalid]";
   }
@@ -580,6 +606,11 @@ egg::lang::Value egg::lang::IType::decantParameters(egg::lang::IExecution& execu
   return execution.raiseFormat("Internal type error: Cannot decant parameters for type '", this->toString(), "'");
 }
 
+egg::lang::Value egg::lang::IType::cast(IExecution& execution, const IParameters&) const {
+  // The default implementation is to return an error (only native types are castable)
+  return execution.raiseFormat("Internal type error: Cannot cast to type '", this->toString(), "'");
+}
+
 egg::lang::Discriminator egg::lang::IType::getSimpleTypes() const {
   // The default implementation is to say we don't support any simple types
   return egg::lang::Discriminator::None;
@@ -590,9 +621,38 @@ egg::lang::ITypeRef egg::lang::IType::unionWith(const IType& other) const {
   return Type::makeUnion(*this, other);
 }
 
+const egg::lang::IType* egg::lang::Type::getNative(egg::lang::Discriminator tag) {
+  // OPTIMIZE
+  if (tag == egg::lang::Discriminator::Void) {
+    return &typeVoid;
+  }
+  if (tag == egg::lang::Discriminator::Null) {
+    return &typeNull;
+  }
+  if (tag == egg::lang::Discriminator::Bool) {
+    return &typeBool;
+  }
+  if (tag == egg::lang::Discriminator::Int) {
+    return &typeInt;
+  }
+  if (tag == egg::lang::Discriminator::Float) {
+    return &typeFloat;
+  }
+  if (tag == egg::lang::Discriminator::String) {
+    return &typeString;
+  }
+  if (tag == egg::lang::Discriminator::Arithmetic) {
+    return &typeArithmetic;
+  }
+  if (tag == egg::lang::Discriminator::Any) {
+    return &typeAny;
+  }
+  return nullptr;
+}
+
 egg::lang::ITypeRef egg::lang::Type::makeSimple(Discriminator simple) {
   // Try to use non-reference-counted globals
-  auto* native = typeNative(simple);
+  auto* native = Type::getNative(simple);
   if (native != nullptr) {
     return ITypeRef(native);
   }

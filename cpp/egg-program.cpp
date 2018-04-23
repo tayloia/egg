@@ -696,6 +696,25 @@ egg::lang::Value egg::yolk::EggProgramContext::executeCall(const IEggProgramNode
   return this->call(func, params);
 }
 
+egg::lang::Value egg::yolk::EggProgramContext::executeCast(const IEggProgramNode& self, egg::lang::Discriminator tag, const std::vector<std::shared_ptr<IEggProgramNode>>& parameters) {
+  this->expression(self);
+  EggProgramParameters params(parameters.size());
+  egg::lang::String name;
+  auto type = egg::lang::Type::Void;
+  for (auto& parameter : parameters) {
+    auto value = parameter->execute(*this);
+    if (value.has(egg::lang::Discriminator::FlowControl)) {
+      return value;
+    }
+    if (parameter->symbol(name, type)) {
+      params.addNamed(name, value);
+    } else {
+      params.addPositional(value);
+    }
+  }
+  return this->cast(tag, params);
+}
+
 egg::lang::Value egg::yolk::EggProgramContext::executeIdentifier(const IEggProgramNode& self, const egg::lang::String& name) {
   this->expression(self);
   return this->get(name);
@@ -1050,6 +1069,14 @@ egg::lang::Value egg::yolk::EggProgramContext::call(const egg::lang::Value& call
   }
   auto& object = callee.getObject();
   return object.call(*this, parameters);
+}
+
+egg::lang::Value egg::yolk::EggProgramContext::cast(egg::lang::Discriminator tag, const egg::lang::IParameters& parameters) {
+  auto* native = egg::lang::Type::getNative(tag);
+  if (native == nullptr) {
+    return this->raiseFormat("Cast to non-trivial type is not supported: '", egg::lang::Value::getTagString(tag), "'");
+  }
+  return native->cast(*this, parameters);
 }
 
 egg::lang::Value egg::yolk::EggProgramContext::unexpected(const std::string& expectation, const egg::lang::Value& value) {
