@@ -31,7 +31,7 @@ namespace {
       : logger(logger) {
       assert(logger != nullptr);
     }
-    virtual void log(egg::lang::LogSource source, egg::lang::LogSeverity severity, const std::string& message) {
+    virtual void log(egg::lang::LogSource source, egg::lang::LogSeverity severity, const std::string& message) override {
       this->logger->log(source, severity, message);
     }
   };
@@ -61,11 +61,11 @@ namespace {
     explicit EggEngineParsed(const std::shared_ptr<IEggProgramNode>& root)
       : program(root) {
     }
-    virtual egg::lang::LogSeverity prepare(IEggEnginePreparationContext& preparation) {
+    virtual egg::lang::LogSeverity prepare(IEggEnginePreparationContext& preparation) override {
       preparation.log(egg::lang::LogSource::Compiler, egg::lang::LogSeverity::Error, "Unnecessary program preparation");
       return egg::lang::LogSeverity::Error;
     }
-    virtual egg::lang::LogSeverity execute(IEggEngineExecutionContext& execution) {
+    virtual egg::lang::LogSeverity execute(IEggEngineExecutionContext& execution) override {
       return this->program.execute(execution);
     }
   };
@@ -79,7 +79,7 @@ namespace {
     explicit EggEngineTextStream(TextStream& stream)
       : stream(&stream) {
     }
-    virtual egg::lang::LogSeverity prepare(IEggEnginePreparationContext& preparation) {
+    virtual egg::lang::LogSeverity prepare(IEggEnginePreparationContext& preparation) override {
       if (this->program != nullptr) {
         preparation.log(egg::lang::LogSource::Compiler, egg::lang::LogSeverity::Error, "Program prepared more than once");
         return egg::lang::LogSeverity::Error;
@@ -90,7 +90,7 @@ namespace {
         return egg::lang::LogSeverity::None;
       });
     }
-    virtual egg::lang::LogSeverity execute(IEggEngineExecutionContext& execution) {
+    virtual egg::lang::LogSeverity execute(IEggEngineExecutionContext& execution) override {
       if (this->program == nullptr) {
         execution.log(egg::lang::LogSource::Runtime, egg::lang::LogSeverity::Error, "Program not prepared before execution");
         return egg::lang::LogSeverity::Error;

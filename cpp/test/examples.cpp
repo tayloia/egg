@@ -10,7 +10,7 @@ using namespace egg::yolk;
 namespace {
   class TestLogger : public IEggEngineLogger {
   public:
-    virtual void log(egg::lang::LogSource source, egg::lang::LogSeverity severity, const std::string& message) {
+    virtual void log(egg::lang::LogSource source, egg::lang::LogSeverity severity, const std::string& message) override {
       static const egg::yolk::String::StringFromEnum sourceTable[] = {
         { int(egg::lang::LogSource::Compiler), "<COMPILER>" },
         { int(egg::lang::LogSource::Runtime), "<RUNTIME>" },

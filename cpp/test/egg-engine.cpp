@@ -10,7 +10,7 @@ using namespace egg::yolk;
 namespace {
   class TestLogger : public IEggEngineLogger {
   public:
-    virtual void log(egg::lang::LogSource source, egg::lang::LogSeverity severity, const std::string& message) {
+    virtual void log(egg::lang::LogSource source, egg::lang::LogSeverity severity, const std::string& message) override {
       auto text = TestLogger::logSourceToString(source) + ":" + TestLogger::logSeverityToString(severity) + ":" + message;
       std::cout << text << std::endl;
       this->logged += text + "\n";

@@ -60,7 +60,7 @@ namespace {
     virtual egg::lang::Value canAlwaysAssignFrom(egg::lang::IExecution& execution, const egg::lang::IType& rhs) const override {
       return execution.raiseFormat("TODO: Assignment of a value of type '", rhs.toString(), "' to a target of type '", this->toString(), "' is currently unimplemented"); // TODO
     }
-    virtual egg::lang::Value promoteAssignment(egg::lang::IExecution& execution, const egg::lang::Value& rhs) const {
+    virtual egg::lang::Value promoteAssignment(egg::lang::IExecution& execution, const egg::lang::Value& rhs) const override {
       return execution.raiseFormat("TODO: Promotion of a value of type '", rhs.getRuntimeType().toString(), "' to a target of type '", this->toString(), "' is currently unimplemented"); // TODO
     }
     virtual egg::lang::Value decantParameters(egg::lang::IExecution& execution, const egg::lang::IParameters& supplied, Setter setter) const override {
@@ -960,7 +960,7 @@ namespace {
     virtual bool isAllowed(EggParserAllowed bit) const override {
       return egg::lang::Bits::hasAnySet(this->allowed, bit);
     }
-    virtual EggParserAllowed inheritAllowed(EggParserAllowed allow, EggParserAllowed inherit) const {
+    virtual EggParserAllowed inheritAllowed(EggParserAllowed allow, EggParserAllowed inherit) const override {
       return egg::lang::Bits::mask(this->allowed, inherit) | allow;
     }
     virtual std::shared_ptr<IEggProgramNode> promote(const IEggSyntaxNode& node) override {
@@ -975,7 +975,7 @@ namespace {
     explicit EggParserContext(const egg::lang::String& resource, EggParserAllowed allowed = EggParserAllowed::None)
       : EggParserContextBase(allowed), resource(resource) {
     }
-    virtual egg::lang::String getResourceName() const {
+    virtual egg::lang::String getResourceName() const override {
       return this->resource;
     }
   };
@@ -988,7 +988,7 @@ namespace {
       : EggParserContextBase(parent.inheritAllowed(allowed, inherited)), parent(&parent) {
       assert(this->parent != nullptr);
     }
-    virtual egg::lang::String getResourceName() const {
+    virtual egg::lang::String getResourceName() const override {
       return this->parent->getResourceName();
     }
   };
@@ -1005,13 +1005,13 @@ namespace {
         previous(EggTokenizerKeyword::Null) {
       assert(this->promoted != nullptr);
     }
-    virtual egg::lang::String getResourceName() const {
+    virtual egg::lang::String getResourceName() const override {
       return this->nested.getResourceName();
     }
     virtual bool isAllowed(EggParserAllowed bit) const override {
       return this->nested.isAllowed(bit);
     }
-    virtual EggParserAllowed inheritAllowed(EggParserAllowed allow, EggParserAllowed inherit) const {
+    virtual EggParserAllowed inheritAllowed(EggParserAllowed allow, EggParserAllowed inherit) const override {
       return this->nested.inheritAllowed(allow, inherit);
     }
     virtual std::shared_ptr<IEggProgramNode> promote(const IEggSyntaxNode& node) override {

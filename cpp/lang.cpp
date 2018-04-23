@@ -129,7 +129,7 @@ namespace {
       // We're always null, so the type is just the type of the rhs
       return egg::lang::ITypeRef(&rhs);
     }
-    virtual egg::lang::ITypeRef unionWith(const IType& other) const {
+    virtual egg::lang::ITypeRef unionWith(const IType& other) const override {
       auto simple = other.getSimpleTypes();
       if (egg::lang::Bits::hasAnySet(simple, egg::lang::Discriminator::Null)) {
         // The other type supports Null anyway
@@ -161,7 +161,7 @@ namespace {
     virtual egg::lang::Discriminator getSimpleTypes() const override {
       return TAG;
     }
-    virtual egg::lang::ITypeRef unionWith(const IType& other) const {
+    virtual egg::lang::ITypeRef unionWith(const IType& other) const override {
       if (other.getSimpleTypes() == TAG) {
         // It's the identical native type
         return egg::lang::ITypeRef(this);
@@ -230,7 +230,7 @@ namespace {
       }
       return this->unionWith(rhs);
     }
-    virtual egg::lang::ITypeRef unionWith(const IType& other) const {
+    virtual egg::lang::ITypeRef unionWith(const IType& other) const override {
       auto simple = other.getSimpleTypes();
       if (simple == egg::lang::Discriminator::None) {
         // The other type is not simple
@@ -249,7 +249,7 @@ namespace {
     virtual egg::lang::Value promoteAssignment(egg::lang::IExecution& execution, const egg::lang::Value& rhs) const override {
       return promoteAssignmentSimple(execution, this->tag, rhs);
     }
-    virtual egg::lang::String toString() const {
+    virtual egg::lang::String toString() const override {
       return egg::lang::String::fromUTF8(egg::lang::Value::getTagString(this->tag));
     }
   };
