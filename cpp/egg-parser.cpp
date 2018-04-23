@@ -14,8 +14,9 @@ namespace {
 
   template<typename T, typename... ARGS>
   inline std::shared_ptr<T> makeParserNode(const IEggParserContext& context, const IEggSyntaxNode& node, ARGS&&... args) {
+    // Fetch the syntax node's location and create a new 'T' based on it
     egg::lang::LocationSource location{
-      egg::lang::String::fromUTF8(context.getResource()), // WIBBLE
+      context.getResourceName(),
       node.location().begin.line,
       node.location().begin.column
     };
@@ -133,12 +134,12 @@ namespace {
   }
 
   SyntaxException exceptionFromLocation(const IEggParserContext& context, const std::string& reason, const EggSyntaxNodeLocation& location) {
-    return SyntaxException(reason, context.getResource(), location);
+    return SyntaxException(reason, context.getResourceName()->toUTF8(), location);
   }
 
   SyntaxException exceptionFromToken(const IEggParserContext& context, const std::string& reason, const EggSyntaxNodeBase& node) {
     auto token = node.token().toUTF8();
-    return SyntaxException(reason + ": '" + token + "'", context.getResource(), node, token);
+    return SyntaxException(reason + ": '" + token + "'", context.getResourceName().toUTF8(), node, token);
   }
 
   class ParserDump {
@@ -969,12 +970,12 @@ namespace {
 
   class EggParserContext : public EggParserContextBase {
   private:
-    std::string resource;
+    egg::lang::String resource;
   public:
-    explicit EggParserContext(const std::string& resource, EggParserAllowed allowed = EggParserAllowed::None)
+    explicit EggParserContext(const egg::lang::String& resource, EggParserAllowed allowed = EggParserAllowed::None)
       : EggParserContextBase(allowed), resource(resource) {
     }
-    virtual std::string getResource() const {
+    virtual egg::lang::String getResourceName() const {
       return this->resource;
     }
   };
@@ -987,8 +988,8 @@ namespace {
       : EggParserContextBase(parent.inheritAllowed(allowed, inherited)), parent(&parent) {
       assert(this->parent != nullptr);
     }
-    virtual std::string getResource() const {
-      return this->parent->getResource();
+    virtual egg::lang::String getResourceName() const {
+      return this->parent->getResourceName();
     }
   };
 
@@ -1004,8 +1005,8 @@ namespace {
         previous(EggTokenizerKeyword::Null) {
       assert(this->promoted != nullptr);
     }
-    virtual std::string getResource() const {
-      return this->nested.getResource();
+    virtual egg::lang::String getResourceName() const {
+      return this->nested.getResourceName();
     }
     virtual bool isAllowed(EggParserAllowed bit) const override {
       return this->nested.isAllowed(bit);

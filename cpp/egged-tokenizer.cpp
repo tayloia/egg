@@ -128,10 +128,10 @@ namespace {
     }
   private:
     void unexpected(const std::string& message) {
-      throw SyntaxException(message, this->lexer->resource(), this->upcoming);
+      throw SyntaxException(message, this->lexer->getResourceName(), this->upcoming);
     }
     void unexpected(const std::string& message, const std::string& token) {
-      throw SyntaxException(message + ": " + token, this->lexer->resource(), this->upcoming, token);
+      throw SyntaxException(message + ": " + token, this->lexer->getResourceName(), this->upcoming, token);
     }
   };
 }

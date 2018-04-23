@@ -52,7 +52,7 @@ namespace {
       }
       return item.kind;
     }
-    virtual std::string resource() const {
+    virtual std::string getResourceName() const override {
       return this->stream.getResourceName();
     }
 

@@ -116,9 +116,10 @@ namespace {
   private:
     std::shared_ptr<ILexer> lexer;
     LexerItem upcoming;
+    egg::lang::String resource_name;
   public:
     explicit EggTokenizer(const std::shared_ptr<ILexer>& lexer)
-      : lexer(lexer) {
+      : lexer(lexer), resource_name(egg::lang::String::fromUTF8(lexer->getResourceName())) {
       this->upcoming.line = 0;
     }
     virtual EggTokenizerKind next(EggTokenizerItem& item) override {
@@ -183,8 +184,8 @@ namespace {
       } while (skip);
       return item.kind;
     }
-    virtual std::string resource() const override {
-      return this->lexer->resource();
+    virtual egg::lang::String resource() const override {
+      return this->resource_name;
     }
   private:
     EggTokenizerKind nextOperator(EggTokenizerItem& item) {
@@ -236,10 +237,10 @@ namespace {
       }
     }
     void unexpected(const std::string& message) {
-      throw SyntaxException(message, this->lexer->resource(), this->upcoming);
+      throw SyntaxException(message, this->lexer->getResourceName(), this->upcoming);
     }
     void unexpected(const std::string& message, const std::string& token) {
-      throw SyntaxException(message + ": " + token, this->lexer->resource(), this->upcoming, token);
+      throw SyntaxException(message + ": " + token, this->lexer->getResourceName(), this->upcoming, token);
     }
   };
 }

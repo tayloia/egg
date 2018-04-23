@@ -137,7 +137,7 @@ namespace egg::yolk {
   public:
     virtual ~IEggTokenizer() {}
     virtual EggTokenizerKind next(EggTokenizerItem& item) = 0;
-    virtual std::string resource() const = 0;
+    virtual egg::lang::String resource() const = 0;
   };
 
   class EggTokenizerFactory {

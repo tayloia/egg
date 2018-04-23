@@ -438,7 +438,7 @@ namespace {
         }
       }
     }
-    std::string resource() const {
+    egg::lang::String resource() const {
       return this->tokenizer->resource();
     }
   private:
@@ -486,7 +486,7 @@ namespace {
         this->cursor = 0;
       }
     }
-    std::string resource() const {
+    egg::lang::String resource() const {
       return this->lookahead.resource();
     }
   private:
@@ -532,11 +532,11 @@ namespace {
     }
     void unexpected(const std::string& message) {
       auto& item = this->backtrack.peek(0);
-      throw SyntaxException(message, this->backtrack.resource(), item);
+      throw SyntaxException(message, this->backtrack.resource().toUTF8(), item);
     }
     void unexpected(const std::string& expected, const EggTokenizerItem& item) {
       auto token = item.toString();
-      throw SyntaxException(expected + ", not " + token, this->backtrack.resource(), item, token);
+      throw SyntaxException(expected + ", not " + token, this->backtrack.resource().toUTF8(), item, token);
     }
     void parseParameterList(std::function<void(std::unique_ptr<IEggSyntaxNode>&& node)> adder);
     void parseEndOfFile(const char* expected);

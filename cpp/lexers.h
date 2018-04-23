@@ -31,7 +31,7 @@ namespace egg::yolk {
   public:
     virtual ~ILexer() {}
     virtual LexerKind next(LexerItem& item) = 0;
-    virtual std::string resource() const = 0;
+    virtual std::string getResourceName() const = 0;
   };
 
   class LexerFactory {
