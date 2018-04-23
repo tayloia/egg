@@ -30,55 +30,109 @@ namespace {
     std::string logged;
   };
 
-  std::string execute(TextStream& stream) {
-    auto root = EggParserFactory::parseModule(stream);
-    auto engine = EggEngineFactory::createEngineFromParsed(root);
-    auto logger = std::make_shared<TestLogger>();
-    auto execution = EggEngineFactory::createExecutionContext(logger);
-    engine->execute(*execution);
-    return logger->logged;
-  }
-
-  std::string expectation(TextStream& stream) {
-    std::string expected;
-    std::string line;
-    while (stream.readline(line)) {
-      // Exmaple output lines always begin with '///'
-      if ((line.length() > 3) && (line[0] == '/') && (line[1] == '/') && (line[2] == '/')) {
-        switch (line[3]) {
-        case '>':
-          // '///>message' for normal USER/INFO output, e.g. print()
-          expected += line.substr(4) + "\n";
-          break;
-        case '<':
-          // '///<SOURCE><SEVERITY>message' for other log output
-          expected += line.substr(3) + "\n";
-          break;
+  class TestExamples : public ::testing::TestWithParam<int> {
+    EGG_NO_COPY(TestExamples);
+  public:
+    TestExamples() {}
+    void run() {
+      // Actually perform the testing
+      int example = this->GetParam();
+      auto resource = "~/examples/example-" + TestExamples::formatIndex(example) + ".egg";
+      FileTextStream stream(resource);
+      auto actual = execute(stream);
+      ASSERT_TRUE(stream.rewind());
+      auto expected = expectation(stream);
+      ASSERT_EQ(expected, actual);
+    }
+    static int registration(const char* file, int line) {
+      // Register this test case (multiple values)
+      // See https://github.com/google/googletest/blob/master/googletest/docs/AdvancedGuide.md#how-to-write-value-parameterized-tests
+      auto& registry = ::testing::UnitTest::GetInstance()->parameterized_test_registry();
+      auto* holder = registry.GetTestCasePatternHolder<TestExamples>("TestExamples", ::testing::internal::CodeLocation(file, line));
+      return holder->AddTestCaseInstantiation("", &TestExamples::generator, &TestExamples::name, file, line);
+    }
+    static std::vector<int> find() {
+      // Find all the examples
+      auto files = File::readDirectory("~/examples");
+      std::vector<int> results;
+      for (auto& file : files) {
+        auto index = TestExamples::extractIndex(file);
+        if (index >= 0) {
+          results.push_back(index);
         }
       }
+      if (results.empty()) {
+        // Push a dummy entry so that problems with example discovery don't just skip all the tests
+        results.push_back(0);
+      }
+      return results;
     }
-    return expected;
-  }
+    static std::string name(const ::testing::TestParamInfo<int>& info) {
+      // Format the test case name parameterization nicely
+      return TestExamples::formatIndex(info.param);
+    }
+  private:
+    static std::string execute(TextStream& stream) {
+      auto root = EggParserFactory::parseModule(stream);
+      auto engine = EggEngineFactory::createEngineFromParsed(root);
+      auto logger = std::make_shared<TestLogger>();
+      auto execution = EggEngineFactory::createExecutionContext(logger);
+      engine->execute(*execution);
+      return logger->logged;
+    }
+    static std::string expectation(TextStream& stream) {
+      std::string expected;
+      std::string line;
+      while (stream.readline(line)) {
+        // Exmaple output lines always begin with '///'
+        if ((line.length() > 3) && (line[0] == '/') && (line[1] == '/') && (line[2] == '/')) {
+          switch (line[3]) {
+          case '>':
+            // '///>message' for normal USER/INFO output, e.g. print()
+            expected += line.substr(4) + "\n";
+            break;
+          case '<':
+            // '///<SOURCE><SEVERITY>message' for other log output
+            expected += line.substr(3) + "\n";
+            break;
+          }
+        }
+      }
+      return expected;
+    }
+    static ::testing::internal::ParamGenerator<int> generator() {
+      // Generate value parameterizations for all the examples
+      return ::testing::ValuesIn(TestExamples::find());
+    }
+    static std::string formatIndex(int index) {
+      // Format the example index nicely
+      char buffer[32];
+      std::snprintf(buffer, EGG_NELEMS(buffer), "%04d", index);
+      return buffer;
+    }
+    static int extractIndex(const std::string& text) {
+      // Look for "example-####.egg"
+      size_t pos = 8;
+      if (text.substr(0, pos) == "example-") {
+        int index = 0;
+        while (std::isdigit(text[pos])) {
+          index = (index * 10) + text[pos] - '0';
+          pos++;
+        }
+        if ((pos > 8) && (text.substr(pos) == ".egg")) {
+          return index;
+        }
+      }
+      return -1; // no match
+    }
+  };
 }
 
-#define TEST_EXAMPLE(nnnn) \
-  TEST(TestExamples, Example##nnnn) { \
-    FileTextStream stream("~/examples/example-" #nnnn ".egg"); \
-    auto actual = execute(stream); \
-    ASSERT_TRUE(stream.rewind()); \
-    auto expected = expectation(stream); \
-    ASSERT_EQ(expected, actual); \
-  }
+TEST_P(TestExamples, Run) {
+  this->run();
+}
 
-TEST_EXAMPLE(0001)
-TEST_EXAMPLE(0002)
-TEST_EXAMPLE(0003)
-TEST_EXAMPLE(0004)
-TEST_EXAMPLE(0005)
-TEST_EXAMPLE(0006)
-TEST_EXAMPLE(0007)
-TEST_EXAMPLE(0008)
-TEST_EXAMPLE(0009)
-TEST_EXAMPLE(0010)
-TEST_EXAMPLE(0011)
-TEST_EXAMPLE(0012)
+// The following is almost the same as
+//  INSTANTIATE_TEST_CASE_P(Examples, TestExamples, ::testing::ValuesIn(TestExamples::find()), TestExamples::name);
+// but produces prettier lists in MSVC Test Explorer
+static int TestExamplesRegistration GTEST_ATTRIBUTE_UNUSED_ = TestExamples::registration(__FILE__, __LINE__);

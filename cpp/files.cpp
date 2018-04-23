@@ -2,6 +2,12 @@
 
 #include <direct.h>
 
+#if EGG_PLATFORM == EGG_PLATFORM_MSVC
+#include <experimental/filesystem>
+#elif EGG_PLATFORM == EGG_PLATFORM_GCC
+#include <dirent.h>
+#endif
+
 std::string egg::yolk::File::normalizePath(const std::string& path, bool trailingSlash) {
 #if EGG_PLATFORM == EGG_PLATFORM_MSVC
   auto result = String::transform(path, [](char x) { return (x == '\\') ? '/' : char(std::tolower(x)); });
@@ -103,4 +109,34 @@ std::string egg::yolk::File::resolvePath(const std::string& path) {
   std::replace(resolved.begin(), resolved.end(), '/', '\\');
 #endif
   return resolved;
+}
+
+std::vector<std::string> egg::yolk::File::readDirectory(const std::string& path) {
+  // Read the directory entries
+  auto native = File::denormalizePath(File::resolvePath(path), false);
+  std::vector<std::string> filenames;
+#if EGG_PLATFORM == EGG_PLATFORM_MSVC
+  // Microsoft still classifies this as "experimental" at the time of writing
+  for (auto& file : std::experimental::filesystem::directory_iterator(native)) {
+    filenames.push_back(File::normalizePath(file.path().filename().u8string()));
+  }
+#elif EGG_PLATFORM == EGG_PLATFORM_GCC
+  // GCC doesn't have "std::filesystem" at all, yet
+  DIR* dir = opendir(native.c_str());
+  if (dir != nullptr) {
+    for (auto* entry = readdir(dir); entry != nullptr; entry = readdir(dir)) {
+      if (entry->d_name[0] == '.') {
+        // Ignore "." and ".." entries
+        if ((entry->d_name[1] == '\0') || ((entry->d_name[1] == '.') && (entry->d_name[2] == '\0'))) {
+          continue;
+        }
+      }
+      filenames.push_back(File::normalizePath(entry->d_name));
+    }
+    closedir(dir);
+  }
+#else
+#error "Unsupported platform for egg::yolk::File::readDirectory"
+#endif
+  return filenames;
 }

@@ -19,6 +19,7 @@
 #pragma warning(disable: 4365 4623 4625 4626 4774 5026 5027)
 #include <algorithm>
 #include <atomic>
+#include <filesystem>
 #include <fstream>
 #include <functional>
 #include <iomanip>

@@ -39,6 +39,12 @@ TEST(TestFiles, GetTildeDirectory) {
   ASSERT_EQ('/', tilde.back());
 }
 
+TEST(TestFiles, GetCurrentDirectory) {
+  auto cwd = egg::yolk::File::getCurrentDirectory();
+  ASSERT_GT(cwd.size(), 0u);
+  ASSERT_EQ('/', cwd.back());
+}
+
 TEST(TestFiles, ResolvePath) {
   auto resolved = egg::yolk::File::resolvePath("~/path/to/file");
   ASSERT_NE('~', resolved[0]);
@@ -49,4 +55,14 @@ TEST(TestFiles, ResolvePath) {
   ASSERT_EQ("/path/to/file", egg::yolk::File::resolvePath("/path/to/file"));
   ASSERT_ENDSWITH(resolved, "/path/to/file");
 #endif
+}
+
+TEST(TestFiles, ReadDirectory) {
+  auto filenames = egg::yolk::File::readDirectory("~/examples");
+  ASSERT_FALSE(filenames.empty());
+  auto& filename = filenames.front();
+  ASSERT_STARTSWITH(filename, "example-");
+  ASSERT_ENDSWITH(filename, ".egg");
+  filenames = egg::yolk::File::readDirectory("~/missing-in-action");
+  ASSERT_TRUE(filenames.empty());
 }
