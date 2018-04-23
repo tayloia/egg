@@ -84,6 +84,9 @@ namespace egg::yolk {
     void addChild(std::unique_ptr<IEggSyntaxNode>&& node) {
       this->child.emplace_back(std::move(node));
     }
+    virtual const std::vector<std::unique_ptr<IEggSyntaxNode>>* children() const override {
+      return &this->child;
+    }
   };
 
   class EggSyntaxNode_Empty : public EggSyntaxNodeBase {

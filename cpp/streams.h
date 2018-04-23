@@ -2,13 +2,13 @@ namespace egg::yolk {
   class FileStream : public std::fstream {
     EGG_NO_COPY(FileStream);
   public:
-    inline FileStream(const std::string& unresolved, const std::string& resolved, ios_base::openmode mode)
+    FileStream(const std::string& unresolved, const std::string& resolved, ios_base::openmode mode)
       : std::fstream(resolved, mode) {
       if (this->fail()) {
         EGG_THROW("Failed to open file for reading: " + unresolved);
       }
     }
-    inline explicit FileStream(const std::string& path, ios_base::openmode mode = ios_base::in | ios_base::binary)
+    explicit FileStream(const std::string& path, ios_base::openmode mode = ios_base::in | ios_base::binary)
       : FileStream(path, File::resolvePath(path), mode) {
     }
   };
@@ -19,10 +19,10 @@ namespace egg::yolk {
     std::iostream& stream;
     std::string resource;
   public:
-    inline ByteStream(std::iostream& stream, const std::string& resource)
+    ByteStream(std::iostream& stream, const std::string& resource)
       : stream(stream), resource(resource) {
     }
-    inline int get() {
+    int get() {
       char ch;
       if (this->stream.get(ch)) {
         return int(uint8_t(ch));
@@ -32,11 +32,11 @@ namespace egg::yolk {
       }
       return -1;
     }
-    inline bool rewind() {
+    bool rewind() {
       this->stream.clear();
       return this->stream.seekg(0).good();
     }
-    inline const std::string& getResourceName() const {
+    const std::string& getResourceName() const {
       return this->resource;
     }
   };
@@ -46,7 +46,7 @@ namespace egg::yolk {
   private:
     FileStream fs;
   public:
-    inline explicit FileByteStream(const std::string& path)
+    explicit FileByteStream(const std::string& path)
       : ByteStream(fs, path), fs(path) {
     }
   };
@@ -56,7 +56,7 @@ namespace egg::yolk {
   private:
     std::stringstream ss;
   public:
-    inline explicit StringByteStream(const std::string& text, const std::string& resource = std::string())
+    explicit StringByteStream(const std::string& text, const std::string& resource = std::string())
       : ByteStream(ss, resource), ss(text) {
     }
   };
@@ -67,13 +67,13 @@ namespace egg::yolk {
     ByteStream& bytes;
     bool swallowBOM;
   public:
-    inline explicit CharStream(ByteStream& bytes, bool swallowBOM = true)
+    explicit CharStream(ByteStream& bytes, bool swallowBOM = true)
       : bytes(bytes), swallowBOM(swallowBOM) {
     }
     int get();
     void slurp(std::u32string& text);
     bool rewind();
-    inline const std::string& getResourceName() const {
+    const std::string& getResourceName() const {
       return this->bytes.getResourceName();
     }
   };
@@ -83,7 +83,7 @@ namespace egg::yolk {
   private:
     FileByteStream fbs;
   public:
-    inline explicit FileCharStream(const std::string& path, bool swallowBOM = true)
+    explicit FileCharStream(const std::string& path, bool swallowBOM = true)
       : CharStream(fbs, swallowBOM), fbs(path) {
     }
   };
@@ -93,7 +93,7 @@ namespace egg::yolk {
   private:
     StringByteStream sbs;
   public:
-    inline explicit StringCharStream(const std::string& text, const std::string& resource = std::string())
+    explicit StringCharStream(const std::string& text, const std::string& resource = std::string())
       : CharStream(sbs, false), sbs(text, resource) {
     }
   };
@@ -106,7 +106,7 @@ namespace egg::yolk {
     size_t line;
     size_t column;
   public:
-    inline explicit TextStream(CharStream& chars)
+    explicit TextStream(CharStream& chars)
       : chars(chars), upcoming(), line(1), column(1) {
     }
     int get();
@@ -115,21 +115,21 @@ namespace egg::yolk {
     void slurp(std::string& text, int eol = -1);
     void slurp(std::u32string& text, int eol = -1);
     bool rewind();
-    inline int peek(size_t index = 0) {
+    int peek(size_t index = 0) {
       if (this->ensure(index + 1)) {
         // Microsoft's std::deque indexer is borked
         return *(this->upcoming.begin() + std::ptrdiff_t(index));
       }
       return -1;
     }
-    inline const std::string& getResourceName() const {
+    const std::string& getResourceName() const {
       return this->chars.getResourceName();
     }
-    inline size_t getCurrentLine() {
+    size_t getCurrentLine() {
       this->ensure(1);
       return this->line;
     }
-    inline size_t getCurrentColumn() {
+    size_t getCurrentColumn() {
       return this->column;
     }
   private:
@@ -141,7 +141,7 @@ namespace egg::yolk {
   private:
     FileCharStream fcs;
   public:
-    inline explicit FileTextStream(const std::string& path, bool swallowBOM = true)
+    explicit FileTextStream(const std::string& path, bool swallowBOM = true)
       : TextStream(fcs), fcs(path, swallowBOM) {
     }
   };
@@ -151,7 +151,7 @@ namespace egg::yolk {
   private:
     StringCharStream scs;
   public:
-    inline explicit StringTextStream(const std::string& text, const std::string& resource = std::string())
+    explicit StringTextStream(const std::string& text, const std::string& resource = std::string())
       : TextStream(scs), scs(text, resource) {
     }
   };

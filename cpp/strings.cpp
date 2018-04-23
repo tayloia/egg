@@ -10,7 +10,7 @@ namespace {
     int exponent; // radix 10
     char mantissa[32]; // may not be NUL-terminated
 
-    inline FloatParts(double value, size_t sigfigs) {
+    FloatParts(double value, size_t sigfigs) {
       assert(sigfigs > 0);
       assert(sigfigs <= EGG_NELEMS(this->mantissa));
       this->negative = std::signbit(value);
@@ -25,7 +25,7 @@ namespace {
         }
       }
     }
-    inline size_t round(size_t sigfigs) {
+    size_t round(size_t sigfigs) {
       // Returns the number of non-zero fraction digits
       assert(sigfigs > 1);
       assert(sigfigs < EGG_NELEMS(this->mantissa));
@@ -66,15 +66,15 @@ namespace {
         this->mantissa[i] = '0';
       }
     }
-    inline void writeMantissa(std::ostream& os, size_t begin, size_t end) {
+    void writeMantissa(std::ostream& os, size_t begin, size_t end) {
       assert(begin < end);
       assert(end <= EGG_NELEMS(this->mantissa));
       os.write(this->mantissa + begin, std::streamsize(end - begin));
     }
-    inline void writeZeroes(std::ostream& os, size_t count) {
+    void writeZeroes(std::ostream& os, size_t count) {
       std::fill_n(std::ostreambuf_iterator<char>(os), count, '0');
     }
-    inline void writeScientific(std::ostream& os, size_t sigfigs) {
+    void writeScientific(std::ostream& os, size_t sigfigs) {
       // Write out in the following format "M.MMMe+EEE"
       assert((sigfigs > 0) && (sigfigs <= EGG_NELEMS(this->mantissa)));
       os.put(this->mantissa[0]);
@@ -96,7 +96,7 @@ namespace {
       os.put(char((e / 10) % 10) + '0');
       os.put(char(e % 10) + '0');
     }
-    inline static const char* getSpecial(double value) {
+    static const char* getSpecial(double value) {
       // Work out if this is a "special" IEEE value
       if (std::isnan(value)) {
         return "nan";
@@ -109,7 +109,7 @@ namespace {
       }
       return nullptr;
     }
-    inline static double getMantissaExponent10(double v, int& e) {
+    static double getMantissaExponent10(double v, int& e) {
       // Computes a decimal mantissa and exponent such that
       //  0.1 <= m < 1.0
       // v == m * 10 ^ e

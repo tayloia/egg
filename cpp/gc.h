@@ -22,13 +22,13 @@ namespace egg::gc {
   protected:
     mutable Atomic<int64_t> atomic;
   public:
-    inline ReferenceCount() {}
-    inline size_t acquire() const {
+    ReferenceCount() {}
+    size_t acquire() const {
       auto after = this->atomic.add(1) + 1;
       assert(after > 0);
       return static_cast<size_t>(after);
     }
-    inline size_t release() const {
+    size_t release() const {
       auto after = this->atomic.add(-1) - 1;
       assert(after >= 0);
       return static_cast<size_t>(after);
@@ -52,7 +52,7 @@ namespace egg::gc {
   private:
     ReferenceCount hard;
   public:
-    inline HardReferenceCounted() {}
+    HardReferenceCounted() {}
     virtual T* acquireHard() const override {
       this->hard.acquire();
       return const_cast<HardReferenceCounted*>(this);
@@ -70,10 +70,10 @@ namespace egg::gc {
   private:
     T* ptr;
   public:
-    inline explicit HardRef(const T* rhs) : ptr(rhs->acquireHard()) {
+    explicit HardRef(const T* rhs) : ptr(rhs->acquireHard()) {
       assert(this->ptr != nullptr);
     }
-    inline HardRef(const HardRef& rhs) : ptr(rhs.acquireHard()) {
+    HardRef(const HardRef& rhs) : ptr(rhs.acquireHard()) {
       assert(this->ptr != nullptr);
     }
     HardRef& operator=(const HardRef& rhs) {

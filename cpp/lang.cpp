@@ -95,7 +95,7 @@ namespace {
   private:
     egg::lang::ITypeRef referenced;
   public:
-    inline explicit TypeReference(const egg::lang::IType& referenced)
+    explicit TypeReference(const egg::lang::IType& referenced)
       : referenced(&referenced) {
     }
     virtual egg::lang::String toString() const override {
@@ -116,7 +116,7 @@ namespace {
   private:
     egg::lang::String name;
   public:
-    inline TypeNull()
+    TypeNull()
       : name(egg::lang::String::fromUTF8("null")) {
     }
     virtual egg::lang::String toString() const override {
@@ -151,7 +151,7 @@ namespace {
   private:
     egg::lang::String name;
   public:
-    inline TypeNative()
+    TypeNative()
       : name(egg::lang::String::fromUTF8(egg::lang::Value::getTagString(TAG))) {
       assert(!egg::lang::Bits::hasAnySet(TAG, egg::lang::Discriminator::Null));
     }
@@ -260,7 +260,7 @@ namespace {
     egg::lang::ITypeRef a;
     egg::lang::ITypeRef b;
   public:
-    inline TypeUnion(const egg::lang::IType& a, const egg::lang::IType& b)
+    TypeUnion(const egg::lang::IType& a, const egg::lang::IType& b)
       : a(&a), b(&b) {
     }
     virtual egg::lang::String toString() const override {
@@ -294,7 +294,7 @@ namespace {
     egg::lang::LocationRuntime location;
     egg::lang::String message;
   public:
-    inline explicit Exception(const egg::lang::LocationRuntime& location, const egg::lang::String& message)
+    explicit Exception(const egg::lang::LocationRuntime& location, const egg::lang::String& message)
       : location(location), message(message) {
     }
     virtual bool dispose() override {

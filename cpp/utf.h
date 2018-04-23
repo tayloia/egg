@@ -1,6 +1,6 @@
 namespace egg::utf {
   template<typename TARGET>
-  inline void utf32_to_utf8(TARGET&& target, char32_t utf32) {
+  void utf32_to_utf8(TARGET&& target, char32_t utf32) {
     // See https://en.wikipedia.org/wiki/UTF-8
     assert((utf32 >= 0) && (utf32 <= 0x10FFFF));
     if (utf32 < 0x80) {

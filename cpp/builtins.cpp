@@ -8,7 +8,7 @@ namespace {
     String name;
     String signature;
   public:
-    inline BuiltinType(const String& name, const String& signature)
+    BuiltinType(const String& name, const String& signature)
       : name(name), signature(signature) {
     }
     virtual String toString() const override {
@@ -27,7 +27,7 @@ namespace {
     String name;
     BuiltinType type;
   public:
-    inline Builtin(const String& name, const String& signature)
+    Builtin(const String& name, const String& signature)
       : name(name), type(name, signature) {
     }
     virtual bool dispose() override {
@@ -45,7 +45,7 @@ namespace {
 
   class Print : public Builtin {
   public:
-    inline Print() : Builtin(String::fromUTF8("print"), String::fromUTF8("void print(...)")) {}
+    Print() : Builtin(String::fromUTF8("print"), String::fromUTF8("void print(...)")) {}
     virtual Value call(IExecution& execution, const IParameters& parameters) override {
       if (parameters.getNamedCount() > 0) {
         return execution.raiseFormat("print(): Named parameters are not supported");

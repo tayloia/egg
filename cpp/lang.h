@@ -102,7 +102,7 @@ namespace egg::lang {
 
     // Useful helper
     template<typename... ARGS>
-    inline Value raiseFormat(ARGS... args);
+    Value raiseFormat(ARGS... args);
   };
 
   class IParameters {
@@ -134,7 +134,7 @@ namespace egg::lang {
     virtual Value decantParameters(IExecution& execution, const IParameters& supplied, Setter setter) const; // Default implementation returns an error
 
     // Helpers
-    inline bool hasNativeType(Discriminator native) const {
+    bool hasNativeType(Discriminator native) const {
       return egg::lang::Bits::hasAllSet(this->getSimpleTypes(), native);
     }
   };
@@ -143,7 +143,7 @@ namespace egg::lang {
   class Type : public ITypeRef {
     Type() = delete;
   private:
-    inline explicit Type(const IType& rhs) : ITypeRef(&rhs) {}
+    explicit Type(const IType& rhs) : ITypeRef(&rhs) {}
   public:
     static const Type Void;
     static const Type Null;
@@ -197,29 +197,29 @@ namespace egg::lang {
   private:
     static const IString& emptyBuffer;
   public:
-    inline explicit String(const IString& rhs = emptyBuffer) : IStringRef(&rhs) {
+    explicit String(const IString& rhs = emptyBuffer) : IStringRef(&rhs) {
     }
     String(const String& rhs) : IStringRef(rhs.get()) {
     }
     // Properties
-    inline size_t length() const {
+    size_t length() const {
       return this->get()->length();
     }
-    inline bool empty() const {
+    bool empty() const {
       return this->get()->empty();
     }
-    inline std::string toUTF8() const {
+    std::string toUTF8() const {
       return this->get()->toUTF8();
     }
     // Operators
-    inline String& operator=(const String& rhs) {
+    String& operator=(const String& rhs) {
       this->set(rhs.get());
       return *this;
     }
-    inline bool operator==(const String& rhs) const {
+    bool operator==(const String& rhs) const {
       return this->get()->equal(*rhs);
     }
-    inline bool operator<(const String& rhs) const {
+    bool operator<(const String& rhs) const {
       return this->get()->less(*rhs);
     }
     // Factories
@@ -258,34 +258,34 @@ namespace egg::lang {
       IObject* o;
       IType* t;
     };
-    inline explicit Value(Discriminator tag) : tag(tag) {}
+    explicit Value(Discriminator tag) : tag(tag) {}
     void copyInternals(const Value& other);
     void moveInternals(Value& other);
   public:
-    inline Value() : tag(Discriminator::Void) { this->o = nullptr; }
-    inline explicit Value(std::nullptr_t) : tag(Discriminator::Null) { this->o = nullptr; }
-    inline explicit Value(bool value) : tag(Discriminator::Bool) { this->b = value; }
-    inline explicit Value(int64_t value) : tag(Discriminator::Int) { this->i = value; }
-    inline explicit Value(double value) : tag(Discriminator::Float) { this->f = value; }
-    inline explicit Value(const String& value) : tag(Discriminator::String) { this->s = value.acquireHard(); }
-    inline explicit Value(const IType& type) : tag(Discriminator::Type) { this->t = type.acquireHard(); }
-    inline explicit Value(IObject& object) : tag(Discriminator::Object) { this->o = object.acquireHard(); }
+    Value() : tag(Discriminator::Void) { this->o = nullptr; }
+    explicit Value(std::nullptr_t) : tag(Discriminator::Null) { this->o = nullptr; }
+    explicit Value(bool value) : tag(Discriminator::Bool) { this->b = value; }
+    explicit Value(int64_t value) : tag(Discriminator::Int) { this->i = value; }
+    explicit Value(double value) : tag(Discriminator::Float) { this->f = value; }
+    explicit Value(const String& value) : tag(Discriminator::String) { this->s = value.acquireHard(); }
+    explicit Value(const IType& type) : tag(Discriminator::Type) { this->t = type.acquireHard(); }
+    explicit Value(IObject& object) : tag(Discriminator::Object) { this->o = object.acquireHard(); }
     Value(const Value& value);
     Value(Value&& value);
     Value& operator=(const Value& value);
     Value& operator=(Value&& value);
     ~Value();
-    inline bool operator==(const Value& other) const { return Value::equal(*this, other); }
-    inline bool operator!=(const Value& other) const { return Value::equal(*this, other); }
-    inline bool has(Discriminator bits) const { return Bits::mask(this->tag, bits) != Discriminator::None; }
-    inline bool getBool() const { assert(this->has(Discriminator::Bool)); return this->b; }
-    inline int64_t getInt() const { assert(this->has(Discriminator::Int)); return this->i; }
-    inline double getFloat() const { assert(this->has(Discriminator::Float)); return this->f; }
-    inline String getString() const { assert(this->has(Discriminator::String)); return String(*this->s); }
-    inline IObject& getObject() const { assert(this->has(Discriminator::Object)); return *this->o; }
+    bool operator==(const Value& other) const { return Value::equal(*this, other); }
+    bool operator!=(const Value& other) const { return Value::equal(*this, other); }
+    bool has(Discriminator bits) const { return Bits::mask(this->tag, bits) != Discriminator::None; }
+    bool getBool() const { assert(this->has(Discriminator::Bool)); return this->b; }
+    int64_t getInt() const { assert(this->has(Discriminator::Int)); return this->i; }
+    double getFloat() const { assert(this->has(Discriminator::Float)); return this->f; }
+    String getString() const { assert(this->has(Discriminator::String)); return String(*this->s); }
+    IObject& getObject() const { assert(this->has(Discriminator::Object)); return *this->o; }
     void addFlowControl(Discriminator bits);
     bool stripFlowControl(Discriminator bits);
-    inline std::string getTagString() const { return Value::getTagString(this->tag); }
+    std::string getTagString() const { return Value::getTagString(this->tag); }
     static std::string getTagString(Discriminator tag);
     static bool equal(const Value& lhs, const Value& rhs);
     template<typename... ARGS>

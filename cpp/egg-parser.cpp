@@ -13,7 +13,7 @@ namespace {
   }
 
   template<typename T, typename... ARGS>
-  inline std::shared_ptr<T> makeParserNode(const IEggParserContext& context, const IEggSyntaxNode& node, ARGS&&... args) {
+  std::shared_ptr<T> makeParserNode(const IEggParserContext& context, const IEggSyntaxNode& node, ARGS&&... args) {
     // Fetch the syntax node's location and create a new 'T' based on it
     egg::lang::LocationSource location{
       context.getResourceName(),
@@ -24,14 +24,14 @@ namespace {
   }
 
   template<typename T>
-  inline std::shared_ptr<IEggProgramNode> promoteUnary(IEggParserContext& context, const IEggSyntaxNode& node, const std::unique_ptr<IEggSyntaxNode>& child) {
+  std::shared_ptr<IEggProgramNode> promoteUnary(IEggParserContext& context, const IEggSyntaxNode& node, const std::unique_ptr<IEggSyntaxNode>& child) {
     assert(child != nullptr);
     auto expr = context.promote(*child);
     return makeParserNode<T>(context, node, expr);
   }
 
   template<typename T>
-  inline std::shared_ptr<IEggProgramNode> promoteBinary(IEggParserContext& context, const IEggSyntaxNode& node, const std::unique_ptr<IEggSyntaxNode> children[2]) {
+  std::shared_ptr<IEggProgramNode> promoteBinary(IEggParserContext& context, const IEggSyntaxNode& node, const std::unique_ptr<IEggSyntaxNode> children[2]) {
     assert(children[0] != nullptr);
     assert(children[1] != nullptr);
     auto lhs = context.promote(*children[0]);
@@ -188,7 +188,7 @@ namespace {
   private:
     egg::lang::LocationSource locationSource;
   public:
-    inline explicit EggParserNodeBase(const egg::lang::LocationSource& locationSource)
+    explicit EggParserNodeBase(const egg::lang::LocationSource& locationSource)
       : locationSource(locationSource) {
     }
     virtual egg::lang::ITypeRef getType() const override {
@@ -217,7 +217,7 @@ namespace {
   private:
     std::vector<std::shared_ptr<IEggProgramNode>> child;
   public:
-    inline explicit EggParserNode_Module(const egg::lang::LocationSource& locationSource)
+    explicit EggParserNode_Module(const egg::lang::LocationSource& locationSource)
       : EggParserNodeBase(locationSource) {
     }
     virtual egg::lang::Value execute(EggProgramContext& context) const override {
@@ -236,7 +236,7 @@ namespace {
   private:
     std::vector<std::shared_ptr<IEggProgramNode>> child;
   public:
-    inline explicit EggParserNode_Block(const egg::lang::LocationSource& locationSource)
+    explicit EggParserNode_Block(const egg::lang::LocationSource& locationSource)
       : EggParserNodeBase(locationSource) {
     }
     virtual egg::lang::Value execute(EggProgramContext& context) const override {
@@ -255,7 +255,7 @@ namespace {
   private:
     egg::lang::ITypeRef type;
   public:
-    inline EggParserNode_Type(const egg::lang::LocationSource& locationSource, const egg::lang::IType& type)
+    EggParserNode_Type(const egg::lang::LocationSource& locationSource, const egg::lang::IType& type)
       : EggParserNodeBase(locationSource), type(&type) {
     }
     virtual egg::lang::ITypeRef getType() const override {
@@ -275,7 +275,7 @@ namespace {
     egg::lang::ITypeRef type;
     std::shared_ptr<IEggProgramNode> init;
   public:
-    inline EggParserNode_Declare(const egg::lang::LocationSource& locationSource, const egg::lang::String& name, const egg::lang::IType& type, const std::shared_ptr<IEggProgramNode>& init = nullptr)
+    EggParserNode_Declare(const egg::lang::LocationSource& locationSource, const egg::lang::String& name, const egg::lang::IType& type, const std::shared_ptr<IEggProgramNode>& init = nullptr)
       : EggParserNodeBase(locationSource), name(name), type(&type), init(init) {
     }
     virtual bool symbol(egg::lang::String& nameOut, egg::lang::ITypeRef& typeOut) const override {
@@ -297,7 +297,7 @@ namespace {
     EggProgramMutate op;
     std::shared_ptr<IEggProgramNode> lvalue;
   public:
-    inline EggParserNode_Mutate(const egg::lang::LocationSource& locationSource, EggProgramMutate op, const std::shared_ptr<IEggProgramNode>& lvalue)
+    EggParserNode_Mutate(const egg::lang::LocationSource& locationSource, EggProgramMutate op, const std::shared_ptr<IEggProgramNode>& lvalue)
       : EggParserNodeBase(locationSource), op(op), lvalue(lvalue) {
       assert(lvalue != nullptr);
     }
@@ -311,7 +311,7 @@ namespace {
 
   class EggParserNode_Break : public EggParserNodeBase {
   public:
-    inline explicit EggParserNode_Break(const egg::lang::LocationSource& locationSource)
+    explicit EggParserNode_Break(const egg::lang::LocationSource& locationSource)
       : EggParserNodeBase(locationSource) {
     }
     virtual egg::lang::Value execute(EggProgramContext& context) const override {
@@ -328,7 +328,7 @@ namespace {
     std::shared_ptr<IEggProgramNode> type;
     std::shared_ptr<IEggProgramNode> block;
   public:
-    inline EggParserNode_Catch(const egg::lang::LocationSource& locationSource, const egg::lang::String& name, const std::shared_ptr<IEggProgramNode>& type, const std::shared_ptr<IEggProgramNode>& block)
+    EggParserNode_Catch(const egg::lang::LocationSource& locationSource, const egg::lang::String& name, const std::shared_ptr<IEggProgramNode>& type, const std::shared_ptr<IEggProgramNode>& block)
       : EggParserNodeBase(locationSource), name(name), type(type), block(block) {
       assert(type != nullptr);
       assert(block != nullptr);
@@ -352,7 +352,7 @@ namespace {
 
   class EggParserNode_Continue : public EggParserNodeBase {
   public:
-    inline explicit EggParserNode_Continue(const egg::lang::LocationSource& locationSource)
+    explicit EggParserNode_Continue(const egg::lang::LocationSource& locationSource)
       : EggParserNodeBase(locationSource) {
     }
     virtual egg::lang::Value execute(EggProgramContext& context) const override {
@@ -368,7 +368,7 @@ namespace {
     std::shared_ptr<IEggProgramNode> condition;
     std::shared_ptr<IEggProgramNode> block;
   public:
-    inline EggParserNode_Do(const egg::lang::LocationSource& locationSource, const std::shared_ptr<IEggProgramNode>& condition, const std::shared_ptr<IEggProgramNode>& block)
+    EggParserNode_Do(const egg::lang::LocationSource& locationSource, const std::shared_ptr<IEggProgramNode>& condition, const std::shared_ptr<IEggProgramNode>& block)
       : EggParserNodeBase(locationSource), condition(condition), block(block) {
       assert(condition != nullptr);
       assert(block != nullptr);
@@ -387,7 +387,7 @@ namespace {
     std::shared_ptr<IEggProgramNode> trueBlock;
     std::shared_ptr<IEggProgramNode> falseBlock;
   public:
-    inline EggParserNode_If(const egg::lang::LocationSource& locationSource, const std::shared_ptr<IEggProgramNode>& condition, const std::shared_ptr<IEggProgramNode>& trueBlock, const std::shared_ptr<IEggProgramNode>& falseBlock)
+    EggParserNode_If(const egg::lang::LocationSource& locationSource, const std::shared_ptr<IEggProgramNode>& condition, const std::shared_ptr<IEggProgramNode>& trueBlock, const std::shared_ptr<IEggProgramNode>& falseBlock)
       : EggParserNodeBase(locationSource), condition(condition), trueBlock(trueBlock), falseBlock(falseBlock) {
       assert(condition != nullptr);
       assert(trueBlock != nullptr);
@@ -412,7 +412,7 @@ namespace {
     std::shared_ptr<IEggProgramNode> post;
     std::shared_ptr<IEggProgramNode> block;
   public:
-    inline EggParserNode_For(const egg::lang::LocationSource& locationSource, const std::shared_ptr<IEggProgramNode>& pre, const std::shared_ptr<IEggProgramNode>& cond, const std::shared_ptr<IEggProgramNode>& post, const std::shared_ptr<IEggProgramNode>& block)
+    EggParserNode_For(const egg::lang::LocationSource& locationSource, const std::shared_ptr<IEggProgramNode>& pre, const std::shared_ptr<IEggProgramNode>& cond, const std::shared_ptr<IEggProgramNode>& post, const std::shared_ptr<IEggProgramNode>& block)
       : EggParserNodeBase(locationSource), pre(pre), cond(cond), post(post), block(block) {
       // pre/cond/post may be null
       assert(block != nullptr);
@@ -435,7 +435,7 @@ namespace {
     std::shared_ptr<IEggProgramNode> expr;
     std::shared_ptr<IEggProgramNode> block;
   public:
-    inline EggParserNode_Foreach(const egg::lang::LocationSource& locationSource, const std::shared_ptr<IEggProgramNode>& target, const std::shared_ptr<IEggProgramNode>& expr, const std::shared_ptr<IEggProgramNode>& block)
+    EggParserNode_Foreach(const egg::lang::LocationSource& locationSource, const std::shared_ptr<IEggProgramNode>& target, const std::shared_ptr<IEggProgramNode>& expr, const std::shared_ptr<IEggProgramNode>& block)
       : EggParserNodeBase(locationSource), target(target), expr(expr), block(block) {
       assert(target != nullptr);
       assert(expr != nullptr);
@@ -459,7 +459,7 @@ namespace {
     egg::lang::ITypeRef type;
     std::shared_ptr<IEggProgramNode> block;
   public:
-    inline EggParserNode_FunctionDefinition(const egg::lang::LocationSource& locationSource, const egg::lang::String& name, const egg::lang::IType& type, const std::shared_ptr<IEggProgramNode>& block)
+    EggParserNode_FunctionDefinition(const egg::lang::LocationSource& locationSource, const egg::lang::String& name, const egg::lang::IType& type, const std::shared_ptr<IEggProgramNode>& block)
       : EggParserNodeBase(locationSource), name(name), type(&type), block(block) {
       assert(block != nullptr);
     }
@@ -483,7 +483,7 @@ namespace {
     egg::lang::ITypeRef type;
     bool optional;
   public:
-    inline EggParserNode_FunctionParameter(const egg::lang::LocationSource& locationSource, const egg::lang::String& name, const egg::lang::IType& type, bool optional)
+    EggParserNode_FunctionParameter(const egg::lang::LocationSource& locationSource, const egg::lang::String& name, const egg::lang::IType& type, bool optional)
       : EggParserNodeBase(locationSource), name(name), type(&type), optional(optional) {
     }
     virtual bool symbol(egg::lang::String& nameOut, egg::lang::ITypeRef& typeOut) const override {
@@ -504,7 +504,7 @@ namespace {
   private:
     std::shared_ptr<IEggProgramNode> expr;
   public:
-    inline EggParserNode_Return(const egg::lang::LocationSource& locationSource, const std::shared_ptr<IEggProgramNode>& expr = nullptr)
+    EggParserNode_Return(const egg::lang::LocationSource& locationSource, const std::shared_ptr<IEggProgramNode>& expr = nullptr)
       : EggParserNodeBase(locationSource), expr(expr) {
     }
     virtual egg::lang::Value execute(EggProgramContext& context) const override {
@@ -520,7 +520,7 @@ namespace {
     std::vector<std::shared_ptr<IEggProgramNode>> child;
     std::shared_ptr<EggParserNode_Block> block;
   public:
-    inline explicit EggParserNode_Case(const egg::lang::LocationSource& locationSource)
+    explicit EggParserNode_Case(const egg::lang::LocationSource& locationSource)
       : EggParserNodeBase(locationSource), block(std::make_shared<EggParserNode_Block>(locationSource)) {
       assert(this->block != nullptr);
     }
@@ -552,7 +552,7 @@ namespace {
     std::vector<std::shared_ptr<IEggProgramNode>> child;
     std::shared_ptr<EggParserNode_Case> latest;
   public:
-    inline EggParserNode_Switch(const egg::lang::LocationSource& locationSource, const std::shared_ptr<IEggProgramNode>& expr)
+    EggParserNode_Switch(const egg::lang::LocationSource& locationSource, const std::shared_ptr<IEggProgramNode>& expr)
       : EggParserNodeBase(locationSource), expr(expr), defaultIndex(-1) {
       assert(expr != nullptr);
     }
@@ -599,7 +599,7 @@ namespace {
   private:
     std::shared_ptr<IEggProgramNode> expr;
   public:
-    inline explicit EggParserNode_Throw(const egg::lang::LocationSource& locationSource, const std::shared_ptr<IEggProgramNode>& expr = nullptr)
+    explicit EggParserNode_Throw(const egg::lang::LocationSource& locationSource, const std::shared_ptr<IEggProgramNode>& expr = nullptr)
       : EggParserNodeBase(locationSource), expr(expr) {
     }
     virtual egg::lang::Value execute(EggProgramContext& context) const override {
@@ -616,7 +616,7 @@ namespace {
     std::vector<std::shared_ptr<IEggProgramNode>> catches;
     std::shared_ptr<IEggProgramNode> final;
   public:
-    inline EggParserNode_Try(const egg::lang::LocationSource& locationSource, const std::shared_ptr<IEggProgramNode>& block)
+    EggParserNode_Try(const egg::lang::LocationSource& locationSource, const std::shared_ptr<IEggProgramNode>& block)
       : EggParserNodeBase(locationSource), block(block) {
       assert(block != nullptr);
     }
@@ -640,7 +640,7 @@ namespace {
     std::shared_ptr<IEggProgramNode> expr;
     std::shared_ptr<IEggProgramNode> block;
   public:
-    inline EggParserNode_Using(const egg::lang::LocationSource& locationSource, const std::shared_ptr<IEggProgramNode>& expr, const std::shared_ptr<IEggProgramNode>& block)
+    EggParserNode_Using(const egg::lang::LocationSource& locationSource, const std::shared_ptr<IEggProgramNode>& expr, const std::shared_ptr<IEggProgramNode>& block)
       : EggParserNodeBase(locationSource), expr(expr), block(block) {
       assert(expr != nullptr);
       assert(block != nullptr);
@@ -662,7 +662,7 @@ namespace {
     std::shared_ptr<IEggProgramNode> condition;
     std::shared_ptr<IEggProgramNode> block;
   public:
-    inline EggParserNode_While(const egg::lang::LocationSource& locationSource, const std::shared_ptr<IEggProgramNode>& condition, const std::shared_ptr<IEggProgramNode>& block)
+    EggParserNode_While(const egg::lang::LocationSource& locationSource, const std::shared_ptr<IEggProgramNode>& condition, const std::shared_ptr<IEggProgramNode>& block)
       : EggParserNodeBase(locationSource), condition(condition), block(block) {
       assert(condition != nullptr);
       assert(block != nullptr);
@@ -683,7 +683,7 @@ namespace {
   private:
     std::shared_ptr<IEggProgramNode> expr;
   public:
-    inline EggParserNode_Yield(const egg::lang::LocationSource& locationSource, const std::shared_ptr<IEggProgramNode>& expr)
+    EggParserNode_Yield(const egg::lang::LocationSource& locationSource, const std::shared_ptr<IEggProgramNode>& expr)
       : EggParserNodeBase(locationSource), expr(expr) {
       assert(expr != nullptr);
     }
@@ -700,7 +700,7 @@ namespace {
     std::shared_ptr<IEggProgramNode> callee;
     std::vector<std::shared_ptr<IEggProgramNode>> child;
   public:
-    inline EggParserNode_Call(const egg::lang::LocationSource& locationSource, const std::shared_ptr<IEggProgramNode>& callee)
+    EggParserNode_Call(const egg::lang::LocationSource& locationSource, const std::shared_ptr<IEggProgramNode>& callee)
       : EggParserNodeBase(locationSource), callee(callee) {
       assert(callee != nullptr);
     }
@@ -720,7 +720,7 @@ namespace {
     egg::lang::String name;
     std::shared_ptr<IEggProgramNode> expr;
   public:
-    inline EggParserNode_Named(const egg::lang::LocationSource& locationSource, const egg::lang::String& name, const std::shared_ptr<IEggProgramNode>& expr)
+    EggParserNode_Named(const egg::lang::LocationSource& locationSource, const egg::lang::String& name, const std::shared_ptr<IEggProgramNode>& expr)
       : EggParserNodeBase(locationSource), name(name), expr(expr) {
       assert(expr != nullptr);
     }
@@ -743,7 +743,7 @@ namespace {
   private:
     egg::lang::String name;
   public:
-    inline EggParserNode_Identifier(const egg::lang::LocationSource& locationSource, const egg::lang::String& name)
+    EggParserNode_Identifier(const egg::lang::LocationSource& locationSource, const egg::lang::String& name)
       : EggParserNodeBase(locationSource), name(name) {
     }
     virtual egg::lang::Value execute(EggProgramContext& context) const override {
@@ -759,7 +759,7 @@ namespace {
 
   class EggParserNode_LiteralNull : public EggParserNodeBase {
   public:
-    inline explicit EggParserNode_LiteralNull(const egg::lang::LocationSource& locationSource)
+    explicit EggParserNode_LiteralNull(const egg::lang::LocationSource& locationSource)
       : EggParserNodeBase(locationSource) {
     }
     virtual egg::lang::ITypeRef getType() const override {
@@ -777,7 +777,7 @@ namespace {
   private:
     bool value;
   public:
-    inline EggParserNode_LiteralBool(const egg::lang::LocationSource& locationSource, bool value)
+    EggParserNode_LiteralBool(const egg::lang::LocationSource& locationSource, bool value)
       : EggParserNodeBase(locationSource), value(value) {
     }
     virtual egg::lang::ITypeRef getType() const override {
@@ -795,7 +795,7 @@ namespace {
   private:
     int64_t value;
   public:
-    inline EggParserNode_LiteralInteger(const egg::lang::LocationSource& locationSource, int64_t value)
+    EggParserNode_LiteralInteger(const egg::lang::LocationSource& locationSource, int64_t value)
       : EggParserNodeBase(locationSource), value(value) {
     }
     virtual egg::lang::ITypeRef getType() const override {
@@ -813,7 +813,7 @@ namespace {
   private:
     double value;
   public:
-    inline EggParserNode_LiteralFloat(const egg::lang::LocationSource& locationSource, double value)
+    EggParserNode_LiteralFloat(const egg::lang::LocationSource& locationSource, double value)
       : EggParserNodeBase(locationSource), value(value) {
     }
     virtual egg::lang::ITypeRef getType() const override {
@@ -831,7 +831,7 @@ namespace {
   private:
     egg::lang::String value;
   public:
-    inline EggParserNode_LiteralString(const egg::lang::LocationSource& locationSource, const egg::lang::String& value)
+    EggParserNode_LiteralString(const egg::lang::LocationSource& locationSource, const egg::lang::String& value)
       : EggParserNodeBase(locationSource), value(value) {
     }
     virtual egg::lang::ITypeRef getType() const override {
@@ -849,7 +849,7 @@ namespace {
   protected:
     EggProgramUnary op;
     std::shared_ptr<IEggProgramNode> expr;
-    inline EggParserNode_Unary(const egg::lang::LocationSource& locationSource, EggProgramUnary op, const std::shared_ptr<IEggProgramNode>& expr)
+    EggParserNode_Unary(const egg::lang::LocationSource& locationSource, EggProgramUnary op, const std::shared_ptr<IEggProgramNode>& expr)
       : EggParserNodeBase(locationSource), op(op), expr(expr) {
       assert(expr != nullptr);
     }
@@ -865,7 +865,7 @@ namespace {
 #define EGG_PARSER_UNARY_OPERATOR_DEFINE(name, text) \
   class EggParserNode_Unary##name : public EggParserNode_Unary { \
   public: \
-    inline EggParserNode_Unary##name(const egg::lang::LocationSource& locationSource, const std::shared_ptr<IEggProgramNode>& expr) \
+    EggParserNode_Unary##name(const egg::lang::LocationSource& locationSource, const std::shared_ptr<IEggProgramNode>& expr) \
       : EggParserNode_Unary(locationSource, EggProgramUnary::name, expr) { \
     } \
     virtual egg::lang::ITypeRef getType() const override; \
@@ -877,7 +877,7 @@ namespace {
     EggProgramBinary op;
     std::shared_ptr<IEggProgramNode> lhs;
     std::shared_ptr<IEggProgramNode> rhs;
-    inline EggParserNode_Binary(const egg::lang::LocationSource& locationSource, EggProgramBinary op, const std::shared_ptr<IEggProgramNode>& lhs, const std::shared_ptr<IEggProgramNode>& rhs)
+    EggParserNode_Binary(const egg::lang::LocationSource& locationSource, EggProgramBinary op, const std::shared_ptr<IEggProgramNode>& lhs, const std::shared_ptr<IEggProgramNode>& rhs)
       : EggParserNodeBase(locationSource), op(op), lhs(lhs), rhs(rhs) {
       assert(lhs != nullptr);
       assert(rhs != nullptr);
@@ -894,7 +894,7 @@ namespace {
 #define EGG_PARSER_BINARY_OPERATOR_DEFINE(name, text) \
   class EggParserNode_Binary##name : public EggParserNode_Binary { \
   public: \
-    inline EggParserNode_Binary##name(const egg::lang::LocationSource& locationSource, const std::shared_ptr<IEggProgramNode>& lhs, const std::shared_ptr<IEggProgramNode>& rhs) \
+    EggParserNode_Binary##name(const egg::lang::LocationSource& locationSource, const std::shared_ptr<IEggProgramNode>& lhs, const std::shared_ptr<IEggProgramNode>& rhs) \
       : EggParserNode_Binary(locationSource, EggProgramBinary::name, lhs, rhs) { \
     } \
     virtual egg::lang::ITypeRef getType() const override; \
@@ -907,7 +907,7 @@ namespace {
     std::shared_ptr<IEggProgramNode> whenTrue;
     std::shared_ptr<IEggProgramNode> whenFalse;
   public:
-    inline EggParserNode_Ternary(const egg::lang::LocationSource& locationSource, const std::shared_ptr<IEggProgramNode>& condition, const std::shared_ptr<IEggProgramNode>& whenTrue, const std::shared_ptr<IEggProgramNode>& whenFalse)
+    EggParserNode_Ternary(const egg::lang::LocationSource& locationSource, const std::shared_ptr<IEggProgramNode>& condition, const std::shared_ptr<IEggProgramNode>& whenTrue, const std::shared_ptr<IEggProgramNode>& whenFalse)
       : EggParserNodeBase(locationSource), condition(condition), whenTrue(whenTrue), whenFalse(whenFalse) {
       assert(condition != nullptr);
       assert(whenTrue != nullptr);
@@ -927,7 +927,7 @@ namespace {
     EggProgramAssign op;
     std::shared_ptr<IEggProgramNode> lhs;
     std::shared_ptr<IEggProgramNode> rhs;
-    inline EggParserNode_Assign(const egg::lang::LocationSource& locationSource, EggProgramAssign op, const std::shared_ptr<IEggProgramNode>& lhs, const std::shared_ptr<IEggProgramNode>& rhs)
+    EggParserNode_Assign(const egg::lang::LocationSource& locationSource, EggProgramAssign op, const std::shared_ptr<IEggProgramNode>& lhs, const std::shared_ptr<IEggProgramNode>& rhs)
       : EggParserNodeBase(locationSource), op(op), lhs(lhs), rhs(rhs) {
       assert(lhs != nullptr);
       assert(rhs != nullptr);
@@ -944,7 +944,7 @@ namespace {
 #define EGG_PARSER_ASSIGN_OPERATOR_DEFINE(name, text) \
   class EggParserNode_Assign##name : public EggParserNode_Assign { \
   public: \
-    inline EggParserNode_Assign##name(const egg::lang::LocationSource& locationSource, const std::shared_ptr<IEggProgramNode>& lhs, const std::shared_ptr<IEggProgramNode>& rhs) \
+    EggParserNode_Assign##name(const egg::lang::LocationSource& locationSource, const std::shared_ptr<IEggProgramNode>& lhs, const std::shared_ptr<IEggProgramNode>& rhs) \
       : EggParserNode_Assign(locationSource, EggProgramAssign::name, lhs, rhs) { \
     } \
   };
