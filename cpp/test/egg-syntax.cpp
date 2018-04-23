@@ -189,10 +189,10 @@ TEST(TestEggSyntaxParser, ExpressionPostfix) {
   ASSERT_PARSE_GOOD(parseExpressionToString("a(x)"), "(call (identifier 'a') (identifier 'x'))");
   ASSERT_PARSE_GOOD(parseExpressionToString("a(x,y)"), "(call (identifier 'a') (identifier 'x') (identifier 'y'))");
   ASSERT_PARSE_GOOD(parseExpressionToString("a(x,y,name:z)"), "(call (identifier 'a') (identifier 'x') (identifier 'y') (named 'name' (identifier 'z')))");
-  ASSERT_PARSE_GOOD(parseExpressionToString("a.b"), "(binary '.' (identifier 'a') (identifier 'b'))");
-  ASSERT_PARSE_GOOD(parseExpressionToString("a.b.c"), "(binary '.' (binary '.' (identifier 'a') (identifier 'b')) (identifier 'c'))");
-  ASSERT_PARSE_GOOD(parseExpressionToString("a?.b"), "(binary '?' (identifier 'a') (identifier 'b'))");
-  ASSERT_PARSE_GOOD(parseExpressionToString("a?.b?.c"), "(binary '?' (binary '?' (identifier 'a') (identifier 'b')) (identifier 'c'))");
+  ASSERT_PARSE_GOOD(parseExpressionToString("a.b"), "(binary '.' (identifier 'a') (literal string 'b'))");
+  ASSERT_PARSE_GOOD(parseExpressionToString("a.b.c"), "(binary '.' (binary '.' (identifier 'a') (literal string 'b')) (literal string 'c'))");
+  ASSERT_PARSE_GOOD(parseExpressionToString("a?.b"), "(binary '?' (identifier 'a') (literal string 'b'))");
+  ASSERT_PARSE_GOOD(parseExpressionToString("a?.b?.c"), "(binary '?' (binary '?' (identifier 'a') (literal string 'b')) (literal string 'c'))");
   // Bad
   ASSERT_PARSE_BAD(parseExpressionToString("a[]"), "(1, 3): Expected expression inside indexing '[]' operators");
   ASSERT_PARSE_BAD(parseExpressionToString("a[0,1]"), "(1, 4): Expected ']' after indexing expression following '['");

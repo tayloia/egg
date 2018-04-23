@@ -133,6 +133,7 @@ namespace egg::lang {
     typedef std::function<void(const String& name, const IType& type, const Value& value)> Setter;
     virtual Value decantParameters(IExecution& execution, const IParameters& supplied, Setter setter) const; // Default implementation returns an error
     virtual Value cast(IExecution& execution, const IParameters& parameters) const; // Default implementation returns an error
+    virtual Value dotGet(IExecution& execution, const Value& instance, const String& property) const; // Default implementation returns an error
 
     // Helpers
     bool hasNativeType(Discriminator native) const {

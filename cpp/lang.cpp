@@ -51,6 +51,7 @@ namespace {
   }
 
   egg::lang::Value castSimple(egg::lang::IExecution& execution, egg::lang::Discriminator tag, const egg::lang::IParameters& parameters) {
+    // OPTIMIZE
     if (parameters.getNamedCount() != 0) {
       return execution.raiseFormat("Named parameters in type-casts are not supported");
     }
@@ -71,6 +72,114 @@ namespace {
       return egg::lang::Value(double(rhs.getInt())); // TODO overflows?
     }
     return execution.raiseFormat("Cannot cast a value of type '", rhs.getRuntimeType().toString(), "' to type '", egg::lang::Value::getTagString(tag), "'");
+  }
+
+  egg::lang::Value dotString(egg::lang::IExecution& execution, const egg::lang::String& instance, const egg::lang::String& property) {
+    // From https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/String/prototype
+    // Properties:
+    //  .length
+    //  .prototype
+    // Methods:
+    //  .charAt()
+    //  .charCodeAt()
+    //  .codePointAt()
+    //  .concat()
+    //  .includes()
+    //  .endsWith()
+    //  .indexOf()
+    //  .lastIndexOf()
+    //  .localeCompare()
+    //  .match()
+    //  .normalize()
+    //  .padEnd()
+    //  .padStart()
+    //  .quote()
+    //  .repeat()
+    //  .replace()
+    //  .search()
+    //  .slice()
+    //  .split()
+    //  .startsWith()
+    //  .substr()
+    //  .substring()
+    //  .toLocaleLowerCase()
+    //  .toLocaleUpperCase()
+    //  .toLowerCase()
+    //  .toString()
+    //  .toUpperCase()
+    //  .trim()
+    //  .trimLeft() ???
+    //  .trimRight() ???
+    //  .valueOf()
+    // Iterable:
+    //  true
+
+    // From https://docs.oracle.com/javase/8/docs/api/?java/lang/String.html
+    //  .charAt(int index)
+    //  .codePointAt(int index)
+    //  .codePointBefore(int index)
+    //  .codePointCount(int beginIndex, int endIndex)
+    //  .compareTo(String anotherString)
+    //  .compareToIgnoreCase(String str)
+    //  .concat(String str)
+    //  .contains(CharSequence s)
+    //  .contentEquals(CharSequence cs)
+    //  .contentEquals(StringBuffer sb)
+    //  .endsWith(String suffix)
+    //  .equals(Object anObject)
+    //  .equalsIgnoreCase(String anotherString)
+    //  .getBytes()
+    //  .getBytes(Charset charset)
+    //  .getBytes(String charsetName)
+    //  .getChars(int srcBegin, int srcEnd, char[] dst, int dstBegin)
+    //  .hashCode()
+    //  .indexOf(int ch)
+    //  .indexOf(int ch, int fromIndex)
+    //  .indexOf(String str)
+    //  .indexOf(String str, int fromIndex)
+    //  .intern()
+    //  .isEmpty()
+    //  .lastIndexOf(int ch)
+    //  .lastIndexOf(int ch, int fromIndex)
+    //  .lastIndexOf(String str)
+    //  .lastIndexOf(String str, int fromIndex)
+    //  .length()
+    //  .matches(String regex)
+    //  .offsetByCodePoints(int index, int codePointOffset)
+    //  .regionMatches(boolean ignoreCase, int toffset, String other, int ooffset, int len)
+    //  .regionMatches(int toffset, String other, int ooffset, int len)
+    //  .replace(char oldChar, char newChar)
+    //  .replace(CharSequence target, CharSequence replacement)
+    //  .replaceAll(String regex, String replacement)
+    //  .replaceFirst(String regex, String replacement)
+    //  .split(String regex)
+    //  .split(String regex, int limit)
+    //  .startsWith(String prefix)
+    //  .startsWith(String prefix, int toffset)
+    //  .subSequence(int beginIndex, int endIndex)
+    //  .substring(int beginIndex)
+    //  .substring(int beginIndex, int endIndex)
+    //  .toCharArray()
+    //  .toLowerCase()
+    //  .toLowerCase(Locale locale)
+    //  .toString()
+    //  .toUpperCase()
+    //  .toUpperCase(Locale locale)
+    //  .trim()
+    auto utf8 = property.toUTF8();
+    if (utf8 == "length") {
+      return egg::lang::Value{ int64_t(instance.length()) };
+    }
+    return execution.raiseFormat("Unknown properties for type 'string': '", property, "'");
+  }
+
+
+  egg::lang::Value dotSimple(egg::lang::IExecution& execution, const egg::lang::Value& instance, const egg::lang::String& property) {
+    // OPTIMIZE
+    if (instance.is(egg::lang::Discriminator::String)) {
+      return dotString(execution, instance.getString(), property);
+    }
+    return execution.raiseFormat("Properties are not yet supported for '", instance.getRuntimeType().toString(), "'");
   }
 
   void formatSourceLocation(egg::lang::StringBuilder& sb, const egg::lang::LocationSource& location) {
@@ -215,6 +324,9 @@ namespace {
     }
     virtual egg::lang::Value cast(egg::lang::IExecution& execution, const egg::lang::IParameters& parameters) const override {
       return castSimple(execution, TAG, parameters);
+    }
+    virtual egg::lang::Value dotGet(egg::lang::IExecution& execution, const egg::lang::Value& instance, const egg::lang::String& property) const override {
+      return dotSimple(execution, instance, property);
     }
   };
   const TypeNative<egg::lang::Discriminator::Void> typeVoid{};
@@ -609,6 +721,11 @@ egg::lang::Value egg::lang::IType::decantParameters(egg::lang::IExecution& execu
 egg::lang::Value egg::lang::IType::cast(IExecution& execution, const IParameters&) const {
   // The default implementation is to return an error (only native types are castable)
   return execution.raiseFormat("Internal type error: Cannot cast to type '", this->toString(), "'");
+}
+
+egg::lang::Value egg::lang::IType::dotGet(IExecution& execution, const Value&, const String& property) const {
+  // The default implementation is to return an error (only complex types support dot-properties)
+  return execution.raiseFormat("Values of type '", this->toString(), "' do not support properties such as '.", property, "'");
 }
 
 egg::lang::Discriminator egg::lang::IType::getSimpleTypes() const {

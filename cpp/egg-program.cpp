@@ -941,6 +941,7 @@ egg::lang::Value egg::yolk::EggProgramContext::unary(EggProgramUnary op, const I
 }
 
 egg::lang::Value egg::yolk::EggProgramContext::binary(EggProgramBinary op, const IEggProgramNode& lhs, const IEggProgramNode& rhs) {
+  // OPTIMIZE
   egg::lang::Value left = lhs.execute(*this);
   if (left.has(egg::lang::Discriminator::FlowControl)) {
     return left;
@@ -978,7 +979,7 @@ egg::lang::Value egg::yolk::EggProgramContext::binary(EggProgramBinary op, const
   case EggProgramBinary::Lambda:
     return this->raiseFormat("TODO binary(Lambda) not fully implemented"); // TODO
   case EggProgramBinary::Dot:
-    return this->raiseFormat("TODO binary(Dot) not fully implemented"); // TODO
+    return this->objectDot(left, rhs);
   case EggProgramBinary::Divide:
     return this->arithmeticIntFloat(left, rhs, "division '/'", divideInt, divideFloat);
   case EggProgramBinary::Less:
@@ -1037,6 +1038,17 @@ bool egg::yolk::EggProgramContext::operand(egg::lang::Value& dst, const IEggProg
   }
   dst = EggProgramContext::unexpected(expectation, dst);
   return false;
+}
+
+egg::lang::Value egg::yolk::EggProgramContext::objectDot(const egg::lang::Value& lhs, const IEggProgramNode& rhs) {
+  auto property = rhs.execute(*this);
+  if (!property.is(egg::lang::Discriminator::String)) {
+    if (!property.has(egg::lang::Discriminator::FlowControl)) {
+      return EggProgramContext::unexpected("Expected right-hand side of '.' operator to be a property name", property);
+    }
+    return property;
+  }
+  return lhs.getRuntimeType().dotGet(*this, lhs, property.getString());
 }
 
 egg::lang::Value egg::yolk::EggProgramContext::arithmeticIntFloat(const egg::lang::Value& lhs, const IEggProgramNode& rvalue, const char* operation, ArithmeticInt ints, ArithmeticFloat floats) {

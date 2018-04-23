@@ -985,7 +985,7 @@ std::unique_ptr<IEggSyntaxNode> EggSyntaxParserContext::parseExpressionPostfixGr
       if (p1.kind != EggTokenizerKind::Identifier) {
         this->unexpected("Expected field name to follow '.' operator", p1);
       }
-      auto field = std::make_unique<EggSyntaxNode_Identifier>(EggSyntaxNodeLocation(p1), p1.value.s);
+      auto field = std::make_unique<EggSyntaxNode_Literal>(EggSyntaxNodeLocation(p1), EggTokenizerKind::String, p1.value);
       mark.accept(2);
       expr = std::make_unique<EggSyntaxNode_BinaryOperator>(location, EggTokenizerOperator::Dot, std::move(expr), std::move(field));
     } else if (p0.isOperator(EggTokenizerOperator::Query)) {
@@ -1001,7 +1001,7 @@ std::unique_ptr<IEggSyntaxNode> EggSyntaxParserContext::parseExpressionPostfixGr
       if (p2.kind != EggTokenizerKind::Identifier) {
         this->unexpected("Expected field name to follow '?.' operator", p2);
       }
-      auto field = std::make_unique<EggSyntaxNode_Identifier>(EggSyntaxNodeLocation(p2), p2.value.s);
+      auto field = std::make_unique<EggSyntaxNode_Literal>(EggSyntaxNodeLocation(p2), EggTokenizerKind::String, p2.value);
       mark.accept(3);
       expr = std::make_unique<EggSyntaxNode_BinaryOperator>(location, EggTokenizerOperator::Query, std::move(expr), std::move(field));
     } else {
