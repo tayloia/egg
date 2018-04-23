@@ -27,7 +27,7 @@ namespace {
       // It's an exact type match
       return rhs;
     }
-    if (egg::lang::Bits::hasAnySet(lhs, egg::lang::Discriminator::Float) && rhs.has(egg::lang::Discriminator::Int)) {
+    if (egg::lang::Bits::hasAnySet(lhs, egg::lang::Discriminator::Float) && rhs.is(egg::lang::Discriminator::Int)) {
       // We allow type promotion int->float
       return egg::lang::Value(double(rhs.getInt())); // TODO overflows?
     }
@@ -62,11 +62,11 @@ namespace {
 
     }
     auto rhs = parameters.getPositional(0);
-    if (rhs.has(tag)) {
+    if (rhs.is(tag)) {
       // It's an exact type match
       return rhs;
     }
-    if (egg::lang::Bits::hasAnySet(tag, egg::lang::Discriminator::Float) && rhs.has(egg::lang::Discriminator::Int)) {
+    if (egg::lang::Bits::hasAnySet(tag, egg::lang::Discriminator::Float) && rhs.is(egg::lang::Discriminator::Int)) {
       // We allow type promotion int->float
       return egg::lang::Value(double(rhs.getInt())); // TODO overflows?
     }
@@ -534,7 +534,7 @@ const egg::lang::IType& egg::lang::Value::getRuntimeType() const {
   if (this->tag == Discriminator::Object) {
     // Ask the object for its type
     auto runtime = this->o->getRuntimeType();
-    if (runtime.has(Discriminator::Type)) {
+    if (runtime.is(Discriminator::Type)) {
       return *runtime.t;
     }
   }
