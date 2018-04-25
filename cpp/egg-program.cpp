@@ -979,7 +979,7 @@ egg::lang::Value egg::yolk::EggProgramContext::binary(EggProgramBinary op, const
   case EggProgramBinary::Lambda:
     return this->raiseFormat("TODO binary(Lambda) not fully implemented"); // TODO
   case EggProgramBinary::Dot:
-    return this->objectDot(left, rhs);
+    return this->operatorDot(left, rhs);
   case EggProgramBinary::Divide:
     return this->arithmeticIntFloat(left, rhs, "division '/'", divideInt, divideFloat);
   case EggProgramBinary::Less:
@@ -1008,7 +1008,7 @@ egg::lang::Value egg::yolk::EggProgramContext::binary(EggProgramBinary op, const
   case EggProgramBinary::NullCoalescing:
     return left.is(egg::lang::Discriminator::Null) ? rhs.execute(*this) : left;
   case EggProgramBinary::Brackets:
-    return this->raiseFormat("TODO binary(Brackets) not fully implemented"); // TODO
+    return this->operatorBrackets(left, rhs);
   case EggProgramBinary::BitwiseXor:
     return this->arithmeticInt(left, rhs, "bitwise-xor '^'", bitwiseXorInt);
   case EggProgramBinary::BitwiseOr:
@@ -1040,7 +1040,7 @@ bool egg::yolk::EggProgramContext::operand(egg::lang::Value& dst, const IEggProg
   return false;
 }
 
-egg::lang::Value egg::yolk::EggProgramContext::objectDot(const egg::lang::Value& lhs, const IEggProgramNode& rhs) {
+egg::lang::Value egg::yolk::EggProgramContext::operatorDot(const egg::lang::Value& lhs, const IEggProgramNode& rhs) {
   auto property = rhs.execute(*this);
   if (!property.is(egg::lang::Discriminator::String)) {
     if (!property.has(egg::lang::Discriminator::FlowControl)) {
@@ -1049,6 +1049,11 @@ egg::lang::Value egg::yolk::EggProgramContext::objectDot(const egg::lang::Value&
     return property;
   }
   return lhs.getRuntimeType().dotGet(*this, lhs, property.getString());
+}
+
+egg::lang::Value egg::yolk::EggProgramContext::operatorBrackets(const egg::lang::Value& lhs, const IEggProgramNode& rhs) {
+  auto index = rhs.execute(*this);
+  return lhs.getRuntimeType().bracketsGet(*this, lhs, index);
 }
 
 egg::lang::Value egg::yolk::EggProgramContext::arithmeticIntFloat(const egg::lang::Value& lhs, const IEggProgramNode& rvalue, const char* operation, ArithmeticInt ints, ArithmeticFloat floats) {

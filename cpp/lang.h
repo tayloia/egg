@@ -90,6 +90,7 @@ namespace egg::lang {
     virtual bool empty() const = 0;
     virtual bool equal(const IString& other) const = 0;
     virtual bool less(const IString& other) const = 0;
+    virtual int32_t codePointAt(size_t index) const = 0;
     virtual std::string toUTF8() const = 0;
   };
   typedef egg::gc::HardRef<const IString> IStringRef;
@@ -134,6 +135,7 @@ namespace egg::lang {
     virtual Value decantParameters(IExecution& execution, const IParameters& supplied, Setter setter) const; // Default implementation returns an error
     virtual Value cast(IExecution& execution, const IParameters& parameters) const; // Default implementation returns an error
     virtual Value dotGet(IExecution& execution, const Value& instance, const String& property) const; // Default implementation returns an error
+    virtual Value bracketsGet(IExecution& execution, const Value& instance, const Value& index) const; // Default implementation returns an error
 
     // Helpers
     bool hasNativeType(Discriminator native) const {
@@ -211,6 +213,9 @@ namespace egg::lang {
     bool empty() const {
       return this->get()->empty();
     }
+    int32_t codePointAt(size_t index) const {
+      return this->get()->codePointAt(index);
+    }
     std::string toUTF8() const {
       return this->get()->toUTF8();
     }
@@ -226,6 +231,7 @@ namespace egg::lang {
       return this->get()->less(*rhs);
     }
     // Factories
+    static String fromCodePoint(char32_t codepoint);
     static String fromUTF8(const std::string& str);
     template<typename... ARGS>
     static String concat(ARGS... args) {

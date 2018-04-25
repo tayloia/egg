@@ -75,297 +75,37 @@ namespace {
   }
 
   egg::lang::Value dotString(egg::lang::IExecution& execution, const egg::lang::String& instance, const egg::lang::String& property) {
-// From https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/String/prototype
-// Properties:
-//  .length
-//  .prototype
-// Methods:
-//  .charAt()
-//  .charCodeAt()
-//  .codePointAt()
-//  .concat()
-//  .includes()
-//  .endsWith()
-//  .indexOf()
-//  .lastIndexOf()
-//  .localeCompare()
-//  .match()
-//  .normalize()
-//  .padEnd()
-//  .padStart()
-//  .quote()
-//  .repeat()
-//  .replace()
-//  .search()
-//  .slice()
-//  .split()
-//  .startsWith()
-//  .substr()
-//  .substring()
-//  .toLocaleLowerCase()
-//  .toLocaleUpperCase()
-//  .toLowerCase()
-//  .toString()
-//  .toUpperCase()
-//  .trim()
-//  .trimLeft() ???
-//  .trimRight() ???
-//  .valueOf()
-// Iterable:
-//  true
-
-// From https://docs.oracle.com/javase/8/docs/api/?java/lang/String.html
-//  .charAt(int index)
-//  .codePointAt(int index)
-//  .codePointBefore(int index)
-//  .codePointCount(int beginIndex, int endIndex)
-//  .compareTo(String anotherString)
-//  .compareToIgnoreCase(String str)
-//  .concat(String str)
-//  .contains(CharSequence s)
-//  .contentEquals(CharSequence cs)
-//  .contentEquals(StringBuffer sb)
-//  .endsWith(String suffix)
-//  .equals(Object anObject)
-//  .equalsIgnoreCase(String anotherString)
-//  .getBytes()
-//  .getBytes(Charset charset)
-//  .getBytes(String charsetName)
-//  .getChars(int srcBegin, int srcEnd, char[] dst, int dstBegin)
-//  .hashCode()
-//  .indexOf(int ch)
-//  .indexOf(int ch, int fromIndex)
-//  .indexOf(String str)
-//  .indexOf(String str, int fromIndex)
-//  .intern()
-//  .isEmpty()
-//  .lastIndexOf(int ch)
-//  .lastIndexOf(int ch, int fromIndex)
-//  .lastIndexOf(String str)
-//  .lastIndexOf(String str, int fromIndex)
-//  .length()
-//  .matches(String regex)
-//  .offsetByCodePoints(int index, int codePointOffset)
-//  .regionMatches(boolean ignoreCase, int toffset, String other, int ooffset, int len)
-//  .regionMatches(int toffset, String other, int ooffset, int len)
-//  .replace(char oldChar, char newChar)
-//  .replace(CharSequence target, CharSequence replacement)
-//  .replaceAll(String regex, String replacement)
-//  .replaceFirst(String regex, String replacement)
-//  .split(String regex)
-//  .split(String regex, int limit)
-//  .startsWith(String prefix)
-//  .startsWith(String prefix, int toffset)
-//  .subSequence(int beginIndex, int endIndex)
-//  .substring(int beginIndex)
-//  .substring(int beginIndex, int endIndex)
-//  .toCharArray()
-//  .toLowerCase()
-//  .toLowerCase(Locale locale)
-//  .toString()
-//  .toUpperCase()
-//  .toUpperCase(Locale locale)
-//  .trim()
-
-// From http://www.cplusplus.com/reference/string/string/
-// Iterators:
-//  .begin()
-//  .end()
-//  .rbegin()
-//  .rend()
-//  .cbegin()
-//  .cend()
-//  .crbegin()
-//  .crend()
-// Capacity:
-//  .size()
-//  .length()
-//  .max_size()
-//  .resize()
-//  .capacity()
-//  .reserve()
-//  .clear()
-//  .empty()
-//  .shrink_to_fit()
-// Element access:
-//  operator[]
-//  .at()
-//  .back()
-//  .front()
-// Modifiers:
-//  operator=
-//  operator+=
-//  .append()
-//  .push_back()
-//  .assign()
-//  .insert()
-//  .erase()
-//  .replace()
-//  .swap()
-//  .pop_back()
-// String operations:
-//  .c_str()
-//  .data()
-//  .get_allocator()
-//  .copy()
-//  .find()
-//  .rfind()
-//  .find_first_of()
-//  .find_last_of()
-//  .find_first_not_of()
-//  .find_last_not_of()
-//  .substr()
-//  .compare()
-// Member constants:
-//  .npos
-// Non-member functions:
-//  operator+
-//  relational operators
-//  .swap()
-//  operator>>
-//  operator<<
-//  .getline()
-
-// From https://msdn.microsoft.com/en-us/library/system.string(v=vs.110).aspx
-// Constructors
-//  String(Char*)
-//  String(Char*, Int32, Int32)
-//  String(Char, Int32)
-//  String(Char[])
-//  String(Char[], Int32, Int32)
-//  String(SByte*)
-//  String(SByte*, Int32, Int32)
-//  String(SByte*, Int32, Int32, Encoding)
-// Properties
-//  .Chars[Int32]
-//  .Length
-// Methods
-//  .Clone()
-//  static Compare(String, Int32, String, Int32, Int32)
-//  static Compare(String, Int32, String, Int32, Int32, Boolean)
-//  static Compare(String, Int32, String, Int32, Int32, Boolean, CultureInfo)
-//  static Compare(String, Int32, String, Int32, Int32, CultureInfo, CompareOptions)
-//  static Compare(String, Int32, String, Int32, Int32, StringComparison)
-//  static Compare(String, String)
-//  static Compare(String, String, Boolean)
-//  static Compare(String, String, Boolean, CultureInfo)
-//  static Compare(String, String, CultureInfo, CompareOptions)
-//  static Compare(String, String, StringComparison)
-//  static CompareOrdinal(String, Int32, String, Int32, Int32)
-//  static CompareOrdinal(String, String)
-//  .CompareTo(Object)
-//  .CompareTo(String)
-//  static Concat(IEnumerable<String>)
-//  static Concat(Object)
-//  static Concat(Object, Object)
-//  static Concat(Object, Object, Object)
-//  static Concat(Object, Object, Object, Object)
-//  static Concat(Object[])
-//  static Concat(String, String)
-//  static Concat(String, String, String)
-//  static Concat(String, String, String, String)
-//  static Concat(String[])
-//  static Concat<T>(IEnumerable<T>)
-//  .Contains(String)
-//  static Copy(String)
-//  .CopyTo(Int32, Char[], Int32, Int32)
-//  .EndsWith(String)
-//  .EndsWith(String, Boolean, CultureInfo)
-//  .EndsWith(String, StringComparison)
-//  .Equals(Object)
-//  .Equals(String)
-//  static Equals(String, String)
-//  static Equals(String, String, StringComparison)
-//  .Equals(String, StringComparison)
-//  static Format(IFormatProvider, String, Object)
-//  static Format(IFormatProvider, String, Object, Object)
-//  static Format(IFormatProvider, String, Object, Object, Object)
-//  static Format(IFormatProvider, String, Object[])
-//  static Format(String, Object)
-//  static Format(String, Object, Object)
-//  static Format(String, Object, Object, Object)
-//  static Format(String, Object[])
-//  .GetEnumerator()
-//  .GetHashCode()
-//  .GetType()
-//  .GetTypeCode()
-//  .IndexOf(Char)
-//  .IndexOf(Char, Int32)
-//  .IndexOf(Char, Int32, Int32)
-//  .IndexOf(String)
-//  .IndexOf(String, Int32)
-//  .IndexOf(String, Int32, Int32)
-//  .IndexOf(String, Int32, Int32, StringComparison)
-//  .IndexOf(String, Int32, StringComparison)
-//  .IndexOf(String, StringComparison)
-//  .IndexOfAny(Char[])
-//  .IndexOfAny(Char[], Int32)
-//  .IndexOfAny(Char[], Int32, Int32)
-//  .Insert(Int32, String)
-//  static Intern(String)
-//  static IsInterned(String)
-//  .IsNormalized()
-//  .IsNormalized(NormalizationForm)
-//  static IsNullOrEmpty(String)
-//  static IsNullOrWhiteSpace(String)
-//  static Join(String, IEnumerable<String>)
-//  static Join(String, Object[])
-//  static Join(String, String[])
-//  static Join(String, String[], Int32, Int32)
-//  static Join<T>(String, IEnumerable<T>)
-//  .LastIndexOf(Char)
-//  .LastIndexOf(Char, Int32)
-//  .LastIndexOf(Char, Int32, Int32)
-//  .LastIndexOf(String)
-//  .LastIndexOf(String, Int32)
-//  .LastIndexOf(String, Int32, Int32)
-//  .LastIndexOf(String, Int32, Int32, StringComparison)
-//  .LastIndexOf(String, Int32, StringComparison)
-//  .LastIndexOf(String, StringComparison)
-//  .LastIndexOfAny(Char[])
-//  .LastIndexOfAny(Char[], Int32)
-//  .LastIndexOfAny(Char[], Int32, Int32)
-//  .Normalize()
-//  .Normalize(NormalizationForm)
-//  .PadLeft(Int32)
-//  .PadLeft(Int32, Char)
-//  .PadRight(Int32)
-//  .PadRight(Int32, Char)
-//  .Remove(Int32)
-//  .Remove(Int32, Int32)
-//  .Replace(Char, Char)
-//  .Replace(String, String)
-//  .Split(Char[])
-//  .Split(Char[], Int32)
-//  .Split(Char[], Int32, StringSplitOptions)
-//  .Split(Char[], StringSplitOptions)
-//  .Split(String[], Int32, StringSplitOptions)
-//  .Split(String[], StringSplitOptions)
-//  .StartsWith(String)
-//  .StartsWith(String, Boolean, CultureInfo)
-//  .StartsWith(String, StringComparison)
-//  .Substring(Int32)
-//  .Substring(Int32, Int32)
-//  .ToCharArray()
-//  .ToCharArray(Int32, Int32)
-//  .ToLower()
-//  .ToLower(CultureInfo)
-//  .ToLowerInvariant()
-//  .ToString()
-//  .ToString(IFormatProvider)
-//  .ToUpper()
-//  .ToUpper(CultureInfo)
-//  .ToUpperInvariant()
-//  .Trim()
-//  .Trim(Char[])
-//  .TrimEnd(Char[])
-//  .TrimStart(Char[])
-// Fields
-//  static Empty
-// Operators
-//  static Equality(String, String)
-//  static Inequality(String, String)
-
+    // Specials
+    //  string string(...)
+    //  string operator[](int index)
+    //  bool operator==(object other)
+    //  iter iter()
+    // Properties
+    //  int length
+    //  int compare(string other, int? start, int? other_start, int? max_length)
+    //  bool contains(string needle)
+    //  bool endsWith(string needle)
+    //  int hash()
+    //  int? indexOf(string needle, int? from_index, int? count, bool? negate)
+    //  string join(...)
+    //  int? lastIndexOf(string needle, int? from_index, int? count, bool? negate)
+    //  string padLeft(int length, string? padding)
+    //  string padRight(int length, string? padding)
+    //  string repeat(int count)
+    //  string replace(string needle, string replacement, int? max_occurrences)
+    //  string slice(int? begin, int? end)
+    //  string split(string separator, int? limit)
+    //  bool startsWith(string needle)
+    //  string toString()
+    //  string trim(any? what)
+    //  string trimLeft(any? what)
+    //  string trimRight(any? what)
+    // Missing
+    //  format
+    //  lowercase
+    //  uppercase
+    //  reverse
+    //  codePointAt
     auto utf8 = property.toUTF8();
     if (utf8 == "length") {
       return egg::lang::Value{ int64_t(instance.length()) };
@@ -381,6 +121,23 @@ namespace {
     return execution.raiseFormat("Properties are not yet supported for '", instance.getRuntimeType().toString(), "'");
   }
 
+  egg::lang::Value bracketsString(egg::lang::IExecution& execution, const egg::lang::String& instance, const egg::lang::Value& index) {
+    // string operator[](int index)
+    if (!index.is(egg::lang::Discriminator::Int)) {
+      return execution.raiseFormat("String indexing '[]' only supports indices of type 'int', not '", index.getRuntimeType().toString(), "'");
+    }
+    auto i = index.getInt();
+    auto c = instance.codePointAt(size_t(i));
+    if (c < 0) {
+      // Invalid index
+      if ((i < 0) || (size_t(i) >= instance.length())) {
+        return execution.raiseFormat("String index ", i, " is out of range for a string of length ", instance.length());
+      }
+      return execution.raiseFormat("Cannot index a malformed string");
+    }
+    return egg::lang::Value{ egg::lang::String::fromCodePoint(char32_t(c)) };
+  }
+
   void formatSourceLocation(egg::lang::StringBuilder& sb, const egg::lang::LocationSource& location) {
     sb.add(location.file);
     if (location.column > 0) {
@@ -389,6 +146,57 @@ namespace {
       sb.add("(").add(location.line).add(")");
     }
   }
+
+  class StringBufferCodePoint : public egg::gc::HardReferenceCounted<egg::lang::IString> {
+    EGG_NO_COPY(StringBufferCodePoint);
+  private:
+    char32_t codepoint;
+  public:
+    explicit StringBufferCodePoint(char32_t codepoint)
+      : codepoint(codepoint) {
+    }
+    virtual size_t length() const override {
+      return 1;
+    }
+    virtual bool empty() const override {
+      return false;
+    }
+    virtual bool equal(const IString& other) const override {
+      if (other.length() != 1) {
+        return false;
+      }
+      auto cp = other.codePointAt(0);
+      assert(cp >= 0);
+      return this->codepoint == char32_t(cp);
+    }
+    virtual bool less(const IString& other) const override {
+      auto length = other.length();
+      int32_t threshold;
+      switch (length) {
+      case 0:
+        // The other string is empty
+        return false;
+      case 1:
+        // Just compare the codepoints
+        threshold = 0;
+        break;
+      default:
+        // In case of a tie, the longer string is greater
+        threshold = 1;
+        break;
+      }
+      auto cp = other.codePointAt(0);
+      assert(cp >= 0);
+      auto diff = int32_t(this->codepoint) - cp;
+      return diff < threshold;
+    }
+    virtual int32_t codePointAt(size_t index) const override {
+      return (index == 0) ? int32_t(this->codepoint) : -1;
+    }
+    virtual std::string toUTF8() const override {
+      return egg::utf::to_utf8(this->codepoint);
+    }
+  };
 
   class StringBufferUTF8 : public egg::gc::HardReferenceCounted<egg::lang::IString> {
     EGG_NO_COPY(StringBufferUTF8);
@@ -412,6 +220,17 @@ namespace {
       auto rhs = other.toUTF8();
       return this->utf8 < rhs;
     }
+    virtual int32_t codePointAt(size_t index) const override {
+      auto* data = this->utf8.data();
+      egg::utf::utf8_reader reader(data, data + this->utf8.length());
+      while (index--) {
+        if (!reader.step()) {
+          return -1;
+        }
+      }
+      char32_t codepoint = 0;
+      return reader.read(codepoint) ? int32_t(codepoint) : -1;
+    }
     virtual std::string toUTF8() const override {
       return this->utf8;
     }
@@ -430,6 +249,9 @@ namespace {
     }
     virtual bool less(const IString& other) const override {
       return !other.empty();
+    }
+    virtual int32_t codePointAt(size_t) const override {
+      return -1;
     }
     virtual std::string toUTF8() const override {
       return std::string();
@@ -524,17 +346,23 @@ namespace {
     virtual egg::lang::Value cast(egg::lang::IExecution& execution, const egg::lang::IParameters& parameters) const override {
       return castSimple(execution, TAG, parameters);
     }
-    virtual egg::lang::Value dotGet(egg::lang::IExecution& execution, const egg::lang::Value& instance, const egg::lang::String& property) const override {
-      return dotSimple(execution, instance, property);
-    }
   };
   const TypeNative<egg::lang::Discriminator::Void> typeVoid{};
   const TypeNative<egg::lang::Discriminator::Bool> typeBool{};
   const TypeNative<egg::lang::Discriminator::Int> typeInt{};
   const TypeNative<egg::lang::Discriminator::Float> typeFloat{};
-  const TypeNative<egg::lang::Discriminator::String> typeString{};
   const TypeNative<egg::lang::Discriminator::Arithmetic> typeArithmetic{};
-  const TypeNative<egg::lang::Discriminator::Any> typeAny{};
+
+  class TypeString : public TypeNative<egg::lang::Discriminator::String> {
+  public:
+    virtual egg::lang::Value dotGet(egg::lang::IExecution& execution, const egg::lang::Value& instance, const egg::lang::String& property) const override {
+      return dotString(execution, instance.getString(), property);
+    }
+    virtual egg::lang::Value bracketsGet(egg::lang::IExecution& execution, const egg::lang::Value& instance, const egg::lang::Value& index) const override {
+      return bracketsString(execution, instance.getString(), index);
+    }
+  };
+  const TypeString typeString{};
 
   class TypeSimple : public egg::gc::HardReferenceCounted<egg::lang::IType> {
     EGG_NO_COPY(TypeSimple);
@@ -542,6 +370,9 @@ namespace {
     egg::lang::Discriminator tag;
   public:
     explicit TypeSimple(egg::lang::Discriminator tag) : tag(tag) {
+    }
+    virtual egg::lang::String toString() const override {
+      return egg::lang::String::fromUTF8(egg::lang::Value::getTagString(this->tag));
     }
     virtual egg::lang::Discriminator getSimpleTypes() const override {
       return this->tag;
@@ -573,8 +404,8 @@ namespace {
     virtual egg::lang::Value promoteAssignment(egg::lang::IExecution& execution, const egg::lang::Value& rhs) const override {
       return promoteAssignmentSimple(execution, this->tag, rhs);
     }
-    virtual egg::lang::String toString() const override {
-      return egg::lang::String::fromUTF8(egg::lang::Value::getTagString(this->tag));
+    virtual egg::lang::Value dotGet(egg::lang::IExecution& execution, const egg::lang::Value& instance, const egg::lang::String& property) const override {
+      return dotSimple(execution, instance, property);
     }
   };
 
@@ -649,11 +480,14 @@ const egg::lang::Type egg::lang::Type::Int{ typeInt };
 const egg::lang::Type egg::lang::Type::Float{ typeFloat };
 const egg::lang::Type egg::lang::Type::String{ typeString };
 const egg::lang::Type egg::lang::Type::Arithmetic{ typeArithmetic };
-const egg::lang::Type egg::lang::Type::Any{ typeAny };
 
 // Empty constants
 const egg::lang::IString& egg::lang::String::emptyBuffer = stringEmpty;
 const egg::lang::String egg::lang::String::Empty{ stringEmpty };
+
+egg::lang::String egg::lang::String::fromCodePoint(char32_t codepoint) {
+  return String(*new StringBufferCodePoint(codepoint));
+}
 
 egg::lang::String egg::lang::String::fromUTF8(const std::string& utf8) {
   return String(*new StringBufferUTF8(utf8));
@@ -927,6 +761,11 @@ egg::lang::Value egg::lang::IType::dotGet(IExecution& execution, const Value&, c
   return execution.raiseFormat("Values of type '", this->toString(), "' do not support properties such as '.", property, "'");
 }
 
+egg::lang::Value egg::lang::IType::bracketsGet(IExecution& execution, const Value&, const Value&) const {
+  // The default implementation is to return an error (only complex types support index-lookup)
+  return execution.raiseFormat("Values of type '", this->toString(), "' do not support the indexing '[]'");
+}
+
 egg::lang::Discriminator egg::lang::IType::getSimpleTypes() const {
   // The default implementation is to say we don't support any simple types
   return egg::lang::Discriminator::None;
@@ -959,9 +798,6 @@ const egg::lang::IType* egg::lang::Type::getNative(egg::lang::Discriminator tag)
   }
   if (tag == egg::lang::Discriminator::Arithmetic) {
     return &typeArithmetic;
-  }
-  if (tag == egg::lang::Discriminator::Any) {
-    return &typeAny;
   }
   return nullptr;
 }

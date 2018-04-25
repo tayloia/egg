@@ -122,7 +122,8 @@ namespace egg::yolk {
     bool operand(egg::lang::Value& dst, const IEggProgramNode& src, egg::lang::Discriminator expected, const char* expectation);
     typedef egg::lang::Value(*ArithmeticInt)(int64_t lhs, int64_t rhs);
     typedef egg::lang::Value (*ArithmeticFloat)(double lhs, double rhs);
-    egg::lang::Value objectDot(const egg::lang::Value& lhs, const egg::yolk::IEggProgramNode& rhs);
+    egg::lang::Value operatorDot(const egg::lang::Value& lhs, const egg::yolk::IEggProgramNode& rhs);
+    egg::lang::Value operatorBrackets(const egg::lang::Value& lhs, const egg::yolk::IEggProgramNode& rhs);
     egg::lang::Value arithmeticIntFloat(const egg::lang::Value& lhs, const egg::yolk::IEggProgramNode& rvalue, const char* operation, ArithmeticInt ints, ArithmeticFloat floats);
     egg::lang::Value arithmeticInt(const egg::lang::Value& lhs, const egg::yolk::IEggProgramNode& rvalue, const char* operation, ArithmeticInt ints);
     egg::lang::Value unexpected(const std::string& expectation, const egg::lang::Value& value);
