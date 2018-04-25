@@ -31,6 +31,7 @@
     <ClCompile Include="..\cpp\test\lexers.cpp" />
     <ClCompile Include="..\cpp\test\streams.cpp" />
     <ClCompile Include="..\cpp\test\strings.cpp" />
+    <ClCompile Include="..\cpp\test\utf.cpp" />
     <ClCompile Include="test.pch.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Create</PrecompiledHeader>
@@ -71,6 +72,7 @@
     <None Include="..\examples\example-0013.egg" />
     <None Include="..\examples\example-0014.egg" />
     <None Include="..\examples\example-0015.egg" />
+    <None Include="..\examples\example-0016.egg" />
   </ItemGroup>
   <ItemGroup>
     <Text Include="..\cpp\test\data\utf-8-demo.bom.txt" />

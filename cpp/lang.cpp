@@ -221,8 +221,7 @@ namespace {
       return this->utf8 < rhs;
     }
     virtual int32_t codePointAt(size_t index) const override {
-      auto* data = this->utf8.data();
-      egg::utf::utf8_reader reader(data, data + this->utf8.length());
+      egg::utf::utf8_reader reader(this->utf8);
       while (index--) {
         if (!reader.step()) {
           return -1;

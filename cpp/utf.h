@@ -7,16 +7,16 @@ namespace egg::utf {
       target = char(utf32);
     } else if (utf32 < 0x800) {
       target = char(0xC0 + (utf32 >> 6));
-      target = char(0x80 + (utf32 & 0x2F));
+      target = char(0x80 + (utf32 & 0x3F));
     } else if (utf32 < 0x10000) {
       target = char(0xE0 + (utf32 >> 12));
-      target = char(0x80 + ((utf32 >> 6) & 0x2F));
-      target = char(0x80 + (utf32 & 0x2F));
+      target = char(0x80 + ((utf32 >> 6) & 0x3F));
+      target = char(0x80 + (utf32 & 0x3F));
     } else {
       target = char(0xF0 + (utf32 >> 18));
-      target = char(0x80 + ((utf32 >> 12) & 0x2F));
-      target = char(0x80 + ((utf32 >> 6) & 0x2F));
-      target = char(0x80 + (utf32 & 0x2F));
+      target = char(0x80 + ((utf32 >> 12) & 0x3F));
+      target = char(0x80 + ((utf32 >> 6) & 0x3F));
+      target = char(0x80 + (utf32 & 0x3F));
     }
   }
 
@@ -51,25 +51,9 @@ namespace egg::utf {
         return false;
       }
       result = (result << 6) | char32_t(*utf8 & 0x3F);
-    } while (--bytes > 0);
+    } while (--bytes > 1);
     target = result;
     return true;
-  }
-
-  inline std::string to_utf8(char32_t utf32) {
-    std::string utf8;
-    auto target = std::back_inserter(utf8);
-    utf32_to_utf8(target, utf32);
-    return utf8;
-  }
-
-  inline std::string to_utf8(const std::u32string& utf32) {
-    std::string utf8;
-    auto target = std::back_inserter(utf8);
-    for (auto ch : utf32) {
-      utf32_to_utf8(target, ch);
-    }
-    return utf8;
   }
 
   class utf8_reader {
@@ -80,6 +64,12 @@ namespace egg::utf {
   public:
     utf8_reader(const void* begin, const void* end)
       : p(static_cast<const uint8_t*>(begin)), q(static_cast<const uint8_t*>(end)) {
+      assert(p != nullptr);
+      assert(q != nullptr);
+      assert(p <= q);
+    }
+    explicit utf8_reader(const std::string& utf8)
+      : utf8_reader(utf8.data(), utf8.data() + utf8.size()) {
       assert(p != nullptr);
       assert(q != nullptr);
       assert(p <= q);
@@ -119,21 +109,50 @@ namespace egg::utf {
           this->p += length;
           return true;
         }
-        return true;
       }
       return false;
+    }
+    bool done() const {
+      return this->p >= this->q;
     }
     static size_t bytes(uint8_t lead) {
       if (lead < 0x80) {
         return 1;
-      } else if (lead < 0xC0) {
-        return 2;
       } else if (lead < 0xE0) {
-        return 3;
+        return 2;
       } else if (lead < 0xF0) {
+        return 3;
+      } else if (lead < 0xF8) {
         return 4;
       }
       return SIZE_MAX;
     }
   };
+
+  inline std::string to_utf8(char32_t utf32) {
+    std::string utf8;
+    auto target = std::back_inserter(utf8);
+    utf32_to_utf8(target, utf32);
+    return utf8;
+  }
+
+  inline std::string to_utf8(const std::u32string& utf32) {
+    std::string utf8;
+    auto target = std::back_inserter(utf8);
+    for (auto ch : utf32) {
+      utf32_to_utf8(target, ch);
+    }
+    return utf8;
+  }
+
+  inline std::u32string to_utf32(const std::string& utf8) {
+    utf8_reader reader(utf8);
+    std::u32string utf32;
+    char32_t codepoint;
+    while (reader.read(codepoint)) {
+      utf32.push_back(codepoint);
+    }
+    assert(reader.done());
+    return utf32;
+  }
 }

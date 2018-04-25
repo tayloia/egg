@@ -44,28 +44,9 @@ namespace {
       auto expected = expectation(stream);
       ASSERT_EQ(expected, actual);
     }
-    static int registration(const char* file, int line) {
-      // Register this test case (multiple values)
-      // See https://github.com/google/googletest/blob/master/googletest/docs/AdvancedGuide.md#how-to-write-value-parameterized-tests
-      auto& registry = ::testing::UnitTest::GetInstance()->parameterized_test_registry();
-      auto* holder = registry.GetTestCasePatternHolder<TestExamples>("TestExamples", ::testing::internal::CodeLocation(file, line));
-      return holder->AddTestCaseInstantiation("", &TestExamples::generator, &TestExamples::name, file, line);
-    }
-    static std::vector<int> find() {
-      // Find all the examples
-      auto files = File::readDirectory("~/examples");
-      std::vector<int> results;
-      for (auto& file : files) {
-        auto index = TestExamples::extractIndex(file);
-        if (index >= 0) {
-          results.push_back(index);
-        }
-      }
-      if (results.empty()) {
-        // Push a dummy entry so that problems with example discovery don't just skip all the tests
-        results.push_back(0);
-      }
-      return results;
+    static ::testing::internal::ParamGenerator<int> generator() {
+      // Generate value parameterizations for all the examples
+      return ::testing::ValuesIn(TestExamples::find());
     }
     static std::string name(const ::testing::TestParamInfo<int>& info) {
       // Format the test case name parameterization nicely
@@ -100,9 +81,21 @@ namespace {
       }
       return expected;
     }
-    static ::testing::internal::ParamGenerator<int> generator() {
-      // Generate value parameterizations for all the examples
-      return ::testing::ValuesIn(TestExamples::find());
+    static std::vector<int> find() {
+      // Find all the examples
+      auto files = File::readDirectory("~/examples");
+      std::vector<int> results;
+      for (auto& file : files) {
+        auto index = TestExamples::extractIndex(file);
+        if (index >= 0) {
+          results.push_back(index);
+        }
+      }
+      if (results.empty()) {
+        // Push a dummy entry so that problems with example discovery don't just skip all the tests
+        results.push_back(0);
+      }
+      return results;
     }
     static std::string formatIndex(int index) {
       // Format the example index nicely
@@ -132,7 +125,4 @@ TEST_P(TestExamples, Run) {
   this->run();
 }
 
-// The following is almost the same as
-//  INSTANTIATE_TEST_CASE_P(Examples, TestExamples, ::testing::ValuesIn(TestExamples::find()), TestExamples::name);
-// but produces prettier lists in MSVC Test Explorer
-static int TestExamplesRegistration GTEST_ATTRIBUTE_UNUSED_ = TestExamples::registration(__FILE__, __LINE__);
+EGG_INSTANTIATE_TEST_CASE_P(TestExamples)
