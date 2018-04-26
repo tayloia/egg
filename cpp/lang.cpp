@@ -74,49 +74,10 @@ namespace {
     return execution.raiseFormat("Cannot cast a value of type '", rhs.getRuntimeType().toString(), "' to type '", egg::lang::Value::getTagString(tag), "'");
   }
 
-  egg::lang::Value dotString(egg::lang::IExecution& execution, const egg::lang::String& instance, const egg::lang::String& property) {
-    // Specials
-    //  string string(...)
-    //  string operator[](int index)
-    //  bool operator==(object other)
-    //  iter iter()
-    // Properties
-    //  int length
-    //  int compare(string other, int? start, int? other_start, int? max_length)
-    //  bool contains(string needle)
-    //  bool endsWith(string needle)
-    //  int hash()
-    //  int? indexOf(string needle, int? from_index, int? count, bool? negate)
-    //  string join(...)
-    //  int? lastIndexOf(string needle, int? from_index, int? count, bool? negate)
-    //  string padLeft(int length, string? padding)
-    //  string padRight(int length, string? padding)
-    //  string repeat(int count)
-    //  string replace(string needle, string replacement, int? max_occurrences)
-    //  string slice(int? begin, int? end)
-    //  string split(string separator, int? limit)
-    //  bool startsWith(string needle)
-    //  string toString()
-    //  string trim(any? what)
-    //  string trimLeft(any? what)
-    //  string trimRight(any? what)
-    // Missing
-    //  format
-    //  lowercase
-    //  uppercase
-    //  reverse
-    //  codePointAt
-    auto utf8 = property.toUTF8();
-    if (utf8 == "length") {
-      return egg::lang::Value{ int64_t(instance.length()) };
-    }
-    return execution.raiseFormat("Unknown properties for type 'string': '", property, "'");
-  }
-
   egg::lang::Value dotSimple(egg::lang::IExecution& execution, const egg::lang::Value& instance, const egg::lang::String& property) {
     // OPTIMIZE
     if (instance.is(egg::lang::Discriminator::String)) {
-      return dotString(execution, instance.getString(), property);
+      return instance.getString().builtin(execution, property);
     }
     return execution.raiseFormat("Properties are not yet supported for '", instance.getRuntimeType().toString(), "'");
   }
@@ -193,10 +154,70 @@ namespace {
     virtual int32_t codePointAt(size_t index) const override {
       return (index == 0) ? int32_t(this->codepoint) : -1;
     }
+    virtual int64_t indexOfString(const IString& needle) const override {
+      switch (needle.length()) {
+      case 0:
+        return 0;
+      case 1:
+        return (int32_t(this->codepoint) == needle.codePointAt(0)) ? 0 : -1;
+      }
+      return -1;
+    }
     virtual std::string toUTF8() const override {
       return egg::utf::to_utf8(this->codepoint);
     }
+    virtual bool iterateFirst(egg::lang::StringIteration& iteration) const override {
+      // There's only one element to iterate
+      iteration.codepoint = this->codepoint;
+      return true;
+    }
+    virtual bool iterateNext(egg::lang::StringIteration&) const override {
+      // There's only one element to iterate
+      return false;
+    }
+    virtual bool iteratePrevious(egg::lang::StringIteration&) const override {
+      // There's only one element to iterate
+      return false;
+    }
+    virtual bool iterateLast(egg::lang::StringIteration& iteration) const override {
+      // There's only one element to iterate
+      iteration.codepoint = this->codepoint;
+      return true;
+    }
   };
+
+  inline bool iterationMatch(const egg::lang::IString& haystack, egg::lang::StringIteration haystackIteration,
+                             const egg::lang::IString& needle, egg::lang::StringIteration needleIteration,
+                             size_t count) {
+    // Note iteration parameters passed-by-value
+    assert(haystackIteration.codepoint == needleIteration.codepoint);
+    assert(count > 0);
+    while (--count > 0) {
+      if (!haystack.iterateNext(haystackIteration) || !needle.iterateNext(needleIteration) || (haystackIteration.codepoint != needleIteration.codepoint)) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  inline int64_t indexOfNonEmptyString(const egg::lang::IString& haystack, const egg::lang::IString& needle) {
+    // Iterate around the haystack for the needle
+    assert(!haystack.empty());
+    assert(!needle.empty());
+    egg::lang::StringIteration haystackIteration;
+    egg::lang::StringIteration needleIteration;
+    if (haystack.iterateFirst(haystackIteration) && needle.iterateFirst(needleIteration)) {
+      auto needleLength = needle.length();
+      int64_t index = 0;
+      do {
+        if ((haystackIteration.codepoint == needleIteration.codepoint) && iterationMatch(haystack, haystackIteration, needle, needleIteration, needleLength)) {
+          return index;
+        }
+        index++;
+      } while (haystack.iterateNext(haystackIteration));
+    }
+    return -1; // Not found
+  }
 
   class StringBufferUTF8 : public egg::gc::HardReferenceCounted<egg::lang::IString> {
     EGG_NO_COPY(StringBufferUTF8);
@@ -216,12 +237,12 @@ namespace {
       return this->codepoints == 0;
     }
     virtual bool equal(const IString& other) const override {
-      // OPTIMIZE
+      // OPTIMIZE WIBBLE
       auto rhs = other.toUTF8();
       return this->utf8 == rhs;
     }
     virtual bool less(const IString& other) const override {
-      // OPTIMIZE
+      // OPTIMIZE WIBBLE
       auto rhs = other.toUTF8();
       return this->utf8 < rhs;
     }
@@ -235,8 +256,51 @@ namespace {
       char32_t codepoint = 0;
       return reader.read(codepoint) ? int32_t(codepoint) : -1;
     }
+    virtual int64_t indexOfString(const IString& needle) const override {
+      switch (needle.length()) {
+      case 0:
+        return 0;
+      }
+      return indexOfNonEmptyString(*this, needle);
+    }
     virtual std::string toUTF8() const override {
       return this->utf8;
+    }
+    virtual bool iterateFirst(egg::lang::StringIteration& iteration) const override {
+      // There should be at least one element to iterate
+      egg::utf::utf8_reader reader(this->utf8);
+      if (reader.read(iteration.codepoint)) {
+        iteration.internal = reader.getIterationInternal();
+        return true;
+      }
+      return false;
+    }
+    virtual bool iterateNext(egg::lang::StringIteration& iteration) const override {
+      // Fetch the next element
+      egg::utf::utf8_reader reader(this->utf8, iteration.internal);
+      if (reader.read(iteration.codepoint)) {
+        iteration.internal = reader.getIterationInternal();
+        return true;
+      }
+      return false;
+    }
+    virtual bool iteratePrevious(egg::lang::StringIteration& iteration) const override {
+      // Fetch the previous element
+      egg::utf::utf8_reader_reverse reader(this->utf8, iteration.internal);
+      if (reader.read(iteration.codepoint)) {
+        iteration.internal = reader.getIterationInternal();
+        return true;
+      }
+      return false;
+    }
+    virtual bool iterateLast(egg::lang::StringIteration& iteration) const override {
+      // There should be at least one element to iterate
+      egg::utf::utf8_reader_reverse reader(this->utf8);
+      if (reader.read(iteration.codepoint)) {
+        iteration.internal = reader.getIterationInternal();
+        return true;
+      }
+      return false;
     }
   };
 
@@ -257,8 +321,27 @@ namespace {
     virtual int32_t codePointAt(size_t) const override {
       return -1;
     }
+    virtual int64_t indexOfString(const IString& needle) const override {
+      return needle.empty() ? 0 : -1;
+    }
     virtual std::string toUTF8() const override {
       return std::string();
+    }
+    virtual bool iterateFirst(egg::lang::StringIteration&) const override {
+      // There's nothing to iterate
+      return false;
+    }
+    virtual bool iterateNext(egg::lang::StringIteration&) const override {
+      // There's nothing to iterate
+      return false;
+    }
+    virtual bool iteratePrevious(egg::lang::StringIteration&) const override {
+      // There's nothing to iterate
+      return false;
+    }
+    virtual bool iterateLast(egg::lang::StringIteration&) const override {
+      // There's nothing to iterate
+      return false;
     }
   };
   const StringEmpty stringEmpty{};
@@ -360,7 +443,7 @@ namespace {
   class TypeString : public TypeNative<egg::lang::Discriminator::String> {
   public:
     virtual egg::lang::Value dotGet(egg::lang::IExecution& execution, const egg::lang::Value& instance, const egg::lang::String& property) const override {
-      return dotString(execution, instance.getString(), property);
+      return instance.getString().builtin(execution, property);
     }
     virtual egg::lang::Value bracketsGet(egg::lang::IExecution& execution, const egg::lang::Value& instance, const egg::lang::Value& index) const override {
       return bracketsString(execution, instance.getString(), index);

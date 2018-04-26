@@ -59,30 +59,33 @@ namespace egg::utf {
   class utf8_reader {
     utf8_reader& operator=(const utf8_reader&) = delete;
   private:
+    const uint8_t* const begin;
     const uint8_t* p;
-    const uint8_t* const q;
+    const uint8_t* const end;
   public:
     utf8_reader(const void* begin, const void* end)
-      : p(static_cast<const uint8_t*>(begin)), q(static_cast<const uint8_t*>(end)) {
-      assert(p != nullptr);
-      assert(q != nullptr);
-      assert(p <= q);
+      : begin(static_cast<const uint8_t*>(begin)), p(static_cast<const uint8_t*>(begin)), end(static_cast<const uint8_t*>(end)) {
+      assert(begin != nullptr);
+      assert(end != nullptr);
+      assert(begin <= end);
     }
     explicit utf8_reader(const std::string& utf8)
       : utf8_reader(utf8.data(), utf8.data() + utf8.size()) {
-      assert(p != nullptr);
-      assert(q != nullptr);
-      assert(p <= q);
+    }
+    utf8_reader(const std::string& utf8, size_t internal)
+      : utf8_reader(utf8.data(), utf8.data() + utf8.size()) {
+      // Used by egg::lang::StringIteration
+      this->p = this->begin + internal;
     }
     bool step() {
       // Return true iff there's a valid codepoint sequence next
-      if (this->p < this->q) {
+      if (this->p < this->end) {
         if (*this->p < 0x80) {
           // Fast code path for ASCII
           this->p++;
           return true;
         }
-        auto remaining = size_t(this->q - this->p);
+        auto remaining = size_t(this->end - this->p);
         auto length = utf8_reader::getSizeFromLead(*this->p);
         if (length > remaining) {
           // Truncated
@@ -95,13 +98,13 @@ namespace egg::utf {
     }
     bool read(char32_t& codepoint) {
       // Return true iff there's a valid codepoint sequence next
-      if (this->p < this->q) {
+      if (this->p < this->end) {
         if (*this->p < 0x80) {
           // Fast code path for ASCII
           codepoint = *this->p++;
           return true;
         }
-        auto remaining = size_t(this->q - this->p);
+        auto remaining = size_t(this->end - this->p);
         auto length = utf8_reader::getSizeFromLead(*this->p);
         if (length > remaining) {
           // Truncated
@@ -117,12 +120,12 @@ namespace egg::utf {
     size_t validate() {
       // Return SIZE_MAX if this is not valid UTF-8, otherwise the codepoint count
       size_t count = 0;
-      while (this->p < this->q) {
+      while (this->p < this->end) {
         if (*this->p < 0x80) {
           // Fast code path for ASCII
           this->p++;
         } else {
-          auto remaining = size_t(this->q - this->p);
+          auto remaining = size_t(this->end - this->p);
           auto length = utf8_reader::getSizeFromLead(*this->p);
           if (length > remaining) {
             // Truncated
@@ -143,7 +146,13 @@ namespace egg::utf {
     }
     bool done() const {
       // Return true iff we've exhausted the input
-      return this->p >= this->q;
+      return this->p >= this->end;
+    }
+    size_t getIterationInternal() const {
+      // Fetch the offset used in egg::lang::StringIteration::internal
+      auto diff = this->p - this->begin;
+      assert(diff >= 0);
+      return size_t(diff);
     }
     static size_t getSizeFromLead(uint8_t lead) {
       if (lead < 0x80) {
@@ -156,6 +165,79 @@ namespace egg::utf {
         return 4;
       }
       return SIZE_MAX;
+    }
+  };
+
+  class utf8_reader_reverse {
+    utf8_reader_reverse& operator=(const utf8_reader_reverse&) = delete;
+  private:
+    const uint8_t* const begin;
+    const uint8_t* p;
+    const uint8_t* const end;
+  public:
+    utf8_reader_reverse(const void* begin, const void* end)
+      : begin(static_cast<const uint8_t*>(begin)), p(static_cast<const uint8_t*>(end)), end(static_cast<const uint8_t*>(end)) {
+      assert(begin != nullptr);
+      assert(end != nullptr);
+      assert(begin <= end);
+    }
+    explicit utf8_reader_reverse(const std::string& utf8)
+      : utf8_reader_reverse(utf8.data(), utf8.data() + utf8.size()) {
+    }
+    utf8_reader_reverse(const std::string& utf8, size_t internal)
+      : utf8_reader_reverse(utf8) {
+      // Used by egg::lang::StringIteration
+      this->p = this->begin + internal;
+    }
+    bool step() {
+      // Return true iff there's a valid codepoint sequence next
+      if (this->p < this->end) {
+        if (*this->p < 0x80) {
+          // Fast code path for ASCII
+          this->p++;
+          return true;
+        }
+        auto remaining = size_t(this->end - this->p);
+        auto length = utf8_reader::getSizeFromLead(*this->p);
+        if (length > remaining) {
+          // Truncated
+          return false;
+        }
+        this->p += length;
+        return true;
+      }
+      return false;
+    }
+    bool read(char32_t& codepoint) {
+      // Return true iff there's a valid codepoint sequence next
+      if (this->p < this->end) {
+        if (*this->p < 0x80) {
+          // Fast code path for ASCII
+          codepoint = *this->p++;
+          return true;
+        }
+        auto remaining = size_t(this->end - this->p);
+        auto length = utf8_reader::getSizeFromLead(*this->p);
+        if (length > remaining) {
+          // Truncated
+          return false;
+        }
+        if (utf8_to_utf32(codepoint, this->p, length)) {
+          this->p += length;
+          return true;
+        }
+      }
+      return false;
+    }
+    bool done() const {
+      // Return true iff we've exhausted the input
+      return this->p >= this->end;
+    }
+    size_t getIterationInternal() const {
+      // Fetch the offset used in egg::lang::StringIteration::internal
+      auto diff = this->p - this->begin;
+      assert(diff >= 0);
+      return size_t(diff);
     }
   };
 

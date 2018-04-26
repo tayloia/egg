@@ -1085,7 +1085,7 @@ egg::lang::Value egg::yolk::EggProgramContext::operatorDot(const egg::lang::Valu
 
 egg::lang::Value egg::yolk::EggProgramContext::operatorBrackets(const egg::lang::Value& lhs, const IEggProgramNode& rhs) {
   // Override our location with the index value
-  this->location.column++; // WIBBLE
+  this->location.column++; // TODO a better way of doing this?
   auto index = rhs.execute(*this);
   return lhs.getRuntimeType().bracketsGet(*this, lhs, index);
 }

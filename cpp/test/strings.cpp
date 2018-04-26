@@ -258,3 +258,25 @@ TEST(TestStrings, FromFloatBad) {
   const double ninf = std::copysign(pinf, -1);
   ASSERT_EQ("-inf", egg::yolk::String::fromFloat(ninf));
 }
+
+TEST(TestStrings, Contains) {
+  ASSERT_TRUE(egg::lang::String::Empty.contains(egg::lang::String::Empty));
+  ASSERT_FALSE(egg::lang::String::Empty.contains(egg::lang::String::fromCodePoint('e')));
+  ASSERT_FALSE(egg::lang::String::Empty.contains(egg::lang::String::fromUTF8("egg")));
+  ASSERT_FALSE(egg::lang::String::Empty.contains(egg::lang::String::fromUTF8("beggar")));
+
+  ASSERT_TRUE(egg::lang::String::fromCodePoint('e').contains(egg::lang::String::Empty));
+  ASSERT_TRUE(egg::lang::String::fromCodePoint('e').contains(egg::lang::String::fromCodePoint('e')));
+  ASSERT_FALSE(egg::lang::String::fromCodePoint('e').contains(egg::lang::String::fromUTF8("egg")));
+  ASSERT_FALSE(egg::lang::String::fromCodePoint('e').contains(egg::lang::String::fromUTF8("beggar")));
+
+  ASSERT_TRUE(egg::lang::String::fromUTF8("egg").contains(egg::lang::String::Empty));
+  ASSERT_TRUE(egg::lang::String::fromUTF8("egg").contains(egg::lang::String::fromCodePoint('e')));
+  ASSERT_TRUE(egg::lang::String::fromUTF8("egg").contains(egg::lang::String::fromUTF8("egg")));
+  ASSERT_FALSE(egg::lang::String::fromUTF8("egg").contains(egg::lang::String::fromUTF8("beggar")));
+
+  ASSERT_TRUE(egg::lang::String::fromUTF8("beggar").contains(egg::lang::String::Empty));
+  ASSERT_TRUE(egg::lang::String::fromUTF8("beggar").contains(egg::lang::String::fromCodePoint('e')));
+  ASSERT_TRUE(egg::lang::String::fromUTF8("beggar").contains(egg::lang::String::fromUTF8("egg")));
+  ASSERT_TRUE(egg::lang::String::fromUTF8("beggar").contains(egg::lang::String::fromUTF8("beggar")));
+}

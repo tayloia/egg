@@ -99,8 +99,7 @@ $(OBJ_DIR)/cpp/test/gtest.%: CXXFLAGS += -iquote ./thirdparty/googletest
 
 # Re-generate the object files if this makefile changes
 # Make sure intermediate directories are created before generating object files
-# WIBBLE $(ALL_OBJS): Makefile | $(ALL_DIRS)
-$(ALL_OBJS): | $(ALL_DIRS)
+$(ALL_OBJS): Makefile | $(ALL_DIRS)
 
 # Egg executable dependencies
 $(BIN_DIR)/egg.exe: $(EGG_OBJS)

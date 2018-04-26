@@ -1,0 +1,4 @@
+print("beggar".contains("egg"));
+///>true
+print("egg".contains("beggar"));
+///>false

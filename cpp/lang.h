@@ -81,6 +81,11 @@ namespace egg::lang {
     return Bits::set(lhs, rhs);
   }
 
+  struct StringIteration {
+    char32_t codepoint;
+    size_t internal; // For use by implementations only
+  };
+
   class IString {
   public:
     virtual ~IString() {}
@@ -91,7 +96,14 @@ namespace egg::lang {
     virtual bool equal(const IString& other) const = 0;
     virtual bool less(const IString& other) const = 0;
     virtual int32_t codePointAt(size_t index) const = 0;
+    virtual int64_t indexOfString(const IString& needle) const = 0;
     virtual std::string toUTF8() const = 0;
+
+    // Iteration
+    virtual bool iterateFirst(StringIteration& iteration) const = 0;
+    virtual bool iterateNext(StringIteration& iteration) const = 0;
+    virtual bool iteratePrevious(StringIteration& iteration) const = 0;
+    virtual bool iterateLast(StringIteration& iteration) const = 0;
   };
   typedef egg::gc::HardRef<const IString> IStringRef;
 
@@ -219,6 +231,11 @@ namespace egg::lang {
     std::string toUTF8() const {
       return this->get()->toUTF8();
     }
+    bool contains(const String& needle) const {
+      return this->get()->indexOfString(*needle) >= 0;
+    }
+      // Built-ins
+    Value builtin(IExecution& execution, const String& property) const;
     // Operators
     String& operator=(const String& rhs) {
       this->set(rhs.get());
