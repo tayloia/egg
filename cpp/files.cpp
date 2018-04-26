@@ -1,10 +1,11 @@
 #include "yolk.h"
 
-#include <direct.h>
-
 #if EGG_PLATFORM == EGG_PLATFORM_MSVC
+#include <direct.h>
 #include <experimental/filesystem>
-#elif EGG_PLATFORM == EGG_PLATFORM_GCC
+#define getcwd _getcwd
+#else
+#include <unistd.h>
 #include <dirent.h>
 #endif
 
@@ -81,7 +82,7 @@ namespace {
 std::string egg::yolk::File::getCurrentDirectory() {
   // Gets the current working directory in normalized form with a trailing slash
   char buffer[2048];
-  if (_getcwd(buffer, sizeof(buffer)) == nullptr) {
+  if (getcwd(buffer, sizeof(buffer)) == nullptr) {
     return "./";
   }
   return File::normalizePath(buffer, true);

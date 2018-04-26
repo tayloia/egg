@@ -1,4 +1,4 @@
-CXXFLAGS = -Og -DDEBUG
+CXXFLAGS = -Og -DDEBUG -g
 ARFLAGS = -rcs
 LDFLAGS =
 

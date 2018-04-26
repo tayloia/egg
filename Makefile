@@ -10,19 +10,24 @@ include $(TOOLCHAIN)/$(TOOLCHAIN)-$(CONFIGURATION).mak
 # We exclude these source files
 EXCLUDE_SRCS = cpp/main.cpp
 
+SILENT = @
+
 #############################################################################
 # FILE MACROS
 #############################################################################
 
 # These platform-specific actions need to be macros because of the quoting under Windows
-ifeq ($(OS),Windows_NT)
-	mkdir = @mkdir "$(1)"
-	rmdir = @if exist "$(1)" rmdir /s /q "$(1)"
-  noop  = @:
+# See https://stackoverflow.com/a/40751022
+ifeq ($(findstring .exe,$(SHELL)),.exe)
+	mkdir   = $(SILENT)mkdir "$(1)"
+	rmdir   = $(SILENT)if exist "$(1)" rmdir /s /q "$(1)"
+	noop    = $(SILENT):
+	runtest = $(SILENT).\runtest.cmd $(1)
 else
-	mkdir = @mkdir -p $(1)
-	rmdir = @rm -rf $(1)
-  noop  = @;
+	mkdir   = $(SILENT)mkdir -p $(1)
+	rmdir   = $(SILENT)rm -rf $(1)
+	noop    = $(SILENT)cd .
+	runtest = $(SILENT)./runtest.cmd $(1)
 endif
 
 # Search for various files
@@ -35,7 +40,7 @@ directories = $(patsubst %,%.,$(sort $(dir $(1))))
 #############################################################################
 
 ECHO = @echo
-SUBMAKE = @$(MAKE) --no-print-directory
+SUBMAKE = $(SILENT)+$(MAKE) --no-print-directory
 
 OBJ_ROOT = $(TOOLCHAIN)/obj
 BIN_ROOT = $(TOOLCHAIN)/bin
@@ -68,7 +73,7 @@ default: all
 
 # We create dependency files (*.d) at the same time as compiling the source
 $(OBJ_DIR)/%.o: %.cpp
-	$(ECHO) Compiling %CONFIGURATION% $<
+	$(ECHO) Compiling $(CONFIGURATION) $<
 	$(call compile,$<,$(OBJ_DIR)/$*.o,$(OBJ_DIR)/$*.d)
 
 # Include the generated dependencies
@@ -94,7 +99,8 @@ $(OBJ_DIR)/cpp/test/gtest.%: CXXFLAGS += -iquote ./thirdparty/googletest
 
 # Re-generate the object files if this makefile changes
 # Make sure intermediate directories are created before generating object files
-$(ALL_OBJS): Makefile | $(ALL_DIRS)
+# WIBBLE $(ALL_OBJS): Makefile | $(ALL_DIRS)
+$(ALL_OBJS): | $(ALL_DIRS)
 
 # Egg executable dependencies
 $(BIN_DIR)/egg.exe: $(EGG_OBJS)
@@ -113,7 +119,7 @@ bin: $(BIN_DIR)/egg-testsuite.exe
 # Pseudo-target to build and run the test suite
 test: $(BIN_DIR)/egg-testsuite.exe
 	$(ECHO) Running tests $<
-	@runtest $<
+	$(call runtest,$<)
 
 # Pseudo-target to clean the intermediates for the current configuration
 clean:

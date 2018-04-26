@@ -1,7 +1,7 @@
 CXXFLAGS += -std=c++17 -Werror -Wall -Wextra -iquote ./cpp
-AR = @ar
-CXX = @g++
-LD = @g++
+AR = $(SILENT)ar
+CXX = $(SILENT)g++
+LD = $(SILENT)g++
 
 # Create C++ object: $(1)=input.cpp $(2)=output.o $(3)=output.d
 compile = $(CXX) $(CXXFLAGS) -MMD -c $(1) -o $(2) -MT $(3)
