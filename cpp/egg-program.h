@@ -102,7 +102,7 @@ namespace egg::yolk {
     egg::lang::Value executeTernary(const IEggProgramNode& self, const IEggProgramNode& cond, const IEggProgramNode& whenTrue, const IEggProgramNode& whenFalse);
     std::unique_ptr<IEggProgramAssignee> assigneeIdentifier(const IEggProgramNode& self, const egg::lang::String& name);
     void statement(const IEggProgramNode& node); // TODO remove?
-    void expression(const IEggProgramNode& node); // TODO remove?
+    egg::lang::LocationRuntime swapLocation(const egg::lang::LocationRuntime& loc); // TODO remove?
     egg::lang::Value get(const egg::lang::String& name);
     egg::lang::Value set(const egg::lang::String& name, const egg::lang::Value& rvalue);
     egg::lang::Value assign(EggProgramAssign op, const IEggProgramNode& lvalue, const IEggProgramNode& rvalue);

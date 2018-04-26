@@ -1,0 +1,10 @@
+print("hello" == "hello");
+///>true
+print("hello" == "goodbye");
+///>false
+print("hello" != "hello");
+///>false
+print("hello" != "goodbye");
+///>true
+print("hello" < "goodbye");
+///<RUNTIME><ERROR>~/examples/example-0018.egg(9,15): Expected left-hand side of comparison '<' to be 'int' or 'float', but got 'string' instead

@@ -285,7 +285,7 @@ namespace egg::lang {
     Value& operator=(Value&& value);
     ~Value();
     bool operator==(const Value& other) const { return Value::equal(*this, other); }
-    bool operator!=(const Value& other) const { return Value::equal(*this, other); }
+    bool operator!=(const Value& other) const { return !Value::equal(*this, other); }
     bool is(Discriminator bits) const { return this->tag == bits; }
     bool has(Discriminator bits) const { return Bits::mask(this->tag, bits) != Discriminator::None; }
     bool getBool() const { assert(this->has(Discriminator::Bool)); return this->b; }

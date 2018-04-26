@@ -11,6 +11,24 @@
 #include <set>
 
 namespace {
+  class EggProgramExpression {
+  private:
+    egg::yolk::EggProgramContext* context;
+    egg::lang::LocationRuntime before;
+  public:
+    EggProgramExpression(egg::yolk::EggProgramContext& context, const egg::yolk::IEggProgramNode& node)
+      : context(&context) {
+      // TODO use runtime location, not source location
+      egg::lang::LocationRuntime after{};
+      egg::lang::LocationSource& source = after;
+      source = node.location();
+      this->before = this->context->swapLocation(after);
+    }
+    ~EggProgramExpression() {
+      (void)this->context->swapLocation(this->before);
+    }
+  };
+
   class EggProgramParameters : public egg::lang::IParameters {
   private:
     std::vector<egg::lang::Value> positional;
@@ -700,7 +718,7 @@ egg::lang::Value egg::yolk::EggProgramContext::executeYield(const IEggProgramNod
 }
 
 egg::lang::Value egg::yolk::EggProgramContext::executeCall(const IEggProgramNode& self, const IEggProgramNode& callee, const std::vector<std::shared_ptr<IEggProgramNode>>& parameters) {
-  this->expression(self);
+  EggProgramExpression expression(*this, self);
   auto func = callee.execute(*this);
   if (func.has(egg::lang::Discriminator::FlowControl)) {
     return func;
@@ -723,7 +741,7 @@ egg::lang::Value egg::yolk::EggProgramContext::executeCall(const IEggProgramNode
 }
 
 egg::lang::Value egg::yolk::EggProgramContext::executeCast(const IEggProgramNode& self, egg::lang::Discriminator tag, const std::vector<std::shared_ptr<IEggProgramNode>>& parameters) {
-  this->expression(self);
+  EggProgramExpression expression(*this, self);
   EggProgramParameters params(parameters.size());
   egg::lang::String name;
   auto type = egg::lang::Type::Void;
@@ -742,27 +760,27 @@ egg::lang::Value egg::yolk::EggProgramContext::executeCast(const IEggProgramNode
 }
 
 egg::lang::Value egg::yolk::EggProgramContext::executeIdentifier(const IEggProgramNode& self, const egg::lang::String& name) {
-  this->expression(self);
+  EggProgramExpression expression(*this, self);
   return this->get(name);
 }
 
 egg::lang::Value egg::yolk::EggProgramContext::executeLiteral(const IEggProgramNode& self, const egg::lang::Value& value) {
-  this->expression(self);
+  EggProgramExpression expression(*this, self);
   return value;
 }
 
 egg::lang::Value egg::yolk::EggProgramContext::executeUnary(const IEggProgramNode& self, EggProgramUnary op, const IEggProgramNode& value) {
-  this->expression(self);
+  EggProgramExpression expression(*this, self);
   return this->unary(op, value);
 }
 
 egg::lang::Value egg::yolk::EggProgramContext::executeBinary(const IEggProgramNode& self, EggProgramBinary op, const IEggProgramNode& lhs, const IEggProgramNode& rhs) {
-  this->expression(self);
+  EggProgramExpression expression(*this, self);
   return this->binary(op, lhs, rhs);
 }
 
 egg::lang::Value egg::yolk::EggProgramContext::executeTernary(const IEggProgramNode& self, const IEggProgramNode& cond, const IEggProgramNode& whenTrue, const IEggProgramNode& whenFalse) {
-  this->expression(self);
+  EggProgramExpression expression(*this, self);
   auto retval = this->condition(cond);
   if (retval.is(egg::lang::Discriminator::Bool)) {
     return retval.getBool() ? whenTrue.execute(*this) : whenFalse.execute(*this);
@@ -771,7 +789,7 @@ egg::lang::Value egg::yolk::EggProgramContext::executeTernary(const IEggProgramN
 }
 
 std::unique_ptr<egg::yolk::IEggProgramAssignee> egg::yolk::EggProgramContext::assigneeIdentifier(const IEggProgramNode& self, const egg::lang::String& name) {
-  this->expression(self);
+  EggProgramExpression expression(*this, self);
   return std::make_unique<EggProgramAssigneeIdentifier>(*this, name);
 }
 
@@ -800,15 +818,15 @@ egg::lang::LogSeverity egg::yolk::EggProgram::execute(IEggEngineExecutionContext
 }
 
 void egg::yolk::EggProgramContext::statement(const IEggProgramNode& node) {
-  // TODO use runtime location, not location
+  // TODO use runtime location, not source location
   egg::lang::LocationSource& source = this->location;
   source = node.location();
 }
 
-void egg::yolk::EggProgramContext::expression(const IEggProgramNode& node) {
-  // TODO use runtime location, not location
-  egg::lang::LocationSource& source = this->location;
-  source = node.location();
+egg::lang::LocationRuntime egg::yolk::EggProgramContext::swapLocation(const egg::lang::LocationRuntime& loc) {
+  egg::lang::LocationRuntime before = this->location;
+  this->location = loc;
+  return before;
 }
 
 egg::lang::Value egg::yolk::EggProgramContext::get(const egg::lang::String& name) {
@@ -1066,6 +1084,8 @@ egg::lang::Value egg::yolk::EggProgramContext::operatorDot(const egg::lang::Valu
 }
 
 egg::lang::Value egg::yolk::EggProgramContext::operatorBrackets(const egg::lang::Value& lhs, const IEggProgramNode& rhs) {
+  // Override our location with the index value
+  this->location.column++; // WIBBLE
   auto index = rhs.execute(*this);
   return lhs.getRuntimeType().bracketsGet(*this, lhs, index);
 }
