@@ -284,6 +284,10 @@ namespace {
       typeOut = this->type;
       return true;
     }
+    virtual std::unique_ptr<IEggProgramAssignee> assignee(EggProgramContext& context) const override {
+      // The assignee is just the variable in the scope
+      return context.assigneeIdentifier(*this, this->name);
+    }
     virtual egg::lang::Value execute(EggProgramContext& context) const override {
       return context.executeDeclare(*this, this->name, *this->type, this->init.get());
     }

@@ -202,21 +202,26 @@ namespace {
     EGG_NO_COPY(StringBufferUTF8);
   private:
     std::string utf8;
+    size_t codepoints;
   public:
-    explicit StringBufferUTF8(const std::string& other)
-      : utf8(other) {
+    StringBufferUTF8(const std::string& utf8, size_t length)
+      : utf8(utf8), codepoints(length) {
+      assert(!this->utf8.empty());
+      assert(this->codepoints > 0);
     }
     virtual size_t length() const override {
-      return this->utf8.size(); // TODO UTF8 encoding
+      return this->codepoints;
     }
     virtual bool empty() const override {
-      return this->utf8.empty();
+      return this->codepoints == 0;
     }
     virtual bool equal(const IString& other) const override {
+      // OPTIMIZE
       auto rhs = other.toUTF8();
       return this->utf8 == rhs;
     }
     virtual bool less(const IString& other) const override {
+      // OPTIMIZE
       auto rhs = other.toUTF8();
       return this->utf8 < rhs;
     }
@@ -489,7 +494,12 @@ egg::lang::String egg::lang::String::fromCodePoint(char32_t codepoint) {
 }
 
 egg::lang::String egg::lang::String::fromUTF8(const std::string& utf8) {
-  return String(*new StringBufferUTF8(utf8));
+  egg::utf::utf8_reader reader(utf8);
+  auto length = reader.validate();
+  if (length == 0) {
+    return egg::lang::String::Empty;
+  }
+  return String(*new StringBufferUTF8(utf8, length));
 }
 
 egg::lang::String egg::lang::StringBuilder::str() const {

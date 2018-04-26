@@ -75,6 +75,7 @@ namespace egg::utf {
       assert(p <= q);
     }
     bool step() {
+      // Return true iff there's a valid codepoint sequence next
       if (this->p < this->q) {
         if (*this->p < 0x80) {
           // Fast code path for ASCII
@@ -82,7 +83,7 @@ namespace egg::utf {
           return true;
         }
         auto remaining = size_t(this->q - this->p);
-        auto length = utf8_reader::bytes(*this->p);
+        auto length = utf8_reader::getSizeFromLead(*this->p);
         if (length > remaining) {
           // Truncated
           return false;
@@ -93,6 +94,7 @@ namespace egg::utf {
       return false;
     }
     bool read(char32_t& codepoint) {
+      // Return true iff there's a valid codepoint sequence next
       if (this->p < this->q) {
         if (*this->p < 0x80) {
           // Fast code path for ASCII
@@ -100,7 +102,7 @@ namespace egg::utf {
           return true;
         }
         auto remaining = size_t(this->q - this->p);
-        auto length = utf8_reader::bytes(*this->p);
+        auto length = utf8_reader::getSizeFromLead(*this->p);
         if (length > remaining) {
           // Truncated
           return false;
@@ -112,10 +114,38 @@ namespace egg::utf {
       }
       return false;
     }
+    size_t validate() {
+      // Return SIZE_MAX if this is not valid UTF-8, otherwise the codepoint count
+      size_t count = 0;
+      while (this->p < this->q) {
+        if (*this->p < 0x80) {
+          // Fast code path for ASCII
+          this->p++;
+        } else {
+          auto remaining = size_t(this->q - this->p);
+          auto length = utf8_reader::getSizeFromLead(*this->p);
+          if (length > remaining) {
+            // Truncated
+            return SIZE_MAX;
+          }
+          assert(length > 1);
+          for (size_t i = 1; i < length; ++i) {
+            if ((this->p[i] & 0xC0) != 0x80) {
+              // Bad continuation byte
+              return SIZE_MAX;
+            }
+          }
+          this->p += length;
+        }
+        count++;
+      }
+      return count;
+    }
     bool done() const {
+      // Return true iff we've exhausted the input
       return this->p >= this->q;
     }
-    static size_t bytes(uint8_t lead) {
+    static size_t getSizeFromLead(uint8_t lead) {
       if (lead < 0x80) {
         return 1;
       } else if (lead < 0xE0) {

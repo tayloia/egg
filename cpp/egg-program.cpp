@@ -425,7 +425,7 @@ egg::lang::Value egg::yolk::EggProgramContext::executeFor(const IEggProgramNode&
         return egg::lang::Value::Void;
       }
       if (!retval.is(egg::lang::Discriminator::Continue)) {
-        // Probably an exception in the condition expression
+        // Probably an exception in the block
         return retval;
       }
     }
@@ -451,8 +451,20 @@ egg::lang::Value egg::yolk::EggProgramContext::executeForeach(const IEggProgramN
   if (src.has(egg::lang::Discriminator::FlowControl)) {
     return src;
   }
-  auto retval = dst->set(src);
-  while (!retval.has(egg::lang::Discriminator::FlowControl | egg::lang::Discriminator::Void)) {
+  if (src.is(egg::lang::Discriminator::String)) {
+    return this->executeForeachString(*dst, src.getString(), block);
+  }
+  return this->raiseFormat("TODO Iteration not fully implemented"); // TODO
+}
+
+egg::lang::Value egg::yolk::EggProgramContext::executeForeachString(IEggProgramAssignee& target, const egg::lang::String& source, const IEggProgramNode& block) {
+  size_t index = 0;
+  for (auto codepoint = source.codePointAt(0); codepoint >= 0; codepoint = source.codePointAt(++index)) {
+    auto retval = target.set(egg::lang::Value{ egg::lang::String::fromCodePoint(char32_t(codepoint)) });
+    if (retval.has(egg::lang::Discriminator::FlowControl)) {
+      // The assignment failed
+      return retval;
+    }
     retval = block.execute(*this);
     if (!retval.is(egg::lang::Discriminator::Void)) {
       if (retval.is(egg::lang::Discriminator::Break)) {
@@ -460,13 +472,15 @@ egg::lang::Value egg::yolk::EggProgramContext::executeForeach(const IEggProgramN
         return egg::lang::Value::Void;
       }
       if (!retval.is(egg::lang::Discriminator::Continue)) {
-        // Probably an exception in the condition expression
+        // Probably an exception in the block
         return retval;
       }
     }
-    retval = dst->set(src);
   }
-  return retval;
+  if (index != source.length()) {
+    return this->raiseFormat("Cannot iterate through a malformed string");
+  }
+  return egg::lang::Value::Void;
 }
 
 egg::lang::Value egg::yolk::EggProgramContext::executeFunctionDefinition(const IEggProgramNode& self, const egg::lang::String& name, const egg::lang::IType& type, const std::shared_ptr<IEggProgramNode>& block) {
