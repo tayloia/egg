@@ -1,8 +1,8 @@
 @echo off
 setlocal
 rem These are common installation locations (edit as required)
-set CYGWIN=C:\Cygwin64\bin
 set MINGW=C:\MinGW\bin
+set CYGWIN=C:\Cygwin64\bin
 rem This value may need tweaking (currently 75% of processors are used)
 set /a MAKE_JOBS=(%NUMBER_OF_PROCESSORS% * 3 + 3) / 4
 set MAKE_OPTIONS=--jobs=%MAKE_JOBS%
@@ -13,14 +13,14 @@ set MAKE_EXE=make.exe
 set GCC_EXE=g++.exe
 where %GCC_EXE% 2>nul
 IF %errorlevel% neq 0 (
-  if exist %CYGWIN%\%GCC_EXE% (
-    set USING=Using Cygwin
-    set MAKE_OPTIONS=%MAKE_OPTIONS%
-    set PATH=%CYGWIN%
-  ) else if exist %MINGW%\%GCC_EXE% (
+  if exist %MINGW%\%GCC_EXE% (
     set USING=Using MinGW
     if not exist %MINGW%\%MAKE_EXE% set MAKE_EXE=mingw32-make.exe
     set PATH=%MINGW%
+  ) else if exist %CYGWIN%\%GCC_EXE% (
+    set USING=Using Cygwin
+    set MAKE_OPTIONS=%MAKE_OPTIONS%
+    set PATH=%CYGWIN%
   ) else (
     echo %~nx0: Cygwin/MinGW not found: Giving up!
     exit /b 1
