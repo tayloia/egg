@@ -96,6 +96,7 @@ namespace egg::lang {
     virtual bool equal(const IString& other) const = 0;
     virtual bool less(const IString& other) const = 0;
     virtual int32_t codePointAt(size_t index) const = 0;
+    // WIBBLE virtual int64_t indexOfCodePoint(char32_t codepoint) const = 0;
     virtual int64_t indexOfString(const IString& needle) const = 0;
     virtual std::string toUTF8() const = 0;
 
@@ -231,10 +232,19 @@ namespace egg::lang {
     std::string toUTF8() const {
       return this->get()->toUTF8();
     }
+    bool equal(const String& rhs) const {
+      return this->get()->equal(*rhs);
+    }
+    bool less(const String& rhs) const {
+      return this->get()->less(*rhs);
+    }
     bool contains(const String& needle) const {
       return this->get()->indexOfString(*needle) >= 0;
     }
-      // Built-ins
+    int64_t indexOfString(const String& needle) const {
+      return this->get()->indexOfString(*needle);
+    }
+    // Built-ins
     Value builtin(IExecution& execution, const String& property) const;
     // Operators
     String& operator=(const String& rhs) {

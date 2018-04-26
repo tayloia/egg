@@ -186,14 +186,51 @@ namespace {
     }
   };
 
-  inline bool iterationMatch(const egg::lang::IString& haystack, egg::lang::StringIteration haystackIteration,
-                             const egg::lang::IString& needle, egg::lang::StringIteration needleIteration,
+  inline bool iterationEqual(const egg::lang::IString& lhs, const egg::lang::IString& rhs, size_t count) {
+    // Check for equality using iteration
+    assert(count > 0);
+    egg::lang::StringIteration lhsIteration;
+    egg::lang::StringIteration rhsIteration;
+    if (lhs.iterateFirst(lhsIteration) && rhs.iterateFirst(rhsIteration)) {
+      while (lhsIteration.codepoint == rhsIteration.codepoint) {
+        if (--count == 0) {
+          return true;
+        }
+        if (!lhs.iterateNext(lhsIteration) || !rhs.iterateNext(rhsIteration)) {
+          return false;
+        }
+      }
+    }
+    return false; // Not equal
+  }
+
+  inline int iterationCompare(const egg::lang::IString& lhs, const egg::lang::IString& rhs, size_t count) {
+    // Less/equal/greater comparison using iteration
+    assert(count > 0);
+    egg::lang::StringIteration lhsIteration;
+    egg::lang::StringIteration rhsIteration;
+    if (lhs.iterateFirst(lhsIteration) && rhs.iterateFirst(rhsIteration)) {
+      while (lhsIteration.codepoint == rhsIteration.codepoint) {
+        if (--count == 0) {
+          return 0;
+        }
+        if (!lhs.iterateNext(lhsIteration) || !rhs.iterateNext(rhsIteration)) {
+          return 2; // Malformed
+        }
+      }
+      return (lhsIteration.codepoint < rhsIteration.codepoint) ? -1 : 1;
+    }
+    return 2; // Malformed
+  }
+
+  inline bool iterationMatch(const egg::lang::IString& lhs, egg::lang::StringIteration lhsIteration,
+                             const egg::lang::IString& rhs, egg::lang::StringIteration rhsIteration,
                              size_t count) {
     // Note iteration parameters passed-by-value
-    assert(haystackIteration.codepoint == needleIteration.codepoint);
+    assert(lhsIteration.codepoint == rhsIteration.codepoint);
     assert(count > 0);
     while (--count > 0) {
-      if (!haystack.iterateNext(haystackIteration) || !needle.iterateNext(needleIteration) || (haystackIteration.codepoint != needleIteration.codepoint)) {
+      if (!lhs.iterateNext(lhsIteration) || !rhs.iterateNext(rhsIteration) || (lhsIteration.codepoint != rhsIteration.codepoint)) {
         return false;
       }
     }
@@ -236,15 +273,18 @@ namespace {
     virtual bool empty() const override {
       return this->codepoints == 0;
     }
-    virtual bool equal(const IString& other) const override {
-      // OPTIMIZE WIBBLE
-      auto rhs = other.toUTF8();
-      return this->utf8 == rhs;
+    virtual bool equal(const IString& rhs) const override {
+      return (rhs.length() == this->codepoints) && iterationEqual(*this, rhs, this->codepoints);
     }
-    virtual bool less(const IString& other) const override {
-      // OPTIMIZE WIBBLE
-      auto rhs = other.toUTF8();
-      return this->utf8 < rhs;
+    virtual bool less(const IString& rhs) const override {
+      auto rhsLength = rhs.length();
+      if (rhsLength == 0) {
+        return false;
+      }
+      if (rhsLength <= this->codepoints) {
+        return iterationCompare(*this, rhs, rhsLength) < 0;
+      }
+      return iterationCompare(*this, rhs, this->codepoints) <= 0;
     }
     virtual int32_t codePointAt(size_t index) const override {
       egg::utf::utf8_reader reader(this->utf8);
