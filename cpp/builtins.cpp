@@ -75,7 +75,7 @@ namespace {
     String instance;
   public:
     StringBuiltin(const String& instance, const BuiltinType& type)
-      : type(&type), instance(instance) {
+      : HardReferenceCounted(0), type(&type), instance(instance) {
     }
     virtual bool dispose() override {
       // We don't allow disposing of built-ins

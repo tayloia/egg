@@ -55,7 +55,7 @@ namespace {
     std::vector<Parameter> expected;
   public:
     explicit EggParserTypeFunction(const egg::lang::IType& retval)
-      : retval(&retval) {
+      : HardReferenceCounted(0), retval(&retval) {
     }
     virtual egg::lang::Value canAlwaysAssignFrom(egg::lang::IExecution& execution, const egg::lang::IType& rhs) const override {
       return execution.raiseFormat("TODO: Assignment of a value of type '", rhs.toString(), "' to a target of type '", this->toString(), "' is currently unimplemented"); // TODO

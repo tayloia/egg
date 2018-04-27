@@ -6,7 +6,7 @@ namespace egg::gc {
   private:
     std::atomic<T> atom;
   public:
-    Atomic() : atom(0) {
+    explicit Atomic(T init) : atom(init) {
     }
     T get() {
       return this->atom;
@@ -22,7 +22,7 @@ namespace egg::gc {
   protected:
     mutable Atomic<int64_t> atomic;
   public:
-    ReferenceCount() {}
+    explicit ReferenceCount(int64_t init) : atomic(init) {}
     size_t acquire() const {
       auto after = this->atomic.add(1) + 1;
       assert(after > 0);
@@ -52,7 +52,7 @@ namespace egg::gc {
   private:
     ReferenceCount hard;
   public:
-    HardReferenceCounted() {}
+    explicit HardReferenceCounted(int64_t rc) : T(), hard(rc) {}
     virtual T* acquireHard() const override {
       this->hard.acquire();
       return const_cast<HardReferenceCounted*>(this);

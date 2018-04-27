@@ -114,7 +114,7 @@ namespace {
     char32_t codepoint;
   public:
     explicit StringBufferCodePoint(char32_t codepoint)
-      : codepoint(codepoint) {
+      : HardReferenceCounted(0), codepoint(codepoint) {
     }
     virtual size_t length() const override {
       return 1;
@@ -282,7 +282,7 @@ namespace {
     size_t codepoints;
   public:
     StringBufferUTF8(const std::string& utf8, size_t length)
-      : utf8(utf8), codepoints(length) {
+      : HardReferenceCounted(0), utf8(utf8), codepoints(length) {
       assert(!this->utf8.empty());
       assert(this->codepoints > 0);
     }
@@ -419,7 +419,7 @@ namespace {
     egg::lang::ITypeRef referenced;
   public:
     explicit TypeReference(const egg::lang::IType& referenced)
-      : referenced(&referenced) {
+      : HardReferenceCounted(0), referenced(&referenced) {
     }
     virtual egg::lang::String toString() const override {
       return egg::lang::String::concat(this->referenced->toString(), "*");
@@ -523,7 +523,8 @@ namespace {
   private:
     egg::lang::Discriminator tag;
   public:
-    explicit TypeSimple(egg::lang::Discriminator tag) : tag(tag) {
+    explicit TypeSimple(egg::lang::Discriminator tag)
+      : HardReferenceCounted(0), tag(tag) {
     }
     virtual egg::lang::String toString() const override {
       return egg::lang::String::fromUTF8(egg::lang::Value::getTagString(this->tag));
@@ -570,7 +571,7 @@ namespace {
     egg::lang::ITypeRef b;
   public:
     TypeUnion(const egg::lang::IType& a, const egg::lang::IType& b)
-      : a(&a), b(&b) {
+      : HardReferenceCounted(0), a(&a), b(&b) {
     }
     virtual egg::lang::String toString() const override {
       return egg::lang::String::concat(this->a->toString(), "|", this->b->toString());
@@ -604,7 +605,7 @@ namespace {
     egg::lang::String message;
   public:
     explicit Exception(const egg::lang::LocationRuntime& location, const egg::lang::String& message)
-      : location(location), message(message) {
+      : HardReferenceCounted(0), location(location), message(message) {
     }
     virtual bool dispose() override {
       return false;
@@ -672,6 +673,7 @@ const egg::lang::Value egg::lang::Value::Rethrow{ Discriminator::Exception | Dis
 const egg::lang::Value egg::lang::Value::ReturnVoid{ Discriminator::Return | Discriminator::Void };
 
 void egg::lang::Value::copyInternals(const Value& other) {
+  assert(this != &other);
   this->tag = other.tag;
   if (this->has(Discriminator::Type)) {
     this->t = other.t->acquireHard();
@@ -706,6 +708,16 @@ void egg::lang::Value::moveInternals(Value& other) {
   other.tag = Discriminator::None;
 }
 
+void egg::lang::Value::destroyInternals() {
+  if (this->has(Discriminator::Type)) {
+    this->t->releaseHard();
+  } else if (this->has(Discriminator::Object)) {
+    this->o->releaseHard();
+  } else if (this->has(Discriminator::String)) {
+    this->s->releaseHard();
+  }
+}
+
 egg::lang::Value::Value(const Value& value) {
   this->copyInternals(value);
 }
@@ -716,6 +728,7 @@ egg::lang::Value::Value(Value&& value) {
 
 egg::lang::Value& egg::lang::Value::operator=(const Value& value) {
   if (this != &value) {
+    this->destroyInternals();
     this->copyInternals(value);
   }
   return *this;
@@ -723,19 +736,14 @@ egg::lang::Value& egg::lang::Value::operator=(const Value& value) {
 
 egg::lang::Value& egg::lang::Value::operator=(Value&& value) {
   if (this != &value) {
+    this->destroyInternals();
     this->moveInternals(value);
   }
   return *this;
 }
 
 egg::lang::Value::~Value() {
-  if (this->has(Discriminator::Type)) {
-    this->t->releaseHard();
-  } else if (this->has(Discriminator::Object)) {
-    this->o->releaseHard();
-  } else if (this->has(Discriminator::String)) {
-    this->s->releaseHard();
-  }
+  this->destroyInternals();
 }
 
 bool egg::lang::Value::equal(const Value& lhs, const Value& rhs) {

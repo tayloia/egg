@@ -300,6 +300,7 @@ namespace egg::lang {
     explicit Value(Discriminator tag) : tag(tag) {}
     void copyInternals(const Value& other);
     void moveInternals(Value& other);
+    void destroyInternals();
   public:
     Value() : tag(Discriminator::Void) { this->o = nullptr; }
     explicit Value(std::nullptr_t) : tag(Discriminator::Null) { this->o = nullptr; }

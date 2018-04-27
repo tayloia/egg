@@ -70,7 +70,7 @@ namespace {
     std::shared_ptr<egg::yolk::IEggProgramNode> block;
   public:
     EggProgramFunction(egg::yolk::EggProgramContext& program, const egg::lang::IType& type, const std::shared_ptr<egg::yolk::IEggProgramNode>& block)
-      : program(program), type(&type), block(block) {
+      : HardReferenceCounted(0), program(program), type(&type), block(block) {
       assert(block != nullptr);
     }
     virtual bool dispose() override {
