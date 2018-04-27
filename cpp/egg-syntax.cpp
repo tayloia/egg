@@ -557,11 +557,11 @@ namespace {
     explicit EggSyntaxParserContext(IEggTokenizer& tokenizer)
       : backtrack(tokenizer) {
     }
-    void unexpected(const std::string& message) {
+    EGG_NORETURN void unexpected(const std::string& message) {
       auto& item = this->backtrack.peek(0);
       throw SyntaxException(message, this->backtrack.resource().toUTF8(), item);
     }
-    void unexpected(const std::string& expected, const EggTokenizerItem& item) {
+    EGG_NORETURN void unexpected(const std::string& expected, const EggTokenizerItem& item) {
       auto token = item.toString();
       throw SyntaxException(expected + ", not " + token, this->backtrack.resource().toUTF8(), item, token);
     }
@@ -1052,7 +1052,7 @@ std::unique_ptr<IEggSyntaxNode> EggSyntaxParserContext::parseExpressionPrimary(c
         return cast;
       }
     }
-    /* DROP THROUGH */
+    EGG_FALLTHROUGH
   case EggTokenizerKind::Operator:
   case EggTokenizerKind::Attribute:
   case EggTokenizerKind::EndOfFile:

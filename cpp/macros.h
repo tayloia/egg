@@ -1,3 +1,19 @@
+#if !defined(__has_cpp_attribute)
+#define EGG_FALLTHROUGH
+#elif !__has_cpp_attribute(fallthrough)
+#define EGG_FALLTHROUGH
+#else
+#define EGG_FALLTHROUGH [[fallthrough]];
+#endif
+
+#if !defined(__has_cpp_attribute)
+#define EGG_NORETURN
+#elif !__has_cpp_attribute(fallthrough)
+#define EGG_NORETURN
+#else
+#define EGG_NORETURN [[noreturn]]
+#endif
+
 #define EGG_NO_COPY(type) \
   type(const type&) = delete; \
   type& operator=(const type&) = delete

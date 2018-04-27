@@ -10,4 +10,4 @@ compile = $(CXX) $(CXXFLAGS) -MMD -c $(1) -o $(2) -MT $(3)
 archive = $(AR) $(ARFLAGS) $(2) $(1)
 
 # Create executable: $(1)=inputs.{o,lib} $(2)=output.exe
-link = $(LD) $(LDFLAGS) -o $(2) $(1)
+link = $(LD) $(LDFLAGS) -o $(2) $(1) $(LDEXTRA)

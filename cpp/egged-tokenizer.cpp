@@ -89,7 +89,7 @@ namespace {
               this->lexer->next(this->upcoming);
               return item.kind;
             }
-            /* DROPTHROUGH */
+            EGG_FALLTHROUGH
           default:
             this->unexpected("Unexpected character", String::unicodeToString(this->upcoming.verbatim.front()));
             break;

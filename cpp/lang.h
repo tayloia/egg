@@ -283,6 +283,10 @@ namespace egg::lang {
     String function;
     const LocationRuntime* parent;
 
+    LocationRuntime() = default;
+    LocationRuntime(const LocationSource& source, const String& function, const LocationRuntime* parent = nullptr)
+      : LocationSource(source), function(function), parent(parent) {
+    }
     String toRuntimeString() const;
   };
 

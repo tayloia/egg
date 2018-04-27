@@ -19,9 +19,7 @@ namespace {
     EggProgramExpression(egg::yolk::EggProgramContext& context, const egg::yolk::IEggProgramNode& node)
       : context(&context) {
       // TODO use runtime location, not source location
-      egg::lang::LocationRuntime after{};
-      egg::lang::LocationSource& source = after;
-      source = node.location();
+      egg::lang::LocationRuntime after(node.location(), egg::lang::String::fromUTF8("WIBBLE"));
       this->before = this->context->swapLocation(after);
     }
     ~EggProgramExpression() {
@@ -183,6 +181,7 @@ namespace {
 std::string egg::yolk::EggProgram::unaryToString(egg::yolk::EggProgramUnary op) {
   static const char* const table[] = {
     EGG_PROGRAM_UNARY_OPERATORS(EGG_PROGRAM_OPERATOR_STRING)
+    nullptr // Stops GCC 7.3 complaining with error: array subscript is above array bounds [-Werror=array-bounds]
   };
   auto index = static_cast<size_t>(op);
   assert(index < EGG_NELEMS(table));
@@ -192,6 +191,7 @@ std::string egg::yolk::EggProgram::unaryToString(egg::yolk::EggProgramUnary op) 
 std::string egg::yolk::EggProgram::binaryToString(egg::yolk::EggProgramBinary op) {
   static const char* const table[] = {
     EGG_PROGRAM_BINARY_OPERATORS(EGG_PROGRAM_OPERATOR_STRING)
+    nullptr // Stops GCC 7.3 complaining with error: array subscript is above array bounds [-Werror=array-bounds]
   };
   auto index = static_cast<size_t>(op);
   assert(index < EGG_NELEMS(table));
@@ -201,6 +201,7 @@ std::string egg::yolk::EggProgram::binaryToString(egg::yolk::EggProgramBinary op
 std::string egg::yolk::EggProgram::assignToString(egg::yolk::EggProgramAssign op) {
   static const char* const table[] = {
     EGG_PROGRAM_ASSIGN_OPERATORS(EGG_PROGRAM_OPERATOR_STRING)
+    nullptr // Stops GCC 7.3 complaining with error: array subscript is above array bounds [-Werror=array-bounds]
   };
   auto index = static_cast<size_t>(op);
   assert(index < EGG_NELEMS(table));
@@ -210,6 +211,7 @@ std::string egg::yolk::EggProgram::assignToString(egg::yolk::EggProgramAssign op
 std::string egg::yolk::EggProgram::mutateToString(egg::yolk::EggProgramMutate op) {
   static const char* const table[] = {
     EGG_PROGRAM_MUTATE_OPERATORS(EGG_PROGRAM_OPERATOR_STRING)
+    nullptr // Stops GCC 7.3 complaining with error: array subscript is above array bounds [-Werror=array-bounds]
   };
   auto index = static_cast<size_t>(op);
   assert(index < EGG_NELEMS(table));

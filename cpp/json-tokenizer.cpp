@@ -90,7 +90,7 @@ namespace {
               this->lexer->next(this->upcoming);
               return item.kind;
             }
-            /* DROPTHROUGH */
+            EGG_FALLTHROUGH
           default:
             this->unexpected("Unexpected character in JSON", String::unicodeToString(this->upcoming.verbatim.front()));
             break;

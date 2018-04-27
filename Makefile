@@ -2,7 +2,7 @@
 # PARAMETERS
 #############################################################################
 
-override PLATFORM ?= mingw
+override PLATFORM ?= linux
 override TOOLCHAIN ?= gcc
 override CONFIGURATION ?= release
 
@@ -28,7 +28,7 @@ else
 	mkdir   = $(SILENT)mkdir -p $(1)
 	rmdir   = $(SILENT)rm -rf $(1)
 	noop    = $(SILENT)cd .
-	runtest = $(SILENT)./runtest.cmd $(1)
+	runtest = $(SILENT)./runtest.sh $(1)
 endif
 
 # Search for various files
