@@ -23,12 +23,10 @@ ifeq ($(findstring .exe,$(SHELL)),.exe)
 	mkdir   = $(SILENT)mkdir "$(1)"
 	rmdir   = $(SILENT)if exist "$(1)" rmdir /s /q "$(1)"
 	noop    = $(SILENT):
-	runtest = $(SILENT).\runtest.cmd $(1)
 else
 	mkdir   = $(SILENT)mkdir -p $(1)
 	rmdir   = $(SILENT)rm -rf $(1)
 	noop    = $(SILENT)cd .
-	runtest = $(SILENT)./runtest.sh $(1)
 endif
 
 # Search for various files
@@ -39,6 +37,12 @@ directories = $(patsubst %,%.,$(sort $(dir $(1))))
 #############################################################################
 # COMPUTED VALUES
 #############################################################################
+
+ifeq ($(OS),Windows_NT)
+	RUNTEST = $(SILENT).\runtest.cmd
+else
+	RUNTEST = $(SILENT)./runtest.sh
+endif
 
 ECHO = @echo
 SUBMAKE = $(SILENT)+$(MAKE) --no-print-directory
@@ -119,7 +123,7 @@ bin: $(BIN_DIR)/egg-testsuite.exe
 # Pseudo-target to build and run the test suite
 test: $(BIN_DIR)/egg-testsuite.exe
 	$(ECHO) Running tests $<
-	$(call runtest,$<)
+	$(RUNTEST) $<
 
 # Pseudo-target to clean the intermediates for the current configuration
 clean:
