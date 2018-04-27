@@ -1,4 +1,5 @@
 namespace egg::lang {
+  class IType;
   class String;
   class Value;
 
@@ -129,6 +130,29 @@ namespace egg::lang {
     virtual Value getNamed(const String& name) const = 0;
   };
 
+  class ISignatureParameter {
+  public:
+    virtual ~ISignatureParameter() {}
+    virtual String getName() const = 0; // May be empty
+    virtual const IType& getType() const = 0;
+    virtual size_t getPosition() const = 0; // SIZE_MAX if not positional
+    virtual bool isRequired() const = 0;
+    virtual bool isVariadic() const = 0;
+  };
+
+  class ISignature {
+  public:
+    virtual ~ISignature() {}
+    virtual String toString() const; // Default formats as expected
+    virtual String getFunctionName() const = 0; // May be empty
+    virtual const IType& getReturnType() const = 0;
+    virtual size_t getParameterCount() const = 0;
+    virtual const ISignatureParameter& getParameter(size_t index) const = 0;
+    virtual bool validateCall(IExecution& execution, const IParameters& runtime, Value& problem) const; // Calls validateCallDefault
+
+    bool validateCallDefault(IExecution& execution, const IParameters& runtime, Value& problem) const;
+  };
+
   class IType {
     typedef egg::gc::HardRef<const IType> Ref; // Local typedef
   public:
@@ -138,6 +162,7 @@ namespace egg::lang {
     virtual String toString() const = 0;
     virtual Value canAlwaysAssignFrom(IExecution& execution, const IType& rhs) const = 0; // TODO unused?
     virtual Value promoteAssignment(IExecution& execution, const Value& rhs) const = 0;
+    virtual const ISignature* callable(IExecution& execution) const = 0;
 
     virtual Discriminator getSimpleTypes() const; // Default implementation returns 'None'
     virtual Ref referencedType() const; // Default implementation returns 'Type*'
@@ -361,7 +386,7 @@ namespace egg::lang {
     static const Value ReturnVoid;
 
     // Built-ins
-    static Value Print;
+    static Value builtinPrint();
   };
 }
 

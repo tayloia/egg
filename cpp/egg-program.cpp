@@ -19,7 +19,7 @@ namespace {
     EggProgramExpression(egg::yolk::EggProgramContext& context, const egg::yolk::IEggProgramNode& node)
       : context(&context) {
       // TODO use runtime location, not source location
-      egg::lang::LocationRuntime after(node.location(), egg::lang::String::fromUTF8("WIBBLE"));
+      egg::lang::LocationRuntime after(node.location(), egg::lang::String::fromUTF8("TODO()"));
       this->before = this->context->swapLocation(after);
     }
     ~EggProgramExpression() {
@@ -797,7 +797,7 @@ std::unique_ptr<egg::yolk::IEggProgramAssignee> egg::yolk::EggProgramContext::as
 
 egg::lang::LogSeverity egg::yolk::EggProgram::execute(IEggEngineExecutionContext& execution) {
   EggProgram::SymbolTable symtable(nullptr);
-  symtable.addBuiltin("print", egg::lang::Value::Print);
+  symtable.addBuiltin("print", egg::lang::Value::builtinPrint());
   // TODO add built-in symbol to symbol table here
   return this->execute(execution, symtable);
 }

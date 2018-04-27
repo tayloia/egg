@@ -433,6 +433,9 @@ namespace {
     virtual egg::lang::Value promoteAssignment(egg::lang::IExecution& execution, const egg::lang::Value&) const override {
       return execution.raiseFormat("TODO: Cannot yet assign to reference value"); // TODO
     }
+    virtual const egg::lang::ISignature* callable(egg::lang::IExecution&) const override {
+      return nullptr;
+    }
   };
 
   class TypeNull : public egg::gc::NotReferenceCounted<egg::lang::IType>{
@@ -466,6 +469,9 @@ namespace {
     virtual egg::lang::Value promoteAssignment(egg::lang::IExecution& execution, const egg::lang::Value&) const override {
       return execution.raiseFormat("Cannot assign to 'null' value");
     }
+    virtual const egg::lang::ISignature* callable(egg::lang::IExecution&) const override {
+      return nullptr;
+    }
   };
   const TypeNull typeNull{};
 
@@ -496,6 +502,9 @@ namespace {
     }
     virtual egg::lang::Value promoteAssignment(egg::lang::IExecution& execution, const egg::lang::Value& rhs) const override {
       return promoteAssignmentSimple(execution, TAG, rhs);
+    }
+    virtual const egg::lang::ISignature* callable(egg::lang::IExecution&) const override {
+      return nullptr;
     }
     virtual egg::lang::Value cast(egg::lang::IExecution& execution, const egg::lang::IParameters& parameters) const override {
       return castSimple(execution, TAG, parameters);
@@ -559,6 +568,9 @@ namespace {
     virtual egg::lang::Value promoteAssignment(egg::lang::IExecution& execution, const egg::lang::Value& rhs) const override {
       return promoteAssignmentSimple(execution, this->tag, rhs);
     }
+    virtual const egg::lang::ISignature* callable(egg::lang::IExecution&) const override {
+      return nullptr;
+    }
     virtual egg::lang::Value dotGet(egg::lang::IExecution& execution, const egg::lang::Value& instance, const egg::lang::String& property) const override {
       return dotSimple(execution, instance, property);
     }
@@ -582,6 +594,9 @@ namespace {
     virtual egg::lang::Value promoteAssignment(egg::lang::IExecution& execution, const egg::lang::Value&) const override {
       return execution.raiseFormat("TODO: Cannot yet assign to union value"); // TODO
     }
+    virtual const egg::lang::ISignature* callable(egg::lang::IExecution&) const override {
+      EGG_THROW("TODO: Cannot yet call to union value"); // TODO
+    }
   };
 
   class ExceptionType : public egg::gc::NotReferenceCounted<egg::lang::IType> {
@@ -594,6 +609,9 @@ namespace {
     }
     virtual egg::lang::Value promoteAssignment(egg::lang::IExecution& execution, const egg::lang::Value&) const override {
       return execution.raiseFormat("Cannot re-assign exceptions");
+    }
+    virtual const egg::lang::ISignature* callable(egg::lang::IExecution&) const override {
+      return nullptr;
     }
   };
 
@@ -635,6 +653,7 @@ const egg::lang::Type egg::lang::Type::Int{ typeInt };
 const egg::lang::Type egg::lang::Type::Float{ typeFloat };
 const egg::lang::Type egg::lang::Type::String{ typeString };
 const egg::lang::Type egg::lang::Type::Arithmetic{ typeArithmetic };
+const egg::lang::Type egg::lang::Type::Any{ *Type::make<TypeSimple>(egg::lang::Discriminator::Any) };
 
 // Empty constants
 const egg::lang::IString& egg::lang::String::emptyBuffer = stringEmpty;
@@ -931,6 +950,62 @@ egg::lang::Value egg::lang::IType::dotGet(IExecution& execution, const Value&, c
 egg::lang::Value egg::lang::IType::bracketsGet(IExecution& execution, const Value&, const Value&) const {
   // The default implementation is to return an error (only complex types support index-lookup)
   return execution.raiseFormat("Values of type '", this->toString(), "' do not support the indexing '[]'");
+}
+
+egg::lang::String egg::lang::ISignature::toString() const {
+  // TODO better formatting of named/variadic etc.
+  StringBuilder sb;
+  sb.add(this->getReturnType().toString(), " ", this->getFunctionName(), "(");
+  auto n = this->getParameterCount();
+  for (size_t i = 0; i < n; ++i) {
+    if (i > 0) {
+      sb.add(", ");
+    }
+    auto& parameter = this->getParameter(i);
+    assert(parameter.getPosition() != SIZE_MAX);
+    if (parameter.isVariadic()) {
+      sb.add("...");
+    } else {
+      sb.add(parameter.getType().toString());
+      auto pname = parameter.getName();
+      if (!pname.empty()) {
+        sb.add(" ", pname);
+      }
+      if (!parameter.isRequired()) {
+        sb.add(" = null");
+      }
+    }
+  }
+  sb.add(")");
+  return sb.str();
+}
+
+bool egg::lang::ISignature::validateCall(IExecution& execution, const IParameters& runtime, Value& problem) const {
+  // The default implementation just calls validateCallDefault()
+  return this->validateCallDefault(execution, runtime, problem);
+}
+
+bool egg::lang::ISignature::validateCallDefault(IExecution& execution, const IParameters& parameters, Value& problem) const {
+  // TODO type checking, etc
+  if (parameters.getNamedCount() > 0) {
+    problem = execution.raiseFormat(this->toString(), ": Named parameters are not yet supported"); // TODO
+    return false;
+  }
+  auto expected = this->getParameterCount();
+  auto actual = parameters.getPositionalCount();
+  if ((expected > 0) && this->getParameter(expected - 1).isVariadic()) {
+    // Variadic
+    expected--;
+    if (actual < expected) {
+      problem = execution.raiseFormat(this->toString(), ": At least ", expected, " parameter(s) were expected, not ", actual);
+      return false;
+    }
+  } else if (actual != expected) {
+    // Not variadic
+    problem = execution.raiseFormat(this->toString(), ": Exactly ", expected, " parameter(s) were expected, not ", actual);
+    return false;
+  }
+  return true;
 }
 
 egg::lang::Discriminator egg::lang::IType::getSimpleTypes() const {

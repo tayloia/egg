@@ -63,6 +63,9 @@ namespace {
     virtual egg::lang::Value promoteAssignment(egg::lang::IExecution& execution, const egg::lang::Value& rhs) const override {
       return execution.raiseFormat("TODO: Promotion of a value of type '", rhs.getRuntimeType().toString(), "' to a target of type '", this->toString(), "' is currently unimplemented"); // TODO
     }
+    virtual const egg::lang::ISignature* callable(egg::lang::IExecution&) const override {
+      EGG_THROW("TODO: Callable for 'EggParserTypeFunction' is currently unimplemented"); // TODO
+    }
     virtual egg::lang::Value decantParameters(egg::lang::IExecution& execution, const egg::lang::IParameters& supplied, Setter setter) const override {
       if (supplied.getNamedCount() > 0) {
         return execution.raiseFormat("Named parameters in function calls are not yet supported"); // TODO
