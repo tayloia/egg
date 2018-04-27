@@ -10,5 +10,5 @@ msvc/obj/
 gcc/bin/
 gcc/obj/
 
-# Notes
-auxiliary/*.xlsx
+# Keep but don't store in the repo
+keep/
