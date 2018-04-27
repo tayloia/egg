@@ -2,4 +2,4 @@ CXXFLAGS = -Og -DDEBUG -g
 ARFLAGS = -rcs
 LDFLAGS =
 
-include gcc/gcc-common.mak
+include make/gcc-common.mak

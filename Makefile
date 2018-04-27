@@ -2,10 +2,11 @@
 # PARAMETERS
 #############################################################################
 
+override PLATFORM ?= mingw
 override TOOLCHAIN ?= gcc
 override CONFIGURATION ?= release
 
-include $(TOOLCHAIN)/$(TOOLCHAIN)-$(CONFIGURATION).mak
+include make/$(PLATFORM).mak
 
 # We exclude these source files
 EXCLUDE_SRCS = cpp/main.cpp
@@ -42,8 +43,8 @@ directories = $(patsubst %,%.,$(sort $(dir $(1))))
 ECHO = @echo
 SUBMAKE = $(SILENT)+$(MAKE) --no-print-directory
 
-OBJ_ROOT = $(TOOLCHAIN)/obj
-BIN_ROOT = $(TOOLCHAIN)/bin
+OBJ_ROOT = $(PLATFORM)/$(TOOLCHAIN)/obj
+BIN_ROOT = $(PLATFORM)/$(TOOLCHAIN)/bin
 
 OBJ_DIR = $(OBJ_ROOT)/$(CONFIGURATION)
 BIN_DIR = $(BIN_ROOT)/$(CONFIGURATION)
@@ -73,7 +74,7 @@ default: all
 
 # We create dependency files (*.d) at the same time as compiling the source
 $(OBJ_DIR)/%.o: %.cpp
-	$(ECHO) Compiling $(CONFIGURATION) $<
+	$(ECHO) Compiling $(PLATFORM) $(TOOLCHAIN) $(CONFIGURATION) $<
 	$(call compile,$<,$(OBJ_DIR)/$*.o,$(OBJ_DIR)/$*.d)
 
 # Include the generated dependencies

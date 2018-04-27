@@ -7,8 +7,10 @@ msvc/LastCoverageResults.log
 # Output directories
 msvc/bin/
 msvc/obj/
-gcc/bin/
-gcc/obj/
+cygwin/gcc/bin/
+cygwin/gcc/obj/
+mingw/gcc/bin/
+mingw/gcc/obj/
 
 # Keep but don't store in the repo
 keep/

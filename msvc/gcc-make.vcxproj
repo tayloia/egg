@@ -134,10 +134,12 @@
       <Message Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Making with make/gcc...</Message>
       <Message Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Making with make/gcc...</Message>
     </CustomBuild>
-    <None Include="..\gcc\gcc-common.mak" />
-    <None Include="..\gcc\gcc-debug.mak" />
-    <None Include="..\gcc\gcc-release.mak" />
     <None Include="..\Makefile" />
+    <None Include="..\make\gcc-common.mak" />
+    <None Include="..\make\gcc-debug.mak" />
+    <None Include="..\make\gcc-release.mak" />
+    <None Include="..\make\mingw.mak" />
+    <None Include="..\make\windows.mak" />
     <None Include="..\runtest.cmd" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

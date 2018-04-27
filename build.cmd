@@ -15,11 +15,12 @@ where %GCC_EXE% 2>nul
 IF %errorlevel% neq 0 (
   if exist %MINGW%\%GCC_EXE% (
     set USING=Using MinGW
+    set MAKE_OPTIONS=PLATFORM=mingw %MAKE_OPTIONS%
     if not exist %MINGW%\%MAKE_EXE% set MAKE_EXE=mingw32-make.exe
     set PATH=%MINGW%
   ) else if exist %CYGWIN%\%GCC_EXE% (
     set USING=Using Cygwin
-    set MAKE_OPTIONS=%MAKE_OPTIONS%
+    set MAKE_OPTIONS=PLATFORM=cygwin %MAKE_OPTIONS%
     set PATH=%CYGWIN%
   ) else (
     echo %~nx0: Cygwin/MinGW not found: Giving up!
