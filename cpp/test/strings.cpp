@@ -325,6 +325,18 @@ TEST(TestStrings, Contains) {
   ASSERT_TRUE(egg::lang::String::fromUTF8("beggar").contains(egg::lang::String::fromUTF8("beggar")));
 }
 
+TEST(TestStrings, IndexOfCodePoint) {
+  ASSERT_EQ(-1, egg::lang::String::Empty.indexOfCodePoint(U'e'));
+  ASSERT_EQ(0, egg::lang::String::fromCodePoint('e').indexOfCodePoint(U'e'));
+  ASSERT_EQ(0, egg::lang::String::fromUTF8("egg").indexOfCodePoint(U'e'));
+  ASSERT_EQ(1, egg::lang::String::fromUTF8("beggar").indexOfCodePoint(U'e'));
+
+  ASSERT_EQ(-1, egg::lang::String::Empty.indexOfCodePoint(U'r'));
+  ASSERT_EQ(-1, egg::lang::String::fromCodePoint('e').indexOfCodePoint(U'r'));
+  ASSERT_EQ(-1, egg::lang::String::fromUTF8("egg").indexOfCodePoint(U'r'));
+  ASSERT_EQ(5, egg::lang::String::fromUTF8("beggar").indexOfCodePoint(U'r'));
+}
+
 TEST(TestStrings, IndexOfString) {
   ASSERT_EQ(0, egg::lang::String::Empty.indexOfString(egg::lang::String::Empty));
   ASSERT_EQ(-1, egg::lang::String::Empty.indexOfString(egg::lang::String::fromCodePoint('e')));

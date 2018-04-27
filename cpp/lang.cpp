@@ -154,6 +154,9 @@ namespace {
     virtual int32_t codePointAt(size_t index) const override {
       return (index == 0) ? int32_t(this->codepoint) : -1;
     }
+    virtual int64_t indexOfCodePoint(char32_t needle) const override {
+      return (this->codepoint == needle) ? 0 : -1;
+    }
     virtual int64_t indexOfString(const IString& needle) const override {
       switch (needle.length()) {
       case 0:
@@ -237,7 +240,23 @@ namespace {
     return true;
   }
 
-  inline int64_t indexOfNonEmptyString(const egg::lang::IString& haystack, const egg::lang::IString& needle) {
+  inline int64_t indexOfCodePointByIteration(const egg::lang::IString& haystack, char32_t needle) {
+    // Iterate around the haystack for the needle
+    assert(!haystack.empty());
+    egg::lang::StringIteration haystackIteration;
+    if (haystack.iterateFirst(haystackIteration)) {
+      int64_t index = 0;
+      do {
+        if (haystackIteration.codepoint == needle) {
+          return index;
+        }
+        index++;
+      } while (haystack.iterateNext(haystackIteration));
+    }
+    return -1; // Not found
+  }
+
+  inline int64_t indexOfStringByIteration(const egg::lang::IString& haystack, const egg::lang::IString& needle) {
     // Iterate around the haystack for the needle
     assert(!haystack.empty());
     assert(!needle.empty());
@@ -296,12 +315,17 @@ namespace {
       char32_t codepoint = 0;
       return reader.read(codepoint) ? int32_t(codepoint) : -1;
     }
+    virtual int64_t indexOfCodePoint(char32_t needle) const override {
+      return indexOfCodePointByIteration(*this, needle);
+    }
     virtual int64_t indexOfString(const IString& needle) const override {
       switch (needle.length()) {
       case 0:
         return 0;
+      case 1:
+        return indexOfCodePointByIteration(*this, char32_t(needle.codePointAt(0)));
       }
-      return indexOfNonEmptyString(*this, needle);
+      return indexOfStringByIteration(*this, needle);
     }
     virtual std::string toUTF8() const override {
       return this->utf8;
@@ -359,6 +383,9 @@ namespace {
       return !other.empty();
     }
     virtual int32_t codePointAt(size_t) const override {
+      return -1;
+    }
+    virtual int64_t indexOfCodePoint(char32_t) const override {
       return -1;
     }
     virtual int64_t indexOfString(const IString& needle) const override {
