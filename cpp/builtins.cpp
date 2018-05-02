@@ -187,6 +187,18 @@ namespace {
     }
   };
 
+  class StringHashCode : public BuiltinType {
+    EGG_NO_COPY(StringHashCode);
+  public:
+    StringHashCode()
+      : BuiltinType("string.hashCode", Type::Int) {
+    }
+    Value executeCall(IExecution&, const String& instance, const IParameters&) const {
+      // int hash()
+      return Value{ instance.hashCode() };
+    }
+  };
+
   class StringContains : public BuiltinType {
     EGG_NO_COPY(StringContains);
   public:
@@ -208,7 +220,7 @@ namespace {
     EGG_NO_COPY(StringCompare);
   public:
     StringCompare()
-      : BuiltinType("string.compare", Type::Bool) {
+      : BuiltinType("string.compare", Type::Int) {
       this->addPositionalParameter("needle", Type::String);
     }
     Value executeCall(IExecution& execution, const String& instance, const IParameters& parameters) const {
@@ -258,7 +270,6 @@ namespace {
 
 egg::lang::Value egg::lang::String::builtin(egg::lang::IExecution& execution, const egg::lang::String& property) const {
   // See http://chilliant.blogspot.co.uk/2018/05/egg-strings.html
-  //  bool endsWith(string needle)
   //  int hash()
   //  int? indexOf(string needle, int? from_index, int? count, bool? negate)
   //  string join(...)
@@ -285,6 +296,9 @@ egg::lang::Value egg::lang::String::builtin(egg::lang::IExecution& execution, co
   if (name == "length") {
     // This result is the actual length, not a function computing it
     return Value{ int64_t(this->length()) };
+  }
+  if (name == "hashCode") {
+    return StringBuiltin<StringHashCode>::make(*this);
   }
   if (name == "contains") {
     return StringBuiltin<StringContains>::make(*this);

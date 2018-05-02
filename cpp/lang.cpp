@@ -188,6 +188,9 @@ namespace {
       }
       return false;
     }
+    virtual int64_t hashCode() const override {
+      return int64_t(this->codepoint);
+    }
     virtual int32_t codePointAt(size_t index) const override {
       return (index == 0) ? int32_t(this->codepoint) : -1;
     }
@@ -404,6 +407,17 @@ namespace {
       }
       return false; // Malformed
     }
+    virtual int64_t hashCode() const override {
+      // See https://docs.oracle.com/javase/6/docs/api/java/lang/String.html#hashCode()
+      int64_t hash = 0;
+      egg::lang::StringIteration iteration;
+      if (this->iterateFirst(iteration)) {
+        do {
+          hash = hash * 31 + int64_t(uint32_t(iteration.codepoint));
+        } while (this->iterateNext(iteration));
+      }
+      return hash;
+    }
     virtual int32_t codePointAt(size_t index) const override {
       egg::utf::utf8_reader reader(this->utf8);
       while (index--) {
@@ -489,6 +503,9 @@ namespace {
     }
     virtual bool endsWith(const IString& needle) const override {
       return needle.empty();
+    }
+    virtual int64_t hashCode() const override {
+      return 0;
     }
     virtual int32_t codePointAt(size_t) const override {
       return -1;

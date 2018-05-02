@@ -1,3 +1,6 @@
+print("egg".hashCode() != "beggar".hashCode); // Highly improbable
+///>true
+
 print("beggar".contains("egg"));
 ///>true
 print("egg".contains("beggar"));

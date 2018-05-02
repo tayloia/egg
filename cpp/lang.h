@@ -96,6 +96,7 @@ namespace egg::lang {
     virtual bool empty() const = 0;
     virtual bool equal(const IString& other) const = 0;
     virtual bool less(const IString& other) const = 0;
+    virtual int64_t hashCode() const = 0;
     virtual int64_t compare(const IString& other) const = 0;
     virtual bool startsWith(const IString& other) const = 0;
     virtual bool endsWith(const IString& other) const = 0;
@@ -253,6 +254,9 @@ namespace egg::lang {
     }
     bool empty() const {
       return this->get()->empty();
+    }
+    int64_t hashCode() const {
+      return this->get()->hashCode();
     }
     int32_t codePointAt(size_t index) const {
       return this->get()->codePointAt(index);
