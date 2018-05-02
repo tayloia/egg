@@ -353,6 +353,11 @@ TEST(TestStrings, IndexOfCodePoint) {
   ASSERT_EQ(0, egg::lang::String::fromUTF8("egg").indexOfCodePoint(U'e'));
   ASSERT_EQ(1, egg::lang::String::fromUTF8("beggar").indexOfCodePoint(U'e'));
 
+  ASSERT_EQ(-1, egg::lang::String::Empty.indexOfCodePoint(U'g'));
+  ASSERT_EQ(-1, egg::lang::String::fromCodePoint('e').indexOfCodePoint(U'g'));
+  ASSERT_EQ(1, egg::lang::String::fromUTF8("egg").indexOfCodePoint(U'g'));
+  ASSERT_EQ(2, egg::lang::String::fromUTF8("beggar").indexOfCodePoint(U'g'));
+
   ASSERT_EQ(-1, egg::lang::String::Empty.indexOfCodePoint(U'r'));
   ASSERT_EQ(-1, egg::lang::String::fromCodePoint('e').indexOfCodePoint(U'r'));
   ASSERT_EQ(-1, egg::lang::String::fromUTF8("egg").indexOfCodePoint(U'r'));
@@ -362,21 +367,68 @@ TEST(TestStrings, IndexOfCodePoint) {
 TEST(TestStrings, IndexOfString) {
   ASSERT_EQ(0, egg::lang::String::Empty.indexOfString(egg::lang::String::Empty));
   ASSERT_EQ(-1, egg::lang::String::Empty.indexOfString(egg::lang::String::fromCodePoint('e')));
+  ASSERT_EQ(-1, egg::lang::String::Empty.indexOfString(egg::lang::String::fromCodePoint('g')));
   ASSERT_EQ(-1, egg::lang::String::Empty.indexOfString(egg::lang::String::fromUTF8("egg")));
   ASSERT_EQ(-1, egg::lang::String::Empty.indexOfString(egg::lang::String::fromUTF8("beggar")));
 
   ASSERT_EQ(0, egg::lang::String::fromCodePoint('e').indexOfString(egg::lang::String::Empty));
   ASSERT_EQ(0, egg::lang::String::fromCodePoint('e').indexOfString(egg::lang::String::fromCodePoint('e')));
+  ASSERT_EQ(-1, egg::lang::String::fromCodePoint('e').indexOfString(egg::lang::String::fromCodePoint('g')));
   ASSERT_EQ(-1, egg::lang::String::fromCodePoint('e').indexOfString(egg::lang::String::fromUTF8("egg")));
   ASSERT_EQ(-1, egg::lang::String::fromCodePoint('e').indexOfString(egg::lang::String::fromUTF8("beggar")));
 
   ASSERT_EQ(0, egg::lang::String::fromUTF8("egg").indexOfString(egg::lang::String::Empty));
   ASSERT_EQ(0, egg::lang::String::fromUTF8("egg").indexOfString(egg::lang::String::fromCodePoint('e')));
+  ASSERT_EQ(1, egg::lang::String::fromUTF8("egg").indexOfString(egg::lang::String::fromCodePoint('g')));
   ASSERT_EQ(0, egg::lang::String::fromUTF8("egg").indexOfString(egg::lang::String::fromUTF8("egg")));
   ASSERT_EQ(-1, egg::lang::String::fromUTF8("egg").indexOfString(egg::lang::String::fromUTF8("beggar")));
 
   ASSERT_EQ(0, egg::lang::String::fromUTF8("beggar").indexOfString(egg::lang::String::Empty));
   ASSERT_EQ(1, egg::lang::String::fromUTF8("beggar").indexOfString(egg::lang::String::fromCodePoint('e')));
+  ASSERT_EQ(2, egg::lang::String::fromUTF8("beggar").indexOfString(egg::lang::String::fromCodePoint('g')));
   ASSERT_EQ(1, egg::lang::String::fromUTF8("beggar").indexOfString(egg::lang::String::fromUTF8("egg")));
   ASSERT_EQ(0, egg::lang::String::fromUTF8("beggar").indexOfString(egg::lang::String::fromUTF8("beggar")));
+}
+
+TEST(TestStrings, LastIndexOfCodePoint) {
+  ASSERT_EQ(-1, egg::lang::String::Empty.lastIndexOfCodePoint(U'e'));
+  ASSERT_EQ(0, egg::lang::String::fromCodePoint('e').lastIndexOfCodePoint(U'e'));
+  ASSERT_EQ(0, egg::lang::String::fromUTF8("egg").lastIndexOfCodePoint(U'e'));
+  ASSERT_EQ(1, egg::lang::String::fromUTF8("beggar").lastIndexOfCodePoint(U'e'));
+
+  ASSERT_EQ(-1, egg::lang::String::Empty.lastIndexOfCodePoint(U'g'));
+  ASSERT_EQ(-1, egg::lang::String::fromCodePoint('e').lastIndexOfCodePoint(U'g'));
+  ASSERT_EQ(2, egg::lang::String::fromUTF8("egg").lastIndexOfCodePoint(U'g'));
+  ASSERT_EQ(3, egg::lang::String::fromUTF8("beggar").lastIndexOfCodePoint(U'g'));
+
+  ASSERT_EQ(-1, egg::lang::String::Empty.lastIndexOfCodePoint(U'r'));
+  ASSERT_EQ(-1, egg::lang::String::fromCodePoint('e').lastIndexOfCodePoint(U'r'));
+  ASSERT_EQ(-1, egg::lang::String::fromUTF8("egg").lastIndexOfCodePoint(U'r'));
+  ASSERT_EQ(5, egg::lang::String::fromUTF8("beggar").lastIndexOfCodePoint(U'r'));
+}
+
+TEST(TestStrings, LastIndexOfString) {
+  ASSERT_EQ(0, egg::lang::String::Empty.lastIndexOfString(egg::lang::String::Empty));
+  ASSERT_EQ(-1, egg::lang::String::Empty.lastIndexOfString(egg::lang::String::fromCodePoint('e')));
+  ASSERT_EQ(-1, egg::lang::String::Empty.lastIndexOfString(egg::lang::String::fromCodePoint('g')));
+  ASSERT_EQ(-1, egg::lang::String::Empty.lastIndexOfString(egg::lang::String::fromUTF8("egg")));
+  ASSERT_EQ(-1, egg::lang::String::Empty.lastIndexOfString(egg::lang::String::fromUTF8("beggar")));
+
+  ASSERT_EQ(0, egg::lang::String::fromCodePoint('e').lastIndexOfString(egg::lang::String::Empty));
+  ASSERT_EQ(0, egg::lang::String::fromCodePoint('e').lastIndexOfString(egg::lang::String::fromCodePoint('e')));
+  ASSERT_EQ(-1, egg::lang::String::fromCodePoint('e').lastIndexOfString(egg::lang::String::fromCodePoint('g')));
+  ASSERT_EQ(-1, egg::lang::String::fromCodePoint('e').lastIndexOfString(egg::lang::String::fromUTF8("egg")));
+  ASSERT_EQ(-1, egg::lang::String::fromCodePoint('e').lastIndexOfString(egg::lang::String::fromUTF8("beggar")));
+
+  ASSERT_EQ(0, egg::lang::String::fromUTF8("egg").lastIndexOfString(egg::lang::String::Empty));
+  ASSERT_EQ(0, egg::lang::String::fromUTF8("egg").lastIndexOfString(egg::lang::String::fromCodePoint('e')));
+  ASSERT_EQ(2, egg::lang::String::fromUTF8("egg").lastIndexOfString(egg::lang::String::fromCodePoint('g')));
+  ASSERT_EQ(0, egg::lang::String::fromUTF8("egg").lastIndexOfString(egg::lang::String::fromUTF8("egg")));
+  ASSERT_EQ(-1, egg::lang::String::fromUTF8("egg").lastIndexOfString(egg::lang::String::fromUTF8("beggar")));
+
+  ASSERT_EQ(0, egg::lang::String::fromUTF8("beggar").lastIndexOfString(egg::lang::String::Empty));
+  ASSERT_EQ(1, egg::lang::String::fromUTF8("beggar").lastIndexOfString(egg::lang::String::fromCodePoint('e')));
+  ASSERT_EQ(3, egg::lang::String::fromUTF8("beggar").lastIndexOfString(egg::lang::String::fromCodePoint('g')));
+  ASSERT_EQ(1, egg::lang::String::fromUTF8("beggar").lastIndexOfString(egg::lang::String::fromUTF8("egg")));
+  ASSERT_EQ(0, egg::lang::String::fromUTF8("beggar").lastIndexOfString(egg::lang::String::fromUTF8("beggar")));
 }

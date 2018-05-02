@@ -157,6 +157,8 @@ namespace egg::utf {
     static size_t getSizeFromLead(uint8_t lead) {
       if (lead < 0x80) {
         return 1;
+      } else if (lead < 0xC0) {
+        return SIZE_MAX; // Continuation byte
       } else if (lead < 0xE0) {
         return 2;
       } else if (lead < 0xF0) {
@@ -191,47 +193,64 @@ namespace egg::utf {
     }
     bool step() {
       // Return true iff there's a valid codepoint sequence next
-      if (this->p < this->end) {
-        if (*this->p < 0x80) {
+      if (this->p > this->begin) {
+        if (*--this->p < 0x80) {
           // Fast code path for ASCII
-          this->p++;
           return true;
         }
-        auto remaining = size_t(this->end - this->p);
-        auto length = utf8_reader::getSizeFromLead(*this->p);
-        if (length > remaining) {
-          // Truncated
+        size_t length = 1;
+        while ((*this->p & 0xC0) == 0x80) {
+          // Continuation byte
+          if (this->p <= this->begin) {
+            // Malformed, but make sure 'done()' returns false
+            this->p++;
+            return false;
+          }
+          this->p--;
+          length++;
+        }
+        if (length != utf8_reader::getSizeFromLead(*this->p)) {
+          // Malformed, but make sure 'done()' returns false
+          this->p++;
           return false;
         }
-        this->p += length;
         return true;
       }
       return false;
     }
     bool read(char32_t& codepoint) {
       // Return true iff there's a valid codepoint sequence next
-      if (this->p < this->end) {
-        if (*this->p < 0x80) {
+      if (this->p > this->begin) {
+        if (*--this->p < 0x80) {
           // Fast code path for ASCII
-          codepoint = *this->p++;
+          codepoint = *this->p;
           return true;
         }
-        auto remaining = size_t(this->end - this->p);
-        auto length = utf8_reader::getSizeFromLead(*this->p);
-        if (length > remaining) {
-          // Truncated
+        size_t length = 1;
+        while ((*this->p & 0xC0) == 0x80) {
+          // Continuation byte
+          if (this->p <= this->begin) {
+            // Malformed, but make sure 'done()' returns false
+            this->p++;
+            return false;
+          }
+          this->p--;
+          length++;
+        }
+        if (length != utf8_reader::getSizeFromLead(*this->p)) {
+          // Malformed, but make sure 'done()' returns false
+          this->p++;
           return false;
         }
-        if (utf8_to_utf32(codepoint, this->p, length)) {
-          this->p += length;
-          return true;
-        }
+        // OPTIMIZE
+        (void)utf8_to_utf32(codepoint, this->p, length);
+        return true;
       }
       return false;
     }
     bool done() const {
       // Return true iff we've exhausted the input
-      return this->p >= this->end;
+      return this->p <= this->begin;
     }
     size_t getIterationInternal() const {
       // Fetch the offset used in egg::lang::StringIteration::internal

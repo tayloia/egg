@@ -103,6 +103,8 @@ namespace egg::lang {
     virtual int32_t codePointAt(size_t index) const = 0;
     virtual int64_t indexOfCodePoint(char32_t codepoint) const = 0;
     virtual int64_t indexOfString(const IString& needle) const = 0;
+    virtual int64_t lastIndexOfCodePoint(char32_t codepoint) const = 0;
+    virtual int64_t lastIndexOfString(const IString& needle) const = 0;
     virtual std::string toUTF8() const = 0;
 
     // Iteration
@@ -287,6 +289,12 @@ namespace egg::lang {
     }
     int64_t indexOfString(const String& needle) const {
       return this->get()->indexOfString(*needle);
+    }
+    int64_t lastIndexOfCodePoint(char32_t needle) const {
+      return this->get()->lastIndexOfCodePoint(needle);
+    }
+    int64_t lastIndexOfString(const String& needle) const {
+      return this->get()->lastIndexOfString(*needle);
     }
     // Built-ins
     Value builtin(IExecution& execution, const String& property) const;

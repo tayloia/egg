@@ -1,6 +1,9 @@
 print("egg".hashCode() != "beggar".hashCode); // Highly improbable
 ///>true
 
+print("egg".toString());
+///>egg
+
 print("beggar".contains("egg"));
 ///>true
 print("egg".contains("beggar"));
@@ -20,5 +23,16 @@ print("egg".startsWith("ee"));
 
 print("beggar".endsWith("r"));
 ///>true
-print("beggar".startsWith("egg"));
+print("beggar".endsWith("egg"));
 ///>false
+
+print("beggar".indexOf("egg"));
+///>1
+print("beggar".indexOf("spoon"));
+///>null
+
+print("beggar".lastIndexOf("g"));
+///>3
+print("beggar".lastIndexOf("egg"));
+///>1
+

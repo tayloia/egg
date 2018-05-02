@@ -206,6 +206,18 @@ namespace {
       }
       return -1;
     }
+    virtual int64_t lastIndexOfCodePoint(char32_t needle) const override {
+      return (this->codepoint == needle) ? 0 : -1;
+    }
+    virtual int64_t lastIndexOfString(const IString& needle) const override {
+      switch (needle.length()) {
+      case 0:
+        return 0;
+      case 1:
+        return (int32_t(this->codepoint) == needle.codePointAt(0)) ? 0 : -1;
+      }
+      return -1;
+    }
     virtual std::string toUTF8() const override {
       return egg::utf::to_utf8(this->codepoint);
     }
@@ -333,6 +345,41 @@ namespace {
     return -1; // Not found
   }
 
+  inline int64_t lastIndexOfCodePointByIteration(const egg::lang::IString& haystack, char32_t needle) {
+    // Iterate around the haystack for the needle from back-to-front
+    assert(!haystack.empty());
+    egg::lang::StringIteration haystackIteration;
+    if (haystack.iterateLast(haystackIteration)) {
+      auto index = int64_t(haystack.length()) - 1;
+      do {
+        if (haystackIteration.codepoint == needle) {
+          return index;
+        }
+        index--;
+      } while (haystack.iteratePrevious(haystackIteration));
+    }
+    return -1; // Not found
+  }
+
+  inline int64_t lastIndexOfStringByIteration(const egg::lang::IString& haystack, const egg::lang::IString& needle) {
+    // Iterate around the haystack for the needle
+    assert(!haystack.empty());
+    assert(!needle.empty());
+    egg::lang::StringIteration haystackIteration;
+    egg::lang::StringIteration needleIteration;
+    if (haystack.iterateFirst(haystackIteration) && needle.iterateFirst(needleIteration)) {
+      auto needleLength = needle.length();
+      int64_t index = 0;
+      do {
+        if ((haystackIteration.codepoint == needleIteration.codepoint) && iterationMatch(haystack, haystackIteration, needle, needleIteration, needleLength)) {
+          return index;
+        }
+        index++;
+      } while (haystack.iterateNext(haystackIteration));
+    }
+    return -1; // Not found
+  }
+
   class StringBufferUTF8 : public egg::gc::HardReferenceCounted<egg::lang::IString> {
     EGG_NO_COPY(StringBufferUTF8);
   private:
@@ -440,6 +487,18 @@ namespace {
       }
       return indexOfStringByIteration(*this, needle);
     }
+    virtual int64_t lastIndexOfCodePoint(char32_t needle) const override {
+      return lastIndexOfCodePointByIteration(*this, needle);
+    }
+    virtual int64_t lastIndexOfString(const IString& needle) const override {
+      switch (needle.length()) {
+      case 0:
+        return 0;
+      case 1:
+        return lastIndexOfCodePointByIteration(*this, char32_t(needle.codePointAt(0)));
+      }
+      return lastIndexOfStringByIteration(*this, needle);
+    }
     virtual std::string toUTF8() const override {
       return this->utf8;
     }
@@ -514,6 +573,12 @@ namespace {
       return -1;
     }
     virtual int64_t indexOfString(const IString& needle) const override {
+      return needle.empty() ? 0 : -1;
+    }
+    virtual int64_t lastIndexOfCodePoint(char32_t) const override {
+      return -1;
+    }
+    virtual int64_t lastIndexOfString(const IString& needle) const override {
       return needle.empty() ? 0 : -1;
     }
     virtual std::string toUTF8() const override {

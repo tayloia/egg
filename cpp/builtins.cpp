@@ -194,8 +194,20 @@ namespace {
       : BuiltinType("string.hashCode", Type::Int) {
     }
     Value executeCall(IExecution&, const String& instance, const IParameters&) const {
-      // int hash()
+      // int hashCode()
       return Value{ instance.hashCode() };
+    }
+  };
+
+  class StringToString : public BuiltinType {
+    EGG_NO_COPY(StringToString);
+  public:
+    StringToString()
+      : BuiltinType("string.toString", Type::String) {
+    }
+    Value executeCall(IExecution&, const String& instance, const IParameters&) const {
+      // string toString()
+      return Value{ instance };
     }
   };
 
@@ -203,7 +215,7 @@ namespace {
     EGG_NO_COPY(StringContains);
   public:
     StringContains()
-      : BuiltinType("string.compare", Type::Bool) {
+      : BuiltinType("string.contains", Type::Bool) {
       this->addPositionalParameter("needle", Type::String);
     }
     Value executeCall(IExecution& execution, const String& instance, const IParameters& parameters) const {
@@ -266,31 +278,56 @@ namespace {
       return Value{ instance.endsWith(needle.getString()) };
     }
   };
+
+  class StringIndexOf : public BuiltinType {
+    EGG_NO_COPY(StringIndexOf);
+  public:
+    StringIndexOf()
+      : BuiltinType("string.indexOf", Type::makeSimple(Discriminator::Int | Discriminator::Null)) {
+      this->addPositionalParameter("needle", Type::String);
+    }
+    Value executeCall(IExecution& execution, const String& instance, const IParameters& parameters) const {
+      // TODO int? indexOf(string needle, int? fromIndex, int? count, bool? negate)
+      auto needle = parameters.getPositional(0);
+      if (!needle.is(Discriminator::String)) {
+        return this->raise(execution, "First parameter was expected to be a 'string', not '", needle.getRuntimeType().toString(), "'");
+      }
+      auto index = instance.indexOfString(needle.getString());
+      return (index < 0) ? Value::Null : Value{ index };
+    }
+  };
+
+  class StringLastIndexOf : public BuiltinType {
+    EGG_NO_COPY(StringLastIndexOf);
+  public:
+    StringLastIndexOf()
+      : BuiltinType("string.lastIndexOf", Type::makeSimple(Discriminator::Int | Discriminator::Null)) {
+      this->addPositionalParameter("needle", Type::String);
+    }
+    Value executeCall(IExecution& execution, const String& instance, const IParameters& parameters) const {
+      // TODO int? indexOf(string needle, int? fromIndex, int? count, bool? negate)
+      auto needle = parameters.getPositional(0);
+      if (!needle.is(Discriminator::String)) {
+        return this->raise(execution, "First parameter was expected to be a 'string', not '", needle.getRuntimeType().toString(), "'");
+      }
+      auto index = instance.lastIndexOfString(needle.getString());
+      return (index < 0) ? Value::Null : Value{ index };
+    }
+  };
 }
 
 egg::lang::Value egg::lang::String::builtin(egg::lang::IExecution& execution, const egg::lang::String& property) const {
   // See http://chilliant.blogspot.co.uk/2018/05/egg-strings.html
-  //  int hash()
-  //  int? indexOf(string needle, int? from_index, int? count, bool? negate)
+  //  int? lastIndexOf(string needle, int? fromIndex, int? count, bool? negate)
   //  string join(...)
-  //  int? lastIndexOf(string needle, int? from_index, int? count, bool? negate)
   //  string padLeft(int length, string? padding)
   //  string padRight(int length, string? padding)
   //  string repeat(int count)
-  //  string replace(string needle, string replacement, int? max_occurrences)
+  //  string replace(string needle, string replacement, int? maxOccurrences)
   //  string slice(int? begin, int? end)
   //  string split(string separator, int? limit)
-  //  
   //  string toString()
-  // Missing
-  //  format
-  //  lowercase
-  //  uppercase
-  //  trim
-  //  trimLeft
-  //  trimRight
-  //  reverse
-  //  codePointAt
+
   // OPTIMIZE
   auto name = property.toUTF8();
   if (name == "length") {
@@ -299,6 +336,9 @@ egg::lang::Value egg::lang::String::builtin(egg::lang::IExecution& execution, co
   }
   if (name == "hashCode") {
     return StringBuiltin<StringHashCode>::make(*this);
+  }
+  if (name == "toString") {
+    return StringBuiltin<StringToString>::make(*this);
   }
   if (name == "contains") {
     return StringBuiltin<StringContains>::make(*this);
@@ -311,6 +351,12 @@ egg::lang::Value egg::lang::String::builtin(egg::lang::IExecution& execution, co
   }
   if (name == "endsWith") {
     return StringBuiltin<StringEndsWith>::make(*this);
+  }
+  if (name == "indexOf") {
+    return StringBuiltin<StringIndexOf>::make(*this);
+  }
+  if (name == "lastIndexOf") {
+    return StringBuiltin<StringLastIndexOf>::make(*this);
   }
   return execution.raiseFormat("Unknown property for type 'string': '", property, "'");
 }
