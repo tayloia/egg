@@ -151,6 +151,43 @@ namespace {
       auto diff = int32_t(this->codepoint) - cp;
       return diff < threshold;
     }
+    virtual int64_t compare(const IString& other) const override {
+      if (other.empty()) {
+        return +1;
+      }
+      auto cp = other.codePointAt(0);
+      assert(cp >= 0);
+      auto diff = int32_t(this->codepoint) - cp;
+      if (diff < 0) {
+        return -1;
+      }
+      if (diff > 0) {
+        return +1;
+      }
+      return (other.length() > 1) ? -1 : 0;
+    }
+    virtual bool startsWith(const IString& needle) const override {
+      switch (needle.length()) {
+      case 0:
+        return true;
+      case 1:
+        auto cp = needle.codePointAt(0);
+        assert(cp >= 0);
+        return int32_t(this->codepoint) == cp;
+      }
+      return false;
+    }
+    virtual bool endsWith(const IString& needle) const override {
+      switch (needle.length()) {
+      case 0:
+        return true;
+      case 1:
+        auto cp = needle.codePointAt(0);
+        assert(cp >= 0);
+        return int32_t(this->codepoint) == cp;
+      }
+      return false;
+    }
     virtual int32_t codePointAt(size_t index) const override {
       return (index == 0) ? int32_t(this->codepoint) : -1;
     }
@@ -189,12 +226,11 @@ namespace {
     }
   };
 
-  inline bool iterationEqual(const egg::lang::IString& lhs, const egg::lang::IString& rhs, size_t count) {
+  inline bool iterationEqualStarted(egg::lang::StringIteration& lhsIteration, const egg::lang::IString& lhs, const egg::lang::IString& rhs, size_t count) {
     // Check for equality using iteration
     assert(count > 0);
-    egg::lang::StringIteration lhsIteration;
     egg::lang::StringIteration rhsIteration;
-    if (lhs.iterateFirst(lhsIteration) && rhs.iterateFirst(rhsIteration)) {
+    if (rhs.iterateFirst(rhsIteration)) {
       while (lhsIteration.codepoint == rhsIteration.codepoint) {
         if (--count == 0) {
           return true;
@@ -204,15 +240,24 @@ namespace {
         }
       }
     }
-    return false; // Not equal
+    return false; // Malformed or not equal
   }
 
-  inline int iterationCompare(const egg::lang::IString& lhs, const egg::lang::IString& rhs, size_t count) {
-    // Less/equal/greater comparison using iteration
+  inline bool iterationEqual(const egg::lang::IString& lhs, const egg::lang::IString& rhs, size_t count) {
+    // Check for equality using iteration
     assert(count > 0);
     egg::lang::StringIteration lhsIteration;
+    if (lhs.iterateFirst(lhsIteration)) {
+      return iterationEqualStarted(lhsIteration, lhs, rhs, count);
+    }
+    return false; // Malformed or not equal
+  }
+
+  inline int iterationCompareStarted(egg::lang::StringIteration& lhsIteration, const egg::lang::IString& lhs, const egg::lang::IString& rhs, size_t count) {
+    // Less/equal/greater comparison using iteration
+    assert(count > 0);
     egg::lang::StringIteration rhsIteration;
-    if (lhs.iterateFirst(lhsIteration) && rhs.iterateFirst(rhsIteration)) {
+    if (rhs.iterateFirst(rhsIteration)) {
       while (lhsIteration.codepoint == rhsIteration.codepoint) {
         if (--count == 0) {
           return 0;
@@ -222,6 +267,16 @@ namespace {
         }
       }
       return (lhsIteration.codepoint < rhsIteration.codepoint) ? -1 : 1;
+    }
+    return 2; // Malformed
+  }
+
+  inline int iterationCompare(const egg::lang::IString& lhs, const egg::lang::IString& rhs, size_t count) {
+    // Less/equal/greater comparison using iteration
+    assert(count > 0);
+    egg::lang::StringIteration lhsIteration;
+    if (lhs.iterateFirst(lhsIteration)) {
+      return iterationCompareStarted(lhsIteration, lhs, rhs, count);
     }
     return 2; // Malformed
   }
@@ -305,6 +360,50 @@ namespace {
       }
       return iterationCompare(*this, rhs, this->codepoints) <= 0;
     }
+    virtual int64_t compare(const IString& rhs) const override {
+      auto rhsLength = rhs.length();
+      if (rhsLength > this->codepoints) {
+        int retval = iterationCompare(*this, rhs, this->codepoints);
+        return (retval == 0) ? -1 : retval;
+      }
+      if (rhsLength < this->codepoints) {
+        if (rhsLength == 0) {
+          return +1;
+        }
+        int retval = iterationCompare(*this, rhs, rhsLength);
+        return (retval == 0) ? +1 : retval;
+      }
+      return iterationCompare(*this, rhs, rhsLength);
+    }
+    virtual bool startsWith(const IString& needle) const override {
+      auto needleLength = needle.length();
+      if (needleLength == 0) {
+        return true;
+      }
+      if (needleLength > this->codepoints) {
+        return false;
+      }
+      return iterationEqual(*this, needle, needleLength);
+    }
+    virtual bool endsWith(const IString& needle) const override {
+      auto needleLength = needle.length();
+      if (needleLength == 0) {
+        return true;
+      }
+      if (needleLength > this->codepoints) {
+        return false;
+      }
+      egg::lang::StringIteration iteration;
+      if (this->iterateFirst(iteration)) {
+        for (auto skip = this->codepoints - needleLength; skip > 0; --skip) {
+          if (!this->iterateNext(iteration)) {
+            return false; // Malformed
+          }
+        }
+        return iterationEqualStarted(iteration, *this, needle, needleLength);
+      }
+      return false; // Malformed
+    }
     virtual int32_t codePointAt(size_t index) const override {
       egg::utf::utf8_reader reader(this->utf8);
       while (index--) {
@@ -381,6 +480,15 @@ namespace {
     }
     virtual bool less(const IString& other) const override {
       return !other.empty();
+    }
+    virtual int64_t compare(const IString& other) const override {
+      return other.empty() ? 0 : -1;
+    }
+    virtual bool startsWith(const IString& needle) const override {
+      return needle.empty();
+    }
+    virtual bool endsWith(const IString& needle) const override {
+      return needle.empty();
     }
     virtual int32_t codePointAt(size_t) const override {
       return -1;

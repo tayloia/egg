@@ -80,10 +80,10 @@ namespace {
       return this->signature.toString();
     }
     virtual Value canAlwaysAssignFrom(IExecution& execution, const IType&) const override {
-      return execution.raiseFormat("Cannot re-assign built-in function '", this->getName(), "'");
+      return this->raise(execution, "Cannot re-assign built-in function");
     }
     virtual Value promoteAssignment(IExecution& execution, const Value&) const override {
-      return execution.raiseFormat("Cannot re-assign built-in function '", this->getName(), "'");
+      return this->raise(execution, "Cannot re-assign built-in function");
     }
     virtual const ISignature* callable(IExecution&) const override {
       return &this->signature;
@@ -99,12 +99,18 @@ namespace {
       }
       return Value::Void;
     };
+    template<typename... ARGS>
+    Value raise(IExecution& execution, ARGS&&... args) const {
+      // Use perfect forwarding to the constructor
+      return execution.raiseFormat(this->signature.getFunctionName(), ": ", std::forward<ARGS>(args)...);
+    }
   };
 
+  template<typename T>
   class Builtin : public egg::gc::NotReferenceCounted<IObject> {
     EGG_NO_COPY(Builtin);
   protected:
-    BuiltinType type;
+    T type;
   public:
     Builtin(const std::string& name, const ITypeRef& returnType)
       : type(name, returnType) {
@@ -122,7 +128,7 @@ namespace {
     }
   };
 
-  class Print : public Builtin {
+  class Print : public Builtin<BuiltinType> {
     EGG_NO_COPY(Print);
   public:
     Print()
@@ -145,13 +151,14 @@ namespace {
     }
   };
 
+  template<typename T>
   class StringBuiltin : public egg::gc::HardReferenceCounted<IObject> {
     EGG_NO_COPY(StringBuiltin);
   protected:
     String instance;
-    const BuiltinType* type;
+    const T* type;
   public:
-    StringBuiltin(const String& instance, const BuiltinType& type)
+    StringBuiltin(const String& instance, const T& type)
       : HardReferenceCounted(0), instance(instance), type(&type) {
     }
   public:
@@ -166,46 +173,91 @@ namespace {
       // Fetch the runtime type
       return Value(*this->type);
     }
-    template<typename T>
+    virtual Value call(IExecution& execution, const IParameters& parameters) override {
+      // Let the string builtin type handle the request
+      Value validation = this->type->validateCall(execution, parameters);
+      if (validation.has(Discriminator::FlowControl)) {
+        return validation;
+      }
+      return this->type->executeCall(execution, this->instance, parameters);
+    }
     static Value make(const String& instance) {
-      static const BuiltinType& typeInstance = T::makeType();
-      return Value::make<T>(instance, typeInstance);
+      static const T typeInstance{};
+      return Value::make<StringBuiltin<T>>(instance, typeInstance);
     }
   };
 
-  class StringContains : public StringBuiltin {
+  class StringContains : public BuiltinType {
     EGG_NO_COPY(StringContains);
   public:
-    StringContains(const String& instance, const BuiltinType& type) : StringBuiltin(instance, type) {}
-    virtual Value call(IExecution& execution, const IParameters& parameters) override {
-      Value result = this->type->validateCall(execution, parameters);
-      if (result.has(Discriminator::FlowControl)) {
-        return result;
-      }
+    StringContains()
+      : BuiltinType("string.compare", Type::Bool) {
+      this->addPositionalParameter("needle", Type::String);
+    }
+    Value executeCall(IExecution& execution, const String& instance, const IParameters& parameters) const {
+      // bool contains(string needle)
       auto needle = parameters.getPositional(0);
       if (!needle.is(Discriminator::String)) {
-        return execution.raiseFormat("string.contains(): Parameter was expected to be a 'string', not '", needle.getRuntimeType().toString(), "'");
+        return this->raise(execution, "Parameter was expected to be a 'string', not '", needle.getRuntimeType().toString(), "'");
       }
-      return Value{ this->instance.contains(needle.getString()) };
+      return Value{ instance.contains(needle.getString()) };
     }
-    static const BuiltinType& makeType() {
-      static BuiltinType instance("string.contains", Type::Bool);
-      instance.addPositionalParameter("needle", Type::String);
-      return instance;
+  };
+
+  class StringCompare : public BuiltinType {
+    EGG_NO_COPY(StringCompare);
+  public:
+    StringCompare()
+      : BuiltinType("string.compare", Type::Bool) {
+      this->addPositionalParameter("needle", Type::String);
+    }
+    Value executeCall(IExecution& execution, const String& instance, const IParameters& parameters) const {
+      // TODO int compare(string other, int? start, int? other_start, int? max_length)
+      auto other = parameters.getPositional(0);
+      if (!other.is(Discriminator::String)) {
+        return this->raise(execution, "First parameter was expected to be a 'string', not '", other.getRuntimeType().toString(), "'");
+      }
+      return Value{ instance.compare(other.getString()) };
+    }
+  };
+
+  class StringStartsWith : public BuiltinType {
+    EGG_NO_COPY(StringStartsWith);
+  public:
+    StringStartsWith()
+      : BuiltinType("string.startsWith", Type::Bool) {
+      this->addPositionalParameter("needle", Type::String);
+    }
+    Value executeCall(IExecution& execution, const String& instance, const IParameters& parameters) const {
+      // bool startsWith(string needle)
+      auto needle = parameters.getPositional(0);
+      if (!needle.is(Discriminator::String)) {
+        return this->raise(execution, "Parameter was expected to be a 'string', not '", needle.getRuntimeType().toString(), "'");
+      }
+      return Value{ instance.startsWith(needle.getString()) };
+    }
+  };
+
+  class StringEndsWith : public BuiltinType {
+    EGG_NO_COPY(StringEndsWith);
+  public:
+    StringEndsWith()
+      : BuiltinType("string.endsWith", Type::Bool) {
+      this->addPositionalParameter("needle", Type::String);
+    }
+    Value executeCall(IExecution& execution, const String& instance, const IParameters& parameters) const {
+      // bool endsWith(string needle)
+      auto needle = parameters.getPositional(0);
+      if (!needle.is(Discriminator::String)) {
+        return this->raise(execution, "Parameter was expected to be a 'string', not '", needle.getRuntimeType().toString(), "'");
+      }
+      return Value{ instance.endsWith(needle.getString()) };
     }
   };
 }
 
 egg::lang::Value egg::lang::String::builtin(egg::lang::IExecution& execution, const egg::lang::String& property) const {
-  // Specials
-  //  string string(...)
-  //  string operator[](int index)
-  //  bool operator==(object other)
-  //  iter iter()
-  // Properties
-  //  int length
-  //  int compare(string other, int? start, int? other_start, int? max_length)
-  //  bool contains(string needle)
+  // See http://chilliant.blogspot.co.uk/2018/05/egg-strings.html
   //  bool endsWith(string needle)
   //  int hash()
   //  int? indexOf(string needle, int? from_index, int? count, bool? negate)
@@ -217,24 +269,34 @@ egg::lang::Value egg::lang::String::builtin(egg::lang::IExecution& execution, co
   //  string replace(string needle, string replacement, int? max_occurrences)
   //  string slice(int? begin, int? end)
   //  string split(string separator, int? limit)
-  //  bool startsWith(string needle)
+  //  
   //  string toString()
-  //  string trim(any? what)
-  //  string trimLeft(any? what)
-  //  string trimRight(any? what)
   // Missing
   //  format
   //  lowercase
   //  uppercase
+  //  trim
+  //  trimLeft
+  //  trimRight
   //  reverse
   //  codePointAt
+  // OPTIMIZE
   auto name = property.toUTF8();
   if (name == "length") {
-    // This result is the actual length, not a function comupting it
+    // This result is the actual length, not a function computing it
     return Value{ int64_t(this->length()) };
   }
   if (name == "contains") {
-    return StringBuiltin::make<StringContains>(*this);
+    return StringBuiltin<StringContains>::make(*this);
+  }
+  if (name == "compare") {
+    return StringBuiltin<StringCompare>::make(*this);
+  }
+  if (name == "startsWith") {
+    return StringBuiltin<StringStartsWith>::make(*this);
+  }
+  if (name == "endsWith") {
+    return StringBuiltin<StringEndsWith>::make(*this);
   }
   return execution.raiseFormat("Unknown property for type 'string': '", property, "'");
 }

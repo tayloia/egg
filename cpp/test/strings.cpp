@@ -303,6 +303,28 @@ TEST(TestStrings, Less) {
   ASSERT_FALSE(egg::lang::String::fromUTF8("beggar").less(egg::lang::String::fromUTF8("beggar")));
 }
 
+TEST(TestStrings, Compare) {
+  ASSERT_EQ(0, egg::lang::String::Empty.compare(egg::lang::String::Empty));
+  ASSERT_EQ(-1, egg::lang::String::Empty.compare(egg::lang::String::fromCodePoint('e')));
+  ASSERT_EQ(-1, egg::lang::String::Empty.compare(egg::lang::String::fromUTF8("egg")));
+  ASSERT_EQ(-1, egg::lang::String::Empty.compare(egg::lang::String::fromUTF8("beggar")));
+
+  ASSERT_EQ(1, egg::lang::String::fromCodePoint('e').compare(egg::lang::String::Empty));
+  ASSERT_EQ(0, egg::lang::String::fromCodePoint('e').compare(egg::lang::String::fromCodePoint('e')));
+  ASSERT_EQ(-1, egg::lang::String::fromCodePoint('e').compare(egg::lang::String::fromUTF8("egg")));
+  ASSERT_EQ(1, egg::lang::String::fromCodePoint('e').compare(egg::lang::String::fromUTF8("beggar")));
+
+  ASSERT_EQ(1, egg::lang::String::fromUTF8("egg").compare(egg::lang::String::Empty));
+  ASSERT_EQ(1, egg::lang::String::fromUTF8("egg").compare(egg::lang::String::fromCodePoint('e')));
+  ASSERT_EQ(0, egg::lang::String::fromUTF8("egg").compare(egg::lang::String::fromUTF8("egg")));
+  ASSERT_EQ(1, egg::lang::String::fromUTF8("egg").compare(egg::lang::String::fromUTF8("beggar")));
+
+  ASSERT_EQ(1, egg::lang::String::fromUTF8("beggar").compare(egg::lang::String::Empty));
+  ASSERT_EQ(-1, egg::lang::String::fromUTF8("beggar").compare(egg::lang::String::fromCodePoint('e')));
+  ASSERT_EQ(-1, egg::lang::String::fromUTF8("beggar").compare(egg::lang::String::fromUTF8("egg")));
+  ASSERT_EQ(0, egg::lang::String::fromUTF8("beggar").compare(egg::lang::String::fromUTF8("beggar")));
+}
+
 TEST(TestStrings, Contains) {
   ASSERT_TRUE(egg::lang::String::Empty.contains(egg::lang::String::Empty));
   ASSERT_FALSE(egg::lang::String::Empty.contains(egg::lang::String::fromCodePoint('e')));
