@@ -36,3 +36,13 @@ print("beggar".lastIndexOf("g"));
 print("beggar".lastIndexOf("egg"));
 ///>1
 
+print("a".join("b", "n", "n", ""));
+///>banana
+print("<>".join(123, "hello", 3.14159));
+///>123<>hello<>3.14159
+print("|".join());
+///>
+print("|".join(1));
+///>1
+print("|".join(1, 2));
+///>1|2

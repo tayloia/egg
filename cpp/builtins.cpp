@@ -314,19 +314,45 @@ namespace {
       return (index < 0) ? Value::Null : Value{ index };
     }
   };
+
+  class StringJoin : public BuiltinType {
+    EGG_NO_COPY(StringJoin);
+  public:
+    StringJoin()
+      : BuiltinType("string.join", Type::String) {
+      this->addVariadicParameter("...", Type::Any);
+    }
+    Value executeCall(IExecution&, const String& instance, const IParameters& parameters) const {
+      // TODO string join(...)
+      auto n = parameters.getPositionalCount();
+      switch (n) {
+      case 0:
+        // Joining nothing always produces an empty string
+        return Value::EmptyString;
+      case 1:
+        // Joining a single value does not require a separator
+        return Value{ parameters.getPositional(0).toString() };
+      }
+      auto separator = instance.toUTF8();
+      StringBuilder sb;
+      sb.add(parameters.getPositional(0).toUTF8());
+      for (size_t i = 1; i < n; ++i) {
+        sb.add(separator).add(parameters.getPositional(i).toUTF8());
+      }
+      return Value{ sb.str() };
+    }
+  };
 }
 
 egg::lang::Value egg::lang::String::builtin(egg::lang::IExecution& execution, const egg::lang::String& property) const {
   // See http://chilliant.blogspot.co.uk/2018/05/egg-strings.html
-  //  int? lastIndexOf(string needle, int? fromIndex, int? count, bool? negate)
-  //  string join(...)
+  //  
   //  string padLeft(int length, string? padding)
   //  string padRight(int length, string? padding)
   //  string repeat(int count)
   //  string replace(string needle, string replacement, int? maxOccurrences)
   //  string slice(int? begin, int? end)
   //  string split(string separator, int? limit)
-  //  string toString()
 
   // OPTIMIZE
   auto name = property.toUTF8();
@@ -357,6 +383,9 @@ egg::lang::Value egg::lang::String::builtin(egg::lang::IExecution& execution, co
   }
   if (name == "lastIndexOf") {
     return StringBuiltin<StringLastIndexOf>::make(*this);
+  }
+  if (name == "join") {
+    return StringBuiltin<StringJoin>::make(*this);
   }
   return execution.raiseFormat("Unknown property for type 'string': '", property, "'");
 }
