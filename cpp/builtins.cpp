@@ -342,6 +342,35 @@ namespace {
       return Value{ sb.str() };
     }
   };
+
+  class StringSlice : public BuiltinType {
+    EGG_NO_COPY(StringSlice);
+  public:
+    StringSlice()
+      : BuiltinType("string.slice", Type::String) {
+      this->addPositionalParameter("begin", Type::Int);
+      this->addPositionalParameter("end", Type::Int, false);
+    }
+    Value executeCall(IExecution& execution, const String& instance, const IParameters& parameters) const {
+      // TODO int? indexOf(string needle, int? fromIndex, int? count, bool? negate)
+      auto p0 = parameters.getPositional(0);
+      if (!p0.is(Discriminator::Int)) {
+        return this->raise(execution, "First parameter was expected to be an 'int', not '", p0.getRuntimeType().toString(), "'");
+      }
+      int64_t begin = p0.getInt();
+      if (parameters.getPositionalCount() == 1) {
+        return Value{ instance.slice(begin) };
+      }
+
+      auto p1 = parameters.getPositional(1);
+      if (!p1.is(Discriminator::Int)) {
+        return this->raise(execution, "Second parameter was expected to be an 'int', not '", p0.getRuntimeType().toString(), "'");
+      }
+      auto end = p1.getInt();
+      return Value{ instance.slice(begin, end) };
+    }
+  };
+
 }
 
 egg::lang::Value egg::lang::String::builtin(egg::lang::IExecution& execution, const egg::lang::String& property) const {
@@ -386,6 +415,9 @@ egg::lang::Value egg::lang::String::builtin(egg::lang::IExecution& execution, co
   }
   if (name == "join") {
     return StringBuiltin<StringJoin>::make(*this);
+  }
+  if (name == "slice") {
+    return StringBuiltin<StringSlice>::make(*this);
   }
   return execution.raiseFormat("Unknown property for type 'string': '", property, "'");
 }

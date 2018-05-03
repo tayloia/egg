@@ -432,3 +432,62 @@ TEST(TestStrings, LastIndexOfString) {
   ASSERT_EQ(1, egg::lang::String::fromUTF8("beggar").lastIndexOfString(egg::lang::String::fromUTF8("egg")));
   ASSERT_EQ(0, egg::lang::String::fromUTF8("beggar").lastIndexOfString(egg::lang::String::fromUTF8("beggar")));
 }
+
+TEST(TestStrings, Substring) {
+  ASSERT_EQ("", egg::lang::String::Empty.substring(0).toUTF8());
+  ASSERT_EQ("", egg::lang::String::Empty.substring(1).toUTF8());
+  ASSERT_EQ("", egg::lang::String::Empty.substring(0, 1).toUTF8());
+  ASSERT_EQ("", egg::lang::String::Empty.substring(0, 2).toUTF8());
+  ASSERT_EQ("", egg::lang::String::Empty.substring(1, 0).toUTF8());
+  ASSERT_EQ("", egg::lang::String::Empty.substring(10, 10).toUTF8());
+  ASSERT_EQ("", egg::lang::String::Empty.substring(10, 11).toUTF8());
+  ASSERT_EQ("", egg::lang::String::Empty.substring(11, 10).toUTF8());
+
+  ASSERT_EQ("e", egg::lang::String::fromCodePoint('e').substring(0).toUTF8());
+  ASSERT_EQ("", egg::lang::String::fromCodePoint('e').substring(1).toUTF8());
+  ASSERT_EQ("e", egg::lang::String::fromCodePoint('e').substring(0, 1).toUTF8());
+  ASSERT_EQ("e", egg::lang::String::fromCodePoint('e').substring(0, 2).toUTF8());
+  ASSERT_EQ("", egg::lang::String::fromCodePoint('e').substring(1, 0).toUTF8());
+  ASSERT_EQ("", egg::lang::String::fromCodePoint('e').substring(10, 10).toUTF8());
+  ASSERT_EQ("", egg::lang::String::fromCodePoint('e').substring(10, 11).toUTF8());
+  ASSERT_EQ("", egg::lang::String::fromCodePoint('e').substring(11, 10).toUTF8());
+
+  ASSERT_EQ("egg", egg::lang::String::fromUTF8("egg").substring(0).toUTF8());
+  ASSERT_EQ("gg", egg::lang::String::fromUTF8("egg").substring(1).toUTF8());
+  ASSERT_EQ("e", egg::lang::String::fromUTF8("egg").substring(0, 1).toUTF8());
+  ASSERT_EQ("eg", egg::lang::String::fromUTF8("egg").substring(0, 2).toUTF8());
+  ASSERT_EQ("", egg::lang::String::fromUTF8("egg").substring(1, 0).toUTF8());
+  ASSERT_EQ("", egg::lang::String::fromUTF8("egg").substring(10, 10).toUTF8());
+  ASSERT_EQ("", egg::lang::String::fromUTF8("egg").substring(10, 11).toUTF8());
+  ASSERT_EQ("", egg::lang::String::fromUTF8("egg").substring(11, 10).toUTF8());
+}
+
+TEST(TestStrings, Slice) {
+  static const char expected_egg[9][9][4] = {
+    { "", "", "e", "eg", "", "e", "eg", "egg", "egg" },
+    { "", "", "e", "eg", "", "e", "eg", "egg", "egg" },
+    { "", "", "", "g", "", "", "g", "gg", "gg" },
+    { "", "", "", "", "", "", "", "g", "g" },
+    { "", "", "e", "eg", "", "e", "eg", "egg", "egg" },
+    { "", "", "", "g", "", "", "g", "gg", "gg" },
+    { "", "", "", "", "", "", "", "g", "g" },
+    { "", "", "", "", "", "", "", "", "" },
+    { "", "", "", "", "", "", "", "", "" }
+  };
+  for (int i = 0; i < 9; ++i) {
+    int p = i - 4;
+    for (int j = 0; j < 9; ++j) {
+      int q = j - 4;
+      auto actual = egg::lang::String::Empty.slice(p, q);
+      ASSERT_EQ("", actual.toUTF8());
+      actual = egg::lang::String::fromCodePoint('e').slice(p, q);
+      if ((p <= 0) && (q >= 1)) {
+        ASSERT_EQ("e", actual.toUTF8());
+      } else {
+        ASSERT_EQ("", actual.toUTF8());
+      }
+      actual = egg::lang::String::fromUTF8("egg").slice(p, q);
+      ASSERT_EQ(expected_egg[i][j], actual.toUTF8());
+    }
+  }
+}

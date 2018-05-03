@@ -105,6 +105,7 @@ namespace egg::lang {
     virtual int64_t indexOfString(const IString& needle) const = 0;
     virtual int64_t lastIndexOfCodePoint(char32_t codepoint) const = 0;
     virtual int64_t lastIndexOfString(const IString& needle) const = 0;
+    virtual const IString* substring(size_t begin, size_t end) const = 0;
     virtual std::string toUTF8() const = 0;
 
     // Iteration
@@ -295,6 +296,22 @@ namespace egg::lang {
     }
     int64_t lastIndexOfString(const String& needle) const {
       return this->get()->lastIndexOfString(*needle);
+    }
+    String substring(size_t begin, size_t end = SIZE_MAX) const {
+      return String(*this->get()->substring(begin, end));
+    }
+    String slice(int64_t begin, int64_t end = INT64_MAX) const {
+      return String(*this->get()->substring(this->signedToIndex(begin), this->signedToIndex(end)));
+    }
+    // Helpers
+    size_t signedToIndex(int64_t index) const {
+      // Convert a signed index to an absolute one
+      // Negative inputs signify offsets from the end of the string
+      auto n = this->length();
+      if (index < 0) {
+        return size_t(std::max(index + int64_t(n), 0i64));
+      }
+      return std::min(size_t(index), n);
     }
     // Built-ins
     Value builtin(IExecution& execution, const String& property) const;

@@ -96,6 +96,15 @@ namespace egg::utf {
       }
       return false;
     }
+    bool skip(size_t codepoints) {
+      // OPTIMIZE
+      for (size_t i = 0; i < codepoints; ++i) {
+        if (!this->step()) {
+          return false;
+        }
+      }
+      return true;
+    }
     bool read(char32_t& codepoint) {
       // Return true iff there's a valid codepoint sequence next
       if (this->p < this->end) {

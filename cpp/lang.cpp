@@ -108,6 +108,72 @@ namespace {
     }
   }
 
+  class StringEmpty : public egg::gc::NotReferenceCounted<egg::lang::IString> {
+  public:
+    virtual size_t length() const override {
+      return 0;
+    }
+    virtual bool empty() const override {
+      return true;
+    }
+    virtual bool equal(const IString& other) const override {
+      return other.empty();
+    }
+    virtual bool less(const IString& other) const override {
+      return !other.empty();
+    }
+    virtual int64_t compare(const IString& other) const override {
+      return other.empty() ? 0 : -1;
+    }
+    virtual bool startsWith(const IString& needle) const override {
+      return needle.empty();
+    }
+    virtual bool endsWith(const IString& needle) const override {
+      return needle.empty();
+    }
+    virtual int64_t hashCode() const override {
+      return 0;
+    }
+    virtual int32_t codePointAt(size_t) const override {
+      return -1;
+    }
+    virtual int64_t indexOfCodePoint(char32_t) const override {
+      return -1;
+    }
+    virtual int64_t indexOfString(const IString& needle) const override {
+      return needle.empty() ? 0 : -1;
+    }
+    virtual int64_t lastIndexOfCodePoint(char32_t) const override {
+      return -1;
+    }
+    virtual int64_t lastIndexOfString(const IString& needle) const override {
+      return needle.empty() ? 0 : -1;
+    }
+    virtual const IString* substring(size_t, size_t) const override {
+      return this;
+    }
+    virtual std::string toUTF8() const override {
+      return std::string();
+    }
+    virtual bool iterateFirst(egg::lang::StringIteration&) const override {
+      // There's nothing to iterate
+      return false;
+    }
+    virtual bool iterateNext(egg::lang::StringIteration&) const override {
+      // There's nothing to iterate
+      return false;
+    }
+    virtual bool iteratePrevious(egg::lang::StringIteration&) const override {
+      // There's nothing to iterate
+      return false;
+    }
+    virtual bool iterateLast(egg::lang::StringIteration&) const override {
+      // There's nothing to iterate
+      return false;
+    }
+  };
+  const StringEmpty stringEmpty{};
+
   class StringBufferCodePoint : public egg::gc::HardReferenceCounted<egg::lang::IString> {
     EGG_NO_COPY(StringBufferCodePoint);
   private:
@@ -217,6 +283,12 @@ namespace {
         return (int32_t(this->codepoint) == needle.codePointAt(0)) ? 0 : -1;
       }
       return -1;
+    }
+    virtual const IString* substring(size_t begin, size_t end) const override {
+      if ((begin == 0) && (end > 0)) {
+        return this;
+      }
+      return &stringEmpty;
     }
     virtual std::string toUTF8() const override {
       return egg::utf::to_utf8(this->codepoint);
@@ -348,7 +420,7 @@ namespace {
   inline int64_t lastIndexOfCodePointByIteration(const egg::lang::IString& haystack, char32_t needle) {
     // Iterate around the haystack for the needle from back-to-front
     assert(!haystack.empty());
-    egg::lang::StringIteration haystackIteration;
+    egg::lang::StringIteration haystackIteration{};
     if (haystack.iterateLast(haystackIteration)) {
       auto index = int64_t(haystack.length()) - 1;
       do {
@@ -467,10 +539,8 @@ namespace {
     }
     virtual int32_t codePointAt(size_t index) const override {
       egg::utf::utf8_reader reader(this->utf8);
-      while (index--) {
-        if (!reader.step()) {
-          return -1;
-        }
+      if (!reader.skip(index)) {
+        return -1;
       }
       char32_t codepoint = 0;
       return reader.read(codepoint) ? int32_t(codepoint) : -1;
@@ -498,6 +568,36 @@ namespace {
         return lastIndexOfCodePointByIteration(*this, char32_t(needle.codePointAt(0)));
       }
       return lastIndexOfStringByIteration(*this, needle);
+    }
+    virtual const IString* substring(size_t begin, size_t end) const override {
+      if ((begin >= this->codepoints) || (end <= begin)) {
+        return &stringEmpty;
+      }
+      if ((begin == 0) && (end >= this->codepoints)) {
+        return this;
+      }
+      egg::utf::utf8_reader reader(this->utf8);
+      if (!reader.skip(begin)) {
+        return &stringEmpty; // Malformed
+      }
+      size_t p = reader.getIterationInternal();
+      size_t q;
+      size_t length;
+      if (end < this->codepoints) {
+        // It's a proper substring
+        length = end - begin;
+        if (!reader.skip(length)) {
+          return &stringEmpty; // Malformed
+        }
+        q = reader.getIterationInternal();
+      } else {
+        // It's the end of the string
+        length = this->codepoints - begin;
+        q = this->utf8.length();
+      }
+      assert(length > 0);
+      std::string sub(this->utf8.data() + p, q - p);
+      return new StringBufferUTF8(sub, length);
     }
     virtual std::string toUTF8() const override {
       return this->utf8;
@@ -539,69 +639,6 @@ namespace {
       return false;
     }
   };
-
-  class StringEmpty : public egg::gc::NotReferenceCounted<egg::lang::IString> {
-  public:
-    virtual size_t length() const override {
-      return 0;
-    }
-    virtual bool empty() const override {
-      return true;
-    }
-    virtual bool equal(const IString& other) const override {
-      return other.empty();
-    }
-    virtual bool less(const IString& other) const override {
-      return !other.empty();
-    }
-    virtual int64_t compare(const IString& other) const override {
-      return other.empty() ? 0 : -1;
-    }
-    virtual bool startsWith(const IString& needle) const override {
-      return needle.empty();
-    }
-    virtual bool endsWith(const IString& needle) const override {
-      return needle.empty();
-    }
-    virtual int64_t hashCode() const override {
-      return 0;
-    }
-    virtual int32_t codePointAt(size_t) const override {
-      return -1;
-    }
-    virtual int64_t indexOfCodePoint(char32_t) const override {
-      return -1;
-    }
-    virtual int64_t indexOfString(const IString& needle) const override {
-      return needle.empty() ? 0 : -1;
-    }
-    virtual int64_t lastIndexOfCodePoint(char32_t) const override {
-      return -1;
-    }
-    virtual int64_t lastIndexOfString(const IString& needle) const override {
-      return needle.empty() ? 0 : -1;
-    }
-    virtual std::string toUTF8() const override {
-      return std::string();
-    }
-    virtual bool iterateFirst(egg::lang::StringIteration&) const override {
-      // There's nothing to iterate
-      return false;
-    }
-    virtual bool iterateNext(egg::lang::StringIteration&) const override {
-      // There's nothing to iterate
-      return false;
-    }
-    virtual bool iteratePrevious(egg::lang::StringIteration&) const override {
-      // There's nothing to iterate
-      return false;
-    }
-    virtual bool iterateLast(egg::lang::StringIteration&) const override {
-      // There's nothing to iterate
-      return false;
-    }
-  };
-  const StringEmpty stringEmpty{};
 
   class TypeReference : public egg::gc::HardReferenceCounted<egg::lang::IType> {
     EGG_NO_COPY(TypeReference);
