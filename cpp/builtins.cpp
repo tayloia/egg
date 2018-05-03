@@ -133,7 +133,7 @@ namespace {
   public:
     Print()
       : Builtin("print", Type::Void) {
-      this->type.addVariadicParameter("...", Type::Any);
+      this->type.addVariadicParameter("...", Type::Any, false);
     }
     virtual Value call(IExecution& execution, const IParameters& parameters) override {
       Value result = this->type.validateCall(execution, parameters);
@@ -305,7 +305,7 @@ namespace {
       this->addPositionalParameter("needle", Type::String);
     }
     Value executeCall(IExecution& execution, const String& instance, const IParameters& parameters) const {
-      // TODO int? indexOf(string needle, int? fromIndex, int? count, bool? negate)
+      // TODO int? lastIndexOf(string needle, int? fromIndex, int? count, bool? negate)
       auto needle = parameters.getPositional(0);
       if (!needle.is(Discriminator::String)) {
         return this->raise(execution, "First parameter was expected to be a 'string', not '", needle.getRuntimeType().toString(), "'");
@@ -320,10 +320,10 @@ namespace {
   public:
     StringJoin()
       : BuiltinType("string.join", Type::String) {
-      this->addVariadicParameter("...", Type::Any);
+      this->addVariadicParameter("...", Type::Any, false);
     }
     Value executeCall(IExecution&, const String& instance, const IParameters& parameters) const {
-      // TODO string join(...)
+      // string join(...)
       auto n = parameters.getPositionalCount();
       switch (n) {
       case 0:
@@ -343,6 +343,25 @@ namespace {
     }
   };
 
+  class StringSplit : public BuiltinType {
+    EGG_NO_COPY(StringSplit);
+  public:
+    StringSplit()
+      : BuiltinType("string.split", Type::Any) {
+      this->addPositionalParameter("separator", Type::String);
+    }
+    Value executeCall(IExecution& execution, const String& instance, const IParameters& parameters) const {
+      // TODO string split(string separator, int? limit)
+      auto separator = parameters.getPositional(0);
+      if (!separator.is(Discriminator::String)) {
+        return this->raise(execution, "First parameter was expected to be a 'string', not '", separator.getRuntimeType().toString(), "'");
+      }
+      auto split = instance.split(instance);
+      assert(split.size() > 0);
+      return this->raise(execution, "TODO: Return an array of strings"); //TODO
+    }
+  };
+
   class StringSlice : public BuiltinType {
     EGG_NO_COPY(StringSlice);
   public:
@@ -352,7 +371,7 @@ namespace {
       this->addPositionalParameter("end", Type::Int, false);
     }
     Value executeCall(IExecution& execution, const String& instance, const IParameters& parameters) const {
-      // TODO int? indexOf(string needle, int? fromIndex, int? count, bool? negate)
+      // TODO string slice(int? begin, int? end)
       auto p0 = parameters.getPositional(0);
       if (!p0.is(Discriminator::Int)) {
         return this->raise(execution, "First parameter was expected to be an 'int', not '", p0.getRuntimeType().toString(), "'");
@@ -370,7 +389,6 @@ namespace {
       return Value{ instance.slice(begin, end) };
     }
   };
-
 }
 
 egg::lang::Value egg::lang::String::builtin(egg::lang::IExecution& execution, const egg::lang::String& property) const {
@@ -380,8 +398,6 @@ egg::lang::Value egg::lang::String::builtin(egg::lang::IExecution& execution, co
   //  string padRight(int length, string? padding)
   //  string repeat(int count)
   //  string replace(string needle, string replacement, int? maxOccurrences)
-  //  string slice(int? begin, int? end)
-  //  string split(string separator, int? limit)
 
   // OPTIMIZE
   auto name = property.toUTF8();
@@ -415,6 +431,9 @@ egg::lang::Value egg::lang::String::builtin(egg::lang::IExecution& execution, co
   }
   if (name == "join") {
     return StringBuiltin<StringJoin>::make(*this);
+  }
+  if (name == "split") {
+    return StringBuiltin<StringSplit>::make(*this);
   }
   if (name == "slice") {
     return StringBuiltin<StringSlice>::make(*this);

@@ -101,10 +101,10 @@ namespace egg::lang {
     virtual bool startsWith(const IString& other) const = 0;
     virtual bool endsWith(const IString& other) const = 0;
     virtual int32_t codePointAt(size_t index) const = 0;
-    virtual int64_t indexOfCodePoint(char32_t codepoint) const = 0;
-    virtual int64_t indexOfString(const IString& needle) const = 0;
-    virtual int64_t lastIndexOfCodePoint(char32_t codepoint) const = 0;
-    virtual int64_t lastIndexOfString(const IString& needle) const = 0;
+    virtual int64_t indexOfCodePoint(char32_t codepoint, size_t fromIndex) const = 0;
+    virtual int64_t indexOfString(const IString& needle, size_t fromIndex) const = 0;
+    virtual int64_t lastIndexOfCodePoint(char32_t codepoint, size_t fromIndex) const = 0;
+    virtual int64_t lastIndexOfString(const IString& needle, size_t fromIndex) const = 0;
     virtual const IString* substring(size_t begin, size_t end) const = 0;
     virtual std::string toUTF8() const = 0;
 
@@ -277,7 +277,7 @@ namespace egg::lang {
       return this->get()->compare(*rhs);
     }
     bool contains(const String& needle) const {
-      return this->get()->indexOfString(*needle) >= 0;
+      return this->get()->indexOfString(*needle, 0) >= 0;
     }
     bool startsWith(const String& needle) const {
       return this->get()->startsWith(*needle);
@@ -285,17 +285,17 @@ namespace egg::lang {
     bool endsWith(const String& needle) const {
       return this->get()->endsWith(*needle);
     }
-    int64_t indexOfCodePoint(char32_t needle) const {
-      return this->get()->indexOfCodePoint(needle);
+    int64_t indexOfCodePoint(char32_t needle, size_t fromIndex = 0) const {
+      return this->get()->indexOfCodePoint(needle, fromIndex);
     }
-    int64_t indexOfString(const String& needle) const {
-      return this->get()->indexOfString(*needle);
+    int64_t indexOfString(const String& needle, size_t fromIndex = 0) const {
+      return this->get()->indexOfString(*needle, fromIndex);
     }
-    int64_t lastIndexOfCodePoint(char32_t needle) const {
-      return this->get()->lastIndexOfCodePoint(needle);
+    int64_t lastIndexOfCodePoint(char32_t needle, size_t fromIndex = SIZE_MAX) const {
+      return this->get()->lastIndexOfCodePoint(needle, fromIndex);
     }
-    int64_t lastIndexOfString(const String& needle) const {
-      return this->get()->lastIndexOfString(*needle);
+    int64_t lastIndexOfString(const String& needle, size_t fromIndex = SIZE_MAX) const {
+      return this->get()->lastIndexOfString(*needle, fromIndex);
     }
     String substring(size_t begin, size_t end = SIZE_MAX) const {
       return String(*this->get()->substring(begin, end));
@@ -303,13 +303,14 @@ namespace egg::lang {
     String slice(int64_t begin, int64_t end = INT64_MAX) const {
       return String(*this->get()->substring(this->signedToIndex(begin), this->signedToIndex(end)));
     }
+    std::vector<String> split(const String& separator, int64_t limit = INT64_MAX) const;
     // Helpers
     size_t signedToIndex(int64_t index) const {
       // Convert a signed index to an absolute one
       // Negative inputs signify offsets from the end of the string
       auto n = this->length();
       if (index < 0) {
-        return size_t(std::max(index + int64_t(n), 0i64));
+        return size_t(std::max(index + int64_t(n), int64_t(0)));
       }
       return std::min(size_t(index), n);
     }

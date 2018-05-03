@@ -49,3 +49,5 @@ print("|".join(1, 2));
 
 print("beggar".slice(1, -2));
 ///>egg
+print("spoon".slice(-2));
+///>on

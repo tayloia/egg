@@ -1,65 +1,67 @@
 #include "yolk.h"
 
 namespace {
-  egg::lang::Value canAlwaysAssignSimple(egg::lang::IExecution& execution, egg::lang::Discriminator lhs, egg::lang::Discriminator rhs) {
-    assert(lhs != egg::lang::Discriminator::None);
-    if (rhs != egg::lang::Discriminator::None) {
+  using namespace egg::lang;
+
+  Value canAlwaysAssignSimple(IExecution& execution, Discriminator lhs, Discriminator rhs) {
+    assert(lhs != Discriminator::None);
+    if (rhs != Discriminator::None) {
       // The source is a simple type
-      auto intersection = egg::lang::Bits::mask(lhs, rhs);
+      auto intersection = Bits::mask(lhs, rhs);
       if (intersection == lhs) {
         // All possible source values can be accommodated in the destination
-        return egg::lang::Value::True;
+        return Value::True;
       }
-      if (intersection != egg::lang::Discriminator::None) {
+      if (intersection != Discriminator::None) {
         // Only some of the source values can be accommodated in the destination
-        return egg::lang::Value::False;
+        return Value::False;
       }
-      if (egg::lang::Bits::hasAnySet(lhs, egg::lang::Discriminator::Float) && egg::lang::Bits::hasAnySet(rhs, egg::lang::Discriminator::Int)) {
+      if (Bits::hasAnySet(lhs, Discriminator::Float) && Bits::hasAnySet(rhs, Discriminator::Int)) {
         // We allow type promotion int->float unless there's an overflow
-        return egg::lang::Value::False;
+        return Value::False;
       }
     }
-    return execution.raiseFormat("Cannot assign a value of type '", egg::lang::Value::getTagString(rhs), "' to a target of type '", egg::lang::Value::getTagString(lhs), "'");
+    return execution.raiseFormat("Cannot assign a value of type '", Value::getTagString(rhs), "' to a target of type '", Value::getTagString(lhs), "'");
   }
 
-  egg::lang::Value promoteAssignmentSimple(egg::lang::IExecution& execution, egg::lang::Discriminator lhs, const egg::lang::Value& rhs) {
+  Value promoteAssignmentSimple(IExecution& execution, Discriminator lhs, const Value& rhs) {
     if (rhs.has(lhs)) {
       // It's an exact type match
       return rhs;
     }
-    if (egg::lang::Bits::hasAnySet(lhs, egg::lang::Discriminator::Float) && rhs.is(egg::lang::Discriminator::Int)) {
+    if (Bits::hasAnySet(lhs, Discriminator::Float) && rhs.is(Discriminator::Int)) {
       // We allow type promotion int->float
-      return egg::lang::Value(double(rhs.getInt())); // TODO overflows?
+      return Value(double(rhs.getInt())); // TODO overflows?
     }
-    return execution.raiseFormat("Cannot promote a value of type '", rhs.getRuntimeType().toString(), "' to a target of type '", egg::lang::Value::getTagString(lhs), "'");
+    return execution.raiseFormat("Cannot promote a value of type '", rhs.getRuntimeType().toString(), "' to a target of type '", Value::getTagString(lhs), "'");
   }
 
-  egg::lang::Value castString(const egg::lang::IParameters& parameters) {
+  Value castString(const IParameters& parameters) {
     assert(parameters.getNamedCount() == 0);
     auto n = parameters.getPositionalCount();
     switch (n) {
     case 0:
-      return egg::lang::Value::EmptyString;
+      return Value::EmptyString;
     case 1:
-      return egg::lang::Value{ parameters.getPositional(0).toString() };
+      return Value{ parameters.getPositional(0).toString() };
     }
-    egg::lang::StringBuilder sb;
+    StringBuilder sb;
     for (size_t i = 0; i < n; ++i) {
       sb.add(parameters.getPositional(i).toString());
     }
-    return egg::lang::Value{ sb.str() };
+    return Value{ sb.str() };
   }
 
-  egg::lang::Value castSimple(egg::lang::IExecution& execution, egg::lang::Discriminator tag, const egg::lang::IParameters& parameters) {
+  Value castSimple(IExecution& execution, Discriminator tag, const IParameters& parameters) {
     // OPTIMIZE
     if (parameters.getNamedCount() != 0) {
       return execution.raiseFormat("Named parameters in type-casts are not supported");
     }
-    if (tag == egg::lang::Discriminator::String) {
+    if (tag == Discriminator::String) {
       return castString(parameters);
     }
     if (parameters.getPositionalCount() != 1) {
-      return execution.raiseFormat("Type-cast expected a single parameter: '", egg::lang::Value::getTagString(tag), "()'");
+      return execution.raiseFormat("Type-cast expected a single parameter: '", Value::getTagString(tag), "()'");
 
     }
     auto rhs = parameters.getPositional(0);
@@ -67,24 +69,24 @@ namespace {
       // It's an exact type match
       return rhs;
     }
-    if (egg::lang::Bits::hasAnySet(tag, egg::lang::Discriminator::Float) && rhs.is(egg::lang::Discriminator::Int)) {
+    if (Bits::hasAnySet(tag, Discriminator::Float) && rhs.is(Discriminator::Int)) {
       // We allow type promotion int->float
-      return egg::lang::Value(double(rhs.getInt())); // TODO overflows?
+      return Value(double(rhs.getInt())); // TODO overflows?
     }
-    return execution.raiseFormat("Cannot cast a value of type '", rhs.getRuntimeType().toString(), "' to type '", egg::lang::Value::getTagString(tag), "'");
+    return execution.raiseFormat("Cannot cast a value of type '", rhs.getRuntimeType().toString(), "' to type '", Value::getTagString(tag), "'");
   }
 
-  egg::lang::Value dotSimple(egg::lang::IExecution& execution, const egg::lang::Value& instance, const egg::lang::String& property) {
+  Value dotSimple(IExecution& execution, const Value& instance, const String& property) {
     // OPTIMIZE
-    if (instance.is(egg::lang::Discriminator::String)) {
+    if (instance.is(Discriminator::String)) {
       return instance.getString().builtin(execution, property);
     }
     return execution.raiseFormat("Properties are not yet supported for '", instance.getRuntimeType().toString(), "'");
   }
 
-  egg::lang::Value bracketsString(egg::lang::IExecution& execution, const egg::lang::String& instance, const egg::lang::Value& index) {
+  Value bracketsString(IExecution& execution, const String& instance, const Value& index) {
     // string operator[](int index)
-    if (!index.is(egg::lang::Discriminator::Int)) {
+    if (!index.is(Discriminator::Int)) {
       return execution.raiseFormat("String indexing '[]' only supports indices of type 'int', not '", index.getRuntimeType().toString(), "'");
     }
     auto i = index.getInt();
@@ -96,10 +98,10 @@ namespace {
       }
       return execution.raiseFormat("Cannot index a malformed string");
     }
-    return egg::lang::Value{ egg::lang::String::fromCodePoint(char32_t(c)) };
+    return Value{ String::fromCodePoint(char32_t(c)) };
   }
 
-  void formatSourceLocation(egg::lang::StringBuilder& sb, const egg::lang::LocationSource& location) {
+  void formatSourceLocation(StringBuilder& sb, const LocationSource& location) {
     sb.add(location.file);
     if (location.column > 0) {
       sb.add("(").add(location.line).add(",").add(location.column).add(")");
@@ -108,7 +110,7 @@ namespace {
     }
   }
 
-  class StringEmpty : public egg::gc::NotReferenceCounted<egg::lang::IString> {
+  class StringEmpty : public egg::gc::NotReferenceCounted<IString> {
   public:
     virtual size_t length() const override {
       return 0;
@@ -137,17 +139,17 @@ namespace {
     virtual int32_t codePointAt(size_t) const override {
       return -1;
     }
-    virtual int64_t indexOfCodePoint(char32_t) const override {
+    virtual int64_t indexOfCodePoint(char32_t, size_t) const override {
       return -1;
     }
-    virtual int64_t indexOfString(const IString& needle) const override {
-      return needle.empty() ? 0 : -1;
+    virtual int64_t indexOfString(const IString& needle, size_t fromIndex) const override {
+      return ((fromIndex == 0) && needle.empty()) ? 0 : -1;
     }
-    virtual int64_t lastIndexOfCodePoint(char32_t) const override {
+    virtual int64_t lastIndexOfCodePoint(char32_t, size_t) const override {
       return -1;
     }
-    virtual int64_t lastIndexOfString(const IString& needle) const override {
-      return needle.empty() ? 0 : -1;
+    virtual int64_t lastIndexOfString(const IString& needle, size_t fromIndex) const override {
+      return ((fromIndex > 0) && needle.empty()) ? 0 : -1;
     }
     virtual const IString* substring(size_t, size_t) const override {
       return this;
@@ -155,26 +157,26 @@ namespace {
     virtual std::string toUTF8() const override {
       return std::string();
     }
-    virtual bool iterateFirst(egg::lang::StringIteration&) const override {
+    virtual bool iterateFirst(StringIteration&) const override {
       // There's nothing to iterate
       return false;
     }
-    virtual bool iterateNext(egg::lang::StringIteration&) const override {
+    virtual bool iterateNext(StringIteration&) const override {
       // There's nothing to iterate
       return false;
     }
-    virtual bool iteratePrevious(egg::lang::StringIteration&) const override {
+    virtual bool iteratePrevious(StringIteration&) const override {
       // There's nothing to iterate
       return false;
     }
-    virtual bool iterateLast(egg::lang::StringIteration&) const override {
+    virtual bool iterateLast(StringIteration&) const override {
       // There's nothing to iterate
       return false;
     }
   };
   const StringEmpty stringEmpty{};
 
-  class StringBufferCodePoint : public egg::gc::HardReferenceCounted<egg::lang::IString> {
+  class StringBufferCodePoint : public egg::gc::HardReferenceCounted<IString> {
     EGG_NO_COPY(StringBufferCodePoint);
   private:
     char32_t codepoint;
@@ -260,27 +262,31 @@ namespace {
     virtual int32_t codePointAt(size_t index) const override {
       return (index == 0) ? int32_t(this->codepoint) : -1;
     }
-    virtual int64_t indexOfCodePoint(char32_t needle) const override {
-      return (this->codepoint == needle) ? 0 : -1;
+    virtual int64_t indexOfCodePoint(char32_t needle, size_t fromIndex) const override {
+      return ((fromIndex == 0) && (this->codepoint == needle)) ? 0 : -1;
     }
-    virtual int64_t indexOfString(const IString& needle) const override {
-      switch (needle.length()) {
-      case 0:
-        return 0;
-      case 1:
-        return (int32_t(this->codepoint) == needle.codePointAt(0)) ? 0 : -1;
+    virtual int64_t indexOfString(const IString& needle, size_t fromIndex) const override {
+      if (fromIndex == 0) {
+        switch (needle.length()) {
+        case 0:
+          return 0;
+        case 1:
+          return (int32_t(this->codepoint) == needle.codePointAt(0)) ? 0 : -1;
+        }
       }
       return -1;
     }
-    virtual int64_t lastIndexOfCodePoint(char32_t needle) const override {
-      return (this->codepoint == needle) ? 0 : -1;
+    virtual int64_t lastIndexOfCodePoint(char32_t needle, size_t fromIndex) const override {
+      return ((fromIndex > 0) && (this->codepoint == needle)) ? 0 : -1;
     }
-    virtual int64_t lastIndexOfString(const IString& needle) const override {
-      switch (needle.length()) {
-      case 0:
-        return 0;
-      case 1:
-        return (int32_t(this->codepoint) == needle.codePointAt(0)) ? 0 : -1;
+    virtual int64_t lastIndexOfString(const IString& needle, size_t fromIndex) const override {
+      if (fromIndex > 0) {
+        switch (needle.length()) {
+        case 0:
+          return 0;
+        case 1:
+          return (int32_t(this->codepoint) == needle.codePointAt(0)) ? 0 : -1;
+        }
       }
       return -1;
     }
@@ -293,30 +299,46 @@ namespace {
     virtual std::string toUTF8() const override {
       return egg::utf::to_utf8(this->codepoint);
     }
-    virtual bool iterateFirst(egg::lang::StringIteration& iteration) const override {
+    virtual bool iterateFirst(StringIteration& iteration) const override {
       // There's only one element to iterate
       iteration.codepoint = this->codepoint;
       return true;
     }
-    virtual bool iterateNext(egg::lang::StringIteration&) const override {
+    virtual bool iterateNext(StringIteration&) const override {
       // There's only one element to iterate
       return false;
     }
-    virtual bool iteratePrevious(egg::lang::StringIteration&) const override {
+    virtual bool iteratePrevious(StringIteration&) const override {
       // There's only one element to iterate
       return false;
     }
-    virtual bool iterateLast(egg::lang::StringIteration& iteration) const override {
+    virtual bool iterateLast(StringIteration& iteration) const override {
       // There's only one element to iterate
       iteration.codepoint = this->codepoint;
       return true;
     }
   };
 
-  inline bool iterationEqualStarted(egg::lang::StringIteration& lhsIteration, const egg::lang::IString& lhs, const egg::lang::IString& rhs, size_t count) {
+  inline bool iterationOffset(StringIteration& iteration, const IString& src, size_t offset) {
+    // OPTIMIZE for offsets *closer* to the end
+    auto length = src.length();
+    if (offset >= length) {
+      return false;
+    }
+    if (src.iterateFirst(iteration)) {
+      do {
+        if (offset-- == 0) {
+          return true;
+        }
+      } while (src.iterateNext(iteration));
+    }
+    return false;
+  }
+
+  inline bool iterationEqualStarted(StringIteration& lhsIteration, const IString& lhs, const IString& rhs, size_t count) {
     // Check for equality using iteration
     assert(count > 0);
-    egg::lang::StringIteration rhsIteration;
+    StringIteration rhsIteration;
     if (rhs.iterateFirst(rhsIteration)) {
       while (lhsIteration.codepoint == rhsIteration.codepoint) {
         if (--count == 0) {
@@ -330,20 +352,20 @@ namespace {
     return false; // Malformed or not equal
   }
 
-  inline bool iterationEqual(const egg::lang::IString& lhs, const egg::lang::IString& rhs, size_t count) {
+  inline bool iterationEqual(const IString& lhs, const IString& rhs, size_t count) {
     // Check for equality using iteration
     assert(count > 0);
-    egg::lang::StringIteration lhsIteration;
+    StringIteration lhsIteration;
     if (lhs.iterateFirst(lhsIteration)) {
       return iterationEqualStarted(lhsIteration, lhs, rhs, count);
     }
     return false; // Malformed or not equal
   }
 
-  inline int iterationCompareStarted(egg::lang::StringIteration& lhsIteration, const egg::lang::IString& lhs, const egg::lang::IString& rhs, size_t count) {
+  inline int iterationCompareStarted(StringIteration& lhsIteration, const IString& lhs, const IString& rhs, size_t count) {
     // Less/equal/greater comparison using iteration
     assert(count > 0);
-    egg::lang::StringIteration rhsIteration;
+    StringIteration rhsIteration;
     if (rhs.iterateFirst(rhsIteration)) {
       while (lhsIteration.codepoint == rhsIteration.codepoint) {
         if (--count == 0) {
@@ -358,19 +380,17 @@ namespace {
     return 2; // Malformed
   }
 
-  inline int iterationCompare(const egg::lang::IString& lhs, const egg::lang::IString& rhs, size_t count) {
+  inline int iterationCompare(const IString& lhs, const IString& rhs, size_t count) {
     // Less/equal/greater comparison using iteration
     assert(count > 0);
-    egg::lang::StringIteration lhsIteration;
+    StringIteration lhsIteration;
     if (lhs.iterateFirst(lhsIteration)) {
       return iterationCompareStarted(lhsIteration, lhs, rhs, count);
     }
     return 2; // Malformed
   }
 
-  inline bool iterationMatch(const egg::lang::IString& lhs, egg::lang::StringIteration lhsIteration,
-                             const egg::lang::IString& rhs, egg::lang::StringIteration rhsIteration,
-                             size_t count) {
+  inline bool iterationMatch(const IString& lhs, StringIteration lhsIteration, const IString& rhs, StringIteration rhsIteration, size_t count) {
     // Note iteration parameters passed-by-value
     assert(lhsIteration.codepoint == rhsIteration.codepoint);
     assert(count > 0);
@@ -382,12 +402,12 @@ namespace {
     return true;
   }
 
-  inline int64_t indexOfCodePointByIteration(const egg::lang::IString& haystack, char32_t needle) {
+  inline int64_t indexOfCodePointByIteration(const IString& haystack, char32_t needle, size_t fromIndex) {
     // Iterate around the haystack for the needle
     assert(!haystack.empty());
-    egg::lang::StringIteration haystackIteration;
-    if (haystack.iterateFirst(haystackIteration)) {
-      int64_t index = 0;
+    StringIteration haystackIteration;
+    if (iterationOffset(haystackIteration, haystack, fromIndex)) {
+      int64_t index = int64_t(fromIndex);
       do {
         if (haystackIteration.codepoint == needle) {
           return index;
@@ -398,13 +418,13 @@ namespace {
     return -1; // Not found
   }
 
-  inline int64_t indexOfStringByIteration(const egg::lang::IString& haystack, const egg::lang::IString& needle) {
+  inline int64_t indexOfStringByIteration(const IString& haystack, const IString& needle, size_t fromIndex) {
     // Iterate around the haystack for the needle
     assert(!haystack.empty());
     assert(!needle.empty());
-    egg::lang::StringIteration haystackIteration;
-    egg::lang::StringIteration needleIteration;
-    if (haystack.iterateFirst(haystackIteration) && needle.iterateFirst(needleIteration)) {
+    StringIteration haystackIteration;
+    StringIteration needleIteration;
+    if (iterationOffset(haystackIteration, haystack, fromIndex) && needle.iterateFirst(needleIteration)) {
       auto needleLength = needle.length();
       int64_t index = 0;
       do {
@@ -417,12 +437,14 @@ namespace {
     return -1; // Not found
   }
 
-  inline int64_t lastIndexOfCodePointByIteration(const egg::lang::IString& haystack, char32_t needle) {
+  inline int64_t lastIndexOfCodePointByIteration(const IString& haystack, char32_t needle, size_t fromIndex) {
     // Iterate around the haystack for the needle from back-to-front
     assert(!haystack.empty());
-    egg::lang::StringIteration haystackIteration{};
-    if (haystack.iterateLast(haystackIteration)) {
-      auto index = int64_t(haystack.length()) - 1;
+    auto haystackLength = haystack.length();
+    fromIndex = std::min(fromIndex, haystackLength - 1);
+    StringIteration haystackIteration;
+    if (iterationOffset(haystackIteration, haystack, fromIndex)) {
+      auto index = int64_t(fromIndex);
       do {
         if (haystackIteration.codepoint == needle) {
           return index;
@@ -433,26 +455,32 @@ namespace {
     return -1; // Not found
   }
 
-  inline int64_t lastIndexOfStringByIteration(const egg::lang::IString& haystack, const egg::lang::IString& needle) {
+  inline int64_t lastIndexOfStringByIteration(const IString& haystack, const IString& needle, size_t fromIndex) {
     // Iterate around the haystack for the needle
     assert(!haystack.empty());
     assert(!needle.empty());
-    egg::lang::StringIteration haystackIteration;
-    egg::lang::StringIteration needleIteration;
-    if (haystack.iterateFirst(haystackIteration) && needle.iterateFirst(needleIteration)) {
-      auto needleLength = needle.length();
-      int64_t index = 0;
+    auto haystackLength = haystack.length();
+    auto needleLength = needle.length();
+    if (needleLength > haystackLength) {
+      // The needle is too long
+      return -1;
+    }
+    fromIndex = std::min(fromIndex, haystackLength - needleLength);
+    StringIteration haystackIteration;
+    StringIteration needleIteration;
+    if (iterationOffset(haystackIteration, haystack, fromIndex) && needle.iterateFirst(needleIteration)) {
+      auto index = int64_t(fromIndex);
       do {
         if ((haystackIteration.codepoint == needleIteration.codepoint) && iterationMatch(haystack, haystackIteration, needle, needleIteration, needleLength)) {
           return index;
         }
-        index++;
-      } while (haystack.iterateNext(haystackIteration));
+        index--;
+      } while (haystack.iteratePrevious(haystackIteration));
     }
     return -1; // Not found
   }
 
-  class StringBufferUTF8 : public egg::gc::HardReferenceCounted<egg::lang::IString> {
+  class StringBufferUTF8 : public egg::gc::HardReferenceCounted<IString> {
     EGG_NO_COPY(StringBufferUTF8);
   private:
     std::string utf8;
@@ -515,13 +543,8 @@ namespace {
       if (needleLength > this->codepoints) {
         return false;
       }
-      egg::lang::StringIteration iteration;
-      if (this->iterateFirst(iteration)) {
-        for (auto skip = this->codepoints - needleLength; skip > 0; --skip) {
-          if (!this->iterateNext(iteration)) {
-            return false; // Malformed
-          }
-        }
+      StringIteration iteration;
+      if (iterationOffset(iteration, *this, this->codepoints - needleLength)) {
         return iterationEqualStarted(iteration, *this, needle, needleLength);
       }
       return false; // Malformed
@@ -529,45 +552,44 @@ namespace {
     virtual int64_t hashCode() const override {
       // See https://docs.oracle.com/javase/6/docs/api/java/lang/String.html#hashCode()
       int64_t hash = 0;
-      egg::lang::StringIteration iteration;
-      if (this->iterateFirst(iteration)) {
-        do {
-          hash = hash * 31 + int64_t(uint32_t(iteration.codepoint));
-        } while (this->iterateNext(iteration));
+      egg::utf::utf8_reader reader(this->utf8, egg::utf::utf8_reader::First);
+      char32_t codepoint = 0;
+      while (reader.forward(codepoint)) {
+        hash = hash * 31 + int64_t(uint32_t(codepoint));
       }
       return hash;
     }
     virtual int32_t codePointAt(size_t index) const override {
-      egg::utf::utf8_reader reader(this->utf8);
-      if (!reader.skip(index)) {
+      egg::utf::utf8_reader reader(this->utf8, egg::utf::utf8_reader::First);
+      if (!reader.skipForward(index)) {
         return -1;
       }
       char32_t codepoint = 0;
-      return reader.read(codepoint) ? int32_t(codepoint) : -1;
+      return reader.forward(codepoint) ? int32_t(codepoint) : -1;
     }
-    virtual int64_t indexOfCodePoint(char32_t needle) const override {
-      return indexOfCodePointByIteration(*this, needle);
+    virtual int64_t indexOfCodePoint(char32_t needle, size_t fromIndex) const override {
+      return indexOfCodePointByIteration(*this, needle, fromIndex);
     }
-    virtual int64_t indexOfString(const IString& needle) const override {
+    virtual int64_t indexOfString(const IString& needle, size_t fromIndex) const override {
+      switch (needle.length()) {
+      case 0:
+        return (fromIndex < this->codepoints) ? int64_t(fromIndex) : -1;
+      case 1:
+        return indexOfCodePointByIteration(*this, char32_t(needle.codePointAt(0)), fromIndex);
+      }
+      return indexOfStringByIteration(*this, needle, fromIndex);
+    }
+    virtual int64_t lastIndexOfCodePoint(char32_t needle, size_t fromIndex) const override {
+      return lastIndexOfCodePointByIteration(*this, needle, fromIndex);
+    }
+    virtual int64_t lastIndexOfString(const IString& needle, size_t fromIndex) const override {
       switch (needle.length()) {
       case 0:
         return 0;
       case 1:
-        return indexOfCodePointByIteration(*this, char32_t(needle.codePointAt(0)));
+        return lastIndexOfCodePointByIteration(*this, char32_t(needle.codePointAt(0)), fromIndex);
       }
-      return indexOfStringByIteration(*this, needle);
-    }
-    virtual int64_t lastIndexOfCodePoint(char32_t needle) const override {
-      return lastIndexOfCodePointByIteration(*this, needle);
-    }
-    virtual int64_t lastIndexOfString(const IString& needle) const override {
-      switch (needle.length()) {
-      case 0:
-        return 0;
-      case 1:
-        return lastIndexOfCodePointByIteration(*this, char32_t(needle.codePointAt(0)));
-      }
-      return lastIndexOfStringByIteration(*this, needle);
+      return lastIndexOfStringByIteration(*this, needle, fromIndex);
     }
     virtual const IString* substring(size_t begin, size_t end) const override {
       if ((begin >= this->codepoints) || (end <= begin)) {
@@ -576,8 +598,8 @@ namespace {
       if ((begin == 0) && (end >= this->codepoints)) {
         return this;
       }
-      egg::utf::utf8_reader reader(this->utf8);
-      if (!reader.skip(begin)) {
+      egg::utf::utf8_reader reader(this->utf8, egg::utf::utf8_reader::First);
+      if (!reader.skipForward(begin)) {
         return &stringEmpty; // Malformed
       }
       size_t p = reader.getIterationInternal();
@@ -586,7 +608,7 @@ namespace {
       if (end < this->codepoints) {
         // It's a proper substring
         length = end - begin;
-        if (!reader.skip(length)) {
+        if (!reader.skipForward(length)) {
           return &stringEmpty; // Malformed
         }
         q = reader.getIterationInternal();
@@ -602,37 +624,37 @@ namespace {
     virtual std::string toUTF8() const override {
       return this->utf8;
     }
-    virtual bool iterateFirst(egg::lang::StringIteration& iteration) const override {
+    virtual bool iterateFirst(StringIteration& iteration) const override {
       // There should be at least one element to iterate
-      egg::utf::utf8_reader reader(this->utf8);
-      if (reader.read(iteration.codepoint)) {
+      egg::utf::utf8_reader reader(this->utf8, egg::utf::utf8_reader::First);
+      if (reader.forward(iteration.codepoint)) {
         iteration.internal = reader.getIterationInternal();
         return true;
       }
       return false;
     }
-    virtual bool iterateNext(egg::lang::StringIteration& iteration) const override {
+    virtual bool iterateNext(StringIteration& iteration) const override {
       // Fetch the next element
       egg::utf::utf8_reader reader(this->utf8, iteration.internal);
-      if (reader.read(iteration.codepoint)) {
+      if (reader.forward(iteration.codepoint)) {
         iteration.internal = reader.getIterationInternal();
         return true;
       }
       return false;
     }
-    virtual bool iteratePrevious(egg::lang::StringIteration& iteration) const override {
+    virtual bool iteratePrevious(StringIteration& iteration) const override {
       // Fetch the previous element
-      egg::utf::utf8_reader_reverse reader(this->utf8, iteration.internal);
-      if (reader.read(iteration.codepoint)) {
+      egg::utf::utf8_reader reader(this->utf8, iteration.internal);
+      if (reader.backward(iteration.codepoint)) {
         iteration.internal = reader.getIterationInternal();
         return true;
       }
       return false;
     }
-    virtual bool iterateLast(egg::lang::StringIteration& iteration) const override {
+    virtual bool iterateLast(StringIteration& iteration) const override {
       // There should be at least one element to iterate
-      egg::utf::utf8_reader_reverse reader(this->utf8);
-      if (reader.read(iteration.codepoint)) {
+      egg::utf::utf8_reader reader(this->utf8, egg::utf::utf8_reader::Last);
+      if (reader.backward(iteration.codepoint)) {
         iteration.internal = reader.getIterationInternal();
         return true;
       }
@@ -640,232 +662,298 @@ namespace {
     }
   };
 
-  class TypeReference : public egg::gc::HardReferenceCounted<egg::lang::IType> {
+  void splitPositive(std::vector<String>& dst, const String& src, const String& separator, size_t limit) {
+    // Unlike the original parameter, 'limit' is the maximum number of SPLITS to perform
+    // OPTIMIZE
+    assert(dst.size() == 0);
+    size_t begin = 0;
+    if (limit > 0) {
+      if (separator.empty()) {
+        // Split into codepoints
+        do {
+          auto cp = src.codePointAt(begin);
+          if (cp < 0) {
+            return; // Don't add a trailing empty string
+          }
+          dst.push_back(String::fromCodePoint(char32_t(cp)));
+        } while (++begin < limit);
+      } else {
+        // Split by string
+        assert(separator.length() > 0);
+        auto index = src.indexOfString(separator);
+        while (index >= 0) {
+          dst.push_back(src.substring(begin, size_t(index)));
+          begin = index + separator.length();
+          if (--limit == 0) {
+            break;
+          }
+          index = src.indexOfString(separator, begin);
+        }
+      }
+    }
+    dst.push_back(src.substring(begin));
+  }
+
+  void splitNegative(std::vector<String>& dst, const String& src, const String& separator, size_t limit) {
+    // Unlike the original parameter, 'limit' is the maximum number of SPLITS to perform
+    // OPTIMIZE
+    assert(dst.size() == 0);
+    size_t end = src.length();
+    if (limit > 0) {
+      auto length = separator.length();
+      if (length == 0) {
+        // Split into codepoints
+        do {
+          auto cp = src.codePointAt(--end);
+          if (cp < 0) {
+            std::reverse(dst.begin(), dst.end());
+            return; // Don't add a trailing empty string
+          }
+          dst.push_back(String::fromCodePoint(char32_t(cp)));
+        } while (--limit > 0);
+      } else {
+        // Split by string
+        auto index = src.lastIndexOfString(separator);
+        while (index >= 0) {
+          dst.push_back(src.substring(size_t(index) + length, end));
+          end = size_t(index);
+          if ((end < length) || (--limit == 0)) {
+            break;
+          }
+          index = src.lastIndexOfString(separator, end - length);
+        }
+      }
+    }
+    dst.push_back(src.substring(0, end));
+    std::reverse(dst.begin(), dst.end());
+  }
+
+  class TypeReference : public egg::gc::HardReferenceCounted<IType> {
     EGG_NO_COPY(TypeReference);
   private:
-    egg::lang::ITypeRef referenced;
+    ITypeRef referenced;
   public:
-    explicit TypeReference(const egg::lang::IType& referenced)
+    explicit TypeReference(const IType& referenced)
       : HardReferenceCounted(0), referenced(&referenced) {
     }
-    virtual egg::lang::String toString() const override {
-      return egg::lang::String::concat(this->referenced->toString(), "*");
+    virtual String toString() const override {
+      return String::concat(this->referenced->toString(), "*");
     }
-    virtual egg::lang::ITypeRef referencedType() const override {
+    virtual ITypeRef referencedType() const override {
       return this->referenced;
     }
-    virtual egg::lang::Value canAlwaysAssignFrom(egg::lang::IExecution& execution, const egg::lang::IType&) const override {
+    virtual Value canAlwaysAssignFrom(IExecution& execution, const IType&) const override {
       return execution.raiseFormat("TODO: Cannot yet assign to reference value"); // TODO
     }
-    virtual egg::lang::Value promoteAssignment(egg::lang::IExecution& execution, const egg::lang::Value&) const override {
+    virtual Value promoteAssignment(IExecution& execution, const Value&) const override {
       return execution.raiseFormat("TODO: Cannot yet assign to reference value"); // TODO
     }
-    virtual const egg::lang::ISignature* callable(egg::lang::IExecution&) const override {
+    virtual const ISignature* callable(IExecution&) const override {
       return nullptr;
     }
   };
 
-  class TypeNull : public egg::gc::NotReferenceCounted<egg::lang::IType>{
+  class TypeNull : public egg::gc::NotReferenceCounted<IType>{
   private:
-    egg::lang::String name;
+    String name;
   public:
     TypeNull()
-      : name(egg::lang::String::fromUTF8("null")) {
+      : name(String::fromUTF8("null")) {
     }
-    virtual egg::lang::String toString() const override {
+    virtual String toString() const override {
       return this->name;
     }
-    virtual egg::lang::Discriminator getSimpleTypes() const override {
-      return egg::lang::Discriminator::Null;
+    virtual Discriminator getSimpleTypes() const override {
+      return Discriminator::Null;
     }
-    virtual egg::lang::ITypeRef coallescedType(const IType& rhs) const override {
+    virtual ITypeRef coallescedType(const IType& rhs) const override {
       // We're always null, so the type is just the type of the rhs
-      return egg::lang::ITypeRef(&rhs);
+      return ITypeRef(&rhs);
     }
-    virtual egg::lang::ITypeRef unionWith(const IType& other) const override {
+    virtual ITypeRef unionWith(const IType& other) const override {
       auto simple = other.getSimpleTypes();
-      if (egg::lang::Bits::hasAnySet(simple, egg::lang::Discriminator::Null)) {
+      if (Bits::hasAnySet(simple, Discriminator::Null)) {
         // The other type supports Null anyway
-        return egg::lang::ITypeRef(&other);
+        return ITypeRef(&other);
       }
-      return egg::lang::Type::makeUnion(*this, other);
+      return Type::makeUnion(*this, other);
     }
-    virtual egg::lang::Value canAlwaysAssignFrom(egg::lang::IExecution& execution, const egg::lang::IType&) const override {
+    virtual Value canAlwaysAssignFrom(IExecution& execution, const IType&) const override {
       return execution.raiseFormat("Cannot assign to 'null' value");
     }
-    virtual egg::lang::Value promoteAssignment(egg::lang::IExecution& execution, const egg::lang::Value&) const override {
+    virtual Value promoteAssignment(IExecution& execution, const Value&) const override {
       return execution.raiseFormat("Cannot assign to 'null' value");
     }
-    virtual const egg::lang::ISignature* callable(egg::lang::IExecution&) const override {
+    virtual const ISignature* callable(IExecution&) const override {
       return nullptr;
     }
   };
   const TypeNull typeNull{};
 
-  template<egg::lang::Discriminator TAG>
-  class TypeNative : public egg::gc::NotReferenceCounted<egg::lang::IType> {
+  template<Discriminator TAG>
+  class TypeNative : public egg::gc::NotReferenceCounted<IType> {
   private:
-    egg::lang::String name;
+    String name;
   public:
     TypeNative()
-      : name(egg::lang::String::fromUTF8(egg::lang::Value::getTagString(TAG))) {
-      assert(!egg::lang::Bits::hasAnySet(TAG, egg::lang::Discriminator::Null));
+      : name(String::fromUTF8(Value::getTagString(TAG))) {
+      assert(!Bits::hasAnySet(TAG, Discriminator::Null));
     }
-    virtual egg::lang::String toString() const override {
+    virtual String toString() const override {
       return this->name;
     }
-    virtual egg::lang::Discriminator getSimpleTypes() const override {
+    virtual Discriminator getSimpleTypes() const override {
       return TAG;
     }
-    virtual egg::lang::ITypeRef unionWith(const IType& other) const override {
+    virtual ITypeRef unionWith(const IType& other) const override {
       if (other.getSimpleTypes() == TAG) {
         // It's the identical native type
-        return egg::lang::ITypeRef(this);
+        return ITypeRef(this);
       }
-      return egg::lang::Type::makeUnion(*this, other);
+      return Type::makeUnion(*this, other);
     }
-    virtual egg::lang::Value canAlwaysAssignFrom(egg::lang::IExecution& execution, const egg::lang::IType& rhs) const override {
+    virtual Value canAlwaysAssignFrom(IExecution& execution, const IType& rhs) const override {
       return canAlwaysAssignSimple(execution, TAG, rhs.getSimpleTypes());
     }
-    virtual egg::lang::Value promoteAssignment(egg::lang::IExecution& execution, const egg::lang::Value& rhs) const override {
+    virtual Value promoteAssignment(IExecution& execution, const Value& rhs) const override {
       return promoteAssignmentSimple(execution, TAG, rhs);
     }
-    virtual const egg::lang::ISignature* callable(egg::lang::IExecution&) const override {
+    virtual const ISignature* callable(IExecution&) const override {
       return nullptr;
     }
-    virtual egg::lang::Value cast(egg::lang::IExecution& execution, const egg::lang::IParameters& parameters) const override {
+    virtual Value cast(IExecution& execution, const IParameters& parameters) const override {
       return castSimple(execution, TAG, parameters);
     }
   };
-  const TypeNative<egg::lang::Discriminator::Void> typeVoid{};
-  const TypeNative<egg::lang::Discriminator::Bool> typeBool{};
-  const TypeNative<egg::lang::Discriminator::Int> typeInt{};
-  const TypeNative<egg::lang::Discriminator::Float> typeFloat{};
-  const TypeNative<egg::lang::Discriminator::Arithmetic> typeArithmetic{};
+  const TypeNative<Discriminator::Void> typeVoid{};
+  const TypeNative<Discriminator::Bool> typeBool{};
+  const TypeNative<Discriminator::Int> typeInt{};
+  const TypeNative<Discriminator::Float> typeFloat{};
+  const TypeNative<Discriminator::Arithmetic> typeArithmetic{};
 
-  class TypeString : public TypeNative<egg::lang::Discriminator::String> {
+  class TypeString : public TypeNative<Discriminator::String> {
   public:
-    virtual egg::lang::Value dotGet(egg::lang::IExecution& execution, const egg::lang::Value& instance, const egg::lang::String& property) const override {
+    virtual Value dotGet(IExecution& execution, const Value& instance, const String& property) const override {
       return instance.getString().builtin(execution, property);
     }
-    virtual egg::lang::Value bracketsGet(egg::lang::IExecution& execution, const egg::lang::Value& instance, const egg::lang::Value& index) const override {
+    virtual Value bracketsGet(IExecution& execution, const Value& instance, const Value& index) const override {
       return bracketsString(execution, instance.getString(), index);
     }
   };
   const TypeString typeString{};
 
-  class TypeSimple : public egg::gc::HardReferenceCounted<egg::lang::IType> {
+  class TypeSimple : public egg::gc::HardReferenceCounted<IType> {
     EGG_NO_COPY(TypeSimple);
   private:
-    egg::lang::Discriminator tag;
+    Discriminator tag;
   public:
-    explicit TypeSimple(egg::lang::Discriminator tag)
+    explicit TypeSimple(Discriminator tag)
       : HardReferenceCounted(0), tag(tag) {
     }
-    virtual egg::lang::String toString() const override {
-      return egg::lang::String::fromUTF8(egg::lang::Value::getTagString(this->tag));
+    virtual String toString() const override {
+      return String::fromUTF8(Value::getTagString(this->tag));
     }
-    virtual egg::lang::Discriminator getSimpleTypes() const override {
+    virtual Discriminator getSimpleTypes() const override {
       return this->tag;
     }
-    virtual egg::lang::ITypeRef coallescedType(const IType& rhs) const override {
-      auto denulled = egg::lang::Bits::clear(this->tag, egg::lang::Discriminator::Null);
+    virtual ITypeRef coallescedType(const IType& rhs) const override {
+      auto denulled = Bits::clear(this->tag, Discriminator::Null);
       if (this->tag != denulled) {
         // We need to clear the bit
-        return egg::lang::Type::makeSimple(denulled)->unionWith(rhs);
+        return Type::makeSimple(denulled)->unionWith(rhs);
       }
       return this->unionWith(rhs);
     }
-    virtual egg::lang::ITypeRef unionWith(const IType& other) const override {
+    virtual ITypeRef unionWith(const IType& other) const override {
       auto simple = other.getSimpleTypes();
-      if (simple == egg::lang::Discriminator::None) {
+      if (simple == Discriminator::None) {
         // The other type is not simple
-        return egg::lang::Type::makeUnion(*this, other);
+        return Type::makeUnion(*this, other);
       }
-      auto both = egg::lang::Bits::set(this->tag, simple);
+      auto both = Bits::set(this->tag, simple);
       if (both != this->tag) {
         // There's a new simple type that we don't support, so create a new type
-        return egg::lang::Type::makeSimple(both);
+        return Type::makeSimple(both);
       }
-      return egg::lang::ITypeRef(this);
+      return ITypeRef(this);
     }
-    virtual egg::lang::Value canAlwaysAssignFrom(egg::lang::IExecution& execution, const egg::lang::IType& rhs) const override {
+    virtual Value canAlwaysAssignFrom(IExecution& execution, const IType& rhs) const override {
       return canAlwaysAssignSimple(execution, this->tag, rhs.getSimpleTypes());
     }
-    virtual egg::lang::Value promoteAssignment(egg::lang::IExecution& execution, const egg::lang::Value& rhs) const override {
+    virtual Value promoteAssignment(IExecution& execution, const Value& rhs) const override {
       return promoteAssignmentSimple(execution, this->tag, rhs);
     }
-    virtual const egg::lang::ISignature* callable(egg::lang::IExecution&) const override {
+    virtual const ISignature* callable(IExecution&) const override {
       return nullptr;
     }
-    virtual egg::lang::Value dotGet(egg::lang::IExecution& execution, const egg::lang::Value& instance, const egg::lang::String& property) const override {
+    virtual Value dotGet(IExecution& execution, const Value& instance, const String& property) const override {
       return dotSimple(execution, instance, property);
     }
   };
 
-  class TypeUnion : public egg::gc::HardReferenceCounted<egg::lang::IType> {
+  class TypeUnion : public egg::gc::HardReferenceCounted<IType> {
     EGG_NO_COPY(TypeUnion);
   private:
-    egg::lang::ITypeRef a;
-    egg::lang::ITypeRef b;
+    ITypeRef a;
+    ITypeRef b;
   public:
-    TypeUnion(const egg::lang::IType& a, const egg::lang::IType& b)
+    TypeUnion(const IType& a, const IType& b)
       : HardReferenceCounted(0), a(&a), b(&b) {
     }
-    virtual egg::lang::String toString() const override {
-      return egg::lang::String::concat(this->a->toString(), "|", this->b->toString());
+    virtual String toString() const override {
+      return String::concat(this->a->toString(), "|", this->b->toString());
     }
-    virtual egg::lang::Value canAlwaysAssignFrom(egg::lang::IExecution& execution, const egg::lang::IType&) const override {
+    virtual Value canAlwaysAssignFrom(IExecution& execution, const IType&) const override {
       return execution.raiseFormat("TODO: Cannot yet assign to union value"); // TODO
     }
-    virtual egg::lang::Value promoteAssignment(egg::lang::IExecution& execution, const egg::lang::Value&) const override {
+    virtual Value promoteAssignment(IExecution& execution, const Value&) const override {
       return execution.raiseFormat("TODO: Cannot yet assign to union value"); // TODO
     }
-    virtual const egg::lang::ISignature* callable(egg::lang::IExecution&) const override {
+    virtual const ISignature* callable(IExecution&) const override {
       EGG_THROW("TODO: Cannot yet call to union value"); // TODO
     }
   };
 
-  class ExceptionType : public egg::gc::NotReferenceCounted<egg::lang::IType> {
+  class ExceptionType : public egg::gc::NotReferenceCounted<IType> {
   public:
-    virtual egg::lang::String toString() const override {
-      return egg::lang::String::fromUTF8("exception");
+    virtual String toString() const override {
+      return String::fromUTF8("exception");
     }
-    virtual egg::lang::Value canAlwaysAssignFrom(egg::lang::IExecution& execution, const egg::lang::IType&) const override {
+    virtual Value canAlwaysAssignFrom(IExecution& execution, const IType&) const override {
       return execution.raiseFormat("Cannot re-assign exceptions");
     }
-    virtual egg::lang::Value promoteAssignment(egg::lang::IExecution& execution, const egg::lang::Value&) const override {
+    virtual Value promoteAssignment(IExecution& execution, const Value&) const override {
       return execution.raiseFormat("Cannot re-assign exceptions");
     }
-    virtual const egg::lang::ISignature* callable(egg::lang::IExecution&) const override {
+    virtual const ISignature* callable(IExecution&) const override {
       return nullptr;
     }
   };
 
-  class Exception : public egg::gc::HardReferenceCounted<egg::lang::IObject> {
+  class Exception : public egg::gc::HardReferenceCounted<IObject> {
     EGG_NO_COPY(Exception);
   private:
     static const ExceptionType type;
-    egg::lang::LocationRuntime location;
-    egg::lang::String message;
+    LocationRuntime location;
+    String message;
   public:
-    explicit Exception(const egg::lang::LocationRuntime& location, const egg::lang::String& message)
+    explicit Exception(const LocationRuntime& location, const String& message)
       : HardReferenceCounted(0), location(location), message(message) {
     }
     virtual bool dispose() override {
       return false;
     }
-    virtual egg::lang::Value toString() const override {
+    virtual Value toString() const override {
       auto where = this->location.toSourceString();
       if (where.length() > 0) {
-        return egg::lang::Value(egg::lang::String::concat(where, ": ", this->message));
+        return Value(String::concat(where, ": ", this->message));
       }
-      return egg::lang::Value(this->message);
+      return Value(this->message);
     }
-    virtual egg::lang::Value getRuntimeType() const override {
-      return egg::lang::Value(Exception::type);
+    virtual Value getRuntimeType() const override {
+      return Value(Exception::type);
     }
-    virtual egg::lang::Value call(egg::lang::IExecution& execution, const egg::lang::IParameters&) override {
+    virtual Value call(IExecution& execution, const IParameters&) override {
       return execution.raiseFormat("Exceptions cannot be called");
     }
   };
@@ -891,12 +979,34 @@ egg::lang::String egg::lang::String::fromCodePoint(char32_t codepoint) {
 }
 
 egg::lang::String egg::lang::String::fromUTF8(const std::string& utf8) {
-  egg::utf::utf8_reader reader(utf8);
+  egg::utf::utf8_reader reader(utf8, egg::utf::utf8_reader::First);
   auto length = reader.validate();
   if (length == 0) {
     return egg::lang::String::Empty;
   }
   return String(*new StringBufferUTF8(utf8, length));
+}
+
+std::vector<egg::lang::String> egg::lang::String::split(const String& separator, int64_t limit) const {
+  // See https://docs.oracle.com/javase/8/docs/api/java/lang/String.html#split-java.lang.String-int-
+  // However, if limit == 0 we return an empty vector
+  std::vector<egg::lang::String> result;
+  if (limit > 0) {
+    // Split from the beginning
+    if (uint64_t(limit) < uint64_t(SIZE_MAX)) {
+      splitPositive(result, *this, separator, size_t(limit - 1));
+    } else {
+      splitPositive(result, *this, separator, SIZE_MAX);
+    }
+  } else if (limit < 0) {
+    // Split from the end
+    if (uint64_t(-limit) < uint64_t(SIZE_MAX)) {
+      splitNegative(result, *this, separator, size_t(-1 - limit));
+    } else {
+      splitNegative(result, *this, separator, SIZE_MAX);
+    }
+  }
+  return result;
 }
 
 egg::lang::String egg::lang::StringBuilder::str() const {
@@ -1218,18 +1328,29 @@ bool egg::lang::ISignature::validateCallDefault(IExecution& execution, const IPa
     problem = execution.raiseFormat(this->toString(), ": Named parameters are not yet supported"); // TODO
     return false;
   }
-  auto expected = this->getParameterCount();
+  auto maxPositional = this->getParameterCount();
+  auto minPositional = maxPositional;
+  while ((minPositional > 0) && !this->getParameter(minPositional - 1).isRequired()) {
+    minPositional--;
+  }
   auto actual = parameters.getPositionalCount();
-  if ((expected > 0) && this->getParameter(expected - 1).isVariadic()) {
-    // Variadic
-    expected--;
-    if (actual < expected) {
-      problem = execution.raiseFormat(this->toString(), ": At least ", expected, " parameter(s) were expected, not ", actual);
-      return false;
+  if (actual < minPositional) {
+    if (minPositional == 1) {
+      problem = execution.raiseFormat(this->toString(), ": At least one parameter was expected");
+    } else {
+      problem = execution.raiseFormat(this->toString(), ": At least ", minPositional, " parameters were expected, not ", actual);
     }
-  } else if (actual != expected) {
+    return false;
+  }
+  if ((maxPositional > 0) && this->getParameter(maxPositional - 1).isVariadic()) {
+    // TODO Variadic
+  } else if (actual > maxPositional) {
     // Not variadic
-    problem = execution.raiseFormat(this->toString(), ": Exactly ", expected, " parameter(s) were expected, not ", actual);
+    if (maxPositional == 1) {
+      problem = execution.raiseFormat(this->toString(), ": Only one parameter was expected, not ", actual);
+    } else {
+      problem = execution.raiseFormat(this->toString(), ": No more than ", maxPositional, " parameters were expected, not ", actual);
+    }
     return false;
   }
   return true;

@@ -491,3 +491,79 @@ TEST(TestStrings, Slice) {
     }
   }
 }
+
+TEST(TestStrings, SplitEmpty) {
+  auto banana = egg::lang::String::fromUTF8("banana");
+  auto empty = egg::lang::String::Empty;
+  auto split = banana.split(empty);
+  ASSERT_EQ(6u, split.size());
+  ASSERT_EQ("b", split[0].toUTF8());
+  ASSERT_EQ("a", split[1].toUTF8());
+  ASSERT_EQ("n", split[2].toUTF8());
+  ASSERT_EQ("a", split[3].toUTF8());
+  ASSERT_EQ("n", split[4].toUTF8());
+  ASSERT_EQ("a", split[5].toUTF8());
+
+  split = banana.split(empty, 3);
+  ASSERT_EQ(3u, split.size());
+  ASSERT_EQ("b", split[0].toUTF8());
+  ASSERT_EQ("a", split[1].toUTF8());
+  ASSERT_EQ("nana", split[2].toUTF8());
+
+  split = banana.split(empty, -3);
+  ASSERT_EQ(3u, split.size());
+  ASSERT_EQ("bana", split[0].toUTF8());
+  ASSERT_EQ("n", split[1].toUTF8());
+  ASSERT_EQ("a", split[2].toUTF8());
+
+  split = banana.split(empty, 0);
+  ASSERT_EQ(0u, split.size());
+}
+
+TEST(TestStrings, SplitSingle) {
+  auto banana = egg::lang::String::fromUTF8("banana");
+  auto a = egg::lang::String::fromCodePoint('a');
+  auto split = banana.split(a);
+  ASSERT_EQ(4u, split.size());
+  ASSERT_EQ("b", split[0].toUTF8());
+  ASSERT_EQ("n", split[1].toUTF8());
+  ASSERT_EQ("n", split[2].toUTF8());
+  ASSERT_EQ("",  split[3].toUTF8());
+
+  split = banana.split(a, 3);
+  ASSERT_EQ(3u, split.size());
+  ASSERT_EQ("b", split[0].toUTF8());
+  ASSERT_EQ("n", split[1].toUTF8());
+  ASSERT_EQ("na", split[2].toUTF8());
+
+  split = banana.split(a, -3);
+  ASSERT_EQ(3u, split.size());
+  ASSERT_EQ("ban", split[0].toUTF8());
+  ASSERT_EQ("n", split[1].toUTF8());
+  ASSERT_EQ("", split[2].toUTF8());
+
+  split = banana.split(a, 0);
+  ASSERT_EQ(0u, split.size());
+}
+
+TEST(TestStrings, SplitString) {
+  auto banana = egg::lang::String::fromUTF8("banana");
+  auto ana = egg::lang::String::fromUTF8("ana");
+  auto split = banana.split(ana);
+  ASSERT_EQ(2u, split.size());
+  ASSERT_EQ("b", split[0].toUTF8());
+  ASSERT_EQ("na", split[1].toUTF8());
+
+  split = banana.split(ana, 3);
+  ASSERT_EQ(2u, split.size());
+  ASSERT_EQ("b", split[0].toUTF8());
+  ASSERT_EQ("na", split[1].toUTF8());
+
+  split = banana.split(ana, -3);
+  ASSERT_EQ(2u, split.size());
+  ASSERT_EQ("ban", split[0].toUTF8());
+  ASSERT_EQ("", split[1].toUTF8());
+
+  split = banana.split(ana, 0);
+  ASSERT_EQ(0u, split.size());
+}
