@@ -154,6 +154,9 @@ namespace {
     virtual const IString* substring(size_t, size_t) const override {
       return this;
     }
+    virtual const IString* repeat(size_t) const override {
+      return this;
+    }
     virtual std::string toUTF8() const override {
       return std::string();
     }
@@ -175,6 +178,8 @@ namespace {
     }
   };
   const StringEmpty stringEmpty{};
+
+  const IString* repeatString(const IString& utf8, size_t length, size_t count);
 
   class StringBufferCodePoint : public egg::gc::HardReferenceCounted<IString> {
     EGG_NO_COPY(StringBufferCodePoint);
@@ -295,6 +300,9 @@ namespace {
         return this;
       }
       return &stringEmpty;
+    }
+    virtual const IString* repeat(size_t count) const override {
+      return repeatString(*this, 1, count);
     }
     virtual std::string toUTF8() const override {
       return egg::utf::to_utf8(this->codepoint);
@@ -621,6 +629,9 @@ namespace {
       std::string sub(this->utf8.data() + p, q - p);
       return new StringBufferUTF8(sub, length);
     }
+    virtual const IString* repeat(size_t count) const override {
+      return repeatString(*this, this->codepoints, count);
+    }
     virtual std::string toUTF8() const override {
       return this->utf8;
     }
@@ -661,6 +672,23 @@ namespace {
       return false;
     }
   };
+
+  const IString* repeatString(const IString& src, size_t length, size_t count) {
+    assert(length > 0);
+    switch (count) {
+    case 0:
+      return &stringEmpty;
+    case 1:
+      return &src;
+    }
+    auto t = src.toUTF8();
+    auto s = t;
+    s.reserve(t.size() * count);
+    for (size_t i = 1; i < count; ++i) {
+      s.append(t);
+    }
+    return new StringBufferUTF8(s, length * count);
+  }
 
   void splitPositive(std::vector<String>& dst, const String& src, const String& separator, size_t limit) {
     // Unlike the original parameter, 'limit' is the maximum number of SPLITS to perform

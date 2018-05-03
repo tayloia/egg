@@ -376,17 +376,47 @@ namespace {
       if (!p0.is(Discriminator::Int)) {
         return this->raise(execution, "First parameter was expected to be an 'int', not '", p0.getRuntimeType().toString(), "'");
       }
-      int64_t begin = p0.getInt();
+      auto begin = p0.getInt();
       if (parameters.getPositionalCount() == 1) {
         return Value{ instance.slice(begin) };
       }
-
       auto p1 = parameters.getPositional(1);
       if (!p1.is(Discriminator::Int)) {
         return this->raise(execution, "Second parameter was expected to be an 'int', not '", p0.getRuntimeType().toString(), "'");
       }
       auto end = p1.getInt();
       return Value{ instance.slice(begin, end) };
+    }
+  };
+
+  class StringRepeat : public BuiltinType {
+    EGG_NO_COPY(StringRepeat);
+  public:
+    StringRepeat()
+      : BuiltinType("string.repeat", Type::String) {
+      this->addPositionalParameter("count", Type::Int);
+    }
+    Value executeCall(IExecution& execution, const String& instance, const IParameters& parameters) const {
+      // string repeat(int count)
+      auto p0 = parameters.getPositional(0);
+      if (!p0.is(Discriminator::Int)) {
+        return this->raise(execution, "Parameter was expected to be an 'int', not '", p0.getRuntimeType().toString(), "'");
+      }
+      auto count = p0.getInt();
+      if (count < 0) {
+        return this->raise(execution, "Parameter was expected to be a positive integer, not ", count);
+      }
+      if (count == 0) {
+        return Value::EmptyString;
+      }
+      if (count == 1) {
+        return Value{ instance };
+      }
+      StringBuilder sb;
+      for (auto i = 0; i < count; ++i) {
+        sb.add(instance);
+      }
+      return Value{ sb.str() };
     }
   };
 }
@@ -437,6 +467,9 @@ egg::lang::Value egg::lang::String::builtin(egg::lang::IExecution& execution, co
   }
   if (name == "slice") {
     return StringBuiltin<StringSlice>::make(*this);
+  }
+  if (name == "repeat") {
+    return StringBuiltin<StringRepeat>::make(*this);
   }
   return execution.raiseFormat("Unknown property for type 'string': '", property, "'");
 }

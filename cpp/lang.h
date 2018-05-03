@@ -106,6 +106,7 @@ namespace egg::lang {
     virtual int64_t lastIndexOfCodePoint(char32_t codepoint, size_t fromIndex) const = 0;
     virtual int64_t lastIndexOfString(const IString& needle, size_t fromIndex) const = 0;
     virtual const IString* substring(size_t begin, size_t end) const = 0;
+    virtual const IString* repeat(size_t count) const = 0;
     virtual std::string toUTF8() const = 0;
 
     // Iteration
@@ -302,6 +303,9 @@ namespace egg::lang {
     }
     String slice(int64_t begin, int64_t end = INT64_MAX) const {
       return String(*this->get()->substring(this->signedToIndex(begin), this->signedToIndex(end)));
+    }
+    String repeat(size_t count) const {
+      return String(*this->get()->repeat(count));
     }
     std::vector<String> split(const String& separator, int64_t limit = INT64_MAX) const;
     // Helpers

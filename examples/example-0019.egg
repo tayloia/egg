@@ -51,3 +51,10 @@ print("beggar".slice(1, -2));
 ///>egg
 print("spoon".slice(-2));
 ///>on
+
+print("egg".repeat(0));
+///>
+print("egg".repeat(1));
+///>egg
+print("egg".repeat(10));
+///>eggeggeggeggeggeggeggeggeggegg

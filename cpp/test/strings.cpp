@@ -567,3 +567,23 @@ TEST(TestStrings, SplitString) {
   split = banana.split(ana, 0);
   ASSERT_EQ(0u, split.size());
 }
+
+TEST(TestStrings, Repeat) {
+  auto s = egg::lang::String::Empty;
+  ASSERT_EQ("", s.repeat(0).toUTF8());
+  ASSERT_EQ("", s.repeat(1).toUTF8());
+  ASSERT_EQ("", s.repeat(2).toUTF8());
+  ASSERT_EQ("", s.repeat(3).toUTF8());
+
+  s = egg::lang::String::fromCodePoint('e');
+  ASSERT_EQ("", s.repeat(0).toUTF8());
+  ASSERT_EQ("e", s.repeat(1).toUTF8());
+  ASSERT_EQ("ee", s.repeat(2).toUTF8());
+  ASSERT_EQ("eee", s.repeat(3).toUTF8());
+
+  s = egg::lang::String::fromUTF8("egg");
+  ASSERT_EQ("", s.repeat(0).toUTF8());
+  ASSERT_EQ("egg", s.repeat(1).toUTF8());
+  ASSERT_EQ("eggegg", s.repeat(2).toUTF8());
+  ASSERT_EQ("eggeggegg", s.repeat(3).toUTF8());
+}
