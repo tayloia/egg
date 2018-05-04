@@ -1,5 +1,7 @@
 #include "yolk.h"
 
+#include <map>
+
 namespace {
   using namespace egg::lang;
 
@@ -507,64 +509,37 @@ namespace {
       return Value{ instance.padRight(size_t(length), p1.getString()) };
     }
   };
+
+  Value stringLength(const String& instance) {
+    // This result is the actual length, not a function computing it
+    return Value{ int64_t(instance.length()) };
+  }
 }
 
 egg::lang::Value egg::lang::String::builtin(egg::lang::IExecution& execution, const egg::lang::String& property) const {
   // See http://chilliant.blogspot.co.uk/2018/05/egg-strings.html
-  //  WIBBLE
-  //  string padLeft(int length, string? padding)
-  //  string padRight(int length, string? padding)
-
-  // OPTIMIZE
+  static const std::map<std::string, std::function<Value(const String&)>> table = {
+    { "compare", StringBuiltin<StringCompare>::make },
+    { "contains", StringBuiltin<StringContains>::make },
+    { "endsWith", StringBuiltin<StringEndsWith>::make },
+    { "hashCode", StringBuiltin<StringHashCode>::make },
+    { "indexOf", StringBuiltin<StringIndexOf>::make },
+    { "join", StringBuiltin<StringJoin>::make },
+    { "lastIndexOf", StringBuiltin<StringLastIndexOf>::make },
+    { "length", stringLength },
+    { "padLeft", StringBuiltin<StringPadLeft>::make },
+    { "padRight", StringBuiltin<StringPadRight>::make },
+    { "repeat", StringBuiltin<StringRepeat>::make },
+    { "replace", StringBuiltin<StringReplace>::make },
+    { "slice", StringBuiltin<StringSlice>::make },
+    { "split", StringBuiltin<StringSplit>::make },
+    { "startsWith", StringBuiltin<StringStartsWith>::make },
+    { "toString", StringBuiltin<StringToString>::make },
+  };
   auto name = property.toUTF8();
-  if (name == "length") {
-    // This result is the actual length, not a function computing it
-    return Value{ int64_t(this->length()) };
-  }
-  if (name == "hashCode") {
-    return StringBuiltin<StringHashCode>::make(*this);
-  }
-  if (name == "toString") {
-    return StringBuiltin<StringToString>::make(*this);
-  }
-  if (name == "contains") {
-    return StringBuiltin<StringContains>::make(*this);
-  }
-  if (name == "compare") {
-    return StringBuiltin<StringCompare>::make(*this);
-  }
-  if (name == "startsWith") {
-    return StringBuiltin<StringStartsWith>::make(*this);
-  }
-  if (name == "endsWith") {
-    return StringBuiltin<StringEndsWith>::make(*this);
-  }
-  if (name == "indexOf") {
-    return StringBuiltin<StringIndexOf>::make(*this);
-  }
-  if (name == "lastIndexOf") {
-    return StringBuiltin<StringLastIndexOf>::make(*this);
-  }
-  if (name == "join") {
-    return StringBuiltin<StringJoin>::make(*this);
-  }
-  if (name == "split") {
-    return StringBuiltin<StringSplit>::make(*this);
-  }
-  if (name == "slice") {
-    return StringBuiltin<StringSlice>::make(*this);
-  }
-  if (name == "repeat") {
-    return StringBuiltin<StringRepeat>::make(*this);
-  }
-  if (name == "replace") {
-    return StringBuiltin<StringReplace>::make(*this);
-  }
-  if (name == "padLeft") {
-    return StringBuiltin<StringPadLeft>::make(*this);
-  }
-  if (name == "padRight") {
-    return StringBuiltin<StringPadRight>::make(*this);
+  auto entry = table.find(name);
+  if (entry != table.end()) {
+    return entry->second(*this);
   }
   return execution.raiseFormat("Unknown property for type 'string': '", property, "'");
 }
