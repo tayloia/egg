@@ -110,6 +110,10 @@ namespace {
     }
   }
 
+  // Forward declarations
+  const IString* repeatString(const IString& src, size_t length, size_t count);
+  const IString* replaceString(const IString& haystack, const IString& needle, const IString& replacement, int64_t occurrences);
+
   class StringEmpty : public egg::gc::NotReferenceCounted<IString> {
   public:
     virtual size_t length() const override {
@@ -181,10 +185,6 @@ namespace {
     }
   };
   const StringEmpty stringEmpty{};
-
-  // Forward declarations
-  const IString* repeatString(const IString& utf8, size_t length, size_t count);
-  const IString* replaceString(const IString& haystack, const IString& needle, const IString& replacement, int64_t occurrences);
 
   class StringBufferCodePoint : public egg::gc::HardReferenceCounted<IString> {
     EGG_NO_COPY(StringBufferCodePoint);
@@ -336,6 +336,10 @@ namespace {
       // There's only one element to iterate
       iteration.codepoint = this->codepoint;
       return true;
+    }
+    static String makeSpace() {
+      static String space{ *new StringBufferCodePoint(U' ') };
+      return space;
     }
   };
 
@@ -709,13 +713,13 @@ namespace {
     case 1:
       return &src;
     }
-    auto t = src.toUTF8();
-    auto s = t;
-    s.reserve(t.size() * count);
-    for (size_t i = 1; i < count; ++i) {
-      s.append(t);
+    auto utf8 = src.toUTF8();
+    std::string dst;
+    dst.reserve(utf8.size() * count);
+    for (size_t i = 0; i < count; ++i) {
+      dst.append(utf8);
     }
-    return StringBufferUTF8::create(s, length * count);
+    return StringBufferUTF8::create(dst, length * count);
   }
 
   void splitPositive(std::vector<String>& dst, const IString& src, const IString& separator, size_t limit) {
@@ -1077,9 +1081,10 @@ const egg::lang::Type egg::lang::Type::String{ typeString };
 const egg::lang::Type egg::lang::Type::Arithmetic{ typeArithmetic };
 const egg::lang::Type egg::lang::Type::Any{ *Type::make<TypeSimple>(egg::lang::Discriminator::Any) };
 
-// Empty constants
+// Constants
 const egg::lang::IString& egg::lang::String::emptyBuffer = stringEmpty;
 const egg::lang::String egg::lang::String::Empty{ stringEmpty };
+const egg::lang::String egg::lang::String::Space{ StringBufferCodePoint::makeSpace() };
 
 egg::lang::String egg::lang::String::fromCodePoint(char32_t codepoint) {
   return String(*new StringBufferCodePoint(codepoint));
@@ -1097,6 +1102,49 @@ std::vector<egg::lang::String> egg::lang::String::split(const String& separator,
     splitString(result, *this->get(), *separator, limit);
   }
   return result;
+}
+
+egg::lang::String egg::lang::String::padLeft(size_t target, const String& padding) const {
+  // OPTIMIZE
+  auto length = this->length();
+  auto n = padding.length();
+  if ((n == 0) || (target <= length)) {
+    return *this;
+  }
+  auto extra = target - length;
+  assert(extra > 0);
+  std::string dst;
+  auto utf8 = padding.toUTF8();
+  auto partial = extra % n;
+  if (partial > 0) {
+    dst.assign(egg::utf::utf8_offset(utf8, n - partial), utf8.cend());
+  }
+  for (auto whole = extra / n; whole > 0; --whole) {
+    dst.append(utf8);
+  }
+  dst.append(this->toUTF8());
+  return String(*StringBufferUTF8::create(dst, target));
+}
+
+egg::lang::String egg::lang::String::padRight(size_t target, const String& padding) const {
+  // OPTIMIZE
+  auto length = this->length();
+  auto n = padding.length();
+  if ((n == 0) || (target <= length)) {
+    return *this;
+  }
+  auto extra = target - length;
+  assert(extra > 0);
+  auto dst = this->toUTF8();
+  auto utf8 = padding.toUTF8();
+  for (auto whole = extra / n; whole > 0; --whole) {
+    dst.append(utf8);
+  }
+  auto partial = extra % n;
+  if (partial > 0) {
+    dst.append(utf8.cbegin(), egg::utf::utf8_offset(utf8, partial));
+  }
+  return String(*StringBufferUTF8::create(dst, target));
 }
 
 egg::lang::String egg::lang::StringBuilder::str() const {

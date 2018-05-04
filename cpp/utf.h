@@ -249,4 +249,10 @@ namespace egg::utf {
     }
     return utf32;
   }
+
+  inline std::string::const_iterator utf8_offset(const std::string& utf8, size_t codepoint_index) {
+    auto p = utf8.begin();
+    std::advance(p, codepoint_index); // WIBBLE
+    return p;
+  }
 }

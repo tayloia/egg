@@ -615,3 +615,30 @@ TEST(TestStrings, Replace) {
   ASSERT_EQ("banono", banana.replace(a, o, -2).toUTF8());
 }
 
+TEST(TestStrings, PadLeft) {
+  auto egg = egg::lang::String::fromUTF8("egg");
+  ASSERT_EQ("     egg", egg.padLeft(8).toUTF8());
+  ASSERT_EQ(" egg", egg.padLeft(4).toUTF8());
+  ASSERT_EQ("egg", egg.padLeft(2).toUTF8());
+  ASSERT_EQ("egg", egg.padLeft(0).toUTF8());
+
+  auto pad = egg::lang::String::fromUTF8("123");
+  ASSERT_EQ("23123egg", egg.padLeft(8, pad).toUTF8());
+  ASSERT_EQ("3egg", egg.padLeft(4, pad).toUTF8());
+  ASSERT_EQ("egg", egg.padLeft(2, pad).toUTF8());
+  ASSERT_EQ("egg", egg.padLeft(0, pad).toUTF8());
+}
+
+TEST(TestStrings, PadRight) {
+  auto egg = egg::lang::String::fromUTF8("egg");
+  ASSERT_EQ("egg     ", egg.padRight(8).toUTF8());
+  ASSERT_EQ("egg ", egg.padRight(4).toUTF8());
+  ASSERT_EQ("egg", egg.padRight(2).toUTF8());
+  ASSERT_EQ("egg", egg.padRight(0).toUTF8());
+
+  auto pad = egg::lang::String::fromUTF8("123");
+  ASSERT_EQ("egg12312", egg.padRight(8, pad).toUTF8());
+  ASSERT_EQ("egg1", egg.padRight(4, pad).toUTF8());
+  ASSERT_EQ("egg", egg.padRight(2, pad).toUTF8());
+  ASSERT_EQ("egg", egg.padRight(0, pad).toUTF8());
+}

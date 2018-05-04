@@ -404,7 +404,7 @@ namespace {
       }
       auto count = p0.getInt();
       if (count < 0) {
-        return this->raise(execution, "Parameter was expected to be a positive integer, not ", count);
+        return this->raise(execution, "Parameter was expected to be a non-negative integer, not ", count);
       }
       if (count == 0) {
         return Value::EmptyString;
@@ -430,7 +430,7 @@ namespace {
       this->addPositionalParameter("occurrences", Type::Int, false);
     }
     Value executeCall(IExecution& execution, const String& instance, const IParameters& parameters) const {
-      // TODO string replace(string needle, string replacement, int? maxOccurrences)
+      // string replace(string needle, string replacement, int? occurrences)
       auto needle = parameters.getPositional(0);
       if (!needle.is(Discriminator::String)) {
         return this->raise(execution, "First parameter was expected to be a 'string', not '", needle.getRuntimeType().toString(), "'");
@@ -449,14 +449,71 @@ namespace {
       return Value{ instance.replace(needle.getString(), replacement.getString(), occurrences.getInt()) };
     }
   };
+
+  class StringPadLeft : public BuiltinType {
+    EGG_NO_COPY(StringPadLeft);
+  public:
+    StringPadLeft()
+      : BuiltinType("string.padLeft", Type::Any) {
+      this->addPositionalParameter("length", Type::Int);
+      this->addPositionalParameter("padding", Type::String, false);
+    }
+    Value executeCall(IExecution& execution, const String& instance, const IParameters& parameters) const {
+      // string padLeft(int length, string? padding)
+      auto p0 = parameters.getPositional(0);
+      if (!p0.is(Discriminator::Int)) {
+        return this->raise(execution, "First parameter was expected to be an 'int', not '", p0.getRuntimeType().toString(), "'");
+      }
+      auto length = p0.getInt();
+      if (length < 0) {
+        return this->raise(execution, "First parameter was expected to be a non-negative integer, not ", length);
+      }
+      if (parameters.getPositionalCount() < 2) {
+        return Value{ instance.padLeft(size_t(length)) };
+      }
+      auto p1 = parameters.getPositional(1);
+      if (!p1.is(Discriminator::String)) {
+        return this->raise(execution, "Second parameter was expected to be a 'string', not '", p1.getRuntimeType().toString(), "'");
+      }
+      return Value{ instance.padLeft(size_t(length), p1.getString()) };
+    }
+  };
+
+  class StringPadRight : public BuiltinType {
+    EGG_NO_COPY(StringPadRight);
+  public:
+    StringPadRight()
+      : BuiltinType("string.padRight", Type::Any) {
+      this->addPositionalParameter("length", Type::Int);
+      this->addPositionalParameter("padding", Type::String, false);
+    }
+    Value executeCall(IExecution& execution, const String& instance, const IParameters& parameters) const {
+      // string padRight(int length, string? padding)
+      auto p0 = parameters.getPositional(0);
+      if (!p0.is(Discriminator::Int)) {
+        return this->raise(execution, "First parameter was expected to be an 'int', not '", p0.getRuntimeType().toString(), "'");
+      }
+      auto length = p0.getInt();
+      if (length < 0) {
+        return this->raise(execution, "First parameter was expected to be a non-negative integer, not ", length);
+      }
+      if (parameters.getPositionalCount() < 2) {
+        return Value{ instance.padRight(size_t(length)) };
+      }
+      auto p1 = parameters.getPositional(1);
+      if (!p1.is(Discriminator::String)) {
+        return this->raise(execution, "Second parameter was expected to be a 'string', not '", p1.getRuntimeType().toString(), "'");
+      }
+      return Value{ instance.padRight(size_t(length), p1.getString()) };
+    }
+  };
 }
 
 egg::lang::Value egg::lang::String::builtin(egg::lang::IExecution& execution, const egg::lang::String& property) const {
   // See http://chilliant.blogspot.co.uk/2018/05/egg-strings.html
-  //  
+  //  WIBBLE
   //  string padLeft(int length, string? padding)
   //  string padRight(int length, string? padding)
-  //  string replace(string needle, string replacement, int? maxOccurrences)
 
   // OPTIMIZE
   auto name = property.toUTF8();
@@ -502,6 +559,12 @@ egg::lang::Value egg::lang::String::builtin(egg::lang::IExecution& execution, co
   }
   if (name == "replace") {
     return StringBuiltin<StringReplace>::make(*this);
+  }
+  if (name == "padLeft") {
+    return StringBuiltin<StringPadLeft>::make(*this);
+  }
+  if (name == "padRight") {
+    return StringBuiltin<StringPadRight>::make(*this);
   }
   return execution.raiseFormat("Unknown property for type 'string': '", property, "'");
 }

@@ -314,6 +314,8 @@ namespace egg::lang {
     String replace(const String& needle, const String& replacement, int64_t occurrences = INT64_MAX) const {
       return String(*this->get()->replace(*needle, *replacement, occurrences));
     }
+    String padLeft(size_t target, const String& padding = String::Space) const;
+    String padRight(size_t target, const String& padding = String::Space) const;
     std::vector<String> split(const String& separator, int64_t limit = INT64_MAX) const;
     // Helpers
     size_t signedToIndex(int64_t index) const {
@@ -347,6 +349,7 @@ namespace egg::lang {
     }
     // Constants
     static const String Empty;
+    static const String Space;
   };
 
   struct LocationSource {
