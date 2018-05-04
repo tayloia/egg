@@ -76,6 +76,7 @@
     <None Include="..\examples\example-0017.egg" />
     <None Include="..\examples\example-0018.egg" />
     <None Include="..\examples\example-0019.egg" />
+    <None Include="..\examples\example-0020.egg" />
   </ItemGroup>
   <ItemGroup>
     <Text Include="..\cpp\test\data\utf-8-demo.bom.txt" />

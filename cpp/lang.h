@@ -122,6 +122,7 @@ namespace egg::lang {
   public:
     virtual ~IExecution() {}
     virtual Value raise(const String& message) = 0;
+    virtual Value assertion(const Value& predicate) = 0;
     virtual void print(const std::string& utf8) = 0;
 
     // Useful helper
@@ -442,6 +443,7 @@ namespace egg::lang {
     static const Value ReturnVoid;
 
     // Built-ins
+    static Value builtinAssert();
     static Value builtinPrint();
   };
 }

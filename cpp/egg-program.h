@@ -114,6 +114,7 @@ namespace egg::yolk {
     egg::lang::Value cast(egg::lang::Discriminator tag, const egg::lang::IParameters& parameters);
     // Inherited via IExecution
     virtual egg::lang::Value raise(const egg::lang::String& message) override;
+    virtual egg::lang::Value assertion(const egg::lang::Value& predicate) override;
     virtual void print(const std::string& utf8) override;
   private:
     bool findDuplicateSymbols(const std::vector<std::shared_ptr<IEggProgramNode>>& statements);

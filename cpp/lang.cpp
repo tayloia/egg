@@ -1048,7 +1048,7 @@ namespace {
     LocationRuntime location;
     String message;
   public:
-    explicit Exception(const LocationRuntime& location, const String& message)
+    Exception(const LocationRuntime& location, const String& message)
       : HardReferenceCounted(0), location(location), message(message) {
     }
     virtual bool dispose() override {

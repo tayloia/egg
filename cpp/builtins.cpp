@@ -130,10 +130,26 @@ namespace {
     }
   };
 
-  class Print : public Builtin<BuiltinType> {
-    EGG_NO_COPY(Print);
+  class BuiltinAssert : public Builtin<BuiltinType> {
+    EGG_NO_COPY(BuiltinAssert);
   public:
-    Print()
+    BuiltinAssert()
+      : Builtin("assert", Type::Void) {
+      this->type.addPositionalParameter("predicate", Type::Any);
+    }
+    virtual Value call(IExecution& execution, const IParameters& parameters) override {
+      Value result = this->type.validateCall(execution, parameters);
+      if (result.has(Discriminator::FlowControl)) {
+        return result;
+      }
+      return execution.assertion(parameters.getPositional(0));
+    }
+  };
+
+  class BuiltinPrint : public Builtin<BuiltinType> {
+    EGG_NO_COPY(BuiltinPrint);
+  public:
+    BuiltinPrint()
       : Builtin("print", Type::Void) {
       this->type.addVariadicParameter("...", Type::Any, false);
     }
@@ -544,7 +560,12 @@ egg::lang::Value egg::lang::String::builtin(egg::lang::IExecution& execution, co
   return execution.raiseFormat("Unknown property for type 'string': '", property, "'");
 }
 
+egg::lang::Value egg::lang::Value::builtinAssert() {
+  static BuiltinAssert builtin;
+  return Value{ builtin };
+}
+
 egg::lang::Value egg::lang::Value::builtinPrint() {
-  static Print builtin;
+  static BuiltinPrint builtin;
   return Value{ builtin };
 }

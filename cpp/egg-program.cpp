@@ -797,6 +797,7 @@ std::unique_ptr<egg::yolk::IEggProgramAssignee> egg::yolk::EggProgramContext::as
 
 egg::lang::LogSeverity egg::yolk::EggProgram::execute(IEggEngineExecutionContext& execution) {
   EggProgram::SymbolTable symtable(nullptr);
+  symtable.addBuiltin("assert", egg::lang::Value::builtinAssert());
   symtable.addBuiltin("print", egg::lang::Value::builtinPrint());
   // TODO add built-in symbol to symbol table here
   return this->execute(execution, symtable);
@@ -1151,6 +1152,16 @@ egg::lang::Value egg::yolk::EggProgramContext::unexpected(const std::string& exp
 
 egg::lang::Value egg::yolk::EggProgramContext::raise(const egg::lang::String& message) {
   return egg::lang::Value::raise(this->location, message);
+}
+
+egg::lang::Value egg::yolk::EggProgramContext::assertion(const egg::lang::Value& predicate) {
+  if (!predicate.is(egg::lang::Discriminator::Bool)) {
+    return this->unexpected("Expected predicate to be a 'bool'", predicate);
+  }
+  if (!predicate.getBool()) {
+    return this->raiseFormat("Predicate is false");
+  }
+  return egg::lang::Value::Void;
 }
 
 void egg::yolk::EggProgramContext::print(const std::string& utf8) {
