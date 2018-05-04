@@ -144,6 +144,7 @@
     <None Include="..\make\windows.mak" />
     <None Include="..\runtest.cmd" />
     <None Include="..\runtest.sh" />
+    <None Include="..\valgrind.sh" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

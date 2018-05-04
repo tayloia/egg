@@ -62,6 +62,9 @@ TEST_OBJS = $(call objects,$(TEST_SRCS))
 ALL_OBJS = $(EGG_OBJS) $(TEST_OBJS)
 ALL_DIRS = $(call directories,$(ALL_OBJS)) $(BIN_DIR)/.
 
+EGG_EXE = $(BIN_DIR)/egg.exe
+TEST_EXE = $(BIN_DIR)/egg-testsuite.exe
+
 #############################################################################
 # GENERIC RULES
 #############################################################################
@@ -69,7 +72,7 @@ ALL_DIRS = $(call directories,$(ALL_OBJS)) $(BIN_DIR)/.
 # This is the thing that is built when you just type 'make'
 default: all
 
-.PHONY: default bin test clean nuke release debug all rebuild
+.PHONY: default bin test clean nuke release debug all rebuild valgrind
 
 # We need to create certain directories or our toolchain fails
 %/.:
@@ -107,21 +110,21 @@ $(OBJ_DIR)/cpp/test/gtest.%: CXXFLAGS += -iquote ./thirdparty/googletest
 $(ALL_OBJS): Makefile | $(ALL_DIRS)
 
 # Egg executable dependencies
-$(BIN_DIR)/egg.exe: $(EGG_OBJS)
+$(EGG_EXE): $(EGG_OBJS)
 
 # Testsuite dependencies
-$(BIN_DIR)/egg-testsuite.exe: $(EGG_OBJS) $(TEST_OBJS)
+$(TEST_EXE): $(EGG_OBJS) $(TEST_OBJS)
 
 #############################################################################
 # PSEUDO-TARGETS
 #############################################################################
 
 # Pseudo-target to build the binaries
-bin: $(BIN_DIR)/egg-testsuite.exe
+bin: $(TEST_EXE)
 	$(call noop)
 
 # Pseudo-target to build and run the test suite
-test: $(BIN_DIR)/egg-testsuite.exe
+test: $(TEST_EXE)
 	$(ECHO) Running tests $<
 	$(RUNTEST) $<
 
@@ -157,3 +160,7 @@ all: release debug
 # Pseudo-target for everything from scratch (parallel-friendly)
 rebuild: nuke
 	$(SUBMAKE) all
+
+valgrind: clean
+	$(SUBMAKE) $(TEST_EXE)
+	valgrind -v --leak-check=full --show-leak-kinds=all --track-origins=yes $(TEST_EXE)

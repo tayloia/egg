@@ -11,6 +11,7 @@
     <None Include="..\make\linux.mak" />
     <None Include="..\build.sh" />
     <None Include="..\runtest.sh" />
+    <None Include="..\valgrind.sh" />
   </ItemGroup>
   <ItemGroup>
     <CustomBuild Include="..\build.cmd" />
