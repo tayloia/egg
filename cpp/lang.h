@@ -107,6 +107,7 @@ namespace egg::lang {
     virtual int64_t lastIndexOfString(const IString& needle, size_t fromIndex) const = 0;
     virtual const IString* substring(size_t begin, size_t end) const = 0;
     virtual const IString* repeat(size_t count) const = 0;
+    virtual const IString* replace(const IString& needle, const IString& replacement, int64_t occurrences) const = 0;
     virtual std::string toUTF8() const = 0;
 
     // Iteration
@@ -241,6 +242,9 @@ namespace egg::lang {
     bool empty() const {
       return this->ss.rdbuf()->in_avail() == 0;
     }
+    std::string toUTF8() const {
+      return this->ss.str();
+    }
     String str() const;
   };
 
@@ -306,6 +310,9 @@ namespace egg::lang {
     }
     String repeat(size_t count) const {
       return String(*this->get()->repeat(count));
+    }
+    String replace(const String& needle, const String& replacement, int64_t occurrences = INT64_MAX) const {
+      return String(*this->get()->replace(*needle, *replacement, occurrences));
     }
     std::vector<String> split(const String& separator, int64_t limit = INT64_MAX) const;
     // Helpers

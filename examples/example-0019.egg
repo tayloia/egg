@@ -58,3 +58,12 @@ print("egg".repeat(1));
 ///>egg
 print("egg".repeat(10));
 ///>eggeggeggeggeggeggeggeggeggegg
+
+print("banana".replace("a", "o"));
+///>bonono
+print("banana".replace("a", "o", 2));
+///>bonona
+print("banana".replace("a", "o", -2));
+///>banono
+print("banana".replace("", "-"));
+///>b-a-n-a-n-a

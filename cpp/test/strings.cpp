@@ -22,14 +22,14 @@ TEST(TestStrings, UTF8) {
   ASSERT_EQ(11u, s2.length());
 }
 
-TEST(TestStrings, StartsWith) {
+TEST(TestStrings, YolkStartsWith) {
   ASSERT_TRUE(egg::yolk::String::startsWith("Hello World", "Hello"));
   ASSERT_TRUE(egg::yolk::String::startsWith("Hello World", "Hello World"));
   ASSERT_FALSE(egg::yolk::String::startsWith("Hello World", "World"));
   ASSERT_FALSE(egg::yolk::String::startsWith("Hello", "Hello World"));
 }
 
-TEST(TestStrings, EndsWith) {
+TEST(TestStrings, YolkEndsWith) {
   ASSERT_FALSE(egg::yolk::String::endsWith("Hello World", "Hello"));
   ASSERT_TRUE(egg::yolk::String::endsWith("Hello World", "Hello World"));
   ASSERT_TRUE(egg::yolk::String::endsWith("Hello World", "World"));
@@ -43,19 +43,19 @@ TEST(TestStrings, AssertMacros) {
   ASSERT_ENDSWITH("Hello World", "World");
 }
 
-TEST(TestStrings, ToLower) {
+TEST(TestStrings, YolkToLower) {
   ASSERT_EQ("hello world!", egg::yolk::String::toLower("Hello World!"));
 }
 
-TEST(TestStrings, ToUpper) {
+TEST(TestStrings, YolkToUpper) {
   ASSERT_EQ("HELLO WORLD!", egg::yolk::String::toUpper("Hello World!"));
 }
 
-TEST(TestStrings, Replace) {
+TEST(TestStrings, YolkReplace) {
   ASSERT_EQ("Hell0 W0rld!", egg::yolk::String::replace("Hello World!", 'o', '0'));
 }
 
-TEST(TestStrings, Terminate) {
+TEST(TestStrings, YolkTerminate) {
   std::string str = "Hello World";
   egg::yolk::String::terminate(str, '!');
   ASSERT_EQ("Hello World!", str);
@@ -63,7 +63,7 @@ TEST(TestStrings, Terminate) {
   ASSERT_EQ("Hello World!", str);
 }
 
-TEST(TestStrings, TryParseSigned) {
+TEST(TestStrings, YolkTryParseSigned) {
   int64_t value = 1;
   ASSERT_TRUE(egg::yolk::String::tryParseSigned(value, "0"));
   ASSERT_EQ(0, value);
@@ -81,7 +81,7 @@ TEST(TestStrings, TryParseSigned) {
   ASSERT_EQ(-0x1234567890ABCDEF, value);
 }
 
-TEST(TestStrings, TryParseSignedBad) {
+TEST(TestStrings, YolkTryParseSignedBad) {
   int64_t value = -123;
   ASSERT_FALSE(egg::yolk::String::tryParseSigned(value, ""));
   ASSERT_FALSE(egg::yolk::String::tryParseSigned(value, "xxx"));
@@ -90,7 +90,7 @@ TEST(TestStrings, TryParseSignedBad) {
   ASSERT_EQ(-123, value);
 }
 
-TEST(TestStrings, TryParseUnsigned) {
+TEST(TestStrings, YolkTryParseUnsigned) {
   uint64_t value = 1;
   ASSERT_TRUE(egg::yolk::String::tryParseUnsigned(value, "0"));
   ASSERT_EQ(0u, value);
@@ -102,7 +102,7 @@ TEST(TestStrings, TryParseUnsigned) {
   ASSERT_EQ(0x1234567890ABCDEFu, value);
 }
 
-TEST(TestStrings, TryParseUnsignedBad) {
+TEST(TestStrings, YolkTryParseUnsignedBad) {
   uint64_t value = 123456;
   ASSERT_FALSE(egg::yolk::String::tryParseUnsigned(value, ""));
   ASSERT_FALSE(egg::yolk::String::tryParseUnsigned(value, "xxx"));
@@ -111,7 +111,7 @@ TEST(TestStrings, TryParseUnsignedBad) {
   ASSERT_EQ(123456u, value);
 }
 
-TEST(TestStrings, TryParseFloat) {
+TEST(TestStrings, YolkTryParseFloat) {
   double value = 1;
   ASSERT_TRUE(egg::yolk::String::tryParseFloat(value, "0"));
   ASSERT_EQ(0, value);
@@ -145,7 +145,7 @@ TEST(TestStrings, TryParseFloat) {
   ASSERT_EQ(-1.2e-03, value);
 }
 
-TEST(TestStrings, TryParseFloatBad) {
+TEST(TestStrings, YolkTryParseFloatBad) {
   double value = -123;
   ASSERT_FALSE(egg::yolk::String::tryParseFloat(value, ""));
   ASSERT_FALSE(egg::yolk::String::tryParseFloat(value, "xxx"));
@@ -167,14 +167,14 @@ TEST(TestStrings, TryParseFloatBad) {
   ASSERT_EQ(-123, value);
 }
 
-TEST(TestStrings, FromUnsigned) {
+TEST(TestStrings, YolkFromUnsigned) {
   ASSERT_EQ("0", egg::yolk::String::fromUnsigned(0u));
   ASSERT_EQ("10", egg::yolk::String::fromUnsigned(10u));
   ASSERT_EQ("123456789", egg::yolk::String::fromUnsigned(123456789u));
   ASSERT_EQ("18446744073709551615", egg::yolk::String::fromUnsigned(18446744073709551615u));
 }
 
-TEST(TestStrings, FromSigned) {
+TEST(TestStrings, YolkFromSigned) {
   ASSERT_EQ("-9223372036854775808", egg::yolk::String::fromSigned(-9223372036854775807 - 1));
   ASSERT_EQ("-123456789", egg::yolk::String::fromSigned(-123456789));
   ASSERT_EQ("-10", egg::yolk::String::fromSigned(-10));
@@ -184,7 +184,7 @@ TEST(TestStrings, FromSigned) {
   ASSERT_EQ("9223372036854775807", egg::yolk::String::fromSigned(9223372036854775807));
 }
 
-TEST(TestStrings, FromFloat) {
+TEST(TestStrings, YolkFromFloat) {
   ASSERT_EQ("0.0", egg::yolk::String::fromFloat(0.0));
   ASSERT_EQ("-0.0", egg::yolk::String::fromFloat(-0.0));
   ASSERT_EQ("1.2345", egg::yolk::String::fromFloat(1.2345));
@@ -247,7 +247,7 @@ TEST(TestStrings, FromFloat) {
   ASSERT_EQ("0.000123456", egg::yolk::String::fromFloat(0.000123456, 7));
 }
 
-TEST(TestStrings, FromFloatBad) {
+TEST(TestStrings, YolkFromFloatBad) {
   // These aren't really bad, they're just special
   const double pnan = std::nan("");
   ASSERT_EQ("nan", egg::yolk::String::fromFloat(pnan));
@@ -587,3 +587,31 @@ TEST(TestStrings, Repeat) {
   ASSERT_EQ("eggegg", s.repeat(2).toUTF8());
   ASSERT_EQ("eggeggegg", s.repeat(3).toUTF8());
 }
+
+TEST(TestStrings, Replace) {
+  auto brackets = egg::lang::String::fromUTF8("[]");
+  auto empty = egg::lang::String::Empty;
+  auto a = egg::lang::String::fromCodePoint('a');
+
+  ASSERT_EQ("", empty.replace(empty, brackets).toUTF8());
+  ASSERT_EQ("", empty.replace(a, brackets).toUTF8());
+  ASSERT_EQ("", empty.replace(egg::lang::String::fromUTF8("ana"), brackets).toUTF8());
+  ASSERT_EQ("", empty.replace(a, empty).toUTF8());
+
+  ASSERT_EQ("a", a.replace(empty, brackets).toUTF8());
+  ASSERT_EQ("[]", a.replace(a, brackets).toUTF8());
+  ASSERT_EQ("a", a.replace(egg::lang::String::fromUTF8("ana"), brackets).toUTF8());
+  ASSERT_EQ("", a.replace(a, empty).toUTF8());
+
+  auto banana = egg::lang::String::fromUTF8("banana");
+  ASSERT_EQ("b[]a[]n[]a[]n[]a", banana.replace(empty, brackets).toUTF8());
+  ASSERT_EQ("b[]n[]n[]", banana.replace(a, brackets).toUTF8());
+  ASSERT_EQ("b[]na", banana.replace(egg::lang::String::fromUTF8("ana"), brackets).toUTF8());
+  ASSERT_EQ("bnn", banana.replace(a, empty).toUTF8());
+
+  auto o = egg::lang::String::fromCodePoint('o');
+  ASSERT_EQ("banana", banana.replace(a, o, 0).toUTF8());
+  ASSERT_EQ("bonona", banana.replace(a, o, 2).toUTF8());
+  ASSERT_EQ("banono", banana.replace(a, o, -2).toUTF8());
+}
+

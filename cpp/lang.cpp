@@ -157,6 +157,9 @@ namespace {
     virtual const IString* repeat(size_t) const override {
       return this;
     }
+    virtual const IString* replace(const IString&, const IString&, int64_t) const override {
+      return this;
+    }
     virtual std::string toUTF8() const override {
       return std::string();
     }
@@ -179,7 +182,9 @@ namespace {
   };
   const StringEmpty stringEmpty{};
 
+  // Forward declarations
   const IString* repeatString(const IString& utf8, size_t length, size_t count);
+  const IString* replaceString(const IString& haystack, const IString& needle, const IString& replacement, int64_t occurrences);
 
   class StringBufferCodePoint : public egg::gc::HardReferenceCounted<IString> {
     EGG_NO_COPY(StringBufferCodePoint);
@@ -303,6 +308,13 @@ namespace {
     }
     virtual const IString* repeat(size_t count) const override {
       return repeatString(*this, 1, count);
+    }
+    virtual const IString* replace(const IString& needle, const IString& replacement, int64_t occurrences) const override {
+      if ((occurrences > 0) && (needle.length() == 1) && (int32_t(this->codepoint) == needle.codePointAt(0))) {
+        // The replacement occurs
+        return &replacement;
+      }
+      return this;
     }
     virtual std::string toUTF8() const override {
       return egg::utf::to_utf8(this->codepoint);
@@ -493,12 +505,13 @@ namespace {
   private:
     std::string utf8;
     size_t codepoints;
-  public:
     StringBufferUTF8(const std::string& utf8, size_t length)
       : HardReferenceCounted(0), utf8(utf8), codepoints(length) {
+      // Creation is via factories below
       assert(!this->utf8.empty());
       assert(this->codepoints > 0);
     }
+  public:
     virtual size_t length() const override {
       return this->codepoints;
     }
@@ -632,6 +645,9 @@ namespace {
     virtual const IString* repeat(size_t count) const override {
       return repeatString(*this, this->codepoints, count);
     }
+    virtual const IString* replace(const IString& needle, const IString& replacement, int64_t occurrences) const override {
+      return replaceString(*this, needle, replacement, occurrences);
+    }
     virtual std::string toUTF8() const override {
       return this->utf8;
     }
@@ -671,6 +687,18 @@ namespace {
       }
       return false;
     }
+    // Factories
+    static const IString* create(const std::string& utf8) {
+      egg::utf::utf8_reader reader(utf8, egg::utf::utf8_reader::First);
+      auto length = reader.validate(); // TODO malformed?
+      return StringBufferUTF8::create(utf8, length);
+    }
+    static const IString* create(const std::string& utf8, size_t length) {
+      if (length == 0) {
+        return &stringEmpty;
+      }
+      return new StringBufferUTF8(utf8, length);
+    }
   };
 
   const IString* repeatString(const IString& src, size_t length, size_t count) {
@@ -687,10 +715,10 @@ namespace {
     for (size_t i = 1; i < count; ++i) {
       s.append(t);
     }
-    return new StringBufferUTF8(s, length * count);
+    return StringBufferUTF8::create(s, length * count);
   }
 
-  void splitPositive(std::vector<String>& dst, const String& src, const String& separator, size_t limit) {
+  void splitPositive(std::vector<String>& dst, const IString& src, const IString& separator, size_t limit) {
     // Unlike the original parameter, 'limit' is the maximum number of SPLITS to perform
     // OPTIMIZE
     assert(dst.size() == 0);
@@ -708,9 +736,9 @@ namespace {
       } else {
         // Split by string
         assert(separator.length() > 0);
-        auto index = src.indexOfString(separator);
+        auto index = src.indexOfString(separator, 0);
         while (index >= 0) {
-          dst.push_back(src.substring(begin, size_t(index)));
+          dst.emplace_back(*src.substring(begin, size_t(index)));
           begin = index + separator.length();
           if (--limit == 0) {
             break;
@@ -719,10 +747,10 @@ namespace {
         }
       }
     }
-    dst.push_back(src.substring(begin));
+    dst.emplace_back(*src.substring(begin, SIZE_MAX));
   }
 
-  void splitNegative(std::vector<String>& dst, const String& src, const String& separator, size_t limit) {
+  void splitNegative(std::vector<String>& dst, const IString& src, const IString& separator, size_t limit) {
     // Unlike the original parameter, 'limit' is the maximum number of SPLITS to perform
     // OPTIMIZE
     assert(dst.size() == 0);
@@ -741,9 +769,9 @@ namespace {
         } while (--limit > 0);
       } else {
         // Split by string
-        auto index = src.lastIndexOfString(separator);
+        auto index = src.lastIndexOfString(separator, SIZE_MAX);
         while (index >= 0) {
-          dst.push_back(src.substring(size_t(index) + length, end));
+          dst.emplace_back(*src.substring(size_t(index) + length, end));
           end = size_t(index);
           if ((end < length) || (--limit == 0)) {
             break;
@@ -752,8 +780,59 @@ namespace {
         }
       }
     }
-    dst.push_back(src.substring(0, end));
+    dst.emplace_back(*src.substring(0, end));
     std::reverse(dst.begin(), dst.end());
+  }
+
+  void splitString(std::vector<egg::lang::String>& result, const IString& haystack, const IString& needle, int64_t limit) {
+    assert(limit != 0);
+    if (limit > 0) {
+      // Split from the beginning
+      if (uint64_t(limit) < uint64_t(SIZE_MAX)) {
+        splitPositive(result, haystack, needle, size_t(limit - 1));
+      } else {
+        splitPositive(result, haystack, needle, SIZE_MAX);
+      }
+    } else {
+      // Split from the end
+      if (uint64_t(-limit) < uint64_t(SIZE_MAX)) {
+        splitNegative(result, haystack, needle, size_t(-1 - limit));
+      } else {
+        splitNegative(result, haystack, needle, SIZE_MAX);
+      }
+    }
+  }
+
+  const IString* replaceString(const IString& haystack, const IString& needle, const IString& replacement, int64_t occurrences) {
+    // One replacement requires splitting into two parts, and so on
+    std::vector<egg::lang::String> part;
+    if (occurrences > 0) {
+      if (occurrences < INT64_MAX) {
+        occurrences++;
+      }
+    } else if (occurrences < 0) {
+      if (occurrences > INT64_MIN) {
+        occurrences--;
+      }
+    } else {
+      // No replacements required
+      return &haystack;
+    }
+    splitString(part, haystack, needle, occurrences);
+    auto parts = part.size();
+    assert(parts > 0);
+    if (parts == 1) {
+      // No replacement occurred
+      assert(part[0].length() == haystack.length());
+      return &haystack;
+    }
+    StringBuilder sb;
+    sb.add(part[0]);
+    auto between = replacement.toUTF8();
+    for (size_t i = 1; i < parts; ++i) {
+      sb.add(between).add(part[i]);
+    }
+    return StringBufferUTF8::create(sb.toUTF8());
   }
 
   class TypeReference : public egg::gc::HardReferenceCounted<IType> {
@@ -1007,32 +1086,15 @@ egg::lang::String egg::lang::String::fromCodePoint(char32_t codepoint) {
 }
 
 egg::lang::String egg::lang::String::fromUTF8(const std::string& utf8) {
-  egg::utf::utf8_reader reader(utf8, egg::utf::utf8_reader::First);
-  auto length = reader.validate();
-  if (length == 0) {
-    return egg::lang::String::Empty;
-  }
-  return String(*new StringBufferUTF8(utf8, length));
+  return String(*StringBufferUTF8::create(utf8));
 }
 
 std::vector<egg::lang::String> egg::lang::String::split(const String& separator, int64_t limit) const {
   // See https://docs.oracle.com/javase/8/docs/api/java/lang/String.html#split-java.lang.String-int-
   // However, if limit == 0 we return an empty vector
   std::vector<egg::lang::String> result;
-  if (limit > 0) {
-    // Split from the beginning
-    if (uint64_t(limit) < uint64_t(SIZE_MAX)) {
-      splitPositive(result, *this, separator, size_t(limit - 1));
-    } else {
-      splitPositive(result, *this, separator, SIZE_MAX);
-    }
-  } else if (limit < 0) {
-    // Split from the end
-    if (uint64_t(-limit) < uint64_t(SIZE_MAX)) {
-      splitNegative(result, *this, separator, size_t(-1 - limit));
-    } else {
-      splitNegative(result, *this, separator, SIZE_MAX);
-    }
+  if (limit != 0) {
+    splitString(result, *this->get(), *separator, limit);
   }
   return result;
 }

@@ -356,7 +356,7 @@ namespace {
       if (!separator.is(Discriminator::String)) {
         return this->raise(execution, "First parameter was expected to be a 'string', not '", separator.getRuntimeType().toString(), "'");
       }
-      auto split = instance.split(instance);
+      auto split = instance.split(separator.getString());
       assert(split.size() > 0);
       return this->raise(execution, "TODO: Return an array of strings"); //TODO
     }
@@ -419,6 +419,36 @@ namespace {
       return Value{ sb.str() };
     }
   };
+
+  class StringReplace : public BuiltinType {
+    EGG_NO_COPY(StringReplace);
+  public:
+    StringReplace()
+      : BuiltinType("string.replace", Type::Any) {
+      this->addPositionalParameter("needle", Type::String);
+      this->addPositionalParameter("replacement", Type::String);
+      this->addPositionalParameter("occurrences", Type::Int, false);
+    }
+    Value executeCall(IExecution& execution, const String& instance, const IParameters& parameters) const {
+      // TODO string replace(string needle, string replacement, int? maxOccurrences)
+      auto needle = parameters.getPositional(0);
+      if (!needle.is(Discriminator::String)) {
+        return this->raise(execution, "First parameter was expected to be a 'string', not '", needle.getRuntimeType().toString(), "'");
+      }
+      auto replacement = parameters.getPositional(1);
+      if (!replacement.is(Discriminator::String)) {
+        return this->raise(execution, "Second parameter was expected to be a 'string', not '", needle.getRuntimeType().toString(), "'");
+      }
+      if (parameters.getPositionalCount() < 3) {
+        return Value{ instance.replace(needle.getString(), replacement.getString()) };
+      }
+      auto occurrences = parameters.getPositional(2);
+      if (!occurrences.is(Discriminator::Int)) {
+        return this->raise(execution, "Third parameter was expected to be an 'int', not '", needle.getRuntimeType().toString(), "'");
+      }
+      return Value{ instance.replace(needle.getString(), replacement.getString(), occurrences.getInt()) };
+    }
+  };
 }
 
 egg::lang::Value egg::lang::String::builtin(egg::lang::IExecution& execution, const egg::lang::String& property) const {
@@ -426,7 +456,6 @@ egg::lang::Value egg::lang::String::builtin(egg::lang::IExecution& execution, co
   //  
   //  string padLeft(int length, string? padding)
   //  string padRight(int length, string? padding)
-  //  string repeat(int count)
   //  string replace(string needle, string replacement, int? maxOccurrences)
 
   // OPTIMIZE
@@ -470,6 +499,9 @@ egg::lang::Value egg::lang::String::builtin(egg::lang::IExecution& execution, co
   }
   if (name == "repeat") {
     return StringBuiltin<StringRepeat>::make(*this);
+  }
+  if (name == "replace") {
+    return StringBuiltin<StringReplace>::make(*this);
   }
   return execution.raiseFormat("Unknown property for type 'string': '", property, "'");
 }
