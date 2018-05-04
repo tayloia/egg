@@ -251,8 +251,20 @@ namespace egg::utf {
   }
 
   inline std::string::const_iterator utf8_offset(const std::string& utf8, size_t codepoint_index) {
-    auto p = utf8.begin();
-    std::advance(p, codepoint_index); // WIBBLE
-    return p;
+    auto remaining = utf8.size();
+    auto p = utf8.cbegin();
+    auto q = utf8.cend();
+    while (p < q) {
+      if (codepoint_index-- == 0) {
+        return p;
+      }
+      auto length = utf8_reader::getSizeFromLead(uint8_t(*p));
+      if (length > remaining) {
+        return p; // Malformed
+      }
+      remaining -= length;
+      std::advance(p, length);
+    }
+    return q;
   }
 }
