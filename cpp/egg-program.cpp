@@ -60,7 +60,7 @@ namespace {
     }
   };
 
-  class EggProgramFunction : public egg::gc::HardReferenceCounted<egg::lang::IObject>{
+  class EggProgramFunction : public egg::gc::HardReferenceCounted<egg::lang::IObject> {
     EGG_NO_COPY(EggProgramFunction);
   private:
     egg::yolk::EggProgramContext& program;
@@ -75,13 +75,25 @@ namespace {
       return false;
     }
     virtual egg::lang::Value toString() const override {
-      return egg::lang::Value(egg::lang::String::concat("[", type->toString(), "]"));
+      return egg::lang::Value(egg::lang::String::concat("[", this->type->toString(), "]"));
     }
     virtual egg::lang::Value getRuntimeType() const override {
       return egg::lang::Value(*this->type);
     }
     virtual egg::lang::Value call(egg::lang::IExecution&, const egg::lang::IParameters& parameters) override {
       return this->program.executeFunctionCall(*this->type, parameters, *this->block);
+    }
+    virtual egg::lang::Value getProperty(egg::lang::IExecution& execution, const egg::lang::String& property) override {
+      return execution.raiseFormat(this->type->toString(), " does not support properties such as '.", property, ".");
+    }
+    virtual egg::lang::Value setProperty(egg::lang::IExecution& execution, const egg::lang::String& property, const egg::lang::Value&) override {
+      return execution.raiseFormat(this->type->toString(), " does not support properties such as '.", property, ".");
+    }
+    virtual egg::lang::Value getIndex(egg::lang::IExecution& execution, const egg::lang::Value&) override {
+      return execution.raiseFormat(this->type->toString(), " does not support indexing with '[]'");
+    }
+    virtual egg::lang::Value setIndex(egg::lang::IExecution& execution, const egg::lang::Value&, const egg::lang::Value&) override {
+      return execution.raiseFormat(this->type->toString(), " does not support indexing with '[]'");
     }
   };
 
@@ -99,6 +111,97 @@ namespace {
     }
     virtual egg::lang::Value set(const egg::lang::Value& value) override {
       return this->context.set(this->name, value);
+    }
+  };
+
+  class EggProgramArrayOrthodoxType : public egg::gc::NotReferenceCounted<egg::lang::IType> {
+  public:
+    virtual egg::lang::String toString() const override {
+      return egg::lang::String::fromUTF8("any?[]");
+    }
+    virtual egg::lang::Value canAlwaysAssignFrom(egg::lang::IExecution& execution, const IType&) const override {
+      return execution.raiseFormat("Cannot re-assign exceptions");
+    }
+    virtual egg::lang::Value promoteAssignment(egg::lang::IExecution& execution, const egg::lang::Value&) const override {
+      return execution.raiseFormat("Cannot re-assign exceptions");
+    }
+    virtual const egg::lang::ISignature* callable(egg::lang::IExecution&) const override {
+      return nullptr;
+    }
+    virtual egg::lang::Value dotGet(egg::lang::IExecution& execution, const egg::lang::Value& instance, const egg::lang::String& property) const override {
+      return instance.getObject().getProperty(execution, property);
+    }
+    virtual egg::lang::Value bracketsGet(egg::lang::IExecution& execution, const egg::lang::Value& instance, const egg::lang::Value& index) const override {
+      return instance.getObject().getIndex(execution, index);
+    }
+  };
+  const EggProgramArrayOrthodoxType arrayOrthodoxType;
+
+  class EggProgramArrayOrthodox : public egg::gc::HardReferenceCounted<egg::lang::IObject> {
+    EGG_NO_COPY(EggProgramArrayOrthodox);
+  private:
+    egg::lang::ITypeRef type;
+    std::vector<egg::lang::Value> values;
+  public:
+    explicit EggProgramArrayOrthodox(const egg::lang::IType& type)
+      : HardReferenceCounted(0), type(&type) {
+    }
+    virtual bool dispose() override {
+      return false;
+    }
+    virtual egg::lang::Value toString() const override {
+      if (this->values.empty()) {
+        return egg::lang::Value{ egg::lang::String::fromUTF8("[]") };
+      }
+      egg::lang::StringBuilder sb;
+      const char* between = "[";
+      for (auto& value : this->values) {
+        sb.add(between).add(value.toUTF8());
+        between = ", ";
+      }
+      sb.add("]");
+      return egg::lang::Value{ sb.str() };
+    }
+    virtual egg::lang::Value getRuntimeType() const override {
+      return egg::lang::Value(*this->type);
+    }
+    virtual egg::lang::Value call(egg::lang::IExecution& execution, const egg::lang::IParameters&) override {
+      return execution.raiseFormat(this->type->toString(), " does not support calling with '()'");
+    }
+    virtual egg::lang::Value getProperty(egg::lang::IExecution& execution, const egg::lang::String& property) override {
+      auto name = property.toUTF8();
+      if (name == "length") {
+        return egg::lang::Value{ int64_t(this->values.size()) };
+      }
+      return execution.raiseFormat("Arrays do not support property '.", property, ".");
+    }
+    virtual egg::lang::Value setProperty(egg::lang::IExecution& execution, const egg::lang::String& property, const egg::lang::Value&) override {
+      return execution.raiseFormat(this->type->toString(), " does not support properties such as '.", property, ".");
+    }
+    virtual egg::lang::Value getIndex(egg::lang::IExecution& execution, const egg::lang::Value& index) override {
+      if (!index.is(egg::lang::Discriminator::Int)) {
+        return execution.raiseFormat("Array index was expected to be 'int', not '", index.getRuntimeType().toString(), "'");
+      }
+      auto i = index.getInt();
+      if ((i < 0) || (uint64_t(i) >= uint64_t(this->values.size()))) {
+        return execution.raiseFormat("Invalid array index for an array with ", this->values.size(), " element(s): ", i);
+      }
+      return this->values[size_t(i)];
+    }
+    virtual egg::lang::Value setIndex(egg::lang::IExecution& execution, const egg::lang::Value& index, const egg::lang::Value& value) override {
+      if (!index.is(egg::lang::Discriminator::Int)) {
+        return execution.raiseFormat("Array index was expected to be 'int', not '", index.getRuntimeType().toString(), "'");
+      }
+      auto i = index.getInt();
+      if ((i < 0) || (i >= 0x7FFFFFFF)) {
+        return execution.raiseFormat("Invalid array index: ", i);
+      }
+      auto u = size_t(i);
+      if (u >= this->values.size()) {
+        this->values.resize(u + 1);
+      }
+      this->values[u] = value;
+      return egg::lang::Value::Void;
     }
   };
 
@@ -719,6 +822,28 @@ egg::lang::Value egg::yolk::EggProgramContext::executeYield(const IEggProgramNod
   return result;
 }
 
+egg::lang::Value egg::yolk::EggProgramContext::executeArray(const IEggProgramNode& self, const std::vector<std::shared_ptr<IEggProgramNode>>& values) {
+  // OPTIMIZE
+  EggProgramExpression expression(*this, self);
+  auto result = this->createArrayOrthodox();
+  if (result.is(egg::lang::Discriminator::Object)) {
+    auto& object = result.getObject();
+    int64_t index = 0;
+    for (auto& value : values) {
+      auto entry = value->execute(*this);
+      if (entry.has(egg::lang::Discriminator::FlowControl)) {
+        return entry;
+      }
+      entry = object.setIndex(*this, egg::lang::Value{ index }, entry);
+      if (entry.has(egg::lang::Discriminator::FlowControl)) {
+        return entry;
+      }
+      ++index;
+    }
+  }
+  return result;
+}
+
 egg::lang::Value egg::yolk::EggProgramContext::executeCall(const IEggProgramNode& self, const IEggProgramNode& callee, const std::vector<std::shared_ptr<IEggProgramNode>>& parameters) {
   EggProgramExpression expression(*this, self);
   auto func = callee.execute(*this);
@@ -1166,4 +1291,8 @@ egg::lang::Value egg::yolk::EggProgramContext::assertion(const egg::lang::Value&
 
 void egg::yolk::EggProgramContext::print(const std::string& utf8) {
   return this->log(egg::lang::LogSource::User, egg::lang::LogSeverity::Information, utf8);
+}
+
+egg::lang::Value egg::yolk::EggProgramContext::createArrayOrthodox() {
+  return egg::lang::Value::make<EggProgramArrayOrthodox>(arrayOrthodoxType);
 }

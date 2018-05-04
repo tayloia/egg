@@ -220,6 +220,10 @@ namespace egg::lang {
     virtual Value toString() const = 0;
     virtual Value getRuntimeType() const = 0;
     virtual Value call(IExecution& execution, const IParameters& parameters) = 0;
+    virtual Value getProperty(IExecution& execution, const String& property) = 0;
+    virtual Value setProperty(IExecution& execution, const String& property, const Value& value) = 0;
+    virtual Value getIndex(IExecution& execution, const Value& index) = 0;
+    virtual Value setIndex(IExecution& execution, const Value& index, const Value& value) = 0;
   };
   typedef egg::gc::HardRef<IObject> IObjectRef;
 

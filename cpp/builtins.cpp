@@ -128,6 +128,18 @@ namespace {
       // Fetch the runtime type
       return Value(this->type);
     }
+    virtual Value getProperty(IExecution& execution, const String& property) override {
+      return execution.raiseFormat(this->type.toString(), " does not support properties such as '.", property, ".");
+    }
+    virtual Value setProperty(IExecution& execution, const String& property, const Value&) override {
+      return execution.raiseFormat(this->type.toString(), " does not support properties such as '.", property, ".");
+    }
+    virtual Value getIndex(IExecution& execution, const Value&) override {
+      return execution.raiseFormat(this->type.toString(), " does not support indexing with '[]'");
+    }
+    virtual Value setIndex(IExecution& execution, const Value&, const Value&) override {
+      return execution.raiseFormat(this->type.toString(), " does not support indexing with '[]'");
+    }
   };
 
   class BuiltinAssert : public Builtin<BuiltinType> {
@@ -198,6 +210,18 @@ namespace {
         return validation;
       }
       return this->type->executeCall(execution, this->instance, parameters);
+    }
+    virtual Value getProperty(IExecution& execution, const String& property) override {
+      return execution.raiseFormat(this->type->toString(), " does not support properties such as '.", property, ".");
+    }
+    virtual Value setProperty(IExecution& execution, const String& property, const Value&) override {
+      return execution.raiseFormat(this->type->toString(), " does not support properties such as '.", property, ".");
+    }
+    virtual Value getIndex(IExecution& execution, const Value&) override {
+      return execution.raiseFormat(this->type->toString(), " does not support indexing with '[]'");
+    }
+    virtual Value setIndex(IExecution& execution, const Value&, const Value&) override {
+      return execution.raiseFormat(this->type->toString(), " does not support indexing with '[]'");
     }
     static Value make(const String& instance) {
       static const T typeInstance{};

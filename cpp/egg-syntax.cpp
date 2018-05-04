@@ -191,6 +191,10 @@ void egg::yolk::EggSyntaxNode_TernaryOperator::dump(std::ostream& os) const {
   ParserDump(os, "ternary").add(this->child);
 }
 
+void egg::yolk::EggSyntaxNode_Array::dump(std::ostream& os) const {
+  ParserDump(os, "array").add(this->child);
+}
+
 void egg::yolk::EggSyntaxNode_Call::dump(std::ostream& os) const {
   ParserDump(os, "call").add(this->child);
 }
@@ -588,6 +592,7 @@ namespace {
     std::unique_ptr<IEggSyntaxNode> parseExpressionPostfixGreedy(std::unique_ptr<IEggSyntaxNode>&& expr);
     std::unique_ptr<IEggSyntaxNode> parseExpressionPrimary(const char* expected);
     std::unique_ptr<IEggSyntaxNode> parseExpressionDeclaration();
+    std::unique_ptr<IEggSyntaxNode> parseExpressionArray(const EggSyntaxNodeLocation& location);
     std::unique_ptr<IEggSyntaxNode> parseModule();
     std::unique_ptr<IEggSyntaxNode> parseStatement();
     std::unique_ptr<IEggSyntaxNode> parseStatementSimple(const char* expected, EggTokenizerOperator terminal);
@@ -1053,16 +1058,23 @@ std::unique_ptr<IEggSyntaxNode> EggSyntaxParserContext::parseExpressionPrimary(c
         return cast;
       }
     }
-    EGG_FALLTHROUGH
+    break;
   case EggTokenizerKind::Operator:
+    if (p0.value.o == EggTokenizerOperator::BracketLeft) {
+      auto array = this->parseExpressionArray(location);
+      mark.accept(0);
+      return array;
+    }
+    break;
   case EggTokenizerKind::Attribute:
   case EggTokenizerKind::EndOfFile:
   default:
-    if (expected) {
-      this->unexpected(expected, p0);
-    }
-    return nullptr;
+    break;
   }
+  if (expected) {
+    this->unexpected(expected, p0);
+  }
+  return nullptr;
 }
 
 std::unique_ptr<IEggSyntaxNode> EggSyntaxParserContext::parseCondition(const char* expected) {
@@ -1116,6 +1128,35 @@ std::unique_ptr<IEggSyntaxNode> EggSyntaxParserContext::parseExpressionDeclarati
   }
   mark.accept(1);
   return expr;
+}
+
+std::unique_ptr<IEggSyntaxNode> EggSyntaxParserContext::parseExpressionArray(const EggSyntaxNodeLocation& location) {
+  /*
+      array-value ::= '[' array-value-list? ']'
+
+      array-value-list ::= expression
+                         | array-value-list ',' expression
+  */
+  EggSyntaxParserBacktrackMark mark(this->backtrack);
+  assert(mark.peek(0).isOperator(EggTokenizerOperator::BracketLeft));
+  auto array = std::make_unique<EggSyntaxNode_Array>(location);
+  if (mark.peek(1).isOperator(EggTokenizerOperator::BracketRight)) {
+    // This is an empty array: '[' ']'
+    mark.accept(2);
+  } else {
+    const EggTokenizerItem* p;
+    do {
+      mark.advance(1);
+      auto expr = this->parseExpression("Expected expression for function call parameter value");
+      array->addChild(std::move(expr));
+      p = &mark.peek(0);
+    } while (p->isOperator(EggTokenizerOperator::Comma));
+    if (!p->isOperator(EggTokenizerOperator::BracketRight)) {
+      this->unexpected("Expected ']' at end of array expression", *p);
+    }
+    mark.accept(1);
+  }
+  return array;
 }
 
 void EggSyntaxParserContext::parseParameterList(std::function<void(std::unique_ptr<IEggSyntaxNode>&& node)> adder) {

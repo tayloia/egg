@@ -93,6 +93,7 @@ namespace egg::yolk {
     egg::lang::Value executeUsing(const IEggProgramNode& self, const IEggProgramNode& value, const IEggProgramNode& block);
     egg::lang::Value executeWhile(const IEggProgramNode& self, const IEggProgramNode& cond, const IEggProgramNode& block);
     egg::lang::Value executeYield(const IEggProgramNode& self, const IEggProgramNode& value);
+    egg::lang::Value executeArray(const IEggProgramNode& self, const std::vector<std::shared_ptr<IEggProgramNode>>& values);
     egg::lang::Value executeCall(const IEggProgramNode& self, const IEggProgramNode& callee, const std::vector<std::shared_ptr<IEggProgramNode>>& parameters);
     egg::lang::Value executeCast(const IEggProgramNode& self, egg::lang::Discriminator tag, const std::vector<std::shared_ptr<IEggProgramNode>>& parameters);
     egg::lang::Value executeIdentifier(const IEggProgramNode& self, const egg::lang::String& name);
@@ -112,6 +113,7 @@ namespace egg::yolk {
     egg::lang::Value binary(EggProgramBinary op, const IEggProgramNode& lhs, const IEggProgramNode& rhs);
     egg::lang::Value call(const egg::lang::Value& callee, const egg::lang::IParameters& parameters);
     egg::lang::Value cast(egg::lang::Discriminator tag, const egg::lang::IParameters& parameters);
+    egg::lang::Value createArrayOrthodox();
     // Inherited via IExecution
     virtual egg::lang::Value raise(const egg::lang::String& message) override;
     virtual egg::lang::Value assertion(const egg::lang::Value& predicate) override;

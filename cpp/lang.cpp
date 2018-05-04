@@ -1028,7 +1028,7 @@ namespace {
   class ExceptionType : public egg::gc::NotReferenceCounted<IType> {
   public:
     virtual String toString() const override {
-      return String::fromUTF8("exception");
+      return String::fromUTF8("Exception");
     }
     virtual Value canAlwaysAssignFrom(IExecution& execution, const IType&) const override {
       return execution.raiseFormat("Cannot re-assign exceptions");
@@ -1066,6 +1066,18 @@ namespace {
     }
     virtual Value call(IExecution& execution, const IParameters&) override {
       return execution.raiseFormat("Exceptions cannot be called");
+    }
+    virtual egg::lang::Value getProperty(egg::lang::IExecution& execution, const egg::lang::String& property) override {
+      return execution.raiseFormat("TODO: Exception properties such as '.", property, "."); //TODO
+    }
+    virtual egg::lang::Value setProperty(egg::lang::IExecution& execution, const egg::lang::String& property, const egg::lang::Value&) override {
+      return execution.raiseFormat("TODO: Exception properties such as '.", property, "."); //TODO
+    }
+    virtual Value getIndex(IExecution& execution, const Value&) override {
+      return execution.raiseFormat("Exceptions do not support indexing with '[]'");
+    }
+    virtual Value setIndex(IExecution& execution, const Value&, const Value&) override {
+      return execution.raiseFormat("Exceptions do not support indexing with '[]'");
     }
   };
   const ExceptionType Exception::type{};

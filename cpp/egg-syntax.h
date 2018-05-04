@@ -450,6 +450,16 @@ namespace egg::yolk {
     virtual std::shared_ptr<IEggProgramNode> promote(IEggParserContext& context) const override;
   };
 
+  class EggSyntaxNode_Array : public EggSyntaxNodeChildrenV {
+    EGG_NO_COPY(EggSyntaxNode_Array);
+  public:
+    explicit EggSyntaxNode_Array(const EggSyntaxNodeLocation& location)
+      : EggSyntaxNodeChildrenV(location) {
+    }
+    virtual void dump(std::ostream& os) const override;
+    virtual std::shared_ptr<IEggProgramNode> promote(IEggParserContext& context) const override;
+  };
+
   class EggSyntaxNode_Call : public EggSyntaxNodeChildrenV {
     EGG_NO_COPY(EggSyntaxNode_Call);
   public:

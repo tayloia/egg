@@ -702,6 +702,24 @@ namespace {
     }
   };
 
+  class EggParserNode_Array : public EggParserNodeBase {
+  private:
+    std::vector<std::shared_ptr<IEggProgramNode>> child;
+  public:
+    explicit EggParserNode_Array(const egg::lang::LocationSource& locationSource)
+      : EggParserNodeBase(locationSource) {
+    }
+    virtual egg::lang::Value execute(EggProgramContext& context) const override {
+      return context.executeArray(*this, this->child);
+    }
+    virtual void dump(std::ostream& os) const override {
+      ParserDump(os, "array").add(this->child);
+    }
+    void addValue(const std::shared_ptr<IEggProgramNode>& value) {
+      this->child.emplace_back(value);
+    }
+  };
+
   class EggParserNode_Call : public EggParserNodeBase {
   private:
     std::shared_ptr<IEggProgramNode> callee;
@@ -1532,6 +1550,14 @@ std::shared_ptr<egg::yolk::IEggProgramNode> egg::yolk::EggSyntaxNode_TernaryOper
   auto whenTrue = context.promote(*this->child[1]);
   auto whenFalse = context.promote(*this->child[2]);
   return makeParserNode<EggParserNode_Ternary>(context, *this, condition, whenTrue, whenFalse);
+}
+
+std::shared_ptr<egg::yolk::IEggProgramNode> egg::yolk::EggSyntaxNode_Array::promote(egg::yolk::IEggParserContext& context) const {
+  auto result = makeParserNode<EggParserNode_Array>(context, *this);
+  for (auto& i : this->child) {
+    result->addValue(context.promote(*i));
+  }
+  return result;
 }
 
 std::shared_ptr<egg::yolk::IEggProgramNode> egg::yolk::EggSyntaxNode_Call::promote(egg::yolk::IEggParserContext& context) const {
