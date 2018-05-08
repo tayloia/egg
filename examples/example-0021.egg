@@ -8,3 +8,5 @@ print(a.length);
 ///>3
 print(a);
 ///>[1, 2.0, three]
+print(a[1]);
+///>2.0

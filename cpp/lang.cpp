@@ -947,8 +947,14 @@ namespace {
     virtual Value dotGet(IExecution& execution, const Value& instance, const String& property) const override {
       return instance.getString().builtin(execution, property);
     }
+    virtual Value dotSet(IExecution& execution, const Value&, const String& property, const Value&) const override {
+      return execution.raiseFormat("Strings do not support modification through properties such as '.", property, "'");
+    }
     virtual Value bracketsGet(IExecution& execution, const Value& instance, const Value& index) const override {
       return bracketsString(execution, instance.getString(), index);
+    }
+    virtual Value bracketsSet(IExecution& execution, const Value&, const Value&, const Value&) const override {
+      return execution.raiseFormat("Strings do not support modification through indexing with '[]'");
     }
   };
   const TypeString typeString{};
@@ -1000,6 +1006,7 @@ namespace {
     virtual Value dotGet(IExecution& execution, const Value& instance, const String& property) const override {
       return dotSimple(execution, instance, property);
     }
+    // WIBBLE dotSet?
   };
 
   class TypeUnion : public egg::gc::HardReferenceCounted<IType> {
@@ -1287,7 +1294,7 @@ egg::lang::String egg::lang::LocationRuntime::toRuntimeString() const {
     if (sb.empty()) {
       sb.add(" ");
     }
-    sb.add("[").add(this->function).add("]");
+    sb.add("<").add(this->function).add(">");
   }
   return sb.str();
 }
@@ -1370,7 +1377,7 @@ egg::lang::String egg::lang::Value::toString() const {
     if (str.tag == Discriminator::String) {
       return str.getString();
     }
-    return String::fromUTF8("[invalid]");
+    return String::fromUTF8("<invalid>");
   }
   return String::fromUTF8(this->toUTF8());
 }
@@ -1392,16 +1399,16 @@ std::string egg::lang::Value::toUTF8() const {
     return this->s->toUTF8();
   }
   if (this->tag == Discriminator::Type) {
-    return "[type]"; // TODO
+    return "<type>"; // TODO
   }
   if (this->tag == Discriminator::Object) {
     auto str = this->o->toString();
     if (str.tag == Discriminator::String) {
       return str.getString().toUTF8();
     }
-    return "[invalid]";
+    return "<invalid>";
   }
-  return "[" + Value::getTagString(this->tag) + "]";
+  return "<" + Value::getTagString(this->tag) + ">";
 }
 
 egg::lang::ITypeRef egg::lang::IType::referencedType() const {
@@ -1430,13 +1437,23 @@ egg::lang::Value egg::lang::IType::cast(IExecution& execution, const IParameters
 }
 
 egg::lang::Value egg::lang::IType::dotGet(IExecution& execution, const Value&, const String& property) const {
-  // The default implementation is to return an error (only complex types support dot-properties)
+  // The default implementation is to return an error (only strings and complex types support dot-properties)
   return execution.raiseFormat("Values of type '", this->toString(), "' do not support properties such as '.", property, "'");
 }
 
+egg::lang::Value egg::lang::IType::dotSet(IExecution& execution, const Value&, const String& property, const Value&) const {
+  // The default implementation is to return an error (only complex types support assignment to dot-properties)
+  return execution.raiseFormat("Values of type '", this->toString(), "' do not support modification of properties such as '.", property, "'");
+}
+
 egg::lang::Value egg::lang::IType::bracketsGet(IExecution& execution, const Value&, const Value&) const {
-  // The default implementation is to return an error (only complex types support index-lookup)
-  return execution.raiseFormat("Values of type '", this->toString(), "' do not support the indexing '[]'");
+  // The default implementation is to return an error (only strings and complex types support index-lookup)
+  return execution.raiseFormat("Values of type '", this->toString(), "' do not support indexing with '[]'");
+}
+
+egg::lang::Value egg::lang::IType::bracketsSet(IExecution& execution, const Value&, const Value&, const Value&) const {
+  // The default implementation is to return an error (only complex types support index-modification)
+  return execution.raiseFormat("Values of type '", this->toString(), "' do not support indexing with '[]'");
 }
 
 egg::lang::String egg::lang::ISignature::toString() const {

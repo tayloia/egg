@@ -930,6 +930,17 @@ namespace {
     virtual egg::lang::Value execute(EggProgramContext& context) const override {
       return context.executeBinary(*this, this->op, *this->lhs, *this->rhs);
     }
+    virtual std::unique_ptr<IEggProgramAssignee> assignee(EggProgramContext& context) const override {
+      if (op == EggProgramBinary::Brackets) {
+        // Something like "obj[index] += value;"
+        return context.assigneeBrackets(*this, this->lhs, this->rhs);
+      }
+      if (op == EggProgramBinary::Dot) {
+        // Something like "obj.prop += value;"
+        return context.assigneeDot(*this, this->lhs, this->rhs);
+      }
+      return nullptr;
+    }
     virtual void dump(std::ostream& os) const override {
       ParserDump(os, "binary").add(EggProgram::binaryToString(this->op)).add(this->lhs).add(this->rhs);
     }
