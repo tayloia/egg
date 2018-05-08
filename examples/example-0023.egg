@@ -1,0 +1,3 @@
+var s = "hello";
+s.length = 4;
+///<RUNTIME><ERROR>~/examples/example-0023.egg(2,10): Strings do not support modification through properties such as '.length'
