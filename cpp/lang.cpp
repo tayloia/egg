@@ -76,31 +76,6 @@ namespace {
     return execution.raiseFormat("Cannot cast a value of type '", rhs.getRuntimeType().toString(), "' to type '", Value::getTagString(tag), "'");
   }
 
-  Value dotSimple(IExecution& execution, const Value& instance, const String& property) {
-    // OPTIMIZE
-    if (instance.is(Discriminator::String)) {
-      return instance.getString().builtin(execution, property);
-    }
-    return execution.raiseFormat("Properties are not yet supported for '", instance.getRuntimeType().toString(), "'");
-  }
-
-  Value bracketsString(IExecution& execution, const String& instance, const Value& index) {
-    // string operator[](int index)
-    if (!index.is(Discriminator::Int)) {
-      return execution.raiseFormat("String indexing '[]' only supports indices of type 'int', not '", index.getRuntimeType().toString(), "'");
-    }
-    auto i = index.getInt();
-    auto c = instance.codePointAt(size_t(i));
-    if (c < 0) {
-      // Invalid index
-      if ((i < 0) || (size_t(i) >= instance.length())) {
-        return execution.raiseFormat("String index ", i, " is out of range for a string of length ", instance.length());
-      }
-      return execution.raiseFormat("Cannot index a malformed string");
-    }
-    return Value{ String::fromCodePoint(char32_t(c)) };
-  }
-
   void formatSourceLocation(StringBuilder& sb, const LocationSource& location) {
     sb.add(location.file);
     if (location.column > 0) {
@@ -951,7 +926,23 @@ namespace {
       return execution.raiseFormat("Strings do not support modification through properties such as '.", property, "'");
     }
     virtual Value bracketsGet(IExecution& execution, const Value& instance, const Value& index) const override {
-      return bracketsString(execution, instance.getString(), index);
+      // string operator[](int index)
+      assert(instance.is(egg::lang::Discriminator::String));
+      auto str = instance.getString();
+      if (!index.is(Discriminator::Int)) {
+        return execution.raiseFormat("String indexing '[]' only supports indices of type 'int', not '", index.getRuntimeType().toString(), "'");
+      }
+      auto i = index.getInt();
+      auto c = str.codePointAt(size_t(i));
+      if (c < 0) {
+        // Invalid index
+        auto n = str.length();
+        if ((i < 0) || (size_t(i) >= n)) {
+          return execution.raiseFormat("String index ", i, " is out of range for a string of length ", n);
+        }
+        return execution.raiseFormat("Cannot index a malformed string");
+      }
+      return Value{ String::fromCodePoint(char32_t(c)) };
     }
     virtual Value bracketsSet(IExecution& execution, const Value&, const Value&, const Value&) const override {
       return execution.raiseFormat("Strings do not support modification through indexing with '[]'");
@@ -1004,9 +995,15 @@ namespace {
       return nullptr;
     }
     virtual Value dotGet(IExecution& execution, const Value& instance, const String& property) const override {
-      return dotSimple(execution, instance, property);
+      // OPTIMIZE
+      if (instance.is(Discriminator::String)) {
+        return instance.getString().builtin(execution, property);
+      }
+      return execution.raiseFormat("Properties are not supported for '", instance.getRuntimeType().toString(), "'");
     }
-    // WIBBLE dotSet?
+    virtual Value dotSet(IExecution& execution, const Value& instance, const String&, const Value&) const override {
+      return execution.raiseFormat("Properties are not supported for '", instance.getRuntimeType().toString(), "'");
+    }
   };
 
   class TypeUnion : public egg::gc::HardReferenceCounted<IType> {
