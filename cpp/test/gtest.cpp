@@ -4,7 +4,7 @@
 // Reduce the warning level in MSVC
 #if defined(_MSC_VER)
 #pragma warning(push, 3)
-#pragma warning(disable: 4571)
+#pragma warning(disable: 4571 5045)
 #endif
 
 #include "src/gtest-all.cc"

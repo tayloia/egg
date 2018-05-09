@@ -10,6 +10,9 @@
     <IntDir>$(SolutionDir)obj\$(ProjectName).$(Configuration.ToLower()).$(PlatformTarget.ToLower())\</IntDir>
     <IncludePath>$(EggRoot)\cpp;$(GoogleTest)\include;$(IncludePath)</IncludePath>
   </PropertyGroup>
+  <PropertyGroup Label="Configuration">
+    <SpectreMitigation>Spectre</SpectreMitigation>
+  </PropertyGroup>
   <ItemDefinitionGroup>
     <ClCompile>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
