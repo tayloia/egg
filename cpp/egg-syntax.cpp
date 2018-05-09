@@ -4,6 +4,8 @@
 #include "egg-syntax.h"
 #include "egg-parser.h"
 
+#include <set>
+
 namespace {
   using namespace egg::yolk;
 
@@ -193,6 +195,10 @@ void egg::yolk::EggSyntaxNode_TernaryOperator::dump(std::ostream& os) const {
 
 void egg::yolk::EggSyntaxNode_Array::dump(std::ostream& os) const {
   ParserDump(os, "array").add(this->child);
+}
+
+void egg::yolk::EggSyntaxNode_Object::dump(std::ostream& os) const {
+  ParserDump(os, "object").add(this->child);
 }
 
 void egg::yolk::EggSyntaxNode_Call::dump(std::ostream& os) const {
@@ -593,6 +599,7 @@ namespace {
     std::unique_ptr<IEggSyntaxNode> parseExpressionPrimary(const char* expected);
     std::unique_ptr<IEggSyntaxNode> parseExpressionDeclaration();
     std::unique_ptr<IEggSyntaxNode> parseExpressionArray(const EggSyntaxNodeLocation& location);
+    std::unique_ptr<IEggSyntaxNode> parseExpressionObject(const EggSyntaxNodeLocation& location);
     std::unique_ptr<IEggSyntaxNode> parseModule();
     std::unique_ptr<IEggSyntaxNode> parseStatement();
     std::unique_ptr<IEggSyntaxNode> parseStatementSimple(const char* expected, EggTokenizerOperator terminal);
@@ -1065,6 +1072,11 @@ std::unique_ptr<IEggSyntaxNode> EggSyntaxParserContext::parseExpressionPrimary(c
       mark.accept(0);
       return array;
     }
+    if (p0.value.o == EggTokenizerOperator::CurlyLeft) {
+      auto object = this->parseExpressionObject(location);
+      mark.accept(0);
+      return object;
+    }
     break;
   case EggTokenizerKind::Attribute:
   case EggTokenizerKind::EndOfFile:
@@ -1147,7 +1159,7 @@ std::unique_ptr<IEggSyntaxNode> EggSyntaxParserContext::parseExpressionArray(con
     const EggTokenizerItem* p;
     do {
       mark.advance(1);
-      auto expr = this->parseExpression("Expected expression for function call parameter value");
+      auto expr = this->parseExpression("Expected expression for array value");
       array->addChild(std::move(expr));
       p = &mark.peek(0);
     } while (p->isOperator(EggTokenizerOperator::Comma));
@@ -1157,6 +1169,51 @@ std::unique_ptr<IEggSyntaxNode> EggSyntaxParserContext::parseExpressionArray(con
     mark.accept(1);
   }
   return array;
+}
+
+std::unique_ptr<IEggSyntaxNode> EggSyntaxParserContext::parseExpressionObject(const EggSyntaxNodeLocation& location) {
+  /*
+      object-value ::= '{' object-value-list? '}'
+
+      object-value-list ::= name ':' expression
+                          | object-value-list ',' name ':' expression
+  */
+  EggSyntaxParserBacktrackMark mark(this->backtrack);
+  assert(mark.peek(0).isOperator(EggTokenizerOperator::CurlyLeft));
+  auto object = std::make_unique<EggSyntaxNode_Object>(location);
+  if (mark.peek(1).isOperator(EggTokenizerOperator::CurlyRight)) {
+    // This is an empty object: '{' '}'
+    mark.accept(2);
+  } else {
+    std::set<egg::lang::String> seen;
+    const EggTokenizerItem* p;
+    do {
+      // Expect <identifier> ':' <expression>
+      p = &mark.peek(1);
+      if (p->kind != EggTokenizerKind::Identifier) {
+        this->unexpected("Expected property name in object expression", *p);
+      }
+      auto name = p->value.s;
+      if (!seen.insert(name).second) {
+        mark.advance(1); // Point to the property name so the constructed error message is accurate
+        this->unexpected("Duplicate property name in object expression: '" + name.toUTF8() + "'");
+      }
+      p = &mark.peek(2);
+      if (!p->isOperator(EggTokenizerOperator::Colon)) {
+        this->unexpected("Expected ':' after property name in object expression", *p);
+      }
+      mark.advance(3);
+      auto expr = this->parseExpression("Expected expression after ':' in object expression");
+      auto named = std::make_unique<EggSyntaxNode_Named>(location, name, std::move(expr));
+      object->addChild(std::move(named));
+      p = &mark.peek(0);
+    } while (p->isOperator(EggTokenizerOperator::Comma));
+    if (!p->isOperator(EggTokenizerOperator::CurlyRight)) {
+      this->unexpected("Expected '}' at end of object expression", *p);
+    }
+    mark.accept(1);
+  }
+  return object;
 }
 
 void EggSyntaxParserContext::parseParameterList(std::function<void(std::unique_ptr<IEggSyntaxNode>&& node)> adder) {

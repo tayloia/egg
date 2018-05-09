@@ -16,6 +16,7 @@
 #include <vector>
 
 #include "macros.h"
+#include "dictionaries.h"
 #include "exceptions.h"
 #include "gc.h"
 #include "files.h"

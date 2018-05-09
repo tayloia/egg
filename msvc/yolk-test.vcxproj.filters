@@ -43,6 +43,9 @@
     <ClCompile Include="..\cpp\test\utf.cpp">
       <Filter>Test Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\cpp\test\dictionaries.cpp">
+      <Filter>Test Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Data Files">
@@ -136,6 +139,9 @@
       <Filter>Example Files</Filter>
     </None>
     <None Include="..\examples\example-0023.egg">
+      <Filter>Example Files</Filter>
+    </None>
+    <None Include="..\examples\example-0024.egg">
       <Filter>Example Files</Filter>
     </None>
   </ItemGroup>

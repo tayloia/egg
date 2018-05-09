@@ -702,6 +702,30 @@ namespace {
     }
   };
 
+  class EggParserNode_Named : public EggParserNodeBase {
+  private:
+    egg::lang::String name;
+    std::shared_ptr<IEggProgramNode> expr;
+  public:
+    EggParserNode_Named(const egg::lang::LocationSource& locationSource, const egg::lang::String& name, const std::shared_ptr<IEggProgramNode>& expr)
+      : EggParserNodeBase(locationSource), name(name), expr(expr) {
+      assert(expr != nullptr);
+    }
+    virtual bool symbol(egg::lang::String& nameOut, egg::lang::ITypeRef& typeOut) const override {
+      // Use the symbol to extract the parameter name
+      nameOut = this->name;
+      typeOut = this->expr->getType();
+      return true;
+    }
+    virtual egg::lang::Value execute(EggProgramContext& context) const override {
+      // The name has already been extracted via 'symbol' so just propagate the value
+      return this->expr->execute(context);
+    }
+    virtual void dump(std::ostream& os) const override {
+      ParserDump(os, "named").add(this->name).add(this->expr);
+    }
+  };
+
   class EggParserNode_Array : public EggParserNodeBase {
   private:
     std::vector<std::shared_ptr<IEggProgramNode>> child;
@@ -714,6 +738,24 @@ namespace {
     }
     virtual void dump(std::ostream& os) const override {
       ParserDump(os, "array").add(this->child);
+    }
+    void addValue(const std::shared_ptr<IEggProgramNode>& value) {
+      this->child.emplace_back(value);
+    }
+  };
+
+  class EggParserNode_Object : public EggParserNodeBase {
+  private:
+    std::vector<std::shared_ptr<IEggProgramNode>> child; // All EggParserNode_Named instances in order
+  public:
+    explicit EggParserNode_Object(const egg::lang::LocationSource& locationSource)
+      : EggParserNodeBase(locationSource) {
+    }
+    virtual egg::lang::Value execute(EggProgramContext& context) const override {
+      return context.executeObject(*this, this->child);
+    }
+    virtual void dump(std::ostream& os) const override {
+      ParserDump(os, "object").add(this->child);
     }
     void addValue(const std::shared_ptr<IEggProgramNode>& value) {
       this->child.emplace_back(value);
@@ -756,30 +798,6 @@ namespace {
     }
     void addParameter(const std::shared_ptr<IEggProgramNode>& parameter) {
       this->child.emplace_back(parameter);
-    }
-  };
-
-  class EggParserNode_Named : public EggParserNodeBase {
-  private:
-    egg::lang::String name;
-    std::shared_ptr<IEggProgramNode> expr;
-  public:
-    EggParserNode_Named(const egg::lang::LocationSource& locationSource, const egg::lang::String& name, const std::shared_ptr<IEggProgramNode>& expr)
-      : EggParserNodeBase(locationSource), name(name), expr(expr) {
-      assert(expr != nullptr);
-    }
-    virtual bool symbol(egg::lang::String& nameOut, egg::lang::ITypeRef& typeOut) const override {
-      // Use the symbol to extract the parameter name
-      nameOut = this->name;
-      typeOut = this->expr->getType();
-      return true;
-    }
-    virtual egg::lang::Value execute(EggProgramContext& context) const override {
-      // The name has already been extracted via 'symbol' so just propagate the value
-      return this->expr->execute(context);
-    }
-    virtual void dump(std::ostream& os) const override {
-      ParserDump(os, "named").add(this->name).add(this->expr);
     }
   };
 
@@ -1565,6 +1583,14 @@ std::shared_ptr<egg::yolk::IEggProgramNode> egg::yolk::EggSyntaxNode_TernaryOper
 
 std::shared_ptr<egg::yolk::IEggProgramNode> egg::yolk::EggSyntaxNode_Array::promote(egg::yolk::IEggParserContext& context) const {
   auto result = makeParserNode<EggParserNode_Array>(context, *this);
+  for (auto& i : this->child) {
+    result->addValue(context.promote(*i));
+  }
+  return result;
+}
+
+std::shared_ptr<egg::yolk::IEggProgramNode> egg::yolk::EggSyntaxNode_Object::promote(egg::yolk::IEggParserContext& context) const {
+  auto result = makeParserNode<EggParserNode_Object>(context, *this);
   for (auto& i : this->child) {
     result->addValue(context.promote(*i));
   }

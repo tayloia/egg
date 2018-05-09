@@ -84,10 +84,10 @@ namespace {
       return this->program.executeFunctionCall(*this->type, parameters, *this->block);
     }
     virtual egg::lang::Value getProperty(egg::lang::IExecution& execution, const egg::lang::String& property) override {
-      return execution.raiseFormat(this->type->toString(), " does not support properties such as '.", property, ".");
+      return execution.raiseFormat(this->type->toString(), " does not support properties such as '.", property, "'");
     }
     virtual egg::lang::Value setProperty(egg::lang::IExecution& execution, const egg::lang::String& property, const egg::lang::Value&) override {
-      return execution.raiseFormat(this->type->toString(), " does not support properties such as '.", property, ".");
+      return execution.raiseFormat(this->type->toString(), " does not support properties such as '.", property, "'");
     }
     virtual egg::lang::Value getIndex(egg::lang::IExecution& execution, const egg::lang::Value&) override {
       return execution.raiseFormat(this->type->toString(), " does not support indexing with '[]'");
@@ -207,10 +207,10 @@ namespace {
       return egg::lang::String::fromUTF8("any?[]");
     }
     virtual egg::lang::Value canAlwaysAssignFrom(egg::lang::IExecution& execution, const IType&) const override {
-      return execution.raiseFormat("Cannot re-assign exceptions");
+      return execution.raiseFormat("Cannot re-assign arrays"); // TODO
     }
     virtual egg::lang::Value promoteAssignment(egg::lang::IExecution& execution, const egg::lang::Value&) const override {
-      return execution.raiseFormat("Cannot re-assign exceptions");
+      return execution.raiseFormat("Cannot re-assign arrays"); // TODO
     }
     virtual const egg::lang::ISignature* callable(egg::lang::IExecution&) const override {
       return nullptr;
@@ -259,21 +259,21 @@ namespace {
       return egg::lang::Value(*this->type);
     }
     virtual egg::lang::Value call(egg::lang::IExecution& execution, const egg::lang::IParameters&) override {
-      return execution.raiseFormat(this->type->toString(), " does not support calling with '()'");
+      return execution.raiseFormat("Arrays do not support calling with '()'");
     }
     virtual egg::lang::Value getProperty(egg::lang::IExecution& execution, const egg::lang::String& property) override {
       auto name = property.toUTF8();
       if (name == "length") {
         return egg::lang::Value{ int64_t(this->values.size()) };
       }
-      return execution.raiseFormat("Arrays do not support property '.", property, ".");
+      return execution.raiseFormat("Arrays do not support property '.", property, "'");
     }
     virtual egg::lang::Value setProperty(egg::lang::IExecution& execution, const egg::lang::String& property, const egg::lang::Value& value) override {
       auto name = property.toUTF8();
       if (name == "length") {
         return this->setLength(execution, value);
       }
-      return execution.raiseFormat("Arrays do not support property '.", property, ".");
+      return execution.raiseFormat("Arrays do not support property '.", property, "'");
     }
     virtual egg::lang::Value getIndex(egg::lang::IExecution& execution, const egg::lang::Value& index) override {
       if (!index.is(egg::lang::Discriminator::Int)) {
@@ -283,6 +283,7 @@ namespace {
       if ((i < 0) || (uint64_t(i) >= uint64_t(this->values.size()))) {
         return execution.raiseFormat("Invalid array index for an array with ", this->values.size(), " element(s): ", i);
       }
+      // WIBBLE gaps are Void values
       return this->values[size_t(i)];
     }
     virtual egg::lang::Value setIndex(egg::lang::IExecution& execution, const egg::lang::Value& index, const egg::lang::Value& value) override {
@@ -311,6 +312,100 @@ namespace {
       }
       auto u = size_t(n);
       this->values.resize(u);
+      return egg::lang::Value::Void;
+    }
+  };
+
+  class EggProgramObjectOrthodoxType : public egg::gc::NotReferenceCounted<egg::lang::IType> {
+  public:
+    virtual egg::lang::String toString() const override {
+      return egg::lang::String::fromUTF8("any?{}");
+    }
+    virtual egg::lang::Value canAlwaysAssignFrom(egg::lang::IExecution& execution, const IType&) const override {
+      return execution.raiseFormat("Cannot re-assign objects"); // TODO
+    }
+    virtual egg::lang::Value promoteAssignment(egg::lang::IExecution& execution, const egg::lang::Value&) const override {
+      return execution.raiseFormat("Cannot re-assign objects"); // TODO
+    }
+    virtual const egg::lang::ISignature* callable(egg::lang::IExecution&) const override {
+      return nullptr;
+    }
+    virtual egg::lang::Value dotGet(egg::lang::IExecution& execution, const egg::lang::Value& instance, const egg::lang::String& property) const override {
+      return instance.getObject().getProperty(execution, property);
+    }
+    virtual egg::lang::Value dotSet(egg::lang::IExecution& execution, const egg::lang::Value& instance, const egg::lang::String& property, const egg::lang::Value& value) const override {
+      return instance.getObject().setProperty(execution, property, value);
+    }
+    virtual egg::lang::Value bracketsGet(egg::lang::IExecution& execution, const egg::lang::Value& instance, const egg::lang::Value& index) const override {
+      return instance.getObject().getIndex(execution, index);
+    }
+    virtual egg::lang::Value bracketsSet(egg::lang::IExecution& execution, const egg::lang::Value& instance, const egg::lang::Value& index, const egg::lang::Value& value) const override {
+      return instance.getObject().setIndex(execution, index, value);
+    }
+  };
+  const EggProgramObjectOrthodoxType objectOrthodoxType;
+
+  class EggProgramObjectOrthodox : public egg::gc::HardReferenceCounted<egg::lang::IObject> {
+    EGG_NO_COPY(EggProgramObjectOrthodox);
+  private:
+    typedef egg::yolk::Dictionary<egg::lang::String, egg::lang::Value> Dictionary;
+    egg::lang::ITypeRef type;
+    Dictionary dictionary;
+  public:
+    explicit EggProgramObjectOrthodox(const egg::lang::IType& type)
+      : HardReferenceCounted(0), type(&type) {
+    }
+    virtual bool dispose() override {
+      return false;
+    }
+    virtual egg::lang::Value toString() const override {
+      Dictionary::KeyValues keyvalues;
+      if (this->dictionary.getKeyValues(keyvalues) == 0) {
+        return egg::lang::Value{ egg::lang::String::fromUTF8("{}") };
+      }
+      egg::lang::StringBuilder sb;
+      const char* between = "{";
+      for (auto& keyvalue : keyvalues) {
+        sb.add(between).add(keyvalue.first.toUTF8()).add(":").add(keyvalue.second.toUTF8());
+        between = ",";
+      }
+      sb.add("}");
+      return egg::lang::Value{ sb.str() };
+    }
+    virtual egg::lang::Value getRuntimeType() const override {
+      return egg::lang::Value(*this->type);
+    }
+    virtual egg::lang::Value call(egg::lang::IExecution& execution, const egg::lang::IParameters&) override {
+      return execution.raiseFormat("Objects do not support calling with '()'");
+    }
+    virtual egg::lang::Value getProperty(egg::lang::IExecution& execution, const egg::lang::String& property) override {
+      return this->get(execution, property);
+    }
+    virtual egg::lang::Value setProperty(egg::lang::IExecution& execution, const egg::lang::String& property, const egg::lang::Value& value) override {
+      return this->set(execution, property, value);
+    }
+    virtual egg::lang::Value getIndex(egg::lang::IExecution& execution, const egg::lang::Value& index) override {
+      if (!index.is(egg::lang::Discriminator::String)) {
+        return execution.raiseFormat("Object index (property name) was expected to be 'string', not '", index.getRuntimeType().toString(), "'");
+      }
+      return this->get(execution, index.getString());
+    }
+    virtual egg::lang::Value setIndex(egg::lang::IExecution& execution, const egg::lang::Value& index, const egg::lang::Value& value) override {
+      if (!index.is(egg::lang::Discriminator::String)) {
+        return execution.raiseFormat("Object index (property name) was expected to be 'string', not '", index.getRuntimeType().toString(), "'");
+      }
+      return this->set(execution, index.getString(), value);
+    }
+  private:
+    egg::lang::Value get(egg::lang::IExecution& execution, const egg::lang::String& property) const {
+      egg::lang::Value value;
+      if (this->dictionary.tryGet(property, value)) {
+        return value;
+      }
+      return execution.raiseFormat("Object does not support property '", property, "'");
+    }
+    egg::lang::Value set(egg::lang::IExecution&, const egg::lang::String& property, const egg::lang::Value& value) {
+      (void)this->dictionary.addOrUpdate(property, value);
       return egg::lang::Value::Void;
     }
   };
@@ -954,6 +1049,31 @@ egg::lang::Value egg::yolk::EggProgramContext::executeArray(const IEggProgramNod
   return result;
 }
 
+egg::lang::Value egg::yolk::EggProgramContext::executeObject(const IEggProgramNode& self, const std::vector<std::shared_ptr<IEggProgramNode>>& values) {
+  // OPTIMIZE
+  EggProgramExpression expression(*this, self);
+  auto result = this->createObjectOrthodox();
+  if (result.is(egg::lang::Discriminator::Object)) {
+    auto& object = result.getObject();
+    egg::lang::String name;
+    auto type = egg::lang::Type::Void;
+    for (auto& value : values) {
+      if (!value->symbol(name, type)) {
+        return this->raiseFormat("Internal runtime error: Failed to fetch name of object property");
+      }
+      auto entry = value->execute(*this);
+      if (entry.has(egg::lang::Discriminator::FlowControl)) {
+        return entry;
+      }
+      entry = object.setProperty(*this, name, entry);
+      if (entry.has(egg::lang::Discriminator::FlowControl)) {
+        return entry;
+      }
+    }
+  }
+  return result;
+}
+
 egg::lang::Value egg::yolk::EggProgramContext::executeCall(const IEggProgramNode& self, const IEggProgramNode& callee, const std::vector<std::shared_ptr<IEggProgramNode>>& parameters) {
   EggProgramExpression expression(*this, self);
   auto func = callee.execute(*this);
@@ -1106,50 +1226,54 @@ egg::lang::Value egg::yolk::EggProgramContext::assign(EggProgramAssign op, const
   if (dst == nullptr) {
     return this->raiseFormat("Left-hand side of assignment operator '", EggProgram::assignToString(op), "' is not a valid target");
   }
-  auto lhs = dst->get();
-  if (lhs.has(egg::lang::Discriminator::FlowControl)) {
-    return lhs;
-  }
   egg::lang::Value rhs;
-  switch (op) {
-  case EggProgramAssign::Remainder:
-    rhs = arithmeticIntFloat(lhs, rvalue, "remainder assignment '%='", remainderInt, remainderFloat);
-    break;
-  case EggProgramAssign::BitwiseAnd:
-    rhs = arithmeticInt(lhs, rvalue, "bitwise-and assignment '&='", bitwiseAndInt);
-    break;
-  case EggProgramAssign::Multiply:
-    rhs = arithmeticIntFloat(lhs, rvalue, "multiplication assignment '*='", multiplyInt, multiplyFloat);
-    break;
-  case EggProgramAssign::Plus:
-    rhs = arithmeticIntFloat(lhs, rvalue, "addition assignment '+='", plusInt, plusFloat);
-    break;
-  case EggProgramAssign::Minus:
-    rhs = arithmeticIntFloat(lhs, rvalue, "subtraction assignment '-='", minusInt, minusFloat);
-    break;
-  case EggProgramAssign::Divide:
-    rhs = arithmeticIntFloat(lhs, rvalue, "division assignment '/='", divideInt, divideFloat);
-    break;
-  case EggProgramAssign::ShiftLeft:
-    rhs = arithmeticInt(lhs, rvalue, "shift-left assignment '<<='", shiftLeftInt);
-    break;
-  case EggProgramAssign::Equal:
+  if (op == EggProgramAssign::Equal) {
+    // Simple assignment without interrogation beforehand
     rhs = rvalue.execute(*this);
-    break;
-  case EggProgramAssign::ShiftRight:
-    rhs = arithmeticInt(lhs, rvalue, "shift-right assignment '>>='", shiftRightInt);
-    break;
-  case EggProgramAssign::ShiftRightUnsigned:
-    rhs = arithmeticInt(lhs, rvalue, "shift-right-unsigned assignment '>>>='", shiftRightUnsignedInt);
-    break;
-  case EggProgramAssign::BitwiseXor:
-    rhs = arithmeticInt(lhs, rvalue, "bitwise-xor assignment '^='", bitwiseXorInt);
-    break;
-  case EggProgramAssign::BitwiseOr:
-    rhs = arithmeticInt(lhs, rvalue, "bitwise-or assignment '|='", bitwiseOrInt);
-    break;
-  default:
-    return this->raiseFormat("Internal runtime error: Unknown assignment operator: '", EggProgram::assignToString(op), "'");
+  } else {
+    // We need to interrogate the value of the lhs so we can modify it
+    auto lhs = dst->get();
+    if (lhs.has(egg::lang::Discriminator::FlowControl)) {
+      return lhs;
+    }
+    switch (op) {
+    case EggProgramAssign::Remainder:
+      rhs = arithmeticIntFloat(lhs, rvalue, "remainder assignment '%='", remainderInt, remainderFloat);
+      break;
+    case EggProgramAssign::BitwiseAnd:
+      rhs = arithmeticInt(lhs, rvalue, "bitwise-and assignment '&='", bitwiseAndInt);
+      break;
+    case EggProgramAssign::Multiply:
+      rhs = arithmeticIntFloat(lhs, rvalue, "multiplication assignment '*='", multiplyInt, multiplyFloat);
+      break;
+    case EggProgramAssign::Plus:
+      rhs = arithmeticIntFloat(lhs, rvalue, "addition assignment '+='", plusInt, plusFloat);
+      break;
+    case EggProgramAssign::Minus:
+      rhs = arithmeticIntFloat(lhs, rvalue, "subtraction assignment '-='", minusInt, minusFloat);
+      break;
+    case EggProgramAssign::Divide:
+      rhs = arithmeticIntFloat(lhs, rvalue, "division assignment '/='", divideInt, divideFloat);
+      break;
+    case EggProgramAssign::ShiftLeft:
+      rhs = arithmeticInt(lhs, rvalue, "shift-left assignment '<<='", shiftLeftInt);
+      break;
+    case EggProgramAssign::ShiftRight:
+      rhs = arithmeticInt(lhs, rvalue, "shift-right assignment '>>='", shiftRightInt);
+      break;
+    case EggProgramAssign::ShiftRightUnsigned:
+      rhs = arithmeticInt(lhs, rvalue, "shift-right-unsigned assignment '>>>='", shiftRightUnsignedInt);
+      break;
+    case EggProgramAssign::BitwiseXor:
+      rhs = arithmeticInt(lhs, rvalue, "bitwise-xor assignment '^='", bitwiseXorInt);
+      break;
+    case EggProgramAssign::BitwiseOr:
+      rhs = arithmeticInt(lhs, rvalue, "bitwise-or assignment '|='", bitwiseOrInt);
+      break;
+    case EggProgramAssign::Equal:
+    default:
+      return this->raiseFormat("Internal runtime error: Unknown assignment operator: '", EggProgram::assignToString(op), "'");
+    }
   }
   if (rhs.has(egg::lang::Discriminator::FlowControl)) {
     return rhs;
@@ -1419,4 +1543,8 @@ void egg::yolk::EggProgramContext::print(const std::string& utf8) {
 
 egg::lang::Value egg::yolk::EggProgramContext::createArrayOrthodox() {
   return egg::lang::Value::make<EggProgramArrayOrthodox>(arrayOrthodoxType);
+}
+
+egg::lang::Value egg::yolk::EggProgramContext::createObjectOrthodox() {
+  return egg::lang::Value::make<EggProgramObjectOrthodox>(objectOrthodoxType);
 }

@@ -454,6 +454,15 @@ namespace egg::lang {
   };
 }
 
+namespace std {
+  template<> struct hash<egg::lang::String> {
+    // String hash specialization for use with std::unordered_map<> etc.
+    size_t operator()(const egg::lang::String& s) const {
+      return size_t(s.hashCode());
+    }
+  };
+}
+
 std::ostream& operator<<(std::ostream& os, const egg::lang::String& text);
 
 template<typename... ARGS>

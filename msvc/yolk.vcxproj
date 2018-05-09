@@ -55,6 +55,7 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="..\cpp\dictionaries.h" />
     <ClInclude Include="..\cpp\egg-engine.h" />
     <ClInclude Include="..\cpp\egg-parser.h" />
     <ClInclude Include="..\cpp\egg-program.h" />

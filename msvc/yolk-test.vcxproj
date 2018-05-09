@@ -19,6 +19,7 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="..\cpp\test\dictionaries.cpp" />
     <ClCompile Include="..\cpp\test\egg-engine.cpp" />
     <ClCompile Include="..\cpp\test\egg-parser.cpp" />
     <ClCompile Include="..\cpp\test\egg-syntax.cpp" />
@@ -80,6 +81,7 @@
     <None Include="..\examples\example-0021.egg" />
     <None Include="..\examples\example-0022.egg" />
     <None Include="..\examples\example-0023.egg" />
+    <None Include="..\examples\example-0024.egg" />
   </ItemGroup>
   <ItemGroup>
     <Text Include="..\cpp\test\data\utf-8-demo.bom.txt" />
