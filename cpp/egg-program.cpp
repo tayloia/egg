@@ -250,7 +250,7 @@ namespace {
       const char* between = "[";
       for (auto& value : this->values) {
         sb.add(between).add(value.toUTF8());
-        between = ", ";
+        between = ",";
       }
       sb.add("]");
       return egg::lang::Value{ sb.str() };
