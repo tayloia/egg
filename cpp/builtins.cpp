@@ -135,6 +135,9 @@ namespace {
     virtual Value setIndex(IExecution& execution, const Value&, const Value&) override {
       return execution.raiseFormat(this->type.toString(), " does not support indexing with '[]'");
     }
+    virtual Value iterate(IExecution& execution) override {
+      return execution.raiseFormat(this->type.toString(), " does not support iteration");
+    }
   };
 
   class BuiltinAssert : public Builtin<BuiltinType> {
@@ -217,6 +220,9 @@ namespace {
     }
     virtual Value setIndex(IExecution& execution, const Value&, const Value&) override {
       return execution.raiseFormat(this->type->toString(), " does not support indexing with '[]'");
+    }
+    virtual Value iterate(IExecution& execution) override {
+      return execution.raiseFormat(this->type->toString(), " does not support iteration");
     }
     static Value make(const String& instance) {
       static const T typeInstance{};

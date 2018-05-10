@@ -57,6 +57,7 @@ namespace egg::yolk {
 
     static const egg::lang::IType& VanillaArray;
     static const egg::lang::IType& VanillaObject;
+    static const egg::lang::IType& VanillaException;
   };
 
   class EggProgramContext : public egg::lang::IExecution {
@@ -130,6 +131,7 @@ namespace egg::yolk {
     egg::lang::Value executeStatements(const std::vector<std::shared_ptr<IEggProgramNode>>& statements);
     egg::lang::Value executeFinally(const egg::lang::Value& retval, const IEggProgramNode* block);
     egg::lang::Value executeForeachString(IEggProgramAssignee& target, const egg::lang::String& source, const IEggProgramNode& block);
+    egg::lang::Value executeForeachIterate(IEggProgramAssignee& target, egg::lang::IObject& source, const IEggProgramNode& block);
     bool operand(egg::lang::Value& dst, const IEggProgramNode& src, egg::lang::Discriminator expected, const char* expectation);
     typedef egg::lang::Value(*ArithmeticInt)(int64_t lhs, int64_t rhs);
     typedef egg::lang::Value (*ArithmeticFloat)(double lhs, double rhs);

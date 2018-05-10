@@ -25,6 +25,7 @@
     <ClCompile Include="..\cpp\egg-program.cpp" />
     <ClCompile Include="..\cpp\egg-syntax.cpp" />
     <ClCompile Include="..\cpp\egg-tokenizer.cpp" />
+    <ClCompile Include="..\cpp\egg-vanilla.cpp" />
     <ClCompile Include="..\cpp\egged-tokenizer.cpp" />
     <ClCompile Include="..\cpp\exceptions.cpp" />
     <ClCompile Include="..\cpp\files.cpp" />

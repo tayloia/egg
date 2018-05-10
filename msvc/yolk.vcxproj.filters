@@ -121,5 +121,8 @@
     <ClCompile Include="..\cpp\builtins.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\cpp\egg-vanilla.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
 </Project>

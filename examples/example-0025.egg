@@ -5,7 +5,15 @@ int fibonacci(int n) {
   }
   return fibonacci(n - 1) + fibonacci(n - 2);
 }
-print(fibonacci(10));
+try {
+  print(fibonacci(10));
+} catch (any exception) {
+  print("CAUGHT:", exception);
+}
 ///>55
-print(fibonacci(-1));
-///<RUNTIME><ERROR><RESOURCE>(2,9): Predicate is false
+try {
+  print(fibonacci(-1));
+} catch (any exception) {
+  print("CAUGHT:", exception);
+}
+///>CAUGHT:<RESOURCE>(2,9): Predicate is false

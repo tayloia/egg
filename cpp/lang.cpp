@@ -992,60 +992,6 @@ namespace {
       EGG_THROW("TODO: Cannot yet call to union value"); // TODO
     }
   };
-
-  class ExceptionType : public egg::gc::NotReferenceCounted<IType> {
-  public:
-    virtual String toString() const override {
-      return String::fromUTF8("Exception");
-    }
-    virtual Value promoteAssignment(IExecution& execution, const Value&) const override {
-      return execution.raiseFormat("Cannot re-assign exceptions");
-    }
-    virtual const ISignature* callable(IExecution&) const override {
-      return nullptr;
-    }
-  };
-
-  class Exception : public egg::gc::HardReferenceCounted<IObject> {
-    EGG_NO_COPY(Exception);
-  private:
-    static const ExceptionType type;
-    LocationRuntime location;
-    String message;
-  public:
-    Exception(const LocationRuntime& location, const String& message)
-      : HardReferenceCounted(0), location(location), message(message) {
-    }
-    virtual bool dispose() override {
-      return false;
-    }
-    virtual Value toString() const override {
-      auto where = this->location.toSourceString();
-      if (where.length() > 0) {
-        return Value(String::concat(where, ": ", this->message));
-      }
-      return Value(this->message);
-    }
-    virtual Value getRuntimeType() const override {
-      return Value(Exception::type);
-    }
-    virtual Value call(IExecution& execution, const IParameters&) override {
-      return execution.raiseFormat("Exceptions cannot be called");
-    }
-    virtual egg::lang::Value getProperty(egg::lang::IExecution& execution, const egg::lang::String& property) override {
-      return execution.raiseFormat("TODO: Exception properties such as '.", property, "."); //TODO
-    }
-    virtual egg::lang::Value setProperty(egg::lang::IExecution& execution, const egg::lang::String& property, const egg::lang::Value&) override {
-      return execution.raiseFormat("TODO: Exception properties such as '.", property, "."); //TODO
-    }
-    virtual Value getIndex(IExecution& execution, const Value&) override {
-      return execution.raiseFormat("Exceptions do not support indexing with '[]'");
-    }
-    virtual Value setIndex(IExecution& execution, const Value&, const Value&) override {
-      return execution.raiseFormat("Exceptions do not support indexing with '[]'");
-    }
-  };
-  const ExceptionType Exception::type{};
 }
 
 // Native types
@@ -1260,12 +1206,6 @@ egg::lang::String egg::lang::LocationRuntime::toRuntimeString() const {
     sb.add("<").add(this->function).add(">");
   }
   return sb.str();
-}
-
-egg::lang::Value egg::lang::Value::raise(const LocationRuntime& location, const String& message) {
-  auto exception = Value::make<Exception>(location, message);
-  exception.addFlowControl(Discriminator::Exception);
-  return exception;
 }
 
 void egg::lang::Value::addFlowControl(Discriminator bits) {

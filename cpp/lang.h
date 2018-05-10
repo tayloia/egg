@@ -225,6 +225,7 @@ namespace egg::lang {
     virtual Value setProperty(IExecution& execution, const String& property, const Value& value) = 0;
     virtual Value getIndex(IExecution& execution, const Value& index) = 0;
     virtual Value setIndex(IExecution& execution, const Value& index, const Value& value) = 0;
+    virtual Value iterate(IExecution& execution) = 0;
   };
   typedef egg::gc::HardRef<IObject> IObjectRef;
 
@@ -369,7 +370,7 @@ namespace egg::lang {
 
   struct LocationRuntime : public LocationSource {
     String function;
-    const LocationRuntime* parent;
+    const LocationRuntime* parent; // WIBBLE ownership?
 
     LocationRuntime() = default;
     LocationRuntime(const LocationSource& source, const String& function, const LocationRuntime* parent = nullptr)
@@ -421,12 +422,6 @@ namespace egg::lang {
     std::string getTagString() const { return Value::getTagString(this->tag); }
     static std::string getTagString(Discriminator tag);
     static bool equal(const Value& lhs, const Value& rhs);
-    template<typename... ARGS>
-    static Value raise(const LocationRuntime& location, ARGS... args) {
-      auto message = StringBuilder().add(args...).str();
-      return Value::raise(location, message);
-    }
-    static Value raise(const LocationRuntime& location, const String& message);
     String toString() const;
     std::string toUTF8() const;
     const IType& getRuntimeType() const;

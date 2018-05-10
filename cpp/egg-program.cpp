@@ -26,6 +26,26 @@ namespace {
     }
   };
 
+  class EggProgramParametersEmpty : public egg::lang::IParameters {
+  public:
+    virtual size_t getPositionalCount() const override {
+      return 0;
+    }
+    virtual egg::lang::Value getPositional(size_t) const override {
+      return egg::lang::Value::Void;
+    }
+    virtual size_t getNamedCount() const override {
+      return 0;
+    }
+    virtual egg::lang::String getName(size_t) const override {
+      return egg::lang::String::Empty;
+    }
+    virtual egg::lang::Value getNamed(const egg::lang::String&) const override {
+      return egg::lang::Value::Void;
+    }
+  };
+  const EggProgramParametersEmpty parametersEmpty;
+
   class EggProgramParameters : public egg::lang::IParameters {
   private:
     std::vector<egg::lang::Value> positional;
@@ -93,6 +113,9 @@ namespace {
     }
     virtual egg::lang::Value setIndex(egg::lang::IExecution& execution, const egg::lang::Value&, const egg::lang::Value&) override {
       return execution.raiseFormat(this->type->toString(), " does not support indexing with '[]'");
+    }
+    virtual egg::lang::Value iterate(egg::lang::IExecution& execution) override {
+      return execution.raiseFormat(this->type->toString(), " does not support iteration");
     }
   };
 
@@ -200,210 +223,6 @@ namespace {
     }
   };
 
-  class EggProgramVanillaArrayType : public egg::gc::NotReferenceCounted<egg::lang::IType> {
-  public:
-    virtual egg::lang::String toString() const override {
-      return egg::lang::String::fromUTF8("any?[]");
-    }
-    virtual egg::lang::Value promoteAssignment(egg::lang::IExecution& execution, const egg::lang::Value&) const override {
-      return execution.raiseFormat("Cannot re-assign arrays"); // TODO
-    }
-    virtual const egg::lang::ISignature* callable(egg::lang::IExecution&) const override {
-      return nullptr;
-    }
-    virtual egg::lang::Value dotGet(egg::lang::IExecution& execution, const egg::lang::Value& instance, const egg::lang::String& property) const override {
-      return instance.getObject().getProperty(execution, property);
-    }
-    virtual egg::lang::Value dotSet(egg::lang::IExecution& execution, const egg::lang::Value& instance, const egg::lang::String& property, const egg::lang::Value& value) const override {
-      return instance.getObject().setProperty(execution, property, value);
-    }
-    virtual egg::lang::Value bracketsGet(egg::lang::IExecution& execution, const egg::lang::Value& instance, const egg::lang::Value& index) const override {
-      return instance.getObject().getIndex(execution, index);
-    }
-    virtual egg::lang::Value bracketsSet(egg::lang::IExecution& execution, const egg::lang::Value& instance, const egg::lang::Value& index, const egg::lang::Value& value) const override {
-      return instance.getObject().setIndex(execution, index, value);
-    }
-  };
-  const EggProgramVanillaArrayType typeVanillaArray;
-
-  class EggProgramVanillaArray : public egg::gc::HardReferenceCounted<egg::lang::IObject> {
-    EGG_NO_COPY(EggProgramVanillaArray);
-  private:
-    egg::lang::ITypeRef type;
-    std::vector<egg::lang::Value> values;
-  public:
-    explicit EggProgramVanillaArray(const egg::lang::IType& type)
-      : HardReferenceCounted(0), type(&type) {
-    }
-    virtual bool dispose() override {
-      return false;
-    }
-    virtual egg::lang::Value toString() const override {
-      if (this->values.empty()) {
-        return egg::lang::Value{ egg::lang::String::fromUTF8("[]") };
-      }
-      egg::lang::StringBuilder sb;
-      const char* between = "[";
-      for (auto& value : this->values) {
-        sb.add(between).add(value.toUTF8());
-        between = ",";
-      }
-      sb.add("]");
-      return egg::lang::Value{ sb.str() };
-    }
-    virtual egg::lang::Value getRuntimeType() const override {
-      return egg::lang::Value(*this->type);
-    }
-    virtual egg::lang::Value call(egg::lang::IExecution& execution, const egg::lang::IParameters&) override {
-      return execution.raiseFormat("Arrays do not support calling with '()'");
-    }
-    virtual egg::lang::Value getProperty(egg::lang::IExecution& execution, const egg::lang::String& property) override {
-      auto name = property.toUTF8();
-      if (name == "length") {
-        return egg::lang::Value{ int64_t(this->values.size()) };
-      }
-      return execution.raiseFormat("Arrays do not support property '.", property, "'");
-    }
-    virtual egg::lang::Value setProperty(egg::lang::IExecution& execution, const egg::lang::String& property, const egg::lang::Value& value) override {
-      auto name = property.toUTF8();
-      if (name == "length") {
-        return this->setLength(execution, value);
-      }
-      return execution.raiseFormat("Arrays do not support property '.", property, "'");
-    }
-    virtual egg::lang::Value getIndex(egg::lang::IExecution& execution, const egg::lang::Value& index) override {
-      if (!index.is(egg::lang::Discriminator::Int)) {
-        return execution.raiseFormat("Array index was expected to be 'int', not '", index.getRuntimeType().toString(), "'");
-      }
-      auto i = index.getInt();
-      if ((i < 0) || (uint64_t(i) >= uint64_t(this->values.size()))) {
-        return execution.raiseFormat("Invalid array index for an array with ", this->values.size(), " element(s): ", i);
-      }
-      auto& element = this->values[size_t(i)];
-      assert(!element.is(egg::lang::Discriminator::Void));
-      return element;
-    }
-    virtual egg::lang::Value setIndex(egg::lang::IExecution& execution, const egg::lang::Value& index, const egg::lang::Value& value) override {
-      if (!index.is(egg::lang::Discriminator::Int)) {
-        return execution.raiseFormat("Array index was expected to be 'int', not '", index.getRuntimeType().toString(), "'");
-      }
-      auto i = index.getInt();
-      if ((i < 0) || (i >= 0x7FFFFFFF)) {
-        return execution.raiseFormat("Invalid array index: ", i);
-      }
-      auto u = size_t(i);
-      if (u >= this->values.size()) {
-        this->values.resize(u + 1, egg::lang::Value::Null);
-      }
-      this->values[u] = value;
-      return egg::lang::Value::Void;
-    }
-  private:
-    egg::lang::Value setLength(egg::lang::IExecution& execution, const egg::lang::Value& value) {
-      if (!value.is(egg::lang::Discriminator::Int)) {
-        return execution.raiseFormat("Array length was expected to be set to an 'int', not '", value.getRuntimeType().toString(), "'");
-      }
-      auto n = value.getInt();
-      if ((n < 0) || (n >= 0x7FFFFFFF)) {
-        return execution.raiseFormat("Invalid array length: ", n);
-      }
-      auto u = size_t(n);
-      this->values.resize(u, egg::lang::Value::Null);
-      return egg::lang::Value::Void;
-    }
-  };
-
-  class EggProgramVanillaObjectType : public egg::gc::NotReferenceCounted<egg::lang::IType> {
-  public:
-    virtual egg::lang::String toString() const override {
-      return egg::lang::String::fromUTF8("any?{string}");
-    }
-    virtual egg::lang::Value promoteAssignment(egg::lang::IExecution& execution, const egg::lang::Value&) const override {
-      return execution.raiseFormat("Cannot re-assign objects"); // TODO
-    }
-    virtual const egg::lang::ISignature* callable(egg::lang::IExecution&) const override {
-      return nullptr;
-    }
-    virtual egg::lang::Value dotGet(egg::lang::IExecution& execution, const egg::lang::Value& instance, const egg::lang::String& property) const override {
-      return instance.getObject().getProperty(execution, property);
-    }
-    virtual egg::lang::Value dotSet(egg::lang::IExecution& execution, const egg::lang::Value& instance, const egg::lang::String& property, const egg::lang::Value& value) const override {
-      return instance.getObject().setProperty(execution, property, value);
-    }
-    virtual egg::lang::Value bracketsGet(egg::lang::IExecution& execution, const egg::lang::Value& instance, const egg::lang::Value& index) const override {
-      return instance.getObject().getIndex(execution, index);
-    }
-    virtual egg::lang::Value bracketsSet(egg::lang::IExecution& execution, const egg::lang::Value& instance, const egg::lang::Value& index, const egg::lang::Value& value) const override {
-      return instance.getObject().setIndex(execution, index, value);
-    }
-  };
-  const EggProgramVanillaObjectType typeVanillaObject;
-
-  class EggProgramVanillaObject : public egg::gc::HardReferenceCounted<egg::lang::IObject> {
-    EGG_NO_COPY(EggProgramVanillaObject);
-  private:
-    typedef egg::yolk::Dictionary<egg::lang::String, egg::lang::Value> Dictionary;
-    egg::lang::ITypeRef type;
-    Dictionary dictionary;
-  public:
-    explicit EggProgramVanillaObject(const egg::lang::IType& type)
-      : HardReferenceCounted(0), type(&type) {
-    }
-    virtual bool dispose() override {
-      return false;
-    }
-    virtual egg::lang::Value toString() const override {
-      Dictionary::KeyValues keyvalues;
-      if (this->dictionary.getKeyValues(keyvalues) == 0) {
-        return egg::lang::Value{ egg::lang::String::fromUTF8("{}") };
-      }
-      egg::lang::StringBuilder sb;
-      const char* between = "{";
-      for (auto& keyvalue : keyvalues) {
-        sb.add(between).add(keyvalue.first.toUTF8()).add(":").add(keyvalue.second.toUTF8());
-        between = ",";
-      }
-      sb.add("}");
-      return egg::lang::Value{ sb.str() };
-    }
-    virtual egg::lang::Value getRuntimeType() const override {
-      return egg::lang::Value(*this->type);
-    }
-    virtual egg::lang::Value call(egg::lang::IExecution& execution, const egg::lang::IParameters&) override {
-      return execution.raiseFormat("Objects do not support calling with '()'");
-    }
-    virtual egg::lang::Value getProperty(egg::lang::IExecution& execution, const egg::lang::String& property) override {
-      return this->get(execution, property);
-    }
-    virtual egg::lang::Value setProperty(egg::lang::IExecution& execution, const egg::lang::String& property, const egg::lang::Value& value) override {
-      return this->set(execution, property, value);
-    }
-    virtual egg::lang::Value getIndex(egg::lang::IExecution& execution, const egg::lang::Value& index) override {
-      if (!index.is(egg::lang::Discriminator::String)) {
-        return execution.raiseFormat("Object index (property name) was expected to be 'string', not '", index.getRuntimeType().toString(), "'");
-      }
-      return this->get(execution, index.getString());
-    }
-    virtual egg::lang::Value setIndex(egg::lang::IExecution& execution, const egg::lang::Value& index, const egg::lang::Value& value) override {
-      if (!index.is(egg::lang::Discriminator::String)) {
-        return execution.raiseFormat("Object index (property name) was expected to be 'string', not '", index.getRuntimeType().toString(), "'");
-      }
-      return this->set(execution, index.getString(), value);
-    }
-  private:
-    egg::lang::Value get(egg::lang::IExecution& execution, const egg::lang::String& property) const {
-      egg::lang::Value value;
-      if (this->dictionary.tryGet(property, value)) {
-        return value;
-      }
-      return execution.raiseFormat("Object does not support property '", property, "'");
-    }
-    egg::lang::Value set(egg::lang::IExecution&, const egg::lang::String& property, const egg::lang::Value& value) {
-      (void)this->dictionary.addOrUpdate(property, value);
-      return egg::lang::Value::Void;
-    }
-  };
-
   egg::lang::Value plusInt(int64_t lhs, int64_t rhs) {
     return egg::lang::Value(lhs + rhs);
   }
@@ -477,10 +296,6 @@ namespace {
     return egg::lang::Value(lhs > rhs);
   }
 }
-
-// Vanilla types
-const egg::lang::IType& egg::yolk::EggProgram::VanillaArray = typeVanillaArray;
-const egg::lang::IType& egg::yolk::EggProgram::VanillaObject = typeVanillaObject;
 
 #define EGG_PROGRAM_OPERATOR_STRING(name, text) text,
 
@@ -780,7 +595,10 @@ egg::lang::Value egg::yolk::EggProgramContext::executeForeach(const IEggProgramN
   if (src.is(egg::lang::Discriminator::String)) {
     return this->executeForeachString(*dst, src.getString(), block);
   }
-  return this->raiseFormat("TODO Iteration not fully implemented"); // TODO
+  if (src.is(egg::lang::Discriminator::Object)) {
+    return this->executeForeachIterate(*dst, src.getObject(), block);
+  }
+  return this->raiseFormat("Cannot iterate '", src.getRuntimeType().toString(), "'");
 }
 
 egg::lang::Value egg::yolk::EggProgramContext::executeForeachString(IEggProgramAssignee& target, const egg::lang::String& source, const IEggProgramNode& block) {
@@ -805,6 +623,45 @@ egg::lang::Value egg::yolk::EggProgramContext::executeForeachString(IEggProgramA
   }
   if (index != source.length()) {
     return this->raiseFormat("Cannot iterate through a malformed string");
+  }
+  return egg::lang::Value::Void;
+}
+
+egg::lang::Value egg::yolk::EggProgramContext::executeForeachIterate(IEggProgramAssignee& target, egg::lang::IObject& source, const IEggProgramNode& block) {
+  auto iterator = source.iterate(*this);
+  if (iterator.has(egg::lang::Discriminator::FlowControl)) {
+    // The iterator could not be created
+    return iterator;
+  }
+  if (!iterator.is(egg::lang::Discriminator::Object)) {
+    return this->unexpected("The 'for' statement expected an iterator", iterator); // TODO
+  }
+  for (;;) {
+    auto next = iterator.getObject().call(*this, parametersEmpty);
+    if (next.has(egg::lang::Discriminator::FlowControl)) {
+      // An error occurred in the iterator
+      return next;
+    }
+    if (next.is(egg::lang::Discriminator::Void)) {
+      // The iterator concluded
+      break;
+    }
+    auto retval = target.set(next);
+    if (retval.has(egg::lang::Discriminator::FlowControl)) {
+      // The assignment failed
+      return retval;
+    }
+    retval = block.execute(*this);
+    if (!retval.is(egg::lang::Discriminator::Void)) {
+      if (retval.is(egg::lang::Discriminator::Break)) {
+        // Just leave the loop
+        break;
+      }
+      if (!retval.is(egg::lang::Discriminator::Continue)) {
+        // Probably an exception in the block
+        return retval;
+      }
+    }
   }
   return egg::lang::Value::Void;
 }
@@ -929,7 +786,7 @@ egg::lang::Value egg::yolk::EggProgramContext::executeThrow(const IEggProgramNod
 egg::lang::Value egg::yolk::EggProgramContext::executeTry(const IEggProgramNode& self, const IEggProgramNode& block, const std::vector<std::shared_ptr<IEggProgramNode>>& catches, const IEggProgramNode* final) {
   this->statement(self);
   auto retval = block.execute(*this);
-  if (retval.has(egg::lang::Discriminator::Exception)) {
+  if (retval.stripFlowControl(egg::lang::Discriminator::Exception)) {
     // An exception has indeed been thrown
     for (auto& i : catches) {
       auto match = i->executeWithExpression(*this, retval);
@@ -946,10 +803,14 @@ egg::lang::Value egg::yolk::EggProgramContext::executeTry(const IEggProgramNode&
   return this->executeFinally(retval, final);
 }
 
-egg::lang::Value egg::yolk::EggProgramContext::executeCatch(const IEggProgramNode& self, const egg::lang::String&, const IEggProgramNode&, const IEggProgramNode& block, const egg::lang::Value& exception) {
+egg::lang::Value egg::yolk::EggProgramContext::executeCatch(const IEggProgramNode& self, const egg::lang::String& name, const IEggProgramNode& type, const IEggProgramNode& block, const egg::lang::Value& exception) {
   this->statement(self);
+  assert(!exception.has(egg::lang::Discriminator::FlowControl));
   // TODO return false if typeof(exception) != type
-  auto retval = block.execute(*this);
+  EggProgram::SymbolTable nested(this->symtable);
+  nested.addSymbol(name, *type.getType())->value = exception;
+  EggProgramContext context(*this, nested);
+  auto retval = block.execute(context);
   if (retval.has(egg::lang::Discriminator::FlowControl)) {
     // Check for a rethrow
     if (retval.is(egg::lang::Discriminator::Exception | egg::lang::Discriminator::Void)) {
@@ -1521,10 +1382,6 @@ egg::lang::Value egg::yolk::EggProgramContext::unexpected(const std::string& exp
   return this->raiseFormat(expectation, ", but got '", value.getTagString(), "' instead");
 }
 
-egg::lang::Value egg::yolk::EggProgramContext::raise(const egg::lang::String& message) {
-  return egg::lang::Value::raise(this->location, message);
-}
-
 egg::lang::Value egg::yolk::EggProgramContext::assertion(const egg::lang::Value& predicate) {
   if (!predicate.is(egg::lang::Discriminator::Bool)) {
     return this->unexpected("Expected predicate to be a 'bool'", predicate);
@@ -1537,12 +1394,4 @@ egg::lang::Value egg::yolk::EggProgramContext::assertion(const egg::lang::Value&
 
 void egg::yolk::EggProgramContext::print(const std::string& utf8) {
   return this->log(egg::lang::LogSource::User, egg::lang::LogSeverity::Information, utf8);
-}
-
-egg::lang::Value egg::yolk::EggProgramContext::createVanillaArray() {
-  return egg::lang::Value::make<EggProgramVanillaArray>(typeVanillaArray);
-}
-
-egg::lang::Value egg::yolk::EggProgramContext::createVanillaObject() {
-  return egg::lang::Value::make<EggProgramVanillaObject>(typeVanillaObject);
 }
