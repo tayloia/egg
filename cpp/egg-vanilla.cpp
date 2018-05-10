@@ -50,18 +50,6 @@ namespace {
     virtual const egg::lang::ISignature* callable(egg::lang::IExecution&) const override {
       return nullptr; // WIBBLE
     }
-    virtual egg::lang::Value dotGet(egg::lang::IExecution& execution, const egg::lang::Value& instance, const egg::lang::String& property) const override {
-      return instance.getObject().getProperty(execution, property);
-    }
-    virtual egg::lang::Value dotSet(egg::lang::IExecution& execution, const egg::lang::Value& instance, const egg::lang::String& property, const egg::lang::Value& value) const override {
-      return instance.getObject().setProperty(execution, property, value);
-    }
-    virtual egg::lang::Value bracketsGet(egg::lang::IExecution& execution, const egg::lang::Value& instance, const egg::lang::Value& index) const override {
-      return instance.getObject().getIndex(execution, index);
-    }
-    virtual egg::lang::Value bracketsSet(egg::lang::IExecution& execution, const egg::lang::Value& instance, const egg::lang::Value& index, const egg::lang::Value& value) const override {
-      return instance.getObject().setIndex(execution, index, value);
-    }
   };
   const VanillaKeyValueType typeVanillaKeyValue;
 
@@ -108,18 +96,6 @@ namespace {
     }
     virtual const egg::lang::ISignature* callable(egg::lang::IExecution&) const override {
       return nullptr;
-    }
-    virtual egg::lang::Value dotGet(egg::lang::IExecution& execution, const egg::lang::Value& instance, const egg::lang::String& property) const override {
-      return instance.getObject().getProperty(execution, property);
-    }
-    virtual egg::lang::Value dotSet(egg::lang::IExecution& execution, const egg::lang::Value& instance, const egg::lang::String& property, const egg::lang::Value& value) const override {
-      return instance.getObject().setProperty(execution, property, value);
-    }
-    virtual egg::lang::Value bracketsGet(egg::lang::IExecution& execution, const egg::lang::Value& instance, const egg::lang::Value& index) const override {
-      return instance.getObject().getIndex(execution, index);
-    }
-    virtual egg::lang::Value bracketsSet(egg::lang::IExecution& execution, const egg::lang::Value& instance, const egg::lang::Value& index, const egg::lang::Value& value) const override {
-      return instance.getObject().setIndex(execution, index, value);
     }
   };
   const VanillaArrayType typeVanillaArray;
@@ -221,18 +197,6 @@ namespace {
     virtual const egg::lang::ISignature* callable(egg::lang::IExecution&) const override {
       return nullptr; // WIBBLE
     }
-    virtual egg::lang::Value dotGet(egg::lang::IExecution& execution, const egg::lang::Value& instance, const egg::lang::String& property) const override {
-      return instance.getObject().getProperty(execution, property);
-    }
-    virtual egg::lang::Value dotSet(egg::lang::IExecution& execution, const egg::lang::Value& instance, const egg::lang::String& property, const egg::lang::Value& value) const override {
-      return instance.getObject().setProperty(execution, property, value);
-    }
-    virtual egg::lang::Value bracketsGet(egg::lang::IExecution& execution, const egg::lang::Value& instance, const egg::lang::Value& index) const override {
-      return instance.getObject().getIndex(execution, index);
-    }
-    virtual egg::lang::Value bracketsSet(egg::lang::IExecution& execution, const egg::lang::Value& instance, const egg::lang::Value& index, const egg::lang::Value& value) const override {
-      return instance.getObject().setIndex(execution, index, value);
-    }
   };
   const VanillaArrayIteratorType typeVanillaArrayIterator;
 
@@ -277,18 +241,6 @@ namespace {
     }
     virtual const egg::lang::ISignature* callable(egg::lang::IExecution&) const override {
       return nullptr; // WIBBLE
-    }
-    virtual egg::lang::Value dotGet(egg::lang::IExecution& execution, const egg::lang::Value& instance, const egg::lang::String& property) const override {
-      return instance.getObject().getProperty(execution, property);
-    }
-    virtual egg::lang::Value dotSet(egg::lang::IExecution& execution, const egg::lang::Value& instance, const egg::lang::String& property, const egg::lang::Value& value) const override {
-      return instance.getObject().setProperty(execution, property, value);
-    }
-    virtual egg::lang::Value bracketsGet(egg::lang::IExecution& execution, const egg::lang::Value& instance, const egg::lang::Value& index) const override {
-      return instance.getObject().getIndex(execution, index);
-    }
-    virtual egg::lang::Value bracketsSet(egg::lang::IExecution& execution, const egg::lang::Value& instance, const egg::lang::Value& index, const egg::lang::Value& value) const override {
-      return instance.getObject().setIndex(execution, index, value);
     }
   };
   const VanillaDictionaryIteratorType typeVanillaDictionaryIterator;
@@ -374,18 +326,6 @@ namespace {
     }
     virtual const egg::lang::ISignature* callable(egg::lang::IExecution&) const override {
       return nullptr;
-    }
-    virtual egg::lang::Value dotGet(egg::lang::IExecution& execution, const egg::lang::Value& instance, const egg::lang::String& property) const override {
-      return instance.getObject().getProperty(execution, property);
-    }
-    virtual egg::lang::Value dotSet(egg::lang::IExecution& execution, const egg::lang::Value& instance, const egg::lang::String& property, const egg::lang::Value& value) const override {
-      return instance.getObject().setProperty(execution, property, value);
-    }
-    virtual egg::lang::Value bracketsGet(egg::lang::IExecution& execution, const egg::lang::Value& instance, const egg::lang::Value& index) const override {
-      return instance.getObject().getIndex(execution, index);
-    }
-    virtual egg::lang::Value bracketsSet(egg::lang::IExecution& execution, const egg::lang::Value& instance, const egg::lang::Value& index, const egg::lang::Value& value) const override {
-      return instance.getObject().setIndex(execution, index, value);
     }
   };
   const VanillaObjectType typeVanillaObject;

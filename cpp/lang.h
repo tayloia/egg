@@ -181,10 +181,10 @@ namespace egg::lang {
     typedef std::function<void(const String& name, const IType& type, const Value& value)> Setter;
     virtual Value decantParameters(IExecution& execution, const IParameters& supplied, Setter setter) const; // Default implementation returns an error
     virtual Value cast(IExecution& execution, const IParameters& parameters) const; // Default implementation returns an error
-    virtual Value dotGet(IExecution& execution, const Value& instance, const String& property) const; // Default implementation returns an error
-    virtual Value dotSet(IExecution& execution, const Value& instance, const String& property, const Value& value) const; // Default implementation returns an error
-    virtual Value bracketsGet(IExecution& execution, const Value& instance, const Value& index) const; // Default implementation returns an error
-    virtual Value bracketsSet(IExecution& execution, const Value& instance, const Value& index, const Value& value) const; // Default implementation returns an error
+    virtual Value dotGet(IExecution& execution, const Value& instance, const String& property) const; // Default implementation dispatches standard requests
+    virtual Value dotSet(IExecution& execution, const Value& instance, const String& property, const Value& value) const; // Default implementation dispatches standard requests
+    virtual Value bracketsGet(IExecution& execution, const Value& instance, const Value& index) const; // Default implementation dispatches standard requests
+    virtual Value bracketsSet(IExecution& execution, const Value& instance, const Value& index, const Value& value) const; // Default implementation dispatches standard requests
 
     // Helpers
     bool hasNativeType(Discriminator native) const {

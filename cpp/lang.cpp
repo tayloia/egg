@@ -885,40 +885,8 @@ namespace {
   const TypeNative<Discriminator::Bool> typeBool{};
   const TypeNative<Discriminator::Int> typeInt{};
   const TypeNative<Discriminator::Float> typeFloat{};
+  const TypeNative<Discriminator::String> typeString{};
   const TypeNative<Discriminator::Arithmetic> typeArithmetic{};
-
-  class TypeString : public TypeNative<Discriminator::String> {
-  public:
-    virtual Value dotGet(IExecution& execution, const Value& instance, const String& property) const override {
-      return instance.getString().builtin(execution, property);
-    }
-    virtual Value dotSet(IExecution& execution, const Value&, const String& property, const Value&) const override {
-      return execution.raiseFormat("Strings do not support modification through properties such as '.", property, "'");
-    }
-    virtual Value bracketsGet(IExecution& execution, const Value& instance, const Value& index) const override {
-      // string operator[](int index)
-      assert(instance.is(egg::lang::Discriminator::String));
-      auto str = instance.getString();
-      if (!index.is(Discriminator::Int)) {
-        return execution.raiseFormat("String indexing '[]' only supports indices of type 'int', not '", index.getRuntimeType().toString(), "'");
-      }
-      auto i = index.getInt();
-      auto c = str.codePointAt(size_t(i));
-      if (c < 0) {
-        // Invalid index
-        auto n = str.length();
-        if ((i < 0) || (size_t(i) >= n)) {
-          return execution.raiseFormat("String index ", i, " is out of range for a string of length ", n);
-        }
-        return execution.raiseFormat("Cannot index a malformed string");
-      }
-      return Value{ String::fromCodePoint(char32_t(c)) };
-    }
-    virtual Value bracketsSet(IExecution& execution, const Value&, const Value&, const Value&) const override {
-      return execution.raiseFormat("Strings do not support modification through indexing with '[]'");
-    }
-  };
-  const TypeString typeString{};
 
   class TypeSimple : public egg::gc::HardReferenceCounted<IType> {
     EGG_NO_COPY(TypeSimple);
@@ -960,16 +928,6 @@ namespace {
     }
     virtual const ISignature* callable(IExecution&) const override {
       return nullptr;
-    }
-    virtual Value dotGet(IExecution& execution, const Value& instance, const String& property) const override {
-      // OPTIMIZE
-      if (instance.is(Discriminator::String)) {
-        return instance.getString().builtin(execution, property);
-      }
-      return execution.raiseFormat("Properties are not supported for '", instance.getRuntimeType().toString(), "'");
-    }
-    virtual Value dotSet(IExecution& execution, const Value& instance, const String&, const Value&) const override {
-      return execution.raiseFormat("Properties are not supported for '", instance.getRuntimeType().toString(), "'");
     }
   };
 
@@ -1339,23 +1297,62 @@ egg::lang::Value egg::lang::IType::cast(IExecution& execution, const IParameters
   return execution.raiseFormat("Internal type error: Cannot cast to type '", this->toString(), "'");
 }
 
-egg::lang::Value egg::lang::IType::dotGet(IExecution& execution, const Value&, const String& property) const {
-  // The default implementation is to return an error (only strings and complex types support dot-properties)
+egg::lang::Value egg::lang::IType::dotGet(IExecution& execution, const Value& instance, const String& property) const {
+  // The default implementation is to dispatch requests for strings and complex types
+  if (instance.is(Discriminator::Object)) {
+    return instance.getObject().getProperty(execution, property);
+  }
+  if (instance.is(Discriminator::String)) {
+    return instance.getString().builtin(execution, property);
+  }
   return execution.raiseFormat("Values of type '", this->toString(), "' do not support properties such as '.", property, "'");
 }
 
-egg::lang::Value egg::lang::IType::dotSet(IExecution& execution, const Value&, const String& property, const Value&) const {
-  // The default implementation is to return an error (only complex types support assignment to dot-properties)
+egg::lang::Value egg::lang::IType::dotSet(IExecution& execution, const Value& instance, const String& property, const Value& value) const {
+  // The default implementation is to dispatch requests for complex types
+  if (instance.is(Discriminator::Object)) {
+    return instance.getObject().setProperty(execution, property, value);
+  }
+  if (instance.is(Discriminator::String)) {
+    return execution.raiseFormat("Strings do not support modification through properties such as '.", property, "'");
+  }
   return execution.raiseFormat("Values of type '", this->toString(), "' do not support modification of properties such as '.", property, "'");
 }
 
-egg::lang::Value egg::lang::IType::bracketsGet(IExecution& execution, const Value&, const Value&) const {
-  // The default implementation is to return an error (only strings and complex types support index-lookup)
+egg::lang::Value egg::lang::IType::bracketsGet(IExecution& execution, const Value& instance, const Value& index) const {
+  // The default implementation is to dispatch requests for strings and complex types
+  if (instance.is(Discriminator::Object)) {
+    return instance.getObject().getIndex(execution, index);
+  }
+  if (instance.is(Discriminator::String)) {
+    // string operator[](int index)
+    auto str = instance.getString();
+    if (!index.is(Discriminator::Int)) {
+      return execution.raiseFormat("String indexing '[]' only supports indices of type 'int', not '", index.getRuntimeType().toString(), "'");
+    }
+    auto i = index.getInt();
+    auto c = str.codePointAt(size_t(i));
+    if (c < 0) {
+      // Invalid index
+      auto n = str.length();
+      if ((i < 0) || (size_t(i) >= n)) {
+        return execution.raiseFormat("String index ", i, " is out of range for a string of length ", n);
+      }
+      return execution.raiseFormat("Cannot index a malformed string");
+    }
+    return Value{ String::fromCodePoint(char32_t(c)) };
+  }
   return execution.raiseFormat("Values of type '", this->toString(), "' do not support indexing with '[]'");
 }
 
-egg::lang::Value egg::lang::IType::bracketsSet(IExecution& execution, const Value&, const Value&, const Value&) const {
-  // The default implementation is to return an error (only complex types support index-modification)
+egg::lang::Value egg::lang::IType::bracketsSet(IExecution& execution, const Value& instance, const Value& index, const Value& value) const {
+  // The default implementation is to dispatch requests for complex types
+  if (instance.is(Discriminator::Object)) {
+    return instance.getObject().setIndex(execution, index, value);
+  }
+  if (instance.is(Discriminator::String)) {
+    return execution.raiseFormat("Strings do not support modification through indexing with '[]'");
+  }
   return execution.raiseFormat("Values of type '", this->toString(), "' do not support indexing with '[]'");
 }
 
