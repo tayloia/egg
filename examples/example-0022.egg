@@ -3,7 +3,7 @@ print(a);
 ///>[]
 a.length = 3;
 print(a);
-///>[<void>, <void>, <void>]
+///>[null, null, null]
 a[1] = "hello";
 print(a);
-///>[<void>, hello, <void>]
+///>[null, hello, null]

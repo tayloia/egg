@@ -297,7 +297,7 @@ namespace {
       }
       auto u = size_t(i);
       if (u >= this->values.size()) {
-        this->values.resize(u + 1);
+        this->values.resize(u + 1, egg::lang::Value::Null);
       }
       this->values[u] = value;
       return egg::lang::Value::Void;
@@ -312,7 +312,7 @@ namespace {
         return execution.raiseFormat("Invalid array length: ", n);
       }
       auto u = size_t(n);
-      this->values.resize(u);
+      this->values.resize(u, egg::lang::Value::Null);
       return egg::lang::Value::Void;
     }
   };
