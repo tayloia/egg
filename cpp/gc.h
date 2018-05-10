@@ -70,7 +70,7 @@ namespace egg::gc {
   private:
     T* ptr;
   public:
-    explicit HardRef(const T* rhs) : ptr(rhs->acquireHard()) {
+    explicit HardRef(const T* rhs) : ptr(HardRef::acquireHard(rhs)) {
       assert(this->ptr != nullptr);
     }
     HardRef(const HardRef& rhs) : ptr(rhs.acquireHard()) {
@@ -90,14 +90,12 @@ namespace egg::gc {
       return this->ptr;
     }
     T* acquireHard() const {
-      assert(this->ptr != nullptr);
-      return this->ptr->acquireHard();
+      return HardRef::acquireHard(this->ptr);
     }
     void set(T* rhs) {
-      assert(rhs != nullptr);
       auto* old = this->ptr;
       assert(old != nullptr);
-      this->ptr = rhs->acquireHard();
+      this->ptr = HardRef::acquireHard(rhs);
       old->releaseHard();
     }
     T& operator*() const {
@@ -106,7 +104,10 @@ namespace egg::gc {
     T* operator->() const {
       return this->ptr;
     }
-
+    static T* acquireHard(const T* ptr) {
+      assert(ptr != nullptr);
+      return static_cast<T*>(ptr->acquireHard());
+    }
     template<typename U, typename... ARGS>
     static HardRef<T> make(ARGS&&... args) {
       // Use perfect forwarding to the constructor

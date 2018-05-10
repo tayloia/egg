@@ -39,6 +39,65 @@ namespace {
     }
   };
 
+  class VanillaKeyValueType : public egg::gc::NotReferenceCounted<egg::lang::IType> {
+  public:
+    virtual egg::lang::String toString() const override {
+      return egg::lang::String::fromUTF8("WIBBLE");
+    }
+    virtual egg::lang::Value promoteAssignment(egg::lang::IExecution& execution, const egg::lang::Value&) const override {
+      return execution.raiseFormat("Cannot re-assign key-values"); // TODO
+    }
+    virtual const egg::lang::ISignature* callable(egg::lang::IExecution&) const override {
+      return nullptr; // WIBBLE
+    }
+    virtual egg::lang::Value dotGet(egg::lang::IExecution& execution, const egg::lang::Value& instance, const egg::lang::String& property) const override {
+      return instance.getObject().getProperty(execution, property);
+    }
+    virtual egg::lang::Value dotSet(egg::lang::IExecution& execution, const egg::lang::Value& instance, const egg::lang::String& property, const egg::lang::Value& value) const override {
+      return instance.getObject().setProperty(execution, property, value);
+    }
+    virtual egg::lang::Value bracketsGet(egg::lang::IExecution& execution, const egg::lang::Value& instance, const egg::lang::Value& index) const override {
+      return instance.getObject().getIndex(execution, index);
+    }
+    virtual egg::lang::Value bracketsSet(egg::lang::IExecution& execution, const egg::lang::Value& instance, const egg::lang::Value& index, const egg::lang::Value& value) const override {
+      return instance.getObject().setIndex(execution, index, value);
+    }
+  };
+  const VanillaKeyValueType typeVanillaKeyValue;
+
+  class VanillaKeyValue : public VanillaBase {
+    EGG_NO_COPY(VanillaKeyValue);
+  private:
+    egg::lang::Value key;
+    egg::lang::Value value;
+  public:
+    VanillaKeyValue(const egg::lang::Value& key, const egg::lang::Value& value)
+      : VanillaBase("Key-value", typeVanillaKeyValue), key(key), value(value) {
+    }
+    explicit VanillaKeyValue(const std::pair<egg::lang::String, egg::lang::Value>& keyvalue)
+      : VanillaKeyValue(egg::lang::Value{ keyvalue.first }, keyvalue.second) {
+    }
+    virtual egg::lang::Value toString() const override {
+      return egg::lang::Value{ egg::lang::String::concat("{key:", this->key.toString(), ",value:", this->value.toString(), "}") };
+    }
+    virtual egg::lang::Value getProperty(egg::lang::IExecution& execution, const egg::lang::String& property) override {
+      auto name = property.toUTF8();
+      if (name == "key") {
+        return this->key;
+      }
+      if (name == "value") {
+        return this->value;
+      }
+      return execution.raiseFormat("Key-values do not support property: '.", property, "'");
+    }
+    virtual egg::lang::Value setProperty(egg::lang::IExecution& execution, const egg::lang::String& property, const egg::lang::Value&) override {
+      return execution.raiseFormat("Key-values do not support addition or modification of properties: '.", property, "'");
+    }
+    virtual egg::lang::Value iterate(egg::lang::IExecution& execution) override {
+      return execution.raiseFormat("Key-values do not support iteration");
+    }
+  };
+
   class VanillaArrayType : public egg::gc::NotReferenceCounted<egg::lang::IType> {
   public:
     virtual egg::lang::String toString() const override {
@@ -108,7 +167,7 @@ namespace {
       if ((i < 0) || (uint64_t(i) >= uint64_t(this->values.size()))) {
         return execution.raiseFormat("Invalid array index for an array with ", this->values.size(), " element(s): ", i);
       }
-      auto& element = this->values[size_t(i)];
+      auto& element = this->values.at(size_t(i));
       assert(!element.is(egg::lang::Discriminator::Void));
       return element;
     }
@@ -127,8 +186,14 @@ namespace {
       this->values[u] = value;
       return egg::lang::Value::Void;
     }
-    virtual egg::lang::Value iterate(egg::lang::IExecution& execution) override {
-      return execution.raiseFormat("Arrays do not yet support iteration"); // WIBBLE
+    virtual egg::lang::Value iterate(egg::lang::IExecution& execution) override;
+    egg::lang::Value iterateNext(size_t& index) const {
+      // Used by VanillaArrayIterator
+      // TODO What if the array has been modified?
+      if (index < this->values.size()) {
+        return this->values.at(index++);
+      }
+      return egg::lang::Value::Void;
     }
   private:
     egg::lang::Value setLength(egg::lang::IExecution& execution, const egg::lang::Value& value) {
@@ -145,13 +210,13 @@ namespace {
     }
   };
 
-  class VanillaKeyValueType : public egg::gc::NotReferenceCounted<egg::lang::IType> {
+  class VanillaArrayIteratorType : public egg::gc::NotReferenceCounted<egg::lang::IType> {
   public:
     virtual egg::lang::String toString() const override {
       return egg::lang::String::fromUTF8("WIBBLE");
     }
     virtual egg::lang::Value promoteAssignment(egg::lang::IExecution& execution, const egg::lang::Value&) const override {
-      return execution.raiseFormat("Cannot re-assign key-values"); // TODO
+      return execution.raiseFormat("Cannot re-assign iterators"); // TODO
     }
     virtual const egg::lang::ISignature* callable(egg::lang::IExecution&) const override {
       return nullptr; // WIBBLE
@@ -169,40 +234,38 @@ namespace {
       return instance.getObject().setIndex(execution, index, value);
     }
   };
-  const VanillaKeyValueType typeVanillaKeyValue;
+  const VanillaArrayIteratorType typeVanillaArrayIterator;
 
-  class VanillaKeyValue : public VanillaBase {
-    EGG_NO_COPY(VanillaKeyValue);
+  class VanillaArrayIterator : public VanillaBase {
+    EGG_NO_COPY(VanillaArrayIterator);
   private:
-    egg::lang::Value key;
-    egg::lang::Value value;
+    egg::gc::HardRef<VanillaArray> array;
+    size_t next;
   public:
-    VanillaKeyValue(const egg::lang::Value& key, const egg::lang::Value& value)
-      : VanillaBase("Key-value", typeVanillaKeyValue), key(key), value(value) {
-    }
-    explicit VanillaKeyValue(const std::pair<egg::lang::String, egg::lang::Value>& keyvalue)
-      : VanillaKeyValue(egg::lang::Value{ keyvalue.first }, keyvalue.second) {
+    VanillaArrayIterator(egg::lang::IExecution&, const VanillaArray& array)
+      : VanillaBase("Iterator", typeVanillaArrayIterator), array(&array), next(0) {
     }
     virtual egg::lang::Value toString() const override {
-      return egg::lang::Value{ egg::lang::String::concat("{key:", this->key.toString(), ",value:", this->value.toString(), "}") };
+      return egg::lang::Value{ egg::lang::String::fromUTF8("WIBBLE") };
+    }
+    virtual egg::lang::Value call(egg::lang::IExecution&, const egg::lang::IParameters&) override {
+      // TODO check parameters?
+      return this->array->iterateNext(this->next);
     }
     virtual egg::lang::Value getProperty(egg::lang::IExecution& execution, const egg::lang::String& property) override {
-      auto name = property.toUTF8();
-      if (name == "key") {
-        return this->key;
-      }
-      if (name == "value") {
-        return this->value;
-      }
-      return execution.raiseFormat("Key-values do not support property: '.", property, "'");
+      return execution.raiseFormat("Iterators do not support properties: '.", property, "'");
     }
     virtual egg::lang::Value setProperty(egg::lang::IExecution& execution, const egg::lang::String& property, const egg::lang::Value&) override {
-      return execution.raiseFormat("Key-values do not support addition or modification of properties: '.", property, "'");
+      return execution.raiseFormat("Iterators do not support properties: '.", property, "'");
     }
     virtual egg::lang::Value iterate(egg::lang::IExecution& execution) override {
-      return execution.raiseFormat("Key-values do not support iteration");
+      return execution.raiseFormat("Iterators do not support iteration"); // TODO forEachRemaining?
     }
   };
+
+  egg::lang::Value VanillaArray::iterate(egg::lang::IExecution& execution) {
+    return egg::lang::Value::make<VanillaArrayIterator>(execution, *this);
+  }
 
   class VanillaDictionaryIteratorType : public egg::gc::NotReferenceCounted<egg::lang::IType> {
   public:

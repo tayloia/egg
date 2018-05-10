@@ -147,6 +147,9 @@
     <None Include="..\examples\example-0025.egg">
       <Filter>Example Files</Filter>
     </None>
+    <None Include="..\examples\example-0026.egg">
+      <Filter>Example Files</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <Text Include="..\cpp\test\data\utf-8-demo.bom.txt">
