@@ -1,0 +1,11 @@
+try {
+  assert(1 + 1 == 3);
+} catch (any exception) {
+  print(exception);
+  for (var kv : exception) {
+    print(kv);
+  }
+}
+///><RESOURCE>(2,9): Predicate is false
+///>{key:message,value:Predicate is false}
+///>{key:location,value:<RESOURCE>(2,9)}
