@@ -49,7 +49,7 @@ TEST(TestEggedTokenizer, Null) {
   auto tokenizer = createFromString("{ \"null\": null }");
   ASSERT_EQ(EggedTokenizerKind::ObjectStart, tokenizer->next(item));
   ASSERT_EQ(EggedTokenizerKind::String, tokenizer->next(item));
-  ASSERT_EQ("null", item.value.s);
+  ASSERT_EQ("null", item.value.toUTF8());
   ASSERT_EQ(EggedTokenizerKind::Colon, tokenizer->next(item));
   ASSERT_EQ(EggedTokenizerKind::Null, tokenizer->next(item));
   ASSERT_EQ(EggedTokenizerKind::ObjectEnd, tokenizer->next(item));
@@ -61,10 +61,10 @@ TEST(TestEggedTokenizer, BooleanFalse) {
   auto tokenizer = createFromString("{ \"no\": false }");
   ASSERT_EQ(EggedTokenizerKind::ObjectStart, tokenizer->next(item));
   ASSERT_EQ(EggedTokenizerKind::String, tokenizer->next(item));
-  ASSERT_EQ("no", item.value.s);
+  ASSERT_EQ("no", item.value.getString().toUTF8());
   ASSERT_EQ(EggedTokenizerKind::Colon, tokenizer->next(item));
   ASSERT_EQ(EggedTokenizerKind::Boolean, tokenizer->next(item));
-  ASSERT_EQ(false, item.value.b);
+  ASSERT_EQ(false, item.value.getBool());
   ASSERT_EQ(EggedTokenizerKind::ObjectEnd, tokenizer->next(item));
   ASSERT_EQ(EggedTokenizerKind::EndOfFile, tokenizer->next(item));
 }
@@ -74,10 +74,10 @@ TEST(TestEggedTokenizer, BooleanTrue) {
   auto tokenizer = createFromString("{ \"yes\": true }");
   ASSERT_EQ(EggedTokenizerKind::ObjectStart, tokenizer->next(item));
   ASSERT_EQ(EggedTokenizerKind::String, tokenizer->next(item));
-  ASSERT_EQ("yes", item.value.s);
+  ASSERT_EQ("yes", item.value.getString().toUTF8());
   ASSERT_EQ(EggedTokenizerKind::Colon, tokenizer->next(item));
   ASSERT_EQ(EggedTokenizerKind::Boolean, tokenizer->next(item));
-  ASSERT_EQ(true, item.value.b);
+  ASSERT_EQ(true, item.value.getBool());
   ASSERT_EQ(EggedTokenizerKind::ObjectEnd, tokenizer->next(item));
   ASSERT_EQ(EggedTokenizerKind::EndOfFile, tokenizer->next(item));
 }
@@ -87,15 +87,15 @@ TEST(TestEggedTokenizer, Integer) {
   auto tokenizer = createFromString("{ \"positive\": 123 \"negative\": -123 }");
   ASSERT_EQ(EggedTokenizerKind::ObjectStart, tokenizer->next(item));
   ASSERT_EQ(EggedTokenizerKind::String, tokenizer->next(item));
-  ASSERT_EQ("positive", item.value.s);
+  ASSERT_EQ("positive", item.value.getString().toUTF8());
   ASSERT_EQ(EggedTokenizerKind::Colon, tokenizer->next(item));
   ASSERT_EQ(EggedTokenizerKind::Integer, tokenizer->next(item));
-  ASSERT_EQ(123, item.value.i);
+  ASSERT_EQ(123, item.value.getInt());
   ASSERT_EQ(EggedTokenizerKind::String, tokenizer->next(item));
-  ASSERT_EQ("negative", item.value.s);
+  ASSERT_EQ("negative", item.value.getString().toUTF8());
   ASSERT_EQ(EggedTokenizerKind::Colon, tokenizer->next(item));
   ASSERT_EQ(EggedTokenizerKind::Integer, tokenizer->next(item));
-  ASSERT_EQ(-123, item.value.i);
+  ASSERT_EQ(-123, item.value.getInt());
   ASSERT_EQ(EggedTokenizerKind::ObjectEnd, tokenizer->next(item));
   ASSERT_EQ(EggedTokenizerKind::EndOfFile, tokenizer->next(item));
 }
@@ -105,15 +105,15 @@ TEST(TestEggedTokenizer, Float) {
   auto tokenizer = createFromString("{ positive: 3.14159 negative: -3.14159 }");
   ASSERT_EQ(EggedTokenizerKind::ObjectStart, tokenizer->next(item));
   ASSERT_EQ(EggedTokenizerKind::Identifier, tokenizer->next(item));
-  ASSERT_EQ("positive", item.value.s);
+  ASSERT_EQ("positive", item.value.getString().toUTF8());
   ASSERT_EQ(EggedTokenizerKind::Colon, tokenizer->next(item));
   ASSERT_EQ(EggedTokenizerKind::Float, tokenizer->next(item));
-  ASSERT_EQ(3.14159, item.value.f);
+  ASSERT_EQ(3.14159, item.value.getFloat());
   ASSERT_EQ(EggedTokenizerKind::Identifier, tokenizer->next(item));
-  ASSERT_EQ("negative", item.value.s);
+  ASSERT_EQ("negative", item.value.getString().toUTF8());
   ASSERT_EQ(EggedTokenizerKind::Colon, tokenizer->next(item));
   ASSERT_EQ(EggedTokenizerKind::Float, tokenizer->next(item));
-  ASSERT_EQ(-3.14159, item.value.f);
+  ASSERT_EQ(-3.14159, item.value.getFloat());
   ASSERT_EQ(EggedTokenizerKind::ObjectEnd, tokenizer->next(item));
   ASSERT_EQ(EggedTokenizerKind::EndOfFile, tokenizer->next(item));
 }
@@ -123,20 +123,20 @@ TEST(TestEggedTokenizer, String) {
   auto tokenizer = createFromString("{ \"greeting\": \"hello world\" }");
   ASSERT_EQ(EggedTokenizerKind::ObjectStart, tokenizer->next(item));
   ASSERT_EQ(EggedTokenizerKind::String, tokenizer->next(item));
-  ASSERT_EQ("greeting", item.value.s);
+  ASSERT_EQ("greeting", item.value.getString().toUTF8());
   ASSERT_EQ(EggedTokenizerKind::Colon, tokenizer->next(item));
   ASSERT_EQ(EggedTokenizerKind::String, tokenizer->next(item));
-  ASSERT_EQ("hello world", item.value.s);
+  ASSERT_EQ("hello world", item.value.getString().toUTF8());
   ASSERT_EQ(EggedTokenizerKind::ObjectEnd, tokenizer->next(item));
   ASSERT_EQ(EggedTokenizerKind::EndOfFile, tokenizer->next(item));
 
   tokenizer = createFromString("{ `greeting`: `hello\nworld` }");
   ASSERT_EQ(EggedTokenizerKind::ObjectStart, tokenizer->next(item));
   ASSERT_EQ(EggedTokenizerKind::String, tokenizer->next(item));
-  ASSERT_EQ("greeting", item.value.s);
+  ASSERT_EQ("greeting", item.value.getString().toUTF8());
   ASSERT_EQ(EggedTokenizerKind::Colon, tokenizer->next(item));
   ASSERT_EQ(EggedTokenizerKind::String, tokenizer->next(item));
-  ASSERT_EQ("hello\nworld", item.value.s);
+  ASSERT_EQ("hello\nworld", item.value.getString().toUTF8());
   ASSERT_EQ(EggedTokenizerKind::ObjectEnd, tokenizer->next(item));
   ASSERT_EQ(EggedTokenizerKind::EndOfFile, tokenizer->next(item));
 }
@@ -145,7 +145,7 @@ TEST(TestEggedTokenizer, Identifier) {
   EggedTokenizerItem item;
   auto tokenizer = createFromString("identifier");
   ASSERT_EQ(EggedTokenizerKind::Identifier, tokenizer->next(item));
-  ASSERT_EQ("identifier", item.value.s);
+  ASSERT_EQ("identifier", item.value.getString().toUTF8());
 }
 
 TEST(TestEggedTokenizer, SequentialOperators) {
@@ -154,7 +154,7 @@ TEST(TestEggedTokenizer, SequentialOperators) {
   ASSERT_EQ(EggedTokenizerKind::ObjectStart, tokenizer->next(item));
   ASSERT_EQ(EggedTokenizerKind::Colon, tokenizer->next(item));
   ASSERT_EQ(EggedTokenizerKind::Integer, tokenizer->next(item));
-  ASSERT_EQ(-1, item.value.i);
+  ASSERT_EQ(-1, item.value.getInt());
   ASSERT_EQ(EggedTokenizerKind::ObjectEnd, tokenizer->next(item));
   ASSERT_EQ(EggedTokenizerKind::EndOfFile, tokenizer->next(item));
 }

@@ -349,7 +349,8 @@ namespace egg::lang {
     }
     // Factories
     static String fromCodePoint(char32_t codepoint);
-    static String fromUTF8(const std::string& str);
+    static String fromUTF8(const std::string& utf8);
+    static String fromUTF32(const std::u32string& utf32);
     template<typename... ARGS>
     static String concat(ARGS... args) {
       return StringBuilder().add(args...).str();

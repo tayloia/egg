@@ -15,19 +15,9 @@ namespace egg::yolk {
     EndOfFile
   };
 
-  // TODO use egg::lang::Value
-  struct EggedTokenizerValue {
-    union {
-      bool b;
-      int64_t i;
-      double f;
-    };
-    std::string s; // utf8
-  };
-
   struct EggedTokenizerItem {
     EggedTokenizerKind kind;
-    EggedTokenizerValue value;
+    egg::lang::Value value;
     size_t line;
     size_t column;
     bool contiguous;

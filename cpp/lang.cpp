@@ -1110,6 +1110,11 @@ egg::lang::String egg::lang::String::fromUTF8(const std::string& utf8) {
   return String(*StringBufferUTF8::create(utf8));
 }
 
+egg::lang::String egg::lang::String::fromUTF32(const std::u32string& utf32) {
+  // OPTIMIZE
+  return String(*StringBufferUTF8::create(egg::utf::to_utf8(utf32)));
+}
+
 std::vector<egg::lang::String> egg::lang::String::split(const String& separator, int64_t limit) const {
   // See https://docs.oracle.com/javase/8/docs/api/java/lang/String.html#split-java.lang.String-int-
   // However, if limit == 0 we return an empty vector

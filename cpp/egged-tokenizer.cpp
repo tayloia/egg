@@ -21,7 +21,7 @@ namespace {
       }
       item.line = this->upcoming.line;
       item.column = this->upcoming.column;
-      item.value.s.clear();
+      item.value = egg::lang::Value::Void;
       item.contiguous = true;
       bool skip;
       do {
@@ -35,19 +35,19 @@ namespace {
           break;
         case LexerKind::Integer:
           // This is an unsigned integer without a preceding '-'
-          item.value.i = int64_t(this->upcoming.value.i);
-          if (item.value.i < 0) {
+          item.value = egg::lang::Value{ int64_t(this->upcoming.value.i) };
+          if (item.value.getInt() < 0) {
             this->unexpected("Invalid integer constant in JSON");
           }
           item.kind = EggedTokenizerKind::Integer;
           break;
         case LexerKind::Float:
           // This is a float without a preceding '-'
-          item.value.f = this->upcoming.value.f;
+          item.value = egg::lang::Value{ this->upcoming.value.f };
           item.kind = EggedTokenizerKind::Float;
           break;
         case LexerKind::String:
-          item.value.s = egg::utf::to_utf8(this->upcoming.value.s);
+          item.value = egg::lang::Value{ egg::lang::String::fromUTF32(this->upcoming.value.s) };
           item.kind = EggedTokenizerKind::String;
           break;
         case LexerKind::Operator:
@@ -76,11 +76,11 @@ namespace {
               auto kind = lexer->next(this->upcoming);
               if (kind == LexerKind::Float) {
                 item.kind = EggedTokenizerKind::Float;
-                item.value.f = -this->upcoming.value.f;
+                item.value = egg::lang::Value{ -this->upcoming.value.f };
               } else if (kind == LexerKind::Integer) {
                 item.kind = EggedTokenizerKind::Integer;
-                item.value.i = -int64_t(this->upcoming.value.i);
-                if (item.value.i > 0) {
+                item.value = egg::lang::Value{ -int64_t(this->upcoming.value.i) };
+                if (item.value.getInt() > 0) {
                   this->unexpected("Invalid negative integer constant");
                 }
               } else {
@@ -102,17 +102,18 @@ namespace {
           }
           break;
         case LexerKind::Identifier:
-          item.value.s = this->upcoming.verbatim;
-          if (item.value.s == "null") {
+          if (this->upcoming.verbatim == "null") {
             item.kind = EggedTokenizerKind::Null;
-          } else if (item.value.s == "false") {
+            item.value = egg::lang::Value::Null;
+          } else if (this->upcoming.verbatim == "false") {
             item.kind = EggedTokenizerKind::Boolean;
-            item.value.b = false;
-          } else if (item.value.s == "true") {
+            item.value = egg::lang::Value::False;
+          } else if (this->upcoming.verbatim == "true") {
             item.kind = EggedTokenizerKind::Boolean;
-            item.value.b = true;
+            item.value = egg::lang::Value::True;
           } else {
             item.kind = EggedTokenizerKind::Identifier;
+            item.value = egg::lang::Value{ egg::lang::String::fromUTF8(this->upcoming.verbatim) };
           }
           break;
         case LexerKind::EndOfFile:
