@@ -205,9 +205,6 @@ namespace {
     virtual egg::lang::String toString() const override {
       return egg::lang::String::fromUTF8("any?[]");
     }
-    virtual egg::lang::Value canAlwaysAssignFrom(egg::lang::IExecution& execution, const IType&) const override {
-      return execution.raiseFormat("Cannot re-assign arrays"); // TODO
-    }
     virtual egg::lang::Value promoteAssignment(egg::lang::IExecution& execution, const egg::lang::Value&) const override {
       return execution.raiseFormat("Cannot re-assign arrays"); // TODO
     }
@@ -320,9 +317,6 @@ namespace {
   public:
     virtual egg::lang::String toString() const override {
       return egg::lang::String::fromUTF8("any?{string}");
-    }
-    virtual egg::lang::Value canAlwaysAssignFrom(egg::lang::IExecution& execution, const IType&) const override {
-      return execution.raiseFormat("Cannot re-assign objects"); // TODO
     }
     virtual egg::lang::Value promoteAssignment(egg::lang::IExecution& execution, const egg::lang::Value&) const override {
       return execution.raiseFormat("Cannot re-assign objects"); // TODO

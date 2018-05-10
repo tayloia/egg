@@ -170,7 +170,6 @@ namespace egg::lang {
     virtual IType* acquireHard() const = 0;
     virtual void releaseHard() const = 0;
     virtual String toString() const = 0;
-    virtual Value canAlwaysAssignFrom(IExecution& execution, const IType& rhs) const = 0; // TODO unused?
     virtual Value promoteAssignment(IExecution& execution, const Value& rhs) const = 0;
     virtual const ISignature* callable(IExecution& execution) const = 0;
 

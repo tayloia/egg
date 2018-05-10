@@ -79,9 +79,6 @@ namespace {
     virtual String toString() const override {
       return this->signature.toString();
     }
-    virtual Value canAlwaysAssignFrom(IExecution& execution, const IType&) const override {
-      return this->raise(execution, "Cannot re-assign built-in function");
-    }
     virtual Value promoteAssignment(IExecution& execution, const Value&) const override {
       return this->raise(execution, "Cannot re-assign built-in function");
     }

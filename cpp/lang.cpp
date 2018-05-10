@@ -3,27 +3,6 @@
 namespace {
   using namespace egg::lang;
 
-  Value canAlwaysAssignSimple(IExecution& execution, Discriminator lhs, Discriminator rhs) {
-    assert(lhs != Discriminator::None);
-    if (rhs != Discriminator::None) {
-      // The source is a simple type
-      auto intersection = Bits::mask(lhs, rhs);
-      if (intersection == lhs) {
-        // All possible source values can be accommodated in the destination
-        return Value::True;
-      }
-      if (intersection != Discriminator::None) {
-        // Only some of the source values can be accommodated in the destination
-        return Value::False;
-      }
-      if (Bits::hasAnySet(lhs, Discriminator::Float) && Bits::hasAnySet(rhs, Discriminator::Int)) {
-        // We allow type promotion int->float unless there's an overflow
-        return Value::False;
-      }
-    }
-    return execution.raiseFormat("Cannot assign a value of type '", Value::getTagString(rhs), "' to a target of type '", Value::getTagString(lhs), "'");
-  }
-
   Value promoteAssignmentSimple(IExecution& execution, Discriminator lhs, const Value& rhs) {
     if (rhs.has(lhs)) {
       // It's an exact type match
@@ -828,9 +807,6 @@ namespace {
     virtual ITypeRef referencedType() const override {
       return this->referenced;
     }
-    virtual Value canAlwaysAssignFrom(IExecution& execution, const IType&) const override {
-      return execution.raiseFormat("TODO: Cannot yet assign to reference value"); // TODO
-    }
     virtual Value promoteAssignment(IExecution& execution, const Value&) const override {
       return execution.raiseFormat("TODO: Cannot yet assign to reference value"); // TODO
     }
@@ -864,9 +840,6 @@ namespace {
       }
       return Type::makeUnion(*this, other);
     }
-    virtual Value canAlwaysAssignFrom(IExecution& execution, const IType&) const override {
-      return execution.raiseFormat("Cannot assign to 'null' value");
-    }
     virtual Value promoteAssignment(IExecution& execution, const Value&) const override {
       return execution.raiseFormat("Cannot assign to 'null' value");
     }
@@ -897,9 +870,6 @@ namespace {
         return ITypeRef(this);
       }
       return Type::makeUnion(*this, other);
-    }
-    virtual Value canAlwaysAssignFrom(IExecution& execution, const IType& rhs) const override {
-      return canAlwaysAssignSimple(execution, TAG, rhs.getSimpleTypes());
     }
     virtual Value promoteAssignment(IExecution& execution, const Value& rhs) const override {
       return promoteAssignmentSimple(execution, TAG, rhs);
@@ -985,9 +955,6 @@ namespace {
       }
       return ITypeRef(this);
     }
-    virtual Value canAlwaysAssignFrom(IExecution& execution, const IType& rhs) const override {
-      return canAlwaysAssignSimple(execution, this->tag, rhs.getSimpleTypes());
-    }
     virtual Value promoteAssignment(IExecution& execution, const Value& rhs) const override {
       return promoteAssignmentSimple(execution, this->tag, rhs);
     }
@@ -1018,9 +985,6 @@ namespace {
     virtual String toString() const override {
       return String::concat(this->a->toString(), "|", this->b->toString());
     }
-    virtual Value canAlwaysAssignFrom(IExecution& execution, const IType&) const override {
-      return execution.raiseFormat("TODO: Cannot yet assign to union value"); // TODO
-    }
     virtual Value promoteAssignment(IExecution& execution, const Value&) const override {
       return execution.raiseFormat("TODO: Cannot yet assign to union value"); // TODO
     }
@@ -1033,9 +997,6 @@ namespace {
   public:
     virtual String toString() const override {
       return String::fromUTF8("Exception");
-    }
-    virtual Value canAlwaysAssignFrom(IExecution& execution, const IType&) const override {
-      return execution.raiseFormat("Cannot re-assign exceptions");
     }
     virtual Value promoteAssignment(IExecution& execution, const Value&) const override {
       return execution.raiseFormat("Cannot re-assign exceptions");
