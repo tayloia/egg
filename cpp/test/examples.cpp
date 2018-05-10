@@ -9,7 +9,12 @@ using namespace egg::yolk;
 
 namespace {
   class TestLogger : public IEggEngineLogger {
+  private:
+    std::string resource;
   public:
+    explicit TestLogger(const std::string& resource)
+      : resource(resource) {
+    }
     virtual void log(egg::lang::LogSource source, egg::lang::LogSeverity severity, const std::string& message) override {
       static const egg::yolk::String::StringFromEnum sourceTable[] = {
         { int(egg::lang::LogSource::Compiler), "<COMPILER>" },
@@ -23,7 +28,12 @@ namespace {
         { int(egg::lang::LogSeverity::Warning), "<WARN>" },
         { int(egg::lang::LogSeverity::Error), "<ERROR>" }
       };
-      auto text = String::fromEnum(source, sourceTable) + String::fromEnum(severity, severityTable) + message;
+      auto text = String::fromEnum(source, sourceTable) + String::fromEnum(severity, severityTable);
+      if (this->resource.empty()) {
+        text += message;
+      } else {
+        text += String::replace(message, this->resource, "<RESOURCE>");
+      }
       std::cout << text << std::endl;
       this->logged += text + "\n";
     }
@@ -56,7 +66,7 @@ namespace {
     static std::string execute(TextStream& stream) {
       auto root = EggParserFactory::parseModule(stream);
       auto engine = EggEngineFactory::createEngineFromParsed(root);
-      auto logger = std::make_shared<TestLogger>();
+      auto logger = std::make_shared<TestLogger>(stream.getResourceName());
       auto execution = EggEngineFactory::createExecutionContext(logger);
       engine->execute(*execution);
       return logger->logged;

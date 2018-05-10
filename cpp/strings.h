@@ -25,6 +25,14 @@ namespace egg::yolk {
     static std::string replace(const std::string& src, char from, char to) {
       return String::transform(src, [from, to](char x) { return (x == from) ? to : x; });
     }
+    static std::string replace(const std::string& src, const std::string& from, const std::string& to) {
+      assert(!from.empty());
+      auto dst = src;
+      for (auto pos = dst.find(from); pos != std::string::npos; pos = dst.find(from, pos + to.length())) {
+        dst.replace(pos, from.length(), to);
+      }
+      return dst;
+    }
     static void terminate(std::string& str, char terminator) {
       if (str.empty() || (str.back() != terminator)) {
         str.push_back(terminator);

@@ -7,4 +7,4 @@ print("hello" != "hello");
 print("hello" != "goodbye");
 ///>true
 print("hello" < "goodbye");
-///<RUNTIME><ERROR>~/examples/example-0018.egg(9,15): Expected left-hand side of comparison '<' to be 'int' or 'float', but got 'string' instead
+///<RUNTIME><ERROR><RESOURCE>(9,15): Expected left-hand side of comparison '<' to be 'int' or 'float', but got 'string' instead

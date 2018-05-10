@@ -1,0 +1,11 @@
+int fibonacci(int n) {
+  assert(n >= 0);
+  if (n < 2) {
+    return n;
+  }
+  return fibonacci(n - 1) + fibonacci(n - 2);
+}
+print(fibonacci(10));
+///>55
+print(fibonacci(-1));
+///<RUNTIME><ERROR><RESOURCE>(2,9): Predicate is false
