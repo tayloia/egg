@@ -7,7 +7,6 @@
 #include "egg-engine.h"
 
 #include <cmath>
-#include <map>
 #include <set>
 
 namespace {

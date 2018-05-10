@@ -9,11 +9,13 @@
 #include <functional>
 #include <iomanip>
 #include <iostream>
+#include <map>
 #include <memory>
 #include <sstream>
 #include <string>
 #include <type_traits>
 #include <vector>
+#include <unordered_map>
 
 #include "macros.h"
 #include "dictionaries.h"

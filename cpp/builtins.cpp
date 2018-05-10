@@ -1,7 +1,5 @@
 #include "yolk.h"
 
-#include <map>
-
 namespace {
   using namespace egg::lang;
 
