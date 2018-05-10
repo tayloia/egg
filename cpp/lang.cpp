@@ -810,9 +810,6 @@ namespace {
     virtual Value promoteAssignment(IExecution& execution, const Value&) const override {
       return execution.raiseFormat("TODO: Cannot yet assign to reference value"); // TODO
     }
-    virtual const ISignature* callable(IExecution&) const override {
-      return nullptr;
-    }
   };
 
   class TypeNull : public egg::gc::NotReferenceCounted<IType>{
@@ -843,9 +840,6 @@ namespace {
     virtual Value promoteAssignment(IExecution& execution, const Value&) const override {
       return execution.raiseFormat("Cannot assign to 'null' value");
     }
-    virtual const ISignature* callable(IExecution&) const override {
-      return nullptr;
-    }
   };
   const TypeNull typeNull{};
 
@@ -873,9 +867,6 @@ namespace {
     }
     virtual Value promoteAssignment(IExecution& execution, const Value& rhs) const override {
       return promoteAssignmentSimple(execution, TAG, rhs);
-    }
-    virtual const ISignature* callable(IExecution&) const override {
-      return nullptr;
     }
     virtual Value cast(IExecution& execution, const IParameters& parameters) const override {
       return castSimple(execution, TAG, parameters);
@@ -925,9 +916,6 @@ namespace {
     }
     virtual Value promoteAssignment(IExecution& execution, const Value& rhs) const override {
       return promoteAssignmentSimple(execution, this->tag, rhs);
-    }
-    virtual const ISignature* callable(IExecution&) const override {
-      return nullptr;
     }
   };
 
@@ -1421,6 +1409,11 @@ bool egg::lang::ISignature::validateCallDefault(IExecution& execution, const IPa
     return false;
   }
   return true;
+}
+
+const egg::lang::ISignature* egg::lang::IType::callable(IExecution&) const {
+  // The default implementation is to say we don't support calling with '()'
+  return nullptr;
 }
 
 egg::lang::Discriminator egg::lang::IType::getSimpleTypes() const {

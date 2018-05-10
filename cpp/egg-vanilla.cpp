@@ -39,16 +39,23 @@ namespace {
     }
   };
 
+  class VanillaIteratorBase : public egg::gc::NotReferenceCounted<egg::lang::IType> {
+  public:
+    virtual egg::lang::String toString() const override {
+      return egg::lang::String::fromUTF8("<iterator>");
+    }
+    virtual egg::lang::Value promoteAssignment(egg::lang::IExecution& execution, const egg::lang::Value&) const override {
+      return execution.raiseFormat("Cannot re-assign iterators"); // TODO
+    }
+  };
+
   class VanillaKeyValueType : public egg::gc::NotReferenceCounted<egg::lang::IType> {
   public:
     virtual egg::lang::String toString() const override {
-      return egg::lang::String::fromUTF8("WIBBLE");
+      return egg::lang::String::fromUTF8("<keyvalue>");
     }
     virtual egg::lang::Value promoteAssignment(egg::lang::IExecution& execution, const egg::lang::Value&) const override {
       return execution.raiseFormat("Cannot re-assign key-values"); // TODO
-    }
-    virtual const egg::lang::ISignature* callable(egg::lang::IExecution&) const override {
-      return nullptr; // WIBBLE
     }
   };
   const VanillaKeyValueType typeVanillaKeyValue;
@@ -93,9 +100,6 @@ namespace {
     }
     virtual egg::lang::Value promoteAssignment(egg::lang::IExecution& execution, const egg::lang::Value&) const override {
       return execution.raiseFormat("Cannot re-assign arrays"); // TODO
-    }
-    virtual const egg::lang::ISignature* callable(egg::lang::IExecution&) const override {
-      return nullptr;
     }
   };
   const VanillaArrayType typeVanillaArray;
@@ -186,19 +190,7 @@ namespace {
     }
   };
 
-  class VanillaArrayIteratorType : public egg::gc::NotReferenceCounted<egg::lang::IType> {
-  public:
-    virtual egg::lang::String toString() const override {
-      return egg::lang::String::fromUTF8("WIBBLE");
-    }
-    virtual egg::lang::Value promoteAssignment(egg::lang::IExecution& execution, const egg::lang::Value&) const override {
-      return execution.raiseFormat("Cannot re-assign iterators"); // TODO
-    }
-    virtual const egg::lang::ISignature* callable(egg::lang::IExecution&) const override {
-      return nullptr; // WIBBLE
-    }
-  };
-  const VanillaArrayIteratorType typeVanillaArrayIterator;
+  const VanillaIteratorBase typeVanillaArrayIterator;
 
   class VanillaArrayIterator : public VanillaBase {
     EGG_NO_COPY(VanillaArrayIterator);
@@ -210,7 +202,7 @@ namespace {
       : VanillaBase("Iterator", typeVanillaArrayIterator), array(&array), next(0) {
     }
     virtual egg::lang::Value toString() const override {
-      return egg::lang::Value{ egg::lang::String::fromUTF8("WIBBLE") };
+      return egg::lang::Value{ this->type->toString() };
     }
     virtual egg::lang::Value call(egg::lang::IExecution&, const egg::lang::IParameters&) override {
       // TODO check parameters?
@@ -231,14 +223,8 @@ namespace {
     return egg::lang::Value::make<VanillaArrayIterator>(execution, *this);
   }
 
-  class VanillaDictionaryIteratorType : public egg::gc::NotReferenceCounted<egg::lang::IType> {
+  class VanillaDictionaryIteratorType : public VanillaIteratorBase {
   public:
-    virtual egg::lang::String toString() const override {
-      return egg::lang::String::fromUTF8("WIBBLE");
-    }
-    virtual egg::lang::Value promoteAssignment(egg::lang::IExecution& execution, const egg::lang::Value&) const override {
-      return execution.raiseFormat("Cannot re-assign iterators"); // TODO
-    }
     virtual const egg::lang::ISignature* callable(egg::lang::IExecution&) const override {
       return nullptr; // WIBBLE
     }
@@ -257,7 +243,7 @@ namespace {
       (void)dictionary.getKeyValues(this->keyvalues);
     }
     virtual egg::lang::Value toString() const override {
-      return egg::lang::Value{ egg::lang::String::fromUTF8("WIBBLE") };
+      return egg::lang::Value{ this->type->toString() };
     }
     virtual egg::lang::Value call(egg::lang::IExecution&, const egg::lang::IParameters&) override {
       // TODO check parameters?
@@ -324,9 +310,6 @@ namespace {
     virtual egg::lang::Value promoteAssignment(egg::lang::IExecution& execution, const egg::lang::Value&) const override {
       return execution.raiseFormat("Cannot re-assign objects"); // TODO
     }
-    virtual const egg::lang::ISignature* callable(egg::lang::IExecution&) const override {
-      return nullptr;
-    }
   };
   const VanillaObjectType typeVanillaObject;
 
@@ -345,9 +328,6 @@ namespace {
     }
     virtual egg::lang::Value promoteAssignment(egg::lang::IExecution& execution, const egg::lang::Value&) const override {
       return execution.raiseFormat("Cannot re-assign exceptions");
-    }
-    virtual const egg::lang::ISignature* callable(egg::lang::IExecution&) const override {
-      return nullptr;
     }
   };
   const VanillaExceptionType typeVanillaException{};

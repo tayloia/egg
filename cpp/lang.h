@@ -171,8 +171,8 @@ namespace egg::lang {
     virtual void releaseHard() const = 0;
     virtual String toString() const = 0;
     virtual Value promoteAssignment(IExecution& execution, const Value& rhs) const = 0;
-    virtual const ISignature* callable(IExecution& execution) const = 0;
 
+    virtual const ISignature* callable(IExecution& execution) const; // Default implementation returns nullptr
     virtual Discriminator getSimpleTypes() const; // Default implementation returns 'None'
     virtual Ref referencedType() const; // Default implementation returns 'Type*'
     virtual Ref dereferencedType() const; // Default implementation returns 'Void'
@@ -370,7 +370,7 @@ namespace egg::lang {
 
   struct LocationRuntime : public LocationSource {
     String function;
-    const LocationRuntime* parent; // WIBBLE ownership?
+    const LocationRuntime* parent;
 
     LocationRuntime() = default;
     LocationRuntime(const LocationSource& source, const String& function, const LocationRuntime* parent = nullptr)
