@@ -201,7 +201,7 @@ namespace {
     }
   };
 
-  class EggProgramArrayOrthodoxType : public egg::gc::NotReferenceCounted<egg::lang::IType> {
+  class EggProgramVanillaArrayType : public egg::gc::NotReferenceCounted<egg::lang::IType> {
   public:
     virtual egg::lang::String toString() const override {
       return egg::lang::String::fromUTF8("any?[]");
@@ -228,15 +228,15 @@ namespace {
       return instance.getObject().setIndex(execution, index, value);
     }
   };
-  const EggProgramArrayOrthodoxType arrayOrthodoxType;
+  const EggProgramVanillaArrayType typeVanillaArray;
 
-  class EggProgramArrayOrthodox : public egg::gc::HardReferenceCounted<egg::lang::IObject> {
-    EGG_NO_COPY(EggProgramArrayOrthodox);
+  class EggProgramVanillaArray : public egg::gc::HardReferenceCounted<egg::lang::IObject> {
+    EGG_NO_COPY(EggProgramVanillaArray);
   private:
     egg::lang::ITypeRef type;
     std::vector<egg::lang::Value> values;
   public:
-    explicit EggProgramArrayOrthodox(const egg::lang::IType& type)
+    explicit EggProgramVanillaArray(const egg::lang::IType& type)
       : HardReferenceCounted(0), type(&type) {
     }
     virtual bool dispose() override {
@@ -283,8 +283,9 @@ namespace {
       if ((i < 0) || (uint64_t(i) >= uint64_t(this->values.size()))) {
         return execution.raiseFormat("Invalid array index for an array with ", this->values.size(), " element(s): ", i);
       }
-      // WIBBLE gaps are Void values
-      return this->values[size_t(i)];
+      auto& element = this->values[size_t(i)];
+      assert(!element.is(egg::lang::Discriminator::Void));
+      return element;
     }
     virtual egg::lang::Value setIndex(egg::lang::IExecution& execution, const egg::lang::Value& index, const egg::lang::Value& value) override {
       if (!index.is(egg::lang::Discriminator::Int)) {
@@ -316,10 +317,10 @@ namespace {
     }
   };
 
-  class EggProgramObjectOrthodoxType : public egg::gc::NotReferenceCounted<egg::lang::IType> {
+  class EggProgramVanillaObjectType : public egg::gc::NotReferenceCounted<egg::lang::IType> {
   public:
     virtual egg::lang::String toString() const override {
-      return egg::lang::String::fromUTF8("any?{}");
+      return egg::lang::String::fromUTF8("any?{string}");
     }
     virtual egg::lang::Value canAlwaysAssignFrom(egg::lang::IExecution& execution, const IType&) const override {
       return execution.raiseFormat("Cannot re-assign objects"); // TODO
@@ -343,16 +344,16 @@ namespace {
       return instance.getObject().setIndex(execution, index, value);
     }
   };
-  const EggProgramObjectOrthodoxType objectOrthodoxType;
+  const EggProgramVanillaObjectType typeVanillaObject;
 
-  class EggProgramObjectOrthodox : public egg::gc::HardReferenceCounted<egg::lang::IObject> {
-    EGG_NO_COPY(EggProgramObjectOrthodox);
+  class EggProgramVanillaObject : public egg::gc::HardReferenceCounted<egg::lang::IObject> {
+    EGG_NO_COPY(EggProgramVanillaObject);
   private:
     typedef egg::yolk::Dictionary<egg::lang::String, egg::lang::Value> Dictionary;
     egg::lang::ITypeRef type;
     Dictionary dictionary;
   public:
-    explicit EggProgramObjectOrthodox(const egg::lang::IType& type)
+    explicit EggProgramVanillaObject(const egg::lang::IType& type)
       : HardReferenceCounted(0), type(&type) {
     }
     virtual bool dispose() override {
@@ -483,6 +484,10 @@ namespace {
     return egg::lang::Value(lhs > rhs);
   }
 }
+
+// Vanilla types
+const egg::lang::IType& egg::yolk::EggProgram::VanillaArray = typeVanillaArray;
+const egg::lang::IType& egg::yolk::EggProgram::VanillaObject = typeVanillaObject;
 
 #define EGG_PROGRAM_OPERATOR_STRING(name, text) text,
 
@@ -1030,7 +1035,7 @@ egg::lang::Value egg::yolk::EggProgramContext::executeYield(const IEggProgramNod
 egg::lang::Value egg::yolk::EggProgramContext::executeArray(const IEggProgramNode& self, const std::vector<std::shared_ptr<IEggProgramNode>>& values) {
   // OPTIMIZE
   EggProgramExpression expression(*this, self);
-  auto result = this->createArrayOrthodox();
+  auto result = this->createVanillaArray();
   if (result.is(egg::lang::Discriminator::Object)) {
     auto& object = result.getObject();
     int64_t index = 0;
@@ -1052,7 +1057,7 @@ egg::lang::Value egg::yolk::EggProgramContext::executeArray(const IEggProgramNod
 egg::lang::Value egg::yolk::EggProgramContext::executeObject(const IEggProgramNode& self, const std::vector<std::shared_ptr<IEggProgramNode>>& values) {
   // OPTIMIZE
   EggProgramExpression expression(*this, self);
-  auto result = this->createObjectOrthodox();
+  auto result = this->createVanillaObject();
   if (result.is(egg::lang::Discriminator::Object)) {
     auto& object = result.getObject();
     egg::lang::String name;
@@ -1541,10 +1546,10 @@ void egg::yolk::EggProgramContext::print(const std::string& utf8) {
   return this->log(egg::lang::LogSource::User, egg::lang::LogSeverity::Information, utf8);
 }
 
-egg::lang::Value egg::yolk::EggProgramContext::createArrayOrthodox() {
-  return egg::lang::Value::make<EggProgramArrayOrthodox>(arrayOrthodoxType);
+egg::lang::Value egg::yolk::EggProgramContext::createVanillaArray() {
+  return egg::lang::Value::make<EggProgramVanillaArray>(typeVanillaArray);
 }
 
-egg::lang::Value egg::yolk::EggProgramContext::createObjectOrthodox() {
-  return egg::lang::Value::make<EggProgramObjectOrthodox>(objectOrthodoxType);
+egg::lang::Value egg::yolk::EggProgramContext::createVanillaObject() {
+  return egg::lang::Value::make<EggProgramVanillaObject>(typeVanillaObject);
 }

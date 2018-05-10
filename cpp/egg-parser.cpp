@@ -733,6 +733,9 @@ namespace {
     explicit EggParserNode_Array(const egg::lang::LocationSource& locationSource)
       : EggParserNodeBase(locationSource) {
     }
+    virtual egg::lang::ITypeRef getType() const override {
+      return egg::lang::ITypeRef(&EggProgram::VanillaArray);
+    }
     virtual egg::lang::Value execute(EggProgramContext& context) const override {
       return context.executeArray(*this, this->child);
     }
@@ -750,6 +753,9 @@ namespace {
   public:
     explicit EggParserNode_Object(const egg::lang::LocationSource& locationSource)
       : EggParserNodeBase(locationSource) {
+    }
+    virtual egg::lang::ITypeRef getType() const override {
+      return egg::lang::ITypeRef(&EggProgram::VanillaObject);
     }
     virtual egg::lang::Value execute(EggProgramContext& context) const override {
       return context.executeObject(*this, this->child);
@@ -787,9 +793,10 @@ namespace {
     egg::lang::Discriminator tag;
     std::vector<std::shared_ptr<IEggProgramNode>> child;
   public:
-    EggParserNode_Cast(const egg::lang::LocationSource& locationSource, egg::lang::Discriminator tag)
+      EggParserNode_Cast(const egg::lang::LocationSource& locationSource, egg::lang::Discriminator tag)
       : EggParserNodeBase(locationSource), tag(tag) {
     }
+    // TODO virtual egg::lang::ITypeRef getType() const override;
     virtual egg::lang::Value execute(EggProgramContext& context) const override {
       return context.executeCast(*this, this->tag, this->child);
     }

@@ -445,6 +445,10 @@ TEST(TestEggSyntaxParser, Literals) {
   ASSERT_PARSE_GOOD(parseExpressionToString("null"), "(literal null)");
   ASSERT_PARSE_GOOD(parseExpressionToString("false"), "(literal bool false)");
   ASSERT_PARSE_GOOD(parseExpressionToString("true"), "(literal bool true)");
+  ASSERT_PARSE_GOOD(parseExpressionToString("[]"), "(array)");
+  ASSERT_PARSE_GOOD(parseExpressionToString("[1,2.0,`three`]"), "(array (literal int 1) (literal float 2.0) (literal string 'three'))");
+  ASSERT_PARSE_GOOD(parseExpressionToString("{}"), "(object)");
+  ASSERT_PARSE_GOOD(parseExpressionToString("{a:1,b:2}"), "(object (named 'a' (literal int 1)) (named 'b' (literal int 2)))");
 }
 
 TEST(TestEggSyntaxParser, Vexatious) {

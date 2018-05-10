@@ -54,6 +54,9 @@ namespace egg::yolk {
     static std::string binaryToString(EggProgramBinary op);
     static std::string assignToString(EggProgramAssign op);
     static std::string mutateToString(EggProgramMutate op);
+
+    static const egg::lang::IType& VanillaArray;
+    static const egg::lang::IType& VanillaObject;
   };
 
   class EggProgramContext : public egg::lang::IExecution {
@@ -116,8 +119,8 @@ namespace egg::yolk {
     egg::lang::Value binary(EggProgramBinary op, const IEggProgramNode& lhs, const IEggProgramNode& rhs);
     egg::lang::Value call(const egg::lang::Value& callee, const egg::lang::IParameters& parameters);
     egg::lang::Value cast(egg::lang::Discriminator tag, const egg::lang::IParameters& parameters);
-    egg::lang::Value createArrayOrthodox();
-    egg::lang::Value createObjectOrthodox();
+    egg::lang::Value createVanillaArray();
+    egg::lang::Value createVanillaObject();
     // Inherited via IExecution
     virtual egg::lang::Value raise(const egg::lang::String& message) override;
     virtual egg::lang::Value assertion(const egg::lang::Value& predicate) override;

@@ -57,6 +57,10 @@ TEST(TestEggParser, ExpressionType) {
   ASSERT_PARSE_GOOD(typeFromExpression("-1.23"), "float");
   ASSERT_PARSE_GOOD(typeFromExpression("\"hi\""), "string");
   ASSERT_PARSE_GOOD(typeFromExpression("`bye`"), "string");
+  ASSERT_PARSE_GOOD(typeFromExpression("[]"), "any?[]");
+  ASSERT_PARSE_GOOD(typeFromExpression("[1,2,3]"), "any?[]");
+  ASSERT_PARSE_GOOD(typeFromExpression("{}"), "any?{string}");
+  ASSERT_PARSE_GOOD(typeFromExpression("{a:1,b:2,c:3}"), "any?{string}");
   ASSERT_PARSE_GOOD(typeFromExpression("&123"), "int*"); // TODO
   ASSERT_PARSE_GOOD(typeFromExpression("*123"), "void");
   ASSERT_PARSE_GOOD(typeFromExpression("!true"), "bool");
