@@ -962,12 +962,16 @@ namespace {
   class EggParserNode_Identifier : public EggParserNodeBase {
   private:
     egg::lang::String name;
+    egg::lang::ITypeRef type; // Initially 'Void' because we don't know until we're prepared
   public:
     EggParserNode_Identifier(const egg::lang::LocationSource& locationSource, const egg::lang::String& name)
-      : EggParserNodeBase(locationSource), name(name) {
+      : EggParserNodeBase(locationSource), name(name), type(egg::lang::Type::Void) {
+    }
+    virtual egg::lang::ITypeRef getType() const override {
+      return this->type;
     }
     virtual EggProgramNodeFlags prepare(EggProgramContext& context) override {
-      return context.prepareIdentifier(this->locationSource, this->name);
+      return context.prepareIdentifier(this->locationSource, this->name, this->type);
     }
     virtual egg::lang::Value execute(EggProgramContext& context) const override {
       return context.executeIdentifier(*this, this->name);

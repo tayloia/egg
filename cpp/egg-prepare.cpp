@@ -128,10 +128,15 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareFor(IEggProg
 
 egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareForeach(IEggProgramNode& lvalue, IEggProgramNode& rvalue, IEggProgramNode& block) {
   // TODO
-  lvalue.prepare(*this); // WIBBLE
-  rvalue.prepare(*this); // WIBBLE
-  block.prepare(*this); // WIBBLE
-  return EggProgramNodeFlags::None;
+  if (abandoned(rvalue.prepare(*this)) || abandoned(lvalue.prepare(*this))) {
+    return EggProgramNodeFlags::Abandon;
+  }
+  auto type = rvalue.getType();
+  auto* iterable = type->iterable();
+  if (iterable == nullptr) {
+    return this->compilerError(rvalue.location(), "Expression after the ':' in 'for' statement is not iterable");
+  }
+  return block.prepare(*this);
 }
 
 egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareFunctionDefinition(const egg::lang::String& name, const egg::lang::IType& type, const std::shared_ptr<IEggProgramNode>& block) {
@@ -215,12 +220,13 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareCast(egg::la
   return EggProgramNodeFlags::None;
 }
 
-egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareIdentifier(const egg::lang::LocationSource& where, const egg::lang::String& name) {
-  // TODO uninitialised?
+egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareIdentifier(const egg::lang::LocationSource& where, const egg::lang::String& name, egg::lang::ITypeRef& type) {
+  // We need to work out our type
   auto symbol = this->symtable->findSymbol(name);
   if (symbol == nullptr) {
     return this->compilerError(where, "Unknown identifier: '", name, "'");
   }
+  type = symbol->type;
   return EggProgramNodeFlags::None;
 }
 

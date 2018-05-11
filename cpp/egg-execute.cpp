@@ -23,26 +23,6 @@ namespace {
     }
   };
 
-  class EggProgramParametersEmpty : public egg::lang::IParameters {
-  public:
-    virtual size_t getPositionalCount() const override {
-      return 0;
-    }
-    virtual egg::lang::Value getPositional(size_t) const override {
-      return egg::lang::Value::Void;
-    }
-    virtual size_t getNamedCount() const override {
-      return 0;
-    }
-    virtual egg::lang::String getName(size_t) const override {
-      return egg::lang::String::Empty;
-    }
-    virtual egg::lang::Value getNamed(const egg::lang::String&) const override {
-      return egg::lang::Value::Void;
-    }
-  };
-  const EggProgramParametersEmpty parametersEmpty;
-
   class EggProgramParameters : public egg::lang::IParameters {
   private:
     std::vector<egg::lang::Value> positional;
@@ -332,7 +312,7 @@ egg::lang::Value egg::yolk::EggProgramContext::executeForeachIterate(IEggProgram
     return this->unexpected("The 'for' statement expected an iterator", iterator); // TODO
   }
   for (;;) {
-    auto next = iterator.getObject().call(*this, parametersEmpty);
+    auto next = iterator.getObject().iterate(*this);
     if (next.has(egg::lang::Discriminator::FlowControl)) {
       // An error occurred in the iterator
       return next;

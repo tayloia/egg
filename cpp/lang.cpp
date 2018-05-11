@@ -876,8 +876,16 @@ namespace {
   const TypeNative<Discriminator::Bool> typeBool{};
   const TypeNative<Discriminator::Int> typeInt{};
   const TypeNative<Discriminator::Float> typeFloat{};
-  const TypeNative<Discriminator::String> typeString{};
   const TypeNative<Discriminator::Arithmetic> typeArithmetic{};
+
+  class TypeString : public TypeNative<Discriminator::String> {
+  public:
+    virtual const IType* iterable() const override {
+      // When strings are iterated, they iterate through strings (of codepoints)
+      return Type::String.get();
+    }
+  };
+  const TypeString typeString{};
 
   class TypeSimple : public egg::gc::HardReferenceCounted<IType> {
     EGG_NO_COPY(TypeSimple);
@@ -916,6 +924,15 @@ namespace {
     }
     virtual Value promoteAssignment(IExecution& execution, const Value& rhs) const override {
       return promoteAssignmentSimple(execution, this->tag, rhs);
+    }
+    virtual const IType* iterable() const override {
+      if (Bits::hasAnySet(this->tag, Discriminator::Object)) {
+        return Type::Any.get();
+      }
+      if (Bits::hasAnySet(this->tag, Discriminator::String)) {
+        return Type::String.get();
+      }
+      return nullptr;
     }
   };
 
@@ -1419,6 +1436,11 @@ bool egg::lang::ISignature::validateCallDefault(IExecution& execution, const IPa
 
 const egg::lang::ISignature* egg::lang::IType::callable() const {
   // The default implementation is to say we don't support calling with '()'
+  return nullptr;
+}
+
+const egg::lang::IType* egg::lang::IType::iterable() const {
+  // The default implementation is to say we don't support iteration
   return nullptr;
 }
 

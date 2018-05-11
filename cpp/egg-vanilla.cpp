@@ -39,13 +39,31 @@ namespace {
     }
   };
 
-  class VanillaIteratorBase : public egg::gc::NotReferenceCounted<egg::lang::IType> {
+  class VanillaIteratorType : public egg::gc::NotReferenceCounted<egg::lang::IType> {
   public:
     virtual egg::lang::String toString() const override {
       return egg::lang::String::fromUTF8("<iterator>");
     }
     virtual egg::lang::Value promoteAssignment(egg::lang::IExecution& execution, const egg::lang::Value&) const override {
       return execution.raiseFormat("Cannot re-assign iterators"); // TODO
+    }
+  };
+  const VanillaIteratorType typeVanillaIterator;
+
+  class VanillaIteratorBase : public VanillaBase {
+    EGG_NO_COPY(VanillaIteratorBase);
+  public:
+    VanillaIteratorBase()
+      : VanillaBase("Iterator", typeVanillaIterator) {
+    }
+    virtual egg::lang::Value toString() const override {
+      return egg::lang::Value{ this->type->toString() };
+    }
+    virtual egg::lang::Value getProperty(egg::lang::IExecution& execution, const egg::lang::String& property) override {
+      return execution.raiseFormat("Iterators do not support properties: '.", property, "'");
+    }
+    virtual egg::lang::Value setProperty(egg::lang::IExecution& execution, const egg::lang::String& property, const egg::lang::Value&) override {
+      return execution.raiseFormat("Iterators do not support properties: '.", property, "'");
     }
   };
 
@@ -190,32 +208,17 @@ namespace {
     }
   };
 
-  const VanillaIteratorBase typeVanillaArrayIterator;
-
-  class VanillaArrayIterator : public VanillaBase {
+  class VanillaArrayIterator : public VanillaIteratorBase {
     EGG_NO_COPY(VanillaArrayIterator);
   private:
     egg::gc::HardRef<VanillaArray> array;
     size_t next;
   public:
     VanillaArrayIterator(egg::lang::IExecution&, const VanillaArray& array)
-      : VanillaBase("Iterator", typeVanillaArrayIterator), array(&array), next(0) {
+      : VanillaIteratorBase(), array(&array), next(0) {
     }
-    virtual egg::lang::Value toString() const override {
-      return egg::lang::Value{ this->type->toString() };
-    }
-    virtual egg::lang::Value call(egg::lang::IExecution&, const egg::lang::IParameters&) override {
-      // TODO check parameters?
+    virtual egg::lang::Value iterate(egg::lang::IExecution&) override {
       return this->array->iterateNext(this->next);
-    }
-    virtual egg::lang::Value getProperty(egg::lang::IExecution& execution, const egg::lang::String& property) override {
-      return execution.raiseFormat("Iterators do not support properties: '.", property, "'");
-    }
-    virtual egg::lang::Value setProperty(egg::lang::IExecution& execution, const egg::lang::String& property, const egg::lang::Value&) override {
-      return execution.raiseFormat("Iterators do not support properties: '.", property, "'");
-    }
-    virtual egg::lang::Value iterate(egg::lang::IExecution& execution) override {
-      return execution.raiseFormat("Iterators do not support iteration"); // TODO forEachRemaining?
     }
   };
 
@@ -223,15 +226,7 @@ namespace {
     return egg::lang::Value::make<VanillaArrayIterator>(execution, *this);
   }
 
-  class VanillaDictionaryIteratorType : public VanillaIteratorBase {
-  public:
-    virtual const egg::lang::ISignature* callable() const override {
-      return nullptr; // WIBBLE why isn't this called?
-    }
-  };
-  const VanillaDictionaryIteratorType typeVanillaDictionaryIterator;
-
-  class VanillaDictionaryIterator : public VanillaBase {
+  class VanillaDictionaryIterator : public VanillaIteratorBase {
     EGG_NO_COPY(VanillaDictionaryIterator);
   private:
     typedef egg::yolk::Dictionary<egg::lang::String, egg::lang::Value> Dictionary;
@@ -239,27 +234,14 @@ namespace {
     size_t next;
   public:
     VanillaDictionaryIterator(egg::lang::IExecution&, const Dictionary& dictionary)
-      : VanillaBase("Iterator", typeVanillaDictionaryIterator), next(0) {
+      : VanillaIteratorBase(), next(0) {
       (void)dictionary.getKeyValues(this->keyvalues);
     }
-    virtual egg::lang::Value toString() const override {
-      return egg::lang::Value{ this->type->toString() };
-    }
-    virtual egg::lang::Value call(egg::lang::IExecution&, const egg::lang::IParameters&) override {
-      // TODO check parameters?
+    virtual egg::lang::Value iterate(egg::lang::IExecution&) override {
       if (this->next < this->keyvalues.size()) {
         return egg::lang::Value::make<VanillaKeyValue>(keyvalues[this->next++]);
       }
       return egg::lang::Value::Void;
-    }
-    virtual egg::lang::Value getProperty(egg::lang::IExecution& execution, const egg::lang::String& property) override {
-      return execution.raiseFormat("Iterators do not support properties: '.", property, "'");
-    }
-    virtual egg::lang::Value setProperty(egg::lang::IExecution& execution, const egg::lang::String& property, const egg::lang::Value&) override {
-      return execution.raiseFormat("Iterators do not support properties: '.", property, "'");
-    }
-    virtual egg::lang::Value iterate(egg::lang::IExecution& execution) override {
-      return execution.raiseFormat("Iterators do not support iteration");
     }
   };
 

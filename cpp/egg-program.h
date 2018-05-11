@@ -198,7 +198,7 @@ namespace egg::yolk {
     EggProgramNodeFlags prepareObject(const std::vector<std::shared_ptr<IEggProgramNode>>& values);
     EggProgramNodeFlags prepareCall(IEggProgramNode& callee, const std::vector<std::shared_ptr<IEggProgramNode>>& parameters);
     EggProgramNodeFlags prepareCast(egg::lang::Discriminator tag, const std::vector<std::shared_ptr<IEggProgramNode>>& parameters);
-    EggProgramNodeFlags prepareIdentifier(const egg::lang::LocationSource& where, const egg::lang::String& name);
+    EggProgramNodeFlags prepareIdentifier(const egg::lang::LocationSource& where, const egg::lang::String& name, egg::lang::ITypeRef& type);
     EggProgramNodeFlags prepareLiteral(const egg::lang::Value& value);
     EggProgramNodeFlags prepareUnary(EggProgramUnary op, IEggProgramNode& value);
     EggProgramNodeFlags prepareBinary(EggProgramBinary op, IEggProgramNode& lhs, IEggProgramNode& rhs);
