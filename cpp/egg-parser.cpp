@@ -3,6 +3,7 @@
 #include "egg-tokenizer.h"
 #include "egg-syntax.h"
 #include "egg-parser.h"
+#include "egg-engine.h"
 #include "egg-program.h"
 
 namespace {
@@ -220,6 +221,9 @@ namespace {
     explicit EggParserNode_Module(const egg::lang::LocationSource& locationSource)
       : EggParserNodeBase(locationSource) {
     }
+    virtual EggProgramNodeFlags prepare(EggProgramContext&) override {
+      return EggProgramNodeFlags::None; // WIBBLE
+    }
     virtual egg::lang::Value execute(EggProgramContext& context) const override {
       return context.executeModule(*this, this->child);
     }
@@ -238,6 +242,9 @@ namespace {
   public:
     explicit EggParserNode_Block(const egg::lang::LocationSource& locationSource)
       : EggParserNodeBase(locationSource) {
+    }
+    virtual EggProgramNodeFlags prepare(EggProgramContext& execution) override {
+      return execution.unimplemented(__FUNCTION__);
     }
     virtual egg::lang::Value execute(EggProgramContext& context) const override {
       return context.executeBlock(*this, this->child);
@@ -260,6 +267,9 @@ namespace {
     }
     virtual egg::lang::ITypeRef getType() const override {
       return this->type;
+    }
+    virtual EggProgramNodeFlags prepare(EggProgramContext& execution) override {
+      return execution.unimplemented(__FUNCTION__);
     }
     virtual egg::lang::Value execute(EggProgramContext& execution) const override {
       return execution.raiseFormat("Internal parser error: Inappropriate 'execute' call for 'type' node");
@@ -288,6 +298,9 @@ namespace {
       // The assignee is just the variable in the scope
       return context.assigneeIdentifier(*this, this->name);
     }
+    virtual EggProgramNodeFlags prepare(EggProgramContext& execution) override {
+      return execution.unimplemented(__FUNCTION__);
+    }
     virtual egg::lang::Value execute(EggProgramContext& context) const override {
       return context.executeDeclare(*this, this->name, *this->type, this->init.get());
     }
@@ -305,6 +318,9 @@ namespace {
       : EggParserNodeBase(locationSource), op(op), lvalue(lvalue) {
       assert(lvalue != nullptr);
     }
+    virtual EggProgramNodeFlags prepare(EggProgramContext& execution) override {
+      return execution.unimplemented(__FUNCTION__);
+    }
     virtual egg::lang::Value execute(EggProgramContext& context) const override {
       return context.executeMutate(*this, this->op, *this->lvalue);
     }
@@ -317,6 +333,9 @@ namespace {
   public:
     explicit EggParserNode_Break(const egg::lang::LocationSource& locationSource)
       : EggParserNodeBase(locationSource) {
+    }
+    virtual EggProgramNodeFlags prepare(EggProgramContext& execution) override {
+      return execution.unimplemented(__FUNCTION__);
     }
     virtual egg::lang::Value execute(EggProgramContext& context) const override {
       return context.executeBreak(*this);
@@ -343,6 +362,9 @@ namespace {
       typeOut = this->type->getType();
       return true;
     }
+    virtual EggProgramNodeFlags prepare(EggProgramContext& execution) override {
+      return execution.unimplemented(__FUNCTION__);
+    }
     virtual egg::lang::Value execute(EggProgramContext& execution) const override {
       return execution.raiseFormat("Internal parser error: Inappropriate 'execute' call for 'catch' statement");
     }
@@ -358,6 +380,9 @@ namespace {
   public:
     explicit EggParserNode_Continue(const egg::lang::LocationSource& locationSource)
       : EggParserNodeBase(locationSource) {
+    }
+    virtual EggProgramNodeFlags prepare(EggProgramContext& execution) override {
+      return execution.unimplemented(__FUNCTION__);
     }
     virtual egg::lang::Value execute(EggProgramContext& context) const override {
       return context.executeContinue(*this);
@@ -376,6 +401,9 @@ namespace {
       : EggParserNodeBase(locationSource), condition(condition), block(block) {
       assert(condition != nullptr);
       assert(block != nullptr);
+    }
+    virtual EggProgramNodeFlags prepare(EggProgramContext& execution) override {
+      return execution.unimplemented(__FUNCTION__);
     }
     virtual egg::lang::Value execute(EggProgramContext& context) const override {
       return context.executeDo(*this, *this->condition, *this->block);
@@ -401,6 +429,9 @@ namespace {
       // A symbol may be declared in the condition
       return this->condition->symbol(nameOut, typeOut);
     }
+    virtual EggProgramNodeFlags prepare(EggProgramContext& execution) override {
+      return execution.unimplemented(__FUNCTION__);
+    }
     virtual egg::lang::Value execute(EggProgramContext& context) const override {
       return context.executeIf(*this, *this->condition, *this->trueBlock, this->falseBlock.get());
     }
@@ -424,6 +455,9 @@ namespace {
     virtual bool symbol(egg::lang::String& nameOut, egg::lang::ITypeRef& typeOut) const override {
       // A symbol may be declared in the first clause
       return (this->pre != nullptr) && this->pre->symbol(nameOut, typeOut);
+    }
+    virtual EggProgramNodeFlags prepare(EggProgramContext& execution) override {
+      return execution.unimplemented(__FUNCTION__);
     }
     virtual egg::lang::Value execute(EggProgramContext& context) const override {
       return context.executeFor(*this, this->pre.get(), this->cond.get(), this->post.get(), *this->block);
@@ -449,6 +483,9 @@ namespace {
       // A symbol may be declared in the target
       return this->target->symbol(nameOut, typeOut);
     }
+    virtual EggProgramNodeFlags prepare(EggProgramContext& execution) override {
+      return execution.unimplemented(__FUNCTION__);
+    }
     virtual egg::lang::Value execute(EggProgramContext& context) const override {
       return context.executeForeach(*this, *this->target, *this->expr, *this->block);
     }
@@ -473,6 +510,9 @@ namespace {
       typeOut = this->type;
       return true;
     }
+    virtual EggProgramNodeFlags prepare(EggProgramContext& execution) override {
+      return execution.unimplemented(__FUNCTION__);
+    }
     virtual egg::lang::Value execute(EggProgramContext& context) const override {
       return context.executeFunctionDefinition(*this, this->name, *this->type, this->block);
     }
@@ -496,6 +536,9 @@ namespace {
       typeOut = this->type;
       return this->optional;
     }
+    virtual EggProgramNodeFlags prepare(EggProgramContext& execution) override {
+      return execution.unimplemented(__FUNCTION__);
+    }
     virtual egg::lang::Value execute(EggProgramContext& execution) const override {
       return execution.raiseFormat("Internal parser error: Inappropriate 'execute' call for function parameter");
     }
@@ -510,6 +553,9 @@ namespace {
   public:
     EggParserNode_Return(const egg::lang::LocationSource& locationSource, const std::shared_ptr<IEggProgramNode>& expr = nullptr)
       : EggParserNodeBase(locationSource), expr(expr) {
+    }
+    virtual EggProgramNodeFlags prepare(EggProgramContext& execution) override {
+      return execution.unimplemented(__FUNCTION__);
     }
     virtual egg::lang::Value execute(EggProgramContext& context) const override {
       return context.executeReturn(*this, this->expr.get());
@@ -527,6 +573,9 @@ namespace {
     explicit EggParserNode_Case(const egg::lang::LocationSource& locationSource)
       : EggParserNodeBase(locationSource), block(std::make_shared<EggParserNode_Block>(locationSource)) {
       assert(this->block != nullptr);
+    }
+    virtual EggProgramNodeFlags prepare(EggProgramContext& execution) override {
+      return execution.unimplemented(__FUNCTION__);
     }
     virtual egg::lang::Value execute(EggProgramContext& context) const override {
       // We actually want to execute the block of the 'case' statement
@@ -563,6 +612,9 @@ namespace {
     virtual bool symbol(egg::lang::String& nameOut, egg::lang::ITypeRef& typeOut) const override {
       // A symbol may be declared in the expression
       return this->expr->symbol(nameOut, typeOut);
+    }
+    virtual EggProgramNodeFlags prepare(EggProgramContext& execution) override {
+      return execution.unimplemented(__FUNCTION__);
     }
     virtual egg::lang::Value execute(EggProgramContext& context) const override {
       return context.executeSwitch(*this, *this->expr, this->defaultIndex, this->child);
@@ -606,6 +658,9 @@ namespace {
     explicit EggParserNode_Throw(const egg::lang::LocationSource& locationSource, const std::shared_ptr<IEggProgramNode>& expr = nullptr)
       : EggParserNodeBase(locationSource), expr(expr) {
     }
+    virtual EggProgramNodeFlags prepare(EggProgramContext& execution) override {
+      return execution.unimplemented(__FUNCTION__);
+    }
     virtual egg::lang::Value execute(EggProgramContext& context) const override {
       return context.executeThrow(*this, this->expr.get());
     }
@@ -623,6 +678,9 @@ namespace {
     EggParserNode_Try(const egg::lang::LocationSource& locationSource, const std::shared_ptr<IEggProgramNode>& block)
       : EggParserNodeBase(locationSource), block(block) {
       assert(block != nullptr);
+    }
+    virtual EggProgramNodeFlags prepare(EggProgramContext& execution) override {
+      return execution.unimplemented(__FUNCTION__);
     }
     virtual egg::lang::Value execute(EggProgramContext& context) const override {
       return context.executeTry(*this, *this->block, this->catches, this->final.get());
@@ -653,6 +711,9 @@ namespace {
       // A symbol may be declared in the expression
       return this->expr->symbol(nameOut, typeOut);
     }
+    virtual EggProgramNodeFlags prepare(EggProgramContext& execution) override {
+      return execution.unimplemented(__FUNCTION__);
+    }
     virtual egg::lang::Value execute(EggProgramContext& context) const override {
       return context.executeUsing(*this, *this->expr, *this->block);
     }
@@ -675,6 +736,9 @@ namespace {
       // A symbol may be declared in the condition
       return this->condition->symbol(nameOut, typeOut);
     }
+    virtual EggProgramNodeFlags prepare(EggProgramContext& execution) override {
+      return execution.unimplemented(__FUNCTION__);
+    }
     virtual egg::lang::Value execute(EggProgramContext& context) const override {
       return context.executeWhile(*this, *this->condition, *this->block);
     }
@@ -690,6 +754,9 @@ namespace {
     EggParserNode_Yield(const egg::lang::LocationSource& locationSource, const std::shared_ptr<IEggProgramNode>& expr)
       : EggParserNodeBase(locationSource), expr(expr) {
       assert(expr != nullptr);
+    }
+    virtual EggProgramNodeFlags prepare(EggProgramContext& execution) override {
+      return execution.unimplemented(__FUNCTION__);
     }
     virtual egg::lang::Value execute(EggProgramContext& context) const override {
       return context.executeYield(*this, *this->expr);
@@ -714,6 +781,9 @@ namespace {
       typeOut = this->expr->getType();
       return true;
     }
+    virtual EggProgramNodeFlags prepare(EggProgramContext& execution) override {
+      return execution.unimplemented(__FUNCTION__);
+    }
     virtual egg::lang::Value execute(EggProgramContext& context) const override {
       // The name has already been extracted via 'symbol' so just propagate the value
       return this->expr->execute(context);
@@ -732,6 +802,9 @@ namespace {
     }
     virtual egg::lang::ITypeRef getType() const override {
       return egg::lang::ITypeRef(&EggProgram::VanillaArray);
+    }
+    virtual EggProgramNodeFlags prepare(EggProgramContext& execution) override {
+      return execution.unimplemented(__FUNCTION__);
     }
     virtual egg::lang::Value execute(EggProgramContext& context) const override {
       return context.executeArray(*this, this->child);
@@ -754,6 +827,9 @@ namespace {
     virtual egg::lang::ITypeRef getType() const override {
       return egg::lang::ITypeRef(&EggProgram::VanillaObject);
     }
+    virtual EggProgramNodeFlags prepare(EggProgramContext& execution) override {
+      return execution.unimplemented(__FUNCTION__);
+    }
     virtual egg::lang::Value execute(EggProgramContext& context) const override {
       return context.executeObject(*this, this->child);
     }
@@ -773,6 +849,9 @@ namespace {
     EggParserNode_Call(const egg::lang::LocationSource& locationSource, const std::shared_ptr<IEggProgramNode>& callee)
       : EggParserNodeBase(locationSource), callee(callee) {
       assert(callee != nullptr);
+    }
+    virtual EggProgramNodeFlags prepare(EggProgramContext& execution) override {
+      return execution.unimplemented(__FUNCTION__);
     }
     virtual egg::lang::Value execute(EggProgramContext& context) const override {
       return context.executeCall(*this, *this->callee, this->child);
@@ -794,7 +873,10 @@ namespace {
       : EggParserNodeBase(locationSource), tag(tag) {
     }
     // TODO virtual egg::lang::ITypeRef getType() const override;
-    virtual egg::lang::Value execute(EggProgramContext& context) const override {
+      virtual EggProgramNodeFlags prepare(EggProgramContext& execution) override {
+        return execution.unimplemented(__FUNCTION__);
+      }
+      virtual egg::lang::Value execute(EggProgramContext& context) const override {
       return context.executeCast(*this, this->tag, this->child);
     }
     virtual void dump(std::ostream& os) const override {
@@ -811,6 +893,9 @@ namespace {
   public:
     EggParserNode_Identifier(const egg::lang::LocationSource& locationSource, const egg::lang::String& name)
       : EggParserNodeBase(locationSource), name(name) {
+    }
+    virtual EggProgramNodeFlags prepare(EggProgramContext& execution) override {
+      return execution.unimplemented(__FUNCTION__);
     }
     virtual egg::lang::Value execute(EggProgramContext& context) const override {
       return context.executeIdentifier(*this, this->name);
@@ -831,6 +916,9 @@ namespace {
     virtual egg::lang::ITypeRef getType() const override {
       return egg::lang::Type::Null;
     }
+    virtual EggProgramNodeFlags prepare(EggProgramContext& execution) override {
+      return execution.unimplemented(__FUNCTION__);
+    }
     virtual egg::lang::Value execute(EggProgramContext& context) const override {
       return context.executeLiteral(*this, egg::lang::Value::Null);
     }
@@ -848,6 +936,9 @@ namespace {
     }
     virtual egg::lang::ITypeRef getType() const override {
       return egg::lang::Type::Bool;
+    }
+    virtual EggProgramNodeFlags prepare(EggProgramContext& execution) override {
+      return execution.unimplemented(__FUNCTION__);
     }
     virtual egg::lang::Value execute(EggProgramContext& context) const override {
       return context.executeLiteral(*this, egg::lang::Value(this->value));
@@ -867,6 +958,9 @@ namespace {
     virtual egg::lang::ITypeRef getType() const override {
       return egg::lang::Type::Int;
     }
+    virtual EggProgramNodeFlags prepare(EggProgramContext& execution) override {
+      return execution.unimplemented(__FUNCTION__);
+    }
     virtual egg::lang::Value execute(EggProgramContext& context) const override {
       return context.executeLiteral(*this, egg::lang::Value(this->value));
     }
@@ -884,6 +978,9 @@ namespace {
     }
     virtual egg::lang::ITypeRef getType() const override {
       return egg::lang::Type::Float;
+    }
+    virtual EggProgramNodeFlags prepare(EggProgramContext& execution) override {
+      return execution.unimplemented(__FUNCTION__);
     }
     virtual egg::lang::Value execute(EggProgramContext& context) const override {
       return context.executeLiteral(*this, egg::lang::Value(this->value));
@@ -903,6 +1000,9 @@ namespace {
     virtual egg::lang::ITypeRef getType() const override {
       return egg::lang::Type::String;
     }
+    virtual EggProgramNodeFlags prepare(EggProgramContext& execution) override {
+      return execution.unimplemented(__FUNCTION__);
+    }
     virtual egg::lang::Value execute(EggProgramContext& context) const override {
       return context.executeLiteral(*this, egg::lang::Value(this->value));
     }
@@ -920,6 +1020,9 @@ namespace {
       assert(expr != nullptr);
     }
   public:
+    virtual EggProgramNodeFlags prepare(EggProgramContext& execution) override {
+      return execution.unimplemented(__FUNCTION__);
+    }
     virtual egg::lang::Value execute(EggProgramContext& context) const override {
       return context.executeUnary(*this, this->op, *this->expr);
     }
@@ -949,6 +1052,9 @@ namespace {
       assert(rhs != nullptr);
     }
   public:
+    virtual EggProgramNodeFlags prepare(EggProgramContext& execution) override {
+      return execution.unimplemented(__FUNCTION__);
+    }
     virtual egg::lang::Value execute(EggProgramContext& context) const override {
       return context.executeBinary(*this, this->op, *this->lhs, *this->rhs);
     }
@@ -990,6 +1096,9 @@ namespace {
       assert(whenTrue != nullptr);
       assert(whenFalse != nullptr);
     }
+    virtual EggProgramNodeFlags prepare(EggProgramContext& execution) override {
+      return execution.unimplemented(__FUNCTION__);
+    }
     virtual egg::lang::Value execute(EggProgramContext& context) const override {
       return context.executeTernary(*this, *this->condition, *this->whenTrue, *this->whenFalse);
     }
@@ -1010,6 +1119,9 @@ namespace {
       assert(rhs != nullptr);
     }
   public:
+    virtual EggProgramNodeFlags prepare(EggProgramContext& execution) override {
+      return execution.unimplemented(__FUNCTION__);
+    }
     virtual egg::lang::Value execute(EggProgramContext& context) const override {
       return context.executeAssign(*this, this->op, *this->lhs, *this->rhs);
     }

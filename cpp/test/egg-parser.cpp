@@ -3,6 +3,7 @@
 #include "egg-tokenizer.h"
 #include "egg-syntax.h"
 #include "egg-parser.h"
+#include "egg-engine.h"
 #include "egg-program.h"
 
 using namespace egg::yolk;

@@ -21,7 +21,9 @@
   <ItemGroup>
     <ClCompile Include="..\cpp\builtins.cpp" />
     <ClCompile Include="..\cpp\egg-engine.cpp" />
+    <ClCompile Include="..\cpp\egg-execute.cpp" />
     <ClCompile Include="..\cpp\egg-parser.cpp" />
+    <ClCompile Include="..\cpp\egg-prepare.cpp" />
     <ClCompile Include="..\cpp\egg-program.cpp" />
     <ClCompile Include="..\cpp\egg-syntax.cpp" />
     <ClCompile Include="..\cpp\egg-tokenizer.cpp" />

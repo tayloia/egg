@@ -62,8 +62,7 @@ namespace {
       : program(root) {
     }
     virtual egg::lang::LogSeverity prepare(IEggEnginePreparationContext& preparation) override {
-      preparation.log(egg::lang::LogSource::Compiler, egg::lang::LogSeverity::Error, "Unnecessary program preparation");
-      return egg::lang::LogSeverity::Error;
+      return this->program.prepare(preparation);
     }
     virtual egg::lang::LogSeverity execute(IEggEngineExecutionContext& execution) override {
       return this->program.execute(execution);
@@ -84,10 +83,10 @@ namespace {
         preparation.log(egg::lang::LogSource::Compiler, egg::lang::LogSeverity::Error, "Program prepared more than once");
         return egg::lang::LogSeverity::Error;
       }
-      return captureExceptions(egg::lang::LogSource::Compiler, preparation, [this]{
+      return captureExceptions(egg::lang::LogSource::Compiler, preparation, [this, &preparation]{
         auto root = EggParserFactory::parseModule(*this->stream);
         this->program = std::make_unique<EggProgram>(root);
-        return egg::lang::LogSeverity::None;
+        return this->program->prepare(preparation);
       });
     }
     virtual egg::lang::LogSeverity execute(IEggEngineExecutionContext& execution) override {

@@ -3,8 +3,8 @@
 #include "egg-tokenizer.h"
 #include "egg-syntax.h"
 #include "egg-parser.h"
-#include "egg-program.h"
 #include "egg-engine.h"
+#include "egg-program.h"
 
 namespace {
   class VanillaBase : public egg::gc::HardReferenceCounted<egg::lang::IObject> {
@@ -226,7 +226,7 @@ namespace {
   class VanillaDictionaryIteratorType : public VanillaIteratorBase {
   public:
     virtual const egg::lang::ISignature* callable(egg::lang::IExecution&) const override {
-      return nullptr; // WIBBLE
+      return nullptr; // WIBBLE why isn't this called?
     }
   };
   const VanillaDictionaryIteratorType typeVanillaDictionaryIterator;
