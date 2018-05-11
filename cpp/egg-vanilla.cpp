@@ -44,17 +44,19 @@ namespace {
     virtual egg::lang::String toString() const override {
       return egg::lang::String::fromUTF8("<iterator>");
     }
+    // TODO iterable() for forEachRemaining() like Java?
     virtual egg::lang::Value promoteAssignment(egg::lang::IExecution& execution, const egg::lang::Value&) const override {
       return execution.raiseFormat("Cannot re-assign iterators"); // TODO
     }
+    static const VanillaIteratorType instance;
   };
-  const VanillaIteratorType typeVanillaIterator;
+  const VanillaIteratorType VanillaIteratorType::instance{};
 
   class VanillaIteratorBase : public VanillaBase {
     EGG_NO_COPY(VanillaIteratorBase);
   public:
     VanillaIteratorBase()
-      : VanillaBase("Iterator", typeVanillaIterator) {
+      : VanillaBase("Iterator", VanillaIteratorType::instance) {
     }
     virtual egg::lang::Value toString() const override {
       return egg::lang::Value{ this->type->toString() };
@@ -72,11 +74,16 @@ namespace {
     virtual egg::lang::String toString() const override {
       return egg::lang::String::fromUTF8("<keyvalue>");
     }
+    virtual const egg::lang::IType* iterable() const override {
+      // A keyvalue is a dictionary of two elements, so it is itself iterable
+      return &VanillaKeyValueType::instance;
+    }
     virtual egg::lang::Value promoteAssignment(egg::lang::IExecution& execution, const egg::lang::Value&) const override {
       return execution.raiseFormat("Cannot re-assign key-values"); // TODO
     }
+    static const VanillaKeyValueType instance;
   };
-  const VanillaKeyValueType typeVanillaKeyValue;
+  const VanillaKeyValueType VanillaKeyValueType::instance{};
 
   class VanillaKeyValue : public VanillaBase {
     EGG_NO_COPY(VanillaKeyValue);
@@ -85,7 +92,7 @@ namespace {
     egg::lang::Value value;
   public:
     VanillaKeyValue(const egg::lang::Value& key, const egg::lang::Value& value)
-      : VanillaBase("Key-value", typeVanillaKeyValue), key(key), value(value) {
+      : VanillaBase("Key-value", VanillaKeyValueType::instance), key(key), value(value) {
     }
     explicit VanillaKeyValue(const std::pair<egg::lang::String, egg::lang::Value>& keyvalue)
       : VanillaKeyValue(egg::lang::Value{ keyvalue.first }, keyvalue.second) {
@@ -116,11 +123,16 @@ namespace {
     virtual egg::lang::String toString() const override {
       return egg::lang::String::fromUTF8("any?[]");
     }
+    virtual const egg::lang::IType* iterable() const override {
+      // Iterating an array returns the elements
+      return egg::lang::Type::AnyQ.get();
+    }
     virtual egg::lang::Value promoteAssignment(egg::lang::IExecution& execution, const egg::lang::Value&) const override {
       return execution.raiseFormat("Cannot re-assign arrays"); // TODO
     }
+    static const VanillaArrayType instance;
   };
-  const VanillaArrayType typeVanillaArray;
+  const VanillaArrayType VanillaArrayType::instance{};
 
   class VanillaArray : public VanillaBase {
     EGG_NO_COPY(VanillaArray);
@@ -128,7 +140,7 @@ namespace {
     std::vector<egg::lang::Value> values;
   public:
     VanillaArray()
-      : VanillaBase("Array", typeVanillaArray) {
+      : VanillaBase("Array", VanillaArrayType::instance) {
     }
     virtual egg::lang::Value toString() const override {
       if (this->values.empty()) {
@@ -289,17 +301,22 @@ namespace {
     virtual egg::lang::String toString() const override {
       return egg::lang::String::fromUTF8("any?{string}");
     }
+    virtual const egg::lang::IType* iterable() const override {
+      // Iterating an object, returns the dictionary keyvalue pairs
+      return &VanillaKeyValueType::instance;
+    }
     virtual egg::lang::Value promoteAssignment(egg::lang::IExecution& execution, const egg::lang::Value&) const override {
       return execution.raiseFormat("Cannot re-assign objects"); // TODO
     }
+    static const VanillaObjectType instance;
   };
-  const VanillaObjectType typeVanillaObject;
+  const VanillaObjectType VanillaObjectType::instance{};
 
   class VanillaObject : public VanillaDictionary {
     EGG_NO_COPY(VanillaObject);
   public:
     VanillaObject()
-      : VanillaDictionary("Object", typeVanillaObject) {
+      : VanillaDictionary("Object", VanillaObjectType::instance) {
     }
   };
 
@@ -308,11 +325,16 @@ namespace {
     virtual egg::lang::String toString() const override {
       return egg::lang::String::fromUTF8("<exception>");
     }
+    virtual const egg::lang::IType* iterable() const override {
+      // Iterating an exception, returns the dictionary keyvalue pairs
+      return &VanillaKeyValueType::instance;
+    }
     virtual egg::lang::Value promoteAssignment(egg::lang::IExecution& execution, const egg::lang::Value&) const override {
       return execution.raiseFormat("Cannot re-assign exceptions");
     }
+    static const VanillaExceptionType instance;
   };
-  const VanillaExceptionType typeVanillaException{};
+  const VanillaExceptionType VanillaExceptionType::instance{};
 
   class VanillaException : public VanillaDictionary {
     EGG_NO_COPY(VanillaException);
@@ -321,7 +343,7 @@ namespace {
     static const egg::lang::String keyLocation;
   public:
     explicit VanillaException(const egg::lang::LocationRuntime& location, const egg::lang::String& message)
-      : VanillaDictionary("Exception", typeVanillaException) {
+      : VanillaDictionary("Exception", VanillaExceptionType::instance) {
       this->dictionary.addOrUpdate(keyMessage, egg::lang::Value{ message });
       this->dictionary.addOrUpdate(keyLocation, egg::lang::Value{ location.toSourceString() }); // TODO use toRuntimeString
     }
@@ -344,9 +366,9 @@ namespace {
 }
 
 // Vanilla types
-const egg::lang::IType& egg::yolk::EggProgram::VanillaArray = typeVanillaArray;
-const egg::lang::IType& egg::yolk::EggProgram::VanillaObject = typeVanillaObject;
-const egg::lang::IType& egg::yolk::EggProgram::VanillaException = typeVanillaException;
+const egg::lang::IType& egg::yolk::EggProgram::VanillaArray = VanillaArrayType::instance;
+const egg::lang::IType& egg::yolk::EggProgram::VanillaObject = VanillaObjectType::instance;
+const egg::lang::IType& egg::yolk::EggProgram::VanillaException = VanillaExceptionType::instance;
 
 egg::lang::Value egg::yolk::EggProgramContext::raise(const egg::lang::String& message) {
   auto exception = egg::lang::Value::make<VanillaException>(this->location, message);

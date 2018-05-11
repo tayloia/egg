@@ -338,8 +338,9 @@ namespace {
     virtual egg::lang::ITypeRef getType() const override {
       return this->type;
     }
-    virtual EggProgramNodeFlags prepare(EggProgramContext& context) override {
-      return context.compilerError(this->locationSource, "Internal parser error: Inappropriate 'prepare' call for 'type' node");
+    virtual EggProgramNodeFlags prepare(EggProgramContext&) override {
+      // Nothing to do: we're just a holder for the type
+      return EggProgramNodeFlags::None;
     }
     virtual egg::lang::Value execute(EggProgramContext& context) const override {
       return context.raiseFormat("Internal parser error: Inappropriate 'execute' call for 'type' node");
@@ -434,7 +435,7 @@ namespace {
       return true;
     }
     virtual EggProgramNodeFlags prepare(EggProgramContext& context) override {
-      return context.compilerError(this->locationSource, "Internal parser error: Inappropriate 'prepare' call for 'catch' statement");
+      return context.prepareCatch(this->name, *this->type, *this->block);
     }
     virtual egg::lang::Value execute(EggProgramContext& context) const override {
       return context.raiseFormat("Internal parser error: Inappropriate 'execute' call for 'catch' statement");

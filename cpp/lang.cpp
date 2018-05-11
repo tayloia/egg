@@ -966,6 +966,7 @@ const egg::lang::Type egg::lang::Type::Float{ typeFloat };
 const egg::lang::Type egg::lang::Type::String{ typeString };
 const egg::lang::Type egg::lang::Type::Arithmetic{ typeArithmetic };
 const egg::lang::Type egg::lang::Type::Any{ *Type::make<TypeSimple>(egg::lang::Discriminator::Any) };
+const egg::lang::Type egg::lang::Type::AnyQ{ *Type::make<TypeSimple>(egg::lang::Discriminator::Any | egg::lang::Discriminator::Null) };
 
 // Constants
 const egg::lang::IString& egg::lang::String::emptyBuffer = stringEmpty;
