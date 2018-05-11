@@ -1,13 +1,13 @@
-for (var a : "") {
-  print(a);
+for (var i : "") {
+  print(i);
 }
-for (var b : []) {
-  print(b);
+for (var i : []) {
+  print(i);
 }
-for (var c : {}) {
-  print(c);
+for (var i : {}) {
+  print(i);
 }
-for (var d : 123) {
-  print(d);
+for (var i : 123) {
+  print(i);
 }
 ///<COMPILER><ERROR><RESOURCE>(10,14): Expression after the ':' in 'for' statement is not iterable: 'int'

@@ -1,3 +1,3 @@
 int f = 42.0;
 print(f);
-///<RUNTIME><ERROR><RESOURCE>(1,5): Cannot promote a value of type 'float' to a target of type 'int'
+///<RUNTIME><ERROR><RESOURCE>(1,5): Cannot assign a value of type 'float' to a target of type 'int'

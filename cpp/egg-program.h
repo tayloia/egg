@@ -205,7 +205,9 @@ namespace egg::yolk {
     EggProgramNodeFlags prepareTernary(IEggProgramNode& cond, IEggProgramNode& whenTrue, IEggProgramNode& whenFalse);
   private:
     bool findDuplicateSymbols(const std::vector<std::shared_ptr<IEggProgramNode>>& statements);
+    EggProgramNodeFlags prepareScope(const IEggProgramNode* node, std::function<EggProgramNodeFlags(EggProgramContext&)> action);
     EggProgramNodeFlags prepareStatements(const std::vector<std::shared_ptr<IEggProgramNode>>& statements);
+    egg::lang::Value executeScope(const IEggProgramNode* node, std::function<egg::lang::Value(EggProgramContext&)> action);
     egg::lang::Value executeStatements(const std::vector<std::shared_ptr<IEggProgramNode>>& statements);
     egg::lang::Value executeFinally(const egg::lang::Value& retval, const IEggProgramNode* block);
     egg::lang::Value executeForeachString(IEggProgramAssignee& target, const egg::lang::String& source, const IEggProgramNode& block);

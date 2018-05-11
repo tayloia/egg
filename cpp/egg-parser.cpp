@@ -428,12 +428,6 @@ namespace {
       assert(type != nullptr);
       assert(block != nullptr);
     }
-    virtual bool symbol(egg::lang::String& nameOut, egg::lang::ITypeRef& typeOut) const override {
-      // A symbol is always declared in a catch clause
-      nameOut = this->name;
-      typeOut = this->type->getType();
-      return true;
-    }
     virtual EggProgramNodeFlags prepare(EggProgramContext& context) override {
       return context.prepareCatch(this->name, *this->type, *this->block);
     }
@@ -498,10 +492,6 @@ namespace {
       assert(trueBlock != nullptr);
       // falseBlock may be null if the 'else' clause is missing
     }
-    virtual bool symbol(egg::lang::String& nameOut, egg::lang::ITypeRef& typeOut) const override {
-      // A symbol may be declared in the condition
-      return this->condition->symbol(nameOut, typeOut);
-    }
     virtual EggProgramNodeFlags prepare(EggProgramContext& context) override {
       return context.prepareIf(*this->condition, *this->trueBlock, this->falseBlock.get());
     }
@@ -525,10 +515,6 @@ namespace {
       // pre/cond/post may be null
       assert(block != nullptr);
     }
-    virtual bool symbol(egg::lang::String& nameOut, egg::lang::ITypeRef& typeOut) const override {
-      // A symbol may be declared in the first clause
-      return (this->pre != nullptr) && this->pre->symbol(nameOut, typeOut);
-    }
     virtual EggProgramNodeFlags prepare(EggProgramContext& context) override {
       return context.prepareFor(this->pre.get(), this->cond.get(), this->post.get(), *this->block);
     }
@@ -551,10 +537,6 @@ namespace {
       assert(target != nullptr);
       assert(expr != nullptr);
       assert(block != nullptr);
-    }
-    virtual bool symbol(egg::lang::String& nameOut, egg::lang::ITypeRef& typeOut) const override {
-      // A symbol may be declared in the target
-      return this->target->symbol(nameOut, typeOut);
     }
     virtual EggProgramNodeFlags prepare(EggProgramContext& context) override {
       return context.prepareForeach(*this->target, *this->expr, *this->block);
@@ -682,10 +664,6 @@ namespace {
       : EggParserNodeBase(locationSource), expr(expr), defaultIndex(-1) {
       assert(expr != nullptr);
     }
-    virtual bool symbol(egg::lang::String& nameOut, egg::lang::ITypeRef& typeOut) const override {
-      // A symbol may be declared in the expression
-      return this->expr->symbol(nameOut, typeOut);
-    }
     virtual EggProgramNodeFlags prepare(EggProgramContext& context) override {
       return context.prepareSwitch(*this->expr, this->defaultIndex, this->child);
     }
@@ -780,10 +758,6 @@ namespace {
       assert(expr != nullptr);
       assert(block != nullptr);
     }
-    virtual bool symbol(egg::lang::String& nameOut, egg::lang::ITypeRef& typeOut) const override {
-      // A symbol may be declared in the expression
-      return this->expr->symbol(nameOut, typeOut);
-    }
     virtual EggProgramNodeFlags prepare(EggProgramContext& context) override {
       return context.prepareUsing(*this->expr, *this->block);
     }
@@ -804,10 +778,6 @@ namespace {
       : EggParserNodeBase(locationSource), condition(condition), block(block) {
       assert(condition != nullptr);
       assert(block != nullptr);
-    }
-    virtual bool symbol(egg::lang::String& nameOut, egg::lang::ITypeRef& typeOut) const override {
-      // A symbol may be declared in the condition
-      return this->condition->symbol(nameOut, typeOut);
     }
     virtual EggProgramNodeFlags prepare(EggProgramContext& context) override {
       return context.prepareWhile(*this->condition, *this->block);

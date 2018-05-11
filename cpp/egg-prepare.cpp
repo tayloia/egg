@@ -28,6 +28,20 @@ namespace {
   };
 }
 
+egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareScope(const IEggProgramNode* node, std::function<EggProgramNodeFlags(EggProgramContext&)> action) {
+  egg::lang::String name;
+  egg::lang::ITypeRef type{ egg::lang::Type::Void };
+  if ((node != nullptr) && node->symbol(name, type)) {
+    // Perform the action with a new scope containing our symbol
+    EggProgramSymbolTable nested(this->symtable);
+    nested.addSymbol(name, *type);
+    EggProgramContext context(*this, nested);
+    return action(context);
+  }
+  // Just perform the action in the current scope
+  return action(*this);
+}
+
 egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareStatements(const std::vector<std::shared_ptr<IEggProgramNode>>& statements) {
   // Prepare all the statements one after another
   egg::lang::String name;
@@ -112,40 +126,46 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareDo(IEggProgr
 
 egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareIf(IEggProgramNode& cond, IEggProgramNode& trueBlock, IEggProgramNode* falseBlock) {
   // TODO
-  if (abandoned(cond.prepare(*this)) || abandoned(trueBlock.prepare(*this))) {
-    return EggProgramNodeFlags::Abandon;
-  }
-  if (falseBlock != nullptr) {
-    return falseBlock->prepare(*this);
-  }
-  return EggProgramNodeFlags::None;
+  return this->prepareScope(&cond, [&](EggProgramContext& scope) {
+    if (abandoned(cond.prepare(scope)) || abandoned(trueBlock.prepare(scope))) {
+      return EggProgramNodeFlags::Abandon;
+    }
+    if (falseBlock != nullptr) {
+      return falseBlock->prepare(scope);
+    }
+    return EggProgramNodeFlags::None;
+  });
 }
 
 egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareFor(IEggProgramNode* pre, IEggProgramNode* cond, IEggProgramNode* post, IEggProgramNode& block) {
   // TODO
-  if ((pre != nullptr) && abandoned(pre->prepare(*this))) {
-    return EggProgramNodeFlags::Abandon;
-  }
-  if ((cond != nullptr) && abandoned(cond->prepare(*this))) {
-    return EggProgramNodeFlags::Abandon;
-  }
-  if ((post != nullptr) && abandoned(post->prepare(*this))) {
-    return EggProgramNodeFlags::Abandon;
-  }
-  return block.prepare(*this);
+  return this->prepareScope(pre, [&](EggProgramContext& scope) {
+    if ((pre != nullptr) && abandoned(pre->prepare(scope))) {
+      return EggProgramNodeFlags::Abandon;
+    }
+    if ((cond != nullptr) && abandoned(cond->prepare(scope))) {
+      return EggProgramNodeFlags::Abandon;
+    }
+    if ((post != nullptr) && abandoned(post->prepare(scope))) {
+      return EggProgramNodeFlags::Abandon;
+    }
+    return block.prepare(scope);
+  });
 }
 
 egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareForeach(IEggProgramNode& lvalue, IEggProgramNode& rvalue, IEggProgramNode& block) {
   // TODO
-  if (abandoned(rvalue.prepare(*this)) || abandoned(lvalue.prepare(*this))) {
-    return EggProgramNodeFlags::Abandon;
-  }
-  auto type = rvalue.getType();
-  auto* iterable = type->iterable();
-  if (iterable == nullptr) {
-    return this->compilerError(rvalue.location(), "Expression after the ':' in 'for' statement is not iterable: '", type->toString(), "'");
-  }
-  return block.prepare(*this);
+  return this->prepareScope(&lvalue, [&](EggProgramContext& scope) {
+    if (abandoned(rvalue.prepare(scope)) || abandoned(lvalue.prepare(scope))) {
+      return EggProgramNodeFlags::Abandon;
+    }
+    auto type = rvalue.getType();
+    auto* iterable = type->iterable();
+    if (iterable == nullptr) {
+      return scope.compilerError(rvalue.location(), "Expression after the ':' in 'for' statement is not iterable: '", type->toString(), "'");
+    }
+    return block.prepare(scope);
+  });
 }
 
 egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareFunctionDefinition(const egg::lang::String& name, const egg::lang::IType& type, const std::shared_ptr<IEggProgramNode>& block) {
@@ -183,15 +203,17 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareCase(const s
 egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareSwitch(IEggProgramNode& value, int64_t defaultIndex, const std::vector<std::shared_ptr<IEggProgramNode>>& cases) {
   // TODO
   (void)defaultIndex; // WIBBLE
-  if (abandoned(value.prepare(*this))) {
-    return EggProgramNodeFlags::Abandon;
-  }
-  for (auto& i : cases) {
-    if (abandoned(i->prepare(*this))) {
+  return this->prepareScope(&value, [&](EggProgramContext& scope) {
+    if (abandoned(value.prepare(scope))) {
       return EggProgramNodeFlags::Abandon;
     }
-  }
-  return EggProgramNodeFlags::None;
+    for (auto& i : cases) {
+      if (abandoned(i->prepare(scope))) {
+        return EggProgramNodeFlags::Abandon;
+      }
+    }
+    return EggProgramNodeFlags::None;
+  });
 }
 
 egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareThrow(IEggProgramNode* exception) {
@@ -220,18 +242,22 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareTry(IEggProg
 
 egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareUsing(IEggProgramNode& value, IEggProgramNode& block) {
   // TODO
-  if (abandoned(value.prepare(*this))) {
-    return EggProgramNodeFlags::Abandon;
-  }
-  return block.prepare(*this);
+  return this->prepareScope(&value, [&](EggProgramContext& scope) {
+    if (abandoned(value.prepare(scope))) {
+      return EggProgramNodeFlags::Abandon;
+    }
+    return block.prepare(scope);
+  });
 }
 
 egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareWhile(IEggProgramNode& cond, IEggProgramNode& block) {
   // TODO
-  if (abandoned(cond.prepare(*this))) {
-    return EggProgramNodeFlags::Abandon;
-  }
-  return block.prepare(*this);
+  return this->prepareScope(&cond, [&](EggProgramContext& scope) {
+    if (abandoned(cond.prepare(scope))) {
+      return EggProgramNodeFlags::Abandon;
+    }
+    return block.prepare(scope);
+  });
 }
 
 egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareYield(IEggProgramNode& value) {

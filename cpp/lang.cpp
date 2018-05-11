@@ -12,7 +12,7 @@ namespace {
       // We allow type promotion int->float
       return Value(double(rhs.getInt())); // TODO overflows?
     }
-    return execution.raiseFormat("Cannot promote a value of type '", rhs.getRuntimeType().toString(), "' to a target of type '", Value::getTagString(lhs), "'");
+    return execution.raiseFormat("Cannot assign a value of type '", rhs.getRuntimeType().toString(), "' to a target of type '", Value::getTagString(lhs), "'");
   }
 
   Value castString(const IParameters& parameters) {
