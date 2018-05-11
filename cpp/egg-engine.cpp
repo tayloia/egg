@@ -57,14 +57,24 @@ namespace {
   class EggEngineParsed : public IEggEngine {
   private:
     EggProgram program;
+    bool prepared;
   public:
     explicit EggEngineParsed(const std::shared_ptr<IEggProgramNode>& root)
-      : program(root) {
+      : program(root), prepared(false) {
     }
     virtual egg::lang::LogSeverity prepare(IEggEnginePreparationContext& preparation) override {
+      if (this->prepared) {
+        preparation.log(egg::lang::LogSource::Compiler, egg::lang::LogSeverity::Error, "Program prepared more than once");
+        return egg::lang::LogSeverity::Error;
+      }
+      this->prepared = true;
       return this->program.prepare(preparation);
     }
     virtual egg::lang::LogSeverity execute(IEggEngineExecutionContext& execution) override {
+      if (!this->prepared) {
+        execution.log(egg::lang::LogSource::Runtime, egg::lang::LogSeverity::Error, "Program not prepared before execution");
+        return egg::lang::LogSeverity::Error;
+      }
       return this->program.execute(execution);
     }
   };

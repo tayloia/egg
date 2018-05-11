@@ -225,7 +225,7 @@ namespace {
 
   class VanillaDictionaryIteratorType : public VanillaIteratorBase {
   public:
-    virtual const egg::lang::ISignature* callable(egg::lang::IExecution&) const override {
+    virtual const egg::lang::ISignature* callable() const override {
       return nullptr; // WIBBLE why isn't this called?
     }
   };

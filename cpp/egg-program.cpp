@@ -7,7 +7,6 @@
 #include "egg-program.h"
 
 #include <cmath>
-#include <set>
 
 namespace {
   class EggProgramExpression {
@@ -390,16 +389,19 @@ bool egg::yolk::EggProgramContext::findDuplicateSymbols(const std::vector<std::s
   bool error = false;
   egg::lang::String name;
   auto type = egg::lang::Type::Void;
-  std::set<egg::lang::String> seen;
+  std::map<egg::lang::String, egg::lang::LocationSource> seen;
   for (auto& statement : statements) {
     if (statement->symbol(name, type)) {
-      if (!seen.insert(name).second) {
+      auto here = statement->location();
+      auto already = seen.emplace(std::make_pair(name, here));
+      if (!already.second) {
         // Already seen at this level
-        this->log(egg::lang::LogSource::Compiler, egg::lang::LogSeverity::Error, "Duplicate symbol declared at module level: '" + name.toUTF8() + "'");
+        this->compiler(egg::lang::LogSeverity::Error, here, "Duplicate symbol declared at module level: '", name, "'");
+        this->compiler(egg::lang::LogSeverity::Information, already.first->second, "Previous declaration was here");
         error = true;
       } else if (this->symtable->findSymbol(name) != nullptr) {
         // Seen at an enclosing level
-        this->log(egg::lang::LogSource::Compiler, egg::lang::LogSeverity::Warning, "Symbol name hides previously declared symbol in enclosing level: '" + name.toUTF8() + "'");
+        this->compilerWarning(statement->location(), "Symbol name hides previously declared symbol in enclosing level: '", name, "'");
       }
     }
   }

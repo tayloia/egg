@@ -67,8 +67,11 @@ namespace {
       auto root = EggParserFactory::parseModule(stream);
       auto engine = EggEngineFactory::createEngineFromParsed(root);
       auto logger = std::make_shared<TestLogger>(stream.getResourceName());
-      auto execution = EggEngineFactory::createExecutionContext(logger);
-      engine->execute(*execution);
+      auto preparation = EggEngineFactory::createPreparationContext(logger);
+      if (engine->prepare(*preparation) != egg::lang::LogSeverity::Error) {
+        auto execution = EggEngineFactory::createExecutionContext(logger);
+        engine->execute(*execution);
+      }
       return logger->logged;
     }
     static std::string expectation(TextStream& stream) {

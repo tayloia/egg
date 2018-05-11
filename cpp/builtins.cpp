@@ -82,7 +82,7 @@ namespace {
     virtual Value promoteAssignment(IExecution& execution, const Value&) const override {
       return this->raise(execution, "Cannot re-assign built-in function");
     }
-    virtual const ISignature* callable(IExecution&) const override {
+    virtual const ISignature* callable() const override {
       return &this->signature;
     }
     virtual String getName() const {

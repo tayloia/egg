@@ -136,9 +136,6 @@ egg::lang::Value egg::yolk::EggProgramContext::executeStatements(const std::vect
 
 egg::lang::Value egg::yolk::EggProgramContext::executeModule(const IEggProgramNode& self, const std::vector<std::shared_ptr<IEggProgramNode>>& statements) {
   this->statement(self);
-  if (this->findDuplicateSymbols(statements)) {
-    return this->raiseFormat("Execution halted due to previous errors");
-  }
   return this->executeStatements(statements);
 }
 
@@ -146,9 +143,6 @@ egg::lang::Value egg::yolk::EggProgramContext::executeBlock(const IEggProgramNod
   this->statement(self);
   EggProgramSymbolTable nested(this->symtable);
   EggProgramContext context(*this, nested);
-  if (context.findDuplicateSymbols(statements)) {
-    return this->raiseFormat("Execution halted due to previous errors");
-  }
   return context.executeStatements(statements);
 }
 
@@ -382,11 +376,11 @@ egg::lang::Value egg::yolk::EggProgramContext::executeFunctionDefinition(const I
 egg::lang::Value egg::yolk::EggProgramContext::executeFunctionCall(const egg::lang::IType& type, const egg::lang::IParameters& parameters, const IEggProgramNode& block) {
   // This actually calls a function
   EggProgramSymbolTable nested(this->symtable);
-  egg::lang::IType::Setter setter = [&](const egg::lang::String& k, const egg::lang::IType& t, const egg::lang::Value& v) {
+  egg::lang::IType::ExecuteParametersSetter setter = [&](const egg::lang::String& k, const egg::lang::IType& t, const egg::lang::Value& v) {
     auto retval = nested.addSymbol(k, t)->assign(*this, v);
     assert(!retval.has(egg::lang::Discriminator::FlowControl));
   };
-  auto retval = type.decantParameters(*this, parameters, setter);
+  auto retval = type.executeParameters(*this, parameters, setter);
   if (!retval.has(egg::lang::Discriminator::FlowControl)) {
     EggProgramContext context(*this, nested);
     retval = block.execute(context);

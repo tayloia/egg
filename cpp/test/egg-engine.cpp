@@ -43,8 +43,11 @@ namespace {
     auto root = EggParserFactory::parseModule(stream);
     auto engine = EggEngineFactory::createEngineFromParsed(root);
     auto logger = std::make_shared<TestLogger>();
-    auto execution = EggEngineFactory::createExecutionContext(logger);
-    engine->execute(*execution);
+    auto preparation = EggEngineFactory::createPreparationContext(logger);
+    if (engine->prepare(*preparation) != egg::lang::LogSeverity::Error) {
+      auto execution = EggEngineFactory::createExecutionContext(logger);
+      engine->execute(*execution);
+    }
     return logger->logged;
   }
 }
@@ -54,9 +57,9 @@ TEST(TestEggEngine, CreateEngineFromParsed) {
   auto root = EggParserFactory::parseModule(stream);
   auto engine = EggEngineFactory::createEngineFromParsed(root);
   auto logger = std::make_shared<TestLogger>();
-  auto execution = EggEngineFactory::createExecutionContext(logger);
-  ASSERT_EQ(egg::lang::LogSeverity::Error, engine->execute(*execution));
-  ASSERT_STARTSWITH(logger->logged, "RUNTIME:ERROR:~/cpp/test/data/example.egg(2,14): Unknown identifier: 'first'");
+  auto preparation = EggEngineFactory::createPreparationContext(logger);
+  ASSERT_EQ(egg::lang::LogSeverity::Error, engine->prepare(*preparation));
+  ASSERT_STARTSWITH(logger->logged, "COMPILER:ERROR:~/cpp/test/data/example.egg(2,14): Unknown identifier: 'first'");
 }
 
 TEST(TestEggEngine, CreateEngineFromTextStream) {
@@ -64,11 +67,8 @@ TEST(TestEggEngine, CreateEngineFromTextStream) {
   auto engine = EggEngineFactory::createEngineFromTextStream(stream);
   auto logger = std::make_shared<TestLogger>();
   auto preparation = EggEngineFactory::createPreparationContext(logger);
-  ASSERT_EQ(egg::lang::LogSeverity::None, engine->prepare(*preparation));
-  ASSERT_EQ("", logger->logged);
-  auto execution = EggEngineFactory::createExecutionContext(logger);
-  ASSERT_EQ(egg::lang::LogSeverity::Error, engine->execute(*execution));
-  ASSERT_STARTSWITH(logger->logged, "RUNTIME:ERROR:~/cpp/test/data/example.egg(2,14): Unknown identifier: 'first'");
+  ASSERT_EQ(egg::lang::LogSeverity::Error, engine->prepare(*preparation));
+  ASSERT_STARTSWITH(logger->logged, "COMPILER:ERROR:~/cpp/test/data/example.egg(2,14): Unknown identifier: 'first'");
 }
 
 TEST(TestEggEngine, CreateEngineFromGarbage) {
@@ -81,7 +81,7 @@ TEST(TestEggEngine, CreateEngineFromGarbage) {
 }
 
 TEST(TestEggEngine, PrepareTwice) {
-  FileTextStream stream("~/cpp/test/data/example.egg");
+  StringTextStream stream("print(123);");
   auto engine = EggEngineFactory::createEngineFromTextStream(stream);
   auto logger = std::make_shared<TestLogger>();
   auto preparation = EggEngineFactory::createPreparationContext(logger);
@@ -107,7 +107,8 @@ TEST(TestEggEngine, LogFromEngine) {
 
 TEST(TestEggEngine, DuplicateSymbols) {
   StringTextStream stream("var a = 1;\nvar a;");
-  ASSERT_STARTSWITH(logFromEngine(stream), "COMPILER:ERROR:Duplicate symbol declared at module level: 'a'\n");
+  ASSERT_STARTSWITH(logFromEngine(stream), "COMPILER:ERROR:(2,5): Duplicate symbol declared at module level: 'a'\n"
+                                           "COMPILER:INFO:(1,5): Previous declaration was here\n");
 }
 
 TEST(TestEggEngine, WorkingFile) {

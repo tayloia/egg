@@ -118,6 +118,18 @@ namespace egg::lang {
   };
   typedef egg::gc::HardRef<const IString> IStringRef;
 
+  class IPreparation {
+  public:
+    virtual ~IPreparation() {}
+    virtual void raise(egg::lang::LogSeverity severtiy, const String& message) = 0;
+
+    // Useful helpers
+    template<typename... ARGS>
+    void raiseWarning(ARGS... args);
+    template<typename... ARGS>
+    void raiseError(ARGS... args);
+  };
+
   class IExecution {
   public:
     virtual ~IExecution() {}
@@ -172,14 +184,16 @@ namespace egg::lang {
     virtual String toString() const = 0;
     virtual Value promoteAssignment(IExecution& execution, const Value& rhs) const = 0;
 
-    virtual const ISignature* callable(IExecution& execution) const; // Default implementation returns nullptr
+    virtual const ISignature* callable() const; // Default implementation returns nullptr
     virtual Discriminator getSimpleTypes() const; // Default implementation returns 'None'
     virtual Ref referencedType() const; // Default implementation returns 'Type*'
     virtual Ref dereferencedType() const; // Default implementation returns 'Void'
     virtual Ref coallescedType(const IType& rhs) const; // Default implementation calls Type::makeUnion()
     virtual Ref unionWith(const IType& other) const; // Default implementation calls Type::makeUnion()
-    typedef std::function<void(const String& name, const IType& type, const Value& value)> Setter;
-    virtual Value decantParameters(IExecution& execution, const IParameters& supplied, Setter setter) const; // Default implementation returns an error
+    typedef std::function<void(const String& name, const IType& type)> PrepareParametersSetter;
+    virtual bool prepareParameters(IPreparation& preparation, const IParameters& supplied, PrepareParametersSetter setter) const; // Default implementation returns an error
+    typedef std::function<void(const String& name, const IType& type, const Value& value)> ExecuteParametersSetter;
+    virtual Value executeParameters(IExecution& execution, const IParameters& supplied, ExecuteParametersSetter setter) const; // Default implementation returns an error
     virtual Value cast(IExecution& execution, const IParameters& parameters) const; // Default implementation returns an error
     virtual Value dotGet(IExecution& execution, const Value& instance, const String& property) const; // Default implementation dispatches standard requests
     virtual Value dotSet(IExecution& execution, const Value& instance, const String& property, const Value& value) const; // Default implementation dispatches standard requests
@@ -459,6 +473,18 @@ namespace std {
 }
 
 std::ostream& operator<<(std::ostream& os, const egg::lang::String& text);
+
+template<typename... ARGS>
+inline void egg::lang::IPreparation::raiseWarning(ARGS... args) {
+  auto message = StringBuilder().add(args...).str();
+  this->raise(egg::lang::LogSeverity::Warning, message);
+}
+
+template<typename... ARGS>
+inline void egg::lang::IPreparation::raiseError(ARGS... args) {
+  auto message = StringBuilder().add(args...).str();
+  this->raise(egg::lang::LogSeverity::Error, message);
+}
 
 template<typename... ARGS>
 inline egg::lang::Value egg::lang::IExecution::raiseFormat(ARGS... args) {

@@ -934,7 +934,7 @@ namespace {
     virtual Value promoteAssignment(IExecution& execution, const Value&) const override {
       return execution.raiseFormat("TODO: Cannot yet assign to union value"); // TODO
     }
-    virtual const ISignature* callable(IExecution&) const override {
+    virtual const ISignature* callable() const override {
       EGG_THROW("TODO: Cannot yet call to union value"); // TODO
     }
   };
@@ -1275,7 +1275,13 @@ egg::lang::ITypeRef egg::lang::IType::coallescedType(const IType& rhs) const {
   return this->unionWith(rhs);
 }
 
-egg::lang::Value egg::lang::IType::decantParameters(egg::lang::IExecution& execution, const egg::lang::IParameters&, Setter) const {
+bool egg::lang::IType::prepareParameters(egg::lang::IPreparation& preparation, const egg::lang::IParameters&, PrepareParametersSetter) const {
+  // The default implementation is to raise an error (only function-like types accept parameters)
+  preparation.raiseError("Internal type error: Cannot decant parameters for type '", this->toString(), "'");
+  return false;
+}
+
+egg::lang::Value egg::lang::IType::executeParameters(egg::lang::IExecution& execution, const egg::lang::IParameters&, ExecuteParametersSetter) const {
   // The default implementation is to return an error (only function-like types decant parameters)
   return execution.raiseFormat("Internal type error: Cannot decant parameters for type '", this->toString(), "'");
 }
@@ -1411,7 +1417,7 @@ bool egg::lang::ISignature::validateCallDefault(IExecution& execution, const IPa
   return true;
 }
 
-const egg::lang::ISignature* egg::lang::IType::callable(IExecution&) const {
+const egg::lang::ISignature* egg::lang::IType::callable() const {
   // The default implementation is to say we don't support calling with '()'
   return nullptr;
 }
