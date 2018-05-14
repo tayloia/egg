@@ -188,8 +188,8 @@ namespace egg::yolk {
     EggProgramNodeFlags prepareModule(const std::vector<std::shared_ptr<IEggProgramNode>>& statements);
     EggProgramNodeFlags prepareBlock(const std::vector<std::shared_ptr<IEggProgramNode>>& statements);
     EggProgramNodeFlags prepareDeclare(const egg::lang::LocationSource& where, const egg::lang::String& name, egg::lang::ITypeRef& ltype, const egg::lang::IType* rtype, IEggProgramNode* rvalue);
-    EggProgramNodeFlags prepareAssign(EggProgramAssign op, IEggProgramNode& lvalue, IEggProgramNode& rvalue);
-    EggProgramNodeFlags prepareMutate(EggProgramMutate op, IEggProgramNode& lvalue);
+    EggProgramNodeFlags prepareAssign(const egg::lang::LocationSource& where, EggProgramAssign op, IEggProgramNode& lvalue, IEggProgramNode& rvalue);
+    EggProgramNodeFlags prepareMutate(const egg::lang::LocationSource& where, EggProgramMutate op, IEggProgramNode& lvalue);
     EggProgramNodeFlags prepareCatch(const egg::lang::String& name, IEggProgramNode& type, IEggProgramNode& block);
     EggProgramNodeFlags prepareDo(IEggProgramNode& cond, IEggProgramNode& block);
     EggProgramNodeFlags prepareIf(IEggProgramNode& cond, IEggProgramNode& trueBlock, IEggProgramNode* falseBlock);
@@ -210,9 +210,9 @@ namespace egg::yolk {
     EggProgramNodeFlags prepareCast(egg::lang::Discriminator tag, const std::vector<std::shared_ptr<IEggProgramNode>>& parameters);
     EggProgramNodeFlags prepareIdentifier(const egg::lang::LocationSource& where, const egg::lang::String& name, egg::lang::ITypeRef& type);
     EggProgramNodeFlags prepareLiteral(const egg::lang::Value& value);
-    EggProgramNodeFlags prepareUnary(EggProgramUnary op, IEggProgramNode& value);
-    EggProgramNodeFlags prepareBinary(EggProgramBinary op, IEggProgramNode& lhs, IEggProgramNode& rhs);
-    EggProgramNodeFlags prepareTernary(IEggProgramNode& cond, IEggProgramNode& whenTrue, IEggProgramNode& whenFalse);
+    EggProgramNodeFlags prepareUnary(const egg::lang::LocationSource& where, EggProgramUnary op, IEggProgramNode& value);
+    EggProgramNodeFlags prepareBinary(const egg::lang::LocationSource& where, EggProgramBinary op, IEggProgramNode& lhs, IEggProgramNode& rhs);
+    EggProgramNodeFlags prepareTernary(const egg::lang::LocationSource& where, IEggProgramNode& cond, IEggProgramNode& whenTrue, IEggProgramNode& whenFalse);
   private:
     bool findDuplicateSymbols(const std::vector<std::shared_ptr<IEggProgramNode>>& statements);
     EggProgramNodeFlags prepareScope(const IEggProgramNode* node, std::function<EggProgramNodeFlags(EggProgramContext&)> action);

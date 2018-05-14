@@ -398,7 +398,7 @@ namespace {
       assert(lvalue != nullptr);
     }
     virtual EggProgramNodeFlags prepare(EggProgramContext& context) override {
-      return context.prepareMutate(this->op, *this->lvalue);
+      return context.prepareMutate(this->locationSource, this->op, *this->lvalue);
     }
     virtual egg::lang::Value execute(EggProgramContext& context) const override {
       return context.executeMutate(*this, this->op, *this->lvalue);
@@ -901,6 +901,9 @@ namespace {
       : EggParserNodeBase(locationSource), callee(callee) {
       assert(callee != nullptr);
     }
+    virtual egg::lang::ITypeRef getType() const override {
+      return egg::lang::Type::AnyQ; // WIBBLE
+    }
     virtual EggProgramNodeFlags prepare(EggProgramContext& context) override {
       return context.prepareCall(*this->callee, this->child);
     }
@@ -1078,7 +1081,7 @@ namespace {
     }
   public:
     virtual EggProgramNodeFlags prepare(EggProgramContext& context) override {
-      return context.prepareUnary(this->op, *this->expr);
+      return context.prepareUnary(this->locationSource, this->op, *this->expr);
     }
     virtual egg::lang::Value execute(EggProgramContext& context) const override {
       return context.executeUnary(*this, this->op, *this->expr);
@@ -1110,7 +1113,7 @@ namespace {
     }
   public:
     virtual EggProgramNodeFlags prepare(EggProgramContext& context) override {
-      return context.prepareBinary(this->op, *this->lhs, *this->rhs);
+      return context.prepareBinary(this->locationSource, this->op, *this->lhs, *this->rhs);
     }
     virtual egg::lang::Value execute(EggProgramContext& context) const override {
       return context.executeBinary(*this, this->op, *this->lhs, *this->rhs);
@@ -1154,7 +1157,7 @@ namespace {
       assert(whenFalse != nullptr);
     }
     virtual EggProgramNodeFlags prepare(EggProgramContext& context) override {
-      return context.prepareTernary(*this->condition, *this->whenTrue, *this->whenFalse);
+      return context.prepareTernary(this->locationSource, *this->condition, *this->whenTrue, *this->whenFalse);
     }
     virtual egg::lang::Value execute(EggProgramContext& context) const override {
       return context.executeTernary(*this, *this->condition, *this->whenTrue, *this->whenFalse);
@@ -1177,7 +1180,7 @@ namespace {
     }
   public:
     virtual EggProgramNodeFlags prepare(EggProgramContext& context) override {
-      return context.prepareAssign(this->op, *this->lhs, *this->rhs);
+      return context.prepareAssign(this->locationSource, this->op, *this->lhs, *this->rhs);
     }
     virtual egg::lang::Value execute(EggProgramContext& context) const override {
       return context.executeAssign(*this, this->op, *this->lhs, *this->rhs);
@@ -1885,7 +1888,7 @@ egg::lang::ITypeRef EggParserNode_BinaryLambda::getType() const {
 }
 
 egg::lang::ITypeRef EggParserNode_BinaryDot::getType() const {
-  EGG_THROW("TODO"); // TODO
+  return egg::lang::Type::AnyQ; // TODO
 }
 
 egg::lang::ITypeRef EggParserNode_BinaryDivide::getType() const {
@@ -1935,7 +1938,7 @@ egg::lang::ITypeRef EggParserNode_BinaryNullCoalescing::getType() const {
 }
 
 egg::lang::ITypeRef EggParserNode_BinaryBrackets::getType() const {
-  EGG_THROW("TODO"); // TODO
+  return egg::lang::Type::AnyQ; // TODO
 }
 
 egg::lang::ITypeRef EggParserNode_BinaryBitwiseXor::getType() const {

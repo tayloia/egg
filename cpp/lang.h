@@ -187,7 +187,7 @@ namespace egg::lang {
     virtual Value promoteAssignment(IExecution& execution, const Value& rhs) const; // Default implementation calls IType::canBeAssignedFrom()
     virtual const ISignature* callable() const; // Default implementation returns nullptr
     virtual const IType* iterable() const; // Default implementation returns nullptr
-    virtual Discriminator getSimpleTypes() const; // Default implementation returns 'None'
+    virtual Discriminator getSimpleTypes() const; // Default implementation returns 'Object'
     virtual Ref referencedType() const; // Default implementation returns 'Type*'
     virtual Ref dereferencedType() const; // Default implementation returns 'Void'
     virtual Ref coallescedType(const IType& rhs) const; // Default implementation calls Type::makeUnion()

@@ -490,37 +490,37 @@ egg::lang::Value egg::yolk::EggProgramContext::assign(EggProgramAssign op, const
     }
     switch (op) {
     case EggProgramAssign::Remainder:
-      rhs = arithmeticIntFloat(lhs, rvalue, "remainder assignment '%='", remainderInt, remainderFloat);
+      rhs = this->arithmeticIntFloat(lhs, rvalue, "remainder assignment '%='", remainderInt, remainderFloat);
       break;
     case EggProgramAssign::BitwiseAnd:
-      rhs = arithmeticInt(lhs, rvalue, "bitwise-and assignment '&='", bitwiseAndInt);
+      rhs = this->arithmeticInt(lhs, rvalue, "bitwise-and assignment '&='", bitwiseAndInt);
       break;
     case EggProgramAssign::Multiply:
-      rhs = arithmeticIntFloat(lhs, rvalue, "multiplication assignment '*='", multiplyInt, multiplyFloat);
+      rhs = this->arithmeticIntFloat(lhs, rvalue, "multiplication assignment '*='", multiplyInt, multiplyFloat);
       break;
     case EggProgramAssign::Plus:
-      rhs = arithmeticIntFloat(lhs, rvalue, "addition assignment '+='", plusInt, plusFloat);
+      rhs = this->arithmeticIntFloat(lhs, rvalue, "addition assignment '+='", plusInt, plusFloat);
       break;
     case EggProgramAssign::Minus:
-      rhs = arithmeticIntFloat(lhs, rvalue, "subtraction assignment '-='", minusInt, minusFloat);
+      rhs = this->arithmeticIntFloat(lhs, rvalue, "subtraction assignment '-='", minusInt, minusFloat);
       break;
     case EggProgramAssign::Divide:
-      rhs = arithmeticIntFloat(lhs, rvalue, "division assignment '/='", divideInt, divideFloat);
+      rhs = this->arithmeticIntFloat(lhs, rvalue, "division assignment '/='", divideInt, divideFloat);
       break;
     case EggProgramAssign::ShiftLeft:
-      rhs = arithmeticInt(lhs, rvalue, "shift-left assignment '<<='", shiftLeftInt);
+      rhs = this->arithmeticInt(lhs, rvalue, "shift-left assignment '<<='", shiftLeftInt);
       break;
     case EggProgramAssign::ShiftRight:
-      rhs = arithmeticInt(lhs, rvalue, "shift-right assignment '>>='", shiftRightInt);
+      rhs = this->arithmeticInt(lhs, rvalue, "shift-right assignment '>>='", shiftRightInt);
       break;
     case EggProgramAssign::ShiftRightUnsigned:
-      rhs = arithmeticInt(lhs, rvalue, "shift-right-unsigned assignment '>>>='", shiftRightUnsignedInt);
+      rhs = this->arithmeticInt(lhs, rvalue, "shift-right-unsigned assignment '>>>='", shiftRightUnsignedInt);
       break;
     case EggProgramAssign::BitwiseXor:
-      rhs = arithmeticInt(lhs, rvalue, "bitwise-xor assignment '^='", bitwiseXorInt);
+      rhs = this->arithmeticInt(lhs, rvalue, "bitwise-xor assignment '^='", bitwiseXorInt);
       break;
     case EggProgramAssign::BitwiseOr:
-      rhs = arithmeticInt(lhs, rvalue, "bitwise-or assignment '|='", bitwiseOrInt);
+      rhs = this->arithmeticInt(lhs, rvalue, "bitwise-or assignment '|='", bitwiseOrInt);
       break;
     case EggProgramAssign::Equal:
     default:

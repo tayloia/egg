@@ -824,6 +824,9 @@ namespace {
     virtual String toString() const override {
       return String::concat(this->referenced->toString(), "*");
     }
+    virtual egg::lang::Discriminator getSimpleTypes() const override {
+      return egg::lang::Discriminator::None; // TODO
+    }
     virtual ITypeRef referencedType() const override {
       return this->referenced;
     }
@@ -976,6 +979,9 @@ namespace {
     }
     virtual String toString() const override {
       return String::concat(this->a->toString(), "|", this->b->toString());
+    }
+    virtual egg::lang::Discriminator getSimpleTypes() const override {
+      return egg::lang::Discriminator::None; // TODO
     }
     virtual bool canBeAssignedFrom(const IType&) const {
       return false; // TODO
@@ -1484,8 +1490,8 @@ const egg::lang::IType* egg::lang::IType::iterable() const {
 }
 
 egg::lang::Discriminator egg::lang::IType::getSimpleTypes() const {
-  // The default implementation is to say we don't support any simple types
-  return egg::lang::Discriminator::None;
+  // The default implementation is to say we are an object
+  return egg::lang::Discriminator::Object;
 }
 
 egg::lang::ITypeRef egg::lang::IType::unionWith(const IType& other) const {

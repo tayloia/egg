@@ -12,6 +12,27 @@ namespace {
   bool abandoned(EggProgramNodeFlags flags) {
     return egg::lang::Bits::hasAnySet(flags, EggProgramNodeFlags::Abandon);
   }
+  EggProgramNodeFlags checkBinarySide(EggProgramContext& context, const egg::lang::LocationSource& where, EggProgramBinary op, const char* side, egg::lang::Discriminator expected, IEggProgramNode& node) {
+    auto prepared = node.prepare(context);
+    if (!abandoned(prepared)) {
+      auto& type = *node.getType();
+      auto simple = type.getSimpleTypes();
+      assert(simple != egg::lang::Discriminator::Inferred);
+      if (!egg::lang::Bits::hasAnySet(simple, expected)) {
+        std::string readable = egg::lang::Value::getTagString(expected);
+        readable = String::replace(readable, "|", "' or '");
+        prepared = context.compilerError(where, "Expected ", side, " of '", EggProgram::binaryToString(op), "' operator to be '", readable, "', but got '", type.toString(), "' instead");
+      }
+    }
+    return prepared;
+  }
+  EggProgramNodeFlags checkBinary(EggProgramContext& context, const egg::lang::LocationSource& where, EggProgramBinary op, egg::lang::Discriminator lexp, IEggProgramNode& lhs, egg::lang::Discriminator rexp, IEggProgramNode& rhs) {
+    auto result = checkBinarySide(context, where, op, "left-hand side", lexp, lhs);
+    if (abandoned(result)) {
+      return result;
+    }
+    return checkBinarySide(context, where, op, "right-hand side", rexp, rhs);
+  }
 }
 
 egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareScope(const IEggProgramNode* node, std::function<EggProgramNodeFlags(EggProgramContext&)> action) {
@@ -80,20 +101,77 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareDeclare(cons
   return EggProgramNodeFlags::None;
 }
 
-egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareAssign(EggProgramAssign op, IEggProgramNode& lvalue, IEggProgramNode& rvalue) {
-  // TODO type check
-  (void)op; // WIBBLE
+egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareAssign(const egg::lang::LocationSource& where, EggProgramAssign op, IEggProgramNode& lvalue, IEggProgramNode& rvalue) {
   if (abandoned(lvalue.prepare(*this)) || abandoned(rvalue.prepare(*this))) {
     return EggProgramNodeFlags::Abandon;
+  }
+  auto& ltype = *lvalue.getType();
+  auto lsimple = ltype.getSimpleTypes();
+  assert(lsimple != egg::lang::Discriminator::Inferred);
+  auto& rtype = *rvalue.getType();
+  auto rsimple = rtype.getSimpleTypes();
+  assert(rsimple != egg::lang::Discriminator::Inferred);
+  switch (op) {
+  case EggProgramAssign::Equal:
+    // Simple assignment
+    if (!ltype.canBeAssignedFrom(rtype)) {
+      return this->compilerError(where, "Cannot assign a value of type '", rtype.toString(), "' to a target of type '", ltype.toString(), "'");
+    }
+    break;
+  case EggProgramAssign::BitwiseAnd:
+  case EggProgramAssign::BitwiseOr:
+  case EggProgramAssign::BitwiseXor:
+  case EggProgramAssign::ShiftLeft:
+  case EggProgramAssign::ShiftRight:
+  case EggProgramAssign::ShiftRightUnsigned:
+    // Integer-only operation
+    if (!egg::lang::Bits::hasAnySet(rsimple, egg::lang::Discriminator::Int)) {
+      return this->compilerError(where, "Expected right-hand side of integer '", EggProgram::assignToString(op), "' assignment operator to be 'int', but got '", rtype.toString(), "' instead");
+    }
+    if (!egg::lang::Bits::hasAnySet(lsimple, egg::lang::Discriminator::Int)) {
+      return this->compilerError(where, "Expected left-hand target of integer '", EggProgram::assignToString(op), "' assignment operator to be 'int', but got '", ltype.toString(), "' instead");
+    }
+    break;
+  case EggProgramAssign::Remainder:
+  case EggProgramAssign::Multiply:
+  case EggProgramAssign::Plus:
+  case EggProgramAssign::Minus:
+  case EggProgramAssign::Divide:
+    // Arithmetic operation
+    if (egg::lang::Bits::mask(rsimple, egg::lang::Discriminator::Arithmetic) == egg::lang::Discriminator::Float) {
+      // Float-only operation
+      if (!egg::lang::Bits::hasAnySet(lsimple, egg::lang::Discriminator::Float)) {
+        return this->compilerError(where, "Expected left-hand target of floating-point '", EggProgram::assignToString(op), "' assignment operator to be 'float', but got '", ltype.toString(), "' instead");
+      }
+    } else {
+      // Float-or-int operation
+      if (!egg::lang::Bits::hasAnySet(rsimple, egg::lang::Discriminator::Arithmetic)) {
+        return this->compilerError(where, "Expected right-hand side of '", EggProgram::assignToString(op), "' assignment operator to be 'int' or 'float', but got '", rtype.toString(), "' instead");
+      }
+      if (!egg::lang::Bits::hasAnySet(lsimple, egg::lang::Discriminator::Arithmetic)) {
+        return this->compilerError(where, "Expected left-hand target of '", EggProgram::assignToString(op), "' assignment operator to be 'int' or 'float', but got '", ltype.toString(), "' instead");
+      }
+    }
+    break;
   }
   return EggProgramNodeFlags::None;
 }
 
-egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareMutate(EggProgramMutate op, IEggProgramNode& lvalue) {
-  // TODO type check
-  (void)op; // WIBBLE
+egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareMutate(const egg::lang::LocationSource& where, EggProgramMutate op, IEggProgramNode& lvalue) {
   if (abandoned(lvalue.prepare(*this))) {
     return EggProgramNodeFlags::Abandon;
+  }
+  auto& ltype = *lvalue.getType();
+  auto lsimple = ltype.getSimpleTypes();
+  assert(lsimple != egg::lang::Discriminator::Inferred);
+  switch (op) {
+  case EggProgramMutate::Increment:
+  case EggProgramMutate::Decrement:
+    // Integer-only operation
+    if (!egg::lang::Bits::hasAnySet(lsimple, egg::lang::Discriminator::Int)) {
+      return this->compilerError(where, "Expected target of integer '", EggProgram::mutateToString(op), "' operator to be 'int', but got '", ltype.toString(), "' instead");
+    }
+    break;
   }
   return EggProgramNodeFlags::None;
 }
@@ -322,23 +400,91 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareLiteral(cons
   return EggProgramNodeFlags::None;
 }
 
-egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareUnary(EggProgramUnary op, IEggProgramNode& value) {
-  // TODO
-  (void)op; // WIBBLE
-  return value.prepare(*this);
+egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareUnary(const egg::lang::LocationSource& where, EggProgramUnary op, IEggProgramNode& value) {
+  if (abandoned(value.prepare(*this))) {
+    return EggProgramNodeFlags::Abandon;
+  }
+  auto& type = *value.getType();
+  auto simple = type.getSimpleTypes();
+  assert(simple != egg::lang::Discriminator::Inferred);
+  switch (op) {
+  case EggProgramUnary::BitwiseNot:
+  case EggProgramUnary::LogicalNot:
+    // Integer-only operation
+    if (!egg::lang::Bits::hasAnySet(simple, egg::lang::Discriminator::Int)) {
+      return this->compilerError(where, "Expected operand of unary '", EggProgram::unaryToString(op), "' operator to be 'int', but got '", type.toString(), "' instead");
+    }
+    break;
+  case EggProgramUnary::Negate:
+    // Arithmetic operation
+    if (!egg::lang::Bits::hasAnySet(simple, egg::lang::Discriminator::Arithmetic)) {
+      return this->compilerError(where, "Expected operand of unary '", EggProgram::unaryToString(op), "' operator to be 'int' or 'float', but got '", type.toString(), "' instead");
+    }
+    break;
+  case EggProgramUnary::Ref:
+  case EggProgramUnary::Deref:
+  case EggProgramUnary::Ellipsis:
+    return this->compilerError(where, "Unary '", EggProgram::unaryToString(op), "' operator not yet supported"); // TODO
+  }
+  return EggProgramNodeFlags::None;
 }
 
-egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareBinary(EggProgramBinary op, IEggProgramNode& lhs, IEggProgramNode& rhs) {
-  // TODO
-  (void)op; // WIBBLE
+egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareBinary(const egg::lang::LocationSource& where, EggProgramBinary op, IEggProgramNode& lhs, IEggProgramNode& rhs) {
+  switch (op) {
+  case EggProgramBinary::LogicalAnd:
+  case EggProgramBinary::LogicalOr:
+    // Boolean-only operation
+    return checkBinary(*this, where, op, egg::lang::Discriminator::Bool, lhs, egg::lang::Discriminator::Bool, rhs);
+  case EggProgramBinary::BitwiseAnd:
+  case EggProgramBinary::BitwiseOr:
+  case EggProgramBinary::BitwiseXor:
+  case EggProgramBinary::ShiftLeft:
+  case EggProgramBinary::ShiftRight:
+  case EggProgramBinary::ShiftRightUnsigned:
+    // Integer-only operation
+    return checkBinary(*this, where, op, egg::lang::Discriminator::Int, lhs, egg::lang::Discriminator::Int, rhs);
+  case EggProgramBinary::Plus:
+  case EggProgramBinary::Minus:
+  case EggProgramBinary::Multiply:
+  case EggProgramBinary::Divide:
+  case EggProgramBinary::Remainder:
+  case EggProgramBinary::Less:
+  case EggProgramBinary::LessEqual:
+  case EggProgramBinary::Greater:
+  case EggProgramBinary::GreaterEqual:
+    // Arithmetic operation
+    return checkBinary(*this, where, op, egg::lang::Discriminator::Arithmetic, lhs, egg::lang::Discriminator::Arithmetic, rhs);
+  case EggProgramBinary::Equal:
+  case EggProgramBinary::Unequal:
+    // Equality operation
+    break;
+  case EggProgramBinary::Brackets:
+    // WIBBLE ask the type!
+    // Left-hand side should be string/object
+    if (abandoned(checkBinarySide(*this, where, op, "subject", egg::lang::Discriminator::String | egg::lang::Discriminator::Object, lhs))) {
+      return EggProgramNodeFlags::Abandon;
+    }
+    if (!egg::lang::Bits::hasAnySet(lhs.getType()->getSimpleTypes(), egg::lang::Discriminator::Object)) {
+      // Strings only accept integer indices
+      return checkBinarySide(*this, where, op, "index", egg::lang::Discriminator::Int, rhs);
+    }
+    return EggProgramNodeFlags::None;
+  case EggProgramBinary::Dot:
+    // Left-hand side should be string/type/opbject
+    return checkBinarySide(*this, where, op, "left-hand side", egg::lang::Discriminator::String | egg::lang::Discriminator::Type | egg::lang::Discriminator::Object, lhs);
+  case EggProgramBinary::Lambda:
+  case EggProgramBinary::NullCoalescing:
+    return this->compilerError(where, "'", EggProgram::binaryToString(op), "' operators not yet supported in 'prepareBinary'"); // TODO
+  }
   if (abandoned(lhs.prepare(*this)) || abandoned(rhs.prepare(*this))) {
     return EggProgramNodeFlags::Abandon;
   }
   return EggProgramNodeFlags::None;
 }
 
-egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareTernary(IEggProgramNode& cond, IEggProgramNode& whenTrue, IEggProgramNode& whenFalse) {
+egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareTernary(const egg::lang::LocationSource& where, IEggProgramNode& cond, IEggProgramNode& whenTrue, IEggProgramNode& whenFalse) {
   // TODO
+  (void)where; // WIBBLE
   if (abandoned(cond.prepare(*this)) || abandoned(whenTrue.prepare(*this)) || abandoned(whenFalse.prepare(*this))) {
     return EggProgramNodeFlags::Abandon;
   }
