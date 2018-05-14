@@ -79,12 +79,11 @@ namespace {
       }
     }
     if (mask == egg::lang::Discriminator::Object) {
-      // Ask the object what indexing it supports
-      auto indexable = ltype->indexable();
-      if (indexable == nullptr) {
-        return context.compilerError(where, "Instances of type '", ltype->toString(), "' do not support the indexing operator '[]'");
+      // Ask the object what fields it supports
+      auto dotable = ltype->dotable();
+      if (dotable == nullptr) {
+        return context.compilerError(where, "Instances of type '", ltype->toString(), "' do not support the '.' operator for field access");
       }
-      // TODO check type indexable->getIndexType()
     }
     return EggProgramNodeFlags::None;
   }

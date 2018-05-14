@@ -143,6 +143,10 @@ namespace {
       // Indexing an array returns an element
       return &VanillaArrayIndexSignature::instance;
     }
+    virtual const egg::lang::IType* dotable() const override {
+      // Arrays support limited fields
+      return egg::lang::Type::AnyQ.get();
+    }
     virtual const egg::lang::IType* iterable() const override {
       // Iterating an array returns the elements
       return egg::lang::Type::AnyQ.get();
@@ -338,6 +342,10 @@ namespace {
       // Indexing an object returns an field
       return &VanillaObjectIndexSignature::instance;
     }
+    virtual const egg::lang::IType* dotable() const override {
+      // Objects support fields
+      return egg::lang::Type::AnyQ.get();
+    }
     virtual const egg::lang::IType* iterable() const override {
       // Iterating an object, returns the dictionary keyvalue pairs
       return &VanillaKeyValueType::instance;
@@ -358,25 +366,6 @@ namespace {
     }
   };
 
-  class VanillaExceptionType : public egg::gc::NotReferenceCounted<egg::lang::IType> {
-  public:
-    virtual egg::lang::String toString() const override {
-      return egg::lang::String::fromUTF8("<exception>");
-    }
-    virtual const egg::lang::IType* iterable() const override {
-      // Iterating an exception, returns the dictionary keyvalue pairs
-      return &VanillaKeyValueType::instance;
-    }
-    virtual bool canBeAssignedFrom(const IType&) const {
-      return false; // TODO
-    }
-    virtual egg::lang::Value promoteAssignment(egg::lang::IExecution& execution, const egg::lang::Value&) const override {
-      return execution.raiseFormat("Cannot re-assign exceptions");
-    }
-    static const VanillaExceptionType instance;
-  };
-  const VanillaExceptionType VanillaExceptionType::instance{};
-
   class VanillaException : public VanillaDictionary {
     EGG_NO_COPY(VanillaException);
   private:
@@ -384,7 +373,7 @@ namespace {
     static const egg::lang::String keyLocation;
   public:
     explicit VanillaException(const egg::lang::LocationRuntime& location, const egg::lang::String& message)
-      : VanillaDictionary("Exception", VanillaExceptionType::instance) {
+      : VanillaDictionary("Exception", VanillaObjectType::instance) {
       this->dictionary.addOrUpdate(keyMessage, egg::lang::Value{ message });
       this->dictionary.addOrUpdate(keyLocation, egg::lang::Value{ location.toSourceString() }); // TODO use toRuntimeString
     }
@@ -409,7 +398,6 @@ namespace {
 // Vanilla types
 const egg::lang::IType& egg::yolk::EggProgram::VanillaArray = VanillaArrayType::instance;
 const egg::lang::IType& egg::yolk::EggProgram::VanillaObject = VanillaObjectType::instance;
-const egg::lang::IType& egg::yolk::EggProgram::VanillaException = VanillaExceptionType::instance;
 
 egg::lang::Value egg::yolk::EggProgramContext::raise(const egg::lang::String& message) {
   auto exception = egg::lang::Value::make<VanillaException>(this->location, message);

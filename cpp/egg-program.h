@@ -96,7 +96,6 @@ namespace egg::yolk {
     static std::string mutateToString(EggProgramMutate op);
     static const egg::lang::IType& VanillaArray;
     static const egg::lang::IType& VanillaObject;
-    static const egg::lang::IType& VanillaException;
   };
 
   class EggProgramContext : public egg::lang::IExecution {
