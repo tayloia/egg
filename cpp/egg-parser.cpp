@@ -976,8 +976,8 @@ namespace {
     virtual egg::lang::ITypeRef getType() const override {
       return egg::lang::Type::Null;
     }
-    virtual EggProgramNodeFlags prepare(EggProgramContext& context) override {
-      return context.prepareLiteral(egg::lang::Value::Null);
+    virtual EggProgramNodeFlags prepare(EggProgramContext&) override {
+      return EggProgramNodeFlags::Constant;
     }
     virtual egg::lang::Value execute(EggProgramContext& context) const override {
       return context.executeLiteral(*this, egg::lang::Value::Null);
@@ -997,8 +997,8 @@ namespace {
     virtual egg::lang::ITypeRef getType() const override {
       return egg::lang::Type::Bool;
     }
-    virtual EggProgramNodeFlags prepare(EggProgramContext& context) override {
-      return context.prepareLiteral(egg::lang::Value(this->value));
+    virtual EggProgramNodeFlags prepare(EggProgramContext&) override {
+      return EggProgramNodeFlags::Constant;
     }
     virtual egg::lang::Value execute(EggProgramContext& context) const override {
       return context.executeLiteral(*this, egg::lang::Value(this->value));
@@ -1018,8 +1018,8 @@ namespace {
     virtual egg::lang::ITypeRef getType() const override {
       return egg::lang::Type::Int;
     }
-    virtual EggProgramNodeFlags prepare(EggProgramContext& context) override {
-      return context.prepareLiteral(egg::lang::Value(this->value));
+    virtual EggProgramNodeFlags prepare(EggProgramContext&) override {
+      return EggProgramNodeFlags::Constant;
     }
     virtual egg::lang::Value execute(EggProgramContext& context) const override {
       return context.executeLiteral(*this, egg::lang::Value(this->value));
@@ -1039,8 +1039,8 @@ namespace {
     virtual egg::lang::ITypeRef getType() const override {
       return egg::lang::Type::Float;
     }
-    virtual EggProgramNodeFlags prepare(EggProgramContext& context) override {
-      return context.prepareLiteral(egg::lang::Value(this->value));
+    virtual EggProgramNodeFlags prepare(EggProgramContext&) override {
+      return EggProgramNodeFlags::Constant;
     }
     virtual egg::lang::Value execute(EggProgramContext& context) const override {
       return context.executeLiteral(*this, egg::lang::Value(this->value));
@@ -1060,8 +1060,8 @@ namespace {
     virtual egg::lang::ITypeRef getType() const override {
       return egg::lang::Type::String;
     }
-    virtual EggProgramNodeFlags prepare(EggProgramContext& context) override {
-      return context.prepareLiteral(egg::lang::Value(this->value));
+    virtual EggProgramNodeFlags prepare(EggProgramContext&) override {
+      return EggProgramNodeFlags::Constant;
     }
     virtual egg::lang::Value execute(EggProgramContext& context) const override {
       return context.executeLiteral(*this, egg::lang::Value(this->value));

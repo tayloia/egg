@@ -394,12 +394,6 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareIdentifier(c
   return EggProgramNodeFlags::None;
 }
 
-egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareLiteral(const egg::lang::Value& value) {
-  // TODO
-  (void)value; // WIBBLE
-  return EggProgramNodeFlags::None;
-}
-
 egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareUnary(const egg::lang::LocationSource& where, EggProgramUnary op, IEggProgramNode& value) {
   if (abandoned(value.prepare(*this))) {
     return EggProgramNodeFlags::Abandon;
