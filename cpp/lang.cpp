@@ -986,7 +986,7 @@ namespace {
     virtual bool canBeAssignedFrom(const IType&) const {
       return false; // TODO
     }
-    virtual const ISignature* callable() const override {
+    virtual const IFunctionSignature* callable() const override {
       EGG_THROW("TODO: Cannot yet call to union value"); // TODO
     }
   };
@@ -1383,7 +1383,7 @@ egg::lang::Value egg::lang::IType::bracketsSet(IExecution& execution, const Valu
   return execution.raiseFormat("Values of type '", this->toString(), "' do not support indexing with '[]'");
 }
 
-egg::lang::String egg::lang::ISignature::toString() const {
+egg::lang::String egg::lang::IFunctionSignature::toString() const {
   // TODO better formatting of named/variadic etc.
   StringBuilder sb;
   sb.add(this->getReturnType().toString(), " ", this->getFunctionName(), "(");
@@ -1411,12 +1411,12 @@ egg::lang::String egg::lang::ISignature::toString() const {
   return sb.str();
 }
 
-bool egg::lang::ISignature::validateCall(IExecution& execution, const IParameters& runtime, Value& problem) const {
+bool egg::lang::IFunctionSignature::validateCall(IExecution& execution, const IParameters& runtime, Value& problem) const {
   // The default implementation just calls validateCallDefault()
   return this->validateCallDefault(execution, runtime, problem);
 }
 
-bool egg::lang::ISignature::validateCallDefault(IExecution& execution, const IParameters& parameters, Value& problem) const {
+bool egg::lang::IFunctionSignature::validateCallDefault(IExecution& execution, const IParameters& parameters, Value& problem) const {
   // TODO type checking, etc
   if (parameters.getNamedCount() > 0) {
     problem = execution.raiseFormat(this->toString(), ": Named parameters are not yet supported"); // TODO
@@ -1450,6 +1450,10 @@ bool egg::lang::ISignature::validateCallDefault(IExecution& execution, const IPa
   return true;
 }
 
+egg::lang::String egg::lang::IIndexSignature::toString() const {
+  return String::concat(this->getResultType().toString(), "[", this->getIndexType().toString(), "]");
+}
+
 egg::lang::Value egg::lang::IType::promoteAssignment(IExecution& execution, const Value& rhs) const {
   // The default implementation calls IType::canBeAssignedFrom() but does not promote
   auto& rtype = rhs.getRuntimeType();
@@ -1459,8 +1463,18 @@ egg::lang::Value egg::lang::IType::promoteAssignment(IExecution& execution, cons
   return rhs;
 }
 
-const egg::lang::ISignature* egg::lang::IType::callable() const {
+const egg::lang::IFunctionSignature* egg::lang::IType::callable() const {
   // The default implementation is to say we don't support calling with '()'
+  return nullptr;
+}
+
+const egg::lang::IIndexSignature* egg::lang::IType::indexable() const {
+  // The default implementation is to say we don't support indexing with '[]'
+  return nullptr;
+}
+
+const egg::lang::IType* egg::lang::IType::dotable() const {
+  // The default implementation is to say we don't support field with '.'
   return nullptr;
 }
 

@@ -122,10 +122,26 @@ namespace {
     }
   };
 
+  class VanillaArrayIndexSignature : public egg::lang::IIndexSignature {
+  public:
+    static const VanillaArrayIndexSignature instance;
+    virtual const egg::lang::IType& getResultType() const override {
+      return *egg::lang::Type::AnyQ;
+    }
+    virtual const egg::lang::IType& getIndexType() const override {
+      return *egg::lang::Type::Int;
+    }
+  };
+  const VanillaArrayIndexSignature VanillaArrayIndexSignature::instance{};
+
   class VanillaArrayType : public egg::gc::NotReferenceCounted<egg::lang::IType> {
   public:
     virtual egg::lang::String toString() const override {
       return egg::lang::String::fromUTF8("any?[]");
+    }
+    virtual const egg::lang::IIndexSignature* indexable() const override {
+      // Indexing an array returns an element
+      return &VanillaArrayIndexSignature::instance;
     }
     virtual const egg::lang::IType* iterable() const override {
       // Iterating an array returns the elements
@@ -301,10 +317,26 @@ namespace {
     }
   };
 
+  class VanillaObjectIndexSignature : public egg::lang::IIndexSignature {
+  public:
+    static const VanillaObjectIndexSignature instance;
+    virtual const egg::lang::IType& getResultType() const override {
+      return *egg::lang::Type::AnyQ;
+    }
+    virtual const egg::lang::IType& getIndexType() const override {
+      return *egg::lang::Type::String;
+    }
+  };
+  const VanillaObjectIndexSignature VanillaObjectIndexSignature::instance{};
+
   class VanillaObjectType : public egg::gc::NotReferenceCounted<egg::lang::IType> {
   public:
     virtual egg::lang::String toString() const override {
       return egg::lang::String::fromUTF8("any?{string}");
+    }
+    virtual const egg::lang::IIndexSignature* indexable() const override {
+      // Indexing an object returns an field
+      return &VanillaObjectIndexSignature::instance;
     }
     virtual const egg::lang::IType* iterable() const override {
       // Iterating an object, returns the dictionary keyvalue pairs

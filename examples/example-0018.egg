@@ -6,5 +6,7 @@ print("hello" != "hello");
 ///>false
 print("hello" != "goodbye");
 ///>true
-//print("hello" < "goodbye"); // WIBBLE
-//<COMPILER><ERROR><RESOURCE>(9,15): Expected left-hand side of '<' operator to be 'int' or 'float', but got 'string' instead
+any a = "hello";
+any b = "goodbye";
+print(a < b);
+///<RUNTIME><ERROR><RESOURCE>(11,9): Expected left-hand side of comparison '<' to be 'int' or 'float', but got 'string' instead

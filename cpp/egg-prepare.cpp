@@ -33,6 +33,61 @@ namespace {
     }
     return checkBinarySide(context, where, op, "right-hand side", rexp, rhs);
   }
+  EggProgramNodeFlags checkBrackets(EggProgramContext& context, const egg::lang::LocationSource& where, IEggProgramNode& lhs, IEggProgramNode& rhs) {
+    // Brackets can only be applied to strings and objects
+    if (abandoned(checkBinarySide(context, where, EggProgramBinary::Brackets, "subject", egg::lang::Discriminator::String | egg::lang::Discriminator::Object, lhs))) {
+      return EggProgramNodeFlags::Abandon;
+    }
+    auto ltype = lhs.getType();
+    auto mask = egg::lang::Bits::mask(ltype->getSimpleTypes(), egg::lang::Discriminator::String | egg::lang::Discriminator::Object);
+    if (mask == egg::lang::Discriminator::String) {
+      // Strings only accept integer indices
+      return checkBinarySide(context, where, EggProgramBinary::Brackets, " string index", egg::lang::Discriminator::Int, rhs);
+    }
+    if (abandoned(rhs.prepare(context))) {
+      return EggProgramNodeFlags::Abandon;
+    }
+    if (mask == egg::lang::Discriminator::Object) {
+      // Ask the object what indexing it supports
+      auto indexable = ltype->indexable();
+      if (indexable == nullptr) {
+        return context.compilerError(where, "Instances of type '", ltype->toString(), "' do not support the indexing operator '[]'");
+      }
+      // TODO check type indexable->getIndexType()
+    }
+    return EggProgramNodeFlags::None;
+  }
+  EggProgramNodeFlags checkDot(EggProgramContext& context, const egg::lang::LocationSource& where, IEggProgramNode& lhs, IEggProgramNode& rhs) {
+    // Left-hand side should be string/object
+    auto result = checkBinary(context, where, EggProgramBinary::Dot, egg::lang::Discriminator::String | egg::lang::Discriminator::Object, lhs, egg::lang::Discriminator::String, rhs);
+    if (abandoned(result)) {
+      return result;
+    }
+    auto ltype = lhs.getType();
+    auto mask = egg::lang::Bits::mask(ltype->getSimpleTypes(), egg::lang::Discriminator::String | egg::lang::Discriminator::Object);
+    if (mask == egg::lang::Discriminator::String) {
+      // 'result' holds the flags for the right-hand side (property name)
+      if (result == EggProgramNodeFlags::Constant) {
+        // Check specific property names
+        auto property = rhs.execute(context);
+        assert(property.is(egg::lang::Discriminator::String));
+        auto name = property.getString();
+        if (egg::lang::String::builtinFactory(name) == nullptr) {
+          // Not a known string builtin
+          return context.compilerError(where, "Unknown property for 'string': '.", name, "'");
+        }
+      }
+    }
+    if (mask == egg::lang::Discriminator::Object) {
+      // Ask the object what indexing it supports
+      auto indexable = ltype->indexable();
+      if (indexable == nullptr) {
+        return context.compilerError(where, "Instances of type '", ltype->toString(), "' do not support the indexing operator '[]'");
+      }
+      // TODO check type indexable->getIndexType()
+    }
+    return EggProgramNodeFlags::None;
+  }
 }
 
 egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareScope(const IEggProgramNode* node, std::function<EggProgramNodeFlags(EggProgramContext&)> action) {
@@ -274,9 +329,8 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareCase(const s
   return block.prepare(*this);
 }
 
-egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareSwitch(IEggProgramNode& value, int64_t defaultIndex, const std::vector<std::shared_ptr<IEggProgramNode>>& cases) {
-  // TODO
-  (void)defaultIndex; // WIBBLE
+egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareSwitch(IEggProgramNode& value, int64_t, const std::vector<std::shared_ptr<IEggProgramNode>>& cases) {
+  // TODO check duplicate constants
   return this->prepareScope(&value, [&](EggProgramContext& scope) {
     if (abandoned(value.prepare(scope))) {
       return EggProgramNodeFlags::Abandon;
@@ -453,19 +507,11 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareBinary(const
     // Equality operation
     break;
   case EggProgramBinary::Brackets:
-    // WIBBLE ask the type!
-    // Left-hand side should be string/object
-    if (abandoned(checkBinarySide(*this, where, op, "subject", egg::lang::Discriminator::String | egg::lang::Discriminator::Object, lhs))) {
-      return EggProgramNodeFlags::Abandon;
-    }
-    if (!egg::lang::Bits::hasAnySet(lhs.getType()->getSimpleTypes(), egg::lang::Discriminator::Object)) {
-      // Strings only accept integer indices
-      return checkBinarySide(*this, where, op, "index", egg::lang::Discriminator::Int, rhs);
-    }
-    return EggProgramNodeFlags::None;
+    // Index operation
+    return checkBrackets(*this, where, lhs, rhs);
   case EggProgramBinary::Dot:
-    // Left-hand side should be string/opbject
-    return checkBinarySide(*this, where, op, "left-hand side", egg::lang::Discriminator::String | egg::lang::Discriminator::Object, lhs);
+    // Dot operation (fields)
+    return checkDot(*this, where, lhs, rhs);
   case EggProgramBinary::Lambda:
   case EggProgramBinary::NullCoalescing:
     return this->compilerError(where, "'", EggProgram::binaryToString(op), "' operators not yet supported in 'prepareBinary'"); // TODO
@@ -478,9 +524,20 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareBinary(const
 
 egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareTernary(const egg::lang::LocationSource& where, IEggProgramNode& cond, IEggProgramNode& whenTrue, IEggProgramNode& whenFalse) {
   // TODO
-  (void)where; // WIBBLE
   if (abandoned(cond.prepare(*this)) || abandoned(whenTrue.prepare(*this)) || abandoned(whenFalse.prepare(*this))) {
     return EggProgramNodeFlags::Abandon;
+  }
+  auto type = cond.getType();
+  if (!type->hasNativeType(egg::lang::Discriminator::Bool)) {
+    return this->compilerError(where, "Expected condition of ternary '?:' operator to be 'bool', but got '", type->toString(), "' instead");
+  }
+  type = whenTrue.getType();
+  if (!type->hasNativeType(egg::lang::Discriminator::Any | egg::lang::Discriminator::Null)) {
+    return this->compilerError(whenTrue.location(), "Expected value for second operand of ternary '?:' operator , but got '", type->toString(), "' instead");
+  }
+  type = whenFalse.getType();
+  if (!type->hasNativeType(egg::lang::Discriminator::Any | egg::lang::Discriminator::Null)) {
+    return this->compilerError(whenTrue.location(), "Expected value for third operand of ternary '?:' operator , but got '", type->toString(), "' instead");
   }
   return EggProgramNodeFlags::None;
 }

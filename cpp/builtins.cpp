@@ -3,7 +3,7 @@
 namespace {
   using namespace egg::lang;
 
-  class BuiltinSignatureParameter : public ISignatureParameter {
+  class BuiltinSignatureParameter : public IFunctionSignatureParameter {
   private:
     String name; // may be empty
     ITypeRef type;
@@ -31,7 +31,7 @@ namespace {
     }
   };
 
-  class BuiltinSignature : public ISignature {
+  class BuiltinSignature : public IFunctionSignature {
     EGG_NO_COPY(BuiltinSignature);
   private:
     String name;
@@ -56,7 +56,7 @@ namespace {
     virtual size_t getParameterCount() const override {
       return this->parameters.size();
     }
-    virtual const ISignatureParameter& getParameter(size_t index) const override {
+    virtual const IFunctionSignatureParameter& getParameter(size_t index) const override {
       assert(index < this->parameters.size());
       return this->parameters[index];
     }
@@ -83,7 +83,7 @@ namespace {
       // We can assign if the signatures are the same (TODO equal?)
       return &this->signature == rtype.callable();
     }
-    virtual const ISignature* callable() const override {
+    virtual const IFunctionSignature* callable() const override {
       return &this->signature;
     }
     virtual String getName() const {
@@ -556,7 +556,7 @@ namespace {
   }
 }
 
-egg::lang::Value egg::lang::String::builtin(egg::lang::IExecution& execution, const egg::lang::String& property) const {
+std::function<Value(const String&)> egg::lang::String::builtinFactory(const egg::lang::String& property) {
   // See http://chilliant.blogspot.co.uk/2018/05/egg-strings.html
   static const std::map<std::string, std::function<Value(const String&)>> table = {
     { "compare", StringBuiltin<StringCompare>::make },
@@ -579,7 +579,15 @@ egg::lang::Value egg::lang::String::builtin(egg::lang::IExecution& execution, co
   auto name = property.toUTF8();
   auto entry = table.find(name);
   if (entry != table.end()) {
-    return entry->second(*this);
+    return entry->second;
+  }
+  return nullptr;
+}
+
+egg::lang::Value egg::lang::String::builtin(egg::lang::IExecution& execution, const egg::lang::String& property) const {
+  auto factory = String::builtinFactory(property);
+  if (factory != nullptr) {
+    return factory(*this);
   }
   return execution.raiseFormat("Unknown property for type 'string': '", property, "'");
 }

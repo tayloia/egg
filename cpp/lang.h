@@ -151,9 +151,9 @@ namespace egg::lang {
     virtual Value getNamed(const String& name) const = 0;
   };
 
-  class ISignatureParameter {
+  class IFunctionSignatureParameter {
   public:
-    virtual ~ISignatureParameter() {}
+    virtual ~IFunctionSignatureParameter() {}
     virtual String getName() const = 0; // May be empty
     virtual const IType& getType() const = 0;
     virtual size_t getPosition() const = 0; // SIZE_MAX if not positional
@@ -161,17 +161,25 @@ namespace egg::lang {
     virtual bool isVariadic() const = 0;
   };
 
-  class ISignature {
+  class IFunctionSignature {
   public:
-    virtual ~ISignature() {}
+    virtual ~IFunctionSignature() {}
     virtual String toString() const; // Default formats as expected
     virtual String getFunctionName() const = 0; // May be empty
     virtual const IType& getReturnType() const = 0;
     virtual size_t getParameterCount() const = 0;
-    virtual const ISignatureParameter& getParameter(size_t index) const = 0;
+    virtual const IFunctionSignatureParameter& getParameter(size_t index) const = 0;
     virtual bool validateCall(IExecution& execution, const IParameters& runtime, Value& problem) const; // Calls validateCallDefault
 
     bool validateCallDefault(IExecution& execution, const IParameters& runtime, Value& problem) const;
+  };
+
+  class IIndexSignature {
+  public:
+    virtual ~IIndexSignature() {}
+    virtual String toString() const; // Default formats as expected
+    virtual const IType& getResultType() const = 0;
+    virtual const IType& getIndexType() const = 0;
   };
 
   class IType {
@@ -184,7 +192,9 @@ namespace egg::lang {
     virtual bool canBeAssignedFrom(const IType& rhs) const = 0;
 
     virtual Value promoteAssignment(IExecution& execution, const Value& rhs) const; // Default implementation calls IType::canBeAssignedFrom()
-    virtual const ISignature* callable() const; // Default implementation returns nullptr
+    virtual const IFunctionSignature* callable() const; // Default implementation returns nullptr
+    virtual const IIndexSignature* indexable() const; // Default implementation returns nullptr
+    virtual const IType* dotable() const; // Default implementation returns nullptr
     virtual const IType* iterable() const; // Default implementation returns nullptr
     virtual Discriminator getSimpleTypes() const; // Default implementation returns 'Object'
     virtual Ref referencedType() const; // Default implementation returns 'Type*'
@@ -203,7 +213,7 @@ namespace egg::lang {
 
     // Helpers
     bool hasNativeType(Discriminator native) const {
-      return egg::lang::Bits::hasAllSet(this->getSimpleTypes(), native);
+      return egg::lang::Bits::hasAnySet(this->getSimpleTypes(), native);
     }
   };
   typedef egg::gc::HardRef<const IType> ITypeRef;
@@ -351,6 +361,7 @@ namespace egg::lang {
       return std::min(size_t(index), n);
     }
     // Built-ins
+    static std::function<Value(const String&)> builtinFactory(const String& property);
     Value builtin(IExecution& execution, const String& property) const;
     // Operators
     String& operator=(const String& rhs) {

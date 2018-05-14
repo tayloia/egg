@@ -40,7 +40,7 @@ namespace {
     return makeParserNode<T>(context, node, lhs, rhs);
   }
 
-  class EggParserTypeFunctionSignatureParameter : public egg::lang::ISignatureParameter {
+  class EggParserTypeFunctionSignatureParameter : public egg::lang::IFunctionSignatureParameter {
   private:
     egg::lang::String name;
     egg::lang::ITypeRef type;
@@ -68,7 +68,7 @@ namespace {
     }
   };
 
-  class EggParserTypeFunctionSignature : public egg::lang::ISignature {
+  class EggParserTypeFunctionSignature : public egg::lang::IFunctionSignature {
     EGG_NO_COPY(EggParserTypeFunctionSignature);
   private:
     egg::lang::String fname;
@@ -87,7 +87,7 @@ namespace {
     virtual size_t getParameterCount() const override {
       return this->parameters.size();
     }
-    virtual const  egg::lang::ISignatureParameter& getParameter(size_t index) const override {
+    virtual const  egg::lang::IFunctionSignatureParameter& getParameter(size_t index) const override {
       return this->parameters.at(index);
     }
     void addParameter(const egg::lang::String& name, const egg::lang::IType& type, bool optional) {
@@ -108,7 +108,7 @@ namespace {
       // We can assign if the signatures are the same (TODO equal?)
       return &this->signature == rtype.callable();
     }
-    virtual const egg::lang::ISignature* callable() const override {
+    virtual const egg::lang::IFunctionSignature* callable() const override {
       return &this->signature;
     }
     virtual bool prepareParameters(egg::lang::IPreparation& preparation, const egg::lang::IParameters& supplied, PrepareParametersSetter setter) const override {
