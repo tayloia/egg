@@ -464,8 +464,8 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareBinary(const
     }
     return EggProgramNodeFlags::None;
   case EggProgramBinary::Dot:
-    // Left-hand side should be string/type/opbject
-    return checkBinarySide(*this, where, op, "left-hand side", egg::lang::Discriminator::String | egg::lang::Discriminator::Type | egg::lang::Discriminator::Object, lhs);
+    // Left-hand side should be string/opbject
+    return checkBinarySide(*this, where, op, "left-hand side", egg::lang::Discriminator::String | egg::lang::Discriminator::Object, lhs);
   case EggProgramBinary::Lambda:
   case EggProgramBinary::NullCoalescing:
     return this->compilerError(where, "'", EggProgram::binaryToString(op), "' operators not yet supported in 'prepareBinary'"); // TODO

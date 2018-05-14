@@ -1096,9 +1096,7 @@ const egg::lang::Value egg::lang::Value::ReturnVoid{ Discriminator::Return | Dis
 void egg::lang::Value::copyInternals(const Value& other) {
   assert(this != &other);
   this->tag = other.tag;
-  if (this->has(Discriminator::Type)) {
-    this->t = other.t->acquireHard();
-  } else if (this->has(Discriminator::Object)) {
+  if (this->has(Discriminator::Object)) {
     this->o = other.o->acquireHard();
   } else if (this->has(Discriminator::String)) {
     this->s = other.s->acquireHard();
@@ -1113,9 +1111,7 @@ void egg::lang::Value::copyInternals(const Value& other) {
 
 void egg::lang::Value::moveInternals(Value& other) {
   this->tag = other.tag;
-  if (this->has(Discriminator::Type)) {
-    this->t = other.t;
-  } else if (this->has(Discriminator::Object)) {
+  if (this->has(Discriminator::Object)) {
     this->o = other.o;
   } else if (this->has(Discriminator::String)) {
     this->s = other.s;
@@ -1130,9 +1126,7 @@ void egg::lang::Value::moveInternals(Value& other) {
 }
 
 void egg::lang::Value::destroyInternals() {
-  if (this->has(Discriminator::Type)) {
-    this->t->releaseHard();
-  } else if (this->has(Discriminator::Object)) {
+  if (this->has(Discriminator::Object)) {
     this->o->releaseHard();
   } else if (this->has(Discriminator::String)) {
     this->s->releaseHard();
@@ -1183,9 +1177,6 @@ bool egg::lang::Value::equal(const Value& lhs, const Value& rhs) {
   if (lhs.tag == Discriminator::String) {
     return lhs.s->equal(*rhs.s);
   }
-  if (lhs.tag == Discriminator::Type) {
-    return lhs.t == rhs.t;
-  }
   return lhs.o == rhs.o;
 }
 
@@ -1233,7 +1224,6 @@ std::string egg::lang::Value::getTagString(Discriminator tag) {
     { int(Discriminator::Int), "int" },
     { int(Discriminator::Float), "float" },
     { int(Discriminator::String), "string" },
-    { int(Discriminator::Type), "type" },
     { int(Discriminator::Object), "object" },
     { int(Discriminator::Break), "break" },
     { int(Discriminator::Continue), "continue" },
@@ -1254,16 +1244,9 @@ std::string egg::lang::Value::getTagString(Discriminator tag) {
 }
 
 const egg::lang::IType& egg::lang::Value::getRuntimeType() const {
-  if (this->tag == Discriminator::Type) {
-    // TODO Is the runtime type of a type just the type itself?
-    return *this->t;
-  }
   if (this->tag == Discriminator::Object) {
     // Ask the object for its type
-    auto runtime = this->o->getRuntimeType();
-    if (runtime.is(Discriminator::Type)) {
-      return *runtime.t;
-    }
+    return this->o->getRuntimeType();
   }
   auto* native = Type::getNative(this->tag);
   if (native != nullptr) {
@@ -1299,9 +1282,6 @@ std::string egg::lang::Value::toUTF8() const {
   }
   if (this->tag == Discriminator::String) {
     return this->s->toUTF8();
-  }
-  if (this->tag == Discriminator::Type) {
-    return "<type>"; // TODO
   }
   if (this->tag == Discriminator::Object) {
     auto str = this->o->toString();

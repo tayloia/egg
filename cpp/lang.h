@@ -67,15 +67,14 @@ namespace egg::lang {
     Int = 1 << 3,
     Float = 1 << 4,
     String = 1 << 5,
-    Type = 1 << 6,
-    Object = 1 << 7,
-    Any = Bool | Int | Float | String | Type | Object,
+    Object = 1 << 6,
+    Any = Bool | Int | Float | String | Object,
     Arithmetic = Int | Float,
-    Break = 1 << 8,
-    Continue = 1 << 9,
-    Return = 1 << 10,
-    Yield = 1 << 11,
-    Exception = 1 << 12,
+    Break = 1 << 7,
+    Continue = 1 << 8,
+    Return = 1 << 9,
+    Yield = 1 << 10,
+    Exception = 1 << 11,
     FlowControl = Break | Continue | Return | Yield | Exception
   };
   inline Discriminator operator|(Discriminator lhs, Discriminator rhs) {
@@ -236,7 +235,7 @@ namespace egg::lang {
     virtual void releaseHard() const = 0;
     virtual bool dispose() = 0;
     virtual Value toString() const = 0;
-    virtual Value getRuntimeType() const = 0;
+    virtual const IType& getRuntimeType() const = 0;
     virtual Value call(IExecution& execution, const IParameters& parameters) = 0;
     virtual Value getProperty(IExecution& execution, const String& property) = 0;
     virtual Value setProperty(IExecution& execution, const String& property, const Value& value) = 0;
@@ -405,7 +404,6 @@ namespace egg::lang {
       double f;
       const IString* s;
       IObject* o;
-      IType* t;
     };
     explicit Value(Discriminator tag) : tag(tag) {}
     void copyInternals(const Value& other);
@@ -418,7 +416,6 @@ namespace egg::lang {
     explicit Value(int64_t value) : tag(Discriminator::Int) { this->i = value; }
     explicit Value(double value) : tag(Discriminator::Float) { this->f = value; }
     explicit Value(const String& value) : tag(Discriminator::String) { this->s = value.acquireHard(); }
-    explicit Value(const IType& type) : tag(Discriminator::Type) { this->t = type.acquireHard(); }
     explicit Value(IObject& object) : tag(Discriminator::Object) { this->o = object.acquireHard(); }
     Value(const Value& value);
     Value(Value&& value);

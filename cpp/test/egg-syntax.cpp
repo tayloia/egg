@@ -210,7 +210,6 @@ TEST(TestEggSyntaxParser, ExpressionCast) {
   ASSERT_PARSE_GOOD(parseExpressionToString("int(123)"), "(cast int (literal int 123))");
   ASSERT_PARSE_GOOD(parseExpressionToString("float(`pi`, 3.14159)"), "(cast float (literal string 'pi') (literal float 3.14159))");
   ASSERT_PARSE_GOOD(parseExpressionToString("string(`hello`, `world`)"), "(cast string (literal string 'hello') (literal string 'world'))");
-  ASSERT_PARSE_GOOD(parseExpressionToString("type()"), "(cast type)");
   ASSERT_PARSE_GOOD(parseExpressionToString("object()"), "(cast object)");
   // Bad
   ASSERT_PARSE_BAD(parseExpressionToString("bool?()"), "(1, 1): Expression expected, not keyword: 'bool'");

@@ -120,9 +120,8 @@ namespace {
     virtual Value toString() const override {
       return Value(this->type.getName());
     }
-    virtual Value getRuntimeType() const override {
-      // Fetch the runtime type
-      return Value(this->type);
+    virtual const IType& getRuntimeType() const override {
+      return this->type;
     }
     virtual Value getProperty(IExecution& execution, const String& property) override {
       return execution.raiseFormat(this->type.toString(), " does not support properties such as '.", property, ".");
@@ -198,9 +197,8 @@ namespace {
     virtual Value toString() const override {
       return Value(this->type->getName());
     }
-    virtual Value getRuntimeType() const override {
-      // Fetch the runtime type
-      return Value(*this->type);
+    virtual const IType& getRuntimeType() const override {
+      return *this->type;
     }
     virtual Value call(IExecution& execution, const IParameters& parameters) override {
       // Let the string builtin type handle the request

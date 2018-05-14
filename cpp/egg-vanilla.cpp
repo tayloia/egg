@@ -19,8 +19,8 @@ namespace {
     virtual bool dispose() override {
       return false;
     }
-    virtual egg::lang::Value getRuntimeType() const override {
-      return egg::lang::Value(*this->type);
+    virtual const egg::lang::IType& getRuntimeType() const override {
+      return *this->type;
     }
     virtual egg::lang::Value call(egg::lang::IExecution& execution, const egg::lang::IParameters&) override {
       return execution.raiseFormat(this->kind, "s do not support calling with '()'");

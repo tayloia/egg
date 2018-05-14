@@ -10,7 +10,7 @@ namespace {
   using namespace egg::yolk;
 
   egg::lang::Discriminator keywordToDiscriminator(const EggTokenizerItem& item) {
-    // Accept only cast-like keywords: bool, int, float, string, type and object
+    // Accept only cast-like keywords: bool, int, float, string and object
     if (item.isKeyword(EggTokenizerKeyword::Bool)) {
       return egg::lang::Discriminator::Bool;
     }
@@ -22,9 +22,6 @@ namespace {
     }
     if (item.isKeyword(EggTokenizerKeyword::String)) {
       return egg::lang::Discriminator::String;
-    }
-    if (item.isKeyword(EggTokenizerKeyword::Type)) {
-      return egg::lang::Discriminator::Type;
     }
     if (item.isKeyword(EggTokenizerKeyword::Object)) {
       return egg::lang::Discriminator::Object;

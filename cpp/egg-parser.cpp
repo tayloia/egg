@@ -902,7 +902,12 @@ namespace {
       assert(callee != nullptr);
     }
     virtual egg::lang::ITypeRef getType() const override {
-      return egg::lang::Type::AnyQ; // WIBBLE
+      // Get this from the function signature, if possible
+      auto* signature = this->callee->getType()->callable();
+      if (signature == nullptr) {
+        return egg::lang::Type::Void;
+      }
+      return egg::lang::ITypeRef(&signature->getReturnType());
     }
     virtual EggProgramNodeFlags prepare(EggProgramContext& context) override {
       return context.prepareCall(*this->callee, this->child);

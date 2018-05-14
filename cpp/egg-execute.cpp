@@ -73,8 +73,8 @@ namespace {
     virtual egg::lang::Value toString() const override {
       return egg::lang::Value(egg::lang::String::concat("<", this->type->toString(), ">"));
     }
-    virtual egg::lang::Value getRuntimeType() const override {
-      return egg::lang::Value(*this->type);
+    virtual const egg::lang::IType& getRuntimeType() const override {
+      return *this->type;
     }
     virtual egg::lang::Value call(egg::lang::IExecution&, const egg::lang::IParameters& parameters) override {
       return this->program.executeFunctionCall(*this->type, parameters, *this->block);
