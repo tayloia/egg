@@ -103,7 +103,7 @@ egg::lang::Value egg::yolk::EggProgramContext::executeScope(const IEggProgramNod
   if ((node != nullptr) && node->symbol(name, type)) {
     // Perform the action with a new scope containing our symbol
     EggProgramSymbolTable nested(this->symtable);
-    nested.addSymbol(name, *type);
+    nested.addSymbol(EggProgramSymbol::ReadWrite, name, *type);
     EggProgramContext context(*this, nested);
     return action(context);
   }
@@ -118,7 +118,7 @@ egg::lang::Value egg::yolk::EggProgramContext::executeStatements(const std::vect
   for (auto& statement : statements) {
     if (statement->symbol(name, type)) {
       // We've checked for duplicate symbols already
-      this->symtable->addSymbol(name, *type);
+      this->symtable->addSymbol(EggProgramSymbol::ReadWrite, name, *type);
     }
     auto retval = statement->execute(*this);
     if (!retval.is(egg::lang::Discriminator::Void)) {
@@ -140,9 +140,10 @@ egg::lang::Value egg::yolk::EggProgramContext::executeBlock(const IEggProgramNod
   return context.executeStatements(statements);
 }
 
-egg::lang::Value egg::yolk::EggProgramContext::executeDeclare(const IEggProgramNode& self, const egg::lang::String& name, const egg::lang::IType&, const IEggProgramNode* rvalue) {
+egg::lang::Value egg::yolk::EggProgramContext::executeDeclare(const IEggProgramNode& self, const egg::lang::String& name, const egg::lang::IType& type, const IEggProgramNode* rvalue) {
   // The type information has already been used in the symbol declaration phase
   this->statement(self);
+  assert(type.getSimpleTypes() != egg::lang::Discriminator::Inferred);
   if (rvalue != nullptr) {
     // The declaration contains an initial value
     return this->set(name, rvalue->execute(*this));
@@ -367,18 +368,15 @@ egg::lang::Value egg::yolk::EggProgramContext::executeFunctionDefinition(const I
   this->statement(self);
   auto symbol = this->symtable->findSymbol(name);
   assert(symbol != nullptr);
-  // We can store this directly in the symbol table without going through the type system
-  // otherwise we get issues with function assignment
-  assert(symbol->value.is(egg::lang::Discriminator::Void));
-  symbol->value = egg::lang::Value(*new EggProgramFunction(*this, type, block));
-  return egg::lang::Value::Void;
+  assert(symbol->getValue().is(egg::lang::Discriminator::Void));
+  return symbol->assign(*this, egg::lang::Value(*new EggProgramFunction(*this, type, block)));
 }
 
 egg::lang::Value egg::yolk::EggProgramContext::executeFunctionCall(const egg::lang::IType& type, const egg::lang::IParameters& parameters, const IEggProgramNode& block) {
   // This actually calls a function
   EggProgramSymbolTable nested(this->symtable);
   egg::lang::IType::ExecuteParametersSetter setter = [&](const egg::lang::String& k, const egg::lang::IType& t, const egg::lang::Value& v) {
-    auto retval = nested.addSymbol(k, t)->assign(*this, v);
+    auto retval = nested.addSymbol(EggProgramSymbol::ReadWrite, k, t)->assign(*this, v);
     assert(!retval.has(egg::lang::Discriminator::FlowControl));
   };
   auto retval = type.executeParameters(*this, parameters, setter);
@@ -506,7 +504,7 @@ egg::lang::Value egg::yolk::EggProgramContext::executeCatch(const IEggProgramNod
   assert(!exception.has(egg::lang::Discriminator::FlowControl));
   // TODO return false if typeof(exception) != type
   EggProgramSymbolTable nested(this->symtable);
-  nested.addSymbol(name, *type.getType())->value = exception;
+  nested.addSymbol(EggProgramSymbol::ReadWrite, name, *type.getType(), exception);
   EggProgramContext context(*this, nested);
   auto retval = block.execute(context);
   if (retval.has(egg::lang::Discriminator::FlowControl)) {

@@ -182,8 +182,9 @@ namespace egg::lang {
     virtual IType* acquireHard() const = 0;
     virtual void releaseHard() const = 0;
     virtual String toString() const = 0;
-    virtual Value promoteAssignment(IExecution& execution, const Value& rhs) const = 0;
+    virtual bool canBeAssignedFrom(const IType& rhs) const = 0;
 
+    virtual Value promoteAssignment(IExecution& execution, const Value& rhs) const; // Default implementation calls IType::canBeAssignedFrom()
     virtual const ISignature* callable() const; // Default implementation returns nullptr
     virtual const IType* iterable() const; // Default implementation returns nullptr
     virtual Discriminator getSimpleTypes() const; // Default implementation returns 'None'

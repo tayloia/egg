@@ -12,20 +12,6 @@ namespace {
   bool abandoned(EggProgramNodeFlags flags) {
     return egg::lang::Bits::hasAnySet(flags, EggProgramNodeFlags::Abandon);
   }
-
-  class EggProgramPreparation : public egg::lang::IPreparation {
-    EGG_NO_COPY(EggProgramPreparation);
-  private:
-    EggProgramContext* context;
-    egg::lang::LocationSource location;
-  public:
-    EggProgramPreparation(EggProgramContext& context, const egg::lang::LocationSource& location)
-      : context(&context), location(location) {
-    }
-    virtual void raise(egg::lang::LogSeverity severity, const egg::lang::String& message) override {
-      this->context->compiler(severity, this->location, message);
-    }
-  };
 }
 
 egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareScope(const IEggProgramNode* node, std::function<EggProgramNodeFlags(EggProgramContext&)> action) {
@@ -34,7 +20,7 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareScope(const 
   if ((node != nullptr) && node->symbol(name, type)) {
     // Perform the action with a new scope containing our symbol
     EggProgramSymbolTable nested(this->symtable);
-    nested.addSymbol(name, *type);
+    nested.addSymbol(EggProgramSymbol::ReadWrite, name, *type);
     EggProgramContext context(*this, nested);
     return action(context);
   }
@@ -49,7 +35,7 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareStatements(c
   for (auto& statement : statements) {
     if (statement->symbol(name, type)) {
       // We've checked for duplicate symbols already
-      this->symtable->addSymbol(name, *type);
+      this->symtable->addSymbol(EggProgramSymbol::ReadWrite, name, *type);
     }
     auto retval = statement->prepare(*this);
     if (abandoned(retval)) {
@@ -75,14 +61,21 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareBlock(const 
   return this->prepareStatements(statements);
 }
 
-egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareDeclare(const egg::lang::String& name, const egg::lang::IType& type, IEggProgramNode* rvalue) {
-  // TODO type check
-  (void)name; // WIBBLE
-  (void)type; // WIBBLE
+egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareDeclare(const egg::lang::LocationSource& where, const egg::lang::String& name, egg::lang::ITypeRef& ltype, const egg::lang::IType* rtype, IEggProgramNode* rvalue) {
+  if (rtype != nullptr) {
+    // This must be a prepareWithType call with an inferred type
+    assert(rvalue == nullptr);
+    return this->typeCheck(where, ltype, egg::lang::ITypeRef(rtype), name);
+  }
   if (rvalue != nullptr) {
+    // Type-check the initialization
     if (abandoned(rvalue->prepare(*this))) {
       return EggProgramNodeFlags::Abandon;
     }
+    return this->typeCheck(rvalue->location(), ltype, rvalue->getType(), name);
+  }
+  if (ltype->getSimpleTypes() == egg::lang::Discriminator::Inferred) {
+    return this->compilerError(where, "Cannot infer type of '", name, "' declared with 'var'");
   }
   return EggProgramNodeFlags::None;
 }
@@ -111,7 +104,7 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareCatch(const 
     return EggProgramNodeFlags::Abandon;
   }
   EggProgramSymbolTable nested(this->symtable);
-  nested.addSymbol(name, *type.getType());
+  nested.addSymbol(EggProgramSymbol::ReadWrite, name, *type.getType());
   EggProgramContext context(*this, nested);
   return block.prepare(context);
 }
@@ -154,9 +147,8 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareFor(IEggProg
 }
 
 egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareForeach(IEggProgramNode& lvalue, IEggProgramNode& rvalue, IEggProgramNode& block) {
-  // TODO
   return this->prepareScope(&lvalue, [&](EggProgramContext& scope) {
-    if (abandoned(rvalue.prepare(scope)) || abandoned(lvalue.prepare(scope))) {
+    if (abandoned(rvalue.prepare(scope))) {
       return EggProgramNodeFlags::Abandon;
     }
     auto type = rvalue.getType();
@@ -164,11 +156,15 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareForeach(IEgg
     if (iterable == nullptr) {
       return scope.compilerError(rvalue.location(), "Expression after the ':' in 'for' statement is not iterable: '", type->toString(), "'");
     }
+    if (abandoned(lvalue.prepareWithType(scope, *iterable))) {
+      return EggProgramNodeFlags::Abandon;
+    }
     return block.prepare(scope);
   });
 }
 
 egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareFunctionDefinition(const egg::lang::String& name, const egg::lang::IType& type, const std::shared_ptr<IEggProgramNode>& block) {
+  // TODO type check
   auto callable = type.callable();
   assert(callable != nullptr);
   assert(callable->getFunctionName() == name);
@@ -176,7 +172,7 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareFunctionDefi
   auto n = callable->getParameterCount();
   for (size_t i = 0; i < n; ++i) {
     auto& parameter = callable->getParameter(i);
-    nested.addSymbol(parameter.getName(), parameter.getType());
+    nested.addSymbol(EggProgramSymbol::ReadWrite, parameter.getName(), parameter.getType());
   }
   EggProgramContext context(*this, nested);
   return block->prepare(context);
@@ -316,7 +312,7 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareIdentifier(c
   if (symbol == nullptr) {
     return this->compilerError(where, "Unknown identifier: '", name, "'");
   }
-  type = symbol->type;
+  type.set(&symbol->getType());
   return EggProgramNodeFlags::None;
 }
 
@@ -345,6 +341,21 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareTernary(IEgg
   // TODO
   if (abandoned(cond.prepare(*this)) || abandoned(whenTrue.prepare(*this)) || abandoned(whenFalse.prepare(*this))) {
     return EggProgramNodeFlags::Abandon;
+  }
+  return EggProgramNodeFlags::None;
+}
+
+egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::typeCheck(const egg::lang::LocationSource& where, egg::lang::ITypeRef& ltype, const egg::lang::ITypeRef& rtype, const egg::lang::String& name) {
+  assert(rtype->getSimpleTypes() != egg::lang::Discriminator::Inferred);
+  if (ltype->getSimpleTypes() == egg::lang::Discriminator::Inferred) {
+    // We can infer the type
+    ltype = rtype;
+    auto symbol = this->symtable->findSymbol(name, false);
+    assert(symbol != nullptr);
+    symbol->inferType(*rtype);
+  }
+  if (!ltype->canBeAssignedFrom(*rtype)) {
+    return this->compilerError(where, "Cannot initialize '", name, "' of type '", ltype->toString(), "' with a value of type '", rtype->toString(), "'");
   }
   return EggProgramNodeFlags::None;
 }

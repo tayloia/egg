@@ -3,7 +3,27 @@
 namespace {
   using namespace egg::lang;
 
+  bool canBeAssignedFromSimple(Discriminator lhs, const IType& rtype) {
+    assert(lhs != Discriminator::Inferred);
+    auto rhs = rtype.getSimpleTypes();
+    assert(rhs != Discriminator::Inferred);
+    if (rhs == Discriminator::None) {
+      // The source is not simple
+      return false;
+    }
+    if (Bits::hasAnySet(lhs, rhs)) {
+      // There's a possibility that the assignment might work
+      return true;
+    }
+    if (Bits::hasAnySet(lhs, Discriminator::Float) && Bits::hasAnySet(rhs, Discriminator::Int)) {
+      // We allow type promotion int->float
+      return true;
+    }
+    return false;
+  }
+
   Value promoteAssignmentSimple(IExecution& execution, Discriminator lhs, const Value& rhs) {
+    assert(lhs != Discriminator::Inferred);
     if (rhs.has(lhs)) {
       // It's an exact type match
       return rhs;
@@ -807,8 +827,8 @@ namespace {
     virtual ITypeRef referencedType() const override {
       return this->referenced;
     }
-    virtual Value promoteAssignment(IExecution& execution, const Value&) const override {
-      return execution.raiseFormat("TODO: Cannot yet assign to reference value"); // TODO
+    virtual bool canBeAssignedFrom(const IType&) const {
+      return false; // TODO
     }
   };
 
@@ -837,6 +857,9 @@ namespace {
       }
       return Type::makeUnion(*this, other);
     }
+    virtual bool canBeAssignedFrom(const IType&) const {
+      return false;
+    }
     virtual Value promoteAssignment(IExecution& execution, const Value&) const override {
       return execution.raiseFormat("Cannot assign to 'null' value");
     }
@@ -864,6 +887,9 @@ namespace {
         return ITypeRef(this);
       }
       return Type::makeUnion(*this, other);
+    }
+    virtual bool canBeAssignedFrom(const IType& rhs) const {
+      return canBeAssignedFromSimple(TAG, rhs);
     }
     virtual Value promoteAssignment(IExecution& execution, const Value& rhs) const override {
       return promoteAssignmentSimple(execution, TAG, rhs);
@@ -922,6 +948,9 @@ namespace {
       }
       return ITypeRef(this);
     }
+    virtual bool canBeAssignedFrom(const IType& rhs) const {
+      return canBeAssignedFromSimple(this->tag, rhs);
+    }
     virtual Value promoteAssignment(IExecution& execution, const Value& rhs) const override {
       return promoteAssignmentSimple(execution, this->tag, rhs);
     }
@@ -948,8 +977,8 @@ namespace {
     virtual String toString() const override {
       return String::concat(this->a->toString(), "|", this->b->toString());
     }
-    virtual Value promoteAssignment(IExecution& execution, const Value&) const override {
-      return execution.raiseFormat("TODO: Cannot yet assign to union value"); // TODO
+    virtual bool canBeAssignedFrom(const IType&) const {
+      return false; // TODO
     }
     virtual const ISignature* callable() const override {
       EGG_THROW("TODO: Cannot yet call to union value"); // TODO
@@ -1433,6 +1462,15 @@ bool egg::lang::ISignature::validateCallDefault(IExecution& execution, const IPa
     return false;
   }
   return true;
+}
+
+egg::lang::Value egg::lang::IType::promoteAssignment(IExecution& execution, const Value& rhs) const {
+  // The default implementation calls IType::canBeAssignedFrom() but does not promote
+  auto& rtype = rhs.getRuntimeType();
+  if (!this->canBeAssignedFrom(rtype)) {
+    return execution.raiseFormat("Cannot assign a value of type '", rtype.toString(), "' to a target of type '", this->toString(), "'");
+  }
+  return rhs;
 }
 
 const egg::lang::ISignature* egg::lang::IType::callable() const {

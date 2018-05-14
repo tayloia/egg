@@ -296,9 +296,22 @@ namespace {
   }
 }
 
-egg::lang::Value egg::yolk::EggProgramSymbolTable::Symbol::assign(egg::lang::IExecution& execution, const egg::lang::Value& rhs) {
+void egg::yolk::EggProgramSymbol::inferType(const egg::lang::IType& inferred) {
+  // We only allow inferred type updates
+  assert(this->type->getSimpleTypes() == egg::lang::Discriminator::Inferred);
+  this->type.set(&inferred);
+}
+
+egg::lang::Value egg::yolk::EggProgramSymbol::assign(egg::lang::IExecution& execution, const egg::lang::Value& rhs) {
   // Ask the type to assign the value so that type promotion can occur
-  egg::lang::String problem;
+  switch (this->kind) {
+  case Builtin:
+    return execution.raiseFormat("Cannot re-assign built-in value: '", this->name, "'");
+  case Readonly:
+    return execution.raiseFormat("Cannot modify read-only variable: '", this->name, "'");
+  case ReadWrite:
+    break;
+  }
   auto promoted = this->type->promoteAssignment(execution, rhs);
   if (promoted.has(egg::lang::Discriminator::FlowControl)) {
     // The assignment failed
@@ -315,16 +328,16 @@ void egg::yolk::EggProgramSymbolTable::addBuiltins() {
 }
 
 void egg::yolk::EggProgramSymbolTable::addBuiltin(const std::string& name, const egg::lang::Value& value) {
-  this->addSymbol(egg::lang::String::fromUTF8(name), value.getRuntimeType())->value = value;
+  this->addSymbol(EggProgramSymbol::Builtin, egg::lang::String::fromUTF8(name), value.getRuntimeType(), value);
 }
 
-std::shared_ptr<egg::yolk::EggProgramSymbolTable::Symbol> egg::yolk::EggProgramSymbolTable::addSymbol(const egg::lang::String& name, const egg::lang::IType& type) {
-  auto result = this->map.emplace(name, std::make_shared<Symbol>(name, type));
+std::shared_ptr<egg::yolk::EggProgramSymbol> egg::yolk::EggProgramSymbolTable::addSymbol(EggProgramSymbol::Kind kind, const egg::lang::String& name, const egg::lang::IType& type, const egg::lang::Value& value) {
+  auto result = this->map.emplace(name, std::make_shared<EggProgramSymbol>(kind, name, type, value));
   assert(result.second);
   return result.first->second;
 }
 
-std::shared_ptr<egg::yolk::EggProgramSymbolTable::Symbol> egg::yolk::EggProgramSymbolTable::findSymbol(const egg::lang::String& name, bool includeParents) const {
+std::shared_ptr<egg::yolk::EggProgramSymbol> egg::yolk::EggProgramSymbolTable::findSymbol(const egg::lang::String& name, bool includeParents) const {
   auto found = this->map.find(name);
   if (found != this->map.end()) {
     return found->second;
@@ -444,10 +457,11 @@ egg::lang::Value egg::yolk::EggProgramContext::get(const egg::lang::String& name
   if (symbol == nullptr) {
     return this->raiseFormat("Unknown identifier: '", name, "'");
   }
-  if (symbol->value.is(egg::lang::Discriminator::Void)) {
+  auto& value = symbol->getValue();
+  if (value.is(egg::lang::Discriminator::Void)) {
     return this->raiseFormat("Uninitialized identifier: '", name.toUTF8(), "'");
   }
-  return symbol->value;
+  return value;
 }
 
 egg::lang::Value egg::yolk::EggProgramContext::set(const egg::lang::String& name, const egg::lang::Value& rvalue) {

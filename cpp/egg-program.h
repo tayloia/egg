@@ -22,6 +22,7 @@ namespace egg::yolk {
     virtual egg::lang::LocationSource location() const = 0;
     virtual bool symbol(egg::lang::String& nameOut, egg::lang::ITypeRef& typeOut) const = 0;
     virtual EggProgramNodeFlags prepare(EggProgramContext& context) = 0;
+    virtual EggProgramNodeFlags prepareWithType(EggProgramContext& context, const egg::lang::IType& type) = 0;
     virtual egg::lang::Value execute(EggProgramContext& context) const = 0;
     virtual egg::lang::Value executeWithExpression(EggProgramContext& context, const egg::lang::Value& expression) const = 0;
     virtual std::unique_ptr<IEggProgramAssignee> assignee(EggProgramContext& context) const = 0;
@@ -44,20 +45,29 @@ namespace egg::yolk {
     EGG_PROGRAM_MUTATE_OPERATORS(EGG_PROGRAM_ASSIGN_OPERATOR_DECLARE)
   };
 
+  class EggProgramSymbol {
+  public:
+    enum Kind { Builtin, Readonly, ReadWrite };
+  private:
+    Kind kind;
+    egg::lang::String name;
+    egg::lang::ITypeRef type;
+    egg::lang::Value value;
+  public:
+    EggProgramSymbol(Kind kind, const egg::lang::String& name, const egg::lang::IType& type, const egg::lang::Value& value)
+      : kind(kind), name(name), type(&type), value(value) {
+    }
+    const egg::lang::String& getName() const { return this->name; }
+    const egg::lang::IType& getType() const { return *this->type; }
+    const egg::lang::Value& getValue() const { return this->value; }
+    void inferType(const egg::lang::IType& inferred);
+    egg::lang::Value assign(egg::lang::IExecution& execution, const egg::lang::Value& rhs);
+  };
+
   class EggProgramSymbolTable {
     EGG_NO_COPY(EggProgramSymbolTable);
-  public:
-    struct Symbol {
-      egg::lang::String name;
-      egg::lang::ITypeRef type;
-      egg::lang::Value value;
-      Symbol(const egg::lang::String& name, const egg::lang::IType& type)
-        : name(name), type(&type), value(egg::lang::Value::Void) {
-      }
-      egg::lang::Value assign(egg::lang::IExecution& execution, const egg::lang::Value& rhs);
-    };
   private:
-    std::map<egg::lang::String, std::shared_ptr<Symbol>> map;
+    std::map<egg::lang::String, std::shared_ptr<EggProgramSymbol>> map;
     const EggProgramSymbolTable* parent;
   public:
     explicit EggProgramSymbolTable(const EggProgramSymbolTable* parent = nullptr)
@@ -65,8 +75,8 @@ namespace egg::yolk {
     }
     void addBuiltins();
     void addBuiltin(const std::string& name, const egg::lang::Value& value);
-    std::shared_ptr<Symbol> addSymbol(const egg::lang::String& name, const egg::lang::IType& type);
-    std::shared_ptr<Symbol> findSymbol(const egg::lang::String& name, bool includeParents = true) const;
+    std::shared_ptr<EggProgramSymbol> addSymbol(EggProgramSymbol::Kind kind, const egg::lang::String& name, const egg::lang::IType& type, const egg::lang::Value& value = egg::lang::Value::Void);
+    std::shared_ptr<EggProgramSymbol> findSymbol(const egg::lang::String& name, bool includeParents = true) const;
   };
 
   class EggProgram {
@@ -177,7 +187,7 @@ namespace egg::yolk {
     // Implemented in egg-prepare.cpp
     EggProgramNodeFlags prepareModule(const std::vector<std::shared_ptr<IEggProgramNode>>& statements);
     EggProgramNodeFlags prepareBlock(const std::vector<std::shared_ptr<IEggProgramNode>>& statements);
-    EggProgramNodeFlags prepareDeclare(const egg::lang::String& name, const egg::lang::IType& type, IEggProgramNode* rvalue);
+    EggProgramNodeFlags prepareDeclare(const egg::lang::LocationSource& where, const egg::lang::String& name, egg::lang::ITypeRef& ltype, const egg::lang::IType* rtype, IEggProgramNode* rvalue);
     EggProgramNodeFlags prepareAssign(EggProgramAssign op, IEggProgramNode& lvalue, IEggProgramNode& rvalue);
     EggProgramNodeFlags prepareMutate(EggProgramMutate op, IEggProgramNode& lvalue);
     EggProgramNodeFlags prepareCatch(const egg::lang::String& name, IEggProgramNode& type, IEggProgramNode& block);
@@ -207,6 +217,7 @@ namespace egg::yolk {
     bool findDuplicateSymbols(const std::vector<std::shared_ptr<IEggProgramNode>>& statements);
     EggProgramNodeFlags prepareScope(const IEggProgramNode* node, std::function<EggProgramNodeFlags(EggProgramContext&)> action);
     EggProgramNodeFlags prepareStatements(const std::vector<std::shared_ptr<IEggProgramNode>>& statements);
+    EggProgramNodeFlags typeCheck(const egg::lang::LocationSource& where, egg::lang::ITypeRef& ltype, const egg::lang::ITypeRef& rtype, const egg::lang::String& name);
     egg::lang::Value executeScope(const IEggProgramNode* node, std::function<egg::lang::Value(EggProgramContext&)> action);
     egg::lang::Value executeStatements(const std::vector<std::shared_ptr<IEggProgramNode>>& statements);
     egg::lang::Value executeFinally(const egg::lang::Value& retval, const IEggProgramNode* block);

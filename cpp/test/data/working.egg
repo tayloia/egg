@@ -8,7 +8,6 @@ int fibonacci(int n) {
 print(fibonacci(10));
 
 // This is a test file
-var a;
 var s = 0;
 for (var i = 0; i < 100; ++i) {
   s += i;

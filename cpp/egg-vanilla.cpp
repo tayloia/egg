@@ -45,6 +45,9 @@ namespace {
       return egg::lang::String::fromUTF8("<iterator>");
     }
     // TODO iterable() for forEachRemaining() like Java?
+    virtual bool canBeAssignedFrom(const IType&) const {
+      return false; // TODO
+    }
     virtual egg::lang::Value promoteAssignment(egg::lang::IExecution& execution, const egg::lang::Value&) const override {
       return execution.raiseFormat("Cannot re-assign iterators"); // TODO
     }
@@ -78,8 +81,9 @@ namespace {
       // A keyvalue is a dictionary of two elements, so it is itself iterable
       return &VanillaKeyValueType::instance;
     }
-    virtual egg::lang::Value promoteAssignment(egg::lang::IExecution& execution, const egg::lang::Value&) const override {
-      return execution.raiseFormat("Cannot re-assign key-values"); // TODO
+    virtual bool canBeAssignedFrom(const IType& rtype) const {
+      // TODO Only allow assignment of vanilla keyvalues
+      return this == &rtype;
     }
     static const VanillaKeyValueType instance;
   };
@@ -127,8 +131,9 @@ namespace {
       // Iterating an array returns the elements
       return egg::lang::Type::AnyQ.get();
     }
-    virtual egg::lang::Value promoteAssignment(egg::lang::IExecution& execution, const egg::lang::Value&) const override {
-      return execution.raiseFormat("Cannot re-assign arrays"); // TODO
+    virtual bool canBeAssignedFrom(const IType& rtype) const {
+      // TODO Only allow assignment of vanilla arrays
+      return this == &rtype;
     }
     static const VanillaArrayType instance;
   };
@@ -305,8 +310,9 @@ namespace {
       // Iterating an object, returns the dictionary keyvalue pairs
       return &VanillaKeyValueType::instance;
     }
-    virtual egg::lang::Value promoteAssignment(egg::lang::IExecution& execution, const egg::lang::Value&) const override {
-      return execution.raiseFormat("Cannot re-assign objects"); // TODO
+    virtual bool canBeAssignedFrom(const IType& rtype) const {
+      // TODO Only allow assignment of vanilla objects
+      return this == &rtype;
     }
     static const VanillaObjectType instance;
   };
@@ -328,6 +334,9 @@ namespace {
     virtual const egg::lang::IType* iterable() const override {
       // Iterating an exception, returns the dictionary keyvalue pairs
       return &VanillaKeyValueType::instance;
+    }
+    virtual bool canBeAssignedFrom(const IType&) const {
+      return false; // TODO
     }
     virtual egg::lang::Value promoteAssignment(egg::lang::IExecution& execution, const egg::lang::Value&) const override {
       return execution.raiseFormat("Cannot re-assign exceptions");

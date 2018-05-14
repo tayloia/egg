@@ -104,8 +104,9 @@ namespace {
     explicit EggParserTypeFunction(const egg::lang::String& name, const egg::lang::IType& rettype)
       : HardReferenceCounted(0), signature(name, rettype) {
     }
-    virtual egg::lang::Value promoteAssignment(egg::lang::IExecution& execution, const egg::lang::Value& rhs) const override {
-      return execution.raiseFormat("TODO: Promotion of a value of type '", rhs.getRuntimeType().toString(), "' to a target of type '", this->toString(), "' is currently unimplemented"); // TODO
+    virtual bool canBeAssignedFrom(const IType& rtype) const {
+      // We can assign if the signatures are the same (TODO equal?)
+      return &this->signature == rtype.callable();
     }
     virtual const egg::lang::ISignature* callable() const override {
       return &this->signature;
@@ -274,6 +275,10 @@ namespace {
       // By default, nodes do not declare symbols
       return false;
     }
+    virtual EggProgramNodeFlags prepareWithType(EggProgramContext& context, const egg::lang::IType&) override {
+      // By default, we fail if asked to prepare with a type (used only in variable-declaring statements)
+      return context.compilerError(this->locationSource, "Internal parser error: Inappropriate 'prepareWithType' call");
+    }
     virtual egg::lang::Value executeWithExpression(EggProgramContext& context, const egg::lang::Value&) const override {
       // By default, we fail if asked to execute with an expression (used only in switch/catch statements, etc)
       return context.raiseFormat("Internal parser error: Inappropriate 'executeWithExpression' call");
@@ -370,7 +375,10 @@ namespace {
       return context.assigneeIdentifier(*this, this->name);
     }
     virtual EggProgramNodeFlags prepare(EggProgramContext& context) override {
-      return context.prepareDeclare(this->name, *this->type, this->init.get());
+      return context.prepareDeclare(this->locationSource, this->name, this->type, nullptr, this->init.get());
+    }
+    virtual EggProgramNodeFlags prepareWithType(EggProgramContext& context, const egg::lang::IType& rtype) override {
+      return context.prepareDeclare(this->locationSource, this->name, this->type, &rtype, this->init.get());
     }
     virtual egg::lang::Value execute(EggProgramContext& context) const override {
       return context.executeDeclare(*this, this->name, *this->type, this->init.get());
@@ -915,7 +923,9 @@ namespace {
       EggParserNode_Cast(const egg::lang::LocationSource& locationSource, egg::lang::Discriminator tag)
       : EggParserNodeBase(locationSource), tag(tag) {
     }
-    // TODO virtual egg::lang::ITypeRef getType() const override;
+    virtual egg::lang::ITypeRef getType() const override {
+      return egg::lang::Type::makeSimple(this->tag);
+    }
     virtual EggProgramNodeFlags prepare(EggProgramContext& context) override {
       return context.prepareCast(this->tag, this->child);
     }

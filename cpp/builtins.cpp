@@ -79,8 +79,9 @@ namespace {
     virtual String toString() const override {
       return this->signature.toString();
     }
-    virtual Value promoteAssignment(IExecution& execution, const Value&) const override {
-      return this->raise(execution, "Cannot re-assign built-in function");
+    virtual bool canBeAssignedFrom(const IType& rtype) const {
+      // We can assign if the signatures are the same (TODO equal?)
+      return &this->signature == rtype.callable();
     }
     virtual const ISignature* callable() const override {
       return &this->signature;

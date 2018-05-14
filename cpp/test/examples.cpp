@@ -29,13 +29,10 @@ namespace {
         { int(egg::lang::LogSeverity::Error), "<ERROR>" }
       };
       auto text = String::fromEnum(source, sourceTable) + String::fromEnum(severity, severityTable);
-      if (this->resource.empty()) {
-        text += message;
-      } else {
-        text += String::replace(message, this->resource, "<RESOURCE>");
-      }
-      std::cout << text << std::endl;
-      this->logged += text + "\n";
+      std::cout << text << message << std::endl;
+      this->logged += text;
+      this->logged += this->resource.empty() ? message : String::replace(message, this->resource, "<RESOURCE>");
+      this->logged += "\n";
     }
     std::string logged;
   };
