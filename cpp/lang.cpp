@@ -35,46 +35,6 @@ namespace {
     return execution.raiseFormat("Cannot assign a value of type '", rhs.getRuntimeType().toString(), "' to a target of type '", Value::getTagString(lhs), "'");
   }
 
-  Value castString(const IParameters& parameters) {
-    assert(parameters.getNamedCount() == 0);
-    auto n = parameters.getPositionalCount();
-    switch (n) {
-    case 0:
-      return Value::EmptyString;
-    case 1:
-      return Value{ parameters.getPositional(0).toString() };
-    }
-    StringBuilder sb;
-    for (size_t i = 0; i < n; ++i) {
-      sb.add(parameters.getPositional(i).toString());
-    }
-    return Value{ sb.str() };
-  }
-
-  Value castSimple(IExecution& execution, Discriminator tag, const IParameters& parameters) {
-    // OPTIMIZE
-    if (parameters.getNamedCount() != 0) {
-      return execution.raiseFormat("Named parameters in type-casts are not supported");
-    }
-    if (tag == Discriminator::String) {
-      return castString(parameters);
-    }
-    if (parameters.getPositionalCount() != 1) {
-      return execution.raiseFormat("Type-cast expected a single parameter: '", Value::getTagString(tag), "()'");
-
-    }
-    auto rhs = parameters.getPositional(0);
-    if (rhs.is(tag)) {
-      // It's an exact type match
-      return rhs;
-    }
-    if (Bits::hasAnySet(tag, Discriminator::Float) && rhs.is(Discriminator::Int)) {
-      // We allow type promotion int->float
-      return Value(double(rhs.getInt())); // TODO overflows?
-    }
-    return execution.raiseFormat("Cannot cast a value of type '", rhs.getRuntimeType().toString(), "' to type '", Value::getTagString(tag), "'");
-  }
-
   void formatSourceLocation(StringBuilder& sb, const LocationSource& location) {
     sb.add(location.file);
     if (location.column > 0) {
@@ -897,9 +857,6 @@ namespace {
     virtual Value promoteAssignment(IExecution& execution, const Value& rhs) const override {
       return promoteAssignmentSimple(execution, TAG, rhs);
     }
-    virtual Value cast(IExecution& execution, const IParameters& parameters) const override {
-      return castSimple(execution, TAG, parameters);
-    }
   };
   const TypeNative<Discriminator::Void> typeVoid{};
   const TypeNative<Discriminator::Bool> typeBool{};
@@ -1319,11 +1276,6 @@ egg::lang::Value egg::lang::IType::executeParameters(egg::lang::IExecution& exec
   return execution.raiseFormat("Internal type error: Cannot decant parameters for type '", this->toString(), "'");
 }
 
-egg::lang::Value egg::lang::IType::cast(IExecution& execution, const IParameters&) const {
-  // The default implementation is to return an error (only native types are castable)
-  return execution.raiseFormat("Internal type error: Cannot cast to type '", this->toString(), "'");
-}
-
 egg::lang::Value egg::lang::IType::dotGet(IExecution& execution, const Value& instance, const String& property) const {
   // The default implementation is to dispatch requests for strings and complex types
   if (instance.is(Discriminator::Object)) {
@@ -1430,7 +1382,7 @@ bool egg::lang::IFunctionSignature::validateCallDefault(IExecution& execution, c
   auto actual = parameters.getPositionalCount();
   if (actual < minPositional) {
     if (minPositional == 1) {
-      problem = execution.raiseFormat(this->toString(), ": At least one parameter was expected");
+      problem = execution.raiseFormat(this->toString(), ": At least 1 parameter was expected");
     } else {
       problem = execution.raiseFormat(this->toString(), ": At least ", minPositional, " parameters were expected, not ", actual);
     }
@@ -1441,7 +1393,7 @@ bool egg::lang::IFunctionSignature::validateCallDefault(IExecution& execution, c
   } else if (actual > maxPositional) {
     // Not variadic
     if (maxPositional == 1) {
-      problem = execution.raiseFormat(this->toString(), ": Only one parameter was expected, not ", actual);
+      problem = execution.raiseFormat(this->toString(), ": Only 1 parameter was expected, not ", actual);
     } else {
       problem = execution.raiseFormat(this->toString(), ": No more than ", maxPositional, " parameters were expected, not ", actual);
     }

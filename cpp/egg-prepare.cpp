@@ -425,17 +425,6 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareCall(IEggPro
   return EggProgramNodeFlags::None;
 }
 
-egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareCast(egg::lang::Discriminator tag, const std::vector<std::shared_ptr<IEggProgramNode>>& parameters) {
-  // TODO
-  (void)tag; // WIBBLE
-  for (auto& parameter : parameters) {
-    if (abandoned(parameter->prepare(*this))) {
-      return EggProgramNodeFlags::Abandon;
-    }
-  }
-  return EggProgramNodeFlags::None;
-}
-
 egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareIdentifier(const egg::lang::LocationSource& where, const egg::lang::String& name, egg::lang::ITypeRef& type) {
   // We need to work out our type
   assert(type.get() == egg::lang::Type::Void.get());

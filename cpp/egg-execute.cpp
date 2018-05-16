@@ -656,25 +656,6 @@ egg::lang::Value egg::yolk::EggProgramContext::executeCall(const IEggProgramNode
   return this->call(func, params);
 }
 
-egg::lang::Value egg::yolk::EggProgramContext::executeCast(const IEggProgramNode& self, egg::lang::Discriminator tag, const std::vector<std::shared_ptr<IEggProgramNode>>& parameters) {
-  EggProgramExpression expression(*this, self);
-  EggProgramParameters params(parameters.size());
-  egg::lang::String name;
-  auto type = egg::lang::Type::Void;
-  for (auto& parameter : parameters) {
-    auto value = parameter->execute(*this);
-    if (value.has(egg::lang::Discriminator::FlowControl)) {
-      return value;
-    }
-    if (parameter->symbol(name, type)) {
-      params.addNamed(name, value);
-    } else {
-      params.addPositional(value);
-    }
-  }
-  return this->cast(tag, params);
-}
-
 egg::lang::Value egg::yolk::EggProgramContext::executeIdentifier(const IEggProgramNode& self, const egg::lang::String& name) {
   EggProgramExpression expression(*this, self);
   return this->get(name);

@@ -206,11 +206,11 @@ TEST(TestEggSyntaxParser, ExpressionPostfix) {
 
 TEST(TestEggSyntaxParser, ExpressionCast) {
   // Good
-  ASSERT_PARSE_GOOD(parseExpressionToString("bool()"), "(cast bool)");
-  ASSERT_PARSE_GOOD(parseExpressionToString("int(123)"), "(cast int (literal int 123))");
-  ASSERT_PARSE_GOOD(parseExpressionToString("float(`pi`, 3.14159)"), "(cast float (literal string 'pi') (literal float 3.14159))");
-  ASSERT_PARSE_GOOD(parseExpressionToString("string(`hello`, `world`)"), "(cast string (literal string 'hello') (literal string 'world'))");
-  ASSERT_PARSE_GOOD(parseExpressionToString("object()"), "(cast object)");
+  ASSERT_PARSE_GOOD(parseExpressionToString("bool()"), "(call (identifier 'bool'))");
+  ASSERT_PARSE_GOOD(parseExpressionToString("int(123)"), "(call (identifier 'int') (literal int 123))");
+  ASSERT_PARSE_GOOD(parseExpressionToString("float.epsilon"), "(binary '.' (identifier 'float') (literal string 'epsilon'))");
+  ASSERT_PARSE_GOOD(parseExpressionToString("string(`hello`, `world`)"), "(call (identifier 'string') (literal string 'hello') (literal string 'world'))");
+  ASSERT_PARSE_GOOD(parseExpressionToString("object()"), "(call (identifier 'object'))");
   // Bad
   ASSERT_PARSE_BAD(parseExpressionToString("bool?()"), "(1, 1): Expression expected, not keyword: 'bool'");
 }

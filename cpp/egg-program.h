@@ -144,7 +144,6 @@ namespace egg::yolk {
     egg::lang::Value unary(EggProgramUnary op, const IEggProgramNode& value);
     egg::lang::Value binary(EggProgramBinary op, const IEggProgramNode& lhs, const IEggProgramNode& rhs);
     egg::lang::Value call(const egg::lang::Value& callee, const egg::lang::IParameters& parameters);
-    egg::lang::Value cast(egg::lang::Discriminator tag, const egg::lang::IParameters& parameters);
     egg::lang::Value createVanillaArray();
     egg::lang::Value createVanillaObject();
     // Inherited via IExecution
@@ -177,7 +176,6 @@ namespace egg::yolk {
     egg::lang::Value executeArray(const IEggProgramNode& self, const std::vector<std::shared_ptr<IEggProgramNode>>& values);
     egg::lang::Value executeObject(const IEggProgramNode& self, const std::vector<std::shared_ptr<IEggProgramNode>>& values);
     egg::lang::Value executeCall(const IEggProgramNode& self, const IEggProgramNode& callee, const std::vector<std::shared_ptr<IEggProgramNode>>& parameters);
-    egg::lang::Value executeCast(const IEggProgramNode& self, egg::lang::Discriminator tag, const std::vector<std::shared_ptr<IEggProgramNode>>& parameters);
     egg::lang::Value executeIdentifier(const IEggProgramNode& self, const egg::lang::String& name);
     egg::lang::Value executeLiteral(const IEggProgramNode& self, const egg::lang::Value& value);
     egg::lang::Value executeUnary(const IEggProgramNode& self, EggProgramUnary op, const IEggProgramNode& value);
@@ -206,7 +204,6 @@ namespace egg::yolk {
     EggProgramNodeFlags prepareArray(const std::vector<std::shared_ptr<IEggProgramNode>>& values);
     EggProgramNodeFlags prepareObject(const std::vector<std::shared_ptr<IEggProgramNode>>& values);
     EggProgramNodeFlags prepareCall(IEggProgramNode& callee, const std::vector<std::shared_ptr<IEggProgramNode>>& parameters);
-    EggProgramNodeFlags prepareCast(egg::lang::Discriminator tag, const std::vector<std::shared_ptr<IEggProgramNode>>& parameters);
     EggProgramNodeFlags prepareIdentifier(const egg::lang::LocationSource& where, const egg::lang::String& name, egg::lang::ITypeRef& type);
     EggProgramNodeFlags prepareUnary(const egg::lang::LocationSource& where, EggProgramUnary op, IEggProgramNode& value);
     EggProgramNodeFlags prepareBinary(const egg::lang::LocationSource& where, EggProgramBinary op, IEggProgramNode& lhs, IEggProgramNode& rhs);

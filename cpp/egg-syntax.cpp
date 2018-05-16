@@ -202,10 +202,6 @@ void egg::yolk::EggSyntaxNode_Call::dump(std::ostream& os) const {
   ParserDump(os, "call").add(this->child);
 }
 
-void egg::yolk::EggSyntaxNode_Cast::dump(std::ostream& os) const {
-  ParserDump(os, "cast " + egg::lang::Value::getTagString(this->tag)).add(this->child);
-}
-
 void egg::yolk::EggSyntaxNode_Named::dump(std::ostream& os) const {
   ParserDump(os, "named").add(this->name).add(this->child);
 }
@@ -1051,15 +1047,11 @@ std::unique_ptr<IEggSyntaxNode> EggSyntaxParserContext::parseExpressionPrimary(c
     }
     simple = keywordToDiscriminator(p0);
     if (simple != egg::lang::Discriminator::None) {
-      // It could be a constructor like 'string(...)'
-      if (mark.peek(1).isOperator(EggTokenizerOperator::ParenthesisLeft)) {
-        // Expect <type> '(' <parameter-list>? ')'
-        mark.advance(1);
-        auto cast = std::make_unique<EggSyntaxNode_Cast>(location, simple);
-        this->parseParameterList([&cast](auto&& node) { cast->addChild(std::move(node)); });
-        cast->setLocationEnd(mark.peek(0), 1);
-        mark.accept(1); // skip ')'
-        return cast;
+      // It could be a constructor like 'string(...)' or a property like 'float.epsilon'
+      auto& p1 = mark.peek(1);
+      if (p1.isOperator(EggTokenizerOperator::ParenthesisLeft) || p1.isOperator(EggTokenizerOperator::Dot)) {
+        mark.accept(1);
+        return std::make_unique<EggSyntaxNode_Identifier>(location, p0.value.s);
       }
     }
     break;

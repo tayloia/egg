@@ -62,12 +62,12 @@ namespace {
     }
   };
 
-  class BuiltinType : public egg::gc::NotReferenceCounted<IType> {
-    EGG_NO_COPY(BuiltinType);
+  class BuiltinFunctionType : public egg::gc::NotReferenceCounted<IType> {
+    EGG_NO_COPY(BuiltinFunctionType);
   private:
     BuiltinSignature signature;
   public:
-    BuiltinType(const std::string& name, const ITypeRef& returnType)
+    BuiltinFunctionType(const std::string& name, const ITypeRef& returnType)
       : signature(name, returnType) {
     }
     void addPositionalParameter(const std::string& name, const ITypeRef& type, bool required = true) {
@@ -104,13 +104,23 @@ namespace {
     }
   };
 
-  template<typename T>
-  class Builtin : public egg::gc::NotReferenceCounted<IObject> {
-    EGG_NO_COPY(Builtin);
-  protected:
-    T type;
+  class BuiltinObjectType : public BuiltinFunctionType {
+    EGG_NO_COPY(BuiltinObjectType);
   public:
-    Builtin(const std::string& name, const ITypeRef& returnType)
+    BuiltinObjectType(const std::string& name, const ITypeRef& returnType)
+      : BuiltinFunctionType(name, returnType) {
+    }
+    virtual const IType* dotable() const {
+      return Type::AnyQ.get();
+    }
+  };
+
+  class BuiltinFunction : public egg::gc::NotReferenceCounted<IObject> {
+    EGG_NO_COPY(BuiltinFunction);
+  protected:
+    BuiltinFunctionType type;
+  public:
+    BuiltinFunction(const std::string& name, const ITypeRef& returnType)
       : type(name, returnType) {
     }
     virtual bool dispose() override {
@@ -124,27 +134,120 @@ namespace {
       return this->type;
     }
     virtual Value getProperty(IExecution& execution, const String& property) override {
-      return execution.raiseFormat(this->type.toString(), " does not support properties such as '.", property, ".");
+      return execution.raiseFormat("Built-in '", this->type.getName(), "' does not support properties such as '.", property, "'");
     }
     virtual Value setProperty(IExecution& execution, const String& property, const Value&) override {
-      return execution.raiseFormat(this->type.toString(), " does not support properties such as '.", property, ".");
+      return execution.raiseFormat("Built-in '", this->type.getName(), "' does not support properties such as '.", property, "'");
     }
     virtual Value getIndex(IExecution& execution, const Value&) override {
-      return execution.raiseFormat(this->type.toString(), " does not support indexing with '[]'");
+      return execution.raiseFormat("Built-in '", this->type.getName(), "' does not support indexing with '[]'");
     }
     virtual Value setIndex(IExecution& execution, const Value&, const Value&) override {
-      return execution.raiseFormat(this->type.toString(), " does not support indexing with '[]'");
+      return execution.raiseFormat("Built-in '", this->type.getName(), "' does not support indexing with '[]'");
     }
     virtual Value iterate(IExecution& execution) override {
-      return execution.raiseFormat(this->type.toString(), " does not support iteration");
+      return execution.raiseFormat("Built-in '", this->type.getName(), "' does not support iteration");
     }
   };
 
-  class BuiltinAssert : public Builtin<BuiltinType> {
+  class BuiltinObject : public egg::gc::NotReferenceCounted<IObject> {
+    EGG_NO_COPY(BuiltinObject);
+  protected:
+    BuiltinObjectType type;
+    egg::yolk::Dictionary<String, Value> properties;
+  public:
+    explicit BuiltinObject(const std::string& name, const ITypeRef& returnType)
+      : type(name, returnType) {
+    }
+    void addProperty(const std::string& name, const Value& value) {
+      this->properties.addOrUpdate(String::fromUTF8(name), value);
+    }
+    virtual bool dispose() override {
+      // We don't allow disposing of builtins
+      return false;
+    }
+    virtual Value toString() const override {
+      return Value(this->type.getName());
+    }
+    virtual const IType& getRuntimeType() const override {
+      return this->type;
+    }
+    virtual Value getProperty(IExecution& execution, const String& property) override {
+      Value value;
+      if (this->properties.tryGet(property, value)) {
+        return value;
+      }
+      return execution.raiseFormat("Unknown built-in property: '", this->type.getName(), ".", property, "'");
+    }
+    virtual Value setProperty(IExecution& execution, const String& property, const Value&) override {
+      return execution.raiseFormat("Cannot set built-in property: '", this->type.getName(), ".", property, "'");
+    }
+    virtual Value getIndex(IExecution& execution, const Value&) override {
+      return execution.raiseFormat("Built-in '", this->type.getName(), "' does not support indexing with '[]'");
+    }
+    virtual Value setIndex(IExecution& execution, const Value&, const Value&) override {
+      return execution.raiseFormat("Built-in '", this->type.getName(), "' does not support indexing with '[]'");
+    }
+    virtual Value iterate(IExecution& execution) override {
+      return execution.raiseFormat("Built-in '", this->type.getName(), "' does not support iteration");
+    }
+  };
+
+  class BuiltinStringFrom : public BuiltinFunction {
+    EGG_NO_COPY(BuiltinStringFrom);
+  public:
+    BuiltinStringFrom()
+      : BuiltinFunction("string.from", Type::makeSimple(Discriminator::String | Discriminator::Null)) {
+      this->type.addPositionalParameter("value", Type::AnyQ);
+    }
+    virtual Value call(IExecution& execution, const IParameters& parameters) override {
+      // Convert the parameter to a string
+      // Note: Although the return type is 'string?' (for orthogonality) this function never returns 'null'
+      Value result = this->type.validateCall(execution, parameters);
+      if (result.has(Discriminator::FlowControl)) {
+        return result;
+      }
+      return Value{ parameters.getPositional(0).toString() };
+    }
+  };
+
+  class BuiltinString : public BuiltinObject {
+    EGG_NO_COPY(BuiltinString);
+  private:
+    BuiltinStringFrom from;
+  public:
+    BuiltinString()
+      : BuiltinObject("string", Type::String) {
+      // The function call looks like: 'string string(any?... value)'
+      this->type.addVariadicParameter("value", Type::AnyQ, false);
+      this->addProperty("from", Value{ this->from });
+    }
+    virtual Value call(IExecution& execution, const IParameters& parameters) override {
+      // Concatenate the string representations of all parameters
+      Value result = this->type.validateCall(execution, parameters);
+      if (result.has(Discriminator::FlowControl)) {
+        return result;
+      }
+      auto n = parameters.getPositionalCount();
+      switch (n) {
+      case 0:
+        return Value::EmptyString;
+      case 1:
+        return Value{ parameters.getPositional(0).toString() };
+      }
+      StringBuilder sb;
+      for (size_t i = 0; i < n; ++i) {
+        sb.add(parameters.getPositional(i).toString());
+      }
+      return Value{ sb.str() };
+    }
+  };
+
+  class BuiltinAssert : public BuiltinFunction {
     EGG_NO_COPY(BuiltinAssert);
   public:
     BuiltinAssert()
-      : Builtin("assert", Type::Void) {
+      : BuiltinFunction("assert", Type::Void) {
       this->type.addPositionalParameter("predicate", Type::Any);
     }
     virtual Value call(IExecution& execution, const IParameters& parameters) override {
@@ -156,11 +259,11 @@ namespace {
     }
   };
 
-  class BuiltinPrint : public Builtin<BuiltinType> {
+  class BuiltinPrint : public BuiltinFunction {
     EGG_NO_COPY(BuiltinPrint);
   public:
     BuiltinPrint()
-      : Builtin("print", Type::Void) {
+      : BuiltinFunction("print", Type::Void) {
       this->type.addVariadicParameter("...", Type::Any, false);
     }
     virtual Value call(IExecution& execution, const IParameters& parameters) override {
@@ -209,10 +312,10 @@ namespace {
       return this->type->executeCall(execution, this->instance, parameters);
     }
     virtual Value getProperty(IExecution& execution, const String& property) override {
-      return execution.raiseFormat(this->type->toString(), " does not support properties such as '.", property, ".");
+      return execution.raiseFormat(this->type->toString(), " does not support properties such as '.", property, "'");
     }
     virtual Value setProperty(IExecution& execution, const String& property, const Value&) override {
-      return execution.raiseFormat(this->type->toString(), " does not support properties such as '.", property, ".");
+      return execution.raiseFormat(this->type->toString(), " does not support properties such as '.", property, "'");
     }
     virtual Value getIndex(IExecution& execution, const Value&) override {
       return execution.raiseFormat(this->type->toString(), " does not support indexing with '[]'");
@@ -229,11 +332,11 @@ namespace {
     }
   };
 
-  class StringHashCode : public BuiltinType {
+  class StringHashCode : public BuiltinFunctionType {
     EGG_NO_COPY(StringHashCode);
   public:
     StringHashCode()
-      : BuiltinType("string.hashCode", Type::Int) {
+      : BuiltinFunctionType("string.hashCode", Type::Int) {
     }
     Value executeCall(IExecution&, const String& instance, const IParameters&) const {
       // int hashCode()
@@ -241,11 +344,11 @@ namespace {
     }
   };
 
-  class StringToString : public BuiltinType {
+  class StringToString : public BuiltinFunctionType {
     EGG_NO_COPY(StringToString);
   public:
     StringToString()
-      : BuiltinType("string.toString", Type::String) {
+      : BuiltinFunctionType("string.toString", Type::String) {
     }
     Value executeCall(IExecution&, const String& instance, const IParameters&) const {
       // string toString()
@@ -253,11 +356,11 @@ namespace {
     }
   };
 
-  class StringContains : public BuiltinType {
+  class StringContains : public BuiltinFunctionType {
     EGG_NO_COPY(StringContains);
   public:
     StringContains()
-      : BuiltinType("string.contains", Type::Bool) {
+      : BuiltinFunctionType("string.contains", Type::Bool) {
       this->addPositionalParameter("needle", Type::String);
     }
     Value executeCall(IExecution& execution, const String& instance, const IParameters& parameters) const {
@@ -270,11 +373,11 @@ namespace {
     }
   };
 
-  class StringCompare : public BuiltinType {
+  class StringCompare : public BuiltinFunctionType {
     EGG_NO_COPY(StringCompare);
   public:
     StringCompare()
-      : BuiltinType("string.compare", Type::Int) {
+      : BuiltinFunctionType("string.compare", Type::Int) {
       this->addPositionalParameter("needle", Type::String);
     }
     Value executeCall(IExecution& execution, const String& instance, const IParameters& parameters) const {
@@ -287,11 +390,11 @@ namespace {
     }
   };
 
-  class StringStartsWith : public BuiltinType {
+  class StringStartsWith : public BuiltinFunctionType {
     EGG_NO_COPY(StringStartsWith);
   public:
     StringStartsWith()
-      : BuiltinType("string.startsWith", Type::Bool) {
+      : BuiltinFunctionType("string.startsWith", Type::Bool) {
       this->addPositionalParameter("needle", Type::String);
     }
     Value executeCall(IExecution& execution, const String& instance, const IParameters& parameters) const {
@@ -304,11 +407,11 @@ namespace {
     }
   };
 
-  class StringEndsWith : public BuiltinType {
+  class StringEndsWith : public BuiltinFunctionType {
     EGG_NO_COPY(StringEndsWith);
   public:
     StringEndsWith()
-      : BuiltinType("string.endsWith", Type::Bool) {
+      : BuiltinFunctionType("string.endsWith", Type::Bool) {
       this->addPositionalParameter("needle", Type::String);
     }
     Value executeCall(IExecution& execution, const String& instance, const IParameters& parameters) const {
@@ -321,11 +424,11 @@ namespace {
     }
   };
 
-  class StringIndexOf : public BuiltinType {
+  class StringIndexOf : public BuiltinFunctionType {
     EGG_NO_COPY(StringIndexOf);
   public:
     StringIndexOf()
-      : BuiltinType("string.indexOf", Type::makeSimple(Discriminator::Int | Discriminator::Null)) {
+      : BuiltinFunctionType("string.indexOf", Type::makeSimple(Discriminator::Int | Discriminator::Null)) {
       this->addPositionalParameter("needle", Type::String);
     }
     Value executeCall(IExecution& execution, const String& instance, const IParameters& parameters) const {
@@ -339,11 +442,11 @@ namespace {
     }
   };
 
-  class StringLastIndexOf : public BuiltinType {
+  class StringLastIndexOf : public BuiltinFunctionType {
     EGG_NO_COPY(StringLastIndexOf);
   public:
     StringLastIndexOf()
-      : BuiltinType("string.lastIndexOf", Type::makeSimple(Discriminator::Int | Discriminator::Null)) {
+      : BuiltinFunctionType("string.lastIndexOf", Type::makeSimple(Discriminator::Int | Discriminator::Null)) {
       this->addPositionalParameter("needle", Type::String);
     }
     Value executeCall(IExecution& execution, const String& instance, const IParameters& parameters) const {
@@ -357,11 +460,11 @@ namespace {
     }
   };
 
-  class StringJoin : public BuiltinType {
+  class StringJoin : public BuiltinFunctionType {
     EGG_NO_COPY(StringJoin);
   public:
     StringJoin()
-      : BuiltinType("string.join", Type::String) {
+      : BuiltinFunctionType("string.join", Type::String) {
       this->addVariadicParameter("...", Type::Any, false);
     }
     Value executeCall(IExecution&, const String& instance, const IParameters& parameters) const {
@@ -385,11 +488,11 @@ namespace {
     }
   };
 
-  class StringSplit : public BuiltinType {
+  class StringSplit : public BuiltinFunctionType {
     EGG_NO_COPY(StringSplit);
   public:
     StringSplit()
-      : BuiltinType("string.split", Type::Any) {
+      : BuiltinFunctionType("string.split", Type::Any) {
       this->addPositionalParameter("separator", Type::String);
     }
     Value executeCall(IExecution& execution, const String& instance, const IParameters& parameters) const {
@@ -404,11 +507,11 @@ namespace {
     }
   };
 
-  class StringSlice : public BuiltinType {
+  class StringSlice : public BuiltinFunctionType {
     EGG_NO_COPY(StringSlice);
   public:
     StringSlice()
-      : BuiltinType("string.slice", Type::String) {
+      : BuiltinFunctionType("string.slice", Type::String) {
       this->addPositionalParameter("begin", Type::Int);
       this->addPositionalParameter("end", Type::Int, false);
     }
@@ -431,11 +534,11 @@ namespace {
     }
   };
 
-  class StringRepeat : public BuiltinType {
+  class StringRepeat : public BuiltinFunctionType {
     EGG_NO_COPY(StringRepeat);
   public:
     StringRepeat()
-      : BuiltinType("string.repeat", Type::String) {
+      : BuiltinFunctionType("string.repeat", Type::String) {
       this->addPositionalParameter("count", Type::Int);
     }
     Value executeCall(IExecution& execution, const String& instance, const IParameters& parameters) const {
@@ -462,11 +565,11 @@ namespace {
     }
   };
 
-  class StringReplace : public BuiltinType {
+  class StringReplace : public BuiltinFunctionType {
     EGG_NO_COPY(StringReplace);
   public:
     StringReplace()
-      : BuiltinType("string.replace", Type::Any) {
+      : BuiltinFunctionType("string.replace", Type::Any) {
       this->addPositionalParameter("needle", Type::String);
       this->addPositionalParameter("replacement", Type::String);
       this->addPositionalParameter("occurrences", Type::Int, false);
@@ -492,11 +595,11 @@ namespace {
     }
   };
 
-  class StringPadLeft : public BuiltinType {
+  class StringPadLeft : public BuiltinFunctionType {
     EGG_NO_COPY(StringPadLeft);
   public:
     StringPadLeft()
-      : BuiltinType("string.padLeft", Type::Any) {
+      : BuiltinFunctionType("string.padLeft", Type::Any) {
       this->addPositionalParameter("length", Type::Int);
       this->addPositionalParameter("padding", Type::String, false);
     }
@@ -521,11 +624,11 @@ namespace {
     }
   };
 
-  class StringPadRight : public BuiltinType {
+  class StringPadRight : public BuiltinFunctionType {
     EGG_NO_COPY(StringPadRight);
   public:
     StringPadRight()
-      : BuiltinType("string.padRight", Type::Any) {
+      : BuiltinFunctionType("string.padRight", Type::Any) {
       this->addPositionalParameter("length", Type::Int);
       this->addPositionalParameter("padding", Type::String, false);
     }
@@ -590,6 +693,11 @@ egg::lang::Value egg::lang::String::builtin(egg::lang::IExecution& execution, co
     return factory(*this);
   }
   return execution.raiseFormat("Unknown property for type 'string': '", property, "'");
+}
+
+egg::lang::Value egg::lang::Value::builtinString() {
+  static BuiltinString builtin;
+  return Value{ builtin };
 }
 
 egg::lang::Value egg::lang::Value::builtinAssert() {

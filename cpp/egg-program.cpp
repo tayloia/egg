@@ -323,6 +323,7 @@ egg::lang::Value egg::yolk::EggProgramSymbol::assign(egg::lang::IExecution& exec
 
 void egg::yolk::EggProgramSymbolTable::addBuiltins() {
   // TODO add built-in symbol to symbol table here
+  this->addBuiltin("string", egg::lang::Value::builtinString());
   this->addBuiltin("assert", egg::lang::Value::builtinAssert());
   this->addBuiltin("print", egg::lang::Value::builtinPrint());
 }
@@ -761,14 +762,6 @@ egg::lang::Value egg::yolk::EggProgramContext::call(const egg::lang::Value& call
   }
   auto& object = callee.getObject();
   return object.call(*this, parameters);
-}
-
-egg::lang::Value egg::yolk::EggProgramContext::cast(egg::lang::Discriminator tag, const egg::lang::IParameters& parameters) {
-  auto* native = egg::lang::Type::getNative(tag);
-  if (native == nullptr) {
-    return this->raiseFormat("Cast to non-trivial type is not supported: '", egg::lang::Value::getTagString(tag), "'");
-  }
-  return native->cast(*this, parameters);
 }
 
 egg::lang::Value egg::yolk::EggProgramContext::unexpected(const std::string& expectation, const egg::lang::Value& value) {
