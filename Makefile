@@ -163,4 +163,4 @@ rebuild: nuke
 
 valgrind: clean
 	$(SUBMAKE) $(TEST_EXE)
-	valgrind -v --leak-check=full --show-leak-kinds=all --track-origins=yes $(TEST_EXE)
+	valgrind -v --leak-check=full --show-leak-kinds=all --track-origins=yes --suppressions=./valgrind.supp $(TEST_EXE)
