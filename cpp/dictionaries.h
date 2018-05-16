@@ -2,9 +2,12 @@ namespace egg::yolk {
   // See https://docs.oracle.com/javase/8/docs/api/java/util/Map.html
   template<typename K, typename V>
   class DictionaryUnordered {
+    EGG_NO_COPY(DictionaryUnordered);
   private:
     std::unordered_map<K, V> map;
   public:
+    DictionaryUnordered() {
+    }
     bool empty() const {
       return this->map.empty();
     }
@@ -54,6 +57,7 @@ namespace egg::yolk {
 
   template<typename K, typename V>
   class Dictionary {
+    EGG_NO_COPY(Dictionary);
   public:
     typedef std::vector<K> Keys;
     typedef std::vector<V> Values;
@@ -62,6 +66,8 @@ namespace egg::yolk {
     std::unordered_map<K, V> map;
     std::vector<K> vec; // In insertion order
   public:
+    Dictionary() {
+    }
     bool empty() const {
       return this->vec.empty();
     }

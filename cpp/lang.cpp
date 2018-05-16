@@ -866,7 +866,7 @@ namespace {
 
   class TypeString : public TypeNative<Discriminator::String> {
   public:
-    // WIBBLE callable
+    // TODO callable and indexable
     virtual const IType* iterable() const override {
       // When strings are iterated, they iterate through strings (of codepoints)
       return Type::String.get();

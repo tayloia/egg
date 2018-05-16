@@ -360,7 +360,6 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareObject(const
 }
 
 egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareCall(IEggProgramNode& callee, const std::vector<std::shared_ptr<IEggProgramNode>>& parameters) {
-  // TODO
   if (abandoned(callee.prepare(*this))) {
     return EggProgramNodeFlags::Abandon;
   }
@@ -369,7 +368,7 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareCall(IEggPro
   if (callable == nullptr) {
     return this->compilerError(callee.location(), "Expected function-like expression to be callable, but got '", ctype->toString(), "' instead");
   }
-  // WIBBLE
+  // TODO type check parameters
   for (auto& parameter : parameters) {
     if (abandoned(parameter->prepare(*this))) {
       return EggProgramNodeFlags::Abandon;

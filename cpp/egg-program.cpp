@@ -25,59 +25,6 @@ namespace {
     }
   };
 
-  class EggProgramParametersEmpty : public egg::lang::IParameters {
-  public:
-    virtual size_t getPositionalCount() const override {
-      return 0;
-    }
-    virtual egg::lang::Value getPositional(size_t) const override {
-      return egg::lang::Value::Void;
-    }
-    virtual size_t getNamedCount() const override {
-      return 0;
-    }
-    virtual egg::lang::String getName(size_t) const override {
-      return egg::lang::String::Empty;
-    }
-    virtual egg::lang::Value getNamed(const egg::lang::String&) const override {
-      return egg::lang::Value::Void;
-    }
-  };
-  const EggProgramParametersEmpty parametersEmpty;
-
-  class EggProgramParameters : public egg::lang::IParameters {
-  private:
-    std::vector<egg::lang::Value> positional;
-    std::map<egg::lang::String, egg::lang::Value> named;
-  public:
-    explicit EggProgramParameters(size_t count) {
-      this->positional.reserve(count);
-    }
-    void addPositional(const egg::lang::Value& value) {
-      this->positional.push_back(value);
-    }
-    void addNamed(const egg::lang::String& name, const egg::lang::Value& value) {
-      this->named.emplace(name, value);
-    }
-    virtual size_t getPositionalCount() const override {
-      return this->positional.size();
-    }
-    virtual egg::lang::Value getPositional(size_t index) const override {
-      return this->positional.at(index);
-    }
-    virtual size_t getNamedCount() const override {
-      return this->named.size();
-    }
-    virtual egg::lang::String getName(size_t index) const override {
-      auto iter = this->named.begin();
-      std::advance(iter, index);
-      return iter->first;
-    }
-    virtual egg::lang::Value getNamed(const egg::lang::String& name) const override {
-      return this->named.at(name);
-    }
-  };
-
   class EggProgramFunction : public egg::gc::HardReferenceCounted<egg::lang::IObject> {
     EGG_NO_COPY(EggProgramFunction);
   private:

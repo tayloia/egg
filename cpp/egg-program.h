@@ -12,6 +12,7 @@ namespace egg::yolk {
     None = 0x00,
     Constant = 0x01,
     Deferred = 0x02,
+    Variadic = 0x04,
     Abandon = 0x80
   };
 
