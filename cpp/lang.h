@@ -153,12 +153,22 @@ namespace egg::lang {
 
   class IFunctionSignatureParameter {
   public:
+    enum Flags { // not class
+      None = 0x00,
+      Required = 0x01, // Not optional
+      Variadic = 0x02, // Zero/one or more repetitions
+      Assertion = 0x04 // Used in assertions
+    };
     virtual ~IFunctionSignatureParameter() {}
     virtual String getName() const = 0; // May be empty
     virtual const IType& getType() const = 0;
     virtual size_t getPosition() const = 0; // SIZE_MAX if not positional
-    virtual bool isRequired() const = 0;
-    virtual bool isVariadic() const = 0;
+    virtual Flags getFlags() const = 0;
+
+    // Flag helpers
+    bool isRequired() const { return (this->getFlags() & Required) != 0; }
+    bool isVariadic() const { return (this->getFlags() & Variadic) != 0; }
+    bool isAssertion() const { return (this->getFlags() & Variadic) != 0; }
   };
 
   class IFunctionSignature {

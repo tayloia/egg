@@ -45,11 +45,10 @@ namespace {
     egg::lang::String name;
     egg::lang::ITypeRef type;
     size_t position;
-    bool required;
-    bool variadic;
+    Flags flags;
   public:
-    EggParserTypeFunctionSignatureParameter(const egg::lang::String& name, const egg::lang::IType& type, size_t position, bool required, bool variadic)
-      : name(name), type(&type), position(position), required(required), variadic(variadic) {
+    EggParserTypeFunctionSignatureParameter(const egg::lang::String& name, const egg::lang::IType& type, size_t position, Flags flags)
+      : name(name), type(&type), position(position), flags(flags) {
     }
     virtual egg::lang::String getName() const override {
       return this->name;
@@ -60,11 +59,8 @@ namespace {
     virtual size_t getPosition() const override {
       return this->position;
     }
-    virtual bool isRequired() const override {
-      return this->required;
-    }
-    virtual bool isVariadic() const override {
-      return this->variadic;
+    virtual Flags getFlags() const override {
+      return this->flags;
     }
   };
 
@@ -90,9 +86,9 @@ namespace {
     virtual const  egg::lang::IFunctionSignatureParameter& getParameter(size_t index) const override {
       return this->parameters.at(index);
     }
-    void addParameter(const egg::lang::String& name, const egg::lang::IType& type, bool optional) {
+    void addParameter(const egg::lang::String& name, const egg::lang::IType& type, egg::lang::IFunctionSignatureParameter::Flags flags) {
       auto position = this->parameters.size();
-      this->parameters.emplace_back(name, type, position, optional, false); // TODO variadic
+      this->parameters.emplace_back(name, type, position, flags); // TODO variadic
     }
   };
 
@@ -155,8 +151,8 @@ namespace {
     virtual egg::lang::String toString() const override {
       return egg::lang::String::fromUTF8("function"); // TODO
     }
-    void addParameter(const egg::lang::String& name, const egg::lang::IType& type, bool optional) {
-      this->signature.addParameter(name, type, optional);
+    void addParameter(const egg::lang::String& name, const egg::lang::IType& type, egg::lang::IFunctionSignatureParameter::Flags flags) {
+      this->signature.addParameter(name, type, flags);
     }
   };
 
@@ -1544,7 +1540,8 @@ std::shared_ptr<egg::yolk::IEggProgramNode> egg::yolk::EggSyntaxNode_FunctionDef
     // We promote the parameter, extract the name/type/optional information and then discard it
     auto parameter = context.promote(*this->child[i]);
     auto parameter_optional = parameter->symbol(parameter_name, parameter_type);
-    underlying->addParameter(parameter_name, *parameter_type, parameter_optional);
+    auto parameter_flags = parameter_optional ? egg::lang::IFunctionSignatureParameter::None : egg::lang::IFunctionSignatureParameter::Required;
+    underlying->addParameter(parameter_name, *parameter_type, parameter_flags);
   }
   EggParserContextNested nested(context, EggParserAllowed::Return|EggParserAllowed::Yield);
   auto block = nested.promote(*this->child[parameters + 1]);

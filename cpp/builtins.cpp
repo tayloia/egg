@@ -2,17 +2,17 @@
 
 namespace {
   using namespace egg::lang;
+  using Flags = IFunctionSignatureParameter::Flags;
 
   class BuiltinSignatureParameter : public IFunctionSignatureParameter {
   private:
     String name; // may be empty
     ITypeRef type;
     size_t position; // may be SIZE_MAX
-    bool required;
-    bool variadic;
+    Flags flags;
   public:
-    BuiltinSignatureParameter(const std::string& name, const ITypeRef& type, size_t position, bool required, bool variadic)
-      : name(String::fromUTF8(name)), type(type), position(position), required(required), variadic(variadic) {
+    BuiltinSignatureParameter(const std::string& name, const ITypeRef& type, size_t position, Flags flags)
+      : name(String::fromUTF8(name)), type(type), position(position), flags(flags) {
     }
     virtual String getName() const override {
       return this->name;
@@ -23,11 +23,8 @@ namespace {
     virtual size_t getPosition() const override {
       return this->position;
     }
-    virtual bool isRequired() const override {
-      return this->required;
-    }
-    virtual bool isVariadic() const override {
-      return this->variadic;
+    virtual Flags getFlags() const override {
+      return this->flags;
     }
   };
 
@@ -44,8 +41,8 @@ namespace {
     size_t getNextPosition() const {
       return this->parameters.size();
     }
-    void addSignatureParameter(const std::string& parameterName, const ITypeRef& parameterType, size_t position, bool required, bool variadic) {
-      this->parameters.emplace_back(parameterName, parameterType, position, required, variadic);
+    void addSignatureParameter(const std::string& parameterName, const ITypeRef& parameterType, size_t position, BuiltinSignatureParameter::Flags flags) {
+      this->parameters.emplace_back(parameterName, parameterType, position, flags);
     }
     virtual String getFunctionName() const override {
       return this->name;
@@ -70,11 +67,8 @@ namespace {
     BuiltinFunctionType(const std::string& name, const ITypeRef& returnType)
       : signature(name, returnType) {
     }
-    void addPositionalParameter(const std::string& name, const ITypeRef& type, bool required = true) {
-      this->signature.addSignatureParameter(name, type, this->signature.getNextPosition(), required, false);
-    }
-    void addVariadicParameter(const std::string& name, const ITypeRef& type, bool required = true) {
-      this->signature.addSignatureParameter(name, type, this->signature.getNextPosition(), required, true);
+    void addParameter(const std::string& name, const ITypeRef& type, IFunctionSignatureParameter::Flags flags) {
+      this->signature.addSignatureParameter(name, type, this->signature.getNextPosition(), flags);
     }
     virtual String toString() const override {
       return this->signature.toString();
@@ -213,7 +207,7 @@ namespace {
   public:
     BuiltinStringFrom()
       : BuiltinFunction("string.from", Type::makeSimple(Discriminator::String | Discriminator::Null)) {
-      this->type.addPositionalParameter("value", Type::AnyQ);
+      this->type.addParameter("value", Type::AnyQ, Flags::Required);
     }
     virtual Value call(IExecution& execution, const IParameters& parameters) override {
       // Convert the parameter to a string
@@ -234,7 +228,7 @@ namespace {
     BuiltinString()
       : BuiltinObject("string", Type::String) {
       // The function call looks like: 'string string(any?... value)'
-      this->type.addVariadicParameter("value", Type::AnyQ, false);
+      this->type.addParameter("value", Type::AnyQ, Flags::Variadic);
       this->addProperty("from", Value{ this->from });
     }
     virtual Value call(IExecution& execution, const IParameters& parameters) override {
@@ -263,7 +257,7 @@ namespace {
   public:
     BuiltinAssert()
       : BuiltinFunction("assert", Type::Void) {
-      this->type.addPositionalParameter("predicate", Type::Any);
+      this->type.addParameter("predicate", Type::Any, Flags::Required);
     }
     virtual Value call(IExecution& execution, const IParameters& parameters) override {
       Value result = this->type.validateCall(execution, parameters);
@@ -279,7 +273,7 @@ namespace {
   public:
     BuiltinPrint()
       : BuiltinFunction("print", Type::Void) {
-      this->type.addVariadicParameter("...", Type::Any, false);
+      this->type.addParameter("...", Type::Any, Flags::Variadic);
     }
     virtual Value call(IExecution& execution, const IParameters& parameters) override {
       Value result = this->type.validateCall(execution, parameters);
@@ -376,7 +370,7 @@ namespace {
   public:
     StringContains()
       : BuiltinFunctionType("string.contains", Type::Bool) {
-      this->addPositionalParameter("needle", Type::String);
+      this->addParameter("needle", Type::String, Flags::Required);
     }
     Value executeCall(IExecution& execution, const String& instance, const IParameters& parameters) const {
       // bool contains(string needle)
@@ -393,7 +387,7 @@ namespace {
   public:
     StringCompare()
       : BuiltinFunctionType("string.compare", Type::Int) {
-      this->addPositionalParameter("needle", Type::String);
+      this->addParameter("needle", Type::String, Flags::Required);
     }
     Value executeCall(IExecution& execution, const String& instance, const IParameters& parameters) const {
       // TODO int compare(string other, int? start, int? other_start, int? max_length)
@@ -410,7 +404,7 @@ namespace {
   public:
     StringStartsWith()
       : BuiltinFunctionType("string.startsWith", Type::Bool) {
-      this->addPositionalParameter("needle", Type::String);
+      this->addParameter("needle", Type::String, Flags::Required);
     }
     Value executeCall(IExecution& execution, const String& instance, const IParameters& parameters) const {
       // bool startsWith(string needle)
@@ -427,7 +421,7 @@ namespace {
   public:
     StringEndsWith()
       : BuiltinFunctionType("string.endsWith", Type::Bool) {
-      this->addPositionalParameter("needle", Type::String);
+      this->addParameter("needle", Type::String, Flags::Required);
     }
     Value executeCall(IExecution& execution, const String& instance, const IParameters& parameters) const {
       // bool endsWith(string needle)
@@ -444,7 +438,7 @@ namespace {
   public:
     StringIndexOf()
       : BuiltinFunctionType("string.indexOf", Type::makeSimple(Discriminator::Int | Discriminator::Null)) {
-      this->addPositionalParameter("needle", Type::String);
+      this->addParameter("needle", Type::String, Flags::Required);
     }
     Value executeCall(IExecution& execution, const String& instance, const IParameters& parameters) const {
       // TODO int? indexOf(string needle, int? fromIndex, int? count, bool? negate)
@@ -462,7 +456,7 @@ namespace {
   public:
     StringLastIndexOf()
       : BuiltinFunctionType("string.lastIndexOf", Type::makeSimple(Discriminator::Int | Discriminator::Null)) {
-      this->addPositionalParameter("needle", Type::String);
+      this->addParameter("needle", Type::String, Flags::Required);
     }
     Value executeCall(IExecution& execution, const String& instance, const IParameters& parameters) const {
       // TODO int? lastIndexOf(string needle, int? fromIndex, int? count, bool? negate)
@@ -480,7 +474,7 @@ namespace {
   public:
     StringJoin()
       : BuiltinFunctionType("string.join", Type::String) {
-      this->addVariadicParameter("...", Type::Any, false);
+      this->addParameter("...", Type::Any, Flags::Variadic);
     }
     Value executeCall(IExecution&, const String& instance, const IParameters& parameters) const {
       // string join(...)
@@ -508,7 +502,7 @@ namespace {
   public:
     StringSplit()
       : BuiltinFunctionType("string.split", Type::Any) {
-      this->addPositionalParameter("separator", Type::String);
+      this->addParameter("separator", Type::String, Flags::Required);
     }
     Value executeCall(IExecution& execution, const String& instance, const IParameters& parameters) const {
       // TODO string split(string separator, int? limit)
@@ -527,8 +521,8 @@ namespace {
   public:
     StringSlice()
       : BuiltinFunctionType("string.slice", Type::String) {
-      this->addPositionalParameter("begin", Type::Int);
-      this->addPositionalParameter("end", Type::Int, false);
+      this->addParameter("begin", Type::Int, Flags::Required);
+      this->addParameter("end", Type::Int, Flags::None);
     }
     Value executeCall(IExecution& execution, const String& instance, const IParameters& parameters) const {
       // TODO string slice(int? begin, int? end)
@@ -554,7 +548,7 @@ namespace {
   public:
     StringRepeat()
       : BuiltinFunctionType("string.repeat", Type::String) {
-      this->addPositionalParameter("count", Type::Int);
+      this->addParameter("count", Type::Int, Flags::Required);
     }
     Value executeCall(IExecution& execution, const String& instance, const IParameters& parameters) const {
       // string repeat(int count)
@@ -585,9 +579,9 @@ namespace {
   public:
     StringReplace()
       : BuiltinFunctionType("string.replace", Type::Any) {
-      this->addPositionalParameter("needle", Type::String);
-      this->addPositionalParameter("replacement", Type::String);
-      this->addPositionalParameter("occurrences", Type::Int, false);
+      this->addParameter("needle", Type::String, Flags::Required);
+      this->addParameter("replacement", Type::String, Flags::Required);
+      this->addParameter("occurrences", Type::Int, Flags::None);
     }
     Value executeCall(IExecution& execution, const String& instance, const IParameters& parameters) const {
       // string replace(string needle, string replacement, int? occurrences)
@@ -615,8 +609,8 @@ namespace {
   public:
     StringPadLeft()
       : BuiltinFunctionType("string.padLeft", Type::Any) {
-      this->addPositionalParameter("length", Type::Int);
-      this->addPositionalParameter("padding", Type::String, false);
+      this->addParameter("length", Type::Int, Flags::Required);
+      this->addParameter("padding", Type::String, Flags::None);
     }
     Value executeCall(IExecution& execution, const String& instance, const IParameters& parameters) const {
       // string padLeft(int length, string? padding)
@@ -644,8 +638,8 @@ namespace {
   public:
     StringPadRight()
       : BuiltinFunctionType("string.padRight", Type::Any) {
-      this->addPositionalParameter("length", Type::Int);
-      this->addPositionalParameter("padding", Type::String, false);
+      this->addParameter("length", Type::Int, Flags::Required);
+      this->addParameter("padding", Type::String, Flags::None);
     }
     Value executeCall(IExecution& execution, const String& instance, const IParameters& parameters) const {
       // string padRight(int length, string? padding)
