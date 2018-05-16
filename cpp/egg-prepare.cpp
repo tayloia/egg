@@ -33,74 +33,6 @@ namespace {
     }
     return checkBinarySide(context, where, op, "right-hand side", rexp, rhs);
   }
-  EggProgramNodeFlags checkBrackets(EggProgramContext& context, const egg::lang::LocationSource& where, IEggProgramNode& lhs, IEggProgramNode& rhs) {
-    // Brackets can only be applied to strings and objects
-    if (abandoned(checkBinarySide(context, where, EggProgramBinary::Brackets, "subject", egg::lang::Discriminator::String | egg::lang::Discriminator::Object, lhs))) {
-      return EggProgramNodeFlags::Abandon;
-    }
-    auto ltype = lhs.getType();
-    auto mask = egg::lang::Bits::mask(ltype->getSimpleTypes(), egg::lang::Discriminator::String | egg::lang::Discriminator::Object);
-    if (mask == egg::lang::Discriminator::String) {
-      // Strings only accept integer indices
-      return checkBinarySide(context, where, EggProgramBinary::Brackets, " string index", egg::lang::Discriminator::Int, rhs);
-    }
-    if (abandoned(rhs.prepare(context))) {
-      return EggProgramNodeFlags::Abandon;
-    }
-    if (mask == egg::lang::Discriminator::Object) {
-      // Ask the object what indexing it supports
-      auto indexable = ltype->indexable();
-      if (indexable == nullptr) {
-        return context.compilerError(where, "Values of type '", ltype->toString(), "' do not support the indexing operator '[]'");
-      }
-      // TODO check type indexable->getIndexType()
-    }
-    return EggProgramNodeFlags::None;
-  }
-  EggProgramNodeFlags checkDot(EggProgramContext& context, const egg::lang::LocationSource& where, IEggProgramNode& lhs, IEggProgramNode& rhs) {
-    // Left-hand side should be string/object
-    egg::lang::String name;
-    const egg::lang::String* property = nullptr;
-    auto result = checkBinary(context, where, EggProgramBinary::Dot, egg::lang::Discriminator::String | egg::lang::Discriminator::Object, lhs, egg::lang::Discriminator::String, rhs);
-    if (abandoned(result)) {
-      return result;
-    }
-    if (result == EggProgramNodeFlags::Constant) {
-      // 'result' holds the flags for the right-hand side (property name)
-      auto rvalue = rhs.execute(context);
-      assert(rvalue.is(egg::lang::Discriminator::String));
-      name = rvalue.getString();
-      assert(!name.empty());
-      property = &name;
-    }
-    auto ltype = lhs.getType();
-    auto lsimple = ltype->getSimpleTypes();
-    if (egg::lang::Bits::hasAnySet(lsimple, egg::lang::Discriminator::String)) {
-      if (property == nullptr) {
-        // Strings support properties, but we don't know the specific name
-        return EggProgramNodeFlags::None;
-      }
-      if (egg::lang::String::builtinFactory(*property) != nullptr) {
-        // It's a known string builtin
-        return EggProgramNodeFlags::None;
-      }
-    }
-    if (egg::lang::Bits::hasAnySet(lsimple, egg::lang::Discriminator::Object)) {
-      // Ask the object what properties it supports
-      egg::lang::String reason;
-      auto dotable = ltype->dotable(property, reason);
-      if (dotable != nullptr) {
-        // It's a known property
-        return EggProgramNodeFlags::None;
-      }
-      if ((property == nullptr) || (ltype->dotable(nullptr, reason) == nullptr)) {
-        // We don't support ANY properties (the reason will be updated)
-        return context.compilerError(where, reason);
-      }
-      return context.compilerError(where, reason);
-    }
-    return context.compilerError(where, "Unknown property for 'string' value: '.", *property, "'");
-  }
 }
 
 egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareScope(const IEggProgramNode* node, std::function<EggProgramNodeFlags(EggProgramContext&)> action) {
@@ -311,6 +243,7 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareForeach(IEgg
 
 egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareFunctionDefinition(const egg::lang::String& name, const egg::lang::IType& type, const std::shared_ptr<IEggProgramNode>& block) {
   // TODO type check
+  EGG_UNUSED(name);
   auto callable = type.callable();
   assert(callable != nullptr);
   assert(callable->getFunctionName() == name);
@@ -431,6 +364,12 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareCall(IEggPro
   if (abandoned(callee.prepare(*this))) {
     return EggProgramNodeFlags::Abandon;
   }
+  auto ctype = callee.getType();
+  auto* callable = ctype->callable();
+  if (callable == nullptr) {
+    return this->compilerError(callee.location(), "Expected function-like expression to be callable, but got '", ctype->toString(), "' instead");
+  }
+  // WIBBLE
   for (auto& parameter : parameters) {
     if (abandoned(parameter->prepare(*this))) {
       return EggProgramNodeFlags::Abandon;
@@ -448,6 +387,67 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareIdentifier(c
   }
   type.set(&symbol->getType());
   return EggProgramNodeFlags::None;
+}
+
+egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareBrackets(const egg::lang::LocationSource& where, IEggProgramNode& instance, IEggProgramNode& index) {
+  if (abandoned(instance.prepare(*this)) || abandoned(index.prepare(*this))) {
+    return EggProgramNodeFlags::Abandon;
+  }
+  auto ltype = instance.getType();
+  auto lsimple = ltype->getSimpleTypes();
+  assert(lsimple != egg::lang::Discriminator::Inferred);
+  auto mask = egg::lang::Bits::mask(lsimple, egg::lang::Discriminator::String | egg::lang::Discriminator::Object);
+  if (mask == egg::lang::Discriminator::None) {
+    // Neither string nor object
+    return this->compilerError(where, "Expected subject of '[]' operator to be 'string' or 'object', but got '", ltype->toString(), "' instead");
+  }
+  auto rtype = index.getType();
+  if (egg::lang::Bits::hasAnySet(mask, egg::lang::Discriminator::String)) {
+    // Strings only accept integer indices
+    if (rtype->hasNativeType(egg::lang::Discriminator::Int)) {
+      return EggProgramNodeFlags::None;
+    }
+  }
+  if (egg::lang::Bits::hasAnySet(mask, egg::lang::Discriminator::Object)) {
+    // Ask the object what indexing it supports
+    auto indexable = ltype->indexable();
+    if (indexable == nullptr) {
+      return this->compilerError(where, "Values of type '", ltype->toString(), "' do not support the indexing operator '[]'");
+    }
+    // TODO check type indexable->getIndexType()
+  }
+  return EggProgramNodeFlags::None;
+}
+
+egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareDot(const egg::lang::LocationSource& where, IEggProgramNode& instance, const egg::lang::String& property) {
+  // Left-hand side should be string/object
+  if (abandoned(instance.prepare(*this))) {
+    return EggProgramNodeFlags::Abandon;
+  }
+  auto ltype = instance.getType();
+  auto lsimple = ltype->getSimpleTypes();
+  assert(lsimple != egg::lang::Discriminator::Inferred);
+  if (egg::lang::Bits::hasAnySet(lsimple, egg::lang::Discriminator::String)) {
+    if (egg::lang::String::builtinFactory(property) != nullptr) {
+      // It's a known string builtin
+      return EggProgramNodeFlags::None;
+    }
+  }
+  if (egg::lang::Bits::hasAnySet(lsimple, egg::lang::Discriminator::Object)) {
+    // Ask the object what properties it supports
+    egg::lang::String reason;
+    auto dotable = ltype->dotable(&property, reason);
+    if (dotable != nullptr) {
+      // It's a known property
+      return EggProgramNodeFlags::None;
+    }
+    if (ltype->dotable(nullptr, reason) == nullptr) {
+      // We don't support ANY properties (the reason will be updated)
+      return this->compilerError(where, reason);
+    }
+    return this->compilerError(where, reason);
+  }
+  return this->compilerError(where, "Unknown property for 'string' value: '.", property, "'");
 }
 
 egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareUnary(const egg::lang::LocationSource& where, EggProgramUnary op, IEggProgramNode& value) {
@@ -508,12 +508,6 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareBinary(const
   case EggProgramBinary::Unequal:
     // Equality operation
     break;
-  case EggProgramBinary::Brackets:
-    // Index operation
-    return checkBrackets(*this, where, lhs, rhs);
-  case EggProgramBinary::Dot:
-    // Dot operation (properties)
-    return checkDot(*this, where, lhs, rhs);
   case EggProgramBinary::Lambda:
   case EggProgramBinary::NullCoalescing:
     return this->compilerError(where, "'", EggProgram::binaryToString(op), "' operators not yet supported in 'prepareBinary'"); // TODO

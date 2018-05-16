@@ -153,7 +153,7 @@ namespace egg::lang {
 
   class IFunctionSignatureParameter {
   public:
-    enum Flags { // not class
+    enum class Flags {
       None = 0x00,
       Required = 0x01, // Not optional
       Variadic = 0x02, // Zero/one or more repetitions
@@ -166,9 +166,9 @@ namespace egg::lang {
     virtual Flags getFlags() const = 0;
 
     // Flag helpers
-    bool isRequired() const { return (this->getFlags() & Required) != 0; }
-    bool isVariadic() const { return (this->getFlags() & Variadic) != 0; }
-    bool isAssertion() const { return (this->getFlags() & Variadic) != 0; }
+    bool isRequired() const { return Bits::hasAnySet(this->getFlags(), Flags::Required); }
+    bool isVariadic() const { return Bits::hasAnySet(this->getFlags(), Flags::Variadic); }
+    bool isAssertion() const { return Bits::hasAnySet(this->getFlags(), Flags::Assertion); }
   };
 
   class IFunctionSignature {
@@ -211,8 +211,6 @@ namespace egg::lang {
     virtual Ref dereferencedType() const; // Default implementation returns 'Void'
     virtual Ref coallescedType(const IType& rhs) const; // Default implementation calls Type::makeUnion()
     virtual Ref unionWith(const IType& other) const; // Default implementation calls Type::makeUnion()
-    typedef std::function<void(const String& name, const IType& type)> PrepareParametersSetter;
-    virtual bool prepareParameters(IPreparation& preparation, const IParameters& supplied, PrepareParametersSetter setter) const; // Default implementation returns an error
     typedef std::function<void(const String& name, const IType& type, const Value& value)> ExecuteParametersSetter;
     virtual Value executeParameters(IExecution& execution, const IParameters& supplied, ExecuteParametersSetter setter) const; // Default implementation returns an error
     virtual Value dotGet(IExecution& execution, const Value& instance, const String& property) const; // Default implementation dispatches standard requests

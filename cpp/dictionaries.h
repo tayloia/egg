@@ -48,7 +48,7 @@ namespace egg::yolk {
       // Asserts unless an insertion occurred
       bool inserted = this->map.insert_or_assign(key, value).second;
       assert(inserted);
-      (void)inserted;
+      EGG_UNUSED(inserted);
     }
   };
 
@@ -123,7 +123,7 @@ namespace egg::yolk {
       assert(inserted);
       this->vec.emplace_back(key);
       assert(this->map.size() == this->vec.size());
-      (void)inserted;
+      EGG_UNUSED(inserted);
     }
     size_t getKeys(Keys& keys) const {
       // Copy the keys in insertion order

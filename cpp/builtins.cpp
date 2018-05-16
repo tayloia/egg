@@ -257,7 +257,7 @@ namespace {
   public:
     BuiltinAssert()
       : BuiltinFunction("assert", Type::Void) {
-      this->type.addParameter("predicate", Type::Any, Flags::Required);
+      this->type.addParameter("predicate", Type::Any, Bits::set(Flags::Required, Flags::Assertion));
     }
     virtual Value call(IExecution& execution, const IParameters& parameters) override {
       Value result = this->type.validateCall(execution, parameters);

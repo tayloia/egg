@@ -107,28 +107,6 @@ namespace {
     virtual const egg::lang::IFunctionSignature* callable() const override {
       return &this->signature;
     }
-    virtual bool prepareParameters(egg::lang::IPreparation& preparation, const egg::lang::IParameters& supplied, PrepareParametersSetter setter) const override {
-      if (supplied.getNamedCount() > 0) {
-        preparation.raiseError("Named parameters in function calls are not yet supported"); // TODO
-        return false;
-      }
-      auto given = supplied.getPositionalCount();
-      auto expected = this->signature.getParameterCount();
-      if (given < expected) {
-        preparation.raiseError("Too few parameters in function call: Expected ", expected, ", but got ", given);
-        return false;
-      }
-      if (given > expected) {
-        preparation.raiseError("Too many parameters in function call: Expected ", expected, ", but got ", given);
-        return false;
-      }
-      // TODO: Value type checking
-      for (size_t i = 0; i < given; ++i) {
-        auto& parameter = this->signature.getParameter(i);
-        setter(parameter.getName(), parameter.getType());
-      }
-      return true;
-    }
     virtual egg::lang::Value executeParameters(egg::lang::IExecution& execution, const egg::lang::IParameters& supplied, ExecuteParametersSetter setter) const override {
       if (supplied.getNamedCount() > 0) {
         return execution.raiseFormat("Named parameters in function calls are not yet supported"); // TODO
@@ -263,7 +241,7 @@ namespace {
       // By default, nodes are statements (i.e. void return type)
       return egg::lang::Type::Void;
     }
-    virtual egg::lang::LocationSource location(void) const override {
+    virtual egg::lang::LocationSource location() const override {
       // Just return the source location
       return this->locationSource;
     }
@@ -1047,6 +1025,57 @@ namespace {
     }
   };
 
+  class EggParserNode_Brackets : public EggParserNodeBase {
+  protected:
+    std::shared_ptr<IEggProgramNode> lhs;
+    std::shared_ptr<IEggProgramNode> rhs;
+  public:
+    EggParserNode_Brackets(const egg::lang::LocationSource& locationSource, const std::shared_ptr<IEggProgramNode>& lhs, const std::shared_ptr<IEggProgramNode>& rhs)
+      : EggParserNodeBase(locationSource), lhs(lhs), rhs(rhs) {
+      assert(lhs != nullptr);
+      assert(rhs != nullptr);
+    }
+    virtual EggProgramNodeFlags prepare(EggProgramContext& context) override {
+      return context.prepareBrackets(this->locationSource, *this->lhs, *this->rhs);
+    }
+    virtual egg::lang::ITypeRef getType() const override;
+    virtual egg::lang::Value execute(EggProgramContext& context) const override {
+      return context.executeBrackets(*this, *this->lhs, *this->rhs);
+    }
+    virtual std::unique_ptr<IEggProgramAssignee> assignee(EggProgramContext& context) const override {
+      // Something like "obj[index] += value;"
+      return context.assigneeBrackets(*this, this->lhs, this->rhs);
+    }
+    virtual void dump(std::ostream& os) const override {
+      ParserDump(os, "brackets").add(this->lhs).add(this->rhs);
+    }
+  };
+
+  class EggParserNode_Dot : public EggParserNodeBase {
+  protected:
+    std::shared_ptr<IEggProgramNode> lhs;
+    egg::lang::String rhs;
+  public:
+    EggParserNode_Dot(const egg::lang::LocationSource& locationSource, const std::shared_ptr<IEggProgramNode>& lhs, const egg::lang::String& rhs)
+      : EggParserNodeBase(locationSource), lhs(lhs), rhs(rhs) {
+      assert(lhs != nullptr);
+    }
+    virtual EggProgramNodeFlags prepare(EggProgramContext& context) override {
+      return context.prepareDot(this->locationSource, *this->lhs, this->rhs);
+    }
+    virtual egg::lang::ITypeRef getType() const override;
+    virtual egg::lang::Value execute(EggProgramContext& context) const override {
+      return context.executeDot(*this, *this->lhs, this->rhs);
+    }
+    virtual std::unique_ptr<IEggProgramAssignee> assignee(EggProgramContext& context) const override {
+      // Something like "obj.prop += value;"
+      return context.assigneeDot(*this, this->lhs, this->rhs);
+    }
+    virtual void dump(std::ostream& os) const override {
+      ParserDump(os, "dot").add(this->lhs).add(this->rhs);
+    }
+  };
+
   class EggParserNode_Unary : public EggParserNodeBase {
   protected:
     EggProgramUnary op;
@@ -1093,17 +1122,6 @@ namespace {
     }
     virtual egg::lang::Value execute(EggProgramContext& context) const override {
       return context.executeBinary(*this, this->op, *this->lhs, *this->rhs);
-    }
-    virtual std::unique_ptr<IEggProgramAssignee> assignee(EggProgramContext& context) const override {
-      if (op == EggProgramBinary::Brackets) {
-        // Something like "obj[index] += value;"
-        return context.assigneeBrackets(*this, this->lhs, this->rhs);
-      }
-      if (op == EggProgramBinary::Dot) {
-        // Something like "obj.prop += value;"
-        return context.assigneeDot(*this, this->lhs, this->rhs);
-      }
-      return nullptr;
     }
     virtual void dump(std::ostream& os) const override {
       ParserDump(os, "binary").add(EggProgram::binaryToString(this->op)).add(this->lhs).add(this->rhs);
@@ -1540,7 +1558,7 @@ std::shared_ptr<egg::yolk::IEggProgramNode> egg::yolk::EggSyntaxNode_FunctionDef
     // We promote the parameter, extract the name/type/optional information and then discard it
     auto parameter = context.promote(*this->child[i]);
     auto parameter_optional = parameter->symbol(parameter_name, parameter_type);
-    auto parameter_flags = parameter_optional ? egg::lang::IFunctionSignatureParameter::None : egg::lang::IFunctionSignatureParameter::Required;
+    auto parameter_flags = parameter_optional ? egg::lang::IFunctionSignatureParameter::Flags::None : egg::lang::IFunctionSignatureParameter::Flags::Required;
     underlying->addParameter(parameter_name, *parameter_type, parameter_flags);
   }
   EggParserContextNested nested(context, EggParserAllowed::Return|EggParserAllowed::Yield);
@@ -1626,6 +1644,12 @@ std::shared_ptr<egg::yolk::IEggProgramNode> egg::yolk::EggSyntaxNode_Yield::prom
   return makeParserNode<EggParserNode_Yield>(context, *this, context.promote(*this->child));
 }
 
+std::shared_ptr<egg::yolk::IEggProgramNode> egg::yolk::EggSyntaxNode_Dot::promote(egg::yolk::IEggParserContext& context) const {
+  // TODO query
+  auto instance = context.promote(*this->child);
+  return makeParserNode<EggParserNode_Dot>(context, *this, instance, this->property);
+}
+    
 std::shared_ptr<egg::yolk::IEggProgramNode> egg::yolk::EggSyntaxNode_UnaryOperator::promote(egg::yolk::IEggParserContext& context) const {
   if (this->op == EggTokenizerOperator::Bang) {
     return promoteUnary<EggParserNode_UnaryLogicalNot>(context, *this, this->child);
@@ -1666,8 +1690,6 @@ std::shared_ptr<egg::yolk::IEggProgramNode> egg::yolk::EggSyntaxNode_BinaryOpera
     return promoteBinary<EggParserNode_BinaryMinus>(context, *this, this->child);
   case EggTokenizerOperator::Lambda:
     return promoteBinary<EggParserNode_BinaryLambda>(context, *this, this->child);
-  case EggTokenizerOperator::Dot:
-    return promoteBinary<EggParserNode_BinaryDot>(context, *this, this->child);
   case EggTokenizerOperator::Slash:
     return promoteBinary<EggParserNode_BinaryDivide>(context, *this, this->child);
   case EggTokenizerOperator::Less:
@@ -1689,7 +1711,7 @@ std::shared_ptr<egg::yolk::IEggProgramNode> egg::yolk::EggSyntaxNode_BinaryOpera
   case EggTokenizerOperator::QueryQuery:
     return promoteBinary<EggParserNode_BinaryNullCoalescing>(context, *this, this->child);
   case EggTokenizerOperator::BracketLeft:
-    return promoteBinary<EggParserNode_BinaryBrackets>(context, *this, this->child);
+    return promoteBinary<EggParserNode_Brackets>(context, *this, this->child);
   case EggTokenizerOperator::Caret:
     return promoteBinary<EggParserNode_BinaryBitwiseXor>(context, *this, this->child);
   case EggTokenizerOperator::Bar:
@@ -1710,6 +1732,7 @@ std::shared_ptr<egg::yolk::IEggProgramNode> egg::yolk::EggSyntaxNode_BinaryOpera
   case EggTokenizerOperator::SlashEqual:
   case EggTokenizerOperator::Colon:
   case EggTokenizerOperator::Semicolon:
+  case EggTokenizerOperator::Dot:
   case EggTokenizerOperator::Ellipsis:
   case EggTokenizerOperator::ShiftLeftEqual:
   case EggTokenizerOperator::Equal:
@@ -1794,6 +1817,14 @@ std::shared_ptr<egg::yolk::IEggProgramNode> egg::yolk::EggSyntaxNode_Literal::pr
   throw exceptionFromToken(context, "Unknown literal value keyword", *this);
 }
 
+egg::lang::ITypeRef EggParserNode_Brackets::getType() const {
+  return egg::lang::Type::AnyQ; // TODO
+}
+
+egg::lang::ITypeRef EggParserNode_Dot::getType() const {
+  return egg::lang::Type::AnyQ; // TODO
+}
+
 egg::lang::ITypeRef EggParserNode_UnaryLogicalNot::getType() const {
   return egg::lang::Type::Bool;
 }
@@ -1856,10 +1887,6 @@ egg::lang::ITypeRef EggParserNode_BinaryLambda::getType() const {
   EGG_THROW("TODO"); // TODO
 }
 
-egg::lang::ITypeRef EggParserNode_BinaryDot::getType() const {
-  return egg::lang::Type::AnyQ; // TODO
-}
-
 egg::lang::ITypeRef EggParserNode_BinaryDivide::getType() const {
   return binaryArithmeticTypes(this->lhs, this->rhs);
 }
@@ -1904,10 +1931,6 @@ egg::lang::ITypeRef EggParserNode_BinaryNullCoalescing::getType() const {
   }
   auto type2 = this->rhs->getType();
   return type1->coallescedType(*type2);
-}
-
-egg::lang::ITypeRef EggParserNode_BinaryBrackets::getType() const {
-  return egg::lang::Type::AnyQ; // TODO
 }
 
 egg::lang::ITypeRef EggParserNode_BinaryBitwiseXor::getType() const {

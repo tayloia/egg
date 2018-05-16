@@ -142,6 +142,7 @@ egg::lang::Value egg::yolk::EggProgramContext::executeBlock(const IEggProgramNod
 
 egg::lang::Value egg::yolk::EggProgramContext::executeDeclare(const IEggProgramNode& self, const egg::lang::String& name, const egg::lang::IType& type, const IEggProgramNode* rvalue) {
   // The type information has already been used in the symbol declaration phase
+  EGG_UNUSED(type);
   this->statement(self);
   assert(type.getSimpleTypes() != egg::lang::Discriminator::Inferred);
   if (rvalue != nullptr) {
@@ -664,6 +665,30 @@ egg::lang::Value egg::yolk::EggProgramContext::executeIdentifier(const IEggProgr
 egg::lang::Value egg::yolk::EggProgramContext::executeLiteral(const IEggProgramNode& self, const egg::lang::Value& value) {
   EggProgramExpression expression(*this, self);
   return value;
+}
+
+egg::lang::Value egg::yolk::EggProgramContext::executeBrackets(const IEggProgramNode& self, const IEggProgramNode& instance, const IEggProgramNode& index) {
+  EggProgramExpression expression(*this, self);
+  // Override our location with the index value
+  this->location.column++; // TODO a better way of doing this?
+  auto lhs = instance.execute(*this);
+  if (lhs.has(egg::lang::Discriminator::FlowControl)) {
+    return lhs;
+  }
+  auto rhs = index.execute(*this);
+  if (rhs.has(egg::lang::Discriminator::FlowControl)) {
+    return rhs;
+  }
+  return lhs.getRuntimeType().bracketsGet(*this, lhs, rhs);
+}
+
+egg::lang::Value egg::yolk::EggProgramContext::executeDot(const IEggProgramNode& self, const IEggProgramNode& instance, const egg::lang::String& property) {
+  EggProgramExpression expression(*this, self);
+  auto lhs = instance.execute(*this);
+  if (lhs.has(egg::lang::Discriminator::FlowControl)) {
+    return lhs;
+  }
+  return lhs.getRuntimeType().dotGet(*this, lhs, property);
 }
 
 egg::lang::Value egg::yolk::EggProgramContext::executeUnary(const IEggProgramNode& self, EggProgramUnary op, const IEggProgramNode& value) {

@@ -242,6 +242,10 @@ void egg::yolk::EggSyntaxNode_Literal::dump(std::ostream& os) const {
   }
 }
 
+void egg::yolk::EggSyntaxNode_Dot::dump(std::ostream& os) const {
+  ParserDump(os, this->query ? "dot?" : "dot").add(this->child).add(this->property);
+}
+
 egg::yolk::EggTokenizerKeyword egg::yolk::EggSyntaxNodeBase::keyword() const {
   return EggTokenizerKeyword::Void;
 }
@@ -380,6 +384,10 @@ egg::lang::String egg::yolk::EggSyntaxNode_Identifier::token() const {
 
 egg::lang::String egg::yolk::EggSyntaxNode_Literal::token() const {
   return this->value.s;
+}
+
+egg::lang::String egg::yolk::EggSyntaxNode_Dot::token() const {
+  return this->property;
 }
 
 bool egg::yolk::EggSyntaxNode_Literal::negate() {
@@ -990,9 +998,8 @@ std::unique_ptr<IEggSyntaxNode> EggSyntaxParserContext::parseExpressionPostfixGr
       if (p1.kind != EggTokenizerKind::Identifier) {
         this->unexpected("Expected property name to follow '.' operator", p1);
       }
-      auto property = std::make_unique<EggSyntaxNode_Literal>(EggSyntaxNodeLocation(p1), EggTokenizerKind::String, p1.value);
+      expr = std::make_unique<EggSyntaxNode_Dot>(location, std::move(expr), p1.value.s, false);
       mark.accept(2);
-      expr = std::make_unique<EggSyntaxNode_BinaryOperator>(location, EggTokenizerOperator::Dot, std::move(expr), std::move(property));
     } else if (p0.isOperator(EggTokenizerOperator::Query)) {
       // Expect <expression> '?.' <identifer>
       EggSyntaxParserBacktrackMark mark(this->backtrack);
@@ -1006,9 +1013,8 @@ std::unique_ptr<IEggSyntaxNode> EggSyntaxParserContext::parseExpressionPostfixGr
       if (p2.kind != EggTokenizerKind::Identifier) {
         this->unexpected("Expected property name to follow '?.' operator", p2);
       }
-      auto property = std::make_unique<EggSyntaxNode_Literal>(EggSyntaxNodeLocation(p2), EggTokenizerKind::String, p2.value);
+      expr = std::make_unique<EggSyntaxNode_Dot>(location, std::move(expr), p2.value.s, true);
       mark.accept(3);
-      expr = std::make_unique<EggSyntaxNode_BinaryOperator>(location, EggTokenizerOperator::Query, std::move(expr), std::move(property));
     } else {
       // No postfix operator, return just the expression
       break;

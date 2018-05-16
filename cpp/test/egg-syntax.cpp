@@ -189,10 +189,10 @@ TEST(TestEggSyntaxParser, ExpressionPostfix) {
   ASSERT_PARSE_GOOD(parseExpressionToString("a(x)"), "(call (identifier 'a') (identifier 'x'))");
   ASSERT_PARSE_GOOD(parseExpressionToString("a(x,y)"), "(call (identifier 'a') (identifier 'x') (identifier 'y'))");
   ASSERT_PARSE_GOOD(parseExpressionToString("a(x,y,name:z)"), "(call (identifier 'a') (identifier 'x') (identifier 'y') (named 'name' (identifier 'z')))");
-  ASSERT_PARSE_GOOD(parseExpressionToString("a.b"), "(binary '.' (identifier 'a') (literal string 'b'))");
-  ASSERT_PARSE_GOOD(parseExpressionToString("a.b.c"), "(binary '.' (binary '.' (identifier 'a') (literal string 'b')) (literal string 'c'))");
-  ASSERT_PARSE_GOOD(parseExpressionToString("a?.b"), "(binary '?' (identifier 'a') (literal string 'b'))");
-  ASSERT_PARSE_GOOD(parseExpressionToString("a?.b?.c"), "(binary '?' (binary '?' (identifier 'a') (literal string 'b')) (literal string 'c'))");
+  ASSERT_PARSE_GOOD(parseExpressionToString("a.b"), "(dot (identifier 'a') 'b')");
+  ASSERT_PARSE_GOOD(parseExpressionToString("a.b.c"), "(dot (dot (identifier 'a') 'b') 'c')");
+  ASSERT_PARSE_GOOD(parseExpressionToString("a?.b"), "(dot? (identifier 'a') 'b')");
+  ASSERT_PARSE_GOOD(parseExpressionToString("a?.b?.c"), "(dot? (dot? (identifier 'a') 'b') 'c')");
   // Bad
   ASSERT_PARSE_BAD(parseExpressionToString("a[]"), "(1, 3): Expected expression inside indexing '[]' operators");
   ASSERT_PARSE_BAD(parseExpressionToString("a[0,1]"), "(1, 4): Expected ']' after indexing expression following '['");
@@ -208,7 +208,7 @@ TEST(TestEggSyntaxParser, ExpressionCast) {
   // Good
   ASSERT_PARSE_GOOD(parseExpressionToString("bool()"), "(call (identifier 'bool'))");
   ASSERT_PARSE_GOOD(parseExpressionToString("int(123)"), "(call (identifier 'int') (literal int 123))");
-  ASSERT_PARSE_GOOD(parseExpressionToString("float.epsilon"), "(binary '.' (identifier 'float') (literal string 'epsilon'))");
+  ASSERT_PARSE_GOOD(parseExpressionToString("float.epsilon"), "(dot (identifier 'float') 'epsilon')");
   ASSERT_PARSE_GOOD(parseExpressionToString("string(`hello`, `world`)"), "(call (identifier 'string') (literal string 'hello') (literal string 'world'))");
   ASSERT_PARSE_GOOD(parseExpressionToString("object()"), "(call (identifier 'object'))");
   // Bad

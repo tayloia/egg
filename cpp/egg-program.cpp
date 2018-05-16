@@ -432,13 +432,9 @@ std::unique_ptr<egg::yolk::IEggProgramAssignee> egg::yolk::EggProgramContext::as
   return std::make_unique<EggProgramAssigneeBrackets>(*this, instance, index);
 }
 
-std::unique_ptr<egg::yolk::IEggProgramAssignee> egg::yolk::EggProgramContext::assigneeDot(const IEggProgramNode& self, const std::shared_ptr<IEggProgramNode>& instance, const std::shared_ptr<IEggProgramNode>& property) {
+std::unique_ptr<egg::yolk::IEggProgramAssignee> egg::yolk::EggProgramContext::assigneeDot(const IEggProgramNode& self, const std::shared_ptr<IEggProgramNode>& instance, const egg::lang::String& property) {
   EggProgramExpression expression(*this, self);
-  auto name = property->execute(*this);
-  if (name.is(egg::lang::Discriminator::String)) {
-    return std::make_unique<EggProgramAssigneeDot>(*this, instance, name.getString());
-  }
-  return nullptr; // TODO error message propagation
+  return std::make_unique<EggProgramAssigneeDot>(*this, instance, property);
 }
 
 void egg::yolk::EggProgramContext::statement(const IEggProgramNode& node) {
@@ -639,8 +635,6 @@ egg::lang::Value egg::yolk::EggProgramContext::binary(EggProgramBinary op, const
     return this->arithmeticIntFloat(left, rhs, "subtraction '-'", minusInt, minusFloat);
   case EggProgramBinary::Lambda:
     return this->raiseFormat("TODO binary(Lambda) not fully implemented"); // TODO
-  case EggProgramBinary::Dot:
-    return this->operatorDot(left, rhs);
   case EggProgramBinary::Divide:
     return this->arithmeticIntFloat(left, rhs, "division '/'", divideInt, divideFloat);
   case EggProgramBinary::Less:
@@ -668,8 +662,6 @@ egg::lang::Value egg::yolk::EggProgramContext::binary(EggProgramBinary op, const
     return this->arithmeticInt(left, rhs, "shift-right-unsigned '>>>'", shiftRightUnsignedInt);
   case EggProgramBinary::NullCoalescing:
     return left.is(egg::lang::Discriminator::Null) ? rhs.execute(*this) : left;
-  case EggProgramBinary::Brackets:
-    return this->operatorBrackets(left, rhs);
   case EggProgramBinary::BitwiseXor:
     return this->arithmeticInt(left, rhs, "bitwise-xor '^'", bitwiseXorInt);
   case EggProgramBinary::BitwiseOr:
@@ -699,24 +691,6 @@ bool egg::yolk::EggProgramContext::operand(egg::lang::Value& dst, const IEggProg
   }
   dst = this->unexpected(expectation, dst);
   return false;
-}
-
-egg::lang::Value egg::yolk::EggProgramContext::operatorDot(const egg::lang::Value& lhs, const IEggProgramNode& rhs) {
-  auto property = rhs.execute(*this);
-  if (!property.is(egg::lang::Discriminator::String)) {
-    if (!property.has(egg::lang::Discriminator::FlowControl)) {
-      return this->unexpected("Expected right-hand side of '.' operator to be a property name", property);
-    }
-    return property;
-  }
-  return lhs.getRuntimeType().dotGet(*this, lhs, property.getString());
-}
-
-egg::lang::Value egg::yolk::EggProgramContext::operatorBrackets(const egg::lang::Value& lhs, const IEggProgramNode& rhs) {
-  // Override our location with the index value
-  this->location.column++; // TODO a better way of doing this?
-  auto index = rhs.execute(*this);
-  return lhs.getRuntimeType().bracketsGet(*this, lhs, index);
 }
 
 egg::lang::Value egg::yolk::EggProgramContext::arithmeticIntFloat(const egg::lang::Value& lhs, const IEggProgramNode& rvalue, const char* operation, ArithmeticInt ints, ArithmeticFloat floats) {

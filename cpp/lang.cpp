@@ -866,12 +866,47 @@ namespace {
 
   class TypeString : public TypeNative<Discriminator::String> {
   public:
+    // WIBBLE callable
     virtual const IType* iterable() const override {
       // When strings are iterated, they iterate through strings (of codepoints)
       return Type::String.get();
     }
   };
   const TypeString typeString{};
+
+  class OmniFunctionSignature : public IFunctionSignature {
+  private:
+    class Parameter : public IFunctionSignatureParameter {
+    public:
+      virtual String getName() const override {
+        return String::Empty;
+      }
+      virtual const IType& getType() const override {
+        return *Type::AnyQ;
+      }
+      virtual size_t getPosition() const override {
+        return 0;
+      }
+      virtual Flags getFlags() const override {
+        return Flags::Variadic;
+      }
+    };
+    Parameter parameter;
+  public:
+    virtual String getFunctionName() const override {
+      return String::Empty;
+    }
+    virtual const IType& getReturnType() const override {
+      return *Type::AnyQ;
+    }
+    virtual size_t getParameterCount() const override {
+      return 1;
+    }
+    virtual const IFunctionSignatureParameter& getParameter(size_t) const override {
+      return this->parameter;
+    }
+  };
+  const OmniFunctionSignature omniFunctionSignature{};
 
   class TypeSimple : public egg::gc::HardReferenceCounted<IType> {
     EGG_NO_COPY(TypeSimple);
@@ -913,6 +948,12 @@ namespace {
     }
     virtual Value promoteAssignment(IExecution& execution, const Value& rhs) const override {
       return promoteAssignmentSimple(execution, this->tag, rhs);
+    }
+    virtual const IFunctionSignature* callable() const override {
+      if (Bits::hasAnySet(this->tag, Discriminator::Object)) {
+        return &omniFunctionSignature;
+      }
+      return nullptr;
     }
     virtual const IType* iterable() const override {
       if (Bits::hasAnySet(this->tag, Discriminator::Object)) {
@@ -1263,12 +1304,6 @@ egg::lang::ITypeRef egg::lang::IType::dereferencedType() const {
 egg::lang::ITypeRef egg::lang::IType::coallescedType(const IType& rhs) const {
   // The default implementation is to create the union
   return this->unionWith(rhs);
-}
-
-bool egg::lang::IType::prepareParameters(egg::lang::IPreparation& preparation, const egg::lang::IParameters&, PrepareParametersSetter) const {
-  // The default implementation is to raise an error (only function-like types accept parameters)
-  preparation.raiseError("Internal type error: Cannot decant parameters for type '", this->toString(), "'");
-  return false;
 }
 
 egg::lang::Value egg::lang::IType::executeParameters(egg::lang::IExecution& execution, const egg::lang::IParameters&, ExecuteParametersSetter) const {

@@ -16,7 +16,6 @@
   macro(Plus, "+") \
   macro(Minus, "-") \
   macro(Lambda, "->") \
-  macro(Dot, ".") \
   macro(Divide, "/") \
   macro(Less, "<") \
   macro(ShiftLeft, "<<") \
@@ -27,7 +26,6 @@
   macro(ShiftRight, ">>") \
   macro(ShiftRightUnsigned, ">>>") \
   macro(NullCoalescing, "??") \
-  macro(Brackets, "[]") \
   macro(BitwiseXor, "^") \
   macro(BitwiseOr, "|") \
   macro(LogicalOr, "||")

@@ -407,6 +407,20 @@ namespace egg::yolk {
     virtual std::shared_ptr<IEggProgramNode> promote(IEggParserContext& context) const override;
   };
 
+  class EggSyntaxNode_Dot : public EggSyntaxNodeChildren1 {
+    EGG_NO_COPY(EggSyntaxNode_Dot);
+  private:
+    egg::lang::String property;
+    bool query; // TODO
+  public:
+    EggSyntaxNode_Dot(const EggSyntaxNodeLocation& location, std::unique_ptr<IEggSyntaxNode>&& instance, const egg::lang::String& property, bool query)
+      : EggSyntaxNodeChildren1(location, std::move(instance)), property(property), query(query) {
+    }
+    virtual void dump(std::ostream& os) const override;
+    virtual egg::lang::String token() const override;
+    virtual std::shared_ptr<IEggProgramNode> promote(IEggParserContext& context) const override;
+  };
+
   class EggSyntaxNode_UnaryOperator : public EggSyntaxNodeChildren1 {
     EGG_NO_COPY(EggSyntaxNode_UnaryOperator);
   private:
