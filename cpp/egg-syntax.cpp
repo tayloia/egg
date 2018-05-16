@@ -988,11 +988,11 @@ std::unique_ptr<IEggSyntaxNode> EggSyntaxParserContext::parseExpressionPostfixGr
       EggSyntaxParserBacktrackMark mark(this->backtrack);
       auto& p1 = mark.peek(1);
       if (p1.kind != EggTokenizerKind::Identifier) {
-        this->unexpected("Expected field name to follow '.' operator", p1);
+        this->unexpected("Expected property name to follow '.' operator", p1);
       }
-      auto field = std::make_unique<EggSyntaxNode_Literal>(EggSyntaxNodeLocation(p1), EggTokenizerKind::String, p1.value);
+      auto property = std::make_unique<EggSyntaxNode_Literal>(EggSyntaxNodeLocation(p1), EggTokenizerKind::String, p1.value);
       mark.accept(2);
-      expr = std::make_unique<EggSyntaxNode_BinaryOperator>(location, EggTokenizerOperator::Dot, std::move(expr), std::move(field));
+      expr = std::make_unique<EggSyntaxNode_BinaryOperator>(location, EggTokenizerOperator::Dot, std::move(expr), std::move(property));
     } else if (p0.isOperator(EggTokenizerOperator::Query)) {
       // Expect <expression> '?.' <identifer>
       EggSyntaxParserBacktrackMark mark(this->backtrack);
@@ -1004,11 +1004,11 @@ std::unique_ptr<IEggSyntaxNode> EggSyntaxParserContext::parseExpressionPostfixGr
       EggSyntaxNodeLocation location(p0, 2);
       auto& p2 = mark.peek(2);
       if (p2.kind != EggTokenizerKind::Identifier) {
-        this->unexpected("Expected field name to follow '?.' operator", p2);
+        this->unexpected("Expected property name to follow '?.' operator", p2);
       }
-      auto field = std::make_unique<EggSyntaxNode_Literal>(EggSyntaxNodeLocation(p2), EggTokenizerKind::String, p2.value);
+      auto property = std::make_unique<EggSyntaxNode_Literal>(EggSyntaxNodeLocation(p2), EggTokenizerKind::String, p2.value);
       mark.accept(3);
-      expr = std::make_unique<EggSyntaxNode_BinaryOperator>(location, EggTokenizerOperator::Query, std::move(expr), std::move(field));
+      expr = std::make_unique<EggSyntaxNode_BinaryOperator>(location, EggTokenizerOperator::Query, std::move(expr), std::move(property));
     } else {
       // No postfix operator, return just the expression
       break;

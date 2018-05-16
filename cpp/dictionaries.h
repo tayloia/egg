@@ -1,6 +1,58 @@
 namespace egg::yolk {
   // See https://docs.oracle.com/javase/8/docs/api/java/util/Map.html
   template<typename K, typename V>
+  class DictionaryUnordered {
+  private:
+    std::unordered_map<K, V> map;
+  public:
+    bool empty() const {
+      return this->map.empty();
+    }
+    size_t length() const {
+      return this->map.size();
+    }
+    bool tryAdd(const K& key, const V& value) {
+      // Returns true iff an insertion occurred
+      return this->map.emplace(std::make_pair(key, value)).second;
+    }
+    bool tryGet(const K& key, V& value) const {
+      // Returns true iff the value is present
+      auto found = this->map.find(key);
+      if (found != this->map.end()) {
+        value = found->second;
+        return true;
+      }
+      return false;
+    }
+    bool tryRemove(const K& key) {
+      // Returns true iff the value was removed
+      return this->map.erase(key) > 0;
+    }
+    bool contains(const K& key) const {
+      // Returns true iff the value exists
+      return this->map.count(key) > 0;
+    }
+    V getOrDefault(const K& key, const V& defval) const {
+      // Returns the map value or a default if not present
+      auto found = this->map.find(key);
+      if (found != this->map.end()) {
+        return found->second;
+      }
+      return defval;
+    }
+    bool addOrUpdate(const K& key, const V& value) {
+      // Returns true iff an insertion occurred
+      return this->map.insert_or_assign(key, value).second;
+    }
+    void addUnique(const K& key, const V& value) {
+      // Asserts unless an insertion occurred
+      bool inserted = this->map.insert_or_assign(key, value).second;
+      assert(inserted);
+      (void)inserted;
+    }
+  };
+
+  template<typename K, typename V>
   class Dictionary {
   public:
     typedef std::vector<K> Keys;
@@ -10,7 +62,7 @@ namespace egg::yolk {
     std::unordered_map<K, V> map;
     std::vector<K> vec; // In insertion order
   public:
-    bool isEmpty() const {
+    bool empty() const {
       return this->vec.empty();
     }
     size_t length() const {
@@ -64,6 +116,14 @@ namespace egg::yolk {
       }
       assert(this->map.size() == this->vec.size());
       return inserted;
+    }
+    void addUnique(const K& key, const V& value) {
+      // Asserts unless an insertion occurred
+      bool inserted = this->map.insert_or_assign(key, value).second;
+      assert(inserted);
+      this->vec.emplace_back(key);
+      assert(this->map.size() == this->vec.size());
+      (void)inserted;
     }
     size_t getKeys(Keys& keys) const {
       // Copy the keys in insertion order

@@ -51,7 +51,7 @@ namespace {
       // Ask the object what indexing it supports
       auto indexable = ltype->indexable();
       if (indexable == nullptr) {
-        return context.compilerError(where, "Instances of type '", ltype->toString(), "' do not support the indexing operator '[]'");
+        return context.compilerError(where, "Values of type '", ltype->toString(), "' do not support the indexing operator '[]'");
       }
       // TODO check type indexable->getIndexType()
     }
@@ -59,33 +59,47 @@ namespace {
   }
   EggProgramNodeFlags checkDot(EggProgramContext& context, const egg::lang::LocationSource& where, IEggProgramNode& lhs, IEggProgramNode& rhs) {
     // Left-hand side should be string/object
+    egg::lang::String name;
+    const egg::lang::String* property = nullptr;
     auto result = checkBinary(context, where, EggProgramBinary::Dot, egg::lang::Discriminator::String | egg::lang::Discriminator::Object, lhs, egg::lang::Discriminator::String, rhs);
     if (abandoned(result)) {
       return result;
     }
-    auto ltype = lhs.getType();
-    auto mask = egg::lang::Bits::mask(ltype->getSimpleTypes(), egg::lang::Discriminator::String | egg::lang::Discriminator::Object);
-    if (mask == egg::lang::Discriminator::String) {
+    if (result == EggProgramNodeFlags::Constant) {
       // 'result' holds the flags for the right-hand side (property name)
-      if (result == EggProgramNodeFlags::Constant) {
-        // Check specific property names
-        auto property = rhs.execute(context);
-        assert(property.is(egg::lang::Discriminator::String));
-        auto name = property.getString();
-        if (egg::lang::String::builtinFactory(name) == nullptr) {
-          // Not a known string builtin
-          return context.compilerError(where, "Unknown property for 'string': '.", name, "'");
-        }
+      auto rvalue = rhs.execute(context);
+      assert(rvalue.is(egg::lang::Discriminator::String));
+      name = rvalue.getString();
+      assert(!name.empty());
+      property = &name;
+    }
+    auto ltype = lhs.getType();
+    auto lsimple = ltype->getSimpleTypes();
+    if (egg::lang::Bits::hasAnySet(lsimple, egg::lang::Discriminator::String)) {
+      if (property == nullptr) {
+        // Strings support properties, but we don't know the specific name
+        return EggProgramNodeFlags::None;
+      }
+      if (egg::lang::String::builtinFactory(*property) != nullptr) {
+        // It's a known string builtin
+        return EggProgramNodeFlags::None;
       }
     }
-    if (mask == egg::lang::Discriminator::Object) {
-      // Ask the object what fields it supports
-      auto dotable = ltype->dotable();
-      if (dotable == nullptr) {
-        return context.compilerError(where, "Instances of type '", ltype->toString(), "' do not support the '.' operator for field access");
+    if (egg::lang::Bits::hasAnySet(lsimple, egg::lang::Discriminator::Object)) {
+      // Ask the object what properties it supports
+      egg::lang::String reason;
+      auto dotable = ltype->dotable(property, reason);
+      if (dotable != nullptr) {
+        // It's a known property
+        return EggProgramNodeFlags::None;
       }
+      if ((property == nullptr) || (ltype->dotable(nullptr, reason) == nullptr)) {
+        // We don't support ANY properties (the reason will be updated)
+        return context.compilerError(where, reason);
+      }
+      return context.compilerError(where, reason);
     }
-    return EggProgramNodeFlags::None;
+    return context.compilerError(where, "Unknown property for 'string' value: '.", *property, "'");
   }
 }
 
@@ -498,7 +512,7 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareBinary(const
     // Index operation
     return checkBrackets(*this, where, lhs, rhs);
   case EggProgramBinary::Dot:
-    // Dot operation (fields)
+    // Dot operation (properties)
     return checkDot(*this, where, lhs, rhs);
   case EggProgramBinary::Lambda:
   case EggProgramBinary::NullCoalescing:

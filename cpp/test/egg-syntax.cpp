@@ -199,9 +199,9 @@ TEST(TestEggSyntaxParser, ExpressionPostfix) {
   ASSERT_PARSE_BAD(parseExpressionToString("a(var)"), "(1, 3): Expected expression for function call parameter value");
   ASSERT_PARSE_BAD(parseExpressionToString("a(,)"), "(1, 3): Expected expression for function call parameter value");
   ASSERT_PARSE_BAD(parseExpressionToString("a(name=z)"), "(1, 7): Expected ')' at end of function call parameter list");
-  ASSERT_PARSE_BAD(parseExpressionToString("a..b"), "(1, 3): Expected field name to follow '.' operator");
-  ASSERT_PARSE_BAD(parseExpressionToString("a.?b"), "(1, 3): Expected field name to follow '.' operator");
-  ASSERT_PARSE_BAD(parseExpressionToString("a?.?b"), "(1, 4): Expected field name to follow '?.' operator");
+  ASSERT_PARSE_BAD(parseExpressionToString("a..b"), "(1, 3): Expected property name to follow '.' operator");
+  ASSERT_PARSE_BAD(parseExpressionToString("a.?b"), "(1, 3): Expected property name to follow '.' operator");
+  ASSERT_PARSE_BAD(parseExpressionToString("a?.?b"), "(1, 4): Expected property name to follow '?.' operator");
 }
 
 TEST(TestEggSyntaxParser, ExpressionCast) {

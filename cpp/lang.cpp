@@ -1425,8 +1425,9 @@ const egg::lang::IIndexSignature* egg::lang::IType::indexable() const {
   return nullptr;
 }
 
-const egg::lang::IType* egg::lang::IType::dotable() const {
-  // The default implementation is to say we don't support field with '.'
+const egg::lang::IType* egg::lang::IType::dotable(const String*, egg::lang::String& reason) const {
+  // The default implementation is to say we don't support properties with '.'
+  reason = egg::lang::String::concat("Values of type '", this->toString(), "' do not support the '.' operator for property access");
   return nullptr;
 }
 

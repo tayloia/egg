@@ -1,16 +1,74 @@
 #include "test.h"
 
+TEST(TestDictionaries, UnorderedEmpty) {
+  egg::yolk::DictionaryUnordered<std::string, int> births;
+  ASSERT_EQ(0u, births.length());
+  ASSERT_TRUE(births.empty());
+}
+
+TEST(TestDictionaries, UnorderedTryAdd) {
+  egg::yolk::DictionaryUnordered<std::string, int> births;
+  ASSERT_TRUE(births.tryAdd("Isaac Newton", 1643));
+  ASSERT_EQ(1u, births.length());
+  ASSERT_FALSE(births.empty());
+  ASSERT_FALSE(births.tryAdd("Isaac Newton", 1643));
+  ASSERT_EQ(1u, births.length());
+}
+
+TEST(TestDictionaries, UnorderedTryGet) {
+  egg::yolk::DictionaryUnordered<std::string, int> births;
+  ASSERT_TRUE(births.tryAdd("Isaac Newton", 1643));
+  ASSERT_EQ(1u, births.length());
+  int got = -1;
+  ASSERT_TRUE(births.tryGet("Isaac Newton", got));
+  ASSERT_EQ(1643, got);
+  ASSERT_FALSE(births.tryGet("Albert Einstein", got));
+  ASSERT_EQ(1643, got);
+}
+
+TEST(TestDictionaries, UnorderedTryRemove) {
+  egg::yolk::DictionaryUnordered<std::string, int> births;
+  ASSERT_FALSE(births.tryRemove("Isaac Newton"));
+  ASSERT_TRUE(births.tryAdd("Isaac Newton", 1643));
+  ASSERT_EQ(1u, births.length());
+  ASSERT_TRUE(births.tryRemove("Isaac Newton"));
+  ASSERT_EQ(0u, births.length());
+  ASSERT_FALSE(births.tryRemove("Isaac Newton"));
+}
+
+TEST(TestDictionaries, UnorderedContains) {
+  egg::yolk::DictionaryUnordered<std::string, int> births;
+  ASSERT_TRUE(births.tryAdd("Isaac Newton", 1643));
+  ASSERT_TRUE(births.contains("Isaac Newton"));
+  ASSERT_FALSE(births.contains("Albert Einstein"));
+}
+
+TEST(TestDictionaries, UnorderedGetOrDefault) {
+  egg::yolk::DictionaryUnordered<std::string, int> births;
+  ASSERT_TRUE(births.tryAdd("Isaac Newton", 1643));
+  ASSERT_EQ(1643, births.getOrDefault("Isaac Newton", -1));
+  ASSERT_EQ(-1, births.getOrDefault("Albert Einstein", -1));
+}
+
+TEST(TestDictionaries, UnorderedAddOrUpdate) {
+  egg::yolk::DictionaryUnordered<std::string, int> births;
+  ASSERT_TRUE(births.addOrUpdate("Isaac Newton", -1));
+  ASSERT_EQ(1u, births.length());
+  ASSERT_FALSE(births.addOrUpdate("Isaac Newton", 1643));
+  ASSERT_EQ(1u, births.length());
+}
+
 TEST(TestDictionaries, Empty) {
   egg::yolk::Dictionary<std::string, int> births;
   ASSERT_EQ(0u, births.length());
-  ASSERT_TRUE(births.isEmpty());
+  ASSERT_TRUE(births.empty());
 }
 
 TEST(TestDictionaries, TryAdd) {
   egg::yolk::Dictionary<std::string, int> births;
   ASSERT_TRUE(births.tryAdd("Isaac Newton", 1643));
   ASSERT_EQ(1u, births.length());
-  ASSERT_FALSE(births.isEmpty());
+  ASSERT_FALSE(births.empty());
   ASSERT_FALSE(births.tryAdd("Isaac Newton", 1643));
   ASSERT_EQ(1u, births.length());
 }

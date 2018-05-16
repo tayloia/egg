@@ -106,12 +106,28 @@ namespace {
 
   class BuiltinObjectType : public BuiltinFunctionType {
     EGG_NO_COPY(BuiltinObjectType);
+  private:
+    egg::yolk::DictionaryUnordered<String, Value> properties;
   public:
     BuiltinObjectType(const std::string& name, const ITypeRef& returnType)
       : BuiltinFunctionType(name, returnType) {
     }
-    virtual const IType* dotable() const {
-      return Type::AnyQ.get();
+    void addProperty(const String& name, const Value& value) {
+      this->properties.addOrUpdate(name, value);
+    }
+    bool tryGetProperty(const String& name, Value& value) const {
+      return this->properties.tryGet(name, value);
+    }
+    virtual const IType* dotable(const String* property, String& reason) const {
+      if (property == nullptr) {
+        return Type::AnyQ.get();
+      }
+      Value value;
+      if (this->properties.tryGet(*property, value)) {
+        return &value.getRuntimeType();
+      }
+      reason = String::concat("Unknown built-in property: '", this->getName(), ".", *property, "'");
+      return nullptr;
     }
   };
 
@@ -154,13 +170,12 @@ namespace {
     EGG_NO_COPY(BuiltinObject);
   protected:
     BuiltinObjectType type;
-    egg::yolk::Dictionary<String, Value> properties;
   public:
     explicit BuiltinObject(const std::string& name, const ITypeRef& returnType)
       : type(name, returnType) {
     }
     void addProperty(const std::string& name, const Value& value) {
-      this->properties.addOrUpdate(String::fromUTF8(name), value);
+      this->type.addProperty(String::fromUTF8(name), value);
     }
     virtual bool dispose() override {
       // We don't allow disposing of builtins
@@ -174,7 +189,7 @@ namespace {
     }
     virtual Value getProperty(IExecution& execution, const String& property) override {
       Value value;
-      if (this->properties.tryGet(property, value)) {
+      if (this->type.tryGetProperty(property, value)) {
         return value;
       }
       return execution.raiseFormat("Unknown built-in property: '", this->type.getName(), ".", property, "'");

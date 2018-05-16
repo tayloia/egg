@@ -136,6 +136,12 @@ namespace {
 
   class VanillaArrayType : public egg::gc::NotReferenceCounted<egg::lang::IType> {
   public:
+    static const egg::lang::IType* getPropertyType(const std::string& property) {
+      if (property == "length") {
+        return egg::lang::Type::Int.get();
+      }
+      return nullptr;
+    }
     virtual egg::lang::String toString() const override {
       return egg::lang::String::fromUTF8("any?[]");
     }
@@ -143,9 +149,16 @@ namespace {
       // Indexing an array returns an element
       return &VanillaArrayIndexSignature::instance;
     }
-    virtual const egg::lang::IType* dotable() const override {
-      // Arrays support limited fields
-      return egg::lang::Type::AnyQ.get();
+    virtual const egg::lang::IType* dotable(const egg::lang::String* property, egg::lang::String& reason) const override {
+      // Arrays support limited properties
+      if (property == nullptr) {
+        return egg::lang::Type::AnyQ.get();
+      }
+      auto* retval = VanillaArrayType::getPropertyType(property->toUTF8());
+      if (retval == nullptr) {
+        reason = egg::lang::String::concat("Arrays do not support property '.", *property, "'");
+      }
+      return retval;
     }
     virtual const egg::lang::IType* iterable() const override {
       // Iterating an array returns the elements
@@ -182,10 +195,13 @@ namespace {
     }
     virtual egg::lang::Value getProperty(egg::lang::IExecution& execution, const egg::lang::String& property) override {
       auto name = property.toUTF8();
-      if (name == "length") {
-        return egg::lang::Value{ int64_t(this->values.size()) };
+      auto retval = this->getPropertyInternal(execution, name);
+      if (retval.has(egg::lang::Discriminator::FlowControl)) {
+        assert(VanillaArrayType::getPropertyType(name) == nullptr);
+      } else {
+        assert(VanillaArrayType::getPropertyType(name) != nullptr);
       }
-      return execution.raiseFormat("Arrays do not support property '.", property, "'");
+      return retval;
     }
     virtual egg::lang::Value setProperty(egg::lang::IExecution& execution, const egg::lang::String& property, const egg::lang::Value& value) override {
       auto name = property.toUTF8();
@@ -231,6 +247,18 @@ namespace {
       return egg::lang::Value::Void;
     }
   private:
+    egg::lang::Value getPropertyInternal(egg::lang::IExecution& execution, const std::string& property) {
+      if (property == "length") {
+        return egg::lang::Value{ int64_t(this->values.size()) };
+      }
+      return execution.raiseFormat("Arrays do not support property '.", property, "'");
+    }
+    egg::lang::Value setPropertyInternal(egg::lang::IExecution& execution, const std::string& property, const egg::lang::Value& value) {
+      if (property == "length") {
+        return this->setLength(execution, value);
+      }
+      return execution.raiseFormat("Arrays do not support property '.", property, "'");
+    }
     egg::lang::Value setLength(egg::lang::IExecution& execution, const egg::lang::Value& value) {
       if (!value.is(egg::lang::Discriminator::Int)) {
         return execution.raiseFormat("Array length was expected to be set to an 'int', not '", value.getRuntimeType().toString(), "'");
@@ -339,11 +367,11 @@ namespace {
       return egg::lang::String::fromUTF8("any?{string}");
     }
     virtual const egg::lang::IIndexSignature* indexable() const override {
-      // Indexing an object returns an field
+      // Indexing an object returns a property
       return &VanillaObjectIndexSignature::instance;
     }
-    virtual const egg::lang::IType* dotable() const override {
-      // Objects support fields
+    virtual const egg::lang::IType* dotable(const egg::lang::String*, egg::lang::String&) const override {
+      // Objects support properties
       return egg::lang::Type::AnyQ.get();
     }
     virtual const egg::lang::IType* iterable() const override {
@@ -374,8 +402,8 @@ namespace {
   public:
     explicit VanillaException(const egg::lang::LocationRuntime& location, const egg::lang::String& message)
       : VanillaDictionary("Exception", VanillaObjectType::instance) {
-      this->dictionary.addOrUpdate(keyMessage, egg::lang::Value{ message });
-      this->dictionary.addOrUpdate(keyLocation, egg::lang::Value{ location.toSourceString() }); // TODO use toRuntimeString
+      this->dictionary.addUnique(keyMessage, egg::lang::Value{ message });
+      this->dictionary.addUnique(keyLocation, egg::lang::Value{ location.toSourceString() }); // TODO use toRuntimeString
     }
     virtual egg::lang::Value toString() const override {
       egg::lang::StringBuilder sb;
