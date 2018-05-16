@@ -59,13 +59,13 @@ namespace {
     }
   };
 
-  class BuiltinFunctionType : public egg::gc::NotReferenceCounted<IType> {
+  class BuiltinFunctionType : public egg::gc::HardReferenceCounted<IType> {
     EGG_NO_COPY(BuiltinFunctionType);
   private:
     BuiltinSignature signature;
   public:
     BuiltinFunctionType(const std::string& name, const ITypeRef& returnType)
-      : signature(name, returnType) {
+      : HardReferenceCounted(0), signature(name, returnType) {
     }
     void addParameter(const std::string& name, const ITypeRef& type, IFunctionSignatureParameter::Flags flags) {
       this->signature.addSignatureParameter(name, type, this->signature.getNextPosition(), flags);
@@ -125,80 +125,80 @@ namespace {
     }
   };
 
-  class BuiltinFunction : public egg::gc::NotReferenceCounted<IObject> {
+  class BuiltinFunction : public egg::gc::HardReferenceCounted<IObject> {
     EGG_NO_COPY(BuiltinFunction);
   protected:
-    BuiltinFunctionType type;
+    egg::gc::HardRef<BuiltinFunctionType> type;
   public:
     BuiltinFunction(const std::string& name, const ITypeRef& returnType)
-      : type(name, returnType) {
+      : HardReferenceCounted(0), type(new BuiltinFunctionType(name, returnType)) {
     }
     virtual bool dispose() override {
       // We don't allow disposing of builtins
       return false;
     }
     virtual Value toString() const override {
-      return Value(this->type.getName());
+      return Value(this->type->getName());
     }
     virtual const IType& getRuntimeType() const override {
-      return this->type;
+      return *this->type;
     }
     virtual Value getProperty(IExecution& execution, const String& property) override {
-      return execution.raiseFormat("Built-in '", this->type.getName(), "' does not support properties such as '.", property, "'");
+      return execution.raiseFormat("Built-in '", this->type->getName(), "' does not support properties such as '.", property, "'");
     }
     virtual Value setProperty(IExecution& execution, const String& property, const Value&) override {
-      return execution.raiseFormat("Built-in '", this->type.getName(), "' does not support properties such as '.", property, "'");
+      return execution.raiseFormat("Built-in '", this->type->getName(), "' does not support properties such as '.", property, "'");
     }
     virtual Value getIndex(IExecution& execution, const Value&) override {
-      return execution.raiseFormat("Built-in '", this->type.getName(), "' does not support indexing with '[]'");
+      return execution.raiseFormat("Built-in '", this->type->getName(), "' does not support indexing with '[]'");
     }
     virtual Value setIndex(IExecution& execution, const Value&, const Value&) override {
-      return execution.raiseFormat("Built-in '", this->type.getName(), "' does not support indexing with '[]'");
+      return execution.raiseFormat("Built-in '", this->type->getName(), "' does not support indexing with '[]'");
     }
     virtual Value iterate(IExecution& execution) override {
-      return execution.raiseFormat("Built-in '", this->type.getName(), "' does not support iteration");
+      return execution.raiseFormat("Built-in '", this->type->getName(), "' does not support iteration");
     }
   };
 
-  class BuiltinObject : public egg::gc::NotReferenceCounted<IObject> {
+  class BuiltinObject : public egg::gc::HardReferenceCounted<IObject> {
     EGG_NO_COPY(BuiltinObject);
   protected:
-    BuiltinObjectType type;
+    egg::gc::HardRef<BuiltinObjectType> type;
   public:
-    explicit BuiltinObject(const std::string& name, const ITypeRef& returnType)
-      : type(name, returnType) {
+    BuiltinObject(const std::string& name, const ITypeRef& returnType)
+      : HardReferenceCounted(0), type(new BuiltinObjectType(name, returnType)) {
     }
     void addProperty(const std::string& name, const Value& value) {
-      this->type.addProperty(String::fromUTF8(name), value);
+      this->type->addProperty(String::fromUTF8(name), value);
     }
     virtual bool dispose() override {
       // We don't allow disposing of builtins
       return false;
     }
     virtual Value toString() const override {
-      return Value(this->type.getName());
+      return Value(this->type->getName());
     }
     virtual const IType& getRuntimeType() const override {
-      return this->type;
+      return *this->type;
     }
     virtual Value getProperty(IExecution& execution, const String& property) override {
       Value value;
-      if (this->type.tryGetProperty(property, value)) {
+      if (this->type->tryGetProperty(property, value)) {
         return value;
       }
-      return execution.raiseFormat("Unknown built-in property: '", this->type.getName(), ".", property, "'");
+      return execution.raiseFormat("Unknown built-in property: '", this->type->getName(), ".", property, "'");
     }
     virtual Value setProperty(IExecution& execution, const String& property, const Value&) override {
-      return execution.raiseFormat("Cannot set built-in property: '", this->type.getName(), ".", property, "'");
+      return execution.raiseFormat("Cannot set built-in property: '", this->type->getName(), ".", property, "'");
     }
     virtual Value getIndex(IExecution& execution, const Value&) override {
-      return execution.raiseFormat("Built-in '", this->type.getName(), "' does not support indexing with '[]'");
+      return execution.raiseFormat("Built-in '", this->type->getName(), "' does not support indexing with '[]'");
     }
     virtual Value setIndex(IExecution& execution, const Value&, const Value&) override {
-      return execution.raiseFormat("Built-in '", this->type.getName(), "' does not support indexing with '[]'");
+      return execution.raiseFormat("Built-in '", this->type->getName(), "' does not support indexing with '[]'");
     }
     virtual Value iterate(IExecution& execution) override {
-      return execution.raiseFormat("Built-in '", this->type.getName(), "' does not support iteration");
+      return execution.raiseFormat("Built-in '", this->type->getName(), "' does not support iteration");
     }
   };
 
@@ -207,12 +207,12 @@ namespace {
   public:
     BuiltinStringFrom()
       : BuiltinFunction("string.from", Type::makeSimple(Discriminator::String | Discriminator::Null)) {
-      this->type.addParameter("value", Type::AnyQ, Flags::Required);
+      this->type->addParameter("value", Type::AnyQ, Flags::Required);
     }
     virtual Value call(IExecution& execution, const IParameters& parameters) override {
       // Convert the parameter to a string
       // Note: Although the return type is 'string?' (for orthogonality) this function never returns 'null'
-      Value result = this->type.validateCall(execution, parameters);
+      Value result = this->type->validateCall(execution, parameters);
       if (result.has(Discriminator::FlowControl)) {
         return result;
       }
@@ -222,18 +222,16 @@ namespace {
 
   class BuiltinString : public BuiltinObject {
     EGG_NO_COPY(BuiltinString);
-  private:
-    BuiltinStringFrom from;
   public:
     BuiltinString()
       : BuiltinObject("string", Type::String) {
       // The function call looks like: 'string string(any?... value)'
-      this->type.addParameter("value", Type::AnyQ, Flags::Variadic);
-      this->addProperty("from", Value{ this->from });
+      this->type->addParameter("value", Type::AnyQ, Flags::Variadic);
+      this->addProperty("from", Value::make<BuiltinStringFrom>());
     }
     virtual Value call(IExecution& execution, const IParameters& parameters) override {
       // Concatenate the string representations of all parameters
-      Value result = this->type.validateCall(execution, parameters);
+      Value result = this->type->validateCall(execution, parameters);
       if (result.has(Discriminator::FlowControl)) {
         return result;
       }
@@ -257,10 +255,10 @@ namespace {
   public:
     BuiltinAssert()
       : BuiltinFunction("assert", Type::Void) {
-      this->type.addParameter("predicate", Type::Any, Bits::set(Flags::Required, Flags::Deferred));
+      this->type->addParameter("predicate", Type::Any, Bits::set(Flags::Required, Flags::Deferred));
     }
     virtual Value call(IExecution& execution, const IParameters& parameters) override {
-      Value result = this->type.validateCall(execution, parameters);
+      Value result = this->type->validateCall(execution, parameters);
       if (result.has(Discriminator::FlowControl)) {
         return result;
       }
@@ -273,10 +271,10 @@ namespace {
   public:
     BuiltinPrint()
       : BuiltinFunction("print", Type::Void) {
-      this->type.addParameter("...", Type::Any, Flags::Variadic);
+      this->type->addParameter("...", Type::Any, Flags::Variadic);
     }
     virtual Value call(IExecution& execution, const IParameters& parameters) override {
-      Value result = this->type.validateCall(execution, parameters);
+      Value result = this->type->validateCall(execution, parameters);
       if (result.has(Discriminator::FlowControl)) {
         return result;
       }
@@ -336,8 +334,8 @@ namespace {
       return execution.raiseFormat(this->type->toString(), " does not support iteration");
     }
     static Value make(const String& instance) {
-      static const T typeInstance{};
-      return Value::make<StringBuiltin<T>>(instance, typeInstance);
+      static egg::gc::HardRef<T> type(new T());
+      return Value::make<StringBuiltin<T>>(instance, *type);
     }
   };
 
@@ -705,16 +703,16 @@ egg::lang::Value egg::lang::String::builtin(egg::lang::IExecution& execution, co
 }
 
 egg::lang::Value egg::lang::Value::builtinString() {
-  static BuiltinString builtin;
-  return Value{ builtin };
+  static Value builtin = Value::make<BuiltinString>();
+  return builtin;
 }
 
 egg::lang::Value egg::lang::Value::builtinAssert() {
-  static BuiltinAssert builtin;
-  return Value{ builtin };
+  static Value builtin = Value::make<BuiltinAssert>();
+  return builtin;
 }
 
 egg::lang::Value egg::lang::Value::builtinPrint() {
-  static BuiltinPrint builtin;
-  return Value{ builtin };
+  static Value builtin = Value::make<BuiltinPrint>();
+  return builtin;
 }

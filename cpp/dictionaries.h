@@ -53,6 +53,9 @@ namespace egg::yolk {
       assert(inserted);
       EGG_UNUSED(inserted);
     }
+    void removeAll() {
+      this->map.clear();
+    }
   };
 
   template<typename K, typename V>
@@ -158,6 +161,10 @@ namespace egg::yolk {
       });
       assert(keyvalues.size() == this->vec.size());
       return keyvalues.size();
+    }
+    void removeAll() {
+      this->map.clear();
+      this->vec.clear();
     }
   };
 }
