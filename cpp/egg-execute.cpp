@@ -417,7 +417,7 @@ egg::lang::Value egg::yolk::EggProgramContext::executeSwitch(const IEggProgramNo
     }
     auto matched = size_t(defaultIndex);
     for (size_t index = 0; index < cases.size(); ++index) {
-      auto retval = cases[index]->executeWithExpression(scope, expr);
+      auto retval = scope.executeWithValue(*cases[index], expr);
       if (!retval.is(egg::lang::Discriminator::Bool)) {
         // Failed to evaluate a case label
         return retval;
@@ -444,7 +444,8 @@ egg::lang::Value egg::yolk::EggProgramContext::executeSwitch(const IEggProgramNo
   });
 }
 
-egg::lang::Value egg::yolk::EggProgramContext::executeCase(const IEggProgramNode& self, const std::vector<std::shared_ptr<IEggProgramNode>>& values, const IEggProgramNode& block, const egg::lang::Value* against) {
+egg::lang::Value egg::yolk::EggProgramContext::executeCase(const IEggProgramNode& self, const std::vector<std::shared_ptr<IEggProgramNode>>& values, const IEggProgramNode& block) {
+  auto against = this->scopeValue;
   if (against != nullptr) {
     // We're matching against values
     for (auto& i : values) {
@@ -486,7 +487,7 @@ egg::lang::Value egg::yolk::EggProgramContext::executeTry(const IEggProgramNode&
   if (retval.stripFlowControl(egg::lang::Discriminator::Exception)) {
     // An exception has indeed been thrown
     for (auto& i : catches) {
-      auto match = i->executeWithExpression(*this, retval);
+      auto match = this->executeWithValue(*i, retval);
       if (!match.is(egg::lang::Discriminator::Bool)) {
         // Failed to evaluate the catch condition
         return this->executeFinally(match, final);
@@ -500,18 +501,20 @@ egg::lang::Value egg::yolk::EggProgramContext::executeTry(const IEggProgramNode&
   return this->executeFinally(retval, final);
 }
 
-egg::lang::Value egg::yolk::EggProgramContext::executeCatch(const IEggProgramNode& self, const egg::lang::String& name, const IEggProgramNode& type, const IEggProgramNode& block, const egg::lang::Value& exception) {
+egg::lang::Value egg::yolk::EggProgramContext::executeCatch(const IEggProgramNode& self, const egg::lang::String& name, const IEggProgramNode& type, const IEggProgramNode& block) {
   this->statement(self);
-  assert(!exception.has(egg::lang::Discriminator::FlowControl));
+  auto exception = this->scopeValue;
+  assert(exception != nullptr);
+  assert(!exception->has(egg::lang::Discriminator::FlowControl));
   // TODO return false if typeof(exception) != type
   EggProgramSymbolTable nested(this->symtable);
-  nested.addSymbol(EggProgramSymbol::ReadWrite, name, *type.getType(), exception);
+  nested.addSymbol(EggProgramSymbol::ReadWrite, name, *type.getType(), *exception);
   EggProgramContext context(*this, nested);
   auto retval = block.execute(context);
   if (retval.has(egg::lang::Discriminator::FlowControl)) {
     // Check for a rethrow
     if (retval.is(egg::lang::Discriminator::Exception | egg::lang::Discriminator::Void)) {
-      return exception;
+      return *exception;
     }
     return retval;
   }
@@ -691,14 +694,17 @@ egg::lang::Value egg::yolk::EggProgramContext::executeDot(const IEggProgramNode&
   return lhs.getRuntimeType().dotGet(*this, lhs, property);
 }
 
-egg::lang::Value egg::yolk::EggProgramContext::executeUnary(const IEggProgramNode& self, EggProgramUnary op, const IEggProgramNode& value) {
+egg::lang::Value egg::yolk::EggProgramContext::executeUnary(const IEggProgramNode& self, EggProgramUnary op, const IEggProgramNode& expr) {
   EggProgramExpression expression(*this, self);
-  return this->unary(op, value);
+  egg::lang::Value value{};
+  return this->unary(op, expr, value);
 }
 
 egg::lang::Value egg::yolk::EggProgramContext::executeBinary(const IEggProgramNode& self, EggProgramBinary op, const IEggProgramNode& lhs, const IEggProgramNode& rhs) {
   EggProgramExpression expression(*this, self);
-  return this->binary(op, lhs, rhs);
+  egg::lang::Value left{};
+  egg::lang::Value right{};
+  return this->binary(op, lhs, rhs, left, right);
 }
 
 egg::lang::Value egg::yolk::EggProgramContext::executeTernary(const IEggProgramNode& self, const IEggProgramNode& cond, const IEggProgramNode& whenTrue, const IEggProgramNode& whenFalse) {
@@ -708,6 +714,27 @@ egg::lang::Value egg::yolk::EggProgramContext::executeTernary(const IEggProgramN
     return retval.getBool() ? whenTrue.execute(*this) : whenFalse.execute(*this);
   }
   return retval;
+}
+
+egg::lang::Value egg::yolk::EggProgramContext::executePredicate(const IEggProgramNode& self, EggProgramBinary op, const IEggProgramNode& lhs, const IEggProgramNode& rhs) {
+  EggProgramExpression expression(*this, self);
+  egg::lang::Value left{};
+  egg::lang::Value right{};
+  auto result = this->binary(op, lhs, rhs, left, right);
+  if (!result.is(egg::lang::Discriminator::Bool) || result.getBool()) {
+    // It wasn't a predicate failure, i.e. didn't return bool:false
+    return result;
+  }
+  auto operation = EggProgram::binaryToString(op);
+  auto raised = this->raiseFormat("Assertion is untrue: ", left.toString(), " ", operation, " ", right.toString());
+  if (raised.is(egg::lang::Discriminator::Exception | egg::lang::Discriminator::Object)) {
+    // Augment the exception with extra information
+    auto& exception = raised.getObject();
+    exception.setProperty(*this, egg::lang::String::fromUTF8("left"), left);
+    exception.setProperty(*this, egg::lang::String::fromUTF8("operator"), egg::lang::Value(egg::lang::String::fromUTF8(operation)));
+    exception.setProperty(*this, egg::lang::String::fromUTF8("right"), right);
+  }
+  return raised;
 }
 
 egg::lang::LogSeverity egg::yolk::EggProgram::execute(IEggEngineExecutionContext& execution) {

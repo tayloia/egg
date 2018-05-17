@@ -97,7 +97,7 @@ namespace {
   private:
     EggParserTypeFunctionSignature signature;
   public:
-    explicit EggParserTypeFunction(const egg::lang::String& name, const egg::lang::IType& rettype)
+    EggParserTypeFunction(const egg::lang::String& name, const egg::lang::IType& rettype)
       : HardReferenceCounted(0), signature(name, rettype) {
     }
     virtual bool canBeAssignedFrom(const IType& rtype) const {
@@ -249,13 +249,8 @@ namespace {
       // By default, nodes do not declare symbols
       return false;
     }
-    virtual EggProgramNodeFlags prepareWithType(EggProgramContext& context, const egg::lang::IType&) override {
-      // By default, we fail if asked to prepare with a type (used only in variable-declaring statements)
-      return context.compilerError(this->locationSource, "Internal parser error: Inappropriate 'prepareWithType' call");
-    }
-    virtual egg::lang::Value executeWithExpression(EggProgramContext& context, const egg::lang::Value&) const override {
-      // By default, we fail if asked to execute with an expression (used only in switch/catch statements, etc)
-      return context.raiseFormat("Internal parser error: Inappropriate 'executeWithExpression' call");
+    virtual void empredicate(EggProgramContext&, std::shared_ptr<IEggProgramNode>&) override {
+      // By default, nodes do not change when they're used as predicates in function call parameters
     }
     virtual std::unique_ptr<IEggProgramAssignee> assignee(EggProgramContext&) const override {
       // By default, we fail if asked to create an assignee
@@ -349,10 +344,7 @@ namespace {
       return context.assigneeIdentifier(*this, this->name);
     }
     virtual EggProgramNodeFlags prepare(EggProgramContext& context) override {
-      return context.prepareDeclare(this->locationSource, this->name, this->type, nullptr, this->init.get());
-    }
-    virtual EggProgramNodeFlags prepareWithType(EggProgramContext& context, const egg::lang::IType& rtype) override {
-      return context.prepareDeclare(this->locationSource, this->name, this->type, &rtype, this->init.get());
+      return context.prepareDeclare(this->locationSource, this->name, this->type, this->init.get());
     }
     virtual egg::lang::Value execute(EggProgramContext& context) const override {
       return context.executeDeclare(*this, this->name, *this->type, this->init.get());
@@ -414,10 +406,7 @@ namespace {
       return context.prepareCatch(this->name, *this->type, *this->block);
     }
     virtual egg::lang::Value execute(EggProgramContext& context) const override {
-      return context.raiseFormat("Internal parser error: Inappropriate 'execute' call for 'catch' statement");
-    }
-    virtual egg::lang::Value executeWithExpression(EggProgramContext& context, const egg::lang::Value& expression) const override {
-      return context.executeCatch(*this, this->name, *this->type, *this->block, expression);
+      return context.executeCatch(*this, this->name, *this->type, *this->block);
     }
     virtual void dump(std::ostream& os) const override {
       ParserDump(os, "catch").add(this->name).add(this->type).add(this->block);
@@ -615,12 +604,7 @@ namespace {
       return context.prepareCase(this->child, *this->block);
     }
     virtual egg::lang::Value execute(EggProgramContext& context) const override {
-      // We actually want to execute the block of the 'case' statement
-      return context.executeCase(*this, this->child, *this->block, nullptr);
-    }
-    virtual egg::lang::Value executeWithExpression(EggProgramContext& context, const egg::lang::Value& expression) const override {
-      // We're matching values in the 'case' statement
-      return context.executeCase(*this, this->child, *this->block, &expression);
+      return context.executeCase(*this, this->child, *this->block);
     }
     virtual void dump(std::ostream& os) const override {
       ParserDump(os, "case").add(this->child).add(this->block);
@@ -1035,10 +1019,10 @@ namespace {
       assert(lhs != nullptr);
       assert(rhs != nullptr);
     }
+    virtual egg::lang::ITypeRef getType() const override;
     virtual EggProgramNodeFlags prepare(EggProgramContext& context) override {
       return context.prepareBrackets(this->locationSource, *this->lhs, *this->rhs);
     }
-    virtual egg::lang::ITypeRef getType() const override;
     virtual egg::lang::Value execute(EggProgramContext& context) const override {
       return context.executeBrackets(*this, *this->lhs, *this->rhs);
     }
@@ -1117,6 +1101,9 @@ namespace {
       assert(rhs != nullptr);
     }
   public:
+    virtual void empredicate(EggProgramContext& context, std::shared_ptr<IEggProgramNode>& node) override {
+      node = context.empredicateBinary(node, this->op, this->lhs, this->rhs);
+    }
     virtual EggProgramNodeFlags prepare(EggProgramContext& context) override {
       return context.prepareBinary(this->locationSource, this->op, *this->lhs, *this->rhs);
     }
@@ -1192,6 +1179,29 @@ namespace {
     } \
   };
   EGG_PROGRAM_ASSIGN_OPERATORS(EGG_PARSER_ASSIGN_OPERATOR_DEFINE)
+
+  class EggParserNode_Predicate : public EggParserNodeBase {
+  private:
+    EggProgramBinary op;
+    std::shared_ptr<IEggProgramNode> lhs;
+    std::shared_ptr<IEggProgramNode> rhs;
+  public:
+    EggParserNode_Predicate(const egg::lang::LocationSource& locationSource, EggProgramBinary op, const std::shared_ptr<IEggProgramNode>& lhs, const std::shared_ptr<IEggProgramNode>& rhs)
+      : EggParserNodeBase(locationSource), op(op), lhs(lhs), rhs(rhs) {
+      assert(lhs != nullptr);
+      assert(rhs != nullptr);
+    }
+  public:
+    virtual EggProgramNodeFlags prepare(EggProgramContext& context) override {
+      return context.preparePredicate(this->locationSource, this->op, *this->lhs, *this->rhs);
+    }
+    virtual egg::lang::Value execute(EggProgramContext& context) const override {
+      return context.executePredicate(*this, this->op, *this->lhs, *this->rhs);
+    }
+    virtual void dump(std::ostream& os) const override {
+      ParserDump(os, "predicate ").add(EggProgram::binaryToString(this->op)).add(this->lhs).add(this->rhs);
+    }
+  };
 
   class EggParserContextBase : public IEggParserContext {
   private:
@@ -1943,6 +1953,20 @@ egg::lang::ITypeRef EggParserNode_BinaryBitwiseOr::getType() const {
 
 egg::lang::ITypeRef EggParserNode_BinaryLogicalOr::getType() const {
   return egg::lang::Type::Bool;
+}
+
+std::shared_ptr<IEggProgramNode> EggProgramContext::empredicateBinary(const std::shared_ptr<IEggProgramNode>& node, EggProgramBinary op, const std::shared_ptr<IEggProgramNode>& lhs, const std::shared_ptr<IEggProgramNode>& rhs) {
+  // Wrap the expression in an appropriate predicate
+  // We currently only handle comparator operators
+  if ((op == EggProgramBinary::Equal) ||
+      (op == EggProgramBinary::Unequal) ||
+      (op == EggProgramBinary::Less) ||
+      (op == EggProgramBinary::LessEqual) ||
+      (op == EggProgramBinary::Greater) ||
+      (op == EggProgramBinary::GreaterEqual)) {
+    return std::make_shared<EggParserNode_Predicate>(node->location(), op, lhs, rhs);
+  }
+  return node;
 }
 
 egg::lang::ITypeRef EggParserNode_Ternary::getType() const {

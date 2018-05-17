@@ -6,6 +6,9 @@ try {
     print(kv);
   }
 }
-///><RESOURCE>(2,9): Predicate is false
-///>{key:message,value:Predicate is false}
-///>{key:location,value:<RESOURCE>(2,9)}
+///><RESOURCE>(2,16): Assertion is untrue: 2 == 3
+///>{key:message,value:Assertion is untrue: 2 == 3}
+///>{key:location,value:<RESOURCE>(2,16)}
+///>{key:left,value:2}
+///>{key:operator,value:==}
+///>{key:right,value:3}

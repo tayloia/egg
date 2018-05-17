@@ -82,11 +82,11 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareBlock(const 
   return this->prepareStatements(statements);
 }
 
-egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareDeclare(const egg::lang::LocationSource& where, const egg::lang::String& name, egg::lang::ITypeRef& ltype, const egg::lang::IType* rtype, IEggProgramNode* rvalue) {
-  if (rtype != nullptr) {
-    // This must be a prepareWithType call with an inferred type
+egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareDeclare(const egg::lang::LocationSource& where, const egg::lang::String& name, egg::lang::ITypeRef& ltype, IEggProgramNode* rvalue) {
+  if (this->scopeType != nullptr) {
+    // This must be a prepare call with an inferred type
     assert(rvalue == nullptr);
-    return this->typeCheck(where, ltype, egg::lang::ITypeRef(rtype), name);
+    return this->typeCheck(where, ltype, egg::lang::ITypeRef(this->scopeType), name);
   }
   if (rvalue != nullptr) {
     // Type-check the initialization
@@ -234,7 +234,7 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareForeach(IEgg
     if (iterable == nullptr) {
       return scope.compilerError(rvalue.location(), "Expression after the ':' in 'for' statement is not iterable: '", type->toString(), "'");
     }
-    if (abandoned(lvalue.prepareWithType(scope, *iterable))) {
+    if (abandoned(scope.prepareWithType(lvalue, *iterable))) {
       return EggProgramNodeFlags::Abandon;
     }
     return block.prepare(scope);
@@ -359,7 +359,7 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareObject(const
   return EggProgramNodeFlags::None;
 }
 
-egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareCall(IEggProgramNode& callee, const std::vector<std::shared_ptr<IEggProgramNode>>& parameters) {
+egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareCall(IEggProgramNode& callee, std::vector<std::shared_ptr<IEggProgramNode>>& parameters) {
   if (abandoned(callee.prepare(*this))) {
     return EggProgramNodeFlags::Abandon;
   }
@@ -369,9 +369,25 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareCall(IEggPro
     return this->compilerError(callee.location(), "Expected function-like expression to be callable, but got '", ctype->toString(), "' instead");
   }
   // TODO type check parameters
+  auto expected = callable->getParameterCount();
+  size_t position = 0;
+  bool variadic = false;
   for (auto& parameter : parameters) {
+    if (position >= expected) {
+      return this->compilerError(parameter->location(), "Expected ", expected, " parameters for '", ctype->toString(), "', but got ", parameters.size(), " instead");
+    }
+    auto& cparam = callable->getParameter(position);
+    if (cparam.isVariadic()) {
+      variadic = true;
+    }
+    if (cparam.isPredicate()) {
+      parameter->empredicate(*this, parameter);
+    }
     if (abandoned(parameter->prepare(*this))) {
       return EggProgramNodeFlags::Abandon;
+    }
+    if (!variadic) {
+      position++;
     }
   }
   return EggProgramNodeFlags::None;
@@ -535,6 +551,38 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareTernary(cons
     return this->compilerError(whenTrue.location(), "Expected value for third operand of ternary '?:' operator , but got '", type->toString(), "' instead");
   }
   return EggProgramNodeFlags::None;
+}
+
+egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::preparePredicate(const egg::lang::LocationSource& where, EggProgramBinary op, IEggProgramNode& lhs, IEggProgramNode& rhs) {
+  return this->prepareBinary(where, op, lhs, rhs);
+}
+
+egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareWithType(IEggProgramNode& node, const egg::lang::IType& type) {
+  // Run a prepare call with a scope type set
+  assert(this->scopeType == nullptr);
+  try {
+    this->scopeType = &type;
+    auto result = node.prepare(*this);
+    this->scopeType = nullptr;
+    return result;
+  } catch (...) {
+    this->scopeType = nullptr;
+    throw;
+  }
+}
+
+egg::lang::Value egg::yolk::EggProgramContext::executeWithValue(const IEggProgramNode& node, const egg::lang::Value& value) {
+  // Run an execute call with a scope value set
+  assert(this->scopeType == nullptr);
+  try {
+    this->scopeValue = &value;
+    auto result = node.execute(*this);
+    this->scopeValue = nullptr;
+    return result;
+  } catch (...) {
+    this->scopeValue = nullptr;
+    throw;
+  }
 }
 
 egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::typeCheck(const egg::lang::LocationSource& where, egg::lang::ITypeRef& ltype, const egg::lang::ITypeRef& rtype, const egg::lang::String& name) {

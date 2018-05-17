@@ -417,64 +417,64 @@ egg::lang::Value egg::yolk::EggProgramContext::set(const egg::lang::String& name
   return symbol->assign(*this, rvalue);
 }
 
-egg::lang::Value egg::yolk::EggProgramContext::assign(EggProgramAssign op, const IEggProgramNode& lvalue, const IEggProgramNode& rvalue) {
-  auto dst = lvalue.assignee(*this);
+egg::lang::Value egg::yolk::EggProgramContext::assign(EggProgramAssign op, const IEggProgramNode& lhs, const IEggProgramNode& rhs) {
+  auto dst = lhs.assignee(*this);
   if (dst == nullptr) {
     return this->raiseFormat("Left-hand side of assignment operator '", EggProgram::assignToString(op), "' is not a valid target");
   }
-  egg::lang::Value rhs;
+  egg::lang::Value right;
   if (op == EggProgramAssign::Equal) {
     // Simple assignment without interrogation beforehand
-    rhs = rvalue.execute(*this);
+    right = rhs.execute(*this);
   } else {
     // We need to interrogate the value of the lhs so we can modify it
-    auto lhs = dst->get();
-    if (lhs.has(egg::lang::Discriminator::FlowControl)) {
-      return lhs;
+    auto left = dst->get();
+    if (left.has(egg::lang::Discriminator::FlowControl)) {
+      return left;
     }
     switch (op) {
     case EggProgramAssign::Remainder:
-      rhs = this->arithmeticIntFloat(lhs, rvalue, "remainder assignment '%='", remainderInt, remainderFloat);
+      right = this->arithmeticIntFloat(left, right, rhs, "remainder assignment '%='", remainderInt, remainderFloat);
       break;
     case EggProgramAssign::BitwiseAnd:
-      rhs = this->arithmeticInt(lhs, rvalue, "bitwise-and assignment '&='", bitwiseAndInt);
+      right = this->arithmeticInt(left, right, rhs, "bitwise-and assignment '&='", bitwiseAndInt);
       break;
     case EggProgramAssign::Multiply:
-      rhs = this->arithmeticIntFloat(lhs, rvalue, "multiplication assignment '*='", multiplyInt, multiplyFloat);
+      right = this->arithmeticIntFloat(left, right, rhs, "multiplication assignment '*='", multiplyInt, multiplyFloat);
       break;
     case EggProgramAssign::Plus:
-      rhs = this->arithmeticIntFloat(lhs, rvalue, "addition assignment '+='", plusInt, plusFloat);
+      right = this->arithmeticIntFloat(left, right, rhs, "addition assignment '+='", plusInt, plusFloat);
       break;
     case EggProgramAssign::Minus:
-      rhs = this->arithmeticIntFloat(lhs, rvalue, "subtraction assignment '-='", minusInt, minusFloat);
+      right = this->arithmeticIntFloat(left, right, rhs, "subtraction assignment '-='", minusInt, minusFloat);
       break;
     case EggProgramAssign::Divide:
-      rhs = this->arithmeticIntFloat(lhs, rvalue, "division assignment '/='", divideInt, divideFloat);
+      right = this->arithmeticIntFloat(left, right, rhs, "division assignment '/='", divideInt, divideFloat);
       break;
     case EggProgramAssign::ShiftLeft:
-      rhs = this->arithmeticInt(lhs, rvalue, "shift-left assignment '<<='", shiftLeftInt);
+      right = this->arithmeticInt(left, right, rhs, "shift-left assignment '<<='", shiftLeftInt);
       break;
     case EggProgramAssign::ShiftRight:
-      rhs = this->arithmeticInt(lhs, rvalue, "shift-right assignment '>>='", shiftRightInt);
+      right = this->arithmeticInt(left, right, rhs, "shift-right assignment '>>='", shiftRightInt);
       break;
     case EggProgramAssign::ShiftRightUnsigned:
-      rhs = this->arithmeticInt(lhs, rvalue, "shift-right-unsigned assignment '>>>='", shiftRightUnsignedInt);
+      right = this->arithmeticInt(left, right, rhs, "shift-right-unsigned assignment '>>>='", shiftRightUnsignedInt);
       break;
     case EggProgramAssign::BitwiseXor:
-      rhs = this->arithmeticInt(lhs, rvalue, "bitwise-xor assignment '^='", bitwiseXorInt);
+      right = this->arithmeticInt(left, right, rhs, "bitwise-xor assignment '^='", bitwiseXorInt);
       break;
     case EggProgramAssign::BitwiseOr:
-      rhs = this->arithmeticInt(lhs, rvalue, "bitwise-or assignment '|='", bitwiseOrInt);
+      right = this->arithmeticInt(left, right, rhs, "bitwise-or assignment '|='", bitwiseOrInt);
       break;
     case EggProgramAssign::Equal:
     default:
       return this->raiseFormat("Internal runtime error: Unknown assignment operator: '", EggProgram::assignToString(op), "'");
     }
   }
-  if (rhs.has(egg::lang::Discriminator::FlowControl)) {
-    return rhs;
+  if (right.has(egg::lang::Discriminator::FlowControl)) {
+    return right;
   }
-  return dst->set(rhs);
+  return dst->set(right);
 }
 
 egg::lang::Value egg::yolk::EggProgramContext::mutate(EggProgramMutate op, const IEggProgramNode& lvalue) {
@@ -517,24 +517,23 @@ egg::lang::Value egg::yolk::EggProgramContext::condition(const IEggProgramNode& 
   return this->raiseFormat("Expected condition to evaluate to a 'bool', but got '", retval.getTagString(), "' instead");
 }
 
-egg::lang::Value egg::yolk::EggProgramContext::unary(EggProgramUnary op, const IEggProgramNode& value) {
-  egg::lang::Value result;
+egg::lang::Value egg::yolk::EggProgramContext::unary(EggProgramUnary op, const IEggProgramNode& expr, egg::lang::Value& value) {
   switch (op) {
   case EggProgramUnary::LogicalNot:
-    if (this->operand(result, value, egg::lang::Discriminator::Bool, "Expected operand of logical-not operator '!' to be 'bool'")) {
-      return egg::lang::Value(!result.getBool());
+    if (this->operand(value, expr, egg::lang::Discriminator::Bool, "Expected operand of logical-not operator '!' to be 'bool'")) {
+      return egg::lang::Value(!value.getBool());
     }
-    return result;
+    return value;
   case EggProgramUnary::Negate:
-    if (this->operand(result, value, egg::lang::Discriminator::Arithmetic, "Expected operand of negation operator '-' to be 'int' or 'float'")) {
-      return result.is(egg::lang::Discriminator::Int) ? egg::lang::Value(-result.getInt()) : egg::lang::Value(-result.getFloat());
+    if (this->operand(value, expr, egg::lang::Discriminator::Arithmetic, "Expected operand of negation operator '-' to be 'int' or 'float'")) {
+      return value.is(egg::lang::Discriminator::Int) ? egg::lang::Value(-value.getInt()) : egg::lang::Value(-value.getFloat());
     }
-    return result;
+    return value;
   case EggProgramUnary::BitwiseNot:
-    if (this->operand(result, value, egg::lang::Discriminator::Int, "Expected operand of bitwise-not operator '~' to be 'int'")) {
-      return egg::lang::Value(~result.getInt());
+    if (this->operand(value, expr, egg::lang::Discriminator::Int, "Expected operand of bitwise-not operator '~' to be 'int'")) {
+      return egg::lang::Value(~value.getInt());
     }
-    return result;
+    return value;
   case EggProgramUnary::Ref:
   case EggProgramUnary::Deref:
   case EggProgramUnary::Ellipsis:
@@ -544,16 +543,15 @@ egg::lang::Value egg::yolk::EggProgramContext::unary(EggProgramUnary op, const I
   }
 }
 
-egg::lang::Value egg::yolk::EggProgramContext::binary(EggProgramBinary op, const IEggProgramNode& lhs, const IEggProgramNode& rhs) {
+egg::lang::Value egg::yolk::EggProgramContext::binary(EggProgramBinary op, const IEggProgramNode& lhs, const IEggProgramNode& rhs, egg::lang::Value& left, egg::lang::Value& right) {
   // OPTIMIZE
-  egg::lang::Value left = lhs.execute(*this);
+  left = lhs.execute(*this);
   if (left.has(egg::lang::Discriminator::FlowControl)) {
     return left;
   }
   switch (op) {
   case EggProgramBinary::Unequal:
     if (left.has(egg::lang::Discriminator::Any | egg::lang::Discriminator::Null)) {
-      egg::lang::Value right;
       if (!this->operand(right, rhs, egg::lang::Discriminator::Any | egg::lang::Discriminator::Null, "Expected right operand of inequality '!=' to be a value")) {
         return right;
       }
@@ -561,38 +559,36 @@ egg::lang::Value egg::yolk::EggProgramContext::binary(EggProgramBinary op, const
     }
     return this->unexpected("Expected left operand of inequality '!=' to be a value", left);
   case EggProgramBinary::Remainder:
-    return this->arithmeticIntFloat(left, rhs, "remainder '%'", remainderInt, remainderFloat);
+    return this->arithmeticIntFloat(left, right, rhs, "remainder '%'", remainderInt, remainderFloat);
   case EggProgramBinary::BitwiseAnd:
-    return this->arithmeticInt(left, rhs, "bitwise-and '&'", bitwiseAndInt);
+    return this->arithmeticInt(left, right, rhs, "bitwise-and '&'", bitwiseAndInt);
   case EggProgramBinary::LogicalAnd:
     if (left.is(egg::lang::Discriminator::Bool)) {
       if (!left.getBool()) {
         return left;
       }
-      egg::lang::Value right;
       (void)this->operand(right, rhs, egg::lang::Discriminator::Bool, "Expected right operand of logical-and '&&' to be 'bool'");
       return right;
     }
     return this->unexpected("Expected left operand of logical-and '&&' to be 'bool'", left);
   case EggProgramBinary::Multiply:
-    return this->arithmeticIntFloat(left, rhs, "multiplication '*'", multiplyInt, multiplyFloat);
+    return this->arithmeticIntFloat(left, right, rhs, "multiplication '*'", multiplyInt, multiplyFloat);
   case EggProgramBinary::Plus:
-    return this->arithmeticIntFloat(left, rhs, "addition '+'", plusInt, plusFloat);
+    return this->arithmeticIntFloat(left, right, rhs, "addition '+'", plusInt, plusFloat);
   case EggProgramBinary::Minus:
-    return this->arithmeticIntFloat(left, rhs, "subtraction '-'", minusInt, minusFloat);
+    return this->arithmeticIntFloat(left, right, rhs, "subtraction '-'", minusInt, minusFloat);
   case EggProgramBinary::Lambda:
     return this->raiseFormat("TODO binary(Lambda) not fully implemented"); // TODO
   case EggProgramBinary::Divide:
-    return this->arithmeticIntFloat(left, rhs, "division '/'", divideInt, divideFloat);
+    return this->arithmeticIntFloat(left, right, rhs, "division '/'", divideInt, divideFloat);
   case EggProgramBinary::Less:
-    return this->arithmeticIntFloat(left, rhs, "comparison '<'", lessInt, lessFloat);
+    return this->arithmeticIntFloat(left, right, rhs, "comparison '<'", lessInt, lessFloat);
   case EggProgramBinary::ShiftLeft:
-    return this->arithmeticInt(left, rhs, "shift-left '<<'", shiftLeftInt);
+    return this->arithmeticInt(left, right, rhs, "shift-left '<<'", shiftLeftInt);
   case EggProgramBinary::LessEqual:
-    return this->arithmeticIntFloat(left, rhs, "comparison '<='", lessEqualInt, lessEqualFloat);
+    return this->arithmeticIntFloat(left, right, rhs, "comparison '<='", lessEqualInt, lessEqualFloat);
   case EggProgramBinary::Equal:
     if (left.has(egg::lang::Discriminator::Any | egg::lang::Discriminator::Null)) {
-      egg::lang::Value right;
       if (!this->operand(right, rhs, egg::lang::Discriminator::Any | egg::lang::Discriminator::Null, "Expected right operand of equality '==' to be a value")) {
         return right;
       }
@@ -600,25 +596,24 @@ egg::lang::Value egg::yolk::EggProgramContext::binary(EggProgramBinary op, const
     }
     return this->unexpected("Expected left operand of equality '==' to be a value", left);
   case EggProgramBinary::Greater:
-    return this->arithmeticIntFloat(left, rhs, "comparison '>'", greaterInt, greaterFloat);
+    return this->arithmeticIntFloat(left, right, rhs, "comparison '>'", greaterInt, greaterFloat);
   case EggProgramBinary::GreaterEqual:
-    return this->arithmeticIntFloat(left, rhs, "comparison '>='", greaterEqualInt, greaterEqualFloat);
+    return this->arithmeticIntFloat(left, right, rhs, "comparison '>='", greaterEqualInt, greaterEqualFloat);
   case EggProgramBinary::ShiftRight:
-    return this->arithmeticInt(left, rhs, "shift-right '>>'", shiftRightInt);
+    return this->arithmeticInt(left, right, rhs, "shift-right '>>'", shiftRightInt);
   case EggProgramBinary::ShiftRightUnsigned:
-    return this->arithmeticInt(left, rhs, "shift-right-unsigned '>>>'", shiftRightUnsignedInt);
+    return this->arithmeticInt(left, right, rhs, "shift-right-unsigned '>>>'", shiftRightUnsignedInt);
   case EggProgramBinary::NullCoalescing:
     return left.is(egg::lang::Discriminator::Null) ? rhs.execute(*this) : left;
   case EggProgramBinary::BitwiseXor:
-    return this->arithmeticInt(left, rhs, "bitwise-xor '^'", bitwiseXorInt);
+    return this->arithmeticInt(left, right, rhs, "bitwise-xor '^'", bitwiseXorInt);
   case EggProgramBinary::BitwiseOr:
-    return this->arithmeticInt(left, rhs, "bitwise-or '|'", bitwiseOrInt);
+    return this->arithmeticInt(left, right, rhs, "bitwise-or '|'", bitwiseOrInt);
   case EggProgramBinary::LogicalOr:
     if (left.is(egg::lang::Discriminator::Bool)) {
       if (left.getBool()) {
         return left;
       }
-      egg::lang::Value right;
       (void)this->operand(right, rhs, egg::lang::Discriminator::Bool, "Expected right operand of logical-or '||' to be 'bool'");
       return right;
     }
@@ -640,41 +635,41 @@ bool egg::yolk::EggProgramContext::operand(egg::lang::Value& dst, const IEggProg
   return false;
 }
 
-egg::lang::Value egg::yolk::EggProgramContext::arithmeticIntFloat(const egg::lang::Value& lhs, const IEggProgramNode& rvalue, const char* operation, ArithmeticInt ints, ArithmeticFloat floats) {
-  if (!lhs.has(egg::lang::Discriminator::Arithmetic)) {
-    return this->unexpected("Expected left-hand side of " + std::string(operation) + " to be 'int' or 'float'", lhs);
+egg::lang::Value egg::yolk::EggProgramContext::arithmeticIntFloat(const egg::lang::Value& left, egg::lang::Value& right, const IEggProgramNode& rhs, const char* operation, ArithmeticInt ints, ArithmeticFloat floats) {
+  if (!left.has(egg::lang::Discriminator::Arithmetic)) {
+    return this->unexpected("Expected left-hand side of " + std::string(operation) + " to be 'int' or 'float'", left);
   }
-  egg::lang::Value rhs = rvalue.execute(*this);
-  if (rhs.is(egg::lang::Discriminator::Int)) {
-    if (lhs.is(egg::lang::Discriminator::Int)) {
-      return ints(lhs.getInt(), rhs.getInt());
+  right = rhs.execute(*this);
+  if (right.is(egg::lang::Discriminator::Int)) {
+    if (left.is(egg::lang::Discriminator::Int)) {
+      return ints(left.getInt(), right.getInt());
     }
-    return floats(lhs.getFloat(), static_cast<double>(rhs.getInt()));
+    return floats(left.getFloat(), static_cast<double>(right.getInt()));
   }
-  if (rhs.is(egg::lang::Discriminator::Float)) {
-    if (lhs.is(egg::lang::Discriminator::Int)) {
-      return floats(static_cast<double>(lhs.getInt()), rhs.getFloat());
+  if (right.is(egg::lang::Discriminator::Float)) {
+    if (left.is(egg::lang::Discriminator::Int)) {
+      return floats(static_cast<double>(left.getInt()), right.getFloat());
     }
-    return floats(lhs.getFloat(), rhs.getFloat());
+    return floats(left.getFloat(), right.getFloat());
   }
-  if (rhs.has(egg::lang::Discriminator::FlowControl)) {
-    return rhs;
+  if (right.has(egg::lang::Discriminator::FlowControl)) {
+    return right;
   }
-  return this->unexpected("Expected right-hand side of " + std::string(operation) + " to be 'int' or 'float'", rhs);
+  return this->unexpected("Expected right-hand side of " + std::string(operation) + " to be 'int' or 'float'", right);
 }
 
-egg::lang::Value egg::yolk::EggProgramContext::arithmeticInt(const egg::lang::Value& lhs, const IEggProgramNode& rvalue, const char* operation, ArithmeticInt ints) {
-  if (!lhs.is(egg::lang::Discriminator::Int)) {
-    return this->unexpected("Expected left-hand side of " + std::string(operation) + " to be 'int'", lhs);
+egg::lang::Value egg::yolk::EggProgramContext::arithmeticInt(const egg::lang::Value& left, egg::lang::Value& right, const IEggProgramNode& rhs, const char* operation, ArithmeticInt ints) {
+  if (!left.is(egg::lang::Discriminator::Int)) {
+    return this->unexpected("Expected left-hand side of " + std::string(operation) + " to be 'int'", left);
   }
-  egg::lang::Value rhs = rvalue.execute(*this);
-  if (rhs.is(egg::lang::Discriminator::Int)) {
-    return ints(lhs.getInt(), rhs.getInt());
+  right = rhs.execute(*this);
+  if (right.is(egg::lang::Discriminator::Int)) {
+    return ints(left.getInt(), right.getInt());
   }
-  if (rhs.has(egg::lang::Discriminator::FlowControl)) {
-    return rhs;
+  if (right.has(egg::lang::Discriminator::FlowControl)) {
+    return right;
   }
-  return this->unexpected("Expected right-hand side of " + std::string(operation) + " to be 'int'", rhs);
+  return this->unexpected("Expected right-hand side of " + std::string(operation) + " to be 'int'", right);
 }
 
 egg::lang::Value egg::yolk::EggProgramContext::call(const egg::lang::Value& callee, const egg::lang::IParameters& parameters) {
@@ -691,10 +686,10 @@ egg::lang::Value egg::yolk::EggProgramContext::unexpected(const std::string& exp
 
 egg::lang::Value egg::yolk::EggProgramContext::assertion(const egg::lang::Value& predicate) {
   if (!predicate.is(egg::lang::Discriminator::Bool)) {
-    return this->unexpected("Expected predicate to be a 'bool'", predicate);
+    return this->unexpected("Expected assertion predicate to be 'bool'", predicate);
   }
   if (!predicate.getBool()) {
-    return this->raiseFormat("Predicate is false");
+    return this->raiseFormat("Assertion is untrue");
   }
   return egg::lang::Value::Void;
 }

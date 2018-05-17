@@ -120,7 +120,7 @@ namespace egg::lang {
   class IPreparation {
   public:
     virtual ~IPreparation() {}
-    virtual void raise(egg::lang::LogSeverity severtiy, const String& message) = 0;
+    virtual void raise(egg::lang::LogSeverity severity, const String& message) = 0;
 
     // Useful helpers
     template<typename... ARGS>
@@ -157,7 +157,7 @@ namespace egg::lang {
       None = 0x00,
       Required = 0x01, // Not optional
       Variadic = 0x02, // Zero/one or more repetitions
-      Deferred = 0x04 // Used in assertions
+      Predicate = 0x04 // Used in assertions
     };
     virtual ~IFunctionSignatureParameter() {}
     virtual String getName() const = 0; // May be empty
@@ -168,7 +168,7 @@ namespace egg::lang {
     // Flag helpers
     bool isRequired() const { return Bits::hasAnySet(this->getFlags(), Flags::Required); }
     bool isVariadic() const { return Bits::hasAnySet(this->getFlags(), Flags::Variadic); }
-    bool isDeferred() const { return Bits::hasAnySet(this->getFlags(), Flags::Deferred); }
+    bool isPredicate() const { return Bits::hasAnySet(this->getFlags(), Flags::Predicate); }
   };
 
   class IFunctionSignature {
