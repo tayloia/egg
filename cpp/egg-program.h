@@ -233,7 +233,7 @@ namespace egg::yolk {
     EggProgramNodeFlags prepareTernary(const egg::lang::LocationSource& where, IEggProgramNode& cond, IEggProgramNode& whenTrue, IEggProgramNode& whenFalse);
     EggProgramNodeFlags preparePredicate(const egg::lang::LocationSource& where, EggProgramBinary op, IEggProgramNode& lhs, IEggProgramNode& rhs);
     // Temporary scope modifiers
-    EggProgramNodeFlags prepareWithType(IEggProgramNode& node, const egg::lang::IType& type, const egg::lang::IType* EggProgramContext::*scope);
+    EggProgramNodeFlags prepareWithType(IEggProgramNode& node, const egg::lang::IType& type);
     egg::lang::Value executeWithValue(const IEggProgramNode& node, const egg::lang::Value& value);
   private:
     bool findDuplicateSymbols(const std::vector<std::shared_ptr<IEggProgramNode>>& statements);

@@ -269,7 +269,7 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareForeach(IEgg
     if (iterable == nullptr) {
       return scope.compilerError(rvalue.location(), "Expression after the ':' in 'for' statement is not iterable: '", type->toString(), "'");
     }
-    if (abandoned(scope.prepareWithType(lvalue, *iterable, &EggProgramContext::scopeTypeDeclare))) {
+    if (abandoned(scope.prepareWithType(lvalue, *iterable))) {
       return EggProgramNodeFlags::Abandon;
     }
     return block.prepare(scope);
@@ -628,16 +628,16 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::preparePredicate(co
   return this->prepareBinary(where, op, lhs, rhs);
 }
 
-egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareWithType(IEggProgramNode& node, const egg::lang::IType& type, const egg::lang::IType* EggProgramContext::*scope) {
+egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareWithType(IEggProgramNode& node, const egg::lang::IType& type) {
   // Run a prepare call with a scope type set
-  assert(this->*scope == nullptr);
+  assert(this->scopeTypeDeclare == nullptr);
   try {
-    this->*scope = &type;
+    this->scopeTypeDeclare = &type;
     auto result = node.prepare(*this);
-    this->*scope = nullptr;
+    this->scopeTypeDeclare = nullptr;
     return result;
   } catch (...) {
-    this->*scope = nullptr;
+    this->scopeTypeDeclare = nullptr;
     throw;
   }
 }
