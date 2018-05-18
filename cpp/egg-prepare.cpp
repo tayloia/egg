@@ -427,7 +427,7 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareBrackets(con
     // Ask the object what indexing it supports
     auto indexable = ltype->indexable();
     if (indexable == nullptr) {
-      return this->compilerError(where, "Values of type '", ltype->toString(), "' do not support the indexing operator '[]'");
+      return this->compilerError(where, "Values of type '", ltype->toString(), "' do not support the indexing '[]' operator");
     }
     // TODO check type indexable->getIndexType()
   }
@@ -473,17 +473,22 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareUnary(const 
   auto simple = type.getSimpleTypes();
   assert(simple != egg::lang::Discriminator::Inferred);
   switch (op) {
-  case EggProgramUnary::BitwiseNot:
   case EggProgramUnary::LogicalNot:
+    // Boolean-only operation
+    if (!egg::lang::Bits::hasAnySet(simple, egg::lang::Discriminator::Bool)) {
+      return this->compilerError(where, "Expected operand of logical-not '!' operator to be 'int', but got '", type.toString(), "' instead");
+    }
+    break;
+  case EggProgramUnary::BitwiseNot:
     // Integer-only operation
     if (!egg::lang::Bits::hasAnySet(simple, egg::lang::Discriminator::Int)) {
-      return this->compilerError(where, "Expected operand of unary '", EggProgram::unaryToString(op), "' operator to be 'int', but got '", type.toString(), "' instead");
+      return this->compilerError(where, "Expected operand of bitwise-not '~' operator to be 'int', but got '", type.toString(), "' instead");
     }
     break;
   case EggProgramUnary::Negate:
     // Arithmetic operation
     if (!egg::lang::Bits::hasAnySet(simple, egg::lang::Discriminator::Arithmetic)) {
-      return this->compilerError(where, "Expected operand of unary '", EggProgram::unaryToString(op), "' operator to be 'int' or 'float', but got '", type.toString(), "' instead");
+      return this->compilerError(where, "Expected operand of negation '-' operator to be 'int' or 'float', but got '", type.toString(), "' instead");
     }
     break;
   case EggProgramUnary::Ref:

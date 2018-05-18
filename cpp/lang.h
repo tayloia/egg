@@ -68,14 +68,16 @@ namespace egg::lang {
     Float = 1 << 4,
     String = 1 << 5,
     Object = 1 << 6,
+    Type = 1 << 7,
     Any = Bool | Int | Float | String | Object,
     Arithmetic = Int | Float,
-    Break = 1 << 7,
-    Continue = 1 << 8,
-    Return = 1 << 9,
-    Yield = 1 << 10,
-    Exception = 1 << 11,
-    FlowControl = Break | Continue | Return | Yield | Exception
+    Break = 1 << 8,
+    Continue = 1 << 9,
+    Return = 1 << 10,
+    Yield = 1 << 11,
+    Exception = 1 << 12,
+    FlowControl = Break | Continue | Return | Yield | Exception,
+    Raw = 1 << 13
   };
   inline Discriminator operator|(Discriminator lhs, Discriminator rhs) {
     return Bits::set(lhs, rhs);
@@ -211,8 +213,6 @@ namespace egg::lang {
     virtual Ref dereferencedType() const; // Default implementation returns 'Void'
     virtual Ref coallescedType(const IType& rhs) const; // Default implementation calls Type::makeUnion()
     virtual Ref unionWith(const IType& other) const; // Default implementation calls Type::makeUnion()
-    typedef std::function<void(const String& name, const IType& type, const Value& value)> ExecuteParametersSetter;
-    virtual Value executeParameters(IExecution& execution, const IParameters& supplied, ExecuteParametersSetter setter) const; // Default implementation returns an error
     virtual Value dotGet(IExecution& execution, const Value& instance, const String& property) const; // Default implementation dispatches standard requests
     virtual Value dotSet(IExecution& execution, const Value& instance, const String& property, const Value& value) const; // Default implementation dispatches standard requests
     virtual Value bracketsGet(IExecution& execution, const Value& instance, const Value& index) const; // Default implementation dispatches standard requests
@@ -422,6 +422,8 @@ namespace egg::lang {
       double f;
       const IString* s;
       IObject* o;
+      const IType* t;
+      void* r;
     };
     explicit Value(Discriminator tag) : tag(tag) {}
     void copyInternals(const Value& other);
@@ -435,6 +437,7 @@ namespace egg::lang {
     explicit Value(double value) : tag(Discriminator::Float) { this->f = value; }
     explicit Value(const String& value) : tag(Discriminator::String) { this->s = value.acquireHard(); }
     explicit Value(IObject& object) : tag(Discriminator::Object) { this->o = object.acquireHard(); }
+    explicit Value(const IType& type) : tag(Discriminator::Type) { this->t = type.acquireHard(); }
     Value(const Value& value);
     Value(Value&& value);
     Value& operator=(const Value& value);
@@ -449,6 +452,7 @@ namespace egg::lang {
     double getFloat() const { assert(this->has(Discriminator::Float)); return this->f; }
     String getString() const { assert(this->has(Discriminator::String)); return String(*this->s); }
     IObject& getObject() const { assert(this->has(Discriminator::Object)); return *this->o; }
+    const IType& getType() const { assert(this->has(Discriminator::Type)); return *this->t; }
     void addFlowControl(Discriminator bits);
     bool stripFlowControl(Discriminator bits);
     std::string getTagString() const { return Value::getTagString(this->tag); }

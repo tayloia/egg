@@ -534,7 +534,6 @@ namespace {
     }
     void abandon(size_t previous) {
       // Called by EggSyntaxParserBacktrackMark dtor
-      assert(previous <= this->cursor);
       this->cursor = previous;
     }
   };
@@ -857,13 +856,13 @@ std::unique_ptr<IEggSyntaxNode> EggSyntaxParserContext::parseExpressionTernary(c
       // Expect <expression> ? <expression> : <conditional-expression>
       EggSyntaxNodeLocation location(mark.peek(0), 0);
       mark.advance(1);
-      auto exprTrue = this->parseExpression("Expected expression after '?' of ternary operator '?:'");
+      auto exprTrue = this->parseExpression("Expected expression after '?' of ternary '?:' operator");
       if (!mark.peek(0).isOperator(EggTokenizerOperator::Colon)) {
-        this->unexpected("Expected ':' as part of ternary operator '?:'", mark.peek(0));
+        this->unexpected("Expected ':' as part of ternary '?:' operator", mark.peek(0));
       }
       location.setLocationEnd(mark.peek(0), 1);
       mark.advance(1);
-      auto exprFalse = this->parseExpression("Expected expression after ':' of ternary operator '?:'");
+      auto exprFalse = this->parseExpression("Expected expression after ':' of ternary '?:' operator");
       mark.accept(0);
       return std::make_unique<EggSyntaxNode_TernaryOperator>(location, std::move(expr), std::move(exprTrue), std::move(exprFalse));
     }
@@ -1589,6 +1588,7 @@ std::unique_ptr<IEggSyntaxNode> EggSyntaxParserContext::parseStatementIf() {
       if-statement ::= 'if' '(' <condition-expression> ')' <compound-statement> <else-clause>?
 
       else-clause ::= 'else' <compound-statement>
+                    | 'else' <if-statement>
   */
   EggSyntaxParserBacktrackMark mark(this->backtrack);
   auto& p0 = mark.peek(0);
@@ -1601,11 +1601,15 @@ std::unique_ptr<IEggSyntaxNode> EggSyntaxParserContext::parseStatementIf() {
   auto block = this->parseCompoundStatement();
   auto result = std::make_unique<EggSyntaxNode_If>(location, std::move(expr), std::move(block));
   if (mark.peek(0).isKeyword(EggTokenizerKeyword::Else)) {
+    auto& p1 = mark.peek(1);
     mark.advance(1);
-    if (!mark.peek(0).isOperator(EggTokenizerOperator::CurlyLeft)) {
-      this->unexpected("Expected '{' after 'else' in 'if' statement", mark.peek(0));
+    if (p1.isOperator(EggTokenizerOperator::CurlyLeft)) {
+      result->addChild(this->parseCompoundStatement());
+    } else if (p1.isKeyword(EggTokenizerKeyword::If)) {
+      result->addChild(this->parseStatementIf());
+    } else {
+      this->unexpected("Expected '{' after 'else' in 'if' statement", p1);
     }
-    result->addChild(this->parseCompoundStatement());
   }
   mark.accept(0);
   return result;
@@ -1750,7 +1754,7 @@ std::unique_ptr<IEggSyntaxNode> EggSyntaxParserContext::parseStatementType(std::
     if (p1.isOperator(EggTokenizerOperator::Equal)) {
       // Expect <type> <identifier> = <expression> ';'
       mark.advance(2);
-      auto expr = this->parseExpression("Expected expression after assignment operator '='");
+      auto expr = this->parseExpression("Expected expression after assignment '=' operator");
       if (!mark.peek(0).isOperator(terminal)) {
         this->unexpected("Expected '" + EggTokenizerValue::getOperatorString(terminal) + "' at end of initialization statement");
       }

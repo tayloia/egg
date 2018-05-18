@@ -1104,6 +1104,8 @@ void egg::lang::Value::copyInternals(const Value& other) {
     this->i = other.i;
   } else if (this->has(Discriminator::Bool)) {
     this->b = other.b;
+  } else if (this->has(Discriminator::Type)) {
+    this->t = other.t->acquireHard();
   }
 }
 
@@ -1119,6 +1121,8 @@ void egg::lang::Value::moveInternals(Value& other) {
     this->i = other.i;
   } else if (this->has(Discriminator::Bool)) {
     this->b = other.b;
+  } else if (this->has(Discriminator::Type)) {
+    this->t = other.t;
   }
   other.tag = Discriminator::None;
 }
@@ -1128,6 +1132,8 @@ void egg::lang::Value::destroyInternals() {
     this->o->releaseHard();
   } else if (this->has(Discriminator::String)) {
     this->s->releaseHard();
+  } else if (this->has(Discriminator::Type)) {
+    this->t->releaseHard();
   }
 }
 
@@ -1175,6 +1181,10 @@ bool egg::lang::Value::equal(const Value& lhs, const Value& rhs) {
   if (lhs.tag == Discriminator::String) {
     return lhs.s->equal(*rhs.s);
   }
+  if (lhs.tag == Discriminator::Type) {
+    return lhs.t == rhs.t;
+  }
+  assert(lhs.tag == Discriminator::Object);
   return lhs.o == rhs.o;
 }
 
@@ -1246,6 +1256,10 @@ const egg::lang::IType& egg::lang::Value::getRuntimeType() const {
     // Ask the object for its type
     return this->o->getRuntimeType();
   }
+  if (this->tag == Discriminator::Type) {
+    // TODO Is a type's type itself?
+    return *this->t;
+  }
   auto* native = Type::getNative(this->tag);
   if (native != nullptr) {
     return *native;
@@ -1261,6 +1275,9 @@ egg::lang::String egg::lang::Value::toString() const {
       return str.getString();
     }
     return String::fromUTF8("<invalid>");
+  }
+  if (this->tag == Discriminator::Type) {
+    return this->t->toString();
   }
   return String::fromUTF8(this->toUTF8());
 }
@@ -1288,6 +1305,9 @@ std::string egg::lang::Value::toUTF8() const {
     }
     return "<invalid>";
   }
+  if (this->tag == Discriminator::Type) {
+    return this->t->toString().toUTF8();
+  }
   return "<" + Value::getTagString(this->tag) + ">";
 }
 
@@ -1304,11 +1324,6 @@ egg::lang::ITypeRef egg::lang::IType::dereferencedType() const {
 egg::lang::ITypeRef egg::lang::IType::coallescedType(const IType& rhs) const {
   // The default implementation is to create the union
   return this->unionWith(rhs);
-}
-
-egg::lang::Value egg::lang::IType::executeParameters(egg::lang::IExecution& execution, const egg::lang::IParameters&, ExecuteParametersSetter) const {
-  // The default implementation is to return an error (only function-like types decant parameters)
-  return execution.raiseFormat("Internal type error: Cannot decant parameters for type '", this->toString(), "'");
 }
 
 egg::lang::Value egg::lang::IType::dotGet(IExecution& execution, const Value& instance, const String& property) const {

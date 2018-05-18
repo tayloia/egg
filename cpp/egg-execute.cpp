@@ -375,18 +375,41 @@ egg::lang::Value egg::yolk::EggProgramContext::executeFunctionDefinition(const I
 
 egg::lang::Value egg::yolk::EggProgramContext::executeFunctionCall(const egg::lang::IType& type, const egg::lang::IParameters& parameters, const IEggProgramNode& block) {
   // This actually calls a function
+  auto callable = type.callable();
+  if (callable == nullptr) {
+    return this->raiseFormat("WIBBLE not callable");
+  }
+  if (parameters.getNamedCount() > 0) {
+    return this->raiseFormat("Named parameters in function calls are not yet supported"); // TODO
+  }
+  auto given = parameters.getPositionalCount();
+  auto expected = callable->getParameterCount();
+  if (given < expected) {
+    return this->raiseFormat("Too few parameters in function call: Expected ", expected, ", but got ", given);
+  }
+  if (given > expected) {
+    return this->raiseFormat("Too many parameters in function call: Expected ", expected, ", but got ", given);
+  }
+  // TODO: Better type checking
   EggProgramSymbolTable nested(this->symtable);
-  egg::lang::IType::ExecuteParametersSetter setter = [&](const egg::lang::String& k, const egg::lang::IType& t, const egg::lang::Value& v) {
-    auto retval = nested.addSymbol(EggProgramSymbol::ReadWrite, k, t)->assign(*this, v);
-    assert(!retval.has(egg::lang::Discriminator::FlowControl));
-  };
-  auto retval = type.executeParameters(*this, parameters, setter);
-  if (!retval.has(egg::lang::Discriminator::FlowControl)) {
-    EggProgramContext context(*this, nested);
-    retval = block.execute(context);
-    if (retval.stripFlowControl(egg::lang::Discriminator::Return)) {
-      return retval;
+  for (size_t i = 0; i < given; ++i) {
+    auto& parameter = callable->getParameter(i);
+    auto pname = parameter.getName();
+    assert(!pname.empty());
+    auto& ptype = parameter.getType();
+    auto pvalue = parameters.getPositional(i);
+    assert(!pvalue.has(egg::lang::Discriminator::FlowControl));
+    auto result = nested.addSymbol(EggProgramSymbol::ReadWrite, pname, ptype)->assign(*this, pvalue);
+    if (result.has(egg::lang::Discriminator::FlowControl)) {
+      // Re-create the exception with the parameter name included
+      return this->raiseFormat("Type mismatch for parameter '", pname, "': Expected '", ptype.toString(), "', but got '", pvalue.getRuntimeType().toString(), "' instead");
     }
+  }
+  EggProgramContext context(*this, nested);
+  auto retval = block.execute(context);
+  if (retval.stripFlowControl(egg::lang::Discriminator::Return)) {
+    // Explicit return
+    return retval;
   }
   return retval;
 }

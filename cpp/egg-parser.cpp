@@ -107,25 +107,6 @@ namespace {
     virtual const egg::lang::IFunctionSignature* callable() const override {
       return &this->signature;
     }
-    virtual egg::lang::Value executeParameters(egg::lang::IExecution& execution, const egg::lang::IParameters& supplied, ExecuteParametersSetter setter) const override {
-      if (supplied.getNamedCount() > 0) {
-        return execution.raiseFormat("Named parameters in function calls are not yet supported"); // TODO
-      }
-      auto given = supplied.getPositionalCount();
-      auto expected = this->signature.getParameterCount();
-      if (given < expected) {
-        return execution.raiseFormat("Too few parameters in function call: Expected ", expected, ", but got ", given);
-      }
-      if (given > expected) {
-        return execution.raiseFormat("Too many parameters in function call: Expected ", expected, ", but got ", given);
-      }
-      // TODO: Value type checking
-      for (size_t i = 0; i < given; ++i) {
-        auto& parameter = this->signature.getParameter(i);
-        setter(parameter.getName(), parameter.getType(), supplied.getPositional(i));
-      }
-      return egg::lang::Value::Void;
-    }
     virtual egg::lang::String toString() const override {
       return egg::lang::String::fromUTF8("function"); // TODO
     }

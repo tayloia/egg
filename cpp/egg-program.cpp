@@ -420,7 +420,7 @@ egg::lang::Value egg::yolk::EggProgramContext::set(const egg::lang::String& name
 egg::lang::Value egg::yolk::EggProgramContext::assign(EggProgramAssign op, const IEggProgramNode& lhs, const IEggProgramNode& rhs) {
   auto dst = lhs.assignee(*this);
   if (dst == nullptr) {
-    return this->raiseFormat("Left-hand side of assignment operator '", EggProgram::assignToString(op), "' is not a valid target");
+    return this->raiseFormat("Left-hand side of assignment '", EggProgram::assignToString(op), "' operator is not a valid target");
   }
   egg::lang::Value right;
   if (op == EggProgramAssign::Equal) {
@@ -480,7 +480,7 @@ egg::lang::Value egg::yolk::EggProgramContext::assign(EggProgramAssign op, const
 egg::lang::Value egg::yolk::EggProgramContext::mutate(EggProgramMutate op, const IEggProgramNode& lvalue) {
   auto dst = lvalue.assignee(*this);
   if (dst == nullptr) {
-    return this->raiseFormat("Operand of mutation operator '", EggProgram::mutateToString(op), "' is not a valid target");
+    return this->raiseFormat("Operand of mutation '", EggProgram::mutateToString(op), "' operator is not a valid target");
   }
   auto lhs = dst->get();
   if (lhs.has(egg::lang::Discriminator::FlowControl)) {
@@ -490,13 +490,13 @@ egg::lang::Value egg::yolk::EggProgramContext::mutate(EggProgramMutate op, const
   switch (op) {
   case EggProgramMutate::Increment:
     if (!lhs.is(egg::lang::Discriminator::Int)) {
-      return this->unexpected("Expected operand of increment operator '++' to be 'int'", lhs);
+      return this->unexpected("Expected operand of increment '++' operator to be 'int'", lhs);
     }
     rhs = plusInt(lhs.getInt(), 1);
     break;
   case EggProgramMutate::Decrement:
     if (!lhs.is(egg::lang::Discriminator::Int)) {
-      return this->unexpected("Expected operand of decrement operator '--' to be 'int'", lhs);
+      return this->unexpected("Expected operand of decrement '--' operator to be 'int'", lhs);
     }
     rhs = minusInt(lhs.getInt(), 1);
     break;
@@ -520,17 +520,17 @@ egg::lang::Value egg::yolk::EggProgramContext::condition(const IEggProgramNode& 
 egg::lang::Value egg::yolk::EggProgramContext::unary(EggProgramUnary op, const IEggProgramNode& expr, egg::lang::Value& value) {
   switch (op) {
   case EggProgramUnary::LogicalNot:
-    if (this->operand(value, expr, egg::lang::Discriminator::Bool, "Expected operand of logical-not operator '!' to be 'bool'")) {
+    if (this->operand(value, expr, egg::lang::Discriminator::Bool, "Expected operand of logical-not '!' operator to be 'bool'")) {
       return egg::lang::Value(!value.getBool());
     }
     return value;
   case EggProgramUnary::Negate:
-    if (this->operand(value, expr, egg::lang::Discriminator::Arithmetic, "Expected operand of negation operator '-' to be 'int' or 'float'")) {
+    if (this->operand(value, expr, egg::lang::Discriminator::Arithmetic, "Expected operand of negation '-' operator to be 'int' or 'float'")) {
       return value.is(egg::lang::Discriminator::Int) ? egg::lang::Value(-value.getInt()) : egg::lang::Value(-value.getFloat());
     }
     return value;
   case EggProgramUnary::BitwiseNot:
-    if (this->operand(value, expr, egg::lang::Discriminator::Int, "Expected operand of bitwise-not operator '~' to be 'int'")) {
+    if (this->operand(value, expr, egg::lang::Discriminator::Int, "Expected operand of bitwise-not '~' operator to be 'int'")) {
       return egg::lang::Value(~value.getInt());
     }
     return value;

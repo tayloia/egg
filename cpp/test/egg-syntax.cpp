@@ -128,8 +128,8 @@ TEST(TestEggSyntaxParser, ExpressionTernary) {
   ASSERT_PARSE_GOOD(parseExpressionToString("a ? b : c ? d : e"), "(ternary (identifier 'a') (identifier 'b') (ternary (identifier 'c') (identifier 'd') (identifier 'e')))");
   ASSERT_PARSE_GOOD(parseExpressionToString("a ? b ? c : d : e"), "(ternary (identifier 'a') (ternary (identifier 'b') (identifier 'c') (identifier 'd')) (identifier 'e'))");
   // Bad
-  ASSERT_PARSE_BAD(parseExpressionToString("a ? : c"), "(1, 5): Expected expression after '?' of ternary operator");
-  ASSERT_PARSE_BAD(parseExpressionToString("a ? b :"), "(1, 8): Expected expression after ':' of ternary operator");
+  ASSERT_PARSE_BAD(parseExpressionToString("a ? : c"), "(1, 5): Expected expression after '?' of ternary '?:' operator");
+  ASSERT_PARSE_BAD(parseExpressionToString("a ? b :"), "(1, 8): Expected expression after ':' of ternary '?:' operator");
 }
 
 TEST(TestEggSyntaxParser, ExpressionBinary) {
