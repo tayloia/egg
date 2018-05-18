@@ -12,6 +12,9 @@ namespace {
   bool abandoned(EggProgramNodeFlags flags) {
     return egg::lang::Bits::hasAnySet(flags, EggProgramNodeFlags::Abandon);
   }
+  bool fallthrough(EggProgramNodeFlags flags) {
+    return egg::lang::Bits::hasAnySet(flags, EggProgramNodeFlags::Fallthrough);
+  }
   EggProgramNodeFlags checkBinarySide(EggProgramContext& context, const egg::lang::LocationSource& where, EggProgramBinary op, const char* side, egg::lang::Discriminator expected, IEggProgramNode& node) {
     auto prepared = node.prepare(context);
     if (!abandoned(prepared)) {
@@ -27,11 +30,15 @@ namespace {
     return prepared;
   }
   EggProgramNodeFlags checkBinary(EggProgramContext& context, const egg::lang::LocationSource& where, EggProgramBinary op, egg::lang::Discriminator lexp, IEggProgramNode& lhs, egg::lang::Discriminator rexp, IEggProgramNode& rhs) {
-    auto result = checkBinarySide(context, where, op, "left-hand side", lexp, lhs);
-    if (abandoned(result)) {
-      return result;
+    auto lflags = checkBinarySide(context, where, op, "left-hand side", lexp, lhs);
+    if (abandoned(lflags)) {
+      return lflags;
     }
-    return checkBinarySide(context, where, op, "right-hand side", rexp, rhs);
+    auto rflags = checkBinarySide(context, where, op, "right-hand side", rexp, rhs);
+    if (abandoned(lflags)) {
+      return rflags;
+    }
+    return egg::lang::Bits::mask(lflags, rflags);
   }
 }
 
@@ -53,17 +60,23 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareStatements(c
   // Prepare all the statements one after another
   egg::lang::String name;
   auto type = egg::lang::Type::Void;
+  EggProgramNodeFlags retval = EggProgramNodeFlags::Fallthrough; // We fallthrough if there are no statements
+  auto unreachable = false;
   for (auto& statement : statements) {
+    if (!unreachable && (retval != EggProgramNodeFlags::Fallthrough)) {
+      this->compilerWarning(statement->location(), "Unreachable code");
+      unreachable = true;
+    }
     if (statement->symbol(name, type)) {
       // We've checked for duplicate symbols already
       this->symtable->addSymbol(EggProgramSymbol::ReadWrite, name, *type);
     }
-    auto retval = statement->prepare(*this);
+    retval = statement->prepare(*this);
     if (abandoned(retval)) {
       return retval;
     }
   }
-  return EggProgramNodeFlags::None;
+  return retval;
 }
 
 egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareModule(const std::vector<std::shared_ptr<IEggProgramNode>>& statements) {
@@ -83,10 +96,10 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareBlock(const 
 }
 
 egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareDeclare(const egg::lang::LocationSource& where, const egg::lang::String& name, egg::lang::ITypeRef& ltype, IEggProgramNode* rvalue) {
-  if (this->scopeType != nullptr) {
+  if (this->scopeTypeDeclare != nullptr) {
     // This must be a prepare call with an inferred type
     assert(rvalue == nullptr);
-    return this->typeCheck(where, ltype, egg::lang::ITypeRef(this->scopeType), name);
+    return this->typeCheck(where, ltype, egg::lang::ITypeRef(this->scopeTypeDeclare), name);
   }
   if (rvalue != nullptr) {
     // Type-check the initialization
@@ -98,7 +111,7 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareDeclare(cons
   if (ltype->getSimpleTypes() == egg::lang::Discriminator::Inferred) {
     return this->compilerError(where, "Cannot infer type of '", name, "' declared with 'var'");
   }
-  return EggProgramNodeFlags::None;
+  return EggProgramNodeFlags::Fallthrough;
 }
 
 egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareGuard(const egg::lang::LocationSource& where, const egg::lang::String& name, egg::lang::ITypeRef& ltype, IEggProgramNode& rvalue) {
@@ -161,7 +174,7 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareAssign(const
     }
     break;
   }
-  return EggProgramNodeFlags::None;
+  return EggProgramNodeFlags::Fallthrough;
 }
 
 egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareMutate(const egg::lang::LocationSource& where, EggProgramMutate op, IEggProgramNode& lvalue) {
@@ -180,7 +193,7 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareMutate(const
     }
     break;
   }
-  return EggProgramNodeFlags::None;
+  return EggProgramNodeFlags::Fallthrough;
 }
 
 egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareCatch(const egg::lang::String& name, IEggProgramNode& type, IEggProgramNode& block) {
@@ -203,16 +216,30 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareDo(IEggProgr
 }
 
 egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareIf(IEggProgramNode& cond, IEggProgramNode& trueBlock, IEggProgramNode* falseBlock) {
-  // TODO
   return this->prepareScope(&cond, [&](EggProgramContext& scope) {
-    if (abandoned(cond.prepare(scope)) || abandoned(trueBlock.prepare(scope))) {
+    // We prepare the 'else' block in the original scope (with no guarded identifiers)
+    auto pcond = cond.prepare(scope);
+    if (abandoned(pcond)) {
       return EggProgramNodeFlags::Abandon;
     }
-    if (falseBlock != nullptr) {
-      // We prepare the 'else' block in the original scope (with no guarded identifiers)
-      return falseBlock->prepare(*this);
+    if (egg::lang::Bits::hasAnySet(pcond, EggProgramNodeFlags::Constant)) {
+      this->compilerWarning(cond.location(), "Condition in 'if' statement is constant");
     }
-    return EggProgramNodeFlags::None;
+    auto ptrue = trueBlock.prepare(scope);
+    if (abandoned(ptrue)) {
+      return ptrue;
+    }
+    if (falseBlock == nullptr) {
+      return EggProgramNodeFlags::Fallthrough;
+    }
+    auto pfalse = falseBlock->prepare(*this);
+    if (abandoned(pfalse)) {
+      return EggProgramNodeFlags::Abandon;
+    }
+    if (fallthrough(ptrue)) {
+      return ptrue;
+    }
+    return pfalse;
   });
 }
 
@@ -242,7 +269,7 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareForeach(IEgg
     if (iterable == nullptr) {
       return scope.compilerError(rvalue.location(), "Expression after the ':' in 'for' statement is not iterable: '", type->toString(), "'");
     }
-    if (abandoned(scope.prepareWithType(lvalue, *iterable))) {
+    if (abandoned(scope.prepareWithType(lvalue, *iterable, &EggProgramContext::scopeTypeDeclare))) {
       return EggProgramNodeFlags::Abandon;
     }
     return block.prepare(scope);
@@ -262,15 +289,39 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareFunctionDefi
     nested.addSymbol(EggProgramSymbol::ReadWrite, parameter.getName(), parameter.getType());
   }
   EggProgramContext context(*this, nested);
-  return block->prepare(context);
+  context.scopeTypeReturn = &callable->getReturnType();
+  auto flags = block->prepare(context);
+  if (abandoned(flags)) {
+    return flags;
+  }
+  if (fallthrough(flags)) {
+    // Falling through to the end of a function is the same as an emplicit 'return' with no parameters
+    if (!context.scopeTypeReturn->canBeAssignedFrom(*egg::lang::Type::Void)) {
+      return context.compilerError(block->location(), "Missing 'return' statement with a value of type '", context.scopeTypeReturn->toString(), "' at the end of the function definition");
+    }
+  }
+  return EggProgramNodeFlags::Fallthrough; // We fallthrough AFTER the function definition
 }
 
-egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareReturn(IEggProgramNode* value) {
-  // TODO
-  if (value != nullptr) {
-    return value->prepare(*this);
+egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareReturn(const egg::lang::LocationSource& where, IEggProgramNode* value) {
+  if (this->scopeTypeReturn == nullptr) {
+    return this->compilerError(where, "Unexpected 'return' statement");
   }
-  return EggProgramNodeFlags::None;
+  if (value == nullptr) {
+    // No return value
+    if (!this->scopeTypeReturn->canBeAssignedFrom(*egg::lang::Type::Void)) {
+      return this->compilerError(where, "Expected 'return' statement with a value of type '", this->scopeTypeReturn->toString(), "'");
+    }
+    return EggProgramNodeFlags::None; // No fallthrough
+  }
+  if (abandoned(value->prepare(*this))) {
+    return EggProgramNodeFlags::Abandon;
+  }
+  auto rtype = value->getType();
+  if (!this->scopeTypeReturn->canBeAssignedFrom(*rtype)) {
+    return this->compilerError(where, "Expected 'return' statement with a value of type '", this->scopeTypeReturn->toString(), "', but got '", rtype->toString(), "' instead");
+  }
+  return EggProgramNodeFlags::None; // No fallthrough
 }
 
 egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareCase(const std::vector<std::shared_ptr<IEggProgramNode>>& values, IEggProgramNode& block) {
@@ -283,18 +334,21 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareCase(const s
   return block.prepare(*this);
 }
 
-egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareSwitch(IEggProgramNode& value, int64_t, const std::vector<std::shared_ptr<IEggProgramNode>>& cases) {
+egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareSwitch(IEggProgramNode& value, int64_t defaultIndex, const std::vector<std::shared_ptr<IEggProgramNode>>& cases) {
   // TODO check duplicate constants
   return this->prepareScope(&value, [&](EggProgramContext& scope) {
     if (abandoned(value.prepare(scope))) {
       return EggProgramNodeFlags::Abandon;
     }
+    bool falls = (defaultIndex < 0); // No 'default:' clause
     for (auto& i : cases) {
-      if (abandoned(i->prepare(scope))) {
+      auto flags = i->prepare(scope);
+      if (abandoned(flags)) {
         return EggProgramNodeFlags::Abandon;
       }
+      falls |= fallthrough(flags);
     }
-    return EggProgramNodeFlags::None;
+    return falls ? EggProgramNodeFlags::Fallthrough : EggProgramNodeFlags::None;
   });
 }
 
@@ -303,23 +357,27 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareThrow(IEggPr
   if (exception != nullptr) {
     return exception->prepare(*this);
   }
-  return EggProgramNodeFlags::None;
+  return EggProgramNodeFlags::None; // No fallthrough
 }
 
 egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareTry(IEggProgramNode& block, const std::vector<std::shared_ptr<IEggProgramNode>>& catches, IEggProgramNode* final) {
   // TODO
-  if (abandoned(block.prepare(*this))) {
+  auto flags = block.prepare(*this);
+  if (abandoned(flags)) {
     return EggProgramNodeFlags::Abandon;
   }
+  auto falls = fallthrough(flags); // WIBBLE
   for (auto& i : catches) {
-    if (abandoned(i->prepare(*this))) {
+    flags = i->prepare(*this);
+    if (abandoned(flags)) {
       return EggProgramNodeFlags::Abandon;
     }
+    falls |= fallthrough(flags);
   }
   if (final != nullptr) {
     return final->prepare(*this);
   }
-  return EggProgramNodeFlags::None;
+  return falls ? EggProgramNodeFlags::Fallthrough : EggProgramNodeFlags::None;
 }
 
 egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareUsing(IEggProgramNode& value, IEggProgramNode& block) {
@@ -398,7 +456,7 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareCall(IEggPro
       position++;
     }
   }
-  return EggProgramNodeFlags::None;
+  return EggProgramNodeFlags::Fallthrough;
 }
 
 egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareIdentifier(const egg::lang::LocationSource& where, const egg::lang::String& name, egg::lang::ITypeRef& type) {
@@ -570,23 +628,23 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::preparePredicate(co
   return this->prepareBinary(where, op, lhs, rhs);
 }
 
-egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareWithType(IEggProgramNode& node, const egg::lang::IType& type) {
+egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareWithType(IEggProgramNode& node, const egg::lang::IType& type, const egg::lang::IType* EggProgramContext::*scope) {
   // Run a prepare call with a scope type set
-  assert(this->scopeType == nullptr);
+  assert(this->*scope == nullptr);
   try {
-    this->scopeType = &type;
+    this->*scope = &type;
     auto result = node.prepare(*this);
-    this->scopeType = nullptr;
+    this->*scope = nullptr;
     return result;
   } catch (...) {
-    this->scopeType = nullptr;
+    this->*scope = nullptr;
     throw;
   }
 }
 
 egg::lang::Value egg::yolk::EggProgramContext::executeWithValue(const IEggProgramNode& node, const egg::lang::Value& value) {
   // Run an execute call with a scope value set
-  assert(this->scopeType == nullptr);
+  assert(this->scopeValue == nullptr);
   try {
     this->scopeValue = &value;
     auto result = node.execute(*this);
@@ -610,7 +668,7 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::typeCheck(const egg
   if (!ltype->canBeAssignedFrom(*rtype)) {
     return this->compilerError(where, "Cannot initialize '", name, "' of type '", ltype->toString(), "' with a value of type '", rtype->toString(), "'");
   }
-  return EggProgramNodeFlags::None;
+  return EggProgramNodeFlags::Fallthrough;
 }
 
 egg::lang::LogSeverity egg::yolk::EggProgram::prepare(IEggEnginePreparationContext& preparation) {

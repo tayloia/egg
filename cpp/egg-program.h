@@ -13,6 +13,7 @@ namespace egg::yolk {
     Constant = 0x01,
     Predicate = 0x02,
     Variadic = 0x04,
+    Fallthrough = 0x08,
     Abandon = 0x80
   };
 
@@ -105,24 +106,25 @@ namespace egg::yolk {
     IEggEngineLogger* logger;
     EggProgramSymbolTable* symtable;
     egg::lang::LogSeverity* maximumSeverity;
-    const egg::lang::IType* scopeType;
+    const egg::lang::IType* scopeTypeDeclare;
+    const egg::lang::IType* scopeTypeReturn;
     const egg::lang::Value* scopeValue;
-  public:
-    EggProgramContext(EggProgramContext& parent, EggProgramSymbolTable& symtable)
-      : location(parent.location),
-        logger(parent.logger),
-        symtable(&symtable),
-        maximumSeverity(parent.maximumSeverity),
-        scopeType(nullptr),
+    EggProgramContext(IEggEngineLogger* logger, EggProgramSymbolTable* symtable, egg::lang::LogSeverity* maximumSeverity)
+      : location(),
+        logger(logger),
+        symtable(symtable),
+        maximumSeverity(maximumSeverity),
+        scopeTypeDeclare(nullptr),
+        scopeTypeReturn(nullptr),
         scopeValue(nullptr) {
     }
+  public:
+    EggProgramContext(EggProgramContext& parent, EggProgramSymbolTable& symtable)
+      : EggProgramContext(parent.logger, &symtable, parent.maximumSeverity) {
+      this->location = parent.location;
+    }
     EggProgramContext(IEggEngineLogger& logger, EggProgramSymbolTable& symtable, egg::lang::LogSeverity& maximumSeverity)
-      : location(),
-        logger(&logger),
-        symtable(&symtable),
-        maximumSeverity(&maximumSeverity),
-        scopeType(nullptr),
-        scopeValue(nullptr) {
+      : EggProgramContext(&logger, &symtable, &maximumSeverity) {
     }
     void log(egg::lang::LogSource source, egg::lang::LogSeverity severity, const std::string& message);
     template<typename... ARGS>
@@ -212,7 +214,7 @@ namespace egg::yolk {
     EggProgramNodeFlags prepareFor(IEggProgramNode* pre, IEggProgramNode* cond, IEggProgramNode* post, IEggProgramNode& block);
     EggProgramNodeFlags prepareForeach(IEggProgramNode& lvalue, IEggProgramNode& rvalue, IEggProgramNode& block);
     EggProgramNodeFlags prepareFunctionDefinition(const egg::lang::String& name, const egg::lang::IType& type, const std::shared_ptr<IEggProgramNode>& block);
-    EggProgramNodeFlags prepareReturn(IEggProgramNode* value);
+    EggProgramNodeFlags prepareReturn(const egg::lang::LocationSource& where, IEggProgramNode* value);
     EggProgramNodeFlags prepareCase(const std::vector<std::shared_ptr<IEggProgramNode>>& values, IEggProgramNode& block);
     EggProgramNodeFlags prepareSwitch(IEggProgramNode& value, int64_t defaultIndex, const std::vector<std::shared_ptr<IEggProgramNode>>& cases);
     EggProgramNodeFlags prepareThrow(IEggProgramNode* exception);
@@ -231,7 +233,7 @@ namespace egg::yolk {
     EggProgramNodeFlags prepareTernary(const egg::lang::LocationSource& where, IEggProgramNode& cond, IEggProgramNode& whenTrue, IEggProgramNode& whenFalse);
     EggProgramNodeFlags preparePredicate(const egg::lang::LocationSource& where, EggProgramBinary op, IEggProgramNode& lhs, IEggProgramNode& rhs);
     // Temporary scope modifiers
-    EggProgramNodeFlags prepareWithType(IEggProgramNode& node, const egg::lang::IType& type);
+    EggProgramNodeFlags prepareWithType(IEggProgramNode& node, const egg::lang::IType& type, const egg::lang::IType* EggProgramContext::*scope);
     egg::lang::Value executeWithValue(const IEggProgramNode& node, const egg::lang::Value& value);
   private:
     bool findDuplicateSymbols(const std::vector<std::shared_ptr<IEggProgramNode>>& statements);

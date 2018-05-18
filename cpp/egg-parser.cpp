@@ -391,8 +391,8 @@ namespace {
       : EggParserNodeBase(locationSource) {
     }
     virtual EggProgramNodeFlags prepare(EggProgramContext&) override {
-      // Nothing to prepare
-      return EggProgramNodeFlags::None;
+      // Nothing to prepare, but we fallthrough
+      return EggProgramNodeFlags::Fallthrough;
     }
     virtual egg::lang::Value execute(EggProgramContext& context) const override {
       return context.executeBreak(*this);
@@ -430,7 +430,7 @@ namespace {
       : EggParserNodeBase(locationSource) {
     }
     virtual EggProgramNodeFlags prepare(EggProgramContext&) override {
-      // Nothing to prepare
+      // Nothing to prepare, but no fallthrough
       return EggProgramNodeFlags::None;
     }
     virtual egg::lang::Value execute(EggProgramContext& context) const override {
@@ -592,7 +592,7 @@ namespace {
       : EggParserNodeBase(locationSource), expr(expr) {
     }
     virtual EggProgramNodeFlags prepare(EggProgramContext& context) override {
-      return context.prepareReturn(this->expr.get());
+      return context.prepareReturn(this->locationSource, this->expr.get());
     }
     virtual egg::lang::Value execute(EggProgramContext& context) const override {
       return context.executeReturn(*this, this->expr.get());
