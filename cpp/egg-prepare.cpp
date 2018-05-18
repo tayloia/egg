@@ -366,7 +366,7 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareTry(IEggProg
   if (abandoned(flags)) {
     return EggProgramNodeFlags::Abandon;
   }
-  auto falls = fallthrough(flags); // WIBBLE
+  auto falls = fallthrough(flags);
   for (auto& i : catches) {
     flags = i->prepare(*this);
     if (abandoned(flags)) {
