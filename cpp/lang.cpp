@@ -863,6 +863,7 @@ namespace {
   const TypeNative<Discriminator::Int> typeInt{};
   const TypeNative<Discriminator::Float> typeFloat{};
   const TypeNative<Discriminator::Arithmetic> typeArithmetic{};
+  const TypeNative<Discriminator::Type> typeType{};
 
   class TypeString : public TypeNative<Discriminator::String> {
   public:
@@ -998,6 +999,7 @@ const egg::lang::Type egg::lang::Type::Int{ typeInt };
 const egg::lang::Type egg::lang::Type::Float{ typeFloat };
 const egg::lang::Type egg::lang::Type::String{ typeString };
 const egg::lang::Type egg::lang::Type::Arithmetic{ typeArithmetic };
+const egg::lang::Type egg::lang::Type::Type_{ typeType };
 const egg::lang::Type egg::lang::Type::Any{ *Type::make<TypeSimple>(egg::lang::Discriminator::Any) };
 const egg::lang::Type egg::lang::Type::AnyQ{ *Type::make<TypeSimple>(egg::lang::Discriminator::Any | egg::lang::Discriminator::Null) };
 

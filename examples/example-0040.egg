@@ -3,3 +3,12 @@ void|int positive(int x) {
     return x;
   }
 }
+print(type.of(positive));
+///>void|int positive(int x)
+var a = positive(123);
+print(type.of(a));
+///>int
+print(a);
+///>123
+var b = positive(-123);
+///<RUNTIME><ERROR><RESOURCE>(13,5): Cannot assign 'void' to 'b'

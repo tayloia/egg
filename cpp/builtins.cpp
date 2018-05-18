@@ -250,6 +250,38 @@ namespace {
     }
   };
 
+  class BuiltinTypeOf : public BuiltinFunction {
+    EGG_NO_COPY(BuiltinTypeOf);
+  public:
+    BuiltinTypeOf()
+      : BuiltinFunction("type.of", Type::Type_) {
+      this->type->addParameter("value", Type::AnyQ, Flags::Required);
+    }
+    virtual Value call(IExecution& execution, const IParameters& parameters) override {
+      // Fetch the runtime type of the parameter
+      Value result = this->type->validateCall(execution, parameters);
+      if (result.has(Discriminator::FlowControl)) {
+        return result;
+      }
+      return Value{ parameters.getPositional(0).getRuntimeType().toString() };
+    }
+  };
+
+  class BuiltinType : public BuiltinObject {
+    EGG_NO_COPY(BuiltinType);
+  public:
+    BuiltinType()
+      : BuiltinObject("type", Type::Type_) {
+      // The function call looks like: 'type type(any?... value)'
+      this->type->addParameter("value", Type::AnyQ, Flags::Variadic);
+      this->addProperty("of", Value::make<BuiltinTypeOf>());
+    }
+    virtual Value call(IExecution&, const IParameters&) override {
+      // TODO
+      return Value::Null;
+    }
+  };
+
   class BuiltinAssert : public BuiltinFunction {
     EGG_NO_COPY(BuiltinAssert);
   public:
@@ -704,6 +736,11 @@ egg::lang::Value egg::lang::String::builtin(egg::lang::IExecution& execution, co
 
 egg::lang::Value egg::lang::Value::builtinString() {
   static Value builtin = Value::make<BuiltinString>();
+  return builtin;
+}
+
+egg::lang::Value egg::lang::Value::builtinType() {
+  static Value builtin = Value::make<BuiltinType>();
   return builtin;
 }
 

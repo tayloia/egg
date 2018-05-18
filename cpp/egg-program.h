@@ -61,7 +61,7 @@ namespace egg::yolk {
     const egg::lang::String& getName() const { return this->name; }
     const egg::lang::IType& getType() const { return *this->type; }
     const egg::lang::Value& getValue() const { return this->value; }
-    void inferType(const egg::lang::IType& inferred);
+    void setInferredType(const egg::lang::IType& inferred);
     egg::lang::Value assign(egg::lang::IExecution& execution, const egg::lang::Value& rhs);
   };
 

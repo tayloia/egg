@@ -243,7 +243,7 @@ namespace {
   }
 }
 
-void egg::yolk::EggProgramSymbol::inferType(const egg::lang::IType& inferred) {
+void egg::yolk::EggProgramSymbol::setInferredType(const egg::lang::IType& inferred) {
   // We only allow inferred type updates
   assert(this->type->getSimpleTypes() == egg::lang::Discriminator::Inferred);
   this->type.set(&inferred);
@@ -264,6 +264,9 @@ egg::lang::Value egg::yolk::EggProgramSymbol::assign(egg::lang::IExecution& exec
     // The assignment failed
     return promoted;
   }
+  if (promoted.is(egg::lang::Discriminator::Void)) {
+    return execution.raiseFormat("Cannot assign 'void' to '", this->name, "'");
+  }
   this->value = promoted;
   return egg::lang::Value::Void;
 }
@@ -271,6 +274,7 @@ egg::lang::Value egg::yolk::EggProgramSymbol::assign(egg::lang::IExecution& exec
 void egg::yolk::EggProgramSymbolTable::addBuiltins() {
   // TODO add built-in symbol to symbol table here
   this->addBuiltin("string", egg::lang::Value::builtinString());
+  this->addBuiltin("type", egg::lang::Value::builtinType());
   this->addBuiltin("assert", egg::lang::Value::builtinAssert());
   this->addBuiltin("print", egg::lang::Value::builtinPrint());
 }

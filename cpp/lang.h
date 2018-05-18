@@ -239,6 +239,7 @@ namespace egg::lang {
     static const Type Arithmetic;
     static const Type Any;
     static const Type AnyQ;
+    static const Type Type_; // Underscore needed to avoid name clash
 
     static const egg::lang::IType* getNative(egg::lang::Discriminator tag);
     static ITypeRef makeSimple(Discriminator simple);
@@ -481,6 +482,7 @@ namespace egg::lang {
 
     // Built-ins
     static Value builtinString();
+    static Value builtinType();
     static Value builtinAssert();
     static Value builtinPrint();
   };

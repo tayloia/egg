@@ -663,7 +663,7 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::typeCheck(const egg
     ltype = rtype;
     auto symbol = this->symtable->findSymbol(name, false);
     assert(symbol != nullptr);
-    symbol->inferType(*rtype);
+    symbol->setInferredType(*rtype);
   }
   if (!ltype->canBeAssignedFrom(*rtype)) {
     return this->compilerError(where, "Cannot initialize '", name, "' of type '", ltype->toString(), "' with a value of type '", rtype->toString(), "'");
