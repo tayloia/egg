@@ -417,6 +417,20 @@ egg::lang::Value egg::yolk::EggProgramContext::set(const egg::lang::String& name
   return symbol->assign(*this, rvalue);
 }
 
+egg::lang::Value egg::yolk::EggProgramContext::guard(const egg::lang::String& name, const egg::lang::Value& rvalue) {
+  if (rvalue.has(egg::lang::Discriminator::FlowControl)) {
+    return rvalue;
+  }
+  auto symbol = this->symtable->findSymbol(name);
+  assert(symbol != nullptr);
+  auto retval = symbol->assign(*this, rvalue);
+  if (retval.is(egg::lang::Discriminator::Void)) {
+    // The assignment succeeded
+    return egg::lang::Value::True;
+  }
+  return egg::lang::Value::False;
+}
+
 egg::lang::Value egg::yolk::EggProgramContext::assign(EggProgramAssign op, const IEggProgramNode& lhs, const IEggProgramNode& rhs) {
   auto dst = lhs.assignee(*this);
   if (dst == nullptr) {

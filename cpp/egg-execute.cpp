@@ -152,6 +152,14 @@ egg::lang::Value egg::yolk::EggProgramContext::executeDeclare(const IEggProgramN
   return egg::lang::Value::Void;
 }
 
+egg::lang::Value egg::yolk::EggProgramContext::executeGuard(const IEggProgramNode& self, const egg::lang::String& name, const egg::lang::IType& type, const IEggProgramNode& rvalue) {
+  // The type information has already been used in the symbol declaration phase
+  EGG_UNUSED(type);
+  this->statement(self);
+  assert(type.getSimpleTypes() != egg::lang::Discriminator::Inferred);
+  return this->guard(name, rvalue.execute(*this));
+}
+
 egg::lang::Value egg::yolk::EggProgramContext::executeAssign(const IEggProgramNode& self, EggProgramAssign op, const IEggProgramNode& lvalue, const IEggProgramNode& rvalue) {
   this->statement(self);
   return this->assign(op, lvalue, rvalue);
@@ -207,7 +215,8 @@ egg::lang::Value egg::yolk::EggProgramContext::executeIf(const IEggProgramNode& 
       return trueBlock.execute(scope);
     }
     if (falseBlock != nullptr) {
-      return falseBlock->execute(scope);
+      // We run the 'else' block in the original scope (with no guarded identifiers)
+      return falseBlock->execute(*this);
     }
     return egg::lang::Value::Void;
   });
@@ -377,7 +386,7 @@ egg::lang::Value egg::yolk::EggProgramContext::executeFunctionCall(const egg::la
   // This actually calls a function
   auto callable = type.callable();
   if (callable == nullptr) {
-    return this->raiseFormat("WIBBLE not callable");
+    return this->raiseFormat("Expected function-like expression to be callable, but got '", type.toString(), "' instead");
   }
   if (parameters.getNamedCount() > 0) {
     return this->raiseFormat("Named parameters in function calls are not yet supported"); // TODO

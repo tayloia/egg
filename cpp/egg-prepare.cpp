@@ -101,6 +101,13 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareDeclare(cons
   return EggProgramNodeFlags::None;
 }
 
+egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareGuard(const egg::lang::LocationSource& where, const egg::lang::String& name, egg::lang::ITypeRef& ltype, IEggProgramNode& rvalue) {
+  if (abandoned(rvalue.prepare(*this))) {
+    return EggProgramNodeFlags::Abandon;
+  }
+  return this->typeCheck(where, ltype, rvalue.getType(), name);
+}
+
 egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareAssign(const egg::lang::LocationSource& where, EggProgramAssign op, IEggProgramNode& lvalue, IEggProgramNode& rvalue) {
   if (abandoned(lvalue.prepare(*this)) || abandoned(rvalue.prepare(*this))) {
     return EggProgramNodeFlags::Abandon;
@@ -202,7 +209,8 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareIf(IEggProgr
       return EggProgramNodeFlags::Abandon;
     }
     if (falseBlock != nullptr) {
-      return falseBlock->prepare(scope);
+      // We prepare the 'else' block in the original scope (with no guarded identifiers)
+      return falseBlock->prepare(*this);
     }
     return EggProgramNodeFlags::None;
   });

@@ -335,6 +335,36 @@ namespace {
     }
   };
 
+  class EggParserNode_Guard : public EggParserNodeBase {
+  private:
+    egg::lang::String name;
+    egg::lang::ITypeRef type;
+    std::shared_ptr<IEggProgramNode> expr;
+  public:
+    EggParserNode_Guard(const egg::lang::LocationSource& locationSource, const egg::lang::String& name, const egg::lang::IType& type, const std::shared_ptr<IEggProgramNode>& expr)
+      : EggParserNodeBase(locationSource), name(name), type(&type), expr(expr) {
+    }
+    virtual bool symbol(egg::lang::String& nameOut, egg::lang::ITypeRef& typeOut) const override {
+      // The symbol is obviously the variable being declared
+      nameOut = this->name;
+      typeOut = this->type;
+      return true;
+    }
+    virtual std::unique_ptr<IEggProgramAssignee> assignee(EggProgramContext& context) const override {
+      // The assignee is just the variable in the scope
+      return context.assigneeIdentifier(*this, this->name);
+    }
+    virtual EggProgramNodeFlags prepare(EggProgramContext& context) override {
+      return context.prepareGuard(this->locationSource, this->name, this->type, *this->expr);
+    }
+    virtual egg::lang::Value execute(EggProgramContext& context) const override {
+      return context.executeGuard(*this, this->name, *this->type, *this->expr);
+    }
+    virtual void dump(std::ostream& os) const override {
+      ParserDump(os, "guard").add(this->name).add(this->type->toString()).add(this->expr);
+    }
+  };
+
   class EggParserNode_Mutate : public EggParserNodeBase {
   private:
     EggProgramMutate op;
@@ -1378,6 +1408,11 @@ std::shared_ptr<egg::yolk::IEggProgramNode> egg::yolk::EggSyntaxNode_Declare::pr
   }
   assert(this->child.size() == 2);
   return makeParserNode<EggParserNode_Declare>(context, *this, this->name, *type, context.promote(*this->child[1]));
+}
+
+std::shared_ptr<egg::yolk::IEggProgramNode> egg::yolk::EggSyntaxNode_Guard::promote(egg::yolk::IEggParserContext& context) const {
+  auto type = context.promote(*this->child[0])->getType();
+  return makeParserNode<EggParserNode_Guard>(context, *this, this->name, *type, context.promote(*this->child[1]));
 }
 
 std::shared_ptr<egg::yolk::IEggProgramNode> egg::yolk::EggSyntaxNode_Assignment::promote(egg::yolk::IEggParserContext& context) const {

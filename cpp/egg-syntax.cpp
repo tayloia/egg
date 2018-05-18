@@ -94,6 +94,10 @@ void egg::yolk::EggSyntaxNode_Declare::dump(std::ostream& os) const {
   ParserDump(os, "declare").add(this->name).add(this->child);
 }
 
+void egg::yolk::EggSyntaxNode_Guard::dump(std::ostream& os) const {
+  ParserDump(os, "guard").add(this->name).add(this->child);
+}
+
 void egg::yolk::EggSyntaxNode_Assignment::dump(std::ostream& os) const {
   ParserDump(os, "assign").add(this->op).add(this->child);
 }
@@ -339,6 +343,10 @@ egg::lang::String egg::yolk::EggSyntaxNode_Type::token() const {
 }
 
 egg::lang::String egg::yolk::EggSyntaxNode_Declare::token() const {
+  return this->name;
+}
+
+egg::lang::String egg::yolk::EggSyntaxNode_Guard::token() const {
   return this->name;
 }
 
@@ -1127,7 +1135,7 @@ std::unique_ptr<IEggSyntaxNode> EggSyntaxParserContext::parseExpressionDeclarati
     if (rhs == nullptr) {
       this->unexpected("Expected expression after '=' in '" + keyword + "' statement", mark.peek(0));
     }
-    expr = std::make_unique<EggSyntaxNode_Declare>(location, p0.value.s, std::move(type), std::move(rhs));
+    expr = std::make_unique<EggSyntaxNode_Guard>(location, p0.value.s, std::move(type), std::move(rhs));
   }
   if (!mark.peek(0).isOperator(EggTokenizerOperator::ParenthesisRight)) {
     this->unexpected("Expected ')' after expression in '" + keyword + "' statement", mark.peek(0));
@@ -1803,7 +1811,7 @@ std::unique_ptr<IEggSyntaxNode> EggSyntaxParserContext::parseStatementUsing() {
     }
     mark.advance(2);
     auto rhs = this->parseExpression("Expected expression after '=' in 'using' statement");
-    expr = std::make_unique<EggSyntaxNode_Declare>(location, p0.value.s, std::move(type), std::move(rhs));
+    expr = std::make_unique<EggSyntaxNode_Declare>(location, p0.value.s, std::move(type), std::move(rhs)); // TODO should this be EggSyntaxNode_Declare?
   }
   if (!mark.peek(0).isOperator(EggTokenizerOperator::ParenthesisRight)) {
     this->unexpected("Expected ')' after expression in 'using' statement", mark.peek(0));
