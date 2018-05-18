@@ -1,0 +1,19 @@
+int counter = 5;
+int|void countdown() {
+  if (counter > 0) {
+    --counter;
+    return counter + 1;
+  }
+}
+while (var i = countdown()) {
+  assert(type.of(i) == "int");
+  print(i);
+  if (counter < -2) {
+    break;
+  }
+}
+///>5
+///>4
+///>3
+///>2
+///>1

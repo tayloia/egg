@@ -595,6 +595,10 @@ egg::lang::Value egg::yolk::EggProgramContext::executeWhile(const IEggProgramNod
   return this->executeScope(&cond, [&](EggProgramContext& scope) {
     auto retval = scope.condition(cond);
     while (retval.is(egg::lang::Discriminator::Bool)) {
+      if (!retval.getBool()) {
+        // Condition failed, leave the loop
+        return egg::lang::Value::Void;
+      }
       retval = block.execute(scope);
       if (!retval.is(egg::lang::Discriminator::Void)) {
         if (retval.is(egg::lang::Discriminator::Break)) {
