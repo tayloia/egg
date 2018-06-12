@@ -12,7 +12,6 @@
   macro(Finally, "finally") \
   macro(Float, "float") \
   macro(For, "for") \
-  macro(Function, "function") \
   macro(If, "if") \
   macro(Int, "int") \
   macro(Null, "null") \

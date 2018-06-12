@@ -714,7 +714,6 @@ std::unique_ptr<IEggSyntaxNode> EggSyntaxParserContext::parseStatement() {
     case EggTokenizerKeyword::Any:
     case EggTokenizerKeyword::Bool:
     case EggTokenizerKeyword::Float:
-    case EggTokenizerKeyword::Function:
     case EggTokenizerKeyword::Int:
     case EggTokenizerKeyword::Object:
     case EggTokenizerKeyword::String:
