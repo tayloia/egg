@@ -38,7 +38,6 @@ type-postfix-expression ::= type-primary-expression
                           | type-postfix-expression '(' function-parameter-list? ')'
 
 type-primary-expression ::= 'any'
-                          | 'void'
                           | 'null'
                           | 'bool'
                           | 'int'
@@ -52,7 +51,10 @@ type-primary-expression ::= 'any'
 type-identifier ::= identifier
                   | identifier '<' type-list '>'
 
-function-definition ::= attribute* type-expression function-identifier '(' function-parameter-list? ')' compound-statement
+function-definition ::= attribute* function-return-type function-identifier '(' function-parameter-list? ')' compound-statement
+
+function-return-type ::= type-expression
+                       | 'void'
 
 function-identifier ::= identifier
 
@@ -233,7 +235,7 @@ named-parameter ::= variable-identifier ':' expression
 
 lambda-value ::= lambda-value-left '->' lambda-value-right
 
-lambda-value-left ::= type-expression? '(' lambda-parameter-list? ')'
+lambda-value-left ::= function-return-type? '(' lambda-parameter-list? ')'
                     | variable-identifier
 
 lambda-value-right ::= compound-statement

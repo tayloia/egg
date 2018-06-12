@@ -808,9 +808,9 @@ namespace {
     virtual Discriminator getSimpleTypes() const override {
       return Discriminator::Null;
     }
-    virtual ITypeRef coallescedType(const IType& rhs) const override {
-      // We're always null, so the type is just the type of the rhs
-      return ITypeRef(&rhs);
+    virtual ITypeRef denulledType() const override {
+      // We're always null
+      return Type::Void;
     }
     virtual ITypeRef unionWith(const IType& other) const override {
       auto simple = other.getSimpleTypes();
@@ -843,6 +843,14 @@ namespace {
     }
     virtual Discriminator getSimpleTypes() const override {
       return TAG;
+    }
+    virtual ITypeRef denulledType() const override {
+      auto denulled = Bits::clear(TAG, Discriminator::Null);
+      if (denulled == TAG) {
+        // It's the identical native type
+        return ITypeRef(this);
+      }
+      return ITypeRef(Type::getNative(denulled));
     }
     virtual ITypeRef unionWith(const IType& other) const override {
       if (other.getSimpleTypes() == TAG) {
@@ -923,13 +931,13 @@ namespace {
     virtual Discriminator getSimpleTypes() const override {
       return this->tag;
     }
-    virtual ITypeRef coallescedType(const IType& rhs) const override {
+    virtual ITypeRef denulledType() const override {
       auto denulled = Bits::clear(this->tag, Discriminator::Null);
       if (this->tag != denulled) {
         // We need to clear the bit
-        return Type::makeSimple(denulled)->unionWith(rhs);
+        return Type::makeSimple(denulled);
       }
-      return this->unionWith(rhs);
+      return ITypeRef(this);
     }
     virtual ITypeRef unionWith(const IType& other) const override {
       auto simple = other.getSimpleTypes();
@@ -1323,9 +1331,9 @@ egg::lang::ITypeRef egg::lang::IType::dereferencedType() const {
   return Type::Void;
 }
 
-egg::lang::ITypeRef egg::lang::IType::coallescedType(const IType& rhs) const {
-  // The default implementation is to create the union
-  return this->unionWith(rhs);
+egg::lang::ITypeRef egg::lang::IType::denulledType() const {
+  // The default implementation is to return 'Void'
+  return Type::Void;
 }
 
 egg::lang::Value egg::lang::IType::dotGet(IExecution& execution, const Value& instance, const String& property) const {

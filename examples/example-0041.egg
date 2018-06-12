@@ -1,9 +1,10 @@
 int counter = 5;
-int|void countdown() {
+int? countdown() {
   if (counter > 0) {
     --counter;
     return counter + 1;
   }
+  return null;
 }
 while (var i = countdown()) {
   assert(type.of(i) == "int");

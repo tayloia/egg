@@ -211,7 +211,7 @@ namespace egg::lang {
     virtual Discriminator getSimpleTypes() const; // Default implementation returns 'Object'
     virtual Ref referencedType() const; // Default implementation returns 'Type*'
     virtual Ref dereferencedType() const; // Default implementation returns 'Void'
-    virtual Ref coallescedType(const IType& rhs) const; // Default implementation calls Type::makeUnion()
+    virtual Ref denulledType() const; // Default implementation returns 'Void'
     virtual Ref unionWith(const IType& other) const; // Default implementation calls Type::makeUnion()
     virtual Value dotGet(IExecution& execution, const Value& instance, const String& property) const; // Default implementation dispatches standard requests
     virtual Value dotSet(IExecution& execution, const Value& instance, const String& property, const Value& value) const; // Default implementation dispatches standard requests

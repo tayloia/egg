@@ -1390,7 +1390,7 @@ std::shared_ptr<egg::yolk::IEggProgramNode> egg::yolk::EggSyntaxNode_Declare::pr
 }
 
 std::shared_ptr<egg::yolk::IEggProgramNode> egg::yolk::EggSyntaxNode_Guard::promote(egg::yolk::IEggParserContext& context) const {
-  auto type = context.promote(*this->child[0])->getType();
+  auto type = context.promote(*this->child[0])->getType()->denulledType();
   return makeParserNode<EggParserNode_Guard>(context, *this, this->name, *type, context.promote(*this->child[1]));
 }
 
@@ -1929,7 +1929,12 @@ egg::lang::ITypeRef EggParserNode_BinaryNullCoalescing::getType() const {
     return type1;
   }
   auto type2 = this->rhs->getType();
-  return type1->coallescedType(*type2);
+  type1 = type1->denulledType();
+  if (type1->getSimpleTypes() == egg::lang::Discriminator::Void) {
+    // The left-hand-side is only ever null, so only the right side is relevant
+    return type2;
+  }
+  return type1->unionWith(*type2);
 }
 
 egg::lang::ITypeRef EggParserNode_BinaryBitwiseXor::getType() const {

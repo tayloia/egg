@@ -1,14 +1,15 @@
-void|int positive(int x) {
+int? positive(int x) {
   if (x > 0) {
     return x;
   }
+  return null;
 }
 print(type.of(positive));
-///>void|int positive(int x)
+///>int? positive(int x)
 var a = positive(123);
 print(type.of(a));
 ///>int
 print(a);
 ///>123
-var b = positive(-123);
-///<RUNTIME><ERROR><RESOURCE>(13,5): Cannot assign 'void' to 'b'
+int b = positive(-123);
+///<RUNTIME><ERROR><RESOURCE>(14,5): Cannot assign a value of type 'null' to a target of type 'int'

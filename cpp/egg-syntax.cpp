@@ -11,9 +11,6 @@ namespace {
 
   egg::lang::Discriminator keywordToDiscriminator(const EggTokenizerItem& item) {
     // Accept only type-like keywords: bool, int, float, string and object
-    if (item.isKeyword(EggTokenizerKeyword::Void)) {
-      return egg::lang::Discriminator::Void;
-    }
     if (item.isKeyword(EggTokenizerKeyword::Null)) {
       return egg::lang::Discriminator::Null;
     }
@@ -1845,7 +1842,11 @@ std::unique_ptr<IEggSyntaxNode> EggSyntaxParserContext::parseType(const char* ex
   auto& p0 = mark.peek(0);
   EggSyntaxNodeLocation location(p0);
   auto tags = egg::lang::Discriminator::None;
-  if (!p0.isKeyword(EggTokenizerKeyword::Var)) {
+  if (p0.isKeyword(EggTokenizerKeyword::Void)) {
+    // Must be a function return type
+    tags = egg::lang::Discriminator::Void;
+    mark.advance(1);
+  } else if (!p0.isKeyword(EggTokenizerKeyword::Var)) {
     // Parse '|'-separated discriminators
     tags = this->parseTypeTags();
   } else if (allowVar) {
@@ -1870,7 +1871,7 @@ egg::lang::Discriminator EggSyntaxParserContext::parseTypeTags() {
   for (;;) {
     auto& p0 = mark.peek(0);
     auto tag = keywordToDiscriminator(p0);
-    if ((tag == egg::lang::Discriminator::Void) || (tag == egg::lang::Discriminator::Null)) {
+    if (tag == egg::lang::Discriminator::Null) {
       // Don't allow a trailing '?'
       tags = tags | tag;
       mark.advance(1);
