@@ -644,7 +644,6 @@ namespace {
     std::unique_ptr<IEggSyntaxNode> parseStatementWhile();
     std::unique_ptr<IEggSyntaxNode> parseStatementYield();
     std::unique_ptr<IEggSyntaxNode> parseType(const char* expected, bool allowVar);
-    std::unique_ptr<IEggSyntaxNode> parseTypeDefinition();
     egg::lang::Discriminator parseTypeTags();
   };
 
@@ -766,8 +765,6 @@ std::unique_ptr<IEggSyntaxNode> EggSyntaxParserContext::parseStatement() {
       this->unexpected("Unexpected 'true' at start of statement");
     case EggTokenizerKeyword::Try:
       return this->parseStatementTry();
-    case EggTokenizerKeyword::Typedef:
-      return this->parseTypeDefinition();
     case EggTokenizerKeyword::Using:
       return this->parseStatementUsing();
     case EggTokenizerKeyword::While:
@@ -1950,10 +1947,6 @@ egg::lang::Discriminator EggSyntaxParserContext::parseTypeTags() {
   }
   mark.accept(0);
   return tags;
-}
-
-std::unique_ptr<IEggSyntaxNode> EggSyntaxParserContext::parseTypeDefinition() {
-  EGG_THROW("TODO"); // TODO
 }
 
 std::shared_ptr<egg::yolk::IEggSyntaxParser> egg::yolk::EggParserFactory::createModuleSyntaxParser() {
