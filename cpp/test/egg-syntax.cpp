@@ -76,11 +76,17 @@ TEST(TestEggSyntaxParser, Extraneous) {
 TEST(TestEggSyntaxParser, VariableDeclaration) {
   //TODO should we allow 'var' without an initializer?
   // Good
-  ASSERT_PARSE_GOOD(parseStatementToString("var foo;"), "(declare 'foo' (type 'var'))");
-  ASSERT_PARSE_GOOD(parseStatementToString("any? bar;"), "(declare 'bar' (type 'any?'))");
+  ASSERT_PARSE_GOOD(parseStatementToString("var a;"), "(declare 'a' (type 'var'))");
+  ASSERT_PARSE_GOOD(parseStatementToString("any? b;"), "(declare 'b' (type 'any?'))");
+  ASSERT_PARSE_GOOD(parseStatementToString("int* c;"), "(declare 'c' (type 'int*'))");
+  ASSERT_PARSE_GOOD(parseStatementToString("int?*? c;"), "(declare 'c' (type 'null|int?*'))");
   // Bad
   ASSERT_PARSE_BAD(parseStatementToString("var"), "(1, 4): Expected variable identifier after type");
   ASSERT_PARSE_BAD(parseStatementToString("var foo"), "(1, 5): Malformed variable declaration or initialization");
+  ASSERT_PARSE_BAD(parseStatementToString("var? foo;"), "(1, 4): Expected variable identifier after type, not operator: '?'");
+  ASSERT_PARSE_BAD(parseStatementToString("int?? foo;"), "(1, 4): Expected variable identifier after type, not operator: '??'");
+  ASSERT_PARSE_BAD(parseStatementToString("int ? ? foo;"), "(1, 7): Redundant repetition of '?' in type expression");
+  ASSERT_PARSE_BAD(parseStatementToString("null foo;"), "(1, 1): Unexpected 'null' at start of statement");
 }
 
 TEST(TestEggSyntaxParser, VariableInitialization) {

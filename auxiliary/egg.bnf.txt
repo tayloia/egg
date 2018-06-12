@@ -33,9 +33,9 @@ type-nullable-expression ::= type-postfix-expression
                            | type-postfix-expression '?'
 
 type-postfix-expression ::= type-primary-expression
-                          | type-postfix-expression '*'
-                          | type-postfix-expression '[' type-expression? ']'
-                          | type-postfix-expression '(' function-parameter-list? ')'
+                          | type-nullable-expression '*'
+                          | type-nullable-expression '[' type-expression? ']'
+                          | type-nullable-expression '(' function-parameter-list? ')'
 
 type-primary-expression ::= 'any'
                           | 'null'

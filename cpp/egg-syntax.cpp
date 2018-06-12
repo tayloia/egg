@@ -631,8 +631,10 @@ namespace {
     std::unique_ptr<IEggSyntaxNode> parseStatementType(std::unique_ptr<IEggSyntaxNode>&& type, bool simple);
     std::unique_ptr<IEggSyntaxNode> parseStatementWhile();
     std::unique_ptr<IEggSyntaxNode> parseStatementYield();
-    std::unique_ptr<IEggSyntaxNode> parseType(const char* expected, bool allowVar);
-    egg::lang::Discriminator parseTypeTags();
+    std::unique_ptr<IEggSyntaxNode> parseType(const char* expected);
+    bool parseTypeExpression(egg::lang::ITypeRef& type);
+    bool parseTypePostfixExpression(egg::lang::ITypeRef& type);
+    bool parseTypePrimaryExpression(egg::lang::ITypeRef& type);
   };
 
   class EggSyntaxParserModule : public IEggSyntaxParser {
@@ -787,7 +789,7 @@ std::unique_ptr<IEggSyntaxNode> EggSyntaxParserContext::parseStatement() {
   if (expression != nullptr) {
     return this->parseStatementExpression(std::move(expression), EggTokenizerOperator::Semicolon);
   }
-  auto type = this->parseType(nullptr, true);
+  auto type = this->parseType(nullptr);
   if (type != nullptr) {
     return this->parseStatementType(std::move(type), false);
   }
@@ -818,7 +820,7 @@ std::unique_ptr<IEggSyntaxNode> EggSyntaxParserContext::parseStatementSimple(con
     // Only look for type statements if we end with a semicolon
     this->unexpected(expected, p0);
   }
-  auto type = this->parseType(nullptr, true);
+  auto type = this->parseType(nullptr);
   if (type == nullptr) {
     this->unexpected(expected, p0);
   }
@@ -1113,7 +1115,7 @@ std::unique_ptr<IEggSyntaxNode> EggSyntaxParserContext::parseExpressionDeclarati
   auto expr = this->parseExpression(nullptr);
   if (expr == nullptr) {
     // Expect <keyword> '(' <type> <identifier> '=' <expression> ')' <compound-statement>
-    auto type = this->parseType(nullptr, true);
+    auto type = this->parseType(nullptr);
     if (type == nullptr) {
       this->unexpected("Expected expression or type after '(' in '" + keyword + "' statement", mark.peek(0));
     }
@@ -1512,7 +1514,7 @@ std::unique_ptr<IEggSyntaxNode> EggSyntaxParserContext::parseStatementForeach() 
   assert(mark.peek(1).isOperator(EggTokenizerOperator::ParenthesisLeft));
   mark.advance(2);
   std::unique_ptr<IEggSyntaxNode> target;
-  auto type = this->parseType(nullptr, true);
+  auto type = this->parseType(nullptr);
   if (type != nullptr) {
     // Expect <type> <identifier> ':' <expression>
     auto& p0 = mark.peek(0);
@@ -1556,7 +1558,7 @@ std::unique_ptr<IEggSyntaxNode> EggSyntaxParserContext::parseStatementFunction(s
   auto result = std::make_unique<EggSyntaxNode_FunctionDefinition>(EggSyntaxNodeLocation(p0), p0.value.s, std::move(type));
   mark.advance(2);
   while (!mark.peek(0).isOperator(EggTokenizerOperator::ParenthesisRight)) {
-    auto ptype = this->parseType("Expected parameter type in function definition", false);
+    auto ptype = this->parseType("Expected parameter type in function definition");
     auto& p1 = mark.peek(0);
     if (p1.kind != EggTokenizerKind::Identifier) {
       this->unexpected("Expected identifier after parameter type in function definition", p1);
@@ -1706,7 +1708,7 @@ std::unique_ptr<IEggSyntaxNode> EggSyntaxParserContext::parseStatementTry() {
     }
     EggSyntaxNodeLocation location(mark.peek(0));
     mark.advance(2);
-    auto type = this->parseType("Expected exception type after '(' in 'catch' clause of 'try' statement", false);
+    auto type = this->parseType("Expected exception type after '(' in 'catch' clause of 'try' statement");
     auto& px = mark.peek(0);
     if (px.kind != EggTokenizerKind::Identifier) {
       this->unexpected("Expected identifier after exception type in 'catch' clause of 'try' statement", px);
@@ -1824,40 +1826,28 @@ std::unique_ptr<IEggSyntaxNode> EggSyntaxParserContext::parseStatementYield() {
   return std::make_unique<EggSyntaxNode_Yield>(location, std::move(expr));
 }
 
-std::unique_ptr<IEggSyntaxNode> EggSyntaxParserContext::parseType(const char* expected, bool allowVar) {
-  /*
-      type-expression ::= 'var'
-                        | <type-expression-list>
-
-      type-expression-list ::= <type-expression-tag>
-                             | <type-expression-list> '|' <type-expression-tag>
-
-      type-expression-tag ::= <type-expression-discriminator>
-                            | <type-expression-discriminator> '?'
-
-      <type-expression-discriminator> ::= 'void' | 'bool' | 'int' | 'float' | 'string' | 'object'
-  */
-  // TODO arrays, maps, etc.
+std::unique_ptr<IEggSyntaxNode> EggSyntaxParserContext::parseType(const char* expected) {
   EggSyntaxParserBacktrackMark mark(this->backtrack);
   auto& p0 = mark.peek(0);
   EggSyntaxNodeLocation location(p0);
-  auto tags = egg::lang::Discriminator::None;
-  if (p0.isKeyword(EggTokenizerKeyword::Void)) {
-    // Must be a function return type
-    tags = egg::lang::Discriminator::Void;
-    mark.advance(1);
-  } else if (!p0.isKeyword(EggTokenizerKeyword::Var)) {
-    // Parse '|'-separated discriminators
-    tags = this->parseTypeTags();
-  } else if (allowVar) {
-    // Don't allow 'var?'
-    tags = egg::lang::Discriminator::Inferred;
-    mark.advance(1);
+  if (expected == nullptr) {
+    // Allow 'void' and 'var'
+    if (p0.isKeyword(EggTokenizerKeyword::Void)) {
+      // Must be a function return type
+      mark.accept(1);
+      return std::make_unique<EggSyntaxNode_Type>(location, *egg::lang::Type::Void);
+    }
+    if (p0.isKeyword(EggTokenizerKeyword::Var)) {
+      // Don't allow 'var?'
+      mark.accept(1);
+      auto inferred = egg::lang::Type::makeSimple(egg::lang::Discriminator::Inferred);
+      return std::make_unique<EggSyntaxNode_Type>(location, *inferred);
+    }
   }
-  if (tags != egg::lang::Discriminator::None) {
+  egg::lang::ITypeRef type{ egg::lang::Type::Void };
+  if (this->parseTypeExpression(type)) {
     mark.accept(0);
-    auto simple = egg::lang::Type::makeSimple(tags);
-    return std::make_unique<EggSyntaxNode_Type>(location, *simple);
+    return std::make_unique<EggSyntaxNode_Type>(location, *type);
   }
   if (expected != nullptr) {
     this->unexpected(expected, p0);
@@ -1865,37 +1855,98 @@ std::unique_ptr<IEggSyntaxNode> EggSyntaxParserContext::parseType(const char* ex
   return nullptr;
 }
 
-egg::lang::Discriminator EggSyntaxParserContext::parseTypeTags() {
-  EggSyntaxParserBacktrackMark mark(this->backtrack);
-  auto tags = egg::lang::Discriminator::None;
-  for (;;) {
-    auto& p0 = mark.peek(0);
-    auto tag = keywordToDiscriminator(p0);
-    if (tag == egg::lang::Discriminator::Null) {
-      // Don't allow a trailing '?'
-      tags = tags | tag;
+bool EggSyntaxParserContext::parseTypeExpression(egg::lang::ITypeRef& type) {
+  /*
+      type-expression ::= type-union-expression
+
+      type-union-expression ::= type-nullable-expression
+                              | type-union-expression '|' type-nullable-expression
+  */
+  if (this->parseTypePostfixExpression(type)) {
+    EggSyntaxParserBacktrackMark mark(this->backtrack);
+    egg::lang::ITypeRef other{ egg::lang::Type::Void };
+    while (mark.peek(0).isOperator(EggTokenizerOperator::Bar)) {
       mark.advance(1);
-    } else if (egg::lang::Bits::hasAnySet(tag, egg::lang::Discriminator::Any)) {
-      // Allow a trailing '?' when contiguous
-      auto& p1 = mark.peek(1);
-      if (p1.isOperator(EggTokenizerOperator::Query) && p1.contiguous) {
-        tags = tags | tag | egg::lang::Discriminator::Null;
-        mark.advance(2);
-      } else {
-        tags = tags | tag;
-        mark.advance(1);
+      if (this->parseTypePostfixExpression(other)) {
+        this->unexpected("Expected type to follow '|' in type expression", mark.peek(0));
       }
-    } else {
-      // Not a discriminator keyword
-      return egg::lang::Discriminator::None;
+      type = type->unionWith(*other);
     }
-    if (!mark.peek(0).isOperator(EggTokenizerOperator::Bar)) {
+    mark.accept(0);
+    return true;
+  }
+  return false;
+}
+
+bool EggSyntaxParserContext::parseTypePostfixExpression(egg::lang::ITypeRef& type) {
+  /*
+      type-nullable-expression ::= type-postfix-expression
+                                 | type-postfix-expression '?'
+
+      type-postfix-expression ::= type-primary-expression
+                                | type-nullable-expression '*'
+                                | type-nullable-expression '[' type-expression? ']'
+                                | type-nullable-expression '(' function-parameter-list? ')'
+  */
+  // TODO arrays, maps, etc.
+  if (this->parseTypePrimaryExpression(type)) {
+    auto nullabled = false;
+    EggSyntaxParserBacktrackMark mark(this->backtrack);
+    for (;;) {
+      auto& p0 = mark.peek(0);
+      if (p0.isOperator(EggTokenizerOperator::Query)) {
+        // Union 'type' with 'null'
+        if (nullabled) {
+          this->unexpected("Redundant repetition of '?' in type expression");
+        }
+        mark.advance(1);
+        type = egg::lang::Type::Null->unionWith(*type);
+        nullabled = true;
+        continue;
+      }
+      nullabled = false;
+      if (p0.isOperator(EggTokenizerOperator::Star)) {
+        // Poiunter reference to 'type'
+        mark.advance(1);
+        type = type->referencedType();
+        continue;
+      }
       break;
     }
-    mark.advance(1);
+    mark.accept(0);
+    return true;
   }
-  mark.accept(0);
-  return tags;
+  return false;
+}
+
+bool EggSyntaxParserContext::parseTypePrimaryExpression(egg::lang::ITypeRef& type) {
+  /*
+      type-primary-expression ::= 'any'
+                                | 'null'
+                                | 'bool'
+                                | 'int'
+                                | 'float'
+                                | 'string'
+                                | 'object'
+                                | 'type' object-value
+                                | type-identifier
+                                | '(' type-expression ')'
+
+      type-identifier ::= identifier
+                        | identifier '<' type-list '>'
+  */
+  // TODO generics
+  // TODO type { ... }
+  // TODO type-identifier
+  EggSyntaxParserBacktrackMark mark(this->backtrack);
+  auto& p0 = mark.peek(0);
+  auto tag = keywordToDiscriminator(p0);
+  if (tag != egg::lang::Discriminator::None) {
+    mark.accept(1);
+    type = egg::lang::Type::makeSimple(tag);
+    return true;
+  }
+  return false;
 }
 
 std::shared_ptr<egg::yolk::IEggSyntaxParser> egg::yolk::EggParserFactory::createModuleSyntaxParser() {
