@@ -1,55 +1,58 @@
 /* EBNF of the Egg programming language */
 /* For use in http://www.bottlecaps.de/rr/ui */
+/* See also https://www.w3.org/TR/REC-xml/#sec-notation and https://tabatkins.github.io/railroad-diagrams/generator.html */
 
 module ::= statement+
 
 statement ::= simple-statement ';'
             | compound-statement
-            | function-definition
             | flow-statement
+            | function-definition
 
 simple-statement ::= type-definition
                    | variable-definition
-                   | assignment-statement
-                   | void-function-call
+                   | non-defining-statement
+
+non-defining-statement ::= assignment-statement
+                         | mutation-statement
+                         | void-function-call
 
 compound-statement ::= '{' statement* '}'
 
-type-definition ::= attribute* 'typedef' typedef-identifier '=' type-expression
-
-type-expression ::= compound-type
-                  | '(' type-list ')' '?'?
-                  | type-expression '[' type-expression? ']' '?'?
+type-definition ::= attribute* 'type' type-identifier ( '<' type-list '>' )* '=' type-expression
 
 type-list ::= type-expression
             | type-list ',' type-expression
 
-compound-type ::= optional-simple-type
-                | ( optional-simple-type-or-void '|' )+ optional-simple-type-or-void
-                | function-declaration
+type-expression ::= type-union-expression
 
-optional-simple-type-or-void ::= optional-simple-type
-                               | 'void'
+type-union-expression ::= type-nullable-expression
+                        | type-union-expression '|' type-nullable-expression
 
-optional-simple-type ::= simple-type '?'?
+type-nullable-expression ::= type-postfix-expression
+                           | type-postfix-expression '?'
 
-simple-type ::= 'any'
-              | 'bool'
-              | 'int'
-              | 'float'
-              | 'string'
-              | 'object'
-              | 'type' object-value
-              | typedef-identifier
-              | type-expression '*'
+type-postfix-expression ::= type-primary-expression
+                          | type-postfix-expression '*'
+                          | type-postfix-expression '[' type-expression? ']'
+                          | type-postfix-expression '(' function-parameter-list? ')'
 
-typedef-identifier ::= identifier
-                     | identifier '<' type-list '>'
+type-primary-expression ::= 'any'
+                          | 'void'
+                          | 'null'
+                          | 'bool'
+                          | 'int'
+                          | 'float'
+                          | 'string'
+                          | 'object'
+                          | 'type' object-value
+                          | type-identifier
+                          | '(' type-expression ')'
 
-function-definition ::= attribute* function-return-type function-identifier '(' function-parameter-list? ')' compound-statement
+type-identifier ::= identifier
+                  | identifier '<' type-list '>'
 
-function-return-type ::= type-expression
-                       | 'void'
+function-definition ::= attribute* type-expression function-identifier '(' function-parameter-list? ')' compound-statement
 
 function-identifier ::= identifier
 
@@ -59,8 +62,6 @@ function-parameter-list ::= function-parameter
 function-parameter ::= attribute* type-expression variable-identifier ( '=' 'null' )?
                      | attribute* '...' type-expression '[' ']' variable-identifier
 
-function-declaration ::= 'function' function-return-type '(' function-parameter-list? ')'
-
 variable-definition ::= attribute* variable-definition-type variable-identifier ( '=' expression )?
 
 variable-definition-type ::= type-expression
@@ -68,12 +69,7 @@ variable-definition-type ::= type-expression
 
 variable-identifier ::= identifier
 
-assignment-statement ::= assignment-list assignment-operator expression-list
-                       | '++' assignment-target
-                       | '--' assignment-target
-
-assignment-list ::= assignment-target
-                  | assignment-list ',' assignment-target
+assignment-statement ::= assignment-target assignment-operator expression
 
 assignment-target ::= variable-identifier
                     | '*'+ expression
@@ -93,34 +89,36 @@ assignment-operator ::= '='
                       | '^='
                       | '|='
 
-flow-statement ::= branch-statement
-                 | jump-statement
-                 | using-statement
+mutation-statement ::= mutation-operator assignment-target
 
-branch-statement ::= 'if' '(' condition ')' compound-statement ( 'else' compound-statement )?
+mutation-operator ::= '++'
+                    | '--'
+
+flow-statement ::= branch-statement
+                 | jump-statement ';'
+
+branch-statement ::= 'if' '(' condition ')' compound-statement else-statement?
                    | 'switch' '(' expression ')' compound-statement
                    | 'while' '(' condition ')' compound-statement
                    | 'do' compound-statement 'while' '(' expression ')' ';'
-                   | 'for' '(' simple-statement? ';' condition? ';' simple-statement? ')' compound-statement
+                   | 'for' '(' simple-statement? ';' condition? ';' non-defining-statement? ')' compound-statement
                    | 'for' '(' variable-definition-type? variable-identifier ':' expression ')' compound-statement
-                   | 'try' compound-statement ( 'catch' '(' variable-definition-type variable-identifier? )? ( 'finally' compound-statement )?
+                   | 'try' compound-statement ( 'catch' '(' variable-definition-type variable-identifier )? ( 'finally' compound-statement )?
 
-jump-statement ::= 'continue' ';'
-                 | 'break' ';'
-                 | 'return' expression-list? ';'
-                 | 'return' '...' expression ';'
-                 | 'yield' expression? ';'
-                 | 'yield' '...' expression ';'
+jump-statement ::= 'continue'
+                 | 'break'
+                 | 'return' expression?
+                 | 'return' '...' expression
+                 | 'yield' expression?
+                 | 'yield' '...' expression
 
-using-statement ::= 'using' '(' variable-definition-type variable-identifier '=' expression ')' compound-statement
+else-statement ::= 'else' compound-statement
+                 | 'else' 'if' '(' condition ')' compound-statement else-statement?
 
 condition ::= expression
             | variable-definition-type variable-identifier '=' expression
 
 expression ::= conditional-expression
-
-expression-list ::= expression
-                  | expression-list ',' expression
 
 conditional-expression ::= null-coalescing-expression
                          | null-coalescing-expression '?' expression ':' conditional-expression
@@ -190,13 +188,11 @@ primary-expression ::= identifier
                      | '(' expression ')'
                      | cast-specifier '(' expression ')'
 
-cast-specifier ::= identifier
-                 | 'bool'
+cast-specifier ::= 'bool'
                  | 'int'
                  | 'float'
                  | 'string'
-                 | 'type'
-                 | typedef-identifier
+                 | type-identifier
                  | '(' type-expression ')'
 
 void-function-call ::= postfix-expression '(' parameter-list? ')'
@@ -235,8 +231,13 @@ named-parameter-list ::= named-parameter
 
 named-parameter ::= variable-identifier ':' expression
 
-lambda-value ::= 'function' function-return-type? '(' lambda-parameter-list? ')' compound-statement
-               | lambda-parameter '->' expression
+lambda-value ::= lambda-value-left '->' lambda-value-right
+
+lambda-value-left ::= type-expression? '(' lambda-parameter-list? ')'
+                    | variable-identifier
+
+lambda-value-right ::= compound-statement
+                     | expression
 
 lambda-parameter-list ::= lambda-parameter
                         | lambda-parameter-list ',' lambda-parameter
