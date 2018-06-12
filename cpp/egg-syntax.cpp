@@ -182,10 +182,6 @@ void egg::yolk::EggSyntaxNode_Try::dump(std::ostream& os) const {
   ParserDump(os, "try").add(this->child);
 }
 
-void egg::yolk::EggSyntaxNode_Using::dump(std::ostream& os) const {
-  ParserDump(os, "using").add(this->child);
-}
-
 void egg::yolk::EggSyntaxNode_While::dump(std::ostream& os) const {
   ParserDump(os, "while").add(this->child);
 }
@@ -320,10 +316,6 @@ egg::yolk::EggTokenizerKeyword egg::yolk::EggSyntaxNode_Throw::keyword() const {
 
 egg::yolk::EggTokenizerKeyword egg::yolk::EggSyntaxNode_Try::keyword() const {
   return EggTokenizerKeyword::Try;
-}
-
-egg::yolk::EggTokenizerKeyword egg::yolk::EggSyntaxNode_Using::keyword() const {
-  return EggTokenizerKeyword::Using;
 }
 
 egg::yolk::EggTokenizerKeyword egg::yolk::EggSyntaxNode_While::keyword() const {
@@ -640,7 +632,6 @@ namespace {
     std::unique_ptr<IEggSyntaxNode> parseStatementThrow();
     std::unique_ptr<IEggSyntaxNode> parseStatementTry();
     std::unique_ptr<IEggSyntaxNode> parseStatementType(std::unique_ptr<IEggSyntaxNode>&& type, bool simple);
-    std::unique_ptr<IEggSyntaxNode> parseStatementUsing();
     std::unique_ptr<IEggSyntaxNode> parseStatementWhile();
     std::unique_ptr<IEggSyntaxNode> parseStatementYield();
     std::unique_ptr<IEggSyntaxNode> parseType(const char* expected, bool allowVar);
@@ -765,8 +756,6 @@ std::unique_ptr<IEggSyntaxNode> EggSyntaxParserContext::parseStatement() {
       this->unexpected("Unexpected 'true' at start of statement");
     case EggTokenizerKeyword::Try:
       return this->parseStatementTry();
-    case EggTokenizerKeyword::Using:
-      return this->parseStatementUsing();
     case EggTokenizerKeyword::While:
       return this->parseStatementWhile();
     case EggTokenizerKeyword::Yield:
@@ -1793,46 +1782,6 @@ std::unique_ptr<IEggSyntaxNode> EggSyntaxParserContext::parseStatementType(std::
   }
   this->unexpected("Expected variable identifier after type", p0);
   return nullptr;
-}
-
-std::unique_ptr<IEggSyntaxNode> EggSyntaxParserContext::parseStatementUsing() {
-  /*
-      using-statement ::= 'using' '(' variable-definition-type variable-identifier '=' expression ')' compound-statement
-                        | 'using' '(' expression ')' compound-statement
-  */
-  EggSyntaxParserBacktrackMark mark(this->backtrack);
-  assert(mark.peek(0).isKeyword(EggTokenizerKeyword::Using));
-  EggSyntaxNodeLocation location(mark.peek(0));
-  if (!mark.peek(1).isOperator(EggTokenizerOperator::ParenthesisLeft)) {
-    this->unexpected("Expected '(' after 'using' keyword", mark.peek(1));
-  }
-  mark.advance(2);
-  auto expr = this->parseExpression(nullptr);
-  if (expr == nullptr) {
-    // Expect 'using' '(' <type> <identifier> '=' <expression> ')' <compound-statement>
-    auto type = this->parseType("Expected expression or type after '(' in 'using' statement", true);
-    auto& p0 = mark.peek(0);
-    if (p0.kind != EggTokenizerKind::Identifier) {
-      this->unexpected("Expected variable identifier after type in 'using' statement", p0);
-    }
-    auto& p1 = mark.peek(1);
-    if (!p1.isOperator(EggTokenizerOperator::Equal)) {
-      this->unexpected("Expected '=' after variable identifier in 'using' statement", p1);
-    }
-    mark.advance(2);
-    auto rhs = this->parseExpression("Expected expression after '=' in 'using' statement");
-    expr = std::make_unique<EggSyntaxNode_Declare>(location, p0.value.s, std::move(type), std::move(rhs)); // TODO should this be EggSyntaxNode_Declare?
-  }
-  if (!mark.peek(0).isOperator(EggTokenizerOperator::ParenthesisRight)) {
-    this->unexpected("Expected ')' after expression in 'using' statement", mark.peek(0));
-  }
-  mark.advance(1);
-  if (!mark.peek(0).isOperator(EggTokenizerOperator::CurlyLeft)) {
-    this->unexpected("Expected '{' after ')' in 'using' statement", mark.peek(0));
-  }
-  auto block = this->parseCompoundStatement();
-  mark.accept(0);
-  return std::make_unique<EggSyntaxNode_Using>(location, std::move(expr), std::move(block));
 }
 
 std::unique_ptr<IEggSyntaxNode> EggSyntaxParserContext::parseStatementWhile() {

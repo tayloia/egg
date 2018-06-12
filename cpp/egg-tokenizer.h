@@ -24,7 +24,6 @@
   macro(True, "true") \
   macro(Try, "try") \
   macro(Type, "type") \
-  macro(Using, "using") \
   macro(Var, "var") \
   macro(Void, "void") \
   macro(While, "while") \

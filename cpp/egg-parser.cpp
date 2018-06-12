@@ -725,27 +725,6 @@ namespace {
     }
   };
 
-  class EggParserNode_Using : public EggParserNodeBase {
-  private:
-    std::shared_ptr<IEggProgramNode> expr;
-    std::shared_ptr<IEggProgramNode> block;
-  public:
-    EggParserNode_Using(const egg::lang::LocationSource& locationSource, const std::shared_ptr<IEggProgramNode>& expr, const std::shared_ptr<IEggProgramNode>& block)
-      : EggParserNodeBase(locationSource), expr(expr), block(block) {
-      assert(expr != nullptr);
-      assert(block != nullptr);
-    }
-    virtual EggProgramNodeFlags prepare(EggProgramContext& context) override {
-      return context.prepareUsing(*this->expr, *this->block);
-    }
-    virtual egg::lang::Value execute(EggProgramContext& context) const override {
-      return context.executeUsing(*this, *this->expr, *this->block);
-    }
-    virtual void dump(std::ostream& os) const override {
-      ParserDump(os, "using").add(this->expr).add(this->block);
-    }
-  };
-
   class EggParserNode_While : public EggParserNodeBase {
   private:
     std::shared_ptr<IEggProgramNode> condition;
@@ -1648,12 +1627,6 @@ std::shared_ptr<egg::yolk::IEggProgramNode> egg::yolk::EggSyntaxNode_Try::promot
     }
   }
   return result;
-}
-
-std::shared_ptr<egg::yolk::IEggProgramNode> egg::yolk::EggSyntaxNode_Using::promote(egg::yolk::IEggParserContext& context) const {
-  auto expr = context.promote(*this->child[0]);
-  auto block = context.promote(*this->child[1]);
-  return makeParserNode<EggParserNode_Using>(context, *this, expr, block);
 }
 
 std::shared_ptr<egg::yolk::IEggProgramNode> egg::yolk::EggSyntaxNode_While::promote(egg::yolk::IEggParserContext& context) const {
