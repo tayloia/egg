@@ -100,9 +100,12 @@ namespace {
     EggParserTypeFunction(const egg::lang::String& name, const egg::lang::IType& rettype)
       : HardReferenceCounted(0), signature(name, rettype) {
     }
-    virtual bool canBeAssignedFrom(const IType& rtype) const {
+    virtual AssignmentSuccess canBeAssignedFrom(const IType& rtype) const {
       // We can assign if the signatures are the same (TODO equal?)
-      return &this->signature == rtype.callable();
+      if (&this->signature == rtype.callable()) {
+        return AssignmentSuccess::Always;
+      }
+      return AssignmentSuccess::Never;
     }
     virtual const egg::lang::IFunctionSignature* callable() const override {
       return &this->signature;
@@ -1390,7 +1393,7 @@ std::shared_ptr<egg::yolk::IEggProgramNode> egg::yolk::EggSyntaxNode_Declare::pr
 }
 
 std::shared_ptr<egg::yolk::IEggProgramNode> egg::yolk::EggSyntaxNode_Guard::promote(egg::yolk::IEggParserContext& context) const {
-  auto type = context.promote(*this->child[0])->getType()->denulledType();
+  auto type = context.promote(*this->child[0])->getType();
   return makeParserNode<EggParserNode_Guard>(context, *this, this->name, *type, context.promote(*this->child[1]));
 }
 

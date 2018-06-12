@@ -99,14 +99,14 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareDeclare(cons
   if (this->scopeTypeDeclare != nullptr) {
     // This must be a prepare call with an inferred type
     assert(rvalue == nullptr);
-    return this->typeCheck(where, ltype, egg::lang::ITypeRef(this->scopeTypeDeclare), name);
+    return this->typeCheck(where, ltype, egg::lang::ITypeRef(this->scopeTypeDeclare), name, false);
   }
   if (rvalue != nullptr) {
     // Type-check the initialization
     if (abandoned(rvalue->prepare(*this))) {
       return EggProgramNodeFlags::Abandon;
     }
-    return this->typeCheck(rvalue->location(), ltype, rvalue->getType(), name);
+    return this->typeCheck(rvalue->location(), ltype, rvalue->getType(), name, false);
   }
   if (ltype->getSimpleTypes() == egg::lang::Discriminator::Inferred) {
     return this->compilerError(where, "Cannot infer type of '", name, "' declared with 'var'");
@@ -118,7 +118,7 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareGuard(const 
   if (abandoned(rvalue.prepare(*this))) {
     return EggProgramNodeFlags::Abandon;
   }
-  return this->typeCheck(where, ltype, rvalue.getType(), name);
+  return this->typeCheck(where, ltype, rvalue.getType(), name, true);
 }
 
 egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareAssign(const egg::lang::LocationSource& where, EggProgramAssign op, IEggProgramNode& lvalue, IEggProgramNode& rvalue) {
@@ -134,7 +134,7 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareAssign(const
   switch (op) {
   case EggProgramAssign::Equal:
     // Simple assignment
-    if (!ltype.canBeAssignedFrom(rtype)) {
+    if (ltype.canBeAssignedFrom(rtype) == egg::lang::IType::AssignmentSuccess::Never) {
       return this->compilerError(where, "Cannot assign a value of type '", rtype.toString(), "' to a target of type '", ltype.toString(), "'");
     }
     break;
@@ -296,7 +296,7 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareFunctionDefi
   }
   if (fallthrough(flags)) {
     // Falling through to the end of a function is the same as an emplicit 'return' with no parameters
-    if (!context.scopeTypeReturn->canBeAssignedFrom(*egg::lang::Type::Void)) {
+    if (context.scopeTypeReturn->canBeAssignedFrom(*egg::lang::Type::Void) == egg::lang::IType::AssignmentSuccess::Never) {
       return context.compilerError(block->location(), "Missing 'return' statement with a value of type '", context.scopeTypeReturn->toString(), "' at the end of the function definition");
     }
   }
@@ -309,7 +309,7 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareReturn(const
   }
   if (value == nullptr) {
     // No return value
-    if (!this->scopeTypeReturn->canBeAssignedFrom(*egg::lang::Type::Void)) {
+    if (this->scopeTypeReturn->canBeAssignedFrom(*egg::lang::Type::Void) == egg::lang::IType::AssignmentSuccess::Never) {
       return this->compilerError(where, "Expected 'return' statement with a value of type '", this->scopeTypeReturn->toString(), "'");
     }
     return EggProgramNodeFlags::None; // No fallthrough
@@ -318,7 +318,7 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareReturn(const
     return EggProgramNodeFlags::Abandon;
   }
   auto rtype = value->getType();
-  if (!this->scopeTypeReturn->canBeAssignedFrom(*rtype)) {
+  if (this->scopeTypeReturn->canBeAssignedFrom(*rtype) == egg::lang::IType::AssignmentSuccess::Never) {
     return this->compilerError(where, "Expected 'return' statement with a value of type '", this->scopeTypeReturn->toString(), "', but got '", rtype->toString(), "' instead");
   }
   return EggProgramNodeFlags::None; // No fallthrough
@@ -656,17 +656,25 @@ egg::lang::Value egg::yolk::EggProgramContext::executeWithValue(const IEggProgra
   }
 }
 
-egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::typeCheck(const egg::lang::LocationSource& where, egg::lang::ITypeRef& ltype, const egg::lang::ITypeRef& rtype, const egg::lang::String& name) {
+egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::typeCheck(const egg::lang::LocationSource& where, egg::lang::ITypeRef& ltype, const egg::lang::ITypeRef& rtype, const egg::lang::String& name, bool guard) {
   assert(rtype->getSimpleTypes() != egg::lang::Discriminator::Inferred);
   if (ltype->getSimpleTypes() == egg::lang::Discriminator::Inferred) {
     // We can infer the type
-    ltype = rtype;
+    if (guard) {
+      ltype = rtype->denulledType();
+    } else {
+      ltype = rtype;
+    }
     auto symbol = this->symtable->findSymbol(name, false);
     assert(symbol != nullptr);
-    symbol->setInferredType(*rtype);
+    symbol->setInferredType(*ltype);
   }
-  if (!ltype->canBeAssignedFrom(*rtype)) {
+  auto assignable = ltype->canBeAssignedFrom(*rtype);
+  if (assignable == egg::lang::IType::AssignmentSuccess::Never) {
     return this->compilerError(where, "Cannot initialize '", name, "' of type '", ltype->toString(), "' with a value of type '", rtype->toString(), "'");
+  }
+  if (guard && (assignable == egg::lang::IType::AssignmentSuccess::Always)) {
+    this->compilerWarning(where, "Guarded assignment to '", name, "' of type '", ltype->toString(), "' will always succeed");
   }
   return EggProgramNodeFlags::Fallthrough;
 }

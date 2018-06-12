@@ -13,7 +13,7 @@ for (var i = 0; i < 100; ++i) {
   s += i;
 }
 print(s);
-switch (var ss = s) {
+switch (s) {
 case 123:
 case 234:
 default:

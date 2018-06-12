@@ -73,9 +73,12 @@ namespace {
     virtual String toString() const override {
       return this->signature.toString();
     }
-    virtual bool canBeAssignedFrom(const IType& rtype) const {
+    virtual AssignmentSuccess canBeAssignedFrom(const IType& rtype) const {
       // We can assign if the signatures are the same (TODO equal?)
-      return &this->signature == rtype.callable();
+      if (&this->signature == rtype.callable()) {
+        return AssignmentSuccess::Always;
+      }
+      return AssignmentSuccess::Never;
     }
     virtual const IFunctionSignature* callable() const override {
       return &this->signature;

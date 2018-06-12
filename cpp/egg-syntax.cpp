@@ -1106,7 +1106,6 @@ std::unique_ptr<IEggSyntaxNode> EggSyntaxParserContext::parseExpressionDeclarati
   auto& pk = mark.peek(0);
   assert(pk.kind == EggTokenizerKind::Keyword);
   auto keyword = EggTokenizerValue::getKeywordString(pk.value.k);
-  EggSyntaxNodeLocation location(pk);
   if (!mark.peek(1).isOperator(EggTokenizerOperator::ParenthesisLeft)) {
     this->unexpected("Expected '(' after '" + keyword + "' keyword", mark.peek(1));
   }
@@ -1126,6 +1125,7 @@ std::unique_ptr<IEggSyntaxNode> EggSyntaxParserContext::parseExpressionDeclarati
     if (!p1.isOperator(EggTokenizerOperator::Equal)) {
       this->unexpected("Expected '=' after variable identifier in '" + keyword + "' statement", p1);
     }
+    EggSyntaxNodeLocation location(p0);
     mark.advance(2);
     auto rhs = this->parseExpression(nullptr);
     if (rhs == nullptr) {

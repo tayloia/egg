@@ -197,11 +197,12 @@ namespace egg::lang {
   class IType {
     typedef egg::gc::HardRef<const IType> Ref; // Local typedef
   public:
+    enum class AssignmentSuccess { Never, Sometimes, Always };
     virtual ~IType() {}
     virtual IType* acquireHard() const = 0;
     virtual void releaseHard() const = 0;
     virtual String toString() const = 0;
-    virtual bool canBeAssignedFrom(const IType& rhs) const = 0;
+    virtual AssignmentSuccess canBeAssignedFrom(const IType& rhs) const = 0;
 
     virtual Value promoteAssignment(IExecution& execution, const Value& rhs) const; // Default implementation calls IType::canBeAssignedFrom()
     virtual const IFunctionSignature* callable() const; // Default implementation returns nullptr

@@ -3,23 +3,27 @@
 namespace {
   using namespace egg::lang;
 
-  bool canBeAssignedFromSimple(Discriminator lhs, const IType& rtype) {
+  IType::AssignmentSuccess canBeAssignedFromSimple(Discriminator lhs, const IType& rtype) {
     assert(lhs != Discriminator::Inferred);
     auto rhs = rtype.getSimpleTypes();
     assert(rhs != Discriminator::Inferred);
     if (rhs == Discriminator::None) {
       // The source is not simple
-      return false;
+      return IType::AssignmentSuccess::Never;
+    }
+    if (Bits::hasAllSet(lhs, rhs)) {
+      // The assignment will always work
+      return IType::AssignmentSuccess::Always;
     }
     if (Bits::hasAnySet(lhs, rhs)) {
       // There's a possibility that the assignment might work
-      return true;
+      return IType::AssignmentSuccess::Sometimes;
     }
     if (Bits::hasAnySet(lhs, Discriminator::Float) && Bits::hasAnySet(rhs, Discriminator::Int)) {
       // We allow type promotion int->float
-      return true;
+      return IType::AssignmentSuccess::Sometimes;
     }
-    return false;
+    return IType::AssignmentSuccess::Never;
   }
 
   Value promoteAssignmentSimple(IExecution& execution, Discriminator lhs, const Value& rhs) {
@@ -790,8 +794,8 @@ namespace {
     virtual ITypeRef referencedType() const override {
       return this->referenced;
     }
-    virtual bool canBeAssignedFrom(const IType&) const {
-      return false; // TODO
+    virtual AssignmentSuccess canBeAssignedFrom(const IType&) const {
+      return AssignmentSuccess::Never; // TODO
     }
   };
 
@@ -820,8 +824,8 @@ namespace {
       }
       return Type::makeUnion(*this, other);
     }
-    virtual bool canBeAssignedFrom(const IType&) const {
-      return false;
+    virtual AssignmentSuccess canBeAssignedFrom(const IType&) const {
+      return AssignmentSuccess::Never;
     }
     virtual Value promoteAssignment(IExecution& execution, const Value&) const override {
       return execution.raiseFormat("Cannot assign to 'null' value");
@@ -859,7 +863,7 @@ namespace {
       }
       return Type::makeUnion(*this, other);
     }
-    virtual bool canBeAssignedFrom(const IType& rhs) const {
+    virtual AssignmentSuccess canBeAssignedFrom(const IType& rhs) const {
       return canBeAssignedFromSimple(TAG, rhs);
     }
     virtual Value promoteAssignment(IExecution& execution, const Value& rhs) const override {
@@ -952,7 +956,7 @@ namespace {
       }
       return ITypeRef(this);
     }
-    virtual bool canBeAssignedFrom(const IType& rhs) const {
+    virtual AssignmentSuccess canBeAssignedFrom(const IType& rhs) const {
       return canBeAssignedFromSimple(this->tag, rhs);
     }
     virtual Value promoteAssignment(IExecution& execution, const Value& rhs) const override {
@@ -990,8 +994,8 @@ namespace {
     virtual egg::lang::Discriminator getSimpleTypes() const override {
       return egg::lang::Discriminator::None; // TODO
     }
-    virtual bool canBeAssignedFrom(const IType&) const {
-      return false; // TODO
+    virtual AssignmentSuccess canBeAssignedFrom(const IType&) const {
+      return AssignmentSuccess::Never; // TODO
     }
     virtual const IFunctionSignature* callable() const override {
       EGG_THROW("TODO: Cannot yet call to union value"); // TODO
@@ -1467,9 +1471,9 @@ egg::lang::String egg::lang::IIndexSignature::toString() const {
 }
 
 egg::lang::Value egg::lang::IType::promoteAssignment(IExecution& execution, const Value& rhs) const {
-  // The default implementation calls IType::canBeAssignedFrom() but does not promote
+  // The default implementation calls IType::canBeAssignedFrom() but does not actually promote
   auto& rtype = rhs.getRuntimeType();
-  if (!this->canBeAssignedFrom(rtype)) {
+  if (this->canBeAssignedFrom(rtype) == AssignmentSuccess::Never) {
     return execution.raiseFormat("Cannot assign a value of type '", rtype.toString(), "' to a target of type '", this->toString(), "'");
   }
   return rhs;
