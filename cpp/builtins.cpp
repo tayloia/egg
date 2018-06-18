@@ -115,16 +115,18 @@ namespace {
     bool tryGetProperty(const String& name, Value& value) const {
       return this->properties.tryGet(name, value);
     }
-    virtual const IType* dotable(const String* property, String& reason) const {
+    virtual bool dotable(const String* property, ITypeRef& type, String& reason) const {
       if (property == nullptr) {
-        return Type::AnyQ.get();
+        type = Type::AnyQ;
+        return true;
       }
       Value value;
       if (this->properties.tryGet(*property, value)) {
-        return &value.getRuntimeType();
+        type = value.getRuntimeType();
+        return true;
       }
       reason = String::concat("Unknown built-in property: '", this->getName(), ".", *property, "'");
-      return nullptr;
+      return false;
     }
   };
 
@@ -266,7 +268,7 @@ namespace {
       if (result.has(Discriminator::FlowControl)) {
         return result;
       }
-      return Value{ parameters.getPositional(0).getRuntimeType().toString() };
+      return Value{ parameters.getPositional(0).getRuntimeType()->toString() };
     }
   };
 
@@ -409,7 +411,7 @@ namespace {
       // bool contains(string needle)
       auto needle = parameters.getPositional(0);
       if (!needle.is(Discriminator::String)) {
-        return this->raise(execution, "Parameter was expected to be a 'string', not '", needle.getRuntimeType().toString(), "'");
+        return this->raise(execution, "Parameter was expected to be a 'string', not '", needle.getRuntimeType()->toString(), "'");
       }
       return Value{ instance.contains(needle.getString()) };
     }
@@ -426,7 +428,7 @@ namespace {
       // TODO int compare(string other, int? start, int? other_start, int? max_length)
       auto other = parameters.getPositional(0);
       if (!other.is(Discriminator::String)) {
-        return this->raise(execution, "First parameter was expected to be a 'string', not '", other.getRuntimeType().toString(), "'");
+        return this->raise(execution, "First parameter was expected to be a 'string', not '", other.getRuntimeType()->toString(), "'");
       }
       return Value{ instance.compare(other.getString()) };
     }
@@ -443,7 +445,7 @@ namespace {
       // bool startsWith(string needle)
       auto needle = parameters.getPositional(0);
       if (!needle.is(Discriminator::String)) {
-        return this->raise(execution, "Parameter was expected to be a 'string', not '", needle.getRuntimeType().toString(), "'");
+        return this->raise(execution, "Parameter was expected to be a 'string', not '", needle.getRuntimeType()->toString(), "'");
       }
       return Value{ instance.startsWith(needle.getString()) };
     }
@@ -460,7 +462,7 @@ namespace {
       // bool endsWith(string needle)
       auto needle = parameters.getPositional(0);
       if (!needle.is(Discriminator::String)) {
-        return this->raise(execution, "Parameter was expected to be a 'string', not '", needle.getRuntimeType().toString(), "'");
+        return this->raise(execution, "Parameter was expected to be a 'string', not '", needle.getRuntimeType()->toString(), "'");
       }
       return Value{ instance.endsWith(needle.getString()) };
     }
@@ -477,7 +479,7 @@ namespace {
       // TODO int? indexOf(string needle, int? fromIndex, int? count, bool? negate)
       auto needle = parameters.getPositional(0);
       if (!needle.is(Discriminator::String)) {
-        return this->raise(execution, "First parameter was expected to be a 'string', not '", needle.getRuntimeType().toString(), "'");
+        return this->raise(execution, "First parameter was expected to be a 'string', not '", needle.getRuntimeType()->toString(), "'");
       }
       auto index = instance.indexOfString(needle.getString());
       return (index < 0) ? Value::Null : Value{ index };
@@ -495,7 +497,7 @@ namespace {
       // TODO int? lastIndexOf(string needle, int? fromIndex, int? count, bool? negate)
       auto needle = parameters.getPositional(0);
       if (!needle.is(Discriminator::String)) {
-        return this->raise(execution, "First parameter was expected to be a 'string', not '", needle.getRuntimeType().toString(), "'");
+        return this->raise(execution, "First parameter was expected to be a 'string', not '", needle.getRuntimeType()->toString(), "'");
       }
       auto index = instance.lastIndexOfString(needle.getString());
       return (index < 0) ? Value::Null : Value{ index };
@@ -541,7 +543,7 @@ namespace {
       // TODO string split(string separator, int? limit)
       auto separator = parameters.getPositional(0);
       if (!separator.is(Discriminator::String)) {
-        return this->raise(execution, "First parameter was expected to be a 'string', not '", separator.getRuntimeType().toString(), "'");
+        return this->raise(execution, "First parameter was expected to be a 'string', not '", separator.getRuntimeType()->toString(), "'");
       }
       auto split = instance.split(separator.getString());
       assert(split.size() > 0);
@@ -561,7 +563,7 @@ namespace {
       // TODO string slice(int? begin, int? end)
       auto p0 = parameters.getPositional(0);
       if (!p0.is(Discriminator::Int)) {
-        return this->raise(execution, "First parameter was expected to be an 'int', not '", p0.getRuntimeType().toString(), "'");
+        return this->raise(execution, "First parameter was expected to be an 'int', not '", p0.getRuntimeType()->toString(), "'");
       }
       auto begin = p0.getInt();
       if (parameters.getPositionalCount() == 1) {
@@ -569,7 +571,7 @@ namespace {
       }
       auto p1 = parameters.getPositional(1);
       if (!p1.is(Discriminator::Int)) {
-        return this->raise(execution, "Second parameter was expected to be an 'int', not '", p0.getRuntimeType().toString(), "'");
+        return this->raise(execution, "Second parameter was expected to be an 'int', not '", p0.getRuntimeType()->toString(), "'");
       }
       auto end = p1.getInt();
       return Value{ instance.slice(begin, end) };
@@ -587,7 +589,7 @@ namespace {
       // string repeat(int count)
       auto p0 = parameters.getPositional(0);
       if (!p0.is(Discriminator::Int)) {
-        return this->raise(execution, "Parameter was expected to be an 'int', not '", p0.getRuntimeType().toString(), "'");
+        return this->raise(execution, "Parameter was expected to be an 'int', not '", p0.getRuntimeType()->toString(), "'");
       }
       auto count = p0.getInt();
       if (count < 0) {
@@ -620,18 +622,18 @@ namespace {
       // string replace(string needle, string replacement, int? occurrences)
       auto needle = parameters.getPositional(0);
       if (!needle.is(Discriminator::String)) {
-        return this->raise(execution, "First parameter was expected to be a 'string', not '", needle.getRuntimeType().toString(), "'");
+        return this->raise(execution, "First parameter was expected to be a 'string', not '", needle.getRuntimeType()->toString(), "'");
       }
       auto replacement = parameters.getPositional(1);
       if (!replacement.is(Discriminator::String)) {
-        return this->raise(execution, "Second parameter was expected to be a 'string', not '", needle.getRuntimeType().toString(), "'");
+        return this->raise(execution, "Second parameter was expected to be a 'string', not '", needle.getRuntimeType()->toString(), "'");
       }
       if (parameters.getPositionalCount() < 3) {
         return Value{ instance.replace(needle.getString(), replacement.getString()) };
       }
       auto occurrences = parameters.getPositional(2);
       if (!occurrences.is(Discriminator::Int)) {
-        return this->raise(execution, "Third parameter was expected to be an 'int', not '", needle.getRuntimeType().toString(), "'");
+        return this->raise(execution, "Third parameter was expected to be an 'int', not '", needle.getRuntimeType()->toString(), "'");
       }
       return Value{ instance.replace(needle.getString(), replacement.getString(), occurrences.getInt()) };
     }
@@ -649,7 +651,7 @@ namespace {
       // string padLeft(int length, string? padding)
       auto p0 = parameters.getPositional(0);
       if (!p0.is(Discriminator::Int)) {
-        return this->raise(execution, "First parameter was expected to be an 'int', not '", p0.getRuntimeType().toString(), "'");
+        return this->raise(execution, "First parameter was expected to be an 'int', not '", p0.getRuntimeType()->toString(), "'");
       }
       auto length = p0.getInt();
       if (length < 0) {
@@ -660,7 +662,7 @@ namespace {
       }
       auto p1 = parameters.getPositional(1);
       if (!p1.is(Discriminator::String)) {
-        return this->raise(execution, "Second parameter was expected to be a 'string', not '", p1.getRuntimeType().toString(), "'");
+        return this->raise(execution, "Second parameter was expected to be a 'string', not '", p1.getRuntimeType()->toString(), "'");
       }
       return Value{ instance.padLeft(size_t(length), p1.getString()) };
     }
@@ -678,7 +680,7 @@ namespace {
       // string padRight(int length, string? padding)
       auto p0 = parameters.getPositional(0);
       if (!p0.is(Discriminator::Int)) {
-        return this->raise(execution, "First parameter was expected to be an 'int', not '", p0.getRuntimeType().toString(), "'");
+        return this->raise(execution, "First parameter was expected to be an 'int', not '", p0.getRuntimeType()->toString(), "'");
       }
       auto length = p0.getInt();
       if (length < 0) {
@@ -689,7 +691,7 @@ namespace {
       }
       auto p1 = parameters.getPositional(1);
       if (!p1.is(Discriminator::String)) {
-        return this->raise(execution, "Second parameter was expected to be a 'string', not '", p1.getRuntimeType().toString(), "'");
+        return this->raise(execution, "Second parameter was expected to be a 'string', not '", p1.getRuntimeType()->toString(), "'");
       }
       return Value{ instance.padRight(size_t(length), p1.getString()) };
     }

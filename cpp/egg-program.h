@@ -25,6 +25,7 @@ namespace egg::yolk {
     virtual bool symbol(egg::lang::String& nameOut, egg::lang::ITypeRef& typeOut) const = 0;
     virtual void empredicate(EggProgramContext& context, std::shared_ptr<IEggProgramNode>& ptr) = 0;
     virtual EggProgramNodeFlags prepare(EggProgramContext& context) = 0;
+    virtual EggProgramNodeFlags addressable(EggProgramContext& context) = 0;
     virtual egg::lang::Value execute(EggProgramContext& context) const = 0;
     virtual std::unique_ptr<IEggProgramAssignee> assignee(EggProgramContext& context) const = 0;
     virtual void dump(std::ostream& os) const = 0;
@@ -60,7 +61,7 @@ namespace egg::yolk {
     }
     const egg::lang::String& getName() const { return this->name; }
     const egg::lang::IType& getType() const { return *this->type; }
-    const egg::lang::Value& getValue() const { return this->value; }
+    egg::lang::Value& getValue() { return this->value; }
     void setInferredType(const egg::lang::IType& inferred);
     egg::lang::Value assign(egg::lang::IExecution& execution, const egg::lang::Value& rhs);
   };
@@ -148,9 +149,10 @@ namespace egg::yolk {
     std::unique_ptr<IEggProgramAssignee> assigneeIdentifier(const IEggProgramNode& self, const egg::lang::String& name);
     std::unique_ptr<IEggProgramAssignee> assigneeBrackets(const IEggProgramNode& self, const std::shared_ptr<IEggProgramNode>& instance, const std::shared_ptr<IEggProgramNode>& index);
     std::unique_ptr<IEggProgramAssignee> assigneeDot(const IEggProgramNode& self, const std::shared_ptr<IEggProgramNode>& instance, const egg::lang::String& property);
+    std::unique_ptr<IEggProgramAssignee> assigneeDeref(const IEggProgramNode& self, const std::shared_ptr<IEggProgramNode>& instance);
     void statement(const IEggProgramNode& node); // TODO remove?
     egg::lang::LocationRuntime swapLocation(const egg::lang::LocationRuntime& loc); // TODO remove?
-    egg::lang::Value get(const egg::lang::String& name);
+    egg::lang::Value get(const egg::lang::String& name, bool byref);
     egg::lang::Value set(const egg::lang::String& name, const egg::lang::Value& rvalue);
     egg::lang::Value guard(const egg::lang::String& name, const egg::lang::Value& rvalue);
     egg::lang::Value assign(EggProgramAssign op, const IEggProgramNode& lhs, const IEggProgramNode& rhs);
@@ -192,7 +194,7 @@ namespace egg::yolk {
     egg::lang::Value executeArray(const IEggProgramNode& self, const std::vector<std::shared_ptr<IEggProgramNode>>& values);
     egg::lang::Value executeObject(const IEggProgramNode& self, const std::vector<std::shared_ptr<IEggProgramNode>>& values);
     egg::lang::Value executeCall(const IEggProgramNode& self, const IEggProgramNode& callee, const std::vector<std::shared_ptr<IEggProgramNode>>& parameters);
-    egg::lang::Value executeIdentifier(const IEggProgramNode& self, const egg::lang::String& name);
+    egg::lang::Value executeIdentifier(const IEggProgramNode& self, const egg::lang::String& name, bool byref);
     egg::lang::Value executeLiteral(const IEggProgramNode& self, const egg::lang::Value& value);
     egg::lang::Value executeBrackets(const IEggProgramNode& self, const IEggProgramNode& instance, const IEggProgramNode& index);
     egg::lang::Value executeDot(const IEggProgramNode& self, const IEggProgramNode& instance, const egg::lang::String& property);
@@ -240,7 +242,8 @@ namespace egg::yolk {
     EggProgramNodeFlags prepareScope(const IEggProgramNode* node, std::function<EggProgramNodeFlags(EggProgramContext&)> action);
     EggProgramNodeFlags prepareStatements(const std::vector<std::shared_ptr<IEggProgramNode>>& statements);
     EggProgramNodeFlags typeCheck(const egg::lang::LocationSource& where, egg::lang::ITypeRef& ltype, const egg::lang::ITypeRef& rtype, const egg::lang::String& name, bool guard);
-    egg::lang::Value executeScope(const IEggProgramNode* node, std::function<egg::lang::Value(EggProgramContext&)> action);
+    typedef std::function<egg::lang::Value(EggProgramContext&)> ScopeAction;
+    egg::lang::Value executeScope(const IEggProgramNode* node, ScopeAction action);
     egg::lang::Value executeStatements(const std::vector<std::shared_ptr<IEggProgramNode>>& statements);
     egg::lang::Value executeFinally(const egg::lang::Value& retval, const IEggProgramNode* block);
     egg::lang::Value executeForeachString(IEggProgramAssignee& target, const egg::lang::String& source, const IEggProgramNode& block);

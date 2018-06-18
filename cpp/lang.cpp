@@ -36,7 +36,7 @@ namespace {
       // We allow type promotion int->float
       return Value(double(rhs.getInt())); // TODO overflows?
     }
-    return execution.raiseFormat("Cannot assign a value of type '", rhs.getRuntimeType().toString(), "' to a target of type '", Value::getTagString(lhs), "'");
+    return execution.raiseFormat("Cannot assign a value of type '", rhs.getRuntimeType()->toString(), "' to a target of type '", Value::getTagString(lhs), "'");
   }
 
   void formatSourceLocation(StringBuilder& sb, const LocationSource& location) {
@@ -777,12 +777,12 @@ namespace {
     return StringBufferUTF8::create(sb.toUTF8());
   }
 
-  class TypeReference : public egg::gc::HardReferenceCounted<IType> {
-    EGG_NO_COPY(TypeReference);
+  class TypePointer : public egg::gc::HardReferenceCounted<IType> {
+    EGG_NO_COPY(TypePointer);
   private:
     ITypeRef referenced;
   public:
-    explicit TypeReference(const IType& referenced)
+    explicit TypePointer(const IType& referenced)
       : HardReferenceCounted(0), referenced(&referenced) {
     }
     virtual String toString() const override {
@@ -791,11 +791,11 @@ namespace {
     virtual egg::lang::Discriminator getSimpleTypes() const override {
       return egg::lang::Discriminator::None; // TODO
     }
-    virtual ITypeRef referencedType() const override {
+    virtual ITypeRef pointeeType() const override {
       return this->referenced;
     }
-    virtual AssignmentSuccess canBeAssignedFrom(const IType&) const {
-      return AssignmentSuccess::Never; // TODO
+    virtual AssignmentSuccess canBeAssignedFrom(const IType& rhs) const {
+      return this->referenced->canBeAssignedFrom(*rhs.pointeeType());
     }
   };
 
@@ -880,9 +880,10 @@ namespace {
   class TypeString : public TypeNative<Discriminator::String> {
   public:
     // TODO callable and indexable
-    virtual const IType* iterable() const override {
+    virtual bool iterable(ITypeRef& type) const override {
       // When strings are iterated, they iterate through strings (of codepoints)
-      return Type::String.get();
+      type = Type::String;
+      return true;
     }
   };
   const TypeString typeString{};
@@ -968,14 +969,16 @@ namespace {
       }
       return nullptr;
     }
-    virtual const IType* iterable() const override {
+    virtual bool iterable(ITypeRef& type) const override {
       if (Bits::hasAnySet(this->tag, Discriminator::Object)) {
-        return Type::Any.get();
+        type = Type::Any;
+        return true;
       }
       if (Bits::hasAnySet(this->tag, Discriminator::String)) {
-        return Type::String.get();
+        type = Type::String;
+        return true;
       }
-      return nullptr;
+      return false;
     }
   };
 
@@ -999,6 +1002,15 @@ namespace {
     }
     virtual const IFunctionSignature* callable() const override {
       EGG_THROW("TODO: Cannot yet call to union value"); // TODO
+    }
+  };
+
+  class ValueOnHeap : public egg::gc::HardReferenceCounted<egg::lang::ValueReferenceCounted> {
+    ValueOnHeap(const ValueOnHeap&) = delete;
+    ValueOnHeap& operator=(const ValueOnHeap&) = delete;
+  public:
+    explicit ValueOnHeap(const egg::lang::Value& value)
+      : egg::gc::HardReferenceCounted<egg::lang::ValueReferenceCounted>(0, value) {
     }
   };
 }
@@ -1108,7 +1120,9 @@ const egg::lang::Value egg::lang::Value::ReturnVoid{ Discriminator::Return | Dis
 void egg::lang::Value::copyInternals(const Value& other) {
   assert(this != &other);
   this->tag = other.tag;
-  if (this->has(Discriminator::Object)) {
+  if (this->has(Discriminator::Indirect | Discriminator::Pointer)) {
+    this->v = other.v->acquireHard();
+  } else if (this->has(Discriminator::Object)) {
     this->o = other.o->acquireHard();
   } else if (this->has(Discriminator::String)) {
     this->s = other.s->acquireHard();
@@ -1125,7 +1139,9 @@ void egg::lang::Value::copyInternals(const Value& other) {
 
 void egg::lang::Value::moveInternals(Value& other) {
   this->tag = other.tag;
-  if (this->has(Discriminator::Object)) {
+  if (this->has(Discriminator::Indirect | Discriminator::Pointer)) {
+    this->v = other.v;
+  } else if (this->has(Discriminator::Object)) {
     this->o = other.o;
   } else if (this->has(Discriminator::String)) {
     this->s = other.s;
@@ -1142,13 +1158,20 @@ void egg::lang::Value::moveInternals(Value& other) {
 }
 
 void egg::lang::Value::destroyInternals() {
-  if (this->has(Discriminator::Object)) {
+  if (this->has(Discriminator::Indirect | Discriminator::Pointer)) {
+    this->v->releaseHard();
+  } else if (this->has(Discriminator::Object)) {
     this->o->releaseHard();
   } else if (this->has(Discriminator::String)) {
     this->s->releaseHard();
   } else if (this->has(Discriminator::Type)) {
     this->t->releaseHard();
   }
+}
+
+egg::lang::Value::Value(const ValueReferenceCounted& vrc)
+  : tag(Discriminator::Pointer) {
+  this->v = vrc.acquireHard();
 }
 
 egg::lang::Value::Value(const Value& value) {
@@ -1179,27 +1202,66 @@ egg::lang::Value::~Value() {
   this->destroyInternals();
 }
 
+const egg::lang::Value& egg::lang::Value::direct() const {
+  auto* p = this;
+  while (p->has(Discriminator::Indirect)) {
+    p = p->v;
+    assert(p != nullptr);
+  }
+  return *p;
+}
+
+egg::lang::ValueReferenceCounted& egg::lang::Value::indirect() {
+  // Make this value indirect (i.e. heap-based)
+  if (!this->has(Discriminator::Indirect)) {
+    auto* heap = new ValueOnHeap(*this);
+    this->tag = Discriminator::Indirect;
+    this->v = heap->acquireHard();
+  }
+  return *this->v;
+}
+
+egg::lang::Value egg::lang::Value::address() {
+  // Always return a Pointer, not Indirect
+  return Value(this->indirect());
+}
+
 bool egg::lang::Value::equal(const Value& lhs, const Value& rhs) {
-  if (lhs.tag != rhs.tag) {
+  auto& a = lhs.direct();
+  auto& b = rhs.direct();
+  if (a.tag != b.tag) {
     return false;
   }
-  if (lhs.tag == Discriminator::Bool) {
-    return lhs.b == rhs.b;
+  if (a.tag == Discriminator::Bool) {
+    return a.b == b.b;
   }
-  if (lhs.tag == Discriminator::Int) {
-    return lhs.i == rhs.i;
+  if (a.tag == Discriminator::Int) {
+    return a.i == b.i;
   }
-  if (lhs.tag == Discriminator::Float) {
-    return lhs.f == rhs.f;
+  if (a.tag == Discriminator::Float) {
+    return a.f == b.f;
   }
-  if (lhs.tag == Discriminator::String) {
-    return lhs.s->equal(*rhs.s);
+  if (a.tag == Discriminator::String) {
+    return a.s->equal(*b.s);
   }
-  if (lhs.tag == Discriminator::Type) {
-    return lhs.t == rhs.t;
+  if (a.tag == Discriminator::Type) {
+    return a.t == b.t;
   }
-  assert(lhs.tag == Discriminator::Object);
-  return lhs.o == rhs.o;
+  if (a.tag == Discriminator::Pointer) {
+    return a.v == b.v;
+  }
+  assert(a.tag == Discriminator::Object);
+  return a.o == b.o;
+}
+
+std::string egg::lang::Value::getTagString() const {
+  if (this->tag == Discriminator::Indirect) {
+    return this->v->getTagString();
+  }
+  if (this->tag == Discriminator::Pointer) {
+    return this->v->getTagString() + "*";
+  }
+  return Value::getTagString(this->tag);
 }
 
 egg::lang::String egg::lang::LocationSource::toSourceString() const {
@@ -1247,6 +1309,8 @@ std::string egg::lang::Value::getTagString(Discriminator tag) {
     { int(Discriminator::Float), "float" },
     { int(Discriminator::String), "string" },
     { int(Discriminator::Object), "object" },
+    { int(Discriminator::Indirect), "indirect" },
+    { int(Discriminator::Pointer), "pointer" },
     { int(Discriminator::Break), "break" },
     { int(Discriminator::Continue), "continue" },
     { int(Discriminator::Return), "return" },
@@ -1260,23 +1324,27 @@ std::string egg::lang::Value::getTagString(Discriminator tag) {
     return "null";
   }
   if (Bits::hasAnySet(tag, Discriminator::Null)) {
-    return egg::yolk::String::fromEnum(Bits::clear(tag, Discriminator::Null), table) + "?";
+    return Value::getTagString(Bits::clear(tag, Discriminator::Null)) + "?";
   }
   return egg::yolk::String::fromEnum(tag, table);
 }
 
-const egg::lang::IType& egg::lang::Value::getRuntimeType() const {
+egg::lang::ITypeRef egg::lang::Value::getRuntimeType() const {
+  assert(this->tag != Discriminator::Indirect);
+  if (this->tag == Discriminator::Pointer) {
+    return this->v->getRuntimeType()->pointerType();
+  }
   if (this->tag == Discriminator::Object) {
     // Ask the object for its type
-    return this->o->getRuntimeType();
+    return ITypeRef(&this->o->getRuntimeType());
   }
   if (this->tag == Discriminator::Type) {
     // TODO Is a type's type itself?
-    return *this->t;
+    return ITypeRef(this->t);
   }
   auto* native = Type::getNative(this->tag);
   if (native != nullptr) {
-    return *native;
+    return ITypeRef(native);
   }
   EGG_THROW("Internal type error: Unknown runtime type");
 }
@@ -1325,12 +1393,12 @@ std::string egg::lang::Value::toUTF8() const {
   return "<" + Value::getTagString(this->tag) + ">";
 }
 
-egg::lang::ITypeRef egg::lang::IType::referencedType() const {
+egg::lang::ITypeRef egg::lang::IType::pointerType() const {
   // The default implementation is to return a new type 'Type*'
-  return egg::lang::ITypeRef::make<TypeReference>(*this);
+  return egg::lang::ITypeRef::make<TypePointer>(*this);
 }
 
-egg::lang::ITypeRef egg::lang::IType::dereferencedType() const {
+egg::lang::ITypeRef egg::lang::IType::pointeeType() const {
   // The default implementation is to return 'Void' indicating that this is NOT dereferencable
   return Type::Void;
 }
@@ -1342,21 +1410,23 @@ egg::lang::ITypeRef egg::lang::IType::denulledType() const {
 
 egg::lang::Value egg::lang::IType::dotGet(IExecution& execution, const Value& instance, const String& property) const {
   // The default implementation is to dispatch requests for strings and complex types
-  if (instance.is(Discriminator::Object)) {
-    return instance.getObject().getProperty(execution, property);
+  auto& direct = instance.direct();
+  if (direct.is(Discriminator::Object)) {
+    return direct.getObject().getProperty(execution, property);
   }
-  if (instance.is(Discriminator::String)) {
-    return instance.getString().builtin(execution, property);
+  if (direct.is(Discriminator::String)) {
+    return direct.getString().builtin(execution, property);
   }
   return execution.raiseFormat("Values of type '", this->toString(), "' do not support properties such as '.", property, "'");
 }
 
 egg::lang::Value egg::lang::IType::dotSet(IExecution& execution, const Value& instance, const String& property, const Value& value) const {
   // The default implementation is to dispatch requests for complex types
-  if (instance.is(Discriminator::Object)) {
-    return instance.getObject().setProperty(execution, property, value);
+  auto& direct = instance.direct();
+  if (direct.is(Discriminator::Object)) {
+    return direct.getObject().setProperty(execution, property, value);
   }
-  if (instance.is(Discriminator::String)) {
+  if (direct.is(Discriminator::String)) {
     return execution.raiseFormat("Strings do not support modification through properties such as '.", property, "'");
   }
   return execution.raiseFormat("Values of type '", this->toString(), "' do not support modification of properties such as '.", property, "'");
@@ -1364,14 +1434,15 @@ egg::lang::Value egg::lang::IType::dotSet(IExecution& execution, const Value& in
 
 egg::lang::Value egg::lang::IType::bracketsGet(IExecution& execution, const Value& instance, const Value& index) const {
   // The default implementation is to dispatch requests for strings and complex types
-  if (instance.is(Discriminator::Object)) {
-    return instance.getObject().getIndex(execution, index);
+  auto& direct = instance.direct();
+  if (direct.is(Discriminator::Object)) {
+    return direct.getObject().getIndex(execution, index);
   }
-  if (instance.is(Discriminator::String)) {
+  if (direct.is(Discriminator::String)) {
     // string operator[](int index)
-    auto str = instance.getString();
+    auto str = direct.getString();
     if (!index.is(Discriminator::Int)) {
-      return execution.raiseFormat("String indexing '[]' only supports indices of type 'int', not '", index.getRuntimeType().toString(), "'");
+      return execution.raiseFormat("String indexing '[]' only supports indices of type 'int', not '", index.getRuntimeType()->toString(), "'");
     }
     auto i = index.getInt();
     auto c = str.codePointAt(size_t(i));
@@ -1390,10 +1461,11 @@ egg::lang::Value egg::lang::IType::bracketsGet(IExecution& execution, const Valu
 
 egg::lang::Value egg::lang::IType::bracketsSet(IExecution& execution, const Value& instance, const Value& index, const Value& value) const {
   // The default implementation is to dispatch requests for complex types
-  if (instance.is(Discriminator::Object)) {
-    return instance.getObject().setIndex(execution, index, value);
+  auto& direct = instance.direct();
+  if (direct.is(Discriminator::Object)) {
+    return direct.getObject().setIndex(execution, index, value);
   }
-  if (instance.is(Discriminator::String)) {
+  if (direct.is(Discriminator::String)) {
     return execution.raiseFormat("Strings do not support modification through indexing with '[]'");
   }
   return execution.raiseFormat("Values of type '", this->toString(), "' do not support indexing with '[]'");
@@ -1472,11 +1544,12 @@ egg::lang::String egg::lang::IIndexSignature::toString() const {
 
 egg::lang::Value egg::lang::IType::promoteAssignment(IExecution& execution, const Value& rhs) const {
   // The default implementation calls IType::canBeAssignedFrom() but does not actually promote
-  auto& rtype = rhs.getRuntimeType();
-  if (this->canBeAssignedFrom(rtype) == AssignmentSuccess::Never) {
-    return execution.raiseFormat("Cannot assign a value of type '", rtype.toString(), "' to a target of type '", this->toString(), "'");
+  auto& direct = rhs.direct();
+  auto rtype = direct.getRuntimeType();
+  if (this->canBeAssignedFrom(*rtype) == AssignmentSuccess::Never) {
+    return execution.raiseFormat("Cannot assign a value of type '", rtype->toString(), "' to a target of type '", this->toString(), "'");
   }
-  return rhs;
+  return direct;
 }
 
 const egg::lang::IFunctionSignature* egg::lang::IType::callable() const {
@@ -1489,15 +1562,15 @@ const egg::lang::IIndexSignature* egg::lang::IType::indexable() const {
   return nullptr;
 }
 
-const egg::lang::IType* egg::lang::IType::dotable(const String*, egg::lang::String& reason) const {
+bool egg::lang::IType::dotable(const String*, ITypeRef&, String& reason) const {
   // The default implementation is to say we don't support properties with '.'
   reason = egg::lang::String::concat("Values of type '", this->toString(), "' do not support the '.' operator for property access");
-  return nullptr;
+  return false;
 }
 
-const egg::lang::IType* egg::lang::IType::iterable() const {
+bool egg::lang::IType::iterable(ITypeRef&) const {
   // The default implementation is to say we don't support iteration
-  return nullptr;
+  return false;
 }
 
 egg::lang::Discriminator egg::lang::IType::getSimpleTypes() const {

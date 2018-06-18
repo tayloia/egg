@@ -27,13 +27,13 @@ namespace {
     }
     virtual egg::lang::Value getIndex(egg::lang::IExecution& execution, const egg::lang::Value& index) override {
       if (!index.is(egg::lang::Discriminator::String)) {
-        return execution.raiseFormat(this->kind, " index (property name) was expected to be 'string', not '", index.getRuntimeType().toString(), "'");
+        return execution.raiseFormat(this->kind, " index (property name) was expected to be 'string', not '", index.getRuntimeType()->toString(), "'");
       }
       return this->getProperty(execution, index.getString());
     }
     virtual egg::lang::Value setIndex(egg::lang::IExecution& execution, const egg::lang::Value& index, const egg::lang::Value& value) override {
       if (!index.is(egg::lang::Discriminator::String)) {
-        return execution.raiseFormat(this->kind, " index (property name) was expected to be 'string', not '", index.getRuntimeType().toString(), "'");
+        return execution.raiseFormat(this->kind, " index (property name) was expected to be 'string', not '", index.getRuntimeType()->toString(), "'");
       }
       return this->setProperty(execution, index.getString(), value);
     }
@@ -77,9 +77,10 @@ namespace {
     virtual egg::lang::String toString() const override {
       return egg::lang::String::fromUTF8("<keyvalue>");
     }
-    virtual const egg::lang::IType* iterable() const override {
+    virtual bool iterable(egg::lang::ITypeRef& type) const override {
       // A keyvalue is a dictionary of two elements, so it is itself iterable
-      return &VanillaKeyValueType::instance;
+      type.set(&VanillaKeyValueType::instance);
+      return true;
     }
     virtual AssignmentSuccess canBeAssignedFrom(const IType& rtype) const {
       // TODO Only allow assignment of vanilla keyvalues
@@ -152,20 +153,24 @@ namespace {
       // Indexing an array returns an element
       return &VanillaArrayIndexSignature::instance;
     }
-    virtual const egg::lang::IType* dotable(const egg::lang::String* property, egg::lang::String& reason) const override {
+    virtual bool dotable(const egg::lang::String* property, egg::lang::ITypeRef& type, egg::lang::String& reason) const override {
       // Arrays support limited properties
       if (property == nullptr) {
-        return egg::lang::Type::AnyQ.get();
+        type = egg::lang::Type::AnyQ;
+        return true;
       }
       auto* retval = VanillaArrayType::getPropertyType(property->toUTF8());
       if (retval == nullptr) {
         reason = egg::lang::String::concat("Arrays do not support property '.", *property, "'");
+        return false;
       }
-      return retval;
+      type.set(retval);
+      return true;
     }
-    virtual const egg::lang::IType* iterable() const override {
+    virtual bool iterable(egg::lang::ITypeRef& type) const override {
       // Iterating an array returns the elements
-      return egg::lang::Type::AnyQ.get();
+      type = egg::lang::Type::AnyQ;
+      return true;
     }
     virtual AssignmentSuccess canBeAssignedFrom(const IType& rtype) const {
       // TODO Only allow assignment of vanilla arrays
@@ -218,7 +223,7 @@ namespace {
     }
     virtual egg::lang::Value getIndex(egg::lang::IExecution& execution, const egg::lang::Value& index) override {
       if (!index.is(egg::lang::Discriminator::Int)) {
-        return execution.raiseFormat("Array index was expected to be 'int', not '", index.getRuntimeType().toString(), "'");
+        return execution.raiseFormat("Array index was expected to be 'int', not '", index.getRuntimeType()->toString(), "'");
       }
       auto i = index.getInt();
       if ((i < 0) || (uint64_t(i) >= uint64_t(this->values.size()))) {
@@ -230,7 +235,7 @@ namespace {
     }
     virtual egg::lang::Value setIndex(egg::lang::IExecution& execution, const egg::lang::Value& index, const egg::lang::Value& value) override {
       if (!index.is(egg::lang::Discriminator::Int)) {
-        return execution.raiseFormat("Array index was expected to be 'int', not '", index.getRuntimeType().toString(), "'");
+        return execution.raiseFormat("Array index was expected to be 'int', not '", index.getRuntimeType()->toString(), "'");
       }
       auto i = index.getInt();
       if ((i < 0) || (i >= 0x7FFFFFFF)) {
@@ -267,7 +272,7 @@ namespace {
     }
     egg::lang::Value setLength(egg::lang::IExecution& execution, const egg::lang::Value& value) {
       if (!value.is(egg::lang::Discriminator::Int)) {
-        return execution.raiseFormat("Array length was expected to be set to an 'int', not '", value.getRuntimeType().toString(), "'");
+        return execution.raiseFormat("Array length was expected to be set to an 'int', not '", value.getRuntimeType()->toString(), "'");
       }
       auto n = value.getInt();
       if ((n < 0) || (n >= 0x7FFFFFFF)) {
@@ -376,13 +381,15 @@ namespace {
       // Indexing an object returns a property
       return &VanillaObjectIndexSignature::instance;
     }
-    virtual const egg::lang::IType* dotable(const egg::lang::String*, egg::lang::String&) const override {
+    virtual bool dotable(const egg::lang::String*, egg::lang::ITypeRef& type, egg::lang::String&) const override {
       // Objects support properties
-      return egg::lang::Type::AnyQ.get();
+      type = egg::lang::Type::AnyQ;
+      return true;
     }
-    virtual const egg::lang::IType* iterable() const override {
+    virtual bool iterable(egg::lang::ITypeRef& type) const override {
       // Iterating an object, returns the dictionary keyvalue pairs
-      return &VanillaKeyValueType::instance;
+      type.set(&VanillaKeyValueType::instance);
+      return true;
     }
     virtual AssignmentSuccess canBeAssignedFrom(const IType& rtype) const {
       // TODO Only allow assignment of vanilla objects

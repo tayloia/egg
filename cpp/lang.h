@@ -2,6 +2,7 @@ namespace egg::lang {
   class IType;
   class String;
   class Value;
+  class ValueReferenceCounted;
 
   class Bits {
   public:
@@ -71,13 +72,15 @@ namespace egg::lang {
     Type = 1 << 7,
     Any = Bool | Int | Float | String | Object,
     Arithmetic = Int | Float,
-    Break = 1 << 8,
-    Continue = 1 << 9,
-    Return = 1 << 10,
-    Yield = 1 << 11,
-    Exception = 1 << 12,
+    Indirect = 1 << 8,
+    Pointer = 1 << 9,
+    Break = 1 << 10,
+    Continue = 1 << 11,
+    Return = 1 << 12,
+    Yield = 1 << 13,
+    Exception = 1 << 14,
     FlowControl = Break | Continue | Return | Yield | Exception,
-    Raw = 1 << 13
+    Raw = 1 << 15
   };
   inline Discriminator operator|(Discriminator lhs, Discriminator rhs) {
     return Bits::set(lhs, rhs);
@@ -194,6 +197,7 @@ namespace egg::lang {
     virtual const IType& getIndexType() const = 0;
   };
 
+  typedef egg::gc::HardRef<const IType> ITypeRef;
   class IType {
     typedef egg::gc::HardRef<const IType> Ref; // Local typedef
   public:
@@ -207,11 +211,11 @@ namespace egg::lang {
     virtual Value promoteAssignment(IExecution& execution, const Value& rhs) const; // Default implementation calls IType::canBeAssignedFrom()
     virtual const IFunctionSignature* callable() const; // Default implementation returns nullptr
     virtual const IIndexSignature* indexable() const; // Default implementation returns nullptr
-    virtual const IType* dotable(const String* property, String& reason) const; // Default implementation returns nullptr
-    virtual const IType* iterable() const; // Default implementation returns nullptr
+    virtual bool dotable(const String* property, ITypeRef& type, String& reason) const; // Default implementation returns false
+    virtual bool iterable(ITypeRef& type) const; // Default implementation returns false
     virtual Discriminator getSimpleTypes() const; // Default implementation returns 'Object'
-    virtual Ref referencedType() const; // Default implementation returns 'Type*'
-    virtual Ref dereferencedType() const; // Default implementation returns 'Void'
+    virtual Ref pointerType() const; // Default implementation returns 'Type*'
+    virtual Ref pointeeType() const; // Default implementation returns 'Void'
     virtual Ref denulledType() const; // Default implementation returns 'Void'
     virtual Ref unionWith(const IType& other) const; // Default implementation calls Type::makeUnion()
     virtual Value dotGet(IExecution& execution, const Value& instance, const String& property) const; // Default implementation dispatches standard requests
@@ -224,7 +228,6 @@ namespace egg::lang {
       return egg::lang::Bits::hasAnySet(this->getSimpleTypes(), native);
     }
   };
-  typedef egg::gc::HardRef<const IType> ITypeRef;
 
   class Type : public ITypeRef {
     Type() = delete;
@@ -415,7 +418,7 @@ namespace egg::lang {
     String toRuntimeString() const;
   };
 
-  class Value final {
+  class Value {
   private:
     Discriminator tag;
     union {
@@ -425,6 +428,7 @@ namespace egg::lang {
       const IString* s;
       IObject* o;
       const IType* t;
+      ValueReferenceCounted* v;
       void* r;
     };
     explicit Value(Discriminator tag) : tag(tag) {}
@@ -440,11 +444,15 @@ namespace egg::lang {
     explicit Value(const String& value) : tag(Discriminator::String) { this->s = value.acquireHard(); }
     explicit Value(IObject& object) : tag(Discriminator::Object) { this->o = object.acquireHard(); }
     explicit Value(const IType& type) : tag(Discriminator::Type) { this->t = type.acquireHard(); }
+    explicit Value(const ValueReferenceCounted& vrc);
     Value(const Value& value);
     Value(Value&& value);
     Value& operator=(const Value& value);
     Value& operator=(Value&& value);
     ~Value();
+    const Value& direct() const;
+    ValueReferenceCounted& indirect();
+    Value address();
     bool operator==(const Value& other) const { return Value::equal(*this, other); }
     bool operator!=(const Value& other) const { return !Value::equal(*this, other); }
     bool is(Discriminator bits) const { return this->tag == bits; }
@@ -455,14 +463,15 @@ namespace egg::lang {
     String getString() const { assert(this->has(Discriminator::String)); return String(*this->s); }
     IObject& getObject() const { assert(this->has(Discriminator::Object)); return *this->o; }
     const IType& getType() const { assert(this->has(Discriminator::Type)); return *this->t; }
+    ValueReferenceCounted& getPointee() const { assert(this->has(Discriminator::Pointer)); return *this->v; }
     void addFlowControl(Discriminator bits);
     bool stripFlowControl(Discriminator bits);
-    std::string getTagString() const { return Value::getTagString(this->tag); }
+    std::string getTagString() const;
     static std::string getTagString(Discriminator tag);
     static bool equal(const Value& lhs, const Value& rhs);
     String toString() const;
     std::string toUTF8() const;
-    const IType& getRuntimeType() const;
+    ITypeRef getRuntimeType() const;
 
     template<typename U, typename... ARGS>
     static Value make(ARGS&&... args) {
@@ -486,6 +495,17 @@ namespace egg::lang {
     static Value builtinType();
     static Value builtinAssert();
     static Value builtinPrint();
+  };
+
+  class ValueReferenceCounted : public Value {
+    ValueReferenceCounted(const ValueReferenceCounted&) = delete;
+    ValueReferenceCounted& operator=(const ValueReferenceCounted&) = delete;
+  protected:
+    explicit ValueReferenceCounted(const Value& value) : Value(value) {}
+  public:
+    virtual ~ValueReferenceCounted() {}
+    virtual ValueReferenceCounted* acquireHard() const = 0;
+    virtual void releaseHard() const = 0;
   };
 }
 

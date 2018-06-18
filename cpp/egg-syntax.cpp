@@ -1906,9 +1906,9 @@ bool EggSyntaxParserContext::parseTypePostfixExpression(egg::lang::ITypeRef& typ
       }
       nullabled = false;
       if (p0.isOperator(EggTokenizerOperator::Star)) {
-        // Poiunter reference to 'type'
+        // Pointer reference to 'type'
         mark.advance(1);
-        type = type->referencedType();
+        type = type->pointerType();
         continue;
       }
       break;

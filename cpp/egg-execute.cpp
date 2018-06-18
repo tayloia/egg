@@ -97,7 +97,7 @@ namespace {
   };
 }
 
-egg::lang::Value egg::yolk::EggProgramContext::executeScope(const IEggProgramNode* node, std::function<egg::lang::Value(EggProgramContext&)> action) {
+egg::lang::Value egg::yolk::EggProgramContext::executeScope(const IEggProgramNode* node, ScopeAction action) {
   egg::lang::String name;
   egg::lang::ITypeRef type{ egg::lang::Type::Void };
   if ((node != nullptr) && node->symbol(name, type)) {
@@ -304,7 +304,7 @@ egg::lang::Value egg::yolk::EggProgramContext::executeForeach(const IEggProgramN
     if (src.is(egg::lang::Discriminator::Object)) {
       return scope.executeForeachIterate(*dst, src.getObject(), block);
     }
-    return scope.raiseFormat("Cannot iterate '", src.getRuntimeType().toString(), "'");
+    return scope.raiseFormat("Cannot iterate '", src.getRuntimeType()->toString(), "'");
   });
 }
 
@@ -411,7 +411,7 @@ egg::lang::Value egg::yolk::EggProgramContext::executeFunctionCall(const egg::la
     auto result = nested.addSymbol(EggProgramSymbol::ReadWrite, pname, ptype)->assign(*this, pvalue);
     if (result.has(egg::lang::Discriminator::FlowControl)) {
       // Re-create the exception with the parameter name included
-      return this->raiseFormat("Type mismatch for parameter '", pname, "': Expected '", ptype.toString(), "', but got '", pvalue.getRuntimeType().toString(), "' instead");
+      return this->raiseFormat("Type mismatch for parameter '", pname, "': Expected '", ptype.toString(), "', but got '", pvalue.getRuntimeType()->toString(), "' instead");
     }
   }
   EggProgramContext context(*this, nested);
@@ -696,9 +696,9 @@ egg::lang::Value egg::yolk::EggProgramContext::executeCall(const IEggProgramNode
   return this->call(func, params);
 }
 
-egg::lang::Value egg::yolk::EggProgramContext::executeIdentifier(const IEggProgramNode& self, const egg::lang::String& name) {
+egg::lang::Value egg::yolk::EggProgramContext::executeIdentifier(const IEggProgramNode& self, const egg::lang::String& name, bool byref) {
   EggProgramExpression expression(*this, self);
-  return this->get(name);
+  return this->get(name, byref);
 }
 
 egg::lang::Value egg::yolk::EggProgramContext::executeLiteral(const IEggProgramNode& self, const egg::lang::Value& value) {
@@ -718,7 +718,7 @@ egg::lang::Value egg::yolk::EggProgramContext::executeBrackets(const IEggProgram
   if (rhs.has(egg::lang::Discriminator::FlowControl)) {
     return rhs;
   }
-  return lhs.getRuntimeType().bracketsGet(*this, lhs, rhs);
+  return lhs.getRuntimeType()->bracketsGet(*this, lhs, rhs);
 }
 
 egg::lang::Value egg::yolk::EggProgramContext::executeDot(const IEggProgramNode& self, const IEggProgramNode& instance, const egg::lang::String& property) {
@@ -727,7 +727,7 @@ egg::lang::Value egg::yolk::EggProgramContext::executeDot(const IEggProgramNode&
   if (lhs.has(egg::lang::Discriminator::FlowControl)) {
     return lhs;
   }
-  return lhs.getRuntimeType().dotGet(*this, lhs, property);
+  return lhs.getRuntimeType()->dotGet(*this, lhs, property);
 }
 
 egg::lang::Value egg::yolk::EggProgramContext::executeUnary(const IEggProgramNode& self, EggProgramUnary op, const IEggProgramNode& expr) {

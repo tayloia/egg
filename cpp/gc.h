@@ -52,7 +52,8 @@ namespace egg::gc {
   private:
     ReferenceCount hard;
   public:
-    explicit HardReferenceCounted(int64_t rc) : T(), hard(rc) {}
+    template<typename... ARGS>
+    explicit HardReferenceCounted(int64_t rc, ARGS&&... args) : T(std::forward<ARGS>(args)...), hard(rc) {}
     virtual T* acquireHard() const override {
       this->hard.acquire();
       return const_cast<HardReferenceCounted*>(this);

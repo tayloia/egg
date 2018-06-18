@@ -18,13 +18,13 @@ namespace {
   EggProgramNodeFlags checkBinarySide(EggProgramContext& context, const egg::lang::LocationSource& where, EggProgramBinary op, const char* side, egg::lang::Discriminator expected, IEggProgramNode& node) {
     auto prepared = node.prepare(context);
     if (!abandoned(prepared)) {
-      auto& type = *node.getType();
-      auto simple = type.getSimpleTypes();
+      auto type = node.getType();
+      auto simple = type->getSimpleTypes();
       assert(simple != egg::lang::Discriminator::Inferred);
       if (!egg::lang::Bits::hasAnySet(simple, expected)) {
         std::string readable = egg::lang::Value::getTagString(expected);
         readable = String::replace(readable, "|", "' or '");
-        prepared = context.compilerError(where, "Expected ", side, " of '", EggProgram::binaryToString(op), "' operator to be '", readable, "', but got '", type.toString(), "' instead");
+        prepared = context.compilerError(where, "Expected ", side, " of '", EggProgram::binaryToString(op), "' operator to be '", readable, "', but got '", type->toString(), "' instead");
       }
     }
     return prepared;
@@ -125,17 +125,17 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareAssign(const
   if (abandoned(lvalue.prepare(*this)) || abandoned(rvalue.prepare(*this))) {
     return EggProgramNodeFlags::Abandon;
   }
-  auto& ltype = *lvalue.getType();
-  auto lsimple = ltype.getSimpleTypes();
+  auto ltype = lvalue.getType();
+  auto lsimple = ltype->getSimpleTypes();
   assert(lsimple != egg::lang::Discriminator::Inferred);
-  auto& rtype = *rvalue.getType();
-  auto rsimple = rtype.getSimpleTypes();
+  auto rtype = rvalue.getType();
+  auto rsimple = rtype->getSimpleTypes();
   assert(rsimple != egg::lang::Discriminator::Inferred);
   switch (op) {
   case EggProgramAssign::Equal:
     // Simple assignment
-    if (ltype.canBeAssignedFrom(rtype) == egg::lang::IType::AssignmentSuccess::Never) {
-      return this->compilerError(where, "Cannot assign a value of type '", rtype.toString(), "' to a target of type '", ltype.toString(), "'");
+    if (ltype->canBeAssignedFrom(*rtype) == egg::lang::IType::AssignmentSuccess::Never) {
+      return this->compilerError(where, "Cannot assign a value of type '", rtype->toString(), "' to a target of type '", ltype->toString(), "'");
     }
     break;
   case EggProgramAssign::BitwiseAnd:
@@ -146,10 +146,10 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareAssign(const
   case EggProgramAssign::ShiftRightUnsigned:
     // Integer-only operation
     if (!egg::lang::Bits::hasAnySet(rsimple, egg::lang::Discriminator::Int)) {
-      return this->compilerError(where, "Expected right-hand side of integer '", EggProgram::assignToString(op), "' assignment operator to be 'int', but got '", rtype.toString(), "' instead");
+      return this->compilerError(where, "Expected right-hand side of integer '", EggProgram::assignToString(op), "' assignment operator to be 'int', but got '", rtype->toString(), "' instead");
     }
     if (!egg::lang::Bits::hasAnySet(lsimple, egg::lang::Discriminator::Int)) {
-      return this->compilerError(where, "Expected left-hand target of integer '", EggProgram::assignToString(op), "' assignment operator to be 'int', but got '", ltype.toString(), "' instead");
+      return this->compilerError(where, "Expected left-hand target of integer '", EggProgram::assignToString(op), "' assignment operator to be 'int', but got '", ltype->toString(), "' instead");
     }
     break;
   case EggProgramAssign::Remainder:
@@ -161,15 +161,15 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareAssign(const
     if (egg::lang::Bits::mask(rsimple, egg::lang::Discriminator::Arithmetic) == egg::lang::Discriminator::Float) {
       // Float-only operation
       if (!egg::lang::Bits::hasAnySet(lsimple, egg::lang::Discriminator::Float)) {
-        return this->compilerError(where, "Expected left-hand target of floating-point '", EggProgram::assignToString(op), "' assignment operator to be 'float', but got '", ltype.toString(), "' instead");
+        return this->compilerError(where, "Expected left-hand target of floating-point '", EggProgram::assignToString(op), "' assignment operator to be 'float', but got '", ltype->toString(), "' instead");
       }
     } else {
       // Float-or-int operation
       if (!egg::lang::Bits::hasAnySet(rsimple, egg::lang::Discriminator::Arithmetic)) {
-        return this->compilerError(where, "Expected right-hand side of '", EggProgram::assignToString(op), "' assignment operator to be 'int' or 'float', but got '", rtype.toString(), "' instead");
+        return this->compilerError(where, "Expected right-hand side of '", EggProgram::assignToString(op), "' assignment operator to be 'int' or 'float', but got '", rtype->toString(), "' instead");
       }
       if (!egg::lang::Bits::hasAnySet(lsimple, egg::lang::Discriminator::Arithmetic)) {
-        return this->compilerError(where, "Expected left-hand target of '", EggProgram::assignToString(op), "' assignment operator to be 'int' or 'float', but got '", ltype.toString(), "' instead");
+        return this->compilerError(where, "Expected left-hand target of '", EggProgram::assignToString(op), "' assignment operator to be 'int' or 'float', but got '", ltype->toString(), "' instead");
       }
     }
     break;
@@ -181,15 +181,15 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareMutate(const
   if (abandoned(lvalue.prepare(*this))) {
     return EggProgramNodeFlags::Abandon;
   }
-  auto& ltype = *lvalue.getType();
-  auto lsimple = ltype.getSimpleTypes();
+  auto ltype = lvalue.getType();
+  auto lsimple = ltype->getSimpleTypes();
   assert(lsimple != egg::lang::Discriminator::Inferred);
   switch (op) {
   case EggProgramMutate::Increment:
   case EggProgramMutate::Decrement:
     // Integer-only operation
     if (!egg::lang::Bits::hasAnySet(lsimple, egg::lang::Discriminator::Int)) {
-      return this->compilerError(where, "Expected target of integer '", EggProgram::mutateToString(op), "' operator to be 'int', but got '", ltype.toString(), "' instead");
+      return this->compilerError(where, "Expected target of integer '", EggProgram::mutateToString(op), "' operator to be 'int', but got '", ltype->toString(), "' instead");
     }
     break;
   }
@@ -265,8 +265,8 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareForeach(IEgg
       return EggProgramNodeFlags::Abandon;
     }
     auto type = rvalue.getType();
-    auto* iterable = type->iterable();
-    if (iterable == nullptr) {
+    egg::lang::ITypeRef iterable{ egg::lang::Type::Void };
+    if (!type->iterable(iterable)) {
       return scope.compilerError(rvalue.location(), "Expression after the ':' in 'for' statement is not iterable: '", type->toString(), "'");
     }
     if (abandoned(scope.prepareWithType(lvalue, *iterable))) {
@@ -516,13 +516,13 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareDot(const eg
   }
   if (egg::lang::Bits::hasAnySet(lsimple, egg::lang::Discriminator::Object)) {
     // Ask the object what properties it supports
+    egg::lang::ITypeRef type{ egg::lang::Type::Void };
     egg::lang::String reason;
-    auto dotable = ltype->dotable(&property, reason);
-    if (dotable != nullptr) {
+    if (ltype->dotable(&property, type, reason)) {
       // It's a known property
       return EggProgramNodeFlags::None;
     }
-    if (ltype->dotable(nullptr, reason) == nullptr) {
+    if (!ltype->dotable(nullptr, type, reason)) {
       // We don't support ANY properties (the reason will be updated)
       return this->compilerError(where, reason);
     }
@@ -535,30 +535,38 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareUnary(const 
   if (abandoned(value.prepare(*this))) {
     return EggProgramNodeFlags::Abandon;
   }
-  auto& type = *value.getType();
-  auto simple = type.getSimpleTypes();
+  auto type = value.getType();
+  auto simple = type->getSimpleTypes();
   assert(simple != egg::lang::Discriminator::Inferred);
   switch (op) {
   case EggProgramUnary::LogicalNot:
     // Boolean-only operation
     if (!egg::lang::Bits::hasAnySet(simple, egg::lang::Discriminator::Bool)) {
-      return this->compilerError(where, "Expected operand of logical-not '!' operator to be 'int', but got '", type.toString(), "' instead");
+      return this->compilerError(where, "Expected operand of logical-not '!' operator to be 'int', but got '", type->toString(), "' instead");
     }
     break;
   case EggProgramUnary::BitwiseNot:
     // Integer-only operation
     if (!egg::lang::Bits::hasAnySet(simple, egg::lang::Discriminator::Int)) {
-      return this->compilerError(where, "Expected operand of bitwise-not '~' operator to be 'int', but got '", type.toString(), "' instead");
+      return this->compilerError(where, "Expected operand of bitwise-not '~' operator to be 'int', but got '", type->toString(), "' instead");
     }
     break;
   case EggProgramUnary::Negate:
     // Arithmetic operation
     if (!egg::lang::Bits::hasAnySet(simple, egg::lang::Discriminator::Arithmetic)) {
-      return this->compilerError(where, "Expected operand of negation '-' operator to be 'int' or 'float', but got '", type.toString(), "' instead");
+      return this->compilerError(where, "Expected operand of negation '-' operator to be 'int' or 'float', but got '", type->toString(), "' instead");
     }
     break;
   case EggProgramUnary::Ref:
+    // Reference '&' operation tells the child node to return the address of the value ("byref")
+    return value.addressable(*this);
   case EggProgramUnary::Deref:
+    // Dereference '*' operation
+    simple = type->pointeeType()->getSimpleTypes();
+    if (simple == egg::lang::Discriminator::Void) {
+      return this->compilerError(where, "Expected operand of dereference '*' operator to be a pointer, but got '", type->toString(), "' instead");
+    }
+    break;
   case EggProgramUnary::Ellipsis:
     return this->compilerError(where, "Unary '", EggProgram::unaryToString(op), "' operator not yet supported"); // TODO
   }

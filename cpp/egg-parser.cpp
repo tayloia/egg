@@ -236,6 +236,10 @@ namespace {
     virtual void empredicate(EggProgramContext&, std::shared_ptr<IEggProgramNode>&) override {
       // By default, nodes do not change when they're used as predicates in function call parameters
     }
+    virtual EggProgramNodeFlags addressable(EggProgramContext& context) override {
+      // By default, nothing is addressable
+      return context.compilerError(this->locationSource, "Invalid operand for reference '&' operator");
+    }
     virtual std::unique_ptr<IEggProgramAssignee> assignee(EggProgramContext&) const override {
       // By default, we fail if asked to create an assignee
       return nullptr;
@@ -878,9 +882,10 @@ namespace {
   private:
     egg::lang::String name;
     egg::lang::ITypeRef type; // Initially 'Void' because we don't know until we're prepared
+    bool byref;
   public:
     EggParserNode_Identifier(const egg::lang::LocationSource& locationSource, const egg::lang::String& name)
-      : EggParserNodeBase(locationSource), name(name), type(egg::lang::Type::Void) {
+      : EggParserNodeBase(locationSource), name(name), type(egg::lang::Type::Void), byref(false) {
     }
     virtual egg::lang::ITypeRef getType() const override {
       return this->type;
@@ -888,8 +893,13 @@ namespace {
     virtual EggProgramNodeFlags prepare(EggProgramContext& context) override {
       return context.prepareIdentifier(this->locationSource, this->name, this->type);
     }
+    virtual EggProgramNodeFlags addressable(EggProgramContext&) override {
+      // Identifiers are always addressable
+      this->byref = true;
+      return EggProgramNodeFlags::None;
+    }
     virtual egg::lang::Value execute(EggProgramContext& context) const override {
-      return context.executeIdentifier(*this, this->name);
+      return context.executeIdentifier(*this, this->name, this->byref);
     }
     virtual std::unique_ptr<IEggProgramAssignee> assignee(EggProgramContext& context) const override {
       return context.assigneeIdentifier(*this, this->name);
@@ -1067,6 +1077,13 @@ namespace {
     }
     virtual egg::lang::Value execute(EggProgramContext& context) const override {
       return context.executeUnary(*this, this->op, *this->expr);
+    }
+    virtual std::unique_ptr<IEggProgramAssignee> assignee(EggProgramContext& context) const override {
+      if (op == EggProgramUnary::Deref) {
+        // Something like "*ptr += value;"
+        return context.assigneeDeref(*this, this->expr);
+      }
+      return nullptr;
     }
     virtual void dump(std::ostream& os) const override {
       ParserDump(os, "unary").add(EggProgram::unaryToString(this->op)).add(this->expr);
@@ -1833,13 +1850,13 @@ egg::lang::ITypeRef EggParserNode_UnaryLogicalNot::getType() const {
 
 egg::lang::ITypeRef EggParserNode_UnaryRef::getType() const {
   auto underlying = this->expr->getType();
-  return underlying->referencedType();
+  return underlying->pointerType();
 }
 
 egg::lang::ITypeRef EggParserNode_UnaryDeref::getType() const {
   // Returns type 'Void' if not dereferencable
   auto underlying = this->expr->getType();
-  return underlying->dereferencedType();
+  return underlying->pointeeType();
 }
 
 egg::lang::ITypeRef EggParserNode_UnaryNegate::getType() const {

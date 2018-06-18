@@ -75,7 +75,7 @@ namespace {
       : context(context), name(name) {
     }
     virtual egg::lang::Value get() const override {
-      return this->context.get(this->name);
+      return this->context.get(this->name, false);
     }
     virtual egg::lang::Value set(const egg::lang::Value& value) override {
       return this->context.set(this->name, value);
@@ -113,7 +113,7 @@ namespace {
       // Get the initial value of the indexed entry (probably part of a +=-type construct)
       if (this->evaluateInstance()) {
         if (this->evaluateIndex()) {
-          return this->instance.getRuntimeType().bracketsGet(this->context, this->instance, this->index);
+          return this->instance.getRuntimeType()->bracketsGet(this->context, this->instance, this->index);
         }
         assert(this->index.has(egg::lang::Discriminator::FlowControl));
         return this->index;
@@ -125,7 +125,7 @@ namespace {
       // Set the value of the indexed entry
       if (this->evaluateInstance()) {
         if (this->evaluateIndex()) {
-          return this->instance.getRuntimeType().bracketsSet(this->context, this->instance, this->index, value);
+          return this->instance.getRuntimeType()->bracketsSet(this->context, this->instance, this->index, value);
         }
         assert(this->index.has(egg::lang::Discriminator::FlowControl));
         return this->index;
@@ -154,7 +154,7 @@ namespace {
     virtual egg::lang::Value get() const override {
       // Get the initial value of the property (probably part of a +=-type construct)
       if (this->evaluateInstance()) {
-        return this->instance.getRuntimeType().dotGet(this->context, this->instance, property);
+        return this->instance.getRuntimeType()->dotGet(this->context, this->instance, property);
       }
       assert(this->instance.has(egg::lang::Discriminator::FlowControl));
       return this->instance;
@@ -162,13 +162,40 @@ namespace {
     virtual egg::lang::Value set(const egg::lang::Value& value) override {
       // Set the value of the property
       if (this->evaluateInstance()) {
-        return this->instance.getRuntimeType().dotSet(this->context, this->instance, property, value);
+        return this->instance.getRuntimeType()->dotSet(this->context, this->instance, property, value);
       }
       assert(this->instance.has(egg::lang::Discriminator::FlowControl));
       return this->instance;
     }
   };
 
+  class EggProgramAssigneeDeref : public EggProgramAssigneeInstance {
+    EGG_NO_COPY(EggProgramAssigneeDeref);
+  public:
+    EggProgramAssigneeDeref(egg::yolk::EggProgramContext& context, const std::shared_ptr<egg::yolk::IEggProgramNode>& expression)
+      : EggProgramAssigneeInstance(context, expression) {
+    }
+    virtual egg::lang::Value get() const override {
+      // Get the initial value of the dereferenced value (probably part of a +=-type construct)
+      if (this->evaluateInstance()) {
+        assert(this->instance.has(egg::lang::Discriminator::Pointer));
+        return this->instance.getPointee();
+      }
+      assert(this->instance.has(egg::lang::Discriminator::FlowControl));
+      return this->instance;
+    }
+    virtual egg::lang::Value set(const egg::lang::Value& value) override {
+      // Set the value of the dereferenced value
+      if (this->evaluateInstance()) {
+        assert(this->instance.has(egg::lang::Discriminator::Pointer));
+        egg::lang::Value& pointee = this->instance.getPointee();
+        pointee = value;
+        return egg::lang::Value::Void;
+      }
+      assert(this->instance.has(egg::lang::Discriminator::FlowControl));
+      return this->instance;
+    }
+  };
   egg::lang::Value plusInt(int64_t lhs, int64_t rhs) {
     return egg::lang::Value(lhs + rhs);
   }
@@ -257,6 +284,7 @@ egg::lang::Value egg::yolk::EggProgramSymbol::assign(egg::lang::IExecution& exec
   case Readonly:
     return execution.raiseFormat("Cannot modify read-only variable: '", this->name, "'");
   case ReadWrite:
+  default:
     break;
   }
   auto promoted = this->type->promoteAssignment(execution, rhs);
@@ -267,7 +295,8 @@ egg::lang::Value egg::yolk::EggProgramSymbol::assign(egg::lang::IExecution& exec
   if (promoted.is(egg::lang::Discriminator::Void)) {
     return execution.raiseFormat("Cannot assign 'void' to '", this->name, "'");
   }
-  this->value = promoted;
+  auto* slot = const_cast<egg::lang::Value*>(&this->value.direct());
+  *slot = promoted;
   return egg::lang::Value::Void;
 }
 
@@ -280,7 +309,7 @@ void egg::yolk::EggProgramSymbolTable::addBuiltins() {
 }
 
 void egg::yolk::EggProgramSymbolTable::addBuiltin(const std::string& name, const egg::lang::Value& value) {
-  this->addSymbol(EggProgramSymbol::Builtin, egg::lang::String::fromUTF8(name), value.getRuntimeType(), value);
+  this->addSymbol(EggProgramSymbol::Builtin, egg::lang::String::fromUTF8(name), *value.getRuntimeType(), value);
 }
 
 std::shared_ptr<egg::yolk::EggProgramSymbol> egg::yolk::EggProgramSymbolTable::addSymbol(EggProgramSymbol::Kind kind, const egg::lang::String& name, const egg::lang::IType& type, const egg::lang::Value& value) {
@@ -388,6 +417,11 @@ std::unique_ptr<egg::yolk::IEggProgramAssignee> egg::yolk::EggProgramContext::as
   return std::make_unique<EggProgramAssigneeDot>(*this, instance, property);
 }
 
+std::unique_ptr<egg::yolk::IEggProgramAssignee> egg::yolk::EggProgramContext::assigneeDeref(const IEggProgramNode& self, const std::shared_ptr<IEggProgramNode>& instance) {
+  EggProgramExpression expression(*this, self);
+  return std::make_unique<EggProgramAssigneeDeref>(*this, instance);
+}
+
 void egg::yolk::EggProgramContext::statement(const IEggProgramNode& node) {
   // TODO use runtime location, not source location
   egg::lang::LocationSource& source = this->location;
@@ -400,14 +434,17 @@ egg::lang::LocationRuntime egg::yolk::EggProgramContext::swapLocation(const egg:
   return before;
 }
 
-egg::lang::Value egg::yolk::EggProgramContext::get(const egg::lang::String& name) {
+egg::lang::Value egg::yolk::EggProgramContext::get(const egg::lang::String& name, bool byref) {
   auto symbol = this->symtable->findSymbol(name);
   if (symbol == nullptr) {
     return this->raiseFormat("Unknown identifier: '", name, "'");
   }
   auto& value = symbol->getValue();
-  if (value.is(egg::lang::Discriminator::Void)) {
+  if (value.direct().is(egg::lang::Discriminator::Void)) {
     return this->raiseFormat("Uninitialized identifier: '", name.toUTF8(), "'");
+  }
+  if (byref) {
+    (void)value.indirect();
   }
   return value;
 }
@@ -553,9 +590,22 @@ egg::lang::Value egg::yolk::EggProgramContext::unary(EggProgramUnary op, const I
     }
     return value;
   case EggProgramUnary::Ref:
+    value = expr.execute(*this); // not .direct()
+    if (!value.has(egg::lang::Discriminator::FlowControl)) {
+      return value.address();
+    }
+    return value;
   case EggProgramUnary::Deref:
+    value = expr.execute(*this).direct();
+    if (value.has(egg::lang::Discriminator::Pointer)) {
+      return value.getPointee();
+    }
+    if (!value.has(egg::lang::Discriminator::FlowControl)) {
+      return this->unexpected("Expected operand of dereference '*' operator to be pointer", value);
+    }
+    return value;
   case EggProgramUnary::Ellipsis:
-    return this->raiseFormat("TODO unary() not fully implemented"); // TODO
+    return this->raiseFormat("TODO unary(...) not fully implemented"); // TODO
   default:
     return this->raiseFormat("Internal runtime error: Unknown unary operator: '", EggProgram::unaryToString(op), "'");
   }
@@ -642,7 +692,7 @@ egg::lang::Value egg::yolk::EggProgramContext::binary(EggProgramBinary op, const
 }
 
 bool egg::yolk::EggProgramContext::operand(egg::lang::Value& dst, const IEggProgramNode& src, egg::lang::Discriminator expected, const char* expectation) {
-  dst = src.execute(*this);
+  dst = src.execute(*this).direct();
   if (dst.has(egg::lang::Discriminator::FlowControl)) {
     return false;
   }
