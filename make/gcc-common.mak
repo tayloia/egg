@@ -1,4 +1,4 @@
-CXXFLAGS += -std=c++17 -Werror -Wall -Wextra -iquote ./cpp
+CXXFLAGS += -std=c++17 -Werror -Wall -Wextra -Wno-trigraphs -iquote ./cpp
 AR = $(SILENT)ar
 CXX = $(SILENT)g++
 LD = $(SILENT)g++
