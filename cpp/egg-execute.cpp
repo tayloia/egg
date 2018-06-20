@@ -9,23 +9,32 @@
 namespace {
   class EggProgramParameters : public egg::lang::IParameters {
   private:
-    std::vector<egg::lang::Value> positional;
-    std::map<egg::lang::String, egg::lang::Value> named;
+    struct Pair {
+      egg::lang::Value value;
+      egg::lang::LocationSource location;
+    };
+    std::vector<Pair> positional;
+    std::map<egg::lang::String, Pair> named;
   public:
     explicit EggProgramParameters(size_t count) {
       this->positional.reserve(count);
     }
-    void addPositional(const egg::lang::Value& value) {
-      this->positional.push_back(value);
+    void addPositional(const egg::lang::Value& value, const egg::lang::LocationSource& location) {
+      Pair pair{ value, location };
+      this->positional.emplace_back(std::move(pair));
     }
-    void addNamed(const egg::lang::String& name, const egg::lang::Value& value) {
-      this->named.emplace(name, value);
+    void addNamed(const egg::lang::String& name, const egg::lang::Value& value, const egg::lang::LocationSource& location) {
+      Pair pair{ value, location };
+      this->named.emplace(name, std::move(pair));
     }
     virtual size_t getPositionalCount() const override {
       return this->positional.size();
     }
     virtual egg::lang::Value getPositional(size_t index) const override {
-      return this->positional.at(index);
+      return this->positional.at(index).value;
+    }
+    virtual const egg::lang::LocationSource* getPositionalLocation(size_t index) const override {
+      return &this->positional.at(index).location;
     }
     virtual size_t getNamedCount() const override {
       return this->named.size();
@@ -36,7 +45,10 @@ namespace {
       return iter->first;
     }
     virtual egg::lang::Value getNamed(const egg::lang::String& name) const override {
-      return this->named.at(name);
+      return this->named.at(name).value;
+    }
+    virtual const egg::lang::LocationSource* getNamedLocation(const egg::lang::String& name) const override {
+      return &this->named.at(name).location;
     }
   };
 
@@ -410,7 +422,12 @@ egg::lang::Value egg::yolk::EggProgramContext::executeFunctionCall(const egg::la
     auto result = nested.addSymbol(EggProgramSymbol::ReadWrite, pname, ptype)->assign(*this, pvalue);
     if (result.has(egg::lang::Discriminator::FlowControl)) {
       // Re-create the exception with the parameter name included
-      // WIBBLE parameter value source location for error messages
+      auto* plocation = parameters.getPositionalLocation(i);
+      if (plocation != nullptr) {
+        // Update our current source location (it will be restored when executeFunctionCall returns)
+        egg::lang::LocationSource& source = this->location;
+        source = *plocation;
+      }
       return this->raiseFormat("Type mismatch for parameter '", pname, "': Expected '", ptype.toString(), "', but got '", pvalue.getRuntimeType()->toString(), "' instead");
     }
   }
@@ -688,9 +705,9 @@ egg::lang::Value egg::yolk::EggProgramContext::executeCall(const IEggProgramNode
       return value;
     }
     if (parameter->symbol(name, type)) {
-      params.addNamed(name, value);
+      params.addNamed(name, value, parameter->location());
     } else {
-      params.addPositional(value);
+      params.addPositional(value, parameter->location());
     }
   }
   return this->call(func, params);

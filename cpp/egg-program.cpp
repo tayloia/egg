@@ -246,7 +246,6 @@ egg::lang::Value egg::yolk::EggProgramSymbol::assign(egg::lang::IExecution& exec
     *slot = promoted;
   } else {
     *slot = promoted;
-    //slot->indirect(); // WIBBLE
   }
   return egg::lang::Value::Void;
 }

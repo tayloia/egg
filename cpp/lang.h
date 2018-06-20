@@ -3,6 +3,7 @@ namespace egg::lang {
   class String;
   class Value;
   class ValueReferenceCounted;
+  struct LocationSource;
 
   class Bits {
   public:
@@ -151,9 +152,11 @@ namespace egg::lang {
     virtual ~IParameters() {}
     virtual size_t getPositionalCount() const = 0;
     virtual Value getPositional(size_t index) const = 0;
+    virtual const LocationSource* getPositionalLocation(size_t index) const = 0; // May be null
     virtual size_t getNamedCount() const = 0;
     virtual String getName(size_t index) const = 0;
     virtual Value getNamed(const String& name) const = 0;
+    virtual const LocationSource* getNamedLocation(const String& name) const = 0; // May be null
   };
 
   class IFunctionSignatureParameter {
