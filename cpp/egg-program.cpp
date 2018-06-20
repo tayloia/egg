@@ -246,7 +246,7 @@ egg::lang::Value egg::yolk::EggProgramSymbol::assign(egg::lang::IExecution& exec
     *slot = promoted;
   } else {
     *slot = promoted;
-    slot->indirect(); // WIBBLE
+    //slot->indirect(); // WIBBLE
   }
   return egg::lang::Value::Void;
 }
@@ -548,13 +548,13 @@ egg::lang::Value egg::yolk::EggProgramContext::unary(EggProgramUnary op, const I
     return value;
   case EggProgramUnary::Deref:
     value = expr.execute(*this).direct();
-    if (value.has(egg::lang::Discriminator::Pointer)) {
-      return value.getPointee();
+    if (value.has(egg::lang::Discriminator::FlowControl)) {
+      return value;
     }
-    if (!value.has(egg::lang::Discriminator::FlowControl)) {
-      return this->unexpected("Expected operand of dereference '*' operator to be pointer", value);
+    if (!value.has(egg::lang::Discriminator::Pointer)) {
+      return this->unexpected("Expected operand of dereference '*' operator to be a pointer", value);
     }
-    return value;
+    return value.getPointee();
   case EggProgramUnary::Ellipsis:
     return this->raiseFormat("TODO unary(...) not fully implemented"); // TODO
   default:

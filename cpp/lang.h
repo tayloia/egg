@@ -501,7 +501,7 @@ namespace egg::lang {
     ValueReferenceCounted(const ValueReferenceCounted&) = delete;
     ValueReferenceCounted& operator=(const ValueReferenceCounted&) = delete;
   protected:
-    explicit ValueReferenceCounted(const Value& value) : Value(value) {}
+    explicit ValueReferenceCounted(Value&& value) : Value(std::move(value)) {}
   public:
     virtual ~ValueReferenceCounted() {}
     virtual ValueReferenceCounted* acquireHard() const = 0;

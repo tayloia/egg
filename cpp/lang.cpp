@@ -30,7 +30,7 @@ namespace {
     assert(lhs != Discriminator::Inferred);
     assert(!rhs.has(Discriminator::Indirect));
     if (rhs.has(lhs)) {
-      // It's an exact type match
+      // It's an exact type match (narrowing)
       return rhs;
     }
     if (Bits::hasAnySet(lhs, Discriminator::Float) && rhs.is(Discriminator::Int)) {
@@ -1010,8 +1010,8 @@ namespace {
     ValueOnHeap(const ValueOnHeap&) = delete;
     ValueOnHeap& operator=(const ValueOnHeap&) = delete;
   public:
-    explicit ValueOnHeap(const egg::lang::Value& value)
-      : egg::gc::HardReferenceCounted<egg::lang::ValueReferenceCounted>(0, value) {
+    explicit ValueOnHeap(Value&& value)
+      : egg::gc::HardReferenceCounted<egg::lang::ValueReferenceCounted>(0, std::move(value)) {
     }
   };
 }
@@ -1226,7 +1226,8 @@ egg::lang::Value& egg::lang::Value::direct() {
 egg::lang::ValueReferenceCounted& egg::lang::Value::indirect() {
   // Make this value indirect (i.e. heap-based)
   if (!this->has(Discriminator::Indirect)) {
-    auto* heap = new ValueOnHeap(*this);
+    auto* heap = new ValueOnHeap(std::move(*this));
+    assert(this->tag == Discriminator::None); // as a side-effect of the move
     this->tag = Discriminator::Indirect;
     this->v = heap->acquireHard();
   }
