@@ -100,6 +100,16 @@ namespace egg::yolk {
     static const egg::lang::IType& VanillaObject;
   };
 
+  class EggProgramExpression {
+  private:
+    EggProgramContext* context;
+    egg::lang::LocationRuntime before;
+  public:
+    EggProgramExpression(EggProgramContext& context, const IEggProgramNode& node);
+    ~EggProgramExpression();
+    egg::lang::LocationRuntime update(const IEggProgramNode& node);
+  };
+
   class EggProgramContext : public egg::lang::IExecution {
     EGG_NO_COPY(EggProgramContext);
   private:
@@ -251,8 +261,8 @@ namespace egg::yolk {
     bool operand(egg::lang::Value& dst, const IEggProgramNode& src, egg::lang::Discriminator expected, const char* expectation);
     typedef egg::lang::Value(*ArithmeticInt)(int64_t lhs, int64_t rhs);
     typedef egg::lang::Value (*ArithmeticFloat)(double lhs, double rhs);
-    egg::lang::Value arithmeticIntFloat(const egg::lang::Value& left, egg::lang::Value& right, const egg::yolk::IEggProgramNode& rhs, const char* operation, ArithmeticInt ints, ArithmeticFloat floats);
-    egg::lang::Value arithmeticInt(const egg::lang::Value& left, egg::lang::Value& right, const egg::yolk::IEggProgramNode& rhs, const char* operation, ArithmeticInt ints);
+    egg::lang::Value arithmeticIntFloat(const egg::lang::Value& left, egg::lang::Value& right, const IEggProgramNode& rhs, const char* operation, ArithmeticInt ints, ArithmeticFloat floats);
+    egg::lang::Value arithmeticInt(const egg::lang::Value& left, egg::lang::Value& right, const IEggProgramNode& rhs, const char* operation, ArithmeticInt ints);
     egg::lang::Value unexpected(const std::string& expectation, const egg::lang::Value& value);
   };
 }

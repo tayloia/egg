@@ -9,62 +9,6 @@
 #include <cmath>
 
 namespace {
-  class EggProgramExpression {
-  private:
-    egg::yolk::EggProgramContext* context;
-    egg::lang::LocationRuntime before;
-  public:
-    EggProgramExpression(egg::yolk::EggProgramContext& context, const egg::yolk::IEggProgramNode& node)
-      : context(&context) {
-      // TODO use runtime location, not source location
-      egg::lang::LocationRuntime after(node.location(), egg::lang::String::fromUTF8("TODO()"));
-      this->before = this->context->swapLocation(after);
-    }
-    ~EggProgramExpression() {
-      (void)this->context->swapLocation(this->before);
-    }
-  };
-
-  class EggProgramFunction : public egg::gc::HardReferenceCounted<egg::lang::IObject> {
-    EGG_NO_COPY(EggProgramFunction);
-  private:
-    egg::yolk::EggProgramContext& program;
-    egg::lang::ITypeRef type;
-    std::shared_ptr<egg::yolk::IEggProgramNode> block;
-  public:
-    EggProgramFunction(egg::yolk::EggProgramContext& program, const egg::lang::IType& type, const std::shared_ptr<egg::yolk::IEggProgramNode>& block)
-      : HardReferenceCounted(0), program(program), type(&type), block(block) {
-      assert(block != nullptr);
-    }
-    virtual bool dispose() override {
-      return false;
-    }
-    virtual egg::lang::Value toString() const override {
-      return egg::lang::Value(egg::lang::String::concat("<", this->type->toString(), ">"));
-    }
-    virtual const egg::lang::IType& getRuntimeType() const override {
-      return *this->type;
-    }
-    virtual egg::lang::Value call(egg::lang::IExecution&, const egg::lang::IParameters& parameters) override {
-      return this->program.executeFunctionCall(*this->type, parameters, *this->block);
-    }
-    virtual egg::lang::Value getProperty(egg::lang::IExecution& execution, const egg::lang::String& property) override {
-      return execution.raiseFormat(this->type->toString(), " does not support properties such as '.", property, "'");
-    }
-    virtual egg::lang::Value setProperty(egg::lang::IExecution& execution, const egg::lang::String& property, const egg::lang::Value&) override {
-      return execution.raiseFormat(this->type->toString(), " does not support properties such as '.", property, "'");
-    }
-    virtual egg::lang::Value getIndex(egg::lang::IExecution& execution, const egg::lang::Value&) override {
-      return execution.raiseFormat(this->type->toString(), " does not support indexing with '[]'");
-    }
-    virtual egg::lang::Value setIndex(egg::lang::IExecution& execution, const egg::lang::Value&, const egg::lang::Value&) override {
-      return execution.raiseFormat(this->type->toString(), " does not support indexing with '[]'");
-    }
-    virtual egg::lang::Value iterate(egg::lang::IExecution& execution) override {
-      return execution.raiseFormat(this->type->toString(), " does not support iteration");
-    }
-  };
-
   class EggProgramAssigneeIdentifier : public egg::yolk::IEggProgramAssignee {
     EGG_NO_COPY(EggProgramAssigneeIdentifier);
   private:
@@ -94,7 +38,7 @@ namespace {
     bool evaluateInstance() const {
       if (this->instance.is(egg::lang::Discriminator::Void)) {
         // Need to evaluate the expression
-        this->instance = this->expression->execute(this->context);
+        this->instance = this->expression->execute(this->context).direct();
       }
       return !this->instance.has(egg::lang::Discriminator::FlowControl);
     }
@@ -137,7 +81,7 @@ namespace {
     bool evaluateIndex() const {
       if (this->index.is(egg::lang::Discriminator::Void)) {
         // Need to evaluate the index expression
-        this->index = this->indexExpression->execute(this->context);
+        this->index = this->indexExpression->execute(this->context).direct();
       }
       return !this->index.has(egg::lang::Discriminator::FlowControl);
     }
@@ -287,7 +231,7 @@ egg::lang::Value egg::yolk::EggProgramSymbol::assign(egg::lang::IExecution& exec
   default:
     break;
   }
-  auto promoted = this->type->promoteAssignment(execution, rhs);
+  auto promoted = this->type->promoteAssignment(execution, rhs.direct());
   if (promoted.has(egg::lang::Discriminator::FlowControl)) {
     // The assignment failed
     return promoted;
@@ -295,8 +239,15 @@ egg::lang::Value egg::yolk::EggProgramSymbol::assign(egg::lang::IExecution& exec
   if (promoted.is(egg::lang::Discriminator::Void)) {
     return execution.raiseFormat("Cannot assign 'void' to '", this->name, "'");
   }
-  auto* slot = &this->value.direct();
-  *slot = promoted;
+  auto* slot = &this->value;
+  if (slot->has(egg::lang::Discriminator::Indirect)) {
+    // We're already indirect, so store the value in our child
+    slot = &slot->direct();
+    *slot = promoted;
+  } else {
+    *slot = promoted;
+    slot->indirect(); // WIBBLE
+  }
   return egg::lang::Value::Void;
 }
 
@@ -480,10 +431,10 @@ egg::lang::Value egg::yolk::EggProgramContext::assign(EggProgramAssign op, const
   egg::lang::Value right;
   if (op == EggProgramAssign::Equal) {
     // Simple assignment without interrogation beforehand
-    right = rhs.execute(*this);
+    right = rhs.execute(*this).direct();
   } else {
     // We need to interrogate the value of the lhs so we can modify it
-    auto left = dst->get();
+    auto left = dst->get().direct();
     if (left.has(egg::lang::Discriminator::FlowControl)) {
       return left;
     }
@@ -537,7 +488,7 @@ egg::lang::Value egg::yolk::EggProgramContext::mutate(EggProgramMutate op, const
   if (dst == nullptr) {
     return this->raiseFormat("Operand of mutation '", EggProgram::mutateToString(op), "' operator is not a valid target");
   }
-  auto lhs = dst->get();
+  auto lhs = dst->get().direct();
   if (lhs.has(egg::lang::Discriminator::FlowControl)) {
     return lhs;
   }
@@ -565,7 +516,7 @@ egg::lang::Value egg::yolk::EggProgramContext::mutate(EggProgramMutate op, const
 }
 
 egg::lang::Value egg::yolk::EggProgramContext::condition(const IEggProgramNode& expression) {
-  auto retval = expression.execute(*this);
+  auto retval = expression.execute(*this).direct();
   if (retval.has(egg::lang::Discriminator::Bool | egg::lang::Discriminator::FlowControl)) {
     return retval;
   }
@@ -592,7 +543,7 @@ egg::lang::Value egg::yolk::EggProgramContext::unary(EggProgramUnary op, const I
   case EggProgramUnary::Ref:
     value = expr.execute(*this); // not .direct()
     if (!value.has(egg::lang::Discriminator::FlowControl)) {
-      return value.address();
+      return egg::lang::Value(value.indirect()); // address
     }
     return value;
   case EggProgramUnary::Deref:
@@ -613,7 +564,7 @@ egg::lang::Value egg::yolk::EggProgramContext::unary(EggProgramUnary op, const I
 
 egg::lang::Value egg::yolk::EggProgramContext::binary(EggProgramBinary op, const IEggProgramNode& lhs, const IEggProgramNode& rhs, egg::lang::Value& left, egg::lang::Value& right) {
   // OPTIMIZE
-  left = lhs.execute(*this);
+  left = lhs.execute(*this).direct();
   if (left.has(egg::lang::Discriminator::FlowControl)) {
     return left;
   }
@@ -672,7 +623,7 @@ egg::lang::Value egg::yolk::EggProgramContext::binary(EggProgramBinary op, const
   case EggProgramBinary::ShiftRightUnsigned:
     return this->arithmeticInt(left, right, rhs, "shift-right-unsigned '>>>'", shiftRightUnsignedInt);
   case EggProgramBinary::NullCoalescing:
-    return left.is(egg::lang::Discriminator::Null) ? rhs.execute(*this) : left;
+    return left.is(egg::lang::Discriminator::Null) ? rhs.execute(*this).direct() : left;
   case EggProgramBinary::BitwiseXor:
     return this->arithmeticInt(left, right, rhs, "bitwise-xor '^'", bitwiseXorInt);
   case EggProgramBinary::BitwiseOr:
@@ -704,10 +655,12 @@ bool egg::yolk::EggProgramContext::operand(egg::lang::Value& dst, const IEggProg
 }
 
 egg::lang::Value egg::yolk::EggProgramContext::arithmeticIntFloat(const egg::lang::Value& left, egg::lang::Value& right, const IEggProgramNode& rhs, const char* operation, ArithmeticInt ints, ArithmeticFloat floats) {
+  assert(!left.has(egg::lang::Discriminator::Indirect));
   if (!left.has(egg::lang::Discriminator::Arithmetic)) {
     return this->unexpected("Expected left-hand side of " + std::string(operation) + " to be 'int' or 'float'", left);
   }
-  right = rhs.execute(*this);
+  right = rhs.execute(*this).direct();
+  assert(!right.has(egg::lang::Discriminator::Indirect));
   if (right.is(egg::lang::Discriminator::Int)) {
     if (left.is(egg::lang::Discriminator::Int)) {
       return ints(left.getInt(), right.getInt());
@@ -727,10 +680,12 @@ egg::lang::Value egg::yolk::EggProgramContext::arithmeticIntFloat(const egg::lan
 }
 
 egg::lang::Value egg::yolk::EggProgramContext::arithmeticInt(const egg::lang::Value& left, egg::lang::Value& right, const IEggProgramNode& rhs, const char* operation, ArithmeticInt ints) {
+  assert(!left.has(egg::lang::Discriminator::Indirect));
   if (!left.is(egg::lang::Discriminator::Int)) {
     return this->unexpected("Expected left-hand side of " + std::string(operation) + " to be 'int'", left);
   }
-  right = rhs.execute(*this);
+  right = rhs.execute(*this).direct();
+  assert(!right.has(egg::lang::Discriminator::Indirect));
   if (right.is(egg::lang::Discriminator::Int)) {
     return ints(left.getInt(), right.getInt());
   }
@@ -741,10 +696,11 @@ egg::lang::Value egg::yolk::EggProgramContext::arithmeticInt(const egg::lang::Va
 }
 
 egg::lang::Value egg::yolk::EggProgramContext::call(const egg::lang::Value& callee, const egg::lang::IParameters& parameters) {
-  if (!callee.is(egg::lang::Discriminator::Object)) {
-    return this->unexpected("Expected function-like expression to be 'object'", callee);
+  auto& direct = callee.direct();
+  if (!direct.is(egg::lang::Discriminator::Object)) {
+    return this->unexpected("Expected function-like expression to be 'object'", direct);
   }
-  auto& object = callee.getObject();
+  auto& object = direct.getObject();
   return object.call(*this, parameters);
 }
 
@@ -753,10 +709,11 @@ egg::lang::Value egg::yolk::EggProgramContext::unexpected(const std::string& exp
 }
 
 egg::lang::Value egg::yolk::EggProgramContext::assertion(const egg::lang::Value& predicate) {
-  if (!predicate.is(egg::lang::Discriminator::Bool)) {
-    return this->unexpected("Expected assertion predicate to be 'bool'", predicate);
+  auto& direct = predicate.direct();
+  if (!direct.is(egg::lang::Discriminator::Bool)) {
+    return this->unexpected("Expected assertion predicate to be 'bool'", direct);
   }
-  if (!predicate.getBool()) {
+  if (!direct.getBool()) {
     return this->raiseFormat("Assertion is untrue");
   }
   return egg::lang::Value::Void;

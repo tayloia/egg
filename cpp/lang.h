@@ -453,7 +453,6 @@ namespace egg::lang {
     const Value& direct() const;
     Value& direct();
     ValueReferenceCounted& indirect();
-    Value address();
     bool operator==(const Value& other) const { return Value::equal(*this, other); }
     bool operator!=(const Value& other) const { return !Value::equal(*this, other); }
     bool is(Discriminator bits) const { return this->tag == bits; }

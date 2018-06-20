@@ -46,9 +46,9 @@ namespace {
       int example = this->GetParam();
       auto resource = "~/examples/example-" + TestExamples::formatIndex(example) + ".egg";
       FileTextStream stream(resource);
-      auto actual = execute(stream);
+      auto actual = TestExamples::execute(stream);
       ASSERT_TRUE(stream.rewind());
-      auto expected = expectation(stream);
+      auto expected = TestExamples::expectation(stream);
       ASSERT_EQ(expected, actual);
     }
     static ::testing::internal::ParamGenerator<int> generator() {

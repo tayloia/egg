@@ -28,6 +28,7 @@ namespace {
 
   Value promoteAssignmentSimple(IExecution& execution, Discriminator lhs, const Value& rhs) {
     assert(lhs != Discriminator::Inferred);
+    assert(!rhs.has(Discriminator::Indirect));
     if (rhs.has(lhs)) {
       // It's an exact type match
       return rhs;
@@ -1207,6 +1208,7 @@ const egg::lang::Value& egg::lang::Value::direct() const {
   while (p->has(Discriminator::Indirect)) {
     p = p->v;
     assert(p != nullptr);
+    assert(!p->has(egg::lang::Discriminator::FlowControl));
   }
   return *p;
 }
@@ -1216,6 +1218,7 @@ egg::lang::Value& egg::lang::Value::direct() {
   while (p->has(Discriminator::Indirect)) {
     p = p->v;
     assert(p != nullptr);
+    assert(!p->has(egg::lang::Discriminator::FlowControl));
   }
   return *p;
 }
@@ -1228,11 +1231,6 @@ egg::lang::ValueReferenceCounted& egg::lang::Value::indirect() {
     this->v = heap->acquireHard();
   }
   return *this->v;
-}
-
-egg::lang::Value egg::lang::Value::address() {
-  // Always return a Pointer, not Indirect
-  return Value(this->indirect());
 }
 
 bool egg::lang::Value::equal(const Value& lhs, const Value& rhs) {

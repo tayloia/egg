@@ -655,7 +655,7 @@ egg::lang::Value egg::yolk::EggProgramContext::executeWithValue(const IEggProgra
   assert(this->scopeValue == nullptr);
   try {
     this->scopeValue = &value;
-    auto result = node.execute(*this);
+    auto result = node.execute(*this); // not .direct()
     this->scopeValue = nullptr;
     return result;
   } catch (...) {

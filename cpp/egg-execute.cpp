@@ -7,22 +7,6 @@
 #include "egg-program.h"
 
 namespace {
-  class EggProgramExpression {
-  private:
-    egg::yolk::EggProgramContext* context;
-    egg::lang::LocationRuntime before;
-  public:
-    EggProgramExpression(egg::yolk::EggProgramContext& context, const egg::yolk::IEggProgramNode& node)
-      : context(&context) {
-      // TODO use runtime location, not source location
-      egg::lang::LocationRuntime after(node.location(), egg::lang::String::fromUTF8("TODO()"));
-      this->before = this->context->swapLocation(after);
-    }
-    ~EggProgramExpression() {
-      (void)this->context->swapLocation(this->before);
-    }
-  };
-
   class EggProgramParameters : public egg::lang::IParameters {
   private:
     std::vector<egg::lang::Value> positional;
@@ -97,6 +81,21 @@ namespace {
   };
 }
 
+egg::yolk::EggProgramExpression::EggProgramExpression(egg::yolk::EggProgramContext& context, const egg::yolk::IEggProgramNode& node)
+  : context(&context) {
+  this->before = this->update(node);
+}
+
+egg::yolk::EggProgramExpression::~EggProgramExpression() {
+  (void)this->context->swapLocation(this->before);
+}
+
+egg::lang::LocationRuntime egg::yolk::EggProgramExpression::update(const egg::yolk::IEggProgramNode& node) {
+  // TODO use runtime location, not source location
+  egg::lang::LocationRuntime after(node.location(), egg::lang::String::fromUTF8("TODO()"));
+  return this->context->swapLocation(after);
+}
+
 egg::lang::Value egg::yolk::EggProgramContext::executeScope(const IEggProgramNode* node, ScopeAction action) {
   egg::lang::String name;
   egg::lang::ITypeRef type{ egg::lang::Type::Void };
@@ -147,7 +146,7 @@ egg::lang::Value egg::yolk::EggProgramContext::executeDeclare(const IEggProgramN
   assert(type.getSimpleTypes() != egg::lang::Discriminator::Inferred);
   if (rvalue != nullptr) {
     // The declaration contains an initial value
-    return this->set(name, rvalue->execute(*this));
+    return this->set(name, rvalue->execute(*this)); // not .direct()
   }
   return egg::lang::Value::Void;
 }
@@ -157,7 +156,7 @@ egg::lang::Value egg::yolk::EggProgramContext::executeGuard(const IEggProgramNod
   EGG_UNUSED(type);
   this->statement(self);
   assert(type.getSimpleTypes() != egg::lang::Discriminator::Inferred);
-  return this->guard(name, rvalue.execute(*this));
+  return this->guard(name, rvalue.execute(*this)); // not .direct()
 }
 
 egg::lang::Value egg::yolk::EggProgramContext::executeAssign(const IEggProgramNode& self, EggProgramAssign op, const IEggProgramNode& lvalue, const IEggProgramNode& rvalue) {
@@ -293,7 +292,7 @@ egg::lang::Value egg::yolk::EggProgramContext::executeForeach(const IEggProgramN
     if (dst == nullptr) {
       return scope.raiseFormat("Iteration target in 'for' statement is not valid");
     }
-    auto src = rvalue.execute(scope);
+    auto src = rvalue.execute(scope).direct();
     if (src.has(egg::lang::Discriminator::FlowControl)) {
       return src;
     }
@@ -411,6 +410,7 @@ egg::lang::Value egg::yolk::EggProgramContext::executeFunctionCall(const egg::la
     auto result = nested.addSymbol(EggProgramSymbol::ReadWrite, pname, ptype)->assign(*this, pvalue);
     if (result.has(egg::lang::Discriminator::FlowControl)) {
       // Re-create the exception with the parameter name included
+      // WIBBLE parameter value source location for error messages
       return this->raiseFormat("Type mismatch for parameter '", pname, "': Expected '", ptype.toString(), "', but got '", pvalue.getRuntimeType()->toString(), "' instead");
     }
   }
@@ -429,7 +429,7 @@ egg::lang::Value egg::yolk::EggProgramContext::executeReturn(const IEggProgramNo
     // This is a void return
     return egg::lang::Value::ReturnVoid;
   }
-  auto result = value->execute(*this);
+  auto result = value->execute(*this).direct();
   if (!result.has(egg::lang::Discriminator::FlowControl)) {
     // Need to convert the result to a return flow control
     result.addFlowControl(egg::lang::Discriminator::Return);
@@ -443,13 +443,13 @@ egg::lang::Value egg::yolk::EggProgramContext::executeSwitch(const IEggProgramNo
   // Phase 1 evaluates the case values
   // Phase 2 executes the block(s) as appropriate
   return this->executeScope(&value, [&](EggProgramContext& scope) {
-    auto expr = value.execute(scope);
+    auto expr = value.execute(scope).direct();
     if (expr.has(egg::lang::Discriminator::FlowControl)) {
       return expr;
     }
     auto matched = size_t(defaultIndex);
     for (size_t index = 0; index < cases.size(); ++index) {
-      auto retval = scope.executeWithValue(*cases[index], expr);
+      auto retval = scope.executeWithValue(*cases[index], expr).direct();
       if (!retval.is(egg::lang::Discriminator::Bool)) {
         // Failed to evaluate a case label
         return retval;
@@ -481,7 +481,7 @@ egg::lang::Value egg::yolk::EggProgramContext::executeCase(const IEggProgramNode
   if (against != nullptr) {
     // We're matching against values
     for (auto& i : values) {
-      auto value = i->execute(*this);
+      auto value = i->execute(*this).direct();
       if (value.has(egg::lang::Discriminator::FlowControl)) {
         return value;
       }
@@ -503,7 +503,7 @@ egg::lang::Value egg::yolk::EggProgramContext::executeThrow(const IEggProgramNod
     // This is a rethrow
     return egg::lang::Value::Rethrow;
   }
-  auto value = exception->execute(*this);
+  auto value = exception->execute(*this).direct();
   if (value.has(egg::lang::Discriminator::FlowControl)) {
     return value;
   }
@@ -519,7 +519,7 @@ egg::lang::Value egg::yolk::EggProgramContext::executeTry(const IEggProgramNode&
   if (retval.stripFlowControl(egg::lang::Discriminator::Exception)) {
     // An exception has indeed been thrown
     for (auto& i : catches) {
-      auto match = this->executeWithValue(*i, retval);
+      auto match = this->executeWithValue(*i, retval).direct();
       if (!match.is(egg::lang::Discriminator::Bool)) {
         // Failed to evaluate the catch condition
         return this->executeFinally(match, final);
@@ -570,7 +570,7 @@ egg::lang::Value egg::yolk::EggProgramContext::executeFinally(const egg::lang::V
 egg::lang::Value egg::yolk::EggProgramContext::executeUsing(const IEggProgramNode& self, const IEggProgramNode& value, const IEggProgramNode& block) {
   this->statement(self);
   return this->executeScope(&value, [&](EggProgramContext& scope) {
-    auto expr = value.execute(scope);
+    auto expr = value.execute(scope).direct();
     if (expr.has(egg::lang::Discriminator::FlowControl)) {
       return expr;
     }
@@ -618,7 +618,7 @@ egg::lang::Value egg::yolk::EggProgramContext::executeWhile(const IEggProgramNod
 
 egg::lang::Value egg::yolk::EggProgramContext::executeYield(const IEggProgramNode& self, const IEggProgramNode& value) {
   this->statement(self);
-  auto result = value.execute(*this);
+  auto result = value.execute(*this).direct();
   if (!result.has(egg::lang::Discriminator::FlowControl)) {
     // Need to convert the result to a return flow control
     result.addFlowControl(egg::lang::Discriminator::Yield);
@@ -634,7 +634,7 @@ egg::lang::Value egg::yolk::EggProgramContext::executeArray(const IEggProgramNod
     auto& object = result.getObject();
     int64_t index = 0;
     for (auto& value : values) {
-      auto entry = value->execute(*this);
+      auto entry = value->execute(*this).direct();
       if (entry.has(egg::lang::Discriminator::FlowControl)) {
         return entry;
       }
@@ -660,7 +660,7 @@ egg::lang::Value egg::yolk::EggProgramContext::executeObject(const IEggProgramNo
       if (!value->symbol(name, type)) {
         return this->raiseFormat("Internal runtime error: Failed to fetch name of object property");
       }
-      auto entry = value->execute(*this);
+      auto entry = value->execute(*this).direct();
       if (entry.has(egg::lang::Discriminator::FlowControl)) {
         return entry;
       }
@@ -675,7 +675,7 @@ egg::lang::Value egg::yolk::EggProgramContext::executeObject(const IEggProgramNo
 
 egg::lang::Value egg::yolk::EggProgramContext::executeCall(const IEggProgramNode& self, const IEggProgramNode& callee, const std::vector<std::shared_ptr<IEggProgramNode>>& parameters) {
   EggProgramExpression expression(*this, self);
-  auto func = callee.execute(*this);
+  auto func = callee.execute(*this).direct();
   if (func.has(egg::lang::Discriminator::FlowControl)) {
     return func;
   }
@@ -683,7 +683,7 @@ egg::lang::Value egg::yolk::EggProgramContext::executeCall(const IEggProgramNode
   egg::lang::String name;
   auto type = egg::lang::Type::Void;
   for (auto& parameter : parameters) {
-    auto value = parameter->execute(*this);
+    auto value = parameter->execute(*this).direct();
     if (value.has(egg::lang::Discriminator::FlowControl)) {
       return value;
     }
@@ -710,11 +710,11 @@ egg::lang::Value egg::yolk::EggProgramContext::executeBrackets(const IEggProgram
   EggProgramExpression expression(*this, self);
   // Override our location with the index value
   this->location.column++; // TODO a better way of doing this?
-  auto lhs = instance.execute(*this);
+  auto lhs = instance.execute(*this).direct();
   if (lhs.has(egg::lang::Discriminator::FlowControl)) {
     return lhs;
   }
-  auto rhs = index.execute(*this);
+  auto rhs = index.execute(*this).direct();
   if (rhs.has(egg::lang::Discriminator::FlowControl)) {
     return rhs;
   }
@@ -723,7 +723,7 @@ egg::lang::Value egg::yolk::EggProgramContext::executeBrackets(const IEggProgram
 
 egg::lang::Value egg::yolk::EggProgramContext::executeDot(const IEggProgramNode& self, const IEggProgramNode& instance, const egg::lang::String& property) {
   EggProgramExpression expression(*this, self);
-  auto lhs = instance.execute(*this);
+  auto lhs = instance.execute(*this).direct();
   if (lhs.has(egg::lang::Discriminator::FlowControl)) {
     return lhs;
   }
@@ -745,9 +745,9 @@ egg::lang::Value egg::yolk::EggProgramContext::executeBinary(const IEggProgramNo
 
 egg::lang::Value egg::yolk::EggProgramContext::executeTernary(const IEggProgramNode& self, const IEggProgramNode& cond, const IEggProgramNode& whenTrue, const IEggProgramNode& whenFalse) {
   EggProgramExpression expression(*this, self);
-  auto retval = this->condition(cond);
+  auto retval = this->condition(cond).direct();
   if (retval.is(egg::lang::Discriminator::Bool)) {
-    return retval.getBool() ? whenTrue.execute(*this) : whenFalse.execute(*this);
+    return retval.getBool() ? whenTrue.execute(*this).direct() : whenFalse.execute(*this).direct();
   }
   return retval;
 }
