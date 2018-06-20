@@ -451,6 +451,7 @@ namespace egg::lang {
     Value& operator=(Value&& value);
     ~Value();
     const Value& direct() const;
+    Value& direct();
     ValueReferenceCounted& indirect();
     Value address();
     bool operator==(const Value& other) const { return Value::equal(*this, other); }

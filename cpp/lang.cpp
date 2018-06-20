@@ -1211,6 +1211,15 @@ const egg::lang::Value& egg::lang::Value::direct() const {
   return *p;
 }
 
+egg::lang::Value& egg::lang::Value::direct() {
+  auto* p = this;
+  while (p->has(Discriminator::Indirect)) {
+    p = p->v;
+    assert(p != nullptr);
+  }
+  return *p;
+}
+
 egg::lang::ValueReferenceCounted& egg::lang::Value::indirect() {
   // Make this value indirect (i.e. heap-based)
   if (!this->has(Discriminator::Indirect)) {

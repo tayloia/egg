@@ -295,7 +295,7 @@ egg::lang::Value egg::yolk::EggProgramSymbol::assign(egg::lang::IExecution& exec
   if (promoted.is(egg::lang::Discriminator::Void)) {
     return execution.raiseFormat("Cannot assign 'void' to '", this->name, "'");
   }
-  auto* slot = const_cast<egg::lang::Value*>(&this->value.direct());
+  auto* slot = &this->value.direct();
   *slot = promoted;
   return egg::lang::Value::Void;
 }
