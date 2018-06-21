@@ -1,9 +1,10 @@
 namespace egg::lang {
-  class IType; // WIBBLE Replace with ITypeRef
+  class IType;
   class String;
   class Value;
   class ValueReferenceCounted;
   struct LocationSource;
+  typedef egg::gc::HardRef<const IType> ITypeRef;
 
   class Bits {
   public:
@@ -169,7 +170,7 @@ namespace egg::lang {
     };
     virtual ~IFunctionSignatureParameter() {}
     virtual String getName() const = 0; // May be empty
-    virtual const IType& getType() const = 0;
+    virtual ITypeRef getType() const = 0;
     virtual size_t getPosition() const = 0; // SIZE_MAX if not positional
     virtual Flags getFlags() const = 0;
 
@@ -184,7 +185,7 @@ namespace egg::lang {
     virtual ~IFunctionSignature() {}
     virtual String toString(bool includeNames) const; // Default formats as expected
     virtual String getFunctionName() const = 0; // May be empty
-    virtual const IType& getReturnType() const = 0;
+    virtual ITypeRef getReturnType() const = 0;
     virtual size_t getParameterCount() const = 0;
     virtual const IFunctionSignatureParameter& getParameter(size_t index) const = 0;
     virtual bool validateCall(IExecution& execution, const IParameters& runtime, Value& problem) const; // Calls validateCallDefault
@@ -196,13 +197,11 @@ namespace egg::lang {
   public:
     virtual ~IIndexSignature() {}
     virtual String toString() const; // Default formats as expected
-    virtual const IType& getResultType() const = 0;
-    virtual const IType& getIndexType() const = 0;
+    virtual ITypeRef getResultType() const = 0;
+    virtual ITypeRef getIndexType() const = 0;
   };
 
-  typedef egg::gc::HardRef<const IType> ITypeRef;
   class IType {
-    typedef egg::gc::HardRef<const IType> Ref; // Local typedef
   public:
     enum class AssignmentSuccess { Never, Sometimes, Always };
     virtual ~IType() {}
@@ -217,10 +216,10 @@ namespace egg::lang {
     virtual bool dotable(const String* property, ITypeRef& type, String& reason) const; // Default implementation returns false
     virtual bool iterable(ITypeRef& type) const; // Default implementation returns false
     virtual Discriminator getSimpleTypes() const; // Default implementation returns 'Object'
-    virtual Ref pointerType() const; // Default implementation returns 'Type*'
-    virtual Ref pointeeType() const; // Default implementation returns 'Void'
-    virtual Ref denulledType() const; // Default implementation returns 'Void'
-    virtual Ref unionWith(const IType& other) const; // Default implementation calls Type::makeUnion()
+    virtual ITypeRef pointerType() const; // Default implementation returns 'Type*'
+    virtual ITypeRef pointeeType() const; // Default implementation returns 'Void'
+    virtual ITypeRef denulledType() const; // Default implementation returns 'Void'
+    virtual ITypeRef unionWith(const IType& other) const; // Default implementation calls Type::makeUnion()
     virtual Value dotGet(IExecution& execution, const Value& instance, const String& property) const; // Default implementation dispatches standard requests
     virtual Value dotSet(IExecution& execution, const Value& instance, const String& property, const Value& value) const; // Default implementation dispatches standard requests
     virtual Value bracketsGet(IExecution& execution, const Value& instance, const Value& index) const; // Default implementation dispatches standard requests
@@ -260,7 +259,7 @@ namespace egg::lang {
     virtual void releaseHard() const = 0;
     virtual bool dispose() = 0;
     virtual Value toString() const = 0;
-    virtual const IType& getRuntimeType() const = 0;
+    virtual ITypeRef getRuntimeType() const = 0;
     virtual Value call(IExecution& execution, const IParameters& parameters) = 0;
     virtual Value getProperty(IExecution& execution, const String& property) = 0;
     virtual Value setProperty(IExecution& execution, const String& property, const Value& value) = 0;

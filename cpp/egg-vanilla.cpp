@@ -19,8 +19,8 @@ namespace {
     virtual bool dispose() override {
       return false;
     }
-    virtual const egg::lang::IType& getRuntimeType() const override {
-      return *this->type;
+    virtual egg::lang::ITypeRef getRuntimeType() const override {
+      return this->type;
     }
     virtual egg::lang::Value call(egg::lang::IExecution& execution, const egg::lang::IParameters&) override {
       return execution.raiseFormat(this->kind, "s do not support calling with '()'");
@@ -129,11 +129,11 @@ namespace {
   class VanillaArrayIndexSignature : public egg::lang::IIndexSignature {
   public:
     static const VanillaArrayIndexSignature instance;
-    virtual const egg::lang::IType& getResultType() const override {
-      return *egg::lang::Type::AnyQ;
+    virtual egg::lang::ITypeRef getResultType() const override {
+      return egg::lang::Type::AnyQ;
     }
-    virtual const egg::lang::IType& getIndexType() const override {
-      return *egg::lang::Type::Int;
+    virtual egg::lang::ITypeRef getIndexType() const override {
+      return egg::lang::Type::Int;
     }
   };
   const VanillaArrayIndexSignature VanillaArrayIndexSignature::instance{};
@@ -363,11 +363,11 @@ namespace {
   class VanillaObjectIndexSignature : public egg::lang::IIndexSignature {
   public:
     static const VanillaObjectIndexSignature instance;
-    virtual const egg::lang::IType& getResultType() const override {
-      return *egg::lang::Type::AnyQ;
+    virtual egg::lang::ITypeRef getResultType() const override {
+      return egg::lang::Type::AnyQ;
     }
-    virtual const egg::lang::IType& getIndexType() const override {
-      return *egg::lang::Type::String;
+    virtual egg::lang::ITypeRef getIndexType() const override {
+      return egg::lang::Type::String;
     }
   };
   const VanillaObjectIndexSignature VanillaObjectIndexSignature::instance{};

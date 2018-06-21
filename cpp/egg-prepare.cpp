@@ -286,10 +286,11 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareFunctionDefi
   auto n = callable->getParameterCount();
   for (size_t i = 0; i < n; ++i) {
     auto& parameter = callable->getParameter(i);
-    nested.addSymbol(EggProgramSymbol::ReadWrite, parameter.getName(), parameter.getType());
+    nested.addSymbol(EggProgramSymbol::ReadWrite, parameter.getName(), *parameter.getType());
   }
   EggProgramContext context(*this, nested);
-  context.scopeTypeReturn = &callable->getReturnType();
+  context.scopeTypeReturn = callable->getReturnType().get();
+  assert(context.scopeTypeReturn != nullptr);
   auto flags = block->prepare(context);
   if (abandoned(flags)) {
     return flags;

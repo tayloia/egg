@@ -14,8 +14,8 @@ namespace egg::yolk {
     virtual egg::lang::String getName() const override {
       return this->name;
     }
-    virtual const egg::lang::IType& getType() const override {
-      return *this->type;
+    virtual egg::lang::ITypeRef getType() const override {
+      return this->type;
     }
     virtual size_t getPosition() const override {
       return this->position;
@@ -41,8 +41,8 @@ namespace egg::yolk {
     virtual egg::lang::String getFunctionName() const override {
       return this->name;
     }
-    virtual const egg::lang::IType& getReturnType() const override {
-      return *this->returnType;
+    virtual egg::lang::ITypeRef getReturnType() const override {
+      return this->returnType;
     }
     virtual size_t getParameterCount() const override {
       return this->parameters.size();
@@ -78,7 +78,7 @@ egg::yolk::FunctionType::AssignmentSuccess egg::yolk::FunctionType::canBeAssigne
     return AssignmentSuccess::Always;
   }
   // TODO fuzzy matching of signatures
-  if (lsig->getReturnType().canBeAssignedFrom(rsig->getReturnType()) != AssignmentSuccess::Always) {
+  if (lsig->getReturnType()->canBeAssignedFrom(*rsig->getReturnType()) != AssignmentSuccess::Always) {
     return AssignmentSuccess::Never;
   }
   if (lsig->getParameterCount() != rsig->getParameterCount()) {

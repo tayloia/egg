@@ -897,8 +897,8 @@ namespace {
       virtual String getName() const override {
         return String::Empty;
       }
-      virtual const IType& getType() const override {
-        return *Type::AnyQ;
+      virtual ITypeRef getType() const override {
+        return Type::AnyQ;
       }
       virtual size_t getPosition() const override {
         return 0;
@@ -912,8 +912,8 @@ namespace {
     virtual String getFunctionName() const override {
       return String::Empty;
     }
-    virtual const IType& getReturnType() const override {
-      return *Type::AnyQ;
+    virtual ITypeRef getReturnType() const override {
+      return Type::AnyQ;
     }
     virtual size_t getParameterCount() const override {
       return 1;
@@ -1345,7 +1345,7 @@ egg::lang::ITypeRef egg::lang::Value::getRuntimeType() const {
   }
   if (this->tag == Discriminator::Object) {
     // Ask the object for its type
-    return ITypeRef(&this->o->getRuntimeType());
+    return this->o->getRuntimeType();
   }
   if (this->tag == Discriminator::Type) {
     // TODO Is a type's type itself?
@@ -1483,7 +1483,7 @@ egg::lang::Value egg::lang::IType::bracketsSet(IExecution& execution, const Valu
 egg::lang::String egg::lang::IFunctionSignature::toString(bool includeNames) const {
   // TODO better formatting of named/variadic etc.
   StringBuilder sb;
-  sb.add(this->getReturnType().toString());
+  sb.add(this->getReturnType()->toString());
   if (includeNames) {
     auto name = this->getFunctionName();
     if (!name.empty()) {
@@ -1501,7 +1501,7 @@ egg::lang::String egg::lang::IFunctionSignature::toString(bool includeNames) con
     if (parameter.isVariadic()) {
       sb.add("...");
     } else {
-      sb.add(parameter.getType().toString());
+      sb.add(parameter.getType()->toString());
       if (includeNames) {
         auto pname = parameter.getName();
         if (!pname.empty()) {
@@ -1557,7 +1557,7 @@ bool egg::lang::IFunctionSignature::validateCallDefault(IExecution& execution, c
 }
 
 egg::lang::String egg::lang::IIndexSignature::toString() const {
-  return String::concat(this->getResultType().toString(), "[", this->getIndexType().toString(), "]");
+  return String::concat(this->getResultType()->toString(), "[", this->getIndexType()->toString(), "]");
 }
 
 egg::lang::Value egg::lang::IType::promoteAssignment(IExecution& execution, const Value& rhs) const {

@@ -780,7 +780,7 @@ namespace {
       if (signature == nullptr) {
         return egg::lang::Type::Void;
       }
-      return egg::lang::ITypeRef(&signature->getReturnType());
+      return signature->getReturnType();
     }
     virtual EggProgramNodeFlags prepare(EggProgramContext& context) override {
       return context.prepareCall(*this->callee, this->child);

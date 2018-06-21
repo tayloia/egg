@@ -53,14 +53,14 @@ namespace {
     }
   };
 
-  class EggProgramFunction : public egg::gc::HardReferenceCounted<egg::lang::IObject> {
-    EGG_NO_COPY(EggProgramFunction);
+  class EggProgramFunctionObject : public egg::gc::HardReferenceCounted<egg::lang::IObject> {
+    EGG_NO_COPY(EggProgramFunctionObject);
   private:
     egg::yolk::EggProgramContext& program; // WIBBLE goes out of context
     egg::lang::ITypeRef type;
     std::shared_ptr<egg::yolk::IEggProgramNode> block;
   public:
-    EggProgramFunction(egg::yolk::EggProgramContext& program, const egg::lang::IType& type, const std::shared_ptr<egg::yolk::IEggProgramNode>& block)
+    EggProgramFunctionObject(egg::yolk::EggProgramContext& program, const egg::lang::IType& type, const std::shared_ptr<egg::yolk::IEggProgramNode>& block)
       : HardReferenceCounted(0), program(program), type(&type), block(block) {
       assert(block != nullptr);
     }
@@ -70,8 +70,8 @@ namespace {
     virtual egg::lang::Value toString() const override {
       return egg::lang::Value(egg::lang::String::concat("<", this->type->toString(), ">"));
     }
-    virtual const egg::lang::IType& getRuntimeType() const override {
-      return *this->type;
+    virtual egg::lang::ITypeRef getRuntimeType() const override {
+      return this->type;
     }
     virtual egg::lang::Value call(egg::lang::IExecution&, const egg::lang::IParameters& parameters) override {
       return this->program.executeFunctionCall(*this->type, parameters, *this->block);
@@ -386,7 +386,7 @@ egg::lang::Value egg::yolk::EggProgramContext::executeFunctionDefinition(const I
   auto symbol = this->symtable->findSymbol(name);
   assert(symbol != nullptr);
   assert(symbol->getValue().is(egg::lang::Discriminator::Void));
-  return symbol->assign(*this, egg::lang::Value(*new EggProgramFunction(*this, type, block)));
+  return symbol->assign(*this, egg::lang::Value(*new EggProgramFunctionObject(*this, type, block)));
 }
 
 egg::lang::Value egg::yolk::EggProgramContext::executeFunctionCall(const egg::lang::IType& type, const egg::lang::IParameters& parameters, const IEggProgramNode& block) {
@@ -412,10 +412,10 @@ egg::lang::Value egg::yolk::EggProgramContext::executeFunctionCall(const egg::la
     auto& parameter = callable->getParameter(i);
     auto pname = parameter.getName();
     assert(!pname.empty());
-    auto& ptype = parameter.getType();
+    auto ptype = parameter.getType();
     auto pvalue = parameters.getPositional(i);
     assert(!pvalue.has(egg::lang::Discriminator::FlowControl));
-    auto result = nested.addSymbol(EggProgramSymbol::ReadWrite, pname, ptype)->assign(*this, pvalue);
+    auto result = nested.addSymbol(EggProgramSymbol::ReadWrite, pname, *ptype)->assign(*this, pvalue);
     if (result.has(egg::lang::Discriminator::FlowControl)) {
       // Re-create the exception with the parameter name included
       auto* plocation = parameters.getPositionalLocation(i);
@@ -424,7 +424,7 @@ egg::lang::Value egg::yolk::EggProgramContext::executeFunctionCall(const egg::la
         egg::lang::LocationSource& source = this->location;
         source = *plocation;
       }
-      return this->raiseFormat("Type mismatch for parameter '", pname, "': Expected '", ptype.toString(), "', but got '", pvalue.getRuntimeType()->toString(), "' instead");
+      return this->raiseFormat("Type mismatch for parameter '", pname, "': Expected '", ptype->toString(), "', but got '", pvalue.getRuntimeType()->toString(), "' instead");
     }
   }
   EggProgramContext context(*this, nested);
