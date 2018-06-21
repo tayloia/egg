@@ -196,12 +196,12 @@ namespace {
         return egg::lang::Value{ egg::lang::String::fromUTF8("[]") };
       }
       egg::lang::StringBuilder sb;
-      const char* between = "[";
+      char between = '[';
       for (auto& value : this->values) {
-        sb.add(between).add(value.toUTF8());
-        between = ",";
+        sb.add(between, value.toUTF8());
+        between = ',';
       }
-      sb.add("]");
+      sb.add(']');
       return egg::lang::Value{ sb.str() };
     }
     virtual egg::lang::Value getProperty(egg::lang::IExecution& execution, const egg::lang::String& property) override {
@@ -336,12 +336,12 @@ namespace {
         return egg::lang::Value{ egg::lang::String::fromUTF8("{}") };
       }
       egg::lang::StringBuilder sb;
-      const char* between = "{";
+      char between = '{';
       for (auto& keyvalue : keyvalues) {
-        sb.add(between).add(keyvalue.first.toUTF8()).add(":").add(keyvalue.second.toUTF8());
-        between = ",";
+        sb.add(between, keyvalue.first.toUTF8(), ':', keyvalue.second.toUTF8());
+        between = ',';
       }
-      sb.add("}");
+      sb.add('}');
       return egg::lang::Value{ sb.str() };
     }
     virtual egg::lang::Value getProperty(egg::lang::IExecution& execution, const egg::lang::String& property) override {
@@ -425,7 +425,7 @@ namespace {
       egg::lang::StringBuilder sb;
       egg::lang::Value value;
       if (this->dictionary.tryGet(keyLocation, value)) {
-        sb.add(value.toString()).add(": ");
+        sb.add(value.toString(), ": ");
       }
       if (this->dictionary.tryGet(keyMessage, value)) {
         sb.add(value.toString());

@@ -10,7 +10,11 @@ namespace {
   using namespace egg::yolk;
 
   egg::lang::Discriminator keywordToDiscriminator(const EggTokenizerItem& item) {
-    // Accept only type-like keywords: bool, int, float, string and object
+    // Accept only type-like keywords: void, null, bool, int, float, string and object
+    // OPTIMIZE
+    if (item.isKeyword(EggTokenizerKeyword::Void)) {
+      return egg::lang::Discriminator::Void;
+    }
     if (item.isKeyword(EggTokenizerKeyword::Null)) {
       return egg::lang::Discriminator::Null;
     }
@@ -79,6 +83,52 @@ namespace {
         this->add(child);
       }
       return *this;
+    }
+  };
+
+  class EggSyntaxTypeFunction : public egg::gc::HardReferenceCounted<egg::lang::IType> {
+    EGG_NO_COPY(EggSyntaxTypeFunction);
+  private:
+    struct Parameter {
+      Parameter() = delete;
+      egg::lang::ITypeRef type;
+      egg::lang::String name; // May be empty
+      bool optional;
+    };
+    egg::lang::ITypeRef rettype;
+    std::vector<Parameter> parameters;
+  public:
+    explicit EggSyntaxTypeFunction(const egg::lang::ITypeRef& rettype)
+      : HardReferenceCounted(0), rettype(rettype) {
+    }
+    virtual egg::lang::String toString() const override {
+      egg::lang::StringBuilder sb;
+      sb.add(this->rettype->toString());
+      sb.add("(");
+      auto comma = false;
+      for (auto& parameter : this->parameters) {
+        if (comma) {
+          sb.add(", ");
+        } else {
+          comma = true;
+        }
+        sb.add(parameter.type->toString());
+        if (!parameter.name.empty()) {
+          sb.add(" ").add(parameter.name);
+        }
+        if (parameter.optional) {
+          sb.add(" = null");
+        }
+      }
+      sb.add(")");
+      return sb.str();
+    }
+    virtual AssignmentSuccess canBeAssignedFrom(const IType&) const override {
+      return AssignmentSuccess::Sometimes; // WIBBLE
+    }
+    void addParameter(const egg::lang::ITypeRef& type, const egg::lang::String& name, bool optional) {
+      Parameter parameter{ type, name, optional };
+      this->parameters.emplace_back(std::move(parameter));
     }
   };
 }
@@ -584,7 +634,6 @@ namespace {
       auto token = item.toString();
       throw SyntaxException(expected + ", not " + token, this->backtrack.resource().toUTF8(), item, token);
     }
-    void parseParameterList(std::function<void(std::unique_ptr<IEggSyntaxNode>&& node)> adder);
     void parseEndOfFile(const char* expected);
     std::unique_ptr<IEggSyntaxNode> parseCompoundStatement();
     std::unique_ptr<IEggSyntaxNode> parseCondition(const char* expected);
@@ -605,6 +654,7 @@ namespace {
     std::unique_ptr<IEggSyntaxNode> parseExpressionUnary(const char* expected);
     std::unique_ptr<IEggSyntaxNode> parseExpressionPostfix(const char* expected);
     std::unique_ptr<IEggSyntaxNode> parseExpressionPostfixGreedy(std::unique_ptr<IEggSyntaxNode>&& expr);
+    std::unique_ptr<IEggSyntaxNode> parseExpressionPostfixFunctionCall(std::unique_ptr<IEggSyntaxNode>&& callee);
     std::unique_ptr<IEggSyntaxNode> parseExpressionPrimary(const char* expected);
     std::unique_ptr<IEggSyntaxNode> parseExpressionDeclaration();
     std::unique_ptr<IEggSyntaxNode> parseExpressionArray(const EggSyntaxNodeLocation& location);
@@ -634,6 +684,7 @@ namespace {
     std::unique_ptr<IEggSyntaxNode> parseType(const char* expected);
     bool parseTypeExpression(egg::lang::ITypeRef& type);
     bool parseTypePostfixExpression(egg::lang::ITypeRef& type);
+    egg::lang::ITypeRef parseTypePostfixFunction(const egg::lang::ITypeRef& rettype);
     bool parseTypePrimaryExpression(egg::lang::ITypeRef& type);
   };
 
@@ -990,13 +1041,7 @@ std::unique_ptr<IEggSyntaxNode> EggSyntaxParserContext::parseExpressionPostfixGr
       expr = std::make_unique<EggSyntaxNode_BinaryOperator>(location, EggTokenizerOperator::BracketLeft, std::move(expr), std::move(index));
     } else if (p0.isOperator(EggTokenizerOperator::ParenthesisLeft)) {
       // Expect <expression> '(' <parameter-list>? ')'
-      EggSyntaxNodeLocation location(p0, 0);
-      EggSyntaxParserBacktrackMark mark(this->backtrack);
-      auto call = std::make_unique<EggSyntaxNode_Call>(location, std::move(expr));
-      this->parseParameterList([&call](auto&& node) { call->addChild(std::move(node)); });
-      call->setLocationEnd(mark.peek(0), 1);
-      mark.accept(1); // skip ')'
-      expr = std::move(call);
+      expr = this->parseExpressionPostfixFunctionCall(std::move(expr));
     } else if (p0.isOperator(EggTokenizerOperator::Dot)) {
       // Expect <expression> '.' <identifer>
       EggSyntaxNodeLocation location(p0, 1);
@@ -1028,6 +1073,62 @@ std::unique_ptr<IEggSyntaxNode> EggSyntaxParserContext::parseExpressionPostfixGr
     }
   }
   return std::move(expr);
+}
+
+std::unique_ptr<IEggSyntaxNode> EggSyntaxParserContext::parseExpressionPostfixFunctionCall(std::unique_ptr<IEggSyntaxNode>&& callee) {
+  /*
+      parameter-list ::= positional-parameter-list
+                       | positional-parameter-list ',' named-parameter-list
+                       | named-parameter-list
+
+      positional-parameter-list ::= positional-parameter
+                                  | positional-parameter-list ',' positional-parameter
+
+      positional-parameter ::= expression
+                             | '...' expression
+
+      named-parameter-list ::= named-parameter
+                             | named-parameter-list ',' named-parameter
+
+      named-parameter ::= variable-identifier ':' expression
+  */
+  EggSyntaxParserBacktrackMark mark(this->backtrack);
+  assert(mark.peek(0).isOperator(EggTokenizerOperator::ParenthesisLeft));
+  EggSyntaxNodeLocation location(mark.peek(0), 0);
+  auto call = std::make_unique<EggSyntaxNode_Call>(location, std::move(callee));
+  if (mark.peek(1).isOperator(EggTokenizerOperator::ParenthesisRight)) {
+    // This is an empty parameter list: '(' ')'
+    mark.accept(1);
+  } else {
+    // Don't worry about the order of positional and named parameters at this stage
+    const EggTokenizerItem* p0;
+    do {
+      mark.advance(1);
+      p0 = &mark.peek(0);
+      if ((p0->kind == EggTokenizerKind::Identifier) && mark.peek(1).isOperator(EggTokenizerOperator::Colon)) {
+        // Expect <identifier> ':' <expression>
+        EggSyntaxNodeLocation plocation(*p0);
+        plocation.setLocationEnd(mark.peek(1), 1);
+        mark.advance(2);
+        auto expr = this->parseExpression("Expected expression for named function call parameter value");
+        auto named = std::make_unique<EggSyntaxNode_Named>(plocation, p0->value.s, std::move(expr));
+        call->addChild(std::move(named));
+      } else {
+        // Expect <expression>
+        auto expr = this->parseExpression("Expected expression for function call parameter value");
+        call->addChild(std::move(expr));
+      }
+      p0 = &mark.peek(0);
+    } while (p0->isOperator(EggTokenizerOperator::Comma));
+    if (!p0->isOperator(EggTokenizerOperator::ParenthesisRight)) {
+      this->unexpected("Expected ')' at end of function call parameter list", *p0);
+    }
+    mark.accept(0);
+  }
+  assert(mark.peek(0).isOperator(EggTokenizerOperator::ParenthesisRight));
+  call->setLocationEnd(mark.peek(0), 1);
+  mark.accept(1); // skip ')'
+  return call;
 }
 
 std::unique_ptr<IEggSyntaxNode> EggSyntaxParserContext::parseExpressionPrimary(const char* expected) {
@@ -1214,57 +1315,6 @@ std::unique_ptr<IEggSyntaxNode> EggSyntaxParserContext::parseExpressionObject(co
     mark.accept(1);
   }
   return object;
-}
-
-void EggSyntaxParserContext::parseParameterList(std::function<void(std::unique_ptr<IEggSyntaxNode>&& node)> adder) {
-  /*
-      parameter-list ::= positional-parameter-list
-                       | positional-parameter-list ',' named-parameter-list
-                       | named-parameter-list
-
-      positional-parameter-list ::= positional-parameter
-                                  | positional-parameter-list ',' positional-parameter
-
-      positional-parameter ::= expression
-                             | '...' expression
-
-      named-parameter-list ::= named-parameter
-                             | named-parameter-list ',' named-parameter
-
-      named-parameter ::= variable-identifier ':' expression
-  */
-  EggSyntaxParserBacktrackMark mark(this->backtrack);
-  assert(mark.peek(0).isOperator(EggTokenizerOperator::ParenthesisLeft));
-  if (mark.peek(1).isOperator(EggTokenizerOperator::ParenthesisRight)) {
-    // This is an empty parameter list: '(' ')'
-    mark.accept(1);
-  } else {
-    // Don't worry about the order of positional and named parameters at this stage
-    const EggTokenizerItem* p0;
-    do {
-      mark.advance(1);
-      p0 = &mark.peek(0);
-      if ((p0->kind == EggTokenizerKind::Identifier) && mark.peek(1).isOperator(EggTokenizerOperator::Colon)) {
-        // Expect <identifier> ':' <expression>
-        EggSyntaxNodeLocation location(*p0);
-        location.setLocationEnd(mark.peek(1), 1);
-        mark.advance(2);
-        auto expr = this->parseExpression("Expected expression for named function call parameter value");
-        auto named = std::make_unique<EggSyntaxNode_Named>(location, p0->value.s, std::move(expr));
-        adder(std::move(named));
-      } else {
-        // Expect <expression>
-        auto expr = this->parseExpression("Expected expression for function call parameter value");
-        adder(std::move(expr));
-      }
-      p0 = &mark.peek(0);
-    } while (p0->isOperator(EggTokenizerOperator::Comma));
-    if (!p0->isOperator(EggTokenizerOperator::ParenthesisRight)) {
-      this->unexpected("Expected ')' at end of function call parameter list", *p0);
-    }
-    mark.accept(0);
-  }
-  assert(mark.peek(0).isOperator(EggTokenizerOperator::ParenthesisRight));
 }
 
 std::unique_ptr<IEggSyntaxNode> EggSyntaxParserContext::parseStatementAssignment(std::unique_ptr<IEggSyntaxNode>&& lhs, EggTokenizerOperator terminal) {
@@ -1550,8 +1600,8 @@ std::unique_ptr<IEggSyntaxNode> EggSyntaxParserContext::parseStatementForeach() 
 }
 
 std::unique_ptr<IEggSyntaxNode> EggSyntaxParserContext::parseStatementFunction(std::unique_ptr<IEggSyntaxNode>&& type) {
-  EggSyntaxParserBacktrackMark mark(this->backtrack);
   // Already consumed <type>
+  EggSyntaxParserBacktrackMark mark(this->backtrack);
   auto& p0 = mark.peek(0);
   assert(p0.kind == EggTokenizerKind::Identifier);
   assert(mark.peek(1).isOperator(EggTokenizerOperator::ParenthesisLeft));
@@ -1582,7 +1632,7 @@ std::unique_ptr<IEggSyntaxNode> EggSyntaxParserContext::parseStatementFunction(s
       this->unexpected("Expected ',' or ')' after parameter in function definition", p3);
     }
   }
-  mark.advance(1);
+  mark.advance(1); // Skip ')'
   auto block = this->parseCompoundStatement();
   result->addChild(std::move(block));
   mark.accept(0);
@@ -1831,12 +1881,7 @@ std::unique_ptr<IEggSyntaxNode> EggSyntaxParserContext::parseType(const char* ex
   auto& p0 = mark.peek(0);
   EggSyntaxNodeLocation location(p0);
   if (expected == nullptr) {
-    // Allow 'void' and 'var'
-    if (p0.isKeyword(EggTokenizerKeyword::Void)) {
-      // Must be a function return type
-      mark.accept(1);
-      return std::make_unique<EggSyntaxNode_Type>(location, *egg::lang::Type::Void);
-    }
+    // Allow 'var'
     if (p0.isKeyword(EggTokenizerKeyword::Var)) {
       // Don't allow 'var?'
       mark.accept(1);
@@ -1911,6 +1956,11 @@ bool EggSyntaxParserContext::parseTypePostfixExpression(egg::lang::ITypeRef& typ
         type = type->pointerType();
         continue;
       }
+      if (p0.isOperator(EggTokenizerOperator::ParenthesisLeft)) {
+        // A function reference like 'type(int a, ...)'
+        type = this->parseTypePostfixFunction(type);
+        continue;
+      }
       break;
     }
     mark.accept(0);
@@ -1919,9 +1969,58 @@ bool EggSyntaxParserContext::parseTypePostfixExpression(egg::lang::ITypeRef& typ
   return false;
 }
 
+egg::lang::ITypeRef EggSyntaxParserContext::parseTypePostfixFunction(const egg::lang::ITypeRef& rettype) {
+  /*
+      function-parameter-list ::= function-parameter
+                                | function-parameter-list ',' function-parameter
+
+      function-parameter ::= attribute* type-expression variable-identifier? ( '=' 'null' )?
+                           | attribute* '...' type-expression '[' ']' variable-identifier
+  */
+  EggSyntaxParserBacktrackMark mark(this->backtrack);
+  assert(mark.peek(0).isOperator(EggTokenizerOperator::ParenthesisLeft));
+  mark.advance(1);
+  egg::gc::HardRef<EggSyntaxTypeFunction> function{ new EggSyntaxTypeFunction(rettype) };
+  for (size_t index = 0; !mark.peek(0).isOperator(EggTokenizerOperator::ParenthesisRight); ++index) {
+    egg::lang::ITypeRef ptype{ egg::lang::Type::Void };
+    if (!this->parseTypeExpression(ptype)) {
+      this->unexpected("Expected parameter type in function type declaration", mark.peek(0));
+    }
+    auto pname = egg::lang::String::Empty;
+    auto& p1 = mark.peek(0);
+    if (p1.kind == EggTokenizerKind::Identifier) {
+      // Skip the optional parameter name
+      pname = p1.value.s;
+      mark.advance(1);
+    }
+    auto optional = mark.peek(0).isOperator(EggTokenizerOperator::Equal);
+    if (optional) {
+      auto& p2 = mark.peek(1);
+      if (!p2.isKeyword(EggTokenizerKeyword::Null)) {
+        if (pname.empty()) {
+          this->unexpected("Expected 'null' as default value for parameter index " + std::to_string(index), p2);
+        } else {
+          this->unexpected("Expected 'null' as default value for parameter '" + pname.toUTF8() + "'", p2);
+        }
+      }
+      mark.advance(2);
+    }
+    function->addParameter(ptype, pname, optional);
+    auto& p3 = mark.peek(0);
+    if (p3.isOperator(EggTokenizerOperator::Comma)) {
+      mark.advance(1);
+    } else if (!p3.isOperator(EggTokenizerOperator::ParenthesisRight)) {
+      this->unexpected("Expected ',' or ')' after parameter in function type declaration", p3);
+    }
+  }
+  mark.accept(1); // Skip ')'
+  return egg::lang::ITypeRef(function.get());
+}
+
 bool EggSyntaxParserContext::parseTypePrimaryExpression(egg::lang::ITypeRef& type) {
   /*
       type-primary-expression ::= 'any'
+                                | 'void'
                                 | 'null'
                                 | 'bool'
                                 | 'int'
@@ -1938,6 +2037,7 @@ bool EggSyntaxParserContext::parseTypePrimaryExpression(egg::lang::ITypeRef& typ
   // TODO generics
   // TODO type { ... }
   // TODO type-identifier
+  // TODO '(' type - expression ')'
   EggSyntaxParserBacktrackMark mark(this->backtrack);
   auto& p0 = mark.peek(0);
   auto tag = keywordToDiscriminator(p0);

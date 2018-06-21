@@ -31,6 +31,7 @@
     <ClCompile Include="..\cpp\egged-tokenizer.cpp" />
     <ClCompile Include="..\cpp\exceptions.cpp" />
     <ClCompile Include="..\cpp\files.cpp" />
+    <ClCompile Include="..\cpp\functions.cpp" />
     <ClCompile Include="..\cpp\json-tokenizer.cpp" />
     <ClCompile Include="..\cpp\lang.cpp" />
     <ClCompile Include="..\cpp\lexers.cpp" />
@@ -67,6 +68,7 @@
     <ClInclude Include="..\cpp\egged-tokenizer.h" />
     <ClInclude Include="..\cpp\exceptions.h" />
     <ClInclude Include="..\cpp\files.h" />
+    <ClInclude Include="..\cpp\functions.h" />
     <ClInclude Include="..\cpp\gc.h" />
     <ClInclude Include="..\cpp\json-tokenizer.h" />
     <ClInclude Include="..\cpp\lang.h" />

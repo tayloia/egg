@@ -20,10 +20,11 @@
 #include "macros.h"
 #include "dictionaries.h"
 #include "exceptions.h"
-#include "gc.h"
 #include "files.h"
+#include "gc.h"
 #include "streams.h"
 #include "strings.h"
 #include "utf.h"
 
 #include "lang.h"
+#include "functions.h"

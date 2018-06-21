@@ -218,7 +218,7 @@ namespace {
         if (this->lexer->next(this->upcoming) != LexerKind::Identifier) {
           this->unexpected("Expected attribute name component to follow '.' in attribute name");
         }
-        sb.add('.').add(this->upcoming.verbatim);
+        sb.add('.', this->upcoming.verbatim);
       }
       item.value.s = sb.str();
       item.kind = EggTokenizerKind::Attribute;

@@ -889,6 +889,7 @@ namespace {
   };
   const TypeString typeString{};
 
+  // An 'omni' function looks like this: 'any?(...any?[])'
   class OmniFunctionSignature : public IFunctionSignature {
   private:
     class Parameter : public IFunctionSignatureParameter {

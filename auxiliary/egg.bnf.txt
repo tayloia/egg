@@ -38,6 +38,7 @@ type-postfix-expression ::= type-primary-expression
                           | type-nullable-expression '(' function-parameter-list? ')'
 
 type-primary-expression ::= 'any'
+                          | 'void'
                           | 'null'
                           | 'bool'
                           | 'int'
@@ -54,7 +55,6 @@ type-identifier ::= identifier
 function-definition ::= attribute* function-return-type function-identifier '(' function-parameter-list? ')' compound-statement
 
 function-return-type ::= type-expression
-                       | 'void'
 
 function-identifier ::= identifier
 
