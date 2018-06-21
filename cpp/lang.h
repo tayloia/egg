@@ -182,7 +182,7 @@ namespace egg::lang {
   class IFunctionSignature {
   public:
     virtual ~IFunctionSignature() {}
-    virtual String toString() const; // Default formats as expected
+    virtual String toString(bool includeNames) const; // Default formats as expected
     virtual String getFunctionName() const = 0; // May be empty
     virtual const IType& getReturnType() const = 0;
     virtual size_t getParameterCount() const = 0;
@@ -414,10 +414,6 @@ namespace egg::lang {
     String function;
     const LocationRuntime* parent;
 
-    LocationRuntime() = default;
-    LocationRuntime(const LocationSource& source, const String& function, const LocationRuntime* parent = nullptr)
-      : LocationSource(source), function(function), parent(parent) {
-    }
     String toRuntimeString() const;
   };
 

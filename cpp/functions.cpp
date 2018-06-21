@@ -64,7 +64,7 @@ egg::yolk::FunctionType::~FunctionType() {
 
 egg::lang::String egg::yolk::FunctionType::toString() const {
   // Do not include names in the signature
-  return this->signature->toString();
+  return this->signature->toString(false);
 }
 
 egg::yolk::FunctionType::AssignmentSuccess egg::yolk::FunctionType::canBeAssignedFrom(const IType& rtype) const {

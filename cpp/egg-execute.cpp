@@ -104,7 +104,7 @@ egg::yolk::EggProgramExpression::~EggProgramExpression() {
 
 egg::lang::LocationRuntime egg::yolk::EggProgramExpression::update(const egg::yolk::IEggProgramNode& node) {
   // TODO use runtime location, not source location
-  egg::lang::LocationRuntime after{ node.location(), egg::lang::String::fromUTF8("TODO()") };
+  egg::lang::LocationRuntime after{ node.location(), egg::lang::String::fromUTF8("TODO()"), nullptr };
   return this->context->swapLocation(after);
 }
 

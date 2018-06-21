@@ -71,7 +71,8 @@ namespace {
       this->signature.addSignatureParameter(name, type, this->signature.getNextPosition(), flags);
     }
     virtual String toString() const override {
-      return this->signature.toString();
+      // Exclude the names
+      return this->signature.toString(false);
     }
     virtual AssignmentSuccess canBeAssignedFrom(const IType& rtype) const {
       // We can assign if the signatures are the same (TODO equal?)

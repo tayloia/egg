@@ -111,7 +111,7 @@ namespace {
       return &this->signature;
     }
     virtual egg::lang::String toString() const override {
-      return this->signature.toString();
+      return this->signature.toString(false);
     }
     void addParameter(const egg::lang::String& name, const egg::lang::IType& type, egg::lang::IFunctionSignatureParameter::Flags flags) {
       this->signature.addParameter(name, type, flags);

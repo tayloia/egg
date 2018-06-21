@@ -5,7 +5,7 @@ int? positive(int x) {
   return null;
 }
 print(type.of(positive));
-///>int? positive(int x)
+///>int?(int)
 var a = positive(123);
 print(type.of(a));
 ///>int
