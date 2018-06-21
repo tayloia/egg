@@ -687,11 +687,15 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::typeCheck(const egg
   return EggProgramNodeFlags::Fallthrough;
 }
 
+egg::lang::LocationRuntime egg::yolk::EggProgram::getRootLocation() const {
+  return egg::lang::LocationRuntime(this->root->location(), egg::lang::String::fromUTF8("<module>"));
+}
+
 egg::lang::LogSeverity egg::yolk::EggProgram::prepare(IEggEnginePreparationContext& preparation) {
   EggProgramSymbolTable symtable(nullptr);
   symtable.addBuiltins();
   egg::lang::LogSeverity severity = egg::lang::LogSeverity::None;
-  EggProgramContext context(preparation, symtable, severity);
+  EggProgramContext context(this->getRootLocation(), preparation, symtable, severity);
   if (abandoned(this->root->prepare(context))) {
     return egg::lang::LogSeverity::Error;
   }

@@ -90,6 +90,7 @@ namespace egg::yolk {
       : root(root) {
       assert(root != nullptr);
     }
+    egg::lang::LocationRuntime getRootLocation() const;
     egg::lang::LogSeverity prepare(IEggEnginePreparationContext& preparation);
     egg::lang::LogSeverity execute(IEggEngineExecutionContext& execution);
     static std::string unaryToString(EggProgramUnary op);
@@ -107,7 +108,6 @@ namespace egg::yolk {
   public:
     EggProgramExpression(EggProgramContext& context, const IEggProgramNode& node);
     ~EggProgramExpression();
-    egg::lang::LocationRuntime update(const IEggProgramNode& node);
   };
 
   class EggProgramContext : public egg::lang::IExecution {
@@ -120,8 +120,8 @@ namespace egg::yolk {
     const egg::lang::IType* scopeTypeDeclare;
     const egg::lang::IType* scopeTypeReturn;
     const egg::lang::Value* scopeValue;
-    EggProgramContext(IEggEngineLogger* logger, EggProgramSymbolTable* symtable, egg::lang::LogSeverity* maximumSeverity)
-      : location(),
+    EggProgramContext(const egg::lang::LocationRuntime& location, IEggEngineLogger* logger, EggProgramSymbolTable* symtable, egg::lang::LogSeverity* maximumSeverity)
+      : location(location),
         logger(logger),
         symtable(symtable),
         maximumSeverity(maximumSeverity),
@@ -131,11 +131,10 @@ namespace egg::yolk {
     }
   public:
     EggProgramContext(EggProgramContext& parent, EggProgramSymbolTable& symtable)
-      : EggProgramContext(parent.logger, &symtable, parent.maximumSeverity) {
-      this->location = parent.location;
+      : EggProgramContext(parent.location, parent.logger, &symtable, parent.maximumSeverity) {
     }
-    EggProgramContext(IEggEngineLogger& logger, EggProgramSymbolTable& symtable, egg::lang::LogSeverity& maximumSeverity)
-      : EggProgramContext(&logger, &symtable, &maximumSeverity) {
+    EggProgramContext(const egg::lang::LocationRuntime& location, IEggEngineLogger& logger, EggProgramSymbolTable& symtable, egg::lang::LogSeverity& maximumSeverity)
+      : EggProgramContext(location, &logger, &symtable, &maximumSeverity) {
     }
     void log(egg::lang::LogSource source, egg::lang::LogSeverity severity, const std::string& message);
     template<typename... ARGS>

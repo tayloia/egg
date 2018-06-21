@@ -4,92 +4,21 @@ namespace {
   using namespace egg::lang;
   using Flags = IFunctionSignatureParameter::Flags;
 
-  class BuiltinSignatureParameter : public IFunctionSignatureParameter {
-  private:
-    String name; // may be empty
-    ITypeRef type;
-    size_t position; // may be SIZE_MAX
-    Flags flags;
-  public:
-    BuiltinSignatureParameter(const std::string& name, const ITypeRef& type, size_t position, Flags flags)
-      : name(String::fromUTF8(name)), type(type), position(position), flags(flags) {
-    }
-    virtual String getName() const override {
-      return this->name;
-    }
-    virtual const IType& getType() const override {
-      return *this->type;
-    }
-    virtual size_t getPosition() const override {
-      return this->position;
-    }
-    virtual Flags getFlags() const override {
-      return this->flags;
-    }
-  };
-
-  class BuiltinSignature : public IFunctionSignature {
-    EGG_NO_COPY(BuiltinSignature);
-  private:
-    String name;
-    ITypeRef returnType;
-    std::vector<BuiltinSignatureParameter> parameters;
-  public:
-    BuiltinSignature(const std::string& name, const ITypeRef& returnType)
-      : name(String::fromUTF8(name)), returnType(returnType) {
-    }
-    size_t getNextPosition() const {
-      return this->parameters.size();
-    }
-    void addSignatureParameter(const std::string& parameterName, const ITypeRef& parameterType, size_t position, BuiltinSignatureParameter::Flags flags) {
-      this->parameters.emplace_back(parameterName, parameterType, position, flags);
-    }
-    virtual String getFunctionName() const override {
-      return this->name;
-    }
-    virtual const IType& getReturnType() const override {
-      return *this->returnType;
-    }
-    virtual size_t getParameterCount() const override {
-      return this->parameters.size();
-    }
-    virtual const IFunctionSignatureParameter& getParameter(size_t index) const override {
-      assert(index < this->parameters.size());
-      return this->parameters[index];
-    }
-  };
-
-  class BuiltinFunctionType : public egg::gc::HardReferenceCounted<IType> {
+  class BuiltinFunctionType : public egg::yolk::FunctionType {
     EGG_NO_COPY(BuiltinFunctionType);
-  private:
-    BuiltinSignature signature;
   public:
     BuiltinFunctionType(const std::string& name, const ITypeRef& returnType)
-      : HardReferenceCounted(0), signature(name, returnType) {
+      : FunctionType(String::fromUTF8(name), returnType) {
     }
-    void addParameter(const std::string& name, const ITypeRef& type, IFunctionSignatureParameter::Flags flags) {
-      this->signature.addSignatureParameter(name, type, this->signature.getNextPosition(), flags);
+    String getName() const {
+      return this->callable()->getFunctionName();
     }
-    virtual String toString() const override {
-      // Exclude the names
-      return this->signature.toString(false);
-    }
-    virtual AssignmentSuccess canBeAssignedFrom(const IType& rtype) const {
-      // We can assign if the signatures are the same (TODO equal?)
-      if (&this->signature == rtype.callable()) {
-        return AssignmentSuccess::Always;
-      }
-      return AssignmentSuccess::Never;
-    }
-    virtual const IFunctionSignature* callable() const override {
-      return &this->signature;
-    }
-    virtual String getName() const {
-      return this->signature.getFunctionName();
+    void addParameterUTF8(const std::string& name, const egg::lang::ITypeRef& type, egg::lang::IFunctionSignatureParameter::Flags flags) {
+      this->addParameter(egg::lang::String::fromUTF8(name), type, flags);
     }
     Value validateCall(IExecution& execution, const IParameters& parameters) const {
       Value problem;
-      if (!this->signature.validateCall(execution, parameters, problem)) {
+      if (!this->callable()->validateCall(execution, parameters, problem)) {
         assert(problem.has(Discriminator::FlowControl));
         return problem;
       }
@@ -98,7 +27,7 @@ namespace {
     template<typename... ARGS>
     Value raise(IExecution& execution, ARGS&&... args) const {
       // Use perfect forwarding to the constructor
-      return execution.raiseFormat(this->signature.getFunctionName(), ": ", std::forward<ARGS>(args)...);
+      return execution.raiseFormat(this->getName(), ": ", std::forward<ARGS>(args)...);
     }
   };
 
@@ -213,7 +142,7 @@ namespace {
   public:
     BuiltinStringFrom()
       : BuiltinFunction("string.from", Type::makeSimple(Discriminator::String | Discriminator::Null)) {
-      this->type->addParameter("value", Type::AnyQ, Flags::Required);
+      this->type->addParameterUTF8("value", Type::AnyQ, Flags::Required);
     }
     virtual Value call(IExecution& execution, const IParameters& parameters) override {
       // Convert the parameter to a string
@@ -232,7 +161,7 @@ namespace {
     BuiltinString()
       : BuiltinObject("string", Type::String) {
       // The function call looks like: 'string string(any?... value)'
-      this->type->addParameter("value", Type::AnyQ, Flags::Variadic);
+      this->type->addParameterUTF8("value", Type::AnyQ, Flags::Variadic);
       this->addProperty("from", Value::make<BuiltinStringFrom>());
     }
     virtual Value call(IExecution& execution, const IParameters& parameters) override {
@@ -261,7 +190,7 @@ namespace {
   public:
     BuiltinTypeOf()
       : BuiltinFunction("type.of", Type::Type_) {
-      this->type->addParameter("value", Type::AnyQ, Flags::Required);
+      this->type->addParameterUTF8("value", Type::AnyQ, Flags::Required);
     }
     virtual Value call(IExecution& execution, const IParameters& parameters) override {
       // Fetch the runtime type of the parameter
@@ -279,7 +208,7 @@ namespace {
     BuiltinType()
       : BuiltinObject("type", Type::Type_) {
       // The function call looks like: 'type type(any?... value)'
-      this->type->addParameter("value", Type::AnyQ, Flags::Variadic);
+      this->type->addParameterUTF8("value", Type::AnyQ, Flags::Variadic);
       this->addProperty("of", Value::make<BuiltinTypeOf>());
     }
     virtual Value call(IExecution&, const IParameters&) override {
@@ -293,7 +222,7 @@ namespace {
   public:
     BuiltinAssert()
       : BuiltinFunction("assert", Type::Void) {
-      this->type->addParameter("predicate", Type::Any, Bits::set(Flags::Required, Flags::Predicate));
+      this->type->addParameterUTF8("predicate", Type::Any, Bits::set(Flags::Required, Flags::Predicate));
     }
     virtual Value call(IExecution& execution, const IParameters& parameters) override {
       Value result = this->type->validateCall(execution, parameters);
@@ -309,7 +238,7 @@ namespace {
   public:
     BuiltinPrint()
       : BuiltinFunction("print", Type::Void) {
-      this->type->addParameter("...", Type::Any, Flags::Variadic);
+      this->type->addParameterUTF8("...", Type::Any, Flags::Variadic);
     }
     virtual Value call(IExecution& execution, const IParameters& parameters) override {
       Value result = this->type->validateCall(execution, parameters);
@@ -406,7 +335,7 @@ namespace {
   public:
     StringContains()
       : BuiltinFunctionType("string.contains", Type::Bool) {
-      this->addParameter("needle", Type::String, Flags::Required);
+      this->addParameterUTF8("needle", Type::String, Flags::Required);
     }
     Value executeCall(IExecution& execution, const String& instance, const IParameters& parameters) const {
       // bool contains(string needle)
@@ -423,7 +352,7 @@ namespace {
   public:
     StringCompare()
       : BuiltinFunctionType("string.compare", Type::Int) {
-      this->addParameter("needle", Type::String, Flags::Required);
+      this->addParameterUTF8("needle", Type::String, Flags::Required);
     }
     Value executeCall(IExecution& execution, const String& instance, const IParameters& parameters) const {
       // TODO int compare(string other, int? start, int? other_start, int? max_length)
@@ -440,7 +369,7 @@ namespace {
   public:
     StringStartsWith()
       : BuiltinFunctionType("string.startsWith", Type::Bool) {
-      this->addParameter("needle", Type::String, Flags::Required);
+      this->addParameterUTF8("needle", Type::String, Flags::Required);
     }
     Value executeCall(IExecution& execution, const String& instance, const IParameters& parameters) const {
       // bool startsWith(string needle)
@@ -457,7 +386,7 @@ namespace {
   public:
     StringEndsWith()
       : BuiltinFunctionType("string.endsWith", Type::Bool) {
-      this->addParameter("needle", Type::String, Flags::Required);
+      this->addParameterUTF8("needle", Type::String, Flags::Required);
     }
     Value executeCall(IExecution& execution, const String& instance, const IParameters& parameters) const {
       // bool endsWith(string needle)
@@ -474,7 +403,7 @@ namespace {
   public:
     StringIndexOf()
       : BuiltinFunctionType("string.indexOf", Type::makeSimple(Discriminator::Int | Discriminator::Null)) {
-      this->addParameter("needle", Type::String, Flags::Required);
+      this->addParameterUTF8("needle", Type::String, Flags::Required);
     }
     Value executeCall(IExecution& execution, const String& instance, const IParameters& parameters) const {
       // TODO int? indexOf(string needle, int? fromIndex, int? count, bool? negate)
@@ -492,7 +421,7 @@ namespace {
   public:
     StringLastIndexOf()
       : BuiltinFunctionType("string.lastIndexOf", Type::makeSimple(Discriminator::Int | Discriminator::Null)) {
-      this->addParameter("needle", Type::String, Flags::Required);
+      this->addParameterUTF8("needle", Type::String, Flags::Required);
     }
     Value executeCall(IExecution& execution, const String& instance, const IParameters& parameters) const {
       // TODO int? lastIndexOf(string needle, int? fromIndex, int? count, bool? negate)
@@ -510,7 +439,7 @@ namespace {
   public:
     StringJoin()
       : BuiltinFunctionType("string.join", Type::String) {
-      this->addParameter("...", Type::Any, Flags::Variadic);
+      this->addParameterUTF8("...", Type::Any, Flags::Variadic);
     }
     Value executeCall(IExecution&, const String& instance, const IParameters& parameters) const {
       // string join(...)
@@ -538,7 +467,7 @@ namespace {
   public:
     StringSplit()
       : BuiltinFunctionType("string.split", Type::Any) {
-      this->addParameter("separator", Type::String, Flags::Required);
+      this->addParameterUTF8("separator", Type::String, Flags::Required);
     }
     Value executeCall(IExecution& execution, const String& instance, const IParameters& parameters) const {
       // TODO string split(string separator, int? limit)
@@ -557,8 +486,8 @@ namespace {
   public:
     StringSlice()
       : BuiltinFunctionType("string.slice", Type::String) {
-      this->addParameter("begin", Type::Int, Flags::Required);
-      this->addParameter("end", Type::Int, Flags::None);
+      this->addParameterUTF8("begin", Type::Int, Flags::Required);
+      this->addParameterUTF8("end", Type::Int, Flags::None);
     }
     Value executeCall(IExecution& execution, const String& instance, const IParameters& parameters) const {
       // TODO string slice(int? begin, int? end)
@@ -584,7 +513,7 @@ namespace {
   public:
     StringRepeat()
       : BuiltinFunctionType("string.repeat", Type::String) {
-      this->addParameter("count", Type::Int, Flags::Required);
+      this->addParameterUTF8("count", Type::Int, Flags::Required);
     }
     Value executeCall(IExecution& execution, const String& instance, const IParameters& parameters) const {
       // string repeat(int count)
@@ -615,9 +544,9 @@ namespace {
   public:
     StringReplace()
       : BuiltinFunctionType("string.replace", Type::Any) {
-      this->addParameter("needle", Type::String, Flags::Required);
-      this->addParameter("replacement", Type::String, Flags::Required);
-      this->addParameter("occurrences", Type::Int, Flags::None);
+      this->addParameterUTF8("needle", Type::String, Flags::Required);
+      this->addParameterUTF8("replacement", Type::String, Flags::Required);
+      this->addParameterUTF8("occurrences", Type::Int, Flags::None);
     }
     Value executeCall(IExecution& execution, const String& instance, const IParameters& parameters) const {
       // string replace(string needle, string replacement, int? occurrences)
@@ -645,8 +574,8 @@ namespace {
   public:
     StringPadLeft()
       : BuiltinFunctionType("string.padLeft", Type::Any) {
-      this->addParameter("length", Type::Int, Flags::Required);
-      this->addParameter("padding", Type::String, Flags::None);
+      this->addParameterUTF8("length", Type::Int, Flags::Required);
+      this->addParameterUTF8("padding", Type::String, Flags::None);
     }
     Value executeCall(IExecution& execution, const String& instance, const IParameters& parameters) const {
       // string padLeft(int length, string? padding)
@@ -674,8 +603,8 @@ namespace {
   public:
     StringPadRight()
       : BuiltinFunctionType("string.padRight", Type::Any) {
-      this->addParameter("length", Type::Int, Flags::Required);
-      this->addParameter("padding", Type::String, Flags::None);
+      this->addParameterUTF8("length", Type::Int, Flags::Required);
+      this->addParameterUTF8("padding", Type::String, Flags::None);
     }
     Value executeCall(IExecution& execution, const String& instance, const IParameters& parameters) const {
       // string padRight(int length, string? padding)

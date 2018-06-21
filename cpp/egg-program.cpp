@@ -12,7 +12,7 @@ namespace {
   class EggProgramAssigneeIdentifier : public egg::yolk::IEggProgramAssignee {
     EGG_NO_COPY(EggProgramAssigneeIdentifier);
   private:
-    egg::yolk::EggProgramContext& context;
+    egg::yolk::EggProgramContext& context; // WIBBLE out of scope?
     egg::lang::String name;
   public:
     EggProgramAssigneeIdentifier(egg::yolk::EggProgramContext& context, const egg::lang::String& name)
@@ -29,7 +29,7 @@ namespace {
   class EggProgramAssigneeInstance : public egg::yolk::IEggProgramAssignee {
     EGG_NO_COPY(EggProgramAssigneeInstance);
   protected:
-    egg::yolk::EggProgramContext& context;
+    egg::yolk::EggProgramContext& context; // WIBBLE out of scope?
     std::shared_ptr<egg::yolk::IEggProgramNode> expression;
     mutable egg::lang::Value instance;
     EggProgramAssigneeInstance(egg::yolk::EggProgramContext& context, const std::shared_ptr<egg::yolk::IEggProgramNode>& expression)

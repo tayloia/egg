@@ -85,52 +85,6 @@ namespace {
       return *this;
     }
   };
-
-  class EggSyntaxTypeFunction : public egg::gc::HardReferenceCounted<egg::lang::IType> {
-    EGG_NO_COPY(EggSyntaxTypeFunction);
-  private:
-    struct Parameter {
-      Parameter() = delete;
-      egg::lang::ITypeRef type;
-      egg::lang::String name; // May be empty
-      bool optional;
-    };
-    egg::lang::ITypeRef rettype;
-    std::vector<Parameter> parameters;
-  public:
-    explicit EggSyntaxTypeFunction(const egg::lang::ITypeRef& rettype)
-      : HardReferenceCounted(0), rettype(rettype) {
-    }
-    virtual egg::lang::String toString() const override {
-      egg::lang::StringBuilder sb;
-      sb.add(this->rettype->toString());
-      sb.add("(");
-      auto comma = false;
-      for (auto& parameter : this->parameters) {
-        if (comma) {
-          sb.add(", ");
-        } else {
-          comma = true;
-        }
-        sb.add(parameter.type->toString());
-        if (!parameter.name.empty()) {
-          sb.add(" ").add(parameter.name);
-        }
-        if (parameter.optional) {
-          sb.add(" = null");
-        }
-      }
-      sb.add(")");
-      return sb.str();
-    }
-    virtual AssignmentSuccess canBeAssignedFrom(const IType&) const override {
-      return AssignmentSuccess::Sometimes; // WIBBLE
-    }
-    void addParameter(const egg::lang::ITypeRef& type, const egg::lang::String& name, bool optional) {
-      Parameter parameter{ type, name, optional };
-      this->parameters.emplace_back(std::move(parameter));
-    }
-  };
 }
 
 void egg::yolk::EggSyntaxNode_Empty::dump(std::ostream& os) const {
@@ -1980,7 +1934,8 @@ egg::lang::ITypeRef EggSyntaxParserContext::parseTypePostfixFunction(const egg::
   EggSyntaxParserBacktrackMark mark(this->backtrack);
   assert(mark.peek(0).isOperator(EggTokenizerOperator::ParenthesisLeft));
   mark.advance(1);
-  egg::gc::HardRef<EggSyntaxTypeFunction> function{ new EggSyntaxTypeFunction(rettype) };
+  auto* underlying = new egg::yolk::FunctionType(egg::lang::String::Empty, rettype);
+  egg::lang::ITypeRef function{ underlying };
   for (size_t index = 0; !mark.peek(0).isOperator(EggTokenizerOperator::ParenthesisRight); ++index) {
     egg::lang::ITypeRef ptype{ egg::lang::Type::Void };
     if (!this->parseTypeExpression(ptype)) {
@@ -1993,8 +1948,8 @@ egg::lang::ITypeRef EggSyntaxParserContext::parseTypePostfixFunction(const egg::
       pname = p1.value.s;
       mark.advance(1);
     }
-    auto optional = mark.peek(0).isOperator(EggTokenizerOperator::Equal);
-    if (optional) {
+    auto flags = egg::lang::IFunctionSignatureParameter::Flags::Required;
+    if (mark.peek(0).isOperator(EggTokenizerOperator::Equal)) {
       auto& p2 = mark.peek(1);
       if (!p2.isKeyword(EggTokenizerKeyword::Null)) {
         if (pname.empty()) {
@@ -2004,8 +1959,9 @@ egg::lang::ITypeRef EggSyntaxParserContext::parseTypePostfixFunction(const egg::
         }
       }
       mark.advance(2);
+      flags = egg::lang::IFunctionSignatureParameter::Flags::None;
     }
-    function->addParameter(ptype, pname, optional);
+    underlying->addParameter(pname, ptype, flags);
     auto& p3 = mark.peek(0);
     if (p3.isOperator(EggTokenizerOperator::Comma)) {
       mark.advance(1);
@@ -2014,7 +1970,7 @@ egg::lang::ITypeRef EggSyntaxParserContext::parseTypePostfixFunction(const egg::
     }
   }
   mark.accept(1); // Skip ')'
-  return egg::lang::ITypeRef(function.get());
+  return function;
 }
 
 bool EggSyntaxParserContext::parseTypePrimaryExpression(egg::lang::ITypeRef& type) {

@@ -10,6 +10,7 @@ namespace {
   class EggProgramParameters : public egg::lang::IParameters {
   private:
     struct Pair {
+      Pair() = delete;
       egg::lang::Value value;
       egg::lang::LocationSource location;
     };
@@ -55,7 +56,7 @@ namespace {
   class EggProgramFunction : public egg::gc::HardReferenceCounted<egg::lang::IObject> {
     EGG_NO_COPY(EggProgramFunction);
   private:
-    egg::yolk::EggProgramContext& program;
+    egg::yolk::EggProgramContext& program; // WIBBLE goes out of context
     egg::lang::ITypeRef type;
     std::shared_ptr<egg::yolk::IEggProgramNode> block;
   public:
@@ -94,18 +95,13 @@ namespace {
 }
 
 egg::yolk::EggProgramExpression::EggProgramExpression(egg::yolk::EggProgramContext& context, const egg::yolk::IEggProgramNode& node)
-  : context(&context) {
-  this->before = this->update(node);
+  : context(&context),
+    before(context.swapLocation(egg::lang::LocationRuntime(node.location(), egg::lang::String::fromUTF8("TODO()")))) {
+  // TODO use runtime location, not source location
 }
 
 egg::yolk::EggProgramExpression::~EggProgramExpression() {
   (void)this->context->swapLocation(this->before);
-}
-
-egg::lang::LocationRuntime egg::yolk::EggProgramExpression::update(const egg::yolk::IEggProgramNode& node) {
-  // TODO use runtime location, not source location
-  egg::lang::LocationRuntime after{ node.location(), egg::lang::String::fromUTF8("TODO()"), nullptr };
-  return this->context->swapLocation(after);
 }
 
 egg::lang::Value egg::yolk::EggProgramContext::executeScope(const IEggProgramNode* node, ScopeAction action) {
@@ -794,7 +790,7 @@ egg::lang::LogSeverity egg::yolk::EggProgram::execute(IEggEngineExecutionContext
   EggProgramSymbolTable symtable(nullptr);
   symtable.addBuiltins();
   egg::lang::LogSeverity severity = egg::lang::LogSeverity::None;
-  EggProgramContext context(execution, symtable, severity);
+  EggProgramContext context(this->getRootLocation(), execution, symtable, severity);
   auto retval = this->root->execute(context);
   if (!retval.is(egg::lang::Discriminator::Void)) {
     std::string message;

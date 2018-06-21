@@ -84,7 +84,6 @@ egg::yolk::FunctionType::AssignmentSuccess egg::yolk::FunctionType::canBeAssigne
   if (lsig->getParameterCount() != rsig->getParameterCount()) {
     return AssignmentSuccess::Never;
   }
-  // WIBBLE
   return AssignmentSuccess::Sometimes; // WIBBLE
 }
 

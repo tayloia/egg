@@ -1,5 +1,5 @@
 namespace egg::lang {
-  class IType;
+  class IType; // WIBBLE Replace with ITypeRef
   class String;
   class Value;
   class ValueReferenceCounted;
@@ -407,6 +407,12 @@ namespace egg::lang {
     size_t line;
     size_t column;
 
+    inline LocationSource(const LocationSource& rhs)
+      : file(rhs.file), line(rhs.line), column(rhs.column) {
+    }
+    inline LocationSource(const String& file, size_t line, size_t column)
+      : file(file), line(line), column(column) {
+    }
     String toSourceString() const;
   };
 
@@ -414,6 +420,12 @@ namespace egg::lang {
     String function;
     const LocationRuntime* parent;
 
+    inline LocationRuntime(const LocationRuntime& rhs)
+      : LocationSource(rhs), function(rhs.function), parent(rhs.parent) {
+    }
+    inline LocationRuntime(const LocationSource& source, const String& function, const LocationRuntime* parent = nullptr)
+      : LocationSource(source), function(function), parent(parent) {
+    }
     String toRuntimeString() const;
   };
 

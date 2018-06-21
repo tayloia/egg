@@ -16,11 +16,7 @@ namespace {
   template<typename T, typename... ARGS>
   std::shared_ptr<T> makeParserNode(const IEggParserContext& context, const IEggSyntaxNode& node, ARGS&&... args) {
     // Fetch the syntax node's location and create a new 'T' based on it
-    egg::lang::LocationSource location{
-      context.getResourceName(),
-      node.location().begin.line,
-      node.location().begin.column
-    };
+    egg::lang::LocationSource location(context.getResourceName(), node.location().begin.line, node.location().begin.column);
     return std::make_shared<T>(location, std::forward<ARGS>(args)...);
   }
 
@@ -39,84 +35,6 @@ namespace {
     auto rhs = context.promote(*children[1]);
     return makeParserNode<T>(context, node, lhs, rhs);
   }
-
-  class EggParserTypeFunctionSignatureParameter : public egg::lang::IFunctionSignatureParameter {
-  private:
-    egg::lang::String name;
-    egg::lang::ITypeRef type;
-    size_t position;
-    Flags flags;
-  public:
-    EggParserTypeFunctionSignatureParameter(const egg::lang::String& name, const egg::lang::IType& type, size_t position, Flags flags)
-      : name(name), type(&type), position(position), flags(flags) {
-    }
-    virtual egg::lang::String getName() const override {
-      return this->name;
-    }
-    virtual const egg::lang::IType& getType() const override {
-      return *this->type;
-    }
-    virtual size_t getPosition() const override {
-      return this->position;
-    }
-    virtual Flags getFlags() const override {
-      return this->flags;
-    }
-  };
-
-  class EggParserTypeFunctionSignature : public egg::lang::IFunctionSignature {
-    EGG_NO_COPY(EggParserTypeFunctionSignature);
-  private:
-    egg::lang::String fname;
-    egg::lang::ITypeRef rettype;
-    std::vector<EggParserTypeFunctionSignatureParameter> parameters;
-  public:
-    EggParserTypeFunctionSignature(const egg::lang::String& name, const egg::lang::IType& rettype)
-      : fname(name), rettype(&rettype) {
-    }
-    virtual egg::lang::String getFunctionName() const override {
-      return this->fname;
-    }
-    virtual const egg::lang::IType& getReturnType() const override {
-      return *this->rettype;
-    }
-    virtual size_t getParameterCount() const override {
-      return this->parameters.size();
-    }
-    virtual const  egg::lang::IFunctionSignatureParameter& getParameter(size_t index) const override {
-      return this->parameters.at(index);
-    }
-    void addParameter(const egg::lang::String& name, const egg::lang::IType& type, egg::lang::IFunctionSignatureParameter::Flags flags) {
-      auto position = this->parameters.size();
-      this->parameters.emplace_back(name, type, position, flags); // TODO variadic
-    }
-  };
-
-  class EggParserTypeFunction : public egg::gc::HardReferenceCounted<egg::lang::IType> {
-    EGG_NO_COPY(EggParserTypeFunction);
-  private:
-    EggParserTypeFunctionSignature signature;
-  public:
-    EggParserTypeFunction(const egg::lang::String& name, const egg::lang::IType& rettype)
-      : HardReferenceCounted(0), signature(name, rettype) {
-    }
-    virtual AssignmentSuccess canBeAssignedFrom(const IType& rtype) const {
-      // We can assign if the signatures are the same (TODO equal?)
-      if (&this->signature == rtype.callable()) {
-        return AssignmentSuccess::Always;
-      }
-      return AssignmentSuccess::Never;
-    }
-    virtual const egg::lang::IFunctionSignature* callable() const override {
-      return &this->signature;
-    }
-    virtual egg::lang::String toString() const override {
-      return this->signature.toString(false);
-    }
-    void addParameter(const egg::lang::String& name, const egg::lang::IType& type, egg::lang::IFunctionSignatureParameter::Flags flags) {
-      this->signature.addParameter(name, type, flags);
-    }
-  };
 
   enum class EggParserArithmetic {
     None,
@@ -1575,7 +1493,7 @@ std::shared_ptr<egg::yolk::IEggProgramNode> egg::yolk::EggSyntaxNode_FunctionDef
   assert(this->child.size() >= 2);
   size_t parameters = this->child.size() - 2;
   auto rettype = context.promote(*this->child[0])->getType();
-  auto* underlying = new EggParserTypeFunction(this->name, *rettype);
+  auto* underlying = new egg::yolk::FunctionType(this->name, rettype);
   egg::lang::ITypeRef function{ underlying }; // takes ownership
   egg::lang::String parameter_name;
   auto parameter_type = egg::lang::Type::Void;
@@ -1584,7 +1502,7 @@ std::shared_ptr<egg::yolk::IEggProgramNode> egg::yolk::EggSyntaxNode_FunctionDef
     auto parameter = context.promote(*this->child[i]);
     auto parameter_optional = parameter->symbol(parameter_name, parameter_type);
     auto parameter_flags = parameter_optional ? egg::lang::IFunctionSignatureParameter::Flags::None : egg::lang::IFunctionSignatureParameter::Flags::Required;
-    underlying->addParameter(parameter_name, *parameter_type, parameter_flags);
+    underlying->addParameter(parameter_name, parameter_type, parameter_flags);
   }
   EggParserContextNested nested(context, EggParserAllowed::Return|EggParserAllowed::Yield);
   auto block = nested.promote(*this->child[parameters + 1]);
