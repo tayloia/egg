@@ -70,9 +70,9 @@ namespace egg::yolk {
     EGG_NO_COPY(EggProgramSymbolTable);
   private:
     std::map<egg::lang::String, std::shared_ptr<EggProgramSymbol>> map;
-    const EggProgramSymbolTable* parent;
+    std::shared_ptr<EggProgramSymbolTable> parent; // WIBBLE BASKET
   public:
-    explicit EggProgramSymbolTable(const EggProgramSymbolTable* parent = nullptr)
+    explicit EggProgramSymbolTable(std::shared_ptr<EggProgramSymbolTable> parent = nullptr)
       : parent(parent) {
     }
     void addBuiltins();
@@ -110,17 +110,17 @@ namespace egg::yolk {
     ~EggProgramExpression();
   };
 
-  class EggProgramContext : public egg::lang::IExecution {
+  class EggProgramContext : public std::enable_shared_from_this<EggProgramContext>, public egg::lang::IExecution {
     EGG_NO_COPY(EggProgramContext);
   private:
     egg::lang::LocationRuntime location;
     IEggEngineLogger* logger;
-    EggProgramSymbolTable* symtable;
+    std::shared_ptr<EggProgramSymbolTable> symtable;
     egg::lang::LogSeverity* maximumSeverity;
     const egg::lang::IType* scopeTypeDeclare;
     const egg::lang::IType* scopeTypeReturn;
     const egg::lang::Value* scopeValue;
-    EggProgramContext(const egg::lang::LocationRuntime& location, IEggEngineLogger* logger, EggProgramSymbolTable* symtable, egg::lang::LogSeverity* maximumSeverity)
+    EggProgramContext(const egg::lang::LocationRuntime& location, IEggEngineLogger* logger, std::shared_ptr<EggProgramSymbolTable> symtable, egg::lang::LogSeverity* maximumSeverity)
       : location(location),
         logger(logger),
         symtable(symtable),
@@ -130,11 +130,11 @@ namespace egg::yolk {
         scopeValue(nullptr) {
     }
   public:
-    EggProgramContext(EggProgramContext& parent, EggProgramSymbolTable& symtable)
-      : EggProgramContext(parent.location, parent.logger, &symtable, parent.maximumSeverity) {
+    EggProgramContext(EggProgramContext& parent, std::shared_ptr<EggProgramSymbolTable> symtable)
+      : EggProgramContext(parent.location, parent.logger, symtable, parent.maximumSeverity) {
     }
-    EggProgramContext(const egg::lang::LocationRuntime& location, IEggEngineLogger& logger, EggProgramSymbolTable& symtable, egg::lang::LogSeverity& maximumSeverity)
-      : EggProgramContext(location, &logger, &symtable, &maximumSeverity) {
+    EggProgramContext(const egg::lang::LocationRuntime& location, IEggEngineLogger& logger, std::shared_ptr<EggProgramSymbolTable> symtable, egg::lang::LogSeverity& maximumSeverity)
+      : EggProgramContext(location, &logger, symtable, &maximumSeverity) {
     }
     void log(egg::lang::LogSource source, egg::lang::LogSeverity severity, const std::string& message);
     template<typename... ARGS>

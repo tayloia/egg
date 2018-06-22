@@ -56,12 +56,12 @@ namespace {
   class EggProgramFunctionObject : public egg::gc::HardReferenceCounted<egg::lang::IObject> {
     EGG_NO_COPY(EggProgramFunctionObject);
   private:
-    egg::yolk::EggProgramContext& program; // WIBBLE goes out of context
+    std::shared_ptr<egg::yolk::EggProgramContext> program; // WIBBLE
     egg::lang::ITypeRef type;
     std::shared_ptr<egg::yolk::IEggProgramNode> block;
   public:
     EggProgramFunctionObject(egg::yolk::EggProgramContext& program, const egg::lang::IType& type, const std::shared_ptr<egg::yolk::IEggProgramNode>& block)
-      : HardReferenceCounted(0), program(program), type(&type), block(block) {
+      : HardReferenceCounted(0), program(program.shared_from_this()), type(&type), block(block) {
       assert(block != nullptr);
     }
     virtual bool dispose() override {
@@ -74,7 +74,7 @@ namespace {
       return this->type;
     }
     virtual egg::lang::Value call(egg::lang::IExecution&, const egg::lang::IParameters& parameters) override {
-      return this->program.executeFunctionCall(*this->type, parameters, *this->block);
+      return this->program->executeFunctionCall(*this->type, parameters, *this->block);
     }
     virtual egg::lang::Value getProperty(egg::lang::IExecution& execution, const egg::lang::String& property) override {
       return execution.raiseFormat(this->type->toString(), " does not support properties such as '.", property, "'");
@@ -109,10 +109,10 @@ egg::lang::Value egg::yolk::EggProgramContext::executeScope(const IEggProgramNod
   egg::lang::ITypeRef type{ egg::lang::Type::Void };
   if ((node != nullptr) && node->symbol(name, type)) {
     // Perform the action with a new scope containing our symbol
-    EggProgramSymbolTable nested(this->symtable);
-    nested.addSymbol(EggProgramSymbol::ReadWrite, name, *type);
-    EggProgramContext context(*this, nested);
-    return action(context);
+    auto nested = std::make_shared<EggProgramSymbolTable>(this->symtable); // WIBBLE BASKET
+    nested->addSymbol(EggProgramSymbol::ReadWrite, name, *type);
+    auto context = std::make_shared<EggProgramContext>(*this, nested);
+    return action(*context);
   }
   // Just perform the action in the current scope
   return action(*this);
@@ -142,9 +142,9 @@ egg::lang::Value egg::yolk::EggProgramContext::executeModule(const IEggProgramNo
 
 egg::lang::Value egg::yolk::EggProgramContext::executeBlock(const IEggProgramNode& self, const std::vector<std::shared_ptr<IEggProgramNode>>& statements) {
   this->statement(self);
-  EggProgramSymbolTable nested(this->symtable);
-  EggProgramContext context(*this, nested);
-  return context.executeStatements(statements);
+  auto nested = std::make_shared<EggProgramSymbolTable>(this->symtable); // WIBBLE BASKET
+  auto context = std::make_shared<EggProgramContext>(*this, nested);
+  return context->executeStatements(statements);
 }
 
 egg::lang::Value egg::yolk::EggProgramContext::executeDeclare(const IEggProgramNode& self, const egg::lang::String& name, const egg::lang::IType& type, const IEggProgramNode* rvalue) {
@@ -407,7 +407,7 @@ egg::lang::Value egg::yolk::EggProgramContext::executeFunctionCall(const egg::la
     return this->raiseFormat("Too many parameters in function call: Expected ", expected, ", but got ", given);
   }
   // TODO: Better type checking
-  EggProgramSymbolTable nested(this->symtable);
+  auto nested = std::make_shared<EggProgramSymbolTable>(this->symtable); // WIBBLE BASKET
   for (size_t i = 0; i < given; ++i) {
     auto& parameter = callable->getParameter(i);
     auto pname = parameter.getName();
@@ -415,7 +415,7 @@ egg::lang::Value egg::yolk::EggProgramContext::executeFunctionCall(const egg::la
     auto ptype = parameter.getType();
     auto pvalue = parameters.getPositional(i);
     assert(!pvalue.has(egg::lang::Discriminator::FlowControl));
-    auto result = nested.addSymbol(EggProgramSymbol::ReadWrite, pname, *ptype)->assign(*this, pvalue);
+    auto result = nested->addSymbol(EggProgramSymbol::ReadWrite, pname, *ptype)->assign(*this, pvalue);
     if (result.has(egg::lang::Discriminator::FlowControl)) {
       // Re-create the exception with the parameter name included
       auto* plocation = parameters.getPositionalLocation(i);
@@ -427,8 +427,8 @@ egg::lang::Value egg::yolk::EggProgramContext::executeFunctionCall(const egg::la
       return this->raiseFormat("Type mismatch for parameter '", pname, "': Expected '", ptype->toString(), "', but got '", pvalue.getRuntimeType()->toString(), "' instead");
     }
   }
-  EggProgramContext context(*this, nested);
-  auto retval = block.execute(context);
+  auto context = std::make_shared<EggProgramContext>(*this, nested);
+  auto retval = block.execute(*context);
   if (retval.stripFlowControl(egg::lang::Discriminator::Return)) {
     // Explicit return
     return retval;
@@ -552,10 +552,10 @@ egg::lang::Value egg::yolk::EggProgramContext::executeCatch(const IEggProgramNod
   assert(exception != nullptr);
   assert(!exception->has(egg::lang::Discriminator::FlowControl));
   // TODO return false if typeof(exception) != type
-  EggProgramSymbolTable nested(this->symtable);
-  nested.addSymbol(EggProgramSymbol::ReadWrite, name, *type.getType(), *exception);
-  EggProgramContext context(*this, nested);
-  auto retval = block.execute(context);
+  auto nested = std::make_shared<EggProgramSymbolTable>(this->symtable); // WIBBLE BASKET
+  nested->addSymbol(EggProgramSymbol::ReadWrite, name, *type.getType(), *exception);
+  auto context = std::make_shared<EggProgramContext>(*this, nested);
+  auto retval = block.execute(*context);
   if (retval.has(egg::lang::Discriminator::FlowControl)) {
     // Check for a rethrow
     if (retval.is(egg::lang::Discriminator::Exception | egg::lang::Discriminator::Void)) {
@@ -787,11 +787,11 @@ egg::lang::Value egg::yolk::EggProgramContext::executePredicate(const IEggProgra
 }
 
 egg::lang::LogSeverity egg::yolk::EggProgram::execute(IEggEngineExecutionContext& execution) {
-  EggProgramSymbolTable symtable(nullptr);
-  symtable.addBuiltins();
+  auto symtable = std::make_shared<EggProgramSymbolTable>(nullptr); // WIBBLE BASKET
+  symtable->addBuiltins();
   egg::lang::LogSeverity severity = egg::lang::LogSeverity::None;
-  EggProgramContext context(this->getRootLocation(), execution, symtable, severity);
-  auto retval = this->root->execute(context);
+  auto context = std::make_shared<EggProgramContext>(this->getRootLocation(), execution, symtable, severity);
+  auto retval = this->root->execute(*context);
   if (!retval.is(egg::lang::Discriminator::Void)) {
     std::string message;
     if (retval.stripFlowControl(egg::lang::Discriminator::Exception)) {
@@ -800,7 +800,7 @@ egg::lang::LogSeverity egg::yolk::EggProgram::execute(IEggEngineExecutionContext
     } else {
       message = "Expected statement to return 'void', but got '" + retval.getTagString() + "' instead";
     }
-    context.log(egg::lang::LogSource::Runtime, egg::lang::LogSeverity::Error, message);
+    context->log(egg::lang::LogSource::Runtime, egg::lang::LogSeverity::Error, message);
   }
   return severity;
 }

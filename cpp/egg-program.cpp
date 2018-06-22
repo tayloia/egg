@@ -12,33 +12,33 @@ namespace {
   class EggProgramAssigneeIdentifier : public egg::yolk::IEggProgramAssignee {
     EGG_NO_COPY(EggProgramAssigneeIdentifier);
   private:
-    egg::yolk::EggProgramContext& context; // WIBBLE out of scope?
+    std::shared_ptr<egg::yolk::EggProgramContext> program; // WIBBLE
     egg::lang::String name;
   public:
-    EggProgramAssigneeIdentifier(egg::yolk::EggProgramContext& context, const egg::lang::String& name)
-      : context(context), name(name) {
+    EggProgramAssigneeIdentifier(egg::yolk::EggProgramContext& program, const egg::lang::String& name)
+      : program(program.shared_from_this()), name(name) {
     }
     virtual egg::lang::Value get() const override {
-      return this->context.get(this->name, false);
+      return this->program->get(this->name, false);
     }
     virtual egg::lang::Value set(const egg::lang::Value& value) override {
-      return this->context.set(this->name, value);
+      return this->program->set(this->name, value);
     }
   };
 
   class EggProgramAssigneeInstance : public egg::yolk::IEggProgramAssignee {
     EGG_NO_COPY(EggProgramAssigneeInstance);
   protected:
-    egg::yolk::EggProgramContext& context; // WIBBLE out of scope?
+    std::shared_ptr<egg::yolk::EggProgramContext> program; // WIBBLE
     std::shared_ptr<egg::yolk::IEggProgramNode> expression;
     mutable egg::lang::Value instance;
-    EggProgramAssigneeInstance(egg::yolk::EggProgramContext& context, const std::shared_ptr<egg::yolk::IEggProgramNode>& expression)
-      : context(context), expression(expression), instance() {
+    EggProgramAssigneeInstance(egg::yolk::EggProgramContext& program, const std::shared_ptr<egg::yolk::IEggProgramNode>& expression)
+      : program(program.shared_from_this()), expression(expression), instance() {
     }
     bool evaluateInstance() const {
       if (this->instance.is(egg::lang::Discriminator::Void)) {
         // Need to evaluate the expression
-        this->instance = this->expression->execute(this->context).direct();
+        this->instance = this->expression->execute(*this->program).direct();
       }
       return !this->instance.has(egg::lang::Discriminator::FlowControl);
     }
@@ -57,7 +57,7 @@ namespace {
       // Get the initial value of the indexed entry (probably part of a +=-type construct)
       if (this->evaluateInstance()) {
         if (this->evaluateIndex()) {
-          return this->instance.getRuntimeType()->bracketsGet(this->context, this->instance, this->index);
+          return this->instance.getRuntimeType()->bracketsGet(*this->program, this->instance, this->index);
         }
         assert(this->index.has(egg::lang::Discriminator::FlowControl));
         return this->index;
@@ -69,7 +69,7 @@ namespace {
       // Set the value of the indexed entry
       if (this->evaluateInstance()) {
         if (this->evaluateIndex()) {
-          return this->instance.getRuntimeType()->bracketsSet(this->context, this->instance, this->index, value);
+          return this->instance.getRuntimeType()->bracketsSet(*this->program, this->instance, this->index, value);
         }
         assert(this->index.has(egg::lang::Discriminator::FlowControl));
         return this->index;
@@ -81,7 +81,7 @@ namespace {
     bool evaluateIndex() const {
       if (this->index.is(egg::lang::Discriminator::Void)) {
         // Need to evaluate the index expression
-        this->index = this->indexExpression->execute(this->context).direct();
+        this->index = this->indexExpression->execute(*this->program).direct();
       }
       return !this->index.has(egg::lang::Discriminator::FlowControl);
     }
@@ -98,7 +98,7 @@ namespace {
     virtual egg::lang::Value get() const override {
       // Get the initial value of the property (probably part of a +=-type construct)
       if (this->evaluateInstance()) {
-        return this->instance.getRuntimeType()->dotGet(this->context, this->instance, property);
+        return this->instance.getRuntimeType()->dotGet(*this->program, this->instance, property);
       }
       assert(this->instance.has(egg::lang::Discriminator::FlowControl));
       return this->instance;
@@ -106,7 +106,7 @@ namespace {
     virtual egg::lang::Value set(const egg::lang::Value& value) override {
       // Set the value of the property
       if (this->evaluateInstance()) {
-        return this->instance.getRuntimeType()->dotSet(this->context, this->instance, property, value);
+        return this->instance.getRuntimeType()->dotSet(*this->program, this->instance, property, value);
       }
       assert(this->instance.has(egg::lang::Discriminator::FlowControl));
       return this->instance;

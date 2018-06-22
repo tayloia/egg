@@ -12,14 +12,12 @@ int?() countdown() {
 assert(type.of(countdown) == "int?()()");
 var f = countdown();
 assert(type.of(f) == "int?()");
-/* WIBBLE The following fails due to symbol tables going out of scope
 while (var i = f()) {
   assert(type.of(i) == "int");
   print(i);
 }
-//!/>5
-//!/>4
-//!/>3
-//!/>2
-//!/>1
-*/
+///>5
+///>4
+///>3
+///>2
+///>1
