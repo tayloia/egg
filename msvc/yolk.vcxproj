@@ -32,6 +32,7 @@
     <ClCompile Include="..\cpp\exceptions.cpp" />
     <ClCompile Include="..\cpp\files.cpp" />
     <ClCompile Include="..\cpp\functions.cpp" />
+    <ClCompile Include="..\cpp\gc.cpp" />
     <ClCompile Include="..\cpp\json-tokenizer.cpp" />
     <ClCompile Include="..\cpp\lang.cpp" />
     <ClCompile Include="..\cpp\lexers.cpp" />

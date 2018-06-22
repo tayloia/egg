@@ -1,4 +1,6 @@
 namespace egg::gc {
+  class Collectable;
+
   template<typename T>
   class Atomic {
     Atomic(const Atomic&) = delete;
@@ -120,15 +122,52 @@ namespace egg::gc {
   };
 
   class Basket {
-
+    Basket(const Basket&) = delete;
+    Basket& operator=(const Basket&) = delete;
+  public:
+    class IVisitor {
+    public:
+      virtual void visit(Collectable& collectable) = 0;
+    };
+  private:
+    class Head;
+    Head* head;
+  public:
+    Basket();
+    ~Basket();
+    void add(Collectable& collectable, bool root);
+    void remove(Collectable& collectable);
+    void visitCollectables(IVisitor& visitor);
+    std::list<Collectable*> collectGarbage();
   };
 
   class Collectable {
-
+    Collectable(const Collectable&) = delete;
+    Collectable& operator=(const Collectable&) = delete;
+    friend class Basket;
+  private:
+    Basket* basket;
+    Collectable* prevInBasket;
+    Collectable* nextInBasket;
+  protected:
+    Collectable()
+      : basket(nullptr),
+        prevInBasket(nullptr),
+        nextInBasket(nullptr) {
+    }
+  public:
+    Basket* getCollectableBasket() const {
+      return this->basket;
+    }
   };
 
   template<class T>
   class SoftRef {
     SoftRef() = delete;
+  };
+
+  class BasketFactory {
+  public:
+    static std::shared_ptr<Basket> createBasket();
   };
 }

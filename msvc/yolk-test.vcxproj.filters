@@ -49,6 +49,9 @@
     <ClCompile Include="..\cpp\test\gc-hard.cpp">
       <Filter>Test Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\cpp\test\gc-soft.cpp">
+      <Filter>Test Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Data Files">
