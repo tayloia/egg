@@ -38,6 +38,9 @@ namespace egg::gc {
   template<class T>
   class NotReferenceCounted : public T {
   public:
+    NotReferenceCounted() : T() {}
+    template<typename... ARGS>
+    explicit NotReferenceCounted(ARGS&&... args) : T(std::forward<ARGS>(args)...) {}
     virtual T* acquireHard() const override {
       return const_cast<NotReferenceCounted*>(this);
     }
@@ -114,5 +117,18 @@ namespace egg::gc {
       // Use perfect forwarding to the constructor
       return HardRef<T>(new U(std::forward<ARGS>(args)...));
     }
+  };
+
+  class Basket {
+
+  };
+
+  class Collectable {
+
+  };
+
+  template<class T>
+  class SoftRef {
+    SoftRef() = delete;
   };
 }

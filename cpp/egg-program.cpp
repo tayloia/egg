@@ -12,11 +12,20 @@ namespace {
   class EggProgramAssigneeIdentifier : public egg::yolk::IEggProgramAssignee {
     EGG_NO_COPY(EggProgramAssigneeIdentifier);
   private:
+#if EGG_SYMBOL_TABLE_ON_HEAP
     std::shared_ptr<egg::yolk::EggProgramContext> program; // WIBBLE
+#else
+    egg::yolk::EggProgramContext* program; // WIBBLE
+#endif
     egg::lang::String name;
   public:
     EggProgramAssigneeIdentifier(egg::yolk::EggProgramContext& program, const egg::lang::String& name)
-      : program(program.shared_from_this()), name(name) {
+#if EGG_SYMBOL_TABLE_ON_HEAP
+      : program(program.shared_from_this()),
+#else
+      : program(&program),
+#endif
+        name(name) {
     }
     virtual egg::lang::Value get() const override {
       return this->program->get(this->name, false);
@@ -29,11 +38,21 @@ namespace {
   class EggProgramAssigneeInstance : public egg::yolk::IEggProgramAssignee {
     EGG_NO_COPY(EggProgramAssigneeInstance);
   protected:
+#if EGG_SYMBOL_TABLE_ON_HEAP
     std::shared_ptr<egg::yolk::EggProgramContext> program; // WIBBLE
+#else
+    egg::yolk::EggProgramContext* program; // WIBBLE
+#endif
     std::shared_ptr<egg::yolk::IEggProgramNode> expression;
     mutable egg::lang::Value instance;
     EggProgramAssigneeInstance(egg::yolk::EggProgramContext& program, const std::shared_ptr<egg::yolk::IEggProgramNode>& expression)
-      : program(program.shared_from_this()), expression(expression), instance() {
+#if EGG_SYMBOL_TABLE_ON_HEAP
+      : program(program.shared_from_this()),
+#else
+      : program(&program),
+#endif
+        expression(expression),
+        instance() {
     }
     bool evaluateInstance() const {
       if (this->instance.is(egg::lang::Discriminator::Void)) {
@@ -259,7 +278,7 @@ void egg::yolk::EggProgramSymbolTable::addBuiltins() {
 }
 
 void egg::yolk::EggProgramSymbolTable::addBuiltin(const std::string& name, const egg::lang::Value& value) {
-  this->addSymbol(EggProgramSymbol::Builtin, egg::lang::String::fromUTF8(name), *value.getRuntimeType(), value);
+  (void)this->addSymbol(EggProgramSymbol::Builtin, egg::lang::String::fromUTF8(name), *value.getRuntimeType(), value);
 }
 
 std::shared_ptr<egg::yolk::EggProgramSymbol> egg::yolk::EggProgramSymbolTable::addSymbol(EggProgramSymbol::Kind kind, const egg::lang::String& name, const egg::lang::IType& type, const egg::lang::Value& value) {

@@ -47,10 +47,9 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareScope(const 
   egg::lang::ITypeRef type{ egg::lang::Type::Void };
   if ((node != nullptr) && node->symbol(name, type)) {
     // Perform the action with a new scope containing our symbol
-    auto nested = std::make_shared<EggProgramSymbolTable>(this->symtable); // WIBBLE BASKET
-    nested->addSymbol(EggProgramSymbol::ReadWrite, name, *type);
-    EggProgramContext context(*this, nested);
-    return action(context);
+    EggProgramContextNested nested(this->symtable);
+    nested.addSymbol(EggProgramSymbol::ReadWrite, name, *type);
+    return action(nested.makeContext(*this));
   }
   // Just perform the action in the current scope
   return action(*this);
@@ -87,8 +86,7 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareModule(const
 }
 
 egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareBlock(const std::vector<std::shared_ptr<IEggProgramNode>>& statements) {
-  auto nested = std::make_shared<EggProgramSymbolTable>(this->symtable); // WIBBLE BASKET
-  EggProgramContext context(*this, nested);
+  // TODO do we need a nested scope here?
   if (this->findDuplicateSymbols(statements)) {
     return EggProgramNodeFlags::Abandon;
   }
@@ -201,10 +199,9 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareCatch(const 
   if (abandoned(type.prepare(*this))) {
     return EggProgramNodeFlags::Abandon;
   }
-  auto nested = std::make_shared<EggProgramSymbolTable>(this->symtable); // WIBBLE BASKET
-  nested->addSymbol(EggProgramSymbol::ReadWrite, name, *type.getType());
-  EggProgramContext context(*this, nested);
-  return block.prepare(context);
+  EggProgramContextNested nested(this->symtable);
+  nested.addSymbol(EggProgramSymbol::ReadWrite, name, *type.getType());
+  return block.prepare(nested.makeContext(*this));
 }
 
 egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareDo(IEggProgramNode& cond, IEggProgramNode& block) {
@@ -282,13 +279,13 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareFunctionDefi
   auto callable = type.callable();
   assert(callable != nullptr);
   assert(callable->getFunctionName() == name);
-  auto nested = std::make_shared<EggProgramSymbolTable>(this->symtable); // WIBBLE BASKET
+  EggProgramContextNested nested(this->symtable);
   auto n = callable->getParameterCount();
   for (size_t i = 0; i < n; ++i) {
     auto& parameter = callable->getParameter(i);
-    nested->addSymbol(EggProgramSymbol::ReadWrite, parameter.getName(), *parameter.getType());
+    nested.addSymbol(EggProgramSymbol::ReadWrite, parameter.getName(), *parameter.getType());
   }
-  EggProgramContext context(*this, nested);
+  auto& context = nested.makeContext(*this);
   context.scopeTypeReturn = callable->getReturnType().get();
   assert(context.scopeTypeReturn != nullptr);
   auto flags = block->prepare(context);
@@ -693,11 +690,10 @@ egg::lang::LocationRuntime egg::yolk::EggProgram::getRootLocation() const {
 }
 
 egg::lang::LogSeverity egg::yolk::EggProgram::prepare(IEggEnginePreparationContext& preparation) {
-  auto symtable = std::make_shared<EggProgramSymbolTable>(nullptr); // WIBBLE BASKET
-  symtable->addBuiltins();
+  EggProgramContextNested nested(nullptr);
+  nested.addBuiltins();
   egg::lang::LogSeverity severity = egg::lang::LogSeverity::None;
-  EggProgramContext context(this->getRootLocation(), preparation, symtable, severity);
-  if (abandoned(this->root->prepare(context))) {
+  if (abandoned(this->root->prepare(nested.makeContext(this->getRootLocation(), preparation, severity)))) {
     return egg::lang::LogSeverity::Error;
   }
   return severity;

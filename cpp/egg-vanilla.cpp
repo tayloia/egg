@@ -40,7 +40,9 @@ namespace {
   };
 
   class VanillaIteratorType : public egg::gc::NotReferenceCounted<egg::lang::IType> {
+    EGG_NO_COPY(VanillaIteratorType);
   public:
+    VanillaIteratorType() {}
     virtual egg::lang::String toString() const override {
       return egg::lang::String::fromUTF8("<iterator>");
     }
