@@ -1,5 +1,6 @@
 namespace egg::gc {
   class Collectable;
+  template<class T> class SoftRef;
 
   template<typename T>
   class Atomic {
@@ -79,6 +80,9 @@ namespace egg::gc {
     explicit HardRef(const T* rhs) : ptr(HardRef::acquireHard(rhs)) {
       assert(this->ptr != nullptr);
     }
+    HardRef(HardRef&& rhs) : ptr(rhs.ptr) {
+      assert(this->ptr != nullptr);
+    }
     HardRef(const HardRef& rhs) : ptr(rhs.acquireHard()) {
       assert(this->ptr != nullptr);
     }
@@ -125,9 +129,38 @@ namespace egg::gc {
     Basket(const Basket&) = delete;
     Basket& operator=(const Basket&) = delete;
   public:
+    class Link {
+      friend class Basket;
+      Link(const Link&) = delete;
+      Link& operator=(const Link&) = delete;
+    private:
+      Collectable* from;
+      Collectable* to;
+      Link* next; // chain of links belonging to 'from'
+    public:
+      Link(Basket& basket, Collectable& from, Collectable& to);
+      Link(Link&& rhs) = default;
+      ~Link();
+      Link** findOrigin() const;
+      Collectable* get() const;
+      void set(Collectable& pointee);
+    };
     class IVisitor {
     public:
       virtual void visit(Collectable& collectable) = 0;
+    };
+    class Visitor : public IVisitor {
+      typedef std::function<void(Collectable&)> Action;
+    private:
+      Action action;
+    public:
+      explicit Visitor(Action action) : action(action) {
+        assert(action != nullptr);
+      }
+      virtual ~Visitor() {}
+      virtual void visit(Collectable& collectable) override {
+        this->action(collectable);
+      }
     };
   private:
     class Head;
@@ -138,7 +171,9 @@ namespace egg::gc {
     void add(Collectable& collectable, bool root);
     void remove(Collectable& collectable);
     void visitCollectables(IVisitor& visitor);
-    std::list<Collectable*> collectGarbage();
+    void visitRoots(IVisitor& visitor);
+    void visitGarbage(IVisitor& visitor);
+    void visitPurge(IVisitor& visitor);
   };
 
   class Collectable {
@@ -149,13 +184,19 @@ namespace egg::gc {
     Basket* basket;
     Collectable* prevInBasket;
     Collectable* nextInBasket;
+    Basket::Link* ownedLinks;
   protected:
     Collectable()
       : basket(nullptr),
         prevInBasket(nullptr),
-        nextInBasket(nullptr) {
+        nextInBasket(nullptr),
+        ownedLinks(nullptr) {
     }
   public:
+    virtual ~Collectable() {
+      // Make sure we don't own any active links by the time we're destroyed
+      assert(this->ownedLinks == nullptr);
+    }
     Basket* getCollectableBasket() const {
       return this->basket;
     }
@@ -164,6 +205,23 @@ namespace egg::gc {
   template<class T>
   class SoftRef {
     SoftRef() = delete;
+    SoftRef(const SoftRef&) = delete;
+    SoftRef& operator=(const SoftRef&) = delete;
+  private:
+    Basket::Link link;
+  public:
+    SoftRef(Basket& basket, Collectable& from, T& to)
+      : link(basket, from, to) {
+    }
+    SoftRef(SoftRef&& rhs) = default;
+    T* get() const {
+      auto* to = this->link.get();
+      assert(to != nullptr);
+      return static_cast<T*>(to);
+    }
+    void set(T& to) {
+      this->link.set(to);
+    }
   };
 
   class BasketFactory {
