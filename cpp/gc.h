@@ -11,11 +11,11 @@ namespace egg::gc {
   public:
     explicit Atomic(T init) : atom(init) {
     }
-    T get() {
-      return this->atom;
+    T get() const {
+      return this->atom.load();
     }
-    T add(T offset) {
-      return this->atom.fetch_add(offset);
+    T add(T arg) {
+      return this->atom.fetch_add(arg);
     }
   };
 
@@ -26,18 +26,18 @@ namespace egg::gc {
     mutable Atomic<int64_t> atomic;
   public:
     explicit ReferenceCount(int64_t init) : atomic(init) {}
-    size_t acquire() const {
+    uint64_t acquire() const {
       auto after = this->atomic.add(1) + 1;
       assert(after > 0);
-      return static_cast<size_t>(after);
+      return static_cast<uint64_t>(after);
     }
-    size_t release() const {
+    uint64_t release() const {
       auto after = this->atomic.add(-1) - 1;
       assert(after >= 0);
-      return static_cast<size_t>(after);
+      return static_cast<uint64_t>(after);
     }
-    size_t get() const {
-      return static_cast<size_t>(this->atomic.get());
+    uint64_t get() const {
+      return static_cast<uint64_t>(this->atomic.get());
     }
   };
 
@@ -85,9 +85,6 @@ namespace egg::gc {
     T* ptr;
   public:
     explicit HardRef(const T* rhs) : ptr(HardRef::acquireHard(rhs)) {
-      assert(this->ptr != nullptr);
-    }
-    HardRef(HardRef&& rhs) : ptr(rhs.ptr) {
       assert(this->ptr != nullptr);
     }
     HardRef(const HardRef& rhs) : ptr(rhs.acquireHard()) {
@@ -175,12 +172,18 @@ namespace egg::gc {
   public:
     Basket();
     ~Basket();
-    void add(Collectable& collectable, bool root); // WIBBLE
-    void setRoot(Collectable& collectable, bool root); // WIBBLE
+    void add(Collectable& collectable); // Must have a hard reference already
     void visitCollectables(IVisitor& visitor);
     void visitRoots(IVisitor& visitor);
     void visitGarbage(IVisitor& visitor);
     void visitPurge(IVisitor& visitor);
+    template<typename T, typename... ARGS>
+    HardRef<T> make(ARGS&&... args) {
+      // Use perfect forwarding to the constructor and then add to the basket
+      HardRef<T> ref{ new T(std::forward<ARGS>(args)...) };
+      this->add(*ref);
+      return ref;
+    }
   };
 
   class Collectable {
@@ -194,9 +197,9 @@ namespace egg::gc {
     Collectable* nextInBasket;
     Basket::Link* ownedLinks;
   protected:
-    explicit Collectable(Basket& basket)
+    Collectable()
       : hard(0),
-        basket(&basket),
+        basket(nullptr),
         prevInBasket(nullptr),
         nextInBasket(nullptr),
         ownedLinks(nullptr) {
@@ -214,10 +217,6 @@ namespace egg::gc {
       if (this->hard.release() == 0) {
         delete this;
       }
-    }
-    void setCollectableRoot(bool root) { // WIBBLE
-      assert(this->basket != nullptr);
-      this->basket->setRoot(*this, root);
     }
   };
 

@@ -3,7 +3,7 @@
 namespace {
   struct Instance : public egg::gc::Collectable {
     EGG_NO_COPY(Instance);
-    Instance(egg::gc::Basket& basket, const std::string& name) : Collectable(basket), name(name), pointers() {}
+    explicit Instance(const std::string& name) : Collectable(), name(name), pointers() {}
     std::string name;
     std::vector<egg::gc::SoftRef<Instance>> pointers;
   };
@@ -16,20 +16,10 @@ namespace {
     }
   };
 
-  class BasketDeleter : public egg::gc::Basket::IVisitor {
-  public:
-    size_t count = 0;
-    virtual void visit(egg::gc::Collectable& collectable) override {
-      this->count++;
-      delete &collectable;
-    }
-  };
-
   typedef void (egg::gc::Basket::*Visitation)(egg::gc::Basket::IVisitor&);
 
-  template<class T = BasketCounter>
   size_t basketCount(egg::gc::Basket& basket, Visitation visitation) {
-    T visitor;
+    BasketCounter visitor;
     (basket.*visitation)(visitor);
     return visitor.count;
   }
@@ -43,17 +33,19 @@ TEST(TestGCSoft, BasketEmpty) {
 
 TEST(TestGCSoft, BasketAdd) {
   auto basket = egg::gc::BasketFactory::createBasket();
-  Instance instance(*basket, "instance");
-  basket->add(instance, false);
-  ASSERT_EQ(1u, basketCount(*basket, &egg::gc::Basket::visitCollectables));
+  {
+    egg::gc::HardRef<Instance> instance{ new Instance("instance") };
+    basket->add(*instance);
+    ASSERT_EQ(1u, basketCount(*basket, &egg::gc::Basket::visitCollectables));
+    ASSERT_EQ(1u, basketCount(*basket, &egg::gc::Basket::visitRoots));
+  }
   ASSERT_EQ(0u, basketCount(*basket, &egg::gc::Basket::visitRoots));
   ASSERT_EQ(1u, basketCount(*basket, &egg::gc::Basket::visitPurge));
 }
 
 TEST(TestGCSoft, BasketAddRoot) {
   auto basket = egg::gc::BasketFactory::createBasket();
-  Instance instance(*basket, "instance");
-  basket->add(instance, true);
+  auto instance = basket->make<Instance>("instance");
   ASSERT_EQ(1u, basketCount(*basket, &egg::gc::Basket::visitCollectables));
   ASSERT_EQ(1u, basketCount(*basket, &egg::gc::Basket::visitRoots));
   ASSERT_EQ(1u, basketCount(*basket, &egg::gc::Basket::visitPurge));
@@ -61,73 +53,72 @@ TEST(TestGCSoft, BasketAddRoot) {
 
 TEST(TestGCSoft, BasketPoint) {
   auto basket = egg::gc::BasketFactory::createBasket();
-  auto* a = new Instance(*basket, "a");
-  basket->add(*a, true);
-  auto* b = new Instance(*basket, "b");
-  basket->add(*b, false);
+  auto a = basket->make<Instance>("a");
+  auto b = basket->make<Instance>("b");
   ASSERT_EQ(2u, basketCount(*basket, &egg::gc::Basket::visitCollectables));
   a->pointers.emplace_back(*basket, *a, *b);
-  ASSERT_EQ(b, a->pointers[0].get());
-  ASSERT_EQ(2u, basketCount<BasketDeleter>(*basket, &egg::gc::Basket::visitPurge));
+  ASSERT_EQ(b.get(), a->pointers[0].get());
+  ASSERT_EQ(2u, basketCount(*basket, &egg::gc::Basket::visitPurge));
 }
 
 TEST(TestGCSoft, BasketCollect) {
   auto basket = egg::gc::BasketFactory::createBasket();
-  auto* a = new Instance(*basket, "a");
-  basket->add(*a, true);
-  auto* b = new Instance(*basket, "b");
-  basket->add(*b, false);
-  ASSERT_EQ(2u, basketCount(*basket, &egg::gc::Basket::visitCollectables));
-  a->pointers.emplace_back(*basket, *a, *b);
-  ASSERT_EQ(0u, basketCount<BasketDeleter>(*basket, &egg::gc::Basket::visitGarbage)); // collects nothing
-  a->setCollectableRoot(false);
-  ASSERT_EQ(2u, basketCount<BasketDeleter>(*basket, &egg::gc::Basket::visitGarbage)); // collects "a" and "b"
+  {
+    auto a = basket->make<Instance>("a");
+    {
+      auto b = basket->make<Instance>("b");
+      ASSERT_EQ(2u, basketCount(*basket, &egg::gc::Basket::visitCollectables));
+      a->pointers.emplace_back(*basket, *a, *b);
+    }
+    ASSERT_EQ(0u, basketCount(*basket, &egg::gc::Basket::visitGarbage)); // evicts nothing
+  }
+  ASSERT_EQ(2u, basketCount(*basket, &egg::gc::Basket::visitGarbage)); // evicts "a" and "b"
 }
 
 TEST(TestGCSoft, BasketCycle1) {
   auto basket = egg::gc::BasketFactory::createBasket();
-  auto* a = new Instance(*basket, "a");
-  basket->add(*a, true);
-  auto* x = new Instance(*basket, "x");
-  basket->add(*x, false);
-  a->pointers.emplace_back(*basket, *a, *a);
-  x->pointers.emplace_back(*basket, *x, *a);
-  ASSERT_EQ(1u, basketCount<BasketDeleter>(*basket, &egg::gc::Basket::visitGarbage)); // collects "x"
-  a->setCollectableRoot(false);
-  ASSERT_EQ(1u, basketCount<BasketDeleter>(*basket, &egg::gc::Basket::visitGarbage)); // collects "a"
+  {
+    auto a = basket->make<Instance>("a");
+    {
+      auto x = basket->make<Instance>("x");
+      a->pointers.emplace_back(*basket, *a, *a);
+      x->pointers.emplace_back(*basket, *x, *a);
+    }
+    ASSERT_EQ(1u, basketCount(*basket, &egg::gc::Basket::visitGarbage)); // evicts "x"
+  }
+  ASSERT_EQ(1u, basketCount(*basket, &egg::gc::Basket::visitGarbage)); // evicts "a"
 }
 
 TEST(TestGCSoft, BasketCycle2) {
   auto basket = egg::gc::BasketFactory::createBasket();
-  auto* a = new Instance(*basket, "a");
-  basket->add(*a, true);
-  auto* b = new Instance(*basket, "b");
-  basket->add(*b, false);
-  auto* x = new Instance(*basket, "x");
-  basket->add(*x, false);
-  a->pointers.emplace_back(*basket, *a, *b);
-  b->pointers.emplace_back(*basket, *b, *a);
-  x->pointers.emplace_back(*basket, *x, *a);
-  ASSERT_EQ(1u, basketCount<BasketDeleter>(*basket, &egg::gc::Basket::visitGarbage)); // collects "x"
-  a->setCollectableRoot(false);
-  ASSERT_EQ(2u, basketCount<BasketDeleter>(*basket, &egg::gc::Basket::visitGarbage)); // collects "a" and "b"
+  {
+    auto a = basket->make<Instance>("a");
+    {
+      auto b = basket->make<Instance>("b");
+      auto x = basket->make<Instance>("x");
+      a->pointers.emplace_back(*basket, *a, *b);
+      b->pointers.emplace_back(*basket, *b, *a);
+      x->pointers.emplace_back(*basket, *x, *a);
+    }
+    ASSERT_EQ(1u, basketCount(*basket, &egg::gc::Basket::visitGarbage)); // evicts "x"
+  }
+  ASSERT_EQ(2u, basketCount(*basket, &egg::gc::Basket::visitGarbage)); // evicts "a" and "b"
 }
 
 TEST(TestGCSoft, BasketCycle3) {
   auto basket = egg::gc::BasketFactory::createBasket();
-  auto* a = new Instance(*basket, "a");
-  basket->add(*a, true);
-  auto* b = new Instance(*basket, "b");
-  basket->add(*b, false);
-  auto* c = new Instance(*basket, "c");
-  basket->add(*c, false);
-  auto* x = new Instance(*basket, "x");
-  basket->add(*x, false);
-  a->pointers.emplace_back(*basket, *a, *b);
-  b->pointers.emplace_back(*basket, *b, *c);
-  c->pointers.emplace_back(*basket, *c, *a);
-  x->pointers.emplace_back(*basket, *x, *a);
-  ASSERT_EQ(1u, basketCount<BasketDeleter>(*basket, &egg::gc::Basket::visitGarbage)); // collects "x"
-  a->setCollectableRoot(false);
-  ASSERT_EQ(3u, basketCount<BasketDeleter>(*basket, &egg::gc::Basket::visitGarbage)); // collects "a", "b" and "c"
+  {
+    auto a = basket->make<Instance>("a");
+    {
+      auto b = basket->make<Instance>("b");
+      auto c = basket->make<Instance>("c");
+      auto x = basket->make<Instance>("x");
+      a->pointers.emplace_back(*basket, *a, *b);
+      b->pointers.emplace_back(*basket, *b, *c);
+      c->pointers.emplace_back(*basket, *c, *a);
+      x->pointers.emplace_back(*basket, *x, *a);
+    }
+    ASSERT_EQ(1u, basketCount(*basket, &egg::gc::Basket::visitGarbage)); // evicts "x"
+  }
+  ASSERT_EQ(3u, basketCount(*basket, &egg::gc::Basket::visitGarbage)); // evicts "a", "b" and "c"
 }
