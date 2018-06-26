@@ -6,14 +6,49 @@ class egg::gc::Basket::Head : public egg::gc::Collectable {
   Head(const Head&) = delete;
   Head& operator=(const Head&) = delete;
 public:
-  Head() : roots(), collectables(0) {}
+  explicit Head(Basket& basket) : Collectable(basket), roots(), collectables(0) {}
   std::set<Collectable*> roots;
   size_t collectables;
+  void remove(Collectable& collectable) {
+    // Remove this collectable from the list of known collectables in this basket
+    assert(collectable.basket != nullptr);
+    assert(collectable.basket->head == this);
+    assert(&collectable != this);
+    Head::resetLinks(collectable);
+    auto* prev = collectable.prevInBasket;
+    auto* next = collectable.nextInBasket;
+    prev->nextInBasket = next;
+    next->prevInBasket = prev;
+    collectable.prevInBasket = nullptr;
+    collectable.nextInBasket = nullptr;
+    collectable.basket = nullptr;
+    (void)this->roots.erase(&collectable);
+    this->collectables--;
+  }
+  static void markRecursive(std::set<egg::gc::Collectable*>& unmarked, egg::gc::Collectable& collectable) {
+    // Recursively follow known links
+    auto removed = unmarked.erase(&collectable);
+    if (removed) {
+      for (auto* p = collectable.ownedLinks; p != nullptr; p = p->next) {
+        if (p->to != nullptr) {
+          assert(p->from == &collectable);
+          markRecursive(unmarked, *p->to);
+        }
+      }
+    }
+  }
+  static void resetLinks(egg::gc::Collectable& collectable) {
+    // Reset all the links owned by a collectable
+    for (auto* p = collectable.ownedLinks; p != nullptr; p = p->next) {
+      p->to = nullptr; // mark as reset
+    }
+    collectable.ownedLinks = nullptr;
+  }
 };
 
 egg::gc::Basket::Basket()
-  : head(new Head) {
-  this->head->basket = this;
+  : head(nullptr) {
+  this->head = new Head(*this);
   this->head->prevInBasket = this->head;
   this->head->nextInBasket = this->head;
 }
@@ -28,8 +63,7 @@ void egg::gc::Basket::add(Collectable& collectable, bool root) {
   assert(this->head != nullptr);
   assert(collectable.prevInBasket == nullptr);
   assert(collectable.nextInBasket == nullptr);
-  assert(collectable.basket == nullptr);
-  collectable.basket = this;
+  assert(collectable.basket == this);
   auto* next = this->head->nextInBasket;
   this->head->nextInBasket = &collectable;
   collectable.prevInBasket = this->head;
@@ -45,19 +79,15 @@ void egg::gc::Basket::add(Collectable& collectable, bool root) {
   }
 }
 
-void egg::gc::Basket::remove(Collectable& collectable) {
-  // Remove this collectable from the list of known collectables in this basket
-  assert(collectable.basket == this);
-  assert(&collectable != this->head);
-  auto* prev = collectable.prevInBasket;
-  auto* next = collectable.nextInBasket;
-  prev->nextInBasket = next;
-  next->prevInBasket = prev;
-  collectable.prevInBasket = nullptr;
-  collectable.nextInBasket = nullptr;
-  collectable.basket = nullptr;
-  (void)this->head->roots.erase(&collectable);
-  this->head->collectables--;
+void egg::gc::Basket::setRoot(Collectable& collectable, bool root) {
+  // Set the flag saying whether this collectable is a root or not
+  assert(this == collectable.basket);
+  assert(this->head != nullptr);
+  if (root) {
+    (void)this->head->roots.emplace(&collectable);
+  } else {
+    (void)this->head->roots.erase(&collectable);
+  }
 }
 
 egg::gc::Basket::Link::Link(Basket& basket, Collectable& from, Collectable& to)
@@ -130,6 +160,25 @@ void egg::gc::Basket::visitRoots(IVisitor& visitor) {
   }
 }
 
+void egg::gc::Basket::visitGarbage(IVisitor& visitor) {
+  // Construct a list of all known collectables
+  std::set<Collectable*> unmarked;
+  for (auto* p = this->head->nextInBasket; p != this->head; p = p->nextInBasket) {
+    auto inserted = unmarked.emplace(p).second;
+    assert(inserted);
+    EGG_UNUSED(inserted);
+  }
+  // Follow the hierarchy of collectable references from the roots
+  for (auto p = this->head->roots.begin(), q = this->head->roots.end(); p != q; ++p) {
+    Head::markRecursive(unmarked, **p);
+  }
+  // Now collect and visit the remaining unmarked garbage
+  for (auto p = unmarked.begin(), q = unmarked.end(); p != q; ++p) {
+    this->head->remove(**p);
+    visitor.visit(**p);
+  }
+}
+
 void egg::gc::Basket::visitPurge(IVisitor& visitor) {
   // Visit all the roots in this basket after purging them
   auto* p = this->head->nextInBasket;
@@ -140,11 +189,8 @@ void egg::gc::Basket::visitPurge(IVisitor& visitor) {
   this->head->roots.clear();
   while (p != this->head) {
     // Quickly unlink everything before calling the visitor
+    Head::resetLinks(*p);
     auto* q = p->nextInBasket;
-    for (auto* r = p->ownedLinks; r != nullptr; r = r->next) {
-      r->to = nullptr; // mark as reset
-    }
-    p->ownedLinks = nullptr;
     visitor.visit(*p);
     p = q;
   }

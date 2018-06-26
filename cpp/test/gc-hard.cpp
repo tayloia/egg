@@ -109,20 +109,6 @@ TEST(TestGCHard, NotReferenceCounted) {
   ASSERT_EQ("~nrc", monitor.read());
 }
 
-TEST(TestGCHard, HardReferenceCounted) {
-  Monitor monitor;
-  ASSERT_EQ("", monitor.read());
-  {
-    egg::gc::HardReferenceCounted<Instance> instance(1, monitor, "hrc"); // rc=1
-    ASSERT_EQ("*hrc", monitor.read());
-    ASSERT_EQ(&instance, instance.acquireHard()); // rc=2
-    ASSERT_EQ("", monitor.read());
-    instance.releaseHard(); // rc=1
-    ASSERT_EQ("", monitor.read());
-  }
-  ASSERT_EQ("~hrc", monitor.read());
-}
-
 TEST(TestGCHard, HardRef) {
   Monitor monitor;
   ASSERT_EQ("", monitor.read());

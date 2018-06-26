@@ -36,6 +36,9 @@ namespace egg::gc {
       assert(after >= 0);
       return static_cast<size_t>(after);
     }
+    size_t get() const {
+      return static_cast<size_t>(this->atomic.get());
+    }
   };
 
   template<class T>
@@ -59,7 +62,11 @@ namespace egg::gc {
     ReferenceCount hard;
   public:
     template<typename... ARGS>
-    explicit HardReferenceCounted(int64_t rc, ARGS&&... args) : T(std::forward<ARGS>(args)...), hard(rc) {}
+    explicit HardReferenceCounted(int64_t rc, ARGS&&... args) : T(std::forward<ARGS>(args)...), hard(rc) {
+    }
+    ~HardReferenceCounted() {
+      assert(this->hard.get() == 0);
+    }
     virtual T* acquireHard() const override {
       this->hard.acquire();
       return const_cast<HardReferenceCounted*>(this);
@@ -128,6 +135,7 @@ namespace egg::gc {
   class Basket {
     Basket(const Basket&) = delete;
     Basket& operator=(const Basket&) = delete;
+    class Head;
   public:
     class Link {
       friend class Basket;
@@ -163,13 +171,12 @@ namespace egg::gc {
       }
     };
   private:
-    class Head;
     Head* head;
   public:
     Basket();
     ~Basket();
-    void add(Collectable& collectable, bool root);
-    void remove(Collectable& collectable);
+    void add(Collectable& collectable, bool root); // WIBBLE
+    void setRoot(Collectable& collectable, bool root); // WIBBLE
     void visitCollectables(IVisitor& visitor);
     void visitRoots(IVisitor& visitor);
     void visitGarbage(IVisitor& visitor);
@@ -181,13 +188,15 @@ namespace egg::gc {
     Collectable& operator=(const Collectable&) = delete;
     friend class Basket;
   private:
+    ReferenceCount hard;
     Basket* basket;
     Collectable* prevInBasket;
     Collectable* nextInBasket;
     Basket::Link* ownedLinks;
   protected:
-    Collectable()
-      : basket(nullptr),
+    explicit Collectable(Basket& basket)
+      : hard(0),
+        basket(&basket),
         prevInBasket(nullptr),
         nextInBasket(nullptr),
         ownedLinks(nullptr) {
@@ -197,8 +206,18 @@ namespace egg::gc {
       // Make sure we don't own any active links by the time we're destroyed
       assert(this->ownedLinks == nullptr);
     }
-    Basket* getCollectableBasket() const {
-      return this->basket;
+    Collectable* acquireHard() const {
+      this->hard.acquire();
+      return const_cast<Collectable*>(this);
+    }
+    void releaseHard() const {
+      if (this->hard.release() == 0) {
+        delete this;
+      }
+    }
+    void setCollectableRoot(bool root) { // WIBBLE
+      assert(this->basket != nullptr);
+      this->basket->setRoot(*this, root);
     }
   };
 
