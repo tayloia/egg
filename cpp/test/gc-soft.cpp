@@ -6,6 +6,9 @@ namespace {
     explicit Instance(const std::string& name) : Collectable(), name(name), pointers() {}
     std::string name;
     std::vector<egg::gc::SoftRef<Instance>> pointers;
+    void addPointer(const egg::gc::HardRef<Instance>& pointer) {
+      this->pointers.emplace_back(*this, pointer.get());
+    }
   };
 
   class BasketCounter : public egg::gc::Basket::IVisitor {
@@ -56,7 +59,7 @@ TEST(TestGCSoft, BasketPoint) {
   auto a = basket->make<Instance>("a");
   auto b = basket->make<Instance>("b");
   ASSERT_EQ(2u, basketCount(*basket, &egg::gc::Basket::visitCollectables));
-  a->pointers.emplace_back(*basket, *a, *b);
+  a->pointers.emplace_back(*a, b.get());
   ASSERT_EQ(b.get(), a->pointers[0].get());
   ASSERT_EQ(2u, basketCount(*basket, &egg::gc::Basket::visitPurge));
 }
@@ -68,7 +71,7 @@ TEST(TestGCSoft, BasketCollect) {
     {
       auto b = basket->make<Instance>("b");
       ASSERT_EQ(2u, basketCount(*basket, &egg::gc::Basket::visitCollectables));
-      a->pointers.emplace_back(*basket, *a, *b);
+      a->addPointer(b);
     }
     ASSERT_EQ(0u, basketCount(*basket, &egg::gc::Basket::visitGarbage)); // evicts nothing
   }
@@ -81,8 +84,8 @@ TEST(TestGCSoft, BasketCycle1) {
     auto a = basket->make<Instance>("a");
     {
       auto x = basket->make<Instance>("x");
-      a->pointers.emplace_back(*basket, *a, *a);
-      x->pointers.emplace_back(*basket, *x, *a);
+      a->addPointer(a);
+      x->addPointer(a);
     }
     ASSERT_EQ(1u, basketCount(*basket, &egg::gc::Basket::visitGarbage)); // evicts "x"
   }
@@ -96,9 +99,9 @@ TEST(TestGCSoft, BasketCycle2) {
     {
       auto b = basket->make<Instance>("b");
       auto x = basket->make<Instance>("x");
-      a->pointers.emplace_back(*basket, *a, *b);
-      b->pointers.emplace_back(*basket, *b, *a);
-      x->pointers.emplace_back(*basket, *x, *a);
+      a->addPointer(b);
+      b->addPointer(a);
+      x->addPointer(a);
     }
     ASSERT_EQ(1u, basketCount(*basket, &egg::gc::Basket::visitGarbage)); // evicts "x"
   }
@@ -113,10 +116,10 @@ TEST(TestGCSoft, BasketCycle3) {
       auto b = basket->make<Instance>("b");
       auto c = basket->make<Instance>("c");
       auto x = basket->make<Instance>("x");
-      a->pointers.emplace_back(*basket, *a, *b);
-      b->pointers.emplace_back(*basket, *b, *c);
-      c->pointers.emplace_back(*basket, *c, *a);
-      x->pointers.emplace_back(*basket, *x, *a);
+      a->addPointer(b);
+      b->addPointer(c);
+      c->addPointer(a);
+      x->addPointer(a);
     }
     ASSERT_EQ(1u, basketCount(*basket, &egg::gc::Basket::visitGarbage)); // evicts "x"
   }

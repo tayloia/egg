@@ -53,27 +53,20 @@ namespace {
     }
   };
 
-  class EggProgramFunctionObject : public egg::gc::HardReferenceCounted<egg::lang::IObject> {
+  class EggProgramFunctionObject : public egg::gc::SoftReferenceCounted<egg::lang::IObject> {
     EGG_NO_COPY(EggProgramFunctionObject);
   private:
-#if EGG_SYMBOL_TABLE_ON_HEAP
-    std::shared_ptr<egg::yolk::EggProgramContext> program; // WIBBLE
-#else
-    egg::yolk::EggProgramContext* program; // WIBBLE
-#endif
+    egg::gc::SoftRef<egg::yolk::EggProgramContext> program;
     egg::lang::ITypeRef type;
     std::shared_ptr<egg::yolk::IEggProgramNode> block;
   public:
     EggProgramFunctionObject(egg::yolk::EggProgramContext& program, const egg::lang::IType& type, const std::shared_ptr<egg::yolk::IEggProgramNode>& block)
-      : HardReferenceCounted(0),
-#if EGG_SYMBOL_TABLE_ON_HEAP
-        program(program.shared_from_this()),
-#else
-        program(&program),
-#endif
+      : SoftReferenceCounted(),
+        program(),
         type(&type),
         block(block) {
       assert(block != nullptr);
+      this->softLink(this->program, &program);
     }
     virtual bool dispose() override {
       return false;
@@ -120,7 +113,7 @@ egg::lang::Value egg::yolk::EggProgramContext::executeScope(const IEggProgramNod
   egg::lang::ITypeRef type{ egg::lang::Type::Void };
   if ((node != nullptr) && node->symbol(name, type)) {
     // Perform the action with a new scope containing our symbol
-    EggProgramContextNested nested(this->symtable);
+    EggProgramContextNested nested(*this->symtable);
     nested.addSymbol(EggProgramSymbol::ReadWrite, name, *type);
     return action(nested.makeContext(*this));
   }
@@ -152,7 +145,7 @@ egg::lang::Value egg::yolk::EggProgramContext::executeModule(const IEggProgramNo
 
 egg::lang::Value egg::yolk::EggProgramContext::executeBlock(const IEggProgramNode& self, const std::vector<std::shared_ptr<IEggProgramNode>>& statements) {
   this->statement(self);
-  EggProgramContextNested nested(this->symtable);
+  EggProgramContextNested nested(*this->symtable);
   return nested.makeContext(*this).executeStatements(statements);
 }
 
@@ -416,7 +409,7 @@ egg::lang::Value egg::yolk::EggProgramContext::executeFunctionCall(const egg::la
     return this->raiseFormat("Too many parameters in function call: Expected ", expected, ", but got ", given);
   }
   // TODO: Better type checking
-  EggProgramContextNested nested(this->symtable);
+  EggProgramContextNested nested(*this->symtable);
   for (size_t i = 0; i < given; ++i) {
     auto& parameter = callable->getParameter(i);
     auto pname = parameter.getName();
@@ -560,7 +553,7 @@ egg::lang::Value egg::yolk::EggProgramContext::executeCatch(const IEggProgramNod
   assert(exception != nullptr);
   assert(!exception->has(egg::lang::Discriminator::FlowControl));
   // TODO return false if typeof(exception) != type
-  EggProgramContextNested nested(this->symtable);
+  EggProgramContextNested nested(*this->symtable);
   nested.addSymbol(EggProgramSymbol::ReadWrite, name, *type.getType(), *exception);
   auto retval = block.execute(nested.makeContext(*this));
   if (retval.has(egg::lang::Discriminator::FlowControl)) {
@@ -794,10 +787,9 @@ egg::lang::Value egg::yolk::EggProgramContext::executePredicate(const IEggProgra
 }
 
 egg::lang::LogSeverity egg::yolk::EggProgram::execute(IEggEngineExecutionContext& execution) {
-  EggProgramContextNested nested(nullptr);
-  nested.addBuiltins();
+  EggProgramContextRoot context(this->basket);
   egg::lang::LogSeverity severity = egg::lang::LogSeverity::None;
-  auto retval = this->root->execute(nested.makeContext(this->getRootLocation(), execution, severity));
+  auto retval = this->root->execute(context.makeContext(this->getRootLocation(), execution, severity));
   if (!retval.is(egg::lang::Discriminator::Void)) {
     std::string message;
     if (retval.stripFlowControl(egg::lang::Discriminator::Exception)) {

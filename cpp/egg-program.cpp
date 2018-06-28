@@ -12,19 +12,11 @@ namespace {
   class EggProgramAssigneeIdentifier : public egg::yolk::IEggProgramAssignee {
     EGG_NO_COPY(EggProgramAssigneeIdentifier);
   private:
-#if EGG_SYMBOL_TABLE_ON_HEAP
-    std::shared_ptr<egg::yolk::EggProgramContext> program; // WIBBLE
-#else
-    egg::yolk::EggProgramContext* program; // WIBBLE
-#endif
+    egg::yolk::EggProgramContext* program; // WIBBLE raw?
     egg::lang::String name;
   public:
     EggProgramAssigneeIdentifier(egg::yolk::EggProgramContext& program, const egg::lang::String& name)
-#if EGG_SYMBOL_TABLE_ON_HEAP
-      : program(program.shared_from_this()),
-#else
       : program(&program),
-#endif
         name(name) {
     }
     virtual egg::lang::Value get() const override {
@@ -38,19 +30,11 @@ namespace {
   class EggProgramAssigneeInstance : public egg::yolk::IEggProgramAssignee {
     EGG_NO_COPY(EggProgramAssigneeInstance);
   protected:
-#if EGG_SYMBOL_TABLE_ON_HEAP
-    std::shared_ptr<egg::yolk::EggProgramContext> program; // WIBBLE
-#else
-    egg::yolk::EggProgramContext* program; // WIBBLE
-#endif
+    egg::yolk::EggProgramContext* program; // WIBBLE raw?
     std::shared_ptr<egg::yolk::IEggProgramNode> expression;
     mutable egg::lang::Value instance;
     EggProgramAssigneeInstance(egg::yolk::EggProgramContext& program, const std::shared_ptr<egg::yolk::IEggProgramNode>& expression)
-#if EGG_SYMBOL_TABLE_ON_HEAP
-      : program(program.shared_from_this()),
-#else
       : program(&program),
-#endif
         expression(expression),
         instance() {
     }
@@ -292,7 +276,7 @@ std::shared_ptr<egg::yolk::EggProgramSymbol> egg::yolk::EggProgramSymbolTable::f
   if (found != this->map.end()) {
     return found->second;
   }
-  if (includeParents && (this->parent != nullptr)) {
+  if (includeParents && (this->parent.get() != nullptr)) {
     return this->parent->findSymbol(name);
   }
   return nullptr;

@@ -47,7 +47,7 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareScope(const 
   egg::lang::ITypeRef type{ egg::lang::Type::Void };
   if ((node != nullptr) && node->symbol(name, type)) {
     // Perform the action with a new scope containing our symbol
-    EggProgramContextNested nested(this->symtable);
+    EggProgramContextNested nested(*this->symtable);
     nested.addSymbol(EggProgramSymbol::ReadWrite, name, *type);
     return action(nested.makeContext(*this));
   }
@@ -199,7 +199,7 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareCatch(const 
   if (abandoned(type.prepare(*this))) {
     return EggProgramNodeFlags::Abandon;
   }
-  EggProgramContextNested nested(this->symtable);
+  EggProgramContextNested nested(*this->symtable);
   nested.addSymbol(EggProgramSymbol::ReadWrite, name, *type.getType());
   return block.prepare(nested.makeContext(*this));
 }
@@ -279,7 +279,7 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareFunctionDefi
   auto callable = type.callable();
   assert(callable != nullptr);
   assert(callable->getFunctionName() == name);
-  EggProgramContextNested nested(this->symtable);
+  EggProgramContextNested nested(*this->symtable);
   auto n = callable->getParameterCount();
   for (size_t i = 0; i < n; ++i) {
     auto& parameter = callable->getParameter(i);
@@ -690,11 +690,13 @@ egg::lang::LocationRuntime egg::yolk::EggProgram::getRootLocation() const {
 }
 
 egg::lang::LogSeverity egg::yolk::EggProgram::prepare(IEggEnginePreparationContext& preparation) {
-  EggProgramContextNested nested(nullptr);
-  nested.addBuiltins();
+  EggProgramContextRoot context(this->basket);
+  assert(this->basket.validate()); // WIBBLE
   egg::lang::LogSeverity severity = egg::lang::LogSeverity::None;
-  if (abandoned(this->root->prepare(nested.makeContext(this->getRootLocation(), preparation, severity)))) {
+  if (abandoned(this->root->prepare(context.makeContext(this->getRootLocation(), preparation, severity)))) {
+    assert(this->basket.validate()); // WIBBLE
     return egg::lang::LogSeverity::Error;
   }
+  assert(this->basket.validate()); // WIBBLE
   return severity;
 }

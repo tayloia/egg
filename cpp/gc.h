@@ -99,12 +99,12 @@ namespace egg::gc {
       assert(this->ptr != nullptr);
       this->ptr->releaseHard();
     }
+    T* acquireHard() const {
+      return HardRef::acquireHard(this->ptr);
+    }
     T* get() const {
       assert(this->ptr != nullptr);
       return this->ptr;
-    }
-    T* acquireHard() const {
-      return HardRef::acquireHard(this->ptr);
     }
     void set(T* rhs) {
       auto* old = this->ptr;
@@ -122,7 +122,7 @@ namespace egg::gc {
       assert(ptr != nullptr);
       return static_cast<T*>(ptr->acquireHard());
     }
-    template<typename U, typename... ARGS>
+    template<typename U = T, typename... ARGS>
     static HardRef<T> make(ARGS&&... args) {
       // Use perfect forwarding to the constructor
       return HardRef<T>(new U(std::forward<ARGS>(args)...));
@@ -143,12 +143,18 @@ namespace egg::gc {
       Collectable* to;
       Link* next; // chain of links belonging to 'from'
     public:
-      Link(Basket& basket, Collectable& from, Collectable& to);
+      Link()
+        : from(nullptr), to(nullptr), next(nullptr) {
+      }
       Link(Link&& rhs) = default;
-      ~Link();
+      Link(Collectable& from, Collectable* to);
+      ~Link() {
+        this->reset();
+      }
       Link** findOrigin() const;
       Collectable* get() const;
-      void set(Collectable& pointee);
+      void set(Collectable& from, Collectable& to);
+      void reset();
     };
     class IVisitor {
     public:
@@ -173,6 +179,7 @@ namespace egg::gc {
     Basket();
     ~Basket();
     void add(Collectable& collectable); // Must have a hard reference already
+    bool validate() const; // Debugging only
     void visitCollectables(IVisitor& visitor);
     void visitRoots(IVisitor& visitor);
     void visitGarbage(IVisitor& visitor);
@@ -218,27 +225,67 @@ namespace egg::gc {
         delete this;
       }
     }
+    template<class T>
+    void softLink(SoftRef<T>& link, T* pointee) {
+      // Type-safe link setting
+      // OPTIMIZE
+      if (pointee == nullptr) {
+        link.reset();
+      } else {
+        HardRef<Collectable> ref{ this };
+        link.set(*ref, *pointee);
+      }
+    }
+    Basket* softBasket() const { // WIBBLE remove?
+      // This may be null
+      return this->basket;
+    }
+  };
+
+  template<class T>
+  class SoftReferenceCounted : public Collectable, public T {
+    SoftReferenceCounted(const SoftReferenceCounted&) = delete;
+    SoftReferenceCounted& operator=(const SoftReferenceCounted&) = delete;
+  public:
+    template<typename... ARGS>
+    explicit SoftReferenceCounted(ARGS&&... args) : Collectable(), T(std::forward<ARGS>(args)...) {
+    }
+    virtual T* acquireHard() const override {
+      Collectable::acquireHard();
+      return const_cast<SoftReferenceCounted*>(this);
+    }
+    virtual void releaseHard() const override {
+      Collectable::releaseHard();
+    }
   };
 
   template<class T>
   class SoftRef {
-    SoftRef() = delete;
     SoftRef(const SoftRef&) = delete;
     SoftRef& operator=(const SoftRef&) = delete;
   private:
     Basket::Link link;
   public:
-    SoftRef(Basket& basket, Collectable& from, T& to)
-      : link(basket, from, to) {
-    }
+    SoftRef() = default;
     SoftRef(SoftRef&& rhs) = default;
+    SoftRef(Collectable& from, T* to)
+      : link(from, to) {
+    }
     T* get() const {
       auto* to = this->link.get();
-      assert(to != nullptr);
       return static_cast<T*>(to);
     }
-    void set(T& to) {
-      this->link.set(to);
+    void set(Collectable& from, T& to) {
+      this->link.set(from, to);
+    }
+    void reset() {
+      this->link.reset();
+    }
+    T& operator*() const {
+      return *this->get();
+    }
+    T* operator->() const {
+      return this->get();
     }
   };
 
@@ -247,3 +294,98 @@ namespace egg::gc {
     static std::shared_ptr<Basket> createBasket();
   };
 }
+
+
+/*
+
+?? BACTRIAN CAMEL
+?? BEAR FACE
+?? BOAR
+?? CAT FACE
+?? COW
+?? COW FACE
+?? DEER
+?? DOG FACE
+?? DRAGON
+?? DRAGON FACE
+?? DROMEDARY CAMEL
+?? ELEPHANT
+?? FOX FACE
+?? FROG FACE
+?? GIRAFFE FACE
+?? GOAT
+?? GORILLA
+?? HAMSTER FACE
+?? HORSE
+?? HORSE FACE
+?? LEOPARD
+?? LION FACE
+?? MONKEY FACE
+?? MOUSE FACE
+?? OX
+?? PANDA FACE
+?? PIG
+?? PIG FACE
+?? RABBIT FACE
+?? RAM
+?? RHINOCEROS
+?? SAUROPOD
+?? SHEEP
+?? TIGER
+?? TIGER FACE
+?? T-REX
+?? UNICORN FACE
+?? WATER BUFFALO
+?? WOLF FACE
+?? ZEBRA FACE
+?? CAT
+?? RAT
+?? MOUSE
+?? RABBIT
+?? MONKEY
+?? DOG
+?? POODLE
+?? KOALA
+?? CHIPMUNK
+?? HEDGEHOG
+?? BAT
+?? SNAKE
+?? EAGLE
+?? OWL
+?? DUCK
+?? ROOSTER
+?? CHICKEN
+?? TURKEY
+?? HATCHING CHICK
+?? BABY CHICK
+?? FRONT-FACING BABY CHICK
+?? BIRD
+?? PENGUIN
+?? WHALE
+?? SPOUTING WHALE
+?? DOLPHIN
+?? SHARK
+?? FISH
+?? TROPICAL FISH
+?? BLOWFISH
+?? OCTOPUS
+?? SQUID
+?? SHRIMP
+?? CRAB
+?? SPIRAL SHELL
+?? SNAIL
+?? TURTLE
+?? LIZARD
+?? CROCODILE
+
+?? BUTTERFLY
+?? HONEYBEE
+?? LADY BEETLE
+?? ANT
+?? BUG
+?? SPIDER
+?? SPIDER WEB
+?? SCORPION
+?? CRICKET
+
+*/

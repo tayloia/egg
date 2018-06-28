@@ -55,12 +55,16 @@ namespace {
   };
 
   class EggEngineParsed : public IEggEngine {
+    EGG_NO_COPY(EggEngineParsed);
   private:
     EggProgram program;
     bool prepared;
   public:
     explicit EggEngineParsed(const std::shared_ptr<IEggProgramNode>& root)
       : program(root), prepared(false) {
+    }
+    virtual ~EggEngineParsed() {
+      // WIBBLE
     }
     virtual egg::lang::LogSeverity prepare(IEggEnginePreparationContext& preparation) override {
       if (this->prepared) {

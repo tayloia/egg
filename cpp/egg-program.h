@@ -1,7 +1,3 @@
-// Setting this value to '0' fails on example-0046.egg with a dangling pointer, everything else works without leaking
-// Setting this value to '1' runs example-0046.egg correctly, but leaks memory under valgrind
-#define EGG_SYMBOL_TABLE_ON_HEAP 1 // WIBBLE
-
 namespace egg::yolk {
   class EggProgramContext;
 
@@ -70,20 +66,15 @@ namespace egg::yolk {
     egg::lang::Value assign(egg::lang::IExecution& execution, const egg::lang::Value& rhs);
   };
 
-  class EggProgramSymbolTable {
+  class EggProgramSymbolTable : public egg::gc::Collectable {
     EGG_NO_COPY(EggProgramSymbolTable);
-  public:
-#if EGG_SYMBOL_TABLE_ON_HEAP
-    typedef std::shared_ptr<EggProgramSymbolTable> Pointer;
-#else
-    typedef EggProgramSymbolTable* Pointer;
-#endif
   private:
     std::map<egg::lang::String, std::shared_ptr<EggProgramSymbol>> map;
-    Pointer parent;
+    egg::gc::SoftRef<EggProgramSymbolTable> parent;
   public:
-    explicit EggProgramSymbolTable(Pointer parent = nullptr)
-      : parent(parent) {
+    explicit EggProgramSymbolTable(EggProgramSymbolTable* parent = nullptr)
+      : parent() {
+      this->softLink(this->parent, parent);
     }
     void addBuiltins();
     void addBuiltin(const std::string& name, const egg::lang::Value& value);
@@ -92,13 +83,23 @@ namespace egg::yolk {
   };
 
   class EggProgram {
-  public:
+    EGG_NO_COPY(EggProgram);
   private:
+    egg::gc::Basket basket;
     std::shared_ptr<IEggProgramNode> root;
   public:
     explicit EggProgram(const std::shared_ptr<IEggProgramNode>& root)
       : root(root) {
       assert(root != nullptr);
+    }
+    ~EggProgram() {
+      assert(this->basket.validate()); // WIBBLE
+      this->root.reset();
+      assert(this->basket.validate()); // WIBBLE
+      egg::gc::Basket::Visitor noop([](egg::gc::Collectable&) {
+        /* WIBBLE */
+      });
+      this->basket.visitPurge(noop); // WIBBLE
     }
     egg::lang::LocationRuntime getRootLocation() const;
     egg::lang::LogSeverity prepare(IEggEnginePreparationContext& preparation);
@@ -120,30 +121,31 @@ namespace egg::yolk {
     ~EggProgramExpression();
   };
 
-  class EggProgramContext : public std::enable_shared_from_this<EggProgramContext>, public egg::lang::IExecution { // WIBBLE enable_shared_from_this?
+  class EggProgramContext : public egg::gc::Collectable, public egg::lang::IExecution { // WIBBLE enable_shared_from_this?
     EGG_NO_COPY(EggProgramContext);
   private:
     egg::lang::LocationRuntime location;
     IEggEngineLogger* logger;
-    EggProgramSymbolTable::Pointer symtable;
+    egg::gc::SoftRef<EggProgramSymbolTable> symtable;
     egg::lang::LogSeverity* maximumSeverity;
     const egg::lang::IType* scopeTypeDeclare;
     const egg::lang::IType* scopeTypeReturn;
     const egg::lang::Value* scopeValue;
-    EggProgramContext(const egg::lang::LocationRuntime& location, IEggEngineLogger* logger, EggProgramSymbolTable::Pointer symtable, egg::lang::LogSeverity* maximumSeverity)
+    EggProgramContext(const egg::lang::LocationRuntime& location, IEggEngineLogger* logger, EggProgramSymbolTable& symtable, egg::lang::LogSeverity* maximumSeverity)
       : location(location),
         logger(logger),
-        symtable(symtable),
+        symtable(),
         maximumSeverity(maximumSeverity),
         scopeTypeDeclare(nullptr),
         scopeTypeReturn(nullptr),
         scopeValue(nullptr) {
+      this->softLink(this->symtable, &symtable);
     }
   public:
-    EggProgramContext(EggProgramContext& parent, EggProgramSymbolTable::Pointer symtable)
+    EggProgramContext(EggProgramContext& parent, EggProgramSymbolTable& symtable)
       : EggProgramContext(parent.location, parent.logger, symtable, parent.maximumSeverity) {
     }
-    EggProgramContext(const egg::lang::LocationRuntime& location, IEggEngineLogger& logger, EggProgramSymbolTable::Pointer symtable, egg::lang::LogSeverity& maximumSeverity)
+    EggProgramContext(const egg::lang::LocationRuntime& location, IEggEngineLogger& logger, EggProgramSymbolTable& symtable, egg::lang::LogSeverity& maximumSeverity)
       : EggProgramContext(location, &logger, symtable, &maximumSeverity) {
     }
     void log(egg::lang::LogSource source, egg::lang::LogSeverity severity, const std::string& message);
@@ -275,60 +277,44 @@ namespace egg::yolk {
     egg::lang::Value unexpected(const std::string& expectation, const egg::lang::Value& value);
   };
 
-#if EGG_SYMBOL_TABLE_ON_HEAP
-  class EggProgramContextNested {
+  class EggProgramContextRoot { // WOBBLE
+    EGG_NO_COPY(EggProgramContextRoot);
+  private:
+    egg::gc::HardRef<EggProgramSymbolTable> symtable;
+    std::unique_ptr<egg::gc::HardRef<EggProgramContext>> context; // WIBBLE
+  public:
+    explicit EggProgramContextRoot(egg::gc::Basket& basket)
+      : symtable(basket.make<EggProgramSymbolTable>()),
+        context(nullptr) {
+      assert(basket.validate()); // WIBBLE
+      this->symtable->addBuiltins();
+    }
+    EggProgramContext& makeContext(const egg::lang::LocationRuntime& location, IEggEngineLogger& logger, egg::lang::LogSeverity& maximumSeverity) {
+      assert(this->context == nullptr);
+      auto ref = egg::gc::HardRef<EggProgramContext>::make(location, logger, *this->symtable, maximumSeverity);
+      this->context = std::move(std::make_unique<egg::gc::HardRef<EggProgramContext>>(ref));
+      return **this->context;
+    }
+  };
+
+  class EggProgramContextNested { // WOBBLE
     EGG_NO_COPY(EggProgramContextNested);
   private:
-    std::shared_ptr<EggProgramSymbolTable> symtable;
-    std::shared_ptr<EggProgramContext> context;
+    egg::gc::HardRef<EggProgramSymbolTable> symtable;
+    std::unique_ptr<egg::gc::HardRef<EggProgramContext>> context; // WIBBLE
   public:
-    explicit EggProgramContextNested(const std::shared_ptr<EggProgramSymbolTable>& parent)
-      : symtable(std::make_shared<EggProgramSymbolTable>(parent)) {
-    }
-    void addBuiltins() {
-      this->symtable->addBuiltins();
+    explicit EggProgramContextNested(EggProgramSymbolTable& parent)
+      : symtable(egg::gc::HardRef<EggProgramSymbolTable>::make(&parent)) {
+      assert(parent.softBasket()->validate()); // WIBBLE
     }
     std::shared_ptr<egg::yolk::EggProgramSymbol> addSymbol(EggProgramSymbol::Kind kind, const egg::lang::String& name, const egg::lang::IType& type, const egg::lang::Value& value = egg::lang::Value::Void) {
       return this->symtable->addSymbol(kind, name, type, value);
     }
     EggProgramContext& makeContext(EggProgramContext& parent) {
       assert(this->context == nullptr);
-      this->context = std::make_shared<EggProgramContext>(parent, this->symtable);
-      return *this->context;
-    }
-    EggProgramContext& makeContext(const egg::lang::LocationRuntime& location, IEggEngineLogger& logger, egg::lang::LogSeverity& maximumSeverity) {
-      assert(this->context == nullptr);
-      this->context = std::make_shared<EggProgramContext>(location, logger, this->symtable, maximumSeverity);
-      return *this->context;
+      auto ref = egg::gc::HardRef<EggProgramContext>::make(parent, *this->symtable);
+      this->context = std::move(std::make_unique<egg::gc::HardRef<EggProgramContext>>(ref));
+      return **this->context;
     }
   };
-#else
-  class EggProgramContextNested {
-    EGG_NO_COPY(EggProgramContextNested);
-  private:
-    EggProgramSymbolTable symtable;
-    std::unique_ptr<EggProgramContext> context;
-  public:
-    explicit EggProgramContextNested(EggProgramSymbolTable* parent)
-      : symtable(parent) {
-    }
-    void addBuiltins() {
-      this->symtable.addBuiltins();
-    }
-    std::shared_ptr<egg::yolk::EggProgramSymbol> addSymbol(EggProgramSymbol::Kind kind, const egg::lang::String& name, const egg::lang::IType& type, const egg::lang::Value& value = egg::lang::Value::Void) {
-      return this->symtable.addSymbol(kind, name, type, value);
-    }
-    EggProgramContext& makeContext(EggProgramContext& parent) {
-      assert(this->context == nullptr);
-      this->context = std::make_unique<EggProgramContext>(parent, &this->symtable);
-      return *this->context;
-    }
-    EggProgramContext& makeContext(const egg::lang::LocationRuntime& location, IEggEngineLogger& logger, egg::lang::LogSeverity& maximumSeverity) {
-      assert(this->context == nullptr);
-      this->context = std::make_unique<EggProgramContext>(location, logger, &this->symtable, maximumSeverity);
-      return *this->context;
-    }
-  };
-#endif
-
 }

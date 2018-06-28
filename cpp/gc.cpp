@@ -44,65 +44,15 @@ public:
   }
 };
 
-egg::gc::Basket::Basket()
-  : head(new Head) {
-  this->head->basket = this;
-  this->head->prevInBasket = this->head;
-  this->head->nextInBasket = this->head;
-}
-
-egg::gc::Basket::~Basket() {
-  assert(this->head->collectables == 0);
-  delete this->head;
-}
-
-void egg::gc::Basket::add(Collectable& collectable) {
-  // Add this collectable to the list of known collectables in this basket
-  assert(this->head != nullptr);
-  assert(collectable.basket == nullptr);
-  assert(collectable.prevInBasket == nullptr);
-  assert(collectable.nextInBasket == nullptr);
-  // Take a hard reference owned by the basket
-  auto acquired = collectable.hard.acquire(); 
-  assert(acquired > 1); // Expect an extenal hard reference too
-  EGG_UNUSED(acquired);
-  collectable.basket = this;
-  auto* next = this->head->nextInBasket;
-  this->head->nextInBasket = &collectable;
-  collectable.prevInBasket = this->head;
-  collectable.nextInBasket = next;
-  if (next != nullptr) {
-    next->prevInBasket = &collectable;
+egg::gc::Basket::Link::Link(Collectable& from, Collectable* to)
+  : from(&from), to(to), next(from.ownedLinks) {
+  // Make sure 'from' and 'to' are in the same basket and add a reference from 'from' to 'to'
+  assert(from.basket != nullptr);
+  if (to != nullptr) {
+    assert(to->basket != nullptr);
+    assert(from.basket == to->basket);
   }
-  this->head->collectables++;
-}
-
-egg::gc::Basket::Link::Link(Basket& basket, Collectable& from, Collectable& to)
-  : from(&from), to(&to), next(from.ownedLinks) {
-  // Make sure 'from' and 'to' are in the basket and add a reference from 'from' to 'to'
-  if (from.basket == nullptr) {
-    // Add the parent as a non-root member of this basket
-    basket.add(to);
-  }
-  assert(from.basket == &basket);
-  if (to.basket == nullptr) {
-    // Add the pointee as a non-root member of this basket
-    basket.add(to);
-  }
-  assert(to.basket == &basket);
   from.ownedLinks = this;
-}
-
-egg::gc::Basket::Link::~Link() {
-  // Make sure we're not an active link
-  if (this->to != nullptr) {
-    // We're pointing at something (not already reset)
-    auto origin = this->findOrigin();
-    assert(origin != nullptr);
-    assert(*origin == this);
-    *origin = this->next;
-    this->to = nullptr; // mark as reset
-  }
 }
 
 egg::gc::Basket::Link** egg::gc::Basket::Link::findOrigin() const {
@@ -125,13 +75,78 @@ egg::gc::Collectable* egg::gc::Basket::Link::get() const {
   return this->to;
 }
 
-void egg::gc::Basket::Link::set(egg::gc::Collectable& pointee) {
+void egg::gc::Basket::Link::set(Collectable& owner, Collectable& pointee) {
   // TODO gc/locking semantics
+  if (this->from == nullptr) {
+    this->from = &owner;
+    this->next = owner.ownedLinks;
+    owner.ownedLinks = this;
+  }
+  assert(this->from == &owner);
+  if (owner.basket == nullptr) {
+    assert(pointee.basket != nullptr);
+    pointee.basket->add(owner);
+    assert(pointee.basket != nullptr);
+  }
   this->to = &pointee;
+  assert(this->from != nullptr);
+  assert(this->from->basket != nullptr);
+  assert(this->to != nullptr);
+  assert(this->to->basket == this->from->basket);
+}
+
+void egg::gc::Basket::Link::reset() {
+  // Make sure we're not an active link
+  if (this->to != nullptr) {
+    // We're pointing at something (not already reset)
+    auto origin = this->findOrigin();
+    assert(origin != nullptr);
+    assert(*origin == this);
+    *origin = this->next;
+    this->to = nullptr; // mark as reset
+  }
+}
+
+egg::gc::Basket::Basket()
+  : head(new Head) {
+  this->head->basket = this;
+  this->head->prevInBasket = this->head;
+  this->head->nextInBasket = this->head;
+  assert(this->validate()); // WIBBLE
+}
+
+egg::gc::Basket::~Basket() {
+  assert(this->validate()); // WIBBLE
+  assert(this->head->collectables == 0);
+  delete this->head;
+}
+
+void egg::gc::Basket::add(Collectable& collectable) {
+  // Add this collectable to the list of known collectables in this basket
+  assert(this->validate()); // WIBBLE
+  assert(this->head != nullptr);
+  assert(collectable.basket == nullptr);
+  assert(collectable.prevInBasket == nullptr);
+  assert(collectable.nextInBasket == nullptr);
+  // Take a hard reference owned by the basket
+  auto acquired = collectable.hard.acquire();
+  assert(acquired > 1); // Expect an extenal hard reference too
+  EGG_UNUSED(acquired);
+  collectable.basket = this;
+  auto* next = this->head->nextInBasket;
+  this->head->nextInBasket = &collectable;
+  collectable.prevInBasket = this->head;
+  collectable.nextInBasket = next;
+  if (next != nullptr) {
+    next->prevInBasket = &collectable;
+  }
+  this->head->collectables++;
+  assert(this->validate()); // WIBBLE
 }
 
 void egg::gc::Basket::visitCollectables(IVisitor& visitor) {
   // Visit all the collectables in this basket (excluding the head)
+  assert(this->validate()); // WIBBLE
   for (auto* p = this->head->nextInBasket; p != this->head; p = p->nextInBasket) {
     visitor.visit(*p);
   }
@@ -139,6 +154,7 @@ void egg::gc::Basket::visitCollectables(IVisitor& visitor) {
 
 void egg::gc::Basket::visitRoots(IVisitor& visitor) {
   // Visit all the roots in this basket
+  assert(this->validate()); // WIBBLE
   for (auto* p = this->head->nextInBasket; p != this->head; p = p->nextInBasket) {
     if (p->hard.get() > 1) {
       visitor.visit(*p);
@@ -148,6 +164,7 @@ void egg::gc::Basket::visitRoots(IVisitor& visitor) {
 
 void egg::gc::Basket::visitGarbage(IVisitor& visitor) {
   // Construct a list of all known collectables
+  assert(this->validate()); // WIBBLE
   std::set<Collectable*> unmarked;
   for (auto* p = this->head->nextInBasket; p != this->head; p = p->nextInBasket) {
     auto inserted = unmarked.emplace(p).second;
@@ -167,10 +184,12 @@ void egg::gc::Basket::visitGarbage(IVisitor& visitor) {
     visitor.visit(dead);
     dead.releaseHard();
   }
+  assert(this->validate()); // WIBBLE
 }
 
 void egg::gc::Basket::visitPurge(IVisitor& visitor) {
   // Visit all the roots in this basket after purging them
+  assert(this->validate()); // WIBBLE
   auto* p = this->head->nextInBasket;
   // Reset the head to 'empty'
   this->head->prevInBasket = this->head;
@@ -184,6 +203,34 @@ void egg::gc::Basket::visitPurge(IVisitor& visitor) {
     visitor.visit(dead);
     dead.releaseHard();
   }
+  assert(this->validate()); // WIBBLE
+}
+
+bool egg::gc::Basket::validate() const {
+  // Make sure the entire basket is valid
+  // Usually on for debugging, e.g. "assert(basket.validate());"
+  assert(this->head != nullptr);
+  assert(this->head->prevInBasket != nullptr);
+  assert(this->head->nextInBasket != nullptr);
+  size_t count = 0;
+  for (auto* p = this->head->nextInBasket; p != this->head; p = p->nextInBasket) {
+    assert(p != nullptr);
+    assert(p->basket == this);
+    assert(p->hard.get() > 0);
+    assert(p->prevInBasket != nullptr);
+    assert(p->nextInBasket != nullptr);
+    assert(p->prevInBasket->nextInBasket == p);
+    assert(p->nextInBasket->prevInBasket == p);
+    for (auto* q = p->ownedLinks; q != nullptr; q = q->next) {
+      assert(q->from == p);
+      if (q->to != nullptr) {
+        assert(q->to->basket == this);
+      }
+    }
+    count++;
+  }
+  assert(this->head->collectables == count);
+  return true;
 }
 
 std::shared_ptr<egg::gc::Basket> egg::gc::BasketFactory::createBasket() {
