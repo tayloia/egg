@@ -63,9 +63,6 @@ namespace {
     explicit EggEngineParsed(const std::shared_ptr<IEggProgramNode>& root)
       : program(root), prepared(false) {
     }
-    virtual ~EggEngineParsed() {
-      // WIBBLE
-    }
     virtual egg::lang::LogSeverity prepare(IEggEnginePreparationContext& preparation) override {
       if (this->prepared) {
         preparation.log(egg::lang::LogSource::Compiler, egg::lang::LogSeverity::Error, "Program prepared more than once");

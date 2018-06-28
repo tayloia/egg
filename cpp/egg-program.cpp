@@ -10,9 +10,8 @@
 
 namespace {
   class EggProgramAssigneeIdentifier : public egg::yolk::IEggProgramAssignee {
-    EGG_NO_COPY(EggProgramAssigneeIdentifier);
   private:
-    egg::yolk::EggProgramContext* program; // WIBBLE raw?
+    egg::yolk::EggProgramContext* program;
     egg::lang::String name;
   public:
     EggProgramAssigneeIdentifier(egg::yolk::EggProgramContext& program, const egg::lang::String& name)
@@ -28,9 +27,8 @@ namespace {
   };
 
   class EggProgramAssigneeInstance : public egg::yolk::IEggProgramAssignee {
-    EGG_NO_COPY(EggProgramAssigneeInstance);
   protected:
-    egg::yolk::EggProgramContext* program; // WIBBLE raw?
+    egg::yolk::EggProgramContext* program;
     std::shared_ptr<egg::yolk::IEggProgramNode> expression;
     mutable egg::lang::Value instance;
     EggProgramAssigneeInstance(egg::yolk::EggProgramContext& program, const std::shared_ptr<egg::yolk::IEggProgramNode>& expression)
@@ -322,6 +320,15 @@ std::string egg::yolk::EggProgram::mutateToString(egg::yolk::EggProgramMutate op
   auto index = static_cast<size_t>(op);
   assert(index < EGG_NELEMS(table));
   return table[index];
+}
+
+egg::gc::HardRef<egg::yolk::EggProgramContext> egg::yolk::EggProgram::createRootContext(IEggEngineLogger& logger, EggProgramSymbolTable& symtable, egg::lang::LogSeverity& maximumSeverity) {
+  egg::lang::LocationRuntime location(this->root->location(), egg::lang::String::fromUTF8("<module>"));
+  return egg::gc::HardRef<EggProgramContext>::make(location, logger, symtable, maximumSeverity);
+}
+
+egg::gc::HardRef<egg::yolk::EggProgramContext> egg::yolk::EggProgramContext::createNestedContext(EggProgramSymbolTable& parent) {
+  return egg::gc::HardRef<EggProgramContext>::make(*this, parent);
 }
 
 void egg::yolk::EggProgramContext::log(egg::lang::LogSource source, egg::lang::LogSeverity severity, const std::string& message) {

@@ -47,9 +47,11 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareScope(const 
   egg::lang::ITypeRef type{ egg::lang::Type::Void };
   if ((node != nullptr) && node->symbol(name, type)) {
     // Perform the action with a new scope containing our symbol
-    EggProgramContextNested nested(*this->symtable);
-    nested.addSymbol(EggProgramSymbol::ReadWrite, name, *type);
-    return action(nested.makeContext(*this));
+
+    auto nested = egg::gc::HardRef<EggProgramSymbolTable>::make(this->symtable.get());
+    nested->addSymbol(EggProgramSymbol::ReadWrite, name, *type);
+    auto context = this->createNestedContext(*nested);
+    return action(*context);
   }
   // Just perform the action in the current scope
   return action(*this);
@@ -199,9 +201,11 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareCatch(const 
   if (abandoned(type.prepare(*this))) {
     return EggProgramNodeFlags::Abandon;
   }
-  EggProgramContextNested nested(*this->symtable);
-  nested.addSymbol(EggProgramSymbol::ReadWrite, name, *type.getType());
-  return block.prepare(nested.makeContext(*this));
+
+  auto nested = egg::gc::HardRef<EggProgramSymbolTable>::make(this->symtable.get());
+  nested->addSymbol(EggProgramSymbol::ReadWrite, name, *type.getType());
+  auto context = this->createNestedContext(*nested);
+  return block.prepare(*context);
 }
 
 egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareDo(IEggProgramNode& cond, IEggProgramNode& block) {
@@ -279,23 +283,23 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareFunctionDefi
   auto callable = type.callable();
   assert(callable != nullptr);
   assert(callable->getFunctionName() == name);
-  EggProgramContextNested nested(*this->symtable);
+  auto nested = egg::gc::HardRef<EggProgramSymbolTable>::make(this->symtable.get());
   auto n = callable->getParameterCount();
   for (size_t i = 0; i < n; ++i) {
     auto& parameter = callable->getParameter(i);
-    nested.addSymbol(EggProgramSymbol::ReadWrite, parameter.getName(), *parameter.getType());
+    nested->addSymbol(EggProgramSymbol::ReadWrite, parameter.getName(), *parameter.getType());
   }
-  auto& context = nested.makeContext(*this);
-  context.scopeTypeReturn = callable->getReturnType().get();
-  assert(context.scopeTypeReturn != nullptr);
-  auto flags = block->prepare(context);
+  auto context = this->createNestedContext(*nested);
+  context->scopeTypeReturn = callable->getReturnType().get();
+  assert(context->scopeTypeReturn != nullptr);
+  auto flags = block->prepare(*context);
   if (abandoned(flags)) {
     return flags;
   }
   if (fallthrough(flags)) {
     // Falling through to the end of a function is the same as an emplicit 'return' with no parameters
-    if (context.scopeTypeReturn->canBeAssignedFrom(*egg::lang::Type::Void) == egg::lang::IType::AssignmentSuccess::Never) {
-      return context.compilerError(block->location(), "Missing 'return' statement with a value of type '", context.scopeTypeReturn->toString(), "' at the end of the function definition");
+    if (context->scopeTypeReturn->canBeAssignedFrom(*egg::lang::Type::Void) == egg::lang::IType::AssignmentSuccess::Never) {
+      return context->compilerError(block->location(), "Missing 'return' statement with a value of type '", context->scopeTypeReturn->toString(), "' at the end of the function definition");
     }
   }
   return EggProgramNodeFlags::Fallthrough; // We fallthrough AFTER the function definition
@@ -685,15 +689,13 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::typeCheck(const egg
   return EggProgramNodeFlags::Fallthrough;
 }
 
-egg::lang::LocationRuntime egg::yolk::EggProgram::getRootLocation() const {
-  return egg::lang::LocationRuntime(this->root->location(), egg::lang::String::fromUTF8("<module>"));
-}
-
 egg::lang::LogSeverity egg::yolk::EggProgram::prepare(IEggEnginePreparationContext& preparation) {
-  EggProgramContextRoot context(this->basket);
+  auto symtable = this->basket.make<EggProgramSymbolTable>();
+  symtable->addBuiltins();
   assert(this->basket.validate()); // WIBBLE
   egg::lang::LogSeverity severity = egg::lang::LogSeverity::None;
-  if (abandoned(this->root->prepare(context.makeContext(this->getRootLocation(), preparation, severity)))) {
+  auto context = this->createRootContext(preparation, *symtable, severity);
+  if (abandoned(this->root->prepare(*context))) {
     assert(this->basket.validate()); // WIBBLE
     return egg::lang::LogSeverity::Error;
   }

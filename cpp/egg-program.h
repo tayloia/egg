@@ -99,9 +99,9 @@ namespace egg::yolk {
       egg::gc::Basket::Visitor noop([](egg::gc::Collectable&) {
         /* WIBBLE */
       });
-      this->basket.visitPurge(noop); // WIBBLE
+      this->basket.visitPurge(noop); // WIBBLE purge works, collect doesn't
     }
-    egg::lang::LocationRuntime getRootLocation() const;
+    egg::gc::HardRef<EggProgramContext> createRootContext(IEggEngineLogger& logger, EggProgramSymbolTable& symtable, egg::lang::LogSeverity& maximumSeverity);
     egg::lang::LogSeverity prepare(IEggEnginePreparationContext& preparation);
     egg::lang::LogSeverity execute(IEggEngineExecutionContext& execution);
     static std::string unaryToString(EggProgramUnary op);
@@ -121,7 +121,7 @@ namespace egg::yolk {
     ~EggProgramExpression();
   };
 
-  class EggProgramContext : public egg::gc::Collectable, public egg::lang::IExecution { // WIBBLE enable_shared_from_this?
+  class EggProgramContext : public egg::gc::Collectable, public egg::lang::IExecution {
     EGG_NO_COPY(EggProgramContext);
   private:
     egg::lang::LocationRuntime location;
@@ -148,6 +148,7 @@ namespace egg::yolk {
     EggProgramContext(const egg::lang::LocationRuntime& location, IEggEngineLogger& logger, EggProgramSymbolTable& symtable, egg::lang::LogSeverity& maximumSeverity)
       : EggProgramContext(location, &logger, symtable, &maximumSeverity) {
     }
+    egg::gc::HardRef<EggProgramContext> createNestedContext(EggProgramSymbolTable& symtable);
     void log(egg::lang::LogSource source, egg::lang::LogSeverity severity, const std::string& message);
     template<typename... ARGS>
     void problem(egg::lang::LogSource source, egg::lang::LogSeverity severity, ARGS... args) {
@@ -275,46 +276,5 @@ namespace egg::yolk {
     egg::lang::Value arithmeticIntFloat(const egg::lang::Value& left, egg::lang::Value& right, const IEggProgramNode& rhs, const char* operation, ArithmeticInt ints, ArithmeticFloat floats);
     egg::lang::Value arithmeticInt(const egg::lang::Value& left, egg::lang::Value& right, const IEggProgramNode& rhs, const char* operation, ArithmeticInt ints);
     egg::lang::Value unexpected(const std::string& expectation, const egg::lang::Value& value);
-  };
-
-  class EggProgramContextRoot { // WOBBLE
-    EGG_NO_COPY(EggProgramContextRoot);
-  private:
-    egg::gc::HardRef<EggProgramSymbolTable> symtable;
-    std::unique_ptr<egg::gc::HardRef<EggProgramContext>> context; // WIBBLE
-  public:
-    explicit EggProgramContextRoot(egg::gc::Basket& basket)
-      : symtable(basket.make<EggProgramSymbolTable>()),
-        context(nullptr) {
-      assert(basket.validate()); // WIBBLE
-      this->symtable->addBuiltins();
-    }
-    EggProgramContext& makeContext(const egg::lang::LocationRuntime& location, IEggEngineLogger& logger, egg::lang::LogSeverity& maximumSeverity) {
-      assert(this->context == nullptr);
-      auto ref = egg::gc::HardRef<EggProgramContext>::make(location, logger, *this->symtable, maximumSeverity);
-      this->context = std::move(std::make_unique<egg::gc::HardRef<EggProgramContext>>(ref));
-      return **this->context;
-    }
-  };
-
-  class EggProgramContextNested { // WOBBLE
-    EGG_NO_COPY(EggProgramContextNested);
-  private:
-    egg::gc::HardRef<EggProgramSymbolTable> symtable;
-    std::unique_ptr<egg::gc::HardRef<EggProgramContext>> context; // WIBBLE
-  public:
-    explicit EggProgramContextNested(EggProgramSymbolTable& parent)
-      : symtable(egg::gc::HardRef<EggProgramSymbolTable>::make(&parent)) {
-      assert(parent.softBasket()->validate()); // WIBBLE
-    }
-    std::shared_ptr<egg::yolk::EggProgramSymbol> addSymbol(EggProgramSymbol::Kind kind, const egg::lang::String& name, const egg::lang::IType& type, const egg::lang::Value& value = egg::lang::Value::Void) {
-      return this->symtable->addSymbol(kind, name, type, value);
-    }
-    EggProgramContext& makeContext(EggProgramContext& parent) {
-      assert(this->context == nullptr);
-      auto ref = egg::gc::HardRef<EggProgramContext>::make(parent, *this->symtable);
-      this->context = std::move(std::make_unique<egg::gc::HardRef<EggProgramContext>>(ref));
-      return **this->context;
-    }
   };
 }
