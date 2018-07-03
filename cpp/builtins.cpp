@@ -60,13 +60,13 @@ namespace {
     }
   };
 
-  class BuiltinFunction : public egg::gc::HardReferenceCounted<IObject> {
+  class BuiltinFunction : public egg::gc::SoftReferenceCounted<IObject> {
     EGG_NO_COPY(BuiltinFunction);
   protected:
     egg::gc::HardRef<BuiltinFunctionType> type;
   public:
     BuiltinFunction(const std::string& name, const ITypeRef& returnType)
-      : HardReferenceCounted(0), type(new BuiltinFunctionType(name, returnType)) {
+      : SoftReferenceCounted(), type(new BuiltinFunctionType(name, returnType)) {
     }
     virtual bool dispose() override {
       // We don't allow disposing of builtins
@@ -95,13 +95,13 @@ namespace {
     }
   };
 
-  class BuiltinObject : public egg::gc::HardReferenceCounted<IObject> {
+  class BuiltinObject : public egg::gc::SoftReferenceCounted<IObject> { // WIBBLE SoftRef
     EGG_NO_COPY(BuiltinObject);
   protected:
     egg::gc::HardRef<BuiltinObjectType> type;
   public:
     BuiltinObject(const std::string& name, const ITypeRef& returnType)
-      : HardReferenceCounted(0), type(new BuiltinObjectType(name, returnType)) {
+      : SoftReferenceCounted(), type(new BuiltinObjectType(name, returnType)) {
     }
     void addProperty(const std::string& name, const Value& value) {
       this->type->addProperty(String::fromUTF8(name), value);

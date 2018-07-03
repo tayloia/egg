@@ -212,6 +212,7 @@ bool egg::gc::Basket::validate() const {
   assert(this->head != nullptr);
   assert(this->head->prevInBasket != nullptr);
   assert(this->head->nextInBasket != nullptr);
+  assert(this->head->hard.get() == 0);
   size_t count = 0;
   for (auto* p = this->head->nextInBasket; p != this->head; p = p->nextInBasket) {
     assert(p != nullptr);

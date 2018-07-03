@@ -90,7 +90,17 @@ namespace egg::gc {
     HardRef(const HardRef& rhs) : ptr(rhs.acquireHard()) {
       assert(this->ptr != nullptr);
     }
+    template<typename U>
+    HardRef(const HardRef<U>& rhs) : ptr(rhs.acquireHard()) {
+      assert(this->ptr != nullptr);
+    }
     HardRef& operator=(const HardRef& rhs) {
+      assert(this->ptr != nullptr);
+      this->set(rhs.get());
+      return *this;
+    }
+    template<typename U>
+    HardRef& operator=(const HardRef<U>& rhs) {
       assert(this->ptr != nullptr);
       this->set(rhs.get());
       return *this;
@@ -216,11 +226,11 @@ namespace egg::gc {
       // Make sure we don't own any active links by the time we're destroyed
       assert(this->ownedLinks == nullptr);
     }
-    Collectable* acquireHard() const {
+    virtual Collectable* acquireHard() const {
       this->hard.acquire();
       return const_cast<Collectable*>(this);
     }
-    void releaseHard() const {
+    virtual void releaseHard() const {
       if (this->hard.release() == 0) {
         delete this;
       }
@@ -250,9 +260,8 @@ namespace egg::gc {
     template<typename... ARGS>
     explicit SoftReferenceCounted(ARGS&&... args) : Collectable(), T(std::forward<ARGS>(args)...) {
     }
-    virtual T* acquireHard() const override {
-      Collectable::acquireHard();
-      return const_cast<SoftReferenceCounted*>(this);
+    virtual SoftReferenceCounted* acquireHard() const override {
+      return static_cast<SoftReferenceCounted*>(Collectable::acquireHard());
     }
     virtual void releaseHard() const override {
       Collectable::releaseHard();
@@ -294,98 +303,3 @@ namespace egg::gc {
     static std::shared_ptr<Basket> createBasket();
   };
 }
-
-
-/*
-
-?? BACTRIAN CAMEL
-?? BEAR FACE
-?? BOAR
-?? CAT FACE
-?? COW
-?? COW FACE
-?? DEER
-?? DOG FACE
-?? DRAGON
-?? DRAGON FACE
-?? DROMEDARY CAMEL
-?? ELEPHANT
-?? FOX FACE
-?? FROG FACE
-?? GIRAFFE FACE
-?? GOAT
-?? GORILLA
-?? HAMSTER FACE
-?? HORSE
-?? HORSE FACE
-?? LEOPARD
-?? LION FACE
-?? MONKEY FACE
-?? MOUSE FACE
-?? OX
-?? PANDA FACE
-?? PIG
-?? PIG FACE
-?? RABBIT FACE
-?? RAM
-?? RHINOCEROS
-?? SAUROPOD
-?? SHEEP
-?? TIGER
-?? TIGER FACE
-?? T-REX
-?? UNICORN FACE
-?? WATER BUFFALO
-?? WOLF FACE
-?? ZEBRA FACE
-?? CAT
-?? RAT
-?? MOUSE
-?? RABBIT
-?? MONKEY
-?? DOG
-?? POODLE
-?? KOALA
-?? CHIPMUNK
-?? HEDGEHOG
-?? BAT
-?? SNAKE
-?? EAGLE
-?? OWL
-?? DUCK
-?? ROOSTER
-?? CHICKEN
-?? TURKEY
-?? HATCHING CHICK
-?? BABY CHICK
-?? FRONT-FACING BABY CHICK
-?? BIRD
-?? PENGUIN
-?? WHALE
-?? SPOUTING WHALE
-?? DOLPHIN
-?? SHARK
-?? FISH
-?? TROPICAL FISH
-?? BLOWFISH
-?? OCTOPUS
-?? SQUID
-?? SHRIMP
-?? CRAB
-?? SPIRAL SHELL
-?? SNAIL
-?? TURTLE
-?? LIZARD
-?? CROCODILE
-
-?? BUTTERFLY
-?? HONEYBEE
-?? LADY BEETLE
-?? ANT
-?? BUG
-?? SPIDER
-?? SPIDER WEB
-?? SCORPION
-?? CRICKET
-
-*/

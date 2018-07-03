@@ -47,9 +47,8 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareScope(const 
   egg::lang::ITypeRef type{ egg::lang::Type::Void };
   if ((node != nullptr) && node->symbol(name, type)) {
     // Perform the action with a new scope containing our symbol
-
     auto nested = egg::gc::HardRef<EggProgramSymbolTable>::make(this->symtable.get());
-    nested->addSymbol(EggProgramSymbol::ReadWrite, name, *type);
+    nested->addSymbol(EggProgramSymbol::ReadWrite, name, type);
     auto context = this->createNestedContext(*nested);
     return action(*context);
   }
@@ -70,7 +69,7 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareStatements(c
     }
     if (statement->symbol(name, type)) {
       // We've checked for duplicate symbols already
-      this->symtable->addSymbol(EggProgramSymbol::ReadWrite, name, *type);
+      this->symtable->addSymbol(EggProgramSymbol::ReadWrite, name, type);
     }
     retval = statement->prepare(*this);
     if (abandoned(retval)) {
@@ -203,7 +202,7 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareCatch(const 
   }
 
   auto nested = egg::gc::HardRef<EggProgramSymbolTable>::make(this->symtable.get());
-  nested->addSymbol(EggProgramSymbol::ReadWrite, name, *type.getType());
+  nested->addSymbol(EggProgramSymbol::ReadWrite, name, type.getType());
   auto context = this->createNestedContext(*nested);
   return block.prepare(*context);
 }
@@ -270,24 +269,24 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareForeach(IEgg
     if (!type->iterable(iterable)) {
       return scope.compilerError(rvalue.location(), "Expression after the ':' in 'for' statement is not iterable: '", type->toString(), "'");
     }
-    if (abandoned(scope.prepareWithType(lvalue, *iterable))) {
+    if (abandoned(scope.prepareWithType(lvalue, iterable))) {
       return EggProgramNodeFlags::Abandon;
     }
     return block.prepare(scope);
   });
 }
 
-egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareFunctionDefinition(const egg::lang::String& name, const egg::lang::IType& type, const std::shared_ptr<IEggProgramNode>& block) {
+egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareFunctionDefinition(const egg::lang::String& name, const egg::lang::ITypeRef& type, const std::shared_ptr<IEggProgramNode>& block) {
   // TODO type check
   EGG_UNUSED(name);
-  auto callable = type.callable();
+  auto callable = type->callable();
   assert(callable != nullptr);
   assert(callable->getFunctionName() == name);
   auto nested = egg::gc::HardRef<EggProgramSymbolTable>::make(this->symtable.get());
   auto n = callable->getParameterCount();
   for (size_t i = 0; i < n; ++i) {
     auto& parameter = callable->getParameter(i);
-    nested->addSymbol(EggProgramSymbol::ReadWrite, parameter.getName(), *parameter.getType());
+    nested->addSymbol(EggProgramSymbol::ReadWrite, parameter.getName(), parameter.getType());
   }
   auto context = this->createNestedContext(*nested);
   context->scopeTypeReturn = callable->getReturnType().get();
@@ -382,7 +381,7 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareTry(IEggProg
   return falls ? EggProgramNodeFlags::Fallthrough : EggProgramNodeFlags::None;
 }
 
-egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareUsing(IEggProgramNode& value, IEggProgramNode& block) {
+egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareUsing(IEggProgramNode& value, IEggProgramNode& block) { // WIBBLE remove
   // TODO
   return this->prepareScope(&value, [&](EggProgramContext& scope) {
     if (abandoned(value.prepare(scope))) {
@@ -638,11 +637,11 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::preparePredicate(co
   return this->prepareBinary(where, op, lhs, rhs);
 }
 
-egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareWithType(IEggProgramNode& node, const egg::lang::IType& type) {
+egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareWithType(IEggProgramNode& node, const egg::lang::ITypeRef& type) {
   // Run a prepare call with a scope type set
   assert(this->scopeTypeDeclare == nullptr);
   try {
-    this->scopeTypeDeclare = &type;
+    this->scopeTypeDeclare = type.get();
     auto result = node.prepare(*this);
     this->scopeTypeDeclare = nullptr;
     return result;
@@ -677,7 +676,7 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::typeCheck(const egg
     }
     auto symbol = this->symtable->findSymbol(name, false);
     assert(symbol != nullptr);
-    symbol->setInferredType(*ltype);
+    symbol->setInferredType(ltype);
   }
   auto assignable = ltype->canBeAssignedFrom(*rtype);
   if (assignable == egg::lang::IType::AssignmentSuccess::Never) {

@@ -215,10 +215,10 @@ namespace {
   }
 }
 
-void egg::yolk::EggProgramSymbol::setInferredType(const egg::lang::IType& inferred) {
+void egg::yolk::EggProgramSymbol::setInferredType(const egg::lang::ITypeRef& inferred) {
   // We only allow inferred type updates
   assert(this->type->getSimpleTypes() == egg::lang::Discriminator::Inferred);
-  this->type.set(&inferred);
+  this->type = inferred;
 }
 
 egg::lang::Value egg::yolk::EggProgramSymbol::assign(egg::lang::IExecution& execution, const egg::lang::Value& rhs) {
@@ -260,10 +260,10 @@ void egg::yolk::EggProgramSymbolTable::addBuiltins() {
 }
 
 void egg::yolk::EggProgramSymbolTable::addBuiltin(const std::string& name, const egg::lang::Value& value) {
-  (void)this->addSymbol(EggProgramSymbol::Builtin, egg::lang::String::fromUTF8(name), *value.getRuntimeType(), value);
+  (void)this->addSymbol(EggProgramSymbol::Builtin, egg::lang::String::fromUTF8(name), value.getRuntimeType(), value);
 }
 
-std::shared_ptr<egg::yolk::EggProgramSymbol> egg::yolk::EggProgramSymbolTable::addSymbol(EggProgramSymbol::Kind kind, const egg::lang::String& name, const egg::lang::IType& type, const egg::lang::Value& value) {
+std::shared_ptr<egg::yolk::EggProgramSymbol> egg::yolk::EggProgramSymbolTable::addSymbol(EggProgramSymbol::Kind kind, const egg::lang::String& name, const egg::lang::ITypeRef& type, const egg::lang::Value& value) {
   auto result = this->map.emplace(name, std::make_shared<EggProgramSymbol>(kind, name, type, value));
   assert(result.second);
   return result.first->second;
@@ -709,8 +709,8 @@ egg::lang::Value egg::yolk::EggProgramContext::call(const egg::lang::Value& call
   if (!direct.is(egg::lang::Discriminator::Object)) {
     return this->unexpected("Expected function-like expression to be 'object'", direct);
   }
-  auto& object = direct.getObject();
-  return object.call(*this, parameters);
+  auto object = direct.getObject();
+  return object->call(*this, parameters);
 }
 
 egg::lang::Value egg::yolk::EggProgramContext::unexpected(const std::string& expectation, const egg::lang::Value& value) {

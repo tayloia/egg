@@ -255,9 +255,9 @@ namespace egg::lang {
   class IObject {
   public:
     virtual ~IObject() {}
-    virtual IObject* acquireHard() const = 0;
-    virtual void releaseHard() const = 0;
-    virtual bool dispose() = 0;
+    virtual IObject* acquireHard() const = 0; // WIBBLE remove from IObject, only in SoftRef?
+    virtual void releaseHard() const = 0; // WIBBLE remove from IObject, only in SoftRef?
+    virtual bool dispose() = 0; // WIBBLE remove from IObject?
     virtual Value toString() const = 0;
     virtual ITypeRef getRuntimeType() const = 0;
     virtual Value call(IExecution& execution, const IParameters& parameters) = 0;
@@ -267,7 +267,9 @@ namespace egg::lang {
     virtual Value setIndex(IExecution& execution, const Value& index, const Value& value) = 0;
     virtual Value iterate(IExecution& execution) = 0;
   };
-  typedef egg::gc::HardRef<IObject> IObjectRef;
+  typedef egg::gc::SoftReferenceCounted<IObject> IObjectCollectable;
+  typedef egg::gc::SoftRef<IObjectCollectable> IObjectSoft;
+  typedef egg::gc::HardRef<IObject> IObjectHard;
 
   class StringBuilder {
     StringBuilder(const StringBuilder&) = delete;
@@ -452,7 +454,7 @@ namespace egg::lang {
     explicit Value(int64_t value) : tag(Discriminator::Int) { this->i = value; }
     explicit Value(double value) : tag(Discriminator::Float) { this->f = value; }
     explicit Value(const String& value) : tag(Discriminator::String) { this->s = value.acquireHard(); }
-    explicit Value(IObject& object) : tag(Discriminator::Object) { this->o = object.acquireHard(); }
+    explicit Value(const IObjectHard& object) : tag(Discriminator::Object) { this->o = object->acquireHard(); } // WIBBLE
     explicit Value(const IType& type) : tag(Discriminator::Type) { this->t = type.acquireHard(); }
     explicit Value(const ValueReferenceCounted& vrc);
     Value(const Value& value);
@@ -471,7 +473,7 @@ namespace egg::lang {
     int64_t getInt() const { assert(this->has(Discriminator::Int)); return this->i; }
     double getFloat() const { assert(this->has(Discriminator::Float)); return this->f; }
     String getString() const { assert(this->has(Discriminator::String)); return String(*this->s); }
-    IObject& getObject() const { assert(this->has(Discriminator::Object)); return *this->o; }
+    IObjectHard getObject() const { assert(this->has(Discriminator::Object)); return IObjectHard(this->o); }
     const IType& getType() const { assert(this->has(Discriminator::Type)); return *this->t; }
     ValueReferenceCounted& getPointee() const { assert(this->has(Discriminator::Pointer)); return *this->v; }
     void addFlowControl(Discriminator bits);
@@ -486,7 +488,8 @@ namespace egg::lang {
     template<typename U, typename... ARGS>
     static Value make(ARGS&&... args) {
       // Use perfect forwarding to the constructor
-      return Value(*new U(std::forward<ARGS>(args)...));
+      egg::gc::HardRef<U> ref{ new U(std::forward<ARGS>(args)...) };
+      return Value(ref);
     }
 
     // Constants

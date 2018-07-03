@@ -212,8 +212,8 @@ namespace {
   private:
     egg::lang::ITypeRef type;
   public:
-    EggParserNode_Type(const egg::lang::LocationSource& locationSource, const egg::lang::IType& type)
-      : EggParserNodeBase(locationSource), type(&type) {
+    EggParserNode_Type(const egg::lang::LocationSource& locationSource, const egg::lang::ITypeRef& type)
+      : EggParserNodeBase(locationSource), type(type) {
     }
     virtual egg::lang::ITypeRef getType() const override {
       return this->type;
@@ -236,8 +236,8 @@ namespace {
     egg::lang::ITypeRef type;
     std::shared_ptr<IEggProgramNode> init;
   public:
-    EggParserNode_Declare(const egg::lang::LocationSource& locationSource, const egg::lang::String& name, const egg::lang::IType& type, const std::shared_ptr<IEggProgramNode>& init = nullptr)
-      : EggParserNodeBase(locationSource), name(name), type(&type), init(init) {
+    EggParserNode_Declare(const egg::lang::LocationSource& locationSource, const egg::lang::String& name, const egg::lang::ITypeRef& type, const std::shared_ptr<IEggProgramNode>& init = nullptr)
+      : EggParserNodeBase(locationSource), name(name), type(type), init(init) {
     }
     virtual bool symbol(egg::lang::String& nameOut, egg::lang::ITypeRef& typeOut) const override {
       // The symbol is obviously the variable being declared
@@ -253,7 +253,7 @@ namespace {
       return context.prepareDeclare(this->locationSource, this->name, this->type, this->init.get());
     }
     virtual egg::lang::Value execute(EggProgramContext& context) const override {
-      return context.executeDeclare(*this, this->name, *this->type, this->init.get());
+      return context.executeDeclare(*this, this->name, this->type, this->init.get());
     }
     virtual void dump(std::ostream& os) const override {
       ParserDump(os, "declare").add(this->name).add(this->type->toString()).add(this->init);
@@ -266,8 +266,8 @@ namespace {
     egg::lang::ITypeRef type;
     std::shared_ptr<IEggProgramNode> expr;
   public:
-    EggParserNode_Guard(const egg::lang::LocationSource& locationSource, const egg::lang::String& name, const egg::lang::IType& type, const std::shared_ptr<IEggProgramNode>& expr)
-      : EggParserNodeBase(locationSource), name(name), type(&type), expr(expr) {
+    EggParserNode_Guard(const egg::lang::LocationSource& locationSource, const egg::lang::String& name, const egg::lang::ITypeRef& type, const std::shared_ptr<IEggProgramNode>& expr)
+      : EggParserNodeBase(locationSource), name(name), type(type), expr(expr) {
     }
     virtual bool symbol(egg::lang::String& nameOut, egg::lang::ITypeRef& typeOut) const override {
       // The symbol is obviously the variable being declared
@@ -283,7 +283,7 @@ namespace {
       return context.prepareGuard(this->locationSource, this->name, this->type, *this->expr);
     }
     virtual egg::lang::Value execute(EggProgramContext& context) const override {
-      return context.executeGuard(*this, this->name, *this->type, *this->expr);
+      return context.executeGuard(*this, this->name, this->type, *this->expr);
     }
     virtual void dump(std::ostream& os) const override {
       ParserDump(os, "guard").add(this->name).add(this->type->toString()).add(this->expr);
@@ -462,8 +462,8 @@ namespace {
     egg::lang::ITypeRef type;
     std::shared_ptr<IEggProgramNode> block;
   public:
-    EggParserNode_FunctionDefinition(const egg::lang::LocationSource& locationSource, const egg::lang::String& name, const egg::lang::IType& type, const std::shared_ptr<IEggProgramNode>& block)
-      : EggParserNodeBase(locationSource), name(name), type(&type), block(block) {
+    EggParserNode_FunctionDefinition(const egg::lang::LocationSource& locationSource, const egg::lang::String& name, const egg::lang::ITypeRef& type, const std::shared_ptr<IEggProgramNode>& block)
+      : EggParserNodeBase(locationSource), name(name), type(type), block(block) {
       assert(block != nullptr);
     }
     virtual bool symbol(egg::lang::String& nameOut, egg::lang::ITypeRef& typeOut) const override {
@@ -473,10 +473,10 @@ namespace {
       return true;
     }
     virtual EggProgramNodeFlags prepare(EggProgramContext& context) override {
-      return context.prepareFunctionDefinition(this->name, *this->type, this->block);
+      return context.prepareFunctionDefinition(this->name, this->type, this->block);
     }
     virtual egg::lang::Value execute(EggProgramContext& context) const override {
-      return context.executeFunctionDefinition(*this, this->name, *this->type, this->block);
+      return context.executeFunctionDefinition(*this, this->name, this->type, this->block);
     }
     virtual void dump(std::ostream& os) const override {
       ParserDump(os, "function").add(this->name).add(this->type->toString()).add(this->block);
@@ -489,8 +489,8 @@ namespace {
     egg::lang::ITypeRef type;
     bool optional;
   public:
-    EggParserNode_FunctionParameter(const egg::lang::LocationSource& locationSource, const egg::lang::String& name, const egg::lang::IType& type, bool optional)
-      : EggParserNodeBase(locationSource), name(name), type(&type), optional(optional) {
+    EggParserNode_FunctionParameter(const egg::lang::LocationSource& locationSource, const egg::lang::String& name, const egg::lang::ITypeRef& type, bool optional)
+      : EggParserNodeBase(locationSource), name(name), type(type), optional(optional) {
     }
     virtual bool symbol(egg::lang::String& nameOut, egg::lang::ITypeRef& typeOut) const override {
       // Beware: the return value is the optionality flag!
@@ -1315,21 +1315,21 @@ std::shared_ptr<egg::yolk::IEggProgramNode> egg::yolk::EggSyntaxNode_Block::prom
 }
 
 std::shared_ptr<egg::yolk::IEggProgramNode> egg::yolk::EggSyntaxNode_Type::promote(egg::yolk::IEggParserContext& context) const {
-  return makeParserNode<EggParserNode_Type>(context, *this, *this->type);
+  return makeParserNode<EggParserNode_Type>(context, *this, this->type);
 }
 
 std::shared_ptr<egg::yolk::IEggProgramNode> egg::yolk::EggSyntaxNode_Declare::promote(egg::yolk::IEggParserContext& context) const {
   auto type = context.promote(*this->child[0])->getType();
   if (this->child.size() == 1) {
-    return makeParserNode<EggParserNode_Declare>(context, *this, this->name, *type);
+    return makeParserNode<EggParserNode_Declare>(context, *this, this->name, type);
   }
   assert(this->child.size() == 2);
-  return makeParserNode<EggParserNode_Declare>(context, *this, this->name, *type, context.promote(*this->child[1]));
+  return makeParserNode<EggParserNode_Declare>(context, *this, this->name, type, context.promote(*this->child[1]));
 }
 
 std::shared_ptr<egg::yolk::IEggProgramNode> egg::yolk::EggSyntaxNode_Guard::promote(egg::yolk::IEggParserContext& context) const {
   auto type = context.promote(*this->child[0])->getType();
-  return makeParserNode<EggParserNode_Guard>(context, *this, this->name, *type, context.promote(*this->child[1]));
+  return makeParserNode<EggParserNode_Guard>(context, *this, this->name, type, context.promote(*this->child[1]));
 }
 
 std::shared_ptr<egg::yolk::IEggProgramNode> egg::yolk::EggSyntaxNode_Assignment::promote(egg::yolk::IEggParserContext& context) const {
@@ -1506,12 +1506,12 @@ std::shared_ptr<egg::yolk::IEggProgramNode> egg::yolk::EggSyntaxNode_FunctionDef
   }
   EggParserContextNested nested(context, EggParserAllowed::Return|EggParserAllowed::Yield);
   auto block = nested.promote(*this->child[parameters + 1]);
-  return makeParserNode<EggParserNode_FunctionDefinition>(context, *this, this->name, *function, block);
+  return makeParserNode<EggParserNode_FunctionDefinition>(context, *this, this->name, function, block);
 }
 
 std::shared_ptr<egg::yolk::IEggProgramNode> egg::yolk::EggSyntaxNode_Parameter::promote(egg::yolk::IEggParserContext& context) const {
   auto type = context.promote(*this->child)->getType();
-  return makeParserNode<EggParserNode_FunctionParameter>(context, *this, this->name, *type, this->optional);
+  return makeParserNode<EggParserNode_FunctionParameter>(context, *this, this->name, type, this->optional);
 }
 
 std::shared_ptr<egg::yolk::IEggProgramNode> egg::yolk::EggSyntaxNode_Return::promote(egg::yolk::IEggParserContext& context) const {

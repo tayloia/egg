@@ -1421,7 +1421,8 @@ egg::lang::Value egg::lang::IType::dotGet(IExecution& execution, const Value& in
   // The default implementation is to dispatch requests for strings and complex types
   auto& direct = instance.direct();
   if (direct.is(Discriminator::Object)) {
-    return direct.getObject().getProperty(execution, property);
+    auto object = direct.getObject();
+    return object->getProperty(execution, property);
   }
   if (direct.is(Discriminator::String)) {
     return direct.getString().builtin(execution, property);
@@ -1433,7 +1434,8 @@ egg::lang::Value egg::lang::IType::dotSet(IExecution& execution, const Value& in
   // The default implementation is to dispatch requests for complex types
   auto& direct = instance.direct();
   if (direct.is(Discriminator::Object)) {
-    return direct.getObject().setProperty(execution, property, value);
+    auto object = direct.getObject();
+    return object->setProperty(execution, property, value);
   }
   if (direct.is(Discriminator::String)) {
     return execution.raiseFormat("Strings do not support modification through properties such as '.", property, "'");
@@ -1445,7 +1447,8 @@ egg::lang::Value egg::lang::IType::bracketsGet(IExecution& execution, const Valu
   // The default implementation is to dispatch requests for strings and complex types
   auto& direct = instance.direct();
   if (direct.is(Discriminator::Object)) {
-    return direct.getObject().getIndex(execution, index);
+    auto object = direct.getObject();
+    return object->getIndex(execution, index);
   }
   if (direct.is(Discriminator::String)) {
     // string operator[](int index)
@@ -1472,7 +1475,8 @@ egg::lang::Value egg::lang::IType::bracketsSet(IExecution& execution, const Valu
   // The default implementation is to dispatch requests for complex types
   auto& direct = instance.direct();
   if (direct.is(Discriminator::Object)) {
-    return direct.getObject().setIndex(execution, index, value);
+    auto object = direct.getObject();
+    return object->setIndex(execution, index, value);
   }
   if (direct.is(Discriminator::String)) {
     return execution.raiseFormat("Strings do not support modification through indexing with '[]'");

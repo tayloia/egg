@@ -56,13 +56,13 @@ namespace egg::yolk {
     egg::lang::ITypeRef type;
     egg::lang::Value value;
   public:
-    EggProgramSymbol(Kind kind, const egg::lang::String& name, const egg::lang::IType& type, const egg::lang::Value& value)
-      : kind(kind), name(name), type(&type), value(value) {
+    EggProgramSymbol(Kind kind, const egg::lang::String& name, const egg::lang::ITypeRef& type, const egg::lang::Value& value)
+      : kind(kind), name(name), type(type), value(value) {
     }
     const egg::lang::String& getName() const { return this->name; }
     const egg::lang::IType& getType() const { return *this->type; }
     egg::lang::Value& getValue() { return this->value; }
-    void setInferredType(const egg::lang::IType& inferred);
+    void setInferredType(const egg::lang::ITypeRef& inferred);
     egg::lang::Value assign(egg::lang::IExecution& execution, const egg::lang::Value& rhs);
   };
 
@@ -78,7 +78,7 @@ namespace egg::yolk {
     }
     void addBuiltins();
     void addBuiltin(const std::string& name, const egg::lang::Value& value);
-    std::shared_ptr<EggProgramSymbol> addSymbol(EggProgramSymbol::Kind kind, const egg::lang::String& name, const egg::lang::IType& type, const egg::lang::Value& value = egg::lang::Value::Void);
+    std::shared_ptr<EggProgramSymbol> addSymbol(EggProgramSymbol::Kind kind, const egg::lang::String& name, const egg::lang::ITypeRef& type, const egg::lang::Value& value = egg::lang::Value::Void);
     std::shared_ptr<EggProgramSymbol> findSymbol(const egg::lang::String& name, bool includeParents = true) const;
   };
 
@@ -192,8 +192,8 @@ namespace egg::yolk {
     // Implemented in egg-execute.cpp
     egg::lang::Value executeModule(const IEggProgramNode& self, const std::vector<std::shared_ptr<IEggProgramNode>>& statements);
     egg::lang::Value executeBlock(const IEggProgramNode& self, const std::vector<std::shared_ptr<IEggProgramNode>>& statements);
-    egg::lang::Value executeDeclare(const IEggProgramNode& self, const egg::lang::String& name, const egg::lang::IType& type, const IEggProgramNode* rvalue);
-    egg::lang::Value executeGuard(const IEggProgramNode& self, const egg::lang::String& name, const egg::lang::IType& type, const IEggProgramNode& rvalue);
+    egg::lang::Value executeDeclare(const IEggProgramNode& self, const egg::lang::String& name, const egg::lang::ITypeRef& type, const IEggProgramNode* rvalue);
+    egg::lang::Value executeGuard(const IEggProgramNode& self, const egg::lang::String& name, const egg::lang::ITypeRef& type, const IEggProgramNode& rvalue);
     egg::lang::Value executeAssign(const IEggProgramNode& self, EggProgramAssign op, const IEggProgramNode& lvalue, const IEggProgramNode& rvalue);
     egg::lang::Value executeMutate(const IEggProgramNode& self, EggProgramMutate op, const IEggProgramNode& lvalue);
     egg::lang::Value executeBreak(const IEggProgramNode& self);
@@ -203,14 +203,14 @@ namespace egg::yolk {
     egg::lang::Value executeIf(const IEggProgramNode& self, const IEggProgramNode& cond, const IEggProgramNode& trueBlock, const IEggProgramNode* falseBlock);
     egg::lang::Value executeFor(const IEggProgramNode& self, const IEggProgramNode* pre, const IEggProgramNode* cond, const IEggProgramNode* post, const IEggProgramNode& block);
     egg::lang::Value executeForeach(const IEggProgramNode& self, const IEggProgramNode& lvalue, const IEggProgramNode& rvalue, const IEggProgramNode& block);
-    egg::lang::Value executeFunctionDefinition(const IEggProgramNode& self, const egg::lang::String& name, const egg::lang::IType& type, const std::shared_ptr<IEggProgramNode>& block);
-    egg::lang::Value executeFunctionCall(const egg::lang::IType& type, const egg::lang::IParameters& parameters, const IEggProgramNode& block);
+    egg::lang::Value executeFunctionDefinition(const IEggProgramNode& self, const egg::lang::String& name, const egg::lang::ITypeRef& type, const std::shared_ptr<IEggProgramNode>& block);
+    egg::lang::Value executeFunctionCall(const egg::lang::ITypeRef& type, const egg::lang::IParameters& parameters, const IEggProgramNode& block);
     egg::lang::Value executeReturn(const IEggProgramNode& self, const IEggProgramNode* value);
     egg::lang::Value executeCase(const IEggProgramNode& self, const std::vector<std::shared_ptr<IEggProgramNode>>& values, const IEggProgramNode& block); // against in 'scopeValue'
     egg::lang::Value executeSwitch(const IEggProgramNode& self, const IEggProgramNode& value, int64_t defaultIndex, const std::vector<std::shared_ptr<IEggProgramNode>>& cases);
     egg::lang::Value executeThrow(const IEggProgramNode& self, const IEggProgramNode* exception);
     egg::lang::Value executeTry(const IEggProgramNode& self, const IEggProgramNode& block, const std::vector<std::shared_ptr<IEggProgramNode>>& catches, const IEggProgramNode* final);
-    egg::lang::Value executeUsing(const IEggProgramNode& self, const IEggProgramNode& value, const IEggProgramNode& block);
+    egg::lang::Value executeUsing(const IEggProgramNode& self, const IEggProgramNode& value, const IEggProgramNode& block); // WIBBLE remove
     egg::lang::Value executeWhile(const IEggProgramNode& self, const IEggProgramNode& cond, const IEggProgramNode& block);
     egg::lang::Value executeYield(const IEggProgramNode& self, const IEggProgramNode& value);
     egg::lang::Value executeArray(const IEggProgramNode& self, const std::vector<std::shared_ptr<IEggProgramNode>>& values);
@@ -237,13 +237,13 @@ namespace egg::yolk {
     EggProgramNodeFlags prepareIf(IEggProgramNode& cond, IEggProgramNode& trueBlock, IEggProgramNode* falseBlock);
     EggProgramNodeFlags prepareFor(IEggProgramNode* pre, IEggProgramNode* cond, IEggProgramNode* post, IEggProgramNode& block);
     EggProgramNodeFlags prepareForeach(IEggProgramNode& lvalue, IEggProgramNode& rvalue, IEggProgramNode& block);
-    EggProgramNodeFlags prepareFunctionDefinition(const egg::lang::String& name, const egg::lang::IType& type, const std::shared_ptr<IEggProgramNode>& block);
+    EggProgramNodeFlags prepareFunctionDefinition(const egg::lang::String& name, const egg::lang::ITypeRef& type, const std::shared_ptr<IEggProgramNode>& block);
     EggProgramNodeFlags prepareReturn(const egg::lang::LocationSource& where, IEggProgramNode* value);
     EggProgramNodeFlags prepareCase(const std::vector<std::shared_ptr<IEggProgramNode>>& values, IEggProgramNode& block);
     EggProgramNodeFlags prepareSwitch(IEggProgramNode& value, int64_t defaultIndex, const std::vector<std::shared_ptr<IEggProgramNode>>& cases);
     EggProgramNodeFlags prepareThrow(IEggProgramNode* exception);
     EggProgramNodeFlags prepareTry(IEggProgramNode& block, const std::vector<std::shared_ptr<IEggProgramNode>>& catches, IEggProgramNode* final);
-    EggProgramNodeFlags prepareUsing(IEggProgramNode& value, IEggProgramNode& block);
+    EggProgramNodeFlags prepareUsing(IEggProgramNode& value, IEggProgramNode& block); // WIBBLE remove
     EggProgramNodeFlags prepareWhile(IEggProgramNode& cond, IEggProgramNode& block);
     EggProgramNodeFlags prepareYield(IEggProgramNode& value);
     EggProgramNodeFlags prepareArray(const std::vector<std::shared_ptr<IEggProgramNode>>& values);
@@ -257,7 +257,7 @@ namespace egg::yolk {
     EggProgramNodeFlags prepareTernary(const egg::lang::LocationSource& where, IEggProgramNode& cond, IEggProgramNode& whenTrue, IEggProgramNode& whenFalse);
     EggProgramNodeFlags preparePredicate(const egg::lang::LocationSource& where, EggProgramBinary op, IEggProgramNode& lhs, IEggProgramNode& rhs);
     // Temporary scope modifiers
-    EggProgramNodeFlags prepareWithType(IEggProgramNode& node, const egg::lang::IType& type);
+    EggProgramNodeFlags prepareWithType(IEggProgramNode& node, const egg::lang::ITypeRef& type);
     egg::lang::Value executeWithValue(const IEggProgramNode& node, const egg::lang::Value& value);
   private:
     bool findDuplicateSymbols(const std::vector<std::shared_ptr<IEggProgramNode>>& statements);
