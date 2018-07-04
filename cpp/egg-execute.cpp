@@ -391,7 +391,7 @@ egg::lang::Value egg::yolk::EggProgramContext::executeFunctionDefinition(const I
   auto symbol = this->symtable->findSymbol(name);
   assert(symbol != nullptr);
   assert(symbol->getValue().is(egg::lang::Discriminator::Void));
-  return symbol->assign(*this->symtable, *this, egg::lang::Value::make<EggProgramFunctionObject>(*this, *this, type, block));
+  return symbol->assign(*this->symtable, *this, egg::lang::Value::make<EggProgramFunctionObject>(*this, type, block));
 }
 
 egg::lang::Value egg::yolk::EggProgramContext::executeFunctionCall(const egg::lang::ITypeRef& type, const egg::lang::IParameters& parameters, const IEggProgramNode& block) {

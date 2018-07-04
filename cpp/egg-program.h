@@ -100,7 +100,7 @@ namespace egg::yolk {
       egg::gc::Basket::Visitor noop([](egg::gc::Collectable&) {
         /* WIBBLE */
       });
-      this->basket.visitPurge(noop); // WIBBLE purge works, collect doesn't
+      this->basket.visitGarbage(noop); // WIBBLE purge works, collect doesn't
     }
     egg::gc::HardRef<EggProgramContext> createRootContext(IEggEngineLogger& logger, EggProgramSymbolTable& symtable, egg::lang::LogSeverity& maximumSeverity);
     egg::lang::LogSeverity prepare(IEggEnginePreparationContext& preparation);

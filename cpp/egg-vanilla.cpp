@@ -301,7 +301,7 @@ namespace {
   };
 
   egg::lang::Value VanillaArray::iterate(egg::lang::IExecution& execution) {
-    return egg::lang::Value::make<VanillaArrayIterator>(*this, execution, *this);
+    return egg::lang::Value::make<VanillaArrayIterator>(execution, *this);
   }
 
   class VanillaDictionaryIterator : public VanillaIteratorBase {
@@ -317,7 +317,7 @@ namespace {
     }
     virtual egg::lang::Value iterate(egg::lang::IExecution&) override {
       if (this->next < this->keyvalues.size()) {
-        return egg::lang::Value::make<VanillaKeyValue>(*this, keyvalues[this->next++]);
+        return egg::lang::Value::make<VanillaKeyValue>(keyvalues[this->next++]);
       }
       return egg::lang::Value::Void;
     }
@@ -358,7 +358,7 @@ namespace {
       return egg::lang::Value::Void;
     }
     virtual egg::lang::Value iterate(egg::lang::IExecution& execution) override {
-      return egg::lang::Value::make<VanillaDictionaryIterator>(*this, execution, this->dictionary);
+      return egg::lang::Value::make<VanillaDictionaryIterator>(execution, this->dictionary);
     }
   };
 
@@ -446,15 +446,15 @@ const egg::lang::IType& egg::yolk::EggProgram::VanillaArray = VanillaArrayType::
 const egg::lang::IType& egg::yolk::EggProgram::VanillaObject = VanillaObjectType::instance;
 
 egg::lang::Value egg::yolk::EggProgramContext::raise(const egg::lang::String& message) {
-  auto exception = egg::lang::Value::make<VanillaException>(*this, this->location, message);
+  auto exception = egg::lang::Value::make<VanillaException>(this->location, message);
   exception.addFlowControl(egg::lang::Discriminator::Exception);
   return exception;
 }
 
 egg::lang::Value egg::yolk::EggProgramContext::createVanillaArray() {
-  return egg::lang::Value::make<VanillaArray>(*this);
+  return egg::lang::Value::make<VanillaArray>();
 }
 
 egg::lang::Value egg::yolk::EggProgramContext::createVanillaObject() {
-  return egg::lang::Value::make<VanillaObject>(*this);
+  return egg::lang::Value::make<VanillaObject>();
 }

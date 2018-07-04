@@ -254,10 +254,10 @@ egg::lang::Value egg::yolk::EggProgramSymbol::assign(EggProgramSymbolTable& symt
 
 void egg::yolk::EggProgramSymbolTable::addBuiltins() {
   // TODO add built-in symbol to symbol table here
-  this->addBuiltin("string", egg::lang::Value::builtinString(*this));
-  this->addBuiltin("type", egg::lang::Value::builtinType(*this));
-  this->addBuiltin("assert", egg::lang::Value::builtinAssert(*this));
-  this->addBuiltin("print", egg::lang::Value::builtinPrint(*this));
+  this->addBuiltin("string", egg::lang::Value::builtinString());
+  this->addBuiltin("type", egg::lang::Value::builtinType());
+  this->addBuiltin("assert", egg::lang::Value::builtinAssert());
+  this->addBuiltin("print", egg::lang::Value::builtinPrint());
 }
 
 void egg::yolk::EggProgramSymbolTable::addBuiltin(const std::string& name, const egg::lang::Value& value) {

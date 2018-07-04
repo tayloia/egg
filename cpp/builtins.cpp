@@ -95,7 +95,7 @@ namespace {
     }
   };
 
-  class BuiltinObject : public IObject { // WIBBLE SoftRef
+  class BuiltinObject : public IObject {
     EGG_NO_COPY(BuiltinObject);
   protected:
     egg::gc::HardRef<BuiltinObjectType> type;
@@ -105,7 +105,7 @@ namespace {
     }
     template<typename T>
     void addProperty(const std::string& name) {
-      auto value = Value::make<T>(*this);
+      auto value = Value::make<T>();
       this->type->addProperty(String::fromUTF8(name), std::move(value));
     }
     virtual bool dispose() override {
@@ -164,6 +164,7 @@ namespace {
       : BuiltinObject("string", Type::String) {
       // The function call looks like: 'string string(any?... value)'
       this->type->addParameterUTF8("value", Type::AnyQ, Flags::Variadic);
+      this->addProperty<BuiltinStringFrom>("from");
     }
     virtual Value call(IExecution& execution, const IParameters& parameters) override {
       // Concatenate the string representations of all parameters
@@ -210,6 +211,7 @@ namespace {
       : BuiltinObject("type", Type::Type_) {
       // The function call looks like: 'type type(any?... value)'
       this->type->addParameterUTF8("value", Type::AnyQ, Flags::Variadic);
+      this->addProperty<BuiltinTypeOf>("of");
     }
     virtual Value call(IExecution&, const IParameters&) override {
       // TODO
@@ -300,9 +302,9 @@ namespace {
     virtual Value iterate(IExecution& execution) override {
       return execution.raiseFormat(this->type->toString(), " does not support iteration");
     }
-    static Value make(const String& instance, egg::gc::Collectable& container) {
+    static Value make(const String& instance) {
       static egg::gc::HardRef<T> type(new T());
-      return Value::make<StringBuiltin<T>>(container, instance, *type);
+      return Value::make<StringBuiltin<T>>(instance, *type);
     }
   };
 
@@ -627,7 +629,7 @@ namespace {
     }
   };
 
-  Value stringLength(const String& instance, egg::gc::Collectable&) {
+  Value stringLength(const String& instance) {
     // This result is the actual length, not a function computing it
     return Value{ int64_t(instance.length()) };
   }
@@ -661,36 +663,26 @@ egg::lang::String::BuiltinFactory egg::lang::String::builtinFactory(const egg::l
   return nullptr;
 }
 
-egg::lang::Value egg::lang::String::builtin(egg::lang::IExecution& execution, egg::gc::Collectable& container, const egg::lang::String& property) const {
+egg::lang::Value egg::lang::String::builtin(egg::lang::IExecution& execution, const egg::lang::String& property) const {
   auto factory = String::builtinFactory(property);
   if (factory != nullptr) {
-    return factory(*this, container);
+    return factory(*this);
   }
   return execution.raiseFormat("Unknown property for type 'string': '", property, "'");
 }
 
-egg::lang::Value egg::lang::Value::builtinString(egg::gc::Collectable& container) {
-  auto instance = egg::gc::HardRef<BuiltinString>::make();
-  auto* basket = container.softBasket();
-  assert(basket != nullptr);
-  basket->add(*instance);
-  instance->addProperty<BuiltinStringFrom>("from");
-  return Value(container, instance);
+egg::lang::Value egg::lang::Value::builtinString() {
+  return Value::make<BuiltinString>();
 }
 
-egg::lang::Value egg::lang::Value::builtinType(egg::gc::Collectable& container) {
-  auto instance = egg::gc::HardRef<BuiltinType>::make();
-  auto* basket = container.softBasket();
-  assert(basket != nullptr);
-  basket->add(*instance);
-  instance->addProperty<BuiltinTypeOf>("of");
-  return Value(container, instance);
+egg::lang::Value egg::lang::Value::builtinType() {
+  return Value::make<BuiltinType>();
 }
 
-egg::lang::Value egg::lang::Value::builtinAssert(egg::gc::Collectable& container) {
-  return Value::make<BuiltinAssert>(container);
+egg::lang::Value egg::lang::Value::builtinAssert() {
+  return Value::make<BuiltinAssert>();
 }
 
-egg::lang::Value egg::lang::Value::builtinPrint(egg::gc::Collectable& container) {
-  return Value::make<BuiltinPrint>(container);
+egg::lang::Value egg::lang::Value::builtinPrint() {
+  return Value::make<BuiltinPrint>();
 }

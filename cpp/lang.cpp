@@ -1448,26 +1448,15 @@ egg::lang::ITypeRef egg::lang::IType::denulledType() const {
   return Type::Void;
 }
 
-// WIBBLE
-#include "lexers.h"
-#include "egg-tokenizer.h"
-#include "egg-syntax.h"
-#include "egg-parser.h"
-#include "egg-engine.h"
-#include "egg-program.h"
-
 egg::lang::Value egg::lang::IType::dotGet(IExecution& execution, const Value& instance, const String& property) const {
   // WIBBLE shouldn't be a member of IType
-  auto* context = dynamic_cast<egg::yolk::EggProgramContext*>(&execution);
-  assert(context != nullptr);
   // The default implementation is to dispatch requests for strings and complex types
   auto& direct = instance.direct();
   if (direct.has(Discriminator::Object)) {
-    auto object = direct.getObject();
-    return object->getProperty(execution, property);
+    return direct.getObject()->getProperty(execution, property);
   }
   if (direct.has(Discriminator::String)) {
-    return direct.getString().builtin(execution, *context, property);
+    return direct.getString().builtin(execution, property);
   }
   return execution.raiseFormat("Values of type '", this->toString(), "' do not support properties such as '.", property, "'");
 }
@@ -1690,11 +1679,4 @@ egg::lang::ITypeRef egg::lang::Type::makeUnion(const egg::lang::IType& a, const 
     return Type::makeSimple(sa | sb);
   }
   return Type::make<TypeUnion>(a, b);
-}
-
-// WIBBLE
-egg::lang::Value::Value(egg::gc::Collectable& from, const egg::lang::IObjectRef& to)
-  : tag(Discriminator::Object) {
-  EGG_UNUSED(from); // WIBBLE
-  this->o = to.acquireHard();
 }

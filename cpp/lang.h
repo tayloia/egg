@@ -379,9 +379,9 @@ namespace egg::lang {
       return std::min(size_t(index), n);
     }
     // Built-ins
-    typedef std::function<Value(const String&, egg::gc::Collectable&)> BuiltinFactory;
+    typedef std::function<Value(const String&)> BuiltinFactory;
     static BuiltinFactory builtinFactory(const String& property);
-    Value builtin(IExecution& execution, egg::gc::Collectable& container, const String& property) const;
+    Value builtin(IExecution& execution, const String& property) const;
     // Operators
     String& operator=(const String& rhs) {
       this->set(rhs.get());
@@ -465,9 +465,9 @@ namespace egg::lang {
     explicit Value(int64_t value) : tag(Discriminator::Int) { this->i = value; }
     explicit Value(double value) : tag(Discriminator::Float) { this->f = value; }
     explicit Value(const String& value) : tag(Discriminator::String) { this->s = value.acquireHard(); }
+    explicit Value(const IObjectRef& value) : tag(Discriminator::Object) { this->o = value.acquireHard(); }
     explicit Value(const IType& type) : tag(Discriminator::Type) { this->t = type.acquireHard(); }
     explicit Value(const ValueReferenceCounted& vrc);
-    Value(egg::gc::Collectable& from, const IObjectRef& to);
     Value& operator=(const Value& value);
     Value& operator=(Value&& value);
     ~Value();
@@ -496,10 +496,10 @@ namespace egg::lang {
     ITypeRef getRuntimeType() const;
 
     template<typename U, typename... ARGS>
-    static Value make(egg::gc::Collectable& container, ARGS&&... args) {
+    static Value make(ARGS&&... args) {
       // Use perfect forwarding to the constructor
       IObjectRef ref{ new U(std::forward<ARGS>(args)...) };
-      return Value(container, ref);
+      return Value(ref);
     }
 
     // Constants
@@ -514,10 +514,10 @@ namespace egg::lang {
     static const Value ReturnVoid;
 
     // Built-ins
-    static Value builtinString(egg::gc::Collectable& container);
-    static Value builtinType(egg::gc::Collectable& container);
-    static Value builtinAssert(egg::gc::Collectable& container);
-    static Value builtinPrint(egg::gc::Collectable& container);
+    static Value builtinString();
+    static Value builtinType();
+    static Value builtinAssert();
+    static Value builtinPrint();
   };
 
   class ValueReferenceCounted : public Value {

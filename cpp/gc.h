@@ -146,7 +146,6 @@ namespace egg::gc {
   public:
     class Link {
       friend class Basket;
-      template<class T> friend class SoftRef; // WIBBLE REMOVE REMOVE REMOVE
       Link(const Link&) = delete;
       Link& operator=(const Link&) = delete;
     private:
