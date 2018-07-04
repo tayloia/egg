@@ -39,8 +39,8 @@ namespace {
     BuiltinObjectType(const std::string& name, const ITypeRef& returnType)
       : BuiltinFunctionType(name, returnType) {
     }
-    void addProperty(const String& name, const Value& value) {
-      this->properties.addOrUpdate(name, value);
+    void addProperty(const String& name, Value&& value) {
+      this->properties.emplaceUnique(name, std::move(value));
     }
     bool tryGetProperty(const String& name, Value& value) const {
       return this->properties.tryGet(name, value);
@@ -60,13 +60,13 @@ namespace {
     }
   };
 
-  class BuiltinFunction : public egg::gc::SoftReferenceCounted<IObject> {
+  class BuiltinFunction : public IObject {
     EGG_NO_COPY(BuiltinFunction);
   protected:
     egg::gc::HardRef<BuiltinFunctionType> type;
   public:
     BuiltinFunction(const std::string& name, const ITypeRef& returnType)
-      : SoftReferenceCounted(), type(new BuiltinFunctionType(name, returnType)) {
+      : type(new BuiltinFunctionType(name, returnType)) {
     }
     virtual bool dispose() override {
       // We don't allow disposing of builtins
@@ -95,16 +95,18 @@ namespace {
     }
   };
 
-  class BuiltinObject : public egg::gc::SoftReferenceCounted<IObject> { // WIBBLE SoftRef
+  class BuiltinObject : public IObject { // WIBBLE SoftRef
     EGG_NO_COPY(BuiltinObject);
   protected:
     egg::gc::HardRef<BuiltinObjectType> type;
   public:
     BuiltinObject(const std::string& name, const ITypeRef& returnType)
-      : SoftReferenceCounted(), type(new BuiltinObjectType(name, returnType)) {
+      : type(new BuiltinObjectType(name, returnType)) {
     }
-    void addProperty(const std::string& name, const Value& value) {
-      this->type->addProperty(String::fromUTF8(name), value);
+    template<typename T>
+    void addProperty(const std::string& name) {
+      auto value = Value::make<T>(*this);
+      this->type->addProperty(String::fromUTF8(name), std::move(value));
     }
     virtual bool dispose() override {
       // We don't allow disposing of builtins
@@ -162,7 +164,6 @@ namespace {
       : BuiltinObject("string", Type::String) {
       // The function call looks like: 'string string(any?... value)'
       this->type->addParameterUTF8("value", Type::AnyQ, Flags::Variadic);
-      this->addProperty("from", Value::make<BuiltinStringFrom>());
     }
     virtual Value call(IExecution& execution, const IParameters& parameters) override {
       // Concatenate the string representations of all parameters
@@ -209,7 +210,6 @@ namespace {
       : BuiltinObject("type", Type::Type_) {
       // The function call looks like: 'type type(any?... value)'
       this->type->addParameterUTF8("value", Type::AnyQ, Flags::Variadic);
-      this->addProperty("of", Value::make<BuiltinTypeOf>());
     }
     virtual Value call(IExecution&, const IParameters&) override {
       // TODO
@@ -257,14 +257,14 @@ namespace {
   };
 
   template<typename T>
-  class StringBuiltin : public egg::gc::HardReferenceCounted<IObject> {
+  class StringBuiltin : public IObject {
     EGG_NO_COPY(StringBuiltin);
   protected:
     String instance;
     const T* type;
   public:
     StringBuiltin(const String& instance, const T& type)
-      : HardReferenceCounted(0), instance(instance), type(&type) {
+      : instance(instance), type(&type) {
     }
   public:
     virtual bool dispose() override {
@@ -300,9 +300,9 @@ namespace {
     virtual Value iterate(IExecution& execution) override {
       return execution.raiseFormat(this->type->toString(), " does not support iteration");
     }
-    static Value make(const String& instance) {
+    static Value make(const String& instance, egg::gc::Collectable& container) {
       static egg::gc::HardRef<T> type(new T());
-      return Value::make<StringBuiltin<T>>(instance, *type);
+      return Value::make<StringBuiltin<T>>(container, instance, *type);
     }
   };
 
@@ -627,15 +627,15 @@ namespace {
     }
   };
 
-  Value stringLength(const String& instance) {
+  Value stringLength(const String& instance, egg::gc::Collectable&) {
     // This result is the actual length, not a function computing it
     return Value{ int64_t(instance.length()) };
   }
 }
 
-std::function<Value(const String&)> egg::lang::String::builtinFactory(const egg::lang::String& property) {
+egg::lang::String::BuiltinFactory egg::lang::String::builtinFactory(const egg::lang::String& property) {
   // See http://chilliant.blogspot.co.uk/2018/05/egg-strings.html
-  static const std::map<std::string, std::function<Value(const String&)>> table = {
+  static const std::map<std::string, BuiltinFactory> table = {
     { "compare", StringBuiltin<StringCompare>::make },
     { "contains", StringBuiltin<StringContains>::make },
     { "endsWith", StringBuiltin<StringEndsWith>::make },
@@ -661,30 +661,36 @@ std::function<Value(const String&)> egg::lang::String::builtinFactory(const egg:
   return nullptr;
 }
 
-egg::lang::Value egg::lang::String::builtin(egg::lang::IExecution& execution, const egg::lang::String& property) const {
+egg::lang::Value egg::lang::String::builtin(egg::lang::IExecution& execution, egg::gc::Collectable& container, const egg::lang::String& property) const {
   auto factory = String::builtinFactory(property);
   if (factory != nullptr) {
-    return factory(*this);
+    return factory(*this, container);
   }
   return execution.raiseFormat("Unknown property for type 'string': '", property, "'");
 }
 
-egg::lang::Value egg::lang::Value::builtinString() {
-  static Value builtin = Value::make<BuiltinString>();
-  return builtin;
+egg::lang::Value egg::lang::Value::builtinString(egg::gc::Collectable& container) {
+  auto instance = egg::gc::HardRef<BuiltinString>::make();
+  auto* basket = container.softBasket();
+  assert(basket != nullptr);
+  basket->add(*instance);
+  instance->addProperty<BuiltinStringFrom>("from");
+  return Value(container, instance);
 }
 
-egg::lang::Value egg::lang::Value::builtinType() {
-  static Value builtin = Value::make<BuiltinType>();
-  return builtin;
+egg::lang::Value egg::lang::Value::builtinType(egg::gc::Collectable& container) {
+  auto instance = egg::gc::HardRef<BuiltinType>::make();
+  auto* basket = container.softBasket();
+  assert(basket != nullptr);
+  basket->add(*instance);
+  instance->addProperty<BuiltinTypeOf>("of");
+  return Value(container, instance);
 }
 
-egg::lang::Value egg::lang::Value::builtinAssert() {
-  static Value builtin = Value::make<BuiltinAssert>();
-  return builtin;
+egg::lang::Value egg::lang::Value::builtinAssert(egg::gc::Collectable& container) {
+  return Value::make<BuiltinAssert>(container);
 }
 
-egg::lang::Value egg::lang::Value::builtinPrint() {
-  static Value builtin = Value::make<BuiltinPrint>();
-  return builtin;
+egg::lang::Value egg::lang::Value::builtinPrint(egg::gc::Collectable& container) {
+  return Value::make<BuiltinPrint>(container);
 }

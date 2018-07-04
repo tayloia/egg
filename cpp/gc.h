@@ -146,6 +146,7 @@ namespace egg::gc {
   public:
     class Link {
       friend class Basket;
+      template<class T> friend class SoftRef; // WIBBLE REMOVE REMOVE REMOVE
       Link(const Link&) = delete;
       Link& operator=(const Link&) = delete;
     private:
@@ -236,35 +237,19 @@ namespace egg::gc {
       }
     }
     template<class T>
-    void softLink(SoftRef<T>& link, T* pointee) {
+    void softLink(SoftRef<T>& link, T* pointee) { // WIBBLE still needed?
       // Type-safe link setting
       // OPTIMIZE
       if (pointee == nullptr) {
         link.reset();
       } else {
-        HardRef<Collectable> ref{ this };
+        HardRef<Collectable> ref{ this }; // WIBBLE
         link.set(*ref, *pointee);
       }
     }
     Basket* softBasket() const { // WIBBLE remove?
       // This may be null
       return this->basket;
-    }
-  };
-
-  template<class T>
-  class SoftReferenceCounted : public Collectable, public T {
-    SoftReferenceCounted(const SoftReferenceCounted&) = delete;
-    SoftReferenceCounted& operator=(const SoftReferenceCounted&) = delete;
-  public:
-    template<typename... ARGS>
-    explicit SoftReferenceCounted(ARGS&&... args) : Collectable(), T(std::forward<ARGS>(args)...) {
-    }
-    virtual SoftReferenceCounted* acquireHard() const override {
-      return static_cast<SoftReferenceCounted*>(Collectable::acquireHard());
-    }
-    virtual void releaseHard() const override {
-      Collectable::releaseHard();
     }
   };
 

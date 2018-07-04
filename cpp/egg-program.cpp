@@ -221,7 +221,7 @@ void egg::yolk::EggProgramSymbol::setInferredType(const egg::lang::ITypeRef& inf
   this->type = inferred;
 }
 
-egg::lang::Value egg::yolk::EggProgramSymbol::assign(egg::lang::IExecution& execution, const egg::lang::Value& rhs) {
+egg::lang::Value egg::yolk::EggProgramSymbol::assign(EggProgramSymbolTable& symtable, egg::lang::IExecution& execution, const egg::lang::Value& rhs) {
   // Ask the type to assign the value so that type promotion can occur
   switch (this->kind) {
   case Builtin:
@@ -248,15 +248,16 @@ egg::lang::Value egg::yolk::EggProgramSymbol::assign(egg::lang::IExecution& exec
   } else {
     *slot = promoted;
   }
+  slot->soft(symtable);
   return egg::lang::Value::Void;
 }
 
 void egg::yolk::EggProgramSymbolTable::addBuiltins() {
   // TODO add built-in symbol to symbol table here
-  this->addBuiltin("string", egg::lang::Value::builtinString());
-  this->addBuiltin("type", egg::lang::Value::builtinType());
-  this->addBuiltin("assert", egg::lang::Value::builtinAssert());
-  this->addBuiltin("print", egg::lang::Value::builtinPrint());
+  this->addBuiltin("string", egg::lang::Value::builtinString(*this));
+  this->addBuiltin("type", egg::lang::Value::builtinType(*this));
+  this->addBuiltin("assert", egg::lang::Value::builtinAssert(*this));
+  this->addBuiltin("print", egg::lang::Value::builtinPrint(*this));
 }
 
 void egg::yolk::EggProgramSymbolTable::addBuiltin(const std::string& name, const egg::lang::Value& value) {
@@ -266,6 +267,7 @@ void egg::yolk::EggProgramSymbolTable::addBuiltin(const std::string& name, const
 std::shared_ptr<egg::yolk::EggProgramSymbol> egg::yolk::EggProgramSymbolTable::addSymbol(EggProgramSymbol::Kind kind, const egg::lang::String& name, const egg::lang::ITypeRef& type, const egg::lang::Value& value) {
   auto result = this->map.emplace(name, std::make_shared<EggProgramSymbol>(kind, name, type, value));
   assert(result.second);
+  result.first->second->getValue().soft(*this);
   return result.first->second;
 }
 
@@ -415,7 +417,7 @@ egg::lang::Value egg::yolk::EggProgramContext::set(const egg::lang::String& name
   }
   auto symbol = this->symtable->findSymbol(name);
   assert(symbol != nullptr);
-  return symbol->assign(*this, rvalue);
+  return symbol->assign(*this->symtable, *this, rvalue);
 }
 
 egg::lang::Value egg::yolk::EggProgramContext::guard(const egg::lang::String& name, const egg::lang::Value& rvalue) {
@@ -424,7 +426,7 @@ egg::lang::Value egg::yolk::EggProgramContext::guard(const egg::lang::String& na
   }
   auto symbol = this->symtable->findSymbol(name);
   assert(symbol != nullptr);
-  auto retval = symbol->assign(*this, rvalue);
+  auto retval = symbol->assign(*this->symtable, *this, rvalue);
   if (retval.is(egg::lang::Discriminator::Void)) {
     // The assignment succeeded
     return egg::lang::Value::True;
@@ -560,7 +562,7 @@ egg::lang::Value egg::yolk::EggProgramContext::unary(EggProgramUnary op, const I
     if (value.has(egg::lang::Discriminator::FlowControl)) {
       return value;
     }
-    if (!value.has(egg::lang::Discriminator::Pointer)) {
+    if (!value.has(egg::lang::Discriminator::Pointer) || value.has(egg::lang::Discriminator::Object)) {
       return this->unexpected("Expected operand of dereference '*' operator to be a pointer", value);
     }
     return value.getPointee();
@@ -706,7 +708,7 @@ egg::lang::Value egg::yolk::EggProgramContext::arithmeticInt(const egg::lang::Va
 
 egg::lang::Value egg::yolk::EggProgramContext::call(const egg::lang::Value& callee, const egg::lang::IParameters& parameters) {
   auto& direct = callee.direct();
-  if (!direct.is(egg::lang::Discriminator::Object)) {
+  if (!direct.has(egg::lang::Discriminator::Object)) {
     return this->unexpected("Expected function-like expression to be 'object'", direct);
   }
   auto object = direct.getObject();

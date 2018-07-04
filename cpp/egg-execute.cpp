@@ -53,7 +53,7 @@ namespace {
     }
   };
 
-  class EggProgramFunctionObject : public egg::gc::SoftReferenceCounted<egg::lang::IObject> {
+  class EggProgramFunctionObject : public egg::lang::IObject {
     EGG_NO_COPY(EggProgramFunctionObject);
   private:
     egg::gc::SoftRef<egg::yolk::EggProgramContext> program;
@@ -61,8 +61,7 @@ namespace {
     std::shared_ptr<egg::yolk::IEggProgramNode> block;
   public:
     EggProgramFunctionObject(egg::yolk::EggProgramContext& program, const egg::lang::ITypeRef& type, const std::shared_ptr<egg::yolk::IEggProgramNode>& block)
-      : SoftReferenceCounted(),
-        program(),
+      : program(),
         type(type),
         block(block) {
       assert(block != nullptr);
@@ -312,7 +311,7 @@ egg::lang::Value egg::yolk::EggProgramContext::executeForeach(const IEggProgramN
       // Optimization for string codepoint iteration
       return scope.executeForeachString(*dst, src.getString(), block);
     }
-    if (src.is(egg::lang::Discriminator::Object)) {
+    if (src.has(egg::lang::Discriminator::Object)) {
       auto object = src.getObject();
       return scope.executeForeachIterate(*dst, *object, block);
     }
@@ -352,7 +351,7 @@ egg::lang::Value egg::yolk::EggProgramContext::executeForeachIterate(IEggProgram
     // The iterator could not be created
     return iterate;
   }
-  if (!iterate.is(egg::lang::Discriminator::Object)) {
+  if (!iterate.has(egg::lang::Discriminator::Object)) {
     return this->unexpected("The 'for' statement expected an iterator", iterate); // TODO
   }
   auto iteration = iterate.getObject();
@@ -392,7 +391,7 @@ egg::lang::Value egg::yolk::EggProgramContext::executeFunctionDefinition(const I
   auto symbol = this->symtable->findSymbol(name);
   assert(symbol != nullptr);
   assert(symbol->getValue().is(egg::lang::Discriminator::Void));
-  return symbol->assign(*this, egg::lang::Value::make<EggProgramFunctionObject>(*this, type, block));
+  return symbol->assign(*this->symtable, *this, egg::lang::Value::make<EggProgramFunctionObject>(*this, *this, type, block));
 }
 
 egg::lang::Value egg::yolk::EggProgramContext::executeFunctionCall(const egg::lang::ITypeRef& type, const egg::lang::IParameters& parameters, const IEggProgramNode& block) {
@@ -421,7 +420,8 @@ egg::lang::Value egg::yolk::EggProgramContext::executeFunctionCall(const egg::la
     auto ptype = parameter.getType();
     auto pvalue = parameters.getPositional(i);
     assert(!pvalue.has(egg::lang::Discriminator::FlowControl));
-    auto result = nested->addSymbol(EggProgramSymbol::ReadWrite, pname, ptype)->assign(*this, pvalue);
+    // Use 'assign' to perform promotion, etc.
+    auto result = nested->addSymbol(EggProgramSymbol::ReadWrite, pname, ptype)->assign(*this->symtable, *this, pvalue);
     if (result.has(egg::lang::Discriminator::FlowControl)) {
       // Re-create the exception with the parameter name included
       auto* plocation = parameters.getPositionalLocation(i);
@@ -597,7 +597,7 @@ egg::lang::Value egg::yolk::EggProgramContext::executeUsing(const IEggProgramNod
       // No need to clean up afterwards
       return block.execute(scope);
     }
-    if (!expr.is(egg::lang::Discriminator::Object)) {
+    if (!expr.has(egg::lang::Discriminator::Object)) {
       return scope.unexpected("Expected expression in 'using' statement to be 'null' or an object", expr);
     }
     auto retval = block.execute(scope);
@@ -649,7 +649,7 @@ egg::lang::Value egg::yolk::EggProgramContext::executeArray(const IEggProgramNod
   // OPTIMIZE
   EggProgramExpression expression(*this, self);
   auto result = this->createVanillaArray();
-  if (result.is(egg::lang::Discriminator::Object)) {
+  if (!result.has(egg::lang::Discriminator::FlowControl) && result.has(egg::lang::Discriminator::Object)) {
     auto object = result.getObject();
     int64_t index = 0;
     for (auto& value : values) {
@@ -671,7 +671,7 @@ egg::lang::Value egg::yolk::EggProgramContext::executeObject(const IEggProgramNo
   // OPTIMIZE
   EggProgramExpression expression(*this, self);
   auto result = this->createVanillaObject();
-  if (result.is(egg::lang::Discriminator::Object)) {
+  if (!result.has(egg::lang::Discriminator::FlowControl) && result.has(egg::lang::Discriminator::Object)) {
     auto object = result.getObject();
     egg::lang::String name;
     auto type = egg::lang::Type::Void;
@@ -782,7 +782,7 @@ egg::lang::Value egg::yolk::EggProgramContext::executePredicate(const IEggProgra
   }
   auto operation = EggProgram::binaryToString(op);
   auto raised = this->raiseFormat("Assertion is untrue: ", left.toString(), " ", operation, " ", right.toString());
-  if (raised.is(egg::lang::Discriminator::Exception | egg::lang::Discriminator::Object)) {
+  if (raised.has(egg::lang::Discriminator::Exception) && raised.has(egg::lang::Discriminator::Object)) {
     // Augment the exception with extra information
     auto exception = raised.getObject();
     exception->setProperty(*this, egg::lang::String::fromUTF8("left"), left);

@@ -252,11 +252,15 @@ namespace egg::lang {
     static ITypeRef makeUnion(const IType& lhs, const IType& rhs);
   };
 
-  class IObject {
+  class IObject : public egg::gc::Collectable {
+    IObject(const IObject&) = delete;
+    IObject& operator=(const IObject&) = delete;
   public:
-    virtual ~IObject() {}
-    virtual IObject* acquireHard() const = 0; // WIBBLE remove from IObject, only in SoftRef?
-    virtual void releaseHard() const = 0; // WIBBLE remove from IObject, only in SoftRef?
+    IObject() = default;
+    virtual IObject* acquireHard() const override {
+      // Covariant return value
+      return static_cast<IObject*>(Collectable::acquireHard());
+    }
     virtual bool dispose() = 0; // WIBBLE remove from IObject?
     virtual Value toString() const = 0;
     virtual ITypeRef getRuntimeType() const = 0;
@@ -267,9 +271,7 @@ namespace egg::lang {
     virtual Value setIndex(IExecution& execution, const Value& index, const Value& value) = 0;
     virtual Value iterate(IExecution& execution) = 0;
   };
-  typedef egg::gc::SoftReferenceCounted<IObject> IObjectCollectable;
-  typedef egg::gc::SoftRef<IObjectCollectable> IObjectSoft;
-  typedef egg::gc::HardRef<IObject> IObjectHard;
+  typedef egg::gc::HardRef<IObject> IObjectRef;
 
   class StringBuilder {
     StringBuilder(const StringBuilder&) = delete;
@@ -377,8 +379,9 @@ namespace egg::lang {
       return std::min(size_t(index), n);
     }
     // Built-ins
-    static std::function<Value(const String&)> builtinFactory(const String& property);
-    Value builtin(IExecution& execution, const String& property) const;
+    typedef std::function<Value(const String&, egg::gc::Collectable&)> BuiltinFactory;
+    static BuiltinFactory builtinFactory(const String& property);
+    Value builtin(IExecution& execution, egg::gc::Collectable& container, const String& property) const;
     // Operators
     String& operator=(const String& rhs) {
       this->set(rhs.get());
@@ -437,45 +440,52 @@ namespace egg::lang {
       bool b;
       int64_t i;
       double f;
+      IObject* o; // hard
+      egg::gc::SoftRef<IObject>* rr; // soft
       const IString* s;
-      IObject* o;
       const IType* t;
       ValueReferenceCounted* v;
-      void* r;
     };
     explicit Value(Discriminator tag) : tag(tag) {}
     void copyInternals(const Value& other);
     void moveInternals(Value& other);
     void destroyInternals();
+    IObject* getObjectPointer() const {
+      assert(this->has(Discriminator::Object));
+      auto* ptr = this->has(Discriminator::Pointer) ? this->rr->get() : this->o;
+      assert(ptr != nullptr);
+      return ptr;
+    }
   public:
-    Value() : tag(Discriminator::Void) { this->o = nullptr; }
-    explicit Value(std::nullptr_t) : tag(Discriminator::Null) { this->o = nullptr; }
+    Value() : tag(Discriminator::Void) { this->v = nullptr; }
+    Value(const Value& value);
+    Value(Value&& value);
+    explicit Value(std::nullptr_t) : tag(Discriminator::Null) { this->v = nullptr; }
     explicit Value(bool value) : tag(Discriminator::Bool) { this->b = value; }
     explicit Value(int64_t value) : tag(Discriminator::Int) { this->i = value; }
     explicit Value(double value) : tag(Discriminator::Float) { this->f = value; }
     explicit Value(const String& value) : tag(Discriminator::String) { this->s = value.acquireHard(); }
-    explicit Value(const IObjectHard& object) : tag(Discriminator::Object) { this->o = object->acquireHard(); } // WIBBLE
     explicit Value(const IType& type) : tag(Discriminator::Type) { this->t = type.acquireHard(); }
     explicit Value(const ValueReferenceCounted& vrc);
-    Value(const Value& value);
-    Value(Value&& value);
+    Value(egg::gc::Collectable& from, const IObjectRef& to);
     Value& operator=(const Value& value);
     Value& operator=(Value&& value);
     ~Value();
+    bool operator==(const Value& other) const { return Value::equal(*this, other); }
+    bool operator!=(const Value& other) const { return !Value::equal(*this, other); }
     const Value& direct() const;
     Value& direct();
     ValueReferenceCounted& indirect();
-    bool operator==(const Value& other) const { return Value::equal(*this, other); }
-    bool operator!=(const Value& other) const { return !Value::equal(*this, other); }
+    Value& soft(egg::gc::Collectable& container);
     bool is(Discriminator bits) const { return this->tag == bits; }
     bool has(Discriminator bits) const { return Bits::mask(this->tag, bits) != Discriminator::None; }
     bool getBool() const { assert(this->has(Discriminator::Bool)); return this->b; }
     int64_t getInt() const { assert(this->has(Discriminator::Int)); return this->i; }
     double getFloat() const { assert(this->has(Discriminator::Float)); return this->f; }
     String getString() const { assert(this->has(Discriminator::String)); return String(*this->s); }
-    IObjectHard getObject() const { assert(this->has(Discriminator::Object)); return IObjectHard(this->o); }
+    IObjectRef getObject() const { assert(this->has(Discriminator::Object)); return IObjectRef(this->getObjectPointer()); }
     const IType& getType() const { assert(this->has(Discriminator::Type)); return *this->t; }
-    ValueReferenceCounted& getPointee() const { assert(this->has(Discriminator::Pointer)); return *this->v; }
+    ValueReferenceCounted& getPointee() const { assert(this->has(Discriminator::Pointer) && !this->has(Discriminator::Object)); return *this->v; }
     void addFlowControl(Discriminator bits);
     bool stripFlowControl(Discriminator bits);
     std::string getTagString() const;
@@ -486,10 +496,10 @@ namespace egg::lang {
     ITypeRef getRuntimeType() const;
 
     template<typename U, typename... ARGS>
-    static Value make(ARGS&&... args) {
+    static Value make(egg::gc::Collectable& container, ARGS&&... args) {
       // Use perfect forwarding to the constructor
-      egg::gc::HardRef<U> ref{ new U(std::forward<ARGS>(args)...) };
-      return Value(ref);
+      IObjectRef ref{ new U(std::forward<ARGS>(args)...) };
+      return Value(container, ref);
     }
 
     // Constants
@@ -504,10 +514,10 @@ namespace egg::lang {
     static const Value ReturnVoid;
 
     // Built-ins
-    static Value builtinString();
-    static Value builtinType();
-    static Value builtinAssert();
-    static Value builtinPrint();
+    static Value builtinString(egg::gc::Collectable& container);
+    static Value builtinType(egg::gc::Collectable& container);
+    static Value builtinAssert(egg::gc::Collectable& container);
+    static Value builtinPrint(egg::gc::Collectable& container);
   };
 
   class ValueReferenceCounted : public Value {

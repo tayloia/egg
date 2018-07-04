@@ -1122,10 +1122,12 @@ const egg::lang::Value egg::lang::Value::ReturnVoid{ Discriminator::Return | Dis
 void egg::lang::Value::copyInternals(const Value& other) {
   assert(this != &other);
   this->tag = other.tag;
-  if (this->has(Discriminator::Indirect | Discriminator::Pointer)) {
+  if (this->has(Discriminator::Object)) {
+    // We can only copy the reference as a hard pointer
+    this->tag = Bits::clear(other.tag, Discriminator::Pointer);
+    this->o = other.getObjectPointer()->acquireHard();
+  } else if (this->has(Discriminator::Indirect | Discriminator::Pointer)) {
     this->v = other.v->acquireHard();
-  } else if (this->has(Discriminator::Object)) {
-    this->o = other.o->acquireHard();
   } else if (this->has(Discriminator::String)) {
     this->s = other.s->acquireHard();
   } else if (this->has(Discriminator::Float)) {
@@ -1141,10 +1143,19 @@ void egg::lang::Value::copyInternals(const Value& other) {
 
 void egg::lang::Value::moveInternals(Value& other) {
   this->tag = other.tag;
-  if (this->has(Discriminator::Indirect | Discriminator::Pointer)) {
+  if (this->has(Discriminator::Object)) {
+    auto* ptr = other.getObjectPointer();
+    if (this->has(Discriminator::Pointer)) {
+      // Convert the soft pointer to a hard one
+      this->tag = Bits::clear(this->tag, Discriminator::Pointer);
+      this->o = ptr->acquireHard();
+      delete other.rr;
+    } else {
+      // Not need to increment/decrement the reference count
+      this->o = ptr;
+    }
+  } else if (this->has(Discriminator::Indirect | Discriminator::Pointer)) {
     this->v = other.v;
-  } else if (this->has(Discriminator::Object)) {
-    this->o = other.o;
   } else if (this->has(Discriminator::String)) {
     this->s = other.s;
   } else if (this->has(Discriminator::Float)) {
@@ -1160,10 +1171,14 @@ void egg::lang::Value::moveInternals(Value& other) {
 }
 
 void egg::lang::Value::destroyInternals() {
-  if (this->has(Discriminator::Indirect | Discriminator::Pointer)) {
+  if (this->has(Discriminator::Object)) {
+    if (this->has(Discriminator::Pointer)) {
+      delete this->rr;
+    } else {
+      this->o->releaseHard();
+    }
+  } else if (this->has(Discriminator::Indirect | Discriminator::Pointer)) {
     this->v->releaseHard();
-  } else if (this->has(Discriminator::Object)) {
-    this->o->releaseHard();
   } else if (this->has(Discriminator::String)) {
     this->s->releaseHard();
   } else if (this->has(Discriminator::Type)) {
@@ -1235,6 +1250,19 @@ egg::lang::ValueReferenceCounted& egg::lang::Value::indirect() {
   return *this->v;
 }
 
+egg::lang::Value& egg::lang::Value::soft(egg::gc::Collectable& container) {
+  if (this->has(Discriminator::Object) && !this->has(Discriminator::Pointer)) {
+    // This is a hard pointer to an IObject, make it a soft pointer
+    auto* before = this->o;
+    assert(before != nullptr);
+    auto* after = new egg::gc::SoftRef<IObject>(container, before);
+    this->tag = Bits::set(this->tag, Discriminator::Pointer);
+    this->rr = after;
+    before->releaseHard();
+  }
+  return *this;
+}
+
 bool egg::lang::Value::equal(const Value& lhs, const Value& rhs) {
   auto& a = lhs.direct();
   auto& b = rhs.direct();
@@ -1259,8 +1287,11 @@ bool egg::lang::Value::equal(const Value& lhs, const Value& rhs) {
   if (a.tag == Discriminator::Pointer) {
     return a.v == b.v;
   }
-  assert(a.tag == Discriminator::Object);
-  return a.o == b.o;
+  if (a.tag == Discriminator::Object) {
+    return a.o == b.o;
+  }
+  assert(a.tag == (Discriminator::Object | Discriminator::Pointer));
+  return a.rr->get() == b.rr->get();
 }
 
 std::string egg::lang::Value::getTagString() const {
@@ -1340,14 +1371,13 @@ std::string egg::lang::Value::getTagString(Discriminator tag) {
 
 egg::lang::ITypeRef egg::lang::Value::getRuntimeType() const {
   assert(this->tag != Discriminator::Indirect);
-  if (this->tag == Discriminator::Pointer) {
+  if (this->has(Discriminator::Object)) {
+    return this->getObjectPointer()->getRuntimeType();
+  }
+  if (this->has(Discriminator::Pointer)) {
     return this->v->getRuntimeType()->pointerType();
   }
-  if (this->tag == Discriminator::Object) {
-    // Ask the object for its type
-    return this->o->getRuntimeType();
-  }
-  if (this->tag == Discriminator::Type) {
+  if (this->has(Discriminator::Type)) {
     // TODO Is a type's type itself?
     return ITypeRef(this->t);
   }
@@ -1360,20 +1390,21 @@ egg::lang::ITypeRef egg::lang::Value::getRuntimeType() const {
 
 egg::lang::String egg::lang::Value::toString() const {
   // OPTIMIZE
-  if (this->tag == Discriminator::Object) {
-    auto str = this->o->toString();
+  if (this->has(Discriminator::Object)) {
+    auto str = this->getObject()->toString();
     if (str.tag == Discriminator::String) {
       return str.getString();
     }
     return String::fromUTF8("<invalid>");
   }
-  if (this->tag == Discriminator::Type) {
+  if (this->has(Discriminator::Type)) {
     return this->t->toString();
   }
   return String::fromUTF8(this->toUTF8());
 }
 
 std::string egg::lang::Value::toUTF8() const {
+  // OPTIMIZE
   if (this->tag == Discriminator::Null) {
     return "null";
   }
@@ -1389,8 +1420,8 @@ std::string egg::lang::Value::toUTF8() const {
   if (this->tag == Discriminator::String) {
     return this->s->toUTF8();
   }
-  if (this->tag == Discriminator::Object) {
-    auto str = this->o->toString();
+  if (this->has(Discriminator::Object)) {
+    auto str = this->getObject()->toString();
     if (str.tag == Discriminator::String) {
       return str.getString().toUTF8();
     }
@@ -1417,15 +1448,26 @@ egg::lang::ITypeRef egg::lang::IType::denulledType() const {
   return Type::Void;
 }
 
+// WIBBLE
+#include "lexers.h"
+#include "egg-tokenizer.h"
+#include "egg-syntax.h"
+#include "egg-parser.h"
+#include "egg-engine.h"
+#include "egg-program.h"
+
 egg::lang::Value egg::lang::IType::dotGet(IExecution& execution, const Value& instance, const String& property) const {
+  // WIBBLE shouldn't be a member of IType
+  auto* context = dynamic_cast<egg::yolk::EggProgramContext*>(&execution);
+  assert(context != nullptr);
   // The default implementation is to dispatch requests for strings and complex types
   auto& direct = instance.direct();
-  if (direct.is(Discriminator::Object)) {
+  if (direct.has(Discriminator::Object)) {
     auto object = direct.getObject();
     return object->getProperty(execution, property);
   }
-  if (direct.is(Discriminator::String)) {
-    return direct.getString().builtin(execution, property);
+  if (direct.has(Discriminator::String)) {
+    return direct.getString().builtin(execution, *context, property);
   }
   return execution.raiseFormat("Values of type '", this->toString(), "' do not support properties such as '.", property, "'");
 }
@@ -1433,11 +1475,11 @@ egg::lang::Value egg::lang::IType::dotGet(IExecution& execution, const Value& in
 egg::lang::Value egg::lang::IType::dotSet(IExecution& execution, const Value& instance, const String& property, const Value& value) const {
   // The default implementation is to dispatch requests for complex types
   auto& direct = instance.direct();
-  if (direct.is(Discriminator::Object)) {
+  if (direct.has(Discriminator::Object)) {
     auto object = direct.getObject();
     return object->setProperty(execution, property, value);
   }
-  if (direct.is(Discriminator::String)) {
+  if (direct.has(Discriminator::String)) {
     return execution.raiseFormat("Strings do not support modification through properties such as '.", property, "'");
   }
   return execution.raiseFormat("Values of type '", this->toString(), "' do not support modification of properties such as '.", property, "'");
@@ -1446,11 +1488,11 @@ egg::lang::Value egg::lang::IType::dotSet(IExecution& execution, const Value& in
 egg::lang::Value egg::lang::IType::bracketsGet(IExecution& execution, const Value& instance, const Value& index) const {
   // The default implementation is to dispatch requests for strings and complex types
   auto& direct = instance.direct();
-  if (direct.is(Discriminator::Object)) {
+  if (direct.has(Discriminator::Object)) {
     auto object = direct.getObject();
     return object->getIndex(execution, index);
   }
-  if (direct.is(Discriminator::String)) {
+  if (direct.has(Discriminator::String)) {
     // string operator[](int index)
     auto str = direct.getString();
     if (!index.is(Discriminator::Int)) {
@@ -1474,11 +1516,11 @@ egg::lang::Value egg::lang::IType::bracketsGet(IExecution& execution, const Valu
 egg::lang::Value egg::lang::IType::bracketsSet(IExecution& execution, const Value& instance, const Value& index, const Value& value) const {
   // The default implementation is to dispatch requests for complex types
   auto& direct = instance.direct();
-  if (direct.is(Discriminator::Object)) {
+  if (direct.has(Discriminator::Object)) {
     auto object = direct.getObject();
     return object->setIndex(execution, index, value);
   }
-  if (direct.is(Discriminator::String)) {
+  if (direct.has(Discriminator::String)) {
     return execution.raiseFormat("Strings do not support modification through indexing with '[]'");
   }
   return execution.raiseFormat("Values of type '", this->toString(), "' do not support indexing with '[]'");
@@ -1648,4 +1690,11 @@ egg::lang::ITypeRef egg::lang::Type::makeUnion(const egg::lang::IType& a, const 
     return Type::makeSimple(sa | sb);
   }
   return Type::make<TypeUnion>(a, b);
+}
+
+// WIBBLE
+egg::lang::Value::Value(egg::gc::Collectable& from, const egg::lang::IObjectRef& to)
+  : tag(Discriminator::Object) {
+  EGG_UNUSED(from); // WIBBLE
+  this->o = to.acquireHard();
 }

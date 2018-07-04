@@ -53,6 +53,9 @@ namespace egg::yolk {
       assert(inserted);
       EGG_UNUSED(inserted);
     }
+    void emplaceUnique(const K& key, V&& value) {
+      this->map.emplace(key, std::move(value));
+    }
     void removeAll() {
       this->map.clear();
     }

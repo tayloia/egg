@@ -47,12 +47,23 @@ public:
 egg::gc::Basket::Link::Link(Collectable& from, Collectable* to)
   : from(&from), to(to), next(from.ownedLinks) {
   // Make sure 'from' and 'to' are in the same basket and add a reference from 'from' to 'to'
-  assert(from.basket != nullptr);
-  if (to != nullptr) {
+  from.ownedLinks = this;
+  if (to == nullptr) {
+    assert(from.basket != nullptr);
+  } else {
+    if (from.basket == nullptr) {
+      assert(to->basket != nullptr);
+      to->basket->add(from);
+      assert(from.basket != nullptr);
+    } else if (to->basket == nullptr) {
+      assert(from.basket != nullptr);
+      from.basket->add(*to);
+      assert(to->basket != nullptr);
+    }
     assert(to->basket != nullptr);
     assert(from.basket == to->basket);
+    assert(this->from->basket->validate()); // WIBBLE
   }
-  from.ownedLinks = this;
 }
 
 egg::gc::Basket::Link** egg::gc::Basket::Link::findOrigin() const {
@@ -86,6 +97,10 @@ void egg::gc::Basket::Link::set(Collectable& owner, Collectable& pointee) {
   if (owner.basket == nullptr) {
     assert(pointee.basket != nullptr);
     pointee.basket->add(owner);
+    assert(owner.basket != nullptr);
+  } else if (pointee.basket == nullptr) {
+    assert(owner.basket != nullptr);
+    owner.basket->add(pointee);
     assert(pointee.basket != nullptr);
   }
   this->to = &pointee;
@@ -93,6 +108,7 @@ void egg::gc::Basket::Link::set(Collectable& owner, Collectable& pointee) {
   assert(this->from->basket != nullptr);
   assert(this->to != nullptr);
   assert(this->to->basket == this->from->basket);
+  assert(this->from->basket->validate()); // WIBBLE
 }
 
 void egg::gc::Basket::Link::reset() {
@@ -123,14 +139,13 @@ egg::gc::Basket::~Basket() {
 
 void egg::gc::Basket::add(Collectable& collectable) {
   // Add this collectable to the list of known collectables in this basket
-  assert(this->validate()); // WIBBLE
   assert(this->head != nullptr);
   assert(collectable.basket == nullptr);
   assert(collectable.prevInBasket == nullptr);
   assert(collectable.nextInBasket == nullptr);
   // Take a hard reference owned by the basket
   auto acquired = collectable.hard.acquire();
-  assert(acquired > 1); // Expect an extenal hard reference too
+  assert(acquired > 1);
   EGG_UNUSED(acquired);
   collectable.basket = this;
   auto* next = this->head->nextInBasket;
@@ -141,7 +156,6 @@ void egg::gc::Basket::add(Collectable& collectable) {
     next->prevInBasket = &collectable;
   }
   this->head->collectables++;
-  assert(this->validate()); // WIBBLE
 }
 
 void egg::gc::Basket::visitCollectables(IVisitor& visitor) {

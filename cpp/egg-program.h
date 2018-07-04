@@ -1,5 +1,6 @@
 namespace egg::yolk {
   class EggProgramContext;
+  class EggProgramSymbolTable;
 
   class IEggProgramAssignee {
   public:
@@ -63,7 +64,7 @@ namespace egg::yolk {
     const egg::lang::IType& getType() const { return *this->type; }
     egg::lang::Value& getValue() { return this->value; }
     void setInferredType(const egg::lang::ITypeRef& inferred);
-    egg::lang::Value assign(egg::lang::IExecution& execution, const egg::lang::Value& rhs);
+    egg::lang::Value assign(EggProgramSymbolTable& symtable, egg::lang::IExecution& execution, const egg::lang::Value& rhs);
   };
 
   class EggProgramSymbolTable : public egg::gc::Collectable {
