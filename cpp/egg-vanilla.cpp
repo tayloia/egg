@@ -16,9 +16,6 @@ namespace {
     VanillaBase(const std::string& kind, const egg::lang::IType& type)
       : kind(kind), type(&type) {
     }
-    virtual bool dispose() override {
-      return false;
-    }
     virtual egg::lang::ITypeRef getRuntimeType() const override {
       return this->type;
     }

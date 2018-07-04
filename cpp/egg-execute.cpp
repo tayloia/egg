@@ -67,9 +67,6 @@ namespace {
       assert(block != nullptr);
       this->softLink(this->program, &program);
     }
-    virtual bool dispose() override {
-      return false;
-    }
     virtual egg::lang::Value toString() const override {
       return egg::lang::Value(egg::lang::String::concat("<", this->type->toString(), ">"));
     }
@@ -584,29 +581,6 @@ egg::lang::Value egg::yolk::EggProgramContext::executeFinally(const egg::lang::V
     }
   }
   return retval;
-}
-
-egg::lang::Value egg::yolk::EggProgramContext::executeUsing(const IEggProgramNode& self, const IEggProgramNode& value, const IEggProgramNode& block) {
-  this->statement(self);
-  return this->executeScope(&value, [&](EggProgramContext& scope) {
-    auto expr = value.execute(scope).direct();
-    if (expr.has(egg::lang::Discriminator::FlowControl)) {
-      return expr;
-    }
-    if (!expr.is(egg::lang::Discriminator::Null)) {
-      // No need to clean up afterwards
-      return block.execute(scope);
-    }
-    if (!expr.has(egg::lang::Discriminator::Object)) {
-      return scope.unexpected("Expected expression in 'using' statement to be 'null' or an object", expr);
-    }
-    auto retval = block.execute(scope);
-    auto object = expr.getObject();
-    if (!object->dispose()) {
-      return scope.raiseFormat("Failed to 'dispose' object instance at end of 'using' statement");
-    }
-    return retval;
-  });
 }
 
 egg::lang::Value egg::yolk::EggProgramContext::executeWhile(const IEggProgramNode& self, const IEggProgramNode& cond, const IEggProgramNode& block) {

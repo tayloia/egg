@@ -261,7 +261,6 @@ namespace egg::lang {
       // Covariant return value
       return static_cast<IObject*>(Collectable::acquireHard());
     }
-    virtual bool dispose() = 0; // WIBBLE remove from IObject?
     virtual Value toString() const = 0;
     virtual ITypeRef getRuntimeType() const = 0;
     virtual Value call(IExecution& execution, const IParameters& parameters) = 0;

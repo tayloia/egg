@@ -100,7 +100,7 @@ namespace egg::yolk {
       egg::gc::Basket::Visitor noop([](egg::gc::Collectable&) {
         /* WIBBLE */
       });
-      this->basket.visitGarbage(noop); // WIBBLE purge works, collect doesn't
+      this->basket.visitGarbage(noop);
     }
     egg::gc::HardRef<EggProgramContext> createRootContext(IEggEngineLogger& logger, EggProgramSymbolTable& symtable, egg::lang::LogSeverity& maximumSeverity);
     egg::lang::LogSeverity prepare(IEggEnginePreparationContext& preparation);
@@ -211,7 +211,6 @@ namespace egg::yolk {
     egg::lang::Value executeSwitch(const IEggProgramNode& self, const IEggProgramNode& value, int64_t defaultIndex, const std::vector<std::shared_ptr<IEggProgramNode>>& cases);
     egg::lang::Value executeThrow(const IEggProgramNode& self, const IEggProgramNode* exception);
     egg::lang::Value executeTry(const IEggProgramNode& self, const IEggProgramNode& block, const std::vector<std::shared_ptr<IEggProgramNode>>& catches, const IEggProgramNode* final);
-    egg::lang::Value executeUsing(const IEggProgramNode& self, const IEggProgramNode& value, const IEggProgramNode& block); // WIBBLE remove
     egg::lang::Value executeWhile(const IEggProgramNode& self, const IEggProgramNode& cond, const IEggProgramNode& block);
     egg::lang::Value executeYield(const IEggProgramNode& self, const IEggProgramNode& value);
     egg::lang::Value executeArray(const IEggProgramNode& self, const std::vector<std::shared_ptr<IEggProgramNode>>& values);
@@ -244,7 +243,6 @@ namespace egg::yolk {
     EggProgramNodeFlags prepareSwitch(IEggProgramNode& value, int64_t defaultIndex, const std::vector<std::shared_ptr<IEggProgramNode>>& cases);
     EggProgramNodeFlags prepareThrow(IEggProgramNode* exception);
     EggProgramNodeFlags prepareTry(IEggProgramNode& block, const std::vector<std::shared_ptr<IEggProgramNode>>& catches, IEggProgramNode* final);
-    EggProgramNodeFlags prepareUsing(IEggProgramNode& value, IEggProgramNode& block); // WIBBLE remove
     EggProgramNodeFlags prepareWhile(IEggProgramNode& cond, IEggProgramNode& block);
     EggProgramNodeFlags prepareYield(IEggProgramNode& value);
     EggProgramNodeFlags prepareArray(const std::vector<std::shared_ptr<IEggProgramNode>>& values);

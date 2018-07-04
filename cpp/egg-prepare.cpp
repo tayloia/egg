@@ -381,16 +381,6 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareTry(IEggProg
   return falls ? EggProgramNodeFlags::Fallthrough : EggProgramNodeFlags::None;
 }
 
-egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareUsing(IEggProgramNode& value, IEggProgramNode& block) { // WIBBLE remove
-  // TODO
-  return this->prepareScope(&value, [&](EggProgramContext& scope) {
-    if (abandoned(value.prepare(scope))) {
-      return EggProgramNodeFlags::Abandon;
-    }
-    return block.prepare(scope);
-  });
-}
-
 egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareWhile(IEggProgramNode& cond, IEggProgramNode& block) {
   // TODO
   return this->prepareScope(&cond, [&](EggProgramContext& scope) {

@@ -68,10 +68,6 @@ namespace {
     BuiltinFunction(const std::string& name, const ITypeRef& returnType)
       : type(new BuiltinFunctionType(name, returnType)) {
     }
-    virtual bool dispose() override {
-      // We don't allow disposing of builtins
-      return false;
-    }
     virtual Value toString() const override {
       return Value(this->type->getName());
     }
@@ -107,10 +103,6 @@ namespace {
     void addProperty(const std::string& name) {
       auto value = Value::make<T>();
       this->type->addProperty(String::fromUTF8(name), std::move(value));
-    }
-    virtual bool dispose() override {
-      // We don't allow disposing of builtins
-      return false;
     }
     virtual Value toString() const override {
       return Value(this->type->getName());
@@ -269,10 +261,6 @@ namespace {
       : instance(instance), type(&type) {
     }
   public:
-    virtual bool dispose() override {
-      // We don't allow disposing of builtins
-      return false;
-    }
     virtual Value toString() const override {
       return Value(this->type->getName());
     }
