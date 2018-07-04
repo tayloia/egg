@@ -65,7 +65,7 @@ namespace {
         type(type),
         block(block) {
       assert(block != nullptr);
-      this->softLink(this->program, &program);
+      this->linkSoft(this->program, &program);
     }
     virtual egg::lang::Value toString() const override {
       return egg::lang::Value(egg::lang::String::concat("<", this->type->toString(), ">"));

@@ -170,19 +170,6 @@ namespace egg::gc {
     public:
       virtual void visit(Collectable& collectable) = 0;
     };
-    class Visitor : public IVisitor {
-      typedef std::function<void(Collectable&)> Action;
-    private:
-      Action action;
-    public:
-      explicit Visitor(Action action) : action(action) {
-        assert(action != nullptr);
-      }
-      virtual ~Visitor() {}
-      virtual void visit(Collectable& collectable) override {
-        this->action(collectable);
-      }
-    };
   private:
     Head* head;
   public:
@@ -194,6 +181,9 @@ namespace egg::gc {
     void visitRoots(IVisitor& visitor);
     void visitGarbage(IVisitor& visitor);
     void visitPurge(IVisitor& visitor);
+    size_t collectGarbage();
+    size_t purgeAll();
+
     template<typename T, typename... ARGS>
     HardRef<T> make(ARGS&&... args) {
       // Use perfect forwarding to the constructor and then add to the basket
@@ -236,19 +226,15 @@ namespace egg::gc {
       }
     }
     template<class T>
-    void softLink(SoftRef<T>& link, T* pointee) { // WIBBLE still needed?
+    void linkSoft(SoftRef<T>& link, T* pointee) {
       // Type-safe link setting
-      // OPTIMIZE
       if (pointee == nullptr) {
         link.reset();
       } else {
-        HardRef<Collectable> ref{ this }; // WIBBLE
+        // Take a temporary hard link to this container so garbage collection doesn't find a false positive
+        HardRef<Collectable> ref{ this };
         link.set(*ref, *pointee);
       }
-    }
-    Basket* softBasket() const { // WIBBLE remove?
-      // This may be null
-      return this->basket;
     }
   };
 

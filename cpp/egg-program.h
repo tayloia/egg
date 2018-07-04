@@ -75,7 +75,7 @@ namespace egg::yolk {
   public:
     explicit EggProgramSymbolTable(EggProgramSymbolTable* parent = nullptr)
       : parent() {
-      this->softLink(this->parent, parent);
+      this->linkSoft(this->parent, parent);
     }
     void addBuiltins();
     void addBuiltin(const std::string& name, const egg::lang::Value& value);
@@ -94,13 +94,9 @@ namespace egg::yolk {
       assert(root != nullptr);
     }
     ~EggProgram() {
-      assert(this->basket.validate()); // WIBBLE
       this->root.reset();
-      assert(this->basket.validate()); // WIBBLE
-      egg::gc::Basket::Visitor noop([](egg::gc::Collectable&) {
-        /* WIBBLE */
-      });
-      this->basket.visitGarbage(noop);
+      (void)this->basket.collectGarbage();
+      // The destructor for 'basket' was assert if this collection doesn't free up everything in the basket
     }
     egg::gc::HardRef<EggProgramContext> createRootContext(IEggEngineLogger& logger, EggProgramSymbolTable& symtable, egg::lang::LogSeverity& maximumSeverity);
     egg::lang::LogSeverity prepare(IEggEnginePreparationContext& preparation);
@@ -140,7 +136,7 @@ namespace egg::yolk {
         scopeTypeDeclare(nullptr),
         scopeTypeReturn(nullptr),
         scopeValue(nullptr) {
-      this->softLink(this->symtable, &symtable);
+      this->linkSoft(this->symtable, &symtable);
     }
   public:
     EggProgramContext(EggProgramContext& parent, EggProgramSymbolTable& symtable)

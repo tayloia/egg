@@ -681,13 +681,10 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::typeCheck(const egg
 egg::lang::LogSeverity egg::yolk::EggProgram::prepare(IEggEnginePreparationContext& preparation) {
   auto symtable = this->basket.make<EggProgramSymbolTable>();
   symtable->addBuiltins();
-  assert(this->basket.validate()); // WIBBLE
   egg::lang::LogSeverity severity = egg::lang::LogSeverity::None;
   auto context = this->createRootContext(preparation, *symtable, severity);
   if (abandoned(this->root->prepare(*context))) {
-    assert(this->basket.validate()); // WIBBLE
     return egg::lang::LogSeverity::Error;
   }
-  assert(this->basket.validate()); // WIBBLE
   return severity;
 }

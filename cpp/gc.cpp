@@ -2,6 +2,16 @@
 
 #include <set>
 
+namespace {
+  class VisitorCounter : public egg::gc::Basket::IVisitor {
+  public:
+    size_t count = 0;
+    virtual void visit(egg::gc::Collectable&) override {
+      this->count++;
+    }
+  };
+}
+
 class egg::gc::Basket::Head : public egg::gc::Collectable {
   Head(const Head&) = delete;
   Head& operator=(const Head&) = delete;
@@ -62,7 +72,6 @@ egg::gc::Basket::Link::Link(Collectable& from, Collectable* to)
     }
     assert(to->basket != nullptr);
     assert(from.basket == to->basket);
-    assert(this->from->basket->validate()); // WIBBLE
   }
 }
 
@@ -108,7 +117,6 @@ void egg::gc::Basket::Link::set(Collectable& owner, Collectable& pointee) {
   assert(this->from->basket != nullptr);
   assert(this->to != nullptr);
   assert(this->to->basket == this->from->basket);
-  assert(this->from->basket->validate()); // WIBBLE
 }
 
 void egg::gc::Basket::Link::reset() {
@@ -128,11 +136,10 @@ egg::gc::Basket::Basket()
   this->head->basket = this;
   this->head->prevInBasket = this->head;
   this->head->nextInBasket = this->head;
-  assert(this->validate()); // WIBBLE
 }
 
 egg::gc::Basket::~Basket() {
-  assert(this->validate()); // WIBBLE
+  assert(this->validate());
   assert(this->head->collectables == 0);
   delete this->head;
 }
@@ -160,7 +167,7 @@ void egg::gc::Basket::add(Collectable& collectable) {
 
 void egg::gc::Basket::visitCollectables(IVisitor& visitor) {
   // Visit all the collectables in this basket (excluding the head)
-  assert(this->validate()); // WIBBLE
+  assert(this->validate());
   for (auto* p = this->head->nextInBasket; p != this->head; p = p->nextInBasket) {
     visitor.visit(*p);
   }
@@ -168,7 +175,7 @@ void egg::gc::Basket::visitCollectables(IVisitor& visitor) {
 
 void egg::gc::Basket::visitRoots(IVisitor& visitor) {
   // Visit all the roots in this basket
-  assert(this->validate()); // WIBBLE
+  assert(this->validate());
   for (auto* p = this->head->nextInBasket; p != this->head; p = p->nextInBasket) {
     if (p->hard.get() > 1) {
       visitor.visit(*p);
@@ -178,7 +185,7 @@ void egg::gc::Basket::visitRoots(IVisitor& visitor) {
 
 void egg::gc::Basket::visitGarbage(IVisitor& visitor) {
   // Construct a list of all known collectables
-  assert(this->validate()); // WIBBLE
+  assert(this->validate());
   std::set<Collectable*> unmarked;
   for (auto* p = this->head->nextInBasket; p != this->head; p = p->nextInBasket) {
     auto inserted = unmarked.emplace(p).second;
@@ -198,12 +205,12 @@ void egg::gc::Basket::visitGarbage(IVisitor& visitor) {
     visitor.visit(dead);
     dead.releaseHard();
   }
-  assert(this->validate()); // WIBBLE
+  assert(this->validate());
 }
 
 void egg::gc::Basket::visitPurge(IVisitor& visitor) {
   // Visit all the roots in this basket after purging them
-  assert(this->validate()); // WIBBLE
+  assert(this->validate());
   auto* p = this->head->nextInBasket;
   // Reset the head to 'empty'
   this->head->prevInBasket = this->head;
@@ -217,7 +224,21 @@ void egg::gc::Basket::visitPurge(IVisitor& visitor) {
     visitor.visit(dead);
     dead.releaseHard();
   }
-  assert(this->validate()); // WIBBLE
+  assert(this->validate());
+}
+
+size_t egg::gc::Basket::collectGarbage() {
+  assert(this->validate());
+  VisitorCounter visitor;
+  this->visitGarbage(visitor);
+  return visitor.count;
+}
+
+size_t egg::gc::Basket::purgeAll() {
+  assert(this->validate());
+  VisitorCounter visitor;
+  this->visitPurge(visitor);
+  return visitor.count;
 }
 
 bool egg::gc::Basket::validate() const {
