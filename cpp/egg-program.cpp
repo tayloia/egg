@@ -58,7 +58,7 @@ namespace {
       // Get the initial value of the indexed entry (probably part of a +=-type construct)
       if (this->evaluateInstance()) {
         if (this->evaluateIndex()) {
-          return this->instance.getRuntimeType()->bracketsGet(*this->program, this->instance, this->index);
+          return this->program->bracketsGet(this->instance, this->index);
         }
         assert(this->index.has(egg::lang::Discriminator::FlowControl));
         return this->index;
@@ -70,7 +70,7 @@ namespace {
       // Set the value of the indexed entry
       if (this->evaluateInstance()) {
         if (this->evaluateIndex()) {
-          return this->instance.getRuntimeType()->bracketsSet(*this->program, this->instance, this->index, value);
+          return this->program->bracketsSet(this->instance, this->index, value);
         }
         assert(this->index.has(egg::lang::Discriminator::FlowControl));
         return this->index;
@@ -99,7 +99,7 @@ namespace {
     virtual egg::lang::Value get() const override {
       // Get the initial value of the property (probably part of a +=-type construct)
       if (this->evaluateInstance()) {
-        return this->instance.getRuntimeType()->dotGet(*this->program, this->instance, property);
+        return this->program->dotGet(this->instance, property);
       }
       assert(this->instance.has(egg::lang::Discriminator::FlowControl));
       return this->instance;
@@ -107,7 +107,7 @@ namespace {
     virtual egg::lang::Value set(const egg::lang::Value& value) override {
       // Set the value of the property
       if (this->evaluateInstance()) {
-        return this->instance.getRuntimeType()->dotSet(*this->program, this->instance, property, value);
+        return this->program->dotSet(this->instance, property, value);
       }
       assert(this->instance.has(egg::lang::Discriminator::FlowControl));
       return this->instance;
@@ -714,6 +714,74 @@ egg::lang::Value egg::yolk::EggProgramContext::call(const egg::lang::Value& call
   auto object = direct.getObject();
   return object->call(*this, parameters);
 }
+
+egg::lang::Value egg::yolk::EggProgramContext::dotGet(const egg::lang::Value& instance, const egg::lang::String& property) {
+  // WIBBLE shouldn't be a member of IType
+  // The default implementation is to dispatch requests for strings and complex types
+  auto& direct = instance.direct();
+  if (direct.has(egg::lang::Discriminator::Object)) {
+    return direct.getObject()->getProperty(*this, property);
+  }
+  if (direct.has(egg::lang::Discriminator::String)) {
+    return direct.getString().builtin(*this, property);
+  }
+  return this->raiseFormat("Values of type '", instance.getRuntimeType()->toString(), "' do not support properties such as '.", property, "'");
+}
+
+egg::lang::Value egg::yolk::EggProgramContext::dotSet(const egg::lang::Value& instance, const egg::lang::String& property, const egg::lang::Value& value) {
+  // The default implementation is to dispatch requests for complex types
+  auto& direct = instance.direct();
+  if (direct.has(egg::lang::Discriminator::Object)) {
+    auto object = direct.getObject();
+    return object->setProperty(*this, property, value);
+  }
+  if (direct.has(egg::lang::Discriminator::String)) {
+    return this->raiseFormat("Strings do not support modification through properties such as '.", property, "'");
+  }
+  return this->raiseFormat("Values of type '", instance.getRuntimeType()->toString(), "' do not support modification of properties such as '.", property, "'");
+}
+
+egg::lang::Value egg::yolk::EggProgramContext::bracketsGet(const egg::lang::Value& instance, const egg::lang::Value& index) {
+  // The default implementation is to dispatch requests for strings and complex types
+  auto& direct = instance.direct();
+  if (direct.has(egg::lang::Discriminator::Object)) {
+    auto object = direct.getObject();
+    return object->getIndex(*this, index);
+  }
+  if (direct.has(egg::lang::Discriminator::String)) {
+    // string operator[](int index)
+    auto str = direct.getString();
+    if (!index.is(egg::lang::Discriminator::Int)) {
+      return this->raiseFormat("String indexing '[]' only supports indices of type 'int', not '", index.getRuntimeType()->toString(), "'");
+    }
+    auto i = index.getInt();
+    auto c = str.codePointAt(size_t(i));
+    if (c < 0) {
+      // Invalid index
+      auto n = str.length();
+      if ((i < 0) || (size_t(i) >= n)) {
+        return this->raiseFormat("String index ", i, " is out of range for a string of length ", n);
+      }
+      return this->raiseFormat("Cannot index a malformed string");
+    }
+    return egg::lang::Value{ egg::lang::String::fromCodePoint(char32_t(c)) };
+  }
+  return this->raiseFormat("Values of type '", instance.getRuntimeType()->toString(), "' do not support indexing with '[]'");
+}
+
+egg::lang::Value egg::yolk::EggProgramContext::bracketsSet(const egg::lang::Value& instance, const egg::lang::Value& index, const egg::lang::Value& value) {
+  // The default implementation is to dispatch requests for complex types
+  auto& direct = instance.direct();
+  if (direct.has(egg::lang::Discriminator::Object)) {
+    auto object = direct.getObject();
+    return object->setIndex(*this, index, value);
+  }
+  if (direct.has(egg::lang::Discriminator::String)) {
+    return this->raiseFormat("Strings do not support modification through indexing with '[]'");
+  }
+  return this->raiseFormat("Values of type '", instance.getRuntimeType()->toString(), "' do not support indexing with '[]'");
+}
+
 
 egg::lang::Value egg::yolk::EggProgramContext::unexpected(const std::string& expectation, const egg::lang::Value& value) {
   return this->raiseFormat(expectation, ", but got '", value.getTagString(), "' instead");

@@ -220,10 +220,6 @@ namespace egg::lang {
     virtual ITypeRef pointeeType() const; // Default implementation returns 'Void'
     virtual ITypeRef denulledType() const; // Default implementation returns 'Void'
     virtual ITypeRef unionWith(const IType& other) const; // Default implementation calls Type::makeUnion()
-    virtual Value dotGet(IExecution& execution, const Value& instance, const String& property) const; // Default implementation dispatches standard requests
-    virtual Value dotSet(IExecution& execution, const Value& instance, const String& property, const Value& value) const; // Default implementation dispatches standard requests
-    virtual Value bracketsGet(IExecution& execution, const Value& instance, const Value& index) const; // Default implementation dispatches standard requests
-    virtual Value bracketsSet(IExecution& execution, const Value& instance, const Value& index, const Value& value) const; // Default implementation dispatches standard requests
 
     // Helpers
     bool hasNativeType(Discriminator native) const {

@@ -711,7 +711,7 @@ egg::lang::Value egg::yolk::EggProgramContext::executeBrackets(const IEggProgram
   if (rhs.has(egg::lang::Discriminator::FlowControl)) {
     return rhs;
   }
-  return lhs.getRuntimeType()->bracketsGet(*this, lhs, rhs);
+  return this->bracketsGet(lhs, rhs);
 }
 
 egg::lang::Value egg::yolk::EggProgramContext::executeDot(const IEggProgramNode& self, const IEggProgramNode& instance, const egg::lang::String& property) {
@@ -720,7 +720,7 @@ egg::lang::Value egg::yolk::EggProgramContext::executeDot(const IEggProgramNode&
   if (lhs.has(egg::lang::Discriminator::FlowControl)) {
     return lhs;
   }
-  return lhs.getRuntimeType()->dotGet(*this, lhs, property);
+  return this->dotGet(lhs, property);
 }
 
 egg::lang::Value egg::yolk::EggProgramContext::executeUnary(const IEggProgramNode& self, EggProgramUnary op, const IEggProgramNode& expr) {

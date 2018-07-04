@@ -84,7 +84,7 @@ egg::yolk::FunctionType::AssignmentSuccess egg::yolk::FunctionType::canBeAssigne
   if (lsig->getParameterCount() != rsig->getParameterCount()) {
     return AssignmentSuccess::Never;
   }
-  return AssignmentSuccess::Sometimes; // WIBBLE
+  return AssignmentSuccess::Sometimes; // TODO
 }
 
 const egg::lang::IFunctionSignature* egg::yolk::FunctionType::callable() const {

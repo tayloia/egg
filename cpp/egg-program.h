@@ -180,6 +180,10 @@ namespace egg::yolk {
     egg::lang::Value unary(EggProgramUnary op, const IEggProgramNode& expr, egg::lang::Value& value);
     egg::lang::Value binary(EggProgramBinary op, const IEggProgramNode& lhs, const IEggProgramNode& rhs, egg::lang::Value& left, egg::lang::Value& right);
     egg::lang::Value call(const egg::lang::Value& callee, const egg::lang::IParameters& parameters);
+    egg::lang::Value dotGet(const egg::lang::Value& instance, const egg::lang::String& property);
+    egg::lang::Value dotSet(const egg::lang::Value& instance, const egg::lang::String& property, const egg::lang::Value& value);
+    egg::lang::Value bracketsGet(const egg::lang::Value& instance, const egg::lang::Value& index);
+    egg::lang::Value bracketsSet(const egg::lang::Value& instance, const egg::lang::Value& index, const egg::lang::Value& value);
     egg::lang::Value createVanillaArray();
     egg::lang::Value createVanillaObject();
     // Inherited via IExecution
