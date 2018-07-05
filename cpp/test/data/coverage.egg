@@ -99,3 +99,15 @@
   i ^= 7;
   assert(i == 22);
 }
+{
+  // Null coalescing
+  int? i = 123;
+  assert((null ?? i) == 123);
+  assert((i ?? null) == 123);
+  assert((i ?? 456) == 123);
+  i ??= 456;
+  assert(i == 123);
+  i = null;
+  i ??= 456;
+  assert(i == 456);
+}

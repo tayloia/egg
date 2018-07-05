@@ -22,9 +22,13 @@ namespace {
       auto simple = type->getSimpleTypes();
       assert(simple != egg::lang::Discriminator::Inferred);
       if (!egg::lang::Bits::hasAnySet(simple, expected)) {
-        std::string readable = egg::lang::Value::getTagString(expected);
-        readable = String::replace(readable, "|", "' or '");
-        prepared = context.compilerError(where, "Expected ", side, " of '", EggProgram::binaryToString(op), "' operator to be '", readable, "', but got '", type->toString(), "' instead");
+        if (expected == egg::lang::Discriminator::Null) {
+          context.compilerWarning(where, "Expected ", side, " of '", EggProgram::binaryToString(op), "' operator to be possibly 'null', but got '", type->toString(), "' instead");
+        } else {
+          std::string readable = egg::lang::Value::getTagString(expected);
+          readable = String::replace(readable, "|", "' or '");
+          prepared = context.compilerError(where, "Expected ", side, " of '", EggProgram::binaryToString(op), "' operator to be '", readable, "', but got '", type->toString(), "' instead");
+        }
       }
     }
     return prepared;
@@ -194,7 +198,14 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareAssign(const
     }
     break;
   case EggProgramAssign::NullCoalescing:
-    return this->compilerError(where, "Expected left-hand target of '??=' assignment operator to be 'WIBBLE', but got '", ltype->toString(), "' instead");
+    if (ltype->canBeAssignedFrom(*rtype) == egg::lang::IType::AssignmentSuccess::Never) {
+      return this->compilerError(where, "Cannot assign a value of type '", rtype->toString(), "' to a target of type '", ltype->toString(), "'");
+    }
+    if (!egg::lang::Bits::hasAnySet(lsimple, egg::lang::Discriminator::Int)) {
+      // This is just a warning
+      this->compilerWarning(where, "Expected left-hand target of null-coalescing '??=' assignment operator to be possibly 'null', but got '", ltype->toString(), "' instead");
+    }
+    break;
   }
   return EggProgramNodeFlags::Fallthrough;
 }
@@ -616,9 +627,11 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareBinary(const
   case EggProgramBinary::Unequal:
     // Equality operation
     break;
-  case EggProgramBinary::Lambda:
   case EggProgramBinary::NullCoalescing:
-    return this->compilerError(where, "'", EggProgram::binaryToString(op), "' operators not yet supported in 'prepareBinary'"); // TODO
+    // Warn if the left-hand-side can never be null
+    return checkBinary(*this, where, op, egg::lang::Discriminator::Null, lhs, egg::lang::Discriminator::Null | egg::lang::Discriminator::Any | egg::lang::Discriminator::Type, rhs);
+  case EggProgramBinary::Lambda:
+    return this->compilerError(where, "'", EggProgram::binaryToString(op), "' operators not yet supported in 'prepareBinary'"); // WIBBLE
   }
   if (abandoned(lhs.prepare(*this)) || abandoned(rhs.prepare(*this))) {
     return EggProgramNodeFlags::Abandon;

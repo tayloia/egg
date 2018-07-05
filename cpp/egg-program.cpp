@@ -498,8 +498,10 @@ egg::lang::Value egg::yolk::EggProgramContext::assign(EggProgramAssign op, const
     case EggProgramAssign::LogicalOr:
       right = this->logicalBool(left, right, rhs, "logical-or assignment '||='", EggProgramBinary::LogicalOr);
       break;
+    case EggProgramAssign::NullCoalescing:
+      right = this->coalesceNull(left, right, rhs);
+      break;
     case EggProgramAssign::Equal:
-    case EggProgramAssign::NullCoalescing: // WIBBLE
     default:
       return this->raiseFormat("Internal runtime error: Unknown assignment operator: '", EggProgram::assignToString(op), "'");
     }
@@ -609,14 +611,7 @@ egg::lang::Value egg::yolk::EggProgramContext::binary(EggProgramBinary op, const
   case EggProgramBinary::BitwiseAnd:
     return this->arithmeticBoolInt(left, right, rhs, "and '&'", bitwiseAndBool, bitwiseAndInt);
   case EggProgramBinary::LogicalAnd:
-    if (left.is(egg::lang::Discriminator::Bool)) {
-      if (!left.getBool()) {
-        return left;
-      }
-      (void)this->operand(right, rhs, egg::lang::Discriminator::Bool, "Expected right operand of logical-and '&&' to be 'bool'");
-      return right;
-    }
-    return this->unexpected("Expected left operand of logical-and '&&' to be 'bool'", left);
+    return this->logicalBool(left, right, rhs, "logical-and '&&'", EggProgramBinary::LogicalAnd);
   case EggProgramBinary::Multiply:
     return this->arithmeticIntFloat(left, right, rhs, "multiplication '*'", multiplyInt, multiplyFloat);
   case EggProgramBinary::Plus:
@@ -656,14 +651,7 @@ egg::lang::Value egg::yolk::EggProgramContext::binary(EggProgramBinary op, const
   case EggProgramBinary::BitwiseOr:
     return this->arithmeticBoolInt(left, right, rhs, "or '|'", bitwiseOrBool, bitwiseOrInt);
   case EggProgramBinary::LogicalOr:
-    if (left.is(egg::lang::Discriminator::Bool)) {
-      if (left.getBool()) {
-        return left;
-      }
-      (void)this->operand(right, rhs, egg::lang::Discriminator::Bool, "Expected right operand of logical-or '||' to be 'bool'");
-      return right;
-    }
-    return this->unexpected("Expected left operand of logical-or '||' to be 'bool'", left);
+    return this->logicalBool(left, right, rhs, "logical-or '||'", EggProgramBinary::LogicalOr);
   default:
     return this->raiseFormat("Internal runtime error: Unknown binary operator: '", EggProgram::binaryToString(op), "'");
   }
@@ -681,6 +669,17 @@ bool egg::yolk::EggProgramContext::operand(egg::lang::Value& dst, const IEggProg
   return false;
 }
 
+egg::lang::Value egg::yolk::EggProgramContext::coalesceNull(const egg::lang::Value& left, egg::lang::Value& right, const IEggProgramNode& rhs) {
+  assert(!left.has(egg::lang::Discriminator::Indirect));
+  if (!left.is(egg::lang::Discriminator::Null)) {
+    // Short-circuit
+    right = egg::lang::Value::Void;
+    return left;
+  }
+  right = rhs.execute(*this).direct();
+  return right;
+}
+
 egg::lang::Value egg::yolk::EggProgramContext::logicalBool(const egg::lang::Value& left, egg::lang::Value& right, const IEggProgramNode& rhs, const char* operation, EggProgramBinary binary) {
   assert(!left.has(egg::lang::Discriminator::Indirect));
   if (!left.is(egg::lang::Discriminator::Bool)) {
@@ -688,17 +687,18 @@ egg::lang::Value egg::yolk::EggProgramContext::logicalBool(const egg::lang::Valu
   }
   if (left.getBool()) {
     if (binary == EggProgramBinary::LogicalOr) {
-      // 'true || xxx' short-circuits to 'true'
+      // 'true || rhs' short-circuits to 'true'
       right = egg::lang::Value::Void;
       return egg::lang::Value::True;
     }
   } else {
     if (binary == EggProgramBinary::LogicalAnd) {
-      // 'false && xxx' short-circuits to 'false'
+      // 'false && rhs' short-circuits to 'false'
       right = egg::lang::Value::Void;
       return egg::lang::Value::False;
     }
   }
+  // The result is always 'rhs' now
   right = rhs.execute(*this).direct();
   assert(!right.has(egg::lang::Discriminator::Indirect));
   if (right.is(egg::lang::Discriminator::Bool)) {

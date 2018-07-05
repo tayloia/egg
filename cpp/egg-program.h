@@ -273,6 +273,7 @@ namespace egg::yolk {
     typedef egg::lang::Value(*ArithmeticBool)(bool lhs, bool rhs);
     typedef egg::lang::Value(*ArithmeticInt)(int64_t lhs, int64_t rhs);
     typedef egg::lang::Value (*ArithmeticFloat)(double lhs, double rhs);
+    egg::lang::Value coalesceNull(const egg::lang::Value& left, egg::lang::Value& right, const IEggProgramNode& rhs);
     egg::lang::Value logicalBool(const egg::lang::Value& left, egg::lang::Value& right, const IEggProgramNode& rhs, const char* operation, EggProgramBinary binary);
     egg::lang::Value arithmeticBool(const egg::lang::Value& left, egg::lang::Value& right, const IEggProgramNode& rhs, const char* operation, ArithmeticBool bools);
     egg::lang::Value arithmeticInt(const egg::lang::Value& left, egg::lang::Value& right, const IEggProgramNode& rhs, const char* operation, ArithmeticInt ints);
