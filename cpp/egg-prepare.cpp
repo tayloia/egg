@@ -631,7 +631,7 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareBinary(const
     // Warn if the left-hand-side can never be null
     return checkBinary(*this, where, op, egg::lang::Discriminator::Null, lhs, egg::lang::Discriminator::Null | egg::lang::Discriminator::Any | egg::lang::Discriminator::Type, rhs);
   case EggProgramBinary::Lambda:
-    return this->compilerError(where, "'", EggProgram::binaryToString(op), "' operators not yet supported in 'prepareBinary'"); // WIBBLE
+    return this->compilerError(where, "'", EggProgram::binaryToString(op), "' operators not yet supported in 'prepareBinary'");
   }
   if (abandoned(lhs.prepare(*this)) || abandoned(rhs.prepare(*this))) {
     return EggProgramNodeFlags::Abandon;

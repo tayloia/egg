@@ -2,11 +2,18 @@
   // Empty block
 }
 {
-  // Array elements
+  // Arrays
   var a = [0];
   assert(a[0] == 0);
   a[0] += 123;
   assert(a[0] == 123);
+  assert(a.length == 1);
+}
+{
+  // Dictionarys
+  var d = { a: "hello" };
+  assert(d.a == "hello");
+  assert(d["a"] == "hello");
 }
 {
   // Boolean operations

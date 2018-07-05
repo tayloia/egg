@@ -1806,6 +1806,7 @@ egg::lang::ITypeRef EggParserNode_BinaryRemainder::getType() const {
 }
 
 egg::lang::ITypeRef EggParserNode_BinaryBitwiseAnd::getType() const {
+  // TODO actually Int|Bool
   return egg::lang::Type::Int;
 }
 
@@ -1881,10 +1882,12 @@ egg::lang::ITypeRef EggParserNode_BinaryNullCoalescing::getType() const {
 }
 
 egg::lang::ITypeRef EggParserNode_BinaryBitwiseXor::getType() const {
+  // TODO actually Int|Bool
   return egg::lang::Type::Int;
 }
 
 egg::lang::ITypeRef EggParserNode_BinaryBitwiseOr::getType() const {
+  // TODO actually Int|Bool
   return egg::lang::Type::Int;
 }
 
