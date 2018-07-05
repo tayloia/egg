@@ -1291,14 +1291,6 @@ namespace {
   };
 }
 
-std::shared_ptr<egg::yolk::IEggProgramNode> egg::yolk::EggSyntaxNode_Empty::promote(egg::yolk::IEggParserContext& context) const {
-  // WIBBLE
-  if (!context.isAllowed(EggParserAllowed::Empty)) {
-    throw exceptionFromLocation(context, "Empty statements are not permitted in this context", *this);
-  }
-  return nullptr;
-}
-
 std::shared_ptr<egg::yolk::IEggProgramNode> egg::yolk::EggSyntaxNode_Module::promote(egg::yolk::IEggParserContext& context) const {
   auto module = makeParserNode<EggParserNode_Module>(context, *this);
   for (auto& statement : this->child) {
@@ -1479,12 +1471,15 @@ std::shared_ptr<egg::yolk::IEggProgramNode> egg::yolk::EggSyntaxNode_Finally::pr
 std::shared_ptr<egg::yolk::IEggProgramNode> egg::yolk::EggSyntaxNode_For::promote(egg::yolk::IEggParserContext& context) const {
   // We allow empty statements but not flow control in the three 'for' clauses
   EggParserContextNested nested1(context, EggParserAllowed::Empty);
-  auto pre = nested1.promote(*this->child[0]);
-  auto cond = nested1.promote(*this->child[1]);
-  auto post = nested1.promote(*this->child[2]);
+  std::shared_ptr<IEggProgramNode> promoted[3];
+  for (size_t i = 0; i < 3; ++i) {
+    if (this->child[i] != nullptr) {
+      promoted[i] = nested1.promote(*this->child[i]);
+    }
+  }
   EggParserContextNested nested2(context, EggParserAllowed::Break|EggParserAllowed::Continue, EggParserAllowed::Rethrow|EggParserAllowed::Return|EggParserAllowed::Yield);
   auto block = nested2.promote(*this->child[3]);
-  return makeParserNode<EggParserNode_For>(context, *this, pre, cond, post, block);
+  return makeParserNode<EggParserNode_For>(context, *this, promoted[0], promoted[1], promoted[2], block);
 }
 
 std::shared_ptr<egg::yolk::IEggProgramNode> egg::yolk::EggSyntaxNode_Foreach::promote(egg::yolk::IEggParserContext& context) const {

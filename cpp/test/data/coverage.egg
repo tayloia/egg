@@ -1,4 +1,7 @@
 {
+  // Empty block
+}
+{
   // Array elements
   var a = [0];
   assert(a[0] == 0);
@@ -110,4 +113,35 @@
   i = null;
   i ??= 456;
   assert(i == 456);
+}
+{
+  // Test optional parts of a for-statement
+  int n = 0;
+  for (int i = 0; i < 10; ++i) {
+    ++n;
+  }
+  assert(n == 10);
+  int j = 0;
+  for (; j < 10; ++j) {
+    ++n;
+  }
+  assert(n == 20);
+  for (j = 0; ; ++j) {
+    if (j == 10) {
+      break;
+    }
+    ++n;
+  }
+  assert(n == 30);
+  for (; n < 40;) {
+    ++n;
+  }
+  assert(n == 40);
+  for (;;) {
+    if (n == 50) {
+      break;
+    }
+    ++n;
+  }
+  assert(n == 50);
 }

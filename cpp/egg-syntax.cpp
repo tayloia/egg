@@ -80,7 +80,11 @@ namespace {
     }
     ParserDump& add(const std::unique_ptr<IEggSyntaxNode>& child) {
       this->os << ' ';
-      child->dump(this->os);
+      if (child == nullptr) {
+        this->os << '(' << ')';
+      } else {
+        child->dump(this->os);
+      }
       return *this;
     }
     ParserDump& add(const std::vector<std::unique_ptr<IEggSyntaxNode>>& children) {
@@ -97,10 +101,6 @@ namespace {
       return *this;
     }
   };
-}
-
-void egg::yolk::EggSyntaxNode_Empty::dump(std::ostream& os) const {
-  ParserDump(os, "");
 }
 
 void egg::yolk::EggSyntaxNode_Module::dump(std::ostream& os) const {
@@ -1493,16 +1493,12 @@ std::unique_ptr<IEggSyntaxNode> EggSyntaxParserContext::parseStatementFor() {
   mark.advance(2);
   std::unique_ptr<IEggSyntaxNode> pre, cond, post;
   if (mark.peek(0).isOperator(EggTokenizerOperator::Semicolon)) {
-    EggSyntaxNodeLocation location(mark.peek(0), 1);
     mark.advance(1); // skip ';'
-    pre = std::make_unique<EggSyntaxNode_Empty>(location);
   } else {
     pre = this->parseStatementSimple("Expected simple statement after '(' in 'for' statement", EggTokenizerOperator::Semicolon);
   }
   if (mark.peek(0).isOperator(EggTokenizerOperator::Semicolon)) {
-    EggSyntaxNodeLocation location(mark.peek(0), 1);
     mark.advance(1); // skip ';'
-    cond = std::make_unique<EggSyntaxNode_Empty>(location);
   } else {
     cond = this->parseCondition("Expected condition expression as second clause in 'for' statement");
     if (!mark.peek(0).isOperator(EggTokenizerOperator::Semicolon)) {
@@ -1511,9 +1507,7 @@ std::unique_ptr<IEggSyntaxNode> EggSyntaxParserContext::parseStatementFor() {
     mark.advance(1); // skip ';'
   }
   if (mark.peek(0).isOperator(EggTokenizerOperator::ParenthesisRight)) {
-    EggSyntaxNodeLocation location(mark.peek(0), 1);
     mark.advance(1); // skip ')'
-    post = std::make_unique<EggSyntaxNode_Empty>(location);
   } else {
     post = this->parseStatementSimple("Expected simple statement as third clause in 'for' statement", EggTokenizerOperator::ParenthesisRight);
   }

@@ -89,16 +89,6 @@ namespace egg::yolk {
     }
   };
 
-  class EggSyntaxNode_Empty : public EggSyntaxNodeBase {
-    EGG_NO_COPY(EggSyntaxNode_Empty);
-  public:
-    explicit EggSyntaxNode_Empty(const EggSyntaxNodeLocation& location)
-      : EggSyntaxNodeBase(location) {
-    }
-    virtual void dump(std::ostream& os) const override;
-    virtual std::shared_ptr<IEggProgramNode> promote(IEggParserContext& context) const override;
-  };
-
   class EggSyntaxNode_Module : public EggSyntaxNodeChildrenV {
     EGG_NO_COPY(EggSyntaxNode_Module);
   public:
@@ -286,15 +276,16 @@ namespace egg::yolk {
     virtual std::shared_ptr<IEggProgramNode> promote(IEggParserContext& context) const override;
   };
 
-  class EggSyntaxNode_For : public EggSyntaxNodeChildrenN<4> {
+  class EggSyntaxNode_For : public EggSyntaxNodeChildrenV {
     EGG_NO_COPY(EggSyntaxNode_For);
   public:
     EggSyntaxNode_For(const EggSyntaxNodeLocation& location, std::unique_ptr<IEggSyntaxNode>&& pre, std::unique_ptr<IEggSyntaxNode>&& cond, std::unique_ptr<IEggSyntaxNode>&& post, std::unique_ptr<IEggSyntaxNode>&& block)
-      : EggSyntaxNodeChildrenN(location, std::move(pre), std::move(cond)) {
-      assert(post != nullptr);
+      : EggSyntaxNodeChildrenV(location) {
+      this->addChild(std::move(pre)); // may be null
+      this->addChild(std::move(cond)); // may be null
+      this->addChild(std::move(post)); // may be null
       assert(block != nullptr);
-      this->child[2] = std::move(post);
-      this->child[3] = std::move(block);
+      this->addChild(std::move(block));
     }
     virtual EggTokenizerKeyword keyword() const override;
     virtual void dump(std::ostream& os) const override;
