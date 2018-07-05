@@ -611,6 +611,7 @@ namespace {
     std::unique_ptr<IEggSyntaxNode> parseExpressionPostfixFunctionCall(std::unique_ptr<IEggSyntaxNode>&& callee);
     std::unique_ptr<IEggSyntaxNode> parseExpressionPrimary(const char* expected);
     std::unique_ptr<IEggSyntaxNode> parseExpressionDeclaration();
+    std::unique_ptr<IEggSyntaxNode> parseExpressionParenthesis();
     std::unique_ptr<IEggSyntaxNode> parseExpressionArray(const EggSyntaxNodeLocation& location);
     std::unique_ptr<IEggSyntaxNode> parseExpressionObject(const EggSyntaxNodeLocation& location);
     std::unique_ptr<IEggSyntaxNode> parseModule();
@@ -1122,6 +1123,11 @@ std::unique_ptr<IEggSyntaxNode> EggSyntaxParserContext::parseExpressionPrimary(c
     }
     break;
   case EggTokenizerKind::Operator:
+    if (p0.value.o == EggTokenizerOperator::ParenthesisLeft) {
+      auto inside = this->parseExpressionParenthesis();
+      mark.accept(0);
+      return inside;
+    }
     if (p0.value.o == EggTokenizerOperator::BracketLeft) {
       auto array = this->parseExpressionArray(location);
       mark.accept(0);
@@ -1192,6 +1198,21 @@ std::unique_ptr<IEggSyntaxNode> EggSyntaxParserContext::parseExpressionDeclarati
   }
   if (!mark.peek(0).isOperator(EggTokenizerOperator::ParenthesisRight)) {
     this->unexpected("Expected ')' after expression in '" + keyword + "' statement", mark.peek(0));
+  }
+  mark.accept(1);
+  return expr;
+}
+
+std::unique_ptr<IEggSyntaxNode> EggSyntaxParserContext::parseExpressionParenthesis() {
+  /*
+      parenthesis-value ::= '(' expression ')'
+  */
+  EggSyntaxParserBacktrackMark mark(this->backtrack);
+  assert(mark.peek(0).isOperator(EggTokenizerOperator::ParenthesisLeft));
+  mark.advance(1);
+  auto expr = this->parseExpression("Expected expression inside '()'");
+  if (!mark.peek(0).isOperator(EggTokenizerOperator::ParenthesisRight)) {
+    this->unexpected("Expected ')' at end of parenthesized expression", mark.peek(0));
   }
   mark.accept(1);
   return expr;

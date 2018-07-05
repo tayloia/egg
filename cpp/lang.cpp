@@ -3,6 +3,11 @@
 namespace {
   using namespace egg::lang;
 
+  bool arithmeticEqual(double a, int64_t b) {
+    // TODO
+    return a == b;
+  }
+
   IType::AssignmentSuccess canBeAssignedFromSimple(Discriminator lhs, const IType& rtype) {
     assert(lhs != Discriminator::Inferred);
     auto rhs = rtype.getSimpleTypes();
@@ -1267,6 +1272,13 @@ bool egg::lang::Value::equal(const Value& lhs, const Value& rhs) {
   auto& a = lhs.direct();
   auto& b = rhs.direct();
   if (a.tag != b.tag) {
+    // Need to worry about expressions like (0 == 0.0)
+    if ((a.tag == Discriminator::Float) && (b.tag == Discriminator::Int)) {
+      return arithmeticEqual(a.f, b.i);
+    }
+    if ((a.tag == Discriminator::Int) && (b.tag == Discriminator::Float)) {
+      return arithmeticEqual(b.f, a.i);
+    }
     return false;
   }
   if (a.tag == Discriminator::Bool) {

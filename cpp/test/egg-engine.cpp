@@ -112,6 +112,7 @@ TEST(TestEggEngine, DuplicateSymbols) {
 }
 
 TEST(TestEggEngine, WorkingFile) {
+  // TODO still needed?
   FileTextStream stream("~/cpp/test/data/working.egg");
   auto engine = EggEngineFactory::createEngineFromTextStream(stream);
   auto logger = std::make_shared<TestLogger>();
@@ -121,4 +122,17 @@ TEST(TestEggEngine, WorkingFile) {
   auto execution = EggEngineFactory::createExecutionContext(logger);
   ASSERT_EQ(egg::lang::LogSeverity::Information, engine->execute(*execution));
   ASSERT_EQ("USER:INFO:55\nUSER:INFO:4950\n", logger->logged);
+}
+
+TEST(TestEggEngine, Coverage) {
+  // This script is used to cover most language feature
+  FileTextStream stream("~/cpp/test/data/coverage.egg");
+  auto engine = EggEngineFactory::createEngineFromTextStream(stream);
+  auto logger = std::make_shared<TestLogger>();
+  auto preparation = EggEngineFactory::createPreparationContext(logger);
+  ASSERT_EQ(egg::lang::LogSeverity::None, engine->prepare(*preparation));
+  ASSERT_EQ("", logger->logged);
+  auto execution = EggEngineFactory::createExecutionContext(logger);
+  ASSERT_EQ(egg::lang::LogSeverity::None, engine->execute(*execution));
+  ASSERT_EQ("", logger->logged);
 }

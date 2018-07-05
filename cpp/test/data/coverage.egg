@@ -1,0 +1,43 @@
+{
+  // Array elements
+  var a = [0];
+  assert(a[0] == 0);
+  a[0] += 123;
+  assert(a[0] == 123);
+}
+{
+  // Integer operations
+  int i = 240;
+  assert(i + 1 == 241);
+  assert(i - 1 == 239);
+  assert(i * 2 == 480);
+  assert(i / 2 == 120);
+  assert(i % 2 == 0);
+  assert(i < 241);
+  assert(i <= 240);
+  assert(i == 240);
+  assert(i != 239);
+  assert(i >= 240);
+  assert(i > 239);
+  assert((i & 63) == 48); // Java/C/C++ operator precedence
+  assert((i | 63) == 255);
+  assert((i ^ 63) == 207);
+  assert(i << 1 == 480);
+  assert(i >> 1 == 120);
+  assert(i >>> 1 == 120);
+}
+{
+  // Float operations
+  float f = 240;
+  assert(f + 1 == 241);
+  assert(f - 1 == 239);
+  assert(f * 2 == 480);
+  assert(f / 2 == 120);
+  assert(f % 2 == 0);
+  assert(f < 241);
+  assert(f <= 240);
+  assert(f == 240);
+  assert(f != 239);
+  assert(f >= 240);
+  assert(f > 239);
+}
