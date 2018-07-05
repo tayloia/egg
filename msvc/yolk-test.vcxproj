@@ -31,6 +31,7 @@
     <ClCompile Include="..\cpp\test\gc-hard.cpp" />
     <ClCompile Include="..\cpp\test\gc-soft.cpp" />
     <ClCompile Include="..\cpp\test\json-tokenizer.cpp" />
+    <ClCompile Include="..\cpp\test\lang.cpp" />
     <ClCompile Include="..\cpp\test\lexers.cpp" />
     <ClCompile Include="..\cpp\test\streams.cpp" />
     <ClCompile Include="..\cpp\test\strings.cpp" />

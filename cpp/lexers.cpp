@@ -180,7 +180,7 @@ namespace {
       }
       item.kind = LexerKind::Integer;
       if (!String::tryParseUnsigned(item.value.i, item.verbatim, 16)) {
-        this->unexpected(item, "Invalid hexadecimal integer constant");
+        this->unexpected(item, "Invalid hexadecimal integer constant"); // NOCOVERAGE
       }
     }
     void nextFloatFraction(LexerItem& item) {
@@ -198,7 +198,7 @@ namespace {
       } else if (Lexer::isLetter(ch)) {
         this->unexpected(item, "Unexpected letter in floating-point constant", ch);
       } else if (!String::tryParseFloat(item.value.f, item.verbatim)) {
-        this->unexpected(item, "Invalid floating-point constant");
+        this->unexpected(item, "Invalid floating-point constant"); // NOCOVERAGE
       }
     }
     void nextFloatExponent(LexerItem& item) {
@@ -328,11 +328,11 @@ namespace {
     }
     void unexpected(const LexerItem& item, const std::string& message) {
       throw egg::yolk::SyntaxException(message, this->stream.getResourceName(), item);
-    }
+    } // NOCOVERAGE
     void unexpected(const LexerItem& item, const std::string& message, int ch) {
       auto token = String::unicodeToString(ch);
       throw egg::yolk::SyntaxException(message + ": " + token, this->stream.getResourceName(), item, token);
-    }
+    } // NOCOVERAGE
   };
 
   class FileLexer : public Lexer {
