@@ -140,18 +140,36 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareAssign(const
       return this->compilerError(where, "Cannot assign a value of type '", rtype->toString(), "' to a target of type '", ltype->toString(), "'");
     }
     break;
+  case EggProgramAssign::LogicalAnd:
+  case EggProgramAssign::LogicalOr:
+    // Boolean operation
+    if (!egg::lang::Bits::hasAnySet(lsimple, egg::lang::Discriminator::Bool)) {
+      return this->compilerError(where, "Expected left-hand side of '", EggProgram::assignToString(op), "' assignment operator to be 'bool', but got '", ltype->toString(), "' instead");
+    }
+    if (!egg::lang::Bits::hasAnySet(rsimple, egg::lang::Discriminator::Bool)) {
+      return this->compilerError(where, "Expected right-hand side of '", EggProgram::assignToString(op), "' assignment operator to be 'bool', but got '", ltype->toString(), "' instead");
+    }
+    break;
   case EggProgramAssign::BitwiseAnd:
   case EggProgramAssign::BitwiseOr:
   case EggProgramAssign::BitwiseXor:
+    // Boolean/Integer operation
+    if (!egg::lang::Bits::hasAnySet(lsimple, egg::lang::Discriminator::Bool | egg::lang::Discriminator::Int)) {
+      return this->compilerError(where, "Expected left-hand side of '", EggProgram::assignToString(op), "' assignment operator to be 'bool' or 'int', but got '", ltype->toString(), "' instead");
+    }
+    if (rsimple != lsimple) {
+      return this->compilerError(where, "Expected right-hand target of '", EggProgram::assignToString(op), "' assignment operator to be '", ltype->toString(), "', but got '", rtype->toString(), "' instead");
+    }
+    break;
   case EggProgramAssign::ShiftLeft:
   case EggProgramAssign::ShiftRight:
   case EggProgramAssign::ShiftRightUnsigned:
     // Integer-only operation
-    if (!egg::lang::Bits::hasAnySet(rsimple, egg::lang::Discriminator::Int)) {
-      return this->compilerError(where, "Expected right-hand side of integer '", EggProgram::assignToString(op), "' assignment operator to be 'int', but got '", rtype->toString(), "' instead");
-    }
     if (!egg::lang::Bits::hasAnySet(lsimple, egg::lang::Discriminator::Int)) {
       return this->compilerError(where, "Expected left-hand target of integer '", EggProgram::assignToString(op), "' assignment operator to be 'int', but got '", ltype->toString(), "' instead");
+    }
+    if (!egg::lang::Bits::hasAnySet(rsimple, egg::lang::Discriminator::Int)) {
+      return this->compilerError(where, "Expected right-hand side of integer '", EggProgram::assignToString(op), "' assignment operator to be 'int', but got '", rtype->toString(), "' instead");
     }
     break;
   case EggProgramAssign::Remainder:
@@ -175,6 +193,8 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareAssign(const
       }
     }
     break;
+  case EggProgramAssign::NullCoalescing:
+    return this->compilerError(where, "Expected left-hand target of '??=' assignment operator to be 'WIBBLE', but got '", ltype->toString(), "' instead");
   }
   return EggProgramNodeFlags::Fallthrough;
 }
@@ -574,6 +594,8 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareBinary(const
   case EggProgramBinary::BitwiseAnd:
   case EggProgramBinary::BitwiseOr:
   case EggProgramBinary::BitwiseXor:
+    // Boolean/integer operation
+    return checkBinary(*this, where, op, egg::lang::Discriminator::Bool | egg::lang::Discriminator::Int, lhs, egg::lang::Discriminator::Bool | egg::lang::Discriminator::Int, rhs);
   case EggProgramBinary::ShiftLeft:
   case EggProgramBinary::ShiftRight:
   case EggProgramBinary::ShiftRightUnsigned:

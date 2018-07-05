@@ -36,6 +36,7 @@
   macro(PercentEqual, "%=") \
   macro(Ampersand, "&") \
   macro(AmpersandAmpersand, "&&") \
+  macro(AmpersandAmpersandEqual, "&&=") \
   macro(AmpersandEqual, "&=") \
   macro(ParenthesisLeft, "(") \
   macro(ParenthesisRight, ")") \
@@ -69,6 +70,7 @@
   macro(ShiftRightUnsignedEqual, ">>>=") \
   macro(Query, "?") \
   macro(QueryQuery, "??") \
+  macro(QueryQueryEqual, "??=") \
   macro(BracketLeft, "[") \
   macro(BracketRight, "]") \
   macro(Caret, "^") \
@@ -77,6 +79,7 @@
   macro(Bar, "|") \
   macro(BarEqual, "|=") \
   macro(BarBar, "||") \
+  macro(BarBarEqual, "||=") \
   macro(CurlyRight, "}") \
   macro(Tilde, "~")
 #define EGG_TOKENIZER_OPERATOR_DECLARE(key, text) key,

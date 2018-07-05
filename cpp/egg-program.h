@@ -270,10 +270,14 @@ namespace egg::yolk {
     egg::lang::Value executeForeachString(IEggProgramAssignee& target, const egg::lang::String& source, const IEggProgramNode& block);
     egg::lang::Value executeForeachIterate(IEggProgramAssignee& target, egg::lang::IObject& source, const IEggProgramNode& block);
     bool operand(egg::lang::Value& dst, const IEggProgramNode& src, egg::lang::Discriminator expected, const char* expectation);
+    typedef egg::lang::Value(*ArithmeticBool)(bool lhs, bool rhs);
     typedef egg::lang::Value(*ArithmeticInt)(int64_t lhs, int64_t rhs);
     typedef egg::lang::Value (*ArithmeticFloat)(double lhs, double rhs);
-    egg::lang::Value arithmeticIntFloat(const egg::lang::Value& left, egg::lang::Value& right, const IEggProgramNode& rhs, const char* operation, ArithmeticInt ints, ArithmeticFloat floats);
+    egg::lang::Value logicalBool(const egg::lang::Value& left, egg::lang::Value& right, const IEggProgramNode& rhs, const char* operation, EggProgramBinary binary);
+    egg::lang::Value arithmeticBool(const egg::lang::Value& left, egg::lang::Value& right, const IEggProgramNode& rhs, const char* operation, ArithmeticBool bools);
     egg::lang::Value arithmeticInt(const egg::lang::Value& left, egg::lang::Value& right, const IEggProgramNode& rhs, const char* operation, ArithmeticInt ints);
+    egg::lang::Value arithmeticBoolInt(const egg::lang::Value& left, egg::lang::Value& right, const IEggProgramNode& rhs, const char* operation, ArithmeticBool bools, ArithmeticInt ints);
+    egg::lang::Value arithmeticIntFloat(const egg::lang::Value& left, egg::lang::Value& right, const IEggProgramNode& rhs, const char* operation, ArithmeticInt ints, ArithmeticFloat floats);
     egg::lang::Value unexpected(const std::string& expectation, const egg::lang::Value& value);
   };
 }

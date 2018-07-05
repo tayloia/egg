@@ -9,6 +9,18 @@
 namespace {
   using namespace egg::yolk;
 
+  const char* assignmentExpectation(const std::string& op) {
+    static std::map<std::string, const char*> table = {
+#define EGG_PROGRAM_ASSIGN_EXPECTATION(op, text) { text, "Expected expression after assignment '" text "' operator" },
+      EGG_PROGRAM_ASSIGN_OPERATORS(EGG_PROGRAM_ASSIGN_EXPECTATION)
+    };
+    auto found = table.find(op);
+    if (found != table.end()) {
+      return found->second;
+    }
+    return nullptr;
+  }
+
   egg::lang::Discriminator keywordToDiscriminator(const EggTokenizerItem& item) {
     // Accept only type-like keywords: void, null, bool, int, float, string and object
     // OPTIMIZE
@@ -1308,38 +1320,21 @@ std::unique_ptr<IEggSyntaxNode> EggSyntaxParserContext::parseStatementAssignment
                             | '<<='
                             | '>>='
                             | '>>>='
+                            | '??='
                             | '&='
+                            | '&&='
                             | '^='
                             | '|='
+                            | '||='
   */
   EggSyntaxParserBacktrackMark mark(this->backtrack);
   auto& p0 = mark.peek(0);
   const char* expected = nullptr;
-  if (p0.isOperator(EggTokenizerOperator::Equal)) {
-    expected = "Expected expression after assignment '=' operator";
-  } else if (p0.isOperator(EggTokenizerOperator::StarEqual)) {
-    expected = "Expected expression after assignment '*=' operator";
-  } else if (p0.isOperator(EggTokenizerOperator::SlashEqual)) {
-    expected = "Expected expression after assignment '/=' operator";
-  } else if (p0.isOperator(EggTokenizerOperator::PercentEqual)) {
-    expected = "Expected expression after assignment '%=' operator";
-  } else if (p0.isOperator(EggTokenizerOperator::PlusEqual)) {
-    expected = "Expected expression after assignment '+=' operator";
-  } else if (p0.isOperator(EggTokenizerOperator::MinusEqual)) {
-    expected = "Expected expression after assignment '-=' operator";
-  } else if (p0.isOperator(EggTokenizerOperator::ShiftLeftEqual)) {
-    expected = "Expected expression after assignment '<<=' operator";
-  } else if (p0.isOperator(EggTokenizerOperator::ShiftRightEqual)) {
-    expected = "Expected expression after assignment '>>=' operator";
-  } else if (p0.isOperator(EggTokenizerOperator::ShiftRightUnsignedEqual)) {
-    expected = "Expected expression after assignment '>>>=' operator";
-  } else if (p0.isOperator(EggTokenizerOperator::AmpersandEqual)) {
-    expected = "Expected expression after assignment '&=' operator";
-  } else if (p0.isOperator(EggTokenizerOperator::CaretEqual)) {
-    expected = "Expected expression after assignment '^=' operator";
-  } else if (p0.isOperator(EggTokenizerOperator::BarEqual)) {
-    expected = "Expected expression after assignment '|=' operator";
-  } else {
+  if (p0.kind == EggTokenizerKind::Operator) {
+    auto key = EggTokenizerValue::getOperatorString(p0.value.o);
+    expected = assignmentExpectation(key);
+  }
+  if (expected == nullptr) {
     this->unexpected("Expected assignment operator after expression", p0);
   }
   EggSyntaxNodeLocation location(p0);

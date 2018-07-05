@@ -34,6 +34,7 @@
 #define EGG_PROGRAM_ASSIGN_OPERATORS(macro) \
   macro(Remainder, "%=") \
   macro(BitwiseAnd, "&=") \
+  macro(LogicalAnd, "&&=") \
   macro(Multiply, "*=") \
   macro(Plus, "+=") \
   macro(Minus, "-=") \
@@ -42,8 +43,10 @@
   macro(Equal, "=") \
   macro(ShiftRight, ">>=") \
   macro(ShiftRightUnsigned, ">>>=") \
+  macro(NullCoalescing, "??=") \
   macro(BitwiseXor, "^=") \
-  macro(BitwiseOr, "|=")
+  macro(BitwiseOr, "|=") \
+  macro(LogicalOr, "||=")
 #define EGG_PROGRAM_ASSIGN_OPERATOR_DECLARE(name, text) name,
 
 #define EGG_PROGRAM_MUTATE_OPERATORS(macro) \

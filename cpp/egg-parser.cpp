@@ -1339,6 +1339,8 @@ std::shared_ptr<egg::yolk::IEggProgramNode> egg::yolk::EggSyntaxNode_Assignment:
       return promoteBinary<EggParserNode_AssignRemainder>(context, *this, this->child);
     case EggTokenizerOperator::AmpersandEqual:
       return promoteBinary<EggParserNode_AssignBitwiseAnd>(context, *this, this->child);
+    case EggTokenizerOperator::AmpersandAmpersandEqual:
+      return promoteBinary<EggParserNode_AssignLogicalAnd>(context, *this, this->child);
     case EggTokenizerOperator::StarEqual:
       return promoteBinary<EggParserNode_AssignMultiply>(context, *this, this->child);
     case EggTokenizerOperator::PlusEqual:
@@ -1355,10 +1357,14 @@ std::shared_ptr<egg::yolk::IEggProgramNode> egg::yolk::EggSyntaxNode_Assignment:
       return promoteBinary<EggParserNode_AssignShiftRight>(context, *this, this->child);
     case EggTokenizerOperator::ShiftRightUnsignedEqual:
       return promoteBinary<EggParserNode_AssignShiftRightUnsigned>(context, *this, this->child);
+    case EggTokenizerOperator::QueryQueryEqual:
+      return promoteBinary<EggParserNode_AssignNullCoalescing>(context, *this, this->child);
     case EggTokenizerOperator::CaretEqual:
       return promoteBinary<EggParserNode_AssignBitwiseXor>(context, *this, this->child);
     case EggTokenizerOperator::BarEqual:
       return promoteBinary<EggParserNode_AssignBitwiseOr>(context, *this, this->child);
+    case EggTokenizerOperator::BarBarEqual:
+      return promoteBinary<EggParserNode_AssignLogicalOr>(context, *this, this->child);
     case EggTokenizerOperator::Bang:
     case EggTokenizerOperator::BangEqual:
     case EggTokenizerOperator::Percent:
@@ -1659,6 +1665,7 @@ std::shared_ptr<egg::yolk::IEggProgramNode> egg::yolk::EggSyntaxNode_BinaryOpera
   case EggTokenizerOperator::Bang:
   case EggTokenizerOperator::PercentEqual:
   case EggTokenizerOperator::AmpersandEqual:
+  case EggTokenizerOperator::AmpersandAmpersandEqual:
   case EggTokenizerOperator::ParenthesisLeft:
   case EggTokenizerOperator::ParenthesisRight:
   case EggTokenizerOperator::StarEqual:
@@ -1677,10 +1684,12 @@ std::shared_ptr<egg::yolk::IEggProgramNode> egg::yolk::EggSyntaxNode_BinaryOpera
   case EggTokenizerOperator::ShiftRightEqual:
   case EggTokenizerOperator::ShiftRightUnsignedEqual:
   case EggTokenizerOperator::Query:
+  case EggTokenizerOperator::QueryQueryEqual:
   case EggTokenizerOperator::BracketRight:
   case EggTokenizerOperator::CaretEqual:
   case EggTokenizerOperator::CurlyLeft:
   case EggTokenizerOperator::BarEqual:
+  case EggTokenizerOperator::BarBarEqual:
   case EggTokenizerOperator::CurlyRight:
   case EggTokenizerOperator::Tilde:
   default:

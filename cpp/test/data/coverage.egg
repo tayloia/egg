@@ -6,6 +6,21 @@
   assert(a[0] == 123);
 }
 {
+  // Boolean operations
+  bool b = true;
+  assert(!b == false);
+  assert((b & false) == false);
+  assert((b | false) == true);
+  assert((b ^ false) == true);
+  assert((b && false) == false);
+  assert((b || false) == true);
+  assert((b & true) == true);
+  assert((b | true) == true);
+  assert((b ^ true) == false);
+  assert((b && true) == true);
+  assert((b || true) == true);
+}
+{
   // Integer operations
   int i = 240;
   assert(i + 1 == 241);
@@ -45,7 +60,21 @@
   assert(f > 239);
 }
 {
-  // Mutation
+  // Boolean modification
+  bool b = false;
+  b |= true;
+  assert(b == true);
+  b &= true;
+  assert(b == true);
+  b ^= true;
+  assert(b == false);
+  b ||= true;
+  assert(b == true);
+  b &&= true;
+  assert(b == true);
+}
+{
+  // Integer modification
   int i = 0;
   i += 10;
   assert(i == 10);
