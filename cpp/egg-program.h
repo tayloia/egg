@@ -125,27 +125,27 @@ namespace egg::yolk {
     IEggEngineLogger* logger;
     egg::gc::SoftRef<EggProgramSymbolTable> symtable;
     egg::lang::LogSeverity* maximumSeverity;
-    const egg::lang::IType* scopeTypeDeclare;
-    const egg::lang::IType* scopeTypeReturn;
+    const egg::lang::IType* scopeTypeDeclare; // Only used in prepare phase
+    const egg::lang::IType* scopeTypeReturn; // Only used in prepare phase
     const egg::lang::Value* scopeValue;
-    EggProgramContext(const egg::lang::LocationRuntime& location, IEggEngineLogger* logger, EggProgramSymbolTable& symtable, egg::lang::LogSeverity* maximumSeverity)
+    EggProgramContext(const egg::lang::LocationRuntime& location, IEggEngineLogger* logger, EggProgramSymbolTable& symtable, egg::lang::LogSeverity* maximumSeverity, const egg::lang::IType* scopeTypeReturn)
       : location(location),
         logger(logger),
         symtable(),
         maximumSeverity(maximumSeverity),
         scopeTypeDeclare(nullptr),
-        scopeTypeReturn(nullptr),
+        scopeTypeReturn(scopeTypeReturn),
         scopeValue(nullptr) {
       this->linkSoft(this->symtable, &symtable);
     }
   public:
-    EggProgramContext(EggProgramContext& parent, EggProgramSymbolTable& symtable)
-      : EggProgramContext(parent.location, parent.logger, symtable, parent.maximumSeverity) {
+    EggProgramContext(EggProgramContext& parent, EggProgramSymbolTable& symtable, const egg::lang::IType* scopeTypeReturn)
+      : EggProgramContext(parent.location, parent.logger, symtable, parent.maximumSeverity, scopeTypeReturn) {
     }
     EggProgramContext(const egg::lang::LocationRuntime& location, IEggEngineLogger& logger, EggProgramSymbolTable& symtable, egg::lang::LogSeverity& maximumSeverity)
-      : EggProgramContext(location, &logger, symtable, &maximumSeverity) {
+      : EggProgramContext(location, &logger, symtable, &maximumSeverity, nullptr) {
     }
-    egg::gc::HardRef<EggProgramContext> createNestedContext(EggProgramSymbolTable& symtable);
+    egg::gc::HardRef<EggProgramContext> createNestedContext(EggProgramSymbolTable& symtable, const egg::lang::IType* typeReturn = nullptr);
     void log(egg::lang::LogSource source, egg::lang::LogSeverity severity, const std::string& message);
     template<typename... ARGS>
     void problem(egg::lang::LogSource source, egg::lang::LogSeverity severity, ARGS... args) {

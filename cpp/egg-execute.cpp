@@ -766,6 +766,20 @@ egg::lang::Value egg::yolk::EggProgramContext::executePredicate(const IEggProgra
   return raised;
 }
 
+egg::lang::Value egg::yolk::EggProgramContext::executeWithValue(const IEggProgramNode& node, const egg::lang::Value& value) {
+  // Run an execute call with a scope value set
+  assert(this->scopeValue == nullptr);
+  try {
+    this->scopeValue = &value;
+    auto result = node.execute(*this); // not .direct()
+    this->scopeValue = nullptr;
+    return result;
+  } catch (...) {
+    this->scopeValue = nullptr;
+    throw;
+  }
+}
+
 egg::lang::LogSeverity egg::yolk::EggProgram::execute(IEggEngineExecutionContext& execution) {
   // Place the symbol table in our basket
   auto symtable = this->basket.make<EggProgramSymbolTable>();

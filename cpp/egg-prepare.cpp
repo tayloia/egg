@@ -49,7 +49,7 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareScope(const 
     // Perform the action with a new scope containing our symbol
     auto nested = egg::gc::HardRef<EggProgramSymbolTable>::make(this->symtable.get());
     nested->addSymbol(EggProgramSymbol::ReadWrite, name, type);
-    auto context = this->createNestedContext(*nested);
+    auto context = this->createNestedContext(*nested, this->scopeTypeReturn);
     return action(*context);
   }
   // Just perform the action in the current scope
@@ -80,6 +80,7 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareStatements(c
 }
 
 egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareModule(const std::vector<std::shared_ptr<IEggProgramNode>>& statements) {
+  // We don't need a nested scope here
   if (this->findDuplicateSymbols(statements)) {
     return EggProgramNodeFlags::Abandon;
   }
@@ -87,11 +88,13 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareModule(const
 }
 
 egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareBlock(const std::vector<std::shared_ptr<IEggProgramNode>>& statements) {
-  // TODO do we need a nested scope here?
+  // We need a nested scope here to deal with local variables
   if (this->findDuplicateSymbols(statements)) {
     return EggProgramNodeFlags::Abandon;
   }
-  return this->prepareStatements(statements);
+  auto nested = egg::gc::HardRef<EggProgramSymbolTable>::make(this->symtable.get());
+  auto context = this->createNestedContext(*nested, this->scopeTypeReturn);
+  return context->prepareStatements(statements);
 }
 
 egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareDeclare(const egg::lang::LocationSource& where, const egg::lang::String& name, egg::lang::ITypeRef& ltype, IEggProgramNode* rvalue) {
@@ -200,10 +203,9 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareCatch(const 
   if (abandoned(type.prepare(*this))) {
     return EggProgramNodeFlags::Abandon;
   }
-
   auto nested = egg::gc::HardRef<EggProgramSymbolTable>::make(this->symtable.get());
   nested->addSymbol(EggProgramSymbol::ReadWrite, name, type.getType());
-  auto context = this->createNestedContext(*nested);
+  auto context = this->createNestedContext(*nested, this->scopeTypeReturn);
   return block.prepare(*context);
 }
 
@@ -288,8 +290,7 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareFunctionDefi
     auto& parameter = callable->getParameter(i);
     nested->addSymbol(EggProgramSymbol::ReadWrite, parameter.getName(), parameter.getType());
   }
-  auto context = this->createNestedContext(*nested);
-  context->scopeTypeReturn = callable->getReturnType().get();
+  auto context = this->createNestedContext(*nested, callable->getReturnType().get());
   assert(context->scopeTypeReturn != nullptr);
   auto flags = block->prepare(*context);
   if (abandoned(flags)) {
@@ -637,20 +638,6 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareWithType(IEg
     return result;
   } catch (...) {
     this->scopeTypeDeclare = nullptr;
-    throw;
-  }
-}
-
-egg::lang::Value egg::yolk::EggProgramContext::executeWithValue(const IEggProgramNode& node, const egg::lang::Value& value) {
-  // Run an execute call with a scope value set
-  assert(this->scopeValue == nullptr);
-  try {
-    this->scopeValue = &value;
-    auto result = node.execute(*this); // not .direct()
-    this->scopeValue = nullptr;
-    return result;
-  } catch (...) {
-    this->scopeValue = nullptr;
     throw;
   }
 }

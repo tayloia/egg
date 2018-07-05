@@ -1292,6 +1292,7 @@ namespace {
 }
 
 std::shared_ptr<egg::yolk::IEggProgramNode> egg::yolk::EggSyntaxNode_Empty::promote(egg::yolk::IEggParserContext& context) const {
+  // WIBBLE
   if (!context.isAllowed(EggParserAllowed::Empty)) {
     throw exceptionFromLocation(context, "Empty statements are not permitted in this context", *this);
   }

@@ -57,6 +57,7 @@
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>
+    <None Include="..\cpp\test\data\coverage.egg" />
     <None Include="..\cpp\test\data\example.egd" />
     <None Include="..\cpp\test\data\example.egg" />
     <None Include="..\cpp\test\data\example.json" />
