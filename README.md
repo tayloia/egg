@@ -1,6 +1,6 @@
 # egg
 The Egg Programming Language
 
-![egg](/data/egg_text.svg)
+![egg](/data/egg.png)
 
-See http://blog.chilliant.com/search/label/egg
+See http://egg.chilliant.com/
