@@ -639,7 +639,7 @@ namespace {
     std::unique_ptr<IEggSyntaxNode> parseStatementExpression(std::unique_ptr<IEggSyntaxNode>&& expr, EggTokenizerOperator terminal);
     std::unique_ptr<IEggSyntaxNode> parseStatementFor();
     std::unique_ptr<IEggSyntaxNode> parseStatementForeach();
-    std::unique_ptr<IEggSyntaxNode> parseStatementFunction(std::unique_ptr<IEggSyntaxNode>&& type);
+    std::unique_ptr<IEggSyntaxNode> parseStatementFunction(std::unique_ptr<IEggSyntaxNode>&& type, bool generator);
     std::unique_ptr<IEggSyntaxNode> parseStatementIf();
     std::unique_ptr<IEggSyntaxNode> parseStatementReturn();
     std::unique_ptr<IEggSyntaxNode> parseStatementSwitch();
@@ -1565,13 +1565,13 @@ std::unique_ptr<IEggSyntaxNode> EggSyntaxParserContext::parseStatementForeach() 
   return std::make_unique<EggSyntaxNode_Foreach>(location, std::move(target), std::move(expr), std::move(block));
 }
 
-std::unique_ptr<IEggSyntaxNode> EggSyntaxParserContext::parseStatementFunction(std::unique_ptr<IEggSyntaxNode>&& type) {
+std::unique_ptr<IEggSyntaxNode> EggSyntaxParserContext::parseStatementFunction(std::unique_ptr<IEggSyntaxNode>&& type, bool generator) {
   // Already consumed <type>
   EggSyntaxParserBacktrackMark mark(this->backtrack);
   auto& p0 = mark.peek(0);
   assert(p0.kind == EggTokenizerKind::Identifier);
   assert(mark.peek(1).isOperator(EggTokenizerOperator::ParenthesisLeft));
-  auto result = std::make_unique<EggSyntaxNode_FunctionDefinition>(EggSyntaxNodeLocation(p0), p0.value.s, std::move(type));
+  auto result = std::make_unique<EggSyntaxNode_FunctionDefinition>(EggSyntaxNodeLocation(p0), p0.value.s, std::move(type), generator);
   mark.advance(2);
   while (!mark.peek(0).isOperator(EggTokenizerOperator::ParenthesisRight)) {
     auto ptype = this->parseType("Expected parameter type in function definition");
@@ -1788,11 +1788,23 @@ std::unique_ptr<IEggSyntaxNode> EggSyntaxParserContext::parseStatementType(std::
       if (simple) {
         this->unexpected("Expected simple statement, but got what looks like a function definition");
       }
-      auto result = this->parseStatementFunction(std::move(type));
+      auto result = this->parseStatementFunction(std::move(type), false);
       mark.accept(0);
       return result;
     }
     this->unexpected("Malformed variable declaration or initialization");
+  }
+  if (p0.isOperator(EggTokenizerOperator::Ellipsis)) {
+    // Expect <type> '...' <generator-name> '('
+    if ((mark.peek(1).kind == EggTokenizerKind::Identifier) && mark.peek(2).isOperator(EggTokenizerOperator::ParenthesisLeft)) {
+      if (simple) {
+        this->unexpected("Expected simple statement, but got what looks like a generator definition");
+      }
+      mark.advance(1);
+      auto result = this->parseStatementFunction(std::move(type), true);
+      mark.accept(0);
+      return result;
+    }
   }
   this->unexpected("Expected variable identifier after type", p0);
   return nullptr;

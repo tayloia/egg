@@ -472,9 +472,10 @@ namespace {
     egg::lang::String name;
     egg::lang::ITypeRef type;
     std::shared_ptr<IEggProgramNode> block;
+    bool generator;
   public:
-    EggParserNode_FunctionDefinition(const egg::lang::LocationSource& locationSource, const egg::lang::String& name, const egg::lang::ITypeRef& type, const std::shared_ptr<IEggProgramNode>& block)
-      : EggParserNodeBase(locationSource), name(name), type(type), block(block) {
+    EggParserNode_FunctionDefinition(const egg::lang::LocationSource& locationSource, const egg::lang::String& name, const egg::lang::ITypeRef& type, const std::shared_ptr<IEggProgramNode>& block, bool generator)
+      : EggParserNodeBase(locationSource), name(name), type(type), block(block), generator(generator) {
       assert(block != nullptr);
     }
     virtual bool symbol(egg::lang::String& nameOut, egg::lang::ITypeRef& typeOut) const override {
@@ -484,7 +485,7 @@ namespace {
       return true;
     }
     virtual EggProgramNodeFlags prepare(EggProgramContext& context) override {
-      return context.prepareFunctionDefinition(this->name, this->type, this->block);
+      return context.prepareFunctionDefinition(this->name, this->type, this->block, this->generator);
     }
     virtual egg::lang::Value execute(EggProgramContext& context) const override {
       return context.executeFunctionDefinition(*this, this->name, this->type, this->block);
@@ -691,7 +692,7 @@ namespace {
       assert(expr != nullptr);
     }
     virtual EggProgramNodeFlags prepare(EggProgramContext& context) override {
-      return context.prepareYield(*this->expr);
+      return context.prepareYield(this->locationSource, *this->expr);
     }
     virtual egg::lang::Value execute(EggProgramContext& context) const override {
       return context.executeYield(*this, *this->expr);
@@ -1519,7 +1520,7 @@ std::shared_ptr<egg::yolk::IEggProgramNode> egg::yolk::EggSyntaxNode_FunctionDef
   }
   EggParserContextNested nested(context, EggParserAllowed::Return|EggParserAllowed::Yield);
   auto block = nested.promote(*this->child[parameters + 1]);
-  return makeParserNode<EggParserNode_FunctionDefinition>(context, *this, this->name, function, block);
+  return makeParserNode<EggParserNode_FunctionDefinition>(context, *this, this->name, function, block, this->generator);
 }
 
 std::shared_ptr<egg::yolk::IEggProgramNode> egg::yolk::EggSyntaxNode_Parameter::promote(egg::yolk::IEggParserContext& context) const {

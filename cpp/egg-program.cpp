@@ -338,8 +338,8 @@ egg::gc::HardRef<egg::yolk::EggProgramContext> egg::yolk::EggProgram::createRoot
   return egg::gc::HardRef<EggProgramContext>::make(location, logger, symtable, maximumSeverity);
 }
 
-egg::gc::HardRef<egg::yolk::EggProgramContext> egg::yolk::EggProgramContext::createNestedContext(EggProgramSymbolTable& parent, const egg::lang::IType* typeReturn) {
-  return egg::gc::HardRef<EggProgramContext>::make(*this, parent, typeReturn);
+egg::gc::HardRef<egg::yolk::EggProgramContext> egg::yolk::EggProgramContext::createNestedContext(EggProgramSymbolTable& parent, const ScopeFunction* prepareFunction) {
+  return egg::gc::HardRef<EggProgramContext>::make(*this, parent, prepareFunction);
 }
 
 void egg::yolk::EggProgramContext::log(egg::lang::LogSource source, egg::lang::LogSeverity severity, const std::string& message) {

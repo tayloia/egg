@@ -53,7 +53,7 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareScope(const 
     // Perform the action with a new scope containing our symbol
     auto nested = egg::gc::HardRef<EggProgramSymbolTable>::make(this->symtable.get());
     nested->addSymbol(EggProgramSymbol::ReadWrite, name, type);
-    auto context = this->createNestedContext(*nested, this->scopeTypeReturn);
+    auto context = this->createNestedContext(*nested, this->scopeFunction);
     return action(*context);
   }
   // Just perform the action in the current scope
@@ -97,15 +97,15 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareBlock(const 
     return EggProgramNodeFlags::Abandon;
   }
   auto nested = egg::gc::HardRef<EggProgramSymbolTable>::make(this->symtable.get());
-  auto context = this->createNestedContext(*nested, this->scopeTypeReturn);
+  auto context = this->createNestedContext(*nested, this->scopeFunction);
   return context->prepareStatements(statements);
 }
 
 egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareDeclare(const egg::lang::LocationSource& where, const egg::lang::String& name, egg::lang::ITypeRef& ltype, IEggProgramNode* rvalue) {
-  if (this->scopeTypeDeclare != nullptr) {
+  if (this->scopeDeclare != nullptr) {
     // This must be a prepare call with an inferred type
     assert(rvalue == nullptr);
-    return this->typeCheck(where, ltype, egg::lang::ITypeRef(this->scopeTypeDeclare), name, false);
+    return this->typeCheck(where, ltype, egg::lang::ITypeRef(this->scopeDeclare), name, false);
   }
   if (rvalue != nullptr) {
     // Type-check the initialization
@@ -236,7 +236,7 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareCatch(const 
   }
   auto nested = egg::gc::HardRef<EggProgramSymbolTable>::make(this->symtable.get());
   nested->addSymbol(EggProgramSymbol::ReadWrite, name, type.getType());
-  auto context = this->createNestedContext(*nested, this->scopeTypeReturn);
+  auto context = this->createNestedContext(*nested, this->scopeFunction);
   return block.prepare(*context);
 }
 
@@ -309,7 +309,7 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareForeach(IEgg
   });
 }
 
-egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareFunctionDefinition(const egg::lang::String& name, const egg::lang::ITypeRef& type, const std::shared_ptr<IEggProgramNode>& block) {
+egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareFunctionDefinition(const egg::lang::String& name, const egg::lang::ITypeRef& type, const std::shared_ptr<IEggProgramNode>& block, bool generator) {
   // TODO type check
   EGG_UNUSED(name);
   auto callable = type->callable();
@@ -321,29 +321,39 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareFunctionDefi
     auto& parameter = callable->getParameter(i);
     nested->addSymbol(EggProgramSymbol::ReadWrite, parameter.getName(), parameter.getType());
   }
-  auto context = this->createNestedContext(*nested, callable->getReturnType().get());
-  assert(context->scopeTypeReturn != nullptr);
+  ScopeFunction function = { callable->getReturnType().get(), generator };
+  auto context = this->createNestedContext(*nested, &function);
+  assert(context->scopeFunction == &function);
   auto flags = block->prepare(*context);
   if (abandoned(flags)) {
     return flags;
   }
-  if (fallthrough(flags)) {
-    // Falling through to the end of a function is the same as an emplicit 'return' with no parameters
-    if (context->scopeTypeReturn->canBeAssignedFrom(*egg::lang::Type::Void) == egg::lang::IType::AssignmentSuccess::Never) {
-      return context->compilerError(block->location(), "Missing 'return' statement with a value of type '", context->scopeTypeReturn->toString(), "' at the end of the function definition");
+  if (fallthrough(flags) && !generator) {
+    // Falling through to the end of a non-generator function is the same as an emplicit 'return' with no parameters
+    if (function.rettype->canBeAssignedFrom(*egg::lang::Type::Void) == egg::lang::IType::AssignmentSuccess::Never) {
+      return context->compilerError(block->location(), "Missing 'return' statement with a value of type '", function.rettype->toString(), "' at the end of the function definition");
     }
   }
   return EggProgramNodeFlags::Fallthrough; // We fallthrough AFTER the function definition
 }
 
 egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareReturn(const egg::lang::LocationSource& where, IEggProgramNode* value) {
-  if (this->scopeTypeReturn == nullptr) {
+  if (this->scopeFunction == nullptr) {
     return this->compilerError(where, "Unexpected 'return' statement");
   }
+  if (this->scopeFunction->generator) {
+    if (value == nullptr) {
+      // No return value
+      return EggProgramNodeFlags::None; // No fallthrough
+    }
+    return this->compilerError(where, "Unexpected value in generator 'return' statement");
+  }
+  auto* rettype = this->scopeFunction->rettype;
+  assert(rettype != nullptr);
   if (value == nullptr) {
     // No return value
-    if (this->scopeTypeReturn->canBeAssignedFrom(*egg::lang::Type::Void) == egg::lang::IType::AssignmentSuccess::Never) {
-      return this->compilerError(where, "Expected 'return' statement with a value of type '", this->scopeTypeReturn->toString(), "'");
+    if (rettype->canBeAssignedFrom(*egg::lang::Type::Void) == egg::lang::IType::AssignmentSuccess::Never) {
+      return this->compilerError(where, "Expected 'return' statement with a value of type '", rettype->toString(), "'");
     }
     return EggProgramNodeFlags::None; // No fallthrough
   }
@@ -351,8 +361,8 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareReturn(const
     return EggProgramNodeFlags::Abandon;
   }
   auto rtype = value->getType();
-  if (this->scopeTypeReturn->canBeAssignedFrom(*rtype) == egg::lang::IType::AssignmentSuccess::Never) {
-    return this->compilerError(where, "Expected 'return' statement with a value of type '", this->scopeTypeReturn->toString(), "', but got '", rtype->toString(), "' instead");
+  if (rettype->canBeAssignedFrom(*rtype) == egg::lang::IType::AssignmentSuccess::Never) {
+    return this->compilerError(where, "Expected 'return' statement with a value of type '", rettype->toString(), "', but got '", rtype->toString(), "' instead");
   }
   return EggProgramNodeFlags::None; // No fallthrough
 }
@@ -423,9 +433,20 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareWhile(IEggPr
   });
 }
 
-egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareYield(IEggProgramNode& value) {
-  // TODO
-  return value.prepare(*this);
+egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareYield(const egg::lang::LocationSource& where, IEggProgramNode& value) {
+  if ((this->scopeFunction == nullptr) || !this->scopeFunction->generator) {
+    return this->compilerError(where, "Unexpected 'yield' statement");
+  }
+  if (abandoned(value.prepare(*this))) {
+    return EggProgramNodeFlags::Abandon;
+  }
+  auto rtype = value.getType();
+  auto* rettype = this->scopeFunction->rettype;
+  assert(rettype != nullptr);
+  if (rettype->canBeAssignedFrom(*rtype) == egg::lang::IType::AssignmentSuccess::Never) {
+    return this->compilerError(where, "Expected 'yield' statement with a value of type '", rettype->toString(), "', but got '", rtype->toString(), "' instead");
+  }
+  return EggProgramNodeFlags::Fallthrough;
 }
 
 egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareArray(const std::vector<std::shared_ptr<IEggProgramNode>>& values) {
@@ -665,14 +686,14 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::preparePredicate(co
 
 egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareWithType(IEggProgramNode& node, const egg::lang::ITypeRef& type) {
   // Run a prepare call with a scope type set
-  assert(this->scopeTypeDeclare == nullptr);
+  assert(this->scopeDeclare == nullptr);
   try {
-    this->scopeTypeDeclare = type.get();
+    this->scopeDeclare = type.get();
     auto result = node.prepare(*this);
-    this->scopeTypeDeclare = nullptr;
+    this->scopeDeclare = nullptr;
     return result;
   } catch (...) {
-    this->scopeTypeDeclare = nullptr;
+    this->scopeDeclare = nullptr;
     throw;
   }
 }

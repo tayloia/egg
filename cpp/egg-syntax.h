@@ -309,9 +309,10 @@ namespace egg::yolk {
     EGG_NO_COPY(EggSyntaxNode_FunctionDefinition);
   private:
     egg::lang::String name;
+    bool generator;
   public:
-    EggSyntaxNode_FunctionDefinition(const EggSyntaxNodeLocation& location, const egg::lang::String& name, std::unique_ptr<IEggSyntaxNode>&& type)
-      : EggSyntaxNodeChildrenV(location), name(name) {
+    EggSyntaxNode_FunctionDefinition(const EggSyntaxNodeLocation& location, const egg::lang::String& name, std::unique_ptr<IEggSyntaxNode>&& type, bool generator)
+      : EggSyntaxNodeChildrenV(location), name(name), generator(generator) {
       this->addChild(std::move(type));
     }
     virtual void dump(std::ostream& os) const override;
