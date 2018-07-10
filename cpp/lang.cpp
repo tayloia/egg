@@ -1021,7 +1021,7 @@ namespace {
     ValueOnHeap(const ValueOnHeap&) = delete;
     ValueOnHeap& operator=(const ValueOnHeap&) = delete;
   public:
-    explicit ValueOnHeap(Value&& value)
+    explicit ValueOnHeap(Value&& value) noexcept
       : egg::gc::HardReferenceCounted<egg::lang::ValueReferenceCounted>(0, std::move(value)) {
     }
   };
@@ -1205,7 +1205,7 @@ egg::lang::Value::Value(const Value& value) {
   this->copyInternals(value);
 }
 
-egg::lang::Value::Value(Value&& value) {
+egg::lang::Value::Value(Value&& value) noexcept {
   this->moveInternals(value);
 }
 
@@ -1217,7 +1217,7 @@ egg::lang::Value& egg::lang::Value::operator=(const Value& value) {
   return *this;
 }
 
-egg::lang::Value& egg::lang::Value::operator=(Value&& value) {
+egg::lang::Value& egg::lang::Value::operator=(Value&& value) noexcept {
   if (this != &value) {
     this->destroyInternals();
     this->moveInternals(value);

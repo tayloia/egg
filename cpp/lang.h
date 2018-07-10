@@ -455,7 +455,7 @@ namespace egg::lang {
   public:
     Value() : tag(Discriminator::Void) { this->v = nullptr; }
     Value(const Value& value);
-    Value(Value&& value);
+    Value(Value&& value) noexcept;
     explicit Value(std::nullptr_t) : tag(Discriminator::Null) { this->v = nullptr; }
     explicit Value(bool value) : tag(Discriminator::Bool) { this->b = value; }
     explicit Value(int64_t value) : tag(Discriminator::Int) { this->i = value; }
@@ -465,7 +465,7 @@ namespace egg::lang {
     explicit Value(const IType& type) : tag(Discriminator::Type) { this->t = type.acquireHard(); }
     explicit Value(const ValueReferenceCounted& vrc);
     Value& operator=(const Value& value);
-    Value& operator=(Value&& value);
+    Value& operator=(Value&& value) noexcept;
     ~Value();
     bool operator==(const Value& other) const { return Value::equal(*this, other); }
     bool operator!=(const Value& other) const { return !Value::equal(*this, other); }
@@ -520,7 +520,7 @@ namespace egg::lang {
     ValueReferenceCounted(const ValueReferenceCounted&) = delete;
     ValueReferenceCounted& operator=(const ValueReferenceCounted&) = delete;
   protected:
-    explicit ValueReferenceCounted(Value&& value) : Value(std::move(value)) {}
+    explicit ValueReferenceCounted(Value&& value) noexcept : Value(std::move(value)) {}
   public:
     virtual ~ValueReferenceCounted() {}
     virtual ValueReferenceCounted* acquireHard() const = 0;

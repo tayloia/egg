@@ -156,7 +156,7 @@ namespace egg::gc {
       Link()
         : from(nullptr), to(nullptr), next(nullptr) {
       }
-      Link(Link&& rhs) = default;
+      Link(Link&& rhs) noexcept = default;
       Link(Collectable& from, Collectable* to);
       ~Link() {
         this->reset();
@@ -246,7 +246,7 @@ namespace egg::gc {
     Basket::Link link;
   public:
     SoftRef() = default;
-    SoftRef(SoftRef&& rhs) = default;
+    SoftRef(SoftRef&& rhs) noexcept = default;
     SoftRef(Collectable& from, T* to)
       : link(from, to) {
     }
