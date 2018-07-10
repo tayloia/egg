@@ -321,7 +321,14 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareFunctionDefi
     auto& parameter = callable->getParameter(i);
     nested->addSymbol(EggProgramSymbol::ReadWrite, parameter.getName(), parameter.getType());
   }
-  ScopeFunction function = { callable->getReturnType().get(), generator };
+  auto rettype = callable->getReturnType();
+  if (generator) {
+    // The operand of 'yield' is actually the return type of the return type for generators
+    auto subcallable = rettype->callable();
+    assert(subcallable != nullptr);
+    rettype = subcallable->getReturnType();
+  }
+  ScopeFunction function = { rettype.get(), generator };
   auto context = this->createNestedContext(*nested, &function);
   assert(context->scopeFunction == &function);
   auto flags = block->prepare(*context);
@@ -704,6 +711,9 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::typeCheck(const egg
     // We can infer the type
     if (guard) {
       ltype = rtype->denulledType();
+      if (ltype->getSimpleTypes() == egg::lang::Discriminator::Void) {
+        return this->compilerError(where, "Cannot infer type of '", name, "' based on a value of type '", rtype->toString(), "'"); // WIBBLE
+      }
     } else {
       ltype = rtype;
     }

@@ -52,10 +52,75 @@ namespace egg::yolk {
       return this->parameters[index];
     }
   };
+
+  class GeneratorFunctionType : public FunctionType {
+    EGG_NO_COPY(GeneratorFunctionType);
+  private:
+    egg::lang::ITypeRef returnType;
+  public:
+    explicit GeneratorFunctionType(const egg::lang::ITypeRef& returnType)
+      : FunctionType(std::make_unique<FunctionSignature>(egg::lang::String::Empty, returnType->unionWith(*egg::lang::Type::Void))),
+        returnType(returnType) {
+      // No name or parameters in the signature
+      assert(!egg::lang::Bits::hasAnySet(returnType->getSimpleTypes(), egg::lang::Discriminator::Void));
+    }
+    virtual std::pair<std::string, int> toStringPrecedence() const override {
+      // Format a string along the lines of '<rettype>...'
+      egg::lang::StringBuilder sb;
+      sb.add(this->returnType->toString(0), "...");
+      return std::make_pair(sb.toUTF8(), 0);
+    }
+  };
+}
+
+void egg::lang::IFunctionSignature::buildStringDefault(StringBuilder& sb, IFunctionSignature::Parts parts) const {
+  // TODO better formatting of named/variadic etc.
+  if (Bits::hasAnySet(parts, IFunctionSignature::Parts::ReturnType)) {
+    // Use precedence zero to get any necessary parentheses
+    sb.add(this->getReturnType()->toString(0));
+  }
+  if (Bits::hasAnySet(parts, IFunctionSignature::Parts::FunctionName)) {
+    auto name = this->getFunctionName();
+    if (!name.empty()) {
+      sb.add(' ', name);
+    }
+  }
+  if (Bits::hasAnySet(parts, IFunctionSignature::Parts::ParameterList)) {
+    sb.add('(');
+    auto n = this->getParameterCount();
+    for (size_t i = 0; i < n; ++i) {
+      if (i > 0) {
+        sb.add(", ");
+      }
+      auto& parameter = this->getParameter(i);
+      assert(parameter.getPosition() != SIZE_MAX);
+      if (parameter.isVariadic()) {
+        sb.add("...");
+      } else {
+        sb.add(parameter.getType()->toString());
+        if (Bits::hasAnySet(parts, IFunctionSignature::Parts::ParameterNames)) {
+          auto pname = parameter.getName();
+          if (!pname.empty()) {
+            sb.add(' ', pname);
+          }
+        }
+        if (!parameter.isRequired()) {
+          sb.add(" = null");
+        }
+      }
+    }
+    sb.add(')');
+  }
+}
+
+egg::yolk::FunctionType::FunctionType(std::unique_ptr<FunctionSignature>&& signature)
+  : HardReferenceCounted(0),
+  signature(std::move(signature)) {
 }
 
 egg::yolk::FunctionType::FunctionType(const egg::lang::String& name, const egg::lang::ITypeRef& returnType)
-  : HardReferenceCounted(0), signature(std::make_unique<FunctionSignature>(name, returnType)) {
+  : HardReferenceCounted(0),
+    signature(std::make_unique<FunctionSignature>(name, returnType)) {
 }
 
 egg::yolk::FunctionType::~FunctionType() {
@@ -64,23 +129,24 @@ egg::yolk::FunctionType::~FunctionType() {
 
 std::pair<std::string, int> egg::yolk::FunctionType::toStringPrecedence() const {
   // Do not include names in the signature
-  auto sig = this->signature->toString(false);
-  return std::make_pair(sig.toUTF8(), 0);
+  egg::lang::StringBuilder sb;
+  this->signature->buildStringDefault(sb, egg::lang::IFunctionSignature::Parts::NoNames);
+  return std::make_pair(sb.toUTF8(), 0);
 }
 
 egg::yolk::FunctionType::AssignmentSuccess egg::yolk::FunctionType::canBeAssignedFrom(const IType& rtype) const {
   // We can assign if the signatures are the same or equal
   auto* rsig = rtype.callable();
   if (rsig == nullptr) {
-    return AssignmentSuccess::Never;
+    return egg::yolk::FunctionType::AssignmentSuccess::Never;
   }
-  auto lsig = this->signature.get();
+  auto* lsig = this->signature.get();
   if (lsig == rsig) {
-    return AssignmentSuccess::Always;
+    return egg::yolk::FunctionType::AssignmentSuccess::Always;
   }
   // TODO fuzzy matching of signatures
   if (lsig->getParameterCount() != rsig->getParameterCount()) {
-    return AssignmentSuccess::Never;
+    return egg::yolk::FunctionType::AssignmentSuccess::Never;
   }
   return lsig->getReturnType()->canBeAssignedFrom(*rsig->getReturnType()); // TODO
 }
@@ -91,4 +157,8 @@ const egg::lang::IFunctionSignature* egg::yolk::FunctionType::callable() const {
 
 void egg::yolk::FunctionType::addParameter(const egg::lang::String& name, const egg::lang::ITypeRef& type, egg::lang::IFunctionSignatureParameter::Flags flags) {
   this->signature->addSignatureParameter(name, type, this->signature->getParameterCount(), flags);
+}
+
+egg::yolk::GeneratorType::GeneratorType(const egg::lang::String& name, const egg::lang::ITypeRef& returnType)
+  : FunctionType(name, egg::lang::ITypeRef::make<GeneratorFunctionType>(returnType)) {
 }

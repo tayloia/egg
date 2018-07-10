@@ -1863,7 +1863,7 @@ std::unique_ptr<IEggSyntaxNode> EggSyntaxParserContext::parseType(const char* ex
     if (p0.isKeyword(EggTokenizerKeyword::Var)) {
       // Don't allow 'var?'
       mark.accept(1);
-      auto inferred = egg::lang::Type::makeSimple(egg::lang::Discriminator::Inferred);
+      auto inferred = egg::lang::Type::makeSimple(egg::lang::Discriminator::Inferred); // WIBBLE static or null
       return std::make_unique<EggSyntaxNode_Type>(location, *inferred);
     }
   }

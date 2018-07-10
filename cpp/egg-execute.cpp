@@ -55,7 +55,7 @@ namespace {
 
   class EggProgramFunctionObject : public egg::lang::IObject {
     EGG_NO_COPY(EggProgramFunctionObject);
-  private:
+  protected:
     egg::gc::SoftRef<egg::yolk::EggProgramContext> program;
     egg::lang::ITypeRef type;
     std::shared_ptr<egg::yolk::IEggProgramNode> block;
@@ -93,6 +93,20 @@ namespace {
     }
   };
 }
+
+class EggProgramGeneratorObject : public EggProgramFunctionObject {
+  EGG_NO_COPY(EggProgramGeneratorObject);
+public:
+  EggProgramGeneratorObject(egg::yolk::EggProgramContext& program, const egg::lang::ITypeRef& type, const std::shared_ptr<egg::yolk::IEggProgramNode>& block)
+    : EggProgramFunctionObject(program, type, block) {
+  }
+  virtual egg::lang::Value call(egg::lang::IExecution&, const egg::lang::IParameters& parameters) override {
+    return this->program->executeFunctionCall(this->type, parameters, *this->block);
+  }
+  virtual egg::lang::Value iterate(egg::lang::IExecution& execution) override {
+    return execution.raiseFormat(this->type->toString(), " does not support iteration yet WIBBLE");
+  }
+};
 
 egg::yolk::EggProgramExpression::EggProgramExpression(egg::yolk::EggProgramContext& context, const egg::yolk::IEggProgramNode& node)
   : context(&context),
@@ -382,13 +396,15 @@ egg::lang::Value egg::yolk::EggProgramContext::executeForeachIterate(IEggProgram
   return egg::lang::Value::Void;
 }
 
-egg::lang::Value egg::yolk::EggProgramContext::executeFunctionDefinition(const IEggProgramNode& self, const egg::lang::String& name, const egg::lang::ITypeRef& type, const std::shared_ptr<IEggProgramNode>& block) {
-  // This defines a function, it doesn't call it
+egg::lang::Value egg::yolk::EggProgramContext::executeFunctionDefinition(const IEggProgramNode& self, const egg::lang::String& name, const egg::lang::ITypeRef& type, const std::shared_ptr<IEggProgramNode>& block, bool generator) {
+  // This defines a function or generator, it doesn't call it
   this->statement(self);
   auto symbol = this->symtable->findSymbol(name);
   assert(symbol != nullptr);
   assert(symbol->getValue().is(egg::lang::Discriminator::Void));
-  return symbol->assign(*this->symtable, *this, egg::lang::Value::make<EggProgramFunctionObject>(*this, type, block));
+  auto instance = generator ? egg::lang::Value::make<EggProgramGeneratorObject>(*this, type, block)
+                            : egg::lang::Value::make<EggProgramFunctionObject>(*this, type, block);
+  return symbol->assign(*this->symtable, *this, instance);
 }
 
 egg::lang::Value egg::yolk::EggProgramContext::executeFunctionCall(const egg::lang::ITypeRef& type, const egg::lang::IParameters& parameters, const IEggProgramNode& block) {

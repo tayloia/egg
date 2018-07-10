@@ -1473,40 +1473,9 @@ egg::lang::ITypeRef egg::lang::IType::denulledType() const {
   return Type::Void;
 }
 
-egg::lang::String egg::lang::IFunctionSignature::toString(bool includeNames) const {
-  // TODO better formatting of named/variadic etc.
+egg::lang::String egg::lang::IFunctionSignature::toString(Parts parts) const {
   StringBuilder sb;
-  sb.add(this->getReturnType()->toString(0));
-  if (includeNames) {
-    auto name = this->getFunctionName();
-    if (!name.empty()) {
-      sb.add(' ', name);
-    }
-  }
-  sb.add('(');
-  auto n = this->getParameterCount();
-  for (size_t i = 0; i < n; ++i) {
-    if (i > 0) {
-      sb.add(", ");
-    }
-    auto& parameter = this->getParameter(i);
-    assert(parameter.getPosition() != SIZE_MAX);
-    if (parameter.isVariadic()) {
-      sb.add("...");
-    } else {
-      sb.add(parameter.getType()->toString());
-      if (includeNames) {
-        auto pname = parameter.getName();
-        if (!pname.empty()) {
-          sb.add(' ', pname);
-        }
-      }
-      if (!parameter.isRequired()) {
-        sb.add(" = null");
-      }
-    }
-  }
-  sb.add(')');
+  this->buildStringDefault(sb, parts);
   return sb.str();
 }
 
@@ -1518,7 +1487,7 @@ bool egg::lang::IFunctionSignature::validateCall(IExecution& execution, const IP
 bool egg::lang::IFunctionSignature::validateCallDefault(IExecution& execution, const IParameters& parameters, Value& problem) const {
   // TODO type checking, etc
   if (parameters.getNamedCount() > 0) {
-    problem = execution.raiseFormat(this->toString(true), ": Named parameters are not yet supported"); // TODO
+    problem = execution.raiseFormat(this->toString(Parts::All), ": Named parameters are not yet supported"); // TODO
     return false;
   }
   auto maxPositional = this->getParameterCount();
@@ -1529,9 +1498,9 @@ bool egg::lang::IFunctionSignature::validateCallDefault(IExecution& execution, c
   auto actual = parameters.getPositionalCount();
   if (actual < minPositional) {
     if (minPositional == 1) {
-      problem = execution.raiseFormat(this->toString(true), ": At least 1 parameter was expected");
+      problem = execution.raiseFormat(this->toString(Parts::All), ": At least 1 parameter was expected");
     } else {
-      problem = execution.raiseFormat(this->toString(true), ": At least ", minPositional, " parameters were expected, not ", actual);
+      problem = execution.raiseFormat(this->toString(Parts::All), ": At least ", minPositional, " parameters were expected, not ", actual);
     }
     return false;
   }
@@ -1540,9 +1509,9 @@ bool egg::lang::IFunctionSignature::validateCallDefault(IExecution& execution, c
   } else if (actual > maxPositional) {
     // Not variadic
     if (maxPositional == 1) {
-      problem = execution.raiseFormat(this->toString(true), ": Only 1 parameter was expected, not ", actual);
+      problem = execution.raiseFormat(this->toString(Parts::All), ": Only 1 parameter was expected, not ", actual);
     } else {
-      problem = execution.raiseFormat(this->toString(true), ": No more than ", maxPositional, " parameters were expected, not ", actual);
+      problem = execution.raiseFormat(this->toString(Parts::All), ": No more than ", maxPositional, " parameters were expected, not ", actual);
     }
     return false;
   }

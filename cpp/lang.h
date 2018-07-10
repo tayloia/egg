@@ -1,6 +1,7 @@
 namespace egg::lang {
   class IType;
   class String;
+  class StringBuilder;
   class Value;
   class ValueReferenceCounted;
   struct LocationSource;
@@ -182,14 +183,24 @@ namespace egg::lang {
 
   class IFunctionSignature {
   public:
+    enum class Parts {
+      ReturnType = 0x01,
+      FunctionName = 0x02,
+      ParameterList = 0x04,
+      ParameterNames = 0x08,
+      NoNames = ReturnType | ParameterList,
+      All = ~0
+    };
     virtual ~IFunctionSignature() {}
-    virtual String toString(bool includeNames) const; // Default formats as expected
+    virtual String toString(Parts parts) const; // Calls buildStringDefault
     virtual String getFunctionName() const = 0; // May be empty
     virtual ITypeRef getReturnType() const = 0;
     virtual size_t getParameterCount() const = 0;
     virtual const IFunctionSignatureParameter& getParameter(size_t index) const = 0;
     virtual bool validateCall(IExecution& execution, const IParameters& runtime, Value& problem) const; // Calls validateCallDefault
 
+    // Implementation
+    void buildStringDefault(StringBuilder& sb, Parts parts) const; // Default formats as expected
     bool validateCallDefault(IExecution& execution, const IParameters& runtime, Value& problem) const;
   };
 

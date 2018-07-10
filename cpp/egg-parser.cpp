@@ -488,7 +488,7 @@ namespace {
       return context.prepareFunctionDefinition(this->name, this->type, this->block, this->generator);
     }
     virtual egg::lang::Value execute(EggProgramContext& context) const override {
-      return context.executeFunctionDefinition(*this, this->name, this->type, this->block);
+      return context.executeFunctionDefinition(*this, this->name, this->type, this->block, this->generator);
     }
     virtual void dump(std::ostream& os) const override {
       ParserDump(os, "function").add(this->name).add(this->type->toString()).add(this->block);
@@ -1507,7 +1507,16 @@ std::shared_ptr<egg::yolk::IEggProgramNode> egg::yolk::EggSyntaxNode_FunctionDef
   assert(this->child.size() >= 2);
   size_t parameters = this->child.size() - 2;
   auto rettype = context.promote(*this->child[0])->getType();
-  auto* underlying = new egg::yolk::FunctionType(this->name, rettype);
+  FunctionType* underlying;
+  if (this->generator) {
+    // Generators cannot explicitly return voids
+    if (egg::lang::Bits::hasAnySet(rettype->getSimpleTypes(), egg::lang::Discriminator::Void)) {
+      throw exceptionFromLocation(context, "The return value of a generator may not include 'void'", *this);
+    }
+    underlying = new egg::yolk::GeneratorType(this->name, rettype);
+  } else {
+    underlying = new egg::yolk::FunctionType(this->name, rettype);
+  }
   egg::lang::ITypeRef function{ underlying }; // takes ownership
   egg::lang::String parameter_name;
   auto parameter_type = egg::lang::Type::Void;
@@ -1518,7 +1527,8 @@ std::shared_ptr<egg::yolk::IEggProgramNode> egg::yolk::EggSyntaxNode_FunctionDef
     auto parameter_flags = parameter_optional ? egg::lang::IFunctionSignatureParameter::Flags::None : egg::lang::IFunctionSignatureParameter::Flags::Required;
     underlying->addParameter(parameter_name, parameter_type, parameter_flags);
   }
-  EggParserContextNested nested(context, EggParserAllowed::Return|EggParserAllowed::Yield);
+  auto allowed = this->generator ? (EggParserAllowed::Return | EggParserAllowed::Yield) : EggParserAllowed::Return;
+  EggParserContextNested nested(context, allowed);
   auto block = nested.promote(*this->child[parameters + 1]);
   return makeParserNode<EggParserNode_FunctionDefinition>(context, *this, this->name, function, block, this->generator);
 }
