@@ -81,6 +81,17 @@ namespace {
     return egg::lang::Type::Arithmetic;
   }
 
+  egg::lang::ITypeRef binaryBitwiseTypes(const std::shared_ptr<IEggProgramNode>& lhs, const std::shared_ptr<IEggProgramNode>& rhs) {
+    auto lhsb = egg::lang::Bits::mask(lhs->getType()->getSimpleTypes(), egg::lang::Discriminator::Bool | egg::lang::Discriminator::Int);
+    auto rhsb = egg::lang::Bits::mask(rhs->getType()->getSimpleTypes(), egg::lang::Discriminator::Bool | egg::lang::Discriminator::Int);
+    auto common = egg::lang::Bits::mask(lhsb, rhsb);
+    if (common == egg::lang::Discriminator::None) {
+      // No common bool/int
+      return egg::lang::Type::Void;
+    }
+    return egg::lang::Type::makeSimple(common);
+  }
+
   SyntaxException exceptionFromLocation(const IEggParserContext& context, const std::string& reason, const EggSyntaxNodeLocation& location) {
     return SyntaxException(reason, context.getResourceName()->toUTF8(), location);
   }
@@ -1778,8 +1789,7 @@ egg::lang::ITypeRef EggParserNode_UnaryRef::getType() const {
 
 egg::lang::ITypeRef EggParserNode_UnaryDeref::getType() const {
   // Returns type 'Void' if not dereferencable
-  auto underlying = this->expr->getType();
-  return underlying->pointeeType();
+  return this->expr->getType()->pointeeType();
 }
 
 egg::lang::ITypeRef EggParserNode_UnaryNegate::getType() const {
@@ -1806,8 +1816,7 @@ egg::lang::ITypeRef EggParserNode_BinaryRemainder::getType() const {
 }
 
 egg::lang::ITypeRef EggParserNode_BinaryBitwiseAnd::getType() const {
-  // TODO actually Int|Bool
-  return egg::lang::Type::Int;
+  return binaryBitwiseTypes(this->lhs, this->rhs);
 }
 
 egg::lang::ITypeRef EggParserNode_BinaryLogicalAnd::getType() const {
@@ -1882,13 +1891,11 @@ egg::lang::ITypeRef EggParserNode_BinaryNullCoalescing::getType() const {
 }
 
 egg::lang::ITypeRef EggParserNode_BinaryBitwiseXor::getType() const {
-  // TODO actually Int|Bool
-  return egg::lang::Type::Int;
+  return binaryBitwiseTypes(this->lhs, this->rhs);
 }
 
 egg::lang::ITypeRef EggParserNode_BinaryBitwiseOr::getType() const {
-  // TODO actually Int|Bool
-  return egg::lang::Type::Int;
+  return binaryBitwiseTypes(this->lhs, this->rhs);
 }
 
 egg::lang::ITypeRef EggParserNode_BinaryLogicalOr::getType() const {

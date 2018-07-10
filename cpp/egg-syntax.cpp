@@ -1222,11 +1222,13 @@ std::unique_ptr<IEggSyntaxNode> EggSyntaxParserContext::parseExpressionParenthes
   EggSyntaxParserBacktrackMark mark(this->backtrack);
   assert(mark.peek(0).isOperator(EggTokenizerOperator::ParenthesisLeft));
   mark.advance(1);
-  auto expr = this->parseExpression("Expected expression inside '()'");
-  if (!mark.peek(0).isOperator(EggTokenizerOperator::ParenthesisRight)) {
-    this->unexpected("Expected ')' at end of parenthesized expression", mark.peek(0));
+  auto expr = this->parseExpression(nullptr);
+  if (expr != nullptr) {
+    if (!mark.peek(0).isOperator(EggTokenizerOperator::ParenthesisRight)) {
+      this->unexpected("Expected ')' at end of parenthesized expression", mark.peek(0));
+    }
+    mark.accept(1);
   }
-  mark.accept(1);
   return expr;
 }
 
@@ -1876,7 +1878,7 @@ bool EggSyntaxParserContext::parseTypeExpression(egg::lang::ITypeRef& type) {
     egg::lang::ITypeRef other{ egg::lang::Type::Void };
     while (mark.peek(0).isOperator(EggTokenizerOperator::Bar)) {
       mark.advance(1);
-      if (this->parseTypePostfixExpression(other)) {
+      if (!this->parseTypePostfixExpression(other)) {
         this->unexpected("Expected type to follow '|' in type expression", mark.peek(0));
       }
       type = type->unionWith(*other);
@@ -2006,6 +2008,17 @@ bool EggSyntaxParserContext::parseTypePrimaryExpression(egg::lang::ITypeRef& typ
   // TODO '(' type - expression ')'
   EggSyntaxParserBacktrackMark mark(this->backtrack);
   auto& p0 = mark.peek(0);
+  if (p0.isOperator(EggTokenizerOperator::ParenthesisLeft)) {
+    mark.advance(1);
+    if (this->parseTypeExpression(type)) {
+      auto& px = mark.peek(0);
+      if (px.isOperator(EggTokenizerOperator::ParenthesisRight)) {
+        mark.accept(1);
+        return true;
+      }
+    }
+    return false;
+  }
   auto tag = keywordToDiscriminator(p0);
   if (tag != egg::lang::Discriminator::None) {
     mark.accept(1);

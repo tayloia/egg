@@ -8,6 +8,16 @@ namespace {
     return a == b;
   }
 
+  std::pair<std::string, int> tagToStringPriority(Discriminator tag) {
+    // Adjust the priority of the result if the string has '|' (union) in it
+    // This is so that parentheses can be added appropriately to handle "(void|int)*" versus "void|int*"
+    auto result = std::make_pair(Value::getTagString(tag), 0);
+    if (result.first.find('|') != std::string::npos) {
+      result.second--;
+    }
+    return result;
+  }
+
   IType::AssignmentSuccess canBeAssignedFromSimple(Discriminator lhs, const IType& rtype) {
     assert(lhs != Discriminator::Inferred);
     auto rhs = rtype.getSimpleTypes();
@@ -17,7 +27,10 @@ namespace {
       return IType::AssignmentSuccess::Never;
     }
     if (Bits::hasAllSet(lhs, rhs)) {
-      // The assignment will always work
+      // The assignment will always work (unless it includes 'void')
+      if (Bits::hasAnySet(rhs, Discriminator::Void)) {
+        return IType::AssignmentSuccess::Sometimes;
+      }
       return IType::AssignmentSuccess::Always;
     }
     if (Bits::hasAnySet(lhs, rhs)) {
@@ -791,11 +804,12 @@ namespace {
     explicit TypePointer(const IType& referenced)
       : HardReferenceCounted(0), referenced(&referenced) {
     }
-    virtual String toString() const override {
-      return String::concat(this->referenced->toString(), "*");
+    virtual std::pair<std::string, int> toStringPrecedence() const override {
+      auto s = this->referenced->toString(0);
+      return std::make_pair(s.toUTF8() + "*", 0);
     }
     virtual egg::lang::Discriminator getSimpleTypes() const override {
-      return egg::lang::Discriminator::None; // TODO
+      return egg::lang::Discriminator::None;
     }
     virtual ITypeRef pointeeType() const override {
       return this->referenced;
@@ -806,21 +820,13 @@ namespace {
   };
 
   class TypeNull : public egg::gc::NotReferenceCounted<IType>{
-  private:
-    String name;
   public:
-    TypeNull()
-      : name(String::fromUTF8("null")) {
-    }
-    virtual String toString() const override {
-      return this->name;
+    virtual std::pair<std::string, int> toStringPrecedence() const override {
+      static std::string name{ "null" };
+      return std::make_pair(name, 0);
     }
     virtual Discriminator getSimpleTypes() const override {
       return Discriminator::Null;
-    }
-    virtual ITypeRef denulledType() const override {
-      // We're always null
-      return Type::Void;
     }
     virtual ITypeRef unionWith(const IType& other) const override {
       auto simple = other.getSimpleTypes();
@@ -841,15 +847,12 @@ namespace {
 
   template<Discriminator TAG>
   class TypeNative : public egg::gc::NotReferenceCounted<IType> {
-  private:
-    String name;
   public:
-    TypeNative()
-      : name(String::fromUTF8(Value::getTagString(TAG))) {
+    TypeNative() {
       assert(!Bits::hasAnySet(TAG, Discriminator::Null));
     }
-    virtual String toString() const override {
-      return this->name;
+    virtual std::pair<std::string, int> toStringPrecedence() const override {
+      return tagToStringPriority(TAG);
     }
     virtual Discriminator getSimpleTypes() const override {
       return TAG;
@@ -937,8 +940,8 @@ namespace {
     explicit TypeSimple(Discriminator tag)
       : HardReferenceCounted(0), tag(tag) {
     }
-    virtual String toString() const override {
-      return String::fromUTF8(Value::getTagString(this->tag));
+    virtual std::pair<std::string, int> toStringPrecedence() const override {
+      return tagToStringPriority(this->tag);
     }
     virtual Discriminator getSimpleTypes() const override {
       return this->tag;
@@ -998,11 +1001,13 @@ namespace {
     TypeUnion(const IType& a, const IType& b)
       : HardReferenceCounted(0), a(&a), b(&b) {
     }
-    virtual String toString() const override {
-      return String::concat(this->a->toString(), "|", this->b->toString());
+    virtual std::pair<std::string, int> toStringPrecedence() const override {
+      auto sa = this->a->toStringPrecedence().first;
+      auto sb = this->b->toStringPrecedence().first;
+      return std::make_pair(sa + "|" + sb, -1);
     }
     virtual egg::lang::Discriminator getSimpleTypes() const override {
-      return egg::lang::Discriminator::None; // TODO
+      return this->a->getSimpleTypes() | this->b->getSimpleTypes();
     }
     virtual AssignmentSuccess canBeAssignedFrom(const IType&) const {
       return AssignmentSuccess::Never; // TODO
@@ -1445,6 +1450,14 @@ std::string egg::lang::Value::toUTF8() const {
   return "<" + Value::getTagString(this->tag) + ">";
 }
 
+egg::lang::String egg::lang::IType::toString(int priority) const {
+  auto pair = this->toStringPrecedence();
+  if (pair.second < priority) {
+    return egg::lang::String::concat("(", pair.first, ")");
+  }
+  return String::fromUTF8(pair.first);
+}
+
 egg::lang::ITypeRef egg::lang::IType::pointerType() const {
   // The default implementation is to return a new type 'Type*'
   return egg::lang::ITypeRef::make<TypePointer>(*this);
@@ -1463,7 +1476,7 @@ egg::lang::ITypeRef egg::lang::IType::denulledType() const {
 egg::lang::String egg::lang::IFunctionSignature::toString(bool includeNames) const {
   // TODO better formatting of named/variadic etc.
   StringBuilder sb;
-  sb.add(this->getReturnType()->toString());
+  sb.add(this->getReturnType()->toString(0));
   if (includeNames) {
     auto name = this->getFunctionName();
     if (!name.empty()) {

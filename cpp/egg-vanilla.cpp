@@ -40,8 +40,8 @@ namespace {
     EGG_NO_COPY(VanillaIteratorType);
   public:
     VanillaIteratorType() {}
-    virtual egg::lang::String toString() const override {
-      return egg::lang::String::fromUTF8("<iterator>");
+    virtual std::pair<std::string, int> toStringPrecedence() const override {
+      return std::make_pair("<iterator>", 0);
     }
     // TODO iterable() for forEachRemaining() like Java?
     virtual AssignmentSuccess canBeAssignedFrom(const IType&) const {
@@ -73,8 +73,8 @@ namespace {
 
   class VanillaKeyValueType : public egg::gc::NotReferenceCounted<egg::lang::IType> {
   public:
-    virtual egg::lang::String toString() const override {
-      return egg::lang::String::fromUTF8("<keyvalue>");
+    virtual std::pair<std::string, int> toStringPrecedence() const override {
+      return std::make_pair("<keyvalue>", 0);
     }
     virtual bool iterable(egg::lang::ITypeRef& type) const override {
       // A keyvalue is a dictionary of two elements, so it is itself iterable
@@ -145,8 +145,8 @@ namespace {
       }
       return nullptr;
     }
-    virtual egg::lang::String toString() const override {
-      return egg::lang::String::fromUTF8("any?[]");
+    virtual std::pair<std::string, int> toStringPrecedence() const override {
+      return std::make_pair("any?[]", 0); // TODO
     }
     virtual const egg::lang::IIndexSignature* indexable() const override {
       // Indexing an array returns an element
@@ -373,8 +373,8 @@ namespace {
 
   class VanillaObjectType : public egg::gc::NotReferenceCounted<egg::lang::IType> {
   public:
-    virtual egg::lang::String toString() const override {
-      return egg::lang::String::fromUTF8("any?{string}");
+    virtual std::pair<std::string, int> toStringPrecedence() const override {
+      return std::make_pair("any?{string}", 0); // TODO
     }
     virtual const egg::lang::IIndexSignature* indexable() const override {
       // Indexing an object returns a property

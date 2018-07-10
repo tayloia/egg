@@ -62,7 +62,7 @@ TEST(TestEggParser, ExpressionType) {
   ASSERT_PARSE_GOOD(typeFromExpression("[1,2,3]"), "any?[]");
   ASSERT_PARSE_GOOD(typeFromExpression("{}"), "any?{string}");
   ASSERT_PARSE_GOOD(typeFromExpression("{a:1,b:2,c:3}"), "any?{string}");
-  ASSERT_PARSE_GOOD(typeFromExpression("&123"), "int*"); // TODO
+  ASSERT_PARSE_GOOD(typeFromExpression("&123"), "int*");
   ASSERT_PARSE_GOOD(typeFromExpression("*123"), "void");
   ASSERT_PARSE_GOOD(typeFromExpression("!true"), "bool");
   ASSERT_PARSE_GOOD(typeFromExpression("- 123"), "int");

@@ -62,9 +62,10 @@ egg::yolk::FunctionType::~FunctionType() {
   // Must be in this source file due to incomplete types in the header
 }
 
-egg::lang::String egg::yolk::FunctionType::toString() const {
+std::pair<std::string, int> egg::yolk::FunctionType::toStringPrecedence() const {
   // Do not include names in the signature
-  return this->signature->toString(false);
+  auto sig = this->signature->toString(false);
+  return std::make_pair(sig.toUTF8(), 0);
 }
 
 egg::yolk::FunctionType::AssignmentSuccess egg::yolk::FunctionType::canBeAssignedFrom(const IType& rtype) const {
@@ -78,13 +79,10 @@ egg::yolk::FunctionType::AssignmentSuccess egg::yolk::FunctionType::canBeAssigne
     return AssignmentSuccess::Always;
   }
   // TODO fuzzy matching of signatures
-  if (lsig->getReturnType()->canBeAssignedFrom(*rsig->getReturnType()) != AssignmentSuccess::Always) {
-    return AssignmentSuccess::Never;
-  }
   if (lsig->getParameterCount() != rsig->getParameterCount()) {
     return AssignmentSuccess::Never;
   }
-  return AssignmentSuccess::Sometimes; // TODO
+  return lsig->getReturnType()->canBeAssignedFrom(*rsig->getReturnType()); // TODO
 }
 
 const egg::lang::IFunctionSignature* egg::yolk::FunctionType::callable() const {

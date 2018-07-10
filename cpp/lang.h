@@ -207,7 +207,7 @@ namespace egg::lang {
     virtual ~IType() {}
     virtual IType* acquireHard() const = 0;
     virtual void releaseHard() const = 0;
-    virtual String toString() const = 0;
+    virtual std::pair<std::string, int> toStringPrecedence() const = 0;
     virtual AssignmentSuccess canBeAssignedFrom(const IType& rhs) const = 0;
 
     virtual Value promoteAssignment(IExecution& execution, const Value& rhs) const; // Default implementation calls IType::canBeAssignedFrom()
@@ -222,6 +222,7 @@ namespace egg::lang {
     virtual ITypeRef unionWith(const IType& other) const; // Default implementation calls Type::makeUnion()
 
     // Helpers
+    String toString(int precedence = -1) const;
     bool hasNativeType(Discriminator native) const {
       return egg::lang::Bits::hasAnySet(this->getSimpleTypes(), native);
     }
@@ -473,7 +474,7 @@ namespace egg::lang {
     ValueReferenceCounted& indirect();
     Value& soft(egg::gc::Collectable& container);
     bool is(Discriminator bits) const { return this->tag == bits; }
-    bool has(Discriminator bits) const { return Bits::mask(this->tag, bits) != Discriminator::None; }
+    bool has(Discriminator bits) const { return Bits::hasAnySet(this->tag, bits); }
     bool getBool() const { assert(this->has(Discriminator::Bool)); return this->b; }
     int64_t getInt() const { assert(this->has(Discriminator::Int)); return this->i; }
     double getFloat() const { assert(this->has(Discriminator::Float)); return this->f; }

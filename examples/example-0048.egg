@@ -1,0 +1,21 @@
+(void|int)() countdown(int counter) {
+  void|int next() {
+    if (counter > 0) {
+      --counter;
+      return counter + 1;
+    }
+  }
+  return next;
+}
+assert(type.of(countdown) == "(void|int)()(int)");
+var f = countdown(5);
+assert(type.of(f) == "(void|int)()");
+while (var i = f()) {
+  assert(type.of(i) == "int");
+  print(i);
+}
+///>5
+///>4
+///>3
+///>2
+///>1

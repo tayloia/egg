@@ -586,7 +586,7 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareUnary(const 
   case EggProgramUnary::Deref:
     // Dereference '*' operation
     simple = type->pointeeType()->getSimpleTypes();
-    if (simple == egg::lang::Discriminator::Void) {
+    if (simple == egg::lang::Discriminator::None) {
       return this->compilerError(where, "Expected operand of dereference '*' operator to be a pointer, but got '", type->toString(), "' instead");
     }
     break;
