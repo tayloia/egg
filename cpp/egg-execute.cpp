@@ -52,91 +52,6 @@ namespace {
       return &this->named.at(name).location;
     }
   };
-
-  class EggProgramFunctionObject : public egg::lang::IObject {
-    EGG_NO_COPY(EggProgramFunctionObject);
-  protected:
-    egg::gc::SoftRef<egg::yolk::EggProgramContext> program;
-    egg::lang::ITypeRef type;
-    std::shared_ptr<egg::yolk::IEggProgramNode> block;
-  public:
-    EggProgramFunctionObject(egg::yolk::EggProgramContext& program, const egg::lang::ITypeRef& type, const std::shared_ptr<egg::yolk::IEggProgramNode>& block)
-      : program(),
-      type(type),
-      block(block) {
-      assert(block != nullptr);
-      this->linkSoft(this->program, &program);
-    }
-    virtual egg::lang::Value toString() const override {
-      return egg::lang::Value(egg::lang::String::concat("<", this->type->toString(), ">"));
-    }
-    virtual egg::lang::ITypeRef getRuntimeType() const override {
-      return this->type;
-    }
-    virtual egg::lang::Value call(egg::lang::IExecution&, const egg::lang::IParameters& parameters) override {
-      return this->program->executeFunctionCall(this->type, parameters, this->block);
-    }
-    virtual egg::lang::Value getProperty(egg::lang::IExecution& execution, const egg::lang::String& property) override {
-      return execution.raiseFormat("'", this->type->toString(), "' does not support properties such as '.", property, "'");
-    }
-    virtual egg::lang::Value setProperty(egg::lang::IExecution& execution, const egg::lang::String& property, const egg::lang::Value&) override {
-      return execution.raiseFormat("'", this->type->toString(), "' does not support properties such as '.", property, "'");
-    }
-    virtual egg::lang::Value getIndex(egg::lang::IExecution& execution, const egg::lang::Value&) override {
-      return execution.raiseFormat("'", this->type->toString(), "' does not support indexing with '[]'");
-    }
-    virtual egg::lang::Value setIndex(egg::lang::IExecution& execution, const egg::lang::Value&, const egg::lang::Value&) override {
-      return execution.raiseFormat("'", this->type->toString(), "' does not support indexing with '[]'");
-    }
-    virtual egg::lang::Value iterate(egg::lang::IExecution& execution) override {
-      return execution.raiseFormat("'", this->type->toString(), "' does not support iteration");
-    }
-  };
-
-  class EggProgramGeneratorObject : public EggProgramFunctionObject {
-    EGG_NO_COPY(EggProgramGeneratorObject);
-  private:
-    egg::lang::ITypeRef rettype;
-    std::unique_ptr<egg::yolk::FunctionCoroutine> coroutine;
-    bool completed;
-  public:
-    EggProgramGeneratorObject(egg::yolk::EggProgramContext& program, const egg::lang::ITypeRef& type, const egg::lang::ITypeRef& rettype, const std::shared_ptr<egg::yolk::IEggProgramNode>& block)
-      : EggProgramFunctionObject(program, type, block),
-        rettype(rettype),
-        coroutine(),
-        completed(false) {
-    }
-    virtual egg::lang::Value call(egg::lang::IExecution&, const egg::lang::IParameters& parameters) override {
-      // This actually calls a generator via a coroutine
-      if ((parameters.getPositionalCount() > 0) || (parameters.getNamedCount() > 0)) {
-        return this->program->raiseFormat("Parameters in generator iterator calls are not supported");
-      }
-      if (this->coroutine == nullptr) {
-        // Don't re-create if we've already completed
-        if (this->completed) {
-          return egg::lang::Value::Void;
-        }
-        this->coroutine.reset(egg::yolk::FunctionCoroutine::create(this->block));
-      }
-      assert(this->coroutine != nullptr);
-      auto retval = this->coroutine->resume(*this->program);
-      if (retval.stripFlowControl(egg::lang::Discriminator::Yield)) {
-        // We yielded a value
-        return retval;
-      }
-      // We either completed or failed
-      this->completed = true;
-      this->coroutine.reset(nullptr);
-      if (retval.is(egg::lang::Discriminator::Return)) {
-        // Empty return (i.e. explicit completion
-        return egg::lang::Value::Void;
-      }
-      return retval;
-    }
-    virtual egg::lang::Value iterate(egg::lang::IExecution& execution) override {
-      return execution.raiseFormat("'", this->type->toString(), "' does not support iteration yet WIBBLE");
-    }
-  };
 }
 
 egg::yolk::EggProgramExpression::EggProgramExpression(egg::yolk::EggProgramContext& context, const egg::yolk::IEggProgramNode& node)
@@ -433,7 +348,7 @@ egg::lang::Value egg::yolk::EggProgramContext::executeFunctionDefinition(const I
   auto symbol = this->symtable->findSymbol(name);
   assert(symbol != nullptr);
   assert(symbol->getValue().is(egg::lang::Discriminator::Void));
-  return symbol->assign(*this->symtable, *this, egg::lang::Value::make<EggProgramFunctionObject>(*this, type, block));
+  return symbol->assign(*this->symtable, *this, this->createVanillaFunction(type, block));
 }
 
 egg::lang::Value egg::yolk::EggProgramContext::executeFunctionCall(const egg::lang::ITypeRef& type, const egg::lang::IParameters& parameters, const std::shared_ptr<IEggProgramNode>& block) {
@@ -491,7 +406,7 @@ egg::lang::Value egg::yolk::EggProgramContext::executeGeneratorDefinition(const 
   this->statement(self);
   assert(gentype->callable() != nullptr);
   auto itertype = gentype->callable()->getReturnType();
-  auto retval{ egg::lang::Value::make<EggProgramGeneratorObject>(*this, itertype, rettype, block) };
+  auto retval = this->createVanillaGenerator(itertype, rettype, block);
   retval.addFlowControl(egg::lang::Discriminator::Return);
   return retval;
 }

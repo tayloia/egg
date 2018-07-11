@@ -191,7 +191,8 @@ namespace egg::yolk {
     egg::lang::Value bracketsSet(const egg::lang::Value& instance, const egg::lang::Value& index, const egg::lang::Value& value);
     egg::lang::Value createVanillaArray();
     egg::lang::Value createVanillaObject();
-    egg::lang::Value createGeneratorObject(EggProgramSymbolTable& nested, const IEggProgramNode& block);
+    egg::lang::Value createVanillaFunction(const egg::lang::ITypeRef& type, const std::shared_ptr<IEggProgramNode>& block);
+    egg::lang::Value createVanillaGenerator(const egg::lang::ITypeRef& itertype, const egg::lang::ITypeRef& rettype, const std::shared_ptr<IEggProgramNode>& block);
     // Inherited via IExecution
     virtual egg::lang::Value raise(const egg::lang::String& message) override;
     virtual egg::lang::Value assertion(const egg::lang::Value& predicate) override;

@@ -436,6 +436,111 @@ namespace {
   };
   const egg::lang::String VanillaException::keyMessage = egg::lang::String::fromUTF8("message");
   const egg::lang::String VanillaException::keyLocation = egg::lang::String::fromUTF8("location");
+
+  class VanillaFunction : public egg::lang::IObject {
+    EGG_NO_COPY(VanillaFunction);
+  protected:
+    egg::gc::SoftRef<egg::yolk::EggProgramContext> program;
+    egg::lang::ITypeRef type;
+    std::shared_ptr<egg::yolk::IEggProgramNode> block;
+  public:
+    VanillaFunction(egg::yolk::EggProgramContext& program, const egg::lang::ITypeRef& type, const std::shared_ptr<egg::yolk::IEggProgramNode>& block)
+      : program(),
+      type(type),
+      block(block) {
+      assert(block != nullptr);
+      this->linkSoft(this->program, &program);
+    }
+    virtual egg::lang::Value toString() const override {
+      return egg::lang::Value(egg::lang::String::concat("<", this->type->toString(), ">"));
+    }
+    virtual egg::lang::ITypeRef getRuntimeType() const override {
+      return this->type;
+    }
+    virtual egg::lang::Value call(egg::lang::IExecution&, const egg::lang::IParameters& parameters) override {
+      return this->program->executeFunctionCall(this->type, parameters, this->block);
+    }
+    virtual egg::lang::Value getProperty(egg::lang::IExecution& execution, const egg::lang::String& property) override {
+      return execution.raiseFormat("'", this->type->toString(), "' does not support properties such as '.", property, "'");
+    }
+    virtual egg::lang::Value setProperty(egg::lang::IExecution& execution, const egg::lang::String& property, const egg::lang::Value&) override {
+      return execution.raiseFormat("'", this->type->toString(), "' does not support properties such as '.", property, "'");
+    }
+    virtual egg::lang::Value getIndex(egg::lang::IExecution& execution, const egg::lang::Value&) override {
+      return execution.raiseFormat("'", this->type->toString(), "' does not support indexing with '[]'");
+    }
+    virtual egg::lang::Value setIndex(egg::lang::IExecution& execution, const egg::lang::Value&, const egg::lang::Value&) override {
+      return execution.raiseFormat("'", this->type->toString(), "' does not support indexing with '[]'");
+    }
+    virtual egg::lang::Value iterate(egg::lang::IExecution& execution) override {
+      return execution.raiseFormat("'", this->type->toString(), "' does not support iteration");
+    }
+  };
+
+  class VanillaGenerator : public VanillaFunction {
+    EGG_NO_COPY(VanillaGenerator);
+  private:
+    egg::lang::ITypeRef rettype;
+    std::unique_ptr<egg::yolk::FunctionCoroutine> coroutine;
+    bool completed;
+  public:
+    VanillaGenerator(egg::yolk::EggProgramContext& program, const egg::lang::ITypeRef& type, const egg::lang::ITypeRef& rettype, const std::shared_ptr<egg::yolk::IEggProgramNode>& block)
+      : VanillaFunction(program, type, block),
+      rettype(rettype),
+      coroutine(),
+      completed(false) {
+    }
+    virtual egg::lang::Value call(egg::lang::IExecution&, const egg::lang::IParameters& parameters) override {
+      // This actually calls a generator via a coroutine
+      if ((parameters.getPositionalCount() > 0) || (parameters.getNamedCount() > 0)) {
+        return this->program->raiseFormat("Parameters in generator iterator calls are not supported");
+      }
+      return this->iterateNext();
+    }
+    virtual egg::lang::Value iterate(egg::lang::IExecution&) override;
+    egg::lang::Value iterateNext() {
+      if (this->coroutine == nullptr) {
+        // Don't re-create if we've already completed
+        if (this->completed) {
+          return egg::lang::Value::Void;
+        }
+        this->coroutine.reset(egg::yolk::FunctionCoroutine::create(this->block));
+      }
+      assert(this->coroutine != nullptr);
+      auto retval = this->coroutine->resume(*this->program);
+      if (retval.stripFlowControl(egg::lang::Discriminator::Yield)) {
+        // We yielded a value
+        return retval;
+      }
+      // We either completed or failed
+      this->completed = true;
+      this->coroutine.reset(nullptr);
+      if (retval.is(egg::lang::Discriminator::Return)) {
+        // Empty return (i.e. explicit completion
+        return egg::lang::Value::Void;
+      }
+      return retval;
+    }
+  };
+
+  class VanillaGeneratorIterator : public VanillaIteratorBase {
+    EGG_NO_COPY(VanillaGeneratorIterator);
+  private:
+    egg::gc::SoftRef<VanillaGenerator> generator;
+  public:
+    explicit VanillaGeneratorIterator(VanillaGenerator& generator)
+      : VanillaIteratorBase(), generator() {
+      this->linkSoft(this->generator, &generator);
+    }
+    virtual egg::lang::Value iterate(egg::lang::IExecution&) override {
+      return this->generator->iterateNext();
+    }
+  };
+
+  egg::lang::Value VanillaGenerator::iterate(egg::lang::IExecution&) {
+    // Create an ad hod iterator
+    return egg::lang::Value{ egg::gc::HardRef<VanillaGeneratorIterator>::make(*this) };
+  }
 }
 
 // Vanilla types
@@ -454,4 +559,12 @@ egg::lang::Value egg::yolk::EggProgramContext::createVanillaArray() {
 
 egg::lang::Value egg::yolk::EggProgramContext::createVanillaObject() {
   return egg::lang::Value::make<VanillaObject>();
+}
+
+egg::lang::Value egg::yolk::EggProgramContext::createVanillaFunction(const egg::lang::ITypeRef& type, const std::shared_ptr<egg::yolk::IEggProgramNode>& block) {
+  return egg::lang::Value::make<VanillaFunction>(*this, type, block);
+}
+
+egg::lang::Value egg::yolk::EggProgramContext::createVanillaGenerator(const egg::lang::ITypeRef& itertype, const egg::lang::ITypeRef& rettype, const std::shared_ptr<egg::yolk::IEggProgramNode>& block) {
+  return egg::lang::Value::make<VanillaGenerator>(*this, itertype, rettype, block);
 }

@@ -76,6 +76,11 @@ namespace egg::yolk {
       sb.add(this->rettype->toString(0), "...");
       return std::make_pair(sb.toUTF8(), 0);
     }
+    virtual bool iterable(egg::lang::ITypeRef& type) const {
+      // We are indeed iterable
+      type = this->rettype;
+      return true;
+    }
   };
 
   class FunctionCoroutineStackless : public FunctionCoroutine {

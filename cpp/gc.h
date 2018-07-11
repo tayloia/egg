@@ -236,6 +236,12 @@ namespace egg::gc {
         link.set(*ref, *pointee);
       }
     }
+    template<class T>
+    void linkSoft(SoftRef<T>& link, const HardRef<T>& pointee) {
+      // Take a temporary hard link to this container so garbage collection doesn't find a false positive
+      HardRef<Collectable> ref{ this };
+      link.set(*ref, *pointee);
+    }
   };
 
   template<class T>
@@ -259,6 +265,9 @@ namespace egg::gc {
     }
     void reset() {
       this->link.reset();
+    }
+    HardRef<T> harden() const {
+      return HardRef<T>(this->get());
     }
     T& operator*() const {
       return *this->get();
