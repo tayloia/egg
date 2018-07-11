@@ -9,6 +9,27 @@
 namespace {
   using namespace egg::yolk;
 
+  class TypeInferred : public egg::gc::NotReferenceCounted<egg::lang::IType> {
+  public:
+    virtual std::pair<std::string, int> toStringPrecedence() const override {
+      static std::string name{ "var" };
+      return std::make_pair(name, 0);
+    }
+    virtual egg::lang::Discriminator getSimpleTypes() const override {
+      return egg::lang::Discriminator::Inferred;
+    }
+    virtual egg::lang::ITypeRef unionWith(const egg::lang::IType&) const override {
+      EGG_THROW("Cannot union with inferred type");
+    }
+    virtual AssignmentSuccess canBeAssignedFrom(const egg::lang::IType&) const {
+      EGG_THROW("Cannot evaluation assignment success for inferred type");
+    }
+    virtual egg::lang::Value promoteAssignment(egg::lang::IExecution& execution, const egg::lang::Value&) const override {
+      return execution.raiseFormat("Cannot assign to inferred type value");
+    }
+  };
+  const TypeInferred typeInferred{};
+
   const char* assignmentExpectation(const std::string& op) {
     static std::map<std::string, const char*> table = {
 #define EGG_PROGRAM_ASSIGN_EXPECTATION(op, text) { text, "Expected expression after assignment '" text "' operator" },
@@ -1863,8 +1884,7 @@ std::unique_ptr<IEggSyntaxNode> EggSyntaxParserContext::parseType(const char* ex
     if (p0.isKeyword(EggTokenizerKeyword::Var)) {
       // Don't allow 'var?'
       mark.accept(1);
-      auto inferred = egg::lang::Type::makeSimple(egg::lang::Discriminator::Inferred); // WIBBLE static or null
-      return std::make_unique<EggSyntaxNode_Type>(location, *inferred);
+      return std::make_unique<EggSyntaxNode_Type>(location, typeInferred);
     }
   }
   egg::lang::ITypeRef type{ egg::lang::Type::Void };
