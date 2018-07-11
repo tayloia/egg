@@ -1,4 +1,10 @@
 #include "yolk.h"
+#include "lexers.h"
+#include "egg-tokenizer.h"
+#include "egg-syntax.h"
+#include "egg-parser.h"
+#include "egg-engine.h"
+#include "egg-program.h"
 
 namespace egg::yolk {
   class FunctionSignatureParameter : public egg::lang::IFunctionSignatureParameter {
@@ -56,20 +62,32 @@ namespace egg::yolk {
   class GeneratorFunctionType : public FunctionType {
     EGG_NO_COPY(GeneratorFunctionType);
   private:
-    egg::lang::ITypeRef returnType;
+    egg::lang::ITypeRef rettype;
   public:
     explicit GeneratorFunctionType(const egg::lang::ITypeRef& returnType)
-      : FunctionType(std::make_unique<FunctionSignature>(egg::lang::String::Empty, returnType->unionWith(*egg::lang::Type::Void))),
-        returnType(returnType) {
+      : FunctionType(egg::lang::String::Empty, returnType->unionWith(*egg::lang::Type::Void)),
+        rettype(returnType) {
       // No name or parameters in the signature
       assert(!egg::lang::Bits::hasAnySet(returnType->getSimpleTypes(), egg::lang::Discriminator::Void));
     }
     virtual std::pair<std::string, int> toStringPrecedence() const override {
       // Format a string along the lines of '<rettype>...'
       egg::lang::StringBuilder sb;
-      sb.add(this->returnType->toString(0), "...");
+      sb.add(this->rettype->toString(0), "...");
       return std::make_pair(sb.toUTF8(), 0);
     }
+  };
+
+  class FunctionCoroutineStackless : public FunctionCoroutine {
+    EGG_NO_COPY(FunctionCoroutineStackless);
+  private:
+    std::shared_ptr<egg::yolk::IEggProgramNode> block;
+  public:
+    explicit FunctionCoroutineStackless(const std::shared_ptr<egg::yolk::IEggProgramNode>& block)
+      : block(block) {
+      assert(block != nullptr);
+    }
+    virtual egg::lang::Value resume(EggProgramContext& program) override;
   };
 }
 
@@ -113,11 +131,6 @@ void egg::lang::IFunctionSignature::buildStringDefault(StringBuilder& sb, IFunct
   }
 }
 
-egg::yolk::FunctionType::FunctionType(std::unique_ptr<FunctionSignature>&& signature)
-  : HardReferenceCounted(0),
-  signature(std::move(signature)) {
-}
-
 egg::yolk::FunctionType::FunctionType(const egg::lang::String& name, const egg::lang::ITypeRef& returnType)
   : HardReferenceCounted(0),
     signature(std::make_unique<FunctionSignature>(name, returnType)) {
@@ -159,6 +172,21 @@ void egg::yolk::FunctionType::addParameter(const egg::lang::String& name, const 
   this->signature->addSignatureParameter(name, type, this->signature->getParameterCount(), flags);
 }
 
-egg::yolk::GeneratorType::GeneratorType(const egg::lang::String& name, const egg::lang::ITypeRef& returnType)
-  : FunctionType(name, egg::lang::ITypeRef::make<GeneratorFunctionType>(returnType)) {
+egg::yolk::FunctionType* egg::yolk::FunctionType::createFunctionType(const egg::lang::String& name, const egg::lang::ITypeRef& returnType) {
+  return new FunctionType(name, returnType);
+}
+
+egg::yolk::FunctionType* egg::yolk::FunctionType::createGeneratorType(const egg::lang::String& name, const egg::lang::ITypeRef& returnType) {
+  // Convert the return type (e.g. 'int') into a generator function 'int..' aka '(void|int)()'
+  return new FunctionType(name, egg::lang::ITypeRef::make<GeneratorFunctionType>(returnType));
+}
+
+egg::yolk::FunctionCoroutine* egg::yolk::FunctionCoroutine::create(const std::shared_ptr<egg::yolk::IEggProgramNode>& block) {
+  // Create a stackless block executor for generator coroutines
+  return new FunctionCoroutineStackless(block);
+}
+
+egg::lang::Value egg::yolk::FunctionCoroutineStackless::resume(EggProgramContext&) {
+  // WIBBLE
+  return egg::lang::Value::Void;
 }

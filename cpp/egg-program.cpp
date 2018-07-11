@@ -241,7 +241,7 @@ egg::lang::Value egg::yolk::EggProgramSymbol::assign(EggProgramSymbolTable& symt
   default:
     break;
   }
-  auto promoted = this->type->promoteAssignment(execution, rhs.direct());
+  auto promoted = this->type->promoteAssignment(execution, rhs);
   if (promoted.has(egg::lang::Discriminator::FlowControl)) {
     // The assignment failed
     return promoted;
@@ -338,7 +338,7 @@ egg::gc::HardRef<egg::yolk::EggProgramContext> egg::yolk::EggProgram::createRoot
   return egg::gc::HardRef<EggProgramContext>::make(location, logger, symtable, maximumSeverity);
 }
 
-egg::gc::HardRef<egg::yolk::EggProgramContext> egg::yolk::EggProgramContext::createNestedContext(EggProgramSymbolTable& parent, const ScopeFunction* prepareFunction) {
+egg::gc::HardRef<egg::yolk::EggProgramContext> egg::yolk::EggProgramContext::createNestedContext(EggProgramSymbolTable& parent, ScopeFunction* prepareFunction) {
   return egg::gc::HardRef<EggProgramContext>::make(*this, parent, prepareFunction);
 }
 

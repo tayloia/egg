@@ -309,9 +309,8 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareForeach(IEgg
   });
 }
 
-egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareFunctionDefinition(const egg::lang::String& name, const egg::lang::ITypeRef& type, const std::shared_ptr<IEggProgramNode>& block, bool generator) {
+egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareFunctionDefinition(const egg::lang::String& name, const egg::lang::ITypeRef& type, const std::shared_ptr<IEggProgramNode>& block) {
   // TODO type check
-  EGG_UNUSED(name);
   auto callable = type->callable();
   assert(callable != nullptr);
   assert(callable->getFunctionName() == name);
@@ -322,26 +321,41 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareFunctionDefi
     nested->addSymbol(EggProgramSymbol::ReadWrite, parameter.getName(), parameter.getType());
   }
   auto rettype = callable->getReturnType();
-  if (generator) {
-    // The operand of 'yield' is actually the return type of the return type for generators
-    auto subcallable = rettype->callable();
-    assert(subcallable != nullptr);
-    rettype = subcallable->getReturnType();
-  }
-  ScopeFunction function = { rettype.get(), generator };
+  // This structure will be overwritten later if this is actually a generator definition
+  ScopeFunction function = { rettype.get(), false };
   auto context = this->createNestedContext(*nested, &function);
   assert(context->scopeFunction == &function);
   auto flags = block->prepare(*context);
   if (abandoned(flags)) {
     return flags;
   }
-  if (fallthrough(flags) && !generator) {
+  if (fallthrough(flags)) {
     // Falling through to the end of a non-generator function is the same as an emplicit 'return' with no parameters
     if (function.rettype->canBeAssignedFrom(*egg::lang::Type::Void) == egg::lang::IType::AssignmentSuccess::Never) {
-      return context->compilerError(block->location(), "Missing 'return' statement with a value of type '", function.rettype->toString(), "' at the end of the function definition");
+      egg::lang::String suffix;
+      if (!name.empty()) {
+        suffix = egg::lang::String::concat(": '", name, "'");
+      }
+      return context->compilerError(block->location(), "Missing 'return' statement with a value of type '", function.rettype->toString(), "' at the end of the function definition", suffix);
     }
   }
   return EggProgramNodeFlags::Fallthrough; // We fallthrough AFTER the function definition
+}
+
+egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareGeneratorDefinition(const egg::lang::ITypeRef& rettype, const std::shared_ptr<IEggProgramNode>& block) {
+  // We're in a 'generator' node that's the parent of a 'block' node within a 'function definition' node
+  assert(this->scopeFunction != nullptr);
+  assert(this->scopeFunction->rettype != nullptr);
+  assert(this->scopeFunction->generator == false);
+  // Adjust the scope function for generators
+  this->scopeFunction->rettype = rettype.get();
+  this->scopeFunction->generator = true;
+  auto flags = block->prepare(*this);
+  if (abandoned(flags)) {
+    return flags;
+  }
+  // The implementation of the final generator definition is effectively a single return statement; we don't fallthrough
+  return EggProgramNodeFlags::None;
 }
 
 egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareReturn(const egg::lang::LocationSource& where, IEggProgramNode* value) {
@@ -712,7 +726,7 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::typeCheck(const egg
     if (guard) {
       ltype = rtype->denulledType();
       if (ltype->getSimpleTypes() == egg::lang::Discriminator::Void) {
-        return this->compilerError(where, "Cannot infer type of '", name, "' based on a value of type '", rtype->toString(), "'"); // WIBBLE
+        return this->compilerError(where, "Cannot infer type of '", name, "' based on a value of type '", rtype->toString(), "'"); // TODO useful?
       }
     } else {
       ltype = rtype;

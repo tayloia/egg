@@ -1,13 +1,14 @@
 namespace egg::yolk {
+  class EggProgramContext;
   class FunctionSignature;
+  class IEggProgramNode;
 
   class FunctionType : public egg::gc::HardReferenceCounted<egg::lang::IType> {
     EGG_NO_COPY(FunctionType);
   protected:
     std::unique_ptr<FunctionSignature> signature;
-    explicit FunctionType(std::unique_ptr<FunctionSignature>&& signature);
-  public:
     FunctionType(const egg::lang::String& name, const egg::lang::ITypeRef& returnType);
+  public:
     virtual ~FunctionType() override;
     virtual std::pair<std::string, int> toStringPrecedence() const override;
     virtual AssignmentSuccess canBeAssignedFrom(const IType& rtype) const;
@@ -15,12 +16,16 @@ namespace egg::yolk {
     void addParameter(const egg::lang::String& name, const egg::lang::ITypeRef& type, egg::lang::IFunctionSignatureParameter::Flags flags);
 
     // Helpers
+    static FunctionType* createFunctionType(const egg::lang::String& name, const egg::lang::ITypeRef& returnType);
+    static FunctionType* createGeneratorType(const egg::lang::String& name, const egg::lang::ITypeRef& returnType);
     static void buildFunctionSignature(egg::lang::StringBuilder& sb, const egg::lang::IFunctionSignature& signature, egg::lang::IFunctionSignature::Parts parts);
   };
 
-  class GeneratorType : public FunctionType {
-    EGG_NO_COPY(GeneratorType);
+  class FunctionCoroutine {
   public:
-    GeneratorType(const egg::lang::String& name, const egg::lang::ITypeRef& returnType);
+    virtual ~FunctionCoroutine() {}
+    virtual egg::lang::Value resume(EggProgramContext& program) = 0;
+
+    static FunctionCoroutine* create(const std::shared_ptr<egg::yolk::IEggProgramNode>& block);
   };
 }

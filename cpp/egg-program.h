@@ -131,9 +131,9 @@ namespace egg::yolk {
     egg::gc::SoftRef<EggProgramSymbolTable> symtable;
     egg::lang::LogSeverity* maximumSeverity;
     const egg::lang::IType* scopeDeclare; // Only used in prepare phase
-    const ScopeFunction* scopeFunction; // Only used in prepare phase
+    ScopeFunction* scopeFunction; // Only used in prepare phase
     const egg::lang::Value* scopeValue;
-    EggProgramContext(const egg::lang::LocationRuntime& location, IEggEngineLogger* logger, EggProgramSymbolTable& symtable, egg::lang::LogSeverity* maximumSeverity, const ScopeFunction* scopeFunction)
+    EggProgramContext(const egg::lang::LocationRuntime& location, IEggEngineLogger* logger, EggProgramSymbolTable& symtable, egg::lang::LogSeverity* maximumSeverity, ScopeFunction* scopeFunction)
       : location(location),
         logger(logger),
         symtable(),
@@ -144,13 +144,13 @@ namespace egg::yolk {
       this->linkSoft(this->symtable, &symtable);
     }
   public:
-    EggProgramContext(EggProgramContext& parent, EggProgramSymbolTable& symtable, const ScopeFunction* scopeFunction)
+    EggProgramContext(EggProgramContext& parent, EggProgramSymbolTable& symtable, ScopeFunction* scopeFunction)
       : EggProgramContext(parent.location, parent.logger, symtable, parent.maximumSeverity, scopeFunction) {
     }
     EggProgramContext(const egg::lang::LocationRuntime& location, IEggEngineLogger& logger, EggProgramSymbolTable& symtable, egg::lang::LogSeverity& maximumSeverity)
       : EggProgramContext(location, &logger, symtable, &maximumSeverity, nullptr) {
     }
-    egg::gc::HardRef<EggProgramContext> createNestedContext(EggProgramSymbolTable& symtable, const ScopeFunction* prepareFunction = nullptr);
+    egg::gc::HardRef<EggProgramContext> createNestedContext(EggProgramSymbolTable& symtable, ScopeFunction* prepareFunction = nullptr);
     void log(egg::lang::LogSource source, egg::lang::LogSeverity severity, const std::string& message);
     template<typename... ARGS>
     void problem(egg::lang::LogSource source, egg::lang::LogSeverity severity, ARGS... args) {
@@ -191,6 +191,7 @@ namespace egg::yolk {
     egg::lang::Value bracketsSet(const egg::lang::Value& instance, const egg::lang::Value& index, const egg::lang::Value& value);
     egg::lang::Value createVanillaArray();
     egg::lang::Value createVanillaObject();
+    egg::lang::Value createGeneratorObject(EggProgramSymbolTable& nested, const IEggProgramNode& block);
     // Inherited via IExecution
     virtual egg::lang::Value raise(const egg::lang::String& message) override;
     virtual egg::lang::Value assertion(const egg::lang::Value& predicate) override;
@@ -209,8 +210,9 @@ namespace egg::yolk {
     egg::lang::Value executeIf(const IEggProgramNode& self, const IEggProgramNode& cond, const IEggProgramNode& trueBlock, const IEggProgramNode* falseBlock);
     egg::lang::Value executeFor(const IEggProgramNode& self, const IEggProgramNode* pre, const IEggProgramNode* cond, const IEggProgramNode* post, const IEggProgramNode& block);
     egg::lang::Value executeForeach(const IEggProgramNode& self, const IEggProgramNode& lvalue, const IEggProgramNode& rvalue, const IEggProgramNode& block);
-    egg::lang::Value executeFunctionDefinition(const IEggProgramNode& self, const egg::lang::String& name, const egg::lang::ITypeRef& type, const std::shared_ptr<IEggProgramNode>& block, bool generator);
-    egg::lang::Value executeFunctionCall(const egg::lang::ITypeRef& type, const egg::lang::IParameters& parameters, const IEggProgramNode& block);
+    egg::lang::Value executeFunctionDefinition(const IEggProgramNode& self, const egg::lang::String& name, const egg::lang::ITypeRef& type, const std::shared_ptr<IEggProgramNode>& block);
+    egg::lang::Value executeFunctionCall(const egg::lang::ITypeRef& type, const egg::lang::IParameters& parameters, const std::shared_ptr<IEggProgramNode>& block);
+    egg::lang::Value executeGeneratorDefinition(const IEggProgramNode& self, const egg::lang::ITypeRef& gentype, const egg::lang::ITypeRef& rettype, const std::shared_ptr<IEggProgramNode>& block);
     egg::lang::Value executeReturn(const IEggProgramNode& self, const IEggProgramNode* value);
     egg::lang::Value executeCase(const IEggProgramNode& self, const std::vector<std::shared_ptr<IEggProgramNode>>& values, const IEggProgramNode& block); // against in 'scopeValue'
     egg::lang::Value executeSwitch(const IEggProgramNode& self, const IEggProgramNode& value, int64_t defaultIndex, const std::vector<std::shared_ptr<IEggProgramNode>>& cases);
@@ -242,7 +244,8 @@ namespace egg::yolk {
     EggProgramNodeFlags prepareIf(IEggProgramNode& cond, IEggProgramNode& trueBlock, IEggProgramNode* falseBlock);
     EggProgramNodeFlags prepareFor(IEggProgramNode* pre, IEggProgramNode* cond, IEggProgramNode* post, IEggProgramNode& block);
     EggProgramNodeFlags prepareForeach(IEggProgramNode& lvalue, IEggProgramNode& rvalue, IEggProgramNode& block);
-    EggProgramNodeFlags prepareFunctionDefinition(const egg::lang::String& name, const egg::lang::ITypeRef& type, const std::shared_ptr<IEggProgramNode>& block, bool generator);
+    EggProgramNodeFlags prepareFunctionDefinition(const egg::lang::String& name, const egg::lang::ITypeRef& type, const std::shared_ptr<IEggProgramNode>& block);
+    EggProgramNodeFlags prepareGeneratorDefinition(const egg::lang::ITypeRef& rettype, const std::shared_ptr<IEggProgramNode>& block);
     EggProgramNodeFlags prepareReturn(const egg::lang::LocationSource& where, IEggProgramNode* value);
     EggProgramNodeFlags prepareCase(const std::vector<std::shared_ptr<IEggProgramNode>>& values, IEggProgramNode& block);
     EggProgramNodeFlags prepareSwitch(IEggProgramNode& value, int64_t defaultIndex, const std::vector<std::shared_ptr<IEggProgramNode>>& cases);

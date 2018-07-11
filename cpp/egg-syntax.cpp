@@ -1958,7 +1958,7 @@ egg::lang::ITypeRef EggSyntaxParserContext::parseTypePostfixFunction(const egg::
   EggSyntaxParserBacktrackMark mark(this->backtrack);
   assert(mark.peek(0).isOperator(EggTokenizerOperator::ParenthesisLeft));
   mark.advance(1);
-  auto* underlying = new egg::yolk::FunctionType(egg::lang::String::Empty, rettype);
+  auto* underlying = egg::yolk::FunctionType::createFunctionType(egg::lang::String::Empty, rettype);
   egg::lang::ITypeRef function{ underlying };
   for (size_t index = 0; !mark.peek(0).isOperator(EggTokenizerOperator::ParenthesisRight); ++index) {
     egg::lang::ITypeRef ptype{ egg::lang::Type::Void };

@@ -472,10 +472,9 @@ namespace {
     egg::lang::String name;
     egg::lang::ITypeRef type;
     std::shared_ptr<IEggProgramNode> block;
-    bool generator;
   public:
-    EggParserNode_FunctionDefinition(const egg::lang::LocationSource& locationSource, const egg::lang::String& name, const egg::lang::ITypeRef& type, const std::shared_ptr<IEggProgramNode>& block, bool generator)
-      : EggParserNodeBase(locationSource), name(name), type(type), block(block), generator(generator) {
+    EggParserNode_FunctionDefinition(const egg::lang::LocationSource& locationSource, const egg::lang::String& name, const egg::lang::ITypeRef& type, const std::shared_ptr<IEggProgramNode>& block)
+      : EggParserNodeBase(locationSource), name(name), type(type), block(block) {
       assert(block != nullptr);
     }
     virtual bool symbol(egg::lang::String& nameOut, egg::lang::ITypeRef& typeOut) const override {
@@ -485,10 +484,10 @@ namespace {
       return true;
     }
     virtual EggProgramNodeFlags prepare(EggProgramContext& context) override {
-      return context.prepareFunctionDefinition(this->name, this->type, this->block, this->generator);
+      return context.prepareFunctionDefinition(this->name, this->type, this->block);
     }
     virtual egg::lang::Value execute(EggProgramContext& context) const override {
-      return context.executeFunctionDefinition(*this, this->name, this->type, this->block, this->generator);
+      return context.executeFunctionDefinition(*this, this->name, this->type, this->block);
     }
     virtual void dump(std::ostream& os) const override {
       ParserDump(os, "function").add(this->name).add(this->type->toString()).add(this->block);
@@ -518,6 +517,28 @@ namespace {
     }
     virtual void dump(std::ostream& os) const override {
       ParserDump(os, this->optional ? "parameter?" : "parameter").add(this->name).add(this->type->toString());
+    }
+  };
+
+  class EggParserNode_GeneratorDefinition : public EggParserNodeBase {
+  private:
+    egg::lang::String name;
+    egg::lang::ITypeRef gentype; // e.g. 'int...(string, bool)'
+    egg::lang::ITypeRef rettype; // e.g. 'int'
+    std::shared_ptr<IEggProgramNode> block;
+  public:
+    EggParserNode_GeneratorDefinition(const egg::lang::LocationSource& locationSource, const egg::lang::String& name, const egg::lang::ITypeRef& gentype, const egg::lang::ITypeRef& rettype, const std::shared_ptr<IEggProgramNode>& block)
+      : EggParserNodeBase(locationSource), name(name), gentype(gentype), rettype(rettype), block(block) {
+      assert(block != nullptr);
+    }
+    virtual EggProgramNodeFlags prepare(EggProgramContext& context) override {
+      return context.prepareGeneratorDefinition(this->rettype, this->block);
+    }
+    virtual egg::lang::Value execute(EggProgramContext& context) const override {
+      return context.executeGeneratorDefinition(*this, this->gentype, this->rettype, this->block);
+    }
+    virtual void dump(std::ostream& os) const override {
+      ParserDump(os, "generator").add(this->name).add(this->gentype->toString()).add(this->block);
     }
   };
 
@@ -1513,9 +1534,9 @@ std::shared_ptr<egg::yolk::IEggProgramNode> egg::yolk::EggSyntaxNode_FunctionDef
     if (egg::lang::Bits::hasAnySet(rettype->getSimpleTypes(), egg::lang::Discriminator::Void)) {
       throw exceptionFromLocation(context, "The return value of a generator may not include 'void'", *this);
     }
-    underlying = new egg::yolk::GeneratorType(this->name, rettype);
+    underlying = egg::yolk::FunctionType::createGeneratorType(this->name, rettype);
   } else {
-    underlying = new egg::yolk::FunctionType(this->name, rettype);
+    underlying = egg::yolk::FunctionType::createFunctionType(this->name, rettype);
   }
   egg::lang::ITypeRef function{ underlying }; // takes ownership
   egg::lang::String parameter_name;
@@ -1530,7 +1551,10 @@ std::shared_ptr<egg::yolk::IEggProgramNode> egg::yolk::EggSyntaxNode_FunctionDef
   auto allowed = this->generator ? (EggParserAllowed::Return | EggParserAllowed::Yield) : EggParserAllowed::Return;
   EggParserContextNested nested(context, allowed);
   auto block = nested.promote(*this->child[parameters + 1]);
-  return makeParserNode<EggParserNode_FunctionDefinition>(context, *this, this->name, function, block, this->generator);
+  if (this->generator) {
+    block = makeParserNode<EggParserNode_GeneratorDefinition>(context, *this, this->name, function, rettype, block);
+  }
+  return makeParserNode<EggParserNode_FunctionDefinition>(context, *this, this->name, function, block);
 }
 
 std::shared_ptr<egg::yolk::IEggProgramNode> egg::yolk::EggSyntaxNode_Parameter::promote(egg::yolk::IEggParserContext& context) const {

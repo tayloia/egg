@@ -1,0 +1,18 @@
+int... countdown(int counter) {
+  while (counter > 0) {
+    yield counter;
+    --counter;
+  }
+}
+assert(type.of(countdown) == "int...(int)");
+var f = countdown(5);
+assert(type.of(f) == "int...");
+while (var i = f()) {
+  assert(type.of(i) == "int");
+  print(i);
+}
+///>5
+///>4
+///>3
+///>2
+///>1
