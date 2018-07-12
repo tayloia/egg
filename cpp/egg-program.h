@@ -1,5 +1,6 @@
 namespace egg::yolk {
   class EggProgramContext;
+  class EggProgramStackless;
   class EggProgramSymbolTable;
 
   class IEggProgramAssignee {
@@ -28,6 +29,7 @@ namespace egg::yolk {
     virtual EggProgramNodeFlags prepare(EggProgramContext& context) = 0;
     virtual EggProgramNodeFlags addressable(EggProgramContext& context) = 0;
     virtual egg::lang::Value execute(EggProgramContext& context) const = 0;
+    virtual egg::lang::Value coexecute(EggProgramContext& context, EggProgramStackless& stackless) const = 0;
     virtual std::unique_ptr<IEggProgramAssignee> assignee(EggProgramContext& context) const = 0;
     virtual void dump(std::ostream& os) const = 0;
   };
@@ -96,7 +98,7 @@ namespace egg::yolk {
     ~EggProgram() {
       this->root.reset();
       (void)this->basket.collectGarbage();
-      // The destructor for 'basket' was assert if this collection doesn't free up everything in the basket
+      // The destructor for 'basket' will assert if this collection doesn't free up everything in the basket
     }
     egg::gc::HardRef<EggProgramContext> createRootContext(IEggEngineLogger& logger, EggProgramSymbolTable& symtable, egg::lang::LogSeverity& maximumSeverity);
     egg::lang::LogSeverity prepare(IEggEnginePreparationContext& preparation);
@@ -132,7 +134,7 @@ namespace egg::yolk {
     egg::lang::LogSeverity* maximumSeverity;
     const egg::lang::IType* scopeDeclare; // Only used in prepare phase
     ScopeFunction* scopeFunction; // Only used in prepare phase
-    const egg::lang::Value* scopeValue;
+    const egg::lang::Value* scopeValue; // Only used in execute phase
     EggProgramContext(const egg::lang::LocationRuntime& location, IEggEngineLogger* logger, EggProgramSymbolTable& symtable, egg::lang::LogSeverity* maximumSeverity, ScopeFunction* scopeFunction)
       : location(location),
         logger(logger),
@@ -232,6 +234,10 @@ namespace egg::yolk {
     egg::lang::Value executeBinary(const IEggProgramNode& self, EggProgramBinary op, const IEggProgramNode& lhs, const IEggProgramNode& rhs);
     egg::lang::Value executeTernary(const IEggProgramNode& self, const IEggProgramNode& cond, const IEggProgramNode& whenTrue, const IEggProgramNode& whenFalse);
     egg::lang::Value executePredicate(const IEggProgramNode& self, EggProgramBinary op, const IEggProgramNode& lhs, const IEggProgramNode& rhs);
+    // Implemented in function.cpp WIBBLE
+    egg::lang::Value coexecuteBlock(EggProgramStackless& stackless, const std::vector<std::shared_ptr<IEggProgramNode>>& statements);
+    egg::lang::Value coexecuteWhile(EggProgramStackless& stackless, const std::shared_ptr<IEggProgramNode>& cond, const std::shared_ptr<IEggProgramNode>& block);
+    egg::lang::Value coexecuteYield(EggProgramStackless& stackless, const std::shared_ptr<IEggProgramNode>& value);
     // Implemented in egg-prepare.cpp
     std::shared_ptr<IEggProgramNode> empredicateBinary(const std::shared_ptr<IEggProgramNode>& node, EggProgramBinary op, const std::shared_ptr<IEggProgramNode>& lhs, const std::shared_ptr<IEggProgramNode>& rhs);
     EggProgramNodeFlags prepareModule(const std::vector<std::shared_ptr<IEggProgramNode>>& statements);

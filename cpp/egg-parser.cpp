@@ -169,6 +169,10 @@ namespace {
       // By default, nothing is addressable
       return context.compilerError(this->locationSource, "Invalid operand for reference '&' operator");
     }
+    virtual egg::lang::Value coexecute(EggProgramContext& context, EggProgramStackless&) const override {
+      // By default, use the stackful version
+      return this->execute(context);
+    }
     virtual std::unique_ptr<IEggProgramAssignee> assignee(EggProgramContext&) const override {
       // By default, we fail if asked to create an assignee
       return nullptr;
@@ -209,6 +213,9 @@ namespace {
     }
     virtual egg::lang::Value execute(EggProgramContext& context) const override {
       return context.executeBlock(*this, this->child);
+    }
+    virtual egg::lang::Value coexecute(EggProgramContext& context, EggProgramStackless& stackless) const override {
+      return context.coexecuteBlock(stackless, this->child);
     }
     virtual void dump(std::ostream& os) const override {
       ParserDump(os, "block").add(this->child);
@@ -699,6 +706,9 @@ namespace {
     virtual egg::lang::Value execute(EggProgramContext& context) const override {
       return context.executeWhile(*this, *this->condition, *this->block);
     }
+    virtual egg::lang::Value coexecute(EggProgramContext& context, EggProgramStackless& stackless) const override {
+      return context.coexecuteWhile(stackless, this->condition, this->block);
+    }
     virtual void dump(std::ostream& os) const override {
       ParserDump(os, "while").add(this->condition).add(this->block);
     }
@@ -717,6 +727,9 @@ namespace {
     }
     virtual egg::lang::Value execute(EggProgramContext& context) const override {
       return context.executeYield(*this, *this->expr);
+    }
+    virtual egg::lang::Value coexecute(EggProgramContext& context, EggProgramStackless& stackless) const override {
+      return context.coexecuteYield(stackless, this->expr);
     }
     virtual void dump(std::ostream& os) const override {
       ParserDump(os, "yield").add(this->expr);

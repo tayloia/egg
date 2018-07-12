@@ -24,7 +24,7 @@ namespace egg::yolk {
   class FunctionCoroutine {
   public:
     virtual ~FunctionCoroutine() {}
-    virtual egg::lang::Value resume(EggProgramContext& program) = 0;
+    virtual egg::lang::Value resume(EggProgramContext& context) = 0;
 
     static FunctionCoroutine* create(const std::shared_ptr<egg::yolk::IEggProgramNode>& block);
   };

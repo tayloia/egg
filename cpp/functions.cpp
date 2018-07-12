@@ -6,7 +6,27 @@
 #include "egg-engine.h"
 #include "egg-program.h"
 
-namespace egg::yolk {
+namespace {
+  class FunctionCoroutineStackless;
+}
+
+class egg::yolk::EggProgramStackless {
+protected:
+  FunctionCoroutineStackless* parent; // back-pointer
+  EggProgramStackless* next; // next in stack, may be null
+  explicit EggProgramStackless(FunctionCoroutineStackless& parent); 
+public:
+  virtual ~EggProgramStackless() {}
+  virtual egg::lang::Value resume(egg::yolk::EggProgramContext& context) = 0;
+  template<typename T, typename... ARGS>
+  T& push(ARGS&&... args) {
+    // Use perfect forwarding to the constructor (automatically plumbed into the parent)
+    return *new T(*this->parent, std::forward<ARGS>(args)...);
+  }
+  EggProgramStackless* pop();
+};
+
+namespace {
   class FunctionSignatureParameter : public egg::lang::IFunctionSignatureParameter {
   private:
     egg::lang::String name; // may be empty
@@ -31,35 +51,7 @@ namespace egg::yolk {
     }
   };
 
-  class FunctionSignature : public egg::lang::IFunctionSignature {
-    EGG_NO_COPY(FunctionSignature);
-  private:
-    egg::lang::String name;
-    egg::lang::ITypeRef returnType;
-    std::vector<FunctionSignatureParameter> parameters;
-  public:
-    FunctionSignature(const egg::lang::String& name, const egg::lang::ITypeRef& returnType)
-      : name(name), returnType(returnType) {
-    }
-    void addSignatureParameter(const egg::lang::String& parameterName, const egg::lang::ITypeRef& parameterType, size_t position, FunctionSignatureParameter::Flags flags) {
-      this->parameters.emplace_back(parameterName, parameterType, position, flags);
-    }
-    virtual egg::lang::String getFunctionName() const override {
-      return this->name;
-    }
-    virtual egg::lang::ITypeRef getReturnType() const override {
-      return this->returnType;
-    }
-    virtual size_t getParameterCount() const override {
-      return this->parameters.size();
-    }
-    virtual const egg::lang::IFunctionSignatureParameter& getParameter(size_t index) const override {
-      assert(index < this->parameters.size());
-      return this->parameters[index];
-    }
-  };
-
-  class GeneratorFunctionType : public FunctionType {
+  class GeneratorFunctionType : public egg::yolk::FunctionType {
     EGG_NO_COPY(GeneratorFunctionType);
   private:
     egg::lang::ITypeRef rettype;
@@ -83,18 +75,128 @@ namespace egg::yolk {
     }
   };
 
-  class FunctionCoroutineStackless : public FunctionCoroutine {
+  class StacklessRoot : public egg::yolk::EggProgramStackless {
+    EGG_NO_COPY(StacklessRoot);
+  public:
+    explicit StacklessRoot(FunctionCoroutineStackless& parent)
+      : EggProgramStackless(parent) {
+    }
+    virtual egg::lang::Value resume(egg::yolk::EggProgramContext&) {
+      // If the root element resumed, we've completed all the statements in the function definition block
+      // Simulate 'return;' to say we've finished
+      return egg::lang::Value::ReturnVoid;
+    }
+  };
+
+  class StacklessBlock : public egg::yolk::EggProgramStackless {
+    EGG_NO_COPY(StacklessBlock);
+  protected:
+    const std::vector<std::shared_ptr<egg::yolk::IEggProgramNode>>* statements;
+    size_t progress;
+  public:
+    StacklessBlock(FunctionCoroutineStackless& parent, const std::vector<std::shared_ptr<egg::yolk::IEggProgramNode>>& statements)
+      : EggProgramStackless(parent),
+        statements(&statements),
+        progress(0) {
+    }
+    virtual egg::lang::Value resume(egg::yolk::EggProgramContext& context) {
+      while (this->progress < this->statements->size()) {
+        auto& statement = (*this->statements)[this->progress++];
+        assert(statement != nullptr);
+        context.statement(*statement); // WIBBLE
+        auto retval = statement->coexecute(context, *this);
+        if (!retval.is(egg::lang::Discriminator::Void)) {
+          return retval;
+        }
+      }
+      // Fallen off the end of the block
+      auto* resumed = this->pop();
+      assert(resumed != nullptr);
+      return resumed->resume(context);
+    }
+  };
+
+  class StacklessWhile : public egg::yolk::EggProgramStackless {
+    EGG_NO_COPY(StacklessWhile);
+  protected:
+    std::shared_ptr<egg::yolk::IEggProgramNode> cond;
+    std::shared_ptr<egg::yolk::IEggProgramNode> block;
+  public:
+    StacklessWhile(FunctionCoroutineStackless& parent, const std::shared_ptr<egg::yolk::IEggProgramNode>& cond, const std::shared_ptr<egg::yolk::IEggProgramNode>& block)
+      : EggProgramStackless(parent),
+        cond(cond),
+        block(block) {
+    }
+    virtual egg::lang::Value resume(egg::yolk::EggProgramContext& context) {
+      auto retval = context.condition(*this->cond);
+      if (retval.is(egg::lang::Discriminator::Bool)) {
+        if (!retval.getBool()) {
+          // Condition failed, leave the loop
+          return this->pop()->resume(context);
+        }
+        return this->block->coexecute(context, *this);
+      }
+      return retval;
+    }
+  };
+
+  class FunctionCoroutineStackless : public egg::yolk::FunctionCoroutine {
     EGG_NO_COPY(FunctionCoroutineStackless);
+    friend class egg::yolk::EggProgramStackless;
   private:
+    // We cannot use a std::stack for this as the destruction order of elements is undefined by the standard
+    egg::yolk::EggProgramStackless* stack;
     std::shared_ptr<egg::yolk::IEggProgramNode> block;
   public:
     explicit FunctionCoroutineStackless(const std::shared_ptr<egg::yolk::IEggProgramNode>& block)
-      : block(block) {
+      : stack(nullptr),
+        block(block) {
       assert(block != nullptr);
     }
-    virtual egg::lang::Value resume(EggProgramContext& program) override;
+    virtual ~FunctionCoroutineStackless() {
+      while (this->stack != nullptr) {
+        (void)this->stack->pop();
+      }
+    }
+    virtual egg::lang::Value resume(egg::yolk::EggProgramContext& context) override {
+      if (this->stack == nullptr) {
+        // This is the first time through; push a root context
+        auto* root = new StacklessRoot(*this);
+        assert(this->stack == root);
+        return this->block->coexecute(context, *root);
+      }
+      return this->stack->resume(context);
+    }
   };
 }
+
+class egg::yolk::FunctionSignature : public egg::lang::IFunctionSignature {
+  EGG_NO_COPY(FunctionSignature);
+private:
+  egg::lang::String name;
+  egg::lang::ITypeRef returnType;
+  std::vector<FunctionSignatureParameter> parameters;
+public:
+  FunctionSignature(const egg::lang::String& name, const egg::lang::ITypeRef& returnType)
+    : name(name), returnType(returnType) {
+  }
+  void addSignatureParameter(const egg::lang::String& parameterName, const egg::lang::ITypeRef& parameterType, size_t position, FunctionSignatureParameter::Flags flags) {
+    this->parameters.emplace_back(parameterName, parameterType, position, flags);
+  }
+  virtual egg::lang::String getFunctionName() const override {
+    return this->name;
+  }
+  virtual egg::lang::ITypeRef getReturnType() const override {
+    return this->returnType;
+  }
+  virtual size_t getParameterCount() const override {
+    return this->parameters.size();
+  }
+  virtual const egg::lang::IFunctionSignatureParameter& getParameter(size_t index) const override {
+    assert(index < this->parameters.size());
+    return this->parameters[index];
+  }
+};
 
 void egg::lang::IFunctionSignature::buildStringDefault(StringBuilder& sb, IFunctionSignature::Parts parts) const {
   // TODO better formatting of named/variadic etc.
@@ -191,7 +293,38 @@ egg::yolk::FunctionCoroutine* egg::yolk::FunctionCoroutine::create(const std::sh
   return new FunctionCoroutineStackless(block);
 }
 
-egg::lang::Value egg::yolk::FunctionCoroutineStackless::resume(EggProgramContext&) {
-  // WIBBLE
-  return egg::lang::Value::Void;
+egg::yolk::EggProgramStackless::EggProgramStackless(FunctionCoroutineStackless& parent)
+  : parent(&parent),
+   next(parent.stack) {
+  // Plumb ourselves into the synthetic stack
+  parent.stack = this;
+}
+
+egg::yolk::EggProgramStackless* egg::yolk::EggProgramStackless::pop() {
+  // Remove the top element of the synthetic stack (should be us!)
+  auto* top = this->parent->stack;
+  assert(top != nullptr);
+  assert(top == this);
+  auto* result = top->next;
+  this->parent->stack = result;
+  delete top;
+  return result;
+}
+
+egg::lang::Value egg::yolk::EggProgramContext::coexecuteBlock(EggProgramStackless& stackless, const std::vector<std::shared_ptr<IEggProgramNode>>& statements) {
+  // Create a new context to execute the statements in order
+  return stackless.push<StacklessBlock>(statements).resume(*this);
+}
+
+egg::lang::Value egg::yolk::EggProgramContext::coexecuteWhile(EggProgramStackless& stackless, const std::shared_ptr<egg::yolk::IEggProgramNode>& cond, const std::shared_ptr<egg::yolk::IEggProgramNode>& block) {
+  return stackless.push<StacklessWhile>(cond, block).resume(*this);
+}
+
+egg::lang::Value egg::yolk::EggProgramContext::coexecuteYield(EggProgramStackless&, const std::shared_ptr<IEggProgramNode>& value) {
+  auto result = value->execute(*this).direct();
+  if (!result.has(egg::lang::Discriminator::FlowControl)) {
+    // Need to convert the result to a return flow control
+    result.addFlowControl(egg::lang::Discriminator::Yield);
+  }
+  return result;
 }

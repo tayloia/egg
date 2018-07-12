@@ -495,14 +495,21 @@ namespace {
       if ((parameters.getPositionalCount() > 0) || (parameters.getNamedCount() > 0)) {
         return this->program->raiseFormat("Parameters in generator iterator calls are not supported");
       }
-      return this->iterateNext();
+      auto retval = this->iterateNext();
+      if (retval.stripFlowControl(egg::lang::Discriminator::Return)) {
+        // The sequence has ended
+        if (!retval.is(egg::lang::Discriminator::Void)) {
+          return this->program->raiseFormat("Expected 'return' statement without a value in generator, but got '", retval.getRuntimeType()->toString(), "' instead");
+        }
+      }
+      return retval;
     }
     virtual egg::lang::Value iterate(egg::lang::IExecution&) override;
     egg::lang::Value iterateNext() {
       if (this->coroutine == nullptr) {
         // Don't re-create if we've already completed
         if (this->completed) {
-          return egg::lang::Value::Void;
+          return egg::lang::Value::ReturnVoid;
         }
         this->coroutine.reset(egg::yolk::FunctionCoroutine::create(this->block));
       }
@@ -515,9 +522,9 @@ namespace {
       // We either completed or failed
       this->completed = true;
       this->coroutine.reset(nullptr);
-      if (retval.is(egg::lang::Discriminator::Return)) {
-        // Empty return (i.e. explicit completion
-        return egg::lang::Value::Void;
+      if (retval.stripFlowControl(egg::lang::Discriminator::Return)) {
+        // We explicitly terminated
+        return retval;
       }
       return retval;
     }
