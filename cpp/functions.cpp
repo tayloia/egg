@@ -103,7 +103,7 @@ namespace {
       while (this->progress < this->statements->size()) {
         auto& statement = (*this->statements)[this->progress++];
         assert(statement != nullptr);
-        context.statement(*statement); // WIBBLE
+        context.statement(*statement);
         auto retval = statement->coexecute(context, *this);
         if (!retval.is(egg::lang::Discriminator::Void)) {
           return retval;

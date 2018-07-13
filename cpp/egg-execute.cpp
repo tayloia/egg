@@ -581,14 +581,10 @@ egg::lang::Value egg::yolk::EggProgramContext::executeWhile(const IEggProgramNod
   });
 }
 
-egg::lang::Value egg::yolk::EggProgramContext::executeYield(const IEggProgramNode& self, const IEggProgramNode& value) {
+egg::lang::Value egg::yolk::EggProgramContext::executeYield(const IEggProgramNode& self, const IEggProgramNode&) {
+  // We can only yield from a stackless coroutine via 'coexecute()'
   this->statement(self);
-  auto result = value.execute(*this).direct();
-  if (!result.has(egg::lang::Discriminator::FlowControl)) {
-    // Need to convert the result to a return flow control
-    result.addFlowControl(egg::lang::Discriminator::Yield);
-  }
-  return result;
+  return this->raiseFormat("Internal runtime error: Attempt to execute 'yield' in stackful context");
 }
 
 egg::lang::Value egg::yolk::EggProgramContext::executeArray(const IEggProgramNode& self, const std::vector<std::shared_ptr<IEggProgramNode>>& values) {
@@ -760,14 +756,13 @@ egg::lang::LogSeverity egg::yolk::EggProgram::execute(IEggEngineExecutionContext
   auto context = this->createRootContext(execution, *symtable, severity);
   auto retval = this->root->execute(*context);
   if (!retval.is(egg::lang::Discriminator::Void)) {
-    std::string message;
     if (retval.stripFlowControl(egg::lang::Discriminator::Exception)) {
       // TODO exception location
-      message = retval.toUTF8();
-    } else {
-      message = "Expected statement to return 'void', but got '" + retval.getTagString() + "' instead";
+      execution.log(egg::lang::LogSource::Runtime, egg::lang::LogSeverity::Error, retval.toUTF8());
+    } else if (retval.has(egg::lang::Discriminator::FlowControl)) {
+      std::string message = "Internal runtime error: Expected statement to return 'void', but got '" + retval.getTagString() + "' instead";
+      execution.log(egg::lang::LogSource::Runtime, egg::lang::LogSeverity::Error, message);
     }
-    execution.log(egg::lang::LogSource::Runtime, egg::lang::LogSeverity::Error, message);
   }
   return severity;
 }

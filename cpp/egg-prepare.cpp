@@ -79,6 +79,11 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareStatements(c
     if (abandoned(retval)) {
       return retval;
     }
+    // We can only perform this after preparing the statement, otherwise the type information isn't correct (always 'void')
+    auto rettype = statement->getType();
+    if (rettype->getSimpleTypes() != egg::lang::Discriminator::Void) {
+      this->compilerWarning(statement->location(), "Expected statement to return 'void', but got '", rettype->toString(), "' instead");
+    }
   }
   return retval;
 }

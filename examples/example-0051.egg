@@ -1,0 +1,33 @@
+void test(string name, object generator) {
+  var result = string(name, ":");
+  for (var i : generator) {
+    result = string(result, i);
+  }
+  print(result);
+}
+
+int... countdown_explicit() {
+  yield 3;
+  yield 2;
+  yield 1;
+}
+test("countdown_explicit", countdown_explicit());
+///>countdown_explicit:321
+
+int... countdown_while(int counter) {
+  while (counter > 0) {
+    yield counter;
+    --counter;
+  }
+}
+test("countdown_while", countdown_while(3));
+///>countdown_while:321
+
+int... countdown_do(int counter) {
+  do {
+    yield counter;
+    --counter;
+  } while (counter > 0);
+}
+test("countdown_do", countdown_do(3));
+///>countdown_do:321
