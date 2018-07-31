@@ -54,7 +54,7 @@ OBJ_DIR = $(OBJ_ROOT)/$(CONFIGURATION)
 BIN_DIR = $(BIN_ROOT)/$(CONFIGURATION)
 
 EGG_SRCS = $(call sources,yolk/*.cpp)
-TEST_SRCS = $(call sources,yolk/test/*.cpp)
+TEST_SRCS = $(call sources,ovum/test/*.cpp) $(call sources,yolk/test/*.cpp)
 
 EGG_OBJS = $(call objects,$(EGG_SRCS))
 TEST_OBJS = $(call objects,$(TEST_SRCS))
@@ -62,7 +62,6 @@ TEST_OBJS = $(call objects,$(TEST_SRCS))
 ALL_OBJS = $(EGG_OBJS) $(TEST_OBJS)
 ALL_DIRS = $(call directories,$(ALL_OBJS)) $(BIN_DIR)/.
 
-EGG_EXE = $(BIN_DIR)/egg.exe
 TEST_EXE = $(BIN_DIR)/egg-testsuite.exe
 
 #############################################################################
@@ -102,15 +101,12 @@ $(OBJ_DIR)/%.o: %.cpp
 #############################################################################
 
 # These source files need additional include directories for Google Test
-$(OBJ_DIR)/yolk/test/%: CXXFLAGS += -iquote ./thirdparty/googletest/include
-$(OBJ_DIR)/yolk/test/gtest.%: CXXFLAGS += -iquote ./thirdparty/googletest
+$(OBJ_DIR)/ovum/test/% $(OBJ_DIR)/yolk/test/%: CXXFLAGS += -iquote ./thirdparty/googletest/include
+$(OBJ_DIR)/ovum/test/gtest.%: CXXFLAGS += -iquote ./thirdparty/googletest
 
 # Re-generate the object files if this makefile changes
 # Make sure intermediate directories are created before generating object files
 $(ALL_OBJS): Makefile | $(ALL_DIRS)
-
-# Egg executable dependencies
-$(EGG_EXE): $(EGG_OBJS)
 
 # Testsuite dependencies
 $(TEST_EXE): $(EGG_OBJS) $(TEST_OBJS)
