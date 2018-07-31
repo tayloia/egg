@@ -230,7 +230,7 @@ TEST(TestEggedTokenizer, Contiguous) {
 
 TEST(TestEggedTokenizer, ExampleFile) {
   EggedTokenizerItem item;
-  auto tokenizer = createFromPath("~/cpp/test/data/example.egd");
+  auto tokenizer = createFromPath("~/yolk/test/data/example.egd");
   size_t count = 0;
   while (tokenizer->next(item) != EggedTokenizerKind::EndOfFile) {
     count++;

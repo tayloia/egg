@@ -103,7 +103,7 @@ TEST(TestEggParser, ExpressionType) {
 }
 
 TEST(TestEggParser, ExampleFile) {
-  FileTextStream stream("~/cpp/test/data/example.egg");
+  FileTextStream stream("~/yolk/test/data/example.egg");
   auto root = EggParserFactory::parseModule(stream);
   root->dump(std::cout);
   std::cout << std::endl;

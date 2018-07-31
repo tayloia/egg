@@ -9,7 +9,7 @@ override CONFIGURATION ?= release
 include make/$(PLATFORM).mak
 
 # We exclude these source files
-EXCLUDE_SRCS = cpp/main.cpp
+EXCLUDE_SRCS = yolk/main.cpp
 
 SILENT = @
 
@@ -53,8 +53,8 @@ BIN_ROOT = $(PLATFORM)/$(TOOLCHAIN)/bin
 OBJ_DIR = $(OBJ_ROOT)/$(CONFIGURATION)
 BIN_DIR = $(BIN_ROOT)/$(CONFIGURATION)
 
-EGG_SRCS = $(call sources,cpp/*.cpp)
-TEST_SRCS = $(call sources,cpp/test/*.cpp)
+EGG_SRCS = $(call sources,yolk/*.cpp)
+TEST_SRCS = $(call sources,yolk/test/*.cpp)
 
 EGG_OBJS = $(call objects,$(EGG_SRCS))
 TEST_OBJS = $(call objects,$(TEST_SRCS))
@@ -102,8 +102,8 @@ $(OBJ_DIR)/%.o: %.cpp
 #############################################################################
 
 # These source files need additional include directories for Google Test
-$(OBJ_DIR)/cpp/test/%: CXXFLAGS += -iquote ./thirdparty/googletest/include
-$(OBJ_DIR)/cpp/test/gtest.%: CXXFLAGS += -iquote ./thirdparty/googletest
+$(OBJ_DIR)/yolk/test/%: CXXFLAGS += -iquote ./thirdparty/googletest/include
+$(OBJ_DIR)/yolk/test/gtest.%: CXXFLAGS += -iquote ./thirdparty/googletest
 
 # Re-generate the object files if this makefile changes
 # Make sure intermediate directories are created before generating object files

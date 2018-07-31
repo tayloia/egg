@@ -53,22 +53,22 @@ namespace {
 }
 
 TEST(TestEggEngine, CreateEngineFromParsed) {
-  FileTextStream stream("~/cpp/test/data/example.egg");
+  FileTextStream stream("~/yolk/test/data/example.egg");
   auto root = EggParserFactory::parseModule(stream);
   auto engine = EggEngineFactory::createEngineFromParsed(root);
   auto logger = std::make_shared<TestLogger>();
   auto preparation = EggEngineFactory::createPreparationContext(logger);
   ASSERT_EQ(egg::lang::LogSeverity::Error, engine->prepare(*preparation));
-  ASSERT_STARTSWITH(logger->logged, "COMPILER:ERROR:~/cpp/test/data/example.egg(2,14): Unknown identifier: 'first'");
+  ASSERT_STARTSWITH(logger->logged, "COMPILER:ERROR:~/yolk/test/data/example.egg(2,14): Unknown identifier: 'first'");
 }
 
 TEST(TestEggEngine, CreateEngineFromTextStream) {
-  FileTextStream stream("~/cpp/test/data/example.egg");
+  FileTextStream stream("~/yolk/test/data/example.egg");
   auto engine = EggEngineFactory::createEngineFromTextStream(stream);
   auto logger = std::make_shared<TestLogger>();
   auto preparation = EggEngineFactory::createPreparationContext(logger);
   ASSERT_EQ(egg::lang::LogSeverity::Error, engine->prepare(*preparation));
-  ASSERT_STARTSWITH(logger->logged, "COMPILER:ERROR:~/cpp/test/data/example.egg(2,14): Unknown identifier: 'first'");
+  ASSERT_STARTSWITH(logger->logged, "COMPILER:ERROR:~/yolk/test/data/example.egg(2,14): Unknown identifier: 'first'");
 }
 
 TEST(TestEggEngine, CreateEngineFromGarbage) {
@@ -92,7 +92,7 @@ TEST(TestEggEngine, PrepareTwice) {
 }
 
 TEST(TestEggEngine, ExecuteUnprepared) {
-  FileTextStream stream("~/cpp/test/data/example.egg");
+  FileTextStream stream("~/yolk/test/data/example.egg");
   auto engine = EggEngineFactory::createEngineFromTextStream(stream);
   auto logger = std::make_shared<TestLogger>();
   auto execution = EggEngineFactory::createExecutionContext(logger);
@@ -113,7 +113,7 @@ TEST(TestEggEngine, DuplicateSymbols) {
 
 TEST(TestEggEngine, WorkingFile) {
   // TODO still needed?
-  FileTextStream stream("~/cpp/test/data/working.egg");
+  FileTextStream stream("~/yolk/test/data/working.egg");
   auto engine = EggEngineFactory::createEngineFromTextStream(stream);
   auto logger = std::make_shared<TestLogger>();
   auto preparation = EggEngineFactory::createPreparationContext(logger);
@@ -126,7 +126,7 @@ TEST(TestEggEngine, WorkingFile) {
 
 TEST(TestEggEngine, Coverage) {
   // This script is used to cover most language feature
-  FileTextStream stream("~/cpp/test/data/coverage.egg");
+  FileTextStream stream("~/yolk/test/data/coverage.egg");
   auto engine = EggEngineFactory::createEngineFromTextStream(stream);
   auto logger = std::make_shared<TestLogger>();
   auto preparation = EggEngineFactory::createPreparationContext(logger);
