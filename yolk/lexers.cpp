@@ -1,5 +1,5 @@
-#include "yolk.h"
-#include "lexers.h"
+#include "yolk/yolk.h"
+#include "yolk/lexers.h"
 
 #include <cstring>
 #include <iomanip>

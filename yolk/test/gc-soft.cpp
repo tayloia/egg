@@ -1,4 +1,4 @@
-#include "test.h"
+#include "yolk/test.h"
 
 namespace {
   struct Instance : public egg::gc::Collectable {

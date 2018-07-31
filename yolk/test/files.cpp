@@ -1,4 +1,4 @@
-#include "test.h"
+#include "yolk/test.h"
 
 TEST(TestFiles, NormalizePath) {
   ASSERT_EQ("/path/to/file", egg::yolk::File::normalizePath("/path/to/file"));

@@ -1,4 +1,4 @@
-#include "yolk.h"
+#include "yolk/yolk.h"
 
 namespace {
   using namespace egg::lang;
@@ -700,7 +700,7 @@ namespace {
         auto index = src.indexOfString(separator, 0);
         while (index >= 0) {
           dst.emplace_back(*src.substring(begin, size_t(index)));
-          begin = index + separator.length();
+          begin = size_t(index) + separator.length();
           if (--limit == 0) {
             break;
           }

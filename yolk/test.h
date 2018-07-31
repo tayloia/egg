@@ -1,2 +1,2 @@
-#include "yolk.h"
-#include "test/gtest.h"
+#include "yolk/yolk.h"
+#include "yolk/test/gtest.h"

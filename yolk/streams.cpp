@@ -1,4 +1,4 @@
-#include "yolk.h"
+#include "yolk/yolk.h"
 
 namespace {
   bool isEndOfLine(int ch) {

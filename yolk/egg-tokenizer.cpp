@@ -1,6 +1,6 @@
-#include "yolk.h"
-#include "lexers.h"
-#include "egg-tokenizer.h"
+#include "yolk/yolk.h"
+#include "yolk/lexers.h"
+#include "yolk/egg-tokenizer.h"
 
 #include <cstring>
 

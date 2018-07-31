@@ -1,62 +1,6 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
-    <ClCompile Include="..\cpp\test\exceptions.cpp">
-      <Filter>Test Files</Filter>
-    </ClCompile>
-    <ClCompile Include="..\cpp\test\files.cpp">
-      <Filter>Test Files</Filter>
-    </ClCompile>
-    <ClCompile Include="..\cpp\test\streams.cpp">
-      <Filter>Test Files</Filter>
-    </ClCompile>
-    <ClCompile Include="..\cpp\test\strings.cpp">
-      <Filter>Test Files</Filter>
-    </ClCompile>
-    <ClCompile Include="..\cpp\test\lexers.cpp">
-      <Filter>Test Files</Filter>
-    </ClCompile>
-    <ClCompile Include="test.pch.cpp">
-      <Filter>Test Files</Filter>
-    </ClCompile>
-    <ClCompile Include="..\cpp\test\json-tokenizer.cpp">
-      <Filter>Test Files</Filter>
-    </ClCompile>
-    <ClCompile Include="..\cpp\test\egged-tokenizer.cpp">
-      <Filter>Test Files</Filter>
-    </ClCompile>
-    <ClCompile Include="..\cpp\test\egg-tokenizer.cpp">
-      <Filter>Test Files</Filter>
-    </ClCompile>
-    <ClCompile Include="..\cpp\test\egg-parser.cpp">
-      <Filter>Test Files</Filter>
-    </ClCompile>
-    <ClCompile Include="..\cpp\test\egg-syntax.cpp">
-      <Filter>Test Files</Filter>
-    </ClCompile>
-    <ClCompile Include="..\cpp\test\egg-engine.cpp">
-      <Filter>Test Files</Filter>
-    </ClCompile>
-    <ClCompile Include="..\cpp\test\examples.cpp">
-      <Filter>Test Files</Filter>
-    </ClCompile>
-    <ClCompile Include="..\cpp\test\utf.cpp">
-      <Filter>Test Files</Filter>
-    </ClCompile>
-    <ClCompile Include="..\cpp\test\dictionaries.cpp">
-      <Filter>Test Files</Filter>
-    </ClCompile>
-    <ClCompile Include="..\cpp\test\gc-hard.cpp">
-      <Filter>Test Files</Filter>
-    </ClCompile>
-    <ClCompile Include="..\cpp\test\gc-soft.cpp">
-      <Filter>Test Files</Filter>
-    </ClCompile>
-    <ClCompile Include="..\cpp\test\lang.cpp">
-      <Filter>Test Files</Filter>
-    </ClCompile>
-  </ItemGroup>
-  <ItemGroup>
     <Filter Include="Data Files">
       <UniqueIdentifier>{014777ce-0e38-45b5-8346-7cc09301dee5}</UniqueIdentifier>
     </Filter>
@@ -251,5 +195,69 @@
     <Text Include="..\cpp\test\data\utf-8-demo.lf.txt">
       <Filter>Data Files</Filter>
     </Text>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="..\yolk\test\dictionaries.cpp">
+      <Filter>Test Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\yolk\test\egged-tokenizer.cpp">
+      <Filter>Test Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\yolk\test\egg-engine.cpp">
+      <Filter>Test Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\yolk\test\egg-parser.cpp">
+      <Filter>Test Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\yolk\test\egg-syntax.cpp">
+      <Filter>Test Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\yolk\test\egg-tokenizer.cpp">
+      <Filter>Test Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\yolk\test\examples.cpp">
+      <Filter>Test Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\yolk\test\exceptions.cpp">
+      <Filter>Test Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\yolk\test\files.cpp">
+      <Filter>Test Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\yolk\test\gc-hard.cpp">
+      <Filter>Test Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\yolk\test\gc-soft.cpp">
+      <Filter>Test Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\yolk\test\gtest.cpp">
+      <Filter>Test Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\yolk\test\json-tokenizer.cpp">
+      <Filter>Test Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\yolk\test\lang.cpp">
+      <Filter>Test Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\yolk\test\lexers.cpp">
+      <Filter>Test Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\yolk\test\streams.cpp">
+      <Filter>Test Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\yolk\test\strings.cpp">
+      <Filter>Test Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\yolk\test\utf.cpp">
+      <Filter>Test Files</Filter>
+    </ClCompile>
+    <ClCompile Include="test.pch.cpp">
+      <Filter>Test Files</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\yolk\test\gtest.h">
+      <Filter>Test Files</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

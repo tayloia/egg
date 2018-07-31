@@ -1,5 +1,5 @@
-#include "yolk.h"
-#include "program.h"
+#include "yolk/yolk.h"
+#include "yolk/program.h"
 
 void egg0::Program::main(const std::vector<std::string>&)
 {

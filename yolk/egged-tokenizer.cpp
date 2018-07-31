@@ -1,6 +1,6 @@
-#include "yolk.h"
-#include "lexers.h"
-#include "egged-tokenizer.h"
+#include "yolk/yolk.h"
+#include "yolk/lexers.h"
+#include "yolk/egged-tokenizer.h"
 
 namespace {
   using namespace egg::yolk;

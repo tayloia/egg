@@ -1,4 +1,4 @@
-#include "yolk.h"
+#include "yolk/yolk.h"
 
 namespace {
   std::string formatWhere(const std::string& resource, const egg::yolk::ExceptionLocation& location) {

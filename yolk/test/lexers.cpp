@@ -1,5 +1,5 @@
-#include "test.h"
-#include "lexers.h"
+#include "yolk/test.h"
+#include "yolk/lexers.h"
 
 using namespace egg::yolk;
 

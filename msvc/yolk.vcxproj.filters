@@ -11,133 +11,139 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="..\cpp\test\gtest.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="..\cpp\yolk.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="..\cpp\platform.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="..\cpp\files.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="..\cpp\macros.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="..\cpp\streams.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="..\cpp\strings.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="..\cpp\exceptions.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="..\cpp\lexers.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="..\cpp\json-tokenizer.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="..\cpp\egged-tokenizer.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="..\cpp\egg-tokenizer.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="..\cpp\egg-parser.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="..\cpp\egg-syntax.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="..\cpp\lang.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="..\cpp\egg-engine.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="..\cpp\egg-program.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="..\cpp\gc.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="..\cpp\utf.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="..\cpp\dictionaries.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="..\cpp\functions.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-  </ItemGroup>
-  <ItemGroup>
-    <ClCompile Include="..\cpp\test\gtest.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="..\cpp\files.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="..\cpp\exceptions.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="..\cpp\streams.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="yolk.pch.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\cpp\lexers.cpp">
+    <ClCompile Include="..\yolk\builtins.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\cpp\json-tokenizer.cpp">
+    <ClCompile Include="..\yolk\egged-tokenizer.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\cpp\egged-tokenizer.cpp">
+    <ClCompile Include="..\yolk\egg-engine.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\cpp\egg-tokenizer.cpp">
+    <ClCompile Include="..\yolk\egg-execute.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\cpp\egg-parser.cpp">
+    <ClCompile Include="..\yolk\egg-parser.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\cpp\egg-syntax.cpp">
+    <ClCompile Include="..\yolk\egg-prepare.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\cpp\egg-engine.cpp">
+    <ClCompile Include="..\yolk\egg-program.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\cpp\strings.cpp">
+    <ClCompile Include="..\yolk\egg-syntax.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\cpp\egg-program.cpp">
+    <ClCompile Include="..\yolk\egg-tokenizer.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\cpp\lang.cpp">
+    <ClCompile Include="..\yolk\egg-vanilla.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\cpp\builtins.cpp">
+    <ClCompile Include="..\yolk\exceptions.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\cpp\egg-vanilla.cpp">
+    <ClCompile Include="..\yolk\files.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\cpp\egg-execute.cpp">
+    <ClCompile Include="..\yolk\functions.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\cpp\egg-prepare.cpp">
+    <ClCompile Include="..\yolk\gc.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\cpp\functions.cpp">
+    <ClCompile Include="..\yolk\json-tokenizer.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\cpp\gc.cpp">
+    <ClCompile Include="..\yolk\lang.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\yolk\lexers.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\yolk\program.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\yolk\streams.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\yolk\strings.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\yolk\dictionaries.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\yolk\egged-tokenizer.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\yolk\egg-engine.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\yolk\egg-parser.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\yolk\egg-program.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\yolk\egg-syntax.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\yolk\egg-tokenizer.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\yolk\exceptions.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\yolk\files.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\yolk\functions.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\yolk\gc.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\yolk\json-tokenizer.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\yolk\lang.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\yolk\lexer.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\yolk\lexers.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\yolk\macros.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\yolk\platform.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\yolk\program.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\yolk\streams.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\yolk\strings.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\yolk\test.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\yolk\utf.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\yolk\yolk.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

@@ -1,4 +1,4 @@
-#include "platform.h"
+#include "yolk/platform.h"
 
 #include <algorithm>
 #include <atomic>
@@ -17,14 +17,14 @@
 #include <vector>
 #include <unordered_map>
 
-#include "macros.h"
-#include "dictionaries.h"
-#include "exceptions.h"
-#include "files.h"
-#include "gc.h"
-#include "streams.h"
-#include "strings.h"
-#include "utf.h"
+#include "yolk/macros.h"
+#include "yolk/dictionaries.h"
+#include "yolk/exceptions.h"
+#include "yolk/files.h"
+#include "yolk/gc.h"
+#include "yolk/streams.h"
+#include "yolk/strings.h"
+#include "yolk/utf.h"
 
-#include "lang.h"
-#include "functions.h"
+#include "yolk/lang.h"
+#include "yolk/functions.h"

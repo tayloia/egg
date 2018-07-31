@@ -8,7 +8,7 @@
   <PropertyGroup>
     <OutDir>$(SolutionDir)bin\$(ProjectName).$(Configuration.ToLower()).$(PlatformTarget.ToLower())\</OutDir>
     <IntDir>$(SolutionDir)obj\$(ProjectName).$(Configuration.ToLower()).$(PlatformTarget.ToLower())\</IntDir>
-    <IncludePath>$(EggRoot)\cpp;$(GoogleTest)\include;$(IncludePath)</IncludePath>
+    <IncludePath>$(EggRoot);$(GoogleTest)\include;$(IncludePath)</IncludePath>
   </PropertyGroup>
   <PropertyGroup Label="Configuration">
     <SpectreMitigation>Spectre</SpectreMitigation>
@@ -29,9 +29,6 @@
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <DisableLanguageExtensions>true</DisableLanguageExtensions>
       <LanguageStandard>stdcpp17</LanguageStandard>
-      <PrecompiledHeader>Use</PrecompiledHeader>
-      <PrecompiledHeaderFile>yolk.h</PrecompiledHeaderFile>
-      <PrecompiledHeaderOutputFile>$(IntDir)yolk.pch</PrecompiledHeaderOutputFile>
     </ClCompile>
     <Link>
       <AdditionalDependencies>

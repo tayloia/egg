@@ -1,5 +1,4 @@
-#include "yolk.h"
-#include "gtest.h"
+#include "yolk/test.h"
 
 // Reduce the warning level in MSVC
 #if defined(_MSC_VER)
@@ -7,6 +6,7 @@
 #pragma warning(disable: 4571 5045)
 #endif
 
+// For this source file only: make sure the following is in our search path, disable language extensions and turn off precompiled headers
 #include "src/gtest-all.cc"
 
 // Restore the warning level in MSVC

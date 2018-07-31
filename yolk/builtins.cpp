@@ -1,4 +1,4 @@
-#include "yolk.h"
+#include "yolk/yolk.h"
 
 namespace {
   using namespace egg::lang;

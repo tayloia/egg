@@ -1,8 +1,8 @@
-#include "yolk.h"
-#include "lexers.h"
-#include "egg-tokenizer.h"
-#include "egg-syntax.h"
-#include "egg-parser.h"
+#include "yolk/yolk.h"
+#include "yolk/lexers.h"
+#include "yolk/egg-tokenizer.h"
+#include "yolk/egg-syntax.h"
+#include "yolk/egg-parser.h"
 
 #include <set>
 

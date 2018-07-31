@@ -1,9 +1,9 @@
-#include "test.h"
-#include "lexers.h"
-#include "egg-tokenizer.h"
-#include "egg-syntax.h"
-#include "egg-parser.h"
-#include "egg-engine.h"
+#include "yolk/test.h"
+#include "yolk/lexers.h"
+#include "yolk/egg-tokenizer.h"
+#include "yolk/egg-syntax.h"
+#include "yolk/egg-parser.h"
+#include "yolk/egg-engine.h"
 
 using namespace egg::yolk;
 

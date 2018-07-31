@@ -1,4 +1,4 @@
-#include "yolk.h"
+#include "yolk/yolk.h"
 
 #if EGG_PLATFORM == EGG_PLATFORM_MSVC
 #include <direct.h>
