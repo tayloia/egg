@@ -400,6 +400,9 @@ namespace {
     virtual egg::lang::Value execute(EggProgramContext& context) const override {
       return context.executeDo(*this, *this->condition, *this->block);
     }
+    virtual egg::lang::Value coexecute(EggProgramContext& context, EggProgramStackless& stackless) const override {
+      return context.coexecuteDo(stackless, this->condition, this->block);
+    }
     virtual void dump(std::ostream& os) const override {
       ParserDump(os, "do").add(this->condition).add(this->block);
     }
@@ -446,6 +449,9 @@ namespace {
     virtual egg::lang::Value execute(EggProgramContext& context) const override {
       return context.executeFor(*this, this->pre.get(), this->cond.get(), this->post.get(), *this->block);
     }
+    virtual egg::lang::Value coexecute(EggProgramContext& context, EggProgramStackless& stackless) const override {
+      return context.coexecuteFor(stackless, this->pre, this->cond, this->post, this->block);
+    }
     virtual void dump(std::ostream& os) const override {
       ParserDump(os, "for").add(this->pre).add(this->cond).add(this->post).add(this->block);
     }
@@ -468,6 +474,9 @@ namespace {
     }
     virtual egg::lang::Value execute(EggProgramContext& context) const override {
       return context.executeForeach(*this, *this->target, *this->expr, *this->block);
+    }
+    virtual egg::lang::Value coexecute(EggProgramContext& context, EggProgramStackless& stackless) const override {
+      return context.coexecuteForeach(stackless, this->target, this->expr, this->block);
     }
     virtual void dump(std::ostream& os) const override {
       ParserDump(os, "foreach").add(this->target).add(this->expr).add(this->block);

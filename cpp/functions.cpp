@@ -116,6 +116,117 @@ namespace {
     }
   };
 
+  class StacklessDo : public egg::yolk::EggProgramStackless {
+    EGG_NO_COPY(StacklessDo);
+  protected:
+    std::shared_ptr<egg::yolk::IEggProgramNode> cond;
+    std::shared_ptr<egg::yolk::IEggProgramNode> block;
+    bool test;
+  public:
+    StacklessDo(FunctionCoroutineStackless& parent, const std::shared_ptr<egg::yolk::IEggProgramNode>& cond, const std::shared_ptr<egg::yolk::IEggProgramNode>& block)
+      : EggProgramStackless(parent),
+        cond(cond),
+        block(block),
+        test(false) {
+      assert(block != nullptr);
+    }
+    virtual egg::lang::Value resume(egg::yolk::EggProgramContext& context) {
+      for (;;) {
+        if (!this->test) {
+          this->test = true;
+          auto retval = this->block->coexecute(context, *this);
+          if (!retval.is(egg::lang::Discriminator::Void)) {
+            // Probably an exception in the block
+            return retval;
+          }
+        }
+        if (this->test) {
+          this->test = false;
+          auto retval = context.condition(*this->cond);
+          if (!retval.is(egg::lang::Discriminator::Bool)) {
+            // Probably an exception in the condition evaluation
+            return retval;
+          }
+          if (!retval.getBool()) {
+            // Condition failed, leave the loop
+            break;
+          }
+        }
+      }
+      return this->pop()->resume(context);
+    }
+  };
+
+  class StacklessFor : public egg::yolk::EggProgramStackless {
+    EGG_NO_COPY(StacklessFor);
+  protected:
+    std::shared_ptr<egg::yolk::IEggProgramNode> pre;
+    std::shared_ptr<egg::yolk::IEggProgramNode> cond;
+    std::shared_ptr<egg::yolk::IEggProgramNode> post;
+    std::shared_ptr<egg::yolk::IEggProgramNode> block;
+    bool started;
+  public:
+    StacklessFor(FunctionCoroutineStackless& parent, const std::shared_ptr<egg::yolk::IEggProgramNode>& pre, const std::shared_ptr<egg::yolk::IEggProgramNode>& cond, const std::shared_ptr<egg::yolk::IEggProgramNode>& post, const std::shared_ptr<egg::yolk::IEggProgramNode>& block)
+      : EggProgramStackless(parent),
+        pre(pre),
+        cond(cond),
+        post(post),
+        block(block),
+        started(false) {
+      assert(block != nullptr);
+    }
+    virtual egg::lang::Value resume(egg::yolk::EggProgramContext& context) {
+      // The pre/cond/post nodes are all simple; they cannot contain yields, so can be running stackfully
+      egg::lang::Value retval;
+      if (!this->started) {
+        this->started = true;
+        // Run 'pre'
+        if (this->pre != nullptr) {
+          retval = this->pre->execute(context);
+          if (!retval.is(egg::lang::Discriminator::Void)) {
+            // Probably an exception in the pre-loop statement
+            return retval;
+          }
+        }
+      }
+      for (;;) {
+        // Run 'cond'
+        if (this->cond != nullptr) {
+          retval = context.condition(*this->cond);
+          if (!retval.is(egg::lang::Discriminator::Bool)) {
+            // Probably an exception in the condition evaluation
+            return retval;
+          }
+          if (!retval.getBool()) {
+            // Condition failed, leave the loop
+            break;
+          }
+        }
+        // Run 'block'
+        retval = this->block->coexecute(context, *this);
+        if (!retval.is(egg::lang::Discriminator::Void)) {
+          if (retval.is(egg::lang::Discriminator::Break)) {
+            // Explicit 'break'
+            break;
+          }
+          if (!retval.is(egg::lang::Discriminator::Continue)) {
+            // Not explicit 'continue'
+            return retval;
+          }
+        }
+        // Run 'post'
+        if (this->post != nullptr) {
+          retval = this->post->execute(context);
+          if (!retval.is(egg::lang::Discriminator::Void)) {
+            // Probably an exception in the post-loop statement
+            return retval;
+          }
+        }
+      }
+      return this->pop()->resume(context);
+    }
+  };
+
   class StacklessWhile : public egg::yolk::EggProgramStackless {
     EGG_NO_COPY(StacklessWhile);
   protected:
@@ -126,17 +237,32 @@ namespace {
       : EggProgramStackless(parent),
         cond(cond),
         block(block) {
+      assert(block != nullptr);
     }
     virtual egg::lang::Value resume(egg::yolk::EggProgramContext& context) {
-      auto retval = context.condition(*this->cond);
-      if (retval.is(egg::lang::Discriminator::Bool)) {
+      for (;;) {
+        auto retval = context.condition(*this->cond);
+        if (!retval.is(egg::lang::Discriminator::Bool)) {
+          // Probably an exception in the condition
+          return retval;
+        }
         if (!retval.getBool()) {
           // Condition failed, leave the loop
-          return this->pop()->resume(context);
+          break;
         }
-        return this->block->coexecute(context, *this);
+        retval = this->block->coexecute(context, *this);
+        if (!retval.is(egg::lang::Discriminator::Void)) {
+          if (retval.is(egg::lang::Discriminator::Break)) {
+            // Explicit 'break;
+            break;
+          }
+          if (!retval.is(egg::lang::Discriminator::Continue)) {
+            // Not explicit 'continue;
+            return retval;
+          }
+        }
       }
-      return retval;
+      return this->pop()->resume(context);
     }
   };
 
@@ -316,7 +442,28 @@ egg::lang::Value egg::yolk::EggProgramContext::coexecuteBlock(EggProgramStackles
   return stackless.push<StacklessBlock>(statements).resume(*this);
 }
 
+egg::lang::Value egg::yolk::EggProgramContext::coexecuteDo(EggProgramStackless& stackless, const std::shared_ptr<egg::yolk::IEggProgramNode>& cond, const std::shared_ptr<egg::yolk::IEggProgramNode>& block) {
+  // Run in a new context
+  return stackless.push<StacklessDo>(cond, block).resume(*this);
+}
+
+egg::lang::Value egg::yolk::EggProgramContext::coexecuteFor(EggProgramStackless& stackless, const std::shared_ptr<IEggProgramNode>& pre, const std::shared_ptr<IEggProgramNode>& cond, const std::shared_ptr<IEggProgramNode>& post, const std::shared_ptr<IEggProgramNode>& block) {
+  // Run in a new context
+  return stackless.push<StacklessFor>(pre, cond, post, block).resume(*this);
+}
+
+egg::lang::Value egg::yolk::EggProgramContext::coexecuteForeach(EggProgramStackless& stackless, const std::shared_ptr<IEggProgramNode>& lvalue, const std::shared_ptr<IEggProgramNode>& rvalue, const std::shared_ptr<IEggProgramNode>& block) {
+  // Run in a new context
+  EGG_UNUSED(stackless);
+  EGG_UNUSED(lvalue);
+  EGG_UNUSED(rvalue);
+  EGG_UNUSED(block);
+  return this->raiseFormat("StacklessForeach not implemented");
+  // TODO: return stackless.push<StacklessForeach>(lvalue, rvalue, block).resume(*this);
+}
+
 egg::lang::Value egg::yolk::EggProgramContext::coexecuteWhile(EggProgramStackless& stackless, const std::shared_ptr<egg::yolk::IEggProgramNode>& cond, const std::shared_ptr<egg::yolk::IEggProgramNode>& block) {
+  // Run in a new context
   return stackless.push<StacklessWhile>(cond, block).resume(*this);
 }
 

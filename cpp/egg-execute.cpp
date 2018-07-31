@@ -210,7 +210,7 @@ egg::lang::Value egg::yolk::EggProgramContext::executeFor(const IEggProgramNode&
             return egg::lang::Value::Void;
           }
           if (!retval.is(egg::lang::Discriminator::Continue)) {
-            // Probably an exception in the condition expression
+            // Probably an exception in the block
             return retval;
           }
         }

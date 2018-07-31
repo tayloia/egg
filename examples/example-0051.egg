@@ -31,3 +31,12 @@ int... countdown_do(int counter) {
 }
 test("countdown_do", countdown_do(3));
 ///>countdown_do:321
+
+int... countdown_for(int counter) {
+  for (var i = counter; i > 0; --i){
+    yield counter;
+  }
+}
+/* The following fails because 'var i' is not in its own context 2018-07-31
+test("countdown_for", countdown_for(3));
+*/
