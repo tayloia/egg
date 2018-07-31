@@ -24,11 +24,11 @@
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>
-    <None Include="..\cpp\test\data\coverage.egg" />
-    <None Include="..\cpp\test\data\example.egd" />
-    <None Include="..\cpp\test\data\example.egg" />
-    <None Include="..\cpp\test\data\example.json" />
-    <None Include="..\cpp\test\data\working.egg" />
+    <None Include="..\yolk\test\data\coverage.egg" />
+    <None Include="..\yolk\test\data\example.egd" />
+    <None Include="..\yolk\test\data\example.egg" />
+    <None Include="..\yolk\test\data\example.json" />
+    <None Include="..\yolk\test\data\working.egg" />
     <None Include="..\examples\example-0001.egg" />
     <None Include="..\examples\example-0002.egg" />
     <None Include="..\examples\example-0003.egg" />
@@ -82,10 +82,10 @@
     <None Include="..\examples\example-0051.egg" />
   </ItemGroup>
   <ItemGroup>
-    <Text Include="..\cpp\test\data\utf-8-demo.bom.txt" />
-    <Text Include="..\cpp\test\data\utf-8-demo.cr.txt" />
-    <Text Include="..\cpp\test\data\utf-8-demo.lf.txt" />
-    <Text Include="..\cpp\test\data\utf-8-demo.txt" />
+    <Text Include="..\yolk\test\data\utf-8-demo.bom.txt" />
+    <Text Include="..\yolk\test\data\utf-8-demo.cr.txt" />
+    <Text Include="..\yolk\test\data\utf-8-demo.lf.txt" />
+    <Text Include="..\yolk\test\data\utf-8-demo.txt" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\yolk\test\dictionaries.cpp" />
@@ -119,7 +119,7 @@
     <ClCompile Include="..\yolk\test\streams.cpp" />
     <ClCompile Include="..\yolk\test\strings.cpp" />
     <ClCompile Include="..\yolk\test\utf.cpp" />
-    <ClCompile Include="test.pch.cpp">
+    <ClCompile Include="yolk-test.pch.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>

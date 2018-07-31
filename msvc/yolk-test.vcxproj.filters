@@ -1,9 +1,6 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
-    <Filter Include="Data Files">
-      <UniqueIdentifier>{014777ce-0e38-45b5-8346-7cc09301dee5}</UniqueIdentifier>
-    </Filter>
     <Filter Include="Test Files">
       <UniqueIdentifier>{f8183c1a-ec54-45fd-ba1d-9f1205a078b1}</UniqueIdentifier>
       <Extensions>.cpp</Extensions>
@@ -13,18 +10,6 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <None Include="..\cpp\test\data\example.egg">
-      <Filter>Data Files</Filter>
-    </None>
-    <None Include="..\cpp\test\data\example.json">
-      <Filter>Data Files</Filter>
-    </None>
-    <None Include="..\cpp\test\data\example.egd">
-      <Filter>Data Files</Filter>
-    </None>
-    <None Include="..\cpp\test\data\working.egg">
-      <Filter>Data Files</Filter>
-    </None>
     <None Include="..\examples\example-0001.egg">
       <Filter>Example Files</Filter>
     </None>
@@ -163,9 +148,6 @@
     <None Include="..\examples\example-0046.egg">
       <Filter>Example Files</Filter>
     </None>
-    <None Include="..\cpp\test\data\coverage.egg">
-      <Filter>Data Files</Filter>
-    </None>
     <None Include="..\examples\example-0047.egg">
       <Filter>Example Files</Filter>
     </None>
@@ -181,20 +163,17 @@
     <None Include="..\examples\example-0051.egg">
       <Filter>Example Files</Filter>
     </None>
+    <None Include="..\yolk\test\data\coverage.egg" />
+    <None Include="..\yolk\test\data\example.egd" />
+    <None Include="..\yolk\test\data\example.egg" />
+    <None Include="..\yolk\test\data\example.json" />
+    <None Include="..\yolk\test\data\working.egg" />
   </ItemGroup>
   <ItemGroup>
-    <Text Include="..\cpp\test\data\utf-8-demo.bom.txt">
-      <Filter>Data Files</Filter>
-    </Text>
-    <Text Include="..\cpp\test\data\utf-8-demo.txt">
-      <Filter>Data Files</Filter>
-    </Text>
-    <Text Include="..\cpp\test\data\utf-8-demo.cr.txt">
-      <Filter>Data Files</Filter>
-    </Text>
-    <Text Include="..\cpp\test\data\utf-8-demo.lf.txt">
-      <Filter>Data Files</Filter>
-    </Text>
+    <Text Include="..\yolk\test\data\utf-8-demo.bom.txt" />
+    <Text Include="..\yolk\test\data\utf-8-demo.cr.txt" />
+    <Text Include="..\yolk\test\data\utf-8-demo.lf.txt" />
+    <Text Include="..\yolk\test\data\utf-8-demo.txt" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\yolk\test\dictionaries.cpp">
@@ -251,7 +230,7 @@
     <ClCompile Include="..\yolk\test\utf.cpp">
       <Filter>Test Files</Filter>
     </ClCompile>
-    <ClCompile Include="test.pch.cpp">
+    <ClCompile Include="yolk-test.pch.cpp">
       <Filter>Test Files</Filter>
     </ClCompile>
   </ItemGroup>
