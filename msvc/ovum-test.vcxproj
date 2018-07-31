@@ -19,11 +19,6 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="ovum.vcxproj">
-      <Project>{05a72ea2-0b14-4e92-86f1-c98e7fdffbba}</Project>
-    </ProjectReference>
-  </ItemGroup>
-  <ItemGroup>
     <ClCompile Include="..\ovum\test\gtest.cpp">
       <AdditionalIncludeDirectories Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">$(GoogleTest);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <AdditionalIncludeDirectories Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">$(GoogleTest);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
@@ -48,6 +43,11 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\ovum\test\gtest.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="ovum.vcxproj">
+      <Project>{f14e6f85-ca7d-4354-bf37-182de71d4fba}</Project>
+    </ProjectReference>
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>15.0</VCProjectVersion>

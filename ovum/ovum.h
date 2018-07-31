@@ -1,30 +1,42 @@
-#include "yolk/platform.h"
+#if defined(_MSC_VER)
 
-#include <algorithm>
-#include <atomic>
-#include <cassert>
-#include <cctype>
-#include <deque>
-#include <fstream>
-#include <functional>
-#include <iomanip>
-#include <iostream>
-#include <map>
-#include <memory>
-#include <sstream>
+// Micrsoft Visual C++: Keep windows.h inclusions to a minimum
+#define WIN32_LEAN_AND_MEAN
+// Disable overexuberant warnings:
+// warning C4514: '...': unreferenced function has been removed
+// warning C4571: Informational: catch(...) semantics changed since Visual C++ 7.1; structured exceptions (SEH) are no longer caught
+// warning C4710: '...': function not inlined
+// warning C4711: function '...' selected for automatic expansion
+// warning C4820 : '...' : '...' bytes padding added after data member '...'
+// warning C5045: Compiler will insert Spectre mitigation for memory load if /Qspectre switch specified
+#pragma warning(disable: 4514 4571 4710 4711 4820 5045)
+// Prepare to include some system headers with lower warning levels here
+#pragma warning(push)
+// warning C4365: 'argument': conversion from '...' to '...', signed/unsigned mismatch
+// warning C4623: '...': default constructor was implicitly defined as deleted because a base class default constructor is inaccessible or deleted
+// warning C4625: '...': copy constructor was implicitly defined as deleted
+// warning C4626: '...': assignment operator was implicitly defined as deleted
+// warning C4774: '...' : format string expected in argument 1 is not a string literal
+// warning C5026: '...': move constructor was implicitly defined as deleted
+// warning C5027: '...': move assignment operator was implicitly defined as deleted
+#pragma warning(disable: 4365 4623 4625 4626 4774 5026 5027)
+
+#elif defined(__GNUC__)
+
+// GNU GCC: See https://stackoverflow.com/a/16472469
+#ifdef __STRICT_ANSI__
+#undef __STRICT_ANSI__
+#endif
+
+#else
+
+// We need to add a new section for this compiler
+#error Unknown platform
+
+#endif
+
 #include <string>
-#include <type_traits>
-#include <vector>
-#include <unordered_map>
 
-#include "yolk/macros.h"
-#include "yolk/dictionaries.h"
-#include "yolk/exceptions.h"
-#include "yolk/files.h"
-#include "yolk/gc.h"
-#include "yolk/streams.h"
-#include "yolk/strings.h"
-#include "yolk/utf.h"
-
-#include "yolk/lang.h"
-#include "yolk/functions.h"
+#if defined(_MSC_VER)
+#pragma warning(pop)
+#endif

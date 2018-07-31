@@ -10,7 +10,7 @@
 #include "src/gtest-all.cc"
 
 // Restore the warning level in MSVC
-#if EGG_PLATFORM == EGG_PLATFORM_MSVC
+#if defined(_MSC_VER)
 #pragma warning(pop)
 // Google test for MSVC uses old POSIX names
 // See https://docs.microsoft.com/en-gb/cpp/c-runtime-library/backward-compatibility

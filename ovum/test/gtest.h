@@ -1,9 +1,10 @@
-#if EGG_PLATFORM == EGG_PLATFORM_MSVC
+// GoogleTest needs a reduction in MSVC's warning levels
+#if defined(_MSC_VER)
 #pragma warning(push, 3)
 #pragma warning(disable: 4365 4623 4625 4626 5026 5027)
 #endif
 #include "gtest/gtest.h"
-#if EGG_PLATFORM == EGG_PLATFORM_MSVC
+#if defined(_MSC_VER)
 #pragma warning(pop)
 #endif
 

@@ -27,28 +27,6 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="..\ovum\dictionaries.h" />
-    <ClInclude Include="..\ovum\egg-engine.h" />
-    <ClInclude Include="..\ovum\egg-parser.h" />
-    <ClInclude Include="..\ovum\egg-program.h" />
-    <ClInclude Include="..\ovum\egg-syntax.h" />
-    <ClInclude Include="..\ovum\egg-tokenizer.h" />
-    <ClInclude Include="..\ovum\egged-tokenizer.h" />
-    <ClInclude Include="..\ovum\exceptions.h" />
-    <ClInclude Include="..\ovum\files.h" />
-    <ClInclude Include="..\ovum\functions.h" />
-    <ClInclude Include="..\ovum\gc.h" />
-    <ClInclude Include="..\ovum\json-tokenizer.h" />
-    <ClInclude Include="..\ovum\lang.h" />
-    <ClInclude Include="..\ovum\lexer.h" />
-    <ClInclude Include="..\ovum\lexers.h" />
-    <ClInclude Include="..\ovum\macros.h" />
-    <ClInclude Include="..\ovum\platform.h" />
-    <ClInclude Include="..\ovum\program.h" />
-    <ClInclude Include="..\ovum\streams.h" />
-    <ClInclude Include="..\ovum\strings.h" />
-    <ClInclude Include="..\ovum\test.h" />
-    <ClInclude Include="..\ovum\utf.h" />
     <ClInclude Include="..\ovum\ovum.h" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
