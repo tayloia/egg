@@ -53,8 +53,8 @@ BIN_ROOT = $(PLATFORM)/$(TOOLCHAIN)/bin
 OBJ_DIR = $(OBJ_ROOT)/$(CONFIGURATION)
 BIN_DIR = $(BIN_ROOT)/$(CONFIGURATION)
 
-EGG_SRCS = $(call sources,yolk/*.cpp)
-TEST_SRCS = $(call sources,ovum/test/*.cpp) $(call sources,yolk/test/*.cpp)
+EGG_SRCS = $(call sources,ovum/*.cpp yolk/*.cpp)
+TEST_SRCS = $(call sources,ovum/test/*.cpp yolk/test/*.cpp)
 
 EGG_OBJS = $(call objects,$(EGG_SRCS))
 TEST_OBJS = $(call objects,$(TEST_SRCS))

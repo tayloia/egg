@@ -4,10 +4,38 @@ namespace egg::ovum {
   using Int = uint64_t;
   using Float = double;
 
+  class Atomic {
+    Atomic(Atomic&) = delete;
+    Atomic& operator=(Atomic&) = delete;
+  public:
+    using Underlying = int64_t;
+  private:
+    std::atomic<Underlying> atomic;
+  public:
+    explicit Atomic(Underlying value) : atomic(value) {
+    }
+    Underlying add(Underlying value) {
+      // Return the value AFTER the addition
+      return std::atomic_fetch_add(&this->atomic, value) + value;
+    }
+    Underlying increment() {
+      // The result should be strictly positive
+      auto result = this->add(1);
+      assert(result > 0);
+      return result;
+    }
+    Underlying decrement() {
+      // The result should not be negative
+      auto result = this->add(-1);
+      assert(result >= 0);
+      return result;
+    }
+  };
+
   class IHardAcquireRelease {
   public:
     virtual ~IHardAcquireRelease() {}
-    virtual void hardAcquire() const = 0;
+    virtual IHardAcquireRelease* hardAcquire() const = 0;
     virtual void hardRelease() const = 0;
   };
 
@@ -52,6 +80,9 @@ namespace egg::ovum {
         old->hardRelease();
       }
     }
+    void swap(HardPtr<T>& rhs) {
+      std::swap(this->ptr, rhs.ptr);
+    }
     T& operator*() const {
       assert(this->ptr != nullptr);
       return *this->ptr;
@@ -59,6 +90,12 @@ namespace egg::ovum {
     T* operator->() const {
       assert(this->ptr != nullptr);
       return this->ptr;
+    }
+    bool operator==(nullptr_t) const {
+      return this->ptr == nullptr;
+    }
+    bool operator!=(nullptr_t) const {
+      return this->ptr != nullptr;
     }
     static T* hardAcquire(const T* ptr) {
       if (ptr != nullptr) {
@@ -72,6 +109,16 @@ namespace egg::ovum {
       return HardPtr<T>(new U(std::forward<ARGS>(args)...));
     }
   };
+  template<typename T>
+  bool operator==(nullptr_t, const HardPtr<T>& ptr) {
+    // Yoda equality comparison used by GoogleTest
+    return ptr == nullptr;
+  }
+  template<typename T>
+  bool operator!=(nullptr_t, const HardPtr<T>& ptr) {
+    // Yoda inequality comparison used by GoogleTest
+    return ptr != nullptr;
+  }
 
   class IAllocator {
   public:
@@ -87,8 +134,9 @@ namespace egg::ovum {
       return new(memory) T(std::forward<ARGS>(args)...);
     }
     template<typename T>
-    void destroy(T* allocated) {
-      this->deallocate(allocated, alignof(T));
+    void destroy(const T* allocated) {
+      assert(allocated != nullptr);
+      this->deallocate(const_cast<T*>(allocated), alignof(T));
     }
   };
 
@@ -101,13 +149,14 @@ namespace egg::ovum {
       return size_t(this->end() - this->begin());
     }
   };
+  using IMemoryPtr = HardPtr<const IMemory>;
 
   class IString : public IHardAcquireRelease {
   public:
     virtual size_t length() const = 0;
     virtual int32_t codePointAt(size_t index) const = 0;
     virtual size_t bytesUTF8(size_t codePointOffset = 0, size_t codePointLength = SIZE_MAX) const = 0;
-    virtual HardPtr<IMemory> memoryUTF8(size_t codePointOffset = 0, size_t codePointLength = SIZE_MAX) const = 0;
+    virtual IMemoryPtr memoryUTF8(size_t codePointOffset = 0, size_t codePointLength = SIZE_MAX) const = 0;
   };
 
   class ICollectable : public IHardAcquireRelease {

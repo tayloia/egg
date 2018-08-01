@@ -39,7 +39,10 @@
 #include <cassert>
 #include <cstddef>
 #include <cstdint>
+#include <cstring>
+#include <atomic>
 #include <functional>
+#include <list>
 #include <string>
 
 #if defined(_MSC_VER)
