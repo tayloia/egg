@@ -22,9 +22,15 @@
     <ClCompile Include="ovum-test.pch.cpp">
       <Filter>Infrastructure Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\ovum\test\memory.cpp">
+      <Filter>Test Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\ovum\test\gtest.h">
+      <Filter>Infrastructure Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ovum\test.h">
       <Filter>Infrastructure Files</Filter>
     </ClInclude>
   </ItemGroup>

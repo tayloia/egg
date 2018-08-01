@@ -35,8 +35,17 @@
 
 #endif
 
+// These are system headers (included with a possibly lower warning level)
+#include <cassert>
+#include <cstddef>
+#include <cstdint>
+#include <functional>
 #include <string>
 
 #if defined(_MSC_VER)
 #pragma warning(pop)
 #endif
+
+// These are our own headers
+#include "ovum/vm.h"
+#include "ovum/factories.h"

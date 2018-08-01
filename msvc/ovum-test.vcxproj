@@ -33,6 +33,7 @@
       <DisableLanguageExtensions Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</DisableLanguageExtensions>
       <DisableLanguageExtensions Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</DisableLanguageExtensions>
     </ClCompile>
+    <ClCompile Include="..\ovum\test\memory.cpp" />
     <ClCompile Include="..\ovum\test\testing.cpp" />
     <ClCompile Include="ovum-test.pch.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>
@@ -42,6 +43,7 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="..\ovum\test.h" />
     <ClInclude Include="..\ovum\test\gtest.h" />
   </ItemGroup>
   <ItemGroup>

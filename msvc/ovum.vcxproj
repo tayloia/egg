@@ -27,7 +27,9 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="..\ovum\factories.h" />
     <ClInclude Include="..\ovum\ovum.h" />
+    <ClInclude Include="..\ovum\vm.h" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>15.0</VCProjectVersion>
