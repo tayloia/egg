@@ -28,6 +28,9 @@
 #undef __STRICT_ANSI__
 #endif
 
+// For malloc_usable_size()
+#include <malloc.h>
+
 #else
 
 // We need to add a new section for this compiler

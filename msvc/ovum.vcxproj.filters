@@ -17,6 +17,9 @@
     <ClCompile Include="..\ovum\memory.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\ovum\string.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\ovum\ovum.h">
@@ -26,6 +29,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="..\ovum\factories.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ovum\utf8.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

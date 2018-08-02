@@ -40,7 +40,11 @@ namespace {
   };
 }
 
-egg::ovum::MemoryMutable egg::ovum::MemoryFactory::create(IAllocator& allocator, size_t bytes) {
+egg::ovum::IMemoryPtr egg::ovum::MemoryFactory::createEmpty() {
+  return egg::ovum::IMemoryPtr(&MemoryEmpty::instance);
+}
+
+egg::ovum::MemoryMutable egg::ovum::MemoryFactory::createMutable(IAllocator& allocator, size_t bytes) {
   if (bytes == 0) {
     return egg::ovum::MemoryMutable(&MemoryEmpty::instance);
   }
@@ -81,7 +85,7 @@ egg::ovum::IMemoryPtr egg::ovum::MemoryBuilder::bake() {
       return front;
     }
   }
-  auto created = MemoryFactory::create(this->allocator, this->bytes);
+  auto created = MemoryFactory::createMutable(this->allocator, this->bytes);
   auto* ptr = created.begin();
   for (auto& chunk : this->chunks) {
     std::memcpy(ptr, chunk.base, chunk.bytes);

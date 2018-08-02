@@ -5,11 +5,11 @@ namespace egg::ovum {
   class HardReferenceCounted : public T {
     HardReferenceCounted(const HardReferenceCounted&) = delete;
     HardReferenceCounted& operator=(const HardReferenceCounted&) = delete;
-  protected:
+  private:
     IAllocator& allocator;
-    mutable Atomic atomic;
+    mutable Atomic<int64_t> atomic;
   public:
-    explicit HardReferenceCounted(IAllocator& allocator, Atomic::Underlying atomic = 0) : allocator(allocator), atomic(atomic) {
+    explicit HardReferenceCounted(IAllocator& allocator, int64_t atomic = 0) : allocator(allocator), atomic(atomic) {
     }
     virtual T* hardAcquire() const override {
       this->atomic.increment();
@@ -36,22 +36,82 @@ namespace egg::ovum {
     }
   };
 
-  class AllocatorDefault : public IAllocator {
-  public:
-    virtual void* allocate(size_t bytes, size_t alignment) {
-      return ::operator new(bytes, std::align_val_t(alignment));
+  // We want this code generated from the header
+#if defined(_MSC_VER)
+  // Microsoft's run-time
+  struct AllocatorDefaultPolicy {
+    inline static void* memalloc(size_t bytes, size_t alignment) {
+      return _aligned_malloc(bytes, alignment);
     }
-    virtual void deallocate(void* allocated, size_t alignment) {
-      ::operator delete(allocated, std::align_val_t(alignment));
+    inline static size_t memsize(void* allocated, size_t alignment) {
+      return _aligned_msize(allocated, alignment, 0);
+    }
+    inline static void memfree(void* allocated, size_t) {
+      return _aligned_free(allocated);
     }
   };
+#else
+  // Linux run-time
+  struct AllocatorDefaultPolicy {
+    inline static void* memalloc(size_t bytes, size_t alignment) {
+      return aligned_alloc(alignment, bytes); // note switched order
+    }
+    inline static size_t memsize(void* allocated, size_t) {
+      return malloc_usable_size(allocated);
+    }
+    inline static void memfree(void* allocated, size_t) {
+      return free(allocated);
+    }
+  };
+#endif
+
+  // This often lives high up on the machine stack, so we need to know the class layout
+  template<typename POLICY>
+  class AllocatorWithPolicy : public IAllocator {
+    AllocatorWithPolicy(const AllocatorWithPolicy&) = delete;
+    AllocatorWithPolicy& operator=(const AllocatorWithPolicy&) = delete;
+  private:
+    Atomic<uint64_t> allocatedBlocks;
+    Atomic<uint64_t> allocatedBytes;
+    Atomic<uint64_t> deallocatedBlocks;
+    Atomic<uint64_t> deallocatedBytes;
+  public:
+    AllocatorWithPolicy() : allocatedBlocks(0), allocatedBytes(0), deallocatedBlocks(0), deallocatedBytes(0) {}
+    virtual void* allocate(size_t bytes, size_t alignment) {
+      auto* allocated = POLICY::memalloc(bytes, alignment);
+      assert(allocated != nullptr);
+      this->allocatedBlocks.add(1);
+      this->allocatedBytes.add(POLICY::memsize(allocated, alignment));
+      return allocated;
+    }
+    virtual void deallocate(void* allocated, size_t alignment) {
+      assert(allocated != nullptr);
+      this->deallocatedBlocks.add(1);
+      this->deallocatedBytes.add(POLICY::memsize(allocated, alignment));
+      POLICY::memfree(allocated, alignment);
+    }
+    virtual bool statistics(Statistics& out) const {
+      out.totalBlocksAllocated = this->allocatedBlocks.get();
+      out.totalBytesAllocated = this->allocatedBytes.get();
+      out.currentBlocksAllocated = diff(out.totalBlocksAllocated, this->deallocatedBlocks.get());
+      out.currentBytesAllocated = diff(out.totalBytesAllocated, this->deallocatedBytes.get());
+      return true;
+    }
+  private:
+    static uint64_t diff(uint64_t a, uint64_t b) {
+      // Disallow negative differences due to concurrency timing issues
+      assert(a >= b);
+      return (a < b) ? 0 : (a - b);
+    }
+  };
+  using AllocatorDefault = AllocatorWithPolicy<AllocatorDefaultPolicy>;
 
   class MemoryMutable {
     friend class MemoryFactory;
   private:
     IMemoryPtr memory; // null only after being baked
     explicit MemoryMutable(const IMemory* memory) : memory(memory) {
-      // Only constructed by MemoryFactory;
+      // Only constructed by MemoryFactory
     }
   public:
     Byte* begin() {
@@ -68,16 +128,14 @@ namespace egg::ovum {
     }
     IMemoryPtr bake() {
       assert(this->memory != nullptr);
-      IMemoryPtr detached;
-      this->memory.swap(detached);
-      assert(detached != nullptr);
-      return detached;
+      return std::move(this->memory);
     }
   };
 
   class MemoryFactory {
   public:
-    static MemoryMutable create(IAllocator& allocator, size_t bytes);
+    static IMemoryPtr createEmpty();
+    static MemoryMutable createMutable(IAllocator& allocator, size_t bytes);
   };
 
   class MemoryBuilder {
@@ -102,5 +160,23 @@ namespace egg::ovum {
     void add(const IMemory& memory);
     IMemoryPtr bake();
     void reset();
+  };
+
+  class StringFactory {
+  public:
+    static String fromUTF8(IAllocator& allocator, const egg::ovum::IMemory& memory, size_t length);
+    static String fromUTF8(IAllocator& allocator, const Byte* begin, const Byte* end);
+    static String fromUTF8(IAllocator& allocator, const void* utf8, size_t bytes) {
+      auto begin = static_cast<const Byte*>(utf8);
+      assert(begin != nullptr);
+      return fromUTF8(allocator, begin, begin + bytes);
+    }
+    static String fromUTF8(IAllocator& allocator, const std::string& utf8) {
+      return fromUTF8(allocator, utf8.data(), utf8.size());
+    }
+    template<size_t N>
+    static String fromUTF8(IAllocator& allocator, const char (&utf8)[N]) {
+      return fromUTF8(allocator, utf8, N - 1);
+    }
   };
 }

@@ -4,15 +4,20 @@ namespace egg::ovum {
   using Int = uint64_t;
   using Float = double;
 
+  template<typename T>
   class Atomic {
     Atomic(Atomic&) = delete;
     Atomic& operator=(Atomic&) = delete;
   public:
-    using Underlying = int64_t;
+    using Underlying = T;
   private:
     std::atomic<Underlying> atomic;
   public:
     explicit Atomic(Underlying value) : atomic(value) {
+    }
+    Underlying get() const {
+      // Get the current value
+      return std::atomic_load(&this->atomic);
     }
     Underlying add(Underlying value) {
       // Return the value AFTER the addition
@@ -50,11 +55,22 @@ namespace egg::ovum {
     }
     HardPtr(const HardPtr& rhs) : ptr(rhs.hardAcquire()) {
     }
+    HardPtr(HardPtr&& rhs) : ptr(rhs.get()) {
+      rhs.ptr = nullptr;
+    }
     template<typename U>
     HardPtr(const HardPtr<U>& rhs) : ptr(rhs.hardAcquire()) {
     }
     HardPtr& operator=(const HardPtr& rhs) {
       this->set(rhs.get());
+      return *this;
+    }
+    HardPtr& operator=(HardPtr&& rhs) {
+      if (this->ptr != nullptr) {
+        this->ptr->hardRelease();
+      }
+      this->ptr = rhs.get();
+      rhs.ptr = nullptr;
       return *this;
     }
     template<typename U>
@@ -103,11 +119,6 @@ namespace egg::ovum {
       }
       return nullptr;
     }
-    template<typename U = T, typename... ARGS>
-    static HardPtr<T> make(ARGS&&... args) {
-      // Use perfect forwarding to the constructor
-      return HardPtr<T>(new U(std::forward<ARGS>(args)...));
-    }
   };
   template<typename T>
   bool operator==(nullptr_t, const HardPtr<T>& ptr) {
@@ -120,22 +131,99 @@ namespace egg::ovum {
     return ptr != nullptr;
   }
 
+  template<class T>
+  class HardRef {
+  private:
+    T* ptr;
+  public:
+    HardRef() : ptr(T::defval()) {
+    }
+    explicit HardRef(const T& rhs) : ptr(&HardRef::hardAcquire(rhs)) {
+    }
+    HardRef(const HardRef& rhs) : ptr(&rhs.hardAcquire()) {
+    }
+    HardRef(HardRef&& rhs) : ptr(&rhs.get()) {
+    }
+    template<typename U>
+    HardRef(const HardRef<U>& rhs) : ptr(&rhs.hardAcquire()) {
+    }
+    HardRef& operator=(const HardRef& rhs) {
+      this->set(rhs.get());
+      return *this;
+    }
+    HardRef& operator=(HardRef&& rhs) {
+      assert(this->ptr != nullptr);
+      this->ptr->hardRelease();
+      this->ptr = &rhs.get();
+      rhs.ptr = nullptr;
+      return *this;
+    }
+    template<typename U>
+    HardRef& operator=(const HardRef<U>& rhs) {
+      this->set(rhs.get());
+      return *this;
+    }
+    ~HardRef() {
+      // The pointer may be null after a move operation
+      if (this->ptr != nullptr) {
+        this->ptr->hardRelease();
+      }
+    }
+    T& hardAcquire() const {
+      assert(this->ptr != nullptr);
+      return HardRef::hardAcquire(*this->ptr);
+    }
+    T& get() const {
+      assert(this->ptr != nullptr);
+      return *this->ptr;
+    }
+    void set(T& rhs) {
+      assert(this->ptr != nullptr);
+      auto* old = this->ptr;
+      this->ptr = &HardRef::hardAcquire(rhs);
+      old->hardRelease();
+    }
+    void swap(HardRef<T>& rhs) {
+      std::swap(this->ptr, rhs.ptr);
+    }
+    T& operator*() const {
+      assert(this->ptr != nullptr);
+      return *this->ptr;
+    }
+    T* operator->() const {
+      assert(this->ptr != nullptr);
+      return this->ptr;
+    }
+    static T& hardAcquire(const T& ref) {
+      return *static_cast<T*>(ref.hardAcquire());
+    }
+  };
+
   class IAllocator {
   public:
+    struct Statistics {
+      uint64_t totalBlocksAllocated;
+      uint64_t totalBytesAllocated;
+      uint64_t currentBlocksAllocated;
+      uint64_t currentBytesAllocated;
+    };
+
     virtual void* allocate(size_t bytes, size_t alignment) = 0;
     virtual void deallocate(void* allocated, size_t alignment) = 0;
+    virtual bool statistics(Statistics& out) const = 0;
 
     template<typename T, typename... ARGS>
     T* create(size_t extra, ARGS&&... args) {
       // Use perfect forwarding to in-place new
       size_t bytes = sizeof(T) + extra;
-      void* memory = static_cast<T*>(this->allocate(bytes, alignof(T)));
-      assert(memory != nullptr);
-      return new(memory) T(std::forward<ARGS>(args)...);
+      void* allocated = this->allocate(bytes, alignof(T));
+      assert(allocated != nullptr);
+      return new(allocated) T(std::forward<ARGS>(args)...);
     }
     template<typename T>
     void destroy(const T* allocated) {
       assert(allocated != nullptr);
+      allocated->~T();
       this->deallocate(const_cast<T*>(allocated), alignof(T));
     }
   };
@@ -154,10 +242,9 @@ namespace egg::ovum {
   class IString : public IHardAcquireRelease {
   public:
     virtual size_t length() const = 0;
-    virtual int32_t codePointAt(size_t index) const = 0;
-    virtual size_t bytesUTF8(size_t codePointOffset = 0, size_t codePointLength = SIZE_MAX) const = 0;
     virtual IMemoryPtr memoryUTF8(size_t codePointOffset = 0, size_t codePointLength = SIZE_MAX) const = 0;
   };
+  using String = HardRef<const IString>;
 
   class ICollectable : public IHardAcquireRelease {
   public:

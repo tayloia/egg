@@ -25,6 +25,9 @@
     <ClCompile Include="..\ovum\test\memory.cpp">
       <Filter>Test Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\ovum\test\string.cpp">
+      <Filter>Test Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\ovum\test\gtest.h">
