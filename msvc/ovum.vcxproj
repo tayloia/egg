@@ -32,6 +32,7 @@
     <ClInclude Include="..\ovum\factories.h" />
     <ClInclude Include="..\ovum\ovum.h" />
     <ClInclude Include="..\ovum\utf8.h" />
+    <ClInclude Include="..\ovum\variant.h" />
     <ClInclude Include="..\ovum\vm.h" />
   </ItemGroup>
   <PropertyGroup Label="Globals">

@@ -7,7 +7,7 @@ namespace egg::ovum {
     HardReferenceCounted& operator=(const HardReferenceCounted&) = delete;
   private:
     IAllocator& allocator;
-    mutable Atomic<int64_t> atomic;
+    mutable Atomic<int64_t> atomic; // signed so we can detect underflows
   public:
     explicit HardReferenceCounted(IAllocator& allocator, int64_t atomic = 0) : allocator(allocator), atomic(atomic) {
     }

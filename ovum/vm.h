@@ -1,7 +1,7 @@
 namespace egg::ovum {
   using Bool = bool;
   using Byte = uint8_t;
-  using Int = uint64_t;
+  using Int = int64_t;
   using Float = double;
 
   template<typename T>
@@ -96,9 +96,6 @@ namespace egg::ovum {
         old->hardRelease();
       }
     }
-    void swap(HardPtr<T>& rhs) {
-      std::swap(this->ptr, rhs.ptr);
-    }
     T& operator*() const {
       assert(this->ptr != nullptr);
       return *this->ptr;
@@ -183,9 +180,6 @@ namespace egg::ovum {
       this->ptr = &HardRef::hardAcquire(rhs);
       old->hardRelease();
     }
-    void swap(HardRef<T>& rhs) {
-      std::swap(this->ptr, rhs.ptr);
-    }
     T& operator*() const {
       assert(this->ptr != nullptr);
       return *this->ptr;
@@ -250,53 +244,5 @@ namespace egg::ovum {
   public:
     using Visitor = std::function<void(const ICollectable& from, const ICollectable& to)>;
     virtual void visitSoftLinks(const ICollectable& from, const ICollectable& to) const = 0;
-  };
-
-  enum class VariantBits {
-    Void = 1 << 0,
-    Null = 1 << 1,
-    Bool = 1 << 2,
-    Int = 1 << 3,
-    Float = 1 << 4,
-    String = 1 << 5,
-    Object = 1 << 6,
-    Memory = 1 << 7,
-    Pointer = 1 << 8,
-    Indirect = 1 << 9,
-    Exception = 1 << 10
-  };
-
-  class VariantKind {
-  public:
-    using Underlying = std::underlying_type_t<VariantBits>;
-  private:
-    Underlying bits;
-  public:
-    explicit VariantKind(VariantBits bits) : bits(static_cast<Underlying>(bits)) {
-    }
-    bool hasAny(VariantBits mask) const {
-      auto underlying = static_cast<Underlying>(mask);
-      return (this->bits & underlying) != 0;
-    }
-    bool hasAll(VariantBits mask) const {
-      auto underlying = static_cast<Underlying>(mask);
-      return (this->bits & underlying) == underlying;
-    }
-  };
-  inline VariantBits operator|(VariantBits lhs, VariantBits rhs) {
-    return static_cast<VariantBits>(static_cast<VariantKind::Underlying>(lhs) | static_cast<VariantKind::Underlying>(rhs));
-  }
-
-  class Variant {
-  private:
-    VariantKind kind;
-    union {
-      Bool b;
-      Int i;
-      Float f;
-    };
-  public:
-    Variant() : kind(VariantBits::Void) {
-    }
   };
 }
