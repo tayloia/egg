@@ -238,7 +238,32 @@ namespace egg::ovum {
     virtual size_t length() const = 0;
     virtual IMemoryPtr memoryUTF8(size_t codePointOffset = 0, size_t codePointLength = SIZE_MAX) const = 0;
   };
-  using String = HardRef<const IString>;
+
+  class String : private HardRef<const IString> {
+  public:
+    String(const char* rhs = nullptr); // implicit; fallback to factory
+    String(const std::string& rhs); // implicit; fallback to factory
+    explicit String(const IString& rhs) : HardRef(rhs) {
+    }
+    size_t length() const {
+      return this->get().length();
+    }
+    IMemoryPtr memoryUTF8(size_t codePointOffset = 0, size_t codePointLength = SIZE_MAX) const {
+      return this->get().memoryUTF8(codePointOffset, codePointLength);
+    }
+    std::string toUTF8() const {
+      auto memory = this->memoryUTF8();
+      return std::string(memory->begin(), memory->end());
+    }
+    const IString& underlying() const {
+      return this->get();
+    }
+    static IString* hardAcquire(const IString& instance) {
+      auto* acquired = static_cast<IString*>(instance.hardAcquire());
+      assert(acquired != nullptr);
+      return acquired;
+    }
+  };
 
   class ICollectable : public IHardAcquireRelease {
   public:

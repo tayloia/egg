@@ -47,6 +47,8 @@ namespace egg::ovum {
   };
 
   class Variant final : public VariantKind {
+    template<typename T>
+    Variant(T) = delete;
   private:
     union {
       Bool b;
@@ -56,22 +58,32 @@ namespace egg::ovum {
       void* o;
       const IMemory* m;
       void* p;
+      void* x;
     } u;
   public:
     // Construction/destruction
     Variant() : VariantKind(VariantBits::Void) {
+      this->u.x = nullptr;
     }
     Variant(const Variant&);
     Variant(Variant&&);
     ~Variant() {
-      this->destroyInternals();
+      Variant::destroyInternals(*this);
     }
     // Assignment
-    Variant& operator=(const Variant&);
+    Variant& operator=(const Variant& rhs) {
+      Variant::copyInternals(*this, rhs);
+      return *this;
+    }
     Variant& operator=(Variant&& rhs) {
-      this->moveInternals(rhs);
+      Variant::destroyInternals(*this);
+      Variant::moveInternals(*this, rhs);
       rhs.setKind(VariantBits::Void);
       return *this;
+    }
+    // Null
+    Variant(nullptr_t) : VariantKind(VariantBits::Null) {
+      this->u.x = nullptr;
     }
     // Bool
     Variant(Bool value) : VariantKind(VariantBits::Bool) {
@@ -100,14 +112,43 @@ namespace egg::ovum {
       assert(this->hasAny(VariantBits::Float));
       return this->u.f;
     }
+    // String
+    Variant(const String& value) : VariantKind(VariantBits::String) {
+      // We've got to create a string without an allocator
+      this->u.s = String::hardAcquire(value.underlying());
+    }
+    Variant(const std::string& value) : VariantKind(VariantBits::String) {
+      // We've got to create a string without an allocator
+      this->u.s = Variant::acquireFallbackString(value.data(), value.size());
+    }
+    Variant(const char* value) : VariantKind(VariantBits::String) {
+      if (value == nullptr) {
+        this->setKind(VariantBits::Null);
+        this->u.x = nullptr;
+      } else {
+        // We've got to create a string without an allocator
+        this->u.s = Variant::acquireFallbackString(value, std::strlen(value));
+      }
+    }
+    String getString() const {
+      assert(this->hasAny(VariantBits::String));
+      assert(this->u.s != nullptr);
+      return String(*this->u.s);
+    }
   private:
-    void destroyInternals() {
-      // WIBBLE
+    static void destroyInternals(Variant& dst) {
+      // Leaves 'dst' invalid
+      if (dst.hasAny(VariantBits::String)) {
+        assert(dst.u.s != nullptr);
+        dst.u.s->hardRelease();
+      }
     }
-    void copyInternals();
-    void moveInternals(const Variant& src) {
-      this->setKind(src.getKind());
-      this->u = src.u;
+    static void copyInternals(Variant& dst, const Variant& src);
+    static void moveInternals(Variant& dst, const Variant& src) {
+      // Leaves 'src' invalid
+      dst.setKind(src.getKind());
+      dst.u = src.u;
     }
+    static const IString* acquireFallbackString(const char* utf8, size_t bytes);
   };
 }

@@ -178,5 +178,6 @@ namespace egg::ovum {
     static String fromUTF8(IAllocator& allocator, const char (&utf8)[N]) {
       return fromUTF8(allocator, utf8, N - 1);
     }
+    static const IString* acquireFallbackString(const char* utf8, size_t bytes);
   };
 }
