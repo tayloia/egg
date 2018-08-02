@@ -44,11 +44,14 @@ namespace egg::ovum {
     void setKind(VariantBits kind) {
       this->bits = static_cast<Underlying>(kind);
     }
+    void swapKind(VariantKind& other) {
+      std::swap(this->bits, other.bits);
+    }
   };
 
   class Variant final : public VariantKind {
-    template<typename T>
-    Variant(T) = delete;
+    // Stop type promotion for implicit constructors
+    template<typename T> Variant(T rhs) = delete;
   private:
     union {
       Bool b;
@@ -65,20 +68,33 @@ namespace egg::ovum {
     Variant() : VariantKind(VariantBits::Void) {
       this->u.x = nullptr;
     }
-    Variant(const Variant&);
-    Variant(Variant&&);
+    Variant(const Variant& rhs) : VariantKind(rhs.getKind()) {
+      Variant::copyInternals(*this, rhs);
+    }
+    Variant(Variant&& rhs) : VariantKind(rhs.getKind()) {
+      Variant::moveInternals(*this, rhs);
+    }
     ~Variant() {
       Variant::destroyInternals(*this);
     }
     // Assignment
     Variant& operator=(const Variant& rhs) {
-      Variant::copyInternals(*this, rhs);
+      if (this != &rhs) {
+        // The resources of 'before' will be cleaned up after the assignment
+        Variant before{ std::move(*this) };
+        this->setKind(rhs.getKind());
+        Variant::copyInternals(*this, rhs);
+      }
       return *this;
     }
     Variant& operator=(Variant&& rhs) {
-      Variant::destroyInternals(*this);
-      Variant::moveInternals(*this, rhs);
-      rhs.setKind(VariantBits::Void);
+      // See https://stackoverflow.com/a/9322542
+      if (this != &rhs) {
+        // Need to make sure the resource of the original 'this' are cleaned up last
+        this->swap(rhs);
+        Variant::destroyInternals(rhs);
+        rhs.setKind(VariantBits::Void);
+      }
       return *this;
     }
     // Null
@@ -135,19 +151,32 @@ namespace egg::ovum {
       assert(this->u.s != nullptr);
       return String(*this->u.s);
     }
+    void swap(Variant& other) {
+      this->swapKind(other);
+      std::swap(this->u, other.u);
+    }
   private:
+    static void copyInternals(Variant& dst, const Variant& src) {
+      // dst:INVALID,src:VALID => dst:VALID,src:VALID
+      assert(dst.getKind() == src.getKind());
+      if (src.hasAny(VariantBits::String)) {
+        assert(src.u.s != nullptr);
+        dst.u.s = String::hardAcquire(*src.u.s);
+      } else {
+        dst.u = src.u;
+      }
+    }
+    static void moveInternals(Variant& dst, const Variant& src) {
+      // dst:INVALID,src:VALID => dst:VALID,src:INVALID
+      assert(dst.getKind() == src.getKind());
+      dst.u = src.u;
+    }
     static void destroyInternals(Variant& dst) {
-      // Leaves 'dst' invalid
+      // dst:VALID => dst:INVALID
       if (dst.hasAny(VariantBits::String)) {
         assert(dst.u.s != nullptr);
         dst.u.s->hardRelease();
       }
-    }
-    static void copyInternals(Variant& dst, const Variant& src);
-    static void moveInternals(Variant& dst, const Variant& src) {
-      // Leaves 'src' invalid
-      dst.setKind(src.getKind());
-      dst.u = src.u;
     }
     static const IString* acquireFallbackString(const char* utf8, size_t bytes);
   };

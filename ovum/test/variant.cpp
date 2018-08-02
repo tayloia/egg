@@ -34,8 +34,7 @@ TEST(TestVariant, Null) {
   ASSERT_TRUE(variant.is(Bits::Null));
   const char* pnull = nullptr;
   variant = pnull;
-  ASSERT_TRUE(variant.is(Bits::Null));
-  ASSERT_TRUE(variant.is(Bits::Null));
+  ASSERT_VARIANT(nullptr, variant);
 }
 
 TEST(TestVariant, Bool) {
@@ -45,6 +44,7 @@ TEST(TestVariant, Bool) {
   variant = true;
   ASSERT_TRUE(variant.is(Bits::Bool));
   ASSERT_EQ(true, variant.getBool());
+  ASSERT_VARIANT(true, variant);
 }
 
 TEST(TestVariant, Int) {
@@ -57,6 +57,7 @@ TEST(TestVariant, Int) {
   variant = -1;
   ASSERT_TRUE(variant.is(Bits::Int));
   ASSERT_EQ(-1, variant.getInt());
+  ASSERT_VARIANT(-1, variant);
 }
 
 TEST(TestVariant, Float) {
@@ -72,18 +73,36 @@ TEST(TestVariant, Float) {
   variant = 0.5;
   ASSERT_TRUE(variant.is(Bits::Float));
   ASSERT_EQ(0.5, variant.getFloat());
+  ASSERT_VARIANT(0.5, variant);
 }
 
 TEST(TestVariant, String) {
   egg::ovum::Variant variant{ "hello world" };
-  ASSERT_TRUE(variant.is(Bits::String));
+  ASSERT_VARIANT("hello world", variant);
   ASSERT_STREQ("hello world", variant.getString().toUTF8().c_str());
   std::string goodbye{ "goodbye" };
   variant = goodbye;
-  ASSERT_TRUE(variant.is(Bits::String));
-  ASSERT_STREQ("goodbye", variant.getString().toUTF8().c_str());
+  ASSERT_VARIANT("goodbye", variant);
   egg::ovum::String fallback{ "fallback" };
   variant = fallback;
-  ASSERT_TRUE(variant.is(Bits::String));
-  ASSERT_STREQ("fallback", variant.getString().toUTF8().c_str());
+  ASSERT_VARIANT("fallback", variant);
+}
+
+TEST(TestVariant, Variant) {
+  egg::ovum::Variant a{ "hello world" };
+  ASSERT_VARIANT("hello world", a);
+  egg::ovum::Variant b{ "goodbye" };
+  ASSERT_VARIANT("goodbye", b);
+  a = b;
+  ASSERT_VARIANT("goodbye", a);
+  ASSERT_VARIANT("goodbye", b);
+  a = a;
+  ASSERT_VARIANT("goodbye", a);
+  ASSERT_VARIANT("goodbye", b);
+  a = std::move(b);
+  ASSERT_VARIANT("goodbye", a);
+  ASSERT_TRUE(b.is(Bits::Void));
+  a = std::move(a);
+  ASSERT_VARIANT("goodbye", a);
+  ASSERT_TRUE(b.is(Bits::Void));
 }

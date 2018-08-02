@@ -34,4 +34,27 @@ namespace egg::test {
       }
     }
   };
+
+  inline void assertVariant(bool expected, const egg::ovum::Variant& variant) {
+    ASSERT_EQ(egg::ovum::VariantBits::Bool, variant.getKind());
+    ASSERT_EQ(expected, variant.getBool());
+  }
+  inline void assertVariant(int expected, const egg::ovum::Variant& variant) {
+    ASSERT_EQ(egg::ovum::VariantBits::Int, variant.getKind());
+    ASSERT_EQ(expected, variant.getInt());
+  }
+  inline void assertVariant(double expected, const egg::ovum::Variant& variant) {
+    ASSERT_EQ(egg::ovum::VariantBits::Float, variant.getKind());
+    ASSERT_EQ(expected, variant.getFloat());
+  }
+  inline void assertVariant(const char* expected, const egg::ovum::Variant& variant) {
+    if (expected == nullptr) {
+      ASSERT_EQ(egg::ovum::VariantBits::Null, variant.getKind());
+    } else {
+      ASSERT_EQ(egg::ovum::VariantBits::String, variant.getKind());
+      ASSERT_STREQ(expected, variant.getString().toUTF8().c_str());
+    }
+  }
 }
+
+#define ASSERT_VARIANT(value, variant) egg::test::assertVariant(value, variant)
