@@ -263,6 +263,7 @@ namespace egg::ovum {
       assert(acquired != nullptr);
       return acquired;
     }
+    static const String Empty;
   };
 
   class ICollectable : public IHardAcquireRelease {

@@ -1,5 +1,11 @@
 #include "ovum/test.h"
 
+TEST(TestString, StringEmpty) {
+  egg::test::Allocator allocator{ egg::test::Allocator::Expectation::NoAllocations };
+  auto str = egg::ovum::String::Empty;
+  ASSERT_EQ(0u, str.length());
+}
+
 TEST(TestString, StringFromBytes) {
   egg::test::Allocator allocator;
   const size_t bufsize = 11;

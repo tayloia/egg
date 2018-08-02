@@ -101,6 +101,9 @@ namespace {
   };
 }
 
+// The constant, empty string (no allocator needed)
+const egg::ovum::String egg::ovum::String::Empty(StringEmpty::instance);
+
 egg::ovum::String::String(const char* utf8)
   : HardRef(*StringFallbackAllocator::createString(utf8)) {
   // We've got to create this string without an allocator, so use a fallback
