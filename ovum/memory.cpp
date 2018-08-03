@@ -27,6 +27,19 @@ egg::ovum::Memory egg::ovum::MemoryFactory::createEmpty() {
   return egg::ovum::Memory(&MemoryEmpty::instance);
 }
 
+egg::ovum::Memory egg::ovum::MemoryFactory::createImmutable(IAllocator& allocator, const void* src, size_t bytes, IMemory::Tag tag) {
+  assert((src != nullptr) || (bytes == 0));
+  if ((bytes == 0) && (tag.u == 0)) {
+    return egg::ovum::Memory(&MemoryEmpty::instance);
+  }
+  auto* immutable = allocator.create<MemoryContiguous>(bytes, allocator, bytes, tag);
+  assert(immutable != nullptr);
+  if (bytes > 0) {
+    std::memcpy(immutable->base(), src, bytes);
+  }
+  return egg::ovum::Memory(immutable);
+}
+
 egg::ovum::MemoryMutable egg::ovum::MemoryFactory::createMutable(IAllocator& allocator, size_t bytes, IMemory::Tag tag) {
   if ((bytes == 0) && (tag.u == 0)) {
     return egg::ovum::MemoryMutable(&MemoryEmpty::instance);

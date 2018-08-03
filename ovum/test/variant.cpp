@@ -90,6 +90,16 @@ TEST(TestVariant, String) {
   ASSERT_VARIANT("fallback", variant);
 }
 
+TEST(TestVariant, Memory) {
+  egg::test::Allocator allocator;
+  egg::ovum::IMemory::Tag tag;
+  tag.p = &allocator;
+  auto memory = egg::ovum::MemoryFactory::createImmutable(allocator, "hello world", 11, tag);
+  egg::ovum::Variant variant{ memory };
+  ASSERT_TRUE(variant.is(Bits::Memory));
+  ASSERT_EQ(memory.get(), variant.getMemory().get());
+}
+
 TEST(TestVariant, Variant) {
   egg::ovum::Variant a{ "hello world" };
   ASSERT_VARIANT("hello world", a);

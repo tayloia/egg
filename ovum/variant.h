@@ -108,7 +108,7 @@ namespace egg::ovum {
       assert(this->hasAny(VariantBits::Bool));
       return this->u.b;
     }
-    // Int
+    // Int (support automatic promotion of 32-bit integers)
     Variant(int32_t value) : VariantKind(VariantBits::Int) {
       this->u.i = value;
     }
@@ -129,7 +129,6 @@ namespace egg::ovum {
     }
     // String
     Variant(const String& value) : VariantKind(VariantBits::String) {
-      // We've got to create a string without an allocator
       this->u.s = String::hardAcquire(value.get());
     }
     Variant(const std::string& value) : VariantKind(VariantBits::String) {
@@ -149,16 +148,26 @@ namespace egg::ovum {
       assert(this->hasAny(VariantBits::String));
       return String(this->u.s);
     }
+    // Memory
+    Variant(const Memory& value) : VariantKind(VariantBits::Memory) {
+      this->u.s = String::hardAcquire(value.get());
+      assert(this->u.s != nullptr);
+    }
+    Memory getMemory() const {
+      assert(this->hasAny(VariantBits::Memory));
+      assert(this->u.s != nullptr);
+      return Memory(this->u.s);
+    }
+  private:
+  private:
     void swap(Variant& other) {
       this->swapKind(other);
       std::swap(this->u, other.u);
     }
-  private:
     static void copyInternals(Variant& dst, const Variant& src) {
       // dst:INVALID,src:VALID => dst:VALID,src:VALID
       assert(dst.getKind() == src.getKind());
-      if (src.hasAny(VariantBits::String)) {
-        assert(src.u.s != nullptr);
+      if (src.hasAny(VariantBits::String | VariantBits::Memory)) {
         dst.u.s = String::hardAcquire(src.u.s);
       } else {
         dst.u = src.u;
@@ -171,7 +180,7 @@ namespace egg::ovum {
     }
     static void destroyInternals(Variant& dst) {
       // dst:VALID => dst:INVALID
-      if (dst.hasAny(VariantBits::String)) {
+      if (dst.hasAny(VariantBits::String | VariantBits::Memory)) {
         if (dst.u.s != nullptr) {
           dst.u.s->hardRelease();
         }

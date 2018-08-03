@@ -65,9 +65,6 @@ egg::ovum::String egg::ovum::StringFactory::fromUTF8(IAllocator& allocator, cons
   assert(begin != nullptr);
   assert(end >= begin);
   auto bytes = size_t(end - begin);
-  if (bytes == 0) {
-    return String();
-  }
   return String(createContiguous(allocator, begin, bytes));
 }
 

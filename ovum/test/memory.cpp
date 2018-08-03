@@ -65,6 +65,19 @@ TEST(TestMemory, MemoryEmpty) {
   ASSERT_EQ(another.begin(), ptr);
 }
 
+TEST(TestMemory, MemoryImmutable) {
+  egg::test::Allocator allocator;
+  const char* buffer = "hello world";
+  const size_t bufsize = strlen(buffer) + 1;
+  auto memory = egg::ovum::MemoryFactory::createImmutable(allocator, buffer, bufsize);
+  ASSERT_NE(nullptr, memory);
+  auto* ptr = memory->begin();
+  ASSERT_NE(nullptr, ptr);
+  ASSERT_EQ(memory->end(), ptr + bufsize);
+  ASSERT_EQ(bufsize, memory->bytes());
+  ASSERT_STREQ(buffer, reinterpret_cast<const char*>(ptr));
+}
+
 TEST(TestMemory, MemoryMutable) {
   egg::test::Allocator allocator;
   const size_t bufsize = 128;
@@ -78,6 +91,17 @@ TEST(TestMemory, MemoryMutable) {
   ASSERT_NE(nullptr, built);
   ASSERT_EQ(bufsize, built->bytes());
   ASSERT_EQ(*ptr, *built->begin());
+}
+
+TEST(TestMemory, MemoryTag) {
+  egg::test::Allocator allocator;
+  egg::ovum::IMemory::Tag tag;
+  tag.u = 123456789;
+  auto memory = egg::ovum::MemoryFactory::createImmutable(allocator, nullptr, 0, tag);
+  ASSERT_EQ(123456789u, memory->tag().u);
+  tag.p = &allocator;
+  memory = egg::ovum::MemoryFactory::createImmutable(allocator, nullptr, 0, tag);
+  ASSERT_EQ(&allocator, memory->tag().p);
 }
 
 TEST(TestMemory, MemoryBuilder) {

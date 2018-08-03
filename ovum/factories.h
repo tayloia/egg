@@ -159,6 +159,7 @@ namespace egg::ovum {
   class MemoryFactory {
   public:
     static Memory createEmpty();
+    static Memory createImmutable(IAllocator& allocator, const void* src, size_t bytes, IMemory::Tag tag = IMemory::Tag{ 0 });
     static MemoryMutable createMutable(IAllocator& allocator, size_t bytes, IMemory::Tag tag = IMemory::Tag{ 0 });
   };
 
