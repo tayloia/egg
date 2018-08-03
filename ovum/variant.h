@@ -1,6 +1,7 @@
 namespace egg::ovum {
   class Variant;
   class VariantFactory;
+  class VariantSoft;
 
   enum class VariantBits {
     Void = 1 << 0,
@@ -28,6 +29,11 @@ namespace egg::ovum {
     Underlying bits;
   public:
     explicit VariantKind(VariantBits kind) : bits(static_cast<Underlying>(kind)) {
+    }
+    bool hasOne(VariantBits mask) const {
+      auto underlying = static_cast<Underlying>(mask);
+      auto masked = this->bits & underlying;
+      return ((masked & (masked - 1)) == 0) && (masked != 0);
     }
     bool hasAny(VariantBits mask) const {
       auto underlying = static_cast<Underlying>(mask);
@@ -62,6 +68,7 @@ namespace egg::ovum {
     // Stop type promotion for implicit constructors
     template<typename T> Variant(T rhs) = delete;
     friend class VariantFactory;
+    friend class VariantSoft;
   private:
     union {
       Bool b; // Bool
@@ -181,8 +188,12 @@ namespace egg::ovum {
     }
     // Pointer/Indirect
     Variant(VariantBits flavour, IVariantSoft& value) : VariantKind(flavour) {
-      assert((flavour == VariantBits::Pointer) || (flavour == VariantBits::Indirect));
-      this->u.p = &value;
+      assert(this->hasOne(VariantBits::Pointer | VariantBits::Indirect));
+      if (this->hasAny(VariantBits::Hard)) {
+        this->u.p = HardPtr<IVariantSoft>::hardAcquire(&value);
+      } else {
+        this->u.p = &value;
+      }
       assert(this->u.p != nullptr);
     }
     Variant& getPointee() const {
@@ -207,6 +218,10 @@ namespace egg::ovum {
           dst.u.s = String::hardAcquire(src.u.s);
           return;
         }
+        if (src.hasAny(VariantBits::Pointer | VariantBits::Indirect)) {
+          dst.u.p = HardPtr<IVariantSoft>::hardAcquire(src.u.p);
+          return;
+        }
       }
       dst.u = src.u;
     }
@@ -225,6 +240,9 @@ namespace egg::ovum {
           if (dst.u.s != nullptr) {
             dst.u.s->hardRelease();
           }
+        } else {
+          assert(dst.u.o != nullptr);
+          dst.u.p->hardRelease();
         }
       }
     }

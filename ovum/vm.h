@@ -214,7 +214,6 @@ namespace egg::ovum {
     virtual void softVisitLinks(const Visitor& visitor) const = 0;
   };
 
-  // WIBBLE
   class IBasket {
   public:
     virtual ~IBasket() {}
