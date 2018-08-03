@@ -4,6 +4,7 @@
 #include <stack>
 
 void egg::ovum::BasketDefault::take(ICollectable& collectable) {
+  // Take ownership of the collectable (acquire a reference count)
   collectable.hardAcquire();
   auto* previous = collectable.softSetBasket(this);
   assert(previous == nullptr);

@@ -1,5 +1,6 @@
 namespace egg::ovum {
   class Variant;
+  class VariantFactory;
 
   enum class VariantBits {
     Void = 1 << 0,
@@ -60,6 +61,7 @@ namespace egg::ovum {
   class Variant final : public VariantKind {
     // Stop type promotion for implicit constructors
     template<typename T> Variant(T rhs) = delete;
+    friend class VariantFactory;
   private:
     union {
       Bool b; // Bool
@@ -178,8 +180,8 @@ namespace egg::ovum {
       return Object(*this->u.o);
     }
     // Pointer/Indirect
-    Variant(VariantKind kind, IVariantSoft& value) : VariantKind(kind) {
-      assert(this->hasAny(VariantBits::Pointer | VariantBits::Indirect));
+    Variant(VariantBits flavour, IVariantSoft& value) : VariantKind(flavour) {
+      assert((flavour == VariantBits::Pointer) || (flavour == VariantBits::Indirect));
       this->u.p = &value;
       assert(this->u.p != nullptr);
     }

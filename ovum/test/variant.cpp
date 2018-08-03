@@ -114,11 +114,15 @@ TEST(TestVariant, ObjectSoft) {
   ASSERT_EQ(0u, basket.getOwnedCount());
   auto object = egg::ovum::ObjectFactory::createVanillaObject(allocator);
   ASSERT_NE(nullptr, object);
-  auto created = egg::ovum::VariantFactory::createVariantSoft(allocator, basket, object);
-  ASSERT_NE(nullptr, created);
+  auto root = egg::ovum::VariantFactory::createVariantSoft(allocator, basket, object);
+  egg::ovum::Variant variant(Bits::Indirect, *root);
+  ASSERT_TRUE(variant.is(Bits::Indirect));
+  auto& pointee = variant.getPointee();
+  ASSERT_TRUE(pointee.is(Bits::Object));
+  ASSERT_EQ(object.get(), pointee.getObject().get());
   ASSERT_EQ(1u, basket.getOwnedCount());
   ASSERT_EQ(0u, basket.collect());
-  created = nullptr;
+  root = nullptr;
   ASSERT_EQ(1u, basket.getOwnedCount());
   ASSERT_EQ(1u, basket.collect());
   ASSERT_EQ(0u, basket.getOwnedCount());

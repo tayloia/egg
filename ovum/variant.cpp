@@ -11,7 +11,7 @@ namespace {
   public:
     VariantSoft(IAllocator& allocator, Variant&& value)
       : SoftReferenceCounted(allocator),
-      variant(std::move(value)) {
+        variant(std::move(value)) {
     }
     virtual Variant& getVariant() {
       return this->variant;
@@ -23,7 +23,19 @@ namespace {
 }
 
 egg::ovum::HardPtr<egg::ovum::IVariantSoft> egg::ovum::VariantFactory::createVariantSoft(IAllocator& allocator, IBasket& basket, Variant&& value) {
-  auto* created = allocator.create<VariantSoft>(0, allocator, std::move(value));
+  assert(!value.hasAny(VariantBits::Indirect));
+  auto* soften = value.is(VariantBits::Object | VariantBits::Hard) ? value.u.p : nullptr;
+  if (soften != nullptr) {
+    // Create a soft version of the object
+    value.setKind(VariantBits::Object);
+  }
+  HardPtr<IVariantSoft> created{ allocator.create<VariantSoft>(0, allocator, std::move(value)) };
+  assert(created != nullptr);
   basket.take(*created);
-  return HardPtr<IVariantSoft>(created);
+  if (soften != nullptr) {
+    // Release the hard reference that we masked off earlier
+    assert(value.is(VariantBits::Void));
+    soften->hardRelease();
+  }
+  return created;
 }
