@@ -203,4 +203,9 @@ namespace egg::ovum {
       return fromUTF8(allocator, utf8, N - 1);
     }
   };
+
+  class ObjectFactory {
+  public:
+    static Object createVanillaObject(IAllocator& allocator);
+  };
 }

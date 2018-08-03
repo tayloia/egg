@@ -58,7 +58,7 @@ namespace egg::ovum {
       Int i; // Int
       Float f; // Float
       const IMemory* s; // String|Memory
-      void* o; // Object
+      IObject* o; // Object (hard)
       void* p; // Pointer|Indirect
       void* x; // others
     } u;
@@ -158,7 +158,16 @@ namespace egg::ovum {
       assert(this->u.s != nullptr);
       return Memory(this->u.s);
     }
-  private:
+    // Object
+    Variant(const Object& value) : VariantKind(VariantBits::Object) {
+      this->u.o = Object::hardAcquire(value.get());
+      assert(this->u.o != nullptr);
+    }
+    Object getObject() const {
+      assert(this->hasAny(VariantBits::Object));
+      assert(this->u.o != nullptr);
+      return Object(*this->u.o);
+    }
   private:
     void swap(Variant& other) {
       this->swapKind(other);
@@ -167,7 +176,9 @@ namespace egg::ovum {
     static void copyInternals(Variant& dst, const Variant& src) {
       // dst:INVALID,src:VALID => dst:VALID,src:VALID
       assert(dst.getKind() == src.getKind());
-      if (src.hasAny(VariantBits::String | VariantBits::Memory)) {
+      if (src.hasAny(VariantBits::Object)) {
+        dst.u.o = Object::hardAcquire(src.u.o);
+      } else if (src.hasAny(VariantBits::String | VariantBits::Memory)) {
         dst.u.s = String::hardAcquire(src.u.s);
       } else {
         dst.u = src.u;
@@ -180,7 +191,11 @@ namespace egg::ovum {
     }
     static void destroyInternals(Variant& dst) {
       // dst:VALID => dst:INVALID
-      if (dst.hasAny(VariantBits::String | VariantBits::Memory)) {
+      if (dst.hasAny(VariantBits::Object)) {
+        if (dst.u.o != nullptr) {
+          dst.u.o->hardRelease();
+        }
+      } else if (dst.hasAny(VariantBits::String | VariantBits::Memory)) {
         if (dst.u.s != nullptr) {
           dst.u.s->hardRelease();
         }

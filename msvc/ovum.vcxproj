@@ -21,6 +21,7 @@
   <ItemGroup>
     <ClCompile Include="..\ovum\memory.cpp" />
     <ClCompile Include="..\ovum\string.cpp" />
+    <ClCompile Include="..\ovum\vanilla.cpp" />
     <ClCompile Include="ovum.pch.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Create</PrecompiledHeader>

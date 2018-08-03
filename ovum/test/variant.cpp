@@ -100,6 +100,14 @@ TEST(TestVariant, Memory) {
   ASSERT_EQ(memory.get(), variant.getMemory().get());
 }
 
+TEST(TestVariant, Object) {
+  egg::test::Allocator allocator;
+  auto object = egg::ovum::ObjectFactory::createVanillaObject(allocator);
+  egg::ovum::Variant variant{ object };
+  ASSERT_TRUE(variant.is(Bits::Object));
+  ASSERT_EQ(object.get(), variant.getObject().get());
+}
+
 TEST(TestVariant, Variant) {
   egg::ovum::Variant a{ "hello world" };
   ASSERT_VARIANT("hello world", a);

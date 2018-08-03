@@ -2,26 +2,28 @@
 #include "ovum/utf8.h"
 
 namespace {
-  const egg::ovum::IMemory* createContiguous(egg::ovum::IAllocator& allocator, const egg::ovum::Byte* utf8, size_t bytes) {
+  using namespace egg::ovum;
+
+  const IMemory* createContiguous(IAllocator& allocator, const Byte* utf8, size_t bytes) {
     // TODO detect malformed/overlong/etc
     if ((utf8 == nullptr) || (bytes == 0)) {
       return nullptr;
     }
-    auto length = egg::ovum::utf8::measure(utf8, utf8 + bytes);
+    auto length = utf8::measure(utf8, utf8 + bytes);
     if (length == SIZE_MAX) {
-      throw std::invalid_argument("egg::ovum::String: Invalid UTF-8 input data");
+      throw std::invalid_argument("String: Invalid UTF-8 input data");
     }
-    auto* memory = allocator.create<egg::ovum::MemoryContiguous>(bytes, allocator, bytes, egg::ovum::IMemory::Tag{ length });
+    auto* memory = allocator.create<MemoryContiguous>(bytes, allocator, bytes, IMemory::Tag{ length });
     assert(memory != nullptr);
     std::memcpy(memory->base(), utf8, bytes);
     return memory;
   }
 
-  class StringFallbackAllocator final : public egg::ovum::IAllocator {
+  class StringFallbackAllocator final : public IAllocator {
     StringFallbackAllocator(const StringFallbackAllocator&) = delete;
     StringFallbackAllocator& operator=(const StringFallbackAllocator&) = delete;
   private:
-    egg::ovum::Atomic<int64_t> atomic;
+    Atomic<int64_t> atomic;
   public:
     StringFallbackAllocator() : atomic(0) {
     }
@@ -31,21 +33,21 @@ namespace {
     }
     virtual void* allocate(size_t bytes, size_t alignment) {
       this->atomic.increment();
-      return egg::ovum::AllocatorDefaultPolicy::memalloc(bytes, alignment);
+      return AllocatorDefaultPolicy::memalloc(bytes, alignment);
     }
     virtual void deallocate(void* allocated, size_t alignment) {
       assert(allocated != nullptr);
       this->atomic.decrement();
-      egg::ovum::AllocatorDefaultPolicy::memfree(allocated, alignment);
+      AllocatorDefaultPolicy::memfree(allocated, alignment);
     }
     virtual bool statistics(Statistics&) const {
       return false;
     }
-    static const egg::ovum::IMemory* createString(const char* utf8, size_t bytes) {
+    static const IMemory* createString(const char* utf8, size_t bytes) {
       static StringFallbackAllocator allocator;
-      return createContiguous(allocator, reinterpret_cast<const egg::ovum::Byte*>(utf8), bytes);
+      return createContiguous(allocator, reinterpret_cast<const Byte*>(utf8), bytes);
     }
-    static const egg::ovum::IMemory* createString(const char* utf8) {
+    static const IMemory* createString(const char* utf8) {
       return (utf8 == nullptr) ? nullptr : StringFallbackAllocator::createString(utf8, std::strlen(utf8));
     }
   };

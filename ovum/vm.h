@@ -47,7 +47,7 @@ namespace egg::ovum {
   template<class T>
   class HardPtr {
   private:
-    T* ptr;
+    T * ptr;
   public:
     HardPtr() : ptr(nullptr) {
     }
@@ -173,9 +173,9 @@ namespace egg::ovum {
   };
   using Memory = HardPtr<const IMemory>;
 
-  class String : public HardPtr<const IMemory> {
+  class String : public Memory {
   public:
-    explicit String(const IMemory* rhs = nullptr) : HardPtr(rhs) {
+    explicit String(const IMemory* rhs = nullptr) : Memory(rhs) {
     }
     String(const char* rhs); // implicit; fallback to factory
     String(const std::string& rhs); // implicit; fallback to factory
@@ -199,5 +199,15 @@ namespace egg::ovum {
   public:
     using Visitor = std::function<void(const ICollectable& from, const ICollectable& to)>;
     virtual void visitSoftLinks(const ICollectable& from, const ICollectable& to) const = 0;
+  };
+
+  class IObject : public ICollectable {
+  };
+
+  class Object : public HardPtr<IObject> {
+  public:
+    explicit Object(const IObject& rhs) : HardPtr(&rhs) {
+      assert(this->get() != nullptr);
+    }
   };
 }
