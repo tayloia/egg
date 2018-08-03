@@ -3,13 +3,13 @@
 namespace {
   using namespace egg::ovum;
 
-  class VanillaBase : public HardReferenceCounted<IObject> {
+  class VanillaBase : public SoftReferenceCounted<IObject> {
     VanillaBase(const VanillaBase&) = delete;
     VanillaBase& operator=(const VanillaBase&) = delete;
   private:
   public:
     VanillaBase(IAllocator& allocator)
-      : HardReferenceCounted(allocator) {
+      : SoftReferenceCounted(allocator) {
     }
   };
 
@@ -21,7 +21,7 @@ namespace {
     VanillaObject(IAllocator& allocator)
       : VanillaBase(allocator) {
     }
-    virtual void visitSoftLinks(const ICollectable&, const ICollectable&) const override {
+    virtual void softVisitLinks(const ICollectable::Visitor&) const override {
       // WIBBLE
     }
   };

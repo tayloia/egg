@@ -35,6 +35,13 @@ namespace egg::test {
     }
   };
 
+  class Basket : public egg::ovum::BasketDefault {
+  public:
+    size_t getOwnedCount() const {
+      return this->owned.size();
+    }
+  };
+
   inline void assertString(const char* expected, const egg::ovum::String& actual) {
     ASSERT_STREQ(expected, actual.toUTF8().c_str());
   }
@@ -54,7 +61,7 @@ namespace egg::test {
     if (expected == nullptr) {
       ASSERT_EQ(egg::ovum::VariantBits::Null, variant.getKind());
     } else {
-      ASSERT_EQ(egg::ovum::VariantBits::String, variant.getKind());
+      ASSERT_EQ(egg::ovum::VariantBits::String | egg::ovum::VariantBits::Hard, variant.getKind());
       ASSERT_STREQ(expected, variant.getString().toUTF8().c_str());
     }
   }

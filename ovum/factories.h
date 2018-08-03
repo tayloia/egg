@@ -5,11 +5,15 @@ namespace egg::ovum {
   class HardReferenceCounted : public T {
     HardReferenceCounted(const HardReferenceCounted&) = delete;
     HardReferenceCounted& operator=(const HardReferenceCounted&) = delete;
-  private:
+  protected:
     IAllocator& allocator;
     mutable Atomic<int64_t> atomic; // signed so we can detect underflows
   public:
     explicit HardReferenceCounted(IAllocator& allocator, int64_t atomic = 0) : allocator(allocator), atomic(atomic) {
+    }
+    virtual ~HardReferenceCounted() {
+      // Make sure our reference count reached zero
+      assert(this->atomic.get() == 0);
     }
     virtual T* hardAcquire() const override {
       this->atomic.increment();
@@ -19,6 +23,32 @@ namespace egg::ovum {
       if (this->atomic.decrement() <= 0) {
         this->allocator.destroy(this);
       }
+    }
+  };
+
+  template<typename T>
+  class SoftReferenceCounted : public HardReferenceCounted<T> {
+    SoftReferenceCounted(const SoftReferenceCounted&) = delete;
+    SoftReferenceCounted& operator=(const SoftReferenceCounted&) = delete;
+  private:
+    IBasket* basket;
+  public:
+    explicit SoftReferenceCounted(IAllocator& allocator)
+      : HardReferenceCounted<T>(allocator),
+        basket(nullptr) {
+    }
+    virtual ~SoftReferenceCounted() override {
+      // Make sure we're no longer a member of a basket
+      assert(this->basket == nullptr);
+    }
+    virtual bool softIsRoot() const override {
+      // We're a root if there's a hard reference in addition to ours
+      return this->atomic.get() > 1;
+    }
+    virtual IBasket* softSetBasket(IBasket* value) override {
+      auto* old = this->basket;
+      this->basket = value;
+      return old;
     }
   };
 
@@ -105,6 +135,20 @@ namespace egg::ovum {
     }
   };
   using AllocatorDefault = AllocatorWithPolicy<AllocatorDefaultPolicy>;
+
+  class BasketDefault : public IBasket {
+  protected:
+    std::set<ICollectable*> owned;
+  public:
+    virtual ~BasketDefault() {
+      // Make sure we no longer own any collectables
+      assert(this->owned.empty());
+    }
+    virtual void take(ICollectable& collectable) override;
+    virtual void drop(ICollectable& collectable) override;
+    virtual size_t collect() override;
+    virtual size_t purge() override;
+  };
 
   class MemoryContiguous : public HardReferenceCounted<IMemory> {
     MemoryContiguous(const MemoryContiguous&) = delete;
@@ -207,5 +251,10 @@ namespace egg::ovum {
   class ObjectFactory {
   public:
     static Object createVanillaObject(IAllocator& allocator);
+  };
+
+  class VariantFactory {
+  public:
+    static HardPtr<IVariantSoft> createVariantSoft(IAllocator& allocator, IBasket& basket, Variant&& value);
   };
 }

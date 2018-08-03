@@ -1,4 +1,6 @@
 namespace egg::ovum {
+  class Variant;
+
   enum class VariantBits {
     Void = 1 << 0,
     Null = 1 << 1,
@@ -10,7 +12,8 @@ namespace egg::ovum {
     Object = 1 << 7,
     Pointer = 1 << 8,
     Indirect = 1 << 9,
-    Exception = 1 << 10
+    Exception = 1 << 10,
+    Hard = 1 << 11
   };
   inline VariantBits operator|(VariantBits lhs, VariantBits rhs) {
     using Underlying = std::underlying_type_t<VariantBits>;
@@ -49,6 +52,11 @@ namespace egg::ovum {
     }
   };
 
+  class IVariantSoft : public ICollectable {
+  public:
+    virtual Variant& getVariant() = 0;
+  };
+
   class Variant final : public VariantKind {
     // Stop type promotion for implicit constructors
     template<typename T> Variant(T rhs) = delete;
@@ -58,20 +66,21 @@ namespace egg::ovum {
       Int i; // Int
       Float f; // Float
       const IMemory* s; // String|Memory
-      IObject* o; // Object (hard)
-      void* p; // Pointer|Indirect
-      void* x; // others
+      IObject* o; // Object
+      IVariantSoft* p; // Pointer|Indirect
+      uintptr_t x; // others
     } u;
   public:
     // Construction/destruction
     Variant() : VariantKind(VariantBits::Void) {
-      this->u.x = nullptr; // keep valgrind happy
+      this->u.x = 0; // keep valgrind happy
     }
     Variant(const Variant& rhs) : VariantKind(rhs.getKind()) {
       Variant::copyInternals(*this, rhs);
     }
     Variant(Variant&& rhs) : VariantKind(rhs.getKind()) {
       Variant::moveInternals(*this, rhs);
+      rhs.setKind(VariantBits::Void);
     }
     ~Variant() {
       Variant::destroyInternals(*this);
@@ -98,7 +107,7 @@ namespace egg::ovum {
     }
     // Null
     Variant(nullptr_t) : VariantKind(VariantBits::Null) {
-      this->u.x = nullptr;
+      this->u.x = 0;
     }
     // Bool
     Variant(Bool value) : VariantKind(VariantBits::Bool) {
@@ -128,17 +137,17 @@ namespace egg::ovum {
       return this->u.f;
     }
     // String
-    Variant(const String& value) : VariantKind(VariantBits::String) {
+    Variant(const String& value) : VariantKind(VariantBits::String | VariantBits::Hard) {
       this->u.s = String::hardAcquire(value.get());
     }
-    Variant(const std::string& value) : VariantKind(VariantBits::String) {
+    Variant(const std::string& value) : VariantKind(VariantBits::String | VariantBits::Hard) {
       // We've got to create a string without an allocator
       this->u.s = Variant::acquireFallbackString(value.data(), value.size());
     }
-    Variant(const char* value) : VariantKind(VariantBits::String) {
+    Variant(const char* value) : VariantKind(VariantBits::String | VariantBits::Hard) {
       if (value == nullptr) {
         this->setKind(VariantBits::Null);
-        this->u.x = nullptr;
+        this->u.x = 0;
       } else {
         // We've got to create a string without an allocator
         this->u.s = Variant::acquireFallbackString(value, std::strlen(value));
@@ -149,7 +158,7 @@ namespace egg::ovum {
       return String(this->u.s);
     }
     // Memory
-    Variant(const Memory& value) : VariantKind(VariantBits::Memory) {
+    Variant(const Memory& value) : VariantKind(VariantBits::Memory | VariantBits::Hard) {
       this->u.s = String::hardAcquire(value.get());
       assert(this->u.s != nullptr);
     }
@@ -159,7 +168,7 @@ namespace egg::ovum {
       return Memory(this->u.s);
     }
     // Object
-    Variant(const Object& value) : VariantKind(VariantBits::Object) {
+    Variant(const Object& value) : VariantKind(VariantBits::Object | VariantBits::Hard) {
       this->u.o = Object::hardAcquire(value.get());
       assert(this->u.o != nullptr);
     }
@@ -167,6 +176,17 @@ namespace egg::ovum {
       assert(this->hasAny(VariantBits::Object));
       assert(this->u.o != nullptr);
       return Object(*this->u.o);
+    }
+    // Pointer/Indirect
+    Variant(VariantKind kind, IVariantSoft& value) : VariantKind(kind) {
+      assert(this->hasAny(VariantBits::Pointer | VariantBits::Indirect));
+      this->u.p = &value;
+      assert(this->u.p != nullptr);
+    }
+    Variant& getPointee() const {
+      assert(this->hasAny(VariantBits::Pointer | VariantBits::Indirect));
+      assert(this->u.p != nullptr);
+      return this->u.p->getVariant();
     }
   private:
     void swap(Variant& other) {
@@ -176,13 +196,17 @@ namespace egg::ovum {
     static void copyInternals(Variant& dst, const Variant& src) {
       // dst:INVALID,src:VALID => dst:VALID,src:VALID
       assert(dst.getKind() == src.getKind());
-      if (src.hasAny(VariantBits::Object)) {
-        dst.u.o = Object::hardAcquire(src.u.o);
-      } else if (src.hasAny(VariantBits::String | VariantBits::Memory)) {
-        dst.u.s = String::hardAcquire(src.u.s);
-      } else {
-        dst.u = src.u;
+      if (src.hasAny(VariantBits::Hard)) {
+        if (src.hasAny(VariantBits::Object)) {
+          dst.u.o = Object::hardAcquire(src.u.o);
+          return;
+        }
+        if (src.hasAny(VariantBits::String | VariantBits::Memory)) {
+          dst.u.s = String::hardAcquire(src.u.s);
+          return;
+        }
       }
+      dst.u = src.u;
     }
     static void moveInternals(Variant& dst, const Variant& src) {
       // dst:INVALID,src:VALID => dst:VALID,src:INVALID
@@ -191,13 +215,14 @@ namespace egg::ovum {
     }
     static void destroyInternals(Variant& dst) {
       // dst:VALID => dst:INVALID
-      if (dst.hasAny(VariantBits::Object)) {
-        if (dst.u.o != nullptr) {
+      if (dst.hasAny(VariantBits::Hard)) {
+        if (dst.hasAny(VariantBits::Object)) {
+          assert(dst.u.o != nullptr);
           dst.u.o->hardRelease();
-        }
-      } else if (dst.hasAny(VariantBits::String | VariantBits::Memory)) {
-        if (dst.u.s != nullptr) {
-          dst.u.s->hardRelease();
+        } else if (dst.hasAny(VariantBits::String | VariantBits::Memory)) {
+          if (dst.u.s != nullptr) {
+            dst.u.s->hardRelease();
+          }
         }
       }
     }

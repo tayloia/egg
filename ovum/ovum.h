@@ -19,7 +19,8 @@
 // warning C4774: '...' : format string expected in argument 1 is not a string literal
 // warning C5026: '...': move constructor was implicitly defined as deleted
 // warning C5027: '...': move assignment operator was implicitly defined as deleted
-#pragma warning(disable: 4365 4623 4625 4626 4774 5026 5027)
+// warning C5039: '...' : pointer or reference to potentially throwing function passed to extern C function under -EHc
+#pragma warning(disable: 4365 4623 4625 4626 4774 5026 5027 5039)
 
 #elif defined(__GNUC__)
 
@@ -46,6 +47,9 @@
 #include <atomic>
 #include <functional>
 #include <list>
+#include <mutex>
+#include <set>
+#include <shared_mutex>
 #include <string>
 
 #if defined(_MSC_VER)

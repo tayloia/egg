@@ -96,16 +96,32 @@ TEST(TestVariant, Memory) {
   tag.p = &allocator;
   auto memory = egg::ovum::MemoryFactory::createImmutable(allocator, "hello world", 11, tag);
   egg::ovum::Variant variant{ memory };
-  ASSERT_TRUE(variant.is(Bits::Memory));
+  ASSERT_TRUE(variant.is(Bits::Memory | Bits::Hard));
   ASSERT_EQ(memory.get(), variant.getMemory().get());
 }
 
-TEST(TestVariant, Object) {
+TEST(TestVariant, ObjectHard) {
   egg::test::Allocator allocator;
   auto object = egg::ovum::ObjectFactory::createVanillaObject(allocator);
   egg::ovum::Variant variant{ object };
-  ASSERT_TRUE(variant.is(Bits::Object));
+  ASSERT_TRUE(variant.is(Bits::Object | Bits::Hard));
   ASSERT_EQ(object.get(), variant.getObject().get());
+}
+
+TEST(TestVariant, ObjectSoft) {
+  egg::test::Allocator allocator;
+  egg::test::Basket basket;
+  ASSERT_EQ(0u, basket.getOwnedCount());
+  auto object = egg::ovum::ObjectFactory::createVanillaObject(allocator);
+  ASSERT_NE(nullptr, object);
+  auto created = egg::ovum::VariantFactory::createVariantSoft(allocator, basket, object);
+  ASSERT_NE(nullptr, created);
+  ASSERT_EQ(1u, basket.getOwnedCount());
+  ASSERT_EQ(0u, basket.collect());
+  created = nullptr;
+  ASSERT_EQ(1u, basket.getOwnedCount());
+  ASSERT_EQ(1u, basket.collect());
+  ASSERT_EQ(0u, basket.getOwnedCount());
 }
 
 TEST(TestVariant, Variant) {

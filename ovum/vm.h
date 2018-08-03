@@ -37,6 +37,10 @@ namespace egg::ovum {
     }
   };
 
+  using ReadWriteMutex = std::shared_mutex;
+  using WriteLock = std::unique_lock<ReadWriteMutex>;
+  using ReadLock = std::shared_lock<ReadWriteMutex>;
+
   class IHardAcquireRelease {
   public:
     virtual ~IHardAcquireRelease() {}
@@ -60,6 +64,11 @@ namespace egg::ovum {
     }
     template<typename U>
     HardPtr(const HardPtr<U>& rhs) : ptr(rhs.hardAcquire()) {
+    }
+    HardPtr& operator=(nullptr_t) {
+      this->ptr->hardRelease();
+      this->ptr = nullptr;
+      return *this;
     }
     HardPtr& operator=(const HardPtr& rhs) {
       this->set(rhs.get());
@@ -195,10 +204,24 @@ namespace egg::ovum {
     }
   };
 
+  class IBasket;
+
   class ICollectable : public IHardAcquireRelease {
   public:
-    using Visitor = std::function<void(const ICollectable& from, const ICollectable& to)>;
-    virtual void visitSoftLinks(const ICollectable& from, const ICollectable& to) const = 0;
+    using Visitor = std::function<void(ICollectable& target)>;
+    virtual bool softIsRoot() const = 0;
+    virtual IBasket* softSetBasket(IBasket* basket) = 0;
+    virtual void softVisitLinks(const Visitor& visitor) const = 0;
+  };
+
+  // WIBBLE
+  class IBasket {
+  public:
+    virtual ~IBasket() {}
+    virtual void take(ICollectable& collectable) = 0;
+    virtual void drop(ICollectable& collectable) = 0;
+    virtual size_t collect() = 0;
+    virtual size_t purge() = 0;
   };
 
   class IObject : public ICollectable {
