@@ -74,10 +74,10 @@ TEST(TestMemory, MemoryMutable) {
   ASSERT_EQ(memory.end(), ptr + bufsize);
   ASSERT_EQ(bufsize, memory.bytes());
   ASSERT_TRUE(readWriteTest(ptr));
-  auto baked = memory.bake();
-  ASSERT_NE(nullptr, baked);
-  ASSERT_EQ(bufsize, baked->bytes());
-  ASSERT_EQ(*ptr, *baked->begin());
+  auto built = memory.build();
+  ASSERT_NE(nullptr, built);
+  ASSERT_EQ(bufsize, built->bytes());
+  ASSERT_EQ(*ptr, *built->begin());
 }
 
 TEST(TestMemory, MemoryBuilder) {
@@ -85,26 +85,26 @@ TEST(TestMemory, MemoryBuilder) {
   egg::ovum::MemoryBuilder builder(allocator);
   Literal hello("hello world");
   builder.add(hello.begin, hello.end);
-  auto memory = builder.bake();
+  auto memory = builder.build();
   ASSERT_NE(nullptr, memory);
   ASSERT_EQ(11u, memory->bytes());
   ASSERT_EQ(0, std::memcmp(memory->begin(), hello.begin, memory->bytes()));
-  // The bake should have reset the builder
-  memory = builder.bake();
+  // The build should have reset the builder
+  memory = builder.build();
   ASSERT_EQ(0u, memory->bytes());
   // Explicit reset
   builder.add(hello.begin, hello.end);
   builder.reset();
   Literal goodbye("goodbye");
   builder.add(goodbye.begin, goodbye.end);
-  memory = builder.bake();
+  memory = builder.build();
   ASSERT_NE(nullptr, memory);
   ASSERT_EQ(7u, memory->bytes());
   ASSERT_EQ(0, std::memcmp(memory->begin(), goodbye.begin, memory->bytes()));
   // Concatenation
   builder.add(hello.begin, hello.end);
   builder.add(goodbye.begin, goodbye.end);
-  memory = builder.bake();
+  memory = builder.build();
   ASSERT_NE(nullptr, memory);
   ASSERT_EQ(18u, memory->bytes());
   ASSERT_EQ(0, std::memcmp(memory->begin(), "hello worldgoodbye", memory->bytes()));
@@ -115,20 +115,20 @@ TEST(TestMemory, MemoryShared) {
   auto memory = egg::ovum::MemoryFactory::createMutable(allocator, 11);
   ASSERT_EQ(11u, memory.bytes());
   std::memcpy(memory.begin(), "hello world", memory.bytes());
-  auto shared = memory.bake();
+  auto shared = memory.build();
   ASSERT_EQ(11u, shared->bytes());
   ASSERT_EQ(0, std::memcmp(shared->begin(), "hello world", shared->bytes()));
   // Test that a builder just returns the chunk if there's only one
   egg::ovum::MemoryBuilder builder(allocator);
   builder.add(*shared);
-  auto result = builder.bake();
+  auto result = builder.build();
   ASSERT_EQ(shared->bytes(), result->bytes());
   ASSERT_EQ(shared->begin(), result->begin());
   ASSERT_EQ(shared->end(), result->end());
   // Check that two chunks result in concatenation
   builder.add(*shared);
   builder.add(*shared);
-  result = builder.bake();
+  result = builder.build();
   ASSERT_EQ(shared->bytes() * 2, result->bytes());
   ASSERT_NE(shared->begin(), result->begin());
   ASSERT_NE(shared->end(), result->end());

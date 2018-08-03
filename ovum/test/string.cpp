@@ -1,32 +1,35 @@
 #include "ovum/test.h"
 
-TEST(TestString, StringEmpty) {
+TEST(TestString, Empty) {
   egg::test::Allocator allocator{ egg::test::Allocator::Expectation::NoAllocations };
-  auto str = egg::ovum::String::Empty;
+  egg::ovum::String str;
+  ASSERT_EQ(nullptr, str);
+  ASSERT_EQ(0u, str.length());
+  egg::ovum::Byte nul = 0;
+  str = egg::ovum::StringFactory::fromUTF8(allocator, &nul, &nul);
+  ASSERT_EQ(nullptr, str);
   ASSERT_EQ(0u, str.length());
 }
 
-TEST(TestString, StringFromBytes) {
+TEST(TestString, FromBytes) {
   egg::test::Allocator allocator;
   const size_t bufsize = 11;
   auto* buffer = reinterpret_cast<const egg::ovum::Byte*>("hello world");
   auto str = egg::ovum::StringFactory::fromUTF8(allocator, buffer, buffer + bufsize);
+  ASSERT_NE(nullptr, str);
   ASSERT_EQ(bufsize, str.length());
-  auto memory = str.memoryUTF8();
-  ASSERT_NE(nullptr, memory);
-  ASSERT_EQ(bufsize, memory->bytes());
+  ASSERT_EQ(bufsize, str->bytes());
 }
 
-TEST(TestString, StringFromUTF8) {
+TEST(TestString, FromUTF8) {
   egg::test::Allocator allocator;
   auto str = egg::ovum::StringFactory::fromUTF8(allocator, u8"egg \U0001F95A");
+  ASSERT_NE(nullptr, str);
   ASSERT_EQ(5u, str.length());
-  auto memory = str.memoryUTF8();
-  ASSERT_NE(nullptr, memory);
-  ASSERT_EQ(8u, memory->bytes());
+  ASSERT_EQ(8u, str->bytes());
 }
 
-TEST(TestString, StringToUTF8) {
+TEST(TestString, ToUTF8) {
   egg::test::Allocator allocator;
   auto input = egg::ovum::StringFactory::fromUTF8(allocator, u8"egg \U0001F95A");
   ASSERT_EQ(5u, input.length());
@@ -34,16 +37,30 @@ TEST(TestString, StringToUTF8) {
   ASSERT_STREQ(u8"egg \U0001F95A", output.c_str());
 }
 
-TEST(TestString, StringFallback) {
+TEST(TestString, Fallback) {
   // These are strings that are allocated on the fallback allocator because an explicit one is not specified
   egg::ovum::String empty;
   ASSERT_EQ(0u, empty.length());
-  egg::ovum::String nil{ nullptr };
+  const char* null = nullptr;
+  egg::ovum::String nil{ null };
   ASSERT_EQ(0u, nil.length());
   egg::ovum::String hello{ "hello world" };
   ASSERT_EQ(11u, hello.length());
   ASSERT_STREQ("hello world", hello.toUTF8().c_str());
   egg::ovum::String goodbye{ std::string("goodbye") };
   ASSERT_EQ(7u, goodbye.length());
-  ASSERT_STREQ("goodbye", goodbye.toUTF8().c_str());
+  ASSERT_STRING("goodbye", goodbye);
+}
+
+TEST(TestString, Assignment) {
+  egg::ovum::String a{ "hello world" };
+  ASSERT_STRING("hello world", a);
+  egg::ovum::String b{ "goodbye" };
+  ASSERT_STRING("goodbye", b);
+  a = b;
+  ASSERT_STRING("goodbye", a);
+  ASSERT_STRING("goodbye", b);
+  a = std::move(b);
+  ASSERT_STRING("goodbye", a);
+  ASSERT_STRING("", b);
 }

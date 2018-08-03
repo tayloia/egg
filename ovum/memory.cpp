@@ -14,41 +14,24 @@ namespace {
     virtual const egg::ovum::Byte* end() const override {
       return &empty;
     }
+    virtual egg::ovum::IMemory::Tag tag() const override {
+      return egg::ovum::IMemory::Tag{ 0 };
+    }
     static const MemoryEmpty instance;
   };
-  const egg::ovum::Byte MemoryEmpty::empty{};
+  const egg::ovum::Byte MemoryEmpty::empty{ 0 };
   const MemoryEmpty MemoryEmpty::instance{};
-
-  class MemoryContiguous : public egg::ovum::HardReferenceCounted<egg::ovum::IMemory> {
-    MemoryContiguous(const MemoryContiguous&) = delete;
-    MemoryContiguous& operator=(const MemoryContiguous&) = delete;
-  private:
-    size_t size;
-  public:
-    MemoryContiguous(egg::ovum::IAllocator& allocator, size_t size) : HardReferenceCounted(allocator), size(size) {
-    }
-    virtual const egg::ovum::Byte* begin() const override {
-      return this->base();
-    }
-    virtual const egg::ovum::Byte* end() const override {
-      return this->base() + this->size;
-    }
-  private:
-    egg::ovum::Byte* base() const {
-      return const_cast<egg::ovum::Byte*>(reinterpret_cast<const egg::ovum::Byte*>(this + 1));
-    }
-  };
 }
 
-egg::ovum::IMemoryPtr egg::ovum::MemoryFactory::createEmpty() {
-  return egg::ovum::IMemoryPtr(&MemoryEmpty::instance);
+egg::ovum::Memory egg::ovum::MemoryFactory::createEmpty() {
+  return egg::ovum::Memory(&MemoryEmpty::instance);
 }
 
-egg::ovum::MemoryMutable egg::ovum::MemoryFactory::createMutable(IAllocator& allocator, size_t bytes) {
-  if (bytes == 0) {
+egg::ovum::MemoryMutable egg::ovum::MemoryFactory::createMutable(IAllocator& allocator, size_t bytes, IMemory::Tag tag) {
+  if ((bytes == 0) && (tag.u == 0)) {
     return egg::ovum::MemoryMutable(&MemoryEmpty::instance);
   }
-  return egg::ovum::MemoryMutable(allocator.create<MemoryContiguous>(bytes, allocator, bytes));
+  return egg::ovum::MemoryMutable(allocator.create<MemoryContiguous>(bytes, allocator, bytes, tag));
 }
 
 egg::ovum::MemoryBuilder::MemoryBuilder(egg::ovum::IAllocator& allocator)
@@ -75,7 +58,7 @@ void egg::ovum::MemoryBuilder::add(const IMemory& memory) {
   }
 }
 
-egg::ovum::IMemoryPtr egg::ovum::MemoryBuilder::bake() {
+egg::ovum::Memory egg::ovum::MemoryBuilder::build() {
   if (this->chunks.size() == 1) {
     // There's only a single chunk in the list
     auto front = this->chunks.front().memory;
@@ -93,7 +76,7 @@ egg::ovum::IMemoryPtr egg::ovum::MemoryBuilder::bake() {
   }
   assert(ptr == created.end());
   this->reset();
-  return created.bake();
+  return created.build();
 }
 
 void egg::ovum::MemoryBuilder::reset() {

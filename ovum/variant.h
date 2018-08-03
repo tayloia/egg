@@ -6,8 +6,8 @@ namespace egg::ovum {
     Int = 1 << 3,
     Float = 1 << 4,
     String = 1 << 5,
-    Object = 1 << 6,
-    Memory = 1 << 7,
+    Memory = 1 << 6,
+    Object = 1 << 7,
     Pointer = 1 << 8,
     Indirect = 1 << 9,
     Exception = 1 << 10
@@ -54,19 +54,18 @@ namespace egg::ovum {
     template<typename T> Variant(T rhs) = delete;
   private:
     union {
-      Bool b;
-      Int i;
-      Float f;
-      const IString* s;
-      void* o;
-      const IMemory* m;
-      void* p;
-      void* x;
+      Bool b; // Bool
+      Int i; // Int
+      Float f; // Float
+      const IMemory* s; // String|Memory
+      void* o; // Object
+      void* p; // Pointer|Indirect
+      void* x; // others
     } u;
   public:
     // Construction/destruction
     Variant() : VariantKind(VariantBits::Void) {
-      this->u.x = nullptr;
+      this->u.x = nullptr; // keep valgrind happy
     }
     Variant(const Variant& rhs) : VariantKind(rhs.getKind()) {
       Variant::copyInternals(*this, rhs);
@@ -110,10 +109,10 @@ namespace egg::ovum {
       return this->u.b;
     }
     // Int
-    Variant(int value) : VariantKind(VariantBits::Int) {
+    Variant(int32_t value) : VariantKind(VariantBits::Int) {
       this->u.i = value;
     }
-    Variant(Int value) : VariantKind(VariantBits::Int) {
+    Variant(int64_t value) : VariantKind(VariantBits::Int) {
       this->u.i = value;
     }
     Int getInt() const {
@@ -131,7 +130,7 @@ namespace egg::ovum {
     // String
     Variant(const String& value) : VariantKind(VariantBits::String) {
       // We've got to create a string without an allocator
-      this->u.s = String::hardAcquire(value.underlying());
+      this->u.s = String::hardAcquire(value.get());
     }
     Variant(const std::string& value) : VariantKind(VariantBits::String) {
       // We've got to create a string without an allocator
@@ -148,8 +147,7 @@ namespace egg::ovum {
     }
     String getString() const {
       assert(this->hasAny(VariantBits::String));
-      assert(this->u.s != nullptr);
-      return String(*this->u.s);
+      return String(this->u.s);
     }
     void swap(Variant& other) {
       this->swapKind(other);
@@ -161,7 +159,7 @@ namespace egg::ovum {
       assert(dst.getKind() == src.getKind());
       if (src.hasAny(VariantBits::String)) {
         assert(src.u.s != nullptr);
-        dst.u.s = String::hardAcquire(*src.u.s);
+        dst.u.s = String::hardAcquire(src.u.s);
       } else {
         dst.u = src.u;
       }
@@ -174,10 +172,11 @@ namespace egg::ovum {
     static void destroyInternals(Variant& dst) {
       // dst:VALID => dst:INVALID
       if (dst.hasAny(VariantBits::String)) {
-        assert(dst.u.s != nullptr);
-        dst.u.s->hardRelease();
+        if (dst.u.s != nullptr) {
+          dst.u.s->hardRelease();
+        }
       }
     }
-    static const IString* acquireFallbackString(const char* utf8, size_t bytes);
+    static const IMemory* acquireFallbackString(const char* utf8, size_t bytes);
   };
 }

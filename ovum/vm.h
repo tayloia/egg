@@ -128,71 +128,6 @@ namespace egg::ovum {
     return ptr != nullptr;
   }
 
-  template<class T>
-  class HardRef {
-  private:
-    T* ptr;
-  public:
-    HardRef() : ptr(T::defval()) {
-    }
-    explicit HardRef(const T& rhs) : ptr(&HardRef::hardAcquire(rhs)) {
-    }
-    HardRef(const HardRef& rhs) : ptr(&rhs.hardAcquire()) {
-    }
-    HardRef(HardRef&& rhs) : ptr(&rhs.get()) {
-    }
-    template<typename U>
-    HardRef(const HardRef<U>& rhs) : ptr(&rhs.hardAcquire()) {
-    }
-    HardRef& operator=(const HardRef& rhs) {
-      this->set(rhs.get());
-      return *this;
-    }
-    HardRef& operator=(HardRef&& rhs) {
-      assert(this->ptr != nullptr);
-      this->ptr->hardRelease();
-      this->ptr = &rhs.get();
-      rhs.ptr = nullptr;
-      return *this;
-    }
-    template<typename U>
-    HardRef& operator=(const HardRef<U>& rhs) {
-      this->set(rhs.get());
-      return *this;
-    }
-    ~HardRef() {
-      // The pointer may be null after a move operation
-      if (this->ptr != nullptr) {
-        this->ptr->hardRelease();
-      }
-    }
-    T& hardAcquire() const {
-      assert(this->ptr != nullptr);
-      return HardRef::hardAcquire(*this->ptr);
-    }
-    T& get() const {
-      assert(this->ptr != nullptr);
-      return *this->ptr;
-    }
-    void set(T& rhs) {
-      assert(this->ptr != nullptr);
-      auto* old = this->ptr;
-      this->ptr = &HardRef::hardAcquire(rhs);
-      old->hardRelease();
-    }
-    T& operator*() const {
-      assert(this->ptr != nullptr);
-      return *this->ptr;
-    }
-    T* operator->() const {
-      assert(this->ptr != nullptr);
-      return this->ptr;
-    }
-    static T& hardAcquire(const T& ref) {
-      return *static_cast<T*>(ref.hardAcquire());
-    }
-  };
-
   class IAllocator {
   public:
     struct Statistics {
@@ -224,46 +159,40 @@ namespace egg::ovum {
 
   class IMemory : public IHardAcquireRelease {
   public:
+    union Tag {
+      uintptr_t u;
+      void* p;
+    };
     virtual const Byte* begin() const = 0;
     virtual const Byte* end() const = 0;
+    virtual Tag tag() const = 0;
 
     size_t bytes() const {
       return size_t(this->end() - this->begin());
     }
   };
-  using IMemoryPtr = HardPtr<const IMemory>;
+  using Memory = HardPtr<const IMemory>;
 
-  class IString : public IHardAcquireRelease {
+  class String : public HardPtr<const IMemory> {
   public:
-    virtual size_t length() const = 0;
-    virtual IMemoryPtr memoryUTF8(size_t codePointOffset = 0, size_t codePointLength = SIZE_MAX) const = 0;
-  };
-
-  class String : private HardRef<const IString> {
-  public:
-    String(const char* rhs = nullptr); // implicit; fallback to factory
+    explicit String(const IMemory* rhs = nullptr) : HardPtr(rhs) {
+    }
+    String(const char* rhs); // implicit; fallback to factory
     String(const std::string& rhs); // implicit; fallback to factory
-    explicit String(const IString& rhs) : HardRef(rhs) {
-    }
     size_t length() const {
-      return this->get().length();
-    }
-    IMemoryPtr memoryUTF8(size_t codePointOffset = 0, size_t codePointLength = SIZE_MAX) const {
-      return this->get().memoryUTF8(codePointOffset, codePointLength);
+      auto* memory = this->get();
+      if (memory == nullptr) {
+        return 0;
+      }
+      return size_t(memory->tag().u);
     }
     std::string toUTF8() const {
-      auto memory = this->memoryUTF8();
+      auto* memory = this->get();
+      if (memory == nullptr) {
+        return std::string();
+      }
       return std::string(memory->begin(), memory->end());
     }
-    const IString& underlying() const {
-      return this->get();
-    }
-    static IString* hardAcquire(const IString& instance) {
-      auto* acquired = static_cast<IString*>(instance.hardAcquire());
-      assert(acquired != nullptr);
-      return acquired;
-    }
-    static const String Empty;
   };
 
   class ICollectable : public IHardAcquireRelease {

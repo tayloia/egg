@@ -106,10 +106,34 @@ namespace egg::ovum {
   };
   using AllocatorDefault = AllocatorWithPolicy<AllocatorDefaultPolicy>;
 
+  class MemoryContiguous : public HardReferenceCounted<IMemory> {
+    MemoryContiguous(const MemoryContiguous&) = delete;
+    MemoryContiguous& operator=(const MemoryContiguous&) = delete;
+  private:
+    size_t size;
+    IMemory::Tag usertag;
+  public:
+    MemoryContiguous(IAllocator& allocator, size_t size, IMemory::Tag usertag)
+      : HardReferenceCounted(allocator), size(size), usertag(usertag) {
+    }
+    virtual const Byte* begin() const override {
+      return this->base();
+    }
+    virtual const Byte* end() const override {
+      return this->base() + this->size;
+    }
+    virtual IMemory::Tag tag() const override {
+      return this->usertag;
+    }
+    Byte* base() const {
+      return const_cast<Byte*>(reinterpret_cast<const Byte*>(this + 1));
+    }
+  };
+
   class MemoryMutable {
     friend class MemoryFactory;
   private:
-    IMemoryPtr memory; // null only after being baked
+    Memory memory; // null only after being built
     explicit MemoryMutable(const IMemory* memory) : memory(memory) {
       // Only constructed by MemoryFactory
     }
@@ -126,7 +150,7 @@ namespace egg::ovum {
       assert(this->memory != nullptr);
       return this->memory->bytes();
     }
-    IMemoryPtr bake() {
+    Memory build() {
       assert(this->memory != nullptr);
       return std::move(this->memory);
     }
@@ -134,8 +158,8 @@ namespace egg::ovum {
 
   class MemoryFactory {
   public:
-    static IMemoryPtr createEmpty();
-    static MemoryMutable createMutable(IAllocator& allocator, size_t bytes);
+    static Memory createEmpty();
+    static MemoryMutable createMutable(IAllocator& allocator, size_t bytes, IMemory::Tag tag = IMemory::Tag{ 0 });
   };
 
   class MemoryBuilder {
@@ -143,7 +167,7 @@ namespace egg::ovum {
     MemoryBuilder& operator=(const MemoryBuilder&) = delete;
   private:
     struct Chunk {
-      IMemoryPtr memory;
+      Memory memory;
       const Byte* base;
       size_t bytes;
       Chunk(const IMemory* memory, const Byte* base, size_t bytes) : memory(memory), base(base), bytes(bytes) {
@@ -158,13 +182,12 @@ namespace egg::ovum {
     explicit MemoryBuilder(IAllocator& allocator);
     void add(const Byte* begin, const Byte* end);
     void add(const IMemory& memory);
-    IMemoryPtr bake();
+    Memory build();
     void reset();
   };
 
   class StringFactory {
   public:
-    static String fromUTF8(IAllocator& allocator, const egg::ovum::IMemory& memory, size_t length);
     static String fromUTF8(IAllocator& allocator, const Byte* begin, const Byte* end);
     static String fromUTF8(IAllocator& allocator, const void* utf8, size_t bytes) {
       auto begin = static_cast<const Byte*>(utf8);
@@ -178,6 +201,5 @@ namespace egg::ovum {
     static String fromUTF8(IAllocator& allocator, const char (&utf8)[N]) {
       return fromUTF8(allocator, utf8, N - 1);
     }
-    static const IString* acquireFallbackString(const char* utf8, size_t bytes);
   };
 }

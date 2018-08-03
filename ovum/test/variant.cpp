@@ -83,7 +83,7 @@ TEST(TestVariant, String) {
   std::string goodbye{ "goodbye" };
   variant = goodbye;
   ASSERT_VARIANT("goodbye", variant);
-  variant = egg::ovum::String::Empty;
+  variant = egg::ovum::String();
   ASSERT_VARIANT("", variant);
   egg::ovum::String fallback{ "fallback" };
   variant = fallback;
