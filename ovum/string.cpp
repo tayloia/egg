@@ -4,7 +4,7 @@
 namespace {
   using namespace egg::ovum;
 
-  const IMemory* createContiguous(IAllocator& allocator, const Byte* utf8, size_t bytes) {
+  const IMemory* createContiguous(IAllocator& allocator, const uint8_t* utf8, size_t bytes) {
     // TODO detect malformed/overlong/etc
     if ((utf8 == nullptr) || (bytes == 0)) {
       return nullptr;
@@ -45,7 +45,7 @@ namespace {
     }
     static const IMemory* createString(const char* utf8, size_t bytes) {
       static StringFallbackAllocator allocator;
-      return createContiguous(allocator, reinterpret_cast<const Byte*>(utf8), bytes);
+      return createContiguous(allocator, reinterpret_cast<const uint8_t*>(utf8), bytes);
     }
     static const IMemory* createString(const char* utf8) {
       return (utf8 == nullptr) ? nullptr : StringFallbackAllocator::createString(utf8, std::strlen(utf8));
@@ -63,7 +63,7 @@ egg::ovum::String::String(const std::string& utf8)
   // We've got to create this string without an allocator, so use a fallback
 }
 
-egg::ovum::String egg::ovum::StringFactory::fromUTF8(IAllocator& allocator, const Byte* begin, const Byte* end) {
+egg::ovum::String egg::ovum::StringFactory::fromUTF8(IAllocator& allocator, const uint8_t* begin, const uint8_t* end) {
   assert(begin != nullptr);
   assert(end >= begin);
   auto bytes = size_t(end - begin);

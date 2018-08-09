@@ -1,5 +1,5 @@
 namespace egg::ovum::utf8 {
-  size_t sizeFromLeadByte(Byte lead) {
+  size_t sizeFromLeadByte(uint8_t lead) {
     // Fetch the size in bytes of a codepoint given just the lead byte
     if (lead < 0x80) {
       return 1;
@@ -14,7 +14,7 @@ namespace egg::ovum::utf8 {
     }
     return SIZE_MAX;
   }
-  size_t measure(const Byte* p, const Byte* q) {
+  size_t measure(const uint8_t* p, const uint8_t* q) {
     // Return SIZE_MAX if this is not valid UTF-8, otherwise the codepoint count
     size_t count = 0;
     while (p < q) {

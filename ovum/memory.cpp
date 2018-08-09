@@ -5,13 +5,13 @@ namespace {
     MemoryEmpty(const MemoryEmpty&) = delete;
     MemoryEmpty& operator=(const MemoryEmpty&) = delete;
   private:
-    static const egg::ovum::Byte empty;
+    static const uint8_t empty;
     MemoryEmpty() {}
   public:
-    virtual const egg::ovum::Byte* begin() const override {
+    virtual const uint8_t* begin() const override {
       return &empty;
     }
-    virtual const egg::ovum::Byte* end() const override {
+    virtual const uint8_t* end() const override {
       return &empty;
     }
     virtual egg::ovum::IMemory::Tag tag() const override {
@@ -19,7 +19,7 @@ namespace {
     }
     static const MemoryEmpty instance;
   };
-  const egg::ovum::Byte MemoryEmpty::empty{ 0 };
+  const uint8_t MemoryEmpty::empty{ 0 };
   const MemoryEmpty MemoryEmpty::instance{};
 }
 
@@ -53,7 +53,7 @@ egg::ovum::MemoryBuilder::MemoryBuilder(egg::ovum::IAllocator& allocator)
     bytes(0) {
 }
 
-void egg::ovum::MemoryBuilder::add(const Byte* begin, const Byte* end) {
+void egg::ovum::MemoryBuilder::add(const uint8_t* begin, const uint8_t* end) {
   assert(begin != nullptr);
   assert(end >= begin);
   auto size = size_t(end - begin);

@@ -33,6 +33,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\ovum\factories.h" />
+    <ClInclude Include="..\ovum\interfaces.h" />
     <ClInclude Include="..\ovum\ovum.h" />
     <ClInclude Include="..\ovum\utf8.h" />
     <ClInclude Include="..\ovum\variant.h" />

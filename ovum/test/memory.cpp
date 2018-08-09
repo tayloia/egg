@@ -9,11 +9,11 @@ namespace {
     }
   };
   struct Literal {
-    const egg::ovum::Byte* begin;
-    const egg::ovum::Byte* end;
+    const uint8_t* begin;
+    const uint8_t* end;
     explicit Literal(const char* text) {
       assert(text != nullptr);
-      this->begin = reinterpret_cast<const egg::ovum::Byte*>(text);
+      this->begin = reinterpret_cast<const uint8_t*>(text);
       this->end = this->begin + strlen(text);
     }
   };

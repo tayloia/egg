@@ -2,6 +2,43 @@ namespace egg::ovum {
   class MemoryFactory;
 
   template<typename T>
+  class Atomic {
+    Atomic(Atomic&) = delete;
+    Atomic& operator=(Atomic&) = delete;
+  public:
+    using Underlying = T;
+  private:
+    std::atomic<Underlying> atomic;
+  public:
+    explicit Atomic(Underlying value) : atomic(value) {
+    }
+    Underlying get() const {
+      // Get the current value
+      return std::atomic_load(&this->atomic);
+    }
+    Underlying add(Underlying value) {
+      // Return the value AFTER the addition
+      return std::atomic_fetch_add(&this->atomic, value) + value;
+    }
+    Underlying increment() {
+      // The result should be strictly positive
+      auto result = this->add(1);
+      assert(result > 0);
+      return result;
+    }
+    Underlying decrement() {
+      // The result should not be negative
+      auto result = this->add(-1);
+      assert(result >= 0);
+      return result;
+    }
+  };
+
+  using ReadWriteMutex = std::shared_mutex;
+  using WriteLock = std::unique_lock<ReadWriteMutex>;
+  using ReadLock = std::shared_lock<ReadWriteMutex>;
+
+  template<typename T>
   class HardReferenceCounted : public T {
     HardReferenceCounted(const HardReferenceCounted&) = delete;
     HardReferenceCounted& operator=(const HardReferenceCounted&) = delete;
@@ -160,17 +197,17 @@ namespace egg::ovum {
     MemoryContiguous(IAllocator& allocator, size_t size, IMemory::Tag usertag)
       : HardReferenceCounted(allocator), size(size), usertag(usertag) {
     }
-    virtual const Byte* begin() const override {
+    virtual const uint8_t* begin() const override {
       return this->base();
     }
-    virtual const Byte* end() const override {
+    virtual const uint8_t* end() const override {
       return this->base() + this->size;
     }
     virtual IMemory::Tag tag() const override {
       return this->usertag;
     }
-    Byte* base() const {
-      return const_cast<Byte*>(reinterpret_cast<const Byte*>(this + 1));
+    uint8_t* base() const {
+      return const_cast<uint8_t*>(reinterpret_cast<const uint8_t*>(this + 1));
     }
   };
 
@@ -182,13 +219,13 @@ namespace egg::ovum {
       // Only constructed by MemoryFactory
     }
   public:
-    Byte* begin() {
+    uint8_t * begin() {
       assert(this->memory != nullptr);
-      return const_cast<Byte*>(this->memory->begin());
+      return const_cast<uint8_t*>(this->memory->begin());
     }
-    Byte* end() {
+    uint8_t* end() {
       assert(this->memory != nullptr);
-      return const_cast<Byte*>(this->memory->end());
+      return const_cast<uint8_t*>(this->memory->end());
     }
     size_t bytes() const {
       assert(this->memory != nullptr);
@@ -213,9 +250,9 @@ namespace egg::ovum {
   private:
     struct Chunk {
       Memory memory;
-      const Byte* base;
+      const uint8_t* base;
       size_t bytes;
-      Chunk(const IMemory* memory, const Byte* base, size_t bytes) : memory(memory), base(base), bytes(bytes) {
+      Chunk(const IMemory* memory, const uint8_t* base, size_t bytes) : memory(memory), base(base), bytes(bytes) {
         assert(base != nullptr);
         assert(bytes > 0);
       }
@@ -225,7 +262,7 @@ namespace egg::ovum {
     size_t bytes;
   public:
     explicit MemoryBuilder(IAllocator& allocator);
-    void add(const Byte* begin, const Byte* end);
+    void add(const uint8_t* begin, const uint8_t* end);
     void add(const IMemory& memory);
     Memory build();
     void reset();
@@ -233,9 +270,9 @@ namespace egg::ovum {
 
   class StringFactory {
   public:
-    static String fromUTF8(IAllocator& allocator, const Byte* begin, const Byte* end);
+    static String fromUTF8(IAllocator& allocator, const uint8_t* begin, const uint8_t* end);
     static String fromUTF8(IAllocator& allocator, const void* utf8, size_t bytes) {
-      auto begin = static_cast<const Byte*>(utf8);
+      auto begin = static_cast<const uint8_t*>(utf8);
       assert(begin != nullptr);
       return fromUTF8(allocator, begin, begin + bytes);
     }
