@@ -34,6 +34,7 @@
       <DisableLanguageExtensions Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</DisableLanguageExtensions>
     </ClCompile>
     <ClCompile Include="..\ovum\test\memory.cpp" />
+    <ClCompile Include="..\ovum\test\module.cpp" />
     <ClCompile Include="..\ovum\test\string.cpp" />
     <ClCompile Include="..\ovum\test\testing.cpp" />
     <ClCompile Include="..\ovum\test\variant.cpp" />

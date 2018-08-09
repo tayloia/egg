@@ -270,6 +270,7 @@ namespace egg::ovum {
 
   class StringFactory {
   public:
+    static String fromUTF8(IAllocator& allocator, const uint8_t* begin, const uint8_t* end, size_t codepoints);
     static String fromUTF8(IAllocator& allocator, const uint8_t* begin, const uint8_t* end);
     static String fromUTF8(IAllocator& allocator, const void* utf8, size_t bytes) {
       auto begin = static_cast<const uint8_t*>(utf8);
@@ -293,5 +294,11 @@ namespace egg::ovum {
   class VariantFactory {
   public:
     static HardPtr<IVariantSoft> createVariantSoft(IAllocator& allocator, IBasket& basket, Variant&& value);
+  };
+
+  class ModuleFactory {
+  public:
+    static Module fromBinaryStream(IAllocator& allocator, std::istream& stream);
+    static Module fromMemory(IAllocator& allocator, const uint8_t* begin, const uint8_t* end);
   };
 }

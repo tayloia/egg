@@ -69,4 +69,8 @@ namespace egg::ovum {
 
   class IObject : public ICollectable {
   };
+
+  class IModule : public IHardAcquireRelease {
+  public:
+  };
 }

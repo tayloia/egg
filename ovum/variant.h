@@ -1,4 +1,7 @@
 namespace egg::ovum {
+  using Bool = bool;
+  using Int = int64_t;
+  using Float = double;
   class Variant;
   class VariantFactory;
   class VariantSoft;
@@ -100,6 +103,7 @@ namespace egg::ovum {
     }
     String(const char* rhs); // implicit; fallback to factory
     String(const std::string& rhs); // implicit; fallback to factory
+    String(const std::string& rhs, size_t codepoints); // fallback to factory
     size_t length() const {
       auto* memory = this->get();
       if (memory == nullptr) {
@@ -122,6 +126,8 @@ namespace egg::ovum {
       assert(this->get() != nullptr);
     }
   };
+
+  using Module = HardPtr<IModule>;
 
   enum class VariantBits {
     Void = 1 << 0,
@@ -191,9 +197,9 @@ namespace egg::ovum {
     friend class VariantSoft;
   private:
     union {
-      bool b; // Bool
-      int64_t i; // Int
-      double f; // Float
+      Bool b; // Bool
+      Int i; // Int
+      Float f; // Float
       const IMemory* s; // String|Memory
       IObject* o; // Object
       IVariantSoft* p; // Pointer|Indirect
@@ -253,7 +259,7 @@ namespace egg::ovum {
     Variant(int64_t value) : VariantKind(VariantBits::Int) {
       this->u.i = value;
     }
-    int64_t getInt() const {
+    Int getInt() const {
       assert(this->hasAny(VariantBits::Int));
       return this->u.i;
     }
@@ -264,7 +270,7 @@ namespace egg::ovum {
     Variant(double value) : VariantKind(VariantBits::Float) {
       this->u.f = value;
     }
-    double getFloat() const {
+    Float getFloat() const {
       assert(this->hasAny(VariantBits::Float));
       return this->u.f;
     }

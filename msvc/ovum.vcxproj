@@ -21,6 +21,7 @@
   <ItemGroup>
     <ClCompile Include="..\ovum\basket.cpp" />
     <ClCompile Include="..\ovum\memory.cpp" />
+    <ClCompile Include="..\ovum\module.cpp" />
     <ClCompile Include="..\ovum\string.cpp" />
     <ClCompile Include="..\ovum\vanilla.cpp" />
     <ClCompile Include="..\ovum\variant.cpp" />
@@ -37,6 +38,7 @@
     <ClInclude Include="..\ovum\ovum.h" />
     <ClInclude Include="..\ovum\utf8.h" />
     <ClInclude Include="..\ovum\variant.h" />
+    <ClInclude Include="..\ovum\vm.h" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>15.0</VCProjectVersion>

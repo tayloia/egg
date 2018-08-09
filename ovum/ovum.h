@@ -50,6 +50,7 @@
 #include <mutex>
 #include <set>
 #include <shared_mutex>
+#include <sstream>
 #include <string>
 
 #if defined(_MSC_VER)
@@ -57,6 +58,7 @@
 #endif
 
 // These are our own headers
+#include "ovum/vm.h"
 #include "ovum/interfaces.h"
 #include "ovum/variant.h"
 #include "ovum/factories.h"
