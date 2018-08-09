@@ -58,6 +58,5 @@
 
 // These are our own headers
 #include "ovum/interfaces.h"
-#include "ovum/vm.h"
 #include "ovum/variant.h"
 #include "ovum/factories.h"
