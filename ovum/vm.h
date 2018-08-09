@@ -1,3 +1,6 @@
+// This is the number of arguments encoded in the machine byte meaning "variable"
+#define EGG_VM_NARGS 5
+
 // Macro to define module sections: X(section, byte)
 // 0xA3 is "POUND SIGN" in Latin-1 and not valid UTF-8
 #define EGG_VM_SECTIONS(X) \
@@ -42,7 +45,6 @@
   X(OPCODE_DEFAULT, "default", 18, 2, N) \
   X(OPCODE_DO, "do", 4, 2, 2) \
   X(OPCODE_ELLIPSIS, "ellipsis", 3, 1, 1) \
-  X(OPCODE_END, "end", 0, 0, 0) \
   X(OPCODE_EXTENSIBLE, "extensible", 29, 1, N) \
   X(OPCODE_FALSE, "false", 5, 0, 0) \
   X(OPCODE_FINALLY, "finally", 4, 1, 1) \

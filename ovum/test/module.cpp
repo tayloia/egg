@@ -1,4 +1,5 @@
 #include "ovum/test.h"
+#include "ovum/ast.h"
 
 #define EGG_VM_MAGIC_BYTE(byte) byte,
 #define MAGIC EGG_VM_MAGIC(EGG_VM_MAGIC_BYTE)
