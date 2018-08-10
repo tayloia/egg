@@ -1,7 +1,8 @@
 namespace egg::ovum::ast {
   enum Opcode {
-#define EGG_VM_OPCODES_ENUM(opcode, text, row, minargs, maxargs) opcode = (row * 6 + minargs),
+#define EGG_VM_OPCODES_ENUM(opcode, minbyte, minargs, maxargs, text) opcode = minbyte,
     EGG_VM_OPCODES(EGG_VM_OPCODES_ENUM)
+#undef EGG_VM_OPCODES_ENUM
     OPCODE_reserved = -1
   };
 

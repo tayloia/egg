@@ -1,6 +1,9 @@
 // This is the number of arguments encoded in the machine byte meaning "variable"
 #define EGG_VM_NARGS 5
 
+// This is the first machine byte without an integer operand for its opcode
+#define EGG_VM_ISTART 24
+
 // Macro to define module sections: X(section, byte)
 // 0xA3 is "POUND SIGN" in Latin-1 and not valid UTF-8
 #define EGG_VM_SECTIONS(X) \
@@ -21,82 +24,83 @@
   X(0x4D) \
   X(0x00)
 
-// Macro to define module opcodes: X(opcode, text, row, minargs, maxargs)
+// Macro to define module opcodes: X(opcode, minbyte, minargs, maxargs, text)
 #define EGG_VM_OPCODES(X) \
-  X(OPCODE_ANY, "any", 1, 0, 0) \
-  X(OPCODE_ANYQ, "anyq", 2, 0, 0) \
-  X(OPCODE_ASSERT, "assert", 1, 1, 1) \
-  X(OPCODE_ASSIGN, "assign", 1, 2, 2) \
-  X(OPCODE_ATTRIBUTE, "attribute", 24, 1, N) \
-  X(OPCODE_AVALUE, "avalue", 35, 0, N) \
-  X(OPCODE_BINARY, "binary", 0, 3, 3) \
-  X(OPCODE_BLOCK, "block", 25, 1, N) \
-  X(OPCODE_BOOL, "bool", 16, 0, 1) \
-  X(OPCODE_BREAK, "break", 3, 0, 0) \
-  X(OPCODE_BYNAME, "byname", 2, 2, 2) \
-  X(OPCODE_CALL, "call", 26, 1, N) \
-  X(OPCODE_CALLABLE, "callable", 27, 1, N) \
-  X(OPCODE_CASE, "case", 23, 3, N) \
-  X(OPCODE_CATCH, "catch", 1, 3, 3) \
-  X(OPCODE_CHOICE, "choice", 28, 1, N) \
-  X(OPCODE_COMPARE, "compare", 3, 2, 2) \
-  X(OPCODE_CONTINUE, "continue", 4, 0, 0) \
-  X(OPCODE_DECREMENT, "decrement", 2, 1, 1) \
-  X(OPCODE_DEFAULT, "default", 18, 2, N) \
-  X(OPCODE_DO, "do", 4, 2, 2) \
-  X(OPCODE_ELLIPSIS, "ellipsis", 3, 1, 1) \
-  X(OPCODE_EXTENSIBLE, "extensible", 29, 1, N) \
-  X(OPCODE_FALSE, "false", 5, 0, 0) \
-  X(OPCODE_FINALLY, "finally", 4, 1, 1) \
-  X(OPCODE_FINITE, "finite", 6, 0, 0) \
-  X(OPCODE_FLOAT, "float", 36, 0, N) \
-  X(OPCODE_FOR, "for", 1, 4, 4) \
-  X(OPCODE_FOREACH, "foreach", 2, 3, 3) \
-  X(OPCODE_FUNCTION, "function", 15, 2, 3) \
-  X(OPCODE_FVALUE, "fvalue", 5, 1, 1) \
-  X(OPCODE_GENERATOR, "generator", 16, 2, 3) \
-  X(OPCODE_GUARD, "guard", 3, 3, 3) \
-  X(OPCODE_HAS, "has", 5, 2, 2) \
-  X(OPCODE_HASQ, "hasq", 6, 2, 2) \
-  X(OPCODE_IDENTIFIER, "identifier", 6, 1, 1) \
-  X(OPCODE_IF, "if", 17, 2, 3) \
-  X(OPCODE_INCREMENT, "increment", 7, 1, 1) \
-  X(OPCODE_INDEX, "index", 7, 2, 2) \
-  X(OPCODE_INDEXABLE, "indexable", 2, 4, 4) \
-  X(OPCODE_INFERRED, "inferred", 7, 0, 0) \
-  X(OPCODE_INT, "int", 37, 0, N) \
-  X(OPCODE_ITERABLE, "iterable", 8, 1, 1) \
-  X(OPCODE_IVALUE, "ivalue", 9, 1, 1) \
-  X(OPCODE_LAMBDA, "lambda", 30, 1, N) \
-  X(OPCODE_LENGTH, "length", 31, 1, N) \
-  X(OPCODE_META, "meta", 8, 2, 2) \
-  X(OPCODE_MODULE, "module", 42, 1, 3) \
-  X(OPCODE_MUTATE, "mutate", 4, 3, 3) \
-  X(OPCODE_NAMED, "named", 9, 2, 2) \
-  X(OPCODE_NOOP, "noop", 8, 0, 0) \
-  X(OPCODE_NOT, "not", 0, 1, 1) \
-  X(OPCODE_NULL, "null", 9, 0, 0) \
-  X(OPCODE_OBJECT, "object", 38, 0, N) \
-  X(OPCODE_OPTIONAL, "optional", 22, 1, 2) \
-  X(OPCODE_OVALUE, "ovalue", 39, 0, N) \
-  X(OPCODE_POINTEE, "pointee", 10, 1, 1) \
-  X(OPCODE_POINTER, "pointer", 11, 1, 1) \
-  X(OPCODE_PROPERTY, "property", 10, 2, 2) \
-  X(OPCODE_PROPERTYQ, "propertyq", 11, 2, 2) \
-  X(OPCODE_REGEX, "regex", 12, 1, 1) \
-  X(OPCODE_REQUIRED, "required", 23, 1, 2) \
-  X(OPCODE_RETURN, "return", 17, 0, 1) \
-  X(OPCODE_STRING, "string", 40, 0, N) \
-  X(OPCODE_SVALUE, "svalue", 13, 1, 1) \
-  X(OPCODE_SWITCH, "switch", 19, 2, N) \
-  X(OPCODE_TERNARY, "ternary", 0, 4, 4) \
-  X(OPCODE_THROW, "throw", 18, 0, 1) \
-  X(OPCODE_TRUE, "true", 10, 0, 0) \
-  X(OPCODE_TRY, "try", 32, 1, N) \
-  X(OPCODE_TYPE, "type", 41, 0, N) \
-  X(OPCODE_UNARY, "unary", 0, 2, 2) \
-  X(OPCODE_UNION, "union", 33, 1, N) \
-  X(OPCODE_VARARGS, "varargs", 20, 2, N) \
-  X(OPCODE_VOID, "void", 11, 0, 0) \
-  X(OPCODE_WHILE, "while", 12, 2, 2) \
-  X(OPCODE_YIELD, "yield", 19, 0, 1)
+  X(OPCODE_ANY, 24, 0, 0, "any") \
+  X(OPCODE_ANYQ, 30, 0, 0, "anyq") \
+  X(OPCODE_ASSERT, 25, 1, 1, "assert") \
+  X(OPCODE_ASSIGN, 26, 2, 2, "assign") \
+  X(OPCODE_ATTRIBUTE, 151, 1, N, "attribute") \
+  X(OPCODE_AVALUE, 210, 0, N, "avalue") \
+  X(OPCODE_BINARY, 2, 2, 2, "binary") \
+  X(OPCODE_BLOCK, 157, 1, N, "block") \
+  X(OPCODE_BOOL, 108, 0, 1, "bool") \
+  X(OPCODE_BREAK, 36, 0, 0, "break") \
+  X(OPCODE_BYNAME, 32, 2, 2, "byname") \
+  X(OPCODE_CALL, 163, 1, N, "call") \
+  X(OPCODE_CALLABLE, 169, 1, N, "callable") \
+  X(OPCODE_CASE, 147, 3, N, "case") \
+  X(OPCODE_CATCH, 27, 3, 3, "catch") \
+  X(OPCODE_CHOICE, 175, 1, N, "choice") \
+  X(OPCODE_COMPARE, 38, 2, 2, "compare") \
+  X(OPCODE_CONTINUE, 42, 0, 0, "continue") \
+  X(OPCODE_DECREMENT, 31, 1, 1, "decrement") \
+  X(OPCODE_DEFAULT, 122, 2, N, "default") \
+  X(OPCODE_DO, 44, 2, 2, "do") \
+  X(OPCODE_ELLIPSIS, 37, 1, 1, "ellipsis") \
+  X(OPCODE_END, 0, 0, 0, "end") \
+  X(OPCODE_EXTENSIBLE, 181, 1, N, "extensible") \
+  X(OPCODE_FALSE, 48, 0, 0, "false") \
+  X(OPCODE_FINALLY, 43, 1, 1, "finally") \
+  X(OPCODE_FINITE, 54, 0, 0, "finite") \
+  X(OPCODE_FLOAT, 216, 0, N, "float") \
+  X(OPCODE_FOR, 28, 4, 4, "for") \
+  X(OPCODE_FOREACH, 33, 3, 3, "foreach") \
+  X(OPCODE_FUNCTION, 104, 2, 3, "function") \
+  X(OPCODE_FVALUE, 12, 0, 0, "fvalue") \
+  X(OPCODE_GENERATOR, 110, 2, 3, "generator") \
+  X(OPCODE_GUARD, 39, 3, 3, "guard") \
+  X(OPCODE_HAS, 50, 2, 2, "has") \
+  X(OPCODE_HASQ, 56, 2, 2, "hasq") \
+  X(OPCODE_IDENTIFIER, 49, 1, 1, "identifier") \
+  X(OPCODE_IF, 116, 2, 3, "if") \
+  X(OPCODE_INCREMENT, 55, 1, 1, "increment") \
+  X(OPCODE_INDEX, 62, 2, 2, "index") \
+  X(OPCODE_INDEXABLE, 34, 4, 4, "indexable") \
+  X(OPCODE_INFERRED, 60, 0, 0, "inferred") \
+  X(OPCODE_INT, 222, 0, N, "int") \
+  X(OPCODE_ITERABLE, 61, 1, 1, "iterable") \
+  X(OPCODE_IVALUE, 6, 0, 0, "ivalue") \
+  X(OPCODE_LAMBDA, 187, 1, N, "lambda") \
+  X(OPCODE_LENGTH, 193, 1, N, "length") \
+  X(OPCODE_META, 68, 2, 2, "meta") \
+  X(OPCODE_MODULE, 253, 1, 3, "module") \
+  X(OPCODE_MUTATE, 45, 3, 3, "mutate") \
+  X(OPCODE_NAMED, 74, 2, 2, "named") \
+  X(OPCODE_NOOP, 66, 0, 0, "noop") \
+  X(OPCODE_NOT, 67, 1, 1, "not") \
+  X(OPCODE_NULL, 72, 0, 0, "null") \
+  X(OPCODE_OBJECT, 228, 0, N, "object") \
+  X(OPCODE_OPTIONAL, 139, 1, 2, "optional") \
+  X(OPCODE_OVALUE, 234, 0, N, "ovalue") \
+  X(OPCODE_POINTEE, 73, 1, 1, "pointee") \
+  X(OPCODE_POINTER, 79, 1, 1, "pointer") \
+  X(OPCODE_PROPERTY, 80, 2, 2, "property") \
+  X(OPCODE_PROPERTYQ, 86, 2, 2, "propertyq") \
+  X(OPCODE_REGEX, 85, 1, 1, "regex") \
+  X(OPCODE_REQUIRED, 145, 1, 2, "required") \
+  X(OPCODE_RETURN, 114, 0, 1, "return") \
+  X(OPCODE_STRING, 240, 0, N, "string") \
+  X(OPCODE_SVALUE, 18, 0, 0, "svalue") \
+  X(OPCODE_SWITCH, 128, 2, N, "switch") \
+  X(OPCODE_TERNARY, 3, 3, 3, "ternary") \
+  X(OPCODE_THROW, 120, 0, 1, "throw") \
+  X(OPCODE_TRUE, 78, 0, 0, "true") \
+  X(OPCODE_TRY, 199, 1, N, "try") \
+  X(OPCODE_TYPE, 246, 0, N, "type") \
+  X(OPCODE_UNARY, 1, 1, 1, "unary") \
+  X(OPCODE_UNION, 205, 1, N, "union") \
+  X(OPCODE_VARARGS, 134, 2, N, "varargs") \
+  X(OPCODE_VOID, 84, 0, 0, "void") \
+  X(OPCODE_WHILE, 92, 2, 2, "while") \
+  X(OPCODE_YIELD, 126, 0, 1, "yield")

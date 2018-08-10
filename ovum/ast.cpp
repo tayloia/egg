@@ -14,16 +14,16 @@ namespace {
       std::memset(this->opcode, -1, sizeof(this->opcode));
       std::memset(this->properties, 0, sizeof(this->properties));
       const size_t N = EGG_VM_NARGS; // used in the macro below
-#define EGG_VM_OPCODES_TABLE(code, text, row, minargs, maxargs) this->fill(code, text, minargs, maxargs);
+#define EGG_VM_OPCODES_TABLE(opcode, minbyte, minargs, maxargs, text) this->fill(opcode, minargs, maxargs, text);
       EGG_VM_OPCODES(EGG_VM_OPCODES_TABLE)
 #undef EGG_VM_OPCODES_TABLE
     }
-    void fill(Opcode code, const char* text, size_t minargs, size_t maxargs) {
+    void fill(Opcode code, size_t minargs, size_t maxargs, const char* text) {
       assert(code != OPCODE_reserved);
       assert(text != nullptr);
       assert(minargs <= maxargs);
       assert(maxargs <= EGG_VM_NARGS);
-      assert((code >= 0x01) && (code <= 0xFF));
+      assert((code >= 0x00) && (code <= 0xFF));
       auto& prop = this->properties[code];
       assert(prop.minbyte == 0);
       prop.name = text;
