@@ -88,8 +88,8 @@ TEST(TestAST, OpcodeFromMachineByte) {
   ASSERT_EQ(OPCODE_reserved, opcodeFromMachineByte(4));
   ASSERT_EQ(OPCODE_reserved, opcodeFromMachineByte(5));
   ASSERT_EQ(OPCODE_IVALUE, opcodeFromMachineByte(6));
-  ASSERT_EQ(OPCODE_reserved, opcodeFromMachineByte(7));
-  ASSERT_EQ(OPCODE_reserved, opcodeFromMachineByte(8));
+  ASSERT_EQ(OPCODE_COMPARE, opcodeFromMachineByte(7));
+  ASSERT_EQ(OPCODE_MUTATE, opcodeFromMachineByte(8));
   ASSERT_EQ(OPCODE_reserved, opcodeFromMachineByte(9));
   ASSERT_EQ(OPCODE_reserved, opcodeFromMachineByte(10));
   ASSERT_EQ(OPCODE_reserved, opcodeFromMachineByte(11));
@@ -119,61 +119,61 @@ TEST(TestAST, OpcodeFromMachineByte) {
   ASSERT_EQ(OPCODE_reserved, opcodeFromMachineByte(35));
   ASSERT_EQ(OPCODE_BREAK, opcodeFromMachineByte(36));
   ASSERT_EQ(OPCODE_ELLIPSIS, opcodeFromMachineByte(37));
-  ASSERT_EQ(OPCODE_COMPARE, opcodeFromMachineByte(38));
+  ASSERT_EQ(OPCODE_DO, opcodeFromMachineByte(38));
   ASSERT_EQ(OPCODE_GUARD, opcodeFromMachineByte(39));
   ASSERT_EQ(OPCODE_reserved, opcodeFromMachineByte(40));
   ASSERT_EQ(OPCODE_reserved, opcodeFromMachineByte(41));
   ASSERT_EQ(OPCODE_CONTINUE, opcodeFromMachineByte(42));
   ASSERT_EQ(OPCODE_FINALLY, opcodeFromMachineByte(43));
-  ASSERT_EQ(OPCODE_DO, opcodeFromMachineByte(44));
-  ASSERT_EQ(OPCODE_MUTATE, opcodeFromMachineByte(45));
+  ASSERT_EQ(OPCODE_HAS, opcodeFromMachineByte(44));
+  ASSERT_EQ(OPCODE_reserved, opcodeFromMachineByte(45));
   ASSERT_EQ(OPCODE_reserved, opcodeFromMachineByte(46));
   ASSERT_EQ(OPCODE_reserved, opcodeFromMachineByte(47));
   ASSERT_EQ(OPCODE_FALSE, opcodeFromMachineByte(48));
   ASSERT_EQ(OPCODE_IDENTIFIER, opcodeFromMachineByte(49));
-  ASSERT_EQ(OPCODE_HAS, opcodeFromMachineByte(50));
+  ASSERT_EQ(OPCODE_HASQ, opcodeFromMachineByte(50));
   ASSERT_EQ(OPCODE_reserved, opcodeFromMachineByte(51));
   ASSERT_EQ(OPCODE_reserved, opcodeFromMachineByte(52));
   ASSERT_EQ(OPCODE_reserved, opcodeFromMachineByte(53));
   ASSERT_EQ(OPCODE_FINITE, opcodeFromMachineByte(54));
   ASSERT_EQ(OPCODE_INCREMENT, opcodeFromMachineByte(55));
-  ASSERT_EQ(OPCODE_HASQ, opcodeFromMachineByte(56));
+  ASSERT_EQ(OPCODE_INDEX, opcodeFromMachineByte(56));
   ASSERT_EQ(OPCODE_reserved, opcodeFromMachineByte(57));
   ASSERT_EQ(OPCODE_reserved, opcodeFromMachineByte(58));
   ASSERT_EQ(OPCODE_reserved, opcodeFromMachineByte(59));
   ASSERT_EQ(OPCODE_INFERRED, opcodeFromMachineByte(60));
   ASSERT_EQ(OPCODE_ITERABLE, opcodeFromMachineByte(61));
-  ASSERT_EQ(OPCODE_INDEX, opcodeFromMachineByte(62));
+  ASSERT_EQ(OPCODE_META, opcodeFromMachineByte(62));
   ASSERT_EQ(OPCODE_reserved, opcodeFromMachineByte(63));
   ASSERT_EQ(OPCODE_reserved, opcodeFromMachineByte(64));
   ASSERT_EQ(OPCODE_reserved, opcodeFromMachineByte(65));
   ASSERT_EQ(OPCODE_NOOP, opcodeFromMachineByte(66));
   ASSERT_EQ(OPCODE_NOT, opcodeFromMachineByte(67));
-  ASSERT_EQ(OPCODE_META, opcodeFromMachineByte(68));
+  ASSERT_EQ(OPCODE_NAMED, opcodeFromMachineByte(68));
   ASSERT_EQ(OPCODE_reserved, opcodeFromMachineByte(69));
   ASSERT_EQ(OPCODE_reserved, opcodeFromMachineByte(70));
   ASSERT_EQ(OPCODE_reserved, opcodeFromMachineByte(71));
   ASSERT_EQ(OPCODE_NULL, opcodeFromMachineByte(72));
   ASSERT_EQ(OPCODE_POINTEE, opcodeFromMachineByte(73));
-  ASSERT_EQ(OPCODE_NAMED, opcodeFromMachineByte(74));
+  ASSERT_EQ(OPCODE_PROPERTY, opcodeFromMachineByte(74));
   ASSERT_EQ(OPCODE_reserved, opcodeFromMachineByte(75));
   ASSERT_EQ(OPCODE_reserved, opcodeFromMachineByte(76));
   ASSERT_EQ(OPCODE_reserved, opcodeFromMachineByte(77));
   ASSERT_EQ(OPCODE_TRUE, opcodeFromMachineByte(78));
   ASSERT_EQ(OPCODE_POINTER, opcodeFromMachineByte(79));
-  ASSERT_EQ(OPCODE_PROPERTY, opcodeFromMachineByte(80));
+  ASSERT_EQ(OPCODE_PROPERTYQ, opcodeFromMachineByte(80));
   ASSERT_EQ(OPCODE_reserved, opcodeFromMachineByte(81));
   ASSERT_EQ(OPCODE_reserved, opcodeFromMachineByte(82));
   ASSERT_EQ(OPCODE_reserved, opcodeFromMachineByte(83));
   ASSERT_EQ(OPCODE_VOID, opcodeFromMachineByte(84));
   ASSERT_EQ(OPCODE_REGEX, opcodeFromMachineByte(85));
-  ASSERT_EQ(OPCODE_PROPERTYQ, opcodeFromMachineByte(86));
+  ASSERT_EQ(OPCODE_WHILE, opcodeFromMachineByte(86));
   ASSERT_EQ(OPCODE_reserved, opcodeFromMachineByte(87));
   ASSERT_EQ(OPCODE_reserved, opcodeFromMachineByte(88));
   ASSERT_EQ(OPCODE_reserved, opcodeFromMachineByte(89));
   ASSERT_EQ(OPCODE_reserved, opcodeFromMachineByte(90));
   ASSERT_EQ(OPCODE_reserved, opcodeFromMachineByte(91));
-  ASSERT_EQ(OPCODE_WHILE, opcodeFromMachineByte(92));
+  ASSERT_EQ(OPCODE_reserved, opcodeFromMachineByte(92));
   ASSERT_EQ(OPCODE_reserved, opcodeFromMachineByte(93));
   ASSERT_EQ(OPCODE_reserved, opcodeFromMachineByte(94));
   ASSERT_EQ(OPCODE_reserved, opcodeFromMachineByte(95));
@@ -495,7 +495,7 @@ TEST(TestAST, Create5) {
   ASSERT_EQ(children[4].get(), &parent->getChild(4));
 }
 
-TEST(TestAST, CreateInt0) {
+TEST(TestAST, CreateWithInt0) {
   egg::test::Allocator allocator;
   std::vector<Node> children{};
   std::vector<Node> attributes{};
@@ -511,7 +511,7 @@ TEST(TestAST, CreateInt0) {
   ASSERT_THROW(parent->getString(), std::runtime_error);
 }
 
-TEST(TestAST, CreateFloat0) {
+TEST(TestAST, CreateWithFloat0) {
   egg::test::Allocator allocator;
   std::vector<Node> children{};
   std::vector<Node> attributes{};
@@ -527,7 +527,7 @@ TEST(TestAST, CreateFloat0) {
   ASSERT_THROW(parent->getString(), std::runtime_error);
 }
 
-TEST(TestAST, CreateString0) {
+TEST(TestAST, CreateWithString0) {
   egg::test::Allocator allocator;
   std::vector<Node> children{};
   std::vector<Node> attributes{};
@@ -543,7 +543,7 @@ TEST(TestAST, CreateString0) {
   ASSERT_STRING(operand, parent->getString());
 }
 
-TEST(TestAST, CreateInt1) {
+TEST(TestAST, CreateWithInt1) {
   egg::test::Allocator allocator;
   std::vector<Node> children{ NodeFactory::create(allocator, OPCODE_NULL) };
   std::vector<Node> attributes{};
@@ -560,7 +560,7 @@ TEST(TestAST, CreateInt1) {
   ASSERT_EQ(children[0].get(), &parent->getChild(0));
 }
 
-TEST(TestAST, CreateInt2) {
+TEST(TestAST, CreateWithInt2) {
   egg::test::Allocator allocator;
   std::vector<Node> children{ NodeFactory::create(allocator, OPCODE_FALSE), NodeFactory::create(allocator, OPCODE_TRUE) };
   std::vector<Node> attributes{};
@@ -578,7 +578,7 @@ TEST(TestAST, CreateInt2) {
   ASSERT_EQ(children[1].get(), &parent->getChild(1));
 }
 
-TEST(TestAST, CreateInt3) {
+TEST(TestAST, CreateWithInt3) {
   egg::test::Allocator allocator;
   std::vector<Node> children{ NodeFactory::create(allocator, OPCODE_NULL), NodeFactory::create(allocator, OPCODE_FALSE), NodeFactory::create(allocator, OPCODE_TRUE) };
   std::vector<Node> attributes{};
@@ -595,4 +595,64 @@ TEST(TestAST, CreateInt3) {
   ASSERT_EQ(children[0].get(), &parent->getChild(0));
   ASSERT_EQ(children[1].get(), &parent->getChild(1));
   ASSERT_EQ(children[2].get(), &parent->getChild(2));
+}
+
+TEST(TestAST, CreateWithAttributes0) {
+  egg::test::Allocator allocator;
+  std::vector<Node> children{};
+  auto attribute = NodeFactory::create(allocator, OPCODE_ATTRIBUTE, *NodeFactory::create(allocator, OPCODE_NULL));
+  std::vector<Node> attributes{ attribute };
+  egg::ovum::Int operand{ 123456789 };
+  auto parent = NodeFactory::create(allocator, OPCODE_IVALUE, children, attributes, operand);
+  ASSERT_EQ(OPCODE_IVALUE, parent->getOpcode());
+  ASSERT_EQ(0u, parent->getChildren());
+  ASSERT_THROW(parent->getChild(0), std::out_of_range);
+  ASSERT_EQ(1u, parent->getAttributes());
+  ASSERT_THROW(parent->getAttribute(1), std::out_of_range);
+  ASSERT_EQ(operand, parent->getInt());
+  ASSERT_THROW(parent->getFloat(), std::runtime_error);
+  ASSERT_THROW(parent->getString(), std::runtime_error);
+  ASSERT_EQ(attributes[0].get(), &parent->getAttribute(0));
+  ASSERT_EQ(attribute.get(), &parent->getAttribute(0));
+}
+
+TEST(TestAST, CreateWithAttributes1) {
+  egg::test::Allocator allocator;
+  std::vector<Node> children{ NodeFactory::create(allocator, OPCODE_FALSE) };
+  auto attribute = NodeFactory::create(allocator, OPCODE_ATTRIBUTE, *NodeFactory::create(allocator, OPCODE_NULL));
+  std::vector<Node> attributes{ attribute };
+  egg::ovum::Int operand{ 123456789 };
+  auto parent = NodeFactory::create(allocator, OPCODE_UNARY, children, attributes, operand);
+  ASSERT_EQ(OPCODE_UNARY, parent->getOpcode());
+  ASSERT_EQ(1u, parent->getChildren());
+  ASSERT_THROW(parent->getChild(1), std::out_of_range);
+  ASSERT_EQ(1u, parent->getAttributes());
+  ASSERT_THROW(parent->getAttribute(1), std::out_of_range);
+  ASSERT_EQ(operand, parent->getInt());
+  ASSERT_THROW(parent->getFloat(), std::runtime_error);
+  ASSERT_THROW(parent->getString(), std::runtime_error);
+  ASSERT_EQ(children[0].get(), &parent->getChild(0));
+  ASSERT_EQ(attributes[0].get(), &parent->getAttribute(0));
+  ASSERT_EQ(attribute.get(), &parent->getAttribute(0));
+}
+
+TEST(TestAST, CreateWithAttributes2) {
+  egg::test::Allocator allocator;
+  std::vector<Node> children{ NodeFactory::create(allocator, OPCODE_FALSE), NodeFactory::create(allocator, OPCODE_TRUE) };
+  auto attribute = NodeFactory::create(allocator, OPCODE_ATTRIBUTE, *NodeFactory::create(allocator, OPCODE_NULL));
+  std::vector<Node> attributes{ attribute };
+  egg::ovum::Int operand{ 123456789 };
+  auto parent = NodeFactory::create(allocator, OPCODE_BINARY, children, attributes, operand);
+  ASSERT_EQ(OPCODE_BINARY, parent->getOpcode());
+  ASSERT_EQ(2u, parent->getChildren());
+  ASSERT_THROW(parent->getChild(2), std::out_of_range);
+  ASSERT_EQ(1u, parent->getAttributes());
+  ASSERT_THROW(parent->getAttribute(1), std::out_of_range);
+  ASSERT_EQ(operand, parent->getInt());
+  ASSERT_THROW(parent->getFloat(), std::runtime_error);
+  ASSERT_THROW(parent->getString(), std::runtime_error);
+  ASSERT_EQ(children[0].get(), &parent->getChild(0));
+  ASSERT_EQ(children[1].get(), &parent->getChild(1));
+  ASSERT_EQ(attributes[0].get(), &parent->getAttribute(0));
+  ASSERT_EQ(attribute.get(), &parent->getAttribute(0));
 }
