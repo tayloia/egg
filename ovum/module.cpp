@@ -28,16 +28,16 @@ namespace {
     }
   };
 
-  class ModuleDefault : public HardReferenceCounted<IModule> {
-    ModuleDefault(const ModuleDefault&) = delete;
-    ModuleDefault& operator=(const ModuleDefault&) = delete;
+  class ModuleFromStream : public HardReferenceCounted<IModule> {
+    ModuleFromStream(const ModuleFromStream&) = delete;
+    ModuleFromStream& operator=(const ModuleFromStream&) = delete;
   private:
     std::vector<Int> ivalue;
     std::vector<Float> fvalue;
     std::vector<String> svalue;
     ast::Node root;
   public:
-    explicit ModuleDefault(IAllocator& allocator)
+    explicit ModuleFromStream(IAllocator& allocator)
       : HardReferenceCounted(allocator) {
     }
     void readFromStream(std::istream& stream) {
@@ -183,7 +183,7 @@ namespace {
       if (opcode == ast::Opcode::OPCODE_reserved) {
         throw std::runtime_error("Invalid opcode in code section of binary module");
       }
-      size_t operand = SIZE_MAX;
+      auto operand = std::numeric_limits<uint64_t>::max();
       auto& properties = ast::opcodeProperties(opcode);
       if (properties.operand) {
         operand = readUnsigned(stream);
@@ -207,41 +207,41 @@ namespace {
       }
       if (!properties.operand) {
         // No operand
-        return ast::NodeFactory::create(this->allocator, opcode, children, attributes);
+        return ast::NodeFactory::create(this->allocator, opcode, std::move(children), std::move(attributes));
       }
       EGG_WARNING_SUPPRESS_SWITCH_BEGIN
       switch (opcode) {
       case ast::Opcode::OPCODE_IVALUE:
         // Operand is an index into the int table
-        return ast::NodeFactory::create(this->allocator, opcode, children, attributes, this->indexInt(operand));
+        return ast::NodeFactory::create(this->allocator, opcode, std::move(children), std::move(attributes), this->indexInt(operand));
       case ast::Opcode::OPCODE_FVALUE:
         // Operand is an index into the float table
-        return ast::NodeFactory::create(this->allocator, opcode, children, attributes, this->indexFloat(operand));
+        return ast::NodeFactory::create(this->allocator, opcode, std::move(children), std::move(attributes), this->indexFloat(operand));
       case ast::Opcode::OPCODE_SVALUE:
         // Operand is an index into the string table
-        return ast::NodeFactory::create(this->allocator, opcode, children, attributes, this->indexString(operand));
+        return ast::NodeFactory::create(this->allocator, opcode, std::move(children), std::move(attributes), this->indexString(operand));
       }
       EGG_WARNING_SUPPRESS_SWITCH_END
       // Operand is probably an operator index
-      return ast::NodeFactory::create(this->allocator, opcode, children, attributes, Int(operand));
+      return ast::NodeFactory::create(this->allocator, opcode, std::move(children), std::move(attributes), Int(operand));
     }
-    Int indexInt(size_t index) const {
+    Int indexInt(uint64_t index) const {
       if (index >= this->ivalue.size()) {
         throw std::runtime_error("Invalid integer constant index in binary module");
       }
-      return this->ivalue.at(index);
+      return this->ivalue[size_t(index)];
     }
-    Float indexFloat(size_t index) const {
+    Float indexFloat(uint64_t index) const {
       if (index >= this->fvalue.size()) {
         throw std::runtime_error("Invalid floating-point constant index in binary module");
       }
-      return this->fvalue.at(index);
+      return this->fvalue[size_t(index)];
     }
-    String indexString(size_t index) const {
+    String indexString(uint64_t index) const {
       if (index >= this->svalue.size()) {
         throw std::runtime_error("Invalid string constant index in binary module");
       }
-      return this->svalue.at(index);
+      return this->svalue[size_t(index)];
     }
     static uint64_t readUnsigned(std::istream& stream) {
       // Read up to 63 bits as an unsigned integer
@@ -275,7 +275,7 @@ namespace {
 }
 
 egg::ovum::Module egg::ovum::ModuleFactory::fromBinaryStream(IAllocator& allocator, std::istream& stream) {
-  HardPtr<ModuleDefault> module(allocator.create<ModuleDefault>(0, allocator));
+  HardPtr<ModuleFromStream> module(allocator.create<ModuleFromStream>(0, allocator));
   module->readFromStream(stream);
   return module;
 }
@@ -283,4 +283,33 @@ egg::ovum::Module egg::ovum::ModuleFactory::fromBinaryStream(IAllocator& allocat
 egg::ovum::Module egg::ovum::ModuleFactory::fromMemory(IAllocator& allocator, const uint8_t* begin, const uint8_t* end) {
   MemoryStream stream(begin, end);
   return ModuleFactory::fromBinaryStream(allocator, stream);
+}
+
+egg::ovum::ast::ModuleBuilder::ModuleBuilder(IAllocator& allocator)
+  : allocator(allocator) {
+}
+
+egg::ovum::ast::Node egg::ovum::ast::ModuleBuilder::createModule(Node&& block) {
+  return this->createNode(Opcode::OPCODE_MODULE, { std::move(block) });
+}
+
+egg::ovum::ast::Node egg::ovum::ast::ModuleBuilder::createBlock(Nodes&& statements) {
+  return this->createNode(Opcode::OPCODE_BLOCK, { std::move(statements) });
+}
+
+egg::ovum::ast::Node egg::ovum::ast::ModuleBuilder::createNoop() {
+  return this->createNode(Opcode::OPCODE_NOOP, {});
+}
+
+egg::ovum::ast::Node egg::ovum::ast::ModuleBuilder::createNode(Opcode opcode, Nodes&& children) {
+  if (this->attributes.empty()) {
+    return NodeFactory::create(this->allocator, opcode, std::move(children));
+  }
+  Nodes attrs;
+  std::swap(this->attributes, attrs);
+  return NodeFactory::create(this->allocator, opcode, std::move(children), std::move(attrs));
+}
+
+void egg::ovum::ast::ModuleBuilder::writeToBinaryStream(std::ostream&, const Node&) {
+  // WIBBLE
 }

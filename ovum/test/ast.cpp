@@ -472,14 +472,14 @@ TEST(TestAST, Create4) {
 
 TEST(TestAST, Create5) {
   egg::test::Allocator allocator;
-  std::vector<Node> children{
+  Nodes children{
     NodeFactory::create(allocator, OPCODE_NULL),
     NodeFactory::create(allocator, OPCODE_FALSE),
     NodeFactory::create(allocator, OPCODE_TRUE),
     NodeFactory::create(allocator, OPCODE_VOID),
     NodeFactory::create(allocator, OPCODE_NOOP)
   };
-  auto parent = NodeFactory::create(allocator, OPCODE_AVALUE, children);
+  auto parent = NodeFactory::create(allocator, OPCODE_AVALUE, Nodes(children)); // prevent move of children
   ASSERT_EQ(OPCODE_AVALUE, parent->getOpcode());
   ASSERT_EQ(5u, parent->getChildren());
   ASSERT_THROW(parent->getChild(5), std::out_of_range);
@@ -497,10 +497,8 @@ TEST(TestAST, Create5) {
 
 TEST(TestAST, CreateWithInt0) {
   egg::test::Allocator allocator;
-  std::vector<Node> children{};
-  std::vector<Node> attributes{};
   egg::ovum::Int operand{ 123456789 };
-  auto parent = NodeFactory::create(allocator, OPCODE_IVALUE, children, attributes, operand);
+  auto parent = NodeFactory::create(allocator, OPCODE_IVALUE, {}, {}, operand);
   ASSERT_EQ(OPCODE_IVALUE, parent->getOpcode());
   ASSERT_EQ(0u, parent->getChildren());
   ASSERT_THROW(parent->getChild(0), std::out_of_range);
@@ -513,10 +511,8 @@ TEST(TestAST, CreateWithInt0) {
 
 TEST(TestAST, CreateWithFloat0) {
   egg::test::Allocator allocator;
-  std::vector<Node> children{};
-  std::vector<Node> attributes{};
   egg::ovum::Float operand{ 3.14159 };
-  auto parent = NodeFactory::create(allocator, OPCODE_FVALUE, children, attributes, operand);
+  auto parent = NodeFactory::create(allocator, OPCODE_FVALUE, {}, {}, operand);
   ASSERT_EQ(OPCODE_FVALUE, parent->getOpcode());
   ASSERT_EQ(0u, parent->getChildren());
   ASSERT_THROW(parent->getChild(0), std::out_of_range);
@@ -529,10 +525,8 @@ TEST(TestAST, CreateWithFloat0) {
 
 TEST(TestAST, CreateWithString0) {
   egg::test::Allocator allocator;
-  std::vector<Node> children{};
-  std::vector<Node> attributes{};
   egg::ovum::String operand{ "hello" };
-  auto parent = NodeFactory::create(allocator, OPCODE_SVALUE, children, attributes, operand);
+  auto parent = NodeFactory::create(allocator, OPCODE_SVALUE, {}, {}, operand);
   ASSERT_EQ(OPCODE_SVALUE, parent->getOpcode());
   ASSERT_EQ(0u, parent->getChildren());
   ASSERT_THROW(parent->getChild(0), std::out_of_range);
@@ -545,10 +539,9 @@ TEST(TestAST, CreateWithString0) {
 
 TEST(TestAST, CreateWithInt1) {
   egg::test::Allocator allocator;
-  std::vector<Node> children{ NodeFactory::create(allocator, OPCODE_NULL) };
-  std::vector<Node> attributes{};
+  Nodes children{ NodeFactory::create(allocator, OPCODE_NULL) };
   egg::ovum::Int operand{ 123456789 };
-  auto parent = NodeFactory::create(allocator, OPCODE_UNARY, children, attributes, operand);
+  auto parent = NodeFactory::create(allocator, OPCODE_UNARY, Nodes(children), {}, operand); // prevent move of children
   ASSERT_EQ(OPCODE_UNARY, parent->getOpcode());
   ASSERT_EQ(1u, parent->getChildren());
   ASSERT_THROW(parent->getChild(1), std::out_of_range);
@@ -562,10 +555,9 @@ TEST(TestAST, CreateWithInt1) {
 
 TEST(TestAST, CreateWithInt2) {
   egg::test::Allocator allocator;
-  std::vector<Node> children{ NodeFactory::create(allocator, OPCODE_FALSE), NodeFactory::create(allocator, OPCODE_TRUE) };
-  std::vector<Node> attributes{};
+  Nodes children{ NodeFactory::create(allocator, OPCODE_FALSE), NodeFactory::create(allocator, OPCODE_TRUE) };
   egg::ovum::Int operand{ 123456789 };
-  auto parent = NodeFactory::create(allocator, OPCODE_BINARY, children, attributes, operand);
+  auto parent = NodeFactory::create(allocator, OPCODE_BINARY, Nodes(children), {}, operand); // prevent move of children
   ASSERT_EQ(OPCODE_BINARY, parent->getOpcode());
   ASSERT_EQ(2u, parent->getChildren());
   ASSERT_THROW(parent->getChild(2), std::out_of_range);
@@ -580,10 +572,10 @@ TEST(TestAST, CreateWithInt2) {
 
 TEST(TestAST, CreateWithInt3) {
   egg::test::Allocator allocator;
-  std::vector<Node> children{ NodeFactory::create(allocator, OPCODE_NULL), NodeFactory::create(allocator, OPCODE_FALSE), NodeFactory::create(allocator, OPCODE_TRUE) };
-  std::vector<Node> attributes{};
+  Nodes children{ NodeFactory::create(allocator, OPCODE_NULL), NodeFactory::create(allocator, OPCODE_FALSE), NodeFactory::create(allocator, OPCODE_TRUE) };
+  Nodes attributes{};
   egg::ovum::Int operand{ 123456789 };
-  auto parent = NodeFactory::create(allocator, OPCODE_TERNARY, children, attributes, operand);
+  auto parent = NodeFactory::create(allocator, OPCODE_TERNARY, Nodes(children), {}, operand); // prevent move of children
   ASSERT_EQ(OPCODE_TERNARY, parent->getOpcode());
   ASSERT_EQ(3u, parent->getChildren());
   ASSERT_THROW(parent->getChild(3), std::out_of_range);
@@ -599,11 +591,11 @@ TEST(TestAST, CreateWithInt3) {
 
 TEST(TestAST, CreateWithAttributes0) {
   egg::test::Allocator allocator;
-  std::vector<Node> children{};
+  Nodes children{};
   auto attribute = NodeFactory::create(allocator, OPCODE_ATTRIBUTE, *NodeFactory::create(allocator, OPCODE_NULL));
-  std::vector<Node> attributes{ attribute };
+  Nodes attributes{ attribute };
   egg::ovum::Int operand{ 123456789 };
-  auto parent = NodeFactory::create(allocator, OPCODE_IVALUE, children, attributes, operand);
+  auto parent = NodeFactory::create(allocator, OPCODE_IVALUE, Nodes(children), Nodes(attributes), operand); // prevent move of children and attributes
   ASSERT_EQ(OPCODE_IVALUE, parent->getOpcode());
   ASSERT_EQ(0u, parent->getChildren());
   ASSERT_THROW(parent->getChild(0), std::out_of_range);
@@ -618,11 +610,11 @@ TEST(TestAST, CreateWithAttributes0) {
 
 TEST(TestAST, CreateWithAttributes1) {
   egg::test::Allocator allocator;
-  std::vector<Node> children{ NodeFactory::create(allocator, OPCODE_FALSE) };
+  Nodes children{ NodeFactory::create(allocator, OPCODE_FALSE) };
   auto attribute = NodeFactory::create(allocator, OPCODE_ATTRIBUTE, *NodeFactory::create(allocator, OPCODE_NULL));
-  std::vector<Node> attributes{ attribute };
+  Nodes attributes{ attribute };
   egg::ovum::Int operand{ 123456789 };
-  auto parent = NodeFactory::create(allocator, OPCODE_UNARY, children, attributes, operand);
+  auto parent = NodeFactory::create(allocator, OPCODE_UNARY, Nodes(children), Nodes(attributes), operand); // prevent move of children and attributes
   ASSERT_EQ(OPCODE_UNARY, parent->getOpcode());
   ASSERT_EQ(1u, parent->getChildren());
   ASSERT_THROW(parent->getChild(1), std::out_of_range);
@@ -638,11 +630,11 @@ TEST(TestAST, CreateWithAttributes1) {
 
 TEST(TestAST, CreateWithAttributes2) {
   egg::test::Allocator allocator;
-  std::vector<Node> children{ NodeFactory::create(allocator, OPCODE_FALSE), NodeFactory::create(allocator, OPCODE_TRUE) };
+  Nodes children{ NodeFactory::create(allocator, OPCODE_FALSE), NodeFactory::create(allocator, OPCODE_TRUE) };
   auto attribute = NodeFactory::create(allocator, OPCODE_ATTRIBUTE, *NodeFactory::create(allocator, OPCODE_NULL));
-  std::vector<Node> attributes{ attribute };
+  Nodes attributes{ attribute };
   egg::ovum::Int operand{ 123456789 };
-  auto parent = NodeFactory::create(allocator, OPCODE_BINARY, children, attributes, operand);
+  auto parent = NodeFactory::create(allocator, OPCODE_BINARY, Nodes(children), Nodes(attributes), operand); // prevent move of children and attributes
   ASSERT_EQ(OPCODE_BINARY, parent->getOpcode());
   ASSERT_EQ(2u, parent->getChildren());
   ASSERT_THROW(parent->getChild(2), std::out_of_range);
@@ -655,4 +647,14 @@ TEST(TestAST, CreateWithAttributes2) {
   ASSERT_EQ(children[1].get(), &parent->getChild(1));
   ASSERT_EQ(attributes[0].get(), &parent->getAttribute(0));
   ASSERT_EQ(attribute.get(), &parent->getAttribute(0));
+}
+
+TEST(TestAST, BuildMinimal) {
+  egg::test::Allocator allocator;
+  egg::ovum::ast::ModuleBuilder builder(allocator);
+  auto noop = builder.createNoop();
+  auto block = builder.createBlock({ noop });
+  auto root = builder.createModule(std::move(block));
+  std::stringstream ss;
+  builder.writeToBinaryStream(ss, root);
 }

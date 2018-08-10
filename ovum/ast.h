@@ -1,3 +1,5 @@
+#include <map>
+
 namespace egg::ovum::ast {
   enum Opcode {
 #define EGG_VM_OPCODES_ENUM(opcode, minbyte, minargs, maxargs, text) opcode = minbyte,
@@ -31,6 +33,7 @@ namespace egg::ovum::ast {
     virtual void setChild(size_t index, INode& value) = 0;
   };
   using Node = HardPtr<INode>;
+  using Nodes = std::vector<Node>;
 
   class NodeFactory {
   public:
@@ -39,11 +42,12 @@ namespace egg::ovum::ast {
     static Node create(IAllocator& allocator, Opcode opcode, INode& child0, INode& child1);
     static Node create(IAllocator& allocator, Opcode opcode, INode& child0, INode& child1, INode& child2);
     static Node create(IAllocator& allocator, Opcode opcode, INode& child0, INode& child1, INode& child2, INode& child3);
-    static Node create(IAllocator& allocator, Opcode opcode, const std::vector<Node>& children);
-    static Node create(IAllocator& allocator, Opcode opcode, const std::vector<Node>& children, const std::vector<Node>& attributes);
-    static Node create(IAllocator& allocator, Opcode opcode, const std::vector<Node>& children, const std::vector<Node>& attributes, Int value);
-    static Node create(IAllocator& allocator, Opcode opcode, const std::vector<Node>& children, const std::vector<Node>& attributes, Float value);
-    static Node create(IAllocator& allocator, Opcode opcode, const std::vector<Node>& children, const std::vector<Node>& attributes, String value);
+    static Node create(IAllocator& allocator, Opcode opcode, Nodes&& children);
+    static Node create(IAllocator& allocator, Opcode opcode, Nodes&& children, Nodes&& attributes);
+    static Node create(IAllocator& allocator, Opcode opcode, Nodes&& children, Nodes&& attributes, Int value);
+    static Node create(IAllocator& allocator, Opcode opcode, Nodes&& children, Nodes&& attributes, Float value);
+    static Node create(IAllocator& allocator, Opcode opcode, Nodes&& children, Nodes&& attributes, String value);
+    static void writeModuleToBinaryStream(std::istream& stream, const Node& module);
   };
 
   inline size_t childrenFromMachineByte(uint8_t byte) {
@@ -78,4 +82,19 @@ namespace egg::ovum::ast {
     }
   };
   const OpcodeProperties& opcodeProperties(Opcode opcode);
+
+  class ModuleBuilder {
+    ModuleBuilder(const ModuleBuilder&) = delete;
+    ModuleBuilder& operator=(const ModuleBuilder&) = delete;
+  public:
+    IAllocator& allocator;
+    Nodes attributes;
+  public:
+    explicit ModuleBuilder(IAllocator& allocator);
+    Node createModule(Node&& block);
+    Node createBlock(Nodes&& statements);
+    Node createNoop();
+    Node createNode(Opcode opcode, Nodes&& children);
+    void writeToBinaryStream(std::ostream& stream, const Node& root);
+  };
 }

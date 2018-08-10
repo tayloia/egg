@@ -50,8 +50,8 @@ namespace {
   private:
     Opcode opcode;
   public:
-    std::vector<Node> children;
-    std::vector<Node> attributes;
+    Nodes children;
+    Nodes attributes;
   public:
     NodeBase(IAllocator& allocator, Opcode opcode)
       : HardReferenceCounted(allocator),
@@ -160,19 +160,19 @@ namespace {
   };
 
   template<typename T, typename... ARGS>
-  Node createWithoutAttributes(IAllocator& allocator, Opcode opcode, const std::vector<Node>& children, ARGS&&... args) {
+  Node createWithoutAttributes(IAllocator& allocator, Opcode opcode, Nodes&& children, ARGS&&... args) {
     // Use perfect forwarding to the constructor
     auto* node = allocator.create<T>(0, allocator, opcode, std::forward<ARGS>(args)...);
-    node->children = children;
+    node->children = std::move(children);
     return Node(node);
   }
 
   template<typename T, typename... ARGS>
-  Node createWithAttributes(IAllocator& allocator, Opcode opcode, const std::vector<Node>& children, const std::vector<Node>& attributes, ARGS&&... args) {
+  Node createWithAttributes(IAllocator& allocator, Opcode opcode, Nodes&& children, Nodes&& attributes, ARGS&&... args) {
     // Use perfect forwarding to the constructor
     auto* node = allocator.create<T>(0, allocator, opcode, std::forward<ARGS>(args)...);
-    node->children = children;
-    node->attributes = attributes;
+    node->children = std::move(children);
+    node->attributes = std::move(attributes);
     return Node(node);
   }
 }
@@ -282,27 +282,27 @@ egg::ovum::ast::Node egg::ovum::ast::NodeFactory::create(IAllocator& allocator, 
   return Node(node);
 }
 
-egg::ovum::ast::Node egg::ovum::ast::NodeFactory::create(IAllocator& allocator, ast::Opcode opcode, const std::vector<Node>& children) {
+egg::ovum::ast::Node egg::ovum::ast::NodeFactory::create(IAllocator& allocator, ast::Opcode opcode, Nodes&& children) {
   assert(opcodeProperties(opcode).validate(children.size(), false));
-  return createWithoutAttributes<NodeBase>(allocator, opcode, children);
+  return createWithoutAttributes<NodeBase>(allocator, opcode, std::move(children));
 }
 
-egg::ovum::ast::Node egg::ovum::ast::NodeFactory::create(IAllocator& allocator, ast::Opcode opcode, const std::vector<Node>& children, const std::vector<Node>& attributes) {
+egg::ovum::ast::Node egg::ovum::ast::NodeFactory::create(IAllocator& allocator, ast::Opcode opcode, Nodes&& children, Nodes&& attributes) {
   assert(opcodeProperties(opcode).validate(children.size(), false));
-  return createWithAttributes<NodeBase>(allocator, opcode, children, attributes);
+  return createWithAttributes<NodeBase>(allocator, opcode, std::move(children), std::move(attributes));
 }
 
-egg::ovum::ast::Node egg::ovum::ast::NodeFactory::create(IAllocator& allocator, ast::Opcode opcode, const std::vector<Node>& children, const std::vector<Node>& attributes, Int value) {
+egg::ovum::ast::Node egg::ovum::ast::NodeFactory::create(IAllocator& allocator, ast::Opcode opcode, Nodes&& children, Nodes&& attributes, Int value) {
   assert(opcodeProperties(opcode).validate(children.size(), true));
-  return createWithAttributes<NodeWithInt>(allocator, opcode, children, attributes, value);
+  return createWithAttributes<NodeWithInt>(allocator, opcode, std::move(children), std::move(attributes), value);
 }
 
-egg::ovum::ast::Node egg::ovum::ast::NodeFactory::create(IAllocator& allocator, ast::Opcode opcode, const std::vector<Node>& children, const std::vector<Node>& attributes, Float value) {
+egg::ovum::ast::Node egg::ovum::ast::NodeFactory::create(IAllocator& allocator, ast::Opcode opcode, Nodes&& children, Nodes&& attributes, Float value) {
   assert(opcodeProperties(opcode).validate(children.size(), true));
-  return createWithAttributes<NodeWithFloat>(allocator, opcode, children, attributes, value);
+  return createWithAttributes<NodeWithFloat>(allocator, opcode, std::move(children), std::move(attributes), value);
 }
 
-egg::ovum::ast::Node egg::ovum::ast::NodeFactory::create(IAllocator& allocator, ast::Opcode opcode, const std::vector<Node>& children, const std::vector<Node>& attributes, String value) {
+egg::ovum::ast::Node egg::ovum::ast::NodeFactory::create(IAllocator& allocator, ast::Opcode opcode, Nodes&& children, Nodes&& attributes, String value) {
   assert(opcodeProperties(opcode).validate(children.size(), true));
-  return createWithAttributes<NodeWithString>(allocator, opcode, children, attributes, value);
+  return createWithAttributes<NodeWithString>(allocator, opcode, std::move(children), std::move(attributes), value);
 }
