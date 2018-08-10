@@ -9,6 +9,18 @@ namespace {
     egg::test::Allocator allocator;
     ASSERT_THROW_E(egg::ovum::ModuleFactory::fromMemory(allocator, memory, memory + bytes), std::runtime_error, ASSERT_STARTSWITH(e.what(), needle));
   }
+
+  enum Section {
+#define EGG_VM_SECTIONS_ENUM(section, value) section = value,
+    EGG_VM_SECTIONS(EGG_VM_SECTIONS_ENUM)
+#undef EGG_VM_SECTIONS_ENUM
+  };
+
+  enum Opcode {
+#define EGG_VM_OPCODES_TABLE(opcode, minbyte, minargs, maxargs, text) opcode = minbyte,
+    EGG_VM_OPCODES(EGG_VM_OPCODES_TABLE)
+#undef EGG_VM_OPCODES_TABLE
+  };
 }
 
 TEST(TestModule, FromMemoryBad) {
@@ -19,4 +31,16 @@ TEST(TestModule, FromMemoryBad) {
   expectFailureFromMemory(magic, 1, "Truncated section in binary module");
   expectFailureFromMemory(magic, sizeof(magic) - 1, "Missing code section in binary module");
   expectFailureFromMemory(magic, sizeof(magic), "Unrecognized section in binary module");
+}
+
+TEST(TestModule, FromMemoryMinimal) {
+  const uint8_t minimal[] = {
+    MAGIC
+    SECTION_CODE,
+      OPCODE_MODULE,
+        OPCODE_BLOCK,
+          OPCODE_NOOP
+  };
+  egg::test::Allocator allocator;
+  auto module = egg::ovum::ModuleFactory::fromMemory(allocator, std::begin(minimal), std::end(minimal));
 }

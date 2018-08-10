@@ -35,6 +35,7 @@ namespace {
     std::vector<Int> ivalue;
     std::vector<Float> fvalue;
     std::vector<String> svalue;
+    ast::Node root;
   public:
     explicit ModuleDefault(IAllocator& allocator)
       : HardReferenceCounted(allocator) {
@@ -66,7 +67,10 @@ namespace {
           readStrings(stream);
           break;
         case Section::SECTION_CODE:
-          readCode(stream);
+          // Read the abstract syntax tree
+          assert(this->root == nullptr);
+          this->root = readNode(stream);
+          assert(this->root != nullptr);
           if (!stream.get(ch)) {
             // No source section
             return;
@@ -119,8 +123,8 @@ namespace {
     Float readFloat(std::istream& stream) {
       // Read a single 64-bit floating-point value
       ast::MantissaExponent me;
-      me.mantissa = indexInt(stream);
-      me.exponent = indexInt(stream);
+      me.mantissa = indexInt(readUnsigned(stream));
+      me.exponent = indexInt(readUnsigned(stream));
       return me.toFloat();
     }
     void readStrings(std::istream& stream) {
@@ -173,16 +177,71 @@ namespace {
       }
       return true;
     }
-    void readCode(std::istream& stream) {
-      // WIBBLE
-      (void)stream;
+    ast::Node readNode(std::istream& stream) const {
+      auto byte = readByte(stream);
+      auto opcode = ast::opcodeFromMachineByte(byte);
+      if (opcode == ast::Opcode::OPCODE_reserved) {
+        throw std::runtime_error("Invalid opcode in code section of binary module");
+      }
+      size_t operand = SIZE_MAX;
+      auto& properties = ast::opcodeProperties(opcode);
+      if (properties.operand) {
+        operand = readUnsigned(stream);
+      }
+      std::vector<ast::Node> attributes;
+      while (stream.peek() == ast::Opcode::OPCODE_ATTRIBUTE) {
+        attributes.push_back(this->readNode(stream));
+      }
+      std::vector<ast::Node> children;
+      auto count = ast::childrenFromMachineByte(byte);
+      if (count == SIZE_MAX) {
+        // This is a list terminated with an OPCODE_END sentinel
+        while (stream.peek() != ast::Opcode::OPCODE_END) {
+          children.push_back(this->readNode(stream));
+        }
+        stream.get(); // skip the sentinel
+      } else {
+        for (size_t child = 0; child < count; ++child) {
+          children.push_back(this->readNode(stream));
+        }
+      }
+      if (!properties.operand) {
+        // No operand
+        return ast::NodeFactory::create(this->allocator, opcode, children, attributes);
+      }
+      EGG_WARNING_SUPPRESS_SWITCH_BEGIN
+      switch (opcode) {
+      case ast::Opcode::OPCODE_IVALUE:
+        // Operand is an index into the int table
+        return ast::NodeFactory::create(this->allocator, opcode, children, attributes, this->indexInt(operand));
+      case ast::Opcode::OPCODE_FVALUE:
+        // Operand is an index into the float table
+        return ast::NodeFactory::create(this->allocator, opcode, children, attributes, this->indexFloat(operand));
+      case ast::Opcode::OPCODE_SVALUE:
+        // Operand is an index into the string table
+        return ast::NodeFactory::create(this->allocator, opcode, children, attributes, this->indexString(operand));
+      }
+      EGG_WARNING_SUPPRESS_SWITCH_END
+      // Operand is probably an operator index
+      return ast::NodeFactory::create(this->allocator, opcode, children, attributes, Int(operand));
     }
-    Int indexInt(std::istream& stream) const {
-      auto index = readUnsigned(stream);
+    Int indexInt(size_t index) const {
       if (index >= this->ivalue.size()) {
         throw std::runtime_error("Invalid integer constant index in binary module");
       }
       return this->ivalue.at(index);
+    }
+    Float indexFloat(size_t index) const {
+      if (index >= this->fvalue.size()) {
+        throw std::runtime_error("Invalid floating-point constant index in binary module");
+      }
+      return this->fvalue.at(index);
+    }
+    String indexString(size_t index) const {
+      if (index >= this->svalue.size()) {
+        throw std::runtime_error("Invalid string constant index in binary module");
+      }
+      return this->svalue.at(index);
     }
     static uint64_t readUnsigned(std::istream& stream) {
       // Read up to 63 bits as an unsigned integer

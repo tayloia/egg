@@ -391,6 +391,8 @@ TEST(TestAST, Create0) {
   ASSERT_EQ(OPCODE_NOOP, parent->getOpcode());
   ASSERT_EQ(0u, parent->getChildren());
   ASSERT_THROW(parent->getChild(0), std::out_of_range);
+  ASSERT_EQ(0u, parent->getAttributes());
+  ASSERT_THROW(parent->getAttribute(0), std::out_of_range);
   ASSERT_THROW(parent->getInt(), std::runtime_error);
   ASSERT_THROW(parent->getFloat(), std::runtime_error);
   ASSERT_THROW(parent->getString(), std::runtime_error);
@@ -403,6 +405,8 @@ TEST(TestAST, Create1) {
   ASSERT_EQ(OPCODE_AVALUE, parent->getOpcode());
   ASSERT_EQ(1u, parent->getChildren());
   ASSERT_THROW(parent->getChild(1), std::out_of_range);
+  ASSERT_EQ(0u, parent->getAttributes());
+  ASSERT_THROW(parent->getAttribute(0), std::out_of_range);
   ASSERT_THROW(parent->getInt(), std::runtime_error);
   ASSERT_THROW(parent->getFloat(), std::runtime_error);
   ASSERT_THROW(parent->getString(), std::runtime_error);
@@ -417,6 +421,8 @@ TEST(TestAST, Create2) {
   ASSERT_EQ(OPCODE_AVALUE, parent->getOpcode());
   ASSERT_EQ(2u, parent->getChildren());
   ASSERT_THROW(parent->getChild(2), std::out_of_range);
+  ASSERT_EQ(0u, parent->getAttributes());
+  ASSERT_THROW(parent->getAttribute(0), std::out_of_range);
   ASSERT_THROW(parent->getInt(), std::runtime_error);
   ASSERT_THROW(parent->getFloat(), std::runtime_error);
   ASSERT_THROW(parent->getString(), std::runtime_error);
@@ -433,6 +439,8 @@ TEST(TestAST, Create3) {
   ASSERT_EQ(OPCODE_AVALUE, parent->getOpcode());
   ASSERT_EQ(3u, parent->getChildren());
   ASSERT_THROW(parent->getChild(3), std::out_of_range);
+  ASSERT_EQ(0u, parent->getAttributes());
+  ASSERT_THROW(parent->getAttribute(0), std::out_of_range);
   ASSERT_THROW(parent->getInt(), std::runtime_error);
   ASSERT_THROW(parent->getFloat(), std::runtime_error);
   ASSERT_THROW(parent->getString(), std::runtime_error);
@@ -451,6 +459,8 @@ TEST(TestAST, Create4) {
   ASSERT_EQ(OPCODE_AVALUE, parent->getOpcode());
   ASSERT_EQ(4u, parent->getChildren());
   ASSERT_THROW(parent->getChild(4), std::out_of_range);
+  ASSERT_EQ(0u, parent->getAttributes());
+  ASSERT_THROW(parent->getAttribute(0), std::out_of_range);
   ASSERT_THROW(parent->getInt(), std::runtime_error);
   ASSERT_THROW(parent->getFloat(), std::runtime_error);
   ASSERT_THROW(parent->getString(), std::runtime_error);
@@ -473,6 +483,8 @@ TEST(TestAST, Create5) {
   ASSERT_EQ(OPCODE_AVALUE, parent->getOpcode());
   ASSERT_EQ(5u, parent->getChildren());
   ASSERT_THROW(parent->getChild(5), std::out_of_range);
+  ASSERT_EQ(0u, parent->getAttributes());
+  ASSERT_THROW(parent->getAttribute(0), std::out_of_range);
   ASSERT_THROW(parent->getInt(), std::runtime_error);
   ASSERT_THROW(parent->getFloat(), std::runtime_error);
   ASSERT_THROW(parent->getString(), std::runtime_error);
@@ -481,4 +493,106 @@ TEST(TestAST, Create5) {
   ASSERT_EQ(children[2].get(), &parent->getChild(2));
   ASSERT_EQ(children[3].get(), &parent->getChild(3));
   ASSERT_EQ(children[4].get(), &parent->getChild(4));
+}
+
+TEST(TestAST, CreateInt0) {
+  egg::test::Allocator allocator;
+  std::vector<Node> children{};
+  std::vector<Node> attributes{};
+  egg::ovum::Int operand{ 123456789 };
+  auto parent = NodeFactory::create(allocator, OPCODE_IVALUE, children, attributes, operand);
+  ASSERT_EQ(OPCODE_IVALUE, parent->getOpcode());
+  ASSERT_EQ(0u, parent->getChildren());
+  ASSERT_THROW(parent->getChild(0), std::out_of_range);
+  ASSERT_EQ(0u, parent->getAttributes());
+  ASSERT_THROW(parent->getAttribute(0), std::out_of_range);
+  ASSERT_EQ(operand, parent->getInt());
+  ASSERT_THROW(parent->getFloat(), std::runtime_error);
+  ASSERT_THROW(parent->getString(), std::runtime_error);
+}
+
+TEST(TestAST, CreateFloat0) {
+  egg::test::Allocator allocator;
+  std::vector<Node> children{};
+  std::vector<Node> attributes{};
+  egg::ovum::Float operand{ 3.14159 };
+  auto parent = NodeFactory::create(allocator, OPCODE_FVALUE, children, attributes, operand);
+  ASSERT_EQ(OPCODE_FVALUE, parent->getOpcode());
+  ASSERT_EQ(0u, parent->getChildren());
+  ASSERT_THROW(parent->getChild(0), std::out_of_range);
+  ASSERT_EQ(0u, parent->getAttributes());
+  ASSERT_THROW(parent->getAttribute(0), std::out_of_range);
+  ASSERT_THROW(parent->getInt(), std::runtime_error);
+  ASSERT_EQ(operand, parent->getFloat());
+  ASSERT_THROW(parent->getString(), std::runtime_error);
+}
+
+TEST(TestAST, CreateString0) {
+  egg::test::Allocator allocator;
+  std::vector<Node> children{};
+  std::vector<Node> attributes{};
+  egg::ovum::String operand{ "hello" };
+  auto parent = NodeFactory::create(allocator, OPCODE_SVALUE, children, attributes, operand);
+  ASSERT_EQ(OPCODE_SVALUE, parent->getOpcode());
+  ASSERT_EQ(0u, parent->getChildren());
+  ASSERT_THROW(parent->getChild(0), std::out_of_range);
+  ASSERT_EQ(0u, parent->getAttributes());
+  ASSERT_THROW(parent->getAttribute(0), std::out_of_range);
+  ASSERT_THROW(parent->getInt(), std::runtime_error);
+  ASSERT_THROW(parent->getFloat(), std::runtime_error);
+  ASSERT_STRING(operand, parent->getString());
+}
+
+TEST(TestAST, CreateInt1) {
+  egg::test::Allocator allocator;
+  std::vector<Node> children{ NodeFactory::create(allocator, OPCODE_NULL) };
+  std::vector<Node> attributes{};
+  egg::ovum::Int operand{ 123456789 };
+  auto parent = NodeFactory::create(allocator, OPCODE_UNARY, children, attributes, operand);
+  ASSERT_EQ(OPCODE_UNARY, parent->getOpcode());
+  ASSERT_EQ(1u, parent->getChildren());
+  ASSERT_THROW(parent->getChild(1), std::out_of_range);
+  ASSERT_EQ(0u, parent->getAttributes());
+  ASSERT_THROW(parent->getAttribute(0), std::out_of_range);
+  ASSERT_EQ(operand, parent->getInt());
+  ASSERT_THROW(parent->getFloat(), std::runtime_error);
+  ASSERT_THROW(parent->getString(), std::runtime_error);
+  ASSERT_EQ(children[0].get(), &parent->getChild(0));
+}
+
+TEST(TestAST, CreateInt2) {
+  egg::test::Allocator allocator;
+  std::vector<Node> children{ NodeFactory::create(allocator, OPCODE_FALSE), NodeFactory::create(allocator, OPCODE_TRUE) };
+  std::vector<Node> attributes{};
+  egg::ovum::Int operand{ 123456789 };
+  auto parent = NodeFactory::create(allocator, OPCODE_BINARY, children, attributes, operand);
+  ASSERT_EQ(OPCODE_BINARY, parent->getOpcode());
+  ASSERT_EQ(2u, parent->getChildren());
+  ASSERT_THROW(parent->getChild(2), std::out_of_range);
+  ASSERT_EQ(0u, parent->getAttributes());
+  ASSERT_THROW(parent->getAttribute(0), std::out_of_range);
+  ASSERT_EQ(operand, parent->getInt());
+  ASSERT_THROW(parent->getFloat(), std::runtime_error);
+  ASSERT_THROW(parent->getString(), std::runtime_error);
+  ASSERT_EQ(children[0].get(), &parent->getChild(0));
+  ASSERT_EQ(children[1].get(), &parent->getChild(1));
+}
+
+TEST(TestAST, CreateInt3) {
+  egg::test::Allocator allocator;
+  std::vector<Node> children{ NodeFactory::create(allocator, OPCODE_NULL), NodeFactory::create(allocator, OPCODE_FALSE), NodeFactory::create(allocator, OPCODE_TRUE) };
+  std::vector<Node> attributes{};
+  egg::ovum::Int operand{ 123456789 };
+  auto parent = NodeFactory::create(allocator, OPCODE_TERNARY, children, attributes, operand);
+  ASSERT_EQ(OPCODE_TERNARY, parent->getOpcode());
+  ASSERT_EQ(3u, parent->getChildren());
+  ASSERT_THROW(parent->getChild(3), std::out_of_range);
+  ASSERT_EQ(0u, parent->getAttributes());
+  ASSERT_THROW(parent->getAttribute(0), std::out_of_range);
+  ASSERT_EQ(operand, parent->getInt());
+  ASSERT_THROW(parent->getFloat(), std::runtime_error);
+  ASSERT_THROW(parent->getString(), std::runtime_error);
+  ASSERT_EQ(children[0].get(), &parent->getChild(0));
+  ASSERT_EQ(children[1].get(), &parent->getChild(1));
+  ASSERT_EQ(children[2].get(), &parent->getChild(2));
 }

@@ -45,6 +45,9 @@ namespace egg::test {
   inline void assertString(const char* expected, const egg::ovum::String& actual) {
     ASSERT_STREQ(expected, actual.toUTF8().c_str());
   }
+  inline void assertString(const egg::ovum::String& expected, const egg::ovum::String& actual) {
+    ASSERT_STREQ(expected.toUTF8().c_str(), actual.toUTF8().c_str());
+  }
   inline void assertVariant(bool expected, const egg::ovum::Variant& variant) {
     ASSERT_EQ(egg::ovum::VariantBits::Bool, variant.getKind());
     ASSERT_EQ(expected, variant.getBool());
@@ -67,5 +70,5 @@ namespace egg::test {
   }
 }
 
-#define ASSERT_STRING(expected, string) egg::test::assertVariant(expected, string)
+#define ASSERT_STRING(expected, string) egg::test::assertString(expected, string)
 #define ASSERT_VARIANT(expected, variant) egg::test::assertVariant(expected, variant)

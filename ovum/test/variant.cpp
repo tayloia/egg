@@ -169,7 +169,7 @@ TEST(TestVariant, PointerHard1) {
   ASSERT_EQ(0u, basket.getOwnedCount());
   egg::ovum::Variant variant(Bits::Pointer | Bits::Hard, *egg::ovum::VariantFactory::createVariantSoft(allocator, basket, "hello world"));
   ASSERT_TRUE(variant.is(Bits::Pointer | Bits::Hard));
-  ASSERT_STRING("hello world", variant.getPointee());
+  ASSERT_VARIANT("hello world", variant.getPointee());
   ASSERT_EQ(1u, basket.getOwnedCount());
   ASSERT_EQ(0u, basket.collect());
   ASSERT_EQ(1u, basket.getOwnedCount());
@@ -185,14 +185,14 @@ TEST(TestVariant, PointerHard2) {
   ASSERT_EQ(0u, basket.getOwnedCount());
   egg::ovum::Variant variant(Bits::Pointer | Bits::Hard, *egg::ovum::VariantFactory::createVariantSoft(allocator, basket, "hello world"));
   ASSERT_TRUE(variant.is(Bits::Pointer | Bits::Hard));
-  ASSERT_STRING("hello world", variant.getPointee());
+  ASSERT_VARIANT("hello world", variant.getPointee());
   ASSERT_EQ(1u, basket.getOwnedCount());
   ASSERT_EQ(0u, basket.collect());
   ASSERT_EQ(1u, basket.getOwnedCount());
   variant = egg::ovum::Variant(Bits::Pointer | Bits::Hard, *egg::ovum::VariantFactory::createVariantSoft(allocator, basket, std::move(variant)));
   ASSERT_TRUE(variant.is(Bits::Pointer | Bits::Hard));
   ASSERT_TRUE(variant.getPointee().is(Bits::Pointer)); // softened
-  ASSERT_STRING("hello world", variant.getPointee().getPointee());
+  ASSERT_VARIANT("hello world", variant.getPointee().getPointee());
   ASSERT_EQ(2u, basket.getOwnedCount());
   ASSERT_EQ(0u, basket.collect());
   ASSERT_EQ(2u, basket.getOwnedCount());
@@ -208,7 +208,7 @@ TEST(TestVariant, PointerSoft1) {
   ASSERT_EQ(0u, basket.getOwnedCount());
   egg::ovum::Variant variant(Bits::Pointer, *egg::ovum::VariantFactory::createVariantSoft(allocator, basket, "hello world"));
   ASSERT_TRUE(variant.is(Bits::Pointer));
-  ASSERT_STRING("hello world", variant.getPointee());
+  ASSERT_VARIANT("hello world", variant.getPointee());
   ASSERT_EQ(1u, basket.getOwnedCount());
   ASSERT_EQ(1u, basket.collect());
   ASSERT_EQ(0u, basket.getOwnedCount());
@@ -220,12 +220,12 @@ TEST(TestVariant, PointerSoft2) {
   ASSERT_EQ(0u, basket.getOwnedCount());
   egg::ovum::Variant variant(Bits::Pointer, *egg::ovum::VariantFactory::createVariantSoft(allocator, basket, "hello world"));
   ASSERT_TRUE(variant.is(Bits::Pointer));
-  ASSERT_STRING("hello world", variant.getPointee());
+  ASSERT_VARIANT("hello world", variant.getPointee());
   ASSERT_EQ(1u, basket.getOwnedCount());
   variant = egg::ovum::Variant(Bits::Pointer, *egg::ovum::VariantFactory::createVariantSoft(allocator, basket, std::move(variant)));
   ASSERT_TRUE(variant.is(Bits::Pointer));
   ASSERT_TRUE(variant.getPointee().is(Bits::Pointer));
-  ASSERT_STRING("hello world", variant.getPointee().getPointee());
+  ASSERT_VARIANT("hello world", variant.getPointee().getPointee());
   ASSERT_EQ(2u, basket.getOwnedCount());
   ASSERT_EQ(2u, basket.collect());
   ASSERT_EQ(0u, basket.getOwnedCount());

@@ -44,75 +44,136 @@ namespace {
   };
   const Table Table::instance{};
 
-  class NodeFixed : public HardReferenceCounted<INode> {
-    NodeFixed(const NodeFixed&) = delete;
-    NodeFixed& operator=(const NodeFixed&) = delete;
+  class NodeBase : public HardReferenceCounted<INode> {
+    NodeBase(const NodeBase&) = delete;
+    NodeBase& operator=(const NodeBase&) = delete;
   private:
     Opcode opcode;
-    size_t count;
   public:
-    explicit NodeFixed(IAllocator& allocator, Opcode opcode, size_t count)
-      : HardReferenceCounted(allocator), opcode(opcode), count(count) {
-      // Zero out the child pointers even though we're going to overwrite them
-      std::memset(this->base(), 0, sizeof(INode*) * count);
-    }
-    void initChild(size_t index, const INode& value) {
-      // Only used by the factory methods below
-      assert(index < this->count);
-      auto& slot = this->base()[index];
-      assert(slot == nullptr);
-      slot = HardPtr<INode>::hardAcquire(&value);
-      assert(slot != nullptr);
-    }
-    virtual ~NodeFixed() {
-      auto** ptr = this->base();
-      for (size_t i = 0; i < this->count; ++i) {
-        if (*ptr != nullptr) {
-          (*ptr)->hardRelease();
-        }
-        ptr++;
-      }
+    std::vector<Node> children;
+    std::vector<Node> attributes;
+  public:
+    NodeBase(IAllocator& allocator, Opcode opcode)
+      : HardReferenceCounted(allocator),
+        opcode(opcode) {
     }
     virtual Opcode getOpcode() const override {
       return this->opcode;
     }
+    virtual size_t getChildren() const override {
+      return this->children.size();
+    }
     virtual INode& getChild(size_t index) const override {
-      if (index >= this->count) {
+      if (index >= this->children.size()) {
         throw std::out_of_range("Invalid AST node child index");
       }
-      return *(this->base()[index]);
-    }
-    virtual size_t getChildren() const override {
-      return this->count;
+      return *this->children[index];
     }
     virtual Int getInt() const override {
-      throw std::runtime_error("Attempt to read integer value of non-value AST node");
+      throw std::runtime_error("Attempt to read non-existent integer value of AST node");
     }
     virtual Float getFloat() const override {
-      throw std::runtime_error("Attempt to read floating-point value of non-value AST node");
+      throw std::runtime_error("Attempt to read non-existent floating-point value of AST node");
     }
     virtual String getString() const override {
-      throw std::runtime_error("Attempt to read string value of non-value AST node");
+      throw std::runtime_error("Attempt to read non-existent string value of AST node");
     }
-    virtual void setChild(size_t index, const INode& value) override {
-      if (index >= this->count) {
+    virtual size_t getAttributes() const override {
+      return this->attributes.size();
+    }
+    virtual INode& getAttribute(size_t index) const override {
+      if (index >= this->attributes.size()) {
+        throw std::out_of_range("Invalid AST node attribute index");
+      }
+      return *this->attributes[index];
+    }
+    virtual void setChild(size_t index, INode& value) override {
+      if (index >= this->children.size()) {
         throw std::out_of_range("Invalid AST node child index");
       }
-      auto* acquired = HardPtr<INode>::hardAcquire(&value);
-      assert(acquired != nullptr);
-      auto& slot = this->base()[index];
-      assert(slot != nullptr);
-      slot->hardRelease();
-      slot = acquired;
+      this->children[index].set(&value);
+    }
+    static NodeBase* create(IAllocator& allocator, Opcode opcode) {
+      return allocator.create<NodeBase>(0, allocator, opcode);
     }
   private:
-    INode** base() const {
-      return reinterpret_cast<INode**>(const_cast<NodeFixed*>(this) + 1);
+    virtual INode** base() const {
+      return reinterpret_cast<INode**>(const_cast<NodeBase*>(this) + 1);
     }
   };
 
-  NodeFixed* createFixed(IAllocator& allocator, Opcode opcode, size_t count) {
-    return allocator.create<NodeFixed>(sizeof(INode*) * count, allocator, opcode, count);
+  class NodeWithInt : public NodeBase {
+    NodeWithInt(const NodeWithInt&) = delete;
+    NodeWithInt& operator=(const NodeWithInt&) = delete;
+  private:
+    Int operand;
+  public:
+    NodeWithInt(IAllocator& allocator, Opcode opcode, Int operand)
+      : NodeBase(allocator, opcode),
+        operand(operand) {
+    }
+    virtual Int getInt() const override {
+      return this->operand;
+    }
+  private:
+    virtual INode** base() const override {
+      return reinterpret_cast<INode**>(const_cast<NodeWithInt*>(this) + 1);
+    }
+  };
+
+  class NodeWithFloat : public NodeBase {
+    NodeWithFloat(const NodeWithFloat&) = delete;
+    NodeWithFloat& operator=(const NodeWithFloat&) = delete;
+  private:
+    Float operand;
+  public:
+    NodeWithFloat(IAllocator& allocator, Opcode opcode, Float operand)
+      : NodeBase(allocator, opcode),
+      operand(operand) {
+    }
+    virtual Float getFloat() const override {
+      return this->operand;
+    }
+  private:
+    virtual INode** base() const override {
+      return reinterpret_cast<INode**>(const_cast<NodeWithFloat*>(this) + 1);
+    }
+  };
+
+  class NodeWithString : public NodeBase {
+    NodeWithString(const NodeWithString&) = delete;
+    NodeWithString& operator=(const NodeWithString&) = delete;
+  private:
+    String operand;
+  public:
+    NodeWithString(IAllocator& allocator, Opcode opcode, String operand)
+      : NodeBase(allocator, opcode),
+      operand(operand) {
+    }
+    virtual String getString() const override {
+      return this->operand;
+    }
+  private:
+    virtual INode** base() const override {
+      return reinterpret_cast<INode**>(const_cast<NodeWithString*>(this) + 1);
+    }
+  };
+
+  template<typename T, typename... ARGS>
+  Node createWithoutAttributes(IAllocator& allocator, Opcode opcode, const std::vector<Node>& children, ARGS&&... args) {
+    // Use perfect forwarding to the constructor
+    auto* node = allocator.create<T>(0, allocator, opcode, std::forward<ARGS>(args)...);
+    node->children = children;
+    return Node(node);
+  }
+
+  template<typename T, typename... ARGS>
+  Node createWithAttributes(IAllocator& allocator, Opcode opcode, const std::vector<Node>& children, const std::vector<Node>& attributes, ARGS&&... args) {
+    // Use perfect forwarding to the constructor
+    auto* node = allocator.create<T>(0, allocator, opcode, std::forward<ARGS>(args)...);
+    node->children = children;
+    node->attributes = attributes;
+    return Node(node);
   }
 }
 
@@ -183,44 +244,65 @@ const egg::ovum::ast::OpcodeProperties& egg::ovum::ast::opcodeProperties(Opcode 
 }
 
 egg::ovum::ast::Node egg::ovum::ast::NodeFactory::create(IAllocator& allocator, ast::Opcode opcode) {
-  return Node(createFixed(allocator, opcode, 0));
+  assert(opcodeProperties(opcode).validate(0, false));
+  return Node(NodeBase::create(allocator, opcode));
 }
 
 egg::ovum::ast::Node egg::ovum::ast::NodeFactory::create(IAllocator& allocator, ast::Opcode opcode, INode& child0) {
-  auto* node = createFixed(allocator, opcode, 1);
-  node->initChild(0, child0);
+  assert(opcodeProperties(opcode).validate(1, false));
+  auto* node = NodeBase::create(allocator, opcode);
+  node->children.emplace_back(&child0);
   return Node(node);
 }
 
 egg::ovum::ast::Node egg::ovum::ast::NodeFactory::create(IAllocator& allocator, ast::Opcode opcode, INode& child0, INode& child1) {
-  auto* node = createFixed(allocator, opcode, 2);
-  node->initChild(0, child0);
-  node->initChild(1, child1);
+  assert(opcodeProperties(opcode).validate(2, false));
+  auto* node = NodeBase::create(allocator, opcode);
+  node->children.emplace_back(&child0);
+  node->children.emplace_back(&child1);
   return Node(node);
 }
 
 egg::ovum::ast::Node egg::ovum::ast::NodeFactory::create(IAllocator& allocator, ast::Opcode opcode, INode& child0, INode& child1, INode& child2) {
-  auto* node = createFixed(allocator, opcode, 3);
-  node->initChild(0, child0);
-  node->initChild(1, child1);
-  node->initChild(2, child2);
+  assert(opcodeProperties(opcode).validate(3, false));
+  auto* node = NodeBase::create(allocator, opcode);
+  node->children.emplace_back(&child0);
+  node->children.emplace_back(&child1);
+  node->children.emplace_back(&child2);
   return Node(node);
 }
 
 egg::ovum::ast::Node egg::ovum::ast::NodeFactory::create(IAllocator& allocator, ast::Opcode opcode, INode& child0, INode& child1, INode& child2, INode& child3) {
-  auto* node = createFixed(allocator, opcode, 4);
-  node->initChild(0, child0);
-  node->initChild(1, child1);
-  node->initChild(2, child2);
-  node->initChild(3, child3);
+  assert(opcodeProperties(opcode).validate(4, false));
+  auto* node = NodeBase::create(allocator, opcode);
+  node->children.emplace_back(&child0);
+  node->children.emplace_back(&child1);
+  node->children.emplace_back(&child2);
+  node->children.emplace_back(&child3);
   return Node(node);
 }
 
 egg::ovum::ast::Node egg::ovum::ast::NodeFactory::create(IAllocator& allocator, ast::Opcode opcode, const std::vector<Node>& children) {
-  auto* node = createFixed(allocator, opcode, children.size());
-  size_t index = 0;
-  for (auto& i : children) {
-    node->initChild(index++, *i);
-  }
-  return Node(node);
+  assert(opcodeProperties(opcode).validate(children.size(), false));
+  return createWithoutAttributes<NodeBase>(allocator, opcode, children);
+}
+
+egg::ovum::ast::Node egg::ovum::ast::NodeFactory::create(IAllocator& allocator, ast::Opcode opcode, const std::vector<Node>& children, const std::vector<Node>& attributes) {
+  assert(opcodeProperties(opcode).validate(children.size(), false));
+  return createWithAttributes<NodeBase>(allocator, opcode, children, attributes);
+}
+
+egg::ovum::ast::Node egg::ovum::ast::NodeFactory::create(IAllocator& allocator, ast::Opcode opcode, const std::vector<Node>& children, const std::vector<Node>& attributes, Int value) {
+  assert(opcodeProperties(opcode).validate(children.size(), true));
+  return createWithAttributes<NodeWithInt>(allocator, opcode, children, attributes, value);
+}
+
+egg::ovum::ast::Node egg::ovum::ast::NodeFactory::create(IAllocator& allocator, ast::Opcode opcode, const std::vector<Node>& children, const std::vector<Node>& attributes, Float value) {
+  assert(opcodeProperties(opcode).validate(children.size(), true));
+  return createWithAttributes<NodeWithFloat>(allocator, opcode, children, attributes, value);
+}
+
+egg::ovum::ast::Node egg::ovum::ast::NodeFactory::create(IAllocator& allocator, ast::Opcode opcode, const std::vector<Node>& children, const std::vector<Node>& attributes, String value) {
+  assert(opcodeProperties(opcode).validate(children.size(), true));
+  return createWithAttributes<NodeWithString>(allocator, opcode, children, attributes, value);
 }

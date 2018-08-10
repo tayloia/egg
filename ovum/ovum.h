@@ -22,6 +22,9 @@
 // warning C5039: '...' : pointer or reference to potentially throwing function passed to extern C function under -EHc
 #pragma warning(disable: 4365 4623 4625 4626 4774 5026 5027 5039)
 
+#define EGG_WARNING_SUPPRESS_SWITCH_BEGIN __pragma(warning(push)) __pragma(warning(disable: 4062))
+#define EGG_WARNING_SUPPRESS_SWITCH_END __pragma(warning(pop))
+
 #elif defined(__GNUC__)
 
 // GNU GCC: See https://stackoverflow.com/a/16472469
@@ -31,6 +34,9 @@
 
 // For malloc_usable_size()
 #include <malloc.h>
+
+#define EGG_WARNING_SUPPRESS_SWITCH_BEGIN _Pragma("GCC diagnostic push") _Pragma("GCC diagnostic ignored \"-Wswitch\"")
+#define EGG_WARNING_SUPPRESS_SWITCH_END _Pragma("GCC diagnostic pop")
 
 #else
 

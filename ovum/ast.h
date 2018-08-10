@@ -21,12 +21,14 @@ namespace egg::ovum::ast {
   public:
     virtual ~INode() {}
     virtual Opcode getOpcode() const = 0;
-    virtual INode& getChild(size_t index) const = 0;
     virtual size_t getChildren() const = 0;
+    virtual INode& getChild(size_t index) const = 0;
     virtual Int getInt() const = 0;
     virtual Float getFloat() const = 0;
     virtual String getString() const = 0;
-    virtual void setChild(size_t index, const INode& value) = 0;
+    virtual size_t getAttributes() const = 0;
+    virtual INode& getAttribute(size_t index) const = 0;
+    virtual void setChild(size_t index, INode& value) = 0;
   };
   using Node = HardPtr<INode>;
 
@@ -38,6 +40,10 @@ namespace egg::ovum::ast {
     static Node create(IAllocator& allocator, Opcode opcode, INode& child0, INode& child1, INode& child2);
     static Node create(IAllocator& allocator, Opcode opcode, INode& child0, INode& child1, INode& child2, INode& child3);
     static Node create(IAllocator& allocator, Opcode opcode, const std::vector<Node>& children);
+    static Node create(IAllocator& allocator, Opcode opcode, const std::vector<Node>& children, const std::vector<Node>& attributes);
+    static Node create(IAllocator& allocator, Opcode opcode, const std::vector<Node>& children, const std::vector<Node>& attributes, Int value);
+    static Node create(IAllocator& allocator, Opcode opcode, const std::vector<Node>& children, const std::vector<Node>& attributes, Float value);
+    static Node create(IAllocator& allocator, Opcode opcode, const std::vector<Node>& children, const std::vector<Node>& attributes, String value);
   };
 
   inline size_t childrenFromMachineByte(uint8_t byte) {
@@ -49,7 +55,7 @@ namespace egg::ovum::ast {
   Opcode opcodeFromMachineByte(uint8_t byte);
 
   struct OpcodeProperties {
-    std::string name;
+    const char* name;
     size_t minargs;
     size_t maxargs;
     uint8_t minbyte;
@@ -66,6 +72,9 @@ namespace egg::ovum::ast {
       auto result = this->minbyte + args - this->minargs;
       assert((result > 0) && (result <= 0xFF));
       return uint8_t(result);
+    }
+    bool validate(size_t args, bool has_operand) const {
+      return (this->name != nullptr) && (args >= this->minargs) && (args <= this->maxargs) && (has_operand == this->operand);
     }
   };
   const OpcodeProperties& opcodeProperties(Opcode opcode);
