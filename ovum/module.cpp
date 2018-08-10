@@ -1,4 +1,5 @@
 #include "ovum/ovum.h"
+#include "ovum/ast.h"
 #include "ovum/utf8.h"
 
 namespace {
@@ -24,16 +25,6 @@ namespace {
     MemoryStream(const uint8_t* p, const uint8_t* q)
       : std::istream(&membuf),
         membuf(reinterpret_cast<const char*>(p), reinterpret_cast<const char*>(q)) {
-    }
-  };
-
-  struct MantissaExponent {
-    int64_t mantissa;
-    int64_t exponent;
-    void fromFloat(Float f);
-    Float toFloat() const {
-      // WIBBLE
-      return 0.0;
     }
   };
 
@@ -121,7 +112,7 @@ namespace {
     }
     Float readFloat(std::istream& stream) {
       // Read a single 64-bit floating-point value
-      MantissaExponent me;
+      ast::MantissaExponent me;
       me.mantissa = indexInt(stream);
       me.exponent = indexInt(stream);
       return me.toFloat();

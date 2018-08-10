@@ -6,6 +6,17 @@ namespace egg::ovum::ast {
     OPCODE_reserved = -1
   };
 
+  // Helper for converting IEEE to/from mantissa/exponents
+  struct MantissaExponent {
+    static constexpr int64_t ExponentNaN = 1;
+    static constexpr int64_t ExponentPositiveInfinity = 2;
+    static constexpr int64_t ExponentNegativeInfinity = -2;
+    int64_t mantissa;
+    int64_t exponent;
+    void fromFloat(Float f);
+    Float toFloat() const;
+  };
+
   class INode : public IHardAcquireRelease {
   public:
     virtual ~INode() {}
@@ -43,6 +54,7 @@ namespace egg::ovum::ast {
     size_t maxargs;
     uint8_t minbyte;
     uint8_t maxbyte;
+    bool operand;
     uint8_t encode(size_t args) const {
       // Returns zero if this is a bad encoding
       if ((args < this->minargs) || (args > this->maxargs)) {
