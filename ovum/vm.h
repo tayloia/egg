@@ -12,7 +12,8 @@
   X(SECTION_NEGINTS, 0x02) \
   X(SECTION_FLOATS, 0x03) \
   X(SECTION_STRINGS, 0x04) \
-  X(SECTION_CODE, 0xFF)
+  X(SECTION_CODE, 0xFE) \
+  X(SECTION_SOURCE, 0xFF)
 
 // Macro to define initial magic section: X(byte)
 //  The first magic section is expected to be 0xA3,0x67,0x67,0x56,0x4D,0x00 like "EggVM\0"

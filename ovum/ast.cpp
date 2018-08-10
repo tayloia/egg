@@ -144,8 +144,8 @@ void egg::ovum::ast::MantissaExponent::fromFloat(Float f) {
   m = std::floor(scale * m);
   this->mantissa = std::llround(m);
   if (this->mantissa == 0) {
-    assert("WIBBLE");
-    this->exponent = 0;
+    // Failed to convert
+    this->exponent = ExponentNaN;
     return;
   }
   this->exponent = e - bitsInMantissa;
@@ -159,15 +159,16 @@ void egg::ovum::ast::MantissaExponent::fromFloat(Float f) {
 egg::ovum::Float egg::ovum::ast::MantissaExponent::toFloat() const {
   if (this->mantissa == 0) {
     switch (this->exponent) {
-    case ExponentNaN:
-      return std::numeric_limits<Float>::quiet_NaN();
+    case 0:
+      return 0.0;
     case ExponentPositiveInfinity:
       return std::numeric_limits<Float>::infinity();
     case ExponentNegativeInfinity:
       return -std::numeric_limits<Float>::infinity();
+    case ExponentNaN:
+    default:
+      return std::numeric_limits<Float>::quiet_NaN();
     }
-    assert(this->exponent == 0);
-    return 0.0;
   }
   return std::ldexp(this->mantissa, int(this->exponent));
 }

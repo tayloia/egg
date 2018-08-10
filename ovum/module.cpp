@@ -50,7 +50,7 @@ namespace {
       }
       char ch;
       while (stream.get(ch)) {
-        switch (Section(ch)) {
+        switch (Section(uint8_t(ch))) {
         case Section::SECTION_MAGIC:
           throw std::runtime_error("Duplicated magic section in binary module");
         case Section::SECTION_POSINTS:
@@ -67,10 +67,16 @@ namespace {
           break;
         case Section::SECTION_CODE:
           readCode(stream);
-          if (stream.get(ch)) {
-            throw std::runtime_error("Extraneous data after code section in binary module");
+          if (!stream.get(ch)) {
+            // No source section
+            return;
+          }
+          if (Section(uint8_t(ch)) != Section::SECTION_SOURCE) {
+            throw std::runtime_error("Only source sections can follow code sections in binary module");
           }
           return;
+        case Section::SECTION_SOURCE:
+          throw std::runtime_error("Source section without preceding code section in binary module");
         default:
           throw std::runtime_error("Unrecognized section in binary module");
         }
