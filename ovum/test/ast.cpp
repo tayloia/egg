@@ -649,13 +649,3 @@ TEST(TestAST, CreateWithAttributes2) {
   ASSERT_EQ(attributes[0].get(), &parent->getAttribute(0));
   ASSERT_EQ(attribute.get(), &parent->getAttribute(0));
 }
-
-TEST(TestAST, BuildMinimal) {
-  egg::test::Allocator allocator;
-  ModuleBuilder builder(allocator);
-  auto noop = builder.createNoop();
-  auto block = builder.createBlock({ noop });
-  auto root = builder.createModule(std::move(block));
-  std::stringstream ss;
-  builder.writeToBinaryStream(ss, root);
-}

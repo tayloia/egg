@@ -313,5 +313,7 @@ namespace egg::ovum {
   public:
     static Module fromBinaryStream(IAllocator& allocator, std::istream& stream);
     static Module fromMemory(IAllocator& allocator, const uint8_t* begin, const uint8_t* end);
+    static Module fromRootNode(IAllocator& allocator, ast::INode& root);
+    static void toBinaryStream(const IModule& module, std::ostream& stream);
   };
 }

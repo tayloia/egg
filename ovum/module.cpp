@@ -283,9 +283,8 @@ namespace {
     explicit ModuleWriter(std::ostream& stream)
       : stream(stream), positives(0) {
     }
-    void write(const ast::Node& root) {
-      assert(root != nullptr);
-      this->findConstants(*root);
+    void write(const ast::INode& root) {
+      this->findConstants(root);
       this->writeMagic();
     }
   private:
@@ -352,6 +351,10 @@ namespace {
     explicit ModuleDefault(IAllocator& allocator)
       : HardReferenceCounted(allocator) {
     }
+    ModuleDefault(IAllocator& allocator, ast::INode& root)
+      : HardReferenceCounted(allocator),
+        root(&root) {
+    }
     virtual ast::INode& getRootNode() const override {
       assert(this->root != nullptr);
       return *this->root;
@@ -377,6 +380,15 @@ egg::ovum::Module egg::ovum::ModuleFactory::fromMemory(IAllocator& allocator, co
   return ModuleFactory::fromBinaryStream(allocator, stream);
 }
 
+egg::ovum::Module egg::ovum::ModuleFactory::fromRootNode(IAllocator& allocator, ast::INode& root) {
+  return Module(allocator.create<ModuleDefault>(0, allocator, root));
+}
+
+void egg::ovum::ModuleFactory::toBinaryStream(const IModule& module, std::ostream& stream) {
+  ModuleWriter writer(stream);
+  writer.write(module.getRootNode());
+}
+
 egg::ovum::ast::ModuleBuilder::ModuleBuilder(IAllocator& allocator)
   : allocator(allocator) {
 }
@@ -386,11 +398,33 @@ egg::ovum::ast::Node egg::ovum::ast::ModuleBuilder::createModule(Node&& block) {
 }
 
 egg::ovum::ast::Node egg::ovum::ast::ModuleBuilder::createBlock(Nodes&& statements) {
-  return this->createNode(OPCODE_BLOCK, { std::move(statements) });
+  return this->createNode(OPCODE_BLOCK, std::move(statements));
 }
 
 egg::ovum::ast::Node egg::ovum::ast::ModuleBuilder::createNoop() {
   return this->createNode(OPCODE_NOOP, {});
+}
+
+egg::ovum::ast::Node egg::ovum::ast::ModuleBuilder::createValueArray(Nodes&& elements) {
+  return this->createNode(OPCODE_AVALUE, std::move(elements));
+}
+
+egg::ovum::ast::Node egg::ovum::ast::ModuleBuilder::createValueInt(Int value) {
+  Nodes attrs;
+  std::swap(this->attributes, attrs);
+  return NodeFactory::create(this->allocator, OPCODE_IVALUE, {}, std::move(attrs), value);
+}
+
+egg::ovum::ast::Node egg::ovum::ast::ModuleBuilder::createValueFloat(Float value) {
+  Nodes attrs;
+  std::swap(this->attributes, attrs);
+  return NodeFactory::create(this->allocator, OPCODE_FVALUE, {}, std::move(attrs), value);
+}
+
+egg::ovum::ast::Node egg::ovum::ast::ModuleBuilder::createValueString(String value) {
+  Nodes attrs;
+  std::swap(this->attributes, attrs);
+  return NodeFactory::create(this->allocator, OPCODE_SVALUE, {}, std::move(attrs), value);
 }
 
 egg::ovum::ast::Node egg::ovum::ast::ModuleBuilder::createNode(Opcode opcode, Nodes&& children) {
@@ -400,9 +434,4 @@ egg::ovum::ast::Node egg::ovum::ast::ModuleBuilder::createNode(Opcode opcode, No
   Nodes attrs;
   std::swap(this->attributes, attrs);
   return NodeFactory::create(this->allocator, opcode, std::move(children), std::move(attrs));
-}
-
-void egg::ovum::ast::ModuleBuilder::writeToBinaryStream(std::ostream& stream, const Node& root) {
-  ModuleWriter writer(stream);
-  writer.write(root);
 }

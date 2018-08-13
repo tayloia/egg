@@ -87,7 +87,10 @@ namespace egg::ovum::ast {
     Node createModule(Node&& block);
     Node createBlock(Nodes&& statements);
     Node createNoop();
+    Node createValueArray(Nodes&& elements);
+    Node createValueInt(Int value);
+    Node createValueFloat(Float value);
+    Node createValueString(String value);
     Node createNode(Opcode opcode, Nodes&& children);
-    void writeToBinaryStream(std::ostream& stream, const Node& root);
   };
 }
