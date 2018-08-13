@@ -1,6 +1,19 @@
 namespace egg::ovum {
   class MemoryFactory;
 
+  enum Opcode {
+#define EGG_VM_OPCODES_ENUM(opcode, minbyte, minargs, maxargs, text) opcode = minbyte,
+    EGG_VM_OPCODES(EGG_VM_OPCODES_ENUM)
+#undef EGG_VM_OPCODES_ENUM
+    OPCODE_reserved = -1
+  };
+
+  enum Section {
+#define EGG_VM_SECTIONS_ENUM(section, value) section = value,
+    EGG_VM_SECTIONS(EGG_VM_SECTIONS_ENUM)
+#undef EGG_VM_SECTIONS_ENUM
+  };
+
   template<typename T>
   class Atomic {
     Atomic(Atomic&) = delete;

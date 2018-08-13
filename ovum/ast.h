@@ -1,11 +1,4 @@
 namespace egg::ovum::ast {
-  enum Opcode {
-#define EGG_VM_OPCODES_ENUM(opcode, minbyte, minargs, maxargs, text) opcode = minbyte,
-    EGG_VM_OPCODES(EGG_VM_OPCODES_ENUM)
-#undef EGG_VM_OPCODES_ENUM
-    OPCODE_reserved = -1
-  };
-
   // Helper for converting IEEE to/from mantissa/exponents
   struct MantissaExponent {
     static constexpr int64_t ExponentNaN = 1;

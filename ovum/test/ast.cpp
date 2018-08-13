@@ -3,6 +3,7 @@
 
 #include <cmath>
 
+using namespace egg::ovum;
 using namespace egg::ovum::ast;
 
 #define TEST_ME(f, m, e) \
@@ -12,7 +13,7 @@ using namespace egg::ovum::ast;
   ASSERT_EQ(f, me.toFloat())
 
 TEST(TestAST, MantissaExponent) {
-  using Limits = std::numeric_limits<egg::ovum::Float>;
+  using Limits = std::numeric_limits<Float>;
   MantissaExponent me;
   // zero = 0 * 2^0
   const auto zero = 0.0;
@@ -32,7 +33,7 @@ TEST(TestAST, MantissaExponent) {
   TEST_ME(-ten, -5, 1);
   // almost one
   auto mantissaBits = Limits::digits;
-  auto mantissaMax = egg::ovum::Float(1ull << mantissaBits);
+  auto mantissaMax = Float(1ull << mantissaBits);
   auto almost = (mantissaMax - 1) / mantissaMax;
   TEST_ME(almost, mantissaMax - 1, -mantissaBits);
   TEST_ME(-almost, -mantissaMax + 1, -mantissaBits);
@@ -497,7 +498,7 @@ TEST(TestAST, Create5) {
 
 TEST(TestAST, CreateWithInt0) {
   egg::test::Allocator allocator;
-  egg::ovum::Int operand{ 123456789 };
+  Int operand{ 123456789 };
   auto parent = NodeFactory::create(allocator, OPCODE_IVALUE, {}, {}, operand);
   ASSERT_EQ(OPCODE_IVALUE, parent->getOpcode());
   ASSERT_EQ(0u, parent->getChildren());
@@ -511,7 +512,7 @@ TEST(TestAST, CreateWithInt0) {
 
 TEST(TestAST, CreateWithFloat0) {
   egg::test::Allocator allocator;
-  egg::ovum::Float operand{ 3.14159 };
+  Float operand{ 3.14159 };
   auto parent = NodeFactory::create(allocator, OPCODE_FVALUE, {}, {}, operand);
   ASSERT_EQ(OPCODE_FVALUE, parent->getOpcode());
   ASSERT_EQ(0u, parent->getChildren());
@@ -525,7 +526,7 @@ TEST(TestAST, CreateWithFloat0) {
 
 TEST(TestAST, CreateWithString0) {
   egg::test::Allocator allocator;
-  egg::ovum::String operand{ "hello" };
+  String operand{ "hello" };
   auto parent = NodeFactory::create(allocator, OPCODE_SVALUE, {}, {}, operand);
   ASSERT_EQ(OPCODE_SVALUE, parent->getOpcode());
   ASSERT_EQ(0u, parent->getChildren());
@@ -540,7 +541,7 @@ TEST(TestAST, CreateWithString0) {
 TEST(TestAST, CreateWithInt1) {
   egg::test::Allocator allocator;
   Nodes children{ NodeFactory::create(allocator, OPCODE_NULL) };
-  egg::ovum::Int operand{ 123456789 };
+  Int operand{ 123456789 };
   auto parent = NodeFactory::create(allocator, OPCODE_UNARY, Nodes(children), {}, operand); // prevent move of children
   ASSERT_EQ(OPCODE_UNARY, parent->getOpcode());
   ASSERT_EQ(1u, parent->getChildren());
@@ -556,7 +557,7 @@ TEST(TestAST, CreateWithInt1) {
 TEST(TestAST, CreateWithInt2) {
   egg::test::Allocator allocator;
   Nodes children{ NodeFactory::create(allocator, OPCODE_FALSE), NodeFactory::create(allocator, OPCODE_TRUE) };
-  egg::ovum::Int operand{ 123456789 };
+  Int operand{ 123456789 };
   auto parent = NodeFactory::create(allocator, OPCODE_BINARY, Nodes(children), {}, operand); // prevent move of children
   ASSERT_EQ(OPCODE_BINARY, parent->getOpcode());
   ASSERT_EQ(2u, parent->getChildren());
@@ -574,7 +575,7 @@ TEST(TestAST, CreateWithInt3) {
   egg::test::Allocator allocator;
   Nodes children{ NodeFactory::create(allocator, OPCODE_NULL), NodeFactory::create(allocator, OPCODE_FALSE), NodeFactory::create(allocator, OPCODE_TRUE) };
   Nodes attributes{};
-  egg::ovum::Int operand{ 123456789 };
+  Int operand{ 123456789 };
   auto parent = NodeFactory::create(allocator, OPCODE_TERNARY, Nodes(children), {}, operand); // prevent move of children
   ASSERT_EQ(OPCODE_TERNARY, parent->getOpcode());
   ASSERT_EQ(3u, parent->getChildren());
@@ -594,7 +595,7 @@ TEST(TestAST, CreateWithAttributes0) {
   Nodes children{};
   auto attribute = NodeFactory::create(allocator, OPCODE_ATTRIBUTE, *NodeFactory::create(allocator, OPCODE_NULL));
   Nodes attributes{ attribute };
-  egg::ovum::Int operand{ 123456789 };
+  Int operand{ 123456789 };
   auto parent = NodeFactory::create(allocator, OPCODE_IVALUE, Nodes(children), Nodes(attributes), operand); // prevent move of children and attributes
   ASSERT_EQ(OPCODE_IVALUE, parent->getOpcode());
   ASSERT_EQ(0u, parent->getChildren());
@@ -613,7 +614,7 @@ TEST(TestAST, CreateWithAttributes1) {
   Nodes children{ NodeFactory::create(allocator, OPCODE_FALSE) };
   auto attribute = NodeFactory::create(allocator, OPCODE_ATTRIBUTE, *NodeFactory::create(allocator, OPCODE_NULL));
   Nodes attributes{ attribute };
-  egg::ovum::Int operand{ 123456789 };
+  Int operand{ 123456789 };
   auto parent = NodeFactory::create(allocator, OPCODE_UNARY, Nodes(children), Nodes(attributes), operand); // prevent move of children and attributes
   ASSERT_EQ(OPCODE_UNARY, parent->getOpcode());
   ASSERT_EQ(1u, parent->getChildren());
@@ -633,7 +634,7 @@ TEST(TestAST, CreateWithAttributes2) {
   Nodes children{ NodeFactory::create(allocator, OPCODE_FALSE), NodeFactory::create(allocator, OPCODE_TRUE) };
   auto attribute = NodeFactory::create(allocator, OPCODE_ATTRIBUTE, *NodeFactory::create(allocator, OPCODE_NULL));
   Nodes attributes{ attribute };
-  egg::ovum::Int operand{ 123456789 };
+  Int operand{ 123456789 };
   auto parent = NodeFactory::create(allocator, OPCODE_BINARY, Nodes(children), Nodes(attributes), operand); // prevent move of children and attributes
   ASSERT_EQ(OPCODE_BINARY, parent->getOpcode());
   ASSERT_EQ(2u, parent->getChildren());
@@ -651,7 +652,7 @@ TEST(TestAST, CreateWithAttributes2) {
 
 TEST(TestAST, BuildMinimal) {
   egg::test::Allocator allocator;
-  egg::ovum::ast::ModuleBuilder builder(allocator);
+  ModuleBuilder builder(allocator);
   auto noop = builder.createNoop();
   auto block = builder.createBlock({ noop });
   auto root = builder.createModule(std::move(block));

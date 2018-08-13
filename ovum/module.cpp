@@ -30,12 +30,6 @@ namespace {
     }
   };
 
-  enum class Section {
-#define EGG_VM_SECTIONS_ENUM(section, value) section = value,
-    EGG_VM_SECTIONS(EGG_VM_SECTIONS_ENUM)
-#undef EGG_VM_SECTIONS_ENUM
-  };
-
   class ModuleReader {
     ModuleReader(const ModuleReader&) = delete;
     ModuleReader& operator=(const ModuleReader&) = delete;
@@ -57,32 +51,32 @@ namespace {
       char ch;
       while (this->stream.get(ch)) {
         switch (Section(uint8_t(ch))) {
-        case Section::SECTION_MAGIC:
+        case SECTION_MAGIC:
           throw std::runtime_error("Duplicated magic section in binary module");
-        case Section::SECTION_POSINTS:
+        case SECTION_POSINTS:
           this->readInts(false);
           break;
-        case Section::SECTION_NEGINTS:
+        case SECTION_NEGINTS:
           this->readInts(true);
           break;
-        case Section::SECTION_FLOATS:
+        case SECTION_FLOATS:
           this->readFloats();
           break;
-        case Section::SECTION_STRINGS:
+        case SECTION_STRINGS:
           this->readStrings();
           break;
-        case Section::SECTION_CODE:
+        case SECTION_CODE:
           // Read the abstract syntax tree
           root = this->readNode();
           if (!this->stream.get(ch)) {
             // No source section
             return root;
           }
-          if (Section(uint8_t(ch)) != Section::SECTION_SOURCE) {
+          if (Section(uint8_t(ch)) != SECTION_SOURCE) {
             throw std::runtime_error("Only source sections can follow code sections in binary module");
           }
           return root;
-        case Section::SECTION_SOURCE:
+        case SECTION_SOURCE:
           throw std::runtime_error("Source section without preceding code section in binary module");
         default:
           throw std::runtime_error("Unrecognized section in binary module");
@@ -183,7 +177,7 @@ namespace {
     ast::Node readNode() const {
       auto byte = this->readByte();
       auto opcode = ast::opcodeFromMachineByte(byte);
-      if (opcode == ast::Opcode::OPCODE_reserved) {
+      if (opcode == OPCODE_reserved) {
         throw std::runtime_error("Invalid opcode in code section of binary module");
       }
       auto operand = std::numeric_limits<uint64_t>::max();
@@ -192,14 +186,14 @@ namespace {
         operand = this->readUnsigned();
       }
       std::vector<ast::Node> attributes;
-      while (this->stream.peek() == ast::Opcode::OPCODE_ATTRIBUTE) {
+      while (this->stream.peek() == OPCODE_ATTRIBUTE) {
         attributes.push_back(this->readNode());
       }
       std::vector<ast::Node> children;
       auto count = ast::childrenFromMachineByte(byte);
       if (count == SIZE_MAX) {
         // This is a list terminated with an OPCODE_END sentinel
-        while (this->stream.peek() != ast::Opcode::OPCODE_END) {
+        while (this->stream.peek() != OPCODE_END) {
           children.push_back(this->readNode());
         }
         this->stream.get(); // skip the sentinel
@@ -214,13 +208,13 @@ namespace {
       }
       EGG_WARNING_SUPPRESS_SWITCH_BEGIN
       switch (opcode) {
-      case ast::Opcode::OPCODE_IVALUE:
+      case OPCODE_IVALUE:
         // Operand is an index into the int table
         return ast::NodeFactory::create(this->allocator, opcode, std::move(children), std::move(attributes), this->indexInt(operand));
-      case ast::Opcode::OPCODE_FVALUE:
+      case OPCODE_FVALUE:
         // Operand is an index into the float table
         return ast::NodeFactory::create(this->allocator, opcode, std::move(children), std::move(attributes), this->indexFloat(operand));
-      case ast::Opcode::OPCODE_SVALUE:
+      case OPCODE_SVALUE:
         // Operand is an index into the string table
         return ast::NodeFactory::create(this->allocator, opcode, std::move(children), std::move(attributes), this->indexString(operand));
       }
@@ -388,15 +382,15 @@ egg::ovum::ast::ModuleBuilder::ModuleBuilder(IAllocator& allocator)
 }
 
 egg::ovum::ast::Node egg::ovum::ast::ModuleBuilder::createModule(Node&& block) {
-  return this->createNode(Opcode::OPCODE_MODULE, { std::move(block) });
+  return this->createNode(OPCODE_MODULE, { std::move(block) });
 }
 
 egg::ovum::ast::Node egg::ovum::ast::ModuleBuilder::createBlock(Nodes&& statements) {
-  return this->createNode(Opcode::OPCODE_BLOCK, { std::move(statements) });
+  return this->createNode(OPCODE_BLOCK, { std::move(statements) });
 }
 
 egg::ovum::ast::Node egg::ovum::ast::ModuleBuilder::createNoop() {
-  return this->createNode(Opcode::OPCODE_NOOP, {});
+  return this->createNode(OPCODE_NOOP, {});
 }
 
 egg::ovum::ast::Node egg::ovum::ast::ModuleBuilder::createNode(Opcode opcode, Nodes&& children) {
