@@ -60,6 +60,9 @@ namespace {
     virtual Opcode getOpcode() const override {
       return this->opcode;
     }
+    virtual Operand getOperand() const override {
+      return Operand::None;
+    }
     virtual size_t getChildren() const override {
       return this->children.size();
     }
@@ -112,6 +115,9 @@ namespace {
       : NodeBase(allocator, opcode),
         operand(operand) {
     }
+    virtual Operand getOperand() const override {
+      return Operand::Int;
+    }
     virtual Int getInt() const override {
       return this->operand;
     }
@@ -131,6 +137,9 @@ namespace {
       : NodeBase(allocator, opcode),
       operand(operand) {
     }
+    virtual Operand getOperand() const override {
+      return Operand::Float;
+    }
     virtual Float getFloat() const override {
       return this->operand;
     }
@@ -149,6 +158,9 @@ namespace {
     NodeWithString(IAllocator& allocator, Opcode opcode, String operand)
       : NodeBase(allocator, opcode),
       operand(operand) {
+    }
+    virtual Operand getOperand() const override {
+      return Operand::String;
     }
     virtual String getString() const override {
       return this->operand;

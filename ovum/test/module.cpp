@@ -34,13 +34,18 @@ TEST(TestModule, FromMemoryBad) {
 }
 
 TEST(TestModule, FromMemoryMinimal) {
-  const uint8_t minimal[] = {
-    MAGIC
-    SECTION_CODE,
-      OPCODE_MODULE,
-        OPCODE_BLOCK,
-          OPCODE_NOOP
-  };
+  const uint8_t minimal[] = { MAGIC SECTION_CODE, OPCODE_MODULE, OPCODE_BLOCK, OPCODE_NOOP };
   egg::test::Allocator allocator;
   auto module = egg::ovum::ModuleFactory::fromMemory(allocator, std::begin(minimal), std::end(minimal));
+  ASSERT_NE(nullptr, module);
+  egg::ovum::ast::Node root{ &module->getRootNode() };
+  ASSERT_NE(nullptr, root);
+  ASSERT_EQ(Opcode::OPCODE_MODULE, root->getOpcode());
+  ASSERT_EQ(1u, root->getChildren());
+  egg::ovum::ast::Node child{ &root->getChild(0) };
+  ASSERT_EQ(Opcode::OPCODE_BLOCK, child->getOpcode());
+  ASSERT_EQ(1u, child->getChildren());
+  egg::ovum::ast::Node grandchild{ &child->getChild(0) };
+  ASSERT_EQ(Opcode::OPCODE_NOOP, grandchild->getOpcode());
+  ASSERT_EQ(0u, grandchild->getChildren());
 }

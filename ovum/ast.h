@@ -1,5 +1,3 @@
-#include <map>
-
 namespace egg::ovum::ast {
   enum Opcode {
 #define EGG_VM_OPCODES_ENUM(opcode, minbyte, minargs, maxargs, text) opcode = minbyte,
@@ -21,8 +19,10 @@ namespace egg::ovum::ast {
 
   class INode : public IHardAcquireRelease {
   public:
+    enum class Operand { None, Int, Float, String };
     virtual ~INode() {}
     virtual Opcode getOpcode() const = 0;
+    virtual Operand getOperand() const = 0;
     virtual size_t getChildren() const = 0;
     virtual INode& getChild(size_t index) const = 0;
     virtual Int getInt() const = 0;

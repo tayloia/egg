@@ -1,4 +1,8 @@
 namespace egg::ovum {
+  namespace ast {
+    class INode;
+  }
+
   class IHardAcquireRelease {
   public:
     virtual ~IHardAcquireRelease() {}
@@ -72,5 +76,6 @@ namespace egg::ovum {
 
   class IModule : public IHardAcquireRelease {
   public:
+    virtual ast::INode& getRootNode() const = 0;
   };
 }

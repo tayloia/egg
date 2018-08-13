@@ -2,6 +2,8 @@
 #include "ovum/ast.h"
 #include "ovum/utf8.h"
 
+#include <map>
+
 namespace {
   using namespace egg::ovum;
 
@@ -28,57 +30,58 @@ namespace {
     }
   };
 
-  class ModuleFromStream : public HardReferenceCounted<IModule> {
-    ModuleFromStream(const ModuleFromStream&) = delete;
-    ModuleFromStream& operator=(const ModuleFromStream&) = delete;
+  enum class Section {
+#define EGG_VM_SECTIONS_ENUM(section, value) section = value,
+    EGG_VM_SECTIONS(EGG_VM_SECTIONS_ENUM)
+#undef EGG_VM_SECTIONS_ENUM
+  };
+
+  class ModuleReader {
+    ModuleReader(const ModuleReader&) = delete;
+    ModuleReader& operator=(const ModuleReader&) = delete;
   private:
+    IAllocator& allocator;
+    std::istream& stream;
     std::vector<Int> ivalue;
     std::vector<Float> fvalue;
     std::vector<String> svalue;
-    ast::Node root;
   public:
-    explicit ModuleFromStream(IAllocator& allocator)
-      : HardReferenceCounted(allocator) {
+    ModuleReader(IAllocator& allocator, std::istream& stream)
+      : allocator(allocator), stream(stream) {
     }
-    void readFromStream(std::istream& stream) {
-      enum class Section {
-#define EGG_VM_SECTIONS_ENUM(section, value) section = value,
-        EGG_VM_SECTIONS(EGG_VM_SECTIONS_ENUM)
-#undef EGG_VM_SECTIONS_ENUM
-      };
-      if (!readMagic(stream)) {
+    ast::Node read() {
+      ast::Node root;
+      if (!this->readMagic()) {
         throw std::runtime_error("Invalid magic signature in binary module");
       }
       char ch;
-      while (stream.get(ch)) {
+      while (this->stream.get(ch)) {
         switch (Section(uint8_t(ch))) {
         case Section::SECTION_MAGIC:
           throw std::runtime_error("Duplicated magic section in binary module");
         case Section::SECTION_POSINTS:
-          readInts(stream, false);
+          this->readInts(false);
           break;
         case Section::SECTION_NEGINTS:
-          readInts(stream, true);
+          this->readInts(true);
           break;
         case Section::SECTION_FLOATS:
-          readFloats(stream);
+          this->readFloats();
           break;
         case Section::SECTION_STRINGS:
-          readStrings(stream);
+          this->readStrings();
           break;
         case Section::SECTION_CODE:
           // Read the abstract syntax tree
-          assert(this->root == nullptr);
-          this->root = readNode(stream);
-          assert(this->root != nullptr);
-          if (!stream.get(ch)) {
+          root = this->readNode();
+          if (!this->stream.get(ch)) {
             // No source section
-            return;
+            return root;
           }
           if (Section(uint8_t(ch)) != Section::SECTION_SOURCE) {
             throw std::runtime_error("Only source sections can follow code sections in binary module");
           }
-          return;
+          return root;
         case Section::SECTION_SOURCE:
           throw std::runtime_error("Source section without preceding code section in binary module");
         default:
@@ -88,65 +91,65 @@ namespace {
       throw std::runtime_error("Missing code section in binary module");
     }
   private:
-    static bool readMagic(std::istream& stream) {
-#define EGG_VM_MAGIC_BYTE(byte) if (readByte(stream) != byte) { return false; }
+    bool readMagic() const {
+#define EGG_VM_MAGIC_BYTE(byte) if (this->readByte() != byte) { return false; }
       EGG_VM_MAGIC(EGG_VM_MAGIC_BYTE)
 #undef EGG_VM_MAGIC_BYTE
       return true;
     }
-    void readInts(std::istream& stream, bool negative) {
+    void readInts(bool negative) {
       // Read a sequence of 64-bit signed values
-      auto count = readUnsigned(stream);
+      auto count = this->readUnsigned();
       this->ivalue.reserve(this->ivalue.size() + size_t(count));
       while (count > 0) {
-        this->ivalue.push_back(readInt(stream, negative));
+        this->ivalue.push_back(this->readInt(negative));
         count--;
       }
     }
-    static Int readInt(std::istream& stream, bool negative) {
+    Int readInt(bool negative) const {
       // Read a single 64-bit signed value
-      auto i = Int(readUnsigned(stream));
+      auto i = Int(this->readUnsigned());
       if (negative) {
         i = ~i;
       }
       return i;
     }
-    void readFloats(std::istream& stream) {
+    void readFloats() {
       // Read a sequence of 64-bit floating-point values
-      auto count = readUnsigned(stream);
+      auto count = this->readUnsigned();
       this->fvalue.reserve(this->fvalue.size() + size_t(count));
       while (count > 0) {
-        this->fvalue.push_back(readFloat(stream));
+        this->fvalue.push_back(this->readFloat());
         count--;
       }
     }
-    Float readFloat(std::istream& stream) {
+    Float readFloat() const {
       // Read a single 64-bit floating-point value
       ast::MantissaExponent me;
-      me.mantissa = indexInt(readUnsigned(stream));
-      me.exponent = indexInt(readUnsigned(stream));
+      me.mantissa = indexInt(this->readUnsigned());
+      me.exponent = indexInt(this->readUnsigned());
       return me.toFloat();
     }
-    void readStrings(std::istream& stream) {
+    void readStrings() {
       // Read a sequence of string values
-      auto count = readUnsigned(stream);
+      auto count = this->readUnsigned();
       this->svalue.reserve(this->svalue.size() + size_t(count));
       while (count > 0) {
-        this->svalue.push_back(readString(stream));
+        this->svalue.push_back(this->readString());
         count--;
       }
     }
-    String readString(std::istream& stream) {
+    String readString() const {
       size_t codepoints = 0;
       std::stringstream ss;
-      while (readCodePoint(stream, ss)) {
+      while (this->readCodePoint(ss)) {
         codepoints++;
       }
       return String(ss.str(), codepoints);
     }
-    static bool readCodePoint(std::istream& in, std::ostream& out) {
+    bool readCodePoint(std::ostream& out) const {
       char ch;
-      if (!in.get(ch)) {
+      if (!this->stream.get(ch)) {
         throw std::runtime_error("Missing UTF-8 string constant in binary module");
       }
       out.put(ch);
@@ -165,7 +168,7 @@ namespace {
       }
       assert(length > 1);
       for (size_t i = 1; i < length; ++i) {
-        if (!in.get(ch)) {
+        if (!this->stream.get(ch)) {
           throw std::runtime_error("Truncated UTF-8 string constant in binary module");
         }
         out.put(ch);
@@ -177,8 +180,8 @@ namespace {
       }
       return true;
     }
-    ast::Node readNode(std::istream& stream) const {
-      auto byte = readByte(stream);
+    ast::Node readNode() const {
+      auto byte = this->readByte();
       auto opcode = ast::opcodeFromMachineByte(byte);
       if (opcode == ast::Opcode::OPCODE_reserved) {
         throw std::runtime_error("Invalid opcode in code section of binary module");
@@ -186,23 +189,23 @@ namespace {
       auto operand = std::numeric_limits<uint64_t>::max();
       auto& properties = ast::opcodeProperties(opcode);
       if (properties.operand) {
-        operand = readUnsigned(stream);
+        operand = this->readUnsigned();
       }
       std::vector<ast::Node> attributes;
-      while (stream.peek() == ast::Opcode::OPCODE_ATTRIBUTE) {
-        attributes.push_back(this->readNode(stream));
+      while (this->stream.peek() == ast::Opcode::OPCODE_ATTRIBUTE) {
+        attributes.push_back(this->readNode());
       }
       std::vector<ast::Node> children;
       auto count = ast::childrenFromMachineByte(byte);
       if (count == SIZE_MAX) {
         // This is a list terminated with an OPCODE_END sentinel
-        while (stream.peek() != ast::Opcode::OPCODE_END) {
-          children.push_back(this->readNode(stream));
+        while (this->stream.peek() != ast::Opcode::OPCODE_END) {
+          children.push_back(this->readNode());
         }
-        stream.get(); // skip the sentinel
+        this->stream.get(); // skip the sentinel
       } else {
         for (size_t child = 0; child < count; ++child) {
-          children.push_back(this->readNode(stream));
+          children.push_back(this->readNode());
         }
       }
       if (!properties.operand) {
@@ -243,9 +246,9 @@ namespace {
       }
       return this->svalue[size_t(index)];
     }
-    static uint64_t readUnsigned(std::istream& stream) {
+    uint64_t readUnsigned() const {
       // Read up to 63 bits as an unsigned integer
-      auto byte = readByte(stream);
+      auto byte = this->readByte();
       if (byte <= 0x80) {
         // Fast return for small values
         return byte;
@@ -253,7 +256,7 @@ namespace {
       uint64_t result = byte;
       size_t bits = 0;
       while (byte >= 0x80) {
-        byte = readByte(stream);
+        byte = this->readByte();
         bits += 7;
         if (bits > 63) {
           throw std::runtime_error("Unsigned integer overflow in binary module");
@@ -263,19 +266,114 @@ namespace {
       assert(result < 0x8000000000000000);
       return result;
     }
-    static uint8_t readByte(std::istream& stream) {
+    uint8_t readByte() const {
       // Read a single 8-bit unsigned integer
       char ch;
-      if (!stream.get(ch)) {
+      if (!this->stream.get(ch)) {
         throw std::runtime_error("Truncated section in binary module");
       }
       return uint8_t(ch);
     }
   };
+
+  class ModuleWriter {
+    ModuleWriter(const ModuleWriter&) = delete;
+    ModuleWriter& operator=(const ModuleWriter&) = delete;
+  private:
+    std::ostream& stream;
+    std::map<Int, size_t> ivalues;
+    std::map<std::pair<Int, Int>, size_t> fvalues;
+    std::map<String, size_t> svalues;
+    size_t positives;
+  public:
+    explicit ModuleWriter(std::ostream& stream)
+      : stream(stream), positives(0) {
+    }
+    void write(const ast::Node& root) {
+      assert(root != nullptr);
+      this->findConstants(*root);
+      this->writeMagic();
+    }
+  private:
+    void findConstants(const ast::INode& node) {
+      switch (node.getOperand()) {
+      case ast::INode::Operand::Int:
+        // Keep track of the integers
+        this->foundInt(node.getInt());
+        break;
+      case ast::INode::Operand::Float:
+        // Keep track of the mantissa/exponent integers
+        this->foundFloat(node.getFloat());
+        break;
+      case ast::INode::Operand::String:
+        // Keep track of the strings
+        this->foundString(node.getString());
+        break;
+      case ast::INode::Operand::None:
+        // Nothing to keep track of
+        break;
+      }
+      auto n = node.getAttributes();
+      for (size_t i = 0; i < n; ++i) {
+        this->findConstants(node.getAttribute(i));
+      }
+      n = node.getChildren();
+      for (size_t i = 0; i < n; ++i) {
+        this->findConstants(node.getChild(i));
+      }
+    }
+    void foundInt(Int value) {
+      auto inserted = this->ivalues.emplace(value, size_t(0));
+      if (inserted.second && (value >= 0)) {
+        this->positives++;
+      }
+    }
+    void foundFloat(Float value) {
+      ast::MantissaExponent me;
+      me.fromFloat(value);
+      foundInt(me.mantissa);
+      foundInt(me.exponent);
+      auto key = std::make_pair(me.mantissa, me.exponent);
+      this->fvalues.emplace(key, this->fvalues.size());
+    }
+    void foundString(String value) {
+      this->svalues.emplace(value, this->svalues.size());
+    }
+    void writeMagic() const {
+#define EGG_VM_MAGIC_BYTE(byte) this->writeByte(byte);
+      EGG_VM_MAGIC(EGG_VM_MAGIC_BYTE)
+#undef EGG_VM_MAGIC_BYTE
+    }
+    void writeByte(uint8_t byte) const {
+      this->stream.put(char(byte));
+    }
+  };
+
+  class ModuleDefault : public HardReferenceCounted<IModule> {
+    ModuleDefault(const ModuleDefault&) = delete;
+    ModuleDefault& operator=(const ModuleDefault&) = delete;
+  private:
+    ast::Node root;
+  public:
+    explicit ModuleDefault(IAllocator& allocator)
+      : HardReferenceCounted(allocator) {
+    }
+    virtual ast::INode& getRootNode() const override {
+      assert(this->root != nullptr);
+      return *this->root;
+    }
+    void readFromStream(std::istream& stream) {
+      // Read the abstract syntax tree
+      assert(this->root == nullptr);
+      ModuleReader reader(this->allocator, stream);
+      this->root = reader.read();
+      assert(this->root != nullptr);
+    }
+  };
 }
 
 egg::ovum::Module egg::ovum::ModuleFactory::fromBinaryStream(IAllocator& allocator, std::istream& stream) {
-  HardPtr<ModuleFromStream> module(allocator.create<ModuleFromStream>(0, allocator));
+  HardPtr<ModuleDefault> module(allocator.create<ModuleDefault>(0, allocator));
   module->readFromStream(stream);
   return module;
 }
@@ -310,6 +408,7 @@ egg::ovum::ast::Node egg::ovum::ast::ModuleBuilder::createNode(Opcode opcode, No
   return NodeFactory::create(this->allocator, opcode, std::move(children), std::move(attrs));
 }
 
-void egg::ovum::ast::ModuleBuilder::writeToBinaryStream(std::ostream&, const Node&) {
-  // WIBBLE
+void egg::ovum::ast::ModuleBuilder::writeToBinaryStream(std::ostream& stream, const Node& root) {
+  ModuleWriter writer(stream);
+  writer.write(root);
 }
