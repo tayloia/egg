@@ -4,6 +4,20 @@
 namespace {
   using namespace egg::ovum;
 
+  int compareUTF8(const uint8_t* lbegin, size_t lsize, const uint8_t* rbegin, size_t rsize) {
+    assert(lbegin != nullptr);
+    assert(rbegin != nullptr);
+    if (lsize < rsize) {
+      auto cmp = std::memcmp(lbegin, rbegin, lsize);
+      return (cmp == 0) ? -1 : cmp;
+    }
+    if (lsize > rsize) {
+      auto cmp = std::memcmp(lbegin, rbegin, rsize);
+      return (cmp == 0) ? 1 : cmp;
+    }
+    return std::memcmp(lbegin, rbegin, lsize);
+  }
+
   const IMemory* createContiguous(IAllocator& allocator, const uint8_t* utf8, size_t bytes, size_t codepoints = SIZE_MAX) {
     // TODO detect malformed/overlong/etc
     if ((utf8 == nullptr) || (bytes == 0)) {
@@ -53,6 +67,16 @@ namespace {
       return (utf8 == nullptr) ? nullptr : StringFallbackAllocator::createString(utf8, std::strlen(utf8));
     }
   };
+}
+
+bool egg::ovum::StringLess::operator()(const egg::ovum::String& lhs, const egg::ovum::String& rhs) const {
+  if (lhs == nullptr) {
+    return false;
+  }
+  if (rhs == nullptr) {
+    return true;
+  }
+  return compareUTF8(lhs->begin(), lhs->bytes(), rhs->begin(), rhs->bytes());
 }
 
 egg::ovum::String::String(const char* utf8)

@@ -3,7 +3,6 @@
 #include "ovum/utf8.h"
 
 #include <algorithm>
-#include <map>
 
 namespace {
   using namespace egg::ovum;
@@ -278,7 +277,7 @@ namespace {
     std::ostream& stream;
     std::map<Int, size_t> ivalues;
     std::map<std::pair<Int, Int>, size_t> fvalues;
-    std::map<String, size_t> svalues;
+    StringMap<size_t> svalues;
     size_t positives;
   public:
     explicit ModuleWriter(std::ostream& stream)

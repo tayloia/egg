@@ -118,44 +118,6 @@ namespace egg::ovum {
       }
       return std::string(memory->begin(), memory->end());
     }
-    int compare(const String& rhs) const {
-      auto* rmemory = rhs.get();
-      if (rmemory == nullptr) {
-        // If the right side is an empty string, it all boils down to our length
-        return (this->length() == 0) ? 0 : 1;
-      }
-      return this->compare(rmemory->begin(), rmemory->end());
-    }
-    int compare(const uint8_t* rbegin, const uint8_t* rend) const {
-      assert(rbegin != nullptr);
-      assert(rend >= rbegin);
-      auto* lmemory = this->get();
-      if (lmemory == nullptr) {
-        // If we're empty, the result depends solely on the length of the right side
-        return (rbegin == rend) ? 0 : -1;
-      }
-      return String::compare(lmemory->begin(), lmemory->end(), rbegin, rend);
-    }
-    bool operator<(const String& rhs) const {
-      return this->compare(rhs) < 0;
-    }
-    static int compare(const uint8_t* lbegin, const uint8_t* lend, const uint8_t* rbegin, const uint8_t* rend) {
-      assert(lbegin != nullptr);
-      assert(lend >= lbegin);
-      assert(rbegin != nullptr);
-      assert(rend >= rbegin);
-      auto lsize = size_t(lend - lbegin);
-      auto rsize = size_t(rend - rbegin);
-      if (lsize < rsize) {
-        auto cmp = std::memcmp(lbegin, rbegin, lsize);
-        return (cmp == 0) ? -1 : cmp;
-      }
-      if (lsize > rsize) {
-        auto cmp = std::memcmp(lbegin, rbegin, rsize);
-        return (cmp == 0) ? 1 : cmp;
-      }
-      return std::memcmp(lbegin, rbegin, lsize);
-    }
   };
 
   class Object : public HardPtr<IObject> {

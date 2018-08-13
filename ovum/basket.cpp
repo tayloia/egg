@@ -1,6 +1,5 @@
 #include "ovum/ovum.h"
 
-#include <map>
 #include <stack>
 
 void egg::ovum::BasketDefault::take(ICollectable& collectable) {

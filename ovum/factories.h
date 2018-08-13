@@ -281,6 +281,13 @@ namespace egg::ovum {
     void reset();
   };
 
+  struct StringLess {
+    bool operator()(const String& lhs, const String& rhs) const;
+  };
+
+  template<typename T>
+  using StringMap = std::map<String, T, StringLess>;
+
   class StringFactory {
   public:
     static String fromUTF8(IAllocator& allocator, const uint8_t* begin, const uint8_t* end, size_t codepoints);
