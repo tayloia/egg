@@ -2,6 +2,7 @@
 #include "ovum/ast.h"
 #include "ovum/utf8.h"
 
+#include <algorithm>
 #include <map>
 
 namespace {
@@ -146,15 +147,15 @@ namespace {
       if (!this->stream.get(ch)) {
         throw std::runtime_error("Missing UTF-8 string constant in binary module");
       }
-      out.put(ch);
       auto byte = uint8_t(ch);
-      if (byte < 0x80) {
-        // Fast code path for ASCII
-        return true;
-      }
       if (byte == 0xFF) {
         // String terminal
         return false;
+      }
+      out.put(ch);
+      if (byte < 0x80) {
+        // Fast code path for ASCII
+        return true;
       }
       auto length = utf8::sizeFromLeadByte(byte);
       if (length == SIZE_MAX) {
@@ -286,6 +287,10 @@ namespace {
     void write(const ast::INode& root) {
       this->findConstants(root);
       this->writeMagic();
+      this->writeInts();
+      this->writeFloats();
+      this->writeStrings();
+      this->writeCode(root);
     }
   private:
     void findConstants(const ast::INode& node) {
@@ -316,7 +321,7 @@ namespace {
       }
     }
     void foundInt(Int value) {
-      auto inserted = this->ivalues.emplace(value, size_t(0));
+      auto inserted = this->ivalues.emplace(value, SIZE_MAX);
       if (inserted.second && (value >= 0)) {
         this->positives++;
       }
@@ -327,15 +332,138 @@ namespace {
       foundInt(me.mantissa);
       foundInt(me.exponent);
       auto key = std::make_pair(me.mantissa, me.exponent);
-      this->fvalues.emplace(key, this->fvalues.size());
+      this->fvalues.emplace(key, SIZE_MAX);
     }
     void foundString(String value) {
-      this->svalues.emplace(value, this->svalues.size());
+      this->svalues.emplace(value, SIZE_MAX);
     }
     void writeMagic() const {
 #define EGG_VM_MAGIC_BYTE(byte) this->writeByte(byte);
       EGG_VM_MAGIC(EGG_VM_MAGIC_BYTE)
 #undef EGG_VM_MAGIC_BYTE
+    }
+    void writeInts() {
+      size_t index = 0;
+      for (auto& i : this->ivalues) {
+        if (i.first >= 0) {
+          assert(i.second == SIZE_MAX);
+          if (index == 0) {
+            this->writeByte(SECTION_POSINTS);
+            this->writeUnsigned(this->positives);
+          }
+          i.second = index++;
+          this->writeUnsigned(uint64_t(i.first));
+        }
+      }
+      assert(index == this->positives);
+      for (auto& i : this->ivalues) {
+        if (i.first < 0) {
+          assert(i.second == SIZE_MAX);
+          if (index == this->positives) {
+            this->writeByte(SECTION_NEGINTS);
+            this->writeUnsigned(this->ivalues.size() - this->positives);
+          }
+          i.second = index++;
+          this->writeUnsigned(~uint64_t(i.first));
+        }
+      }
+      assert(index == this->ivalues.size());
+    }
+    void writeFloats() {
+      size_t index = 0;
+      for (auto& i : this->fvalues) {
+        assert(i.second == SIZE_MAX);
+        if (index == 0) {
+          this->writeByte(SECTION_FLOATS);
+          this->writeUnsigned(this->fvalues.size());
+        }
+        i.second = index++;
+        this->writeUnsigned(this->ivalues[i.first.first]); // mantissa
+        this->writeUnsigned(this->ivalues[i.first.second]); // exponent
+      }
+      assert(index == this->fvalues.size());
+    }
+    void writeStrings() {
+      size_t index = 0;
+      for (auto& i : this->svalues) {
+        assert(i.second == SIZE_MAX);
+        if (index == 0) {
+          this->writeByte(SECTION_STRINGS);
+          this->writeUnsigned(this->svalues.size());
+        }
+        i.second = index++;
+        this->writeString(i.first);
+      }
+      assert(index == this->svalues.size());
+    }
+    void writeString(const String& str) const {
+      auto length = str.length();
+      if (length > 0) {
+        this->stream.write(reinterpret_cast<const char*>(str->begin()), std::streamsize(length));
+      }
+      this->writeByte(0xFF);
+    }
+    void writeCode(const ast::INode& node) {
+      this->writeByte(SECTION_CODE);
+      this->writeNode(node);
+    }
+    void writeNode(const ast::INode& node) {
+      auto opcode = node.getOpcode();
+      auto& properties = ast::opcodeProperties(opcode);
+      auto n = node.getChildren();
+      if ((n < properties.minargs) || (n > properties.maxargs)) {
+        throw std::runtime_error("Invalid number of opcode arguments in binary module");
+      }
+      auto byte = opcode - properties.minargs + std::min(n, size_t(EGG_VM_NARGS));
+      assert(byte <= 0xFF);
+      this->writeByte(uint8_t(byte));
+      if (properties.operand) {
+        EGG_WARNING_SUPPRESS_SWITCH_BEGIN
+        switch (opcode) {
+        case OPCODE_IVALUE:
+          this->writeUnsigned(this->ivalues[node.getInt()]);
+          break;
+        case OPCODE_FVALUE:
+          ast::MantissaExponent me;
+          me.fromFloat(node.getFloat());
+          this->writeUnsigned(this->fvalues[std::make_pair(me.mantissa, me.exponent)]);
+          break;
+        case OPCODE_SVALUE:
+          this->writeUnsigned(this->svalues[node.getString()]);
+          break;
+        default:
+          this->writeUnsigned(uint64_t(node.getInt()));
+          break;
+        }
+        EGG_WARNING_SUPPRESS_SWITCH_END
+      }
+      auto a = node.getAttributes();
+      for (size_t i = 0; i < a; ++i) {
+        this->writeNode(node.getAttribute(i));
+      }
+      for (size_t i = 0; i < n; ++i) {
+        this->writeNode(node.getChild(i));
+      }
+      if (n >= EGG_VM_NARGS) {
+        this->writeByte(OPCODE_END);
+      }
+    }
+    void writeUnsigned(uint64_t value) const {
+      if (value <= 0x80) {
+        // Fast route for small values
+        writeByte(uint8_t(value));
+        return;
+      }
+      char buffer[10];
+      auto* p = std::end(buffer);
+      *(--p) = char(value & 0x7F);
+      value >>= 7;
+      do {
+        assert(p > std::begin(buffer));
+        *(--p) = char(value | 0x80);
+        value >>= 7;
+      } while (value > 0);
+      this->stream.write(p, std::end(buffer) - p);
     }
     void writeByte(uint8_t byte) const {
       this->stream.put(char(byte));

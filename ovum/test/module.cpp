@@ -1,6 +1,8 @@
 #include "ovum/test.h"
 #include "ovum/ast.h"
 
+#include <cmath>
+
 #define EGG_VM_MAGIC_BYTE(byte) byte,
 #define MAGIC EGG_VM_MAGIC(EGG_VM_MAGIC_BYTE)
 
@@ -12,8 +14,8 @@ namespace {
     egg::test::Allocator allocator;
     ASSERT_THROW_E(ModuleFactory::fromMemory(allocator, memory, memory + bytes), std::runtime_error, ASSERT_STARTSWITH(e.what(), needle));
   }
-
   void toModuleArray(ModuleBuilder& builder, Nodes&& avalues, Module& out) {
+    // Create a module that just constructs an array of values
     auto array = builder.createValueArray(std::move(avalues));
     ASSERT_NE(nullptr, array);
     auto block = builder.createBlock({ std::move(array) });
@@ -23,11 +25,13 @@ namespace {
     out = ModuleFactory::fromRootNode(builder.allocator, *module);
   }
   void toModuleMemoryArray(ModuleBuilder& builder, Nodes&& avalues, std::ostream& out) {
+    // Create a module memory image that just constructs an array of values
     Module module;
     toModuleArray(builder, std::move(avalues), module);
     ModuleFactory::toBinaryStream(*module, out);
   }
   void fromModuleArray(const Module& in, Node& avalue) {
+    // Extract an array of values from a module
     ASSERT_NE(nullptr, in);
     Node root{ &in->getRootNode() };
     ASSERT_EQ(OPCODE_MODULE, root->getOpcode());
@@ -39,10 +43,19 @@ namespace {
     ASSERT_EQ(OPCODE_AVALUE, avalue->getOpcode());
   }
   void fromModuleMemoryArray(IAllocator& allocator, std::istream& in, Node& avalue) {
+    // Extract an array of values from a module memory image
     in.clear();
     ASSERT_TRUE(in.seekg(0).good());
     auto module = ModuleFactory::fromBinaryStream(allocator, in);
     fromModuleArray(module, avalue);
+  }
+  Node roundTripArray(ModuleBuilder& builder, Nodes&& avalues) {
+    // Create a module memory image and then extract the array values
+    std::stringstream ss;
+    toModuleMemoryArray(builder, std::move(avalues), ss);
+    Node avalue;
+    fromModuleMemoryArray(builder.allocator, ss, avalue);
+    return avalue;
   }
 }
 
@@ -96,11 +109,11 @@ TEST(TestModule, ModuleBuilder) {
 TEST(TestModule, BuildConstantInt) {
   egg::test::Allocator allocator;
   ModuleBuilder builder(allocator);
-  Module module;
-  toModuleArray(builder, { builder.createValueInt(123456789), builder.createValueInt(-123456789) }, module);
-  ASSERT_NE(nullptr, module);
-  Node avalue;
-  fromModuleArray(module, avalue);
+  auto avalue = roundTripArray(builder, {
+    builder.createValueInt(123456789),
+    builder.createValueInt(-123456789)
+  });
+  ASSERT_EQ(2u, avalue->getChildren());
   Node value;
   value.set(&avalue->getChild(0));
   ASSERT_EQ(OPCODE_IVALUE, value->getOpcode());
@@ -109,5 +122,53 @@ TEST(TestModule, BuildConstantInt) {
   value.set(&avalue->getChild(1));
   ASSERT_EQ(OPCODE_IVALUE, value->getOpcode());
   ASSERT_EQ(-123456789, value->getInt());
+  ASSERT_EQ(0u, value->getChildren());
+}
+
+TEST(TestModule, BuildConstantFloat) {
+  egg::test::Allocator allocator;
+  ModuleBuilder builder(allocator);
+  auto avalue = roundTripArray(builder, {
+    builder.createValueFloat(123456789),
+    builder.createValueFloat(-123456789),
+    builder.createValueFloat(-0.125),
+    builder.createValueFloat(std::numeric_limits<double>::quiet_NaN())
+  });
+  ASSERT_EQ(4u, avalue->getChildren());
+  Node value;
+  value.set(&avalue->getChild(0));
+  ASSERT_EQ(OPCODE_FVALUE, value->getOpcode());
+  ASSERT_EQ(123456789.0, value->getFloat());
+  ASSERT_EQ(0u, value->getChildren());
+  value.set(&avalue->getChild(1));
+  ASSERT_EQ(OPCODE_FVALUE, value->getOpcode());
+  ASSERT_EQ(-123456789.0, value->getFloat());
+  ASSERT_EQ(0u, value->getChildren());
+  value.set(&avalue->getChild(2));
+  ASSERT_EQ(OPCODE_FVALUE, value->getOpcode());
+  ASSERT_EQ(-0.125, value->getFloat());
+  ASSERT_EQ(0u, value->getChildren());
+  value.set(&avalue->getChild(3));
+  ASSERT_EQ(OPCODE_FVALUE, value->getOpcode());
+  ASSERT_TRUE(std::isnan(value->getFloat()));
+  ASSERT_EQ(0u, value->getChildren());
+}
+
+TEST(TestModule, BuildConstantString) {
+  egg::test::Allocator allocator;
+  ModuleBuilder builder(allocator);
+  auto avalue = roundTripArray(builder, {
+    builder.createValueString(""),
+    builder.createValueString("hello")
+  });
+  ASSERT_EQ(2u, avalue->getChildren());
+  Node value;
+  value.set(&avalue->getChild(0));
+  ASSERT_EQ(OPCODE_SVALUE, value->getOpcode());
+  ASSERT_STRING("", value->getString());
+  ASSERT_EQ(0u, value->getChildren());
+  value.set(&avalue->getChild(1));
+  ASSERT_EQ(OPCODE_SVALUE, value->getOpcode());
+  ASSERT_STRING("hello", value->getString());
   ASSERT_EQ(0u, value->getChildren());
 }

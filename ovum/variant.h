@@ -132,7 +132,7 @@ namespace egg::ovum {
       auto* lmemory = this->get();
       if (lmemory == nullptr) {
         // If we're empty, the result depends solely on the length of the right side
-        return (rbegin == rend) ? 0 : 1;
+        return (rbegin == rend) ? 0 : -1;
       }
       return String::compare(lmemory->begin(), lmemory->end(), rbegin, rend);
     }
