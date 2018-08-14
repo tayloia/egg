@@ -31,16 +31,15 @@ namespace egg::ovum::ast {
   class NodeFactory {
   public:
     static Node create(IAllocator& allocator, Opcode opcode);
-    static Node create(IAllocator& allocator, Opcode opcode, INode& child0);
-    static Node create(IAllocator& allocator, Opcode opcode, INode& child0, INode& child1);
-    static Node create(IAllocator& allocator, Opcode opcode, INode& child0, INode& child1, INode& child2);
-    static Node create(IAllocator& allocator, Opcode opcode, INode& child0, INode& child1, INode& child2, INode& child3);
-    static Node create(IAllocator& allocator, Opcode opcode, Nodes&& children);
-    static Node create(IAllocator& allocator, Opcode opcode, Nodes&& children, Nodes&& attributes);
-    static Node create(IAllocator& allocator, Opcode opcode, Nodes&& children, Nodes&& attributes, Int value);
-    static Node create(IAllocator& allocator, Opcode opcode, Nodes&& children, Nodes&& attributes, Float value);
-    static Node create(IAllocator& allocator, Opcode opcode, Nodes&& children, Nodes&& attributes, String value);
-    static void writeModuleToBinaryStream(std::istream& stream, const Node& module);
+    static Node create(IAllocator& allocator, Opcode opcode, const Node& child0);
+    static Node create(IAllocator& allocator, Opcode opcode, const Node& child0, const Node& child1);
+    static Node create(IAllocator& allocator, Opcode opcode, const Node& child0, const Node& child1, const Node& child2);
+    static Node create(IAllocator& allocator, Opcode opcode, const Node& child0, const Node& child1, const Node& child2, const Node& child3);
+    static Node create(IAllocator& allocator, Opcode opcode, const Nodes& children);
+    static Node create(IAllocator& allocator, Opcode opcode, const Nodes* children, const Nodes* attributes = nullptr);
+    static Node create(IAllocator& allocator, Opcode opcode, const Nodes* children, const Nodes* attributes, Int operand);
+    static Node create(IAllocator& allocator, Opcode opcode, const Nodes* children, const Nodes* attributes, Float operand);
+    static Node create(IAllocator& allocator, Opcode opcode, const Nodes* children, const Nodes* attributes, const String& operand);
   };
 
   inline size_t childrenFromMachineByte(uint8_t byte) {
@@ -85,12 +84,20 @@ namespace egg::ovum::ast {
   public:
     explicit ModuleBuilder(IAllocator& allocator);
     Node createModule(Node&& block);
-    Node createBlock(Nodes&& statements);
-    Node createNoop();
-    Node createValueArray(Nodes&& elements);
     Node createValueInt(Int value);
     Node createValueFloat(Float value);
-    Node createValueString(String value);
-    Node createNode(Opcode opcode, Nodes&& children);
+    Node createValueString(const String& value);
+    Node createNode(Opcode opcode);
+    Node createNode(Opcode opcode, const Node& child0);
+    Node createNode(Opcode opcode, const Node& child0, const Node& child1);
+    Node createNode(Opcode opcode, const Node& child0, const Node& child1, const Node& child2);
+    Node createNode(Opcode opcode, const Node& child0, const Node& child1, const Node& child2, const Node& child3);
+    Node createNode(Opcode opcode, const Nodes& children);
+    Node createNamed(Opcode opcode, String identifier, const Nodes& children);
+    Node createOperator(Opcode opcode, Int op, const Nodes& children);
+
+    // Useful wrappers
+    Node createValueArray(Nodes&& elements) { return this->createNode(OPCODE_AVALUE, std::move(elements)); }
+    Node createValueObject(Nodes&& fields) { return this->createNode(OPCODE_OVALUE, std::move(fields)); }
   };
 }

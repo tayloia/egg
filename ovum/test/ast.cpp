@@ -402,7 +402,7 @@ TEST(TestAST, Create0) {
 TEST(TestAST, Create1) {
   egg::test::Allocator allocator;
   auto child = NodeFactory::create(allocator, OPCODE_NULL);
-  auto parent = NodeFactory::create(allocator, OPCODE_AVALUE, *child);
+  auto parent = NodeFactory::create(allocator, OPCODE_AVALUE, child);
   ASSERT_EQ(OPCODE_AVALUE, parent->getOpcode());
   ASSERT_EQ(1u, parent->getChildren());
   ASSERT_THROW(parent->getChild(1), std::out_of_range);
@@ -418,7 +418,7 @@ TEST(TestAST, Create2) {
   egg::test::Allocator allocator;
   auto child0 = NodeFactory::create(allocator, OPCODE_FALSE);
   auto child1 = NodeFactory::create(allocator, OPCODE_TRUE);
-  auto parent = NodeFactory::create(allocator, OPCODE_AVALUE, *child0, *child1);
+  auto parent = NodeFactory::create(allocator, OPCODE_AVALUE, child0, child1);
   ASSERT_EQ(OPCODE_AVALUE, parent->getOpcode());
   ASSERT_EQ(2u, parent->getChildren());
   ASSERT_THROW(parent->getChild(2), std::out_of_range);
@@ -436,7 +436,7 @@ TEST(TestAST, Create3) {
   auto child0 = NodeFactory::create(allocator, OPCODE_NULL);
   auto child1 = NodeFactory::create(allocator, OPCODE_FALSE);
   auto child2 = NodeFactory::create(allocator, OPCODE_TRUE);
-  auto parent = NodeFactory::create(allocator, OPCODE_AVALUE, *child0, *child1, *child2);
+  auto parent = NodeFactory::create(allocator, OPCODE_AVALUE, child0, child1, child2);
   ASSERT_EQ(OPCODE_AVALUE, parent->getOpcode());
   ASSERT_EQ(3u, parent->getChildren());
   ASSERT_THROW(parent->getChild(3), std::out_of_range);
@@ -456,7 +456,7 @@ TEST(TestAST, Create4) {
   auto child1 = NodeFactory::create(allocator, OPCODE_FALSE);
   auto child2 = NodeFactory::create(allocator, OPCODE_TRUE);
   auto child3 = NodeFactory::create(allocator, OPCODE_VOID);
-  auto parent = NodeFactory::create(allocator, OPCODE_AVALUE, *child0, *child1, *child2, *child3);
+  auto parent = NodeFactory::create(allocator, OPCODE_AVALUE, child0, child1, child2, child3);
   ASSERT_EQ(OPCODE_AVALUE, parent->getOpcode());
   ASSERT_EQ(4u, parent->getChildren());
   ASSERT_THROW(parent->getChild(4), std::out_of_range);
@@ -542,7 +542,7 @@ TEST(TestAST, CreateWithInt1) {
   egg::test::Allocator allocator;
   Nodes children{ NodeFactory::create(allocator, OPCODE_NULL) };
   Int operand{ 123456789 };
-  auto parent = NodeFactory::create(allocator, OPCODE_UNARY, Nodes(children), {}, operand); // prevent move of children
+  auto parent = NodeFactory::create(allocator, OPCODE_UNARY, &children, nullptr, operand);
   ASSERT_EQ(OPCODE_UNARY, parent->getOpcode());
   ASSERT_EQ(1u, parent->getChildren());
   ASSERT_THROW(parent->getChild(1), std::out_of_range);
@@ -558,7 +558,7 @@ TEST(TestAST, CreateWithInt2) {
   egg::test::Allocator allocator;
   Nodes children{ NodeFactory::create(allocator, OPCODE_FALSE), NodeFactory::create(allocator, OPCODE_TRUE) };
   Int operand{ 123456789 };
-  auto parent = NodeFactory::create(allocator, OPCODE_BINARY, Nodes(children), {}, operand); // prevent move of children
+  auto parent = NodeFactory::create(allocator, OPCODE_BINARY, &children, nullptr, operand);
   ASSERT_EQ(OPCODE_BINARY, parent->getOpcode());
   ASSERT_EQ(2u, parent->getChildren());
   ASSERT_THROW(parent->getChild(2), std::out_of_range);
@@ -576,7 +576,7 @@ TEST(TestAST, CreateWithInt3) {
   Nodes children{ NodeFactory::create(allocator, OPCODE_NULL), NodeFactory::create(allocator, OPCODE_FALSE), NodeFactory::create(allocator, OPCODE_TRUE) };
   Nodes attributes{};
   Int operand{ 123456789 };
-  auto parent = NodeFactory::create(allocator, OPCODE_TERNARY, Nodes(children), {}, operand); // prevent move of children
+  auto parent = NodeFactory::create(allocator, OPCODE_TERNARY, &children, nullptr, operand);
   ASSERT_EQ(OPCODE_TERNARY, parent->getOpcode());
   ASSERT_EQ(3u, parent->getChildren());
   ASSERT_THROW(parent->getChild(3), std::out_of_range);
@@ -593,10 +593,10 @@ TEST(TestAST, CreateWithInt3) {
 TEST(TestAST, CreateWithAttributes0) {
   egg::test::Allocator allocator;
   Nodes children{};
-  auto attribute = NodeFactory::create(allocator, OPCODE_ATTRIBUTE, *NodeFactory::create(allocator, OPCODE_NULL));
+  auto attribute = NodeFactory::create(allocator, OPCODE_ATTRIBUTE, NodeFactory::create(allocator, OPCODE_NULL));
   Nodes attributes{ attribute };
   Int operand{ 123456789 };
-  auto parent = NodeFactory::create(allocator, OPCODE_IVALUE, Nodes(children), Nodes(attributes), operand); // prevent move of children and attributes
+  auto parent = NodeFactory::create(allocator, OPCODE_IVALUE, &children, &attributes, operand);
   ASSERT_EQ(OPCODE_IVALUE, parent->getOpcode());
   ASSERT_EQ(0u, parent->getChildren());
   ASSERT_THROW(parent->getChild(0), std::out_of_range);
@@ -612,10 +612,10 @@ TEST(TestAST, CreateWithAttributes0) {
 TEST(TestAST, CreateWithAttributes1) {
   egg::test::Allocator allocator;
   Nodes children{ NodeFactory::create(allocator, OPCODE_FALSE) };
-  auto attribute = NodeFactory::create(allocator, OPCODE_ATTRIBUTE, *NodeFactory::create(allocator, OPCODE_NULL));
+  auto attribute = NodeFactory::create(allocator, OPCODE_ATTRIBUTE, NodeFactory::create(allocator, OPCODE_NULL));
   Nodes attributes{ attribute };
   Int operand{ 123456789 };
-  auto parent = NodeFactory::create(allocator, OPCODE_UNARY, Nodes(children), Nodes(attributes), operand); // prevent move of children and attributes
+  auto parent = NodeFactory::create(allocator, OPCODE_UNARY, &children, &attributes, operand);
   ASSERT_EQ(OPCODE_UNARY, parent->getOpcode());
   ASSERT_EQ(1u, parent->getChildren());
   ASSERT_THROW(parent->getChild(1), std::out_of_range);
@@ -632,10 +632,10 @@ TEST(TestAST, CreateWithAttributes1) {
 TEST(TestAST, CreateWithAttributes2) {
   egg::test::Allocator allocator;
   Nodes children{ NodeFactory::create(allocator, OPCODE_FALSE), NodeFactory::create(allocator, OPCODE_TRUE) };
-  auto attribute = NodeFactory::create(allocator, OPCODE_ATTRIBUTE, *NodeFactory::create(allocator, OPCODE_NULL));
+  auto attribute = NodeFactory::create(allocator, OPCODE_ATTRIBUTE, NodeFactory::create(allocator, OPCODE_NULL));
   Nodes attributes{ attribute };
   Int operand{ 123456789 };
-  auto parent = NodeFactory::create(allocator, OPCODE_BINARY, Nodes(children), Nodes(attributes), operand); // prevent move of children and attributes
+  auto parent = NodeFactory::create(allocator, OPCODE_BINARY, &children, &attributes, operand);
   ASSERT_EQ(OPCODE_BINARY, parent->getOpcode());
   ASSERT_EQ(2u, parent->getChildren());
   ASSERT_THROW(parent->getChild(2), std::out_of_range);

@@ -204,23 +204,23 @@ namespace {
       }
       if (!properties.operand) {
         // No operand
-        return ast::NodeFactory::create(this->allocator, opcode, std::move(children), std::move(attributes));
+        return ast::NodeFactory::create(this->allocator, opcode, &children, &attributes);
       }
       EGG_WARNING_SUPPRESS_SWITCH_BEGIN
       switch (opcode) {
       case OPCODE_IVALUE:
         // Operand is an index into the int table
-        return ast::NodeFactory::create(this->allocator, opcode, std::move(children), std::move(attributes), this->indexInt(operand));
+        return ast::NodeFactory::create(this->allocator, opcode, &children, &attributes, this->indexInt(operand));
       case OPCODE_FVALUE:
         // Operand is an index into the float table
-        return ast::NodeFactory::create(this->allocator, opcode, std::move(children), std::move(attributes), this->indexFloat(operand));
+        return ast::NodeFactory::create(this->allocator, opcode, &children, &attributes, this->indexFloat(operand));
       case OPCODE_SVALUE:
         // Operand is an index into the string table
-        return ast::NodeFactory::create(this->allocator, opcode, std::move(children), std::move(attributes), this->indexString(operand));
+        return ast::NodeFactory::create(this->allocator, opcode, &children, &attributes, this->indexString(operand));
       }
       EGG_WARNING_SUPPRESS_SWITCH_END
       // Operand is probably an operator index
-      return ast::NodeFactory::create(this->allocator, opcode, std::move(children), std::move(attributes), Int(operand));
+      return ast::NodeFactory::create(this->allocator, opcode, &children, &attributes, Int(operand));
     }
     Int indexInt(uint64_t index) const {
       if (index >= this->ivalue.size()) {
@@ -524,41 +524,78 @@ egg::ovum::ast::Node egg::ovum::ast::ModuleBuilder::createModule(Node&& block) {
   return this->createNode(OPCODE_MODULE, { std::move(block) });
 }
 
-egg::ovum::ast::Node egg::ovum::ast::ModuleBuilder::createBlock(Nodes&& statements) {
-  return this->createNode(OPCODE_BLOCK, std::move(statements));
-}
-
-egg::ovum::ast::Node egg::ovum::ast::ModuleBuilder::createNoop() {
-  return this->createNode(OPCODE_NOOP, {});
-}
-
-egg::ovum::ast::Node egg::ovum::ast::ModuleBuilder::createValueArray(Nodes&& elements) {
-  return this->createNode(OPCODE_AVALUE, std::move(elements));
-}
-
 egg::ovum::ast::Node egg::ovum::ast::ModuleBuilder::createValueInt(Int value) {
   Nodes attrs;
   std::swap(this->attributes, attrs);
-  return NodeFactory::create(this->allocator, OPCODE_IVALUE, {}, std::move(attrs), value);
+  return NodeFactory::create(this->allocator, OPCODE_IVALUE, nullptr, &attrs, value);
 }
 
 egg::ovum::ast::Node egg::ovum::ast::ModuleBuilder::createValueFloat(Float value) {
   Nodes attrs;
   std::swap(this->attributes, attrs);
-  return NodeFactory::create(this->allocator, OPCODE_FVALUE, {}, std::move(attrs), value);
+  return NodeFactory::create(this->allocator, OPCODE_FVALUE, nullptr, &attrs, value);
 }
 
-egg::ovum::ast::Node egg::ovum::ast::ModuleBuilder::createValueString(String value) {
+egg::ovum::ast::Node egg::ovum::ast::ModuleBuilder::createValueString(const String& value) {
   Nodes attrs;
   std::swap(this->attributes, attrs);
-  return NodeFactory::create(this->allocator, OPCODE_SVALUE, {}, std::move(attrs), value);
+  return NodeFactory::create(this->allocator, OPCODE_SVALUE, nullptr, &attrs, value);
 }
 
-egg::ovum::ast::Node egg::ovum::ast::ModuleBuilder::createNode(Opcode opcode, Nodes&& children) {
+egg::ovum::ast::Node egg::ovum::ast::ModuleBuilder::createNode(Opcode opcode) {
   if (this->attributes.empty()) {
-    return NodeFactory::create(this->allocator, opcode, std::move(children));
+    return NodeFactory::create(this->allocator, opcode);
   }
   Nodes attrs;
   std::swap(this->attributes, attrs);
-  return NodeFactory::create(this->allocator, opcode, std::move(children), std::move(attrs));
+  return NodeFactory::create(this->allocator, opcode, nullptr, &attrs);
+}
+
+egg::ovum::ast::Node egg::ovum::ast::ModuleBuilder::createNode(Opcode opcode, const Node& child0) {
+  if (this->attributes.empty()) {
+    return NodeFactory::create(this->allocator, opcode, child0);
+  }
+  Nodes nodes{ child0 };
+  Nodes attrs;
+  std::swap(this->attributes, attrs);
+  return NodeFactory::create(this->allocator, opcode, &nodes, &attrs);
+}
+
+egg::ovum::ast::Node egg::ovum::ast::ModuleBuilder::createNode(Opcode opcode, const Node& child0, const Node& child1) {
+  if (this->attributes.empty()) {
+    return NodeFactory::create(this->allocator, opcode, child0, child1);
+  }
+  Nodes nodes{ child0, child1 };
+  Nodes attrs;
+  std::swap(this->attributes, attrs);
+  return NodeFactory::create(this->allocator, opcode, &nodes, &attrs);
+}
+
+egg::ovum::ast::Node egg::ovum::ast::ModuleBuilder::createNode(Opcode opcode, const Node& child0, const Node& child1, const Node& child2) {
+  if (this->attributes.empty()) {
+    return NodeFactory::create(this->allocator, opcode, child0, child1, child2);
+  }
+  Nodes nodes{ child0, child1, child2 };
+  Nodes attrs;
+  std::swap(this->attributes, attrs);
+  return NodeFactory::create(this->allocator, opcode, &nodes, &attrs);
+}
+
+egg::ovum::ast::Node egg::ovum::ast::ModuleBuilder::createNode(Opcode opcode, const Node& child0, const Node& child1, const Node& child2, const Node& child3) {
+  if (this->attributes.empty()) {
+    return NodeFactory::create(this->allocator, opcode, child0, child1, child2, child3);
+  }
+  Nodes nodes{ child0, child1, child2, child3 };
+  Nodes attrs;
+  std::swap(this->attributes, attrs);
+  return NodeFactory::create(this->allocator, opcode, &nodes, &attrs);
+}
+
+egg::ovum::ast::Node egg::ovum::ast::ModuleBuilder::createNode(Opcode opcode, const Nodes& children) {
+  if (this->attributes.empty()) {
+    return NodeFactory::create(this->allocator, opcode, children);
+  }
+  Nodes attrs;
+  std::swap(this->attributes, attrs);
+  return NodeFactory::create(this->allocator, opcode, &children, &attrs);
 }
