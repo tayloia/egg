@@ -14,20 +14,20 @@ namespace {
     egg::test::Allocator allocator;
     ASSERT_THROW_E(ModuleFactory::fromMemory(allocator, memory, memory + bytes), std::runtime_error, ASSERT_STARTSWITH(e.what(), needle));
   }
-  void toModuleArray(ModuleBuilder& builder, Nodes&& avalues, Module& out) {
+  void toModuleArray(ModuleBuilder& builder, const Nodes& avalues, Module& out) {
     // Create a module that just constructs an array of values
-    auto array = builder.createValueArray(std::move(avalues));
+    auto array = builder.createValueArray(avalues);
     ASSERT_NE(nullptr, array);
     auto block = builder.createNode(OPCODE_BLOCK, array);
     ASSERT_NE(nullptr, block);
-    auto module = builder.createModule(std::move(block));
+    auto module = builder.createModule(block);
     ASSERT_NE(nullptr, module);
     out = ModuleFactory::fromRootNode(builder.allocator, *module);
   }
-  void toModuleMemoryArray(ModuleBuilder& builder, Nodes&& avalues, std::ostream& out) {
+  void toModuleMemoryArray(ModuleBuilder& builder, const Nodes& avalues, std::ostream& out) {
     // Create a module memory image that just constructs an array of values
     Module module;
-    toModuleArray(builder, std::move(avalues), module);
+    toModuleArray(builder, avalues, module);
     ModuleFactory::toBinaryStream(*module, out);
   }
   void fromModuleArray(const Module& in, Node& avalue) {
@@ -49,10 +49,10 @@ namespace {
     auto module = ModuleFactory::fromBinaryStream(allocator, in);
     fromModuleArray(module, avalue);
   }
-  Node roundTripArray(ModuleBuilder& builder, Nodes&& avalues) {
+  Node roundTripArray(ModuleBuilder& builder, const Nodes& avalues) {
     // Create a module memory image and then extract the array values
     std::stringstream ss;
-    toModuleMemoryArray(builder, std::move(avalues), ss);
+    toModuleMemoryArray(builder, avalues, ss);
     Node avalue;
     fromModuleMemoryArray(builder.allocator, ss, avalue);
     return avalue;
@@ -91,7 +91,7 @@ TEST(TestModule, ModuleBuilder) {
   ModuleBuilder builder(allocator);
   auto noop = builder.createNode(OPCODE_NOOP);
   auto block = builder.createNode(OPCODE_BLOCK, noop);
-  auto original = builder.createModule(std::move(block));
+  auto original = builder.createModule(block);
   auto module = ModuleFactory::fromRootNode(allocator, *original);
   ASSERT_NE(nullptr, module);
   Node root{ &module->getRootNode() };
@@ -170,5 +170,39 @@ TEST(TestModule, BuildConstantString) {
   value.set(&avalue->getChild(1));
   ASSERT_EQ(OPCODE_SVALUE, value->getOpcode());
   ASSERT_STRING("hello", value->getString());
+  ASSERT_EQ(0u, value->getChildren());
+}
+
+TEST(TestModule, BuildOperator) {
+  egg::test::Allocator allocator;
+  ModuleBuilder builder(allocator);
+  auto avalue = roundTripArray(builder, {
+    builder.createOperator(OPCODE_UNARY, 123456789, { builder.createNode(OPCODE_NULL) })
+  });
+  ASSERT_EQ(1u, avalue->getChildren());
+  Node value;
+  value.set(&avalue->getChild(0));
+  ASSERT_EQ(OPCODE_UNARY, value->getOpcode());
+  ASSERT_EQ(123456789, value->getInt());
+  ASSERT_EQ(1u, value->getChildren());
+  value.set(&value->getChild(0));
+  ASSERT_EQ(OPCODE_NULL, value->getOpcode());
+  ASSERT_EQ(0u, value->getChildren());
+}
+
+TEST(TestModule, BuildAddAttribute) {
+  egg::test::Allocator allocator;
+  ModuleBuilder builder(allocator);
+  auto avalue = roundTripArray(builder, {
+    builder.createOperator(OPCODE_UNARY, 123456789,{ builder.createNode(OPCODE_NULL) })
+    });
+  ASSERT_EQ(1u, avalue->getChildren());
+  Node value;
+  value.set(&avalue->getChild(0));
+  ASSERT_EQ(OPCODE_UNARY, value->getOpcode());
+  ASSERT_EQ(123456789, value->getInt());
+  ASSERT_EQ(1u, value->getChildren());
+  value.set(&value->getChild(0));
+  ASSERT_EQ(OPCODE_NULL, value->getOpcode());
   ASSERT_EQ(0u, value->getChildren());
 }

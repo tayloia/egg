@@ -83,21 +83,18 @@ namespace egg::ovum::ast {
     Nodes attributes;
   public:
     explicit ModuleBuilder(IAllocator& allocator);
-    Node createModule(Node&& block);
+    Node createModule(const Node& block);
     Node createValueInt(Int value);
     Node createValueFloat(Float value);
     Node createValueString(const String& value);
+    Node createValueArray(const Nodes& elements);
+    Node createValueObject(const Nodes& fields);
+    Node createOperator(Opcode opcode, Int op, const Nodes& children);
     Node createNode(Opcode opcode);
     Node createNode(Opcode opcode, const Node& child0);
     Node createNode(Opcode opcode, const Node& child0, const Node& child1);
     Node createNode(Opcode opcode, const Node& child0, const Node& child1, const Node& child2);
     Node createNode(Opcode opcode, const Node& child0, const Node& child1, const Node& child2, const Node& child3);
     Node createNode(Opcode opcode, const Nodes& children);
-    Node createNamed(Opcode opcode, String identifier, const Nodes& children);
-    Node createOperator(Opcode opcode, Int op, const Nodes& children);
-
-    // Useful wrappers
-    Node createValueArray(Nodes&& elements) { return this->createNode(OPCODE_AVALUE, std::move(elements)); }
-    Node createValueObject(Nodes&& fields) { return this->createNode(OPCODE_OVALUE, std::move(fields)); }
   };
 }

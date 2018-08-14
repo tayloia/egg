@@ -520,8 +520,8 @@ egg::ovum::ast::ModuleBuilder::ModuleBuilder(IAllocator& allocator)
   : allocator(allocator) {
 }
 
-egg::ovum::ast::Node egg::ovum::ast::ModuleBuilder::createModule(Node&& block) {
-  return this->createNode(OPCODE_MODULE, { std::move(block) });
+egg::ovum::ast::Node egg::ovum::ast::ModuleBuilder::createModule(const Node& block) {
+  return this->createNode(OPCODE_MODULE, block);
 }
 
 egg::ovum::ast::Node egg::ovum::ast::ModuleBuilder::createValueInt(Int value) {
@@ -540,6 +540,20 @@ egg::ovum::ast::Node egg::ovum::ast::ModuleBuilder::createValueString(const Stri
   Nodes attrs;
   std::swap(this->attributes, attrs);
   return NodeFactory::create(this->allocator, OPCODE_SVALUE, nullptr, &attrs, value);
+}
+
+egg::ovum::ast::Node egg::ovum::ast::ModuleBuilder::createValueArray(const Nodes& elements) {
+  return this->createNode(OPCODE_AVALUE, elements);
+}
+
+egg::ovum::ast::Node egg::ovum::ast::ModuleBuilder::createValueObject(const Nodes& fields) {
+  return this->createNode(OPCODE_OVALUE, fields);
+}
+
+egg::ovum::ast::Node egg::ovum::ast::ModuleBuilder::createOperator(Opcode opcode, Int op, const Nodes& children) {
+  Nodes attrs;
+  std::swap(this->attributes, attrs);
+  return NodeFactory::create(this->allocator, opcode, &children, &attrs, op);
 }
 
 egg::ovum::ast::Node egg::ovum::ast::ModuleBuilder::createNode(Opcode opcode) {
