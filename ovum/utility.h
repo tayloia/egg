@@ -108,10 +108,10 @@ namespace egg::ovum {
     }
   };
 
-  template<class T>
+  template<typename T>
   class HardPtr {
   private:
-    T * ptr;
+    T* ptr;
   public:
     HardPtr() : ptr(nullptr) {
     }
@@ -181,7 +181,8 @@ namespace egg::ovum {
     }
     static T* hardAcquire(const T* ptr) {
       if (ptr != nullptr) {
-        return ptr->hardAcquire<T>();
+        // See https://stackoverflow.com/a/15572442
+        return ptr->template hardAcquire<T>();
       }
       return nullptr;
     }
