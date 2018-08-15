@@ -16,7 +16,9 @@ class egg::gc::Basket::Head : public egg::gc::Collectable {
   Head(const Head&) = delete;
   Head& operator=(const Head&) = delete;
 public:
-  Head() : Collectable(), collectables(0) {}
+  explicit Head(egg::ovum::IAllocator& allocator)
+    : Collectable(allocator), collectables(0) {
+  }
   size_t collectables;
   void remove(Collectable& collectable) {
     // Remove this collectable from the list of known collectables in this basket
@@ -131,8 +133,8 @@ void egg::gc::Basket::Link::reset() {
   }
 }
 
-egg::gc::Basket::Basket()
-  : head(new Head) {
+egg::gc::Basket::Basket(egg::ovum::IAllocator& allocator)
+  : allocator(allocator), head(allocator.create<Head>(0, allocator)) {
   this->head->basket = this;
   this->head->prevInBasket = this->head;
   this->head->nextInBasket = this->head;
@@ -141,7 +143,7 @@ egg::gc::Basket::Basket()
 egg::gc::Basket::~Basket() {
   assert(this->validate());
   assert(this->head->collectables == 0);
-  delete this->head;
+  this->allocator.destroy(this->head);
 }
 
 void egg::gc::Basket::add(Collectable& collectable) {
@@ -151,9 +153,7 @@ void egg::gc::Basket::add(Collectable& collectable) {
   assert(collectable.prevInBasket == nullptr);
   assert(collectable.nextInBasket == nullptr);
   // Take a hard reference owned by the basket
-  auto acquired = collectable.hard.acquire();
-  assert(acquired > 1);
-  EGG_UNUSED(acquired);
+  collectable.hardAcquire();
   collectable.basket = this;
   auto* next = this->head->nextInBasket;
   this->head->nextInBasket = &collectable;
@@ -177,7 +177,7 @@ void egg::gc::Basket::visitRoots(IVisitor& visitor) {
   // Visit all the roots in this basket
   assert(this->validate());
   for (auto* p = this->head->nextInBasket; p != this->head; p = p->nextInBasket) {
-    if (p->hard.get() > 1) {
+    if (p->hardGet() > 1) {
       visitor.visit(*p);
     }
   }
@@ -194,7 +194,7 @@ void egg::gc::Basket::visitGarbage(IVisitor& visitor) {
   }
   // Follow the hierarchy of collectable references from the roots
   for (auto* p = this->head->nextInBasket; p != this->head; p = p->nextInBasket) {
-    if (p->hard.get() > 1) {
+    if (p->hardGet() > 1) {
       Head::markRecursive(unmarked, *p);
     }
   }
@@ -247,12 +247,12 @@ bool egg::gc::Basket::validate() const {
   assert(this->head != nullptr);
   assert(this->head->prevInBasket != nullptr);
   assert(this->head->nextInBasket != nullptr);
-  assert(this->head->hard.get() == 0);
+  assert(this->head->hardGet() == 0);
   size_t count = 0;
   for (auto* p = this->head->nextInBasket; p != this->head; p = p->nextInBasket) {
     assert(p != nullptr);
     assert(p->basket == this);
-    assert(p->hard.get() > 0);
+    assert(p->hardGet() > 0);
     assert(p->prevInBasket != nullptr);
     assert(p->nextInBasket != nullptr);
     assert(p->prevInBasket->nextInBasket == p);
@@ -269,6 +269,6 @@ bool egg::gc::Basket::validate() const {
   return true;
 }
 
-std::shared_ptr<egg::gc::Basket> egg::gc::BasketFactory::createBasket() {
-  return std::make_shared<Basket>();
+std::shared_ptr<egg::gc::Basket> egg::gc::BasketFactory::createBasket(egg::ovum::IAllocator& allocator) {
+  return std::make_shared<Basket>(allocator);
 }

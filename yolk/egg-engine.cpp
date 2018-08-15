@@ -25,14 +25,18 @@ namespace {
   template<class BASE>
   class EggEngineBaseContext : public BASE {
   protected:
+    egg::ovum::IAllocator* memallocator;
     std::shared_ptr<IEggEngineLogger> logger;
   public:
-    explicit EggEngineBaseContext(const std::shared_ptr<IEggEngineLogger>& logger)
-      : logger(logger) {
+    EggEngineBaseContext(egg::ovum::IAllocator& allocator, const std::shared_ptr<IEggEngineLogger>& logger)
+      : memallocator(&allocator), logger(logger) {
       assert(logger != nullptr);
     }
     virtual void log(egg::lang::LogSource source, egg::lang::LogSeverity severity, const std::string& message) override {
       this->logger->log(source, severity, message);
+    }
+    virtual egg::ovum::IAllocator& allocator() const override {
+      return *this->memallocator;
     }
   };
 
@@ -40,16 +44,16 @@ namespace {
   private:
     std::shared_ptr<IEggEngineLogger> logger;
   public:
-    explicit EggEnginePreparationContext(const std::shared_ptr<IEggEngineLogger>& logger)
-      : EggEngineBaseContext(logger) {
+    EggEnginePreparationContext(egg::ovum::IAllocator& allocator, const std::shared_ptr<IEggEngineLogger>& logger)
+      : EggEngineBaseContext(allocator, logger) {
       assert(logger != nullptr);
     }
   };
 
   class EggEngineExecutionContext : public EggEngineBaseContext<IEggEngineExecutionContext> {
   public:
-    explicit EggEngineExecutionContext(const std::shared_ptr<IEggEngineLogger>& logger)
-      : EggEngineBaseContext(logger) {
+    EggEngineExecutionContext(egg::ovum::IAllocator& allocator, const std::shared_ptr<IEggEngineLogger>& logger)
+      : EggEngineBaseContext(allocator, logger) {
       assert(logger != nullptr);
     }
   };
@@ -60,8 +64,8 @@ namespace {
     EggProgram program;
     bool prepared;
   public:
-    explicit EggEngineParsed(const std::shared_ptr<IEggProgramNode>& root)
-      : program(root), prepared(false) {
+    EggEngineParsed(egg::ovum::IAllocator& allocator, const std::shared_ptr<IEggProgramNode>& root)
+      : program(allocator, root), prepared(false) {
     }
     virtual egg::lang::LogSeverity prepare(IEggEnginePreparationContext& preparation) override {
       if (this->prepared) {
@@ -95,8 +99,9 @@ namespace {
         return egg::lang::LogSeverity::Error;
       }
       return captureExceptions(egg::lang::LogSource::Compiler, preparation, [this, &preparation]{
-        auto root = EggParserFactory::parseModule(*this->stream);
-        this->program = std::make_unique<EggProgram>(root);
+        auto& allocator = preparation.allocator();
+        auto root = EggParserFactory::parseModule(allocator, *this->stream);
+        this->program = std::make_unique<EggProgram>(allocator, root);
         return this->program->prepare(preparation);
       });
     }
@@ -110,18 +115,18 @@ namespace {
   };
 }
 
-std::shared_ptr<IEggEngineExecutionContext> egg::yolk::EggEngineFactory::createExecutionContext(const std::shared_ptr<IEggEngineLogger>& logger) {
-  return std::make_shared<EggEngineExecutionContext>(logger);
+std::shared_ptr<IEggEngineExecutionContext> egg::yolk::EggEngineFactory::createExecutionContext(egg::ovum::IAllocator& allocator, const std::shared_ptr<IEggEngineLogger>& logger) {
+  return std::make_shared<EggEngineExecutionContext>(allocator, logger);
 }
 
-std::shared_ptr<IEggEnginePreparationContext> egg::yolk::EggEngineFactory::createPreparationContext(const std::shared_ptr<IEggEngineLogger>& logger) {
-  return std::make_shared<EggEnginePreparationContext>(logger);
+std::shared_ptr<IEggEnginePreparationContext> egg::yolk::EggEngineFactory::createPreparationContext(egg::ovum::IAllocator& allocator, const std::shared_ptr<IEggEngineLogger>& logger) {
+  return std::make_shared<EggEnginePreparationContext>(allocator, logger);
+}
+
+std::shared_ptr<egg::yolk::IEggEngine> egg::yolk::EggEngineFactory::createEngineFromParsed(egg::ovum::IAllocator& allocator, const std::shared_ptr<IEggProgramNode>& root) {
+  return std::make_shared<EggEngineParsed>(allocator, root);
 }
 
 std::shared_ptr<egg::yolk::IEggEngine> egg::yolk::EggEngineFactory::createEngineFromTextStream(TextStream& stream) {
   return std::make_shared<EggEngineTextStream>(stream);
-}
-
-std::shared_ptr<egg::yolk::IEggEngine> egg::yolk::EggEngineFactory::createEngineFromParsed(const std::shared_ptr<IEggProgramNode>& root) {
-  return std::make_shared<EggEngineParsed>(root);
 }

@@ -1,4 +1,6 @@
 namespace egg::ovum {
+  template<typename T> class HardPtr;
+
   class IHardAcquireRelease {
   public:
     virtual ~IHardAcquireRelease() {}
@@ -33,6 +35,9 @@ namespace egg::ovum {
       allocated->~T();
       this->deallocate(const_cast<T*>(allocated), alignof(T));
     }
+
+    template<typename T, typename... ARGS>
+    inline HardPtr<T> make(ARGS&&... args);
   };
 
   class IMemory : public IHardAcquireRelease {

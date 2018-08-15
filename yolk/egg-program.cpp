@@ -257,16 +257,16 @@ egg::lang::Value egg::yolk::EggProgramSymbol::assign(EggProgramSymbolTable& symt
   } else {
     *slot = promoted;
   }
-  slot->soft(symtable);
+  slot->soft(execution.getAllocator(), symtable);
   return egg::lang::Value::Void;
 }
 
 void egg::yolk::EggProgramSymbolTable::addBuiltins() {
   // TODO add built-in symbol to symbol table here
-  this->addBuiltin("string", egg::lang::Value::builtinString());
-  this->addBuiltin("type", egg::lang::Value::builtinType());
-  this->addBuiltin("assert", egg::lang::Value::builtinAssert());
-  this->addBuiltin("print", egg::lang::Value::builtinPrint());
+  this->addBuiltin("string", egg::lang::Value::builtinString(allocator));
+  this->addBuiltin("type", egg::lang::Value::builtinType(allocator));
+  this->addBuiltin("assert", egg::lang::Value::builtinAssert(allocator));
+  this->addBuiltin("print", egg::lang::Value::builtinPrint(allocator));
 }
 
 void egg::yolk::EggProgramSymbolTable::addBuiltin(const std::string& name, const egg::lang::Value& value) {
@@ -276,7 +276,7 @@ void egg::yolk::EggProgramSymbolTable::addBuiltin(const std::string& name, const
 std::shared_ptr<egg::yolk::EggProgramSymbol> egg::yolk::EggProgramSymbolTable::addSymbol(EggProgramSymbol::Kind kind, const egg::lang::String& name, const egg::lang::ITypeRef& type, const egg::lang::Value& value) {
   auto result = this->map.emplace(name, std::make_shared<EggProgramSymbol>(kind, name, type, value));
   assert(result.second);
-  result.first->second->getValue().soft(*this);
+  result.first->second->getValue().soft(this->allocator, *this);
   return result.first->second;
 }
 
@@ -333,13 +333,13 @@ std::string egg::yolk::EggProgram::mutateToString(egg::yolk::EggProgramMutate op
   return table[index];
 }
 
-egg::gc::HardRef<egg::yolk::EggProgramContext> egg::yolk::EggProgram::createRootContext(IEggEngineLogger& logger, EggProgramSymbolTable& symtable, egg::lang::LogSeverity& maximumSeverity) {
+egg::gc::HardRef<egg::yolk::EggProgramContext> egg::yolk::EggProgram::createRootContext(egg::ovum::IAllocator& allocator, IEggEngineLogger& logger, EggProgramSymbolTable& symtable, egg::lang::LogSeverity& maximumSeverity) {
   egg::lang::LocationRuntime location(this->root->location(), egg::lang::String::fromUTF8("<module>"));
-  return egg::gc::HardRef<EggProgramContext>::make(location, logger, symtable, maximumSeverity);
+  return allocator.make<EggProgramContext>(location, logger, symtable, maximumSeverity);
 }
 
 egg::gc::HardRef<egg::yolk::EggProgramContext> egg::yolk::EggProgramContext::createNestedContext(EggProgramSymbolTable& parent, ScopeFunction* prepareFunction) {
-  return egg::gc::HardRef<EggProgramContext>::make(*this, parent, prepareFunction);
+  return this->allocator.make<EggProgramContext>(*this, parent, prepareFunction);
 }
 
 void egg::yolk::EggProgramContext::log(egg::lang::LogSource source, egg::lang::LogSeverity severity, const std::string& message) {
@@ -415,7 +415,7 @@ egg::lang::Value egg::yolk::EggProgramContext::get(const egg::lang::String& name
     return this->raiseFormat("Uninitialized identifier: '", name.toUTF8(), "'");
   }
   if (byref) {
-    (void)value.indirect();
+    (void)value.indirect(this->getAllocator());
   }
   return value;
 }
@@ -572,7 +572,7 @@ egg::lang::Value egg::yolk::EggProgramContext::unary(EggProgramUnary op, const I
   case EggProgramUnary::Ref:
     value = expr.execute(*this); // not .direct()
     if (!value.has(egg::lang::Discriminator::FlowControl)) {
-      return egg::lang::Value(value.indirect()); // address
+      return egg::lang::Value(value.indirect(this->getAllocator())); // address
     }
     return value;
   case EggProgramUnary::Deref:

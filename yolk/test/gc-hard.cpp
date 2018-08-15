@@ -51,7 +51,7 @@ namespace {
 }
 
 TEST(TestGCHard, Atomic8) {
-  egg::gc::Atomic<int8_t> a8{ 100 };
+  egg::ovum::Atomic<int8_t> a8{ 100 };
   ASSERT_EQ(100, a8.get());
   ASSERT_EQ(100, a8.add(20));
   ASSERT_EQ(120, a8.get());
@@ -62,7 +62,7 @@ TEST(TestGCHard, Atomic8) {
 }
 
 TEST(TestGCHard, Atomic64) {
-  egg::gc::Atomic<int64_t> a64{ 100 };
+  egg::ovum::Atomic<int64_t> a64{ 100 };
   ASSERT_EQ(100, a64.get());
   ASSERT_EQ(100, a64.add(20));
   ASSERT_EQ(120, a64.get());
@@ -110,10 +110,11 @@ TEST(TestGCHard, NotReferenceCounted) {
 }
 
 TEST(TestGCHard, HardRef) {
+  egg::ovum::AllocatorDefault allocator; // WIBBLE
   Monitor monitor;
   ASSERT_EQ("", monitor.read());
   {
-    egg::gc::HardRef<Instance> ref1{ egg::gc::HardRef<Instance>::make<InstanceRC>(1, monitor, "hrc") }; // rc=2
+    egg::gc::HardRef<Instance> ref1{ allocator.make<InstanceRC>(1, monitor, "hrc") }; // rc=2
     ASSERT_EQ("*hrc", monitor.read());
     const Instance* raw = ref1->getInstanceAddress();
     ASSERT_EQ(raw, ref1.get());

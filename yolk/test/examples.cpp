@@ -61,12 +61,13 @@ namespace {
     }
   private:
     static std::string execute(TextStream& stream) {
-      auto root = EggParserFactory::parseModule(stream);
-      auto engine = EggEngineFactory::createEngineFromParsed(root);
+      egg::ovum::AllocatorDefault allocator; // WIBBLE
+      auto root = EggParserFactory::parseModule(allocator, stream);
+      auto engine = EggEngineFactory::createEngineFromParsed(allocator, root);
       auto logger = std::make_shared<TestLogger>(stream.getResourceName());
-      auto preparation = EggEngineFactory::createPreparationContext(logger);
+      auto preparation = EggEngineFactory::createPreparationContext(allocator, logger);
       if (engine->prepare(*preparation) != egg::lang::LogSeverity::Error) {
-        auto execution = EggEngineFactory::createExecutionContext(logger);
+        auto execution = EggEngineFactory::createExecutionContext(allocator, logger);
         engine->execute(*execution);
       }
       return logger->logged;

@@ -608,10 +608,11 @@ namespace {
 
   class EggSyntaxParserContext {
   private:
+    egg::ovum::IAllocator* allocator;
     EggSyntaxParserBacktrack backtrack;
   public:
-    explicit EggSyntaxParserContext(IEggTokenizer& tokenizer)
-      : backtrack(tokenizer) {
+    EggSyntaxParserContext(egg::ovum::IAllocator& allocator, IEggTokenizer& tokenizer)
+      : allocator(&allocator), backtrack(tokenizer) {
     }
     EGG_NORETURN void unexpected(const std::string& message) {
       auto& item = this->backtrack.peek(0);
@@ -677,17 +678,25 @@ namespace {
   };
 
   class EggSyntaxParserModule : public IEggSyntaxParser {
+  private:
+    egg::ovum::IAllocator* allocator;
   public:
+    explicit EggSyntaxParserModule(egg::ovum::IAllocator& allocator) : allocator(&allocator) {
+    }
     virtual std::shared_ptr<IEggSyntaxNode> parse(IEggTokenizer& tokenizer) override {
-      EggSyntaxParserContext context(tokenizer);
+      EggSyntaxParserContext context(*this->allocator, tokenizer);
       return context.parseModule();
     }
   };
 
   class EggSyntaxParserStatement : public IEggSyntaxParser {
+  private:
+    egg::ovum::IAllocator* allocator;
   public:
+    explicit EggSyntaxParserStatement(egg::ovum::IAllocator& allocator) : allocator(&allocator) {
+    }
     virtual std::shared_ptr<IEggSyntaxNode> parse(IEggTokenizer& tokenizer) override {
-      EggSyntaxParserContext context(tokenizer);
+      EggSyntaxParserContext context(*this->allocator, tokenizer);
       auto result = context.parseStatement();
       assert(result != nullptr);
       context.parseEndOfFile("Expected end of input after statement");
@@ -696,9 +705,13 @@ namespace {
   };
 
   class EggSyntaxParserExpression : public IEggSyntaxParser {
+  private:
+    egg::ovum::IAllocator* allocator;
   public:
+    explicit EggSyntaxParserExpression(egg::ovum::IAllocator& allocator) : allocator(&allocator) {
+    }
     virtual std::shared_ptr<IEggSyntaxNode> parse(IEggTokenizer& tokenizer) override {
-      EggSyntaxParserContext context(tokenizer);
+      EggSyntaxParserContext context(*this->allocator, tokenizer);
       auto result = context.parseExpression("Expression expected");
       assert(result != nullptr);
       context.parseEndOfFile("Expected end of input after expression");
@@ -1978,7 +1991,7 @@ egg::lang::ITypeRef EggSyntaxParserContext::parseTypePostfixFunction(const egg::
   EggSyntaxParserBacktrackMark mark(this->backtrack);
   assert(mark.peek(0).isOperator(EggTokenizerOperator::ParenthesisLeft));
   mark.advance(1);
-  auto* underlying = egg::yolk::FunctionType::createFunctionType(egg::lang::String::Empty, rettype);
+  auto* underlying = egg::yolk::FunctionType::createFunctionType(*this->allocator, egg::lang::String::Empty, rettype);
   egg::lang::ITypeRef function{ underlying };
   for (size_t index = 0; !mark.peek(0).isOperator(EggTokenizerOperator::ParenthesisRight); ++index) {
     egg::lang::ITypeRef ptype{ egg::lang::Type::Void };
@@ -2060,14 +2073,14 @@ bool EggSyntaxParserContext::parseTypePrimaryExpression(egg::lang::ITypeRef& typ
   return false;
 }
 
-std::shared_ptr<egg::yolk::IEggSyntaxParser> egg::yolk::EggParserFactory::createModuleSyntaxParser() {
-  return std::make_shared<EggSyntaxParserModule>();
+std::shared_ptr<egg::yolk::IEggSyntaxParser> egg::yolk::EggParserFactory::createModuleSyntaxParser(egg::ovum::IAllocator& allocator) {
+  return std::make_shared<EggSyntaxParserModule>(allocator);
 }
 
-std::shared_ptr<egg::yolk::IEggSyntaxParser> egg::yolk::EggParserFactory::createStatementSyntaxParser() {
-  return std::make_shared<EggSyntaxParserStatement>();
+std::shared_ptr<egg::yolk::IEggSyntaxParser> egg::yolk::EggParserFactory::createStatementSyntaxParser(egg::ovum::IAllocator& allocator) {
+  return std::make_shared<EggSyntaxParserStatement>(allocator);
 }
 
-std::shared_ptr<egg::yolk::IEggSyntaxParser> egg::yolk::EggParserFactory::createExpressionSyntaxParser() {
-  return std::make_shared<EggSyntaxParserExpression>();
+std::shared_ptr<egg::yolk::IEggSyntaxParser> egg::yolk::EggParserFactory::createExpressionSyntaxParser(egg::ovum::IAllocator& allocator) {
+  return std::make_shared<EggSyntaxParserExpression>(allocator);
 }

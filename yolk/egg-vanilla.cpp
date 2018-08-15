@@ -13,8 +13,8 @@ namespace {
     std::string kind;
     egg::lang::ITypeRef type;
   public:
-    VanillaBase(const std::string& kind, const egg::lang::IType& type)
-      : kind(kind), type(&type) {
+    VanillaBase(egg::ovum::IAllocator& allocator, const std::string& kind, const egg::lang::IType& type)
+      : IObject(allocator), kind(kind), type(&type) {
     }
     virtual egg::lang::ITypeRef getRuntimeType() const override {
       return this->type;
@@ -57,8 +57,8 @@ namespace {
   class VanillaIteratorBase : public VanillaBase {
     EGG_NO_COPY(VanillaIteratorBase);
   public:
-    VanillaIteratorBase()
-      : VanillaBase("Iterator", VanillaIteratorType::instance) {
+    explicit VanillaIteratorBase(egg::ovum::IAllocator& allocator)
+      : VanillaBase(allocator, "Iterator", VanillaIteratorType::instance) {
     }
     virtual egg::lang::Value toString() const override {
       return egg::lang::Value{ this->type->toString() };
@@ -98,11 +98,11 @@ namespace {
     egg::lang::Value key;
     egg::lang::Value value;
   public:
-    VanillaKeyValue(const egg::lang::Value& key, const egg::lang::Value& value)
-      : VanillaBase("Key-value", VanillaKeyValueType::instance), key(key), value(value) {
+    VanillaKeyValue(egg::ovum::IAllocator& allocator, const egg::lang::Value& key, const egg::lang::Value& value)
+      : VanillaBase(allocator, "Key-value", VanillaKeyValueType::instance), key(key), value(value) {
     }
-    explicit VanillaKeyValue(const std::pair<egg::lang::String, egg::lang::Value>& keyvalue)
-      : VanillaKeyValue(egg::lang::Value{ keyvalue.first }, keyvalue.second) {
+    VanillaKeyValue(egg::ovum::IAllocator& allocator, const std::pair<egg::lang::String, egg::lang::Value>& keyvalue)
+      : VanillaKeyValue(allocator, egg::lang::Value{ keyvalue.first }, keyvalue.second) {
     }
     virtual egg::lang::Value toString() const override {
       return egg::lang::Value{ egg::lang::String::concat("{key:", this->key.toString(), ",value:", this->value.toString(), "}") };
@@ -187,8 +187,8 @@ namespace {
   private:
     std::vector<egg::lang::Value> values;
   public:
-    VanillaArray()
-      : VanillaBase("Array", VanillaArrayType::instance) {
+    explicit VanillaArray(egg::ovum::IAllocator& allocator)
+      : VanillaBase(allocator, "Array", VanillaArrayType::instance) {
     }
     virtual egg::lang::Value toString() const override {
       if (this->values.empty()) {
@@ -289,8 +289,8 @@ namespace {
     egg::gc::HardRef<VanillaArray> array;
     size_t next;
   public:
-    VanillaArrayIterator(egg::lang::IExecution&, const VanillaArray& array)
-      : VanillaIteratorBase(), array(&array), next(0) {
+    VanillaArrayIterator(egg::ovum::IAllocator& allocator, const VanillaArray& array)
+      : VanillaIteratorBase(allocator), array(&array), next(0) {
     }
     virtual egg::lang::Value iterate(egg::lang::IExecution&) override {
       return this->array->iterateNext(this->next);
@@ -298,7 +298,7 @@ namespace {
   };
 
   egg::lang::Value VanillaArray::iterate(egg::lang::IExecution& execution) {
-    return egg::lang::Value::make<VanillaArrayIterator>(execution, *this);
+    return egg::lang::Value(execution.getAllocator().make<VanillaArrayIterator>(*this));
   }
 
   class VanillaDictionaryIterator : public VanillaIteratorBase {
@@ -308,13 +308,13 @@ namespace {
     Dictionary::KeyValues keyvalues;
     size_t next;
   public:
-    VanillaDictionaryIterator(egg::lang::IExecution&, const Dictionary& dictionary)
-      : VanillaIteratorBase(), next(0) {
+    VanillaDictionaryIterator(egg::ovum::IAllocator& allocator, const Dictionary& dictionary)
+      : VanillaIteratorBase(allocator), next(0) {
       (void)dictionary.getKeyValues(this->keyvalues);
     }
-    virtual egg::lang::Value iterate(egg::lang::IExecution&) override {
+    virtual egg::lang::Value iterate(egg::lang::IExecution& execution) override {
       if (this->next < this->keyvalues.size()) {
-        return egg::lang::Value::make<VanillaKeyValue>(keyvalues[this->next++]);
+        return egg::lang::Value(execution.getAllocator().make<VanillaKeyValue>(keyvalues[this->next++]));
       }
       return egg::lang::Value::Void;
     }
@@ -326,8 +326,8 @@ namespace {
     typedef egg::yolk::Dictionary<egg::lang::String, egg::lang::Value> Dictionary;
     Dictionary dictionary;
   public:
-    VanillaDictionary(const std::string& kind, const egg::lang::IType& type)
-      : VanillaBase(kind, type) {
+    VanillaDictionary(egg::ovum::IAllocator& allocator, const std::string& kind, const egg::lang::IType& type)
+      : VanillaBase(allocator, kind, type) {
     }
     virtual egg::lang::Value toString() const override {
       Dictionary::KeyValues keyvalues;
@@ -355,7 +355,7 @@ namespace {
       return egg::lang::Value::Void;
     }
     virtual egg::lang::Value iterate(egg::lang::IExecution& execution) override {
-      return egg::lang::Value::make<VanillaDictionaryIterator>(execution, this->dictionary);
+      return egg::lang::Value(execution.getAllocator().make<VanillaDictionaryIterator>(this->dictionary));
     }
   };
 
@@ -404,8 +404,8 @@ namespace {
   class VanillaObject : public VanillaDictionary {
     EGG_NO_COPY(VanillaObject);
   public:
-    VanillaObject()
-      : VanillaDictionary("Object", VanillaObjectType::instance) {
+    explicit VanillaObject(egg::ovum::IAllocator& allocator)
+      : VanillaDictionary(allocator, "Object", VanillaObjectType::instance) {
     }
   };
 
@@ -415,8 +415,8 @@ namespace {
     static const egg::lang::String keyMessage;
     static const egg::lang::String keyLocation;
   public:
-    explicit VanillaException(const egg::lang::LocationRuntime& location, const egg::lang::String& message)
-      : VanillaDictionary("Exception", VanillaObjectType::instance) {
+    VanillaException(egg::ovum::IAllocator& allocator, const egg::lang::LocationRuntime& location, const egg::lang::String& message)
+      : VanillaDictionary(allocator, "Exception", VanillaObjectType::instance) {
       this->dictionary.addUnique(keyMessage, egg::lang::Value{ message });
       this->dictionary.addUnique(keyLocation, egg::lang::Value{ location.toSourceString() }); // TODO use toRuntimeString
     }
@@ -444,10 +444,11 @@ namespace {
     egg::lang::ITypeRef type;
     std::shared_ptr<egg::yolk::IEggProgramNode> block;
   public:
-    VanillaFunction(egg::yolk::EggProgramContext& program, const egg::lang::ITypeRef& type, const std::shared_ptr<egg::yolk::IEggProgramNode>& block)
-      : program(),
-      type(type),
-      block(block) {
+    VanillaFunction(egg::ovum::IAllocator& allocator, egg::yolk::EggProgramContext& program, const egg::lang::ITypeRef& type, const std::shared_ptr<egg::yolk::IEggProgramNode>& block)
+      : IObject(allocator),
+        program(allocator),
+        type(type),
+        block(block) {
       assert(block != nullptr);
       this->linkSoft(this->program, &program);
     }
@@ -481,11 +482,11 @@ namespace {
     EGG_NO_COPY(VanillaGenerator);
   private:
     egg::lang::ITypeRef rettype;
-    std::unique_ptr<egg::yolk::FunctionCoroutine> coroutine;
+    egg::gc::HardRef<egg::yolk::FunctionCoroutine> coroutine;
     bool completed;
   public:
-    VanillaGenerator(egg::yolk::EggProgramContext& program, const egg::lang::ITypeRef& type, const egg::lang::ITypeRef& rettype, const std::shared_ptr<egg::yolk::IEggProgramNode>& block)
-      : VanillaFunction(program, type, block),
+    VanillaGenerator(egg::ovum::IAllocator& allocator, egg::yolk::EggProgramContext& program, const egg::lang::ITypeRef& type, const egg::lang::ITypeRef& rettype, const std::shared_ptr<egg::yolk::IEggProgramNode>& block)
+      : VanillaFunction(allocator, program, type, block),
       rettype(rettype),
       coroutine(),
       completed(false) {
@@ -511,7 +512,7 @@ namespace {
         if (this->completed) {
           return egg::lang::Value::ReturnVoid;
         }
-        this->coroutine.reset(egg::yolk::FunctionCoroutine::create(this->block));
+        this->coroutine = egg::yolk::FunctionCoroutine::create(this->allocator, this->block);
       }
       assert(this->coroutine != nullptr);
       auto retval = this->coroutine->resume(*this->program);
@@ -521,7 +522,7 @@ namespace {
       }
       // We either completed or failed
       this->completed = true;
-      this->coroutine.reset(nullptr);
+      this->coroutine = nullptr;
       if (retval.stripFlowControl(egg::lang::Discriminator::Return)) {
         // We explicitly terminated
         return retval;
@@ -535,8 +536,8 @@ namespace {
   private:
     egg::gc::SoftRef<VanillaGenerator> generator;
   public:
-    explicit VanillaGeneratorIterator(VanillaGenerator& generator)
-      : VanillaIteratorBase(), generator() {
+    VanillaGeneratorIterator(egg::ovum::IAllocator& allocator, VanillaGenerator& generator)
+      : VanillaIteratorBase(allocator), generator(allocator) {
       this->linkSoft(this->generator, &generator);
     }
     virtual egg::lang::Value iterate(egg::lang::IExecution&) override {
@@ -546,7 +547,7 @@ namespace {
 
   egg::lang::Value VanillaGenerator::iterate(egg::lang::IExecution&) {
     // Create an ad hod iterator
-    return egg::lang::Value{ egg::gc::HardRef<VanillaGeneratorIterator>::make(*this) };
+    return egg::lang::Value{ this->allocator.make<VanillaGeneratorIterator>(*this) };
   }
 }
 
@@ -554,24 +555,28 @@ namespace {
 const egg::lang::IType& egg::yolk::EggProgram::VanillaArray = VanillaArrayType::instance;
 const egg::lang::IType& egg::yolk::EggProgram::VanillaObject = VanillaObjectType::instance;
 
+egg::ovum::IAllocator& egg::yolk::EggProgramContext::getAllocator() const {
+  return this->allocator;
+}
+
 egg::lang::Value egg::yolk::EggProgramContext::raise(const egg::lang::String& message) {
-  auto exception = egg::lang::Value::make<VanillaException>(this->location, message);
+  auto exception = egg::lang::Value(this->allocator.make<VanillaException>(this->location, message));
   exception.addFlowControl(egg::lang::Discriminator::Exception);
   return exception;
 }
 
 egg::lang::Value egg::yolk::EggProgramContext::createVanillaArray() {
-  return egg::lang::Value::make<VanillaArray>();
+  return egg::lang::Value(this->allocator.make<VanillaArray>());
 }
 
 egg::lang::Value egg::yolk::EggProgramContext::createVanillaObject() {
-  return egg::lang::Value::make<VanillaObject>();
+  return egg::lang::Value(this->allocator.make<VanillaObject>());
 }
 
 egg::lang::Value egg::yolk::EggProgramContext::createVanillaFunction(const egg::lang::ITypeRef& type, const std::shared_ptr<egg::yolk::IEggProgramNode>& block) {
-  return egg::lang::Value::make<VanillaFunction>(*this, type, block);
+  return egg::lang::Value(this->allocator.make<VanillaFunction>(*this, type, block));
 }
 
 egg::lang::Value egg::yolk::EggProgramContext::createVanillaGenerator(const egg::lang::ITypeRef& itertype, const egg::lang::ITypeRef& rettype, const std::shared_ptr<egg::yolk::IEggProgramNode>& block) {
-  return egg::lang::Value::make<VanillaGenerator>(*this, itertype, rettype, block);
+  return egg::lang::Value(this->allocator.make<VanillaGenerator>(*this, itertype, rettype, block));
 }

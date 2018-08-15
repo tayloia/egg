@@ -21,12 +21,14 @@ namespace {
     return oss.str();
   }
   std::string parseStatementToString(const std::string& text) {
-    auto parser = EggParserFactory::createStatementSyntaxParser();
+    egg::ovum::AllocatorDefault allocator; // WIBBLE
+    auto parser = EggParserFactory::createStatementSyntaxParser(allocator);
     auto root = parseFromString(*parser, text);
     return dumpToString(*root);
   }
   std::string parseExpressionToString(const std::string& text) {
-    auto parser = EggParserFactory::createExpressionSyntaxParser();
+    egg::ovum::AllocatorDefault allocator; // WIBBLE
+    auto parser = EggParserFactory::createExpressionSyntaxParser(allocator);
     auto root = parseFromString(*parser, text);
     return dumpToString(*root);
   }
@@ -43,26 +45,30 @@ namespace {
 }
 
 TEST(TestEggSyntaxParser, SyntaxException) {
-  auto parser = EggParserFactory::createModuleSyntaxParser();
+  egg::ovum::AllocatorDefault allocator; // WIBBLE
+  auto parser = EggParserFactory::createModuleSyntaxParser(allocator);
   auto lexer = LexerFactory::createFromString("var null", "<string>");
   auto tokenizer = EggTokenizerFactory::createFromLexer(lexer);
   ASSERT_THROW_E(parser->parse(*tokenizer), SyntaxException, expectSyntaxException(e));
 }
 
 TEST(TestEggSyntaxParser, ModuleEmpty) {
-  auto parser = EggParserFactory::createModuleSyntaxParser();
+  egg::ovum::AllocatorDefault allocator; // WIBBLE
+  auto parser = EggParserFactory::createModuleSyntaxParser(allocator);
   auto root = parseFromString(*parser, "");
   ASSERT_EQ("(module)", dumpToString(*root));
 }
 
 TEST(TestEggSyntaxParser, ModuleOneStatement) {
-  auto parser = EggParserFactory::createModuleSyntaxParser();
+  egg::ovum::AllocatorDefault allocator; // WIBBLE
+  auto parser = EggParserFactory::createModuleSyntaxParser(allocator);
   auto root = parseFromString(*parser, "var foo;");
   ASSERT_EQ("(module (declare 'foo' (type 'var')))", dumpToString(*root));
 }
 
 TEST(TestEggSyntaxParser, ModuleTwoStatements) {
-  auto parser = EggParserFactory::createModuleSyntaxParser();
+  egg::ovum::AllocatorDefault allocator; // WIBBLE
+  auto parser = EggParserFactory::createModuleSyntaxParser(allocator);
   auto root = parseFromString(*parser, "var foo;\nvar bar;");
   ASSERT_EQ("(module (declare 'foo' (type 'var')) (declare 'bar' (type 'var')))", dumpToString(*root));
 }
@@ -446,9 +452,10 @@ TEST(TestEggSyntaxParser, Vexatious) {
 }
 
 TEST(TestEggSyntaxParser, ExampleFile) {
+  egg::ovum::AllocatorDefault allocator; // WIBBLE
   auto lexer = LexerFactory::createFromPath("~/yolk/test/data/example.egg");
   auto tokenizer = EggTokenizerFactory::createFromLexer(lexer);
-  auto parser = EggParserFactory::createModuleSyntaxParser();
+  auto parser = EggParserFactory::createModuleSyntaxParser(allocator);
   auto root = parser->parse(*tokenizer);
   root->dump(std::cout);
   std::cout << std::endl;

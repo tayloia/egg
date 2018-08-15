@@ -3,6 +3,11 @@
 namespace {
   using namespace egg::lang;
 
+  egg::ovum::IAllocator& defaultAllocator() {
+    static egg::ovum::AllocatorDefault allocator; // WIBBLE
+    return allocator;
+  }
+
   bool arithmeticEqual(double a, int64_t b) {
     // TODO
     return a == b;
@@ -148,8 +153,8 @@ namespace {
   private:
     char32_t codepoint;
   public:
-    explicit StringBufferCodePoint(char32_t codepoint)
-      : HardReferenceCounted(0), codepoint(codepoint) {
+    StringBufferCodePoint(egg::ovum::IAllocator& allocator, char32_t codepoint)
+      : HardReferenceCounted(allocator, 0), codepoint(codepoint) {
     }
     virtual size_t length() const override {
       return 1;
@@ -295,7 +300,7 @@ namespace {
       return true;
     }
     static String makeSpace() {
-      static String space{ *new StringBufferCodePoint(U' ') };
+      static String space(*defaultAllocator().make<StringBufferCodePoint>(U' '));
       return space;
     }
   };
@@ -466,13 +471,13 @@ namespace {
   private:
     std::string utf8;
     size_t codepoints;
-    StringBufferUTF8(const std::string& utf8, size_t length)
-      : HardReferenceCounted(0), utf8(utf8), codepoints(length) {
+  public:
+    StringBufferUTF8(egg::ovum::IAllocator& allocator, const std::string& utf8, size_t length)
+      : HardReferenceCounted(allocator, 0), utf8(utf8), codepoints(length) {
       // Creation is via factories below
       assert(!this->utf8.empty());
       assert(this->codepoints > 0);
     }
-  public:
     virtual size_t length() const override {
       return this->codepoints;
     }
@@ -601,7 +606,7 @@ namespace {
       }
       assert(length > 0);
       std::string sub(this->utf8.data() + p, q - p);
-      return new StringBufferUTF8(sub, length);
+      return defaultAllocator().create<StringBufferUTF8>(0, defaultAllocator(), sub, length);
     }
     virtual const IString* repeat(size_t count) const override {
       return repeatString(*this, this->codepoints, count);
@@ -658,7 +663,7 @@ namespace {
       if (length == 0) {
         return &stringEmpty;
       }
-      return new StringBufferUTF8(utf8, length);
+      return defaultAllocator().create<StringBufferUTF8>(0, defaultAllocator(), utf8, length);
     }
   };
 
@@ -801,8 +806,8 @@ namespace {
   private:
     ITypeRef referenced;
   public:
-    explicit TypePointer(const IType& referenced)
-      : HardReferenceCounted(0), referenced(&referenced) {
+    TypePointer(egg::ovum::IAllocator& allocator, const IType& referenced)
+      : HardReferenceCounted(allocator, 0), referenced(&referenced) {
     }
     virtual std::pair<std::string, int> toStringPrecedence() const override {
       auto s = this->referenced->toString(0);
@@ -937,8 +942,8 @@ namespace {
   private:
     Discriminator tag;
   public:
-    explicit TypeSimple(Discriminator tag)
-      : HardReferenceCounted(0), tag(tag) {
+    TypeSimple(egg::ovum::IAllocator& allocator, Discriminator tag)
+      : HardReferenceCounted(allocator, 0), tag(tag) {
     }
     virtual std::pair<std::string, int> toStringPrecedence() const override {
       return tagToStringPriority(this->tag);
@@ -998,8 +1003,8 @@ namespace {
     ITypeRef a;
     ITypeRef b;
   public:
-    TypeUnion(const IType& a, const IType& b)
-      : HardReferenceCounted(0), a(&a), b(&b) {
+    TypeUnion(egg::ovum::IAllocator& allocator, const IType& a, const IType& b)
+      : HardReferenceCounted(allocator, 0), a(&a), b(&b) {
     }
     virtual std::pair<std::string, int> toStringPrecedence() const override {
       auto sa = this->a->toStringPrecedence().first;
@@ -1021,8 +1026,8 @@ namespace {
     ValueOnHeap(const ValueOnHeap&) = delete;
     ValueOnHeap& operator=(const ValueOnHeap&) = delete;
   public:
-    explicit ValueOnHeap(Value&& value) noexcept
-      : egg::gc::HardReferenceCounted<egg::lang::ValueReferenceCounted>(0, std::move(value)) {
+    ValueOnHeap(egg::ovum::IAllocator& allocator, Value&& value) noexcept
+      : egg::gc::HardReferenceCounted<egg::lang::ValueReferenceCounted>(allocator, 0, std::move(value)) {
     }
   };
 }
@@ -1036,8 +1041,8 @@ const egg::lang::Type egg::lang::Type::Float{ typeFloat };
 const egg::lang::Type egg::lang::Type::String{ typeString };
 const egg::lang::Type egg::lang::Type::Arithmetic{ typeArithmetic };
 const egg::lang::Type egg::lang::Type::Type_{ typeType };
-const egg::lang::Type egg::lang::Type::Any{ *Type::make<TypeSimple>(egg::lang::Discriminator::Any) };
-const egg::lang::Type egg::lang::Type::AnyQ{ *Type::make<TypeSimple>(egg::lang::Discriminator::Any | egg::lang::Discriminator::Null) };
+const egg::lang::Type egg::lang::Type::Any{ *defaultAllocator().make<TypeSimple>(egg::lang::Discriminator::Any) };
+const egg::lang::Type egg::lang::Type::AnyQ{ *defaultAllocator().make<TypeSimple>(egg::lang::Discriminator::Any | egg::lang::Discriminator::Null) };
 
 // Constants
 const egg::lang::IString& egg::lang::String::emptyBuffer = stringEmpty;
@@ -1045,7 +1050,7 @@ const egg::lang::String egg::lang::String::Empty{ stringEmpty };
 const egg::lang::String egg::lang::String::Space{ StringBufferCodePoint::makeSpace() };
 
 egg::lang::String egg::lang::String::fromCodePoint(char32_t codepoint) {
-  return String(*new StringBufferCodePoint(codepoint));
+  return String(*defaultAllocator().make<StringBufferCodePoint>(codepoint));
 }
 
 egg::lang::String egg::lang::String::fromUTF8(const std::string& utf8) {
@@ -1139,7 +1144,7 @@ void egg::lang::Value::copyInternals(const Value& other) {
   } else if (this->has(Discriminator::Indirect | Discriminator::Pointer)) {
     this->v = other.v->hardAcquire();
   } else if (this->has(Discriminator::String)) {
-    this->s = other.s->hardAcquire();
+    this->s = String::hardAcquire(other.s);
   } else if (this->has(Discriminator::Float)) {
     this->f = other.f;
   } else if (this->has(Discriminator::Int)) {
@@ -1159,7 +1164,7 @@ void egg::lang::Value::moveInternals(Value& other) {
       // Convert the soft pointer to a hard one
       this->tag = Bits::clear(this->tag, Discriminator::Pointer);
       this->o = ptr->hardAcquire();
-      delete other.rr;
+      other.r->destroy();
     } else {
       // Not need to increment/decrement the reference count
       this->o = ptr;
@@ -1183,7 +1188,7 @@ void egg::lang::Value::moveInternals(Value& other) {
 void egg::lang::Value::destroyInternals() {
   if (this->has(Discriminator::Object)) {
     if (this->has(Discriminator::Pointer)) {
-      delete this->rr;
+      this->r->destroy();
     } else {
       this->o->hardRelease();
     }
@@ -1249,10 +1254,10 @@ egg::lang::Value& egg::lang::Value::direct() {
   return *p;
 }
 
-egg::lang::ValueReferenceCounted& egg::lang::Value::indirect() {
+egg::lang::ValueReferenceCounted& egg::lang::Value::indirect(egg::ovum::IAllocator& allocator) {
   // Make this value indirect (i.e. heap-based)
   if (!this->has(Discriminator::Indirect)) {
-    auto* heap = new ValueOnHeap(std::move(*this));
+    auto* heap = allocator.create<ValueOnHeap>(0, allocator, std::move(*this)); // WIBBLE
     assert(this->tag == Discriminator::None); // as a side-effect of the move
     this->tag = Discriminator::Indirect;
     this->v = heap->hardAcquire();
@@ -1260,14 +1265,14 @@ egg::lang::ValueReferenceCounted& egg::lang::Value::indirect() {
   return *this->v;
 }
 
-egg::lang::Value& egg::lang::Value::soft(egg::gc::Collectable& container) {
+egg::lang::Value& egg::lang::Value::soft(egg::ovum::IAllocator& allocator, egg::gc::Collectable& container) {
   if (this->has(Discriminator::Object) && !this->has(Discriminator::Pointer)) {
     // This is a hard pointer to an IObject, make it a soft pointer
     auto* before = this->o;
     assert(before != nullptr);
-    auto* after = new egg::gc::SoftRef<IObject>(container, before);
+    auto* after = allocator.create<egg::gc::SoftRef<IObject>>(0, container, before);
     this->tag = Bits::set(this->tag, Discriminator::Pointer);
-    this->rr = after;
+    this->r = after;
     before->hardRelease();
   }
   return *this;
@@ -1308,7 +1313,7 @@ bool egg::lang::Value::equal(const Value& lhs, const Value& rhs) {
     return a.o == b.o;
   }
   assert(a.tag == (Discriminator::Object | Discriminator::Pointer));
-  return a.rr->get() == b.rr->get();
+  return a.r->get() == b.r->get();
 }
 
 std::string egg::lang::Value::getTagString() const {
@@ -1460,7 +1465,7 @@ egg::lang::String egg::lang::IType::toString(int priority) const {
 
 egg::lang::ITypeRef egg::lang::IType::pointerType() const {
   // The default implementation is to return a new type 'Type*'
-  return egg::lang::ITypeRef::make<TypePointer>(*this);
+  return defaultAllocator().make<TypePointer>(*this);
 }
 
 egg::lang::ITypeRef egg::lang::IType::pointeeType() const {
@@ -1595,7 +1600,7 @@ egg::lang::ITypeRef egg::lang::Type::makeSimple(Discriminator simple) {
   if (native != nullptr) {
     return ITypeRef(native);
   }
-  return Type::make<TypeSimple>(simple);
+  return defaultAllocator().make<TypeSimple>(simple);
 }
 
 egg::lang::ITypeRef egg::lang::Type::makeUnion(const egg::lang::IType& a, const egg::lang::IType& b) {
@@ -1605,5 +1610,5 @@ egg::lang::ITypeRef egg::lang::Type::makeUnion(const egg::lang::IType& a, const 
   if ((sa != Discriminator::None) && (sb != Discriminator::None)) {
     return Type::makeSimple(sa | sb);
   }
-  return Type::make<TypeUnion>(a, b);
+  return defaultAllocator().make<TypeUnion>(a, b);
 }

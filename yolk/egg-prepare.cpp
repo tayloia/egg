@@ -51,7 +51,7 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareScope(const 
   egg::lang::ITypeRef type{ egg::lang::Type::Void };
   if ((node != nullptr) && node->symbol(name, type)) {
     // Perform the action with a new scope containing our symbol
-    auto nested = egg::gc::HardRef<EggProgramSymbolTable>::make(this->symtable.get());
+    auto nested = this->getAllocator().make<EggProgramSymbolTable>(this->symtable.get());
     nested->addSymbol(EggProgramSymbol::ReadWrite, name, type);
     auto context = this->createNestedContext(*nested, this->scopeFunction);
     return action(*context);
@@ -101,7 +101,7 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareBlock(const 
   if (this->findDuplicateSymbols(statements)) {
     return EggProgramNodeFlags::Abandon;
   }
-  auto nested = egg::gc::HardRef<EggProgramSymbolTable>::make(this->symtable.get());
+  auto nested = this->getAllocator().make<EggProgramSymbolTable>(this->symtable.get());
   auto context = this->createNestedContext(*nested, this->scopeFunction);
   return context->prepareStatements(statements);
 }
@@ -239,7 +239,7 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareCatch(const 
   if (abandoned(type.prepare(*this))) {
     return EggProgramNodeFlags::Abandon;
   }
-  auto nested = egg::gc::HardRef<EggProgramSymbolTable>::make(this->symtable.get());
+  auto nested = this->getAllocator().make<EggProgramSymbolTable>(this->symtable.get());
   nested->addSymbol(EggProgramSymbol::ReadWrite, name, type.getType());
   auto context = this->createNestedContext(*nested, this->scopeFunction);
   return block.prepare(*context);
@@ -319,7 +319,7 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareFunctionDefi
   auto callable = type->callable();
   assert(callable != nullptr);
   assert(callable->getFunctionName() == name);
-  auto nested = egg::gc::HardRef<EggProgramSymbolTable>::make(this->symtable.get());
+  auto nested = this->getAllocator().make<EggProgramSymbolTable>(this->symtable.get());
   auto n = callable->getParameterCount();
   for (size_t i = 0; i < n; ++i) {
     auto& parameter = callable->getParameter(i);
@@ -754,7 +754,7 @@ egg::lang::LogSeverity egg::yolk::EggProgram::prepare(IEggEnginePreparationConte
   auto symtable = this->basket.make<EggProgramSymbolTable>();
   symtable->addBuiltins();
   egg::lang::LogSeverity severity = egg::lang::LogSeverity::None;
-  auto context = this->createRootContext(preparation, *symtable, severity);
+  auto context = this->createRootContext(preparation.allocator(), preparation, *symtable, severity);
   if (abandoned(this->root->prepare(*context))) {
     return egg::lang::LogSeverity::Error;
   }

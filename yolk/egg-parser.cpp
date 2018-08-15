@@ -1206,10 +1206,15 @@ namespace {
 
   class EggParserContext : public EggParserContextBase {
   private:
+    egg::ovum::IAllocator* memallocator;
     egg::lang::String resource;
   public:
-    explicit EggParserContext(const egg::lang::String& resource, EggParserAllowed allowed = EggParserAllowed::None)
-      : EggParserContextBase(allowed), resource(resource) {
+    EggParserContext(egg::ovum::IAllocator& allocator, const egg::lang::String& resource, EggParserAllowed allowed = EggParserAllowed::None)
+      : EggParserContextBase(allowed), memallocator(&allocator), resource(resource) {
+    }
+    virtual egg::ovum::IAllocator& allocator() const override {
+      assert(this->memallocator != nullptr);
+      return *this->memallocator;
     }
     virtual egg::lang::String getResourceName() const override {
       return this->resource;
@@ -1223,6 +1228,9 @@ namespace {
     EggParserContextNested(IEggParserContext& parent, EggParserAllowed allowed, EggParserAllowed inherited = EggParserAllowed::None)
       : EggParserContextBase(parent.inheritAllowed(allowed, inherited)), parent(&parent) {
       assert(this->parent != nullptr);
+    }
+    virtual egg::ovum::IAllocator& allocator() const override {
+      return this->parent->allocator();
     }
     virtual egg::lang::String getResourceName() const override {
       return this->parent->getResourceName();
@@ -1240,6 +1248,9 @@ namespace {
         promoted(makeParserNode<EggParserNode_Switch>(parent, switchStatement, parent.promote(switchExpression))),
         previous(EggTokenizerKeyword::Null) {
       assert(this->promoted != nullptr);
+    }
+    virtual egg::ovum::IAllocator& allocator() const override {
+      return this->nested.allocator();
     }
     virtual egg::lang::String getResourceName() const override {
       return this->nested.getResourceName();
@@ -1327,20 +1338,20 @@ namespace {
 
   class EggParserModule : public IEggParser {
   public:
-    virtual std::shared_ptr<IEggProgramNode> parse(IEggTokenizer& tokenizer) override {
-      auto syntax = EggParserFactory::createModuleSyntaxParser();
+    virtual std::shared_ptr<IEggProgramNode> parse(egg::ovum::IAllocator& allocator, IEggTokenizer& tokenizer) override {
+      auto syntax = EggParserFactory::createModuleSyntaxParser(allocator);
       auto ast = syntax->parse(tokenizer);
-      EggParserContext context(tokenizer.resource());
+      EggParserContext context(allocator, tokenizer.resource());
       return context.promote(*ast);
     }
   };
 
   class EggParserExpression : public IEggParser {
   public:
-    virtual std::shared_ptr<IEggProgramNode> parse(IEggTokenizer& tokenizer) override {
-      auto syntax = EggParserFactory::createExpressionSyntaxParser();
+    virtual std::shared_ptr<IEggProgramNode> parse(egg::ovum::IAllocator& allocator, IEggTokenizer& tokenizer) override {
+      auto syntax = EggParserFactory::createExpressionSyntaxParser(allocator);
       auto ast = syntax->parse(tokenizer);
-      EggParserContext context(tokenizer.resource());
+      EggParserContext context(allocator, tokenizer.resource());
       return context.promote(*ast);
     }
   };
@@ -1556,9 +1567,9 @@ std::shared_ptr<egg::yolk::IEggProgramNode> egg::yolk::EggSyntaxNode_FunctionDef
     if (egg::lang::Bits::hasAnySet(rettype->getSimpleTypes(), egg::lang::Discriminator::Void)) {
       throw exceptionFromLocation(context, "The return value of a generator may not include 'void'", *this);
     }
-    underlying = egg::yolk::FunctionType::createGeneratorType(this->name, rettype);
+    underlying = egg::yolk::FunctionType::createGeneratorType(context.allocator(), this->name, rettype);
   } else {
-    underlying = egg::yolk::FunctionType::createFunctionType(this->name, rettype);
+    underlying = egg::yolk::FunctionType::createFunctionType(context.allocator(), this->name, rettype);
   }
   egg::lang::ITypeRef function{ underlying }; // takes ownership
   egg::lang::String parameter_name;
@@ -1984,11 +1995,11 @@ egg::lang::ITypeRef EggParserNode_Ternary::getType() const {
   return type2->unionWith(*type3);
 }
 
-std::shared_ptr<egg::yolk::IEggProgramNode> egg::yolk::EggParserFactory::parseModule(TextStream& stream) {
+std::shared_ptr<egg::yolk::IEggProgramNode> egg::yolk::EggParserFactory::parseModule(egg::ovum::IAllocator& allocator, TextStream& stream) {
   auto lexer = LexerFactory::createFromTextStream(stream);
   auto tokenizer = EggTokenizerFactory::createFromLexer(lexer);
   EggParserModule parser;
-  return parser.parse(*tokenizer);
+  return parser.parse(allocator, *tokenizer);
 }
 
 std::shared_ptr<egg::yolk::IEggParser> egg::yolk::EggParserFactory::createModuleParser() {

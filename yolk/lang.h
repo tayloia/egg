@@ -1,11 +1,11 @@
 namespace egg::lang {
-  class IType;
   class String;
   class StringBuilder;
   class Value;
   class ValueReferenceCounted;
   struct LocationSource;
-  typedef egg::gc::HardRef<const IType> ITypeRef;
+
+  using ITypeRef = egg::gc::HardRef<const class IType>;
 
   class Bits {
   public:
@@ -94,11 +94,8 @@ namespace egg::lang {
     size_t internal; // For use by implementations only
   };
 
-  class IString {
+  class IString : public egg::ovum::IHardAcquireRelease {
   public:
-    virtual ~IString() {}
-    virtual IString* hardAcquire() const = 0;
-    virtual void hardRelease() const = 0;
     virtual size_t length() const = 0;
     virtual bool empty() const = 0;
     virtual bool equal(const IString& other) const = 0;
@@ -123,7 +120,7 @@ namespace egg::lang {
     virtual bool iteratePrevious(StringIteration& iteration) const = 0;
     virtual bool iterateLast(StringIteration& iteration) const = 0;
   };
-  typedef egg::gc::HardRef<const IString> IStringRef;
+  using IStringRef = egg::gc::HardRef<const IString>;
 
   class IPreparation {
   public:
@@ -140,6 +137,7 @@ namespace egg::lang {
   class IExecution {
   public:
     virtual ~IExecution() {}
+    virtual egg::ovum::IAllocator& getAllocator() const = 0;
     virtual Value raise(const String& message) = 0;
     virtual Value assertion(const Value& predicate) = 0;
     virtual void print(const std::string& utf8) = 0;
@@ -264,7 +262,8 @@ namespace egg::lang {
     IObject(const IObject&) = delete;
     IObject& operator=(const IObject&) = delete;
   public:
-    IObject() = default;
+    explicit IObject(egg::ovum::IAllocator& allocator) : Collectable(allocator) {
+    }
     virtual IObject* hardAcquire() const override {
       // Covariant return value
       return static_cast<IObject*>(Collectable::hardAcquire());
@@ -278,7 +277,7 @@ namespace egg::lang {
     virtual Value setIndex(IExecution& execution, const Value& index, const Value& value) = 0;
     virtual Value iterate(IExecution& execution) = 0;
   };
-  typedef egg::gc::HardRef<IObject> IObjectRef;
+  using IObjectRef = egg::gc::HardRef<IObject>;
 
   class StringBuilder {
     StringBuilder(const StringBuilder&) = delete;
@@ -386,7 +385,7 @@ namespace egg::lang {
       return std::min(size_t(index), n);
     }
     // Built-ins
-    typedef std::function<Value(const String&)> BuiltinFactory;
+    using BuiltinFactory = std::function<Value(egg::ovum::IAllocator&, const String&)>;
     static BuiltinFactory builtinFactory(const String& property);
     Value builtin(IExecution& execution, const String& property) const;
     // Operators
@@ -448,7 +447,7 @@ namespace egg::lang {
       int64_t i;
       double f;
       IObject* o; // hard
-      egg::gc::SoftRef<IObject>* rr; // soft
+      egg::gc::SoftRef<IObject>* r; // soft WIBBLE
       const IString* s;
       const IType* t;
       ValueReferenceCounted* v;
@@ -459,7 +458,7 @@ namespace egg::lang {
     void destroyInternals();
     IObject* getObjectPointer() const {
       assert(this->has(Discriminator::Object));
-      auto* ptr = this->has(Discriminator::Pointer) ? this->rr->get() : this->o;
+      auto* ptr = this->has(Discriminator::Pointer) ? this->r->get() : this->o;
       assert(ptr != nullptr);
       return ptr;
     }
@@ -482,8 +481,8 @@ namespace egg::lang {
     bool operator!=(const Value& other) const { return !Value::equal(*this, other); }
     const Value& direct() const;
     Value& direct();
-    ValueReferenceCounted& indirect();
-    Value& soft(egg::gc::Collectable& container);
+    ValueReferenceCounted& indirect(egg::ovum::IAllocator& allocator);
+    Value& soft(egg::ovum::IAllocator& allocator, egg::gc::Collectable& container);
     bool is(Discriminator bits) const { return this->tag == bits; }
     bool has(Discriminator bits) const { return Bits::hasAnySet(this->tag, bits); }
     bool getBool() const { assert(this->has(Discriminator::Bool)); return this->b; }
@@ -502,13 +501,6 @@ namespace egg::lang {
     std::string toUTF8() const;
     ITypeRef getRuntimeType() const;
 
-    template<typename U, typename... ARGS>
-    static Value make(ARGS&&... args) {
-      // Use perfect forwarding to the constructor
-      IObjectRef ref{ new U(std::forward<ARGS>(args)...) };
-      return Value(ref);
-    }
-
     // Constants
     static const Value Void;
     static const Value Null;
@@ -521,10 +513,10 @@ namespace egg::lang {
     static const Value ReturnVoid;
 
     // Built-ins
-    static Value builtinString();
-    static Value builtinType();
-    static Value builtinAssert();
-    static Value builtinPrint();
+    static Value builtinString(egg::ovum::IAllocator& allocator);
+    static Value builtinType(egg::ovum::IAllocator& allocator);
+    static Value builtinAssert(egg::ovum::IAllocator& allocator);
+    static Value builtinPrint(egg::ovum::IAllocator& allocator);
   };
 
   class ValueReferenceCounted : public Value {

@@ -3,6 +3,113 @@ namespace egg::ovum {
   using Int = int64_t;
   using Float = double;
 
+  template<typename T>
+  class Atomic {
+    Atomic(Atomic&) = delete;
+    Atomic& operator=(Atomic&) = delete;
+  public:
+    using Underlying = T;
+  private:
+    std::atomic<Underlying> atomic;
+  public:
+    explicit Atomic(Underlying value) : atomic(value) {
+    }
+    Underlying get() const {
+      // Get the current value
+      return std::atomic_load(&this->atomic);
+    }
+    Underlying add(Underlying value) {
+      // Return the value BEFORE the addition
+      return std::atomic_fetch_add(&this->atomic, value);
+    }
+    Underlying increment() {
+      // The result should be strictly positive
+      auto result = this->add(1) + 1;
+      assert(result > 0);
+      return result;
+    }
+    Underlying decrement() {
+      // The result should not be negative
+      auto result = this->add(-1) - 1;
+      assert(result >= 0);
+      return result;
+    }
+  };
+
+  using ReadWriteMutex = std::shared_mutex;
+  using WriteLock = std::unique_lock<ReadWriteMutex>;
+  using ReadLock = std::shared_lock<ReadWriteMutex>;
+
+  template<typename T>
+  class HardReferenceCounted : public T {
+    HardReferenceCounted(const HardReferenceCounted&) = delete;
+    HardReferenceCounted& operator=(const HardReferenceCounted&) = delete;
+  protected:
+    IAllocator& allocator;
+    mutable Atomic<int64_t> atomic; // signed so we can detect underflows
+  public:
+    explicit HardReferenceCounted(IAllocator& allocator)
+      : T(), allocator(allocator), atomic(0) {
+    }
+    template<typename... ARGS>
+    explicit HardReferenceCounted(IAllocator& allocator, int64_t atomic, ARGS&&... args) // WIBBLE
+      : T(std::forward<ARGS>(args)...), allocator(allocator), atomic(atomic) {
+    }
+    virtual ~HardReferenceCounted() {
+      // Make sure our reference count reached zero
+      assert(this->atomic.get() == 0);
+    }
+    virtual T* hardAcquire() const override {
+      this->atomic.increment();
+      return const_cast<T*>(static_cast<const T*>(this));
+    }
+    virtual void hardRelease() const override {
+      if (this->atomic.decrement() <= 0) {
+        this->allocator.destroy(this);
+      }
+    }
+  };
+
+  template<typename T>
+  class SoftReferenceCounted : public HardReferenceCounted<T> {
+    SoftReferenceCounted(const SoftReferenceCounted&) = delete;
+    SoftReferenceCounted& operator=(const SoftReferenceCounted&) = delete;
+  private:
+    IBasket* basket;
+  public:
+    explicit SoftReferenceCounted(IAllocator& allocator)
+      : HardReferenceCounted<T>(allocator),
+      basket(nullptr) {
+    }
+    virtual ~SoftReferenceCounted() override {
+      // Make sure we're no longer a member of a basket
+      assert(this->basket == nullptr);
+    }
+    virtual bool softIsRoot() const override {
+      // We're a root if there's a hard reference in addition to ours
+      return this->atomic.get() > 1;
+    }
+    virtual IBasket* softSetBasket(IBasket* value) override {
+      auto* old = this->basket;
+      this->basket = value;
+      return old;
+    }
+  };
+
+  template<typename T>
+  class NotReferenceCounted : public T {
+    NotReferenceCounted(const NotReferenceCounted&) = delete;
+    NotReferenceCounted& operator=(const NotReferenceCounted&) = delete;
+  public:
+    NotReferenceCounted() {}
+    virtual T* hardAcquire() const override {
+      return const_cast<T*>(static_cast<const T*>(this));
+    }
+    virtual void hardRelease() const override {
+      // Do nothing
+    }
+  };
+
   template<class T>
   class HardPtr {
   private:
@@ -80,11 +187,6 @@ namespace egg::ovum {
       }
       return nullptr;
     }
-    template<typename U = T, typename... ARGS> // WIBBLE
-    static HardPtr<T> make(ARGS&&... args) {
-      // Use perfect forwarding to the constructor
-      return HardPtr<T>(new U(std::forward<ARGS>(args)...));
-    }
   };
   template<typename T>
   bool operator==(nullptr_t, const HardPtr<T>& ptr) {
@@ -95,6 +197,14 @@ namespace egg::ovum {
   bool operator!=(nullptr_t, const HardPtr<T>& ptr) {
     // Yoda inequality comparison used by GoogleTest
     return ptr != nullptr;
+  }
+
+  template<typename T, typename... ARGS>
+  HardPtr<T> IAllocator::make(ARGS&&... args) {
+    // Use perfect forwarding to in-place new
+    void* allocated = this->allocate(sizeof(T), alignof(T));
+    assert(allocated != nullptr);
+    return HardPtr<T>(new(allocated) T(*this, std::forward<ARGS>(args)...));
   }
 
   using Memory = HardPtr<const IMemory>;

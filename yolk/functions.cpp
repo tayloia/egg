@@ -19,10 +19,11 @@ public:
   virtual ~EggProgramStackless() {}
   virtual egg::lang::Value resume(egg::yolk::EggProgramContext& context) = 0;
   template<typename T, typename... ARGS>
-  T& push(ARGS&&... args) {
+  T& push(egg::ovum::IAllocator& allocator, ARGS&&... args) {
     // Use perfect forwarding to the constructor (automatically plumbed into the parent)
-    return *new T(*this->parent, std::forward<ARGS>(args)...);
+    return *allocator.create<T>(0, *this->parent, std::forward<ARGS>(args)...);
   }
+
   EggProgramStackless* pop();
 };
 
@@ -56,8 +57,8 @@ namespace {
   private:
     egg::lang::ITypeRef rettype;
   public:
-    explicit GeneratorFunctionType(const egg::lang::ITypeRef& returnType)
-      : FunctionType(egg::lang::String::Empty, returnType->unionWith(*egg::lang::Type::Void)),
+    explicit GeneratorFunctionType(egg::ovum::IAllocator& allocator, const egg::lang::ITypeRef& returnType)
+      : FunctionType(allocator, egg::lang::String::Empty, returnType->unionWith(*egg::lang::Type::Void)),
         rettype(returnType) {
       // No name or parameters in the signature
       assert(!egg::lang::Bits::hasAnySet(returnType->getSimpleTypes(), egg::lang::Discriminator::Void));
@@ -266,7 +267,7 @@ namespace {
     }
   };
 
-  class FunctionCoroutineStackless : public egg::yolk::FunctionCoroutine {
+  class FunctionCoroutineStackless : public egg::ovum::HardReferenceCounted<egg::yolk::FunctionCoroutine> {
     EGG_NO_COPY(FunctionCoroutineStackless);
     friend class egg::yolk::EggProgramStackless;
   private:
@@ -274,8 +275,9 @@ namespace {
     egg::yolk::EggProgramStackless* stack;
     std::shared_ptr<egg::yolk::IEggProgramNode> block;
   public:
-    explicit FunctionCoroutineStackless(const std::shared_ptr<egg::yolk::IEggProgramNode>& block)
-      : stack(nullptr),
+    FunctionCoroutineStackless(egg::ovum::IAllocator& allocator, const std::shared_ptr<egg::yolk::IEggProgramNode>& block)
+      : HardReferenceCounted(allocator),
+        stack(nullptr),
         block(block) {
       assert(block != nullptr);
     }
@@ -287,7 +289,7 @@ namespace {
     virtual egg::lang::Value resume(egg::yolk::EggProgramContext& context) override {
       if (this->stack == nullptr) {
         // This is the first time through; push a root context
-        auto* root = new StacklessRoot(*this);
+        auto* root = allocator.create<StacklessRoot>(0, *this);
         assert(this->stack == root);
         return this->block->coexecute(context, *root);
       }
@@ -364,8 +366,8 @@ void egg::lang::IFunctionSignature::buildStringDefault(StringBuilder& sb, IFunct
   }
 }
 
-egg::yolk::FunctionType::FunctionType(const egg::lang::String& name, const egg::lang::ITypeRef& returnType)
-  : HardReferenceCounted(0),
+egg::yolk::FunctionType::FunctionType(egg::ovum::IAllocator& allocator, const egg::lang::String& name, const egg::lang::ITypeRef& returnType)
+  : HardReferenceCounted(allocator, 0),
     signature(std::make_unique<FunctionSignature>(name, returnType)) {
 }
 
@@ -405,23 +407,23 @@ void egg::yolk::FunctionType::addParameter(const egg::lang::String& name, const 
   this->signature->addSignatureParameter(name, type, this->signature->getParameterCount(), flags);
 }
 
-egg::yolk::FunctionType* egg::yolk::FunctionType::createFunctionType(const egg::lang::String& name, const egg::lang::ITypeRef& returnType) {
-  return new FunctionType(name, returnType);
+egg::yolk::FunctionType* egg::yolk::FunctionType::createFunctionType(egg::ovum::IAllocator& allocator, const egg::lang::String& name, const egg::lang::ITypeRef& returnType) {
+  return allocator.create<FunctionType>(0, allocator, name, returnType);
 }
 
-egg::yolk::FunctionType* egg::yolk::FunctionType::createGeneratorType(const egg::lang::String& name, const egg::lang::ITypeRef& returnType) {
+egg::yolk::FunctionType* egg::yolk::FunctionType::createGeneratorType(egg::ovum::IAllocator& allocator, const egg::lang::String& name, const egg::lang::ITypeRef& returnType) {
   // Convert the return type (e.g. 'int') into a generator function 'int..' aka '(void|int)()'
-  return new FunctionType(name, egg::lang::ITypeRef::make<GeneratorFunctionType>(returnType));
+  return allocator.create<FunctionType>(0, allocator, name, allocator.make<GeneratorFunctionType>(returnType));
 }
 
-egg::yolk::FunctionCoroutine* egg::yolk::FunctionCoroutine::create(const std::shared_ptr<egg::yolk::IEggProgramNode>& block) {
+egg::ovum::HardPtr<egg::yolk::FunctionCoroutine> egg::yolk::FunctionCoroutine::create(egg::ovum::IAllocator& allocator, const std::shared_ptr<egg::yolk::IEggProgramNode>& block) {
   // Create a stackless block executor for generator coroutines
-  return new FunctionCoroutineStackless(block);
+  return allocator.make<FunctionCoroutineStackless>(block);
 }
 
 egg::yolk::EggProgramStackless::EggProgramStackless(FunctionCoroutineStackless& parent)
   : parent(&parent),
-   next(parent.stack) {
+    next(parent.stack) {
   // Plumb ourselves into the synthetic stack
   parent.stack = this;
 }
@@ -433,23 +435,23 @@ egg::yolk::EggProgramStackless* egg::yolk::EggProgramStackless::pop() {
   assert(top == this);
   auto* result = top->next;
   this->parent->stack = result;
-  delete top;
+  top->parent->allocator.destroy(top);
   return result;
 }
 
 egg::lang::Value egg::yolk::EggProgramContext::coexecuteBlock(EggProgramStackless& stackless, const std::vector<std::shared_ptr<IEggProgramNode>>& statements) {
   // Create a new context to execute the statements in order
-  return stackless.push<StacklessBlock>(statements).resume(*this);
+  return stackless.push<StacklessBlock>(this->allocator, statements).resume(*this);
 }
 
 egg::lang::Value egg::yolk::EggProgramContext::coexecuteDo(EggProgramStackless& stackless, const std::shared_ptr<egg::yolk::IEggProgramNode>& cond, const std::shared_ptr<egg::yolk::IEggProgramNode>& block) {
   // Run in a new context
-  return stackless.push<StacklessDo>(cond, block).resume(*this);
+  return stackless.push<StacklessDo>(this->allocator, cond, block).resume(*this);
 }
 
 egg::lang::Value egg::yolk::EggProgramContext::coexecuteFor(EggProgramStackless& stackless, const std::shared_ptr<IEggProgramNode>& pre, const std::shared_ptr<IEggProgramNode>& cond, const std::shared_ptr<IEggProgramNode>& post, const std::shared_ptr<IEggProgramNode>& block) {
   // Run in a new context
-  return stackless.push<StacklessFor>(pre, cond, post, block).resume(*this);
+  return stackless.push<StacklessFor>(this->allocator, pre, cond, post, block).resume(*this);
 }
 
 egg::lang::Value egg::yolk::EggProgramContext::coexecuteForeach(EggProgramStackless& stackless, const std::shared_ptr<IEggProgramNode>& lvalue, const std::shared_ptr<IEggProgramNode>& rvalue, const std::shared_ptr<IEggProgramNode>& block) {
@@ -464,7 +466,7 @@ egg::lang::Value egg::yolk::EggProgramContext::coexecuteForeach(EggProgramStackl
 
 egg::lang::Value egg::yolk::EggProgramContext::coexecuteWhile(EggProgramStackless& stackless, const std::shared_ptr<egg::yolk::IEggProgramNode>& cond, const std::shared_ptr<egg::yolk::IEggProgramNode>& block) {
   // Run in a new context
-  return stackless.push<StacklessWhile>(cond, block).resume(*this);
+  return stackless.push<StacklessWhile>(this->allocator, cond, block).resume(*this);
 }
 
 egg::lang::Value egg::yolk::EggProgramContext::coexecuteYield(EggProgramStackless&, const std::shared_ptr<IEggProgramNode>& value) {

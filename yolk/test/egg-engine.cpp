@@ -40,12 +40,13 @@ namespace {
   };
 
   std::string logFromEngine(TextStream& stream) {
-    auto root = EggParserFactory::parseModule(stream);
-    auto engine = EggEngineFactory::createEngineFromParsed(root);
+    egg::ovum::AllocatorDefault allocator; // WIBBLE
+    auto root = EggParserFactory::parseModule(allocator, stream);
+    auto engine = EggEngineFactory::createEngineFromParsed(allocator, root);
     auto logger = std::make_shared<TestLogger>();
-    auto preparation = EggEngineFactory::createPreparationContext(logger);
+    auto preparation = EggEngineFactory::createPreparationContext(allocator, logger);
     if (engine->prepare(*preparation) != egg::lang::LogSeverity::Error) {
-      auto execution = EggEngineFactory::createExecutionContext(logger);
+      auto execution = EggEngineFactory::createExecutionContext(allocator, logger);
       engine->execute(*execution);
     }
     return logger->logged;
@@ -53,38 +54,42 @@ namespace {
 }
 
 TEST(TestEggEngine, CreateEngineFromParsed) {
+  egg::ovum::AllocatorDefault allocator; // WIBBLE
   FileTextStream stream("~/yolk/test/data/example.egg");
-  auto root = EggParserFactory::parseModule(stream);
-  auto engine = EggEngineFactory::createEngineFromParsed(root);
+  auto root = EggParserFactory::parseModule(allocator, stream);
+  auto engine = EggEngineFactory::createEngineFromParsed(allocator, root);
   auto logger = std::make_shared<TestLogger>();
-  auto preparation = EggEngineFactory::createPreparationContext(logger);
+  auto preparation = EggEngineFactory::createPreparationContext(allocator, logger);
   ASSERT_EQ(egg::lang::LogSeverity::Error, engine->prepare(*preparation));
   ASSERT_STARTSWITH(logger->logged, "COMPILER:ERROR:~/yolk/test/data/example.egg(2,14): Unknown identifier: 'first'");
 }
 
 TEST(TestEggEngine, CreateEngineFromTextStream) {
+  egg::ovum::AllocatorDefault allocator; // WIBBLE
   FileTextStream stream("~/yolk/test/data/example.egg");
   auto engine = EggEngineFactory::createEngineFromTextStream(stream);
   auto logger = std::make_shared<TestLogger>();
-  auto preparation = EggEngineFactory::createPreparationContext(logger);
+  auto preparation = EggEngineFactory::createPreparationContext(allocator, logger);
   ASSERT_EQ(egg::lang::LogSeverity::Error, engine->prepare(*preparation));
   ASSERT_STARTSWITH(logger->logged, "COMPILER:ERROR:~/yolk/test/data/example.egg(2,14): Unknown identifier: 'first'");
 }
 
 TEST(TestEggEngine, CreateEngineFromGarbage) {
+  egg::ovum::AllocatorDefault allocator; // WIBBLE
   StringTextStream stream("$");
   auto engine = EggEngineFactory::createEngineFromTextStream(stream);
   auto logger = std::make_shared<TestLogger>();
-  auto preparation = EggEngineFactory::createPreparationContext(logger);
+  auto preparation = EggEngineFactory::createPreparationContext(allocator, logger);
   ASSERT_EQ(egg::lang::LogSeverity::Error, engine->prepare(*preparation));
   ASSERT_EQ("COMPILER:ERROR:(1, 1): Unexpected character: '$'\n", logger->logged);
 }
 
 TEST(TestEggEngine, PrepareTwice) {
+  egg::ovum::AllocatorDefault allocator; // WIBBLE
   StringTextStream stream("print(123);");
   auto engine = EggEngineFactory::createEngineFromTextStream(stream);
   auto logger = std::make_shared<TestLogger>();
-  auto preparation = EggEngineFactory::createPreparationContext(logger);
+  auto preparation = EggEngineFactory::createPreparationContext(allocator, logger);
   ASSERT_EQ(egg::lang::LogSeverity::None, engine->prepare(*preparation));
   ASSERT_EQ("", logger->logged);
   ASSERT_EQ(egg::lang::LogSeverity::Error, engine->prepare(*preparation));
@@ -92,10 +97,11 @@ TEST(TestEggEngine, PrepareTwice) {
 }
 
 TEST(TestEggEngine, ExecuteUnprepared) {
+  egg::ovum::AllocatorDefault allocator; // WIBBLE
   FileTextStream stream("~/yolk/test/data/example.egg");
   auto engine = EggEngineFactory::createEngineFromTextStream(stream);
   auto logger = std::make_shared<TestLogger>();
-  auto execution = EggEngineFactory::createExecutionContext(logger);
+  auto execution = EggEngineFactory::createExecutionContext(allocator, logger);
   ASSERT_EQ(egg::lang::LogSeverity::Error, engine->execute(*execution));
   ASSERT_EQ("RUNTIME:ERROR:Program not prepared before execution\n", logger->logged);
 }
@@ -113,26 +119,28 @@ TEST(TestEggEngine, DuplicateSymbols) {
 
 TEST(TestEggEngine, WorkingFile) {
   // TODO still needed?
+  egg::ovum::AllocatorDefault allocator; // WIBBLE
   FileTextStream stream("~/yolk/test/data/working.egg");
   auto engine = EggEngineFactory::createEngineFromTextStream(stream);
   auto logger = std::make_shared<TestLogger>();
-  auto preparation = EggEngineFactory::createPreparationContext(logger);
+  auto preparation = EggEngineFactory::createPreparationContext(allocator, logger);
   ASSERT_EQ(egg::lang::LogSeverity::None, engine->prepare(*preparation));
   ASSERT_EQ("", logger->logged);
-  auto execution = EggEngineFactory::createExecutionContext(logger);
+  auto execution = EggEngineFactory::createExecutionContext(allocator, logger);
   ASSERT_EQ(egg::lang::LogSeverity::Information, engine->execute(*execution));
   ASSERT_EQ("USER:INFO:55\nUSER:INFO:4950\n", logger->logged);
 }
 
 TEST(TestEggEngine, Coverage) {
   // This script is used to cover most language feature
+  egg::ovum::AllocatorDefault allocator; // WIBBLE
   FileTextStream stream("~/yolk/test/data/coverage.egg");
   auto engine = EggEngineFactory::createEngineFromTextStream(stream);
   auto logger = std::make_shared<TestLogger>();
-  auto preparation = EggEngineFactory::createPreparationContext(logger);
+  auto preparation = EggEngineFactory::createPreparationContext(allocator, logger);
   ASSERT_EQ(egg::lang::LogSeverity::None, engine->prepare(*preparation));
   ASSERT_EQ("", logger->logged);
-  auto execution = EggEngineFactory::createExecutionContext(logger);
+  auto execution = EggEngineFactory::createExecutionContext(allocator, logger);
   ASSERT_EQ(egg::lang::LogSeverity::None, engine->execute(*execution));
   ASSERT_EQ("", logger->logged);
 }

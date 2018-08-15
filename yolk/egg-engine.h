@@ -8,11 +8,13 @@ namespace egg::yolk {
   class IEggEnginePreparationContext : public IEggEngineLogger {
   public:
     virtual ~IEggEnginePreparationContext() {}
-  };
+    virtual egg::ovum::IAllocator& allocator() const = 0;
+    };
 
   class IEggEngineExecutionContext : public IEggEngineLogger {
   public:
     virtual ~IEggEngineExecutionContext() {}
+    virtual egg::ovum::IAllocator& allocator() const = 0;
   };
 
   class IEggEngine {
@@ -24,9 +26,9 @@ namespace egg::yolk {
 
   class EggEngineFactory {
   public:
-    static std::shared_ptr<IEggEnginePreparationContext> createPreparationContext(const std::shared_ptr<IEggEngineLogger>& logger);
-    static std::shared_ptr<IEggEngineExecutionContext> createExecutionContext(const std::shared_ptr<IEggEngineLogger>& logger);
+    static std::shared_ptr<IEggEnginePreparationContext> createPreparationContext(egg::ovum::IAllocator& allocator, const std::shared_ptr<IEggEngineLogger>& logger);
+    static std::shared_ptr<IEggEngineExecutionContext> createExecutionContext(egg::ovum::IAllocator& allocator, const std::shared_ptr<IEggEngineLogger>& logger);
+    static std::shared_ptr<IEggEngine> createEngineFromParsed(egg::ovum::IAllocator& allocator, const std::shared_ptr<IEggProgramNode>& root);
     static std::shared_ptr<IEggEngine> createEngineFromTextStream(TextStream& stream);
-    static std::shared_ptr<IEggEngine> createEngineFromParsed(const std::shared_ptr<IEggProgramNode>& root);
   };
 }

@@ -2,37 +2,20 @@ namespace egg::gc {
   class Collectable;
   template<class T> class SoftRef;
 
-  template<typename T>
-  class Atomic {
-    Atomic(const Atomic&) = delete;
-    Atomic& operator=(const Atomic&) = delete;
-  private:
-    std::atomic<T> atom;
-  public:
-    explicit Atomic(T init) : atom(init) {
-    }
-    T get() const {
-      return this->atom.load();
-    }
-    T add(T arg) {
-      return this->atom.fetch_add(arg);
-    }
-  };
-
   class ReferenceCount {
     ReferenceCount(const ReferenceCount&) = delete;
     ReferenceCount& operator=(const ReferenceCount&) = delete;
   protected:
-    mutable Atomic<int64_t> atomic;
+    mutable egg::ovum::Atomic<int64_t> atomic;
   public:
     explicit ReferenceCount(int64_t init) : atomic(init) {}
     uint64_t acquire() const {
-      auto after = this->atomic.add(1) + 1;
+      auto after = this->atomic.increment();
       assert(after > 0);
       return static_cast<uint64_t>(after);
     }
     uint64_t release() const {
-      auto after = this->atomic.add(-1) - 1;
+      auto after = this->atomic.decrement();
       assert(after >= 0);
       return static_cast<uint64_t>(after);
     }
@@ -54,30 +37,7 @@ namespace egg::gc {
     }
   };
 
-  template<class T>
-  class HardReferenceCounted : public T {
-    HardReferenceCounted(const HardReferenceCounted&) = delete;
-    HardReferenceCounted& operator=(const HardReferenceCounted&) = delete;
-  private:
-    ReferenceCount hard;
-  public:
-    template<typename... ARGS>
-    explicit HardReferenceCounted(int64_t rc, ARGS&&... args) : T(std::forward<ARGS>(args)...), hard(rc) {
-    }
-    ~HardReferenceCounted() {
-      assert(this->hard.get() == 0);
-    }
-    virtual T* hardAcquire() const override {
-      this->hard.acquire();
-      return const_cast<HardReferenceCounted*>(this);
-    }
-    virtual void hardRelease() const override {
-      if (this->hard.release() == 0) {
-        delete this;
-      }
-    }
-  };
-
+  template<class T> using HardReferenceCounted = egg::ovum::HardReferenceCounted<T>;
   template<class T> using HardRef = egg::ovum::HardPtr<T>;
 
   class Basket {
@@ -112,9 +72,10 @@ namespace egg::gc {
       virtual void visit(Collectable& collectable) = 0;
     };
   private:
+    egg::ovum::IAllocator& allocator;
     Head* head;
   public:
-    Basket();
+    explicit Basket(egg::ovum::IAllocator& allocator);
     ~Basket();
     void add(Collectable& collectable); // Must have a hard reference already
     bool validate() const; // Debugging only
@@ -128,25 +89,25 @@ namespace egg::gc {
     template<typename T, typename... ARGS>
     HardRef<T> make(ARGS&&... args) {
       // Use perfect forwarding to the constructor and then add to the basket
-      HardRef<T> ref{ new T(std::forward<ARGS>(args)...) };
-      this->add(*ref);
-      return ref;
+      auto hard{ this->allocator.make<T>(std::forward<ARGS>(args)...) };
+      this->add(*hard);
+      return hard;
     }
   };
 
-  class Collectable {
+  class Collectable : public HardReferenceCounted<egg::ovum::IHardAcquireRelease> {
     Collectable(const Collectable&) = delete;
     Collectable& operator=(const Collectable&) = delete;
     friend class Basket;
+    template<class T> friend class SoftRef;
   private:
-    ReferenceCount hard;
     Basket* basket;
     Collectable* prevInBasket;
     Collectable* nextInBasket;
     Basket::Link* ownedLinks;
   protected:
-    Collectable()
-      : hard(0),
+    explicit Collectable(egg::ovum::IAllocator& allocator)
+      : HardReferenceCounted(allocator),
         basket(nullptr),
         prevInBasket(nullptr),
         nextInBasket(nullptr),
@@ -156,15 +117,6 @@ namespace egg::gc {
     virtual ~Collectable() {
       // Make sure we don't own any active links by the time we're destroyed
       assert(this->ownedLinks == nullptr);
-    }
-    virtual Collectable* hardAcquire() const {
-      this->hard.acquire();
-      return const_cast<Collectable*>(this);
-    }
-    virtual void hardRelease() const {
-      if (this->hard.release() == 0) {
-        delete this;
-      }
     }
     template<class T>
     void linkSoft(SoftRef<T>& link, T* pointee) {
@@ -183,6 +135,10 @@ namespace egg::gc {
       HardRef<Collectable> ref{ this };
       link.set(*ref, *pointee);
     }
+    int64_t hardGet() const {
+      // WIBBLE
+      return this->atomic.get();
+    }
   };
 
   template<class T>
@@ -190,12 +146,18 @@ namespace egg::gc {
     SoftRef(const SoftRef&) = delete;
     SoftRef& operator=(const SoftRef&) = delete;
   private:
+    egg::ovum::IAllocator& allocator;
     Basket::Link link;
   public:
-    SoftRef() = default;
+    explicit SoftRef(egg::ovum::IAllocator& allocator)
+      : allocator(allocator), link() {
+    }
     SoftRef(SoftRef&& rhs) noexcept = default;
     SoftRef(Collectable& from, T* to)
-      : link(from, to) {
+      : allocator(from.allocator), link(from, to) {
+    }
+    void destroy() {
+      this->allocator.destroy(this);
     }
     T* get() const {
       auto* to = this->link.get();
@@ -220,6 +182,6 @@ namespace egg::gc {
 
   class BasketFactory {
   public:
-    static std::shared_ptr<Basket> createBasket();
+    static std::shared_ptr<Basket> createBasket(egg::ovum::IAllocator& allocator);
   };
 }

@@ -75,8 +75,8 @@ namespace egg::yolk {
     std::map<egg::lang::String, std::shared_ptr<EggProgramSymbol>> map;
     egg::gc::SoftRef<EggProgramSymbolTable> parent;
   public:
-    explicit EggProgramSymbolTable(EggProgramSymbolTable* parent = nullptr)
-      : parent() {
+    explicit EggProgramSymbolTable(egg::ovum::IAllocator& allocator, EggProgramSymbolTable* parent = nullptr)
+      : Collectable(allocator), parent(allocator) {
       this->linkSoft(this->parent, parent);
     }
     void addBuiltins();
@@ -91,8 +91,8 @@ namespace egg::yolk {
     egg::gc::Basket basket;
     std::shared_ptr<IEggProgramNode> root;
   public:
-    explicit EggProgram(const std::shared_ptr<IEggProgramNode>& root)
-      : root(root) {
+    EggProgram(egg::ovum::IAllocator& allocator, const std::shared_ptr<IEggProgramNode>& root)
+      : basket(allocator), root(root) {
       assert(root != nullptr);
     }
     ~EggProgram() {
@@ -100,7 +100,7 @@ namespace egg::yolk {
       (void)this->basket.collectGarbage();
       // The destructor for 'basket' will assert if this collection doesn't free up everything in the basket
     }
-    egg::gc::HardRef<EggProgramContext> createRootContext(IEggEngineLogger& logger, EggProgramSymbolTable& symtable, egg::lang::LogSeverity& maximumSeverity);
+    egg::gc::HardRef<EggProgramContext> createRootContext(egg::ovum::IAllocator& allocator, IEggEngineLogger& logger, EggProgramSymbolTable& symtable, egg::lang::LogSeverity& maximumSeverity);
     egg::lang::LogSeverity prepare(IEggEnginePreparationContext& preparation);
     egg::lang::LogSeverity execute(IEggEngineExecutionContext& execution);
     static std::string unaryToString(EggProgramUnary op);
@@ -135,10 +135,11 @@ namespace egg::yolk {
     const egg::lang::IType* scopeDeclare; // Only used in prepare phase
     ScopeFunction* scopeFunction; // Only used in prepare phase
     const egg::lang::Value* scopeValue; // Only used in execute phase
-    EggProgramContext(const egg::lang::LocationRuntime& location, IEggEngineLogger* logger, EggProgramSymbolTable& symtable, egg::lang::LogSeverity* maximumSeverity, ScopeFunction* scopeFunction)
-      : location(location),
+    EggProgramContext(egg::ovum::IAllocator& allocator, const egg::lang::LocationRuntime& location, IEggEngineLogger* logger, EggProgramSymbolTable& symtable, egg::lang::LogSeverity* maximumSeverity, ScopeFunction* scopeFunction)
+      : Collectable(allocator),
+        location(location),
         logger(logger),
-        symtable(),
+        symtable(allocator),
         maximumSeverity(maximumSeverity),
         scopeDeclare(nullptr),
         scopeFunction(scopeFunction),
@@ -146,11 +147,11 @@ namespace egg::yolk {
       this->linkSoft(this->symtable, &symtable);
     }
   public:
-    EggProgramContext(EggProgramContext& parent, EggProgramSymbolTable& symtable, ScopeFunction* scopeFunction)
-      : EggProgramContext(parent.location, parent.logger, symtable, parent.maximumSeverity, scopeFunction) {
+    EggProgramContext(egg::ovum::IAllocator& allocator, EggProgramContext& parent, EggProgramSymbolTable& symtable, ScopeFunction* scopeFunction)
+      : EggProgramContext(allocator, parent.location, parent.logger, symtable, parent.maximumSeverity, scopeFunction) {
     }
-    EggProgramContext(const egg::lang::LocationRuntime& location, IEggEngineLogger& logger, EggProgramSymbolTable& symtable, egg::lang::LogSeverity& maximumSeverity)
-      : EggProgramContext(location, &logger, symtable, &maximumSeverity, nullptr) {
+    EggProgramContext(egg::ovum::IAllocator& allocator, const egg::lang::LocationRuntime& location, IEggEngineLogger& logger, EggProgramSymbolTable& symtable, egg::lang::LogSeverity& maximumSeverity)
+      : EggProgramContext(allocator, location, &logger, symtable, &maximumSeverity, nullptr) {
     }
     egg::gc::HardRef<EggProgramContext> createNestedContext(EggProgramSymbolTable& symtable, ScopeFunction* prepareFunction = nullptr);
     void log(egg::lang::LogSource source, egg::lang::LogSeverity severity, const std::string& message);
@@ -196,6 +197,7 @@ namespace egg::yolk {
     egg::lang::Value createVanillaFunction(const egg::lang::ITypeRef& type, const std::shared_ptr<IEggProgramNode>& block);
     egg::lang::Value createVanillaGenerator(const egg::lang::ITypeRef& itertype, const egg::lang::ITypeRef& rettype, const std::shared_ptr<IEggProgramNode>& block);
     // Inherited via IExecution
+    virtual egg::ovum::IAllocator& getAllocator() const override; // WIBBLE needed?
     virtual egg::lang::Value raise(const egg::lang::String& message) override;
     virtual egg::lang::Value assertion(const egg::lang::Value& predicate) override;
     virtual void print(const std::string& utf8) override;
