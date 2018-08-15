@@ -250,22 +250,30 @@ namespace {
     }
   };
 
-  template<typename T>
+  class StringFunctionType : public BuiltinFunctionType {
+    EGG_NO_COPY(StringFunctionType);
+  public:
+    StringFunctionType(egg::ovum::IAllocator& allocator, const std::string& name, const ITypeRef& returnType)
+      : BuiltinFunctionType(allocator, name, returnType) {
+    }
+    virtual Value executeCall(IExecution&, const String& instance, const IParameters&) const = 0;
+  };
+
   class StringBuiltin : public IObject {
     EGG_NO_COPY(StringBuiltin);
   protected:
     String instance;
-    const T* type;
+    egg::gc::HardRef<StringFunctionType> type;
   public:
-    StringBuiltin(egg::ovum::IAllocator& allocator, const String& instance, const T& type)
-      : IObject(allocator), instance(instance), type(&type) {
+    StringBuiltin(egg::ovum::IAllocator& allocator, const String& instance, const egg::gc::HardRef<StringFunctionType>& type)
+      : IObject(allocator), instance(instance), type(type) {
     }
   public:
     virtual Value toString() const override {
       return Value(this->type->getName());
     }
     virtual ITypeRef getRuntimeType() const override {
-      return ITypeRef(this->type);
+      return this->type;
     }
     virtual Value call(IExecution& execution, const IParameters& parameters) override {
       // Let the string builtin type handle the request
@@ -290,45 +298,44 @@ namespace {
     virtual Value iterate(IExecution& execution) override {
       return execution.raiseFormat(this->type->toString(), " does not support iteration");
     }
-    static Value make(egg::ovum::IAllocator& allocator, const String& instance) {
-      static egg::gc::HardRef<T> type(allocator.make<T>());
-      static auto WIBBLE = type.hardAcquire();
-      return Value(allocator.make<StringBuiltin<T>>(instance, *WIBBLE)); // still reachable
+    template<typename T>
+    static Value make(egg::ovum::IAllocator& allocator, const String& instance, const std::string& name) {
+      return Value(allocator.make<StringBuiltin>(instance, allocator.make<T>("string." + name)));
     }
   };
 
-  class StringHashCode : public BuiltinFunctionType {
+  class StringHashCode : public StringFunctionType {
     EGG_NO_COPY(StringHashCode);
   public:
-    explicit StringHashCode(egg::ovum::IAllocator& allocator)
-      : BuiltinFunctionType(allocator, "string.hashCode", Type::Int) {
+    StringHashCode(egg::ovum::IAllocator& allocator, const std::string& name)
+      : StringFunctionType(allocator, name, Type::Int) {
     }
-    Value executeCall(IExecution&, const String& instance, const IParameters&) const {
+    virtual Value executeCall(IExecution&, const String& instance, const IParameters&) const override {
       // int hashCode()
       return Value{ instance.hashCode() };
     }
   };
 
-  class StringToString : public BuiltinFunctionType {
+  class StringToString : public StringFunctionType {
     EGG_NO_COPY(StringToString);
   public:
-    explicit StringToString(egg::ovum::IAllocator& allocator)
-      : BuiltinFunctionType(allocator, "string.toString", Type::String) {
+    StringToString(egg::ovum::IAllocator& allocator, const std::string& name)
+      : StringFunctionType(allocator, name, Type::String) {
     }
-    Value executeCall(IExecution&, const String& instance, const IParameters&) const {
+    virtual Value executeCall(IExecution&, const String& instance, const IParameters&) const override {
       // string toString()
       return Value{ instance };
     }
   };
 
-  class StringContains : public BuiltinFunctionType {
+  class StringContains : public StringFunctionType {
     EGG_NO_COPY(StringContains);
   public:
-    explicit StringContains(egg::ovum::IAllocator& allocator)
-      : BuiltinFunctionType(allocator, "string.contains", Type::Bool) {
+    StringContains(egg::ovum::IAllocator& allocator, const std::string& name)
+      : StringFunctionType(allocator, name, Type::Bool) {
       this->addParameterUTF8("needle", Type::String, Flags::Required);
     }
-    Value executeCall(IExecution& execution, const String& instance, const IParameters& parameters) const {
+    virtual Value executeCall(IExecution& execution, const String& instance, const IParameters& parameters) const override {
       // bool contains(string needle)
       auto needle = parameters.getPositional(0);
       if (!needle.is(Discriminator::String)) {
@@ -338,14 +345,14 @@ namespace {
     }
   };
 
-  class StringCompare : public BuiltinFunctionType {
+  class StringCompare : public StringFunctionType {
     EGG_NO_COPY(StringCompare);
   public:
-    explicit StringCompare(egg::ovum::IAllocator& allocator)
-      : BuiltinFunctionType(allocator, "string.compare", Type::Int) {
+    StringCompare(egg::ovum::IAllocator& allocator, const std::string& name)
+      : StringFunctionType(allocator, name, Type::Int) {
       this->addParameterUTF8("needle", Type::String, Flags::Required);
     }
-    Value executeCall(IExecution& execution, const String& instance, const IParameters& parameters) const {
+    virtual Value executeCall(IExecution& execution, const String& instance, const IParameters& parameters) const override {
       // TODO int compare(string other, int? start, int? other_start, int? max_length)
       auto other = parameters.getPositional(0);
       if (!other.is(Discriminator::String)) {
@@ -355,14 +362,14 @@ namespace {
     }
   };
 
-  class StringStartsWith : public BuiltinFunctionType {
+  class StringStartsWith : public StringFunctionType {
     EGG_NO_COPY(StringStartsWith);
   public:
-    explicit StringStartsWith(egg::ovum::IAllocator& allocator)
-      : BuiltinFunctionType(allocator, "string.startsWith", Type::Bool) {
+    StringStartsWith(egg::ovum::IAllocator& allocator, const std::string& name)
+      : StringFunctionType(allocator, name, Type::Bool) {
       this->addParameterUTF8("needle", Type::String, Flags::Required);
     }
-    Value executeCall(IExecution& execution, const String& instance, const IParameters& parameters) const {
+    virtual Value executeCall(IExecution& execution, const String& instance, const IParameters& parameters) const override {
       // bool startsWith(string needle)
       auto needle = parameters.getPositional(0);
       if (!needle.is(Discriminator::String)) {
@@ -372,14 +379,14 @@ namespace {
     }
   };
 
-  class StringEndsWith : public BuiltinFunctionType {
+  class StringEndsWith : public StringFunctionType {
     EGG_NO_COPY(StringEndsWith);
   public:
-    explicit StringEndsWith(egg::ovum::IAllocator& allocator)
-      : BuiltinFunctionType(allocator, "string.endsWith", Type::Bool) {
+    StringEndsWith(egg::ovum::IAllocator& allocator, const std::string& name)
+      : StringFunctionType(allocator, name, Type::Bool) {
       this->addParameterUTF8("needle", Type::String, Flags::Required);
     }
-    Value executeCall(IExecution& execution, const String& instance, const IParameters& parameters) const {
+    virtual Value executeCall(IExecution& execution, const String& instance, const IParameters& parameters) const override {
       // bool endsWith(string needle)
       auto needle = parameters.getPositional(0);
       if (!needle.is(Discriminator::String)) {
@@ -389,14 +396,14 @@ namespace {
     }
   };
 
-  class StringIndexOf : public BuiltinFunctionType {
+  class StringIndexOf : public StringFunctionType {
     EGG_NO_COPY(StringIndexOf);
   public:
-    explicit StringIndexOf(egg::ovum::IAllocator& allocator)
-      : BuiltinFunctionType(allocator, "string.indexOf", Type::makeSimple(Discriminator::Int | Discriminator::Null)) {
+    StringIndexOf(egg::ovum::IAllocator& allocator, const std::string& name)
+      : StringFunctionType(allocator, name, Type::makeSimple(Discriminator::Int | Discriminator::Null)) {
       this->addParameterUTF8("needle", Type::String, Flags::Required);
     }
-    Value executeCall(IExecution& execution, const String& instance, const IParameters& parameters) const {
+    virtual Value executeCall(IExecution& execution, const String& instance, const IParameters& parameters) const override {
       // TODO int? indexOf(string needle, int? fromIndex, int? count, bool? negate)
       auto needle = parameters.getPositional(0);
       if (!needle.is(Discriminator::String)) {
@@ -407,14 +414,14 @@ namespace {
     }
   };
 
-  class StringLastIndexOf : public BuiltinFunctionType {
+  class StringLastIndexOf : public StringFunctionType {
     EGG_NO_COPY(StringLastIndexOf);
   public:
-    explicit StringLastIndexOf(egg::ovum::IAllocator& allocator)
-      : BuiltinFunctionType(allocator, "string.lastIndexOf", Type::makeSimple(Discriminator::Int | Discriminator::Null)) {
+    StringLastIndexOf(egg::ovum::IAllocator& allocator, const std::string& name)
+      : StringFunctionType(allocator, name, Type::makeSimple(Discriminator::Int | Discriminator::Null)) {
       this->addParameterUTF8("needle", Type::String, Flags::Required);
     }
-    Value executeCall(IExecution& execution, const String& instance, const IParameters& parameters) const {
+    virtual Value executeCall(IExecution& execution, const String& instance, const IParameters& parameters) const override {
       // TODO int? lastIndexOf(string needle, int? fromIndex, int? count, bool? negate)
       auto needle = parameters.getPositional(0);
       if (!needle.is(Discriminator::String)) {
@@ -425,14 +432,14 @@ namespace {
     }
   };
 
-  class StringJoin : public BuiltinFunctionType {
+  class StringJoin : public StringFunctionType {
     EGG_NO_COPY(StringJoin);
   public:
-    explicit StringJoin(egg::ovum::IAllocator& allocator)
-      : BuiltinFunctionType(allocator, "string.join", Type::String) {
+    StringJoin(egg::ovum::IAllocator& allocator, const std::string& name)
+      : StringFunctionType(allocator, name, Type::String) {
       this->addParameterUTF8("...", Type::Any, Flags::Variadic);
     }
-    Value executeCall(IExecution&, const String& instance, const IParameters& parameters) const {
+    virtual Value executeCall(IExecution&, const String& instance, const IParameters& parameters) const override {
       // string join(...)
       auto n = parameters.getPositionalCount();
       switch (n) {
@@ -453,14 +460,14 @@ namespace {
     }
   };
 
-  class StringSplit : public BuiltinFunctionType {
+  class StringSplit : public StringFunctionType {
     EGG_NO_COPY(StringSplit);
   public:
-    explicit StringSplit(egg::ovum::IAllocator& allocator)
-      : BuiltinFunctionType(allocator, "string.split", Type::Any) {
+    StringSplit(egg::ovum::IAllocator& allocator, const std::string& name)
+      : StringFunctionType(allocator, name, Type::Any) {
       this->addParameterUTF8("separator", Type::String, Flags::Required);
     }
-    Value executeCall(IExecution& execution, const String& instance, const IParameters& parameters) const {
+    virtual Value executeCall(IExecution& execution, const String& instance, const IParameters& parameters) const override {
       // TODO string split(string separator, int? limit)
       auto separator = parameters.getPositional(0);
       if (!separator.is(Discriminator::String)) {
@@ -472,15 +479,15 @@ namespace {
     }
   };
 
-  class StringSlice : public BuiltinFunctionType {
+  class StringSlice : public StringFunctionType {
     EGG_NO_COPY(StringSlice);
   public:
-    explicit StringSlice(egg::ovum::IAllocator& allocator)
-      : BuiltinFunctionType(allocator, "string.slice", Type::String) {
+    StringSlice(egg::ovum::IAllocator& allocator, const std::string& name)
+      : StringFunctionType(allocator, name, Type::String) {
       this->addParameterUTF8("begin", Type::Int, Flags::Required);
       this->addParameterUTF8("end", Type::Int, Flags::None);
     }
-    Value executeCall(IExecution& execution, const String& instance, const IParameters& parameters) const {
+    virtual Value executeCall(IExecution& execution, const String& instance, const IParameters& parameters) const override {
       // TODO string slice(int? begin, int? end)
       auto p0 = parameters.getPositional(0);
       if (!p0.is(Discriminator::Int)) {
@@ -499,14 +506,14 @@ namespace {
     }
   };
 
-  class StringRepeat : public BuiltinFunctionType {
+  class StringRepeat : public StringFunctionType {
     EGG_NO_COPY(StringRepeat);
   public:
-    explicit StringRepeat(egg::ovum::IAllocator& allocator)
-      : BuiltinFunctionType(allocator, "string.repeat", Type::String) {
+    StringRepeat(egg::ovum::IAllocator& allocator, const std::string& name)
+      : StringFunctionType(allocator, name, Type::String) {
       this->addParameterUTF8("count", Type::Int, Flags::Required);
     }
-    Value executeCall(IExecution& execution, const String& instance, const IParameters& parameters) const {
+    virtual Value executeCall(IExecution& execution, const String& instance, const IParameters& parameters) const override {
       // string repeat(int count)
       auto p0 = parameters.getPositional(0);
       if (!p0.is(Discriminator::Int)) {
@@ -530,16 +537,16 @@ namespace {
     }
   };
 
-  class StringReplace : public BuiltinFunctionType {
+  class StringReplace : public StringFunctionType {
     EGG_NO_COPY(StringReplace);
   public:
-    explicit StringReplace(egg::ovum::IAllocator& allocator)
-      : BuiltinFunctionType(allocator, "string.replace", Type::Any) {
+    StringReplace(egg::ovum::IAllocator& allocator, const std::string& name)
+      : StringFunctionType(allocator, name, Type::Any) {
       this->addParameterUTF8("needle", Type::String, Flags::Required);
       this->addParameterUTF8("replacement", Type::String, Flags::Required);
       this->addParameterUTF8("occurrences", Type::Int, Flags::None);
     }
-    Value executeCall(IExecution& execution, const String& instance, const IParameters& parameters) const {
+    virtual Value executeCall(IExecution& execution, const String& instance, const IParameters& parameters) const override {
       // string replace(string needle, string replacement, int? occurrences)
       auto needle = parameters.getPositional(0);
       if (!needle.is(Discriminator::String)) {
@@ -560,15 +567,15 @@ namespace {
     }
   };
 
-  class StringPadLeft : public BuiltinFunctionType {
+  class StringPadLeft : public StringFunctionType {
     EGG_NO_COPY(StringPadLeft);
   public:
-    explicit StringPadLeft(egg::ovum::IAllocator& allocator)
-      : BuiltinFunctionType(allocator, "string.padLeft", Type::Any) {
+    StringPadLeft(egg::ovum::IAllocator& allocator, const std::string& name)
+      : StringFunctionType(allocator, name, Type::Any) {
       this->addParameterUTF8("length", Type::Int, Flags::Required);
       this->addParameterUTF8("padding", Type::String, Flags::None);
     }
-    Value executeCall(IExecution& execution, const String& instance, const IParameters& parameters) const {
+    virtual Value executeCall(IExecution& execution, const String& instance, const IParameters& parameters) const override {
       // string padLeft(int length, string? padding)
       auto p0 = parameters.getPositional(0);
       if (!p0.is(Discriminator::Int)) {
@@ -589,15 +596,15 @@ namespace {
     }
   };
 
-  class StringPadRight : public BuiltinFunctionType {
+  class StringPadRight : public StringFunctionType {
     EGG_NO_COPY(StringPadRight);
   public:
-    explicit StringPadRight(egg::ovum::IAllocator& allocator)
-      : BuiltinFunctionType(allocator, "string.padRight", Type::Any) {
+    StringPadRight(egg::ovum::IAllocator& allocator, const std::string& name)
+      : StringFunctionType(allocator, name, Type::Any) {
       this->addParameterUTF8("length", Type::Int, Flags::Required);
       this->addParameterUTF8("padding", Type::String, Flags::None);
     }
-    Value executeCall(IExecution& execution, const String& instance, const IParameters& parameters) const {
+    virtual Value executeCall(IExecution& execution, const String& instance, const IParameters& parameters) const override {
       // string padRight(int length, string? padding)
       auto p0 = parameters.getPositional(0);
       if (!p0.is(Discriminator::Int)) {
@@ -618,7 +625,7 @@ namespace {
     }
   };
 
-  Value stringLength(egg::ovum::IAllocator&, const String& instance) {
+  Value stringLength(egg::ovum::IAllocator&, const String& instance, const std::string&) {
     // This result is the actual length, not a function computing it
     return Value{ int64_t(instance.length()) };
   }
@@ -626,23 +633,24 @@ namespace {
 
 egg::lang::String::BuiltinFactory egg::lang::String::builtinFactory(const egg::lang::String& property) {
   // See http://chilliant.blogspot.co.uk/2018/05/egg-strings.html
+  // WIBBLE map of String
   static const std::map<std::string, BuiltinFactory> table = {
-    { "compare", StringBuiltin<StringCompare>::make },
-    { "contains", StringBuiltin<StringContains>::make },
-    { "endsWith", StringBuiltin<StringEndsWith>::make },
-    { "hashCode", StringBuiltin<StringHashCode>::make },
-    { "indexOf", StringBuiltin<StringIndexOf>::make },
-    { "join", StringBuiltin<StringJoin>::make },
-    { "lastIndexOf", StringBuiltin<StringLastIndexOf>::make },
-    { "length", stringLength },
-    { "padLeft", StringBuiltin<StringPadLeft>::make },
-    { "padRight", StringBuiltin<StringPadRight>::make },
-    { "repeat", StringBuiltin<StringRepeat>::make },
-    { "replace", StringBuiltin<StringReplace>::make },
-    { "slice", StringBuiltin<StringSlice>::make },
-    { "split", StringBuiltin<StringSplit>::make },
-    { "startsWith", StringBuiltin<StringStartsWith>::make },
-    { "toString", StringBuiltin<StringToString>::make },
+    { "compare",      StringBuiltin::make<StringCompare> },
+    { "contains",     StringBuiltin::make<StringContains> },
+    { "endsWith",     StringBuiltin::make<StringEndsWith> },
+    { "hashCode",     StringBuiltin::make<StringHashCode> },
+    { "indexOf",      StringBuiltin::make<StringIndexOf> },
+    { "join",         StringBuiltin::make<StringJoin> },
+    { "lastIndexOf",  StringBuiltin::make<StringLastIndexOf> },
+    { "length",       stringLength },
+    { "padLeft",      StringBuiltin::make<StringPadLeft> },
+    { "padRight",     StringBuiltin::make<StringPadRight> },
+    { "repeat",       StringBuiltin::make<StringRepeat> },
+    { "replace",      StringBuiltin::make<StringReplace> },
+    { "slice",        StringBuiltin::make<StringSlice> },
+    { "split",        StringBuiltin::make<StringSplit> },
+    { "startsWith",   StringBuiltin::make<StringStartsWith> },
+    { "toString",     StringBuiltin::make<StringToString> }
   };
   auto name = property.toUTF8();
   auto entry = table.find(name);
@@ -655,7 +663,7 @@ egg::lang::String::BuiltinFactory egg::lang::String::builtinFactory(const egg::l
 egg::lang::Value egg::lang::String::builtin(egg::lang::IExecution& execution, const egg::lang::String& property) const {
   auto factory = String::builtinFactory(property);
   if (factory != nullptr) {
-    return factory(execution.getAllocator(), *this);
+    return factory(execution.getAllocator(), *this, "string." + property.toUTF8()); // WIBBLE just String
   }
   return execution.raiseFormat("Unknown property for type 'string': '", property, "'");
 }

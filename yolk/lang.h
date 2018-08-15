@@ -385,7 +385,7 @@ namespace egg::lang {
       return std::min(size_t(index), n);
     }
     // Built-ins
-    using BuiltinFactory = std::function<Value(egg::ovum::IAllocator&, const String&)>;
+    using BuiltinFactory = std::function<Value(egg::ovum::IAllocator&, const String&, const std::string&)>;
     static BuiltinFactory builtinFactory(const String& property);
     Value builtin(IExecution& execution, const String& property) const;
     // Operators
