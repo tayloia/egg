@@ -80,6 +80,11 @@ namespace egg::ovum {
       }
       return nullptr;
     }
+    template<typename U = T, typename... ARGS> // WIBBLE
+    static HardPtr<T> make(ARGS&&... args) {
+      // Use perfect forwarding to the constructor
+      return HardPtr<T>(new U(std::forward<ARGS>(args)...));
+    }
   };
   template<typename T>
   bool operator==(nullptr_t, const HardPtr<T>& ptr) {

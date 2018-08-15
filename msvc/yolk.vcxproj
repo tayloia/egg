@@ -71,6 +71,11 @@
     <ClInclude Include="..\yolk\utf.h" />
     <ClInclude Include="..\yolk\yolk.h" />
   </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="ovum.vcxproj">
+      <Project>{f14e6f85-ca7d-4354-bf37-182de71d4fba}</Project>
+    </ProjectReference>
+  </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>15.0</VCProjectVersion>
     <ProjectGuid>{05A72EA2-0B14-4E92-86F1-C98E7FDFFBBA}</ProjectGuid>

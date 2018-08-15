@@ -47,10 +47,10 @@ namespace egg::gc {
     NotReferenceCounted() : T() {}
     template<typename... ARGS>
     explicit NotReferenceCounted(ARGS&&... args) : T(std::forward<ARGS>(args)...) {}
-    virtual T* acquireHard() const override {
+    virtual T* hardAcquire() const override {
       return const_cast<NotReferenceCounted*>(this);
     }
-    virtual void releaseHard() const override {
+    virtual void hardRelease() const override {
     }
   };
 
@@ -67,77 +67,18 @@ namespace egg::gc {
     ~HardReferenceCounted() {
       assert(this->hard.get() == 0);
     }
-    virtual T* acquireHard() const override {
+    virtual T* hardAcquire() const override {
       this->hard.acquire();
       return const_cast<HardReferenceCounted*>(this);
     }
-    virtual void releaseHard() const override {
+    virtual void hardRelease() const override {
       if (this->hard.release() == 0) {
         delete this;
       }
     }
   };
 
-  template<class T>
-  class HardRef {
-    HardRef() = delete;
-  private:
-    T* ptr;
-  public:
-    explicit HardRef(const T* rhs) : ptr(HardRef::acquireHard(rhs)) {
-      assert(this->ptr != nullptr);
-    }
-    HardRef(const HardRef& rhs) : ptr(rhs.acquireHard()) {
-      assert(this->ptr != nullptr);
-    }
-    template<typename U>
-    HardRef(const HardRef<U>& rhs) : ptr(rhs.acquireHard()) {
-      assert(this->ptr != nullptr);
-    }
-    HardRef& operator=(const HardRef& rhs) {
-      assert(this->ptr != nullptr);
-      this->set(rhs.get());
-      return *this;
-    }
-    template<typename U>
-    HardRef& operator=(const HardRef<U>& rhs) {
-      assert(this->ptr != nullptr);
-      this->set(rhs.get());
-      return *this;
-    }
-    ~HardRef() {
-      assert(this->ptr != nullptr);
-      this->ptr->releaseHard();
-    }
-    T* acquireHard() const {
-      return HardRef::acquireHard(this->ptr);
-    }
-    T* get() const {
-      assert(this->ptr != nullptr);
-      return this->ptr;
-    }
-    void set(T* rhs) {
-      auto* old = this->ptr;
-      assert(old != nullptr);
-      this->ptr = HardRef::acquireHard(rhs);
-      old->releaseHard();
-    }
-    T& operator*() const {
-      return *this->ptr;
-    }
-    T* operator->() const {
-      return this->ptr;
-    }
-    static T* acquireHard(const T* ptr) {
-      assert(ptr != nullptr);
-      return static_cast<T*>(ptr->acquireHard());
-    }
-    template<typename U = T, typename... ARGS>
-    static HardRef<T> make(ARGS&&... args) {
-      // Use perfect forwarding to the constructor
-      return HardRef<T>(new U(std::forward<ARGS>(args)...));
-    }
-  };
+  template<class T> using HardRef = egg::ovum::HardPtr<T>;
 
   class Basket {
     Basket(const Basket&) = delete;
@@ -216,11 +157,11 @@ namespace egg::gc {
       // Make sure we don't own any active links by the time we're destroyed
       assert(this->ownedLinks == nullptr);
     }
-    virtual Collectable* acquireHard() const {
+    virtual Collectable* hardAcquire() const {
       this->hard.acquire();
       return const_cast<Collectable*>(this);
     }
-    virtual void releaseHard() const {
+    virtual void hardRelease() const {
       if (this->hard.release() == 0) {
         delete this;
       }

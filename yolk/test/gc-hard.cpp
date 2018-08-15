@@ -36,12 +36,12 @@ namespace {
       // Log our destruction
       this->monitor->write('~', this->name);
     }
-    virtual Instance* acquireHard() const {
+    virtual Instance* hardAcquire() const {
       // Log our increment
       this->monitor->write('+', this->name);
       return const_cast<Instance*>(this);
     }
-    virtual void releaseHard() const {
+    virtual void hardRelease() const {
       // Log our decrement
       this->monitor->write('-', this->name);
     }
@@ -87,9 +87,9 @@ TEST(TestGCHard, Monitor) {
   {
     Instance instance(monitor, "stack");
     ASSERT_EQ("*stack", monitor.read());
-    ASSERT_EQ(&instance, instance.acquireHard());
+    ASSERT_EQ(&instance, instance.hardAcquire());
     ASSERT_EQ("+stack", monitor.read());
-    instance.releaseHard();
+    instance.hardRelease();
     ASSERT_EQ("-stack", monitor.read());
   }
   ASSERT_EQ("~stack", monitor.read());
@@ -101,9 +101,9 @@ TEST(TestGCHard, NotReferenceCounted) {
   {
     egg::gc::NotReferenceCounted<Instance> instance(monitor, "nrc");
     ASSERT_EQ("*nrc", monitor.read());
-    ASSERT_EQ(&instance, instance.acquireHard());
+    ASSERT_EQ(&instance, instance.hardAcquire());
     ASSERT_EQ("", monitor.read());
-    instance.releaseHard();
+    instance.hardRelease();
     ASSERT_EQ("", monitor.read());
   }
   ASSERT_EQ("~nrc", monitor.read());
@@ -134,9 +134,9 @@ TEST(TestGCHard, HardRef) {
         ASSERT_EQ("~nrc", monitor.read());
       } // rc=3
     } // rc=2
-    ASSERT_EQ(raw, ref1.acquireHard()); // rc=3
-    ref1->releaseHard(); // rc=2
-    ref1->releaseHard(); // rc=1
+    ASSERT_EQ(raw, ref1.hardAcquire()); // rc=3
+    ref1->hardRelease(); // rc=2
+    ref1->hardRelease(); // rc=1
     ASSERT_EQ("", monitor.read());
   } // rc=0
   ASSERT_EQ("~hrc", monitor.read());

@@ -17,6 +17,8 @@
 #include <vector>
 #include <unordered_map>
 
+#include "ovum/ovum.h"
+
 #include "yolk/macros.h"
 #include "yolk/dictionaries.h"
 #include "yolk/exceptions.h"

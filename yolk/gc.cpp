@@ -203,7 +203,7 @@ void egg::gc::Basket::visitGarbage(IVisitor& visitor) {
     auto& dead = **p;
     this->head->remove(dead);
     visitor.visit(dead);
-    dead.releaseHard();
+    dead.hardRelease();
   }
   assert(this->validate());
 }
@@ -222,7 +222,7 @@ void egg::gc::Basket::visitPurge(IVisitor& visitor) {
     p = p->nextInBasket;
     Head::resetLinks(dead);
     visitor.visit(dead);
-    dead.releaseHard();
+    dead.hardRelease();
   }
   assert(this->validate());
 }

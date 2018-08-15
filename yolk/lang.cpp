@@ -1135,11 +1135,11 @@ void egg::lang::Value::copyInternals(const Value& other) {
   if (this->has(Discriminator::Object)) {
     // We can only copy the reference as a hard pointer
     this->tag = Bits::clear(other.tag, Discriminator::Pointer);
-    this->o = other.getObjectPointer()->acquireHard();
+    this->o = other.getObjectPointer()->hardAcquire();
   } else if (this->has(Discriminator::Indirect | Discriminator::Pointer)) {
-    this->v = other.v->acquireHard();
+    this->v = other.v->hardAcquire();
   } else if (this->has(Discriminator::String)) {
-    this->s = other.s->acquireHard();
+    this->s = other.s->hardAcquire();
   } else if (this->has(Discriminator::Float)) {
     this->f = other.f;
   } else if (this->has(Discriminator::Int)) {
@@ -1147,7 +1147,7 @@ void egg::lang::Value::copyInternals(const Value& other) {
   } else if (this->has(Discriminator::Bool)) {
     this->b = other.b;
   } else if (this->has(Discriminator::Type)) {
-    this->t = other.t->acquireHard();
+    this->t = other.t->hardAcquire();
   }
 }
 
@@ -1158,7 +1158,7 @@ void egg::lang::Value::moveInternals(Value& other) {
     if (this->has(Discriminator::Pointer)) {
       // Convert the soft pointer to a hard one
       this->tag = Bits::clear(this->tag, Discriminator::Pointer);
-      this->o = ptr->acquireHard();
+      this->o = ptr->hardAcquire();
       delete other.rr;
     } else {
       // Not need to increment/decrement the reference count
@@ -1185,20 +1185,20 @@ void egg::lang::Value::destroyInternals() {
     if (this->has(Discriminator::Pointer)) {
       delete this->rr;
     } else {
-      this->o->releaseHard();
+      this->o->hardRelease();
     }
   } else if (this->has(Discriminator::Indirect | Discriminator::Pointer)) {
-    this->v->releaseHard();
+    this->v->hardRelease();
   } else if (this->has(Discriminator::String)) {
-    this->s->releaseHard();
+    this->s->hardRelease();
   } else if (this->has(Discriminator::Type)) {
-    this->t->releaseHard();
+    this->t->hardRelease();
   }
 }
 
 egg::lang::Value::Value(const ValueReferenceCounted& vrc)
   : tag(Discriminator::Pointer) {
-  this->v = vrc.acquireHard();
+  this->v = vrc.hardAcquire();
 }
 
 egg::lang::Value::Value(const Value& value) {
@@ -1255,7 +1255,7 @@ egg::lang::ValueReferenceCounted& egg::lang::Value::indirect() {
     auto* heap = new ValueOnHeap(std::move(*this));
     assert(this->tag == Discriminator::None); // as a side-effect of the move
     this->tag = Discriminator::Indirect;
-    this->v = heap->acquireHard();
+    this->v = heap->hardAcquire();
   }
   return *this->v;
 }
@@ -1268,7 +1268,7 @@ egg::lang::Value& egg::lang::Value::soft(egg::gc::Collectable& container) {
     auto* after = new egg::gc::SoftRef<IObject>(container, before);
     this->tag = Bits::set(this->tag, Discriminator::Pointer);
     this->rr = after;
-    before->releaseHard();
+    before->hardRelease();
   }
   return *this;
 }

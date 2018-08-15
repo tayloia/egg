@@ -97,8 +97,8 @@ namespace egg::lang {
   class IString {
   public:
     virtual ~IString() {}
-    virtual IString* acquireHard() const = 0;
-    virtual void releaseHard() const = 0;
+    virtual IString* hardAcquire() const = 0;
+    virtual void hardRelease() const = 0;
     virtual size_t length() const = 0;
     virtual bool empty() const = 0;
     virtual bool equal(const IString& other) const = 0;
@@ -216,8 +216,8 @@ namespace egg::lang {
   public:
     enum class AssignmentSuccess { Never, Sometimes, Always };
     virtual ~IType() {}
-    virtual IType* acquireHard() const = 0;
-    virtual void releaseHard() const = 0;
+    virtual IType* hardAcquire() const = 0;
+    virtual void hardRelease() const = 0;
     virtual std::pair<std::string, int> toStringPrecedence() const = 0;
     virtual AssignmentSuccess canBeAssignedFrom(const IType& rhs) const = 0;
 
@@ -265,9 +265,9 @@ namespace egg::lang {
     IObject& operator=(const IObject&) = delete;
   public:
     IObject() = default;
-    virtual IObject* acquireHard() const override {
+    virtual IObject* hardAcquire() const override {
       // Covariant return value
-      return static_cast<IObject*>(Collectable::acquireHard());
+      return static_cast<IObject*>(Collectable::hardAcquire());
     }
     virtual Value toString() const = 0;
     virtual ITypeRef getRuntimeType() const = 0;
@@ -471,9 +471,9 @@ namespace egg::lang {
     explicit Value(bool value) : tag(Discriminator::Bool) { this->b = value; }
     explicit Value(int64_t value) : tag(Discriminator::Int) { this->i = value; }
     explicit Value(double value) : tag(Discriminator::Float) { this->f = value; }
-    explicit Value(const String& value) : tag(Discriminator::String) { this->s = value.acquireHard(); }
-    explicit Value(const IObjectRef& value) : tag(Discriminator::Object) { this->o = value.acquireHard(); }
-    explicit Value(const IType& type) : tag(Discriminator::Type) { this->t = type.acquireHard(); }
+    explicit Value(const String& value) : tag(Discriminator::String) { this->s = value.hardAcquire(); }
+    explicit Value(const IObjectRef& value) : tag(Discriminator::Object) { this->o = value.hardAcquire(); }
+    explicit Value(const IType& type) : tag(Discriminator::Type) { this->t = type.hardAcquire(); }
     explicit Value(const ValueReferenceCounted& vrc);
     Value& operator=(const Value& value);
     Value& operator=(Value&& value) noexcept;
@@ -534,8 +534,8 @@ namespace egg::lang {
     explicit ValueReferenceCounted(Value&& value) noexcept : Value(std::move(value)) {}
   public:
     virtual ~ValueReferenceCounted() {}
-    virtual ValueReferenceCounted* acquireHard() const = 0;
-    virtual void releaseHard() const = 0;
+    virtual ValueReferenceCounted* hardAcquire() const = 0;
+    virtual void hardRelease() const = 0;
   };
 }
 
