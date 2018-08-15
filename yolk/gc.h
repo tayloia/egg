@@ -2,28 +2,6 @@ namespace egg::gc {
   class Collectable;
   template<class T> class SoftRef;
 
-  class ReferenceCount {
-    ReferenceCount(const ReferenceCount&) = delete;
-    ReferenceCount& operator=(const ReferenceCount&) = delete;
-  protected:
-    mutable egg::ovum::Atomic<int64_t> atomic;
-  public:
-    explicit ReferenceCount(int64_t init) : atomic(init) {}
-    uint64_t acquire() const {
-      auto after = this->atomic.increment();
-      assert(after > 0);
-      return static_cast<uint64_t>(after);
-    }
-    uint64_t release() const {
-      auto after = this->atomic.decrement();
-      assert(after >= 0);
-      return static_cast<uint64_t>(after);
-    }
-    uint64_t get() const {
-      return static_cast<uint64_t>(this->atomic.get());
-    }
-  };
-
   template<class T>
   class NotReferenceCounted : public T {
   public:

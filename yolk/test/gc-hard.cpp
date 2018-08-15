@@ -72,15 +72,6 @@ TEST(TestGCHard, Atomic64) {
   ASSERT_EQ(-100, a64.get());
 }
 
-TEST(TestGCHard, ReferenceCount) {
-  egg::gc::ReferenceCount rc{ 1 };
-  ASSERT_EQ(2u, rc.acquire());
-  ASSERT_EQ(3u, rc.acquire());
-  ASSERT_EQ(2u, rc.release());
-  ASSERT_EQ(1u, rc.release());
-  ASSERT_EQ(0u, rc.release());
-}
-
 TEST(TestGCHard, Monitor) {
   Monitor monitor;
   ASSERT_EQ("", monitor.read());
