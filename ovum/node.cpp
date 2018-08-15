@@ -51,7 +51,7 @@ namespace {
     Opcode opcode;
   public:
     NodeContiguous(IAllocator& allocator, Opcode opcode, typename EXTRA::Type operand)
-      : HardReferenceCounted(allocator),
+      : HardReferenceCounted(allocator, 0),
         opcode(opcode) {
       new(this->extra()) EXTRA(operand);
     }

@@ -49,6 +49,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\ovum\test.h" />
+    <ClInclude Include="..\ovum\test\etest.h" />
     <ClInclude Include="..\ovum\test\gtest.h" />
   </ItemGroup>
   <ItemGroup>

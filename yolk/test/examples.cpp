@@ -61,7 +61,7 @@ namespace {
     }
   private:
     static std::string execute(TextStream& stream) {
-      egg::ovum::AllocatorDefault allocator; // WIBBLE
+      egg::test::Allocator allocator;
       auto root = EggParserFactory::parseModule(allocator, stream);
       auto engine = EggEngineFactory::createEngineFromParsed(allocator, root);
       auto logger = std::make_shared<TestLogger>(stream.getResourceName());

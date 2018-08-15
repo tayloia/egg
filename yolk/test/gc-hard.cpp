@@ -110,7 +110,7 @@ TEST(TestGCHard, NotReferenceCounted) {
 }
 
 TEST(TestGCHard, HardRef) {
-  egg::ovum::AllocatorDefault allocator; // WIBBLE
+  egg::test::Allocator allocator;
   Monitor monitor;
   ASSERT_EQ("", monitor.read());
   {

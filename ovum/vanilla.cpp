@@ -22,7 +22,8 @@ namespace {
       : VanillaBase(allocator) {
     }
     virtual void softVisitLinks(const ICollectable::Visitor&) const override {
-      // WIBBLE
+      // TODO
+      assert(false);
     }
   };
 }

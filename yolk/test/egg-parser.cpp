@@ -32,28 +32,28 @@ namespace {
 }
 
 TEST(TestEggParser, ModuleEmpty) {
-  egg::ovum::AllocatorDefault allocator; // WIBBLE
+  egg::test::Allocator allocator{ egg::test::Allocator::Expectation::NoAllocations }; // WIBBLE
   auto parser = EggParserFactory::createModuleParser();
   auto root = parseFromString(allocator, *parser, "");
   ASSERT_PARSE_GOOD(dumpToString(*root), "(module)");
 }
 
 TEST(TestEggParser, ModuleBlock) {
-  egg::ovum::AllocatorDefault allocator; // WIBBLE
+  egg::test::Allocator allocator{ egg::test::Allocator::Expectation::NoAllocations }; // WIBBLE
   auto parser = EggParserFactory::createModuleParser();
   auto root = parseFromString(allocator, *parser, "{}");
   ASSERT_PARSE_GOOD(dumpToString(*root), "(module (block))");
 }
 
 TEST(TestEggParser, ModuleSimple) {
-  egg::ovum::AllocatorDefault allocator; // WIBBLE
+  egg::test::Allocator allocator{ egg::test::Allocator::Expectation::NoAllocations }; // WIBBLE
   auto parser = EggParserFactory::createModuleParser();
   auto root = parseFromString(allocator, *parser, "var a = b; a = c;");
   ASSERT_PARSE_GOOD(dumpToString(*root), "(module (declare 'a' 'var' (identifier 'b')) (assign '=' (identifier 'a') (identifier 'c')))");
 }
 
 TEST(TestEggParser, ExpressionType) {
-  egg::ovum::AllocatorDefault allocator; // WIBBLE
+  egg::test::Allocator allocator{ egg::test::Allocator::Expectation::NoAllocations }; // WIBBLE
   ASSERT_PARSE_GOOD(typeFromExpression(allocator, "null"), "null");
   ASSERT_PARSE_GOOD(typeFromExpression(allocator, "false"), "bool");
   ASSERT_PARSE_GOOD(typeFromExpression(allocator, "true"), "bool");
@@ -107,7 +107,7 @@ TEST(TestEggParser, ExpressionType) {
 }
 
 TEST(TestEggParser, ExampleFile) {
-  egg::ovum::AllocatorDefault allocator; // WIBBLE
+  egg::test::Allocator allocator{ egg::test::Allocator::Expectation::NoAllocations }; // WIBBLE
   FileTextStream stream("~/yolk/test/data/example.egg");
   auto root = EggParserFactory::parseModule(allocator, stream);
   root->dump(std::cout);

@@ -447,7 +447,7 @@ namespace egg::lang {
       int64_t i;
       double f;
       IObject* o; // hard
-      egg::gc::SoftRef<IObject>* r; // soft WIBBLE
+      egg::gc::SoftRef<IObject>* r;
       const IString* s;
       const IType* t;
       ValueReferenceCounted* v;

@@ -1257,7 +1257,7 @@ egg::lang::Value& egg::lang::Value::direct() {
 egg::lang::ValueReferenceCounted& egg::lang::Value::indirect(egg::ovum::IAllocator& allocator) {
   // Make this value indirect (i.e. heap-based)
   if (!this->has(Discriminator::Indirect)) {
-    auto* heap = allocator.create<ValueOnHeap>(0, allocator, std::move(*this)); // WIBBLE
+    auto* heap = allocator.create<ValueOnHeap>(0, allocator, std::move(*this));
     assert(this->tag == Discriminator::None); // as a side-effect of the move
     this->tag = Discriminator::Indirect;
     this->v = heap->hardAcquire();

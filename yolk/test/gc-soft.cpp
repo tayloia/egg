@@ -31,14 +31,14 @@ namespace {
 }
 
 TEST(TestGCSoft, BasketEmpty) {
-  egg::ovum::AllocatorDefault allocator; // WIBBLE
+  egg::test::Allocator allocator;
   auto basket = egg::gc::BasketFactory::createBasket(allocator);
   ASSERT_EQ(0u, basketCount(*basket, &egg::gc::Basket::visitCollectables));
   ASSERT_EQ(0u, basketCount(*basket, &egg::gc::Basket::visitRoots));
 }
 
 TEST(TestGCSoft, BasketAdd) {
-  egg::ovum::AllocatorDefault allocator; // WIBBLE
+  egg::test::Allocator allocator;
   auto basket = egg::gc::BasketFactory::createBasket(allocator);
   {
     egg::gc::HardRef<Instance> instance{ allocator.make<Instance>("instance") };
@@ -51,7 +51,7 @@ TEST(TestGCSoft, BasketAdd) {
 }
 
 TEST(TestGCSoft, BasketAddRoot) {
-  egg::ovum::AllocatorDefault allocator; // WIBBLE
+  egg::test::Allocator allocator;
   auto basket = egg::gc::BasketFactory::createBasket(allocator);
   auto instance = basket->make<Instance>("instance");
   ASSERT_EQ(1u, basketCount(*basket, &egg::gc::Basket::visitCollectables));
@@ -60,7 +60,7 @@ TEST(TestGCSoft, BasketAddRoot) {
 }
 
 TEST(TestGCSoft, BasketPoint) {
-  egg::ovum::AllocatorDefault allocator; // WIBBLE
+  egg::test::Allocator allocator;
   auto basket = egg::gc::BasketFactory::createBasket(allocator);
   auto a = basket->make<Instance>("a");
   auto b = basket->make<Instance>("b");
@@ -71,7 +71,7 @@ TEST(TestGCSoft, BasketPoint) {
 }
 
 TEST(TestGCSoft, BasketCollect) {
-  egg::ovum::AllocatorDefault allocator; // WIBBLE
+  egg::test::Allocator allocator;
   auto basket = egg::gc::BasketFactory::createBasket(allocator);
   {
     auto a = basket->make<Instance>("a");
@@ -86,7 +86,7 @@ TEST(TestGCSoft, BasketCollect) {
 }
 
 TEST(TestGCSoft, BasketCycle1) {
-  egg::ovum::AllocatorDefault allocator; // WIBBLE
+  egg::test::Allocator allocator;
   auto basket = egg::gc::BasketFactory::createBasket(allocator);
   {
     auto a = basket->make<Instance>("a");
@@ -101,7 +101,7 @@ TEST(TestGCSoft, BasketCycle1) {
 }
 
 TEST(TestGCSoft, BasketCycle2) {
-  egg::ovum::AllocatorDefault allocator; // WIBBLE
+  egg::test::Allocator allocator;
   auto basket = egg::gc::BasketFactory::createBasket(allocator);
   {
     auto a = basket->make<Instance>("a");
@@ -118,7 +118,7 @@ TEST(TestGCSoft, BasketCycle2) {
 }
 
 TEST(TestGCSoft, BasketCycle3) {
-  egg::ovum::AllocatorDefault allocator; // WIBBLE
+  egg::test::Allocator allocator;
   auto basket = egg::gc::BasketFactory::createBasket(allocator);
   {
     auto a = basket->make<Instance>("a");

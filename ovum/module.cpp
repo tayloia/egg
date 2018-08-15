@@ -475,12 +475,9 @@ namespace {
   private:
     Node root;
   public:
-    explicit ModuleDefault(IAllocator& allocator)
-      : HardReferenceCounted(allocator) {
-    }
-    ModuleDefault(IAllocator& allocator, INode& root)
-      : HardReferenceCounted(allocator),
-        root(&root) {
+    explicit ModuleDefault(IAllocator& allocator, INode* root = nullptr)
+      : HardReferenceCounted(allocator, 0),
+        root(root) {
     }
     virtual INode& getRootNode() const override {
       assert(this->root != nullptr);
@@ -508,7 +505,7 @@ egg::ovum::Module egg::ovum::ModuleFactory::fromMemory(IAllocator& allocator, co
 }
 
 egg::ovum::Module egg::ovum::ModuleFactory::fromRootNode(IAllocator& allocator, INode& root) {
-  return Module(allocator.create<ModuleDefault>(0, allocator, root));
+  return Module(allocator.create<ModuleDefault>(0, allocator, &root));
 }
 
 void egg::ovum::ModuleFactory::toBinaryStream(const IModule& module, std::ostream& stream) {

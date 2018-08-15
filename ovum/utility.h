@@ -48,11 +48,8 @@ namespace egg::ovum {
     IAllocator& allocator;
     mutable Atomic<int64_t> atomic; // signed so we can detect underflows
   public:
-    explicit HardReferenceCounted(IAllocator& allocator)
-      : T(), allocator(allocator), atomic(0) {
-    }
     template<typename... ARGS>
-    explicit HardReferenceCounted(IAllocator& allocator, int64_t atomic, ARGS&&... args) // WIBBLE
+    HardReferenceCounted(IAllocator& allocator, int64_t atomic, ARGS&&... args)
       : T(std::forward<ARGS>(args)...), allocator(allocator), atomic(atomic) {
     }
     virtual ~HardReferenceCounted() {
@@ -78,8 +75,8 @@ namespace egg::ovum {
     IBasket* basket;
   public:
     explicit SoftReferenceCounted(IAllocator& allocator)
-      : HardReferenceCounted<T>(allocator),
-      basket(nullptr) {
+      : HardReferenceCounted<T>(allocator, 0),
+        basket(nullptr) {
     }
     virtual ~SoftReferenceCounted() override {
       // Make sure we're no longer a member of a basket

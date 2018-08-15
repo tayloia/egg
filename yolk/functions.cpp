@@ -276,7 +276,7 @@ namespace {
     std::shared_ptr<egg::yolk::IEggProgramNode> block;
   public:
     FunctionCoroutineStackless(egg::ovum::IAllocator& allocator, const std::shared_ptr<egg::yolk::IEggProgramNode>& block)
-      : HardReferenceCounted(allocator),
+      : HardReferenceCounted(allocator, 0),
         stack(nullptr),
         block(block) {
       assert(block != nullptr);

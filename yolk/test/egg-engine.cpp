@@ -40,7 +40,7 @@ namespace {
   };
 
   std::string logFromEngine(TextStream& stream) {
-    egg::ovum::AllocatorDefault allocator; // WIBBLE
+    egg::test::Allocator allocator;
     auto root = EggParserFactory::parseModule(allocator, stream);
     auto engine = EggEngineFactory::createEngineFromParsed(allocator, root);
     auto logger = std::make_shared<TestLogger>();
@@ -54,7 +54,7 @@ namespace {
 }
 
 TEST(TestEggEngine, CreateEngineFromParsed) {
-  egg::ovum::AllocatorDefault allocator; // WIBBLE
+  egg::test::Allocator allocator;
   FileTextStream stream("~/yolk/test/data/example.egg");
   auto root = EggParserFactory::parseModule(allocator, stream);
   auto engine = EggEngineFactory::createEngineFromParsed(allocator, root);
@@ -65,7 +65,7 @@ TEST(TestEggEngine, CreateEngineFromParsed) {
 }
 
 TEST(TestEggEngine, CreateEngineFromTextStream) {
-  egg::ovum::AllocatorDefault allocator; // WIBBLE
+  egg::test::Allocator allocator;
   FileTextStream stream("~/yolk/test/data/example.egg");
   auto engine = EggEngineFactory::createEngineFromTextStream(stream);
   auto logger = std::make_shared<TestLogger>();
@@ -75,7 +75,7 @@ TEST(TestEggEngine, CreateEngineFromTextStream) {
 }
 
 TEST(TestEggEngine, CreateEngineFromGarbage) {
-  egg::ovum::AllocatorDefault allocator; // WIBBLE
+  egg::test::Allocator allocator{ egg::test::Allocator::Expectation::NoAllocations };
   StringTextStream stream("$");
   auto engine = EggEngineFactory::createEngineFromTextStream(stream);
   auto logger = std::make_shared<TestLogger>();
@@ -85,7 +85,7 @@ TEST(TestEggEngine, CreateEngineFromGarbage) {
 }
 
 TEST(TestEggEngine, PrepareTwice) {
-  egg::ovum::AllocatorDefault allocator; // WIBBLE
+  egg::test::Allocator allocator;
   StringTextStream stream("print(123);");
   auto engine = EggEngineFactory::createEngineFromTextStream(stream);
   auto logger = std::make_shared<TestLogger>();
@@ -97,7 +97,7 @@ TEST(TestEggEngine, PrepareTwice) {
 }
 
 TEST(TestEggEngine, ExecuteUnprepared) {
-  egg::ovum::AllocatorDefault allocator; // WIBBLE
+  egg::test::Allocator allocator{ egg::test::Allocator::Expectation::NoAllocations };
   FileTextStream stream("~/yolk/test/data/example.egg");
   auto engine = EggEngineFactory::createEngineFromTextStream(stream);
   auto logger = std::make_shared<TestLogger>();
@@ -119,7 +119,7 @@ TEST(TestEggEngine, DuplicateSymbols) {
 
 TEST(TestEggEngine, WorkingFile) {
   // TODO still needed?
-  egg::ovum::AllocatorDefault allocator; // WIBBLE
+  egg::test::Allocator allocator;
   FileTextStream stream("~/yolk/test/data/working.egg");
   auto engine = EggEngineFactory::createEngineFromTextStream(stream);
   auto logger = std::make_shared<TestLogger>();
@@ -133,7 +133,7 @@ TEST(TestEggEngine, WorkingFile) {
 
 TEST(TestEggEngine, Coverage) {
   // This script is used to cover most language feature
-  egg::ovum::AllocatorDefault allocator; // WIBBLE
+  egg::test::Allocator allocator;
   FileTextStream stream("~/yolk/test/data/coverage.egg");
   auto engine = EggEngineFactory::createEngineFromTextStream(stream);
   auto logger = std::make_shared<TestLogger>();

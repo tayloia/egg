@@ -107,7 +107,7 @@ namespace egg::gc {
     Basket::Link* ownedLinks;
   protected:
     explicit Collectable(egg::ovum::IAllocator& allocator)
-      : HardReferenceCounted(allocator),
+      : HardReferenceCounted(allocator, 0),
         basket(nullptr),
         prevInBasket(nullptr),
         nextInBasket(nullptr),
