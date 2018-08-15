@@ -40,7 +40,6 @@
     <ClInclude Include="..\ovum\node.h" />
     <ClInclude Include="..\ovum\ovum.h" />
     <ClInclude Include="..\ovum\test.h" />
-    <ClInclude Include="..\ovum\utf8.h" />
     <ClInclude Include="..\ovum\utility.h" />
     <ClInclude Include="..\ovum\variant.h" />
     <ClInclude Include="..\ovum\vm.h" />

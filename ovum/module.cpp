@@ -1,7 +1,6 @@
 #include "ovum/ovum.h"
 #include "ovum/node.h"
 #include "ovum/module.h"
-#include "ovum/utf8.h"
 
 #include <algorithm>
 
@@ -157,7 +156,7 @@ namespace {
         // Fast code path for ASCII
         return true;
       }
-      auto length = utf8::sizeFromLeadByte(byte);
+      auto length = UTF8::sizeFromLeadByte(byte);
       if (length == SIZE_MAX) {
         throw std::runtime_error("Corrupt UTF-8 string constant in binary module");
       }

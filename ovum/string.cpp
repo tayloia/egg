@@ -1,5 +1,4 @@
 #include "ovum/ovum.h"
-#include "ovum/utf8.h"
 
 namespace {
   using namespace egg::ovum;
@@ -24,7 +23,7 @@ namespace {
       return nullptr;
     }
     if (codepoints == SIZE_MAX) {
-      codepoints = utf8::measure(utf8, utf8 + bytes);
+      codepoints = UTF8::measure(utf8, utf8 + bytes);
     }
     if (codepoints > bytes) {
       throw std::invalid_argument("String: Invalid UTF-8 input data");

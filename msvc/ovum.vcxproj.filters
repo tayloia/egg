@@ -43,9 +43,6 @@
     <ClInclude Include="..\ovum\factories.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\ovum\utf8.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="..\ovum\variant.h">
       <Filter>Header Files</Filter>
     </ClInclude>

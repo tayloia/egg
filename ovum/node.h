@@ -1,4 +1,11 @@
 namespace egg::ovum {
+  enum Opcode {
+#define EGG_VM_OPCODES_ENUM(opcode, minbyte, minargs, maxargs, text) opcode = minbyte,
+    EGG_VM_OPCODES(EGG_VM_OPCODES_ENUM)
+#undef EGG_VM_OPCODES_ENUM
+    OPCODE_reserved = -1
+  };
+
   class INode : public IHardAcquireRelease {
   public:
     enum class Operand { None, Int, Float, String };
