@@ -19,7 +19,7 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="..\ovum\test\ast.cpp" />
+    <ClCompile Include="..\ovum\test\node.cpp" />
     <ClCompile Include="..\ovum\test\gtest.cpp">
       <AdditionalIncludeDirectories Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">$(GoogleTest);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <AdditionalIncludeDirectories Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">$(GoogleTest);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
@@ -38,6 +38,7 @@
     <ClCompile Include="..\ovum\test\module.cpp" />
     <ClCompile Include="..\ovum\test\string.cpp" />
     <ClCompile Include="..\ovum\test\testing.cpp" />
+    <ClCompile Include="..\ovum\test\utility.cpp" />
     <ClCompile Include="..\ovum\test\variant.cpp" />
     <ClCompile Include="ovum-test.pch.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>

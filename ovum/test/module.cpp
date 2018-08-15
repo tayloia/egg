@@ -1,7 +1,6 @@
 #include "ovum/test.h"
-#include "ovum/ast.h"
-
-#include <cmath>
+#include "ovum/node.h"
+#include "ovum/module.h"
 
 #define EGG_VM_MAGIC_BYTE(byte) byte,
 #define MAGIC EGG_VM_MAGIC(EGG_VM_MAGIC_BYTE)

@@ -1,70 +1,9 @@
 #include "ovum/test.h"
-#include "ovum/ast.h"
-
-#include <cmath>
+#include "ovum/node.h"
 
 using namespace egg::ovum;
 
-#define TEST_ME(f, m, e) \
-  me.fromFloat(f); \
-  ASSERT_EQ(m, me.mantissa); \
-  ASSERT_EQ(e, me.exponent); \
-  ASSERT_EQ(f, me.toFloat())
-
-TEST(TestAST, MantissaExponent) {
-  using Limits = std::numeric_limits<Float>;
-  MantissaExponent me;
-  // zero = 0 * 2^0
-  const auto zero = 0.0;
-  TEST_ME(zero, 0, 0);
-  TEST_ME(-zero, 0, 0);
-  // half = 1 * 2^-1
-  const auto half = 0.5;
-  TEST_ME(half, 1, -1);
-  TEST_ME(-half, -1, -1);
-  // one = 1 * 2^0
-  const auto one = 1.0;
-  TEST_ME(one, 1, 0);
-  TEST_ME(-one, -1, 0);
-  // ten = 5 * 2^1
-  const auto ten = 10.0;
-  TEST_ME(ten, 5, 1);
-  TEST_ME(-ten, -5, 1);
-  // almost one
-  auto mantissaBits = Limits::digits;
-  auto mantissaMax = Float(1ull << mantissaBits);
-  auto almost = (mantissaMax - 1) / mantissaMax;
-  TEST_ME(almost, mantissaMax - 1, -mantissaBits);
-  TEST_ME(-almost, -mantissaMax + 1, -mantissaBits);
-  // epsilon
-  auto epsilon = Limits::epsilon();
-  TEST_ME(epsilon, 1, 1 - mantissaBits);
-  TEST_ME(-epsilon, -1, 1 - mantissaBits);
-  // tiny (smallest positive normal)
-  auto exponentMax = Limits::max_exponent;
-  auto tiny = Limits::min();
-  TEST_ME(tiny, 1, -exponentMax + 2);
-  TEST_ME(-tiny, -1, -exponentMax + 2);
-  // lowest (most negative normal)
-  auto lowest = Limits::lowest();
-  TEST_ME(lowest, -mantissaMax + 1, exponentMax - mantissaBits);
-  TEST_ME(-lowest, +mantissaMax - 1, exponentMax - mantissaBits);
-  // highest (most positive normal)
-  auto highest = Limits::max();
-  TEST_ME(highest, mantissaMax - 1, exponentMax - mantissaBits);
-  TEST_ME(-highest, -mantissaMax + 1, exponentMax - mantissaBits);
-  // infinity
-  auto infinity = Limits::infinity();
-  TEST_ME(infinity, 0, MantissaExponent::ExponentPositiveInfinity);
-  TEST_ME(-infinity, 0, MantissaExponent::ExponentNegativeInfinity);
-  // not a number (cannot test equality)
-  me.fromFloat(Limits::quiet_NaN());
-  ASSERT_EQ(0, me.mantissa);
-  ASSERT_EQ(MantissaExponent::ExponentNaN, me.exponent);
-  ASSERT_TRUE(std::isnan(me.toFloat()));
-}
-
-TEST(TestAST, ChildrenFromMachineByte) {
+TEST(TestNode, ChildrenFromMachineByte) {
   ASSERT_EQ(0u, childrenFromMachineByte(0));
   ASSERT_EQ(1u, childrenFromMachineByte(1));
   ASSERT_EQ(2u, childrenFromMachineByte(2));
@@ -80,7 +19,7 @@ TEST(TestAST, ChildrenFromMachineByte) {
   ASSERT_EQ(3u, childrenFromMachineByte(255));
 }
 
-TEST(TestAST, OpcodeFromMachineByte) {
+TEST(TestNode, OpcodeFromMachineByte) {
   ASSERT_EQ(OPCODE_END, opcodeFromMachineByte(0));
   ASSERT_EQ(OPCODE_UNARY, opcodeFromMachineByte(1));
   ASSERT_EQ(OPCODE_BINARY, opcodeFromMachineByte(2));
@@ -339,25 +278,25 @@ TEST(TestAST, OpcodeFromMachineByte) {
   ASSERT_EQ(OPCODE_MODULE, opcodeFromMachineByte(255));
 }
 
-TEST(TestAST, OpcodeEncode0) {
+TEST(TestNode, OpcodeEncode0) {
   ASSERT_EQ(72, opcodeProperties(OPCODE_NULL).encode(0));
   ASSERT_EQ(0, opcodeProperties(OPCODE_NULL).encode(1));
 }
 
-TEST(TestAST, OpcodeEncode1) {
+TEST(TestNode, OpcodeEncode1) {
   ASSERT_EQ(0, opcodeProperties(OPCODE_UNARY).encode(0));
   ASSERT_EQ(1, opcodeProperties(OPCODE_UNARY).encode(1));
   ASSERT_EQ(0, opcodeProperties(OPCODE_UNARY).encode(2));
 }
 
-TEST(TestAST, OpcodeEncode2) {
+TEST(TestNode, OpcodeEncode2) {
   ASSERT_EQ(0, opcodeProperties(OPCODE_BINARY).encode(0));
   ASSERT_EQ(0, opcodeProperties(OPCODE_BINARY).encode(1));
   ASSERT_EQ(2, opcodeProperties(OPCODE_BINARY).encode(2));
   ASSERT_EQ(0, opcodeProperties(OPCODE_BINARY).encode(3));
 }
 
-TEST(TestAST, OpcodeEncode3) {
+TEST(TestNode, OpcodeEncode3) {
   ASSERT_EQ(0, opcodeProperties(OPCODE_TERNARY).encode(0));
   ASSERT_EQ(0, opcodeProperties(OPCODE_TERNARY).encode(1));
   ASSERT_EQ(0, opcodeProperties(OPCODE_TERNARY).encode(2));
@@ -365,7 +304,7 @@ TEST(TestAST, OpcodeEncode3) {
   ASSERT_EQ(0, opcodeProperties(OPCODE_TERNARY).encode(4));
 }
 
-TEST(TestAST, OpcodeEncode4) {
+TEST(TestNode, OpcodeEncode4) {
   ASSERT_EQ(0, opcodeProperties(OPCODE_FOR).encode(0));
   ASSERT_EQ(0, opcodeProperties(OPCODE_FOR).encode(1));
   ASSERT_EQ(0, opcodeProperties(OPCODE_FOR).encode(2));
@@ -374,7 +313,7 @@ TEST(TestAST, OpcodeEncode4) {
   ASSERT_EQ(0, opcodeProperties(OPCODE_FOR).encode(5));
 }
 
-TEST(TestAST, OpcodeEncode5) {
+TEST(TestNode, OpcodeEncode5) {
   ASSERT_EQ(210, opcodeProperties(OPCODE_AVALUE).encode(0));
   ASSERT_EQ(211, opcodeProperties(OPCODE_AVALUE).encode(1));
   ASSERT_EQ(212, opcodeProperties(OPCODE_AVALUE).encode(2));
@@ -385,7 +324,7 @@ TEST(TestAST, OpcodeEncode5) {
   ASSERT_EQ(215, opcodeProperties(OPCODE_AVALUE).encode(7));
 }
 
-TEST(TestAST, Create0) {
+TEST(TestNode, Create0) {
   egg::test::Allocator allocator;
   auto parent = NodeFactory::create(allocator, OPCODE_NOOP);
   ASSERT_EQ(OPCODE_NOOP, parent->getOpcode());
@@ -398,7 +337,7 @@ TEST(TestAST, Create0) {
   ASSERT_THROW(parent->getString(), std::runtime_error);
 }
 
-TEST(TestAST, Create1) {
+TEST(TestNode, Create1) {
   egg::test::Allocator allocator;
   auto child = NodeFactory::create(allocator, OPCODE_NULL);
   auto parent = NodeFactory::create(allocator, OPCODE_AVALUE, child);
@@ -413,7 +352,7 @@ TEST(TestAST, Create1) {
   ASSERT_EQ(child.get(), &parent->getChild(0));
 }
 
-TEST(TestAST, Create2) {
+TEST(TestNode, Create2) {
   egg::test::Allocator allocator;
   auto child0 = NodeFactory::create(allocator, OPCODE_FALSE);
   auto child1 = NodeFactory::create(allocator, OPCODE_TRUE);
@@ -430,7 +369,7 @@ TEST(TestAST, Create2) {
   ASSERT_EQ(child1.get(), &parent->getChild(1));
 }
 
-TEST(TestAST, Create3) {
+TEST(TestNode, Create3) {
   egg::test::Allocator allocator;
   auto child0 = NodeFactory::create(allocator, OPCODE_NULL);
   auto child1 = NodeFactory::create(allocator, OPCODE_FALSE);
@@ -449,7 +388,7 @@ TEST(TestAST, Create3) {
   ASSERT_EQ(child2.get(), &parent->getChild(2));
 }
 
-TEST(TestAST, Create4) {
+TEST(TestNode, Create4) {
   egg::test::Allocator allocator;
   auto child0 = NodeFactory::create(allocator, OPCODE_NULL);
   auto child1 = NodeFactory::create(allocator, OPCODE_FALSE);
@@ -470,7 +409,7 @@ TEST(TestAST, Create4) {
   ASSERT_EQ(child3.get(), &parent->getChild(3));
 }
 
-TEST(TestAST, Create5) {
+TEST(TestNode, Create5) {
   egg::test::Allocator allocator;
   Nodes children{
     NodeFactory::create(allocator, OPCODE_NULL),
@@ -495,7 +434,7 @@ TEST(TestAST, Create5) {
   ASSERT_EQ(children[4].get(), &parent->getChild(4));
 }
 
-TEST(TestAST, CreateWithInt0) {
+TEST(TestNode, CreateWithInt0) {
   egg::test::Allocator allocator;
   Int operand{ 123456789 };
   auto parent = NodeFactory::create(allocator, OPCODE_IVALUE, {}, {}, operand);
@@ -509,7 +448,7 @@ TEST(TestAST, CreateWithInt0) {
   ASSERT_THROW(parent->getString(), std::runtime_error);
 }
 
-TEST(TestAST, CreateWithFloat0) {
+TEST(TestNode, CreateWithFloat0) {
   egg::test::Allocator allocator;
   Float operand{ 3.14159 };
   auto parent = NodeFactory::create(allocator, OPCODE_FVALUE, {}, {}, operand);
@@ -523,7 +462,7 @@ TEST(TestAST, CreateWithFloat0) {
   ASSERT_THROW(parent->getString(), std::runtime_error);
 }
 
-TEST(TestAST, CreateWithString0) {
+TEST(TestNode, CreateWithString0) {
   egg::test::Allocator allocator;
   String operand{ "hello" };
   auto parent = NodeFactory::create(allocator, OPCODE_SVALUE, {}, {}, operand);
@@ -537,7 +476,7 @@ TEST(TestAST, CreateWithString0) {
   ASSERT_STRING(operand, parent->getString());
 }
 
-TEST(TestAST, CreateWithInt1) {
+TEST(TestNode, CreateWithInt1) {
   egg::test::Allocator allocator;
   Nodes children{ NodeFactory::create(allocator, OPCODE_NULL) };
   Int operand{ 123456789 };
@@ -553,7 +492,7 @@ TEST(TestAST, CreateWithInt1) {
   ASSERT_EQ(children[0].get(), &parent->getChild(0));
 }
 
-TEST(TestAST, CreateWithInt2) {
+TEST(TestNode, CreateWithInt2) {
   egg::test::Allocator allocator;
   Nodes children{ NodeFactory::create(allocator, OPCODE_FALSE), NodeFactory::create(allocator, OPCODE_TRUE) };
   Int operand{ 123456789 };
@@ -570,7 +509,7 @@ TEST(TestAST, CreateWithInt2) {
   ASSERT_EQ(children[1].get(), &parent->getChild(1));
 }
 
-TEST(TestAST, CreateWithInt3) {
+TEST(TestNode, CreateWithInt3) {
   egg::test::Allocator allocator;
   Nodes children{ NodeFactory::create(allocator, OPCODE_NULL), NodeFactory::create(allocator, OPCODE_FALSE), NodeFactory::create(allocator, OPCODE_TRUE) };
   Nodes attributes{};
@@ -589,7 +528,7 @@ TEST(TestAST, CreateWithInt3) {
   ASSERT_EQ(children[2].get(), &parent->getChild(2));
 }
 
-TEST(TestAST, CreateWithAttributes0) {
+TEST(TestNode, CreateWithAttributes0) {
   egg::test::Allocator allocator;
   Nodes children{};
   auto attribute = NodeFactory::create(allocator, OPCODE_ATTRIBUTE, NodeFactory::create(allocator, OPCODE_NULL));
@@ -608,7 +547,7 @@ TEST(TestAST, CreateWithAttributes0) {
   ASSERT_EQ(attribute.get(), &parent->getAttribute(0));
 }
 
-TEST(TestAST, CreateWithAttributes1) {
+TEST(TestNode, CreateWithAttributes1) {
   egg::test::Allocator allocator;
   Nodes children{ NodeFactory::create(allocator, OPCODE_FALSE) };
   auto attribute = NodeFactory::create(allocator, OPCODE_ATTRIBUTE, NodeFactory::create(allocator, OPCODE_NULL));
@@ -628,7 +567,7 @@ TEST(TestAST, CreateWithAttributes1) {
   ASSERT_EQ(attribute.get(), &parent->getAttribute(0));
 }
 
-TEST(TestAST, CreateWithAttributes2) {
+TEST(TestNode, CreateWithAttributes2) {
   egg::test::Allocator allocator;
   Nodes children{ NodeFactory::create(allocator, OPCODE_FALSE), NodeFactory::create(allocator, OPCODE_TRUE) };
   auto attribute = NodeFactory::create(allocator, OPCODE_ATTRIBUTE, NodeFactory::create(allocator, OPCODE_NULL));

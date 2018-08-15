@@ -1,5 +1,5 @@
 #include "ovum/ovum.h"
-#include "ovum/ast.h"
+#include "ovum/node.h"
 
 #include <cmath>
 

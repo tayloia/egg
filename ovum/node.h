@@ -1,15 +1,4 @@
 namespace egg::ovum {
-  // Helper for converting IEEE to/from mantissa/exponents
-  struct MantissaExponent {
-    static constexpr int64_t ExponentNaN = 1;
-    static constexpr int64_t ExponentPositiveInfinity = 2;
-    static constexpr int64_t ExponentNegativeInfinity = -2;
-    int64_t mantissa;
-    int64_t exponent;
-    void fromFloat(Float f);
-    Float toFloat() const;
-  };
-
   class INode : public IHardAcquireRelease {
   public:
     enum class Operand { None, Int, Float, String };
@@ -41,21 +30,6 @@ namespace egg::ovum {
     static Node create(IAllocator& allocator, Opcode opcode, const Nodes* children, const Nodes* attributes, Float operand);
     static Node create(IAllocator& allocator, Opcode opcode, const Nodes* children, const Nodes* attributes, const String& operand);
   };
-
-  class IModule : public IHardAcquireRelease {
-  public:
-    virtual INode& getRootNode() const = 0;
-  };
-  using Module = HardPtr<IModule>;
-
-  class ModuleFactory {
-  public:
-    static Module fromBinaryStream(IAllocator& allocator, std::istream& stream);
-    static Module fromMemory(IAllocator& allocator, const uint8_t* begin, const uint8_t* end);
-    static Module fromRootNode(IAllocator& allocator, INode& root);
-    static void toBinaryStream(const IModule& module, std::ostream& stream);
-  };
-
   inline size_t childrenFromMachineByte(uint8_t byte) {
     // Compute the number of children from a VM code byte
     auto following = byte % (EGG_VM_NARGS + 1);
@@ -88,27 +62,4 @@ namespace egg::ovum {
     }
   };
   const OpcodeProperties& opcodeProperties(Opcode opcode);
-
-  class ModuleBuilder {
-    ModuleBuilder(const ModuleBuilder&) = delete;
-    ModuleBuilder& operator=(const ModuleBuilder&) = delete;
-  public:
-    IAllocator& allocator;
-    Nodes attributes;
-  public:
-    explicit ModuleBuilder(IAllocator& allocator);
-    Node createModule(const Node& block);
-    Node createValueInt(Int value);
-    Node createValueFloat(Float value);
-    Node createValueString(const String& value);
-    Node createValueArray(const Nodes& elements);
-    Node createValueObject(const Nodes& fields);
-    Node createOperator(Opcode opcode, Int op, const Nodes& children);
-    Node createNode(Opcode opcode);
-    Node createNode(Opcode opcode, const Node& child0);
-    Node createNode(Opcode opcode, const Node& child0, const Node& child1);
-    Node createNode(Opcode opcode, const Node& child0, const Node& child1, const Node& child2);
-    Node createNode(Opcode opcode, const Node& child0, const Node& child1, const Node& child2, const Node& child3);
-    Node createNode(Opcode opcode, const Nodes& children);
-  };
 }

@@ -32,7 +32,7 @@
     <ClCompile Include="..\ovum\module.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\ovum\ast.cpp">
+    <ClCompile Include="..\ovum\node.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -55,7 +55,16 @@
     <ClInclude Include="..\ovum\vm.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\ovum\ast.h">
+    <ClInclude Include="..\ovum\module.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ovum\utility.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ovum\node.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ovum\test.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
