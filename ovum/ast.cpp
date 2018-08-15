@@ -5,7 +5,6 @@
 
 namespace {
   using namespace egg::ovum;
-  using namespace egg::ovum::ast;
 
   struct Table {
     static const Table instance;
@@ -290,7 +289,7 @@ namespace {
   }
 }
 
-void egg::ovum::ast::MantissaExponent::fromFloat(Float f) {
+void egg::ovum::MantissaExponent::fromFloat(Float f) {
   switch (std::fpclassify(f)) {
   case FP_NORMAL:
     // Finite
@@ -330,7 +329,7 @@ void egg::ovum::ast::MantissaExponent::fromFloat(Float f) {
   }
 }
 
-egg::ovum::Float egg::ovum::ast::MantissaExponent::toFloat() const {
+egg::ovum::Float egg::ovum::MantissaExponent::toFloat() const {
   if (this->mantissa == 0) {
     switch (this->exponent) {
     case 0:
@@ -347,28 +346,28 @@ egg::ovum::Float egg::ovum::ast::MantissaExponent::toFloat() const {
   return std::ldexp(this->mantissa, int(this->exponent));
 }
 
-egg::ovum::Opcode egg::ovum::ast::opcodeFromMachineByte(uint8_t byte) {
+egg::ovum::Opcode egg::ovum::opcodeFromMachineByte(uint8_t byte) {
   return Table::instance.opcode[byte];
 }
 
-const egg::ovum::ast::OpcodeProperties& egg::ovum::ast::opcodeProperties(Opcode opcode) {
+const egg::ovum::OpcodeProperties& egg::ovum::opcodeProperties(Opcode opcode) {
   assert((opcode >= 1) && (opcode <= 255));
   return Table::instance.properties[opcode];
 }
 
-egg::ovum::ast::Node egg::ovum::ast::NodeFactory::create(IAllocator& allocator, Opcode opcode) {
+egg::ovum::Node egg::ovum::NodeFactory::create(IAllocator& allocator, Opcode opcode) {
   assert(opcodeProperties(opcode).validate(0, false));
   return Node(createNodeExtra<NodeChildrenFixed<0>, NodeAttributesFixed<0>, NodeOperandNone>(allocator, opcode, 0, nullptr));
 }
 
-egg::ovum::ast::Node egg::ovum::ast::NodeFactory::create(IAllocator& allocator, Opcode opcode, const Node& child0) {
+egg::ovum::Node egg::ovum::NodeFactory::create(IAllocator& allocator, Opcode opcode, const Node& child0) {
   assert(opcodeProperties(opcode).validate(1, false));
   auto* node = createNodeExtra<NodeChildrenFixed<1>, NodeAttributesFixed<0>, NodeOperandNone>(allocator, opcode, 1, nullptr);
   node->initChild(0, child0);
   return Node(node);
 }
 
-egg::ovum::ast::Node egg::ovum::ast::NodeFactory::create(IAllocator& allocator, Opcode opcode, const Node& child0, const Node& child1) {
+egg::ovum::Node egg::ovum::NodeFactory::create(IAllocator& allocator, Opcode opcode, const Node& child0, const Node& child1) {
   assert(opcodeProperties(opcode).validate(2, false));
   auto* node = createNodeExtra<NodeChildrenFixed<2>, NodeAttributesFixed<0>, NodeOperandNone>(allocator, opcode, 2, nullptr);
   node->initChild(0, child0);
@@ -376,7 +375,7 @@ egg::ovum::ast::Node egg::ovum::ast::NodeFactory::create(IAllocator& allocator, 
   return Node(node);
 }
 
-egg::ovum::ast::Node egg::ovum::ast::NodeFactory::create(IAllocator& allocator, Opcode opcode, const Node& child0, const Node& child1, const Node& child2) {
+egg::ovum::Node egg::ovum::NodeFactory::create(IAllocator& allocator, Opcode opcode, const Node& child0, const Node& child1, const Node& child2) {
   assert(opcodeProperties(opcode).validate(3, false));
   auto* node = createNodeExtra<NodeChildrenFixed<3>, NodeAttributesFixed<0>, NodeOperandNone>(allocator, opcode, 3, nullptr);
   node->initChild(0, child0);
@@ -385,7 +384,7 @@ egg::ovum::ast::Node egg::ovum::ast::NodeFactory::create(IAllocator& allocator, 
   return Node(node);
 }
 
-egg::ovum::ast::Node egg::ovum::ast::NodeFactory::create(IAllocator& allocator, Opcode opcode, const Node& child0, const Node& child1, const Node& child2, const Node& child3) {
+egg::ovum::Node egg::ovum::NodeFactory::create(IAllocator& allocator, Opcode opcode, const Node& child0, const Node& child1, const Node& child2, const Node& child3) {
   assert(opcodeProperties(opcode).validate(4, false));
   auto* node = createNodeExtra<NodeChildrenFixed<4>, NodeAttributesFixed<0>, NodeOperandNone>(allocator, opcode, 4, nullptr);
   node->initChild(0, child0);
@@ -395,27 +394,27 @@ egg::ovum::ast::Node egg::ovum::ast::NodeFactory::create(IAllocator& allocator, 
   return Node(node);
 }
 
-egg::ovum::ast::Node egg::ovum::ast::NodeFactory::create(IAllocator& allocator, Opcode opcode, const Nodes& children) {
+egg::ovum::Node egg::ovum::NodeFactory::create(IAllocator& allocator, Opcode opcode, const Nodes& children) {
   assert(validateOpcode(opcode, &children, false));
   return createNodeExtra<NodeOperandNone>(allocator, opcode, &children, nullptr, nullptr);
 }
 
-egg::ovum::ast::Node egg::ovum::ast::NodeFactory::create(IAllocator& allocator, Opcode opcode, const Nodes* children, const Nodes* attributes) {
+egg::ovum::Node egg::ovum::NodeFactory::create(IAllocator& allocator, Opcode opcode, const Nodes* children, const Nodes* attributes) {
   assert(validateOpcode(opcode, children, false));
   return createNodeExtra<NodeOperandNone>(allocator, opcode, children, attributes, nullptr);
 }
 
-egg::ovum::ast::Node egg::ovum::ast::NodeFactory::create(IAllocator& allocator, Opcode opcode, const Nodes* children, const Nodes* attributes, Int value) {
+egg::ovum::Node egg::ovum::NodeFactory::create(IAllocator& allocator, Opcode opcode, const Nodes* children, const Nodes* attributes, Int value) {
   assert(validateOpcode(opcode, children, true));
   return createNodeExtra<NodeOperandInt>(allocator, opcode, children, attributes, value);
 }
 
-egg::ovum::ast::Node egg::ovum::ast::NodeFactory::create(IAllocator& allocator, Opcode opcode, const Nodes* children, const Nodes* attributes, Float value) {
+egg::ovum::Node egg::ovum::NodeFactory::create(IAllocator& allocator, Opcode opcode, const Nodes* children, const Nodes* attributes, Float value) {
   assert(validateOpcode(opcode, children, true));
   return createNodeExtra<NodeOperandFloat>(allocator, opcode, children, attributes, value);
 }
 
-egg::ovum::ast::Node egg::ovum::ast::NodeFactory::create(IAllocator& allocator, Opcode opcode, const Nodes* children, const Nodes* attributes, const String& value) {
+egg::ovum::Node egg::ovum::NodeFactory::create(IAllocator& allocator, Opcode opcode, const Nodes* children, const Nodes* attributes, const String& value) {
   assert(validateOpcode(opcode, children, true));
   return createNodeExtra<NodeOperandString>(allocator, opcode, children, attributes, value);
 }

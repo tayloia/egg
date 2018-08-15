@@ -1,4 +1,4 @@
-namespace egg::ovum::ast {
+namespace egg::ovum {
   // Helper for converting IEEE to/from mantissa/exponents
   struct MantissaExponent {
     static constexpr int64_t ExponentNaN = 1;
@@ -40,6 +40,20 @@ namespace egg::ovum::ast {
     static Node create(IAllocator& allocator, Opcode opcode, const Nodes* children, const Nodes* attributes, Int operand);
     static Node create(IAllocator& allocator, Opcode opcode, const Nodes* children, const Nodes* attributes, Float operand);
     static Node create(IAllocator& allocator, Opcode opcode, const Nodes* children, const Nodes* attributes, const String& operand);
+  };
+
+  class IModule : public IHardAcquireRelease {
+  public:
+    virtual INode& getRootNode() const = 0;
+  };
+  using Module = HardPtr<IModule>;
+
+  class ModuleFactory {
+  public:
+    static Module fromBinaryStream(IAllocator& allocator, std::istream& stream);
+    static Module fromMemory(IAllocator& allocator, const uint8_t* begin, const uint8_t* end);
+    static Module fromRootNode(IAllocator& allocator, INode& root);
+    static void toBinaryStream(const IModule& module, std::ostream& stream);
   };
 
   inline size_t childrenFromMachineByte(uint8_t byte) {

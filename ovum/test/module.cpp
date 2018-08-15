@@ -7,7 +7,6 @@
 #define MAGIC EGG_VM_MAGIC(EGG_VM_MAGIC_BYTE)
 
 using namespace egg::ovum;
-using namespace egg::ovum::ast;
 
 namespace {
   void expectFailureFromMemory(const uint8_t memory[], size_t bytes, const char* needle) {

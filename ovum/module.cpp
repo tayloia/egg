@@ -43,8 +43,8 @@ namespace {
     ModuleReader(IAllocator& allocator, std::istream& stream)
       : allocator(allocator), stream(stream) {
     }
-    ast::Node read() {
-      ast::Node root;
+    Node read() {
+      Node root;
       if (!this->readMagic()) {
         throw std::runtime_error("Invalid magic signature in binary module");
       }
@@ -119,7 +119,7 @@ namespace {
     }
     Float readFloat() const {
       // Read a single 64-bit floating-point value
-      ast::MantissaExponent me;
+      MantissaExponent me;
       me.mantissa = indexInt(this->readUnsigned());
       me.exponent = indexInt(this->readUnsigned());
       return me.toFloat();
@@ -174,23 +174,23 @@ namespace {
       }
       return true;
     }
-    ast::Node readNode() const {
+    Node readNode() const {
       auto byte = this->readByte();
-      auto opcode = ast::opcodeFromMachineByte(byte);
+      auto opcode = opcodeFromMachineByte(byte);
       if (opcode == OPCODE_reserved) {
         throw std::runtime_error("Invalid opcode in code section of binary module");
       }
       auto operand = std::numeric_limits<uint64_t>::max();
-      auto& properties = ast::opcodeProperties(opcode);
+      auto& properties = opcodeProperties(opcode);
       if (properties.operand) {
         operand = this->readUnsigned();
       }
-      std::vector<ast::Node> attributes;
+      std::vector<Node> attributes;
       while (this->stream.peek() == OPCODE_ATTRIBUTE) {
         attributes.push_back(this->readNode());
       }
-      std::vector<ast::Node> children;
-      auto count = ast::childrenFromMachineByte(byte);
+      std::vector<Node> children;
+      auto count = childrenFromMachineByte(byte);
       if (count == SIZE_MAX) {
         // This is a list terminated with an OPCODE_END sentinel
         while (this->stream.peek() != OPCODE_END) {
@@ -204,23 +204,23 @@ namespace {
       }
       if (!properties.operand) {
         // No operand
-        return ast::NodeFactory::create(this->allocator, opcode, &children, &attributes);
+        return NodeFactory::create(this->allocator, opcode, &children, &attributes);
       }
       EGG_WARNING_SUPPRESS_SWITCH_BEGIN
       switch (opcode) {
       case OPCODE_IVALUE:
         // Operand is an index into the int table
-        return ast::NodeFactory::create(this->allocator, opcode, &children, &attributes, this->indexInt(operand));
+        return NodeFactory::create(this->allocator, opcode, &children, &attributes, this->indexInt(operand));
       case OPCODE_FVALUE:
         // Operand is an index into the float table
-        return ast::NodeFactory::create(this->allocator, opcode, &children, &attributes, this->indexFloat(operand));
+        return NodeFactory::create(this->allocator, opcode, &children, &attributes, this->indexFloat(operand));
       case OPCODE_SVALUE:
         // Operand is an index into the string table
-        return ast::NodeFactory::create(this->allocator, opcode, &children, &attributes, this->indexString(operand));
+        return NodeFactory::create(this->allocator, opcode, &children, &attributes, this->indexString(operand));
       }
       EGG_WARNING_SUPPRESS_SWITCH_END
       // Operand is probably an operator index
-      return ast::NodeFactory::create(this->allocator, opcode, &children, &attributes, Int(operand));
+      return NodeFactory::create(this->allocator, opcode, &children, &attributes, Int(operand));
     }
     Int indexInt(uint64_t index) const {
       if (index >= this->ivalue.size()) {
@@ -283,7 +283,7 @@ namespace {
     explicit ModuleWriter(std::ostream& stream)
       : stream(stream), positives(0) {
     }
-    void write(const ast::INode& root) {
+    void write(const INode& root) {
       this->findConstants(root);
       this->writeMagic();
       this->writeInts();
@@ -292,21 +292,21 @@ namespace {
       this->writeCode(root);
     }
   private:
-    void findConstants(const ast::INode& node) {
+    void findConstants(const INode& node) {
       switch (node.getOperand()) {
-      case ast::INode::Operand::Int:
+      case INode::Operand::Int:
         // Keep track of the integers
         this->foundInt(node.getInt());
         break;
-      case ast::INode::Operand::Float:
+      case INode::Operand::Float:
         // Keep track of the mantissa/exponent integers
         this->foundFloat(node.getFloat());
         break;
-      case ast::INode::Operand::String:
+      case INode::Operand::String:
         // Keep track of the strings
         this->foundString(node.getString());
         break;
-      case ast::INode::Operand::None:
+      case INode::Operand::None:
         // Nothing to keep track of
         break;
       }
@@ -326,7 +326,7 @@ namespace {
       }
     }
     void foundFloat(Float value) {
-      ast::MantissaExponent me;
+      MantissaExponent me;
       me.fromFloat(value);
       foundInt(me.mantissa);
       foundInt(me.exponent);
@@ -402,13 +402,13 @@ namespace {
       }
       this->writeByte(0xFF);
     }
-    void writeCode(const ast::INode& node) {
+    void writeCode(const INode& node) {
       this->writeByte(SECTION_CODE);
       this->writeNode(node);
     }
-    void writeNode(const ast::INode& node) {
+    void writeNode(const INode& node) {
       auto opcode = node.getOpcode();
-      auto& properties = ast::opcodeProperties(opcode);
+      auto& properties = opcodeProperties(opcode);
       auto n = node.getChildren();
       if ((n < properties.minargs) || (n > properties.maxargs)) {
         throw std::runtime_error("Invalid number of opcode arguments in binary module");
@@ -423,7 +423,7 @@ namespace {
           this->writeUnsigned(this->ivalues[node.getInt()]);
           break;
         case OPCODE_FVALUE:
-          ast::MantissaExponent me;
+          MantissaExponent me;
           me.fromFloat(node.getFloat());
           this->writeUnsigned(this->fvalues[std::make_pair(me.mantissa, me.exponent)]);
           break;
@@ -473,16 +473,16 @@ namespace {
     ModuleDefault(const ModuleDefault&) = delete;
     ModuleDefault& operator=(const ModuleDefault&) = delete;
   private:
-    ast::Node root;
+    Node root;
   public:
     explicit ModuleDefault(IAllocator& allocator)
       : HardReferenceCounted(allocator) {
     }
-    ModuleDefault(IAllocator& allocator, ast::INode& root)
+    ModuleDefault(IAllocator& allocator, INode& root)
       : HardReferenceCounted(allocator),
         root(&root) {
     }
-    virtual ast::INode& getRootNode() const override {
+    virtual INode& getRootNode() const override {
       assert(this->root != nullptr);
       return *this->root;
     }
@@ -507,7 +507,7 @@ egg::ovum::Module egg::ovum::ModuleFactory::fromMemory(IAllocator& allocator, co
   return ModuleFactory::fromBinaryStream(allocator, stream);
 }
 
-egg::ovum::Module egg::ovum::ModuleFactory::fromRootNode(IAllocator& allocator, ast::INode& root) {
+egg::ovum::Module egg::ovum::ModuleFactory::fromRootNode(IAllocator& allocator, INode& root) {
   return Module(allocator.create<ModuleDefault>(0, allocator, root));
 }
 
@@ -516,47 +516,47 @@ void egg::ovum::ModuleFactory::toBinaryStream(const IModule& module, std::ostrea
   writer.write(module.getRootNode());
 }
 
-egg::ovum::ast::ModuleBuilder::ModuleBuilder(IAllocator& allocator)
+egg::ovum::ModuleBuilder::ModuleBuilder(IAllocator& allocator)
   : allocator(allocator) {
 }
 
-egg::ovum::ast::Node egg::ovum::ast::ModuleBuilder::createModule(const Node& block) {
+egg::ovum::Node egg::ovum::ModuleBuilder::createModule(const Node& block) {
   return this->createNode(OPCODE_MODULE, block);
 }
 
-egg::ovum::ast::Node egg::ovum::ast::ModuleBuilder::createValueInt(Int value) {
+egg::ovum::Node egg::ovum::ModuleBuilder::createValueInt(Int value) {
   Nodes attrs;
   std::swap(this->attributes, attrs);
   return NodeFactory::create(this->allocator, OPCODE_IVALUE, nullptr, &attrs, value);
 }
 
-egg::ovum::ast::Node egg::ovum::ast::ModuleBuilder::createValueFloat(Float value) {
+egg::ovum::Node egg::ovum::ModuleBuilder::createValueFloat(Float value) {
   Nodes attrs;
   std::swap(this->attributes, attrs);
   return NodeFactory::create(this->allocator, OPCODE_FVALUE, nullptr, &attrs, value);
 }
 
-egg::ovum::ast::Node egg::ovum::ast::ModuleBuilder::createValueString(const String& value) {
+egg::ovum::Node egg::ovum::ModuleBuilder::createValueString(const String& value) {
   Nodes attrs;
   std::swap(this->attributes, attrs);
   return NodeFactory::create(this->allocator, OPCODE_SVALUE, nullptr, &attrs, value);
 }
 
-egg::ovum::ast::Node egg::ovum::ast::ModuleBuilder::createValueArray(const Nodes& elements) {
+egg::ovum::Node egg::ovum::ModuleBuilder::createValueArray(const Nodes& elements) {
   return this->createNode(OPCODE_AVALUE, elements);
 }
 
-egg::ovum::ast::Node egg::ovum::ast::ModuleBuilder::createValueObject(const Nodes& fields) {
+egg::ovum::Node egg::ovum::ModuleBuilder::createValueObject(const Nodes& fields) {
   return this->createNode(OPCODE_OVALUE, fields);
 }
 
-egg::ovum::ast::Node egg::ovum::ast::ModuleBuilder::createOperator(Opcode opcode, Int op, const Nodes& children) {
+egg::ovum::Node egg::ovum::ModuleBuilder::createOperator(Opcode opcode, Int op, const Nodes& children) {
   Nodes attrs;
   std::swap(this->attributes, attrs);
   return NodeFactory::create(this->allocator, opcode, &children, &attrs, op);
 }
 
-egg::ovum::ast::Node egg::ovum::ast::ModuleBuilder::createNode(Opcode opcode) {
+egg::ovum::Node egg::ovum::ModuleBuilder::createNode(Opcode opcode) {
   if (this->attributes.empty()) {
     return NodeFactory::create(this->allocator, opcode);
   }
@@ -565,7 +565,7 @@ egg::ovum::ast::Node egg::ovum::ast::ModuleBuilder::createNode(Opcode opcode) {
   return NodeFactory::create(this->allocator, opcode, nullptr, &attrs);
 }
 
-egg::ovum::ast::Node egg::ovum::ast::ModuleBuilder::createNode(Opcode opcode, const Node& child0) {
+egg::ovum::Node egg::ovum::ModuleBuilder::createNode(Opcode opcode, const Node& child0) {
   if (this->attributes.empty()) {
     return NodeFactory::create(this->allocator, opcode, child0);
   }
@@ -575,7 +575,7 @@ egg::ovum::ast::Node egg::ovum::ast::ModuleBuilder::createNode(Opcode opcode, co
   return NodeFactory::create(this->allocator, opcode, &nodes, &attrs);
 }
 
-egg::ovum::ast::Node egg::ovum::ast::ModuleBuilder::createNode(Opcode opcode, const Node& child0, const Node& child1) {
+egg::ovum::Node egg::ovum::ModuleBuilder::createNode(Opcode opcode, const Node& child0, const Node& child1) {
   if (this->attributes.empty()) {
     return NodeFactory::create(this->allocator, opcode, child0, child1);
   }
@@ -585,7 +585,7 @@ egg::ovum::ast::Node egg::ovum::ast::ModuleBuilder::createNode(Opcode opcode, co
   return NodeFactory::create(this->allocator, opcode, &nodes, &attrs);
 }
 
-egg::ovum::ast::Node egg::ovum::ast::ModuleBuilder::createNode(Opcode opcode, const Node& child0, const Node& child1, const Node& child2) {
+egg::ovum::Node egg::ovum::ModuleBuilder::createNode(Opcode opcode, const Node& child0, const Node& child1, const Node& child2) {
   if (this->attributes.empty()) {
     return NodeFactory::create(this->allocator, opcode, child0, child1, child2);
   }
@@ -595,7 +595,7 @@ egg::ovum::ast::Node egg::ovum::ast::ModuleBuilder::createNode(Opcode opcode, co
   return NodeFactory::create(this->allocator, opcode, &nodes, &attrs);
 }
 
-egg::ovum::ast::Node egg::ovum::ast::ModuleBuilder::createNode(Opcode opcode, const Node& child0, const Node& child1, const Node& child2, const Node& child3) {
+egg::ovum::Node egg::ovum::ModuleBuilder::createNode(Opcode opcode, const Node& child0, const Node& child1, const Node& child2, const Node& child3) {
   if (this->attributes.empty()) {
     return NodeFactory::create(this->allocator, opcode, child0, child1, child2, child3);
   }
@@ -605,7 +605,7 @@ egg::ovum::ast::Node egg::ovum::ast::ModuleBuilder::createNode(Opcode opcode, co
   return NodeFactory::create(this->allocator, opcode, &nodes, &attrs);
 }
 
-egg::ovum::ast::Node egg::ovum::ast::ModuleBuilder::createNode(Opcode opcode, const Nodes& children) {
+egg::ovum::Node egg::ovum::ModuleBuilder::createNode(Opcode opcode, const Nodes& children) {
   if (this->attributes.empty()) {
     return NodeFactory::create(this->allocator, opcode, children);
   }

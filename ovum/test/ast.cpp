@@ -4,7 +4,6 @@
 #include <cmath>
 
 using namespace egg::ovum;
-using namespace egg::ovum::ast;
 
 #define TEST_ME(f, m, e) \
   me.fromFloat(f); \

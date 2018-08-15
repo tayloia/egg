@@ -1,7 +1,4 @@
 namespace egg::ovum {
-  using Bool = bool;
-  using Int = int64_t;
-  using Float = double;
   class Variant;
   class VariantFactory;
   class VariantSoft;
@@ -126,8 +123,6 @@ namespace egg::ovum {
       assert(this->get() != nullptr);
     }
   };
-
-  using Module = HardPtr<IModule>;
 
   enum class VariantBits {
     Void = 1 << 0,

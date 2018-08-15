@@ -1,19 +1,6 @@
 namespace egg::ovum {
   class MemoryFactory;
 
-  enum Opcode {
-#define EGG_VM_OPCODES_ENUM(opcode, minbyte, minargs, maxargs, text) opcode = minbyte,
-    EGG_VM_OPCODES(EGG_VM_OPCODES_ENUM)
-#undef EGG_VM_OPCODES_ENUM
-    OPCODE_reserved = -1
-  };
-
-  enum Section {
-#define EGG_VM_SECTIONS_ENUM(section, value) section = value,
-    EGG_VM_SECTIONS(EGG_VM_SECTIONS_ENUM)
-#undef EGG_VM_SECTIONS_ENUM
-  };
-
   template<typename T>
   class Atomic {
     Atomic(Atomic&) = delete;
@@ -314,13 +301,5 @@ namespace egg::ovum {
   class VariantFactory {
   public:
     static HardPtr<IVariantSoft> createVariantSoft(IAllocator& allocator, IBasket& basket, Variant&& value);
-  };
-
-  class ModuleFactory {
-  public:
-    static Module fromBinaryStream(IAllocator& allocator, std::istream& stream);
-    static Module fromMemory(IAllocator& allocator, const uint8_t* begin, const uint8_t* end);
-    static Module fromRootNode(IAllocator& allocator, ast::INode& root);
-    static void toBinaryStream(const IModule& module, std::ostream& stream);
   };
 }
