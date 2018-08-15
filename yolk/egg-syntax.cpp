@@ -9,7 +9,7 @@
 namespace {
   using namespace egg::yolk;
 
-  class TypeInferred : public egg::gc::NotReferenceCounted<egg::lang::IType> {
+  class TypeInferred : public egg::ovum::NotReferenceCounted<egg::lang::IType> {
   public:
     virtual std::pair<std::string, int> toStringPrecedence() const override {
       static std::string name{ "var" };

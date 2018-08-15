@@ -2,19 +2,6 @@ namespace egg::gc {
   class Collectable;
   template<class T> class SoftRef;
 
-  template<class T>
-  class NotReferenceCounted : public T {
-  public:
-    NotReferenceCounted() : T() {}
-    template<typename... ARGS>
-    explicit NotReferenceCounted(ARGS&&... args) : T(std::forward<ARGS>(args)...) {}
-    virtual T* hardAcquire() const override {
-      return const_cast<NotReferenceCounted*>(this);
-    }
-    virtual void hardRelease() const override {
-    }
-  };
-
   template<class T> using HardReferenceCounted = egg::ovum::HardReferenceCounted<T>;
   template<class T> using HardRef = egg::ovum::HardPtr<T>;
 

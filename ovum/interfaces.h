@@ -4,8 +4,12 @@ namespace egg::ovum {
   class IHardAcquireRelease {
   public:
     virtual ~IHardAcquireRelease() {}
-    virtual IHardAcquireRelease* hardAcquire() const = 0;
+    virtual IHardAcquireRelease* hardAcquireBase() const = 0;
     virtual void hardRelease() const = 0;
+    template<typename T>
+    T* hardAcquire() const {
+      return static_cast<T*>(this->hardAcquireBase());
+    }
   };
 
   class IAllocator {

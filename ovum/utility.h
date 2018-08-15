@@ -56,7 +56,7 @@ namespace egg::ovum {
       // Make sure our reference count reached zero
       assert(this->atomic.get() == 0);
     }
-    virtual T* hardAcquire() const override {
+    virtual T* hardAcquireBase() const override {
       this->atomic.increment();
       return const_cast<T*>(static_cast<const T*>(this));
     }
@@ -95,11 +95,12 @@ namespace egg::ovum {
 
   template<typename T>
   class NotReferenceCounted : public T {
-    NotReferenceCounted(const NotReferenceCounted&) = delete;
-    NotReferenceCounted& operator=(const NotReferenceCounted&) = delete;
   public:
-    NotReferenceCounted() {}
-    virtual T* hardAcquire() const override {
+    template<typename... ARGS>
+    NotReferenceCounted(ARGS&&... args)
+      : T(std::forward<ARGS>(args)...) {
+    }
+    virtual T* hardAcquireBase() const override {
       return const_cast<T*>(static_cast<const T*>(this));
     }
     virtual void hardRelease() const override {
@@ -180,7 +181,7 @@ namespace egg::ovum {
     }
     static T* hardAcquire(const T* ptr) {
       if (ptr != nullptr) {
-        return static_cast<T*>(ptr->hardAcquire());
+        return ptr->hardAcquire<T>();
       }
       return nullptr;
     }

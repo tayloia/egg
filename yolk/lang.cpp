@@ -76,7 +76,7 @@ namespace {
   const IString* repeatString(const IString& src, size_t length, size_t count);
   const IString* replaceString(const IString& haystack, const IString& needle, const IString& replacement, int64_t occurrences);
 
-  class StringEmpty : public egg::gc::NotReferenceCounted<IString> {
+  class StringEmpty : public egg::ovum::NotReferenceCounted<IString> {
   public:
     virtual size_t length() const override {
       return 0;
@@ -824,7 +824,7 @@ namespace {
     }
   };
 
-  class TypeNull : public egg::gc::NotReferenceCounted<IType>{
+  class TypeNull : public egg::ovum::NotReferenceCounted<IType>{
   public:
     virtual std::pair<std::string, int> toStringPrecedence() const override {
       static std::string name{ "null" };
@@ -851,7 +851,7 @@ namespace {
   const TypeNull typeNull{};
 
   template<Discriminator TAG>
-  class TypeNative : public egg::gc::NotReferenceCounted<IType> {
+  class TypeNative : public egg::ovum::NotReferenceCounted<IType> {
   public:
     TypeNative() {
       assert(!Bits::hasAnySet(TAG, Discriminator::Null));
@@ -1140,9 +1140,9 @@ void egg::lang::Value::copyInternals(const Value& other) {
   if (this->has(Discriminator::Object)) {
     // We can only copy the reference as a hard pointer
     this->tag = Bits::clear(other.tag, Discriminator::Pointer);
-    this->o = other.getObjectPointer()->hardAcquire();
+    this->o = other.getObjectPointer()->hardAcquire<IObject>();
   } else if (this->has(Discriminator::Indirect | Discriminator::Pointer)) {
-    this->v = other.v->hardAcquire();
+    this->v = other.v->hardAcquire<ValueReferenceCounted>();
   } else if (this->has(Discriminator::String)) {
     this->s = String::hardAcquire(other.s);
   } else if (this->has(Discriminator::Float)) {
@@ -1152,7 +1152,7 @@ void egg::lang::Value::copyInternals(const Value& other) {
   } else if (this->has(Discriminator::Bool)) {
     this->b = other.b;
   } else if (this->has(Discriminator::Type)) {
-    this->t = other.t->hardAcquire();
+    this->t = other.t->hardAcquire<IType>();
   }
 }
 
@@ -1163,7 +1163,7 @@ void egg::lang::Value::moveInternals(Value& other) {
     if (this->has(Discriminator::Pointer)) {
       // Convert the soft pointer to a hard one
       this->tag = Bits::clear(this->tag, Discriminator::Pointer);
-      this->o = ptr->hardAcquire();
+      this->o = ptr->hardAcquire<IObject>();
       other.r->destroy();
     } else {
       // Not need to increment/decrement the reference count
@@ -1203,7 +1203,7 @@ void egg::lang::Value::destroyInternals() {
 
 egg::lang::Value::Value(const ValueReferenceCounted& vrc)
   : tag(Discriminator::Pointer) {
-  this->v = vrc.hardAcquire();
+  this->v = vrc.hardAcquire<ValueReferenceCounted>();
 }
 
 egg::lang::Value::Value(const Value& value) {
@@ -1260,7 +1260,7 @@ egg::lang::ValueReferenceCounted& egg::lang::Value::indirect(egg::ovum::IAllocat
     auto* heap = allocator.create<ValueOnHeap>(0, allocator, std::move(*this));
     assert(this->tag == Discriminator::None); // as a side-effect of the move
     this->tag = Discriminator::Indirect;
-    this->v = heap->hardAcquire();
+    this->v = heap->hardAcquire<ValueReferenceCounted>();
   }
   return *this->v;
 }

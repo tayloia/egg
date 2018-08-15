@@ -210,12 +210,9 @@ namespace egg::lang {
     virtual ITypeRef getIndexType() const = 0;
   };
 
-  class IType {
+  class IType : public egg::ovum::IHardAcquireRelease {
   public:
     enum class AssignmentSuccess { Never, Sometimes, Always };
-    virtual ~IType() {}
-    virtual IType* hardAcquire() const = 0;
-    virtual void hardRelease() const = 0;
     virtual std::pair<std::string, int> toStringPrecedence() const = 0;
     virtual AssignmentSuccess canBeAssignedFrom(const IType& rhs) const = 0;
 
@@ -263,10 +260,6 @@ namespace egg::lang {
     IObject& operator=(const IObject&) = delete;
   public:
     explicit IObject(egg::ovum::IAllocator& allocator) : Collectable(allocator) {
-    }
-    virtual IObject* hardAcquire() const override {
-      // Covariant return value
-      return static_cast<IObject*>(Collectable::hardAcquire());
     }
     virtual Value toString() const = 0;
     virtual ITypeRef getRuntimeType() const = 0;
@@ -472,7 +465,7 @@ namespace egg::lang {
     explicit Value(double value) : tag(Discriminator::Float) { this->f = value; }
     explicit Value(const String& value) : tag(Discriminator::String) { this->s = value.hardAcquire(); }
     explicit Value(const IObjectRef& value) : tag(Discriminator::Object) { this->o = value.hardAcquire(); }
-    explicit Value(const IType& type) : tag(Discriminator::Type) { this->t = type.hardAcquire(); }
+    explicit Value(const IType& type) : tag(Discriminator::Type) { this->t = type.hardAcquire<IType>(); }
     explicit Value(const ValueReferenceCounted& vrc);
     Value& operator=(const Value& value);
     Value& operator=(Value&& value) noexcept;
@@ -519,15 +512,11 @@ namespace egg::lang {
     static Value builtinPrint(egg::ovum::IAllocator& allocator);
   };
 
-  class ValueReferenceCounted : public Value {
+  class ValueReferenceCounted : public egg::ovum::IHardAcquireRelease, public Value {
     ValueReferenceCounted(const ValueReferenceCounted&) = delete;
     ValueReferenceCounted& operator=(const ValueReferenceCounted&) = delete;
   protected:
     explicit ValueReferenceCounted(Value&& value) noexcept : Value(std::move(value)) {}
-  public:
-    virtual ~ValueReferenceCounted() {}
-    virtual ValueReferenceCounted* hardAcquire() const = 0;
-    virtual void hardRelease() const = 0;
   };
 }
 

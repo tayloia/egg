@@ -36,7 +36,7 @@ namespace {
     }
   };
 
-  class VanillaIteratorType : public egg::gc::NotReferenceCounted<egg::lang::IType> {
+  class VanillaIteratorType : public egg::ovum::NotReferenceCounted<egg::lang::IType> {
     EGG_NO_COPY(VanillaIteratorType);
   public:
     VanillaIteratorType() {}
@@ -71,7 +71,7 @@ namespace {
     }
   };
 
-  class VanillaKeyValueType : public egg::gc::NotReferenceCounted<egg::lang::IType> {
+  class VanillaKeyValueType : public egg::ovum::NotReferenceCounted<egg::lang::IType> {
   public:
     virtual std::pair<std::string, int> toStringPrecedence() const override {
       return std::make_pair("<keyvalue>", 0);
@@ -137,7 +137,7 @@ namespace {
   };
   const VanillaArrayIndexSignature VanillaArrayIndexSignature::instance{};
 
-  class VanillaArrayType : public egg::gc::NotReferenceCounted<egg::lang::IType> {
+  class VanillaArrayType : public egg::ovum::NotReferenceCounted<egg::lang::IType> {
   public:
     static const egg::lang::IType* getPropertyType(const std::string& property) {
       if (property == "length") {
@@ -371,7 +371,7 @@ namespace {
   };
   const VanillaObjectIndexSignature VanillaObjectIndexSignature::instance{};
 
-  class VanillaObjectType : public egg::gc::NotReferenceCounted<egg::lang::IType> {
+  class VanillaObjectType : public egg::ovum::NotReferenceCounted<egg::lang::IType> {
   public:
     virtual std::pair<std::string, int> toStringPrecedence() const override {
       return std::make_pair("any?{string}", 0); // TODO

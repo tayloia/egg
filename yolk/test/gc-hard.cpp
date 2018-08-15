@@ -20,7 +20,7 @@ namespace {
     }
   };
 
-  class Instance {
+  class Instance : public egg::ovum::IHardAcquireRelease {
   private:
     Monitor* monitor;
     std::string name;
@@ -36,7 +36,7 @@ namespace {
       // Log our destruction
       this->monitor->write('~', this->name);
     }
-    virtual Instance* hardAcquire() const {
+    virtual Instance* hardAcquireBase() const {
       // Log our increment
       this->monitor->write('+', this->name);
       return const_cast<Instance*>(this);
@@ -78,7 +78,7 @@ TEST(TestGCHard, Monitor) {
   {
     Instance instance(monitor, "stack");
     ASSERT_EQ("*stack", monitor.read());
-    ASSERT_EQ(&instance, instance.hardAcquire());
+    ASSERT_EQ(&instance, instance.hardAcquire<Instance>());
     ASSERT_EQ("+stack", monitor.read());
     instance.hardRelease();
     ASSERT_EQ("-stack", monitor.read());
@@ -90,9 +90,9 @@ TEST(TestGCHard, NotReferenceCounted) {
   Monitor monitor;
   ASSERT_EQ("", monitor.read());
   {
-    egg::gc::NotReferenceCounted<Instance> instance(monitor, "nrc");
+    egg::ovum::NotReferenceCounted<Instance> instance(monitor, "nrc");
     ASSERT_EQ("*nrc", monitor.read());
-    ASSERT_EQ(&instance, instance.hardAcquire());
+    ASSERT_EQ(&instance, instance.hardAcquire<Instance>());
     ASSERT_EQ("", monitor.read());
     instance.hardRelease();
     ASSERT_EQ("", monitor.read());
@@ -116,7 +116,7 @@ TEST(TestGCHard, HardRef) {
         egg::gc::HardRef<Instance> ref3{ raw }; // rc=4
         ASSERT_EQ(raw, ref3.get());
         {
-          egg::gc::NotReferenceCounted<Instance> stack(monitor, "nrc");
+          egg::ovum::NotReferenceCounted<Instance> stack(monitor, "nrc");
           ASSERT_EQ("*nrc", monitor.read());
           ref3.set(&stack); // rc=3
           ASSERT_EQ(&stack, ref3.get());

@@ -153,7 +153,7 @@ void egg::gc::Basket::add(Collectable& collectable) {
   assert(collectable.prevInBasket == nullptr);
   assert(collectable.nextInBasket == nullptr);
   // Take a hard reference owned by the basket
-  collectable.hardAcquire();
+  collectable.hardAcquireBase();
   collectable.basket = this;
   auto* next = this->head->nextInBasket;
   this->head->nextInBasket = &collectable;
