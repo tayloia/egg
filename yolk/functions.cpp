@@ -58,7 +58,7 @@ namespace {
     egg::lang::ITypeRef rettype;
   public:
     explicit GeneratorFunctionType(egg::ovum::IAllocator& allocator, const egg::lang::ITypeRef& returnType)
-      : FunctionType(allocator, egg::lang::String::Empty, returnType->unionWith(*egg::lang::Type::Void)),
+      : FunctionType(allocator, egg::lang::String(), returnType->unionWith(*egg::lang::Type::Void)),
         rettype(returnType) {
       // No name or parameters in the signature
       assert(!egg::lang::Bits::hasAnySet(returnType->getSimpleTypes(), egg::lang::Discriminator::Void));

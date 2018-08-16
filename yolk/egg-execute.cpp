@@ -15,7 +15,7 @@ namespace {
       egg::lang::LocationSource location;
     };
     std::vector<Pair> positional;
-    std::map<egg::lang::String, Pair> named;
+    egg::ovum::StringMap<Pair> named;
   public:
     explicit EggProgramParameters(size_t count) {
       this->positional.reserve(count);
@@ -56,7 +56,7 @@ namespace {
 
 egg::yolk::EggProgramExpression::EggProgramExpression(egg::yolk::EggProgramContext& context, const egg::yolk::IEggProgramNode& node)
   : context(&context),
-    before(context.swapLocation(egg::lang::LocationRuntime(node.location(), egg::lang::String::fromUTF8("TODO()")))) {
+    before(context.swapLocation(egg::lang::LocationRuntime(node.location(), "TODO()"))) {
   // TODO use runtime location, not source location
 }
 
@@ -278,8 +278,9 @@ egg::lang::Value egg::yolk::EggProgramContext::executeForeach(const IEggProgramN
 
 egg::lang::Value egg::yolk::EggProgramContext::executeForeachString(IEggProgramAssignee& target, const egg::lang::String& source, const IEggProgramNode& block) {
   size_t index = 0;
-  for (auto codepoint = source.codePointAt(0); codepoint >= 0; codepoint = source.codePointAt(++index)) {
-    auto retval = target.set(egg::lang::Value{ egg::lang::String::fromCodePoint(char32_t(codepoint)) });
+  egg::lang::StringLegacy legacy(source);
+  for (auto codepoint = legacy.codePointAt(0); codepoint >= 0; codepoint = legacy.codePointAt(++index)) {
+    auto retval = target.set(egg::lang::Value{ egg::ovum::StringFactory::fromCodePoint(this->allocator, char32_t(codepoint)) });
     if (retval.has(egg::lang::Discriminator::FlowControl)) {
       // The assignment failed
       return retval;
@@ -727,9 +728,9 @@ egg::lang::Value egg::yolk::EggProgramContext::executePredicate(const IEggProgra
   if (raised.has(egg::lang::Discriminator::Exception) && raised.has(egg::lang::Discriminator::Object)) {
     // Augment the exception with extra information
     auto exception = raised.getObject();
-    exception->setProperty(*this, egg::lang::String::fromUTF8("left"), left);
-    exception->setProperty(*this, egg::lang::String::fromUTF8("operator"), egg::lang::Value(egg::lang::String::fromUTF8(operation)));
-    exception->setProperty(*this, egg::lang::String::fromUTF8("right"), right);
+    exception->setProperty(*this, "left", left);
+    exception->setProperty(*this, "operator", egg::lang::Value(egg::ovum::String(operation)));
+    exception->setProperty(*this, "right", right);
   }
   return raised;
 }

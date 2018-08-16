@@ -373,7 +373,7 @@ bool egg::yolk::EggSyntaxNodeBase::negate() {
 }
 
 egg::lang::String egg::yolk::EggSyntaxNodeBase::token() const {
-  return egg::lang::String::Empty;
+  return egg::lang::String();
 }
 
 egg::lang::String egg::yolk::EggSyntaxNode_Type::token() const {
@@ -389,11 +389,11 @@ egg::lang::String egg::yolk::EggSyntaxNode_Guard::token() const {
 }
 
 egg::lang::String egg::yolk::EggSyntaxNode_Assignment::token() const {
-  return egg::lang::String::fromUTF8(EggTokenizerValue::getOperatorString(this->op));
+  return EggTokenizerValue::getOperatorString(this->op);
 }
 
 egg::lang::String egg::yolk::EggSyntaxNode_Mutate::token() const {
-  return egg::lang::String::fromUTF8(EggTokenizerValue::getOperatorString(this->op));
+  return EggTokenizerValue::getOperatorString(this->op);
 }
 
 egg::lang::String egg::yolk::EggSyntaxNode_Catch::token() const {
@@ -401,15 +401,15 @@ egg::lang::String egg::yolk::EggSyntaxNode_Catch::token() const {
 }
 
 egg::lang::String egg::yolk::EggSyntaxNode_UnaryOperator::token() const {
-  return egg::lang::String::fromUTF8(EggTokenizerValue::getOperatorString(this->op));
+  return EggTokenizerValue::getOperatorString(this->op);
 }
 
 egg::lang::String egg::yolk::EggSyntaxNode_BinaryOperator::token() const {
-  return egg::lang::String::fromUTF8(EggTokenizerValue::getOperatorString(this->op));
+  return EggTokenizerValue::getOperatorString(this->op);
 }
 
 egg::lang::String egg::yolk::EggSyntaxNode_TernaryOperator::token() const {
-  return egg::lang::String::fromUTF8("?:");
+  return "?:";
 }
 
 egg::lang::String egg::yolk::EggSyntaxNode_FunctionDefinition::token() const {
@@ -442,12 +442,12 @@ bool egg::yolk::EggSyntaxNode_Literal::negate() {
     auto negative = -this->value.i;
     if (negative <= 0) {
       this->value.i = negative;
-      this->value.s = egg::lang::String::concat("-", this->value.s.toUTF8());
+      this->value.s = egg::lang::StringBuilder::concat("-", this->value.s.toUTF8());
       return true;
     }
   } else if (this->kind == EggTokenizerKind::Float) {
     this->value.f = -this->value.f;
-    this->value.s = egg::lang::String::concat("-", this->value.s);
+    this->value.s = egg::lang::StringBuilder::concat("-", this->value.s);
     return true;
   }
   return false;
@@ -1309,7 +1309,7 @@ std::unique_ptr<IEggSyntaxNode> EggSyntaxParserContext::parseExpressionObject(co
     // This is an empty object: '{' '}'
     mark.accept(2);
   } else {
-    std::set<egg::lang::String> seen;
+    std::set<egg::ovum::String, egg::ovum::StringLess> seen;
     const EggTokenizerItem* p;
     do {
       // Expect <identifier> ':' <expression>
@@ -1619,7 +1619,7 @@ std::unique_ptr<IEggSyntaxNode> EggSyntaxParserContext::parseStatementFunction(s
     if (optional) {
       auto& p2 = mark.peek(1);
       if (!p2.isKeyword(EggTokenizerKeyword::Null)) {
-        this->unexpected("Expected 'null' as default value for parameter '" + p1.value.s->toUTF8() + "'", p2);
+        this->unexpected("Expected 'null' as default value for parameter '" + p1.value.s.toUTF8() + "'", p2);
       }
       mark.advance(2);
     }
@@ -1991,14 +1991,14 @@ egg::lang::ITypeRef EggSyntaxParserContext::parseTypePostfixFunction(const egg::
   EggSyntaxParserBacktrackMark mark(this->backtrack);
   assert(mark.peek(0).isOperator(EggTokenizerOperator::ParenthesisLeft));
   mark.advance(1);
-  auto* underlying = egg::yolk::FunctionType::createFunctionType(*this->allocator, egg::lang::String::Empty, rettype);
+  auto* underlying = egg::yolk::FunctionType::createFunctionType(*this->allocator, egg::lang::String(), rettype);
   egg::lang::ITypeRef function{ underlying };
   for (size_t index = 0; !mark.peek(0).isOperator(EggTokenizerOperator::ParenthesisRight); ++index) {
     egg::lang::ITypeRef ptype{ egg::lang::Type::Void };
     if (!this->parseTypeExpression(ptype)) {
       this->unexpected("Expected parameter type in function type declaration", mark.peek(0));
     }
-    auto pname = egg::lang::String::Empty;
+    egg::lang::String pname;
     auto& p1 = mark.peek(0);
     if (p1.kind == EggTokenizerKind::Identifier) {
       // Skip the optional parameter name

@@ -152,15 +152,48 @@ namespace egg::ovum {
     void reset();
   };
 
-  struct StringLess {
+  struct StringLess { // WIBBLE
     bool operator()(const String& lhs, const String& rhs) const; // WIBBLE
   };
 
-  template<typename T>
+  template<typename T> // WIBBLE
   using StringMap = std::map<String, T, StringLess>;
+
+  class StringBuilder {
+    StringBuilder(const StringBuilder&) = delete;
+    StringBuilder& operator=(const StringBuilder&) = delete;
+  private:
+    std::stringstream ss;
+  public:
+    StringBuilder() {
+    }
+    template<typename T>
+    StringBuilder& add(T value) {
+      this->ss << value;
+      return *this;
+    }
+    template<typename T, typename... ARGS>
+    StringBuilder& add(T value, ARGS... args) {
+      return this->add(value).add(args...);
+    }
+    bool empty() const {
+      return this->ss.rdbuf()->in_avail() == 0;
+    }
+    std::string toUTF8() const {
+      return this->ss.str();
+    }
+    String str() const;
+
+    template<typename... ARGS>
+    static String concat(ARGS... args) {
+      return StringBuilder().add(args...).str();
+    }
+  };
 
   class StringFactory {
   public:
+    // WIBBLE all needed?
+    static String fromCodePoint(IAllocator& allocator, char32_t codepoint);
     static String fromUTF8(IAllocator& allocator, const uint8_t* begin, const uint8_t* end, size_t codepoints);
     static String fromUTF8(IAllocator& allocator, const uint8_t* begin, const uint8_t* end);
     static String fromUTF8(IAllocator& allocator, const void* utf8, size_t bytes) {

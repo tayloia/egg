@@ -84,7 +84,7 @@ namespace {
     virtual bool empty() const override {
       return true;
     }
-    virtual bool equal(const IString& other) const override {
+    virtual bool equals(const IString& other) const override {
       return other.empty();
     }
     virtual bool less(const IString& other) const override {
@@ -162,7 +162,7 @@ namespace {
     virtual bool empty() const override {
       return false;
     }
-    virtual bool equal(const IString& other) const override {
+    virtual bool equals(const IString& other) const override {
       if (other.length() != 1) {
         return false;
       }
@@ -300,7 +300,7 @@ namespace {
       return true;
     }
     static String makeSpace() {
-      static String space(*defaultAllocator().make<StringBufferCodePoint>(U' '));
+      static String space(egg::ovum::StringFactory::fromCodePoint(defaultAllocator(), U' '));
       return space;
     }
   };
@@ -484,7 +484,7 @@ namespace {
     virtual bool empty() const override {
       return this->codepoints == 0;
     }
-    virtual bool equal(const IString& rhs) const override {
+    virtual bool equals(const IString& rhs) const override {
       return (rhs.length() == this->codepoints) && iterationEqual(*this, rhs, this->codepoints);
     }
     virtual bool less(const IString& rhs) const override {
@@ -684,7 +684,7 @@ namespace {
     return StringBufferUTF8::create(dst, length * count);
   }
 
-  void splitPositive(std::vector<String>& dst, const IString& src, const IString& separator, size_t limit) {
+  void splitPositive(std::vector<StringLegacy>& dst, const IString& src, const IString& separator, size_t limit) {
     // Unlike the original parameter, 'limit' is the maximum number of SPLITS to perform
     // OPTIMIZE
     assert(dst.size() == 0);
@@ -697,7 +697,7 @@ namespace {
           if (cp < 0) {
             return; // Don't add a trailing empty string
           }
-          dst.push_back(String::fromCodePoint(char32_t(cp)));
+          dst.push_back(egg::ovum::StringFactory::fromCodePoint(defaultAllocator(), char32_t(cp)));
         } while (++begin < limit);
       } else {
         // Split by string
@@ -716,7 +716,7 @@ namespace {
     dst.emplace_back(*src.substring(begin, SIZE_MAX));
   }
 
-  void splitNegative(std::vector<String>& dst, const IString& src, const IString& separator, size_t limit) {
+  void splitNegative(std::vector<StringLegacy>& dst, const IString& src, const IString& separator, size_t limit) {
     // Unlike the original parameter, 'limit' is the maximum number of SPLITS to perform
     // OPTIMIZE
     assert(dst.size() == 0);
@@ -731,7 +731,7 @@ namespace {
             std::reverse(dst.begin(), dst.end());
             return; // Don't add a trailing empty string
           }
-          dst.push_back(String::fromCodePoint(char32_t(cp)));
+          dst.push_back(egg::ovum::StringFactory::fromCodePoint(defaultAllocator(), char32_t(cp)));
         } while (--limit > 0);
       } else {
         // Split by string
@@ -750,7 +750,7 @@ namespace {
     std::reverse(dst.begin(), dst.end());
   }
 
-  void splitString(std::vector<egg::lang::String>& result, const IString& haystack, const IString& needle, int64_t limit) {
+  void splitString(std::vector<egg::lang::StringLegacy>& result, const IString& haystack, const IString& needle, int64_t limit) {
     assert(limit != 0);
     if (limit > 0) {
       // Split from the beginning
@@ -771,7 +771,7 @@ namespace {
 
   const IString* replaceString(const IString& haystack, const IString& needle, const IString& replacement, int64_t occurrences) {
     // One replacement requires splitting into two parts, and so on
-    std::vector<egg::lang::String> part;
+    std::vector<egg::lang::StringLegacy> part;
     if (occurrences > 0) {
       if (occurrences < INT64_MAX) {
         occurrences++;
@@ -908,7 +908,7 @@ namespace {
     class Parameter : public IFunctionSignatureParameter {
     public:
       virtual String getName() const override {
-        return String::Empty;
+        return String();
       }
       virtual ITypeRef getType() const override {
         return Type::AnyQ;
@@ -923,7 +923,7 @@ namespace {
     Parameter parameter;
   public:
     virtual String getFunctionName() const override {
-      return String::Empty;
+      return String();
     }
     virtual ITypeRef getReturnType() const override {
       return Type::AnyQ;
@@ -1045,34 +1045,38 @@ const egg::lang::Type egg::lang::Type::Any{ *defaultAllocator().make<TypeSimple>
 const egg::lang::Type egg::lang::Type::AnyQ{ *defaultAllocator().make<TypeSimple>(egg::lang::Discriminator::Any | egg::lang::Discriminator::Null) };
 
 // Constants
-const egg::lang::IString& egg::lang::String::emptyBuffer = stringEmpty;
-const egg::lang::String egg::lang::String::Empty{ stringEmpty };
-const egg::lang::String egg::lang::String::Space{ StringBufferCodePoint::makeSpace() };
+const egg::lang::IString& egg::lang::StringLegacy::emptyBuffer = stringEmpty;
+const egg::lang::StringLegacy egg::lang::StringLegacy::Empty{ stringEmpty };
+const egg::lang::StringLegacy egg::lang::StringLegacy::Space{ StringBufferCodePoint::makeSpace() };
 
-egg::lang::String egg::lang::String::fromCodePoint(char32_t codepoint) {
-  return String(*defaultAllocator().make<StringBufferCodePoint>(codepoint));
+egg::lang::StringLegacy::StringLegacy(const String& rhs)
+  : HardPtr(StringBufferUTF8::create(rhs.toUTF8())) {
 }
 
-egg::lang::String egg::lang::String::fromUTF8(const std::string& utf8) {
-  return String(*StringBufferUTF8::create(utf8));
+egg::lang::StringLegacy egg::lang::StringLegacy::fromCodePoint(char32_t codepoint) {
+  return StringLegacy(*defaultAllocator().make<StringBufferCodePoint>(codepoint));
 }
 
-egg::lang::String egg::lang::String::fromUTF32(const std::u32string& utf32) {
+egg::lang::StringLegacy egg::lang::StringLegacy::fromUTF8(const std::string& utf8) {
+  return StringLegacy(*StringBufferUTF8::create(utf8));
+}
+
+egg::lang::StringLegacy egg::lang::StringLegacy::fromUTF32(const std::u32string& utf32) {
   // OPTIMIZE
-  return String(*StringBufferUTF8::create(egg::utf::to_utf8(utf32)));
+  return StringLegacy(*StringBufferUTF8::create(egg::utf::to_utf8(utf32)));
 }
 
-std::vector<egg::lang::String> egg::lang::String::split(const String& separator, int64_t limit) const {
+std::vector<egg::lang::StringLegacy> egg::lang::StringLegacy::split(const StringLegacy& separator, int64_t limit) const {
   // See https://docs.oracle.com/javase/8/docs/api/java/lang/String.html#split-java.lang.String-int-
   // However, if limit == 0 we return an empty vector
-  std::vector<egg::lang::String> result;
+  std::vector<egg::lang::StringLegacy> result;
   if (limit != 0) {
     splitString(result, *this->get(), *separator, limit);
   }
   return result;
 }
 
-egg::lang::String egg::lang::String::padLeft(size_t target, const String& padding) const {
+egg::lang::StringLegacy egg::lang::StringLegacy::padLeft(size_t target, const StringLegacy& padding) const {
   // OPTIMIZE
   auto length = this->length();
   auto n = padding.length();
@@ -1091,10 +1095,10 @@ egg::lang::String egg::lang::String::padLeft(size_t target, const String& paddin
     dst.append(utf8);
   }
   dst.append(this->toUTF8());
-  return String(*StringBufferUTF8::create(dst, target));
+  return StringLegacy(*StringBufferUTF8::create(dst, target));
 }
 
-egg::lang::String egg::lang::String::padRight(size_t target, const String& padding) const {
+egg::lang::StringLegacy egg::lang::StringLegacy::padRight(size_t target, const StringLegacy& padding) const {
   // OPTIMIZE
   auto length = this->length();
   auto n = padding.length();
@@ -1112,14 +1116,18 @@ egg::lang::String egg::lang::String::padRight(size_t target, const String& paddi
   if (partial > 0) {
     dst.append(utf8.cbegin(), egg::utf::utf8_offset(utf8, partial));
   }
-  return String(*StringBufferUTF8::create(dst, target));
+  return StringLegacy(*StringBufferUTF8::create(dst, target));
 }
 
 egg::lang::String egg::lang::StringBuilder::str() const {
-  return String::fromUTF8(this->ss.str());
+  return this->ss.str();
 }
 
 std::ostream& operator<<(std::ostream& os, const egg::lang::String& text) {
+  return os << text.toUTF8();
+}
+
+std::ostream& operator<<(std::ostream& os, const egg::lang::StringLegacy& text) {
   return os << text.toUTF8();
 }
 
@@ -1128,7 +1136,7 @@ const egg::lang::Value egg::lang::Value::Void{ Discriminator::Void };
 const egg::lang::Value egg::lang::Value::Null{ Discriminator::Null };
 const egg::lang::Value egg::lang::Value::False{ false };
 const egg::lang::Value egg::lang::Value::True{ true };
-const egg::lang::Value egg::lang::Value::EmptyString{ String::Empty };
+const egg::lang::Value egg::lang::Value::EmptyString{ StringLegacy::Empty };
 const egg::lang::Value egg::lang::Value::Break{ Discriminator::Break };
 const egg::lang::Value egg::lang::Value::Continue{ Discriminator::Continue };
 const egg::lang::Value egg::lang::Value::Rethrow{ Discriminator::Exception | Discriminator::Void };
@@ -1195,7 +1203,9 @@ void egg::lang::Value::destroyInternals() {
   } else if (this->has(Discriminator::Indirect | Discriminator::Pointer)) {
     this->v->hardRelease();
   } else if (this->has(Discriminator::String)) {
-    this->s->hardRelease();
+    if (this->s != nullptr) {
+      this->s->hardRelease();
+    }
   } else if (this->has(Discriminator::Type)) {
     this->t->hardRelease();
   }
@@ -1278,7 +1288,7 @@ egg::lang::Value& egg::lang::Value::soft(egg::ovum::IAllocator&, egg::ovum::ICol
   return *this;
 }
 
-bool egg::lang::Value::equal(const Value& lhs, const Value& rhs) {
+bool egg::lang::Value::equals(const Value& lhs, const Value& rhs) {
   auto& a = lhs.direct();
   auto& b = rhs.direct();
   if (a.tag != b.tag) {
@@ -1301,7 +1311,7 @@ bool egg::lang::Value::equal(const Value& lhs, const Value& rhs) {
     return a.f == b.f;
   }
   if (a.tag == Discriminator::String) {
-    return a.s->equal(*b.s);
+    return egg::ovum::String::equals(a.s, b.s);
   }
   if (a.tag == Discriminator::Type) {
     return a.t == b.t;
@@ -1422,12 +1432,12 @@ egg::lang::String egg::lang::Value::toString() const {
     if (str.tag == Discriminator::String) {
       return str.getString();
     }
-    return String::fromUTF8("<invalid>");
+    return "<invalid>";
   }
   if (this->has(Discriminator::Type)) {
     return this->t->toString();
   }
-  return String::fromUTF8(this->toUTF8());
+  return this->toUTF8();
 }
 
 std::string egg::lang::Value::toUTF8() const {
@@ -1445,7 +1455,7 @@ std::string egg::lang::Value::toUTF8() const {
     return egg::yolk::String::fromFloat(this->f);
   }
   if (this->tag == Discriminator::String) {
-    return this->s->toUTF8();
+    return String(this->s).toUTF8();
   }
   if (this->has(Discriminator::Object)) {
     auto str = this->getObject()->toString();
@@ -1463,9 +1473,9 @@ std::string egg::lang::Value::toUTF8() const {
 egg::lang::String egg::lang::IType::toString(int priority) const {
   auto pair = this->toStringPrecedence();
   if (pair.second < priority) {
-    return egg::lang::String::concat("(", pair.first, ")");
+    return egg::lang::StringBuilder::concat("(", pair.first, ")");
   }
-  return String::fromUTF8(pair.first);
+  return pair.first;
 }
 
 egg::lang::ITypeRef egg::lang::IType::pointerType() const {
@@ -1529,7 +1539,7 @@ bool egg::lang::IFunctionSignature::validateCallDefault(IExecution& execution, c
 }
 
 egg::lang::String egg::lang::IIndexSignature::toString() const {
-  return String::concat(this->getResultType()->toString(), "[", this->getIndexType()->toString(), "]");
+  return StringBuilder::concat(this->getResultType()->toString(), "[", this->getIndexType()->toString(), "]");
 }
 
 egg::lang::Value egg::lang::IType::promoteAssignment(IExecution& execution, const Value& rhs) const {
@@ -1554,7 +1564,7 @@ const egg::lang::IIndexSignature* egg::lang::IType::indexable() const {
 
 bool egg::lang::IType::dotable(const String*, ITypeRef&, String& reason) const {
   // The default implementation is to say we don't support properties with '.'
-  reason = egg::lang::String::concat("Values of type '", this->toString(), "' do not support the '.' operator for property access");
+  reason = egg::lang::StringBuilder::concat("Values of type '", this->toString(), "' do not support the '.' operator for property access");
   return false;
 }
 

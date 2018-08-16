@@ -8,13 +8,13 @@ namespace {
     EGG_NO_COPY(BuiltinFunctionType);
   public:
     BuiltinFunctionType(egg::ovum::IAllocator& allocator, const std::string& name, const ITypeRef& returnType)
-      : FunctionType(allocator, String::fromUTF8(name), returnType) {
+      : FunctionType(allocator, name, returnType) {
     }
     String getName() const {
       return this->callable()->getFunctionName();
     }
     void addParameterUTF8(const std::string& name, const egg::lang::ITypeRef& type, egg::lang::IFunctionSignatureParameter::Flags flags) {
-      this->addParameter(egg::lang::String::fromUTF8(name), type, flags);
+      this->addParameter(name, type, flags);
     }
     Value validateCall(IExecution& execution, const IParameters& parameters) const {
       Value problem;
@@ -55,7 +55,7 @@ namespace {
         type = value.getRuntimeType();
         return true;
       }
-      reason = String::concat("Unknown built-in property: '", this->getName(), ".", *property, "'");
+      reason = egg::ovum::StringBuilder::concat("Unknown built-in property: '", this->getName(), ".", *property, "'");
       return false;
     }
   };
@@ -132,8 +132,7 @@ namespace {
     }
     template<typename T>
     void addProperty(egg::ovum::IAllocator& allocator, const std::string& name) {
-      Value value(allocator.make<T>());
-      this->type->addProperty(String::fromUTF8(name), std::move(value));
+      this->type->addProperty(name, Value::makeObject<T>(allocator));
     }
   };
 
@@ -308,7 +307,7 @@ namespace {
     }
     template<typename T>
     static Value make(egg::ovum::IAllocator& allocator, const String& instance, const std::string& name) {
-      return Value(allocator.make<StringBuiltin>(instance, allocator.make<T>("string." + name)));
+      return Value::makeObject<StringBuiltin>(allocator, instance, allocator.make<T>("string." + name));
     }
   };
 
@@ -320,7 +319,7 @@ namespace {
     }
     virtual Value executeCall(IExecution&, const String& instance, const IParameters&) const override {
       // int hashCode()
-      return Value{ instance.hashCode() };
+      return Value{ StringLegacy(instance).hashCode() };
     }
   };
 
@@ -349,7 +348,7 @@ namespace {
       if (!needle.is(Discriminator::String)) {
         return this->raise(execution, "Parameter was expected to be a 'string', not '", needle.getRuntimeType()->toString(), "'");
       }
-      return Value{ instance.contains(needle.getString()) };
+      return Value{ StringLegacy(instance).contains(needle.getString()) };
     }
   };
 
@@ -366,7 +365,7 @@ namespace {
       if (!other.is(Discriminator::String)) {
         return this->raise(execution, "First parameter was expected to be a 'string', not '", other.getRuntimeType()->toString(), "'");
       }
-      return Value{ instance.compare(other.getString()) };
+      return Value{ StringLegacy(instance).compare(other.getString()) };
     }
   };
 
@@ -383,7 +382,7 @@ namespace {
       if (!needle.is(Discriminator::String)) {
         return this->raise(execution, "Parameter was expected to be a 'string', not '", needle.getRuntimeType()->toString(), "'");
       }
-      return Value{ instance.startsWith(needle.getString()) };
+      return Value{ StringLegacy(instance).startsWith(needle.getString()) };
     }
   };
 
@@ -400,7 +399,7 @@ namespace {
       if (!needle.is(Discriminator::String)) {
         return this->raise(execution, "Parameter was expected to be a 'string', not '", needle.getRuntimeType()->toString(), "'");
       }
-      return Value{ instance.endsWith(needle.getString()) };
+      return Value{ StringLegacy(instance).endsWith(needle.getString()) };
     }
   };
 
@@ -417,7 +416,7 @@ namespace {
       if (!needle.is(Discriminator::String)) {
         return this->raise(execution, "First parameter was expected to be a 'string', not '", needle.getRuntimeType()->toString(), "'");
       }
-      auto index = instance.indexOfString(needle.getString());
+      auto index = StringLegacy(instance).indexOfString(needle.getString());
       return (index < 0) ? Value::Null : Value{ index };
     }
   };
@@ -435,7 +434,7 @@ namespace {
       if (!needle.is(Discriminator::String)) {
         return this->raise(execution, "First parameter was expected to be a 'string', not '", needle.getRuntimeType()->toString(), "'");
       }
-      auto index = instance.lastIndexOfString(needle.getString());
+      auto index = StringLegacy(instance).lastIndexOfString(needle.getString());
       return (index < 0) ? Value::Null : Value{ index };
     }
   };
@@ -481,7 +480,7 @@ namespace {
       if (!separator.is(Discriminator::String)) {
         return this->raise(execution, "First parameter was expected to be a 'string', not '", separator.getRuntimeType()->toString(), "'");
       }
-      auto split = instance.split(separator.getString());
+      auto split = StringLegacy(instance).split(separator.getString());
       assert(split.size() > 0);
       return this->raise(execution, "TODO: Return an array of strings"); //TODO
     }
@@ -503,14 +502,14 @@ namespace {
       }
       auto begin = p0.getInt();
       if (parameters.getPositionalCount() == 1) {
-        return Value{ instance.slice(begin) };
+        return Value{ StringLegacy(instance).slice(begin) };
       }
       auto p1 = parameters.getPositional(1);
       if (!p1.is(Discriminator::Int)) {
         return this->raise(execution, "Second parameter was expected to be an 'int', not '", p0.getRuntimeType()->toString(), "'");
       }
       auto end = p1.getInt();
-      return Value{ instance.slice(begin, end) };
+      return Value{ StringLegacy(instance).slice(begin, end) };
     }
   };
 
@@ -565,13 +564,13 @@ namespace {
         return this->raise(execution, "Second parameter was expected to be a 'string', not '", needle.getRuntimeType()->toString(), "'");
       }
       if (parameters.getPositionalCount() < 3) {
-        return Value{ instance.replace(needle.getString(), replacement.getString()) };
+        return Value{ StringLegacy(instance).replace(needle.getString(), replacement.getString()) };
       }
       auto occurrences = parameters.getPositional(2);
       if (!occurrences.is(Discriminator::Int)) {
         return this->raise(execution, "Third parameter was expected to be an 'int', not '", needle.getRuntimeType()->toString(), "'");
       }
-      return Value{ instance.replace(needle.getString(), replacement.getString(), occurrences.getInt()) };
+      return Value{ StringLegacy(instance).replace(needle.getString(), replacement.getString(), occurrences.getInt()) };
     }
   };
 
@@ -594,13 +593,13 @@ namespace {
         return this->raise(execution, "First parameter was expected to be a non-negative integer, not ", length);
       }
       if (parameters.getPositionalCount() < 2) {
-        return Value{ instance.padLeft(size_t(length)) };
+        return Value{ StringLegacy(instance).padLeft(size_t(length)) };
       }
       auto p1 = parameters.getPositional(1);
       if (!p1.is(Discriminator::String)) {
         return this->raise(execution, "Second parameter was expected to be a 'string', not '", p1.getRuntimeType()->toString(), "'");
       }
-      return Value{ instance.padLeft(size_t(length), p1.getString()) };
+      return Value{ StringLegacy(instance).padLeft(size_t(length), p1.getString()) };
     }
   };
 
@@ -623,13 +622,13 @@ namespace {
         return this->raise(execution, "First parameter was expected to be a non-negative integer, not ", length);
       }
       if (parameters.getPositionalCount() < 2) {
-        return Value{ instance.padRight(size_t(length)) };
+        return Value{ StringLegacy(instance).padRight(size_t(length)) };
       }
       auto p1 = parameters.getPositional(1);
       if (!p1.is(Discriminator::String)) {
         return this->raise(execution, "Second parameter was expected to be a 'string', not '", p1.getRuntimeType()->toString(), "'");
       }
-      return Value{ instance.padRight(size_t(length), p1.getString()) };
+      return Value{ StringLegacy(instance).padRight(size_t(length), p1.getString()) };
     }
   };
 
@@ -639,7 +638,7 @@ namespace {
   }
 }
 
-egg::lang::String::BuiltinFactory egg::lang::String::builtinFactory(const egg::lang::String& property) {
+egg::lang::StringLegacy::BuiltinFactory egg::lang::StringLegacy::builtinFactory(const egg::lang::String& property) {
   // See http://chilliant.blogspot.co.uk/2018/05/egg-strings.html
   // WIBBLE map of String
   static const std::map<std::string, BuiltinFactory> table = {
@@ -668,26 +667,27 @@ egg::lang::String::BuiltinFactory egg::lang::String::builtinFactory(const egg::l
   return nullptr;
 }
 
-egg::lang::Value egg::lang::String::builtin(egg::lang::IExecution& execution, const egg::lang::String& property) const {
-  auto factory = String::builtinFactory(property);
+egg::lang::Value egg::lang::StringLegacy::builtin(egg::lang::IExecution& execution, const egg::lang::String& property) const {
+  auto factory = StringLegacy::builtinFactory(property);
   if (factory != nullptr) {
-    return factory(execution.getAllocator(), *this, "string." + property.toUTF8()); // WIBBLE just String
+    auto actual = String(this->toUTF8()); // WIBBLE
+    return factory(execution.getAllocator(), actual, "string." + property.toUTF8()); // WIBBLE just String
   }
   return execution.raiseFormat("Unknown property for type 'string': '", property, "'");
 }
 
 egg::lang::Value egg::lang::Value::builtinString(egg::ovum::IAllocator& allocator) {
-  return Value(allocator.make<BuiltinString>());
+  return Value::makeObject<BuiltinString>(allocator);
 }
 
 egg::lang::Value egg::lang::Value::builtinType(egg::ovum::IAllocator& allocator) {
-  return Value(allocator.make<BuiltinType>());
+  return Value::makeObject<BuiltinType>(allocator);
 }
 
 egg::lang::Value egg::lang::Value::builtinAssert(egg::ovum::IAllocator& allocator) {
-  return Value(allocator.make<BuiltinAssert>());
+  return Value::makeObject<BuiltinAssert>(allocator);
 }
 
 egg::lang::Value egg::lang::Value::builtinPrint(egg::ovum::IAllocator& allocator) {
-  return Value(allocator.make<BuiltinPrint>());
+  return Value::makeObject<BuiltinPrint>(allocator);
 }

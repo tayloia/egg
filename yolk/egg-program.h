@@ -72,7 +72,7 @@ namespace egg::yolk {
   class EggProgramSymbolTable : public egg::ovum::SoftReferenceCounted<egg::ovum::ICollectable> {
     EGG_NO_COPY(EggProgramSymbolTable);
   private:
-    std::map<egg::lang::String, std::shared_ptr<EggProgramSymbol>> map;
+    egg::ovum::StringMap<std::shared_ptr<EggProgramSymbol>> map;
     egg::ovum::SoftPtr<EggProgramSymbolTable> parent;
   public:
     explicit EggProgramSymbolTable(egg::ovum::IAllocator& allocator, EggProgramSymbolTable* parent = nullptr)

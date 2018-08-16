@@ -1,6 +1,7 @@
 namespace egg::lang {
-  class String;
-  class StringBuilder;
+  using String = egg::ovum::String;
+  using StringBuilder = egg::ovum::StringBuilder;
+
   class Value;
   class ValueReferenceCounted;
   struct LocationSource;
@@ -98,7 +99,7 @@ namespace egg::lang {
   public:
     virtual size_t length() const = 0;
     virtual bool empty() const = 0;
-    virtual bool equal(const IString& other) const = 0;
+    virtual bool equals(const IString& other) const = 0;
     virtual bool less(const IString& other) const = 0;
     virtual int64_t hashCode() const = 0;
     virtual int64_t compare(const IString& other) const = 0;
@@ -120,7 +121,6 @@ namespace egg::lang {
     virtual bool iteratePrevious(StringIteration& iteration) const = 0;
     virtual bool iterateLast(StringIteration& iteration) const = 0;
   };
-  using IStringRef = egg::ovum::HardPtr<const IString>;
 
   class IPreparation {
   public:
@@ -267,39 +267,14 @@ namespace egg::lang {
     virtual Value iterate(IExecution& execution) = 0;
   };
 
-  class StringBuilder {
-    StringBuilder(const StringBuilder&) = delete;
-    StringBuilder& operator=(const StringBuilder&) = delete;
-  private:
-    std::stringstream ss;
-  public:
-    StringBuilder() {
-    }
-    template<typename T>
-    StringBuilder& add(T value) {
-      this->ss << value;
-      return *this;
-    }
-    template<typename T, typename... ARGS>
-    StringBuilder& add(T value, ARGS... args) {
-      return this->add(value).add(args...);
-    }
-    bool empty() const {
-      return this->ss.rdbuf()->in_avail() == 0;
-    }
-    std::string toUTF8() const {
-      return this->ss.str();
-    }
-    String str() const;
-  };
-
-  class String : public IStringRef {
+  class StringLegacy : public egg::ovum::HardPtr<const IString> {
   private:
     static const IString& emptyBuffer;
   public:
-    explicit String(const IString& rhs = emptyBuffer) : IStringRef(&rhs) {
+    StringLegacy(const String& rhs);
+    explicit StringLegacy(const IString& rhs = emptyBuffer) : HardPtr(&rhs) {
     }
-    String(const String& rhs) : IStringRef(rhs.get()) {
+    StringLegacy(const StringLegacy& rhs) : HardPtr(rhs.get()) {
     }
     // Properties
     size_t length() const {
@@ -317,51 +292,51 @@ namespace egg::lang {
     std::string toUTF8() const {
       return this->get()->toUTF8();
     }
-    bool equal(const String& rhs) const {
-      return this->get()->equal(*rhs);
+    bool equals(const StringLegacy& rhs) const {
+      return this->get()->equals(*rhs);
     }
-    bool less(const String& rhs) const {
+    bool less(const StringLegacy& rhs) const {
       return this->get()->less(*rhs);
     }
-    int64_t compare(const String& rhs) const {
+    int64_t compare(const StringLegacy& rhs) const {
       return this->get()->compare(*rhs);
     }
-    bool contains(const String& needle) const {
+    bool contains(const StringLegacy& needle) const {
       return this->get()->indexOfString(*needle, 0) >= 0;
     }
-    bool startsWith(const String& needle) const {
+    bool startsWith(const StringLegacy& needle) const {
       return this->get()->startsWith(*needle);
     }
-    bool endsWith(const String& needle) const {
+    bool endsWith(const StringLegacy& needle) const {
       return this->get()->endsWith(*needle);
     }
     int64_t indexOfCodePoint(char32_t needle, size_t fromIndex = 0) const {
       return this->get()->indexOfCodePoint(needle, fromIndex);
     }
-    int64_t indexOfString(const String& needle, size_t fromIndex = 0) const {
+    int64_t indexOfString(const StringLegacy& needle, size_t fromIndex = 0) const {
       return this->get()->indexOfString(*needle, fromIndex);
     }
     int64_t lastIndexOfCodePoint(char32_t needle, size_t fromIndex = SIZE_MAX) const {
       return this->get()->lastIndexOfCodePoint(needle, fromIndex);
     }
-    int64_t lastIndexOfString(const String& needle, size_t fromIndex = SIZE_MAX) const {
+    int64_t lastIndexOfString(const StringLegacy& needle, size_t fromIndex = SIZE_MAX) const {
       return this->get()->lastIndexOfString(*needle, fromIndex);
     }
-    String substring(size_t begin, size_t end = SIZE_MAX) const {
-      return String(*this->get()->substring(begin, end));
+    StringLegacy substring(size_t begin, size_t end = SIZE_MAX) const {
+      return StringLegacy(*this->get()->substring(begin, end));
     }
-    String slice(int64_t begin, int64_t end = INT64_MAX) const {
-      return String(*this->get()->substring(this->signedToIndex(begin), this->signedToIndex(end)));
+    StringLegacy slice(int64_t begin, int64_t end = INT64_MAX) const {
+      return StringLegacy(*this->get()->substring(this->signedToIndex(begin), this->signedToIndex(end)));
     }
-    String repeat(size_t count) const {
-      return String(*this->get()->repeat(count));
+    StringLegacy repeat(size_t count) const {
+      return StringLegacy(*this->get()->repeat(count));
     }
-    String replace(const String& needle, const String& replacement, int64_t occurrences = INT64_MAX) const {
-      return String(*this->get()->replace(*needle, *replacement, occurrences));
+    StringLegacy replace(const StringLegacy& needle, const StringLegacy& replacement, int64_t occurrences = INT64_MAX) const {
+      return StringLegacy(*this->get()->replace(*needle, *replacement, occurrences));
     }
-    String padLeft(size_t target, const String& padding = String::Space) const;
-    String padRight(size_t target, const String& padding = String::Space) const;
-    std::vector<String> split(const String& separator, int64_t limit = INT64_MAX) const;
+    StringLegacy padLeft(size_t target, const StringLegacy& padding = StringLegacy::Space) const;
+    StringLegacy padRight(size_t target, const StringLegacy& padding = StringLegacy::Space) const;
+    std::vector<StringLegacy> split(const StringLegacy& separator, int64_t limit = INT64_MAX) const;
     // Helpers
     size_t signedToIndex(int64_t index) const {
       // Convert a signed index to an absolute one
@@ -377,27 +352,23 @@ namespace egg::lang {
     static BuiltinFactory builtinFactory(const String& property);
     Value builtin(IExecution& execution, const String& property) const;
     // Operators
-    String& operator=(const String& rhs) {
+    StringLegacy& operator=(const StringLegacy& rhs) {
       this->set(rhs.get());
       return *this;
     }
-    bool operator==(const String& rhs) const {
-      return this->get()->equal(*rhs);
+    bool operator==(const StringLegacy& rhs) const {
+      return this->get()->equals(*rhs);
     }
-    bool operator<(const String& rhs) const {
+    bool operator<(const StringLegacy& rhs) const {
       return this->get()->less(*rhs);
     }
     // Factories
-    static String fromCodePoint(char32_t codepoint);
-    static String fromUTF8(const std::string& utf8);
-    static String fromUTF32(const std::u32string& utf32);
-    template<typename... ARGS>
-    static String concat(ARGS... args) {
-      return StringBuilder().add(args...).str();
-    }
+    static StringLegacy fromCodePoint(char32_t codepoint);
+    static StringLegacy fromUTF8(const std::string& utf8);
+    static StringLegacy fromUTF32(const std::u32string& utf32);
     // Constants
-    static const String Empty;
-    static const String Space;
+    static const StringLegacy Empty;
+    static const StringLegacy Space;
   };
 
   struct LocationSource {
@@ -428,6 +399,8 @@ namespace egg::lang {
   };
 
   class Value {
+    // Stop type promotion for implicit constructors
+    template<typename T> Value(T rhs) = delete;
   private:
     Discriminator tag;
     union {
@@ -435,7 +408,7 @@ namespace egg::lang {
       int64_t i;
       double f;
       IObject* o;
-      const IString* s;
+      const egg::ovum::IMemory* s;
       const IType* t;
       ValueReferenceCounted* v;
     };
@@ -452,14 +425,15 @@ namespace egg::lang {
     explicit Value(int64_t value) : tag(Discriminator::Int) { this->i = value; }
     explicit Value(double value) : tag(Discriminator::Float) { this->f = value; }
     explicit Value(const String& value) : tag(Discriminator::String) { this->s = value.hardAcquire(); }
+    explicit Value(const StringLegacy& value) : Value(String(value.toUTF8())) {} // WIBBLE
     explicit Value(const egg::ovum::HardPtr<IObject>& value) : tag(Discriminator::Object) { this->o = value.hardAcquire(); }
     explicit Value(const IType& type) : tag(Discriminator::Type) { this->t = type.hardAcquire<IType>(); }
     explicit Value(const ValueReferenceCounted& vrc);
     Value& operator=(const Value& value);
     Value& operator=(Value&& value) noexcept;
     ~Value();
-    bool operator==(const Value& other) const { return Value::equal(*this, other); }
-    bool operator!=(const Value& other) const { return !Value::equal(*this, other); }
+    bool operator==(const Value& other) const { return Value::equals(*this, other); }
+    bool operator!=(const Value& other) const { return !Value::equals(*this, other); }
     const Value& direct() const;
     Value& direct();
     ValueReferenceCounted& indirect(egg::ovum::IAllocator& allocator);
@@ -469,7 +443,7 @@ namespace egg::lang {
     bool getBool() const { assert(this->has(Discriminator::Bool)); return this->b; }
     int64_t getInt() const { assert(this->has(Discriminator::Int)); return this->i; }
     double getFloat() const { assert(this->has(Discriminator::Float)); return this->f; }
-    String getString() const { assert(this->has(Discriminator::String)); return String(*this->s); }
+    String getString() const { assert(this->has(Discriminator::String)); return String(this->s); }
     egg::ovum::HardPtr<IObject> getObject() const { assert(this->has(Discriminator::Object)); assert(this->o != nullptr); return egg::ovum::HardPtr<IObject>(this->o); }
     const IType& getType() const { assert(this->has(Discriminator::Type)); return *this->t; }
     ValueReferenceCounted& getPointee() const { assert(this->has(Discriminator::Pointer) && !this->has(Discriminator::Object)); return *this->v; }
@@ -478,7 +452,7 @@ namespace egg::lang {
     bool stripFlowControl(Discriminator bits);
     std::string getTagString() const;
     static std::string getTagString(Discriminator tag);
-    static bool equal(const Value& lhs, const Value& rhs);
+    static bool equals(const Value& lhs, const Value& rhs);
     String toString() const;
     std::string toUTF8() const;
     ITypeRef getRuntimeType() const;
@@ -499,6 +473,13 @@ namespace egg::lang {
     static Value builtinType(egg::ovum::IAllocator& allocator);
     static Value builtinAssert(egg::ovum::IAllocator& allocator);
     static Value builtinPrint(egg::ovum::IAllocator& allocator);
+
+    // WIBBLE make
+    template<typename T, typename... ARGS>
+    static Value makeObject(egg::ovum::IAllocator& allocator, ARGS&&... args) {
+      // Use perfect forwarding
+      return Value(egg::ovum::HardPtr<IObject>(allocator.make<T>(std::forward<ARGS>(args)...)));
+    }
   };
 
   class ValueReferenceCounted : public egg::ovum::IHardAcquireRelease, public Value {
@@ -510,30 +491,37 @@ namespace egg::lang {
 }
 
 namespace std {
+  template<> struct hash<egg::lang::StringLegacy> {
+    // String hash specialization for use with std::unordered_map<> etc.
+    size_t operator()(const egg::lang::StringLegacy& s) const {
+      return size_t(s.hashCode());
+    }
+  };
   template<> struct hash<egg::lang::String> {
     // String hash specialization for use with std::unordered_map<> etc.
     size_t operator()(const egg::lang::String& s) const {
-      return size_t(s.hashCode());
+      return size_t(egg::lang::StringLegacy(s).hashCode());
     }
   };
 }
 
 std::ostream& operator<<(std::ostream& os, const egg::lang::String& text);
+std::ostream& operator<<(std::ostream& os, const egg::lang::StringLegacy& text);
 
 template<typename... ARGS>
 inline void egg::lang::IPreparation::raiseWarning(ARGS... args) {
-  auto message = StringBuilder().add(args...).str();
+  auto message = StringBuilder::concat(args...);
   this->raise(egg::lang::LogSeverity::Warning, message);
 }
 
 template<typename... ARGS>
 inline void egg::lang::IPreparation::raiseError(ARGS... args) {
-  auto message = StringBuilder().add(args...).str();
+  auto message = StringBuilder::concat(args...);
   this->raise(egg::lang::LogSeverity::Error, message);
 }
 
 template<typename... ARGS>
 inline egg::lang::Value egg::lang::IExecution::raiseFormat(ARGS... args) {
-  auto message = StringBuilder().add(args...).str();
+  auto message = StringBuilder::concat(args...);
   return this->raise(message);
 }

@@ -278,7 +278,7 @@ void egg::yolk::EggProgramSymbolTable::addBuiltins() {
 }
 
 void egg::yolk::EggProgramSymbolTable::addBuiltin(const std::string& name, const egg::lang::Value& value) {
-  (void)this->addSymbol(EggProgramSymbol::Builtin, egg::lang::String::fromUTF8(name), value.getRuntimeType(), value);
+  (void)this->addSymbol(EggProgramSymbol::Builtin, name, value.getRuntimeType(), value);
 }
 
 std::shared_ptr<egg::yolk::EggProgramSymbol> egg::yolk::EggProgramSymbolTable::addSymbol(EggProgramSymbol::Kind kind, const egg::lang::String& name, const egg::lang::ITypeRef& type, const egg::lang::Value& value) {
@@ -342,7 +342,7 @@ std::string egg::yolk::EggProgram::mutateToString(egg::yolk::EggProgramMutate op
 }
 
 egg::ovum::HardPtr<egg::yolk::EggProgramContext> egg::yolk::EggProgram::createRootContext(egg::ovum::IAllocator& allocator, IEggEngineLogger& logger, EggProgramSymbolTable& symtable, egg::lang::LogSeverity& maximumSeverity) {
-  egg::lang::LocationRuntime location(this->root->location(), egg::lang::String::fromUTF8("<module>"));
+  egg::lang::LocationRuntime location(this->root->location(), "<module>");
   return allocator.make<EggProgramContext>(location, logger, symtable, maximumSeverity);
 }
 
@@ -366,7 +366,7 @@ bool egg::yolk::EggProgramContext::findDuplicateSymbols(const std::vector<std::s
   bool error = false;
   egg::lang::String name;
   auto type = egg::lang::Type::Void;
-  std::map<egg::lang::String, egg::lang::LocationSource> seen;
+  egg::ovum::StringMap<egg::lang::LocationSource> seen;
   for (auto& statement : statements) {
     if (statement->symbol(name, type)) {
       auto here = statement->location();
@@ -809,7 +809,7 @@ egg::lang::Value egg::yolk::EggProgramContext::dotGet(const egg::lang::Value& in
     return direct.getObject()->getProperty(*this, property);
   }
   if (direct.has(egg::lang::Discriminator::String)) {
-    return direct.getString().builtin(*this, property);
+    return egg::lang::StringLegacy(direct.getString()).builtin(*this, property);
   }
   return this->raiseFormat("Values of type '", instance.getRuntimeType()->toString(), "' do not support properties such as '.", property, "'");
 }
@@ -841,7 +841,7 @@ egg::lang::Value egg::yolk::EggProgramContext::bracketsGet(const egg::lang::Valu
       return this->raiseFormat("String indexing '[]' only supports indices of type 'int', not '", index.getRuntimeType()->toString(), "'");
     }
     auto i = index.getInt();
-    auto c = str.codePointAt(size_t(i));
+    auto c = egg::lang::StringLegacy(str).codePointAt(size_t(i));
     if (c < 0) {
       // Invalid index
       auto n = str.length();
@@ -850,7 +850,7 @@ egg::lang::Value egg::yolk::EggProgramContext::bracketsGet(const egg::lang::Valu
       }
       return this->raiseFormat("Cannot index a malformed string");
     }
-    return egg::lang::Value{ egg::lang::String::fromCodePoint(char32_t(c)) };
+    return egg::lang::Value{ egg::ovum::StringFactory::fromCodePoint(this->allocator, char32_t(c)) };
   }
   return this->raiseFormat("Values of type '", instance.getRuntimeType()->toString(), "' do not support indexing with '[]'");
 }

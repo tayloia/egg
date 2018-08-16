@@ -119,7 +119,7 @@ namespace {
     egg::lang::String resource_name;
   public:
     explicit EggTokenizer(const std::shared_ptr<ILexer>& lexer)
-      : lexer(lexer), resource_name(egg::lang::String::fromUTF8(lexer->getResourceName())) {
+      : lexer(lexer), resource_name(lexer->getResourceName()) {
       this->upcoming.line = 0;
     }
     virtual EggTokenizerKind next(EggTokenizerItem& item) override {
@@ -127,7 +127,7 @@ namespace {
         // This is the first time through
         this->lexer->next(this->upcoming);
       }
-      item.value.s = egg::lang::String::Empty;
+      item.value.s = egg::lang::String();
       item.contiguous = true;
       bool skip;
       do {
@@ -147,17 +147,17 @@ namespace {
           if (item.value.i < 0) {
             this->unexpected("Invalid integer constant");
           }
-          item.value.s = egg::lang::String::fromUTF8(this->upcoming.verbatim);
+          item.value.s = this->upcoming.verbatim;
           item.kind = EggTokenizerKind::Integer;
           break;
         case LexerKind::Float:
           // This is a float excluding any preceding sign
           item.value.f = this->upcoming.value.f;
-          item.value.s = egg::lang::String::fromUTF8(this->upcoming.verbatim);
+          item.value.s = this->upcoming.verbatim;
           item.kind = EggTokenizerKind::Float;
           break;
         case LexerKind::String:
-          item.value.s = egg::lang::String::fromUTF8(egg::utf::to_utf8(this->upcoming.value.s));
+          item.value.s = egg::utf::to_utf8(this->upcoming.value.s);
           item.kind = EggTokenizerKind::String;
           break;
         case LexerKind::Operator:
@@ -166,7 +166,7 @@ namespace {
           }
           return this->nextOperator(item);
         case LexerKind::Identifier:
-          item.value.s = egg::lang::String::fromUTF8(this->upcoming.verbatim);
+          item.value.s = this->upcoming.verbatim;
           if (EggTokenizerValue::tryParseKeyword(this->upcoming.verbatim, item.value.k)) {
             item.kind = EggTokenizerKind::Keyword;
           } else {

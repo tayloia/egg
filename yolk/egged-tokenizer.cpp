@@ -113,7 +113,7 @@ namespace {
             item.value = egg::lang::Value::True;
           } else {
             item.kind = EggedTokenizerKind::Identifier;
-            item.value = egg::lang::Value{ egg::lang::String::fromUTF8(this->upcoming.verbatim) };
+            item.value = egg::lang::Value(egg::ovum::String(this->upcoming.verbatim));
           }
           break;
         case LexerKind::EndOfFile:

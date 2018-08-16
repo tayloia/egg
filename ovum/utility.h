@@ -292,9 +292,8 @@ namespace egg::ovum {
   public:
     explicit String(const IMemory* rhs = nullptr) : Memory(rhs) {
     }
-    String(const char* rhs); // implicit; fallback to factory
-    String(const std::string& rhs); // implicit; fallback to factory
-    String(const std::string& rhs, size_t codepoints); // fallback to factory
+    String(const char* utf8); // implicit; fallback to factory
+    String(const std::string& utf8, size_t codepoints = SIZE_MAX); // implicit; fallback to factory
     size_t length() const {
       auto* memory = this->get();
       if (memory == nullptr) {
@@ -309,6 +308,33 @@ namespace egg::ovum {
       }
       return std::string(memory->begin(), memory->end());
     }
+
+    // WIBBLE helpers
+    bool empty() const {
+      return this->length() == 0;
+    }
+    bool operator==(const String& rhs) const {
+      return String::equals(this->get(), rhs.get());
+    }
+    bool equals(nullptr_t) const = delete;
+    bool equals(const String& rhs) const {
+      return String::equals(this->get(), rhs.get());
+    }
+    bool less(nullptr_t) const = delete;
+    bool less(const String& rhs) const {
+      return String::less(this->get(), rhs.get());
+    }
+    int compare(const String& rhs) const {
+      return String::compare(this->get(), rhs.get());
+    }
+    static bool equals(const IMemory* lhs, const IMemory* rhs);
+    static bool less(const IMemory* lhs, const IMemory* rhs);
+    static int compare(const IMemory* lhs, const IMemory* rhs);
+
+    // WIBBLE factories
+    static String fromCodePoint(char32_t codepoint); // fallback to factory
+    static String fromUTF8(const std::string& utf8, size_t codepoints = SIZE_MAX); // fallback to factory
+    static String fromUTF32(const std::u32string& utf32); // fallback to factory
   };
 
   class Object : public HardPtr<IObject> {
@@ -371,6 +397,40 @@ namespace egg::ovum {
         count++;
       }
       return count;
+    }
+    template<typename TARGET>
+    inline static void toUTF8(TARGET&& target, char32_t utf32) {
+      // See https://en.wikipedia.org/wiki/UTF-8
+      assert((utf32 >= 0) && (utf32 <= 0x10FFFF));
+      if (utf32 < 0x80) {
+        target = char(utf32);
+      } else if (utf32 < 0x800) {
+        target = char(0xC0 + (utf32 >> 6));
+        target = char(0x80 + (utf32 & 0x3F));
+      } else if (utf32 < 0x10000) {
+        target = char(0xE0 + (utf32 >> 12));
+        target = char(0x80 + ((utf32 >> 6) & 0x3F));
+        target = char(0x80 + (utf32 & 0x3F));
+      } else {
+        target = char(0xF0 + (utf32 >> 18));
+        target = char(0x80 + ((utf32 >> 12) & 0x3F));
+        target = char(0x80 + ((utf32 >> 6) & 0x3F));
+        target = char(0x80 + (utf32 & 0x3F));
+      }
+    }
+    inline static std::string toUTF8(char32_t utf32) {
+      std::string utf8;
+      auto target = std::back_inserter(utf8);
+      toUTF8(target, utf32);
+      return utf8;
+    }
+    inline static std::string toUTF8(const std::u32string& utf32) {
+      std::string utf8;
+      auto target = std::back_inserter(utf8);
+      for (auto ch : utf32) {
+        toUTF8(target, ch);
+      }
+      return utf8;
     }
   };
 }

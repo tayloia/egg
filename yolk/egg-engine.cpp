@@ -22,39 +22,21 @@ namespace {
     return egg::lang::LogSeverity::Error;
   }
 
-  template<class BASE>
-  class EggEngineBaseContext : public BASE {
-  protected:
-    egg::ovum::IAllocator* memallocator; // WIBBLE
+  class EggEngineContext : public IEggEnginePreparationContext, public IEggEngineExecutionContext {
+    EGG_NO_COPY(EggEngineContext);
+  private:
+    egg::ovum::IAllocator& mallocator;
     std::shared_ptr<IEggEngineLogger> logger;
   public:
-    EggEngineBaseContext(egg::ovum::IAllocator& allocator, const std::shared_ptr<IEggEngineLogger>& logger)
-      : memallocator(&allocator), logger(logger) {
+    EggEngineContext(egg::ovum::IAllocator& allocator, const std::shared_ptr<IEggEngineLogger>& logger)
+      : mallocator(allocator), logger(logger) {
       assert(logger != nullptr);
     }
     virtual void log(egg::lang::LogSource source, egg::lang::LogSeverity severity, const std::string& message) override {
       this->logger->log(source, severity, message);
     }
     virtual egg::ovum::IAllocator& allocator() const override {
-      return *this->memallocator;
-    }
-  };
-
-  class EggEnginePreparationContext : public EggEngineBaseContext<IEggEnginePreparationContext> {
-  private:
-    std::shared_ptr<IEggEngineLogger> logger;
-  public:
-    EggEnginePreparationContext(egg::ovum::IAllocator& allocator, const std::shared_ptr<IEggEngineLogger>& logger)
-      : EggEngineBaseContext(allocator, logger) {
-      assert(logger != nullptr);
-    }
-  };
-
-  class EggEngineExecutionContext : public EggEngineBaseContext<IEggEngineExecutionContext> {
-  public:
-    EggEngineExecutionContext(egg::ovum::IAllocator& allocator, const std::shared_ptr<IEggEngineLogger>& logger)
-      : EggEngineBaseContext(allocator, logger) {
-      assert(logger != nullptr);
+      return this->mallocator;
     }
   };
 
@@ -116,11 +98,11 @@ namespace {
 }
 
 std::shared_ptr<IEggEngineExecutionContext> egg::yolk::EggEngineFactory::createExecutionContext(egg::ovum::IAllocator& allocator, const std::shared_ptr<IEggEngineLogger>& logger) {
-  return std::make_shared<EggEngineExecutionContext>(allocator, logger);
+  return std::make_shared<EggEngineContext>(allocator, logger);
 }
 
 std::shared_ptr<IEggEnginePreparationContext> egg::yolk::EggEngineFactory::createPreparationContext(egg::ovum::IAllocator& allocator, const std::shared_ptr<IEggEngineLogger>& logger) {
-  return std::make_shared<EggEnginePreparationContext>(allocator, logger);
+  return std::make_shared<EggEngineContext>(allocator, logger);
 }
 
 std::shared_ptr<egg::yolk::IEggEngine> egg::yolk::EggEngineFactory::createEngineFromParsed(egg::ovum::IAllocator& allocator, const std::shared_ptr<IEggProgramNode>& root) {

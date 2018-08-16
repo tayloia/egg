@@ -93,7 +93,7 @@ namespace {
   }
 
   SyntaxException exceptionFromLocation(const IEggParserContext& context, const std::string& reason, const EggSyntaxNodeLocation& location) {
-    return SyntaxException(reason, context.getResourceName()->toUTF8(), location);
+    return SyntaxException(reason, context.getResourceName().toUTF8(), location);
   }
 
   SyntaxException exceptionFromToken(const IEggParserContext& context, const std::string& reason, const EggSyntaxNodeBase& node) {
@@ -1206,15 +1206,14 @@ namespace {
 
   class EggParserContext : public EggParserContextBase {
   private:
-    egg::ovum::IAllocator* memallocator;
+    egg::ovum::IAllocator* mallocator;
     egg::lang::String resource;
   public:
     EggParserContext(egg::ovum::IAllocator& allocator, const egg::lang::String& resource, EggParserAllowed allowed = EggParserAllowed::None)
-      : EggParserContextBase(allowed), memallocator(&allocator), resource(resource) {
+      : EggParserContextBase(allowed), mallocator(&allocator), resource(resource) {
     }
     virtual egg::ovum::IAllocator& allocator() const override {
-      assert(this->memallocator != nullptr);
-      return *this->memallocator;
+      return *this->mallocator;
     }
     virtual egg::lang::String getResourceName() const override {
       return this->resource;
