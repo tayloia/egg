@@ -809,7 +809,7 @@ egg::lang::Value egg::yolk::EggProgramContext::dotGet(const egg::lang::Value& in
     return direct.getObject()->getProperty(*this, property);
   }
   if (direct.has(egg::lang::Discriminator::String)) {
-    return egg::lang::StringLegacy(direct.getString()).builtin(*this, property);
+    return egg::yolk::Builtins::stringBuiltin(*this, direct.getString(), property);
   }
   return this->raiseFormat("Values of type '", instance.getRuntimeType()->toString(), "' do not support properties such as '.", property, "'");
 }

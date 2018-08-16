@@ -579,7 +579,7 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareDot(const eg
   auto lsimple = ltype->getSimpleTypes();
   assert(lsimple != egg::lang::Discriminator::Inferred);
   if (egg::lang::Bits::hasAnySet(lsimple, egg::lang::Discriminator::String)) {
-    if (egg::lang::StringLegacy::builtinFactory(property) != nullptr) {
+    if (egg::yolk::Builtins::stringBuiltinFactory(property) != nullptr) {
       // It's a known string builtin
       return EggProgramNodeFlags::None;
     }

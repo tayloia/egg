@@ -27,4 +27,18 @@ namespace egg::yolk {
 
     static egg::ovum::HardPtr<FunctionCoroutine> create(egg::ovum::IAllocator& allocator, const std::shared_ptr<egg::yolk::IEggProgramNode>& block);
   };
+
+  class Builtins {
+  public:
+    // Built-ins
+    static egg::lang::Value builtinString(egg::ovum::IAllocator& allocator);
+    static egg::lang::Value builtinType(egg::ovum::IAllocator& allocator);
+    static egg::lang::Value builtinAssert(egg::ovum::IAllocator& allocator);
+    static egg::lang::Value builtinPrint(egg::ovum::IAllocator& allocator);
+
+    // Built-ins
+    using StringBuiltinFactory = std::function<egg::lang::Value(egg::ovum::IAllocator& allocator, const egg::ovum::String& instance, const egg::ovum::String& property)>;
+    static StringBuiltinFactory stringBuiltinFactory(const egg::ovum::String& property);
+    static egg::lang::Value stringBuiltin(egg::lang::IExecution& execution, const egg::ovum::String& instance, const egg::ovum::String& property);
+  };
 }
