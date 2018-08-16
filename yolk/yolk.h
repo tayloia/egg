@@ -23,7 +23,6 @@
 #include "yolk/dictionaries.h"
 #include "yolk/exceptions.h"
 #include "yolk/files.h"
-#include "yolk/gc.h"
 #include "yolk/streams.h"
 #include "yolk/strings.h"
 #include "yolk/utf.h"

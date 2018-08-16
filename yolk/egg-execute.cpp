@@ -750,10 +750,12 @@ egg::lang::Value egg::yolk::EggProgramContext::executeWithValue(const IEggProgra
 
 egg::lang::LogSeverity egg::yolk::EggProgram::execute(IEggEngineExecutionContext& execution) {
   // Place the symbol table in our basket
-  auto symtable = this->basket.make<EggProgramSymbolTable>();
+  auto& allocator = execution.allocator();
+  auto symtable = allocator.make<EggProgramSymbolTable>();
+  this->basket->take(*symtable);
   symtable->addBuiltins();
   egg::lang::LogSeverity severity = egg::lang::LogSeverity::None;
-  auto context = this->createRootContext(execution.allocator(), execution, *symtable, severity);
+  auto context = this->createRootContext(allocator, execution, *symtable, severity);
   auto retval = this->root->execute(*context);
   if (!retval.is(egg::lang::Discriminator::Void)) {
     if (retval.stripFlowControl(egg::lang::Discriminator::Exception)) {

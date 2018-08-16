@@ -53,9 +53,6 @@
     <ClCompile Include="..\yolk\functions.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\yolk\gc.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="..\yolk\json-tokenizer.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -104,9 +101,6 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="..\yolk\functions.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="..\yolk\gc.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="..\yolk\json-tokenizer.h">

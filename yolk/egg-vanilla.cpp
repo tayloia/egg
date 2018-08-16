@@ -7,15 +7,16 @@
 #include "yolk/egg-program.h"
 
 namespace {
-  class VanillaBase : public egg::lang::IObject {
+  class VanillaBase : public egg::ovum::SoftReferenceCounted<egg::lang::IObject> {
     EGG_NO_COPY(VanillaBase);
   protected:
     std::string kind;
     egg::lang::ITypeRef type;
   public:
     VanillaBase(egg::ovum::IAllocator& allocator, const std::string& kind, const egg::lang::IType& type)
-      : IObject(allocator), kind(kind), type(&type) {
+      : SoftReferenceCounted(allocator), kind(kind), type(&type) {
     }
+    virtual void softVisitLinks(const Visitor&) const override {} // WIBBLE
     virtual egg::lang::ITypeRef getRuntimeType() const override {
       return this->type;
     }
@@ -286,7 +287,7 @@ namespace {
   class VanillaArrayIterator : public VanillaIteratorBase {
     EGG_NO_COPY(VanillaArrayIterator);
   private:
-    egg::gc::HardRef<VanillaArray> array;
+    egg::ovum::HardPtr<VanillaArray> array;
     size_t next;
   public:
     VanillaArrayIterator(egg::ovum::IAllocator& allocator, const VanillaArray& array)
@@ -437,21 +438,21 @@ namespace {
   const egg::lang::String VanillaException::keyMessage = egg::lang::String::fromUTF8("message");
   const egg::lang::String VanillaException::keyLocation = egg::lang::String::fromUTF8("location");
 
-  class VanillaFunction : public egg::lang::IObject {
+  class VanillaFunction : public egg::ovum::SoftReferenceCounted<egg::lang::IObject> {
     EGG_NO_COPY(VanillaFunction);
   protected:
-    egg::gc::SoftRef<egg::yolk::EggProgramContext> program;
+    egg::ovum::SoftPtr<egg::yolk::EggProgramContext> program;
     egg::lang::ITypeRef type;
     std::shared_ptr<egg::yolk::IEggProgramNode> block;
   public:
     VanillaFunction(egg::ovum::IAllocator& allocator, egg::yolk::EggProgramContext& program, const egg::lang::ITypeRef& type, const std::shared_ptr<egg::yolk::IEggProgramNode>& block)
-      : IObject(allocator),
-        program(allocator),
+      : SoftReferenceCounted(allocator),
         type(type),
         block(block) {
       assert(block != nullptr);
-      this->linkSoft(this->program, &program);
+      this->program.set(*this, &program);
     }
+    virtual void softVisitLinks(const Visitor&) const override {} // WIBBLE
     virtual egg::lang::Value toString() const override {
       return egg::lang::Value(egg::lang::String::concat("<", this->type->toString(), ">"));
     }
@@ -482,7 +483,7 @@ namespace {
     EGG_NO_COPY(VanillaGenerator);
   private:
     egg::lang::ITypeRef rettype;
-    egg::gc::HardRef<egg::yolk::FunctionCoroutine> coroutine;
+    egg::ovum::HardPtr<egg::yolk::FunctionCoroutine> coroutine;
     bool completed;
   public:
     VanillaGenerator(egg::ovum::IAllocator& allocator, egg::yolk::EggProgramContext& program, const egg::lang::ITypeRef& type, const egg::lang::ITypeRef& rettype, const std::shared_ptr<egg::yolk::IEggProgramNode>& block)
@@ -534,11 +535,11 @@ namespace {
   class VanillaGeneratorIterator : public VanillaIteratorBase {
     EGG_NO_COPY(VanillaGeneratorIterator);
   private:
-    egg::gc::SoftRef<VanillaGenerator> generator;
+    egg::ovum::SoftPtr<VanillaGenerator> generator;
   public:
     VanillaGeneratorIterator(egg::ovum::IAllocator& allocator, VanillaGenerator& generator)
-      : VanillaIteratorBase(allocator), generator(allocator) {
-      this->linkSoft(this->generator, &generator);
+      : VanillaIteratorBase(allocator) {
+      this->generator.set(*this, &generator);
     }
     virtual egg::lang::Value iterate(egg::lang::IExecution&) override {
       return this->generator->iterateNext();
@@ -547,7 +548,7 @@ namespace {
 
   egg::lang::Value VanillaGenerator::iterate(egg::lang::IExecution&) {
     // Create an ad hod iterator
-    return egg::lang::Value{ this->allocator.make<VanillaGeneratorIterator>(*this) };
+    return egg::lang::Value(this->allocator.make<VanillaGeneratorIterator>(*this));
   }
 }
 

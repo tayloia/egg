@@ -21,7 +21,7 @@ namespace {
     VanillaObject(IAllocator& allocator)
       : VanillaBase(allocator) {
     }
-    virtual void softVisitLinks(const ICollectable::Visitor&) const override {
+    virtual void softVisitLinks(const Visitor&) const override {
       // TODO
       assert(false);
     }

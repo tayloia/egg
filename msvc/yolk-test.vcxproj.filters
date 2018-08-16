@@ -227,12 +227,6 @@
     <ClCompile Include="..\yolk\test\files.cpp">
       <Filter>Test Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\yolk\test\gc-hard.cpp">
-      <Filter>Test Files</Filter>
-    </ClCompile>
-    <ClCompile Include="..\yolk\test\gc-soft.cpp">
-      <Filter>Test Files</Filter>
-    </ClCompile>
     <ClCompile Include="..\yolk\test\json-tokenizer.cpp">
       <Filter>Test Files</Filter>
     </ClCompile>
@@ -256,6 +250,9 @@
     </ClCompile>
     <ClCompile Include="..\ovum\test\gtest.cpp">
       <Filter>Infrastructure Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\yolk\test\utility.cpp">
+      <Filter>Test Files</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

@@ -41,6 +41,21 @@ namespace egg::ovum {
   using ReadLock = std::shared_lock<ReadWriteMutex>;
 
   template<typename T>
+  class NotReferenceCounted : public T {
+  public:
+    template<typename... ARGS>
+    NotReferenceCounted(ARGS&&... args)
+      : T(std::forward<ARGS>(args)...) {
+    }
+    virtual T* hardAcquireBase() const override {
+      return const_cast<T*>(static_cast<const T*>(this));
+    }
+    virtual void hardRelease() const override {
+      // Do nothing
+    }
+  };
+
+  template<typename T>
   class HardReferenceCounted : public T {
     HardReferenceCounted(const HardReferenceCounted&) = delete;
     HardReferenceCounted& operator=(const HardReferenceCounted&) = delete;
@@ -86,25 +101,32 @@ namespace egg::ovum {
       // We're a root if there's a hard reference in addition to ours
       return this->atomic.get() > 1;
     }
+    virtual IBasket* softGetBasket() const override {
+      // Fetch our current basket, if any
+      return this->basket;
+    }
     virtual IBasket* softSetBasket(IBasket* value) override {
+      // Make sure we're not transferred directly between baskets
       auto* old = this->basket;
+      assert((old == nullptr) || (value == nullptr) || (old == value));
       this->basket = value;
       return old;
     }
-  };
-
-  template<typename T>
-  class NotReferenceCounted : public T {
-  public:
-    template<typename... ARGS>
-    NotReferenceCounted(ARGS&&... args)
-      : T(std::forward<ARGS>(args)...) {
-    }
-    virtual T* hardAcquireBase() const override {
-      return const_cast<T*>(static_cast<const T*>(this));
-    }
-    virtual void hardRelease() const override {
-      // Do nothing
+    virtual bool softLink(ICollectable& target) override {
+      // Make sure we're not transferred directly between baskets
+      auto targetBasket = target.softGetBasket();
+      if (targetBasket == nullptr) {
+        if (this->basket == nullptr) {
+          return false;
+        }
+        this->basket->take(target);
+        return true;
+      }
+      if (this->basket == nullptr) {
+        targetBasket->take(*this);
+        return true;
+      }
+      return this->basket == targetBasket;
     }
   };
 
@@ -204,6 +226,59 @@ namespace egg::ovum {
     void* allocated = this->allocate(sizeof(T), alignof(T));
     assert(allocated != nullptr);
     return HardPtr<T>(new(allocated) T(*this, std::forward<ARGS>(args)...));
+  }
+
+  template<typename T>
+  class SoftPtr {
+    SoftPtr(const SoftPtr&) = delete;
+    SoftPtr& operator=(const SoftPtr&) = delete;
+  private:
+    T* ptr;
+  public:
+    SoftPtr() : ptr(nullptr) {
+    }
+    T* get() const {
+      return this->ptr;
+    }
+    void set(ICollectable& container, T* target) {
+      if (target != nullptr) {
+        if (!container.softLink(*target)) {
+          throw std::logic_error("Soft link basket condition violation");
+        }
+      }
+      this->ptr = target;
+    }
+    T& operator*() const {
+      assert(this->ptr != nullptr);
+      return *this->ptr;
+    }
+    T* operator->() const {
+      assert(this->ptr != nullptr);
+      return this->ptr;
+    }
+    bool operator==(nullptr_t) const {
+      return this->ptr == nullptr;
+    }
+    bool operator!=(nullptr_t) const {
+      return this->ptr != nullptr;
+    }
+    static T* hardAcquire(const T* ptr) {
+      if (ptr != nullptr) {
+        // See https://stackoverflow.com/a/15572442
+        return ptr->template hardAcquire<T>();
+      }
+      return nullptr;
+    }
+  };
+  template<typename T>
+  bool operator==(nullptr_t, const SoftPtr<T>& ptr) {
+    // Yoda equality comparison used by GoogleTest
+    return ptr == nullptr;
+  }
+  template<typename T>
+  bool operator!=(nullptr_t, const SoftPtr<T>& ptr) {
+    // Yoda inequality comparison used by GoogleTest
+    return ptr != nullptr;
   }
 
   using Memory = HardPtr<const IMemory>;

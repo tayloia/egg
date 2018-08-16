@@ -751,10 +751,12 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::typeCheck(const egg
 }
 
 egg::lang::LogSeverity egg::yolk::EggProgram::prepare(IEggEnginePreparationContext& preparation) {
-  auto symtable = this->basket.make<EggProgramSymbolTable>();
+  auto& allocator = preparation.allocator();
+  auto symtable = allocator.make<EggProgramSymbolTable>();
+  this->basket->take(*symtable);
   symtable->addBuiltins();
   egg::lang::LogSeverity severity = egg::lang::LogSeverity::None;
-  auto context = this->createRootContext(preparation.allocator(), preparation, *symtable, severity);
+  auto context = this->createRootContext(allocator, preparation, *symtable, severity);
   if (abandoned(this->root->prepare(*context))) {
     return egg::lang::LogSeverity::Error;
   }

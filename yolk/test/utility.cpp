@@ -47,10 +47,10 @@ namespace {
     }
   };
 
-  typedef egg::gc::HardReferenceCounted<Instance> InstanceRC;
+  typedef egg::ovum::HardReferenceCounted<Instance> InstanceRC;
 }
 
-TEST(TestGCHard, Atomic8) {
+TEST(TestGC, Atomic8) {
   egg::ovum::Atomic<int8_t> a8{ 100 };
   ASSERT_EQ(100, a8.get());
   ASSERT_EQ(100, a8.add(20));
@@ -61,7 +61,7 @@ TEST(TestGCHard, Atomic8) {
   ASSERT_EQ(-120, a8.get());
 }
 
-TEST(TestGCHard, Atomic64) {
+TEST(TestGC, Atomic64) {
   egg::ovum::Atomic<int64_t> a64{ 100 };
   ASSERT_EQ(100, a64.get());
   ASSERT_EQ(100, a64.add(20));
@@ -72,7 +72,7 @@ TEST(TestGCHard, Atomic64) {
   ASSERT_EQ(-100, a64.get());
 }
 
-TEST(TestGCHard, Monitor) {
+TEST(TestGC, Monitor) {
   Monitor monitor;
   ASSERT_EQ("", monitor.read());
   {
@@ -86,7 +86,7 @@ TEST(TestGCHard, Monitor) {
   ASSERT_EQ("~stack", monitor.read());
 }
 
-TEST(TestGCHard, NotReferenceCounted) {
+TEST(TestGC, NotReferenceCounted) {
   Monitor monitor;
   ASSERT_EQ("", monitor.read());
   {
@@ -100,20 +100,20 @@ TEST(TestGCHard, NotReferenceCounted) {
   ASSERT_EQ("~nrc", monitor.read());
 }
 
-TEST(TestGCHard, HardRef) {
+TEST(TestGC, HardPtr) {
   egg::test::Allocator allocator;
   Monitor monitor;
   ASSERT_EQ("", monitor.read());
   {
-    egg::gc::HardRef<Instance> ref1{ allocator.make<InstanceRC>(1, monitor, "hrc") }; // rc=2
+    egg::ovum::HardPtr<Instance> ref1{ allocator.make<InstanceRC>(1, monitor, "hrc") }; // rc=2
     ASSERT_EQ("*hrc", monitor.read());
     const Instance* raw = ref1->getInstanceAddress();
     ASSERT_EQ(raw, ref1.get());
     {
-      egg::gc::HardRef<Instance> ref2{ ref1 }; // rc=3
+      egg::ovum::HardPtr<Instance> ref2{ ref1 }; // rc=3
       ASSERT_EQ(raw, ref2.get());
       {
-        egg::gc::HardRef<Instance> ref3{ raw }; // rc=4
+        egg::ovum::HardPtr<Instance> ref3{ raw }; // rc=4
         ASSERT_EQ(raw, ref3.get());
         {
           egg::ovum::NotReferenceCounted<Instance> stack(monitor, "nrc");

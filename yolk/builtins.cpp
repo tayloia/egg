@@ -60,14 +60,15 @@ namespace {
     }
   };
 
-  class BuiltinFunction : public IObject {
+  class BuiltinFunction : public egg::ovum::SoftReferenceCounted<IObject> {
     EGG_NO_COPY(BuiltinFunction);
   protected:
-    egg::gc::HardRef<BuiltinFunctionType> type;
+    egg::ovum::HardPtr<BuiltinFunctionType> type;
   public:
     BuiltinFunction(egg::ovum::IAllocator& allocator, const std::string& name, const ITypeRef& returnType)
-      : IObject(allocator), type(allocator.make<BuiltinFunctionType>(name, returnType)) {
+      : SoftReferenceCounted(allocator), type(allocator.make<BuiltinFunctionType>(name, returnType)) {
     }
+    virtual void softVisitLinks(const Visitor&) const override {} // WIBBLE
     virtual Value toString() const override {
       return Value(this->type->getName());
     }
@@ -91,19 +92,15 @@ namespace {
     }
   };
 
-  class BuiltinObject : public IObject {
+  class BuiltinObject : public egg::ovum::SoftReferenceCounted<IObject> {
     EGG_NO_COPY(BuiltinObject);
   protected:
-    egg::gc::HardRef<BuiltinObjectType> type;
+    egg::ovum::HardPtr<BuiltinObjectType> type;
   public:
     BuiltinObject(egg::ovum::IAllocator& allocator, const std::string& name, const ITypeRef& returnType)
-      : IObject(allocator), type(allocator.make<BuiltinObjectType>(name, returnType)) {
+      : SoftReferenceCounted(allocator), type(allocator.make<BuiltinObjectType>(name, returnType)) {
     }
-    template<typename T>
-    void addProperty(egg::ovum::IAllocator& allocator, const std::string& name) {
-      Value value{ allocator.make<T>() };
-      this->type->addProperty(String::fromUTF8(name), std::move(value));
-    }
+    virtual void softVisitLinks(const Visitor&) const override {} // WIBBLE
     virtual Value toString() const override {
       return Value(this->type->getName());
     }
@@ -128,6 +125,11 @@ namespace {
     }
     virtual Value iterate(IExecution& execution) override {
       return execution.raiseFormat("Built-in '", this->type->getName(), "' does not support iteration");
+    }
+    template<typename T>
+    void addProperty(egg::ovum::IAllocator& allocator, const std::string& name) {
+      Value value(allocator.make<T>());
+      this->type->addProperty(String::fromUTF8(name), std::move(value));
     }
   };
 
@@ -259,16 +261,16 @@ namespace {
     virtual Value executeCall(IExecution&, const String& instance, const IParameters&) const = 0;
   };
 
-  class StringBuiltin : public IObject {
+  class StringBuiltin : public egg::ovum::SoftReferenceCounted<IObject> {
     EGG_NO_COPY(StringBuiltin);
   protected:
     String instance;
-    egg::gc::HardRef<StringFunctionType> type;
+    egg::ovum::HardPtr<StringFunctionType> type;
   public:
-    StringBuiltin(egg::ovum::IAllocator& allocator, const String& instance, const egg::gc::HardRef<StringFunctionType>& type)
-      : IObject(allocator), instance(instance), type(type) {
+    StringBuiltin(egg::ovum::IAllocator& allocator, const String& instance, const egg::ovum::HardPtr<StringFunctionType>& type)
+      : SoftReferenceCounted(allocator), instance(instance), type(type) {
     }
-  public:
+    virtual void softVisitLinks(const Visitor&) const override {} // WIBBLE
     virtual Value toString() const override {
       return Value(this->type->getName());
     }

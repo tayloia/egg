@@ -9,7 +9,6 @@ namespace egg::ovum {
   class INode : public IHardAcquireRelease {
   public:
     enum class Operand { None, Int, Float, String };
-    virtual ~INode() {}
     virtual Opcode getOpcode() const = 0;
     virtual Operand getOperand() const = 0;
     virtual size_t getChildren() const = 0;

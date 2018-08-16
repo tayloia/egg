@@ -3,7 +3,7 @@ namespace egg::yolk {
   class FunctionSignature;
   class IEggProgramNode;
 
-  class FunctionType : public egg::gc::HardReferenceCounted<egg::lang::IType> {
+  class FunctionType : public egg::ovum::HardReferenceCounted<egg::lang::IType> {
     EGG_NO_COPY(FunctionType);
   protected:
     std::unique_ptr<FunctionSignature> signature;

@@ -285,7 +285,7 @@ std::shared_ptr<egg::yolk::EggProgramSymbol> egg::yolk::EggProgramSymbolTable::f
   if (found != this->map.end()) {
     return found->second;
   }
-  if (includeParents && (this->parent.get() != nullptr)) {
+  if (includeParents && (this->parent != nullptr)) {
     return this->parent->findSymbol(name);
   }
   return nullptr;
@@ -333,12 +333,12 @@ std::string egg::yolk::EggProgram::mutateToString(egg::yolk::EggProgramMutate op
   return table[index];
 }
 
-egg::gc::HardRef<egg::yolk::EggProgramContext> egg::yolk::EggProgram::createRootContext(egg::ovum::IAllocator& allocator, IEggEngineLogger& logger, EggProgramSymbolTable& symtable, egg::lang::LogSeverity& maximumSeverity) {
+egg::ovum::HardPtr<egg::yolk::EggProgramContext> egg::yolk::EggProgram::createRootContext(egg::ovum::IAllocator& allocator, IEggEngineLogger& logger, EggProgramSymbolTable& symtable, egg::lang::LogSeverity& maximumSeverity) {
   egg::lang::LocationRuntime location(this->root->location(), egg::lang::String::fromUTF8("<module>"));
   return allocator.make<EggProgramContext>(location, logger, symtable, maximumSeverity);
 }
 
-egg::gc::HardRef<egg::yolk::EggProgramContext> egg::yolk::EggProgramContext::createNestedContext(EggProgramSymbolTable& parent, ScopeFunction* prepareFunction) {
+egg::ovum::HardPtr<egg::yolk::EggProgramContext> egg::yolk::EggProgramContext::createNestedContext(EggProgramSymbolTable& parent, ScopeFunction* prepareFunction) {
   return this->allocator.make<EggProgramContext>(*this, parent, prepareFunction);
 }
 

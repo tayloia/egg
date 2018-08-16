@@ -32,7 +32,6 @@
     <ClCompile Include="..\yolk\exceptions.cpp" />
     <ClCompile Include="..\yolk\files.cpp" />
     <ClCompile Include="..\yolk\functions.cpp" />
-    <ClCompile Include="..\yolk\gc.cpp" />
     <ClCompile Include="..\yolk\json-tokenizer.cpp" />
     <ClCompile Include="..\yolk\lang.cpp" />
     <ClCompile Include="..\yolk\lexers.cpp" />
@@ -57,7 +56,6 @@
     <ClInclude Include="..\yolk\exceptions.h" />
     <ClInclude Include="..\yolk\files.h" />
     <ClInclude Include="..\yolk\functions.h" />
-    <ClInclude Include="..\yolk\gc.h" />
     <ClInclude Include="..\yolk\json-tokenizer.h" />
     <ClInclude Include="..\yolk\lang.h" />
     <ClInclude Include="..\yolk\lexer.h" />

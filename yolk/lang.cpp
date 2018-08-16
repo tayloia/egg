@@ -148,7 +148,7 @@ namespace {
   };
   const StringEmpty stringEmpty{};
 
-  class StringBufferCodePoint : public egg::gc::HardReferenceCounted<IString> {
+  class StringBufferCodePoint : public egg::ovum::HardReferenceCounted<IString> {
     EGG_NO_COPY(StringBufferCodePoint);
   private:
     char32_t codepoint;
@@ -466,7 +466,7 @@ namespace {
     return -1; // Not found
   }
 
-  class StringBufferUTF8 : public egg::gc::HardReferenceCounted<IString> {
+  class StringBufferUTF8 : public egg::ovum::HardReferenceCounted<IString> {
     EGG_NO_COPY(StringBufferUTF8);
   private:
     std::string utf8;
@@ -801,7 +801,7 @@ namespace {
     return StringBufferUTF8::create(sb.toUTF8());
   }
 
-  class TypePointer : public egg::gc::HardReferenceCounted<IType> {
+  class TypePointer : public egg::ovum::HardReferenceCounted<IType> {
     EGG_NO_COPY(TypePointer);
   private:
     ITypeRef referenced;
@@ -937,7 +937,7 @@ namespace {
   };
   const OmniFunctionSignature omniFunctionSignature{};
 
-  class TypeSimple : public egg::gc::HardReferenceCounted<IType> {
+  class TypeSimple : public egg::ovum::HardReferenceCounted<IType> {
     EGG_NO_COPY(TypeSimple);
   private:
     Discriminator tag;
@@ -997,7 +997,7 @@ namespace {
     }
   };
 
-  class TypeUnion : public egg::gc::HardReferenceCounted<IType> {
+  class TypeUnion : public egg::ovum::HardReferenceCounted<IType> {
     EGG_NO_COPY(TypeUnion);
   private:
     ITypeRef a;
@@ -1022,12 +1022,12 @@ namespace {
     }
   };
 
-  class ValueOnHeap : public egg::gc::HardReferenceCounted<egg::lang::ValueReferenceCounted> {
+  class ValueOnHeap : public egg::ovum::HardReferenceCounted<egg::lang::ValueReferenceCounted> {
     ValueOnHeap(const ValueOnHeap&) = delete;
     ValueOnHeap& operator=(const ValueOnHeap&) = delete;
   public:
     ValueOnHeap(egg::ovum::IAllocator& allocator, Value&& value) noexcept
-      : egg::gc::HardReferenceCounted<egg::lang::ValueReferenceCounted>(allocator, 0, std::move(value)) {
+      : egg::ovum::HardReferenceCounted<egg::lang::ValueReferenceCounted>(allocator, 0, std::move(value)) {
     }
   };
 }
@@ -1140,7 +1140,7 @@ void egg::lang::Value::copyInternals(const Value& other) {
   if (this->has(Discriminator::Object)) {
     // We can only copy the reference as a hard pointer
     this->tag = Bits::clear(other.tag, Discriminator::Pointer);
-    this->o = other.getObjectPointer()->hardAcquire<IObject>();
+    this->o = other.o->hardAcquire<IObject>();
   } else if (this->has(Discriminator::Indirect | Discriminator::Pointer)) {
     this->v = other.v->hardAcquire<ValueReferenceCounted>();
   } else if (this->has(Discriminator::String)) {
@@ -1159,12 +1159,12 @@ void egg::lang::Value::copyInternals(const Value& other) {
 void egg::lang::Value::moveInternals(Value& other) {
   this->tag = other.tag;
   if (this->has(Discriminator::Object)) {
-    auto* ptr = other.getObjectPointer();
+    auto* ptr = other.o;
     if (this->has(Discriminator::Pointer)) {
       // Convert the soft pointer to a hard one
       this->tag = Bits::clear(this->tag, Discriminator::Pointer);
       this->o = ptr->hardAcquire<IObject>();
-      other.r->destroy();
+      other.o = nullptr; // WIBBLE
     } else {
       // Not need to increment/decrement the reference count
       this->o = ptr;
@@ -1188,7 +1188,7 @@ void egg::lang::Value::moveInternals(Value& other) {
 void egg::lang::Value::destroyInternals() {
   if (this->has(Discriminator::Object)) {
     if (this->has(Discriminator::Pointer)) {
-      this->r->destroy();
+      this->o = nullptr; // WIBBLE
     } else {
       this->o->hardRelease();
     }
@@ -1265,15 +1265,15 @@ egg::lang::ValueReferenceCounted& egg::lang::Value::indirect(egg::ovum::IAllocat
   return *this->v;
 }
 
-egg::lang::Value& egg::lang::Value::soft(egg::ovum::IAllocator& allocator, egg::gc::Collectable& container) {
+egg::lang::Value& egg::lang::Value::soft(egg::ovum::IAllocator&, egg::ovum::ICollectable& container) { // WIBBLE parameters
   if (this->has(Discriminator::Object) && !this->has(Discriminator::Pointer)) {
     // This is a hard pointer to an IObject, make it a soft pointer
-    auto* before = this->o;
-    assert(before != nullptr);
-    auto* after = allocator.create<egg::gc::SoftRef<IObject>>(0, container, before);
+    assert(this->o != nullptr);
     this->tag = Bits::set(this->tag, Discriminator::Pointer);
-    this->r = after;
-    before->hardRelease();
+    if (!container.softLink(*this->o)) {
+      throw std::logic_error("Variant soft link basket condition violation");
+    }
+    this->o->hardRelease();
   }
   return *this;
 }
@@ -1309,11 +1309,8 @@ bool egg::lang::Value::equal(const Value& lhs, const Value& rhs) {
   if (a.tag == Discriminator::Pointer) {
     return a.v == b.v;
   }
-  if (a.tag == Discriminator::Object) {
-    return a.o == b.o;
-  }
-  assert(a.tag == (Discriminator::Object | Discriminator::Pointer));
-  return a.r->get() == b.r->get();
+  assert(Bits::hasAnySet(a.tag, Discriminator::Object));
+  return a.o == b.o;
 }
 
 std::string egg::lang::Value::getTagString() const {
@@ -1394,7 +1391,7 @@ std::string egg::lang::Value::getTagString(Discriminator tag) {
 egg::lang::ITypeRef egg::lang::Value::getRuntimeType() const {
   assert(this->tag != Discriminator::Indirect);
   if (this->has(Discriminator::Object)) {
-    return this->getObjectPointer()->getRuntimeType();
+    return this->o->getRuntimeType();
   }
   if (this->has(Discriminator::Pointer)) {
     return this->v->getRuntimeType()->pointerType();

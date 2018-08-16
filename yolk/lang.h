@@ -5,7 +5,7 @@ namespace egg::lang {
   class ValueReferenceCounted;
   struct LocationSource;
 
-  using ITypeRef = egg::gc::HardRef<const class IType>;
+  using ITypeRef = egg::ovum::HardPtr<const class IType>;
 
   class Bits {
   public:
@@ -120,7 +120,7 @@ namespace egg::lang {
     virtual bool iteratePrevious(StringIteration& iteration) const = 0;
     virtual bool iterateLast(StringIteration& iteration) const = 0;
   };
-  using IStringRef = egg::gc::HardRef<const IString>;
+  using IStringRef = egg::ovum::HardPtr<const IString>;
 
   class IPreparation {
   public:
@@ -255,12 +255,8 @@ namespace egg::lang {
     static ITypeRef makeUnion(const IType& lhs, const IType& rhs);
   };
 
-  class IObject : public egg::gc::Collectable {
-    IObject(const IObject&) = delete;
-    IObject& operator=(const IObject&) = delete;
+  class IObject : public egg::ovum::ICollectable {
   public:
-    explicit IObject(egg::ovum::IAllocator& allocator) : Collectable(allocator) {
-    }
     virtual Value toString() const = 0;
     virtual ITypeRef getRuntimeType() const = 0;
     virtual Value call(IExecution& execution, const IParameters& parameters) = 0;
@@ -270,7 +266,6 @@ namespace egg::lang {
     virtual Value setIndex(IExecution& execution, const Value& index, const Value& value) = 0;
     virtual Value iterate(IExecution& execution) = 0;
   };
-  using IObjectRef = egg::gc::HardRef<IObject>;
 
   class StringBuilder {
     StringBuilder(const StringBuilder&) = delete;
@@ -439,8 +434,7 @@ namespace egg::lang {
       bool b;
       int64_t i;
       double f;
-      IObject* o; // hard
-      egg::gc::SoftRef<IObject>* r;
+      IObject* o;
       const IString* s;
       const IType* t;
       ValueReferenceCounted* v;
@@ -449,12 +443,6 @@ namespace egg::lang {
     void copyInternals(const Value& other);
     void moveInternals(Value& other);
     void destroyInternals();
-    IObject* getObjectPointer() const {
-      assert(this->has(Discriminator::Object));
-      auto* ptr = this->has(Discriminator::Pointer) ? this->r->get() : this->o;
-      assert(ptr != nullptr);
-      return ptr;
-    }
   public:
     Value() : tag(Discriminator::Void) { this->v = nullptr; }
     Value(const Value& value);
@@ -464,7 +452,7 @@ namespace egg::lang {
     explicit Value(int64_t value) : tag(Discriminator::Int) { this->i = value; }
     explicit Value(double value) : tag(Discriminator::Float) { this->f = value; }
     explicit Value(const String& value) : tag(Discriminator::String) { this->s = value.hardAcquire(); }
-    explicit Value(const IObjectRef& value) : tag(Discriminator::Object) { this->o = value.hardAcquire(); }
+    explicit Value(const egg::ovum::HardPtr<IObject>& value) : tag(Discriminator::Object) { this->o = value.hardAcquire(); }
     explicit Value(const IType& type) : tag(Discriminator::Type) { this->t = type.hardAcquire<IType>(); }
     explicit Value(const ValueReferenceCounted& vrc);
     Value& operator=(const Value& value);
@@ -475,14 +463,14 @@ namespace egg::lang {
     const Value& direct() const;
     Value& direct();
     ValueReferenceCounted& indirect(egg::ovum::IAllocator& allocator);
-    Value& soft(egg::ovum::IAllocator& allocator, egg::gc::Collectable& container);
+    Value& soft(egg::ovum::IAllocator& allocator, egg::ovum::ICollectable& container);
     bool is(Discriminator bits) const { return this->tag == bits; }
     bool has(Discriminator bits) const { return Bits::hasAnySet(this->tag, bits); }
     bool getBool() const { assert(this->has(Discriminator::Bool)); return this->b; }
     int64_t getInt() const { assert(this->has(Discriminator::Int)); return this->i; }
     double getFloat() const { assert(this->has(Discriminator::Float)); return this->f; }
     String getString() const { assert(this->has(Discriminator::String)); return String(*this->s); }
-    IObjectRef getObject() const { assert(this->has(Discriminator::Object)); return IObjectRef(this->getObjectPointer()); }
+    egg::ovum::HardPtr<IObject> getObject() const { assert(this->has(Discriminator::Object)); assert(this->o != nullptr); return egg::ovum::HardPtr<IObject>(this->o); }
     const IType& getType() const { assert(this->has(Discriminator::Type)); return *this->t; }
     ValueReferenceCounted& getPointee() const { assert(this->has(Discriminator::Pointer) && !this->has(Discriminator::Object)); return *this->v; }
     void addFlowControl(Discriminator bits);

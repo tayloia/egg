@@ -2,6 +2,16 @@
 
 using Bits = egg::ovum::VariantBits;
 
+namespace {
+  size_t ownedCount(egg::ovum::IBasket& basket) {
+    egg::ovum::IBasket::Statistics statistics;
+    if (basket.statistics(statistics)) {
+      return statistics.currentBlocksOwned;
+    }
+    return SIZE_MAX;
+  }
+}
+
 TEST(TestVariant, Kind) {
   egg::ovum::VariantKind kind{ Bits::Exception | Bits::Object };
   // hasAny
@@ -112,123 +122,123 @@ TEST(TestVariant, ObjectSoft) {
   egg::test::Allocator allocator;
   auto object = egg::ovum::ObjectFactory::createVanillaObject(allocator);
   ASSERT_NE(nullptr, object);
-  egg::test::Basket basket;
-  ASSERT_EQ(0u, basket.getOwnedCount());
-  auto root = egg::ovum::VariantFactory::createVariantSoft(allocator, basket, object);
-  ASSERT_EQ(1u, basket.getOwnedCount());
+  auto basket = egg::ovum::BasketFactory::createBasket(allocator);
+  ASSERT_EQ(0u, ownedCount(*basket));
+  auto root = egg::ovum::VariantFactory::createVariantSoft(allocator, *basket, object);
+  ASSERT_EQ(1u, ownedCount(*basket));
   egg::ovum::Variant variant(Bits::Indirect | Bits::Hard, *root);
   ASSERT_TRUE(variant.is(Bits::Indirect | Bits::Hard));
   auto& pointee = variant.getPointee();
   ASSERT_TRUE(pointee.is(Bits::Object));
   ASSERT_EQ(object.get(), pointee.getObject().get());
-  ASSERT_EQ(1u, basket.getOwnedCount());
-  ASSERT_EQ(0u, basket.collect());
+  ASSERT_EQ(1u, ownedCount(*basket));
+  ASSERT_EQ(0u, basket->collect());
   root = nullptr;
-  ASSERT_EQ(1u, basket.getOwnedCount());
-  ASSERT_EQ(0u, basket.collect());
-  ASSERT_EQ(1u, basket.getOwnedCount());
+  ASSERT_EQ(1u, ownedCount(*basket));
+  ASSERT_EQ(0u, basket->collect());
+  ASSERT_EQ(1u, ownedCount(*basket));
   variant = nullptr;
-  ASSERT_EQ(1u, basket.getOwnedCount());
-  ASSERT_EQ(1u, basket.collect());
-  ASSERT_EQ(0u, basket.getOwnedCount());
+  ASSERT_EQ(1u, ownedCount(*basket));
+  ASSERT_EQ(1u, basket->collect());
+  ASSERT_EQ(0u, ownedCount(*basket));
 }
 
 TEST(TestVariant, IndirectHard) {
   egg::test::Allocator allocator;
   auto object = egg::ovum::ObjectFactory::createVanillaObject(allocator);
   ASSERT_NE(nullptr, object);
-  egg::test::Basket basket;
-  ASSERT_EQ(0u, basket.getOwnedCount());
-  egg::ovum::Variant variant(Bits::Indirect | Bits::Hard, *egg::ovum::VariantFactory::createVariantSoft(allocator, basket, object));
+  auto basket = egg::ovum::BasketFactory::createBasket(allocator);
+  ASSERT_EQ(0u, ownedCount(*basket));
+  egg::ovum::Variant variant(Bits::Indirect | Bits::Hard, *egg::ovum::VariantFactory::createVariantSoft(allocator, *basket, object));
   ASSERT_TRUE(variant.is(Bits::Indirect | Bits::Hard));
-  ASSERT_EQ(1u, basket.getOwnedCount());
-  ASSERT_EQ(0u, basket.collect());
-  ASSERT_EQ(1u, basket.getOwnedCount());
+  ASSERT_EQ(1u, ownedCount(*basket));
+  ASSERT_EQ(0u, basket->collect());
+  ASSERT_EQ(1u, ownedCount(*basket));
   variant = nullptr;
-  ASSERT_EQ(1u, basket.getOwnedCount());
-  ASSERT_EQ(1u, basket.collect());
-  ASSERT_EQ(0u, basket.getOwnedCount());
+  ASSERT_EQ(1u, ownedCount(*basket));
+  ASSERT_EQ(1u, basket->collect());
+  ASSERT_EQ(0u, ownedCount(*basket));
 }
 
 TEST(TestVariant, IndirectSoft) {
   egg::test::Allocator allocator;
   auto object = egg::ovum::ObjectFactory::createVanillaObject(allocator);
   ASSERT_NE(nullptr, object);
-  egg::test::Basket basket;
-  ASSERT_EQ(0u, basket.getOwnedCount());
-  egg::ovum::Variant variant(Bits::Indirect, *egg::ovum::VariantFactory::createVariantSoft(allocator, basket, object));
+  auto basket = egg::ovum::BasketFactory::createBasket(allocator);
+  ASSERT_EQ(0u, ownedCount(*basket));
+  egg::ovum::Variant variant(Bits::Indirect, *egg::ovum::VariantFactory::createVariantSoft(allocator, *basket, object));
   ASSERT_TRUE(variant.is(Bits::Indirect));
-  ASSERT_EQ(1u, basket.getOwnedCount());
-  ASSERT_EQ(1u, basket.collect());
-  ASSERT_EQ(0u, basket.getOwnedCount());
+  ASSERT_EQ(1u, ownedCount(*basket));
+  ASSERT_EQ(1u, basket->collect());
+  ASSERT_EQ(0u, ownedCount(*basket));
 }
 
 TEST(TestVariant, PointerHard1) {
   egg::test::Allocator allocator;
-  egg::test::Basket basket;
-  ASSERT_EQ(0u, basket.getOwnedCount());
-  egg::ovum::Variant variant(Bits::Pointer | Bits::Hard, *egg::ovum::VariantFactory::createVariantSoft(allocator, basket, "hello world"));
+  auto basket = egg::ovum::BasketFactory::createBasket(allocator);
+  ASSERT_EQ(0u, ownedCount(*basket));
+  egg::ovum::Variant variant(Bits::Pointer | Bits::Hard, *egg::ovum::VariantFactory::createVariantSoft(allocator, *basket, "hello world"));
   ASSERT_TRUE(variant.is(Bits::Pointer | Bits::Hard));
   ASSERT_VARIANT("hello world", variant.getPointee());
-  ASSERT_EQ(1u, basket.getOwnedCount());
-  ASSERT_EQ(0u, basket.collect());
-  ASSERT_EQ(1u, basket.getOwnedCount());
+  ASSERT_EQ(1u, ownedCount(*basket));
+  ASSERT_EQ(0u, basket->collect());
+  ASSERT_EQ(1u, ownedCount(*basket));
   variant = nullptr;
-  ASSERT_EQ(1u, basket.getOwnedCount());
-  ASSERT_EQ(1u, basket.collect());
-  ASSERT_EQ(0u, basket.getOwnedCount());
+  ASSERT_EQ(1u, ownedCount(*basket));
+  ASSERT_EQ(1u, basket->collect());
+  ASSERT_EQ(0u, ownedCount(*basket));
 }
 
 TEST(TestVariant, PointerHard2) {
   egg::test::Allocator allocator;
-  egg::test::Basket basket;
-  ASSERT_EQ(0u, basket.getOwnedCount());
-  egg::ovum::Variant variant(Bits::Pointer | Bits::Hard, *egg::ovum::VariantFactory::createVariantSoft(allocator, basket, "hello world"));
+  auto basket = egg::ovum::BasketFactory::createBasket(allocator);
+  ASSERT_EQ(0u, ownedCount(*basket));
+  egg::ovum::Variant variant(Bits::Pointer | Bits::Hard, *egg::ovum::VariantFactory::createVariantSoft(allocator, *basket, "hello world"));
   ASSERT_TRUE(variant.is(Bits::Pointer | Bits::Hard));
   ASSERT_VARIANT("hello world", variant.getPointee());
-  ASSERT_EQ(1u, basket.getOwnedCount());
-  ASSERT_EQ(0u, basket.collect());
-  ASSERT_EQ(1u, basket.getOwnedCount());
-  variant = egg::ovum::Variant(Bits::Pointer | Bits::Hard, *egg::ovum::VariantFactory::createVariantSoft(allocator, basket, std::move(variant)));
+  ASSERT_EQ(1u, ownedCount(*basket));
+  ASSERT_EQ(0u, basket->collect());
+  ASSERT_EQ(1u, ownedCount(*basket));
+  variant = egg::ovum::Variant(Bits::Pointer | Bits::Hard, *egg::ovum::VariantFactory::createVariantSoft(allocator, *basket, std::move(variant)));
   ASSERT_TRUE(variant.is(Bits::Pointer | Bits::Hard));
   ASSERT_TRUE(variant.getPointee().is(Bits::Pointer)); // softened
   ASSERT_VARIANT("hello world", variant.getPointee().getPointee());
-  ASSERT_EQ(2u, basket.getOwnedCount());
-  ASSERT_EQ(0u, basket.collect());
-  ASSERT_EQ(2u, basket.getOwnedCount());
+  ASSERT_EQ(2u, ownedCount(*basket));
+  ASSERT_EQ(0u, basket->collect());
+  ASSERT_EQ(2u, ownedCount(*basket));
   variant = nullptr;
-  ASSERT_EQ(2u, basket.getOwnedCount());
-  ASSERT_EQ(2u, basket.collect());
-  ASSERT_EQ(0u, basket.getOwnedCount());
+  ASSERT_EQ(2u, ownedCount(*basket));
+  ASSERT_EQ(2u, basket->collect());
+  ASSERT_EQ(0u, ownedCount(*basket));
 }
 
 TEST(TestVariant, PointerSoft1) {
   egg::test::Allocator allocator;
-  egg::test::Basket basket;
-  ASSERT_EQ(0u, basket.getOwnedCount());
-  egg::ovum::Variant variant(Bits::Pointer, *egg::ovum::VariantFactory::createVariantSoft(allocator, basket, "hello world"));
+  auto basket = egg::ovum::BasketFactory::createBasket(allocator);
+  ASSERT_EQ(0u, ownedCount(*basket));
+  egg::ovum::Variant variant(Bits::Pointer, *egg::ovum::VariantFactory::createVariantSoft(allocator, *basket, "hello world"));
   ASSERT_TRUE(variant.is(Bits::Pointer));
   ASSERT_VARIANT("hello world", variant.getPointee());
-  ASSERT_EQ(1u, basket.getOwnedCount());
-  ASSERT_EQ(1u, basket.collect());
-  ASSERT_EQ(0u, basket.getOwnedCount());
+  ASSERT_EQ(1u, ownedCount(*basket));
+  ASSERT_EQ(1u, basket->collect());
+  ASSERT_EQ(0u, ownedCount(*basket));
 }
 
 TEST(TestVariant, PointerSoft2) {
   egg::test::Allocator allocator;
-  egg::test::Basket basket;
-  ASSERT_EQ(0u, basket.getOwnedCount());
-  egg::ovum::Variant variant(Bits::Pointer, *egg::ovum::VariantFactory::createVariantSoft(allocator, basket, "hello world"));
+  auto basket = egg::ovum::BasketFactory::createBasket(allocator);
+  ASSERT_EQ(0u, ownedCount(*basket));
+  egg::ovum::Variant variant(Bits::Pointer, *egg::ovum::VariantFactory::createVariantSoft(allocator, *basket, "hello world"));
   ASSERT_TRUE(variant.is(Bits::Pointer));
   ASSERT_VARIANT("hello world", variant.getPointee());
-  ASSERT_EQ(1u, basket.getOwnedCount());
-  variant = egg::ovum::Variant(Bits::Pointer, *egg::ovum::VariantFactory::createVariantSoft(allocator, basket, std::move(variant)));
+  ASSERT_EQ(1u, ownedCount(*basket));
+  variant = egg::ovum::Variant(Bits::Pointer, *egg::ovum::VariantFactory::createVariantSoft(allocator, *basket, std::move(variant)));
   ASSERT_TRUE(variant.is(Bits::Pointer));
   ASSERT_TRUE(variant.getPointee().is(Bits::Pointer));
   ASSERT_VARIANT("hello world", variant.getPointee().getPointee());
-  ASSERT_EQ(2u, basket.getOwnedCount());
-  ASSERT_EQ(2u, basket.collect());
-  ASSERT_EQ(0u, basket.getOwnedCount());
+  ASSERT_EQ(2u, ownedCount(*basket));
+  ASSERT_EQ(2u, basket->collect());
+  ASSERT_EQ(0u, ownedCount(*basket));
 }
 
 TEST(TestVariant, Variant) {

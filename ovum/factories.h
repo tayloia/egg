@@ -71,20 +71,6 @@ namespace egg::ovum {
   };
   using AllocatorDefault = AllocatorWithPolicy<AllocatorDefaultPolicy>;
 
-  class BasketDefault : public IBasket {
-  protected:
-    std::set<ICollectable*> owned;
-  public:
-    virtual ~BasketDefault() {
-      // Make sure we no longer own any collectables
-      assert(this->owned.empty());
-    }
-    virtual void take(ICollectable& collectable) override;
-    virtual void drop(ICollectable& collectable) override;
-    virtual size_t collect() override;
-    virtual size_t purge() override;
-  };
-
   class MemoryContiguous : public HardReferenceCounted<IMemory> {
     MemoryContiguous(const MemoryContiguous&) = delete;
     MemoryContiguous& operator=(const MemoryContiguous&) = delete;
@@ -167,7 +153,7 @@ namespace egg::ovum {
   };
 
   struct StringLess {
-    bool operator()(const String& lhs, const String& rhs) const;
+    bool operator()(const String& lhs, const String& rhs) const; // WIBBLE
   };
 
   template<typename T>
@@ -199,5 +185,10 @@ namespace egg::ovum {
   class VariantFactory {
   public:
     static HardPtr<IVariantSoft> createVariantSoft(IAllocator& allocator, IBasket& basket, Variant&& value);
+  };
+
+  class BasketFactory {
+  public:
+    static HardPtr<IBasket> createBasket(IAllocator& allocator);
   };
 }

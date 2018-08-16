@@ -1,4 +1,5 @@
 namespace egg::ovum {
+  class IBasket;
   template<typename T> class HardPtr;
 
   class IHardAcquireRelease {
@@ -61,19 +62,26 @@ namespace egg::ovum {
 
   class ICollectable : public IHardAcquireRelease {
   public:
-    using Visitor = std::function<void(ICollectable& target)>;
+    using Visitor = std::function<void(ICollectable& collectable)>;
     virtual bool softIsRoot() const = 0;
-    virtual class IBasket* softSetBasket(IBasket* basket) = 0;
+    virtual IBasket* softGetBasket() const = 0;
+    virtual IBasket* softSetBasket(IBasket* basket) = 0;
+    virtual bool softLink(ICollectable& target) = 0;
     virtual void softVisitLinks(const Visitor& visitor) const = 0;
   };
 
-  class IBasket {
+  class IBasket : public IHardAcquireRelease {
   public:
-    virtual ~IBasket() {}
+    struct Statistics {
+      uint64_t currentBlocksOwned;
+      uint64_t currentBytesOwned;
+    };
+
     virtual void take(ICollectable& collectable) = 0;
     virtual void drop(ICollectable& collectable) = 0;
     virtual size_t collect() = 0;
     virtual size_t purge() = 0;
+    virtual bool statistics(Statistics& out) const = 0;
   };
 
   class IObject : public ICollectable {
