@@ -18,7 +18,7 @@ namespace egg::yolk {
     // Helpers
     static FunctionType* createFunctionType(egg::ovum::IAllocator& allocator, const egg::lang::String& name, const egg::lang::ITypeRef& returnType);
     static FunctionType* createGeneratorType(egg::ovum::IAllocator& allocator, const egg::lang::String& name, const egg::lang::ITypeRef& returnType);
-    static void buildFunctionSignature(egg::lang::StringBuilder& sb, const egg::lang::IFunctionSignature& signature, egg::lang::IFunctionSignature::Parts parts);
+    static void buildFunctionSignature(egg::ovum::StringBuilder& sb, const egg::lang::IFunctionSignature& signature, egg::lang::IFunctionSignature::Parts parts);
   };
 
   class FunctionCoroutine : public egg::ovum::IHardAcquireRelease {

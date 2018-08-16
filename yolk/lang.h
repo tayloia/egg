@@ -1,6 +1,5 @@
 namespace egg::lang {
   using String = egg::ovum::String;
-  using StringBuilder = egg::ovum::StringBuilder;
 
   class Value;
   class ValueReferenceCounted;
@@ -198,7 +197,7 @@ namespace egg::lang {
     virtual bool validateCall(IExecution& execution, const IParameters& runtime, Value& problem) const; // Calls validateCallDefault
 
     // Implementation
-    void buildStringDefault(StringBuilder& sb, Parts parts) const; // Default formats as expected
+    void buildStringDefault(egg::ovum::StringBuilder& sb, Parts parts) const; // Default formats as expected
     bool validateCallDefault(IExecution& execution, const IParameters& runtime, Value& problem) const;
   };
 
@@ -491,12 +490,6 @@ namespace egg::lang {
 }
 
 namespace std {
-  template<> struct hash<egg::lang::StringLegacy> {
-    // String hash specialization for use with std::unordered_map<> etc.
-    size_t operator()(const egg::lang::StringLegacy& s) const {
-      return size_t(s.hashCode());
-    }
-  };
   template<> struct hash<egg::lang::String> {
     // String hash specialization for use with std::unordered_map<> etc.
     size_t operator()(const egg::lang::String& s) const {
@@ -510,18 +503,18 @@ std::ostream& operator<<(std::ostream& os, const egg::lang::StringLegacy& text);
 
 template<typename... ARGS>
 inline void egg::lang::IPreparation::raiseWarning(ARGS... args) {
-  auto message = StringBuilder::concat(args...);
+  auto message = egg::ovum::StringBuilder::concat(args...);
   this->raise(egg::lang::LogSeverity::Warning, message);
 }
 
 template<typename... ARGS>
 inline void egg::lang::IPreparation::raiseError(ARGS... args) {
-  auto message = StringBuilder::concat(args...);
+  auto message = egg::ovum::StringBuilder::concat(args...);
   this->raise(egg::lang::LogSeverity::Error, message);
 }
 
 template<typename... ARGS>
 inline egg::lang::Value egg::lang::IExecution::raiseFormat(ARGS... args) {
-  auto message = StringBuilder::concat(args...);
+  auto message = egg::ovum::StringBuilder::concat(args...);
   return this->raise(message);
 }

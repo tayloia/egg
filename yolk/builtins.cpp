@@ -176,7 +176,7 @@ namespace {
       case 1:
         return Value{ parameters.getPositional(0).toString() };
       }
-      StringBuilder sb;
+      egg::ovum::StringBuilder sb;
       for (size_t i = 0; i < n; ++i) {
         sb.add(parameters.getPositional(i).toString());
       }
@@ -458,7 +458,7 @@ namespace {
         return Value{ parameters.getPositional(0).toString() };
       }
       auto separator = instance.toUTF8();
-      StringBuilder sb;
+      egg::ovum::StringBuilder sb;
       sb.add(parameters.getPositional(0).toUTF8());
       for (size_t i = 1; i < n; ++i) {
         sb.add(separator).add(parameters.getPositional(i).toUTF8());
@@ -536,7 +536,7 @@ namespace {
       if (count == 1) {
         return Value{ instance };
       }
-      StringBuilder sb;
+      egg::ovum::StringBuilder sb;
       for (auto i = 0; i < count; ++i) {
         sb.add(instance);
       }

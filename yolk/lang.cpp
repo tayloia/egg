@@ -63,7 +63,7 @@ namespace {
     return execution.raiseFormat("Cannot assign a value of type '", rhs.getRuntimeType()->toString(), "' to a target of type '", Value::getTagString(lhs), "'");
   }
 
-  void formatSourceLocation(StringBuilder& sb, const LocationSource& location) {
+  void formatSourceLocation(egg::ovum::StringBuilder& sb, const LocationSource& location) {
     sb.add(location.file);
     if (location.column > 0) {
       sb.add('(', location.line, ',', location.column, ')');
@@ -792,7 +792,7 @@ namespace {
       assert(part[0].length() == haystack.length());
       return &haystack;
     }
-    StringBuilder sb;
+    egg::ovum::StringBuilder sb;
     sb.add(part[0]);
     auto between = replacement.toUTF8();
     for (size_t i = 1; i < parts; ++i) {
@@ -1119,7 +1119,7 @@ egg::lang::StringLegacy egg::lang::StringLegacy::padRight(size_t target, const S
   return StringLegacy(*StringBufferUTF8::create(dst, target));
 }
 
-egg::lang::String egg::lang::StringBuilder::str() const {
+egg::lang::String egg::ovum::StringBuilder::str() const {
   return this->ss.str();
 }
 
@@ -1334,13 +1334,13 @@ std::string egg::lang::Value::getTagString() const {
 }
 
 egg::lang::String egg::lang::LocationSource::toSourceString() const {
-  StringBuilder sb;
+  egg::ovum::StringBuilder sb;
   formatSourceLocation(sb, *this);
   return sb.str();
 }
 
 egg::lang::String egg::lang::LocationRuntime::toRuntimeString() const {
-  StringBuilder sb;
+  egg::ovum::StringBuilder sb;
   formatSourceLocation(sb, *this);
   if (!this->function.empty()) {
     if (sb.empty()) {
@@ -1473,7 +1473,7 @@ std::string egg::lang::Value::toUTF8() const {
 egg::lang::String egg::lang::IType::toString(int priority) const {
   auto pair = this->toStringPrecedence();
   if (pair.second < priority) {
-    return egg::lang::StringBuilder::concat("(", pair.first, ")");
+    return egg::ovum::StringBuilder::concat("(", pair.first, ")");
   }
   return pair.first;
 }
@@ -1494,7 +1494,7 @@ egg::lang::ITypeRef egg::lang::IType::denulledType() const {
 }
 
 egg::lang::String egg::lang::IFunctionSignature::toString(Parts parts) const {
-  StringBuilder sb;
+  egg::ovum::StringBuilder sb;
   this->buildStringDefault(sb, parts);
   return sb.str();
 }
@@ -1539,7 +1539,7 @@ bool egg::lang::IFunctionSignature::validateCallDefault(IExecution& execution, c
 }
 
 egg::lang::String egg::lang::IIndexSignature::toString() const {
-  return StringBuilder::concat(this->getResultType()->toString(), "[", this->getIndexType()->toString(), "]");
+  return egg::ovum::StringBuilder::concat(this->getResultType()->toString(), "[", this->getIndexType()->toString(), "]");
 }
 
 egg::lang::Value egg::lang::IType::promoteAssignment(IExecution& execution, const Value& rhs) const {
@@ -1564,7 +1564,7 @@ const egg::lang::IIndexSignature* egg::lang::IType::indexable() const {
 
 bool egg::lang::IType::dotable(const String*, ITypeRef&, String& reason) const {
   // The default implementation is to say we don't support properties with '.'
-  reason = egg::lang::StringBuilder::concat("Values of type '", this->toString(), "' do not support the '.' operator for property access");
+  reason = egg::ovum::StringBuilder::concat("Values of type '", this->toString(), "' do not support the '.' operator for property access");
   return false;
 }
 

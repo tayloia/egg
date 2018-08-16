@@ -65,7 +65,7 @@ namespace {
     }
     virtual std::pair<std::string, int> toStringPrecedence() const override {
       // Format a string along the lines of '<rettype>...'
-      egg::lang::StringBuilder sb;
+      egg::ovum::StringBuilder sb;
       sb.add(this->rettype->toString(0), "...");
       return std::make_pair(sb.toUTF8(), 0);
     }
@@ -326,7 +326,7 @@ public:
   }
 };
 
-void egg::lang::IFunctionSignature::buildStringDefault(StringBuilder& sb, IFunctionSignature::Parts parts) const {
+void egg::lang::IFunctionSignature::buildStringDefault(egg::ovum::StringBuilder& sb, IFunctionSignature::Parts parts) const {
   // TODO better formatting of named/variadic etc.
   if (Bits::hasAnySet(parts, IFunctionSignature::Parts::ReturnType)) {
     // Use precedence zero to get any necessary parentheses
@@ -377,7 +377,7 @@ egg::yolk::FunctionType::~FunctionType() {
 
 std::pair<std::string, int> egg::yolk::FunctionType::toStringPrecedence() const {
   // Do not include names in the signature
-  egg::lang::StringBuilder sb;
+  egg::ovum::StringBuilder sb;
   this->signature->buildStringDefault(sb, egg::lang::IFunctionSignature::Parts::NoNames);
   return std::make_pair(sb.toUTF8(), 0);
 }

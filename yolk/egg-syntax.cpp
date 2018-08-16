@@ -442,12 +442,12 @@ bool egg::yolk::EggSyntaxNode_Literal::negate() {
     auto negative = -this->value.i;
     if (negative <= 0) {
       this->value.i = negative;
-      this->value.s = egg::lang::StringBuilder::concat("-", this->value.s.toUTF8());
+      this->value.s = egg::ovum::StringBuilder::concat("-", this->value.s.toUTF8());
       return true;
     }
   } else if (this->kind == EggTokenizerKind::Float) {
     this->value.f = -this->value.f;
-    this->value.s = egg::lang::StringBuilder::concat("-", this->value.s);
+    this->value.s = egg::ovum::StringBuilder::concat("-", this->value.s);
     return true;
   }
   return false;

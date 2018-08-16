@@ -108,7 +108,7 @@ namespace {
       : VanillaKeyValue(allocator, egg::lang::Value{ keyvalue.first }, keyvalue.second) {
     }
     virtual egg::lang::Value toString() const override {
-      return egg::lang::Value{ egg::lang::StringBuilder::concat("{key:", this->key.toString(), ",value:", this->value.toString(), "}") };
+      return egg::lang::Value{ egg::ovum::StringBuilder::concat("{key:", this->key.toString(), ",value:", this->value.toString(), "}") };
     }
     virtual egg::lang::Value getProperty(egg::lang::IExecution& execution, const egg::lang::String& property) override {
       auto name = property.toUTF8();
@@ -163,7 +163,7 @@ namespace {
       }
       auto* retval = VanillaArrayType::getPropertyType(property->toUTF8());
       if (retval == nullptr) {
-        reason = egg::lang::StringBuilder::concat("Arrays do not support property '.", *property, "'");
+        reason = egg::ovum::StringBuilder::concat("Arrays do not support property '.", *property, "'");
         return false;
       }
       type.set(retval);
@@ -197,7 +197,7 @@ namespace {
       if (this->values.empty()) {
         return egg::lang::Value(egg::ovum::String("[]"));
       }
-      egg::lang::StringBuilder sb;
+      egg::ovum::StringBuilder sb;
       char between = '[';
       for (auto& value : this->values) {
         sb.add(between, value.toUTF8());
@@ -337,7 +337,7 @@ namespace {
       if (this->dictionary.getKeyValues(keyvalues) == 0) {
         return egg::lang::Value(egg::ovum::String("{}"));
       }
-      egg::lang::StringBuilder sb;
+      egg::ovum::StringBuilder sb;
       char between = '{';
       for (auto& keyvalue : keyvalues) {
         sb.add(between, keyvalue.first.toUTF8(), ':', keyvalue.second.toUTF8());
@@ -424,7 +424,7 @@ namespace {
       this->dictionary.addUnique(keyLocation, egg::lang::Value{ location.toSourceString() }); // TODO use toRuntimeString
     }
     virtual egg::lang::Value toString() const override {
-      egg::lang::StringBuilder sb;
+      egg::ovum::StringBuilder sb;
       egg::lang::Value value;
       if (this->dictionary.tryGet(keyLocation, value)) {
         sb.add(value.toString(), ": ");
@@ -458,7 +458,7 @@ namespace {
       this->program.visit(visitor);
     }
     virtual egg::lang::Value toString() const override {
-      return egg::lang::Value(egg::lang::StringBuilder::concat("<", this->type->toString(), ">"));
+      return egg::lang::Value(egg::ovum::StringBuilder::concat("<", this->type->toString(), ">"));
     }
     virtual egg::lang::ITypeRef getRuntimeType() const override {
       return this->type;

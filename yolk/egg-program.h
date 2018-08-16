@@ -159,7 +159,7 @@ namespace egg::yolk {
     void log(egg::lang::LogSource source, egg::lang::LogSeverity severity, const std::string& message);
     template<typename... ARGS>
     void problem(egg::lang::LogSource source, egg::lang::LogSeverity severity, ARGS... args) {
-      auto message = egg::lang::StringBuilder().add(args...).toUTF8();
+      auto message = egg::ovum::StringBuilder().add(args...).toUTF8();
       this->log(source, severity, message);
     }
     template<typename... ARGS>

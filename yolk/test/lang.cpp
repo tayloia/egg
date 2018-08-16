@@ -81,7 +81,7 @@ TEST(TestLang, BitsInvert) {
 }
 
 TEST(TestLang, StringBuilder) {
-  egg::lang::StringBuilder sb;
+  egg::ovum::StringBuilder sb;
   ASSERT_TRUE(sb.empty());
   sb.add("Hello", ' ', "World");
   ASSERT_EQ("Hello World", sb.str().toUTF8());

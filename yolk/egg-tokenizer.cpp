@@ -208,7 +208,7 @@ namespace {
           this->unexpected("Expected attribute name to follow '@'", String::unicodeToString(ch));
         }
       }
-      egg::lang::StringBuilder sb;
+      egg::ovum::StringBuilder sb;
       sb.add(this->upcoming.verbatim);
       if (this->lexer->next(this->upcoming) != LexerKind::Identifier) {
         this->unexpected("Expected attribute name to follow '@'");
