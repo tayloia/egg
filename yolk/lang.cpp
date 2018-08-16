@@ -1267,13 +1267,13 @@ egg::lang::ValueReferenceCounted& egg::lang::Value::indirect(egg::ovum::IAllocat
 
 egg::lang::Value& egg::lang::Value::soft(egg::ovum::IAllocator&, egg::ovum::ICollectable& container) { // WIBBLE parameters
   if (this->has(Discriminator::Object) && !this->has(Discriminator::Pointer)) {
-    // This is a hard pointer to an IObject, make it a soft pointer
+    // This is a hard pointer to an IObject, make it a soft pointer, if possible
     assert(this->o != nullptr);
-    this->tag = Bits::set(this->tag, Discriminator::Pointer);
-    if (!container.softLink(*this->o)) {
-      throw std::logic_error("Variant soft link basket condition violation");
+    if (container.softLink(*this->o)) {
+      // Successfully linked in the basket, so release our hard reference
+      this->tag = Bits::set(this->tag, Discriminator::Pointer);
+      this->o->hardRelease();
     }
-    this->o->hardRelease();
   }
   return *this;
 }
@@ -1339,6 +1339,14 @@ egg::lang::String egg::lang::LocationRuntime::toRuntimeString() const {
     sb.add('<', this->function, '>');
   }
   return sb.str();
+}
+
+void egg::lang::Value::softVisitLink(const egg::ovum::ICollectable::Visitor& visitor) const {
+  if (this->is(Discriminator::Object | Discriminator::Pointer)) {
+    // Soft reference to an object
+    assert(this->o != nullptr);
+    visitor(*this->o);
+  }
 }
 
 void egg::lang::Value::addFlowControl(Discriminator bits) {

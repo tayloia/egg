@@ -1,6 +1,6 @@
 #include "ovum/ovum.h"
 
-class egg::ovum::VariantSoft : public SoftReferenceCounted<IVariantSoft> {
+class egg::ovum::VariantSoft : public SoftReferenceCounted<IVariantSoft> { // WIBBLE
   VariantSoft(const VariantSoft&) = delete;
   VariantSoft& operator=(const VariantSoft&) = delete;
 private:
@@ -16,9 +16,11 @@ public:
   virtual void softVisitLinks(const Visitor& visitor) const override {
     if (this->variant.is(VariantBits::Object)) {
       // Soft reference to an object
+      assert(this->variant.u.o != nullptr);
       visitor(*this->variant.u.o);
     } else if (this->variant.hasAny(VariantBits::Pointer | VariantBits::Indirect)) {
       // Soft pointer or indirect
+      assert(this->variant.u.p != nullptr);
       visitor(*this->variant.u.p);
     }
   }

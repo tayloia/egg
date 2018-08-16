@@ -248,6 +248,11 @@ namespace egg::ovum {
       }
       this->ptr = target;
     }
+    void visit(const ICollectable::Visitor& visitor) const {
+      if (this->ptr != nullptr) {
+        visitor(*this->ptr);
+      }
+    }
     T& operator*() const {
       assert(this->ptr != nullptr);
       return *this->ptr;

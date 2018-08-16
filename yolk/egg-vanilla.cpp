@@ -16,7 +16,9 @@ namespace {
     VanillaBase(egg::ovum::IAllocator& allocator, const std::string& kind, const egg::lang::IType& type)
       : SoftReferenceCounted(allocator), kind(kind), type(&type) {
     }
-    virtual void softVisitLinks(const Visitor&) const override {} // WIBBLE
+    virtual void softVisitLinks(const Visitor&) const override {
+      // No soft links
+    }
     virtual egg::lang::ITypeRef getRuntimeType() const override {
       return this->type;
     }
@@ -452,7 +454,9 @@ namespace {
       assert(block != nullptr);
       this->program.set(*this, &program);
     }
-    virtual void softVisitLinks(const Visitor&) const override {} // WIBBLE
+    virtual void softVisitLinks(const Visitor& visitor) const override {
+      this->program.visit(visitor);
+    }
     virtual egg::lang::Value toString() const override {
       return egg::lang::Value(egg::lang::String::concat("<", this->type->toString(), ">"));
     }

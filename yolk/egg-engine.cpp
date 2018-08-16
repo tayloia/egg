@@ -25,7 +25,7 @@ namespace {
   template<class BASE>
   class EggEngineBaseContext : public BASE {
   protected:
-    egg::ovum::IAllocator* memallocator;
+    egg::ovum::IAllocator* memallocator; // WIBBLE
     std::shared_ptr<IEggEngineLogger> logger;
   public:
     EggEngineBaseContext(egg::ovum::IAllocator& allocator, const std::shared_ptr<IEggEngineLogger>& logger)

@@ -62,7 +62,7 @@ namespace egg::ovum {
 
   class ICollectable : public IHardAcquireRelease {
   public:
-    using Visitor = std::function<void(ICollectable& collectable)>;
+    using Visitor = std::function<void(ICollectable& target)>;
     virtual bool softIsRoot() const = 0;
     virtual IBasket* softGetBasket() const = 0;
     virtual IBasket* softSetBasket(IBasket* basket) = 0;

@@ -261,6 +261,14 @@ egg::lang::Value egg::yolk::EggProgramSymbol::assign(EggProgramSymbolTable& symt
   return egg::lang::Value::Void;
 }
 
+void egg::yolk::EggProgramSymbolTable::softVisitLinks(const Visitor& visitor) const {
+  this->parent.visit(visitor);
+  for (auto& kv : this->map) {
+    auto& symbol = *kv.second;
+    symbol.getValue().softVisitLink(visitor);
+  }
+}
+
 void egg::yolk::EggProgramSymbolTable::addBuiltins() {
   // TODO add built-in symbol to symbol table here
   this->addBuiltin("string", egg::lang::Value::builtinString(allocator));
@@ -336,6 +344,10 @@ std::string egg::yolk::EggProgram::mutateToString(egg::yolk::EggProgramMutate op
 egg::ovum::HardPtr<egg::yolk::EggProgramContext> egg::yolk::EggProgram::createRootContext(egg::ovum::IAllocator& allocator, IEggEngineLogger& logger, EggProgramSymbolTable& symtable, egg::lang::LogSeverity& maximumSeverity) {
   egg::lang::LocationRuntime location(this->root->location(), egg::lang::String::fromUTF8("<module>"));
   return allocator.make<EggProgramContext>(location, logger, symtable, maximumSeverity);
+}
+
+void egg::yolk::EggProgramContext::softVisitLinks(const Visitor& visitor) const {
+  this->symtable.visit(visitor);
 }
 
 egg::ovum::HardPtr<egg::yolk::EggProgramContext> egg::yolk::EggProgramContext::createNestedContext(EggProgramSymbolTable& parent, ScopeFunction* prepareFunction) {

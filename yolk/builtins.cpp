@@ -68,7 +68,9 @@ namespace {
     BuiltinFunction(egg::ovum::IAllocator& allocator, const std::string& name, const ITypeRef& returnType)
       : SoftReferenceCounted(allocator), type(allocator.make<BuiltinFunctionType>(name, returnType)) {
     }
-    virtual void softVisitLinks(const Visitor&) const override {} // WIBBLE
+    virtual void softVisitLinks(const Visitor&) const override {
+      // No soft links
+    }
     virtual Value toString() const override {
       return Value(this->type->getName());
     }
@@ -100,7 +102,9 @@ namespace {
     BuiltinObject(egg::ovum::IAllocator& allocator, const std::string& name, const ITypeRef& returnType)
       : SoftReferenceCounted(allocator), type(allocator.make<BuiltinObjectType>(name, returnType)) {
     }
-    virtual void softVisitLinks(const Visitor&) const override {} // WIBBLE
+    virtual void softVisitLinks(const Visitor&) const override {
+      // No soft links
+    }
     virtual Value toString() const override {
       return Value(this->type->getName());
     }
@@ -270,7 +274,9 @@ namespace {
     StringBuiltin(egg::ovum::IAllocator& allocator, const String& instance, const egg::ovum::HardPtr<StringFunctionType>& type)
       : SoftReferenceCounted(allocator), instance(instance), type(type) {
     }
-    virtual void softVisitLinks(const Visitor&) const override {} // WIBBLE
+    virtual void softVisitLinks(const Visitor&) const override {
+      // No soft links
+    }
     virtual Value toString() const override {
       return Value(this->type->getName());
     }

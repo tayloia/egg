@@ -79,7 +79,7 @@ namespace egg::yolk {
       : SoftReferenceCounted(allocator) {
       this->parent.set(*this, parent);
     }
-    virtual void softVisitLinks(const Visitor&) const override {} // WIBBLE
+    virtual void softVisitLinks(const Visitor& visitor) const override;
     void addBuiltins();
     void addBuiltin(const std::string& name, const egg::lang::Value& value);
     std::shared_ptr<EggProgramSymbol> addSymbol(EggProgramSymbol::Kind kind, const egg::lang::String& name, const egg::lang::ITypeRef& type, const egg::lang::Value& value = egg::lang::Value::Void);
@@ -154,7 +154,7 @@ namespace egg::yolk {
     EggProgramContext(egg::ovum::IAllocator& allocator, const egg::lang::LocationRuntime& location, IEggEngineLogger& logger, EggProgramSymbolTable& symtable, egg::lang::LogSeverity& maximumSeverity)
       : EggProgramContext(allocator, location, &logger, symtable, &maximumSeverity, nullptr) {
     }
-    virtual void softVisitLinks(const Visitor&) const override {} // WIBBLE
+    virtual void softVisitLinks(const Visitor& visitor) const override;
     egg::ovum::HardPtr<EggProgramContext> createNestedContext(EggProgramSymbolTable& symtable, ScopeFunction* prepareFunction = nullptr);
     void log(egg::lang::LogSource source, egg::lang::LogSeverity severity, const std::string& message);
     template<typename... ARGS>

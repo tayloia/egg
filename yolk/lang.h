@@ -473,6 +473,7 @@ namespace egg::lang {
     egg::ovum::HardPtr<IObject> getObject() const { assert(this->has(Discriminator::Object)); assert(this->o != nullptr); return egg::ovum::HardPtr<IObject>(this->o); }
     const IType& getType() const { assert(this->has(Discriminator::Type)); return *this->t; }
     ValueReferenceCounted& getPointee() const { assert(this->has(Discriminator::Pointer) && !this->has(Discriminator::Object)); return *this->v; }
+    void softVisitLink(const egg::ovum::ICollectable::Visitor& visitor) const;
     void addFlowControl(Discriminator bits);
     bool stripFlowControl(Discriminator bits);
     std::string getTagString() const;
