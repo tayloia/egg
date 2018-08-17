@@ -1,9 +1,3 @@
-// WIBBLE RETIRE
-namespace egg::lang {
-  class StringLegacy;
-}
-std::ostream& operator<<(std::ostream& os, const egg::lang::StringLegacy& text);
-
 namespace egg::ovum {
   class MemoryFactory;
 

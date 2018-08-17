@@ -193,7 +193,7 @@ namespace egg::ovum {
       return count;
     }
     size_t getIterationInternal() const {
-      // Fetch the offset used in egg::lang::StringIteration::internal
+      // Fetch the offset used in egg::ovum::StringIteration::internal
       auto internal = this->p - this->begin;
       assert(internal >= 0);
       return size_t(internal);

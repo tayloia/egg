@@ -116,7 +116,7 @@ namespace {
   private:
     std::shared_ptr<ILexer> lexer;
     LexerItem upcoming;
-    egg::lang::String resource_name;
+    egg::ovum::String resource_name;
   public:
     explicit EggTokenizer(const std::shared_ptr<ILexer>& lexer)
       : lexer(lexer), resource_name(lexer->getResourceName()) {
@@ -127,7 +127,7 @@ namespace {
         // This is the first time through
         this->lexer->next(this->upcoming);
       }
-      item.value.s = egg::lang::String();
+      item.value.s = egg::ovum::String();
       item.contiguous = true;
       bool skip;
       do {
@@ -184,7 +184,7 @@ namespace {
       } while (skip);
       return item.kind;
     }
-    virtual egg::lang::String resource() const override {
+    virtual egg::ovum::String resource() const override {
       return this->resource_name;
     }
   private:

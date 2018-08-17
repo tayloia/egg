@@ -66,10 +66,10 @@ namespace {
     virtual egg::lang::Value toString() const override {
       return egg::lang::Value{ this->type->toString() };
     }
-    virtual egg::lang::Value getProperty(egg::lang::IExecution& execution, const egg::lang::String& property) override {
+    virtual egg::lang::Value getProperty(egg::lang::IExecution& execution, const egg::ovum::String& property) override {
       return execution.raiseFormat("Iterators do not support properties: '.", property, "'");
     }
-    virtual egg::lang::Value setProperty(egg::lang::IExecution& execution, const egg::lang::String& property, const egg::lang::Value&) override {
+    virtual egg::lang::Value setProperty(egg::lang::IExecution& execution, const egg::ovum::String& property, const egg::lang::Value&) override {
       return execution.raiseFormat("Iterators do not support properties: '.", property, "'");
     }
   };
@@ -104,13 +104,13 @@ namespace {
     VanillaKeyValue(egg::ovum::IAllocator& allocator, const egg::lang::Value& key, const egg::lang::Value& value)
       : VanillaBase(allocator, "Key-value", VanillaKeyValueType::instance), key(key), value(value) {
     }
-    VanillaKeyValue(egg::ovum::IAllocator& allocator, const std::pair<egg::lang::String, egg::lang::Value>& keyvalue)
+    VanillaKeyValue(egg::ovum::IAllocator& allocator, const std::pair<egg::ovum::String, egg::lang::Value>& keyvalue)
       : VanillaKeyValue(allocator, egg::lang::Value{ keyvalue.first }, keyvalue.second) {
     }
     virtual egg::lang::Value toString() const override {
       return egg::lang::Value{ egg::ovum::StringBuilder::concat("{key:", this->key.toString(), ",value:", this->value.toString(), "}") };
     }
-    virtual egg::lang::Value getProperty(egg::lang::IExecution& execution, const egg::lang::String& property) override {
+    virtual egg::lang::Value getProperty(egg::lang::IExecution& execution, const egg::ovum::String& property) override {
       auto name = property.toUTF8();
       if (name == "key") {
         return this->key;
@@ -120,7 +120,7 @@ namespace {
       }
       return execution.raiseFormat("Key-values do not support property: '.", property, "'");
     }
-    virtual egg::lang::Value setProperty(egg::lang::IExecution& execution, const egg::lang::String& property, const egg::lang::Value&) override {
+    virtual egg::lang::Value setProperty(egg::lang::IExecution& execution, const egg::ovum::String& property, const egg::lang::Value&) override {
       return execution.raiseFormat("Key-values do not support addition or modification of properties: '.", property, "'");
     }
     virtual egg::lang::Value iterate(egg::lang::IExecution& execution) override {
@@ -155,7 +155,7 @@ namespace {
       // Indexing an array returns an element
       return &VanillaArrayIndexSignature::instance;
     }
-    virtual bool dotable(const egg::lang::String* property, egg::lang::ITypeRef& type, egg::lang::String& reason) const override {
+    virtual bool dotable(const egg::ovum::String* property, egg::lang::ITypeRef& type, egg::ovum::String& reason) const override {
       // Arrays support limited properties
       if (property == nullptr) {
         type = egg::lang::Type::AnyQ;
@@ -206,7 +206,7 @@ namespace {
       sb.add(']');
       return egg::lang::Value{ sb.str() };
     }
-    virtual egg::lang::Value getProperty(egg::lang::IExecution& execution, const egg::lang::String& property) override {
+    virtual egg::lang::Value getProperty(egg::lang::IExecution& execution, const egg::ovum::String& property) override {
       auto name = property.toUTF8();
       auto retval = this->getPropertyInternal(execution, name);
       if (retval.has(egg::lang::Discriminator::FlowControl)) {
@@ -216,7 +216,7 @@ namespace {
       }
       return retval;
     }
-    virtual egg::lang::Value setProperty(egg::lang::IExecution& execution, const egg::lang::String& property, const egg::lang::Value& value) override {
+    virtual egg::lang::Value setProperty(egg::lang::IExecution& execution, const egg::ovum::String& property, const egg::lang::Value& value) override {
       auto name = property.toUTF8();
       if (name == "length") {
         return this->setLength(execution, value);
@@ -307,7 +307,7 @@ namespace {
   class VanillaDictionaryIterator : public VanillaIteratorBase {
     EGG_NO_COPY(VanillaDictionaryIterator);
   private:
-    typedef egg::yolk::Dictionary<egg::lang::String, egg::lang::Value> Dictionary;
+    typedef egg::yolk::Dictionary<egg::ovum::String, egg::lang::Value> Dictionary;
     Dictionary::KeyValues keyvalues;
     size_t next;
   public:
@@ -326,7 +326,7 @@ namespace {
   class VanillaDictionary : public VanillaBase {
     EGG_NO_COPY(VanillaDictionary);
   protected:
-    typedef egg::yolk::Dictionary<egg::lang::String, egg::lang::Value> Dictionary;
+    typedef egg::yolk::Dictionary<egg::ovum::String, egg::lang::Value> Dictionary;
     Dictionary dictionary;
   public:
     VanillaDictionary(egg::ovum::IAllocator& allocator, const std::string& kind, const egg::lang::IType& type)
@@ -346,14 +346,14 @@ namespace {
       sb.add('}');
       return egg::lang::Value{ sb.str() };
     }
-    virtual egg::lang::Value getProperty(egg::lang::IExecution& execution, const egg::lang::String& property) override {
+    virtual egg::lang::Value getProperty(egg::lang::IExecution& execution, const egg::ovum::String& property) override {
       egg::lang::Value value;
       if (this->dictionary.tryGet(property, value)) {
         return value;
       }
       return execution.raiseFormat(this->kind, " does not support property '", property, "'");
     }
-    virtual egg::lang::Value setProperty(egg::lang::IExecution&, const egg::lang::String& property, const egg::lang::Value& value) override {
+    virtual egg::lang::Value setProperty(egg::lang::IExecution&, const egg::ovum::String& property, const egg::lang::Value& value) override {
       (void)this->dictionary.addOrUpdate(property, value);
       return egg::lang::Value::Void;
     }
@@ -383,7 +383,7 @@ namespace {
       // Indexing an object returns a property
       return &VanillaObjectIndexSignature::instance;
     }
-    virtual bool dotable(const egg::lang::String*, egg::lang::ITypeRef& type, egg::lang::String&) const override {
+    virtual bool dotable(const egg::ovum::String*, egg::lang::ITypeRef& type, egg::ovum::String&) const override {
       // Objects support properties
       type = egg::lang::Type::AnyQ;
       return true;
@@ -415,10 +415,10 @@ namespace {
   class VanillaException : public VanillaDictionary {
     EGG_NO_COPY(VanillaException);
   private:
-    static const egg::lang::String keyMessage;
-    static const egg::lang::String keyLocation;
+    static const egg::ovum::String keyMessage;
+    static const egg::ovum::String keyLocation;
   public:
-    VanillaException(egg::ovum::IAllocator& allocator, const egg::lang::LocationRuntime& location, const egg::lang::String& message)
+    VanillaException(egg::ovum::IAllocator& allocator, const egg::lang::LocationRuntime& location, const egg::ovum::String& message)
       : VanillaDictionary(allocator, "Exception", VanillaObjectType::instance) {
       this->dictionary.addUnique(keyMessage, egg::lang::Value{ message });
       this->dictionary.addUnique(keyLocation, egg::lang::Value{ location.toSourceString() }); // TODO use toRuntimeString
@@ -437,8 +437,8 @@ namespace {
       return egg::lang::Value{ sb.str() };
     }
   };
-  const egg::lang::String VanillaException::keyMessage = "message";
-  const egg::lang::String VanillaException::keyLocation = "location";
+  const egg::ovum::String VanillaException::keyMessage = "message";
+  const egg::ovum::String VanillaException::keyLocation = "location";
 
   class VanillaFunction : public egg::ovum::SoftReferenceCounted<egg::lang::IObject> {
     EGG_NO_COPY(VanillaFunction);
@@ -466,10 +466,10 @@ namespace {
     virtual egg::lang::Value call(egg::lang::IExecution&, const egg::lang::IParameters& parameters) override {
       return this->program->executeFunctionCall(this->type, parameters, this->block);
     }
-    virtual egg::lang::Value getProperty(egg::lang::IExecution& execution, const egg::lang::String& property) override {
+    virtual egg::lang::Value getProperty(egg::lang::IExecution& execution, const egg::ovum::String& property) override {
       return execution.raiseFormat("'", this->type->toString(), "' does not support properties such as '.", property, "'");
     }
-    virtual egg::lang::Value setProperty(egg::lang::IExecution& execution, const egg::lang::String& property, const egg::lang::Value&) override {
+    virtual egg::lang::Value setProperty(egg::lang::IExecution& execution, const egg::ovum::String& property, const egg::lang::Value&) override {
       return execution.raiseFormat("'", this->type->toString(), "' does not support properties such as '.", property, "'");
     }
     virtual egg::lang::Value getIndex(egg::lang::IExecution& execution, const egg::lang::Value&) override {
@@ -564,7 +564,7 @@ egg::ovum::IAllocator& egg::yolk::EggProgramContext::getAllocator() const {
   return this->allocator;
 }
 
-egg::lang::Value egg::yolk::EggProgramContext::raise(const egg::lang::String& message) {
+egg::lang::Value egg::yolk::EggProgramContext::raise(const egg::ovum::String& message) {
   auto exception = egg::lang::Value::makeObject<VanillaException>(this->allocator, this->location, message);
   exception.addFlowControl(egg::lang::Discriminator::Exception);
   return exception;

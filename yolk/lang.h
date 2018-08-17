@@ -89,38 +89,6 @@ namespace egg::lang {
     return Bits::set(lhs, rhs);
   }
 
-  struct StringIteration {
-    char32_t codepoint;
-    size_t internal; // For use by implementations only
-  };
-
-  class IStringLegacy : public egg::ovum::IHardAcquireRelease {
-  public:
-    virtual size_t length() const = 0;
-    virtual bool empty() const = 0;
-    virtual bool equals(const IStringLegacy& other) const = 0;
-    virtual bool less(const IStringLegacy& other) const = 0;
-    virtual int64_t hashCode() const = 0;
-    virtual int64_t compare(const IStringLegacy& other) const = 0;
-    virtual bool startsWith(const IStringLegacy& other) const = 0;
-    virtual bool endsWith(const IStringLegacy& other) const = 0;
-    virtual int32_t codePointAt(size_t index) const = 0;
-    virtual int64_t indexOfCodePoint(char32_t codepoint, size_t fromIndex) const = 0;
-    virtual int64_t indexOfString(const IStringLegacy& needle, size_t fromIndex) const = 0;
-    virtual int64_t lastIndexOfCodePoint(char32_t codepoint, size_t fromIndex) const = 0;
-    virtual int64_t lastIndexOfString(const IStringLegacy& needle, size_t fromIndex) const = 0;
-    virtual const IStringLegacy* substring(size_t begin, size_t end) const = 0;
-    virtual const IStringLegacy* repeat(size_t count) const = 0;
-    virtual const IStringLegacy* replace(const IStringLegacy& needle, const IStringLegacy& replacement, int64_t occurrences) const = 0;
-    virtual std::string toUTF8() const = 0;
-
-    // Iteration
-    virtual bool iterateFirst(StringIteration& iteration) const = 0;
-    virtual bool iterateNext(StringIteration& iteration) const = 0;
-    virtual bool iteratePrevious(StringIteration& iteration) const = 0;
-    virtual bool iterateLast(StringIteration& iteration) const = 0;
-  };
-
   class IPreparation {
   public:
     virtual ~IPreparation() {}
@@ -266,106 +234,6 @@ namespace egg::lang {
     virtual Value iterate(IExecution& execution) = 0;
   };
 
-  class StringLegacy : public egg::ovum::HardPtr<const IStringLegacy> {
-  private:
-    static const IStringLegacy& emptyBuffer;
-  public:
-    StringLegacy(const String& rhs);
-    explicit StringLegacy(const IStringLegacy& rhs = emptyBuffer) : HardPtr(&rhs) {
-    }
-    StringLegacy(const StringLegacy& rhs) : HardPtr(rhs.get()) {
-    }
-    // Properties
-    size_t length() const {
-      return this->get()->length();
-    }
-    bool empty() const {
-      return this->get()->empty();
-    }
-    int64_t hashCode() const {
-      return this->get()->hashCode();
-    }
-    int32_t codePointAt(size_t index) const {
-      return this->get()->codePointAt(index);
-    }
-    std::string toUTF8() const {
-      return this->get()->toUTF8();
-    }
-    bool equals(const StringLegacy& rhs) const {
-      return this->get()->equals(*rhs);
-    }
-    bool less(const StringLegacy& rhs) const {
-      return this->get()->less(*rhs);
-    }
-    int64_t compare(const StringLegacy& rhs) const {
-      return this->get()->compare(*rhs);
-    }
-    bool contains(const StringLegacy& needle) const {
-      return this->get()->indexOfString(*needle, 0) >= 0;
-    }
-    bool startsWith(const StringLegacy& needle) const {
-      return this->get()->startsWith(*needle);
-    }
-    bool endsWith(const StringLegacy& needle) const {
-      return this->get()->endsWith(*needle);
-    }
-    int64_t indexOfCodePoint(char32_t needle, size_t fromIndex = 0) const {
-      return this->get()->indexOfCodePoint(needle, fromIndex);
-    }
-    int64_t indexOfString(const StringLegacy& needle, size_t fromIndex = 0) const {
-      return this->get()->indexOfString(*needle, fromIndex);
-    }
-    int64_t lastIndexOfCodePoint(char32_t needle, size_t fromIndex = SIZE_MAX) const {
-      return this->get()->lastIndexOfCodePoint(needle, fromIndex);
-    }
-    int64_t lastIndexOfString(const StringLegacy& needle, size_t fromIndex = SIZE_MAX) const {
-      return this->get()->lastIndexOfString(*needle, fromIndex);
-    }
-    StringLegacy substring(size_t begin, size_t end = SIZE_MAX) const {
-      return StringLegacy(*this->get()->substring(begin, end));
-    }
-    StringLegacy slice(int64_t begin, int64_t end = INT64_MAX) const {
-      return StringLegacy(*this->get()->substring(this->signedToIndex(begin), this->signedToIndex(end)));
-    }
-    StringLegacy repeat(size_t count) const {
-      return StringLegacy(*this->get()->repeat(count));
-    }
-    StringLegacy replace(const StringLegacy& needle, const StringLegacy& replacement, int64_t occurrences = INT64_MAX) const {
-      return StringLegacy(*this->get()->replace(*needle, *replacement, occurrences));
-    }
-    StringLegacy padLeft(size_t target, const StringLegacy& padding = StringLegacy::Space) const;
-    StringLegacy padRight(size_t target, const StringLegacy& padding = StringLegacy::Space) const;
-    std::vector<StringLegacy> split(const StringLegacy& separator, int64_t limit = INT64_MAX) const;
-    // Helpers
-    size_t signedToIndex(int64_t index) const {
-      // Convert a signed index to an absolute one
-      // Negative inputs signify offsets from the end of the string
-      auto n = this->length();
-      if (index < 0) {
-        return size_t(std::max(index + int64_t(n), int64_t(0)));
-      }
-      return std::min(size_t(index), n);
-    }
-    // Operators
-    StringLegacy& operator=(const StringLegacy& rhs) {
-      this->set(rhs.get());
-      return *this;
-    }
-    bool operator==(const StringLegacy& rhs) const {
-      return this->get()->equals(*rhs);
-    }
-    bool operator<(const StringLegacy& rhs) const {
-      return this->get()->less(*rhs);
-    }
-    // Factories
-    static StringLegacy fromCodePoint(char32_t codepoint);
-    static StringLegacy fromUTF8(const std::string& utf8);
-    static StringLegacy fromUTF32(const std::u32string& utf32);
-    // Constants
-    static const StringLegacy Empty;
-    static const StringLegacy Space;
-  };
-
   struct LocationSource {
     String file;
     size_t line;
@@ -420,7 +288,6 @@ namespace egg::lang {
     explicit Value(int64_t value) : tag(Discriminator::Int) { this->i = value; }
     explicit Value(double value) : tag(Discriminator::Float) { this->f = value; }
     explicit Value(const String& value) : tag(Discriminator::String) { this->s = value.hardAcquire(); }
-    explicit Value(const StringLegacy& value) : Value(String(value.toUTF8())) {} // WIBBLE
     explicit Value(const egg::ovum::HardPtr<IObject>& value) : tag(Discriminator::Object) { this->o = value.hardAcquire(); }
     explicit Value(const IType& type) : tag(Discriminator::Type) { this->t = type.hardAcquire<IType>(); }
     explicit Value(const ValueReferenceCounted& vrc);
@@ -483,10 +350,6 @@ namespace egg::lang {
   protected:
     explicit ValueReferenceCounted(Value&& value) noexcept : Value(std::move(value)) {}
   };
-}
-
-inline std::ostream& operator<<(std::ostream& os, const egg::lang::StringLegacy& text) {
-  return os << text.toUTF8();
 }
 
 template<typename... ARGS>

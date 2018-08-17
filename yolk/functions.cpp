@@ -30,15 +30,15 @@ public:
 namespace {
   class FunctionSignatureParameter : public egg::lang::IFunctionSignatureParameter {
   private:
-    egg::lang::String name; // may be empty
+    egg::ovum::String name; // may be empty
     egg::lang::ITypeRef type;
     size_t position; // may be SIZE_MAX
     Flags flags;
   public:
-    FunctionSignatureParameter(const egg::lang::String& name, const egg::lang::ITypeRef& type, size_t position, Flags flags)
+    FunctionSignatureParameter(const egg::ovum::String& name, const egg::lang::ITypeRef& type, size_t position, Flags flags)
       : name(name), type(type), position(position), flags(flags) {
     }
-    virtual egg::lang::String getName() const override {
+    virtual egg::ovum::String getName() const override {
       return this->name;
     }
     virtual egg::lang::ITypeRef getType() const override {
@@ -58,7 +58,7 @@ namespace {
     egg::lang::ITypeRef rettype;
   public:
     explicit GeneratorFunctionType(egg::ovum::IAllocator& allocator, const egg::lang::ITypeRef& returnType)
-      : FunctionType(allocator, egg::lang::String(), returnType->unionWith(*egg::lang::Type::Void)),
+      : FunctionType(allocator, egg::ovum::String(), returnType->unionWith(*egg::lang::Type::Void)),
         rettype(returnType) {
       // No name or parameters in the signature
       assert(!egg::lang::Bits::hasAnySet(returnType->getSimpleTypes(), egg::lang::Discriminator::Void));
@@ -301,17 +301,17 @@ namespace {
 class egg::yolk::FunctionSignature : public egg::lang::IFunctionSignature {
   EGG_NO_COPY(FunctionSignature);
 private:
-  egg::lang::String name;
+  egg::ovum::String name;
   egg::lang::ITypeRef returnType;
   std::vector<FunctionSignatureParameter> parameters;
 public:
-  FunctionSignature(const egg::lang::String& name, const egg::lang::ITypeRef& returnType)
+  FunctionSignature(const egg::ovum::String& name, const egg::lang::ITypeRef& returnType)
     : name(name), returnType(returnType) {
   }
-  void addSignatureParameter(const egg::lang::String& parameterName, const egg::lang::ITypeRef& parameterType, size_t position, FunctionSignatureParameter::Flags flags) {
+  void addSignatureParameter(const egg::ovum::String& parameterName, const egg::lang::ITypeRef& parameterType, size_t position, FunctionSignatureParameter::Flags flags) {
     this->parameters.emplace_back(parameterName, parameterType, position, flags);
   }
-  virtual egg::lang::String getFunctionName() const override {
+  virtual egg::ovum::String getFunctionName() const override {
     return this->name;
   }
   virtual egg::lang::ITypeRef getReturnType() const override {
@@ -366,7 +366,7 @@ void egg::lang::IFunctionSignature::buildStringDefault(egg::ovum::StringBuilder&
   }
 }
 
-egg::yolk::FunctionType::FunctionType(egg::ovum::IAllocator& allocator, const egg::lang::String& name, const egg::lang::ITypeRef& returnType)
+egg::yolk::FunctionType::FunctionType(egg::ovum::IAllocator& allocator, const egg::ovum::String& name, const egg::lang::ITypeRef& returnType)
   : HardReferenceCounted(allocator, 0),
     signature(std::make_unique<FunctionSignature>(name, returnType)) {
 }
@@ -403,15 +403,15 @@ const egg::lang::IFunctionSignature* egg::yolk::FunctionType::callable() const {
   return this->signature.get();
 }
 
-void egg::yolk::FunctionType::addParameter(const egg::lang::String& name, const egg::lang::ITypeRef& type, egg::lang::IFunctionSignatureParameter::Flags flags) {
+void egg::yolk::FunctionType::addParameter(const egg::ovum::String& name, const egg::lang::ITypeRef& type, egg::lang::IFunctionSignatureParameter::Flags flags) {
   this->signature->addSignatureParameter(name, type, this->signature->getParameterCount(), flags);
 }
 
-egg::yolk::FunctionType* egg::yolk::FunctionType::createFunctionType(egg::ovum::IAllocator& allocator, const egg::lang::String& name, const egg::lang::ITypeRef& returnType) {
+egg::yolk::FunctionType* egg::yolk::FunctionType::createFunctionType(egg::ovum::IAllocator& allocator, const egg::ovum::String& name, const egg::lang::ITypeRef& returnType) {
   return allocator.create<FunctionType>(0, allocator, name, returnType);
 }
 
-egg::yolk::FunctionType* egg::yolk::FunctionType::createGeneratorType(egg::ovum::IAllocator& allocator, const egg::lang::String& name, const egg::lang::ITypeRef& returnType) {
+egg::yolk::FunctionType* egg::yolk::FunctionType::createGeneratorType(egg::ovum::IAllocator& allocator, const egg::ovum::String& name, const egg::lang::ITypeRef& returnType) {
   // Convert the return type (e.g. 'int') into a generator function 'int..' aka '(void|int)()'
   return allocator.create<FunctionType>(0, allocator, name, allocator.make<GeneratorFunctionType>(returnType));
 }

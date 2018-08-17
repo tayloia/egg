@@ -24,7 +24,7 @@ namespace {
       Pair pair{ value, location };
       this->positional.emplace_back(std::move(pair));
     }
-    void addNamed(const egg::lang::String& name, const egg::lang::Value& value, const egg::lang::LocationSource& location) {
+    void addNamed(const egg::ovum::String& name, const egg::lang::Value& value, const egg::lang::LocationSource& location) {
       Pair pair{ value, location };
       this->named.emplace(name, std::move(pair));
     }
@@ -40,15 +40,15 @@ namespace {
     virtual size_t getNamedCount() const override {
       return this->named.size();
     }
-    virtual egg::lang::String getName(size_t index) const override {
+    virtual egg::ovum::String getName(size_t index) const override {
       auto iter = this->named.begin();
       std::advance(iter, index);
       return iter->first;
     }
-    virtual egg::lang::Value getNamed(const egg::lang::String& name) const override {
+    virtual egg::lang::Value getNamed(const egg::ovum::String& name) const override {
       return this->named.at(name).value;
     }
-    virtual const egg::lang::LocationSource* getNamedLocation(const egg::lang::String& name) const override {
+    virtual const egg::lang::LocationSource* getNamedLocation(const egg::ovum::String& name) const override {
       return &this->named.at(name).location;
     }
   };
@@ -65,7 +65,7 @@ egg::yolk::EggProgramExpression::~EggProgramExpression() {
 }
 
 egg::lang::Value egg::yolk::EggProgramContext::executeScope(const IEggProgramNode* node, ScopeAction action) {
-  egg::lang::String name;
+  egg::ovum::String name;
   egg::lang::ITypeRef type{ egg::lang::Type::Void };
   if ((node != nullptr) && node->symbol(name, type)) {
     // Perform the action with a new scope containing our symbol
@@ -80,7 +80,7 @@ egg::lang::Value egg::yolk::EggProgramContext::executeScope(const IEggProgramNod
 
 egg::lang::Value egg::yolk::EggProgramContext::executeStatements(const std::vector<std::shared_ptr<IEggProgramNode>>& statements) {
   // Execute all the statements one after another
-  egg::lang::String name;
+  egg::ovum::String name;
   auto type = egg::lang::Type::Void;
   for (auto& statement : statements) {
     if (statement->symbol(name, type)) {
@@ -107,7 +107,7 @@ egg::lang::Value egg::yolk::EggProgramContext::executeBlock(const IEggProgramNod
   return context->executeStatements(statements);
 }
 
-egg::lang::Value egg::yolk::EggProgramContext::executeDeclare(const IEggProgramNode& self, const egg::lang::String& name, const egg::lang::ITypeRef& type, const IEggProgramNode* rvalue) {
+egg::lang::Value egg::yolk::EggProgramContext::executeDeclare(const IEggProgramNode& self, const egg::ovum::String& name, const egg::lang::ITypeRef& type, const IEggProgramNode* rvalue) {
   // The type information has already been used in the symbol declaration phase
   EGG_UNUSED(type); // Used in assertion only
   this->statement(self);
@@ -119,7 +119,7 @@ egg::lang::Value egg::yolk::EggProgramContext::executeDeclare(const IEggProgramN
   return egg::lang::Value::Void;
 }
 
-egg::lang::Value egg::yolk::EggProgramContext::executeGuard(const IEggProgramNode& self, const egg::lang::String& name, const egg::lang::ITypeRef& type, const IEggProgramNode& rvalue) {
+egg::lang::Value egg::yolk::EggProgramContext::executeGuard(const IEggProgramNode& self, const egg::ovum::String& name, const egg::lang::ITypeRef& type, const IEggProgramNode& rvalue) {
   // The type information has already been used in the symbol declaration phase
   EGG_UNUSED(type); // Used in assertion only
   this->statement(self);
@@ -276,7 +276,7 @@ egg::lang::Value egg::yolk::EggProgramContext::executeForeach(const IEggProgramN
   });
 }
 
-egg::lang::Value egg::yolk::EggProgramContext::executeForeachString(IEggProgramAssignee& target, const egg::lang::String& source, const IEggProgramNode& block) {
+egg::lang::Value egg::yolk::EggProgramContext::executeForeachString(IEggProgramAssignee& target, const egg::ovum::String& source, const IEggProgramNode& block) {
   size_t index = 0;
   for (auto codepoint = source.codePointAt(0); codepoint >= 0; codepoint = source.codePointAt(++index)) {
     auto retval = target.set(egg::lang::Value{ egg::ovum::StringFactory::fromCodePoint(this->allocator, char32_t(codepoint)) });
@@ -342,7 +342,7 @@ egg::lang::Value egg::yolk::EggProgramContext::executeForeachIterate(IEggProgram
   return egg::lang::Value::Void;
 }
 
-egg::lang::Value egg::yolk::EggProgramContext::executeFunctionDefinition(const IEggProgramNode& self, const egg::lang::String& name, const egg::lang::ITypeRef& type, const std::shared_ptr<IEggProgramNode>& block) {
+egg::lang::Value egg::yolk::EggProgramContext::executeFunctionDefinition(const IEggProgramNode& self, const egg::ovum::String& name, const egg::lang::ITypeRef& type, const std::shared_ptr<IEggProgramNode>& block) {
   // This defines a function, it doesn't call it
   this->statement(self);
   auto symbol = this->symtable->findSymbol(name);
@@ -521,7 +521,7 @@ egg::lang::Value egg::yolk::EggProgramContext::executeTry(const IEggProgramNode&
   return this->executeFinally(retval, final);
 }
 
-egg::lang::Value egg::yolk::EggProgramContext::executeCatch(const IEggProgramNode& self, const egg::lang::String& name, const IEggProgramNode& type, const IEggProgramNode& block) {
+egg::lang::Value egg::yolk::EggProgramContext::executeCatch(const IEggProgramNode& self, const egg::ovum::String& name, const IEggProgramNode& type, const IEggProgramNode& block) {
   this->statement(self);
   auto exception = this->scopeValue;
   assert(exception != nullptr);
@@ -615,7 +615,7 @@ egg::lang::Value egg::yolk::EggProgramContext::executeObject(const IEggProgramNo
   auto result = this->createVanillaObject();
   if (!result.has(egg::lang::Discriminator::FlowControl) && result.has(egg::lang::Discriminator::Object)) {
     auto object = result.getObject();
-    egg::lang::String name;
+    egg::ovum::String name;
     auto type = egg::lang::Type::Void;
     for (auto& value : values) {
       if (!value->symbol(name, type)) {
@@ -641,7 +641,7 @@ egg::lang::Value egg::yolk::EggProgramContext::executeCall(const IEggProgramNode
     return func;
   }
   EggProgramParameters params(parameters.size());
-  egg::lang::String name;
+  egg::ovum::String name;
   auto type = egg::lang::Type::Void;
   for (auto& parameter : parameters) {
     auto value = parameter->execute(*this).direct();
@@ -657,7 +657,7 @@ egg::lang::Value egg::yolk::EggProgramContext::executeCall(const IEggProgramNode
   return this->call(func, params);
 }
 
-egg::lang::Value egg::yolk::EggProgramContext::executeIdentifier(const IEggProgramNode& self, const egg::lang::String& name, bool byref) {
+egg::lang::Value egg::yolk::EggProgramContext::executeIdentifier(const IEggProgramNode& self, const egg::ovum::String& name, bool byref) {
   EggProgramExpression expression(*this, self);
   return this->get(name, byref);
 }
@@ -682,7 +682,7 @@ egg::lang::Value egg::yolk::EggProgramContext::executeBrackets(const IEggProgram
   return this->bracketsGet(lhs, rhs);
 }
 
-egg::lang::Value egg::yolk::EggProgramContext::executeDot(const IEggProgramNode& self, const IEggProgramNode& instance, const egg::lang::String& property) {
+egg::lang::Value egg::yolk::EggProgramContext::executeDot(const IEggProgramNode& self, const IEggProgramNode& instance, const egg::ovum::String& property) {
   EggProgramExpression expression(*this, self);
   auto lhs = instance.execute(*this).direct();
   if (lhs.has(egg::lang::Discriminator::FlowControl)) {

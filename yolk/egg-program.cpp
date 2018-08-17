@@ -12,9 +12,9 @@ namespace {
   class EggProgramAssigneeIdentifier : public egg::yolk::IEggProgramAssignee {
   private:
     egg::yolk::EggProgramContext* program;
-    egg::lang::String name;
+    egg::ovum::String name;
   public:
-    EggProgramAssigneeIdentifier(egg::yolk::EggProgramContext& program, const egg::lang::String& name)
+    EggProgramAssigneeIdentifier(egg::yolk::EggProgramContext& program, const egg::ovum::String& name)
       : program(&program),
         name(name) {
     }
@@ -91,9 +91,9 @@ namespace {
   class EggProgramAssigneeDot : public EggProgramAssigneeInstance {
     EGG_NO_COPY(EggProgramAssigneeDot);
   private:
-    egg::lang::String property;
+    egg::ovum::String property;
   public:
-    EggProgramAssigneeDot(egg::yolk::EggProgramContext& context, const std::shared_ptr<egg::yolk::IEggProgramNode>& expression, const egg::lang::String& property)
+    EggProgramAssigneeDot(egg::yolk::EggProgramContext& context, const std::shared_ptr<egg::yolk::IEggProgramNode>& expression, const egg::ovum::String& property)
       : EggProgramAssigneeInstance(context, expression), property(property) {
     }
     virtual egg::lang::Value get() const override {
@@ -281,14 +281,14 @@ void egg::yolk::EggProgramSymbolTable::addBuiltin(const std::string& name, const
   (void)this->addSymbol(EggProgramSymbol::Builtin, name, value.getRuntimeType(), value);
 }
 
-std::shared_ptr<egg::yolk::EggProgramSymbol> egg::yolk::EggProgramSymbolTable::addSymbol(EggProgramSymbol::Kind kind, const egg::lang::String& name, const egg::lang::ITypeRef& type, const egg::lang::Value& value) {
+std::shared_ptr<egg::yolk::EggProgramSymbol> egg::yolk::EggProgramSymbolTable::addSymbol(EggProgramSymbol::Kind kind, const egg::ovum::String& name, const egg::lang::ITypeRef& type, const egg::lang::Value& value) {
   auto result = this->map.emplace(name, std::make_shared<EggProgramSymbol>(kind, name, type, value));
   assert(result.second);
   result.first->second->getValue().soft(*this);
   return result.first->second;
 }
 
-std::shared_ptr<egg::yolk::EggProgramSymbol> egg::yolk::EggProgramSymbolTable::findSymbol(const egg::lang::String& name, bool includeParents) const {
+std::shared_ptr<egg::yolk::EggProgramSymbol> egg::yolk::EggProgramSymbolTable::findSymbol(const egg::ovum::String& name, bool includeParents) const {
   auto found = this->map.find(name);
   if (found != this->map.end()) {
     return found->second;
@@ -364,7 +364,7 @@ void egg::yolk::EggProgramContext::log(egg::lang::LogSource source, egg::lang::L
 bool egg::yolk::EggProgramContext::findDuplicateSymbols(const std::vector<std::shared_ptr<IEggProgramNode>>& statements) {
   // Check for duplicate symbols
   bool error = false;
-  egg::lang::String name;
+  egg::ovum::String name;
   auto type = egg::lang::Type::Void;
   std::map<egg::ovum::String, egg::lang::LocationSource> seen;
   for (auto& statement : statements) {
@@ -385,7 +385,7 @@ bool egg::yolk::EggProgramContext::findDuplicateSymbols(const std::vector<std::s
   return error;
 }
 
-std::unique_ptr<egg::yolk::IEggProgramAssignee> egg::yolk::EggProgramContext::assigneeIdentifier(const IEggProgramNode& self, const egg::lang::String& name) {
+std::unique_ptr<egg::yolk::IEggProgramAssignee> egg::yolk::EggProgramContext::assigneeIdentifier(const IEggProgramNode& self, const egg::ovum::String& name) {
   EggProgramExpression expression(*this, self);
   return std::make_unique<EggProgramAssigneeIdentifier>(*this, name);
 }
@@ -395,7 +395,7 @@ std::unique_ptr<egg::yolk::IEggProgramAssignee> egg::yolk::EggProgramContext::as
   return std::make_unique<EggProgramAssigneeBrackets>(*this, instance, index);
 }
 
-std::unique_ptr<egg::yolk::IEggProgramAssignee> egg::yolk::EggProgramContext::assigneeDot(const IEggProgramNode& self, const std::shared_ptr<IEggProgramNode>& instance, const egg::lang::String& property) {
+std::unique_ptr<egg::yolk::IEggProgramAssignee> egg::yolk::EggProgramContext::assigneeDot(const IEggProgramNode& self, const std::shared_ptr<IEggProgramNode>& instance, const egg::ovum::String& property) {
   EggProgramExpression expression(*this, self);
   return std::make_unique<EggProgramAssigneeDot>(*this, instance, property);
 }
@@ -417,7 +417,7 @@ egg::lang::LocationRuntime egg::yolk::EggProgramContext::swapLocation(const egg:
   return before;
 }
 
-egg::lang::Value egg::yolk::EggProgramContext::get(const egg::lang::String& name, bool byref) {
+egg::lang::Value egg::yolk::EggProgramContext::get(const egg::ovum::String& name, bool byref) {
   auto symbol = this->symtable->findSymbol(name);
   if (symbol == nullptr) {
     return this->raiseFormat("Unknown identifier: '", name, "'");
@@ -432,7 +432,7 @@ egg::lang::Value egg::yolk::EggProgramContext::get(const egg::lang::String& name
   return value;
 }
 
-egg::lang::Value egg::yolk::EggProgramContext::set(const egg::lang::String& name, const egg::lang::Value& rvalue) {
+egg::lang::Value egg::yolk::EggProgramContext::set(const egg::ovum::String& name, const egg::lang::Value& rvalue) {
   if (rvalue.has(egg::lang::Discriminator::FlowControl)) {
     return rvalue;
   }
@@ -441,7 +441,7 @@ egg::lang::Value egg::yolk::EggProgramContext::set(const egg::lang::String& name
   return symbol->assign(*this->symtable, *this, rvalue);
 }
 
-egg::lang::Value egg::yolk::EggProgramContext::guard(const egg::lang::String& name, const egg::lang::Value& rvalue) {
+egg::lang::Value egg::yolk::EggProgramContext::guard(const egg::ovum::String& name, const egg::lang::Value& rvalue) {
   if (rvalue.has(egg::lang::Discriminator::FlowControl)) {
     return rvalue;
   }
@@ -802,7 +802,7 @@ egg::lang::Value egg::yolk::EggProgramContext::call(const egg::lang::Value& call
   return object->call(*this, parameters);
 }
 
-egg::lang::Value egg::yolk::EggProgramContext::dotGet(const egg::lang::Value& instance, const egg::lang::String& property) {
+egg::lang::Value egg::yolk::EggProgramContext::dotGet(const egg::lang::Value& instance, const egg::ovum::String& property) {
   // Dispatch requests for strings and complex types
   auto& direct = instance.direct();
   if (direct.has(egg::lang::Discriminator::Object)) {
@@ -814,7 +814,7 @@ egg::lang::Value egg::yolk::EggProgramContext::dotGet(const egg::lang::Value& in
   return this->raiseFormat("Values of type '", instance.getRuntimeType()->toString(), "' do not support properties such as '.", property, "'");
 }
 
-egg::lang::Value egg::yolk::EggProgramContext::dotSet(const egg::lang::Value& instance, const egg::lang::String& property, const egg::lang::Value& value) {
+egg::lang::Value egg::yolk::EggProgramContext::dotSet(const egg::lang::Value& instance, const egg::ovum::String& property, const egg::lang::Value& value) {
   // Dispatch requests for complex types
   auto& direct = instance.direct();
   if (direct.has(egg::lang::Discriminator::Object)) {

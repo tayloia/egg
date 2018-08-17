@@ -91,7 +91,7 @@ namespace {
       this->os << ' ' << '\'' << text << '\'';
       return *this;
     }
-    ParserDump& add(const egg::lang::String& text) {
+    ParserDump& add(const egg::ovum::String& text) {
       this->os << ' ' << '\'' << text << '\'';
       return *this;
     }
@@ -372,67 +372,67 @@ bool egg::yolk::EggSyntaxNodeBase::negate() {
   return false;
 }
 
-egg::lang::String egg::yolk::EggSyntaxNodeBase::token() const {
-  return egg::lang::String();
+egg::ovum::String egg::yolk::EggSyntaxNodeBase::token() const {
+  return egg::ovum::String();
 }
 
-egg::lang::String egg::yolk::EggSyntaxNode_Type::token() const {
+egg::ovum::String egg::yolk::EggSyntaxNode_Type::token() const {
   return this->type->toString();
 }
 
-egg::lang::String egg::yolk::EggSyntaxNode_Declare::token() const {
+egg::ovum::String egg::yolk::EggSyntaxNode_Declare::token() const {
   return this->name;
 }
 
-egg::lang::String egg::yolk::EggSyntaxNode_Guard::token() const {
+egg::ovum::String egg::yolk::EggSyntaxNode_Guard::token() const {
   return this->name;
 }
 
-egg::lang::String egg::yolk::EggSyntaxNode_Assignment::token() const {
+egg::ovum::String egg::yolk::EggSyntaxNode_Assignment::token() const {
   return EggTokenizerValue::getOperatorString(this->op);
 }
 
-egg::lang::String egg::yolk::EggSyntaxNode_Mutate::token() const {
+egg::ovum::String egg::yolk::EggSyntaxNode_Mutate::token() const {
   return EggTokenizerValue::getOperatorString(this->op);
 }
 
-egg::lang::String egg::yolk::EggSyntaxNode_Catch::token() const {
+egg::ovum::String egg::yolk::EggSyntaxNode_Catch::token() const {
   return this->name;
 }
 
-egg::lang::String egg::yolk::EggSyntaxNode_UnaryOperator::token() const {
+egg::ovum::String egg::yolk::EggSyntaxNode_UnaryOperator::token() const {
   return EggTokenizerValue::getOperatorString(this->op);
 }
 
-egg::lang::String egg::yolk::EggSyntaxNode_BinaryOperator::token() const {
+egg::ovum::String egg::yolk::EggSyntaxNode_BinaryOperator::token() const {
   return EggTokenizerValue::getOperatorString(this->op);
 }
 
-egg::lang::String egg::yolk::EggSyntaxNode_TernaryOperator::token() const {
+egg::ovum::String egg::yolk::EggSyntaxNode_TernaryOperator::token() const {
   return "?:";
 }
 
-egg::lang::String egg::yolk::EggSyntaxNode_FunctionDefinition::token() const {
+egg::ovum::String egg::yolk::EggSyntaxNode_FunctionDefinition::token() const {
   return this->name;
 }
 
-egg::lang::String egg::yolk::EggSyntaxNode_Parameter::token() const {
+egg::ovum::String egg::yolk::EggSyntaxNode_Parameter::token() const {
   return this->name;
 }
 
-egg::lang::String egg::yolk::EggSyntaxNode_Named::token() const {
+egg::ovum::String egg::yolk::EggSyntaxNode_Named::token() const {
   return this->name;
 }
 
-egg::lang::String egg::yolk::EggSyntaxNode_Identifier::token() const {
+egg::ovum::String egg::yolk::EggSyntaxNode_Identifier::token() const {
   return this->name;
 }
 
-egg::lang::String egg::yolk::EggSyntaxNode_Literal::token() const {
+egg::ovum::String egg::yolk::EggSyntaxNode_Literal::token() const {
   return this->value.s;
 }
 
-egg::lang::String egg::yolk::EggSyntaxNode_Dot::token() const {
+egg::ovum::String egg::yolk::EggSyntaxNode_Dot::token() const {
   return this->property;
 }
 
@@ -522,7 +522,7 @@ namespace {
         }
       }
     }
-    egg::lang::String resource() const {
+    egg::ovum::String resource() const {
       return this->tokenizer->resource();
     }
   private:
@@ -570,7 +570,7 @@ namespace {
         this->cursor = 0;
       }
     }
-    egg::lang::String resource() const {
+    egg::ovum::String resource() const {
       return this->lookahead.resource();
     }
   private:
@@ -1991,14 +1991,14 @@ egg::lang::ITypeRef EggSyntaxParserContext::parseTypePostfixFunction(const egg::
   EggSyntaxParserBacktrackMark mark(this->backtrack);
   assert(mark.peek(0).isOperator(EggTokenizerOperator::ParenthesisLeft));
   mark.advance(1);
-  auto* underlying = egg::yolk::FunctionType::createFunctionType(*this->allocator, egg::lang::String(), rettype);
+  auto* underlying = egg::yolk::FunctionType::createFunctionType(*this->allocator, egg::ovum::String(), rettype);
   egg::lang::ITypeRef function{ underlying };
   for (size_t index = 0; !mark.peek(0).isOperator(EggTokenizerOperator::ParenthesisRight); ++index) {
     egg::lang::ITypeRef ptype{ egg::lang::Type::Void };
     if (!this->parseTypeExpression(ptype)) {
       this->unexpected("Expected parameter type in function type declaration", mark.peek(0));
     }
-    egg::lang::String pname;
+    egg::ovum::String pname;
     auto& p1 = mark.peek(0);
     if (p1.kind == EggTokenizerKind::Identifier) {
       // Skip the optional parameter name

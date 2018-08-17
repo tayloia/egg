@@ -47,7 +47,7 @@ namespace {
 }
 
 egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareScope(const IEggProgramNode* node, std::function<EggProgramNodeFlags(EggProgramContext&)> action) {
-  egg::lang::String name;
+  egg::ovum::String name;
   egg::lang::ITypeRef type{ egg::lang::Type::Void };
   if ((node != nullptr) && node->symbol(name, type)) {
     // Perform the action with a new scope containing our symbol
@@ -62,7 +62,7 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareScope(const 
 
 egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareStatements(const std::vector<std::shared_ptr<IEggProgramNode>>& statements) {
   // Prepare all the statements one after another
-  egg::lang::String name;
+  egg::ovum::String name;
   auto type = egg::lang::Type::Void;
   EggProgramNodeFlags retval = EggProgramNodeFlags::Fallthrough; // We fallthrough if there are no statements
   auto unreachable = false;
@@ -106,7 +106,7 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareBlock(const 
   return context->prepareStatements(statements);
 }
 
-egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareDeclare(const egg::lang::LocationSource& where, const egg::lang::String& name, egg::lang::ITypeRef& ltype, IEggProgramNode* rvalue) {
+egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareDeclare(const egg::lang::LocationSource& where, const egg::ovum::String& name, egg::lang::ITypeRef& ltype, IEggProgramNode* rvalue) {
   if (this->scopeDeclare != nullptr) {
     // This must be a prepare call with an inferred type
     assert(rvalue == nullptr);
@@ -125,7 +125,7 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareDeclare(cons
   return EggProgramNodeFlags::Fallthrough;
 }
 
-egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareGuard(const egg::lang::LocationSource& where, const egg::lang::String& name, egg::lang::ITypeRef& ltype, IEggProgramNode& rvalue) {
+egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareGuard(const egg::lang::LocationSource& where, const egg::ovum::String& name, egg::lang::ITypeRef& ltype, IEggProgramNode& rvalue) {
   if (abandoned(rvalue.prepare(*this))) {
     return EggProgramNodeFlags::Abandon;
   }
@@ -234,7 +234,7 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareMutate(const
   return EggProgramNodeFlags::Fallthrough;
 }
 
-egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareCatch(const egg::lang::String& name, IEggProgramNode& type, IEggProgramNode& block) {
+egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareCatch(const egg::ovum::String& name, IEggProgramNode& type, IEggProgramNode& block) {
   // TODO
   if (abandoned(type.prepare(*this))) {
     return EggProgramNodeFlags::Abandon;
@@ -314,7 +314,7 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareForeach(IEgg
   });
 }
 
-egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareFunctionDefinition(const egg::lang::String& name, const egg::lang::ITypeRef& type, const std::shared_ptr<IEggProgramNode>& block) {
+egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareFunctionDefinition(const egg::ovum::String& name, const egg::lang::ITypeRef& type, const std::shared_ptr<IEggProgramNode>& block) {
   // TODO type check
   auto callable = type->callable();
   assert(callable != nullptr);
@@ -337,7 +337,7 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareFunctionDefi
   if (fallthrough(flags)) {
     // Falling through to the end of a non-generator function is the same as an emplicit 'return' with no parameters
     if (function.rettype->canBeAssignedFrom(*egg::lang::Type::Void) == egg::lang::IType::AssignmentSuccess::Never) {
-      egg::lang::String suffix;
+      egg::ovum::String suffix;
       if (!name.empty()) {
         suffix = egg::ovum::StringBuilder::concat(": '", name, "'");
       }
@@ -529,7 +529,7 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareCall(IEggPro
   return EggProgramNodeFlags::Fallthrough;
 }
 
-egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareIdentifier(const egg::lang::LocationSource& where, const egg::lang::String& name, egg::lang::ITypeRef& type) {
+egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareIdentifier(const egg::lang::LocationSource& where, const egg::ovum::String& name, egg::lang::ITypeRef& type) {
   // We need to work out our type
   assert(type.get() == egg::lang::Type::Void.get());
   auto symbol = this->symtable->findSymbol(name);
@@ -570,7 +570,7 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareBrackets(con
   return EggProgramNodeFlags::None;
 }
 
-egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareDot(const egg::lang::LocationSource& where, IEggProgramNode& instance, const egg::lang::String& property) {
+egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareDot(const egg::lang::LocationSource& where, IEggProgramNode& instance, const egg::ovum::String& property) {
   // Left-hand side should be string/object
   if (abandoned(instance.prepare(*this))) {
     return EggProgramNodeFlags::Abandon;
@@ -587,7 +587,7 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareDot(const eg
   if (egg::lang::Bits::hasAnySet(lsimple, egg::lang::Discriminator::Object)) {
     // Ask the object what properties it supports
     egg::lang::ITypeRef type{ egg::lang::Type::Void };
-    egg::lang::String reason;
+    egg::ovum::String reason;
     if (ltype->dotable(&property, type, reason)) {
       // It's a known property
       return EggProgramNodeFlags::None;
@@ -724,7 +724,7 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareWithType(IEg
   }
 }
 
-egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::typeCheck(const egg::lang::LocationSource& where, egg::lang::ITypeRef& ltype, const egg::lang::ITypeRef& rtype, const egg::lang::String& name, bool guard) {
+egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::typeCheck(const egg::lang::LocationSource& where, egg::lang::ITypeRef& ltype, const egg::lang::ITypeRef& rtype, const egg::ovum::String& name, bool guard) {
   assert(rtype->getSimpleTypes() != egg::lang::Discriminator::Inferred);
   if (ltype->getSimpleTypes() == egg::lang::Discriminator::Inferred) {
     // We can infer the type
