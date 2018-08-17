@@ -316,7 +316,7 @@ namespace {
     }
     virtual Value executeCall(IExecution&, const String& instance, const IParameters&) const override {
       // int hashCode()
-      return Value{ StringLegacy(instance).hashCode() };
+      return Value{ instance.hashCode() };
     }
   };
 
@@ -345,7 +345,7 @@ namespace {
       if (!needle.is(Discriminator::String)) {
         return this->raise(execution, "Parameter was expected to be a 'string', not '", needle.getRuntimeType()->toString(), "'");
       }
-      return Value{ StringLegacy(instance).contains(needle.getString()) };
+      return Value{ instance.contains(needle.getString()) };
     }
   };
 
@@ -362,7 +362,7 @@ namespace {
       if (!other.is(Discriminator::String)) {
         return this->raise(execution, "First parameter was expected to be a 'string', not '", other.getRuntimeType()->toString(), "'");
       }
-      return Value{ StringLegacy(instance).compare(other.getString()) };
+      return Value{ instance.compareTo(other.getString()) };
     }
   };
 
@@ -413,7 +413,7 @@ namespace {
       if (!needle.is(Discriminator::String)) {
         return this->raise(execution, "First parameter was expected to be a 'string', not '", needle.getRuntimeType()->toString(), "'");
       }
-      auto index = StringLegacy(instance).indexOfString(needle.getString());
+      auto index = instance.indexOfString(needle.getString());
       return (index < 0) ? Value::Null : Value{ index };
     }
   };
@@ -431,7 +431,7 @@ namespace {
       if (!needle.is(Discriminator::String)) {
         return this->raise(execution, "First parameter was expected to be a 'string', not '", needle.getRuntimeType()->toString(), "'");
       }
-      auto index = StringLegacy(instance).lastIndexOfString(needle.getString());
+      auto index = instance.lastIndexOfString(needle.getString());
       return (index < 0) ? Value::Null : Value{ index };
     }
   };
@@ -455,7 +455,7 @@ namespace {
         return Value{ parameters.getPositional(0).toString() };
       }
       auto separator = instance.toUTF8();
-      egg::ovum::StringBuilder sb;
+      egg::ovum::StringBuilder sb; // WIBBLE
       sb.add(parameters.getPositional(0).toUTF8());
       for (size_t i = 1; i < n; ++i) {
         sb.add(separator).add(parameters.getPositional(i).toUTF8());
@@ -477,7 +477,7 @@ namespace {
       if (!separator.is(Discriminator::String)) {
         return this->raise(execution, "First parameter was expected to be a 'string', not '", separator.getRuntimeType()->toString(), "'");
       }
-      auto split = StringLegacy(instance).split(separator.getString());
+      auto split = instance.split(separator.getString());
       assert(split.size() > 0);
       return this->raise(execution, "TODO: Return an array of strings"); //TODO
     }
@@ -499,14 +499,14 @@ namespace {
       }
       auto begin = p0.getInt();
       if (parameters.getPositionalCount() == 1) {
-        return Value{ StringLegacy(instance).slice(begin) };
+        return Value{ instance.slice(begin) };
       }
       auto p1 = parameters.getPositional(1);
       if (!p1.is(Discriminator::Int)) {
         return this->raise(execution, "Second parameter was expected to be an 'int', not '", p0.getRuntimeType()->toString(), "'");
       }
       auto end = p1.getInt();
-      return Value{ StringLegacy(instance).slice(begin, end) };
+      return Value{ instance.slice(begin, end) };
     }
   };
 
@@ -527,17 +527,7 @@ namespace {
       if (count < 0) {
         return this->raise(execution, "Parameter was expected to be a non-negative integer, not ", count);
       }
-      if (count == 0) {
-        return Value::EmptyString;
-      }
-      if (count == 1) {
-        return Value{ instance };
-      }
-      egg::ovum::StringBuilder sb;
-      for (auto i = 0; i < count; ++i) {
-        sb.add(instance);
-      }
-      return Value{ sb.str() };
+      return Value{ instance.repeat(size_t(count)) };
     }
   };
 
@@ -561,13 +551,13 @@ namespace {
         return this->raise(execution, "Second parameter was expected to be a 'string', not '", needle.getRuntimeType()->toString(), "'");
       }
       if (parameters.getPositionalCount() < 3) {
-        return Value{ StringLegacy(instance).replace(needle.getString(), replacement.getString()) };
+        return Value{ instance.replace(needle.getString(), replacement.getString()) };
       }
       auto occurrences = parameters.getPositional(2);
       if (!occurrences.is(Discriminator::Int)) {
         return this->raise(execution, "Third parameter was expected to be an 'int', not '", needle.getRuntimeType()->toString(), "'");
       }
-      return Value{ StringLegacy(instance).replace(needle.getString(), replacement.getString(), occurrences.getInt()) };
+      return Value{ instance.replace(needle.getString(), replacement.getString(), occurrences.getInt()) };
     }
   };
 

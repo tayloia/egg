@@ -1,13 +1,15 @@
 #include "ovum/ovum.h"
 #include "ovum/utf.h"
 
+#include <algorithm>
+
 namespace {
   using namespace egg::ovum;
 
   const uint8_t emptyByte = 0;
   const UTF8 emptyReader(&emptyByte, &emptyByte, 0);
 
-  UTF8 utf8ReaderBegin(const String& s) {
+  UTF8 readerBegin(const String& s) {
     auto* p = s.get();
     if (p == nullptr) {
       return emptyReader;
@@ -15,7 +17,7 @@ namespace {
     return UTF8(p->begin(), p->end(), 0);
   }
 
-  UTF8 utf8ReaderEnd(const String& s) {
+  UTF8 readerEnd(const String& s) {
     auto* p = s.get();
     if (p == nullptr) {
       return emptyReader;
@@ -23,37 +25,193 @@ namespace {
     return UTF8(p->begin(), p->end(), p->bytes());
   }
 
-  UTF8 utf8ReaderIndex(const String& s, size_t index) {
+  UTF8 readerIndex(const String& s, size_t index) {
+    auto* p = s.get();
+    if (p == nullptr) {
+      return emptyReader;
+    }
     auto length = s.length();
     if (index >= length) {
-      return emptyReader;
+      // Go to the very end
+      return readerEnd(s);
     }
     if (index > (length >> 1)) {
       // We're closer to the end of the string
-      auto reader = utf8ReaderEnd(s);
+      auto reader = readerEnd(s);
       reader.skipBackward(length - index);
       return reader;
     }
-    auto reader = utf8ReaderBegin(s);
+    auto reader = readerBegin(s);
     reader.skipForward(index);
     return reader;
   }
 
-  const IMemory* createContiguous(IAllocator& allocator, const uint8_t* utf8, size_t bytes, size_t codepoints = SIZE_MAX) {
-    // TODO detect malformed/overlong/etc
-    if ((utf8 == nullptr) || (bytes == 0)) {
-      return nullptr;
+  bool iterationMatch(UTF8 lhsReader, UTF8 rhsReader, size_t count, bool compensateForBackwards) {
+    // Note reader parameters passed-by-value
+    assert(count > 0);
+    if (compensateForBackwards) {
+      // Compensate for the lhs originally reading backwards
+      lhsReader.forward();
     }
-    if (codepoints == SIZE_MAX) {
-      codepoints = egg::ovum::UTF8::measure(utf8, utf8 + bytes);
+    char32_t lhsCodePoint;
+    char32_t rhsCodePoint;
+    while (--count > 0) {
+      if (!lhsReader.forward(lhsCodePoint) || !rhsReader.forward(rhsCodePoint) || (lhsCodePoint != rhsCodePoint)) {
+        return false;
+      }
     }
-    if (codepoints > bytes) {
-      throw std::invalid_argument("String: Invalid UTF-8 input data");
+    return true;
+  }
+
+  int64_t indexOfCodePointByIteration(const String& haystack, char32_t needle, size_t fromIndex) {
+    // Iterate around the haystack for the needle
+    auto haystackReader = readerIndex(haystack, fromIndex);
+    int64_t index = int64_t(fromIndex);
+    char32_t haystackCodePoint;
+    while (haystackReader.forward(haystackCodePoint)) {
+      if (haystackCodePoint == needle) {
+        return index;
+      }
+      index++;
     }
-    auto* memory = allocator.create<MemoryContiguous>(bytes, allocator, bytes, IMemory::Tag{ codepoints });
-    assert(memory != nullptr);
-    std::memcpy(memory->base(), utf8, bytes);
-    return memory;
+    return -1; // Not found
+  }
+
+  int64_t indexOfStringByIteration(const String& haystack, const String& needle, size_t fromIndex) {
+    // Iterate around the haystack for the needle
+    auto needleLength = needle.length();
+    assert(needleLength > 0);
+    auto needleReader = readerBegin(needle);
+    char32_t needleCodePoint;
+    if (needleReader.forward(needleCodePoint)) {
+      int64_t index = 0;
+      auto haystackReader = readerIndex(haystack, fromIndex);
+      char32_t haystackCodePoint;
+      while (haystackReader.forward(haystackCodePoint)) {
+        if ((haystackCodePoint == needleCodePoint) && iterationMatch(haystackReader, needleReader, needleLength, false)) {
+          return index;
+        }
+        index++;
+      }
+    }
+    return -1; // Not found
+  }
+
+  int64_t lastIndexOfCodePointByIteration(const String& haystack, char32_t needle, size_t fromIndex) {
+    // Iterate around the haystack for the needle from back-to-front
+    auto haystackReader = readerIndex(haystack, fromIndex);
+    auto index = int64_t(std::min(fromIndex, haystack.length()));
+    char32_t haystackCodePoint;
+    while (haystackReader.backward(haystackCodePoint)) {
+      index--;
+      if (haystackCodePoint == needle) {
+        return index;
+      }
+    }
+    return -1; // Not found
+  }
+
+  int64_t lastIndexOfStringByIteration(const String& haystack, const String& needle, size_t fromIndex) {
+    // Iterate around the haystack for the needle from back-to-front
+    auto needleLength = needle.length();
+    assert(needleLength > 0);
+    auto needleReader = readerBegin(needle);
+    char32_t needleCodePoint;
+    if (needleReader.forward(needleCodePoint)) {
+      auto index = int64_t(std::min(fromIndex, haystack.length()));
+      auto haystackReader = readerIndex(haystack, fromIndex);
+      char32_t haystackCodePoint;
+      while (haystackReader.backward(haystackCodePoint)) {
+        index--;
+        if ((haystackCodePoint == needleCodePoint) && iterationMatch(haystackReader, needleReader, needleLength, true)) {
+          return index;
+        }
+      }
+    }
+    return -1; // Not found
+  }
+
+  void splitPositive(std::vector<String>& dst, const String& src, const String& separator, size_t limit) {
+    // Unlike the original parameter, 'limit' is the maximum number of SPLITS to perform
+    // OPTIMIZE
+    assert(dst.size() == 0);
+    size_t begin = 0;
+    assert(limit > 0);
+    if (separator.empty()) {
+      // Split into codepoints
+      do {
+        auto cp = src.codePointAt(begin);
+        if (cp < 0) {
+          return; // Don't add a trailing empty string
+        }
+        dst.push_back(String::fromCodePoint(char32_t(cp)));
+      } while (++begin < limit);
+    } else {
+      // Split by string
+      assert(separator.length() > 0);
+      auto index = src.indexOfString(separator, 0);
+      while (index >= 0) {
+        dst.emplace_back(src.substring(begin, size_t(index)));
+        begin = size_t(index) + separator.length();
+        if (--limit == 0) {
+          break;
+        }
+        index = src.indexOfString(separator, begin);
+      }
+    }
+    dst.emplace_back(src.substring(begin, SIZE_MAX));
+  }
+
+  void splitNegative(std::vector<String>& dst, const String& src, const String& separator, size_t limit) {
+    // Unlike the original parameter, 'limit' is the maximum number of SPLITS to perform
+    // OPTIMIZE
+    assert(dst.size() == 0);
+    size_t end = src.length();
+    assert(limit > 0);
+    auto length = separator.length();
+    if (length == 0) {
+      // Split into codepoints
+      do {
+        auto cp = src.codePointAt(--end);
+        if (cp < 0) {
+          std::reverse(dst.begin(), dst.end());
+          return; // Don't add a trailing empty string
+        }
+        dst.push_back(String::fromCodePoint(char32_t(cp)));
+      } while (--limit > 0);
+    } else {
+      // Split by string
+      auto index = src.lastIndexOfString(separator, SIZE_MAX);
+      while (index >= 0) {
+        dst.emplace_back(src.substring(size_t(index) + length, end));
+        end = size_t(index);
+        if ((end < length) || (--limit == 0)) {
+          break;
+        }
+        index = src.lastIndexOfString(separator, end - length);
+      }
+    }
+    dst.emplace_back(src.substring(0, end));
+    std::reverse(dst.begin(), dst.end());
+  }
+
+  void splitString(std::vector<String>& result, const String& haystack, const String& needle, int64_t limit) {
+    assert(limit != 0);
+    if (limit > 0) {
+      // Split from the beginning
+      if (uint64_t(limit) < uint64_t(SIZE_MAX)) {
+        splitPositive(result, haystack, needle, size_t(limit - 1));
+      } else {
+        splitPositive(result, haystack, needle, SIZE_MAX);
+      }
+    } else {
+      // Split from the end
+      if (uint64_t(-limit) < uint64_t(SIZE_MAX)) {
+        splitNegative(result, haystack, needle, size_t(-1 - limit));
+      } else {
+        splitNegative(result, haystack, needle, SIZE_MAX);
+      }
+    }
   }
 
   class StringFallbackAllocator final : public IAllocator {
@@ -80,38 +238,58 @@ namespace {
     virtual bool statistics(Statistics&) const {
       return false;
     }
-    static const IMemory* createUTF8(const char* utf8, size_t bytes, size_t codepoints = SIZE_MAX) {
-      static StringFallbackAllocator allocator;
-      return createContiguous(allocator, reinterpret_cast<const uint8_t*>(utf8), bytes, codepoints);
-    }
-    static const IMemory* createUTF8(const char* utf8) {
-      return (utf8 == nullptr) ? nullptr : StringFallbackAllocator::createUTF8(utf8, std::strlen(utf8));
-    }
   };
+
+  const IMemory* createContiguous(IAllocator* allocator, const void* buffer, size_t bytes, size_t codepoints = SIZE_MAX) {
+    // TODO detect malformed/overlong/etc
+    if ((buffer == nullptr) || (bytes == 0)) {
+      return nullptr;
+    }
+    auto* utf8 = static_cast<const uint8_t*>(buffer);
+    if (codepoints == SIZE_MAX) {
+      codepoints = UTF8::measure(utf8, utf8 + bytes);
+    }
+    if (codepoints > bytes) {
+      throw std::invalid_argument("String: Invalid UTF-8 input data");
+    }
+    if (allocator == nullptr) {
+      static StringFallbackAllocator fallback;
+      allocator = &fallback;
+    }
+    auto* memory = allocator->create<MemoryContiguous>(bytes, *allocator, bytes, IMemory::Tag{ codepoints });
+    assert(memory != nullptr);
+    std::memcpy(memory->base(), utf8, bytes);
+    return memory;
+  }
+
+  const IMemory* createContiguous(IAllocator* allocator, const char* utf8) {
+    return (utf8 == nullptr) ? nullptr : createContiguous(allocator, utf8, std::strlen(utf8));
+  }
 }
 
 egg::ovum::String::String(const char* utf8)
-  : HardPtr(StringFallbackAllocator::createUTF8(utf8)) {
+  : HardPtr(createContiguous(nullptr, utf8)) {
   // We've got to create this string without an allocator, so use a fallback
 }
 
 egg::ovum::String::String(const std::string& utf8, size_t codepoints)
-  : HardPtr(StringFallbackAllocator::createUTF8(utf8.data(), utf8.size(), codepoints)) {
+  : HardPtr(createContiguous(nullptr, utf8.data(), utf8.size(), codepoints)) {
   // We've got to create this string without an allocator, so use a fallback
 }
 
-int64_t egg::ovum::String::hashCode() const {
-  // See https://docs.oracle.com/javase/6/docs/api/java/lang/String.html#hashCode()
-  int64_t hash = 0;
-  auto reader = utf8ReaderBegin(*this);
-  char32_t codepoint = 0;
-  while (reader.forward(codepoint)) {
-    hash = hash * 31 + int64_t(uint32_t(codepoint));
+size_t egg::ovum::String::length() const {
+  auto* memory = this->get();
+  if (memory == nullptr) {
+    return 0;
   }
-  return hash;
+  auto codepoints = size_t(memory->tag().u);
+  assert(codepoints >= ((memory->bytes() + 3) / 4));
+  assert(codepoints <= memory->bytes());
+  return codepoints;
 }
+
 int32_t egg::ovum::String::codePointAt(size_t index) const {
-  auto reader = utf8ReaderIndex(*this, index);
+  auto reader = readerIndex(*this, index);
   char32_t codepoint = 0;
   return reader.forward(codepoint) ? int32_t(codepoint) : -1;
 }
@@ -121,22 +299,15 @@ bool egg::ovum::String::equals(const String& other) const {
   return IMemory::equals(this->get(), other.get());
 }
 
-bool egg::ovum::String::lessThan(const String& other) const {
-  // Ordinal comparison via UTF8
-  auto* lhs = this->get();
-  if (lhs == nullptr) {
-    return !other.empty();
+int64_t egg::ovum::String::hashCode() const {
+  // See https://docs.oracle.com/javase/6/docs/api/java/lang/String.html#hashCode()
+  int64_t hash = 0;
+  auto reader = readerBegin(*this);
+  char32_t codepoint = 0;
+  while (reader.forward(codepoint)) {
+    hash = hash * 31 + int64_t(uint32_t(codepoint));
   }
-  auto* rhs = other.get();
-  if (rhs == nullptr) {
-    return false;
-  }
-  auto lsize = lhs->bytes();
-  auto rsize = rhs->bytes();
-  if (lsize < rsize) {
-    return std::memcmp(lhs->begin(), rhs->begin(), lsize) <= 0;
-  }
-  return std::memcmp(lhs->begin(), rhs->begin(), rsize) < 0;
+  return hash;
 }
 
 int64_t egg::ovum::String::compareTo(const String& other) const {
@@ -168,41 +339,215 @@ int64_t egg::ovum::String::compareTo(const String& other) const {
   return (cmp > 0) - (cmp < 0); // ensure {-1,0,+1}
 }
 
+bool egg::ovum::String::contains(const String& needle) const {
+  return this->indexOfString(needle) >= 0;
+}
+
+int64_t egg::ovum::String::indexOfCodePoint(char32_t codepoint, size_t fromIndex) const {
+  return indexOfCodePointByIteration(*this, codepoint, fromIndex);
+}
+
+int64_t egg::ovum::String::indexOfString(const String& needle, size_t fromIndex) const {
+  switch (needle.length()) {
+  case 0:
+    return (fromIndex <= this->length()) ? int64_t(fromIndex) : -1;
+  case 1:
+    return indexOfCodePointByIteration(*this, char32_t(needle.codePointAt(0)), fromIndex);
+  }
+  return indexOfStringByIteration(*this, needle, fromIndex);
+}
+
+int64_t egg::ovum::String::lastIndexOfCodePoint(char32_t codepoint, size_t fromIndex) const {
+  return lastIndexOfCodePointByIteration(*this, codepoint, fromIndex);
+}
+
+int64_t egg::ovum::String::lastIndexOfString(const String& needle, size_t fromIndex) const {
+  switch (needle.length()) {
+  case 0:
+    return int64_t(std::min(fromIndex, this->length()));
+  case 1:
+    return lastIndexOfCodePointByIteration(*this, char32_t(needle.codePointAt(0)), fromIndex);
+  }
+  return lastIndexOfStringByIteration(*this, needle, fromIndex);
+}
+
+egg::ovum::String egg::ovum::String::replace(const String& needle, const String& replacement, int64_t occurrences) const {
+  // One replacement requires splitting into two parts, and so on
+  if (occurrences > 0) {
+    if (occurrences < INT64_MAX) {
+      occurrences++;
+    }
+  } else if (occurrences < 0) {
+    if (occurrences > INT64_MIN) {
+      occurrences--;
+    }
+  } else {
+    // No replacements required
+    return *this;
+  }
+  if (needle == replacement) {
+    // No effect on the string
+    return *this;
+  }
+  std::vector<String> part;
+  if (!this->empty()) {
+    splitString(part, *this, needle, occurrences);
+    auto parts = part.size();
+    assert(parts > 0);
+    if (parts == 1) {
+      // No replacement occurred
+      assert(part[0].length() == this->length());
+      return *this;
+    }
+  }
+  return replacement.join(part);
+}
+
+egg::ovum::String egg::ovum::String::substring(size_t begin, size_t end) const {
+  end = std::min(end, this->length());
+  if (begin >= end) {
+    // Empty string
+    return String();
+  }
+  auto codepoints = size_t(end - begin);
+  if (codepoints >= this->length()) {
+    // The whole string
+    return *this;
+  }
+  auto p = readerIndex(*this, begin);
+  auto q = p;
+  if (!q.skipForward(codepoints)) {
+    // Malformed string
+    throw std::runtime_error("Malformed UTF-8 string");
+  }
+  auto bytes = size_t(q.get() - p.get());
+  return String(createContiguous(nullptr, p.get(), bytes, codepoints));
+}
+
+egg::ovum::String egg::ovum::String::repeat(size_t count) const {
+  if (this->length() == 0) {
+    return *this;
+  }
+  switch (count) {
+  case 0:
+    return String();
+  case 1:
+    return *this;
+  }
+  StringBuilder sb;
+  do {
+    sb.add(*this);
+  } while (--count > 0);
+  return sb.str();
+}
+
+bool egg::ovum::String::empty() const {
+  return this->length() == 0;
+}
+
+bool egg::ovum::String::lessThan(const String& other) const {
+  // Ordinal comparison via UTF8
+  auto* lhs = this->get();
+  if (lhs == nullptr) {
+    return !other.empty();
+  }
+  auto* rhs = other.get();
+  if (rhs == nullptr) {
+    return false;
+  }
+  auto lsize = lhs->bytes();
+  auto rsize = rhs->bytes();
+  if (lsize < rsize) {
+    return std::memcmp(lhs->begin(), rhs->begin(), lsize) <= 0;
+  }
+  return std::memcmp(lhs->begin(), rhs->begin(), rsize) < 0;
+}
+
+String egg::ovum::String::slice(int64_t begin, int64_t end) const {
+  auto n = int64_t(this->length());
+  auto a = (begin < 0) ? std::max(n + begin, int64_t(0)) : begin;
+  auto b = (end < 0) ? std::max(n + end, int64_t(0)) : end;
+  assert(a >= 0);
+  assert(b >= 0);
+  return this->substring(size_t(a), size_t(b));
+}
+
+std::vector<egg::ovum::String> egg::ovum::String::split(const String& separator, int64_t limit) const {
+  // See https://docs.oracle.com/javase/8/docs/api/java/lang/String.html#split-java.lang.String-int-
+  // However, if limit == 0 we return an empty vector
+  std::vector<String> result;
+  if (limit != 0) {
+    splitString(result, *this, separator, limit);
+  }
+  return result;
+}
+
+egg::ovum::String egg::ovum::String::join(const std::vector<String>& parts) const {
+  auto n = parts.size();
+  switch (n) {
+  case 0:
+    return String();
+  case 1:
+    return parts[0];
+  }
+  StringBuilder sb;
+  sb.add(parts[0]);
+  auto between = this->toUTF8();
+  for (size_t i = 1; i < n; ++i) {
+    sb.add(between, parts[i]);
+  }
+  return sb.str();
+}
+
+std::string egg::ovum::String::toUTF8() const {
+  auto* memory = this->get();
+  if (memory == nullptr) {
+    return std::string();
+  }
+  return std::string(memory->begin(), memory->end());
+}
+
 egg::ovum::String egg::ovum::String::fromCodePoint(char32_t codepoint) {
   // OPTIMIZE
   assert(codepoint <= 0x10FFFF);
   auto utf8 = egg::ovum::UTF32::toUTF8(codepoint);
-  return String(StringFallbackAllocator::createUTF8(utf8.data(), utf8.size(), 1));
+  return String(createContiguous(nullptr, utf8.data(), utf8.size(), 1));
 }
 
 egg::ovum::String egg::ovum::String::fromUTF8(const std::string& utf8, size_t codepoints) {
-  return String(StringFallbackAllocator::createUTF8(utf8.data(), utf8.size(), codepoints));
+  return String(createContiguous(nullptr, utf8.data(), utf8.size(), codepoints));
 }
 
 egg::ovum::String egg::ovum::String::fromUTF32(const std::u32string& utf32) {
   auto utf8 = egg::ovum::UTF32::toUTF8(utf32);
-  return String(StringFallbackAllocator::createUTF8(utf8.data(), utf8.size(), utf32.size()));
+  return String(createContiguous(nullptr, utf8.data(), utf8.size(), utf32.size()));
+}
+
+egg::ovum::String egg::ovum::StringBuilder::str() const {
+  // OPTIMIZE
+  return String(this->ss.str());
 }
 
 egg::ovum::String egg::ovum::StringFactory::fromCodePoint(IAllocator& allocator, char32_t codepoint) {
   // OPTIMIZE
   assert(codepoint <= 0x10FFFF);
   auto utf8 = egg::ovum::UTF32::toUTF8(codepoint);
-  return String(createContiguous(allocator, reinterpret_cast<const uint8_t*>(utf8.data()), utf8.size(), 1));
+  return String(createContiguous(&allocator, utf8.data(), utf8.size(), 1));
 }
 
 egg::ovum::String egg::ovum::StringFactory::fromUTF8(IAllocator& allocator, const uint8_t* begin, const uint8_t* end, size_t codepoints) {
   assert(begin != nullptr);
   assert(end >= begin);
   auto bytes = size_t(end - begin);
-  return String(createContiguous(allocator, begin, bytes, codepoints));
+  return String(createContiguous(&allocator, begin, bytes, codepoints));
 }
 
 const egg::ovum::IMemory* egg::ovum::Variant::acquireFallbackString(const char* utf8, size_t bytes) {
   // We've got to create this string without an allocator, so use a fallback
-  return HardPtr<IMemory>::hardAcquire(StringFallbackAllocator::createUTF8(utf8, bytes));
+  return HardPtr<IMemory>::hardAcquire(createContiguous(nullptr, utf8, bytes));
 }
 
 std::ostream& operator<<(std::ostream& os, const egg::ovum::String& text) {
-  return os << text.toUTF8(); // WIBBLE
+  // OPTIMIZE
+  return os << text.toUTF8();
 }

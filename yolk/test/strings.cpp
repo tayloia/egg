@@ -325,7 +325,6 @@ TEST(TestStrings, Compare) {
   ASSERT_EQ(0, egg::lang::String::fromUTF8("beggar").compareTo(egg::lang::String::fromUTF8("beggar")));
 }
 
-/*
 TEST(TestStrings, Contains) {
   ASSERT_TRUE(egg::lang::String().contains(egg::lang::String()));
   ASSERT_FALSE(egg::lang::String().contains(egg::lang::String::fromCodePoint('e')));
@@ -415,19 +414,19 @@ TEST(TestStrings, LastIndexOfString) {
   ASSERT_EQ(-1, egg::lang::String().lastIndexOfString(egg::lang::String::fromUTF8("egg")));
   ASSERT_EQ(-1, egg::lang::String().lastIndexOfString(egg::lang::String::fromUTF8("beggar")));
 
-  ASSERT_EQ(0, egg::lang::String::fromCodePoint('e').lastIndexOfString(egg::lang::String()));
+  ASSERT_EQ(1, egg::lang::String::fromCodePoint('e').lastIndexOfString(egg::lang::String()));
   ASSERT_EQ(0, egg::lang::String::fromCodePoint('e').lastIndexOfString(egg::lang::String::fromCodePoint('e')));
   ASSERT_EQ(-1, egg::lang::String::fromCodePoint('e').lastIndexOfString(egg::lang::String::fromCodePoint('g')));
   ASSERT_EQ(-1, egg::lang::String::fromCodePoint('e').lastIndexOfString(egg::lang::String::fromUTF8("egg")));
   ASSERT_EQ(-1, egg::lang::String::fromCodePoint('e').lastIndexOfString(egg::lang::String::fromUTF8("beggar")));
 
-  ASSERT_EQ(0, egg::lang::String::fromUTF8("egg").lastIndexOfString(egg::lang::String()));
+  ASSERT_EQ(3, egg::lang::String::fromUTF8("egg").lastIndexOfString(egg::lang::String()));
   ASSERT_EQ(0, egg::lang::String::fromUTF8("egg").lastIndexOfString(egg::lang::String::fromCodePoint('e')));
   ASSERT_EQ(2, egg::lang::String::fromUTF8("egg").lastIndexOfString(egg::lang::String::fromCodePoint('g')));
   ASSERT_EQ(0, egg::lang::String::fromUTF8("egg").lastIndexOfString(egg::lang::String::fromUTF8("egg")));
   ASSERT_EQ(-1, egg::lang::String::fromUTF8("egg").lastIndexOfString(egg::lang::String::fromUTF8("beggar")));
 
-  ASSERT_EQ(0, egg::lang::String::fromUTF8("beggar").lastIndexOfString(egg::lang::String()));
+  ASSERT_EQ(6, egg::lang::String::fromUTF8("beggar").lastIndexOfString(egg::lang::String()));
   ASSERT_EQ(1, egg::lang::String::fromUTF8("beggar").lastIndexOfString(egg::lang::String::fromCodePoint('e')));
   ASSERT_EQ(3, egg::lang::String::fromUTF8("beggar").lastIndexOfString(egg::lang::String::fromCodePoint('g')));
   ASSERT_EQ(1, egg::lang::String::fromUTF8("beggar").lastIndexOfString(egg::lang::String::fromUTF8("egg")));
@@ -616,6 +615,7 @@ TEST(TestStrings, Replace) {
   ASSERT_EQ("banono", banana.replace(a, o, -2).toUTF8());
 }
 
+/* WIBBLE
 TEST(TestStrings, PadLeft) {
   auto egg = egg::lang::String::fromUTF8("egg");
   ASSERT_EQ("     egg", egg.padLeft(8).toUTF8());

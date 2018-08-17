@@ -134,15 +134,11 @@ namespace egg::ovum {
       auto b = this->before(this->p);
       if (b != nullptr) {
         // We can find the start of the current code point
-        auto a = this->before(b);
-        if (a != nullptr) {
-          // And also the start of the preceding code point
-          auto length = b - a;
-          assert(length > 0);
-          (void)UTF8::toUTF32(codepoint, a, size_t(length));
-          this->p = b;
-          return true;
-        }
+        auto length = this->p - b;
+        assert(length > 0);
+        (void)UTF8::toUTF32(codepoint, b, size_t(length));
+        this->p = b;
+        return true;
       }
       return false;
     }
@@ -164,6 +160,10 @@ namespace egg::ovum {
         }
       }
       return true;
+    }
+    const uint8_t* get() const {
+      assert((this->p >= this->begin) && (this->p <= this->end));
+      return this->p;
     }
     size_t validate() {
       // Return SIZE_MAX if this is not valid UTF-8, otherwise the codepoint count

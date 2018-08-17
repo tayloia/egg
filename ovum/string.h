@@ -9,40 +9,33 @@ namespace egg::ovum {
     explicit String(const IMemory* rhs) : Memory(rhs) {
     }
     String(const std::string& utf8, size_t codepoints = SIZE_MAX); // implicit; fallback to factory
-    std::string toUTF8() const {
-      auto* memory = this->get();
-      if (memory == nullptr) {
-        return std::string();
-      }
-      return std::string(memory->begin(), memory->end());
-    }
-    size_t length() const {
-      auto* memory = this->get();
-      if (memory == nullptr) {
-        return 0;
-      }
-      auto codepoints = size_t(memory->tag().u);
-      assert(codepoints >= ((memory->bytes() + 3) / 4));
-      assert(codepoints <= memory->bytes());
-      return codepoints;
-    }
-    bool empty() const {
-      return this->length() == 0;
-    }
+
+    // See http://chilliant.blogspot.co.uk/2018/05/egg-strings.html
+    size_t length() const;
+    int32_t codePointAt(size_t index) const;
     bool equals(const String& other) const;
-    bool lessThan(const String& other) const;
-    int64_t compareTo(const String& other) const;
     int64_t hashCode() const;
+    int64_t compareTo(const String& other) const;
+    bool contains(const String& needle) const;
     bool startsWith(const String& other) const;
     bool endsWith(const String& other) const;
-    int32_t codePointAt(size_t index) const;
     int64_t indexOfCodePoint(char32_t codepoint, size_t fromIndex = 0) const;
     int64_t indexOfString(const String& needle, size_t fromIndex = 0) const;
     int64_t lastIndexOfCodePoint(char32_t codepoint, size_t fromIndex = SIZE_MAX) const;
     int64_t lastIndexOfString(const String& needle, size_t fromIndex = SIZE_MAX) const;
-    String substring(size_t begin, size_t end) const;
+    String replace(const String& needle, const String& replacement, int64_t occurrences = INT64_MAX) const;
+    String substring(size_t begin, size_t end = SIZE_MAX) const;
     String repeat(size_t count) const;
-    String replace(const String& needle, const String& replacement, int64_t occurrences) const;
+
+    // Convenience helpers
+    bool empty() const;
+    bool lessThan(const String& other) const;
+    String slice(int64_t begin, int64_t end = INT64_MAX) const;
+    std::vector<String> split(const String& separator, int64_t limit = INT64_MAX) const;
+    String join(const std::vector<String>& parts) const;
+    std::string toUTF8() const;
+
+    // Equality operator
     bool operator==(const String& rhs) const {
       return this->equals(rhs);
     }
@@ -55,6 +48,12 @@ namespace egg::ovum {
 }
 
 namespace std {
+  template<> struct equal_to<egg::ovum::String> {
+    // String hash specialization for use with std::map<> etc.
+    inline bool operator()(const egg::ovum::String& a, const egg::ovum::String& b) const {
+      return a.equals(b);
+    }
+  };
   template<> struct less<egg::ovum::String> {
     // String hash specialization for use with std::map<> etc.
     inline bool operator()(const egg::ovum::String& a, const egg::ovum::String& b) const {

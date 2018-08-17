@@ -1120,10 +1120,6 @@ egg::lang::StringLegacy egg::lang::StringLegacy::padRight(size_t target, const S
   return StringLegacy(*StringBufferUTF8::create(dst, target));
 }
 
-egg::lang::String egg::ovum::StringBuilder::str() const {
-  return this->ss.str();
-}
-
 // Trivial constant values
 const egg::lang::Value egg::lang::Value::Void{ Discriminator::Void };
 const egg::lang::Value egg::lang::Value::Null{ Discriminator::Null };
