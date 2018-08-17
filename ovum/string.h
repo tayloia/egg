@@ -33,6 +33,10 @@ namespace egg::ovum {
     String slice(int64_t begin, int64_t end = INT64_MAX) const;
     std::vector<String> split(const String& separator, int64_t limit = INT64_MAX) const;
     String join(const std::vector<String>& parts) const;
+    String padLeft(size_t target) const;
+    String padLeft(size_t target, const String& padding) const;
+    String padRight(size_t target) const;
+    String padRight(size_t target, const String& padding) const;
     std::string toUTF8() const;
 
     // Equality operator

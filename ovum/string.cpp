@@ -47,6 +47,7 @@ namespace {
   }
 
   bool iterationMatch(UTF8 lhsReader, UTF8 rhsReader, size_t count, bool compensateForBackwards) {
+    // OPTIMIZE using std::memcmp
     // Note reader parameters passed-by-value
     assert(count > 0);
     if (compensateForBackwards) {
@@ -343,6 +344,36 @@ bool egg::ovum::String::contains(const String& needle) const {
   return this->indexOfString(needle) >= 0;
 }
 
+bool egg::ovum::String::startsWith(const String& needle) const {
+  if (needle.empty()) {
+    return true;
+  }
+  auto* haystack = this->get();
+  if (haystack == nullptr) {
+    return false;
+  }
+  auto bytes = needle->bytes();
+  if (haystack->bytes() < bytes) {
+    return false;
+  }
+  return std::memcmp(haystack->begin(), needle->begin(), bytes) == 0;
+}
+
+bool egg::ovum::String::endsWith(const String& needle) const {
+  if (needle.empty()) {
+    return true;
+  }
+  auto* haystack = this->get();
+  if (haystack == nullptr) {
+    return false;
+  }
+  auto bytes = needle->bytes();
+  if (haystack->bytes() < bytes) {
+    return false;
+  }
+  return std::memcmp(haystack->end() - bytes, needle->begin(), bytes) == 0;
+}
+
 int64_t egg::ovum::String::indexOfCodePoint(char32_t codepoint, size_t fromIndex) const {
   return indexOfCodePointByIteration(*this, codepoint, fromIndex);
 }
@@ -497,6 +528,59 @@ egg::ovum::String egg::ovum::String::join(const std::vector<String>& parts) cons
     sb.add(between, parts[i]);
   }
   return sb.str();
+}
+
+egg::ovum::String egg::ovum::String::padLeft(size_t target) const {
+  // OPTIMIZE
+  return this->padLeft(target, " ");
+}
+
+egg::ovum::String egg::ovum::String::padLeft(size_t target, const String& padding) const {
+  // OPTIMIZE
+  auto length = this->length();
+  auto n = padding.length();
+  if ((n == 0) || (target <= length)) {
+    return *this;
+  }
+  auto extra = target - length;
+  assert(extra > 0);
+  std::string dst;
+  auto utf8 = padding.toUTF8();
+  auto partial = extra % n;
+  if (partial > 0) {
+    dst.assign(egg::ovum::UTF8::offsetOfCodePoint(utf8, n - partial), utf8.cend());
+  }
+  for (auto whole = extra / n; whole > 0; --whole) {
+    dst.append(utf8);
+  }
+  dst.append(this->toUTF8());
+  return String(dst, target);
+}
+
+egg::ovum::String egg::ovum::String::padRight(size_t target, const String& padding) const {
+  // OPTIMIZE
+  auto length = this->length();
+  auto n = padding.length();
+  if ((n == 0) || (target <= length)) {
+    return *this;
+  }
+  auto extra = target - length;
+  assert(extra > 0);
+  auto dst = this->toUTF8();
+  auto utf8 = padding.toUTF8();
+  for (auto whole = extra / n; whole > 0; --whole) {
+    dst.append(utf8);
+  }
+  auto partial = extra % n;
+  if (partial > 0) {
+    dst.append(utf8.cbegin(), egg::ovum::UTF8::offsetOfCodePoint(utf8, partial));
+  }
+  return String(dst, target);
+}
+
+egg::ovum::String egg::ovum::String::padRight(size_t target) const {
+  // OPTIMIZE
+  return this->padRight(target, " ");
 }
 
 std::string egg::ovum::String::toUTF8() const {

@@ -379,7 +379,7 @@ namespace {
       if (!needle.is(Discriminator::String)) {
         return this->raise(execution, "Parameter was expected to be a 'string', not '", needle.getRuntimeType()->toString(), "'");
       }
-      return Value{ StringLegacy(instance).startsWith(needle.getString()) };
+      return Value{ instance.startsWith(needle.getString()) };
     }
   };
 
@@ -396,7 +396,7 @@ namespace {
       if (!needle.is(Discriminator::String)) {
         return this->raise(execution, "Parameter was expected to be a 'string', not '", needle.getRuntimeType()->toString(), "'");
       }
-      return Value{ StringLegacy(instance).endsWith(needle.getString()) };
+      return Value{ instance.endsWith(needle.getString()) };
     }
   };
 
@@ -580,13 +580,13 @@ namespace {
         return this->raise(execution, "First parameter was expected to be a non-negative integer, not ", length);
       }
       if (parameters.getPositionalCount() < 2) {
-        return Value{ StringLegacy(instance).padLeft(size_t(length)) };
+        return Value{ instance.padLeft(size_t(length)) };
       }
       auto p1 = parameters.getPositional(1);
       if (!p1.is(Discriminator::String)) {
         return this->raise(execution, "Second parameter was expected to be a 'string', not '", p1.getRuntimeType()->toString(), "'");
       }
-      return Value{ StringLegacy(instance).padLeft(size_t(length), p1.getString()) };
+      return Value{ instance.padLeft(size_t(length), p1.getString()) };
     }
   };
 
@@ -609,13 +609,13 @@ namespace {
         return this->raise(execution, "First parameter was expected to be a non-negative integer, not ", length);
       }
       if (parameters.getPositionalCount() < 2) {
-        return Value{ StringLegacy(instance).padRight(size_t(length)) };
+        return Value{ instance.padRight(size_t(length)) };
       }
       auto p1 = parameters.getPositional(1);
       if (!p1.is(Discriminator::String)) {
         return this->raise(execution, "Second parameter was expected to be a 'string', not '", p1.getRuntimeType()->toString(), "'");
       }
-      return Value{ StringLegacy(instance).padRight(size_t(length), p1.getString()) };
+      return Value{ instance.padRight(size_t(length), p1.getString()) };
     }
   };
 

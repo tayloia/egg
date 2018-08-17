@@ -347,6 +347,28 @@ TEST(TestStrings, Contains) {
   ASSERT_TRUE(egg::lang::String::fromUTF8("beggar").contains(egg::lang::String::fromUTF8("beggar")));
 }
 
+TEST(TestStrings, StartsWith) {
+  ASSERT_TRUE(egg::lang::String().startsWith(egg::lang::String()));
+  ASSERT_FALSE(egg::lang::String().startsWith(egg::lang::String::fromCodePoint('e')));
+  ASSERT_FALSE(egg::lang::String().startsWith(egg::lang::String::fromUTF8("egg")));
+  ASSERT_FALSE(egg::lang::String().startsWith(egg::lang::String::fromUTF8("beggar")));
+
+  ASSERT_TRUE(egg::lang::String::fromCodePoint('e').startsWith(egg::lang::String()));
+  ASSERT_TRUE(egg::lang::String::fromCodePoint('e').startsWith(egg::lang::String::fromCodePoint('e')));
+  ASSERT_FALSE(egg::lang::String::fromCodePoint('e').startsWith(egg::lang::String::fromUTF8("egg")));
+  ASSERT_FALSE(egg::lang::String::fromCodePoint('e').startsWith(egg::lang::String::fromUTF8("beggar")));
+
+  ASSERT_TRUE(egg::lang::String::fromUTF8("egg").startsWith(egg::lang::String()));
+  ASSERT_TRUE(egg::lang::String::fromUTF8("egg").startsWith(egg::lang::String::fromCodePoint('e')));
+  ASSERT_TRUE(egg::lang::String::fromUTF8("egg").startsWith(egg::lang::String::fromUTF8("egg")));
+  ASSERT_FALSE(egg::lang::String::fromUTF8("egg").startsWith(egg::lang::String::fromUTF8("beggar")));
+
+  ASSERT_TRUE(egg::lang::String::fromUTF8("beggar").startsWith(egg::lang::String()));
+  ASSERT_FALSE(egg::lang::String::fromUTF8("beggar").startsWith(egg::lang::String::fromCodePoint('e')));
+  ASSERT_FALSE(egg::lang::String::fromUTF8("beggar").startsWith(egg::lang::String::fromUTF8("egg")));
+  ASSERT_TRUE(egg::lang::String::fromUTF8("beggar").startsWith(egg::lang::String::fromUTF8("beggar")));
+}
+
 TEST(TestStrings, IndexOfCodePoint) {
   ASSERT_EQ(-1, egg::lang::String().indexOfCodePoint(U'e'));
   ASSERT_EQ(0, egg::lang::String::fromCodePoint('e').indexOfCodePoint(U'e'));
@@ -615,7 +637,6 @@ TEST(TestStrings, Replace) {
   ASSERT_EQ("banono", banana.replace(a, o, -2).toUTF8());
 }
 
-/* WIBBLE
 TEST(TestStrings, PadLeft) {
   auto egg = egg::lang::String::fromUTF8("egg");
   ASSERT_EQ("     egg", egg.padLeft(8).toUTF8());
@@ -643,4 +664,3 @@ TEST(TestStrings, PadRight) {
   ASSERT_EQ("egg", egg.padRight(2, pad).toUTF8());
   ASSERT_EQ("egg", egg.padRight(0, pad).toUTF8());
 }
-*/
