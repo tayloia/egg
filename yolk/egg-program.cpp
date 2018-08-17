@@ -230,7 +230,7 @@ void egg::yolk::EggProgramSymbol::setInferredType(const egg::lang::ITypeRef& inf
   this->type = inferred;
 }
 
-egg::lang::Value egg::yolk::EggProgramSymbol::assign(EggProgramSymbolTable& symtable, egg::lang::IExecution& execution, const egg::lang::Value& rhs) {
+egg::lang::Value egg::yolk::EggProgramSymbol::assign(EggProgramSymbolTable& symtable, egg::ovum::IExecution& execution, const egg::lang::Value& rhs) {
   // Ask the type to assign the value so that type promotion can occur
   switch (this->kind) {
   case Builtin:

@@ -24,7 +24,7 @@ namespace {
     virtual AssignmentSuccess canBeAssignedFrom(const egg::lang::IType&) const {
       EGG_THROW("Cannot evaluation assignment success for inferred type");
     }
-    virtual egg::lang::Value promoteAssignment(egg::lang::IExecution& execution, const egg::lang::Value&) const override {
+    virtual egg::lang::Value promoteAssignment(egg::ovum::IExecution& execution, const egg::lang::Value&) const override {
       return execution.raiseFormat("Cannot assign to inferred type value");
     }
   };

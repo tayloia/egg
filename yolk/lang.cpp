@@ -53,7 +53,7 @@ namespace {
     return IType::AssignmentSuccess::Never;
   }
 
-  Value promoteAssignmentBasal(IExecution& execution, Basal lhs, const Value& rhs) {
+  Value promoteAssignmentBasal(egg::ovum::IExecution& execution, Basal lhs, const Value& rhs) {
     assert(lhs != Basal::None);
     assert(!rhs.hasIndirect());
     if (rhs.hasBasal(lhs)) {
@@ -119,7 +119,7 @@ namespace {
     virtual AssignmentSuccess canBeAssignedFrom(const IType&) const {
       return AssignmentSuccess::Never;
     }
-    virtual Value promoteAssignment(IExecution& execution, const Value&) const override {
+    virtual Value promoteAssignment(egg::ovum::IExecution& execution, const Value&) const override {
       return execution.raiseFormat("Cannot assign to 'null' value");
     }
   };
@@ -155,7 +155,7 @@ namespace {
     virtual AssignmentSuccess canBeAssignedFrom(const IType& rhs) const {
       return canBeAssignedFromBasal(BASAL, rhs);
     }
-    virtual Value promoteAssignment(IExecution& execution, const Value& rhs) const override {
+    virtual Value promoteAssignment(egg::ovum::IExecution& execution, const Value& rhs) const override {
       return promoteAssignmentBasal(execution, BASAL, rhs);
     }
   };
@@ -276,7 +276,7 @@ namespace {
     virtual AssignmentSuccess canBeAssignedFrom(const IType& rhs) const {
       return canBeAssignedFromBasal(this->tag, rhs);
     }
-    virtual Value promoteAssignment(IExecution& execution, const Value& rhs) const override {
+    virtual Value promoteAssignment(egg::ovum::IExecution& execution, const Value& rhs) const override {
       return promoteAssignmentBasal(execution, this->tag, rhs);
     }
     virtual const IFunctionSignature* callable() const override {
@@ -733,12 +733,12 @@ egg::ovum::String egg::lang::IFunctionSignature::toString(Parts parts) const {
   return sb.str();
 }
 
-bool egg::lang::IFunctionSignature::validateCall(IExecution& execution, const IParameters& runtime, Value& problem) const {
+bool egg::lang::IFunctionSignature::validateCall(egg::ovum::IExecution& execution, const IParameters& runtime, Value& problem) const {
   // The default implementation just calls validateCallDefault()
   return this->validateCallDefault(execution, runtime, problem);
 }
 
-bool egg::lang::IFunctionSignature::validateCallDefault(IExecution& execution, const IParameters& parameters, Value& problem) const {
+bool egg::lang::IFunctionSignature::validateCallDefault(egg::ovum::IExecution& execution, const IParameters& parameters, Value& problem) const {
   // TODO type checking, etc
   if (parameters.getNamedCount() > 0) {
     problem = execution.raiseFormat(this->toString(Parts::All), ": Named parameters are not yet supported"); // TODO
@@ -776,7 +776,7 @@ egg::ovum::String egg::lang::IIndexSignature::toString() const {
   return egg::ovum::StringBuilder::concat(this->getResultType()->toString(), "[", this->getIndexType()->toString(), "]");
 }
 
-egg::lang::Value egg::lang::IType::promoteAssignment(IExecution& execution, const Value& rhs) const {
+egg::lang::Value egg::lang::IType::promoteAssignment(egg::ovum::IExecution& execution, const Value& rhs) const {
   // The default implementation calls IType::canBeAssignedFrom() but does not actually promote
   auto& direct = rhs.direct();
   auto rtype = direct.getRuntimeType();

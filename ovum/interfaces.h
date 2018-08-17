@@ -104,6 +104,7 @@ namespace egg::ovum {
     virtual bool statistics(Statistics& out) const = 0;
   };
 
+  
   class IObject : public ICollectable {
   };
 }

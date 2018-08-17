@@ -22,16 +22,16 @@ namespace {
     virtual egg::lang::ITypeRef getRuntimeType() const override {
       return this->type;
     }
-    virtual egg::lang::Value call(egg::lang::IExecution& execution, const egg::lang::IParameters&) override {
+    virtual egg::lang::Value call(egg::ovum::IExecution& execution, const egg::lang::IParameters&) override {
       return execution.raiseFormat(this->kind, "s do not support calling with '()'");
     }
-    virtual egg::lang::Value getIndex(egg::lang::IExecution& execution, const egg::lang::Value& index) override {
+    virtual egg::lang::Value getIndex(egg::ovum::IExecution& execution, const egg::lang::Value& index) override {
       if (!index.isString()) {
         return execution.raiseFormat(this->kind, " index (property name) was expected to be 'string', not '", index.getRuntimeType()->toString(), "'");
       }
       return this->getProperty(execution, index.getString());
     }
-    virtual egg::lang::Value setIndex(egg::lang::IExecution& execution, const egg::lang::Value& index, const egg::lang::Value& value) override {
+    virtual egg::lang::Value setIndex(egg::ovum::IExecution& execution, const egg::lang::Value& index, const egg::lang::Value& value) override {
       if (!index.isString()) {
         return execution.raiseFormat(this->kind, " index (property name) was expected to be 'string', not '", index.getRuntimeType()->toString(), "'");
       }
@@ -50,7 +50,7 @@ namespace {
     virtual AssignmentSuccess canBeAssignedFrom(const IType&) const {
       return AssignmentSuccess::Never; // TODO
     }
-    virtual egg::lang::Value promoteAssignment(egg::lang::IExecution& execution, const egg::lang::Value&) const override {
+    virtual egg::lang::Value promoteAssignment(egg::ovum::IExecution& execution, const egg::lang::Value&) const override {
       return execution.raiseFormat("Cannot re-assign iterators"); // TODO
     }
     static const VanillaIteratorType instance;
@@ -66,10 +66,10 @@ namespace {
     virtual egg::lang::Value toString() const override {
       return egg::lang::Value{ this->type->toString() };
     }
-    virtual egg::lang::Value getProperty(egg::lang::IExecution& execution, const egg::ovum::String& property) override {
+    virtual egg::lang::Value getProperty(egg::ovum::IExecution& execution, const egg::ovum::String& property) override {
       return execution.raiseFormat("Iterators do not support properties: '.", property, "'");
     }
-    virtual egg::lang::Value setProperty(egg::lang::IExecution& execution, const egg::ovum::String& property, const egg::lang::Value&) override {
+    virtual egg::lang::Value setProperty(egg::ovum::IExecution& execution, const egg::ovum::String& property, const egg::lang::Value&) override {
       return execution.raiseFormat("Iterators do not support properties: '.", property, "'");
     }
   };
@@ -110,7 +110,7 @@ namespace {
     virtual egg::lang::Value toString() const override {
       return egg::lang::Value{ egg::ovum::StringBuilder::concat("{key:", this->key.toString(), ",value:", this->value.toString(), "}") };
     }
-    virtual egg::lang::Value getProperty(egg::lang::IExecution& execution, const egg::ovum::String& property) override {
+    virtual egg::lang::Value getProperty(egg::ovum::IExecution& execution, const egg::ovum::String& property) override {
       auto name = property.toUTF8();
       if (name == "key") {
         return this->key;
@@ -120,10 +120,10 @@ namespace {
       }
       return execution.raiseFormat("Key-values do not support property: '.", property, "'");
     }
-    virtual egg::lang::Value setProperty(egg::lang::IExecution& execution, const egg::ovum::String& property, const egg::lang::Value&) override {
+    virtual egg::lang::Value setProperty(egg::ovum::IExecution& execution, const egg::ovum::String& property, const egg::lang::Value&) override {
       return execution.raiseFormat("Key-values do not support addition or modification of properties: '.", property, "'");
     }
-    virtual egg::lang::Value iterate(egg::lang::IExecution& execution) override {
+    virtual egg::lang::Value iterate(egg::ovum::IExecution& execution) override {
       return execution.raiseFormat("Key-values do not support iteration");
     }
   };
@@ -206,7 +206,7 @@ namespace {
       sb.add(']');
       return egg::lang::Value{ sb.str() };
     }
-    virtual egg::lang::Value getProperty(egg::lang::IExecution& execution, const egg::ovum::String& property) override {
+    virtual egg::lang::Value getProperty(egg::ovum::IExecution& execution, const egg::ovum::String& property) override {
       auto name = property.toUTF8();
       auto retval = this->getPropertyInternal(execution, name);
       if (retval.hasFlowControl()) {
@@ -216,14 +216,14 @@ namespace {
       }
       return retval;
     }
-    virtual egg::lang::Value setProperty(egg::lang::IExecution& execution, const egg::ovum::String& property, const egg::lang::Value& value) override {
+    virtual egg::lang::Value setProperty(egg::ovum::IExecution& execution, const egg::ovum::String& property, const egg::lang::Value& value) override {
       auto name = property.toUTF8();
       if (name == "length") {
         return this->setLength(execution, value);
       }
       return execution.raiseFormat("Arrays do not support property '.", property, "'");
     }
-    virtual egg::lang::Value getIndex(egg::lang::IExecution& execution, const egg::lang::Value& index) override {
+    virtual egg::lang::Value getIndex(egg::ovum::IExecution& execution, const egg::lang::Value& index) override {
       if (!index.isInt()) {
         return execution.raiseFormat("Array index was expected to be 'int', not '", index.getRuntimeType()->toString(), "'");
       }
@@ -235,7 +235,7 @@ namespace {
       assert(!element.isVoid());
       return element;
     }
-    virtual egg::lang::Value setIndex(egg::lang::IExecution& execution, const egg::lang::Value& index, const egg::lang::Value& value) override {
+    virtual egg::lang::Value setIndex(egg::ovum::IExecution& execution, const egg::lang::Value& index, const egg::lang::Value& value) override {
       if (!index.isInt()) {
         return execution.raiseFormat("Array index was expected to be 'int', not '", index.getRuntimeType()->toString(), "'");
       }
@@ -250,7 +250,7 @@ namespace {
       this->values[u] = value;
       return egg::lang::Value::Void;
     }
-    virtual egg::lang::Value iterate(egg::lang::IExecution& execution) override;
+    virtual egg::lang::Value iterate(egg::ovum::IExecution& execution) override;
     egg::lang::Value iterateNext(size_t& index) const {
       // Used by VanillaArrayIterator
       // TODO What if the array has been modified?
@@ -260,19 +260,19 @@ namespace {
       return egg::lang::Value::Void;
     }
   private:
-    egg::lang::Value getPropertyInternal(egg::lang::IExecution& execution, const std::string& property) {
+    egg::lang::Value getPropertyInternal(egg::ovum::IExecution& execution, const std::string& property) {
       if (property == "length") {
         return egg::lang::Value{ int64_t(this->values.size()) };
       }
       return execution.raiseFormat("Arrays do not support property '.", property, "'");
     }
-    egg::lang::Value setPropertyInternal(egg::lang::IExecution& execution, const std::string& property, const egg::lang::Value& value) {
+    egg::lang::Value setPropertyInternal(egg::ovum::IExecution& execution, const std::string& property, const egg::lang::Value& value) {
       if (property == "length") {
         return this->setLength(execution, value);
       }
       return execution.raiseFormat("Arrays do not support property '.", property, "'");
     }
-    egg::lang::Value setLength(egg::lang::IExecution& execution, const egg::lang::Value& value) {
+    egg::lang::Value setLength(egg::ovum::IExecution& execution, const egg::lang::Value& value) {
       if (!value.isInt()) {
         return execution.raiseFormat("Array length was expected to be set to an 'int', not '", value.getRuntimeType()->toString(), "'");
       }
@@ -295,12 +295,12 @@ namespace {
     VanillaArrayIterator(egg::ovum::IAllocator& allocator, const VanillaArray& array)
       : VanillaIteratorBase(allocator), array(&array), next(0) {
     }
-    virtual egg::lang::Value iterate(egg::lang::IExecution&) override {
+    virtual egg::lang::Value iterate(egg::ovum::IExecution&) override {
       return this->array->iterateNext(this->next);
     }
   };
 
-  egg::lang::Value VanillaArray::iterate(egg::lang::IExecution& execution) {
+  egg::lang::Value VanillaArray::iterate(egg::ovum::IExecution& execution) {
     return egg::lang::Value::makeObject<VanillaArrayIterator>(execution.getAllocator(), *this);
   }
 
@@ -315,7 +315,7 @@ namespace {
       : VanillaIteratorBase(allocator), next(0) {
       (void)dictionary.getKeyValues(this->keyvalues);
     }
-    virtual egg::lang::Value iterate(egg::lang::IExecution& execution) override {
+    virtual egg::lang::Value iterate(egg::ovum::IExecution& execution) override {
       if (this->next < this->keyvalues.size()) {
         return egg::lang::Value::makeObject<VanillaKeyValue>(execution.getAllocator(), keyvalues[this->next++]);
       }
@@ -346,18 +346,18 @@ namespace {
       sb.add('}');
       return egg::lang::Value{ sb.str() };
     }
-    virtual egg::lang::Value getProperty(egg::lang::IExecution& execution, const egg::ovum::String& property) override {
+    virtual egg::lang::Value getProperty(egg::ovum::IExecution& execution, const egg::ovum::String& property) override {
       egg::lang::Value value;
       if (this->dictionary.tryGet(property, value)) {
         return value;
       }
       return execution.raiseFormat(this->kind, " does not support property '", property, "'");
     }
-    virtual egg::lang::Value setProperty(egg::lang::IExecution&, const egg::ovum::String& property, const egg::lang::Value& value) override {
+    virtual egg::lang::Value setProperty(egg::ovum::IExecution&, const egg::ovum::String& property, const egg::lang::Value& value) override {
       (void)this->dictionary.addOrUpdate(property, value);
       return egg::lang::Value::Void;
     }
-    virtual egg::lang::Value iterate(egg::lang::IExecution& execution) override {
+    virtual egg::lang::Value iterate(egg::ovum::IExecution& execution) override {
       return egg::lang::Value::makeObject<VanillaDictionaryIterator>(execution.getAllocator(), this->dictionary);
     }
   };
@@ -463,22 +463,22 @@ namespace {
     virtual egg::lang::ITypeRef getRuntimeType() const override {
       return this->type;
     }
-    virtual egg::lang::Value call(egg::lang::IExecution&, const egg::lang::IParameters& parameters) override {
+    virtual egg::lang::Value call(egg::ovum::IExecution&, const egg::lang::IParameters& parameters) override {
       return this->program->executeFunctionCall(this->type, parameters, this->block);
     }
-    virtual egg::lang::Value getProperty(egg::lang::IExecution& execution, const egg::ovum::String& property) override {
+    virtual egg::lang::Value getProperty(egg::ovum::IExecution& execution, const egg::ovum::String& property) override {
       return execution.raiseFormat("'", this->type->toString(), "' does not support properties such as '.", property, "'");
     }
-    virtual egg::lang::Value setProperty(egg::lang::IExecution& execution, const egg::ovum::String& property, const egg::lang::Value&) override {
+    virtual egg::lang::Value setProperty(egg::ovum::IExecution& execution, const egg::ovum::String& property, const egg::lang::Value&) override {
       return execution.raiseFormat("'", this->type->toString(), "' does not support properties such as '.", property, "'");
     }
-    virtual egg::lang::Value getIndex(egg::lang::IExecution& execution, const egg::lang::Value&) override {
+    virtual egg::lang::Value getIndex(egg::ovum::IExecution& execution, const egg::lang::Value&) override {
       return execution.raiseFormat("'", this->type->toString(), "' does not support indexing with '[]'");
     }
-    virtual egg::lang::Value setIndex(egg::lang::IExecution& execution, const egg::lang::Value&, const egg::lang::Value&) override {
+    virtual egg::lang::Value setIndex(egg::ovum::IExecution& execution, const egg::lang::Value&, const egg::lang::Value&) override {
       return execution.raiseFormat("'", this->type->toString(), "' does not support indexing with '[]'");
     }
-    virtual egg::lang::Value iterate(egg::lang::IExecution& execution) override {
+    virtual egg::lang::Value iterate(egg::ovum::IExecution& execution) override {
       return execution.raiseFormat("'", this->type->toString(), "' does not support iteration");
     }
   };
@@ -496,7 +496,7 @@ namespace {
       coroutine(),
       completed(false) {
     }
-    virtual egg::lang::Value call(egg::lang::IExecution&, const egg::lang::IParameters& parameters) override {
+    virtual egg::lang::Value call(egg::ovum::IExecution&, const egg::lang::IParameters& parameters) override {
       // This actually calls a generator via a coroutine
       if ((parameters.getPositionalCount() > 0) || (parameters.getNamedCount() > 0)) {
         return this->program->raiseFormat("Parameters in generator iterator calls are not supported");
@@ -510,7 +510,7 @@ namespace {
       }
       return retval;
     }
-    virtual egg::lang::Value iterate(egg::lang::IExecution&) override;
+    virtual egg::lang::Value iterate(egg::ovum::IExecution&) override;
     egg::lang::Value iterateNext() {
       if (this->coroutine == nullptr) {
         // Don't re-create if we've already completed
@@ -545,12 +545,12 @@ namespace {
       : VanillaIteratorBase(allocator) {
       this->generator.set(*this, &generator);
     }
-    virtual egg::lang::Value iterate(egg::lang::IExecution&) override {
+    virtual egg::lang::Value iterate(egg::ovum::IExecution&) override {
       return this->generator->iterateNext();
     }
   };
 
-  egg::lang::Value VanillaGenerator::iterate(egg::lang::IExecution& execution) {
+  egg::lang::Value VanillaGenerator::iterate(egg::ovum::IExecution& execution) {
     // Create an ad hod iterator
     return egg::lang::Value::makeObject<VanillaGeneratorIterator>(execution.getAllocator(), *this);
   }

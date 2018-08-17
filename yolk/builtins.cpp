@@ -13,7 +13,7 @@ namespace {
     String getName() const {
       return this->callable()->getFunctionName();
     }
-    Value validateCall(IExecution& execution, const IParameters& parameters) const {
+    Value validateCall(egg::ovum::IExecution& execution, const IParameters& parameters) const {
       Value problem;
       if (!this->callable()->validateCall(execution, parameters, problem)) {
         assert(problem.hasFlowControl());
@@ -22,7 +22,7 @@ namespace {
       return Value::Void;
     };
     template<typename... ARGS>
-    Value raise(IExecution& execution, ARGS&&... args) const {
+    Value raise(egg::ovum::IExecution& execution, ARGS&&... args) const {
       // Use perfect forwarding to the constructor
       return execution.raiseFormat(this->getName(), ": ", std::forward<ARGS>(args)...);
     }
@@ -74,19 +74,19 @@ namespace {
     virtual ITypeRef getRuntimeType() const override {
       return ITypeRef(this->type.get());
     }
-    virtual Value getProperty(IExecution& execution, const String& property) override {
+    virtual Value getProperty(egg::ovum::IExecution& execution, const String& property) override {
       return execution.raiseFormat("Built-in '", this->type->getName(), "' does not support properties such as '.", property, "'");
     }
-    virtual Value setProperty(IExecution& execution, const String& property, const Value&) override {
+    virtual Value setProperty(egg::ovum::IExecution& execution, const String& property, const Value&) override {
       return execution.raiseFormat("Built-in '", this->type->getName(), "' does not support properties such as '.", property, "'");
     }
-    virtual Value getIndex(IExecution& execution, const Value&) override {
+    virtual Value getIndex(egg::ovum::IExecution& execution, const Value&) override {
       return execution.raiseFormat("Built-in '", this->type->getName(), "' does not support indexing with '[]'");
     }
-    virtual Value setIndex(IExecution& execution, const Value&, const Value&) override {
+    virtual Value setIndex(egg::ovum::IExecution& execution, const Value&, const Value&) override {
       return execution.raiseFormat("Built-in '", this->type->getName(), "' does not support indexing with '[]'");
     }
-    virtual Value iterate(IExecution& execution) override {
+    virtual Value iterate(egg::ovum::IExecution& execution) override {
       return execution.raiseFormat("Built-in '", this->type->getName(), "' does not support iteration");
     }
   };
@@ -108,23 +108,23 @@ namespace {
     virtual ITypeRef getRuntimeType() const override {
       return ITypeRef(this->type.get());
     }
-    virtual Value getProperty(IExecution& execution, const String& property) override {
+    virtual Value getProperty(egg::ovum::IExecution& execution, const String& property) override {
       Value value;
       if (this->type->tryGetProperty(property, value)) {
         return value;
       }
       return execution.raiseFormat("Unknown built-in property: '", this->type->getName(), ".", property, "'");
     }
-    virtual Value setProperty(IExecution& execution, const String& property, const Value&) override {
+    virtual Value setProperty(egg::ovum::IExecution& execution, const String& property, const Value&) override {
       return execution.raiseFormat("Cannot set built-in property: '", this->type->getName(), ".", property, "'");
     }
-    virtual Value getIndex(IExecution& execution, const Value&) override {
+    virtual Value getIndex(egg::ovum::IExecution& execution, const Value&) override {
       return execution.raiseFormat("Built-in '", this->type->getName(), "' does not support indexing with '[]'");
     }
-    virtual Value setIndex(IExecution& execution, const Value&, const Value&) override {
+    virtual Value setIndex(egg::ovum::IExecution& execution, const Value&, const Value&) override {
       return execution.raiseFormat("Built-in '", this->type->getName(), "' does not support indexing with '[]'");
     }
-    virtual Value iterate(IExecution& execution) override {
+    virtual Value iterate(egg::ovum::IExecution& execution) override {
       return execution.raiseFormat("Built-in '", this->type->getName(), "' does not support iteration");
     }
     template<typename T>
@@ -140,7 +140,7 @@ namespace {
       : BuiltinFunction(allocator, "string.from", Type::makeBasal(Basal::String | Basal::Null)) {
       this->type->addParameter("value", Type::AnyQ, Flags::Required);
     }
-    virtual Value call(IExecution& execution, const IParameters& parameters) override {
+    virtual Value call(egg::ovum::IExecution& execution, const IParameters& parameters) override {
       // Convert the parameter to a string
       // Note: Although the return type is 'string?' (for orthogonality) this function never returns 'null'
       Value result = this->type->validateCall(execution, parameters);
@@ -160,7 +160,7 @@ namespace {
       this->type->addParameter("value", Type::AnyQ, Flags::Variadic);
       this->addProperty<BuiltinStringFrom>(allocator, "from");
     }
-    virtual Value call(IExecution& execution, const IParameters& parameters) override {
+    virtual Value call(egg::ovum::IExecution& execution, const IParameters& parameters) override {
       // Concatenate the string representations of all parameters
       Value result = this->type->validateCall(execution, parameters);
       if (result.hasFlowControl()) {
@@ -188,7 +188,7 @@ namespace {
       : BuiltinFunction(allocator, "type.of", Type::Type_) {
       this->type->addParameter("value", Type::AnyQ, Flags::Required);
     }
-    virtual Value call(IExecution& execution, const IParameters& parameters) override {
+    virtual Value call(egg::ovum::IExecution& execution, const IParameters& parameters) override {
       // Fetch the runtime type of the parameter
       Value result = this->type->validateCall(execution, parameters);
       if (result.hasFlowControl()) {
@@ -207,7 +207,7 @@ namespace {
       this->type->addParameter("value", Type::AnyQ, Flags::Variadic);
       this->addProperty<BuiltinTypeOf>(allocator, "of");
     }
-    virtual Value call(IExecution&, const IParameters&) override {
+    virtual Value call(egg::ovum::IExecution&, const IParameters&) override {
       // TODO
       return Value::Null;
     }
@@ -220,7 +220,7 @@ namespace {
       : BuiltinFunction(allocator, "assert", Type::Void) {
       this->type->addParameter("predicate", Type::Any, egg::ovum::Bits::set(Flags::Required, Flags::Predicate));
     }
-    virtual Value call(IExecution& execution, const IParameters& parameters) override {
+    virtual Value call(egg::ovum::IExecution& execution, const IParameters& parameters) override {
       Value result = this->type->validateCall(execution, parameters);
       if (result.hasFlowControl()) {
         return result;
@@ -236,7 +236,7 @@ namespace {
       : BuiltinFunction(allocator, "print", Type::Void) {
       this->type->addParameter("...", Type::Any, Flags::Variadic);
     }
-    virtual Value call(IExecution& execution, const IParameters& parameters) override {
+    virtual Value call(egg::ovum::IExecution& execution, const IParameters& parameters) override {
       Value result = this->type->validateCall(execution, parameters);
       if (result.hasFlowControl()) {
         return result;
@@ -258,7 +258,7 @@ namespace {
     StringFunctionType(egg::ovum::IAllocator& allocator, const egg::ovum::String& name, const ITypeRef& returnType)
       : BuiltinFunctionType(allocator, name, returnType) {
     }
-    virtual Value executeCall(IExecution&, const String& instance, const IParameters&) const = 0;
+    virtual Value executeCall(egg::ovum::IExecution&, const String& instance, const IParameters&) const = 0;
   };
 
   class StringBuiltin : public egg::ovum::SoftReferenceCounted<IObject> {
@@ -279,7 +279,7 @@ namespace {
     virtual ITypeRef getRuntimeType() const override {
       return this->type;
     }
-    virtual Value call(IExecution& execution, const IParameters& parameters) override {
+    virtual Value call(egg::ovum::IExecution& execution, const IParameters& parameters) override {
       // Let the string builtin type handle the request
       Value validation = this->type->validateCall(execution, parameters);
       if (validation.hasFlowControl()) {
@@ -287,19 +287,19 @@ namespace {
       }
       return this->type->executeCall(execution, this->instance, parameters);
     }
-    virtual Value getProperty(IExecution& execution, const String& property) override {
+    virtual Value getProperty(egg::ovum::IExecution& execution, const String& property) override {
       return execution.raiseFormat(this->type->toString(), " does not support properties such as '.", property, "'");
     }
-    virtual Value setProperty(IExecution& execution, const String& property, const Value&) override {
+    virtual Value setProperty(egg::ovum::IExecution& execution, const String& property, const Value&) override {
       return execution.raiseFormat(this->type->toString(), " does not support properties such as '.", property, "'");
     }
-    virtual Value getIndex(IExecution& execution, const Value&) override {
+    virtual Value getIndex(egg::ovum::IExecution& execution, const Value&) override {
       return execution.raiseFormat(this->type->toString(), " does not support indexing with '[]'");
     }
-    virtual Value setIndex(IExecution& execution, const Value&, const Value&) override {
+    virtual Value setIndex(egg::ovum::IExecution& execution, const Value&, const Value&) override {
       return execution.raiseFormat(this->type->toString(), " does not support indexing with '[]'");
     }
-    virtual Value iterate(IExecution& execution) override {
+    virtual Value iterate(egg::ovum::IExecution& execution) override {
       return execution.raiseFormat(this->type->toString(), " does not support iteration");
     }
     template<typename T>
@@ -314,7 +314,7 @@ namespace {
     StringHashCode(egg::ovum::IAllocator& allocator, const egg::ovum::String& name)
       : StringFunctionType(allocator, name, Type::Int) {
     }
-    virtual Value executeCall(IExecution&, const String& instance, const IParameters&) const override {
+    virtual Value executeCall(egg::ovum::IExecution&, const String& instance, const IParameters&) const override {
       // int hashCode()
       return Value{ instance.hashCode() };
     }
@@ -326,7 +326,7 @@ namespace {
     StringToString(egg::ovum::IAllocator& allocator, const egg::ovum::String& name)
       : StringFunctionType(allocator, name, Type::String) {
     }
-    virtual Value executeCall(IExecution&, const String& instance, const IParameters&) const override {
+    virtual Value executeCall(egg::ovum::IExecution&, const String& instance, const IParameters&) const override {
       // string toString()
       return Value{ instance };
     }
@@ -339,7 +339,7 @@ namespace {
       : StringFunctionType(allocator, name, Type::Bool) {
       this->addParameter("needle", Type::String, Flags::Required);
     }
-    virtual Value executeCall(IExecution& execution, const String& instance, const IParameters& parameters) const override {
+    virtual Value executeCall(egg::ovum::IExecution& execution, const String& instance, const IParameters& parameters) const override {
       // bool contains(string needle)
       auto needle = parameters.getPositional(0);
       if (!needle.isString()) {
@@ -356,7 +356,7 @@ namespace {
       : StringFunctionType(allocator, name, Type::Int) {
       this->addParameter("needle", Type::String, Flags::Required);
     }
-    virtual Value executeCall(IExecution& execution, const String& instance, const IParameters& parameters) const override {
+    virtual Value executeCall(egg::ovum::IExecution& execution, const String& instance, const IParameters& parameters) const override {
       // TODO int compare(string other, int? start, int? other_start, int? max_length)
       auto other = parameters.getPositional(0);
       if (!other.isString()) {
@@ -373,7 +373,7 @@ namespace {
       : StringFunctionType(allocator, name, Type::Bool) {
       this->addParameter("needle", Type::String, Flags::Required);
     }
-    virtual Value executeCall(IExecution& execution, const String& instance, const IParameters& parameters) const override {
+    virtual Value executeCall(egg::ovum::IExecution& execution, const String& instance, const IParameters& parameters) const override {
       // bool startsWith(string needle)
       auto needle = parameters.getPositional(0);
       if (!needle.isString()) {
@@ -390,7 +390,7 @@ namespace {
       : StringFunctionType(allocator, name, Type::Bool) {
       this->addParameter("needle", Type::String, Flags::Required);
     }
-    virtual Value executeCall(IExecution& execution, const String& instance, const IParameters& parameters) const override {
+    virtual Value executeCall(egg::ovum::IExecution& execution, const String& instance, const IParameters& parameters) const override {
       // bool endsWith(string needle)
       auto needle = parameters.getPositional(0);
       if (!needle.isString()) {
@@ -407,7 +407,7 @@ namespace {
       : StringFunctionType(allocator, name, Type::makeBasal(Basal::Int | Basal::Null)) {
       this->addParameter("needle", Type::String, Flags::Required);
     }
-    virtual Value executeCall(IExecution& execution, const String& instance, const IParameters& parameters) const override {
+    virtual Value executeCall(egg::ovum::IExecution& execution, const String& instance, const IParameters& parameters) const override {
       // TODO int? indexOf(string needle, int? fromIndex, int? count, bool? negate)
       auto needle = parameters.getPositional(0);
       if (!needle.isString()) {
@@ -425,7 +425,7 @@ namespace {
       : StringFunctionType(allocator, name, Type::makeBasal(Basal::Int | Basal::Null)) {
       this->addParameter("needle", Type::String, Flags::Required);
     }
-    virtual Value executeCall(IExecution& execution, const String& instance, const IParameters& parameters) const override {
+    virtual Value executeCall(egg::ovum::IExecution& execution, const String& instance, const IParameters& parameters) const override {
       // TODO int? lastIndexOf(string needle, int? fromIndex, int? count, bool? negate)
       auto needle = parameters.getPositional(0);
       if (!needle.isString()) {
@@ -443,7 +443,7 @@ namespace {
       : StringFunctionType(allocator, name, Type::String) {
       this->addParameter("...", Type::Any, Flags::Variadic);
     }
-    virtual Value executeCall(IExecution&, const String& instance, const IParameters& parameters) const override {
+    virtual Value executeCall(egg::ovum::IExecution&, const String& instance, const IParameters& parameters) const override {
       // string join(...)
       auto n = parameters.getPositionalCount();
       switch (n) {
@@ -472,7 +472,7 @@ namespace {
       : StringFunctionType(allocator, name, Type::Any) {
       this->addParameter("separator", Type::String, Flags::Required);
     }
-    virtual Value executeCall(IExecution& execution, const String& instance, const IParameters& parameters) const override {
+    virtual Value executeCall(egg::ovum::IExecution& execution, const String& instance, const IParameters& parameters) const override {
       // TODO string split(string separator, int? limit)
       auto separator = parameters.getPositional(0);
       if (!separator.isString()) {
@@ -492,7 +492,7 @@ namespace {
       this->addParameter("begin", Type::Int, Flags::Required);
       this->addParameter("end", Type::Int, Flags::None);
     }
-    virtual Value executeCall(IExecution& execution, const String& instance, const IParameters& parameters) const override {
+    virtual Value executeCall(egg::ovum::IExecution& execution, const String& instance, const IParameters& parameters) const override {
       // TODO string slice(int? begin, int? end)
       auto p0 = parameters.getPositional(0);
       if (!p0.isInt()) {
@@ -518,7 +518,7 @@ namespace {
       : StringFunctionType(allocator, name, Type::String) {
       this->addParameter("count", Type::Int, Flags::Required);
     }
-    virtual Value executeCall(IExecution& execution, const String& instance, const IParameters& parameters) const override {
+    virtual Value executeCall(egg::ovum::IExecution& execution, const String& instance, const IParameters& parameters) const override {
       // string repeat(int count)
       auto p0 = parameters.getPositional(0);
       if (!p0.isInt()) {
@@ -541,7 +541,7 @@ namespace {
       this->addParameter("replacement", Type::String, Flags::Required);
       this->addParameter("occurrences", Type::Int, Flags::None);
     }
-    virtual Value executeCall(IExecution& execution, const String& instance, const IParameters& parameters) const override {
+    virtual Value executeCall(egg::ovum::IExecution& execution, const String& instance, const IParameters& parameters) const override {
       // string replace(string needle, string replacement, int? occurrences)
       auto needle = parameters.getPositional(0);
       if (!needle.isString()) {
@@ -570,7 +570,7 @@ namespace {
       this->addParameter("length", Type::Int, Flags::Required);
       this->addParameter("padding", Type::String, Flags::None);
     }
-    virtual Value executeCall(IExecution& execution, const String& instance, const IParameters& parameters) const override {
+    virtual Value executeCall(egg::ovum::IExecution& execution, const String& instance, const IParameters& parameters) const override {
       // string padLeft(int length, string? padding)
       auto p0 = parameters.getPositional(0);
       if (!p0.isInt()) {
@@ -599,7 +599,7 @@ namespace {
       this->addParameter("length", Type::Int, Flags::Required);
       this->addParameter("padding", Type::String, Flags::None);
     }
-    virtual Value executeCall(IExecution& execution, const String& instance, const IParameters& parameters) const override {
+    virtual Value executeCall(egg::ovum::IExecution& execution, const String& instance, const IParameters& parameters) const override {
       // string padRight(int length, string? padding)
       auto p0 = parameters.getPositional(0);
       if (!p0.isInt()) {
@@ -653,7 +653,7 @@ egg::yolk::Builtins::StringBuiltinFactory egg::yolk::Builtins::stringBuiltinFact
   return nullptr;
 }
 
-egg::lang::Value egg::yolk::Builtins::stringBuiltin(egg::lang::IExecution& execution, const egg::ovum::String& instance, const egg::ovum::String& property){
+egg::lang::Value egg::yolk::Builtins::stringBuiltin(egg::ovum::IExecution& execution, const egg::ovum::String& instance, const egg::ovum::String& property){
   auto factory = Builtins::stringBuiltinFactory(property);
   if (factory != nullptr) {
     return factory(execution.getAllocator(), instance, egg::ovum::StringBuilder::concat("string.", property));

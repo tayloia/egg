@@ -39,6 +39,6 @@ namespace egg::yolk {
     // Built-ins
     using StringBuiltinFactory = std::function<egg::lang::Value(egg::ovum::IAllocator& allocator, const egg::ovum::String& instance, const egg::ovum::String& property)>;
     static StringBuiltinFactory stringBuiltinFactory(const egg::ovum::String& property);
-    static egg::lang::Value stringBuiltin(egg::lang::IExecution& execution, const egg::ovum::String& instance, const egg::ovum::String& property);
+    static egg::lang::Value stringBuiltin(egg::ovum::IExecution& execution, const egg::ovum::String& instance, const egg::ovum::String& property);
   };
 }

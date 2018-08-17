@@ -36,31 +36,6 @@ namespace egg::lang {
     return egg::ovum::Bits::set(lhs, rhs);
   }
 
-  class IPreparation {
-  public:
-    virtual ~IPreparation() {}
-    virtual void raise(egg::lang::LogSeverity severity, const String& message) = 0;
-
-    // Useful helpers
-    template<typename... ARGS>
-    void raiseWarning(ARGS... args);
-    template<typename... ARGS>
-    void raiseError(ARGS... args);
-  };
-
-  class IExecution {
-  public:
-    virtual ~IExecution() {}
-    virtual egg::ovum::IAllocator& getAllocator() const = 0;
-    virtual ValueLegacy raise(const String& message) = 0;
-    virtual ValueLegacy assertion(const ValueLegacy& predicate) = 0;
-    virtual void print(const std::string& utf8) = 0;
-
-    // Useful helper
-    template<typename... ARGS>
-    ValueLegacy raiseFormat(ARGS... args);
-  };
-
   class IParameters {
   public:
     virtual ~IParameters() {}
@@ -109,11 +84,11 @@ namespace egg::lang {
     virtual ITypeRef getReturnType() const = 0;
     virtual size_t getParameterCount() const = 0;
     virtual const IFunctionSignatureParameter& getParameter(size_t index) const = 0;
-    virtual bool validateCall(IExecution& execution, const IParameters& runtime, Value& problem) const; // Calls validateCallDefault
+    virtual bool validateCall(egg::ovum::IExecution& execution, const IParameters& runtime, Value& problem) const; // Calls validateCallDefault
 
     // Implementation
     void buildStringDefault(egg::ovum::StringBuilder& sb, Parts parts) const; // Default formats as expected
-    bool validateCallDefault(IExecution& execution, const IParameters& runtime, Value& problem) const;
+    bool validateCallDefault(egg::ovum::IExecution& execution, const IParameters& runtime, Value& problem) const;
   };
 
   class IIndexSignature {
@@ -130,7 +105,7 @@ namespace egg::lang {
     virtual std::pair<std::string, int> toStringPrecedence() const = 0;
     virtual AssignmentSuccess canBeAssignedFrom(const IType& rhs) const = 0;
 
-    virtual ValueLegacy promoteAssignment(IExecution& execution, const ValueLegacy& rhs) const; // Default implementation calls IType::canBeAssignedFrom()
+    virtual ValueLegacy promoteAssignment(egg::ovum::IExecution& execution, const ValueLegacy& rhs) const; // Default implementation calls IType::canBeAssignedFrom()
     virtual const IFunctionSignature* callable() const; // Default implementation returns nullptr
     virtual const IIndexSignature* indexable() const; // Default implementation returns nullptr
     virtual bool dotable(const String* property, ITypeRef& type, String& reason) const; // Default implementation returns false
@@ -172,12 +147,12 @@ namespace egg::lang {
   public:
     virtual ValueLegacy toString() const = 0;
     virtual ITypeRef getRuntimeType() const = 0;
-    virtual ValueLegacy call(IExecution& execution, const IParameters& parameters) = 0;
-    virtual ValueLegacy getProperty(IExecution& execution, const String& property) = 0;
-    virtual ValueLegacy setProperty(IExecution& execution, const String& property, const ValueLegacy& value) = 0;
-    virtual ValueLegacy getIndex(IExecution& execution, const ValueLegacy& index) = 0;
-    virtual ValueLegacy setIndex(IExecution& execution, const ValueLegacy& index, const ValueLegacy& value) = 0;
-    virtual ValueLegacy iterate(IExecution& execution) = 0;
+    virtual ValueLegacy call(egg::ovum::IExecution& execution, const IParameters& parameters) = 0;
+    virtual ValueLegacy getProperty(egg::ovum::IExecution& execution, const String& property) = 0;
+    virtual ValueLegacy setProperty(egg::ovum::IExecution& execution, const String& property, const ValueLegacy& value) = 0;
+    virtual ValueLegacy getIndex(egg::ovum::IExecution& execution, const ValueLegacy& index) = 0;
+    virtual ValueLegacy setIndex(egg::ovum::IExecution& execution, const ValueLegacy& index, const ValueLegacy& value) = 0;
+    virtual ValueLegacy iterate(egg::ovum::IExecution& execution) = 0;
   };
 
   struct LocationSource {
@@ -324,19 +299,19 @@ namespace egg::lang {
 }
 
 template<typename... ARGS>
-inline void egg::lang::IPreparation::raiseWarning(ARGS... args) {
+inline void egg::ovum::IPreparation::raiseWarning(ARGS... args) {
   auto message = egg::ovum::StringBuilder::concat(args...);
   this->raise(egg::lang::LogSeverity::Warning, message);
 }
 
 template<typename... ARGS>
-inline void egg::lang::IPreparation::raiseError(ARGS... args) {
+inline void egg::ovum::IPreparation::raiseError(ARGS... args) {
   auto message = egg::ovum::StringBuilder::concat(args...);
   this->raise(egg::lang::LogSeverity::Error, message);
 }
 
 template<typename... ARGS>
-inline egg::lang::ValueLegacy egg::lang::IExecution::raiseFormat(ARGS... args) {
+inline egg::lang::ValueLegacy egg::ovum::IExecution::raiseFormat(ARGS... args) {
   auto message = egg::ovum::StringBuilder::concat(args...);
   return this->raise(message);
 }
