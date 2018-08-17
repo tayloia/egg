@@ -10,7 +10,7 @@ namespace {
   using namespace egg::yolk;
 
   template<typename ACTION>
-  egg::lang::LogSeverity captureExceptions(egg::lang::LogSource source, IEggEngineLogger& logger, ACTION action) {
+  egg::lang::LogSeverity captureExceptions(egg::lang::LogSource source, egg::ovum::ILogger& logger, ACTION action) {
     try {
       return action();
     } catch (const Exception& ex) {
@@ -26,9 +26,9 @@ namespace {
     EGG_NO_COPY(EggEngineContext);
   private:
     egg::ovum::IAllocator& mallocator;
-    std::shared_ptr<IEggEngineLogger> logger;
+    std::shared_ptr<egg::ovum::ILogger> logger;
   public:
-    EggEngineContext(egg::ovum::IAllocator& allocator, const std::shared_ptr<IEggEngineLogger>& logger)
+    EggEngineContext(egg::ovum::IAllocator& allocator, const std::shared_ptr<egg::ovum::ILogger>& logger)
       : mallocator(allocator), logger(logger) {
       assert(logger != nullptr);
     }
@@ -97,11 +97,11 @@ namespace {
   };
 }
 
-std::shared_ptr<IEggEngineExecutionContext> egg::yolk::EggEngineFactory::createExecutionContext(egg::ovum::IAllocator& allocator, const std::shared_ptr<IEggEngineLogger>& logger) {
+std::shared_ptr<IEggEngineExecutionContext> egg::yolk::EggEngineFactory::createExecutionContext(egg::ovum::IAllocator& allocator, const std::shared_ptr<egg::ovum::ILogger>& logger) {
   return std::make_shared<EggEngineContext>(allocator, logger);
 }
 
-std::shared_ptr<IEggEnginePreparationContext> egg::yolk::EggEngineFactory::createPreparationContext(egg::ovum::IAllocator& allocator, const std::shared_ptr<IEggEngineLogger>& logger) {
+std::shared_ptr<IEggEnginePreparationContext> egg::yolk::EggEngineFactory::createPreparationContext(egg::ovum::IAllocator& allocator, const std::shared_ptr<egg::ovum::ILogger>& logger) {
   return std::make_shared<EggEngineContext>(allocator, logger);
 }
 

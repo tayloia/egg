@@ -2,6 +2,25 @@ namespace egg::ovum {
   class IBasket;
   template<typename T> class HardPtr;
 
+  class ILogger {
+  public:
+    enum class Source {
+      Compiler = 1 << 0,
+      Runtime = 1 << 1,
+      User = 1 << 2
+    };
+    enum class Severity {
+      None = 0,
+      Debug = 1 << 0,
+      Verbose = 1 << 1,
+      Information = 1 << 2,
+      Warning = 1 << 3,
+      Error = 1 << 4
+    };
+    virtual ~ILogger() {}
+    virtual void log(Source source, Severity severity, const std::string& message) = 0;
+  };
+
   class IHardAcquireRelease {
   public:
     virtual ~IHardAcquireRelease() {}

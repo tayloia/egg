@@ -36,6 +36,53 @@ namespace egg::ovum {
     }
   };
 
+  class Bits {
+  public:
+    template<typename T>
+    static bool hasAllSet(T value, T bits) {
+      auto a = static_cast<std::underlying_type_t<T>>(value);
+      auto b = static_cast<std::underlying_type_t<T>>(bits);
+      return (a & b) == b;
+    }
+    template<typename T>
+    static bool hasAnySet(T value, T bits) {
+      auto a = static_cast<std::underlying_type_t<T>>(value);
+      auto b = static_cast<std::underlying_type_t<T>>(bits);
+      return (a & b) != 0;
+    }
+    template<typename T>
+    static bool hasOneSet(T value, T bits) {
+      auto a = static_cast<std::underlying_type_t<T>>(value);
+      auto b = static_cast<std::underlying_type_t<T>>(bits);
+      auto c = a & b;
+      return ((c & (c - 1)) == 0) && (c != 0);
+    }
+    template<typename T>
+    static T mask(T value, T bits) {
+      auto a = static_cast<std::underlying_type_t<T>>(value);
+      auto b = static_cast<std::underlying_type_t<T>>(bits);
+      return static_cast<T>(a & b);
+    }
+    template<typename T>
+    static T set(T value, T bits) {
+      auto a = static_cast<std::underlying_type_t<T>>(value);
+      auto b = static_cast<std::underlying_type_t<T>>(bits);
+      return static_cast<T>(a | b);
+    }
+    template<typename T>
+    static T clear(T value, T bits) {
+      auto a = static_cast<std::underlying_type_t<T>>(value);
+      auto b = static_cast<std::underlying_type_t<T>>(bits);
+      return static_cast<T>(a & ~b);
+    }
+    template<typename T>
+    static T invert(T value, T bits) {
+      auto a = static_cast<std::underlying_type_t<T>>(value);
+      auto b = static_cast<std::underlying_type_t<T>>(bits);
+      return static_cast<T>(a ^ b);
+    }
+  };
+
   using ReadWriteMutex = std::shared_mutex;
   using WriteLock = std::unique_lock<ReadWriteMutex>;
   using ReadLock = std::shared_lock<ReadWriteMutex>;

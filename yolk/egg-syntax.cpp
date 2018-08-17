@@ -1143,7 +1143,7 @@ std::unique_ptr<IEggSyntaxNode> EggSyntaxParserContext::parseExpressionPrimary(c
       mark.accept(1);
       return std::make_unique<EggSyntaxNode_Literal>(location, p0.kind, p0.value);
     }
-    if (egg::lang::Bits::hasAnySet(keywordToBasal(p0), egg::lang::Basal::Any | egg::lang::Basal::Type)) {
+    if (egg::ovum::Bits::hasAnySet(keywordToBasal(p0), egg::lang::Basal::Any | egg::lang::Basal::Type)) {
       // It could be a constructor like 'string(...)' or a property like 'float.epsilon'
       auto& p1 = mark.peek(1);
       if (p1.isOperator(EggTokenizerOperator::ParenthesisLeft) || p1.isOperator(EggTokenizerOperator::Dot)) {

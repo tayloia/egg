@@ -218,7 +218,7 @@ namespace {
   public:
     explicit BuiltinAssert(egg::ovum::IAllocator& allocator)
       : BuiltinFunction(allocator, "assert", Type::Void) {
-      this->type->addParameter("predicate", Type::Any, Bits::set(Flags::Required, Flags::Predicate));
+      this->type->addParameter("predicate", Type::Any, egg::ovum::Bits::set(Flags::Required, Flags::Predicate));
     }
     virtual Value call(IExecution& execution, const IParameters& parameters) override {
       Value result = this->type->validateCall(execution, parameters);

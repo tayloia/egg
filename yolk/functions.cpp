@@ -61,7 +61,7 @@ namespace {
       : FunctionType(allocator, egg::ovum::String(), returnType->unionWith(*egg::lang::Type::Void)),
         rettype(returnType) {
       // No name or parameters in the signature
-      assert(!egg::lang::Bits::hasAnySet(returnType->getBasalTypes(), egg::lang::Basal::Void));
+      assert(!egg::ovum::Bits::hasAnySet(returnType->getBasalTypes(), egg::lang::Basal::Void));
     }
     virtual std::pair<std::string, int> toStringPrecedence() const override {
       // Format a string along the lines of '<rettype>...'
@@ -328,17 +328,17 @@ public:
 
 void egg::lang::IFunctionSignature::buildStringDefault(egg::ovum::StringBuilder& sb, IFunctionSignature::Parts parts) const {
   // TODO better formatting of named/variadic etc.
-  if (Bits::hasAnySet(parts, IFunctionSignature::Parts::ReturnType)) {
+  if (egg::ovum::Bits::hasAnySet(parts, IFunctionSignature::Parts::ReturnType)) {
     // Use precedence zero to get any necessary parentheses
     sb.add(this->getReturnType()->toString(0));
   }
-  if (Bits::hasAnySet(parts, IFunctionSignature::Parts::FunctionName)) {
+  if (egg::ovum::Bits::hasAnySet(parts, IFunctionSignature::Parts::FunctionName)) {
     auto name = this->getFunctionName();
     if (!name.empty()) {
       sb.add(' ', name);
     }
   }
-  if (Bits::hasAnySet(parts, IFunctionSignature::Parts::ParameterList)) {
+  if (egg::ovum::Bits::hasAnySet(parts, IFunctionSignature::Parts::ParameterList)) {
     sb.add('(');
     auto n = this->getParameterCount();
     for (size_t i = 0; i < n; ++i) {
@@ -351,7 +351,7 @@ void egg::lang::IFunctionSignature::buildStringDefault(egg::ovum::StringBuilder&
         sb.add("...");
       } else {
         sb.add(parameter.getType()->toString());
-        if (Bits::hasAnySet(parts, IFunctionSignature::Parts::ParameterNames)) {
+        if (egg::ovum::Bits::hasAnySet(parts, IFunctionSignature::Parts::ParameterNames)) {
           auto pname = parameter.getName();
           if (!pname.empty()) {
             sb.add(' ', pname);

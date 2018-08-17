@@ -10,7 +10,7 @@ namespace {
   using namespace egg::yolk;
 
   inline EggParserAllowed operator|(EggParserAllowed lhs, EggParserAllowed rhs) {
-    return egg::lang::Bits::set(lhs, rhs);
+    return egg::ovum::Bits::set(lhs, rhs);
   }
 
   template<typename T, typename... ARGS>
@@ -82,9 +82,9 @@ namespace {
   }
 
   egg::lang::ITypeRef binaryBitwiseTypes(const std::shared_ptr<IEggProgramNode>& lhs, const std::shared_ptr<IEggProgramNode>& rhs) {
-    auto lhsb = egg::lang::Bits::mask(lhs->getType()->getBasalTypes(), egg::lang::Basal::Bool | egg::lang::Basal::Int);
-    auto rhsb = egg::lang::Bits::mask(rhs->getType()->getBasalTypes(), egg::lang::Basal::Bool | egg::lang::Basal::Int);
-    auto common = egg::lang::Bits::mask(lhsb, rhsb);
+    auto lhsb = egg::ovum::Bits::mask(lhs->getType()->getBasalTypes(), egg::lang::Basal::Bool | egg::lang::Basal::Int);
+    auto rhsb = egg::ovum::Bits::mask(rhs->getType()->getBasalTypes(), egg::lang::Basal::Bool | egg::lang::Basal::Int);
+    auto common = egg::ovum::Bits::mask(lhsb, rhsb);
     if (common == egg::lang::Basal::None) {
       // No common bool/int
       return egg::lang::Type::Void;
@@ -1194,10 +1194,10 @@ namespace {
       : allowed(allowed) {
     }
     virtual bool isAllowed(EggParserAllowed bit) const override {
-      return egg::lang::Bits::hasAnySet(this->allowed, bit);
+      return egg::ovum::Bits::hasAnySet(this->allowed, bit);
     }
     virtual EggParserAllowed inheritAllowed(EggParserAllowed allow, EggParserAllowed inherit) const override {
-      return egg::lang::Bits::mask(this->allowed, inherit) | allow;
+      return egg::ovum::Bits::mask(this->allowed, inherit) | allow;
     }
     virtual std::shared_ptr<IEggProgramNode> promote(const IEggSyntaxNode& node) override {
       return node.promote(*this);
@@ -1563,7 +1563,7 @@ std::shared_ptr<egg::yolk::IEggProgramNode> egg::yolk::EggSyntaxNode_FunctionDef
   FunctionType* underlying;
   if (this->generator) {
     // Generators cannot explicitly return voids
-    if (egg::lang::Bits::hasAnySet(rettype->getBasalTypes(), egg::lang::Basal::Void)) {
+    if (egg::ovum::Bits::hasAnySet(rettype->getBasalTypes(), egg::lang::Basal::Void)) {
       throw exceptionFromLocation(context, "The return value of a generator may not include 'void'", *this);
     }
     underlying = egg::yolk::FunctionType::createGeneratorType(context.allocator(), this->name, rettype);

@@ -341,7 +341,7 @@ std::string egg::yolk::EggProgram::mutateToString(egg::yolk::EggProgramMutate op
   return table[index];
 }
 
-egg::ovum::HardPtr<egg::yolk::EggProgramContext> egg::yolk::EggProgram::createRootContext(egg::ovum::IAllocator& allocator, IEggEngineLogger& logger, EggProgramSymbolTable& symtable, egg::lang::LogSeverity& maximumSeverity) {
+egg::ovum::HardPtr<egg::yolk::EggProgramContext> egg::yolk::EggProgram::createRootContext(egg::ovum::IAllocator& allocator, egg::ovum::ILogger& logger, EggProgramSymbolTable& symtable, egg::lang::LogSeverity& maximumSeverity) {
   egg::lang::LocationRuntime location(this->root->location(), "<module>");
   return allocator.make<EggProgramContext>(location, logger, symtable, maximumSeverity);
 }

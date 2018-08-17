@@ -3,6 +3,18 @@ namespace egg::ovum {
   class VariantFactory;
   class VariantSoft;
 
+#define EGG_VM_BASAL_ENUM(name, value) name = 1 << value,
+  enum class Basal {
+    None = 0,
+    EGG_VM_BASAL(EGG_VM_BASAL_ENUM)
+    Arithmetic = Int | Float,
+    Any = Bool | Int | Float | String | Object
+  };
+#undef EGG_VM_BASAL_ENUM
+  inline Basal operator|(Basal lhs, Basal rhs) {
+    return egg::ovum::Bits::set(lhs, rhs);
+  }
+
   enum class VariantBits {
     Void = 1 << 0,
     Null = 1 << 1,
@@ -18,44 +30,36 @@ namespace egg::ovum {
     Hard = 1 << 11
   };
   inline VariantBits operator|(VariantBits lhs, VariantBits rhs) {
-    using Underlying = std::underlying_type_t<VariantBits>;
-    return static_cast<VariantBits>(static_cast<Underlying>(lhs) | static_cast<Underlying>(rhs));
+    return egg::ovum::Bits::set(lhs, rhs);
   }
 
   class VariantKind {
-  public:
-    using Underlying = std::underlying_type_t<VariantBits>;
   private:
-    Underlying bits;
+    VariantBits kind;
   public:
-    explicit VariantKind(VariantBits kind) : bits(static_cast<Underlying>(kind)) {
+    explicit VariantKind(VariantBits bits) : kind(bits) {
     }
     bool hasOne(VariantBits mask) const {
-      auto underlying = static_cast<Underlying>(mask);
-      auto masked = this->bits & underlying;
-      return ((masked & (masked - 1)) == 0) && (masked != 0);
+      return Bits::hasOneSet(this->kind, mask);
     }
     bool hasAny(VariantBits mask) const {
-      auto underlying = static_cast<Underlying>(mask);
-      return (this->bits & underlying) != 0;
+      return Bits::hasAnySet(this->kind, mask);
     }
     bool hasAll(VariantBits mask) const {
-      auto underlying = static_cast<Underlying>(mask);
-      return (this->bits & underlying) == underlying;
+      return Bits::hasAllSet(this->kind, mask);
     }
     bool is(VariantBits value) const {
-      auto underlying = static_cast<Underlying>(value);
-      return this->bits == underlying;
+      return this->kind == value;
     }
     VariantBits getKind() const {
-      return static_cast<VariantBits>(this->bits);
+      return this->kind;
     }
   protected:
-    void setKind(VariantBits kind) {
-      this->bits = static_cast<Underlying>(kind);
+    void setKind(VariantBits bits) {
+      this->kind = bits;
     }
     void swapKind(VariantKind& other) {
-      std::swap(this->bits, other.bits);
+      std::swap(this->kind, other.kind);
     }
   };
 

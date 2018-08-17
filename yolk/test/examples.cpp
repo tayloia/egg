@@ -8,7 +8,7 @@
 using namespace egg::yolk;
 
 namespace {
-  class TestLogger : public IEggEngineLogger {
+  class TestLogger : public egg::ovum::ILogger {
   private:
     std::string resource;
   public:

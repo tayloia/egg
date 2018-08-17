@@ -102,7 +102,7 @@ namespace egg::yolk {
       (void)this->basket->collect();
       // The destructor for 'basket' will assert if this collection doesn't free up everything in the basket
     }
-    egg::ovum::HardPtr<EggProgramContext> createRootContext(egg::ovum::IAllocator& allocator, IEggEngineLogger& logger, EggProgramSymbolTable& symtable, egg::lang::LogSeverity& maximumSeverity);
+    egg::ovum::HardPtr<EggProgramContext> createRootContext(egg::ovum::IAllocator& allocator, egg::ovum::ILogger& logger, EggProgramSymbolTable& symtable, egg::lang::LogSeverity& maximumSeverity);
     egg::lang::LogSeverity prepare(IEggEnginePreparationContext& preparation);
     egg::lang::LogSeverity execute(IEggEngineExecutionContext& execution);
     static std::string unaryToString(EggProgramUnary op);
@@ -131,13 +131,13 @@ namespace egg::yolk {
     };
   private:
     egg::lang::LocationRuntime location;
-    IEggEngineLogger* logger;
+    egg::ovum::ILogger* logger;
     egg::ovum::SoftPtr<EggProgramSymbolTable> symtable;
     egg::lang::LogSeverity* maximumSeverity;
     const egg::lang::IType* scopeDeclare; // Only used in prepare phase
     ScopeFunction* scopeFunction; // Only used in prepare phase
     const egg::lang::Value* scopeValue; // Only used in execute phase
-    EggProgramContext(egg::ovum::IAllocator& allocator, const egg::lang::LocationRuntime& location, IEggEngineLogger* logger, EggProgramSymbolTable& symtable, egg::lang::LogSeverity* maximumSeverity, ScopeFunction* scopeFunction)
+    EggProgramContext(egg::ovum::IAllocator& allocator, const egg::lang::LocationRuntime& location, egg::ovum::ILogger* logger, EggProgramSymbolTable& symtable, egg::lang::LogSeverity* maximumSeverity, ScopeFunction* scopeFunction)
       : SoftReferenceCounted(allocator),
         location(location),
         logger(logger),
@@ -151,7 +151,7 @@ namespace egg::yolk {
     EggProgramContext(egg::ovum::IAllocator& allocator, EggProgramContext& parent, EggProgramSymbolTable& symtable, ScopeFunction* scopeFunction)
       : EggProgramContext(allocator, parent.location, parent.logger, symtable, parent.maximumSeverity, scopeFunction) {
     }
-    EggProgramContext(egg::ovum::IAllocator& allocator, const egg::lang::LocationRuntime& location, IEggEngineLogger& logger, EggProgramSymbolTable& symtable, egg::lang::LogSeverity& maximumSeverity)
+    EggProgramContext(egg::ovum::IAllocator& allocator, const egg::lang::LocationRuntime& location, egg::ovum::ILogger& logger, EggProgramSymbolTable& symtable, egg::lang::LogSeverity& maximumSeverity)
       : EggProgramContext(allocator, location, &logger, symtable, &maximumSeverity, nullptr) {
     }
     virtual void softVisitLinks(const Visitor& visitor) const override;

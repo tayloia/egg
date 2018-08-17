@@ -1,5 +1,8 @@
 namespace egg::lang {
   using String = egg::ovum::String; // TODO remove
+  using LogSource = egg::ovum::ILogger::Source;
+  using LogSeverity = egg::ovum::ILogger::Severity;
+  using Basal = egg::ovum::Basal;
 
   class ValueLegacy;
   class ValueLegacyReferenceCounted;
@@ -11,72 +14,7 @@ namespace egg::lang {
 
   using ITypeRef = egg::ovum::HardPtr<const class IType>;
 
-  class Bits {
-  public:
-    template<typename T>
-    static bool hasAllSet(T value, T bits) {
-      auto a = static_cast<std::underlying_type_t<T>>(value);
-      auto b = static_cast<std::underlying_type_t<T>>(bits);
-      return (a & b) == b;
-    }
-    template<typename T>
-    static bool hasAnySet(T value, T bits) {
-      auto a = static_cast<std::underlying_type_t<T>>(value);
-      auto b = static_cast<std::underlying_type_t<T>>(bits);
-      return (a & b) != 0;
-    }
-    template<typename T>
-    static T mask(T value, T bits) {
-      auto a = static_cast<std::underlying_type_t<T>>(value);
-      auto b = static_cast<std::underlying_type_t<T>>(bits);
-      return static_cast<T>(a & b);
-    }
-    template<typename T>
-    static T set(T value, T bits) {
-      auto a = static_cast<std::underlying_type_t<T>>(value);
-      auto b = static_cast<std::underlying_type_t<T>>(bits);
-      return static_cast<T>(a | b);
-    }
-    template<typename T>
-    static T clear(T value, T bits) {
-      auto a = static_cast<std::underlying_type_t<T>>(value);
-      auto b = static_cast<std::underlying_type_t<T>>(bits);
-      return static_cast<T>(a & ~b);
-    }
-    template<typename T>
-    static T invert(T value, T bits) {
-      auto a = static_cast<std::underlying_type_t<T>>(value);
-      auto b = static_cast<std::underlying_type_t<T>>(bits);
-      return static_cast<T>(a ^ b);
-    }
-  };
-
-  enum class LogSource {
-    Compiler = 1 << 0,
-    Runtime = 1 << 1,
-    User = 1 << 2
-  };
-
-  enum class LogSeverity {
-    None = 0,
-    Debug = 1 << 0,
-    Verbose = 1 << 1,
-    Information = 1 << 2,
-    Warning = 1 << 3,
-    Error = 1 << 4
-  };
-
 #define EGG_VM_BASAL_ENUM(name, value) name = 1 << value,
-  enum class Basal {
-    None = 0,
-    EGG_VM_BASAL(EGG_VM_BASAL_ENUM)
-    Arithmetic = Int | Float,
-    Any = Bool | Int | Float | String | Object
-  };
-  inline Basal operator|(Basal lhs, Basal rhs) {
-    return Bits::set(lhs, rhs);
-  }
-
   enum class Discriminator {
     Inferred = -1,
     None = 0,
@@ -93,8 +31,9 @@ namespace egg::lang {
     FlowControl = Break | Continue | Return | Yield | Exception,
     Raw = 1 << 15
   };
+#undef EGG_VM_BASAL_ENUM
   inline Discriminator operator|(Discriminator lhs, Discriminator rhs) {
-    return Bits::set(lhs, rhs);
+    return egg::ovum::Bits::set(lhs, rhs);
   }
 
   class IPreparation {
@@ -149,9 +88,9 @@ namespace egg::lang {
     virtual Flags getFlags() const = 0;
 
     // Flag helpers
-    bool isRequired() const { return Bits::hasAnySet(this->getFlags(), Flags::Required); }
-    bool isVariadic() const { return Bits::hasAnySet(this->getFlags(), Flags::Variadic); }
-    bool isPredicate() const { return Bits::hasAnySet(this->getFlags(), Flags::Predicate); }
+    bool isRequired() const { return egg::ovum::Bits::hasAnySet(this->getFlags(), Flags::Required); }
+    bool isVariadic() const { return egg::ovum::Bits::hasAnySet(this->getFlags(), Flags::Variadic); }
+    bool isPredicate() const { return egg::ovum::Bits::hasAnySet(this->getFlags(), Flags::Predicate); }
   };
 
   class IFunctionSignature {
@@ -205,7 +144,7 @@ namespace egg::lang {
     // Helpers
     String toString(int precedence = -1) const;
     bool hasBasalType(Basal basal) const {
-      return egg::lang::Bits::hasAnySet(this->getBasalTypes(), basal);
+      return egg::ovum::Bits::hasAnySet(this->getBasalTypes(), basal);
     }
   };
 
@@ -303,44 +242,44 @@ namespace egg::lang {
     ~ValueLegacy();
     bool operator==(const ValueLegacy& other) const { return ValueLegacy::equals(*this, other); }
     bool operator!=(const ValueLegacy& other) const { return !ValueLegacy::equals(*this, other); }
-    bool hasLegacy(Discriminator bits) const { return Bits::hasAnySet(this->tag, bits); }
-    bool hasBasal(Basal bits) const { return Bits::hasAnySet(this->tag, static_cast<Discriminator>(bits)); }
-    bool hasArithmetic() const { return Bits::hasAnySet(this->tag, Discriminator::Arithmetic); }
+    bool hasLegacy(Discriminator bits) const { return egg::ovum::Bits::hasAnySet(this->tag, bits); }
+    bool hasBasal(Basal bits) const { return egg::ovum::Bits::hasAnySet(this->tag, static_cast<Discriminator>(bits)); }
+    bool hasArithmetic() const { return egg::ovum::Bits::hasAnySet(this->tag, Discriminator::Arithmetic); }
     bool isVoid() const { return this->tag == Discriminator::Void; }
     bool isBreak() const { return this->tag == Discriminator::Break; }
     bool isContinue() const { return this->tag == Discriminator::Continue; }
     const ValueLegacy& direct() const;
     ValueLegacy& direct();
-    bool hasIndirect() const { return Bits::hasAnySet(this->tag, Discriminator::Indirect); }
+    bool hasIndirect() const { return egg::ovum::Bits::hasAnySet(this->tag, Discriminator::Indirect); }
     ValueLegacyReferenceCounted& indirect(egg::ovum::IAllocator& allocator);
     ValueLegacy& soft(egg::ovum::ICollectable& container);
     bool isLegacy(Discriminator bits) const { return this->tag == bits; }
-    bool hasNull() const { return Bits::hasAnySet(this->tag, Discriminator::Null); }
+    bool hasNull() const { return egg::ovum::Bits::hasAnySet(this->tag, Discriminator::Null); }
     bool isNull() const { return this->tag == Discriminator::Null; }
-    bool hasBool() const { return Bits::hasAnySet(this->tag, Discriminator::Bool); }
+    bool hasBool() const { return egg::ovum::Bits::hasAnySet(this->tag, Discriminator::Bool); }
     bool isBool() const { return this->tag == Discriminator::Bool; }
     bool getBool() const { assert(this->hasBool()); return this->b; }
-    bool hasInt() const { return Bits::hasAnySet(this->tag, Discriminator::Int); }
+    bool hasInt() const { return egg::ovum::Bits::hasAnySet(this->tag, Discriminator::Int); }
     bool isInt() const { return this->tag == Discriminator::Int; }
     int64_t getInt() const { assert(this->hasInt()); return this->i; }
-    bool hasFloat() const { return Bits::hasAnySet(this->tag, Discriminator::Float); }
+    bool hasFloat() const { return egg::ovum::Bits::hasAnySet(this->tag, Discriminator::Float); }
     bool isFloat() const { return this->tag == Discriminator::Float; }
     double getFloat() const { assert(this->hasFloat()); return this->f; }
-    bool hasString() const { return Bits::hasAnySet(this->tag, Discriminator::String); }
+    bool hasString() const { return egg::ovum::Bits::hasAnySet(this->tag, Discriminator::String); }
     bool isString() const { return this->tag == Discriminator::String; }
     String getString() const { assert(this->hasString()); return String(this->s); }
-    bool hasObject() const { return Bits::hasAnySet(this->tag, Discriminator::Object); }
+    bool hasObject() const { return egg::ovum::Bits::hasAnySet(this->tag, Discriminator::Object); }
     egg::ovum::HardPtr<IObject> getObject() const { assert(this->hasObject()); assert(this->o != nullptr); return egg::ovum::HardPtr<IObject>(this->o); }
-    bool hasType() const { return Bits::hasAnySet(this->tag, Discriminator::Type); }
+    bool hasType() const { return egg::ovum::Bits::hasAnySet(this->tag, Discriminator::Type); }
     const IType& getType() const { assert(this->hasType()); return *this->t; }
-    bool hasPointer() const { return Bits::hasAnySet(this->tag, Discriminator::Pointer); }
+    bool hasPointer() const { return egg::ovum::Bits::hasAnySet(this->tag, Discriminator::Pointer); }
     ValueLegacyReferenceCounted& getPointee() const { assert(this->hasPointer() && !this->hasObject()); return *this->v; }
-    bool hasAny() const { return Bits::hasAnySet(this->tag, Discriminator::Any); }
+    bool hasAny() const { return egg::ovum::Bits::hasAnySet(this->tag, Discriminator::Any); }
     bool isSoftReference() const { return this->tag == (Discriminator::Object | Discriminator::Pointer); }
     void softVisitLink(const egg::ovum::ICollectable::Visitor& visitor) const;
-    bool hasException() const { return Bits::hasAnySet(this->tag, Discriminator::Exception); }
+    bool hasException() const { return egg::ovum::Bits::hasAnySet(this->tag, Discriminator::Exception); }
     bool isRethrow() const { return this->tag == (Discriminator::Exception | Discriminator::Void); }
-    bool hasFlowControl() const { return Bits::hasAnySet(this->tag, Discriminator::FlowControl); }
+    bool hasFlowControl() const { return egg::ovum::Bits::hasAnySet(this->tag, Discriminator::FlowControl); }
     void addFlowControl(Discriminator bits);
     bool stripFlowControl(Discriminator bits);
     std::string getDiscriminatorString() const;

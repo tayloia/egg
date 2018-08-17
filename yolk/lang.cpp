@@ -35,18 +35,18 @@ namespace {
       // The source is not basal
       return IType::AssignmentSuccess::Never;
     }
-    if (Bits::hasAllSet(lhs, rhs)) {
+    if (egg::ovum::Bits::hasAllSet(lhs, rhs)) {
       // The assignment will always work (unless it includes 'void')
-      if (Bits::hasAnySet(rhs, Basal::Void)) {
+      if (egg::ovum::Bits::hasAnySet(rhs, Basal::Void)) {
         return IType::AssignmentSuccess::Sometimes;
       }
       return IType::AssignmentSuccess::Always;
     }
-    if (Bits::hasAnySet(lhs, rhs)) {
+    if (egg::ovum::Bits::hasAnySet(lhs, rhs)) {
       // There's a possibility that the assignment might work
       return IType::AssignmentSuccess::Sometimes;
     }
-    if (Bits::hasAnySet(lhs, Basal::Float) && Bits::hasAnySet(rhs, Basal::Int)) {
+    if (egg::ovum::Bits::hasAnySet(lhs, Basal::Float) && egg::ovum::Bits::hasAnySet(rhs, Basal::Int)) {
       // We allow type promotion int->float
       return IType::AssignmentSuccess::Sometimes;
     }
@@ -60,7 +60,7 @@ namespace {
       // It's an exact type match (narrowing)
       return rhs;
     }
-    if (Bits::hasAnySet(lhs, Basal::Float) && rhs.isInt()) {
+    if (egg::ovum::Bits::hasAnySet(lhs, Basal::Float) && rhs.isInt()) {
       // We allow type promotion int->float
       return Value(double(rhs.getInt())); // TODO overflows?
     }
@@ -110,7 +110,7 @@ namespace {
     }
     virtual ITypeRef unionWith(const IType& other) const override {
       auto basal = other.getBasalTypes();
-      if (Bits::hasAnySet(basal, Basal::Null)) {
+      if (egg::ovum::Bits::hasAnySet(basal, Basal::Null)) {
         // The other type supports Null anyway
         return ITypeRef(&other);
       }
@@ -129,7 +129,7 @@ namespace {
   class TypeNative : public egg::ovum::NotReferenceCounted<IType> {
   public:
     TypeNative() {
-      assert(!Bits::hasAnySet(BASAL, Basal::Null));
+      assert(!egg::ovum::Bits::hasAnySet(BASAL, Basal::Null));
     }
     virtual std::pair<std::string, int> toStringPrecedence() const override {
       return tagToStringPriority(BASAL);
@@ -138,7 +138,7 @@ namespace {
       return BASAL;
     }
     virtual ITypeRef denulledType() const override {
-      auto denulled = Bits::clear(BASAL, Basal::Null);
+      auto denulled = egg::ovum::Bits::clear(BASAL, Basal::Null);
       if (denulled == BASAL) {
         // It's the identical native type
         return ITypeRef(this);
@@ -253,7 +253,7 @@ namespace {
       return this->tag;
     }
     virtual ITypeRef denulledType() const override {
-      auto denulled = Bits::clear(this->tag, Basal::Null);
+      auto denulled = egg::ovum::Bits::clear(this->tag, Basal::Null);
       if (this->tag != denulled) {
         // We need to clear the bit
         return Type::makeBasal(denulled);
@@ -266,7 +266,7 @@ namespace {
         // The other type is not basal
         return Type::makeUnion(*this, other);
       }
-      auto both = Bits::set(this->tag, basal);
+      auto both = egg::ovum::Bits::set(this->tag, basal);
       if (both != this->tag) {
         // There's a new basal type that we don't support, so create a new type
         return Type::makeBasal(both);
@@ -280,17 +280,17 @@ namespace {
       return promoteAssignmentBasal(execution, this->tag, rhs);
     }
     virtual const IFunctionSignature* callable() const override {
-      if (Bits::hasAnySet(this->tag, Basal::Object)) {
+      if (egg::ovum::Bits::hasAnySet(this->tag, Basal::Object)) {
         return &omniFunctionSignature;
       }
       return nullptr;
     }
     virtual bool iterable(ITypeRef& type) const override {
-      if (Bits::hasAnySet(this->tag, Basal::Object)) {
+      if (egg::ovum::Bits::hasAnySet(this->tag, Basal::Object)) {
         type = Type::Any;
         return true;
       }
-      if (Bits::hasAnySet(this->tag, Basal::String)) {
+      if (egg::ovum::Bits::hasAnySet(this->tag, Basal::String)) {
         type = Type::String;
         return true;
       }
@@ -361,7 +361,7 @@ void egg::lang::Value::copyInternals(const Value& other) {
   this->tag = other.tag;
   if (this->hasObject()) {
     // We can only copy the reference as a hard pointer
-    this->tag = Bits::clear(other.tag, Discriminator::Pointer);
+    this->tag = egg::ovum::Bits::clear(other.tag, Discriminator::Pointer);
     this->o = other.o->hardAcquire<IObject>();
   } else if (this->hasLegacy(Discriminator::Indirect | Discriminator::Pointer)) {
     this->v = other.v->hardAcquire<ValueReferenceCounted>();
@@ -384,7 +384,7 @@ void egg::lang::Value::moveInternals(Value& other) {
     auto* ptr = other.o;
     if (this->hasPointer()) {
       // Convert the soft pointer to a hard one
-      this->tag = Bits::clear(this->tag, Discriminator::Pointer);
+      this->tag = egg::ovum::Bits::clear(this->tag, Discriminator::Pointer);
       this->o = ptr->hardAcquire<IObject>();
     } else {
       // Not need to increment/decrement the reference count
@@ -492,7 +492,7 @@ egg::lang::ValueLegacy& egg::lang::ValueLegacy::soft(egg::ovum::ICollectable& co
     assert(this->o != nullptr);
     if (container.softLink(*this->o)) {
       // Successfully linked in the basket, so release our hard reference
-      this->tag = Bits::set(this->tag, Discriminator::Pointer);
+      this->tag = egg::ovum::Bits::set(this->tag, Discriminator::Pointer);
       this->o->hardRelease();
     }
   }
@@ -530,7 +530,7 @@ bool egg::lang::ValueLegacy::equals(const ValueLegacy& lhs, const ValueLegacy& r
   if (a.tag == Discriminator::Pointer) {
     return a.v == b.v;
   }
-  assert(Bits::hasAnySet(a.tag, Discriminator::Object));
+  assert(egg::ovum::Bits::hasAnySet(a.tag, Discriminator::Object));
   return a.o == b.o;
 }
 
@@ -571,17 +571,17 @@ void egg::lang::ValueLegacy::softVisitLink(const egg::ovum::ICollectable::Visito
 }
 
 void egg::lang::ValueLegacy::addFlowControl(Discriminator bits) {
-  assert(Bits::mask(bits, Discriminator::FlowControl) == bits);
+  assert(egg::ovum::Bits::mask(bits, Discriminator::FlowControl) == bits);
   assert(!this->hasFlowControl());
   this->tag = this->tag | bits;
   assert(this->hasFlowControl());
 }
 
 bool egg::lang::ValueLegacy::stripFlowControl(Discriminator bits) {
-  assert(Bits::mask(bits, Discriminator::FlowControl) == bits);
-  if (Bits::hasAnySet(this->tag, bits)) {
+  assert(egg::ovum::Bits::mask(bits, Discriminator::FlowControl) == bits);
+  if (egg::ovum::Bits::hasAnySet(this->tag, bits)) {
     assert(this->hasFlowControl());
-    this->tag = Bits::clear(this->tag, bits);
+    this->tag = egg::ovum::Bits::clear(this->tag, bits);
     assert(!this->hasFlowControl());
     return true;
   }
@@ -604,8 +604,8 @@ std::string egg::lang::ValueLegacy::getBasalString(Basal tag) {
   if (tag == Basal::Null) {
     return "null";
   }
-  if (Bits::hasAnySet(tag, Basal::Null)) {
-    return ValueLegacy::getBasalString(Bits::clear(tag, Basal::Null)) + "?";
+  if (egg::ovum::Bits::hasAnySet(tag, Basal::Null)) {
+    return ValueLegacy::getBasalString(egg::ovum::Bits::clear(tag, Basal::Null)) + "?";
   }
   return egg::yolk::String::fromEnum(tag, table);
 }
@@ -633,8 +633,8 @@ std::string egg::lang::ValueLegacy::getDiscriminatorString(Discriminator tag) {
   if (tag == Discriminator::Null) {
     return "null";
   }
-  if (Bits::hasAnySet(tag, Discriminator::Null)) {
-    return ValueLegacy::getDiscriminatorString(Bits::clear(tag, Discriminator::Null)) + "?";
+  if (egg::ovum::Bits::hasAnySet(tag, Discriminator::Null)) {
+    return ValueLegacy::getDiscriminatorString(egg::ovum::Bits::clear(tag, Discriminator::Null)) + "?";
   }
   return egg::yolk::String::fromEnum(tag, table);
 }

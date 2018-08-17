@@ -10,10 +10,10 @@ namespace {
   using namespace egg::yolk;
 
   bool abandoned(EggProgramNodeFlags flags) {
-    return egg::lang::Bits::hasAnySet(flags, EggProgramNodeFlags::Abandon);
+    return egg::ovum::Bits::hasAnySet(flags, EggProgramNodeFlags::Abandon);
   }
   bool fallthrough(EggProgramNodeFlags flags) {
-    return egg::lang::Bits::hasAnySet(flags, EggProgramNodeFlags::Fallthrough);
+    return egg::ovum::Bits::hasAnySet(flags, EggProgramNodeFlags::Fallthrough);
   }
   EggProgramNodeFlags checkBinarySide(EggProgramContext& context, const egg::lang::LocationSource& where, EggProgramBinary op, const char* side, egg::lang::Basal expected, IEggProgramNode& node) {
     auto prepared = node.prepare(context);
@@ -21,7 +21,7 @@ namespace {
       auto type = node.getType();
       auto basal = type->getBasalTypes();
       assert(basal != egg::lang::Basal::None);
-      if (!egg::lang::Bits::hasAnySet(basal, expected)) {
+      if (!egg::ovum::Bits::hasAnySet(basal, expected)) {
         if (expected == egg::lang::Basal::Null) {
           context.compilerWarning(where, "Expected ", side, " of '", EggProgram::binaryToString(op), "' operator to be possibly 'null', but got '", type->toString(), "' instead");
         } else {
@@ -42,7 +42,7 @@ namespace {
     if (abandoned(lflags)) {
       return rflags;
     }
-    return egg::lang::Bits::mask(lflags, rflags);
+    return egg::ovum::Bits::mask(lflags, rflags);
   }
 }
 
@@ -152,10 +152,10 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareAssign(const
   case EggProgramAssign::LogicalAnd:
   case EggProgramAssign::LogicalOr:
     // Boolean operation
-    if (!egg::lang::Bits::hasAnySet(lbasal, egg::lang::Basal::Bool)) {
+    if (!egg::ovum::Bits::hasAnySet(lbasal, egg::lang::Basal::Bool)) {
       return this->compilerError(where, "Expected left-hand side of '", EggProgram::assignToString(op), "' assignment operator to be 'bool', but got '", ltype->toString(), "' instead");
     }
-    if (!egg::lang::Bits::hasAnySet(rbasal, egg::lang::Basal::Bool)) {
+    if (!egg::ovum::Bits::hasAnySet(rbasal, egg::lang::Basal::Bool)) {
       return this->compilerError(where, "Expected right-hand side of '", EggProgram::assignToString(op), "' assignment operator to be 'bool', but got '", ltype->toString(), "' instead");
     }
     break;
@@ -163,7 +163,7 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareAssign(const
   case EggProgramAssign::BitwiseOr:
   case EggProgramAssign::BitwiseXor:
     // Boolean/Integer operation
-    if (!egg::lang::Bits::hasAnySet(lbasal, egg::lang::Basal::Bool | egg::lang::Basal::Int)) {
+    if (!egg::ovum::Bits::hasAnySet(lbasal, egg::lang::Basal::Bool | egg::lang::Basal::Int)) {
       return this->compilerError(where, "Expected left-hand side of '", EggProgram::assignToString(op), "' assignment operator to be 'bool' or 'int', but got '", ltype->toString(), "' instead");
     }
     if (rbasal != lbasal) {
@@ -174,10 +174,10 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareAssign(const
   case EggProgramAssign::ShiftRight:
   case EggProgramAssign::ShiftRightUnsigned:
     // Integer-only operation
-    if (!egg::lang::Bits::hasAnySet(lbasal, egg::lang::Basal::Int)) {
+    if (!egg::ovum::Bits::hasAnySet(lbasal, egg::lang::Basal::Int)) {
       return this->compilerError(where, "Expected left-hand target of integer '", EggProgram::assignToString(op), "' assignment operator to be 'int', but got '", ltype->toString(), "' instead");
     }
-    if (!egg::lang::Bits::hasAnySet(rbasal, egg::lang::Basal::Int)) {
+    if (!egg::ovum::Bits::hasAnySet(rbasal, egg::lang::Basal::Int)) {
       return this->compilerError(where, "Expected right-hand side of integer '", EggProgram::assignToString(op), "' assignment operator to be 'int', but got '", rtype->toString(), "' instead");
     }
     break;
@@ -187,17 +187,17 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareAssign(const
   case EggProgramAssign::Minus:
   case EggProgramAssign::Divide:
     // Arithmetic operation
-    if (egg::lang::Bits::mask(rbasal, egg::lang::Basal::Int | egg::lang::Basal::Float) == egg::lang::Basal::Float) {
+    if (egg::ovum::Bits::mask(rbasal, egg::lang::Basal::Int | egg::lang::Basal::Float) == egg::lang::Basal::Float) {
       // Float-only operation
-      if (!egg::lang::Bits::hasAnySet(lbasal, egg::lang::Basal::Float)) {
+      if (!egg::ovum::Bits::hasAnySet(lbasal, egg::lang::Basal::Float)) {
         return this->compilerError(where, "Expected left-hand target of floating-point '", EggProgram::assignToString(op), "' assignment operator to be 'float', but got '", ltype->toString(), "' instead");
       }
     } else {
       // Float-or-int operation
-      if (!egg::lang::Bits::hasAnySet(rbasal, egg::lang::Basal::Arithmetic)) {
+      if (!egg::ovum::Bits::hasAnySet(rbasal, egg::lang::Basal::Arithmetic)) {
         return this->compilerError(where, "Expected right-hand side of '", EggProgram::assignToString(op), "' assignment operator to be 'int' or 'float', but got '", rtype->toString(), "' instead");
       }
-      if (!egg::lang::Bits::hasAnySet(lbasal, egg::lang::Basal::Arithmetic)) {
+      if (!egg::ovum::Bits::hasAnySet(lbasal, egg::lang::Basal::Arithmetic)) {
         return this->compilerError(where, "Expected left-hand target of '", EggProgram::assignToString(op), "' assignment operator to be 'int' or 'float', but got '", ltype->toString(), "' instead");
       }
     }
@@ -206,7 +206,7 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareAssign(const
     if (ltype->canBeAssignedFrom(*rtype) == egg::lang::IType::AssignmentSuccess::Never) {
       return this->compilerError(where, "Cannot assign a value of type '", rtype->toString(), "' to a target of type '", ltype->toString(), "'");
     }
-    if (!egg::lang::Bits::hasAnySet(lbasal, egg::lang::Basal::Int)) {
+    if (!egg::ovum::Bits::hasAnySet(lbasal, egg::lang::Basal::Int)) {
       // This is just a warning
       this->compilerWarning(where, "Expected left-hand target of null-coalescing '??=' assignment operator to be possibly 'null', but got '", ltype->toString(), "' instead");
     }
@@ -226,7 +226,7 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareMutate(const
   case EggProgramMutate::Increment:
   case EggProgramMutate::Decrement:
     // Integer-only operation
-    if (!egg::lang::Bits::hasAnySet(lbasal, egg::lang::Basal::Int)) {
+    if (!egg::ovum::Bits::hasAnySet(lbasal, egg::lang::Basal::Int)) {
       return this->compilerError(where, "Expected target of integer '", EggProgram::mutateToString(op), "' operator to be 'int', but got '", ltype->toString(), "' instead");
     }
     break;
@@ -260,7 +260,7 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareIf(IEggProgr
     if (abandoned(pcond)) {
       return EggProgramNodeFlags::Abandon;
     }
-    if (egg::lang::Bits::hasAnySet(pcond, EggProgramNodeFlags::Constant)) {
+    if (egg::ovum::Bits::hasAnySet(pcond, EggProgramNodeFlags::Constant)) {
       this->compilerWarning(cond.location(), "Condition in 'if' statement is constant");
     }
     auto ptrue = trueBlock.prepare(scope);
@@ -547,19 +547,19 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareBrackets(con
   auto ltype = instance.getType();
   auto lbasal = ltype->getBasalTypes();
   assert(lbasal != egg::lang::Basal::None);
-  auto mask = egg::lang::Bits::mask(lbasal, egg::lang::Basal::String | egg::lang::Basal::Object);
+  auto mask = egg::ovum::Bits::mask(lbasal, egg::lang::Basal::String | egg::lang::Basal::Object);
   if (mask == egg::lang::Basal::None) {
     // Neither string nor object
     return this->compilerError(where, "Expected subject of '[]' operator to be 'string' or 'object', but got '", ltype->toString(), "' instead");
   }
   auto rtype = index.getType();
-  if (egg::lang::Bits::hasAnySet(mask, egg::lang::Basal::String)) {
+  if (egg::ovum::Bits::hasAnySet(mask, egg::lang::Basal::String)) {
     // Strings only accept integer indices
     if (rtype->hasBasalType(egg::lang::Basal::Int)) {
       return EggProgramNodeFlags::None;
     }
   }
-  if (egg::lang::Bits::hasAnySet(mask, egg::lang::Basal::Object)) {
+  if (egg::ovum::Bits::hasAnySet(mask, egg::lang::Basal::Object)) {
     // Ask the object what indexing it supports
     auto indexable = ltype->indexable();
     if (indexable == nullptr) {
@@ -578,13 +578,13 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareDot(const eg
   auto ltype = instance.getType();
   auto lbasal = ltype->getBasalTypes();
   assert(lbasal != egg::lang::Basal::None);
-  if (egg::lang::Bits::hasAnySet(lbasal, egg::lang::Basal::String)) {
+  if (egg::ovum::Bits::hasAnySet(lbasal, egg::lang::Basal::String)) {
     if (egg::yolk::Builtins::stringBuiltinFactory(property) != nullptr) {
       // It's a known string builtin
       return EggProgramNodeFlags::None;
     }
   }
-  if (egg::lang::Bits::hasAnySet(lbasal, egg::lang::Basal::Object)) {
+  if (egg::ovum::Bits::hasAnySet(lbasal, egg::lang::Basal::Object)) {
     // Ask the object what properties it supports
     egg::lang::ITypeRef type{ egg::lang::Type::Void };
     egg::ovum::String reason;
@@ -609,19 +609,19 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareUnary(const 
   switch (op) {
   case EggProgramUnary::LogicalNot:
     // Boolean-only operation
-    if (!egg::lang::Bits::hasAnySet(type->getBasalTypes(), egg::lang::Basal::Bool)) {
+    if (!egg::ovum::Bits::hasAnySet(type->getBasalTypes(), egg::lang::Basal::Bool)) {
       return this->compilerError(where, "Expected operand of logical-not '!' operator to be 'int', but got '", type->toString(), "' instead");
     }
     break;
   case EggProgramUnary::BitwiseNot:
     // Integer-only operation
-    if (!egg::lang::Bits::hasAnySet(type->getBasalTypes(), egg::lang::Basal::Int)) {
+    if (!egg::ovum::Bits::hasAnySet(type->getBasalTypes(), egg::lang::Basal::Int)) {
       return this->compilerError(where, "Expected operand of bitwise-not '~' operator to be 'int', but got '", type->toString(), "' instead");
     }
     break;
   case EggProgramUnary::Negate:
     // Arithmetic operation
-    if (!egg::lang::Bits::hasAnySet(type->getBasalTypes(), egg::lang::Basal::Arithmetic)) {
+    if (!egg::ovum::Bits::hasAnySet(type->getBasalTypes(), egg::lang::Basal::Arithmetic)) {
       return this->compilerError(where, "Expected operand of negation '-' operator to be 'int' or 'float', but got '", type->toString(), "' instead");
     }
     break;
