@@ -15,7 +15,7 @@ namespace {
       egg::lang::LocationSource location;
     };
     std::vector<Pair> positional;
-    egg::ovum::StringMap<Pair> named;
+    std::map<egg::ovum::String, Pair> named;
   public:
     explicit EggProgramParameters(size_t count) {
       this->positional.reserve(count);

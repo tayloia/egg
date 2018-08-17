@@ -1309,7 +1309,7 @@ std::unique_ptr<IEggSyntaxNode> EggSyntaxParserContext::parseExpressionObject(co
     // This is an empty object: '{' '}'
     mark.accept(2);
   } else {
-    std::set<egg::ovum::String, egg::ovum::StringLess> seen;
+    std::set<egg::ovum::String> seen;
     const EggTokenizerItem* p;
     do {
       // Expect <identifier> ':' <expression>

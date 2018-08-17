@@ -278,7 +278,7 @@ namespace {
     std::ostream& stream;
     std::map<Int, size_t> ivalues;
     std::map<std::pair<Int, Int>, size_t> fvalues;
-    StringMap<size_t> svalues;
+    std::map<String, size_t> svalues;
     size_t positives;
   public:
     explicit ModuleWriter(std::ostream& stream)

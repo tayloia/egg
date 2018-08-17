@@ -1165,7 +1165,6 @@ void egg::lang::Value::moveInternals(Value& other) {
       // Convert the soft pointer to a hard one
       this->tag = Bits::clear(this->tag, Discriminator::Pointer);
       this->o = ptr->hardAcquire<IObject>();
-      other.o = nullptr; // WIBBLE
     } else {
       // Not need to increment/decrement the reference count
       this->o = ptr;
@@ -1188,9 +1187,7 @@ void egg::lang::Value::moveInternals(Value& other) {
 
 void egg::lang::Value::destroyInternals() {
   if (this->has(Discriminator::Object)) {
-    if (this->has(Discriminator::Pointer)) {
-      this->o = nullptr; // WIBBLE
-    } else {
+    if (!this->has(Discriminator::Pointer)) {
       this->o->hardRelease();
     }
   } else if (this->has(Discriminator::Indirect | Discriminator::Pointer)) {
@@ -1268,7 +1265,7 @@ egg::lang::ValueReferenceCounted& egg::lang::Value::indirect(egg::ovum::IAllocat
   return *this->v;
 }
 
-egg::lang::Value& egg::lang::Value::soft(egg::ovum::IAllocator&, egg::ovum::ICollectable& container) { // WIBBLE parameters
+egg::lang::Value& egg::lang::Value::soft(egg::ovum::ICollectable& container) {
   if (this->has(Discriminator::Object) && !this->has(Discriminator::Pointer)) {
     // This is a hard pointer to an IObject, make it a soft pointer, if possible
     assert(this->o != nullptr);

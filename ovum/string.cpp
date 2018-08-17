@@ -39,20 +39,6 @@ namespace {
     return reader;
   }
 
-  int utf8Compare(const uint8_t* lbegin, size_t lsize, const uint8_t* rbegin, size_t rsize) {
-    assert(lbegin != nullptr);
-    assert(rbegin != nullptr);
-    if (lsize < rsize) {
-      auto cmp = std::memcmp(lbegin, rbegin, lsize);
-      return (cmp == 0) ? -1 : cmp;
-    }
-    if (lsize > rsize) {
-      auto cmp = std::memcmp(lbegin, rbegin, rsize);
-      return (cmp == 0) ? 1 : cmp;
-    }
-    return std::memcmp(lbegin, rbegin, lsize);
-  }
-
   const IMemory* createContiguous(IAllocator& allocator, const uint8_t* utf8, size_t bytes, size_t codepoints = SIZE_MAX) {
     // TODO detect malformed/overlong/etc
     if ((utf8 == nullptr) || (bytes == 0)) {
@@ -104,16 +90,6 @@ namespace {
   };
 }
 
-bool egg::ovum::StringLess::operator()(const egg::ovum::String& lhs, const egg::ovum::String& rhs) const {
-  if (lhs.get() == nullptr) {
-    return false;
-  }
-  if (rhs.get() == nullptr) {
-    return true;
-  }
-  return utf8Compare(lhs->begin(), lhs->bytes(), rhs->begin(), rhs->bytes()) < 0;
-}
-
 egg::ovum::String::String(const char* utf8)
   : HardPtr(StringFallbackAllocator::createUTF8(utf8)) {
   // We've got to create this string without an allocator, so use a fallback
@@ -141,7 +117,55 @@ int32_t egg::ovum::String::codePointAt(size_t index) const {
 }
 
 bool egg::ovum::String::equals(const String& other) const {
+  // Ordinal comparison
   return IMemory::equals(this->get(), other.get());
+}
+
+bool egg::ovum::String::lessThan(const String& other) const {
+  // Ordinal comparison via UTF8
+  auto* lhs = this->get();
+  if (lhs == nullptr) {
+    return !other.empty();
+  }
+  auto* rhs = other.get();
+  if (rhs == nullptr) {
+    return false;
+  }
+  auto lsize = lhs->bytes();
+  auto rsize = rhs->bytes();
+  if (lsize < rsize) {
+    return std::memcmp(lhs->begin(), rhs->begin(), lsize) <= 0;
+  }
+  return std::memcmp(lhs->begin(), rhs->begin(), rsize) < 0;
+}
+
+int64_t egg::ovum::String::compareTo(const String& other) const {
+  // Ordinal comparison via UTF8
+  auto* lhs = this->get();
+  if (lhs == nullptr) {
+    return other.empty() ? 0 : -1;
+  }
+  auto* rhs = other.get();
+  if (rhs == nullptr) {
+    return this->empty() ? 0 : 1;
+  }
+  auto lsize = lhs->bytes();
+  auto rsize = rhs->bytes();
+  int cmp;
+  if (lsize < rsize) {
+    cmp = std::memcmp(lhs->begin(), rhs->begin(), lsize);
+    if (cmp == 0) {
+      return -1;
+    }
+  } else if (lsize > rsize) {
+    cmp = std::memcmp(lhs->begin(), rhs->begin(), rsize);
+    if (cmp == 0) {
+      return 1;
+    }
+  } else {
+    cmp = std::memcmp(lhs->begin(), rhs->begin(), rsize);
+  }
+  return (cmp > 0) - (cmp < 0); // ensure {-1,0,+1}
 }
 
 egg::ovum::String egg::ovum::String::fromCodePoint(char32_t codepoint) {
@@ -172,13 +196,6 @@ egg::ovum::String egg::ovum::StringFactory::fromUTF8(IAllocator& allocator, cons
   assert(end >= begin);
   auto bytes = size_t(end - begin);
   return String(createContiguous(allocator, begin, bytes, codepoints));
-}
-
-egg::ovum::String egg::ovum::StringFactory::fromUTF8(IAllocator& allocator, const uint8_t* begin, const uint8_t* end) {
-  assert(begin != nullptr);
-  assert(end >= begin);
-  auto bytes = size_t(end - begin);
-  return String(createContiguous(allocator, begin, bytes));
 }
 
 const egg::ovum::IMemory* egg::ovum::Variant::acquireFallbackString(const char* utf8, size_t bytes) {

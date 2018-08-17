@@ -193,8 +193,7 @@ namespace egg::ovum {
   public:
     // WIBBLE all needed?
     static String fromCodePoint(IAllocator& allocator, char32_t codepoint);
-    static String fromUTF8(IAllocator& allocator, const uint8_t* begin, const uint8_t* end, size_t codepoints);
-    static String fromUTF8(IAllocator& allocator, const uint8_t* begin, const uint8_t* end);
+    static String fromUTF8(IAllocator& allocator, const uint8_t* begin, const uint8_t* end, size_t codepoints = SIZE_MAX);
     static String fromUTF8(IAllocator& allocator, const void* utf8, size_t bytes) {
       auto begin = static_cast<const uint8_t*>(utf8);
       assert(begin != nullptr);

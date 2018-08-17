@@ -432,7 +432,7 @@ namespace egg::lang {
     const Value& direct() const;
     Value& direct();
     ValueReferenceCounted& indirect(egg::ovum::IAllocator& allocator);
-    Value& soft(egg::ovum::IAllocator& allocator, egg::ovum::ICollectable& container);
+    Value& soft(egg::ovum::ICollectable& container);
     bool is(Discriminator bits) const { return this->tag == bits; }
     bool has(Discriminator bits) const { return Bits::hasAnySet(this->tag, bits); }
     bool getBool() const { assert(this->has(Discriminator::Bool)); return this->b; }
@@ -469,7 +469,7 @@ namespace egg::lang {
     static Value builtinAssert(egg::ovum::IAllocator& allocator);
     static Value builtinPrint(egg::ovum::IAllocator& allocator);
 
-    // WIBBLE make
+    // Factories
     template<typename T, typename... ARGS>
     static Value makeObject(egg::ovum::IAllocator& allocator, ARGS&&... args) {
       // Use perfect forwarding

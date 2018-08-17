@@ -257,7 +257,7 @@ egg::lang::Value egg::yolk::EggProgramSymbol::assign(EggProgramSymbolTable& symt
   } else {
     *slot = promoted;
   }
-  slot->soft(execution.getAllocator(), symtable);
+  slot->soft(symtable);
   return egg::lang::Value::Void;
 }
 
@@ -284,7 +284,7 @@ void egg::yolk::EggProgramSymbolTable::addBuiltin(const std::string& name, const
 std::shared_ptr<egg::yolk::EggProgramSymbol> egg::yolk::EggProgramSymbolTable::addSymbol(EggProgramSymbol::Kind kind, const egg::lang::String& name, const egg::lang::ITypeRef& type, const egg::lang::Value& value) {
   auto result = this->map.emplace(name, std::make_shared<EggProgramSymbol>(kind, name, type, value));
   assert(result.second);
-  result.first->second->getValue().soft(this->allocator, *this);
+  result.first->second->getValue().soft(*this);
   return result.first->second;
 }
 
@@ -366,7 +366,7 @@ bool egg::yolk::EggProgramContext::findDuplicateSymbols(const std::vector<std::s
   bool error = false;
   egg::lang::String name;
   auto type = egg::lang::Type::Void;
-  egg::ovum::StringMap<egg::lang::LocationSource> seen;
+  std::map<egg::ovum::String, egg::lang::LocationSource> seen;
   for (auto& statement : statements) {
     if (statement->symbol(name, type)) {
       auto here = statement->location();

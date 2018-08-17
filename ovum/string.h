@@ -9,6 +9,13 @@ namespace egg::ovum {
     explicit String(const IMemory* rhs) : Memory(rhs) {
     }
     String(const std::string& utf8, size_t codepoints = SIZE_MAX); // implicit; fallback to factory
+    std::string toUTF8() const {
+      auto* memory = this->get();
+      if (memory == nullptr) {
+        return std::string();
+      }
+      return std::string(memory->begin(), memory->end());
+    }
     size_t length() const {
       auto* memory = this->get();
       if (memory == nullptr) {
@@ -19,15 +26,6 @@ namespace egg::ovum {
       assert(codepoints <= memory->bytes());
       return codepoints;
     }
-    std::string toUTF8() const {
-      auto* memory = this->get();
-      if (memory == nullptr) {
-        return std::string();
-      }
-      return std::string(memory->begin(), memory->end());
-    }
-
-    // WIBBLE helpers
     bool empty() const {
       return this->length() == 0;
     }
@@ -45,7 +43,6 @@ namespace egg::ovum {
     String substring(size_t begin, size_t end) const;
     String repeat(size_t count) const;
     String replace(const String& needle, const String& replacement, int64_t occurrences) const;
-
     bool operator==(const String& rhs) const {
       return this->equals(rhs);
     }
@@ -55,16 +52,15 @@ namespace egg::ovum {
     static String fromUTF8(const std::string& utf8, size_t codepoints = SIZE_MAX); // fallback to factory
     static String fromUTF32(const std::u32string& utf32); // fallback to factory
   };
-
-  struct StringLess { // WIBBLE
-    bool operator()(const String& lhs, const String& rhs) const; // WIBBLE
-  };
-
-  template<typename T> // WIBBLE
-  using StringMap = std::map<String, T, StringLess>;
 }
 
 namespace std {
+  template<> struct less<egg::ovum::String> {
+    // String hash specialization for use with std::map<> etc.
+    inline bool operator()(const egg::ovum::String& a, const egg::ovum::String& b) const {
+      return a.lessThan(b);
+    }
+  };
   template<> struct hash<egg::ovum::String> {
     // String hash specialization for use with std::unordered_map<> etc.
     inline size_t operator()(const egg::ovum::String& s) const {

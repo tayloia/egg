@@ -637,7 +637,7 @@ namespace {
 
 egg::yolk::Builtins::StringBuiltinFactory egg::yolk::Builtins::stringBuiltinFactory(const egg::ovum::String& property) {
   // See http://chilliant.blogspot.co.uk/2018/05/egg-strings.html
-  static const egg::ovum::StringMap<StringBuiltinFactory> table = {
+  static const std::map<egg::ovum::String, StringBuiltinFactory> table = {
     { "compare",      StringBuiltin::make<StringCompare> },
     { "contains",     StringBuiltin::make<StringContains> },
     { "endsWith",     StringBuiltin::make<StringEndsWith> },
