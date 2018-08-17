@@ -133,9 +133,6 @@
     <ClInclude Include="..\yolk\test.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\yolk\utf.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="..\yolk\yolk.h">
       <Filter>Header Files</Filter>
     </ClInclude>

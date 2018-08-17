@@ -64,5 +64,11 @@
     <ClInclude Include="..\ovum\test.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="..\ovum\string.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ovum\utf.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

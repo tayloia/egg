@@ -58,6 +58,7 @@ namespace egg::ovum {
     size_t bytes() const {
       return size_t(this->end() - this->begin());
     }
+    static bool equals(const IMemory* lhs, const IMemory* rhs);
   };
 
   class ICollectable : public IHardAcquireRelease {

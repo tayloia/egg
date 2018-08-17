@@ -1,3 +1,9 @@
+// WIBBLE RETIRE
+namespace egg::lang {
+  class StringLegacy;
+}
+std::ostream& operator<<(std::ostream& os, const egg::lang::StringLegacy& text);
+
 namespace egg::ovum {
   class MemoryFactory;
 
@@ -152,13 +158,6 @@ namespace egg::ovum {
     void reset();
   };
 
-  struct StringLess { // WIBBLE
-    bool operator()(const String& lhs, const String& rhs) const; // WIBBLE
-  };
-
-  template<typename T> // WIBBLE
-  using StringMap = std::map<String, T, StringLess>;
-
   class StringBuilder {
     StringBuilder(const StringBuilder&) = delete;
     StringBuilder& operator=(const StringBuilder&) = delete;
@@ -203,10 +202,6 @@ namespace egg::ovum {
     }
     static String fromUTF8(IAllocator& allocator, const std::string& utf8) {
       return fromUTF8(allocator, utf8.data(), utf8.size());
-    }
-    template<size_t N>
-    static String fromUTF8(IAllocator& allocator, const char (&utf8)[N]) {
-      return fromUTF8(allocator, utf8, N - 1);
     }
   };
 

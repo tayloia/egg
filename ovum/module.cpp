@@ -1,6 +1,7 @@
 #include "ovum/ovum.h"
 #include "ovum/node.h"
 #include "ovum/module.h"
+#include "ovum/utf.h"
 
 #include <algorithm>
 

@@ -1,4 +1,5 @@
 #include "yolk/test.h"
+#include "ovum/utf.h"
 
 namespace {
   // Here are our test cases:
@@ -49,9 +50,9 @@ TEST_P(TestUTF, UTF32toUTF8) {
   auto& param = this->getTestCase();
   if (param.utf32 >= 0) {
     auto codepoint = char32_t(param.utf32);
-    ASSERT_EQ(param.utf8, egg::utf::to_utf8(codepoint));
+    ASSERT_EQ(param.utf8, egg::ovum::UTF32::toUTF8(codepoint));
     std::u32string utf32(1, codepoint);
-    ASSERT_EQ(param.utf8, egg::utf::to_utf8(utf32));
+    ASSERT_EQ(param.utf8, egg::ovum::UTF32::toUTF8(utf32));
   }
 }
 
@@ -59,7 +60,7 @@ TEST_P(TestUTF, UTF8toUTF32) {
   auto& param = this->getTestCase();
   if (param.utf32 >= 0) {
     auto codepoint = char32_t(param.utf32);
-    auto utf32 = egg::utf::to_utf32(param.utf8);
+    auto utf32 = egg::ovum::UTF8::toUTF32(param.utf8);
     ASSERT_EQ(1u, utf32.length());
     ASSERT_EQ(codepoint, utf32[0]);
   }

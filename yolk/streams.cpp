@@ -1,4 +1,5 @@
 #include "yolk/yolk.h"
+#include "ovum/utf.h"
 
 namespace {
   bool isEndOfLine(int ch) {
@@ -122,7 +123,7 @@ bool egg::yolk::TextStream::readline(std::string& text) {
       break;
     }
     if (!isEndOfLine(ch)) {
-      egg::utf::utf32_to_utf8(target, char32_t(ch));
+      egg::ovum::UTF32::toUTF8(target, char32_t(ch));
 
     }
   } while (this->line == start);
@@ -154,7 +155,7 @@ void egg::yolk::TextStream::slurp(std::string& text, int eol) {
     // Don't perform end-of-line substitution
     int ch = this->get();
     while (ch >= 0) {
-      egg::utf::utf32_to_utf8(target, char32_t(ch));
+      egg::ovum::UTF32::toUTF8(target, char32_t(ch));
       ch = this->get();
     }
   } else {
@@ -163,9 +164,9 @@ void egg::yolk::TextStream::slurp(std::string& text, int eol) {
     int ch = this->get();
     while (ch >= 0) {
       if (!isEndOfLine(ch)) {
-        egg::utf::utf32_to_utf8(target, char32_t(ch));
+        egg::ovum::UTF32::toUTF8(target, char32_t(ch));
       } else if (this->line != curr) {
-        egg::utf::utf32_to_utf8(target, char32_t(eol));
+        egg::ovum::UTF32::toUTF8(target, char32_t(eol));
         curr = this->line;
       }
       ch = this->get();

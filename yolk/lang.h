@@ -94,24 +94,24 @@ namespace egg::lang {
     size_t internal; // For use by implementations only
   };
 
-  class IString : public egg::ovum::IHardAcquireRelease {
+  class IStringLegacy : public egg::ovum::IHardAcquireRelease {
   public:
     virtual size_t length() const = 0;
     virtual bool empty() const = 0;
-    virtual bool equals(const IString& other) const = 0;
-    virtual bool less(const IString& other) const = 0;
+    virtual bool equals(const IStringLegacy& other) const = 0;
+    virtual bool less(const IStringLegacy& other) const = 0;
     virtual int64_t hashCode() const = 0;
-    virtual int64_t compare(const IString& other) const = 0;
-    virtual bool startsWith(const IString& other) const = 0;
-    virtual bool endsWith(const IString& other) const = 0;
+    virtual int64_t compare(const IStringLegacy& other) const = 0;
+    virtual bool startsWith(const IStringLegacy& other) const = 0;
+    virtual bool endsWith(const IStringLegacy& other) const = 0;
     virtual int32_t codePointAt(size_t index) const = 0;
     virtual int64_t indexOfCodePoint(char32_t codepoint, size_t fromIndex) const = 0;
-    virtual int64_t indexOfString(const IString& needle, size_t fromIndex) const = 0;
+    virtual int64_t indexOfString(const IStringLegacy& needle, size_t fromIndex) const = 0;
     virtual int64_t lastIndexOfCodePoint(char32_t codepoint, size_t fromIndex) const = 0;
-    virtual int64_t lastIndexOfString(const IString& needle, size_t fromIndex) const = 0;
-    virtual const IString* substring(size_t begin, size_t end) const = 0;
-    virtual const IString* repeat(size_t count) const = 0;
-    virtual const IString* replace(const IString& needle, const IString& replacement, int64_t occurrences) const = 0;
+    virtual int64_t lastIndexOfString(const IStringLegacy& needle, size_t fromIndex) const = 0;
+    virtual const IStringLegacy* substring(size_t begin, size_t end) const = 0;
+    virtual const IStringLegacy* repeat(size_t count) const = 0;
+    virtual const IStringLegacy* replace(const IStringLegacy& needle, const IStringLegacy& replacement, int64_t occurrences) const = 0;
     virtual std::string toUTF8() const = 0;
 
     // Iteration
@@ -266,12 +266,12 @@ namespace egg::lang {
     virtual Value iterate(IExecution& execution) = 0;
   };
 
-  class StringLegacy : public egg::ovum::HardPtr<const IString> {
+  class StringLegacy : public egg::ovum::HardPtr<const IStringLegacy> {
   private:
-    static const IString& emptyBuffer;
+    static const IStringLegacy& emptyBuffer;
   public:
     StringLegacy(const String& rhs);
-    explicit StringLegacy(const IString& rhs = emptyBuffer) : HardPtr(&rhs) {
+    explicit StringLegacy(const IStringLegacy& rhs = emptyBuffer) : HardPtr(&rhs) {
     }
     StringLegacy(const StringLegacy& rhs) : HardPtr(rhs.get()) {
     }
@@ -485,17 +485,9 @@ namespace egg::lang {
   };
 }
 
-namespace std {
-  template<> struct hash<egg::lang::String> {
-    // String hash specialization for use with std::unordered_map<> etc.
-    size_t operator()(const egg::lang::String& s) const {
-      return size_t(egg::lang::StringLegacy(s).hashCode());
-    }
-  };
+inline std::ostream& operator<<(std::ostream& os, const egg::lang::StringLegacy& text) {
+  return os << text.toUTF8();
 }
-
-std::ostream& operator<<(std::ostream& os, const egg::lang::String& text);
-std::ostream& operator<<(std::ostream& os, const egg::lang::StringLegacy& text);
 
 template<typename... ARGS>
 inline void egg::lang::IPreparation::raiseWarning(ARGS... args) {

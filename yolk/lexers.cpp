@@ -1,5 +1,6 @@
 #include "yolk/yolk.h"
 #include "yolk/lexers.h"
+#include "ovum/utf.h"
 
 #include <cstring>
 #include <iomanip>
@@ -81,7 +82,7 @@ namespace {
     int eat(LexerItem& item) {
       auto curr = this->stream.get();
       assert(curr >= 0);
-      egg::utf::utf32_to_utf8(std::back_inserter(item.verbatim), char32_t(curr));
+      egg::ovum::UTF32::toUTF8(std::back_inserter(item.verbatim), char32_t(curr));
       return this->stream.peek();
     }
     void nextWhitespace(LexerItem& item) {

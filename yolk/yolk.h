@@ -25,7 +25,6 @@
 #include "yolk/files.h"
 #include "yolk/streams.h"
 #include "yolk/strings.h"
-#include "yolk/utf.h"
 
 #include "yolk/lang.h"
 #include "yolk/functions.h"

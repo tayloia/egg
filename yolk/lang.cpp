@@ -1,4 +1,5 @@
 #include "yolk/yolk.h"
+#include "ovum/utf.h"
 
 namespace {
   using namespace egg::lang;
@@ -73,10 +74,10 @@ namespace {
   }
 
   // Forward declarations
-  const IString* repeatString(const IString& src, size_t length, size_t count);
-  const IString* replaceString(const IString& haystack, const IString& needle, const IString& replacement, int64_t occurrences);
+  const IStringLegacy* repeatString(const IStringLegacy& src, size_t length, size_t count);
+  const IStringLegacy* replaceString(const IStringLegacy& haystack, const IStringLegacy& needle, const IStringLegacy& replacement, int64_t occurrences);
 
-  class StringEmpty : public egg::ovum::NotReferenceCounted<IString> {
+  class StringEmpty : public egg::ovum::NotReferenceCounted<IStringLegacy> {
   public:
     virtual size_t length() const override {
       return 0;
@@ -84,19 +85,19 @@ namespace {
     virtual bool empty() const override {
       return true;
     }
-    virtual bool equals(const IString& other) const override {
+    virtual bool equals(const IStringLegacy& other) const override {
       return other.empty();
     }
-    virtual bool less(const IString& other) const override {
+    virtual bool less(const IStringLegacy& other) const override {
       return !other.empty();
     }
-    virtual int64_t compare(const IString& other) const override {
+    virtual int64_t compare(const IStringLegacy& other) const override {
       return other.empty() ? 0 : -1;
     }
-    virtual bool startsWith(const IString& needle) const override {
+    virtual bool startsWith(const IStringLegacy& needle) const override {
       return needle.empty();
     }
-    virtual bool endsWith(const IString& needle) const override {
+    virtual bool endsWith(const IStringLegacy& needle) const override {
       return needle.empty();
     }
     virtual int64_t hashCode() const override {
@@ -108,22 +109,22 @@ namespace {
     virtual int64_t indexOfCodePoint(char32_t, size_t) const override {
       return -1;
     }
-    virtual int64_t indexOfString(const IString& needle, size_t fromIndex) const override {
+    virtual int64_t indexOfString(const IStringLegacy& needle, size_t fromIndex) const override {
       return ((fromIndex == 0) && needle.empty()) ? 0 : -1;
     }
     virtual int64_t lastIndexOfCodePoint(char32_t, size_t) const override {
       return -1;
     }
-    virtual int64_t lastIndexOfString(const IString& needle, size_t fromIndex) const override {
+    virtual int64_t lastIndexOfString(const IStringLegacy& needle, size_t fromIndex) const override {
       return ((fromIndex > 0) && needle.empty()) ? 0 : -1;
     }
-    virtual const IString* substring(size_t, size_t) const override {
+    virtual const IStringLegacy* substring(size_t, size_t) const override {
       return this;
     }
-    virtual const IString* repeat(size_t) const override {
+    virtual const IStringLegacy* repeat(size_t) const override {
       return this;
     }
-    virtual const IString* replace(const IString&, const IString&, int64_t) const override {
+    virtual const IStringLegacy* replace(const IStringLegacy&, const IStringLegacy&, int64_t) const override {
       return this;
     }
     virtual std::string toUTF8() const override {
@@ -148,7 +149,7 @@ namespace {
   };
   const StringEmpty stringEmpty{};
 
-  class StringBufferCodePoint : public egg::ovum::HardReferenceCounted<IString> {
+  class StringBufferCodePoint : public egg::ovum::HardReferenceCounted<IStringLegacy> {
     EGG_NO_COPY(StringBufferCodePoint);
   private:
     char32_t codepoint;
@@ -162,7 +163,7 @@ namespace {
     virtual bool empty() const override {
       return false;
     }
-    virtual bool equals(const IString& other) const override {
+    virtual bool equals(const IStringLegacy& other) const override {
       if (other.length() != 1) {
         return false;
       }
@@ -170,7 +171,7 @@ namespace {
       assert(cp >= 0);
       return this->codepoint == char32_t(cp);
     }
-    virtual bool less(const IString& other) const override {
+    virtual bool less(const IStringLegacy& other) const override {
       auto length = other.length();
       int32_t threshold;
       switch (length) {
@@ -191,7 +192,7 @@ namespace {
       auto diff = int32_t(this->codepoint) - cp;
       return diff < threshold;
     }
-    virtual int64_t compare(const IString& other) const override {
+    virtual int64_t compare(const IStringLegacy& other) const override {
       if (other.empty()) {
         return +1;
       }
@@ -206,7 +207,7 @@ namespace {
       }
       return (other.length() > 1) ? -1 : 0;
     }
-    virtual bool startsWith(const IString& needle) const override {
+    virtual bool startsWith(const IStringLegacy& needle) const override {
       switch (needle.length()) {
       case 0:
         return true;
@@ -217,7 +218,7 @@ namespace {
       }
       return false;
     }
-    virtual bool endsWith(const IString& needle) const override {
+    virtual bool endsWith(const IStringLegacy& needle) const override {
       switch (needle.length()) {
       case 0:
         return true;
@@ -237,7 +238,7 @@ namespace {
     virtual int64_t indexOfCodePoint(char32_t needle, size_t fromIndex) const override {
       return ((fromIndex == 0) && (this->codepoint == needle)) ? 0 : -1;
     }
-    virtual int64_t indexOfString(const IString& needle, size_t fromIndex) const override {
+    virtual int64_t indexOfString(const IStringLegacy& needle, size_t fromIndex) const override {
       if (fromIndex == 0) {
         switch (needle.length()) {
         case 0:
@@ -251,7 +252,7 @@ namespace {
     virtual int64_t lastIndexOfCodePoint(char32_t needle, size_t fromIndex) const override {
       return ((fromIndex > 0) && (this->codepoint == needle)) ? 0 : -1;
     }
-    virtual int64_t lastIndexOfString(const IString& needle, size_t fromIndex) const override {
+    virtual int64_t lastIndexOfString(const IStringLegacy& needle, size_t fromIndex) const override {
       if (fromIndex > 0) {
         switch (needle.length()) {
         case 0:
@@ -262,16 +263,16 @@ namespace {
       }
       return -1;
     }
-    virtual const IString* substring(size_t begin, size_t end) const override {
+    virtual const IStringLegacy* substring(size_t begin, size_t end) const override {
       if ((begin == 0) && (end > 0)) {
         return this;
       }
       return &stringEmpty;
     }
-    virtual const IString* repeat(size_t count) const override {
+    virtual const IStringLegacy* repeat(size_t count) const override {
       return repeatString(*this, 1, count);
     }
-    virtual const IString* replace(const IString& needle, const IString& replacement, int64_t occurrences) const override {
+    virtual const IStringLegacy* replace(const IStringLegacy& needle, const IStringLegacy& replacement, int64_t occurrences) const override {
       if ((occurrences > 0) && (needle.length() == 1) && (int32_t(this->codepoint) == needle.codePointAt(0))) {
         // The replacement occurs
         return &replacement;
@@ -279,7 +280,7 @@ namespace {
       return this;
     }
     virtual std::string toUTF8() const override {
-      return egg::utf::to_utf8(this->codepoint);
+      return egg::ovum::UTF32::toUTF8(this->codepoint);
     }
     virtual bool iterateFirst(StringIteration& iteration) const override {
       // There's only one element to iterate
@@ -305,7 +306,7 @@ namespace {
     }
   };
 
-  inline bool iterationOffset(StringIteration& iteration, const IString& src, size_t offset) {
+  inline bool iterationOffset(StringIteration& iteration, const IStringLegacy& src, size_t offset) {
     // OPTIMIZE for offsets *closer* to the end
     auto length = src.length();
     if (offset >= length) {
@@ -321,7 +322,7 @@ namespace {
     return false;
   }
 
-  inline bool iterationEqualStarted(StringIteration& lhsIteration, const IString& lhs, const IString& rhs, size_t count) {
+  inline bool iterationEqualStarted(StringIteration& lhsIteration, const IStringLegacy& lhs, const IStringLegacy& rhs, size_t count) {
     // Check for equality using iteration
     assert(count > 0);
     StringIteration rhsIteration;
@@ -338,7 +339,7 @@ namespace {
     return false; // Malformed or not equal
   }
 
-  inline bool iterationEqual(const IString& lhs, const IString& rhs, size_t count) {
+  inline bool iterationEqual(const IStringLegacy& lhs, const IStringLegacy& rhs, size_t count) {
     // Check for equality using iteration
     assert(count > 0);
     StringIteration lhsIteration;
@@ -348,7 +349,7 @@ namespace {
     return false; // Malformed or not equal
   }
 
-  inline int iterationCompareStarted(StringIteration& lhsIteration, const IString& lhs, const IString& rhs, size_t count) {
+  inline int iterationCompareStarted(StringIteration& lhsIteration, const IStringLegacy& lhs, const IStringLegacy& rhs, size_t count) {
     // Less/equal/greater comparison using iteration
     assert(count > 0);
     StringIteration rhsIteration;
@@ -366,7 +367,7 @@ namespace {
     return 2; // Malformed
   }
 
-  inline int iterationCompare(const IString& lhs, const IString& rhs, size_t count) {
+  inline int iterationCompare(const IStringLegacy& lhs, const IStringLegacy& rhs, size_t count) {
     // Less/equal/greater comparison using iteration
     assert(count > 0);
     StringIteration lhsIteration;
@@ -376,7 +377,7 @@ namespace {
     return 2; // Malformed
   }
 
-  inline bool iterationMatch(const IString& lhs, StringIteration lhsIteration, const IString& rhs, StringIteration rhsIteration, size_t count) {
+  inline bool iterationMatch(const IStringLegacy& lhs, StringIteration lhsIteration, const IStringLegacy& rhs, StringIteration rhsIteration, size_t count) {
     // Note iteration parameters passed-by-value
     assert(lhsIteration.codepoint == rhsIteration.codepoint);
     assert(count > 0);
@@ -388,7 +389,7 @@ namespace {
     return true;
   }
 
-  inline int64_t indexOfCodePointByIteration(const IString& haystack, char32_t needle, size_t fromIndex) {
+  inline int64_t indexOfCodePointByIteration(const IStringLegacy& haystack, char32_t needle, size_t fromIndex) {
     // Iterate around the haystack for the needle
     assert(!haystack.empty());
     StringIteration haystackIteration;
@@ -404,7 +405,7 @@ namespace {
     return -1; // Not found
   }
 
-  inline int64_t indexOfStringByIteration(const IString& haystack, const IString& needle, size_t fromIndex) {
+  inline int64_t indexOfStringByIteration(const IStringLegacy& haystack, const IStringLegacy& needle, size_t fromIndex) {
     // Iterate around the haystack for the needle
     assert(!haystack.empty());
     assert(!needle.empty());
@@ -423,7 +424,7 @@ namespace {
     return -1; // Not found
   }
 
-  inline int64_t lastIndexOfCodePointByIteration(const IString& haystack, char32_t needle, size_t fromIndex) {
+  inline int64_t lastIndexOfCodePointByIteration(const IStringLegacy& haystack, char32_t needle, size_t fromIndex) {
     // Iterate around the haystack for the needle from back-to-front
     assert(!haystack.empty());
     auto haystackLength = haystack.length();
@@ -441,7 +442,7 @@ namespace {
     return -1; // Not found
   }
 
-  inline int64_t lastIndexOfStringByIteration(const IString& haystack, const IString& needle, size_t fromIndex) {
+  inline int64_t lastIndexOfStringByIteration(const IStringLegacy& haystack, const IStringLegacy& needle, size_t fromIndex) {
     // Iterate around the haystack for the needle
     assert(!haystack.empty());
     assert(!needle.empty());
@@ -466,7 +467,7 @@ namespace {
     return -1; // Not found
   }
 
-  class StringBufferUTF8 : public egg::ovum::HardReferenceCounted<IString> {
+  class StringBufferUTF8 : public egg::ovum::HardReferenceCounted<IStringLegacy> {
     EGG_NO_COPY(StringBufferUTF8);
   private:
     std::string utf8;
@@ -484,10 +485,10 @@ namespace {
     virtual bool empty() const override {
       return this->codepoints == 0;
     }
-    virtual bool equals(const IString& rhs) const override {
+    virtual bool equals(const IStringLegacy& rhs) const override {
       return (rhs.length() == this->codepoints) && iterationEqual(*this, rhs, this->codepoints);
     }
-    virtual bool less(const IString& rhs) const override {
+    virtual bool less(const IStringLegacy& rhs) const override {
       auto rhsLength = rhs.length();
       if (rhsLength == 0) {
         return false;
@@ -497,7 +498,7 @@ namespace {
       }
       return iterationCompare(*this, rhs, this->codepoints) <= 0;
     }
-    virtual int64_t compare(const IString& rhs) const override {
+    virtual int64_t compare(const IStringLegacy& rhs) const override {
       auto rhsLength = rhs.length();
       if (rhsLength > this->codepoints) {
         int retval = iterationCompare(*this, rhs, this->codepoints);
@@ -512,7 +513,7 @@ namespace {
       }
       return iterationCompare(*this, rhs, rhsLength);
     }
-    virtual bool startsWith(const IString& needle) const override {
+    virtual bool startsWith(const IStringLegacy& needle) const override {
       auto needleLength = needle.length();
       if (needleLength == 0) {
         return true;
@@ -522,7 +523,7 @@ namespace {
       }
       return iterationEqual(*this, needle, needleLength);
     }
-    virtual bool endsWith(const IString& needle) const override {
+    virtual bool endsWith(const IStringLegacy& needle) const override {
       auto needleLength = needle.length();
       if (needleLength == 0) {
         return true;
@@ -539,7 +540,7 @@ namespace {
     virtual int64_t hashCode() const override {
       // See https://docs.oracle.com/javase/6/docs/api/java/lang/String.html#hashCode()
       int64_t hash = 0;
-      egg::utf::utf8_reader reader(this->utf8, egg::utf::utf8_reader::First);
+      egg::ovum::UTF8 reader(this->utf8, 0);
       char32_t codepoint = 0;
       while (reader.forward(codepoint)) {
         hash = hash * 31 + int64_t(uint32_t(codepoint));
@@ -547,7 +548,7 @@ namespace {
       return hash;
     }
     virtual int32_t codePointAt(size_t index) const override {
-      egg::utf::utf8_reader reader(this->utf8, egg::utf::utf8_reader::First);
+      egg::ovum::UTF8 reader(this->utf8, 0);
       if (!reader.skipForward(index)) {
         return -1;
       }
@@ -557,7 +558,7 @@ namespace {
     virtual int64_t indexOfCodePoint(char32_t needle, size_t fromIndex) const override {
       return indexOfCodePointByIteration(*this, needle, fromIndex);
     }
-    virtual int64_t indexOfString(const IString& needle, size_t fromIndex) const override {
+    virtual int64_t indexOfString(const IStringLegacy& needle, size_t fromIndex) const override {
       switch (needle.length()) {
       case 0:
         return (fromIndex < this->codepoints) ? int64_t(fromIndex) : -1;
@@ -569,7 +570,7 @@ namespace {
     virtual int64_t lastIndexOfCodePoint(char32_t needle, size_t fromIndex) const override {
       return lastIndexOfCodePointByIteration(*this, needle, fromIndex);
     }
-    virtual int64_t lastIndexOfString(const IString& needle, size_t fromIndex) const override {
+    virtual int64_t lastIndexOfString(const IStringLegacy& needle, size_t fromIndex) const override {
       switch (needle.length()) {
       case 0:
         return 0;
@@ -578,14 +579,14 @@ namespace {
       }
       return lastIndexOfStringByIteration(*this, needle, fromIndex);
     }
-    virtual const IString* substring(size_t begin, size_t end) const override {
+    virtual const IStringLegacy* substring(size_t begin, size_t end) const override {
       if ((begin >= this->codepoints) || (end <= begin)) {
         return &stringEmpty;
       }
       if ((begin == 0) && (end >= this->codepoints)) {
         return this;
       }
-      egg::utf::utf8_reader reader(this->utf8, egg::utf::utf8_reader::First);
+      egg::ovum::UTF8 reader(this->utf8, 0);
       if (!reader.skipForward(begin)) {
         return &stringEmpty; // Malformed
       }
@@ -608,10 +609,10 @@ namespace {
       std::string sub(this->utf8.data() + p, q - p);
       return defaultAllocator().create<StringBufferUTF8>(0, defaultAllocator(), sub, length);
     }
-    virtual const IString* repeat(size_t count) const override {
+    virtual const IStringLegacy* repeat(size_t count) const override {
       return repeatString(*this, this->codepoints, count);
     }
-    virtual const IString* replace(const IString& needle, const IString& replacement, int64_t occurrences) const override {
+    virtual const IStringLegacy* replace(const IStringLegacy& needle, const IStringLegacy& replacement, int64_t occurrences) const override {
       return replaceString(*this, needle, replacement, occurrences);
     }
     virtual std::string toUTF8() const override {
@@ -619,7 +620,7 @@ namespace {
     }
     virtual bool iterateFirst(StringIteration& iteration) const override {
       // There should be at least one element to iterate
-      egg::utf::utf8_reader reader(this->utf8, egg::utf::utf8_reader::First);
+      egg::ovum::UTF8 reader(this->utf8, 0);
       if (reader.forward(iteration.codepoint)) {
         iteration.internal = reader.getIterationInternal();
         return true;
@@ -628,7 +629,7 @@ namespace {
     }
     virtual bool iterateNext(StringIteration& iteration) const override {
       // Fetch the next element
-      egg::utf::utf8_reader reader(this->utf8, iteration.internal);
+      egg::ovum::UTF8 reader(this->utf8, iteration.internal);
       if (reader.forward(iteration.codepoint)) {
         iteration.internal = reader.getIterationInternal();
         return true;
@@ -637,7 +638,7 @@ namespace {
     }
     virtual bool iteratePrevious(StringIteration& iteration) const override {
       // Fetch the previous element
-      egg::utf::utf8_reader reader(this->utf8, iteration.internal);
+      egg::ovum::UTF8 reader(this->utf8, iteration.internal);
       if (reader.backward(iteration.codepoint)) {
         iteration.internal = reader.getIterationInternal();
         return true;
@@ -646,7 +647,7 @@ namespace {
     }
     virtual bool iterateLast(StringIteration& iteration) const override {
       // There should be at least one element to iterate
-      egg::utf::utf8_reader reader(this->utf8, egg::utf::utf8_reader::Last);
+      egg::ovum::UTF8 reader(this->utf8, this->utf8.size());
       if (reader.backward(iteration.codepoint)) {
         iteration.internal = reader.getIterationInternal();
         return true;
@@ -654,12 +655,12 @@ namespace {
       return false;
     }
     // Factories
-    static const IString* create(const std::string& utf8) {
-      egg::utf::utf8_reader reader(utf8, egg::utf::utf8_reader::First);
+    static const IStringLegacy* create(const std::string& utf8) {
+      egg::ovum::UTF8 reader(utf8, 0);
       auto length = reader.validate(); // TODO malformed?
       return StringBufferUTF8::create(utf8, length);
     }
-    static const IString* create(const std::string& utf8, size_t length) {
+    static const IStringLegacy* create(const std::string& utf8, size_t length) {
       if (length == 0) {
         return &stringEmpty;
       }
@@ -667,7 +668,7 @@ namespace {
     }
   };
 
-  const IString* repeatString(const IString& src, size_t length, size_t count) {
+  const IStringLegacy* repeatString(const IStringLegacy& src, size_t length, size_t count) {
     assert(length > 0);
     switch (count) {
     case 0:
@@ -684,7 +685,7 @@ namespace {
     return StringBufferUTF8::create(dst, length * count);
   }
 
-  void splitPositive(std::vector<StringLegacy>& dst, const IString& src, const IString& separator, size_t limit) {
+  void splitPositive(std::vector<StringLegacy>& dst, const IStringLegacy& src, const IStringLegacy& separator, size_t limit) {
     // Unlike the original parameter, 'limit' is the maximum number of SPLITS to perform
     // OPTIMIZE
     assert(dst.size() == 0);
@@ -716,7 +717,7 @@ namespace {
     dst.emplace_back(*src.substring(begin, SIZE_MAX));
   }
 
-  void splitNegative(std::vector<StringLegacy>& dst, const IString& src, const IString& separator, size_t limit) {
+  void splitNegative(std::vector<StringLegacy>& dst, const IStringLegacy& src, const IStringLegacy& separator, size_t limit) {
     // Unlike the original parameter, 'limit' is the maximum number of SPLITS to perform
     // OPTIMIZE
     assert(dst.size() == 0);
@@ -750,7 +751,7 @@ namespace {
     std::reverse(dst.begin(), dst.end());
   }
 
-  void splitString(std::vector<egg::lang::StringLegacy>& result, const IString& haystack, const IString& needle, int64_t limit) {
+  void splitString(std::vector<egg::lang::StringLegacy>& result, const IStringLegacy& haystack, const IStringLegacy& needle, int64_t limit) {
     assert(limit != 0);
     if (limit > 0) {
       // Split from the beginning
@@ -769,7 +770,7 @@ namespace {
     }
   }
 
-  const IString* replaceString(const IString& haystack, const IString& needle, const IString& replacement, int64_t occurrences) {
+  const IStringLegacy* replaceString(const IStringLegacy& haystack, const IStringLegacy& needle, const IStringLegacy& replacement, int64_t occurrences) {
     // One replacement requires splitting into two parts, and so on
     std::vector<egg::lang::StringLegacy> part;
     if (occurrences > 0) {
@@ -1045,7 +1046,7 @@ const egg::lang::Type egg::lang::Type::Any{ *defaultAllocator().make<TypeSimple>
 const egg::lang::Type egg::lang::Type::AnyQ{ *defaultAllocator().make<TypeSimple>(egg::lang::Discriminator::Any | egg::lang::Discriminator::Null) };
 
 // Constants
-const egg::lang::IString& egg::lang::StringLegacy::emptyBuffer = stringEmpty;
+const egg::lang::IStringLegacy& egg::lang::StringLegacy::emptyBuffer = stringEmpty;
 const egg::lang::StringLegacy egg::lang::StringLegacy::Empty{ stringEmpty };
 const egg::lang::StringLegacy egg::lang::StringLegacy::Space{ StringBufferCodePoint::makeSpace() };
 
@@ -1063,7 +1064,7 @@ egg::lang::StringLegacy egg::lang::StringLegacy::fromUTF8(const std::string& utf
 
 egg::lang::StringLegacy egg::lang::StringLegacy::fromUTF32(const std::u32string& utf32) {
   // OPTIMIZE
-  return StringLegacy(*StringBufferUTF8::create(egg::utf::to_utf8(utf32)));
+  return StringLegacy(*StringBufferUTF8::create(egg::ovum::UTF32::toUTF8(utf32)));
 }
 
 std::vector<egg::lang::StringLegacy> egg::lang::StringLegacy::split(const StringLegacy& separator, int64_t limit) const {
@@ -1089,7 +1090,7 @@ egg::lang::StringLegacy egg::lang::StringLegacy::padLeft(size_t target, const St
   auto utf8 = padding.toUTF8();
   auto partial = extra % n;
   if (partial > 0) {
-    dst.assign(egg::utf::utf8_offset(utf8, n - partial), utf8.cend());
+    dst.assign(egg::ovum::UTF8::offsetOfCodePoint(utf8, n - partial), utf8.cend());
   }
   for (auto whole = extra / n; whole > 0; --whole) {
     dst.append(utf8);
@@ -1114,21 +1115,13 @@ egg::lang::StringLegacy egg::lang::StringLegacy::padRight(size_t target, const S
   }
   auto partial = extra % n;
   if (partial > 0) {
-    dst.append(utf8.cbegin(), egg::utf::utf8_offset(utf8, partial));
+    dst.append(utf8.cbegin(), egg::ovum::UTF8::offsetOfCodePoint(utf8, partial));
   }
   return StringLegacy(*StringBufferUTF8::create(dst, target));
 }
 
 egg::lang::String egg::ovum::StringBuilder::str() const {
   return this->ss.str();
-}
-
-std::ostream& operator<<(std::ostream& os, const egg::lang::String& text) {
-  return os << text.toUTF8();
-}
-
-std::ostream& operator<<(std::ostream& os, const egg::lang::StringLegacy& text) {
-  return os << text.toUTF8();
 }
 
 // Trivial constant values
@@ -1311,7 +1304,7 @@ bool egg::lang::Value::equals(const Value& lhs, const Value& rhs) {
     return a.f == b.f;
   }
   if (a.tag == Discriminator::String) {
-    return egg::ovum::String::equals(a.s, b.s);
+    return egg::ovum::IMemory::equals(a.s, b.s);
   }
   if (a.tag == Discriminator::Type) {
     return a.t == b.t;

@@ -1,6 +1,7 @@
 #include "yolk/yolk.h"
 #include "yolk/lexers.h"
 #include "yolk/json-tokenizer.h"
+#include "ovum/utf.h"
 
 namespace {
   using namespace egg::yolk;
@@ -48,7 +49,7 @@ namespace {
           if (this->upcoming.verbatim.front() == '`') {
             this->unexpected("Strict JSON does not permit backquoted strings");
           }
-          item.value.s = egg::utf::to_utf8(this->upcoming.value.s);
+          item.value.s = egg::ovum::UTF32::toUTF8(this->upcoming.value.s);
           item.kind = JsonTokenizerKind::String;
           break;
         case LexerKind::Operator:

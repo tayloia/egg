@@ -841,7 +841,7 @@ egg::lang::Value egg::yolk::EggProgramContext::bracketsGet(const egg::lang::Valu
       return this->raiseFormat("String indexing '[]' only supports indices of type 'int', not '", index.getRuntimeType()->toString(), "'");
     }
     auto i = index.getInt();
-    auto c = egg::lang::StringLegacy(str).codePointAt(size_t(i));
+    auto c = str.codePointAt(size_t(i));
     if (c < 0) {
       // Invalid index
       auto n = str.length();

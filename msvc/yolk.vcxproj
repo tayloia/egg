@@ -66,7 +66,6 @@
     <ClInclude Include="..\yolk\streams.h" />
     <ClInclude Include="..\yolk\strings.h" />
     <ClInclude Include="..\yolk\test.h" />
-    <ClInclude Include="..\yolk\utf.h" />
     <ClInclude Include="..\yolk\yolk.h" />
   </ItemGroup>
   <ItemGroup>

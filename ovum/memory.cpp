@@ -23,6 +23,21 @@ namespace {
   const MemoryEmpty MemoryEmpty::instance{};
 }
 
+bool egg::ovum::IMemory::equals(const IMemory* lhs, const IMemory* rhs) {
+  // Don't look at the tag
+  if (lhs == rhs) {
+    return true;
+  }
+  if ((lhs == nullptr) || (rhs == nullptr)) {
+    return false;
+  }
+  auto bytes = lhs->bytes();
+  if (rhs->bytes() != bytes) {
+    return false;
+  }
+  return std::memcmp(lhs->begin(), rhs->begin(), bytes) == 0;
+}
+
 egg::ovum::Memory egg::ovum::MemoryFactory::createEmpty() {
   return egg::ovum::Memory(&MemoryEmpty::instance);
 }

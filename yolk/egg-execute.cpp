@@ -278,8 +278,7 @@ egg::lang::Value egg::yolk::EggProgramContext::executeForeach(const IEggProgramN
 
 egg::lang::Value egg::yolk::EggProgramContext::executeForeachString(IEggProgramAssignee& target, const egg::lang::String& source, const IEggProgramNode& block) {
   size_t index = 0;
-  egg::lang::StringLegacy legacy(source);
-  for (auto codepoint = legacy.codePointAt(0); codepoint >= 0; codepoint = legacy.codePointAt(++index)) {
+  for (auto codepoint = source.codePointAt(0); codepoint >= 0; codepoint = source.codePointAt(++index)) {
     auto retval = target.set(egg::lang::Value{ egg::ovum::StringFactory::fromCodePoint(this->allocator, char32_t(codepoint)) });
     if (retval.has(egg::lang::Discriminator::FlowControl)) {
       // The assignment failed
