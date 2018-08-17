@@ -26,13 +26,13 @@ namespace {
       return execution.raiseFormat(this->kind, "s do not support calling with '()'");
     }
     virtual egg::lang::Value getIndex(egg::lang::IExecution& execution, const egg::lang::Value& index) override {
-      if (!index.is(egg::lang::Discriminator::String)) {
+      if (!index.isString()) {
         return execution.raiseFormat(this->kind, " index (property name) was expected to be 'string', not '", index.getRuntimeType()->toString(), "'");
       }
       return this->getProperty(execution, index.getString());
     }
     virtual egg::lang::Value setIndex(egg::lang::IExecution& execution, const egg::lang::Value& index, const egg::lang::Value& value) override {
-      if (!index.is(egg::lang::Discriminator::String)) {
+      if (!index.isString()) {
         return execution.raiseFormat(this->kind, " index (property name) was expected to be 'string', not '", index.getRuntimeType()->toString(), "'");
       }
       return this->setProperty(execution, index.getString(), value);
@@ -209,7 +209,7 @@ namespace {
     virtual egg::lang::Value getProperty(egg::lang::IExecution& execution, const egg::ovum::String& property) override {
       auto name = property.toUTF8();
       auto retval = this->getPropertyInternal(execution, name);
-      if (retval.has(egg::lang::Discriminator::FlowControl)) {
+      if (retval.hasFlowControl()) {
         assert(VanillaArrayType::getPropertyType(name) == nullptr);
       } else {
         assert(VanillaArrayType::getPropertyType(name) != nullptr);
@@ -224,7 +224,7 @@ namespace {
       return execution.raiseFormat("Arrays do not support property '.", property, "'");
     }
     virtual egg::lang::Value getIndex(egg::lang::IExecution& execution, const egg::lang::Value& index) override {
-      if (!index.is(egg::lang::Discriminator::Int)) {
+      if (!index.isInt()) {
         return execution.raiseFormat("Array index was expected to be 'int', not '", index.getRuntimeType()->toString(), "'");
       }
       auto i = index.getInt();
@@ -232,11 +232,11 @@ namespace {
         return execution.raiseFormat("Invalid array index for an array with ", this->values.size(), " element(s): ", i);
       }
       auto& element = this->values.at(size_t(i));
-      assert(!element.is(egg::lang::Discriminator::Void));
+      assert(!element.isVoid());
       return element;
     }
     virtual egg::lang::Value setIndex(egg::lang::IExecution& execution, const egg::lang::Value& index, const egg::lang::Value& value) override {
-      if (!index.is(egg::lang::Discriminator::Int)) {
+      if (!index.isInt()) {
         return execution.raiseFormat("Array index was expected to be 'int', not '", index.getRuntimeType()->toString(), "'");
       }
       auto i = index.getInt();
@@ -273,7 +273,7 @@ namespace {
       return execution.raiseFormat("Arrays do not support property '.", property, "'");
     }
     egg::lang::Value setLength(egg::lang::IExecution& execution, const egg::lang::Value& value) {
-      if (!value.is(egg::lang::Discriminator::Int)) {
+      if (!value.isInt()) {
         return execution.raiseFormat("Array length was expected to be set to an 'int', not '", value.getRuntimeType()->toString(), "'");
       }
       auto n = value.getInt();
@@ -504,7 +504,7 @@ namespace {
       auto retval = this->iterateNext();
       if (retval.stripFlowControl(egg::lang::Discriminator::Return)) {
         // The sequence has ended
-        if (!retval.is(egg::lang::Discriminator::Void)) {
+        if (!retval.isVoid()) {
           return this->program->raiseFormat("Expected 'return' statement without a value in generator, but got '", retval.getRuntimeType()->toString(), "' instead");
         }
       }

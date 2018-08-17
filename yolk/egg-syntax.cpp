@@ -15,8 +15,8 @@ namespace {
       static std::string name{ "var" };
       return std::make_pair(name, 0);
     }
-    virtual egg::lang::Discriminator getSimpleTypes() const override {
-      return egg::lang::Discriminator::Inferred;
+    virtual egg::lang::Basal getBasalTypes() const override {
+      return egg::lang::Basal::None;
     }
     virtual egg::lang::ITypeRef unionWith(const egg::lang::IType&) const override {
       EGG_THROW("Cannot union with inferred type");
@@ -42,37 +42,21 @@ namespace {
     return nullptr;
   }
 
-  egg::lang::Discriminator keywordToDiscriminator(const EggTokenizerItem& item) {
-    // Accept only type-like keywords: void, null, bool, int, float, string and object
+  egg::lang::Basal keywordToBasal(const EggTokenizerItem& item) {
+    // Accept only type-like keywords: void, null, bool, int, float, string, object and any
     // OPTIMIZE
-    if (item.isKeyword(EggTokenizerKeyword::Void)) {
-      return egg::lang::Discriminator::Void;
+    if (item.kind == EggTokenizerKind::Keyword) {
+#define EGG_VM_BASAL_KEYWORD(name, value) case EggTokenizerKeyword::name: return egg::lang::Basal::name;
+      EGG_WARNING_SUPPRESS_SWITCH_BEGIN
+      switch (item.value.k) {
+      EGG_VM_BASAL(EGG_VM_BASAL_KEYWORD)
+      case EggTokenizerKeyword::Any:
+        return egg::lang::Basal::Any;
+      }
+      EGG_WARNING_SUPPRESS_SWITCH_END
+#undef EGG_VM_BASAL_KEYWORD
     }
-    if (item.isKeyword(EggTokenizerKeyword::Null)) {
-      return egg::lang::Discriminator::Null;
-    }
-    if (item.isKeyword(EggTokenizerKeyword::Bool)) {
-      return egg::lang::Discriminator::Bool;
-    }
-    if (item.isKeyword(EggTokenizerKeyword::Int)) {
-      return egg::lang::Discriminator::Int;
-    }
-    if (item.isKeyword(EggTokenizerKeyword::Float)) {
-      return egg::lang::Discriminator::Float;
-    }
-    if (item.isKeyword(EggTokenizerKeyword::String)) {
-      return egg::lang::Discriminator::String;
-    }
-    if (item.isKeyword(EggTokenizerKeyword::Object)) {
-      return egg::lang::Discriminator::Object;
-    }
-    if (item.isKeyword(EggTokenizerKeyword::Type)) {
-      return egg::lang::Discriminator::Type;
-    }
-    if (item.isKeyword(EggTokenizerKeyword::Any)) {
-      return egg::lang::Discriminator::Any;
-    }
-    return egg::lang::Discriminator::None;
+    return egg::lang::Basal::None;
   }
 
   class ParserDump {
@@ -1159,7 +1143,7 @@ std::unique_ptr<IEggSyntaxNode> EggSyntaxParserContext::parseExpressionPrimary(c
       mark.accept(1);
       return std::make_unique<EggSyntaxNode_Literal>(location, p0.kind, p0.value);
     }
-    if (egg::lang::Bits::hasAnySet(keywordToDiscriminator(p0), egg::lang::Discriminator::Any | egg::lang::Discriminator::Type)) {
+    if (egg::lang::Bits::hasAnySet(keywordToBasal(p0), egg::lang::Basal::Any | egg::lang::Basal::Type)) {
       // It could be a constructor like 'string(...)' or a property like 'float.epsilon'
       auto& p1 = mark.peek(1);
       if (p1.isOperator(EggTokenizerOperator::ParenthesisLeft) || p1.isOperator(EggTokenizerOperator::Dot)) {
@@ -2064,10 +2048,10 @@ bool EggSyntaxParserContext::parseTypePrimaryExpression(egg::lang::ITypeRef& typ
     }
     return false;
   }
-  auto tag = keywordToDiscriminator(p0);
-  if (tag != egg::lang::Discriminator::None) {
+  auto basal = keywordToBasal(p0);
+  if (basal != egg::lang::Basal::None) {
     mark.accept(1);
-    type = egg::lang::Type::makeSimple(tag);
+    type = egg::lang::Type::makeBasal(basal);
     return true;
   }
   return false;

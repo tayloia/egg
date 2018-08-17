@@ -1,9 +1,13 @@
 namespace egg::lang {
-  using String = egg::ovum::String;
+  using String = egg::ovum::String; // TODO remove
 
-  class Value;
-  class ValueReferenceCounted;
+  class ValueLegacy;
+  class ValueLegacyReferenceCounted;
   struct LocationSource;
+
+  // WIBBLE
+  using Value = ValueLegacy;
+  using ValueReferenceCounted = ValueLegacyReferenceCounted;
 
   using ITypeRef = egg::ovum::HardPtr<const class IType>;
 
@@ -62,19 +66,23 @@ namespace egg::lang {
     Error = 1 << 4
   };
 
+#define EGG_VM_BASAL_ENUM(name, value) name = 1 << value,
+  enum class Basal {
+    None = 0,
+    EGG_VM_BASAL(EGG_VM_BASAL_ENUM)
+    Arithmetic = Int | Float,
+    Any = Bool | Int | Float | String | Object
+  };
+  inline Basal operator|(Basal lhs, Basal rhs) {
+    return Bits::set(lhs, rhs);
+  }
+
   enum class Discriminator {
     Inferred = -1,
     None = 0,
-    Void = 1 << 0,
-    Null = 1 << 1,
-    Bool = 1 << 2,
-    Int = 1 << 3,
-    Float = 1 << 4,
-    String = 1 << 5,
-    Object = 1 << 6,
-    Type = 1 << 7,
-    Any = Bool | Int | Float | String | Object,
+    EGG_VM_BASAL(EGG_VM_BASAL_ENUM)
     Arithmetic = Int | Float,
+    Any = Bool | Int | Float | String | Object,
     Indirect = 1 << 8,
     Pointer = 1 << 9,
     Break = 1 << 10,
@@ -105,24 +113,24 @@ namespace egg::lang {
   public:
     virtual ~IExecution() {}
     virtual egg::ovum::IAllocator& getAllocator() const = 0;
-    virtual Value raise(const String& message) = 0;
-    virtual Value assertion(const Value& predicate) = 0;
+    virtual ValueLegacy raise(const String& message) = 0;
+    virtual ValueLegacy assertion(const ValueLegacy& predicate) = 0;
     virtual void print(const std::string& utf8) = 0;
 
     // Useful helper
     template<typename... ARGS>
-    Value raiseFormat(ARGS... args);
+    ValueLegacy raiseFormat(ARGS... args);
   };
 
   class IParameters {
   public:
     virtual ~IParameters() {}
     virtual size_t getPositionalCount() const = 0;
-    virtual Value getPositional(size_t index) const = 0;
+    virtual ValueLegacy getPositional(size_t index) const = 0;
     virtual const LocationSource* getPositionalLocation(size_t index) const = 0; // May be null
     virtual size_t getNamedCount() const = 0;
     virtual String getName(size_t index) const = 0;
-    virtual Value getNamed(const String& name) const = 0;
+    virtual ValueLegacy getNamed(const String& name) const = 0;
     virtual const LocationSource* getNamedLocation(const String& name) const = 0; // May be null
   };
 
@@ -183,12 +191,12 @@ namespace egg::lang {
     virtual std::pair<std::string, int> toStringPrecedence() const = 0;
     virtual AssignmentSuccess canBeAssignedFrom(const IType& rhs) const = 0;
 
-    virtual Value promoteAssignment(IExecution& execution, const Value& rhs) const; // Default implementation calls IType::canBeAssignedFrom()
+    virtual ValueLegacy promoteAssignment(IExecution& execution, const ValueLegacy& rhs) const; // Default implementation calls IType::canBeAssignedFrom()
     virtual const IFunctionSignature* callable() const; // Default implementation returns nullptr
     virtual const IIndexSignature* indexable() const; // Default implementation returns nullptr
     virtual bool dotable(const String* property, ITypeRef& type, String& reason) const; // Default implementation returns false
     virtual bool iterable(ITypeRef& type) const; // Default implementation returns false
-    virtual Discriminator getSimpleTypes() const; // Default implementation returns 'Object'
+    virtual Basal getBasalTypes() const; // Default implementation returns 'Object'
     virtual ITypeRef pointerType() const; // Default implementation returns 'Type*'
     virtual ITypeRef pointeeType() const; // Default implementation returns 'Void'
     virtual ITypeRef denulledType() const; // Default implementation returns 'Void'
@@ -196,8 +204,8 @@ namespace egg::lang {
 
     // Helpers
     String toString(int precedence = -1) const;
-    bool hasNativeType(Discriminator native) const {
-      return egg::lang::Bits::hasAnySet(this->getSimpleTypes(), native);
+    bool hasBasalType(Basal basal) const {
+      return egg::lang::Bits::hasAnySet(this->getBasalTypes(), basal);
     }
   };
 
@@ -217,21 +225,20 @@ namespace egg::lang {
     static const Type AnyQ;
     static const Type Type_; // Underscore needed to avoid name clash
 
-    static const egg::lang::IType* getNative(egg::lang::Discriminator tag);
-    static ITypeRef makeSimple(Discriminator simple);
+    static ITypeRef makeBasal(Basal basal);
     static ITypeRef makeUnion(const IType& lhs, const IType& rhs);
   };
 
   class IObject : public egg::ovum::ICollectable {
   public:
-    virtual Value toString() const = 0;
+    virtual ValueLegacy toString() const = 0;
     virtual ITypeRef getRuntimeType() const = 0;
-    virtual Value call(IExecution& execution, const IParameters& parameters) = 0;
-    virtual Value getProperty(IExecution& execution, const String& property) = 0;
-    virtual Value setProperty(IExecution& execution, const String& property, const Value& value) = 0;
-    virtual Value getIndex(IExecution& execution, const Value& index) = 0;
-    virtual Value setIndex(IExecution& execution, const Value& index, const Value& value) = 0;
-    virtual Value iterate(IExecution& execution) = 0;
+    virtual ValueLegacy call(IExecution& execution, const IParameters& parameters) = 0;
+    virtual ValueLegacy getProperty(IExecution& execution, const String& property) = 0;
+    virtual ValueLegacy setProperty(IExecution& execution, const String& property, const ValueLegacy& value) = 0;
+    virtual ValueLegacy getIndex(IExecution& execution, const ValueLegacy& index) = 0;
+    virtual ValueLegacy setIndex(IExecution& execution, const ValueLegacy& index, const ValueLegacy& value) = 0;
+    virtual ValueLegacy iterate(IExecution& execution) = 0;
   };
 
   struct LocationSource {
@@ -261,9 +268,9 @@ namespace egg::lang {
     String toRuntimeString() const;
   };
 
-  class Value {
+  class ValueLegacy {
     // Stop type promotion for implicit constructors
-    template<typename T> Value(T rhs) = delete;
+    template<typename T> ValueLegacy(T rhs) = delete;
   private:
     Discriminator tag;
     union {
@@ -275,80 +282,105 @@ namespace egg::lang {
       const IType* t;
       ValueReferenceCounted* v;
     };
-    explicit Value(Discriminator tag) : tag(tag) {}
+    explicit ValueLegacy(Discriminator tag) : tag(tag) {}
     void copyInternals(const Value& other);
     void moveInternals(Value& other);
     void destroyInternals();
   public:
-    Value() : tag(Discriminator::Void) { this->v = nullptr; }
-    Value(const Value& value);
-    Value(Value&& value) noexcept;
-    explicit Value(std::nullptr_t) : tag(Discriminator::Null) { this->v = nullptr; }
-    explicit Value(bool value) : tag(Discriminator::Bool) { this->b = value; }
-    explicit Value(int64_t value) : tag(Discriminator::Int) { this->i = value; }
-    explicit Value(double value) : tag(Discriminator::Float) { this->f = value; }
-    explicit Value(const String& value) : tag(Discriminator::String) { this->s = value.hardAcquire(); }
-    explicit Value(const egg::ovum::HardPtr<IObject>& value) : tag(Discriminator::Object) { this->o = value.hardAcquire(); }
-    explicit Value(const IType& type) : tag(Discriminator::Type) { this->t = type.hardAcquire<IType>(); }
-    explicit Value(const ValueReferenceCounted& vrc);
-    Value& operator=(const Value& value);
-    Value& operator=(Value&& value) noexcept;
-    ~Value();
-    bool operator==(const Value& other) const { return Value::equals(*this, other); }
-    bool operator!=(const Value& other) const { return !Value::equals(*this, other); }
-    const Value& direct() const;
-    Value& direct();
-    ValueReferenceCounted& indirect(egg::ovum::IAllocator& allocator);
-    Value& soft(egg::ovum::ICollectable& container);
-    bool is(Discriminator bits) const { return this->tag == bits; }
-    bool has(Discriminator bits) const { return Bits::hasAnySet(this->tag, bits); }
-    bool getBool() const { assert(this->has(Discriminator::Bool)); return this->b; }
-    int64_t getInt() const { assert(this->has(Discriminator::Int)); return this->i; }
-    double getFloat() const { assert(this->has(Discriminator::Float)); return this->f; }
-    String getString() const { assert(this->has(Discriminator::String)); return String(this->s); }
-    egg::ovum::HardPtr<IObject> getObject() const { assert(this->has(Discriminator::Object)); assert(this->o != nullptr); return egg::ovum::HardPtr<IObject>(this->o); }
-    const IType& getType() const { assert(this->has(Discriminator::Type)); return *this->t; }
-    ValueReferenceCounted& getPointee() const { assert(this->has(Discriminator::Pointer) && !this->has(Discriminator::Object)); return *this->v; }
+    ValueLegacy() : tag(Discriminator::Void) { this->v = nullptr; }
+    ValueLegacy(const ValueLegacy& value);
+    ValueLegacy(ValueLegacy&& value) noexcept;
+    explicit ValueLegacy(std::nullptr_t) : tag(Discriminator::Null) { this->v = nullptr; }
+    explicit ValueLegacy(bool value) : tag(Discriminator::Bool) { this->b = value; }
+    explicit ValueLegacy(int64_t value) : tag(Discriminator::Int) { this->i = value; }
+    explicit ValueLegacy(double value) : tag(Discriminator::Float) { this->f = value; }
+    explicit ValueLegacy(const String& value) : tag(Discriminator::String) { this->s = value.hardAcquire(); }
+    explicit ValueLegacy(const egg::ovum::HardPtr<IObject>& value) : tag(Discriminator::Object) { this->o = value.hardAcquire(); }
+    explicit ValueLegacy(const IType& type) : tag(Discriminator::Type) { this->t = type.hardAcquire<IType>(); }
+    explicit ValueLegacy(const ValueLegacyReferenceCounted& vrc);
+    ValueLegacy& operator=(const ValueLegacy& value);
+    ValueLegacy& operator=(ValueLegacy&& value) noexcept;
+    ~ValueLegacy();
+    bool operator==(const ValueLegacy& other) const { return ValueLegacy::equals(*this, other); }
+    bool operator!=(const ValueLegacy& other) const { return !ValueLegacy::equals(*this, other); }
+    bool hasLegacy(Discriminator bits) const { return Bits::hasAnySet(this->tag, bits); }
+    bool hasBasal(Basal bits) const { return Bits::hasAnySet(this->tag, static_cast<Discriminator>(bits)); }
+    bool hasArithmetic() const { return Bits::hasAnySet(this->tag, Discriminator::Arithmetic); }
+    bool isVoid() const { return this->tag == Discriminator::Void; }
+    bool isBreak() const { return this->tag == Discriminator::Break; }
+    bool isContinue() const { return this->tag == Discriminator::Continue; }
+    const ValueLegacy& direct() const;
+    ValueLegacy& direct();
+    bool hasIndirect() const { return Bits::hasAnySet(this->tag, Discriminator::Indirect); }
+    ValueLegacyReferenceCounted& indirect(egg::ovum::IAllocator& allocator);
+    ValueLegacy& soft(egg::ovum::ICollectable& container);
+    bool isLegacy(Discriminator bits) const { return this->tag == bits; }
+    bool hasNull() const { return Bits::hasAnySet(this->tag, Discriminator::Null); }
+    bool isNull() const { return this->tag == Discriminator::Null; }
+    bool hasBool() const { return Bits::hasAnySet(this->tag, Discriminator::Bool); }
+    bool isBool() const { return this->tag == Discriminator::Bool; }
+    bool getBool() const { assert(this->hasBool()); return this->b; }
+    bool hasInt() const { return Bits::hasAnySet(this->tag, Discriminator::Int); }
+    bool isInt() const { return this->tag == Discriminator::Int; }
+    int64_t getInt() const { assert(this->hasInt()); return this->i; }
+    bool hasFloat() const { return Bits::hasAnySet(this->tag, Discriminator::Float); }
+    bool isFloat() const { return this->tag == Discriminator::Float; }
+    double getFloat() const { assert(this->hasFloat()); return this->f; }
+    bool hasString() const { return Bits::hasAnySet(this->tag, Discriminator::String); }
+    bool isString() const { return this->tag == Discriminator::String; }
+    String getString() const { assert(this->hasString()); return String(this->s); }
+    bool hasObject() const { return Bits::hasAnySet(this->tag, Discriminator::Object); }
+    egg::ovum::HardPtr<IObject> getObject() const { assert(this->hasObject()); assert(this->o != nullptr); return egg::ovum::HardPtr<IObject>(this->o); }
+    bool hasType() const { return Bits::hasAnySet(this->tag, Discriminator::Type); }
+    const IType& getType() const { assert(this->hasType()); return *this->t; }
+    bool hasPointer() const { return Bits::hasAnySet(this->tag, Discriminator::Pointer); }
+    ValueLegacyReferenceCounted& getPointee() const { assert(this->hasPointer() && !this->hasObject()); return *this->v; }
+    bool hasAny() const { return Bits::hasAnySet(this->tag, Discriminator::Any); }
+    bool isSoftReference() const { return this->tag == (Discriminator::Object | Discriminator::Pointer); }
     void softVisitLink(const egg::ovum::ICollectable::Visitor& visitor) const;
+    bool hasException() const { return Bits::hasAnySet(this->tag, Discriminator::Exception); }
+    bool isRethrow() const { return this->tag == (Discriminator::Exception | Discriminator::Void); }
+    bool hasFlowControl() const { return Bits::hasAnySet(this->tag, Discriminator::FlowControl); }
     void addFlowControl(Discriminator bits);
     bool stripFlowControl(Discriminator bits);
-    std::string getTagString() const;
-    static std::string getTagString(Discriminator tag);
-    static bool equals(const Value& lhs, const Value& rhs);
+    std::string getDiscriminatorString() const;
+    static std::string getDiscriminatorString(Discriminator tag);
+    static std::string getBasalString(Basal basal);
+    static bool equals(const ValueLegacy& lhs, const ValueLegacy& rhs);
     String toString() const;
     std::string toUTF8() const;
     ITypeRef getRuntimeType() const;
 
     // Constants
-    static const Value Void;
-    static const Value Null;
-    static const Value False;
-    static const Value True;
-    static const Value Break;
-    static const Value EmptyString;
-    static const Value Continue;
-    static const Value Rethrow;
-    static const Value ReturnVoid;
+    static const ValueLegacy Void;
+    static const ValueLegacy Null;
+    static const ValueLegacy False;
+    static const ValueLegacy True;
+    static const ValueLegacy Break;
+    static const ValueLegacy EmptyString;
+    static const ValueLegacy Continue;
+    static const ValueLegacy Rethrow;
+    static const ValueLegacy ReturnVoid;
 
     // Built-ins
-    static Value builtinString(egg::ovum::IAllocator& allocator);
-    static Value builtinType(egg::ovum::IAllocator& allocator);
-    static Value builtinAssert(egg::ovum::IAllocator& allocator);
-    static Value builtinPrint(egg::ovum::IAllocator& allocator);
+    static ValueLegacy builtinString(egg::ovum::IAllocator& allocator);
+    static ValueLegacy builtinType(egg::ovum::IAllocator& allocator);
+    static ValueLegacy builtinAssert(egg::ovum::IAllocator& allocator);
+    static ValueLegacy builtinPrint(egg::ovum::IAllocator& allocator);
 
     // Factories
     template<typename T, typename... ARGS>
-    static Value makeObject(egg::ovum::IAllocator& allocator, ARGS&&... args) {
+    static ValueLegacy makeObject(egg::ovum::IAllocator& allocator, ARGS&&... args) {
       // Use perfect forwarding
-      return Value(egg::ovum::HardPtr<IObject>(allocator.make<T>(std::forward<ARGS>(args)...)));
+      return ValueLegacy(egg::ovum::HardPtr<IObject>(allocator.make<T>(std::forward<ARGS>(args)...)));
     }
   };
 
-  class ValueReferenceCounted : public egg::ovum::IHardAcquireRelease, public Value {
-    ValueReferenceCounted(const ValueReferenceCounted&) = delete;
-    ValueReferenceCounted& operator=(const ValueReferenceCounted&) = delete;
+  class ValueLegacyReferenceCounted : public egg::ovum::IHardAcquireRelease, public ValueLegacy {
+    ValueLegacyReferenceCounted(const ValueLegacyReferenceCounted&) = delete;
+    ValueLegacyReferenceCounted& operator=(const ValueLegacyReferenceCounted&) = delete;
   protected:
-    explicit ValueReferenceCounted(Value&& value) noexcept : Value(std::move(value)) {}
+    explicit ValueLegacyReferenceCounted(ValueLegacy&& value) noexcept : ValueLegacy(std::move(value)) {}
   };
 }
 
@@ -365,7 +397,7 @@ inline void egg::lang::IPreparation::raiseError(ARGS... args) {
 }
 
 template<typename... ARGS>
-inline egg::lang::Value egg::lang::IExecution::raiseFormat(ARGS... args) {
+inline egg::lang::ValueLegacy egg::lang::IExecution::raiseFormat(ARGS... args) {
   auto message = egg::ovum::StringBuilder::concat(args...);
   return this->raise(message);
 }

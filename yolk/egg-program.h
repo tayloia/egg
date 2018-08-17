@@ -199,7 +199,7 @@ namespace egg::yolk {
     egg::lang::Value createVanillaFunction(const egg::lang::ITypeRef& type, const std::shared_ptr<IEggProgramNode>& block);
     egg::lang::Value createVanillaGenerator(const egg::lang::ITypeRef& itertype, const egg::lang::ITypeRef& rettype, const std::shared_ptr<IEggProgramNode>& block);
     // Inherited via IExecution
-    virtual egg::ovum::IAllocator& getAllocator() const override; // WIBBLE needed?
+    virtual egg::ovum::IAllocator& getAllocator() const override; // TODO needed?
     virtual egg::lang::Value raise(const egg::ovum::String& message) override;
     virtual egg::lang::Value assertion(const egg::lang::Value& predicate) override;
     virtual void print(const std::string& utf8) override;

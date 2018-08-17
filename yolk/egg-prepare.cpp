@@ -15,17 +15,17 @@ namespace {
   bool fallthrough(EggProgramNodeFlags flags) {
     return egg::lang::Bits::hasAnySet(flags, EggProgramNodeFlags::Fallthrough);
   }
-  EggProgramNodeFlags checkBinarySide(EggProgramContext& context, const egg::lang::LocationSource& where, EggProgramBinary op, const char* side, egg::lang::Discriminator expected, IEggProgramNode& node) {
+  EggProgramNodeFlags checkBinarySide(EggProgramContext& context, const egg::lang::LocationSource& where, EggProgramBinary op, const char* side, egg::lang::Basal expected, IEggProgramNode& node) {
     auto prepared = node.prepare(context);
     if (!abandoned(prepared)) {
       auto type = node.getType();
-      auto simple = type->getSimpleTypes();
-      assert(simple != egg::lang::Discriminator::Inferred);
-      if (!egg::lang::Bits::hasAnySet(simple, expected)) {
-        if (expected == egg::lang::Discriminator::Null) {
+      auto basal = type->getBasalTypes();
+      assert(basal != egg::lang::Basal::None);
+      if (!egg::lang::Bits::hasAnySet(basal, expected)) {
+        if (expected == egg::lang::Basal::Null) {
           context.compilerWarning(where, "Expected ", side, " of '", EggProgram::binaryToString(op), "' operator to be possibly 'null', but got '", type->toString(), "' instead");
         } else {
-          std::string readable = egg::lang::Value::getTagString(expected);
+          auto readable = egg::lang::Value::getBasalString(expected);
           readable = String::replace(readable, "|", "' or '");
           prepared = context.compilerError(where, "Expected ", side, " of '", EggProgram::binaryToString(op), "' operator to be '", readable, "', but got '", type->toString(), "' instead");
         }
@@ -33,7 +33,7 @@ namespace {
     }
     return prepared;
   }
-  EggProgramNodeFlags checkBinary(EggProgramContext& context, const egg::lang::LocationSource& where, EggProgramBinary op, egg::lang::Discriminator lexp, IEggProgramNode& lhs, egg::lang::Discriminator rexp, IEggProgramNode& rhs) {
+  EggProgramNodeFlags checkBinary(EggProgramContext& context, const egg::lang::LocationSource& where, EggProgramBinary op, egg::lang::Basal lexp, IEggProgramNode& lhs, egg::lang::Basal rexp, IEggProgramNode& rhs) {
     auto lflags = checkBinarySide(context, where, op, "left-hand side", lexp, lhs);
     if (abandoned(lflags)) {
       return lflags;
@@ -81,7 +81,7 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareStatements(c
     }
     // We can only perform this after preparing the statement, otherwise the type information isn't correct (always 'void')
     auto rettype = statement->getType();
-    if (rettype->getSimpleTypes() != egg::lang::Discriminator::Void) {
+    if (rettype->getBasalTypes() != egg::lang::Basal::Void) {
       this->compilerWarning(statement->location(), "Expected statement to return 'void', but got '", rettype->toString(), "' instead");
     }
   }
@@ -119,7 +119,7 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareDeclare(cons
     }
     return this->typeCheck(rvalue->location(), ltype, rvalue->getType(), name, false);
   }
-  if (ltype->getSimpleTypes() == egg::lang::Discriminator::Inferred) {
+  if (ltype->getBasalTypes() == egg::lang::Basal::None) {
     return this->compilerError(where, "Cannot infer type of '", name, "' declared with 'var'");
   }
   return EggProgramNodeFlags::Fallthrough;
@@ -137,11 +137,11 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareAssign(const
     return EggProgramNodeFlags::Abandon;
   }
   auto ltype = lvalue.getType();
-  auto lsimple = ltype->getSimpleTypes();
-  assert(lsimple != egg::lang::Discriminator::Inferred);
+  auto lbasal = ltype->getBasalTypes();
+  assert(lbasal != egg::lang::Basal::None);
   auto rtype = rvalue.getType();
-  auto rsimple = rtype->getSimpleTypes();
-  assert(rsimple != egg::lang::Discriminator::Inferred);
+  auto rbasal = rtype->getBasalTypes();
+  assert(rbasal != egg::lang::Basal::None);
   switch (op) {
   case EggProgramAssign::Equal:
     // Simple assignment
@@ -152,10 +152,10 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareAssign(const
   case EggProgramAssign::LogicalAnd:
   case EggProgramAssign::LogicalOr:
     // Boolean operation
-    if (!egg::lang::Bits::hasAnySet(lsimple, egg::lang::Discriminator::Bool)) {
+    if (!egg::lang::Bits::hasAnySet(lbasal, egg::lang::Basal::Bool)) {
       return this->compilerError(where, "Expected left-hand side of '", EggProgram::assignToString(op), "' assignment operator to be 'bool', but got '", ltype->toString(), "' instead");
     }
-    if (!egg::lang::Bits::hasAnySet(rsimple, egg::lang::Discriminator::Bool)) {
+    if (!egg::lang::Bits::hasAnySet(rbasal, egg::lang::Basal::Bool)) {
       return this->compilerError(where, "Expected right-hand side of '", EggProgram::assignToString(op), "' assignment operator to be 'bool', but got '", ltype->toString(), "' instead");
     }
     break;
@@ -163,10 +163,10 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareAssign(const
   case EggProgramAssign::BitwiseOr:
   case EggProgramAssign::BitwiseXor:
     // Boolean/Integer operation
-    if (!egg::lang::Bits::hasAnySet(lsimple, egg::lang::Discriminator::Bool | egg::lang::Discriminator::Int)) {
+    if (!egg::lang::Bits::hasAnySet(lbasal, egg::lang::Basal::Bool | egg::lang::Basal::Int)) {
       return this->compilerError(where, "Expected left-hand side of '", EggProgram::assignToString(op), "' assignment operator to be 'bool' or 'int', but got '", ltype->toString(), "' instead");
     }
-    if (rsimple != lsimple) {
+    if (rbasal != lbasal) {
       return this->compilerError(where, "Expected right-hand target of '", EggProgram::assignToString(op), "' assignment operator to be '", ltype->toString(), "', but got '", rtype->toString(), "' instead");
     }
     break;
@@ -174,10 +174,10 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareAssign(const
   case EggProgramAssign::ShiftRight:
   case EggProgramAssign::ShiftRightUnsigned:
     // Integer-only operation
-    if (!egg::lang::Bits::hasAnySet(lsimple, egg::lang::Discriminator::Int)) {
+    if (!egg::lang::Bits::hasAnySet(lbasal, egg::lang::Basal::Int)) {
       return this->compilerError(where, "Expected left-hand target of integer '", EggProgram::assignToString(op), "' assignment operator to be 'int', but got '", ltype->toString(), "' instead");
     }
-    if (!egg::lang::Bits::hasAnySet(rsimple, egg::lang::Discriminator::Int)) {
+    if (!egg::lang::Bits::hasAnySet(rbasal, egg::lang::Basal::Int)) {
       return this->compilerError(where, "Expected right-hand side of integer '", EggProgram::assignToString(op), "' assignment operator to be 'int', but got '", rtype->toString(), "' instead");
     }
     break;
@@ -187,17 +187,17 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareAssign(const
   case EggProgramAssign::Minus:
   case EggProgramAssign::Divide:
     // Arithmetic operation
-    if (egg::lang::Bits::mask(rsimple, egg::lang::Discriminator::Arithmetic) == egg::lang::Discriminator::Float) {
+    if (egg::lang::Bits::mask(rbasal, egg::lang::Basal::Int | egg::lang::Basal::Float) == egg::lang::Basal::Float) {
       // Float-only operation
-      if (!egg::lang::Bits::hasAnySet(lsimple, egg::lang::Discriminator::Float)) {
+      if (!egg::lang::Bits::hasAnySet(lbasal, egg::lang::Basal::Float)) {
         return this->compilerError(where, "Expected left-hand target of floating-point '", EggProgram::assignToString(op), "' assignment operator to be 'float', but got '", ltype->toString(), "' instead");
       }
     } else {
       // Float-or-int operation
-      if (!egg::lang::Bits::hasAnySet(rsimple, egg::lang::Discriminator::Arithmetic)) {
+      if (!egg::lang::Bits::hasAnySet(rbasal, egg::lang::Basal::Arithmetic)) {
         return this->compilerError(where, "Expected right-hand side of '", EggProgram::assignToString(op), "' assignment operator to be 'int' or 'float', but got '", rtype->toString(), "' instead");
       }
-      if (!egg::lang::Bits::hasAnySet(lsimple, egg::lang::Discriminator::Arithmetic)) {
+      if (!egg::lang::Bits::hasAnySet(lbasal, egg::lang::Basal::Arithmetic)) {
         return this->compilerError(where, "Expected left-hand target of '", EggProgram::assignToString(op), "' assignment operator to be 'int' or 'float', but got '", ltype->toString(), "' instead");
       }
     }
@@ -206,7 +206,7 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareAssign(const
     if (ltype->canBeAssignedFrom(*rtype) == egg::lang::IType::AssignmentSuccess::Never) {
       return this->compilerError(where, "Cannot assign a value of type '", rtype->toString(), "' to a target of type '", ltype->toString(), "'");
     }
-    if (!egg::lang::Bits::hasAnySet(lsimple, egg::lang::Discriminator::Int)) {
+    if (!egg::lang::Bits::hasAnySet(lbasal, egg::lang::Basal::Int)) {
       // This is just a warning
       this->compilerWarning(where, "Expected left-hand target of null-coalescing '??=' assignment operator to be possibly 'null', but got '", ltype->toString(), "' instead");
     }
@@ -220,13 +220,13 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareMutate(const
     return EggProgramNodeFlags::Abandon;
   }
   auto ltype = lvalue.getType();
-  auto lsimple = ltype->getSimpleTypes();
-  assert(lsimple != egg::lang::Discriminator::Inferred);
+  auto lbasal = ltype->getBasalTypes();
+  assert(lbasal != egg::lang::Basal::None);
   switch (op) {
   case EggProgramMutate::Increment:
   case EggProgramMutate::Decrement:
     // Integer-only operation
-    if (!egg::lang::Bits::hasAnySet(lsimple, egg::lang::Discriminator::Int)) {
+    if (!egg::lang::Bits::hasAnySet(lbasal, egg::lang::Basal::Int)) {
       return this->compilerError(where, "Expected target of integer '", EggProgram::mutateToString(op), "' operator to be 'int', but got '", ltype->toString(), "' instead");
     }
     break;
@@ -545,21 +545,21 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareBrackets(con
     return EggProgramNodeFlags::Abandon;
   }
   auto ltype = instance.getType();
-  auto lsimple = ltype->getSimpleTypes();
-  assert(lsimple != egg::lang::Discriminator::Inferred);
-  auto mask = egg::lang::Bits::mask(lsimple, egg::lang::Discriminator::String | egg::lang::Discriminator::Object);
-  if (mask == egg::lang::Discriminator::None) {
+  auto lbasal = ltype->getBasalTypes();
+  assert(lbasal != egg::lang::Basal::None);
+  auto mask = egg::lang::Bits::mask(lbasal, egg::lang::Basal::String | egg::lang::Basal::Object);
+  if (mask == egg::lang::Basal::None) {
     // Neither string nor object
     return this->compilerError(where, "Expected subject of '[]' operator to be 'string' or 'object', but got '", ltype->toString(), "' instead");
   }
   auto rtype = index.getType();
-  if (egg::lang::Bits::hasAnySet(mask, egg::lang::Discriminator::String)) {
+  if (egg::lang::Bits::hasAnySet(mask, egg::lang::Basal::String)) {
     // Strings only accept integer indices
-    if (rtype->hasNativeType(egg::lang::Discriminator::Int)) {
+    if (rtype->hasBasalType(egg::lang::Basal::Int)) {
       return EggProgramNodeFlags::None;
     }
   }
-  if (egg::lang::Bits::hasAnySet(mask, egg::lang::Discriminator::Object)) {
+  if (egg::lang::Bits::hasAnySet(mask, egg::lang::Basal::Object)) {
     // Ask the object what indexing it supports
     auto indexable = ltype->indexable();
     if (indexable == nullptr) {
@@ -576,15 +576,15 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareDot(const eg
     return EggProgramNodeFlags::Abandon;
   }
   auto ltype = instance.getType();
-  auto lsimple = ltype->getSimpleTypes();
-  assert(lsimple != egg::lang::Discriminator::Inferred);
-  if (egg::lang::Bits::hasAnySet(lsimple, egg::lang::Discriminator::String)) {
+  auto lbasal = ltype->getBasalTypes();
+  assert(lbasal != egg::lang::Basal::None);
+  if (egg::lang::Bits::hasAnySet(lbasal, egg::lang::Basal::String)) {
     if (egg::yolk::Builtins::stringBuiltinFactory(property) != nullptr) {
       // It's a known string builtin
       return EggProgramNodeFlags::None;
     }
   }
-  if (egg::lang::Bits::hasAnySet(lsimple, egg::lang::Discriminator::Object)) {
+  if (egg::lang::Bits::hasAnySet(lbasal, egg::lang::Basal::Object)) {
     // Ask the object what properties it supports
     egg::lang::ITypeRef type{ egg::lang::Type::Void };
     egg::ovum::String reason;
@@ -606,24 +606,22 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareUnary(const 
     return EggProgramNodeFlags::Abandon;
   }
   auto type = value.getType();
-  auto simple = type->getSimpleTypes();
-  assert(simple != egg::lang::Discriminator::Inferred);
   switch (op) {
   case EggProgramUnary::LogicalNot:
     // Boolean-only operation
-    if (!egg::lang::Bits::hasAnySet(simple, egg::lang::Discriminator::Bool)) {
+    if (!egg::lang::Bits::hasAnySet(type->getBasalTypes(), egg::lang::Basal::Bool)) {
       return this->compilerError(where, "Expected operand of logical-not '!' operator to be 'int', but got '", type->toString(), "' instead");
     }
     break;
   case EggProgramUnary::BitwiseNot:
     // Integer-only operation
-    if (!egg::lang::Bits::hasAnySet(simple, egg::lang::Discriminator::Int)) {
+    if (!egg::lang::Bits::hasAnySet(type->getBasalTypes(), egg::lang::Basal::Int)) {
       return this->compilerError(where, "Expected operand of bitwise-not '~' operator to be 'int', but got '", type->toString(), "' instead");
     }
     break;
   case EggProgramUnary::Negate:
     // Arithmetic operation
-    if (!egg::lang::Bits::hasAnySet(simple, egg::lang::Discriminator::Arithmetic)) {
+    if (!egg::lang::Bits::hasAnySet(type->getBasalTypes(), egg::lang::Basal::Arithmetic)) {
       return this->compilerError(where, "Expected operand of negation '-' operator to be 'int' or 'float', but got '", type->toString(), "' instead");
     }
     break;
@@ -632,8 +630,7 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareUnary(const 
     return value.addressable(*this);
   case EggProgramUnary::Deref:
     // Dereference '*' operation
-    simple = type->pointeeType()->getSimpleTypes();
-    if (simple == egg::lang::Discriminator::None) {
+    if (type->pointeeType()->getBasalTypes() == egg::lang::Basal::None) {
       return this->compilerError(where, "Expected operand of dereference '*' operator to be a pointer, but got '", type->toString(), "' instead");
     }
     break;
@@ -648,17 +645,17 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareBinary(const
   case EggProgramBinary::LogicalAnd:
   case EggProgramBinary::LogicalOr:
     // Boolean-only operation
-    return checkBinary(*this, where, op, egg::lang::Discriminator::Bool, lhs, egg::lang::Discriminator::Bool, rhs);
+    return checkBinary(*this, where, op, egg::lang::Basal::Bool, lhs, egg::lang::Basal::Bool, rhs);
   case EggProgramBinary::BitwiseAnd:
   case EggProgramBinary::BitwiseOr:
   case EggProgramBinary::BitwiseXor:
     // Boolean/integer operation
-    return checkBinary(*this, where, op, egg::lang::Discriminator::Bool | egg::lang::Discriminator::Int, lhs, egg::lang::Discriminator::Bool | egg::lang::Discriminator::Int, rhs);
+    return checkBinary(*this, where, op, egg::lang::Basal::Bool | egg::lang::Basal::Int, lhs, egg::lang::Basal::Bool | egg::lang::Basal::Int, rhs);
   case EggProgramBinary::ShiftLeft:
   case EggProgramBinary::ShiftRight:
   case EggProgramBinary::ShiftRightUnsigned:
     // Integer-only operation
-    return checkBinary(*this, where, op, egg::lang::Discriminator::Int, lhs, egg::lang::Discriminator::Int, rhs);
+    return checkBinary(*this, where, op, egg::lang::Basal::Int, lhs, egg::lang::Basal::Int, rhs);
   case EggProgramBinary::Plus:
   case EggProgramBinary::Minus:
   case EggProgramBinary::Multiply:
@@ -669,14 +666,14 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareBinary(const
   case EggProgramBinary::Greater:
   case EggProgramBinary::GreaterEqual:
     // Arithmetic operation
-    return checkBinary(*this, where, op, egg::lang::Discriminator::Arithmetic, lhs, egg::lang::Discriminator::Arithmetic, rhs);
+    return checkBinary(*this, where, op, egg::lang::Basal::Arithmetic, lhs, egg::lang::Basal::Arithmetic, rhs);
   case EggProgramBinary::Equal:
   case EggProgramBinary::Unequal:
     // Equality operation
     break;
   case EggProgramBinary::NullCoalescing:
     // Warn if the left-hand-side can never be null
-    return checkBinary(*this, where, op, egg::lang::Discriminator::Null, lhs, egg::lang::Discriminator::Null | egg::lang::Discriminator::Any | egg::lang::Discriminator::Type, rhs);
+    return checkBinary(*this, where, op, egg::lang::Basal::Null, lhs, egg::lang::Basal::Any | egg::lang::Basal::Null | egg::lang::Basal::Type, rhs);
   case EggProgramBinary::Lambda:
     return this->compilerError(where, "'", EggProgram::binaryToString(op), "' operators not yet supported in 'prepareBinary'");
   }
@@ -692,15 +689,15 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareTernary(cons
     return EggProgramNodeFlags::Abandon;
   }
   auto type = cond.getType();
-  if (!type->hasNativeType(egg::lang::Discriminator::Bool)) {
+  if (!type->hasBasalType(egg::lang::Basal::Bool)) {
     return this->compilerError(where, "Expected condition of ternary '?:' operator to be 'bool', but got '", type->toString(), "' instead");
   }
   type = whenTrue.getType();
-  if (!type->hasNativeType(egg::lang::Discriminator::Any | egg::lang::Discriminator::Null)) {
+  if (!type->hasBasalType(egg::lang::Basal::Any | egg::lang::Basal::Null)) {
     return this->compilerError(whenTrue.location(), "Expected value for second operand of ternary '?:' operator , but got '", type->toString(), "' instead");
   }
   type = whenFalse.getType();
-  if (!type->hasNativeType(egg::lang::Discriminator::Any | egg::lang::Discriminator::Null)) {
+  if (!type->hasBasalType(egg::lang::Basal::Any | egg::lang::Basal::Null)) {
     return this->compilerError(whenTrue.location(), "Expected value for third operand of ternary '?:' operator , but got '", type->toString(), "' instead");
   }
   return EggProgramNodeFlags::None;
@@ -725,12 +722,12 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareWithType(IEg
 }
 
 egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::typeCheck(const egg::lang::LocationSource& where, egg::lang::ITypeRef& ltype, const egg::lang::ITypeRef& rtype, const egg::ovum::String& name, bool guard) {
-  assert(rtype->getSimpleTypes() != egg::lang::Discriminator::Inferred);
-  if (ltype->getSimpleTypes() == egg::lang::Discriminator::Inferred) {
+  assert(rtype->getBasalTypes() != egg::lang::Basal::None);
+  if (ltype->getBasalTypes() == egg::lang::Basal::None) {
     // We can infer the type
     if (guard) {
       ltype = rtype->denulledType();
-      if (ltype->getSimpleTypes() == egg::lang::Discriminator::Void) {
+      if (ltype->getBasalTypes() == egg::lang::Basal::Void) {
         return this->compilerError(where, "Cannot infer type of '", name, "' based on a value of type '", rtype->toString(), "'"); // TODO useful?
       }
     } else {

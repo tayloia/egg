@@ -16,7 +16,7 @@ namespace {
     Value validateCall(IExecution& execution, const IParameters& parameters) const {
       Value problem;
       if (!this->callable()->validateCall(execution, parameters, problem)) {
-        assert(problem.has(Discriminator::FlowControl));
+        assert(problem.hasFlowControl());
         return problem;
       }
       return Value::Void;
@@ -137,14 +137,14 @@ namespace {
     EGG_NO_COPY(BuiltinStringFrom);
   public:
     explicit BuiltinStringFrom(egg::ovum::IAllocator& allocator)
-      : BuiltinFunction(allocator, "string.from", Type::makeSimple(Discriminator::String | Discriminator::Null)) {
+      : BuiltinFunction(allocator, "string.from", Type::makeBasal(Basal::String | Basal::Null)) {
       this->type->addParameter("value", Type::AnyQ, Flags::Required);
     }
     virtual Value call(IExecution& execution, const IParameters& parameters) override {
       // Convert the parameter to a string
       // Note: Although the return type is 'string?' (for orthogonality) this function never returns 'null'
       Value result = this->type->validateCall(execution, parameters);
-      if (result.has(Discriminator::FlowControl)) {
+      if (result.hasFlowControl()) {
         return result;
       }
       return Value{ parameters.getPositional(0).toString() };
@@ -163,7 +163,7 @@ namespace {
     virtual Value call(IExecution& execution, const IParameters& parameters) override {
       // Concatenate the string representations of all parameters
       Value result = this->type->validateCall(execution, parameters);
-      if (result.has(Discriminator::FlowControl)) {
+      if (result.hasFlowControl()) {
         return result;
       }
       auto n = parameters.getPositionalCount();
@@ -191,7 +191,7 @@ namespace {
     virtual Value call(IExecution& execution, const IParameters& parameters) override {
       // Fetch the runtime type of the parameter
       Value result = this->type->validateCall(execution, parameters);
-      if (result.has(Discriminator::FlowControl)) {
+      if (result.hasFlowControl()) {
         return result;
       }
       return Value{ parameters.getPositional(0).getRuntimeType()->toString() };
@@ -222,7 +222,7 @@ namespace {
     }
     virtual Value call(IExecution& execution, const IParameters& parameters) override {
       Value result = this->type->validateCall(execution, parameters);
-      if (result.has(Discriminator::FlowControl)) {
+      if (result.hasFlowControl()) {
         return result;
       }
       return execution.assertion(parameters.getPositional(0));
@@ -238,7 +238,7 @@ namespace {
     }
     virtual Value call(IExecution& execution, const IParameters& parameters) override {
       Value result = this->type->validateCall(execution, parameters);
-      if (result.has(Discriminator::FlowControl)) {
+      if (result.hasFlowControl()) {
         return result;
       }
       auto n = parameters.getPositionalCount();
@@ -282,7 +282,7 @@ namespace {
     virtual Value call(IExecution& execution, const IParameters& parameters) override {
       // Let the string builtin type handle the request
       Value validation = this->type->validateCall(execution, parameters);
-      if (validation.has(Discriminator::FlowControl)) {
+      if (validation.hasFlowControl()) {
         return validation;
       }
       return this->type->executeCall(execution, this->instance, parameters);
@@ -342,7 +342,7 @@ namespace {
     virtual Value executeCall(IExecution& execution, const String& instance, const IParameters& parameters) const override {
       // bool contains(string needle)
       auto needle = parameters.getPositional(0);
-      if (!needle.is(Discriminator::String)) {
+      if (!needle.isString()) {
         return this->raise(execution, "Parameter was expected to be a 'string', not '", needle.getRuntimeType()->toString(), "'");
       }
       return Value{ instance.contains(needle.getString()) };
@@ -359,7 +359,7 @@ namespace {
     virtual Value executeCall(IExecution& execution, const String& instance, const IParameters& parameters) const override {
       // TODO int compare(string other, int? start, int? other_start, int? max_length)
       auto other = parameters.getPositional(0);
-      if (!other.is(Discriminator::String)) {
+      if (!other.isString()) {
         return this->raise(execution, "First parameter was expected to be a 'string', not '", other.getRuntimeType()->toString(), "'");
       }
       return Value{ instance.compareTo(other.getString()) };
@@ -376,7 +376,7 @@ namespace {
     virtual Value executeCall(IExecution& execution, const String& instance, const IParameters& parameters) const override {
       // bool startsWith(string needle)
       auto needle = parameters.getPositional(0);
-      if (!needle.is(Discriminator::String)) {
+      if (!needle.isString()) {
         return this->raise(execution, "Parameter was expected to be a 'string', not '", needle.getRuntimeType()->toString(), "'");
       }
       return Value{ instance.startsWith(needle.getString()) };
@@ -393,7 +393,7 @@ namespace {
     virtual Value executeCall(IExecution& execution, const String& instance, const IParameters& parameters) const override {
       // bool endsWith(string needle)
       auto needle = parameters.getPositional(0);
-      if (!needle.is(Discriminator::String)) {
+      if (!needle.isString()) {
         return this->raise(execution, "Parameter was expected to be a 'string', not '", needle.getRuntimeType()->toString(), "'");
       }
       return Value{ instance.endsWith(needle.getString()) };
@@ -404,13 +404,13 @@ namespace {
     EGG_NO_COPY(StringIndexOf);
   public:
     StringIndexOf(egg::ovum::IAllocator& allocator, const egg::ovum::String& name)
-      : StringFunctionType(allocator, name, Type::makeSimple(Discriminator::Int | Discriminator::Null)) {
+      : StringFunctionType(allocator, name, Type::makeBasal(Basal::Int | Basal::Null)) {
       this->addParameter("needle", Type::String, Flags::Required);
     }
     virtual Value executeCall(IExecution& execution, const String& instance, const IParameters& parameters) const override {
       // TODO int? indexOf(string needle, int? fromIndex, int? count, bool? negate)
       auto needle = parameters.getPositional(0);
-      if (!needle.is(Discriminator::String)) {
+      if (!needle.isString()) {
         return this->raise(execution, "First parameter was expected to be a 'string', not '", needle.getRuntimeType()->toString(), "'");
       }
       auto index = instance.indexOfString(needle.getString());
@@ -422,13 +422,13 @@ namespace {
     EGG_NO_COPY(StringLastIndexOf);
   public:
     StringLastIndexOf(egg::ovum::IAllocator& allocator, const egg::ovum::String& name)
-      : StringFunctionType(allocator, name, Type::makeSimple(Discriminator::Int | Discriminator::Null)) {
+      : StringFunctionType(allocator, name, Type::makeBasal(Basal::Int | Basal::Null)) {
       this->addParameter("needle", Type::String, Flags::Required);
     }
     virtual Value executeCall(IExecution& execution, const String& instance, const IParameters& parameters) const override {
       // TODO int? lastIndexOf(string needle, int? fromIndex, int? count, bool? negate)
       auto needle = parameters.getPositional(0);
-      if (!needle.is(Discriminator::String)) {
+      if (!needle.isString()) {
         return this->raise(execution, "First parameter was expected to be a 'string', not '", needle.getRuntimeType()->toString(), "'");
       }
       auto index = instance.lastIndexOfString(needle.getString());
@@ -454,8 +454,9 @@ namespace {
         // Joining a single value does not require a separator
         return Value{ parameters.getPositional(0).toString() };
       }
+      // Our parameters aren't in a std::vector, so we replicate String::join() here
       auto separator = instance.toUTF8();
-      egg::ovum::StringBuilder sb; // WIBBLE
+      egg::ovum::StringBuilder sb;
       sb.add(parameters.getPositional(0).toUTF8());
       for (size_t i = 1; i < n; ++i) {
         sb.add(separator).add(parameters.getPositional(i).toUTF8());
@@ -474,7 +475,7 @@ namespace {
     virtual Value executeCall(IExecution& execution, const String& instance, const IParameters& parameters) const override {
       // TODO string split(string separator, int? limit)
       auto separator = parameters.getPositional(0);
-      if (!separator.is(Discriminator::String)) {
+      if (!separator.isString()) {
         return this->raise(execution, "First parameter was expected to be a 'string', not '", separator.getRuntimeType()->toString(), "'");
       }
       auto split = instance.split(separator.getString());
@@ -494,7 +495,7 @@ namespace {
     virtual Value executeCall(IExecution& execution, const String& instance, const IParameters& parameters) const override {
       // TODO string slice(int? begin, int? end)
       auto p0 = parameters.getPositional(0);
-      if (!p0.is(Discriminator::Int)) {
+      if (!p0.isInt()) {
         return this->raise(execution, "First parameter was expected to be an 'int', not '", p0.getRuntimeType()->toString(), "'");
       }
       auto begin = p0.getInt();
@@ -502,7 +503,7 @@ namespace {
         return Value{ instance.slice(begin) };
       }
       auto p1 = parameters.getPositional(1);
-      if (!p1.is(Discriminator::Int)) {
+      if (!p1.isInt()) {
         return this->raise(execution, "Second parameter was expected to be an 'int', not '", p0.getRuntimeType()->toString(), "'");
       }
       auto end = p1.getInt();
@@ -520,7 +521,7 @@ namespace {
     virtual Value executeCall(IExecution& execution, const String& instance, const IParameters& parameters) const override {
       // string repeat(int count)
       auto p0 = parameters.getPositional(0);
-      if (!p0.is(Discriminator::Int)) {
+      if (!p0.isInt()) {
         return this->raise(execution, "Parameter was expected to be an 'int', not '", p0.getRuntimeType()->toString(), "'");
       }
       auto count = p0.getInt();
@@ -543,18 +544,18 @@ namespace {
     virtual Value executeCall(IExecution& execution, const String& instance, const IParameters& parameters) const override {
       // string replace(string needle, string replacement, int? occurrences)
       auto needle = parameters.getPositional(0);
-      if (!needle.is(Discriminator::String)) {
+      if (!needle.isString()) {
         return this->raise(execution, "First parameter was expected to be a 'string', not '", needle.getRuntimeType()->toString(), "'");
       }
       auto replacement = parameters.getPositional(1);
-      if (!replacement.is(Discriminator::String)) {
+      if (!replacement.isString()) {
         return this->raise(execution, "Second parameter was expected to be a 'string', not '", needle.getRuntimeType()->toString(), "'");
       }
       if (parameters.getPositionalCount() < 3) {
         return Value{ instance.replace(needle.getString(), replacement.getString()) };
       }
       auto occurrences = parameters.getPositional(2);
-      if (!occurrences.is(Discriminator::Int)) {
+      if (!occurrences.isInt()) {
         return this->raise(execution, "Third parameter was expected to be an 'int', not '", needle.getRuntimeType()->toString(), "'");
       }
       return Value{ instance.replace(needle.getString(), replacement.getString(), occurrences.getInt()) };
@@ -572,7 +573,7 @@ namespace {
     virtual Value executeCall(IExecution& execution, const String& instance, const IParameters& parameters) const override {
       // string padLeft(int length, string? padding)
       auto p0 = parameters.getPositional(0);
-      if (!p0.is(Discriminator::Int)) {
+      if (!p0.isInt()) {
         return this->raise(execution, "First parameter was expected to be an 'int', not '", p0.getRuntimeType()->toString(), "'");
       }
       auto length = p0.getInt();
@@ -583,7 +584,7 @@ namespace {
         return Value{ instance.padLeft(size_t(length)) };
       }
       auto p1 = parameters.getPositional(1);
-      if (!p1.is(Discriminator::String)) {
+      if (!p1.isString()) {
         return this->raise(execution, "Second parameter was expected to be a 'string', not '", p1.getRuntimeType()->toString(), "'");
       }
       return Value{ instance.padLeft(size_t(length), p1.getString()) };
@@ -601,7 +602,7 @@ namespace {
     virtual Value executeCall(IExecution& execution, const String& instance, const IParameters& parameters) const override {
       // string padRight(int length, string? padding)
       auto p0 = parameters.getPositional(0);
-      if (!p0.is(Discriminator::Int)) {
+      if (!p0.isInt()) {
         return this->raise(execution, "First parameter was expected to be an 'int', not '", p0.getRuntimeType()->toString(), "'");
       }
       auto length = p0.getInt();
@@ -612,7 +613,7 @@ namespace {
         return Value{ instance.padRight(size_t(length)) };
       }
       auto p1 = parameters.getPositional(1);
-      if (!p1.is(Discriminator::String)) {
+      if (!p1.isString()) {
         return this->raise(execution, "Second parameter was expected to be a 'string', not '", p1.getRuntimeType()->toString(), "'");
       }
       return Value{ instance.padRight(size_t(length), p1.getString()) };

@@ -185,7 +185,6 @@ namespace egg::ovum {
 
   class StringFactory {
   public:
-    // WIBBLE all needed?
     static String fromCodePoint(IAllocator& allocator, char32_t codepoint);
     static String fromUTF8(IAllocator& allocator, const uint8_t* begin, const uint8_t* end, size_t codepoints = SIZE_MAX);
     static String fromUTF8(IAllocator& allocator, const void* utf8, size_t bytes) {

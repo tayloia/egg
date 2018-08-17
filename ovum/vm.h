@@ -105,3 +105,13 @@
   X(OPCODE_VOID, 84, 0, 0, "void") \
   X(OPCODE_WHILE, 86, 2, 2, "while") \
   X(OPCODE_YIELD, 126, 0, 1, "yield")
+
+#define EGG_VM_BASAL(X) \
+  X(Void, 0) \
+  X(Null, 1) \
+  X(Bool, 2) \
+  X(Int, 3) \
+  X(Float, 4) \
+  X(String, 5) \
+  X(Object, 6) \
+  X(Type, 7)

@@ -88,7 +88,7 @@ egg::lang::Value egg::yolk::EggProgramContext::executeStatements(const std::vect
       this->symtable->addSymbol(EggProgramSymbol::ReadWrite, name, type);
     }
     auto retval = statement->execute(*this);
-    if (!retval.is(egg::lang::Discriminator::Void)) {
+    if (!retval.isVoid()) {
       return retval;
     }
   }
@@ -111,7 +111,6 @@ egg::lang::Value egg::yolk::EggProgramContext::executeDeclare(const IEggProgramN
   // The type information has already been used in the symbol declaration phase
   EGG_UNUSED(type); // Used in assertion only
   this->statement(self);
-  assert(type->getSimpleTypes() != egg::lang::Discriminator::Inferred);
   if (rvalue != nullptr) {
     // The declaration contains an initial value
     return this->set(name, rvalue->execute(*this)); // not .direct()
@@ -123,7 +122,7 @@ egg::lang::Value egg::yolk::EggProgramContext::executeGuard(const IEggProgramNod
   // The type information has already been used in the symbol declaration phase
   EGG_UNUSED(type); // Used in assertion only
   this->statement(self);
-  assert(type->getSimpleTypes() != egg::lang::Discriminator::Inferred);
+  assert(type->getBasalTypes() != egg::lang::Basal::None);
   return this->guard(name, rvalue.execute(*this)); // not .direct()
 }
 
@@ -152,18 +151,18 @@ egg::lang::Value egg::yolk::EggProgramContext::executeDo(const IEggProgramNode& 
   egg::lang::Value retval;
   do {
     retval = block.execute(*this);
-    if (!retval.is(egg::lang::Discriminator::Void)) {
-      if (retval.is(egg::lang::Discriminator::Break)) {
+    if (!retval.isVoid()) {
+      if (retval.isBreak()) {
         // Just leave the loop
         return egg::lang::Value::Void;
       }
-      if (!retval.is(egg::lang::Discriminator::Continue)) {
+      if (!retval.isContinue()) {
         // Probably an exception
         return retval;
       }
     }
     retval = this->condition(cond);
-    if (!retval.is(egg::lang::Discriminator::Bool)) {
+    if (!retval.isBool()) {
       // Condition evaluation failed
       return retval;
     }
@@ -175,7 +174,7 @@ egg::lang::Value egg::yolk::EggProgramContext::executeIf(const IEggProgramNode& 
   this->statement(self);
   return this->executeScope(&cond, [&](EggProgramContext& scope) {
     auto retval = scope.condition(cond);
-    if (!retval.is(egg::lang::Discriminator::Bool)) {
+    if (!retval.isBool()) {
       return retval;
     }
     if (retval.getBool()) {
@@ -195,7 +194,7 @@ egg::lang::Value egg::yolk::EggProgramContext::executeFor(const IEggProgramNode&
     egg::lang::Value retval;
     if (pre != nullptr) {
       retval = pre->execute(scope);
-      if (!retval.is(egg::lang::Discriminator::Void)) {
+      if (!retval.isVoid()) {
         // Probably an exception in the pre-loop statement
         return retval;
       }
@@ -204,19 +203,19 @@ egg::lang::Value egg::yolk::EggProgramContext::executeFor(const IEggProgramNode&
       // There's no explicit condition
       for (;;) {
         retval = block.execute(scope);
-        if (!retval.is(egg::lang::Discriminator::Void)) {
-          if (retval.is(egg::lang::Discriminator::Break)) {
+        if (!retval.isVoid()) {
+          if (retval.isBreak()) {
             // Just leave the loop
             return egg::lang::Value::Void;
           }
-          if (!retval.is(egg::lang::Discriminator::Continue)) {
+          if (!retval.isContinue()) {
             // Probably an exception in the block
             return retval;
           }
         }
         if (post != nullptr) {
           retval = post->execute(scope);
-          if (!retval.is(egg::lang::Discriminator::Void)) {
+          if (!retval.isVoid()) {
             // Probably an exception in the post-loop statement
             return retval;
           }
@@ -224,25 +223,25 @@ egg::lang::Value egg::yolk::EggProgramContext::executeFor(const IEggProgramNode&
       }
     }
     retval = scope.condition(*cond);
-    while (retval.is(egg::lang::Discriminator::Bool)) {
+    while (retval.isBool()) {
       if (!retval.getBool()) {
         // The condition was false
         return egg::lang::Value::Void;
       }
       retval = block.execute(scope);
-      if (!retval.is(egg::lang::Discriminator::Void)) {
-        if (retval.is(egg::lang::Discriminator::Break)) {
+      if (!retval.isVoid()) {
+        if (retval.isBreak()) {
           // Just leave the loop
           return egg::lang::Value::Void;
         }
-        if (!retval.is(egg::lang::Discriminator::Continue)) {
+        if (!retval.isContinue()) {
           // Probably an exception in the block
           return retval;
         }
       }
       if (post != nullptr) {
         retval = post->execute(scope);
-        if (!retval.is(egg::lang::Discriminator::Void)) {
+        if (!retval.isVoid()) {
           // Probably an exception in the post-loop statement
           return retval;
         }
@@ -261,14 +260,14 @@ egg::lang::Value egg::yolk::EggProgramContext::executeForeach(const IEggProgramN
       return scope.raiseFormat("Iteration target in 'for' statement is not valid");
     }
     auto src = rvalue.execute(scope).direct();
-    if (src.has(egg::lang::Discriminator::FlowControl)) {
+    if (src.hasFlowControl()) {
       return src;
     }
-    if (src.is(egg::lang::Discriminator::String)) {
+    if (src.isString()) {
       // Optimization for string codepoint iteration
       return scope.executeForeachString(*dst, src.getString(), block);
     }
-    if (src.has(egg::lang::Discriminator::Object)) {
+    if (src.hasObject()) {
       auto object = src.getObject();
       return scope.executeForeachIterate(*dst, *object, block);
     }
@@ -280,17 +279,17 @@ egg::lang::Value egg::yolk::EggProgramContext::executeForeachString(IEggProgramA
   size_t index = 0;
   for (auto codepoint = source.codePointAt(0); codepoint >= 0; codepoint = source.codePointAt(++index)) {
     auto retval = target.set(egg::lang::Value{ egg::ovum::StringFactory::fromCodePoint(this->allocator, char32_t(codepoint)) });
-    if (retval.has(egg::lang::Discriminator::FlowControl)) {
+    if (retval.hasFlowControl()) {
       // The assignment failed
       return retval;
     }
     retval = block.execute(*this);
-    if (!retval.is(egg::lang::Discriminator::Void)) {
-      if (retval.is(egg::lang::Discriminator::Break)) {
+    if (!retval.isVoid()) {
+      if (retval.isBreak()) {
         // Just leave the loop
         return egg::lang::Value::Void;
       }
-      if (!retval.is(egg::lang::Discriminator::Continue)) {
+      if (!retval.isContinue()) {
         // Probably an exception in the block
         return retval;
       }
@@ -304,36 +303,36 @@ egg::lang::Value egg::yolk::EggProgramContext::executeForeachString(IEggProgramA
 
 egg::lang::Value egg::yolk::EggProgramContext::executeForeachIterate(IEggProgramAssignee& target, egg::lang::IObject& source, const IEggProgramNode& block) {
   auto iterate = source.iterate(*this);
-  if (iterate.has(egg::lang::Discriminator::FlowControl)) {
+  if (iterate.hasFlowControl()) {
     // The iterator could not be created
     return iterate;
   }
-  if (!iterate.has(egg::lang::Discriminator::Object)) {
+  if (!iterate.hasObject()) {
     return this->unexpected("The 'for' statement expected an iterator", iterate); // TODO
   }
   auto iteration = iterate.getObject();
   for (;;) {
     auto next = iteration->iterate(*this);
-    if (next.has(egg::lang::Discriminator::FlowControl)) {
+    if (next.hasFlowControl()) {
       // An error occurred in the iterator
       return next;
     }
-    if (next.is(egg::lang::Discriminator::Void)) {
+    if (next.isVoid()) {
       // The iterator concluded
       break;
     }
     auto retval = target.set(next);
-    if (retval.has(egg::lang::Discriminator::FlowControl)) {
+    if (retval.hasFlowControl()) {
       // The assignment failed
       return retval;
     }
     retval = block.execute(*this);
-    if (!retval.is(egg::lang::Discriminator::Void)) {
-      if (retval.is(egg::lang::Discriminator::Break)) {
+    if (!retval.isVoid()) {
+      if (retval.isBreak()) {
         // Just leave the loop
         break;
       }
-      if (!retval.is(egg::lang::Discriminator::Continue)) {
+      if (!retval.isContinue()) {
         // Probably an exception in the block
         return retval;
       }
@@ -347,7 +346,7 @@ egg::lang::Value egg::yolk::EggProgramContext::executeFunctionDefinition(const I
   this->statement(self);
   auto symbol = this->symtable->findSymbol(name);
   assert(symbol != nullptr);
-  assert(symbol->getValue().is(egg::lang::Discriminator::Void));
+  assert(symbol->getValue().isVoid());
   return symbol->assign(*this->symtable, *this, this->createVanillaFunction(type, block));
 }
 
@@ -377,10 +376,10 @@ egg::lang::Value egg::yolk::EggProgramContext::executeFunctionCall(const egg::la
     assert(!pname.empty());
     auto ptype = parameter.getType();
     auto pvalue = parameters.getPositional(i);
-    assert(!pvalue.has(egg::lang::Discriminator::FlowControl));
+    assert(!pvalue.hasFlowControl());
     // Use 'assign' to perform promotion, etc.
     auto result = nested->addSymbol(EggProgramSymbol::ReadWrite, pname, ptype)->assign(*this->symtable, *this, pvalue);
-    if (result.has(egg::lang::Discriminator::FlowControl)) {
+    if (result.hasFlowControl()) {
       // Re-create the exception with the parameter name included
       auto* plocation = parameters.getPositionalLocation(i);
       if (plocation != nullptr) {
@@ -418,7 +417,7 @@ egg::lang::Value egg::yolk::EggProgramContext::executeReturn(const IEggProgramNo
     return egg::lang::Value::ReturnVoid;
   }
   auto result = value->execute(*this).direct();
-  if (!result.has(egg::lang::Discriminator::FlowControl)) {
+  if (!result.hasFlowControl()) {
     // Need to convert the result to a return flow control
     result.addFlowControl(egg::lang::Discriminator::Return);
   }
@@ -432,13 +431,13 @@ egg::lang::Value egg::yolk::EggProgramContext::executeSwitch(const IEggProgramNo
   // Phase 2 executes the block(s) as appropriate
   return this->executeScope(&value, [&](EggProgramContext& scope) {
     auto expr = value.execute(scope).direct();
-    if (expr.has(egg::lang::Discriminator::FlowControl)) {
+    if (expr.hasFlowControl()) {
       return expr;
     }
     auto matched = size_t(defaultIndex);
     for (size_t index = 0; index < cases.size(); ++index) {
       auto retval = scope.executeWithValue(*cases[index], expr).direct();
-      if (!retval.is(egg::lang::Discriminator::Bool)) {
+      if (!retval.isBool()) {
         // Failed to evaluate a case label
         return retval;
       }
@@ -450,11 +449,11 @@ egg::lang::Value egg::yolk::EggProgramContext::executeSwitch(const IEggProgramNo
     }
     while (matched < cases.size()) {
       auto retval = cases[matched]->execute(scope);
-      if (retval.is(egg::lang::Discriminator::Break)) {
+      if (retval.isBreak()) {
         // Explicit end of case clause
         break;
       }
-      if (!retval.is(egg::lang::Discriminator::Continue)) {
+      if (!retval.isContinue()) {
         // Probably some other flow control such as a return or exception
         return retval;
       }
@@ -470,7 +469,7 @@ egg::lang::Value egg::yolk::EggProgramContext::executeCase(const IEggProgramNode
     // We're matching against values
     for (auto& i : values) {
       auto value = i->execute(*this).direct();
-      if (value.has(egg::lang::Discriminator::FlowControl)) {
+      if (value.hasFlowControl()) {
         return value;
       }
       if (value == *against) {
@@ -492,11 +491,11 @@ egg::lang::Value egg::yolk::EggProgramContext::executeThrow(const IEggProgramNod
     return egg::lang::Value::Rethrow;
   }
   auto value = exception->execute(*this).direct();
-  if (value.has(egg::lang::Discriminator::FlowControl)) {
+  if (value.hasFlowControl()) {
     return value;
   }
-  if (!value.has(egg::lang::Discriminator::Any)) {
-    return this->raiseFormat("Cannot 'throw' a value of type '", value.getTagString(), "'");
+  if (!value.hasAny()) {
+    return this->raiseFormat("Cannot 'throw' a value of type '", value.getDiscriminatorString(), "'");
   }
   return this->raise(value.getString());
 }
@@ -508,7 +507,7 @@ egg::lang::Value egg::yolk::EggProgramContext::executeTry(const IEggProgramNode&
     // An exception has indeed been thrown
     for (auto& i : catches) {
       auto match = this->executeWithValue(*i, retval).direct();
-      if (!match.is(egg::lang::Discriminator::Bool)) {
+      if (!match.isBool()) {
         // Failed to evaluate the catch condition
         return this->executeFinally(match, final);
       }
@@ -525,20 +524,20 @@ egg::lang::Value egg::yolk::EggProgramContext::executeCatch(const IEggProgramNod
   this->statement(self);
   auto exception = this->scopeValue;
   assert(exception != nullptr);
-  assert(!exception->has(egg::lang::Discriminator::FlowControl));
+  assert(!exception->hasFlowControl());
   // TODO return false if typeof(exception) != type
   auto nested = this->getAllocator().make<EggProgramSymbolTable>(this->symtable.get());
   nested->addSymbol(EggProgramSymbol::ReadWrite, name, type.getType(), *exception);
   auto context = this->createNestedContext(*nested);
   auto retval = block.execute(*context);
-  if (retval.has(egg::lang::Discriminator::FlowControl)) {
+  if (retval.hasFlowControl()) {
     // Check for a rethrow
-    if (retval.is(egg::lang::Discriminator::Exception | egg::lang::Discriminator::Void)) {
+    if (retval.isRethrow()) {
       return *exception;
     }
     return retval;
   }
-  if (retval.is(egg::lang::Discriminator::Void)) {
+  if (retval.isVoid()) {
     // Return 'true' to indicate to the 'try' statement that we ran this 'catch' block
     return egg::lang::Value::True;
   }
@@ -548,7 +547,7 @@ egg::lang::Value egg::yolk::EggProgramContext::executeCatch(const IEggProgramNod
 egg::lang::Value egg::yolk::EggProgramContext::executeFinally(const egg::lang::Value& retval, const IEggProgramNode* final) {
   if (final != nullptr) {
     auto secondary = final->execute(*this);
-    if (!secondary.is(egg::lang::Discriminator::Void)) {
+    if (!secondary.isVoid()) {
       return secondary;
     }
   }
@@ -559,18 +558,18 @@ egg::lang::Value egg::yolk::EggProgramContext::executeWhile(const IEggProgramNod
   this->statement(self);
   return this->executeScope(&cond, [&](EggProgramContext& scope) {
     auto retval = scope.condition(cond);
-    while (retval.is(egg::lang::Discriminator::Bool)) {
+    while (retval.isBool()) {
       if (!retval.getBool()) {
         // Condition failed, leave the loop
         return egg::lang::Value::Void;
       }
       retval = block.execute(scope);
-      if (!retval.is(egg::lang::Discriminator::Void)) {
-        if (retval.is(egg::lang::Discriminator::Break)) {
+      if (!retval.isVoid()) {
+        if (retval.isBreak()) {
           // Just leave the loop
           return egg::lang::Value::Void;
         }
-        if (!retval.is(egg::lang::Discriminator::Continue)) {
+        if (!retval.isContinue()) {
           // Probably an exception
           break;
         }
@@ -591,16 +590,16 @@ egg::lang::Value egg::yolk::EggProgramContext::executeArray(const IEggProgramNod
   // OPTIMIZE
   EggProgramExpression expression(*this, self);
   auto result = this->createVanillaArray();
-  if (!result.has(egg::lang::Discriminator::FlowControl) && result.has(egg::lang::Discriminator::Object)) {
+  if (!result.hasFlowControl() && result.hasObject()) {
     auto object = result.getObject();
     int64_t index = 0;
     for (auto& value : values) {
       auto entry = value->execute(*this).direct();
-      if (entry.has(egg::lang::Discriminator::FlowControl)) {
+      if (entry.hasFlowControl()) {
         return entry;
       }
       entry = object->setIndex(*this, egg::lang::Value{ index }, entry);
-      if (entry.has(egg::lang::Discriminator::FlowControl)) {
+      if (entry.hasFlowControl()) {
         return entry;
       }
       ++index;
@@ -613,7 +612,7 @@ egg::lang::Value egg::yolk::EggProgramContext::executeObject(const IEggProgramNo
   // OPTIMIZE
   EggProgramExpression expression(*this, self);
   auto result = this->createVanillaObject();
-  if (!result.has(egg::lang::Discriminator::FlowControl) && result.has(egg::lang::Discriminator::Object)) {
+  if (!result.hasFlowControl() && result.hasObject()) {
     auto object = result.getObject();
     egg::ovum::String name;
     auto type = egg::lang::Type::Void;
@@ -622,11 +621,11 @@ egg::lang::Value egg::yolk::EggProgramContext::executeObject(const IEggProgramNo
         return this->raiseFormat("Internal runtime error: Failed to fetch name of object property");
       }
       auto entry = value->execute(*this).direct();
-      if (entry.has(egg::lang::Discriminator::FlowControl)) {
+      if (entry.hasFlowControl()) {
         return entry;
       }
       entry = object->setProperty(*this, name, entry);
-      if (entry.has(egg::lang::Discriminator::FlowControl)) {
+      if (entry.hasFlowControl()) {
         return entry;
       }
     }
@@ -637,7 +636,7 @@ egg::lang::Value egg::yolk::EggProgramContext::executeObject(const IEggProgramNo
 egg::lang::Value egg::yolk::EggProgramContext::executeCall(const IEggProgramNode& self, const IEggProgramNode& callee, const std::vector<std::shared_ptr<IEggProgramNode>>& parameters) {
   EggProgramExpression expression(*this, self);
   auto func = callee.execute(*this).direct();
-  if (func.has(egg::lang::Discriminator::FlowControl)) {
+  if (func.hasFlowControl()) {
     return func;
   }
   EggProgramParameters params(parameters.size());
@@ -645,7 +644,7 @@ egg::lang::Value egg::yolk::EggProgramContext::executeCall(const IEggProgramNode
   auto type = egg::lang::Type::Void;
   for (auto& parameter : parameters) {
     auto value = parameter->execute(*this).direct();
-    if (value.has(egg::lang::Discriminator::FlowControl)) {
+    if (value.hasFlowControl()) {
       return value;
     }
     if (parameter->symbol(name, type)) {
@@ -672,11 +671,11 @@ egg::lang::Value egg::yolk::EggProgramContext::executeBrackets(const IEggProgram
   // Override our location with the index value
   this->location.column++; // TODO a better way of doing this?
   auto lhs = instance.execute(*this).direct();
-  if (lhs.has(egg::lang::Discriminator::FlowControl)) {
+  if (lhs.hasFlowControl()) {
     return lhs;
   }
   auto rhs = index.execute(*this).direct();
-  if (rhs.has(egg::lang::Discriminator::FlowControl)) {
+  if (rhs.hasFlowControl()) {
     return rhs;
   }
   return this->bracketsGet(lhs, rhs);
@@ -685,7 +684,7 @@ egg::lang::Value egg::yolk::EggProgramContext::executeBrackets(const IEggProgram
 egg::lang::Value egg::yolk::EggProgramContext::executeDot(const IEggProgramNode& self, const IEggProgramNode& instance, const egg::ovum::String& property) {
   EggProgramExpression expression(*this, self);
   auto lhs = instance.execute(*this).direct();
-  if (lhs.has(egg::lang::Discriminator::FlowControl)) {
+  if (lhs.hasFlowControl()) {
     return lhs;
   }
   return this->dotGet(lhs, property);
@@ -707,7 +706,7 @@ egg::lang::Value egg::yolk::EggProgramContext::executeBinary(const IEggProgramNo
 egg::lang::Value egg::yolk::EggProgramContext::executeTernary(const IEggProgramNode& self, const IEggProgramNode& cond, const IEggProgramNode& whenTrue, const IEggProgramNode& whenFalse) {
   EggProgramExpression expression(*this, self);
   auto retval = this->condition(cond).direct();
-  if (retval.is(egg::lang::Discriminator::Bool)) {
+  if (retval.isBool()) {
     return retval.getBool() ? whenTrue.execute(*this).direct() : whenFalse.execute(*this).direct();
   }
   return retval;
@@ -718,13 +717,13 @@ egg::lang::Value egg::yolk::EggProgramContext::executePredicate(const IEggProgra
   egg::lang::Value left{};
   egg::lang::Value right{};
   auto result = this->binary(op, lhs, rhs, left, right);
-  if (!result.is(egg::lang::Discriminator::Bool) || result.getBool()) {
+  if (!result.isBool() || result.getBool()) {
     // It wasn't a predicate failure, i.e. didn't return bool:false
     return result;
   }
   auto operation = EggProgram::binaryToString(op);
   auto raised = this->raiseFormat("Assertion is untrue: ", left.toString(), " ", operation, " ", right.toString());
-  if (raised.has(egg::lang::Discriminator::Exception) && raised.has(egg::lang::Discriminator::Object)) {
+  if (raised.hasException() && raised.hasObject()) {
     // Augment the exception with extra information
     auto exception = raised.getObject();
     exception->setProperty(*this, "left", left);
@@ -757,12 +756,12 @@ egg::lang::LogSeverity egg::yolk::EggProgram::execute(IEggEngineExecutionContext
   egg::lang::LogSeverity severity = egg::lang::LogSeverity::None;
   auto context = this->createRootContext(allocator, execution, *symtable, severity);
   auto retval = this->root->execute(*context);
-  if (!retval.is(egg::lang::Discriminator::Void)) {
+  if (!retval.isVoid()) {
     if (retval.stripFlowControl(egg::lang::Discriminator::Exception)) {
       // TODO exception location
       execution.log(egg::lang::LogSource::Runtime, egg::lang::LogSeverity::Error, retval.toUTF8());
-    } else if (retval.has(egg::lang::Discriminator::FlowControl)) {
-      std::string message = "Internal runtime error: Expected statement to return 'void', but got '" + retval.getTagString() + "' instead";
+    } else if (retval.hasFlowControl()) {
+      std::string message = "Internal runtime error: Expected statement to return 'void', but got '" + retval.getDiscriminatorString() + "' instead";
       execution.log(egg::lang::LogSource::Runtime, egg::lang::LogSeverity::Error, message);
     }
   }

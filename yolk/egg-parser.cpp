@@ -45,10 +45,10 @@ namespace {
 
   EggParserArithmetic getArithmeticTypes(const IEggProgramNode& node) {
     auto underlying = node.getType();
-    if (underlying->hasNativeType(egg::lang::Discriminator::Float)) {
-      return underlying->hasNativeType(egg::lang::Discriminator::Int) ? EggParserArithmetic::Both : EggParserArithmetic::Float;
+    if (underlying->hasBasalType(egg::lang::Basal::Float)) {
+      return underlying->hasBasalType(egg::lang::Basal::Int) ? EggParserArithmetic::Both : EggParserArithmetic::Float;
     }
-    return underlying->hasNativeType(egg::lang::Discriminator::Int) ? EggParserArithmetic::Int : EggParserArithmetic::None;
+    return underlying->hasBasalType(egg::lang::Basal::Int) ? EggParserArithmetic::Int : EggParserArithmetic::None;
   }
 
   egg::lang::ITypeRef makeArithmeticType(EggParserArithmetic arithmetic) {
@@ -82,14 +82,14 @@ namespace {
   }
 
   egg::lang::ITypeRef binaryBitwiseTypes(const std::shared_ptr<IEggProgramNode>& lhs, const std::shared_ptr<IEggProgramNode>& rhs) {
-    auto lhsb = egg::lang::Bits::mask(lhs->getType()->getSimpleTypes(), egg::lang::Discriminator::Bool | egg::lang::Discriminator::Int);
-    auto rhsb = egg::lang::Bits::mask(rhs->getType()->getSimpleTypes(), egg::lang::Discriminator::Bool | egg::lang::Discriminator::Int);
+    auto lhsb = egg::lang::Bits::mask(lhs->getType()->getBasalTypes(), egg::lang::Basal::Bool | egg::lang::Basal::Int);
+    auto rhsb = egg::lang::Bits::mask(rhs->getType()->getBasalTypes(), egg::lang::Basal::Bool | egg::lang::Basal::Int);
     auto common = egg::lang::Bits::mask(lhsb, rhsb);
-    if (common == egg::lang::Discriminator::None) {
+    if (common == egg::lang::Basal::None) {
       // No common bool/int
       return egg::lang::Type::Void;
     }
-    return egg::lang::Type::makeSimple(common);
+    return egg::lang::Type::makeBasal(common);
   }
 
   SyntaxException exceptionFromLocation(const IEggParserContext& context, const std::string& reason, const EggSyntaxNodeLocation& location) {
@@ -1563,7 +1563,7 @@ std::shared_ptr<egg::yolk::IEggProgramNode> egg::yolk::EggSyntaxNode_FunctionDef
   FunctionType* underlying;
   if (this->generator) {
     // Generators cannot explicitly return voids
-    if (egg::lang::Bits::hasAnySet(rettype->getSimpleTypes(), egg::lang::Discriminator::Void)) {
+    if (egg::lang::Bits::hasAnySet(rettype->getBasalTypes(), egg::lang::Basal::Void)) {
       throw exceptionFromLocation(context, "The return value of a generator may not include 'void'", *this);
     }
     underlying = egg::yolk::FunctionType::createGeneratorType(context.allocator(), this->name, rettype);
@@ -1944,13 +1944,13 @@ egg::lang::ITypeRef EggParserNode_BinaryShiftRightUnsigned::getType() const {
 
 egg::lang::ITypeRef EggParserNode_BinaryNullCoalescing::getType() const {
   auto type1 = this->lhs->getType();
-  if (!type1->hasNativeType(egg::lang::Discriminator::Null)) {
+  if (!type1->hasBasalType(egg::lang::Basal::Null)) {
     // The left-hand-side cannot be null, so the right side is irrelevant
     return type1;
   }
   auto type2 = this->rhs->getType();
   type1 = type1->denulledType();
-  if (type1->getSimpleTypes() == egg::lang::Discriminator::Void) {
+  if (type1->getBasalTypes() == egg::lang::Basal::Void) {
     // The left-hand-side is only ever null, so only the right side is relevant
     return type2;
   }
@@ -1985,7 +1985,7 @@ std::shared_ptr<IEggProgramNode> EggProgramContext::empredicateBinary(const std:
 
 egg::lang::ITypeRef EggParserNode_Ternary::getType() const {
   auto type1 = this->condition->getType();
-  if (!type1->hasNativeType(egg::lang::Discriminator::Bool)) {
+  if (!type1->hasBasalType(egg::lang::Basal::Bool)) {
     // The condition is not a bool, so the other values are irrelevant
     return egg::lang::Type::Void;
   }

@@ -61,7 +61,7 @@ namespace {
       : FunctionType(allocator, egg::ovum::String(), returnType->unionWith(*egg::lang::Type::Void)),
         rettype(returnType) {
       // No name or parameters in the signature
-      assert(!egg::lang::Bits::hasAnySet(returnType->getSimpleTypes(), egg::lang::Discriminator::Void));
+      assert(!egg::lang::Bits::hasAnySet(returnType->getBasalTypes(), egg::lang::Basal::Void));
     }
     virtual std::pair<std::string, int> toStringPrecedence() const override {
       // Format a string along the lines of '<rettype>...'
@@ -106,7 +106,7 @@ namespace {
         assert(statement != nullptr);
         context.statement(*statement);
         auto retval = statement->coexecute(context, *this);
-        if (!retval.is(egg::lang::Discriminator::Void)) {
+        if (!retval.isVoid()) {
           return retval;
         }
       }
@@ -136,7 +136,7 @@ namespace {
         if (!this->test) {
           this->test = true;
           auto retval = this->block->coexecute(context, *this);
-          if (!retval.is(egg::lang::Discriminator::Void)) {
+          if (!retval.isVoid()) {
             // Probably an exception in the block
             return retval;
           }
@@ -144,7 +144,7 @@ namespace {
         if (this->test) {
           this->test = false;
           auto retval = context.condition(*this->cond);
-          if (!retval.is(egg::lang::Discriminator::Bool)) {
+          if (!retval.isBool()) {
             // Probably an exception in the condition evaluation
             return retval;
           }
@@ -184,7 +184,7 @@ namespace {
         // Run 'pre'
         if (this->pre != nullptr) {
           retval = this->pre->execute(context);
-          if (!retval.is(egg::lang::Discriminator::Void)) {
+          if (!retval.isVoid()) {
             // Probably an exception in the pre-loop statement
             return retval;
           }
@@ -194,7 +194,7 @@ namespace {
         // Run 'cond'
         if (this->cond != nullptr) {
           retval = context.condition(*this->cond);
-          if (!retval.is(egg::lang::Discriminator::Bool)) {
+          if (!retval.isBool()) {
             // Probably an exception in the condition evaluation
             return retval;
           }
@@ -205,12 +205,12 @@ namespace {
         }
         // Run 'block'
         retval = this->block->coexecute(context, *this);
-        if (!retval.is(egg::lang::Discriminator::Void)) {
-          if (retval.is(egg::lang::Discriminator::Break)) {
+        if (!retval.isVoid()) {
+          if (retval.isBreak()) {
             // Explicit 'break'
             break;
           }
-          if (!retval.is(egg::lang::Discriminator::Continue)) {
+          if (!retval.isContinue()) {
             // Not explicit 'continue'
             return retval;
           }
@@ -218,7 +218,7 @@ namespace {
         // Run 'post'
         if (this->post != nullptr) {
           retval = this->post->execute(context);
-          if (!retval.is(egg::lang::Discriminator::Void)) {
+          if (!retval.isVoid()) {
             // Probably an exception in the post-loop statement
             return retval;
           }
@@ -243,7 +243,7 @@ namespace {
     virtual egg::lang::Value resume(egg::yolk::EggProgramContext& context) {
       for (;;) {
         auto retval = context.condition(*this->cond);
-        if (!retval.is(egg::lang::Discriminator::Bool)) {
+        if (!retval.isBool()) {
           // Probably an exception in the condition
           return retval;
         }
@@ -252,12 +252,12 @@ namespace {
           break;
         }
         retval = this->block->coexecute(context, *this);
-        if (!retval.is(egg::lang::Discriminator::Void)) {
-          if (retval.is(egg::lang::Discriminator::Break)) {
+        if (!retval.isVoid()) {
+          if (retval.isBreak()) {
             // Explicit 'break;
             break;
           }
-          if (!retval.is(egg::lang::Discriminator::Continue)) {
+          if (!retval.isContinue()) {
             // Not explicit 'continue;
             return retval;
           }
@@ -471,7 +471,7 @@ egg::lang::Value egg::yolk::EggProgramContext::coexecuteWhile(EggProgramStackles
 
 egg::lang::Value egg::yolk::EggProgramContext::coexecuteYield(EggProgramStackless&, const std::shared_ptr<IEggProgramNode>& value) {
   auto result = value->execute(*this).direct();
-  if (!result.has(egg::lang::Discriminator::FlowControl)) {
+  if (!result.hasFlowControl()) {
     // Need to convert the result to a return flow control
     result.addFlowControl(egg::lang::Discriminator::Yield);
   }
