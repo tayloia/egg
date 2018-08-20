@@ -677,7 +677,7 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareBinary(const
     break;
   case EggProgramBinary::NullCoalescing:
     // Warn if the left-hand-side can never be null
-    return checkBinary(*this, where, op, egg::ovum::Basal::Null, lhs, egg::ovum::Basal::Any | egg::ovum::Basal::Null | egg::ovum::Basal::Type, rhs);
+    return checkBinary(*this, where, op, egg::ovum::Basal::Null, lhs, egg::ovum::Basal::Any | egg::ovum::Basal::Null, rhs);
   case EggProgramBinary::Lambda:
     return this->compilerError(where, "'", EggProgram::binaryToString(op), "' operators not yet supported in 'prepareBinary'");
   }

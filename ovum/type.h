@@ -13,7 +13,6 @@ namespace egg::ovum {
     static const Type Arithmetic;
     static const Type Any;
     static const Type AnyQ;
-    static const Type Type_; // Underscore needed to avoid name clash
 
     static ITypeRef makeBasal(Basal basal);
     static ITypeRef makeUnion(const IType& lhs, const IType& rhs);

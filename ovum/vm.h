@@ -113,5 +113,4 @@
   X(Int, 3) \
   X(Float, 4) \
   X(String, 5) \
-  X(Object, 6) \
-  X(Type, 7)
+  X(Object, 6)

@@ -1140,18 +1140,29 @@ std::unique_ptr<IEggSyntaxNode> EggSyntaxParserContext::parseExpressionPrimary(c
     mark.accept(1);
     return std::make_unique<EggSyntaxNode_Identifier>(location, p0.value.s);
   case EggTokenizerKind::Keyword:
-    if ((p0.value.k == EggTokenizerKeyword::Null) || (p0.value.k == EggTokenizerKeyword::False) || (p0.value.k == EggTokenizerKeyword::True)) {
+    EGG_WARNING_SUPPRESS_SWITCH_BEGIN
+    switch (p0.value.k) {
+    case EggTokenizerKeyword::Null:
+    case EggTokenizerKeyword::False:
+    case EggTokenizerKeyword::True:
+      // Literal constant
       mark.accept(1);
       return std::make_unique<EggSyntaxNode_Literal>(location, p0.kind, p0.value);
-    }
-    if (egg::ovum::Bits::hasAnySet(keywordToBasal(p0), egg::ovum::Basal::Any | egg::ovum::Basal::Type)) {
+    case EggTokenizerKeyword::Bool:
+    case EggTokenizerKeyword::Int:
+    case EggTokenizerKeyword::Float:
+    case EggTokenizerKeyword::String:
+    case EggTokenizerKeyword::Object:
+    case EggTokenizerKeyword::Type:
       // It could be a constructor like 'string(...)' or a property like 'float.epsilon'
       auto& p1 = mark.peek(1);
       if (p1.isOperator(EggTokenizerOperator::ParenthesisLeft) || p1.isOperator(EggTokenizerOperator::Dot)) {
         mark.accept(1);
         return std::make_unique<EggSyntaxNode_Identifier>(location, p0.value.s);
       }
+      break;
     }
+    EGG_WARNING_SUPPRESS_SWITCH_END
     break;
   case EggTokenizerKind::Operator:
     if (p0.value.o == EggTokenizerOperator::ParenthesisLeft) {

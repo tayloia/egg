@@ -158,7 +158,6 @@ namespace {
   const TypeNative<Basal::Int> typeInt{};
   const TypeNative<Basal::Float> typeFloat{};
   const TypeNative<Basal::Arithmetic> typeArithmetic{};
-  const TypeNative<Basal::Type> typeType{};
 
   class TypeString : public TypeNative<Basal::String> {
   public:
@@ -335,7 +334,6 @@ const egg::ovum::Type egg::ovum::Type::Int{ typeInt };
 const egg::ovum::Type egg::ovum::Type::Float{ typeFloat };
 const egg::ovum::Type egg::ovum::Type::String{ typeString };
 const egg::ovum::Type egg::ovum::Type::Arithmetic{ typeArithmetic };
-const egg::ovum::Type egg::ovum::Type::Type_{ typeType };
 const egg::ovum::Type egg::ovum::Type::Any{ *defaultAllocator().make<TypeBasal>(egg::ovum::Basal::Any) };
 const egg::ovum::Type egg::ovum::Type::AnyQ{ *defaultAllocator().make<TypeBasal>(egg::ovum::Basal::Any | egg::ovum::Basal::Null) };
 
@@ -367,8 +365,6 @@ void egg::lang::ValueLegacy::copyInternals(const ValueLegacy& other) {
     this->i = other.i;
   } else if (this->hasBool()) {
     this->b = other.b;
-  } else if (this->hasType()) {
-    this->t = other.t->hardAcquire<IType>();
   }
 }
 
@@ -394,8 +390,6 @@ void egg::lang::ValueLegacy::moveInternals(ValueLegacy& other) {
     this->i = other.i;
   } else if (this->hasBool()) {
     this->b = other.b;
-  } else if (this->hasType()) {
-    this->t = other.t;
   }
   other.tag = Discriminator::None;
 }
@@ -411,8 +405,6 @@ void egg::lang::ValueLegacy::destroyInternals() {
     if (this->s != nullptr) {
       this->s->hardRelease();
     }
-  } else if (this->hasType()) {
-    this->t->hardRelease();
   }
 }
 
@@ -518,9 +510,6 @@ bool egg::lang::ValueLegacy::equals(const ValueLegacy& lhs, const ValueLegacy& r
   if (a.tag == Discriminator::String) {
     return egg::ovum::IMemory::equals(a.s, b.s);
   }
-  if (a.tag == Discriminator::Type) {
-    return a.t == b.t;
-  }
   if (a.tag == Discriminator::Pointer) {
     return a.v == b.v;
   }
@@ -603,9 +592,6 @@ std::string egg::lang::ValueLegacy::getDiscriminatorString(Discriminator tag) {
     { int(Discriminator::Yield), "yield" },
     { int(Discriminator::Exception), "exception" }
   };
-  if (tag == Discriminator::Inferred) {
-    return "var";
-  }
   if (tag == Discriminator::Null) {
     return "null";
   }
@@ -623,10 +609,6 @@ egg::ovum::ITypeRef egg::lang::ValueLegacy::getRuntimeType() const {
   if (this->hasPointer()) {
     return this->v->getRuntimeType()->pointerType();
   }
-  if (this->hasType()) {
-    // TODO Is a type's type itself?
-    return ITypeRef(this->t);
-  }
   auto basal = static_cast<Basal>(this->tag);
   auto* native = getNativeBasal(basal);
   if (native != nullptr) {
@@ -643,9 +625,6 @@ egg::ovum::String egg::lang::ValueLegacy::toString() const {
       return str.getString();
     }
     return "<invalid>";
-  }
-  if (this->hasType()) {
-    return this->t->toString();
   }
   return this->toUTF8();
 }
@@ -673,9 +652,6 @@ std::string egg::lang::ValueLegacy::toUTF8() const {
       return str.getString().toUTF8();
     }
     return "<invalid>";
-  }
-  if (this->tag == Discriminator::Type) {
-    return this->t->toString().toUTF8();
   }
   return "<" + ValueLegacy::getDiscriminatorString(this->tag) + ">";
 }

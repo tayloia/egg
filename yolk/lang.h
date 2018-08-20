@@ -4,7 +4,6 @@ namespace egg::lang {
 
 #define EGG_VM_BASAL_ENUM(name, value) name = 1 << value,
   enum class Discriminator {
-    Inferred = -1,
     None = 0,
     EGG_VM_BASAL(EGG_VM_BASAL_ENUM)
     Arithmetic = Int | Float,
@@ -16,8 +15,7 @@ namespace egg::lang {
     Return = 1 << 12,
     Yield = 1 << 13,
     Exception = 1 << 14,
-    FlowControl = Break | Continue | Return | Yield | Exception,
-    Raw = 1 << 15
+    FlowControl = Break | Continue | Return | Yield | Exception
   };
 #undef EGG_VM_BASAL_ENUM
   inline Discriminator operator|(Discriminator lhs, Discriminator rhs) {
@@ -35,7 +33,6 @@ namespace egg::lang {
       double f;
       egg::ovum::IObject* o;
       const egg::ovum::IMemory* s;
-      const egg::ovum::IType* t;
       ValueLegacyReferenceCounted* v;
     };
     explicit ValueLegacy(Discriminator tag) : tag(tag) {}
@@ -52,7 +49,6 @@ namespace egg::lang {
     explicit ValueLegacy(double value) : tag(Discriminator::Float) { this->f = value; }
     explicit ValueLegacy(const egg::ovum::String& value) : tag(Discriminator::String) { this->s = value.hardAcquire(); }
     explicit ValueLegacy(const egg::ovum::Object& value) : tag(Discriminator::Object) { this->o = value.hardAcquire(); }
-    explicit ValueLegacy(const egg::ovum::IType& type) : tag(Discriminator::Type) { this->t = type.hardAcquire<egg::ovum::IType>(); }
     explicit ValueLegacy(const ValueLegacyReferenceCounted& vrc);
     ValueLegacy& operator=(const ValueLegacy& value);
     ValueLegacy& operator=(ValueLegacy&& value) noexcept;
@@ -87,8 +83,6 @@ namespace egg::lang {
     egg::ovum::String getString() const { assert(this->hasString()); return egg::ovum::String(this->s); }
     bool hasObject() const { return egg::ovum::Bits::hasAnySet(this->tag, Discriminator::Object); }
     egg::ovum::Object getObject() const { assert(this->hasObject()); assert(this->o != nullptr); return egg::ovum::Object(*this->o); }
-    bool hasType() const { return egg::ovum::Bits::hasAnySet(this->tag, Discriminator::Type); }
-    const egg::ovum::IType& getType() const { assert(this->hasType()); return *this->t; }
     bool hasPointer() const { return egg::ovum::Bits::hasAnySet(this->tag, Discriminator::Pointer); }
     ValueLegacyReferenceCounted& getPointee() const { assert(this->hasPointer() && !this->hasObject()); return *this->v; }
     bool hasAny() const { return egg::ovum::Bits::hasAnySet(this->tag, Discriminator::Any); }
@@ -138,4 +132,22 @@ namespace egg::lang {
   protected:
     explicit ValueLegacyReferenceCounted(ValueLegacy&& value) noexcept : ValueLegacy(std::move(value)) {}
   };
+}
+
+template<typename... ARGS>
+inline void egg::ovum::IPreparation::raiseWarning(ARGS... args) {
+  auto message = StringBuilder::concat(args...);
+  this->raise(ILogger::Severity::Warning, message);
+}
+
+template<typename... ARGS>
+inline void egg::ovum::IPreparation::raiseError(ARGS... args) {
+  auto message = StringBuilder::concat(args...);
+  this->raise(ILogger::Severity::Error, message);
+}
+
+template<typename... ARGS>
+inline egg::lang::ValueLegacy egg::ovum::IExecution::raiseFormat(ARGS... args) {
+  auto message = StringBuilder::concat(args...);
+  return this->raise(message);
 }

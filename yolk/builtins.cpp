@@ -185,7 +185,7 @@ namespace {
     EGG_NO_COPY(BuiltinTypeOf);
   public:
     explicit BuiltinTypeOf(egg::ovum::IAllocator& allocator)
-      : BuiltinFunction(allocator, "type.of", egg::ovum::Type::Type_) {
+      : BuiltinFunction(allocator, "type.of", egg::ovum::Type::String) {
       this->type->addParameter("value", egg::ovum::Type::AnyQ, Flags::Required);
     }
     virtual ValueLegacy call(egg::ovum::IExecution& execution, const egg::ovum::IParameters& parameters) override {
@@ -202,7 +202,7 @@ namespace {
     EGG_NO_COPY(BuiltinType);
   public:
     explicit BuiltinType(egg::ovum::IAllocator& allocator)
-      : BuiltinObject(allocator, "type", egg::ovum::Type::Type_) {
+      : BuiltinObject(allocator, "type", egg::ovum::Type::AnyQ) {
       // The function call looks like: 'type type(any?... value)'
       this->type->addParameter("value", egg::ovum::Type::AnyQ, Flags::Variadic);
       this->addProperty<BuiltinTypeOf>(allocator, "of");

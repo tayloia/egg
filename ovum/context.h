@@ -56,21 +56,3 @@ namespace egg::ovum {
     egg::lang::ValueLegacy raiseFormat(ARGS... args);
   };
 }
-
-template<typename... ARGS>
-inline void egg::ovum::IPreparation::raiseWarning(ARGS... args) {
-  auto message = StringBuilder::concat(args...);
-  this->raise(ILogger::Severity::Warning, message);
-}
-
-template<typename... ARGS>
-inline void egg::ovum::IPreparation::raiseError(ARGS... args) {
-  auto message = StringBuilder::concat(args...);
-  this->raise(ILogger::Severity::Error, message);
-}
-
-template<typename... ARGS>
-inline egg::lang::ValueLegacy egg::ovum::IExecution::raiseFormat(ARGS... args) {
-  auto message = StringBuilder::concat(args...);
-  return this->raise(message);
-}
