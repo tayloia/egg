@@ -10,16 +10,16 @@ namespace {
   using namespace egg::yolk;
 
   template<typename ACTION>
-  egg::lang::LogSeverity captureExceptions(egg::lang::LogSource source, egg::ovum::ILogger& logger, ACTION action) {
+  egg::ovum::ILogger::Severity captureExceptions(egg::ovum::ILogger::Source source, egg::ovum::ILogger& logger, ACTION action) {
     try {
       return action();
     } catch (const Exception& ex) {
       // We have an opportunity to extract more information in the future
-      logger.log(source, egg::lang::LogSeverity::Error, ex.what());
+      logger.log(source, egg::ovum::ILogger::Severity::Error, ex.what());
     } catch (const std::exception& ex) {
-      logger.log(source, egg::lang::LogSeverity::Error, ex.what());
+      logger.log(source, egg::ovum::ILogger::Severity::Error, ex.what());
     }
-    return egg::lang::LogSeverity::Error;
+    return egg::ovum::ILogger::Severity::Error;
   }
 
   class EggEngineContext : public IEggEnginePreparationContext, public IEggEngineExecutionContext {
@@ -32,7 +32,7 @@ namespace {
       : mallocator(allocator), logger(logger) {
       assert(logger != nullptr);
     }
-    virtual void log(egg::lang::LogSource source, egg::lang::LogSeverity severity, const std::string& message) override {
+    virtual void log(egg::ovum::ILogger::Source source, egg::ovum::ILogger::Severity severity, const std::string& message) override {
       this->logger->log(source, severity, message);
     }
     virtual egg::ovum::IAllocator& allocator() const override {
@@ -49,18 +49,18 @@ namespace {
     EggEngineParsed(egg::ovum::IAllocator& allocator, const std::shared_ptr<IEggProgramNode>& root)
       : program(allocator, root), prepared(false) {
     }
-    virtual egg::lang::LogSeverity prepare(IEggEnginePreparationContext& preparation) override {
+    virtual egg::ovum::ILogger::Severity prepare(IEggEnginePreparationContext& preparation) override {
       if (this->prepared) {
-        preparation.log(egg::lang::LogSource::Compiler, egg::lang::LogSeverity::Error, "Program prepared more than once");
-        return egg::lang::LogSeverity::Error;
+        preparation.log(egg::ovum::ILogger::Source::Compiler, egg::ovum::ILogger::Severity::Error, "Program prepared more than once");
+        return egg::ovum::ILogger::Severity::Error;
       }
       this->prepared = true;
       return this->program.prepare(preparation);
     }
-    virtual egg::lang::LogSeverity execute(IEggEngineExecutionContext& execution) override {
+    virtual egg::ovum::ILogger::Severity execute(IEggEngineExecutionContext& execution) override {
       if (!this->prepared) {
-        execution.log(egg::lang::LogSource::Runtime, egg::lang::LogSeverity::Error, "Program not prepared before execution");
-        return egg::lang::LogSeverity::Error;
+        execution.log(egg::ovum::ILogger::Source::Runtime, egg::ovum::ILogger::Severity::Error, "Program not prepared before execution");
+        return egg::ovum::ILogger::Severity::Error;
       }
       return this->program.execute(execution);
     }
@@ -75,22 +75,22 @@ namespace {
     explicit EggEngineTextStream(TextStream& stream)
       : stream(&stream) {
     }
-    virtual egg::lang::LogSeverity prepare(IEggEnginePreparationContext& preparation) override {
+    virtual egg::ovum::ILogger::Severity prepare(IEggEnginePreparationContext& preparation) override {
       if (this->program != nullptr) {
-        preparation.log(egg::lang::LogSource::Compiler, egg::lang::LogSeverity::Error, "Program prepared more than once");
-        return egg::lang::LogSeverity::Error;
+        preparation.log(egg::ovum::ILogger::Source::Compiler, egg::ovum::ILogger::Severity::Error, "Program prepared more than once");
+        return egg::ovum::ILogger::Severity::Error;
       }
-      return captureExceptions(egg::lang::LogSource::Compiler, preparation, [this, &preparation]{
+      return captureExceptions(egg::ovum::ILogger::Source::Compiler, preparation, [this, &preparation]{
         auto& allocator = preparation.allocator();
         auto root = EggParserFactory::parseModule(allocator, *this->stream);
         this->program = std::make_unique<EggProgram>(allocator, root);
         return this->program->prepare(preparation);
       });
     }
-    virtual egg::lang::LogSeverity execute(IEggEngineExecutionContext& execution) override {
+    virtual egg::ovum::ILogger::Severity execute(IEggEngineExecutionContext& execution) override {
       if (this->program == nullptr) {
-        execution.log(egg::lang::LogSource::Runtime, egg::lang::LogSeverity::Error, "Program not prepared before execution");
-        return egg::lang::LogSeverity::Error;
+        execution.log(egg::ovum::ILogger::Source::Runtime, egg::ovum::ILogger::Severity::Error, "Program not prepared before execution");
+        return egg::ovum::ILogger::Severity::Error;
       }
       return this->program->execute(execution);
     }

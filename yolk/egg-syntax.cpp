@@ -9,22 +9,22 @@
 namespace {
   using namespace egg::yolk;
 
-  class TypeInferred : public egg::ovum::NotReferenceCounted<egg::lang::IType> {
+  class TypeInferred : public egg::ovum::NotReferenceCounted<egg::ovum::IType> {
   public:
     virtual std::pair<std::string, int> toStringPrecedence() const override {
       static std::string name{ "var" };
       return std::make_pair(name, 0);
     }
-    virtual egg::lang::Basal getBasalTypes() const override {
-      return egg::lang::Basal::None;
+    virtual egg::ovum::Basal getBasalTypes() const override {
+      return egg::ovum::Basal::None;
     }
-    virtual egg::lang::ITypeRef unionWith(const egg::lang::IType&) const override {
+    virtual egg::ovum::ITypeRef unionWith(const egg::ovum::IType&) const override {
       EGG_THROW("Cannot union with inferred type");
     }
-    virtual AssignmentSuccess canBeAssignedFrom(const egg::lang::IType&) const {
+    virtual AssignmentSuccess canBeAssignedFrom(const egg::ovum::IType&) const {
       EGG_THROW("Cannot evaluation assignment success for inferred type");
     }
-    virtual egg::lang::Value promoteAssignment(egg::ovum::IExecution& execution, const egg::lang::Value&) const override {
+    virtual egg::lang::ValueLegacy promoteAssignment(egg::ovum::IExecution& execution, const egg::lang::ValueLegacy&) const override {
       return execution.raiseFormat("Cannot assign to inferred type value");
     }
   };
@@ -42,21 +42,21 @@ namespace {
     return nullptr;
   }
 
-  egg::lang::Basal keywordToBasal(const EggTokenizerItem& item) {
+  egg::ovum::Basal keywordToBasal(const EggTokenizerItem& item) {
     // Accept only type-like keywords: void, null, bool, int, float, string, object and any
     // OPTIMIZE
     if (item.kind == EggTokenizerKind::Keyword) {
-#define EGG_VM_BASAL_KEYWORD(name, value) case EggTokenizerKeyword::name: return egg::lang::Basal::name;
+#define EGG_VM_BASAL_KEYWORD(name, value) case EggTokenizerKeyword::name: return egg::ovum::Basal::name;
       EGG_WARNING_SUPPRESS_SWITCH_BEGIN
       switch (item.value.k) {
       EGG_VM_BASAL(EGG_VM_BASAL_KEYWORD)
       case EggTokenizerKeyword::Any:
-        return egg::lang::Basal::Any;
+        return egg::ovum::Basal::Any;
       }
       EGG_WARNING_SUPPRESS_SWITCH_END
 #undef EGG_VM_BASAL_KEYWORD
     }
-    return egg::lang::Basal::None;
+    return egg::ovum::Basal::None;
   }
 
   class ParserDump {
@@ -655,10 +655,10 @@ namespace {
     std::unique_ptr<IEggSyntaxNode> parseStatementWhile();
     std::unique_ptr<IEggSyntaxNode> parseStatementYield();
     std::unique_ptr<IEggSyntaxNode> parseType(const char* expected);
-    bool parseTypeExpression(egg::lang::ITypeRef& type);
-    bool parseTypePostfixExpression(egg::lang::ITypeRef& type);
-    egg::lang::ITypeRef parseTypePostfixFunction(const egg::lang::ITypeRef& rettype);
-    bool parseTypePrimaryExpression(egg::lang::ITypeRef& type);
+    bool parseTypeExpression(egg::ovum::ITypeRef& type);
+    bool parseTypePostfixExpression(egg::ovum::ITypeRef& type);
+    egg::ovum::ITypeRef parseTypePostfixFunction(const egg::ovum::ITypeRef& rettype);
+    bool parseTypePrimaryExpression(egg::ovum::ITypeRef& type);
   };
 
   class EggSyntaxParserModule : public IEggSyntaxParser {
@@ -1143,7 +1143,7 @@ std::unique_ptr<IEggSyntaxNode> EggSyntaxParserContext::parseExpressionPrimary(c
       mark.accept(1);
       return std::make_unique<EggSyntaxNode_Literal>(location, p0.kind, p0.value);
     }
-    if (egg::ovum::Bits::hasAnySet(keywordToBasal(p0), egg::lang::Basal::Any | egg::lang::Basal::Type)) {
+    if (egg::ovum::Bits::hasAnySet(keywordToBasal(p0), egg::ovum::Basal::Any | egg::ovum::Basal::Type)) {
       // It could be a constructor like 'string(...)' or a property like 'float.epsilon'
       auto& p1 = mark.peek(1);
       if (p1.isOperator(EggTokenizerOperator::ParenthesisLeft) || p1.isOperator(EggTokenizerOperator::Dot)) {
@@ -1884,7 +1884,7 @@ std::unique_ptr<IEggSyntaxNode> EggSyntaxParserContext::parseType(const char* ex
       return std::make_unique<EggSyntaxNode_Type>(location, typeInferred);
     }
   }
-  egg::lang::ITypeRef type{ egg::lang::Type::Void };
+  egg::ovum::ITypeRef type{ egg::lang::Type::Void };
   if (this->parseTypeExpression(type)) {
     mark.accept(0);
     return std::make_unique<EggSyntaxNode_Type>(location, *type);
@@ -1895,7 +1895,7 @@ std::unique_ptr<IEggSyntaxNode> EggSyntaxParserContext::parseType(const char* ex
   return nullptr;
 }
 
-bool EggSyntaxParserContext::parseTypeExpression(egg::lang::ITypeRef& type) {
+bool EggSyntaxParserContext::parseTypeExpression(egg::ovum::ITypeRef& type) {
   /*
       type-expression ::= type-union-expression
 
@@ -1904,7 +1904,7 @@ bool EggSyntaxParserContext::parseTypeExpression(egg::lang::ITypeRef& type) {
   */
   if (this->parseTypePostfixExpression(type)) {
     EggSyntaxParserBacktrackMark mark(this->backtrack);
-    egg::lang::ITypeRef other{ egg::lang::Type::Void };
+    egg::ovum::ITypeRef other{ egg::lang::Type::Void };
     while (mark.peek(0).isOperator(EggTokenizerOperator::Bar)) {
       mark.advance(1);
       if (!this->parseTypePostfixExpression(other)) {
@@ -1918,7 +1918,7 @@ bool EggSyntaxParserContext::parseTypeExpression(egg::lang::ITypeRef& type) {
   return false;
 }
 
-bool EggSyntaxParserContext::parseTypePostfixExpression(egg::lang::ITypeRef& type) {
+bool EggSyntaxParserContext::parseTypePostfixExpression(egg::ovum::ITypeRef& type) {
   /*
       type-nullable-expression ::= type-postfix-expression
                                  | type-postfix-expression '?'
@@ -1964,7 +1964,7 @@ bool EggSyntaxParserContext::parseTypePostfixExpression(egg::lang::ITypeRef& typ
   return false;
 }
 
-egg::lang::ITypeRef EggSyntaxParserContext::parseTypePostfixFunction(const egg::lang::ITypeRef& rettype) {
+egg::ovum::ITypeRef EggSyntaxParserContext::parseTypePostfixFunction(const egg::ovum::ITypeRef& rettype) {
   /*
       function-parameter-list ::= function-parameter
                                 | function-parameter-list ',' function-parameter
@@ -1976,9 +1976,9 @@ egg::lang::ITypeRef EggSyntaxParserContext::parseTypePostfixFunction(const egg::
   assert(mark.peek(0).isOperator(EggTokenizerOperator::ParenthesisLeft));
   mark.advance(1);
   auto* underlying = egg::yolk::FunctionType::createFunctionType(*this->allocator, egg::ovum::String(), rettype);
-  egg::lang::ITypeRef function{ underlying };
+  egg::ovum::ITypeRef function{ underlying };
   for (size_t index = 0; !mark.peek(0).isOperator(EggTokenizerOperator::ParenthesisRight); ++index) {
-    egg::lang::ITypeRef ptype{ egg::lang::Type::Void };
+    egg::ovum::ITypeRef ptype{ egg::lang::Type::Void };
     if (!this->parseTypeExpression(ptype)) {
       this->unexpected("Expected parameter type in function type declaration", mark.peek(0));
     }
@@ -2014,7 +2014,7 @@ egg::lang::ITypeRef EggSyntaxParserContext::parseTypePostfixFunction(const egg::
   return function;
 }
 
-bool EggSyntaxParserContext::parseTypePrimaryExpression(egg::lang::ITypeRef& type) {
+bool EggSyntaxParserContext::parseTypePrimaryExpression(egg::ovum::ITypeRef& type) {
   /*
       type-primary-expression ::= 'any'
                                 | 'void'
@@ -2049,7 +2049,7 @@ bool EggSyntaxParserContext::parseTypePrimaryExpression(egg::lang::ITypeRef& typ
     return false;
   }
   auto basal = keywordToBasal(p0);
-  if (basal != egg::lang::Basal::None) {
+  if (basal != egg::ovum::Basal::None) {
     mark.accept(1);
     type = egg::lang::Type::makeBasal(basal);
     return true;

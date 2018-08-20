@@ -91,7 +91,7 @@ namespace egg::ovum {
     Variant(const Variant& rhs) : VariantKind(rhs.getKind()) {
       Variant::copyInternals(*this, rhs);
     }
-    Variant(Variant&& rhs) : VariantKind(rhs.getKind()) {
+    Variant(Variant&& rhs) : VariantKind(rhs.getKind()) { // WIBBLE noexcept
       Variant::moveInternals(*this, rhs);
       rhs.setKind(VariantBits::Void);
     }

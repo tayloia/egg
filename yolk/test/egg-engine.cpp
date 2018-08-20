@@ -10,7 +10,7 @@ using namespace egg::yolk;
 namespace {
   class TestLogger : public egg::ovum::ILogger {
   public:
-    virtual void log(egg::lang::LogSource source, egg::lang::LogSeverity severity, const std::string& message) override {
+    virtual void log(Source source, Severity severity, const std::string& message) override {
       auto text = TestLogger::logSourceToString(source) + ":" + TestLogger::logSeverityToString(severity) + ":" + message;
       std::cout << text << std::endl;
       this->logged += text + "\n";
@@ -18,22 +18,22 @@ namespace {
     std::string logged;
 
     // Helpers
-    static std::string logSourceToString(egg::lang::LogSource source) {
+    static std::string logSourceToString(Source source) {
       static const egg::yolk::String::StringFromEnum table[] = {
-        { int(egg::lang::LogSource::Compiler), "COMPILER" },
-        { int(egg::lang::LogSource::Runtime), "RUNTIME" },
-        { int(egg::lang::LogSource::User), "USER" },
+        { int(Source::Compiler), "COMPILER" },
+        { int(Source::Runtime), "RUNTIME" },
+        { int(Source::User), "USER" },
       };
       return String::fromEnum(source, table);
     }
-    static std::string logSeverityToString(egg::lang::LogSeverity severity) {
+    static std::string logSeverityToString(Severity severity) {
       // Ignore LogSeverity::None
       static const egg::yolk::String::StringFromEnum table[] = {
-        { int(egg::lang::LogSeverity::Debug), "DEBUG" },
-        { int(egg::lang::LogSeverity::Verbose), "VERBOSE" },
-        { int(egg::lang::LogSeverity::Information), "INFO" },
-        { int(egg::lang::LogSeverity::Warning), "WARN" },
-        { int(egg::lang::LogSeverity::Error), "ERROR" }
+        { int(Severity::Debug), "DEBUG" },
+        { int(Severity::Verbose), "VERBOSE" },
+        { int(Severity::Information), "INFO" },
+        { int(Severity::Warning), "WARN" },
+        { int(Severity::Error), "ERROR" }
       };
       return String::fromEnum(severity, table);
     }
@@ -45,7 +45,7 @@ namespace {
     auto engine = EggEngineFactory::createEngineFromParsed(allocator, root);
     auto logger = std::make_shared<TestLogger>();
     auto preparation = EggEngineFactory::createPreparationContext(allocator, logger);
-    if (engine->prepare(*preparation) != egg::lang::LogSeverity::Error) {
+    if (engine->prepare(*preparation) != egg::ovum::ILogger::Severity::Error) {
       auto execution = EggEngineFactory::createExecutionContext(allocator, logger);
       engine->execute(*execution);
     }
@@ -60,7 +60,7 @@ TEST(TestEggEngine, CreateEngineFromParsed) {
   auto engine = EggEngineFactory::createEngineFromParsed(allocator, root);
   auto logger = std::make_shared<TestLogger>();
   auto preparation = EggEngineFactory::createPreparationContext(allocator, logger);
-  ASSERT_EQ(egg::lang::LogSeverity::Error, engine->prepare(*preparation));
+  ASSERT_EQ(egg::ovum::ILogger::Severity::Error, engine->prepare(*preparation));
   ASSERT_STARTSWITH(logger->logged, "COMPILER:ERROR:~/yolk/test/data/example.egg(2,14): Unknown identifier: 'first'");
 }
 
@@ -70,7 +70,7 @@ TEST(TestEggEngine, CreateEngineFromTextStream) {
   auto engine = EggEngineFactory::createEngineFromTextStream(stream);
   auto logger = std::make_shared<TestLogger>();
   auto preparation = EggEngineFactory::createPreparationContext(allocator, logger);
-  ASSERT_EQ(egg::lang::LogSeverity::Error, engine->prepare(*preparation));
+  ASSERT_EQ(egg::ovum::ILogger::Severity::Error, engine->prepare(*preparation));
   ASSERT_STARTSWITH(logger->logged, "COMPILER:ERROR:~/yolk/test/data/example.egg(2,14): Unknown identifier: 'first'");
 }
 
@@ -80,7 +80,7 @@ TEST(TestEggEngine, CreateEngineFromGarbage) {
   auto engine = EggEngineFactory::createEngineFromTextStream(stream);
   auto logger = std::make_shared<TestLogger>();
   auto preparation = EggEngineFactory::createPreparationContext(allocator, logger);
-  ASSERT_EQ(egg::lang::LogSeverity::Error, engine->prepare(*preparation));
+  ASSERT_EQ(egg::ovum::ILogger::Severity::Error, engine->prepare(*preparation));
   ASSERT_EQ("COMPILER:ERROR:(1, 1): Unexpected character: '$'\n", logger->logged);
 }
 
@@ -90,9 +90,9 @@ TEST(TestEggEngine, PrepareTwice) {
   auto engine = EggEngineFactory::createEngineFromTextStream(stream);
   auto logger = std::make_shared<TestLogger>();
   auto preparation = EggEngineFactory::createPreparationContext(allocator, logger);
-  ASSERT_EQ(egg::lang::LogSeverity::None, engine->prepare(*preparation));
+  ASSERT_EQ(egg::ovum::ILogger::Severity::None, engine->prepare(*preparation));
   ASSERT_EQ("", logger->logged);
-  ASSERT_EQ(egg::lang::LogSeverity::Error, engine->prepare(*preparation));
+  ASSERT_EQ(egg::ovum::ILogger::Severity::Error, engine->prepare(*preparation));
   ASSERT_EQ("COMPILER:ERROR:Program prepared more than once\n", logger->logged);
 }
 
@@ -102,7 +102,7 @@ TEST(TestEggEngine, ExecuteUnprepared) {
   auto engine = EggEngineFactory::createEngineFromTextStream(stream);
   auto logger = std::make_shared<TestLogger>();
   auto execution = EggEngineFactory::createExecutionContext(allocator, logger);
-  ASSERT_EQ(egg::lang::LogSeverity::Error, engine->execute(*execution));
+  ASSERT_EQ(egg::ovum::ILogger::Severity::Error, engine->execute(*execution));
   ASSERT_EQ("RUNTIME:ERROR:Program not prepared before execution\n", logger->logged);
 }
 
@@ -124,10 +124,10 @@ TEST(TestEggEngine, WorkingFile) {
   auto engine = EggEngineFactory::createEngineFromTextStream(stream);
   auto logger = std::make_shared<TestLogger>();
   auto preparation = EggEngineFactory::createPreparationContext(allocator, logger);
-  ASSERT_EQ(egg::lang::LogSeverity::None, engine->prepare(*preparation));
+  ASSERT_EQ(egg::ovum::ILogger::Severity::None, engine->prepare(*preparation));
   ASSERT_EQ("", logger->logged);
   auto execution = EggEngineFactory::createExecutionContext(allocator, logger);
-  ASSERT_EQ(egg::lang::LogSeverity::Information, engine->execute(*execution));
+  ASSERT_EQ(egg::ovum::ILogger::Severity::Information, engine->execute(*execution));
   ASSERT_EQ("USER:INFO:55\nUSER:INFO:4950\n", logger->logged);
 }
 
@@ -138,9 +138,9 @@ TEST(TestEggEngine, Coverage) {
   auto engine = EggEngineFactory::createEngineFromTextStream(stream);
   auto logger = std::make_shared<TestLogger>();
   auto preparation = EggEngineFactory::createPreparationContext(allocator, logger);
-  ASSERT_EQ(egg::lang::LogSeverity::None, engine->prepare(*preparation));
+  ASSERT_EQ(egg::ovum::ILogger::Severity::None, engine->prepare(*preparation));
   ASSERT_EQ("", logger->logged);
   auto execution = EggEngineFactory::createExecutionContext(allocator, logger);
-  ASSERT_EQ(egg::lang::LogSeverity::None, engine->execute(*execution));
+  ASSERT_EQ(egg::ovum::ILogger::Severity::None, engine->execute(*execution));
   ASSERT_EQ("", logger->logged);
 }

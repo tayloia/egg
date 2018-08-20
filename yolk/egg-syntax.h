@@ -112,9 +112,9 @@ namespace egg::yolk {
   class EggSyntaxNode_Type : public EggSyntaxNodeBase {
     EGG_NO_COPY(EggSyntaxNode_Type);
   private:
-    egg::lang::ITypeRef type;
+    egg::ovum::ITypeRef type;
   public:
-    explicit EggSyntaxNode_Type(const EggSyntaxNodeLocation& location, const egg::lang::IType& type)
+    explicit EggSyntaxNode_Type(const EggSyntaxNodeLocation& location, const egg::ovum::IType& type)
       : EggSyntaxNodeBase(location), type(&type) {
     }
     virtual void dump(std::ostream& os) const override;

@@ -12,8 +12,8 @@ namespace egg::yolk {
   class IEggEngine {
   public:
     virtual ~IEggEngine() {}
-    virtual egg::lang::LogSeverity prepare(IEggEnginePreparationContext& preparation) = 0;
-    virtual egg::lang::LogSeverity execute(IEggEngineExecutionContext& execution) = 0;
+    virtual egg::ovum::ILogger::Severity prepare(IEggEnginePreparationContext& preparation) = 0;
+    virtual egg::ovum::ILogger::Severity execute(IEggEngineExecutionContext& execution) = 0;
   };
 
   class EggEngineFactory {

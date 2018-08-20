@@ -11,7 +11,7 @@ namespace {
   private:
     struct Pair {
       Pair() = delete;
-      egg::lang::Value value;
+      egg::lang::ValueLegacy value;
       egg::lang::LocationSource location;
     };
     std::vector<Pair> positional;
@@ -20,18 +20,18 @@ namespace {
     explicit EggProgramParameters(size_t count) {
       this->positional.reserve(count);
     }
-    void addPositional(const egg::lang::Value& value, const egg::lang::LocationSource& location) {
+    void addPositional(const egg::lang::ValueLegacy& value, const egg::lang::LocationSource& location) {
       Pair pair{ value, location };
       this->positional.emplace_back(std::move(pair));
     }
-    void addNamed(const egg::ovum::String& name, const egg::lang::Value& value, const egg::lang::LocationSource& location) {
+    void addNamed(const egg::ovum::String& name, const egg::lang::ValueLegacy& value, const egg::lang::LocationSource& location) {
       Pair pair{ value, location };
       this->named.emplace(name, std::move(pair));
     }
     virtual size_t getPositionalCount() const override {
       return this->positional.size();
     }
-    virtual egg::lang::Value getPositional(size_t index) const override {
+    virtual egg::lang::ValueLegacy getPositional(size_t index) const override {
       return this->positional.at(index).value;
     }
     virtual const egg::lang::LocationSource* getPositionalLocation(size_t index) const override {
@@ -45,7 +45,7 @@ namespace {
       std::advance(iter, index);
       return iter->first;
     }
-    virtual egg::lang::Value getNamed(const egg::ovum::String& name) const override {
+    virtual egg::lang::ValueLegacy getNamed(const egg::ovum::String& name) const override {
       return this->named.at(name).value;
     }
     virtual const egg::lang::LocationSource* getNamedLocation(const egg::ovum::String& name) const override {
@@ -64,9 +64,9 @@ egg::yolk::EggProgramExpression::~EggProgramExpression() {
   (void)this->context->swapLocation(this->before);
 }
 
-egg::lang::Value egg::yolk::EggProgramContext::executeScope(const IEggProgramNode* node, ScopeAction action) {
+egg::lang::ValueLegacy egg::yolk::EggProgramContext::executeScope(const IEggProgramNode* node, ScopeAction action) {
   egg::ovum::String name;
-  egg::lang::ITypeRef type{ egg::lang::Type::Void };
+  egg::ovum::ITypeRef type{ egg::lang::Type::Void };
   if ((node != nullptr) && node->symbol(name, type)) {
     // Perform the action with a new scope containing our symbol
     auto nested = this->getAllocator().make<EggProgramSymbolTable>(this->symtable.get());
@@ -78,7 +78,7 @@ egg::lang::Value egg::yolk::EggProgramContext::executeScope(const IEggProgramNod
   return action(*this);
 }
 
-egg::lang::Value egg::yolk::EggProgramContext::executeStatements(const std::vector<std::shared_ptr<IEggProgramNode>>& statements) {
+egg::lang::ValueLegacy egg::yolk::EggProgramContext::executeStatements(const std::vector<std::shared_ptr<IEggProgramNode>>& statements) {
   // Execute all the statements one after another
   egg::ovum::String name;
   auto type = egg::lang::Type::Void;
@@ -92,22 +92,22 @@ egg::lang::Value egg::yolk::EggProgramContext::executeStatements(const std::vect
       return retval;
     }
   }
-  return egg::lang::Value::Void;
+  return egg::lang::ValueLegacy::Void;
 }
 
-egg::lang::Value egg::yolk::EggProgramContext::executeModule(const IEggProgramNode& self, const std::vector<std::shared_ptr<IEggProgramNode>>& statements) {
+egg::lang::ValueLegacy egg::yolk::EggProgramContext::executeModule(const IEggProgramNode& self, const std::vector<std::shared_ptr<IEggProgramNode>>& statements) {
   this->statement(self);
   return this->executeStatements(statements);
 }
 
-egg::lang::Value egg::yolk::EggProgramContext::executeBlock(const IEggProgramNode& self, const std::vector<std::shared_ptr<IEggProgramNode>>& statements) {
+egg::lang::ValueLegacy egg::yolk::EggProgramContext::executeBlock(const IEggProgramNode& self, const std::vector<std::shared_ptr<IEggProgramNode>>& statements) {
   this->statement(self);
   auto nested = this->getAllocator().make<EggProgramSymbolTable>(this->symtable.get());
   auto context = this->createNestedContext(*nested);
   return context->executeStatements(statements);
 }
 
-egg::lang::Value egg::yolk::EggProgramContext::executeDeclare(const IEggProgramNode& self, const egg::ovum::String& name, const egg::lang::ITypeRef& type, const IEggProgramNode* rvalue) {
+egg::lang::ValueLegacy egg::yolk::EggProgramContext::executeDeclare(const IEggProgramNode& self, const egg::ovum::String& name, const egg::ovum::ITypeRef& type, const IEggProgramNode* rvalue) {
   // The type information has already been used in the symbol declaration phase
   EGG_UNUSED(type); // Used in assertion only
   this->statement(self);
@@ -115,46 +115,46 @@ egg::lang::Value egg::yolk::EggProgramContext::executeDeclare(const IEggProgramN
     // The declaration contains an initial value
     return this->set(name, rvalue->execute(*this)); // not .direct()
   }
-  return egg::lang::Value::Void;
+  return egg::lang::ValueLegacy::Void;
 }
 
-egg::lang::Value egg::yolk::EggProgramContext::executeGuard(const IEggProgramNode& self, const egg::ovum::String& name, const egg::lang::ITypeRef& type, const IEggProgramNode& rvalue) {
+egg::lang::ValueLegacy egg::yolk::EggProgramContext::executeGuard(const IEggProgramNode& self, const egg::ovum::String& name, const egg::ovum::ITypeRef& type, const IEggProgramNode& rvalue) {
   // The type information has already been used in the symbol declaration phase
   EGG_UNUSED(type); // Used in assertion only
   this->statement(self);
-  assert(type->getBasalTypes() != egg::lang::Basal::None);
+  assert(type->getBasalTypes() != egg::ovum::Basal::None);
   return this->guard(name, rvalue.execute(*this)); // not .direct()
 }
 
-egg::lang::Value egg::yolk::EggProgramContext::executeAssign(const IEggProgramNode& self, EggProgramAssign op, const IEggProgramNode& lvalue, const IEggProgramNode& rvalue) {
+egg::lang::ValueLegacy egg::yolk::EggProgramContext::executeAssign(const IEggProgramNode& self, EggProgramAssign op, const IEggProgramNode& lvalue, const IEggProgramNode& rvalue) {
   this->statement(self);
   return this->assign(op, lvalue, rvalue);
 }
 
-egg::lang::Value egg::yolk::EggProgramContext::executeMutate(const IEggProgramNode& self, EggProgramMutate op, const IEggProgramNode& lvalue) {
+egg::lang::ValueLegacy egg::yolk::EggProgramContext::executeMutate(const IEggProgramNode& self, EggProgramMutate op, const IEggProgramNode& lvalue) {
   this->statement(self);
   return this->mutate(op, lvalue);
 }
 
-egg::lang::Value egg::yolk::EggProgramContext::executeBreak(const IEggProgramNode& self) {
+egg::lang::ValueLegacy egg::yolk::EggProgramContext::executeBreak(const IEggProgramNode& self) {
   this->statement(self);
-  return egg::lang::Value::Break;
+  return egg::lang::ValueLegacy::Break;
 }
 
-egg::lang::Value egg::yolk::EggProgramContext::executeContinue(const IEggProgramNode& self) {
+egg::lang::ValueLegacy egg::yolk::EggProgramContext::executeContinue(const IEggProgramNode& self) {
   this->statement(self);
-  return egg::lang::Value::Continue;
+  return egg::lang::ValueLegacy::Continue;
 }
 
-egg::lang::Value egg::yolk::EggProgramContext::executeDo(const IEggProgramNode& self, const IEggProgramNode& cond, const IEggProgramNode& block) {
+egg::lang::ValueLegacy egg::yolk::EggProgramContext::executeDo(const IEggProgramNode& self, const IEggProgramNode& cond, const IEggProgramNode& block) {
   this->statement(self);
-  egg::lang::Value retval;
+  egg::lang::ValueLegacy retval;
   do {
     retval = block.execute(*this);
     if (!retval.isVoid()) {
       if (retval.isBreak()) {
         // Just leave the loop
-        return egg::lang::Value::Void;
+        return egg::lang::ValueLegacy::Void;
       }
       if (!retval.isContinue()) {
         // Probably an exception
@@ -167,10 +167,10 @@ egg::lang::Value egg::yolk::EggProgramContext::executeDo(const IEggProgramNode& 
       return retval;
     }
   } while (retval.getBool());
-  return egg::lang::Value::Void;
+  return egg::lang::ValueLegacy::Void;
 }
 
-egg::lang::Value egg::yolk::EggProgramContext::executeIf(const IEggProgramNode& self, const IEggProgramNode& cond, const IEggProgramNode& trueBlock, const IEggProgramNode* falseBlock) {
+egg::lang::ValueLegacy egg::yolk::EggProgramContext::executeIf(const IEggProgramNode& self, const IEggProgramNode& cond, const IEggProgramNode& trueBlock, const IEggProgramNode* falseBlock) {
   this->statement(self);
   return this->executeScope(&cond, [&](EggProgramContext& scope) {
     auto retval = scope.condition(cond);
@@ -184,14 +184,14 @@ egg::lang::Value egg::yolk::EggProgramContext::executeIf(const IEggProgramNode& 
       // We run the 'else' block in the original scope (with no guarded identifiers)
       return falseBlock->execute(*this);
     }
-    return egg::lang::Value::Void;
+    return egg::lang::ValueLegacy::Void;
   });
 }
 
-egg::lang::Value egg::yolk::EggProgramContext::executeFor(const IEggProgramNode& self, const IEggProgramNode* pre, const IEggProgramNode* cond, const IEggProgramNode* post, const IEggProgramNode& block) {
+egg::lang::ValueLegacy egg::yolk::EggProgramContext::executeFor(const IEggProgramNode& self, const IEggProgramNode* pre, const IEggProgramNode* cond, const IEggProgramNode* post, const IEggProgramNode& block) {
   this->statement(self);
   return this->executeScope(pre, [&](EggProgramContext& scope) {
-    egg::lang::Value retval;
+    egg::lang::ValueLegacy retval;
     if (pre != nullptr) {
       retval = pre->execute(scope);
       if (!retval.isVoid()) {
@@ -206,7 +206,7 @@ egg::lang::Value egg::yolk::EggProgramContext::executeFor(const IEggProgramNode&
         if (!retval.isVoid()) {
           if (retval.isBreak()) {
             // Just leave the loop
-            return egg::lang::Value::Void;
+            return egg::lang::ValueLegacy::Void;
           }
           if (!retval.isContinue()) {
             // Probably an exception in the block
@@ -226,13 +226,13 @@ egg::lang::Value egg::yolk::EggProgramContext::executeFor(const IEggProgramNode&
     while (retval.isBool()) {
       if (!retval.getBool()) {
         // The condition was false
-        return egg::lang::Value::Void;
+        return egg::lang::ValueLegacy::Void;
       }
       retval = block.execute(scope);
       if (!retval.isVoid()) {
         if (retval.isBreak()) {
           // Just leave the loop
-          return egg::lang::Value::Void;
+          return egg::lang::ValueLegacy::Void;
         }
         if (!retval.isContinue()) {
           // Probably an exception in the block
@@ -252,7 +252,7 @@ egg::lang::Value egg::yolk::EggProgramContext::executeFor(const IEggProgramNode&
   });
 }
 
-egg::lang::Value egg::yolk::EggProgramContext::executeForeach(const IEggProgramNode& self, const IEggProgramNode& lvalue, const IEggProgramNode& rvalue, const IEggProgramNode& block) {
+egg::lang::ValueLegacy egg::yolk::EggProgramContext::executeForeach(const IEggProgramNode& self, const IEggProgramNode& lvalue, const IEggProgramNode& rvalue, const IEggProgramNode& block) {
   this->statement(self);
   return this->executeScope(&lvalue, [&](EggProgramContext& scope) {
     auto dst = lvalue.assignee(scope);
@@ -275,10 +275,10 @@ egg::lang::Value egg::yolk::EggProgramContext::executeForeach(const IEggProgramN
   });
 }
 
-egg::lang::Value egg::yolk::EggProgramContext::executeForeachString(IEggProgramAssignee& target, const egg::ovum::String& source, const IEggProgramNode& block) {
+egg::lang::ValueLegacy egg::yolk::EggProgramContext::executeForeachString(IEggProgramAssignee& target, const egg::ovum::String& source, const IEggProgramNode& block) {
   size_t index = 0;
   for (auto codepoint = source.codePointAt(0); codepoint >= 0; codepoint = source.codePointAt(++index)) {
-    auto retval = target.set(egg::lang::Value{ egg::ovum::StringFactory::fromCodePoint(this->allocator, char32_t(codepoint)) });
+    auto retval = target.set(egg::lang::ValueLegacy{ egg::ovum::StringFactory::fromCodePoint(this->allocator, char32_t(codepoint)) });
     if (retval.hasFlowControl()) {
       // The assignment failed
       return retval;
@@ -287,7 +287,7 @@ egg::lang::Value egg::yolk::EggProgramContext::executeForeachString(IEggProgramA
     if (!retval.isVoid()) {
       if (retval.isBreak()) {
         // Just leave the loop
-        return egg::lang::Value::Void;
+        return egg::lang::ValueLegacy::Void;
       }
       if (!retval.isContinue()) {
         // Probably an exception in the block
@@ -298,10 +298,10 @@ egg::lang::Value egg::yolk::EggProgramContext::executeForeachString(IEggProgramA
   if (index != source.length()) {
     return this->raiseFormat("Cannot iterate through a malformed string");
   }
-  return egg::lang::Value::Void;
+  return egg::lang::ValueLegacy::Void;
 }
 
-egg::lang::Value egg::yolk::EggProgramContext::executeForeachIterate(IEggProgramAssignee& target, egg::lang::IObject& source, const IEggProgramNode& block) {
+egg::lang::ValueLegacy egg::yolk::EggProgramContext::executeForeachIterate(IEggProgramAssignee& target, egg::ovum::IObject& source, const IEggProgramNode& block) {
   auto iterate = source.iterate(*this);
   if (iterate.hasFlowControl()) {
     // The iterator could not be created
@@ -338,10 +338,10 @@ egg::lang::Value egg::yolk::EggProgramContext::executeForeachIterate(IEggProgram
       }
     }
   }
-  return egg::lang::Value::Void;
+  return egg::lang::ValueLegacy::Void;
 }
 
-egg::lang::Value egg::yolk::EggProgramContext::executeFunctionDefinition(const IEggProgramNode& self, const egg::ovum::String& name, const egg::lang::ITypeRef& type, const std::shared_ptr<IEggProgramNode>& block) {
+egg::lang::ValueLegacy egg::yolk::EggProgramContext::executeFunctionDefinition(const IEggProgramNode& self, const egg::ovum::String& name, const egg::ovum::ITypeRef& type, const std::shared_ptr<IEggProgramNode>& block) {
   // This defines a function, it doesn't call it
   this->statement(self);
   auto symbol = this->symtable->findSymbol(name);
@@ -350,7 +350,7 @@ egg::lang::Value egg::yolk::EggProgramContext::executeFunctionDefinition(const I
   return symbol->assign(*this->symtable, *this, this->createVanillaFunction(type, block));
 }
 
-egg::lang::Value egg::yolk::EggProgramContext::executeFunctionCall(const egg::lang::ITypeRef& type, const egg::lang::IParameters& parameters, const std::shared_ptr<IEggProgramNode>& block) {
+egg::lang::ValueLegacy egg::yolk::EggProgramContext::executeFunctionCall(const egg::ovum::ITypeRef& type, const egg::lang::IParameters& parameters, const std::shared_ptr<IEggProgramNode>& block) {
   // This actually calls a function
   assert(block != nullptr);
   auto callable = type->callable();
@@ -399,7 +399,7 @@ egg::lang::Value egg::yolk::EggProgramContext::executeFunctionCall(const egg::la
   return retval;
 }
 
-egg::lang::Value egg::yolk::EggProgramContext::executeGeneratorDefinition(const IEggProgramNode& self, const egg::lang::ITypeRef& gentype, const egg::lang::ITypeRef& rettype, const std::shared_ptr<IEggProgramNode>& block) {
+egg::lang::ValueLegacy egg::yolk::EggProgramContext::executeGeneratorDefinition(const IEggProgramNode& self, const egg::ovum::ITypeRef& gentype, const egg::ovum::ITypeRef& rettype, const std::shared_ptr<IEggProgramNode>& block) {
   // This defines a generator, it doesn't call it
   // A generator is a function that simple returns an iterator function
   this->statement(self);
@@ -410,11 +410,11 @@ egg::lang::Value egg::yolk::EggProgramContext::executeGeneratorDefinition(const 
   return retval;
 }
 
-egg::lang::Value egg::yolk::EggProgramContext::executeReturn(const IEggProgramNode& self, const IEggProgramNode* value) {
+egg::lang::ValueLegacy egg::yolk::EggProgramContext::executeReturn(const IEggProgramNode& self, const IEggProgramNode* value) {
   this->statement(self);
   if (value == nullptr) {
     // This is a void return
-    return egg::lang::Value::ReturnVoid;
+    return egg::lang::ValueLegacy::ReturnVoid;
   }
   auto result = value->execute(*this).direct();
   if (!result.hasFlowControl()) {
@@ -424,7 +424,7 @@ egg::lang::Value egg::yolk::EggProgramContext::executeReturn(const IEggProgramNo
   return result;
 }
 
-egg::lang::Value egg::yolk::EggProgramContext::executeSwitch(const IEggProgramNode& self, const IEggProgramNode& value, int64_t defaultIndex, const std::vector<std::shared_ptr<IEggProgramNode>>& cases) {
+egg::lang::ValueLegacy egg::yolk::EggProgramContext::executeSwitch(const IEggProgramNode& self, const IEggProgramNode& value, int64_t defaultIndex, const std::vector<std::shared_ptr<IEggProgramNode>>& cases) {
   this->statement(self);
   // This is a two-phase process:
   // Phase 1 evaluates the case values
@@ -459,11 +459,11 @@ egg::lang::Value egg::yolk::EggProgramContext::executeSwitch(const IEggProgramNo
       }
       matched++;
     }
-    return egg::lang::Value::Void;
+    return egg::lang::ValueLegacy::Void;
   });
 }
 
-egg::lang::Value egg::yolk::EggProgramContext::executeCase(const IEggProgramNode& self, const std::vector<std::shared_ptr<IEggProgramNode>>& values, const IEggProgramNode& block) {
+egg::lang::ValueLegacy egg::yolk::EggProgramContext::executeCase(const IEggProgramNode& self, const std::vector<std::shared_ptr<IEggProgramNode>>& values, const IEggProgramNode& block) {
   auto against = this->scopeValue;
   if (against != nullptr) {
     // We're matching against values
@@ -474,21 +474,21 @@ egg::lang::Value egg::yolk::EggProgramContext::executeCase(const IEggProgramNode
       }
       if (value == *against) {
         // Found a match, so return 'true'
-        return egg::lang::Value::True;
+        return egg::lang::ValueLegacy::True;
       }
     }
     // No match; the switch may have a 'default' clause however
-    return egg::lang::Value::False;
+    return egg::lang::ValueLegacy::False;
   }
   this->statement(self);
   return block.execute(*this);
 }
 
-egg::lang::Value egg::yolk::EggProgramContext::executeThrow(const IEggProgramNode& self, const IEggProgramNode* exception) {
+egg::lang::ValueLegacy egg::yolk::EggProgramContext::executeThrow(const IEggProgramNode& self, const IEggProgramNode* exception) {
   this->statement(self);
   if (exception == nullptr) {
     // This is a rethrow
-    return egg::lang::Value::Rethrow;
+    return egg::lang::ValueLegacy::Rethrow;
   }
   auto value = exception->execute(*this).direct();
   if (value.hasFlowControl()) {
@@ -500,7 +500,7 @@ egg::lang::Value egg::yolk::EggProgramContext::executeThrow(const IEggProgramNod
   return this->raise(value.getString());
 }
 
-egg::lang::Value egg::yolk::EggProgramContext::executeTry(const IEggProgramNode& self, const IEggProgramNode& block, const std::vector<std::shared_ptr<IEggProgramNode>>& catches, const IEggProgramNode* final) {
+egg::lang::ValueLegacy egg::yolk::EggProgramContext::executeTry(const IEggProgramNode& self, const IEggProgramNode& block, const std::vector<std::shared_ptr<IEggProgramNode>>& catches, const IEggProgramNode* final) {
   this->statement(self);
   auto retval = block.execute(*this);
   if (retval.stripFlowControl(egg::lang::Discriminator::Exception)) {
@@ -513,14 +513,14 @@ egg::lang::Value egg::yolk::EggProgramContext::executeTry(const IEggProgramNode&
       }
       if (match.getBool()) {
         // This catch clause has been successfully executed
-        return this->executeFinally(egg::lang::Value::Void, final);
+        return this->executeFinally(egg::lang::ValueLegacy::Void, final);
       }
     }
   }
   return this->executeFinally(retval, final);
 }
 
-egg::lang::Value egg::yolk::EggProgramContext::executeCatch(const IEggProgramNode& self, const egg::ovum::String& name, const IEggProgramNode& type, const IEggProgramNode& block) {
+egg::lang::ValueLegacy egg::yolk::EggProgramContext::executeCatch(const IEggProgramNode& self, const egg::ovum::String& name, const IEggProgramNode& type, const IEggProgramNode& block) {
   this->statement(self);
   auto exception = this->scopeValue;
   assert(exception != nullptr);
@@ -539,12 +539,12 @@ egg::lang::Value egg::yolk::EggProgramContext::executeCatch(const IEggProgramNod
   }
   if (retval.isVoid()) {
     // Return 'true' to indicate to the 'try' statement that we ran this 'catch' block
-    return egg::lang::Value::True;
+    return egg::lang::ValueLegacy::True;
   }
   return retval;
 }
 
-egg::lang::Value egg::yolk::EggProgramContext::executeFinally(const egg::lang::Value& retval, const IEggProgramNode* final) {
+egg::lang::ValueLegacy egg::yolk::EggProgramContext::executeFinally(const egg::lang::ValueLegacy& retval, const IEggProgramNode* final) {
   if (final != nullptr) {
     auto secondary = final->execute(*this);
     if (!secondary.isVoid()) {
@@ -554,20 +554,20 @@ egg::lang::Value egg::yolk::EggProgramContext::executeFinally(const egg::lang::V
   return retval;
 }
 
-egg::lang::Value egg::yolk::EggProgramContext::executeWhile(const IEggProgramNode& self, const IEggProgramNode& cond, const IEggProgramNode& block) {
+egg::lang::ValueLegacy egg::yolk::EggProgramContext::executeWhile(const IEggProgramNode& self, const IEggProgramNode& cond, const IEggProgramNode& block) {
   this->statement(self);
   return this->executeScope(&cond, [&](EggProgramContext& scope) {
     auto retval = scope.condition(cond);
     while (retval.isBool()) {
       if (!retval.getBool()) {
         // Condition failed, leave the loop
-        return egg::lang::Value::Void;
+        return egg::lang::ValueLegacy::Void;
       }
       retval = block.execute(scope);
       if (!retval.isVoid()) {
         if (retval.isBreak()) {
           // Just leave the loop
-          return egg::lang::Value::Void;
+          return egg::lang::ValueLegacy::Void;
         }
         if (!retval.isContinue()) {
           // Probably an exception
@@ -580,13 +580,13 @@ egg::lang::Value egg::yolk::EggProgramContext::executeWhile(const IEggProgramNod
   });
 }
 
-egg::lang::Value egg::yolk::EggProgramContext::executeYield(const IEggProgramNode& self, const IEggProgramNode&) {
+egg::lang::ValueLegacy egg::yolk::EggProgramContext::executeYield(const IEggProgramNode& self, const IEggProgramNode&) {
   // We can only yield from a stackless coroutine via 'coexecute()'
   this->statement(self);
   return this->raiseFormat("Internal runtime error: Attempt to execute 'yield' in stackful context");
 }
 
-egg::lang::Value egg::yolk::EggProgramContext::executeArray(const IEggProgramNode& self, const std::vector<std::shared_ptr<IEggProgramNode>>& values) {
+egg::lang::ValueLegacy egg::yolk::EggProgramContext::executeArray(const IEggProgramNode& self, const std::vector<std::shared_ptr<IEggProgramNode>>& values) {
   // OPTIMIZE
   EggProgramExpression expression(*this, self);
   auto result = this->createVanillaArray();
@@ -598,7 +598,7 @@ egg::lang::Value egg::yolk::EggProgramContext::executeArray(const IEggProgramNod
       if (entry.hasFlowControl()) {
         return entry;
       }
-      entry = object->setIndex(*this, egg::lang::Value{ index }, entry);
+      entry = object->setIndex(*this, egg::lang::ValueLegacy{ index }, entry);
       if (entry.hasFlowControl()) {
         return entry;
       }
@@ -608,7 +608,7 @@ egg::lang::Value egg::yolk::EggProgramContext::executeArray(const IEggProgramNod
   return result;
 }
 
-egg::lang::Value egg::yolk::EggProgramContext::executeObject(const IEggProgramNode& self, const std::vector<std::shared_ptr<IEggProgramNode>>& values) {
+egg::lang::ValueLegacy egg::yolk::EggProgramContext::executeObject(const IEggProgramNode& self, const std::vector<std::shared_ptr<IEggProgramNode>>& values) {
   // OPTIMIZE
   EggProgramExpression expression(*this, self);
   auto result = this->createVanillaObject();
@@ -633,7 +633,7 @@ egg::lang::Value egg::yolk::EggProgramContext::executeObject(const IEggProgramNo
   return result;
 }
 
-egg::lang::Value egg::yolk::EggProgramContext::executeCall(const IEggProgramNode& self, const IEggProgramNode& callee, const std::vector<std::shared_ptr<IEggProgramNode>>& parameters) {
+egg::lang::ValueLegacy egg::yolk::EggProgramContext::executeCall(const IEggProgramNode& self, const IEggProgramNode& callee, const std::vector<std::shared_ptr<IEggProgramNode>>& parameters) {
   EggProgramExpression expression(*this, self);
   auto func = callee.execute(*this).direct();
   if (func.hasFlowControl()) {
@@ -656,17 +656,17 @@ egg::lang::Value egg::yolk::EggProgramContext::executeCall(const IEggProgramNode
   return this->call(func, params);
 }
 
-egg::lang::Value egg::yolk::EggProgramContext::executeIdentifier(const IEggProgramNode& self, const egg::ovum::String& name, bool byref) {
+egg::lang::ValueLegacy egg::yolk::EggProgramContext::executeIdentifier(const IEggProgramNode& self, const egg::ovum::String& name, bool byref) {
   EggProgramExpression expression(*this, self);
   return this->get(name, byref);
 }
 
-egg::lang::Value egg::yolk::EggProgramContext::executeLiteral(const IEggProgramNode& self, const egg::lang::Value& value) {
+egg::lang::ValueLegacy egg::yolk::EggProgramContext::executeLiteral(const IEggProgramNode& self, const egg::lang::ValueLegacy& value) {
   EggProgramExpression expression(*this, self);
   return value;
 }
 
-egg::lang::Value egg::yolk::EggProgramContext::executeBrackets(const IEggProgramNode& self, const IEggProgramNode& instance, const IEggProgramNode& index) {
+egg::lang::ValueLegacy egg::yolk::EggProgramContext::executeBrackets(const IEggProgramNode& self, const IEggProgramNode& instance, const IEggProgramNode& index) {
   EggProgramExpression expression(*this, self);
   // Override our location with the index value
   this->location.column++; // TODO a better way of doing this?
@@ -681,7 +681,7 @@ egg::lang::Value egg::yolk::EggProgramContext::executeBrackets(const IEggProgram
   return this->bracketsGet(lhs, rhs);
 }
 
-egg::lang::Value egg::yolk::EggProgramContext::executeDot(const IEggProgramNode& self, const IEggProgramNode& instance, const egg::ovum::String& property) {
+egg::lang::ValueLegacy egg::yolk::EggProgramContext::executeDot(const IEggProgramNode& self, const IEggProgramNode& instance, const egg::ovum::String& property) {
   EggProgramExpression expression(*this, self);
   auto lhs = instance.execute(*this).direct();
   if (lhs.hasFlowControl()) {
@@ -690,20 +690,20 @@ egg::lang::Value egg::yolk::EggProgramContext::executeDot(const IEggProgramNode&
   return this->dotGet(lhs, property);
 }
 
-egg::lang::Value egg::yolk::EggProgramContext::executeUnary(const IEggProgramNode& self, EggProgramUnary op, const IEggProgramNode& expr) {
+egg::lang::ValueLegacy egg::yolk::EggProgramContext::executeUnary(const IEggProgramNode& self, EggProgramUnary op, const IEggProgramNode& expr) {
   EggProgramExpression expression(*this, self);
-  egg::lang::Value value{};
+  egg::lang::ValueLegacy value{};
   return this->unary(op, expr, value);
 }
 
-egg::lang::Value egg::yolk::EggProgramContext::executeBinary(const IEggProgramNode& self, EggProgramBinary op, const IEggProgramNode& lhs, const IEggProgramNode& rhs) {
+egg::lang::ValueLegacy egg::yolk::EggProgramContext::executeBinary(const IEggProgramNode& self, EggProgramBinary op, const IEggProgramNode& lhs, const IEggProgramNode& rhs) {
   EggProgramExpression expression(*this, self);
-  egg::lang::Value left{};
-  egg::lang::Value right{};
+  egg::lang::ValueLegacy left{};
+  egg::lang::ValueLegacy right{};
   return this->binary(op, lhs, rhs, left, right);
 }
 
-egg::lang::Value egg::yolk::EggProgramContext::executeTernary(const IEggProgramNode& self, const IEggProgramNode& cond, const IEggProgramNode& whenTrue, const IEggProgramNode& whenFalse) {
+egg::lang::ValueLegacy egg::yolk::EggProgramContext::executeTernary(const IEggProgramNode& self, const IEggProgramNode& cond, const IEggProgramNode& whenTrue, const IEggProgramNode& whenFalse) {
   EggProgramExpression expression(*this, self);
   auto retval = this->condition(cond).direct();
   if (retval.isBool()) {
@@ -712,10 +712,10 @@ egg::lang::Value egg::yolk::EggProgramContext::executeTernary(const IEggProgramN
   return retval;
 }
 
-egg::lang::Value egg::yolk::EggProgramContext::executePredicate(const IEggProgramNode& self, EggProgramBinary op, const IEggProgramNode& lhs, const IEggProgramNode& rhs) {
+egg::lang::ValueLegacy egg::yolk::EggProgramContext::executePredicate(const IEggProgramNode& self, EggProgramBinary op, const IEggProgramNode& lhs, const IEggProgramNode& rhs) {
   EggProgramExpression expression(*this, self);
-  egg::lang::Value left{};
-  egg::lang::Value right{};
+  egg::lang::ValueLegacy left{};
+  egg::lang::ValueLegacy right{};
   auto result = this->binary(op, lhs, rhs, left, right);
   if (!result.isBool() || result.getBool()) {
     // It wasn't a predicate failure, i.e. didn't return bool:false
@@ -727,13 +727,13 @@ egg::lang::Value egg::yolk::EggProgramContext::executePredicate(const IEggProgra
     // Augment the exception with extra information
     auto exception = raised.getObject();
     exception->setProperty(*this, "left", left);
-    exception->setProperty(*this, "operator", egg::lang::Value(egg::ovum::String(operation)));
+    exception->setProperty(*this, "operator", egg::lang::ValueLegacy(egg::ovum::String(operation)));
     exception->setProperty(*this, "right", right);
   }
   return raised;
 }
 
-egg::lang::Value egg::yolk::EggProgramContext::executeWithValue(const IEggProgramNode& node, const egg::lang::Value& value) {
+egg::lang::ValueLegacy egg::yolk::EggProgramContext::executeWithValue(const IEggProgramNode& node, const egg::lang::ValueLegacy& value) {
   // Run an execute call with a scope value set
   assert(this->scopeValue == nullptr);
   try {
@@ -747,22 +747,22 @@ egg::lang::Value egg::yolk::EggProgramContext::executeWithValue(const IEggProgra
   }
 }
 
-egg::lang::LogSeverity egg::yolk::EggProgram::execute(IEggEngineExecutionContext& execution) {
+egg::ovum::ILogger::Severity egg::yolk::EggProgram::execute(IEggEngineExecutionContext& execution) {
   // Place the symbol table in our basket
   auto& allocator = execution.allocator();
   auto symtable = allocator.make<EggProgramSymbolTable>();
   this->basket->take(*symtable);
   symtable->addBuiltins();
-  egg::lang::LogSeverity severity = egg::lang::LogSeverity::None;
+  egg::ovum::ILogger::Severity severity = egg::ovum::ILogger::Severity::None;
   auto context = this->createRootContext(allocator, execution, *symtable, severity);
   auto retval = this->root->execute(*context);
   if (!retval.isVoid()) {
     if (retval.stripFlowControl(egg::lang::Discriminator::Exception)) {
       // TODO exception location
-      execution.log(egg::lang::LogSource::Runtime, egg::lang::LogSeverity::Error, retval.toUTF8());
+      execution.log(egg::ovum::ILogger::Source::Runtime, egg::ovum::ILogger::Severity::Error, retval.toUTF8());
     } else if (retval.hasFlowControl()) {
       std::string message = "Internal runtime error: Expected statement to return 'void', but got '" + retval.getDiscriminatorString() + "' instead";
-      execution.log(egg::lang::LogSource::Runtime, egg::lang::LogSeverity::Error, message);
+      execution.log(egg::ovum::ILogger::Source::Runtime, egg::ovum::ILogger::Severity::Error, message);
     }
   }
   return severity;

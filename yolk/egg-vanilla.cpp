@@ -7,31 +7,31 @@
 #include "yolk/egg-program.h"
 
 namespace {
-  class VanillaBase : public egg::ovum::SoftReferenceCounted<egg::lang::IObject> {
+  class VanillaBase : public egg::ovum::SoftReferenceCounted<egg::ovum::IObject> {
     EGG_NO_COPY(VanillaBase);
   protected:
     std::string kind;
-    egg::lang::ITypeRef type;
+    egg::ovum::ITypeRef type;
   public:
-    VanillaBase(egg::ovum::IAllocator& allocator, const std::string& kind, const egg::lang::IType& type)
+    VanillaBase(egg::ovum::IAllocator& allocator, const std::string& kind, const egg::ovum::IType& type)
       : SoftReferenceCounted(allocator), kind(kind), type(&type) {
     }
     virtual void softVisitLinks(const Visitor&) const override {
       // No soft links
     }
-    virtual egg::lang::ITypeRef getRuntimeType() const override {
+    virtual egg::ovum::ITypeRef getRuntimeType() const override {
       return this->type;
     }
-    virtual egg::lang::Value call(egg::ovum::IExecution& execution, const egg::lang::IParameters&) override {
+    virtual egg::lang::ValueLegacy call(egg::ovum::IExecution& execution, const egg::lang::IParameters&) override {
       return execution.raiseFormat(this->kind, "s do not support calling with '()'");
     }
-    virtual egg::lang::Value getIndex(egg::ovum::IExecution& execution, const egg::lang::Value& index) override {
+    virtual egg::lang::ValueLegacy getIndex(egg::ovum::IExecution& execution, const egg::lang::ValueLegacy& index) override {
       if (!index.isString()) {
         return execution.raiseFormat(this->kind, " index (property name) was expected to be 'string', not '", index.getRuntimeType()->toString(), "'");
       }
       return this->getProperty(execution, index.getString());
     }
-    virtual egg::lang::Value setIndex(egg::ovum::IExecution& execution, const egg::lang::Value& index, const egg::lang::Value& value) override {
+    virtual egg::lang::ValueLegacy setIndex(egg::ovum::IExecution& execution, const egg::lang::ValueLegacy& index, const egg::lang::ValueLegacy& value) override {
       if (!index.isString()) {
         return execution.raiseFormat(this->kind, " index (property name) was expected to be 'string', not '", index.getRuntimeType()->toString(), "'");
       }
@@ -39,7 +39,7 @@ namespace {
     }
   };
 
-  class VanillaIteratorType : public egg::ovum::NotReferenceCounted<egg::lang::IType> {
+  class VanillaIteratorType : public egg::ovum::NotReferenceCounted<egg::ovum::IType> {
     EGG_NO_COPY(VanillaIteratorType);
   public:
     VanillaIteratorType() {}
@@ -50,7 +50,7 @@ namespace {
     virtual AssignmentSuccess canBeAssignedFrom(const IType&) const {
       return AssignmentSuccess::Never; // TODO
     }
-    virtual egg::lang::Value promoteAssignment(egg::ovum::IExecution& execution, const egg::lang::Value&) const override {
+    virtual egg::lang::ValueLegacy promoteAssignment(egg::ovum::IExecution& execution, const egg::lang::ValueLegacy&) const override {
       return execution.raiseFormat("Cannot re-assign iterators"); // TODO
     }
     static const VanillaIteratorType instance;
@@ -63,23 +63,23 @@ namespace {
     explicit VanillaIteratorBase(egg::ovum::IAllocator& allocator)
       : VanillaBase(allocator, "Iterator", VanillaIteratorType::instance) {
     }
-    virtual egg::lang::Value toString() const override {
-      return egg::lang::Value{ this->type->toString() };
+    virtual egg::lang::ValueLegacy toString() const override {
+      return egg::lang::ValueLegacy{ this->type->toString() };
     }
-    virtual egg::lang::Value getProperty(egg::ovum::IExecution& execution, const egg::ovum::String& property) override {
+    virtual egg::lang::ValueLegacy getProperty(egg::ovum::IExecution& execution, const egg::ovum::String& property) override {
       return execution.raiseFormat("Iterators do not support properties: '.", property, "'");
     }
-    virtual egg::lang::Value setProperty(egg::ovum::IExecution& execution, const egg::ovum::String& property, const egg::lang::Value&) override {
+    virtual egg::lang::ValueLegacy setProperty(egg::ovum::IExecution& execution, const egg::ovum::String& property, const egg::lang::ValueLegacy&) override {
       return execution.raiseFormat("Iterators do not support properties: '.", property, "'");
     }
   };
 
-  class VanillaKeyValueType : public egg::ovum::NotReferenceCounted<egg::lang::IType> {
+  class VanillaKeyValueType : public egg::ovum::NotReferenceCounted<egg::ovum::IType> {
   public:
     virtual std::pair<std::string, int> toStringPrecedence() const override {
       return std::make_pair("<keyvalue>", 0);
     }
-    virtual bool iterable(egg::lang::ITypeRef& type) const override {
+    virtual bool iterable(egg::ovum::ITypeRef& type) const override {
       // A keyvalue is a dictionary of two elements, so it is itself iterable
       type.set(&VanillaKeyValueType::instance);
       return true;
@@ -98,19 +98,19 @@ namespace {
   class VanillaKeyValue : public VanillaBase {
     EGG_NO_COPY(VanillaKeyValue);
   private:
-    egg::lang::Value key;
-    egg::lang::Value value;
+    egg::lang::ValueLegacy key;
+    egg::lang::ValueLegacy value;
   public:
-    VanillaKeyValue(egg::ovum::IAllocator& allocator, const egg::lang::Value& key, const egg::lang::Value& value)
+    VanillaKeyValue(egg::ovum::IAllocator& allocator, const egg::lang::ValueLegacy& key, const egg::lang::ValueLegacy& value)
       : VanillaBase(allocator, "Key-value", VanillaKeyValueType::instance), key(key), value(value) {
     }
-    VanillaKeyValue(egg::ovum::IAllocator& allocator, const std::pair<egg::ovum::String, egg::lang::Value>& keyvalue)
-      : VanillaKeyValue(allocator, egg::lang::Value{ keyvalue.first }, keyvalue.second) {
+    VanillaKeyValue(egg::ovum::IAllocator& allocator, const std::pair<egg::ovum::String, egg::lang::ValueLegacy>& keyvalue)
+      : VanillaKeyValue(allocator, egg::lang::ValueLegacy{ keyvalue.first }, keyvalue.second) {
     }
-    virtual egg::lang::Value toString() const override {
-      return egg::lang::Value{ egg::ovum::StringBuilder::concat("{key:", this->key.toString(), ",value:", this->value.toString(), "}") };
+    virtual egg::lang::ValueLegacy toString() const override {
+      return egg::lang::ValueLegacy{ egg::ovum::StringBuilder::concat("{key:", this->key.toString(), ",value:", this->value.toString(), "}") };
     }
-    virtual egg::lang::Value getProperty(egg::ovum::IExecution& execution, const egg::ovum::String& property) override {
+    virtual egg::lang::ValueLegacy getProperty(egg::ovum::IExecution& execution, const egg::ovum::String& property) override {
       auto name = property.toUTF8();
       if (name == "key") {
         return this->key;
@@ -120,10 +120,10 @@ namespace {
       }
       return execution.raiseFormat("Key-values do not support property: '.", property, "'");
     }
-    virtual egg::lang::Value setProperty(egg::ovum::IExecution& execution, const egg::ovum::String& property, const egg::lang::Value&) override {
+    virtual egg::lang::ValueLegacy setProperty(egg::ovum::IExecution& execution, const egg::ovum::String& property, const egg::lang::ValueLegacy&) override {
       return execution.raiseFormat("Key-values do not support addition or modification of properties: '.", property, "'");
     }
-    virtual egg::lang::Value iterate(egg::ovum::IExecution& execution) override {
+    virtual egg::lang::ValueLegacy iterate(egg::ovum::IExecution& execution) override {
       return execution.raiseFormat("Key-values do not support iteration");
     }
   };
@@ -131,18 +131,18 @@ namespace {
   class VanillaArrayIndexSignature : public egg::lang::IIndexSignature {
   public:
     static const VanillaArrayIndexSignature instance;
-    virtual egg::lang::ITypeRef getResultType() const override {
+    virtual egg::ovum::ITypeRef getResultType() const override {
       return egg::lang::Type::AnyQ;
     }
-    virtual egg::lang::ITypeRef getIndexType() const override {
+    virtual egg::ovum::ITypeRef getIndexType() const override {
       return egg::lang::Type::Int;
     }
   };
   const VanillaArrayIndexSignature VanillaArrayIndexSignature::instance{};
 
-  class VanillaArrayType : public egg::ovum::NotReferenceCounted<egg::lang::IType> {
+  class VanillaArrayType : public egg::ovum::NotReferenceCounted<egg::ovum::IType> {
   public:
-    static const egg::lang::IType* getPropertyType(const std::string& property) {
+    static const egg::ovum::IType* getPropertyType(const std::string& property) {
       if (property == "length") {
         return egg::lang::Type::Int.get();
       }
@@ -155,7 +155,7 @@ namespace {
       // Indexing an array returns an element
       return &VanillaArrayIndexSignature::instance;
     }
-    virtual bool dotable(const egg::ovum::String* property, egg::lang::ITypeRef& type, egg::ovum::String& reason) const override {
+    virtual bool dotable(const egg::ovum::String* property, egg::ovum::ITypeRef& type, egg::ovum::String& reason) const override {
       // Arrays support limited properties
       if (property == nullptr) {
         type = egg::lang::Type::AnyQ;
@@ -169,7 +169,7 @@ namespace {
       type.set(retval);
       return true;
     }
-    virtual bool iterable(egg::lang::ITypeRef& type) const override {
+    virtual bool iterable(egg::ovum::ITypeRef& type) const override {
       // Iterating an array returns the elements
       type = egg::lang::Type::AnyQ;
       return true;
@@ -188,14 +188,14 @@ namespace {
   class VanillaArray : public VanillaBase {
     EGG_NO_COPY(VanillaArray);
   private:
-    std::vector<egg::lang::Value> values;
+    std::vector<egg::lang::ValueLegacy> values;
   public:
     explicit VanillaArray(egg::ovum::IAllocator& allocator)
       : VanillaBase(allocator, "Array", VanillaArrayType::instance) {
     }
-    virtual egg::lang::Value toString() const override {
+    virtual egg::lang::ValueLegacy toString() const override {
       if (this->values.empty()) {
-        return egg::lang::Value(egg::ovum::String("[]"));
+        return egg::lang::ValueLegacy(egg::ovum::String("[]"));
       }
       egg::ovum::StringBuilder sb;
       char between = '[';
@@ -204,9 +204,9 @@ namespace {
         between = ',';
       }
       sb.add(']');
-      return egg::lang::Value{ sb.str() };
+      return egg::lang::ValueLegacy{ sb.str() };
     }
-    virtual egg::lang::Value getProperty(egg::ovum::IExecution& execution, const egg::ovum::String& property) override {
+    virtual egg::lang::ValueLegacy getProperty(egg::ovum::IExecution& execution, const egg::ovum::String& property) override {
       auto name = property.toUTF8();
       auto retval = this->getPropertyInternal(execution, name);
       if (retval.hasFlowControl()) {
@@ -216,14 +216,14 @@ namespace {
       }
       return retval;
     }
-    virtual egg::lang::Value setProperty(egg::ovum::IExecution& execution, const egg::ovum::String& property, const egg::lang::Value& value) override {
+    virtual egg::lang::ValueLegacy setProperty(egg::ovum::IExecution& execution, const egg::ovum::String& property, const egg::lang::ValueLegacy& value) override {
       auto name = property.toUTF8();
       if (name == "length") {
         return this->setLength(execution, value);
       }
       return execution.raiseFormat("Arrays do not support property '.", property, "'");
     }
-    virtual egg::lang::Value getIndex(egg::ovum::IExecution& execution, const egg::lang::Value& index) override {
+    virtual egg::lang::ValueLegacy getIndex(egg::ovum::IExecution& execution, const egg::lang::ValueLegacy& index) override {
       if (!index.isInt()) {
         return execution.raiseFormat("Array index was expected to be 'int', not '", index.getRuntimeType()->toString(), "'");
       }
@@ -235,7 +235,7 @@ namespace {
       assert(!element.isVoid());
       return element;
     }
-    virtual egg::lang::Value setIndex(egg::ovum::IExecution& execution, const egg::lang::Value& index, const egg::lang::Value& value) override {
+    virtual egg::lang::ValueLegacy setIndex(egg::ovum::IExecution& execution, const egg::lang::ValueLegacy& index, const egg::lang::ValueLegacy& value) override {
       if (!index.isInt()) {
         return execution.raiseFormat("Array index was expected to be 'int', not '", index.getRuntimeType()->toString(), "'");
       }
@@ -245,34 +245,34 @@ namespace {
       }
       auto u = size_t(i);
       if (u >= this->values.size()) {
-        this->values.resize(u + 1, egg::lang::Value::Null);
+        this->values.resize(u + 1, egg::lang::ValueLegacy::Null);
       }
       this->values[u] = value;
-      return egg::lang::Value::Void;
+      return egg::lang::ValueLegacy::Void;
     }
-    virtual egg::lang::Value iterate(egg::ovum::IExecution& execution) override;
-    egg::lang::Value iterateNext(size_t& index) const {
+    virtual egg::lang::ValueLegacy iterate(egg::ovum::IExecution& execution) override;
+    egg::lang::ValueLegacy iterateNext(size_t& index) const {
       // Used by VanillaArrayIterator
       // TODO What if the array has been modified?
       if (index < this->values.size()) {
         return this->values.at(index++);
       }
-      return egg::lang::Value::Void;
+      return egg::lang::ValueLegacy::Void;
     }
   private:
-    egg::lang::Value getPropertyInternal(egg::ovum::IExecution& execution, const std::string& property) {
+    egg::lang::ValueLegacy getPropertyInternal(egg::ovum::IExecution& execution, const std::string& property) {
       if (property == "length") {
-        return egg::lang::Value{ int64_t(this->values.size()) };
+        return egg::lang::ValueLegacy{ int64_t(this->values.size()) };
       }
       return execution.raiseFormat("Arrays do not support property '.", property, "'");
     }
-    egg::lang::Value setPropertyInternal(egg::ovum::IExecution& execution, const std::string& property, const egg::lang::Value& value) {
+    egg::lang::ValueLegacy setPropertyInternal(egg::ovum::IExecution& execution, const std::string& property, const egg::lang::ValueLegacy& value) {
       if (property == "length") {
         return this->setLength(execution, value);
       }
       return execution.raiseFormat("Arrays do not support property '.", property, "'");
     }
-    egg::lang::Value setLength(egg::ovum::IExecution& execution, const egg::lang::Value& value) {
+    egg::lang::ValueLegacy setLength(egg::ovum::IExecution& execution, const egg::lang::ValueLegacy& value) {
       if (!value.isInt()) {
         return execution.raiseFormat("Array length was expected to be set to an 'int', not '", value.getRuntimeType()->toString(), "'");
       }
@@ -281,8 +281,8 @@ namespace {
         return execution.raiseFormat("Invalid array length: ", n);
       }
       auto u = size_t(n);
-      this->values.resize(u, egg::lang::Value::Null);
-      return egg::lang::Value::Void;
+      this->values.resize(u, egg::lang::ValueLegacy::Null);
+      return egg::lang::ValueLegacy::Void;
     }
   };
 
@@ -295,19 +295,19 @@ namespace {
     VanillaArrayIterator(egg::ovum::IAllocator& allocator, const VanillaArray& array)
       : VanillaIteratorBase(allocator), array(&array), next(0) {
     }
-    virtual egg::lang::Value iterate(egg::ovum::IExecution&) override {
+    virtual egg::lang::ValueLegacy iterate(egg::ovum::IExecution&) override {
       return this->array->iterateNext(this->next);
     }
   };
 
-  egg::lang::Value VanillaArray::iterate(egg::ovum::IExecution& execution) {
-    return egg::lang::Value::makeObject<VanillaArrayIterator>(execution.getAllocator(), *this);
+  egg::lang::ValueLegacy VanillaArray::iterate(egg::ovum::IExecution& execution) {
+    return egg::lang::ValueLegacy::makeObject<VanillaArrayIterator>(execution.getAllocator(), *this);
   }
 
   class VanillaDictionaryIterator : public VanillaIteratorBase {
     EGG_NO_COPY(VanillaDictionaryIterator);
   private:
-    typedef egg::yolk::Dictionary<egg::ovum::String, egg::lang::Value> Dictionary;
+    typedef egg::yolk::Dictionary<egg::ovum::String, egg::lang::ValueLegacy> Dictionary;
     Dictionary::KeyValues keyvalues;
     size_t next;
   public:
@@ -315,27 +315,27 @@ namespace {
       : VanillaIteratorBase(allocator), next(0) {
       (void)dictionary.getKeyValues(this->keyvalues);
     }
-    virtual egg::lang::Value iterate(egg::ovum::IExecution& execution) override {
+    virtual egg::lang::ValueLegacy iterate(egg::ovum::IExecution& execution) override {
       if (this->next < this->keyvalues.size()) {
-        return egg::lang::Value::makeObject<VanillaKeyValue>(execution.getAllocator(), keyvalues[this->next++]);
+        return egg::lang::ValueLegacy::makeObject<VanillaKeyValue>(execution.getAllocator(), keyvalues[this->next++]);
       }
-      return egg::lang::Value::Void;
+      return egg::lang::ValueLegacy::Void;
     }
   };
 
   class VanillaDictionary : public VanillaBase {
     EGG_NO_COPY(VanillaDictionary);
   protected:
-    typedef egg::yolk::Dictionary<egg::ovum::String, egg::lang::Value> Dictionary;
+    typedef egg::yolk::Dictionary<egg::ovum::String, egg::lang::ValueLegacy> Dictionary;
     Dictionary dictionary;
   public:
-    VanillaDictionary(egg::ovum::IAllocator& allocator, const std::string& kind, const egg::lang::IType& type)
+    VanillaDictionary(egg::ovum::IAllocator& allocator, const std::string& kind, const egg::ovum::IType& type)
       : VanillaBase(allocator, kind, type) {
     }
-    virtual egg::lang::Value toString() const override {
+    virtual egg::lang::ValueLegacy toString() const override {
       Dictionary::KeyValues keyvalues;
       if (this->dictionary.getKeyValues(keyvalues) == 0) {
-        return egg::lang::Value(egg::ovum::String("{}"));
+        return egg::lang::ValueLegacy(egg::ovum::String("{}"));
       }
       egg::ovum::StringBuilder sb;
       char between = '{';
@@ -344,37 +344,37 @@ namespace {
         between = ',';
       }
       sb.add('}');
-      return egg::lang::Value{ sb.str() };
+      return egg::lang::ValueLegacy{ sb.str() };
     }
-    virtual egg::lang::Value getProperty(egg::ovum::IExecution& execution, const egg::ovum::String& property) override {
-      egg::lang::Value value;
+    virtual egg::lang::ValueLegacy getProperty(egg::ovum::IExecution& execution, const egg::ovum::String& property) override {
+      egg::lang::ValueLegacy value;
       if (this->dictionary.tryGet(property, value)) {
         return value;
       }
       return execution.raiseFormat(this->kind, " does not support property '", property, "'");
     }
-    virtual egg::lang::Value setProperty(egg::ovum::IExecution&, const egg::ovum::String& property, const egg::lang::Value& value) override {
+    virtual egg::lang::ValueLegacy setProperty(egg::ovum::IExecution&, const egg::ovum::String& property, const egg::lang::ValueLegacy& value) override {
       (void)this->dictionary.addOrUpdate(property, value);
-      return egg::lang::Value::Void;
+      return egg::lang::ValueLegacy::Void;
     }
-    virtual egg::lang::Value iterate(egg::ovum::IExecution& execution) override {
-      return egg::lang::Value::makeObject<VanillaDictionaryIterator>(execution.getAllocator(), this->dictionary);
+    virtual egg::lang::ValueLegacy iterate(egg::ovum::IExecution& execution) override {
+      return egg::lang::ValueLegacy::makeObject<VanillaDictionaryIterator>(execution.getAllocator(), this->dictionary);
     }
   };
 
   class VanillaObjectIndexSignature : public egg::lang::IIndexSignature {
   public:
     static const VanillaObjectIndexSignature instance;
-    virtual egg::lang::ITypeRef getResultType() const override {
+    virtual egg::ovum::ITypeRef getResultType() const override {
       return egg::lang::Type::AnyQ;
     }
-    virtual egg::lang::ITypeRef getIndexType() const override {
+    virtual egg::ovum::ITypeRef getIndexType() const override {
       return egg::lang::Type::String;
     }
   };
   const VanillaObjectIndexSignature VanillaObjectIndexSignature::instance{};
 
-  class VanillaObjectType : public egg::ovum::NotReferenceCounted<egg::lang::IType> {
+  class VanillaObjectType : public egg::ovum::NotReferenceCounted<egg::ovum::IType> {
   public:
     virtual std::pair<std::string, int> toStringPrecedence() const override {
       return std::make_pair("any?{string}", 0); // TODO
@@ -383,12 +383,12 @@ namespace {
       // Indexing an object returns a property
       return &VanillaObjectIndexSignature::instance;
     }
-    virtual bool dotable(const egg::ovum::String*, egg::lang::ITypeRef& type, egg::ovum::String&) const override {
+    virtual bool dotable(const egg::ovum::String*, egg::ovum::ITypeRef& type, egg::ovum::String&) const override {
       // Objects support properties
       type = egg::lang::Type::AnyQ;
       return true;
     }
-    virtual bool iterable(egg::lang::ITypeRef& type) const override {
+    virtual bool iterable(egg::ovum::ITypeRef& type) const override {
       // Iterating an object, returns the dictionary keyvalue pairs
       type.set(&VanillaKeyValueType::instance);
       return true;
@@ -420,12 +420,12 @@ namespace {
   public:
     VanillaException(egg::ovum::IAllocator& allocator, const egg::lang::LocationRuntime& location, const egg::ovum::String& message)
       : VanillaDictionary(allocator, "Exception", VanillaObjectType::instance) {
-      this->dictionary.addUnique(keyMessage, egg::lang::Value{ message });
-      this->dictionary.addUnique(keyLocation, egg::lang::Value{ location.toSourceString() }); // TODO use toRuntimeString
+      this->dictionary.addUnique(keyMessage, egg::lang::ValueLegacy{ message });
+      this->dictionary.addUnique(keyLocation, egg::lang::ValueLegacy{ location.toSourceString() }); // TODO use toRuntimeString
     }
-    virtual egg::lang::Value toString() const override {
+    virtual egg::lang::ValueLegacy toString() const override {
       egg::ovum::StringBuilder sb;
-      egg::lang::Value value;
+      egg::lang::ValueLegacy value;
       if (this->dictionary.tryGet(keyLocation, value)) {
         sb.add(value.toString(), ": ");
       }
@@ -434,20 +434,20 @@ namespace {
       } else {
         sb.add("Exception (no message)");
       }
-      return egg::lang::Value{ sb.str() };
+      return egg::lang::ValueLegacy{ sb.str() };
     }
   };
   const egg::ovum::String VanillaException::keyMessage = "message";
   const egg::ovum::String VanillaException::keyLocation = "location";
 
-  class VanillaFunction : public egg::ovum::SoftReferenceCounted<egg::lang::IObject> {
+  class VanillaFunction : public egg::ovum::SoftReferenceCounted<egg::ovum::IObject> {
     EGG_NO_COPY(VanillaFunction);
   protected:
     egg::ovum::SoftPtr<egg::yolk::EggProgramContext> program;
-    egg::lang::ITypeRef type;
+    egg::ovum::ITypeRef type;
     std::shared_ptr<egg::yolk::IEggProgramNode> block;
   public:
-    VanillaFunction(egg::ovum::IAllocator& allocator, egg::yolk::EggProgramContext& program, const egg::lang::ITypeRef& type, const std::shared_ptr<egg::yolk::IEggProgramNode>& block)
+    VanillaFunction(egg::ovum::IAllocator& allocator, egg::yolk::EggProgramContext& program, const egg::ovum::ITypeRef& type, const std::shared_ptr<egg::yolk::IEggProgramNode>& block)
       : SoftReferenceCounted(allocator),
         type(type),
         block(block) {
@@ -457,28 +457,28 @@ namespace {
     virtual void softVisitLinks(const Visitor& visitor) const override {
       this->program.visit(visitor);
     }
-    virtual egg::lang::Value toString() const override {
-      return egg::lang::Value(egg::ovum::StringBuilder::concat("<", this->type->toString(), ">"));
+    virtual egg::lang::ValueLegacy toString() const override {
+      return egg::lang::ValueLegacy(egg::ovum::StringBuilder::concat("<", this->type->toString(), ">"));
     }
-    virtual egg::lang::ITypeRef getRuntimeType() const override {
+    virtual egg::ovum::ITypeRef getRuntimeType() const override {
       return this->type;
     }
-    virtual egg::lang::Value call(egg::ovum::IExecution&, const egg::lang::IParameters& parameters) override {
+    virtual egg::lang::ValueLegacy call(egg::ovum::IExecution&, const egg::lang::IParameters& parameters) override {
       return this->program->executeFunctionCall(this->type, parameters, this->block);
     }
-    virtual egg::lang::Value getProperty(egg::ovum::IExecution& execution, const egg::ovum::String& property) override {
+    virtual egg::lang::ValueLegacy getProperty(egg::ovum::IExecution& execution, const egg::ovum::String& property) override {
       return execution.raiseFormat("'", this->type->toString(), "' does not support properties such as '.", property, "'");
     }
-    virtual egg::lang::Value setProperty(egg::ovum::IExecution& execution, const egg::ovum::String& property, const egg::lang::Value&) override {
+    virtual egg::lang::ValueLegacy setProperty(egg::ovum::IExecution& execution, const egg::ovum::String& property, const egg::lang::ValueLegacy&) override {
       return execution.raiseFormat("'", this->type->toString(), "' does not support properties such as '.", property, "'");
     }
-    virtual egg::lang::Value getIndex(egg::ovum::IExecution& execution, const egg::lang::Value&) override {
+    virtual egg::lang::ValueLegacy getIndex(egg::ovum::IExecution& execution, const egg::lang::ValueLegacy&) override {
       return execution.raiseFormat("'", this->type->toString(), "' does not support indexing with '[]'");
     }
-    virtual egg::lang::Value setIndex(egg::ovum::IExecution& execution, const egg::lang::Value&, const egg::lang::Value&) override {
+    virtual egg::lang::ValueLegacy setIndex(egg::ovum::IExecution& execution, const egg::lang::ValueLegacy&, const egg::lang::ValueLegacy&) override {
       return execution.raiseFormat("'", this->type->toString(), "' does not support indexing with '[]'");
     }
-    virtual egg::lang::Value iterate(egg::ovum::IExecution& execution) override {
+    virtual egg::lang::ValueLegacy iterate(egg::ovum::IExecution& execution) override {
       return execution.raiseFormat("'", this->type->toString(), "' does not support iteration");
     }
   };
@@ -486,17 +486,17 @@ namespace {
   class VanillaGenerator : public VanillaFunction {
     EGG_NO_COPY(VanillaGenerator);
   private:
-    egg::lang::ITypeRef rettype;
+    egg::ovum::ITypeRef rettype;
     egg::ovum::HardPtr<egg::yolk::FunctionCoroutine> coroutine;
     bool completed;
   public:
-    VanillaGenerator(egg::ovum::IAllocator& allocator, egg::yolk::EggProgramContext& program, const egg::lang::ITypeRef& type, const egg::lang::ITypeRef& rettype, const std::shared_ptr<egg::yolk::IEggProgramNode>& block)
+    VanillaGenerator(egg::ovum::IAllocator& allocator, egg::yolk::EggProgramContext& program, const egg::ovum::ITypeRef& type, const egg::ovum::ITypeRef& rettype, const std::shared_ptr<egg::yolk::IEggProgramNode>& block)
       : VanillaFunction(allocator, program, type, block),
       rettype(rettype),
       coroutine(),
       completed(false) {
     }
-    virtual egg::lang::Value call(egg::ovum::IExecution&, const egg::lang::IParameters& parameters) override {
+    virtual egg::lang::ValueLegacy call(egg::ovum::IExecution&, const egg::lang::IParameters& parameters) override {
       // This actually calls a generator via a coroutine
       if ((parameters.getPositionalCount() > 0) || (parameters.getNamedCount() > 0)) {
         return this->program->raiseFormat("Parameters in generator iterator calls are not supported");
@@ -510,12 +510,12 @@ namespace {
       }
       return retval;
     }
-    virtual egg::lang::Value iterate(egg::ovum::IExecution&) override;
-    egg::lang::Value iterateNext() {
+    virtual egg::lang::ValueLegacy iterate(egg::ovum::IExecution&) override;
+    egg::lang::ValueLegacy iterateNext() {
       if (this->coroutine == nullptr) {
         // Don't re-create if we've already completed
         if (this->completed) {
-          return egg::lang::Value::ReturnVoid;
+          return egg::lang::ValueLegacy::ReturnVoid;
         }
         this->coroutine = egg::yolk::FunctionCoroutine::create(this->allocator, this->block);
       }
@@ -545,43 +545,43 @@ namespace {
       : VanillaIteratorBase(allocator) {
       this->generator.set(*this, &generator);
     }
-    virtual egg::lang::Value iterate(egg::ovum::IExecution&) override {
+    virtual egg::lang::ValueLegacy iterate(egg::ovum::IExecution&) override {
       return this->generator->iterateNext();
     }
   };
 
-  egg::lang::Value VanillaGenerator::iterate(egg::ovum::IExecution& execution) {
+  egg::lang::ValueLegacy VanillaGenerator::iterate(egg::ovum::IExecution& execution) {
     // Create an ad hod iterator
-    return egg::lang::Value::makeObject<VanillaGeneratorIterator>(execution.getAllocator(), *this);
+    return egg::lang::ValueLegacy::makeObject<VanillaGeneratorIterator>(execution.getAllocator(), *this);
   }
 }
 
 // Vanilla types
-const egg::lang::IType& egg::yolk::EggProgram::VanillaArray = VanillaArrayType::instance;
-const egg::lang::IType& egg::yolk::EggProgram::VanillaObject = VanillaObjectType::instance;
+const egg::ovum::IType& egg::yolk::EggProgram::VanillaArray = VanillaArrayType::instance;
+const egg::ovum::IType& egg::yolk::EggProgram::VanillaObject = VanillaObjectType::instance;
 
 egg::ovum::IAllocator& egg::yolk::EggProgramContext::getAllocator() const {
   return this->allocator;
 }
 
-egg::lang::Value egg::yolk::EggProgramContext::raise(const egg::ovum::String& message) {
-  auto exception = egg::lang::Value::makeObject<VanillaException>(this->allocator, this->location, message);
+egg::lang::ValueLegacy egg::yolk::EggProgramContext::raise(const egg::ovum::String& message) {
+  auto exception = egg::lang::ValueLegacy::makeObject<VanillaException>(this->allocator, this->location, message);
   exception.addFlowControl(egg::lang::Discriminator::Exception);
   return exception;
 }
 
-egg::lang::Value egg::yolk::EggProgramContext::createVanillaArray() {
-  return egg::lang::Value::makeObject<VanillaArray>(this->allocator);
+egg::lang::ValueLegacy egg::yolk::EggProgramContext::createVanillaArray() {
+  return egg::lang::ValueLegacy::makeObject<VanillaArray>(this->allocator);
 }
 
-egg::lang::Value egg::yolk::EggProgramContext::createVanillaObject() {
-  return egg::lang::Value::makeObject<VanillaObject>(this->allocator);
+egg::lang::ValueLegacy egg::yolk::EggProgramContext::createVanillaObject() {
+  return egg::lang::ValueLegacy::makeObject<VanillaObject>(this->allocator);
 }
 
-egg::lang::Value egg::yolk::EggProgramContext::createVanillaFunction(const egg::lang::ITypeRef& type, const std::shared_ptr<egg::yolk::IEggProgramNode>& block) {
-  return egg::lang::Value::makeObject<VanillaFunction>(this->allocator, *this, type, block);
+egg::lang::ValueLegacy egg::yolk::EggProgramContext::createVanillaFunction(const egg::ovum::ITypeRef& type, const std::shared_ptr<egg::yolk::IEggProgramNode>& block) {
+  return egg::lang::ValueLegacy::makeObject<VanillaFunction>(this->allocator, *this, type, block);
 }
 
-egg::lang::Value egg::yolk::EggProgramContext::createVanillaGenerator(const egg::lang::ITypeRef& itertype, const egg::lang::ITypeRef& rettype, const std::shared_ptr<egg::yolk::IEggProgramNode>& block) {
-  return egg::lang::Value::makeObject<VanillaGenerator>(this->allocator, *this, itertype, rettype, block);
+egg::lang::ValueLegacy egg::yolk::EggProgramContext::createVanillaGenerator(const egg::ovum::ITypeRef& itertype, const egg::ovum::ITypeRef& rettype, const std::shared_ptr<egg::yolk::IEggProgramNode>& block) {
+  return egg::lang::ValueLegacy::makeObject<VanillaGenerator>(this->allocator, *this, itertype, rettype, block);
 }

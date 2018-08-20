@@ -15,18 +15,18 @@ namespace {
     explicit TestLogger(const std::string& resource)
       : resource(resource) {
     }
-    virtual void log(egg::lang::LogSource source, egg::lang::LogSeverity severity, const std::string& message) override {
+    virtual void log(Source source, Severity severity, const std::string& message) override {
       static const egg::yolk::String::StringFromEnum sourceTable[] = {
-        { int(egg::lang::LogSource::Compiler), "<COMPILER>" },
-        { int(egg::lang::LogSource::Runtime), "<RUNTIME>" },
-        { int(egg::lang::LogSource::User), "" },
+        { int(Source::Compiler), "<COMPILER>" },
+        { int(Source::Runtime), "<RUNTIME>" },
+        { int(Source::User), "" },
       };
       static const egg::yolk::String::StringFromEnum severityTable[] = {
-        { int(egg::lang::LogSeverity::Debug), "<DEBUG>" },
-        { int(egg::lang::LogSeverity::Verbose), "<VERBOSE>" },
-        { int(egg::lang::LogSeverity::Information), "" },
-        { int(egg::lang::LogSeverity::Warning), "<WARN>" },
-        { int(egg::lang::LogSeverity::Error), "<ERROR>" }
+        { int(Severity::Debug), "<DEBUG>" },
+        { int(Severity::Verbose), "<VERBOSE>" },
+        { int(Severity::Information), "" },
+        { int(Severity::Warning), "<WARN>" },
+        { int(Severity::Error), "<ERROR>" }
       };
       auto text = String::fromEnum(source, sourceTable) + String::fromEnum(severity, severityTable);
       std::cout << text << message << std::endl;
@@ -66,7 +66,7 @@ namespace {
       auto engine = EggEngineFactory::createEngineFromParsed(allocator, root);
       auto logger = std::make_shared<TestLogger>(stream.getResourceName());
       auto preparation = EggEngineFactory::createPreparationContext(allocator, logger);
-      if (engine->prepare(*preparation) != egg::lang::LogSeverity::Error) {
+      if (engine->prepare(*preparation) != egg::ovum::ILogger::Severity::Error) {
         auto execution = EggEngineFactory::createExecutionContext(allocator, logger);
         engine->execute(*execution);
       }

@@ -17,7 +17,7 @@ namespace egg::yolk {
 
   struct EggedTokenizerItem {
     EggedTokenizerKind kind;
-    egg::lang::Value value;
+    egg::lang::ValueLegacy value;
     size_t line;
     size_t column;
     bool contiguous;

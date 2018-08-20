@@ -1,6 +1,25 @@
+// WIBBLE retire
+namespace egg::lang {
+  class ValueLegacy;
+  class IParameters;
+  class IFunctionSignature;
+  class IIndexSignature;
+}
+
 namespace egg::ovum {
-  class IBasket;
+  // WIBBLE
+  enum class Basal;
+  class IExecution;
+  class String;
+  class Variant;
+
+  // Forward declarations
   template<typename T> class HardPtr;
+  class ICollectable;
+  class IType;
+
+  // Useful aliases
+  using ITypeRef = HardPtr<const IType>;
 
   class ILogger {
   public:
@@ -80,16 +99,6 @@ namespace egg::ovum {
     static bool equals(const IMemory* lhs, const IMemory* rhs);
   };
 
-  class ICollectable : public IHardAcquireRelease {
-  public:
-    using Visitor = std::function<void(ICollectable& target)>;
-    virtual bool softIsRoot() const = 0;
-    virtual IBasket* softGetBasket() const = 0;
-    virtual IBasket* softSetBasket(IBasket* basket) = 0;
-    virtual bool softLink(ICollectable& target) = 0;
-    virtual void softVisitLinks(const Visitor& visitor) const = 0;
-  };
-
   class IBasket : public IHardAcquireRelease {
   public:
     struct Statistics {
@@ -104,7 +113,46 @@ namespace egg::ovum {
     virtual bool statistics(Statistics& out) const = 0;
   };
 
-  
+  class ICollectable : public IHardAcquireRelease {
+  public:
+    using Visitor = std::function<void(ICollectable& target)>;
+    virtual bool softIsRoot() const = 0;
+    virtual IBasket* softGetBasket() const = 0;
+    virtual IBasket* softSetBasket(IBasket* basket) = 0;
+    virtual bool softLink(ICollectable& target) = 0;
+    virtual void softVisitLinks(const Visitor& visitor) const = 0;
+  };
+
+  class IType : public IHardAcquireRelease {
+  public:
+    enum class AssignmentSuccess { Never, Sometimes, Always };
+    virtual std::pair<std::string, int> toStringPrecedence() const = 0;
+    virtual AssignmentSuccess canBeAssignedFrom(const IType& rhs) const = 0;
+
+    virtual egg::lang::ValueLegacy promoteAssignment(IExecution& execution, const egg::lang::ValueLegacy& rhs) const; // WIBBLE IExecution? // Default implementation calls IType::canBeAssignedFrom()
+    virtual const egg::lang::IFunctionSignature* callable() const; // Default implementation returns nullptr
+    virtual const egg::lang::IIndexSignature* indexable() const; // Default implementation returns nullptr
+    virtual bool dotable(const String* property, ITypeRef& type, String& reason) const; // Default implementation returns false
+    virtual bool iterable(ITypeRef& type) const; // Default implementation returns false
+    virtual Basal getBasalTypes() const; // Default implementation returns 'Object'
+    virtual ITypeRef pointerType() const; // Default implementation returns 'Type*'
+    virtual ITypeRef pointeeType() const; // Default implementation returns 'Void'
+    virtual ITypeRef denulledType() const; // Default implementation returns 'Void'
+    virtual ITypeRef unionWith(const IType& other) const; // Default implementation calls Type::makeUnion()
+
+    // Helpers
+    String toString(int precedence = -1) const; // WIBBLE
+  };
+
   class IObject : public ICollectable {
+  public:
+    virtual egg::lang::ValueLegacy toString() const = 0;
+    virtual ITypeRef getRuntimeType() const = 0;
+    virtual egg::lang::ValueLegacy call(IExecution& execution, const egg::lang::IParameters& parameters) = 0;
+    virtual egg::lang::ValueLegacy getProperty(IExecution& execution, const String& property) = 0;
+    virtual egg::lang::ValueLegacy setProperty(IExecution& execution, const String& property, const egg::lang::ValueLegacy& value) = 0;
+    virtual egg::lang::ValueLegacy getIndex(IExecution& execution, const egg::lang::ValueLegacy& index) = 0;
+    virtual egg::lang::ValueLegacy setIndex(IExecution& execution, const egg::lang::ValueLegacy& index, const egg::lang::ValueLegacy& value) = 0;
+    virtual egg::lang::ValueLegacy iterate(IExecution& execution) = 0;
   };
 }
