@@ -54,9 +54,9 @@ bool egg::ovum::IType::iterable(ITypeRef&) const {
   return false;
 }
 
-egg::ovum::Basal egg::ovum::IType::getBasalTypes() const {
+egg::ovum::BasalBits egg::ovum::IType::getBasalTypes() const {
   // The default implementation is to say we are an object
-  return Basal::Object;
+  return BasalBits::Object;
 }
 
 egg::ovum::ITypeRef egg::ovum::IType::unionWith(const IType& other) const {

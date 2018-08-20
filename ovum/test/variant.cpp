@@ -13,25 +13,25 @@ namespace {
 }
 
 TEST(TestVariant, Kind) {
-  egg::ovum::VariantKind kind{ Bits::Exception | Bits::Object };
+  egg::ovum::VariantKind kind{ Bits::Throw | Bits::Object };
   // hasAny
   ASSERT_FALSE(kind.hasAny(Bits::Void));
-  ASSERT_TRUE(kind.hasAny(Bits::Exception));
+  ASSERT_TRUE(kind.hasAny(Bits::Throw));
   ASSERT_TRUE(kind.hasAny(Bits::Object));
-  ASSERT_TRUE(kind.hasAny(Bits::Exception | Bits::Object));
-  ASSERT_TRUE(kind.hasAny(Bits::Void | Bits::Exception | Bits::Object));
+  ASSERT_TRUE(kind.hasAny(Bits::Throw | Bits::Object));
+  ASSERT_TRUE(kind.hasAny(Bits::Void | Bits::Throw | Bits::Object));
   // hasAll
   ASSERT_FALSE(kind.hasAll(Bits::Void));
-  ASSERT_TRUE(kind.hasAll(Bits::Exception));
+  ASSERT_TRUE(kind.hasAll(Bits::Throw));
   ASSERT_TRUE(kind.hasAll(Bits::Object));
-  ASSERT_TRUE(kind.hasAll(Bits::Exception | Bits::Object));
-  ASSERT_FALSE(kind.hasAll(Bits::Void | Bits::Exception | Bits::Object));
+  ASSERT_TRUE(kind.hasAll(Bits::Throw | Bits::Object));
+  ASSERT_FALSE(kind.hasAll(Bits::Void | Bits::Throw | Bits::Object));
   // is
   ASSERT_FALSE(kind.is(Bits::Void));
-  ASSERT_FALSE(kind.is(Bits::Exception));
+  ASSERT_FALSE(kind.is(Bits::Throw));
   ASSERT_FALSE(kind.is(Bits::Object));
-  ASSERT_TRUE(kind.is(Bits::Exception | Bits::Object));
-  ASSERT_FALSE(kind.is(Bits::Void | Bits::Exception | Bits::Object));
+  ASSERT_TRUE(kind.is(Bits::Throw | Bits::Object));
+  ASSERT_FALSE(kind.is(Bits::Void | Bits::Throw | Bits::Object));
 }
 
 TEST(TestVariant, Void) {

@@ -291,7 +291,7 @@ namespace egg::yolk {
     egg::lang::ValueLegacy executeFinally(const egg::lang::ValueLegacy& retval, const IEggProgramNode* block);
     egg::lang::ValueLegacy executeForeachString(IEggProgramAssignee& target, const egg::ovum::String& source, const IEggProgramNode& block);
     egg::lang::ValueLegacy executeForeachIterate(IEggProgramAssignee& target, egg::ovum::IObject& source, const IEggProgramNode& block);
-    bool operand(egg::lang::ValueLegacy& dst, const IEggProgramNode& src, egg::ovum::Basal expected, const char* expectation);
+    bool operand(egg::lang::ValueLegacy& dst, const IEggProgramNode& src, egg::ovum::BasalBits expected, const char* expectation);
     typedef egg::lang::ValueLegacy(*ArithmeticBool)(bool lhs, bool rhs);
     typedef egg::lang::ValueLegacy(*ArithmeticInt)(int64_t lhs, int64_t rhs);
     typedef egg::lang::ValueLegacy(*ArithmeticFloat)(double lhs, double rhs);

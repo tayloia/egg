@@ -14,8 +14,8 @@ namespace {
     virtual std::pair<std::string, int> toStringPrecedence() const override {
       return std::make_pair("var", 0);
     }
-    virtual egg::ovum::Basal getBasalTypes() const override {
-      return egg::ovum::Basal::None;
+    virtual egg::ovum::BasalBits getBasalTypes() const override {
+      return egg::ovum::BasalBits::None;
     }
     virtual egg::ovum::ITypeRef unionWith(const egg::ovum::IType&) const override {
       EGG_THROW("Cannot union with inferred type");
@@ -25,7 +25,7 @@ namespace {
     }
     virtual egg::lang::ValueLegacy promoteAssignment(const egg::lang::ValueLegacy&) const override {
       egg::lang::ValueLegacy exception{ egg::ovum::String("Cannot assign to inferred type value") };
-      exception.addFlowControl(egg::lang::Discriminator::Exception);
+      exception.addFlowControl(egg::ovum::VariantBits::Throw);
       return exception;
     }
   };
@@ -43,21 +43,21 @@ namespace {
     return nullptr;
   }
 
-  egg::ovum::Basal keywordToBasal(const EggTokenizerItem& item) {
+  egg::ovum::BasalBits keywordToBasal(const EggTokenizerItem& item) {
     // Accept only type-like keywords: void, null, bool, int, float, string, object and any
     // OPTIMIZE
     if (item.kind == EggTokenizerKind::Keyword) {
-#define EGG_VM_BASAL_KEYWORD(name, value) case EggTokenizerKeyword::name: return egg::ovum::Basal::name;
+#define EGG_VM_BASAL_KEYWORD(name) case EggTokenizerKeyword::name: return egg::ovum::BasalBits::name;
       EGG_WARNING_SUPPRESS_SWITCH_BEGIN
       switch (item.value.k) {
       EGG_VM_BASAL(EGG_VM_BASAL_KEYWORD)
       case EggTokenizerKeyword::Any:
-        return egg::ovum::Basal::Any;
+        return egg::ovum::BasalBits::Any;
       }
       EGG_WARNING_SUPPRESS_SWITCH_END
 #undef EGG_VM_BASAL_KEYWORD
     }
-    return egg::ovum::Basal::None;
+    return egg::ovum::BasalBits::None;
   }
 
   class ParserDump {
@@ -2061,7 +2061,7 @@ bool EggSyntaxParserContext::parseTypePrimaryExpression(egg::ovum::ITypeRef& typ
     return false;
   }
   auto basal = keywordToBasal(p0);
-  if (basal != egg::ovum::Basal::None) {
+  if (basal != egg::ovum::BasalBits::None) {
     mark.accept(1);
     type = egg::ovum::Type::makeBasal(basal);
     return true;

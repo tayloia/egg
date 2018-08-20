@@ -226,7 +226,7 @@ namespace {
 
 void egg::yolk::EggProgramSymbol::setInferredType(const egg::ovum::ITypeRef& inferred) {
   // We only allow inferred type updates
-  assert(this->type->getBasalTypes() == egg::ovum::Basal::None);
+  assert(this->type->getBasalTypes() == egg::ovum::BasalBits::None);
   this->type = inferred;
 }
 
@@ -565,23 +565,23 @@ egg::lang::ValueLegacy egg::yolk::EggProgramContext::condition(const IEggProgram
   if (retval.hasBool() || retval.hasFlowControl()) {
     return retval;
   }
-  return this->raiseFormat("Expected condition to evaluate to a 'bool', but got '", retval.getDiscriminatorString(), "' instead");
+  return this->raiseFormat("Expected condition to evaluate to a 'bool', but got '", retval.getRuntimeType()->toString(), "' instead");
 }
 
 egg::lang::ValueLegacy egg::yolk::EggProgramContext::unary(EggProgramUnary op, const IEggProgramNode& expr, egg::lang::ValueLegacy& value) {
   switch (op) {
   case EggProgramUnary::LogicalNot:
-    if (this->operand(value, expr, egg::ovum::Basal::Bool, "Expected operand of logical-not '!' operator to be 'bool'")) {
+    if (this->operand(value, expr, egg::ovum::BasalBits::Bool, "Expected operand of logical-not '!' operator to be 'bool'")) {
       return egg::lang::ValueLegacy(!value.getBool());
     }
     return value;
   case EggProgramUnary::Negate:
-    if (this->operand(value, expr, egg::ovum::Basal::Arithmetic, "Expected operand of negation '-' operator to be 'int' or 'float'")) {
+    if (this->operand(value, expr, egg::ovum::BasalBits::Arithmetic, "Expected operand of negation '-' operator to be 'int' or 'float'")) {
       return value.isInt() ? egg::lang::ValueLegacy(-value.getInt()) : egg::lang::ValueLegacy(-value.getFloat());
     }
     return value;
   case EggProgramUnary::BitwiseNot:
-    if (this->operand(value, expr, egg::ovum::Basal::Int, "Expected operand of bitwise-not '~' operator to be 'int'")) {
+    if (this->operand(value, expr, egg::ovum::BasalBits::Int, "Expected operand of bitwise-not '~' operator to be 'int'")) {
       return egg::lang::ValueLegacy(~value.getInt());
     }
     return value;
@@ -616,7 +616,7 @@ egg::lang::ValueLegacy egg::yolk::EggProgramContext::binary(EggProgramBinary op,
   switch (op) {
   case EggProgramBinary::Unequal:
     if (left.hasAny() || left.hasNull()) {
-      if (!this->operand(right, rhs, egg::ovum::Basal::Any | egg::ovum::Basal::Null, "Expected right operand of inequality '!=' to be a value")) {
+      if (!this->operand(right, rhs, egg::ovum::BasalBits::Any | egg::ovum::BasalBits::Null, "Expected right operand of inequality '!=' to be a value")) {
         return right;
       }
       return egg::lang::ValueLegacy(left != right);
@@ -646,7 +646,7 @@ egg::lang::ValueLegacy egg::yolk::EggProgramContext::binary(EggProgramBinary op,
     return this->arithmeticIntFloat(left, right, rhs, "comparison '<='", lessEqualInt, lessEqualFloat);
   case EggProgramBinary::Equal:
     if (left.hasAny() || left.hasNull()) {
-      if (!this->operand(right, rhs, egg::ovum::Basal::Any | egg::ovum::Basal::Null, "Expected right operand of equality '==' to be a value")) {
+      if (!this->operand(right, rhs, egg::ovum::BasalBits::Any | egg::ovum::BasalBits::Null, "Expected right operand of equality '==' to be a value")) {
         return right;
       }
       return egg::lang::ValueLegacy(left == right);
@@ -673,7 +673,7 @@ egg::lang::ValueLegacy egg::yolk::EggProgramContext::binary(EggProgramBinary op,
   }
 }
 
-bool egg::yolk::EggProgramContext::operand(egg::lang::ValueLegacy& dst, const IEggProgramNode& src, egg::ovum::Basal expected, const char* expectation) {
+bool egg::yolk::EggProgramContext::operand(egg::lang::ValueLegacy& dst, const IEggProgramNode& src, egg::ovum::BasalBits expected, const char* expectation) {
   dst = src.execute(*this).direct();
   if (dst.hasFlowControl()) {
     return false;
@@ -873,7 +873,7 @@ egg::lang::ValueLegacy egg::yolk::EggProgramContext::bracketsSet(const egg::lang
 }
 
 egg::lang::ValueLegacy egg::yolk::EggProgramContext::unexpected(const std::string& expectation, const egg::lang::ValueLegacy& value) {
-  return this->raiseFormat(expectation, ", but got '", value.getDiscriminatorString(), "' instead");
+  return this->raiseFormat(expectation, ", but got '", value.getRuntimeType()->toString(), "' instead");
 }
 
 egg::lang::ValueLegacy egg::yolk::EggProgramContext::assertion(const egg::lang::ValueLegacy& predicate) {

@@ -61,7 +61,7 @@ namespace {
       : FunctionType(allocator, egg::ovum::String(), returnType->unionWith(*egg::ovum::Type::Void)),
         rettype(returnType) {
       // No name or parameters in the signature
-      assert(!egg::ovum::Bits::hasAnySet(returnType->getBasalTypes(), egg::ovum::Basal::Void));
+      assert(!egg::ovum::Bits::hasAnySet(returnType->getBasalTypes(), egg::ovum::BasalBits::Void));
     }
     virtual std::pair<std::string, int> toStringPrecedence() const override {
       // Format a string along the lines of '<rettype>...'
@@ -471,7 +471,7 @@ egg::lang::ValueLegacy egg::yolk::EggProgramContext::coexecuteYield(EggProgramSt
   auto result = value->execute(*this).direct();
   if (!result.hasFlowControl()) {
     // Need to convert the result to a return flow control
-    result.addFlowControl(egg::lang::Discriminator::Yield);
+    result.addFlowControl(egg::ovum::VariantBits::Yield);
   }
   return result;
 }

@@ -3,35 +3,54 @@ namespace egg::ovum {
   class VariantFactory;
   class VariantSoft;
 
-#define EGG_VM_BASAL_ENUM(name, value) name = 1 << value,
-  enum class Basal {
+#define EGG_VM_VARIANT(X) \
+  EGG_VM_BASAL(X) \
+  X(Memory) \
+  X(Pointer) \
+  X(Indirect) \
+  X(Break) \
+  X(Continue) \
+  X(Return) \
+  X(Yield) \
+  X(Throw) \
+  X(Hard)
+
+  namespace impl {
+    enum {
+      _ = -1 // We want the next element to start at zero
+#define EGG_VM_VARIANT_ENUM(name) , name
+      EGG_VM_VARIANT(EGG_VM_VARIANT_ENUM)
+#undef EGG_VM_VARIANT_ENUM
+    };
+  }
+
+  enum class BasalBits {
     None = 0,
+#define EGG_VM_BASAL_ENUM(name) name = 1 << impl::name,
     EGG_VM_BASAL(EGG_VM_BASAL_ENUM)
+#undef EGG_VM_BASAL_ENUM
     Arithmetic = Int | Float,
     Any = Bool | Int | Float | String | Object
   };
-#undef EGG_VM_BASAL_ENUM
-  inline Basal operator|(Basal lhs, Basal rhs) {
-    return egg::ovum::Bits::set(lhs, rhs);
+  inline BasalBits operator|(BasalBits lhs, BasalBits rhs) {
+    return Bits::set(lhs, rhs);
   }
 
   enum class VariantBits {
-    Void = 1 << 0,
-    Null = 1 << 1,
-    Bool = 1 << 2,
-    Int = 1 << 3,
-    Float = 1 << 4,
-    String = 1 << 5,
-    Memory = 1 << 6,
-    Object = 1 << 7,
-    Pointer = 1 << 8,
-    Indirect = 1 << 9,
-    Exception = 1 << 10,
-    Hard = 1 << 11
+    None = 0,
+#define EGG_VM_VARIANT_ENUM(name) name = 1 << impl::name,
+    EGG_VM_VARIANT(EGG_VM_VARIANT_ENUM)
+#undef EGG_VM_VARIANT_ENUM
+    Arithmetic = Int | Float,
+    Any = Bool | Int | Float | String | Object,
+    FlowControl = Break | Continue | Return | Yield | Throw
   };
+#undef EGG_VM_BASAL_ENUM
   inline VariantBits operator|(VariantBits lhs, VariantBits rhs) {
-    return egg::ovum::Bits::set(lhs, rhs);
+    return Bits::set(lhs, rhs);
   }
+
+#undef EGG_VM_VARIANT
 
   class VariantKind {
   private:

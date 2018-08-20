@@ -122,7 +122,7 @@ egg::lang::ValueLegacy egg::yolk::EggProgramContext::executeGuard(const IEggProg
   // The type information has already been used in the symbol declaration phase
   EGG_UNUSED(type); // Used in assertion only
   this->statement(self);
-  assert(type->getBasalTypes() != egg::ovum::Basal::None);
+  assert(type->getBasalTypes() != egg::ovum::BasalBits::None);
   return this->guard(name, rvalue.execute(*this)); // not .direct()
 }
 
@@ -392,7 +392,7 @@ egg::lang::ValueLegacy egg::yolk::EggProgramContext::executeFunctionCall(const e
   }
   auto context = this->createNestedContext(*nested);
   auto retval = block->execute(*context);
-  if (retval.stripFlowControl(egg::lang::Discriminator::Return)) {
+  if (retval.stripFlowControl(egg::ovum::VariantBits::Return)) {
     // Explicit return
     return retval;
   }
@@ -406,7 +406,7 @@ egg::lang::ValueLegacy egg::yolk::EggProgramContext::executeGeneratorDefinition(
   assert(gentype->callable() != nullptr);
   auto itertype = gentype->callable()->getReturnType();
   auto retval = this->createVanillaGenerator(itertype, rettype, block);
-  retval.addFlowControl(egg::lang::Discriminator::Return);
+  retval.addFlowControl(egg::ovum::VariantBits::Return);
   return retval;
 }
 
@@ -419,7 +419,7 @@ egg::lang::ValueLegacy egg::yolk::EggProgramContext::executeReturn(const IEggPro
   auto result = value->execute(*this).direct();
   if (!result.hasFlowControl()) {
     // Need to convert the result to a return flow control
-    result.addFlowControl(egg::lang::Discriminator::Return);
+    result.addFlowControl(egg::ovum::VariantBits::Return);
   }
   return result;
 }
@@ -495,7 +495,7 @@ egg::lang::ValueLegacy egg::yolk::EggProgramContext::executeThrow(const IEggProg
     return value;
   }
   if (!value.hasAny()) {
-    return this->raiseFormat("Cannot 'throw' a value of type '", value.getDiscriminatorString(), "'");
+    return this->raiseFormat("Cannot 'throw' a value of type '", value.getRuntimeType()->toString(), "'");
   }
   return this->raise(value.getString());
 }
@@ -503,7 +503,7 @@ egg::lang::ValueLegacy egg::yolk::EggProgramContext::executeThrow(const IEggProg
 egg::lang::ValueLegacy egg::yolk::EggProgramContext::executeTry(const IEggProgramNode& self, const IEggProgramNode& block, const std::vector<std::shared_ptr<IEggProgramNode>>& catches, const IEggProgramNode* final) {
   this->statement(self);
   auto retval = block.execute(*this);
-  if (retval.stripFlowControl(egg::lang::Discriminator::Exception)) {
+  if (retval.stripFlowControl(egg::ovum::VariantBits::Throw)) {
     // An exception has indeed been thrown
     for (auto& i : catches) {
       auto match = this->executeWithValue(*i, retval).direct();
@@ -723,7 +723,7 @@ egg::lang::ValueLegacy egg::yolk::EggProgramContext::executePredicate(const IEgg
   }
   auto operation = EggProgram::binaryToString(op);
   auto raised = this->raiseFormat("Assertion is untrue: ", left.toString(), " ", operation, " ", right.toString());
-  if (raised.hasException() && raised.hasObject()) {
+  if (raised.hasThrow() && raised.hasObject()) {
     // Augment the exception with extra information
     auto exception = raised.getObject();
     exception->setProperty(*this, "left", left);
@@ -757,11 +757,11 @@ egg::ovum::ILogger::Severity egg::yolk::EggProgram::execute(IEggEngineExecutionC
   auto context = this->createRootContext(allocator, execution, *symtable, severity);
   auto retval = this->root->execute(*context);
   if (!retval.isVoid()) {
-    if (retval.stripFlowControl(egg::lang::Discriminator::Exception)) {
+    if (retval.stripFlowControl(egg::ovum::VariantBits::Throw)) {
       // TODO exception location
       execution.log(egg::ovum::ILogger::Source::Runtime, egg::ovum::ILogger::Severity::Error, retval.toUTF8());
     } else if (retval.hasFlowControl()) {
-      std::string message = "Internal runtime error: Expected statement to return 'void', but got '" + retval.getDiscriminatorString() + "' instead";
+      auto message = "Internal runtime error: Expected statement to return 'void', but got '" + retval.getRuntimeType()->toString().toUTF8() + "' instead";
       execution.log(egg::ovum::ILogger::Source::Runtime, egg::ovum::ILogger::Severity::Error, message);
     }
   }

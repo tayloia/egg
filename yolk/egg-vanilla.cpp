@@ -52,7 +52,7 @@ namespace {
     }
     virtual egg::lang::ValueLegacy promoteAssignment(const egg::lang::ValueLegacy&) const override {
       egg::lang::ValueLegacy exception{ egg::ovum::String("Cannot re-assign iterators") };
-      exception.addFlowControl(egg::lang::Discriminator::Exception);
+      exception.addFlowControl(egg::ovum::VariantBits::Throw);
       return exception;
     }
     static const VanillaIteratorType instance;
@@ -504,7 +504,7 @@ namespace {
         return this->program->raiseFormat("Parameters in generator iterator calls are not supported");
       }
       auto retval = this->iterateNext();
-      if (retval.stripFlowControl(egg::lang::Discriminator::Return)) {
+      if (retval.stripFlowControl(egg::ovum::VariantBits::Return)) {
         // The sequence has ended
         if (!retval.isVoid()) {
           return this->program->raiseFormat("Expected 'return' statement without a value in generator, but got '", retval.getRuntimeType()->toString(), "' instead");
@@ -523,14 +523,14 @@ namespace {
       }
       assert(this->coroutine != nullptr);
       auto retval = this->coroutine->resume(*this->program);
-      if (retval.stripFlowControl(egg::lang::Discriminator::Yield)) {
+      if (retval.stripFlowControl(egg::ovum::VariantBits::Yield)) {
         // We yielded a value
         return retval;
       }
       // We either completed or failed
       this->completed = true;
       this->coroutine = nullptr;
-      if (retval.stripFlowControl(egg::lang::Discriminator::Return)) {
+      if (retval.stripFlowControl(egg::ovum::VariantBits::Return)) {
         // We explicitly terminated
         return retval;
       }
@@ -568,7 +568,7 @@ egg::ovum::IAllocator& egg::yolk::EggProgramContext::getAllocator() const {
 
 egg::lang::ValueLegacy egg::yolk::EggProgramContext::raise(const egg::ovum::String& message) {
   auto exception = egg::lang::ValueLegacy::makeObject<VanillaException>(this->allocator, this->location, message);
-  exception.addFlowControl(egg::lang::Discriminator::Exception);
+  exception.addFlowControl(egg::ovum::VariantBits::Throw);
   return exception;
 }
 

@@ -5,7 +5,7 @@ namespace egg::lang {
 
 namespace egg::ovum {
   // WIBBLE
-  enum class Basal;
+  enum class BasalBits;
   class IExecution;
   class String;
   class Variant;
@@ -189,7 +189,7 @@ namespace egg::ovum {
     virtual const IIndexSignature* indexable() const; // Default implementation returns nullptr
     virtual bool dotable(const String* property, ITypeRef& type, String& reason) const; // Default implementation returns false
     virtual bool iterable(ITypeRef& type) const; // Default implementation returns false
-    virtual Basal getBasalTypes() const; // Default implementation returns 'Object'
+    virtual BasalBits getBasalTypes() const; // Default implementation returns 'Object'
     virtual ITypeRef pointerType() const; // Default implementation returns 'Type*'
     virtual ITypeRef pointeeType() const; // Default implementation returns 'Void'
     virtual ITypeRef denulledType() const; // Default implementation returns 'Void'

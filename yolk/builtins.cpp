@@ -137,7 +137,7 @@ namespace {
     EGG_NO_COPY(BuiltinStringFrom);
   public:
     explicit BuiltinStringFrom(egg::ovum::IAllocator& allocator)
-      : BuiltinFunction(allocator, "string.from", egg::ovum::Type::makeBasal(egg::ovum::Basal::String | egg::ovum::Basal::Null)) {
+      : BuiltinFunction(allocator, "string.from", egg::ovum::Type::makeBasal(egg::ovum::BasalBits::String | egg::ovum::BasalBits::Null)) {
       this->type->addParameter("value", egg::ovum::Type::AnyQ, Flags::Required);
     }
     virtual ValueLegacy call(egg::ovum::IExecution& execution, const egg::ovum::IParameters& parameters) override {
@@ -404,7 +404,7 @@ namespace {
     EGG_NO_COPY(StringIndexOf);
   public:
     StringIndexOf(egg::ovum::IAllocator& allocator, const egg::ovum::String& name)
-      : StringFunctionType(allocator, name, egg::ovum::Type::makeBasal(egg::ovum::Basal::Int | egg::ovum::Basal::Null)) {
+      : StringFunctionType(allocator, name, egg::ovum::Type::makeBasal(egg::ovum::BasalBits::Int | egg::ovum::BasalBits::Null)) {
       this->addParameter("needle", egg::ovum::Type::String, Flags::Required);
     }
     virtual ValueLegacy executeCall(egg::ovum::IExecution& execution, const egg::ovum::String& instance, const egg::ovum::IParameters& parameters) const override {
@@ -422,7 +422,7 @@ namespace {
     EGG_NO_COPY(StringLastIndexOf);
   public:
     StringLastIndexOf(egg::ovum::IAllocator& allocator, const egg::ovum::String& name)
-      : StringFunctionType(allocator, name, egg::ovum::Type::makeBasal(egg::ovum::Basal::Int | egg::ovum::Basal::Null)) {
+      : StringFunctionType(allocator, name, egg::ovum::Type::makeBasal(egg::ovum::BasalBits::Int | egg::ovum::BasalBits::Null)) {
       this->addParameter("needle", egg::ovum::Type::String, Flags::Required);
     }
     virtual ValueLegacy executeCall(egg::ovum::IExecution& execution, const egg::ovum::String& instance, const egg::ovum::IParameters& parameters) const override {

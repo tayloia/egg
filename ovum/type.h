@@ -14,7 +14,7 @@ namespace egg::ovum {
     static const Type Any;
     static const Type AnyQ;
 
-    static ITypeRef makeBasal(Basal basal);
+    static ITypeRef makeBasal(BasalBits basal);
     static ITypeRef makeUnion(const IType& lhs, const IType& rhs);
   };
 
