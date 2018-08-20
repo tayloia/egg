@@ -28,7 +28,7 @@ public:
 };
 
 namespace {
-  class FunctionSignatureParameter : public egg::lang::IFunctionSignatureParameter {
+  class FunctionSignatureParameter : public egg::ovum::IFunctionSignatureParameter {
   private:
     egg::ovum::String name; // may be empty
     egg::ovum::ITypeRef type;
@@ -58,16 +58,14 @@ namespace {
     egg::ovum::ITypeRef rettype;
   public:
     explicit GeneratorFunctionType(egg::ovum::IAllocator& allocator, const egg::ovum::ITypeRef& returnType)
-      : FunctionType(allocator, egg::ovum::String(), returnType->unionWith(*egg::lang::Type::Void)),
+      : FunctionType(allocator, egg::ovum::String(), returnType->unionWith(*egg::ovum::Type::Void)),
         rettype(returnType) {
       // No name or parameters in the signature
       assert(!egg::ovum::Bits::hasAnySet(returnType->getBasalTypes(), egg::ovum::Basal::Void));
     }
     virtual std::pair<std::string, int> toStringPrecedence() const override {
       // Format a string along the lines of '<rettype>...'
-      egg::ovum::StringBuilder sb;
-      sb.add(this->rettype->toString(0), "...");
-      return std::make_pair(sb.toUTF8(), 0);
+      return std::make_pair(this->rettype->toString(0).toUTF8() + "...", 0);
     }
     virtual bool iterable(egg::ovum::ITypeRef& type) const {
       // We are indeed iterable
@@ -298,7 +296,7 @@ namespace {
   };
 }
 
-class egg::yolk::FunctionSignature : public egg::lang::IFunctionSignature {
+class egg::yolk::FunctionSignature : public egg::ovum::IFunctionSignature {
   EGG_NO_COPY(FunctionSignature);
 private:
   egg::ovum::String name;
@@ -320,25 +318,25 @@ public:
   virtual size_t getParameterCount() const override {
     return this->parameters.size();
   }
-  virtual const egg::lang::IFunctionSignatureParameter& getParameter(size_t index) const override {
+  virtual const egg::ovum::IFunctionSignatureParameter& getParameter(size_t index) const override {
     assert(index < this->parameters.size());
     return this->parameters[index];
   }
 };
 
-void egg::lang::IFunctionSignature::buildStringDefault(egg::ovum::StringBuilder& sb, IFunctionSignature::Parts parts) const {
+void egg::ovum::IFunctionSignature::buildStringDefault(StringBuilder& sb, IFunctionSignature::Parts parts) const {
   // TODO better formatting of named/variadic etc.
-  if (egg::ovum::Bits::hasAnySet(parts, IFunctionSignature::Parts::ReturnType)) {
+  if (Bits::hasAnySet(parts, IFunctionSignature::Parts::ReturnType)) {
     // Use precedence zero to get any necessary parentheses
     sb.add(this->getReturnType()->toString(0));
   }
-  if (egg::ovum::Bits::hasAnySet(parts, IFunctionSignature::Parts::FunctionName)) {
+  if (Bits::hasAnySet(parts, IFunctionSignature::Parts::FunctionName)) {
     auto name = this->getFunctionName();
     if (!name.empty()) {
       sb.add(' ', name);
     }
   }
-  if (egg::ovum::Bits::hasAnySet(parts, IFunctionSignature::Parts::ParameterList)) {
+  if (Bits::hasAnySet(parts, IFunctionSignature::Parts::ParameterList)) {
     sb.add('(');
     auto n = this->getParameterCount();
     for (size_t i = 0; i < n; ++i) {
@@ -347,17 +345,17 @@ void egg::lang::IFunctionSignature::buildStringDefault(egg::ovum::StringBuilder&
       }
       auto& parameter = this->getParameter(i);
       assert(parameter.getPosition() != SIZE_MAX);
-      if (parameter.isVariadic()) {
+      if (Bits::hasAnySet(parameter.getFlags(), IFunctionSignatureParameter::Flags::Variadic)) {
         sb.add("...");
       } else {
         sb.add(parameter.getType()->toString());
-        if (egg::ovum::Bits::hasAnySet(parts, IFunctionSignature::Parts::ParameterNames)) {
+        if (Bits::hasAnySet(parts, IFunctionSignature::Parts::ParameterNames)) {
           auto pname = parameter.getName();
           if (!pname.empty()) {
             sb.add(' ', pname);
           }
         }
-        if (!parameter.isRequired()) {
+        if (!Bits::hasAnySet(parameter.getFlags(), IFunctionSignatureParameter::Flags::Required)) {
           sb.add(" = null");
         }
       }
@@ -378,7 +376,7 @@ egg::yolk::FunctionType::~FunctionType() {
 std::pair<std::string, int> egg::yolk::FunctionType::toStringPrecedence() const {
   // Do not include names in the signature
   egg::ovum::StringBuilder sb;
-  this->signature->buildStringDefault(sb, egg::lang::IFunctionSignature::Parts::NoNames);
+  this->signature->buildStringDefault(sb, egg::ovum::IFunctionSignature::Parts::NoNames);
   return std::make_pair(sb.toUTF8(), 0);
 }
 
@@ -399,11 +397,11 @@ egg::yolk::FunctionType::AssignmentSuccess egg::yolk::FunctionType::canBeAssigne
   return lsig->getReturnType()->canBeAssignedFrom(*rsig->getReturnType()); // TODO
 }
 
-const egg::lang::IFunctionSignature* egg::yolk::FunctionType::callable() const {
+const egg::ovum::IFunctionSignature* egg::yolk::FunctionType::callable() const {
   return this->signature.get();
 }
 
-void egg::yolk::FunctionType::addParameter(const egg::ovum::String& name, const egg::ovum::ITypeRef& type, egg::lang::IFunctionSignatureParameter::Flags flags) {
+void egg::yolk::FunctionType::addParameter(const egg::ovum::String& name, const egg::ovum::ITypeRef& type, egg::ovum::IFunctionSignatureParameter::Flags flags) {
   this->signature->addSignatureParameter(name, type, this->signature->getParameterCount(), flags);
 }
 

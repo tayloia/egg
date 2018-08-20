@@ -70,6 +70,7 @@
 #include "ovum/interfaces.h"
 #include "ovum/utility.h"
 #include "ovum/string.h"
+#include "ovum/type.h"
 #include "ovum/variant.h"
 #include "ovum/factories.h"
 #include "ovum/context.h"

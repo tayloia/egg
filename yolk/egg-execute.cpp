@@ -7,12 +7,12 @@
 #include "yolk/egg-program.h"
 
 namespace {
-  class EggProgramParameters : public egg::lang::IParameters {
+  class EggProgramParameters : public egg::ovum::IParameters {
   private:
     struct Pair {
       Pair() = delete;
       egg::lang::ValueLegacy value;
-      egg::lang::LocationSource location;
+      egg::ovum::LocationSource location;
     };
     std::vector<Pair> positional;
     std::map<egg::ovum::String, Pair> named;
@@ -20,11 +20,11 @@ namespace {
     explicit EggProgramParameters(size_t count) {
       this->positional.reserve(count);
     }
-    void addPositional(const egg::lang::ValueLegacy& value, const egg::lang::LocationSource& location) {
+    void addPositional(const egg::lang::ValueLegacy& value, const egg::ovum::LocationSource& location) {
       Pair pair{ value, location };
       this->positional.emplace_back(std::move(pair));
     }
-    void addNamed(const egg::ovum::String& name, const egg::lang::ValueLegacy& value, const egg::lang::LocationSource& location) {
+    void addNamed(const egg::ovum::String& name, const egg::lang::ValueLegacy& value, const egg::ovum::LocationSource& location) {
       Pair pair{ value, location };
       this->named.emplace(name, std::move(pair));
     }
@@ -34,7 +34,7 @@ namespace {
     virtual egg::lang::ValueLegacy getPositional(size_t index) const override {
       return this->positional.at(index).value;
     }
-    virtual const egg::lang::LocationSource* getPositionalLocation(size_t index) const override {
+    virtual const egg::ovum::LocationSource* getPositionalLocation(size_t index) const override {
       return &this->positional.at(index).location;
     }
     virtual size_t getNamedCount() const override {
@@ -48,7 +48,7 @@ namespace {
     virtual egg::lang::ValueLegacy getNamed(const egg::ovum::String& name) const override {
       return this->named.at(name).value;
     }
-    virtual const egg::lang::LocationSource* getNamedLocation(const egg::ovum::String& name) const override {
+    virtual const egg::ovum::LocationSource* getNamedLocation(const egg::ovum::String& name) const override {
       return &this->named.at(name).location;
     }
   };
@@ -56,7 +56,7 @@ namespace {
 
 egg::yolk::EggProgramExpression::EggProgramExpression(egg::yolk::EggProgramContext& context, const egg::yolk::IEggProgramNode& node)
   : context(&context),
-    before(context.swapLocation(egg::lang::LocationRuntime(node.location(), "TODO()"))) {
+    before(context.swapLocation(egg::ovum::LocationRuntime(node.location(), "TODO()"))) {
   // TODO use runtime location, not source location
 }
 
@@ -66,7 +66,7 @@ egg::yolk::EggProgramExpression::~EggProgramExpression() {
 
 egg::lang::ValueLegacy egg::yolk::EggProgramContext::executeScope(const IEggProgramNode* node, ScopeAction action) {
   egg::ovum::String name;
-  egg::ovum::ITypeRef type{ egg::lang::Type::Void };
+  egg::ovum::ITypeRef type{ egg::ovum::Type::Void };
   if ((node != nullptr) && node->symbol(name, type)) {
     // Perform the action with a new scope containing our symbol
     auto nested = this->getAllocator().make<EggProgramSymbolTable>(this->symtable.get());
@@ -81,7 +81,7 @@ egg::lang::ValueLegacy egg::yolk::EggProgramContext::executeScope(const IEggProg
 egg::lang::ValueLegacy egg::yolk::EggProgramContext::executeStatements(const std::vector<std::shared_ptr<IEggProgramNode>>& statements) {
   // Execute all the statements one after another
   egg::ovum::String name;
-  auto type = egg::lang::Type::Void;
+  auto type = egg::ovum::Type::Void;
   for (auto& statement : statements) {
     if (statement->symbol(name, type)) {
       // We've checked for duplicate symbols already
@@ -347,10 +347,10 @@ egg::lang::ValueLegacy egg::yolk::EggProgramContext::executeFunctionDefinition(c
   auto symbol = this->symtable->findSymbol(name);
   assert(symbol != nullptr);
   assert(symbol->getValue().isVoid());
-  return symbol->assign(*this->symtable, *this, this->createVanillaFunction(type, block));
+  return symbol->assign(*this, *this->symtable, this->createVanillaFunction(type, block));
 }
 
-egg::lang::ValueLegacy egg::yolk::EggProgramContext::executeFunctionCall(const egg::ovum::ITypeRef& type, const egg::lang::IParameters& parameters, const std::shared_ptr<IEggProgramNode>& block) {
+egg::lang::ValueLegacy egg::yolk::EggProgramContext::executeFunctionCall(const egg::ovum::ITypeRef& type, const egg::ovum::IParameters& parameters, const std::shared_ptr<IEggProgramNode>& block) {
   // This actually calls a function
   assert(block != nullptr);
   auto callable = type->callable();
@@ -378,13 +378,13 @@ egg::lang::ValueLegacy egg::yolk::EggProgramContext::executeFunctionCall(const e
     auto pvalue = parameters.getPositional(i);
     assert(!pvalue.hasFlowControl());
     // Use 'assign' to perform promotion, etc.
-    auto result = nested->addSymbol(EggProgramSymbol::ReadWrite, pname, ptype)->assign(*this->symtable, *this, pvalue);
+    auto result = nested->addSymbol(EggProgramSymbol::ReadWrite, pname, ptype)->assign(*this, *this->symtable, pvalue);
     if (result.hasFlowControl()) {
       // Re-create the exception with the parameter name included
       auto* plocation = parameters.getPositionalLocation(i);
       if (plocation != nullptr) {
         // Update our current source location (it will be restored when executeFunctionCall returns)
-        egg::lang::LocationSource& source = this->location;
+        egg::ovum::LocationSource& source = this->location;
         source = *plocation;
       }
       return this->raiseFormat("Type mismatch for parameter '", pname, "': Expected '", ptype->toString(), "', but got '", pvalue.getRuntimeType()->toString(), "' instead");
@@ -615,7 +615,7 @@ egg::lang::ValueLegacy egg::yolk::EggProgramContext::executeObject(const IEggPro
   if (!result.hasFlowControl() && result.hasObject()) {
     auto object = result.getObject();
     egg::ovum::String name;
-    auto type = egg::lang::Type::Void;
+    auto type = egg::ovum::Type::Void;
     for (auto& value : values) {
       if (!value->symbol(name, type)) {
         return this->raiseFormat("Internal runtime error: Failed to fetch name of object property");
@@ -641,7 +641,7 @@ egg::lang::ValueLegacy egg::yolk::EggProgramContext::executeCall(const IEggProgr
   }
   EggProgramParameters params(parameters.size());
   egg::ovum::String name;
-  auto type = egg::lang::Type::Void;
+  auto type = egg::ovum::Type::Void;
   for (auto& parameter : parameters) {
     auto value = parameter->execute(*this).direct();
     if (value.hasFlowControl()) {

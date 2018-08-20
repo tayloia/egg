@@ -12,13 +12,13 @@ namespace egg::yolk {
     virtual ~FunctionType() override;
     virtual std::pair<std::string, int> toStringPrecedence() const override;
     virtual AssignmentSuccess canBeAssignedFrom(const IType& rtype) const;
-    virtual const egg::lang::IFunctionSignature* callable() const override;
-    void addParameter(const egg::ovum::String& name, const egg::ovum::ITypeRef& type, egg::lang::IFunctionSignatureParameter::Flags flags);
+    virtual const egg::ovum::IFunctionSignature* callable() const override;
+    void addParameter(const egg::ovum::String& name, const egg::ovum::ITypeRef& type, egg::ovum::IFunctionSignatureParameter::Flags flags);
 
     // Helpers
     static FunctionType* createFunctionType(egg::ovum::IAllocator& allocator, const egg::ovum::String& name, const egg::ovum::ITypeRef& returnType);
     static FunctionType* createGeneratorType(egg::ovum::IAllocator& allocator, const egg::ovum::String& name, const egg::ovum::ITypeRef& returnType);
-    static void buildFunctionSignature(egg::ovum::StringBuilder& sb, const egg::lang::IFunctionSignature& signature, egg::lang::IFunctionSignature::Parts parts);
+    static void buildFunctionSignature(egg::ovum::StringBuilder& sb, const egg::ovum::IFunctionSignature& signature, egg::ovum::IFunctionSignature::Parts parts);
   };
 
   class FunctionCoroutine : public egg::ovum::IHardAcquireRelease {

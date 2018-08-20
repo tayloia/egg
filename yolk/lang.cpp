@@ -54,7 +54,7 @@ namespace {
     return IType::AssignmentSuccess::Never;
   }
 
-  ValueLegacy promoteAssignmentBasal(IExecution& execution, Basal lhs, const ValueLegacy& rhs) {
+  ValueLegacy promoteAssignmentBasal(Basal lhs, const ValueLegacy& rhs) {
     assert(lhs != Basal::None);
     assert(!rhs.hasIndirect());
     if (rhs.hasBasal(lhs)) {
@@ -65,16 +65,9 @@ namespace {
       // We allow type promotion int->float
       return ValueLegacy(double(rhs.getInt())); // TODO overflows?
     }
-    return execution.raiseFormat("Cannot assign a value of type '", rhs.getRuntimeType()->toString(), "' to a target of type '", ValueLegacy::getBasalString(lhs), "'");
-  }
-
-  void formatSourceLocation(StringBuilder& sb, const LocationSource& location) {
-    sb.add(location.file);
-    if (location.column > 0) {
-      sb.add('(', location.line, ',', location.column, ')');
-    } else if (location.line > 0) {
-      sb.add('(', location.line, ')');
-    }
+    egg::lang::ValueLegacy exception{ egg::ovum::StringBuilder::concat("Cannot assign a value of type '", rhs.getRuntimeType()->toString(), "' to a target of type '", ValueLegacy::getBasalString(lhs), "'") };
+    exception.addFlowControl(egg::lang::Discriminator::Exception);
+    return exception;
   }
 
   class TypePointer : public HardReferenceCounted<IType> {
@@ -86,8 +79,7 @@ namespace {
       : HardReferenceCounted(allocator, 0), referenced(&referenced) {
     }
     virtual std::pair<std::string, int> toStringPrecedence() const override {
-      auto s = this->referenced->toString(0);
-      return std::make_pair(s.toUTF8() + "*", 0);
+      return std::make_pair(this->referenced->toString(0).toUTF8() + "*", 0);
     }
     virtual egg::ovum::Basal getBasalTypes() const override {
       return egg::ovum::Basal::None;
@@ -103,8 +95,7 @@ namespace {
   class TypeNull : public NotReferenceCounted<IType>{
   public:
     virtual std::pair<std::string, int> toStringPrecedence() const override {
-      static std::string name{ "null" };
-      return std::make_pair(name, 0);
+      return std::make_pair("null", 0);
     }
     virtual Basal getBasalTypes() const override {
       return Basal::Null;
@@ -120,8 +111,10 @@ namespace {
     virtual AssignmentSuccess canBeAssignedFrom(const IType&) const {
       return AssignmentSuccess::Never;
     }
-    virtual ValueLegacy promoteAssignment(IExecution& execution, const ValueLegacy&) const override {
-      return execution.raiseFormat("Cannot assign to 'null' value");
+    virtual ValueLegacy promoteAssignment(const ValueLegacy&) const override {
+      egg::lang::ValueLegacy exception{ egg::ovum::String("Cannot assign to 'null' value") };
+      exception.addFlowControl(egg::lang::Discriminator::Exception);
+      return exception;
     }
   };
   const TypeNull typeNull{};
@@ -156,8 +149,8 @@ namespace {
     virtual AssignmentSuccess canBeAssignedFrom(const IType& rhs) const {
       return canBeAssignedFromBasal(BASAL, rhs);
     }
-    virtual ValueLegacy promoteAssignment(IExecution& execution, const ValueLegacy& rhs) const override {
-      return promoteAssignmentBasal(execution, BASAL, rhs);
+    virtual ValueLegacy promoteAssignment(const ValueLegacy& rhs) const override {
+      return promoteAssignmentBasal(BASAL, rhs);
     }
   };
   const TypeNative<Basal::Void> typeVoid{};
@@ -277,8 +270,8 @@ namespace {
     virtual AssignmentSuccess canBeAssignedFrom(const IType& rhs) const {
       return canBeAssignedFromBasal(this->tag, rhs);
     }
-    virtual ValueLegacy promoteAssignment(IExecution& execution, const ValueLegacy& rhs) const override {
-      return promoteAssignmentBasal(execution, this->tag, rhs);
+    virtual ValueLegacy promoteAssignment(const ValueLegacy& rhs) const override {
+      return promoteAssignmentBasal(this->tag, rhs);
     }
     virtual const IFunctionSignature* callable() const override {
       if (Bits::hasAnySet(this->tag, Basal::Object)) {
@@ -335,16 +328,16 @@ namespace {
 }
 
 // Native types
-const egg::lang::Type egg::lang::Type::Void{ typeVoid };
-const egg::lang::Type egg::lang::Type::Null{ typeNull };
-const egg::lang::Type egg::lang::Type::Bool{ typeBool };
-const egg::lang::Type egg::lang::Type::Int{ typeInt };
-const egg::lang::Type egg::lang::Type::Float{ typeFloat };
-const egg::lang::Type egg::lang::Type::String{ typeString };
-const egg::lang::Type egg::lang::Type::Arithmetic{ typeArithmetic };
-const egg::lang::Type egg::lang::Type::Type_{ typeType };
-const egg::lang::Type egg::lang::Type::Any{ *defaultAllocator().make<TypeBasal>(egg::ovum::Basal::Any) };
-const egg::lang::Type egg::lang::Type::AnyQ{ *defaultAllocator().make<TypeBasal>(egg::ovum::Basal::Any | egg::ovum::Basal::Null) };
+const egg::ovum::Type egg::ovum::Type::Void{ typeVoid };
+const egg::ovum::Type egg::ovum::Type::Null{ typeNull };
+const egg::ovum::Type egg::ovum::Type::Bool{ typeBool };
+const egg::ovum::Type egg::ovum::Type::Int{ typeInt };
+const egg::ovum::Type egg::ovum::Type::Float{ typeFloat };
+const egg::ovum::Type egg::ovum::Type::String{ typeString };
+const egg::ovum::Type egg::ovum::Type::Arithmetic{ typeArithmetic };
+const egg::ovum::Type egg::ovum::Type::Type_{ typeType };
+const egg::ovum::Type egg::ovum::Type::Any{ *defaultAllocator().make<TypeBasal>(egg::ovum::Basal::Any) };
+const egg::ovum::Type egg::ovum::Type::AnyQ{ *defaultAllocator().make<TypeBasal>(egg::ovum::Basal::Any | egg::ovum::Basal::Null) };
 
 // Trivial constant values
 const egg::lang::ValueLegacy egg::lang::ValueLegacy::Void{ Discriminator::Void };
@@ -545,24 +538,6 @@ std::string egg::lang::ValueLegacy::getDiscriminatorString() const {
   return ValueLegacy::getDiscriminatorString(this->tag);
 }
 
-egg::ovum::String egg::lang::LocationSource::toSourceString() const {
-  egg::ovum::StringBuilder sb;
-  formatSourceLocation(sb, *this);
-  return sb.str();
-}
-
-egg::ovum::String egg::lang::LocationRuntime::toRuntimeString() const {
-  egg::ovum::StringBuilder sb;
-  formatSourceLocation(sb, *this);
-  if (!this->function.empty()) {
-    if (sb.empty()) {
-      sb.add(' ');
-    }
-    sb.add('<', this->function, '>');
-  }
-  return sb.str();
-}
-
 void egg::lang::ValueLegacy::softVisitLink(const egg::ovum::ICollectable::Visitor& visitor) const {
   if (this->isSoftReference()) {
     // Soft reference to an object
@@ -705,41 +680,24 @@ std::string egg::lang::ValueLegacy::toUTF8() const {
   return "<" + ValueLegacy::getDiscriminatorString(this->tag) + ">";
 }
 
-egg::ovum::String egg::ovum::IType::toString(int priority) const {
-  auto pair = this->toStringPrecedence();
-  if (pair.second < priority) {
-    return egg::ovum::StringBuilder::concat("(", pair.first, ")");
-  }
-  return pair.first;
-}
-
 egg::ovum::ITypeRef egg::ovum::IType::pointerType() const {
-  // The default implementation is to return a new type 'Type*'
+  // WIBBLE The default implementation is to return a new type 'Type*'
   return defaultAllocator().make<TypePointer>(*this);
 }
 
-egg::ovum::ITypeRef egg::ovum::IType::pointeeType() const {
-  // The default implementation is to return 'Void' indicating that this is NOT dereferencable
-  return Type::Void;
+egg::lang::ValueLegacy egg::ovum::IType::promoteAssignment(const egg::lang::ValueLegacy& rhs) const {
+  // WIBBLE The default implementation calls IType::canBeAssignedFrom() but does not actually promote
+  auto& direct = rhs.direct();
+  auto rtype = direct.getRuntimeType();
+  if (this->canBeAssignedFrom(*rtype) == AssignmentSuccess::Never) {
+    egg::lang::ValueLegacy exception{ StringBuilder::concat("Cannot assign a value of type '", rtype->toString(), "' to a target of type '", this->toString(), "'") };
+    exception.addFlowControl(egg::lang::Discriminator::Exception);
+    return exception;
+  }
+  return direct;
 }
 
-egg::ovum::ITypeRef egg::ovum::IType::denulledType() const {
-  // The default implementation is to return 'Void'
-  return Type::Void;
-}
-
-egg::ovum::String egg::lang::IFunctionSignature::toString(Parts parts) const {
-  egg::ovum::StringBuilder sb;
-  this->buildStringDefault(sb, parts);
-  return sb.str();
-}
-
-bool egg::lang::IFunctionSignature::validateCall(egg::ovum::IExecution& execution, const IParameters& runtime, ValueLegacy& problem) const {
-  // The default implementation just calls validateCallDefault()
-  return this->validateCallDefault(execution, runtime, problem);
-}
-
-bool egg::lang::IFunctionSignature::validateCallDefault(egg::ovum::IExecution& execution, const IParameters& parameters, ValueLegacy& problem) const {
+bool egg::ovum::IFunctionSignature::validateCallDefault(egg::ovum::IExecution& execution, const IParameters& parameters, egg::lang::ValueLegacy& problem) const {
   // TODO type checking, etc
   if (parameters.getNamedCount() > 0) {
     problem = execution.raiseFormat(this->toString(Parts::All), ": Named parameters are not yet supported"); // TODO
@@ -747,7 +705,7 @@ bool egg::lang::IFunctionSignature::validateCallDefault(egg::ovum::IExecution& e
   }
   auto maxPositional = this->getParameterCount();
   auto minPositional = maxPositional;
-  while ((minPositional > 0) && !this->getParameter(minPositional - 1).isRequired()) {
+  while ((minPositional > 0) && !Bits::hasAnySet(this->getParameter(minPositional - 1).getFlags(), IFunctionSignatureParameter::Flags::Required)) {
     minPositional--;
   }
   auto actual = parameters.getPositionalCount();
@@ -759,7 +717,7 @@ bool egg::lang::IFunctionSignature::validateCallDefault(egg::ovum::IExecution& e
     }
     return false;
   }
-  if ((maxPositional > 0) && this->getParameter(maxPositional - 1).isVariadic()) {
+  if ((maxPositional > 0) && Bits::hasAnySet(this->getParameter(maxPositional - 1).getFlags(), IFunctionSignatureParameter::Flags::Variadic)) {
     // TODO Variadic
   } else if (actual > maxPositional) {
     // Not variadic
@@ -773,52 +731,7 @@ bool egg::lang::IFunctionSignature::validateCallDefault(egg::ovum::IExecution& e
   return true;
 }
 
-egg::ovum::String egg::lang::IIndexSignature::toString() const {
-  return egg::ovum::StringBuilder::concat(this->getResultType()->toString(), "[", this->getIndexType()->toString(), "]");
-}
-
-egg::lang::ValueLegacy egg::ovum::IType::promoteAssignment(egg::ovum::IExecution& execution, const ValueLegacy& rhs) const {
-  // The default implementation calls IType::canBeAssignedFrom() but does not actually promote
-  auto& direct = rhs.direct();
-  auto rtype = direct.getRuntimeType();
-  if (this->canBeAssignedFrom(*rtype) == AssignmentSuccess::Never) {
-    return execution.raiseFormat("Cannot assign a value of type '", rtype->toString(), "' to a target of type '", this->toString(), "'");
-  }
-  return direct;
-}
-
-const egg::lang::IFunctionSignature* egg::ovum::IType::callable() const {
-  // The default implementation is to say we don't support calling with '()'
-  return nullptr;
-}
-
-const egg::lang::IIndexSignature* egg::ovum::IType::indexable() const {
-  // The default implementation is to say we don't support indexing with '[]'
-  return nullptr;
-}
-
-bool egg::ovum::IType::dotable(const String*, ITypeRef&, String& reason) const {
-  // The default implementation is to say we don't support properties with '.'
-  reason = egg::ovum::StringBuilder::concat("Values of type '", this->toString(), "' do not support the '.' operator for property access");
-  return false;
-}
-
-bool egg::ovum::IType::iterable(ITypeRef&) const {
-  // The default implementation is to say we don't support iteration
-  return false;
-}
-
-egg::ovum::Basal egg::ovum::IType::getBasalTypes() const {
-  // The default implementation is to say we are an object
-  return Basal::Object;
-}
-
-egg::ovum::ITypeRef egg::ovum::IType::unionWith(const IType& other) const {
-  // The default implementation is to simply make a new union (native and basal types can be more clever)
-  return Type::makeUnion(*this, other);
-}
-
-egg::ovum::ITypeRef egg::lang::Type::makeBasal(Basal basal) {
+egg::ovum::ITypeRef egg::ovum::Type::makeBasal(egg::ovum::Basal basal) {
   // Try to use non-reference-counted globals
   auto* native = getNativeBasal(basal);
   if (native != nullptr) {
@@ -827,7 +740,7 @@ egg::ovum::ITypeRef egg::lang::Type::makeBasal(Basal basal) {
   return defaultAllocator().make<TypeBasal>(basal);
 }
 
-egg::ovum::ITypeRef egg::lang::Type::makeUnion(const egg::ovum::IType& a, const egg::ovum::IType& b) {
+egg::ovum::ITypeRef egg::ovum::Type::makeUnion(const egg::ovum::IType& a, const egg::ovum::IType& b) {
   // If they are both basal types, just union the tags
   auto sa = a.getBasalTypes();
   auto sb = b.getBasalTypes();

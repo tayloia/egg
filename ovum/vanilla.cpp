@@ -14,7 +14,6 @@ namespace {
     VanillaBase(const VanillaBase&) = delete;
     VanillaBase& operator=(const VanillaBase&) = delete;
   public:
-    using Value = egg::lang::ValueLegacy; // WIBBLE
     VanillaBase(IAllocator& allocator)
       : SoftReferenceCounted(allocator) {
     }
@@ -32,28 +31,28 @@ namespace {
       // TODO
       assert(false);
     }
-    virtual Value toString() const override {
+    virtual  egg::lang::ValueLegacy toString() const override {
       throw std::runtime_error("WIBBLE");
     }
     virtual ITypeRef getRuntimeType() const override {
       throw std::runtime_error("WIBBLE");
     }
-    virtual Value call(IExecution&, const egg::lang::IParameters&) override {
+    virtual  egg::lang::ValueLegacy call(IExecution&, const IParameters&) override {
       throw std::runtime_error("WIBBLE");
     }
-    virtual Value getProperty(IExecution&, const String&) override {
+    virtual  egg::lang::ValueLegacy getProperty(IExecution&, const String&) override {
       throw std::runtime_error("WIBBLE");
     }
-    virtual Value setProperty(IExecution&, const String&, const Value&) override {
+    virtual  egg::lang::ValueLegacy setProperty(IExecution&, const String&, const  egg::lang::ValueLegacy&) override {
       throw std::runtime_error("WIBBLE");
     }
-    virtual Value getIndex(IExecution&, const Value&) override {
+    virtual  egg::lang::ValueLegacy getIndex(IExecution&, const  egg::lang::ValueLegacy&) override {
       throw std::runtime_error("WIBBLE");
     }
-    virtual Value setIndex(IExecution&, const Value&, const Value&) override {
+    virtual  egg::lang::ValueLegacy setIndex(IExecution&, const  egg::lang::ValueLegacy&, const  egg::lang::ValueLegacy&) override {
       throw std::runtime_error("WIBBLE");
     }
-    virtual Value iterate(IExecution&) override {
+    virtual  egg::lang::ValueLegacy iterate(IExecution&) override {
       throw std::runtime_error("WIBBLE");
     }
   };

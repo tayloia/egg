@@ -333,15 +333,6 @@ namespace egg::ovum {
     return ptr != nullptr;
   }
 
-  using Memory = HardPtr<const IMemory>;
-
-  class Object : public HardPtr<IObject> {
-  public:
-    explicit Object(const IObject& rhs) : HardPtr(&rhs) {
-      assert(this->get() != nullptr);
-    }
-  };
-
   // Helper for converting IEEE to/from mantissa/exponents
   struct MantissaExponent {
     static constexpr int64_t ExponentNaN = 1;

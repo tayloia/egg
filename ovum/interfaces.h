@@ -1,9 +1,6 @@
 // WIBBLE retire
 namespace egg::lang {
   class ValueLegacy;
-  class IParameters;
-  class IFunctionSignature;
-  class IIndexSignature;
 }
 
 namespace egg::ovum {
@@ -15,6 +12,7 @@ namespace egg::ovum {
 
   // Forward declarations
   template<typename T> class HardPtr;
+  struct LocationSource;
   class ICollectable;
   class IType;
 
@@ -123,15 +121,72 @@ namespace egg::ovum {
     virtual void softVisitLinks(const Visitor& visitor) const = 0;
   };
 
+  class IParameters {
+  public:
+    virtual ~IParameters() {}
+    virtual size_t getPositionalCount() const = 0;
+    virtual egg::lang::ValueLegacy getPositional(size_t index) const = 0;
+    virtual const LocationSource* getPositionalLocation(size_t index) const = 0; // May be null
+    virtual size_t getNamedCount() const = 0;
+    virtual String getName(size_t index) const = 0;
+    virtual egg::lang::ValueLegacy getNamed(const String& name) const = 0;
+    virtual const LocationSource* getNamedLocation(const String& name) const = 0; // May be null
+  };
+
+  class IFunctionSignatureParameter {
+  public:
+    enum class Flags {
+      None = 0x00,
+      Required = 0x01, // Not optional
+      Variadic = 0x02, // Zero/one or more repetitions
+      Predicate = 0x04 // Used in assertions
+    };
+    virtual ~IFunctionSignatureParameter() {}
+    virtual String getName() const = 0; // May be empty
+    virtual ITypeRef getType() const = 0;
+    virtual size_t getPosition() const = 0; // SIZE_MAX if not positional
+    virtual Flags getFlags() const = 0;
+  };
+
+  class IFunctionSignature {
+  public:
+    enum class Parts {
+      ReturnType = 0x01,
+      FunctionName = 0x02,
+      ParameterList = 0x04,
+      ParameterNames = 0x08,
+      NoNames = ReturnType | ParameterList,
+      All = ~0
+    };
+    virtual ~IFunctionSignature() {}
+    virtual String toString(Parts parts) const; // Calls buildStringDefault
+    virtual String getFunctionName() const = 0; // May be empty
+    virtual ITypeRef getReturnType() const = 0;
+    virtual size_t getParameterCount() const = 0;
+    virtual const IFunctionSignatureParameter& getParameter(size_t index) const = 0;
+    virtual bool validateCall(IExecution& execution, const IParameters& runtime, egg::lang::ValueLegacy& problem) const; // Calls validateCallDefault
+
+    // Implementation
+    void buildStringDefault(class StringBuilder& sb, Parts parts) const; // Default formats as expected WIBBLE
+    bool validateCallDefault(IExecution& execution, const IParameters& runtime, egg::lang::ValueLegacy& problem) const;
+  };
+
+  class IIndexSignature {
+  public:
+    virtual ~IIndexSignature() {}
+    virtual String toString() const; // Default formats as expected
+    virtual ITypeRef getResultType() const = 0;
+    virtual ITypeRef getIndexType() const = 0;
+  };
+
   class IType : public IHardAcquireRelease {
   public:
+    // LEGACY
     enum class AssignmentSuccess { Never, Sometimes, Always };
-    virtual std::pair<std::string, int> toStringPrecedence() const = 0;
     virtual AssignmentSuccess canBeAssignedFrom(const IType& rhs) const = 0;
-
-    virtual egg::lang::ValueLegacy promoteAssignment(IExecution& execution, const egg::lang::ValueLegacy& rhs) const; // WIBBLE IExecution? // Default implementation calls IType::canBeAssignedFrom()
-    virtual const egg::lang::IFunctionSignature* callable() const; // Default implementation returns nullptr
-    virtual const egg::lang::IIndexSignature* indexable() const; // Default implementation returns nullptr
+    virtual egg::lang::ValueLegacy promoteAssignment(const egg::lang::ValueLegacy& rhs) const; // Default implementation calls IType::canBeAssignedFrom()
+    virtual const IFunctionSignature* callable() const; // Default implementation returns nullptr
+    virtual const IIndexSignature* indexable() const; // Default implementation returns nullptr
     virtual bool dotable(const String* property, ITypeRef& type, String& reason) const; // Default implementation returns false
     virtual bool iterable(ITypeRef& type) const; // Default implementation returns false
     virtual Basal getBasalTypes() const; // Default implementation returns 'Object'
@@ -139,16 +194,17 @@ namespace egg::ovum {
     virtual ITypeRef pointeeType() const; // Default implementation returns 'Void'
     virtual ITypeRef denulledType() const; // Default implementation returns 'Void'
     virtual ITypeRef unionWith(const IType& other) const; // Default implementation calls Type::makeUnion()
+    virtual std::pair<std::string, int> toStringPrecedence() const = 0;
 
     // Helpers
-    String toString(int precedence = -1) const; // WIBBLE
+    String toString(int precedence = -1) const;
   };
 
   class IObject : public ICollectable {
   public:
     virtual egg::lang::ValueLegacy toString() const = 0;
     virtual ITypeRef getRuntimeType() const = 0;
-    virtual egg::lang::ValueLegacy call(IExecution& execution, const egg::lang::IParameters& parameters) = 0;
+    virtual egg::lang::ValueLegacy call(IExecution& execution, const IParameters& parameters) = 0;
     virtual egg::lang::ValueLegacy getProperty(IExecution& execution, const String& property) = 0;
     virtual egg::lang::ValueLegacy setProperty(IExecution& execution, const String& property, const egg::lang::ValueLegacy& value) = 0;
     virtual egg::lang::ValueLegacy getIndex(IExecution& execution, const egg::lang::ValueLegacy& index) = 0;

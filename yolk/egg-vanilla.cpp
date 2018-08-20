@@ -22,7 +22,7 @@ namespace {
     virtual egg::ovum::ITypeRef getRuntimeType() const override {
       return this->type;
     }
-    virtual egg::lang::ValueLegacy call(egg::ovum::IExecution& execution, const egg::lang::IParameters&) override {
+    virtual egg::lang::ValueLegacy call(egg::ovum::IExecution& execution, const egg::ovum::IParameters&) override {
       return execution.raiseFormat(this->kind, "s do not support calling with '()'");
     }
     virtual egg::lang::ValueLegacy getIndex(egg::ovum::IExecution& execution, const egg::lang::ValueLegacy& index) override {
@@ -50,8 +50,10 @@ namespace {
     virtual AssignmentSuccess canBeAssignedFrom(const IType&) const {
       return AssignmentSuccess::Never; // TODO
     }
-    virtual egg::lang::ValueLegacy promoteAssignment(egg::ovum::IExecution& execution, const egg::lang::ValueLegacy&) const override {
-      return execution.raiseFormat("Cannot re-assign iterators"); // TODO
+    virtual egg::lang::ValueLegacy promoteAssignment(const egg::lang::ValueLegacy&) const override {
+      egg::lang::ValueLegacy exception{ egg::ovum::String("Cannot re-assign iterators") };
+      exception.addFlowControl(egg::lang::Discriminator::Exception);
+      return exception;
     }
     static const VanillaIteratorType instance;
   };
@@ -128,14 +130,14 @@ namespace {
     }
   };
 
-  class VanillaArrayIndexSignature : public egg::lang::IIndexSignature {
+  class VanillaArrayIndexSignature : public egg::ovum::IIndexSignature {
   public:
     static const VanillaArrayIndexSignature instance;
     virtual egg::ovum::ITypeRef getResultType() const override {
-      return egg::lang::Type::AnyQ;
+      return egg::ovum::Type::AnyQ;
     }
     virtual egg::ovum::ITypeRef getIndexType() const override {
-      return egg::lang::Type::Int;
+      return egg::ovum::Type::Int;
     }
   };
   const VanillaArrayIndexSignature VanillaArrayIndexSignature::instance{};
@@ -144,21 +146,21 @@ namespace {
   public:
     static const egg::ovum::IType* getPropertyType(const std::string& property) {
       if (property == "length") {
-        return egg::lang::Type::Int.get();
+        return egg::ovum::Type::Int.get();
       }
       return nullptr;
     }
     virtual std::pair<std::string, int> toStringPrecedence() const override {
       return std::make_pair("any?[]", 0); // TODO
     }
-    virtual const egg::lang::IIndexSignature* indexable() const override {
+    virtual const egg::ovum::IIndexSignature* indexable() const override {
       // Indexing an array returns an element
       return &VanillaArrayIndexSignature::instance;
     }
     virtual bool dotable(const egg::ovum::String* property, egg::ovum::ITypeRef& type, egg::ovum::String& reason) const override {
       // Arrays support limited properties
       if (property == nullptr) {
-        type = egg::lang::Type::AnyQ;
+        type = egg::ovum::Type::AnyQ;
         return true;
       }
       auto* retval = VanillaArrayType::getPropertyType(property->toUTF8());
@@ -171,7 +173,7 @@ namespace {
     }
     virtual bool iterable(egg::ovum::ITypeRef& type) const override {
       // Iterating an array returns the elements
-      type = egg::lang::Type::AnyQ;
+      type = egg::ovum::Type::AnyQ;
       return true;
     }
     virtual AssignmentSuccess canBeAssignedFrom(const IType& rtype) const {
@@ -362,14 +364,14 @@ namespace {
     }
   };
 
-  class VanillaObjectIndexSignature : public egg::lang::IIndexSignature {
+  class VanillaObjectIndexSignature : public egg::ovum::IIndexSignature {
   public:
     static const VanillaObjectIndexSignature instance;
     virtual egg::ovum::ITypeRef getResultType() const override {
-      return egg::lang::Type::AnyQ;
+      return egg::ovum::Type::AnyQ;
     }
     virtual egg::ovum::ITypeRef getIndexType() const override {
-      return egg::lang::Type::String;
+      return egg::ovum::Type::String;
     }
   };
   const VanillaObjectIndexSignature VanillaObjectIndexSignature::instance{};
@@ -379,13 +381,13 @@ namespace {
     virtual std::pair<std::string, int> toStringPrecedence() const override {
       return std::make_pair("any?{string}", 0); // TODO
     }
-    virtual const egg::lang::IIndexSignature* indexable() const override {
+    virtual const egg::ovum::IIndexSignature* indexable() const override {
       // Indexing an object returns a property
       return &VanillaObjectIndexSignature::instance;
     }
     virtual bool dotable(const egg::ovum::String*, egg::ovum::ITypeRef& type, egg::ovum::String&) const override {
       // Objects support properties
-      type = egg::lang::Type::AnyQ;
+      type = egg::ovum::Type::AnyQ;
       return true;
     }
     virtual bool iterable(egg::ovum::ITypeRef& type) const override {
@@ -418,7 +420,7 @@ namespace {
     static const egg::ovum::String keyMessage;
     static const egg::ovum::String keyLocation;
   public:
-    VanillaException(egg::ovum::IAllocator& allocator, const egg::lang::LocationRuntime& location, const egg::ovum::String& message)
+    VanillaException(egg::ovum::IAllocator& allocator, const egg::ovum::LocationRuntime& location, const egg::ovum::String& message)
       : VanillaDictionary(allocator, "Exception", VanillaObjectType::instance) {
       this->dictionary.addUnique(keyMessage, egg::lang::ValueLegacy{ message });
       this->dictionary.addUnique(keyLocation, egg::lang::ValueLegacy{ location.toSourceString() }); // TODO use toRuntimeString
@@ -463,7 +465,7 @@ namespace {
     virtual egg::ovum::ITypeRef getRuntimeType() const override {
       return this->type;
     }
-    virtual egg::lang::ValueLegacy call(egg::ovum::IExecution&, const egg::lang::IParameters& parameters) override {
+    virtual egg::lang::ValueLegacy call(egg::ovum::IExecution&, const egg::ovum::IParameters& parameters) override {
       return this->program->executeFunctionCall(this->type, parameters, this->block);
     }
     virtual egg::lang::ValueLegacy getProperty(egg::ovum::IExecution& execution, const egg::ovum::String& property) override {
@@ -496,7 +498,7 @@ namespace {
       coroutine(),
       completed(false) {
     }
-    virtual egg::lang::ValueLegacy call(egg::ovum::IExecution&, const egg::lang::IParameters& parameters) override {
+    virtual egg::lang::ValueLegacy call(egg::ovum::IExecution&, const egg::ovum::IParameters& parameters) override {
       // This actually calls a generator via a coroutine
       if ((parameters.getPositionalCount() > 0) || (parameters.getNamedCount() > 0)) {
         return this->program->raiseFormat("Parameters in generator iterator calls are not supported");

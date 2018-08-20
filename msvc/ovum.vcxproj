@@ -19,11 +19,13 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="..\ovum\context.cpp" />
     <ClCompile Include="..\ovum\node.cpp" />
     <ClCompile Include="..\ovum\basket.cpp" />
     <ClCompile Include="..\ovum\memory.cpp" />
     <ClCompile Include="..\ovum\module.cpp" />
     <ClCompile Include="..\ovum\string.cpp" />
+    <ClCompile Include="..\ovum\type.cpp" />
     <ClCompile Include="..\ovum\vanilla.cpp" />
     <ClCompile Include="..\ovum\variant.cpp" />
     <ClCompile Include="ovum.pch.cpp">
@@ -42,6 +44,7 @@
     <ClInclude Include="..\ovum\ovum.h" />
     <ClInclude Include="..\ovum\string.h" />
     <ClInclude Include="..\ovum\test.h" />
+    <ClInclude Include="..\ovum\type.h" />
     <ClInclude Include="..\ovum\utf.h" />
     <ClInclude Include="..\ovum\utility.h" />
     <ClInclude Include="..\ovum\variant.h" />

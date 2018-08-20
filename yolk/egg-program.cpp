@@ -230,24 +230,28 @@ void egg::yolk::EggProgramSymbol::setInferredType(const egg::ovum::ITypeRef& inf
   this->type = inferred;
 }
 
-egg::lang::ValueLegacy egg::yolk::EggProgramSymbol::assign(EggProgramSymbolTable& symtable, egg::ovum::IExecution& execution, const egg::lang::ValueLegacy& rhs) {
+egg::lang::ValueLegacy egg::yolk::EggProgramSymbol::assign(EggProgramContext& context, EggProgramSymbolTable& symtable, const egg::lang::ValueLegacy& rhs) {
   // Ask the type to assign the value so that type promotion can occur
   switch (this->kind) {
   case Builtin:
-    return execution.raiseFormat("Cannot re-assign built-in value: '", this->name, "'");
+    return context.raiseFormat("Cannot re-assign built-in value: '", this->name, "'");
   case Readonly:
-    return execution.raiseFormat("Cannot modify read-only variable: '", this->name, "'");
+    return context.raiseFormat("Cannot modify read-only variable: '", this->name, "'");
   case ReadWrite:
   default:
     break;
   }
-  auto promoted = this->type->promoteAssignment(execution, rhs);
+  auto promoted = this->type->promoteAssignment(rhs);
   if (promoted.hasFlowControl()) {
     // The assignment failed
+    if (promoted.hasString()) {
+      // Convert the error message to a full-blown exception
+      return context.raise(promoted.getString());
+    }
     return promoted;
   }
   if (promoted.isVoid()) {
-    return execution.raiseFormat("Cannot assign 'void' to '", this->name, "'");
+    return context.raiseFormat("Cannot assign 'void' to '", this->name, "'");
   }
   auto* slot = &this->value;
   if (slot->hasIndirect()) {
@@ -342,7 +346,7 @@ std::string egg::yolk::EggProgram::mutateToString(egg::yolk::EggProgramMutate op
 }
 
 egg::ovum::HardPtr<egg::yolk::EggProgramContext> egg::yolk::EggProgram::createRootContext(egg::ovum::IAllocator& allocator, egg::ovum::ILogger& logger, EggProgramSymbolTable& symtable, egg::ovum::ILogger::Severity& maximumSeverity) {
-  egg::lang::LocationRuntime location(this->root->location(), "<module>");
+  egg::ovum::LocationRuntime location(this->root->location(), "<module>");
   return allocator.make<EggProgramContext>(location, logger, symtable, maximumSeverity);
 }
 
@@ -365,8 +369,8 @@ bool egg::yolk::EggProgramContext::findDuplicateSymbols(const std::vector<std::s
   // Check for duplicate symbols
   bool error = false;
   egg::ovum::String name;
-  auto type = egg::lang::Type::Void;
-  std::map<egg::ovum::String, egg::lang::LocationSource> seen;
+  auto type = egg::ovum::Type::Void;
+  std::map<egg::ovum::String, egg::ovum::LocationSource> seen;
   for (auto& statement : statements) {
     if (statement->symbol(name, type)) {
       auto here = statement->location();
@@ -407,12 +411,12 @@ std::unique_ptr<egg::yolk::IEggProgramAssignee> egg::yolk::EggProgramContext::as
 
 void egg::yolk::EggProgramContext::statement(const IEggProgramNode& node) {
   // TODO use runtime location, not source location
-  egg::lang::LocationSource& source = this->location;
+  egg::ovum::LocationSource& source = this->location;
   source = node.location();
 }
 
-egg::lang::LocationRuntime egg::yolk::EggProgramContext::swapLocation(const egg::lang::LocationRuntime& loc) {
-  egg::lang::LocationRuntime before = this->location;
+egg::ovum::LocationRuntime egg::yolk::EggProgramContext::swapLocation(const egg::ovum::LocationRuntime& loc) {
+  egg::ovum::LocationRuntime before = this->location;
   this->location = loc;
   return before;
 }
@@ -438,7 +442,7 @@ egg::lang::ValueLegacy egg::yolk::EggProgramContext::set(const egg::ovum::String
   }
   auto symbol = this->symtable->findSymbol(name);
   assert(symbol != nullptr);
-  return symbol->assign(*this->symtable, *this, rvalue);
+  return symbol->assign(*this, *this->symtable, rvalue);
 }
 
 egg::lang::ValueLegacy egg::yolk::EggProgramContext::guard(const egg::ovum::String& name, const egg::lang::ValueLegacy& rvalue) {
@@ -447,7 +451,7 @@ egg::lang::ValueLegacy egg::yolk::EggProgramContext::guard(const egg::ovum::Stri
   }
   auto symbol = this->symtable->findSymbol(name);
   assert(symbol != nullptr);
-  auto retval = symbol->assign(*this->symtable, *this, rvalue);
+  auto retval = symbol->assign(*this, *this->symtable, rvalue);
   if (retval.isVoid()) {
     // The assignment succeeded
     return egg::lang::ValueLegacy::True;
@@ -793,7 +797,7 @@ egg::lang::ValueLegacy egg::yolk::EggProgramContext::arithmeticIntFloat(const eg
   return this->unexpected("Expected right-hand side of " + std::string(operation) + " to be 'int' or 'float'", right);
 }
 
-egg::lang::ValueLegacy egg::yolk::EggProgramContext::call(const egg::lang::ValueLegacy& callee, const egg::lang::IParameters& parameters) {
+egg::lang::ValueLegacy egg::yolk::EggProgramContext::call(const egg::lang::ValueLegacy& callee, const egg::ovum::IParameters& parameters) {
   auto& direct = callee.direct();
   if (!direct.hasObject()) {
     return this->unexpected("Expected function-like expression to be 'object'", direct);

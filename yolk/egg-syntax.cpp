@@ -12,8 +12,7 @@ namespace {
   class TypeInferred : public egg::ovum::NotReferenceCounted<egg::ovum::IType> {
   public:
     virtual std::pair<std::string, int> toStringPrecedence() const override {
-      static std::string name{ "var" };
-      return std::make_pair(name, 0);
+      return std::make_pair("var", 0);
     }
     virtual egg::ovum::Basal getBasalTypes() const override {
       return egg::ovum::Basal::None;
@@ -24,8 +23,10 @@ namespace {
     virtual AssignmentSuccess canBeAssignedFrom(const egg::ovum::IType&) const {
       EGG_THROW("Cannot evaluation assignment success for inferred type");
     }
-    virtual egg::lang::ValueLegacy promoteAssignment(egg::ovum::IExecution& execution, const egg::lang::ValueLegacy&) const override {
-      return execution.raiseFormat("Cannot assign to inferred type value");
+    virtual egg::lang::ValueLegacy promoteAssignment(const egg::lang::ValueLegacy&) const override {
+      egg::lang::ValueLegacy exception{ egg::ovum::String("Cannot assign to inferred type value") };
+      exception.addFlowControl(egg::lang::Discriminator::Exception);
+      return exception;
     }
   };
   const TypeInferred typeInferred{};
@@ -1884,7 +1885,7 @@ std::unique_ptr<IEggSyntaxNode> EggSyntaxParserContext::parseType(const char* ex
       return std::make_unique<EggSyntaxNode_Type>(location, typeInferred);
     }
   }
-  egg::ovum::ITypeRef type{ egg::lang::Type::Void };
+  egg::ovum::ITypeRef type{ egg::ovum::Type::Void };
   if (this->parseTypeExpression(type)) {
     mark.accept(0);
     return std::make_unique<EggSyntaxNode_Type>(location, *type);
@@ -1904,7 +1905,7 @@ bool EggSyntaxParserContext::parseTypeExpression(egg::ovum::ITypeRef& type) {
   */
   if (this->parseTypePostfixExpression(type)) {
     EggSyntaxParserBacktrackMark mark(this->backtrack);
-    egg::ovum::ITypeRef other{ egg::lang::Type::Void };
+    egg::ovum::ITypeRef other{ egg::ovum::Type::Void };
     while (mark.peek(0).isOperator(EggTokenizerOperator::Bar)) {
       mark.advance(1);
       if (!this->parseTypePostfixExpression(other)) {
@@ -1940,7 +1941,7 @@ bool EggSyntaxParserContext::parseTypePostfixExpression(egg::ovum::ITypeRef& typ
           this->unexpected("Redundant repetition of '?' in type expression");
         }
         mark.advance(1);
-        type = egg::lang::Type::Null->unionWith(*type);
+        type = egg::ovum::Type::Null->unionWith(*type);
         nullabled = true;
         continue;
       }
@@ -1978,7 +1979,7 @@ egg::ovum::ITypeRef EggSyntaxParserContext::parseTypePostfixFunction(const egg::
   auto* underlying = egg::yolk::FunctionType::createFunctionType(*this->allocator, egg::ovum::String(), rettype);
   egg::ovum::ITypeRef function{ underlying };
   for (size_t index = 0; !mark.peek(0).isOperator(EggTokenizerOperator::ParenthesisRight); ++index) {
-    egg::ovum::ITypeRef ptype{ egg::lang::Type::Void };
+    egg::ovum::ITypeRef ptype{ egg::ovum::Type::Void };
     if (!this->parseTypeExpression(ptype)) {
       this->unexpected("Expected parameter type in function type declaration", mark.peek(0));
     }
@@ -1989,7 +1990,7 @@ egg::ovum::ITypeRef EggSyntaxParserContext::parseTypePostfixFunction(const egg::
       pname = p1.value.s;
       mark.advance(1);
     }
-    auto flags = egg::lang::IFunctionSignatureParameter::Flags::Required;
+    auto flags = egg::ovum::IFunctionSignatureParameter::Flags::Required;
     if (mark.peek(0).isOperator(EggTokenizerOperator::Equal)) {
       auto& p2 = mark.peek(1);
       if (!p2.isKeyword(EggTokenizerKeyword::Null)) {
@@ -2000,7 +2001,7 @@ egg::ovum::ITypeRef EggSyntaxParserContext::parseTypePostfixFunction(const egg::
         }
       }
       mark.advance(2);
-      flags = egg::lang::IFunctionSignatureParameter::Flags::None;
+      flags = egg::ovum::IFunctionSignatureParameter::Flags::None;
     }
     underlying->addParameter(pname, ptype, flags);
     auto& p3 = mark.peek(0);
@@ -2051,7 +2052,7 @@ bool EggSyntaxParserContext::parseTypePrimaryExpression(egg::ovum::ITypeRef& typ
   auto basal = keywordToBasal(p0);
   if (basal != egg::ovum::Basal::None) {
     mark.accept(1);
-    type = egg::lang::Type::makeBasal(basal);
+    type = egg::ovum::Type::makeBasal(basal);
     return true;
   }
   return false;

@@ -1,7 +1,5 @@
 namespace egg::lang {
   // Forward declarations
-  struct LocationSource;
-  class ValueLegacy;
   class ValueLegacyReferenceCounted;
 
 #define EGG_VM_BASAL_ENUM(name, value) name = 1 << value,
@@ -25,116 +23,6 @@ namespace egg::lang {
   inline Discriminator operator|(Discriminator lhs, Discriminator rhs) {
     return egg::ovum::Bits::set(lhs, rhs);
   }
-
-  class IParameters {
-  public:
-    virtual ~IParameters() {}
-    virtual size_t getPositionalCount() const = 0;
-    virtual ValueLegacy getPositional(size_t index) const = 0;
-    virtual const LocationSource* getPositionalLocation(size_t index) const = 0; // May be null
-    virtual size_t getNamedCount() const = 0;
-    virtual egg::ovum::String getName(size_t index) const = 0;
-    virtual ValueLegacy getNamed(const egg::ovum::String& name) const = 0;
-    virtual const LocationSource* getNamedLocation(const egg::ovum::String& name) const = 0; // May be null
-  };
-
-  class IFunctionSignatureParameter {
-  public:
-    enum class Flags {
-      None = 0x00,
-      Required = 0x01, // Not optional
-      Variadic = 0x02, // Zero/one or more repetitions
-      Predicate = 0x04 // Used in assertions
-    };
-    virtual ~IFunctionSignatureParameter() {}
-    virtual egg::ovum::String getName() const = 0; // May be empty
-    virtual egg::ovum::ITypeRef getType() const = 0;
-    virtual size_t getPosition() const = 0; // SIZE_MAX if not positional
-    virtual Flags getFlags() const = 0;
-
-    // Flag helpers
-    bool isRequired() const { return egg::ovum::Bits::hasAnySet(this->getFlags(), Flags::Required); }
-    bool isVariadic() const { return egg::ovum::Bits::hasAnySet(this->getFlags(), Flags::Variadic); }
-    bool isPredicate() const { return egg::ovum::Bits::hasAnySet(this->getFlags(), Flags::Predicate); }
-  };
-
-  class IFunctionSignature {
-  public:
-    enum class Parts {
-      ReturnType = 0x01,
-      FunctionName = 0x02,
-      ParameterList = 0x04,
-      ParameterNames = 0x08,
-      NoNames = ReturnType | ParameterList,
-      All = ~0
-    };
-    virtual ~IFunctionSignature() {}
-    virtual egg::ovum::String toString(Parts parts) const; // Calls buildStringDefault
-    virtual egg::ovum::String getFunctionName() const = 0; // May be empty
-    virtual egg::ovum::ITypeRef getReturnType() const = 0;
-    virtual size_t getParameterCount() const = 0;
-    virtual const IFunctionSignatureParameter& getParameter(size_t index) const = 0;
-    virtual bool validateCall(egg::ovum::IExecution& execution, const IParameters& runtime, ValueLegacy& problem) const; // Calls validateCallDefault
-
-    // Implementation
-    void buildStringDefault(egg::ovum::StringBuilder& sb, Parts parts) const; // Default formats as expected
-    bool validateCallDefault(egg::ovum::IExecution& execution, const IParameters& runtime, ValueLegacy& problem) const;
-  };
-
-  class IIndexSignature {
-  public:
-    virtual ~IIndexSignature() {}
-    virtual egg::ovum::String toString() const; // Default formats as expected
-    virtual egg::ovum::ITypeRef getResultType() const = 0;
-    virtual egg::ovum::ITypeRef getIndexType() const = 0;
-  };
-
-  class Type : public egg::ovum::ITypeRef {
-    Type() = delete;
-  private:
-    explicit Type(const egg::ovum::IType& rhs) : egg::ovum::ITypeRef(&rhs) {}
-  public:
-    static const Type Void;
-    static const Type Null;
-    static const Type Bool;
-    static const Type Int;
-    static const Type Float;
-    static const Type String;
-    static const Type Arithmetic;
-    static const Type Any;
-    static const Type AnyQ;
-    static const Type Type_; // Underscore needed to avoid name clash
-
-    static egg::ovum::ITypeRef makeBasal(egg::ovum::Basal basal);
-    static egg::ovum::ITypeRef makeUnion(const egg::ovum::IType& lhs, const egg::ovum::IType& rhs);
-  };
-
-  struct LocationSource {
-    egg::ovum::String file;
-    size_t line;
-    size_t column;
-
-    inline LocationSource(const LocationSource& rhs)
-      : file(rhs.file), line(rhs.line), column(rhs.column) {
-    }
-    inline LocationSource(const egg::ovum::String& file, size_t line, size_t column)
-      : file(file), line(line), column(column) {
-    }
-    egg::ovum::String toSourceString() const;
-  };
-
-  struct LocationRuntime : public LocationSource {
-    egg::ovum::String function;
-    const LocationRuntime* parent;
-
-    inline LocationRuntime(const LocationRuntime& rhs)
-      : LocationSource(rhs), function(rhs.function), parent(rhs.parent) {
-    }
-    inline LocationRuntime(const LocationSource& source, const egg::ovum::String& function, const LocationRuntime* parent = nullptr)
-      : LocationSource(source), function(function), parent(parent) {
-    }
-    egg::ovum::String toRuntimeString() const;
-  };
 
   class ValueLegacy {
     // Stop type promotion for implicit constructors
@@ -250,22 +138,4 @@ namespace egg::lang {
   protected:
     explicit ValueLegacyReferenceCounted(ValueLegacy&& value) noexcept : ValueLegacy(std::move(value)) {}
   };
-}
-
-template<typename... ARGS>
-inline void egg::ovum::IPreparation::raiseWarning(ARGS... args) {
-  auto message = egg::ovum::StringBuilder::concat(args...);
-  this->raise(ILogger::Severity::Warning, message);
-}
-
-template<typename... ARGS>
-inline void egg::ovum::IPreparation::raiseError(ARGS... args) {
-  auto message = egg::ovum::StringBuilder::concat(args...);
-  this->raise(ILogger::Severity::Error, message);
-}
-
-template<typename... ARGS>
-inline egg::lang::ValueLegacy egg::ovum::IExecution::raiseFormat(ARGS... args) {
-  auto message = egg::ovum::StringBuilder::concat(args...);
-  return this->raise(message);
 }
