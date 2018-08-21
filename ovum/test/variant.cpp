@@ -100,6 +100,19 @@ TEST(TestVariant, String) {
   ASSERT_VARIANT("fallback", variant);
 }
 
+TEST(TestVariant, Memory) {
+  egg::test::Allocator allocator;
+  char goodbye[] = "goodbye";
+  egg::ovum::IMemory::Tag tag;
+  tag.p = goodbye;
+  auto memory = egg::ovum::MemoryFactory::createImmutable(allocator, "hello world", 11, tag);
+  ASSERT_NE(nullptr, memory);
+  ASSERT_EQ(goodbye, memory->tag().p);
+  egg::ovum::Variant variant{ *memory };
+  ASSERT_VARIANT(egg::ovum::VariantBits::Memory | egg::ovum::VariantBits::Hard, variant);
+  ASSERT_EQ(memory.get(), variant.getMemory().get());
+}
+
 TEST(TestVariant, ObjectHard) {
   egg::test::Allocator allocator;
   auto object = egg::ovum::ObjectFactory::createVanillaObject(allocator);

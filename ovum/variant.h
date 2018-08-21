@@ -5,6 +5,7 @@ namespace egg::ovum {
 
 #define EGG_VM_VARIANT(X) \
   EGG_VM_BASAL(X) \
+  X(Memory, "memory") \
   X(Pointer, "pointer") \
   X(Indirect, "indirect") \
   X(Break, "break") \
@@ -89,7 +90,7 @@ namespace egg::ovum {
       Bool b; // Bool
       Int i; // Int
       Float f; // Float
-      const IMemory* s; // String
+      const IMemory* s; // String|Memory
       IObject* o; // Object
       IVariantSoft* p; // Pointer|Indirect
     } u;
@@ -106,7 +107,7 @@ namespace egg::ovum {
       assert(this->validate());
       assert(rhs.validate());
     }
-    Variant(Variant&& rhs) : VariantKind(rhs.kind) { // WIBBLE noexcept
+    Variant(Variant&& rhs) noexcept : VariantKind(rhs.kind) {
       Variant::moveInternals(*this, rhs);
       rhs.kind = VariantBits::Void;
       assert(this->validate());
@@ -219,6 +220,16 @@ namespace egg::ovum {
       assert(this->hasAny(VariantBits::String));
       return String(this->u.s);
     }
+    // Memory
+    Variant(const IMemory& value) : VariantKind(VariantBits::Memory | VariantBits::Hard) {
+      this->u.s = Memory::hardAcquire(&value);
+      assert(this->validate());
+    }
+    Memory getMemory() const {
+      assert(this->validate());
+      assert(this->hasAny(VariantBits::Memory));
+      return Memory(this->u.s);
+    }
     // Object
     Variant(const Object& value) : VariantKind(VariantBits::Object | VariantBits::Hard) {
       this->u.o = Object::hardAcquire(value.get());
@@ -255,7 +266,7 @@ namespace egg::ovum {
           dst.u.o = Object::hardAcquire(src.u.o);
           return;
         }
-        if (src.hasAny(VariantBits::String)) {
+        if (src.hasAny(VariantBits::String | VariantBits::Memory)) {
           dst.u.s = String::hardAcquire(src.u.s);
           return;
         }
@@ -277,7 +288,7 @@ namespace egg::ovum {
         if (dst.hasAny(VariantBits::Object)) {
           assert(dst.u.o != nullptr);
           dst.u.o->hardRelease();
-        } else if (dst.hasAny(VariantBits::String)) {
+        } else if (dst.hasAny(VariantBits::String | VariantBits::Memory)) {
           if (dst.u.s != nullptr) {
             dst.u.s->hardRelease();
           }

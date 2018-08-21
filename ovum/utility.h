@@ -200,7 +200,7 @@ namespace egg::ovum {
     }
     HardPtr(const HardPtr& rhs) : ptr(rhs.hardAcquire()) {
     }
-    HardPtr(HardPtr&& rhs) : ptr(rhs.get()) {
+    HardPtr(HardPtr&& rhs) noexcept : ptr(rhs.get()) {
       rhs.ptr = nullptr;
     }
     template<typename U>

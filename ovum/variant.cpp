@@ -306,8 +306,15 @@ bool egg::ovum::Variant::validate(bool soft) const {
     assert(bits != zero);
   }
   if (clearBit(bits, VariantBits::Hard)) {
+    if (clearBit(bits, VariantBits::Memory)) {
+      // Memory is always hard but may not be null
+      assert(this->u.s != nullptr);
+      assert(bits == zero);
+      return true;
+    }
     if (clearBit(bits, VariantBits::String)) {
       // Strings are always hard and may be null/empty
+      assert(bits == zero);
       return true;
     }
     assert(!soft);
@@ -375,10 +382,8 @@ void egg::ovum::Variant::indirect(IAllocator& allocator, IBasket& basket) {
 
 egg::ovum::Variant egg::ovum::Variant::address() const {
   // Create a hard pointer to this indirect value
-  assert(this->validate());
+  assert(this->validate(true));
   assert(this->hasIndirect());
-  assert(!this->hasAny(VariantBits::Hard)); // WIBBLE WOBBLE
-  assert(this->u.p != nullptr);
   return Variant(VariantBits::Pointer | VariantBits::Hard, *this->u.p);
 }
 
@@ -442,6 +447,7 @@ bool egg::ovum::Variant::equals(const Variant& lhs, const Variant& rhs) {
   case VariantBits::Float:
     return a.f == b.f;
   case VariantBits::String:
+  case VariantBits::Memory:
     return IMemory::equals(a.s, b.s); // binary equality
   case VariantBits::Object:
     return a.o == b.o; // identity
@@ -552,7 +558,6 @@ egg::ovum::String egg::ovum::Variant::toString() const {
 }
 
 egg::ovum::HardPtr<egg::ovum::IVariantSoft> egg::ovum::VariantFactory::createVariantSoft(IAllocator& allocator, IBasket& basket, Variant&& value) {
-  // WIBBLE
   assert(value.validate());
   assert(!value.hasAny(VariantBits::Indirect));
   IVariantSoft* soften = nullptr;
