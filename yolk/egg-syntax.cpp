@@ -23,8 +23,8 @@ namespace {
     virtual AssignmentSuccess canBeAssignedFrom(const egg::ovum::IType&) const {
       EGG_THROW("Cannot evaluation assignment success for inferred type");
     }
-    virtual egg::lang::ValueLegacy promoteAssignment(const egg::lang::ValueLegacy&) const override {
-      egg::lang::ValueLegacy exception{ egg::ovum::String("Cannot assign to inferred type value") };
+    virtual egg::ovum::Variant promoteAssignment(const egg::ovum::Variant&) const override {
+      egg::ovum::Variant exception{ egg::ovum::String("Cannot assign to inferred type value") };
       exception.addFlowControl(egg::ovum::VariantBits::Throw);
       return exception;
     }
@@ -47,7 +47,7 @@ namespace {
     // Accept only type-like keywords: void, null, bool, int, float, string, object and any
     // OPTIMIZE
     if (item.kind == EggTokenizerKind::Keyword) {
-#define EGG_VM_BASAL_KEYWORD(name) case EggTokenizerKeyword::name: return egg::ovum::BasalBits::name;
+#define EGG_VM_BASAL_KEYWORD(name, text) case EggTokenizerKeyword::name: return egg::ovum::BasalBits::name;
       EGG_WARNING_SUPPRESS_SWITCH_BEGIN
       switch (item.value.k) {
       EGG_VM_BASAL(EGG_VM_BASAL_KEYWORD)

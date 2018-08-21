@@ -17,7 +17,7 @@ protected:
   explicit EggProgramStackless(FunctionCoroutineStackless& parent); 
 public:
   virtual ~EggProgramStackless() {}
-  virtual egg::lang::ValueLegacy resume(egg::yolk::EggProgramContext& context) = 0;
+  virtual egg::ovum::Variant resume(egg::yolk::EggProgramContext& context) = 0;
   template<typename T, typename... ARGS>
   T& push(egg::ovum::IAllocator& allocator, ARGS&&... args) {
     // Use perfect forwarding to the constructor (automatically plumbed into the parent)
@@ -80,10 +80,10 @@ namespace {
     explicit StacklessRoot(FunctionCoroutineStackless& parent)
       : EggProgramStackless(parent) {
     }
-    virtual egg::lang::ValueLegacy resume(egg::yolk::EggProgramContext&) {
+    virtual egg::ovum::Variant resume(egg::yolk::EggProgramContext&) {
       // If the root element resumed, we've completed all the statements in the function definition block
       // Simulate 'return;' to say we've finished
-      return egg::lang::ValueLegacy::ReturnVoid;
+      return egg::ovum::Variant::ReturnVoid;
     }
   };
 
@@ -98,7 +98,7 @@ namespace {
         statements(&statements),
         progress(0) {
     }
-    virtual egg::lang::ValueLegacy resume(egg::yolk::EggProgramContext& context) {
+    virtual egg::ovum::Variant resume(egg::yolk::EggProgramContext& context) {
       while (this->progress < this->statements->size()) {
         auto& statement = (*this->statements)[this->progress++];
         assert(statement != nullptr);
@@ -129,7 +129,7 @@ namespace {
         test(false) {
       assert(block != nullptr);
     }
-    virtual egg::lang::ValueLegacy resume(egg::yolk::EggProgramContext& context) {
+    virtual egg::ovum::Variant resume(egg::yolk::EggProgramContext& context) {
       for (;;) {
         if (!this->test) {
           this->test = true;
@@ -174,9 +174,9 @@ namespace {
         started(false) {
       assert(block != nullptr);
     }
-    virtual egg::lang::ValueLegacy resume(egg::yolk::EggProgramContext& context) {
+    virtual egg::ovum::Variant resume(egg::yolk::EggProgramContext& context) {
       // The pre/cond/post nodes are all simple; they cannot contain yields, so can be running stackfully
-      egg::lang::ValueLegacy retval;
+      egg::ovum::Variant retval;
       if (!this->started) {
         this->started = true;
         // Run 'pre'
@@ -238,7 +238,7 @@ namespace {
         block(block) {
       assert(block != nullptr);
     }
-    virtual egg::lang::ValueLegacy resume(egg::yolk::EggProgramContext& context) {
+    virtual egg::ovum::Variant resume(egg::yolk::EggProgramContext& context) {
       for (;;) {
         auto retval = context.condition(*this->cond);
         if (!retval.isBool()) {
@@ -284,7 +284,7 @@ namespace {
         (void)this->stack->pop();
       }
     }
-    virtual egg::lang::ValueLegacy resume(egg::yolk::EggProgramContext& context) override {
+    virtual egg::ovum::Variant resume(egg::yolk::EggProgramContext& context) override {
       if (this->stack == nullptr) {
         // This is the first time through; push a root context
         auto* root = allocator.create<StacklessRoot>(0, *this);
@@ -323,46 +323,6 @@ public:
     return this->parameters[index];
   }
 };
-
-void egg::ovum::IFunctionSignature::buildStringDefault(StringBuilder& sb, IFunctionSignature::Parts parts) const {
-  // TODO better formatting of named/variadic etc.
-  if (Bits::hasAnySet(parts, IFunctionSignature::Parts::ReturnType)) {
-    // Use precedence zero to get any necessary parentheses
-    sb.add(this->getReturnType()->toString(0));
-  }
-  if (Bits::hasAnySet(parts, IFunctionSignature::Parts::FunctionName)) {
-    auto name = this->getFunctionName();
-    if (!name.empty()) {
-      sb.add(' ', name);
-    }
-  }
-  if (Bits::hasAnySet(parts, IFunctionSignature::Parts::ParameterList)) {
-    sb.add('(');
-    auto n = this->getParameterCount();
-    for (size_t i = 0; i < n; ++i) {
-      if (i > 0) {
-        sb.add(", ");
-      }
-      auto& parameter = this->getParameter(i);
-      assert(parameter.getPosition() != SIZE_MAX);
-      if (Bits::hasAnySet(parameter.getFlags(), IFunctionSignatureParameter::Flags::Variadic)) {
-        sb.add("...");
-      } else {
-        sb.add(parameter.getType()->toString());
-        if (Bits::hasAnySet(parts, IFunctionSignature::Parts::ParameterNames)) {
-          auto pname = parameter.getName();
-          if (!pname.empty()) {
-            sb.add(' ', pname);
-          }
-        }
-        if (!Bits::hasAnySet(parameter.getFlags(), IFunctionSignatureParameter::Flags::Required)) {
-          sb.add(" = null");
-        }
-      }
-    }
-    sb.add(')');
-  }
-}
 
 egg::yolk::FunctionType::FunctionType(egg::ovum::IAllocator& allocator, const egg::ovum::String& name, const egg::ovum::ITypeRef& returnType)
   : HardReferenceCounted(allocator, 0),
@@ -437,22 +397,22 @@ egg::yolk::EggProgramStackless* egg::yolk::EggProgramStackless::pop() {
   return result;
 }
 
-egg::lang::ValueLegacy egg::yolk::EggProgramContext::coexecuteBlock(EggProgramStackless& stackless, const std::vector<std::shared_ptr<IEggProgramNode>>& statements) {
+egg::ovum::Variant egg::yolk::EggProgramContext::coexecuteBlock(EggProgramStackless& stackless, const std::vector<std::shared_ptr<IEggProgramNode>>& statements) {
   // Create a new context to execute the statements in order
   return stackless.push<StacklessBlock>(this->allocator, statements).resume(*this);
 }
 
-egg::lang::ValueLegacy egg::yolk::EggProgramContext::coexecuteDo(EggProgramStackless& stackless, const std::shared_ptr<egg::yolk::IEggProgramNode>& cond, const std::shared_ptr<egg::yolk::IEggProgramNode>& block) {
+egg::ovum::Variant egg::yolk::EggProgramContext::coexecuteDo(EggProgramStackless& stackless, const std::shared_ptr<egg::yolk::IEggProgramNode>& cond, const std::shared_ptr<egg::yolk::IEggProgramNode>& block) {
   // Run in a new context
   return stackless.push<StacklessDo>(this->allocator, cond, block).resume(*this);
 }
 
-egg::lang::ValueLegacy egg::yolk::EggProgramContext::coexecuteFor(EggProgramStackless& stackless, const std::shared_ptr<IEggProgramNode>& pre, const std::shared_ptr<IEggProgramNode>& cond, const std::shared_ptr<IEggProgramNode>& post, const std::shared_ptr<IEggProgramNode>& block) {
+egg::ovum::Variant egg::yolk::EggProgramContext::coexecuteFor(EggProgramStackless& stackless, const std::shared_ptr<IEggProgramNode>& pre, const std::shared_ptr<IEggProgramNode>& cond, const std::shared_ptr<IEggProgramNode>& post, const std::shared_ptr<IEggProgramNode>& block) {
   // Run in a new context
   return stackless.push<StacklessFor>(this->allocator, pre, cond, post, block).resume(*this);
 }
 
-egg::lang::ValueLegacy egg::yolk::EggProgramContext::coexecuteForeach(EggProgramStackless& stackless, const std::shared_ptr<IEggProgramNode>& lvalue, const std::shared_ptr<IEggProgramNode>& rvalue, const std::shared_ptr<IEggProgramNode>& block) {
+egg::ovum::Variant egg::yolk::EggProgramContext::coexecuteForeach(EggProgramStackless& stackless, const std::shared_ptr<IEggProgramNode>& lvalue, const std::shared_ptr<IEggProgramNode>& rvalue, const std::shared_ptr<IEggProgramNode>& block) {
   // Run in a new context
   EGG_UNUSED(stackless);
   EGG_UNUSED(lvalue);
@@ -462,12 +422,12 @@ egg::lang::ValueLegacy egg::yolk::EggProgramContext::coexecuteForeach(EggProgram
   // TODO: return stackless.push<StacklessForeach>(lvalue, rvalue, block).resume(*this);
 }
 
-egg::lang::ValueLegacy egg::yolk::EggProgramContext::coexecuteWhile(EggProgramStackless& stackless, const std::shared_ptr<egg::yolk::IEggProgramNode>& cond, const std::shared_ptr<egg::yolk::IEggProgramNode>& block) {
+egg::ovum::Variant egg::yolk::EggProgramContext::coexecuteWhile(EggProgramStackless& stackless, const std::shared_ptr<egg::yolk::IEggProgramNode>& cond, const std::shared_ptr<egg::yolk::IEggProgramNode>& block) {
   // Run in a new context
   return stackless.push<StacklessWhile>(this->allocator, cond, block).resume(*this);
 }
 
-egg::lang::ValueLegacy egg::yolk::EggProgramContext::coexecuteYield(EggProgramStackless&, const std::shared_ptr<IEggProgramNode>& value) {
+egg::ovum::Variant egg::yolk::EggProgramContext::coexecuteYield(EggProgramStackless&, const std::shared_ptr<IEggProgramNode>& value) {
   auto result = value->execute(*this).direct();
   if (!result.hasFlowControl()) {
     // Need to convert the result to a return flow control

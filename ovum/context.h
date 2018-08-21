@@ -1,8 +1,3 @@
-// WIBBLE retire
-namespace egg::lang {
-  class ValueLegacy;
-}
-
 namespace egg::ovum {
   struct LocationSource {
     String file;
@@ -38,21 +33,30 @@ namespace egg::ovum {
 
     // Useful helpers
     template<typename... ARGS>
-    void raiseWarning(ARGS... args);
+    void raiseWarning(ARGS... args) {
+      auto message = StringBuilder::concat(args...);
+      this->raise(ILogger::Severity::Warning, message);
+    }
     template<typename... ARGS>
-    void raiseError(ARGS... args);
+    void raiseError(ARGS... args) {
+      auto message = StringBuilder::concat(args...);
+      this->raise(ILogger::Severity::Error, message);
+    }
   };
 
   class IExecution {
   public:
     virtual ~IExecution() {}
     virtual IAllocator& getAllocator() const = 0;
-    virtual egg::lang::ValueLegacy raise(const String& message) = 0;
-    virtual egg::lang::ValueLegacy assertion(const egg::lang::ValueLegacy& predicate) = 0;
+    virtual egg::ovum::Variant raise(const String& message) = 0;
+    virtual egg::ovum::Variant assertion(const egg::ovum::Variant& predicate) = 0;
     virtual void print(const std::string& utf8) = 0;
 
     // Useful helper
     template<typename... ARGS>
-    egg::lang::ValueLegacy raiseFormat(ARGS... args);
+    egg::ovum::Variant raiseFormat(ARGS... args) {
+      auto message = StringBuilder::concat(args...);
+      return this->raise(message);
+    }
   };
 }

@@ -29,7 +29,7 @@ namespace {
         if (expected == egg::ovum::BasalBits::Null) {
           context.compilerWarning(where, "Expected ", side, " of '", EggProgram::binaryToString(op), "' operator to be possibly 'null', but got '", type->toString(), "' instead");
         } else {
-          auto readable = egg::lang::ValueLegacy::getBasalString(expected);
+          auto readable = egg::ovum::Variant::getBasalString(expected);
           readable = String::replace(readable, "|", "' or '");
           prepared = context.compilerError(where, "Expected ", side, " of '", EggProgram::binaryToString(op), "' operator to be '", readable, "', but got '", type->toString(), "' instead");
         }

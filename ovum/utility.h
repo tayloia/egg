@@ -81,6 +81,18 @@ namespace egg::ovum {
       auto b = static_cast<std::underlying_type_t<T>>(bits);
       return static_cast<T>(a ^ b);
     }
+    template<typename T>
+    static T topmost(T value) {
+      auto a = static_cast<std::underlying_type_t<T>>(value);
+      if (a <= 0) {
+        return static_cast<T>(0);
+      }
+      auto b = 1;
+      while ((a >>= 1) != 0) {
+        b <<= 1;
+      } while (a > 0);
+      return static_cast<T>(b);
+    }
   };
 
   using ReadWriteMutex = std::shared_mutex;

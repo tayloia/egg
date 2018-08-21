@@ -173,7 +173,7 @@ namespace {
       // By default, nothing is addressable
       return context.compilerError(this->locationSource, "Invalid operand for reference '&' operator");
     }
-    virtual egg::lang::ValueLegacy coexecute(EggProgramContext& context, EggProgramStackless&) const override {
+    virtual egg::ovum::Variant coexecute(EggProgramContext& context, EggProgramStackless&) const override {
       // By default, use the stackful version
       return this->execute(context);
     }
@@ -193,7 +193,7 @@ namespace {
     virtual EggProgramNodeFlags prepare(EggProgramContext& context) override {
       return context.prepareModule(this->child);
     }
-    virtual egg::lang::ValueLegacy execute(EggProgramContext& context) const override {
+    virtual egg::ovum::Variant execute(EggProgramContext& context) const override {
       return context.executeModule(*this, this->child);
     }
     virtual void dump(std::ostream& os) const override {
@@ -215,10 +215,10 @@ namespace {
     virtual EggProgramNodeFlags prepare(EggProgramContext& context) override {
       return context.prepareBlock(this->child);
     }
-    virtual egg::lang::ValueLegacy execute(EggProgramContext& context) const override {
+    virtual egg::ovum::Variant execute(EggProgramContext& context) const override {
       return context.executeBlock(*this, this->child);
     }
-    virtual egg::lang::ValueLegacy coexecute(EggProgramContext& context, EggProgramStackless& stackless) const override {
+    virtual egg::ovum::Variant coexecute(EggProgramContext& context, EggProgramStackless& stackless) const override {
       return context.coexecuteBlock(stackless, this->child);
     }
     virtual void dump(std::ostream& os) const override {
@@ -244,7 +244,7 @@ namespace {
       // Nothing to do: we're just a holder for the type
       return EggProgramNodeFlags::None;
     }
-    virtual egg::lang::ValueLegacy execute(EggProgramContext& context) const override {
+    virtual egg::ovum::Variant execute(EggProgramContext& context) const override {
       return context.raiseFormat("Internal parser error: Inappropriate 'execute' call for 'type' node");
     }
     virtual void dump(std::ostream& os) const override {
@@ -274,7 +274,7 @@ namespace {
     virtual EggProgramNodeFlags prepare(EggProgramContext& context) override {
       return context.prepareDeclare(this->locationSource, this->name, this->type, this->init.get());
     }
-    virtual egg::lang::ValueLegacy execute(EggProgramContext& context) const override {
+    virtual egg::ovum::Variant execute(EggProgramContext& context) const override {
       return context.executeDeclare(*this, this->name, this->type, this->init.get());
     }
     virtual void dump(std::ostream& os) const override {
@@ -304,7 +304,7 @@ namespace {
     virtual EggProgramNodeFlags prepare(EggProgramContext& context) override {
       return context.prepareGuard(this->locationSource, this->name, this->type, *this->expr);
     }
-    virtual egg::lang::ValueLegacy execute(EggProgramContext& context) const override {
+    virtual egg::ovum::Variant execute(EggProgramContext& context) const override {
       return context.executeGuard(*this, this->name, this->type, *this->expr);
     }
     virtual void dump(std::ostream& os) const override {
@@ -324,7 +324,7 @@ namespace {
     virtual EggProgramNodeFlags prepare(EggProgramContext& context) override {
       return context.prepareMutate(this->locationSource, this->op, *this->lvalue);
     }
-    virtual egg::lang::ValueLegacy execute(EggProgramContext& context) const override {
+    virtual egg::ovum::Variant execute(EggProgramContext& context) const override {
       return context.executeMutate(*this, this->op, *this->lvalue);
     }
     virtual void dump(std::ostream& os) const override {
@@ -341,7 +341,7 @@ namespace {
       // Nothing to prepare, but we fallthrough
       return EggProgramNodeFlags::Fallthrough;
     }
-    virtual egg::lang::ValueLegacy execute(EggProgramContext& context) const override {
+    virtual egg::ovum::Variant execute(EggProgramContext& context) const override {
       return context.executeBreak(*this);
     }
     virtual void dump(std::ostream& os) const override {
@@ -363,7 +363,7 @@ namespace {
     virtual EggProgramNodeFlags prepare(EggProgramContext& context) override {
       return context.prepareCatch(this->name, *this->type, *this->block);
     }
-    virtual egg::lang::ValueLegacy execute(EggProgramContext& context) const override {
+    virtual egg::ovum::Variant execute(EggProgramContext& context) const override {
       return context.executeCatch(*this, this->name, *this->type, *this->block);
     }
     virtual void dump(std::ostream& os) const override {
@@ -380,7 +380,7 @@ namespace {
       // Nothing to prepare, but no fallthrough
       return EggProgramNodeFlags::None;
     }
-    virtual egg::lang::ValueLegacy execute(EggProgramContext& context) const override {
+    virtual egg::ovum::Variant execute(EggProgramContext& context) const override {
       return context.executeContinue(*this);
     }
     virtual void dump(std::ostream& os) const override {
@@ -401,10 +401,10 @@ namespace {
     virtual EggProgramNodeFlags prepare(EggProgramContext& context) override {
       return context.prepareDo(*this->condition, *this->block);
     }
-    virtual egg::lang::ValueLegacy execute(EggProgramContext& context) const override {
+    virtual egg::ovum::Variant execute(EggProgramContext& context) const override {
       return context.executeDo(*this, *this->condition, *this->block);
     }
-    virtual egg::lang::ValueLegacy coexecute(EggProgramContext& context, EggProgramStackless& stackless) const override {
+    virtual egg::ovum::Variant coexecute(EggProgramContext& context, EggProgramStackless& stackless) const override {
       return context.coexecuteDo(stackless, this->condition, this->block);
     }
     virtual void dump(std::ostream& os) const override {
@@ -427,7 +427,7 @@ namespace {
     virtual EggProgramNodeFlags prepare(EggProgramContext& context) override {
       return context.prepareIf(*this->condition, *this->trueBlock, this->falseBlock.get());
     }
-    virtual egg::lang::ValueLegacy execute(EggProgramContext& context) const override {
+    virtual egg::ovum::Variant execute(EggProgramContext& context) const override {
       return context.executeIf(*this, *this->condition, *this->trueBlock, this->falseBlock.get());
     }
     virtual void dump(std::ostream& os) const override {
@@ -450,10 +450,10 @@ namespace {
     virtual EggProgramNodeFlags prepare(EggProgramContext& context) override {
       return context.prepareFor(this->pre.get(), this->cond.get(), this->post.get(), *this->block);
     }
-    virtual egg::lang::ValueLegacy execute(EggProgramContext& context) const override {
+    virtual egg::ovum::Variant execute(EggProgramContext& context) const override {
       return context.executeFor(*this, this->pre.get(), this->cond.get(), this->post.get(), *this->block);
     }
-    virtual egg::lang::ValueLegacy coexecute(EggProgramContext& context, EggProgramStackless& stackless) const override {
+    virtual egg::ovum::Variant coexecute(EggProgramContext& context, EggProgramStackless& stackless) const override {
       return context.coexecuteFor(stackless, this->pre, this->cond, this->post, this->block);
     }
     virtual void dump(std::ostream& os) const override {
@@ -476,10 +476,10 @@ namespace {
     virtual EggProgramNodeFlags prepare(EggProgramContext& context) override {
       return context.prepareForeach(*this->target, *this->expr, *this->block);
     }
-    virtual egg::lang::ValueLegacy execute(EggProgramContext& context) const override {
+    virtual egg::ovum::Variant execute(EggProgramContext& context) const override {
       return context.executeForeach(*this, *this->target, *this->expr, *this->block);
     }
-    virtual egg::lang::ValueLegacy coexecute(EggProgramContext& context, EggProgramStackless& stackless) const override {
+    virtual egg::ovum::Variant coexecute(EggProgramContext& context, EggProgramStackless& stackless) const override {
       return context.coexecuteForeach(stackless, this->target, this->expr, this->block);
     }
     virtual void dump(std::ostream& os) const override {
@@ -506,7 +506,7 @@ namespace {
     virtual EggProgramNodeFlags prepare(EggProgramContext& context) override {
       return context.prepareFunctionDefinition(this->name, this->type, this->block);
     }
-    virtual egg::lang::ValueLegacy execute(EggProgramContext& context) const override {
+    virtual egg::ovum::Variant execute(EggProgramContext& context) const override {
       return context.executeFunctionDefinition(*this, this->name, this->type, this->block);
     }
     virtual void dump(std::ostream& os) const override {
@@ -532,7 +532,7 @@ namespace {
     virtual EggProgramNodeFlags prepare(EggProgramContext& context) override {
       return context.compilerError(this->locationSource, "Internal parser error: Inappropriate 'prepare' call for function parameter");
     }
-    virtual egg::lang::ValueLegacy execute(EggProgramContext& context) const override {
+    virtual egg::ovum::Variant execute(EggProgramContext& context) const override {
       return context.raiseFormat("Internal parser error: Inappropriate 'execute' call for function parameter");
     }
     virtual void dump(std::ostream& os) const override {
@@ -554,7 +554,7 @@ namespace {
     virtual EggProgramNodeFlags prepare(EggProgramContext& context) override {
       return context.prepareGeneratorDefinition(this->rettype, this->block);
     }
-    virtual egg::lang::ValueLegacy execute(EggProgramContext& context) const override {
+    virtual egg::ovum::Variant execute(EggProgramContext& context) const override {
       return context.executeGeneratorDefinition(*this, this->gentype, this->rettype, this->block);
     }
     virtual void dump(std::ostream& os) const override {
@@ -572,7 +572,7 @@ namespace {
     virtual EggProgramNodeFlags prepare(EggProgramContext& context) override {
       return context.prepareReturn(this->locationSource, this->expr.get());
     }
-    virtual egg::lang::ValueLegacy execute(EggProgramContext& context) const override {
+    virtual egg::ovum::Variant execute(EggProgramContext& context) const override {
       return context.executeReturn(*this, this->expr.get());
     }
     virtual void dump(std::ostream& os) const override {
@@ -592,7 +592,7 @@ namespace {
     virtual EggProgramNodeFlags prepare(EggProgramContext& context) override {
       return context.prepareCase(this->child, *this->block);
     }
-    virtual egg::lang::ValueLegacy execute(EggProgramContext& context) const override {
+    virtual egg::ovum::Variant execute(EggProgramContext& context) const override {
       return context.executeCase(*this, this->child, *this->block);
     }
     virtual void dump(std::ostream& os) const override {
@@ -622,7 +622,7 @@ namespace {
     virtual EggProgramNodeFlags prepare(EggProgramContext& context) override {
       return context.prepareSwitch(*this->expr, this->defaultIndex, this->child);
     }
-    virtual egg::lang::ValueLegacy execute(EggProgramContext& context) const override {
+    virtual egg::ovum::Variant execute(EggProgramContext& context) const override {
       return context.executeSwitch(*this, *this->expr, this->defaultIndex, this->child);
     }
     virtual void dump(std::ostream& os) const override {
@@ -667,7 +667,7 @@ namespace {
     virtual EggProgramNodeFlags prepare(EggProgramContext& context) override {
       return context.prepareThrow(this->expr.get());
     }
-    virtual egg::lang::ValueLegacy execute(EggProgramContext& context) const override {
+    virtual egg::ovum::Variant execute(EggProgramContext& context) const override {
       return context.executeThrow(*this, this->expr.get());
     }
     virtual void dump(std::ostream& os) const override {
@@ -688,7 +688,7 @@ namespace {
     virtual EggProgramNodeFlags prepare(EggProgramContext& context) override {
       return context.prepareTry(*this->block, this->catches, this->final.get());
     }
-    virtual egg::lang::ValueLegacy execute(EggProgramContext& context) const override {
+    virtual egg::ovum::Variant execute(EggProgramContext& context) const override {
       return context.executeTry(*this, *this->block, this->catches, this->final.get());
     }
     virtual void dump(std::ostream& os) const override {
@@ -716,10 +716,10 @@ namespace {
     virtual EggProgramNodeFlags prepare(EggProgramContext& context) override {
       return context.prepareWhile(*this->condition, *this->block);
     }
-    virtual egg::lang::ValueLegacy execute(EggProgramContext& context) const override {
+    virtual egg::ovum::Variant execute(EggProgramContext& context) const override {
       return context.executeWhile(*this, *this->condition, *this->block);
     }
-    virtual egg::lang::ValueLegacy coexecute(EggProgramContext& context, EggProgramStackless& stackless) const override {
+    virtual egg::ovum::Variant coexecute(EggProgramContext& context, EggProgramStackless& stackless) const override {
       return context.coexecuteWhile(stackless, this->condition, this->block);
     }
     virtual void dump(std::ostream& os) const override {
@@ -738,10 +738,10 @@ namespace {
     virtual EggProgramNodeFlags prepare(EggProgramContext& context) override {
       return context.prepareYield(this->locationSource, *this->expr);
     }
-    virtual egg::lang::ValueLegacy execute(EggProgramContext& context) const override {
+    virtual egg::ovum::Variant execute(EggProgramContext& context) const override {
       return context.executeYield(*this, *this->expr);
     }
-    virtual egg::lang::ValueLegacy coexecute(EggProgramContext& context, EggProgramStackless& stackless) const override {
+    virtual egg::ovum::Variant coexecute(EggProgramContext& context, EggProgramStackless& stackless) const override {
       return context.coexecuteYield(stackless, this->expr);
     }
     virtual void dump(std::ostream& os) const override {
@@ -767,7 +767,7 @@ namespace {
     virtual EggProgramNodeFlags prepare(EggProgramContext& context) override {
       return this->expr->prepare(context);
     }
-    virtual egg::lang::ValueLegacy execute(EggProgramContext& context) const override {
+    virtual egg::ovum::Variant execute(EggProgramContext& context) const override {
       // The name has already been extracted via 'symbol' so just propagate the value
       return this->expr->execute(context);
     }
@@ -789,7 +789,7 @@ namespace {
     virtual EggProgramNodeFlags prepare(EggProgramContext& context) override {
       return context.prepareArray(this->child);
     }
-    virtual egg::lang::ValueLegacy execute(EggProgramContext& context) const override {
+    virtual egg::ovum::Variant execute(EggProgramContext& context) const override {
       return context.executeArray(*this, this->child);
     }
     virtual void dump(std::ostream& os) const override {
@@ -813,7 +813,7 @@ namespace {
     virtual EggProgramNodeFlags prepare(EggProgramContext& context) override {
       return context.prepareObject(this->child);
     }
-    virtual egg::lang::ValueLegacy execute(EggProgramContext& context) const override {
+    virtual egg::ovum::Variant execute(EggProgramContext& context) const override {
       return context.executeObject(*this, this->child);
     }
     virtual void dump(std::ostream& os) const override {
@@ -844,7 +844,7 @@ namespace {
     virtual EggProgramNodeFlags prepare(EggProgramContext& context) override {
       return context.prepareCall(*this->callee, this->child);
     }
-    virtual egg::lang::ValueLegacy execute(EggProgramContext& context) const override {
+    virtual egg::ovum::Variant execute(EggProgramContext& context) const override {
       return context.executeCall(*this, *this->callee, this->child);
     }
     virtual void dump(std::ostream& os) const override {
@@ -875,7 +875,7 @@ namespace {
       this->byref = true;
       return EggProgramNodeFlags::None;
     }
-    virtual egg::lang::ValueLegacy execute(EggProgramContext& context) const override {
+    virtual egg::ovum::Variant execute(EggProgramContext& context) const override {
       return context.executeIdentifier(*this, this->name, this->byref);
     }
     virtual std::unique_ptr<IEggProgramAssignee> assignee(EggProgramContext& context) const override {
@@ -897,8 +897,8 @@ namespace {
     virtual EggProgramNodeFlags prepare(EggProgramContext&) override {
       return EggProgramNodeFlags::Constant;
     }
-    virtual egg::lang::ValueLegacy execute(EggProgramContext& context) const override {
-      return context.executeLiteral(*this, egg::lang::ValueLegacy::Null);
+    virtual egg::ovum::Variant execute(EggProgramContext& context) const override {
+      return context.executeLiteral(*this, egg::ovum::Variant::Null);
     }
     virtual void dump(std::ostream& os) const override {
       ParserDump(os, "literal null");
@@ -918,8 +918,8 @@ namespace {
     virtual EggProgramNodeFlags prepare(EggProgramContext&) override {
       return EggProgramNodeFlags::Constant;
     }
-    virtual egg::lang::ValueLegacy execute(EggProgramContext& context) const override {
-      return context.executeLiteral(*this, egg::lang::ValueLegacy(this->value));
+    virtual egg::ovum::Variant execute(EggProgramContext& context) const override {
+      return context.executeLiteral(*this, egg::ovum::Variant(this->value));
     }
     virtual void dump(std::ostream& os) const override {
       ParserDump(os, "literal bool").raw(this->value);
@@ -939,8 +939,8 @@ namespace {
     virtual EggProgramNodeFlags prepare(EggProgramContext&) override {
       return EggProgramNodeFlags::Constant;
     }
-    virtual egg::lang::ValueLegacy execute(EggProgramContext& context) const override {
-      return context.executeLiteral(*this, egg::lang::ValueLegacy(this->value));
+    virtual egg::ovum::Variant execute(EggProgramContext& context) const override {
+      return context.executeLiteral(*this, egg::ovum::Variant(this->value));
     }
     virtual void dump(std::ostream& os) const override {
       ParserDump(os, "literal int").raw(this->value);
@@ -960,8 +960,8 @@ namespace {
     virtual EggProgramNodeFlags prepare(EggProgramContext&) override {
       return EggProgramNodeFlags::Constant;
     }
-    virtual egg::lang::ValueLegacy execute(EggProgramContext& context) const override {
-      return context.executeLiteral(*this, egg::lang::ValueLegacy(this->value));
+    virtual egg::ovum::Variant execute(EggProgramContext& context) const override {
+      return context.executeLiteral(*this, egg::ovum::Variant(this->value));
     }
     virtual void dump(std::ostream& os) const override {
       ParserDump(os, "literal float").raw(this->value);
@@ -981,8 +981,8 @@ namespace {
     virtual EggProgramNodeFlags prepare(EggProgramContext&) override {
       return EggProgramNodeFlags::Constant;
     }
-    virtual egg::lang::ValueLegacy execute(EggProgramContext& context) const override {
-      return context.executeLiteral(*this, egg::lang::ValueLegacy(this->value));
+    virtual egg::ovum::Variant execute(EggProgramContext& context) const override {
+      return context.executeLiteral(*this, egg::ovum::Variant(this->value));
     }
     virtual void dump(std::ostream& os) const override {
       ParserDump(os, "literal string").add(this->value);
@@ -1003,7 +1003,7 @@ namespace {
     virtual EggProgramNodeFlags prepare(EggProgramContext& context) override {
       return context.prepareBrackets(this->locationSource, *this->lhs, *this->rhs);
     }
-    virtual egg::lang::ValueLegacy execute(EggProgramContext& context) const override {
+    virtual egg::ovum::Variant execute(EggProgramContext& context) const override {
       return context.executeBrackets(*this, *this->lhs, *this->rhs);
     }
     virtual std::unique_ptr<IEggProgramAssignee> assignee(EggProgramContext& context) const override {
@@ -1028,7 +1028,7 @@ namespace {
       return context.prepareDot(this->locationSource, *this->lhs, this->rhs);
     }
     virtual egg::ovum::ITypeRef getType() const override;
-    virtual egg::lang::ValueLegacy execute(EggProgramContext& context) const override {
+    virtual egg::ovum::Variant execute(EggProgramContext& context) const override {
       return context.executeDot(*this, *this->lhs, this->rhs);
     }
     virtual std::unique_ptr<IEggProgramAssignee> assignee(EggProgramContext& context) const override {
@@ -1052,7 +1052,7 @@ namespace {
     virtual EggProgramNodeFlags prepare(EggProgramContext& context) override {
       return context.prepareUnary(this->locationSource, this->op, *this->expr);
     }
-    virtual egg::lang::ValueLegacy execute(EggProgramContext& context) const override {
+    virtual egg::ovum::Variant execute(EggProgramContext& context) const override {
       return context.executeUnary(*this, this->op, *this->expr);
     }
     virtual std::unique_ptr<IEggProgramAssignee> assignee(EggProgramContext& context) const override {
@@ -1094,7 +1094,7 @@ namespace {
     virtual EggProgramNodeFlags prepare(EggProgramContext& context) override {
       return context.prepareBinary(this->locationSource, this->op, *this->lhs, *this->rhs);
     }
-    virtual egg::lang::ValueLegacy execute(EggProgramContext& context) const override {
+    virtual egg::ovum::Variant execute(EggProgramContext& context) const override {
       return context.executeBinary(*this, this->op, *this->lhs, *this->rhs);
     }
     virtual void dump(std::ostream& os) const override {
@@ -1127,7 +1127,7 @@ namespace {
     virtual EggProgramNodeFlags prepare(EggProgramContext& context) override {
       return context.prepareTernary(this->locationSource, *this->condition, *this->whenTrue, *this->whenFalse);
     }
-    virtual egg::lang::ValueLegacy execute(EggProgramContext& context) const override {
+    virtual egg::ovum::Variant execute(EggProgramContext& context) const override {
       return context.executeTernary(*this, *this->condition, *this->whenTrue, *this->whenFalse);
     }
     virtual void dump(std::ostream& os) const override {
@@ -1150,7 +1150,7 @@ namespace {
     virtual EggProgramNodeFlags prepare(EggProgramContext& context) override {
       return context.prepareAssign(this->locationSource, this->op, *this->lhs, *this->rhs);
     }
-    virtual egg::lang::ValueLegacy execute(EggProgramContext& context) const override {
+    virtual egg::ovum::Variant execute(EggProgramContext& context) const override {
       return context.executeAssign(*this, this->op, *this->lhs, *this->rhs);
     }
     virtual void dump(std::ostream& os) const override {
@@ -1182,7 +1182,7 @@ namespace {
     virtual EggProgramNodeFlags prepare(EggProgramContext& context) override {
       return context.preparePredicate(this->locationSource, this->op, *this->lhs, *this->rhs);
     }
-    virtual egg::lang::ValueLegacy execute(EggProgramContext& context) const override {
+    virtual egg::ovum::Variant execute(EggProgramContext& context) const override {
       return context.executePredicate(*this, this->op, *this->lhs, *this->rhs);
     }
     virtual void dump(std::ostream& os) const override {

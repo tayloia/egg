@@ -18,10 +18,10 @@ namespace {
       : program(&program),
         name(name) {
     }
-    virtual egg::lang::ValueLegacy get() const override {
+    virtual egg::ovum::Variant get() const override {
       return this->program->get(this->name, false);
     }
-    virtual egg::lang::ValueLegacy set(const egg::lang::ValueLegacy& value) override {
+    virtual egg::ovum::Variant set(const egg::ovum::Variant& value) override {
       return this->program->set(this->name, value);
     }
   };
@@ -30,7 +30,7 @@ namespace {
   protected:
     egg::yolk::EggProgramContext* program;
     std::shared_ptr<egg::yolk::IEggProgramNode> expression;
-    mutable egg::lang::ValueLegacy instance;
+    mutable egg::ovum::Variant instance;
     EggProgramAssigneeInstance(egg::yolk::EggProgramContext& program, const std::shared_ptr<egg::yolk::IEggProgramNode>& expression)
       : program(&program),
         expression(expression),
@@ -49,12 +49,12 @@ namespace {
     EGG_NO_COPY(EggProgramAssigneeBrackets);
   private:
     std::shared_ptr<egg::yolk::IEggProgramNode> indexExpression;
-    mutable egg::lang::ValueLegacy index;
+    mutable egg::ovum::Variant index;
   public:
     EggProgramAssigneeBrackets(egg::yolk::EggProgramContext& context, const std::shared_ptr<egg::yolk::IEggProgramNode>& instanceExpression, const std::shared_ptr<egg::yolk::IEggProgramNode>& indexExpression)
       : EggProgramAssigneeInstance(context, instanceExpression), indexExpression(indexExpression), index() {
     }
-    virtual egg::lang::ValueLegacy get() const override {
+    virtual egg::ovum::Variant get() const override {
       // Get the initial value of the indexed entry (probably part of a +=-type construct)
       if (this->evaluateInstance()) {
         if (this->evaluateIndex()) {
@@ -66,7 +66,7 @@ namespace {
       assert(this->instance.hasFlowControl());
       return this->instance;
     }
-    virtual egg::lang::ValueLegacy set(const egg::lang::ValueLegacy& value) override {
+    virtual egg::ovum::Variant set(const egg::ovum::Variant& value) override {
       // Set the value of the indexed entry
       if (this->evaluateInstance()) {
         if (this->evaluateIndex()) {
@@ -96,7 +96,7 @@ namespace {
     EggProgramAssigneeDot(egg::yolk::EggProgramContext& context, const std::shared_ptr<egg::yolk::IEggProgramNode>& expression, const egg::ovum::String& property)
       : EggProgramAssigneeInstance(context, expression), property(property) {
     }
-    virtual egg::lang::ValueLegacy get() const override {
+    virtual egg::ovum::Variant get() const override {
       // Get the initial value of the property (probably part of a +=-type construct)
       if (this->evaluateInstance()) {
         return this->program->dotGet(this->instance, property);
@@ -104,7 +104,7 @@ namespace {
       assert(this->instance.hasFlowControl());
       return this->instance;
     }
-    virtual egg::lang::ValueLegacy set(const egg::lang::ValueLegacy& value) override {
+    virtual egg::ovum::Variant set(const egg::ovum::Variant& value) override {
       // Set the value of the property
       if (this->evaluateInstance()) {
         return this->program->dotSet(this->instance, property, value);
@@ -120,7 +120,7 @@ namespace {
     EggProgramAssigneeDeref(egg::yolk::EggProgramContext& context, const std::shared_ptr<egg::yolk::IEggProgramNode>& expression)
       : EggProgramAssigneeInstance(context, expression) {
     }
-    virtual egg::lang::ValueLegacy get() const override {
+    virtual egg::ovum::Variant get() const override {
       // Get the initial value of the dereferenced value (probably part of a +=-type construct)
       if (this->evaluateInstance()) {
         assert(this->instance.hasPointer());
@@ -129,98 +129,98 @@ namespace {
       assert(this->instance.hasFlowControl());
       return this->instance;
     }
-    virtual egg::lang::ValueLegacy set(const egg::lang::ValueLegacy& value) override {
+    virtual egg::ovum::Variant set(const egg::ovum::Variant& value) override {
       // Set the value of the dereferenced value
       if (this->evaluateInstance()) {
         assert(this->instance.hasPointer());
-        egg::lang::ValueLegacy& pointee = this->instance.getPointee();
+        egg::ovum::Variant& pointee = this->instance.getPointee();
         pointee = value;
-        return egg::lang::ValueLegacy::Void;
+        return egg::ovum::Variant::Void;
       }
       assert(this->instance.hasFlowControl());
       return this->instance;
     }
   };
-  egg::lang::ValueLegacy plusInt(int64_t lhs, int64_t rhs) {
-    return egg::lang::ValueLegacy(lhs + rhs);
+  egg::ovum::Variant plusInt(int64_t lhs, int64_t rhs) {
+    return egg::ovum::Variant(lhs + rhs);
   }
-  egg::lang::ValueLegacy minusInt(int64_t lhs, int64_t rhs) {
-    return egg::lang::ValueLegacy(lhs - rhs);
+  egg::ovum::Variant minusInt(int64_t lhs, int64_t rhs) {
+    return egg::ovum::Variant(lhs - rhs);
   }
-  egg::lang::ValueLegacy multiplyInt(int64_t lhs, int64_t rhs) {
-    return egg::lang::ValueLegacy(lhs * rhs);
+  egg::ovum::Variant multiplyInt(int64_t lhs, int64_t rhs) {
+    return egg::ovum::Variant(lhs * rhs);
   }
-  egg::lang::ValueLegacy divideInt(int64_t lhs, int64_t rhs) {
-    return egg::lang::ValueLegacy(lhs / rhs);
+  egg::ovum::Variant divideInt(int64_t lhs, int64_t rhs) {
+    return egg::ovum::Variant(lhs / rhs);
   }
-  egg::lang::ValueLegacy remainderInt(int64_t lhs, int64_t rhs) {
-    return egg::lang::ValueLegacy(lhs % rhs);
+  egg::ovum::Variant remainderInt(int64_t lhs, int64_t rhs) {
+    return egg::ovum::Variant(lhs % rhs);
   }
-  egg::lang::ValueLegacy lessInt(int64_t lhs, int64_t rhs) {
-    return egg::lang::ValueLegacy(lhs < rhs);
+  egg::ovum::Variant lessInt(int64_t lhs, int64_t rhs) {
+    return egg::ovum::Variant(lhs < rhs);
   }
-  egg::lang::ValueLegacy lessEqualInt(int64_t lhs, int64_t rhs) {
-    return egg::lang::ValueLegacy(lhs <= rhs);
+  egg::ovum::Variant lessEqualInt(int64_t lhs, int64_t rhs) {
+    return egg::ovum::Variant(lhs <= rhs);
   }
-  egg::lang::ValueLegacy greaterEqualInt(int64_t lhs, int64_t rhs) {
-    return egg::lang::ValueLegacy(lhs >= rhs);
+  egg::ovum::Variant greaterEqualInt(int64_t lhs, int64_t rhs) {
+    return egg::ovum::Variant(lhs >= rhs);
   }
-  egg::lang::ValueLegacy greaterInt(int64_t lhs, int64_t rhs) {
-    return egg::lang::ValueLegacy(lhs > rhs);
+  egg::ovum::Variant greaterInt(int64_t lhs, int64_t rhs) {
+    return egg::ovum::Variant(lhs > rhs);
   }
-  egg::lang::ValueLegacy bitwiseAndBool(bool lhs, bool rhs) {
-    return egg::lang::ValueLegacy(bool(lhs & rhs));
+  egg::ovum::Variant bitwiseAndBool(bool lhs, bool rhs) {
+    return egg::ovum::Variant(bool(lhs & rhs));
   }
-  egg::lang::ValueLegacy bitwiseAndInt(int64_t lhs, int64_t rhs) {
-    return egg::lang::ValueLegacy(lhs & rhs);
+  egg::ovum::Variant bitwiseAndInt(int64_t lhs, int64_t rhs) {
+    return egg::ovum::Variant(lhs & rhs);
   }
-  egg::lang::ValueLegacy bitwiseOrBool(bool lhs, bool rhs) {
-    return egg::lang::ValueLegacy(bool(lhs | rhs));
+  egg::ovum::Variant bitwiseOrBool(bool lhs, bool rhs) {
+    return egg::ovum::Variant(bool(lhs | rhs));
   }
-  egg::lang::ValueLegacy bitwiseOrInt(int64_t lhs, int64_t rhs) {
-    return egg::lang::ValueLegacy(lhs | rhs);
+  egg::ovum::Variant bitwiseOrInt(int64_t lhs, int64_t rhs) {
+    return egg::ovum::Variant(lhs | rhs);
   }
-  egg::lang::ValueLegacy bitwiseXorBool(bool lhs, bool rhs) {
-    return egg::lang::ValueLegacy(bool(lhs ^ rhs));
+  egg::ovum::Variant bitwiseXorBool(bool lhs, bool rhs) {
+    return egg::ovum::Variant(bool(lhs ^ rhs));
   }
-  egg::lang::ValueLegacy bitwiseXorInt(int64_t lhs, int64_t rhs) {
-    return egg::lang::ValueLegacy(lhs ^ rhs);
+  egg::ovum::Variant bitwiseXorInt(int64_t lhs, int64_t rhs) {
+    return egg::ovum::Variant(lhs ^ rhs);
   }
-  egg::lang::ValueLegacy shiftLeftInt(int64_t lhs, int64_t rhs) {
-    return egg::lang::ValueLegacy(lhs << rhs);
+  egg::ovum::Variant shiftLeftInt(int64_t lhs, int64_t rhs) {
+    return egg::ovum::Variant(lhs << rhs);
   }
-  egg::lang::ValueLegacy shiftRightInt(int64_t lhs, int64_t rhs) {
-    return egg::lang::ValueLegacy(lhs >> rhs);
+  egg::ovum::Variant shiftRightInt(int64_t lhs, int64_t rhs) {
+    return egg::ovum::Variant(lhs >> rhs);
   }
-  egg::lang::ValueLegacy shiftRightUnsignedInt(int64_t lhs, int64_t rhs) {
-    return egg::lang::ValueLegacy(int64_t(uint64_t(lhs) >> rhs));
+  egg::ovum::Variant shiftRightUnsignedInt(int64_t lhs, int64_t rhs) {
+    return egg::ovum::Variant(int64_t(uint64_t(lhs) >> rhs));
   }
-  egg::lang::ValueLegacy plusFloat(double lhs, double rhs) {
-    return egg::lang::ValueLegacy(lhs + rhs);
+  egg::ovum::Variant plusFloat(double lhs, double rhs) {
+    return egg::ovum::Variant(lhs + rhs);
   }
-  egg::lang::ValueLegacy minusFloat(double lhs, double rhs) {
-    return egg::lang::ValueLegacy(lhs - rhs);
+  egg::ovum::Variant minusFloat(double lhs, double rhs) {
+    return egg::ovum::Variant(lhs - rhs);
   }
-  egg::lang::ValueLegacy multiplyFloat(double lhs, double rhs) {
-    return egg::lang::ValueLegacy(lhs * rhs);
+  egg::ovum::Variant multiplyFloat(double lhs, double rhs) {
+    return egg::ovum::Variant(lhs * rhs);
   }
-  egg::lang::ValueLegacy divideFloat(double lhs, double rhs) {
-    return egg::lang::ValueLegacy(lhs / rhs);
+  egg::ovum::Variant divideFloat(double lhs, double rhs) {
+    return egg::ovum::Variant(lhs / rhs);
   }
-  egg::lang::ValueLegacy remainderFloat(double lhs, double rhs) {
-    return egg::lang::ValueLegacy(std::remainder(lhs, rhs));
+  egg::ovum::Variant remainderFloat(double lhs, double rhs) {
+    return egg::ovum::Variant(std::remainder(lhs, rhs));
   }
-  egg::lang::ValueLegacy lessFloat(double lhs, double rhs) {
-    return egg::lang::ValueLegacy(lhs < rhs);
+  egg::ovum::Variant lessFloat(double lhs, double rhs) {
+    return egg::ovum::Variant(lhs < rhs);
   }
-  egg::lang::ValueLegacy lessEqualFloat(double lhs, double rhs) {
-    return egg::lang::ValueLegacy(lhs <= rhs);
+  egg::ovum::Variant lessEqualFloat(double lhs, double rhs) {
+    return egg::ovum::Variant(lhs <= rhs);
   }
-  egg::lang::ValueLegacy greaterEqualFloat(double lhs, double rhs) {
-    return egg::lang::ValueLegacy(lhs >= rhs);
+  egg::ovum::Variant greaterEqualFloat(double lhs, double rhs) {
+    return egg::ovum::Variant(lhs >= rhs);
   }
-  egg::lang::ValueLegacy greaterFloat(double lhs, double rhs) {
-    return egg::lang::ValueLegacy(lhs > rhs);
+  egg::ovum::Variant greaterFloat(double lhs, double rhs) {
+    return egg::ovum::Variant(lhs > rhs);
   }
 }
 
@@ -230,7 +230,7 @@ void egg::yolk::EggProgramSymbol::setInferredType(const egg::ovum::ITypeRef& inf
   this->type = inferred;
 }
 
-egg::lang::ValueLegacy egg::yolk::EggProgramSymbol::assign(EggProgramContext& context, EggProgramSymbolTable& symtable, const egg::lang::ValueLegacy& rhs) {
+egg::ovum::Variant egg::yolk::EggProgramSymbol::assign(EggProgramContext& context, const egg::ovum::Variant& rhs) {
   // Ask the type to assign the value so that type promotion can occur
   switch (this->kind) {
   case Builtin:
@@ -253,19 +253,21 @@ egg::lang::ValueLegacy egg::yolk::EggProgramSymbol::assign(EggProgramContext& co
   if (promoted.isVoid()) {
     return context.raiseFormat("Cannot assign 'void' to '", this->name, "'");
   }
-  auto* slot = &this->value;
-  if (slot->hasIndirect()) {
+  if (this->value.hasIndirect()) {
     // We're already indirect, so store the value in our child
-    slot = &slot->direct();
-    *slot = promoted;
+    this->value.getPointee() = promoted;
   } else {
-    *slot = promoted;
+    // Store the value directly and soften
+    this->value = promoted;
   }
-  slot->soft(symtable);
-  return egg::lang::ValueLegacy::Void;
+  auto* basket = context.softGetBasket();
+  assert(basket != nullptr);
+  this->value.soften(*basket);
+  return egg::ovum::Variant::Void;
 }
 
 void egg::yolk::EggProgramSymbolTable::softVisitLinks(const Visitor& visitor) const {
+  // Visit all our soft links
   this->parent.visit(visitor);
   for (auto& kv : this->map) {
     auto& symbol = *kv.second;
@@ -275,21 +277,22 @@ void egg::yolk::EggProgramSymbolTable::softVisitLinks(const Visitor& visitor) co
 
 void egg::yolk::EggProgramSymbolTable::addBuiltins() {
   // TODO add built-in symbol to symbol table here
-  this->addBuiltin("string", egg::lang::ValueLegacy::builtinString(allocator));
-  this->addBuiltin("type", egg::lang::ValueLegacy::builtinType(allocator));
-  this->addBuiltin("assert", egg::lang::ValueLegacy::builtinAssert(allocator));
-  this->addBuiltin("print", egg::lang::ValueLegacy::builtinPrint(allocator));
+  this->addBuiltin("string", egg::ovum::Variant::builtinString(allocator));
+  this->addBuiltin("type", egg::ovum::Variant::builtinType(allocator));
+  this->addBuiltin("assert", egg::ovum::Variant::builtinAssert(allocator));
+  this->addBuiltin("print", egg::ovum::Variant::builtinPrint(allocator));
 }
 
-void egg::yolk::EggProgramSymbolTable::addBuiltin(const std::string& name, const egg::lang::ValueLegacy& value) {
+void egg::yolk::EggProgramSymbolTable::addBuiltin(const std::string& name, const egg::ovum::Variant& value) {
   (void)this->addSymbol(EggProgramSymbol::Builtin, name, value.getRuntimeType(), value);
 }
 
-std::shared_ptr<egg::yolk::EggProgramSymbol> egg::yolk::EggProgramSymbolTable::addSymbol(EggProgramSymbol::Kind kind, const egg::ovum::String& name, const egg::ovum::ITypeRef& type, const egg::lang::ValueLegacy& value) {
+std::shared_ptr<egg::yolk::EggProgramSymbol> egg::yolk::EggProgramSymbolTable::addSymbol(EggProgramSymbol::Kind kind, const egg::ovum::String& name, const egg::ovum::ITypeRef& type, const egg::ovum::Variant& value) {
   auto result = this->map.emplace(name, std::make_shared<EggProgramSymbol>(kind, name, type, value));
   assert(result.second);
-  result.first->second->getValue().soft(*this);
-  return result.first->second;
+  auto symbol = result.first->second;
+  symbol->getValue().soften(*this->softGetBasket());
+  return symbol;
 }
 
 std::shared_ptr<egg::yolk::EggProgramSymbol> egg::yolk::EggProgramSymbolTable::findSymbol(const egg::ovum::String& name, bool includeParents) const {
@@ -421,7 +424,7 @@ egg::ovum::LocationRuntime egg::yolk::EggProgramContext::swapLocation(const egg:
   return before;
 }
 
-egg::lang::ValueLegacy egg::yolk::EggProgramContext::get(const egg::ovum::String& name, bool byref) {
+egg::ovum::Variant egg::yolk::EggProgramContext::get(const egg::ovum::String& name, bool byref) {
   auto symbol = this->symtable->findSymbol(name);
   if (symbol == nullptr) {
     return this->raiseFormat("Unknown identifier: '", name, "'");
@@ -431,40 +434,40 @@ egg::lang::ValueLegacy egg::yolk::EggProgramContext::get(const egg::ovum::String
     return this->raiseFormat("Uninitialized identifier: '", name.toUTF8(), "'");
   }
   if (byref) {
-    (void)value.indirect(this->getAllocator());
+    value.indirect(this->getAllocator(), *this->softGetBasket());
   }
   return value;
 }
 
-egg::lang::ValueLegacy egg::yolk::EggProgramContext::set(const egg::ovum::String& name, const egg::lang::ValueLegacy& rvalue) {
+egg::ovum::Variant egg::yolk::EggProgramContext::set(const egg::ovum::String& name, const egg::ovum::Variant& rvalue) {
   if (rvalue.hasFlowControl()) {
     return rvalue;
   }
   auto symbol = this->symtable->findSymbol(name);
   assert(symbol != nullptr);
-  return symbol->assign(*this, *this->symtable, rvalue);
+  return symbol->assign(*this, rvalue);
 }
 
-egg::lang::ValueLegacy egg::yolk::EggProgramContext::guard(const egg::ovum::String& name, const egg::lang::ValueLegacy& rvalue) {
+egg::ovum::Variant egg::yolk::EggProgramContext::guard(const egg::ovum::String& name, const egg::ovum::Variant& rvalue) {
   if (rvalue.hasFlowControl()) {
     return rvalue;
   }
   auto symbol = this->symtable->findSymbol(name);
   assert(symbol != nullptr);
-  auto retval = symbol->assign(*this, *this->symtable, rvalue);
+  auto retval = symbol->assign(*this, rvalue);
   if (retval.isVoid()) {
     // The assignment succeeded
-    return egg::lang::ValueLegacy::True;
+    return egg::ovum::Variant::True;
   }
-  return egg::lang::ValueLegacy::False;
+  return egg::ovum::Variant::False;
 }
 
-egg::lang::ValueLegacy egg::yolk::EggProgramContext::assign(EggProgramAssign op, const IEggProgramNode& lhs, const IEggProgramNode& rhs) {
+egg::ovum::Variant egg::yolk::EggProgramContext::assign(EggProgramAssign op, const IEggProgramNode& lhs, const IEggProgramNode& rhs) {
   auto dst = lhs.assignee(*this);
   if (dst == nullptr) {
     return this->raiseFormat("Left-hand side of assignment '", EggProgram::assignToString(op), "' operator is not a valid target");
   }
-  egg::lang::ValueLegacy right;
+  egg::ovum::Variant right;
   if (op == EggProgramAssign::Equal) {
     // Simple assignment without interrogation beforehand
     right = rhs.execute(*this).direct();
@@ -528,7 +531,7 @@ egg::lang::ValueLegacy egg::yolk::EggProgramContext::assign(EggProgramAssign op,
   return dst->set(right);
 }
 
-egg::lang::ValueLegacy egg::yolk::EggProgramContext::mutate(EggProgramMutate op, const IEggProgramNode& lvalue) {
+egg::ovum::Variant egg::yolk::EggProgramContext::mutate(EggProgramMutate op, const IEggProgramNode& lvalue) {
   auto dst = lvalue.assignee(*this);
   if (dst == nullptr) {
     return this->raiseFormat("Operand of mutation '", EggProgram::mutateToString(op), "' operator is not a valid target");
@@ -537,7 +540,7 @@ egg::lang::ValueLegacy egg::yolk::EggProgramContext::mutate(EggProgramMutate op,
   if (lhs.hasFlowControl()) {
     return lhs;
   }
-  egg::lang::ValueLegacy rhs;
+  egg::ovum::Variant rhs;
   switch (op) {
   case EggProgramMutate::Increment:
     if (!lhs.isInt()) {
@@ -560,7 +563,7 @@ egg::lang::ValueLegacy egg::yolk::EggProgramContext::mutate(EggProgramMutate op,
   return dst->set(rhs);
 }
 
-egg::lang::ValueLegacy egg::yolk::EggProgramContext::condition(const IEggProgramNode& expression) {
+egg::ovum::Variant egg::yolk::EggProgramContext::condition(const IEggProgramNode& expression) {
   auto retval = expression.execute(*this).direct();
   if (retval.hasBool() || retval.hasFlowControl()) {
     return retval;
@@ -568,35 +571,35 @@ egg::lang::ValueLegacy egg::yolk::EggProgramContext::condition(const IEggProgram
   return this->raiseFormat("Expected condition to evaluate to a 'bool', but got '", retval.getRuntimeType()->toString(), "' instead");
 }
 
-egg::lang::ValueLegacy egg::yolk::EggProgramContext::unary(EggProgramUnary op, const IEggProgramNode& expr, egg::lang::ValueLegacy& value) {
+egg::ovum::Variant egg::yolk::EggProgramContext::unary(EggProgramUnary op, const IEggProgramNode& expr, egg::ovum::Variant& value) {
   switch (op) {
   case EggProgramUnary::LogicalNot:
-    if (this->operand(value, expr, egg::ovum::BasalBits::Bool, "Expected operand of logical-not '!' operator to be 'bool'")) {
-      return egg::lang::ValueLegacy(!value.getBool());
+    if (this->operand(value, expr, egg::ovum::VariantBits::Bool, "Expected operand of logical-not '!' operator to be 'bool'")) {
+      return egg::ovum::Variant(!value.getBool());
     }
     return value;
   case EggProgramUnary::Negate:
-    if (this->operand(value, expr, egg::ovum::BasalBits::Arithmetic, "Expected operand of negation '-' operator to be 'int' or 'float'")) {
-      return value.isInt() ? egg::lang::ValueLegacy(-value.getInt()) : egg::lang::ValueLegacy(-value.getFloat());
+    if (this->operand(value, expr, egg::ovum::VariantBits::Arithmetic, "Expected operand of negation '-' operator to be 'int' or 'float'")) {
+      return value.isInt() ? egg::ovum::Variant(-value.getInt()) : egg::ovum::Variant(-value.getFloat());
     }
     return value;
   case EggProgramUnary::BitwiseNot:
-    if (this->operand(value, expr, egg::ovum::BasalBits::Int, "Expected operand of bitwise-not '~' operator to be 'int'")) {
-      return egg::lang::ValueLegacy(~value.getInt());
+    if (this->operand(value, expr, egg::ovum::VariantBits::Int, "Expected operand of bitwise-not '~' operator to be 'int'")) {
+      return egg::ovum::Variant(~value.getInt());
     }
     return value;
   case EggProgramUnary::Ref:
     value = expr.execute(*this); // not .direct()
-    if (!value.hasFlowControl()) {
-      return egg::lang::ValueLegacy(value.indirect(this->getAllocator())); // address
+    if (value.hasFlowControl()) {
+      return value;
     }
-    return value;
+    return value.address();
   case EggProgramUnary::Deref:
     value = expr.execute(*this).direct();
     if (value.hasFlowControl()) {
       return value;
     }
-    if (!value.hasPointer() || value.hasObject()) {
+    if (!value.hasPointer()) {
       return this->unexpected("Expected operand of dereference '*' operator to be a pointer", value);
     }
     return value.getPointee();
@@ -607,7 +610,7 @@ egg::lang::ValueLegacy egg::yolk::EggProgramContext::unary(EggProgramUnary op, c
   }
 }
 
-egg::lang::ValueLegacy egg::yolk::EggProgramContext::binary(EggProgramBinary op, const IEggProgramNode& lhs, const IEggProgramNode& rhs, egg::lang::ValueLegacy& left, egg::lang::ValueLegacy& right) {
+egg::ovum::Variant egg::yolk::EggProgramContext::binary(EggProgramBinary op, const IEggProgramNode& lhs, const IEggProgramNode& rhs, egg::ovum::Variant& left, egg::ovum::Variant& right) {
   // OPTIMIZE
   left = lhs.execute(*this).direct();
   if (left.hasFlowControl()) {
@@ -615,11 +618,11 @@ egg::lang::ValueLegacy egg::yolk::EggProgramContext::binary(EggProgramBinary op,
   }
   switch (op) {
   case EggProgramBinary::Unequal:
-    if (left.hasAny() || left.hasNull()) {
-      if (!this->operand(right, rhs, egg::ovum::BasalBits::Any | egg::ovum::BasalBits::Null, "Expected right operand of inequality '!=' to be a value")) {
+    if (left.hasAny(egg::ovum::VariantBits::Any | egg::ovum::VariantBits::Null)) {
+      if (!this->operand(right, rhs, egg::ovum::VariantBits::Any | egg::ovum::VariantBits::Null, "Expected right operand of inequality '!=' to be a value")) {
         return right;
       }
-      return egg::lang::ValueLegacy(left != right);
+      return egg::ovum::Variant(left != right);
     }
     return this->unexpected("Expected left operand of inequality '!=' to be a value", left);
   case EggProgramBinary::Remainder:
@@ -645,11 +648,11 @@ egg::lang::ValueLegacy egg::yolk::EggProgramContext::binary(EggProgramBinary op,
   case EggProgramBinary::LessEqual:
     return this->arithmeticIntFloat(left, right, rhs, "comparison '<='", lessEqualInt, lessEqualFloat);
   case EggProgramBinary::Equal:
-    if (left.hasAny() || left.hasNull()) {
-      if (!this->operand(right, rhs, egg::ovum::BasalBits::Any | egg::ovum::BasalBits::Null, "Expected right operand of equality '==' to be a value")) {
+    if (left.hasAny(egg::ovum::VariantBits::Any | egg::ovum::VariantBits::Null)) {
+      if (!this->operand(right, rhs, egg::ovum::VariantBits::Any | egg::ovum::VariantBits::Null, "Expected right operand of equality '==' to be a value")) {
         return right;
       }
-      return egg::lang::ValueLegacy(left == right);
+      return egg::ovum::Variant(left == right);
     }
     return this->unexpected("Expected left operand of equality '==' to be a value", left);
   case EggProgramBinary::Greater:
@@ -673,30 +676,30 @@ egg::lang::ValueLegacy egg::yolk::EggProgramContext::binary(EggProgramBinary op,
   }
 }
 
-bool egg::yolk::EggProgramContext::operand(egg::lang::ValueLegacy& dst, const IEggProgramNode& src, egg::ovum::BasalBits expected, const char* expectation) {
+bool egg::yolk::EggProgramContext::operand(egg::ovum::Variant& dst, const IEggProgramNode& src, egg::ovum::VariantBits expected, const char* expectation) {
   dst = src.execute(*this).direct();
   if (dst.hasFlowControl()) {
     return false;
   }
-  if (dst.hasBasal(expected)) {
+  if (dst.hasAny(expected)) {
     return true;
   }
   dst = this->unexpected(expectation, dst);
   return false;
 }
 
-egg::lang::ValueLegacy egg::yolk::EggProgramContext::coalesceNull(const egg::lang::ValueLegacy& left, egg::lang::ValueLegacy& right, const IEggProgramNode& rhs) {
+egg::ovum::Variant egg::yolk::EggProgramContext::coalesceNull(const egg::ovum::Variant& left, egg::ovum::Variant& right, const IEggProgramNode& rhs) {
   assert(!left.hasIndirect());
   if (!left.isNull()) {
     // Short-circuit
-    right = egg::lang::ValueLegacy::Void;
+    right = egg::ovum::Variant::Void;
     return left;
   }
   right = rhs.execute(*this).direct();
   return right;
 }
 
-egg::lang::ValueLegacy egg::yolk::EggProgramContext::logicalBool(const egg::lang::ValueLegacy& left, egg::lang::ValueLegacy& right, const IEggProgramNode& rhs, const char* operation, EggProgramBinary binary) {
+egg::ovum::Variant egg::yolk::EggProgramContext::logicalBool(const egg::ovum::Variant& left, egg::ovum::Variant& right, const IEggProgramNode& rhs, const char* operation, EggProgramBinary binary) {
   assert(!left.hasIndirect());
   if (!left.isBool()) {
     return this->unexpected("Expected left-hand side of " + std::string(operation) + " to be 'bool'", left);
@@ -704,14 +707,14 @@ egg::lang::ValueLegacy egg::yolk::EggProgramContext::logicalBool(const egg::lang
   if (left.getBool()) {
     if (binary == EggProgramBinary::LogicalOr) {
       // 'true || rhs' short-circuits to 'true'
-      right = egg::lang::ValueLegacy::Void;
-      return egg::lang::ValueLegacy::True;
+      right = egg::ovum::Variant::Void;
+      return egg::ovum::Variant::True;
     }
   } else {
     if (binary == EggProgramBinary::LogicalAnd) {
       // 'false && rhs' short-circuits to 'false'
-      right = egg::lang::ValueLegacy::Void;
-      return egg::lang::ValueLegacy::False;
+      right = egg::ovum::Variant::Void;
+      return egg::ovum::Variant::False;
     }
   }
   // The result is always 'rhs' now
@@ -726,7 +729,7 @@ egg::lang::ValueLegacy egg::yolk::EggProgramContext::logicalBool(const egg::lang
   return this->unexpected("Expected right-hand side of " + std::string(operation) + " to be 'bool'", right);
 }
 
-egg::lang::ValueLegacy egg::yolk::EggProgramContext::arithmeticBool(const egg::lang::ValueLegacy& left, egg::lang::ValueLegacy& right, const IEggProgramNode& rhs, const char* operation, ArithmeticBool bools) {
+egg::ovum::Variant egg::yolk::EggProgramContext::arithmeticBool(const egg::ovum::Variant& left, egg::ovum::Variant& right, const IEggProgramNode& rhs, const char* operation, ArithmeticBool bools) {
   assert(!left.hasIndirect());
   if (!left.isBool()) {
     return this->unexpected("Expected left-hand side of " + std::string(operation) + " to be 'bool'", left);
@@ -742,7 +745,7 @@ egg::lang::ValueLegacy egg::yolk::EggProgramContext::arithmeticBool(const egg::l
   return this->unexpected("Expected right-hand side of " + std::string(operation) + " to be 'bool'", right);
 }
 
-egg::lang::ValueLegacy egg::yolk::EggProgramContext::arithmeticInt(const egg::lang::ValueLegacy& left, egg::lang::ValueLegacy& right, const IEggProgramNode& rhs, const char* operation, ArithmeticInt ints) {
+egg::ovum::Variant egg::yolk::EggProgramContext::arithmeticInt(const egg::ovum::Variant& left, egg::ovum::Variant& right, const IEggProgramNode& rhs, const char* operation, ArithmeticInt ints) {
   assert(!left.hasIndirect());
   if (!left.isInt()) {
     return this->unexpected("Expected left-hand side of " + std::string(operation) + " to be 'int'", left);
@@ -758,7 +761,7 @@ egg::lang::ValueLegacy egg::yolk::EggProgramContext::arithmeticInt(const egg::la
   return this->unexpected("Expected right-hand side of " + std::string(operation) + " to be 'int'", right);
 }
 
-egg::lang::ValueLegacy egg::yolk::EggProgramContext::arithmeticBoolInt(const egg::lang::ValueLegacy& left, egg::lang::ValueLegacy& right, const IEggProgramNode& rhs, const char* operation, ArithmeticBool bools, ArithmeticInt ints) {
+egg::ovum::Variant egg::yolk::EggProgramContext::arithmeticBoolInt(const egg::ovum::Variant& left, egg::ovum::Variant& right, const IEggProgramNode& rhs, const char* operation, ArithmeticBool bools, ArithmeticInt ints) {
   assert(!left.hasIndirect());
   if (left.isBool()) {
     return this->arithmeticBool(left, right, rhs, operation, bools);
@@ -772,7 +775,7 @@ egg::lang::ValueLegacy egg::yolk::EggProgramContext::arithmeticBoolInt(const egg
   return this->unexpected("Expected left-hand side of " + std::string(operation) + " to be 'bool' or 'int'", left);
 }
 
-egg::lang::ValueLegacy egg::yolk::EggProgramContext::arithmeticIntFloat(const egg::lang::ValueLegacy& left, egg::lang::ValueLegacy& right, const IEggProgramNode& rhs, const char* operation, ArithmeticInt ints, ArithmeticFloat floats) {
+egg::ovum::Variant egg::yolk::EggProgramContext::arithmeticIntFloat(const egg::ovum::Variant& left, egg::ovum::Variant& right, const IEggProgramNode& rhs, const char* operation, ArithmeticInt ints, ArithmeticFloat floats) {
   assert(!left.hasIndirect());
   if (!left.hasArithmetic()) {
     return this->unexpected("Expected left-hand side of " + std::string(operation) + " to be 'int' or 'float'", left);
@@ -797,7 +800,7 @@ egg::lang::ValueLegacy egg::yolk::EggProgramContext::arithmeticIntFloat(const eg
   return this->unexpected("Expected right-hand side of " + std::string(operation) + " to be 'int' or 'float'", right);
 }
 
-egg::lang::ValueLegacy egg::yolk::EggProgramContext::call(const egg::lang::ValueLegacy& callee, const egg::ovum::IParameters& parameters) {
+egg::ovum::Variant egg::yolk::EggProgramContext::call(const egg::ovum::Variant& callee, const egg::ovum::IParameters& parameters) {
   auto& direct = callee.direct();
   if (!direct.hasObject()) {
     return this->unexpected("Expected function-like expression to be 'object'", direct);
@@ -806,7 +809,7 @@ egg::lang::ValueLegacy egg::yolk::EggProgramContext::call(const egg::lang::Value
   return object->call(*this, parameters);
 }
 
-egg::lang::ValueLegacy egg::yolk::EggProgramContext::dotGet(const egg::lang::ValueLegacy& instance, const egg::ovum::String& property) {
+egg::ovum::Variant egg::yolk::EggProgramContext::dotGet(const egg::ovum::Variant& instance, const egg::ovum::String& property) {
   // Dispatch requests for strings and complex types
   auto& direct = instance.direct();
   if (direct.hasObject()) {
@@ -818,7 +821,7 @@ egg::lang::ValueLegacy egg::yolk::EggProgramContext::dotGet(const egg::lang::Val
   return this->raiseFormat("Values of type '", instance.getRuntimeType()->toString(), "' do not support properties such as '.", property, "'");
 }
 
-egg::lang::ValueLegacy egg::yolk::EggProgramContext::dotSet(const egg::lang::ValueLegacy& instance, const egg::ovum::String& property, const egg::lang::ValueLegacy& value) {
+egg::ovum::Variant egg::yolk::EggProgramContext::dotSet(const egg::ovum::Variant& instance, const egg::ovum::String& property, const egg::ovum::Variant& value) {
   // Dispatch requests for complex types
   auto& direct = instance.direct();
   if (direct.hasObject()) {
@@ -831,7 +834,7 @@ egg::lang::ValueLegacy egg::yolk::EggProgramContext::dotSet(const egg::lang::Val
   return this->raiseFormat("Values of type '", instance.getRuntimeType()->toString(), "' do not support modification of properties such as '.", property, "'");
 }
 
-egg::lang::ValueLegacy egg::yolk::EggProgramContext::bracketsGet(const egg::lang::ValueLegacy& instance, const egg::lang::ValueLegacy& index) {
+egg::ovum::Variant egg::yolk::EggProgramContext::bracketsGet(const egg::ovum::Variant& instance, const egg::ovum::Variant& index) {
   // Dispatch requests for strings and complex types
   auto& direct = instance.direct();
   if (direct.hasObject()) {
@@ -854,12 +857,12 @@ egg::lang::ValueLegacy egg::yolk::EggProgramContext::bracketsGet(const egg::lang
       }
       return this->raiseFormat("Cannot index a malformed string");
     }
-    return egg::lang::ValueLegacy{ egg::ovum::StringFactory::fromCodePoint(this->allocator, char32_t(c)) };
+    return egg::ovum::Variant{ egg::ovum::StringFactory::fromCodePoint(this->allocator, char32_t(c)) };
   }
   return this->raiseFormat("Values of type '", instance.getRuntimeType()->toString(), "' do not support indexing with '[]'");
 }
 
-egg::lang::ValueLegacy egg::yolk::EggProgramContext::bracketsSet(const egg::lang::ValueLegacy& instance, const egg::lang::ValueLegacy& index, const egg::lang::ValueLegacy& value) {
+egg::ovum::Variant egg::yolk::EggProgramContext::bracketsSet(const egg::ovum::Variant& instance, const egg::ovum::Variant& index, const egg::ovum::Variant& value) {
   // Dispatch requests for complex types
   auto& direct = instance.direct();
   if (direct.hasObject()) {
@@ -872,11 +875,11 @@ egg::lang::ValueLegacy egg::yolk::EggProgramContext::bracketsSet(const egg::lang
   return this->raiseFormat("Values of type '", instance.getRuntimeType()->toString(), "' do not support indexing with '[]'");
 }
 
-egg::lang::ValueLegacy egg::yolk::EggProgramContext::unexpected(const std::string& expectation, const egg::lang::ValueLegacy& value) {
+egg::ovum::Variant egg::yolk::EggProgramContext::unexpected(const std::string& expectation, const egg::ovum::Variant& value) {
   return this->raiseFormat(expectation, ", but got '", value.getRuntimeType()->toString(), "' instead");
 }
 
-egg::lang::ValueLegacy egg::yolk::EggProgramContext::assertion(const egg::lang::ValueLegacy& predicate) {
+egg::ovum::Variant egg::yolk::EggProgramContext::assertion(const egg::ovum::Variant& predicate) {
   auto& direct = predicate.direct();
   if (!direct.isBool()) {
     return this->unexpected("Expected assertion predicate to be 'bool'", direct);
@@ -884,7 +887,7 @@ egg::lang::ValueLegacy egg::yolk::EggProgramContext::assertion(const egg::lang::
   if (!direct.getBool()) {
     return this->raiseFormat("Assertion is untrue");
   }
-  return egg::lang::ValueLegacy::Void;
+  return egg::ovum::Variant::Void;
 }
 
 void egg::yolk::EggProgramContext::print(const std::string& utf8) {

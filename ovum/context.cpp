@@ -28,4 +28,3 @@ egg::ovum::String egg::ovum::LocationRuntime::toRuntimeString() const {
   }
   return sb.str();
 }
-

@@ -107,10 +107,10 @@
   X(OPCODE_YIELD, 126, 0, 1, "yield")
 
 #define EGG_VM_BASAL(X) \
-  X(Void) \
-  X(Null) \
-  X(Bool) \
-  X(Int) \
-  X(Float) \
-  X(String) \
-  X(Object)
+  X(Void, "void") \
+  X(Null, "null") \
+  X(Bool, "bool") \
+  X(Int, "int") \
+  X(Float, "float") \
+  X(String, "string") \
+  X(Object, "object")

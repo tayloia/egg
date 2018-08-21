@@ -33,7 +33,6 @@
     <ClCompile Include="..\yolk\files.cpp" />
     <ClCompile Include="..\yolk\functions.cpp" />
     <ClCompile Include="..\yolk\json-tokenizer.cpp" />
-    <ClCompile Include="..\yolk\lang.cpp" />
     <ClCompile Include="..\yolk\lexers.cpp" />
     <ClCompile Include="..\yolk\program.cpp" />
     <ClCompile Include="..\yolk\streams.cpp" />
@@ -57,7 +56,6 @@
     <ClInclude Include="..\yolk\files.h" />
     <ClInclude Include="..\yolk\functions.h" />
     <ClInclude Include="..\yolk\json-tokenizer.h" />
-    <ClInclude Include="..\yolk\lang.h" />
     <ClInclude Include="..\yolk\lexer.h" />
     <ClInclude Include="..\yolk\lexers.h" />
     <ClInclude Include="..\yolk\macros.h" />

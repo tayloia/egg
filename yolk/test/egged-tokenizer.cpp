@@ -49,7 +49,7 @@ TEST(TestEggedTokenizer, Null) {
   auto tokenizer = createFromString("{ \"null\": null }");
   ASSERT_EQ(EggedTokenizerKind::ObjectStart, tokenizer->next(item));
   ASSERT_EQ(EggedTokenizerKind::String, tokenizer->next(item));
-  ASSERT_EQ("null", item.value.toUTF8());
+  ASSERT_EQ("null", item.value.getString().toUTF8());
   ASSERT_EQ(EggedTokenizerKind::Colon, tokenizer->next(item));
   ASSERT_EQ(EggedTokenizerKind::Null, tokenizer->next(item));
   ASSERT_EQ(EggedTokenizerKind::ObjectEnd, tokenizer->next(item));

@@ -66,7 +66,7 @@ namespace {
         collectable->softVisitLinks([&](ICollectable& target) {
           auto entry = unreachable.find(&target);
           if (entry != unreachable.end()) {
-            // It's a node that just been deemed reachable
+            // It's a node that has just been deemed reachable
             unreachable.erase(entry);
             pending.push(&target);
           }
