@@ -66,7 +66,7 @@ egg::yolk::EggProgramExpression::~EggProgramExpression() {
 
 egg::ovum::Variant egg::yolk::EggProgramContext::executeScope(const IEggProgramNode* node, ScopeAction action) {
   egg::ovum::String name;
-  egg::ovum::ITypeRef type{ egg::ovum::Type::Void };
+  egg::ovum::Type type{ egg::ovum::Type::Void };
   if ((node != nullptr) && node->symbol(name, type)) {
     // Perform the action with a new scope containing our symbol
     auto nested = this->getAllocator().make<EggProgramSymbolTable>(this->symtable.get());
@@ -107,7 +107,7 @@ egg::ovum::Variant egg::yolk::EggProgramContext::executeBlock(const IEggProgramN
   return context->executeStatements(statements);
 }
 
-egg::ovum::Variant egg::yolk::EggProgramContext::executeDeclare(const IEggProgramNode& self, const egg::ovum::String& name, const egg::ovum::ITypeRef& type, const IEggProgramNode* rvalue) {
+egg::ovum::Variant egg::yolk::EggProgramContext::executeDeclare(const IEggProgramNode& self, const egg::ovum::String& name, const egg::ovum::Type& type, const IEggProgramNode* rvalue) {
   // The type information has already been used in the symbol declaration phase
   EGG_UNUSED(type); // Used in assertion only
   this->statement(self);
@@ -118,11 +118,11 @@ egg::ovum::Variant egg::yolk::EggProgramContext::executeDeclare(const IEggProgra
   return egg::ovum::Variant::Void;
 }
 
-egg::ovum::Variant egg::yolk::EggProgramContext::executeGuard(const IEggProgramNode& self, const egg::ovum::String& name, const egg::ovum::ITypeRef& type, const IEggProgramNode& rvalue) {
+egg::ovum::Variant egg::yolk::EggProgramContext::executeGuard(const IEggProgramNode& self, const egg::ovum::String& name, const egg::ovum::Type& type, const IEggProgramNode& rvalue) {
   // The type information has already been used in the symbol declaration phase
   EGG_UNUSED(type); // Used in assertion only
   this->statement(self);
-  assert(type->getBasalTypes() != egg::ovum::BasalBits::None);
+  assert(type != nullptr);
   return this->guard(name, rvalue.execute(*this)); // not .direct()
 }
 
@@ -341,7 +341,7 @@ egg::ovum::Variant egg::yolk::EggProgramContext::executeForeachIterate(IEggProgr
   return egg::ovum::Variant::Void;
 }
 
-egg::ovum::Variant egg::yolk::EggProgramContext::executeFunctionDefinition(const IEggProgramNode& self, const egg::ovum::String& name, const egg::ovum::ITypeRef& type, const std::shared_ptr<IEggProgramNode>& block) {
+egg::ovum::Variant egg::yolk::EggProgramContext::executeFunctionDefinition(const IEggProgramNode& self, const egg::ovum::String& name, const egg::ovum::Type& type, const std::shared_ptr<IEggProgramNode>& block) {
   // This defines a function, it doesn't call it
   this->statement(self);
   auto symbol = this->symtable->findSymbol(name);
@@ -350,7 +350,7 @@ egg::ovum::Variant egg::yolk::EggProgramContext::executeFunctionDefinition(const
   return symbol->assign(*this, this->createVanillaFunction(type, block));
 }
 
-egg::ovum::Variant egg::yolk::EggProgramContext::executeFunctionCall(const egg::ovum::ITypeRef& type, const egg::ovum::IParameters& parameters, const std::shared_ptr<IEggProgramNode>& block) {
+egg::ovum::Variant egg::yolk::EggProgramContext::executeFunctionCall(const egg::ovum::Type& type, const egg::ovum::IParameters& parameters, const std::shared_ptr<IEggProgramNode>& block) {
   // This actually calls a function
   assert(block != nullptr);
   auto callable = type->callable();
@@ -399,7 +399,7 @@ egg::ovum::Variant egg::yolk::EggProgramContext::executeFunctionCall(const egg::
   return retval;
 }
 
-egg::ovum::Variant egg::yolk::EggProgramContext::executeGeneratorDefinition(const IEggProgramNode& self, const egg::ovum::ITypeRef& gentype, const egg::ovum::ITypeRef& rettype, const std::shared_ptr<IEggProgramNode>& block) {
+egg::ovum::Variant egg::yolk::EggProgramContext::executeGeneratorDefinition(const IEggProgramNode& self, const egg::ovum::Type& gentype, const egg::ovum::Type& rettype, const std::shared_ptr<IEggProgramNode>& block) {
   // This defines a generator, it doesn't call it
   // A generator is a function that simple returns an iterator function
   this->statement(self);

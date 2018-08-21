@@ -27,7 +27,7 @@ namespace {
     auto tokenizer = EggTokenizerFactory::createFromLexer(lexer);
     auto parser = EggParserFactory::createExpressionParser();
     auto type = parser->parse(allocator, *tokenizer)->getType();
-    return type->toString().toUTF8();
+    return (type == nullptr) ? "<unknown>" : type->toString().toUTF8();
   }
 }
 
@@ -67,7 +67,7 @@ TEST(TestEggParser, ExpressionType) {
   ASSERT_PARSE_GOOD(typeFromExpression(allocator, "{}"), "any?{string}");
   ASSERT_PARSE_GOOD(typeFromExpression(allocator, "{a:1,b:2,c:3}"), "any?{string}");
   ASSERT_PARSE_GOOD(typeFromExpression(allocator, "&123"), "int*");
-  ASSERT_PARSE_GOOD(typeFromExpression(allocator, "*123"), "void");
+  ASSERT_PARSE_GOOD(typeFromExpression(allocator, "*123"), "<unknown>");
   ASSERT_PARSE_GOOD(typeFromExpression(allocator, "!true"), "bool");
   ASSERT_PARSE_GOOD(typeFromExpression(allocator, "- 123"), "int");
   ASSERT_PARSE_GOOD(typeFromExpression(allocator, "~123"), "int");

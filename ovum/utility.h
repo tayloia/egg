@@ -279,12 +279,12 @@ namespace egg::ovum {
     return ptr != nullptr;
   }
 
-  template<typename T, typename... ARGS>
-  HardPtr<T> IAllocator::make(ARGS&&... args) {
+  template<typename T, typename RETTYPE, typename... ARGS>
+  RETTYPE IAllocator::make(ARGS&&... args) {
     // Use perfect forwarding to in-place new
     void* allocated = this->allocate(sizeof(T), alignof(T));
     assert(allocated != nullptr);
-    return HardPtr<T>(new(allocated) T(*this, std::forward<ARGS>(args)...));
+    return RETTYPE(new(allocated) T(*this, std::forward<ARGS>(args)...));
   }
 
   template<typename T>

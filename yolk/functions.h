@@ -8,16 +8,19 @@ namespace egg::yolk {
   protected:
     std::unique_ptr<FunctionSignature> signature;
   public:
-    FunctionType(egg::ovum::IAllocator& allocator, const egg::ovum::String& name, const egg::ovum::ITypeRef& returnType);
+    FunctionType(egg::ovum::IAllocator& allocator, const egg::ovum::String& name, const egg::ovum::Type& returnType);
     virtual ~FunctionType() override;
+    virtual egg::ovum::BasalBits getBasalTypes() const override {
+      return egg::ovum::BasalBits::Object;
+    }
     virtual std::pair<std::string, int> toStringPrecedence() const override;
     virtual AssignmentSuccess canBeAssignedFrom(const IType& rtype) const;
     virtual const egg::ovum::IFunctionSignature* callable() const override;
-    void addParameter(const egg::ovum::String& name, const egg::ovum::ITypeRef& type, egg::ovum::IFunctionSignatureParameter::Flags flags);
+    void addParameter(const egg::ovum::String& name, const egg::ovum::Type& type, egg::ovum::IFunctionSignatureParameter::Flags flags);
 
     // Helpers
-    static FunctionType* createFunctionType(egg::ovum::IAllocator& allocator, const egg::ovum::String& name, const egg::ovum::ITypeRef& returnType);
-    static FunctionType* createGeneratorType(egg::ovum::IAllocator& allocator, const egg::ovum::String& name, const egg::ovum::ITypeRef& returnType);
+    static FunctionType* createFunctionType(egg::ovum::IAllocator& allocator, const egg::ovum::String& name, const egg::ovum::Type& returnType);
+    static FunctionType* createGeneratorType(egg::ovum::IAllocator& allocator, const egg::ovum::String& name, const egg::ovum::Type& returnType);
     static void buildFunctionSignature(egg::ovum::StringBuilder& sb, const egg::ovum::IFunctionSignature& signature, egg::ovum::IFunctionSignature::Parts parts);
   };
 

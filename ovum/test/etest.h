@@ -4,6 +4,7 @@ namespace egg::test {
     Allocator& operator=(const Allocator&) = delete;
   public:
     enum class Expectation {
+      Unknown,
       NoAllocations,
       AtLeastOneAllocation
     };
@@ -20,6 +21,8 @@ namespace egg::test {
       ASSERT_EQ(stats.currentBlocksAllocated, 0u);
       ASSERT_EQ(stats.currentBytesAllocated, 0u);
       switch (this->expectation) {
+      case Expectation::Unknown:
+        break;
       case Expectation::NoAllocations:
         ASSERT_EQ(stats.totalBlocksAllocated, 0u);
         ASSERT_EQ(stats.totalBytesAllocated, 0u);

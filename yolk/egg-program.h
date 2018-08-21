@@ -22,9 +22,9 @@ namespace egg::yolk {
   class IEggProgramNode {
   public:
     virtual ~IEggProgramNode() {}
-    virtual egg::ovum::ITypeRef getType() const = 0;
+    virtual egg::ovum::Type getType() const = 0;
     virtual egg::ovum::LocationSource location() const = 0;
-    virtual bool symbol(egg::ovum::String& nameOut, egg::ovum::ITypeRef& typeOut) const = 0;
+    virtual bool symbol(egg::ovum::String& nameOut, egg::ovum::Type& typeOut) const = 0;
     virtual void empredicate(EggProgramContext& context, std::shared_ptr<IEggProgramNode>& ptr) = 0;
     virtual EggProgramNodeFlags prepare(EggProgramContext& context) = 0;
     virtual EggProgramNodeFlags addressable(EggProgramContext& context) = 0;
@@ -56,16 +56,16 @@ namespace egg::yolk {
   private:
     Kind kind;
     egg::ovum::String name;
-    egg::ovum::ITypeRef type;
+    egg::ovum::Type type;
     egg::ovum::Variant value;
   public:
-    EggProgramSymbol(Kind kind, const egg::ovum::String& name, const egg::ovum::ITypeRef& type, const egg::ovum::Variant& value)
+    EggProgramSymbol(Kind kind, const egg::ovum::String& name, const egg::ovum::Type& type, const egg::ovum::Variant& value)
       : kind(kind), name(name), type(type), value(value) {
     }
     const egg::ovum::String& getName() const { return this->name; }
     const egg::ovum::IType& getType() const { return *this->type; }
     egg::ovum::Variant& getValue() { return this->value; }
-    void setInferredType(const egg::ovum::ITypeRef& inferred);
+    void setInferredType(const egg::ovum::Type& inferred);
     egg::ovum::Variant assign(EggProgramContext& context, const egg::ovum::Variant& rhs);
   };
 
@@ -82,7 +82,7 @@ namespace egg::yolk {
     virtual void softVisitLinks(const Visitor& visitor) const override;
     void addBuiltins();
     void addBuiltin(const std::string& name, const egg::ovum::Variant& value);
-    std::shared_ptr<EggProgramSymbol> addSymbol(EggProgramSymbol::Kind kind, const egg::ovum::String& name, const egg::ovum::ITypeRef& type, const egg::ovum::Variant& value = egg::ovum::Variant::Void);
+    std::shared_ptr<EggProgramSymbol> addSymbol(EggProgramSymbol::Kind kind, const egg::ovum::String& name, const egg::ovum::Type& type, const egg::ovum::Variant& value = egg::ovum::Variant::Void);
     std::shared_ptr<EggProgramSymbol> findSymbol(const egg::ovum::String& name, bool includeParents = true) const;
   };
 
@@ -196,8 +196,8 @@ namespace egg::yolk {
     egg::ovum::Variant bracketsSet(const egg::ovum::Variant& instance, const egg::ovum::Variant& index, const egg::ovum::Variant& value);
     egg::ovum::Variant createVanillaArray();
     egg::ovum::Variant createVanillaObject();
-    egg::ovum::Variant createVanillaFunction(const egg::ovum::ITypeRef& type, const std::shared_ptr<IEggProgramNode>& block);
-    egg::ovum::Variant createVanillaGenerator(const egg::ovum::ITypeRef& itertype, const egg::ovum::ITypeRef& rettype, const std::shared_ptr<IEggProgramNode>& block);
+    egg::ovum::Variant createVanillaFunction(const egg::ovum::Type& type, const std::shared_ptr<IEggProgramNode>& block);
+    egg::ovum::Variant createVanillaGenerator(const egg::ovum::Type& itertype, const egg::ovum::Type& rettype, const std::shared_ptr<IEggProgramNode>& block);
     // Inherited via IExecution
     virtual egg::ovum::IAllocator& getAllocator() const override; // TODO needed?
     virtual egg::ovum::Variant raise(const egg::ovum::String& message) override;
@@ -206,8 +206,8 @@ namespace egg::yolk {
     // Implemented in egg-execute.cpp
     egg::ovum::Variant executeModule(const IEggProgramNode& self, const std::vector<std::shared_ptr<IEggProgramNode>>& statements);
     egg::ovum::Variant executeBlock(const IEggProgramNode& self, const std::vector<std::shared_ptr<IEggProgramNode>>& statements);
-    egg::ovum::Variant executeDeclare(const IEggProgramNode& self, const egg::ovum::String& name, const egg::ovum::ITypeRef& type, const IEggProgramNode* rvalue);
-    egg::ovum::Variant executeGuard(const IEggProgramNode& self, const egg::ovum::String& name, const egg::ovum::ITypeRef& type, const IEggProgramNode& rvalue);
+    egg::ovum::Variant executeDeclare(const IEggProgramNode& self, const egg::ovum::String& name, const egg::ovum::Type& type, const IEggProgramNode* rvalue);
+    egg::ovum::Variant executeGuard(const IEggProgramNode& self, const egg::ovum::String& name, const egg::ovum::Type& type, const IEggProgramNode& rvalue);
     egg::ovum::Variant executeAssign(const IEggProgramNode& self, EggProgramAssign op, const IEggProgramNode& lvalue, const IEggProgramNode& rvalue);
     egg::ovum::Variant executeMutate(const IEggProgramNode& self, EggProgramMutate op, const IEggProgramNode& lvalue);
     egg::ovum::Variant executeBreak(const IEggProgramNode& self);
@@ -217,9 +217,9 @@ namespace egg::yolk {
     egg::ovum::Variant executeIf(const IEggProgramNode& self, const IEggProgramNode& cond, const IEggProgramNode& trueBlock, const IEggProgramNode* falseBlock);
     egg::ovum::Variant executeFor(const IEggProgramNode& self, const IEggProgramNode* pre, const IEggProgramNode* cond, const IEggProgramNode* post, const IEggProgramNode& block);
     egg::ovum::Variant executeForeach(const IEggProgramNode& self, const IEggProgramNode& lvalue, const IEggProgramNode& rvalue, const IEggProgramNode& block);
-    egg::ovum::Variant executeFunctionDefinition(const IEggProgramNode& self, const egg::ovum::String& name, const egg::ovum::ITypeRef& type, const std::shared_ptr<IEggProgramNode>& block);
-    egg::ovum::Variant executeFunctionCall(const egg::ovum::ITypeRef& type, const egg::ovum::IParameters& parameters, const std::shared_ptr<IEggProgramNode>& block);
-    egg::ovum::Variant executeGeneratorDefinition(const IEggProgramNode& self, const egg::ovum::ITypeRef& gentype, const egg::ovum::ITypeRef& rettype, const std::shared_ptr<IEggProgramNode>& block);
+    egg::ovum::Variant executeFunctionDefinition(const IEggProgramNode& self, const egg::ovum::String& name, const egg::ovum::Type& type, const std::shared_ptr<IEggProgramNode>& block);
+    egg::ovum::Variant executeFunctionCall(const egg::ovum::Type& type, const egg::ovum::IParameters& parameters, const std::shared_ptr<IEggProgramNode>& block);
+    egg::ovum::Variant executeGeneratorDefinition(const IEggProgramNode& self, const egg::ovum::Type& gentype, const egg::ovum::Type& rettype, const std::shared_ptr<IEggProgramNode>& block);
     egg::ovum::Variant executeReturn(const IEggProgramNode& self, const IEggProgramNode* value);
     egg::ovum::Variant executeCase(const IEggProgramNode& self, const std::vector<std::shared_ptr<IEggProgramNode>>& values, const IEggProgramNode& block); // against in 'scopeValue'
     egg::ovum::Variant executeSwitch(const IEggProgramNode& self, const IEggProgramNode& value, int64_t defaultIndex, const std::vector<std::shared_ptr<IEggProgramNode>>& cases);
@@ -249,8 +249,8 @@ namespace egg::yolk {
     std::shared_ptr<IEggProgramNode> empredicateBinary(const std::shared_ptr<IEggProgramNode>& node, EggProgramBinary op, const std::shared_ptr<IEggProgramNode>& lhs, const std::shared_ptr<IEggProgramNode>& rhs);
     EggProgramNodeFlags prepareModule(const std::vector<std::shared_ptr<IEggProgramNode>>& statements);
     EggProgramNodeFlags prepareBlock(const std::vector<std::shared_ptr<IEggProgramNode>>& statements);
-    EggProgramNodeFlags prepareDeclare(const egg::ovum::LocationSource& where, const egg::ovum::String& name, egg::ovum::ITypeRef& ltype, IEggProgramNode* rvalue);
-    EggProgramNodeFlags prepareGuard(const egg::ovum::LocationSource& where, const egg::ovum::String& name, egg::ovum::ITypeRef& ltype, IEggProgramNode& rvalue);
+    EggProgramNodeFlags prepareDeclare(const egg::ovum::LocationSource& where, const egg::ovum::String& name, egg::ovum::Type& ltype, IEggProgramNode* rvalue);
+    EggProgramNodeFlags prepareGuard(const egg::ovum::LocationSource& where, const egg::ovum::String& name, egg::ovum::Type& ltype, IEggProgramNode& rvalue);
     EggProgramNodeFlags prepareAssign(const egg::ovum::LocationSource& where, EggProgramAssign op, IEggProgramNode& lvalue, IEggProgramNode& rvalue);
     EggProgramNodeFlags prepareMutate(const egg::ovum::LocationSource& where, EggProgramMutate op, IEggProgramNode& lvalue);
     EggProgramNodeFlags prepareCatch(const egg::ovum::String& name, IEggProgramNode& type, IEggProgramNode& block);
@@ -258,8 +258,8 @@ namespace egg::yolk {
     EggProgramNodeFlags prepareIf(IEggProgramNode& cond, IEggProgramNode& trueBlock, IEggProgramNode* falseBlock);
     EggProgramNodeFlags prepareFor(IEggProgramNode* pre, IEggProgramNode* cond, IEggProgramNode* post, IEggProgramNode& block);
     EggProgramNodeFlags prepareForeach(IEggProgramNode& lvalue, IEggProgramNode& rvalue, IEggProgramNode& block);
-    EggProgramNodeFlags prepareFunctionDefinition(const egg::ovum::String& name, const egg::ovum::ITypeRef& type, const std::shared_ptr<IEggProgramNode>& block);
-    EggProgramNodeFlags prepareGeneratorDefinition(const egg::ovum::ITypeRef& rettype, const std::shared_ptr<IEggProgramNode>& block);
+    EggProgramNodeFlags prepareFunctionDefinition(const egg::ovum::String& name, const egg::ovum::Type& type, const std::shared_ptr<IEggProgramNode>& block);
+    EggProgramNodeFlags prepareGeneratorDefinition(const egg::ovum::Type& rettype, const std::shared_ptr<IEggProgramNode>& block);
     EggProgramNodeFlags prepareReturn(const egg::ovum::LocationSource& where, IEggProgramNode* value);
     EggProgramNodeFlags prepareCase(const std::vector<std::shared_ptr<IEggProgramNode>>& values, IEggProgramNode& block);
     EggProgramNodeFlags prepareSwitch(IEggProgramNode& value, int64_t defaultIndex, const std::vector<std::shared_ptr<IEggProgramNode>>& cases);
@@ -270,7 +270,7 @@ namespace egg::yolk {
     EggProgramNodeFlags prepareArray(const std::vector<std::shared_ptr<IEggProgramNode>>& values);
     EggProgramNodeFlags prepareObject(const std::vector<std::shared_ptr<IEggProgramNode>>& values);
     EggProgramNodeFlags prepareCall(IEggProgramNode& callee, std::vector<std::shared_ptr<IEggProgramNode>>& parameters);
-    EggProgramNodeFlags prepareIdentifier(const egg::ovum::LocationSource& where, const egg::ovum::String& name, egg::ovum::ITypeRef& type);
+    EggProgramNodeFlags prepareIdentifier(const egg::ovum::LocationSource& where, const egg::ovum::String& name, egg::ovum::Type& type);
     EggProgramNodeFlags prepareBrackets(const egg::ovum::LocationSource& where, IEggProgramNode& instance, IEggProgramNode& index);
     EggProgramNodeFlags prepareDot(const egg::ovum::LocationSource& where, IEggProgramNode& instance, const egg::ovum::String& property);
     EggProgramNodeFlags prepareUnary(const egg::ovum::LocationSource& where, EggProgramUnary op, IEggProgramNode& value);
@@ -278,13 +278,13 @@ namespace egg::yolk {
     EggProgramNodeFlags prepareTernary(const egg::ovum::LocationSource& where, IEggProgramNode& cond, IEggProgramNode& whenTrue, IEggProgramNode& whenFalse);
     EggProgramNodeFlags preparePredicate(const egg::ovum::LocationSource& where, EggProgramBinary op, IEggProgramNode& lhs, IEggProgramNode& rhs);
     // Temporary scope modifiers
-    EggProgramNodeFlags prepareWithType(IEggProgramNode& node, const egg::ovum::ITypeRef& type);
+    EggProgramNodeFlags prepareWithType(IEggProgramNode& node, const egg::ovum::Type& type);
     egg::ovum::Variant executeWithValue(const IEggProgramNode& node, const egg::ovum::Variant& value);
   private:
     bool findDuplicateSymbols(const std::vector<std::shared_ptr<IEggProgramNode>>& statements);
     EggProgramNodeFlags prepareScope(const IEggProgramNode* node, std::function<EggProgramNodeFlags(EggProgramContext&)> action);
     EggProgramNodeFlags prepareStatements(const std::vector<std::shared_ptr<IEggProgramNode>>& statements);
-    EggProgramNodeFlags typeCheck(const egg::ovum::LocationSource& where, egg::ovum::ITypeRef& ltype, const egg::ovum::ITypeRef& rtype, const egg::ovum::String& name, bool guard);
+    EggProgramNodeFlags typeCheck(const egg::ovum::LocationSource& where, egg::ovum::Type& ltype, const egg::ovum::Type& rtype, const egg::ovum::String& name, bool guard);
     typedef std::function<egg::ovum::Variant(EggProgramContext&)> ScopeAction;
     egg::ovum::Variant executeScope(const IEggProgramNode* node, ScopeAction action);
     egg::ovum::Variant executeStatements(const std::vector<std::shared_ptr<IEggProgramNode>>& statements);

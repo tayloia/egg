@@ -1,9 +1,8 @@
 namespace egg::ovum {
-  class Type : public ITypeRef {
-    Type() = delete;
-  private:
-    explicit Type(const IType& rhs) : ITypeRef(&rhs) {}
+  class Type : public HardPtr<const IType> {
   public:
+    explicit Type(const IType* rhs = nullptr) : HardPtr(rhs) {
+    }
     static const Type Void;
     static const Type Null;
     static const Type Bool;
@@ -14,8 +13,8 @@ namespace egg::ovum {
     static const Type Any;
     static const Type AnyQ;
 
-    static ITypeRef makeBasal(BasalBits basal);
-    static ITypeRef makeUnion(const IType& lhs, const IType& rhs);
+    static Type makeBasal(IAllocator& allocator, BasalBits basal);
+    static Type makeUnion(IAllocator& allocator, const IType& lhs, const IType& rhs);
   };
 
   class Object : public HardPtr<IObject> {

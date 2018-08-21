@@ -52,7 +52,7 @@ namespace {
 
 egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareScope(const IEggProgramNode* node, std::function<EggProgramNodeFlags(EggProgramContext&)> action) {
   egg::ovum::String name;
-  egg::ovum::ITypeRef type{ egg::ovum::Type::Void };
+  egg::ovum::Type type{ egg::ovum::Type::Void };
   if ((node != nullptr) && node->symbol(name, type)) {
     // Perform the action with a new scope containing our symbol
     auto nested = this->getAllocator().make<EggProgramSymbolTable>(this->symtable.get());
@@ -110,11 +110,11 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareBlock(const 
   return context->prepareStatements(statements);
 }
 
-egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareDeclare(const egg::ovum::LocationSource& where, const egg::ovum::String& name, egg::ovum::ITypeRef& ltype, IEggProgramNode* rvalue) {
+egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareDeclare(const egg::ovum::LocationSource& where, const egg::ovum::String& name, egg::ovum::Type& ltype, IEggProgramNode* rvalue) {
   if (this->scopeDeclare != nullptr) {
     // This must be a prepare call with an inferred type
     assert(rvalue == nullptr);
-    return this->typeCheck(where, ltype, egg::ovum::ITypeRef(this->scopeDeclare), name, false);
+    return this->typeCheck(where, ltype, egg::ovum::Type(this->scopeDeclare), name, false);
   }
   if (rvalue != nullptr) {
     // Type-check the initialization
@@ -129,7 +129,7 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareDeclare(cons
   return EggProgramNodeFlags::Fallthrough;
 }
 
-egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareGuard(const egg::ovum::LocationSource& where, const egg::ovum::String& name, egg::ovum::ITypeRef& ltype, IEggProgramNode& rvalue) {
+egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareGuard(const egg::ovum::LocationSource& where, const egg::ovum::String& name, egg::ovum::Type& ltype, IEggProgramNode& rvalue) {
   if (abandoned(rvalue.prepare(*this))) {
     return EggProgramNodeFlags::Abandon;
   }
@@ -307,7 +307,7 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareForeach(IEgg
       return EggProgramNodeFlags::Abandon;
     }
     auto type = rvalue.getType();
-    egg::ovum::ITypeRef iterable{ egg::ovum::Type::Void };
+    egg::ovum::Type iterable{ egg::ovum::Type::Void };
     if (!type->iterable(iterable)) {
       return scope.compilerError(rvalue.location(), "Expression after the ':' in 'for' statement is not iterable: '", type->toString(), "'");
     }
@@ -318,7 +318,7 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareForeach(IEgg
   });
 }
 
-egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareFunctionDefinition(const egg::ovum::String& name, const egg::ovum::ITypeRef& type, const std::shared_ptr<IEggProgramNode>& block) {
+egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareFunctionDefinition(const egg::ovum::String& name, const egg::ovum::Type& type, const std::shared_ptr<IEggProgramNode>& block) {
   // TODO type check
   auto callable = type->callable();
   assert(callable != nullptr);
@@ -351,7 +351,7 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareFunctionDefi
   return EggProgramNodeFlags::Fallthrough; // We fallthrough AFTER the function definition
 }
 
-egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareGeneratorDefinition(const egg::ovum::ITypeRef& rettype, const std::shared_ptr<IEggProgramNode>& block) {
+egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareGeneratorDefinition(const egg::ovum::Type& rettype, const std::shared_ptr<IEggProgramNode>& block) {
   // We're in a 'generator' node that's the parent of a 'block' node within a 'function definition' node
   assert(this->scopeFunction != nullptr);
   assert(this->scopeFunction->rettype != nullptr);
@@ -533,7 +533,7 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareCall(IEggPro
   return EggProgramNodeFlags::Fallthrough;
 }
 
-egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareIdentifier(const egg::ovum::LocationSource& where, const egg::ovum::String& name, egg::ovum::ITypeRef& type) {
+egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareIdentifier(const egg::ovum::LocationSource& where, const egg::ovum::String& name, egg::ovum::Type& type) {
   // We need to work out our type
   assert(type.get() == egg::ovum::Type::Void.get());
   auto symbol = this->symtable->findSymbol(name);
@@ -590,7 +590,7 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareDot(const eg
   }
   if (egg::ovum::Bits::hasAnySet(lbasal, egg::ovum::BasalBits::Object)) {
     // Ask the object what properties it supports
-    egg::ovum::ITypeRef type{ egg::ovum::Type::Void };
+    egg::ovum::Type type{ egg::ovum::Type::Void };
     egg::ovum::String reason;
     if (ltype->dotable(&property, type, reason)) {
       // It's a known property
@@ -634,7 +634,7 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareUnary(const 
     return value.addressable(*this);
   case EggProgramUnary::Deref:
     // Dereference '*' operation
-    if (type->pointeeType()->getBasalTypes() == egg::ovum::BasalBits::None) {
+    if (type->pointeeType() == nullptr) {
       return this->compilerError(where, "Expected operand of dereference '*' operator to be a pointer, but got '", type->toString(), "' instead");
     }
     break;
@@ -711,7 +711,7 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::preparePredicate(co
   return this->prepareBinary(where, op, lhs, rhs);
 }
 
-egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareWithType(IEggProgramNode& node, const egg::ovum::ITypeRef& type) {
+egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareWithType(IEggProgramNode& node, const egg::ovum::Type& type) {
   // Run a prepare call with a scope type set
   assert(this->scopeDeclare == nullptr);
   try {
@@ -725,13 +725,13 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareWithType(IEg
   }
 }
 
-egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::typeCheck(const egg::ovum::LocationSource& where, egg::ovum::ITypeRef& ltype, const egg::ovum::ITypeRef& rtype, const egg::ovum::String& name, bool guard) {
+egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::typeCheck(const egg::ovum::LocationSource& where, egg::ovum::Type& ltype, const egg::ovum::Type& rtype, const egg::ovum::String& name, bool guard) {
   assert(rtype->getBasalTypes() != egg::ovum::BasalBits::None);
-  if (ltype->getBasalTypes() == egg::ovum::BasalBits::None) {
-    // We can infer the type
+  if (ltype == nullptr) {
+    // We need to infer the type
     if (guard) {
       ltype = rtype->denulledType();
-      if (ltype->getBasalTypes() == egg::ovum::BasalBits::Void) {
+      if (ltype == nullptr) {
         return this->compilerError(where, "Cannot infer type of '", name, "' based on a value of type '", rtype->toString(), "'"); // TODO useful?
       }
     } else {

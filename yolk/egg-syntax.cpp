@@ -9,28 +9,6 @@
 namespace {
   using namespace egg::yolk;
 
-  class TypeInferred : public egg::ovum::NotReferenceCounted<egg::ovum::IType> {
-  public:
-    virtual std::pair<std::string, int> toStringPrecedence() const override {
-      return std::make_pair("var", 0);
-    }
-    virtual egg::ovum::BasalBits getBasalTypes() const override {
-      return egg::ovum::BasalBits::None;
-    }
-    virtual egg::ovum::ITypeRef unionWith(const egg::ovum::IType&) const override {
-      EGG_THROW("Cannot union with inferred type");
-    }
-    virtual AssignmentSuccess canBeAssignedFrom(const egg::ovum::IType&) const {
-      EGG_THROW("Cannot evaluation assignment success for inferred type");
-    }
-    virtual egg::ovum::Variant promoteAssignment(const egg::ovum::Variant&) const override {
-      egg::ovum::Variant exception{ egg::ovum::String("Cannot assign to inferred type value") };
-      exception.addFlowControl(egg::ovum::VariantBits::Throw);
-      return exception;
-    }
-  };
-  const TypeInferred typeInferred{};
-
   const char* assignmentExpectation(const std::string& op) {
     static std::map<std::string, const char*> table = {
 #define EGG_PROGRAM_ASSIGN_EXPECTATION(op, text) { text, "Expected expression after assignment '" text "' operator" },
@@ -118,7 +96,8 @@ void egg::yolk::EggSyntaxNode_Block::dump(std::ostream& os) const {
 }
 
 void egg::yolk::EggSyntaxNode_Type::dump(std::ostream& os) const {
-  ParserDump(os, "type").add(this->type->toString());
+  auto tname = (this->type == nullptr) ? "var" : this->type->toString();
+  ParserDump(os, "type").add(tname);
 }
 
 void egg::yolk::EggSyntaxNode_Declare::dump(std::ostream& os) const {
@@ -656,10 +635,10 @@ namespace {
     std::unique_ptr<IEggSyntaxNode> parseStatementWhile();
     std::unique_ptr<IEggSyntaxNode> parseStatementYield();
     std::unique_ptr<IEggSyntaxNode> parseType(const char* expected);
-    bool parseTypeExpression(egg::ovum::ITypeRef& type);
-    bool parseTypePostfixExpression(egg::ovum::ITypeRef& type);
-    egg::ovum::ITypeRef parseTypePostfixFunction(const egg::ovum::ITypeRef& rettype);
-    bool parseTypePrimaryExpression(egg::ovum::ITypeRef& type);
+    bool parseTypeExpression(egg::ovum::Type& type);
+    bool parseTypePostfixExpression(egg::ovum::Type& type);
+    egg::ovum::Type parseTypePostfixFunction(const egg::ovum::Type& rettype);
+    bool parseTypePrimaryExpression(egg::ovum::Type& type);
   };
 
   class EggSyntaxParserModule : public IEggSyntaxParser {
@@ -1893,13 +1872,13 @@ std::unique_ptr<IEggSyntaxNode> EggSyntaxParserContext::parseType(const char* ex
     if (p0.isKeyword(EggTokenizerKeyword::Var)) {
       // Don't allow 'var?'
       mark.accept(1);
-      return std::make_unique<EggSyntaxNode_Type>(location, typeInferred);
+      return std::make_unique<EggSyntaxNode_Type>(location, nullptr);
     }
   }
-  egg::ovum::ITypeRef type{ egg::ovum::Type::Void };
+  egg::ovum::Type type{ egg::ovum::Type::Void };
   if (this->parseTypeExpression(type)) {
     mark.accept(0);
-    return std::make_unique<EggSyntaxNode_Type>(location, *type);
+    return std::make_unique<EggSyntaxNode_Type>(location, type.get());
   }
   if (expected != nullptr) {
     this->unexpected(expected, p0);
@@ -1907,7 +1886,7 @@ std::unique_ptr<IEggSyntaxNode> EggSyntaxParserContext::parseType(const char* ex
   return nullptr;
 }
 
-bool EggSyntaxParserContext::parseTypeExpression(egg::ovum::ITypeRef& type) {
+bool EggSyntaxParserContext::parseTypeExpression(egg::ovum::Type& type) {
   /*
       type-expression ::= type-union-expression
 
@@ -1916,13 +1895,13 @@ bool EggSyntaxParserContext::parseTypeExpression(egg::ovum::ITypeRef& type) {
   */
   if (this->parseTypePostfixExpression(type)) {
     EggSyntaxParserBacktrackMark mark(this->backtrack);
-    egg::ovum::ITypeRef other{ egg::ovum::Type::Void };
+    egg::ovum::Type other{ egg::ovum::Type::Void };
     while (mark.peek(0).isOperator(EggTokenizerOperator::Bar)) {
       mark.advance(1);
       if (!this->parseTypePostfixExpression(other)) {
         this->unexpected("Expected type to follow '|' in type expression", mark.peek(0));
       }
-      type = type->unionWith(*other);
+      type = type->unionWith(*this->allocator, *other);
     }
     mark.accept(0);
     return true;
@@ -1930,7 +1909,7 @@ bool EggSyntaxParserContext::parseTypeExpression(egg::ovum::ITypeRef& type) {
   return false;
 }
 
-bool EggSyntaxParserContext::parseTypePostfixExpression(egg::ovum::ITypeRef& type) {
+bool EggSyntaxParserContext::parseTypePostfixExpression(egg::ovum::Type& type) {
   /*
       type-nullable-expression ::= type-postfix-expression
                                  | type-postfix-expression '?'
@@ -1952,7 +1931,7 @@ bool EggSyntaxParserContext::parseTypePostfixExpression(egg::ovum::ITypeRef& typ
           this->unexpected("Redundant repetition of '?' in type expression");
         }
         mark.advance(1);
-        type = egg::ovum::Type::Null->unionWith(*type);
+        type = egg::ovum::Type::Null->unionWith(*this->allocator, *type);
         nullabled = true;
         continue;
       }
@@ -1976,7 +1955,7 @@ bool EggSyntaxParserContext::parseTypePostfixExpression(egg::ovum::ITypeRef& typ
   return false;
 }
 
-egg::ovum::ITypeRef EggSyntaxParserContext::parseTypePostfixFunction(const egg::ovum::ITypeRef& rettype) {
+egg::ovum::Type EggSyntaxParserContext::parseTypePostfixFunction(const egg::ovum::Type& rettype) {
   /*
       function-parameter-list ::= function-parameter
                                 | function-parameter-list ',' function-parameter
@@ -1988,9 +1967,9 @@ egg::ovum::ITypeRef EggSyntaxParserContext::parseTypePostfixFunction(const egg::
   assert(mark.peek(0).isOperator(EggTokenizerOperator::ParenthesisLeft));
   mark.advance(1);
   auto* underlying = egg::yolk::FunctionType::createFunctionType(*this->allocator, egg::ovum::String(), rettype);
-  egg::ovum::ITypeRef function{ underlying };
+  egg::ovum::Type function{ underlying };
   for (size_t index = 0; !mark.peek(0).isOperator(EggTokenizerOperator::ParenthesisRight); ++index) {
-    egg::ovum::ITypeRef ptype{ egg::ovum::Type::Void };
+    egg::ovum::Type ptype{ egg::ovum::Type::Void };
     if (!this->parseTypeExpression(ptype)) {
       this->unexpected("Expected parameter type in function type declaration", mark.peek(0));
     }
@@ -2026,7 +2005,7 @@ egg::ovum::ITypeRef EggSyntaxParserContext::parseTypePostfixFunction(const egg::
   return function;
 }
 
-bool EggSyntaxParserContext::parseTypePrimaryExpression(egg::ovum::ITypeRef& type) {
+bool EggSyntaxParserContext::parseTypePrimaryExpression(egg::ovum::Type& type) {
   /*
       type-primary-expression ::= 'any'
                                 | 'void'
@@ -2063,7 +2042,7 @@ bool EggSyntaxParserContext::parseTypePrimaryExpression(egg::ovum::ITypeRef& typ
   auto basal = keywordToBasal(p0);
   if (basal != egg::ovum::BasalBits::None) {
     mark.accept(1);
-    type = egg::ovum::Type::makeBasal(basal);
+    type = egg::ovum::Type::makeBasal(*this->allocator, basal);
     return true;
   }
   return false;

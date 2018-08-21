@@ -21,7 +21,7 @@ namespace {
     return oss.str();
   }
   std::string parseStatementToString(const std::string& text) {
-    egg::test::Allocator allocator{ egg::test::Allocator::Expectation::NoAllocations }; // TODO
+    egg::test::Allocator allocator{ egg::test::Allocator::Expectation::Unknown }; // TODO
     auto parser = EggParserFactory::createStatementSyntaxParser(allocator);
     auto root = parseFromString(*parser, text);
     return dumpToString(*root);

@@ -11,7 +11,7 @@ namespace {
     EGG_NO_COPY(VanillaBase);
   protected:
     std::string kind;
-    egg::ovum::ITypeRef type;
+    egg::ovum::Type type;
   public:
     VanillaBase(egg::ovum::IAllocator& allocator, const std::string& kind, const egg::ovum::IType& type)
       : SoftReferenceCounted(allocator), kind(kind), type(&type) {
@@ -19,7 +19,7 @@ namespace {
     virtual void softVisitLinks(const Visitor&) const override {
       // No soft links
     }
-    virtual egg::ovum::ITypeRef getRuntimeType() const override {
+    virtual egg::ovum::Type getRuntimeType() const override {
       return this->type;
     }
     virtual egg::ovum::Variant call(egg::ovum::IExecution& execution, const egg::ovum::IParameters&) override {
@@ -43,6 +43,9 @@ namespace {
     EGG_NO_COPY(VanillaIteratorType);
   public:
     VanillaIteratorType() {}
+    virtual egg::ovum::BasalBits getBasalTypes() const override {
+      return egg::ovum::BasalBits::Object;
+    }
     virtual std::pair<std::string, int> toStringPrecedence() const override {
       return std::make_pair("<iterator>", 0);
     }
@@ -78,10 +81,13 @@ namespace {
 
   class VanillaKeyValueType : public egg::ovum::NotReferenceCounted<egg::ovum::IType> {
   public:
+    virtual egg::ovum::BasalBits getBasalTypes() const override {
+      return egg::ovum::BasalBits::Object;
+    }
     virtual std::pair<std::string, int> toStringPrecedence() const override {
       return std::make_pair("<keyvalue>", 0);
     }
-    virtual bool iterable(egg::ovum::ITypeRef& type) const override {
+    virtual bool iterable(egg::ovum::Type& type) const override {
       // A keyvalue is a dictionary of two elements, so it is itself iterable
       type.set(&VanillaKeyValueType::instance);
       return true;
@@ -133,10 +139,10 @@ namespace {
   class VanillaArrayIndexSignature : public egg::ovum::IIndexSignature {
   public:
     static const VanillaArrayIndexSignature instance;
-    virtual egg::ovum::ITypeRef getResultType() const override {
+    virtual egg::ovum::Type getResultType() const override {
       return egg::ovum::Type::AnyQ;
     }
-    virtual egg::ovum::ITypeRef getIndexType() const override {
+    virtual egg::ovum::Type getIndexType() const override {
       return egg::ovum::Type::Int;
     }
   };
@@ -150,6 +156,9 @@ namespace {
       }
       return nullptr;
     }
+    virtual egg::ovum::BasalBits getBasalTypes() const override {
+      return egg::ovum::BasalBits::Object;
+    }
     virtual std::pair<std::string, int> toStringPrecedence() const override {
       return std::make_pair("any?[]", 0); // TODO
     }
@@ -157,7 +166,7 @@ namespace {
       // Indexing an array returns an element
       return &VanillaArrayIndexSignature::instance;
     }
-    virtual bool dotable(const egg::ovum::String* property, egg::ovum::ITypeRef& type, egg::ovum::String& reason) const override {
+    virtual bool dotable(const egg::ovum::String* property, egg::ovum::Type& type, egg::ovum::String& reason) const override {
       // Arrays support limited properties
       if (property == nullptr) {
         type = egg::ovum::Type::AnyQ;
@@ -171,7 +180,7 @@ namespace {
       type.set(retval);
       return true;
     }
-    virtual bool iterable(egg::ovum::ITypeRef& type) const override {
+    virtual bool iterable(egg::ovum::Type& type) const override {
       // Iterating an array returns the elements
       type = egg::ovum::Type::AnyQ;
       return true;
@@ -367,10 +376,10 @@ namespace {
   class VanillaObjectIndexSignature : public egg::ovum::IIndexSignature {
   public:
     static const VanillaObjectIndexSignature instance;
-    virtual egg::ovum::ITypeRef getResultType() const override {
+    virtual egg::ovum::Type getResultType() const override {
       return egg::ovum::Type::AnyQ;
     }
-    virtual egg::ovum::ITypeRef getIndexType() const override {
+    virtual egg::ovum::Type getIndexType() const override {
       return egg::ovum::Type::String;
     }
   };
@@ -378,6 +387,9 @@ namespace {
 
   class VanillaObjectType : public egg::ovum::NotReferenceCounted<egg::ovum::IType> {
   public:
+    virtual egg::ovum::BasalBits getBasalTypes() const override {
+      return egg::ovum::BasalBits::Object;
+    }
     virtual std::pair<std::string, int> toStringPrecedence() const override {
       return std::make_pair("any?{string}", 0); // TODO
     }
@@ -385,12 +397,12 @@ namespace {
       // Indexing an object returns a property
       return &VanillaObjectIndexSignature::instance;
     }
-    virtual bool dotable(const egg::ovum::String*, egg::ovum::ITypeRef& type, egg::ovum::String&) const override {
+    virtual bool dotable(const egg::ovum::String*, egg::ovum::Type& type, egg::ovum::String&) const override {
       // Objects support properties
       type = egg::ovum::Type::AnyQ;
       return true;
     }
-    virtual bool iterable(egg::ovum::ITypeRef& type) const override {
+    virtual bool iterable(egg::ovum::Type& type) const override {
       // Iterating an object, returns the dictionary keyvalue pairs
       type.set(&VanillaKeyValueType::instance);
       return true;
@@ -446,10 +458,10 @@ namespace {
     EGG_NO_COPY(VanillaFunction);
   protected:
     egg::ovum::SoftPtr<egg::yolk::EggProgramContext> program;
-    egg::ovum::ITypeRef type;
+    egg::ovum::Type type;
     std::shared_ptr<egg::yolk::IEggProgramNode> block;
   public:
-    VanillaFunction(egg::ovum::IAllocator& allocator, egg::yolk::EggProgramContext& program, const egg::ovum::ITypeRef& type, const std::shared_ptr<egg::yolk::IEggProgramNode>& block)
+    VanillaFunction(egg::ovum::IAllocator& allocator, egg::yolk::EggProgramContext& program, const egg::ovum::Type& type, const std::shared_ptr<egg::yolk::IEggProgramNode>& block)
       : SoftReferenceCounted(allocator),
         type(type),
         block(block) {
@@ -462,7 +474,7 @@ namespace {
     virtual egg::ovum::Variant toString() const override {
       return egg::ovum::Variant(egg::ovum::StringBuilder::concat("<", this->type->toString(), ">"));
     }
-    virtual egg::ovum::ITypeRef getRuntimeType() const override {
+    virtual egg::ovum::Type getRuntimeType() const override {
       return this->type;
     }
     virtual egg::ovum::Variant call(egg::ovum::IExecution&, const egg::ovum::IParameters& parameters) override {
@@ -488,11 +500,11 @@ namespace {
   class VanillaGenerator : public VanillaFunction {
     EGG_NO_COPY(VanillaGenerator);
   private:
-    egg::ovum::ITypeRef rettype;
+    egg::ovum::Type rettype;
     egg::ovum::HardPtr<egg::yolk::FunctionCoroutine> coroutine;
     bool completed;
   public:
-    VanillaGenerator(egg::ovum::IAllocator& allocator, egg::yolk::EggProgramContext& program, const egg::ovum::ITypeRef& type, const egg::ovum::ITypeRef& rettype, const std::shared_ptr<egg::yolk::IEggProgramNode>& block)
+    VanillaGenerator(egg::ovum::IAllocator& allocator, egg::yolk::EggProgramContext& program, const egg::ovum::Type& type, const egg::ovum::Type& rettype, const std::shared_ptr<egg::yolk::IEggProgramNode>& block)
       : VanillaFunction(allocator, program, type, block),
       rettype(rettype),
       coroutine(),
@@ -580,10 +592,10 @@ egg::ovum::Variant egg::yolk::EggProgramContext::createVanillaObject() {
   return egg::ovum::Variant::makeObject<VanillaObject>(this->allocator);
 }
 
-egg::ovum::Variant egg::yolk::EggProgramContext::createVanillaFunction(const egg::ovum::ITypeRef& type, const std::shared_ptr<egg::yolk::IEggProgramNode>& block) {
+egg::ovum::Variant egg::yolk::EggProgramContext::createVanillaFunction(const egg::ovum::Type& type, const std::shared_ptr<egg::yolk::IEggProgramNode>& block) {
   return egg::ovum::Variant::makeObject<VanillaFunction>(this->allocator, *this, type, block);
 }
 
-egg::ovum::Variant egg::yolk::EggProgramContext::createVanillaGenerator(const egg::ovum::ITypeRef& itertype, const egg::ovum::ITypeRef& rettype, const std::shared_ptr<egg::yolk::IEggProgramNode>& block) {
+egg::ovum::Variant egg::yolk::EggProgramContext::createVanillaGenerator(const egg::ovum::Type& itertype, const egg::ovum::Type& rettype, const std::shared_ptr<egg::yolk::IEggProgramNode>& block) {
   return egg::ovum::Variant::makeObject<VanillaGenerator>(this->allocator, *this, itertype, rettype, block);
 }

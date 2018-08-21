@@ -323,7 +323,7 @@ namespace egg::ovum {
     }
     // WIBBLE LEGACY
     static bool equals(const Variant& lhs, const Variant& rhs);
-    ITypeRef getRuntimeType() const;
+    Type getRuntimeType() const;
     String toString() const;
     bool isString() const { return this->is(VariantBits::String | VariantBits::Hard); }
     bool isNull() const { return this->is(VariantBits::Null); }

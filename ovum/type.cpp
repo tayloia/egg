@@ -8,14 +8,14 @@ egg::ovum::String egg::ovum::IType::toString(int priority) const {
   return pair.first;
 }
 
-egg::ovum::ITypeRef egg::ovum::IType::pointeeType() const {
-  // The default implementation is to return 'Void' indicating that this is NOT dereferencable
-  return Type::Void;
+egg::ovum::Type egg::ovum::IType::pointeeType() const {
+  // The default implementation is to return nullptr indicating that this is NOT dereferencable
+  return Type(nullptr);
 }
 
-egg::ovum::ITypeRef egg::ovum::IType::denulledType() const {
-  // The default implementation is to return 'Void'
-  return Type::Void;
+egg::ovum::Type egg::ovum::IType::denulledType() const {
+  // The default implementation is to return self
+  return Type(this);
 }
 
 egg::ovum::String egg::ovum::IFunctionSignature::toString(Parts parts) const {
@@ -43,25 +43,20 @@ const egg::ovum::IIndexSignature* egg::ovum::IType::indexable() const {
   return nullptr;
 }
 
-bool egg::ovum::IType::dotable(const String*, ITypeRef&, String& reason) const {
+bool egg::ovum::IType::dotable(const String*, Type&, String& reason) const {
   // The default implementation is to say we don't support properties with '.'
   reason = StringBuilder::concat("Values of type '", this->toString(), "' do not support the '.' operator for property access");
   return false;
 }
 
-bool egg::ovum::IType::iterable(ITypeRef&) const {
+bool egg::ovum::IType::iterable(Type&) const {
   // The default implementation is to say we don't support iteration
   return false;
 }
 
-egg::ovum::BasalBits egg::ovum::IType::getBasalTypes() const {
-  // The default implementation is to say we are an object
-  return BasalBits::Object;
-}
-
-egg::ovum::ITypeRef egg::ovum::IType::unionWith(const IType& other) const {
+egg::ovum::Type egg::ovum::IType::unionWith(IAllocator& allocator, const IType& other) const {
   // The default implementation is to simply make a new union (native and basal types can be more clever)
-  return Type::makeUnion(*this, other);
+  return Type::makeUnion(allocator, *this, other);
 }
 
 
@@ -72,11 +67,6 @@ namespace {
 
   // Forward declaration
   const IType* getNativeBasal(BasalBits basal);
-
-  IAllocator& defaultAllocator() {
-    static AllocatorDefault allocator; // WIBBLE
-    return allocator;
-  }
 
   std::pair<std::string, int> tagToStringPriority(BasalBits basal) {
     // Adjust the priority of the result if the string has '|' (union) in it
@@ -134,7 +124,7 @@ namespace {
     TypePointer(const TypePointer&) = delete;
     TypePointer& operator=(const TypePointer&) = delete;
   private:
-    ITypeRef referenced;
+    Type referenced;
   public:
     TypePointer(IAllocator& allocator, const IType& referenced)
       : HardReferenceCounted(allocator, 0), referenced(&referenced) {
@@ -145,7 +135,7 @@ namespace {
     virtual egg::ovum::BasalBits getBasalTypes() const override {
       return egg::ovum::BasalBits::None;
     }
-    virtual ITypeRef pointeeType() const override {
+    virtual Type pointeeType() const override {
       return this->referenced;
     }
     virtual AssignmentSuccess canBeAssignedFrom(const IType& rhs) const {
@@ -164,13 +154,16 @@ namespace {
     virtual BasalBits getBasalTypes() const override {
       return BasalBits::Null;
     }
-    virtual ITypeRef unionWith(const IType& other) const override {
+    virtual Type denulledType() const override {
+      return Type(nullptr);
+    }
+    virtual Type unionWith(IAllocator& allocator, const IType& other) const override {
       auto basal = other.getBasalTypes();
       if (Bits::hasAnySet(basal, BasalBits::Null)) {
         // The other type supports Null anyway
-        return ITypeRef(&other);
+        return Type(&other);
       }
-      return Type::makeUnion(*this, other);
+      return Type::makeUnion(allocator, *this, other);
     }
     virtual AssignmentSuccess canBeAssignedFrom(const IType&) const {
       return AssignmentSuccess::Never;
@@ -197,20 +190,15 @@ namespace {
     virtual BasalBits getBasalTypes() const override {
       return BASAL;
     }
-    virtual ITypeRef denulledType() const override {
-      auto denulled = Bits::clear(BASAL, BasalBits::Null);
-      if (denulled == BASAL) {
-        // It's the identical native type
-        return ITypeRef(this);
-      }
-      return ITypeRef(getNativeBasal(denulled));
+    virtual Type denulledType() const override {
+      return Type(this);
     }
-    virtual ITypeRef unionWith(const IType& other) const override {
+    virtual Type unionWith(IAllocator& allocator, const IType& other) const override {
       if (other.getBasalTypes() == BASAL) {
         // It's the identical native type
-        return ITypeRef(this);
+        return Type(this);
       }
-      return Type::makeUnion(*this, other);
+      return Type::makeUnion(allocator, *this, other);
     }
     virtual AssignmentSuccess canBeAssignedFrom(const IType& rhs) const {
       return canBeAssignedFromBasal(BASAL, rhs);
@@ -224,6 +212,7 @@ namespace {
   const TypeNative<BasalBits::Int> typeInt{};
   const TypeNative<BasalBits::Float> typeFloat{};
   const TypeNative<BasalBits::Arithmetic> typeArithmetic{};
+  const TypeNative<BasalBits::Any> typeAny{};
 
   class TypeString : public TypeNative<BasalBits::String> {
     TypeString(const TypeString&) = delete;
@@ -231,7 +220,7 @@ namespace {
   public:
     TypeString() = default;
     // TODO callable and indexable
-    virtual bool iterable(ITypeRef& type) const override {
+    virtual bool iterable(Type& type) const override {
       // When strings are iterated, they iterate through strings (of codepoints)
       type = Type::String;
       return true;
@@ -275,7 +264,7 @@ namespace {
       virtual String getName() const override {
         return String();
       }
-      virtual ITypeRef getType() const override {
+      virtual Type getType() const override {
         return Type::AnyQ;
       }
       virtual size_t getPosition() const override {
@@ -291,7 +280,7 @@ namespace {
     virtual String getFunctionName() const override {
       return String();
     }
-    virtual ITypeRef getReturnType() const override {
+    virtual Type getReturnType() const override {
       return Type::AnyQ;
     }
     virtual size_t getParameterCount() const override {
@@ -318,26 +307,26 @@ namespace {
     virtual BasalBits getBasalTypes() const override {
       return this->tag;
     }
-    virtual ITypeRef denulledType() const override {
+    virtual Type denulledType() const override {
       auto denulled = Bits::clear(this->tag, BasalBits::Null);
       if (this->tag != denulled) {
         // We need to clear the bit
-        return Type::makeBasal(denulled);
+        return Type::makeBasal(this->allocator, denulled);
       }
-      return ITypeRef(this);
+      return Type(this);
     }
-    virtual ITypeRef unionWith(const IType& other) const override {
+    virtual Type unionWith(IAllocator& alloc, const IType& other) const override {
       auto basal = other.getBasalTypes();
       if (basal == BasalBits::None) {
         // The other type is not basal
-        return Type::makeUnion(*this, other);
+        return Type::makeUnion(alloc, *this, other);
       }
       auto both = Bits::set(this->tag, basal);
       if (both != this->tag) {
         // There's a new basal type that we don't support, so create a new type
-        return Type::makeBasal(both);
+        return Type::makeBasal(alloc, both);
       }
-      return ITypeRef(this);
+      return Type(this);
     }
     virtual AssignmentSuccess canBeAssignedFrom(const IType& rhs) const {
       return canBeAssignedFromBasal(this->tag, rhs);
@@ -351,7 +340,7 @@ namespace {
       }
       return nullptr;
     }
-    virtual bool iterable(ITypeRef& type) const override {
+    virtual bool iterable(Type& type) const override {
       if (Bits::hasAnySet(this->tag, BasalBits::Object)) {
         type = Type::Any;
         return true;
@@ -368,8 +357,8 @@ namespace {
     TypeUnion(const TypeUnion&) = delete;
     TypeUnion& operator=(const TypeUnion&) = delete;
   private:
-    ITypeRef a;
-    ITypeRef b;
+    Type a;
+    Type b;
   public:
     TypeUnion(IAllocator& allocator, const IType& a, const IType& b)
       : HardReferenceCounted(allocator, 0), a(&a), b(&b) {
@@ -393,17 +382,17 @@ namespace {
   class FunctionSignatureParameter : public egg::ovum::IFunctionSignatureParameter {
   private:
     egg::ovum::String name; // may be empty
-    egg::ovum::ITypeRef type;
+    egg::ovum::Type type;
     size_t position; // may be SIZE_MAX
     Flags flags;
   public:
-    FunctionSignatureParameter(const egg::ovum::String& name, const egg::ovum::ITypeRef& type, size_t position, Flags flags)
+    FunctionSignatureParameter(const egg::ovum::String& name, const egg::ovum::Type& type, size_t position, Flags flags)
       : name(name), type(type), position(position), flags(flags) {
     }
     virtual egg::ovum::String getName() const override {
       return this->name;
     }
-    virtual egg::ovum::ITypeRef getType() const override {
+    virtual egg::ovum::Type getType() const override {
       return this->type;
     }
     virtual size_t getPosition() const override {
@@ -417,19 +406,19 @@ namespace {
   class FunctionSignature : public egg::ovum::IFunctionSignature {
   private:
     egg::ovum::String name;
-    egg::ovum::ITypeRef returnType;
+    egg::ovum::Type returnType;
     std::vector<FunctionSignatureParameter> parameters;
   public:
-    FunctionSignature(const egg::ovum::String& name, const egg::ovum::ITypeRef& returnType)
+    FunctionSignature(const egg::ovum::String& name, const egg::ovum::Type& returnType)
       : name(name), returnType(returnType) {
     }
-    void addSignatureParameter(const egg::ovum::String& parameterName, const egg::ovum::ITypeRef& parameterType, size_t position, FunctionSignatureParameter::Flags flags) {
+    void addSignatureParameter(const egg::ovum::String& parameterName, const egg::ovum::Type& parameterType, size_t position, FunctionSignatureParameter::Flags flags) {
       this->parameters.emplace_back(parameterName, parameterType, position, flags);
     }
     virtual egg::ovum::String getFunctionName() const override {
       return this->name;
     }
-    virtual egg::ovum::ITypeRef getReturnType() const override {
+    virtual egg::ovum::Type getReturnType() const override {
       return this->returnType;
     }
     virtual size_t getParameterCount() const override {
@@ -441,6 +430,11 @@ namespace {
     }
   };
 
+  egg::ovum::IAllocator& defaultAllocator() {
+    // WIBBLE retire
+    static egg::ovum::AllocatorDefault allocator;
+    return allocator;
+  }
 }
 
 void egg::ovum::IFunctionSignature::buildStringDefault(StringBuilder& sb, IFunctionSignature::Parts parts) const {
@@ -483,9 +477,9 @@ void egg::ovum::IFunctionSignature::buildStringDefault(StringBuilder& sb, IFunct
   }
 }
 
-egg::ovum::ITypeRef egg::ovum::IType::pointerType() const {
+egg::ovum::Type egg::ovum::IType::pointerType() const {
   // WIBBLE The default implementation is to return a new type 'Type*'
-  return defaultAllocator().make<TypePointer>(*this);
+  return defaultAllocator().make<TypePointer, Type>(*this);
 }
 
 Variant egg::ovum::IType::promoteAssignment(const Variant& rhs) const {
@@ -534,32 +528,32 @@ bool egg::ovum::IFunctionSignature::validateCallDefault(egg::ovum::IExecution& e
   return true;
 }
 
-egg::ovum::ITypeRef egg::ovum::Type::makeBasal(egg::ovum::BasalBits basal) {
+egg::ovum::Type egg::ovum::Type::makeBasal(IAllocator& allocator, egg::ovum::BasalBits basal) {
   // Try to use non-reference-counted globals
   auto* native = getNativeBasal(basal);
   if (native != nullptr) {
-    return ITypeRef(native);
+    return Type(native);
   }
-  return defaultAllocator().make<TypeBasal>(basal);
+  return allocator.make<TypeBasal, Type>(basal);
 }
 
-egg::ovum::ITypeRef egg::ovum::Type::makeUnion(const egg::ovum::IType& a, const egg::ovum::IType& b) {
+egg::ovum::Type egg::ovum::Type::makeUnion(IAllocator& allocator, const egg::ovum::IType& a, const egg::ovum::IType& b) {
   // If they are both basal types, just union the tags
   auto sa = a.getBasalTypes();
   auto sb = b.getBasalTypes();
   if ((sa != BasalBits::None) && (sb != BasalBits::None)) {
-    return Type::makeBasal(sa | sb);
+    return Type::makeBasal(allocator, sa | sb);
   }
-  return defaultAllocator().make<TypeUnion>(a, b);
+  return allocator.make<TypeUnion, Type>(a, b);
 }
 
 // Native types
-const egg::ovum::Type egg::ovum::Type::Void{ typeVoid };
-const egg::ovum::Type egg::ovum::Type::Null{ typeNull };
-const egg::ovum::Type egg::ovum::Type::Bool{ typeBool };
-const egg::ovum::Type egg::ovum::Type::Int{ typeInt };
-const egg::ovum::Type egg::ovum::Type::Float{ typeFloat };
-const egg::ovum::Type egg::ovum::Type::String{ typeString };
-const egg::ovum::Type egg::ovum::Type::Arithmetic{ typeArithmetic };
-const egg::ovum::Type egg::ovum::Type::Any{ *defaultAllocator().make<TypeBasal>(egg::ovum::BasalBits::Any) };
-const egg::ovum::Type egg::ovum::Type::AnyQ{ *defaultAllocator().make<TypeBasal>(egg::ovum::BasalBits::Any | egg::ovum::BasalBits::Null) };
+const egg::ovum::Type egg::ovum::Type::Void{ &typeVoid };
+const egg::ovum::Type egg::ovum::Type::Null{ &typeNull };
+const egg::ovum::Type egg::ovum::Type::Bool{ &typeBool };
+const egg::ovum::Type egg::ovum::Type::Int{ &typeInt };
+const egg::ovum::Type egg::ovum::Type::Float{ &typeFloat };
+const egg::ovum::Type egg::ovum::Type::String{ &typeString };
+const egg::ovum::Type egg::ovum::Type::Arithmetic{ &typeArithmetic };
+const egg::ovum::Type egg::ovum::Type::Any{ &typeAny };
+const egg::ovum::Type egg::ovum::Type::AnyQ{ Type::makeBasal(defaultAllocator(), BasalBits::Any | BasalBits::Null) };

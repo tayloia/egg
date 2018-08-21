@@ -27,7 +27,7 @@ namespace {
     virtual  egg::ovum::Variant toString() const override {
       throw std::runtime_error("WIBBLE");
     }
-    virtual ITypeRef getRuntimeType() const override {
+    virtual Type getRuntimeType() const override {
       throw std::runtime_error("WIBBLE");
     }
     virtual  egg::ovum::Variant call(IExecution&, const IParameters&) override {

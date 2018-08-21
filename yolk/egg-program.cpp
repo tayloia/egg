@@ -224,9 +224,9 @@ namespace {
   }
 }
 
-void egg::yolk::EggProgramSymbol::setInferredType(const egg::ovum::ITypeRef& inferred) {
+void egg::yolk::EggProgramSymbol::setInferredType(const egg::ovum::Type& inferred) {
   // We only allow inferred type updates
-  assert(this->type->getBasalTypes() == egg::ovum::BasalBits::None);
+  assert(this->type == nullptr);
   this->type = inferred;
 }
 
@@ -287,7 +287,7 @@ void egg::yolk::EggProgramSymbolTable::addBuiltin(const std::string& name, const
   (void)this->addSymbol(EggProgramSymbol::Builtin, name, value.getRuntimeType(), value);
 }
 
-std::shared_ptr<egg::yolk::EggProgramSymbol> egg::yolk::EggProgramSymbolTable::addSymbol(EggProgramSymbol::Kind kind, const egg::ovum::String& name, const egg::ovum::ITypeRef& type, const egg::ovum::Variant& value) {
+std::shared_ptr<egg::yolk::EggProgramSymbol> egg::yolk::EggProgramSymbolTable::addSymbol(EggProgramSymbol::Kind kind, const egg::ovum::String& name, const egg::ovum::Type& type, const egg::ovum::Variant& value) {
   auto result = this->map.emplace(name, std::make_shared<EggProgramSymbol>(kind, name, type, value));
   assert(result.second);
   auto symbol = result.first->second;

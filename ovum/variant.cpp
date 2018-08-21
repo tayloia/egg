@@ -511,7 +511,7 @@ std::string egg::ovum::Variant::getBasalString(BasalBits basal) {
   return getBasalString(Bits::clear(basal, head)) + '|' + component;
 }
 
-egg::ovum::ITypeRef egg::ovum::Variant::getRuntimeType() const {
+egg::ovum::Type egg::ovum::Variant::getRuntimeType() const {
   assert(this->validate());
   assert(!this->hasIndirect());
   if (this->hasObject()) {
@@ -526,7 +526,7 @@ egg::ovum::ITypeRef egg::ovum::Variant::getRuntimeType() const {
   assert(Bits::hasOneSet(basal, mask));
   auto* native = getBasalType(basal);
   assert(native != nullptr);
-  return ITypeRef(native);
+  return Type(native);
 }
 
 egg::ovum::String egg::ovum::Variant::toString() const {

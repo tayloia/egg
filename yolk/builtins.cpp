@@ -6,8 +6,11 @@ namespace {
   class BuiltinFunctionType : public egg::yolk::FunctionType {
     EGG_NO_COPY(BuiltinFunctionType);
   public:
-    BuiltinFunctionType(egg::ovum::IAllocator& allocator, const egg::ovum::String& name, const egg::ovum::ITypeRef& returnType)
+    BuiltinFunctionType(egg::ovum::IAllocator& allocator, const egg::ovum::String& name, const egg::ovum::Type& returnType)
       : FunctionType(allocator, name, returnType) {
+    }
+    virtual egg::ovum::BasalBits getBasalTypes() const override {
+      return egg::ovum::BasalBits::Object;
     }
     egg::ovum::String getName() const {
       return this->callable()->getFunctionName();
@@ -32,7 +35,7 @@ namespace {
   private:
     egg::yolk::DictionaryUnordered<egg::ovum::String, egg::ovum::Variant> properties;
   public:
-    BuiltinObjectType(egg::ovum::IAllocator& allocator, const egg::ovum::String& name, const egg::ovum::ITypeRef& returnType)
+    BuiltinObjectType(egg::ovum::IAllocator& allocator, const egg::ovum::String& name, const egg::ovum::Type& returnType)
       : BuiltinFunctionType(allocator, name, returnType) {
     }
     void addProperty(const egg::ovum::String& name, egg::ovum::Variant&& value) {
@@ -41,7 +44,7 @@ namespace {
     bool tryGetProperty(const egg::ovum::String& name, egg::ovum::Variant& value) const {
       return this->properties.tryGet(name, value);
     }
-    virtual bool dotable(const egg::ovum::String* property, egg::ovum::ITypeRef& type, egg::ovum::String& reason) const {
+    virtual bool dotable(const egg::ovum::String* property, egg::ovum::Type& type, egg::ovum::String& reason) const {
       if (property == nullptr) {
         type = egg::ovum::Type::AnyQ;
         return true;
@@ -61,7 +64,7 @@ namespace {
   protected:
     egg::ovum::HardPtr<BuiltinFunctionType> type;
   public:
-    BuiltinFunction(egg::ovum::IAllocator& allocator, const egg::ovum::String& name, const egg::ovum::ITypeRef& returnType)
+    BuiltinFunction(egg::ovum::IAllocator& allocator, const egg::ovum::String& name, const egg::ovum::Type& returnType)
       : SoftReferenceCounted(allocator), type(allocator.make<BuiltinFunctionType>(name, returnType)) {
     }
     virtual void softVisitLinks(const Visitor&) const override {
@@ -70,8 +73,8 @@ namespace {
     virtual egg::ovum::Variant toString() const override {
       return egg::ovum::Variant(this->type->getName());
     }
-    virtual egg::ovum::ITypeRef getRuntimeType() const override {
-      return egg::ovum::ITypeRef(this->type.get());
+    virtual egg::ovum::Type getRuntimeType() const override {
+      return egg::ovum::Type(this->type.get());
     }
     virtual egg::ovum::Variant getProperty(egg::ovum::IExecution& execution, const egg::ovum::String& property) override {
       return execution.raiseFormat("Built-in '", this->type->getName(), "' does not support properties such as '.", property, "'");
@@ -95,7 +98,7 @@ namespace {
   protected:
     egg::ovum::HardPtr<BuiltinObjectType> type;
   public:
-    BuiltinObject(egg::ovum::IAllocator& allocator, const egg::ovum::String& name, const egg::ovum::ITypeRef& returnType)
+    BuiltinObject(egg::ovum::IAllocator& allocator, const egg::ovum::String& name, const egg::ovum::Type& returnType)
       : SoftReferenceCounted(allocator), type(allocator.make<BuiltinObjectType>(name, returnType)) {
     }
     virtual void softVisitLinks(const Visitor&) const override {
@@ -104,8 +107,8 @@ namespace {
     virtual egg::ovum::Variant toString() const override {
       return egg::ovum::Variant(this->type->getName());
     }
-    virtual egg::ovum::ITypeRef getRuntimeType() const override {
-      return egg::ovum::ITypeRef(this->type.get());
+    virtual egg::ovum::Type getRuntimeType() const override {
+      return egg::ovum::Type(this->type.get());
     }
     virtual egg::ovum::Variant getProperty(egg::ovum::IExecution& execution, const egg::ovum::String& property) override {
       egg::ovum::Variant value;
@@ -136,7 +139,7 @@ namespace {
     EGG_NO_COPY(BuiltinStringFrom);
   public:
     explicit BuiltinStringFrom(egg::ovum::IAllocator& allocator)
-      : BuiltinFunction(allocator, "string.from", egg::ovum::Type::makeBasal(egg::ovum::BasalBits::String | egg::ovum::BasalBits::Null)) {
+      : BuiltinFunction(allocator, "string.from", egg::ovum::Type::makeBasal(allocator, egg::ovum::BasalBits::String | egg::ovum::BasalBits::Null)) {
       this->type->addParameter("value", egg::ovum::Type::AnyQ, Flags::Required);
     }
     virtual egg::ovum::Variant call(egg::ovum::IExecution& execution, const egg::ovum::IParameters& parameters) override {
@@ -254,7 +257,7 @@ namespace {
   class StringFunctionType : public BuiltinFunctionType {
     EGG_NO_COPY(StringFunctionType);
   public:
-    StringFunctionType(egg::ovum::IAllocator& allocator, const egg::ovum::String& name, const egg::ovum::ITypeRef& returnType)
+    StringFunctionType(egg::ovum::IAllocator& allocator, const egg::ovum::String& name, const egg::ovum::Type& returnType)
       : BuiltinFunctionType(allocator, name, returnType) {
     }
     virtual egg::ovum::Variant executeCall(egg::ovum::IExecution&, const egg::ovum::String& instance, const egg::ovum::IParameters&) const = 0;
@@ -266,8 +269,8 @@ namespace {
     egg::ovum::String instance;
     egg::ovum::HardPtr<StringFunctionType> type;
   public:
-    StringBuiltin(egg::ovum::IAllocator& allocator, const egg::ovum::String& instance, const egg::ovum::HardPtr<StringFunctionType>& type)
-      : SoftReferenceCounted(allocator), instance(instance), type(type) {
+    StringBuiltin(egg::ovum::IAllocator& allocator, const egg::ovum::String& instance, egg::ovum::HardPtr<StringFunctionType>&& type)
+      : SoftReferenceCounted(allocator), instance(instance), type(std::move(type)) {
     }
     virtual void softVisitLinks(const Visitor&) const override {
       // No soft links
@@ -275,8 +278,8 @@ namespace {
     virtual egg::ovum::Variant toString() const override {
       return egg::ovum::Variant(this->type->getName());
     }
-    virtual egg::ovum::ITypeRef getRuntimeType() const override {
-      return this->type;
+    virtual egg::ovum::Type getRuntimeType() const override {
+      return egg::ovum::Type(this->type.get());
     }
     virtual egg::ovum::Variant call(egg::ovum::IExecution& execution, const egg::ovum::IParameters& parameters) override {
       // Let the string builtin type handle the request
@@ -403,7 +406,7 @@ namespace {
     EGG_NO_COPY(StringIndexOf);
   public:
     StringIndexOf(egg::ovum::IAllocator& allocator, const egg::ovum::String& name)
-      : StringFunctionType(allocator, name, egg::ovum::Type::makeBasal(egg::ovum::BasalBits::Int | egg::ovum::BasalBits::Null)) {
+      : StringFunctionType(allocator, name, egg::ovum::Type::makeBasal(allocator, egg::ovum::BasalBits::Int | egg::ovum::BasalBits::Null)) {
       this->addParameter("needle", egg::ovum::Type::String, Flags::Required);
     }
     virtual egg::ovum::Variant executeCall(egg::ovum::IExecution& execution, const egg::ovum::String& instance, const egg::ovum::IParameters& parameters) const override {
@@ -421,7 +424,7 @@ namespace {
     EGG_NO_COPY(StringLastIndexOf);
   public:
     StringLastIndexOf(egg::ovum::IAllocator& allocator, const egg::ovum::String& name)
-      : StringFunctionType(allocator, name, egg::ovum::Type::makeBasal(egg::ovum::BasalBits::Int | egg::ovum::BasalBits::Null)) {
+      : StringFunctionType(allocator, name, egg::ovum::Type::makeBasal(allocator, egg::ovum::BasalBits::Int | egg::ovum::BasalBits::Null)) {
       this->addParameter("needle", egg::ovum::Type::String, Flags::Required);
     }
     virtual egg::ovum::Variant executeCall(egg::ovum::IExecution& execution, const egg::ovum::String& instance, const egg::ovum::IParameters& parameters) const override {

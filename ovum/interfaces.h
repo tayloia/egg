@@ -1,18 +1,14 @@
 namespace egg::ovum {
-  // WIBBLE
-  enum class BasalBits;
-  class IExecution;
-  class String;
-  class Variant;
-
   // Forward declarations
   template<typename T> class HardPtr;
+  enum class BasalBits;
   struct LocationSource;
+  class String;
+  class Type;
+  class Variant;
   class ICollectable;
+  class IExecution;
   class IType;
-
-  // Useful aliases
-  using ITypeRef = HardPtr<const IType>;
 
   class ILogger {
   public:
@@ -72,8 +68,8 @@ namespace egg::ovum {
       this->deallocate(const_cast<T*>(allocated), alignof(T));
     }
 
-    template<typename T, typename... ARGS>
-    inline HardPtr<T> make(ARGS&&... args);
+    template<typename T, typename RETTYPE = HardPtr<T>, typename... ARGS>
+    inline RETTYPE make(ARGS&&... args);
   };
 
   class IMemory : public IHardAcquireRelease {
@@ -120,11 +116,11 @@ namespace egg::ovum {
   public:
     virtual ~IParameters() {}
     virtual size_t getPositionalCount() const = 0;
-    virtual egg::ovum::Variant getPositional(size_t index) const = 0;
+    virtual Variant getPositional(size_t index) const = 0;
     virtual const LocationSource* getPositionalLocation(size_t index) const = 0; // May be null
     virtual size_t getNamedCount() const = 0;
     virtual String getName(size_t index) const = 0;
-    virtual egg::ovum::Variant getNamed(const String& name) const = 0;
+    virtual Variant getNamed(const String& name) const = 0;
     virtual const LocationSource* getNamedLocation(const String& name) const = 0; // May be null
   };
 
@@ -138,7 +134,7 @@ namespace egg::ovum {
     };
     virtual ~IFunctionSignatureParameter() {}
     virtual String getName() const = 0; // May be empty
-    virtual ITypeRef getType() const = 0;
+    virtual Type getType() const = 0;
     virtual size_t getPosition() const = 0; // SIZE_MAX if not positional
     virtual Flags getFlags() const = 0;
   };
@@ -156,39 +152,39 @@ namespace egg::ovum {
     virtual ~IFunctionSignature() {}
     virtual String toString(Parts parts) const; // Calls buildStringDefault
     virtual String getFunctionName() const = 0; // May be empty
-    virtual ITypeRef getReturnType() const = 0;
+    virtual Type getReturnType() const = 0;
     virtual size_t getParameterCount() const = 0;
     virtual const IFunctionSignatureParameter& getParameter(size_t index) const = 0;
-    virtual bool validateCall(IExecution& execution, const IParameters& runtime, egg::ovum::Variant& problem) const; // Calls validateCallDefault
+    virtual bool validateCall(IExecution& execution, const IParameters& runtime, Variant& problem) const; // Calls validateCallDefault
 
     // Implementation
     void buildStringDefault(class StringBuilder& sb, Parts parts) const; // Default formats as expected WIBBLE
-    bool validateCallDefault(IExecution& execution, const IParameters& runtime, egg::ovum::Variant& problem) const;
+    bool validateCallDefault(IExecution& execution, const IParameters& runtime, Variant& problem) const;
   };
 
   class IIndexSignature {
   public:
     virtual ~IIndexSignature() {}
     virtual String toString() const; // Default formats as expected
-    virtual ITypeRef getResultType() const = 0;
-    virtual ITypeRef getIndexType() const = 0;
+    virtual Type getResultType() const = 0;
+    virtual Type getIndexType() const = 0;
   };
 
   class IType : public IHardAcquireRelease {
   public:
     // LEGACY
+    virtual BasalBits getBasalTypes() const = 0; // WIBBLE needed?
     enum class AssignmentSuccess { Never, Sometimes, Always };
     virtual AssignmentSuccess canBeAssignedFrom(const IType& rhs) const = 0;
-    virtual egg::ovum::Variant promoteAssignment(const egg::ovum::Variant& rhs) const; // Default implementation calls IType::canBeAssignedFrom()
+    virtual Variant promoteAssignment(const Variant& rhs) const; // Default implementation calls IType::canBeAssignedFrom()
     virtual const IFunctionSignature* callable() const; // Default implementation returns nullptr
     virtual const IIndexSignature* indexable() const; // Default implementation returns nullptr
-    virtual bool dotable(const String* property, ITypeRef& type, String& reason) const; // Default implementation returns false
-    virtual bool iterable(ITypeRef& type) const; // Default implementation returns false
-    virtual BasalBits getBasalTypes() const; // Default implementation returns 'Object' // WIBBLE needed?
-    virtual ITypeRef pointerType() const; // Default implementation returns 'Type*'
-    virtual ITypeRef pointeeType() const; // Default implementation returns 'Void'
-    virtual ITypeRef denulledType() const; // Default implementation returns 'Void'
-    virtual ITypeRef unionWith(const IType& other) const; // Default implementation calls Type::makeUnion()
+    virtual bool dotable(const String* property, Type& type, String& reason) const; // Default implementation returns false
+    virtual bool iterable(Type& type) const; // Default implementation returns false
+    virtual Type pointerType() const; // Default implementation returns 'Type*'
+    virtual Type pointeeType() const; // Default implementation returns nullptr
+    virtual Type denulledType() const; // Default implementation returns self
+    virtual Type unionWith(IAllocator& allocator, const IType& other) const; // Default implementation calls Type::makeUnion()
     virtual std::pair<std::string, int> toStringPrecedence() const = 0;
 
     // Helpers
@@ -197,13 +193,13 @@ namespace egg::ovum {
 
   class IObject : public ICollectable {
   public:
-    virtual egg::ovum::Variant toString() const = 0;
-    virtual ITypeRef getRuntimeType() const = 0;
-    virtual egg::ovum::Variant call(IExecution& execution, const IParameters& parameters) = 0;
-    virtual egg::ovum::Variant getProperty(IExecution& execution, const String& property) = 0;
-    virtual egg::ovum::Variant setProperty(IExecution& execution, const String& property, const egg::ovum::Variant& value) = 0;
-    virtual egg::ovum::Variant getIndex(IExecution& execution, const egg::ovum::Variant& index) = 0;
-    virtual egg::ovum::Variant setIndex(IExecution& execution, const egg::ovum::Variant& index, const egg::ovum::Variant& value) = 0;
-    virtual egg::ovum::Variant iterate(IExecution& execution) = 0;
+    virtual Variant toString() const = 0;
+    virtual Type getRuntimeType() const = 0;
+    virtual Variant call(IExecution& execution, const IParameters& parameters) = 0;
+    virtual Variant getProperty(IExecution& execution, const String& property) = 0;
+    virtual Variant setProperty(IExecution& execution, const String& property, const Variant& value) = 0;
+    virtual Variant getIndex(IExecution& execution, const Variant& index) = 0;
+    virtual Variant setIndex(IExecution& execution, const Variant& index, const Variant& value) = 0;
+    virtual Variant iterate(IExecution& execution) = 0;
   };
 }
