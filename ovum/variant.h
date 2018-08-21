@@ -72,10 +72,6 @@ namespace egg::ovum {
       return this->kind;
     }
     static void printTo(std::ostream& stream, VariantBits kind);
-  protected:
-    void swapKind(VariantKind& other) {
-      std::swap(this->kind, other.kind);
-    }
   };
 
   class IVariantSoft : public ICollectable {
@@ -103,35 +99,50 @@ namespace egg::ovum {
   public:
     // Construction/destruction
     Variant() : Variant(VariantBits::Void) {
+      assert(this->validate());
     }
     Variant(const Variant& rhs) : VariantKind(rhs.kind) {
       Variant::copyInternals(*this, rhs);
+      assert(this->validate());
+      assert(rhs.validate());
     }
     Variant(Variant&& rhs) : VariantKind(rhs.kind) { // WIBBLE noexcept
       Variant::moveInternals(*this, rhs);
       rhs.kind = VariantBits::Void;
+      assert(this->validate());
+      assert(rhs.validate());
     }
     ~Variant() {
+      // Don't validate because we may be soft
       Variant::destroyInternals(*this);
     }
     // Assignment
     Variant& operator=(const Variant& rhs) {
+      assert(this->validate());
+      assert(rhs.validate());
       if (this != &rhs) {
         // The resources of 'before' will be cleaned up after the assignment
         Variant before{ std::move(*this) };
         this->kind = rhs.kind;
         Variant::copyInternals(*this, rhs);
       }
+      assert(this->validate());
+      assert(rhs.validate());
       return *this;
     }
     Variant& operator=(Variant&& rhs) {
       // See https://stackoverflow.com/a/9322542
+      assert(this->validate());
+      assert(rhs.validate());
       if (this != &rhs) {
         // Need to make sure the resources of the original 'this' are cleaned up last
-        this->swap(rhs);
+        std::swap(this->kind, rhs.kind);
+        std::swap(this->u, rhs.u);
         Variant::destroyInternals(rhs);
         rhs.kind = VariantBits::Void;
       }
+      assert(this->validate());
+      assert(rhs.validate());
       return *this;
     }
     // Equality
@@ -143,44 +154,55 @@ namespace egg::ovum {
     }
     // Null
     Variant(nullptr_t) : Variant(VariantBits::Null) {
+      assert(this->validate());
     }
     // Bool
     Variant(bool value) : VariantKind(VariantBits::Bool) {
       this->u.b = value;
+      assert(this->validate());
     }
     bool getBool() const {
+      assert(this->validate());
       assert(this->hasAny(VariantBits::Bool));
       return this->u.b;
     }
     // Int (support automatic promotion of 32-bit integers)
     Variant(int32_t value) : VariantKind(VariantBits::Int) {
       this->u.i = value;
+      assert(this->validate());
     }
     Variant(int64_t value) : VariantKind(VariantBits::Int) {
       this->u.i = value;
+      assert(this->validate());
     }
     Int getInt() const {
+      assert(this->validate());
       assert(this->hasAny(VariantBits::Int));
       return this->u.i;
     }
     // Float (support automatic promotion of 32-bit IEEE)
     Variant(float value) : VariantKind(VariantBits::Float) {
       this->u.f = value;
+      assert(this->validate());
     }
     Variant(double value) : VariantKind(VariantBits::Float) {
       this->u.f = value;
+      assert(this->validate());
     }
     Float getFloat() const {
+      assert(this->validate());
       assert(this->hasAny(VariantBits::Float));
       return this->u.f;
     }
     // String
     Variant(const String& value) : VariantKind(VariantBits::String | VariantBits::Hard) {
       this->u.s = String::hardAcquire(value.get());
+      assert(this->validate());
     }
     Variant(const std::string& value) : VariantKind(VariantBits::String | VariantBits::Hard) {
       // We've got to create a string without an allocator
       this->u.s = Variant::acquireFallbackString(value.data(), value.size());
+      assert(this->validate());
     }
     Variant(const char* value) : VariantKind(VariantBits::String | VariantBits::Hard) {
       if (value == nullptr) {
@@ -190,19 +212,21 @@ namespace egg::ovum {
         // We've got to create a string without an allocator
         this->u.s = Variant::acquireFallbackString(value, std::strlen(value));
       }
+      assert(this->validate());
     }
     String getString() const {
+      assert(this->validate());
       assert(this->hasAny(VariantBits::String));
       return String(this->u.s);
     }
     // Object
     Variant(const Object& value) : VariantKind(VariantBits::Object | VariantBits::Hard) {
       this->u.o = Object::hardAcquire(value.get());
-      assert(this->u.o != nullptr);
+      assert(this->validate());
     }
     Object getObject() const {
+      assert(this->validate());
       assert(this->hasAny(VariantBits::Object));
-      assert(this->u.o != nullptr);
       return Object(*this->u.o);
     }
     // Pointer/Indirect
@@ -215,18 +239,14 @@ namespace egg::ovum {
       } else {
         this->u.p = &value;
       }
-      assert(this->u.p != nullptr);
+      assert(this->validate());
     }
     Variant& getPointee() const {
+      assert(this->validate());
       assert(this->hasOne(VariantBits::Pointer | VariantBits::Indirect));
-      assert(this->u.p != nullptr);
       return this->u.p->getVariant();
     }
   private:
-    void swap(Variant& other) {
-      std::swap(this->kind, other.kind);
-      std::swap(this->u, other.u);
-    }
     static void copyInternals(Variant& dst, const Variant& src) {
       // dst:INVALID,src:VALID => dst:VALID,src:VALID
       assert(dst.kind == src.kind);
@@ -268,7 +288,6 @@ namespace egg::ovum {
       }
     }
     static const IMemory* acquireFallbackString(const char* utf8, size_t bytes);
-
 
   public:
     // WIBBLE LEGACY
@@ -321,6 +340,7 @@ namespace egg::ovum {
     void softVisitLink(const ICollectable::Visitor& visitor) const;
     void indirect(IAllocator& allocator, IBasket& basket);
     Variant address() const;
+    bool validate(bool soft = false) const;
     static std::string getBasalString(BasalBits basal);
   };
 }
