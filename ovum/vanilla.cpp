@@ -25,28 +25,28 @@ namespace {
       assert(false);
     }
     virtual  egg::ovum::Variant toString() const override {
-      throw std::runtime_error("WIBBLE");
+      throw std::runtime_error("TODO");
     }
     virtual Type getRuntimeType() const override {
-      throw std::runtime_error("WIBBLE");
+      throw std::runtime_error("TODO");
     }
     virtual  egg::ovum::Variant call(IExecution&, const IParameters&) override {
-      throw std::runtime_error("WIBBLE");
+      throw std::runtime_error("TODO");
     }
     virtual  egg::ovum::Variant getProperty(IExecution&, const String&) override {
-      throw std::runtime_error("WIBBLE");
+      throw std::runtime_error("TODO");
     }
     virtual  egg::ovum::Variant setProperty(IExecution&, const String&, const  egg::ovum::Variant&) override {
-      throw std::runtime_error("WIBBLE");
+      throw std::runtime_error("TODO");
     }
     virtual  egg::ovum::Variant getIndex(IExecution&, const  egg::ovum::Variant&) override {
-      throw std::runtime_error("WIBBLE");
+      throw std::runtime_error("TODO");
     }
     virtual  egg::ovum::Variant setIndex(IExecution&, const  egg::ovum::Variant&, const  egg::ovum::Variant&) override {
-      throw std::runtime_error("WIBBLE");
+      throw std::runtime_error("TODO");
     }
     virtual  egg::ovum::Variant iterate(IExecution&) override {
-      throw std::runtime_error("WIBBLE");
+      throw std::runtime_error("TODO");
     }
   };
 }

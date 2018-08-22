@@ -1,70 +1,5 @@
 #include "ovum/ovum.h"
 
-egg::ovum::String egg::ovum::IType::toString(int priority) const {
-  auto pair = this->toStringPrecedence();
-  if (pair.second < priority) {
-    return StringBuilder::concat("(", pair.first, ")");
-  }
-  return pair.first;
-}
-
-egg::ovum::BasalBits egg::ovum::IType::getBasalTypes() const {
-  // The default implementation is to return 'Object'
-  return egg::ovum::BasalBits::Object;
-}
-
-egg::ovum::Type egg::ovum::IType::pointeeType() const {
-  // The default implementation is to return nullptr indicating that this is NOT dereferencable
-  return Type(nullptr);
-}
-
-egg::ovum::Type egg::ovum::IType::denulledType() const {
-  // The default implementation is to return self
-  return Type(this);
-}
-
-egg::ovum::String egg::ovum::IFunctionSignature::toString(Parts parts) const {
-  StringBuilder sb;
-  this->buildStringDefault(sb, parts);
-  return sb.str();
-}
-
-bool egg::ovum::IFunctionSignature::validateCall(egg::ovum::IExecution& execution, const IParameters& runtime, Variant& problem) const {
-  // The default implementation just calls validateCallDefault()
-  return this->validateCallDefault(execution, runtime, problem);
-}
-
-egg::ovum::String egg::ovum::IIndexSignature::toString() const {
-  return StringBuilder::concat(this->getResultType()->toString(), "[", this->getIndexType()->toString(), "]");
-}
-
-const egg::ovum::IFunctionSignature* egg::ovum::IType::callable() const {
-  // The default implementation is to say we don't support calling with '()'
-  return nullptr;
-}
-
-const egg::ovum::IIndexSignature* egg::ovum::IType::indexable() const {
-  // The default implementation is to say we don't support indexing with '[]'
-  return nullptr;
-}
-
-bool egg::ovum::IType::dotable(const String*, Type&, String& reason) const {
-  // The default implementation is to say we don't support properties with '.'
-  reason = StringBuilder::concat("Values of type '", this->toString(), "' do not support the '.' operator for property access");
-  return false;
-}
-
-bool egg::ovum::IType::iterable(Type&) const {
-  // The default implementation is to say we don't support iteration
-  return false;
-}
-
-egg::ovum::Type egg::ovum::IType::unionWith(IAllocator& allocator, const IType& other) const {
-  // The default implementation is to simply make a new union (native and basal types can be more clever)
-  return Type::makeUnion(allocator, *this, other);
-}
-
-/// WIBBLE
 namespace {
   using namespace egg::ovum;
 
@@ -85,8 +20,8 @@ namespace {
     assert(lhs != BasalBits::None);
     auto rhs = rtype.getBasalTypes();
     assert(rhs != BasalBits::None);
-    if (rhs == BasalBits::None) { // WIBBLE
-      // The source is not basal
+    if (rhs == BasalBits::None) {
+      // TODO The source is not basal
       return IType::AssignmentSuccess::Never;
     }
     if (Bits::hasAllSet(lhs, rhs)) {
@@ -118,8 +53,8 @@ namespace {
       // We allow type promotion int->float
       return Variant(double(rhs.getInt())); // TODO overflows?
     }
-    Variant exception{ egg::ovum::StringBuilder::concat("Cannot assign a value of type '", rhs.getRuntimeType()->toString(), "' to a target of type '", Variant::getBasalString(lhs), "'") };
-    exception.addFlowControl(egg::ovum::VariantBits::Throw);
+    Variant exception{ StringBuilder::concat("Cannot assign a value of type '", rhs.getRuntimeType()->toString(), "' to a target of type '", Variant::getBasalString(lhs), "'") };
+    exception.addFlowControl(VariantBits::Throw);
     return exception;
   }
 
@@ -135,8 +70,8 @@ namespace {
     virtual std::pair<std::string, int> toStringPrecedence() const override {
       return std::make_pair(this->referenced->toString(0).toUTF8() + "*", 0);
     }
-    virtual egg::ovum::BasalBits getBasalTypes() const override {
-      return egg::ovum::BasalBits::None;
+    virtual BasalBits getBasalTypes() const override {
+      return BasalBits::None;
     }
     virtual Type pointeeType() const override {
       return this->referenced;
@@ -172,8 +107,8 @@ namespace {
       return AssignmentSuccess::Never;
     }
     virtual Variant promoteAssignment(const Variant&) const override {
-      Variant exception{ egg::ovum::String("Cannot assign to 'null' value") };
-      exception.addFlowControl(egg::ovum::VariantBits::Throw);
+      Variant exception{ String("Cannot assign to 'null' value") };
+      exception.addFlowControl(VariantBits::Throw);
       return exception;
     }
   };
@@ -233,31 +168,31 @@ namespace {
 
   const IType* getNativeBasal(BasalBits basal) {
     // OPTIMIZE
-    if (basal == egg::ovum::BasalBits::Void) {
+    if (basal == BasalBits::Void) {
       return &typeVoid;
     }
-    if (basal == egg::ovum::BasalBits::Null) {
+    if (basal == BasalBits::Null) {
       return &typeNull;
     }
-    if (basal == egg::ovum::BasalBits::Bool) {
+    if (basal == BasalBits::Bool) {
       return &typeBool;
     }
-    if (basal == egg::ovum::BasalBits::Int) {
+    if (basal == BasalBits::Int) {
       return &typeInt;
     }
-    if (basal == egg::ovum::BasalBits::Float) {
+    if (basal == BasalBits::Float) {
       return &typeFloat;
     }
-    if (basal == egg::ovum::BasalBits::String) {
+    if (basal == BasalBits::String) {
       return &typeString;
     }
-    if (basal == egg::ovum::BasalBits::Arithmetic) {
+    if (basal == BasalBits::Arithmetic) {
       return &typeArithmetic;
     }
     return nullptr;
   }
 
-  // WIBBLE An 'omni' function looks like this: 'any?(...any?[])'
+  // An 'omni' function looks like this: 'any?(...any?[])'
   class OmniFunctionSignature : public IFunctionSignature {
     OmniFunctionSignature(const OmniFunctionSignature&) = delete;
     OmniFunctionSignature& operator=(const OmniFunctionSignature&) = delete;
@@ -382,20 +317,20 @@ namespace {
     }
   };
 
-  class FunctionSignatureParameter : public egg::ovum::IFunctionSignatureParameter {
+  class FunctionSignatureParameter : public IFunctionSignatureParameter {
   private:
-    egg::ovum::String name; // may be empty
-    egg::ovum::Type type;
+    String name; // may be empty
+    Type type;
     size_t position; // may be SIZE_MAX
     Flags flags;
   public:
-    FunctionSignatureParameter(const egg::ovum::String& name, const egg::ovum::Type& type, size_t position, Flags flags)
+    FunctionSignatureParameter(const String& name, const Type& type, size_t position, Flags flags)
       : name(name), type(type), position(position), flags(flags) {
     }
-    virtual egg::ovum::String getName() const override {
+    virtual String getName() const override {
       return this->name;
     }
-    virtual egg::ovum::Type getType() const override {
+    virtual Type getType() const override {
       return this->type;
     }
     virtual size_t getPosition() const override {
@@ -406,38 +341,102 @@ namespace {
     }
   };
 
-  class FunctionSignature : public egg::ovum::IFunctionSignature {
+  class FunctionSignature : public IFunctionSignature {
   private:
-    egg::ovum::String name;
-    egg::ovum::Type returnType;
+    String name;
+    Type returnType;
     std::vector<FunctionSignatureParameter> parameters;
   public:
-    FunctionSignature(const egg::ovum::String& name, const egg::ovum::Type& returnType)
+    FunctionSignature(const String& name, const Type& returnType)
       : name(name), returnType(returnType) {
     }
-    void addSignatureParameter(const egg::ovum::String& parameterName, const egg::ovum::Type& parameterType, size_t position, FunctionSignatureParameter::Flags flags) {
+    void addSignatureParameter(const String& parameterName, const Type& parameterType, size_t position, FunctionSignatureParameter::Flags flags) {
       this->parameters.emplace_back(parameterName, parameterType, position, flags);
     }
-    virtual egg::ovum::String getFunctionName() const override {
+    virtual String getFunctionName() const override {
       return this->name;
     }
-    virtual egg::ovum::Type getReturnType() const override {
+    virtual Type getReturnType() const override {
       return this->returnType;
     }
     virtual size_t getParameterCount() const override {
       return this->parameters.size();
     }
-    virtual const egg::ovum::IFunctionSignatureParameter& getParameter(size_t index) const override {
+    virtual const IFunctionSignatureParameter& getParameter(size_t index) const override {
       assert(index < this->parameters.size());
       return this->parameters[index];
     }
   };
 
-  egg::ovum::IAllocator& defaultAllocator() {
+  IAllocator& defaultAllocator() {
     // WIBBLE retire
-    static egg::ovum::AllocatorDefault allocator;
+    static AllocatorDefault allocator;
     return allocator;
   }
+}
+
+egg::ovum::String egg::ovum::IType::toString(int priority) const {
+  auto pair = this->toStringPrecedence();
+  if (pair.second < priority) {
+    return StringBuilder::concat("(", pair.first, ")");
+  }
+  return pair.first;
+}
+
+egg::ovum::BasalBits egg::ovum::IType::getBasalTypes() const {
+  // The default implementation is to return 'Object'
+  return BasalBits::Object;
+}
+
+egg::ovum::Type egg::ovum::IType::pointeeType() const {
+  // The default implementation is to return nullptr indicating that this is NOT dereferencable
+  return Type(nullptr);
+}
+
+egg::ovum::Type egg::ovum::IType::denulledType() const {
+  // The default implementation is to return self
+  return Type(this);
+}
+
+egg::ovum::String egg::ovum::IFunctionSignature::toString(Parts parts) const {
+  StringBuilder sb;
+  this->buildStringDefault(sb, parts);
+  return sb.str();
+}
+
+bool egg::ovum::IFunctionSignature::validateCall(IExecution& execution, const IParameters& runtime, Variant& problem) const {
+  // The default implementation just calls validateCallDefault()
+  return this->validateCallDefault(execution, runtime, problem);
+}
+
+egg::ovum::String egg::ovum::IIndexSignature::toString() const {
+  return StringBuilder::concat(this->getResultType()->toString(), "[", this->getIndexType()->toString(), "]");
+}
+
+const egg::ovum::IFunctionSignature* egg::ovum::IType::callable() const {
+  // The default implementation is to say we don't support calling with '()'
+  return nullptr;
+}
+
+const egg::ovum::IIndexSignature* egg::ovum::IType::indexable() const {
+  // The default implementation is to say we don't support indexing with '[]'
+  return nullptr;
+}
+
+bool egg::ovum::IType::dotable(const String*, Type&, String& reason) const {
+  // The default implementation is to say we don't support properties with '.'
+  reason = StringBuilder::concat("Values of type '", this->toString(), "' do not support the '.' operator for property access");
+  return false;
+}
+
+bool egg::ovum::IType::iterable(Type&) const {
+  // The default implementation is to say we don't support iteration
+  return false;
+}
+
+egg::ovum::Type egg::ovum::IType::unionWith(IAllocator& allocator, const IType& other) const {
+  // The default implementation is to simply make a new union (native and basal types can be more clever)
+  return Type::makeUnion(allocator, *this, other);
 }
 
 void egg::ovum::IFunctionSignature::buildStringDefault(StringBuilder& sb, IFunctionSignature::Parts parts) const {
@@ -481,23 +480,23 @@ void egg::ovum::IFunctionSignature::buildStringDefault(StringBuilder& sb, IFunct
 }
 
 egg::ovum::Type egg::ovum::IType::pointerType() const {
-  // WIBBLE The default implementation is to return a new type 'Type*'
+  // The default implementation is to return a new type 'Type*'
   return defaultAllocator().make<TypePointer, Type>(*this);
 }
 
 Variant egg::ovum::IType::promoteAssignment(const Variant& rhs) const {
-  // WIBBLE The default implementation calls IType::canBeAssignedFrom() but does not actually promote
+  // The default implementation calls IType::canBeAssignedFrom() but does not actually promote
   auto& direct = rhs.direct();
   auto rtype = direct.getRuntimeType();
   if (this->canBeAssignedFrom(*rtype) == AssignmentSuccess::Never) {
     Variant exception{ StringBuilder::concat("Cannot assign a value of type '", rtype->toString(), "' to a target of type '", this->toString(), "'") };
-    exception.addFlowControl(egg::ovum::VariantBits::Throw);
+    exception.addFlowControl(VariantBits::Throw);
     return exception;
   }
   return direct;
 }
 
-bool egg::ovum::IFunctionSignature::validateCallDefault(egg::ovum::IExecution& execution, const IParameters& parameters, Variant& problem) const {
+bool egg::ovum::IFunctionSignature::validateCallDefault(IExecution& execution, const IParameters& parameters, Variant& problem) const {
   // TODO type checking, etc
   if (parameters.getNamedCount() > 0) {
     problem = execution.raiseFormat(this->toString(Parts::All), ": Named parameters are not yet supported"); // TODO
@@ -531,7 +530,7 @@ bool egg::ovum::IFunctionSignature::validateCallDefault(egg::ovum::IExecution& e
   return true;
 }
 
-egg::ovum::Type egg::ovum::Type::makeBasal(IAllocator& allocator, egg::ovum::BasalBits basal) {
+egg::ovum::Type egg::ovum::Type::makeBasal(IAllocator& allocator, BasalBits basal) {
   // Try to use non-reference-counted globals
   auto* native = getNativeBasal(basal);
   if (native != nullptr) {
@@ -540,7 +539,7 @@ egg::ovum::Type egg::ovum::Type::makeBasal(IAllocator& allocator, egg::ovum::Bas
   return allocator.make<TypeBasal, Type>(basal);
 }
 
-egg::ovum::Type egg::ovum::Type::makeUnion(IAllocator& allocator, const egg::ovum::IType& a, const egg::ovum::IType& b) {
+egg::ovum::Type egg::ovum::Type::makeUnion(IAllocator& allocator, const IType& a, const IType& b) {
   // If they are both basal types, just union the tags
   auto sa = a.getBasalTypes();
   auto sb = b.getBasalTypes();

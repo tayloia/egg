@@ -20,9 +20,9 @@ namespace {
     switch (basal) {
     case egg::ovum::BasalBits::None:
       return "var";
-#define EGG_VM_BASAL_COMPONENT(name, text) case egg::ovum::BasalBits::name: return text;
-      EGG_VM_BASAL(EGG_VM_BASAL_COMPONENT)
-#undef EGG_VM_BASAL_COMPONENT
+#define EGG_OVUM_BASAL_COMPONENT(name, text) case egg::ovum::BasalBits::name: return text;
+      EGG_OVUM_BASAL(EGG_OVUM_BASAL_COMPONENT)
+#undef EGG_OVUM_BASAL_COMPONENT
     case egg::ovum::BasalBits::Arithmetic:
       break;
     case egg::ovum::BasalBits::Any:
@@ -243,9 +243,9 @@ namespace {
 void egg::ovum::VariantKind::printTo(std::ostream& stream, VariantBits kind) {
   // This is used by GoogleTest's ::testing::internal::PrintTo
   size_t found = 0;
-#define EGG_VM_VARIANT_PRINT(name, text) if (Bits::hasAnySet(kind, VariantBits::name)) { if (++found > 1) { stream << '|'; } stream << #name; }
-  EGG_VM_VARIANT(EGG_VM_VARIANT_PRINT)
-#undef EGG_VM_VARIANT_PRINT
+#define EGG_OVUM_VARIANT_PRINT(name, text) if (Bits::hasAnySet(kind, VariantBits::name)) { if (++found > 1) { stream << '|'; } stream << #name; }
+  EGG_OVUM_VARIANT(EGG_OVUM_VARIANT_PRINT)
+#undef EGG_OVUM_VARIANT_PRINT
   if (found == 0) {
     stream << '(' << int(kind) << ')';
   }
@@ -293,6 +293,7 @@ const egg::ovum::Variant egg::ovum::Variant::Continue{ VariantBits::Continue };
 const egg::ovum::Variant egg::ovum::Variant::Rethrow{ VariantBits::Throw | VariantBits::Void };
 const egg::ovum::Variant egg::ovum::Variant::ReturnVoid{ VariantBits::Return | VariantBits::Void };
 
+#if !defined(NDEBUG)
 bool egg::ovum::Variant::validate(bool soft) const {
   const auto zero = VariantBits(0);
   auto bits = this->kind;
@@ -346,6 +347,7 @@ bool egg::ovum::Variant::validate(bool soft) const {
   assert(bits == zero);
   return false;
 }
+#endif
 
 const egg::ovum::Variant& egg::ovum::Variant::direct() const {
   return const_cast<Variant*>(this)->direct();

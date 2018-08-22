@@ -1,10 +1,7 @@
-namespace egg::ovum {
-  class Variant;
-  class VariantFactory;
-  class VariantSoft;
-
-#define EGG_VM_VARIANT(X) \
-  EGG_VM_BASAL(X) \
+#define EGG_OVUM_BASAL(X) \
+  EGG_VM_TYPES(X)
+#define EGG_OVUM_VARIANT(X) \
+  EGG_VM_TYPES(X) \
   X(Memory, "memory") \
   X(Pointer, "pointer") \
   X(Indirect, "indirect") \
@@ -15,21 +12,26 @@ namespace egg::ovum {
   X(Throw, "throw") \
   X(Hard, "hard")
 
+namespace egg::ovum {
+  class Variant;
+  class VariantFactory;
+  class VariantSoft;
+
   namespace impl {
     enum {
       _ = -1 // We want the next element to start at zero
-#define EGG_VM_VARIANT_ENUM(name, text) , name
-      EGG_VM_VARIANT(EGG_VM_VARIANT_ENUM)
-#undef EGG_VM_VARIANT_ENUM
+#define EGG_OVUM_VARIANT_ENUM(name, text) , name
+      EGG_OVUM_VARIANT(EGG_OVUM_VARIANT_ENUM)
+#undef EGG_OVUM_VARIANT_ENUM
     };
   }
 
   // None, Void, Null, Bool, Int, Float, String, Object (plus Arithmetic, Any)
   enum class BasalBits {
     None = 0,
-#define EGG_VM_BASAL_ENUM(name, text) name = 1 << impl::name,
-    EGG_VM_BASAL(EGG_VM_BASAL_ENUM)
-#undef EGG_VM_BASAL_ENUM
+#define EGG_OVUM_BASAL_ENUM(name, text) name = 1 << impl::name,
+    EGG_OVUM_BASAL(EGG_OVUM_BASAL_ENUM)
+#undef EGG_OVUM_BASAL_ENUM
     Arithmetic = Int | Float,
     Any = Bool | Int | Float | String | Object
   };
@@ -39,14 +41,14 @@ namespace egg::ovum {
 
   // None, Void, Null, Bool, Int, Float, String, Object, Pointer, Indirect, Break, Continue, Return, Yield, Throw, Hard (plus Arithmetic, Any, FlowControl)
   enum class VariantBits {
-#define EGG_VM_VARIANT_ENUM(name, text) name = 1 << impl::name,
-    EGG_VM_VARIANT(EGG_VM_VARIANT_ENUM)
-#undef EGG_VM_VARIANT_ENUM
+#define EGG_OVUM_VARIANT_ENUM(name, text) name = 1 << impl::name,
+    EGG_OVUM_VARIANT(EGG_OVUM_VARIANT_ENUM)
+#undef EGG_OVUM_VARIANT_ENUM
     Arithmetic = Int | Float,
     Any = Bool | Int | Float | String | Object,
     FlowControl = Break | Continue | Return | Yield | Throw
   };
-#undef EGG_VM_BASAL_ENUM
+#undef EGG_OVUM_BASAL_ENUM
   inline VariantBits operator|(VariantBits lhs, VariantBits rhs) {
     return Bits::set(lhs, rhs);
   }

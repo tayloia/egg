@@ -1,34 +1,11 @@
 namespace egg::ovum {
   class MemoryFactory;
 
-  // We want this code generated from the header
-#if defined(_MSC_VER)
-  // Microsoft's run-time
   struct AllocatorDefaultPolicy {
-    inline static void* memalloc(size_t bytes, size_t alignment) {
-      return _aligned_malloc(bytes, alignment);
-    }
-    inline static size_t memsize(void* allocated, size_t alignment) {
-      return _aligned_msize(allocated, alignment, 0);
-    }
-    inline static void memfree(void* allocated, size_t) {
-      return _aligned_free(allocated);
-    }
+    inline static void* memalloc(size_t bytes, size_t alignment);
+    inline static size_t memsize(void* allocated, size_t alignment);
+    inline static void memfree(void* allocated, size_t);
   };
-#else
-  // Linux run-time
-  struct AllocatorDefaultPolicy {
-    inline static void* memalloc(size_t bytes, size_t alignment) {
-      return aligned_alloc(alignment, bytes); // note switched order
-    }
-    inline static size_t memsize(void* allocated, size_t) {
-      return malloc_usable_size(allocated);
-    }
-    inline static void memfree(void* allocated, size_t) {
-      return free(allocated);
-    }
-  };
-#endif
 
   // This often lives high up on the machine stack, so we need to know the class layout
   template<typename POLICY>
@@ -221,3 +198,31 @@ namespace egg::ovum {
     static HardPtr<IBasket> createBasket(IAllocator& allocator);
   };
 }
+
+// We want this code generated from the header
+#if defined(_MSC_VER)
+  // Microsoft's run-time
+  inline void* egg::ovum::AllocatorDefaultPolicy::memalloc(size_t bytes, size_t alignment) {
+    return _aligned_malloc(bytes, alignment);
+  }
+  inline size_t egg::ovum::AllocatorDefaultPolicy::memsize(void* allocated, size_t alignment) {
+    return _aligned_msize(allocated, alignment, 0);
+  }
+  inline void egg::ovum::AllocatorDefaultPolicy::memfree(void* allocated, size_t) {
+    return _aligned_free(allocated);
+  }
+#else
+  // For malloc_usable_size()
+  #include <malloc.h>
+
+  // Linux run-time
+  inline void* egg::ovum::AllocatorDefaultPolicy::memalloc(size_t bytes, size_t alignment) {
+    return aligned_alloc(alignment, bytes); // note switched order
+  }
+  inline size_t egg::ovum::AllocatorDefaultPolicy::memsize(void* allocated, size_t) {
+    return malloc_usable_size(allocated);
+  }
+  inline void egg::ovum::AllocatorDefaultPolicy::memfree(void* allocated, size_t) {
+    return free(allocated);
+  }
+#endif

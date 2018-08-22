@@ -6,7 +6,7 @@ namespace {
   size_t ownedCount(egg::ovum::IBasket& basket) {
     egg::ovum::IBasket::Statistics statistics;
     if (basket.statistics(statistics)) {
-      return statistics.currentBlocksOwned;
+      return size_t(statistics.currentBlocksOwned);
     }
     return SIZE_MAX;
   }

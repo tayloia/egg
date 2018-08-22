@@ -16,7 +16,7 @@
   X(SECTION_SOURCE, 0xFF)
 
 // Macro to define initial magic section: X(byte)
-//  The first magic section is expected to be 0xA3,0x67,0x67,0x56,0x4D,0x00 like "EggVM\0"
+//  The first magic section is expected to be 0xA3,0x67,0x67,0x56,0x4D,0x00 like "EggVM\0" but with a GBP currency sign
 #define EGG_VM_MAGIC(X) \
   X(0xA3) \
   X(0x67) \
@@ -106,7 +106,8 @@
   X(OPCODE_WHILE, 86, 2, 2, "while") \
   X(OPCODE_YIELD, 126, 0, 1, "yield")
 
-#define EGG_VM_BASAL(X) \
+// Macro to define basal types: X(type, text)
+#define EGG_VM_TYPES(X) \
   X(Void, "void") \
   X(Null, "null") \
   X(Bool, "bool") \

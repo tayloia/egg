@@ -25,15 +25,15 @@ namespace {
     // Accept only type-like keywords: void, null, bool, int, float, string, object and any
     // OPTIMIZE
     if (item.kind == EggTokenizerKind::Keyword) {
-#define EGG_VM_BASAL_KEYWORD(name, text) case EggTokenizerKeyword::name: return egg::ovum::BasalBits::name;
+#define EGG_OVUM_BASAL_KEYWORD(name, text) case EggTokenizerKeyword::name: return egg::ovum::BasalBits::name;
       EGG_WARNING_SUPPRESS_SWITCH_BEGIN
       switch (item.value.k) {
-      EGG_VM_BASAL(EGG_VM_BASAL_KEYWORD)
+      EGG_OVUM_BASAL(EGG_OVUM_BASAL_KEYWORD)
       case EggTokenizerKeyword::Any:
         return egg::ovum::BasalBits::Any;
       }
       EGG_WARNING_SUPPRESS_SWITCH_END
-#undef EGG_VM_BASAL_KEYWORD
+#undef EGG_OVUM_BASAL_KEYWORD
     }
     return egg::ovum::BasalBits::None;
   }

@@ -34,9 +34,6 @@
 #undef __STRICT_ANSI__
 #endif
 
-// For malloc_usable_size()
-#include <malloc.h>
-
 #define EGG_WARNING_SUPPRESS_SWITCH_BEGIN _Pragma("GCC diagnostic push") _Pragma("GCC diagnostic ignored \"-Wswitch\"")
 #define EGG_WARNING_SUPPRESS_SWITCH_END _Pragma("GCC diagnostic pop")
 
