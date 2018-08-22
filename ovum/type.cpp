@@ -155,7 +155,7 @@ namespace {
     TypeNull() = default;
     virtual Type denulledType() const override {
       // You cannot denull null!
-      return Type();
+      return nullptr;
     }
     virtual AssignmentSuccess canBeAssignedFrom(const IType&) const override {
       return AssignmentSuccess::Never;
@@ -172,10 +172,9 @@ namespace {
   public:
     TypeString() = default;
     // TODO callable and indexable
-    virtual bool iterable(Type& type) const override {
+    virtual Type iterable() const override {
       // When strings are iterated, they iterate through strings (of codepoints)
-      type = Type::String;
-      return true;
+      return Type::String;
     }
   };
   const TypeString typeString{};
@@ -188,9 +187,8 @@ namespace {
     virtual const IFunctionSignature* callable() const override {
       return &omniFunctionSignature;
     }
-    virtual bool iterable(Type& type) const override {
-      type = Type::AnyQ;
-      return true;
+    virtual Type iterable() const override {
+      return Type::AnyQ;
     }
   };
   const TypeObject typeObject{};
@@ -203,9 +201,8 @@ namespace {
     virtual const IFunctionSignature* callable() const override {
       return &omniFunctionSignature;
     }
-    virtual bool iterable(Type& type) const override {
-      type = Type::AnyQ;
-      return true;
+    virtual Type iterable() const override {
+      return Type::AnyQ;
     }
   };
   const TypeAny typeAny{};
@@ -218,9 +215,8 @@ namespace {
     virtual const IFunctionSignature* callable() const override {
       return &omniFunctionSignature;
     }
-    virtual bool iterable(Type& type) const override {
-      type = Type::AnyQ;
-      return true;
+    virtual Type iterable() const override {
+      return Type::AnyQ;
     }
   };
   const TypeAnyQ typeAnyQ{};
@@ -249,16 +245,14 @@ namespace {
       }
       return nullptr;
     }
-    virtual bool iterable(Type& type) const override {
+    virtual Type iterable() const override {
       if (Bits::hasAnySet(this->tag, BasalBits::Object)) {
-        type = Type::AnyQ;
-        return true;
+        return Type::AnyQ;
       }
       if (Bits::hasAnySet(this->tag, BasalBits::String)) {
-        type = Type::String;
-        return true;
+        return Type::String;
       }
-      return false;
+      return nullptr;
     }
     virtual Type denulledType() const override {
       auto denulled = Bits::clear(this->tag, BasalBits::Null);
@@ -529,20 +523,20 @@ const egg::ovum::IIndexSignature* egg::ovum::TypeBase::indexable() const {
   return nullptr;
 }
 
-bool egg::ovum::TypeBase::dotable(const String*, Type&, String& reason) const {
+egg::ovum::Type egg::ovum::TypeBase::dotable(const String*, String& error) const {
   // By default, we have no properties
-  reason = StringBuilder::concat("Values of type '", Type(this).toString(), "*' do not support the '.' operator for property access");
-  return false;
+  error = StringBuilder::concat("Values of type '", Type(this).toString(), "*' do not support the '.' operator for property access");
+  return nullptr;
 }
 
-bool egg::ovum::TypeBase::iterable(Type&) const {
+egg::ovum::Type egg::ovum::TypeBase::iterable() const {
   // By default, we are not iterable
-  return false;
+  return nullptr;
 }
 
 egg::ovum::Type egg::ovum::TypeBase::pointeeType() const {
   // By default, we do not point to anything
-  return Type();
+  return nullptr;
 }
 
 egg::ovum::Type egg::ovum::TypeBase::denulledType() const {
@@ -552,7 +546,7 @@ egg::ovum::Type egg::ovum::TypeBase::denulledType() const {
 
 egg::ovum::Type egg::ovum::TypeBase::unionWithBasal(IAllocator&, BasalBits) const {
   // By default we cannot simple union with basal types
-  return Type();
+  return nullptr;
 }
 
 // Common types

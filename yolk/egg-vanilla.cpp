@@ -79,10 +79,9 @@ namespace {
     virtual std::pair<std::string, int> toStringPrecedence() const override {
       return std::make_pair("<keyvalue>", 0);
     }
-    virtual bool iterable(egg::ovum::Type& type) const override {
+    virtual egg::ovum::Type iterable() const override {
       // A keyvalue is a dictionary of two elements, so it is itself iterable
-      type.set(&VanillaKeyValueType::instance);
-      return true;
+      return egg::ovum::Type(&VanillaKeyValueType::instance);
     }
     virtual AssignmentSuccess canBeAssignedFrom(const IType& rtype) const {
       // TODO Only allow assignment of vanilla keyvalues
@@ -158,24 +157,21 @@ namespace {
       // Indexing an array returns an element
       return &VanillaArrayIndexSignature::instance;
     }
-    virtual bool dotable(const egg::ovum::String* property, egg::ovum::Type& type, egg::ovum::String& reason) const override {
+    virtual egg::ovum::Type dotable(const egg::ovum::String* property, egg::ovum::String& error) const override {
       // Arrays support limited properties
       if (property == nullptr) {
-        type = egg::ovum::Type::AnyQ;
-        return true;
+        return egg::ovum::Type::AnyQ;
       }
       auto* retval = VanillaArrayType::getPropertyType(property->toUTF8());
       if (retval == nullptr) {
-        reason = egg::ovum::StringBuilder::concat("Arrays do not support property '.", *property, "'");
-        return false;
+        error = egg::ovum::StringBuilder::concat("Arrays do not support property '.", *property, "'");
+        return nullptr;
       }
-      type.set(retval);
-      return true;
+      return egg::ovum::Type(retval);
     }
-    virtual bool iterable(egg::ovum::Type& type) const override {
+    virtual egg::ovum::Type iterable() const override {
       // Iterating an array returns the elements
-      type = egg::ovum::Type::AnyQ;
-      return true;
+      return egg::ovum::Type::AnyQ;
     }
     virtual AssignmentSuccess canBeAssignedFrom(const IType& rtype) const {
       // TODO Only allow assignment of vanilla arrays
@@ -389,15 +385,13 @@ namespace {
       // Indexing an object returns a property
       return &VanillaObjectIndexSignature::instance;
     }
-    virtual bool dotable(const egg::ovum::String*, egg::ovum::Type& type, egg::ovum::String&) const override {
+    virtual egg::ovum::Type dotable(const egg::ovum::String*, egg::ovum::String&) const override {
       // Objects support properties
-      type = egg::ovum::Type::AnyQ;
-      return true;
+      return egg::ovum::Type::AnyQ;
     }
-    virtual bool iterable(egg::ovum::Type& type) const override {
+    virtual egg::ovum::Type iterable() const override {
       // Iterating an object, returns the dictionary keyvalue pairs
-      type.set(&VanillaKeyValueType::instance);
-      return true;
+      return egg::ovum::Type(&VanillaKeyValueType::instance);
     }
     virtual AssignmentSuccess canBeAssignedFrom(const IType& rtype) const {
       // TODO Only allow assignment of vanilla objects

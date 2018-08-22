@@ -38,7 +38,10 @@ namespace egg::ovum {
 
   class Type : public HardPtr<const IType> {
   public:
-    explicit Type(const IType* rhs = nullptr) : HardPtr(rhs) {
+    Type(nullptr_t = nullptr) : HardPtr() {
+      // Implicit
+    }
+    explicit Type(const IType* rhs) : HardPtr(rhs) {
     }
     // We need to qualify the return type because 'String' is a member further down!
     egg::ovum::String toString(int precedence = -1) const {
@@ -80,8 +83,8 @@ namespace egg::ovum {
     virtual Variant promoteAssignment(const Variant& rhs) const override;
     virtual const IFunctionSignature* callable() const override;
     virtual const IIndexSignature* indexable() const override;
-    virtual bool dotable(const String* property, Type& type, String& reason) const override;
-    virtual bool iterable(Type& type) const override;
+    virtual Type dotable(const String* property, String& error) const override;
+    virtual Type iterable() const override;
     virtual Type pointeeType() const override;
     virtual Type denulledType() const override;
     virtual Type unionWithBasal(IAllocator& allocator, BasalBits other) const override;

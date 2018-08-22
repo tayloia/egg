@@ -171,8 +171,8 @@ namespace egg::ovum {
     virtual Variant promoteAssignment(const Variant& rhs) const = 0;
     virtual const IFunctionSignature* callable() const = 0;
     virtual const IIndexSignature* indexable() const = 0;
-    virtual bool dotable(const String* property, Type& type, String& reason) const = 0; // WIBBLE retval
-    virtual bool iterable(Type& type) const = 0; // WIBBLE retval
+    virtual Type dotable(const String* property, String& error) const = 0;
+    virtual Type iterable() const = 0;
     virtual Type pointeeType() const = 0;
     virtual Type denulledType() const = 0;
     virtual Type unionWithBasal(IAllocator& allocator, BasalBits other) const = 0; // May return nullptr

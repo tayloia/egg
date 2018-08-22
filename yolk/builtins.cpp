@@ -36,18 +36,16 @@ namespace {
     bool tryGetProperty(const egg::ovum::String& name, egg::ovum::Variant& value) const {
       return this->properties.tryGet(name, value);
     }
-    virtual bool dotable(const egg::ovum::String* property, egg::ovum::Type& type, egg::ovum::String& reason) const override {
+    virtual egg::ovum::Type dotable(const egg::ovum::String* property, egg::ovum::String& error) const override {
       if (property == nullptr) {
-        type = egg::ovum::Type::AnyQ;
-        return true;
+        return egg::ovum::Type::AnyQ;
       }
       egg::ovum::Variant value;
       if (this->properties.tryGet(*property, value)) {
-        type = value.getRuntimeType();
-        return true;
+        return value.getRuntimeType();
       }
-      reason = egg::ovum::StringBuilder::concat("Unknown built-in property: '", this->getName(), ".", *property, "'");
-      return false;
+      error = egg::ovum::StringBuilder::concat("Unknown built-in property: '", this->getName(), ".", *property, "'");
+      return nullptr;
     }
   };
 

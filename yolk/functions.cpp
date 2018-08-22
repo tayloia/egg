@@ -67,10 +67,9 @@ namespace {
       // Format a string along the lines of '<rettype>...'
       return std::make_pair(this->rettype.toString(0).toUTF8() + "...", 0);
     }
-    virtual bool iterable(egg::ovum::Type& type) const {
+    virtual egg::ovum::Type iterable() const {
       // We are indeed iterable
-      type = this->rettype;
-      return true;
+      return this->rettype;
     }
   };
 

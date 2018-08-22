@@ -298,8 +298,8 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareForeach(IEgg
       return EggProgramNodeFlags::Abandon;
     }
     auto type = rvalue.getType();
-    egg::ovum::Type iterable{ egg::ovum::Type::Void };
-    if (!type->iterable(iterable)) {
+    auto iterable = type->iterable();
+    if (iterable == nullptr) {
       return scope.compilerError(rvalue.location(), "Expression after the ':' in 'for' statement is not iterable: '", type.toString(), "'");
     }
     if (abandoned(scope.prepareWithType(lvalue, iterable))) {
@@ -574,17 +574,18 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareDot(const eg
   }
   if (hasBasalType(*ltype, egg::ovum::BasalBits::Object)) {
     // Ask the object what properties it supports
-    egg::ovum::Type type{ egg::ovum::Type::Void };
-    egg::ovum::String reason;
-    if (ltype->dotable(&property, type, reason)) {
+    egg::ovum::String error;
+    auto type = ltype->dotable(&property, error);
+    if (type != nullptr) {
       // It's a known property
       return EggProgramNodeFlags::None;
     }
-    if (!ltype->dotable(nullptr, type, reason)) {
+    type = ltype->dotable(nullptr, error);
+    if (type == nullptr) {
       // We don't support ANY properties (the reason will be updated)
-      return this->compilerError(where, reason);
+      return this->compilerError(where, error);
     }
-    return this->compilerError(where, reason);
+    return this->compilerError(where, error);
   }
   return this->compilerError(where, "Unknown property for 'string' value: '.", property, "'");
 }
