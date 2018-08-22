@@ -9,12 +9,6 @@
 namespace {
   using namespace egg::yolk;
 
-  egg::ovum::IAllocator& defaultAllocator() {
-    // WIBBLE retire
-    static egg::ovum::AllocatorDefault allocator;
-    return allocator;
-  }
-
   inline EggParserAllowed operator|(EggParserAllowed lhs, EggParserAllowed rhs) {
     return egg::ovum::Bits::set(lhs, rhs);
   }
@@ -42,59 +36,33 @@ namespace {
     return makeParserNode<T>(context, node, lhs, rhs);
   }
 
-  enum class EggParserArithmetic {
-    None,
-    Int,
-    Float,
-    Both
-  };
-
-  EggParserArithmetic getArithmeticTypes(const IEggProgramNode& node) {
+  egg::ovum::BasalBits getArithmeticTypes(const IEggProgramNode& node) {
     auto basal = node.getType()->getBasalTypes();
-    if (egg::ovum::Bits::hasAnySet(basal, egg::ovum::BasalBits::Float)) {
-      return egg::ovum::Bits::hasAnySet(basal, egg::ovum::BasalBits::Int) ? EggParserArithmetic::Both : EggParserArithmetic::Float;
-    }
-    return egg::ovum::Bits::hasAnySet(basal, egg::ovum::BasalBits::Int) ? EggParserArithmetic::Int : EggParserArithmetic::None;
+    return egg::ovum::Bits::mask(basal, egg::ovum::BasalBits::Arithmetic);
   }
 
-  egg::ovum::Type makeArithmeticType(EggParserArithmetic arithmetic) {
-    switch (arithmetic) {
-    case EggParserArithmetic::Int:
-      return egg::ovum::Type::Int;
-    case EggParserArithmetic::Float:
-      return egg::ovum::Type::Float;
-    case EggParserArithmetic::Both:
-      return egg::ovum::Type::Arithmetic;
-    case EggParserArithmetic::None:
-    default:
-      break;
-    }
-    return egg::ovum::Type::Void;
-  }
-
-  egg::ovum::Type binaryArithmeticTypes(const std::shared_ptr<IEggProgramNode>& lhs, const std::shared_ptr<IEggProgramNode>& rhs) {
+  egg::ovum::Type binaryArithmeticType(const std::shared_ptr<IEggProgramNode>& lhs, const std::shared_ptr<IEggProgramNode>& rhs) {
     auto lhsa = getArithmeticTypes(*lhs);
     auto rhsa = getArithmeticTypes(*rhs);
-    if ((lhsa == EggParserArithmetic::None) || (rhsa == EggParserArithmetic::None)) {
+    if ((lhsa == egg::ovum::BasalBits::None) || (rhsa == egg::ovum::BasalBits::None)) {
       return egg::ovum::Type::Void;
     }
-    if ((lhsa == EggParserArithmetic::Int) && (rhsa == EggParserArithmetic::Int)) {
+    if ((lhsa == egg::ovum::BasalBits::Int) && (rhsa == egg::ovum::BasalBits::Int)) {
       return egg::ovum::Type::Int;
     }
-    if ((lhsa == EggParserArithmetic::Float) || (rhsa == EggParserArithmetic::Float)) {
+    if ((lhsa == egg::ovum::BasalBits::Float) || (rhsa == egg::ovum::BasalBits::Float)) {
       return egg::ovum::Type::Float;
     }
     return egg::ovum::Type::Arithmetic;
   }
 
-  egg::ovum::Type binaryBitwiseTypes(const std::shared_ptr<IEggProgramNode>& lhs, const std::shared_ptr<IEggProgramNode>& rhs) {
-    auto lhsb = egg::ovum::Bits::mask(lhs->getType()->getBasalTypes(), egg::ovum::BasalBits::Bool | egg::ovum::BasalBits::Int);
-    auto rhsb = egg::ovum::Bits::mask(rhs->getType()->getBasalTypes(), egg::ovum::BasalBits::Bool | egg::ovum::BasalBits::Int);
-    auto common = egg::ovum::Bits::mask(lhsb, rhsb);
+  egg::ovum::Type binaryBitwiseType(egg::ovum::IAllocator& allocator, const std::shared_ptr<IEggProgramNode>& lhs, const std::shared_ptr<IEggProgramNode>& rhs) {
+    auto common = egg::ovum::Bits::mask(lhs->getType()->getBasalTypes(), rhs->getType()->getBasalTypes());
+    common = egg::ovum::Bits::mask(common, egg::ovum::BasalBits::Bool | egg::ovum::BasalBits::Int);
     if (common == egg::ovum::BasalBits::None) {
       return egg::ovum::Type::Void;
     }
-    return egg::ovum::Type::makeBasal(defaultAllocator(), common);
+    return egg::ovum::Type::makeBasal(allocator, common);
   }
 
   SyntaxException exceptionFromLocation(const IEggParserContext& context, const std::string& reason, const EggSyntaxNodeLocation& location) {
@@ -1045,11 +1013,11 @@ namespace {
 
   class EggParserNode_Unary : public EggParserNodeBase {
   protected:
+    egg::ovum::IAllocator* allocator;
     EggProgramUnary op;
     std::shared_ptr<IEggProgramNode> expr;
-    egg::ovum::IAllocator* allocator;
     EggParserNode_Unary(egg::ovum::IAllocator& allocator, const egg::ovum::LocationSource& locationSource, EggProgramUnary op, const std::shared_ptr<IEggProgramNode>& expr)
-      : EggParserNodeBase(locationSource), op(op), expr(expr), allocator(&allocator) {
+      : EggParserNodeBase(locationSource), allocator(&allocator), op(op), expr(expr) {
       assert(expr != nullptr);
     }
   public:
@@ -1083,11 +1051,12 @@ namespace {
 
   class EggParserNode_Binary : public EggParserNodeBase {
   protected:
+    egg::ovum::IAllocator* allocator;
     EggProgramBinary op;
     std::shared_ptr<IEggProgramNode> lhs;
     std::shared_ptr<IEggProgramNode> rhs;
-    EggParserNode_Binary(egg::ovum::IAllocator&, const egg::ovum::LocationSource& locationSource, EggProgramBinary op, const std::shared_ptr<IEggProgramNode>& lhs, const std::shared_ptr<IEggProgramNode>& rhs)
-      : EggParserNodeBase(locationSource), op(op), lhs(lhs), rhs(rhs) {
+    EggParserNode_Binary(egg::ovum::IAllocator& allocator, const egg::ovum::LocationSource& locationSource, EggProgramBinary op, const std::shared_ptr<IEggProgramNode>& lhs, const std::shared_ptr<IEggProgramNode>& rhs)
+      : EggParserNodeBase(locationSource), allocator(&allocator), op(op), lhs(lhs), rhs(rhs) {
       assert(lhs != nullptr);
       assert(rhs != nullptr);
     }
@@ -1118,12 +1087,13 @@ namespace {
 
   class EggParserNode_Ternary : public EggParserNodeBase {
   private:
+    egg::ovum::IAllocator* allocator;
     std::shared_ptr<IEggProgramNode> condition;
     std::shared_ptr<IEggProgramNode> whenTrue;
     std::shared_ptr<IEggProgramNode> whenFalse;
   public:
-    EggParserNode_Ternary(egg::ovum::IAllocator&, const egg::ovum::LocationSource& locationSource, const std::shared_ptr<IEggProgramNode>& condition, const std::shared_ptr<IEggProgramNode>& whenTrue, const std::shared_ptr<IEggProgramNode>& whenFalse)
-      : EggParserNodeBase(locationSource), condition(condition), whenTrue(whenTrue), whenFalse(whenFalse) {
+    EggParserNode_Ternary(egg::ovum::IAllocator& allocator, const egg::ovum::LocationSource& locationSource, const std::shared_ptr<IEggProgramNode>& condition, const std::shared_ptr<IEggProgramNode>& whenTrue, const std::shared_ptr<IEggProgramNode>& whenFalse)
+      : EggParserNodeBase(locationSource), allocator(&allocator), condition(condition), whenTrue(whenTrue), whenFalse(whenFalse) {
       assert(condition != nullptr);
       assert(whenTrue != nullptr);
       assert(whenFalse != nullptr);
@@ -1868,7 +1838,12 @@ egg::ovum::Type EggParserNode_UnaryDeref::getType() const {
 
 egg::ovum::Type EggParserNode_UnaryNegate::getType() const {
   auto arithmetic = getArithmeticTypes(*this->expr);
-  return makeArithmeticType(arithmetic);
+  if (arithmetic == egg::ovum::BasalBits::None) {
+    return egg::ovum::Type::Void;
+  }
+  auto type = egg::ovum::Type::getBasalType(arithmetic);
+  assert(type != nullptr);
+  return egg::ovum::Type(type);
 }
 
 egg::ovum::Type EggParserNode_UnaryEllipsis::getType() const {
@@ -1886,11 +1861,11 @@ egg::ovum::Type EggParserNode_BinaryUnequal::getType() const {
 egg::ovum::Type EggParserNode_BinaryRemainder::getType() const {
   // See http://mindprod.com/jgloss/modulus.html
   // Turn out this equates to the rules for binary-multiply too
-  return binaryArithmeticTypes(this->lhs, this->rhs);
+  return binaryArithmeticType(this->lhs, this->rhs);
 }
 
 egg::ovum::Type EggParserNode_BinaryBitwiseAnd::getType() const {
-  return binaryBitwiseTypes(this->lhs, this->rhs);
+  return binaryBitwiseType(*this->allocator, this->lhs, this->rhs);
 }
 
 egg::ovum::Type EggParserNode_BinaryLogicalAnd::getType() const {
@@ -1898,15 +1873,15 @@ egg::ovum::Type EggParserNode_BinaryLogicalAnd::getType() const {
 }
 
 egg::ovum::Type EggParserNode_BinaryMultiply::getType() const {
-  return binaryArithmeticTypes(this->lhs, this->rhs);
+  return binaryArithmeticType(this->lhs, this->rhs);
 }
 
 egg::ovum::Type EggParserNode_BinaryPlus::getType() const {
-  return binaryArithmeticTypes(this->lhs, this->rhs);
+  return binaryArithmeticType(this->lhs, this->rhs);
 }
 
 egg::ovum::Type EggParserNode_BinaryMinus::getType() const {
-  return binaryArithmeticTypes(this->lhs, this->rhs);
+  return binaryArithmeticType(this->lhs, this->rhs);
 }
 
 egg::ovum::Type EggParserNode_BinaryLambda::getType() const {
@@ -1914,7 +1889,7 @@ egg::ovum::Type EggParserNode_BinaryLambda::getType() const {
 }
 
 egg::ovum::Type EggParserNode_BinaryDivide::getType() const {
-  return binaryArithmeticTypes(this->lhs, this->rhs);
+  return binaryArithmeticType(this->lhs, this->rhs);
 }
 
 egg::ovum::Type EggParserNode_BinaryLess::getType() const {
@@ -1961,15 +1936,15 @@ egg::ovum::Type EggParserNode_BinaryNullCoalescing::getType() const {
     // The left-hand-side is only ever null, so only the right side is relevant
     return type2;
   }
-  return type1->unionWith(defaultAllocator(), *type2);
+  return type1->unionWith(*this->allocator, *type2);
 }
 
 egg::ovum::Type EggParserNode_BinaryBitwiseXor::getType() const {
-  return binaryBitwiseTypes(this->lhs, this->rhs);
+  return binaryBitwiseType(*this->allocator, this->lhs, this->rhs);
 }
 
 egg::ovum::Type EggParserNode_BinaryBitwiseOr::getType() const {
-  return binaryBitwiseTypes(this->lhs, this->rhs);
+  return binaryBitwiseType(*this->allocator, this->lhs, this->rhs);
 }
 
 egg::ovum::Type EggParserNode_BinaryLogicalOr::getType() const {
@@ -1998,7 +1973,7 @@ egg::ovum::Type EggParserNode_Ternary::getType() const {
   }
   auto type2 = this->whenTrue->getType();
   auto type3 = this->whenFalse->getType();
-  return type2->unionWith(defaultAllocator(), *type3);
+  return type2->unionWith(*this->allocator, *type3);
 }
 
 std::shared_ptr<egg::yolk::IEggProgramNode> egg::yolk::EggParserFactory::parseModule(egg::ovum::IAllocator& allocator, TextStream& stream) {
