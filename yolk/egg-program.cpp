@@ -277,10 +277,10 @@ void egg::yolk::EggProgramSymbolTable::softVisitLinks(const Visitor& visitor) co
 
 void egg::yolk::EggProgramSymbolTable::addBuiltins() {
   // TODO add built-in symbol to symbol table here
-  this->addBuiltin("string", egg::ovum::Variant::builtinString(allocator));
-  this->addBuiltin("type", egg::ovum::Variant::builtinType(allocator));
-  this->addBuiltin("assert", egg::ovum::Variant::builtinAssert(allocator));
-  this->addBuiltin("print", egg::ovum::Variant::builtinPrint(allocator));
+  this->addBuiltin("string", Builtins::builtinString(this->allocator));
+  this->addBuiltin("type", Builtins::builtinType(this->allocator));
+  this->addBuiltin("assert", Builtins::builtinAssert(this->allocator));
+  this->addBuiltin("print", Builtins::builtinPrint(this->allocator));
 }
 
 void egg::yolk::EggProgramSymbolTable::addBuiltin(const std::string& name, const egg::ovum::Variant& value) {
@@ -777,7 +777,7 @@ egg::ovum::Variant egg::yolk::EggProgramContext::arithmeticBoolInt(const egg::ov
 
 egg::ovum::Variant egg::yolk::EggProgramContext::arithmeticIntFloat(const egg::ovum::Variant& left, egg::ovum::Variant& right, const IEggProgramNode& rhs, const char* operation, ArithmeticInt ints, ArithmeticFloat floats) {
   assert(!left.hasIndirect());
-  if (!left.hasArithmetic()) {
+  if (!left.hasAny(egg::ovum::VariantBits::Arithmetic)) {
     return this->unexpected("Expected left-hand side of " + std::string(operation) + " to be 'int' or 'float'", left);
   }
   right = rhs.execute(*this).direct();

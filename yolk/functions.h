@@ -10,9 +10,6 @@ namespace egg::yolk {
   public:
     FunctionType(egg::ovum::IAllocator& allocator, const egg::ovum::String& name, const egg::ovum::Type& returnType);
     virtual ~FunctionType() override;
-    virtual egg::ovum::BasalBits getBasalTypes() const override {
-      return egg::ovum::BasalBits::Object;
-    }
     virtual std::pair<std::string, int> toStringPrecedence() const override;
     virtual AssignmentSuccess canBeAssignedFrom(const IType& rtype) const;
     virtual const egg::ovum::IFunctionSignature* callable() const override;

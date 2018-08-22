@@ -49,17 +49,12 @@ namespace {
     Both
   };
 
-  bool hasBasalType(const egg::ovum::IType& type, egg::ovum::BasalBits basal) {
-    // WIBBLE WOBBLE
-    return egg::ovum::Bits::hasAnySet(type.getBasalTypes(), basal);
-  }
-
   EggParserArithmetic getArithmeticTypes(const IEggProgramNode& node) {
-    auto underlying = node.getType();
-    if (hasBasalType(*underlying, egg::ovum::BasalBits::Float)) {
-      return hasBasalType(*underlying, egg::ovum::BasalBits::Int) ? EggParserArithmetic::Both : EggParserArithmetic::Float;
+    auto basal = node.getType()->getBasalTypes();
+    if (egg::ovum::Bits::hasAnySet(basal, egg::ovum::BasalBits::Float)) {
+      return egg::ovum::Bits::hasAnySet(basal, egg::ovum::BasalBits::Int) ? EggParserArithmetic::Both : EggParserArithmetic::Float;
     }
-    return hasBasalType(*underlying, egg::ovum::BasalBits::Int) ? EggParserArithmetic::Int : EggParserArithmetic::None;
+    return egg::ovum::Bits::hasAnySet(basal, egg::ovum::BasalBits::Int) ? EggParserArithmetic::Int : EggParserArithmetic::None;
   }
 
   egg::ovum::Type makeArithmeticType(EggParserArithmetic arithmetic) {
@@ -1956,7 +1951,7 @@ egg::ovum::Type EggParserNode_BinaryShiftRightUnsigned::getType() const {
 
 egg::ovum::Type EggParserNode_BinaryNullCoalescing::getType() const {
   auto type1 = this->lhs->getType();
-  if (!hasBasalType(*type1, egg::ovum::BasalBits::Null)) {
+  if (!egg::ovum::Bits::hasAnySet(type1->getBasalTypes(), egg::ovum::BasalBits::Null)) {
     // The left-hand-side cannot be null, so the right side is irrelevant
     return type1;
   }
@@ -1997,7 +1992,7 @@ std::shared_ptr<IEggProgramNode> EggProgramContext::empredicateBinary(const std:
 
 egg::ovum::Type EggParserNode_Ternary::getType() const {
   auto type1 = this->condition->getType();
-  if (!hasBasalType(*type1, egg::ovum::BasalBits::Bool)) {
+  if (!egg::ovum::Bits::hasAnySet(type1->getBasalTypes(), egg::ovum::BasalBits::Bool)) {
     // The condition is not a bool, so the other values are irrelevant
     return egg::ovum::Type::Void;
   }

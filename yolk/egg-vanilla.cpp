@@ -43,9 +43,6 @@ namespace {
     EGG_NO_COPY(VanillaIteratorType);
   public:
     VanillaIteratorType() {}
-    virtual egg::ovum::BasalBits getBasalTypes() const override {
-      return egg::ovum::BasalBits::Object;
-    }
     virtual std::pair<std::string, int> toStringPrecedence() const override {
       return std::make_pair("<iterator>", 0);
     }
@@ -81,9 +78,6 @@ namespace {
 
   class VanillaKeyValueType : public egg::ovum::NotReferenceCounted<egg::ovum::IType> {
   public:
-    virtual egg::ovum::BasalBits getBasalTypes() const override {
-      return egg::ovum::BasalBits::Object;
-    }
     virtual std::pair<std::string, int> toStringPrecedence() const override {
       return std::make_pair("<keyvalue>", 0);
     }
@@ -155,9 +149,6 @@ namespace {
         return egg::ovum::Type::Int.get();
       }
       return nullptr;
-    }
-    virtual egg::ovum::BasalBits getBasalTypes() const override {
-      return egg::ovum::BasalBits::Object;
     }
     virtual std::pair<std::string, int> toStringPrecedence() const override {
       return std::make_pair("any?[]", 0); // TODO
@@ -312,7 +303,7 @@ namespace {
   };
 
   egg::ovum::Variant VanillaArray::iterate(egg::ovum::IExecution& execution) {
-    return egg::ovum::Variant::makeObject<VanillaArrayIterator>(execution.getAllocator(), *this);
+    return egg::ovum::VariantFactory::createObject<VanillaArrayIterator>(execution.getAllocator(), *this);
   }
 
   class VanillaDictionaryIterator : public VanillaIteratorBase {
@@ -328,7 +319,7 @@ namespace {
     }
     virtual egg::ovum::Variant iterate(egg::ovum::IExecution& execution) override {
       if (this->next < this->keyvalues.size()) {
-        return egg::ovum::Variant::makeObject<VanillaKeyValue>(execution.getAllocator(), keyvalues[this->next++]);
+        return egg::ovum::VariantFactory::createObject<VanillaKeyValue>(execution.getAllocator(), keyvalues[this->next++]);
       }
       return egg::ovum::Variant::Void;
     }
@@ -369,7 +360,7 @@ namespace {
       return egg::ovum::Variant::Void;
     }
     virtual egg::ovum::Variant iterate(egg::ovum::IExecution& execution) override {
-      return egg::ovum::Variant::makeObject<VanillaDictionaryIterator>(execution.getAllocator(), this->dictionary);
+      return egg::ovum::VariantFactory::createObject<VanillaDictionaryIterator>(execution.getAllocator(), this->dictionary);
     }
   };
 
@@ -387,9 +378,6 @@ namespace {
 
   class VanillaObjectType : public egg::ovum::NotReferenceCounted<egg::ovum::IType> {
   public:
-    virtual egg::ovum::BasalBits getBasalTypes() const override {
-      return egg::ovum::BasalBits::Object;
-    }
     virtual std::pair<std::string, int> toStringPrecedence() const override {
       return std::make_pair("any?{string}", 0); // TODO
     }
@@ -566,7 +554,7 @@ namespace {
 
   egg::ovum::Variant VanillaGenerator::iterate(egg::ovum::IExecution& execution) {
     // Create an ad hod iterator
-    return egg::ovum::Variant::makeObject<VanillaGeneratorIterator>(execution.getAllocator(), *this);
+    return egg::ovum::VariantFactory::createObject<VanillaGeneratorIterator>(execution.getAllocator(), *this);
   }
 }
 
@@ -579,23 +567,23 @@ egg::ovum::IAllocator& egg::yolk::EggProgramContext::getAllocator() const {
 }
 
 egg::ovum::Variant egg::yolk::EggProgramContext::raise(const egg::ovum::String& message) {
-  auto exception = egg::ovum::Variant::makeObject<VanillaException>(this->allocator, this->location, message);
+  auto exception = egg::ovum::VariantFactory::createObject<VanillaException>(this->allocator, this->location, message);
   exception.addFlowControl(egg::ovum::VariantBits::Throw);
   return exception;
 }
 
 egg::ovum::Variant egg::yolk::EggProgramContext::createVanillaArray() {
-  return egg::ovum::Variant::makeObject<VanillaArray>(this->allocator);
+  return egg::ovum::VariantFactory::createObject<VanillaArray>(this->allocator);
 }
 
 egg::ovum::Variant egg::yolk::EggProgramContext::createVanillaObject() {
-  return egg::ovum::Variant::makeObject<VanillaObject>(this->allocator);
+  return egg::ovum::VariantFactory::createObject<VanillaObject>(this->allocator);
 }
 
 egg::ovum::Variant egg::yolk::EggProgramContext::createVanillaFunction(const egg::ovum::Type& type, const std::shared_ptr<egg::yolk::IEggProgramNode>& block) {
-  return egg::ovum::Variant::makeObject<VanillaFunction>(this->allocator, *this, type, block);
+  return egg::ovum::VariantFactory::createObject<VanillaFunction>(this->allocator, *this, type, block);
 }
 
 egg::ovum::Variant egg::yolk::EggProgramContext::createVanillaGenerator(const egg::ovum::Type& itertype, const egg::ovum::Type& rettype, const std::shared_ptr<egg::yolk::IEggProgramNode>& block) {
-  return egg::ovum::Variant::makeObject<VanillaGenerator>(this->allocator, *this, itertype, rettype, block);
+  return egg::ovum::VariantFactory::createObject<VanillaGenerator>(this->allocator, *this, itertype, rettype, block);
 }

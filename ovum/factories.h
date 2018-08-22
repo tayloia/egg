@@ -205,6 +205,15 @@ namespace egg::ovum {
   class VariantFactory {
   public:
     static HardPtr<IVariantSoft> createVariantSoft(IAllocator& allocator, IBasket& basket, Variant&& value);
+    static Variant createBuiltinString(IAllocator& allocator);
+    static Variant createBuiltinType(IAllocator& allocator);
+    static Variant createBuiltinAssert(IAllocator& allocator);
+    static Variant createBuiltinPrint(IAllocator& allocator);
+    template<typename T, typename... ARGS>
+    static Variant createObject(IAllocator& allocator, ARGS&&... args) {
+      // Use perfect forwarding
+      return Variant(Object(*allocator.make<T>(std::forward<ARGS>(args)...)));
+    }
   };
 
   class BasketFactory {

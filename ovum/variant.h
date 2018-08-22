@@ -153,6 +153,7 @@ namespace egg::ovum {
     bool operator!=(const Variant& other) const {
       return !Variant::equals(*this, other);
     }
+    static bool equals(const Variant& lhs, const Variant& rhs);
     // Null
     Variant(nullptr_t) : Variant(VariantBits::Null) {
       assert(this->validate());
@@ -257,6 +258,41 @@ namespace egg::ovum {
       assert(this->hasOne(VariantBits::Pointer | VariantBits::Indirect));
       return this->u.p->getVariant();
     }
+    // Properties
+    Type getRuntimeType() const;
+    String toString() const;
+    bool isVoid() const { return this->is(VariantBits::Void); }
+    bool isNull() const { return this->is(VariantBits::Null); }
+    bool isBool() const { return this->is(VariantBits::Bool); }
+    bool isInt() const { return this->is(VariantBits::Int); }
+    bool isFloat() const { return this->is(VariantBits::Float); }
+    bool isString() const { return this->is(VariantBits::String | VariantBits::Hard); }
+    bool hasBool() const { return this->hasAny(VariantBits::Bool); }
+    bool hasString() const { return this->hasAny(VariantBits::String); }
+    bool hasObject() const { return this->hasAny(VariantBits::Object); }
+    bool hasPointer() const { return this->hasAny(VariantBits::Pointer); }
+    bool hasIndirect() const { return this->hasAny(VariantBits::Indirect); }
+    bool hasFlowControl() const { return this->hasAny(VariantBits::FlowControl); }
+    bool stripFlowControl(VariantBits bits);
+    void addFlowControl(VariantBits bits);
+    const Variant& direct() const;
+    Variant& direct();
+    void soften(IBasket& basket);
+    void softVisitLink(const ICollectable::Visitor& visitor) const;
+    void indirect(IAllocator& allocator, IBasket& basket);
+    Variant address() const;
+    bool validate(bool soft = false) const;
+    static std::string getBasalString(BasalBits basal);
+    // Constants
+    static const Variant Void;
+    static const Variant Null;
+    static const Variant False;
+    static const Variant True;
+    static const Variant EmptyString;
+    static const Variant Break;
+    static const Variant Continue;
+    static const Variant Rethrow;
+    static const Variant ReturnVoid;
   private:
     static void copyInternals(Variant& dst, const Variant& src) {
       // dst:INVALID,src:VALID => dst:VALID,src:VALID
@@ -299,59 +335,5 @@ namespace egg::ovum {
       }
     }
     static const IMemory* acquireFallbackString(const char* utf8, size_t bytes);
-
-  public:
-    // WIBBLE LEGACY
-    static const Variant Void;
-    static const Variant Null;
-    static const Variant False;
-    static const Variant True;
-    static const Variant Break;
-    static const Variant EmptyString;
-    static const Variant Continue;
-    static const Variant Rethrow;
-    static const Variant ReturnVoid;
-    // WIBBLE LEGACY
-    static Variant builtinString(IAllocator& allocator);
-    static Variant builtinType(IAllocator& allocator);
-    static Variant builtinAssert(IAllocator& allocator);
-    static Variant builtinPrint(IAllocator& allocator);
-    template<typename T, typename... ARGS>
-    static Variant makeObject(IAllocator& allocator, ARGS&&... args) {
-      // Use perfect forwarding
-      return Variant(Object(*allocator.make<T>(std::forward<ARGS>(args)...)));
-    }
-    // WIBBLE LEGACY
-    static bool equals(const Variant& lhs, const Variant& rhs);
-    Type getRuntimeType() const;
-    String toString() const;
-    bool isString() const { return this->is(VariantBits::String | VariantBits::Hard); }
-    bool isNull() const { return this->is(VariantBits::Null); }
-    bool isBool() const { return this->is(VariantBits::Bool); }
-    bool isInt() const { return this->is(VariantBits::Int); }
-    bool isFloat() const { return this->is(VariantBits::Float); }
-    bool isVoid() const { return this->is(VariantBits::Void); }
-    bool isBreak() const { return this->is(VariantBits::Break); }
-    bool isContinue() const { return this->is(VariantBits::Continue); }
-    bool isRethrow() const { return this->is(VariantBits::Throw | VariantBits::Void); }
-    bool stripFlowControl(VariantBits bits);
-    void addFlowControl(VariantBits bits);
-    bool hasFlowControl() const { return this->hasAny(VariantBits::FlowControl); }
-    bool hasNull() const { return this->hasAny(VariantBits::Null); }
-    bool hasBool() const { return this->hasAny(VariantBits::Bool); }
-    bool hasArithmetic() const { return this->hasAny(VariantBits::Arithmetic); }
-    bool hasObject() const { return this->hasAny(VariantBits::Object); }
-    bool hasThrow() const { return this->hasAny(VariantBits::Throw); }
-    bool hasPointer() const { return this->hasAny(VariantBits::Pointer); }
-    bool hasString() const { return this->hasAny(VariantBits::String); }
-    bool hasIndirect() const { return this->hasAny(VariantBits::Indirect); }
-    const Variant& direct() const;
-    Variant& direct();
-    void soften(IBasket& basket);
-    void softVisitLink(const ICollectable::Visitor& visitor) const;
-    void indirect(IAllocator& allocator, IBasket& basket);
-    Variant address() const;
-    bool validate(bool soft = false) const;
-    static std::string getBasalString(BasalBits basal);
   };
 }

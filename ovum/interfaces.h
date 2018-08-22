@@ -158,7 +158,7 @@ namespace egg::ovum {
     virtual bool validateCall(IExecution& execution, const IParameters& runtime, Variant& problem) const; // Calls validateCallDefault
 
     // Implementation
-    void buildStringDefault(class StringBuilder& sb, Parts parts) const; // Default formats as expected WIBBLE
+    void buildStringDefault(class StringBuilder& sb, Parts parts) const; // Default formats as expected
     bool validateCallDefault(IExecution& execution, const IParameters& runtime, Variant& problem) const;
   };
 
@@ -172,10 +172,10 @@ namespace egg::ovum {
 
   class IType : public IHardAcquireRelease {
   public:
-    // LEGACY
-    virtual BasalBits getBasalTypes() const = 0; // WIBBLE needed?
+    // TODO new scheme for type management
     enum class AssignmentSuccess { Never, Sometimes, Always };
     virtual AssignmentSuccess canBeAssignedFrom(const IType& rhs) const = 0;
+    virtual BasalBits getBasalTypes() const; // Default implementation returns 'Object'
     virtual Variant promoteAssignment(const Variant& rhs) const; // Default implementation calls IType::canBeAssignedFrom()
     virtual const IFunctionSignature* callable() const; // Default implementation returns nullptr
     virtual const IIndexSignature* indexable() const; // Default implementation returns nullptr

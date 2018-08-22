@@ -204,11 +204,11 @@ namespace {
         // Run 'block'
         retval = this->block->coexecute(context, *this);
         if (!retval.isVoid()) {
-          if (retval.isBreak()) {
+          if (retval.is(egg::ovum::VariantBits::Break)) {
             // Explicit 'break'
             break;
           }
-          if (!retval.isContinue()) {
+          if (!retval.is(egg::ovum::VariantBits::Continue)) {
             // Not explicit 'continue'
             return retval;
           }
@@ -251,11 +251,11 @@ namespace {
         }
         retval = this->block->coexecute(context, *this);
         if (!retval.isVoid()) {
-          if (retval.isBreak()) {
+          if (retval.is(egg::ovum::VariantBits::Break)) {
             // Explicit 'break;
             break;
           }
-          if (!retval.isContinue()) {
+          if (!retval.is(egg::ovum::VariantBits::Continue)) {
             // Not explicit 'continue;
             return retval;
           }

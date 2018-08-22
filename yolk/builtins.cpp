@@ -9,9 +9,6 @@ namespace {
     BuiltinFunctionType(egg::ovum::IAllocator& allocator, const egg::ovum::String& name, const egg::ovum::Type& returnType)
       : FunctionType(allocator, name, returnType) {
     }
-    virtual egg::ovum::BasalBits getBasalTypes() const override {
-      return egg::ovum::BasalBits::Object;
-    }
     egg::ovum::String getName() const {
       return this->callable()->getFunctionName();
     }
@@ -131,7 +128,7 @@ namespace {
     }
     template<typename T>
     void addProperty(egg::ovum::IAllocator& allocator, const std::string& name) {
-      this->type->addProperty(name, egg::ovum::Variant::makeObject<T>(allocator));
+      this->type->addProperty(name, egg::ovum::VariantFactory::createObject<T>(allocator));
     }
   };
 
@@ -306,7 +303,7 @@ namespace {
     }
     template<typename T>
     static egg::ovum::Variant make(egg::ovum::IAllocator& allocator, const egg::ovum::String& instance, const egg::ovum::String& property) {
-      return egg::ovum::Variant::makeObject<StringBuiltin>(allocator, instance, allocator.make<T>(property));
+      return egg::ovum::VariantFactory::createObject<StringBuiltin>(allocator, instance, allocator.make<T>(property));
     }
   };
 
@@ -663,18 +660,18 @@ egg::ovum::Variant egg::yolk::Builtins::stringBuiltin(egg::ovum::IExecution& exe
   return execution.raiseFormat("Unknown property for type 'string': '", property, "'");
 }
 
-egg::ovum::Variant egg::ovum::Variant::builtinString(egg::ovum::IAllocator& allocator) {
-  return egg::ovum::Variant::makeObject<BuiltinString>(allocator);
+egg::ovum::Variant egg::yolk::Builtins::builtinString(egg::ovum::IAllocator& allocator) {
+  return egg::ovum::VariantFactory::createObject<BuiltinString>(allocator);
 }
 
-egg::ovum::Variant egg::ovum::Variant::builtinType(egg::ovum::IAllocator& allocator) {
-  return egg::ovum::Variant::makeObject<BuiltinType>(allocator);
+egg::ovum::Variant egg::yolk::Builtins::builtinType(egg::ovum::IAllocator& allocator) {
+  return egg::ovum::VariantFactory::createObject<BuiltinType>(allocator);
 }
 
-egg::ovum::Variant egg::ovum::Variant::builtinAssert(egg::ovum::IAllocator& allocator) {
-  return egg::ovum::Variant::makeObject<BuiltinAssert>(allocator);
+egg::ovum::Variant egg::yolk::Builtins::builtinAssert(egg::ovum::IAllocator& allocator) {
+  return egg::ovum::VariantFactory::createObject<BuiltinAssert>(allocator);
 }
 
-egg::ovum::Variant egg::ovum::Variant::builtinPrint(egg::ovum::IAllocator& allocator) {
-  return egg::ovum::Variant::makeObject<BuiltinPrint>(allocator);
+egg::ovum::Variant egg::yolk::Builtins::builtinPrint(egg::ovum::IAllocator& allocator) {
+  return egg::ovum::VariantFactory::createObject<BuiltinPrint>(allocator);
 }

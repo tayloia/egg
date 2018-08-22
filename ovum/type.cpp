@@ -8,6 +8,11 @@ egg::ovum::String egg::ovum::IType::toString(int priority) const {
   return pair.first;
 }
 
+egg::ovum::BasalBits egg::ovum::IType::getBasalTypes() const {
+  // The default implementation is to return 'Object'
+  return egg::ovum::BasalBits::Object;
+}
+
 egg::ovum::Type egg::ovum::IType::pointeeType() const {
   // The default implementation is to return nullptr indicating that this is NOT dereferencable
   return Type(nullptr);
@@ -58,8 +63,6 @@ egg::ovum::Type egg::ovum::IType::unionWith(IAllocator& allocator, const IType& 
   // The default implementation is to simply make a new union (native and basal types can be more clever)
   return Type::makeUnion(allocator, *this, other);
 }
-
-
 
 /// WIBBLE
 namespace {

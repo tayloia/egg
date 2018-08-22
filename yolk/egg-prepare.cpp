@@ -614,7 +614,7 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareUnary(const 
   case EggProgramUnary::LogicalNot:
     // Boolean-only operation
     if (!egg::ovum::Bits::hasAnySet(type->getBasalTypes(), egg::ovum::BasalBits::Bool)) {
-      return this->compilerError(where, "Expected operand of logical-not '!' operator to be 'int', but got '", type->toString(), "' instead");
+      return this->compilerError(where, "Expected operand of logical-not '!' operator to be 'bool', but got '", type->toString(), "' instead");
     }
     break;
   case EggProgramUnary::BitwiseNot:

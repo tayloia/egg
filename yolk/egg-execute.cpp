@@ -152,11 +152,11 @@ egg::ovum::Variant egg::yolk::EggProgramContext::executeDo(const IEggProgramNode
   do {
     retval = block.execute(*this);
     if (!retval.isVoid()) {
-      if (retval.isBreak()) {
+      if (retval.is(egg::ovum::VariantBits::Break)) {
         // Just leave the loop
         return egg::ovum::Variant::Void;
       }
-      if (!retval.isContinue()) {
+      if (!retval.is(egg::ovum::VariantBits::Continue)) {
         // Probably an exception
         return retval;
       }
@@ -204,11 +204,11 @@ egg::ovum::Variant egg::yolk::EggProgramContext::executeFor(const IEggProgramNod
       for (;;) {
         retval = block.execute(scope);
         if (!retval.isVoid()) {
-          if (retval.isBreak()) {
+          if (retval.is(egg::ovum::VariantBits::Break)) {
             // Just leave the loop
             return egg::ovum::Variant::Void;
           }
-          if (!retval.isContinue()) {
+          if (!retval.is(egg::ovum::VariantBits::Continue)) {
             // Probably an exception in the block
             return retval;
           }
@@ -230,11 +230,11 @@ egg::ovum::Variant egg::yolk::EggProgramContext::executeFor(const IEggProgramNod
       }
       retval = block.execute(scope);
       if (!retval.isVoid()) {
-        if (retval.isBreak()) {
+        if (retval.is(egg::ovum::VariantBits::Break)) {
           // Just leave the loop
           return egg::ovum::Variant::Void;
         }
-        if (!retval.isContinue()) {
+        if (!retval.is(egg::ovum::VariantBits::Continue)) {
           // Probably an exception in the block
           return retval;
         }
@@ -285,11 +285,11 @@ egg::ovum::Variant egg::yolk::EggProgramContext::executeForeachString(IEggProgra
     }
     retval = block.execute(*this);
     if (!retval.isVoid()) {
-      if (retval.isBreak()) {
+      if (retval.is(egg::ovum::VariantBits::Break)) {
         // Just leave the loop
         return egg::ovum::Variant::Void;
       }
-      if (!retval.isContinue()) {
+      if (!retval.is(egg::ovum::VariantBits::Continue)) {
         // Probably an exception in the block
         return retval;
       }
@@ -328,11 +328,11 @@ egg::ovum::Variant egg::yolk::EggProgramContext::executeForeachIterate(IEggProgr
     }
     retval = block.execute(*this);
     if (!retval.isVoid()) {
-      if (retval.isBreak()) {
+      if (retval.is(egg::ovum::VariantBits::Break)) {
         // Just leave the loop
         break;
       }
-      if (!retval.isContinue()) {
+      if (!retval.is(egg::ovum::VariantBits::Continue)) {
         // Probably an exception in the block
         return retval;
       }
@@ -449,11 +449,11 @@ egg::ovum::Variant egg::yolk::EggProgramContext::executeSwitch(const IEggProgram
     }
     while (matched < cases.size()) {
       auto retval = cases[matched]->execute(scope);
-      if (retval.isBreak()) {
+      if (retval.is(egg::ovum::VariantBits::Break)) {
         // Explicit end of case clause
         break;
       }
-      if (!retval.isContinue()) {
+      if (!retval.is(egg::ovum::VariantBits::Continue)) {
         // Probably some other flow control such as a return or exception
         return retval;
       }
@@ -532,7 +532,7 @@ egg::ovum::Variant egg::yolk::EggProgramContext::executeCatch(const IEggProgramN
   auto retval = block.execute(*context);
   if (retval.hasFlowControl()) {
     // Check for a rethrow
-    if (retval.isRethrow()) {
+    if (retval.is(egg::ovum::VariantBits::Throw | egg::ovum::VariantBits::Void)) {
       return *exception;
     }
     return retval;
@@ -565,11 +565,11 @@ egg::ovum::Variant egg::yolk::EggProgramContext::executeWhile(const IEggProgramN
       }
       retval = block.execute(scope);
       if (!retval.isVoid()) {
-        if (retval.isBreak()) {
+        if (retval.is(egg::ovum::VariantBits::Break)) {
           // Just leave the loop
           return egg::ovum::Variant::Void;
         }
-        if (!retval.isContinue()) {
+        if (!retval.is(egg::ovum::VariantBits::Continue)) {
           // Probably an exception
           break;
         }
@@ -723,7 +723,7 @@ egg::ovum::Variant egg::yolk::EggProgramContext::executePredicate(const IEggProg
   }
   auto operation = EggProgram::binaryToString(op);
   auto raised = this->raiseFormat("Assertion is untrue: ", left.toString(), " ", operation, " ", right.toString());
-  if (raised.hasThrow() && raised.hasObject()) {
+  if (raised.hasAll(egg::ovum::VariantBits::Throw | egg::ovum::VariantBits::Object)) {
     // Augment the exception with extra information
     auto exception = raised.getObject();
     exception->setProperty(*this, "left", left);
