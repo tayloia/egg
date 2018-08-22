@@ -40,6 +40,19 @@ namespace egg::ovum {
   public:
     explicit Type(const IType* rhs = nullptr) : HardPtr(rhs) {
     }
+    // We need to qualify the return type because 'String' is a member further down!
+    egg::ovum::String toString(int precedence = -1) const {
+      auto* type = this->get();
+      if (type == nullptr) {
+        return "<unknown>";
+      }
+      auto pair = type->toStringPrecedence();
+      if (pair.second < precedence) {
+        return "(" + pair.first + ")";
+      }
+      return pair.first;
+    }
+    // Constants
     static const Type Void;
     static const Type Null;
     static const Type Bool;
@@ -49,12 +62,29 @@ namespace egg::ovum {
     static const Type Arithmetic;
     static const Type Any;
     static const Type AnyQ;
-
+    // Helpers
     static const IType* getBasalType(BasalBits basal);
     static std::string getBasalString(BasalBits basal);
     static Type makeBasal(IAllocator& allocator, BasalBits basal);
     static Type makeUnion(IAllocator& allocator, const IType& lhs, const IType& rhs);
     static Type makePointer(IAllocator& allocator, const IType& pointee);
+  };
+
+  class TypeBase : public IType {
+    TypeBase(const TypeBase&) = delete;
+    TypeBase& operator=(const TypeBase&) = delete;
+  public:
+    TypeBase() = default;
+    virtual BasalBits getBasalTypes() const override;
+    virtual AssignmentSuccess canBeAssignedFrom(const IType& rhs) const override;
+    virtual Variant promoteAssignment(const Variant& rhs) const override;
+    virtual const IFunctionSignature* callable() const override;
+    virtual const IIndexSignature* indexable() const override;
+    virtual bool dotable(const String* property, Type& type, String& reason) const override;
+    virtual bool iterable(Type& type) const override;
+    virtual Type pointeeType() const override;
+    virtual Type denulledType() const override;
+    virtual Type unionWithBasal(IAllocator& allocator, BasalBits other) const override;
   };
 
   class Object : public HardPtr<IObject> {

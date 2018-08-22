@@ -23,7 +23,7 @@ namespace {
   const MemoryEmpty MemoryEmpty::instance{};
 }
 
-bool egg::ovum::IMemory::equals(const IMemory* lhs, const IMemory* rhs) {
+bool egg::ovum::Memory::equals(const IMemory* lhs, const IMemory* rhs) {
   // Don't look at the tag
   if (lhs == rhs) {
     return true;

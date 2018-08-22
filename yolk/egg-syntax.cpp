@@ -96,7 +96,7 @@ void egg::yolk::EggSyntaxNode_Block::dump(std::ostream& os) const {
 }
 
 void egg::yolk::EggSyntaxNode_Type::dump(std::ostream& os) const {
-  auto tname = (this->type == nullptr) ? "var" : this->type->toString();
+  auto tname = (this->type == nullptr) ? "var" : this->type.toString();
   ParserDump(os, "type").add(tname);
 }
 
@@ -341,7 +341,7 @@ egg::ovum::String egg::yolk::EggSyntaxNodeBase::token() const {
 }
 
 egg::ovum::String egg::yolk::EggSyntaxNode_Type::token() const {
-  return this->type->toString();
+  return this->type.toString();
 }
 
 egg::ovum::String egg::yolk::EggSyntaxNode_Declare::token() const {
@@ -1901,7 +1901,7 @@ bool EggSyntaxParserContext::parseTypeExpression(egg::ovum::Type& type) {
       if (!this->parseTypePostfixExpression(other)) {
         this->unexpected("Expected type to follow '|' in type expression", mark.peek(0));
       }
-      type = type->unionWith(*this->allocator, *other);
+      type = egg::ovum::Type::makeUnion(*this->allocator, *type, *other);
     }
     mark.accept(0);
     return true;
@@ -1931,7 +1931,7 @@ bool EggSyntaxParserContext::parseTypePostfixExpression(egg::ovum::Type& type) {
           this->unexpected("Redundant repetition of '?' in type expression");
         }
         mark.advance(1);
-        type = egg::ovum::Type::Null->unionWith(*this->allocator, *type);
+        type = egg::ovum::Type::makeUnion(*this->allocator, *egg::ovum::Type::Null, *type);
         nullabled = true;
         continue;
       }

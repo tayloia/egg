@@ -19,20 +19,20 @@ namespace egg::ovum {
     Atomic<uint64_t> deallocatedBytes;
   public:
     AllocatorWithPolicy() : allocatedBlocks(0), allocatedBytes(0), deallocatedBlocks(0), deallocatedBytes(0) {}
-    virtual void* allocate(size_t bytes, size_t alignment) {
+    virtual void* allocate(size_t bytes, size_t alignment) override {
       auto* allocated = POLICY::memalloc(bytes, alignment);
       assert(allocated != nullptr);
       this->allocatedBlocks.add(1);
       this->allocatedBytes.add(POLICY::memsize(allocated, alignment));
       return allocated;
     }
-    virtual void deallocate(void* allocated, size_t alignment) {
+    virtual void deallocate(void* allocated, size_t alignment) override {
       assert(allocated != nullptr);
       this->deallocatedBlocks.add(1);
       this->deallocatedBytes.add(POLICY::memsize(allocated, alignment));
       POLICY::memfree(allocated, alignment);
     }
-    virtual bool statistics(Statistics& out) const {
+    virtual bool statistics(Statistics& out) const override {
       out.totalBlocksAllocated = this->allocatedBlocks.get();
       out.totalBytesAllocated = this->allocatedBytes.get();
       out.currentBlocksAllocated = diff(out.totalBlocksAllocated, this->deallocatedBlocks.get());

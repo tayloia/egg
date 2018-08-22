@@ -13,12 +13,7 @@ namespace {
       return this->callable()->getFunctionName();
     }
     egg::ovum::Variant validateCall(egg::ovum::IExecution& execution, const egg::ovum::IParameters& parameters) const {
-      egg::ovum::Variant problem;
-      if (!this->callable()->validateCall(execution, parameters, problem)) {
-        assert(problem.hasFlowControl());
-        return problem;
-      }
-      return egg::ovum::Variant::Void;
+      return egg::ovum::Function::validateCall(execution, *this->callable(), parameters);
     };
     template<typename... ARGS>
     egg::ovum::Variant raise(egg::ovum::IExecution& execution, ARGS&&... args) const {
@@ -41,7 +36,7 @@ namespace {
     bool tryGetProperty(const egg::ovum::String& name, egg::ovum::Variant& value) const {
       return this->properties.tryGet(name, value);
     }
-    virtual bool dotable(const egg::ovum::String* property, egg::ovum::Type& type, egg::ovum::String& reason) const {
+    virtual bool dotable(const egg::ovum::String* property, egg::ovum::Type& type, egg::ovum::String& reason) const override {
       if (property == nullptr) {
         type = egg::ovum::Type::AnyQ;
         return true;
@@ -193,7 +188,7 @@ namespace {
       if (result.hasFlowControl()) {
         return result;
       }
-      return egg::ovum::Variant{ parameters.getPositional(0).getRuntimeType()->toString() };
+      return egg::ovum::Variant{ parameters.getPositional(0).getRuntimeType().toString() };
     }
   };
 
@@ -287,19 +282,19 @@ namespace {
       return this->type->executeCall(execution, this->instance, parameters);
     }
     virtual egg::ovum::Variant getProperty(egg::ovum::IExecution& execution, const egg::ovum::String& property) override {
-      return execution.raiseFormat(this->type->toString(), " does not support properties such as '.", property, "'");
+      return execution.raiseFormat(this->getRuntimeType().toString(), " does not support properties such as '.", property, "'");
     }
     virtual egg::ovum::Variant setProperty(egg::ovum::IExecution& execution, const egg::ovum::String& property, const egg::ovum::Variant&) override {
-      return execution.raiseFormat(this->type->toString(), " does not support properties such as '.", property, "'");
+      return execution.raiseFormat(this->getRuntimeType().toString(), " does not support properties such as '.", property, "'");
     }
     virtual egg::ovum::Variant getIndex(egg::ovum::IExecution& execution, const egg::ovum::Variant&) override {
-      return execution.raiseFormat(this->type->toString(), " does not support indexing with '[]'");
+      return execution.raiseFormat(this->getRuntimeType().toString(), " does not support indexing with '[]'");
     }
     virtual egg::ovum::Variant setIndex(egg::ovum::IExecution& execution, const egg::ovum::Variant&, const egg::ovum::Variant&) override {
-      return execution.raiseFormat(this->type->toString(), " does not support indexing with '[]'");
+      return execution.raiseFormat(this->getRuntimeType().toString(), " does not support indexing with '[]'");
     }
     virtual egg::ovum::Variant iterate(egg::ovum::IExecution& execution) override {
-      return execution.raiseFormat(this->type->toString(), " does not support iteration");
+      return execution.raiseFormat(this->getRuntimeType().toString(), " does not support iteration");
     }
     template<typename T>
     static egg::ovum::Variant make(egg::ovum::IAllocator& allocator, const egg::ovum::String& instance, const egg::ovum::String& property) {
@@ -342,7 +337,7 @@ namespace {
       // bool contains(string needle)
       auto needle = parameters.getPositional(0);
       if (!needle.isString()) {
-        return this->raise(execution, "Parameter was expected to be a 'string', not '", needle.getRuntimeType()->toString(), "'");
+        return this->raise(execution, "Parameter was expected to be a 'string', not '", needle.getRuntimeType().toString(), "'");
       }
       return egg::ovum::Variant{ instance.contains(needle.getString()) };
     }
@@ -359,7 +354,7 @@ namespace {
       // TODO int compare(string other, int? start, int? other_start, int? max_length)
       auto other = parameters.getPositional(0);
       if (!other.isString()) {
-        return this->raise(execution, "First parameter was expected to be a 'string', not '", other.getRuntimeType()->toString(), "'");
+        return this->raise(execution, "First parameter was expected to be a 'string', not '", other.getRuntimeType().toString(), "'");
       }
       return egg::ovum::Variant{ instance.compareTo(other.getString()) };
     }
@@ -376,7 +371,7 @@ namespace {
       // bool startsWith(string needle)
       auto needle = parameters.getPositional(0);
       if (!needle.isString()) {
-        return this->raise(execution, "Parameter was expected to be a 'string', not '", needle.getRuntimeType()->toString(), "'");
+        return this->raise(execution, "Parameter was expected to be a 'string', not '", needle.getRuntimeType().toString(), "'");
       }
       return egg::ovum::Variant{ instance.startsWith(needle.getString()) };
     }
@@ -393,7 +388,7 @@ namespace {
       // bool endsWith(string needle)
       auto needle = parameters.getPositional(0);
       if (!needle.isString()) {
-        return this->raise(execution, "Parameter was expected to be a 'string', not '", needle.getRuntimeType()->toString(), "'");
+        return this->raise(execution, "Parameter was expected to be a 'string', not '", needle.getRuntimeType().toString(), "'");
       }
       return egg::ovum::Variant{ instance.endsWith(needle.getString()) };
     }
@@ -410,7 +405,7 @@ namespace {
       // TODO int? indexOf(string needle, int? fromIndex, int? count, bool? negate)
       auto needle = parameters.getPositional(0);
       if (!needle.isString()) {
-        return this->raise(execution, "First parameter was expected to be a 'string', not '", needle.getRuntimeType()->toString(), "'");
+        return this->raise(execution, "First parameter was expected to be a 'string', not '", needle.getRuntimeType().toString(), "'");
       }
       auto index = instance.indexOfString(needle.getString());
       return (index < 0) ? egg::ovum::Variant::Null : egg::ovum::Variant{ index };
@@ -428,7 +423,7 @@ namespace {
       // TODO int? lastIndexOf(string needle, int? fromIndex, int? count, bool? negate)
       auto needle = parameters.getPositional(0);
       if (!needle.isString()) {
-        return this->raise(execution, "First parameter was expected to be a 'string', not '", needle.getRuntimeType()->toString(), "'");
+        return this->raise(execution, "First parameter was expected to be a 'string', not '", needle.getRuntimeType().toString(), "'");
       }
       auto index = instance.lastIndexOfString(needle.getString());
       return (index < 0) ? egg::ovum::Variant::Null : egg::ovum::Variant{ index };
@@ -475,7 +470,7 @@ namespace {
       // TODO string split(string separator, int? limit)
       auto separator = parameters.getPositional(0);
       if (!separator.isString()) {
-        return this->raise(execution, "First parameter was expected to be a 'string', not '", separator.getRuntimeType()->toString(), "'");
+        return this->raise(execution, "First parameter was expected to be a 'string', not '", separator.getRuntimeType().toString(), "'");
       }
       auto split = instance.split(separator.getString());
       assert(split.size() > 0);
@@ -495,7 +490,7 @@ namespace {
       // TODO string slice(int? begin, int? end)
       auto p0 = parameters.getPositional(0);
       if (!p0.isInt()) {
-        return this->raise(execution, "First parameter was expected to be an 'int', not '", p0.getRuntimeType()->toString(), "'");
+        return this->raise(execution, "First parameter was expected to be an 'int', not '", p0.getRuntimeType().toString(), "'");
       }
       auto begin = p0.getInt();
       if (parameters.getPositionalCount() == 1) {
@@ -503,7 +498,7 @@ namespace {
       }
       auto p1 = parameters.getPositional(1);
       if (!p1.isInt()) {
-        return this->raise(execution, "Second parameter was expected to be an 'int', not '", p0.getRuntimeType()->toString(), "'");
+        return this->raise(execution, "Second parameter was expected to be an 'int', not '", p0.getRuntimeType().toString(), "'");
       }
       auto end = p1.getInt();
       return egg::ovum::Variant{ instance.slice(begin, end) };
@@ -521,7 +516,7 @@ namespace {
       // string repeat(int count)
       auto p0 = parameters.getPositional(0);
       if (!p0.isInt()) {
-        return this->raise(execution, "Parameter was expected to be an 'int', not '", p0.getRuntimeType()->toString(), "'");
+        return this->raise(execution, "Parameter was expected to be an 'int', not '", p0.getRuntimeType().toString(), "'");
       }
       auto count = p0.getInt();
       if (count < 0) {
@@ -544,18 +539,18 @@ namespace {
       // string replace(string needle, string replacement, int? occurrences)
       auto needle = parameters.getPositional(0);
       if (!needle.isString()) {
-        return this->raise(execution, "First parameter was expected to be a 'string', not '", needle.getRuntimeType()->toString(), "'");
+        return this->raise(execution, "First parameter was expected to be a 'string', not '", needle.getRuntimeType().toString(), "'");
       }
       auto replacement = parameters.getPositional(1);
       if (!replacement.isString()) {
-        return this->raise(execution, "Second parameter was expected to be a 'string', not '", needle.getRuntimeType()->toString(), "'");
+        return this->raise(execution, "Second parameter was expected to be a 'string', not '", needle.getRuntimeType().toString(), "'");
       }
       if (parameters.getPositionalCount() < 3) {
         return egg::ovum::Variant{ instance.replace(needle.getString(), replacement.getString()) };
       }
       auto occurrences = parameters.getPositional(2);
       if (!occurrences.isInt()) {
-        return this->raise(execution, "Third parameter was expected to be an 'int', not '", needle.getRuntimeType()->toString(), "'");
+        return this->raise(execution, "Third parameter was expected to be an 'int', not '", needle.getRuntimeType().toString(), "'");
       }
       return egg::ovum::Variant{ instance.replace(needle.getString(), replacement.getString(), occurrences.getInt()) };
     }
@@ -573,7 +568,7 @@ namespace {
       // string padLeft(int length, string? padding)
       auto p0 = parameters.getPositional(0);
       if (!p0.isInt()) {
-        return this->raise(execution, "First parameter was expected to be an 'int', not '", p0.getRuntimeType()->toString(), "'");
+        return this->raise(execution, "First parameter was expected to be an 'int', not '", p0.getRuntimeType().toString(), "'");
       }
       auto length = p0.getInt();
       if (length < 0) {
@@ -584,7 +579,7 @@ namespace {
       }
       auto p1 = parameters.getPositional(1);
       if (!p1.isString()) {
-        return this->raise(execution, "Second parameter was expected to be a 'string', not '", p1.getRuntimeType()->toString(), "'");
+        return this->raise(execution, "Second parameter was expected to be a 'string', not '", p1.getRuntimeType().toString(), "'");
       }
       return egg::ovum::Variant{ instance.padLeft(size_t(length), p1.getString()) };
     }
@@ -602,7 +597,7 @@ namespace {
       // string padRight(int length, string? padding)
       auto p0 = parameters.getPositional(0);
       if (!p0.isInt()) {
-        return this->raise(execution, "First parameter was expected to be an 'int', not '", p0.getRuntimeType()->toString(), "'");
+        return this->raise(execution, "First parameter was expected to be an 'int', not '", p0.getRuntimeType().toString(), "'");
       }
       auto length = p0.getInt();
       if (length < 0) {
@@ -613,7 +608,7 @@ namespace {
       }
       auto p1 = parameters.getPositional(1);
       if (!p1.isString()) {
-        return this->raise(execution, "Second parameter was expected to be a 'string', not '", p1.getRuntimeType()->toString(), "'");
+        return this->raise(execution, "Second parameter was expected to be a 'string', not '", p1.getRuntimeType().toString(), "'");
       }
       return egg::ovum::Variant{ instance.padRight(size_t(length), p1.getString()) };
     }

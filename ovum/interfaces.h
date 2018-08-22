@@ -1,6 +1,4 @@
 namespace egg::ovum {
-  // WIBBLE all interfaces should be pure
-
   // Forward declarations
   template<typename T> class HardPtr;
   enum class BasalBits;
@@ -10,7 +8,6 @@ namespace egg::ovum {
   class Variant;
   class ICollectable;
   class IExecution;
-  class IType;
 
   class ILogger {
   public:
@@ -27,19 +24,17 @@ namespace egg::ovum {
       Warning = 1 << 3,
       Error = 1 << 4
     };
+    // Interface
     virtual ~ILogger() {}
     virtual void log(Source source, Severity severity, const std::string& message) = 0;
   };
 
   class IHardAcquireRelease {
   public:
+    // Interface
     virtual ~IHardAcquireRelease() {}
-    virtual IHardAcquireRelease* hardAcquireBase() const = 0;
+    virtual IHardAcquireRelease* hardAcquire() const = 0;
     virtual void hardRelease() const = 0;
-    template<typename T>
-    T* hardAcquire() const {
-      return static_cast<T*>(this->hardAcquireBase());
-    }
   };
 
   class IAllocator {
@@ -50,11 +45,12 @@ namespace egg::ovum {
       uint64_t currentBlocksAllocated;
       uint64_t currentBytesAllocated;
     };
-
+    // Interface
+    virtual ~IAllocator() {}
     virtual void* allocate(size_t bytes, size_t alignment) = 0;
     virtual void deallocate(void* allocated, size_t alignment) = 0;
     virtual bool statistics(Statistics& out) const = 0;
-
+    // Helpers
     template<typename T, typename... ARGS>
     T* create(size_t extra, ARGS&&... args) {
       // Use perfect forwarding to in-place new
@@ -69,9 +65,13 @@ namespace egg::ovum {
       allocated->~T();
       this->deallocate(const_cast<T*>(allocated), alignof(T));
     }
-
     template<typename T, typename RETTYPE = HardPtr<T>, typename... ARGS>
-    inline RETTYPE make(ARGS&&... args);
+    inline RETTYPE make(ARGS&&... args) {
+      // Use perfect forwarding to in-place new
+      void* allocated = this->allocate(sizeof(T), alignof(T));
+      assert(allocated != nullptr);
+      return RETTYPE(new(allocated) T(*this, std::forward<ARGS>(args)...));
+    }
   };
 
   class IMemory : public IHardAcquireRelease {
@@ -80,14 +80,14 @@ namespace egg::ovum {
       uintptr_t u;
       void* p;
     };
+    // Interface
     virtual const uint8_t* begin() const = 0;
     virtual const uint8_t* end() const = 0;
     virtual Tag tag() const = 0;
-
+    // Helpers
     size_t bytes() const {
       return size_t(this->end() - this->begin());
     }
-    static bool equals(const IMemory* lhs, const IMemory* rhs);
   };
 
   class IBasket : public IHardAcquireRelease {
@@ -96,7 +96,7 @@ namespace egg::ovum {
       uint64_t currentBlocksOwned;
       uint64_t currentBytesOwned;
     };
-
+    // Interface
     virtual void take(ICollectable& collectable) = 0;
     virtual void drop(ICollectable& collectable) = 0;
     virtual size_t collect() = 0;
@@ -107,6 +107,7 @@ namespace egg::ovum {
   class ICollectable : public IHardAcquireRelease {
   public:
     using Visitor = std::function<void(ICollectable& target)>;
+    // Interface
     virtual bool softIsRoot() const = 0;
     virtual IBasket* softGetBasket() const = 0;
     virtual IBasket* softSetBasket(IBasket* basket) = 0;
@@ -116,14 +117,15 @@ namespace egg::ovum {
 
   class IParameters {
   public:
+    // Interface
     virtual ~IParameters() {}
     virtual size_t getPositionalCount() const = 0;
     virtual Variant getPositional(size_t index) const = 0;
-    virtual const LocationSource* getPositionalLocation(size_t index) const = 0; // May be null
+    virtual const LocationSource* getPositionalLocation(size_t index) const = 0; // May return null
     virtual size_t getNamedCount() const = 0;
     virtual String getName(size_t index) const = 0;
     virtual Variant getNamed(const String& name) const = 0;
-    virtual const LocationSource* getNamedLocation(const String& name) const = 0; // May be null
+    virtual const LocationSource* getNamedLocation(const String& name) const = 0; // May return null
   };
 
   class IFunctionSignatureParameter {
@@ -134,6 +136,7 @@ namespace egg::ovum {
       Variadic = 0x02, // Zero/one or more repetitions
       Predicate = 0x04 // Used in assertions
     };
+    // Interface
     virtual ~IFunctionSignatureParameter() {}
     virtual String getName() const = 0; // May be empty
     virtual Type getType() const = 0;
@@ -143,31 +146,18 @@ namespace egg::ovum {
 
   class IFunctionSignature {
   public:
-    enum class Parts {
-      ReturnType = 0x01,
-      FunctionName = 0x02,
-      ParameterList = 0x04,
-      ParameterNames = 0x08,
-      NoNames = ReturnType | ParameterList,
-      All = ~0
-    };
+    // Interface
     virtual ~IFunctionSignature() {}
-    virtual String toString(Parts parts) const; // Calls buildStringDefault
-    virtual String getFunctionName() const = 0; // May be empty
+    virtual String getFunctionName() const = 0;
     virtual Type getReturnType() const = 0;
     virtual size_t getParameterCount() const = 0;
     virtual const IFunctionSignatureParameter& getParameter(size_t index) const = 0;
-    virtual bool validateCall(IExecution& execution, const IParameters& runtime, Variant& problem) const; // Calls validateCallDefault
-
-    // Implementation
-    void buildStringDefault(class StringBuilder& sb, Parts parts) const; // Default formats as expected
-    bool validateCallDefault(IExecution& execution, const IParameters& runtime, Variant& problem) const;
   };
 
   class IIndexSignature {
   public:
+    // Interface
     virtual ~IIndexSignature() {}
-    virtual String toString() const; // Default formats as expected
     virtual Type getResultType() const = 0;
     virtual Type getIndexType() const = 0;
   };
@@ -176,24 +166,22 @@ namespace egg::ovum {
   public:
     // TODO new scheme for type management
     enum class AssignmentSuccess { Never, Sometimes, Always };
+    virtual BasalBits getBasalTypes() const = 0;
     virtual AssignmentSuccess canBeAssignedFrom(const IType& rhs) const = 0;
-    virtual BasalBits getBasalTypes() const; // Default implementation returns 'Object'
-    virtual Variant promoteAssignment(const Variant& rhs) const; // Default implementation calls IType::canBeAssignedFrom()
-    virtual const IFunctionSignature* callable() const; // Default implementation returns nullptr
-    virtual const IIndexSignature* indexable() const; // Default implementation returns nullptr
-    virtual bool dotable(const String* property, Type& type, String& reason) const; // Default implementation returns false
-    virtual bool iterable(Type& type) const; // Default implementation returns false
-    virtual Type pointeeType() const; // Default implementation returns nullptr
-    virtual Type denulledType() const; // Default implementation returns self
-    virtual Type unionWith(IAllocator& allocator, const IType& other) const; // Default implementation calls Type::makeUnion()
+    virtual Variant promoteAssignment(const Variant& rhs) const = 0;
+    virtual const IFunctionSignature* callable() const = 0;
+    virtual const IIndexSignature* indexable() const = 0;
+    virtual bool dotable(const String* property, Type& type, String& reason) const = 0; // WIBBLE retval
+    virtual bool iterable(Type& type) const = 0; // WIBBLE retval
+    virtual Type pointeeType() const = 0;
+    virtual Type denulledType() const = 0;
+    virtual Type unionWithBasal(IAllocator& allocator, BasalBits other) const = 0; // May return nullptr
     virtual std::pair<std::string, int> toStringPrecedence() const = 0;
-
-    // Helpers
-    String toString(int precedence = -1) const;
   };
 
   class IObject : public ICollectable {
   public:
+    // Interface
     virtual Variant toString() const = 0;
     virtual Type getRuntimeType() const = 0;
     virtual Variant call(IExecution& execution, const IParameters& parameters) = 0;

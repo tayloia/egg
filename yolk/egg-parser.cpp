@@ -217,7 +217,7 @@ namespace {
       return context.raiseFormat("Internal parser error: Inappropriate 'execute' call for 'type' node");
     }
     virtual void dump(std::ostream& os) const override {
-      ParserDump(os, "type").add(this->type->toString());
+      ParserDump(os, "type").add(this->type.toString());
     }
   };
 
@@ -248,7 +248,7 @@ namespace {
       return context.executeDeclare(*this, this->name, this->type, this->init.get());
     }
     virtual void dump(std::ostream& os) const override {
-      auto tname = (this->type == nullptr) ? "var" : this->type->toString();
+      auto tname = (this->type == nullptr) ? "var" : this->type.toString();
       ParserDump(os, "declare").add(this->name).add(tname).add(this->init);
     }
   };
@@ -279,7 +279,7 @@ namespace {
       return context.executeGuard(*this, this->name, this->type, *this->expr);
     }
     virtual void dump(std::ostream& os) const override {
-      ParserDump(os, "guard").add(this->name).add(this->type->toString()).add(this->expr);
+      ParserDump(os, "guard").add(this->name).add(this->type.toString()).add(this->expr);
     }
   };
 
@@ -481,7 +481,7 @@ namespace {
       return context.executeFunctionDefinition(*this, this->name, this->type, this->block);
     }
     virtual void dump(std::ostream& os) const override {
-      ParserDump(os, "function").add(this->name).add(this->type->toString()).add(this->block);
+      ParserDump(os, "function").add(this->name).add(this->type.toString()).add(this->block);
     }
   };
 
@@ -507,7 +507,7 @@ namespace {
       return context.raiseFormat("Internal parser error: Inappropriate 'execute' call for function parameter");
     }
     virtual void dump(std::ostream& os) const override {
-      ParserDump(os, this->optional ? "parameter?" : "parameter").add(this->name).add(this->type->toString());
+      ParserDump(os, this->optional ? "parameter?" : "parameter").add(this->name).add(this->type.toString());
     }
   };
 
@@ -529,7 +529,7 @@ namespace {
       return context.executeGeneratorDefinition(*this, this->gentype, this->rettype, this->block);
     }
     virtual void dump(std::ostream& os) const override {
-      ParserDump(os, "generator").add(this->name).add(this->gentype->toString()).add(this->block);
+      ParserDump(os, "generator").add(this->name).add(this->gentype.toString()).add(this->block);
     }
   };
 
@@ -1936,7 +1936,7 @@ egg::ovum::Type EggParserNode_BinaryNullCoalescing::getType() const {
     // The left-hand-side is only ever null, so only the right side is relevant
     return type2;
   }
-  return type1->unionWith(*this->allocator, *type2);
+  return egg::ovum::Type::makeUnion(*this->allocator, *type1, *type2);
 }
 
 egg::ovum::Type EggParserNode_BinaryBitwiseXor::getType() const {
@@ -1973,7 +1973,7 @@ egg::ovum::Type EggParserNode_Ternary::getType() const {
   }
   auto type2 = this->whenTrue->getType();
   auto type3 = this->whenFalse->getType();
-  return type2->unionWith(*this->allocator, *type3);
+  return egg::ovum::Type::makeUnion(*this->allocator, *type2, *type3);
 }
 
 std::shared_ptr<egg::yolk::IEggProgramNode> egg::yolk::EggParserFactory::parseModule(egg::ovum::IAllocator& allocator, TextStream& stream) {

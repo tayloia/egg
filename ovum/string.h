@@ -1,6 +1,4 @@
 namespace egg::ovum {
-  using Memory = HardPtr<const IMemory>;
-
   class String : public Memory {
   public:
     String() = default; // implicit

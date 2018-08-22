@@ -101,12 +101,14 @@ namespace egg::ovum {
 
   template<typename T>
   class NotReferenceCounted : public T {
+    NotReferenceCounted(const NotReferenceCounted&) = delete;
+    NotReferenceCounted& operator=(const NotReferenceCounted&) = delete;
   public:
     template<typename... ARGS>
     NotReferenceCounted(ARGS&&... args)
       : T(std::forward<ARGS>(args)...) {
     }
-    virtual T* hardAcquireBase() const override {
+    virtual T* hardAcquire() const override {
       return const_cast<T*>(static_cast<const T*>(this));
     }
     virtual void hardRelease() const override {
@@ -130,7 +132,7 @@ namespace egg::ovum {
       // Make sure our reference count reached zero
       assert(this->atomic.get() == 0);
     }
-    virtual T* hardAcquireBase() const override {
+    virtual T* hardAcquire() const override {
       this->atomic.increment();
       return const_cast<T*>(static_cast<const T*>(this));
     }
@@ -262,8 +264,7 @@ namespace egg::ovum {
     }
     static T* hardAcquire(const T* ptr) {
       if (ptr != nullptr) {
-        // See https://stackoverflow.com/a/15572442
-        return ptr->template hardAcquire<T>();
+        return static_cast<T*>(ptr->hardAcquire());
       }
       return nullptr;
     }
@@ -277,14 +278,6 @@ namespace egg::ovum {
   bool operator!=(nullptr_t, const HardPtr<T>& ptr) {
     // Yoda inequality comparison used by GoogleTest
     return ptr != nullptr;
-  }
-
-  template<typename T, typename RETTYPE, typename... ARGS>
-  RETTYPE IAllocator::make(ARGS&&... args) {
-    // Use perfect forwarding to in-place new
-    void* allocated = this->allocate(sizeof(T), alignof(T));
-    assert(allocated != nullptr);
-    return RETTYPE(new(allocated) T(*this, std::forward<ARGS>(args)...));
   }
 
   template<typename T>
@@ -354,5 +347,28 @@ namespace egg::ovum {
     int64_t exponent;
     void fromFloat(Float f);
     Float toFloat() const;
+  };
+
+  class Memory : public HardPtr<const IMemory> {
+  public:
+    Memory() = default;
+    explicit Memory(const IMemory* rhs) : HardPtr(rhs) {
+    }
+    static bool equals(const IMemory* lhs, const IMemory* rhs);
+  };
+
+  class Function {
+  public:
+    // Helpers
+    enum class Parts {
+      ReturnType = 0x01,
+      FunctionName = 0x02,
+      ParameterList = 0x04,
+      ParameterNames = 0x08,
+      NoNames = ReturnType | ParameterList,
+      All = ~0
+    };
+    static String signatureToString(const IFunctionSignature& signature, Parts parts);
+    static Variant validateCall(IExecution& execution, const IFunctionSignature& signature, const IParameters& runtime);
   };
 }

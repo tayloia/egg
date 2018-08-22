@@ -27,19 +27,19 @@ namespace {
     }
     virtual egg::ovum::Variant getIndex(egg::ovum::IExecution& execution, const egg::ovum::Variant& index) override {
       if (!index.isString()) {
-        return execution.raiseFormat(this->kind, " index (property name) was expected to be 'string', not '", index.getRuntimeType()->toString(), "'");
+        return execution.raiseFormat(this->kind, " index (property name) was expected to be 'string', not '", index.getRuntimeType().toString(), "'");
       }
       return this->getProperty(execution, index.getString());
     }
     virtual egg::ovum::Variant setIndex(egg::ovum::IExecution& execution, const egg::ovum::Variant& index, const egg::ovum::Variant& value) override {
       if (!index.isString()) {
-        return execution.raiseFormat(this->kind, " index (property name) was expected to be 'string', not '", index.getRuntimeType()->toString(), "'");
+        return execution.raiseFormat(this->kind, " index (property name) was expected to be 'string', not '", index.getRuntimeType().toString(), "'");
       }
       return this->setProperty(execution, index.getString(), value);
     }
   };
 
-  class VanillaIteratorType : public egg::ovum::NotReferenceCounted<egg::ovum::IType> {
+  class VanillaIteratorType : public egg::ovum::NotReferenceCounted<egg::ovum::TypeBase> {
     EGG_NO_COPY(VanillaIteratorType);
   public:
     VanillaIteratorType() {}
@@ -47,9 +47,6 @@ namespace {
       return std::make_pair("<iterator>", 0);
     }
     // TODO iterable() for forEachRemaining() like Java?
-    virtual AssignmentSuccess canBeAssignedFrom(const IType&) const {
-      return AssignmentSuccess::Never; // TODO
-    }
     virtual egg::ovum::Variant promoteAssignment(const egg::ovum::Variant&) const override {
       return egg::ovum::VariantFactory::createThrow("Cannot re-assign iterators");
     }
@@ -64,7 +61,7 @@ namespace {
       : VanillaBase(allocator, "Iterator", VanillaIteratorType::instance) {
     }
     virtual egg::ovum::Variant toString() const override {
-      return egg::ovum::Variant{ this->type->toString() };
+      return egg::ovum::Variant{ this->type.toString() };
     }
     virtual egg::ovum::Variant getProperty(egg::ovum::IExecution& execution, const egg::ovum::String& property) override {
       return execution.raiseFormat("Iterators do not support properties: '.", property, "'");
@@ -74,8 +71,11 @@ namespace {
     }
   };
 
-  class VanillaKeyValueType : public egg::ovum::NotReferenceCounted<egg::ovum::IType> {
+  class VanillaKeyValueType : public egg::ovum::NotReferenceCounted<egg::ovum::TypeBase> {
+    VanillaKeyValueType(const VanillaKeyValueType&) = delete;
+    VanillaKeyValueType& operator=(const VanillaKeyValueType&) = delete;
   public:
+    VanillaKeyValueType() = default;
     virtual std::pair<std::string, int> toStringPrecedence() const override {
       return std::make_pair("<keyvalue>", 0);
     }
@@ -140,8 +140,11 @@ namespace {
   };
   const VanillaArrayIndexSignature VanillaArrayIndexSignature::instance{};
 
-  class VanillaArrayType : public egg::ovum::NotReferenceCounted<egg::ovum::IType> {
+  class VanillaArrayType : public egg::ovum::NotReferenceCounted<egg::ovum::TypeBase> {
+    VanillaArrayType(const VanillaArrayType&) = delete;
+    VanillaArrayType& operator=(const VanillaArrayType&) = delete;
   public:
+    VanillaArrayType() = default;
     static const egg::ovum::IType* getPropertyType(const std::string& property) {
       if (property == "length") {
         return egg::ovum::Type::Int.get();
@@ -225,7 +228,7 @@ namespace {
     }
     virtual egg::ovum::Variant getIndex(egg::ovum::IExecution& execution, const egg::ovum::Variant& index) override {
       if (!index.isInt()) {
-        return execution.raiseFormat("Array index was expected to be 'int', not '", index.getRuntimeType()->toString(), "'");
+        return execution.raiseFormat("Array index was expected to be 'int', not '", index.getRuntimeType().toString(), "'");
       }
       auto i = index.getInt();
       if ((i < 0) || (uint64_t(i) >= uint64_t(this->values.size()))) {
@@ -237,7 +240,7 @@ namespace {
     }
     virtual egg::ovum::Variant setIndex(egg::ovum::IExecution& execution, const egg::ovum::Variant& index, const egg::ovum::Variant& value) override {
       if (!index.isInt()) {
-        return execution.raiseFormat("Array index was expected to be 'int', not '", index.getRuntimeType()->toString(), "'");
+        return execution.raiseFormat("Array index was expected to be 'int', not '", index.getRuntimeType().toString(), "'");
       }
       auto i = index.getInt();
       if ((i < 0) || (i >= 0x7FFFFFFF)) {
@@ -274,7 +277,7 @@ namespace {
     }
     egg::ovum::Variant setLength(egg::ovum::IExecution& execution, const egg::ovum::Variant& value) {
       if (!value.isInt()) {
-        return execution.raiseFormat("Array length was expected to be set to an 'int', not '", value.getRuntimeType()->toString(), "'");
+        return execution.raiseFormat("Array length was expected to be set to an 'int', not '", value.getRuntimeType().toString(), "'");
       }
       auto n = value.getInt();
       if ((n < 0) || (n >= 0x7FFFFFFF)) {
@@ -374,8 +377,11 @@ namespace {
   };
   const VanillaObjectIndexSignature VanillaObjectIndexSignature::instance{};
 
-  class VanillaObjectType : public egg::ovum::NotReferenceCounted<egg::ovum::IType> {
+  class VanillaObjectType : public egg::ovum::NotReferenceCounted<egg::ovum::TypeBase> {
+    VanillaObjectType(const VanillaObjectType&) = delete;
+    VanillaObjectType& operator=(const VanillaObjectType&) = delete;
   public:
+    VanillaObjectType() = default;
     virtual std::pair<std::string, int> toStringPrecedence() const override {
       return std::make_pair("any?{string}", 0); // TODO
     }
@@ -458,7 +464,7 @@ namespace {
       this->program.visit(visitor);
     }
     virtual egg::ovum::Variant toString() const override {
-      return egg::ovum::Variant(egg::ovum::StringBuilder::concat("<", this->type->toString(), ">"));
+      return egg::ovum::Variant(egg::ovum::StringBuilder::concat("<", this->type.toString(), ">"));
     }
     virtual egg::ovum::Type getRuntimeType() const override {
       return this->type;
@@ -467,19 +473,19 @@ namespace {
       return this->program->executeFunctionCall(this->type, parameters, this->block);
     }
     virtual egg::ovum::Variant getProperty(egg::ovum::IExecution& execution, const egg::ovum::String& property) override {
-      return execution.raiseFormat("'", this->type->toString(), "' does not support properties such as '.", property, "'");
+      return execution.raiseFormat("'", this->type.toString(), "' does not support properties such as '.", property, "'");
     }
     virtual egg::ovum::Variant setProperty(egg::ovum::IExecution& execution, const egg::ovum::String& property, const egg::ovum::Variant&) override {
-      return execution.raiseFormat("'", this->type->toString(), "' does not support properties such as '.", property, "'");
+      return execution.raiseFormat("'", this->type.toString(), "' does not support properties such as '.", property, "'");
     }
     virtual egg::ovum::Variant getIndex(egg::ovum::IExecution& execution, const egg::ovum::Variant&) override {
-      return execution.raiseFormat("'", this->type->toString(), "' does not support indexing with '[]'");
+      return execution.raiseFormat("'", this->type.toString(), "' does not support indexing with '[]'");
     }
     virtual egg::ovum::Variant setIndex(egg::ovum::IExecution& execution, const egg::ovum::Variant&, const egg::ovum::Variant&) override {
-      return execution.raiseFormat("'", this->type->toString(), "' does not support indexing with '[]'");
+      return execution.raiseFormat("'", this->type.toString(), "' does not support indexing with '[]'");
     }
     virtual egg::ovum::Variant iterate(egg::ovum::IExecution& execution) override {
-      return execution.raiseFormat("'", this->type->toString(), "' does not support iteration");
+      return execution.raiseFormat("'", this->type.toString(), "' does not support iteration");
     }
   };
 
@@ -505,7 +511,7 @@ namespace {
       if (retval.stripFlowControl(egg::ovum::VariantBits::Return)) {
         // The sequence has ended
         if (!retval.isVoid()) {
-          return this->program->raiseFormat("Expected 'return' statement without a value in generator, but got '", retval.getRuntimeType()->toString(), "' instead");
+          return this->program->raiseFormat("Expected 'return' statement without a value in generator, but got '", retval.getRuntimeType().toString(), "' instead");
         }
       }
       return retval;

@@ -58,14 +58,14 @@ namespace {
     egg::ovum::Type rettype;
   public:
     explicit GeneratorFunctionType(egg::ovum::IAllocator& allocator, const egg::ovum::Type& returnType)
-      : FunctionType(allocator, egg::ovum::String(), returnType->unionWith(allocator, *egg::ovum::Type::Void)),
+      : FunctionType(allocator, egg::ovum::String(), egg::ovum::Type::makeUnion(allocator, *returnType, *egg::ovum::Type::Void)),
         rettype(returnType) {
       // No name or parameters in the signature
       assert(!egg::ovum::Bits::hasAnySet(returnType->getBasalTypes(), egg::ovum::BasalBits::Void));
     }
     virtual std::pair<std::string, int> toStringPrecedence() const override {
       // Format a string along the lines of '<rettype>...'
-      return std::make_pair(this->rettype->toString(0).toUTF8() + "...", 0);
+      return std::make_pair(this->rettype.toString(0).toUTF8() + "...", 0);
     }
     virtual bool iterable(egg::ovum::Type& type) const {
       // We are indeed iterable
@@ -335,9 +335,8 @@ egg::yolk::FunctionType::~FunctionType() {
 
 std::pair<std::string, int> egg::yolk::FunctionType::toStringPrecedence() const {
   // Do not include names in the signature
-  egg::ovum::StringBuilder sb;
-  this->signature->buildStringDefault(sb, egg::ovum::IFunctionSignature::Parts::NoNames);
-  return std::make_pair(sb.toUTF8(), 0);
+  auto sig = egg::ovum::Function::signatureToString(*this->signature, egg::ovum::Function::Parts::NoNames);
+  return std::make_pair(sig.toUTF8(), 0);
 }
 
 egg::yolk::FunctionType::AssignmentSuccess egg::yolk::FunctionType::canBeAssignedFrom(const IType& rtype) const {

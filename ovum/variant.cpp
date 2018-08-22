@@ -224,11 +224,11 @@ public:
       variant(std::move(value)) {
     assert(this->variant.validate(true));
   }
-  virtual Variant& getVariant() {
+  virtual Variant& getVariant() override {
     assert(this->variant.validate(true));
     return this->variant;
   }
-  virtual Type getPointerType() const {
+  virtual Type getPointerType() const override {
     assert(this->variant.validate(true));
     return Type::makePointer(this->allocator, *this->variant.getRuntimeType());
   }
@@ -416,7 +416,7 @@ bool egg::ovum::Variant::equals(const Variant& lhs, const Variant& rhs) {
     return a.f == b.f;
   case VariantBits::String:
   case VariantBits::Memory:
-    return IMemory::equals(a.s, b.s); // binary equality
+    return Memory::equals(a.s, b.s); // binary equality
   case VariantBits::Object:
     return a.o == b.o; // identity
   case VariantBits::Pointer:
@@ -506,7 +506,7 @@ egg::ovum::String egg::ovum::Variant::toString() const {
   if (this->isNull()) {
     return "null";
   }
-  return "<" + this->getRuntimeType()->toString().toUTF8() + ">";
+  return StringBuilder::concat('<', this->getRuntimeType().toString(), '>');
 }
 
 egg::ovum::HardPtr<egg::ovum::IVariantSoft> egg::ovum::VariantFactory::createVariantSoft(IAllocator& allocator, IBasket& basket, Variant&& value) {

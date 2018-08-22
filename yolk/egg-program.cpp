@@ -568,7 +568,7 @@ egg::ovum::Variant egg::yolk::EggProgramContext::condition(const IEggProgramNode
   if (retval.hasBool() || retval.hasFlowControl()) {
     return retval;
   }
-  return this->raiseFormat("Expected condition to evaluate to a 'bool', but got '", retval.getRuntimeType()->toString(), "' instead");
+  return this->raiseFormat("Expected condition to evaluate to a 'bool', but got '", retval.getRuntimeType().toString(), "' instead");
 }
 
 egg::ovum::Variant egg::yolk::EggProgramContext::unary(EggProgramUnary op, const IEggProgramNode& expr, egg::ovum::Variant& value) {
@@ -818,7 +818,7 @@ egg::ovum::Variant egg::yolk::EggProgramContext::dotGet(const egg::ovum::Variant
   if (direct.hasString()) {
     return egg::yolk::Builtins::stringBuiltin(*this, direct.getString(), property);
   }
-  return this->raiseFormat("Values of type '", instance.getRuntimeType()->toString(), "' do not support properties such as '.", property, "'");
+  return this->raiseFormat("Values of type '", instance.getRuntimeType().toString(), "' do not support properties such as '.", property, "'");
 }
 
 egg::ovum::Variant egg::yolk::EggProgramContext::dotSet(const egg::ovum::Variant& instance, const egg::ovum::String& property, const egg::ovum::Variant& value) {
@@ -831,7 +831,7 @@ egg::ovum::Variant egg::yolk::EggProgramContext::dotSet(const egg::ovum::Variant
   if (direct.hasString()) {
     return this->raiseFormat("Strings do not support modification through properties such as '.", property, "'");
   }
-  return this->raiseFormat("Values of type '", instance.getRuntimeType()->toString(), "' do not support modification of properties such as '.", property, "'");
+  return this->raiseFormat("Values of type '", instance.getRuntimeType().toString(), "' do not support modification of properties such as '.", property, "'");
 }
 
 egg::ovum::Variant egg::yolk::EggProgramContext::bracketsGet(const egg::ovum::Variant& instance, const egg::ovum::Variant& index) {
@@ -845,7 +845,7 @@ egg::ovum::Variant egg::yolk::EggProgramContext::bracketsGet(const egg::ovum::Va
     // string operator[](int index)
     auto str = direct.getString();
     if (!index.isInt()) {
-      return this->raiseFormat("String indexing '[]' only supports indices of type 'int', not '", index.getRuntimeType()->toString(), "'");
+      return this->raiseFormat("String indexing '[]' only supports indices of type 'int', not '", index.getRuntimeType().toString(), "'");
     }
     auto i = index.getInt();
     auto c = str.codePointAt(size_t(i));
@@ -859,7 +859,7 @@ egg::ovum::Variant egg::yolk::EggProgramContext::bracketsGet(const egg::ovum::Va
     }
     return egg::ovum::Variant{ egg::ovum::StringFactory::fromCodePoint(this->allocator, char32_t(c)) };
   }
-  return this->raiseFormat("Values of type '", instance.getRuntimeType()->toString(), "' do not support indexing with '[]'");
+  return this->raiseFormat("Values of type '", instance.getRuntimeType().toString(), "' do not support indexing with '[]'");
 }
 
 egg::ovum::Variant egg::yolk::EggProgramContext::bracketsSet(const egg::ovum::Variant& instance, const egg::ovum::Variant& index, const egg::ovum::Variant& value) {
@@ -872,11 +872,11 @@ egg::ovum::Variant egg::yolk::EggProgramContext::bracketsSet(const egg::ovum::Va
   if (direct.hasString()) {
     return this->raiseFormat("Strings do not support modification through indexing with '[]'");
   }
-  return this->raiseFormat("Values of type '", instance.getRuntimeType()->toString(), "' do not support indexing with '[]'");
+  return this->raiseFormat("Values of type '", instance.getRuntimeType().toString(), "' do not support indexing with '[]'");
 }
 
 egg::ovum::Variant egg::yolk::EggProgramContext::unexpected(const std::string& expectation, const egg::ovum::Variant& value) {
-  return this->raiseFormat(expectation, ", but got '", value.getRuntimeType()->toString(), "' instead");
+  return this->raiseFormat(expectation, ", but got '", value.getRuntimeType().toString(), "' instead");
 }
 
 egg::ovum::Variant egg::yolk::EggProgramContext::assertion(const egg::ovum::Variant& predicate) {

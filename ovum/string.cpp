@@ -227,16 +227,16 @@ namespace {
       // Make sure all our strings have been destroyed when the process exits
       assert(this->atomic.get() == 0);
     }
-    virtual void* allocate(size_t bytes, size_t alignment) {
+    virtual void* allocate(size_t bytes, size_t alignment) override {
       this->atomic.increment();
       return AllocatorDefaultPolicy::memalloc(bytes, alignment);
     }
-    virtual void deallocate(void* allocated, size_t alignment) {
+    virtual void deallocate(void* allocated, size_t alignment) override {
       assert(allocated != nullptr);
       this->atomic.decrement();
       AllocatorDefaultPolicy::memfree(allocated, alignment);
     }
-    virtual bool statistics(Statistics&) const {
+    virtual bool statistics(Statistics&) const override {
       return false;
     }
   };
@@ -269,12 +269,12 @@ namespace {
 }
 
 egg::ovum::String::String(const char* utf8)
-  : HardPtr(createContiguous(nullptr, utf8)) {
+  : Memory(createContiguous(nullptr, utf8)) {
   // We've got to create this string without an allocator, so use a fallback
 }
 
 egg::ovum::String::String(const std::string& utf8, size_t codepoints)
-  : HardPtr(createContiguous(nullptr, utf8.data(), utf8.size(), codepoints)) {
+  : Memory(createContiguous(nullptr, utf8.data(), utf8.size(), codepoints)) {
   // We've got to create this string without an allocator, so use a fallback
 }
 
@@ -297,7 +297,7 @@ int32_t egg::ovum::String::codePointAt(size_t index) const {
 
 bool egg::ovum::String::equals(const String& other) const {
   // Ordinal comparison
-  return IMemory::equals(this->get(), other.get());
+  return Memory::equals(this->get(), other.get());
 }
 
 int64_t egg::ovum::String::hashCode() const {

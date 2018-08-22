@@ -36,12 +36,12 @@ namespace {
       // Log our destruction
       this->monitor->write('~', this->name);
     }
-    virtual Instance* hardAcquireBase() const {
+    virtual Instance* hardAcquire() const override {
       // Log our increment
       this->monitor->write('+', this->name);
       return const_cast<Instance*>(this);
     }
-    virtual void hardRelease() const {
+    virtual void hardRelease() const override {
       // Log our decrement
       this->monitor->write('-', this->name);
     }
@@ -78,7 +78,7 @@ TEST(TestGC, Monitor) {
   {
     Instance instance(monitor, "stack");
     ASSERT_EQ("*stack", monitor.read());
-    ASSERT_EQ(&instance, instance.hardAcquire<Instance>());
+    ASSERT_EQ(&instance, instance.hardAcquire());
     ASSERT_EQ("+stack", monitor.read());
     instance.hardRelease();
     ASSERT_EQ("-stack", monitor.read());
@@ -92,7 +92,7 @@ TEST(TestGC, NotReferenceCounted) {
   {
     egg::ovum::NotReferenceCounted<Instance> instance(monitor, "nrc");
     ASSERT_EQ("*nrc", monitor.read());
-    ASSERT_EQ(&instance, instance.hardAcquire<Instance>());
+    ASSERT_EQ(&instance, instance.hardAcquire());
     ASSERT_EQ("", monitor.read());
     instance.hardRelease();
     ASSERT_EQ("", monitor.read());

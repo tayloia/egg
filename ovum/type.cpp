@@ -50,7 +50,7 @@ namespace {
       // We allow type promotion int->float
       return Variant(double(rhs.getInt())); // TODO overflows?
     }
-    return egg::ovum::VariantFactory::createThrow("Cannot assign a value of type '", rhs.getRuntimeType()->toString(), "' to a target of type '", Type::getBasalString(lhs), "'");
+    return egg::ovum::VariantFactory::createThrow("Cannot assign a value of type '", rhs.getRuntimeType().toString(), "' to a target of type '", Type::getBasalString(lhs), "'");
   }
 
   // An 'omni' function looks like this: 'any?(...any?[])'
@@ -91,7 +91,7 @@ namespace {
   };
   const OmniFunctionSignature omniFunctionSignature{};
 
-  class TypePointer : public HardReferenceCounted<IType> {
+  class TypePointer : public HardReferenceCounted<TypeBase> {
     TypePointer(const TypePointer&) = delete;
     TypePointer& operator=(const TypePointer&) = delete;
   private:
@@ -100,53 +100,46 @@ namespace {
     TypePointer(IAllocator& allocator, const IType& referenced)
       : HardReferenceCounted(allocator, 0), referenced(&referenced) {
     }
-    virtual std::pair<std::string, int> toStringPrecedence() const override {
-      return std::make_pair(this->referenced->toString(0).toUTF8() + "*", 0);
-    }
     virtual BasalBits getBasalTypes() const override {
       return BasalBits::None; // TODO
+    }
+    virtual AssignmentSuccess canBeAssignedFrom(const IType& rhs) const override {
+      return this->referenced->canBeAssignedFrom(*rhs.pointeeType());
     }
     virtual Type pointeeType() const override {
       return this->referenced;
     }
-    virtual AssignmentSuccess canBeAssignedFrom(const IType& rhs) const {
-      return this->referenced->canBeAssignedFrom(*rhs.pointeeType());
+    virtual std::pair<std::string, int> toStringPrecedence() const override {
+      return std::make_pair(this->referenced.toString(0).toUTF8() + "*", 0);
     }
   };
 
   template<BasalBits BASAL>
-  class TypeCommon : public NotReferenceCounted<IType> {
+  class TypeCommon : public NotReferenceCounted<TypeBase> {
     TypeCommon(const TypeCommon&) = delete;
     TypeCommon& operator=(const TypeCommon&) = delete;
   public:
     TypeCommon() = default;
-    virtual std::pair<std::string, int> toStringPrecedence() const override {
-      return tagToStringPriority(BASAL);
-    }
     virtual BasalBits getBasalTypes() const override {
       return BASAL;
     }
-    virtual Type unionWith(IAllocator& allocator, const IType& other) const override {
-      auto basal = other.getBasalTypes();
-      if (basal == BasalBits::None) {
-        // The other type is not basal
-        return Type::makeUnion(allocator, *this, other);
-      }
-      if (Bits::hasAllSet(BASAL, basal)) {
-        // We are a superset already
-        return Type(this);
-      }
-      if (Bits::hasAllSet(basal, BASAL)) {
-        // The other type is a superset anyway
-        return Type(&other);
-      }
-      return Type::makeUnion(allocator, *this, other);
-    }
-    virtual AssignmentSuccess canBeAssignedFrom(const IType& rhs) const {
+    virtual AssignmentSuccess canBeAssignedFrom(const IType& rhs) const override {
       return canBeAssignedFromBasal(BASAL, rhs);
     }
     virtual Variant promoteAssignment(const Variant& rhs) const override {
       return promoteAssignmentBasal(BASAL, rhs);
+    }
+    virtual Type unionWithBasal(IAllocator& allocator, BasalBits other) const override {
+      assert(other != BasalBits::None);
+      auto superset = Bits::set(BASAL, other);
+      if (superset == BASAL) {
+        // We are a superset already
+        return Type(this);
+      }
+      return Type::makeBasal(allocator, superset);
+    }
+    virtual std::pair<std::string, int> toStringPrecedence() const override {
+      return tagToStringPriority(BASAL);
     }
   };
   const TypeCommon<BasalBits::Void> typeVoid{};
@@ -162,9 +155,9 @@ namespace {
     TypeNull() = default;
     virtual Type denulledType() const override {
       // You cannot denull null!
-      return Type(nullptr);
+      return Type();
     }
-    virtual AssignmentSuccess canBeAssignedFrom(const IType&) const {
+    virtual AssignmentSuccess canBeAssignedFrom(const IType&) const override {
       return AssignmentSuccess::Never;
     }
     virtual Variant promoteAssignment(const Variant&) const override {
@@ -232,7 +225,7 @@ namespace {
   };
   const TypeAnyQ typeAnyQ{};
 
-  class TypeBasal : public HardReferenceCounted<IType> {
+  class TypeBasal : public HardReferenceCounted<TypeBase> {
     TypeBasal(const TypeBasal&) = delete;
     TypeBasal& operator=(const TypeBasal&) = delete;
   private:
@@ -241,34 +234,10 @@ namespace {
     TypeBasal(IAllocator& allocator, BasalBits basal)
       : HardReferenceCounted(allocator, 0), tag(basal) {
     }
-    virtual std::pair<std::string, int> toStringPrecedence() const override {
-      return tagToStringPriority(this->tag);
-    }
     virtual BasalBits getBasalTypes() const override {
       return this->tag;
     }
-    virtual Type denulledType() const override {
-      auto denulled = Bits::clear(this->tag, BasalBits::Null);
-      if (this->tag != denulled) {
-        // We need to clear the bit
-        return Type::makeBasal(this->allocator, denulled);
-      }
-      return Type(this);
-    }
-    virtual Type unionWith(IAllocator& alloc, const IType& other) const override {
-      auto basal = other.getBasalTypes();
-      if (basal == BasalBits::None) {
-        // The other type is not basal
-        return Type::makeUnion(alloc, *this, other);
-      }
-      auto both = Bits::set(this->tag, basal);
-      if (both != this->tag) {
-        // There's a new basal type that we don't support, so create a new type
-        return Type::makeBasal(alloc, both);
-      }
-      return Type(this);
-    }
-    virtual AssignmentSuccess canBeAssignedFrom(const IType& rhs) const {
+    virtual AssignmentSuccess canBeAssignedFrom(const IType& rhs) const override {
       return canBeAssignedFromBasal(this->tag, rhs);
     }
     virtual Variant promoteAssignment(const Variant& rhs) const override {
@@ -291,9 +260,29 @@ namespace {
       }
       return false;
     }
+    virtual Type denulledType() const override {
+      auto denulled = Bits::clear(this->tag, BasalBits::Null);
+      if (this->tag != denulled) {
+        // We need to clear the bit
+        return Type::makeBasal(this->allocator, denulled);
+      }
+      return Type(this);
+    }
+    virtual Type unionWithBasal(IAllocator& alloc, BasalBits other) const override {
+      assert(other != BasalBits::None);
+      auto superset = Bits::set(this->tag, other);
+      if (superset == this->tag) {
+        // We are a superset already
+        return Type(this);
+      }
+      return Type::makeBasal(alloc, superset);
+    }
+    virtual std::pair<std::string, int> toStringPrecedence() const override {
+      return tagToStringPriority(this->tag);
+    }
   };
 
-  class TypeUnion : public HardReferenceCounted<IType> {
+  class TypeUnion : public HardReferenceCounted<TypeBase> {
     TypeUnion(const TypeUnion&) = delete;
     TypeUnion& operator=(const TypeUnion&) = delete;
   private:
@@ -303,20 +292,14 @@ namespace {
     TypeUnion(IAllocator& allocator, const IType& a, const IType& b)
       : HardReferenceCounted(allocator, 0), a(&a), b(&b) {
     }
+    virtual BasalBits getBasalTypes() const override {
+      return this->a->getBasalTypes() | this->b->getBasalTypes(); // TODO
+    }
     virtual std::pair<std::string, int> toStringPrecedence() const override {
+      // TODO
       auto sa = this->a->toStringPrecedence().first;
       auto sb = this->b->toStringPrecedence().first;
       return std::make_pair(sa + "|" + sb, -1);
-    }
-    virtual BasalBits getBasalTypes() const override {
-      // TODO
-      return this->a->getBasalTypes() | this->b->getBasalTypes();
-    }
-    virtual AssignmentSuccess canBeAssignedFrom(const IType&) const {
-      return AssignmentSuccess::Never; // TODO
-    }
-    virtual const IFunctionSignature* callable() const override {
-      throw std::runtime_error("TODO: Cannot yet call to union value"); // TODO
     }
   };
 
@@ -389,96 +372,33 @@ namespace {
   }
 }
 
-egg::ovum::String egg::ovum::IType::toString(int priority) const {
-  auto pair = this->toStringPrecedence();
-  if (pair.second < priority) {
-    return StringBuilder::concat("(", pair.first, ")");
-  }
-  return pair.first;
-}
-
-egg::ovum::BasalBits egg::ovum::IType::getBasalTypes() const {
-  // The default implementation is to return 'Object'
-  return BasalBits::Object;
-}
-
-egg::ovum::Type egg::ovum::IType::pointeeType() const {
-  // The default implementation is to return nullptr indicating that this is NOT dereferencable
-  return Type(nullptr);
-}
-
-egg::ovum::Type egg::ovum::IType::denulledType() const {
-  // The default implementation is to return self
-  return Type(this);
-}
-
-egg::ovum::String egg::ovum::IFunctionSignature::toString(Parts parts) const {
-  StringBuilder sb;
-  this->buildStringDefault(sb, parts);
-  return sb.str();
-}
-
-bool egg::ovum::IFunctionSignature::validateCall(IExecution& execution, const IParameters& runtime, Variant& problem) const {
-  // The default implementation just calls validateCallDefault()
-  return this->validateCallDefault(execution, runtime, problem);
-}
-
-egg::ovum::String egg::ovum::IIndexSignature::toString() const {
-  return StringBuilder::concat(this->getResultType()->toString(), "[", this->getIndexType()->toString(), "]");
-}
-
-const egg::ovum::IFunctionSignature* egg::ovum::IType::callable() const {
-  // The default implementation is to say we don't support calling with '()'
-  return nullptr;
-}
-
-const egg::ovum::IIndexSignature* egg::ovum::IType::indexable() const {
-  // The default implementation is to say we don't support indexing with '[]'
-  return nullptr;
-}
-
-bool egg::ovum::IType::dotable(const String*, Type&, String& reason) const {
-  // The default implementation is to say we don't support properties with '.'
-  reason = StringBuilder::concat("Values of type '", this->toString(), "' do not support the '.' operator for property access");
-  return false;
-}
-
-bool egg::ovum::IType::iterable(Type&) const {
-  // The default implementation is to say we don't support iteration
-  return false;
-}
-
-egg::ovum::Type egg::ovum::IType::unionWith(IAllocator& allocator, const IType& other) const {
-  // The default implementation is to simply make a new union (basal types can be more clever)
-  return Type::makeUnion(allocator, *this, other);
-}
-
-void egg::ovum::IFunctionSignature::buildStringDefault(StringBuilder& sb, IFunctionSignature::Parts parts) const {
+egg::ovum::String egg::ovum::Function::signatureToString(const IFunctionSignature& signature, Parts parts) {
   // TODO better formatting of named/variadic etc.
-  if (Bits::hasAnySet(parts, IFunctionSignature::Parts::ReturnType)) {
+  StringBuilder sb;
+  if (Bits::hasAnySet(parts, Parts::ReturnType)) {
     // Use precedence zero to get any necessary parentheses
-    sb.add(this->getReturnType()->toString(0));
+    sb.add(signature.getReturnType().toString(0));
   }
-  if (Bits::hasAnySet(parts, IFunctionSignature::Parts::FunctionName)) {
-    auto name = this->getFunctionName();
+  if (Bits::hasAnySet(parts, Parts::FunctionName)) {
+    auto name = signature.getFunctionName();
     if (!name.empty()) {
       sb.add(' ', name);
     }
   }
-  if (Bits::hasAnySet(parts, IFunctionSignature::Parts::ParameterList)) {
+  if (Bits::hasAnySet(parts, Parts::ParameterList)) {
     sb.add('(');
-    auto n = this->getParameterCount();
+    auto n = signature.getParameterCount();
     for (size_t i = 0; i < n; ++i) {
       if (i > 0) {
         sb.add(", ");
       }
-      auto& parameter = this->getParameter(i);
+      auto& parameter = signature.getParameter(i);
       assert(parameter.getPosition() != SIZE_MAX);
       if (Bits::hasAnySet(parameter.getFlags(), IFunctionSignatureParameter::Flags::Variadic)) {
         sb.add("...");
       } else {
-        sb.add(parameter.getType()->toString());
-        if (Bits::hasAnySet(parts, IFunctionSignature::Parts::ParameterNames)) {
+        sb.add(parameter.getType().toString());
+        if (Bits::hasAnySet(parts, Parts::ParameterNames)) {
           auto pname = parameter.getName();
           if (!pname.empty()) {
             sb.add(' ', pname);
@@ -491,50 +411,36 @@ void egg::ovum::IFunctionSignature::buildStringDefault(StringBuilder& sb, IFunct
     }
     sb.add(')');
   }
+  return sb.str();
 }
 
-Variant egg::ovum::IType::promoteAssignment(const Variant& rhs) const {
-  // The default implementation calls IType::canBeAssignedFrom() but does not actually promote
-  auto& direct = rhs.direct();
-  auto rtype = direct.getRuntimeType();
-  if (this->canBeAssignedFrom(*rtype) == AssignmentSuccess::Never) {
-    return egg::ovum::VariantFactory::createThrow("Cannot assign a value of type '", rtype->toString(), "' to a target of type '", this->toString(), "'");
-  }
-  return direct;
-}
-
-bool egg::ovum::IFunctionSignature::validateCallDefault(IExecution& execution, const IParameters& parameters, Variant& problem) const {
+egg::ovum::Variant egg::ovum::Function::validateCall(IExecution& execution, const IFunctionSignature& signature, const IParameters& parameters) {
   // TODO type checking, etc
   if (parameters.getNamedCount() > 0) {
-    problem = execution.raiseFormat(this->toString(Parts::All), ": Named parameters are not yet supported"); // TODO
-    return false;
+    return execution.raiseFormat(Function::signatureToString(signature, Parts::All), ": Named parameters are not yet supported"); // TODO
   }
-  auto maxPositional = this->getParameterCount();
+  auto maxPositional = signature.getParameterCount();
   auto minPositional = maxPositional;
-  while ((minPositional > 0) && !Bits::hasAnySet(this->getParameter(minPositional - 1).getFlags(), IFunctionSignatureParameter::Flags::Required)) {
+  while ((minPositional > 0) && !Bits::hasAnySet(signature.getParameter(minPositional - 1).getFlags(), IFunctionSignatureParameter::Flags::Required)) {
     minPositional--;
   }
   auto actual = parameters.getPositionalCount();
   if (actual < minPositional) {
     if (minPositional == 1) {
-      problem = execution.raiseFormat(this->toString(Parts::All), ": At least 1 parameter was expected");
-    } else {
-      problem = execution.raiseFormat(this->toString(Parts::All), ": At least ", minPositional, " parameters were expected, not ", actual);
+      return execution.raiseFormat(Function::signatureToString(signature, Parts::All), ": At least 1 parameter was expected");
     }
-    return false;
+    return execution.raiseFormat(Function::signatureToString(signature, Parts::All), ": At least ", minPositional, " parameters were expected, not ", actual);
   }
-  if ((maxPositional > 0) && Bits::hasAnySet(this->getParameter(maxPositional - 1).getFlags(), IFunctionSignatureParameter::Flags::Variadic)) {
+  if ((maxPositional > 0) && Bits::hasAnySet(signature.getParameter(maxPositional - 1).getFlags(), IFunctionSignatureParameter::Flags::Variadic)) {
     // TODO Variadic
   } else if (actual > maxPositional) {
     // Not variadic
     if (maxPositional == 1) {
-      problem = execution.raiseFormat(this->toString(Parts::All), ": Only 1 parameter was expected, not ", actual);
-    } else {
-      problem = execution.raiseFormat(this->toString(Parts::All), ": No more than ", maxPositional, " parameters were expected, not ", actual);
+      return execution.raiseFormat(Function::signatureToString(signature, Parts::All), ": Only 1 parameter was expected, not ", actual);
     }
-    return false;
+    return execution.raiseFormat(Function::signatureToString(signature, Parts::All), ": No more than ", maxPositional, " parameters were expected, not ", actual);
   }
-  return true;
+  return Variant::Void;
 }
 
 const egg::ovum::IType* egg::ovum::Type::getBasalType(BasalBits basal) {
@@ -591,6 +497,62 @@ egg::ovum::Type egg::ovum::Type::makeUnion(IAllocator& allocator, const IType& a
 egg::ovum::Type egg::ovum::Type::makePointer(IAllocator& allocator, const IType& pointee) {
   // The default implementation is to return a new type 'Type*'
   return allocator.make<TypePointer, Type>(pointee);
+}
+
+egg::ovum::BasalBits egg::ovum::TypeBase::getBasalTypes() const {
+  // By default, we are an object
+  return BasalBits::Object;
+}
+
+egg::ovum::IType::AssignmentSuccess egg::ovum::TypeBase::canBeAssignedFrom(const IType&) const {
+  // By default, we do not allow assignment
+  return AssignmentSuccess::Never;
+}
+
+egg::ovum::Variant egg::ovum::TypeBase::promoteAssignment(const Variant& rhs) const {
+  // By default, call canBeAssignedFrom() but do not actually promote
+  auto& rvalue = rhs.direct();
+  auto rtype = rvalue.getRuntimeType();
+  if (this->canBeAssignedFrom(*rtype) == AssignmentSuccess::Never) {
+    return egg::ovum::VariantFactory::createThrow("Cannot assign a value of type '", rtype.toString(), "' to a target of type '", Type(this).toString(), "'");
+  }
+  return rvalue;
+}
+
+const egg::ovum::IFunctionSignature* egg::ovum::TypeBase::callable() const {
+  // By default, we are not callable
+  return nullptr;
+}
+
+const egg::ovum::IIndexSignature* egg::ovum::TypeBase::indexable() const {
+  // By default, we are not indexable
+  return nullptr;
+}
+
+bool egg::ovum::TypeBase::dotable(const String*, Type&, String& reason) const {
+  // By default, we have no properties
+  reason = StringBuilder::concat("Values of type '", Type(this).toString(), "*' do not support the '.' operator for property access");
+  return false;
+}
+
+bool egg::ovum::TypeBase::iterable(Type&) const {
+  // By default, we are not iterable
+  return false;
+}
+
+egg::ovum::Type egg::ovum::TypeBase::pointeeType() const {
+  // By default, we do not point to anything
+  return Type();
+}
+
+egg::ovum::Type egg::ovum::TypeBase::denulledType() const {
+  // By default, we do not hold null values
+  return Type(this);
+}
+
+egg::ovum::Type egg::ovum::TypeBase::unionWithBasal(IAllocator&, BasalBits) const {
+  // By default we cannot simple union with basal types
+  return Type();
 }
 
 // Common types

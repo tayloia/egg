@@ -271,7 +271,7 @@ egg::ovum::Variant egg::yolk::EggProgramContext::executeForeach(const IEggProgra
       auto object = src.getObject();
       return scope.executeForeachIterate(*dst, *object, block);
     }
-    return scope.raiseFormat("Cannot iterate '", src.getRuntimeType()->toString(), "'");
+    return scope.raiseFormat("Cannot iterate '", src.getRuntimeType().toString(), "'");
   });
 }
 
@@ -355,7 +355,7 @@ egg::ovum::Variant egg::yolk::EggProgramContext::executeFunctionCall(const egg::
   assert(block != nullptr);
   auto callable = type->callable();
   if (callable == nullptr) {
-    return this->raiseFormat("Expected function-like expression to be callable, but got '", type->toString(), "' instead");
+    return this->raiseFormat("Expected function-like expression to be callable, but got '", type.toString(), "' instead");
   }
   if (parameters.getNamedCount() > 0) {
     return this->raiseFormat("Named parameters in function calls are not yet supported"); // TODO
@@ -387,7 +387,7 @@ egg::ovum::Variant egg::yolk::EggProgramContext::executeFunctionCall(const egg::
         egg::ovum::LocationSource& source = this->location;
         source = *plocation;
       }
-      return this->raiseFormat("Type mismatch for parameter '", pname, "': Expected '", ptype->toString(), "', but got '", pvalue.getRuntimeType()->toString(), "' instead");
+      return this->raiseFormat("Type mismatch for parameter '", pname, "': Expected '", ptype.toString(), "', but got '", pvalue.getRuntimeType().toString(), "' instead");
     }
   }
   auto context = this->createNestedContext(*nested);
@@ -495,7 +495,7 @@ egg::ovum::Variant egg::yolk::EggProgramContext::executeThrow(const IEggProgramN
     return value;
   }
   if (!value.hasOne(egg::ovum::VariantBits::Any)) {
-    return this->raiseFormat("Cannot 'throw' a value of type '", value.getRuntimeType()->toString(), "'");
+    return this->raiseFormat("Cannot 'throw' a value of type '", value.getRuntimeType().toString(), "'");
   }
   return this->raise(value.getString());
 }
@@ -761,7 +761,7 @@ egg::ovum::ILogger::Severity egg::yolk::EggProgram::execute(IEggEngineExecutionC
       // TODO exception location
       execution.log(egg::ovum::ILogger::Source::Runtime, egg::ovum::ILogger::Severity::Error, retval.toString().toUTF8());
     } else if (retval.hasFlowControl()) {
-      auto message = "Internal runtime error: Expected statement to return 'void', but got '" + retval.getRuntimeType()->toString().toUTF8() + "' instead";
+      auto message = "Internal runtime error: Expected statement to return 'void', but got '" + retval.getRuntimeType().toString().toUTF8() + "' instead";
       execution.log(egg::ovum::ILogger::Source::Runtime, egg::ovum::ILogger::Severity::Error, message);
     }
   }
