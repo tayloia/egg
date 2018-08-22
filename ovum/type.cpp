@@ -104,7 +104,7 @@ namespace {
       return std::make_pair(this->referenced->toString(0).toUTF8() + "*", 0);
     }
     virtual BasalBits getBasalTypes() const override {
-      return BasalBits::None;
+      return BasalBits::None; // TODO
     }
     virtual Type pointeeType() const override {
       return this->referenced;
@@ -309,6 +309,7 @@ namespace {
       return std::make_pair(sa + "|" + sb, -1);
     }
     virtual BasalBits getBasalTypes() const override {
+      // TODO
       return this->a->getBasalTypes() | this->b->getBasalTypes();
     }
     virtual AssignmentSuccess canBeAssignedFrom(const IType&) const {
@@ -403,7 +404,6 @@ egg::ovum::String egg::ovum::IType::toString(int priority) const {
 }
 
 egg::ovum::BasalBits egg::ovum::IType::getBasalTypes() const {
-  // WIBBLE return nullptr
   // The default implementation is to return 'Object'
   return BasalBits::Object;
 }
