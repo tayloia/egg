@@ -3,13 +3,10 @@
 namespace {
   using namespace egg::ovum;
 
-  // Forward declaration
-  const IType* getNativeBasal(BasalBits basal);
-
   std::pair<std::string, int> tagToStringPriority(BasalBits basal) {
     // Adjust the priority of the result if the string has '|' (union) in it
     // This is so that parentheses can be added appropriately to handle "(void|int)*" versus "void|int*"
-    auto result = std::make_pair(Variant::getBasalString(basal), 0);
+    auto result = std::make_pair(Type::getBasalString(basal), 0);
     if (result.first.find('|') != std::string::npos) {
       result.second--;
     }
@@ -53,143 +50,9 @@ namespace {
       // We allow type promotion int->float
       return Variant(double(rhs.getInt())); // TODO overflows?
     }
-    Variant exception{ StringBuilder::concat("Cannot assign a value of type '", rhs.getRuntimeType()->toString(), "' to a target of type '", Variant::getBasalString(lhs), "'") };
+    Variant exception{ StringBuilder::concat("Cannot assign a value of type '", rhs.getRuntimeType()->toString(), "' to a target of type '", Type::getBasalString(lhs), "'") };
     exception.addFlowControl(VariantBits::Throw);
     return exception;
-  }
-
-  class TypePointer : public HardReferenceCounted<IType> {
-    TypePointer(const TypePointer&) = delete;
-    TypePointer& operator=(const TypePointer&) = delete;
-  private:
-    Type referenced;
-  public:
-    TypePointer(IAllocator& allocator, const IType& referenced)
-      : HardReferenceCounted(allocator, 0), referenced(&referenced) {
-    }
-    virtual std::pair<std::string, int> toStringPrecedence() const override {
-      return std::make_pair(this->referenced->toString(0).toUTF8() + "*", 0);
-    }
-    virtual BasalBits getBasalTypes() const override {
-      return BasalBits::None;
-    }
-    virtual Type pointeeType() const override {
-      return this->referenced;
-    }
-    virtual AssignmentSuccess canBeAssignedFrom(const IType& rhs) const {
-      return this->referenced->canBeAssignedFrom(*rhs.pointeeType());
-    }
-  };
-
-  class TypeNull : public NotReferenceCounted<IType> {
-    TypeNull(const TypeNull&) = delete;
-    TypeNull& operator=(const TypeNull&) = delete;
-  public:
-    TypeNull() = default;
-    virtual std::pair<std::string, int> toStringPrecedence() const override {
-      return std::make_pair("null", 0);
-    }
-    virtual BasalBits getBasalTypes() const override {
-      return BasalBits::Null;
-    }
-    virtual Type denulledType() const override {
-      return Type(nullptr);
-    }
-    virtual Type unionWith(IAllocator& allocator, const IType& other) const override {
-      auto basal = other.getBasalTypes();
-      if (Bits::hasAnySet(basal, BasalBits::Null)) {
-        // The other type supports Null anyway
-        return Type(&other);
-      }
-      return Type::makeUnion(allocator, *this, other);
-    }
-    virtual AssignmentSuccess canBeAssignedFrom(const IType&) const {
-      return AssignmentSuccess::Never;
-    }
-    virtual Variant promoteAssignment(const Variant&) const override {
-      Variant exception{ String("Cannot assign to 'null' value") };
-      exception.addFlowControl(VariantBits::Throw);
-      return exception;
-    }
-  };
-  const TypeNull typeNull{};
-
-  template<BasalBits BASAL>
-  class TypeNative : public NotReferenceCounted<IType> {
-    TypeNative(const TypeNative&) = delete;
-    TypeNative& operator=(const TypeNative&) = delete;
-  public:
-    TypeNative() {
-      assert(!Bits::hasAnySet(BASAL, BasalBits::Null));
-    }
-    virtual std::pair<std::string, int> toStringPrecedence() const override {
-      return tagToStringPriority(BASAL);
-    }
-    virtual BasalBits getBasalTypes() const override {
-      return BASAL;
-    }
-    virtual Type denulledType() const override {
-      return Type(this);
-    }
-    virtual Type unionWith(IAllocator& allocator, const IType& other) const override {
-      if (other.getBasalTypes() == BASAL) {
-        // It's the identical native type
-        return Type(this);
-      }
-      return Type::makeUnion(allocator, *this, other);
-    }
-    virtual AssignmentSuccess canBeAssignedFrom(const IType& rhs) const {
-      return canBeAssignedFromBasal(BASAL, rhs);
-    }
-    virtual Variant promoteAssignment(const Variant& rhs) const override {
-      return promoteAssignmentBasal(BASAL, rhs);
-    }
-  };
-  const TypeNative<BasalBits::Void> typeVoid{};
-  const TypeNative<BasalBits::Bool> typeBool{};
-  const TypeNative<BasalBits::Int> typeInt{};
-  const TypeNative<BasalBits::Float> typeFloat{};
-  const TypeNative<BasalBits::Arithmetic> typeArithmetic{};
-  const TypeNative<BasalBits::Any> typeAny{};
-
-  class TypeString : public TypeNative<BasalBits::String> {
-    TypeString(const TypeString&) = delete;
-    TypeString& operator=(const TypeString&) = delete;
-  public:
-    TypeString() = default;
-    // TODO callable and indexable
-    virtual bool iterable(Type& type) const override {
-      // When strings are iterated, they iterate through strings (of codepoints)
-      type = Type::String;
-      return true;
-    }
-  };
-  const TypeString typeString{};
-
-  const IType* getNativeBasal(BasalBits basal) {
-    // OPTIMIZE
-    if (basal == BasalBits::Void) {
-      return &typeVoid;
-    }
-    if (basal == BasalBits::Null) {
-      return &typeNull;
-    }
-    if (basal == BasalBits::Bool) {
-      return &typeBool;
-    }
-    if (basal == BasalBits::Int) {
-      return &typeInt;
-    }
-    if (basal == BasalBits::Float) {
-      return &typeFloat;
-    }
-    if (basal == BasalBits::String) {
-      return &typeString;
-    }
-    if (basal == BasalBits::Arithmetic) {
-      return &typeArithmetic;
-    }
-    return nullptr;
   }
 
   // An 'omni' function looks like this: 'any?(...any?[])'
@@ -229,6 +92,150 @@ namespace {
     }
   };
   const OmniFunctionSignature omniFunctionSignature{};
+
+  class TypePointer : public HardReferenceCounted<IType> {
+    TypePointer(const TypePointer&) = delete;
+    TypePointer& operator=(const TypePointer&) = delete;
+  private:
+    Type referenced;
+  public:
+    TypePointer(IAllocator& allocator, const IType& referenced)
+      : HardReferenceCounted(allocator, 0), referenced(&referenced) {
+    }
+    virtual std::pair<std::string, int> toStringPrecedence() const override {
+      return std::make_pair(this->referenced->toString(0).toUTF8() + "*", 0);
+    }
+    virtual BasalBits getBasalTypes() const override {
+      return BasalBits::None;
+    }
+    virtual Type pointeeType() const override {
+      return this->referenced;
+    }
+    virtual AssignmentSuccess canBeAssignedFrom(const IType& rhs) const {
+      return this->referenced->canBeAssignedFrom(*rhs.pointeeType());
+    }
+  };
+
+  template<BasalBits BASAL>
+  class TypeCommon : public NotReferenceCounted<IType> {
+    TypeCommon(const TypeCommon&) = delete;
+    TypeCommon& operator=(const TypeCommon&) = delete;
+  public:
+    TypeCommon() = default;
+    virtual std::pair<std::string, int> toStringPrecedence() const override {
+      return tagToStringPriority(BASAL);
+    }
+    virtual BasalBits getBasalTypes() const override {
+      return BASAL;
+    }
+    virtual Type unionWith(IAllocator& allocator, const IType& other) const override {
+      auto basal = other.getBasalTypes();
+      if (basal == BasalBits::None) {
+        // The other type is not basal
+        return Type::makeUnion(allocator, *this, other);
+      }
+      if (Bits::hasAllSet(BASAL, basal)) {
+        // We are a superset already
+        return Type(this);
+      }
+      if (Bits::hasAllSet(basal, BASAL)) {
+        // The other type is a superset anyway
+        return Type(&other);
+      }
+      return Type::makeUnion(allocator, *this, other);
+    }
+    virtual AssignmentSuccess canBeAssignedFrom(const IType& rhs) const {
+      return canBeAssignedFromBasal(BASAL, rhs);
+    }
+    virtual Variant promoteAssignment(const Variant& rhs) const override {
+      return promoteAssignmentBasal(BASAL, rhs);
+    }
+  };
+  const TypeCommon<BasalBits::Void> typeVoid{};
+  const TypeCommon<BasalBits::Bool> typeBool{};
+  const TypeCommon<BasalBits::Int> typeInt{};
+  const TypeCommon<BasalBits::Float> typeFloat{};
+  const TypeCommon<BasalBits::Arithmetic> typeArithmetic{};
+
+  class TypeNull : public TypeCommon<BasalBits::Null> {
+    TypeNull(const TypeNull&) = delete;
+    TypeNull& operator=(const TypeNull&) = delete;
+  public:
+    TypeNull() = default;
+    virtual Type denulledType() const override {
+      // You cannot denull null!
+      return Type(nullptr);
+    }
+    virtual AssignmentSuccess canBeAssignedFrom(const IType&) const {
+      return AssignmentSuccess::Never;
+    }
+    virtual Variant promoteAssignment(const Variant&) const override {
+      // WIBBLE factory
+      Variant exception{ String("Cannot assign to 'null' value") };
+      exception.addFlowControl(VariantBits::Throw);
+      return exception;
+    }
+  };
+  const TypeNull typeNull{};
+
+  class TypeString : public TypeCommon<BasalBits::String> {
+    TypeString(const TypeString&) = delete;
+    TypeString& operator=(const TypeString&) = delete;
+  public:
+    TypeString() = default;
+    // TODO callable and indexable
+    virtual bool iterable(Type& type) const override {
+      // When strings are iterated, they iterate through strings (of codepoints)
+      type = Type::String;
+      return true;
+    }
+  };
+  const TypeString typeString{};
+
+  class TypeObject : public TypeCommon<BasalBits::Object> {
+    TypeObject(const TypeObject&) = delete;
+    TypeObject& operator=(const TypeObject&) = delete;
+  public:
+    TypeObject() = default;
+    virtual const IFunctionSignature* callable() const override {
+      return &omniFunctionSignature;
+    }
+    virtual bool iterable(Type& type) const override {
+      type = Type::AnyQ;
+      return true;
+    }
+  };
+  const TypeObject typeObject{};
+
+  class TypeAny : public TypeCommon<BasalBits::Any> {
+    TypeAny(const TypeAny&) = delete;
+    TypeAny& operator=(const TypeAny&) = delete;
+  public:
+    TypeAny() = default;
+    virtual const IFunctionSignature* callable() const override {
+      return &omniFunctionSignature;
+    }
+    virtual bool iterable(Type& type) const override {
+      type = Type::AnyQ;
+      return true;
+    }
+  };
+  const TypeAny typeAny{};
+
+  class TypeAnyQ : public TypeCommon<BasalBits::AnyQ> {
+    TypeAnyQ(const TypeAnyQ&) = delete;
+    TypeAnyQ& operator=(const TypeAnyQ&) = delete;
+  public:
+    TypeAnyQ() = default;
+    virtual const IFunctionSignature* callable() const override {
+      return &omniFunctionSignature;
+    }
+    virtual bool iterable(Type& type) const override {
+      type = Type::AnyQ;
+      return true;
+    }
+  };
+  const TypeAnyQ typeAnyQ{};
 
   class TypeBasal : public HardReferenceCounted<IType> {
     TypeBasal(const TypeBasal&) = delete;
@@ -280,7 +287,7 @@ namespace {
     }
     virtual bool iterable(Type& type) const override {
       if (Bits::hasAnySet(this->tag, BasalBits::Object)) {
-        type = Type::Any;
+        type = Type::AnyQ;
         return true;
       }
       if (Bits::hasAnySet(this->tag, BasalBits::String)) {
@@ -368,6 +375,23 @@ namespace {
     }
   };
 
+  const char* getBasalComponent(egg::ovum::BasalBits basal) {
+    switch (basal) {
+    case egg::ovum::BasalBits::None:
+      return "var";
+#define EGG_OVUM_BASAL_COMPONENT(name, text) case egg::ovum::BasalBits::name: return text;
+      EGG_OVUM_BASAL(EGG_OVUM_BASAL_COMPONENT)
+#undef EGG_OVUM_BASAL_COMPONENT
+    case egg::ovum::BasalBits::Any:
+      return "any";
+    case egg::ovum::BasalBits::Arithmetic:
+    case egg::ovum::BasalBits::AnyQ:
+      // Non-trivial
+      break;
+    }
+    return nullptr;
+  }
+
   IAllocator& defaultAllocator() {
     // WIBBLE retire
     static AllocatorDefault allocator;
@@ -384,6 +408,7 @@ egg::ovum::String egg::ovum::IType::toString(int priority) const {
 }
 
 egg::ovum::BasalBits egg::ovum::IType::getBasalTypes() const {
+  // WIBBLE return nullptr
   // The default implementation is to return 'Object'
   return BasalBits::Object;
 }
@@ -435,7 +460,7 @@ bool egg::ovum::IType::iterable(Type&) const {
 }
 
 egg::ovum::Type egg::ovum::IType::unionWith(IAllocator& allocator, const IType& other) const {
-  // The default implementation is to simply make a new union (native and basal types can be more clever)
+  // The default implementation is to simply make a new union (basal types can be more clever)
   return Type::makeUnion(allocator, *this, other);
 }
 
@@ -530,11 +555,43 @@ bool egg::ovum::IFunctionSignature::validateCallDefault(IExecution& execution, c
   return true;
 }
 
+const egg::ovum::IType* egg::ovum::Type::getBasalType(BasalBits basal) {
+  switch (basal) {
+  case BasalBits::None:
+    break;
+#define EGG_OVUM_BASAL_INSTANCE(name, text) case BasalBits::name: return &type##name;
+    EGG_OVUM_BASAL(EGG_OVUM_BASAL_INSTANCE)
+#undef EGG_OVUM_BASAL_INSTANCE
+  case BasalBits::Arithmetic:
+    return &typeArithmetic;
+  case BasalBits::Any:
+    return &typeAny;
+  case BasalBits::AnyQ:
+    return &typeAnyQ;
+  }
+  return nullptr;
+}
+
+std::string egg::ovum::Type::getBasalString(BasalBits basal) {
+  auto* component = getBasalComponent(basal);
+  if (component != nullptr) {
+    return component;
+  }
+  if (Bits::hasAnySet(basal, BasalBits::Null)) {
+    return Type::getBasalString(Bits::clear(basal, BasalBits::Null)) + "?";
+  }
+  auto head = Bits::topmost(basal);
+  assert(head != BasalBits::None);
+  component = getBasalComponent(head);
+  assert(component != nullptr);
+  return getBasalString(Bits::clear(basal, head)) + '|' + component;
+}
+
 egg::ovum::Type egg::ovum::Type::makeBasal(IAllocator& allocator, BasalBits basal) {
   // Try to use non-reference-counted globals
-  auto* native = getNativeBasal(basal);
-  if (native != nullptr) {
-    return Type(native);
+  auto* common = Type::getBasalType(basal);
+  if (common != nullptr) {
+    return Type(common);
   }
   return allocator.make<TypeBasal, Type>(basal);
 }
@@ -549,7 +606,7 @@ egg::ovum::Type egg::ovum::Type::makeUnion(IAllocator& allocator, const IType& a
   return allocator.make<TypeUnion, Type>(a, b);
 }
 
-// Native types
+// Common types
 const egg::ovum::Type egg::ovum::Type::Void{ &typeVoid };
 const egg::ovum::Type egg::ovum::Type::Null{ &typeNull };
 const egg::ovum::Type egg::ovum::Type::Bool{ &typeBool };
@@ -558,4 +615,4 @@ const egg::ovum::Type egg::ovum::Type::Float{ &typeFloat };
 const egg::ovum::Type egg::ovum::Type::String{ &typeString };
 const egg::ovum::Type egg::ovum::Type::Arithmetic{ &typeArithmetic };
 const egg::ovum::Type egg::ovum::Type::Any{ &typeAny };
-const egg::ovum::Type egg::ovum::Type::AnyQ{ Type::makeBasal(defaultAllocator(), BasalBits::Any | BasalBits::Null) };
+const egg::ovum::Type egg::ovum::Type::AnyQ{ &typeAnyQ };

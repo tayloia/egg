@@ -618,7 +618,7 @@ egg::ovum::Variant egg::yolk::EggProgramContext::binary(EggProgramBinary op, con
   }
   switch (op) {
   case EggProgramBinary::Unequal:
-    if (left.hasAny(egg::ovum::VariantBits::Any | egg::ovum::VariantBits::Null)) {
+    if (left.hasAny(egg::ovum::VariantBits::AnyQ)) {
       if (!this->operand(right, rhs, egg::ovum::VariantBits::Any | egg::ovum::VariantBits::Null, "Expected right operand of inequality '!=' to be a value")) {
         return right;
       }
@@ -648,8 +648,8 @@ egg::ovum::Variant egg::yolk::EggProgramContext::binary(EggProgramBinary op, con
   case EggProgramBinary::LessEqual:
     return this->arithmeticIntFloat(left, right, rhs, "comparison '<='", lessEqualInt, lessEqualFloat);
   case EggProgramBinary::Equal:
-    if (left.hasAny(egg::ovum::VariantBits::Any | egg::ovum::VariantBits::Null)) {
-      if (!this->operand(right, rhs, egg::ovum::VariantBits::Any | egg::ovum::VariantBits::Null, "Expected right operand of equality '==' to be a value")) {
+    if (left.hasAny(egg::ovum::VariantBits::AnyQ)) {
+      if (!this->operand(right, rhs, egg::ovum::VariantBits::AnyQ, "Expected right operand of equality '==' to be a value")) {
         return right;
       }
       return egg::ovum::Variant(left == right);

@@ -29,7 +29,7 @@ namespace {
         if (expected == egg::ovum::BasalBits::Null) {
           context.compilerWarning(where, "Expected ", side, " of '", EggProgram::binaryToString(op), "' operator to be possibly 'null', but got '", type->toString(), "' instead");
         } else {
-          auto readable = egg::ovum::Variant::getBasalString(expected);
+          auto readable = egg::ovum::Type::getBasalString(expected);
           readable = String::replace(readable, "|", "' or '");
           prepared = context.compilerError(where, "Expected ", side, " of '", EggProgram::binaryToString(op), "' operator to be '", readable, "', but got '", type->toString(), "' instead");
         }
@@ -677,7 +677,7 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareBinary(const
     break;
   case EggProgramBinary::NullCoalescing:
     // Warn if the left-hand-side can never be null
-    return checkBinary(*this, where, op, egg::ovum::BasalBits::Null, lhs, egg::ovum::BasalBits::Any | egg::ovum::BasalBits::Null, rhs);
+    return checkBinary(*this, where, op, egg::ovum::BasalBits::Null, lhs, egg::ovum::BasalBits::AnyQ, rhs);
   case EggProgramBinary::Lambda:
     return this->compilerError(where, "'", EggProgram::binaryToString(op), "' operators not yet supported in 'prepareBinary'");
   }
@@ -697,11 +697,11 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareTernary(cons
     return this->compilerError(where, "Expected condition of ternary '?:' operator to be 'bool', but got '", type->toString(), "' instead");
   }
   type = whenTrue.getType();
-  if (!hasBasalType(*type, egg::ovum::BasalBits::Any | egg::ovum::BasalBits::Null)) {
+  if (!hasBasalType(*type, egg::ovum::BasalBits::AnyQ)) {
     return this->compilerError(whenTrue.location(), "Expected value for second operand of ternary '?:' operator , but got '", type->toString(), "' instead");
   }
   type = whenFalse.getType();
-  if (!hasBasalType(*type, egg::ovum::BasalBits::Any | egg::ovum::BasalBits::Null)) {
+  if (!hasBasalType(*type, egg::ovum::BasalBits::AnyQ)) {
     return this->compilerError(whenTrue.location(), "Expected value for third operand of ternary '?:' operator , but got '", type->toString(), "' instead");
   }
   return EggProgramNodeFlags::None;

@@ -16,44 +16,6 @@ namespace {
     return false;
   }
 
-  const char* getBasalComponent(egg::ovum::BasalBits basal) {
-    switch (basal) {
-    case egg::ovum::BasalBits::None:
-      return "var";
-#define EGG_OVUM_BASAL_COMPONENT(name, text) case egg::ovum::BasalBits::name: return text;
-      EGG_OVUM_BASAL(EGG_OVUM_BASAL_COMPONENT)
-#undef EGG_OVUM_BASAL_COMPONENT
-    case egg::ovum::BasalBits::Arithmetic:
-      break;
-    case egg::ovum::BasalBits::Any:
-      return "any";
-    }
-    return nullptr;
-  }
-
-  const egg::ovum::IType* getBasalType(egg::ovum::BasalBits basal) {
-    switch (basal) {
-    case egg::ovum::BasalBits::Void:
-      return egg::ovum::Type::Void.get();
-    case egg::ovum::BasalBits::Null:
-      return egg::ovum::Type::Null.get();
-    case egg::ovum::BasalBits::Bool:
-      return egg::ovum::Type::Bool.get();
-    case egg::ovum::BasalBits::Int:
-      return egg::ovum::Type::Int.get();
-    case egg::ovum::BasalBits::Float:
-      return egg::ovum::Type::Float.get();
-    case egg::ovum::BasalBits::String:
-      return egg::ovum::Type::String.get();
-    case egg::ovum::BasalBits::None:
-    case egg::ovum::BasalBits::Object:
-    case egg::ovum::BasalBits::Arithmetic:
-    case egg::ovum::BasalBits::Any:
-      break;
-    }
-    return nullptr;
-  }
-
   struct FloatParts {
     constexpr static size_t MANTISSA_CHARS = 32;
 
@@ -498,21 +460,6 @@ bool egg::ovum::Variant::stripFlowControl(VariantBits bits) {
   return false;
 }
 
-std::string egg::ovum::Variant::getBasalString(BasalBits basal) {
-  auto* component = getBasalComponent(basal);
-  if (component != nullptr) {
-    return component;
-  }
-  if (Bits::hasAnySet(basal, BasalBits::Null)) {
-    return Variant::getBasalString(Bits::clear(basal, BasalBits::Null)) + "?";
-  }
-  auto head = Bits::topmost(basal);
-  assert(head != BasalBits::None);
-  component = getBasalComponent(head);
-  assert(component != nullptr);
-  return getBasalString(Bits::clear(basal, head)) + '|' + component;
-}
-
 egg::ovum::Type egg::ovum::Variant::getRuntimeType() const {
   assert(this->validate());
   assert(!this->hasIndirect());
@@ -522,13 +469,12 @@ egg::ovum::Type egg::ovum::Variant::getRuntimeType() const {
   if (this->hasPointer()) {
     return this->getPointee().getRuntimeType()->pointerType();
   }
-  // TODO pointer
-  auto mask = BasalBits::Void | BasalBits::Any | BasalBits::Null;
+  auto mask = BasalBits::Void | BasalBits::AnyQ;
   auto basal = Bits::mask(static_cast<BasalBits>(this->kind), mask);
   assert(Bits::hasOneSet(basal, mask));
-  auto* native = getBasalType(basal);
-  assert(native != nullptr);
-  return Type(native);
+  auto* common = Type::getBasalType(basal);
+  assert(common != nullptr);
+  return Type(common);
 }
 
 egg::ovum::String egg::ovum::Variant::toString() const {
