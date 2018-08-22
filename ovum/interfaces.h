@@ -1,4 +1,6 @@
 namespace egg::ovum {
+  // WIBBLE all interfaces should be pure
+
   // Forward declarations
   template<typename T> class HardPtr;
   enum class BasalBits;
@@ -181,7 +183,6 @@ namespace egg::ovum {
     virtual const IIndexSignature* indexable() const; // Default implementation returns nullptr
     virtual bool dotable(const String* property, Type& type, String& reason) const; // Default implementation returns false
     virtual bool iterable(Type& type) const; // Default implementation returns false
-    virtual Type pointerType() const; // Default implementation returns 'Type*'
     virtual Type pointeeType() const; // Default implementation returns nullptr
     virtual Type denulledType() const; // Default implementation returns self
     virtual Type unionWith(IAllocator& allocator, const IType& other) const; // Default implementation calls Type::makeUnion()

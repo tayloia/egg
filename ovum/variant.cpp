@@ -228,6 +228,10 @@ public:
     assert(this->variant.validate(true));
     return this->variant;
   }
+  virtual Type getPointerType() const {
+    assert(this->variant.validate(true));
+    return Type::makePointer(this->allocator, *this->variant.getRuntimeType());
+  }
   virtual void softVisitLinks(const Visitor& visitor) const override {
     assert(this->variant.validate(true));
     if (!this->variant.hasAny(VariantBits::Hard)) {
@@ -467,7 +471,7 @@ egg::ovum::Type egg::ovum::Variant::getRuntimeType() const {
     return this->u.o->getRuntimeType();
   }
   if (this->hasPointer()) {
-    return this->getPointee().getRuntimeType()->pointerType();
+    return this->u.p->getPointerType();
   }
   auto mask = BasalBits::Void | BasalBits::AnyQ;
   auto basal = Bits::mask(static_cast<BasalBits>(this->kind), mask);

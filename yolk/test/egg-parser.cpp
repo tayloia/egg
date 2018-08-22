@@ -53,7 +53,7 @@ TEST(TestEggParser, ModuleSimple) {
 }
 
 TEST(TestEggParser, ExpressionType) {
-  egg::test::Allocator allocator{ egg::test::Allocator::Expectation::NoAllocations }; // TODO
+  egg::test::Allocator allocator;
   ASSERT_PARSE_GOOD(typeFromExpression(allocator, "null"), "null");
   ASSERT_PARSE_GOOD(typeFromExpression(allocator, "false"), "bool");
   ASSERT_PARSE_GOOD(typeFromExpression(allocator, "true"), "bool");

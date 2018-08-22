@@ -387,12 +387,6 @@ namespace {
     }
     return nullptr;
   }
-
-  IAllocator& defaultAllocator() {
-    // WIBBLE retire
-    static AllocatorDefault allocator;
-    return allocator;
-  }
 }
 
 egg::ovum::String egg::ovum::IType::toString(int priority) const {
@@ -499,11 +493,6 @@ void egg::ovum::IFunctionSignature::buildStringDefault(StringBuilder& sb, IFunct
   }
 }
 
-egg::ovum::Type egg::ovum::IType::pointerType() const {
-  // The default implementation is to return a new type 'Type*'
-  return defaultAllocator().make<TypePointer, Type>(*this);
-}
-
 Variant egg::ovum::IType::promoteAssignment(const Variant& rhs) const {
   // The default implementation calls IType::canBeAssignedFrom() but does not actually promote
   auto& direct = rhs.direct();
@@ -597,6 +586,11 @@ egg::ovum::Type egg::ovum::Type::makeUnion(IAllocator& allocator, const IType& a
     return Type::makeBasal(allocator, sa | sb);
   }
   return allocator.make<TypeUnion, Type>(a, b);
+}
+
+egg::ovum::Type egg::ovum::Type::makePointer(IAllocator& allocator, const IType& pointee) {
+  // The default implementation is to return a new type 'Type*'
+  return allocator.make<TypePointer, Type>(pointee);
 }
 
 // Common types

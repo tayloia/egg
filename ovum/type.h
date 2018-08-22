@@ -54,6 +54,7 @@ namespace egg::ovum {
     static std::string getBasalString(BasalBits basal);
     static Type makeBasal(IAllocator& allocator, BasalBits basal);
     static Type makeUnion(IAllocator& allocator, const IType& lhs, const IType& rhs);
+    static Type makePointer(IAllocator& allocator, const IType& pointee);
   };
 
   class Object : public HardPtr<IObject> {

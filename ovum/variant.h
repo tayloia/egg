@@ -45,6 +45,7 @@ namespace egg::ovum {
   class IVariantSoft : public ICollectable {
   public:
     virtual Variant& getVariant() = 0;
+    virtual Type getPointerType() const = 0;
   };
 
   class Variant final : public VariantKind {
