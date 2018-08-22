@@ -50,9 +50,7 @@ namespace {
       // We allow type promotion int->float
       return Variant(double(rhs.getInt())); // TODO overflows?
     }
-    Variant exception{ StringBuilder::concat("Cannot assign a value of type '", rhs.getRuntimeType()->toString(), "' to a target of type '", Type::getBasalString(lhs), "'") };
-    exception.addFlowControl(VariantBits::Throw);
-    return exception;
+    return egg::ovum::VariantFactory::createThrow("Cannot assign a value of type '", rhs.getRuntimeType()->toString(), "' to a target of type '", Type::getBasalString(lhs), "'");
   }
 
   // An 'omni' function looks like this: 'any?(...any?[])'
@@ -170,10 +168,7 @@ namespace {
       return AssignmentSuccess::Never;
     }
     virtual Variant promoteAssignment(const Variant&) const override {
-      // WIBBLE factory
-      Variant exception{ String("Cannot assign to 'null' value") };
-      exception.addFlowControl(VariantBits::Throw);
-      return exception;
+      return egg::ovum::VariantFactory::createThrow("Cannot assign to 'null' value");
     }
   };
   const TypeNull typeNull{};
@@ -514,9 +509,7 @@ Variant egg::ovum::IType::promoteAssignment(const Variant& rhs) const {
   auto& direct = rhs.direct();
   auto rtype = direct.getRuntimeType();
   if (this->canBeAssignedFrom(*rtype) == AssignmentSuccess::Never) {
-    Variant exception{ StringBuilder::concat("Cannot assign a value of type '", rtype->toString(), "' to a target of type '", this->toString(), "'") };
-    exception.addFlowControl(VariantBits::Throw);
-    return exception;
+    return egg::ovum::VariantFactory::createThrow("Cannot assign a value of type '", rtype->toString(), "' to a target of type '", this->toString(), "'");
   }
   return direct;
 }

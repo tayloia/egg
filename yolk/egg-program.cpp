@@ -893,3 +893,11 @@ egg::ovum::Variant egg::yolk::EggProgramContext::assertion(const egg::ovum::Vari
 void egg::yolk::EggProgramContext::print(const std::string& utf8) {
   return this->log(egg::ovum::ILogger::Source::User, egg::ovum::ILogger::Severity::Information, utf8);
 }
+
+egg::ovum::Variant egg::yolk::EggProgramContext::raise(const egg::ovum::String& message) {
+  return EggProgramContext::createVanillaException(message);
+}
+
+egg::ovum::IAllocator& egg::yolk::EggProgramContext::getAllocator() const {
+  return this->allocator;
+}

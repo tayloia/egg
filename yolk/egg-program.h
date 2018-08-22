@@ -198,6 +198,8 @@ namespace egg::yolk {
     egg::ovum::Variant createVanillaObject();
     egg::ovum::Variant createVanillaFunction(const egg::ovum::Type& type, const std::shared_ptr<IEggProgramNode>& block);
     egg::ovum::Variant createVanillaGenerator(const egg::ovum::Type& itertype, const egg::ovum::Type& rettype, const std::shared_ptr<IEggProgramNode>& block);
+    egg::ovum::Variant createVanillaException(const egg::ovum::String& message);
+
     // Inherited via IExecution
     virtual egg::ovum::IAllocator& getAllocator() const override; // TODO needed?
     virtual egg::ovum::Variant raise(const egg::ovum::String& message) override;

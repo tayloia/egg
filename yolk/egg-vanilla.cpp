@@ -51,9 +51,7 @@ namespace {
       return AssignmentSuccess::Never; // TODO
     }
     virtual egg::ovum::Variant promoteAssignment(const egg::ovum::Variant&) const override {
-      egg::ovum::Variant exception{ egg::ovum::String("Cannot re-assign iterators") };
-      exception.addFlowControl(egg::ovum::VariantBits::Throw);
-      return exception;
+      return egg::ovum::VariantFactory::createThrow("Cannot re-assign iterators");
     }
     static const VanillaIteratorType instance;
   };
@@ -562,16 +560,6 @@ namespace {
 const egg::ovum::IType& egg::yolk::EggProgram::VanillaArray = VanillaArrayType::instance;
 const egg::ovum::IType& egg::yolk::EggProgram::VanillaObject = VanillaObjectType::instance;
 
-egg::ovum::IAllocator& egg::yolk::EggProgramContext::getAllocator() const {
-  return this->allocator;
-}
-
-egg::ovum::Variant egg::yolk::EggProgramContext::raise(const egg::ovum::String& message) {
-  auto exception = egg::ovum::VariantFactory::createObject<VanillaException>(this->allocator, this->location, message);
-  exception.addFlowControl(egg::ovum::VariantBits::Throw);
-  return exception;
-}
-
 egg::ovum::Variant egg::yolk::EggProgramContext::createVanillaArray() {
   return egg::ovum::VariantFactory::createObject<VanillaArray>(this->allocator);
 }
@@ -586,4 +574,10 @@ egg::ovum::Variant egg::yolk::EggProgramContext::createVanillaFunction(const egg
 
 egg::ovum::Variant egg::yolk::EggProgramContext::createVanillaGenerator(const egg::ovum::Type& itertype, const egg::ovum::Type& rettype, const std::shared_ptr<egg::yolk::IEggProgramNode>& block) {
   return egg::ovum::VariantFactory::createObject<VanillaGenerator>(this->allocator, *this, itertype, rettype, block);
+}
+
+egg::ovum::Variant egg::yolk::EggProgramContext::createVanillaException(const egg::ovum::String& message) {
+  auto exception = egg::ovum::VariantFactory::createObject<VanillaException>(this->allocator, this->location, message);
+  exception.addFlowControl(egg::ovum::VariantBits::Throw);
+  return exception;
 }
