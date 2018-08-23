@@ -6,6 +6,18 @@ namespace egg::ovum {
     OPCODE_reserved = -1
   };
 
+  enum Opclass {
+#define EGG_VM_OPCLASSES_ENUM(opclass, value, operands, text) opclass = value,
+    EGG_VM_OPCLASSES(EGG_VM_OPCLASSES_ENUM)
+#undef EGG_VM_OPCLASSES_ENUM
+  };
+
+  enum Operator {
+#define EGG_VM_OPERATORS_ENUM(oper, opclass, unique, text) oper = opclass * EGG_VM_OSTEP + unique,
+    EGG_VM_OPERATORS(EGG_VM_OPERATORS_ENUM)
+#undef EGG_VM_OPERATORS_ENUM
+  };
+
   class INode : public IHardAcquireRelease {
   public:
     enum class Operand { None, Int, Float, String };

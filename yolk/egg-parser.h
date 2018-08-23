@@ -31,6 +31,10 @@
   macro(LogicalOr, "||")
 #define EGG_PROGRAM_BINARY_OPERATOR_DECLARE(name, text) name,
 
+#define EGG_PROGRAM_TERNARY_OPERATORS(macro) \
+  macro(Ternary, "?:")
+#define EGG_PROGRAM_TERNARY_OPERATOR_DECLARE(name, text) name,
+
 #define EGG_PROGRAM_ASSIGN_OPERATORS(macro) \
   macro(Remainder, "%=") \
   macro(BitwiseAnd, "&=") \

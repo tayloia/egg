@@ -169,11 +169,11 @@ namespace {
       ParserDump(os, "module").add(this->child);
     }
     virtual egg::ovum::Node compile(EggProgramCompiler& compiler) const override {
-      auto block = compiler.opcode(egg::ovum::OPCODE_BLOCK, this->child);
+      auto block = compiler.statement(egg::ovum::OPCODE_BLOCK, this->child);
       if (block == nullptr) {
         return nullptr;
       }
-      return compiler.opcode(egg::ovum::OPCODE_MODULE, block);
+      return compiler.statement(egg::ovum::OPCODE_MODULE, block);
     }
     void addChild(const std::shared_ptr<IEggProgramNode>& statement) {
       assert(statement != nullptr);
@@ -201,7 +201,7 @@ namespace {
       ParserDump(os, "block").add(this->child);
     }
     virtual egg::ovum::Node compile(EggProgramCompiler& compiler) const override {
-      return compiler.WIBBLE(*this);
+      return compiler.statement(egg::ovum::OPCODE_BLOCK, this->child);
     }
     void addChild(const std::shared_ptr<IEggProgramNode>& statement) {
       assert(statement != nullptr);
@@ -265,7 +265,11 @@ namespace {
       ParserDump(os, "declare").add(this->name).add(tname).add(this->init);
     }
     virtual egg::ovum::Node compile(EggProgramCompiler& compiler) const override {
-      return compiler.WIBBLE(*this);
+      if (this->init == nullptr) {
+        // No initializer
+        return compiler.statement(egg::ovum::OPCODE_DECLARE, compiler.type(this->type), compiler.identifier(this->name));
+      }
+      return compiler.statement(egg::ovum::OPCODE_DECLARE, compiler.type(this->type), compiler.identifier(this->name), *this->init);
     }
   };
 
@@ -321,7 +325,7 @@ namespace {
       ParserDump(os, "mutate").add(EggProgram::mutateToString(this->op)).add(this->lvalue);
     }
     virtual egg::ovum::Node compile(EggProgramCompiler& compiler) const override {
-      return compiler.WIBBLE(*this);
+      return compiler.mutate(this->op, *this->lvalue);
     }
   };
 
@@ -341,7 +345,7 @@ namespace {
       ParserDump(os, "break");
     }
     virtual egg::ovum::Node compile(EggProgramCompiler& compiler) const override {
-      return compiler.WIBBLE(*this);
+      return compiler.opcode(egg::ovum::OPCODE_BREAK);
     }
   };
 
@@ -439,7 +443,11 @@ namespace {
       ParserDump(os, "if").add(this->condition).add(this->trueBlock).add(this->falseBlock);
     }
     virtual egg::ovum::Node compile(EggProgramCompiler& compiler) const override {
-      return compiler.WIBBLE(*this);
+      if (this->falseBlock == nullptr) {
+        // No else clause
+        return compiler.statement(egg::ovum::OPCODE_IF, *this->condition, *this->trueBlock);
+      }
+      return compiler.statement(egg::ovum::OPCODE_IF, *this->condition, *this->trueBlock, *this->falseBlock);
     }
   };
 
@@ -468,7 +476,7 @@ namespace {
       ParserDump(os, "for").add(this->pre).add(this->cond).add(this->post).add(this->block);
     }
     virtual egg::ovum::Node compile(EggProgramCompiler& compiler) const override {
-      return compiler.WIBBLE(*this);
+      return compiler.statement(egg::ovum::OPCODE_FOR, compiler.noop(this->pre.get()), compiler.noop(this->cond.get()), compiler.noop(this->post.get()), this->block);
     }
   };
 
@@ -819,7 +827,7 @@ namespace {
       ParserDump(os, "named").add(this->name).add(this->expr);
     }
     virtual egg::ovum::Node compile(EggProgramCompiler& compiler) const override {
-      return compiler.WIBBLE(*this);
+      return compiler.expression(egg::ovum::OPCODE_NAMED, compiler.identifier(this->name), *this->expr);
     }
   };
 
@@ -843,7 +851,7 @@ namespace {
       ParserDump(os, "array").add(this->child);
     }
     virtual egg::ovum::Node compile(EggProgramCompiler& compiler) const override {
-      return compiler.WIBBLE(*this);
+      return compiler.expression(egg::ovum::OPCODE_AVALUE, this->child);
     }
     void addValue(const std::shared_ptr<IEggProgramNode>& value) {
       this->child.emplace_back(value);
@@ -870,7 +878,7 @@ namespace {
       ParserDump(os, "object").add(this->child);
     }
     virtual egg::ovum::Node compile(EggProgramCompiler& compiler) const override {
-      return compiler.WIBBLE(*this);
+      return compiler.expression(egg::ovum::OPCODE_OVALUE, this->child);
     }
     void addValue(const std::shared_ptr<IEggProgramNode>& value) {
       this->child.emplace_back(value);
@@ -904,7 +912,7 @@ namespace {
       ParserDump(os, "call").add(this->callee).add(this->child);
     }
     virtual egg::ovum::Node compile(EggProgramCompiler& compiler) const override {
-      return compiler.opcode(egg::ovum::OPCODE_CALL, this->callee, this->child);
+      return compiler.expression(egg::ovum::OPCODE_CALL, this->callee, this->child);
     }
     void addParameter(const std::shared_ptr<IEggProgramNode>& parameter) {
       this->child.emplace_back(parameter);
@@ -963,7 +971,7 @@ namespace {
       ParserDump(os, "literal null");
     }
     virtual egg::ovum::Node compile(EggProgramCompiler& compiler) const override {
-      return compiler.WIBBLE(*this);
+      return compiler.opcode(egg::ovum::OPCODE_NULL);
     }
   };
 
@@ -987,7 +995,7 @@ namespace {
       ParserDump(os, "literal bool").raw(this->value);
     }
     virtual egg::ovum::Node compile(EggProgramCompiler& compiler) const override {
-      return compiler.WIBBLE(*this);
+      return compiler.opcode(this->value ? egg::ovum::OPCODE_TRUE : egg::ovum::OPCODE_FALSE);
     }
   };
 
@@ -1011,7 +1019,7 @@ namespace {
       ParserDump(os, "literal int").raw(this->value);
     }
     virtual egg::ovum::Node compile(EggProgramCompiler& compiler) const override {
-      return compiler.WIBBLE(*this);
+      return compiler.ivalue(this->value);
     }
   };
 
@@ -1035,7 +1043,7 @@ namespace {
       ParserDump(os, "literal float").raw(this->value);
     }
     virtual egg::ovum::Node compile(EggProgramCompiler& compiler) const override {
-      return compiler.WIBBLE(*this);
+      return compiler.fvalue(this->value);
     }
   };
 
@@ -1088,7 +1096,7 @@ namespace {
       ParserDump(os, "brackets").add(this->lhs).add(this->rhs);
     }
     virtual egg::ovum::Node compile(EggProgramCompiler& compiler) const override {
-      return compiler.WIBBLE(*this);
+      return compiler.expression(egg::ovum::OPCODE_INDEX, this->lhs, this->rhs);
     }
   };
 
@@ -1116,7 +1124,7 @@ namespace {
       ParserDump(os, "dot").add(this->lhs).add(this->rhs);
     }
     virtual egg::ovum::Node compile(EggProgramCompiler& compiler) const override {
-      return compiler.WIBBLE(*this);
+      return compiler.expression(egg::ovum::OPCODE_PROPERTY, *this->lhs, compiler.identifier(this->rhs));
     }
   };
 
@@ -1147,7 +1155,7 @@ namespace {
       ParserDump(os, "unary").add(EggProgram::unaryToString(this->op)).add(this->expr);
     }
     virtual egg::ovum::Node compile(EggProgramCompiler& compiler) const override {
-      return compiler.WIBBLE(*this);
+      return compiler.unary(op, *this->expr);
     }
   };
 
@@ -1186,7 +1194,7 @@ namespace {
       ParserDump(os, "binary").add(EggProgram::binaryToString(this->op)).add(this->lhs).add(this->rhs);
     }
     virtual egg::ovum::Node compile(EggProgramCompiler& compiler) const override {
-      return compiler.WIBBLE(*this);
+      return compiler.binary(op, *this->lhs, *this->rhs);
     }
   };
 
@@ -1249,7 +1257,7 @@ namespace {
       ParserDump(os, "assign").add(EggProgram::assignToString(this->op)).add(this->lhs).add(this->rhs);
     }
     virtual egg::ovum::Node compile(EggProgramCompiler& compiler) const override {
-      return compiler.WIBBLE(*this);
+      return compiler.assign(this->op, *this->lhs, *this->rhs);
     }
   };
 
@@ -1284,7 +1292,7 @@ namespace {
       ParserDump(os, "predicate ").add(EggProgram::binaryToString(this->op)).add(this->lhs).add(this->rhs);
     }
     virtual egg::ovum::Node compile(EggProgramCompiler& compiler) const override {
-      return compiler.WIBBLE(*this);
+      return compiler.binary(op, *this->lhs, *this->rhs);
     }
   };
 

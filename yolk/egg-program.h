@@ -44,6 +44,10 @@ namespace egg::yolk {
     EGG_PROGRAM_BINARY_OPERATORS(EGG_PROGRAM_BINARY_OPERATOR_DECLARE)
   };
 
+  enum class EggProgramTernary {
+    EGG_PROGRAM_TERNARY_OPERATORS(EGG_PROGRAM_TERNARY_OPERATOR_DECLARE)
+  };
+
   enum class EggProgramAssign {
     EGG_PROGRAM_ASSIGN_OPERATORS(EGG_PROGRAM_ASSIGN_OPERATOR_DECLARE)
   };
@@ -161,21 +165,21 @@ namespace egg::yolk {
     egg::ovum::HardPtr<EggProgramContext> createNestedContext(EggProgramSymbolTable& symtable, ScopeFunction* prepareFunction = nullptr);
     void log(egg::ovum::ILogger::Source source, egg::ovum::ILogger::Severity severity, const std::string& message);
     template<typename... ARGS>
-    void problem(egg::ovum::ILogger::Source source, egg::ovum::ILogger::Severity severity, ARGS... args) {
-      auto message = egg::ovum::StringBuilder().add(args...).toUTF8();
+    void problem(egg::ovum::ILogger::Source source, egg::ovum::ILogger::Severity severity, ARGS&&... args) {
+      auto message = egg::ovum::StringBuilder().add(std::forward<ARGS>(args)...).toUTF8();
       this->log(source, severity, message);
     }
     template<typename... ARGS>
-    void compiler(egg::ovum::ILogger::Severity severity, const egg::ovum::LocationSource& location, ARGS... args) {
-      this->problem(egg::ovum::ILogger::Source::Compiler, severity, location.toSourceString(), ": ", args...);
+    void compiler(egg::ovum::ILogger::Severity severity, const egg::ovum::LocationSource& location, ARGS&&... args) {
+      this->problem(egg::ovum::ILogger::Source::Compiler, severity, location.toSourceString(), ": ", std::forward<ARGS>(args)...);
     }
     template<typename... ARGS>
-    void compilerWarning(const egg::ovum::LocationSource& location, ARGS... args) {
-      this->compiler(egg::ovum::ILogger::Severity::Warning, location, args...);
+    void compilerWarning(const egg::ovum::LocationSource& location, ARGS&&... args) {
+      this->compiler(egg::ovum::ILogger::Severity::Warning, location, std::forward<ARGS>(args)...);
     }
     template<typename... ARGS>
-    EggProgramNodeFlags compilerError(const egg::ovum::LocationSource& location, ARGS... args) {
-      this->compiler(egg::ovum::ILogger::Severity::Error, location, args...);
+    EggProgramNodeFlags compilerError(const egg::ovum::LocationSource& location, ARGS&&... args) {
+      this->compiler(egg::ovum::ILogger::Severity::Error, location, std::forward<ARGS>(args)...);
       return EggProgramNodeFlags::Abandon;
     }
     std::unique_ptr<IEggProgramAssignee> assigneeIdentifier(const IEggProgramNode& self, const egg::ovum::String& name);
@@ -324,11 +328,13 @@ namespace egg::yolk {
     EggProgramCompilerNode& add(const egg::ovum::Node& child);
     EggProgramCompilerNode& add(const std::shared_ptr<IEggProgramNode>& child);
     EggProgramCompilerNode& add(const std::vector<std::shared_ptr<IEggProgramNode>>& children);
+    EggProgramCompilerNode& add(const IEggProgramNode& child);
     template<typename T, typename... ARGS>
-    EggProgramCompilerNode& add(T value, ARGS... args) {
-      return this->add(value).add(args...);
+    EggProgramCompilerNode& add(const T& value, ARGS&&... args) {
+      return this->add(value).add(std::forward<ARGS>(args)...);
     }
     egg::ovum::Node build();
+    egg::ovum::Node build(egg::ovum::Int operand);
   };
 
   class EggProgramCompiler {
@@ -339,19 +345,39 @@ namespace egg::yolk {
   public:
     explicit EggProgramCompiler(IEggEngineCompilationContext& context) : context(context) {
     }
-    template<typename... ARGS>
-    egg::ovum::Node opcode(egg::ovum::Opcode op, ARGS... args) {
-      return EggProgramCompilerNode(*this, op).add(args...).build();
-    }
+    egg::ovum::Node opcode(egg::ovum::Opcode value);
     egg::ovum::Node ivalue(egg::ovum::Int value);
     egg::ovum::Node fvalue(egg::ovum::Float value);
     egg::ovum::Node svalue(const egg::ovum::String& value);
+    egg::ovum::Node type(const egg::ovum::Type& type);
     egg::ovum::Node identifier(const egg::ovum::String& id);
+    egg::ovum::Node unary(EggProgramUnary op, const IEggProgramNode& a);
+    egg::ovum::Node binary(EggProgramBinary op, const IEggProgramNode& a, const IEggProgramNode& b);
+    egg::ovum::Node ternary(EggProgramTernary op, const IEggProgramNode& a, const IEggProgramNode& b, const IEggProgramNode& c);
+    egg::ovum::Node mutate(EggProgramMutate op, const IEggProgramNode& a);
+    egg::ovum::Node assign(EggProgramAssign op, const IEggProgramNode& a, const IEggProgramNode& b);
+    egg::ovum::Node noop(const IEggProgramNode* node);
+    template<typename... ARGS>
+    egg::ovum::Node statement(egg::ovum::Opcode opcode, ARGS&&... args) {
+      return EggProgramCompilerNode(*this, opcode).add(std::forward<ARGS>(args)...).build();
+    }
+    template<typename... ARGS>
+    egg::ovum::Node expression(egg::ovum::Opcode opcode, ARGS&&... args) {
+      return EggProgramCompilerNode(*this, opcode).add(std::forward<ARGS>(args)...).build();
+    }
+    template<typename... ARGS>
+    egg::ovum::Node operation(egg::ovum::Opcode opcode, egg::ovum::Operator oper, ARGS&&... args) {
+      return EggProgramCompilerNode(*this, opcode).add(std::forward<ARGS>(args)...).build(egg::ovum::Int(oper));
+    }
     egg::ovum::Node WIBBLE(const IEggProgramNode& node);
   private:
     template<typename... ARGS>
-    egg::ovum::Node raise(ARGS... args) {
-      auto message = egg::ovum::StringBuilder().add(args...).toUTF8();
+    egg::ovum::Node create(egg::ovum::Opcode op, ARGS&&... args) {
+      return egg::ovum::NodeFactory::create(this->context.allocator(), op, std::forward<ARGS>(args)...);
+    }
+    template<typename... ARGS>
+    egg::ovum::Node raise(ARGS&&... args) {
+      auto message = egg::ovum::StringBuilder().add(std::forward<ARGS>(args)...).toUTF8();
       this->context.log(egg::ovum::ILogger::Source::Compiler, egg::ovum::ILogger::Severity::Error, message);
       return nullptr;
     }

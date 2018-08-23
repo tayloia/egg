@@ -33,13 +33,13 @@ namespace egg::ovum {
 
     // Useful helpers
     template<typename... ARGS>
-    void raiseWarning(ARGS... args) {
-      auto message = StringBuilder::concat(args...);
+    void raiseWarning(ARGS&&... args) {
+      auto message = StringBuilder::concat(std::forward<ARGS>(args)...);
       this->raise(ILogger::Severity::Warning, message);
     }
     template<typename... ARGS>
-    void raiseError(ARGS... args) {
-      auto message = StringBuilder::concat(args...);
+    void raiseError(ARGS&&... args) {
+      auto message = StringBuilder::concat(std::forward<ARGS>(args)...);
       this->raise(ILogger::Severity::Error, message);
     }
   };
@@ -54,8 +54,8 @@ namespace egg::ovum {
 
     // Useful helper
     template<typename... ARGS>
-    egg::ovum::Variant raiseFormat(ARGS... args) {
-      auto message = StringBuilder::concat(args...);
+    egg::ovum::Variant raiseFormat(ARGS&&... args) {
+      auto message = StringBuilder::concat(std::forward<ARGS>(args)...);
       return this->raise(message);
     }
   };

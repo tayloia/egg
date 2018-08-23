@@ -143,8 +143,8 @@ namespace egg::ovum {
       return *this;
     }
     template<typename T, typename... ARGS>
-    StringBuilder& add(T value, ARGS... args) {
-      return this->add(value).add(args...);
+    StringBuilder& add(T value, ARGS&&... args) {
+      return this->add(value).add(std::forward<ARGS>(args)...);
     }
     bool empty() const {
       return this->ss.rdbuf()->in_avail() == 0;
@@ -155,8 +155,8 @@ namespace egg::ovum {
     String str() const;
 
     template<typename... ARGS>
-    static String concat(ARGS... args) {
-      return StringBuilder().add(args...).str();
+    static String concat(ARGS&&... args) {
+      return StringBuilder().add(std::forward<ARGS>(args)...).str();
     }
   };
 
@@ -192,7 +192,7 @@ namespace egg::ovum {
       return Variant(Object(*allocator.make<T>(std::forward<ARGS>(args)...)));
     }
     template<typename... ARGS>
-    static Variant createThrow(ARGS... args) {
+    static Variant createThrow(ARGS&&... args) {
       Variant thrown{ StringBuilder::concat(std::forward<ARGS>(args)...) };
       thrown.addFlowControl(VariantBits::Throw);
       return thrown;

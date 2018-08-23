@@ -27,14 +27,14 @@ TEST(TestNode, OpcodeFromMachineByte) {
   ASSERT_EQ(OPCODE_reserved, opcodeFromMachineByte(4));
   ASSERT_EQ(OPCODE_reserved, opcodeFromMachineByte(5));
   ASSERT_EQ(OPCODE_IVALUE, opcodeFromMachineByte(6));
-  ASSERT_EQ(OPCODE_COMPARE, opcodeFromMachineByte(7));
-  ASSERT_EQ(OPCODE_MUTATE, opcodeFromMachineByte(8));
+  ASSERT_EQ(OPCODE_reserved, opcodeFromMachineByte(7));
+  ASSERT_EQ(OPCODE_COMPARE, opcodeFromMachineByte(8));
   ASSERT_EQ(OPCODE_reserved, opcodeFromMachineByte(9));
   ASSERT_EQ(OPCODE_reserved, opcodeFromMachineByte(10));
   ASSERT_EQ(OPCODE_reserved, opcodeFromMachineByte(11));
   ASSERT_EQ(OPCODE_FVALUE, opcodeFromMachineByte(12));
   ASSERT_EQ(OPCODE_reserved, opcodeFromMachineByte(13));
-  ASSERT_EQ(OPCODE_reserved, opcodeFromMachineByte(14));
+  ASSERT_EQ(OPCODE_MUTATE, opcodeFromMachineByte(14));
   ASSERT_EQ(OPCODE_reserved, opcodeFromMachineByte(15));
   ASSERT_EQ(OPCODE_reserved, opcodeFromMachineByte(16));
   ASSERT_EQ(OPCODE_reserved, opcodeFromMachineByte(17));
@@ -118,8 +118,8 @@ TEST(TestNode, OpcodeFromMachineByte) {
   ASSERT_EQ(OPCODE_reserved, opcodeFromMachineByte(95));
   ASSERT_EQ(OPCODE_reserved, opcodeFromMachineByte(96));
   ASSERT_EQ(OPCODE_reserved, opcodeFromMachineByte(97));
-  ASSERT_EQ(OPCODE_reserved, opcodeFromMachineByte(98));
-  ASSERT_EQ(OPCODE_reserved, opcodeFromMachineByte(99));
+  ASSERT_EQ(OPCODE_DECLARE, opcodeFromMachineByte(98));
+  ASSERT_EQ(OPCODE_DECLARE, opcodeFromMachineByte(99));
   ASSERT_EQ(OPCODE_reserved, opcodeFromMachineByte(100));
   ASSERT_EQ(OPCODE_reserved, opcodeFromMachineByte(101));
   ASSERT_EQ(OPCODE_reserved, opcodeFromMachineByte(102));
