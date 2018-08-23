@@ -1,8 +1,3 @@
-namespace egg::ovum {
-  class IModule;
-  using Module = HardPtr<IModule>;
-}
-  
 namespace egg::yolk {
   class IEggEnginePreparationContext : public egg::ovum::ILogger {
   public:

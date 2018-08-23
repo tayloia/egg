@@ -5,9 +5,6 @@
 #include "yolk/egg-parser.h"
 #include "yolk/egg-engine.h"
 
-#include "ovum/node.h"
-#include "ovum/module.h"
-
 using namespace egg::yolk;
 
 namespace {
@@ -84,4 +81,10 @@ TEST(TestModules, Minimal) {
   StringTextStream stream("");
   auto retval = compile(stream);
   ASSERT_EQ("[A3 67 67 56 4D 00 FE FD 9D 42]", retval);
+}
+
+TEST(TestModules, HelloWorld) {
+  StringTextStream stream("print(\"hello world\");");
+  auto retval = compile(stream);
+  ASSERT_EQ("[A3 67 67 56 4D 00 04 02 68 65 6C 6C 6F 20 77 6F 72 6C 64 FF 70 72 69 6E 74 FF FE FD 9D A4 31 12 01 12 00]", retval);
 }

@@ -2,6 +2,7 @@ namespace egg::yolk {
   class EggProgramContext;
   class EggProgramStackless;
   class EggProgramSymbolTable;
+  class EggProgramCompiler;
 
   class IEggProgramAssignee {
   public:
@@ -32,6 +33,7 @@ namespace egg::yolk {
     virtual egg::ovum::Variant coexecute(EggProgramContext& context, EggProgramStackless& stackless) const = 0;
     virtual std::unique_ptr<IEggProgramAssignee> assignee(EggProgramContext& context) const = 0;
     virtual void dump(std::ostream& os) const = 0;
+    virtual egg::ovum::Node compile(EggProgramCompiler& compiler) const = 0;
   };
 
   enum class EggProgramUnary {
@@ -305,5 +307,53 @@ namespace egg::yolk {
     egg::ovum::Variant arithmeticBoolInt(const egg::ovum::Variant& left, egg::ovum::Variant& right, const IEggProgramNode& rhs, const char* operation, ArithmeticBool bools, ArithmeticInt ints);
     egg::ovum::Variant arithmeticIntFloat(const egg::ovum::Variant& left, egg::ovum::Variant& right, const IEggProgramNode& rhs, const char* operation, ArithmeticInt ints, ArithmeticFloat floats);
     egg::ovum::Variant unexpected(const std::string& expectation, const egg::ovum::Variant& value);
+  };
+
+  class EggProgramCompilerNode {
+    EggProgramCompilerNode(const EggProgramCompilerNode&) = delete;
+    EggProgramCompilerNode& operator=(const EggProgramCompilerNode&) = delete;
+  private:
+    EggProgramCompiler& compiler;
+    egg::ovum::Opcode opcode;
+    egg::ovum::Nodes nodes;
+    bool failed;
+  public:
+    EggProgramCompilerNode(EggProgramCompiler& compiler, egg::ovum::Opcode opcode)
+      : compiler(compiler), opcode(opcode), nodes(), failed(false) {
+    }
+    EggProgramCompilerNode& add(const egg::ovum::Node& child);
+    EggProgramCompilerNode& add(const std::shared_ptr<IEggProgramNode>& child);
+    EggProgramCompilerNode& add(const std::vector<std::shared_ptr<IEggProgramNode>>& children);
+    template<typename T, typename... ARGS>
+    EggProgramCompilerNode& add(T value, ARGS... args) {
+      return this->add(value).add(args...);
+    }
+    egg::ovum::Node build();
+  };
+
+  class EggProgramCompiler {
+    EGG_NO_COPY(EggProgramCompiler);
+    friend class EggProgramCompilerNode;
+  private:
+    IEggEngineCompilationContext& context;
+  public:
+    explicit EggProgramCompiler(IEggEngineCompilationContext& context) : context(context) {
+    }
+    template<typename... ARGS>
+    egg::ovum::Node opcode(egg::ovum::Opcode op, ARGS... args) {
+      return EggProgramCompilerNode(*this, op).add(args...).build();
+    }
+    egg::ovum::Node ivalue(egg::ovum::Int value);
+    egg::ovum::Node fvalue(egg::ovum::Float value);
+    egg::ovum::Node svalue(const egg::ovum::String& value);
+    egg::ovum::Node identifier(const egg::ovum::String& id);
+    egg::ovum::Node WIBBLE(const IEggProgramNode& node);
+  private:
+    template<typename... ARGS>
+    egg::ovum::Node raise(ARGS... args) {
+      auto message = egg::ovum::StringBuilder().add(args...).toUTF8();
+      this->context.log(egg::ovum::ILogger::Source::Compiler, egg::ovum::ILogger::Severity::Error, message);
+      return nullptr;
+    }
   };
 }

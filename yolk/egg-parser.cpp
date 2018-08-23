@@ -168,6 +168,13 @@ namespace {
     virtual void dump(std::ostream& os) const override {
       ParserDump(os, "module").add(this->child);
     }
+    virtual egg::ovum::Node compile(EggProgramCompiler& compiler) const override {
+      auto block = compiler.opcode(egg::ovum::OPCODE_BLOCK, this->child);
+      if (block == nullptr) {
+        return nullptr;
+      }
+      return compiler.opcode(egg::ovum::OPCODE_MODULE, block);
+    }
     void addChild(const std::shared_ptr<IEggProgramNode>& statement) {
       assert(statement != nullptr);
       this->child.push_back(statement);
@@ -192,6 +199,9 @@ namespace {
     }
     virtual void dump(std::ostream& os) const override {
       ParserDump(os, "block").add(this->child);
+    }
+    virtual egg::ovum::Node compile(EggProgramCompiler& compiler) const override {
+      return compiler.WIBBLE(*this);
     }
     void addChild(const std::shared_ptr<IEggProgramNode>& statement) {
       assert(statement != nullptr);
@@ -218,6 +228,9 @@ namespace {
     }
     virtual void dump(std::ostream& os) const override {
       ParserDump(os, "type").add(this->type.toString());
+    }
+    virtual egg::ovum::Node compile(EggProgramCompiler& compiler) const override {
+      return compiler.WIBBLE(*this);
     }
   };
 
@@ -251,6 +264,9 @@ namespace {
       auto tname = (this->type == nullptr) ? "var" : this->type.toString();
       ParserDump(os, "declare").add(this->name).add(tname).add(this->init);
     }
+    virtual egg::ovum::Node compile(EggProgramCompiler& compiler) const override {
+      return compiler.WIBBLE(*this);
+    }
   };
 
   class EggParserNode_Guard : public EggParserNodeBase {
@@ -281,6 +297,9 @@ namespace {
     virtual void dump(std::ostream& os) const override {
       ParserDump(os, "guard").add(this->name).add(this->type.toString()).add(this->expr);
     }
+    virtual egg::ovum::Node compile(EggProgramCompiler& compiler) const override {
+      return compiler.WIBBLE(*this);
+    }
   };
 
   class EggParserNode_Mutate : public EggParserNodeBase {
@@ -301,6 +320,9 @@ namespace {
     virtual void dump(std::ostream& os) const override {
       ParserDump(os, "mutate").add(EggProgram::mutateToString(this->op)).add(this->lvalue);
     }
+    virtual egg::ovum::Node compile(EggProgramCompiler& compiler) const override {
+      return compiler.WIBBLE(*this);
+    }
   };
 
   class EggParserNode_Break : public EggParserNodeBase {
@@ -317,6 +339,9 @@ namespace {
     }
     virtual void dump(std::ostream& os) const override {
       ParserDump(os, "break");
+    }
+    virtual egg::ovum::Node compile(EggProgramCompiler& compiler) const override {
+      return compiler.WIBBLE(*this);
     }
   };
 
@@ -340,6 +365,9 @@ namespace {
     virtual void dump(std::ostream& os) const override {
       ParserDump(os, "catch").add(this->name).add(this->type).add(this->block);
     }
+    virtual egg::ovum::Node compile(EggProgramCompiler& compiler) const override {
+      return compiler.WIBBLE(*this);
+    }
   };
 
   class EggParserNode_Continue : public EggParserNodeBase {
@@ -356,6 +384,9 @@ namespace {
     }
     virtual void dump(std::ostream& os) const override {
       ParserDump(os, "continue");
+    }
+    virtual egg::ovum::Node compile(EggProgramCompiler& compiler) const override {
+      return compiler.WIBBLE(*this);
     }
   };
 
@@ -381,6 +412,9 @@ namespace {
     virtual void dump(std::ostream& os) const override {
       ParserDump(os, "do").add(this->condition).add(this->block);
     }
+    virtual egg::ovum::Node compile(EggProgramCompiler& compiler) const override {
+      return compiler.WIBBLE(*this);
+    }
   };
 
   class EggParserNode_If : public EggParserNodeBase {
@@ -403,6 +437,9 @@ namespace {
     }
     virtual void dump(std::ostream& os) const override {
       ParserDump(os, "if").add(this->condition).add(this->trueBlock).add(this->falseBlock);
+    }
+    virtual egg::ovum::Node compile(EggProgramCompiler& compiler) const override {
+      return compiler.WIBBLE(*this);
     }
   };
 
@@ -430,6 +467,9 @@ namespace {
     virtual void dump(std::ostream& os) const override {
       ParserDump(os, "for").add(this->pre).add(this->cond).add(this->post).add(this->block);
     }
+    virtual egg::ovum::Node compile(EggProgramCompiler& compiler) const override {
+      return compiler.WIBBLE(*this);
+    }
   };
 
   class EggParserNode_Foreach : public EggParserNodeBase {
@@ -455,6 +495,9 @@ namespace {
     }
     virtual void dump(std::ostream& os) const override {
       ParserDump(os, "foreach").add(this->target).add(this->expr).add(this->block);
+    }
+    virtual egg::ovum::Node compile(EggProgramCompiler& compiler) const override {
+      return compiler.WIBBLE(*this);
     }
   };
 
@@ -483,6 +526,9 @@ namespace {
     virtual void dump(std::ostream& os) const override {
       ParserDump(os, "function").add(this->name).add(this->type.toString()).add(this->block);
     }
+    virtual egg::ovum::Node compile(EggProgramCompiler& compiler) const override {
+      return compiler.WIBBLE(*this);
+    }
   };
 
   class EggParserNode_FunctionParameter : public EggParserNodeBase {
@@ -509,6 +555,9 @@ namespace {
     virtual void dump(std::ostream& os) const override {
       ParserDump(os, this->optional ? "parameter?" : "parameter").add(this->name).add(this->type.toString());
     }
+    virtual egg::ovum::Node compile(EggProgramCompiler& compiler) const override {
+      return compiler.WIBBLE(*this);
+    }
   };
 
   class EggParserNode_GeneratorDefinition : public EggParserNodeBase {
@@ -531,6 +580,9 @@ namespace {
     virtual void dump(std::ostream& os) const override {
       ParserDump(os, "generator").add(this->name).add(this->gentype.toString()).add(this->block);
     }
+    virtual egg::ovum::Node compile(EggProgramCompiler& compiler) const override {
+      return compiler.WIBBLE(*this);
+    }
   };
 
   class EggParserNode_Return : public EggParserNodeBase {
@@ -548,6 +600,9 @@ namespace {
     }
     virtual void dump(std::ostream& os) const override {
       ParserDump(os, "return").add(this->expr);
+    }
+    virtual egg::ovum::Node compile(EggProgramCompiler& compiler) const override {
+      return compiler.WIBBLE(*this);
     }
   };
 
@@ -568,6 +623,9 @@ namespace {
     }
     virtual void dump(std::ostream& os) const override {
       ParserDump(os, "case").add(this->child).add(this->block);
+    }
+    virtual egg::ovum::Node compile(EggProgramCompiler& compiler) const override {
+      return compiler.WIBBLE(*this);
     }
     void addValue(const std::shared_ptr<IEggProgramNode>& value) {
       assert(value != nullptr);
@@ -598,6 +656,9 @@ namespace {
     }
     virtual void dump(std::ostream& os) const override {
       ParserDump(os, "switch").add(this->expr).raw(this->defaultIndex).add(this->child);
+    }
+    virtual egg::ovum::Node compile(EggProgramCompiler& compiler) const override {
+      return compiler.WIBBLE(*this);
     }
     void newClause(const IEggParserContext& context, const IEggSyntaxNode& statement) {
       this->latest = makeParserNode<EggParserNode_Case>(context, statement);
@@ -644,6 +705,9 @@ namespace {
     virtual void dump(std::ostream& os) const override {
       ParserDump(os, "throw").add(this->expr);
     }
+    virtual egg::ovum::Node compile(EggProgramCompiler& compiler) const override {
+      return compiler.WIBBLE(*this);
+    }
   };
 
   class EggParserNode_Try : public EggParserNodeBase {
@@ -664,6 +728,9 @@ namespace {
     }
     virtual void dump(std::ostream& os) const override {
       ParserDump(os, "try").add(this->block).add(this->catches).add(this->final);
+    }
+    virtual egg::ovum::Node compile(EggProgramCompiler& compiler) const override {
+      return compiler.WIBBLE(*this);
     }
     void addCatch(const std::shared_ptr<IEggProgramNode>& catchNode) {
       this->catches.push_back(catchNode);
@@ -696,6 +763,9 @@ namespace {
     virtual void dump(std::ostream& os) const override {
       ParserDump(os, "while").add(this->condition).add(this->block);
     }
+    virtual egg::ovum::Node compile(EggProgramCompiler& compiler) const override {
+      return compiler.WIBBLE(*this);
+    }
   };
 
   class EggParserNode_Yield : public EggParserNodeBase {
@@ -717,6 +787,9 @@ namespace {
     }
     virtual void dump(std::ostream& os) const override {
       ParserDump(os, "yield").add(this->expr);
+    }
+    virtual egg::ovum::Node compile(EggProgramCompiler& compiler) const override {
+      return compiler.WIBBLE(*this);
     }
   };
 
@@ -745,6 +818,9 @@ namespace {
     virtual void dump(std::ostream& os) const override {
       ParserDump(os, "named").add(this->name).add(this->expr);
     }
+    virtual egg::ovum::Node compile(EggProgramCompiler& compiler) const override {
+      return compiler.WIBBLE(*this);
+    }
   };
 
   class EggParserNode_Array : public EggParserNodeBase {
@@ -765,6 +841,9 @@ namespace {
     }
     virtual void dump(std::ostream& os) const override {
       ParserDump(os, "array").add(this->child);
+    }
+    virtual egg::ovum::Node compile(EggProgramCompiler& compiler) const override {
+      return compiler.WIBBLE(*this);
     }
     void addValue(const std::shared_ptr<IEggProgramNode>& value) {
       this->child.emplace_back(value);
@@ -789,6 +868,9 @@ namespace {
     }
     virtual void dump(std::ostream& os) const override {
       ParserDump(os, "object").add(this->child);
+    }
+    virtual egg::ovum::Node compile(EggProgramCompiler& compiler) const override {
+      return compiler.WIBBLE(*this);
     }
     void addValue(const std::shared_ptr<IEggProgramNode>& value) {
       this->child.emplace_back(value);
@@ -820,6 +902,9 @@ namespace {
     }
     virtual void dump(std::ostream& os) const override {
       ParserDump(os, "call").add(this->callee).add(this->child);
+    }
+    virtual egg::ovum::Node compile(EggProgramCompiler& compiler) const override {
+      return compiler.opcode(egg::ovum::OPCODE_CALL, this->callee, this->child);
     }
     void addParameter(const std::shared_ptr<IEggProgramNode>& parameter) {
       this->child.emplace_back(parameter);
@@ -855,6 +940,9 @@ namespace {
     virtual void dump(std::ostream& os) const override {
       ParserDump(os, "identifier").add(this->name);
     }
+    virtual egg::ovum::Node compile(EggProgramCompiler& compiler) const override {
+      return compiler.identifier(this->name); // TODO byref
+    }
   };
 
   class EggParserNode_LiteralNull : public EggParserNodeBase {
@@ -873,6 +961,9 @@ namespace {
     }
     virtual void dump(std::ostream& os) const override {
       ParserDump(os, "literal null");
+    }
+    virtual egg::ovum::Node compile(EggProgramCompiler& compiler) const override {
+      return compiler.WIBBLE(*this);
     }
   };
 
@@ -895,6 +986,9 @@ namespace {
     virtual void dump(std::ostream& os) const override {
       ParserDump(os, "literal bool").raw(this->value);
     }
+    virtual egg::ovum::Node compile(EggProgramCompiler& compiler) const override {
+      return compiler.WIBBLE(*this);
+    }
   };
 
   class EggParserNode_LiteralInteger : public EggParserNodeBase {
@@ -915,6 +1009,9 @@ namespace {
     }
     virtual void dump(std::ostream& os) const override {
       ParserDump(os, "literal int").raw(this->value);
+    }
+    virtual egg::ovum::Node compile(EggProgramCompiler& compiler) const override {
+      return compiler.WIBBLE(*this);
     }
   };
 
@@ -937,6 +1034,9 @@ namespace {
     virtual void dump(std::ostream& os) const override {
       ParserDump(os, "literal float").raw(this->value);
     }
+    virtual egg::ovum::Node compile(EggProgramCompiler& compiler) const override {
+      return compiler.WIBBLE(*this);
+    }
   };
 
   class EggParserNode_LiteralString : public EggParserNodeBase {
@@ -957,6 +1057,9 @@ namespace {
     }
     virtual void dump(std::ostream& os) const override {
       ParserDump(os, "literal string").add(this->value);
+    }
+    virtual egg::ovum::Node compile(EggProgramCompiler& compiler) const override {
+      return compiler.svalue(this->value);
     }
   };
 
@@ -984,6 +1087,9 @@ namespace {
     virtual void dump(std::ostream& os) const override {
       ParserDump(os, "brackets").add(this->lhs).add(this->rhs);
     }
+    virtual egg::ovum::Node compile(EggProgramCompiler& compiler) const override {
+      return compiler.WIBBLE(*this);
+    }
   };
 
   class EggParserNode_Dot : public EggParserNodeBase {
@@ -1008,6 +1114,9 @@ namespace {
     }
     virtual void dump(std::ostream& os) const override {
       ParserDump(os, "dot").add(this->lhs).add(this->rhs);
+    }
+    virtual egg::ovum::Node compile(EggProgramCompiler& compiler) const override {
+      return compiler.WIBBLE(*this);
     }
   };
 
@@ -1036,6 +1145,9 @@ namespace {
     }
     virtual void dump(std::ostream& os) const override {
       ParserDump(os, "unary").add(EggProgram::unaryToString(this->op)).add(this->expr);
+    }
+    virtual egg::ovum::Node compile(EggProgramCompiler& compiler) const override {
+      return compiler.WIBBLE(*this);
     }
   };
 
@@ -1073,6 +1185,9 @@ namespace {
     virtual void dump(std::ostream& os) const override {
       ParserDump(os, "binary").add(EggProgram::binaryToString(this->op)).add(this->lhs).add(this->rhs);
     }
+    virtual egg::ovum::Node compile(EggProgramCompiler& compiler) const override {
+      return compiler.WIBBLE(*this);
+    }
   };
 
 #define EGG_PARSER_BINARY_OPERATOR_DEFINE(name, text) \
@@ -1108,6 +1223,9 @@ namespace {
       ParserDump(os, "ternary").add(this->condition).add(this->whenTrue).add(this->whenFalse);
     }
     virtual egg::ovum::Type getType() const override;
+    virtual egg::ovum::Node compile(EggProgramCompiler& compiler) const override {
+      return compiler.WIBBLE(*this);
+    }
   };
 
   class EggParserNode_Assign : public EggParserNodeBase {
@@ -1129,6 +1247,9 @@ namespace {
     }
     virtual void dump(std::ostream& os) const override {
       ParserDump(os, "assign").add(EggProgram::assignToString(this->op)).add(this->lhs).add(this->rhs);
+    }
+    virtual egg::ovum::Node compile(EggProgramCompiler& compiler) const override {
+      return compiler.WIBBLE(*this);
     }
   };
 
@@ -1161,6 +1282,9 @@ namespace {
     }
     virtual void dump(std::ostream& os) const override {
       ParserDump(os, "predicate ").add(EggProgram::binaryToString(this->op)).add(this->lhs).add(this->rhs);
+    }
+    virtual egg::ovum::Node compile(EggProgramCompiler& compiler) const override {
+      return compiler.WIBBLE(*this);
     }
   };
 

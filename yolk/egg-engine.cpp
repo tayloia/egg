@@ -6,9 +6,6 @@
 #include "yolk/egg-engine.h"
 #include "yolk/egg-program.h"
 
-#include "ovum/node.h"
-#include "ovum/module.h"
-
 namespace {
   using namespace egg::yolk;
 
