@@ -275,22 +275,26 @@ namespace {
     ModuleWriter(const ModuleWriter&) = delete;
     ModuleWriter& operator=(const ModuleWriter&) = delete;
   private:
-    std::ostream& stream;
+    const INode& root;
     std::map<Int, size_t> ivalues;
     std::map<std::pair<Int, Int>, size_t> fvalues;
     std::map<String, size_t> svalues;
     size_t positives;
   public:
-    explicit ModuleWriter(std::ostream& stream)
-      : stream(stream), positives(0) {
+    explicit ModuleWriter(const INode& root)
+      : root(root), positives(0) {
+      this->findConstants(this->root);
+      this->prepareInts();
+      this->prepareFloats();
+      this->prepareStrings();
     }
-    void write(const INode& root) {
-      this->findConstants(root);
-      this->writeMagic();
-      this->writeInts();
-      this->writeFloats();
-      this->writeStrings();
-      this->writeCode(root);
+    template<typename TARGET>
+    void write(TARGET& target) const {
+      this->writeMagic(target);
+      this->writeInts(target);
+      this->writeFloats(target);
+      this->writeStrings(target);
+      this->writeCode(target, this->root);
     }
   private:
     void findConstants(const INode& node) {
@@ -337,77 +341,112 @@ namespace {
     void foundString(String value) {
       this->svalues.emplace(value, SIZE_MAX);
     }
-    void writeMagic() const {
-#define EGG_VM_MAGIC_BYTE(byte) this->writeByte(byte);
+    template<typename TARGET>
+    void writeMagic(TARGET& target) const {
+#define EGG_VM_MAGIC_BYTE(byte) this->writeByte(target, byte);
       EGG_VM_MAGIC(EGG_VM_MAGIC_BYTE)
 #undef EGG_VM_MAGIC_BYTE
     }
-    void writeInts() {
+    void prepareInts() {
       size_t index = 0;
       for (auto& i : this->ivalues) {
         if (i.first >= 0) {
           assert(i.second == SIZE_MAX);
-          if (index == 0) {
-            this->writeByte(SECTION_POSINTS);
-            this->writeUnsigned(this->positives);
-          }
           i.second = index++;
-          this->writeUnsigned(uint64_t(i.first));
         }
       }
       assert(index == this->positives);
       for (auto& i : this->ivalues) {
         if (i.first < 0) {
           assert(i.second == SIZE_MAX);
-          if (index == this->positives) {
-            this->writeByte(SECTION_NEGINTS);
-            this->writeUnsigned(this->ivalues.size() - this->positives);
-          }
           i.second = index++;
-          this->writeUnsigned(~uint64_t(i.first));
         }
       }
       assert(index == this->ivalues.size());
     }
-    void writeFloats() {
+    template<typename TARGET>
+    void writeInts(TARGET& target) const {
+      size_t index = 0;
+      for (auto& i : this->ivalues) {
+        assert(i.second != SIZE_MAX);
+        if (i.first >= 0) {
+          if (index++ == 0) {
+            this->writeByte(target, SECTION_POSINTS);
+            this->writeUnsigned(target, this->positives);
+          }
+          this->writeUnsigned(target, uint64_t(i.first));
+        }
+      }
+      assert(index == this->positives);
+      for (auto& i : this->ivalues) {
+        if (i.first < 0) {
+          assert(i.second != SIZE_MAX);
+          if (index++ == this->positives) {
+            this->writeByte(target, SECTION_NEGINTS);
+            this->writeUnsigned(target, this->ivalues.size() - this->positives);
+          }
+          this->writeUnsigned(target, ~uint64_t(i.first));
+        }
+      }
+      assert(index == this->ivalues.size());
+    }
+    void prepareFloats() {
       size_t index = 0;
       for (auto& i : this->fvalues) {
         assert(i.second == SIZE_MAX);
-        if (index == 0) {
-          this->writeByte(SECTION_FLOATS);
-          this->writeUnsigned(this->fvalues.size());
-        }
         i.second = index++;
-        this->writeUnsigned(this->ivalues[i.first.first]); // mantissa
-        this->writeUnsigned(this->ivalues[i.first.second]); // exponent
       }
       assert(index == this->fvalues.size());
     }
-    void writeStrings() {
+    template<typename TARGET>
+    void writeFloats(TARGET& target) const {
+      size_t index = 0;
+      for (auto& i : this->fvalues) {
+        assert(i.second != SIZE_MAX);
+        if (index++ == 0) {
+          this->writeByte(target, SECTION_FLOATS);
+          this->writeUnsigned(target, this->fvalues.size());
+        }
+        this->writeUnsigned(target, this->ivalues.at(i.first.first)); // mantissa
+        this->writeUnsigned(target, this->ivalues.at(i.first.second)); // exponent
+      }
+      assert(index == this->fvalues.size());
+    }
+    void prepareStrings() {
       size_t index = 0;
       for (auto& i : this->svalues) {
         assert(i.second == SIZE_MAX);
-        if (index == 0) {
-          this->writeByte(SECTION_STRINGS);
-          this->writeUnsigned(this->svalues.size());
-        }
         i.second = index++;
-        this->writeString(i.first);
       }
       assert(index == this->svalues.size());
     }
-    void writeString(const String& str) const {
-      auto length = str.length();
-      if (length > 0) {
-        this->stream.write(reinterpret_cast<const char*>(str->begin()), std::streamsize(length));
+    template<typename TARGET>
+    void writeStrings(TARGET& target) const {
+      size_t index = 0;
+      for (auto& i : this->svalues) {
+        assert(i.second != SIZE_MAX);
+        if (index++ == 0) {
+          this->writeByte(target, SECTION_STRINGS);
+          this->writeUnsigned(target, this->svalues.size());
+        }
+        this->writeString(target, i.first);
       }
-      this->writeByte(0xFF);
+      assert(index == this->svalues.size());
     }
-    void writeCode(const INode& node) {
-      this->writeByte(SECTION_CODE);
-      this->writeNode(node);
+    template<typename TARGET>
+    void writeString(TARGET& target, const String& str) const {
+      if (!str.empty()) {
+        this->writeBytes(target, str->begin(), str->bytes());
+      }
+      this->writeByte(target, 0xFF);
     }
-    void writeNode(const INode& node) {
+    template<typename TARGET>
+    void writeCode(TARGET& target, const INode& node) const {
+      this->writeByte(target, SECTION_CODE);
+      this->writeNode(target, node);
+    }
+    template<typename TARGET>
+    void writeNode(TARGET& target, const INode& node) const {
       auto opcode = node.getOpcode();
       auto& properties = opcodeProperties(opcode);
       auto n = node.getChildren();
@@ -416,42 +455,43 @@ namespace {
       }
       auto byte = opcode - properties.minargs + std::min(n, size_t(EGG_VM_NARGS));
       assert(byte <= 0xFF);
-      this->writeByte(uint8_t(byte));
+      this->writeByte(target, uint8_t(byte));
       if (properties.operand) {
         EGG_WARNING_SUPPRESS_SWITCH_BEGIN
         switch (opcode) {
         case OPCODE_IVALUE:
-          this->writeUnsigned(this->ivalues[node.getInt()]);
+          this->writeUnsigned(target, this->ivalues.at(node.getInt()));
           break;
         case OPCODE_FVALUE:
           MantissaExponent me;
           me.fromFloat(node.getFloat());
-          this->writeUnsigned(this->fvalues[std::make_pair(me.mantissa, me.exponent)]);
+          this->writeUnsigned(target, this->fvalues.at(std::make_pair(me.mantissa, me.exponent)));
           break;
         case OPCODE_SVALUE:
-          this->writeUnsigned(this->svalues[node.getString()]);
+          this->writeUnsigned(target, this->svalues.at(node.getString()));
           break;
         default:
-          this->writeUnsigned(uint64_t(node.getInt()));
+          this->writeUnsigned(target, uint64_t(node.getInt()));
           break;
         }
         EGG_WARNING_SUPPRESS_SWITCH_END
       }
       auto a = node.getAttributes();
       for (size_t i = 0; i < a; ++i) {
-        this->writeNode(node.getAttribute(i));
+        this->writeNode(target, node.getAttribute(i));
       }
       for (size_t i = 0; i < n; ++i) {
-        this->writeNode(node.getChild(i));
+        this->writeNode(target, node.getChild(i));
       }
       if (n >= EGG_VM_NARGS) {
-        this->writeByte(OPCODE_END);
+        this->writeByte(target, OPCODE_END);
       }
     }
-    void writeUnsigned(uint64_t value) const {
+    template<typename TARGET>
+    void writeUnsigned(TARGET& target, uint64_t value) const {
       if (value <= 0x80) {
         // Fast route for small values
-        writeByte(uint8_t(value));
+        writeByte(target, uint8_t(value));
         return;
       }
       char buffer[10];
@@ -463,10 +503,29 @@ namespace {
         *(--p) = char(value | 0x80);
         value >>= 7;
       } while (value > 0);
-      this->stream.write(p, std::end(buffer) - p);
+      this->writeBytes(target, p, size_t(std::end(buffer) - p));
     }
-    void writeByte(uint8_t byte) const {
-      this->stream.put(char(byte));
+    // Target is an unsigned integer (for measuring)
+    void writeBytes(size_t& target, const void*, size_t bytes) const {
+      target += bytes;
+    }
+    void writeByte(size_t& target, uint8_t) const {
+      target++;
+    }
+    // Target is direct memory
+    void writeBytes(uint8_t*& target, const void* data, size_t bytes) const {
+      std::memcpy(target, data, bytes);
+      target += bytes;
+    }
+    void writeByte(uint8_t*& target, uint8_t byte) const {
+      *target++ = byte;
+    }
+    // Target is an output stream
+    void writeBytes(std::ostream& target, const void* data, size_t bytes) const {
+      target.write(static_cast<const char*>(data), std::streamsize(bytes));
+    }
+    void writeByte(std::ostream& target, uint8_t byte) const {
+      target.put(char(byte));
     }
   };
 
@@ -510,12 +569,21 @@ egg::ovum::Module egg::ovum::ModuleFactory::fromRootNode(IAllocator& allocator, 
 }
 
 void egg::ovum::ModuleFactory::toBinaryStream(const IModule& module, std::ostream& stream) {
-  ModuleWriter writer(stream);
-  writer.write(module.getRootNode());
+  ModuleWriter writer(module.getRootNode());
+  writer.write(stream);
 }
 
-egg::ovum::Memory egg::ovum::ModuleFactory::toMemory(IAllocator& allocator) {
-  return MemoryFactory::createImmutable(allocator, "WIBBLE", 6);
+egg::ovum::Memory egg::ovum::ModuleFactory::toMemory(IAllocator& allocator, const IModule& module) {
+  ModuleWriter writer(module.getRootNode());
+  // First, measure the size required
+  size_t bytes = 0;
+  writer.write(bytes);
+  auto memory = MemoryFactory::createMutable(allocator, bytes);
+  // Finally, write the data bytes
+  uint8_t* data = memory.begin();
+  writer.write(data);
+  assert(data == memory.end());
+  return memory.build();
 }
 
 egg::ovum::ModuleBuilder::ModuleBuilder(IAllocator& allocator)

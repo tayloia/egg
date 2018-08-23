@@ -59,6 +59,21 @@ namespace {
   }
 }
 
+TEST(TestModule, Constants) {
+  // Test that the magic header starts with a UTF-8 continuation byte
+  const uint8_t magic[] = { MAGIC };
+  ASSERT_EQ(0x80, magic[0] & 0xC0);
+  // Test that the "end" opcode is zero
+  ASSERT_EQ(OPCODE_END, 0);
+  // Test that well-known opcodes have implicit operands
+  ASSERT_LT(OPCODE_IVALUE, EGG_VM_ISTART);
+  ASSERT_LT(OPCODE_FVALUE, EGG_VM_ISTART);
+  ASSERT_LT(OPCODE_SVALUE, EGG_VM_ISTART);
+  ASSERT_LT(OPCODE_UNARY, EGG_VM_ISTART);
+  ASSERT_LT(OPCODE_BINARY, EGG_VM_ISTART);
+  ASSERT_LT(OPCODE_TERNARY, EGG_VM_ISTART);
+}
+
 TEST(TestModule, FromMemoryBad) {
   const uint8_t zero[] = { 0 };
   expectFailureFromMemory(zero, sizeof(zero), "Invalid magic signature in binary module");
@@ -84,6 +99,29 @@ TEST(TestModule, FromMemoryMinimal) {
   Node grandchild{ &child->getChild(0) };
   ASSERT_EQ(OPCODE_NOOP, grandchild->getOpcode());
   ASSERT_EQ(0u, grandchild->getChildren());
+}
+
+TEST(TestModule, ToBinaryStream) {
+  egg::test::Allocator allocator;
+  const uint8_t minimal[] = { MAGIC SECTION_CODE, OPCODE_MODULE, OPCODE_BLOCK, OPCODE_NOOP };
+  auto module = ModuleFactory::fromMemory(allocator, std::begin(minimal), std::end(minimal));
+  ASSERT_NE(nullptr, module);
+  std::stringstream ss;
+  ModuleFactory::toBinaryStream(*module, ss);
+  auto binary = ss.str();
+  ASSERT_EQ(sizeof(minimal), binary.length());
+  ASSERT_EQ(0, std::memcmp(binary.data(), minimal, sizeof(minimal)));
+}
+
+TEST(TestModule, ToMemory) {
+  egg::test::Allocator allocator;
+  const uint8_t minimal[] = { MAGIC SECTION_CODE, OPCODE_MODULE, OPCODE_BLOCK, OPCODE_NOOP };
+  auto module = ModuleFactory::fromMemory(allocator, std::begin(minimal), std::end(minimal));
+  ASSERT_NE(nullptr, module);
+  auto memory = ModuleFactory::toMemory(allocator, *module);
+  ASSERT_NE(nullptr, memory);
+  ASSERT_EQ(sizeof(minimal), memory->bytes());
+  ASSERT_EQ(0, std::memcmp(memory->begin(), minimal, sizeof(minimal)));
 }
 
 TEST(TestModule, ModuleBuilder) {

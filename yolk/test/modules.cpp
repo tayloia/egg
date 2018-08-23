@@ -50,6 +50,7 @@ namespace {
     if (memory != nullptr) {
       auto* p = memory->begin();
       auto* q = memory->end();
+      stream << '[';
       if (p < q) {
         stream << hex[*p >> 4] << hex[*p & 0xF];
         p++;
@@ -58,6 +59,7 @@ namespace {
         stream << ' ' << hex[*p >> 4] << hex[*p & 0xF];
         p++;
       }
+      stream << ']';
     }
   }
 
@@ -71,7 +73,7 @@ namespace {
       auto compilation = EggEngineFactory::createCompilationContext(allocator, logger);
       egg::ovum::Module module;
       if (engine->compile(*compilation, module) != egg::ovum::ILogger::Severity::Error) {
-        hexdump(logger->logged, egg::ovum::ModuleFactory::toMemory(allocator));
+        hexdump(logger->logged, egg::ovum::ModuleFactory::toMemory(allocator, *module));
       }
     }
     return logger->logged.str();
@@ -81,5 +83,5 @@ namespace {
 TEST(TestModules, Minimal) {
   StringTextStream stream("");
   auto retval = compile(stream);
-  ASSERT_EQ("COMPILER:WARN:WIBBLE\n57 49 42 42 4C 45", retval);
+  ASSERT_EQ("[A3 67 67 56 4D 00 FE FD 9D 42]", retval);
 }
