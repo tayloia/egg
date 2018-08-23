@@ -68,6 +68,9 @@
     <ClCompile Include="..\yolk\strings.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\yolk\egg-compile.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\yolk\dictionaries.h">

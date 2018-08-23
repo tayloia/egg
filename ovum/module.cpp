@@ -514,6 +514,10 @@ void egg::ovum::ModuleFactory::toBinaryStream(const IModule& module, std::ostrea
   writer.write(module.getRootNode());
 }
 
+egg::ovum::Memory egg::ovum::ModuleFactory::toMemory(IAllocator& allocator) {
+  return MemoryFactory::createImmutable(allocator, "WIBBLE", 6);
+}
+
 egg::ovum::ModuleBuilder::ModuleBuilder(IAllocator& allocator)
   : allocator(allocator) {
 }

@@ -20,6 +20,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\yolk\builtins.cpp" />
+    <ClCompile Include="..\yolk\egg-compile.cpp" />
     <ClCompile Include="..\yolk\egg-engine.cpp" />
     <ClCompile Include="..\yolk\egg-execute.cpp" />
     <ClCompile Include="..\yolk\egg-parser.cpp" />

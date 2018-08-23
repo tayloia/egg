@@ -105,6 +105,7 @@ namespace egg::yolk {
     egg::ovum::HardPtr<EggProgramContext> createRootContext(egg::ovum::IAllocator& allocator, egg::ovum::ILogger& logger, EggProgramSymbolTable& symtable, egg::ovum::ILogger::Severity& maximumSeverity);
     egg::ovum::ILogger::Severity prepare(IEggEnginePreparationContext& preparation);
     egg::ovum::ILogger::Severity execute(IEggEngineExecutionContext& execution);
+    egg::ovum::ILogger::Severity compile(IEggEngineCompilationContext& compilation, egg::ovum::Module& out);
     static std::string unaryToString(EggProgramUnary op);
     static std::string binaryToString(EggProgramBinary op);
     static std::string assignToString(EggProgramAssign op);

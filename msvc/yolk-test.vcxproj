@@ -111,6 +111,7 @@
     <ClCompile Include="..\yolk\test\examples.cpp" />
     <ClCompile Include="..\yolk\test\exceptions.cpp" />
     <ClCompile Include="..\yolk\test\files.cpp" />
+    <ClCompile Include="..\yolk\test\modules.cpp" />
     <ClCompile Include="..\yolk\test\utility.cpp" />
     <ClCompile Include="..\yolk\test\json-tokenizer.cpp" />
     <ClCompile Include="..\yolk\test\lang.cpp" />

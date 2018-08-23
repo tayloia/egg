@@ -196,7 +196,7 @@ namespace egg::ovum {
   private:
     T* ptr;
   public:
-    HardPtr() : ptr(nullptr) {
+    HardPtr(nullptr_t = nullptr) : ptr(nullptr) {
     }
     explicit HardPtr(const T* rhs) : ptr(HardPtr::hardAcquire(rhs)) {
     }

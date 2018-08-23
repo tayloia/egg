@@ -17,6 +17,7 @@ namespace egg::ovum {
     static Module fromMemory(IAllocator& allocator, const uint8_t* begin, const uint8_t* end);
     static Module fromRootNode(IAllocator& allocator, INode& root);
     static void toBinaryStream(const IModule& module, std::ostream& stream);
+    static Memory toMemory(IAllocator& allocator);
   };
 
   class ModuleBuilder {

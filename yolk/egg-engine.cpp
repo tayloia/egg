@@ -6,6 +6,9 @@
 #include "yolk/egg-engine.h"
 #include "yolk/egg-program.h"
 
+#include "ovum/node.h"
+#include "ovum/module.h"
+
 namespace {
   using namespace egg::yolk;
 
@@ -22,7 +25,7 @@ namespace {
     return egg::ovum::ILogger::Severity::Error;
   }
 
-  class EggEngineContext : public IEggEnginePreparationContext, public IEggEngineExecutionContext {
+  class EggEngineContext : public IEggEnginePreparationContext, public IEggEngineExecutionContext, public IEggEngineCompilationContext {
     EGG_NO_COPY(EggEngineContext);
   private:
     egg::ovum::IAllocator& mallocator;
@@ -64,6 +67,13 @@ namespace {
       }
       return this->program.execute(execution);
     }
+    virtual egg::ovum::ILogger::Severity compile(IEggEngineCompilationContext& compilation, egg::ovum::Module& out) override {
+      if (!this->prepared) {
+        compilation.log(egg::ovum::ILogger::Source::Runtime, egg::ovum::ILogger::Severity::Error, "Program not prepared before compilation");
+        return egg::ovum::ILogger::Severity::Error;
+      }
+      return this->program.compile(compilation, out);
+    }
   };
 
   class EggEngineTextStream : public IEggEngine {
@@ -94,14 +104,25 @@ namespace {
       }
       return this->program->execute(execution);
     }
+    virtual egg::ovum::ILogger::Severity compile(IEggEngineCompilationContext& compilation, egg::ovum::Module& out) override {
+      if (this->program == nullptr) {
+        compilation.log(egg::ovum::ILogger::Source::Runtime, egg::ovum::ILogger::Severity::Error, "Program not prepared before compilation");
+        return egg::ovum::ILogger::Severity::Error;
+      }
+      return this->program->compile(compilation, out);
+    }
   };
+}
+
+std::shared_ptr<IEggEnginePreparationContext> egg::yolk::EggEngineFactory::createPreparationContext(egg::ovum::IAllocator& allocator, const std::shared_ptr<egg::ovum::ILogger>& logger) {
+  return std::make_shared<EggEngineContext>(allocator, logger);
 }
 
 std::shared_ptr<IEggEngineExecutionContext> egg::yolk::EggEngineFactory::createExecutionContext(egg::ovum::IAllocator& allocator, const std::shared_ptr<egg::ovum::ILogger>& logger) {
   return std::make_shared<EggEngineContext>(allocator, logger);
 }
 
-std::shared_ptr<IEggEnginePreparationContext> egg::yolk::EggEngineFactory::createPreparationContext(egg::ovum::IAllocator& allocator, const std::shared_ptr<egg::ovum::ILogger>& logger) {
+std::shared_ptr<IEggEngineCompilationContext> egg::yolk::EggEngineFactory::createCompilationContext(egg::ovum::IAllocator& allocator, const std::shared_ptr<egg::ovum::ILogger>& logger) {
   return std::make_shared<EggEngineContext>(allocator, logger);
 }
 
