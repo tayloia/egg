@@ -110,6 +110,12 @@
   assert(i == 22);
 }
 {
+  // Ternary operator
+  var i = 42;
+  var j = (i > 0) ? "positive" : -1;
+  assert(j == "positive");
+}
+{
   // Null coalescing
   int? i = 123;
   assert((null ?? i) == 123);
@@ -218,4 +224,57 @@
     break;
   }
   assert(state == 2);
+}
+{
+  // Test while loop
+  int i = 0;
+  while (i < 10) {
+    i += 3;
+  }
+  assert(i == 12);
+}
+{
+  // Test do loop
+  int i = 0;
+  do {
+    i += 3;
+  } while (i < 10);
+  assert(i == 12);
+}
+{
+  // Test for loop
+  int i = 0;
+  for (var j = 0; j < 10; ++j) {
+    i += 3;
+  }
+  assert(i == 30);
+}
+{
+  // Test foreach loop
+  int i = 0;
+  for (var j : [3, 1, 4, 1, 5, 9]) {
+    i += j;
+  }
+  assert(i == 23);
+}
+{
+  // Test function definition
+  int f(int p) {
+    return p * p;
+  }
+  assert(f(3) == 9);
+}
+{
+  // Test generator definition
+  int... f(int p) {
+    while (p > 0) {
+      yield p;
+      --p;
+    }
+  }
+  int i = 0;
+  for (var j : f(10)) {
+    i += j;
+  }
+  assert(i == 55);
 }

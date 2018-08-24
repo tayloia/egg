@@ -369,8 +369,6 @@ namespace egg::yolk {
     egg::ovum::Node operation(egg::ovum::Opcode opcode, egg::ovum::Operator oper, ARGS&&... args) {
       return EggProgramCompilerNode(*this, opcode).add(std::forward<ARGS>(args)...).build(egg::ovum::Int(oper));
     }
-    egg::ovum::Node WIBBLE(const IEggProgramNode& node);
-
     template<typename... ARGS>
     egg::ovum::Node create(egg::ovum::Opcode op, ARGS&&... args) {
       return egg::ovum::NodeFactory::create(this->context.allocator(), op, std::forward<ARGS>(args)...);

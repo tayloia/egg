@@ -6,12 +6,6 @@
 #include "yolk/egg-engine.h"
 #include "yolk/egg-program.h"
 
-egg::ovum::Node egg::yolk::EggProgramCompiler::WIBBLE(const IEggProgramNode& node) {
-  std::stringstream ss;
-  node.dump(ss);
-  return this->raise("Unimplemented compilation for ", ss.str());
-}
-
 egg::yolk::EggProgramCompilerNode& egg::yolk::EggProgramCompilerNode::add(const egg::ovum::Node& child) {
   this->nodes.push_back(child);
   return *this;
@@ -85,6 +79,7 @@ egg::ovum::Node egg::yolk::EggProgramCompiler::type(const egg::ovum::Type& type)
 }
 
 egg::ovum::Node egg::yolk::EggProgramCompiler::identifier(const egg::ovum::String& id) {
+  assert(!id.empty());
   return this->create(egg::ovum::OPCODE_IDENTIFIER, this->svalue(id));
 }
 
@@ -128,6 +123,13 @@ egg::ovum::Node egg::yolk::EggProgramCompiler::binary(EggProgramBinary op, const
   return this->raise("Unsupported binary operator");
 }
 
+egg::ovum::Node egg::yolk::EggProgramCompiler::ternary(EggProgramTernary op, const IEggProgramNode& a, const IEggProgramNode& b, const IEggProgramNode& c) {
+  switch (op) {
+  case EggProgramTernary::Ternary: return this->operation(egg::ovum::OPCODE_TERNARY, egg::ovum::OPERATOR_TERNARY, a, b, c);
+  }
+  return this->raise("Unsupported ternary operator");
+}
+
 egg::ovum::Node egg::yolk::EggProgramCompiler::mutate(EggProgramMutate op, const IEggProgramNode& a) {
   switch (op) {
   case EggProgramMutate::Decrement: return this->statement(egg::ovum::OPCODE_DECREMENT, a);
@@ -163,7 +165,7 @@ egg::ovum::Node egg::yolk::EggProgramCompiler::noop(const IEggProgramNode* node)
   }
   return node->compile(*this);
 }
-  
+
 egg::ovum::ILogger::Severity egg::yolk::EggProgram::compile(IEggEngineCompilationContext& compilation, egg::ovum::Module& out) {
   assert(this->root != nullptr);
   EggProgramCompiler compiler(compilation);
