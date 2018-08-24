@@ -331,6 +331,24 @@ TEST(TestNode, OperatorUnary) {
   ASSERT_EQ(1u, operatorProperties(OPERATOR_NEG).operands);
 }
 
+TEST(TestNode, OperatorBinary) {
+  ASSERT_STREQ("-", operatorProperties(OPERATOR_SUB).name);
+  ASSERT_EQ(OPCLASS_BINARY, operatorProperties(OPERATOR_SUB).opclass);
+  ASSERT_EQ(2u, operatorProperties(OPERATOR_SUB).operands);
+}
+
+TEST(TestNode, OperatorTernary) {
+  ASSERT_STREQ("?:", operatorProperties(OPERATOR_TERNARY).name);
+  ASSERT_EQ(OPCLASS_TERNARY, operatorProperties(OPERATOR_TERNARY).opclass);
+  ASSERT_EQ(3u, operatorProperties(OPERATOR_TERNARY).operands);
+}
+
+TEST(TestNode, OperatorCompare) {
+  ASSERT_STREQ("<", operatorProperties(OPERATOR_LT).name);
+  ASSERT_EQ(OPCLASS_COMPARE, operatorProperties(OPERATOR_LT).opclass);
+  ASSERT_EQ(2u, operatorProperties(OPERATOR_LT).operands);
+}
+
 TEST(TestNode, Create0) {
   egg::test::Allocator allocator;
   auto parent = NodeFactory::create(allocator, OPCODE_NOOP);
