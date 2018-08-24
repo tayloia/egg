@@ -325,6 +325,12 @@ TEST(TestNode, OpcodeEncode5) {
   ASSERT_EQ(215, opcodeProperties(OPCODE_AVALUE).encode(7));
 }
 
+TEST(TestNode, OperatorUnary) {
+  ASSERT_STREQ("-", operatorProperties(OPERATOR_NEG).name);
+  ASSERT_EQ(OPCLASS_UNARY, operatorProperties(OPERATOR_NEG).opclass);
+  ASSERT_EQ(1u, operatorProperties(OPERATOR_NEG).operands);
+}
+
 TEST(TestNode, Create0) {
   egg::test::Allocator allocator;
   auto parent = NodeFactory::create(allocator, OPCODE_NOOP);

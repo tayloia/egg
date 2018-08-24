@@ -42,7 +42,7 @@ namespace egg::ovum {
     Node createValueString(const String& value);
     Node createValueArray(const Nodes& elements);
     Node createValueObject(const Nodes& fields);
-    Node createOperator(Opcode opcode, Int op, const Nodes& children);
+    Node createOperator(Opcode opcode, Operator oper, const Nodes& children);
     Node createNode(Opcode opcode);
     Node createNode(Opcode opcode, Node&& child0);
     Node createNode(Opcode opcode, Node&& child0, Node&& child1);

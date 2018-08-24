@@ -6,12 +6,12 @@
 namespace {
   using namespace egg::ovum;
 
-  struct Table {
-    static const Table instance;
+  struct OpcodeTable {
+    static const OpcodeTable instance;
     Opcode opcode[256];
     OpcodeProperties properties[256];
   private:
-    Table() {
+    OpcodeTable() {
       std::memset(this->opcode, -1, sizeof(this->opcode));
       std::memset(this->properties, 0, sizeof(this->properties));
       const size_t N = EGG_VM_NARGS; // used in the macro below
@@ -26,7 +26,7 @@ namespace {
       assert(maxargs <= EGG_VM_NARGS);
       assert((code >= 0x00) && (code <= 0xFF));
       auto& prop = this->properties[code];
-      assert(prop.minbyte == 0);
+      assert(prop.name == 0);
       prop.name = text;
       prop.minargs = minargs;
       prop.maxargs = (maxargs < EGG_VM_NARGS) ? maxargs : SIZE_MAX;
@@ -41,7 +41,45 @@ namespace {
       }
     }
   };
-  const Table Table::instance{};
+  const OpcodeTable OpcodeTable::instance{};
+
+  struct OperatorTable {
+    static const OperatorTable instance;
+    OperatorProperties properties[129];
+  private:
+    OperatorTable() {
+      std::memset(this->properties, 0, sizeof(this->properties));
+#define EGG_VM_OPERATORS_TABLE(oper, opclass, index, text) this->fill(oper, opclass, index, text);
+      EGG_VM_OPERATORS(EGG_VM_OPERATORS_TABLE)
+#undef EGG_VM_OPERATORS_TABLE
+    }
+    void fill(Operator oper, Opclass opclass, size_t index, const char* text) {
+      assert(text != nullptr);
+      assert((oper >= 0x00) && (oper <= 0x80)); // sic [0..128] inclusive
+      auto& prop = this->properties[oper];
+      assert(prop.name == 0);
+      prop.name = text;
+      prop.opclass = opclass;
+      prop.index = index;
+      prop.operands = 1 + size_t(oper) / EGG_VM_OOSTEP;
+      switch (opclass) {
+      case OPCLASS_UNARY:
+        assert(prop.operands == 1);
+        break;
+      case OPCLASS_BINARY:
+      case OPCLASS_COMPARE:
+        assert(prop.operands == 2);
+        break;
+      case OPCLASS_TERNARY:
+        assert(prop.operands == 3);
+        break;
+      default:
+        assert(false);
+        break;
+      }
+    }
+  };
+  const OperatorTable OperatorTable::instance{};
 
   template<typename EXTRA>
   class NodeContiguous final : public HardReferenceCounted<INode> {
@@ -352,12 +390,17 @@ egg::ovum::Float egg::ovum::MantissaExponent::toFloat() const {
 }
 
 egg::ovum::Opcode egg::ovum::opcodeFromMachineByte(uint8_t byte) {
-  return Table::instance.opcode[byte];
+  return OpcodeTable::instance.opcode[byte];
 }
 
 const egg::ovum::OpcodeProperties& egg::ovum::opcodeProperties(Opcode opcode) {
   assert((opcode >= 1) && (opcode <= 255));
-  return Table::instance.properties[opcode];
+  return OpcodeTable::instance.properties[opcode];
+}
+
+const egg::ovum::OperatorProperties& egg::ovum::operatorProperties(Operator oper) {
+  assert((oper >= 0) && (oper <= 128));
+  return OperatorTable::instance.properties[oper];
 }
 
 egg::ovum::Node egg::ovum::NodeFactory::create(IAllocator& allocator, Opcode opcode) {

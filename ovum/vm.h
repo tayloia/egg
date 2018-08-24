@@ -5,7 +5,10 @@
 #define EGG_VM_ISTART 24
 
 // This is the integer step between operator classes
-#define EGG_VM_OSTEP 32
+#define EGG_VM_OCSTEP 32
+
+// This is the integer step between operator operand counts
+#define EGG_VM_OOSTEP 64
 
 // Macro to define module sections: X(section, byte)
 // 0xA3 is "POUND SIGN" in Latin-1 and not valid UTF-8
@@ -114,7 +117,7 @@
   X(OPCLASS_COMPARE, 3, "compare") \
   X(OPCLASS_TERNARY, 4, "ternary")
 
-// Macro to define operators: X(operator, opclass, unique, text)
+// Macro to define operators: X(operator, opclass, index, text)
 #define EGG_VM_OPERATORS(X) \
   X(OPERATOR_ADD, OPCLASS_BINARY, 0, "+") \
   X(OPERATOR_BITAND, OPCLASS_BINARY, 1, "&") \

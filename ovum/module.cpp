@@ -196,6 +196,9 @@ namespace {
       }
       std::vector<Node> children;
       auto count = childrenFromMachineByte(byte);
+      if (!properties.validate(count, properties.operand)) {
+        throw std::runtime_error("Invalid number of node children in binary module");
+      }
       if (count == SIZE_MAX) {
         // This is a list terminated with an OPCODE_END sentinel
         while (this->stream.peek() != OPCODE_END) {
@@ -634,10 +637,12 @@ egg::ovum::Node egg::ovum::ModuleBuilderBase::createValueObject(const Nodes& fie
   return this->createNode(OPCODE_OVALUE, fields);
 }
 
-egg::ovum::Node egg::ovum::ModuleBuilderBase::createOperator(Opcode opcode, Int op, const Nodes& children) {
+egg::ovum::Node egg::ovum::ModuleBuilderBase::createOperator(Opcode opcode, Operator oper, const Nodes& children) {
+  assert(opcodeProperties(opcode).validate(children.size(), true));
+  assert(operatorProperties(oper).validate(children.size()));
   Nodes attrs;
   std::swap(this->attributes, attrs);
-  return NodeFactory::create(this->allocator, opcode, &children, &attrs, op);
+  return NodeFactory::create(this->allocator, opcode, &children, &attrs, Int(oper));
 }
 
 egg::ovum::Node egg::ovum::ModuleBuilderBase::createNode(Opcode opcode) {

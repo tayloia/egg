@@ -13,7 +13,7 @@ namespace egg::ovum {
   };
 
   enum Operator {
-#define EGG_VM_OPERATORS_ENUM(oper, opclass, unique, text) oper = opclass * EGG_VM_OSTEP + unique,
+#define EGG_VM_OPERATORS_ENUM(oper, opclass, index, text) oper = opclass * EGG_VM_OCSTEP + index,
     EGG_VM_OPERATORS(EGG_VM_OPERATORS_ENUM)
 #undef EGG_VM_OPERATORS_ENUM
   };
@@ -87,4 +87,15 @@ namespace egg::ovum {
     }
   };
   const OpcodeProperties& opcodeProperties(Opcode opcode);
+
+  struct OperatorProperties {
+    const char* name;
+    Opclass opclass;
+    size_t index; // within opclass
+    size_t operands;
+    bool validate(size_t args) const {
+      return (this->name != nullptr) && (args == this->operands);
+    }
+  };
+  const OperatorProperties& operatorProperties(Operator oper);
 }
