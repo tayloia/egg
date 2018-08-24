@@ -230,7 +230,8 @@ namespace {
       ParserDump(os, "type").add(this->type.toString());
     }
     virtual egg::ovum::Node compile(EggProgramCompiler& compiler) const override {
-      return compiler.WIBBLE(*this);
+      // This is used, for example, in catch clauses
+      return compiler.type(this->type);
     }
   };
 
@@ -302,7 +303,7 @@ namespace {
       ParserDump(os, "guard").add(this->name).add(this->type.toString()).add(this->expr);
     }
     virtual egg::ovum::Node compile(EggProgramCompiler& compiler) const override {
-      return compiler.WIBBLE(*this);
+      return compiler.statement(egg::ovum::OPCODE_GUARD, compiler.type(this->type), compiler.identifier(this->name), this->expr);
     }
   };
 
@@ -370,7 +371,7 @@ namespace {
       ParserDump(os, "catch").add(this->name).add(this->type).add(this->block);
     }
     virtual egg::ovum::Node compile(EggProgramCompiler& compiler) const override {
-      return compiler.WIBBLE(*this);
+      return compiler.statement(egg::ovum::OPCODE_CATCH, this->type, compiler.identifier(this->name), this->block);
     }
   };
 
@@ -390,7 +391,7 @@ namespace {
       ParserDump(os, "continue");
     }
     virtual egg::ovum::Node compile(EggProgramCompiler& compiler) const override {
-      return compiler.WIBBLE(*this);
+      return compiler.opcode(egg::ovum::OPCODE_CONTINUE);
     }
   };
 
@@ -618,9 +619,10 @@ namespace {
   private:
     std::vector<std::shared_ptr<IEggProgramNode>> child;
     std::shared_ptr<EggParserNode_Block> block;
+    bool defclause;
   public:
     EggParserNode_Case(egg::ovum::IAllocator& allocator, const egg::ovum::LocationSource& locationSource)
-      : EggParserNodeBase(locationSource), block(std::make_shared<EggParserNode_Block>(allocator, locationSource)) {
+      : EggParserNodeBase(locationSource), block(std::make_shared<EggParserNode_Block>(allocator, locationSource)), defclause(false) {
       assert(this->block != nullptr);
     }
     virtual EggProgramNodeFlags prepare(EggProgramContext& context) override {
@@ -633,7 +635,8 @@ namespace {
       ParserDump(os, "case").add(this->child).add(this->block);
     }
     virtual egg::ovum::Node compile(EggProgramCompiler& compiler) const override {
-      return compiler.WIBBLE(*this);
+      const IEggProgramNode& clause = *this->block;
+      return compiler.statement(this->defclause ? egg::ovum::OPCODE_DEFAULT : egg::ovum::OPCODE_CASE, clause, this->child);
     }
     void addValue(const std::shared_ptr<IEggProgramNode>& value) {
       assert(value != nullptr);
@@ -642,6 +645,10 @@ namespace {
     void addStatement(const std::shared_ptr<IEggProgramNode>& statement) {
       assert(statement != nullptr);
       this->block->addChild(statement);
+    }
+    void setDefault() {
+      assert(!this->defclause);
+      this->defclause = true;
     }
   };
 
@@ -666,7 +673,7 @@ namespace {
       ParserDump(os, "switch").add(this->expr).raw(this->defaultIndex).add(this->child);
     }
     virtual egg::ovum::Node compile(EggProgramCompiler& compiler) const override {
-      return compiler.WIBBLE(*this);
+      return compiler.statement(egg::ovum::OPCODE_SWITCH, this->expr, this->child);
     }
     void newClause(const IEggParserContext& context, const IEggSyntaxNode& statement) {
       this->latest = makeParserNode<EggParserNode_Case>(context, statement);
@@ -682,11 +689,15 @@ namespace {
     }
     bool addDefault() {
       // Make sure we don't set this default twice
-      if (!this->child.empty() && (this->defaultIndex < 0)) {
-        this->defaultIndex = static_cast<int64_t>(this->child.size()) - 1;
-        return true;
+      if (this->defaultIndex >= 0) {
+        return false;
       }
-      return false;
+      if (this->latest == nullptr) {
+        return false;
+      }
+      this->defaultIndex = static_cast<int64_t>(this->child.size()) - 1;
+      this->latest->setDefault();
+      return true;
     }
     bool addStatement(const std::shared_ptr<IEggProgramNode>& statement) {
       if (this->latest == nullptr) {
@@ -714,7 +725,11 @@ namespace {
       ParserDump(os, "throw").add(this->expr);
     }
     virtual egg::ovum::Node compile(EggProgramCompiler& compiler) const override {
-      return compiler.WIBBLE(*this);
+      if (this->expr == nullptr) {
+        // Rethrow
+        return compiler.opcode(egg::ovum::OPCODE_THROW);
+      }
+      return compiler.statement(egg::ovum::OPCODE_THROW, this->expr);
     }
   };
 
@@ -738,7 +753,11 @@ namespace {
       ParserDump(os, "try").add(this->block).add(this->catches).add(this->final);
     }
     virtual egg::ovum::Node compile(EggProgramCompiler& compiler) const override {
-      return compiler.WIBBLE(*this);
+      if (this->final == nullptr) {
+        // No final clause
+        return compiler.statement(egg::ovum::OPCODE_TRY, *this->block, this->catches);
+      }
+      return compiler.statement(egg::ovum::OPCODE_TRY, *this->block, this->catches, *this->final);
     }
     void addCatch(const std::shared_ptr<IEggProgramNode>& catchNode) {
       this->catches.push_back(catchNode);
@@ -1639,8 +1658,8 @@ std::shared_ptr<egg::yolk::IEggProgramNode> egg::yolk::EggSyntaxNode_If::promote
 }
 
 std::shared_ptr<egg::yolk::IEggProgramNode> egg::yolk::EggSyntaxNode_Finally::promote(egg::yolk::IEggParserContext& context) const {
-  // The logic is handled by the 'try' node, so just assume it's a misplaced 'finally'
-  throw exceptionFromLocation(context, "The 'finally' statement may only be used as part of a 'try' statement", *this);
+  // The main logic is handled by the 'try' node
+  return context.promote(*this->child);
 }
 
 std::shared_ptr<egg::yolk::IEggProgramNode> egg::yolk::EggSyntaxNode_For::promote(egg::yolk::IEggParserContext& context) const {

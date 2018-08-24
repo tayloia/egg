@@ -72,6 +72,8 @@ TEST(TestModule, Constants) {
   ASSERT_LT(OPCODE_UNARY, EGG_VM_ISTART);
   ASSERT_LT(OPCODE_BINARY, EGG_VM_ISTART);
   ASSERT_LT(OPCODE_TERNARY, EGG_VM_ISTART);
+  // Test that operator enums fit into [0..128] for operand fitting
+  ASSERT_EQ(OPERATOR_TERNARY, 128);
 }
 
 TEST(TestModule, FromMemoryBad) {

@@ -10,7 +10,7 @@
   assert(a.length == 1);
 }
 {
-  // Dictionarys
+  // Dictionaries
   var d = { a: "hello" };
   assert(d.a == "hello");
   assert(d["a"] == "hello");
@@ -151,4 +151,71 @@
     ++n;
   }
   assert(n == 50);
+}
+{
+  // Test explicit types
+  bool b = false;
+  assert(type.of(b) == "bool");
+  int i = 123;
+  assert(type.of(i) == "int");
+  float f = 3.14159;
+  assert(type.of(f) == "float");
+  string s = "hello world";
+  assert(type.of(s) == "string");
+}
+{
+  // Test inferred types
+  var b = false;
+  assert(type.of(b) == "bool");
+  var i = 123;
+  assert(type.of(i) == "int");
+  var f = 3.14159;
+  assert(type.of(f) == "float");
+  var s = "hello world";
+  assert(type.of(s) == "string");
+}
+{
+  // Test guards
+  any a = 123;
+  if (int i = a) {
+    a = "first";
+  }
+  assert(a == "first");
+  if (int i = a) {
+    a = "second";
+  }
+  assert(a == "first");
+}
+{
+  // Test exceptions
+  string state = "before";
+  bool final = false;
+  try {
+    if (state == "before") {
+      throw "thrown";
+    }
+    assert(false);
+  } catch (any ex) {
+    // TODO assert(ex == "thrown");
+    state = "caught";
+  } finally {
+    final = true;
+  }
+  assert(state == "caught");
+  assert(final == true);
+}
+{
+  // Test switch
+  int state = 1;
+  switch (state) {
+  case 0:
+    continue;
+  case 1:
+    state = 2;
+    break;
+  default:
+    state = 0;
+    break;
+  }
+  assert(state == 2);
 }

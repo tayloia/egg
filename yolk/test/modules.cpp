@@ -86,7 +86,7 @@ TEST(TestModules, Minimal) {
 TEST(TestModules, HelloWorld) {
   StringTextStream stream("print(\"hello world\");");
   auto retval = compile(stream);
-  ASSERT_EQ("[A3 67 67 56 4D 00 04 02 68 65 6C 6C 6F 20 77 6F 72 6C 64 FF 70 72 69 6E 74 FF FE FD 9D A4 31 12 01 12 00]", retval);
+  ASSERT_EQ("[A3 67 67 56 4D 00 04 02 68 65 6C 6C 6F 20 77 6F 72 6C 64 FF 70 72 69 6E 74 FF FE FD 9D A4 2B 12 01 12 00]", retval);
 }
 
 TEST(TestModules, Coverage) {

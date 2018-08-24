@@ -7,7 +7,7 @@ namespace egg::ovum {
   };
 
   enum Opclass {
-#define EGG_VM_OPCLASSES_ENUM(opclass, value, operands, text) opclass = value,
+#define EGG_VM_OPCLASSES_ENUM(opclass, value, text) opclass = value,
     EGG_VM_OPCLASSES(EGG_VM_OPCLASSES_ENUM)
 #undef EGG_VM_OPCLASSES_ENUM
   };
