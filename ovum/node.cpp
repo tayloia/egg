@@ -243,6 +243,11 @@ namespace {
   }
 
   template<typename OPERAND>
+  Node createNodeOperand(IAllocator& allocator, Opcode opcode, typename OPERAND::Type operand) {
+    return Node(createNodeExtra<NodeChildrenFixed<0>, NodeAttributesFixed<0>, OPERAND>(allocator, opcode, 0, operand));
+  }
+
+  template<typename OPERAND>
   Node createNodeExtra(IAllocator& allocator, Opcode opcode, const Nodes* children, const Nodes* attributes, typename OPERAND::Type operand) {
     auto nchildren = (children == nullptr) ? size_t(0) : children->size();
     auto nattributes = (attributes == nullptr) ? size_t(0) : attributes->size();
@@ -417,4 +422,32 @@ egg::ovum::Node egg::ovum::NodeFactory::create(IAllocator& allocator, Opcode opc
 egg::ovum::Node egg::ovum::NodeFactory::create(IAllocator& allocator, Opcode opcode, const Nodes* children, const Nodes* attributes, const String& value) {
   assert(validateOpcode(opcode, children, true));
   return createNodeExtra<NodeOperandString>(allocator, opcode, children, attributes, value);
+}
+
+egg::ovum::Node egg::ovum::NodeFactory::createValue(IAllocator& allocator, nullptr_t) {
+  return createNodeOperand<NodeOperandNone>(allocator, OPCODE_NULL, nullptr);
+}
+
+egg::ovum::Node egg::ovum::NodeFactory::createValue(IAllocator& allocator, bool value) {
+  return createNodeOperand<NodeOperandNone>(allocator, value ? OPCODE_TRUE : OPCODE_FALSE, nullptr);
+}
+
+egg::ovum::Node egg::ovum::NodeFactory::createValue(IAllocator& allocator, int32_t value) {
+  return createNodeOperand<NodeOperandInt>(allocator, OPCODE_IVALUE, value);
+}
+
+egg::ovum::Node egg::ovum::NodeFactory::createValue(IAllocator& allocator, int64_t value) {
+  return createNodeOperand<NodeOperandInt>(allocator, OPCODE_IVALUE, value);
+}
+
+egg::ovum::Node egg::ovum::NodeFactory::createValue(IAllocator& allocator, float value) {
+  return createNodeOperand<NodeOperandFloat>(allocator, OPCODE_FVALUE, value);
+}
+
+egg::ovum::Node egg::ovum::NodeFactory::createValue(IAllocator& allocator, double value) {
+  return createNodeOperand<NodeOperandFloat>(allocator, OPCODE_FVALUE, value);
+}
+
+egg::ovum::Node egg::ovum::NodeFactory::createValue(IAllocator& allocator, const String& value) {
+  return createNodeOperand<NodeOperandString>(allocator, OPCODE_SVALUE, value);
 }

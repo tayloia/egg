@@ -20,14 +20,22 @@ namespace egg::ovum {
     static Memory toMemory(IAllocator& allocator, const IModule& module);
   };
 
-  class ModuleBuilder {
-    ModuleBuilder(const ModuleBuilder&) = delete;
-    ModuleBuilder& operator=(const ModuleBuilder&) = delete;
+  class ModuleBuilderBase {
   public:
     IAllocator& allocator;
     Nodes attributes;
+  protected:
+    explicit ModuleBuilderBase(IAllocator& allocator);
+    ModuleBuilderBase(const ModuleBuilderBase&) = delete;
+    ModuleBuilderBase& operator=(const ModuleBuilderBase&) = delete;
+    ModuleBuilderBase(ModuleBuilderBase&&) = default;
+    template<typename T>
+    void addAttribute(const String& key, const T& value) {
+      this->addAttribute(key, NodeFactory::createValue(this->allocator, value));
+    }
+    void addAttribute(const String& key, const char* value) = delete;
+    void addAttribute(const String& key, const Node& value);
   public:
-    explicit ModuleBuilder(IAllocator& allocator);
     Node createModule(const Node& block);
     Node createValueInt(Int value);
     Node createValueFloat(Float value);
@@ -41,5 +49,35 @@ namespace egg::ovum {
     Node createNode(Opcode opcode, const Node& child0, const Node& child1, const Node& child2);
     Node createNode(Opcode opcode, const Node& child0, const Node& child1, const Node& child2, const Node& child3);
     Node createNode(Opcode opcode, const Nodes& children);
+  };
+
+  class ModuleBuilderWithAttribute : public ModuleBuilderBase {
+    ModuleBuilderWithAttribute(const ModuleBuilderWithAttribute&) = delete;
+    ModuleBuilderWithAttribute& operator=(const ModuleBuilderWithAttribute&) = delete;
+    friend class ModuleBuilder;
+  private:
+    explicit ModuleBuilderWithAttribute(IAllocator& allocator) : ModuleBuilderBase(allocator) {
+    }
+  public:
+    ModuleBuilderWithAttribute(ModuleBuilderWithAttribute&&) = default;
+    template<typename T>
+    ModuleBuilderWithAttribute& withAttribute(const String& key, const T& value) {
+      this->addAttribute(key, value);
+      return *this;
+    }
+  };
+
+  class ModuleBuilder : public ModuleBuilderBase {
+    ModuleBuilder(const ModuleBuilder&) = delete;
+    ModuleBuilder& operator=(const ModuleBuilder&) = delete;
+  public:
+    explicit ModuleBuilder(IAllocator& allocator) : ModuleBuilderBase(allocator) {
+    }
+    template<typename T>
+    ModuleBuilderWithAttribute withAttribute(const String& key, const T& value) const {
+      ModuleBuilderWithAttribute with(this->allocator);
+      with.addAttribute(key, value);
+      return with;
+    }
   };
 }

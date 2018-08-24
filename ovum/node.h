@@ -38,7 +38,7 @@ namespace egg::ovum {
   class NodeFactory {
   public:
     static Node create(IAllocator& allocator, Opcode opcode);
-    static Node create(IAllocator& allocator, Opcode opcode, const Node& child0);
+    static Node create(IAllocator& allocator, Opcode opcode, const Node& child0); // WIBBLE move
     static Node create(IAllocator& allocator, Opcode opcode, const Node& child0, const Node& child1);
     static Node create(IAllocator& allocator, Opcode opcode, const Node& child0, const Node& child1, const Node& child2);
     static Node create(IAllocator& allocator, Opcode opcode, const Node& child0, const Node& child1, const Node& child2, const Node& child3);
@@ -47,6 +47,13 @@ namespace egg::ovum {
     static Node create(IAllocator& allocator, Opcode opcode, const Nodes* children, const Nodes* attributes, Int operand);
     static Node create(IAllocator& allocator, Opcode opcode, const Nodes* children, const Nodes* attributes, Float operand);
     static Node create(IAllocator& allocator, Opcode opcode, const Nodes* children, const Nodes* attributes, const String& operand);
+    static Node createValue(IAllocator& allocator, nullptr_t);
+    static Node createValue(IAllocator& allocator, bool value);
+    static Node createValue(IAllocator& allocator, int32_t value);
+    static Node createValue(IAllocator& allocator, int64_t value);
+    static Node createValue(IAllocator& allocator, float value);
+    static Node createValue(IAllocator& allocator, double value);
+    static Node createValue(IAllocator& allocator, const String& value);
   };
   inline size_t childrenFromMachineByte(uint8_t byte) {
     // Compute the number of children from a VM code byte

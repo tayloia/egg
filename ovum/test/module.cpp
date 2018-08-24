@@ -230,19 +230,23 @@ TEST(TestModule, BuildOperator) {
   ASSERT_EQ(0u, value->getChildren());
 }
 
-TEST(TestModule, BuildAddAttribute) {
+TEST(TestModule, BuildWithAttribute) {
   egg::test::Allocator allocator;
   ModuleBuilder builder(allocator);
   auto avalue = roundTripArray(builder, {
-    builder.createOperator(OPCODE_UNARY, 123456789,{ builder.createNode(OPCODE_NULL) })
-    });
+    builder.withAttribute("a", String("alpha")).withAttribute("b", 123).createOperator(OPCODE_UNARY, 123456789,{ builder.createNode(OPCODE_NULL) })
+  });
   ASSERT_EQ(1u, avalue->getChildren());
   Node value;
   value.set(&avalue->getChild(0));
   ASSERT_EQ(OPCODE_UNARY, value->getOpcode());
   ASSERT_EQ(123456789, value->getInt());
   ASSERT_EQ(1u, value->getChildren());
-  value.set(&value->getChild(0));
-  ASSERT_EQ(OPCODE_NULL, value->getOpcode());
-  ASSERT_EQ(0u, value->getChildren());
+  ASSERT_EQ(2u, value->getAttributes());
+  value.set(&value->getAttribute(0));
+  ASSERT_EQ(OPCODE_ATTRIBUTE, value->getOpcode());
+  ASSERT_EQ(2u, value->getChildren());
+  value.set(&value->getChild(1));
+  ASSERT_EQ(OPCODE_SVALUE, value->getOpcode());
+  ASSERT_EQ("alpha", value->getString().toUTF8());
 }

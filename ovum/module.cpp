@@ -40,9 +40,10 @@ namespace {
     std::vector<Int> ivalue;
     std::vector<Float> fvalue;
     std::vector<String> svalue;
+    const OpcodeProperties& attributeProperties;
   public:
     ModuleReader(IAllocator& allocator, std::istream& stream)
-      : allocator(allocator), stream(stream) {
+      : allocator(allocator), stream(stream), attributeProperties(opcodeProperties(OPCODE_ATTRIBUTE)) {
     }
     Node read() {
       Node root;
@@ -68,7 +69,7 @@ namespace {
           break;
         case SECTION_CODE:
           // Read the abstract syntax tree
-          root = this->readNode();
+          root = this->readNode(false);
           if (!this->stream.get(ch)) {
             // No source section
             return root;
@@ -175,7 +176,7 @@ namespace {
       }
       return true;
     }
-    Node readNode() const {
+    Node readNode(bool insideAttribute) const {
       auto byte = this->readByte();
       auto opcode = opcodeFromMachineByte(byte);
       if (opcode == OPCODE_reserved) {
@@ -187,20 +188,23 @@ namespace {
         operand = this->readUnsigned();
       }
       std::vector<Node> attributes;
-      while (this->stream.peek() == OPCODE_ATTRIBUTE) {
-        attributes.push_back(this->readNode());
+      if (!insideAttribute) {
+        // Attributes cannot have attributes!
+        while (this->isAttribute(this->stream.peek())) {
+          attributes.push_back(this->readNode(true));
+        }
       }
       std::vector<Node> children;
       auto count = childrenFromMachineByte(byte);
       if (count == SIZE_MAX) {
         // This is a list terminated with an OPCODE_END sentinel
         while (this->stream.peek() != OPCODE_END) {
-          children.push_back(this->readNode());
+          children.push_back(this->readNode(insideAttribute));
         }
         this->stream.get(); // skip the sentinel
       } else {
         for (size_t child = 0; child < count; ++child) {
-          children.push_back(this->readNode());
+          children.push_back(this->readNode(insideAttribute));
         }
       }
       if (!properties.operand) {
@@ -268,6 +272,9 @@ namespace {
         throw std::runtime_error("Truncated section in binary module");
       }
       return uint8_t(ch);
+    }
+    bool isAttribute(int peek) const {
+      return (peek >= this->attributeProperties.minbyte) && (peek <= this->attributeProperties.maxbyte);
     }
   };
 
@@ -586,47 +593,54 @@ egg::ovum::Memory egg::ovum::ModuleFactory::toMemory(IAllocator& allocator, cons
   return memory.build();
 }
 
-egg::ovum::ModuleBuilder::ModuleBuilder(IAllocator& allocator)
+egg::ovum::ModuleBuilderBase::ModuleBuilderBase(IAllocator& allocator)
   : allocator(allocator) {
 }
 
-egg::ovum::Node egg::ovum::ModuleBuilder::createModule(const Node& block) {
+void egg::ovum::ModuleBuilderBase::addAttribute(const String& key, const Node& value) {
+  assert(value != nullptr);
+  auto name = NodeFactory::create(this->allocator, egg::ovum::OPCODE_SVALUE, nullptr, nullptr, key);
+  auto attr = NodeFactory::create(this->allocator, egg::ovum::OPCODE_ATTRIBUTE, name, value);
+  this->attributes.emplace_back(std::move(attr));
+}
+
+egg::ovum::Node egg::ovum::ModuleBuilderBase::createModule(const Node& block) {
   return this->createNode(OPCODE_MODULE, block);
 }
 
-egg::ovum::Node egg::ovum::ModuleBuilder::createValueInt(Int value) {
+egg::ovum::Node egg::ovum::ModuleBuilderBase::createValueInt(Int value) {
   Nodes attrs;
   std::swap(this->attributes, attrs);
   return NodeFactory::create(this->allocator, OPCODE_IVALUE, nullptr, &attrs, value);
 }
 
-egg::ovum::Node egg::ovum::ModuleBuilder::createValueFloat(Float value) {
+egg::ovum::Node egg::ovum::ModuleBuilderBase::createValueFloat(Float value) {
   Nodes attrs;
   std::swap(this->attributes, attrs);
   return NodeFactory::create(this->allocator, OPCODE_FVALUE, nullptr, &attrs, value);
 }
 
-egg::ovum::Node egg::ovum::ModuleBuilder::createValueString(const String& value) {
+egg::ovum::Node egg::ovum::ModuleBuilderBase::createValueString(const String& value) {
   Nodes attrs;
   std::swap(this->attributes, attrs);
   return NodeFactory::create(this->allocator, OPCODE_SVALUE, nullptr, &attrs, value);
 }
 
-egg::ovum::Node egg::ovum::ModuleBuilder::createValueArray(const Nodes& elements) {
+egg::ovum::Node egg::ovum::ModuleBuilderBase::createValueArray(const Nodes& elements) {
   return this->createNode(OPCODE_AVALUE, elements);
 }
 
-egg::ovum::Node egg::ovum::ModuleBuilder::createValueObject(const Nodes& fields) {
+egg::ovum::Node egg::ovum::ModuleBuilderBase::createValueObject(const Nodes& fields) {
   return this->createNode(OPCODE_OVALUE, fields);
 }
 
-egg::ovum::Node egg::ovum::ModuleBuilder::createOperator(Opcode opcode, Int op, const Nodes& children) {
+egg::ovum::Node egg::ovum::ModuleBuilderBase::createOperator(Opcode opcode, Int op, const Nodes& children) {
   Nodes attrs;
   std::swap(this->attributes, attrs);
   return NodeFactory::create(this->allocator, opcode, &children, &attrs, op);
 }
 
-egg::ovum::Node egg::ovum::ModuleBuilder::createNode(Opcode opcode) {
+egg::ovum::Node egg::ovum::ModuleBuilderBase::createNode(Opcode opcode) {
   if (this->attributes.empty()) {
     return NodeFactory::create(this->allocator, opcode);
   }
@@ -635,7 +649,7 @@ egg::ovum::Node egg::ovum::ModuleBuilder::createNode(Opcode opcode) {
   return NodeFactory::create(this->allocator, opcode, nullptr, &attrs);
 }
 
-egg::ovum::Node egg::ovum::ModuleBuilder::createNode(Opcode opcode, const Node& child0) {
+egg::ovum::Node egg::ovum::ModuleBuilderBase::createNode(Opcode opcode, const Node& child0) {
   if (this->attributes.empty()) {
     return NodeFactory::create(this->allocator, opcode, child0);
   }
@@ -645,7 +659,7 @@ egg::ovum::Node egg::ovum::ModuleBuilder::createNode(Opcode opcode, const Node& 
   return NodeFactory::create(this->allocator, opcode, &nodes, &attrs);
 }
 
-egg::ovum::Node egg::ovum::ModuleBuilder::createNode(Opcode opcode, const Node& child0, const Node& child1) {
+egg::ovum::Node egg::ovum::ModuleBuilderBase::createNode(Opcode opcode, const Node& child0, const Node& child1) {
   if (this->attributes.empty()) {
     return NodeFactory::create(this->allocator, opcode, child0, child1);
   }
@@ -655,7 +669,7 @@ egg::ovum::Node egg::ovum::ModuleBuilder::createNode(Opcode opcode, const Node& 
   return NodeFactory::create(this->allocator, opcode, &nodes, &attrs);
 }
 
-egg::ovum::Node egg::ovum::ModuleBuilder::createNode(Opcode opcode, const Node& child0, const Node& child1, const Node& child2) {
+egg::ovum::Node egg::ovum::ModuleBuilderBase::createNode(Opcode opcode, const Node& child0, const Node& child1, const Node& child2) {
   if (this->attributes.empty()) {
     return NodeFactory::create(this->allocator, opcode, child0, child1, child2);
   }
@@ -665,7 +679,7 @@ egg::ovum::Node egg::ovum::ModuleBuilder::createNode(Opcode opcode, const Node& 
   return NodeFactory::create(this->allocator, opcode, &nodes, &attrs);
 }
 
-egg::ovum::Node egg::ovum::ModuleBuilder::createNode(Opcode opcode, const Node& child0, const Node& child1, const Node& child2, const Node& child3) {
+egg::ovum::Node egg::ovum::ModuleBuilderBase::createNode(Opcode opcode, const Node& child0, const Node& child1, const Node& child2, const Node& child3) {
   if (this->attributes.empty()) {
     return NodeFactory::create(this->allocator, opcode, child0, child1, child2, child3);
   }
@@ -675,7 +689,7 @@ egg::ovum::Node egg::ovum::ModuleBuilder::createNode(Opcode opcode, const Node& 
   return NodeFactory::create(this->allocator, opcode, &nodes, &attrs);
 }
 
-egg::ovum::Node egg::ovum::ModuleBuilder::createNode(Opcode opcode, const Nodes& children) {
+egg::ovum::Node egg::ovum::ModuleBuilderBase::createNode(Opcode opcode, const Nodes& children) {
   if (this->attributes.empty()) {
     return NodeFactory::create(this->allocator, opcode, children);
   }
