@@ -18,9 +18,9 @@ namespace {
     // Create a module that just constructs an array of values
     auto array = builder.createValueArray(avalues);
     ASSERT_NE(nullptr, array);
-    auto block = builder.createNode(OPCODE_BLOCK, array);
+    auto block = builder.createNode(OPCODE_BLOCK, std::move(array));
     ASSERT_NE(nullptr, block);
-    auto module = builder.createModule(block);
+    auto module = builder.createModule(std::move(block));
     ASSERT_NE(nullptr, module);
     out = ModuleFactory::fromRootNode(builder.allocator, *module);
   }
@@ -130,8 +130,8 @@ TEST(TestModule, ModuleBuilder) {
   egg::test::Allocator allocator;
   ModuleBuilder builder(allocator);
   auto noop = builder.createNode(OPCODE_NOOP);
-  auto block = builder.createNode(OPCODE_BLOCK, noop);
-  auto original = builder.createModule(block);
+  auto block = builder.createNode(OPCODE_BLOCK, std::move(noop));
+  auto original = builder.createModule(std::move(block));
   auto module = ModuleFactory::fromRootNode(allocator, *original);
   ASSERT_NE(nullptr, module);
   Node root{ &module->getRootNode() };

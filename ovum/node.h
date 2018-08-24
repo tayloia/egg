@@ -38,10 +38,10 @@ namespace egg::ovum {
   class NodeFactory {
   public:
     static Node create(IAllocator& allocator, Opcode opcode);
-    static Node create(IAllocator& allocator, Opcode opcode, const Node& child0); // WIBBLE move
-    static Node create(IAllocator& allocator, Opcode opcode, const Node& child0, const Node& child1);
-    static Node create(IAllocator& allocator, Opcode opcode, const Node& child0, const Node& child1, const Node& child2);
-    static Node create(IAllocator& allocator, Opcode opcode, const Node& child0, const Node& child1, const Node& child2, const Node& child3);
+    static Node create(IAllocator& allocator, Opcode opcode, Node&& child0);
+    static Node create(IAllocator& allocator, Opcode opcode, Node&& child0, Node&& child1);
+    static Node create(IAllocator& allocator, Opcode opcode, Node&& child0, Node&& child1, Node&& child2);
+    static Node create(IAllocator& allocator, Opcode opcode, Node&& child0, Node&& child1, Node&& child2, Node&& child3);
     static Node create(IAllocator& allocator, Opcode opcode, const Nodes& children);
     static Node create(IAllocator& allocator, Opcode opcode, const Nodes* children, const Nodes* attributes = nullptr);
     static Node create(IAllocator& allocator, Opcode opcode, const Nodes* children, const Nodes* attributes, Int operand);

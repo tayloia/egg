@@ -34,9 +34,9 @@ namespace egg::ovum {
       this->addAttribute(key, NodeFactory::createValue(this->allocator, value));
     }
     void addAttribute(const String& key, const char* value) = delete;
-    void addAttribute(const String& key, const Node& value);
+    void addAttribute(const String& key, Node&& value);
   public:
-    Node createModule(const Node& block);
+    Node createModule(Node&& block);
     Node createValueInt(Int value);
     Node createValueFloat(Float value);
     Node createValueString(const String& value);
@@ -44,11 +44,13 @@ namespace egg::ovum {
     Node createValueObject(const Nodes& fields);
     Node createOperator(Opcode opcode, Int op, const Nodes& children);
     Node createNode(Opcode opcode);
-    Node createNode(Opcode opcode, const Node& child0);
-    Node createNode(Opcode opcode, const Node& child0, const Node& child1);
-    Node createNode(Opcode opcode, const Node& child0, const Node& child1, const Node& child2);
-    Node createNode(Opcode opcode, const Node& child0, const Node& child1, const Node& child2, const Node& child3);
+    Node createNode(Opcode opcode, Node&& child0);
+    Node createNode(Opcode opcode, Node&& child0, Node&& child1);
+    Node createNode(Opcode opcode, Node&& child0, Node&& child1, Node&& child2);
+    Node createNode(Opcode opcode, Node&& child0, Node&& child1, Node&& child2, Node&& child3);
     Node createNode(Opcode opcode, const Nodes& children);
+  private:
+    Node createNodeWithAttributes(Opcode opcode, const Nodes* children);
   };
 
   class ModuleBuilderWithAttribute : public ModuleBuilderBase {

@@ -341,7 +341,7 @@ TEST(TestNode, Create0) {
 TEST(TestNode, Create1) {
   egg::test::Allocator allocator;
   auto child = NodeFactory::create(allocator, OPCODE_NULL);
-  auto parent = NodeFactory::create(allocator, OPCODE_AVALUE, child);
+  auto parent = NodeFactory::create(allocator, OPCODE_AVALUE, std::move(child));
   ASSERT_EQ(OPCODE_AVALUE, parent->getOpcode());
   ASSERT_EQ(1u, parent->getChildren());
   ASSERT_THROW(parent->getChild(1), std::out_of_range);
@@ -357,7 +357,7 @@ TEST(TestNode, Create2) {
   egg::test::Allocator allocator;
   auto child0 = NodeFactory::create(allocator, OPCODE_FALSE);
   auto child1 = NodeFactory::create(allocator, OPCODE_TRUE);
-  auto parent = NodeFactory::create(allocator, OPCODE_AVALUE, child0, child1);
+  auto parent = NodeFactory::create(allocator, OPCODE_AVALUE, std::move(child0), std::move(child1));
   ASSERT_EQ(OPCODE_AVALUE, parent->getOpcode());
   ASSERT_EQ(2u, parent->getChildren());
   ASSERT_THROW(parent->getChild(2), std::out_of_range);
@@ -375,7 +375,7 @@ TEST(TestNode, Create3) {
   auto child0 = NodeFactory::create(allocator, OPCODE_NULL);
   auto child1 = NodeFactory::create(allocator, OPCODE_FALSE);
   auto child2 = NodeFactory::create(allocator, OPCODE_TRUE);
-  auto parent = NodeFactory::create(allocator, OPCODE_AVALUE, child0, child1, child2);
+  auto parent = NodeFactory::create(allocator, OPCODE_AVALUE, std::move(child0), std::move(child1), std::move(child2));
   ASSERT_EQ(OPCODE_AVALUE, parent->getOpcode());
   ASSERT_EQ(3u, parent->getChildren());
   ASSERT_THROW(parent->getChild(3), std::out_of_range);
@@ -395,7 +395,7 @@ TEST(TestNode, Create4) {
   auto child1 = NodeFactory::create(allocator, OPCODE_FALSE);
   auto child2 = NodeFactory::create(allocator, OPCODE_TRUE);
   auto child3 = NodeFactory::create(allocator, OPCODE_VOID);
-  auto parent = NodeFactory::create(allocator, OPCODE_AVALUE, child0, child1, child2, child3);
+  auto parent = NodeFactory::create(allocator, OPCODE_AVALUE, std::move(child0), std::move(child1), std::move(child2), std::move(child3));
   ASSERT_EQ(OPCODE_AVALUE, parent->getOpcode());
   ASSERT_EQ(4u, parent->getChildren());
   ASSERT_THROW(parent->getChild(4), std::out_of_range);

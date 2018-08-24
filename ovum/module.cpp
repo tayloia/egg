@@ -597,15 +597,15 @@ egg::ovum::ModuleBuilderBase::ModuleBuilderBase(IAllocator& allocator)
   : allocator(allocator) {
 }
 
-void egg::ovum::ModuleBuilderBase::addAttribute(const String& key, const Node& value) {
+void egg::ovum::ModuleBuilderBase::addAttribute(const String& key, Node&& value) {
   assert(value != nullptr);
   auto name = NodeFactory::create(this->allocator, egg::ovum::OPCODE_SVALUE, nullptr, nullptr, key);
-  auto attr = NodeFactory::create(this->allocator, egg::ovum::OPCODE_ATTRIBUTE, name, value);
+  auto attr = NodeFactory::create(this->allocator, egg::ovum::OPCODE_ATTRIBUTE, std::move(name), std::move(value));
   this->attributes.emplace_back(std::move(attr));
 }
 
-egg::ovum::Node egg::ovum::ModuleBuilderBase::createModule(const Node& block) {
-  return this->createNode(OPCODE_MODULE, block);
+egg::ovum::Node egg::ovum::ModuleBuilderBase::createModule(Node&& block) {
+  return this->createNode(OPCODE_MODULE, std::move(block));
 }
 
 egg::ovum::Node egg::ovum::ModuleBuilderBase::createValueInt(Int value) {
@@ -649,51 +649,50 @@ egg::ovum::Node egg::ovum::ModuleBuilderBase::createNode(Opcode opcode) {
   return NodeFactory::create(this->allocator, opcode, nullptr, &attrs);
 }
 
-egg::ovum::Node egg::ovum::ModuleBuilderBase::createNode(Opcode opcode, const Node& child0) {
+egg::ovum::Node egg::ovum::ModuleBuilderBase::createNode(Opcode opcode, Node&& child0) {
   if (this->attributes.empty()) {
-    return NodeFactory::create(this->allocator, opcode, child0);
+    return NodeFactory::create(this->allocator, opcode, std::move(child0));
   }
-  Nodes nodes{ child0 };
+  Nodes nodes{ std::move(child0) };
   Nodes attrs;
   std::swap(this->attributes, attrs);
   return NodeFactory::create(this->allocator, opcode, &nodes, &attrs);
 }
 
-egg::ovum::Node egg::ovum::ModuleBuilderBase::createNode(Opcode opcode, const Node& child0, const Node& child1) {
+egg::ovum::Node egg::ovum::ModuleBuilderBase::createNode(Opcode opcode, Node&& child0, Node&& child1) {
   if (this->attributes.empty()) {
-    return NodeFactory::create(this->allocator, opcode, child0, child1);
+    return NodeFactory::create(this->allocator, opcode, std::move(child0), std::move(child1));
   }
-  Nodes nodes{ child0, child1 };
-  Nodes attrs;
-  std::swap(this->attributes, attrs);
-  return NodeFactory::create(this->allocator, opcode, &nodes, &attrs);
+  Nodes nodes{ std::move(child0), std::move(child1) };
+  return ModuleBuilderBase::createNodeWithAttributes(opcode, &nodes);
 }
 
-egg::ovum::Node egg::ovum::ModuleBuilderBase::createNode(Opcode opcode, const Node& child0, const Node& child1, const Node& child2) {
+egg::ovum::Node egg::ovum::ModuleBuilderBase::createNode(Opcode opcode, Node&& child0, Node&& child1, Node&& child2) {
   if (this->attributes.empty()) {
-    return NodeFactory::create(this->allocator, opcode, child0, child1, child2);
+    return NodeFactory::create(this->allocator, opcode, std::move(child0), std::move(child1), std::move(child2));
   }
-  Nodes nodes{ child0, child1, child2 };
-  Nodes attrs;
-  std::swap(this->attributes, attrs);
-  return NodeFactory::create(this->allocator, opcode, &nodes, &attrs);
+  Nodes nodes{ std::move(child0), std::move(child1), std::move(child2) };
+  return ModuleBuilderBase::createNodeWithAttributes(opcode, &nodes);
 }
 
-egg::ovum::Node egg::ovum::ModuleBuilderBase::createNode(Opcode opcode, const Node& child0, const Node& child1, const Node& child2, const Node& child3) {
+egg::ovum::Node egg::ovum::ModuleBuilderBase::createNode(Opcode opcode, Node&& child0, Node&& child1, Node&& child2, Node&& child3) {
   if (this->attributes.empty()) {
-    return NodeFactory::create(this->allocator, opcode, child0, child1, child2, child3);
+    return NodeFactory::create(this->allocator, opcode, std::move(child0), std::move(child1), std::move(child2), std::move(child3));
   }
-  Nodes nodes{ child0, child1, child2, child3 };
-  Nodes attrs;
-  std::swap(this->attributes, attrs);
-  return NodeFactory::create(this->allocator, opcode, &nodes, &attrs);
+  Nodes nodes{ std::move(child0), std::move(child1), std::move(child2), std::move(child3) };
+  return ModuleBuilderBase::createNodeWithAttributes(opcode, &nodes);
 }
 
 egg::ovum::Node egg::ovum::ModuleBuilderBase::createNode(Opcode opcode, const Nodes& children) {
   if (this->attributes.empty()) {
     return NodeFactory::create(this->allocator, opcode, children);
   }
+  return ModuleBuilderBase::createNodeWithAttributes(opcode, &children);
+}
+
+egg::ovum::Node egg::ovum::ModuleBuilderBase::createNodeWithAttributes(Opcode opcode, const Nodes* children) {
+  assert(!this->attributes.empty());
   Nodes attrs;
   std::swap(this->attributes, attrs);
-  return NodeFactory::create(this->allocator, opcode, &children, &attrs);
+  return NodeFactory::create(this->allocator, opcode, children, &attrs);
 }
