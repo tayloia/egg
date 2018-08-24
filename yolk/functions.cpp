@@ -23,7 +23,6 @@ public:
     // Use perfect forwarding to the constructor (automatically plumbed into the parent)
     return *allocator.create<T>(0, *this->parent, std::forward<ARGS>(args)...);
   }
-
   EggProgramStackless* pop();
 };
 

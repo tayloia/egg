@@ -51,5 +51,8 @@
     <ClInclude Include="..\ovum\test\etest.h">
       <Filter>Infrastructure Files</Filter>
     </ClInclude>
+    <ClInclude Include="..\ovum\test\ctest.h">
+      <Filter>Infrastructure Files</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

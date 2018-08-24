@@ -20,6 +20,7 @@
 #include "ovum/ovum.h"
 #include "ovum/node.h"
 #include "ovum/module.h"
+#include "ovum/program.h"
 
 #include "yolk/macros.h"
 #include "yolk/dictionaries.h"

@@ -4,6 +4,7 @@
 #include "yolk/egg-syntax.h"
 #include "yolk/egg-parser.h"
 #include "yolk/egg-engine.h"
+#include "yolk/egg-program.h"
 
 using namespace egg::yolk;
 
@@ -93,4 +94,10 @@ TEST(TestModules, Coverage) {
   FileTextStream stream("~/yolk/test/data/coverage.egg");
   auto retval = compile(stream);
   ASSERT_STARTSWITH(retval, "[A3 67 67 56 4D 00 ");
+}
+
+TEST(TestModules, Compiler) {
+  egg::test::Allocator allocator;
+  egg::test::Logger logger;
+  ASSERT_VARIANT(egg::ovum::VariantBits::Void, egg::test::Compiler::run(allocator, logger, "~/yolk/test/data/coverage.egg"));
 }

@@ -5,10 +5,39 @@
 #include "yolk/egg-parser.h"
 #include "yolk/egg-engine.h"
 #include "yolk/egg-program.h"
+#include "ovum/test/ctest.h"
 
 #include <cmath>
 
 namespace {
+  // The yolk system expects a shared_ptr to a logger, so we use this adapter for testing
+  class Relogger : public egg::ovum::ILogger {
+  private:
+    ILogger* logger;
+  public:
+    Relogger(ILogger& logger) : logger(&logger) {
+    }
+    virtual void log(Source source, Severity severity, const std::string & message) override {
+      this->logger->log(source, severity, message);
+    }
+  };
+
+  egg::ovum::Module compileModule(egg::ovum::IAllocator& allocator, egg::ovum::ILogger& logger, egg::yolk::TextStream& stream) {
+    auto relogger = std::make_shared<Relogger>(logger);
+    auto root = egg::yolk::EggParserFactory::parseModule(allocator, stream);
+    auto engine = egg::yolk::EggEngineFactory::createEngineFromParsed(allocator, root);
+    auto preparation = egg::yolk::EggEngineFactory::createPreparationContext(allocator, relogger);
+    if (engine->prepare(*preparation) == egg::ovum::ILogger::Severity::Error) {
+      return nullptr;
+    }
+    auto compilation = egg::yolk::EggEngineFactory::createCompilationContext(allocator, relogger);
+    egg::ovum::Module module;
+    if (engine->compile(*compilation, module) == egg::ovum::ILogger::Severity::Error) {
+      return nullptr;
+    }
+    return module;
+  }
+
   class EggProgramAssigneeIdentifier : public egg::yolk::IEggProgramAssignee {
   private:
     egg::yolk::EggProgramContext* program;
@@ -900,4 +929,20 @@ egg::ovum::Variant egg::yolk::EggProgramContext::raise(const egg::ovum::String& 
 
 egg::ovum::IAllocator& egg::yolk::EggProgramContext::getAllocator() const {
   return this->allocator;
+}
+
+egg::ovum::Module egg::test::Compiler::compileFile(egg::ovum::IAllocator& allocator, egg::ovum::ILogger& logger, const std::string& path) {
+  egg::yolk::FileTextStream stream(path);
+  return compileModule(allocator, logger, stream);
+}
+
+egg::ovum::Module egg::test::Compiler::compileText(egg::ovum::IAllocator& allocator, egg::ovum::ILogger& logger, const std::string& source) {
+  egg::yolk::StringTextStream stream(source);
+  return compileModule(allocator, logger, stream);
+}
+
+egg::ovum::Variant egg::test::Compiler::run(egg::ovum::IAllocator& allocator, egg::ovum::ILogger& logger, const std::string& path) {
+  auto module = egg::test::Compiler::compileFile(allocator, logger, path);
+  auto program = egg::ovum::ProgramFactory::create(allocator, logger);
+  return program->run(*module);
 }

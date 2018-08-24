@@ -564,7 +564,7 @@ namespace {
 }
 
 egg::ovum::Module egg::ovum::ModuleFactory::fromBinaryStream(IAllocator& allocator, std::istream& stream) {
-  HardPtr<ModuleDefault> module(allocator.create<ModuleDefault>(0, allocator));
+  auto module = allocator.make<ModuleDefault>();
   module->readFromStream(stream);
   return module;
 }
@@ -575,7 +575,7 @@ egg::ovum::Module egg::ovum::ModuleFactory::fromMemory(IAllocator& allocator, co
 }
 
 egg::ovum::Module egg::ovum::ModuleFactory::fromRootNode(IAllocator& allocator, INode& root) {
-  return Module(allocator.create<ModuleDefault>(0, allocator, &root));
+  return allocator.make<ModuleDefault, Module>(&root);
 }
 
 void egg::ovum::ModuleFactory::toBinaryStream(const IModule& module, std::ostream& stream) {

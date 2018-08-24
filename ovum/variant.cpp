@@ -522,7 +522,7 @@ egg::ovum::HardPtr<egg::ovum::IVariantSoft> egg::ovum::VariantFactory::createVar
     soften = value.u.p;
     value.kind = VariantBits::Pointer;
   }
-  HardPtr<IVariantSoft> created{ allocator.create<VariantSoft>(0, allocator, std::move(value)) };
+  auto created = allocator.make<VariantSoft>(std::move(value));
   assert(created != nullptr);
   basket.take(*created);
   if (soften != nullptr) {

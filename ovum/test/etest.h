@@ -35,6 +35,57 @@ namespace egg::test {
     }
   };
 
+  class Logger final : public egg::ovum::ILogger {
+    Logger(const Logger&) = delete;
+    Logger& operator=(const Logger&) = delete;
+  private:
+    std::string resource;
+  public:
+    std::stringstream logged;
+    explicit Logger(const std::string& resource = std::string())
+      : resource(resource) {
+    }
+    virtual void log(Source source, Severity severity, const std::string& message) override {
+      std::string buffer;
+      switch (source) {
+      case Source::Compiler:
+        buffer = "<COMPILER>";
+        break;
+      case Source::Runtime:
+        buffer = "<RUNTIME>";
+        break;
+      case Source::User:
+        break;
+      }
+      switch (severity) {
+      case Severity::Debug:
+        buffer += "<DEBUG>";
+        break;
+      case Severity::Verbose:
+        buffer += "<VERBOSE>";
+        break;
+      case Severity::Warning:
+        buffer += "<WARNING>";
+        break;
+      case Severity::Error:
+        buffer += "<ERROR>";
+        break;
+      case Severity::None:
+      case Severity::Information:
+        break;
+      }
+      buffer += message;
+      std::cout << buffer << std::endl;
+      if (!this->resource.empty()) {
+        std::string to = "<RESOURCE>";
+        for (auto pos = buffer.find(this->resource); pos != std::string::npos; pos = buffer.find(this->resource, pos + to.length())) {
+          buffer.replace(pos, this->resource.length(), to);
+        }
+      }
+      this->logged << buffer << '\n';
+    }
+  };
+
   inline void assertString(const char* expected, const egg::ovum::String& actual) {
     ASSERT_STREQ(expected, actual.toUTF8().c_str());
   }

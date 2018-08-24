@@ -41,6 +41,9 @@
     <ClCompile Include="..\ovum\context.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\ovum\program.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\ovum\ovum.h">
@@ -80,6 +83,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="..\ovum\type.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ovum\program.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
