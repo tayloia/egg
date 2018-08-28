@@ -22,20 +22,25 @@ namespace egg::ovum {
   protected:
     VariantBits kind;
   public:
-    explicit VariantKind(VariantBits bits) : kind(bits) {
-    }
-    bool hasOne(VariantBits mask) const {
-      return Bits::hasOneSet(this->kind, mask);
-    }
-    bool hasAny(VariantBits mask) const {
-      return Bits::hasAnySet(this->kind, mask);
-    }
-    bool hasAll(VariantBits mask) const {
-      return Bits::hasAllSet(this->kind, mask);
-    }
-    bool is(VariantBits value) const {
-      return this->kind == value;
-    }
+    explicit VariantKind(VariantBits bits) : kind(bits) {}
+    bool hasOne(VariantBits mask) const { return Bits::hasOneSet(this->kind, mask); }
+    bool hasAny(VariantBits mask) const { return Bits::hasAnySet(this->kind, mask); }
+    bool hasAll(VariantBits mask) const { return Bits::hasAllSet(this->kind, mask); }
+    bool hasBool() const { return Bits::hasAnySet(this->kind, VariantBits::Bool); }
+    bool hasString() const { return Bits::hasAnySet(this->kind, VariantBits::String); }
+    bool hasObject() const { return Bits::hasAnySet(this->kind, VariantBits::Object); }
+    bool hasPointer() const { return Bits::hasAnySet(this->kind, VariantBits::Pointer); }
+    bool hasIndirect() const { return Bits::hasAnySet(this->kind, VariantBits::Indirect); }
+    bool hasThrow() const { return Bits::hasAnySet(this->kind, VariantBits::Throw); }
+    bool hasYield() const { return Bits::hasAnySet(this->kind, VariantBits::Yield); }
+    bool hasFlowControl() const { return Bits::hasAnySet(this->kind, VariantBits::FlowControl); }
+    bool is(VariantBits value) const { return this->kind == value; }
+    bool isVoid() const { return this->kind == VariantBits::Void; }
+    bool isNull() const { return this->kind == VariantBits::Null; }
+    bool isBool() const { return this->kind == VariantBits::Bool; }
+    bool isInt() const { return this->kind == VariantBits::Int; }
+    bool isFloat() const { return this->kind == VariantBits::Float; }
+    bool isString() const { return this->kind == (VariantBits::String | VariantBits::Hard); }
     VariantBits getKind() const {
       return this->kind;
     }
@@ -229,18 +234,6 @@ namespace egg::ovum {
     // Properties
     Type getRuntimeType() const;
     String toString() const;
-    bool isVoid() const { return this->is(VariantBits::Void); }
-    bool isNull() const { return this->is(VariantBits::Null); }
-    bool isBool() const { return this->is(VariantBits::Bool); }
-    bool isInt() const { return this->is(VariantBits::Int); }
-    bool isFloat() const { return this->is(VariantBits::Float); }
-    bool isString() const { return this->is(VariantBits::String | VariantBits::Hard); }
-    bool hasBool() const { return this->hasAny(VariantBits::Bool); }
-    bool hasString() const { return this->hasAny(VariantBits::String); }
-    bool hasObject() const { return this->hasAny(VariantBits::Object); }
-    bool hasPointer() const { return this->hasAny(VariantBits::Pointer); }
-    bool hasIndirect() const { return this->hasAny(VariantBits::Indirect); }
-    bool hasFlowControl() const { return this->hasAny(VariantBits::FlowControl); }
     bool stripFlowControl(VariantBits bits);
     void addFlowControl(VariantBits bits);
     const Variant& direct() const;

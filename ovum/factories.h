@@ -176,6 +176,7 @@ namespace egg::ovum {
 
   class ObjectFactory {
   public:
+    static Object createVanillaArray(IAllocator& allocator, size_t size = 0);
     static Object createVanillaObject(IAllocator& allocator);
   };
 
@@ -201,7 +202,7 @@ namespace egg::ovum {
 
   class BasketFactory {
   public:
-    static HardPtr<IBasket> createBasket(IAllocator& allocator);
+    static Basket createBasket(IAllocator& allocator);
   };
 }
 

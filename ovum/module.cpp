@@ -8,6 +8,81 @@
 namespace {
   using namespace egg::ovum;
 
+  struct OpcodeTable {
+    static const OpcodeTable instance;
+    Opcode opcode[256];
+    OpcodeProperties properties[256];
+  private:
+    OpcodeTable() {
+      std::memset(this->opcode, -1, sizeof(this->opcode));
+      std::memset(this->properties, 0, sizeof(this->properties));
+      const size_t N = EGG_VM_NARGS; // used in the macro below
+#define EGG_VM_OPCODES_TABLE(opcode, minbyte, minargs, maxargs, text) this->fill(opcode, minargs, maxargs, text);
+      EGG_VM_OPCODES(EGG_VM_OPCODES_TABLE)
+#undef EGG_VM_OPCODES_TABLE
+    }
+    void fill(Opcode code, size_t minargs, size_t maxargs, const char* text) {
+      assert(code != OPCODE_reserved);
+      assert(text != nullptr);
+      assert(minargs <= maxargs);
+      assert(maxargs <= EGG_VM_NARGS);
+      assert((code >= 0x00) && (code <= 0xFF));
+      auto& prop = this->properties[code];
+      assert(prop.name == 0);
+      prop.name = text;
+      prop.minargs = minargs;
+      prop.maxargs = (maxargs < EGG_VM_NARGS) ? maxargs : SIZE_MAX;
+      prop.minbyte = uint8_t(code);
+      prop.maxbyte = uint8_t(code + maxargs - minargs);
+      prop.operand = (code < EGG_VM_ISTART);
+      auto index = size_t(code);
+      while (minargs++ <= maxargs) {
+        assert(index <= 0xFF);
+        assert(this->opcode[index] == OPCODE_reserved);
+        this->opcode[index++] = code;
+      }
+    }
+  };
+  const OpcodeTable OpcodeTable::instance{};
+
+  struct OperatorTable {
+    static const OperatorTable instance;
+    OperatorProperties properties[129];
+  private:
+    OperatorTable() {
+      std::memset(this->properties, 0, sizeof(this->properties));
+#define EGG_VM_OPERATORS_TABLE(oper, opclass, index, text) this->fill(oper, opclass, index, text);
+      EGG_VM_OPERATORS(EGG_VM_OPERATORS_TABLE)
+#undef EGG_VM_OPERATORS_TABLE
+    }
+    void fill(Operator oper, Opclass opclass, size_t index, const char* text) {
+      assert(text != nullptr);
+      assert((oper >= 0x00) && (oper <= 0x80)); // sic [0..128] inclusive
+      auto& prop = this->properties[oper];
+      assert(prop.name == 0);
+      prop.name = text;
+      prop.opclass = opclass;
+      prop.index = index;
+      prop.operands = 1 + size_t(oper) / EGG_VM_OOSTEP;
+      switch (opclass) {
+      case OPCLASS_UNARY:
+        assert(prop.operands == 1);
+        break;
+      case OPCLASS_BINARY:
+      case OPCLASS_COMPARE:
+        assert(prop.operands == 2);
+        break;
+      case OPCLASS_TERNARY:
+        assert(prop.operands == 3);
+        break;
+      default:
+        assert(false);
+        break;
+      }
+    }
+  };
+  const OperatorTable OperatorTable::instance{};
+
   class MemoryBuf : public std::streambuf {
   public:
     MemoryBuf(const char* begin, const char* end) {
@@ -43,7 +118,7 @@ namespace {
     const OpcodeProperties& attributeProperties;
   public:
     ModuleReader(IAllocator& allocator, std::istream& stream)
-      : allocator(allocator), stream(stream), attributeProperties(opcodeProperties(OPCODE_ATTRIBUTE)) {
+      : allocator(allocator), stream(stream), attributeProperties(OpcodeProperties::from(OPCODE_ATTRIBUTE)) {
     }
     Node read() {
       Node root;
@@ -178,12 +253,12 @@ namespace {
     }
     Node readNode(bool insideAttribute) const {
       auto byte = this->readByte();
-      auto opcode = opcodeFromMachineByte(byte);
+      auto opcode = Module::opcodeFromMachineByte(byte);
       if (opcode == OPCODE_reserved) {
         throw std::runtime_error("Invalid opcode in code section of binary module");
       }
       auto operand = std::numeric_limits<uint64_t>::max();
-      auto& properties = opcodeProperties(opcode);
+      auto& properties = OpcodeProperties::from(opcode);
       if (properties.operand) {
         operand = this->readUnsigned();
       }
@@ -195,7 +270,7 @@ namespace {
         }
       }
       std::vector<Node> children;
-      auto count = childrenFromMachineByte(byte);
+      auto count = Module::childrenFromMachineByte(byte);
       if (!properties.validate(count, properties.operand)) {
         throw std::runtime_error("Invalid number of node children in binary module");
       }
@@ -458,7 +533,7 @@ namespace {
     template<typename TARGET>
     void writeNode(TARGET& target, const INode& node) const {
       auto opcode = node.getOpcode();
-      auto& properties = opcodeProperties(opcode);
+      auto& properties = OpcodeProperties::from(opcode);
       auto n = node.getChildren();
       if ((n < properties.minargs) || (n > properties.maxargs)) {
         throw std::runtime_error("Invalid number of opcode arguments in binary module");
@@ -563,10 +638,24 @@ namespace {
   };
 }
 
+egg::ovum::Opcode egg::ovum::Module::opcodeFromMachineByte(uint8_t byte) {
+  return OpcodeTable::instance.opcode[byte];
+}
+
+const egg::ovum::OpcodeProperties& egg::ovum::OpcodeProperties::from(Opcode opcode) {
+  assert((opcode >= 1) && (opcode <= 255));
+  return OpcodeTable::instance.properties[opcode];
+}
+
+const egg::ovum::OperatorProperties& egg::ovum::OperatorProperties::from(Operator oper) {
+  assert((oper >= 0) && (oper <= 128));
+  return OperatorTable::instance.properties[oper];
+}
+
 egg::ovum::Module egg::ovum::ModuleFactory::fromBinaryStream(IAllocator& allocator, std::istream& stream) {
   auto module = allocator.make<ModuleDefault>();
   module->readFromStream(stream);
-  return module;
+  return Module(module.get());
 }
 
 egg::ovum::Module egg::ovum::ModuleFactory::fromMemory(IAllocator& allocator, const uint8_t* begin, const uint8_t* end) {
@@ -638,8 +727,8 @@ egg::ovum::Node egg::ovum::ModuleBuilderBase::createValueObject(const Nodes& fie
 }
 
 egg::ovum::Node egg::ovum::ModuleBuilderBase::createOperator(Opcode opcode, Operator oper, const Nodes& children) {
-  assert(opcodeProperties(opcode).validate(children.size(), true));
-  assert(operatorProperties(oper).validate(children.size()));
+  assert(OpcodeProperties::from(opcode).validate(children.size(), true));
+  assert(OperatorProperties::from(oper).validate(children.size()));
   Nodes attrs;
   std::swap(this->attributes, attrs);
   return NodeFactory::create(this->allocator, opcode, &children, &attrs, Int(oper));

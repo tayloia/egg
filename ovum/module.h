@@ -9,7 +9,21 @@ namespace egg::ovum {
   public:
     virtual INode& getRootNode() const = 0;
   };
-  using Module = HardPtr<IModule>;
+
+  class Module : public HardPtr<IModule> {
+  public:
+    Module(nullptr_t = nullptr) {} // implicit
+    explicit Module(const IModule* module) : HardPtr(module) {}
+
+    // Helpers
+    static size_t childrenFromMachineByte(uint8_t byte) {
+      // Compute the number of children from a VM code byte
+      auto following = byte % (EGG_VM_NARGS + 1);
+      return (following < EGG_VM_NARGS) ? following : SIZE_MAX;
+    }
+    static Opcode opcodeFromMachineByte(uint8_t byte);
+  };
+
 
   class ModuleFactory {
   public:

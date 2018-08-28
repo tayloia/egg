@@ -371,4 +371,6 @@ namespace egg::ovum {
     static String signatureToString(const IFunctionSignature& signature, Parts parts);
     static Variant validateCall(IExecution& execution, const IFunctionSignature& signature, const IParameters& runtime);
   };
+
+  using Basket = HardPtr<IBasket>;
 }

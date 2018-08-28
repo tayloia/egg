@@ -26,7 +26,7 @@ egg::yolk::EggProgramCompilerNode& egg::yolk::EggProgramCompilerNode::add(const 
     return this->add(*child);
   }
   this->failed = true;
-  this->nodes.push_back(this->compiler.raise("Unexpected null child at index ", std::to_string(this->nodes.size()), " of ", egg::ovum::opcodeProperties(this->opcode).name));
+  this->nodes.push_back(this->compiler.raise("Unexpected null child at index ", std::to_string(this->nodes.size()), " of ", egg::ovum::OpcodeProperties::from(this->opcode).name));
   return *this;
 }
 

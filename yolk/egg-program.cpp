@@ -943,6 +943,18 @@ egg::ovum::Module egg::test::Compiler::compileText(egg::ovum::IAllocator& alloca
 
 egg::ovum::Variant egg::test::Compiler::run(egg::ovum::IAllocator& allocator, egg::ovum::ILogger& logger, const std::string& path) {
   auto module = egg::test::Compiler::compileFile(allocator, logger, path);
+  if (module == nullptr) {
+    return egg::ovum::Variant::Rethrow;
+  }
   auto program = egg::ovum::ProgramFactory::create(allocator, logger);
-  return program->run(*module);
+  auto result = program->run(*module);
+  if (result.hasThrow()) {
+    auto thrown = result;
+    thrown.stripFlowControl(egg::ovum::VariantBits::Throw);
+    if (!thrown.isVoid()) {
+      // Don't log a rethrow
+      logger.log(egg::ovum::ILogger::Source::User, egg::ovum::ILogger::Severity::Error, thrown.toString().toUTF8());
+    }
+  }
+  return result;
 }

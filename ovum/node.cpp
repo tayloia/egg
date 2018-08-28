@@ -6,81 +6,6 @@
 namespace {
   using namespace egg::ovum;
 
-  struct OpcodeTable {
-    static const OpcodeTable instance;
-    Opcode opcode[256];
-    OpcodeProperties properties[256];
-  private:
-    OpcodeTable() {
-      std::memset(this->opcode, -1, sizeof(this->opcode));
-      std::memset(this->properties, 0, sizeof(this->properties));
-      const size_t N = EGG_VM_NARGS; // used in the macro below
-#define EGG_VM_OPCODES_TABLE(opcode, minbyte, minargs, maxargs, text) this->fill(opcode, minargs, maxargs, text);
-      EGG_VM_OPCODES(EGG_VM_OPCODES_TABLE)
-#undef EGG_VM_OPCODES_TABLE
-    }
-    void fill(Opcode code, size_t minargs, size_t maxargs, const char* text) {
-      assert(code != OPCODE_reserved);
-      assert(text != nullptr);
-      assert(minargs <= maxargs);
-      assert(maxargs <= EGG_VM_NARGS);
-      assert((code >= 0x00) && (code <= 0xFF));
-      auto& prop = this->properties[code];
-      assert(prop.name == 0);
-      prop.name = text;
-      prop.minargs = minargs;
-      prop.maxargs = (maxargs < EGG_VM_NARGS) ? maxargs : SIZE_MAX;
-      prop.minbyte = uint8_t(code);
-      prop.maxbyte = uint8_t(code + maxargs - minargs);
-      prop.operand = (code < EGG_VM_ISTART);
-      auto index = size_t(code);
-      while (minargs++ <= maxargs) {
-        assert(index <= 0xFF);
-        assert(this->opcode[index] == OPCODE_reserved);
-        this->opcode[index++] = code;
-      }
-    }
-  };
-  const OpcodeTable OpcodeTable::instance{};
-
-  struct OperatorTable {
-    static const OperatorTable instance;
-    OperatorProperties properties[129];
-  private:
-    OperatorTable() {
-      std::memset(this->properties, 0, sizeof(this->properties));
-#define EGG_VM_OPERATORS_TABLE(oper, opclass, index, text) this->fill(oper, opclass, index, text);
-      EGG_VM_OPERATORS(EGG_VM_OPERATORS_TABLE)
-#undef EGG_VM_OPERATORS_TABLE
-    }
-    void fill(Operator oper, Opclass opclass, size_t index, const char* text) {
-      assert(text != nullptr);
-      assert((oper >= 0x00) && (oper <= 0x80)); // sic [0..128] inclusive
-      auto& prop = this->properties[oper];
-      assert(prop.name == 0);
-      prop.name = text;
-      prop.opclass = opclass;
-      prop.index = index;
-      prop.operands = 1 + size_t(oper) / EGG_VM_OOSTEP;
-      switch (opclass) {
-      case OPCLASS_UNARY:
-        assert(prop.operands == 1);
-        break;
-      case OPCLASS_BINARY:
-      case OPCLASS_COMPARE:
-        assert(prop.operands == 2);
-        break;
-      case OPCLASS_TERNARY:
-        assert(prop.operands == 3);
-        break;
-      default:
-        assert(false);
-        break;
-      }
-    }
-  };
-  const OperatorTable OperatorTable::instance{};
-
   template<typename EXTRA>
   class NodeContiguous final : public HardReferenceCounted<INode> {
     NodeContiguous(const NodeContiguous&) = delete;
@@ -328,7 +253,43 @@ namespace {
 
   bool validateOpcode(Opcode opcode, const Nodes* children, bool has_operand) {
     auto args = (children == nullptr) ? size_t(0) : children->size();
-    return opcodeProperties(opcode).validate(args, has_operand);
+    return OpcodeProperties::from(opcode).validate(args, has_operand);
+  }
+
+  void buildNodeString(StringBuilder& sb, const INode* node) {
+    if (node == nullptr) {
+      sb.add("<null>");
+    } else {
+      auto& props = OpcodeProperties::from(node->getOpcode());
+      sb.add('(', props.name);
+      // Attributes
+      auto n = node->getAttributes();
+      for (size_t i = 0; i < n; ++i) {
+        sb.add(' ');
+        buildNodeString(sb, &node->getAttribute(i));
+      }
+      // Operand
+      switch (node->getOperand()) {
+      case INode::Operand::Int:
+        sb.add(' ', node->getInt());
+        break;
+      case INode::Operand::Float:
+        sb.add(' ', node->getFloat());
+        break;
+      case INode::Operand::String:
+        sb.add(' ', '"', node->getString(), '"');
+        break;
+      case INode::Operand::None:
+        break;
+      }
+      // Children
+      n = node->getChildren();
+      for (size_t i = 0; i < n; ++i) {
+        sb.add(' ');
+        buildNodeString(sb, &node->getChild(i));
+      }
+      sb.add(')');
+    }
   }
 }
 
@@ -389,34 +350,20 @@ egg::ovum::Float egg::ovum::MantissaExponent::toFloat() const {
   return std::ldexp(this->mantissa, int(this->exponent));
 }
 
-egg::ovum::Opcode egg::ovum::opcodeFromMachineByte(uint8_t byte) {
-  return OpcodeTable::instance.opcode[byte];
-}
-
-const egg::ovum::OpcodeProperties& egg::ovum::opcodeProperties(Opcode opcode) {
-  assert((opcode >= 1) && (opcode <= 255));
-  return OpcodeTable::instance.properties[opcode];
-}
-
-const egg::ovum::OperatorProperties& egg::ovum::operatorProperties(Operator oper) {
-  assert((oper >= 0) && (oper <= 128));
-  return OperatorTable::instance.properties[oper];
-}
-
 egg::ovum::Node egg::ovum::NodeFactory::create(IAllocator& allocator, Opcode opcode) {
-  assert(opcodeProperties(opcode).validate(0, false));
+  assert(OpcodeProperties::from(opcode).validate(0, false));
   return Node(createNodeExtra<NodeChildrenFixed<0>, NodeAttributesFixed<0>, NodeOperandNone>(allocator, opcode, 0, nullptr));
 }
 
 egg::ovum::Node egg::ovum::NodeFactory::create(IAllocator& allocator, Opcode opcode, Node&& child0) {
-  assert(opcodeProperties(opcode).validate(1, false));
+  assert(OpcodeProperties::from(opcode).validate(1, false));
   auto* node = createNodeExtra<NodeChildrenFixed<1>, NodeAttributesFixed<0>, NodeOperandNone>(allocator, opcode, 1, nullptr);
   node->initChild(0, std::move(child0));
   return Node(node);
 }
 
 egg::ovum::Node egg::ovum::NodeFactory::create(IAllocator& allocator, Opcode opcode, Node&& child0, Node&& child1) {
-  assert(opcodeProperties(opcode).validate(2, false));
+  assert(OpcodeProperties::from(opcode).validate(2, false));
   auto* node = createNodeExtra<NodeChildrenFixed<2>, NodeAttributesFixed<0>, NodeOperandNone>(allocator, opcode, 2, nullptr);
   node->initChild(0, child0);
   node->initChild(1, child1);
@@ -424,7 +371,7 @@ egg::ovum::Node egg::ovum::NodeFactory::create(IAllocator& allocator, Opcode opc
 }
 
 egg::ovum::Node egg::ovum::NodeFactory::create(IAllocator& allocator, Opcode opcode, Node&& child0, Node&& child1, Node&& child2) {
-  assert(opcodeProperties(opcode).validate(3, false));
+  assert(OpcodeProperties::from(opcode).validate(3, false));
   auto* node = createNodeExtra<NodeChildrenFixed<3>, NodeAttributesFixed<0>, NodeOperandNone>(allocator, opcode, 3, nullptr);
   node->initChild(0, child0);
   node->initChild(1, child1);
@@ -433,7 +380,7 @@ egg::ovum::Node egg::ovum::NodeFactory::create(IAllocator& allocator, Opcode opc
 }
 
 egg::ovum::Node egg::ovum::NodeFactory::create(IAllocator& allocator, Opcode opcode, Node&& child0, Node&& child1, Node&& child2, Node&& child3) {
-  assert(opcodeProperties(opcode).validate(4, false));
+  assert(OpcodeProperties::from(opcode).validate(4, false));
   auto* node = createNodeExtra<NodeChildrenFixed<4>, NodeAttributesFixed<0>, NodeOperandNone>(allocator, opcode, 4, nullptr);
   node->initChild(0, child0);
   node->initChild(1, child1);
@@ -493,4 +440,10 @@ egg::ovum::Node egg::ovum::NodeFactory::createValue(IAllocator& allocator, doubl
 
 egg::ovum::Node egg::ovum::NodeFactory::createValue(IAllocator& allocator, const String& value) {
   return createNodeOperand<NodeOperandString>(allocator, OPCODE_SVALUE, value);
+}
+
+egg::ovum::String egg::ovum::Node::toString(const INode* node) {
+  StringBuilder sb;
+  buildNodeString(sb, node);
+  return sb.str();
 }

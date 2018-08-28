@@ -484,6 +484,9 @@ egg::ovum::Type egg::ovum::Variant::getRuntimeType() const {
 egg::ovum::String egg::ovum::Variant::toString() const {
   // OPTIMIZE
   assert(this->validate());
+  if (this->hasIndirect()) {
+    return this->direct().toString();
+  }
   if (this->hasObject()) {
     auto str = this->getObject()->toString();
     if (str.isString()) {

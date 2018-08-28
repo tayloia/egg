@@ -32,7 +32,19 @@ namespace egg::ovum {
     virtual INode& getAttribute(size_t index) const = 0;
     virtual void setChild(size_t index, INode& value) = 0;
   };
-  using Node = HardPtr<INode>;
+
+  class Node : public HardPtr<INode> {
+  public:
+    Node(nullptr_t = nullptr) {} // implicit
+    explicit Node(const INode* node) : HardPtr(node) {}
+    String toString() const {
+      return Node::toString(this->get());
+    }
+
+    // Helpers
+    static String toString(const INode* node);
+  };
+
   using Nodes = std::vector<Node>;
 
   class NodeFactory {
@@ -55,13 +67,6 @@ namespace egg::ovum {
     static Node createValue(IAllocator& allocator, double value);
     static Node createValue(IAllocator& allocator, const String& value);
   };
-  inline size_t childrenFromMachineByte(uint8_t byte) {
-    // Compute the number of children from a VM code byte
-    auto following = byte % (EGG_VM_NARGS + 1);
-    return (following < EGG_VM_NARGS) ? following : SIZE_MAX;
-  }
-
-  Opcode opcodeFromMachineByte(uint8_t byte);
 
   struct OpcodeProperties {
     const char* name;
@@ -85,8 +90,8 @@ namespace egg::ovum {
     bool validate(size_t args, bool has_operand) const {
       return (this->name != nullptr) && (args >= this->minargs) && (args <= this->maxargs) && (has_operand == this->operand);
     }
+    static const OpcodeProperties& from(Opcode opcode);
   };
-  const OpcodeProperties& opcodeProperties(Opcode opcode);
 
   struct OperatorProperties {
     const char* name;
@@ -96,6 +101,6 @@ namespace egg::ovum {
     bool validate(size_t args) const {
       return (this->name != nullptr) && (args == this->operands);
     }
+    static const OperatorProperties& from(Operator oper);
   };
-  const OperatorProperties& operatorProperties(Operator oper);
 }
