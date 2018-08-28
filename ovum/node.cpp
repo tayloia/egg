@@ -45,6 +45,9 @@ namespace {
     virtual String getString() const override {
       return this->extra()->getString();
     }
+    virtual Operator getOperator() const override {
+      return this->extra()->getOperator();
+    }
     virtual size_t getAttributes() const override {
       return this->extra()->attributes;
     }
@@ -108,6 +111,9 @@ namespace {
     String getString() const {
       throw std::runtime_error("Attempt to read non-existent string value of AST node");
     }
+    Operator getOperator() const {
+      throw std::runtime_error("Attempt to read non-existent operator value of AST node");
+    }
   };
 
   struct NodeOperandInt {
@@ -125,6 +131,9 @@ namespace {
     }
     String getString() const {
       throw std::runtime_error("Attempt to read string value of AST node with integer value");
+    }
+    Operator getOperator() const {
+      throw std::runtime_error("Attempt to read operator value of AST node with integer value");
     }
     Int operand;
   };
@@ -145,6 +154,9 @@ namespace {
     String getString() const {
       throw std::runtime_error("Attempt to read string value of AST node with floating-point value");
     }
+    Operator getOperator() const {
+      throw std::runtime_error("Attempt to read operator value of AST node with floating-point value");
+    }
     Float operand;
   };
 
@@ -164,7 +176,32 @@ namespace {
     String getString() const {
       return this->operand;
     }
+    Operator getOperator() const {
+      throw std::runtime_error("Attempt to read operator value of AST node with string value");
+    }
     String operand;
+  };
+
+  struct NodeOperandOperator {
+    using Type = Operator;
+    explicit NodeOperandOperator(Type operand) : operand(operand) {
+    }
+    INode::Operand getOperand() const {
+      return INode::Operand::Operator;
+    }
+    Int getInt() const {
+      throw std::runtime_error("Attempt to read integer value of AST node with operator value");
+    }
+    Float getFloat() const {
+      throw std::runtime_error("Attempt to read floating-point value of AST node with operator value");
+    }
+    String getString() const {
+      throw std::runtime_error("Attempt to read string value of AST node with operator value");
+    }
+    Operator getOperator() const {
+      return this->operand;
+    }
+    Operator operand;
   };
 
   template<size_t N>
@@ -260,7 +297,8 @@ namespace {
     if (node == nullptr) {
       sb.add("<null>");
     } else {
-      auto& props = OpcodeProperties::from(node->getOpcode());
+      auto opcode = node->getOpcode();
+      auto& props = OpcodeProperties::from(opcode);
       sb.add('(', props.name);
       // Attributes
       auto n = node->getAttributes();
@@ -278,6 +316,9 @@ namespace {
         break;
       case INode::Operand::String:
         sb.add(' ', '"', node->getString(), '"');
+        break;
+      case INode::Operand::Operator:
+        sb.add(' ', OperatorProperties::from(node->getOperator()).name);
         break;
       case INode::Operand::None:
         break;
@@ -412,6 +453,11 @@ egg::ovum::Node egg::ovum::NodeFactory::create(IAllocator& allocator, Opcode opc
 egg::ovum::Node egg::ovum::NodeFactory::create(IAllocator& allocator, Opcode opcode, const Nodes* children, const Nodes* attributes, const String& value) {
   assert(validateOpcode(opcode, children, true));
   return createNodeExtra<NodeOperandString>(allocator, opcode, children, attributes, value);
+}
+
+egg::ovum::Node egg::ovum::NodeFactory::create(IAllocator& allocator, Opcode opcode, const Nodes* children, const Nodes* attributes, Operator value) {
+  assert(validateOpcode(opcode, children, true));
+  return createNodeExtra<NodeOperandOperator>(allocator, opcode, children, attributes, value);
 }
 
 egg::ovum::Node egg::ovum::NodeFactory::createValue(IAllocator& allocator, nullptr_t) {

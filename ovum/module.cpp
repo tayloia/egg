@@ -396,6 +396,10 @@ namespace {
         // Keep track of the strings
         this->foundString(node.getString());
         break;
+      case INode::Operand::Operator:
+        // Keep track of the integer operators
+        this->foundInt(Int(node.getOperator()));
+        break;
       case INode::Operand::None:
         // Nothing to keep track of
         break;
@@ -556,7 +560,11 @@ namespace {
           this->writeUnsigned(target, this->svalues.at(node.getString()));
           break;
         default:
-          this->writeUnsigned(target, uint64_t(node.getInt()));
+          if (node.getOperand() == INode::Operand::Operator) {
+            this->writeUnsigned(target, uint64_t(node.getOperator()));
+          } else {
+            this->writeUnsigned(target, uint64_t(node.getInt()));
+          }
           break;
         }
         EGG_WARNING_SUPPRESS_SWITCH_END

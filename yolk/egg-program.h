@@ -334,7 +334,7 @@ namespace egg::yolk {
       return this->add(value).add(std::forward<ARGS>(args)...);
     }
     egg::ovum::Node build();
-    egg::ovum::Node build(egg::ovum::Int operand);
+    egg::ovum::Node build(egg::ovum::Operator operand);
   };
 
   class EggProgramCompiler {
@@ -367,7 +367,7 @@ namespace egg::yolk {
     }
     template<typename... ARGS>
     egg::ovum::Node operation(egg::ovum::Opcode opcode, egg::ovum::Operator oper, ARGS&&... args) {
-      return EggProgramCompilerNode(*this, opcode).add(std::forward<ARGS>(args)...).build(egg::ovum::Int(oper));
+      return EggProgramCompilerNode(*this, opcode).add(std::forward<ARGS>(args)...).build(oper);
     }
     template<typename... ARGS>
     egg::ovum::Node create(egg::ovum::Opcode op, ARGS&&... args) {

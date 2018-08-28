@@ -20,7 +20,7 @@ namespace egg::ovum {
 
   class INode : public IHardAcquireRelease {
   public:
-    enum class Operand { None, Int, Float, String };
+    enum class Operand { None, Int, Float, String, Operator };
     virtual Opcode getOpcode() const = 0;
     virtual Operand getOperand() const = 0;
     virtual size_t getChildren() const = 0;
@@ -28,6 +28,7 @@ namespace egg::ovum {
     virtual Int getInt() const = 0;
     virtual Float getFloat() const = 0;
     virtual String getString() const = 0;
+    virtual Operator getOperator() const = 0;
     virtual size_t getAttributes() const = 0;
     virtual INode& getAttribute(size_t index) const = 0;
     virtual void setChild(size_t index, INode& value) = 0;
@@ -59,6 +60,7 @@ namespace egg::ovum {
     static Node create(IAllocator& allocator, Opcode opcode, const Nodes* children, const Nodes* attributes, Int operand);
     static Node create(IAllocator& allocator, Opcode opcode, const Nodes* children, const Nodes* attributes, Float operand);
     static Node create(IAllocator& allocator, Opcode opcode, const Nodes* children, const Nodes* attributes, const String& operand);
+    static Node create(IAllocator& allocator, Opcode opcode, const Nodes* children, const Nodes* attributes, Operator operand);
     static Node createValue(IAllocator& allocator, nullptr_t);
     static Node createValue(IAllocator& allocator, bool value);
     static Node createValue(IAllocator& allocator, int32_t value);

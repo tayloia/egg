@@ -48,7 +48,7 @@ egg::ovum::Node egg::yolk::EggProgramCompilerNode::build() {
   return nullptr;
 }
 
-egg::ovum::Node egg::yolk::EggProgramCompilerNode::build(egg::ovum::Int operand) {
+egg::ovum::Node egg::yolk::EggProgramCompilerNode::build(egg::ovum::Operator operand) {
   if (!this->failed) {
     return this->compiler.create(this->opcode, &this->nodes, nullptr, operand);
   }
