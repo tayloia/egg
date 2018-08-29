@@ -48,13 +48,13 @@ namespace egg::ovum {
   public:
     virtual ~IExecution() {}
     virtual IAllocator& getAllocator() const = 0;
-    virtual egg::ovum::Variant raise(const String& message) = 0;
-    virtual egg::ovum::Variant assertion(const egg::ovum::Variant& predicate) = 0;
+    virtual Variant raise(const String& message) = 0;
+    virtual Variant assertion(const Variant& predicate) = 0;
     virtual void print(const std::string& utf8) = 0;
 
     // Useful helper
     template<typename... ARGS>
-    egg::ovum::Variant raiseFormat(ARGS&&... args) {
+    Variant raiseFormat(ARGS&&... args) {
       auto message = StringBuilder::concat(std::forward<ARGS>(args)...);
       return this->raise(message);
     }

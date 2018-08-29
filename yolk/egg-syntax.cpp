@@ -26,13 +26,13 @@ namespace {
     // OPTIMIZE
     if (item.kind == EggTokenizerKind::Keyword) {
 #define EGG_OVUM_BASAL_KEYWORD(name, text) case EggTokenizerKeyword::name: return egg::ovum::BasalBits::name;
-      EGG_WARNING_SUPPRESS_SWITCH_BEGIN
+      EGG_WARNING_SUPPRESS_SWITCH_BEGIN();
       switch (item.value.k) {
       EGG_OVUM_BASAL(EGG_OVUM_BASAL_KEYWORD)
       case EggTokenizerKeyword::Any:
         return egg::ovum::BasalBits::Any;
       }
-      EGG_WARNING_SUPPRESS_SWITCH_END
+      EGG_WARNING_SUPPRESS_SWITCH_END();
 #undef EGG_OVUM_BASAL_KEYWORD
     }
     return egg::ovum::BasalBits::None;
@@ -1119,7 +1119,7 @@ std::unique_ptr<IEggSyntaxNode> EggSyntaxParserContext::parseExpressionPrimary(c
     mark.accept(1);
     return std::make_unique<EggSyntaxNode_Identifier>(location, p0.value.s);
   case EggTokenizerKind::Keyword:
-    EGG_WARNING_SUPPRESS_SWITCH_BEGIN
+    EGG_WARNING_SUPPRESS_SWITCH_BEGIN();
     switch (p0.value.k) {
     case EggTokenizerKeyword::Null:
     case EggTokenizerKeyword::False:
@@ -1141,7 +1141,7 @@ std::unique_ptr<IEggSyntaxNode> EggSyntaxParserContext::parseExpressionPrimary(c
       }
       break;
     }
-    EGG_WARNING_SUPPRESS_SWITCH_END
+    EGG_WARNING_SUPPRESS_SWITCH_END();
     break;
   case EggTokenizerKind::Operator:
     if (p0.value.o == EggTokenizerOperator::ParenthesisLeft) {

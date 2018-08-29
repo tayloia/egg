@@ -25,7 +25,7 @@ namespace {
         { int(Severity::Debug), "<DEBUG>" },
         { int(Severity::Verbose), "<VERBOSE>" },
         { int(Severity::Information), "" },
-        { int(Severity::Warning), "<WARN>" },
+        { int(Severity::Warning), "<WARNING>" },
         { int(Severity::Error), "<ERROR>" }
       };
       auto text = String::fromEnum(source, sourceTable) + String::fromEnum(severity, severityTable);

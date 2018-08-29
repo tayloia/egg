@@ -48,7 +48,9 @@ namespace {
     }
     // TODO iterable() for forEachRemaining() like Java?
     virtual egg::ovum::Variant promoteAssignment(const egg::ovum::Variant&) const override {
-      return egg::ovum::VariantFactory::createThrow("Cannot re-assign iterators");
+      egg::ovum::Variant exception{ "Cannot re-assign iterators" };
+      exception.addFlowControl(egg::ovum::VariantBits::Throw);
+      return exception;
     }
     static const VanillaIteratorType instance;
   };

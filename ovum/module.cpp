@@ -289,7 +289,7 @@ namespace {
         // No operand
         return NodeFactory::create(this->allocator, opcode, &children, &attributes);
       }
-      EGG_WARNING_SUPPRESS_SWITCH_BEGIN
+      EGG_WARNING_SUPPRESS_SWITCH_BEGIN();
       switch (opcode) {
       case OPCODE_IVALUE:
         // Operand is an index into the int table
@@ -301,7 +301,7 @@ namespace {
         // Operand is an index into the string table
         return NodeFactory::create(this->allocator, opcode, &children, &attributes, this->indexString(operand));
       }
-      EGG_WARNING_SUPPRESS_SWITCH_END
+      EGG_WARNING_SUPPRESS_SWITCH_END();
       // Operand is probably an operator index
       return NodeFactory::create(this->allocator, opcode, &children, &attributes, Int(operand));
     }
@@ -546,7 +546,7 @@ namespace {
       assert(byte <= 0xFF);
       this->writeByte(target, uint8_t(byte));
       if (properties.operand) {
-        EGG_WARNING_SUPPRESS_SWITCH_BEGIN
+        EGG_WARNING_SUPPRESS_SWITCH_BEGIN();
         switch (opcode) {
         case OPCODE_IVALUE:
           this->writeUnsigned(target, this->ivalues.at(node.getInt()));
@@ -567,7 +567,7 @@ namespace {
           }
           break;
         }
-        EGG_WARNING_SUPPRESS_SWITCH_END
+        EGG_WARNING_SUPPRESS_SWITCH_END();
       }
       auto a = node.getAttributes();
       for (size_t i = 0; i < a; ++i) {

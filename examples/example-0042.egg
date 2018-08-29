@@ -4,7 +4,7 @@ int? f() {
 if (int? i = f()) {
   print(i);
 }
-///<COMPILER><WARN><RESOURCE>(4,10): Guarded assignment to 'i' of type 'int?' will always succeed
+///<COMPILER><WARNING><RESOURCE>(4,10): Guarded assignment to 'i' of type 'int?' will always succeed
 ///>null
 if (int i = f()) {
   print(i);

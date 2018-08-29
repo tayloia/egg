@@ -192,12 +192,6 @@ namespace egg::ovum {
       // Use perfect forwarding
       return Variant(Object(*allocator.make<T>(std::forward<ARGS>(args)...)));
     }
-    template<typename... ARGS>
-    static Variant createThrow(ARGS&&... args) {
-      Variant thrown{ StringBuilder::concat(std::forward<ARGS>(args)...) };
-      thrown.addFlowControl(VariantBits::Throw);
-      return thrown;
-    }
   };
 
   class BasketFactory {

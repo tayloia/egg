@@ -403,7 +403,7 @@ bool egg::ovum::Variant::equals(const Variant& lhs, const Variant& rhs) {
     return false;
   }
   ka = Bits::clear(ka, VariantBits::FlowControl);
-  EGG_WARNING_SUPPRESS_SWITCH_BEGIN
+  EGG_WARNING_SUPPRESS_SWITCH_BEGIN();
   switch (ka) {
   case VariantBits::Void:
   case VariantBits::Null:
@@ -422,7 +422,7 @@ bool egg::ovum::Variant::equals(const Variant& lhs, const Variant& rhs) {
   case VariantBits::Pointer:
     return a.p == b.p; // same address
   }
-  EGG_WARNING_SUPPRESS_SWITCH_END
+  EGG_WARNING_SUPPRESS_SWITCH_END();
   assert(false);
   return false;
 }

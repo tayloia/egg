@@ -24,8 +24,9 @@
 
 // warning C4061 : enumerator '...' in switch of enum '...' is not explicitly handled by a case label
 // warning C4062 : enumerator '...' in switch of enum '...' is not handled
-#define EGG_WARNING_SUPPRESS_SWITCH_BEGIN __pragma(warning(push)) __pragma(warning(disable: 4061 4062))
-#define EGG_WARNING_SUPPRESS_SWITCH_END __pragma(warning(pop))
+// The do-while loop is purely to stop the MSVC editor from getting the smart indenting all wrong
+#define EGG_WARNING_SUPPRESS_SWITCH_BEGIN() __pragma(warning(push)) __pragma(warning(disable: 4061 4062)) do {
+#define EGG_WARNING_SUPPRESS_SWITCH_END() } __pragma(warning(pop)) while (false)
 
 #elif defined(__GNUC__)
 
@@ -34,8 +35,8 @@
 #undef __STRICT_ANSI__
 #endif
 
-#define EGG_WARNING_SUPPRESS_SWITCH_BEGIN _Pragma("GCC diagnostic push") _Pragma("GCC diagnostic ignored \"-Wswitch\"")
-#define EGG_WARNING_SUPPRESS_SWITCH_END _Pragma("GCC diagnostic pop")
+#define EGG_WARNING_SUPPRESS_SWITCH_BEGIN() _Pragma("GCC diagnostic push") _Pragma("GCC diagnostic ignored \"-Wswitch\"")
+#define EGG_WARNING_SUPPRESS_SWITCH_END() _Pragma("GCC diagnostic pop")
 
 #else
 

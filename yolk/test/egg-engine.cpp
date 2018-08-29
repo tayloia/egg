@@ -8,48 +8,17 @@
 using namespace egg::yolk;
 
 namespace {
-  class TestLogger : public egg::ovum::ILogger {
-  public:
-    virtual void log(Source source, Severity severity, const std::string& message) override {
-      auto text = TestLogger::logSourceToString(source) + ":" + TestLogger::logSeverityToString(severity) + ":" + message;
-      std::cout << text << std::endl;
-      this->logged += text + "\n";
-    }
-    std::string logged;
-
-    // Helpers
-    static std::string logSourceToString(Source source) {
-      static const egg::yolk::String::StringFromEnum table[] = {
-        { int(Source::Compiler), "COMPILER" },
-        { int(Source::Runtime), "RUNTIME" },
-        { int(Source::User), "USER" },
-      };
-      return String::fromEnum(source, table);
-    }
-    static std::string logSeverityToString(Severity severity) {
-      // Ignore LogSeverity::None
-      static const egg::yolk::String::StringFromEnum table[] = {
-        { int(Severity::Debug), "DEBUG" },
-        { int(Severity::Verbose), "VERBOSE" },
-        { int(Severity::Information), "INFO" },
-        { int(Severity::Warning), "WARN" },
-        { int(Severity::Error), "ERROR" }
-      };
-      return String::fromEnum(severity, table);
-    }
-  };
-
   std::string logFromEngine(TextStream& stream) {
     egg::test::Allocator allocator;
     auto root = EggParserFactory::parseModule(allocator, stream);
     auto engine = EggEngineFactory::createEngineFromParsed(allocator, root);
-    auto logger = std::make_shared<TestLogger>();
+    auto logger = std::make_shared<egg::test::Logger>();
     auto preparation = EggEngineFactory::createPreparationContext(allocator, logger);
     if (engine->prepare(*preparation) != egg::ovum::ILogger::Severity::Error) {
       auto execution = EggEngineFactory::createExecutionContext(allocator, logger);
       engine->execute(*execution);
     }
-    return logger->logged;
+    return logger->logged.str();
   }
 }
 
@@ -58,63 +27,63 @@ TEST(TestEggEngine, CreateEngineFromParsed) {
   FileTextStream stream("~/yolk/test/data/example.egg");
   auto root = EggParserFactory::parseModule(allocator, stream);
   auto engine = EggEngineFactory::createEngineFromParsed(allocator, root);
-  auto logger = std::make_shared<TestLogger>();
+  auto logger = std::make_shared<egg::test::Logger>();
   auto preparation = EggEngineFactory::createPreparationContext(allocator, logger);
   ASSERT_EQ(egg::ovum::ILogger::Severity::Error, engine->prepare(*preparation));
-  ASSERT_STARTSWITH(logger->logged, "COMPILER:ERROR:~/yolk/test/data/example.egg(2,14): Unknown identifier: 'first'");
+  ASSERT_STARTSWITH(logger->logged.str(), "<COMPILER><ERROR>~/yolk/test/data/example.egg(2,14): Unknown identifier: 'first'");
 }
 
 TEST(TestEggEngine, CreateEngineFromTextStream) {
   egg::test::Allocator allocator;
   FileTextStream stream("~/yolk/test/data/example.egg");
   auto engine = EggEngineFactory::createEngineFromTextStream(stream);
-  auto logger = std::make_shared<TestLogger>();
+  auto logger = std::make_shared<egg::test::Logger>();
   auto preparation = EggEngineFactory::createPreparationContext(allocator, logger);
   ASSERT_EQ(egg::ovum::ILogger::Severity::Error, engine->prepare(*preparation));
-  ASSERT_STARTSWITH(logger->logged, "COMPILER:ERROR:~/yolk/test/data/example.egg(2,14): Unknown identifier: 'first'");
+  ASSERT_STARTSWITH(logger->logged.str(), "<COMPILER><ERROR>~/yolk/test/data/example.egg(2,14): Unknown identifier: 'first'");
 }
 
 TEST(TestEggEngine, CreateEngineFromGarbage) {
   egg::test::Allocator allocator{ egg::test::Allocator::Expectation::NoAllocations };
   StringTextStream stream("$");
   auto engine = EggEngineFactory::createEngineFromTextStream(stream);
-  auto logger = std::make_shared<TestLogger>();
+  auto logger = std::make_shared<egg::test::Logger>();
   auto preparation = EggEngineFactory::createPreparationContext(allocator, logger);
   ASSERT_EQ(egg::ovum::ILogger::Severity::Error, engine->prepare(*preparation));
-  ASSERT_EQ("COMPILER:ERROR:(1, 1): Unexpected character: '$'\n", logger->logged);
+  ASSERT_EQ("<COMPILER><ERROR>(1, 1): Unexpected character: '$'\n", logger->logged.str());
 }
 
 TEST(TestEggEngine, PrepareTwice) {
   egg::test::Allocator allocator;
   StringTextStream stream("print(123);");
   auto engine = EggEngineFactory::createEngineFromTextStream(stream);
-  auto logger = std::make_shared<TestLogger>();
+  auto logger = std::make_shared<egg::test::Logger>();
   auto preparation = EggEngineFactory::createPreparationContext(allocator, logger);
   ASSERT_EQ(egg::ovum::ILogger::Severity::None, engine->prepare(*preparation));
-  ASSERT_EQ("", logger->logged);
+  ASSERT_EQ("", logger->logged.str());
   ASSERT_EQ(egg::ovum::ILogger::Severity::Error, engine->prepare(*preparation));
-  ASSERT_EQ("COMPILER:ERROR:Program prepared more than once\n", logger->logged);
+  ASSERT_EQ("<COMPILER><ERROR>Program prepared more than once\n", logger->logged.str());
 }
 
 TEST(TestEggEngine, ExecuteUnprepared) {
   egg::test::Allocator allocator{ egg::test::Allocator::Expectation::NoAllocations };
   FileTextStream stream("~/yolk/test/data/example.egg");
   auto engine = EggEngineFactory::createEngineFromTextStream(stream);
-  auto logger = std::make_shared<TestLogger>();
+  auto logger = std::make_shared<egg::test::Logger>();
   auto execution = EggEngineFactory::createExecutionContext(allocator, logger);
   ASSERT_EQ(egg::ovum::ILogger::Severity::Error, engine->execute(*execution));
-  ASSERT_EQ("RUNTIME:ERROR:Program not prepared before execution\n", logger->logged);
+  ASSERT_EQ("<RUNTIME><ERROR>Program not prepared before execution\n", logger->logged.str());
 }
 
 TEST(TestEggEngine, LogFromEngine) {
   StringTextStream stream("print(`hello`, 123);");
-  ASSERT_EQ("USER:INFO:hello123\n", logFromEngine(stream));
+  ASSERT_EQ("hello123\n", logFromEngine(stream));
 }
 
 TEST(TestEggEngine, DuplicateSymbols) {
   StringTextStream stream("var a = 1;\nvar a;");
-  ASSERT_STARTSWITH(logFromEngine(stream), "COMPILER:ERROR:(2,5): Duplicate symbol declared at module level: 'a'\n"
-                                           "COMPILER:INFO:(1,5): Previous declaration was here\n");
+  ASSERT_STARTSWITH(logFromEngine(stream), "<COMPILER><ERROR>(2,5): Duplicate symbol declared at module level: 'a'\n"
+                                           "<COMPILER>(1,5): Previous declaration was here\n");
 }
 
 TEST(TestEggEngine, WorkingFile) {
@@ -122,13 +91,13 @@ TEST(TestEggEngine, WorkingFile) {
   egg::test::Allocator allocator;
   FileTextStream stream("~/yolk/test/data/working.egg");
   auto engine = EggEngineFactory::createEngineFromTextStream(stream);
-  auto logger = std::make_shared<TestLogger>();
+  auto logger = std::make_shared<egg::test::Logger>();
   auto preparation = EggEngineFactory::createPreparationContext(allocator, logger);
   ASSERT_EQ(egg::ovum::ILogger::Severity::None, engine->prepare(*preparation));
-  ASSERT_EQ("", logger->logged);
+  ASSERT_EQ("", logger->logged.str());
   auto execution = EggEngineFactory::createExecutionContext(allocator, logger);
   ASSERT_EQ(egg::ovum::ILogger::Severity::Information, engine->execute(*execution));
-  ASSERT_EQ("USER:INFO:55\nUSER:INFO:4950\n", logger->logged);
+  ASSERT_EQ("55\n4950\n", logger->logged.str());
 }
 
 TEST(TestEggEngine, Coverage) {
@@ -136,11 +105,11 @@ TEST(TestEggEngine, Coverage) {
   egg::test::Allocator allocator;
   FileTextStream stream("~/yolk/test/data/coverage.egg");
   auto engine = EggEngineFactory::createEngineFromTextStream(stream);
-  auto logger = std::make_shared<TestLogger>();
+  auto logger = std::make_shared<egg::test::Logger>();
   auto preparation = EggEngineFactory::createPreparationContext(allocator, logger);
   ASSERT_EQ(egg::ovum::ILogger::Severity::None, engine->prepare(*preparation));
-  ASSERT_EQ("", logger->logged);
+  ASSERT_EQ("", logger->logged.str());
   auto execution = EggEngineFactory::createExecutionContext(allocator, logger);
   ASSERT_EQ(egg::ovum::ILogger::Severity::None, engine->execute(*execution));
-  ASSERT_EQ("", logger->logged);
+  ASSERT_EQ("", logger->logged.str());
 }

@@ -1,5 +1,14 @@
 #include "ovum/ovum.h"
 
+#include <stdexcept>
+
+// WIBBLE
+#if defined(_MSC_VER)
+#define WIBBLE __FUNCSIG__
+#else
+#define WIBBLE + std::string(__PRETTY_FUNCTION__)
+#endif
+
 namespace {
   using namespace egg::ovum;
 
@@ -26,29 +35,46 @@ namespace {
       // TODO
       assert(false);
     }
-    virtual  egg::ovum::Variant toString() const override {
-      throw std::runtime_error("TODO");
+    virtual Variant toString() const override {
+      throw std::runtime_error("TODO: " WIBBLE);
     }
     virtual Type getRuntimeType() const override {
-      throw std::runtime_error("TODO");
+      throw std::runtime_error("TODO: " WIBBLE);
     }
-    virtual  egg::ovum::Variant call(IExecution&, const IParameters&) override {
-      throw std::runtime_error("TODO");
+    virtual Variant call(IExecution&, const IParameters&) override {
+      throw std::runtime_error("TODO: " WIBBLE);
     }
-    virtual  egg::ovum::Variant getProperty(IExecution&, const String&) override {
-      throw std::runtime_error("TODO");
+    virtual Variant getProperty(IExecution&, const String&) override {
+      throw std::runtime_error("TODO: " WIBBLE);
     }
-    virtual  egg::ovum::Variant setProperty(IExecution&, const String&, const  egg::ovum::Variant&) override {
-      throw std::runtime_error("TODO");
+    virtual Variant setProperty(IExecution&, const String&, const Variant&) override {
+      throw std::runtime_error("TODO: " WIBBLE);
     }
-    virtual  egg::ovum::Variant getIndex(IExecution&, const  egg::ovum::Variant&) override {
-      throw std::runtime_error("TODO");
+    virtual Variant getIndex(IExecution& execution, const Variant& index) override {
+      if (!index.isInt()) {
+        execution.raiseFormat("Array index was expected to be 'int', not '", index.getRuntimeType().toString(), "'");
+      }
+      auto i = index.getInt();
+      auto u = size_t(i);
+      if (u >= this->values.size()) {
+        execution.raiseFormat("Invalid array index for an array with ", this->values.size(), " element(s) : ", i);
+      }
+      return this->values[u];
     }
-    virtual  egg::ovum::Variant setIndex(IExecution&, const  egg::ovum::Variant&, const  egg::ovum::Variant&) override {
-      throw std::runtime_error("TODO");
+    virtual Variant setIndex(IExecution& execution, const Variant& index, const Variant& value) override {
+      if (!index.isInt()) {
+        execution.raiseFormat("Array index was expected to be 'int', not '", index.getRuntimeType().toString(), "'");
+      }
+      auto i = index.getInt();
+      auto u = size_t(i);
+      if (u >= this->values.size()) {
+        execution.raiseFormat("Invalid array index for an array with ", this->values.size(), " element(s) : ", i);
+      }
+      this->values[u] = value;
+      return Variant::Void;
     }
-    virtual  egg::ovum::Variant iterate(IExecution&) override {
-      throw std::runtime_error("TODO");
+    virtual Variant iterate(IExecution&) override {
+      throw std::runtime_error("TODO: " WIBBLE);
     }
   };
 
@@ -64,37 +90,37 @@ namespace {
       // TODO
       assert(false);
     }
-    virtual  egg::ovum::Variant toString() const override {
-      throw std::runtime_error("TODO");
+    virtual Variant toString() const override {
+      throw std::runtime_error("TODO: " WIBBLE);
     }
     virtual Type getRuntimeType() const override {
-      throw std::runtime_error("TODO");
+      throw std::runtime_error("TODO: " WIBBLE);
     }
-    virtual  egg::ovum::Variant call(IExecution&, const IParameters&) override {
-      throw std::runtime_error("TODO");
+    virtual Variant call(IExecution&, const IParameters&) override {
+      throw std::runtime_error("TODO: " WIBBLE);
     }
-    virtual  egg::ovum::Variant getProperty(IExecution&, const String&) override {
-      throw std::runtime_error("TODO");
+    virtual Variant getProperty(IExecution&, const String&) override {
+      throw std::runtime_error("TODO: " WIBBLE);
     }
-    virtual  egg::ovum::Variant setProperty(IExecution&, const String&, const  egg::ovum::Variant&) override {
-      throw std::runtime_error("TODO");
+    virtual Variant setProperty(IExecution&, const String&, const Variant&) override {
+      throw std::runtime_error("TODO: " WIBBLE);
     }
-    virtual  egg::ovum::Variant getIndex(IExecution&, const  egg::ovum::Variant&) override {
-      throw std::runtime_error("TODO");
+    virtual Variant getIndex(IExecution&, const Variant&) override {
+      throw std::runtime_error("TODO: " WIBBLE);
     }
-    virtual  egg::ovum::Variant setIndex(IExecution&, const  egg::ovum::Variant&, const  egg::ovum::Variant&) override {
-      throw std::runtime_error("TODO");
+    virtual Variant setIndex(IExecution&, const Variant&, const Variant&) override {
+      throw std::runtime_error("TODO: " WIBBLE);
     }
-    virtual  egg::ovum::Variant iterate(IExecution&) override {
-      throw std::runtime_error("TODO");
+    virtual Variant iterate(IExecution&) override {
+      throw std::runtime_error("TODO: " WIBBLE);
     }
   };
 }
 
-egg::ovum::Object egg::ovum::ObjectFactory::createVanillaArray(egg::ovum::IAllocator& allocator, size_t size) {
+egg::ovum::Object egg::ovum::ObjectFactory::createVanillaArray(IAllocator& allocator, size_t size) {
   return Object(*allocator.create<VanillaArray>(0, allocator, size));
 }
 
-egg::ovum::Object egg::ovum::ObjectFactory::createVanillaObject(egg::ovum::IAllocator& allocator) {
+egg::ovum::Object egg::ovum::ObjectFactory::createVanillaObject(IAllocator& allocator) {
   return Object(*allocator.create<VanillaObject>(0, allocator));
 }
