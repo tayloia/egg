@@ -101,11 +101,11 @@
   X(OPCODE_TERNARY, 3, 3, 3, "ternary") \
   X(OPCODE_THROW, 114, 0, 1, "throw") \
   X(OPCODE_TRUE, 78, 0, 0, "true") \
-  X(OPCODE_TRY, 147, 3, N, "try") \
+  X(OPCODE_TRY, 116, 2, N, "try") \
   X(OPCODE_TYPE, 246, 0, N, "type") \
   X(OPCODE_UNARY, 1, 1, 1, "unary") \
   X(OPCODE_UNION, 205, 1, N, "union") \
-  X(OPCODE_VARARGS, 116, 2, N, "varargs") \
+  X(OPCODE_VARARGS, 134, 2, N, "varargs") \
   X(OPCODE_VOID, 84, 0, 0, "void") \
   X(OPCODE_WHILE, 74, 2, 2, "while") \
   X(OPCODE_YIELD, 120, 0, 1, "yield")

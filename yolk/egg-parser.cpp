@@ -763,11 +763,7 @@ namespace {
       ParserDump(os, "try").add(this->block).add(this->catches).add(this->final);
     }
     virtual egg::ovum::Node compile(EggProgramCompiler& compiler) const override {
-      if (this->final == nullptr) {
-        // No final clause
-        return compiler.statement(egg::ovum::OPCODE_TRY, this->block, this->catches);
-      }
-      return compiler.statement(egg::ovum::OPCODE_TRY, this->block, this->catches, *this->final);
+      return compiler.statement(egg::ovum::OPCODE_TRY, this->block, compiler.noop(this->final.get()), this->catches);
     }
     void addCatch(const std::shared_ptr<IEggProgramNode>& catchNode) {
       this->catches.push_back(catchNode);

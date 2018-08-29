@@ -493,6 +493,8 @@ namespace {
         return this->statementDeclare(block, node);
       case OPCODE_DECREMENT:
         return this->statementDecrement(node);
+      case OPCODE_DO:
+        return this->statementDo(node);
       case OPCODE_FOR:
         return this->statementFor(node);
       case OPCODE_IF:
@@ -501,6 +503,14 @@ namespace {
         return this->statementIncrement(node);
       case OPCODE_MUTATE:
         return this->statementMutate(node);
+      case OPCODE_SWITCH:
+        return this->statementSwitch(node);
+      case OPCODE_THROW:
+        return this->statementThrow(node);
+      case OPCODE_TRY:
+        return this->statementTry(node);
+      case OPCODE_WHILE:
+        return this->statementWhile(node);
       }
       EGG_WARNING_SUPPRESS_SWITCH_END();
       throw unexpectedOpcode("statement", node);
@@ -532,14 +542,14 @@ namespace {
     }
     Variant statementDeclare(Block& block, const INode& node) {
       assert(node.getOpcode() == OPCODE_DECLARE);
-      auto vtype = type(node.getChild(0));
-      auto vname = identifier(node.getChild(1));
+      auto vtype = this->type(node.getChild(0));
+      auto vname = this->identifier(node.getChild(1));
       if (node.getChildren() == 2) {
         // No initializer
         return block.declare(node, vtype, vname, Variant::Void);
       }
       assert(node.getChildren() == 3);
-      auto vinit = expression(node.getChild(2));
+      auto vinit = this->expression(node.getChild(2));
       if (vinit.hasFlowControl()) {
         return vinit;
       }
@@ -551,6 +561,24 @@ namespace {
       assert(node.getChildren() == 1);
       Target lvalue(*this, node.getChild(0));
       return lvalue.nudge(-1);
+    }
+    Variant statementDo(const INode& node) {
+      assert(node.getOpcode() == OPCODE_DO);
+      assert(node.getChildren() == 2);
+      Variant retval;
+      do {
+        Block block(*this);
+        retval = this->executeBlock(block, node.getChild(1));
+        if (!retval.isVoid()) {
+          return retval;
+        }
+        retval = this->condition(node.getChild(0), nullptr); // don't allow guards
+        if (!retval.isBool()) {
+          // Problem with the condition
+          return retval;
+        }
+      } while (retval.getBool());
+      return Variant::Void;
     }
     Variant statementFor(const INode& node) {
       assert(node.getOpcode() == OPCODE_FOR);
@@ -631,6 +659,159 @@ namespace {
       Target lvalue(*this, node.getChild(0));
       return lvalue.mutate(node, node.getChild(1));
     }
+    Variant statementSwitch(const INode& node) {
+      assert(node.getOpcode() == OPCODE_SWITCH);
+      auto n = node.getChildren();
+      assert(n >= 2);
+      auto match = this->expression(node.getChild(0));
+      if (match.hasFlowControl()) {
+        // Failed to evaluate the value to match
+        return match;
+      }
+      size_t defclause = 0;
+      size_t matched = 0;
+      for (size_t i = 1; i < n; ++i) {
+        // Look for the first matching case clause
+        auto& clause = node.getChild(i);
+        auto m = clause.getChildren();
+        assert(m >= 1);
+        assert((clause.getOpcode() == OPCODE_CASE) || (clause.getOpcode() == OPCODE_DEFAULT));
+        for (size_t j = 1; !matched && (j < m); ++j) {
+          auto expr = this->expression(node.getChild(0));
+          if (expr.hasFlowControl()) {
+            // Failed to evaluate the value to match
+            return expr;
+          }
+          if (Variant::equals(expr, match)) {
+            // We've matched this clause
+            matched = j;
+            break;
+          }
+        }
+        if (matched != 0) {
+          // We matched!
+          break;
+        }
+        if (clause.getOpcode() == OPCODE_DEFAULT) {
+          // Remember the default clause
+          assert(defclause == 0);
+          defclause = i;
+        }
+      }
+      if (matched == 0) {
+        // Use the default clause, if any
+        matched = defclause;
+      }
+      if (matched == 0) {
+        // No clause to run
+        return Variant::Void;
+      }
+      for (;;) {
+        // Run the clauses in round-robin order
+        auto retval = this->statementBlock(node.getChild(matched).getChild(0));
+        if (retval.is(VariantBits::Break)) {
+          // Explicit 'break' terminates the switch statement
+          break;
+        }
+        if (!retval.is(VariantBits::Continue)) {
+          // Any other than 'continue' also terminates the switch statement
+          return retval;
+        }
+        if (++matched >= n) {
+          // Round robin
+          matched = 1;
+        }
+      }
+      return Variant::Void;
+    }
+    Variant statementThrow(const INode& node) {
+      assert(node.getOpcode() == OPCODE_THROW);
+      assert(node.getChildren() <= 1);
+      if (node.getChildren() == 0) {
+        // A naked rethrow
+        return Variant::Rethrow;
+      }
+      auto retval = this->expression(node.getChild(0));
+      if (!retval.hasFlowControl()) {
+        // Convert the expression to an exception throw
+        assert(!retval.isVoid());
+        retval.addFlowControl(VariantBits::Throw);
+      }
+      return retval;
+    }
+    Variant statementTry(const INode& node) {
+      assert(node.getOpcode() == OPCODE_TRY);
+      auto n = node.getChildren();
+      assert(n >= 2);
+      auto exception = this->statementBlock(node.getChild(0));
+      if (!exception.stripFlowControl(VariantBits::Throw)) {
+        // No exception thrown
+        return this->statementTryFinally(node, exception);
+      }
+      for (size_t i = 2; i < n; ++i) {
+        // Look for the first matching catch clause
+        auto& clause = node.getChild(i);
+        assert(clause.getOpcode() == OPCODE_CATCH);
+        assert(clause.getChildren() == 3);
+        auto ctype = this->type(clause.getChild(0));
+        // WIBBLE if (match exception)
+        if (true) {
+          Block inner(*this);
+          auto cname = this->identifier(clause.getChild(1));
+          auto retval = inner.declare(clause, ctype, cname, exception);
+          if (!retval.isVoid()) {
+            // Couldn't define the exception variable 
+            return this->statementTryFinally(node, retval);
+          }
+          retval = this->executeBlock(inner, clause.getChild(2));
+          if (retval.is(VariantBits::Throw | VariantBits::Void)) {
+            // This is a rethrow of the original exception
+            retval = exception;
+            retval.addFlowControl(VariantBits::Throw);
+          }
+          return this->statementTryFinally(node, retval);
+        }
+      }
+      // Propogate the original exception
+      exception.addFlowControl(VariantBits::Throw);
+      return this->statementTryFinally(node, exception);
+    }
+    Variant statementTryFinally(const INode& node, const Variant& retval) {
+      assert(node.getOpcode() == OPCODE_TRY);
+      assert(node.getChildren() >= 2);
+      auto& clause = node.getChild(1);
+      if (clause.getOpcode() == OPCODE_NOOP) {
+        // No finally clause
+        return retval;
+      }
+      if (!retval.isVoid()) {
+        // Run the block by return the original result
+        (void)this->statementBlock(clause);
+        return retval;
+      }
+      return this->statementBlock(clause);
+    }
+    Variant statementWhile(const INode& node) {
+      assert(node.getOpcode() == OPCODE_WHILE);
+      assert(node.getChildren() == 2);
+      for (;;) {
+        Block block(*this);
+        auto retval = this->condition(node.getChild(0), &block);
+        if (!retval.isBool()) {
+          // Problem with the condition
+          return retval;
+        }
+        if (!retval.getBool()) {
+          // Condition is false
+          break;
+        }
+        retval = this->executeBlock(block, node.getChild(1));
+        if (!retval.isVoid()) {
+          return retval;
+        }
+      }
+      return Variant::Void;
+    }
     // Expressions
     Variant expression(const INode& node, Block* block = nullptr) {
       auto opcode = node.getOpcode();
@@ -643,29 +824,29 @@ namespace {
       case OPCODE_TRUE:
         return Variant::True;
       case OPCODE_UNARY:
-        return expressionUnary(node);
+        return this->expressionUnary(node);
       case OPCODE_BINARY:
-        return expressionBinary(node);
+        return this->expressionBinary(node);
       case OPCODE_TERNARY:
-        return expressionTernary(node);
+        return this->expressionTernary(node);
       case OPCODE_COMPARE:
-        return expressionCompare(node);
+        return this->expressionCompare(node);
       case OPCODE_AVALUE:
-        return expressionAvalue(node);
+        return this->expressionAvalue(node);
       case OPCODE_FVALUE:
-        return expressionFvalue(node);
+        return this->expressionFvalue(node);
       case OPCODE_IVALUE:
-        return expressionIvalue(node);
+        return this->expressionIvalue(node);
       case OPCODE_OVALUE:
-        return expressionOvalue(node);
+        return this->expressionOvalue(node);
       case OPCODE_SVALUE:
-        return expressionSvalue(node);
+        return this->expressionSvalue(node);
       case OPCODE_CALL:
-        return expressionCall(node);
+        return this->expressionCall(node);
       case OPCODE_IDENTIFIER:
-        return expressionIdentifier(node);
+        return this->expressionIdentifier(node);
       case OPCODE_GUARD:
-        return expressionGuard(node, block);
+        return this->expressionGuard(node, block);
       }
       EGG_WARNING_SUPPRESS_SWITCH_END();
       throw unexpectedOpcode("expression", node);
@@ -743,7 +924,7 @@ namespace {
       auto n = node.getChildren();
       auto array = ObjectFactory::createVanillaArray(this->allocator, n);
       for (size_t i = 0; i < n; ++i) {
-        auto expr = expression(node.getChild(i));
+        auto expr = this->expression(node.getChild(i));
         if (expr.hasFlowControl()) {
           return expr;
         }
@@ -801,9 +982,9 @@ namespace {
       if (block == nullptr) {
         throw unexpectedOpcode("guard", node);
       }
-      auto vtype = type(node.getChild(0));
-      auto vname = identifier(node.getChild(1));
-      auto vinit = expression(node.getChild(2));
+      auto vtype = this->type(node.getChild(0));
+      auto vname = this->identifier(node.getChild(1));
+      auto vinit = this->expression(node.getChild(2));
       if (vinit.hasFlowControl()) {
         return vinit;
       }
