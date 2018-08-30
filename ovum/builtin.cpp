@@ -19,8 +19,10 @@ namespace {
   protected:
     String name;
   public:
-    explicit BuiltinBase(IAllocator& allocator)
-      : SoftReferenceCounted(allocator) {
+    BuiltinBase(IAllocator& allocator, const char* name)
+      : SoftReferenceCounted(allocator),
+        name(StringFactory::fromUTF8(allocator, name)) {
+      assert(!this->name.empty());
     }
     virtual Variant getProperty(IExecution& execution, const String& property) override {
       return this->raiseBuiltin(execution, "does not support properties such as '.", property, "'");
@@ -49,8 +51,8 @@ namespace {
     BuiltinObject& operator=(const BuiltinObject&) = delete;
   private:
   public:
-    explicit BuiltinObject(IAllocator& allocator)
-      : BuiltinBase(allocator) {
+    BuiltinObject(IAllocator& allocator, const char* name)
+      : BuiltinBase(allocator, name) {
     }
     virtual void softVisitLinks(const Visitor&) const override {
       // TODO
@@ -72,14 +74,12 @@ namespace {
     BuiltinFunction& operator=(const BuiltinFunction&) = delete;
   private:
     Type type;
-    String name;
   public:
-    BuiltinFunction(IAllocator& allocator, const Type& type, const String& name)
-      : BuiltinBase(allocator),
-      type(type),
-      name(name) {
-      assert(type != nullptr);
-      assert(!name.empty());
+    BuiltinFunction(IAllocator& allocator, const Type& type, const char* name)
+      : BuiltinBase(allocator, name),
+      type(type) {
+      assert(this->type != nullptr);
+      assert(!this->name.empty());
     }
     virtual void softVisitLinks(const Visitor&) const override {
       // TODO
@@ -98,7 +98,7 @@ namespace {
     BuiltinAssert& operator=(const BuiltinAssert&) = delete;
   public:
     explicit BuiltinAssert(IAllocator& allocator)
-      : BuiltinFunction(allocator, Type::Object, StringFactory::fromUTF8(allocator, "assert", 6)) {
+      : BuiltinFunction(allocator, Type::Object, "assert") {
     }
     virtual Variant call(IExecution& execution, const IParameters& parameters) override {
       if (parameters.getNamedCount() > 0) {
@@ -110,9 +110,36 @@ namespace {
       return execution.assertion(parameters.getPositional(0).direct());
     }
   };
+
+  class BuiltinPrint : public BuiltinFunction {
+    BuiltinPrint(const BuiltinPrint&) = delete;
+    BuiltinPrint& operator=(const BuiltinPrint&) = delete;
+  public:
+    explicit BuiltinPrint(IAllocator& allocator)
+      : BuiltinFunction(allocator, Type::Object, "print") {
+    }
+    virtual Variant call(IExecution& execution, const IParameters& parameters) override {
+      if (parameters.getNamedCount() > 0) {
+        return this->raiseBuiltin(execution, "does not accept named parameters");
+      }
+      StringBuilder sb;
+      auto n = parameters.getPositionalCount();
+      for (size_t i = 0; i < n; ++i) {
+        auto parameter = parameters.getPositional(i);
+        sb.add(parameter.toString());
+      }
+      execution.print(sb.toUTF8());
+      return Variant::Void;
+    }
+  };
 }
 
 egg::ovum::Variant egg::ovum::VariantFactory::createBuiltinAssert(IAllocator& allocator) {
   Object object(*allocator.create<BuiltinAssert>(0, allocator));
+  return Variant(object);
+}
+
+egg::ovum::Variant egg::ovum::VariantFactory::createBuiltinPrint(IAllocator& allocator) {
+  Object object(*allocator.create<BuiltinPrint>(0, allocator));
   return Variant(object);
 }

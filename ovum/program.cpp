@@ -15,32 +15,24 @@ namespace {
   class RuntimeException : public std::runtime_error {
   public:
     String message;
-    Node node;
     template<typename... ARGS>
-    explicit RuntimeException(const INode* node, ARGS&&... args)
-      : std::runtime_error("RuntimeException"),
-      message(StringBuilder::concat(std::forward<ARGS>(args)...)),
-      node(node) {
+    explicit RuntimeException(const LocationSource& location, ARGS&&... args)
+      : std::runtime_error("RuntimeException") {
+      StringBuilder sb;
+      sb.add(location.file);
+      if (location.line > 0) {
+        sb.add('(', location.line);
+        if (location.column > 0) {
+          sb.add(',', location.column);
+        }
+        sb.add("): ");
+      } else if (!location.file.empty()) {
+        sb.add(": ");
+      }
+      sb.add(std::forward<ARGS>(args)...);
+      this->message = sb.str();
     }
   };
-
-  RuntimeException unexpectedOpcode(const char* expected, const INode& node) {
-    auto opcode = node.getOpcode();
-    auto name = OpcodeProperties::from(opcode).name;
-    if (name == nullptr) {
-      return RuntimeException(&node, "Unknown ", expected, " opcode: '<", std::to_string(opcode), ">'");
-    }
-    return RuntimeException(&node, "Unexpected ", expected, " opcode: '", name, "'");
-  }
-
-  RuntimeException unexpectedOperator(const char* expected, const INode& node) {
-    auto oper = node.getOperator();
-    auto name = OperatorProperties::from(oper).name;
-    if (name == nullptr) {
-      return RuntimeException(&node, "Unknown ", expected, " operator: '<", std::to_string(oper), ">'");
-    }
-    return RuntimeException(&node, "Unexpected ", expected, " operator: '", name, "'");
-  }
 
   class Binary {
   public:
@@ -377,38 +369,20 @@ namespace {
     Variant expression(const INode& node) const;
   };
 
-  class IProgramBlock : public IProgram {
-  public:
-    virtual Variant declare(const INode& node, const Type& type, const String& name, const Variant& init) = 0;
-    virtual void undeclare(const String& name) = 0;
-  };
-
-  class Block {
+  class Block final {
     Block(const Block&) = delete;
     Block& operator=(const Block&) = delete;
   private:
-    IProgramBlock& program;
+    ProgramDefault& program;
     std::set<String> declared;
   public:
-    explicit Block(IProgramBlock& program) : program(program) {
+    explicit Block(ProgramDefault& program) : program(program) {
     }
-    virtual ~Block() {
-      // Undeclare all the names successfully declared by this block
-      for (auto& i : this->declared) {
-        this->program.undeclare(i);
-      }
-    }
-    Variant declare(const INode& node, const Type& type, const String& name, const Variant& init) {
-      // Keep track of names successfully declared in this block
-      auto retval = this->program.declare(node, type, name, init);
-      if (!retval.hasFlowControl()) {
-        this->declared.insert(name);
-      }
-      return retval;
-    }
+    ~Block();
+    Variant declare(const INode& node, const Type& type, const String& name, const Variant& init);
   };
 
-  class ProgramDefault final : public HardReferenceCounted<IProgramBlock>, public IExecution {
+  class ProgramDefault final : public HardReferenceCounted<IProgram>, public IExecution {
     ProgramDefault(const ProgramDefault&) = delete;
     ProgramDefault& operator=(const ProgramDefault&) = delete;
   private:
@@ -443,18 +417,6 @@ namespace {
         return Variant::Rethrow;
       }
     }
-    // Inherited from IProgramBlock
-    virtual Variant declare(const INode& node, const Type& type, const String& name, const Variant& init) override {
-      if (!this->symtable->add(type, name, init)) {
-        throw RuntimeException(&node, "Duplicate variable name: '", name, "'");
-      }
-      return Variant::Void;
-    }
-    virtual void undeclare(const String& name) override {
-      if (!this->symtable->remove(name)) {
-        throw RuntimeException(nullptr, "Orphaned variable name: '", name, "'");
-      }
-    }
     // Inherited from IExecution
     virtual IAllocator& getAllocator() const override {
       return this->allocator;
@@ -486,6 +448,27 @@ namespace {
     }
     virtual void print(const std::string& utf8) override {
       this->logger.log(ILogger::Source::User, ILogger::Severity::Information, utf8);
+    }
+    // Called by Block
+    Variant blockDeclare(const INode& node, const Type& type, const String& name, const Variant& init) {
+      if (!this->symtable->add(type, name, init)) {
+        // TODO display the other location too
+        auto opcode = node.getOpcode();
+        if (opcode != OPCODE_DECLARE) {
+          auto decl = OpcodeProperties::from(node.getOpcode()).name;
+          if (decl != nullptr) {
+            return this->raiseNode(node, "Duplicate name in ", decl, " declaration: '", name, "'");
+          }
+        }
+        return this->raiseNode(node, "Duplicate name in declaration: '", name, "'");
+      }
+      return Variant::Void;
+    }
+    void blockUndeclare(const String& name) {
+      if (!this->symtable->remove(name)) {
+        auto message = StringBuilder().add("Failed to remove name from symbol table: '", name, "'").toUTF8();
+        this->logger.log(ILogger::Source::Runtime, ILogger::Severity::Warning, message);
+      }
     }
     // Called by Target construction
     Target::Flavour targetDeclare(const INode& node, Variant& a, Block& block) {
@@ -520,8 +503,13 @@ namespace {
       }
       return Target::Flavour::Failed;
     }
-    SymbolTable& targetSymbolTable() const {
-      return *this->symtable;
+    Symbol& targetSymbol(const INode& node, const String& name) {
+      auto* symbol = this->symtable->get(name);
+      if (symbol == nullptr) {
+        this->updateLocation(node);
+        throw RuntimeException(this->location, "Unknown target symbol: '", name, "'");
+      }
+      return *symbol;
     }
     Variant targetExpression(const INode& node) {
       return this->expression(node);
@@ -529,11 +517,12 @@ namespace {
     // Builtins
     void addBuiltins() {
       this->builtin("assert", VariantFactory::createBuiltinAssert(this->allocator));
+      this->builtin("print", VariantFactory::createBuiltinPrint(this->allocator));
     }
   private:
     Variant executeRoot(const INode& node) {
       if (node.getOpcode() != OPCODE_MODULE) {
-        throw unexpectedOpcode("module", node);
+        throw this->unexpectedOpcode("module", node);
       }
       this->validateOpcode(node);
       Block block(*this);
@@ -541,7 +530,7 @@ namespace {
     }
     Variant executeBlock(Block& inner, const INode& node) {
       if (node.getOpcode() != OPCODE_BLOCK) {
-        throw unexpectedOpcode("block", node);
+        throw this->unexpectedOpcode("block", node);
       }
       this->validateOpcode(node);
       size_t n = node.getChildren();
@@ -599,7 +588,7 @@ namespace {
         return this->statementWhile(node);
       }
       EGG_WARNING_SUPPRESS_SWITCH_END();
-      throw unexpectedOpcode("statement", node);
+      throw this->unexpectedOpcode("statement", node);
     }
     Variant statementAssign(const INode& node) {
       assert(node.getOpcode() == OPCODE_ASSIGN);
@@ -622,8 +611,8 @@ namespace {
       if (retval.hasAny(VariantBits::FlowControl | VariantBits::Void)) {
         return retval;
       }
-      auto message = StringBuilder::concat("Discarding call return value: '", retval.toString(), "'");
-      this->logger.log(ILogger::Source::Runtime, ILogger::Severity::Warning, message.toUTF8());
+      auto message = StringBuilder().add("Discarding call return value: '", retval.toString(), "'").toUTF8();
+      this->logger.log(ILogger::Source::Runtime, ILogger::Severity::Warning, message);
       return Variant::Void;
     }
     Variant statementDeclare(Block& block, const INode& node) {
@@ -876,7 +865,7 @@ namespace {
         if (true) {
           Block inner(*this);
           auto cname = this->identifier(clause.getChild(1));
-          auto retval = inner.declare(clause, ctype, cname, exception);
+          auto retval = inner.declare(node, ctype, cname, exception);
           if (retval.hasFlowControl()) {
             // Couldn't define the exception variable
             return this->statementTryFinally(node, retval);
@@ -890,7 +879,7 @@ namespace {
           return this->statementTryFinally(node, retval);
         }
       }
-      // Propogate the original exception
+      // Propagate the original exception
       exception.addFlowControl(VariantBits::Throw);
       return this->statementTryFinally(node, exception);
     }
@@ -969,9 +958,9 @@ namespace {
         return this->expressionIndex(node);
       }
       EGG_WARNING_SUPPRESS_SWITCH_END();
-      throw unexpectedOpcode("expression", node);
+      throw this->unexpectedOpcode("expression", node);
     }
-    Variant expressionUnary(const INode& node) const {
+    Variant expressionUnary(const INode& node) {
       assert(node.getOpcode() == OPCODE_UNARY);
       assert(node.getChildren() == 1);
       auto oper = node.getOperator();
@@ -982,9 +971,9 @@ namespace {
         break;
       }
       EGG_WARNING_SUPPRESS_SWITCH_END();
-      throw unexpectedOperator("unary", node);
+      throw this->unexpectedOperator("unary", node);
     }
-    Variant expressionBinary(const INode& node) const {
+    Variant expressionBinary(const INode& node) {
       assert(node.getOpcode() == OPCODE_BINARY);
       assert(node.getChildren() == 2);
       auto oper = node.getOperator();
@@ -995,7 +984,7 @@ namespace {
         break;
       }
       EGG_WARNING_SUPPRESS_SWITCH_END();
-      throw unexpectedOperator("binary", node);
+      throw this->unexpectedOperator("binary", node);
     }
     Variant expressionTernary(const INode& node) {
       assert(node.getOpcode() == OPCODE_TERNARY);
@@ -1008,7 +997,7 @@ namespace {
         return this->operatorTernary(node.getChild(0), node.getChild(1), node.getChild(2));
       }
       EGG_WARNING_SUPPRESS_SWITCH_END();
-      throw unexpectedOperator("ternary", node);
+      throw this->unexpectedOperator("ternary", node);
     }
     Variant expressionCompare(const INode& node) {
       assert(node.getOpcode() == OPCODE_COMPARE);
@@ -1037,7 +1026,7 @@ namespace {
         return this->operatorEquals(node.getChild(0), node.getChild(1), true);
       }
       EGG_WARNING_SUPPRESS_SWITCH_END();
-      throw unexpectedOperator("compare", node);
+      throw this->unexpectedOperator("compare", node);
     }
     Variant expressionAvalue(const INode& node) {
       assert(node.getOpcode() == OPCODE_AVALUE);
@@ -1073,6 +1062,7 @@ namespace {
         auto& named = node.getChild(i);
         assert(named.getOpcode() == OPCODE_NAMED);
         // WIBBLE add expr to object
+        (void)named;
       }
       return Variant(object);
     }
@@ -1104,7 +1094,7 @@ namespace {
       assert(node.getOpcode() == OPCODE_GUARD);
       assert(node.getChildren() == 3);
       if (block == nullptr) {
-        throw unexpectedOpcode("guard", node);
+        throw this->unexpectedOpcode("guard", node);
       }
       auto vtype = this->type(node.getChild(0));
       auto vname = this->identifier(node.getChild(1));
@@ -1112,18 +1102,14 @@ namespace {
       if (vinit.hasFlowControl()) {
         return vinit;
       }
-      auto retval = block->declare(node, vtype, vname, vinit);
-      if (!retval.hasFlowControl()) {
-        return Variant::True;
-      }
-      return retval;
+      return block->declare(node, vtype, vname, vinit);
     }
     Variant expressionIdentifier(const INode& node) {
       assert(node.getOpcode() == OPCODE_IDENTIFIER);
       auto name = this->identifier(node);
       auto* symbol = this->symtable->get(name);
       if (symbol == nullptr) {
-        throw RuntimeException(&node, "Unknown symbol in expression: '", name, "'");
+        return this->raiseNode(node, "Unknown symbol in expression: '", name, "'");
       }
       return symbol->value.direct();
     }
@@ -1142,7 +1128,7 @@ namespace {
         auto object = lhs.getObject();
         return object->getIndex(*this, rhs);
       }
-      throw RuntimeException(&node, "WIBBLE: Invalid indexee type: '", lhs.getRuntimeType().toString(), "'");
+      return this->raiseNode(node, "WIBBLE: Invalid indexee type: '", lhs.getRuntimeType().toString(), "'");
     }
     // Operators
     Variant operatorEquals(const INode& a, const INode& b, bool invert) {
@@ -1196,7 +1182,7 @@ namespace {
           return bool((da < ib) ^ invert); // need to force bool-ness
         }
         auto side = swapped ? "left" : "right";
-        throw RuntimeException(&b, "Expected ", side, "-hand side of comparison to be 'float' or 'int', not'", vb.getRuntimeType().toString(), "'");
+        return this->raiseNode(b, "Expected ", side, "-hand side of comparison to be 'float' or 'int', not'", vb.getRuntimeType().toString(), "'");
       }
       if (va.isInt()) {
         auto ia = va.getInt();
@@ -1215,10 +1201,10 @@ namespace {
           return bool((ia < ib) ^ invert); // need to force bool-ness
         }
         auto side = swapped ? "left" : "right";
-        throw RuntimeException(&b, "Expected ", side, "-hand side of comparison to be 'float' or 'int', not'", vb.getRuntimeType().toString(), "'");
+        return this->raiseNode(b, "Expected ", side, "-hand side of comparison to be 'float' or 'int', not'", vb.getRuntimeType().toString(), "'");
       }
       auto side = swapped ? "right" : "left";
-      throw RuntimeException(&a, "Expected ", side, "-hand side of comparison to be 'float' or 'int', not'", va.getRuntimeType().toString(), "'");
+      return this->raiseNode(a, "Expected ", side, "-hand side of comparison to be 'float' or 'int', not'", va.getRuntimeType().toString(), "'");
     }
     Variant operatorTernary(const INode& a, const INode& b, const INode& c) {
       auto cond = this->condition(a, nullptr);
@@ -1231,17 +1217,17 @@ namespace {
     Variant condition(const INode& node, Block* block) {
       auto value = this->expression(node, block);
       if (!value.hasAny(VariantBits::FlowControl | VariantBits::Bool)) {
-        throw RuntimeException(&node, "Expected condition to evaluate to a 'bool' value");
+        return this->raiseNode(node, "Expected condition to evaluate to a 'bool' value, not '", value.getRuntimeType().toString(), "'");
       }
       return value;
     }
     String identifier(const INode& node) {
       if (node.getOpcode() != OPCODE_IDENTIFIER) {
-        throw unexpectedOpcode("identifier", node);
+        throw this->unexpectedOpcode("identifier", node);
       }
       auto& child = node.getChild(0);
       if (child.getOpcode() != OPCODE_SVALUE) {
-        throw unexpectedOpcode("svalue", child);
+        throw this->unexpectedOpcode("svalue", child);
       }
       return child.getString();
     }
@@ -1255,20 +1241,63 @@ namespace {
         auto object = callee.getObject();
         return object->call(*this, parameters);
       }
-      throw RuntimeException(&node, "WIBBLE: Invalid callee type: '", callee.getRuntimeType().toString(), "'");
+      return this->raiseNode(node, "WIBBLE: Invalid callee type: '", callee.getRuntimeType().toString(), "'");
     }
     // Error handling
-    void validateOpcode(const INode& node) {
-      auto& properties = OpcodeProperties::from(node.getOpcode());
-      if (!properties.validate(node.getChildren(), node.getOperand() != INode::Operand::None)) {
-        assert(properties.name != nullptr);
-        throw RuntimeException(&node, "Corrupt opcode: '", properties.name, "'");
+    template<typename... ARGS>
+    Variant raiseNode(const INode& node, ARGS&&... args) {
+      this->updateLocation(node);
+      return this->raiseLocation(this->location, std::forward<ARGS>(args)...);
+    }
+    template<typename... ARGS>
+    Variant raiseLocation(const LocationSource& where, ARGS&&... args) const {
+      StringBuilder sb;
+      sb.add(where.file);
+      if (where.line > 0) {
+        sb.add('(', where.line);
+        if (where.column > 0) {
+          sb.add(',', where.column);
+        }
+        sb.add(')');
       }
+      sb.add(": ", std::forward<ARGS>(args)...);
+      Variant exception{ sb.str() };
+      exception.addFlowControl(VariantBits::Throw);
+      return exception;
+    }
+    void updateLocation(const INode& node) {
       auto* source = node.getLocation();
       if (source != nullptr) {
         this->location.line = source->line;
         this->location.column = source->column;
       }
+    }
+    void validateOpcode(const INode& node) {
+      this->updateLocation(node);
+      auto& properties = OpcodeProperties::from(node.getOpcode());
+      if (!properties.validate(node.getChildren(), node.getOperand() != INode::Operand::None)) {
+        assert(properties.name != nullptr);
+        throw RuntimeException(this->location, "Corrupt opcode: '", properties.name, "'");
+      }
+    }
+  public:
+    RuntimeException unexpectedOpcode(const char* expected, const INode& node) {
+      this->updateLocation(node);
+      auto opcode = node.getOpcode();
+      auto name = OpcodeProperties::from(opcode).name;
+      if (name == nullptr) {
+        return RuntimeException(this->location, "Unknown ", expected, " opcode: '<", std::to_string(opcode), ">'");
+      }
+      return RuntimeException(this->location, "Unexpected ", expected, " opcode: '", name, "'");
+    }
+    RuntimeException unexpectedOperator(const char* expected, const INode& node) {
+      this->updateLocation(node);
+      auto oper = node.getOperator();
+      auto name = OperatorProperties::from(oper).name;
+      if (name == nullptr) {
+        return RuntimeException(this->location, "Unknown ", expected, " operator: '<", std::to_string(oper), ">'");
+      }
+      return RuntimeException(this->location, "Unexpected ", expected, " operator: '", name, "'");
     }
   };
 }
@@ -1292,17 +1321,13 @@ Target::Target(ProgramDefault& program, const INode& node, Block* block)
     return;
   }
   EGG_WARNING_SUPPRESS_SWITCH_END();
-  throw unexpectedOpcode("target", node);
+  throw program.unexpectedOpcode("target", node);
 }
 
 egg::ovum::Variant& Target::identifier() const {
   assert(this->flavour == Flavour::Identifier);
   auto name = this->a.getString();
-  auto* symbol = this->program.targetSymbolTable().get(name);
-  if (symbol == nullptr) {
-    throw RuntimeException(&this->node, "Unknown target symbol: '", name, "'");
-  }
-  return symbol->value;
+  return this->program.targetSymbol(this->node, name).value;
 }
 
 egg::ovum::Variant Target::getIndex() const {
@@ -1427,9 +1452,25 @@ egg::ovum::Variant Target::apply(const INode& opnode, Variant& lvalue, const INo
   }
   auto result = Binary::apply(oper, lvalue, rvalue);
   if (result.is(VariantBits::Break)) {
-    throw unexpectedOperator("target binary", opnode);
+    throw this->program.unexpectedOperator("target binary", opnode);
   }
   return result;
+}
+
+Block::~Block() {
+  // Undeclare all the names successfully declared by this block
+  for (auto& i : this->declared) {
+    this->program.blockUndeclare(i);
+  }
+}
+
+egg::ovum::Variant Block::declare(const INode& node, const Type& type, const String& name, const Variant& init) {
+  // Keep track of names successfully declared in this block
+  auto retval = this->program.blockDeclare(node, type, name, init);
+  if (!retval.hasFlowControl()) {
+    this->declared.insert(name);
+  }
+  return retval;
 }
 
 egg::ovum::Variant Target::expression(const INode& value) const {
