@@ -4,6 +4,10 @@
 # OpenCppCoverage
 msvc/LastCoverageResults.log
 
+# CppCheck
+msvc/cppcheck/
+
+
 # Output directories
 msvc/bin/
 msvc/obj/

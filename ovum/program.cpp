@@ -9,6 +9,7 @@ namespace {
   using namespace egg::ovum;
 
   // Forward declarations
+  class Block;
   class ProgramDefault;
 
   class RuntimeException : public std::runtime_error {
@@ -326,10 +327,11 @@ namespace {
     Variant a;
     Variant b;
   public:
-    Target(ProgramDefault& program, const INode& node);
-    Variant assign(Variant&& rhs);
-    Variant nudge(Int rhs);
-    Variant mutate(const INode& opnode, const INode& rhs);
+    Target(ProgramDefault& program, const INode& node, Block* block = nullptr);
+    Variant check() const;
+    Variant assign(Variant&& rhs) const;
+    Variant nudge(Int rhs) const;
+    Variant mutate(const INode& opnode, const INode& rhs) const;
   private:
     Variant& identifier() const;
     Variant getIndex() const;
@@ -424,6 +426,19 @@ namespace {
       this->logger.log(ILogger::Source::User, ILogger::Severity::Information, utf8);
     }
     // Called by Target construction
+    Target::Flavour targetDeclare(const INode& node, Variant& a, Block& block) {
+      assert(node.getOpcode() == OPCODE_DECLARE);
+      assert(node.getChildren() == 2);
+      auto vtype = this->type(node.getChild(0));
+      auto vname = this->identifier(node.getChild(1));
+      a = block.declare(node, vtype, vname, Variant::Void);
+      if (!a.isVoid()) {
+        // Couldn't define the variable; leave the error in 'a'
+        return Target::Flavour::Failed;
+      }
+      a = vname;
+      return Target::Flavour::Identifier;
+    }
     Target::Flavour targetIdentifier(const INode& node, Variant& a) {
       assert(node.getOpcode() == OPCODE_IDENTIFIER);
       a = this->identifier(node);
@@ -497,6 +512,8 @@ namespace {
         return this->statementDo(node);
       case OPCODE_FOR:
         return this->statementFor(node);
+      case OPCODE_FOREACH:
+        return this->statementForeach(node);
       case OPCODE_IF:
         return this->statementIf(node);
       case OPCODE_INCREMENT:
@@ -582,6 +599,7 @@ namespace {
     }
     Variant statementFor(const INode& node) {
       assert(node.getOpcode() == OPCODE_FOR);
+      assert(node.getChildren() == 4);
       auto& pre = node.getChild(0);
       auto* cond = &node.getChild(1);
       EGG_WARNING_SUPPRESS_SWITCH_BEGIN();
@@ -624,6 +642,28 @@ namespace {
           }
         }
         retval = this->statement(inner, post);
+      } while (retval.isVoid());
+      return retval;
+    }
+    Variant statementForeach(const INode& node) {
+      assert(node.getOpcode() == OPCODE_FOREACH);
+      assert(node.getChildren() == 3);
+      Block block(*this);
+      Target lvalue(*this, node.getChild(0), &block);
+      auto retval = lvalue.check();
+      if (!retval.isVoid()) {
+        return retval;
+      }
+      auto rvalue = this->expression(node.getChild(1), &block);
+      if (rvalue.hasFlowControl()) {
+        return rvalue;
+      }
+      do {
+        retval = rvalue; // WIBBLE
+        if (retval.hasAny(VariantBits::FlowControl | VariantBits::Void)) {
+          break;
+        }
+        retval = lvalue.assign(std::move(retval));
       } while (retval.isVoid());
       return retval;
     }
@@ -760,7 +800,7 @@ namespace {
           auto cname = this->identifier(clause.getChild(1));
           auto retval = inner.declare(clause, ctype, cname, exception);
           if (!retval.isVoid()) {
-            // Couldn't define the exception variable 
+            // Couldn't define the exception variable
             return this->statementTryFinally(node, retval);
           }
           retval = this->executeBlock(inner, clause.getChild(2));
@@ -1111,19 +1151,26 @@ namespace {
 };
 }
 
-Target::Target(ProgramDefault& program, const INode& node) : flavour(Flavour::Failed), program(program), node(node) {
+Target::Target(ProgramDefault& program, const INode& node, Block* block)
+  : flavour(Flavour::Failed), program(program), node(node) {
   EGG_WARNING_SUPPRESS_SWITCH_BEGIN();
   switch (node.getOpcode()) {
+  case OPCODE_DECLARE:
+    if (block != nullptr) {
+      // Only allow declaration inside a foreach statement
+      this->flavour = program.targetDeclare(node, this->a, *block);
+      return;
+    }
+    break;
   case OPCODE_IDENTIFIER:
     this->flavour = program.targetIdentifier(node, this->a);
-    break;
+    return;
   case OPCODE_INDEX:
     this->flavour = program.targetIndex(node, this->a, this->b);
-    break;
-  default:
-    throw unexpectedOpcode("target", node);
+    return;
   }
   EGG_WARNING_SUPPRESS_SWITCH_END();
+  throw unexpectedOpcode("target", node);
 }
 
 egg::ovum::Variant& Target::identifier() const {
@@ -1148,7 +1195,15 @@ egg::ovum::Variant Target::setIndex(const Variant& value) const {
   return object->setIndex(this->program, this->b, value);
 }
 
-Variant Target::assign(Variant&& rhs) {
+Variant Target::check() const {
+  if (this->flavour == Flavour::Failed) {
+    // Return the problem we saved in the constructor
+    return this->a;
+  }
+  return Variant::Void;
+}
+
+Variant Target::assign(Variant&& rhs) const {
   // TODO promotion
   switch (this->flavour) {
   case Flavour::Failed:
@@ -1163,7 +1218,7 @@ Variant Target::assign(Variant&& rhs) {
   return this->a;
 }
 
-Variant Target::nudge(Int rhs) {
+Variant Target::nudge(Int rhs) const {
   Variant element;
   Variant* slot;
   switch (this->flavour) {
@@ -1196,7 +1251,7 @@ Variant Target::nudge(Int rhs) {
   return Binary::unexpected(*slot, "Expected increment operation to be applied to an 'int' value");
 }
 
-Variant Target::mutate(const INode& opnode, const INode& rhs) {
+Variant Target::mutate(const INode& opnode, const INode& rhs) const {
   switch (this->flavour) {
   case Flavour::Failed:
     break;
