@@ -1,4 +1,5 @@
 #include "ovum/ovum.h"
+#include "ovum/node.h"
 
 #include <stdexcept>
 
@@ -18,6 +19,44 @@ namespace {
   public:
     explicit VanillaBase(IAllocator& allocator)
       : SoftReferenceCounted(allocator) {
+    }
+  };
+
+  class VanillaObject : public VanillaBase {
+    VanillaObject(const VanillaObject&) = delete;
+    VanillaObject& operator=(const VanillaObject&) = delete;
+  private:
+  public:
+    explicit VanillaObject(IAllocator& allocator)
+      : VanillaBase(allocator) {
+    }
+    virtual void softVisitLinks(const Visitor&) const override {
+      // TODO
+      assert(false);
+    }
+    virtual Variant toString() const override {
+      throw std::runtime_error("TODO: " WIBBLE);
+    }
+    virtual Type getRuntimeType() const override {
+      throw std::runtime_error("TODO: " WIBBLE);
+    }
+    virtual Variant call(IExecution&, const IParameters&) override {
+      throw std::runtime_error("TODO: " WIBBLE);
+    }
+    virtual Variant getProperty(IExecution&, const String&) override {
+      throw std::runtime_error("TODO: " WIBBLE);
+    }
+    virtual Variant setProperty(IExecution&, const String&, const Variant&) override {
+      throw std::runtime_error("TODO: " WIBBLE);
+    }
+    virtual Variant getIndex(IExecution&, const Variant&) override {
+      throw std::runtime_error("TODO: " WIBBLE);
+    }
+    virtual Variant setIndex(IExecution&, const Variant&, const Variant&) override {
+      throw std::runtime_error("TODO: " WIBBLE);
+    }
+    virtual Variant iterate(IExecution&) override {
+      throw std::runtime_error("TODO: " WIBBLE);
     }
   };
 
@@ -78,13 +117,22 @@ namespace {
     }
   };
 
-  class VanillaObject : public VanillaBase {
-    VanillaObject(const VanillaObject&) = delete;
-    VanillaObject& operator=(const VanillaObject&) = delete;
+  class VanillaFunction : public VanillaBase {
+    VanillaFunction(const VanillaFunction&) = delete;
+    VanillaFunction& operator=(const VanillaFunction&) = delete;
   private:
+    Type type;
+    String name;
+    Node block;
   public:
-    explicit VanillaObject(IAllocator& allocator)
-      : VanillaBase(allocator) {
+    explicit VanillaFunction(IAllocator& allocator, const Type& type, const String& name, const Node& block)
+      : VanillaBase(allocator),
+        type(type),
+        name(name),
+        block(block) {
+      assert(type != nullptr);
+      assert(name != nullptr);
+      assert(block != nullptr);
     }
     virtual void softVisitLinks(const Visitor&) const override {
       // TODO
@@ -123,4 +171,8 @@ egg::ovum::Object egg::ovum::ObjectFactory::createVanillaArray(IAllocator& alloc
 
 egg::ovum::Object egg::ovum::ObjectFactory::createVanillaObject(IAllocator& allocator) {
   return Object(*allocator.create<VanillaObject>(0, allocator));
+}
+
+egg::ovum::Object egg::ovum::ObjectFactory::createVanillaFunction(IAllocator& allocator, const Type& type, const String& name, const Node& block) {
+  return Object(*allocator.create<VanillaFunction>(0, allocator, type, name, block));
 }

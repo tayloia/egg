@@ -1,5 +1,6 @@
 namespace egg::ovum {
   class MemoryFactory;
+  class Node;
 
   struct AllocatorDefaultPolicy {
     inline static void* memalloc(size_t bytes, size_t alignment);
@@ -176,8 +177,9 @@ namespace egg::ovum {
 
   class ObjectFactory {
   public:
-    static Object createVanillaArray(IAllocator& allocator, size_t size = 0);
     static Object createVanillaObject(IAllocator& allocator);
+    static Object createVanillaArray(IAllocator& allocator, size_t size = 0);
+    static Object createVanillaFunction(IAllocator& allocator, const Type& type, const String& name, const Node& block);
   };
 
   class VariantFactory {

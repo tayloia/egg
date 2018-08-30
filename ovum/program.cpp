@@ -514,6 +514,8 @@ namespace {
         return this->statementFor(node);
       case OPCODE_FOREACH:
         return this->statementForeach(node);
+      case OPCODE_FUNCTION:
+        return this->statementFunction(block, node);
       case OPCODE_IF:
         return this->statementIf(node);
       case OPCODE_INCREMENT:
@@ -658,14 +660,25 @@ namespace {
       if (rvalue.hasFlowControl()) {
         return rvalue;
       }
+      size_t WIBBLE = 0;
       do {
         retval = rvalue; // WIBBLE
         if (retval.hasAny(VariantBits::FlowControl | VariantBits::Void)) {
           break;
         }
         retval = lvalue.assign(std::move(retval));
-      } while (retval.isVoid());
+      } while (retval.isVoid() && (++WIBBLE < 1000));
       return retval;
+    }
+    Variant statementFunction(Block& block, const INode& node) {
+      assert(node.getOpcode() == OPCODE_FUNCTION);
+      assert(node.getChildren() == 3);
+      auto ftype = this->type(node.getChild(0));
+      Node fblock{ &node.getChild(1) };
+      auto fname = this->identifier(node.getChild(2));
+      Variant fvalue{ ObjectFactory::createVanillaFunction(this->allocator, ftype, fname, fblock) };
+      fvalue.soften(*this->basket);
+      return block.declare(node, ftype, fname, fvalue);
     }
     Variant statementIf(const INode& node) {
       assert(node.getOpcode() == OPCODE_IF);
