@@ -7,4 +7,7 @@
         <dir name="C:/Project/egg/ovum"/>
         <dir name="C:/Project/egg/yolk"/>
     </paths>
+    <suppressions>
+        <suppression>purgedConfiguration</suppression>
+    </suppressions>
 </project>

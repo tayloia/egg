@@ -224,6 +224,7 @@ namespace {
 
   template<typename CHILDREN, typename ATTRIBUTES, typename OPERAND>
   struct NodeExtra final : public CHILDREN, public ATTRIBUTES, public OPERAND {
+    // cppcheck-suppress uninitMemberVar
     explicit NodeExtra(typename OPERAND::Type operand) : OPERAND(operand) {
     }
     ~NodeExtra() {

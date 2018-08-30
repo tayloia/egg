@@ -38,7 +38,7 @@ namespace {
     return egg::ovum::BasalBits::None;
   }
 
-  class ParserDump {
+  class ParserDump final {
     EGG_NO_COPY(ParserDump);
   private:
     std::ostream& os;
@@ -50,196 +50,201 @@ namespace {
     ~ParserDump() {
       this->os << ')';
     }
-    ParserDump& add(const std::string& text) {
-      this->os << ' ' << '\'' << text << '\'';
-      return *this;
+    void add() {
     }
-    ParserDump& add(const egg::ovum::String& text) {
+    void add(const std::string& text) {
       this->os << ' ' << '\'' << text << '\'';
-      return *this;
     }
-    ParserDump& add(EggTokenizerOperator op) {
+    void add(const egg::ovum::String& text) {
+      this->os << ' ' << '\'' << text << '\'';
+    }
+    void add(EggTokenizerOperator op) {
       this->os << ' ' << '\'' << EggTokenizerValue::getOperatorString(op) << '\'';
-      return *this;
     }
-    ParserDump& add(const std::unique_ptr<IEggSyntaxNode>& child) {
+    void add(const std::unique_ptr<IEggSyntaxNode>& child) {
       this->os << ' ';
       if (child == nullptr) {
         this->os << '(' << ')';
       } else {
         child->dump(this->os);
       }
-      return *this;
     }
-    ParserDump& add(const std::vector<std::unique_ptr<IEggSyntaxNode>>& children) {
+    void add(const std::vector<std::unique_ptr<IEggSyntaxNode>>& children) {
       for (auto& child : children) {
         this->add(child);
       }
-      return *this;
     }
     template<size_t N>
-    ParserDump& add(const std::unique_ptr<IEggSyntaxNode> (&children)[N]) {
+    void add(const std::unique_ptr<IEggSyntaxNode> (&children)[N]) {
       for (auto& child : children) {
         this->add(child);
       }
-      return *this;
+    }
+    template<typename T, typename... ARGS>
+    void add(const T& value, ARGS&&... args) {
+      this->add(value);
+      this->add(std::forward<ARGS>(args)...);
+    }
+    template<typename... ARGS>
+    static void dump(std::ostream& os, const std::string& text, ARGS&&... args) {
+      ParserDump(os, text).add(std::forward<ARGS>(args)...);
     }
   };
 }
 
 void egg::yolk::EggSyntaxNode_Module::dump(std::ostream& os) const {
-  ParserDump(os, "module").add(this->child);
+  ParserDump::dump(os, "module", this->child);
 }
 
 void egg::yolk::EggSyntaxNode_Block::dump(std::ostream& os) const {
-  ParserDump(os, "block").add(this->child);
+  ParserDump::dump(os, "block", this->child);
 }
 
 void egg::yolk::EggSyntaxNode_Type::dump(std::ostream& os) const {
   auto tname = (this->type == nullptr) ? "var" : this->type.toString();
-  ParserDump(os, "type").add(tname);
+  ParserDump::dump(os, "type", tname);
 }
 
 void egg::yolk::EggSyntaxNode_Declare::dump(std::ostream& os) const {
-  ParserDump(os, "declare").add(this->name).add(this->child);
+  ParserDump::dump(os, "declare", this->name, this->child);
 }
 
 void egg::yolk::EggSyntaxNode_Guard::dump(std::ostream& os) const {
-  ParserDump(os, "guard").add(this->name).add(this->child);
+  ParserDump::dump(os, "guard", this->name, this->child);
 }
 
 void egg::yolk::EggSyntaxNode_Assignment::dump(std::ostream& os) const {
-  ParserDump(os, "assign").add(this->op).add(this->child);
+  ParserDump::dump(os, "assign", this->op, this->child);
 }
 
 void egg::yolk::EggSyntaxNode_Mutate::dump(std::ostream& os) const {
-  ParserDump(os, "mutate").add(this->op).add(this->child);
+  ParserDump::dump(os, "mutate", this->op, this->child);
 }
 
 void egg::yolk::EggSyntaxNode_Break::dump(std::ostream& os) const {
-  ParserDump(os, "break");
+  ParserDump::dump(os, "break");
 }
 
 void egg::yolk::EggSyntaxNode_Case::dump(std::ostream& os) const {
-  ParserDump(os, "case").add(this->child);
+  ParserDump::dump(os, "case", this->child);
 }
 
 void egg::yolk::EggSyntaxNode_Catch::dump(std::ostream& os) const {
-  ParserDump(os, "catch").add(this->name).add(this->child);
+  ParserDump::dump(os, "catch", this->name, this->child);
 }
 
 void egg::yolk::EggSyntaxNode_Continue::dump(std::ostream& os) const {
-  ParserDump(os, "continue");
+  ParserDump::dump(os, "continue");
 }
 
 void egg::yolk::EggSyntaxNode_Default::dump(std::ostream& os) const {
-  ParserDump(os, "default");
+  ParserDump::dump(os, "default");
 }
 
 void egg::yolk::EggSyntaxNode_Do::dump(std::ostream& os) const {
-  ParserDump(os, "do").add(this->child);
+  ParserDump::dump(os, "do", this->child);
 }
 
 void egg::yolk::EggSyntaxNode_If::dump(std::ostream& os) const {
-  ParserDump(os, "if").add(this->child);
+  ParserDump::dump(os, "if", this->child);
 }
 
 void egg::yolk::EggSyntaxNode_Finally::dump(std::ostream& os) const {
-  ParserDump(os, "finally").add(this->child);
+  ParserDump::dump(os, "finally", this->child);
 }
 
 void egg::yolk::EggSyntaxNode_For::dump(std::ostream& os) const {
-  ParserDump(os, "for").add(this->child);
+  ParserDump::dump(os, "for", this->child);
 }
 
 void egg::yolk::EggSyntaxNode_Foreach::dump(std::ostream& os) const {
-  ParserDump(os, "foreach").add(this->child);
+  ParserDump::dump(os, "foreach", this->child);
 }
 
 void egg::yolk::EggSyntaxNode_FunctionDefinition::dump(std::ostream& os) const {
-  ParserDump(os, "function").add(this->name).add(this->child);
+  ParserDump::dump(os, "function", this->name, this->child);
 }
 
 void egg::yolk::EggSyntaxNode_Parameter::dump(std::ostream& os) const {
-  ParserDump(os, this->optional ? "parameter?" : "parameter").add(this->name).add(this->child);
+  ParserDump::dump(os, this->optional ? "parameter?" : "parameter", this->name, this->child);
 }
 
 void egg::yolk::EggSyntaxNode_Return::dump(std::ostream& os) const {
-  ParserDump(os, "return").add(this->child);
+  ParserDump::dump(os, "return", this->child);
 }
 
 void egg::yolk::EggSyntaxNode_Switch::dump(std::ostream& os) const {
-  ParserDump(os, "switch").add(this->child);
+  ParserDump::dump(os, "switch", this->child);
 }
 
 void egg::yolk::EggSyntaxNode_Throw::dump(std::ostream& os) const {
-  ParserDump(os, "throw").add(this->child);
+  ParserDump::dump(os, "throw", this->child);
 }
 
 void egg::yolk::EggSyntaxNode_Try::dump(std::ostream& os) const {
-  ParserDump(os, "try").add(this->child);
+  ParserDump::dump(os, "try", this->child);
 }
 
 void egg::yolk::EggSyntaxNode_While::dump(std::ostream& os) const {
-  ParserDump(os, "while").add(this->child);
+  ParserDump::dump(os, "while", this->child);
 }
 
 void egg::yolk::EggSyntaxNode_Yield::dump(std::ostream& os) const {
-  ParserDump(os, "yield").add(this->child);
+  ParserDump::dump(os, "yield", this->child);
 }
 
 void egg::yolk::EggSyntaxNode_UnaryOperator::dump(std::ostream& os) const {
-  ParserDump(os, "unary").add(this->op).add(this->child);
+  ParserDump::dump(os, "unary", this->op, this->child);
 }
 
 void egg::yolk::EggSyntaxNode_BinaryOperator::dump(std::ostream& os) const {
-  ParserDump(os, "binary").add(this->op).add(this->child);
+  ParserDump::dump(os, "binary", this->op, this->child);
 }
 
 void egg::yolk::EggSyntaxNode_TernaryOperator::dump(std::ostream& os) const {
-  ParserDump(os, "ternary").add(this->child);
+  ParserDump::dump(os, "ternary", this->child);
 }
 
 void egg::yolk::EggSyntaxNode_Array::dump(std::ostream& os) const {
-  ParserDump(os, "array").add(this->child);
+  ParserDump::dump(os, "array", this->child);
 }
 
 void egg::yolk::EggSyntaxNode_Object::dump(std::ostream& os) const {
-  ParserDump(os, "object").add(this->child);
+  ParserDump::dump(os, "object", this->child);
 }
 
 void egg::yolk::EggSyntaxNode_Call::dump(std::ostream& os) const {
-  ParserDump(os, "call").add(this->child);
+  ParserDump::dump(os, "call", this->child);
 }
 
 void egg::yolk::EggSyntaxNode_Named::dump(std::ostream& os) const {
-  ParserDump(os, "named").add(this->name).add(this->child);
+  ParserDump::dump(os, "named", this->name, this->child);
 }
 
 void egg::yolk::EggSyntaxNode_Identifier::dump(std::ostream& os) const {
-  ParserDump(os, "identifier").add(this->name);
+  ParserDump::dump(os, "identifier", this->name);
 }
 
 void egg::yolk::EggSyntaxNode_Literal::dump(std::ostream& os) const {
   switch (this->kind) {
   case EggTokenizerKind::Integer:
-    ParserDump(os, "literal int " + this->value.s.toUTF8());
+    ParserDump::dump(os, "literal int " + this->value.s.toUTF8());
     break;
   case EggTokenizerKind::Float:
-    ParserDump(os, "literal float " + this->value.s.toUTF8());
+    ParserDump::dump(os, "literal float " + this->value.s.toUTF8());
     break;
   case EggTokenizerKind::String:
-    ParserDump(os, "literal string").add(this->value.s.toUTF8());
+    ParserDump::dump(os, "literal string", this->value.s.toUTF8());
     break;
   case EggTokenizerKind::Keyword:
     if (this->value.k == EggTokenizerKeyword::Null) {
-      ParserDump(os, "literal null");
+      ParserDump::dump(os, "literal null");
     } else if (this->value.k == EggTokenizerKeyword::False) {
-      ParserDump(os, "literal bool false");
+      ParserDump::dump(os, "literal bool false");
     } else if (this->value.k == EggTokenizerKeyword::True) {
-      ParserDump(os, "literal bool true");
+      ParserDump::dump(os, "literal bool true");
     } else {
-      ParserDump(os, "literal keyword unknown");
+      ParserDump::dump(os, "literal keyword unknown");
     }
     break;
   case EggTokenizerKind::Operator:
@@ -247,13 +252,13 @@ void egg::yolk::EggSyntaxNode_Literal::dump(std::ostream& os) const {
   case EggTokenizerKind::Attribute:
   case EggTokenizerKind::EndOfFile:
   default:
-    ParserDump(os, "literal unknown");
+    ParserDump::dump(os, "literal unknown");
     break;
   }
 }
 
 void egg::yolk::EggSyntaxNode_Dot::dump(std::ostream& os) const {
-  ParserDump(os, this->query ? "dot?" : "dot").add(this->child).add(this->property);
+  ParserDump::dump(os, this->query ? "dot?" : "dot", this->child, this->property);
 }
 
 egg::yolk::EggTokenizerKeyword egg::yolk::EggSyntaxNodeBase::keyword() const {
@@ -847,6 +852,7 @@ std::unique_ptr<IEggSyntaxNode> EggSyntaxParserContext::parseCompoundStatement()
   /*
       compound-statement ::= '{' statement* '}'
   */
+  // cppcheck-suppress assertWithSideEffect
   assert(this->backtrack.peek(0).isOperator(EggTokenizerOperator::CurlyLeft));
   EggSyntaxNodeLocation location(this->backtrack.peek(0), 0);
   this->backtrack.advance(1); // skip '{'
@@ -1058,6 +1064,7 @@ std::unique_ptr<IEggSyntaxNode> EggSyntaxParserContext::parseExpressionPostfixFu
       named-parameter ::= variable-identifier ':' expression
   */
   EggSyntaxParserBacktrackMark mark(this->backtrack);
+  // cppcheck-suppress assertWithSideEffect
   assert(mark.peek(0).isOperator(EggTokenizerOperator::ParenthesisLeft));
   EggSyntaxNodeLocation location(mark.peek(0), 0);
   auto call = std::make_unique<EggSyntaxNode_Call>(location, std::move(callee));
@@ -1090,6 +1097,7 @@ std::unique_ptr<IEggSyntaxNode> EggSyntaxParserContext::parseExpressionPostfixFu
     }
     mark.accept(0);
   }
+  // cppcheck-suppress assertWithSideEffect
   assert(mark.peek(0).isOperator(EggTokenizerOperator::ParenthesisRight));
   call->setLocationEnd(mark.peek(0), 1);
   mark.accept(1); // skip ')'
@@ -1229,6 +1237,7 @@ std::unique_ptr<IEggSyntaxNode> EggSyntaxParserContext::parseExpressionParenthes
       parenthesis-value ::= '(' expression ')'
   */
   EggSyntaxParserBacktrackMark mark(this->backtrack);
+  // cppcheck-suppress assertWithSideEffect
   assert(mark.peek(0).isOperator(EggTokenizerOperator::ParenthesisLeft));
   mark.advance(1);
   auto expr = this->parseExpression(nullptr);
@@ -1249,6 +1258,7 @@ std::unique_ptr<IEggSyntaxNode> EggSyntaxParserContext::parseExpressionArray(con
                          | array-value-list ',' expression
   */
   EggSyntaxParserBacktrackMark mark(this->backtrack);
+  // cppcheck-suppress assertWithSideEffect
   assert(mark.peek(0).isOperator(EggTokenizerOperator::BracketLeft));
   auto array = std::make_unique<EggSyntaxNode_Array>(location);
   if (mark.peek(1).isOperator(EggTokenizerOperator::BracketRight)) {
@@ -1278,6 +1288,7 @@ std::unique_ptr<IEggSyntaxNode> EggSyntaxParserContext::parseExpressionObject(co
                           | object-value-list ',' name ':' expression
   */
   EggSyntaxParserBacktrackMark mark(this->backtrack);
+  // cppcheck-suppress assertWithSideEffect
   assert(mark.peek(0).isOperator(EggTokenizerOperator::CurlyLeft));
   auto object = std::make_unique<EggSyntaxNode_Object>(location);
   if (mark.peek(1).isOperator(EggTokenizerOperator::CurlyRight)) {
@@ -1535,7 +1546,9 @@ std::unique_ptr<IEggSyntaxNode> EggSyntaxParserContext::parseStatementForeach() 
       foreach-statement ::= 'for' '(' variable-definition-type? variable-identifier ':' expression ')' compound-statement
   */
   EggSyntaxParserBacktrackMark mark(this->backtrack);
+  // cppcheck-suppress assertWithSideEffect
   assert(mark.peek(0).isKeyword(EggTokenizerKeyword::For));
+  // cppcheck-suppress assertWithSideEffect
   assert(mark.peek(1).isOperator(EggTokenizerOperator::ParenthesisLeft));
   mark.advance(2);
   std::unique_ptr<IEggSyntaxNode> target;
@@ -1579,6 +1592,7 @@ std::unique_ptr<IEggSyntaxNode> EggSyntaxParserContext::parseStatementFunction(s
   EggSyntaxParserBacktrackMark mark(this->backtrack);
   auto& p0 = mark.peek(0);
   assert(p0.kind == EggTokenizerKind::Identifier);
+  // cppcheck-suppress assertWithSideEffect
   assert(mark.peek(1).isOperator(EggTokenizerOperator::ParenthesisLeft));
   auto result = std::make_unique<EggSyntaxNode_FunctionDefinition>(EggSyntaxNodeLocation(p0), p0.value.s, std::move(type), generator);
   mark.advance(2);
@@ -1964,6 +1978,7 @@ egg::ovum::Type EggSyntaxParserContext::parseTypePostfixFunction(const egg::ovum
                            | attribute* '...' type-expression '[' ']' variable-identifier
   */
   EggSyntaxParserBacktrackMark mark(this->backtrack);
+  // cppcheck-suppress assertWithSideEffect
   assert(mark.peek(0).isOperator(EggTokenizerOperator::ParenthesisLeft));
   mark.advance(1);
   auto* underlying = egg::yolk::FunctionType::createFunctionType(*this->allocator, egg::ovum::String(), rettype);

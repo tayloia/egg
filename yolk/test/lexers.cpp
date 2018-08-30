@@ -4,7 +4,7 @@
 using namespace egg::yolk;
 
 namespace {
-  LexerValue lexerStep(ILexer& lexer, LexerKind expected_kind, std::string expected_verbatim) {
+  LexerValue lexerStep(ILexer& lexer, LexerKind expected_kind, const std::string& expected_verbatim) {
     // Cannot use ASSERT_EQ here because we're returning a value
     LexerItem item;
     EXPECT_EQ(expected_kind, lexer.next(item));
@@ -12,33 +12,33 @@ namespace {
     EXPECT_EQ(expected_verbatim, item.verbatim);
     return item.value;
   }
-  void lexerStepWhitespace(ILexer& lexer, std::string expected_verbatim) {
+  void lexerStepWhitespace(ILexer& lexer, const std::string& expected_verbatim) {
     auto value = lexerStep(lexer, LexerKind::Whitespace, expected_verbatim);
     ASSERT_TRUE(value.s.empty());
   }
-  void lexerStepComment(ILexer& lexer, std::string expected_verbatim) {
+  void lexerStepComment(ILexer& lexer, const std::string& expected_verbatim) {
     auto value = lexerStep(lexer, LexerKind::Comment, expected_verbatim);
     ASSERT_TRUE(value.s.empty());
   }
-  void lexerStepInteger(ILexer& lexer, std::string expected_verbatim, uint64_t expected_value) {
+  void lexerStepInteger(ILexer& lexer, const std::string& expected_verbatim, uint64_t expected_value) {
     auto value = lexerStep(lexer, LexerKind::Integer, expected_verbatim);
     ASSERT_EQ(expected_value, value.i);
     ASSERT_TRUE(value.s.empty());
   }
-  void lexerStepFloat(ILexer& lexer, std::string expected_verbatim, double expected_value) {
+  void lexerStepFloat(ILexer& lexer, const std::string& expected_verbatim, double expected_value) {
     auto value = lexerStep(lexer, LexerKind::Float, expected_verbatim);
     ASSERT_EQ(expected_value, value.f);
     ASSERT_TRUE(value.s.empty());
   }
-  void lexerStepString(ILexer& lexer, std::string expected_verbatim, std::u32string expected_value) {
+  void lexerStepString(ILexer& lexer, const std::string& expected_verbatim, std::u32string expected_value) {
     auto value = lexerStep(lexer, LexerKind::String, expected_verbatim);
     ASSERT_EQ(expected_value, value.s);
   }
-  void lexerStepOperator(ILexer& lexer, std::string expected_verbatim) {
+  void lexerStepOperator(ILexer& lexer, const std::string& expected_verbatim) {
     auto value = lexerStep(lexer, LexerKind::Operator, expected_verbatim);
     ASSERT_TRUE(value.s.empty());
   }
-  void lexerStepIdentifier(ILexer& lexer, std::string expected_verbatim) {
+  void lexerStepIdentifier(ILexer& lexer, const std::string& expected_verbatim) {
     auto value = lexerStep(lexer, LexerKind::Identifier, expected_verbatim);
     ASSERT_TRUE(value.s.empty());
   }

@@ -8,10 +8,10 @@ TEST(TestExceptions, Throw) {
 TEST(TestExceptions, Catch) {
   std::string expected_message = "Hello world";
   std::string expected_file = "/exceptions.cpp";
-  auto expected_line = __LINE__ + 2; // where the throw occurs
   try {
     EGG_THROW(expected_message);
   } catch (const egg::yolk::Exception& exception) {
+    auto expected_line = __LINE__ - 2; // where the throw occurs
     auto ending = expected_file + "(" + egg::yolk::String::fromSigned(expected_line) + ")";
     ASSERT_ENDSWITH(exception.what(), ending + ": " + expected_message);
     ASSERT_EQ(expected_message, exception.reason());

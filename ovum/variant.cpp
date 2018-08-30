@@ -208,6 +208,7 @@ void egg::ovum::VariantKind::printTo(std::ostream& stream, VariantBits kind) {
 #define EGG_OVUM_VARIANT_PRINT(name, text) if (Bits::hasAnySet(kind, VariantBits::name)) { if (++found > 1) { stream << '|'; } stream << #name; }
   EGG_OVUM_VARIANT(EGG_OVUM_VARIANT_PRINT)
 #undef EGG_OVUM_VARIANT_PRINT
+  // cppcheck-suppress knownConditionTrueFalse
   if (found == 0) {
     stream << '(' << int(kind) << ')';
   }

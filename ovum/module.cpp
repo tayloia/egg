@@ -16,11 +16,13 @@ namespace {
     OpcodeTable() {
       std::memset(this->opcode, -1, sizeof(this->opcode));
       std::memset(this->properties, 0, sizeof(this->properties));
+      // cppcheck-suppress unreadVariable
       const size_t N = EGG_VM_NARGS; // used in the macro below
 #define EGG_VM_OPCODES_TABLE(opcode, minbyte, minargs, maxargs, text) this->fill(opcode, minargs, maxargs, text);
       EGG_VM_OPCODES(EGG_VM_OPCODES_TABLE)
 #undef EGG_VM_OPCODES_TABLE
     }
+    // cppcheck-suppress unusedPrivateFunction
     void fill(Opcode code, size_t minargs, size_t maxargs, const char* text) {
       assert(code != OPCODE_reserved);
       assert(text != nullptr);
@@ -55,6 +57,7 @@ namespace {
       EGG_VM_OPERATORS(EGG_VM_OPERATORS_TABLE)
 #undef EGG_VM_OPERATORS_TABLE
     }
+    // cppcheck-suppress unusedPrivateFunction
     void fill(Operator oper, Opclass opclass, size_t index, const char* text) {
       assert(text != nullptr);
       assert((oper >= 0x00) && (oper <= 0x80)); // sic [0..128] inclusive

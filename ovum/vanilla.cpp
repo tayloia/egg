@@ -16,7 +16,7 @@ namespace {
     VanillaBase(const VanillaBase&) = delete;
     VanillaBase& operator=(const VanillaBase&) = delete;
   public:
-    VanillaBase(IAllocator& allocator)
+    explicit VanillaBase(IAllocator& allocator)
       : SoftReferenceCounted(allocator) {
     }
   };
@@ -83,7 +83,7 @@ namespace {
     VanillaObject& operator=(const VanillaObject&) = delete;
   private:
   public:
-    VanillaObject(IAllocator& allocator)
+    explicit VanillaObject(IAllocator& allocator)
       : VanillaBase(allocator) {
     }
     virtual void softVisitLinks(const Visitor&) const override {

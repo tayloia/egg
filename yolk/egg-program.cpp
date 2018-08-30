@@ -15,7 +15,7 @@ namespace {
   private:
     ILogger* logger;
   public:
-    Relogger(ILogger& logger) : logger(&logger) {
+    explicit Relogger(ILogger& logger) : logger(&logger) {
     }
     virtual void log(Source source, Severity severity, const std::string & message) override {
       this->logger->log(source, severity, message);
