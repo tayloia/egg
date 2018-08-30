@@ -8,45 +8,17 @@
 using namespace egg::yolk;
 
 namespace {
-  class TestLogger : public egg::ovum::ILogger {
-  private:
-    std::string resource;
-  public:
-    explicit TestLogger(const std::string& resource)
-      : resource(resource) {
-    }
-    virtual void log(Source source, Severity severity, const std::string& message) override {
-      static const egg::yolk::String::StringFromEnum sourceTable[] = {
-        { int(Source::Compiler), "<COMPILER>" },
-        { int(Source::Runtime), "<RUNTIME>" },
-        { int(Source::User), "" },
-      };
-      static const egg::yolk::String::StringFromEnum severityTable[] = {
-        { int(Severity::Debug), "<DEBUG>" },
-        { int(Severity::Verbose), "<VERBOSE>" },
-        { int(Severity::Information), "" },
-        { int(Severity::Warning), "<WARNING>" },
-        { int(Severity::Error), "<ERROR>" }
-      };
-      auto text = String::fromEnum(source, sourceTable) + String::fromEnum(severity, severityTable);
-      std::cout << text << message << std::endl;
-      this->logged += text;
-      this->logged += this->resource.empty() ? message : String::replace(message, this->resource, "<RESOURCE>");
-      this->logged += "\n";
-    }
-    std::string logged;
-  };
-
   class TestExamples : public ::testing::TestWithParam<int> {
     EGG_NO_COPY(TestExamples);
   public:
+    enum class Age { Old, New };
     TestExamples() {}
-    void run() {
+    void run(Age age) {
       // Actually perform the testing
       int example = this->GetParam();
       auto resource = "~/examples/example-" + TestExamples::formatIndex(example) + ".egg";
       FileTextStream stream(resource);
-      auto actual = TestExamples::execute(stream);
+      auto actual = TestExamples::execute(stream, age);
       ASSERT_TRUE(stream.rewind());
       auto expected = TestExamples::expectation(stream);
       ASSERT_EQ(expected, actual);
@@ -60,17 +32,41 @@ namespace {
       return TestExamples::formatIndex(info.param);
     }
   private:
-    static std::string execute(TextStream& stream) {
+    static std::string execute(TextStream& stream, Age age) {
       egg::test::Allocator allocator;
-      auto root = EggParserFactory::parseModule(allocator, stream);
-      auto engine = EggEngineFactory::createEngineFromParsed(allocator, root);
-      auto logger = std::make_shared<TestLogger>(stream.getResourceName());
+      auto logger = std::make_shared<egg::test::Logger>(stream.getResourceName());
+      switch (age) {
+      case Age::Old:
+        TestExamples::executeOld(stream, allocator, logger);
+        break;
+      case Age::New:
+        TestExamples::executeNew(stream, allocator, logger);
+        break;
+      }
+      return logger->logged.str();
+    }
+    static void executeOld(TextStream& stream, egg::ovum::IAllocator& allocator, const std::shared_ptr<egg::ovum::ILogger>& logger) {
+      auto engine = EggEngineFactory::createEngineFromTextStream(stream);
       auto preparation = EggEngineFactory::createPreparationContext(allocator, logger);
       if (engine->prepare(*preparation) != egg::ovum::ILogger::Severity::Error) {
         auto execution = EggEngineFactory::createExecutionContext(allocator, logger);
         engine->execute(*execution);
       }
-      return logger->logged;
+    }
+    static void executeNew(TextStream& stream, egg::ovum::IAllocator& allocator, const std::shared_ptr<egg::ovum::ILogger>& logger) {
+      auto engine = EggEngineFactory::createEngineFromTextStream(stream);
+      auto preparation = EggEngineFactory::createPreparationContext(allocator, logger);
+      if (engine->prepare(*preparation) != egg::ovum::ILogger::Severity::Error) {
+        auto compilation = EggEngineFactory::createCompilationContext(allocator, logger);
+        egg::ovum::Module module;
+        if (engine->compile(*compilation, module) != egg::ovum::ILogger::Severity::Error) {
+          auto program = egg::ovum::ProgramFactory::create(allocator, *logger);
+          auto result = program->run(*module);
+          if (result.stripFlowControl(egg::ovum::VariantBits::Throw)) {
+            logger->log(egg::ovum::ILogger::Source::User, egg::ovum::ILogger::Severity::Error, "Exception thrown: " + result.toString().toUTF8());
+          }
+        }
+      }
     }
     static std::string expectation(TextStream& stream) {
       std::string expected;
@@ -132,8 +128,12 @@ namespace {
   };
 }
 
-TEST_P(TestExamples, Run) {
-  this->run();
+TEST_P(TestExamples, RunOld) {
+  this->run(Age::Old);
+}
+
+TEST_P(TestExamples, RunNew) {
+  this->run(Age::New);
 }
 
 EGG_INSTANTIATE_TEST_CASE_P(TestExamples)
