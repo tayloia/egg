@@ -18,6 +18,11 @@ namespace egg::ovum {
 #undef EGG_VM_OPERATORS_ENUM
   };
 
+  struct NodeLocation {
+    size_t line;
+    size_t column;
+  };
+
   class INode : public IHardAcquireRelease {
   public:
     enum class Operand { None, Int, Float, String, Operator };
@@ -31,6 +36,7 @@ namespace egg::ovum {
     virtual Operator getOperator() const = 0;
     virtual size_t getAttributes() const = 0;
     virtual INode& getAttribute(size_t index) const = 0;
+    virtual const NodeLocation* getLocation() const = 0;
     virtual void setChild(size_t index, INode& value) = 0;
   };
 
@@ -50,6 +56,7 @@ namespace egg::ovum {
 
   class NodeFactory {
   public:
+    // Without location
     static Node create(IAllocator& allocator, Opcode opcode);
     static Node create(IAllocator& allocator, Opcode opcode, Node&& child0);
     static Node create(IAllocator& allocator, Opcode opcode, Node&& child0, Node&& child1);
@@ -61,6 +68,10 @@ namespace egg::ovum {
     static Node create(IAllocator& allocator, Opcode opcode, const Nodes* children, const Nodes* attributes, Float operand);
     static Node create(IAllocator& allocator, Opcode opcode, const Nodes* children, const Nodes* attributes, const String& operand);
     static Node create(IAllocator& allocator, Opcode opcode, const Nodes* children, const Nodes* attributes, Operator operand);
+    // With location
+    static Node create(IAllocator& allocator, const NodeLocation& location, Opcode opcode, const Nodes* children, const Nodes* attributes = nullptr);
+    static Node create(IAllocator& allocator, const NodeLocation& location, Opcode opcode, const Nodes* children, const Nodes* attributes, Operator operand);
+    // Values location
     static Node createValue(IAllocator& allocator, nullptr_t);
     static Node createValue(IAllocator& allocator, bool value);
     static Node createValue(IAllocator& allocator, int32_t value);

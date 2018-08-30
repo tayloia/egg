@@ -270,12 +270,49 @@ namespace {
     }
   };
 
+  class Parameters : public IParameters {
+    Parameters(const Parameters&) = delete;
+    Parameters& operator=(const Parameters&) = delete;
+  private:
+    std::vector<Variant> positional;
+  public:
+    Parameters() = default;
+    void addPositional(Variant&& value) {
+      this->positional.emplace_back(std::move(value));
+    }
+    virtual size_t getPositionalCount() const override {
+      return this->positional.size();
+    }
+    virtual Variant getPositional(size_t index) const override {
+      return this->positional[index];
+    }
+    virtual const LocationSource* getPositionalLocation(size_t) const override {
+      // TODO remove
+      return nullptr;
+    }
+    virtual size_t getNamedCount() const override {
+      return 0;
+    }
+    virtual String getName(size_t) const override {
+      return String();
+    }
+    virtual Variant getNamed(const String&) const override {
+      return Variant::Void;
+    }
+    virtual const LocationSource* getNamedLocation(const String&) const override {
+      // TODO remove
+      return nullptr;
+    }
+  };
+
   struct Symbol {
     Type type;
     String name;
     Variant value;
-    Symbol(const Type& type, const String& name, const Variant& value)
+    Symbol(IBasket* basket, const Type& type, const String& name, const Variant& value)
       : type(type), name(name), value(value) {
+      assert(basket != nullptr);
+      this->value.soften(*basket);
       assert(this->value.validate(true));
     }
   };
@@ -291,7 +328,7 @@ namespace {
     }
     bool add(const Type& type, const String& name, const Variant& init) {
       // Return true iff the insertion occurred
-      Symbol symbol(type, name, init);
+      Symbol symbol(this->softGetBasket(), type, name, init);
       auto retval = this->table.insert(std::make_pair(name, std::move(symbol)));
       return retval.second;
     }
@@ -378,6 +415,7 @@ namespace {
     ILogger& logger;
     Basket basket;
     HardPtr<SymbolTable> symtable;
+    LocationSource location;
   public:
     ProgramDefault(IAllocator& allocator, IBasket& basket, ILogger& logger)
       : HardReferenceCounted(allocator, 0),
@@ -390,8 +428,15 @@ namespace {
       this->symtable.set(nullptr);
       this->basket->collect();
     }
+    // Inherited from IProgram
+    virtual bool builtin(const String& name, const Variant& value) override {
+      return this->symtable->add(value.getRuntimeType(), name, value);
+    }
     virtual Variant run(const IModule& module) override {
       try {
+        this->location.file = module.getResourceName();
+        this->location.line = 0;
+        this->location.column = 0;
         return this->executeRoot(module.getRootNode());
       } catch (RuntimeException& exception) {
         this->logger.log(egg::ovum::ILogger::Source::Runtime, egg::ovum::ILogger::Severity::Error, exception.message.toUTF8());
@@ -415,12 +460,29 @@ namespace {
       return this->allocator;
     }
     virtual Variant raise(const String& message) override {
-      Variant exception{ message };
+      StringBuilder sb;
+      sb.add(this->location.file);
+      if (this->location.line > 0) {
+        sb.add('(', this->location.line);
+        if (this->location.column > 0) {
+          sb.add(',', this->location.column);
+        }
+        sb.add("): ", message);
+      } else {
+        sb.add(": ", message);
+      }
+      Variant exception{ sb.str() };
       exception.addFlowControl(VariantBits::Throw);
       return exception;
     }
-    virtual Variant assertion(const Variant&) override {
-      return this->raise("WIBBLE: Unimplemented: assert()");
+    virtual Variant assertion(const Variant& predicate) override {
+      if (!predicate.isBool()) {
+        return this->raiseFormat("Builtin 'assert()' expects its parameter to be a 'bool' value, not ", predicate.getRuntimeType().toString());
+      }
+      if (predicate.getBool()) {
+        return Variant::Void;
+      }
+      return this->raise("Assertion is untrue");
     }
     virtual void print(const std::string& utf8) override {
       this->logger.log(ILogger::Source::User, ILogger::Severity::Information, utf8);
@@ -432,7 +494,7 @@ namespace {
       auto vtype = this->type(node.getChild(0));
       auto vname = this->identifier(node.getChild(1));
       a = block.declare(node, vtype, vname, Variant::Void);
-      if (!a.isVoid()) {
+      if (a.hasFlowControl()) {
         // Couldn't define the variable; leave the error in 'a'
         return Target::Flavour::Failed;
       }
@@ -464,6 +526,10 @@ namespace {
     Variant targetExpression(const INode& node) {
       return this->expression(node);
     }
+    // Builtins
+    void addBuiltins() {
+      this->builtin("assert", VariantFactory::createBuiltinAssert(this->allocator));
+    }
   private:
     Variant executeRoot(const INode& node) {
       if (node.getOpcode() != OPCODE_MODULE) {
@@ -481,7 +547,7 @@ namespace {
       size_t n = node.getChildren();
       for (size_t i = 0; i < n; ++i) {
         auto retval = this->statement(inner, node.getChild(i));
-        if (!retval.isVoid()) {
+        if (retval.hasFlowControl()) {
           return retval;
         }
       }
@@ -489,6 +555,7 @@ namespace {
     }
     // Statements
     Variant statement(Block& block, const INode& node) {
+      this->validateOpcode(node);
       auto opcode = node.getOpcode();
       EGG_WARNING_SUPPRESS_SWITCH_BEGIN();
       switch (opcode) {
@@ -572,7 +639,6 @@ namespace {
       if (vinit.hasFlowControl()) {
         return vinit;
       }
-      vinit.soften(*this->basket);
       return block.declare(node, vtype, vname, vinit);
     }
     Variant statementDecrement(const INode& node) {
@@ -588,7 +654,7 @@ namespace {
       do {
         Block block(*this);
         retval = this->executeBlock(block, node.getChild(1));
-        if (!retval.isVoid()) {
+        if (retval.hasFlowControl()) {
           return retval;
         }
         retval = this->condition(node.getChild(0), nullptr); // don't allow guards
@@ -617,7 +683,7 @@ namespace {
       auto& loop = node.getChild(3);
       Block inner(*this);
       auto retval = this->statement(inner, pre);
-      if (!retval.isVoid()) {
+      if (retval.hasFlowControl()) {
         return retval;
       }
       do {
@@ -633,7 +699,7 @@ namespace {
           }
         }
         retval = this->executeBlock(inner, loop);
-        if (!retval.isVoid()) {
+        if (retval.hasFlowControl()) {
           if (retval.is(VariantBits::Break)) {
             // Break from the loop
             return Variant::Void;
@@ -644,7 +710,7 @@ namespace {
           }
         }
         retval = this->statement(inner, post);
-      } while (retval.isVoid());
+      } while (!retval.hasFlowControl());
       return retval;
     }
     Variant statementForeach(const INode& node) {
@@ -653,7 +719,7 @@ namespace {
       Block block(*this);
       Target lvalue(*this, node.getChild(0), &block);
       auto retval = lvalue.check();
-      if (!retval.isVoid()) {
+      if (retval.hasFlowControl()) {
         return retval;
       }
       auto rvalue = this->expression(node.getChild(1), &block);
@@ -667,7 +733,7 @@ namespace {
           break;
         }
         retval = lvalue.assign(std::move(retval));
-      } while (retval.isVoid() && (++WIBBLE < 1000));
+      } while (!retval.hasFlowControl() && (++WIBBLE < 1000));
       return retval;
     }
     Variant statementFunction(Block& block, const INode& node) {
@@ -677,7 +743,6 @@ namespace {
       Node fblock{ &node.getChild(1) };
       auto fname = this->identifier(node.getChild(2));
       Variant fvalue{ ObjectFactory::createVanillaFunction(this->allocator, ftype, fname, fblock) };
-      fvalue.soften(*this->basket);
       return block.declare(node, ftype, fname, fvalue);
     }
     Variant statementIf(const INode& node) {
@@ -812,7 +877,7 @@ namespace {
           Block inner(*this);
           auto cname = this->identifier(clause.getChild(1));
           auto retval = inner.declare(clause, ctype, cname, exception);
-          if (!retval.isVoid()) {
+          if (retval.hasFlowControl()) {
             // Couldn't define the exception variable
             return this->statementTryFinally(node, retval);
           }
@@ -837,8 +902,8 @@ namespace {
         // No finally clause
         return retval;
       }
-      if (!retval.isVoid()) {
-        // Run the block by return the original result
+      if (retval.hasFlowControl()) {
+        // Run the block but return the original result
         (void)this->statementBlock(clause);
         return retval;
       }
@@ -859,7 +924,7 @@ namespace {
           break;
         }
         retval = this->executeBlock(block, node.getChild(1));
-        if (!retval.isVoid()) {
+        if (retval.hasFlowControl()) {
           return retval;
         }
       }
@@ -896,10 +961,12 @@ namespace {
         return this->expressionSvalue(node);
       case OPCODE_CALL:
         return this->expressionCall(node);
-      case OPCODE_IDENTIFIER:
-        return this->expressionIdentifier(node);
       case OPCODE_GUARD:
         return this->expressionGuard(node, block);
+      case OPCODE_IDENTIFIER:
+        return this->expressionIdentifier(node);
+      case OPCODE_INDEX:
+        return this->expressionIndex(node);
       }
       EGG_WARNING_SUPPRESS_SWITCH_END();
       throw unexpectedOpcode("expression", node);
@@ -985,7 +1052,6 @@ namespace {
         if (expr.hasFlowControl()) {
           return expr;
         }
-        // WIBBLE add expr to array
       }
       return Variant(array);
     }
@@ -1017,16 +1083,21 @@ namespace {
     }
     Variant expressionCall(const INode& node) {
       assert(node.getOpcode() == OPCODE_CALL);
-      return Variant::Void; // WIBBLE
-    }
-    Variant expressionIdentifier(const INode& node) {
-      assert(node.getOpcode() == OPCODE_IDENTIFIER);
-      auto name = this->identifier(node);
-      auto* symbol = this->symtable->get(name);
-      if (symbol == nullptr) {
-        throw RuntimeException(&node, "Unknown symbol in expression: '", name, "'");
+      auto n = node.getChildren();
+      assert(n >= 1);
+      auto callee = this->expression(node.getChild(0));
+      if (callee.hasFlowControl()) {
+        return callee;
       }
-      return symbol->value.direct();
+      Parameters parameters;
+      for (size_t i = 1; i < n; ++i) {
+        auto expr = this->expression(node.getChild(i));
+        if (expr.hasFlowControl()) {
+          return expr;
+        }
+        parameters.addPositional(std::move(expr));
+      }
+      return this->call(node, callee, parameters);
     }
     Variant expressionGuard(const INode& node, Block* block) {
       // WIBBLE currently always succeeds
@@ -1041,12 +1112,37 @@ namespace {
       if (vinit.hasFlowControl()) {
         return vinit;
       }
-      vinit.soften(*this->basket);
       auto retval = block->declare(node, vtype, vname, vinit);
-      if (retval.isVoid()) {
+      if (!retval.hasFlowControl()) {
         return Variant::True;
       }
       return retval;
+    }
+    Variant expressionIdentifier(const INode& node) {
+      assert(node.getOpcode() == OPCODE_IDENTIFIER);
+      auto name = this->identifier(node);
+      auto* symbol = this->symtable->get(name);
+      if (symbol == nullptr) {
+        throw RuntimeException(&node, "Unknown symbol in expression: '", name, "'");
+      }
+      return symbol->value.direct();
+    }
+    Variant expressionIndex(const INode& node) {
+      assert(node.getOpcode() == OPCODE_INDEX);
+      assert(node.getChildren() == 2);
+      auto lhs = this->expression(node.getChild(0));
+      if (lhs.hasFlowControl()) {
+        return lhs;
+      }
+      auto rhs = this->expression(node.getChild(1));
+      if (rhs.hasFlowControl()) {
+        return rhs;
+      }
+      if (lhs.hasObject()) {
+        auto object = lhs.getObject();
+        return object->getIndex(*this, rhs);
+      }
+      throw RuntimeException(&node, "WIBBLE: Invalid indexee type: '", lhs.getRuntimeType().toString(), "'");
     }
     // Operators
     Variant operatorEquals(const INode& a, const INode& b, bool invert) {
@@ -1153,15 +1249,28 @@ namespace {
       // WIBBLE
       return Type::AnyQ;
     }
+    Variant call(const INode& node, const Variant& callee, const IParameters& parameters) {
+      assert(!callee.hasFlowControl());
+      if (callee.hasObject()) {
+        auto object = callee.getObject();
+        return object->call(*this, parameters);
+      }
+      throw RuntimeException(&node, "WIBBLE: Invalid callee type: '", callee.getRuntimeType().toString(), "'");
+    }
     // Error handling
-    void validateOpcode(const INode& node) const {
+    void validateOpcode(const INode& node) {
       auto& properties = OpcodeProperties::from(node.getOpcode());
       if (!properties.validate(node.getChildren(), node.getOperand() != INode::Operand::None)) {
         assert(properties.name != nullptr);
         throw RuntimeException(&node, "Corrupt opcode: '", properties.name, "'");
       }
+      auto* source = node.getLocation();
+      if (source != nullptr) {
+        this->location.line = source->line;
+        this->location.column = source->column;
+      }
     }
-};
+  };
 }
 
 Target::Target(ProgramDefault& program, const INode& node, Block* block)
@@ -1280,7 +1389,7 @@ Variant Target::mutate(const INode& opnode, const INode& rhs) const {
     if (result.hasFlowControl()) {
       return result;
     }
-    return this->setIndex(result);
+    return this->setIndex(element);
   }
   // Return the problem we saved in the constructor
   return this->a;
@@ -1327,7 +1436,9 @@ egg::ovum::Variant Target::expression(const INode& value) const {
   return this->program.targetExpression(value);
 }
 
-egg::ovum::Program egg::ovum::ProgramFactory::create(IAllocator& allocator, ILogger& logger) {
+egg::ovum::Program egg::ovum::ProgramFactory::createProgram(IAllocator& allocator, ILogger& logger) {
   auto basket = BasketFactory::createBasket(allocator);
-  return allocator.make<ProgramDefault>(*basket, logger);
+  auto program = allocator.make<ProgramDefault>(*basket, logger);
+  program->addBuiltins();
+  return program;
 }

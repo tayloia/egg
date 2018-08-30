@@ -57,6 +57,9 @@ namespace {
       }
       return *(this->extra()->base)[index + this->extra()->children];
     }
+    virtual const NodeLocation* getLocation() const override {
+      return this->extra()->getLocation();
+    }
     virtual void setChild(size_t index, INode& value) override {
       if (index >= this->extra()->children) {
         throw std::out_of_range("Invalid AST node child index");
@@ -88,6 +91,13 @@ namespace {
       auto* p = this->extra()->base + this->extra()->children;
       for (auto& node : nodes) {
         *(p++) = node.hardAcquire();
+      }
+    }
+    void initLocation(const NodeLocation* location) {
+      if (location != nullptr) {
+        auto* p = this->extra()->getLocation();
+        p->line = location->line;
+        p->column = location->column;
       }
     }
     EXTRA* extra() const {
@@ -204,6 +214,19 @@ namespace {
     Operator operand;
   };
 
+  struct NodeLocationNone {
+    NodeLocation* getLocation() const {
+      return nullptr;
+    }
+  };
+
+  struct NodeLocationFixed {
+    NodeLocation* getLocation() {
+      return &this->location;
+    }
+    NodeLocation location;
+  };
+
   template<size_t N>
   struct NodeChildrenFixed {
     static constexpr size_t children = N;
@@ -222,8 +245,8 @@ namespace {
     size_t attributes;
   };
 
-  template<typename CHILDREN, typename ATTRIBUTES, typename OPERAND>
-  struct NodeExtra final : public CHILDREN, public ATTRIBUTES, public OPERAND {
+  template<typename CHILDREN, typename ATTRIBUTES, typename OPERAND, typename LOCATION>
+  struct NodeExtra final : public CHILDREN, public ATTRIBUTES, public OPERAND, public LOCATION {
     // cppcheck-suppress uninitMemberVar
     explicit NodeExtra(typename OPERAND::Type operand) : OPERAND(operand) {
     }
@@ -236,56 +259,64 @@ namespace {
     INode* base[1];
   };
 
-  template<typename CHILDREN, typename ATTRIBUTES, typename OPERAND>
-  NodeContiguous<NodeExtra<CHILDREN, ATTRIBUTES, OPERAND>>* createNodeExtra(IAllocator& allocator, Opcode opcode, size_t slots, typename OPERAND::Type operand) {
-    using Extra = NodeExtra<CHILDREN, ATTRIBUTES, OPERAND>;
+  template<typename CHILDREN, typename ATTRIBUTES, typename OPERAND, typename LOCATION>
+  NodeContiguous<NodeExtra<CHILDREN, ATTRIBUTES, OPERAND, LOCATION>>* createNodeExtra(IAllocator& allocator, Opcode opcode, size_t slots, typename OPERAND::Type operand) {
+    using Extra = NodeExtra<CHILDREN, ATTRIBUTES, OPERAND, LOCATION>;
     auto bytes = sizeof(Extra) + slots * sizeof(INode*) - sizeof(INode*);
     return allocator.create<NodeContiguous<Extra>>(bytes, allocator, opcode, operand);
   }
 
   template<typename OPERAND>
   Node createNodeOperand(IAllocator& allocator, Opcode opcode, typename OPERAND::Type operand) {
-    return Node(createNodeExtra<NodeChildrenFixed<0>, NodeAttributesFixed<0>, OPERAND>(allocator, opcode, 0, operand));
+    return Node(createNodeExtra<NodeChildrenFixed<0>, NodeAttributesFixed<0>, OPERAND, NodeLocationNone>(allocator, opcode, 0, operand));
   }
 
-  template<typename OPERAND>
-  Node createNodeExtra(IAllocator& allocator, Opcode opcode, const Nodes* children, const Nodes* attributes, typename OPERAND::Type operand) {
+  template<typename OPERAND, typename LOCATION>
+  Node createNodeExtra(IAllocator& allocator, const NodeLocation* location, Opcode opcode, const Nodes* children, const Nodes* attributes, typename OPERAND::Type operand) {
     auto nchildren = (children == nullptr) ? size_t(0) : children->size();
     auto nattributes = (attributes == nullptr) ? size_t(0) : attributes->size();
     if (nattributes == 0) {
       // No attributes
       switch (nchildren) {
-      case 0:
-        return Node(createNodeExtra<NodeChildrenFixed<0>, NodeAttributesFixed<0>, OPERAND>(allocator, opcode, 0, operand));
+      case 0: {
+        auto* node0 = createNodeExtra<NodeChildrenFixed<0>, NodeAttributesFixed<0>, OPERAND, LOCATION>(allocator, opcode, 0, operand);
+        node0->initLocation(location);
+        return Node(node0); }
       case 1: {
-        auto* node1 = createNodeExtra<NodeChildrenFixed<1>, NodeAttributesFixed<0>, OPERAND>(allocator, opcode, 1, operand);
+        auto* node1 = createNodeExtra<NodeChildrenFixed<1>, NodeAttributesFixed<0>, OPERAND, LOCATION>(allocator, opcode, 1, operand);
         node1->initChild(0, (*children)[0]);
+        node1->initLocation(location);
         return Node(node1); }
       case 2: {
-        auto* node2 = createNodeExtra<NodeChildrenFixed<2>, NodeAttributesFixed<0>, OPERAND>(allocator, opcode, 2, operand);
+        auto* node2 = createNodeExtra<NodeChildrenFixed<2>, NodeAttributesFixed<0>, OPERAND, LOCATION>(allocator, opcode, 2, operand);
         node2->initChild(0, (*children)[0]);
         node2->initChild(1, (*children)[1]);
+        node2->initLocation(location);
         return Node(node2); }
       case 3: {
-        auto* node3 = createNodeExtra<NodeChildrenFixed<3>, NodeAttributesFixed<0>, OPERAND>(allocator, opcode, 3, operand);
+        auto* node3 = createNodeExtra<NodeChildrenFixed<3>, NodeAttributesFixed<0>, OPERAND, LOCATION>(allocator, opcode, 3, operand);
         node3->initChild(0, (*children)[0]);
         node3->initChild(1, (*children)[1]);
         node3->initChild(2, (*children)[2]);
+        node3->initLocation(location);
         return Node(node3); }
       }
-      auto* node = createNodeExtra<NodeChildrenVariable, NodeAttributesFixed<0>, OPERAND>(allocator, opcode, nchildren, operand);
+      auto* node = createNodeExtra<NodeChildrenVariable, NodeAttributesFixed<0>, OPERAND, LOCATION>(allocator, opcode, nchildren, operand);
       node->initChildren(*children);
+      node->initLocation(location);
       return Node(node);
     }
     if (nchildren == 0) {
       // No children but some attributes
-      auto* node = createNodeExtra<NodeChildrenFixed<0>, NodeAttributesVariable, OPERAND>(allocator, opcode, nattributes, operand);
+      auto* node = createNodeExtra<NodeChildrenFixed<0>, NodeAttributesVariable, OPERAND, LOCATION>(allocator, opcode, nattributes, operand);
       node->initAttributes(*attributes);
+      node->initLocation(location);
       return Node(node);
     }
-    auto* node = createNodeExtra<NodeChildrenVariable, NodeAttributesVariable, OPERAND>(allocator, opcode, nchildren + nattributes, operand);
+    auto* node = createNodeExtra<NodeChildrenVariable, NodeAttributesVariable, OPERAND, LOCATION>(allocator, opcode, nchildren + nattributes, operand);
     node->initChildren(*children);
     node->initAttributes(*attributes);
+    node->initLocation(location);
     return Node(node);
   }
 
@@ -394,19 +425,19 @@ egg::ovum::Float egg::ovum::MantissaExponent::toFloat() const {
 
 egg::ovum::Node egg::ovum::NodeFactory::create(IAllocator& allocator, Opcode opcode) {
   assert(OpcodeProperties::from(opcode).validate(0, false));
-  return Node(createNodeExtra<NodeChildrenFixed<0>, NodeAttributesFixed<0>, NodeOperandNone>(allocator, opcode, 0, nullptr));
+  return Node(createNodeExtra<NodeChildrenFixed<0>, NodeAttributesFixed<0>, NodeOperandNone, NodeLocationNone>(allocator, opcode, 0, nullptr));
 }
 
 egg::ovum::Node egg::ovum::NodeFactory::create(IAllocator& allocator, Opcode opcode, Node&& child0) {
   assert(OpcodeProperties::from(opcode).validate(1, false));
-  auto* node = createNodeExtra<NodeChildrenFixed<1>, NodeAttributesFixed<0>, NodeOperandNone>(allocator, opcode, 1, nullptr);
+  auto* node = createNodeExtra<NodeChildrenFixed<1>, NodeAttributesFixed<0>, NodeOperandNone, NodeLocationNone>(allocator, opcode, 1, nullptr);
   node->initChild(0, std::move(child0));
   return Node(node);
 }
 
 egg::ovum::Node egg::ovum::NodeFactory::create(IAllocator& allocator, Opcode opcode, Node&& child0, Node&& child1) {
   assert(OpcodeProperties::from(opcode).validate(2, false));
-  auto* node = createNodeExtra<NodeChildrenFixed<2>, NodeAttributesFixed<0>, NodeOperandNone>(allocator, opcode, 2, nullptr);
+  auto* node = createNodeExtra<NodeChildrenFixed<2>, NodeAttributesFixed<0>, NodeOperandNone, NodeLocationNone>(allocator, opcode, 2, nullptr);
   node->initChild(0, child0);
   node->initChild(1, child1);
   return Node(node);
@@ -414,7 +445,7 @@ egg::ovum::Node egg::ovum::NodeFactory::create(IAllocator& allocator, Opcode opc
 
 egg::ovum::Node egg::ovum::NodeFactory::create(IAllocator& allocator, Opcode opcode, Node&& child0, Node&& child1, Node&& child2) {
   assert(OpcodeProperties::from(opcode).validate(3, false));
-  auto* node = createNodeExtra<NodeChildrenFixed<3>, NodeAttributesFixed<0>, NodeOperandNone>(allocator, opcode, 3, nullptr);
+  auto* node = createNodeExtra<NodeChildrenFixed<3>, NodeAttributesFixed<0>, NodeOperandNone, NodeLocationNone>(allocator, opcode, 3, nullptr);
   node->initChild(0, child0);
   node->initChild(1, child1);
   node->initChild(2, child2);
@@ -423,7 +454,7 @@ egg::ovum::Node egg::ovum::NodeFactory::create(IAllocator& allocator, Opcode opc
 
 egg::ovum::Node egg::ovum::NodeFactory::create(IAllocator& allocator, Opcode opcode, Node&& child0, Node&& child1, Node&& child2, Node&& child3) {
   assert(OpcodeProperties::from(opcode).validate(4, false));
-  auto* node = createNodeExtra<NodeChildrenFixed<4>, NodeAttributesFixed<0>, NodeOperandNone>(allocator, opcode, 4, nullptr);
+  auto* node = createNodeExtra<NodeChildrenFixed<4>, NodeAttributesFixed<0>, NodeOperandNone, NodeLocationNone>(allocator, opcode, 4, nullptr);
   node->initChild(0, child0);
   node->initChild(1, child1);
   node->initChild(2, child2);
@@ -433,32 +464,42 @@ egg::ovum::Node egg::ovum::NodeFactory::create(IAllocator& allocator, Opcode opc
 
 egg::ovum::Node egg::ovum::NodeFactory::create(IAllocator& allocator, Opcode opcode, const Nodes& children) {
   assert(validateOpcode(opcode, &children, false));
-  return createNodeExtra<NodeOperandNone>(allocator, opcode, &children, nullptr, nullptr);
+  return createNodeExtra<NodeOperandNone, NodeLocationNone>(allocator, nullptr, opcode, &children, nullptr, nullptr);
 }
 
 egg::ovum::Node egg::ovum::NodeFactory::create(IAllocator& allocator, Opcode opcode, const Nodes* children, const Nodes* attributes) {
   assert(validateOpcode(opcode, children, false));
-  return createNodeExtra<NodeOperandNone>(allocator, opcode, children, attributes, nullptr);
+  return createNodeExtra<NodeOperandNone, NodeLocationNone>(allocator, nullptr, opcode, children, attributes, nullptr);
 }
 
 egg::ovum::Node egg::ovum::NodeFactory::create(IAllocator& allocator, Opcode opcode, const Nodes* children, const Nodes* attributes, Int value) {
   assert(validateOpcode(opcode, children, true));
-  return createNodeExtra<NodeOperandInt>(allocator, opcode, children, attributes, value);
+  return createNodeExtra<NodeOperandInt, NodeLocationNone>(allocator, nullptr, opcode, children, attributes, value);
 }
 
 egg::ovum::Node egg::ovum::NodeFactory::create(IAllocator& allocator, Opcode opcode, const Nodes* children, const Nodes* attributes, Float value) {
   assert(validateOpcode(opcode, children, true));
-  return createNodeExtra<NodeOperandFloat>(allocator, opcode, children, attributes, value);
+  return createNodeExtra<NodeOperandFloat, NodeLocationNone>(allocator, nullptr, opcode, children, attributes, value);
 }
 
 egg::ovum::Node egg::ovum::NodeFactory::create(IAllocator& allocator, Opcode opcode, const Nodes* children, const Nodes* attributes, const String& value) {
   assert(validateOpcode(opcode, children, true));
-  return createNodeExtra<NodeOperandString>(allocator, opcode, children, attributes, value);
+  return createNodeExtra<NodeOperandString, NodeLocationNone>(allocator, nullptr, opcode, children, attributes, value);
 }
 
 egg::ovum::Node egg::ovum::NodeFactory::create(IAllocator& allocator, Opcode opcode, const Nodes* children, const Nodes* attributes, Operator value) {
   assert(validateOpcode(opcode, children, true));
-  return createNodeExtra<NodeOperandOperator>(allocator, opcode, children, attributes, value);
+  return createNodeExtra<NodeOperandOperator, NodeLocationNone>(allocator, nullptr, opcode, children, attributes, value);
+}
+
+egg::ovum::Node egg::ovum::NodeFactory::create(IAllocator& allocator, const NodeLocation& location, Opcode opcode, const Nodes* children, const Nodes* attributes) {
+  assert(validateOpcode(opcode, children, false));
+  return createNodeExtra<NodeOperandNone, NodeLocationFixed>(allocator, &location, opcode, children, attributes, nullptr);
+}
+
+egg::ovum::Node egg::ovum::NodeFactory::create(IAllocator& allocator, const NodeLocation& location, Opcode opcode, const Nodes* children, const Nodes* attributes, Operator value) {
+  assert(validateOpcode(opcode, children, true));
+  return createNodeExtra<NodeOperandOperator, NodeLocationFixed>(allocator, &location, opcode, children, attributes, value);
 }
 
 egg::ovum::Node egg::ovum::NodeFactory::createValue(IAllocator& allocator, nullptr_t) {

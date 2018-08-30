@@ -7,6 +7,7 @@ namespace egg::ovum {
 
   class IModule : public IHardAcquireRelease {
   public:
+    virtual String getResourceName() const = 0;
     virtual INode& getRootNode() const = 0;
   };
 
@@ -27,9 +28,9 @@ namespace egg::ovum {
 
   class ModuleFactory {
   public:
-    static Module fromBinaryStream(IAllocator& allocator, std::istream& stream);
-    static Module fromMemory(IAllocator& allocator, const uint8_t* begin, const uint8_t* end);
-    static Module fromRootNode(IAllocator& allocator, INode& root);
+    static Module fromBinaryStream(IAllocator& allocator, const String& resource, std::istream& stream);
+    static Module fromMemory(IAllocator& allocator, const String& resource, const uint8_t* begin, const uint8_t* end);
+    static Module fromRootNode(IAllocator& allocator, const String& resource, INode& root);
     static void toBinaryStream(const IModule& module, std::ostream& stream);
     static Memory toMemory(IAllocator& allocator, const IModule& module);
   };

@@ -39,9 +39,12 @@ namespace egg::ovum {
     String padRight(size_t target, const String& padding) const;
     std::string toUTF8() const;
 
-    // Equality operator
+    // Equality operators
     bool operator==(const String& rhs) const {
       return this->equals(rhs);
+    }
+    bool operator!=(const String& rhs) const {
+      return !this->equals(rhs);
     }
 
     // These factories use the fallback string allocator; see StringFactory for others

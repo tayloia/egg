@@ -88,7 +88,7 @@ egg::ovum::Variant egg::yolk::EggProgramContext::executeStatements(const std::ve
       this->symtable->addSymbol(EggProgramSymbol::ReadWrite, name, type);
     }
     auto retval = statement->execute(*this);
-    if (!retval.isVoid()) {
+    if (retval.hasFlowControl()) {
       return retval;
     }
   }
@@ -151,7 +151,7 @@ egg::ovum::Variant egg::yolk::EggProgramContext::executeDo(const IEggProgramNode
   egg::ovum::Variant retval;
   do {
     retval = block.execute(*this);
-    if (!retval.isVoid()) {
+    if (retval.hasFlowControl()) {
       if (retval.is(egg::ovum::VariantBits::Break)) {
         // Just leave the loop
         return egg::ovum::Variant::Void;
@@ -194,7 +194,7 @@ egg::ovum::Variant egg::yolk::EggProgramContext::executeFor(const IEggProgramNod
     egg::ovum::Variant retval;
     if (pre != nullptr) {
       retval = pre->execute(scope);
-      if (!retval.isVoid()) {
+      if (retval.hasFlowControl()) {
         // Probably an exception in the pre-loop statement
         return retval;
       }
@@ -203,7 +203,7 @@ egg::ovum::Variant egg::yolk::EggProgramContext::executeFor(const IEggProgramNod
       // There's no explicit condition
       for (;;) {
         retval = block.execute(scope);
-        if (!retval.isVoid()) {
+        if (retval.hasFlowControl()) {
           if (retval.is(egg::ovum::VariantBits::Break)) {
             // Just leave the loop
             return egg::ovum::Variant::Void;
@@ -215,7 +215,7 @@ egg::ovum::Variant egg::yolk::EggProgramContext::executeFor(const IEggProgramNod
         }
         if (post != nullptr) {
           retval = post->execute(scope);
-          if (!retval.isVoid()) {
+          if (retval.hasFlowControl()) {
             // Probably an exception in the post-loop statement
             return retval;
           }
@@ -229,7 +229,7 @@ egg::ovum::Variant egg::yolk::EggProgramContext::executeFor(const IEggProgramNod
         return egg::ovum::Variant::Void;
       }
       retval = block.execute(scope);
-      if (!retval.isVoid()) {
+      if (retval.hasFlowControl()) {
         if (retval.is(egg::ovum::VariantBits::Break)) {
           // Just leave the loop
           return egg::ovum::Variant::Void;
@@ -241,7 +241,7 @@ egg::ovum::Variant egg::yolk::EggProgramContext::executeFor(const IEggProgramNod
       }
       if (post != nullptr) {
         retval = post->execute(scope);
-        if (!retval.isVoid()) {
+        if (retval.hasFlowControl()) {
           // Probably an exception in the post-loop statement
           return retval;
         }
@@ -284,7 +284,7 @@ egg::ovum::Variant egg::yolk::EggProgramContext::executeForeachString(IEggProgra
       return retval;
     }
     retval = block.execute(*this);
-    if (!retval.isVoid()) {
+    if (retval.hasFlowControl()) {
       if (retval.is(egg::ovum::VariantBits::Break)) {
         // Just leave the loop
         return egg::ovum::Variant::Void;
@@ -327,7 +327,7 @@ egg::ovum::Variant egg::yolk::EggProgramContext::executeForeachIterate(IEggProgr
       return retval;
     }
     retval = block.execute(*this);
-    if (!retval.isVoid()) {
+    if (retval.hasFlowControl()) {
       if (retval.is(egg::ovum::VariantBits::Break)) {
         // Just leave the loop
         break;
@@ -564,7 +564,7 @@ egg::ovum::Variant egg::yolk::EggProgramContext::executeWhile(const IEggProgramN
         return egg::ovum::Variant::Void;
       }
       retval = block.execute(scope);
-      if (!retval.isVoid()) {
+      if (retval.hasFlowControl()) {
         if (retval.is(egg::ovum::VariantBits::Break)) {
           // Just leave the loop
           return egg::ovum::Variant::Void;
@@ -756,14 +756,12 @@ egg::ovum::ILogger::Severity egg::yolk::EggProgram::execute(IEggEngineExecutionC
   egg::ovum::ILogger::Severity severity = egg::ovum::ILogger::Severity::None;
   auto context = this->createRootContext(allocator, execution, *symtable, severity);
   auto retval = this->root->execute(*context);
-  if (!retval.isVoid()) {
-    if (retval.stripFlowControl(egg::ovum::VariantBits::Throw)) {
-      // TODO exception location
-      execution.log(egg::ovum::ILogger::Source::Runtime, egg::ovum::ILogger::Severity::Error, retval.toString().toUTF8());
-    } else if (retval.hasFlowControl()) {
-      auto message = "Internal runtime error: Expected statement to return 'void', but got '" + retval.getRuntimeType().toString().toUTF8() + "' instead";
-      execution.log(egg::ovum::ILogger::Source::Runtime, egg::ovum::ILogger::Severity::Error, message);
-    }
+  if (retval.stripFlowControl(egg::ovum::VariantBits::Throw)) {
+    // TODO exception location
+    execution.log(egg::ovum::ILogger::Source::Runtime, egg::ovum::ILogger::Severity::Error, retval.toString().toUTF8());
+  } else if (retval.hasFlowControl()) {
+    auto message = "Internal runtime error: Expected statement to return 'void', but got '" + retval.getRuntimeType().toString().toUTF8() + "' instead";
+    execution.log(egg::ovum::ILogger::Source::Runtime, egg::ovum::ILogger::Severity::Error, message);
   }
   return severity;
 }

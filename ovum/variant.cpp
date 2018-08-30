@@ -495,7 +495,7 @@ egg::ovum::String egg::ovum::Variant::toString() const {
     }
     return "<invalid>";
   }
-  if (this->isString()) {
+  if (this->hasString()) {
     return this->getString();
   }
   if (this->isFloat()) {

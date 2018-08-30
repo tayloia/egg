@@ -564,6 +564,7 @@ const egg::ovum::Type egg::ovum::Type::Bool{ &typeBool };
 const egg::ovum::Type egg::ovum::Type::Int{ &typeInt };
 const egg::ovum::Type egg::ovum::Type::Float{ &typeFloat };
 const egg::ovum::Type egg::ovum::Type::String{ &typeString };
+const egg::ovum::Type egg::ovum::Type::Object{ &typeObject };
 const egg::ovum::Type egg::ovum::Type::Arithmetic{ &typeArithmetic };
 const egg::ovum::Type egg::ovum::Type::Any{ &typeAny };
 const egg::ovum::Type egg::ovum::Type::AnyQ{ &typeAnyQ };

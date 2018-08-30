@@ -12,7 +12,7 @@ using namespace egg::ovum;
 namespace {
   void expectFailureFromMemory(const uint8_t memory[], size_t bytes, const char* needle) {
     egg::test::Allocator allocator;
-    ASSERT_THROW_E(ModuleFactory::fromMemory(allocator, memory, memory + bytes), std::runtime_error, ASSERT_STARTSWITH(e.what(), needle));
+    ASSERT_THROW_E(ModuleFactory::fromMemory(allocator, "<memory>", memory, memory + bytes), std::runtime_error, ASSERT_STARTSWITH(e.what(), needle));
   }
   void toModuleArray(ModuleBuilder& builder, const Nodes& avalues, Module& out) {
     // Create a module that just constructs an array of values
@@ -22,7 +22,7 @@ namespace {
     ASSERT_NE(nullptr, block);
     auto module = builder.createModule(std::move(block));
     ASSERT_NE(nullptr, module);
-    out = ModuleFactory::fromRootNode(builder.allocator, *module);
+    out = ModuleFactory::fromRootNode(builder.allocator, "<resource>", *module);
   }
   void toModuleMemoryArray(ModuleBuilder& builder, const Nodes& avalues, std::ostream& out) {
     // Create a module memory image that just constructs an array of values
@@ -46,7 +46,7 @@ namespace {
     // Extract an array of values from a module memory image
     in.clear();
     ASSERT_TRUE(in.seekg(0).good());
-    auto module = ModuleFactory::fromBinaryStream(allocator, in);
+    auto module = ModuleFactory::fromBinaryStream(allocator, "<memory>", in);
     fromModuleArray(module, avalue);
   }
   Node roundTripArray(ModuleBuilder& builder, const Nodes& avalues) {
@@ -435,7 +435,7 @@ TEST(TestModule, FromMemoryBad) {
 TEST(TestModule, FromMemoryMinimal) {
   egg::test::Allocator allocator;
   const uint8_t minimal[] = { MAGIC SECTION_CODE, OPCODE_MODULE, OPCODE_BLOCK, OPCODE_NOOP };
-  auto module = ModuleFactory::fromMemory(allocator, std::begin(minimal), std::end(minimal));
+  auto module = ModuleFactory::fromMemory(allocator, "<memory>", std::begin(minimal), std::end(minimal));
   ASSERT_NE(nullptr, module);
   Node root{ &module->getRootNode() };
   ASSERT_NE(nullptr, root);
@@ -452,7 +452,7 @@ TEST(TestModule, FromMemoryMinimal) {
 TEST(TestModule, ToBinaryStream) {
   egg::test::Allocator allocator;
   const uint8_t minimal[] = { MAGIC SECTION_CODE, OPCODE_MODULE, OPCODE_BLOCK, OPCODE_NOOP };
-  auto module = ModuleFactory::fromMemory(allocator, std::begin(minimal), std::end(minimal));
+  auto module = ModuleFactory::fromMemory(allocator, "<memory>", std::begin(minimal), std::end(minimal));
   ASSERT_NE(nullptr, module);
   std::stringstream ss;
   ModuleFactory::toBinaryStream(*module, ss);
@@ -464,7 +464,7 @@ TEST(TestModule, ToBinaryStream) {
 TEST(TestModule, ToMemory) {
   egg::test::Allocator allocator;
   const uint8_t minimal[] = { MAGIC SECTION_CODE, OPCODE_MODULE, OPCODE_BLOCK, OPCODE_NOOP };
-  auto module = ModuleFactory::fromMemory(allocator, std::begin(minimal), std::end(minimal));
+  auto module = ModuleFactory::fromMemory(allocator, "<memory>", std::begin(minimal), std::end(minimal));
   ASSERT_NE(nullptr, module);
   auto memory = ModuleFactory::toMemory(allocator, *module);
   ASSERT_NE(nullptr, memory);
@@ -478,7 +478,7 @@ TEST(TestModule, ModuleBuilder) {
   auto noop = builder.createNode(OPCODE_NOOP);
   auto block = builder.createNode(OPCODE_BLOCK, std::move(noop));
   auto original = builder.createModule(std::move(block));
-  auto module = ModuleFactory::fromRootNode(allocator, *original);
+  auto module = ModuleFactory::fromRootNode(allocator, "<resource>", *original);
   ASSERT_NE(nullptr, module);
   Node root{ &module->getRootNode() };
   ASSERT_EQ(original.get(), root.get());

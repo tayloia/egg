@@ -629,11 +629,16 @@ namespace {
     ModuleDefault(const ModuleDefault&) = delete;
     ModuleDefault& operator=(const ModuleDefault&) = delete;
   private:
+    String resource;
     Node root;
   public:
-    explicit ModuleDefault(IAllocator& allocator, INode* root = nullptr)
+    ModuleDefault(IAllocator& allocator, const String& resource, INode* root = nullptr)
       : HardReferenceCounted(allocator, 0),
+        resource(resource),
         root(root) {
+    }
+    virtual String getResourceName() const override {
+      return this->resource;
     }
     virtual INode& getRootNode() const override {
       assert(this->root != nullptr);
@@ -663,19 +668,19 @@ const egg::ovum::OperatorProperties& egg::ovum::OperatorProperties::from(Operato
   return OperatorTable::instance.properties[oper];
 }
 
-egg::ovum::Module egg::ovum::ModuleFactory::fromBinaryStream(IAllocator& allocator, std::istream& stream) {
-  auto module = allocator.make<ModuleDefault>();
+egg::ovum::Module egg::ovum::ModuleFactory::fromBinaryStream(IAllocator& allocator, const String& resource, std::istream& stream) {
+  auto module = allocator.make<ModuleDefault>(resource);
   module->readFromStream(stream);
   return Module(module.get());
 }
 
-egg::ovum::Module egg::ovum::ModuleFactory::fromMemory(IAllocator& allocator, const uint8_t* begin, const uint8_t* end) {
+egg::ovum::Module egg::ovum::ModuleFactory::fromMemory(IAllocator& allocator, const String& resource, const uint8_t* begin, const uint8_t* end) {
   MemoryStream stream(begin, end);
-  return ModuleFactory::fromBinaryStream(allocator, stream);
+  return ModuleFactory::fromBinaryStream(allocator, resource, stream);
 }
 
-egg::ovum::Module egg::ovum::ModuleFactory::fromRootNode(IAllocator& allocator, INode& root) {
-  return allocator.make<ModuleDefault, Module>(&root);
+egg::ovum::Module egg::ovum::ModuleFactory::fromRootNode(IAllocator& allocator, const String& resource, INode& root) {
+  return allocator.make<ModuleDefault, Module>(resource, &root);
 }
 
 void egg::ovum::ModuleFactory::toBinaryStream(const IModule& module, std::ostream& stream) {

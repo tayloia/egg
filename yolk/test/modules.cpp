@@ -29,8 +29,7 @@ namespace {
 
   std::string compile(TextStream& stream) {
     egg::test::Allocator allocator;
-    auto root = EggParserFactory::parseModule(allocator, stream);
-    auto engine = EggEngineFactory::createEngineFromParsed(allocator, root);
+    auto engine = EggEngineFactory::createEngineFromTextStream(stream);
     auto logger = std::make_shared<egg::test::Logger>();
     auto preparation = EggEngineFactory::createPreparationContext(allocator, logger);
     if (engine->prepare(*preparation) != egg::ovum::ILogger::Severity::Error) {
@@ -65,5 +64,6 @@ TEST(TestModules, Coverage) {
 TEST(TestModules, Compiler) {
   egg::test::Allocator allocator;
   egg::test::Logger logger;
-  ASSERT_VARIANT(egg::ovum::VariantBits::Void, egg::test::Compiler::run(allocator, logger, "~/yolk/test/data/coverage.egg"));
+  auto actual = egg::test::Compiler::run(allocator, logger, "~/yolk/test/data/coverage.egg");
+  ASSERT_EQ("<void>", actual.toString().toUTF8());
 }

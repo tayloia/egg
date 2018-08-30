@@ -24,8 +24,7 @@ namespace {
 
   egg::ovum::Module compileModule(egg::ovum::IAllocator& allocator, egg::ovum::ILogger& logger, egg::yolk::TextStream& stream) {
     auto relogger = std::make_shared<Relogger>(logger);
-    auto root = egg::yolk::EggParserFactory::parseModule(allocator, stream);
-    auto engine = egg::yolk::EggEngineFactory::createEngineFromParsed(allocator, root);
+    auto engine = egg::yolk::EggEngineFactory::createEngineFromTextStream(stream);
     auto preparation = egg::yolk::EggEngineFactory::createPreparationContext(allocator, relogger);
     if (engine->prepare(*preparation) == egg::ovum::ILogger::Severity::Error) {
       return nullptr;
@@ -946,7 +945,7 @@ egg::ovum::Variant egg::test::Compiler::run(egg::ovum::IAllocator& allocator, eg
   if (module == nullptr) {
     return egg::ovum::Variant::Rethrow;
   }
-  auto program = egg::ovum::ProgramFactory::create(allocator, logger);
+  auto program = egg::ovum::ProgramFactory::createProgram(allocator, logger);
   auto result = program->run(*module);
   if (result.hasThrow()) {
     auto thrown = result;

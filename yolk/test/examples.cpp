@@ -60,9 +60,9 @@ namespace {
         auto compilation = EggEngineFactory::createCompilationContext(allocator, logger);
         egg::ovum::Module module;
         if (engine->compile(*compilation, module) != egg::ovum::ILogger::Severity::Error) {
-          auto program = egg::ovum::ProgramFactory::create(allocator, *logger);
+          auto program = egg::ovum::ProgramFactory::createProgram(allocator, *logger);
           auto result = program->run(*module);
-          if (result.stripFlowControl(egg::ovum::VariantBits::Throw)) {
+          if (result.stripFlowControl(egg::ovum::VariantBits::Throw) && !result.isVoid()) {
             logger->log(egg::ovum::ILogger::Source::User, egg::ovum::ILogger::Severity::Error, "Exception thrown: " + result.toString().toUTF8());
           }
         }

@@ -102,7 +102,7 @@ namespace {
         assert(statement != nullptr);
         context.statement(*statement);
         auto retval = statement->coexecute(context, *this);
-        if (!retval.isVoid()) {
+        if (retval.hasFlowControl()) {
           return retval;
         }
       }
@@ -132,7 +132,7 @@ namespace {
         if (!this->test) {
           this->test = true;
           auto retval = this->block->coexecute(context, *this);
-          if (!retval.isVoid()) {
+          if (retval.hasFlowControl()) {
             // Probably an exception in the block
             return retval;
           }
@@ -180,7 +180,7 @@ namespace {
         // Run 'pre'
         if (this->pre != nullptr) {
           retval = this->pre->execute(context);
-          if (!retval.isVoid()) {
+          if (retval.hasFlowControl()) {
             // Probably an exception in the pre-loop statement
             return retval;
           }
@@ -201,7 +201,7 @@ namespace {
         }
         // Run 'block'
         retval = this->block->coexecute(context, *this);
-        if (!retval.isVoid()) {
+        if (retval.hasFlowControl()) {
           if (retval.is(egg::ovum::VariantBits::Break)) {
             // Explicit 'break'
             break;
@@ -214,7 +214,7 @@ namespace {
         // Run 'post'
         if (this->post != nullptr) {
           retval = this->post->execute(context);
-          if (!retval.isVoid()) {
+          if (retval.hasFlowControl()) {
             // Probably an exception in the post-loop statement
             return retval;
           }
@@ -248,7 +248,7 @@ namespace {
           break;
         }
         retval = this->block->coexecute(context, *this);
-        if (!retval.isVoid()) {
+        if (retval.hasFlowControl()) {
           if (retval.is(egg::ovum::VariantBits::Break)) {
             // Explicit 'break;
             break;

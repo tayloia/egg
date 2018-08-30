@@ -10,8 +10,7 @@ using namespace egg::yolk;
 namespace {
   std::string logFromEngine(TextStream& stream) {
     egg::test::Allocator allocator;
-    auto root = EggParserFactory::parseModule(allocator, stream);
-    auto engine = EggEngineFactory::createEngineFromParsed(allocator, root);
+    auto engine = EggEngineFactory::createEngineFromTextStream(stream);
     auto logger = std::make_shared<egg::test::Logger>();
     auto preparation = EggEngineFactory::createPreparationContext(allocator, logger);
     if (engine->prepare(*preparation) != egg::ovum::ILogger::Severity::Error) {
@@ -26,7 +25,7 @@ TEST(TestEggEngine, CreateEngineFromParsed) {
   egg::test::Allocator allocator;
   FileTextStream stream("~/yolk/test/data/example.egg");
   auto root = EggParserFactory::parseModule(allocator, stream);
-  auto engine = EggEngineFactory::createEngineFromParsed(allocator, root);
+  auto engine = EggEngineFactory::createEngineFromParsed(allocator, "<parsed>", root);
   auto logger = std::make_shared<egg::test::Logger>();
   auto preparation = EggEngineFactory::createPreparationContext(allocator, logger);
   ASSERT_EQ(egg::ovum::ILogger::Severity::Error, engine->prepare(*preparation));

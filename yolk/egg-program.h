@@ -96,10 +96,12 @@ namespace egg::yolk {
     EGG_NO_COPY(EggProgram);
   private:
     egg::ovum::HardPtr<egg::ovum::IBasket> basket;
+    egg::ovum::String resource;
     std::shared_ptr<IEggProgramNode> root;
   public:
-    EggProgram(egg::ovum::IAllocator& allocator, const std::shared_ptr<IEggProgramNode>& root)
+    EggProgram(egg::ovum::IAllocator& allocator, const egg::ovum::String& resource, const std::shared_ptr<IEggProgramNode>& root)
       : basket(egg::ovum::BasketFactory::createBasket(allocator)),
+        resource(resource),
         root(root) {
       assert(root != nullptr);
     }
@@ -318,12 +320,15 @@ namespace egg::yolk {
     EggProgramCompilerNode& operator=(const EggProgramCompilerNode&) = delete;
   private:
     EggProgramCompiler& compiler;
+    egg::ovum::NodeLocation location;
     egg::ovum::Opcode opcode;
     egg::ovum::Nodes nodes;
     bool failed;
   public:
-    EggProgramCompilerNode(EggProgramCompiler& compiler, egg::ovum::Opcode opcode)
+    EggProgramCompilerNode(EggProgramCompiler& compiler, const egg::ovum::LocationSource& location, egg::ovum::Opcode opcode)
       : compiler(compiler), opcode(opcode), nodes(), failed(false) {
+      this->location.line = location.line;
+      this->location.column = location.column;
     }
     EggProgramCompilerNode& add(const egg::ovum::Node& child);
     EggProgramCompilerNode& add(const std::shared_ptr<IEggProgramNode>& child);
@@ -351,27 +356,31 @@ namespace egg::yolk {
     egg::ovum::Node svalue(const egg::ovum::String& value);
     egg::ovum::Node type(const egg::ovum::Type& type);
     egg::ovum::Node identifier(const egg::ovum::String& id);
-    egg::ovum::Node unary(EggProgramUnary op, const IEggProgramNode& a);
-    egg::ovum::Node binary(EggProgramBinary op, const IEggProgramNode& a, const IEggProgramNode& b);
-    egg::ovum::Node ternary(EggProgramTernary op, const IEggProgramNode& a, const IEggProgramNode& b, const IEggProgramNode& c);
-    egg::ovum::Node mutate(EggProgramMutate op, const IEggProgramNode& a);
-    egg::ovum::Node assign(EggProgramAssign op, const IEggProgramNode& a, const IEggProgramNode& b);
+    egg::ovum::Node unary(const egg::ovum::LocationSource& location, EggProgramUnary op, const IEggProgramNode& a);
+    egg::ovum::Node binary(const egg::ovum::LocationSource& location, EggProgramBinary op, const IEggProgramNode& a, const IEggProgramNode& b);
+    egg::ovum::Node ternary(const egg::ovum::LocationSource& location, EggProgramTernary op, const IEggProgramNode& a, const IEggProgramNode& b, const IEggProgramNode& c);
+    egg::ovum::Node mutate(const egg::ovum::LocationSource& location, EggProgramMutate op, const IEggProgramNode& a);
+    egg::ovum::Node assign(const egg::ovum::LocationSource& location, EggProgramAssign op, const IEggProgramNode& a, const IEggProgramNode& b);
     egg::ovum::Node noop(const IEggProgramNode* node);
     template<typename... ARGS>
-    egg::ovum::Node statement(egg::ovum::Opcode opcode, ARGS&&... args) {
-      return EggProgramCompilerNode(*this, opcode).add(std::forward<ARGS>(args)...).build();
+    egg::ovum::Node statement(const egg::ovum::LocationSource& location, egg::ovum::Opcode opcode, ARGS&&... args) {
+      return EggProgramCompilerNode(*this, location, opcode).add(std::forward<ARGS>(args)...).build();
     }
     template<typename... ARGS>
-    egg::ovum::Node expression(egg::ovum::Opcode opcode, ARGS&&... args) {
-      return EggProgramCompilerNode(*this, opcode).add(std::forward<ARGS>(args)...).build();
+    egg::ovum::Node expression(const egg::ovum::LocationSource& location, egg::ovum::Opcode opcode, ARGS&&... args) {
+      return EggProgramCompilerNode(*this, location, opcode).add(std::forward<ARGS>(args)...).build();
     }
     template<typename... ARGS>
-    egg::ovum::Node operation(egg::ovum::Opcode opcode, egg::ovum::Operator oper, ARGS&&... args) {
-      return EggProgramCompilerNode(*this, opcode).add(std::forward<ARGS>(args)...).build(oper);
+    egg::ovum::Node operation(const egg::ovum::LocationSource& location, egg::ovum::Opcode opcode, egg::ovum::Operator oper, ARGS&&... args) {
+      return EggProgramCompilerNode(*this, location, opcode).add(std::forward<ARGS>(args)...).build(oper);
     }
     template<typename... ARGS>
     egg::ovum::Node create(egg::ovum::Opcode op, ARGS&&... args) {
       return egg::ovum::NodeFactory::create(this->context.allocator(), op, std::forward<ARGS>(args)...);
+    }
+    template<typename... ARGS>
+    egg::ovum::Node create(const egg::ovum::NodeLocation& location, egg::ovum::Opcode op, ARGS&&... args) {
+      return egg::ovum::NodeFactory::create(this->context.allocator(), location, op, std::forward<ARGS>(args)...);
     }
     template<typename... ARGS>
     egg::ovum::Node raise(ARGS&&... args) {

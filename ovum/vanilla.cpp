@@ -38,7 +38,7 @@ namespace {
       throw std::runtime_error("TODO: " WIBBLE);
     }
     virtual Type getRuntimeType() const override {
-      throw std::runtime_error("TODO: " WIBBLE);
+      return Type::Object;
     }
     virtual Variant call(IExecution&, const IParameters&) override {
       throw std::runtime_error("TODO: " WIBBLE);
@@ -78,7 +78,7 @@ namespace {
       throw std::runtime_error("TODO: " WIBBLE);
     }
     virtual Type getRuntimeType() const override {
-      throw std::runtime_error("TODO: " WIBBLE);
+      return Type::Object; // WIBBLE
     }
     virtual Variant call(IExecution&, const IParameters&) override {
       throw std::runtime_error("TODO: " WIBBLE);
@@ -91,23 +91,23 @@ namespace {
     }
     virtual Variant getIndex(IExecution& execution, const Variant& index) override {
       if (!index.isInt()) {
-        execution.raiseFormat("Array index was expected to be 'int', not '", index.getRuntimeType().toString(), "'");
+        return execution.raiseFormat("Array index was expected to be 'int', not '", index.getRuntimeType().toString(), "'");
       }
       auto i = index.getInt();
       auto u = size_t(i);
       if (u >= this->values.size()) {
-        execution.raiseFormat("Invalid array index for an array with ", this->values.size(), " element(s) : ", i);
+        return execution.raiseFormat("Invalid array index for an array with ", this->values.size(), " element(s): ", i);
       }
       return this->values[u];
     }
     virtual Variant setIndex(IExecution& execution, const Variant& index, const Variant& value) override {
       if (!index.isInt()) {
-        execution.raiseFormat("Array index was expected to be 'int', not '", index.getRuntimeType().toString(), "'");
+        return execution.raiseFormat("Array index was expected to be 'int', not '", index.getRuntimeType().toString(), "'");
       }
       auto i = index.getInt();
       auto u = size_t(i);
       if (u >= this->values.size()) {
-        execution.raiseFormat("Invalid array index for an array with ", this->values.size(), " element(s) : ", i);
+        return execution.raiseFormat("Invalid array index for an array with ", this->values.size(), " element(s): ", i);
       }
       this->values[u] = value;
       return Variant::Void;
@@ -131,7 +131,7 @@ namespace {
         name(name),
         block(block) {
       assert(type != nullptr);
-      assert(name != nullptr);
+      assert(!name.empty());
       assert(block != nullptr);
     }
     virtual void softVisitLinks(const Visitor&) const override {
