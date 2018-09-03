@@ -47,7 +47,7 @@ namespace {
       return std::make_pair("<iterator>", 0);
     }
     // TODO iterable() for forEachRemaining() like Java?
-    virtual egg::ovum::Variant promoteAssignment(const egg::ovum::Variant&) const override {
+    virtual egg::ovum::Variant tryAssign(egg::ovum::Variant&, const egg::ovum::Variant&) const override {
       egg::ovum::Variant exception{ "Cannot re-assign iterators" };
       exception.addFlowControl(egg::ovum::VariantBits::Throw);
       return exception;

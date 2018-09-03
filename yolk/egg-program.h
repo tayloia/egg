@@ -210,7 +210,8 @@ namespace egg::yolk {
     egg::ovum::Variant createVanillaException(const egg::ovum::String& message);
 
     // Inherited via IExecution
-    virtual egg::ovum::IAllocator& getAllocator() const override; // TODO needed?
+    virtual egg::ovum::IAllocator& getAllocator() const override;
+    virtual egg::ovum::IBasket& getBasket() const override;
     virtual egg::ovum::Variant raise(const egg::ovum::String& message) override;
     virtual egg::ovum::Variant assertion(const egg::ovum::Variant& predicate) override;
     virtual void print(const std::string& utf8) override;

@@ -1,4 +1,5 @@
 #include "ovum/ovum.h"
+#include "ovum/node.h"
 
 namespace {
   using namespace egg::ovum;
@@ -47,18 +48,20 @@ namespace {
     return exception;
   }
 
-  Variant promoteAssignmentBasal(BasalBits lhs, const Variant& rhs) {
-    assert(lhs != BasalBits::None);
+  Variant tryAssignBasal(BasalBits basal, Variant& lhs, const Variant& rhs) {
+    assert(basal != BasalBits::None);
     assert(!rhs.hasIndirect());
-    if (rhs.hasAny(static_cast<VariantBits>(lhs))) {
+    if (rhs.hasAny(static_cast<VariantBits>(basal))) {
       // It's an exact type match (narrowing)
-      return rhs;
+      lhs = rhs;
+      return Variant::Void;
     }
-    if (Bits::hasAnySet(lhs, BasalBits::Float) && rhs.isInt()) {
+    if (Bits::hasAnySet(basal, BasalBits::Float) && rhs.isInt()) {
       // We allow type promotion int->float
-      return Variant(double(rhs.getInt())); // TODO overflows?
+      lhs = Variant(Float(rhs.getInt())); // TODO overflows?
+      return Variant::Void;
     }
-    return makeException("Cannot assign a value of type '", rhs.getRuntimeType().toString(), "' to a target of type '", Type::getBasalString(lhs), "'");
+    return makeException("Cannot assign a value of type '", rhs.getRuntimeType().toString(), "' to a target of type '", Type::getBasalString(basal), "'");
   }
 
   // An 'omni' function looks like this: 'any?(...any?[])'
@@ -134,9 +137,6 @@ namespace {
     virtual AssignmentSuccess canBeAssignedFrom(const IType& rhs) const override {
       return canBeAssignedFromBasal(BASAL, rhs);
     }
-    virtual Variant promoteAssignment(const Variant& rhs) const override {
-      return promoteAssignmentBasal(BASAL, rhs);
-    }
     virtual Type unionWithBasal(IAllocator& allocator, BasalBits other) const override {
       assert(other != BasalBits::None);
       auto superset = Bits::set(BASAL, other);
@@ -148,6 +148,9 @@ namespace {
     }
     virtual std::pair<std::string, int> toStringPrecedence() const override {
       return tagToStringPriority(BASAL);
+    }
+    virtual Variant tryAssign(Variant& lvalue, const Variant& rvalue) const override {
+      return tryAssignBasal(BASAL, lvalue, rvalue);
     }
   };
   const TypeCommon<BasalBits::Void> typeVoid{};
@@ -168,7 +171,7 @@ namespace {
     virtual AssignmentSuccess canBeAssignedFrom(const IType&) const override {
       return AssignmentSuccess::Never;
     }
-    virtual Variant promoteAssignment(const Variant&) const override {
+    virtual Variant tryAssign(Variant&, const Variant&) const override {
       return makeException("Cannot assign to 'null' value");
     }
   };
@@ -244,8 +247,8 @@ namespace {
     virtual AssignmentSuccess canBeAssignedFrom(const IType& rhs) const override {
       return canBeAssignedFromBasal(this->tag, rhs);
     }
-    virtual Variant promoteAssignment(const Variant& rhs) const override {
-      return promoteAssignmentBasal(this->tag, rhs);
+    virtual Variant tryAssign(Variant& lvalue, const Variant& rvalue) const override {
+      return tryAssignBasal(this->tag, lvalue, rvalue);
     }
     virtual const IFunctionSignature* callable() const override {
       if (Bits::hasAnySet(this->tag, BasalBits::Object)) {
@@ -356,17 +359,17 @@ namespace {
     }
   };
 
-  const char* getBasalComponent(egg::ovum::BasalBits basal) {
+  const char* getBasalComponent(BasalBits basal) {
     switch (basal) {
-    case egg::ovum::BasalBits::None:
+    case BasalBits::None:
       return "var";
-#define EGG_OVUM_BASAL_COMPONENT(name, text) case egg::ovum::BasalBits::name: return text;
+#define EGG_OVUM_BASAL_COMPONENT(name, text) case BasalBits::name: return text;
       EGG_OVUM_BASAL(EGG_OVUM_BASAL_COMPONENT)
 #undef EGG_OVUM_BASAL_COMPONENT
-    case egg::ovum::BasalBits::Any:
+    case BasalBits::Any:
       return "any";
-    case egg::ovum::BasalBits::Arithmetic:
-    case egg::ovum::BasalBits::AnyQ:
+    case BasalBits::Arithmetic:
+    case BasalBits::AnyQ:
       // Non-trivial
       break;
     }
@@ -511,16 +514,6 @@ egg::ovum::IType::AssignmentSuccess egg::ovum::TypeBase::canBeAssignedFrom(const
   return AssignmentSuccess::Never;
 }
 
-egg::ovum::Variant egg::ovum::TypeBase::promoteAssignment(const Variant& rhs) const {
-  // By default, call canBeAssignedFrom() but do not actually promote
-  auto& rvalue = rhs.direct();
-  auto rtype = rvalue.getRuntimeType();
-  if (this->canBeAssignedFrom(*rtype) == AssignmentSuccess::Never) {
-    return makeException("Cannot assign a value of type '", rtype.toString(), "' to a target of type '", Type(this).toString(), "'");
-  }
-  return rvalue;
-}
-
 const egg::ovum::IFunctionSignature* egg::ovum::TypeBase::callable() const {
   // By default, we are not callable
   return nullptr;
@@ -555,6 +548,22 @@ egg::ovum::Type egg::ovum::TypeBase::denulledType() const {
 egg::ovum::Type egg::ovum::TypeBase::unionWithBasal(IAllocator&, BasalBits) const {
   // By default we cannot simple union with basal types
   return nullptr;
+}
+
+egg::ovum::Variant egg::ovum::TypeBase::tryAssign(Variant& lvalue, const Variant& rvalue) const {
+  // By default, call canBeAssignedFrom() but do not actually promote
+  assert(!rvalue.hasIndirect());
+  auto rtype = rvalue.getRuntimeType();
+  if (this->canBeAssignedFrom(*rtype) == AssignmentSuccess::Never) {
+    return makeException("Cannot assign a value of type '", rtype.toString(), "' to a target of type '", Type(this).toString(), "'");
+  }
+  lvalue = rvalue;
+  return Variant::Void;
+}
+
+egg::ovum::Node egg::ovum::TypeBase::toNodeLegacy(IAllocator& allocator) const {
+  // By default we construct a basal type node tree
+  return NodeFactory::createType(allocator, this->getBasalTypes());
 }
 
 // Common types

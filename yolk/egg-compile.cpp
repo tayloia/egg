@@ -75,7 +75,7 @@ egg::ovum::Node egg::yolk::EggProgramCompiler::type(const egg::ovum::Type& type)
   if (type == nullptr) {
     return this->opcode(egg::ovum::OPCODE_INFERRED);
   }
-  return this->opcode(egg::ovum::OPCODE_INFERRED); // WIBBLE
+  return type->toNodeLegacy(this->context.allocator());
 }
 
 egg::ovum::Node egg::yolk::EggProgramCompiler::identifier(const egg::ovum::String& id) {

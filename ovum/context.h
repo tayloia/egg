@@ -47,6 +47,7 @@ namespace egg::ovum {
   public:
     virtual ~IExecution() {}
     virtual IAllocator& getAllocator() const = 0;
+    virtual IBasket& getBasket() const = 0;
     virtual Variant raise(const String& message) = 0;
     virtual Variant assertion(const Variant& predicate) = 0;
     virtual void print(const std::string& utf8) = 0;

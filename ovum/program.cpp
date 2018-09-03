@@ -297,15 +297,32 @@ namespace {
     }
   };
 
-  struct Symbol {
+  class Symbol {
+  private:
     Type type;
     String name;
     Variant value;
-    Symbol(IBasket* basket, const Type& type, const String& name, const Variant& value)
-      : type(type), name(name), value(value) {
-      assert(basket != nullptr);
-      this->value.soften(*basket);
-      assert(this->value.validate(true));
+  public:
+    Symbol(const Type& type, const String& name)
+      : type(type), name(name), value() {
+      assert(type != nullptr);
+    }
+    Variant tryAssign(IBasket& basket, const Variant& rvalue) {
+      auto retval = this->type->tryAssign(this->value, rvalue);
+      if (!retval.hasFlowControl()) {
+        this->value.soften(basket);
+        assert(this->value.validate(true));
+      }
+      return retval;
+    }
+    Variant getDirect() const {
+      return this->value.direct();
+    }
+    Variant& getReference() {
+      return this->value;
+    }
+    void softVisitLink(const ICollectable::Visitor& visitor) const {
+      this->value.softVisitLink(visitor);
     }
   };
 
@@ -318,11 +335,11 @@ namespace {
     explicit SymbolTable(IAllocator& allocator)
       : SoftReferenceCounted(allocator) {
     }
-    bool add(const Type& type, const String& name, const Variant& init) {
-      // Return true iff the insertion occurred
-      Symbol symbol(this->softGetBasket(), type, name, init);
+    Symbol* add(const Type& type, const String& name) {
+      // Return non-null iff the insertion occurred
+      Symbol symbol(type, name);
       auto retval = this->table.insert(std::make_pair(name, std::move(symbol)));
-      return retval.second;
+      return retval.second ? &retval.first->second : nullptr;
     }
     bool remove(const String& name) {
       // Return true iff the removal occurred
@@ -339,7 +356,7 @@ namespace {
     }
     void softVisitLinks(const Visitor& visitor) const {
       for (auto& entry : this->table) {
-        entry.second.value.softVisitLink(visitor);
+        entry.second.softVisitLink(visitor);
       }
     }
   };
@@ -358,11 +375,11 @@ namespace {
   public:
     Target(ProgramDefault& program, const INode& node, Block* block = nullptr);
     Variant check() const;
-    Variant assign(Variant&& rhs) const;
+    Variant assign(const Variant& rhs) const;
     Variant nudge(Int rhs) const;
     Variant mutate(const INode& opnode, const INode& rhs) const;
   private:
-    Variant& identifier() const;
+    Symbol& identifier() const;
     Variant getIndex() const;
     Variant setIndex(const Variant& value) const;
     Variant apply(const INode& opnode, Variant& lvalue, const INode& rhs) const;
@@ -379,7 +396,7 @@ namespace {
     explicit Block(ProgramDefault& program) : program(program) {
     }
     ~Block();
-    Variant declare(const INode& node, const Type& type, const String& name, const Variant& init);
+    Variant declare(const INode& node, const Type& type, const String& name, const Variant* init = nullptr);
   };
 
   class ProgramDefault final : public HardReferenceCounted<IProgram>, public IExecution {
@@ -404,7 +421,12 @@ namespace {
     }
     // Inherited from IProgram
     virtual bool builtin(const String& name, const Variant& value) override {
-      return this->symtable->add(value.getRuntimeType(), name, value);
+      auto* symbol = this->symtable->add(value.getRuntimeType(), name);
+      if (symbol != nullptr) {
+        auto retval = symbol->tryAssign(*this->basket, value);
+        return !retval.hasFlowControl();
+      }
+      return false;
     }
     virtual Variant run(const IModule& module) override {
       try {
@@ -420,6 +442,9 @@ namespace {
     // Inherited from IExecution
     virtual IAllocator& getAllocator() const override {
       return this->allocator;
+    }
+    virtual IBasket& getBasket() const override {
+      return *this->basket;
     }
     virtual Variant raise(const String& message) override {
       StringBuilder sb;
@@ -450,8 +475,9 @@ namespace {
       this->logger.log(ILogger::Source::User, ILogger::Severity::Information, utf8);
     }
     // Called by Block
-    Variant blockDeclare(const INode& node, const Type& type, const String& name, const Variant& init) {
-      if (!this->symtable->add(type, name, init)) {
+    Variant blockDeclare(const INode& node, const Type& type, const String& name, const Variant* init) {
+      auto symbol = this->symtable->add(type, name);
+      if (symbol == nullptr) {
         // TODO display the other location too
         auto opcode = node.getOpcode();
         if (opcode != OPCODE_DECLARE) {
@@ -461,6 +487,9 @@ namespace {
           }
         }
         return this->raiseNode(node, "Duplicate name in declaration: '", name, "'");
+      }
+      if (init != nullptr) {
+        return symbol->tryAssign(*this->basket, *init);
       }
       return Variant::Void;
     }
@@ -476,7 +505,7 @@ namespace {
       assert(node.getChildren() == 2);
       auto vtype = this->type(node.getChild(0));
       auto vname = this->identifier(node.getChild(1));
-      a = block.declare(node, vtype, vname, Variant::Void);
+      a = block.declare(node, vtype, vname);
       if (a.hasFlowControl()) {
         // Couldn't define the variable; leave the error in 'a'
         return Target::Flavour::Failed;
@@ -621,14 +650,14 @@ namespace {
       auto vname = this->identifier(node.getChild(1));
       if (node.getChildren() == 2) {
         // No initializer
-        return block.declare(node, vtype, vname, Variant::Void);
+        return block.declare(node, vtype, vname);
       }
       assert(node.getChildren() == 3);
       auto vinit = this->expression(node.getChild(2));
       if (vinit.hasFlowControl()) {
         return vinit;
       }
-      return block.declare(node, vtype, vname, vinit);
+      return block.declare(node, vtype, vname, &vinit);
     }
     Variant statementDecrement(const INode& node) {
       assert(node.getOpcode() == OPCODE_DECREMENT);
@@ -732,7 +761,7 @@ namespace {
       Node fblock{ &node.getChild(1) };
       auto fname = this->identifier(node.getChild(2));
       Variant fvalue{ ObjectFactory::createVanillaFunction(this->allocator, ftype, fname, fblock) };
-      return block.declare(node, ftype, fname, fvalue);
+      return block.declare(node, ftype, fname, &fvalue);
     }
     Variant statementIf(const INode& node) {
       assert(node.getOpcode() == OPCODE_IF);
@@ -865,7 +894,7 @@ namespace {
         if (true) {
           Block inner(*this);
           auto cname = this->identifier(clause.getChild(1));
-          auto retval = inner.declare(node, ctype, cname, exception);
+          auto retval = inner.declare(node, ctype, cname, &exception);
           if (retval.hasFlowControl()) {
             // Couldn't define the exception variable
             return this->statementTryFinally(node, retval);
@@ -981,7 +1010,11 @@ namespace {
       EGG_WARNING_SUPPRESS_SWITCH_BEGIN();
       switch (oper) {
       case Operator::OPERATOR_ADD:
-        break;
+      case Operator::OPERATOR_SUB:
+      case Operator::OPERATOR_MUL:
+      case Operator::OPERATOR_DIV:
+      case Operator::OPERATOR_REM:
+        return this->operatorArithmetic(node, oper, node.getChild(0), node.getChild(1));
       }
       EGG_WARNING_SUPPRESS_SWITCH_END();
       throw this->unexpectedOperator("binary", node);
@@ -1102,7 +1135,7 @@ namespace {
       if (vinit.hasFlowControl()) {
         return vinit;
       }
-      return block->declare(node, vtype, vname, vinit);
+      return block->declare(node, vtype, vname, &vinit);
     }
     Variant expressionIdentifier(const INode& node) {
       assert(node.getOpcode() == OPCODE_IDENTIFIER);
@@ -1111,7 +1144,7 @@ namespace {
       if (symbol == nullptr) {
         return this->raiseNode(node, "Unknown symbol in expression: '", name, "'");
       }
-      return symbol->value.direct();
+      return symbol->getDirect();
     }
     Variant expressionIndex(const INode& node) {
       assert(node.getOpcode() == OPCODE_INDEX);
@@ -1182,7 +1215,7 @@ namespace {
           return bool((da < ib) ^ invert); // need to force bool-ness
         }
         auto side = swapped ? "left" : "right";
-        return this->raiseNode(b, "Expected ", side, "-hand side of comparison to be 'float' or 'int', not'", vb.getRuntimeType().toString(), "'");
+        return this->raiseNode(b, "Expected ", side, "-hand side of comparison to be 'float' or 'int', not '", vb.getRuntimeType().toString(), "'");
       }
       if (va.isInt()) {
         auto ia = va.getInt();
@@ -1201,10 +1234,77 @@ namespace {
           return bool((ia < ib) ^ invert); // need to force bool-ness
         }
         auto side = swapped ? "left" : "right";
-        return this->raiseNode(b, "Expected ", side, "-hand side of comparison to be 'float' or 'int', not'", vb.getRuntimeType().toString(), "'");
+        return this->raiseNode(b, "Expected ", side, "-hand side of comparison to be 'float' or 'int', not '", vb.getRuntimeType().toString(), "'");
       }
       auto side = swapped ? "right" : "left";
-      return this->raiseNode(a, "Expected ", side, "-hand side of comparison to be 'float' or 'int', not'", va.getRuntimeType().toString(), "'");
+      return this->raiseNode(a, "Expected ", side, "-hand side of comparison to be 'float' or 'int', not '", va.getRuntimeType().toString(), "'");
+    }
+    Variant operatorArithmetic(const INode& node, Operator oper, const INode& a, const INode& b) {
+      auto lhs = this->expression(a);
+      if (lhs.hasFlowControl()) {
+        return lhs;
+      }
+      auto rhs = this->expression(b);
+      if (rhs.hasFlowControl()) {
+        return rhs;
+      }
+      if (lhs.isFloat()) {
+        if (rhs.isFloat()) {
+          // Both floats
+          return this->operatorBinaryFloat(node, oper, lhs.getFloat(), rhs.getFloat());
+        }
+        if (rhs.isInt()) {
+          // Promote rhs
+          return this->operatorBinaryFloat(node, oper, lhs.getFloat(), Float(rhs.getInt()));
+        }
+        return this->raiseNode(b, "Expected right-hand side of arithmetic '" + OperatorProperties::str(oper), "' operator to be 'float' or 'int', not '", rhs.getRuntimeType().toString(), "'");
+      }
+      if (lhs.isInt()) {
+        if (rhs.isFloat()) {
+          // Promote lhs
+          return this->operatorBinaryFloat(node, oper, Float(lhs.getInt()), rhs.getFloat());
+        }
+        if (rhs.isInt()) {
+          // Both ints
+          return this->operatorBinaryInt(node, oper, lhs.getInt(), rhs.getInt());
+        }
+        return this->raiseNode(b, "Expected right-hand side of arithmetic '" + OperatorProperties::str(oper), "' operator to be 'float' or 'int', not '", rhs.getRuntimeType().toString(), "'");
+      }
+      return this->raiseNode(b, "Expected left-hand side of arithmetic '" + OperatorProperties::str(oper), "' operator to be 'float' or 'int', not '", rhs.getRuntimeType().toString(), "'");
+    }
+    Int operatorBinaryInt(const INode& node, Operator oper, Int lhs, Int rhs) {
+      EGG_WARNING_SUPPRESS_SWITCH_BEGIN();
+      switch (oper) {
+      case OPERATOR_ADD:
+        return lhs + rhs;
+      case OPERATOR_SUB:
+        return lhs - rhs;
+      case OPERATOR_MUL:
+        return lhs * rhs;
+      case OPERATOR_DIV:
+        return lhs / rhs;
+      case OPERATOR_REM:
+        return lhs % rhs;
+      }
+      EGG_WARNING_SUPPRESS_SWITCH_END();
+      throw this->unexpectedOperator("binary int", node);
+    }
+    Float operatorBinaryFloat(const INode& node, Operator oper, Float lhs, Float rhs) {
+      EGG_WARNING_SUPPRESS_SWITCH_BEGIN();
+      switch (oper) {
+      case OPERATOR_ADD:
+        return lhs + rhs;
+      case OPERATOR_SUB:
+        return lhs - rhs;
+      case OPERATOR_MUL:
+        return lhs * rhs;
+      case OPERATOR_DIV:
+        return lhs / rhs;
+      case OPERATOR_REM:
+        return std::remainder(lhs, rhs);
+      }
+      EGG_WARNING_SUPPRESS_SWITCH_END();
+      throw this->unexpectedOperator("binary float", node);
     }
     Variant operatorTernary(const INode& a, const INode& b, const INode& c) {
       auto cond = this->condition(a, nullptr);
@@ -1231,9 +1331,59 @@ namespace {
       }
       return child.getString();
     }
-    Type type(const INode&) {
-      // WIBBLE
-      return Type::AnyQ;
+    Type type(const INode& node) {
+      EGG_WARNING_SUPPRESS_SWITCH_BEGIN();
+      switch (node.getOpcode()) {
+      case OPCODE_INFERRED:
+        assert(node.getChildren() == 0);
+        return nullptr;
+      case OPCODE_VOID:
+        assert(node.getChildren() == 0);
+        return Type::Void;
+      case OPCODE_NULL:
+        assert(node.getChildren() == 0);
+        return Type::Null;
+      case OPCODE_BOOL:
+        if (node.getChildren() == 0) {
+          return Type::Bool;
+        }
+        break;
+      case OPCODE_INT:
+        if (node.getChildren() == 0) {
+          return Type::Int;
+        }
+        break;
+      case OPCODE_FLOAT:
+        if (node.getChildren() == 0) {
+          return Type::Float;
+        }
+        break;
+      case OPCODE_STRING:
+        if (node.getChildren() == 0) {
+          return Type::String;
+        }
+        break;
+      case OPCODE_OBJECT:
+        if (node.getChildren() == 0) {
+          return Type::Object;
+        }
+        break;
+      case OPCODE_ANY:
+        if (node.getChildren() == 0) {
+          return Type::Any;
+        }
+        break;
+      case OPCODE_ANYQ:
+        if (node.getChildren() == 0) {
+          return Type::AnyQ;
+        }
+        break;
+      default:
+        throw this->unexpectedOpcode("type", node);
+      }
+      EGG_WARNING_SUPPRESS_SWITCH_END();
+      this->updateLocation(node);
+      throw RuntimeException(this->location, "Type constraints not yet supported"); // TODO
     }
     Variant call(const INode& node, const Variant& callee, const IParameters& parameters) {
       assert(!callee.hasFlowControl());
@@ -1324,10 +1474,10 @@ Target::Target(ProgramDefault& program, const INode& node, Block* block)
   throw program.unexpectedOpcode("target", node);
 }
 
-egg::ovum::Variant& Target::identifier() const {
+Symbol& Target::identifier() const {
   assert(this->flavour == Flavour::Identifier);
   auto name = this->a.getString();
-  return this->program.targetSymbol(this->node, name).value;
+  return this->program.targetSymbol(this->node, name);
 }
 
 egg::ovum::Variant Target::getIndex() const {
@@ -1350,16 +1500,14 @@ Variant Target::check() const {
   return Variant::Void;
 }
 
-Variant Target::assign(Variant&& rhs) const {
-  // TODO promotion
+Variant Target::assign(const Variant& rhs) const {
   switch (this->flavour) {
   case Flavour::Failed:
     break;
   case Flavour::Identifier:
-    this->identifier() = std::move(rhs);
-    return Variant::Void;
+    return this->identifier().tryAssign(this->program.getBasket(), rhs);
   case Flavour::Index:
-    return this->setIndex(std::move(rhs));
+    return this->setIndex(rhs);
   }
   // Return the problem we saved in the constructor
   return this->a;
@@ -1374,7 +1522,7 @@ Variant Target::nudge(Int rhs) const {
     // Return the problem we saved in the constructor
     return this->a;
   case Flavour::Identifier:
-    slot = &this->identifier();
+    slot = &this->identifier().getReference();
     if (slot->isInt()) {
       *slot = slot->getInt() + rhs;
       return Variant::Void;
@@ -1403,7 +1551,7 @@ Variant Target::mutate(const INode& opnode, const INode& rhs) const {
   case Flavour::Failed:
     break;
   case Flavour::Identifier:
-    return this->apply(opnode, this->identifier(), rhs);
+    return this->apply(opnode, this->identifier().getReference(), rhs);
   case Flavour::Index:
     // TODO atomic mutation
     auto element = this->getIndex();
@@ -1464,7 +1612,7 @@ Block::~Block() {
   }
 }
 
-egg::ovum::Variant Block::declare(const INode& node, const Type& type, const String& name, const Variant& init) {
+egg::ovum::Variant Block::declare(const INode& node, const Type& type, const String& name, const Variant* init) {
   // Keep track of names successfully declared in this block
   auto retval = this->program.blockDeclare(node, type, name, init);
   if (!retval.hasFlowControl()) {

@@ -663,9 +663,29 @@ const egg::ovum::OpcodeProperties& egg::ovum::OpcodeProperties::from(Opcode opco
   return OpcodeTable::instance.properties[opcode];
 }
 
+std::string egg::ovum::OpcodeProperties::str(Opcode opcode) {
+  if ((opcode >= 1) && (opcode <= 255)) {
+    auto& props = OpcodeTable::instance.properties[opcode];
+    if (props.name != nullptr) {
+      return props.name;
+    }
+  }
+  return "<unknown:" + std::to_string(int(opcode)) + ">";
+}
+
 const egg::ovum::OperatorProperties& egg::ovum::OperatorProperties::from(Operator oper) {
   assert((oper >= 0) && (oper <= 128));
   return OperatorTable::instance.properties[oper];
+}
+
+std::string egg::ovum::OperatorProperties::str(Operator oper) {
+  if ((oper >= 1) && (oper <= 128)) {
+    auto& props = OperatorTable::instance.properties[oper];
+    if (props.name != nullptr) {
+      return props.name;
+    }
+  }
+  return "<unknown:" + std::to_string(int(oper)) + ">";
 }
 
 egg::ovum::Module egg::ovum::ModuleFactory::fromBinaryStream(IAllocator& allocator, const String& resource, std::istream& stream) {

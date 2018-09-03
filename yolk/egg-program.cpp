@@ -269,24 +269,26 @@ egg::ovum::Variant egg::yolk::EggProgramSymbol::assign(EggProgramContext& contex
   default:
     break;
   }
-  auto promoted = this->type->promoteAssignment(rhs);
-  if (promoted.hasFlowControl()) {
-    // The assignment failed
-    if (promoted.hasString()) {
-      // Convert the error message to a full-blown exception
-      return context.raise(promoted.getString());
-    }
-    return promoted;
-  }
-  if (promoted.isVoid()) {
+  assert(!rhs.hasFlowControl());
+  if (rhs.isVoid()) {
     return context.raiseFormat("Cannot assign 'void' to '", this->name, "'");
   }
+  egg::ovum::Variant* target;
   if (this->value.hasIndirect()) {
     // We're already indirect, so store the value in our child
-    this->value.getPointee() = promoted;
+    target = &this->value.getPointee();
   } else {
-    // Store the value directly and soften
-    this->value = promoted;
+    // Store the value directly
+    target = &this->value;
+  }
+  auto retval = this->type->tryAssign(*target, rhs);
+  if (retval.hasFlowControl()) {
+    // The assignment failed
+    if (retval.hasString()) {
+      // Convert the error message to a full-blown exception
+      return context.raise(retval.getString());
+    }
+    return retval;
   }
   auto* basket = context.softGetBasket();
   assert(basket != nullptr);
@@ -928,6 +930,12 @@ egg::ovum::Variant egg::yolk::EggProgramContext::raise(const egg::ovum::String& 
 
 egg::ovum::IAllocator& egg::yolk::EggProgramContext::getAllocator() const {
   return this->allocator;
+}
+
+egg::ovum::IBasket& egg::yolk::EggProgramContext::getBasket() const {
+  auto* ptr = this->softGetBasket();
+  assert(ptr != nullptr);
+  return *ptr;
 }
 
 egg::ovum::Module egg::test::Compiler::compileFile(egg::ovum::IAllocator& allocator, egg::ovum::ILogger& logger, const std::string& path) {

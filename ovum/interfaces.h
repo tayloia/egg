@@ -3,6 +3,7 @@ namespace egg::ovum {
   template<typename T> class HardPtr;
   enum class BasalBits;
   struct LocationSource;
+  class Node;
   class String;
   class Type;
   class Variant;
@@ -164,11 +165,13 @@ namespace egg::ovum {
 
   class IType : public IHardAcquireRelease {
   public:
-    // TODO new scheme for type management
+    // Type management
+    virtual Variant tryAssign(Variant& lvalue, const egg::ovum::Variant& rvalue) const = 0;
+
+    // no-man's land
     enum class AssignmentSuccess { Never, Sometimes, Always };
     virtual BasalBits getBasalTypes() const = 0;
     virtual AssignmentSuccess canBeAssignedFrom(const IType& rhs) const = 0;
-    virtual Variant promoteAssignment(const Variant& rhs) const = 0;
     virtual const IFunctionSignature* callable() const = 0;
     virtual const IIndexSignature* indexable() const = 0;
     virtual Type dotable(const String* property, String& error) const = 0;
@@ -177,6 +180,9 @@ namespace egg::ovum {
     virtual Type denulledType() const = 0;
     virtual Type unionWithBasal(IAllocator& allocator, BasalBits other) const = 0; // May return nullptr
     virtual std::pair<std::string, int> toStringPrecedence() const = 0;
+
+    // WIBBLE legacy type interface
+    virtual Node toNodeLegacy(IAllocator& allocator) const = 0;
   };
 
   class IObject : public ICollectable {

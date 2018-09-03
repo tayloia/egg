@@ -81,7 +81,6 @@ namespace egg::ovum {
     TypeBase() = default;
     virtual BasalBits getBasalTypes() const override;
     virtual AssignmentSuccess canBeAssignedFrom(const IType& rhs) const override;
-    virtual Variant promoteAssignment(const Variant& rhs) const override;
     virtual const IFunctionSignature* callable() const override;
     virtual const IIndexSignature* indexable() const override;
     virtual Type dotable(const String* property, String& error) const override;
@@ -89,6 +88,8 @@ namespace egg::ovum {
     virtual Type pointeeType() const override;
     virtual Type denulledType() const override;
     virtual Type unionWithBasal(IAllocator& allocator, BasalBits other) const override;
+    virtual Variant tryAssign(Variant& lvalue, const egg::ovum::Variant& rvalue) const override;
+    virtual Node toNodeLegacy(IAllocator& allocator) const override;
   };
 
   class Object : public HardPtr<IObject> {

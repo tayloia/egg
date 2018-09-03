@@ -350,7 +350,7 @@ namespace {
         sb.add(' ', '"', node->getString(), '"');
         break;
       case INode::Operand::Operator:
-        sb.add(' ', OperatorProperties::from(node->getOperator()).name);
+        sb.add(' ', OperatorProperties::str(node->getOperator()));
         break;
       case INode::Operand::None:
         break;
@@ -363,6 +363,34 @@ namespace {
       }
       sb.add(')');
     }
+  }
+
+  Opcode basalTypeToOpcode(BasalBits basal) {
+    switch (basal) {
+    case BasalBits::Void:
+      return OPCODE_VOID;
+    case BasalBits::Null:
+      return OPCODE_NULL;
+    case BasalBits::Bool:
+      return OPCODE_BOOL;
+    case BasalBits::Int:
+      return OPCODE_INT;
+    case BasalBits::Float:
+      return OPCODE_FLOAT;
+    case BasalBits::String:
+      return OPCODE_STRING;
+    case BasalBits::Object:
+      return OPCODE_OBJECT;
+    case BasalBits::Any:
+      return OPCODE_ANY;
+    case BasalBits::AnyQ:
+      return OPCODE_ANYQ;
+    case BasalBits::None:
+    case BasalBits::Arithmetic:
+      // No direct equivalence
+      break;
+    }
+    return OPCODE_END;
   }
 }
 
@@ -528,6 +556,24 @@ egg::ovum::Node egg::ovum::NodeFactory::createValue(IAllocator& allocator, doubl
 
 egg::ovum::Node egg::ovum::NodeFactory::createValue(IAllocator& allocator, const String& value) {
   return createNodeOperand<NodeOperandString>(allocator, OPCODE_SVALUE, value);
+}
+
+egg::ovum::Node egg::ovum::NodeFactory::createType(IAllocator& allocator, BasalBits basal) {
+  auto opcode = basalTypeToOpcode(basal);
+  if (opcode != OPCODE_END) {
+    // This is a well-known basal type
+    return NodeFactory::create(allocator, opcode);
+  }
+  Nodes parts;
+  while (basal != BasalBits::None) {
+    // Construct a vector of all the constituent parts
+    auto top = Bits::topmost(basal);
+    opcode = basalTypeToOpcode(top);
+    assert(opcode != OPCODE_END);
+    parts.push_back(NodeFactory::create(allocator, opcode));
+    basal = Bits::clear(basal, top);
+  }
+  return NodeFactory::create(allocator, OPCODE_UNION, parts);
 }
 
 egg::ovum::String egg::ovum::Node::toString(const INode* node) {

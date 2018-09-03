@@ -71,7 +71,7 @@ namespace egg::ovum {
     // With location
     static Node create(IAllocator& allocator, const NodeLocation& location, Opcode opcode, const Nodes* children, const Nodes* attributes = nullptr);
     static Node create(IAllocator& allocator, const NodeLocation& location, Opcode opcode, const Nodes* children, const Nodes* attributes, Operator operand);
-    // Values location
+    // Values
     static Node createValue(IAllocator& allocator, nullptr_t);
     static Node createValue(IAllocator& allocator, bool value);
     static Node createValue(IAllocator& allocator, int32_t value);
@@ -79,6 +79,8 @@ namespace egg::ovum {
     static Node createValue(IAllocator& allocator, float value);
     static Node createValue(IAllocator& allocator, double value);
     static Node createValue(IAllocator& allocator, const String& value);
+    // Types
+    static Node createType(IAllocator& allocator, BasalBits basal);
   };
 
   struct OpcodeProperties {
@@ -104,6 +106,7 @@ namespace egg::ovum {
       return (this->name != nullptr) && (args >= this->minargs) && (args <= this->maxargs) && (has_operand == this->operand);
     }
     static const OpcodeProperties& from(Opcode opcode);
+    static std::string str(Opcode opcode); // never null
   };
 
   struct OperatorProperties {
@@ -115,5 +118,6 @@ namespace egg::ovum {
       return (this->name != nullptr) && (args == this->operands);
     }
     static const OperatorProperties& from(Operator oper);
+    static std::string str(Operator oper); // never null
   };
 }
