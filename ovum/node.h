@@ -70,6 +70,9 @@ namespace egg::ovum {
     static Node create(IAllocator& allocator, Opcode opcode, const Nodes* children, const Nodes* attributes, Operator operand);
     // With location
     static Node create(IAllocator& allocator, const NodeLocation& location, Opcode opcode, const Nodes* children, const Nodes* attributes = nullptr);
+    static Node create(IAllocator& allocator, const NodeLocation& location, Opcode opcode, const Nodes* children, const Nodes* attributes, Int operand);
+    static Node create(IAllocator& allocator, const NodeLocation& location, Opcode opcode, const Nodes* children, const Nodes* attributes, Float operand);
+    static Node create(IAllocator& allocator, const NodeLocation& location, Opcode opcode, const Nodes* children, const Nodes* attributes, const String& operand);
     static Node create(IAllocator& allocator, const NodeLocation& location, Opcode opcode, const Nodes* children, const Nodes* attributes, Operator operand);
     // Values
     static Node createValue(IAllocator& allocator, nullptr_t);
@@ -80,7 +83,7 @@ namespace egg::ovum {
     static Node createValue(IAllocator& allocator, double value);
     static Node createValue(IAllocator& allocator, const String& value);
     // Types
-    static Node createType(IAllocator& allocator, BasalBits basal);
+    static Node createType(IAllocator& allocator, const NodeLocation& location, BasalBits basal);
   };
 
   struct OpcodeProperties {

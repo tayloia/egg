@@ -525,6 +525,21 @@ egg::ovum::Node egg::ovum::NodeFactory::create(IAllocator& allocator, const Node
   return createNodeExtra<NodeOperandNone, NodeLocationFixed>(allocator, &location, opcode, children, attributes, nullptr);
 }
 
+egg::ovum::Node egg::ovum::NodeFactory::create(IAllocator& allocator, const NodeLocation& location, Opcode opcode, const Nodes* children, const Nodes* attributes, Int value) {
+  assert(validateOpcode(opcode, children, true));
+  return createNodeExtra<NodeOperandInt, NodeLocationFixed>(allocator, &location, opcode, children, attributes, value);
+}
+
+egg::ovum::Node egg::ovum::NodeFactory::create(IAllocator& allocator, const NodeLocation& location, Opcode opcode, const Nodes* children, const Nodes* attributes, Float value) {
+  assert(validateOpcode(opcode, children, true));
+  return createNodeExtra<NodeOperandFloat, NodeLocationFixed>(allocator, &location, opcode, children, attributes, value);
+}
+
+egg::ovum::Node egg::ovum::NodeFactory::create(IAllocator& allocator, const NodeLocation& location, Opcode opcode, const Nodes* children, const Nodes* attributes, const String& value) {
+  assert(validateOpcode(opcode, children, true));
+  return createNodeExtra<NodeOperandString, NodeLocationFixed>(allocator, &location, opcode, children, attributes, value);
+}
+
 egg::ovum::Node egg::ovum::NodeFactory::create(IAllocator& allocator, const NodeLocation& location, Opcode opcode, const Nodes* children, const Nodes* attributes, Operator value) {
   assert(validateOpcode(opcode, children, true));
   return createNodeExtra<NodeOperandOperator, NodeLocationFixed>(allocator, &location, opcode, children, attributes, value);
@@ -558,7 +573,7 @@ egg::ovum::Node egg::ovum::NodeFactory::createValue(IAllocator& allocator, const
   return createNodeOperand<NodeOperandString>(allocator, OPCODE_SVALUE, value);
 }
 
-egg::ovum::Node egg::ovum::NodeFactory::createType(IAllocator& allocator, BasalBits basal) {
+egg::ovum::Node egg::ovum::NodeFactory::createType(IAllocator& allocator, const NodeLocation& location, BasalBits basal) {
   auto opcode = basalTypeToOpcode(basal);
   if (opcode != OPCODE_END) {
     // This is a well-known basal type
@@ -573,7 +588,7 @@ egg::ovum::Node egg::ovum::NodeFactory::createType(IAllocator& allocator, BasalB
     parts.push_back(NodeFactory::create(allocator, opcode));
     basal = Bits::clear(basal, top);
   }
-  return NodeFactory::create(allocator, OPCODE_UNION, parts);
+  return NodeFactory::create(allocator, location, OPCODE_UNION, &parts);
 }
 
 egg::ovum::String egg::ovum::Node::toString(const INode* node) {

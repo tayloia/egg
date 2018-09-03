@@ -308,7 +308,7 @@ namespace {
   class VanillaDictionaryIterator : public VanillaIteratorBase {
     EGG_NO_COPY(VanillaDictionaryIterator);
   private:
-    typedef egg::yolk::Dictionary<egg::ovum::String, egg::ovum::Variant> Dictionary;
+    typedef egg::ovum::Dictionary<egg::ovum::String, egg::ovum::Variant> Dictionary;
     Dictionary::KeyValues keyvalues;
     size_t next;
   public:
@@ -327,7 +327,7 @@ namespace {
   class VanillaDictionary : public VanillaBase {
     EGG_NO_COPY(VanillaDictionary);
   protected:
-    typedef egg::yolk::Dictionary<egg::ovum::String, egg::ovum::Variant> Dictionary;
+    typedef egg::ovum::Dictionary<egg::ovum::String, egg::ovum::Variant> Dictionary;
     Dictionary dictionary;
   public:
     VanillaDictionary(egg::ovum::IAllocator& allocator, const std::string& kind, const egg::ovum::IType& type)

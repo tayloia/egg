@@ -3,6 +3,7 @@ namespace egg::ovum {
   template<typename T> class HardPtr;
   enum class BasalBits;
   struct LocationSource;
+  struct NodeLocation;
   class Node;
   class String;
   class Type;
@@ -182,7 +183,7 @@ namespace egg::ovum {
     virtual std::pair<std::string, int> toStringPrecedence() const = 0;
 
     // WIBBLE legacy type interface
-    virtual Node toNodeLegacy(IAllocator& allocator) const = 0;
+    virtual Node toNodeLegacy(IAllocator& allocator, const NodeLocation& location) const = 0;
   };
 
   class IObject : public ICollectable {

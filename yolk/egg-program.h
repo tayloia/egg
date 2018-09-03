@@ -351,18 +351,18 @@ namespace egg::yolk {
   public:
     explicit EggProgramCompiler(IEggEngineCompilationContext& context) : context(context) {
     }
-    egg::ovum::Node opcode(egg::ovum::Opcode value);
-    egg::ovum::Node ivalue(egg::ovum::Int value);
-    egg::ovum::Node fvalue(egg::ovum::Float value);
-    egg::ovum::Node svalue(const egg::ovum::String& value);
-    egg::ovum::Node type(const egg::ovum::Type& type);
-    egg::ovum::Node identifier(const egg::ovum::String& id);
+    egg::ovum::Node opcode(const egg::ovum::LocationSource& location, egg::ovum::Opcode value);
+    egg::ovum::Node ivalue(const egg::ovum::LocationSource& location, egg::ovum::Int value);
+    egg::ovum::Node fvalue(const egg::ovum::LocationSource& location, egg::ovum::Float value);
+    egg::ovum::Node svalue(const egg::ovum::LocationSource& location, const egg::ovum::String& value);
+    egg::ovum::Node type(const egg::ovum::LocationSource& location, const egg::ovum::Type& type);
+    egg::ovum::Node identifier(const egg::ovum::LocationSource& location, const egg::ovum::String& id);
     egg::ovum::Node unary(const egg::ovum::LocationSource& location, EggProgramUnary op, const IEggProgramNode& a);
     egg::ovum::Node binary(const egg::ovum::LocationSource& location, EggProgramBinary op, const IEggProgramNode& a, const IEggProgramNode& b);
     egg::ovum::Node ternary(const egg::ovum::LocationSource& location, EggProgramTernary op, const IEggProgramNode& a, const IEggProgramNode& b, const IEggProgramNode& c);
     egg::ovum::Node mutate(const egg::ovum::LocationSource& location, EggProgramMutate op, const IEggProgramNode& a);
     egg::ovum::Node assign(const egg::ovum::LocationSource& location, EggProgramAssign op, const IEggProgramNode& a, const IEggProgramNode& b);
-    egg::ovum::Node noop(const IEggProgramNode* node);
+    egg::ovum::Node noop(const egg::ovum::LocationSource& location, const IEggProgramNode* node);
     template<typename... ARGS>
     egg::ovum::Node statement(const egg::ovum::LocationSource& location, egg::ovum::Opcode opcode, ARGS&&... args) {
       return EggProgramCompilerNode(*this, location, opcode).add(std::forward<ARGS>(args)...).build();
@@ -374,10 +374,6 @@ namespace egg::yolk {
     template<typename... ARGS>
     egg::ovum::Node operation(const egg::ovum::LocationSource& location, egg::ovum::Opcode opcode, egg::ovum::Operator oper, ARGS&&... args) {
       return EggProgramCompilerNode(*this, location, opcode).add(std::forward<ARGS>(args)...).build(oper);
-    }
-    template<typename... ARGS>
-    egg::ovum::Node create(egg::ovum::Opcode op, ARGS&&... args) {
-      return egg::ovum::NodeFactory::create(this->context.allocator(), op, std::forward<ARGS>(args)...);
     }
     template<typename... ARGS>
     egg::ovum::Node create(const egg::ovum::NodeLocation& location, egg::ovum::Opcode op, ARGS&&... args) {

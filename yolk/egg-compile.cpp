@@ -41,7 +41,7 @@ egg::ovum::Node egg::yolk::EggProgramCompilerNode::build() {
   if (!this->failed) {
     if (this->nodes.empty() && (this->opcode == egg::ovum::OPCODE_BLOCK)) {
       // Handle the special case of empty blocks needing a noop
-      this->add(this->compiler.opcode(egg::ovum::OPCODE_NOOP));
+      this->add(this->compiler.create(this->location, egg::ovum::OPCODE_NOOP, nullptr));
     }
     return this->compiler.create(this->location, this->opcode, &this->nodes);
   }
@@ -55,32 +55,38 @@ egg::ovum::Node egg::yolk::EggProgramCompilerNode::build(egg::ovum::Operator ope
   return nullptr;
 }
 
-egg::ovum::Node egg::yolk::EggProgramCompiler::opcode(egg::ovum::Opcode value) {
-  return this->create(value);
+egg::ovum::Node egg::yolk::EggProgramCompiler::opcode(const egg::ovum::LocationSource& location, egg::ovum::Opcode value) {
+  egg::ovum::NodeLocation loc{ location.line, location.column };
+  return this->create(loc, value, nullptr);
 }
 
-egg::ovum::Node egg::yolk::EggProgramCompiler::ivalue(egg::ovum::Int value) {
-  return this->create(egg::ovum::OPCODE_IVALUE, nullptr, nullptr, value);
+egg::ovum::Node egg::yolk::EggProgramCompiler::ivalue(const egg::ovum::LocationSource& location, egg::ovum::Int value) {
+  egg::ovum::NodeLocation loc{ location.line, location.column };
+  return this->create(loc, egg::ovum::OPCODE_IVALUE, nullptr, nullptr, value);
 }
 
-egg::ovum::Node egg::yolk::EggProgramCompiler::fvalue(egg::ovum::Float value) {
-  return this->create(egg::ovum::OPCODE_FVALUE, nullptr, nullptr, value);
+egg::ovum::Node egg::yolk::EggProgramCompiler::fvalue(const egg::ovum::LocationSource& location, egg::ovum::Float value) {
+  egg::ovum::NodeLocation loc{ location.line, location.column };
+  return this->create(loc, egg::ovum::OPCODE_FVALUE, nullptr, nullptr, value);
 }
 
-egg::ovum::Node egg::yolk::EggProgramCompiler::svalue(const egg::ovum::String& value) {
-  return this->create(egg::ovum::OPCODE_SVALUE, nullptr, nullptr, value);
+egg::ovum::Node egg::yolk::EggProgramCompiler::svalue(const egg::ovum::LocationSource& location, const egg::ovum::String& value) {
+  egg::ovum::NodeLocation loc{ location.line, location.column };
+  return this->create(loc, egg::ovum::OPCODE_SVALUE, nullptr, nullptr, value);
 }
 
-egg::ovum::Node egg::yolk::EggProgramCompiler::type(const egg::ovum::Type& type) {
+egg::ovum::Node egg::yolk::EggProgramCompiler::type(const egg::ovum::LocationSource& location, const egg::ovum::Type& type) {
   if (type == nullptr) {
-    return this->opcode(egg::ovum::OPCODE_INFERRED);
+    return this->opcode(location, egg::ovum::OPCODE_INFERRED);
   }
-  return type->toNodeLegacy(this->context.allocator());
+  return type->toNodeLegacy(this->context.allocator(), { location.line, location.column });
 }
 
-egg::ovum::Node egg::yolk::EggProgramCompiler::identifier(const egg::ovum::String& id) {
+egg::ovum::Node egg::yolk::EggProgramCompiler::identifier(const egg::ovum::LocationSource& location, const egg::ovum::String& id) {
   assert(!id.empty());
-  return this->create(egg::ovum::OPCODE_IDENTIFIER, this->svalue(id));
+  egg::ovum::NodeLocation loc{ location.line, location.column };
+  egg::ovum::Nodes children{ this->svalue(location, id) };
+  return this->create(loc, egg::ovum::OPCODE_IDENTIFIER, &children);
 }
 
 egg::ovum::Node egg::yolk::EggProgramCompiler::unary(const egg::ovum::LocationSource& location, EggProgramUnary op, const IEggProgramNode& a) {
@@ -159,9 +165,9 @@ egg::ovum::Node egg::yolk::EggProgramCompiler::assign(const egg::ovum::LocationS
   return this->raise("Unsupported assignment operator");
 }
 
-egg::ovum::Node egg::yolk::EggProgramCompiler::noop(const IEggProgramNode* node) {
+egg::ovum::Node egg::yolk::EggProgramCompiler::noop(const egg::ovum::LocationSource& location, const IEggProgramNode* node) {
   if (node == nullptr) {
-    return this->opcode(egg::ovum::OPCODE_NOOP);
+    return this->opcode(location, egg::ovum::OPCODE_NOOP);
   }
   return node->compile(*this);
 }

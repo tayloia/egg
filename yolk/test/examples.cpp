@@ -63,7 +63,7 @@ namespace {
           auto program = egg::ovum::ProgramFactory::createProgram(allocator, *logger);
           auto result = program->run(*module);
           if (result.stripFlowControl(egg::ovum::VariantBits::Throw) && !result.isVoid()) {
-            logger->log(egg::ovum::ILogger::Source::User, egg::ovum::ILogger::Severity::Error, "Exception thrown: " + result.toString().toUTF8());
+            logger->log(egg::ovum::ILogger::Source::Runtime, egg::ovum::ILogger::Severity::Error, result.toString().toUTF8());
           }
         }
       }

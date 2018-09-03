@@ -25,7 +25,7 @@ namespace {
   class BuiltinObjectType : public BuiltinFunctionType {
     EGG_NO_COPY(BuiltinObjectType);
   private:
-    egg::yolk::DictionaryUnordered<egg::ovum::String, egg::ovum::Variant> properties;
+    egg::ovum::DictionaryUnordered<egg::ovum::String, egg::ovum::Variant> properties;
   public:
     BuiltinObjectType(egg::ovum::IAllocator& allocator, const egg::ovum::String& name, const egg::ovum::Type& returnType)
       : BuiltinFunctionType(allocator, name, returnType) {

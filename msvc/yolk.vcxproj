@@ -46,7 +46,6 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="..\yolk\dictionaries.h" />
     <ClInclude Include="..\yolk\egg-engine.h" />
     <ClInclude Include="..\yolk\egg-parser.h" />
     <ClInclude Include="..\yolk\egg-program.h" />

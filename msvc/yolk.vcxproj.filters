@@ -73,9 +73,6 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="..\yolk\dictionaries.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="..\yolk\egged-tokenizer.h">
       <Filter>Header Files</Filter>
     </ClInclude>

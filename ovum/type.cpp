@@ -561,9 +561,9 @@ egg::ovum::Variant egg::ovum::TypeBase::tryAssign(Variant& lvalue, const Variant
   return Variant::Void;
 }
 
-egg::ovum::Node egg::ovum::TypeBase::toNodeLegacy(IAllocator& allocator) const {
+egg::ovum::Node egg::ovum::TypeBase::toNodeLegacy(IAllocator& allocator, const NodeLocation& location) const {
   // By default we construct a basal type node tree
-  return NodeFactory::createType(allocator, this->getBasalTypes());
+  return NodeFactory::createType(allocator, location, this->getBasalTypes());
 }
 
 // Common types

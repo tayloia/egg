@@ -89,7 +89,7 @@ namespace egg::ovum {
     virtual Type denulledType() const override;
     virtual Type unionWithBasal(IAllocator& allocator, BasalBits other) const override;
     virtual Variant tryAssign(Variant& lvalue, const egg::ovum::Variant& rvalue) const override;
-    virtual Node toNodeLegacy(IAllocator& allocator) const override;
+    virtual Node toNodeLegacy(IAllocator& allocator, const NodeLocation& location) const override;
   };
 
   class Object : public HardPtr<IObject> {

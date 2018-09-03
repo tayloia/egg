@@ -200,9 +200,6 @@
     </Text>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="..\yolk\test\dictionaries.cpp">
-      <Filter>Test Files</Filter>
-    </ClCompile>
     <ClCompile Include="..\yolk\test\egged-tokenizer.cpp">
       <Filter>Test Files</Filter>
     </ClCompile>

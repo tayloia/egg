@@ -132,6 +132,26 @@ namespace {
       return Variant::Void;
     }
   };
+
+  class BuiltinString : public BuiltinObject {
+    BuiltinString(const BuiltinString&) = delete;
+    BuiltinString& operator=(const BuiltinString&) = delete;
+  public:
+    explicit BuiltinString(IAllocator& allocator)
+      : BuiltinObject(allocator, "string") {
+    }
+    virtual Variant call(IExecution& execution, const IParameters& parameters) override {
+      if (parameters.getNamedCount() > 0) {
+        return this->raiseBuiltin(execution, "does not accept named parameters");
+      }
+      StringBuilder sb;
+      auto n = parameters.getPositionalCount();
+      for (size_t i = 0; i < n; ++i) {
+        sb.add(parameters.getPositional(i).toString());
+      }
+      return sb.str();
+    }
+  };
 }
 
 egg::ovum::Variant egg::ovum::VariantFactory::createBuiltinAssert(IAllocator& allocator) {
@@ -141,5 +161,10 @@ egg::ovum::Variant egg::ovum::VariantFactory::createBuiltinAssert(IAllocator& al
 
 egg::ovum::Variant egg::ovum::VariantFactory::createBuiltinPrint(IAllocator& allocator) {
   Object object(*allocator.create<BuiltinPrint>(0, allocator));
+  return Variant(object);
+}
+
+egg::ovum::Variant egg::ovum::VariantFactory::createBuiltinString(IAllocator& allocator) {
+  Object object(*allocator.create<BuiltinString>(0, allocator));
   return Variant(object);
 }

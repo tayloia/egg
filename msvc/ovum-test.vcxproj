@@ -19,6 +19,7 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="..\ovum\test\dictionary.cpp" />
     <ClCompile Include="..\ovum\test\node.cpp" />
     <ClCompile Include="..\ovum\test\gtest.cpp">
       <AdditionalIncludeDirectories Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">$(GoogleTest);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>

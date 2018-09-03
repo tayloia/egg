@@ -1,5 +1,6 @@
 #include "ovum/ovum.h"
 #include "ovum/node.h"
+#include "ovum/dictionary.h"
 
 #include <stdexcept>
 
@@ -26,6 +27,7 @@ namespace {
     VanillaObject(const VanillaObject&) = delete;
     VanillaObject& operator=(const VanillaObject&) = delete;
   private:
+    Dictionary<String, Variant> values;
   public:
     explicit VanillaObject(IAllocator& allocator)
       : VanillaBase(allocator) {
@@ -43,14 +45,19 @@ namespace {
     virtual Variant call(IExecution&, const IParameters&) override {
       throw std::runtime_error("TODO: " WIBBLE);
     }
-    virtual Variant getProperty(IExecution&, const String&) override {
-      throw std::runtime_error("TODO: " WIBBLE);
+    virtual Variant getProperty(IExecution&, const String& property) override {
+      return this->values.getOrDefault(property, Variant::Void);
     }
-    virtual Variant setProperty(IExecution&, const String&, const Variant&) override {
-      throw std::runtime_error("TODO: " WIBBLE);
+    virtual Variant setProperty(IExecution&, const String& property, const Variant& value) override {
+      (void)this->values.addOrUpdate(property, value);
+      return Variant::Void;
     }
-    virtual Variant getIndex(IExecution&, const Variant&) override {
-      throw std::runtime_error("TODO: " WIBBLE);
+    virtual Variant getIndex(IExecution& execution, const Variant& index) override {
+      if (!index.isString()) {
+        return execution.raiseFormat("Object index was expected to be a 'string', not '", index.getRuntimeType().toString(), "'");
+      }
+      auto property = index.getString();
+      return this->values.getOrDefault(property, Variant::Void);
     }
     virtual Variant setIndex(IExecution&, const Variant&, const Variant&) override {
       throw std::runtime_error("TODO: " WIBBLE);
@@ -83,15 +90,18 @@ namespace {
     virtual Variant call(IExecution&, const IParameters&) override {
       throw std::runtime_error("TODO: " WIBBLE);
     }
-    virtual Variant getProperty(IExecution&, const String&) override {
-      throw std::runtime_error("TODO: " WIBBLE);
+    virtual Variant getProperty(IExecution& execution, const String& property) override {
+      if (property == "length") {
+        return Variant(Int(this->values.size()));
+      }
+      return execution.raiseFormat("Arrays do not support property '", property, "'");
     }
     virtual Variant setProperty(IExecution&, const String&, const Variant&) override {
       throw std::runtime_error("TODO: " WIBBLE);
     }
     virtual Variant getIndex(IExecution& execution, const Variant& index) override {
       if (!index.isInt()) {
-        return execution.raiseFormat("Array index was expected to be 'int', not '", index.getRuntimeType().toString(), "'");
+        return execution.raiseFormat("Array index was expected to be an 'int', not '", index.getRuntimeType().toString(), "'");
       }
       auto i = index.getInt();
       auto u = size_t(i);
@@ -102,7 +112,7 @@ namespace {
     }
     virtual Variant setIndex(IExecution& execution, const Variant& index, const Variant& value) override {
       if (!index.isInt()) {
-        return execution.raiseFormat("Array index was expected to be 'int', not '", index.getRuntimeType().toString(), "'");
+        return execution.raiseFormat("Array index was expected to be an 'int', not '", index.getRuntimeType().toString(), "'");
       }
       auto i = index.getInt();
       auto u = size_t(i);

@@ -1,13 +1,13 @@
-namespace egg::yolk {
+namespace egg::ovum {
   // See https://docs.oracle.com/javase/8/docs/api/java/util/Map.html
   template<typename K, typename V>
   class DictionaryUnordered {
-    EGG_NO_COPY(DictionaryUnordered);
+    DictionaryUnordered(const DictionaryUnordered&) = delete;
+    DictionaryUnordered& operator=(const DictionaryUnordered&) = delete;
   private:
     std::unordered_map<K, V> map;
   public:
-    DictionaryUnordered() {
-    }
+    DictionaryUnordered() = default;
     bool empty() const {
       return this->map.empty();
     }
@@ -63,7 +63,8 @@ namespace egg::yolk {
 
   template<typename K, typename V>
   class Dictionary {
-    EGG_NO_COPY(Dictionary);
+    Dictionary(const Dictionary&) = delete;
+    Dictionary& operator=(const Dictionary&) = delete;
   public:
     typedef std::vector<K> Keys;
     typedef std::vector<V> Values;
@@ -72,8 +73,7 @@ namespace egg::yolk {
     std::unordered_map<K, V> map;
     std::vector<K> vec; // In insertion order
   public:
-    Dictionary() {
-    }
+    Dictionary() = default;
     bool empty() const {
       return this->vec.empty();
     }
@@ -135,7 +135,7 @@ namespace egg::yolk {
       assert(inserted);
       this->vec.emplace_back(key);
       assert(this->map.size() == this->vec.size());
-      EGG_UNUSED(inserted);
+      (void)inserted;
     }
     size_t getKeys(Keys& keys) const {
       // Copy the keys in insertion order

@@ -183,7 +183,7 @@ namespace {
           fb = Float(b.getInt());
           return Match::Float;
         }
-        retval = Binary::unexpected(b, "Expected right-hand side of ", operation, " to be 'int' or 'float'");
+        retval = Binary::unexpected(b, "Expected right-hand side of ", operation, " to be an 'int' or 'float'");
         return Match::Mismatch;
       }
       if (a.isInt()) {
@@ -195,10 +195,10 @@ namespace {
         } else if (b.isInt()) {
           return Match::Int;
         }
-        retval = Binary::unexpected(b, "Expected right-hand side of ", operation, " to be 'int' or 'float'");
+        retval = Binary::unexpected(b, "Expected right-hand side of ", operation, " to be an 'int' or 'float'");
         return Match::Mismatch;
       }
-      retval = Binary::unexpected(a, "Expected left-hand side of ", operation, " to be 'int' or 'float'");
+      retval = Binary::unexpected(a, "Expected left-hand side of ", operation, " to be an 'int' or 'float'");
       return Match::Mismatch;
     }
     static Match bitwise(const char* operation, const Variant& a, const Variant& b, Variant& retval) {
@@ -207,27 +207,27 @@ namespace {
         if (b.isInt()) {
           return Match::Int;
         }
-        retval = Binary::unexpected(b, "Expected right-hand side of ", operation, " to be 'int'");
+        retval = Binary::unexpected(b, "Expected right-hand side of ", operation, " to be an 'int'");
         return Match::Mismatch;
       }
       if (a.isBool()) {
         if (b.isBool()) {
           return Match::Bool;
         }
-        retval = Binary::unexpected(b, "Expected right-hand side of ", operation, " to be 'bool'");
+        retval = Binary::unexpected(b, "Expected right-hand side of ", operation, " to be a 'bool'");
         return Match::Mismatch;
       }
-      retval = Binary::unexpected(a, "Expected left-hand side of ", operation, " to be 'bool' or 'int'");
+      retval = Binary::unexpected(a, "Expected left-hand side of ", operation, " to be a 'bool' or 'int'");
       return Match::Mismatch;
     }
     static Match logical(const char* operation, const Variant& a, const Variant& b, Variant& retval) {
       // Accept only bools
       if (!a.isBool()) {
-        retval = Binary::unexpected(a, "Expected left-hand side of ", operation, " to be 'bool'");
+        retval = Binary::unexpected(a, "Expected left-hand side of ", operation, " to be a 'bool'");
         return Match::Mismatch;
       }
       if (!b.isBool()) {
-        retval = Binary::unexpected(b, "Expected right-hand side of ", operation, " to be 'bool'");
+        retval = Binary::unexpected(b, "Expected right-hand side of ", operation, " to be a 'bool'");
         return Match::Mismatch;
       }
       return Match::Bool;
@@ -235,11 +235,11 @@ namespace {
     static Match shift(const char* operation, const Variant& a, const Variant& b, uint64_t& ub, Variant& retval) {
       // Accept only bools
       if (!a.isInt()) {
-        retval = Binary::unexpected(a, "Expected left-hand side of ", operation, " to be 'int'");
+        retval = Binary::unexpected(a, "Expected left-hand side of ", operation, " to be an 'int'");
         return Match::Mismatch;
       }
       if (!b.isInt()) {
-        retval = Binary::unexpected(b, "Expected right-hand side of ", operation, " to be 'int'");
+        retval = Binary::unexpected(b, "Expected right-hand side of ", operation, " to be an 'int'");
         return Match::Mismatch;
       }
       auto ib = b.getInt();
@@ -435,7 +435,7 @@ namespace {
         this->location.column = 0;
         return this->executeRoot(module.getRootNode());
       } catch (RuntimeException& exception) {
-        this->logger.log(egg::ovum::ILogger::Source::Runtime, egg::ovum::ILogger::Severity::Error, exception.message.toUTF8());
+        this->logger.log(ILogger::Source::Runtime, ILogger::Severity::Error, exception.message.toUTF8());
         return Variant::Rethrow;
       }
     }
@@ -547,6 +547,7 @@ namespace {
     void addBuiltins() {
       this->builtin("assert", VariantFactory::createBuiltinAssert(this->allocator));
       this->builtin("print", VariantFactory::createBuiltinPrint(this->allocator));
+      this->builtin("string", VariantFactory::createBuiltinString(this->allocator));
     }
   private:
     Variant executeRoot(const INode& node) {
@@ -985,6 +986,8 @@ namespace {
         return this->expressionIdentifier(node);
       case OPCODE_INDEX:
         return this->expressionIndex(node);
+      case OPCODE_PROPERTY:
+        return this->expressionProperty(node);
       }
       EGG_WARNING_SUPPRESS_SWITCH_END();
       throw this->unexpectedOpcode("expression", node);
@@ -1094,8 +1097,15 @@ namespace {
       for (size_t i = 0; i < n; ++i) {
         auto& named = node.getChild(i);
         assert(named.getOpcode() == OPCODE_NAMED);
-        // WIBBLE add expr to object
-        (void)named;
+        auto name = this->identifier(named.getChild(0));
+        auto expr = this->expression(named.getChild(1));
+        if (expr.hasFlowControl()) {
+          return expr;
+        }
+        expr = object->setProperty(*this, name, expr);
+        if (expr.hasFlowControl()) {
+          return expr;
+        }
       }
       return Variant(object);
     }
@@ -1142,7 +1152,7 @@ namespace {
       auto name = this->identifier(node);
       auto* symbol = this->symtable->get(name);
       if (symbol == nullptr) {
-        return this->raiseNode(node, "Unknown symbol in expression: '", name, "'");
+        return this->raiseNode(node, "Unknown identifier in expression: '", name, "'");
       }
       return symbol->getDirect();
     }
@@ -1153,15 +1163,79 @@ namespace {
       if (lhs.hasFlowControl()) {
         return lhs;
       }
-      auto rhs = this->expression(node.getChild(1));
+      auto& index = node.getChild(1);
+      auto rhs = this->expression(index);
       if (rhs.hasFlowControl()) {
         return rhs;
       }
+      this->updateLocation(index);
       if (lhs.hasObject()) {
         auto object = lhs.getObject();
         return object->getIndex(*this, rhs);
       }
-      return this->raiseNode(node, "WIBBLE: Invalid indexee type: '", lhs.getRuntimeType().toString(), "'");
+      if (lhs.hasString()) {
+        auto string = lhs.getString();
+        return this->stringIndex(string, rhs);
+      }
+      return this->raiseFormat("Values of type '", lhs.getRuntimeType().toString(), "' do not support the indexing '[]' operator");
+    }
+    Variant expressionProperty(const INode& node) {
+      assert(node.getOpcode() == OPCODE_PROPERTY);
+      assert(node.getChildren() == 2);
+      auto lhs = this->expression(node.getChild(0));
+      if (lhs.hasFlowControl()) {
+        return lhs;
+      }
+      auto& pnode = node.getChild(1);
+      String pname;
+      if (pnode.getOpcode() == OPCODE_IDENTIFIER) {
+        pname = this->identifier(pnode);
+      } else {
+        auto rhs = this->expression(pnode);
+        if (rhs.hasFlowControl()) {
+          return rhs;
+        }
+        if (!rhs.hasString()) {
+          return this->raiseNode(node, "Expected property name to be a 'string', not '", rhs.getRuntimeType().toString(), "'");
+        }
+        pname = rhs.getString();
+      }
+      if (lhs.hasObject()) {
+        auto object = lhs.getObject();
+        auto value = object->getProperty(*this, pname);
+        if (value.isVoid()) {
+          return this->raiseNode(node, "Object does not have a property named '", pname, "'");
+        }
+        return value;
+      }
+      if (lhs.hasString()) {
+        auto string = lhs.getString();
+        return this->stringProperty(string, pname);
+      }
+      return this->raiseNode(node, "Values of type '", lhs.getRuntimeType().toString(), "' do not support properties");
+    }
+    // Strings
+    Variant stringIndex(const String& string, const Variant& index) {
+      if (!index.isInt()) {
+        return this->raiseFormat("String indexing '[]' only supports indices of type 'int', not '", index.getRuntimeType().toString(), "'");
+      }
+      auto i = index.getInt();
+      auto c = string.codePointAt(size_t(i));
+      if (c < 0) {
+        // Invalid index
+        auto n = string.length();
+        if ((i < 0) || (size_t(i) >= n)) {
+          return this->raiseFormat("String index ", i, " is out of range for a string of length ", n);
+        }
+        return this->raiseFormat("Cannot index a malformed string");
+      }
+      return Variant{ StringFactory::fromCodePoint(this->allocator, char32_t(c)) };
+    }
+    Variant stringProperty(const String& string, const String& property) {
+      if (property == "length") {
+        return Variant(Int(string.length()));
+      }
+      return this->raiseFormat("Property '", property, "' of '", string, "' not yet supported"); // WIBBLE
     }
     // Operators
     Variant operatorEquals(const INode& a, const INode& b, bool invert) {
@@ -1215,7 +1289,7 @@ namespace {
           return bool((da < ib) ^ invert); // need to force bool-ness
         }
         auto side = swapped ? "left" : "right";
-        return this->raiseNode(b, "Expected ", side, "-hand side of comparison to be 'float' or 'int', not '", vb.getRuntimeType().toString(), "'");
+        return this->raiseNode(b, "Expected ", side, "-hand side of comparison to be an 'int' or 'float', not '", vb.getRuntimeType().toString(), "'");
       }
       if (va.isInt()) {
         auto ia = va.getInt();
@@ -1234,10 +1308,10 @@ namespace {
           return bool((ia < ib) ^ invert); // need to force bool-ness
         }
         auto side = swapped ? "left" : "right";
-        return this->raiseNode(b, "Expected ", side, "-hand side of comparison to be 'float' or 'int', not '", vb.getRuntimeType().toString(), "'");
+        return this->raiseNode(b, "Expected ", side, "-hand side of comparison to be an 'int' or 'float', not '", vb.getRuntimeType().toString(), "'");
       }
       auto side = swapped ? "right" : "left";
-      return this->raiseNode(a, "Expected ", side, "-hand side of comparison to be 'float' or 'int', not '", va.getRuntimeType().toString(), "'");
+      return this->raiseNode(a, "Expected ", side, "-hand side of comparison to be an 'int' or 'float', not '", va.getRuntimeType().toString(), "'");
     }
     Variant operatorArithmetic(const INode& node, Operator oper, const INode& a, const INode& b) {
       auto lhs = this->expression(a);
@@ -1257,7 +1331,7 @@ namespace {
           // Promote rhs
           return this->operatorBinaryFloat(node, oper, lhs.getFloat(), Float(rhs.getInt()));
         }
-        return this->raiseNode(b, "Expected right-hand side of arithmetic '" + OperatorProperties::str(oper), "' operator to be 'float' or 'int', not '", rhs.getRuntimeType().toString(), "'");
+        return this->raiseNode(b, "Expected right-hand side of arithmetic '" + OperatorProperties::str(oper), "' operator to be an 'int' or 'float', not '", rhs.getRuntimeType().toString(), "'");
       }
       if (lhs.isInt()) {
         if (rhs.isFloat()) {
@@ -1268,9 +1342,9 @@ namespace {
           // Both ints
           return this->operatorBinaryInt(node, oper, lhs.getInt(), rhs.getInt());
         }
-        return this->raiseNode(b, "Expected right-hand side of arithmetic '" + OperatorProperties::str(oper), "' operator to be 'float' or 'int', not '", rhs.getRuntimeType().toString(), "'");
+        return this->raiseNode(b, "Expected right-hand side of arithmetic '" + OperatorProperties::str(oper), "' operator to be an 'int' or 'float', not '", rhs.getRuntimeType().toString(), "'");
       }
-      return this->raiseNode(b, "Expected left-hand side of arithmetic '" + OperatorProperties::str(oper), "' operator to be 'float' or 'int', not '", rhs.getRuntimeType().toString(), "'");
+      return this->raiseNode(b, "Expected left-hand side of arithmetic '" + OperatorProperties::str(oper), "' operator to be an 'int' or 'float', not '", rhs.getRuntimeType().toString(), "'");
     }
     Int operatorBinaryInt(const INode& node, Operator oper, Int lhs, Int rhs) {
       EGG_WARNING_SUPPRESS_SWITCH_BEGIN();

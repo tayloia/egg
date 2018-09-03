@@ -1,13 +1,14 @@
-#include "yolk/test.h"
+#include "ovum/test.h"
+#include "ovum/dictionary.h"
 
-TEST(TestDictionaries, UnorderedEmpty) {
-  egg::yolk::DictionaryUnordered<std::string, int> births;
+TEST(TestDictionary, UnorderedEmpty) {
+  egg::ovum::DictionaryUnordered<std::string, int> births;
   ASSERT_EQ(0u, births.length());
   ASSERT_TRUE(births.empty());
 }
 
-TEST(TestDictionaries, UnorderedTryAdd) {
-  egg::yolk::DictionaryUnordered<std::string, int> births;
+TEST(TestDictionary, UnorderedTryAdd) {
+  egg::ovum::DictionaryUnordered<std::string, int> births;
   ASSERT_TRUE(births.tryAdd("Isaac Newton", 1643));
   ASSERT_EQ(1u, births.length());
   ASSERT_FALSE(births.empty());
@@ -15,8 +16,8 @@ TEST(TestDictionaries, UnorderedTryAdd) {
   ASSERT_EQ(1u, births.length());
 }
 
-TEST(TestDictionaries, UnorderedTryGet) {
-  egg::yolk::DictionaryUnordered<std::string, int> births;
+TEST(TestDictionary, UnorderedTryGet) {
+  egg::ovum::DictionaryUnordered<std::string, int> births;
   ASSERT_TRUE(births.tryAdd("Isaac Newton", 1643));
   ASSERT_EQ(1u, births.length());
   int got = -1;
@@ -26,8 +27,8 @@ TEST(TestDictionaries, UnorderedTryGet) {
   ASSERT_EQ(1643, got);
 }
 
-TEST(TestDictionaries, UnorderedTryRemove) {
-  egg::yolk::DictionaryUnordered<std::string, int> births;
+TEST(TestDictionary, UnorderedTryRemove) {
+  egg::ovum::DictionaryUnordered<std::string, int> births;
   ASSERT_FALSE(births.tryRemove("Isaac Newton"));
   ASSERT_TRUE(births.tryAdd("Isaac Newton", 1643));
   ASSERT_EQ(1u, births.length());
@@ -36,36 +37,36 @@ TEST(TestDictionaries, UnorderedTryRemove) {
   ASSERT_FALSE(births.tryRemove("Isaac Newton"));
 }
 
-TEST(TestDictionaries, UnorderedContains) {
-  egg::yolk::DictionaryUnordered<std::string, int> births;
+TEST(TestDictionary, UnorderedContains) {
+  egg::ovum::DictionaryUnordered<std::string, int> births;
   ASSERT_TRUE(births.tryAdd("Isaac Newton", 1643));
   ASSERT_TRUE(births.contains("Isaac Newton"));
   ASSERT_FALSE(births.contains("Albert Einstein"));
 }
 
-TEST(TestDictionaries, UnorderedGetOrDefault) {
-  egg::yolk::DictionaryUnordered<std::string, int> births;
+TEST(TestDictionary, UnorderedGetOrDefault) {
+  egg::ovum::DictionaryUnordered<std::string, int> births;
   ASSERT_TRUE(births.tryAdd("Isaac Newton", 1643));
   ASSERT_EQ(1643, births.getOrDefault("Isaac Newton", -1));
   ASSERT_EQ(-1, births.getOrDefault("Albert Einstein", -1));
 }
 
-TEST(TestDictionaries, UnorderedAddOrUpdate) {
-  egg::yolk::DictionaryUnordered<std::string, int> births;
+TEST(TestDictionary, UnorderedAddOrUpdate) {
+  egg::ovum::DictionaryUnordered<std::string, int> births;
   ASSERT_TRUE(births.addOrUpdate("Isaac Newton", -1));
   ASSERT_EQ(1u, births.length());
   ASSERT_FALSE(births.addOrUpdate("Isaac Newton", 1643));
   ASSERT_EQ(1u, births.length());
 }
 
-TEST(TestDictionaries, Empty) {
-  egg::yolk::Dictionary<std::string, int> births;
+TEST(TestDictionary, Empty) {
+  egg::ovum::Dictionary<std::string, int> births;
   ASSERT_EQ(0u, births.length());
   ASSERT_TRUE(births.empty());
 }
 
-TEST(TestDictionaries, TryAdd) {
-  egg::yolk::Dictionary<std::string, int> births;
+TEST(TestDictionary, TryAdd) {
+  egg::ovum::Dictionary<std::string, int> births;
   ASSERT_TRUE(births.tryAdd("Isaac Newton", 1643));
   ASSERT_EQ(1u, births.length());
   ASSERT_FALSE(births.empty());
@@ -73,8 +74,8 @@ TEST(TestDictionaries, TryAdd) {
   ASSERT_EQ(1u, births.length());
 }
 
-TEST(TestDictionaries, TryGet) {
-  egg::yolk::Dictionary<std::string, int> births;
+TEST(TestDictionary, TryGet) {
+  egg::ovum::Dictionary<std::string, int> births;
   ASSERT_TRUE(births.tryAdd("Isaac Newton", 1643));
   ASSERT_EQ(1u, births.length());
   int got = -1;
@@ -84,8 +85,8 @@ TEST(TestDictionaries, TryGet) {
   ASSERT_EQ(1643, got);
 }
 
-TEST(TestDictionaries, TryRemove) {
-  egg::yolk::Dictionary<std::string, int> births;
+TEST(TestDictionary, TryRemove) {
+  egg::ovum::Dictionary<std::string, int> births;
   ASSERT_FALSE(births.tryRemove("Isaac Newton"));
   ASSERT_TRUE(births.tryAdd("Isaac Newton", 1643));
   ASSERT_EQ(1u, births.length());
@@ -94,30 +95,30 @@ TEST(TestDictionaries, TryRemove) {
   ASSERT_FALSE(births.tryRemove("Isaac Newton"));
 }
 
-TEST(TestDictionaries, Contains) {
-  egg::yolk::Dictionary<std::string, int> births;
+TEST(TestDictionary, Contains) {
+  egg::ovum::Dictionary<std::string, int> births;
   ASSERT_TRUE(births.tryAdd("Isaac Newton", 1643));
   ASSERT_TRUE(births.contains("Isaac Newton"));
   ASSERT_FALSE(births.contains("Albert Einstein"));
 }
 
-TEST(TestDictionaries, GetOrDefault) {
-  egg::yolk::Dictionary<std::string, int> births;
+TEST(TestDictionary, GetOrDefault) {
+  egg::ovum::Dictionary<std::string, int> births;
   ASSERT_TRUE(births.tryAdd("Isaac Newton", 1643));
   ASSERT_EQ(1643, births.getOrDefault("Isaac Newton", -1));
   ASSERT_EQ(-1, births.getOrDefault("Albert Einstein", -1));
 }
 
-TEST(TestDictionaries, AddOrUpdate) {
-  egg::yolk::Dictionary<std::string, int> births;
+TEST(TestDictionary, AddOrUpdate) {
+  egg::ovum::Dictionary<std::string, int> births;
   ASSERT_TRUE(births.addOrUpdate("Isaac Newton", -1));
   ASSERT_EQ(1u, births.length());
   ASSERT_FALSE(births.addOrUpdate("Isaac Newton", 1643));
   ASSERT_EQ(1u, births.length());
 }
 
-TEST(TestDictionaries, GetKeys) {
-  egg::yolk::Dictionary<std::string, int> births;
+TEST(TestDictionary, GetKeys) {
+  egg::ovum::Dictionary<std::string, int> births;
   std::vector<std::string> keys;
   ASSERT_EQ(0u, births.getKeys(keys));
   ASSERT_EQ(0u, keys.size());
@@ -129,8 +130,8 @@ TEST(TestDictionaries, GetKeys) {
   ASSERT_EQ("Albert Einstein", keys[1]);
 }
 
-TEST(TestDictionaries, GetValues) {
-  egg::yolk::Dictionary<std::string, int> births;
+TEST(TestDictionary, GetValues) {
+  egg::ovum::Dictionary<std::string, int> births;
   std::vector<int> values;
   ASSERT_EQ(0u, births.getValues(values));
   ASSERT_EQ(0u, values.size());
@@ -142,8 +143,8 @@ TEST(TestDictionaries, GetValues) {
   ASSERT_EQ(1879, values[1]);
 }
 
-TEST(TestDictionaries, GetKeyValues) {
-  egg::yolk::Dictionary<std::string, int> births;
+TEST(TestDictionary, GetKeyValues) {
+  egg::ovum::Dictionary<std::string, int> births;
   std::vector<std::pair<std::string, int>> keyvalues;
   ASSERT_EQ(0u, births.getKeyValues(keyvalues));
   ASSERT_EQ(0u, keyvalues.size());
