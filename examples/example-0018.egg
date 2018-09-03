@@ -9,4 +9,5 @@ print("hello" != "goodbye");
 any a = "hello";
 any b = "goodbye";
 print(a < b);
-///<RUNTIME><ERROR><RESOURCE>(11,9): Expected left-hand side of comparison '<' to be 'int' or 'float', but got 'string' instead
+///OLD<RUNTIME><ERROR><RESOURCE>(11,9): Expected left-hand side of comparison '<' to be 'int' or 'float', but got 'string' instead
+///NEW<RUNTIME><ERROR><RESOURCE>(11,7): Expected left-hand side of comparison '<' to be an 'int' or 'float', but got 'string' instead

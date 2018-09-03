@@ -20,7 +20,7 @@ namespace {
       FileTextStream stream(resource);
       auto actual = TestExamples::execute(stream, age);
       ASSERT_TRUE(stream.rewind());
-      auto expected = TestExamples::expectation(stream);
+      auto expected = TestExamples::expectation(stream, age);
       ASSERT_EQ(expected, actual);
     }
     static ::testing::internal::ParamGenerator<int> generator() {
@@ -68,12 +68,24 @@ namespace {
         }
       }
     }
-    static std::string expectation(TextStream& stream) {
+    static std::string expectation(TextStream& stream, Age age) {
       std::string expected;
       std::string line;
       while (stream.readline(line)) {
-        // Exmaple output lines always begin with '///'
+        // Example output lines always begin with '///'
         if ((line.length() > 3) && (line[0] == '/') && (line[1] == '/') && (line[2] == '/')) {
+          switch (age) {
+          case Age::Old:
+            if (String::startsWith(line, "///OLD")) {
+              line = line.substr(3);
+            }
+            break;
+          case Age::New:
+            if (String::startsWith(line, "///NEW")) {
+              line = line.substr(3);
+            }
+            break;
+          }
           switch (line[3]) {
           case '>':
             // '///>message' for normal USER/INFO output, e.g. print()

@@ -2,6 +2,7 @@
 #include "ovum/node.h"
 #include "ovum/module.h"
 #include "ovum/program.h"
+#include "ovum/utf.h"
 
 #include <cmath>
 
@@ -244,7 +245,7 @@ namespace {
       }
       auto ib = b.getInt();
       if (ib < 0) {
-        retval = Binary::raise("Expected right-hand side of ", operation, " to be a non-negative 'int', not ", std::to_string(ib));
+        retval = Binary::raise("Expected right-hand side of ", operation, " to be a non-negative 'int', but got ", std::to_string(ib), " instead");
         return Match::Mismatch;
       }
       ub = uint64_t(ib);
@@ -252,7 +253,7 @@ namespace {
     }
     template<typename... ARGS>
     static Variant unexpected(const Variant& value, ARGS&&... args) {
-      return Binary::raise(std::forward<ARGS>(args)..., ", not '", value.getRuntimeType().toString(), "'");
+      return Binary::raise(std::forward<ARGS>(args)..., ", but got '", value.getRuntimeType().toString(), "' instead");
     }
     template<typename... ARGS>
     static Variant raise(ARGS&&... args) {
@@ -464,7 +465,7 @@ namespace {
     }
     virtual Variant assertion(const Variant& predicate) override {
       if (!predicate.isBool()) {
-        return this->raiseFormat("Builtin 'assert()' expects its parameter to be a 'bool' value, not ", predicate.getRuntimeType().toString());
+        return this->raiseFormat("Builtin 'assert()' expects its parameter to be a 'bool' value, but got '", predicate.getRuntimeType().toString(), "' instead");
       }
       if (predicate.getBool()) {
         return Variant::Void;
@@ -556,7 +557,7 @@ namespace {
       }
       this->validateOpcode(node);
       Block block(*this);
-      return executeBlock(block, node.getChild(0));
+      return this->executeBlock(block, node.getChild(0));
     }
     Variant executeBlock(Block& inner, const INode& node) {
       if (node.getOpcode() != OPCODE_BLOCK) {
@@ -628,12 +629,12 @@ namespace {
       if (rvalue.hasFlowControl()) {
         return rvalue;
       }
-      return lvalue.assign(std::move(rvalue));
+      return lvalue.assign(rvalue);
     }
     Variant statementBlock(const INode& node) {
       assert(node.getOpcode() == OPCODE_BLOCK);
       Block block(*this);
-      return executeBlock(block, node);
+      return this->executeBlock(block, node);
     }
     Variant statementCall(const INode& node) {
       assert(node.getOpcode() == OPCODE_CALL);
@@ -745,13 +746,17 @@ namespace {
       if (rvalue.hasFlowControl()) {
         return rvalue;
       }
+      if (rvalue.hasString()) {
+        // Iterate around the codepoints in the string
+        return this->stringForeach(rvalue.getString(), block, lvalue, node.getChild(2));
+      }
       size_t WIBBLE = 0;
       do {
         retval = rvalue; // WIBBLE
         if (retval.hasAny(VariantBits::FlowControl | VariantBits::Void)) {
           break;
         }
-        retval = lvalue.assign(std::move(retval));
+        retval = lvalue.assign(retval);
       } while (!retval.hasFlowControl() && (++WIBBLE < 1000));
       return retval;
     }
@@ -1047,16 +1052,16 @@ namespace {
         return this->operatorEquals(node.getChild(0), node.getChild(1), false);
       case Operator::OPERATOR_GE:
         // (a >= b) === !(a < b)
-        return this->operatorLessThan(node.getChild(0), node.getChild(1), false, true);
+        return this->operatorLessThan(node.getChild(0), node.getChild(1), true, oper);
       case Operator::OPERATOR_GT:
         // (a > b) === (b < a)
-        return this->operatorLessThan(node.getChild(1), node.getChild(0), true, false);
+        return this->operatorLessThan(node.getChild(1), node.getChild(0), false, oper);
       case Operator::OPERATOR_LE:
         // (a <= b) === !(b < a)
-        return this->operatorLessThan(node.getChild(1), node.getChild(0), true, true);
+        return this->operatorLessThan(node.getChild(1), node.getChild(0), true, oper);
       case Operator::OPERATOR_LT:
         // (a < b) === (a < b)
-        return this->operatorLessThan(node.getChild(0), node.getChild(1), false, false);
+        return this->operatorLessThan(node.getChild(0), node.getChild(1), false, oper);
       case Operator::OPERATOR_NE:
         // (a != b) === !(a == b)
         return this->operatorEquals(node.getChild(0), node.getChild(1), true);
@@ -1196,7 +1201,7 @@ namespace {
           return rhs;
         }
         if (!rhs.hasString()) {
-          return this->raiseNode(node, "Expected property name to be a 'string', not '", rhs.getRuntimeType().toString(), "'");
+          return this->raiseNode(node, "Expected property name to be a 'string', but got '", rhs.getRuntimeType().toString(), "' instead");
         }
         pname = rhs.getString();
       }
@@ -1215,9 +1220,28 @@ namespace {
       return this->raiseNode(node, "Values of type '", lhs.getRuntimeType().toString(), "' do not support properties");
     }
     // Strings
+    Variant stringForeach(const String& string, Block& block, Target& target, const INode& statements) {
+      // Iterate around the codepoints of the string
+      auto* p = string.get();
+      if (p != nullptr) {
+        UTF8 reader(p->begin(), p->end(), 0);
+        char32_t codepoint;
+        while (reader.forward(codepoint)) {
+          auto retval = target.assign(StringFactory::fromCodePoint(this->allocator, codepoint));
+          if (retval.hasFlowControl()) {
+            return retval;
+          }
+          retval = this->executeBlock(block, statements);
+          if (retval.hasFlowControl()) {
+            return retval;
+          }
+        }
+      }
+      return Variant::Void;
+    }
     Variant stringIndex(const String& string, const Variant& index) {
       if (!index.isInt()) {
-        return this->raiseFormat("String indexing '[]' only supports indices of type 'int', not '", index.getRuntimeType().toString(), "'");
+        return this->raiseFormat("String indexing '[]' only supports indices of type 'int', but got '", index.getRuntimeType().toString(), "' instead");
       }
       auto i = index.getInt();
       auto c = string.codePointAt(size_t(i));
@@ -1256,9 +1280,9 @@ namespace {
         // An IEEE NaN is not equal to anything, even other NaNs
         return invert;
       }
-      return Variant::equals(va, vb);
+      return bool(Variant::equals(va, vb) ^ invert); // need to force bool-ness
     }
-    Variant operatorLessThan(const INode& a, const INode& b, bool swapped, bool invert) {
+    Variant operatorLessThan(const INode& a, const INode& b, bool invert, Operator oper) {
       // Care with IEEE NaNs
       auto va = this->expression(a);
       if (va.hasFlowControl()) {
@@ -1288,8 +1312,9 @@ namespace {
           auto ib = vb.getInt();
           return bool((da < ib) ^ invert); // need to force bool-ness
         }
-        auto side = swapped ? "left" : "right";
-        return this->raiseNode(b, "Expected ", side, "-hand side of comparison to be an 'int' or 'float', not '", vb.getRuntimeType().toString(), "'");
+        auto side = ((oper == OPERATOR_GT) || (oper == OPERATOR_LE)) ? "left" : "right";
+        auto sign = OperatorProperties::str(oper);
+        return this->raiseNode(b, "Expected ", side, "-hand side of comparison '", sign, "' to be an 'int' or 'float', but got '", vb.getRuntimeType().toString(), "' instead");
       }
       if (va.isInt()) {
         auto ia = va.getInt();
@@ -1307,11 +1332,13 @@ namespace {
           auto ib = vb.getInt();
           return bool((ia < ib) ^ invert); // need to force bool-ness
         }
-        auto side = swapped ? "left" : "right";
-        return this->raiseNode(b, "Expected ", side, "-hand side of comparison to be an 'int' or 'float', not '", vb.getRuntimeType().toString(), "'");
+        auto side = ((oper == OPERATOR_GT) || (oper == OPERATOR_LE)) ? "left" : "right";
+        auto sign = OperatorProperties::str(oper);
+        return this->raiseNode(b, "Expected ", side, "-hand side of comparison '", sign, "' to be an 'int' or 'float', but got '", vb.getRuntimeType().toString(), "' instead");
       }
-      auto side = swapped ? "right" : "left";
-      return this->raiseNode(a, "Expected ", side, "-hand side of comparison to be an 'int' or 'float', not '", va.getRuntimeType().toString(), "'");
+      auto side = ((oper == OPERATOR_GT) || (oper == OPERATOR_LE)) ? "right" : "left";
+      auto sign = OperatorProperties::str(oper);
+      return this->raiseNode(a, "Expected ", side, "-hand side of comparison '", sign, "' to be an 'int' or 'float', but got '", va.getRuntimeType().toString(), "' instead");
     }
     Variant operatorArithmetic(const INode& node, Operator oper, const INode& a, const INode& b) {
       auto lhs = this->expression(a);
@@ -1331,7 +1358,7 @@ namespace {
           // Promote rhs
           return this->operatorBinaryFloat(node, oper, lhs.getFloat(), Float(rhs.getInt()));
         }
-        return this->raiseNode(b, "Expected right-hand side of arithmetic '" + OperatorProperties::str(oper), "' operator to be an 'int' or 'float', not '", rhs.getRuntimeType().toString(), "'");
+        return this->raiseNode(b, "Expected right-hand side of arithmetic '" + OperatorProperties::str(oper), "' operator to be an 'int' or 'float', but got '", rhs.getRuntimeType().toString(), "' instead");
       }
       if (lhs.isInt()) {
         if (rhs.isFloat()) {
@@ -1342,9 +1369,9 @@ namespace {
           // Both ints
           return this->operatorBinaryInt(node, oper, lhs.getInt(), rhs.getInt());
         }
-        return this->raiseNode(b, "Expected right-hand side of arithmetic '" + OperatorProperties::str(oper), "' operator to be an 'int' or 'float', not '", rhs.getRuntimeType().toString(), "'");
+        return this->raiseNode(b, "Expected right-hand side of arithmetic '" + OperatorProperties::str(oper), "' operator to be an 'int' or 'float', but got '", rhs.getRuntimeType().toString(), "' instead");
       }
-      return this->raiseNode(b, "Expected left-hand side of arithmetic '" + OperatorProperties::str(oper), "' operator to be an 'int' or 'float', not '", rhs.getRuntimeType().toString(), "'");
+      return this->raiseNode(b, "Expected left-hand side of arithmetic '" + OperatorProperties::str(oper), "' operator to be an 'int' or 'float', but got '", rhs.getRuntimeType().toString(), "' instead");
     }
     Int operatorBinaryInt(const INode& node, Operator oper, Int lhs, Int rhs) {
       EGG_WARNING_SUPPRESS_SWITCH_BEGIN();
@@ -1391,7 +1418,7 @@ namespace {
     Variant condition(const INode& node, Block* block) {
       auto value = this->expression(node, block);
       if (!value.hasAny(VariantBits::FlowControl | VariantBits::Bool)) {
-        return this->raiseNode(node, "Expected condition to evaluate to a 'bool' value, not '", value.getRuntimeType().toString(), "'");
+        return this->raiseNode(node, "Expected condition to evaluate to a 'bool' value, but got '", value.getRuntimeType().toString(), "' instead");
       }
       return value;
     }
