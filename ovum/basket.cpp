@@ -93,6 +93,6 @@ namespace {
   };
 }
 
-egg::ovum::HardPtr<egg::ovum::IBasket> egg::ovum::BasketFactory::createBasket(egg::ovum::IAllocator& allocator) {
+egg::ovum::Basket egg::ovum::BasketFactory::createBasket(egg::ovum::IAllocator& allocator) {
   return allocator.make<BasketDefault>();
 }

@@ -1256,10 +1256,11 @@ namespace {
       return Variant{ StringFactory::fromCodePoint(this->allocator, char32_t(c)) };
     }
     Variant stringProperty(const String& string, const String& property) {
-      if (property == "length") {
-        return Variant(Int(string.length()));
+      auto retval = VariantFactory::createStringProperty(this->allocator, string, property);
+      if (retval.isVoid()) {
+        return this->raiseFormat("Property '", property, "' of '", string, "' not yet supported"); // WIBBLE
       }
-      return this->raiseFormat("Property '", property, "' of '", string, "' not yet supported"); // WIBBLE
+      return retval;
     }
     // Operators
     Variant operatorEquals(const INode& a, const INode& b, bool invert) {

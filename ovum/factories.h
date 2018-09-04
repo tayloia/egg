@@ -189,6 +189,7 @@ namespace egg::ovum {
     static Variant createBuiltinPrint(IAllocator& allocator);
     static Variant createBuiltinString(IAllocator& allocator);
     static Variant createBuiltinType(IAllocator& allocator);
+    static Variant createStringProperty(IAllocator& allocator, const String& string, const String& property);
     template<typename T, typename... ARGS>
     static Variant createObject(IAllocator& allocator, ARGS&&... args) {
       // Use perfect forwarding

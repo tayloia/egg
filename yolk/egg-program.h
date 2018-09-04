@@ -95,7 +95,7 @@ namespace egg::yolk {
   class EggProgram {
     EGG_NO_COPY(EggProgram);
   private:
-    egg::ovum::HardPtr<egg::ovum::IBasket> basket;
+    egg::ovum::Basket basket;
     egg::ovum::String resource;
     std::shared_ptr<IEggProgramNode> root;
   public:
