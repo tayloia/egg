@@ -82,7 +82,17 @@ namespace {
       assert(false);
     }
     virtual Variant toString() const override {
-      throw std::runtime_error("TODO: " WIBBLE);
+      if (this->values.empty()) {
+        return "[]";
+      }
+      StringBuilder sb;
+      char separator = '[';
+      for (auto& value : this->values) {
+        sb.add(separator, value.toString());
+        separator = ',';
+      }
+      sb.add(']');
+      return sb.str();
     }
     virtual Type getRuntimeType() const override {
       return Type::Object; // WIBBLE

@@ -1077,8 +1077,8 @@ namespace {
       assert(OperatorProperties::from(oper).opclass == Opclass::OPCLASS_UNARY);
       EGG_WARNING_SUPPRESS_SWITCH_BEGIN();
       switch (oper) {
-      case Operator::OPERATOR_ADD:
-        break;
+      case Operator::OPERATOR_LOGNOT:
+        return this->operatorLogicalNot(node.getChild(0));
       }
       EGG_WARNING_SUPPRESS_SWITCH_END();
       throw this->unexpectedOperator("unary", node);
@@ -1470,6 +1470,16 @@ namespace {
         return this->raiseNode(b, "Expected right-hand side of arithmetic '" + OperatorProperties::str(oper), "' operator to be an 'int' or 'float', but got '", rhs.getRuntimeType().toString(), "' instead");
       }
       return this->raiseNode(b, "Expected left-hand side of arithmetic '" + OperatorProperties::str(oper), "' operator to be an 'int' or 'float', but got '", rhs.getRuntimeType().toString(), "' instead");
+    }
+    Variant operatorLogicalNot(const INode& a) {
+      auto value = this->expression(a);
+      if (value.hasFlowControl()) {
+        return value;
+      }
+      if (!value.isBool()) {
+        return this->raiseNode(a, "Expected operand of unary '!' operator to be a 'bool', but got '", value.getRuntimeType().toString(), "' instead");
+      }
+      return !value.getBool();
     }
     Int operatorBinaryInt(const INode& node, Operator oper, Int lhs, Int rhs) {
       EGG_WARNING_SUPPRESS_SWITCH_BEGIN();

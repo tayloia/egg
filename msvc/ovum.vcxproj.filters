@@ -91,5 +91,8 @@
     <ClInclude Include="..\ovum\program.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="..\ovum\dictionary.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

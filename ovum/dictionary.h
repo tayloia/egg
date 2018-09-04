@@ -51,7 +51,7 @@ namespace egg::ovum {
       // Asserts unless an insertion occurred
       bool inserted = this->map.insert_or_assign(key, value).second;
       assert(inserted);
-      EGG_UNUSED(inserted);
+      (void)inserted;
     }
     void emplaceUnique(const K& key, V&& value) {
       this->map.emplace(key, std::move(value));
