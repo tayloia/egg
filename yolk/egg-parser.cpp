@@ -1320,7 +1320,7 @@ namespace {
       ParserDump(os, "predicate ").add(EggProgram::binaryToString(this->op)).add(this->lhs).add(this->rhs);
     }
     virtual egg::ovum::Node compile(EggProgramCompiler& compiler) const override {
-      return compiler.binary(this->locationSource, this->op, *this->lhs, *this->rhs);
+      return compiler.predicate(this->locationSource, this->op, *this->lhs, *this->rhs);
     }
   };
 

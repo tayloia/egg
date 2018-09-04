@@ -165,6 +165,11 @@ egg::ovum::Node egg::yolk::EggProgramCompiler::assign(const egg::ovum::LocationS
   return this->raise("Unsupported assignment operator");
 }
 
+egg::ovum::Node egg::yolk::EggProgramCompiler::predicate(const egg::ovum::LocationSource& location, EggProgramBinary op, const IEggProgramNode& a, const IEggProgramNode& b) {
+  auto child = this->binary(location, op, a, b);
+  return this->expression(location, egg::ovum::OPCODE_PREDICATE, child);
+}
+
 egg::ovum::Node egg::yolk::EggProgramCompiler::noop(const egg::ovum::LocationSource& location, const IEggProgramNode* node) {
   if (node == nullptr) {
     return this->opcode(location, egg::ovum::OPCODE_NOOP);

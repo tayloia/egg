@@ -362,6 +362,7 @@ namespace egg::yolk {
     egg::ovum::Node ternary(const egg::ovum::LocationSource& location, EggProgramTernary op, const IEggProgramNode& a, const IEggProgramNode& b, const IEggProgramNode& c);
     egg::ovum::Node mutate(const egg::ovum::LocationSource& location, EggProgramMutate op, const IEggProgramNode& a);
     egg::ovum::Node assign(const egg::ovum::LocationSource& location, EggProgramAssign op, const IEggProgramNode& a, const IEggProgramNode& b);
+    egg::ovum::Node predicate(const egg::ovum::LocationSource& location, EggProgramBinary op, const IEggProgramNode& a, const IEggProgramNode& b);
     egg::ovum::Node noop(const egg::ovum::LocationSource& location, const IEggProgramNode* node);
     template<typename... ARGS>
     egg::ovum::Node statement(const egg::ovum::LocationSource& location, egg::ovum::Opcode opcode, ARGS&&... args) {

@@ -298,6 +298,47 @@ namespace {
     }
   };
 
+  class PredicateFunction : public SoftReferenceCounted<IObject> {
+    PredicateFunction(const PredicateFunction&) = delete;
+    PredicateFunction& operator=(const PredicateFunction&) = delete;
+  private:
+    HardPtr<ProgramDefault> program;
+    LocationSource location;
+    Node node;
+  public:
+    PredicateFunction(IAllocator& allocator, ProgramDefault& program, const LocationSource& location, const INode& node)
+      : SoftReferenceCounted(allocator),
+        program(&program),
+        location(location),
+        node(&node) {
+    }
+    virtual void softVisitLinks(const Visitor&) const override {
+      // There are no soft link to visit
+    }
+    virtual Variant toString() const override {
+      return "<predicate>";
+    }
+    virtual Type getRuntimeType() const override {
+      return Type::Object;
+    }
+    virtual Variant call(IExecution& execution, const IParameters& parameters) override;
+    virtual Variant getProperty(IExecution& execution, const String&) override {
+      return execution.raise("Internal runtime error: Predicates do not support properties");
+    }
+    virtual Variant setProperty(IExecution& execution, const String&, const Variant&) override {
+      return execution.raise("Internal runtime error: Predicates do not support properties");
+    }
+    virtual Variant getIndex(IExecution& execution, const Variant&) override {
+      return execution.raise("Internal runtime error: Predicates do not support indexing");
+    }
+    virtual Variant setIndex(IExecution& execution, const Variant&, const Variant&) override {
+      return execution.raise("Internal runtime error: Predicates do not support indexing");
+    }
+    virtual Variant iterate(IExecution& execution) override {
+      return execution.raise("Internal runtime error: Predicates do not support iteration");
+    }
+  };
+
   class Symbol {
   private:
     Type type;
@@ -464,6 +505,15 @@ namespace {
       return exception;
     }
     virtual Variant assertion(const Variant& predicate) override {
+      if (predicate.hasObject()) {
+        // Predicates can be functions that throw exceptions, as well as 'bool' values
+        auto object = predicate.getObject();
+        auto type = object->getRuntimeType();
+        if (type->callable() != nullptr) {
+          // Call the predicate directly
+          return object->call(*this, Function::NoParameters);
+        }
+      }
       if (!predicate.isBool()) {
         return this->raiseFormat("Builtin 'assert()' expects its parameter to be a 'bool' value, but got '", predicate.getRuntimeType().toString(), "' instead");
       }
@@ -543,6 +593,27 @@ namespace {
     }
     Variant targetExpression(const INode& node) {
       return this->expression(node);
+    }
+    // Predicates
+    Variant executePredicate(const LocationSource& source, const INode& node) {
+      // We have to be careful to get the location correct
+      assert(node.getOpcode() == OPCODE_COMPARE);
+      Variant lhs, rhs;
+      auto retval = this->operatorCompare(node, lhs, rhs);
+      if (retval.hasFlowControl()) {
+        if (retval.is(VariantBits::Break)) {
+          return this->raiseLocation(source, "Internal runtime error: Unsupported predicate comparison");
+        }
+        return retval;
+      }
+      if (!retval.isBool()) {
+        return this->raiseLocation(source, "Internal runtime error: Expected predicate to return a 'bool'");
+      }
+      if (retval.getBool()) {
+        // The assertion has passed
+        return Variant::Void;
+      }
+      return this->raiseLocation(source, "Assertion is untrue: ", lhs.toString(), ' ', OperatorProperties::str(node.getOperator()), ' ', rhs.toString());
     }
     // Builtins
     void addBuiltins() {
@@ -991,6 +1062,8 @@ namespace {
         return this->expressionIdentifier(node);
       case OPCODE_INDEX:
         return this->expressionIndex(node);
+      case OPCODE_PREDICATE:
+        return this->expressionPredicate(node);
       case OPCODE_PROPERTY:
         return this->expressionProperty(node);
       }
@@ -1042,32 +1115,12 @@ namespace {
     }
     Variant expressionCompare(const INode& node) {
       assert(node.getOpcode() == OPCODE_COMPARE);
-      assert(node.getChildren() == 2);
-      auto oper = node.getOperator();
-      assert(OperatorProperties::from(oper).opclass == Opclass::OPCLASS_COMPARE);
-      EGG_WARNING_SUPPRESS_SWITCH_BEGIN();
-      switch (oper) {
-      case Operator::OPERATOR_EQ:
-        // (a == b) === (a == b)
-        return this->operatorEquals(node.getChild(0), node.getChild(1), false);
-      case Operator::OPERATOR_GE:
-        // (a >= b) === !(a < b)
-        return this->operatorLessThan(node.getChild(0), node.getChild(1), true, oper);
-      case Operator::OPERATOR_GT:
-        // (a > b) === (b < a)
-        return this->operatorLessThan(node.getChild(1), node.getChild(0), false, oper);
-      case Operator::OPERATOR_LE:
-        // (a <= b) === !(b < a)
-        return this->operatorLessThan(node.getChild(1), node.getChild(0), true, oper);
-      case Operator::OPERATOR_LT:
-        // (a < b) === (a < b)
-        return this->operatorLessThan(node.getChild(0), node.getChild(1), false, oper);
-      case Operator::OPERATOR_NE:
-        // (a != b) === !(a == b)
-        return this->operatorEquals(node.getChild(0), node.getChild(1), true);
+      Variant lhs, rhs;
+      auto retval = this->operatorCompare(node, lhs, rhs);
+      if (retval.is(VariantBits::Break)) {
+        throw this->unexpectedOperator("compare", node);
       }
-      EGG_WARNING_SUPPRESS_SWITCH_END();
-      throw this->unexpectedOperator("compare", node);
+      return retval;
     }
     Variant expressionAvalue(const INode& node) {
       assert(node.getOpcode() == OPCODE_AVALUE);
@@ -1184,6 +1237,20 @@ namespace {
       }
       return this->raiseFormat("Values of type '", lhs.getRuntimeType().toString(), "' do not support the indexing '[]' operator");
     }
+    Variant expressionPredicate(const INode& node) {
+      assert(node.getOpcode() == OPCODE_PREDICATE);
+      assert(node.getChildren() == 1);
+      auto& child = node.getChild(0);
+      if (child.getOperand() == INode::Operand::Operator) {
+        auto oper = child.getOperator();
+        if (OperatorProperties::from(oper).opclass == OPCLASS_COMPARE) {
+          // We only support predicates for comparisons
+          this->updateLocation(node);
+          return VariantFactory::createObject<PredicateFunction>(this->allocator, *this, this->location, child);
+        }
+      }
+      return this->expression(child);
+    }
     Variant expressionProperty(const INode& node) {
       assert(node.getOpcode() == OPCODE_PROPERTY);
       assert(node.getChildren() == 2);
@@ -1263,13 +1330,43 @@ namespace {
       return retval;
     }
     // Operators
-    Variant operatorEquals(const INode& a, const INode& b, bool invert) {
+    Variant operatorCompare(const INode& node, Variant& lhs, Variant& rhs) {
+      // Returns 'break' for unknown operator
+      assert(node.getOpcode() == OPCODE_COMPARE);
+      assert(node.getChildren() == 2);
+      auto oper = node.getOperator();
+      assert(OperatorProperties::from(oper).opclass == Opclass::OPCLASS_COMPARE);
+      EGG_WARNING_SUPPRESS_SWITCH_BEGIN();
+      switch (oper) {
+      case Operator::OPERATOR_EQ:
+        // (a == b) === (a == b)
+        return this->operatorEquals(node.getChild(0), node.getChild(1), lhs, rhs, false);
+      case Operator::OPERATOR_GE:
+        // (a >= b) === !(a < b)
+        return this->operatorLessThan(node.getChild(0), node.getChild(1), lhs, rhs, true, oper);
+      case Operator::OPERATOR_GT:
+        // (a > b) === (b < a)
+        return this->operatorLessThan(node.getChild(1), node.getChild(0), rhs, lhs, false, oper);
+      case Operator::OPERATOR_LE:
+        // (a <= b) === !(b < a)
+        return this->operatorLessThan(node.getChild(1), node.getChild(0), rhs, lhs, true, oper);
+      case Operator::OPERATOR_LT:
+        // (a < b) === (a < b)
+        return this->operatorLessThan(node.getChild(0), node.getChild(1), lhs, rhs, false, oper);
+      case Operator::OPERATOR_NE:
+        // (a != b) === !(a == b)
+        return this->operatorEquals(node.getChild(0), node.getChild(1), lhs, rhs, true);
+      }
+      EGG_WARNING_SUPPRESS_SWITCH_END();
+      return Variant::Break;
+    }
+    Variant operatorEquals(const INode& a, const INode& b, Variant& va, Variant& vb, bool invert) {
       // Care with IEEE NaNs
-      auto va = this->expression(a);
+      va = this->expression(a);
       if (va.hasFlowControl()) {
         return va;
       }
-      auto vb = this->expression(b);
+      vb = this->expression(b);
       if (vb.hasFlowControl()) {
         return vb;
       }
@@ -1283,13 +1380,13 @@ namespace {
       }
       return bool(Variant::equals(va, vb) ^ invert); // need to force bool-ness
     }
-    Variant operatorLessThan(const INode& a, const INode& b, bool invert, Operator oper) {
+    Variant operatorLessThan(const INode& a, const INode& b, Variant& va, Variant& vb, bool invert, Operator oper) {
       // Care with IEEE NaNs
-      auto va = this->expression(a);
+      va = this->expression(a);
       if (va.hasFlowControl()) {
         return va;
       }
-      auto vb = this->expression(b);
+      vb = this->expression(b);
       if (vb.hasFlowControl()) {
         return vb;
       }
@@ -1574,6 +1671,13 @@ Target::Target(ProgramDefault& program, const INode& node, Block* block)
   }
   EGG_WARNING_SUPPRESS_SWITCH_END();
   throw program.unexpectedOpcode("target", node);
+}
+
+Variant PredicateFunction::call(IExecution&, const IParameters& parameters) {
+  assert(parameters.getNamedCount() == 0);
+  assert(parameters.getPositionalCount() == 0);
+  (void)parameters; // ignore the parameters
+  return program->executePredicate(this->location, *this->node);
 }
 
 Symbol& Target::identifier() const {

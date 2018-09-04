@@ -90,9 +90,9 @@
   X(OPCODE_OVALUE, 234, 0, N, "ovalue") \
   X(OPCODE_POINTEE, 67, 1, 1, "pointee") \
   X(OPCODE_POINTER, 73, 1, 1, "pointer") \
+  X(OPCODE_PREDICATE, 79, 1, 1, "predicate") \
   X(OPCODE_PROPERTY, 62, 2, 2, "property") \
   X(OPCODE_PROPERTYQ, 68, 2, 2, "propertyq") \
-  X(OPCODE_REGEX, 79, 1, 1, "regex") \
   X(OPCODE_REQUIRED, 145, 1, 2, "required") \
   X(OPCODE_RETURN, 108, 0, 1, "return") \
   X(OPCODE_STRING, 240, 0, N, "string") \

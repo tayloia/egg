@@ -359,6 +359,35 @@ namespace {
     }
   };
 
+  class ParametersNone : public IParameters {
+    ParametersNone(const ParametersNone&) = delete;
+    ParametersNone& operator=(const ParametersNone&) = delete;
+  public:
+    ParametersNone() = default;
+    virtual size_t getPositionalCount() const override {
+      return 0;
+    }
+    virtual Variant getPositional(size_t) const override {
+      return Variant::Void;
+    }
+    virtual const LocationSource* getPositionalLocation(size_t) const override {
+      return nullptr;
+    }
+    virtual size_t getNamedCount() const override {
+      return 0;
+    }
+    virtual String getName(size_t) const override {
+      return String();
+    }
+    virtual Variant getNamed(const String&) const override {
+      return Variant::Void;
+    }
+    virtual const LocationSource* getNamedLocation(const String&) const override {
+      return nullptr;
+    }
+  };
+  const ParametersNone parametersNone{};
+
   const char* getBasalComponent(BasalBits basal) {
     switch (basal) {
     case BasalBits::None:
@@ -447,6 +476,8 @@ egg::ovum::Variant egg::ovum::Function::validateCall(IExecution& execution, cons
   }
   return Variant::Void;
 }
+
+const egg::ovum::IParameters& egg::ovum::Function::NoParameters = parametersNone;
 
 const egg::ovum::IType* egg::ovum::Type::getBasalType(BasalBits basal) {
   switch (basal) {
