@@ -37,7 +37,17 @@ namespace {
       assert(false);
     }
     virtual Variant toString() const override {
-      throw std::runtime_error("TODO: " WIBBLE);
+      if (this->values.empty()) {
+        return "{}";
+      }
+      StringBuilder sb;
+      char separator = '{';
+      this->values.foreach([&](const String& key, const Variant& value) {
+        sb.add(separator, key, ':', value.toString());
+        separator = ',';
+      });
+      sb.add('}');
+      return sb.str();
     }
     virtual Type getRuntimeType() const override {
       return Type::Object;
@@ -106,8 +116,19 @@ namespace {
       }
       return execution.raiseFormat("Arrays do not support property '", property, "'");
     }
-    virtual Variant setProperty(IExecution&, const String&, const Variant&) override {
-      throw std::runtime_error("TODO: " WIBBLE);
+    virtual Variant setProperty(IExecution& execution, const String& property, const Variant& value) override {
+      if (property == "length") {
+        if (!value.isInt()) {
+          return execution.raiseFormat("Array length was expected to be set to an 'int', not '", value.getRuntimeType().toString(), "'");
+        }
+        auto n = value.getInt();
+        if ((n < 0) || (n >= 0x7FFFFFFF)) {
+          return execution.raiseFormat("Invalid array length: ", n);
+        }
+        this->values.resize(size_t(n), egg::ovum::Variant::Null);
+        return Variant::Void;
+      }
+      return execution.raiseFormat("Arrays do not support property '", property, "'");
     }
     virtual Variant getIndex(IExecution& execution, const Variant& index) override {
       if (!index.isInt()) {

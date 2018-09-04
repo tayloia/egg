@@ -1,3 +1,4 @@
 var s = "hello";
 s.length = 4;
-///<RUNTIME><ERROR><RESOURCE>(2,10): Strings do not support modification through properties such as '.length'
+///OLD<RUNTIME><ERROR><RESOURCE>(2,10): Strings do not support modification through properties such as '.length'
+///NEW<RUNTIME><ERROR><RESOURCE>(2,2): Strings do not support modification through properties such as 'length'

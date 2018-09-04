@@ -59,6 +59,11 @@ namespace egg::ovum {
     void removeAll() {
       this->map.clear();
     }
+    void foreach(std::function<void(const K& key, const V& value)> visitor) const {
+      for (auto& entry : this->map) {
+        visitor(entry.first, entry.second);
+      }
+    }
   };
 
   template<typename K, typename V>
@@ -168,6 +173,11 @@ namespace egg::ovum {
     void removeAll() {
       this->map.clear();
       this->vec.clear();
+    }
+    void foreach(std::function<void(const K& key, const V& value)> visitor) const {
+      for (auto& entry : this->map) {
+        visitor(entry.first, entry.second);
+      }
     }
   };
 }

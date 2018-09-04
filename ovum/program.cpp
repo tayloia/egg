@@ -407,7 +407,7 @@ namespace {
     Target(const Target&) = delete;
     Target& operator=(const Target&) = delete;
   public:
-    enum Flavour { Failed, Identifier, Index };
+    enum Flavour { Failed, Identifier, Index, Property };
   private:
     Flavour flavour;
     ProgramDefault& program;
@@ -424,6 +424,8 @@ namespace {
     Symbol& identifier() const;
     Variant getIndex() const;
     Variant setIndex(const Variant& value) const;
+    Variant getProperty() const;
+    Variant setProperty(const Variant& value) const;
     Variant apply(const INode& opnode, Variant& lvalue, const INode& rhs) const;
     Variant expression(const INode& node) const;
   };
@@ -582,6 +584,38 @@ namespace {
         std::swap(a, b);
       }
       return Target::Flavour::Failed;
+    }
+    Target::Flavour targetProperty(const INode& node, Variant& a, Variant& b) {
+      assert(node.getOpcode() == OPCODE_PROPERTY);
+      assert(node.getChildren() == 2);
+      a = this->expression(node.getChild(0));
+      if (a.hasFlowControl()) {
+        return Target::Flavour::Failed;
+      }
+      auto& property = node.getChild(1);
+      if (property.getOpcode() == OPCODE_IDENTIFIER) {
+        // Handle explicit identifiers
+        b = this->identifier(property);
+      } else {
+        b = this->expression(node.getChild(1));
+        if (!b.isString()) {
+          if (b.hasFlowControl()) {
+            std::swap(a, b); // swap the error into 'a'
+          } else {
+            a = this->raiseNode(property, "Expected target property name to be a 'string', but got '", b.getRuntimeType().toString(), "' instead");
+          }
+          return Target::Flavour::Failed;
+        }
+      }
+      if (!a.hasObject()) {
+        if (a.hasString()) {
+          a = this->raiseNode(node, "Strings do not support modification through properties such as '", b.getString(), "'");
+        } else {
+          a = this->raiseNode(node, "Values of type '", a.getRuntimeType().toString(), "' do not support modification of properties such as '", b.getString(), "'");
+        }
+        return Target::Flavour::Failed;
+      }
+      return Target::Flavour::Property;
     }
     Symbol& targetSymbol(const INode& node, const String& name) {
       auto* symbol = this->symtable->get(name);
@@ -1678,6 +1712,9 @@ Target::Target(ProgramDefault& program, const INode& node, Block* block)
   case OPCODE_INDEX:
     this->flavour = program.targetIndex(node, this->a, this->b);
     return;
+  case OPCODE_PROPERTY:
+    this->flavour = program.targetProperty(node, this->a, this->b);
+    return;
   }
   EGG_WARNING_SUPPRESS_SWITCH_END();
   throw program.unexpectedOpcode("target", node);
@@ -1708,6 +1745,18 @@ egg::ovum::Variant Target::setIndex(const Variant& value) const {
   return object->setIndex(this->program, this->b, value);
 }
 
+egg::ovum::Variant Target::getProperty() const {
+  assert(this->flavour == Flavour::Property);
+  auto object = this->a.getObject();
+  return object->getProperty(this->program, this->b.getString());
+}
+
+egg::ovum::Variant Target::setProperty(const Variant& value) const {
+  assert(this->flavour == Flavour::Property);
+  auto object = this->a.getObject();
+  return object->setProperty(this->program, this->b.getString(), value);
+}
+
 Variant Target::check() const {
   if (this->flavour == Flavour::Failed) {
     // Return the problem we saved in the constructor
@@ -1724,6 +1773,8 @@ Variant Target::assign(const Variant& rhs) const {
     return this->identifier().tryAssign(this->program.getBasket(), rhs);
   case Flavour::Index:
     return this->setIndex(rhs);
+  case Flavour::Property:
+    return this->setProperty(rhs);
   }
   // Return the problem we saved in the constructor
   return this->a;
@@ -1755,6 +1806,17 @@ Variant Target::nudge(Int rhs) const {
     }
     slot = &element;
     break;
+  case Flavour::Property:
+    element = this->getProperty();
+    if (element.hasFlowControl()) {
+      return element;
+    }
+    if (element.isInt()) {
+      element = element.getInt() + rhs;
+      return this->setProperty(element);
+    }
+    slot = &element;
+    break;
   }
   if (rhs < 0) {
     return Binary::unexpected(*slot, "Expected decrement operation to be applied to an 'int' value");
@@ -1768,7 +1830,7 @@ Variant Target::mutate(const INode& opnode, const INode& rhs) const {
     break;
   case Flavour::Identifier:
     return this->apply(opnode, this->identifier().getReference(), rhs);
-  case Flavour::Index:
+  case Flavour::Index: {
     // TODO atomic mutation
     auto element = this->getIndex();
     if (element.hasFlowControl()) {
@@ -1778,7 +1840,18 @@ Variant Target::mutate(const INode& opnode, const INode& rhs) const {
     if (result.hasFlowControl()) {
       return result;
     }
-    return this->setIndex(element);
+    return this->setIndex(element); }
+  case Flavour::Property: {
+    // TODO atomic mutation
+    auto element = this->getProperty();
+    if (element.hasFlowControl()) {
+      return element;
+    }
+    auto result = this->apply(opnode, element, rhs);
+    if (result.hasFlowControl()) {
+      return result;
+    }
+    return this->setProperty(element); }
   }
   // Return the problem we saved in the constructor
   return this->a;
