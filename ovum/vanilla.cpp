@@ -80,6 +80,7 @@ namespace {
   class VanillaArray : public VanillaBase {
     VanillaArray(const VanillaArray&) = delete;
     VanillaArray& operator=(const VanillaArray&) = delete;
+    friend class VanillaArrayIterator;
   private:
     std::vector<Variant> values;
   public:
@@ -139,7 +140,7 @@ namespace {
       if (u >= this->values.size()) {
         return execution.raiseFormat("Invalid array index for an array with ", this->values.size(), " element(s): ", i);
       }
-      return this->values[u];
+      return this->values[u].direct();
     }
     virtual Variant setIndex(IExecution& execution, const Variant& index, const Variant& value) override {
       if (!index.isInt()) {
@@ -150,13 +151,72 @@ namespace {
       if (u >= this->values.size()) {
         return execution.raiseFormat("Invalid array index for an array with ", this->values.size(), " element(s): ", i);
       }
-      this->values[u] = value;
+      auto& e = this->values[u];
+      e = value;
+      e.soften(*this->softGetBasket());
       return Variant::Void;
     }
+    virtual Variant iterate(IExecution&) override;
+  };
+
+  class VanillaArrayIterator : public VanillaBase {
+    VanillaArrayIterator(const VanillaArrayIterator&) = delete;
+    VanillaArrayIterator& operator=(const VanillaArrayIterator&) = delete;
+  private:
+    SoftPtr<VanillaArray> container;
+    size_t index;
+  public:
+    VanillaArrayIterator(IAllocator& allocator, VanillaArray& container)
+      : VanillaBase(allocator),
+        index(0) {
+      this->container.set(*this, &container);
+    }
+    virtual void softVisitLinks(const Visitor& visitor) const override {
+      this->container.visit(visitor);
+    }
+    virtual Variant toString() const override {
+      return "<iterator>"; // TODO
+    }
+    virtual Type getRuntimeType() const override {
+      return Type::Object; // WIBBLE
+    }
+    virtual Variant call(IExecution& execution, const IParameters& parameters) override {
+      if ((parameters.getPositionalCount() > 0) || (parameters.getNamedCount() > 0)) {
+        return execution.raiseFormat("Array iterator functions do not accept parameters");
+      }
+      if (this->index == SIZE_MAX) {
+        // Already completed
+        return Variant::Void;
+      }
+      auto& values = this->container->values;
+      auto i = this->index++;
+      if (i >= values.size()) {
+        // Just completed
+        this->index = SIZE_MAX;
+        return Variant::Void;
+      }
+      return values[i];
+    }
+    virtual Variant getProperty(IExecution& execution, const String& property) override {
+      return execution.raiseFormat("Iterators do not support properties such as '", property, "'");
+    }
+    virtual Variant setProperty(IExecution& execution, const String& property, const Variant&) override {
+      return execution.raiseFormat("Iterators do not support properties such as '", property, "'");
+    }
+    virtual Variant getIndex(IExecution& execution, const Variant&) override {
+      return execution.raiseFormat("Iterators do not support indexing with '[]'");
+    }
+    virtual Variant setIndex(IExecution& execution, const Variant&, const Variant&) override {
+      return execution.raiseFormat("Iterators do not support indexing with '[]'");
+    }
     virtual Variant iterate(IExecution&) override {
-      throw std::runtime_error("TODO: " WIBBLE);
+      return Object(*this);
     }
   };
+}
+
+egg::ovum::Variant VanillaArray::iterate(IExecution&) {
+  return VariantFactory::createObject<VanillaArrayIterator>(this->allocator, *this);
 }
 
 egg::ovum::Object egg::ovum::ObjectFactory::createVanillaArray(IAllocator& allocator, size_t size) {

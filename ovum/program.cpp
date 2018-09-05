@@ -1021,28 +1021,56 @@ namespace {
     Variant statementForeach(const INode& node) {
       assert(node.getOpcode() == OPCODE_FOREACH);
       assert(node.getChildren() == 3);
-      Block block(*this);
-      Target lvalue(*this, node.getChild(0), &block);
+      Block inner(*this);
+      Target lvalue(*this, node.getChild(0), &inner);
       auto retval = lvalue.check();
       if (retval.hasFlowControl()) {
         return retval;
       }
-      auto rvalue = this->expression(node.getChild(1), &block);
+      auto rvalue = this->expression(node.getChild(1));
       if (rvalue.hasFlowControl()) {
         return rvalue;
       }
       if (rvalue.hasString()) {
         // Iterate around the codepoints in the string
-        return this->stringForeach(rvalue.getString(), block, lvalue, node.getChild(2));
+        return this->stringForeach(rvalue.getString(), inner, lvalue, node.getChild(2));
       }
-      size_t WIBBLE = 0;
-      do {
-        retval = rvalue; // WIBBLE
+      if (!rvalue.hasObject()) {
+        return this->raiseFormat("The 'for' statement expected to iterate a 'string' or 'object', but got '", rvalue.getRuntimeType().toString(), "' instead");
+      }
+      auto object = rvalue.getObject();
+      assert(object != nullptr);
+      auto iterate = object->iterate(*this);
+      if (iterate.hasFlowControl()) {
+        return iterate;
+      }
+      if (!iterate.hasObject()) {
+        return this->raiseFormat("The 'for' statement expected an iterator, but got '", iterate.getRuntimeType().toString(), "' instead");
+      }
+      object = iterate.getObject();
+      assert(object != nullptr);
+      auto& block = node.getChild(2);
+      for (;;) {
+        retval = object->call(*this, Function::NoParameters);
         if (retval.hasAny(VariantBits::FlowControl | VariantBits::Void)) {
           break;
         }
         retval = lvalue.assign(retval);
-      } while (!retval.hasFlowControl() && (++WIBBLE < 1000));
+        if (retval.hasFlowControl()) {
+          break;
+        }
+        retval = this->executeBlock(inner, block);
+        if (retval.hasFlowControl()) {
+          if (retval.is(VariantBits::Break)) {
+            // Break from the loop
+            return Variant::Void;
+          }
+          if (!retval.is(VariantBits::Continue)) {
+            // Some other flow control
+            break;
+          }
+        }
+      }
       return retval;
     }
     Variant statementFunction(Block& block, const INode& node) {
