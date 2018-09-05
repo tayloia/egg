@@ -52,8 +52,8 @@ namespace {
     virtual Type getRuntimeType() const override {
       return Type::Object;
     }
-    virtual Variant call(IExecution&, const IParameters&) override {
-      throw std::runtime_error("TODO: " WIBBLE);
+    virtual Variant call(IExecution& execution, const IParameters&) override {
+      return execution.raiseFormat("Object cannot be called like a function");
     }
     virtual Variant getProperty(IExecution&, const String& property) override {
       return this->values.getOrDefault(property, Variant::Void);
@@ -107,8 +107,8 @@ namespace {
     virtual Type getRuntimeType() const override {
       return Type::Object; // WIBBLE
     }
-    virtual Variant call(IExecution&, const IParameters&) override {
-      throw std::runtime_error("TODO: " WIBBLE);
+    virtual Variant call(IExecution& execution, const IParameters&) override {
+      return execution.raiseFormat("Arrays cannot be called like functions");
     }
     virtual Variant getProperty(IExecution& execution, const String& property) override {
       if (property == "length") {
@@ -157,53 +157,6 @@ namespace {
       throw std::runtime_error("TODO: " WIBBLE);
     }
   };
-
-  class VanillaFunction : public VanillaBase {
-    VanillaFunction(const VanillaFunction&) = delete;
-    VanillaFunction& operator=(const VanillaFunction&) = delete;
-  private:
-    Type type;
-    String name;
-    Node block;
-  public:
-    explicit VanillaFunction(IAllocator& allocator, const Type& type, const String& name, const Node& block)
-      : VanillaBase(allocator),
-        type(type),
-        name(name),
-        block(block) {
-      assert(type != nullptr);
-      assert(!name.empty());
-      assert(block != nullptr);
-    }
-    virtual void softVisitLinks(const Visitor&) const override {
-      // TODO
-      assert(false);
-    }
-    virtual Variant toString() const override {
-      throw std::runtime_error("TODO: " WIBBLE);
-    }
-    virtual Type getRuntimeType() const override {
-      throw std::runtime_error("TODO: " WIBBLE);
-    }
-    virtual Variant call(IExecution&, const IParameters&) override {
-      throw std::runtime_error("TODO: " WIBBLE);
-    }
-    virtual Variant getProperty(IExecution&, const String&) override {
-      throw std::runtime_error("TODO: " WIBBLE);
-    }
-    virtual Variant setProperty(IExecution&, const String&, const Variant&) override {
-      throw std::runtime_error("TODO: " WIBBLE);
-    }
-    virtual Variant getIndex(IExecution&, const Variant&) override {
-      throw std::runtime_error("TODO: " WIBBLE);
-    }
-    virtual Variant setIndex(IExecution&, const Variant&, const Variant&) override {
-      throw std::runtime_error("TODO: " WIBBLE);
-    }
-    virtual Variant iterate(IExecution&) override {
-      throw std::runtime_error("TODO: " WIBBLE);
-    }
-  };
 }
 
 egg::ovum::Object egg::ovum::ObjectFactory::createVanillaArray(IAllocator& allocator, size_t size) {
@@ -212,8 +165,4 @@ egg::ovum::Object egg::ovum::ObjectFactory::createVanillaArray(IAllocator& alloc
 
 egg::ovum::Object egg::ovum::ObjectFactory::createVanillaObject(IAllocator& allocator) {
   return Object(*allocator.create<VanillaObject>(0, allocator));
-}
-
-egg::ovum::Object egg::ovum::ObjectFactory::createVanillaFunction(IAllocator& allocator, const Type& type, const String& name, const Node& block) {
-  return Object(*allocator.create<VanillaFunction>(0, allocator, type, name, block));
 }

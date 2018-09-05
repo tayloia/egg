@@ -759,7 +759,7 @@ egg::ovum::ILogger::Severity egg::yolk::EggProgram::execute(IEggEngineExecutionC
   if (retval.stripFlowControl(egg::ovum::VariantBits::Throw)) {
     // TODO exception location
     execution.log(egg::ovum::ILogger::Source::Runtime, egg::ovum::ILogger::Severity::Error, retval.toString().toUTF8());
-  } else if (retval.hasFlowControl()) {
+  } else if (!retval.isVoid()) {
     auto message = "Internal runtime error: Expected statement to return 'void', but got '" + retval.getRuntimeType().toString().toUTF8() + "' instead";
     execution.log(egg::ovum::ILogger::Source::Runtime, egg::ovum::ILogger::Severity::Error, message);
   }

@@ -2,6 +2,7 @@
 #include "ovum/node.h"
 #include "ovum/module.h"
 #include "ovum/program.h"
+#include "ovum/function.h"
 #include "ovum/utf.h"
 
 #include <cmath>
@@ -302,13 +303,13 @@ namespace {
     PredicateFunction(const PredicateFunction&) = delete;
     PredicateFunction& operator=(const PredicateFunction&) = delete;
   private:
-    HardPtr<ProgramDefault> program;
+    ProgramDefault& program; // ProgramDefault lifetime guaranteed to be longer than UserFunction instance
     LocationSource location;
     Node node;
   public:
     PredicateFunction(IAllocator& allocator, ProgramDefault& program, const LocationSource& location, const INode& node)
       : SoftReferenceCounted(allocator),
-        program(&program),
+        program(program),
         location(location),
         node(&node) {
     }
@@ -339,14 +340,114 @@ namespace {
     }
   };
 
-  class Symbol {
+  class UserFunction : public SoftReferenceCounted<IObject> {
+    UserFunction(const UserFunction&) = delete;
+    UserFunction& operator=(const UserFunction&) = delete;
   private:
+    ProgramDefault& program; // ProgramDefault lifetime guaranteed to be longer than UserFunction instance
+    LocationSource location;
+    Type type;
+    Node block;
+  public:
+    UserFunction(IAllocator& allocator, ProgramDefault& program, const LocationSource& location, const Type& type, const String& name, const INode& block)
+      : SoftReferenceCounted(allocator),
+        program(program),
+        location(location),
+        type(type),
+        block(&block) {
+      assert(type != nullptr);
+      assert(!name.empty());
+    }
+    virtual void softVisitLinks(const Visitor&) const override {
+      // There are no soft link to visit
+    }
+    virtual Variant toString() const override {
+      return "<predicate>";
+    }
+    virtual Type getRuntimeType() const override {
+      return this->type;
+    }
+    virtual Variant call(IExecution& execution, const IParameters& parameters) override;
+    virtual Variant getProperty(IExecution& execution, const String& property) override {
+      return this->raise(execution, "does not support properties such as '", property, "'");
+    }
+    virtual Variant setProperty(IExecution& execution, const String& property, const Variant&) override {
+      return this->raise(execution, "does not support properties such as '", property, "'");
+    }
+    virtual Variant getIndex(IExecution& execution, const Variant&) override {
+      return this->raise(execution, "does not support indexing");
+    }
+    virtual Variant setIndex(IExecution& execution, const Variant&, const Variant&) override {
+      return this->raise(execution, "does not support indexing");
+    }
+    virtual Variant iterate(IExecution& execution) override {
+      return this->raise(execution, "does not support iteration");
+    }
+    template<typename... ARGS>
+    Variant raise(IExecution& execution, ARGS&&... args) {
+      auto* signature = this->type->callable();
+      if (signature != nullptr) {
+        auto name = signature->getFunctionName();
+        if (!name.empty()) {
+          return execution.raiseFormat("Function '", name, "' ", std::forward<ARGS>(args)...);
+        }
+      }
+      return execution.raiseFormat("Function ", std::forward<ARGS>(args)...);
+    }
+  };
+
+  class UserFunctionType : public HardReferenceCounted<TypeBase> {
+    UserFunctionType(const UserFunctionType&) = delete;
+    UserFunctionType& operator=(const UserFunctionType&) = delete;
+  private:
+    LocationSource location;
+    FunctionSignature signature;
+  public:
+    UserFunctionType(IAllocator& allocator, const LocationSource& location, const String& name, const Type& rettype)
+      : HardReferenceCounted(allocator, 0),
+        location(location),
+        signature(name, rettype) {
+    }
+    virtual const IFunctionSignature* callable() const override {
+      return &this->signature;
+    }
+    virtual AssignmentSuccess canBeAssignedFrom(const IType& rtype) const override {
+      // We can assign if the signatures are the same or equal
+      auto* rsig = rtype.callable();
+      if (rsig == nullptr) {
+        return AssignmentSuccess::Never;
+      }
+      auto* lsig = &this->signature;
+      if (lsig == rsig) {
+        return AssignmentSuccess::Always;
+      }
+      // TODO fuzzy matching of signatures
+      if (lsig->getParameterCount() != rsig->getParameterCount()) {
+        return AssignmentSuccess::Never;
+      }
+      return lsig->getReturnType()->canBeAssignedFrom(*rsig->getReturnType()); // TODO
+    }
+    virtual std::pair<std::string, int> toStringPrecedence() const override {
+      // Do not include names in the signature
+      auto sig = Function::signatureToString(this->signature, Function::Parts::NoNames);
+      return std::make_pair(sig.toUTF8(), 0);
+    }
+    virtual Node compile(IAllocator&, const NodeLocation&) const override {
+      throw RuntimeException(this->location, "Unexpected recompilation of function type");
+    }
+    static Type make(IAllocator& allocator, ProgramDefault& program, const LocationSource& location, const String& name, const INode& callable);
+  };
+
+  struct Symbol {
     Type type;
     String name;
+    LocationSource source;
     Variant value;
-  public:
-    Symbol(const Type& type, const String& name)
-      : type(type), name(name), value() {
+    Symbol(const Type& type, const String& name, const LocationSource& source)
+      : type(type),
+        name(name),
+        source(source),
+        value() {
       assert(type != nullptr);
     }
     Variant tryAssign(IBasket& basket, const Variant& rvalue) {
@@ -356,12 +457,6 @@ namespace {
         assert(this->value.validate(true));
       }
       return retval;
-    }
-    Variant getDirect() const {
-      return this->value.direct();
-    }
-    Variant& getReference() {
-      return this->value;
     }
     void softVisitLink(const ICollectable::Visitor& visitor) const {
       this->value.softVisitLink(visitor);
@@ -373,15 +468,17 @@ namespace {
     SymbolTable& operator=(const SymbolTable&) = delete;
   private:
     std::map<String, Symbol> table;
+    SoftPtr<SymbolTable> parent;
   public:
-    explicit SymbolTable(IAllocator& allocator)
+    explicit SymbolTable(IAllocator& allocator, SymbolTable* parent = nullptr)
       : SoftReferenceCounted(allocator) {
+      this->parent.set(*this, parent);
     }
-    Symbol* add(const Type& type, const String& name) {
-      // Return non-null iff the insertion occurred
-      Symbol symbol(type, name);
+    std::pair<bool, Symbol*> add(const Type& type, const String& name, const LocationSource& source) {
+      // Return true in the first of the pair iff the insertion occurred
+      Symbol symbol(type, name, source);
       auto retval = this->table.insert(std::make_pair(name, std::move(symbol)));
-      return retval.second ? &retval.first->second : nullptr;
+      return std::make_pair(retval.second, &retval.first->second);
     }
     bool remove(const String& name) {
       // Return true iff the removal occurred
@@ -392,6 +489,9 @@ namespace {
       // Return a pointer to the symbol or null
       auto retval = this->table.find(name);
       if (retval == this->table.end()) {
+        if (this->parent != nullptr) {
+          return this->parent->get(name);
+        }
         return nullptr;
       }
       return &retval->second;
@@ -400,6 +500,16 @@ namespace {
       for (auto& entry : this->table) {
         entry.second.softVisitLink(visitor);
       }
+      this->parent.visit(visitor);
+    }
+    SymbolTable* push() {
+      // Push an element onto the symbol table stack
+      return this->allocator.create<SymbolTable>(0, this->allocator, this);
+    }
+    SymbolTable* pop() {
+      // Pop an element from the symbol table stack
+      assert(this->parent != nullptr);
+      return this->parent.get();
     }
   };
 
@@ -440,7 +550,26 @@ namespace {
     explicit Block(ProgramDefault& program) : program(program) {
     }
     ~Block();
-    Variant declare(const INode& node, const Type& type, const String& name, const Variant* init = nullptr);
+    Variant declare(const LocationSource& source, const Type& type, const String& name, const Variant* init = nullptr);
+  };
+
+  class CallStack final {
+    CallStack(const CallStack&) = delete;
+    CallStack& operator=(const CallStack&) = delete;
+  private:
+    HardPtr<SymbolTable>& symtable;
+    std::set<String> declared;
+  public:
+    explicit CallStack(HardPtr<SymbolTable>& symtable) : symtable(symtable) {
+      // Push an element onto the symbol table stack
+      this->symtable.set(this->symtable->push());
+      assert(this->symtable != nullptr);
+    }
+    ~CallStack() {
+      // Pop an element from the symbol table stack
+      this->symtable.set(this->symtable->pop());
+      assert(this->symtable != nullptr);
+    }
   };
 
   class ProgramDefault final : public HardReferenceCounted<IProgram>, public IExecution {
@@ -465,9 +594,10 @@ namespace {
     }
     // Inherited from IProgram
     virtual bool builtin(const String& name, const Variant& value) override {
-      auto* symbol = this->symtable->add(value.getRuntimeType(), name);
-      if (symbol != nullptr) {
-        auto retval = symbol->tryAssign(*this->basket, value);
+      static const LocationSource source("<builtin>", 0, 0);
+      auto symbol = this->symtable->add(value.getRuntimeType(), name, source);
+      if (symbol.first) {
+        auto retval = symbol.second->tryAssign(*this->basket, value);
         return !retval.hasFlowControl();
       }
       return false;
@@ -528,21 +658,18 @@ namespace {
       this->logger.log(ILogger::Source::User, ILogger::Severity::Information, utf8);
     }
     // Called by Block
-    Variant blockDeclare(const INode& node, const Type& type, const String& name, const Variant* init) {
-      auto symbol = this->symtable->add(type, name);
-      if (symbol == nullptr) {
+    Variant blockDeclare(const LocationSource& source, const Type& type, const String& name, const Variant* init) {
+      auto symbol = this->symtable->add(type, name, source);
+      if (!symbol.first) {
         // TODO display the other location too
-        auto opcode = node.getOpcode();
-        if (opcode != OPCODE_DECLARE) {
-          auto decl = OpcodeProperties::from(node.getOpcode()).name;
-          if (decl != nullptr) {
-            return this->raiseNode(node, "Duplicate name in ", decl, " declaration: '", name, "'");
-          }
-        }
-        return this->raiseNode(node, "Duplicate name in declaration: '", name, "'");
+        StringBuilder sb;
+        symbol.second->source.formatSourceString(sb);
+        sb.add(": Previous declaration of '", name, "'");
+        this->logger.log(ILogger::Source::Runtime, ILogger::Severity::Warning, sb.toUTF8());
+        return this->raiseLocation(source, "Duplicate name in declaration: '", name, "'");
       }
       if (init != nullptr) {
-        return symbol->tryAssign(*this->basket, *init);
+        return symbol.second->tryAssign(*this->basket, *init);
       }
       return Variant::Void;
     }
@@ -556,9 +683,10 @@ namespace {
     Target::Flavour targetDeclare(const INode& node, Variant& a, Block& block) {
       assert(node.getOpcode() == OPCODE_DECLARE);
       assert(node.getChildren() == 2);
-      auto vtype = this->type(node.getChild(0));
       auto vname = this->identifier(node.getChild(1));
-      a = block.declare(node, vtype, vname);
+      auto vtype = this->type(node.getChild(0), vname);
+      this->updateLocation(node);
+      a = block.declare(this->location, vtype, vname);
       if (a.hasFlowControl()) {
         // Couldn't define the variable; leave the error in 'a'
         return Target::Flavour::Failed;
@@ -628,12 +756,12 @@ namespace {
     Variant targetExpression(const INode& node) {
       return this->expression(node);
     }
-    // Predicates
-    Variant executePredicate(const LocationSource& source, const INode& node) {
+    // Functions
+    Variant executePredicate(const LocationSource& source, const INode& compare) {
       // We have to be careful to get the location correct
-      assert(node.getOpcode() == OPCODE_COMPARE);
+      assert(compare.getOpcode() == OPCODE_COMPARE);
       Variant lhs, rhs;
-      auto retval = this->operatorCompare(node, lhs, rhs);
+      auto retval = this->operatorCompare(compare, lhs, rhs);
       if (retval.hasFlowControl()) {
         if (retval.is(VariantBits::Break)) {
           return this->raiseLocation(source, "Internal runtime error: Unsupported predicate comparison");
@@ -647,7 +775,56 @@ namespace {
         // The assertion has passed
         return Variant::Void;
       }
-      return this->raiseLocation(source, "Assertion is untrue: ", lhs.toString(), ' ', OperatorProperties::str(node.getOperator()), ' ', rhs.toString());
+      return this->raiseLocation(source, "Assertion is untrue: ", lhs.toString(), ' ', OperatorProperties::str(compare.getOperator()), ' ', rhs.toString());
+    }
+    Variant executeCall(const LocationSource& source, const IFunctionSignature& signature, const IParameters& runtime, const INode& block) {
+      // We have to be careful to get the location correct
+      assert(block.getOpcode() == OPCODE_BLOCK);
+      if (runtime.getNamedCount() > 0) {
+        return this->raiseFormat(Function::signatureToString(signature), ": Named parameters are not yet supported"); // TODO
+      }
+      auto maxPositional = signature.getParameterCount();
+      auto minPositional = maxPositional;
+      while ((minPositional > 0) && !Bits::hasAnySet(signature.getParameter(minPositional - 1).getFlags(), IFunctionSignatureParameter::Flags::Required)) {
+        minPositional--;
+      }
+      auto actual = runtime.getPositionalCount();
+      if (actual < minPositional) {
+        if (minPositional == 1) {
+          return this->raiseFormat(Function::signatureToString(signature), ": At least 1 parameter was expected");
+        }
+        return this->raiseFormat(Function::signatureToString(signature), ": At least ", minPositional, " parameters were expected, not ", actual);
+      }
+      if ((maxPositional > 0) && Bits::hasAnySet(signature.getParameter(maxPositional - 1).getFlags(), IFunctionSignatureParameter::Flags::Variadic)) {
+        // TODO Variadic
+      } else if (actual > maxPositional) {
+        // Not variadic
+        if (maxPositional == 1) {
+          return this->raiseFormat(Function::signatureToString(signature), ": Only 1 parameter was expected, not ", actual);
+        }
+        return this->raiseFormat(Function::signatureToString(signature), ": No more than ", maxPositional, " parameters were expected, not ", actual);
+      }
+      CallStack stack(this->symtable);
+      Block scope(*this);
+      for (size_t i = 0; i < maxPositional; ++i) {
+        auto& sigparam = signature.getParameter(i);
+        auto pname = sigparam.getName();
+        assert(!pname.empty());
+        auto position = sigparam.getPosition();
+        assert(position < actual);
+        auto ptype = sigparam.getType();
+        auto pvalue = runtime.getPositional(position);
+        auto retval = scope.declare(source, ptype, pname, &pvalue);
+        if (retval.hasFlowControl()) {
+          return retval;
+        }
+      }
+      auto retval = this->executeBlock(scope, block);
+      if (retval.stripFlowControl(VariantBits::Return) || retval.hasThrow()) {
+        // We got a return value or exception
+        return retval;
+      }
+      throw RuntimeException(this->location, "Expected function to return, but got '", retval.getRuntimeType().toString(), "' instead");
     }
     // Builtins
     void addBuiltins() {
@@ -714,6 +891,8 @@ namespace {
         return this->statementIncrement(node);
       case OPCODE_MUTATE:
         return this->statementMutate(node);
+      case OPCODE_RETURN:
+        return this->statementReturn(node);
       case OPCODE_SWITCH:
         return this->statementSwitch(node);
       case OPCODE_THROW:
@@ -753,18 +932,19 @@ namespace {
     }
     Variant statementDeclare(Block& block, const INode& node) {
       assert(node.getOpcode() == OPCODE_DECLARE);
-      auto vtype = this->type(node.getChild(0));
+      this->updateLocation(node);
       auto vname = this->identifier(node.getChild(1));
+      auto vtype = this->type(node.getChild(0), vname);
       if (node.getChildren() == 2) {
         // No initializer
-        return block.declare(node, vtype, vname);
+        return block.declare(this->location, vtype, vname);
       }
       assert(node.getChildren() == 3);
       auto vinit = this->expression(node.getChild(2));
       if (vinit.hasFlowControl()) {
         return vinit;
       }
-      return block.declare(node, vtype, vname, &vinit);
+      return block.declare(this->location, vtype, vname, &vinit);
     }
     Variant statementDecrement(const INode& node) {
       assert(node.getOpcode() == OPCODE_DECREMENT);
@@ -868,11 +1048,12 @@ namespace {
     Variant statementFunction(Block& block, const INode& node) {
       assert(node.getOpcode() == OPCODE_FUNCTION);
       assert(node.getChildren() == 3);
-      auto ftype = this->type(node.getChild(0));
-      Node fblock{ &node.getChild(1) };
       auto fname = this->identifier(node.getChild(2));
-      Variant fvalue{ ObjectFactory::createVanillaFunction(this->allocator, ftype, fname, fblock) };
-      return block.declare(node, ftype, fname, &fvalue);
+      auto ftype = this->type(node.getChild(0), fname);
+      auto& fblock = node.getChild(1);
+      this->updateLocation(node);
+      auto fvalue = VariantFactory::createObject<UserFunction>(this->allocator, *this, this->location, ftype, fname, fblock);
+      return block.declare(this->location, ftype, fname, &fvalue);
     }
     Variant statementIf(const INode& node) {
       assert(node.getOpcode() == OPCODE_IF);
@@ -905,6 +1086,21 @@ namespace {
       assert(OperatorProperties::from(node.getOperator()).opclass == Opclass::OPCLASS_BINARY);
       Target lvalue(*this, node.getChild(0));
       return lvalue.mutate(node, node.getChild(1));
+    }
+    Variant statementReturn(const INode& node) {
+      assert(node.getOpcode() == OPCODE_RETURN);
+      assert(node.getChildren() <= 1);
+      if (node.getChildren() == 0) {
+        // A naked return
+        return Variant::ReturnVoid;
+      }
+      auto retval = this->expression(node.getChild(0));
+      if (!retval.hasFlowControl()) {
+        // Convert the expression to a return
+        assert(!retval.isVoid());
+        retval.addFlowControl(VariantBits::Return);
+      }
+      return retval;
     }
     Variant statementSwitch(const INode& node) {
       assert(node.getOpcode() == OPCODE_SWITCH);
@@ -1000,12 +1196,13 @@ namespace {
         auto& clause = node.getChild(i);
         assert(clause.getOpcode() == OPCODE_CATCH);
         assert(clause.getChildren() == 3);
-        auto ctype = this->type(clause.getChild(0));
+        this->updateLocation(clause);
+        auto cname = this->identifier(clause.getChild(1));
+        auto ctype = this->type(clause.getChild(0), cname);
         // WIBBLE if (match exception)
         if (true) {
           Block inner(*this);
-          auto cname = this->identifier(clause.getChild(1));
-          auto retval = inner.declare(node, ctype, cname, &exception);
+          auto retval = inner.declare(this->location, ctype, cname, &exception);
           if (retval.hasFlowControl()) {
             // Couldn't define the exception variable
             return this->statementTryFinally(node, retval);
@@ -1231,13 +1428,14 @@ namespace {
       if (block == nullptr) {
         throw this->unexpectedOpcode("guard", node);
       }
-      auto vtype = this->type(node.getChild(0));
       auto vname = this->identifier(node.getChild(1));
+      auto vtype = this->type(node.getChild(0), vname);
       auto vinit = this->expression(node.getChild(2));
       if (vinit.hasFlowControl()) {
         return vinit;
       }
-      return block->declare(node, vtype, vname, &vinit);
+      this->updateLocation(node);
+      return block->declare(this->location, vtype, vname, &vinit);
     }
     Variant expressionIdentifier(const INode& node) {
       assert(node.getOpcode() == OPCODE_IDENTIFIER);
@@ -1246,7 +1444,7 @@ namespace {
       if (symbol == nullptr) {
         return this->raiseNode(node, "Unknown identifier in expression: '", name, "'");
       }
-      return symbol->getDirect();
+      return symbol->value.direct();
     }
     Variant expressionIndex(const INode& node) {
       assert(node.getOpcode() == OPCODE_INDEX);
@@ -1564,70 +1762,6 @@ namespace {
       }
       return value;
     }
-    String identifier(const INode& node) {
-      if (node.getOpcode() != OPCODE_IDENTIFIER) {
-        throw this->unexpectedOpcode("identifier", node);
-      }
-      auto& child = node.getChild(0);
-      if (child.getOpcode() != OPCODE_SVALUE) {
-        throw this->unexpectedOpcode("svalue", child);
-      }
-      return child.getString();
-    }
-    Type type(const INode& node) {
-      EGG_WARNING_SUPPRESS_SWITCH_BEGIN();
-      switch (node.getOpcode()) {
-      case OPCODE_INFERRED:
-        assert(node.getChildren() == 0);
-        return nullptr;
-      case OPCODE_VOID:
-        assert(node.getChildren() == 0);
-        return Type::Void;
-      case OPCODE_NULL:
-        assert(node.getChildren() == 0);
-        return Type::Null;
-      case OPCODE_BOOL:
-        if (node.getChildren() == 0) {
-          return Type::Bool;
-        }
-        break;
-      case OPCODE_INT:
-        if (node.getChildren() == 0) {
-          return Type::Int;
-        }
-        break;
-      case OPCODE_FLOAT:
-        if (node.getChildren() == 0) {
-          return Type::Float;
-        }
-        break;
-      case OPCODE_STRING:
-        if (node.getChildren() == 0) {
-          return Type::String;
-        }
-        break;
-      case OPCODE_OBJECT:
-        if (node.getChildren() == 0) {
-          return Type::Object;
-        }
-        break;
-      case OPCODE_ANY:
-        if (node.getChildren() == 0) {
-          return Type::Any;
-        }
-        break;
-      case OPCODE_ANYQ:
-        if (node.getChildren() == 0) {
-          return Type::AnyQ;
-        }
-        break;
-      default:
-        throw this->unexpectedOpcode("type", node);
-      }
-      EGG_WARNING_SUPPRESS_SWITCH_END();
-      this->updateLocation(node);
-      throw RuntimeException(this->location, "Type constraints not yet supported"); // TODO
-    }
     Variant call(const INode& node, const Variant& callee, const IParameters& parameters) {
       assert(!callee.hasFlowControl());
       if (callee.hasObject()) {
@@ -1674,6 +1808,79 @@ namespace {
       }
     }
   public:
+    String identifier(const INode& node) {
+      if (node.getOpcode() != OPCODE_IDENTIFIER) {
+        throw this->unexpectedOpcode("identifier", node);
+      }
+      auto& child = node.getChild(0);
+      if (child.getOpcode() != OPCODE_SVALUE) {
+        throw this->unexpectedOpcode("svalue", child);
+      }
+      return child.getString();
+    }
+    Type type(const INode& node, const String& name = String()) {
+      auto children = node.getChildren();
+      EGG_WARNING_SUPPRESS_SWITCH_BEGIN();
+      switch (node.getOpcode()) {
+      case OPCODE_INFERRED:
+        assert(children == 0);
+        return nullptr;
+      case OPCODE_VOID:
+        assert(children == 0);
+        return Type::Void;
+      case OPCODE_NULL:
+        assert(children == 0);
+        return Type::Null;
+      case OPCODE_BOOL:
+        if (children == 0) {
+          return Type::Bool;
+        }
+        break;
+      case OPCODE_INT:
+        if (children == 0) {
+          return Type::Int;
+        }
+        break;
+      case OPCODE_FLOAT:
+        if (children == 0) {
+          return Type::Float;
+        }
+        break;
+      case OPCODE_STRING:
+        if (children == 0) {
+          return Type::String;
+        }
+        break;
+      case OPCODE_OBJECT:
+        if (children == 0) {
+          return Type::Object;
+        }
+        if (children == 1) {
+          auto& callable = node.getChild(0);
+          if (callable.getOpcode() == OPCODE_CALLABLE) {
+            // We update the location here just in case the type nodes haven't been given sufficient data
+            this->updateLocation(node);
+            return UserFunctionType::make(this->allocator, *this, this->location, name, callable);
+          }
+        }
+        break;
+      case OPCODE_ANY:
+        if (children == 0) {
+          return Type::Any;
+        }
+        break;
+      case OPCODE_ANYQ:
+        if (children == 0) {
+          return Type::AnyQ;
+        }
+        break;
+      default:
+        throw this->unexpectedOpcode("type", node);
+      }
+      EGG_WARNING_SUPPRESS_SWITCH_END();
+      this->updateLocation(node);
+      throw RuntimeException(this->location, "Type constraints not yet supported"); // TODO
+    }
     RuntimeException unexpectedOpcode(const char* expected, const INode& node) {
       this->updateLocation(node);
       auto opcode = node.getOpcode();
@@ -1724,7 +1931,13 @@ Variant PredicateFunction::call(IExecution&, const IParameters& parameters) {
   assert(parameters.getNamedCount() == 0);
   assert(parameters.getPositionalCount() == 0);
   (void)parameters; // ignore the parameters
-  return program->executePredicate(this->location, *this->node);
+  return this->program.executePredicate(this->location, *this->node);
+}
+
+Variant UserFunction::call(IExecution&, const IParameters& parameters) {
+  auto signature = this->type->callable();
+  assert(signature != nullptr);
+  return this->program.executeCall(this->location, *signature, parameters, *this->block);
 }
 
 Symbol& Target::identifier() const {
@@ -1789,7 +2002,7 @@ Variant Target::nudge(Int rhs) const {
     // Return the problem we saved in the constructor
     return this->a;
   case Flavour::Identifier:
-    slot = &this->identifier().getReference();
+    slot = &this->identifier().value;
     if (slot->isInt()) {
       *slot = slot->getInt() + rhs;
       return Variant::Void;
@@ -1829,7 +2042,7 @@ Variant Target::mutate(const INode& opnode, const INode& rhs) const {
   case Flavour::Failed:
     break;
   case Flavour::Identifier:
-    return this->apply(opnode, this->identifier().getReference(), rhs);
+    return this->apply(opnode, this->identifier().value, rhs);
   case Flavour::Index: {
     // TODO atomic mutation
     auto element = this->getIndex();
@@ -1901,9 +2114,9 @@ Block::~Block() {
   }
 }
 
-egg::ovum::Variant Block::declare(const INode& node, const Type& type, const String& name, const Variant* init) {
+egg::ovum::Variant Block::declare(const LocationSource& source, const Type& type, const String& name, const Variant* init) {
   // Keep track of names successfully declared in this block
-  auto retval = this->program.blockDeclare(node, type, name, init);
+  auto retval = this->program.blockDeclare(source, type, name, init);
   if (!retval.hasFlowControl()) {
     this->declared.insert(name);
   }
@@ -1912,6 +2125,56 @@ egg::ovum::Variant Block::declare(const INode& node, const Type& type, const Str
 
 egg::ovum::Variant Target::expression(const INode& value) const {
   return this->program.targetExpression(value);
+}
+
+egg::ovum::Type UserFunctionType::make(IAllocator& allocator, ProgramDefault& program, const LocationSource& location, const String& name, const INode& callable) {
+  // Create a type appropriate for a standard "user" function
+  assert(callable.getOpcode() == OPCODE_CALLABLE);
+  auto n = callable.getChildren();
+  assert(n >= 1);
+  auto rettype = program.type(callable.getChild(0));
+  assert(rettype != nullptr);
+  auto function = allocator.make<UserFunctionType>(location, name, rettype);
+  for (size_t i = 1; i < n; ++i) {
+    auto& parameter = callable.getChild(i);
+    auto c = parameter.getChildren();
+    size_t pindex = i - 1;
+    IFunctionSignatureParameter::Flags pflags;
+    EGG_WARNING_SUPPRESS_SWITCH_BEGIN();
+    switch (parameter.getOpcode()) {
+    case OPCODE_REQUIRED:
+      assert((c == 1) || (c == 2));
+      pflags = IFunctionSignatureParameter::Flags::Required;
+      break;
+    case OPCODE_OPTIONAL:
+      assert((c == 1) || (c == 2));
+      pflags = IFunctionSignatureParameter::Flags::None;
+      break;
+    case OPCODE_VARARGS:
+      assert(c >= 2);
+      pflags = IFunctionSignatureParameter::Flags::Variadic;
+      if (c > 2) {
+        // TODO We assume the constraint is "length > 0" meaning required
+        pflags = Bits::set(pflags, IFunctionSignatureParameter::Flags::Required);
+      }
+      break;
+    case OPCODE_BYNAME:
+      assert(c == 2);
+      pindex = SIZE_MAX;
+      pflags = IFunctionSignatureParameter::Flags::None;
+      break;
+    default:
+      throw program.unexpectedOpcode("function type parameter", parameter);
+    }
+    EGG_WARNING_SUPPRESS_SWITCH_END();
+    String pname;
+    if (c > 1) {
+      pname = program.identifier(parameter.getChild(1));
+    }
+    auto ptype = program.type(parameter.getChild(0), pname);
+    function->signature.addSignatureParameter(pname, ptype, pindex, pflags);
+  }
+  return Type(function.get());
 }
 
 egg::ovum::Program egg::ovum::ProgramFactory::createProgram(IAllocator& allocator, ILogger& logger) {

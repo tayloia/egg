@@ -337,6 +337,10 @@ std::pair<std::string, int> egg::yolk::FunctionType::toStringPrecedence() const 
   return std::make_pair(sig.toUTF8(), 0);
 }
 
+egg::ovum::Node egg::yolk::FunctionType::compile(egg::ovum::IAllocator& memallocator, const egg::ovum::NodeLocation& location) const {
+  return egg::ovum::NodeFactory::createFunctionType(memallocator, location, *this->signature);
+}
+
 egg::yolk::FunctionType::AssignmentSuccess egg::yolk::FunctionType::canBeAssignedFrom(const IType& rtype) const {
   // We can assign if the signatures are the same or equal
   auto* rsig = rtype.callable();

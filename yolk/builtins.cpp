@@ -13,7 +13,34 @@ namespace {
       return this->callable()->getFunctionName();
     }
     egg::ovum::Variant validateCall(egg::ovum::IExecution& execution, const egg::ovum::IParameters& parameters) const {
-      return egg::ovum::Function::validateCall(execution, *this->callable(), parameters);
+      // TODO type checking, etc
+      assert(this->callable() != nullptr);
+      auto& sig = *this->callable();
+      if (parameters.getNamedCount() > 0) {
+        return execution.raiseFormat(egg::ovum::Function::signatureToString(sig), ": Named parameters are not yet supported"); // TODO
+      }
+      auto maxPositional = sig.getParameterCount();
+      auto minPositional = maxPositional;
+      while ((minPositional > 0) && !egg::ovum::Bits::hasAnySet(sig.getParameter(minPositional - 1).getFlags(), Flags::Required)) {
+        minPositional--;
+      }
+      auto actual = parameters.getPositionalCount();
+      if (actual < minPositional) {
+        if (minPositional == 1) {
+          return execution.raiseFormat(egg::ovum::Function::signatureToString(sig), ": At least 1 parameter was expected");
+        }
+        return execution.raiseFormat(egg::ovum::Function::signatureToString(sig), ": At least ", minPositional, " parameters were expected, not ", actual);
+      }
+      if ((maxPositional > 0) && egg::ovum::Bits::hasAnySet(sig.getParameter(maxPositional - 1).getFlags(), Flags::Variadic)) {
+        // TODO Variadic
+      } else if (actual > maxPositional) {
+        // Not variadic
+        if (maxPositional == 1) {
+          return execution.raiseFormat(egg::ovum::Function::signatureToString(sig), ": Only 1 parameter was expected, not ", actual);
+        }
+        return execution.raiseFormat(egg::ovum::Function::signatureToString(sig), ": No more than ", maxPositional, " parameters were expected, not ", actual);
+      }
+      return egg::ovum::Variant::Void;
     };
     template<typename... ARGS>
     egg::ovum::Variant raise(egg::ovum::IExecution& execution, ARGS&&... args) const {

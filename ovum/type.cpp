@@ -1,5 +1,6 @@
 #include "ovum/ovum.h"
 #include "ovum/node.h"
+#include "ovum/function.h"
 
 namespace {
   using namespace egg::ovum;
@@ -308,57 +309,6 @@ namespace {
     }
   };
 
-  class FunctionSignatureParameter : public IFunctionSignatureParameter {
-  private:
-    String name; // may be empty
-    Type type;
-    size_t position; // may be SIZE_MAX
-    Flags flags;
-  public:
-    FunctionSignatureParameter(const String& name, const Type& type, size_t position, Flags flags)
-      : name(name), type(type), position(position), flags(flags) {
-    }
-    virtual String getName() const override {
-      return this->name;
-    }
-    virtual Type getType() const override {
-      return this->type;
-    }
-    virtual size_t getPosition() const override {
-      return this->position;
-    }
-    virtual Flags getFlags() const override {
-      return this->flags;
-    }
-  };
-
-  class FunctionSignature : public IFunctionSignature {
-  private:
-    String name;
-    Type returnType;
-    std::vector<FunctionSignatureParameter> parameters;
-  public:
-    FunctionSignature(const String& name, const Type& returnType)
-      : name(name), returnType(returnType) {
-    }
-    void addSignatureParameter(const String& parameterName, const Type& parameterType, size_t position, FunctionSignatureParameter::Flags flags) {
-      this->parameters.emplace_back(parameterName, parameterType, position, flags);
-    }
-    virtual String getFunctionName() const override {
-      return this->name;
-    }
-    virtual Type getReturnType() const override {
-      return this->returnType;
-    }
-    virtual size_t getParameterCount() const override {
-      return this->parameters.size();
-    }
-    virtual const IFunctionSignatureParameter& getParameter(size_t index) const override {
-      assert(index < this->parameters.size());
-      return this->parameters[index];
-    }
-  };
-
   class ParametersNone : public IParameters {
     ParametersNone(const ParametersNone&) = delete;
     ParametersNone& operator=(const ParametersNone&) = delete;
@@ -448,35 +398,6 @@ egg::ovum::String egg::ovum::Function::signatureToString(const IFunctionSignatur
   return sb.str();
 }
 
-egg::ovum::Variant egg::ovum::Function::validateCall(IExecution& execution, const IFunctionSignature& signature, const IParameters& parameters) {
-  // TODO type checking, etc
-  if (parameters.getNamedCount() > 0) {
-    return execution.raiseFormat(Function::signatureToString(signature, Parts::All), ": Named parameters are not yet supported"); // TODO
-  }
-  auto maxPositional = signature.getParameterCount();
-  auto minPositional = maxPositional;
-  while ((minPositional > 0) && !Bits::hasAnySet(signature.getParameter(minPositional - 1).getFlags(), IFunctionSignatureParameter::Flags::Required)) {
-    minPositional--;
-  }
-  auto actual = parameters.getPositionalCount();
-  if (actual < minPositional) {
-    if (minPositional == 1) {
-      return execution.raiseFormat(Function::signatureToString(signature, Parts::All), ": At least 1 parameter was expected");
-    }
-    return execution.raiseFormat(Function::signatureToString(signature, Parts::All), ": At least ", minPositional, " parameters were expected, not ", actual);
-  }
-  if ((maxPositional > 0) && Bits::hasAnySet(signature.getParameter(maxPositional - 1).getFlags(), IFunctionSignatureParameter::Flags::Variadic)) {
-    // TODO Variadic
-  } else if (actual > maxPositional) {
-    // Not variadic
-    if (maxPositional == 1) {
-      return execution.raiseFormat(Function::signatureToString(signature, Parts::All), ": Only 1 parameter was expected, not ", actual);
-    }
-    return execution.raiseFormat(Function::signatureToString(signature, Parts::All), ": No more than ", maxPositional, " parameters were expected, not ", actual);
-  }
-  return Variant::Void;
-}
-
 const egg::ovum::IParameters& egg::ovum::Function::NoParameters = parametersNone;
 
 const egg::ovum::IType* egg::ovum::Type::getBasalType(BasalBits basal) {
@@ -531,7 +452,7 @@ egg::ovum::Type egg::ovum::Type::makeUnion(IAllocator& allocator, const IType& a
 }
 
 egg::ovum::Type egg::ovum::Type::makePointer(IAllocator& allocator, const IType& pointee) {
-  // The default implementation is to return a new type 'Type*'
+  // Return a new type 'Type*'
   return allocator.make<TypePointer, Type>(pointee);
 }
 
@@ -577,7 +498,7 @@ egg::ovum::Type egg::ovum::TypeBase::denulledType() const {
 }
 
 egg::ovum::Type egg::ovum::TypeBase::unionWithBasal(IAllocator&, BasalBits) const {
-  // By default we cannot simple union with basal types
+  // By default we cannot simply union with basal types
   return nullptr;
 }
 
@@ -592,9 +513,9 @@ egg::ovum::Variant egg::ovum::TypeBase::tryAssign(Variant& lvalue, const Variant
   return Variant::Void;
 }
 
-egg::ovum::Node egg::ovum::TypeBase::toNodeLegacy(IAllocator& allocator, const NodeLocation& location) const {
+egg::ovum::Node egg::ovum::TypeBase::compile(IAllocator& allocator, const NodeLocation& location) const {
   // By default we construct a basal type node tree
-  return NodeFactory::createType(allocator, location, this->getBasalTypes());
+  return NodeFactory::createBasalType(allocator, location, this->getBasalTypes());
 }
 
 // Common types

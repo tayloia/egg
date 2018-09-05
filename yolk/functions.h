@@ -14,6 +14,7 @@ namespace egg::yolk {
     virtual AssignmentSuccess canBeAssignedFrom(const IType& rhs) const override;
     virtual const egg::ovum::IFunctionSignature* callable() const override;
     virtual std::pair<std::string, int> toStringPrecedence() const override;
+    virtual egg::ovum::Node compile(egg::ovum::IAllocator& allocator, const egg::ovum::NodeLocation& location) const override;
     // Implementation
     void addParameter(const egg::ovum::String& name, const egg::ovum::Type& type, egg::ovum::IFunctionSignatureParameter::Flags flags);
     // Helpers

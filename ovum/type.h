@@ -1,4 +1,6 @@
 namespace egg::ovum {
+  class INode;
+
 #define EGG_OVUM_BASAL(X) \
   EGG_VM_TYPES(X)
 #define EGG_OVUM_VARIANT(X) \
@@ -89,7 +91,7 @@ namespace egg::ovum {
     virtual Type denulledType() const override;
     virtual Type unionWithBasal(IAllocator& allocator, BasalBits other) const override;
     virtual Variant tryAssign(Variant& lvalue, const egg::ovum::Variant& rvalue) const override;
-    virtual Node toNodeLegacy(IAllocator& allocator, const NodeLocation& location) const override;
+    virtual Node compile(IAllocator& allocator, const NodeLocation& location) const override;
   };
 
   class Object : public HardPtr<IObject> {

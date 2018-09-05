@@ -79,7 +79,7 @@ egg::ovum::Node egg::yolk::EggProgramCompiler::type(const egg::ovum::LocationSou
   if (type == nullptr) {
     return this->opcode(location, egg::ovum::OPCODE_INFERRED);
   }
-  return type->toNodeLegacy(this->context.allocator(), { location.line, location.column });
+  return type->compile(this->context.allocator(), { location.line, location.column });
 }
 
 egg::ovum::Node egg::yolk::EggProgramCompiler::identifier(const egg::ovum::LocationSource& location, const egg::ovum::String& id) {

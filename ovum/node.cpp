@@ -573,7 +573,7 @@ egg::ovum::Node egg::ovum::NodeFactory::createValue(IAllocator& allocator, const
   return createNodeOperand<NodeOperandString>(allocator, OPCODE_SVALUE, value);
 }
 
-egg::ovum::Node egg::ovum::NodeFactory::createType(IAllocator& allocator, const NodeLocation& location, BasalBits basal) {
+egg::ovum::Node egg::ovum::NodeFactory::createBasalType(IAllocator& allocator, const NodeLocation& location, BasalBits basal) {
   auto opcode = basalTypeToOpcode(basal);
   if (opcode != OPCODE_END) {
     // This is a well-known basal type
@@ -589,6 +589,63 @@ egg::ovum::Node egg::ovum::NodeFactory::createType(IAllocator& allocator, const 
     basal = Bits::clear(basal, top);
   }
   return NodeFactory::create(allocator, location, OPCODE_UNION, &parts);
+}
+
+egg::ovum::Node egg::ovum::NodeFactory::createFunctionType(IAllocator& allocator, const NodeLocation& location, const IFunctionSignature& signature) {
+  /*
+  type-object ::= '(object' callable ')'
+  callable ::= '(callable' type callable-parameter* ')'
+  callable-parameter ::= type-object-constraint-callable-parameter-required | callable-parameter-optional | callable-parameter-byname | callable-parameter-varargs
+  callable-parameter-required ::= '(required' type identifier? ')'
+  callable-parameter-optional ::= '(optional' type identifier? ')'
+  callable-parameter-byname ::= '(byname' type identifier ')'
+  callable-parameter-varargs ::= '(varargs' type identifier type-int-constraint* ')'
+  */
+  Nodes children;
+  children.push_back(signature.getReturnType()->compile(allocator, location));
+  auto n = signature.getParameterCount();
+  Node child;
+  for (size_t i = 0; i < n; ++i) {
+    auto& parameter = signature.getParameter(i);
+    auto type = parameter.getType()->compile(allocator, location);
+    auto identifier = NodeFactory::create(allocator, OPCODE_IDENTIFIER, NodeFactory::createValue(allocator, parameter.getName()));
+    auto flags = parameter.getFlags();
+    auto position = parameter.getPosition();
+    if (position == SIZE_MAX) {
+      // This is not positional, it's by name
+      // ('byname' type identifier)
+      assert(!Bits::hasAnySet(flags, IFunctionSignatureParameter::Flags::Variadic));
+      child = NodeFactory::create(allocator, OPCODE_BYNAME, std::move(type), std::move(identifier));
+    } else {
+      // This is positional
+      assert(position == i);
+      if (Bits::hasAnySet(flags, IFunctionSignatureParameter::Flags::Variadic)) {
+        if (Bits::hasAnySet(flags, IFunctionSignatureParameter::Flags::Required)) {
+          // ('varargs' type identifier ('compare' OPERATOR_GT 0))
+          Nodes zero;
+          zero.push_back(NodeFactory::createValue(allocator, 0));
+          auto constraint = NodeFactory::create(allocator, OPCODE_COMPARE, &zero, nullptr, OPERATOR_GT);
+          child = NodeFactory::create(allocator, OPCODE_VARARGS, std::move(type), std::move(identifier), std::move(constraint));
+        } else {
+          // ('varargs' type identifier)
+          child = NodeFactory::create(allocator, OPCODE_VARARGS, std::move(type), std::move(identifier));
+        }
+      } else if (Bits::hasAnySet(flags, IFunctionSignatureParameter::Flags::Required)) {
+        // ('required' type identifier)
+        child = NodeFactory::create(allocator, OPCODE_REQUIRED, std::move(type), std::move(identifier));
+      } else {
+        // ('optional' type identifier)
+        child = NodeFactory::create(allocator, OPCODE_OPTIONAL, std::move(type), std::move(identifier));
+      }
+    }
+    children.push_back(child);
+  }
+  // ('callable' rettype parameter*)
+  auto callable = NodeFactory::create(allocator, OPCODE_CALLABLE, &children);
+  // ('object' callable)
+  children.resize(1);
+  children[0] = callable;
+  return NodeFactory::create(allocator, location, OPCODE_OBJECT, &children);
 }
 
 egg::ovum::String egg::ovum::Node::toString(const INode* node) {

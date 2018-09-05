@@ -357,21 +357,5 @@ namespace egg::ovum {
     static bool equals(const IMemory* lhs, const IMemory* rhs);
   };
 
-  class Function {
-  public:
-    // Helpers
-    enum class Parts {
-      ReturnType = 0x01,
-      FunctionName = 0x02,
-      ParameterList = 0x04,
-      ParameterNames = 0x08,
-      NoNames = ReturnType | ParameterList,
-      All = ~0
-    };
-    static String signatureToString(const IFunctionSignature& signature, Parts parts);
-    static Variant validateCall(IExecution& execution, const IFunctionSignature& signature, const IParameters& runtime);
-    static const IParameters& NoParameters;
-  };
-
   using Basket = HardPtr<IBasket>;
 }
