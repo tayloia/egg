@@ -787,6 +787,7 @@ namespace {
       this->builtin("assert", VariantFactory::createBuiltinAssert(this->allocator));
       this->builtin("print", VariantFactory::createBuiltinPrint(this->allocator));
       this->builtin("string", VariantFactory::createBuiltinString(this->allocator));
+      this->builtin("type", VariantFactory::createBuiltinType(this->allocator));
     }
   private:
     Variant executeRoot(const INode& node) {
@@ -1402,6 +1403,9 @@ namespace {
       if (callee.hasFlowControl()) {
         return callee;
       }
+      if (!callee.hasObject()) {
+        return this->raiseNode(node, "Expected function-like expression to be an 'object', but got '", callee.getRuntimeType().toString(), "' instead");
+      }
       Parameters parameters;
       for (size_t i = 1; i < n; ++i) {
         auto expr = this->expression(node.getChild(i));
@@ -1410,7 +1414,10 @@ namespace {
         }
         parameters.addPositional(std::move(expr));
       }
-      return this->call(node, callee, parameters);
+      LocationSource before = this->location;
+      auto retval = callee.getObject()->call(*this, parameters);
+      this->location = before;
+      return retval;
     }
     Variant expressionGuard(const INode& node, Block* block) {
       assert(node.getOpcode() == OPCODE_GUARD);
@@ -1751,14 +1758,6 @@ namespace {
         return this->raiseNode(node, "Expected condition to evaluate to a 'bool' value, but got '", value.getRuntimeType().toString(), "' instead");
       }
       return value;
-    }
-    Variant call(const INode& node, const Variant& callee, const IParameters& parameters) {
-      assert(!callee.hasFlowControl());
-      if (callee.hasObject()) {
-        auto object = callee.getObject();
-        return object->call(*this, parameters);
-      }
-      return this->raiseNode(node, "Expected function-like expression to be an 'object', but got '", callee.getRuntimeType().toString(), "' instead");
     }
     // Error handling
     template<typename... ARGS>

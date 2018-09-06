@@ -115,11 +115,11 @@ namespace {
     }
   };
 
-  class BuiltinAssert : public BuiltinFunction {
-    BuiltinAssert(const BuiltinAssert&) = delete;
-    BuiltinAssert& operator=(const BuiltinAssert&) = delete;
+  class Builtin_Assert : public BuiltinFunction {
+    Builtin_Assert(const Builtin_Assert&) = delete;
+    Builtin_Assert& operator=(const Builtin_Assert&) = delete;
   public:
-    explicit BuiltinAssert(IAllocator& allocator)
+    explicit Builtin_Assert(IAllocator& allocator)
       : BuiltinFunction(allocator, "assert", Type::Void) {
       this->type->addParameter("predicate", Type::Any, IFunctionSignatureParameter::Flags::Required);
     }
@@ -134,11 +134,11 @@ namespace {
     }
   };
 
-  class BuiltinPrint : public BuiltinFunction {
-    BuiltinPrint(const BuiltinPrint&) = delete;
-    BuiltinPrint& operator=(const BuiltinPrint&) = delete;
+  class Builtin_Print : public BuiltinFunction {
+    Builtin_Print(const Builtin_Print&) = delete;
+    Builtin_Print& operator=(const Builtin_Print&) = delete;
   public:
-    explicit BuiltinPrint(IAllocator& allocator)
+    explicit Builtin_Print(IAllocator& allocator)
       : BuiltinFunction(allocator, "print", Type::Void) {
       this->type->addParameter("values", Type::Any, IFunctionSignatureParameter::Flags::Variadic);
     }
@@ -156,11 +156,11 @@ namespace {
     }
   };
 
-  class BuiltinString : public BuiltinObject {
-    BuiltinString(const BuiltinString&) = delete;
-    BuiltinString& operator=(const BuiltinString&) = delete;
+  class Builtin_String : public BuiltinObject {
+    Builtin_String(const Builtin_String&) = delete;
+    Builtin_String& operator=(const Builtin_String&) = delete;
   public:
-    explicit BuiltinString(IAllocator& allocator, const BuiltinObjectType& type)
+    explicit Builtin_String(IAllocator& allocator, const BuiltinObjectType& type)
       : BuiltinObject(allocator, type) {
     }
     virtual Variant call(IExecution& execution, const IParameters& parameters) override {
@@ -173,6 +173,49 @@ namespace {
         sb.add(parameters.getPositional(i).toString());
       }
       return sb.str();
+    }
+  };
+
+  class Builtin_TypeOf : public BuiltinFunction {
+    Builtin_TypeOf(const Builtin_TypeOf&) = delete;
+    Builtin_TypeOf& operator=(const Builtin_TypeOf&) = delete;
+  public:
+    explicit Builtin_TypeOf(IAllocator& allocator)
+      : BuiltinFunction(allocator, "type.of", Type::Object) {
+      this->type->addParameter("value", Type::String, IFunctionSignatureParameter::Flags::Required);
+    }
+    virtual Variant call(IExecution& execution, const IParameters& parameters) override {
+      if (parameters.getNamedCount() > 0) {
+        return this->raiseBuiltin(execution, "does not accept named parameters");
+      }
+      if (parameters.getPositionalCount() != 1) {
+        return this->raiseBuiltin(execution, "accepts only 1 parameter, not ", parameters.getPositionalCount());
+      }
+      return parameters.getPositional(0).getRuntimeType().toString();
+    }
+  };
+
+  class Builtin_Type : public BuiltinObject {
+    Builtin_Type(const Builtin_Type&) = delete;
+    Builtin_Type& operator=(const Builtin_Type&) = delete;
+  public:
+    explicit Builtin_Type(IAllocator& allocator, const BuiltinObjectType& type)
+      : BuiltinObject(allocator, type) {
+    }
+    virtual Variant call(IExecution& execution, const IParameters& parameters) override {
+      if (parameters.getNamedCount() > 0) {
+        return this->raiseBuiltin(execution, "does not accept named parameters");
+      }
+      return this->raiseBuiltin(execution, "not yet implemented"); // WIBBLE
+    }
+    virtual Variant getProperty(IExecution& execution, const String& property) override {
+      if (property.equals("of")) {
+        return VariantFactory::createObject<Builtin_TypeOf>(allocator);
+      }
+      return this->raiseBuiltin(execution, "does not support property '", property, "'");
+    }
+    virtual Variant setProperty(IExecution& execution, const String& property, const Variant&) override {
+      return this->raiseBuiltin(execution, "does not support assigning to properties such as '", property, "'");
     }
   };
 
@@ -455,16 +498,21 @@ namespace {
 }
 
 egg::ovum::Variant egg::ovum::VariantFactory::createBuiltinAssert(IAllocator& allocator) {
-  return VariantFactory::createObject<BuiltinAssert>(allocator);
+  return VariantFactory::createObject<Builtin_Assert>(allocator);
 }
 
 egg::ovum::Variant egg::ovum::VariantFactory::createBuiltinPrint(IAllocator& allocator) {
-  return VariantFactory::createObject<BuiltinPrint>(allocator);
+  return VariantFactory::createObject<Builtin_Print>(allocator);
 }
 
 egg::ovum::Variant egg::ovum::VariantFactory::createBuiltinString(IAllocator& allocator) {
   static const BuiltinObjectType type{ "string" };
-  return VariantFactory::createObject<BuiltinString>(allocator, type);
+  return VariantFactory::createObject<Builtin_String>(allocator, type);
+}
+
+egg::ovum::Variant egg::ovum::VariantFactory::createBuiltinType(IAllocator& allocator) {
+  static const BuiltinObjectType type{ "type" };
+  return VariantFactory::createObject<Builtin_Type>(allocator, type);
 }
 
 egg::ovum::Variant egg::ovum::VariantFactory::createStringProperty(IAllocator& allocator, const String& string, const String& property) {

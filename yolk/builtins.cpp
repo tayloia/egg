@@ -170,10 +170,10 @@ namespace {
     }
   };
 
-  class BuiltinString : public BuiltinObject {
-    EGG_NO_COPY(BuiltinString);
+  class Builtin_String : public BuiltinObject {
+    EGG_NO_COPY(Builtin_String);
   public:
-    explicit BuiltinString(egg::ovum::IAllocator& allocator)
+    explicit Builtin_String(egg::ovum::IAllocator& allocator)
       : BuiltinObject(allocator, "string", egg::ovum::Type::String) {
       // The function call looks like: 'string string(any?... value)'
       this->type->addParameter("value", egg::ovum::Type::AnyQ, Flags::Variadic);
@@ -217,10 +217,10 @@ namespace {
     }
   };
 
-  class BuiltinType : public BuiltinObject {
-    EGG_NO_COPY(BuiltinType);
+  class Builtin_Type : public BuiltinObject {
+    EGG_NO_COPY(Builtin_Type);
   public:
-    explicit BuiltinType(egg::ovum::IAllocator& allocator)
+    explicit Builtin_Type(egg::ovum::IAllocator& allocator)
       : BuiltinObject(allocator, "type", egg::ovum::Type::AnyQ) {
       // The function call looks like: 'type type(any?... value)'
       this->type->addParameter("value", egg::ovum::Type::AnyQ, Flags::Variadic);
@@ -232,10 +232,10 @@ namespace {
     }
   };
 
-  class BuiltinAssert : public BuiltinFunction {
-    EGG_NO_COPY(BuiltinAssert);
+  class Builtin_Assert : public BuiltinFunction {
+    EGG_NO_COPY(Builtin_Assert);
   public:
-    explicit BuiltinAssert(egg::ovum::IAllocator& allocator)
+    explicit Builtin_Assert(egg::ovum::IAllocator& allocator)
       : BuiltinFunction(allocator, "assert", egg::ovum::Type::Void) {
       this->type->addParameter("predicate", egg::ovum::Type::Any, egg::ovum::Bits::set(Flags::Required, Flags::Predicate));
     }
@@ -248,10 +248,10 @@ namespace {
     }
   };
 
-  class BuiltinPrint : public BuiltinFunction {
-    EGG_NO_COPY(BuiltinPrint);
+  class Builtin_Print : public BuiltinFunction {
+    EGG_NO_COPY(Builtin_Print);
   public:
-    explicit BuiltinPrint(egg::ovum::IAllocator& allocator)
+    explicit Builtin_Print(egg::ovum::IAllocator& allocator)
       : BuiltinFunction(allocator, "print", egg::ovum::Type::Void) {
       this->type->addParameter("...", egg::ovum::Type::Any, Flags::Variadic);
     }
@@ -681,17 +681,17 @@ egg::ovum::Variant egg::yolk::Builtins::stringBuiltin(egg::ovum::IExecution& exe
 }
 
 egg::ovum::Variant egg::yolk::Builtins::builtinString(egg::ovum::IAllocator& allocator) {
-  return egg::ovum::VariantFactory::createObject<BuiltinString>(allocator);
+  return egg::ovum::VariantFactory::createObject<Builtin_String>(allocator);
 }
 
 egg::ovum::Variant egg::yolk::Builtins::builtinType(egg::ovum::IAllocator& allocator) {
-  return egg::ovum::VariantFactory::createObject<BuiltinType>(allocator);
+  return egg::ovum::VariantFactory::createObject<Builtin_Type>(allocator);
 }
 
 egg::ovum::Variant egg::yolk::Builtins::builtinAssert(egg::ovum::IAllocator& allocator) {
-  return egg::ovum::VariantFactory::createObject<BuiltinAssert>(allocator);
+  return egg::ovum::VariantFactory::createObject<Builtin_Assert>(allocator);
 }
 
 egg::ovum::Variant egg::yolk::Builtins::builtinPrint(egg::ovum::IAllocator& allocator) {
-  return egg::ovum::VariantFactory::createObject<BuiltinPrint>(allocator);
+  return egg::ovum::VariantFactory::createObject<Builtin_Print>(allocator);
 }
