@@ -14,7 +14,7 @@ namespace egg::ovum {
     size_t length() const;
     int32_t codePointAt(size_t index) const;
     bool equals(const String& other) const;
-    int64_t hashCode() const;
+    int64_t hash() const;
     int64_t compareTo(const String& other) const;
     bool contains(const String& needle) const;
     bool startsWith(const String& other) const;
@@ -71,7 +71,7 @@ namespace std {
   template<> struct hash<egg::ovum::String> {
     // String hash specialization for use with std::unordered_map<> etc.
     inline size_t operator()(const egg::ovum::String& s) const {
-      return size_t(s.hashCode());
+      return size_t(s.hash());
     }
   };
 }

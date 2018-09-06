@@ -327,15 +327,15 @@ namespace {
     }
   };
 
-  class StringHashCode : public StringFunctionType {
-    EGG_NO_COPY(StringHashCode);
+  class StringHash : public StringFunctionType {
+    EGG_NO_COPY(StringHash);
   public:
-    StringHashCode(egg::ovum::IAllocator& allocator, const egg::ovum::String& name)
+    StringHash(egg::ovum::IAllocator& allocator, const egg::ovum::String& name)
       : StringFunctionType(allocator, name, egg::ovum::Type::Int) {
     }
     virtual egg::ovum::Variant executeCall(egg::ovum::IExecution&, const egg::ovum::String& instance, const egg::ovum::IParameters&) const override {
-      // int hashCode()
-      return egg::ovum::Variant{ instance.hashCode() };
+      // int hash()
+      return egg::ovum::Variant{ instance.hash() };
     }
   };
 
@@ -368,10 +368,10 @@ namespace {
     }
   };
 
-  class StringCompare : public StringFunctionType {
-    EGG_NO_COPY(StringCompare);
+  class StringCompareTo : public StringFunctionType {
+    EGG_NO_COPY(StringCompareTo);
   public:
-    StringCompare(egg::ovum::IAllocator& allocator, const egg::ovum::String& name)
+    StringCompareTo(egg::ovum::IAllocator& allocator, const egg::ovum::String& name)
       : StringFunctionType(allocator, name, egg::ovum::Type::Int) {
       this->addParameter("needle", egg::ovum::Type::String, Flags::Required);
     }
@@ -648,10 +648,10 @@ namespace {
 egg::yolk::Builtins::StringBuiltinFactory egg::yolk::Builtins::stringBuiltinFactory(const egg::ovum::String& property) {
   // See http://chilliant.blogspot.co.uk/2018/05/egg-strings.html
   static const std::map<egg::ovum::String, StringBuiltinFactory> table = {
-    { "compare",      StringBuiltin::make<StringCompare> },
+    { "compareTo",    StringBuiltin::make<StringCompareTo> },
     { "contains",     StringBuiltin::make<StringContains> },
     { "endsWith",     StringBuiltin::make<StringEndsWith> },
-    { "hashCode",     StringBuiltin::make<StringHashCode> },
+    { "hash",         StringBuiltin::make<StringHash> },
     { "indexOf",      StringBuiltin::make<StringIndexOf> },
     { "join",         StringBuiltin::make<StringJoin> },
     { "lastIndexOf",  StringBuiltin::make<StringLastIndexOf> },

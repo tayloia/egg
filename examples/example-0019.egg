@@ -1,4 +1,4 @@
-print("egg".hashCode() != "beggar".hashCode()); // Highly improbable
+print("egg".hash() != "beggar".hash()); // Highly improbable
 ///>true
 
 print("egg".toString());
@@ -9,11 +9,11 @@ print("beggar".contains("egg"));
 print("egg".contains("beggar"));
 ///>false
 
-print("egg".compare("egg"));
+print("egg".compareTo("egg"));
 ///>0
-print("beggar".compare("egg"));
+print("beggar".compareTo("egg"));
 ///>-1
-print("egg".compare("beggar"));
+print("egg".compareTo("beggar"));
 ///>1
 
 print("egg".startsWith("e"));

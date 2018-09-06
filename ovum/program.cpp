@@ -590,7 +590,7 @@ namespace {
         }
       }
       if (!predicate.isBool()) {
-        return this->raiseFormat("Builtin 'assert()' expects its parameter to be a 'bool' value, but got '", predicate.getRuntimeType().toString(), "' instead");
+        return this->raiseFormat("'assert()' expects its parameter to be a 'bool' or 'void()', but got '", predicate.getRuntimeType().toString(), "' instead");
       }
       if (predicate.getBool()) {
         return Variant::Void;
@@ -1547,7 +1547,7 @@ namespace {
     Variant stringProperty(const String& string, const String& property) {
       auto retval = VariantFactory::createStringProperty(this->allocator, string, property);
       if (retval.isVoid()) {
-        return this->raiseFormat("Property '", property, "' of '", string, "' not yet supported"); // WIBBLE
+        return this->raiseFormat("Unknown property for 'string' value: '", property, "'");
       }
       return retval;
     }
@@ -1758,7 +1758,7 @@ namespace {
         auto object = callee.getObject();
         return object->call(*this, parameters);
       }
-      return this->raiseNode(node, "WIBBLE: Invalid callee type: '", callee.getRuntimeType().toString(), "'");
+      return this->raiseNode(node, "Expected function-like expression to be an 'object', but got '", callee.getRuntimeType().toString(), "' instead");
     }
     // Error handling
     template<typename... ARGS>

@@ -4,13 +4,6 @@
 
 #include <stdexcept>
 
-// WIBBLE
-#if defined(_MSC_VER)
-#define WIBBLE __FUNCSIG__
-#else
-#define WIBBLE + std::string(__PRETTY_FUNCTION__)
-#endif
-
 namespace {
   using namespace egg::ovum;
 
@@ -207,8 +200,12 @@ namespace {
       auto property = index.getString();
       return this->values.getOrDefault(property, Variant::Void);
     }
-    virtual Variant setIndex(IExecution&, const Variant&, const Variant&) override {
-      throw std::runtime_error("TODO: " WIBBLE);
+    virtual Variant setIndex(IExecution& execution, const Variant& index, const Variant& value) override {
+      if (!index.isString()) {
+        return execution.raiseFormat("Object index was expected to be a 'string', not '", index.getRuntimeType().toString(), "'");
+      }
+      auto property = index.getString();
+      return this->values.addOrUpdate(property, value);
     }
     virtual Variant iterate(IExecution& execution) override;
   };

@@ -4,13 +4,6 @@
 #include "ovum/program.h"
 #include "ovum/function.h"
 
-// WIBBLE
-#if defined(_MSC_VER)
-#define WIBBLE __FUNCSIG__
-#else
-#define WIBBLE + std::string(__PRETTY_FUNCTION__)
-#endif
-
 namespace {
   using namespace egg::ovum;
 
@@ -42,7 +35,7 @@ namespace {
     }
     template<typename... ARGS>
     Variant raiseBuiltin(IExecution& execution, ARGS&&... args) {
-      return execution.raiseFormat("Builtin '", this->name, "' ", std::forward<ARGS>(args)...);
+      return execution.raiseFormat("Built-in '", this->name, "' ", std::forward<ARGS>(args)...);
     }
   };
 
@@ -56,8 +49,8 @@ namespace {
       : name(name) {
       assert(!name.empty());
     }
-    virtual Variant tryAssign(IExecution& execution, Variant&, const Variant&) const override {
-      return execution.raise("WIBBLE");
+    virtual Variant tryAssign(IExecution& execution, Variant&, const egg::ovum::Variant&) const override {
+      return execution.raiseFormat("Cannot re-assign built-in value: '", this->name, "'");
     }
     virtual std::pair<std::string, int> toStringPrecedence() const override {
       return std::make_pair("<" + this->name.toUTF8() + ">", 0);
@@ -82,13 +75,10 @@ namespace {
       assert(false);
     }
     virtual Variant toString() const override {
-      throw std::runtime_error("TODO: " WIBBLE);
+      return StringBuilder::concat('<', this->name, '>');
     }
     virtual Type getRuntimeType() const override {
       return Type(this->type.get());
-    }
-    virtual Variant call(IExecution&, const IParameters&) override {
-      throw std::runtime_error("TODO: " WIBBLE);
     }
   };
 
@@ -111,7 +101,7 @@ namespace {
     HardPtr<BuiltinFunctionType> type;
   public:
     BuiltinFunction(IAllocator& allocator, const String& name, const Type& rettype)
-      : BuiltinBase(allocator, name),
+      : BuiltinBase(allocator, StringBuilder::concat(name, "()")),
       type(allocator.make<BuiltinFunctionType>(name, rettype)) {
     }
     virtual void softVisitLinks(const Visitor&) const override {
@@ -204,10 +194,10 @@ namespace {
       // There are no soft links to visit
     }
     virtual Variant toString() const override {
-      throw std::runtime_error("TODO: " WIBBLE);
+      return StringBuilder::concat('<', this->name, '>'); // WIBBLE
     }
     virtual Type getRuntimeType() const override {
-      throw std::runtime_error("TODO: " WIBBLE);
+      return nullptr; // WIBBLE
     }
     virtual Variant call(IExecution& execution, const IParameters& parameters) override {
       if (parameters.getNamedCount() > 0) {
@@ -219,7 +209,7 @@ namespace {
     Variant raise(IExecution& execution, ARGS&&... args) const {
       return execution.raiseFormat("Function '", this->name, "' ", std::forward<ARGS>(args)...);
     }
-    Variant compare(IExecution& execution, const IParameters& parameters) const {
+    Variant compareTo(IExecution& execution, const IParameters& parameters) const {
       if (parameters.getPositionalCount() != 1) {
         return this->raise(execution, "expects one parameters, but got ", parameters.getPositionalCount());
       }
@@ -249,11 +239,11 @@ namespace {
       }
       return this->string.endsWith(parameter.getString());
     }
-    Variant hashCode(IExecution& execution, const IParameters& parameters) const {
+    Variant hash(IExecution& execution, const IParameters& parameters) const {
       if (parameters.getPositionalCount() > 0) {
         return this->raise(execution, "does not expect any parameters, but got ", parameters.getPositionalCount());
       }
-      return this->string.hashCode();
+      return this->string.hash();
     }
     Variant indexOf(IExecution& execution, const IParameters& parameters) const {
       auto n = parameters.getPositionalCount();
@@ -484,10 +474,10 @@ egg::ovum::Variant egg::ovum::VariantFactory::createStringProperty(IAllocator& a
   }
   // TODO optimize with lookup table
 #define EGG_STRING_PROPERTY(name) if (property == #name) return BuiltinStringFunction::make(allocator, "string." #name, &BuiltinStringFunction::name, string)
-  EGG_STRING_PROPERTY(compare); // WIBBLE compareTo()
+  EGG_STRING_PROPERTY(compareTo);
   EGG_STRING_PROPERTY(contains);
   EGG_STRING_PROPERTY(endsWith);
-  EGG_STRING_PROPERTY(hashCode); // WIBBLE hash()
+  EGG_STRING_PROPERTY(hash);
   EGG_STRING_PROPERTY(indexOf);
   EGG_STRING_PROPERTY(join);
   EGG_STRING_PROPERTY(lastIndexOf);

@@ -318,15 +318,15 @@ bool egg::ovum::String::equals(const String& other) const {
   return Memory::equals(this->get(), other.get());
 }
 
-int64_t egg::ovum::String::hashCode() const {
+int64_t egg::ovum::String::hash() const {
   // See https://docs.oracle.com/javase/6/docs/api/java/lang/String.html#hashCode()
-  int64_t hash = 0;
+  int64_t i = 0;
   auto reader = readerBegin(*this);
   char32_t codepoint = 0;
   while (reader.forward(codepoint)) {
-    hash = hash * 31 + int64_t(uint32_t(codepoint));
+    i = i * 31 + int64_t(uint32_t(codepoint));
   }
-  return hash;
+  return i;
 }
 
 int64_t egg::ovum::String::compareTo(const String& other) const {
