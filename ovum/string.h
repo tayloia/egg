@@ -40,6 +40,7 @@ namespace egg::ovum {
     std::string toUTF8() const;
 
     // Equality operators
+    bool equals(const char* utf8) const;
     bool operator==(const String& rhs) const {
       return this->equals(rhs);
     }

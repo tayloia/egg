@@ -177,7 +177,13 @@ namespace egg::ovum {
   class ObjectFactory {
   public:
     static Object createVanillaObject(IAllocator& allocator);
+    static Object createVanillaKeyValue(IAllocator& allocator, IBasket& basket, const Variant& key, const Variant& value);
     static Object createVanillaArray(IAllocator& allocator, size_t size = 0);
+    template<typename T, typename... ARGS>
+    static Object create(IAllocator& allocator, ARGS&&... args) {
+      // Use perfect forwarding
+      return Object(*allocator.make<T>(std::forward<ARGS>(args)...));
+    }
   };
 
   class VariantFactory {
@@ -191,7 +197,7 @@ namespace egg::ovum {
     template<typename T, typename... ARGS>
     static Variant createObject(IAllocator& allocator, ARGS&&... args) {
       // Use perfect forwarding
-      return Variant(Object(*allocator.make<T>(std::forward<ARGS>(args)...)));
+      return Variant(ObjectFactory::create<T>(allocator, std::forward<ARGS>(args)...));
     }
   };
 

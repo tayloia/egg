@@ -125,6 +125,13 @@ namespace egg::ovum {
       }
       return defval;
     }
+    std::pair<K, V> getByIndex(size_t index) const {
+      // Return by insertion order index
+      assert(index < this->vec.size());
+      auto& key = this->vec.at(index);
+      auto& value = this->map.at(key);
+      return std::make_pair(key, value);
+    }
     bool addOrUpdate(const K& key, const V& value) {
       // Returns true iff an insertion occurred
       bool inserted = this->map.insert_or_assign(key, value).second;
@@ -175,8 +182,9 @@ namespace egg::ovum {
       this->vec.clear();
     }
     void foreach(std::function<void(const K& key, const V& value)> visitor) const {
-      for (auto& entry : this->map) {
-        visitor(entry.first, entry.second);
+      // Iterate in insertion order
+      for (auto& key : this->vec) {
+        visitor(key, this->map.at(key));
       }
     }
   };

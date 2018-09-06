@@ -443,7 +443,7 @@ egg::ovum::Variant egg::ovum::VariantFactory::createBuiltinString(IAllocator& al
 
 egg::ovum::Variant egg::ovum::VariantFactory::createStringProperty(IAllocator& allocator, const String& string, const String& property) {
   // Treat 'length' as a special case
-  if (property == "length") {
+  if (property.equals("length")) {
     return Int(string.length());
   }
   // TODO optimize with lookup table

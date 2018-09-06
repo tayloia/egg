@@ -295,6 +295,24 @@ int32_t egg::ovum::String::codePointAt(size_t index) const {
   return reader.forward(codepoint) ? int32_t(codepoint) : -1;
 }
 
+bool egg::ovum::String::equals(const char* utf8) const {
+  // Ordinal comparison (note: cannot handle NUL characters in UTF8 strings)
+  auto* memory = this->get();
+  if (memory == nullptr) {
+    return (utf8 == nullptr) || (*utf8 == '\0');
+  }
+  auto* p = memory->begin();
+  auto* q = memory->end();
+  if (utf8 != nullptr) {
+    while (*utf8 != '\0') {
+      if ((p >= q) || (*p++ != uint8_t(*utf8++))) {
+        return false;
+      }
+    }
+  }
+  return (p == q);
+}
+
 bool egg::ovum::String::equals(const String& other) const {
   // Ordinal comparison
   return Memory::equals(this->get(), other.get());
