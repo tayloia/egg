@@ -65,4 +65,24 @@ namespace egg::ovum {
       return this->parameters[index];
     }
   };
+
+  class FunctionType : public HardReferenceCounted<TypeBase> {
+    FunctionType(const FunctionType&) = delete;
+    FunctionType& operator=(const FunctionType&) = delete;
+  protected:
+    FunctionSignature signature;
+  public:
+    FunctionType(IAllocator& allocator, const String& name, const Type& rettype);
+    // Interface
+    virtual AssignmentSuccess canBeAssignedFrom(const IType& rhs) const override;
+    virtual const IFunctionSignature* callable() const override;
+    virtual std::pair<std::string, int> toStringPrecedence() const override;
+    virtual Node compile(IAllocator& allocator, const NodeLocation& location) const override;
+    // Implementation
+    void addParameter(const String& name, const Type& type, IFunctionSignatureParameter::Flags flags, size_t index);
+    void addParameter(const String& name, const Type& type, IFunctionSignatureParameter::Flags flags);
+    // Helpers
+    static FunctionType* createFunctionType(IAllocator& allocator, const String& name, const Type& rettype);
+    static FunctionType* createGeneratorType(IAllocator& allocator, const String& name, const Type& rettype);
+  };
 }

@@ -46,10 +46,8 @@ namespace {
     virtual std::pair<std::string, int> toStringPrecedence() const override {
       return std::make_pair("<iterator>", 0);
     }
-    // TODO iterable() for forEachRemaining() like Java?
-    virtual egg::ovum::Variant tryAssign(egg::ovum::Variant&, const egg::ovum::Variant&) const override {
-      egg::ovum::Variant exception{ "Cannot re-assign iterators" };
-      return egg::ovum::VariantFactory::createException(std::move(exception));
+    virtual egg::ovum::Variant tryAssign(egg::ovum::IExecution& execution, egg::ovum::Variant&, const egg::ovum::Variant&) const override {
+      return execution.raise("Cannot re-assign iterators");
     }
     static const VanillaIteratorType instance;
   };

@@ -3,7 +3,7 @@
 namespace {
   using Flags = egg::ovum::IFunctionSignatureParameter::Flags;
 
-  class BuiltinFunctionType : public egg::yolk::FunctionType {
+  class BuiltinFunctionType : public egg::ovum::FunctionType {
     EGG_NO_COPY(BuiltinFunctionType);
   public:
     BuiltinFunctionType(egg::ovum::IAllocator& allocator, const egg::ovum::String& name, const egg::ovum::Type& returnType)

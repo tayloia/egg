@@ -41,14 +41,7 @@ namespace {
     return IType::AssignmentSuccess::Never;
   }
 
-  template<typename... ARGS>
-  Variant makeException(ARGS&&... args) {
-    // WIBBLE retire
-    // TODO: proper exception object
-    return egg::ovum::VariantFactory::createException(StringBuilder::concat(std::forward<ARGS>(args)...));
-  }
-
-  Variant tryAssignBasal(BasalBits basal, Variant& lhs, const Variant& rhs) {
+  Variant tryAssignBasal(IExecution& execution, BasalBits basal, Variant& lhs, const Variant& rhs) {
     assert(basal != BasalBits::None);
     assert(!rhs.hasIndirect());
     if (rhs.hasAny(static_cast<VariantBits>(basal))) {
@@ -61,7 +54,7 @@ namespace {
       lhs = Variant(Float(rhs.getInt())); // TODO overflows?
       return Variant::Void;
     }
-    return makeException("Cannot assign a value of type '", rhs.getRuntimeType().toString(), "' to a target of type '", Type::getBasalString(basal), "'");
+    return execution.raiseFormat("Cannot assign a value of type '", rhs.getRuntimeType().toString(), "' to a target of type '", Type::getBasalString(basal), "'");
   }
 
   // An 'omni' function looks like this: 'any?(...any?[])'
@@ -149,8 +142,8 @@ namespace {
     virtual std::pair<std::string, int> toStringPrecedence() const override {
       return tagToStringPriority(BASAL);
     }
-    virtual Variant tryAssign(Variant& lvalue, const Variant& rvalue) const override {
-      return tryAssignBasal(BASAL, lvalue, rvalue);
+    virtual Variant tryAssign(IExecution& execution, Variant& lvalue, const Variant& rvalue) const override {
+      return tryAssignBasal(execution, BASAL, lvalue, rvalue);
     }
   };
   const TypeCommon<BasalBits::Void> typeVoid{};
@@ -171,8 +164,8 @@ namespace {
     virtual AssignmentSuccess canBeAssignedFrom(const IType&) const override {
       return AssignmentSuccess::Never;
     }
-    virtual Variant tryAssign(Variant&, const Variant&) const override {
-      return makeException("Cannot assign to 'null' value");
+    virtual Variant tryAssign(IExecution& execution, Variant&, const Variant&) const override {
+      return execution.raiseFormat("Cannot assign to 'null' value");
     }
   };
   const TypeNull typeNull{};
@@ -247,8 +240,8 @@ namespace {
     virtual AssignmentSuccess canBeAssignedFrom(const IType& rhs) const override {
       return canBeAssignedFromBasal(this->tag, rhs);
     }
-    virtual Variant tryAssign(Variant& lvalue, const Variant& rvalue) const override {
-      return tryAssignBasal(this->tag, lvalue, rvalue);
+    virtual Variant tryAssign(IExecution& execution, Variant& lvalue, const Variant& rvalue) const override {
+      return tryAssignBasal(execution, this->tag, lvalue, rvalue);
     }
     virtual const IFunctionSignature* callable() const override {
       if (Bits::hasAnySet(this->tag, BasalBits::Object)) {
@@ -308,35 +301,6 @@ namespace {
     }
   };
 
-  class ParametersNone : public IParameters {
-    ParametersNone(const ParametersNone&) = delete;
-    ParametersNone& operator=(const ParametersNone&) = delete;
-  public:
-    ParametersNone() = default;
-    virtual size_t getPositionalCount() const override {
-      return 0;
-    }
-    virtual Variant getPositional(size_t) const override {
-      return Variant::Void;
-    }
-    virtual const LocationSource* getPositionalLocation(size_t) const override {
-      return nullptr;
-    }
-    virtual size_t getNamedCount() const override {
-      return 0;
-    }
-    virtual String getName(size_t) const override {
-      return String();
-    }
-    virtual Variant getNamed(const String&) const override {
-      return Variant::Void;
-    }
-    virtual const LocationSource* getNamedLocation(const String&) const override {
-      return nullptr;
-    }
-  };
-  const ParametersNone parametersNone{};
-
   const char* getBasalComponent(BasalBits basal) {
     switch (basal) {
     case BasalBits::None:
@@ -354,50 +318,6 @@ namespace {
     return nullptr;
   }
 }
-
-egg::ovum::String egg::ovum::Function::signatureToString(const IFunctionSignature& signature, Parts parts) {
-  // TODO better formatting of named/variadic etc.
-  StringBuilder sb;
-  if (Bits::hasAnySet(parts, Parts::ReturnType)) {
-    // Use precedence zero to get any necessary parentheses
-    sb.add(signature.getReturnType().toString(0));
-  }
-  if (Bits::hasAnySet(parts, Parts::FunctionName)) {
-    auto name = signature.getFunctionName();
-    if (!name.empty()) {
-      sb.add(' ', name);
-    }
-  }
-  if (Bits::hasAnySet(parts, Parts::ParameterList)) {
-    sb.add('(');
-    auto n = signature.getParameterCount();
-    for (size_t i = 0; i < n; ++i) {
-      if (i > 0) {
-        sb.add(", ");
-      }
-      auto& parameter = signature.getParameter(i);
-      assert(parameter.getPosition() != SIZE_MAX);
-      if (Bits::hasAnySet(parameter.getFlags(), IFunctionSignatureParameter::Flags::Variadic)) {
-        sb.add("...");
-      } else {
-        sb.add(parameter.getType().toString());
-        if (Bits::hasAnySet(parts, Parts::ParameterNames)) {
-          auto pname = parameter.getName();
-          if (!pname.empty()) {
-            sb.add(' ', pname);
-          }
-        }
-        if (!Bits::hasAnySet(parameter.getFlags(), IFunctionSignatureParameter::Flags::Required)) {
-          sb.add(" = null");
-        }
-      }
-    }
-    sb.add(')');
-  }
-  return sb.str();
-}
-
-const egg::ovum::IParameters& egg::ovum::Function::NoParameters = parametersNone;
 
 const egg::ovum::IType* egg::ovum::Type::getBasalType(BasalBits basal) {
   switch (basal) {
@@ -501,12 +421,12 @@ egg::ovum::Type egg::ovum::TypeBase::unionWithBasal(IAllocator&, BasalBits) cons
   return nullptr;
 }
 
-egg::ovum::Variant egg::ovum::TypeBase::tryAssign(Variant& lvalue, const Variant& rvalue) const {
+egg::ovum::Variant egg::ovum::TypeBase::tryAssign(IExecution& execution, Variant& lvalue, const Variant& rvalue) const {
   // By default, call canBeAssignedFrom() but do not actually promote
   assert(!rvalue.hasIndirect());
   auto rtype = rvalue.getRuntimeType();
   if (this->canBeAssignedFrom(*rtype) == AssignmentSuccess::Never) {
-    return makeException("Cannot assign a value of type '", rtype.toString(), "' to a target of type '", Type(this).toString(), "'");
+    return execution.raiseFormat("Cannot assign a value of type '", rtype.toString(), "' to a target of type '", Type(this).toString(), "'");
   }
   lvalue = rvalue;
   return Variant::Void;

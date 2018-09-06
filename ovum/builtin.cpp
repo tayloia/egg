@@ -2,6 +2,7 @@
 #include "ovum/node.h"
 #include "ovum/module.h"
 #include "ovum/program.h"
+#include "ovum/function.h"
 
 // WIBBLE
 #if defined(_MSC_VER)
@@ -19,10 +20,10 @@ namespace {
   protected:
     String name;
   public:
-    BuiltinBase(IAllocator& allocator, const char* name)
+    BuiltinBase(IAllocator& allocator, const String& name)
       : SoftReferenceCounted(allocator),
-        name(StringFactory::fromUTF8(allocator, name)) {
-      assert(!this->name.empty());
+        name(name) {
+      assert(!name.empty());
     }
     virtual Variant getProperty(IExecution& execution, const String& property) override {
       return this->raiseBuiltin(execution, "does not support properties such as '", property, "'");
@@ -45,13 +46,36 @@ namespace {
     }
   };
 
+  class BuiltinObjectType : public NotReferenceCounted<TypeBase> {
+    BuiltinObjectType(const BuiltinObjectType&) = delete;
+    BuiltinObjectType& operator=(const BuiltinObjectType&) = delete;
+  private:
+    String name;
+  public:
+    explicit BuiltinObjectType(const String& name)
+      : name(name) {
+      assert(!name.empty());
+    }
+    virtual Variant tryAssign(IExecution& execution, Variant&, const Variant&) const override {
+      return execution.raise("WIBBLE");
+    }
+    virtual std::pair<std::string, int> toStringPrecedence() const override {
+      return std::make_pair("<" + this->name.toUTF8() + ">", 0);
+    }
+    const String& getName() const {
+      return this->name;
+    }
+  };
+
   class BuiltinObject : public BuiltinBase {
     BuiltinObject(const BuiltinObject&) = delete;
     BuiltinObject& operator=(const BuiltinObject&) = delete;
   private:
+    HardPtr<BuiltinObjectType> type;
   public:
-    BuiltinObject(IAllocator& allocator, const char* name)
-      : BuiltinBase(allocator, name) {
+    BuiltinObject(IAllocator& allocator, const BuiltinObjectType& type)
+      : BuiltinBase(allocator, type.getName()),
+        type(&type) {
     }
     virtual void softVisitLinks(const Visitor&) const override {
       // TODO
@@ -61,34 +85,43 @@ namespace {
       throw std::runtime_error("TODO: " WIBBLE);
     }
     virtual Type getRuntimeType() const override {
-      return Type::Object;
+      return Type(this->type.get());
     }
     virtual Variant call(IExecution&, const IParameters&) override {
       throw std::runtime_error("TODO: " WIBBLE);
     }
   };
 
+  class BuiltinFunctionType : public FunctionType {
+    BuiltinFunctionType(const BuiltinFunctionType&) = delete;
+    BuiltinFunctionType& operator=(const BuiltinFunctionType&) = delete;
+  public:
+    BuiltinFunctionType(IAllocator& allocator, const String& name, const Type& rettype)
+      : FunctionType(allocator, name, rettype) {
+    }
+    virtual Variant tryAssign(IExecution& execution, Variant&, const egg::ovum::Variant&) const override {
+      return execution.raiseFormat("Cannot re-assign built-in value: '", this->signature.getFunctionName(), "'");
+    }
+  };
+
   class BuiltinFunction : public BuiltinBase {
     BuiltinFunction(const BuiltinFunction&) = delete;
     BuiltinFunction& operator=(const BuiltinFunction&) = delete;
-  private:
-    Type type;
+  protected:
+    HardPtr<BuiltinFunctionType> type;
   public:
-    BuiltinFunction(IAllocator& allocator, const Type& type, const char* name)
+    BuiltinFunction(IAllocator& allocator, const String& name, const Type& rettype)
       : BuiltinBase(allocator, name),
-      type(type) {
-      assert(this->type != nullptr);
-      assert(!this->name.empty());
+      type(allocator.make<BuiltinFunctionType>(name, rettype)) {
     }
     virtual void softVisitLinks(const Visitor&) const override {
-      // TODO
-      assert(false);
+      // There are no soft links to visit
     }
     virtual Variant toString() const override {
-      throw std::runtime_error("TODO: " WIBBLE);
+      return this->name;
     }
     virtual Type getRuntimeType() const override {
-      return this->type;
+      return Type(this->type.get());
     }
   };
 
@@ -97,7 +130,8 @@ namespace {
     BuiltinAssert& operator=(const BuiltinAssert&) = delete;
   public:
     explicit BuiltinAssert(IAllocator& allocator)
-      : BuiltinFunction(allocator, Type::Object, "assert") {
+      : BuiltinFunction(allocator, "assert", Type::Void) {
+      this->type->addParameter("predicate", Type::Any, IFunctionSignatureParameter::Flags::Required);
     }
     virtual Variant call(IExecution& execution, const IParameters& parameters) override {
       if (parameters.getNamedCount() > 0) {
@@ -115,7 +149,8 @@ namespace {
     BuiltinPrint& operator=(const BuiltinPrint&) = delete;
   public:
     explicit BuiltinPrint(IAllocator& allocator)
-      : BuiltinFunction(allocator, Type::Object, "print") {
+      : BuiltinFunction(allocator, "print", Type::Void) {
+      this->type->addParameter("values", Type::Any, IFunctionSignatureParameter::Flags::Variadic);
     }
     virtual Variant call(IExecution& execution, const IParameters& parameters) override {
       if (parameters.getNamedCount() > 0) {
@@ -135,8 +170,8 @@ namespace {
     BuiltinString(const BuiltinString&) = delete;
     BuiltinString& operator=(const BuiltinString&) = delete;
   public:
-    explicit BuiltinString(IAllocator& allocator)
-      : BuiltinObject(allocator, "string") {
+    explicit BuiltinString(IAllocator& allocator, const BuiltinObjectType& type)
+      : BuiltinObject(allocator, type) {
     }
     virtual Variant call(IExecution& execution, const IParameters& parameters) override {
       if (parameters.getNamedCount() > 0) {
@@ -160,13 +195,13 @@ namespace {
     Function function;
     String string;
   public:
-    BuiltinStringFunction(IAllocator& allocator, const char* name, Function function, const String& string)
+    BuiltinStringFunction(IAllocator& allocator, const String& name, Function function, const String& string)
       : BuiltinBase(allocator, name),
         function(function),
         string(string) {
     }
     virtual void softVisitLinks(const Visitor&) const override {
-      // There are no soft link to visit
+      // There are no soft links to visit
     }
     virtual Variant toString() const override {
       throw std::runtime_error("TODO: " WIBBLE);
@@ -423,7 +458,7 @@ namespace {
       }
       return this->string;
     }
-    static Variant make(IAllocator& allocator, const char* name, Function function, const String& string) {
+    static Variant make(IAllocator& allocator, const String& name, Function function, const String& string) {
       return VariantFactory::createObject<BuiltinStringFunction>(allocator, name, function, string);
     }
   };
@@ -438,7 +473,8 @@ egg::ovum::Variant egg::ovum::VariantFactory::createBuiltinPrint(IAllocator& all
 }
 
 egg::ovum::Variant egg::ovum::VariantFactory::createBuiltinString(IAllocator& allocator) {
-  return VariantFactory::createObject<BuiltinString>(allocator);
+  static const BuiltinObjectType type{ "string" };
+  return VariantFactory::createObject<BuiltinString>(allocator, type);
 }
 
 egg::ovum::Variant egg::ovum::VariantFactory::createStringProperty(IAllocator& allocator, const String& string, const String& property) {

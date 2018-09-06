@@ -167,7 +167,7 @@ namespace egg::ovum {
   class IType : public IHardAcquireRelease {
   public:
     // Type management
-    virtual Variant tryAssign(Variant& lvalue, const egg::ovum::Variant& rvalue) const = 0;
+    virtual Variant tryAssign(IExecution& execution, Variant& lvalue, const egg::ovum::Variant& rvalue) const = 0;
 
     // no-man's land
     enum class AssignmentSuccess { Never, Sometimes, Always };

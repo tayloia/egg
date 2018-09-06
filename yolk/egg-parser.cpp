@@ -1698,15 +1698,15 @@ std::shared_ptr<egg::yolk::IEggProgramNode> egg::yolk::EggSyntaxNode_FunctionDef
   assert(this->child.size() >= 2);
   size_t parameters = this->child.size() - 2;
   auto rettype = context.promote(*this->child[0])->getType();
-  FunctionType* underlying;
+  egg::ovum::FunctionType* underlying;
   if (this->generator) {
     // Generators cannot explicitly return voids
     if (egg::ovum::Bits::hasAnySet(rettype->getBasalTypes(), egg::ovum::BasalBits::Void)) {
       throw exceptionFromLocation(context, "The return value of a generator may not include 'void'", *this);
     }
-    underlying = egg::yolk::FunctionType::createGeneratorType(context.allocator(), this->name, rettype);
+    underlying = egg::ovum::FunctionType::createGeneratorType(context.allocator(), this->name, rettype);
   } else {
-    underlying = egg::yolk::FunctionType::createFunctionType(context.allocator(), this->name, rettype);
+    underlying = egg::ovum::FunctionType::createFunctionType(context.allocator(), this->name, rettype);
   }
   egg::ovum::Type function{ underlying }; // takes ownership
   egg::ovum::String parameter_name;

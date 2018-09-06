@@ -90,7 +90,7 @@ namespace egg::ovum {
     virtual Type pointeeType() const override;
     virtual Type denulledType() const override;
     virtual Type unionWithBasal(IAllocator& allocator, BasalBits other) const override;
-    virtual Variant tryAssign(Variant& lvalue, const egg::ovum::Variant& rvalue) const override;
+    virtual Variant tryAssign(IExecution& execution, Variant& lvalue, const egg::ovum::Variant& rvalue) const override;
     virtual Node compile(IAllocator& allocator, const NodeLocation& location) const override;
   };
 

@@ -281,7 +281,7 @@ egg::ovum::Variant egg::yolk::EggProgramSymbol::assign(EggProgramContext& contex
     // Store the value directly
     target = &this->value;
   }
-  auto retval = this->type->tryAssign(*target, rhs);
+  auto retval = this->type->tryAssign(context, *target, rhs);
   if (retval.hasFlowControl()) {
     // The assignment failed
     if (retval.hasString()) {

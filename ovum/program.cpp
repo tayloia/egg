@@ -384,48 +384,7 @@ namespace {
       }
       return execution.raiseFormat("Function ", std::forward<ARGS>(args)...);
     }
-  };
-
-  class UserFunctionType : public HardReferenceCounted<TypeBase> {
-    UserFunctionType(const UserFunctionType&) = delete;
-    UserFunctionType& operator=(const UserFunctionType&) = delete;
-  private:
-    LocationSource location;
-    FunctionSignature signature;
-  public:
-    UserFunctionType(IAllocator& allocator, const LocationSource& location, const String& name, const Type& rettype)
-      : HardReferenceCounted(allocator, 0),
-        location(location),
-        signature(name, rettype) {
-    }
-    virtual const IFunctionSignature* callable() const override {
-      return &this->signature;
-    }
-    virtual AssignmentSuccess canBeAssignedFrom(const IType& rtype) const override {
-      // We can assign if the signatures are the same or equal
-      auto* rsig = rtype.callable();
-      if (rsig == nullptr) {
-        return AssignmentSuccess::Never;
-      }
-      auto* lsig = &this->signature;
-      if (lsig == rsig) {
-        return AssignmentSuccess::Always;
-      }
-      // TODO fuzzy matching of signatures
-      if (lsig->getParameterCount() != rsig->getParameterCount()) {
-        return AssignmentSuccess::Never;
-      }
-      return lsig->getReturnType()->canBeAssignedFrom(*rsig->getReturnType()); // TODO
-    }
-    virtual std::pair<std::string, int> toStringPrecedence() const override {
-      // Do not include names in the signature
-      auto sig = Function::signatureToString(this->signature, Function::Parts::NoNames);
-      return std::make_pair(sig.toUTF8(), 0);
-    }
-    virtual Node compile(IAllocator&, const NodeLocation&) const override {
-      throw RuntimeException(this->location, "Unexpected recompilation of function type");
-    }
-    static Type make(IAllocator& allocator, ProgramDefault& program, const LocationSource& location, const String& name, const INode& callable);
+    static Type makeType(IAllocator& allocator, ProgramDefault& program, const String& name, const INode& callable);
   };
 
   struct Symbol {
@@ -440,10 +399,10 @@ namespace {
         value() {
       assert(type != nullptr);
     }
-    Variant tryAssign(IBasket& basket, const Variant& rvalue) {
-      auto retval = this->type->tryAssign(this->value, rvalue);
+    Variant tryAssign(IExecution& execution, const Variant& rvalue) {
+      auto retval = this->type->tryAssign(execution, this->value, rvalue);
       if (!retval.hasFlowControl()) {
-        this->value.soften(basket);
+        this->value.soften(execution.getBasket());
         assert(this->value.validate(true));
       }
       return retval;
@@ -587,8 +546,11 @@ namespace {
       static const LocationSource source("<builtin>", 0, 0);
       auto symbol = this->symtable->add(value.getRuntimeType(), name, source);
       if (symbol.first) {
-        auto retval = symbol.second->tryAssign(*this->basket, value);
-        return !retval.hasFlowControl();
+        // Don't use tryAssign for builtins; it always fails
+        auto& added = symbol.second->value;
+        added = value;
+        added.soften(*this->basket);
+        return true;
       }
       return false;
     }
@@ -646,7 +608,7 @@ namespace {
         return this->raiseLocation(source, "Duplicate name in declaration: '", name, "'");
       }
       if (init != nullptr) {
-        return symbol.second->tryAssign(*this->basket, *init);
+        return symbol.second->tryAssign(*this, *init);
       }
       return Variant::Void;
     }
@@ -1859,9 +1821,7 @@ namespace {
         if (children == 1) {
           auto& callable = node.getChild(0);
           if (callable.getOpcode() == OPCODE_CALLABLE) {
-            // We update the location here just in case the type nodes haven't been given sufficient data
-            this->updateLocation(node);
-            return UserFunctionType::make(this->allocator, *this, this->location, name, callable);
+            return UserFunction::makeType(this->allocator, *this, name, callable);
           }
         }
         break;
@@ -1984,7 +1944,7 @@ Variant Target::assign(const Variant& rhs) const {
   case Flavour::Failed:
     break;
   case Flavour::Identifier:
-    return this->identifier().tryAssign(this->program.getBasket(), rhs);
+    return this->identifier().tryAssign(this->program, rhs);
   case Flavour::Index:
     return this->setIndex(rhs);
   case Flavour::Property:
@@ -2128,14 +2088,14 @@ egg::ovum::Variant Target::expression(const INode& value) const {
   return this->program.targetExpression(value);
 }
 
-egg::ovum::Type UserFunctionType::make(IAllocator& allocator, ProgramDefault& program, const LocationSource& location, const String& name, const INode& callable) {
+egg::ovum::Type UserFunction::makeType(IAllocator& allocator, ProgramDefault& program, const String& name, const INode& callable) {
   // Create a type appropriate for a standard "user" function
   assert(callable.getOpcode() == OPCODE_CALLABLE);
   auto n = callable.getChildren();
   assert(n >= 1);
   auto rettype = program.type(callable.getChild(0));
   assert(rettype != nullptr);
-  auto function = allocator.make<UserFunctionType>(location, name, rettype);
+  auto function = allocator.make<FunctionType>(name, rettype);
   for (size_t i = 1; i < n; ++i) {
     auto& parameter = callable.getChild(i);
     auto c = parameter.getChildren();
@@ -2173,7 +2133,7 @@ egg::ovum::Type UserFunctionType::make(IAllocator& allocator, ProgramDefault& pr
       pname = program.identifier(parameter.getChild(1));
     }
     auto ptype = program.type(parameter.getChild(0), pname);
-    function->signature.addSignatureParameter(pname, ptype, pindex, pflags);
+    function->addParameter(pname, ptype, pflags, pindex);
   }
   return Type(function.get());
 }

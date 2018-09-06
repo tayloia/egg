@@ -51,27 +51,6 @@ namespace {
     }
   };
 
-  class GeneratorFunctionType : public egg::yolk::FunctionType {
-    EGG_NO_COPY(GeneratorFunctionType);
-  private:
-    egg::ovum::Type rettype;
-  public:
-    explicit GeneratorFunctionType(egg::ovum::IAllocator& allocator, const egg::ovum::Type& returnType)
-      : FunctionType(allocator, egg::ovum::String(), egg::ovum::Type::makeUnion(allocator, *returnType, *egg::ovum::Type::Void)),
-        rettype(returnType) {
-      // No name or parameters in the signature
-      assert(!egg::ovum::Bits::hasAnySet(returnType->getBasalTypes(), egg::ovum::BasalBits::Void));
-    }
-    virtual std::pair<std::string, int> toStringPrecedence() const override {
-      // Format a string along the lines of '<rettype>...'
-      return std::make_pair(this->rettype.toString(0).toUTF8() + "...", 0);
-    }
-    virtual egg::ovum::Type iterable() const {
-      // We are indeed iterable
-      return this->rettype;
-    }
-  };
-
   class StacklessRoot : public egg::yolk::EggProgramStackless {
     EGG_NO_COPY(StacklessRoot);
   public:
@@ -321,59 +300,6 @@ public:
     return this->parameters[index];
   }
 };
-
-egg::yolk::FunctionType::FunctionType(egg::ovum::IAllocator& allocator, const egg::ovum::String& name, const egg::ovum::Type& returnType)
-  : HardReferenceCounted(allocator, 0),
-    signature(std::make_unique<FunctionSignature>(name, returnType)) {
-}
-
-egg::yolk::FunctionType::~FunctionType() {
-  // Must be in this source file due to incomplete types in the header
-}
-
-std::pair<std::string, int> egg::yolk::FunctionType::toStringPrecedence() const {
-  // Do not include names in the signature
-  auto sig = egg::ovum::Function::signatureToString(*this->signature, egg::ovum::Function::Parts::NoNames);
-  return std::make_pair(sig.toUTF8(), 0);
-}
-
-egg::ovum::Node egg::yolk::FunctionType::compile(egg::ovum::IAllocator& memallocator, const egg::ovum::NodeLocation& location) const {
-  return egg::ovum::NodeFactory::createFunctionType(memallocator, location, *this->signature);
-}
-
-egg::yolk::FunctionType::AssignmentSuccess egg::yolk::FunctionType::canBeAssignedFrom(const IType& rtype) const {
-  // We can assign if the signatures are the same or equal
-  auto* rsig = rtype.callable();
-  if (rsig == nullptr) {
-    return egg::yolk::FunctionType::AssignmentSuccess::Never;
-  }
-  auto* lsig = this->signature.get();
-  if (lsig == rsig) {
-    return egg::yolk::FunctionType::AssignmentSuccess::Always;
-  }
-  // TODO fuzzy matching of signatures
-  if (lsig->getParameterCount() != rsig->getParameterCount()) {
-    return egg::yolk::FunctionType::AssignmentSuccess::Never;
-  }
-  return lsig->getReturnType()->canBeAssignedFrom(*rsig->getReturnType()); // TODO
-}
-
-const egg::ovum::IFunctionSignature* egg::yolk::FunctionType::callable() const {
-  return this->signature.get();
-}
-
-void egg::yolk::FunctionType::addParameter(const egg::ovum::String& name, const egg::ovum::Type& type, egg::ovum::IFunctionSignatureParameter::Flags flags) {
-  this->signature->addSignatureParameter(name, type, this->signature->getParameterCount(), flags);
-}
-
-egg::yolk::FunctionType* egg::yolk::FunctionType::createFunctionType(egg::ovum::IAllocator& allocator, const egg::ovum::String& name, const egg::ovum::Type& returnType) {
-  return allocator.create<FunctionType>(0, allocator, name, returnType);
-}
-
-egg::yolk::FunctionType* egg::yolk::FunctionType::createGeneratorType(egg::ovum::IAllocator& allocator, const egg::ovum::String& name, const egg::ovum::Type& returnType) {
-  // Convert the return type (e.g. 'int') into a generator function 'int..' aka '(void|int)()'
-  return allocator.create<FunctionType>(0, allocator, name, allocator.make<GeneratorFunctionType, egg::ovum::Type>(returnType));
-}
 
 egg::ovum::HardPtr<egg::yolk::FunctionCoroutine> egg::yolk::FunctionCoroutine::create(egg::ovum::IAllocator& allocator, const std::shared_ptr<egg::yolk::IEggProgramNode>& block) {
   // Create a stackless block executor for generator coroutines

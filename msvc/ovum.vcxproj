@@ -21,6 +21,7 @@
   <ItemGroup>
     <ClCompile Include="..\ovum\builtin.cpp" />
     <ClCompile Include="..\ovum\context.cpp" />
+    <ClCompile Include="..\ovum\function.cpp" />
     <ClCompile Include="..\ovum\node.cpp" />
     <ClCompile Include="..\ovum\basket.cpp" />
     <ClCompile Include="..\ovum\memory.cpp" />
