@@ -499,7 +499,11 @@ namespace {
     explicit Block(ProgramDefault& program) : program(program) {
     }
     ~Block();
+    bool empty() const {
+      return this->declared.empty();
+    }
     Variant declare(const LocationSource& source, const Type& type, const String& name, const Variant* init = nullptr);
+    Variant guard(const LocationSource& source, const Type& type, const String& name, const Variant& init);
   };
 
   class CallStack final {
@@ -597,20 +601,16 @@ namespace {
       this->logger.log(ILogger::Source::User, ILogger::Severity::Information, utf8);
     }
     // Called by Block
-    Variant blockDeclare(const LocationSource& source, const Type& type, const String& name, const Variant* init) {
+    Symbol* blockDeclare(const LocationSource& source, const Type& type, const String& name) {
       auto symbol = this->symtable->add(type, name, source);
       if (!symbol.first) {
-        // TODO display the other location too
         StringBuilder sb;
         symbol.second->source.formatSourceString(sb);
         sb.add(": Previous declaration of '", name, "'");
         this->logger.log(ILogger::Source::Runtime, ILogger::Severity::Warning, sb.toUTF8());
-        return this->raiseLocation(source, "Duplicate name in declaration: '", name, "'");
+        return nullptr;
       }
-      if (init != nullptr) {
-        return symbol.second->tryAssign(*this, *init);
-      }
-      return Variant::Void;
+      return symbol.second;
     }
     void blockUndeclare(const String& name) {
       if (!this->symtable->remove(name)) {
@@ -770,6 +770,15 @@ namespace {
       if (retval.stripFlowControl(VariantBits::Return) || retval.hasThrow()) {
         // We got a return value or exception
         return retval;
+      }
+      if (retval.isVoid()) {
+        // Ran off the bottom of the function
+        auto rettype = signature.getReturnType();
+        assert(rettype != nullptr);
+        if (Bits::hasAnySet(rettype->getBasalTypes(), BasalBits::Void)) {
+          // Implicit 'return;' at end of function
+          return retval;
+        }
       }
       throw RuntimeException(this->location, "Expected function to return, but got '", retval.getRuntimeType().toString(), "' instead");
     }
@@ -1032,22 +1041,29 @@ namespace {
     }
     Variant statementIf(const INode& node) {
       assert(node.getOpcode() == OPCODE_IF);
-      assert((node.getChildren() == 2) || (node.getChildren() == 3));
+      auto n = &node;
       Block block(*this);
-      auto retval = this->condition(node.getChild(0), &block);
-      if (!retval.isBool()) {
-        // Problem with the condition
-        return retval;
-      }
-      if (retval.getBool()) {
-        // Execute the 'then' clause
-        return this->executeBlock(block, node.getChild(1));
-      }
-      if (node.getChildren() > 2) {
+      do {
+        assert(n->getOpcode() == OPCODE_IF);
+        assert((n->getChildren() == 2) || (n->getChildren() == 3));
+        auto retval = this->condition(n->getChild(0), &block);
+        if (!retval.isBool()) {
+          // Problem with the condition
+          return retval;
+        }
+        if (retval.getBool()) {
+          // Execute the 'then' clause
+          return this->executeBlock(block, n->getChild(1));
+        }
+        if (n->getChildren() == 2) {
+          // No 'else' clause
+          return Variant::Void;
+        }
         // Execute the 'else' clause
-        return this->executeBlock(block, node.getChild(2));
-      }
-      return Variant::Void;
+        n = &n->getChild(2);
+      } while (n->getOpcode() == OPCODE_IF);
+      assert(block.empty());
+      return this->executeBlock(block, *n);
     }
     Variant statementIncrement(const INode& node) {
       assert(node.getOpcode() == OPCODE_INCREMENT);
@@ -1166,6 +1182,7 @@ namespace {
         // No exception thrown
         return this->statementTryFinally(node, exception);
       }
+      Block block(*this);
       for (size_t i = 2; i < n; ++i) {
         // Look for the first matching catch clause
         auto& clause = node.getChild(i);
@@ -1174,15 +1191,14 @@ namespace {
         this->updateLocation(clause);
         auto cname = this->identifier(clause.getChild(1));
         auto ctype = this->type(clause.getChild(0), cname);
-        // WIBBLE if (match exception)
-        if (true) {
-          Block inner(*this);
-          auto retval = inner.declare(this->location, ctype, cname, &exception);
-          if (retval.hasFlowControl()) {
-            // Couldn't define the exception variable
-            return this->statementTryFinally(node, retval);
-          }
-          retval = this->executeBlock(inner, clause.getChild(2));
+        auto retval = block.guard(this->location, ctype, cname, exception);
+        if (retval.hasFlowControl()) {
+          // Couldn't define the exception variable
+          return this->statementTryFinally(node, retval);
+        }
+        assert(retval.isBool());
+        if (retval.getBool()) {
+          retval = this->executeBlock(block, clause.getChild(2));
           if (retval.is(VariantBits::Throw | VariantBits::Void)) {
             // This is a rethrow of the original exception
             retval = exception;
@@ -1397,7 +1413,6 @@ namespace {
       return this->call(node, callee, parameters);
     }
     Variant expressionGuard(const INode& node, Block* block) {
-      // WIBBLE currently always succeeds
       assert(node.getOpcode() == OPCODE_GUARD);
       assert(node.getChildren() == 3);
       if (block == nullptr) {
@@ -1410,7 +1425,7 @@ namespace {
         return vinit;
       }
       this->updateLocation(node);
-      return block->declare(this->location, vtype, vname, &vinit);
+      return block->guard(this->location, vtype, vname, vinit);
     }
     Variant expressionIdentifier(const INode& node) {
       assert(node.getOpcode() == OPCODE_IDENTIFIER);
@@ -1751,10 +1766,6 @@ namespace {
       this->updateLocation(node);
       return this->raiseLocation(this->location, std::forward<ARGS>(args)...);
     }
-    template<typename... ARGS>
-    Variant raiseLocation(const LocationSource& where, ARGS&&... args) const {
-      return VariantFactory::createException(this->allocator, where, std::forward<ARGS>(args)...);
-    }
     void updateLocation(const INode& node) {
       auto* source = node.getLocation();
       if (source != nullptr) {
@@ -1835,6 +1846,15 @@ namespace {
           return Type::AnyQ;
         }
         break;
+      case OPCODE_UNION:
+        if (children >= 1) {
+          auto result = this->type(node.getChild(0));
+          for (size_t i = 1; i < children; ++i) {
+            result = Type::makeUnion(this->allocator, *result, *this->type(node.getChild(i)));
+          }
+          return result;
+        }
+        return Type::Void;
       default:
         throw this->unexpectedOpcode("type", node);
       }
@@ -1859,6 +1879,10 @@ namespace {
         return RuntimeException(this->location, "Unknown ", expected, " operator: '<", std::to_string(oper), ">'");
       }
       return RuntimeException(this->location, "Unexpected ", expected, " operator: '", name, "'");
+    }
+    template<typename... ARGS>
+    Variant raiseLocation(const LocationSource& where, ARGS&&... args) const {
+      return VariantFactory::createException(this->allocator, where, std::forward<ARGS>(args)...);
     }
   };
 }
@@ -2077,11 +2101,34 @@ Block::~Block() {
 
 egg::ovum::Variant Block::declare(const LocationSource& source, const Type& type, const String& name, const Variant* init) {
   // Keep track of names successfully declared in this block
-  auto retval = this->program.blockDeclare(source, type, name, init);
-  if (!retval.hasFlowControl()) {
-    this->declared.insert(name);
+  auto* symbol = this->program.blockDeclare(source, type, name);
+  if (symbol == nullptr) {
+    return this->program.raiseLocation(source, "Duplicate name in declaration: '", name, "'");
   }
-  return retval;
+  if (init != nullptr) {
+    auto retval = symbol->tryAssign(this->program, *init);
+    if (!retval.isVoid()) {
+      this->program.blockUndeclare(name);
+      return retval;
+    }
+  }
+  this->declared.insert(name);
+  return Variant::Void;
+}
+
+egg::ovum::Variant Block::guard(const LocationSource& source, const Type& type, const String& name, const Variant& init) {
+  // Keep track of names successfully declared in this block
+  auto* symbol = this->program.blockDeclare(source, type, name);
+  if (symbol == nullptr) {
+    return this->program.raiseLocation(source, "Duplicate name in declaration: '", name, "'");
+  }
+  auto retval = symbol->tryAssign(this->program, init);
+  if (!retval.isVoid()) {
+    this->program.blockUndeclare(name);
+    return Variant::False;
+  }
+  this->declared.insert(name);
+  return Variant::True;
 }
 
 egg::ovum::Variant Target::expression(const INode& value) const {
