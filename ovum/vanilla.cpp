@@ -34,9 +34,10 @@ namespace {
       : VanillaBase(allocator) {
       this->values.resize(size);
     }
-    virtual void softVisitLinks(const Visitor&) const override {
-      // TODO
-      assert(false);
+    virtual void softVisitLinks(const Visitor& visitor) const override {
+      for (auto& value : this->values) {
+        value.softVisitLink(visitor);
+      }
     }
     virtual Variant toString() const override {
       if (this->values.empty()) {
@@ -162,15 +163,16 @@ namespace {
     VanillaObject(const VanillaObject&) = delete;
     VanillaObject& operator=(const VanillaObject&) = delete;
     friend class VanillaObjectIterator;
-  private:
+  protected:
     Dictionary<String, Variant> values;
   public:
     explicit VanillaObject(IAllocator& allocator)
       : VanillaBase(allocator) {
     }
-    virtual void softVisitLinks(const Visitor&) const override {
-      // TODO
-      assert(false);
+    virtual void softVisitLinks(const Visitor& visitor) const override {
+      this->values.foreach([visitor](const String&, const Variant& value) {
+        value.softVisitLink(visitor);
+      });
     }
     virtual Variant toString() const override {
       if (this->values.empty()) {
@@ -209,6 +211,48 @@ namespace {
       throw std::runtime_error("TODO: " WIBBLE);
     }
     virtual Variant iterate(IExecution& execution) override;
+  };
+
+  class VanillaException : public VanillaObject {
+    VanillaException(const VanillaException&) = delete;
+    VanillaException& operator=(const VanillaException&) = delete;
+  public:
+    VanillaException(IAllocator& allocator, const LocationSource& location, const String& message)
+      : VanillaObject(allocator) {
+      this->values.addUnique("message", message);
+      if (!location.file.empty()) {
+        this->values.addUnique("file", location.file);
+      }
+      if ((location.line > 0) || (location.column > 0)) {
+        this->values.addUnique("line", Int(location.line));
+      }
+      if (location.column > 0) {
+        this->values.addUnique("column", Int(location.column));
+      }
+    }
+    virtual Variant toString() const override {
+      StringBuilder sb;
+      Variant part;
+      if (this->values.tryGet("file", part)) {
+        sb.add(part.toString());
+      }
+      if (this->values.tryGet("line", part)) {
+        sb.add('(', part.toString());
+        if (this->values.tryGet("column", part)) {
+          sb.add(',', part.toString());
+        }
+        sb.add(')');
+      }
+      if (!sb.empty()) {
+        sb.add(':', ' ');
+      }
+      if (this->values.tryGet("message", part)) {
+        sb.add(part.toString());
+      } else {
+        sb.add("Unknown exception");
+      }
+      return sb.str();
+    }
   };
 
   class VanillaIteratorBase : public VanillaBase {
@@ -357,6 +401,10 @@ egg::ovum::Variant VanillaObject::iterate(IExecution&) {
 
 egg::ovum::Object egg::ovum::ObjectFactory::createVanillaArray(IAllocator& allocator, size_t size) {
   return ObjectFactory::create<VanillaArray>(allocator, size);
+}
+
+egg::ovum::Object egg::ovum::ObjectFactory::createVanillaException(IAllocator& allocator, const LocationSource& location, const String& message) {
+  return ObjectFactory::create<VanillaException>(allocator, location, message);
 }
 
 egg::ovum::Object egg::ovum::ObjectFactory::createVanillaKeyValue(IAllocator& allocator, IBasket& basket, const Variant& key, const Variant& value) {

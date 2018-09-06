@@ -8,7 +8,9 @@ try {
 }
 ///><RESOURCE>(2,16): Assertion is untrue: 2 == 3
 ///>{key:message,value:Assertion is untrue: 2 == 3}
-///>{key:location,value:<RESOURCE>(2,16)}
+///>{key:file,value:<RESOURCE>}
+///>{key:line,value:2}
+///>{key:column,value:16}
 ///>{key:left,value:2}
 ///>{key:operator,value:==}
 ///>{key:right,value:3}

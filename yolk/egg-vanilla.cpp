@@ -49,8 +49,7 @@ namespace {
     // TODO iterable() for forEachRemaining() like Java?
     virtual egg::ovum::Variant tryAssign(egg::ovum::Variant&, const egg::ovum::Variant&) const override {
       egg::ovum::Variant exception{ "Cannot re-assign iterators" };
-      exception.addFlowControl(egg::ovum::VariantBits::Throw);
-      return exception;
+      return egg::ovum::VariantFactory::createException(std::move(exception));
     }
     static const VanillaIteratorType instance;
   };
@@ -65,12 +64,19 @@ namespace {
     virtual egg::ovum::Variant toString() const override {
       return egg::ovum::Variant{ this->type.toString() };
     }
+    virtual egg::ovum::Variant call(egg::ovum::IExecution& execution, const egg::ovum::IParameters&) override {
+      return this->next(execution);
+    }
     virtual egg::ovum::Variant getProperty(egg::ovum::IExecution& execution, const egg::ovum::String& property) override {
       return execution.raiseFormat("Iterators do not support properties: '.", property, "'");
     }
     virtual egg::ovum::Variant setProperty(egg::ovum::IExecution& execution, const egg::ovum::String& property, const egg::ovum::Variant&) override {
       return execution.raiseFormat("Iterators do not support properties: '.", property, "'");
     }
+    virtual egg::ovum::Variant iterate(egg::ovum::IExecution&) override {
+      return egg::ovum::Object(*this);
+    }
+    virtual egg::ovum::Variant next(egg::ovum::IExecution& execution) = 0;
   };
 
   class VanillaKeyValueType : public egg::ovum::NotReferenceCounted<egg::ovum::TypeBase> {
@@ -291,13 +297,13 @@ namespace {
     EGG_NO_COPY(VanillaArrayIterator);
   private:
     egg::ovum::HardPtr<VanillaArray> array;
-    size_t next;
+    size_t index;
   public:
     VanillaArrayIterator(egg::ovum::IAllocator& allocator, const VanillaArray& array)
-      : VanillaIteratorBase(allocator), array(&array), next(0) {
+      : VanillaIteratorBase(allocator), array(&array), index(0) {
     }
-    virtual egg::ovum::Variant iterate(egg::ovum::IExecution&) override {
-      return this->array->iterateNext(this->next);
+    virtual egg::ovum::Variant next(egg::ovum::IExecution&) override {
+      return this->array->iterateNext(this->index);
     }
   };
 
@@ -310,15 +316,15 @@ namespace {
   private:
     typedef egg::ovum::Dictionary<egg::ovum::String, egg::ovum::Variant> Dictionary;
     Dictionary::KeyValues keyvalues;
-    size_t next;
+    size_t index;
   public:
     VanillaDictionaryIterator(egg::ovum::IAllocator& allocator, const Dictionary& dictionary)
-      : VanillaIteratorBase(allocator), next(0) {
+      : VanillaIteratorBase(allocator), index(0) {
       (void)dictionary.getKeyValues(this->keyvalues);
     }
-    virtual egg::ovum::Variant iterate(egg::ovum::IExecution& execution) override {
-      if (this->next < this->keyvalues.size()) {
-        return egg::ovum::VariantFactory::createObject<VanillaKeyValue>(execution.getAllocator(), keyvalues[this->next++]);
+    virtual egg::ovum::Variant next(egg::ovum::IExecution& execution) override {
+      if (this->index < this->keyvalues.size()) {
+        return egg::ovum::VariantFactory::createObject<VanillaKeyValue>(execution.getAllocator(), keyvalues[this->index++]);
       }
       return egg::ovum::Variant::Void;
     }
@@ -547,7 +553,7 @@ namespace {
       : VanillaIteratorBase(allocator) {
       this->generator.set(*this, &generator);
     }
-    virtual egg::ovum::Variant iterate(egg::ovum::IExecution&) override {
+    virtual egg::ovum::Variant next(egg::ovum::IExecution&) override {
       return this->generator->iterateNext();
     }
   };
@@ -579,7 +585,5 @@ egg::ovum::Variant egg::yolk::EggProgramContext::createVanillaGenerator(const eg
 }
 
 egg::ovum::Variant egg::yolk::EggProgramContext::createVanillaException(const egg::ovum::String& message) {
-  auto exception = egg::ovum::VariantFactory::createObject<VanillaException>(this->allocator, this->location, message);
-  exception.addFlowControl(egg::ovum::VariantBits::Throw);
-  return exception;
+  return egg::ovum::VariantFactory::createException(this->allocator, this->location, message);
 }

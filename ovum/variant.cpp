@@ -537,3 +537,9 @@ egg::ovum::HardPtr<egg::ovum::IVariantSoft> egg::ovum::VariantFactory::createVar
   assert(created->getVariant().validate(true));
   return created;
 }
+
+egg::ovum::Variant egg::ovum::VariantFactory::createException(Variant&& value) {
+  assert(!value.isVoid());
+  value.addFlowControl(VariantBits::Throw);
+  return value;
+}

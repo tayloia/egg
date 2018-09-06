@@ -21,17 +21,8 @@ namespace {
     explicit RuntimeException(const LocationSource& location, ARGS&&... args)
       : std::runtime_error("RuntimeException") {
       StringBuilder sb;
-      sb.add(location.file);
-      if (location.line > 0) {
-        sb.add('(', location.line);
-        if (location.column > 0) {
-          sb.add(',', location.column);
-        }
-        sb.add("): ");
-      } else if (!location.file.empty()) {
-        sb.add(": ");
-      }
-      sb.add(std::forward<ARGS>(args)...);
+      location.formatSourceString(sb);
+      sb.add(':', ' ', std::forward<ARGS>(args)...);
       this->message = sb.str();
     }
   };
@@ -259,8 +250,7 @@ namespace {
     template<typename... ARGS>
     static Variant raise(ARGS&&... args) {
       Variant exception{ StringBuilder::concat(std::forward<ARGS>(args)...) };
-      exception.addFlowControl(VariantBits::Throw);
-      return exception;
+      return VariantFactory::createException(std::move(exception));
     }
   };
 
@@ -621,20 +611,7 @@ namespace {
       return *this->basket;
     }
     virtual Variant raise(const String& message) override {
-      StringBuilder sb;
-      sb.add(this->location.file);
-      if (this->location.line > 0) {
-        sb.add('(', this->location.line);
-        if (this->location.column > 0) {
-          sb.add(',', this->location.column);
-        }
-        sb.add("): ", message);
-      } else {
-        sb.add(": ", message);
-      }
-      Variant exception{ sb.str() };
-      exception.addFlowControl(VariantBits::Throw);
-      return exception;
+      return VariantFactory::createException(this->allocator, this->location, message);
     }
     virtual Variant assertion(const Variant& predicate) override {
       if (predicate.hasObject()) {
@@ -775,7 +752,15 @@ namespace {
         // The assertion has passed
         return Variant::Void;
       }
-      return this->raiseLocation(source, "Assertion is untrue: ", lhs.toString(), ' ', OperatorProperties::str(compare.getOperator()), ' ', rhs.toString());
+      auto exception = this->raiseLocation(source, "Assertion is untrue: ", lhs.toString(), ' ', OperatorProperties::str(compare.getOperator()), ' ', rhs.toString());
+      if (exception.hasObject()) {
+        // Augment the exception with the actual evaluation
+        auto object = exception.getObject();
+        (void)object->setProperty(*this, "left", lhs);
+        (void)object->setProperty(*this, "operator", OperatorProperties::str(compare.getOperator()));
+        (void)object->setProperty(*this, "right", rhs);
+      }
+      return exception;
     }
     Variant executeCall(const LocationSource& source, const IFunctionSignature& signature, const IParameters& runtime, const INode& block) {
       // We have to be careful to get the location correct
@@ -1806,19 +1791,7 @@ namespace {
     }
     template<typename... ARGS>
     Variant raiseLocation(const LocationSource& where, ARGS&&... args) const {
-      StringBuilder sb;
-      sb.add(where.file);
-      if (where.line > 0) {
-        sb.add('(', where.line);
-        if (where.column > 0) {
-          sb.add(',', where.column);
-        }
-        sb.add(')');
-      }
-      sb.add(": ", std::forward<ARGS>(args)...);
-      Variant exception{ sb.str() };
-      exception.addFlowControl(VariantBits::Throw);
-      return exception;
+      return VariantFactory::createException(this->allocator, where, std::forward<ARGS>(args)...);
     }
     void updateLocation(const INode& node) {
       auto* source = node.getLocation();

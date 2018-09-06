@@ -308,11 +308,12 @@ egg::ovum::Variant egg::yolk::EggProgramContext::executeForeachIterate(IEggProgr
     return iterate;
   }
   if (!iterate.hasObject()) {
-    return this->unexpected("The 'for' statement expected an iterator", iterate); // TODO
+    return this->raiseFormat("The 'for' statement expected an iterator, but got '", iterate.getRuntimeType().toString(), "' instead");
   }
-  auto iteration = iterate.getObject();
+  auto object = iterate.getObject();
+  assert(object != nullptr);
   for (;;) {
-    auto next = iteration->iterate(*this);
+    auto next = object->call(*this, egg::ovum::Function::NoParameters);
     if (next.hasFlowControl()) {
       // An error occurred in the iterator
       return next;

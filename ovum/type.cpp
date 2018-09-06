@@ -42,11 +42,10 @@ namespace {
   }
 
   template<typename... ARGS>
-  static Variant makeException(ARGS&&... args) {
+  Variant makeException(ARGS&&... args) {
+    // WIBBLE retire
     // TODO: proper exception object
-    Variant exception{ StringBuilder::concat(std::forward<ARGS>(args)...) };
-    exception.addFlowControl(VariantBits::Throw);
-    return exception;
+    return egg::ovum::VariantFactory::createException(StringBuilder::concat(std::forward<ARGS>(args)...));
   }
 
   Variant tryAssignBasal(BasalBits basal, Variant& lhs, const Variant& rhs) {
