@@ -428,14 +428,14 @@ namespace {
     Node block;
     SoftPtr<SymbolTable> captured;
   public:
-    UserFunction(IAllocator& allocator, ProgramDefault& program, const LocationSource& location, const Type& type, const String& name, const INode& block)
+    UserFunction(IAllocator& allocator, ProgramDefault& program, const LocationSource& location, const Type& type, const INode& block)
       : SoftReferenceCounted(allocator),
         program(program),
         location(location),
         type(type),
         block(&block) {
       assert(type != nullptr);
-      assert(!name.empty());
+      assert(block.getOpcode() == OPCODE_BLOCK);
     }
     void setCaptured(const HardPtr<SymbolTable>& symtable) {
       assert(this->captured == nullptr);
@@ -1070,8 +1070,11 @@ namespace {
       auto fname = this->identifier(node.getChild(2));
       auto ftype = this->type(node.getChild(0), fname);
       auto& fblock = node.getChild(1);
+      if (fblock.getOpcode() != OPCODE_BLOCK) {
+        return this->raise("Generators are not yet supported"); // WIBBLE
+      }
       this->updateLocation(node);
-      auto function = this->allocator.make<UserFunction>(*this, this->location, ftype, fname, fblock);
+      auto function = this->allocator.make<UserFunction>(*this, this->location, ftype, fblock);
       // We have to be careful to ensure the function is declared before capturing symbols so that recursion works correctly
       Variant fvalue{ Object(*function) };
       auto retval = block.declare(this->location, ftype, fname, &fvalue);

@@ -12,7 +12,7 @@ int... countdown_explicit() {
   yield 1;
 }
 test("countdown_explicit", countdown_explicit());
-///>countdown_explicit:321
+///OLD>countdown_explicit:321
 
 int... countdown_while(int counter) {
   while (counter > 0) {
@@ -21,7 +21,7 @@ int... countdown_while(int counter) {
   }
 }
 test("countdown_while", countdown_while(3));
-///>countdown_while:321
+///OLD>countdown_while:321
 
 int... countdown_do(int counter) {
   do {
@@ -30,7 +30,7 @@ int... countdown_do(int counter) {
   } while (counter > 0);
 }
 test("countdown_do", countdown_do(3));
-///>countdown_do:321
+///OLD>countdown_do:321
 
 int... countdown_for(int counter) {
   for (var i = counter; i > 0; --i){
@@ -40,3 +40,5 @@ int... countdown_for(int counter) {
 /* The following fails because 'var i' is not in its own context 2018-07-31
 test("countdown_for", countdown_for(3));
 */
+
+///NEW<RUNTIME><ERROR><RESOURCE>(9,8): Generators are not yet supported
