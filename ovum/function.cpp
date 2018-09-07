@@ -130,7 +130,7 @@ egg::ovum::FunctionType::AssignmentSuccess egg::ovum::FunctionType::canBeAssigne
   if (lsig->getParameterCount() != rsig->getParameterCount()) {
     return FunctionType::AssignmentSuccess::Never;
   }
-  return lsig->getReturnType()->canBeAssignedFrom(*rsig->getReturnType()); // TODO
+  return FunctionType::AssignmentSuccess::Sometimes; // TODO
 }
 
 const egg::ovum::IFunctionSignature* egg::ovum::FunctionType::callable() const {

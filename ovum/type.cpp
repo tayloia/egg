@@ -149,11 +149,28 @@ namespace {
       return tryAssignBasal(execution, BASAL, lvalue, rvalue);
     }
   };
-  const TypeCommon<BasalBits::Void> typeVoid{};
   const TypeCommon<BasalBits::Bool> typeBool{};
   const TypeCommon<BasalBits::Int> typeInt{};
   const TypeCommon<BasalBits::Float> typeFloat{};
   const TypeCommon<BasalBits::Int | BasalBits::Float> typeArithmetic{};
+
+  class TypeVoid : public TypeCommon<BasalBits::Void> {
+    TypeVoid(const TypeVoid&) = delete;
+    TypeVoid& operator=(const TypeVoid&) = delete;
+  public:
+    TypeVoid() = default;
+    virtual Type devoidedType() const override {
+      // You cannot devoid void!
+      return nullptr;
+    }
+    virtual AssignmentSuccess canBeAssignedFrom(const IType&) const override {
+      return AssignmentSuccess::Never;
+    }
+    virtual Variant tryAssign(IExecution& execution, Variant&, const Variant&) const override {
+      return execution.raiseFormat("Cannot assign to 'void' value");
+    }
+  };
+  const TypeVoid typeVoid{};
 
   class TypeNull : public TypeCommon<BasalBits::Null> {
     TypeNull(const TypeNull&) = delete;
@@ -260,6 +277,14 @@ namespace {
         return Type::String;
       }
       return nullptr;
+    }
+    virtual Type devoidedType() const override {
+      auto devoided = Bits::clear(this->tag, BasalBits::Void);
+      if (this->tag != devoided) {
+        // We need to clear the bit
+        return Type::makeBasal(this->allocator, devoided);
+      }
+      return Type(this);
     }
     virtual Type denulledType() const override {
       auto denulled = Bits::clear(this->tag, BasalBits::Null);
@@ -420,6 +445,11 @@ egg::ovum::Type egg::ovum::TypeBase::iterable() const {
 egg::ovum::Type egg::ovum::TypeBase::pointeeType() const {
   // By default, we do not point to anything
   return nullptr;
+}
+
+egg::ovum::Type egg::ovum::TypeBase::devoidedType() const {
+  // By default, we do not hold void values
+  return Type(this);
 }
 
 egg::ovum::Type egg::ovum::TypeBase::denulledType() const {

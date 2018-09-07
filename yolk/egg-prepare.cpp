@@ -330,8 +330,8 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareFunctionDefi
     return flags;
   }
   if (fallthrough(flags)) {
-    // Falling through to the end of a non-generator function is the same as an emplicit 'return' with no parameters
-    if (function.rettype->canBeAssignedFrom(*egg::ovum::Type::Void) == egg::ovum::IType::AssignmentSuccess::Never) {
+    // Falling through to the end of a non-generator function is the same as an implicit 'return' with no parameters
+    if (!function.rettype->hasBasalType(egg::ovum::BasalBits::Void)) {
       egg::ovum::String suffix;
       if (!name.empty()) {
         suffix = egg::ovum::StringBuilder::concat(": '", name, "'");
@@ -713,13 +713,12 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareWithType(IEg
 egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::typeCheck(const egg::ovum::LocationSource& where, egg::ovum::Type& ltype, const egg::ovum::Type& rtype, const egg::ovum::String& name, bool guard) {
   if (ltype == nullptr) {
     // We need to infer the type
-    if (guard) {
-      ltype = rtype->denulledType();
-      if (ltype == nullptr) {
-        return this->compilerError(where, "Cannot infer type of '", name, "' based on a value of type '", rtype.toString(), "'"); // TODO useful?
-      }
-    } else {
-      ltype = rtype;
+    ltype = rtype->devoidedType();
+    if (guard && (ltype != nullptr)) {
+      ltype = ltype->denulledType();
+    }
+    if (ltype == nullptr) {
+      return this->compilerError(where, "Cannot infer type of '", name, "' based on a value of type '", rtype.toString(), "'"); // TODO useful?
     }
     auto symbol = this->symtable->findSymbol(name, false);
     assert(symbol != nullptr);

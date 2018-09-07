@@ -178,6 +178,7 @@ namespace egg::ovum {
     virtual Type dotable(const String* property, String& error) const = 0;
     virtual Type iterable() const = 0;
     virtual Type pointeeType() const = 0;
+    virtual Type devoidedType() const = 0;
     virtual Type denulledType() const = 0;
     virtual std::pair<std::string, int> toStringPrecedence() const = 0;
 

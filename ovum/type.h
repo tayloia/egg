@@ -89,6 +89,7 @@ namespace egg::ovum {
     virtual Type dotable(const String* property, String& error) const override;
     virtual Type iterable() const override;
     virtual Type pointeeType() const override;
+    virtual Type devoidedType() const override;
     virtual Type denulledType() const override;
     virtual Node compile(IAllocator& allocator, const NodeLocation& location) const override;
 
