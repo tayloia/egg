@@ -466,7 +466,7 @@ namespace {
     Target(const Target&) = delete;
     Target& operator=(const Target&) = delete;
   public:
-    enum Flavour { Failed, Identifier, Index, Property };
+    enum Flavour { Failed, Identifier, Index, Pointer, Property };
   private:
     Flavour flavour;
     ProgramDefault& program;
@@ -480,13 +480,10 @@ namespace {
     Variant nudge(Int rhs) const;
     Variant mutate(const INode& opnode, const INode& rhs) const;
   private:
-    Symbol& identifier() const;
-    Variant getIndex() const;
-    Variant setIndex(const Variant& value) const;
-    Variant getProperty() const;
-    Variant setProperty(const Variant& value) const;
+    Variant* ref() const;
+    Variant get() const;
+    Variant set(const Variant& value) const;
     Variant apply(const INode& opnode, Variant& lvalue, const INode& rhs) const;
-    Variant expression(const INode& node) const;
   };
 
   class Block final {
@@ -652,6 +649,16 @@ namespace {
       }
       return Target::Flavour::Failed;
     }
+    Target::Flavour targetPointer(const INode& node, Variant& a) {
+      assert(node.getOpcode() == OPCODE_UNARY);
+      assert(node.getOperator() == OPERATOR_DEREF);
+      assert(node.getChildren() == 1);
+      a = this->expression(node.getChild(0)).direct();
+      if (!a.hasPointer()) {
+        a = this->raiseNode(node, "Expected target to be a pointer, but got '", a.getRuntimeType().toString(), "' instead");
+      }
+      return Target::Flavour::Pointer;
+    }
     Target::Flavour targetProperty(const INode& node, Variant& a, Variant& b) {
       assert(node.getOpcode() == OPCODE_PROPERTY);
       assert(node.getChildren() == 2);
@@ -791,18 +798,17 @@ namespace {
     }
   private:
     Variant executeRoot(const INode& node) {
-      if (node.getOpcode() != OPCODE_MODULE) {
+      if (this->validateOpcode(node) != OPCODE_MODULE) {
         throw this->unexpectedOpcode("module", node);
       }
-      this->validateOpcode(node);
       Block block(*this);
       return this->executeBlock(block, node.getChild(0));
     }
     Variant executeBlock(Block& inner, const INode& node) {
-      if (node.getOpcode() != OPCODE_BLOCK) {
+      this->updateLocation(node);
+      if (this->validateOpcode(node) != OPCODE_BLOCK) {
         throw this->unexpectedOpcode("block", node);
       }
-      this->validateOpcode(node);
       size_t n = node.getChildren();
       for (size_t i = 0; i < n; ++i) {
         auto retval = this->statement(inner, node.getChild(i));
@@ -814,8 +820,8 @@ namespace {
     }
     // Statements
     Variant statement(Block& block, const INode& node) {
-      this->validateOpcode(node);
-      auto opcode = node.getOpcode();
+      this->updateLocation(node);
+      auto opcode = this->validateOpcode(node);
       EGG_WARNING_SUPPRESS_SWITCH_BEGIN();
       switch (opcode) {
       case OPCODE_NOOP:
@@ -1250,7 +1256,7 @@ namespace {
     }
     // Expressions
     Variant expression(const INode& node, Block* block = nullptr) {
-      auto opcode = node.getOpcode();
+      auto opcode = this->validateOpcode(node);
       EGG_WARNING_SUPPRESS_SWITCH_BEGIN();
       switch (opcode) {
       case OPCODE_NULL:
@@ -1302,6 +1308,10 @@ namespace {
       switch (oper) {
       case Operator::OPERATOR_LOGNOT:
         return this->operatorLogicalNot(node.getChild(0));
+      case Operator::OPERATOR_DEREF:
+        return this->operatorDeref(node.getChild(0));
+      case Operator::OPERATOR_REF:
+        return this->operatorRef(node.getChild(0));
       }
       EGG_WARNING_SUPPRESS_SWITCH_END();
       throw this->unexpectedOperator("unary", node);
@@ -1710,6 +1720,28 @@ namespace {
       }
       return !value.getBool();
     }
+    Variant operatorDeref(const INode& a) {
+      auto value = this->expression(a);
+      if (value.hasFlowControl()) {
+        return value;
+      }
+      if (!value.hasPointer()) {
+        return this->raiseNode(a, "Expected operand of unary '*' operator to be a pointer, but got '", value.getRuntimeType().toString(), "' instead");
+      }
+      return value.getPointee();
+    }
+    Variant operatorRef(const INode& a) {
+      if (a.getOpcode() != OPCODE_IDENTIFIER) {
+        return this->raiseNode(a, "Expected operand of unary '&' operator to be a variable identifier");
+      }
+      auto name = this->identifier(a);
+      auto* symbol = this->symtable->get(name);
+      if (symbol == nullptr) {
+        return this->raiseNode(a, "Unknown identifier for unary '&' operator: '", name, "'");
+      }
+      symbol->value.indirect(this->allocator, *this->basket);
+      return symbol->value.address();
+    }
     Int operatorBinaryInt(const INode& node, Operator oper, Int lhs, Int rhs) {
       EGG_WARNING_SUPPRESS_SWITCH_BEGIN();
       switch (oper) {
@@ -1772,13 +1804,14 @@ namespace {
         this->location.column = source->column;
       }
     }
-    void validateOpcode(const INode& node) {
-      this->updateLocation(node);
-      auto& properties = OpcodeProperties::from(node.getOpcode());
+    Opcode validateOpcode(const INode& node) const {
+      auto opcode = node.getOpcode();
+      auto& properties = OpcodeProperties::from(opcode);
       if (!properties.validate(node.getChildren(), node.getOperand() != INode::Operand::None)) {
         assert(properties.name != nullptr);
         throw RuntimeException(this->location, "Corrupt opcode: '", properties.name, "'");
       }
+      return opcode;
     }
   public:
     String identifier(const INode& node) {
@@ -1912,6 +1945,12 @@ Target::Target(ProgramDefault& program, const INode& node, Block* block)
   case OPCODE_PROPERTY:
     this->flavour = program.targetProperty(node, this->a, this->b);
     return;
+  case OPCODE_UNARY:
+    if (node.getOperator() != OPERATOR_DEREF) {
+      throw program.unexpectedOperator("target", node);
+    }
+    this->flavour = program.targetPointer(node, this->a);
+    return;
   }
   EGG_WARNING_SUPPRESS_SWITCH_END();
   throw program.unexpectedOpcode("target", node);
@@ -1930,36 +1969,6 @@ Variant UserFunction::call(IExecution&, const IParameters& parameters) {
   return this->program.executeCall(this->location, *signature, parameters, *this->block);
 }
 
-Symbol& Target::identifier() const {
-  assert(this->flavour == Flavour::Identifier);
-  auto name = this->a.getString();
-  return this->program.targetSymbol(this->node, name);
-}
-
-egg::ovum::Variant Target::getIndex() const {
-  assert(this->flavour == Flavour::Index);
-  auto object = this->a.getObject();
-  return object->getIndex(this->program, this->b);
-}
-
-egg::ovum::Variant Target::setIndex(const Variant& value) const {
-  assert(this->flavour == Flavour::Index);
-  auto object = this->a.getObject();
-  return object->setIndex(this->program, this->b, value);
-}
-
-egg::ovum::Variant Target::getProperty() const {
-  assert(this->flavour == Flavour::Property);
-  auto object = this->a.getObject();
-  return object->getProperty(this->program, this->b.getString());
-}
-
-egg::ovum::Variant Target::setProperty(const Variant& value) const {
-  assert(this->flavour == Flavour::Property);
-  auto object = this->a.getObject();
-  return object->setProperty(this->program, this->b.getString(), value);
-}
-
 Variant Target::check() const {
   if (this->flavour == Flavour::Failed) {
     // Return the problem we saved in the constructor
@@ -1969,95 +1978,52 @@ Variant Target::check() const {
 }
 
 Variant Target::assign(const Variant& rhs) const {
-  switch (this->flavour) {
-  case Flavour::Failed:
-    break;
-  case Flavour::Identifier:
-    return this->identifier().tryAssign(this->program, rhs);
-  case Flavour::Index:
-    return this->setIndex(rhs);
-  case Flavour::Property:
-    return this->setProperty(rhs);
-  }
-  // Return the problem we saved in the constructor
-  return this->a;
+  return this->set(rhs);
 }
 
 Variant Target::nudge(Int rhs) const {
-  Variant element;
-  Variant* slot;
-  switch (this->flavour) {
-  case Flavour::Failed:
-  default:
-    // Return the problem we saved in the constructor
-    return this->a;
-  case Flavour::Identifier:
-    slot = &this->identifier().value;
-    if (slot->isInt()) {
-      *slot = slot->getInt() + rhs;
+  assert(rhs != 0);
+  Variant v;
+  auto* p = this->ref();
+  if (p != nullptr) {
+    if (p->isInt()) {
+      // Nudge directly
+      *p = p->getInt() + rhs;
       return Variant::Void;
     }
-    break;
-  case Flavour::Index:
-    element = this->getIndex();
-    if (element.hasFlowControl()) {
-      return element;
+  } else {
+    // Need to get/nudge/set
+    v = this->get();
+    if (v.hasFlowControl()) {
+      return v;
     }
-    if (element.isInt()) {
-      element = element.getInt() + rhs;
-      return this->setIndex(element);
+    if (v.isInt()) {
+      return this->set(v.getInt() + rhs);
     }
-    slot = &element;
-    break;
-  case Flavour::Property:
-    element = this->getProperty();
-    if (element.hasFlowControl()) {
-      return element;
-    }
-    if (element.isInt()) {
-      element = element.getInt() + rhs;
-      return this->setProperty(element);
-    }
-    slot = &element;
-    break;
+    p = &v;
   }
   if (rhs < 0) {
-    return Binary::unexpected(*slot, "Expected decrement operation to be applied to an 'int' value");
+    return Binary::unexpected(*p, "Expected decrement '--' operation to be applied to an 'int' value");
   }
-  return Binary::unexpected(*slot, "Expected increment operation to be applied to an 'int' value");
+  return Binary::unexpected(*p, "Expected increment '++' operation to be applied to an 'int' value");
 }
 
 Variant Target::mutate(const INode& opnode, const INode& rhs) const {
-  switch (this->flavour) {
-  case Flavour::Failed:
-    break;
-  case Flavour::Identifier:
-    return this->apply(opnode, this->identifier().value, rhs);
-  case Flavour::Index: {
-    // TODO atomic mutation
-    auto element = this->getIndex();
-    if (element.hasFlowControl()) {
-      return element;
-    }
-    auto result = this->apply(opnode, element, rhs);
-    if (result.hasFlowControl()) {
-      return result;
-    }
-    return this->setIndex(element); }
-  case Flavour::Property: {
-    // TODO atomic mutation
-    auto element = this->getProperty();
-    if (element.hasFlowControl()) {
-      return element;
-    }
-    auto result = this->apply(opnode, element, rhs);
-    if (result.hasFlowControl()) {
-      return result;
-    }
-    return this->setProperty(element); }
+  auto* p = this->ref();
+  if (p != nullptr) {
+    // Mutate directly
+    return this->apply(opnode, *p, rhs);
   }
-  // Return the problem we saved in the constructor
-  return this->a;
+  // Need to get/mutate/set
+  auto v = this->get();
+  if (v.hasFlowControl()) {
+    return v;
+  }
+  auto retval = this->apply(opnode, v, rhs);
+  if (retval.hasFlowControl()) {
+    return retval;
+  }
+  return this->set(v);
 }
 
 egg::ovum::Variant Target::apply(const INode& opnode, Variant& lvalue, const INode& rhs) const {
@@ -2086,7 +2052,7 @@ egg::ovum::Variant Target::apply(const INode& opnode, Variant& lvalue, const INo
     break;
   }
   EGG_WARNING_SUPPRESS_SWITCH_END();
-  auto rvalue = this->expression(rhs);
+  auto rvalue = this->program.targetExpression(rhs);
   if (rvalue.hasFlowControl()) {
     return rvalue;
   }
@@ -2095,6 +2061,56 @@ egg::ovum::Variant Target::apply(const INode& opnode, Variant& lvalue, const INo
     throw this->program.unexpectedOperator("target binary", opnode);
   }
   return result;
+}
+
+Variant* Target::ref() const {
+  // Return null iff we cannot modify in-place
+  switch (this->flavour) {
+  case Flavour::Identifier:
+    return &this->program.targetSymbol(this->node, this->a.getString()).value;
+  case Flavour::Pointer:
+    return &this->a.getPointee();
+  case Flavour::Index:
+  case Flavour::Property:
+  case Flavour::Failed:
+    break;
+  }
+  return nullptr;
+}
+
+Variant Target::get() const {
+  switch (this->flavour) {
+  case Flavour::Identifier:
+    return this->program.targetSymbol(this->node, this->a.getString()).value.direct();
+  case Flavour::Index:
+    return this->a.getObject()->getIndex(this->program, this->b);
+  case Flavour::Pointer:
+    return this->a.getPointee();
+  case Flavour::Property:
+    return this->a.getObject()->getProperty(this->program, this->b.getString());
+  case Flavour::Failed:
+    break;
+  }
+  // Return the problem we saved in the constructor
+  return this->a;
+}
+
+Variant Target::set(const Variant& value) const {
+  switch (this->flavour) {
+  case Flavour::Identifier:
+    return this->program.targetSymbol(this->node, this->a.getString()).tryAssign(this->program, value);
+  case Flavour::Index:
+    return this->a.getObject()->setIndex(this->program, this->b, value);
+  case Flavour::Pointer:
+    this->a.getPointee() = value;
+    return Variant::Void; // TODO always succeeds?
+  case Flavour::Property:
+    return this->a.getObject()->setProperty(this->program, this->b.getString(), value);
+  case Flavour::Failed:
+    break;
+  }
+  // Return the problem we saved in the constructor
+  return this->a;
 }
 
 Block::~Block() {
@@ -2134,10 +2150,6 @@ egg::ovum::Variant Block::guard(const LocationSource& source, const Type& type, 
   }
   this->declared.insert(name);
   return Variant::True;
-}
-
-egg::ovum::Variant Target::expression(const INode& value) const {
-  return this->program.targetExpression(value);
 }
 
 egg::ovum::Type UserFunction::makeType(IAllocator& allocator, ProgramDefault& program, const String& name, const INode& callable) {
