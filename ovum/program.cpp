@@ -259,10 +259,12 @@ namespace {
     Parameters& operator=(const Parameters&) = delete;
   private:
     std::vector<Variant> positional;
+    std::vector<LocationSource> location;
   public:
     Parameters() = default;
-    void addPositional(Variant&& value) {
+    void addPositional(const LocationSource& source, Variant&& value) {
       this->positional.emplace_back(std::move(value));
+      this->location.emplace_back(source);
     }
     virtual size_t getPositionalCount() const override {
       return this->positional.size();
@@ -270,9 +272,8 @@ namespace {
     virtual Variant getPositional(size_t index) const override {
       return this->positional[index];
     }
-    virtual const LocationSource* getPositionalLocation(size_t) const override {
-      // TODO remove
-      return nullptr;
+    virtual const LocationSource* getPositionalLocation(size_t index) const override {
+      return &this->location[index];
     }
     virtual size_t getNamedCount() const override {
       return 0;
@@ -768,9 +769,19 @@ namespace {
         assert(position < actual);
         auto ptype = sigparam.getType();
         auto pvalue = runtime.getPositional(position);
-        auto retval = scope.declare(source, ptype, pname, &pvalue);
+        auto retval = scope.guard(source, ptype, pname, pvalue);
         if (retval.hasFlowControl()) {
           return retval;
+        }
+        assert(retval.isBool());
+        if (!retval.getBool()) {
+          // Type mismatch on parameter
+          auto* plocation = runtime.getPositionalLocation(position);
+          if (plocation != nullptr) {
+            // Update our current source location (it will be restored when expressionCall returns)
+            this->location = *plocation;
+          }
+          return this->raiseFormat("Type mismatch for parameter '", pname, "': Expected '", ptype.toString(), "', but got '", pvalue.getRuntimeType().toString(), "' instead");
         }
       }
       auto retval = this->executeBlock(scope, block);
@@ -1416,15 +1427,17 @@ namespace {
       if (!callee.hasObject()) {
         return this->raiseNode(node, "Expected function-like expression to be an 'object', but got '", callee.getRuntimeType().toString(), "' instead");
       }
+      LocationSource before = this->location;
       Parameters parameters;
       for (size_t i = 1; i < n; ++i) {
-        auto expr = this->expression(node.getChild(i));
-        if (expr.hasFlowControl()) {
-          return expr;
+        auto& pnode = node.getChild(i);
+        auto pvalue = this->expression(pnode);
+        if (pvalue.hasFlowControl()) {
+          return pvalue;
         }
-        parameters.addPositional(std::move(expr));
+        this->updateLocation(pnode);
+        parameters.addPositional(this->location, std::move(pvalue));
       }
-      LocationSource before = this->location;
       auto retval = callee.getObject()->call(*this, parameters);
       this->location = before;
       return retval;
