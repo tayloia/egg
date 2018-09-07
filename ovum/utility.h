@@ -147,7 +147,7 @@ namespace egg::ovum {
   class SoftReferenceCounted : public HardReferenceCounted<T> {
     SoftReferenceCounted(const SoftReferenceCounted&) = delete;
     SoftReferenceCounted& operator=(const SoftReferenceCounted&) = delete;
-  private:
+  protected:
     IBasket* basket;
   public:
     explicit SoftReferenceCounted(IAllocator& allocator)

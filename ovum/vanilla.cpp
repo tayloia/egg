@@ -93,7 +93,7 @@ namespace {
       }
       auto& e = this->values[u];
       e = value;
-      e.soften(*this->softGetBasket());
+      e.soften(*this->basket);
       return Variant::Void;
     }
     virtual Variant iterate(IExecution& execution) override;

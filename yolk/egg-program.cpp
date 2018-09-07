@@ -321,7 +321,7 @@ std::shared_ptr<egg::yolk::EggProgramSymbol> egg::yolk::EggProgramSymbolTable::a
   auto result = this->map.emplace(name, std::make_shared<EggProgramSymbol>(kind, name, type, value));
   assert(result.second);
   auto symbol = result.first->second;
-  symbol->getValue().soften(*this->softGetBasket());
+  symbol->getValue().soften(*this->basket);
   return symbol;
 }
 
@@ -464,7 +464,7 @@ egg::ovum::Variant egg::yolk::EggProgramContext::get(const egg::ovum::String& na
     return this->raiseFormat("Uninitialized identifier: '", name.toUTF8(), "'");
   }
   if (byref) {
-    value.indirect(this->getAllocator(), *this->softGetBasket());
+    value.indirect(this->allocator, *this->basket);
   }
   return value;
 }
@@ -933,9 +933,8 @@ egg::ovum::IAllocator& egg::yolk::EggProgramContext::getAllocator() const {
 }
 
 egg::ovum::IBasket& egg::yolk::EggProgramContext::getBasket() const {
-  auto* ptr = this->softGetBasket();
-  assert(ptr != nullptr);
-  return *ptr;
+  assert(this->basket != nullptr);
+  return *this->basket;
 }
 
 egg::ovum::Module egg::test::Compiler::compileFile(egg::ovum::IAllocator& allocator, egg::ovum::ILogger& logger, const std::string& path) {

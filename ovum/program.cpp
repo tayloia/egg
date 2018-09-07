@@ -254,6 +254,93 @@ namespace {
     }
   };
 
+  struct Symbol {
+    Type type;
+    String name;
+    LocationSource source;
+    Variant value;
+    Symbol(const Type& type, const String& name, const LocationSource& source)
+      : type(type),
+        name(name),
+        source(source),
+        value() {
+      assert(type != nullptr);
+    }
+    Variant tryAssign(IExecution& execution, const Variant& rvalue) {
+      auto retval = this->type->tryAssign(execution, this->value, rvalue);
+      if (!retval.hasFlowControl()) {
+        this->value.soften(execution.getBasket());
+        assert(this->value.validate(true));
+      }
+      return retval;
+    }
+    void softVisitLink(const ICollectable::Visitor& visitor) const {
+      this->value.softVisitLink(visitor);
+    }
+  };
+
+  class SymbolTable : public SoftReferenceCounted<ICollectable> {
+    SymbolTable(const SymbolTable&) = delete;
+    SymbolTable& operator=(const SymbolTable&) = delete;
+  private:
+    std::map<String, Symbol> table;
+    SoftPtr<SymbolTable> parent;
+    SoftPtr<SymbolTable> capture;
+  public:
+    explicit SymbolTable(IAllocator& allocator, SymbolTable* parent = nullptr, SymbolTable* capture = nullptr)
+      : SoftReferenceCounted(allocator) {
+      this->parent.set(*this, parent);
+      this->capture.set(*this, capture);
+    }
+    std::pair<bool, Symbol*> add(const Type& type, const String& name, const LocationSource& source) {
+      // Return true in the first of the pair iff the insertion occurred
+      Symbol symbol(type, name, source);
+      auto retval = this->table.insert(std::make_pair(name, std::move(symbol)));
+      return std::make_pair(retval.second, &retval.first->second);
+    }
+    bool remove(const String& name) {
+      // Return true iff the removal occurred
+      auto retval = this->table.erase(name);
+      return retval == 1;
+    }
+    Symbol* get(const String& name) {
+      // Return a pointer to the symbol or null
+      auto retval = this->table.find(name);
+      if (retval == this->table.end()) {
+        if (this->capture != nullptr) {
+          return this->capture->get(name);
+        }
+        return nullptr;
+      }
+      return &retval->second;
+    }
+    HardPtr<SymbolTable> cloneIndirect() const {
+      // WIBBLE not needed once specific capture is implemented
+      auto clone = this->allocator.make<SymbolTable>();
+      for (auto& src : this->table) {
+        auto dst = clone->table.insert(src);
+        dst.first->second.value.indirect(this->allocator, *this->basket);
+      }
+      return clone;
+    }
+    void softVisitLinks(const Visitor& visitor) const {
+      for (auto& entry : this->table) {
+        entry.second.softVisitLink(visitor);
+      }
+      this->parent.visit(visitor);
+      this->capture.visit(visitor);
+    }
+    SymbolTable* push(SymbolTable* captured = nullptr) {
+      // Push a table onto the symbol table stack
+      return this->allocator.create<SymbolTable>(0, this->allocator, this, captured);
+    }
+    SymbolTable* pop() {
+      // Pop an element from the symbol table stack
+      assert(this->parent != nullptr);
+      return this->parent.get();
+    }
+  };
+
   class Parameters : public IParameters {
     Parameters(const Parameters&) = delete;
     Parameters& operator=(const Parameters&) = delete;
@@ -300,9 +387,9 @@ namespace {
   public:
     PredicateFunction(IAllocator& allocator, ProgramDefault& program, const LocationSource& location, const INode& node)
       : SoftReferenceCounted(allocator),
-        program(program),
-        location(location),
-        node(&node) {
+      program(program),
+      location(location),
+      node(&node) {
     }
     virtual void softVisitLinks(const Visitor&) const override {
       // There are no soft link to visit
@@ -339,6 +426,7 @@ namespace {
     LocationSource location;
     Type type;
     Node block;
+    SoftPtr<SymbolTable> captured;
   public:
     UserFunction(IAllocator& allocator, ProgramDefault& program, const LocationSource& location, const Type& type, const String& name, const INode& block)
       : SoftReferenceCounted(allocator),
@@ -349,8 +437,13 @@ namespace {
       assert(type != nullptr);
       assert(!name.empty());
     }
-    virtual void softVisitLinks(const Visitor&) const override {
-      // There are no soft link to visit
+    void setCaptured(const HardPtr<SymbolTable>& symtable) {
+      assert(this->captured == nullptr);
+      this->captured.set(*this, symtable.get());
+      assert(this->captured != nullptr);
+    }
+    virtual void softVisitLinks(const Visitor& visitor) const override {
+      this->captured.visit(visitor);
     }
     virtual Variant toString() const override {
       return "<predicate>";
@@ -386,81 +479,6 @@ namespace {
       return execution.raiseFormat("Function ", std::forward<ARGS>(args)...);
     }
     static Type makeType(IAllocator& allocator, ProgramDefault& program, const String& name, const INode& callable);
-  };
-
-  struct Symbol {
-    Type type;
-    String name;
-    LocationSource source;
-    Variant value;
-    Symbol(const Type& type, const String& name, const LocationSource& source)
-      : type(type),
-        name(name),
-        source(source),
-        value() {
-      assert(type != nullptr);
-    }
-    Variant tryAssign(IExecution& execution, const Variant& rvalue) {
-      auto retval = this->type->tryAssign(execution, this->value, rvalue);
-      if (!retval.hasFlowControl()) {
-        this->value.soften(execution.getBasket());
-        assert(this->value.validate(true));
-      }
-      return retval;
-    }
-    void softVisitLink(const ICollectable::Visitor& visitor) const {
-      this->value.softVisitLink(visitor);
-    }
-  };
-
-  class SymbolTable : public SoftReferenceCounted<ICollectable> {
-    SymbolTable(const SymbolTable&) = delete;
-    SymbolTable& operator=(const SymbolTable&) = delete;
-  private:
-    std::map<String, Symbol> table;
-    SoftPtr<SymbolTable> parent;
-  public:
-    explicit SymbolTable(IAllocator& allocator, SymbolTable* parent = nullptr)
-      : SoftReferenceCounted(allocator) {
-      this->parent.set(*this, parent);
-    }
-    std::pair<bool, Symbol*> add(const Type& type, const String& name, const LocationSource& source) {
-      // Return true in the first of the pair iff the insertion occurred
-      Symbol symbol(type, name, source);
-      auto retval = this->table.insert(std::make_pair(name, std::move(symbol)));
-      return std::make_pair(retval.second, &retval.first->second);
-    }
-    bool remove(const String& name) {
-      // Return true iff the removal occurred
-      auto retval = this->table.erase(name);
-      return retval == 1;
-    }
-    Symbol* get(const String& name) {
-      // Return a pointer to the symbol or null
-      auto retval = this->table.find(name);
-      if (retval == this->table.end()) {
-        if (this->parent != nullptr) {
-          return this->parent->get(name);
-        }
-        return nullptr;
-      }
-      return &retval->second;
-    }
-    void softVisitLinks(const Visitor& visitor) const {
-      for (auto& entry : this->table) {
-        entry.second.softVisitLink(visitor);
-      }
-      this->parent.visit(visitor);
-    }
-    SymbolTable* push() {
-      // Push an element onto the symbol table stack
-      return this->allocator.create<SymbolTable>(0, this->allocator, this);
-    }
-    SymbolTable* pop() {
-      // Pop an element from the symbol table stack
-      assert(this->parent != nullptr);
-      return this->parent.get();
-    }
   };
 
   class Target {
@@ -509,11 +527,10 @@ namespace {
     CallStack& operator=(const CallStack&) = delete;
   private:
     HardPtr<SymbolTable>& symtable;
-    std::set<String> declared;
   public:
-    explicit CallStack(HardPtr<SymbolTable>& symtable) : symtable(symtable) {
+    CallStack(HardPtr<SymbolTable>& symtable, SymbolTable* capture) : symtable(symtable) {
       // Push an element onto the symbol table stack
-      this->symtable.set(this->symtable->push());
+      this->symtable.set(this->symtable->push(capture));
       assert(this->symtable != nullptr);
     }
     ~CallStack() {
@@ -732,7 +749,7 @@ namespace {
       }
       return exception;
     }
-    Variant executeCall(const LocationSource& source, const IFunctionSignature& signature, const IParameters& runtime, const INode& block) {
+    Variant executeCall(const LocationSource& source, const IFunctionSignature& signature, const IParameters& runtime, const INode& block, SymbolTable& captured) {
       // We have to be careful to get the location correct
       assert(block.getOpcode() == OPCODE_BLOCK);
       if (runtime.getNamedCount() > 0) {
@@ -759,7 +776,7 @@ namespace {
         }
         return this->raiseFormat(Function::signatureToString(signature), ": No more than ", maxPositional, " parameters were expected, not ", actual);
       }
-      CallStack stack(this->symtable);
+      CallStack stack(this->symtable, &captured);
       Block scope(*this);
       for (size_t i = 0; i < maxPositional; ++i) {
         auto& sigparam = signature.getParameter(i);
@@ -1054,8 +1071,12 @@ namespace {
       auto ftype = this->type(node.getChild(0), fname);
       auto& fblock = node.getChild(1);
       this->updateLocation(node);
-      auto fvalue = VariantFactory::createObject<UserFunction>(this->allocator, *this, this->location, ftype, fname, fblock);
-      return block.declare(this->location, ftype, fname, &fvalue);
+      auto function = this->allocator.make<UserFunction>(*this, this->location, ftype, fname, fblock);
+      // We have to be careful to ensure the function is declared before capturing symbols so that recursion works correctly
+      Variant fvalue{ Object(*function) };
+      auto retval = block.declare(this->location, ftype, fname, &fvalue);
+      function->setCaptured(this->symtable->cloneIndirect()); // TODO don't capture everything WIBBLE
+      return retval;
     }
     Variant statementIf(const INode& node) {
       assert(node.getOpcode() == OPCODE_IF);
@@ -1979,7 +2000,8 @@ Variant PredicateFunction::call(IExecution&, const IParameters& parameters) {
 Variant UserFunction::call(IExecution&, const IParameters& parameters) {
   auto signature = this->type->callable();
   assert(signature != nullptr);
-  return this->program.executeCall(this->location, *signature, parameters, *this->block);
+  assert(this->captured != nullptr);
+  return this->program.executeCall(this->location, *signature, parameters, *this->block, *this->captured);
 }
 
 Variant Target::check() const {
@@ -2080,15 +2102,19 @@ Variant* Target::ref() const {
   // Return null iff we cannot modify in-place
   switch (this->flavour) {
   case Flavour::Identifier:
-    return &this->program.targetSymbol(this->node, this->a.getString()).value;
+    break;
   case Flavour::Pointer:
     return &this->a.getPointee();
   case Flavour::Index:
   case Flavour::Property:
   case Flavour::Failed:
-    break;
+    return nullptr;
   }
-  return nullptr;
+  auto* value = &this->program.targetSymbol(this->node, this->a.getString()).value;
+  if (value->hasIndirect()) {
+    return &value->getPointee();
+  }
+  return value;
 }
 
 Variant Target::get() const {
@@ -2096,11 +2122,11 @@ Variant Target::get() const {
   case Flavour::Identifier:
     return this->program.targetSymbol(this->node, this->a.getString()).value.direct();
   case Flavour::Index:
-    return this->a.getObject()->getIndex(this->program, this->b);
+    return this->a.getObject()->getIndex(this->program, this->b).direct();
   case Flavour::Pointer:
     return this->a.getPointee();
   case Flavour::Property:
-    return this->a.getObject()->getProperty(this->program, this->b.getString());
+    return this->a.getObject()->getProperty(this->program, this->b.getString()).direct();
   case Flavour::Failed:
     break;
   }
