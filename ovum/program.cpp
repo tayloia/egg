@@ -775,7 +775,7 @@ namespace {
         // Ran off the bottom of the function
         auto rettype = signature.getReturnType();
         assert(rettype != nullptr);
-        if (Bits::hasAnySet(rettype->getBasalTypes(), BasalBits::Void)) {
+        if (rettype->hasBasalType(BasalBits::Void)) {
           // Implicit 'return;' at end of function
           return retval;
         }
@@ -1843,6 +1843,12 @@ namespace {
       case OPCODE_ANYQ:
         if (children == 0) {
           return Type::AnyQ;
+        }
+        break;
+      case OPCODE_POINTER:
+        if (children == 1) {
+          auto pointee = this->type(node.getChild(0));
+          return Type::makePointer(this->allocator, *pointee);
         }
         break;
       case OPCODE_UNION:

@@ -367,6 +367,8 @@ namespace {
 
   Opcode basalTypeToOpcode(BasalBits basal) {
     switch (basal) {
+    case BasalBits::None:
+      break;
     case BasalBits::Void:
       return OPCODE_VOID;
     case BasalBits::Null:
@@ -385,10 +387,6 @@ namespace {
       return OPCODE_ANY;
     case BasalBits::AnyQ:
       return OPCODE_ANYQ;
-    case BasalBits::None:
-    case BasalBits::Arithmetic:
-      // No direct equivalence
-      break;
     }
     return OPCODE_END;
   }
@@ -591,16 +589,12 @@ egg::ovum::Node egg::ovum::NodeFactory::createBasalType(IAllocator& allocator, c
   return NodeFactory::create(allocator, location, OPCODE_UNION, &parts);
 }
 
+egg::ovum::Node egg::ovum::NodeFactory::createPointerType(IAllocator& allocator, const NodeLocation& location, const Type& pointee) {
+  Nodes children{ pointee->compile(allocator, location) };
+  return NodeFactory::create(allocator, location, OPCODE_POINTER, &children);
+}
+
 egg::ovum::Node egg::ovum::NodeFactory::createFunctionType(IAllocator& allocator, const NodeLocation& location, const IFunctionSignature& signature) {
-  /*
-  type-object ::= '(object' callable ')'
-  callable ::= '(callable' type callable-parameter* ')'
-  callable-parameter ::= type-object-constraint-callable-parameter-required | callable-parameter-optional | callable-parameter-byname | callable-parameter-varargs
-  callable-parameter-required ::= '(required' type identifier? ')'
-  callable-parameter-optional ::= '(optional' type identifier? ')'
-  callable-parameter-byname ::= '(byname' type identifier ')'
-  callable-parameter-varargs ::= '(varargs' type identifier type-int-constraint* ')'
-  */
   Nodes children;
   children.push_back(signature.getReturnType()->compile(allocator, location));
   auto n = signature.getParameterCount();

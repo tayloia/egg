@@ -30,11 +30,10 @@ namespace egg::ovum {
 #define EGG_OVUM_BASAL_ENUM(name, text) name = 1 << impl::name,
     EGG_OVUM_BASAL(EGG_OVUM_BASAL_ENUM)
 #undef EGG_OVUM_BASAL_ENUM
-    Arithmetic = Int | Float,
     Any = Bool | Int | Float | String | Object,
     AnyQ = Any | Null
   };
-  inline BasalBits operator|(BasalBits lhs, BasalBits rhs) {
+  inline constexpr BasalBits operator|(BasalBits lhs, BasalBits rhs) {
     return Bits::set(lhs, rhs);
   }
 
@@ -81,7 +80,9 @@ namespace egg::ovum {
     TypeBase& operator=(const TypeBase&) = delete;
   public:
     TypeBase() = default;
-    virtual BasalBits getBasalTypes() const override;
+    virtual Variant tryAssign(IExecution& execution, Variant& lvalue, const egg::ovum::Variant& rvalue) const override;
+    virtual bool hasBasalType(BasalBits basal) const override;
+
     virtual AssignmentSuccess canBeAssignedFrom(const IType& rhs) const override;
     virtual const IFunctionSignature* callable() const override;
     virtual const IIndexSignature* indexable() const override;
@@ -89,9 +90,10 @@ namespace egg::ovum {
     virtual Type iterable() const override;
     virtual Type pointeeType() const override;
     virtual Type denulledType() const override;
-    virtual Type unionWithBasal(IAllocator& allocator, BasalBits other) const override;
-    virtual Variant tryAssign(IExecution& execution, Variant& lvalue, const egg::ovum::Variant& rvalue) const override;
     virtual Node compile(IAllocator& allocator, const NodeLocation& location) const override;
+
+    virtual BasalBits getBasalTypesLegacy() const override;
+    virtual Type unionWithBasalLegacy(IAllocator& allocator, BasalBits other) const override;
   };
 
   class Object : public HardPtr<IObject> {

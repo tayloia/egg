@@ -118,6 +118,16 @@ namespace egg::yolk {
     static std::string binaryToString(EggProgramBinary op);
     static std::string assignToString(EggProgramAssign op);
     static std::string mutateToString(EggProgramMutate op);
+    enum class ArithmeticTypes {
+      None, Int, Float, Both
+    };
+    static ArithmeticTypes arithmeticTypes(const egg::ovum::Type& type) {
+      assert(type != nullptr);
+      if (type->hasBasalType(egg::ovum::BasalBits::Int)) {
+        return type->hasBasalType(egg::ovum::BasalBits::Float) ? ArithmeticTypes::Both : ArithmeticTypes::Int;
+      }
+      return type->hasBasalType(egg::ovum::BasalBits::Float) ? ArithmeticTypes::Float : ArithmeticTypes::None;
+    }
     static const egg::ovum::IType& VanillaArray;
     static const egg::ovum::IType& VanillaObject;
   };

@@ -168,10 +168,10 @@ namespace egg::ovum {
   public:
     // Type management
     virtual Variant tryAssign(IExecution& execution, Variant& lvalue, const egg::ovum::Variant& rvalue) const = 0;
+    virtual bool hasBasalType(BasalBits basal) const = 0;
 
     // no-man's land
     enum class AssignmentSuccess { Never, Sometimes, Always };
-    virtual BasalBits getBasalTypes() const = 0;
     virtual AssignmentSuccess canBeAssignedFrom(const IType& rhs) const = 0;
     virtual const IFunctionSignature* callable() const = 0;
     virtual const IIndexSignature* indexable() const = 0;
@@ -179,10 +179,11 @@ namespace egg::ovum {
     virtual Type iterable() const = 0;
     virtual Type pointeeType() const = 0;
     virtual Type denulledType() const = 0;
-    virtual Type unionWithBasal(IAllocator& allocator, BasalBits other) const = 0; // May return nullptr
     virtual std::pair<std::string, int> toStringPrecedence() const = 0;
 
     // WIBBLE legacy type interface
+    virtual BasalBits getBasalTypesLegacy() const = 0;
+    virtual Type unionWithBasalLegacy(IAllocator& allocator, BasalBits other) const = 0; // May return nullptr
     virtual Node compile(IAllocator& allocator, const NodeLocation& location) const = 0;
   };
 

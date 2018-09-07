@@ -36,28 +36,37 @@ namespace {
     return makeParserNode<T>(context, node, lhs, rhs);
   }
 
-  egg::ovum::BasalBits getArithmeticTypes(const IEggProgramNode& node) {
-    auto basal = node.getType()->getBasalTypes();
-    return egg::ovum::Bits::mask(basal, egg::ovum::BasalBits::Arithmetic);
+  egg::ovum::Type unaryArithmeticType(const std::shared_ptr<IEggProgramNode>& expr) {
+    switch (EggProgram::arithmeticTypes(expr->getType())) {
+    case EggProgram::ArithmeticTypes::None:
+      break;
+    case EggProgram::ArithmeticTypes::Int:
+      return egg::ovum::Type::Int;
+    case EggProgram::ArithmeticTypes::Float:
+      return egg::ovum::Type::Float;
+    case EggProgram::ArithmeticTypes::Both:
+      return egg::ovum::Type::Arithmetic;
+    }
+    return egg::ovum::Type::Void;
   }
 
   egg::ovum::Type binaryArithmeticType(const std::shared_ptr<IEggProgramNode>& lhs, const std::shared_ptr<IEggProgramNode>& rhs) {
-    auto lhsa = getArithmeticTypes(*lhs);
-    auto rhsa = getArithmeticTypes(*rhs);
-    if ((lhsa == egg::ovum::BasalBits::None) || (rhsa == egg::ovum::BasalBits::None)) {
+    auto lhsa = EggProgram::arithmeticTypes(lhs->getType());
+    auto rhsa = EggProgram::arithmeticTypes(rhs->getType());
+    if ((lhsa == EggProgram::ArithmeticTypes::None) || (rhsa == EggProgram::ArithmeticTypes::None)) {
       return egg::ovum::Type::Void;
     }
-    if ((lhsa == egg::ovum::BasalBits::Int) && (rhsa == egg::ovum::BasalBits::Int)) {
+    if ((lhsa == EggProgram::ArithmeticTypes::Int) && (rhsa == EggProgram::ArithmeticTypes::Int)) {
       return egg::ovum::Type::Int;
     }
-    if ((lhsa == egg::ovum::BasalBits::Float) || (rhsa == egg::ovum::BasalBits::Float)) {
+    if ((lhsa == EggProgram::ArithmeticTypes::Float) || (rhsa == EggProgram::ArithmeticTypes::Float)) {
       return egg::ovum::Type::Float;
     }
     return egg::ovum::Type::Arithmetic;
   }
 
   egg::ovum::Type binaryBitwiseType(egg::ovum::IAllocator& allocator, const std::shared_ptr<IEggProgramNode>& lhs, const std::shared_ptr<IEggProgramNode>& rhs) {
-    auto common = egg::ovum::Bits::mask(lhs->getType()->getBasalTypes(), rhs->getType()->getBasalTypes());
+    auto common = egg::ovum::Bits::mask(lhs->getType()->getBasalTypesLegacy(), rhs->getType()->getBasalTypesLegacy());
     common = egg::ovum::Bits::mask(common, egg::ovum::BasalBits::Bool | egg::ovum::BasalBits::Int);
     if (common == egg::ovum::BasalBits::None) {
       return egg::ovum::Type::Void;
@@ -1701,7 +1710,7 @@ std::shared_ptr<egg::yolk::IEggProgramNode> egg::yolk::EggSyntaxNode_FunctionDef
   egg::ovum::FunctionType* underlying;
   if (this->generator) {
     // Generators cannot explicitly return voids
-    if (egg::ovum::Bits::hasAnySet(rettype->getBasalTypes(), egg::ovum::BasalBits::Void)) {
+    if (rettype->hasBasalType(egg::ovum::BasalBits::Void)) {
       throw exceptionFromLocation(context, "The return value of a generator may not include 'void'", *this);
     }
     underlying = egg::ovum::FunctionType::createGeneratorType(context.allocator(), this->name, rettype);
@@ -1997,13 +2006,7 @@ egg::ovum::Type EggParserNode_UnaryDeref::getType() const {
 }
 
 egg::ovum::Type EggParserNode_UnaryNegate::getType() const {
-  auto arithmetic = getArithmeticTypes(*this->expr);
-  if (arithmetic == egg::ovum::BasalBits::None) {
-    return egg::ovum::Type::Void;
-  }
-  auto type = egg::ovum::Type::getBasalType(arithmetic);
-  assert(type != nullptr);
-  return egg::ovum::Type(type);
+  return unaryArithmeticType(this->expr);
 }
 
 egg::ovum::Type EggParserNode_UnaryEllipsis::getType() const {
@@ -2086,7 +2089,7 @@ egg::ovum::Type EggParserNode_BinaryShiftRightUnsigned::getType() const {
 
 egg::ovum::Type EggParserNode_BinaryNullCoalescing::getType() const {
   auto type1 = this->lhs->getType();
-  if (!egg::ovum::Bits::hasAnySet(type1->getBasalTypes(), egg::ovum::BasalBits::Null)) {
+  if (!type1->hasBasalType(egg::ovum::BasalBits::Null)) {
     // The left-hand-side cannot be null, so the right side is irrelevant
     return type1;
   }
@@ -2127,7 +2130,7 @@ std::shared_ptr<IEggProgramNode> EggProgramContext::empredicateBinary(const std:
 
 egg::ovum::Type EggParserNode_Ternary::getType() const {
   auto type1 = this->condition->getType();
-  if (!egg::ovum::Bits::hasAnySet(type1->getBasalTypes(), egg::ovum::BasalBits::Bool)) {
+  if (!type1->hasBasalType(egg::ovum::BasalBits::Bool)) {
     // The condition is not a bool, so the other values are irrelevant
     return egg::ovum::Type::Void;
   }

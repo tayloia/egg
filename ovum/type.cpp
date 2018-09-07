@@ -15,9 +15,9 @@ namespace {
     return result;
   }
 
-  IType::AssignmentSuccess canBeAssignedFromBasal(BasalBits lhs, const IType& rtype) {
+  IType::AssignmentSuccess canBeAssignedFromBasalLegacy(BasalBits lhs, const IType& rtype) {
     assert(lhs != BasalBits::None);
-    auto rhs = rtype.getBasalTypes();
+    auto rhs = rtype.getBasalTypesLegacy();
     assert(rhs != BasalBits::None);
     if (rhs == BasalBits::None) {
       // TODO The source is not basal
@@ -104,8 +104,8 @@ namespace {
     TypePointer(IAllocator& allocator, const IType& referenced)
       : HardReferenceCounted(allocator, 0), referenced(&referenced) {
     }
-    virtual BasalBits getBasalTypes() const override {
-      return BasalBits::None; // TODO
+    virtual BasalBits getBasalTypesLegacy() const override {
+      return BasalBits::None;
     }
     virtual AssignmentSuccess canBeAssignedFrom(const IType& rhs) const override {
       return this->referenced->canBeAssignedFrom(*rhs.pointeeType());
@@ -116,6 +116,9 @@ namespace {
     virtual std::pair<std::string, int> toStringPrecedence() const override {
       return std::make_pair(this->referenced.toString(0).toUTF8() + "*", 0);
     }
+    virtual Node compile(IAllocator& memallocator, const NodeLocation& location) const override {
+      return NodeFactory::createPointerType(memallocator, location, this->referenced);
+    }
   };
 
   template<BasalBits BASAL>
@@ -124,13 +127,13 @@ namespace {
     TypeCommon& operator=(const TypeCommon&) = delete;
   public:
     TypeCommon() = default;
-    virtual BasalBits getBasalTypes() const override {
+    virtual BasalBits getBasalTypesLegacy() const override {
       return BASAL;
     }
     virtual AssignmentSuccess canBeAssignedFrom(const IType& rhs) const override {
-      return canBeAssignedFromBasal(BASAL, rhs);
+      return canBeAssignedFromBasalLegacy(BASAL, rhs);
     }
-    virtual Type unionWithBasal(IAllocator& allocator, BasalBits other) const override {
+    virtual Type unionWithBasalLegacy(IAllocator& allocator, BasalBits other) const override {
       assert(other != BasalBits::None);
       auto superset = Bits::set(BASAL, other);
       if (superset == BASAL) {
@@ -150,7 +153,7 @@ namespace {
   const TypeCommon<BasalBits::Bool> typeBool{};
   const TypeCommon<BasalBits::Int> typeInt{};
   const TypeCommon<BasalBits::Float> typeFloat{};
-  const TypeCommon<BasalBits::Arithmetic> typeArithmetic{};
+  const TypeCommon<BasalBits::Int | BasalBits::Float> typeArithmetic{};
 
   class TypeNull : public TypeCommon<BasalBits::Null> {
     TypeNull(const TypeNull&) = delete;
@@ -234,11 +237,11 @@ namespace {
     TypeBasal(IAllocator& allocator, BasalBits basal)
       : HardReferenceCounted(allocator, 0), tag(basal) {
     }
-    virtual BasalBits getBasalTypes() const override {
+    virtual BasalBits getBasalTypesLegacy() const override {
       return this->tag;
     }
     virtual AssignmentSuccess canBeAssignedFrom(const IType& rhs) const override {
-      return canBeAssignedFromBasal(this->tag, rhs);
+      return canBeAssignedFromBasalLegacy(this->tag, rhs);
     }
     virtual Variant tryAssign(IExecution& execution, Variant& lvalue, const Variant& rvalue) const override {
       return tryAssignBasal(execution, this->tag, lvalue, rvalue);
@@ -266,7 +269,7 @@ namespace {
       }
       return Type(this);
     }
-    virtual Type unionWithBasal(IAllocator& alloc, BasalBits other) const override {
+    virtual Type unionWithBasalLegacy(IAllocator& alloc, BasalBits other) const override {
       assert(other != BasalBits::None);
       auto superset = Bits::set(this->tag, other);
       if (superset == this->tag) {
@@ -290,8 +293,8 @@ namespace {
     TypeUnion(IAllocator& allocator, const IType& a, const IType& b)
       : HardReferenceCounted(allocator, 0), a(&a), b(&b) {
     }
-    virtual BasalBits getBasalTypes() const override {
-      return this->a->getBasalTypes() | this->b->getBasalTypes(); // TODO
+    virtual BasalBits getBasalTypesLegacy() const override {
+      return this->a->getBasalTypesLegacy() | this->b->getBasalTypesLegacy(); // TODO
     }
     virtual std::pair<std::string, int> toStringPrecedence() const override {
       // TODO
@@ -310,7 +313,6 @@ namespace {
 #undef EGG_OVUM_BASAL_COMPONENT
     case BasalBits::Any:
       return "any";
-    case BasalBits::Arithmetic:
     case BasalBits::AnyQ:
       // Non-trivial
       break;
@@ -326,8 +328,6 @@ const egg::ovum::IType* egg::ovum::Type::getBasalType(BasalBits basal) {
 #define EGG_OVUM_BASAL_INSTANCE(name, text) case BasalBits::name: return &type##name;
     EGG_OVUM_BASAL(EGG_OVUM_BASAL_INSTANCE)
 #undef EGG_OVUM_BASAL_INSTANCE
-  case BasalBits::Arithmetic:
-    return &typeArithmetic;
   case BasalBits::Any:
     return &typeAny;
   case BasalBits::AnyQ:
@@ -362,8 +362,8 @@ egg::ovum::Type egg::ovum::Type::makeBasal(IAllocator& allocator, BasalBits basa
 
 egg::ovum::Type egg::ovum::Type::makeUnion(IAllocator& allocator, const IType& a, const IType& b) {
   // If they are both basal types, just union the tags
-  auto sa = a.getBasalTypes();
-  auto sb = b.getBasalTypes();
+  auto sa = a.getBasalTypesLegacy();
+  auto sb = b.getBasalTypesLegacy();
   if ((sa != BasalBits::None) && (sb != BasalBits::None)) {
     return Type::makeBasal(allocator, sa | sb);
   }
@@ -375,9 +375,20 @@ egg::ovum::Type egg::ovum::Type::makePointer(IAllocator& allocator, const IType&
   return allocator.make<TypePointer, Type>(pointee);
 }
 
-egg::ovum::BasalBits egg::ovum::TypeBase::getBasalTypes() const {
-  // By default, we are an object
-  return BasalBits::Object;
+egg::ovum::Variant egg::ovum::TypeBase::tryAssign(IExecution& execution, Variant& lvalue, const Variant& rvalue) const {
+  // By default, call canBeAssignedFrom() but do not actually promote
+  assert(!rvalue.hasIndirect());
+  auto rtype = rvalue.getRuntimeType();
+  if (this->canBeAssignedFrom(*rtype) == AssignmentSuccess::Never) {
+    return execution.raiseFormat("Cannot assign a value of type '", rtype.toString(), "' to a target of type '", Type(this).toString(), "'");
+  }
+  lvalue = rvalue;
+  return Variant::Void;
+}
+
+bool egg::ovum::TypeBase::hasBasalType(BasalBits basal) const {
+  // By default, we interrogate the legacy functionality
+  return Bits::hasAnySet(this->getBasalTypesLegacy(), basal);
 }
 
 egg::ovum::IType::AssignmentSuccess egg::ovum::TypeBase::canBeAssignedFrom(const IType&) const {
@@ -416,25 +427,19 @@ egg::ovum::Type egg::ovum::TypeBase::denulledType() const {
   return Type(this);
 }
 
-egg::ovum::Type egg::ovum::TypeBase::unionWithBasal(IAllocator&, BasalBits) const {
-  // By default we cannot simply union with basal types
-  return nullptr;
-}
-
-egg::ovum::Variant egg::ovum::TypeBase::tryAssign(IExecution& execution, Variant& lvalue, const Variant& rvalue) const {
-  // By default, call canBeAssignedFrom() but do not actually promote
-  assert(!rvalue.hasIndirect());
-  auto rtype = rvalue.getRuntimeType();
-  if (this->canBeAssignedFrom(*rtype) == AssignmentSuccess::Never) {
-    return execution.raiseFormat("Cannot assign a value of type '", rtype.toString(), "' to a target of type '", Type(this).toString(), "'");
-  }
-  lvalue = rvalue;
-  return Variant::Void;
-}
-
 egg::ovum::Node egg::ovum::TypeBase::compile(IAllocator& allocator, const NodeLocation& location) const {
   // By default we construct a basal type node tree
-  return NodeFactory::createBasalType(allocator, location, this->getBasalTypes());
+  return NodeFactory::createBasalType(allocator, location, this->getBasalTypesLegacy());
+}
+
+egg::ovum::BasalBits egg::ovum::TypeBase::getBasalTypesLegacy() const {
+  // By default, we are an object
+  return BasalBits::Object;
+}
+
+egg::ovum::Type egg::ovum::TypeBase::unionWithBasalLegacy(IAllocator&, BasalBits) const {
+  // By default we cannot simply union with basal types
+  return nullptr;
 }
 
 // Common types

@@ -40,11 +40,11 @@ namespace {
   private:
     Type rettype;
   public:
-    explicit GeneratorFunctionType(IAllocator& allocator, const Type& returnType)
-      : FunctionType(allocator, String(), Type::makeUnion(allocator, *returnType, *Type::Void)),
-      rettype(returnType) {
+    explicit GeneratorFunctionType(IAllocator& allocator, const Type& rettype)
+      : FunctionType(allocator, String(), Type::makeUnion(allocator, *rettype, *Type::Void)),
+      rettype(rettype) {
       // No name or parameters in the signature
-      assert(!Bits::hasAnySet(returnType->getBasalTypes(), BasalBits::Void));
+      assert(!rettype->hasBasalType(BasalBits::Void));
     }
     virtual std::pair<std::string, int> toStringPrecedence() const override {
       // Format a string along the lines of '<rettype>...'
