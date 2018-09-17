@@ -170,12 +170,12 @@ namespace egg::ovum {
     virtual Variant tryAssign(IExecution& execution, Variant& lvalue, const egg::ovum::Variant& rvalue) const = 0;
     virtual bool hasBasalType(BasalBits basal) const = 0;
 
-    // no-man's land
+    // No-man's land
     enum class AssignmentSuccess { Never, Sometimes, Always };
     virtual AssignmentSuccess canBeAssignedFrom(const IType& rhs) const = 0;
     virtual const IFunctionSignature* callable() const = 0;
     virtual const IIndexSignature* indexable() const = 0;
-    virtual Type dotable(const String* property, String& error) const = 0;
+    virtual Type dotable(const String& property, String& error) const = 0; // 'property' may be "" if asking whether we support ANY properties
     virtual Type iterable() const = 0;
     virtual Type pointeeType() const = 0;
     virtual Type devoidedType() const = 0;
@@ -184,7 +184,6 @@ namespace egg::ovum {
 
     // WIBBLE legacy type interface
     virtual BasalBits getBasalTypesLegacy() const = 0;
-    virtual Type unionWithBasalLegacy(IAllocator& allocator, BasalBits other) const = 0; // May return nullptr
     virtual Node compile(IAllocator& allocator, const NodeLocation& location) const = 0;
   };
 

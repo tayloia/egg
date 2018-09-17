@@ -86,7 +86,7 @@ namespace egg::ovum {
     virtual AssignmentSuccess canBeAssignedFrom(const IType& rhs) const override;
     virtual const IFunctionSignature* callable() const override;
     virtual const IIndexSignature* indexable() const override;
-    virtual Type dotable(const String* property, String& error) const override;
+    virtual Type dotable(const String& property, String& error) const override;
     virtual Type iterable() const override;
     virtual Type pointeeType() const override;
     virtual Type devoidedType() const override;
@@ -94,7 +94,6 @@ namespace egg::ovum {
     virtual Node compile(IAllocator& allocator, const NodeLocation& location) const override;
 
     virtual BasalBits getBasalTypesLegacy() const override;
-    virtual Type unionWithBasalLegacy(IAllocator& allocator, BasalBits other) const override;
   };
 
   class Object : public HardPtr<IObject> {

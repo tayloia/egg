@@ -133,15 +133,6 @@ namespace {
     virtual AssignmentSuccess canBeAssignedFrom(const IType& rhs) const override {
       return canBeAssignedFromBasalLegacy(BASAL, rhs);
     }
-    virtual Type unionWithBasalLegacy(IAllocator& allocator, BasalBits other) const override {
-      assert(other != BasalBits::None);
-      auto superset = Bits::set(BASAL, other);
-      if (superset == BASAL) {
-        // We are a superset already
-        return Type(this);
-      }
-      return Type::makeBasal(allocator, superset);
-    }
     virtual std::pair<std::string, int> toStringPrecedence() const override {
       return tagToStringPriority(BASAL);
     }
@@ -294,15 +285,6 @@ namespace {
       }
       return Type(this);
     }
-    virtual Type unionWithBasalLegacy(IAllocator& alloc, BasalBits other) const override {
-      assert(other != BasalBits::None);
-      auto superset = Bits::set(this->tag, other);
-      if (superset == this->tag) {
-        // We are a superset already
-        return Type(this);
-      }
-      return Type::makeBasal(alloc, superset);
-    }
     virtual std::pair<std::string, int> toStringPrecedence() const override {
       return tagToStringPriority(this->tag);
     }
@@ -431,9 +413,9 @@ const egg::ovum::IIndexSignature* egg::ovum::TypeBase::indexable() const {
   return nullptr;
 }
 
-egg::ovum::Type egg::ovum::TypeBase::dotable(const String*, String& error) const {
+egg::ovum::Type egg::ovum::TypeBase::dotable(const String&, String& error) const {
   // By default, we have no properties
-  error = StringBuilder::concat("Values of type '", Type(this).toString(), "*' do not support the '.' operator for property access");
+  error = StringBuilder::concat("Values of type '", Type(this).toString(), "' do not support the '.' operator for property access");
   return nullptr;
 }
 
@@ -465,11 +447,6 @@ egg::ovum::Node egg::ovum::TypeBase::compile(IAllocator& allocator, const NodeLo
 egg::ovum::BasalBits egg::ovum::TypeBase::getBasalTypesLegacy() const {
   // By default, we are an object
   return BasalBits::Object;
-}
-
-egg::ovum::Type egg::ovum::TypeBase::unionWithBasalLegacy(IAllocator&, BasalBits) const {
-  // By default we cannot simply union with basal types
-  return nullptr;
 }
 
 // Common types

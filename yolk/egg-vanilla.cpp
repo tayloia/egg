@@ -163,14 +163,14 @@ namespace {
       // Indexing an array returns an element
       return &VanillaArrayIndexSignature::instance;
     }
-    virtual egg::ovum::Type dotable(const egg::ovum::String* property, egg::ovum::String& error) const override {
+    virtual egg::ovum::Type dotable(const egg::ovum::String& property, egg::ovum::String& error) const override {
       // Arrays support limited properties
-      if (property == nullptr) {
+      if (property.empty()) {
         return egg::ovum::Type::AnyQ;
       }
-      auto* retval = VanillaArrayType::getPropertyType(property->toUTF8());
+      auto* retval = VanillaArrayType::getPropertyType(property.toUTF8());
       if (retval == nullptr) {
-        error = egg::ovum::StringBuilder::concat("Arrays do not support property '.", *property, "'");
+        error = egg::ovum::StringBuilder::concat("Arrays do not support property '.", property, "'");
         return nullptr;
       }
       return egg::ovum::Type(retval);
@@ -391,7 +391,7 @@ namespace {
       // Indexing an object returns a property
       return &VanillaObjectIndexSignature::instance;
     }
-    virtual egg::ovum::Type dotable(const egg::ovum::String*, egg::ovum::String&) const override {
+    virtual egg::ovum::Type dotable(const egg::ovum::String&, egg::ovum::String&) const override {
       // Objects support properties
       return egg::ovum::Type::AnyQ;
     }

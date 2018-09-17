@@ -575,12 +575,12 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareDot(const eg
   if (ltype->hasBasalType(egg::ovum::BasalBits::Object)) {
     // Ask the object what properties it supports
     egg::ovum::String error;
-    auto type = ltype->dotable(&property, error);
+    auto type = ltype->dotable(property, error);
     if (type != nullptr) {
       // It's a known property
       return EggProgramNodeFlags::None;
     }
-    type = ltype->dotable(nullptr, error);
+    type = ltype->dotable(egg::ovum::String(), error);
     if (type == nullptr) {
       // We don't support ANY properties (the reason will be updated)
       return this->compilerError(where, error);
