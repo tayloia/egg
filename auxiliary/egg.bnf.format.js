@@ -11,13 +11,13 @@ egg.bnf = function(data) {
   function safe(text) {
     return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
   }
-  function construct(src, variation) {
+  function construct(src, variation, delist) {
     var constructed = Object.assign({}, src);
-    for (var key of Object.keys(variation)) {
-      if (variation[key] === null) {
+    for (var key of Object.keys(variation.rules)) {
+      if (variation.rules[key] === null) {
         delete constructed[key];
       } else {
-        constructed[key] = variation[key];
+        constructed[key] = variation.rules[key];
       }
     }
     var referenced = {};
@@ -37,6 +37,28 @@ egg.bnf = function(data) {
       }
       var value = src[key];
       switch (key) {
+        case "list":
+          if (typeof value !== "string") {
+            console.error("'" + name + "'", key, "expected to be string");
+            return null;
+          }
+          if (!("separator" in src)) {
+            console.error("'" + name + "'", key, "is missing separator property");
+            return null;
+          }
+          if (!delist) {
+            dst.separator = clone(name, dst.separator);
+            if (dst.separator === null) {
+              return null;
+            }
+            dst.collapse = true;
+            ref(name, value);
+            break;
+          }
+          key = "choice";
+          value = [value, { sequence: [name, src.separator, value] }];
+          dst = { choice: value };
+          /*fallsthrough*/
         case "choice":
           dst.collapse = false;
           /*fallsthrough*/
@@ -127,13 +149,6 @@ egg.bnf = function(data) {
     }
     return constructed;
   }
-  function variation(rulebase, vary) {
-    // WIBBLE
-    for (var i of vary.remove) {
-      delete rulebase[i];
-    }
-    return rulebase;
-  }
   function ascii(element, rulebase, collapsed) {
     var rules = Object.keys(rulebase);
     function collapse(rule) {
@@ -157,12 +172,14 @@ egg.bnf = function(data) {
       }
       var key = Object.keys(rule)[0];
       var value = rule[key];
+      var result;
       switch (key) {
         case "sequence":
-          if (parentheses) {
-            return "(" + value.map(x => expand(x, false)).join(" ") + ")";
-          }
-          return value.map(x => expand(x, false)).join(" ");
+          result = value.map(x => expand(x, false)).join(" ");
+          break;
+        case "list":
+          result = "(<" + value + "> " + expand(rule.separator) + ")* <" + value + ">";
+          break;
         case "zeroOrOne":
           return expand(value, true) + "?";
         case "zeroOrMore":
@@ -175,10 +192,74 @@ egg.bnf = function(data) {
           return "<[" + value + "]>";
         case "tokens":
           return value.map(x => "'" + x + "'").join(" | ");
+        default:
+          console.error("Invalid tag:", JSON.stringify(key));
+          return "<unknown>";
       }
-      console.error("Invalid tag:", JSON.stringify(key));
-      return "<unknown>";
+      if (parentheses) {
+        return "(" + result + ")";
+      }
+      return result;
     }
+    for (var rule of rules) {
+      var lines = "";
+      var before = rule + " ::= ";
+      if (rulebase[rule].choice) {
+        for (var choice of rulebase[rule].choice) {
+          lines += before + expand(choice, false);
+          before = "\n" + " ".repeat(rule.length + 3) + "| ";
+        }
+      } else if (rulebase[rule].list) {
+        lines += before + expand(rulebase[rule].list);
+        lines += "\n" + " ".repeat(rule.length + 3) + "| <" + rule + "> " + expand(rulebase[rule].separator) + " " + expand(rulebase[rule].list);
+      } else {
+        lines = before + expand(rulebase[rule], false);
+      }
+      element.innerHTML += "<pre>" + safe(lines) + "</pre>";
+      if (!rulebase[rule].refs) {
+        element.innerHTML += "<div class='unused'>" + "Unused" + "</div>";
+      } else if (collapse(rule)) {
+        element.innerHTML += "<div class='collapsed'>" + "Collapsed into " + Object.keys(rulebase[rule].refs).join(", ") + "</div>";
+      } else {
+        element.innerHTML += "<div class='used'>" + "Used by " + Object.keys(rulebase[rule].refs).join(", ") + "</div>";
+      }
+    }
+  }
+  function bottlecaps(element, rulebase) {
+    var rules = Object.keys(rulebase);
+    function expand(rule, parentheses) {
+      if (typeof rule === "string") {
+        return rule;
+      }
+      var key = Object.keys(rule)[0];
+      var value = rule[key];
+      var result;
+      switch (key) {
+        case "sequence":
+          result = value.map(x => expand(x, false)).join(" ");
+          break;
+        case "zeroOrOne":
+          return expand(value, true) + "?";
+        case "zeroOrMore":
+          return expand(value, true) + "*";
+        case "oneOrMore":
+          return expand(value, true) + "+";
+        case "token":
+          return "'" + value + "'";
+        case "terminal":
+          return value;
+        case "tokens":
+          return value.map(x => "'" + x + "'").join(" | ");
+        default:
+          console.error("Invalid tag:", JSON.stringify(key));
+          return "<unknown>";
+      }
+      if (parentheses) {
+        return "(" + result + ")";
+      }
+      return result;
+    }
+    var text = [];
     for (var rule of rules) {
       var lines = "";
       var before = rule + " ::= ";
@@ -190,15 +271,9 @@ egg.bnf = function(data) {
       } else {
         lines = before + expand(rulebase[rule], false);
       }
-      element.innerHTML += "<pre>" + safe(lines) + "</pre>";
-      if (!rulebase[rule].refs) {
-        element.innerHTML += "<div style='color:red'>" + "Unused" + "</div>";
-      } else if (collapse(rule)) {
-        element.innerHTML += "<div style='color:green'>" + "Collapsed into " + Object.keys(rulebase[rule].refs).join(", ") + "</div>";
-      } else {
-        element.innerHTML += "<div>" + "Used by " + Object.keys(rulebase[rule].refs).join(", ") + "</div>";
-      }
+      text.push(lines);
     }
+    element.textContent = text.join("\n\n");
   }
   function layout_xy() {
     var layout = {
@@ -588,8 +663,17 @@ egg.bnf = function(data) {
     svgflow.setAttribute("viewBox", [vbox.x, vbox.y, vbox.width, vbox.height].join(" "));
     svgflow.innerHTML = element("rect", vbox) + svg;
   }
-  var rulebase = construct(data.rules, data.variations.full);
+  var variation, rulebase;
+  // ASCII
+  variation = data.variations.concise;
+  rulebase = construct(data.rules, variation, true);
   if (rulebase) {
-    ascii(document.getElementById("bnf"), rulebase, true);
+    ascii(document.getElementById("ascii"), rulebase, variation.collapse);
+  }
+  // http://www.bottlecaps.de/rr/ui
+  variation = data.variations.full;
+  rulebase = construct(data.rules, variation, true);
+  if (rulebase) {
+    //bottlecaps(document.getElementById("bottlecaps"), rulebase);
   }
 };

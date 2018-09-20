@@ -58,23 +58,14 @@ egg.bnf({
       {token: "var"}
     ]},
     "definition-function": {sequence: ["type-expression", "identifier-variable", {token: "("}, {zeroOrOne: "definition-function-parameter-list"}, {token: ")"}, "statement-compound"]},
-    "definition-function-parameter-list": {choice: [
-      "definition-function-parameter",
-      {sequence: ["definition-function-parameter-list", {token: ","}, "definition-function-parameter"]}
-    ]},
+    "definition-function-parameter-list": {list: "definition-function-parameter", separator: {token: ","}},
     "definition-function-parameter": {choice: [
       {sequence: [{zeroOrMore: "attribute"}, "type-expression", "identifier-variable", {zeroOrMore: {sequence: [{token: "="}, {token: "null"}]}}]},
       {sequence: [{zeroOrMore: "attribute"}, {token: "..."}, "type-expression", {token: "["}, {token: "]"}, "identifier-variable"]}
     ]},
-    "type-list": {choice: [
-      "type-expression",
-      {sequence: ["type-list", {token: ","}, "type-expression"]}
-    ]},
+    "type-list": {list: "type-expression", separator: {token: ","}},
     "type-expression": {choice: ["type-expression-union"]},
-    "type-expression-union": {choice: [
-      "type-expression-postfix",
-      {sequence: ["type-expression-union", {token: "|" }, "type-expression-postfix"]}
-    ]},
+    "type-expression-union": {list: "type-expression-union", separator: {token: "|" }},
     "type-expression-postfix": {choice: [
       "type-expression-primary",
       {sequence: ["type-expression-postfix", {token: "?"}]},
@@ -157,7 +148,7 @@ egg.bnf({
     "expression-unary": {choice: [
       "expression-postfix",
       {sequence: [{token: "&"}, "identifier-variable"]},
-      {sequence: ["operator-unary", "expression-unary"]},
+      {sequence: ["operator-unary", "expression-unary"]}
     ]},
     "expression-postfix": {choice: [
       "expression-primary",
@@ -196,23 +187,17 @@ egg.bnf({
     ]},
 
     "parameter-list": {choice: [
-      "positional-parameter-list",
-      {sequence: ["positional-parameter-list", {token: ","}, "named-parameter-list"]},
-      "named-parameter-list"
+      "parameter-positional-list",
+      {sequence: ["parameter-positional-list", {token: ","}, "parameter-named-list"]},
+      "parameter-named-list"
     ]},
-    "positional-parameter-list": {choice: [
-      "positional-parameter",
-      {sequence: ["positional-parameter-list", {token: ","}, "positional-parameter"]}
-    ]},
-    "positional-parameter": {choice: [
+    "parameter-positional-list": {list: "parameter-positional", separator: {token: ","}},
+    "parameter-positional": {choice: [
       "expression",
       {sequence: [{token: "..."}, "expression"]}
     ]},
-    "named-parameter-list": {choice: [
-      "named-parameter",
-      {sequence: ["named-parameter-list", {token: ","}, "named-parameter"]}
-    ]},
-    "named-parameter": {sequence: ["identifier-variable", {token: ":"}, "expression"]},
+    "parameter-named-list": {list: "parameter-named", separator: {token: ","}},
+    "parameter-named": {sequence: ["identifier-variable", {token: ":"}, "expression"]},
 
     "identifier-attribute": {terminal: "identifier", collapse: true},
     "identifier-property": {terminal: "identifier", collapse: true},
@@ -233,10 +218,7 @@ egg.bnf({
     "literal-float": {terminal: "floating-point", collapse: false},
     "literal-string": {sequence: [{token: "\""}, {terminal: "string"}, {token: "\""}]},
     "literal-object": {sequence: [{token: "{"}, {zeroOrOne: "literal-object-list"}, {token: "}"}]},
-    "literal-object-list": {choice: [
-      "literal-object-entry",
-      {sequence: ["literal-object-list", {zeroOrOne: {token: ","}}, "literal-object-entry"]}
-    ]},
+    "literal-object-list": {list: "literal-object-entry", separator: {token: ","}},
     "literal-object-entry": {choice: [
       {sequence: ["literal-object-key", {token: ":"}, "expression"]},
       {sequence: [{token: "..."}, "expression"]}
@@ -246,10 +228,7 @@ egg.bnf({
       "literal-string"
     ]},
     "literal-array": {sequence: [{token: "["}, {zeroOrOne: "literal-array-list"}, {token: "]"}], collapse: false},
-    "literal-array-list": {choice: [
-      "literal-array-entry",
-      {sequence: ["literal-array-list", {zeroOrOne: {token: ","}}, "literal-array-entry"]}
-    ]},
+    "literal-array-list": {list: "literal-array-entry", separator: {token: ","}},
     "literal-array-entry": {choice: [
       "expression",
       {sequence: [{token: "..."}, "expression"]}
@@ -257,26 +236,29 @@ egg.bnf({
   },
   variations: {
     full: {
-      "operator-binary": null
+      rules: {
+        "operator-binary": null
+      },
+      collapse: false
     },
     concise: {
-      "expression-binary": {choice: [
-        "expression-unary",
-        {sequence: ["expression-binary", "operator-binary", "expression-unary"]}
-      ]},
-      "expression-logical-or": null,
-      "expression-logical-and": null,
-      "expression-inclusive-or": null,
-      "expression-exclusive-or": null,
-      "expression-and": null,
-      "expression-equality": null,
-      "expression-relational": null,
-      "expression-shift": null,
-      "expression-additive": null,
-      "expression-multiplicative": null
+      rules: {
+        "expression-binary": {choice: [
+          "expression-unary",
+          {sequence: ["expression-binary", "operator-binary", "expression-unary"]}
+        ]},
+        "expression-logical-or": null,
+        "expression-logical-and": null,
+        "expression-inclusive-or": null,
+        "expression-exclusive-or": null,
+        "expression-and": null,
+        "expression-equality": null,
+        "expression-relational": null,
+        "expression-shift": null,
+        "expression-additive": null,
+        "expression-multiplicative": null
+      },
+      collapse: true
     }
   }
 });
-
-/*
-*/

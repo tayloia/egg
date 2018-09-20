@@ -4,11 +4,19 @@
   <title>egg bnf - chilliant.com</title>
   <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
   <style>
-    #bnf>div {
+    #ascii > div {
       text-indent: 4em;
-      color: darkgrey;
       font-size: small;
       padding-bottom: 2ex;
+    }
+    #ascii > .unused {
+      color: red;
+    }
+    #ascii > .collapsed {
+      color: green;
+    }
+    #ascii > .used {
+      color: darkgrey;
     }
     svg a {
       cursor: pointer;
@@ -17,7 +25,8 @@
  </head>
  <body>
    <svg id="railroad" xmlns="http://www.w3.org/2000/svg" version="1.1" width="1800"></svg>
-   <div id="bnf"></div>
+   <div id="ascii"></div>
+   <pre id="bottlecaps"></pre>
    <script lang="JavaScript" src="egg.bnf.format.js" type="text/javascript"></script>
    <script lang="JavaScript" src="egg.bnf.js" type="text/javascript"></script>
  </body>
