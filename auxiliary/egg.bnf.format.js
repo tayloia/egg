@@ -1,25 +1,33 @@
 ﻿/*jslint esversion:6*/
 /*jslint bitwise:true*/
 /*jshint loopfunc:true*/
+/*eslint no-extra-parens:0*/
 /*globals egg*/
-(function() {
+if (typeof egg === "undefined") {
+  egg = {};
+}
+egg.bnf = function(data) {
   "use strict";
-  var railroad = document.getElementById("railroad");
-  var bnf = document.getElementById("bnf");
-  var data = null;
-  function initialise() {
-    var success = true;
-    var rules = Object.keys(egg);
+  function safe(text) {
+    return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  }
+  function construct(src) {
+    var rules = Object.keys(src);
+    var dst = src;
+    function ref(from, to) {
+      if (!dst[to].refs) {
+        dst[to].refs = {};
+      }
+      dst[to].refs[from] = true;
+    }
     function expand(name, rule) {
       var keys = Object.keys(rule);
-      if (keys.length !== 1) {
-        console.error("Invalid tags for '" + name + "':", JSON.stringify(keys));
-        return false;
-      }
-      var key = keys[0];
+      var key = keys[0] || "<unknown>";
       var value = rule[key];
       switch (key) {
         case "choice":
+          rule.collapse = false;
+          /*fallsthrough*/
         case "sequence":
           if (!Array.isArray(value)) {
             console.error("'" + name + "'", key, "expected to be an array");
@@ -32,6 +40,7 @@
                   console.warn("'" + name + "'", key, "has unknown rule: '" + value[i] + "'");
                   return false;
                 }
+                ref(name, value[i]);
                 break;
               case "object":
                 if (!expand(name, value[i])) {
@@ -53,6 +62,7 @@
                 console.warn("'" + name + "'", key, "has unknown rule: '" + value + "'");
                 return false;
               }
+              ref(name, value);
               break;
             case "object":
               if (!expand(name, value)) {
@@ -82,6 +92,7 @@
               return false;
             }
           }
+          rule.collapse = false;
           break;
         default:
           console.error("Invalid tag for '" + name + "':", JSON.stringify(key));
@@ -90,15 +101,31 @@
       return true;
     }
     for (var rule of rules) {
-      success &= expand(rule, egg[rule]);
-      egg[rule].name = rule;
+      if (!expand(rule, dst[rule])) {
+        return false;
+      }
+      dst[rule].name = rule;
     }
-    data = egg[rules[0]];
-    return success;
+    return true;
   }
-  function output() {
-    var rules = Object.keys(egg);
+  function ascii(element, rulebase, collapsed) {
+    var rules = Object.keys(rulebase);
+    function collapse(rule) {
+      if (collapsed && (typeof rule === "string")) {
+        switch (rulebase[rule].collapse) {
+          case true:
+            return rulebase[rule];
+          case false:
+            return null;
+        }
+        if (rulebase[rule].refs && (Object.keys(rulebase[rule].refs).length === 1)) {
+          return rulebase[rule];
+        }
+      }
+      return null;
+    }
     function expand(rule, parentheses) {
+      rule = collapse(rule) || rule;
       if (typeof rule === "string") {
         return rule;
       }
@@ -107,9 +134,9 @@
       switch (key) {
         case "sequence":
           if (parentheses) {
-            return "(" + value.map(expand).join(" ") + ")";
+            return "(" + value.map(x => expand(x, false)).join(" ") + ")";
           }
-          return value.map(expand).join(" ");
+          return value.map(x => expand(x, false)).join(" ");
         case "zeroOrOne":
           return expand(value, true) + "?";
         case "zeroOrMore":
@@ -119,28 +146,33 @@
         case "token":
           return "'" + value + "'";
         case "terminal":
-          return "[" + value + "]";
+          return "<[" + value + "]>";
         case "tokens":
           return value.map(x => "'" + x + "'").join(" | ");
       }
       console.error("Invalid tag:", JSON.stringify(key));
       return "<unknown>";
     }
-    var text = [];
     for (var rule of rules) {
-      if (egg[rule].choice) {
-        var lines = "";
-        var before = rule + " ::= ";
-        for (var choice of egg[rule].choice) {
-          lines += before + expand(choice);
+      var lines = "";
+      var before = rule + " ::= ";
+      if (rulebase[rule].choice) {
+        for (var choice of rulebase[rule].choice) {
+          lines += before + expand(choice, false);
           before = "\n" + " ".repeat(rule.length + 3) + "| ";
         }
-        text.push(lines);
       } else {
-        text.push(rule + " ::= " + expand(egg[rule]));
+        lines = before + expand(rulebase[rule], false);
+      }
+      element.innerHTML += "<pre>" + safe(lines) + "</pre>";
+      if (!rulebase[rule].refs) {
+        element.innerHTML += "<div style='color:red'>" + "Unused" + "</div>";
+      } else if (collapse(rule)) {
+        element.innerHTML += "<div style='color:green'>" + "Collapsed into " + Object.keys(rulebase[rule].refs).join(", ") + "</div>";
+      } else {
+        element.innerHTML += "<div>" + "Used by " + Object.keys(rulebase[rule].refs).join(", ") + "</div>";
       }
     }
-    bnf.textContent += text.join("\n\n");
   }
   function layout_xy() {
     var layout = {
@@ -530,6 +562,6 @@
     svgflow.setAttribute("viewBox", [vbox.x, vbox.y, vbox.width, vbox.height].join(" "));
     svgflow.innerHTML = element("rect", vbox) + svg;
   }
-  initialise();
-  output();
-})();
+  construct(data.rules);
+  ascii(document.getElementById("bnf"), data.rules, true);
+};
