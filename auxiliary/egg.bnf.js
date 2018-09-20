@@ -4,8 +4,8 @@ egg.bnf({
     "module": {oneOrMore: {sequence: [{zeroOrMore:"attribute"}, "statement"]}},
     "attribute": {sequence: [{token: "@"}, "identifier-attribute", {zeroOrOne: {sequence: [{token: "("}, "parameter-list", {token: ")"}]}}]},
     "statement": {choice: [
-      {sequence: ["statement-simple", {token: ";"}]},
       "statement-compound",
+      {sequence: ["statement-simple", {token: ";"}]},
       "statement-flow",
       "definition-function"
     ]},
@@ -24,40 +24,52 @@ egg.bnf({
     "statement-call": {sequence: ["expression-postfix", {token: "("}, {zeroOrOne:"parameter-list"}, {token: ")"}]},
     "statement-compound": {sequence: [{token: "{"}, {zeroOrMore: "statement"}, {token: "}"}], collapse: true},
     "statement-flow": {choice: [
-      "statement-branch",
-      {sequence: ["statement-jump", {token: ";"}]}
-    ]},
-    "statement-branch": {choice: [
       "statement-if",
-      {sequence: [{token: "switch"}, {token: "("}, "expression", {token: ")"}, "statement-compound"]},
-      {sequence: [{token: "while"}, {token: "("}, "condition", {token: ")"}, "statement-compound"]},
-      {sequence: [{token: "do"}, "statement-compound", {token: "while"}, {token: "("}, "expression", {token: ")"}, {token: ";"}]},
-      {sequence: [{token: "for"}, {token: "("}, {zeroOrOne:"statement-simple"}, {token: ";"}, {zeroOrOne:"condition"}, {token: ";"}, {zeroOrOne:"statement-action"}, {token: ")"}, "statement-compound"]},
-      {sequence: [{token: "for"}, {token: "("}, "definition-variable-type", "identifier-variable", {token: ":"}, "expression", {token: ")"}, "statement-compound"]},
-      {sequence: [{token: "try"}, "statement-compound", {oneOrMore:"statement-catch"}]},
-      {sequence: [{token: "try"}, "statement-compound", {zeroOrMore:"statement-catch"}, "statement-finally"]}
+      "statement-switch",
+      "statement-while",
+      "statement-do",
+      "statement-for",
+      "statement-foreach",
+      "statement-try",
+      "statement-try-finally",
+      "statement-break",
+      "statement-continue",
+      "statement-return",
+      "statement-yield"
     ]},
-    "statement-jump": {choice: [
-      {token: "continue"},
-      {token: "break"},
-      {sequence: [{token: "return"}, {zeroOrOne:"expression"}]},
-      {sequence: [{token: "yield"}, "expression"]},
-      {sequence: [{token: "yield"}, {token: "..."}, "expression"]}
-    ]},
-    "statement-if": {sequence: [{token: "if"}, {token: "("}, "condition", {token: ")"}, "statement-compound", {zeroOrOne:"statement-else"}]},
+    "statement-if": {sequence: [{token: "if"}, {token: "("}, "condition", {token: ")"}, "statement-compound", {zeroOrOne:"statement-else"}], collapse: false},
     "statement-else": {choice: [
       {sequence: [{token: "else"}, "statement-compound"]},
       {sequence: [{token: "else"}, "statement-if"]}
     ]},
-    "statement-catch": {sequence: [{token: "catch"}, {token: "("}, "definition-variable-type", "identifier-variable", {token: ")"}, "statement-compound"]},
-    "statement-finally": {sequence: [{token: "finally"}, "statement-compound"]},
-    "definition-type": {sequence: [{token: "type"}, "identifier-type", {zeroOrOne: {sequence: [{token: "<"}, "type-list", {token: ">"}]}}, {token: "="}, "type-expression"]},
-    "definition-variable": {sequence: ["definition-variable-type", "identifier-variable", {zeroOrOne: {sequence: [{token: "="}, "expression"]}}]},
-    "definition-variable-type": {choice: [
+    "statement-switch": {sequence: [{token: "switch"}, {token: "("}, "expression", {token: ")"}, {token: "{"}, {oneOrMore: "statement-case"}, {token: "}"}], collapse: false},
+    "statement-case": {sequence: [{oneOrMore: "statement-case-value"}, {oneOrMore: "statement"}]},
+    "statement-case-value": {choice: [
+      {sequence: [{token: "case"}, "expression", {token: ":"}]},
+      {sequence: [{token: "default"}, {token: ":"}]}
+    ]},
+    "statement-while": {sequence: [{token: "while"}, {token: "("}, "condition", {token: ")"}, "statement-compound"], collapse: false},
+    "statement-do": {sequence: [{token: "do"}, "statement-compound", {token: "while"}, {token: "("}, "expression", {token: ")"}, {token: ";"}], collapse: false},
+    "statement-for": {sequence: [{token: "for"}, {token: "("}, {zeroOrOne:"statement-simple"}, {token: ";"}, {zeroOrOne:"condition"}, {token: ";"}, {zeroOrOne:"statement-action"}, {token: ")"}, "statement-compound"], collapse: false},
+    "statement-foreach": {sequence: [{token: "for"}, {token: "("}, "statement-foreach-type", "identifier-variable", {token: ":"}, "expression", {token: ")"}, "statement-compound"], collapse: false},
+    "statement-foreach-type": {choice: [
       "type-expression",
       {token: "var"}
     ]},
-    "definition-function": {sequence: ["type-expression", "identifier-variable", {token: "("}, {zeroOrOne: "definition-function-parameter-list"}, {token: ")"}, "statement-compound"]},
+    "statement-try": {sequence: [{token: "try"}, "statement-compound", {oneOrMore:"statement-catch"}], collapse: false},
+    "statement-catch": {sequence: [{token: "catch"}, {token: "("}, "type-expression", "identifier-variable", {token: ")"}, "statement-compound"]},
+    "statement-try-finally": {sequence: [{token: "try"}, "statement-compound", { zeroOrMore: "statement-catch" }, {token: "finally"}, "statement-compound"], collapse: false},
+    "statement-break": {sequence: [{token: "break"}, {token: ";"}], collapse: false},
+    "statement-continue": {sequence: [{token: "continue"}, {token: ";"}], collapse: false},
+    "statement-return": {sequence: [{token: "return"}, {zeroOrOne: "expression"}, {token: ";"}], collapse: false},
+    "statement-yield": {sequence: [{token: "yield"}, {zeroOrOne: {token: "..."}}, "expression", {token: ";"}], collapse: false},
+    "definition-type": {sequence: [{token: "type"}, "identifier-type", {zeroOrOne: {sequence: [{token: "<"}, "definition-type-list", {token: ">"}]}}, {token: "="}, "type-expression"], collapse: false},
+    "definition-type-list": {list: "identifier-type", separator: {token: ","}},
+    "definition-variable": {choice: [
+      {sequence: ["type-expression", "identifier-variable", {zeroOrOne: {sequence: [{token: "="}, "expression"]}}]},
+      {sequence: [{token: "var"}, "identifier-variable", {token: "="}, "expression"]}
+    ], collapse: false},
+    "definition-function": {sequence: ["type-expression", "identifier-variable", {token: "("}, {zeroOrOne: "definition-function-parameter-list"}, {token: ")"}, "statement-compound"], collapse: false},
     "definition-function-parameter-list": {list: "definition-function-parameter", separator: {token: ","}},
     "definition-function-parameter": {choice: [
       {sequence: [{zeroOrMore: "attribute"}, "type-expression", "identifier-variable", {zeroOrMore: {sequence: [{token: "="}, {token: "null"}]}}]},
@@ -74,7 +86,7 @@ egg.bnf({
       {sequence: ["type-expression-postfix", {token: "("}, {zeroOrOne: "definition-function-parameter-list"}, {token: ")"}]}
     ]},
     "type-expression-primary": {choice: [
-      "identifier-type",
+      {sequence: ["identifier-type", {zeroOrOne: {sequence: [{token: "<"}, "type-list", {token: ">"}]}}]},
       {token: "any"},
       {token: "void"},
       {token: "null"},
@@ -180,9 +192,9 @@ egg.bnf({
 
     "assignment-target": {choice: [
       "identifier-variable",
-      {sequence: [{oneOrMore: {token: "*"}}, "expression"]},
-      {sequence: ["expression", {token: "["}, "expression", {token: "]"}]},
-      {sequence: ["expression", {token: "."}, "identifier-property"]}
+      {sequence: [{token: "*"}, "expression-unary"]},
+      {sequence: ["expression-postfix", {token: "["}, "expression", {token: "]"}]},
+      {sequence: ["expression-postfix", {token: "."}, "identifier-property"]}
     ]},
 
     "parameter-list": {choice: [
@@ -198,10 +210,10 @@ egg.bnf({
     "parameter-named-list": {list: "parameter-named", separator: {token: ","}},
     "parameter-named": {sequence: ["identifier-variable", {token: ":"}, "expression"]},
 
-    "identifier-attribute": {terminal: "identifier", collapse: true},
-    "identifier-property": {terminal: "identifier", collapse: true},
-    "identifier-type": {terminal: "identifier", collapse: true},
-    "identifier-variable": {terminal: "identifier", collapse: true},
+    "identifier-attribute": {terminal: "identifier", collapse: false},
+    "identifier-property": {terminal: "identifier", collapse: false},
+    "identifier-type": {terminal: "identifier", collapse: false},
+    "identifier-variable": {terminal: "identifier", collapse: false},
 
     "literal": {choice: [
       {token: "null"},
