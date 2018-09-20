@@ -11,6 +11,30 @@ egg.bnf = function(data) {
   function safe(text) {
     return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
   }
+  function element(name, attributes, content) {
+    var result = "<" + name;
+    for (var i of Object.keys(attributes)) {
+      result += " " + i + "=\"" + attributes[i] + "\"";
+    }
+    if (content) {
+      result += ">" + content + "</" + name + ">";
+    } else {
+      result += "/>";
+    }
+    return result;
+  }
+  function link(href, content) {
+    return element("a", { href: href, target: "_blank" }, content);
+  }
+  function spanRule(rule) {
+    return element("span", { class: "rule" }, "&lt;" + rule + "&gt;");
+  }
+  function spanToken(token) {
+    return element("span", { class: "token" }, "'" + token + "'");
+  }
+  function spanTerminal(terminal) {
+    return element("span", { class: "terminal" }, "[" + terminal + "]");
+  }
   function construct(src, variation, delist) {
     var constructed = Object.assign({}, src);
     for (var key of Object.keys(variation.rules)) {
@@ -149,7 +173,7 @@ egg.bnf = function(data) {
     }
     return constructed;
   }
-  function ascii(element, rulebase, collapsed) {
+  function ascii(rulebase, collapsed, annotated) {
     var rules = Object.keys(rulebase);
     function collapse(rule) {
       if (collapsed && (typeof rule === "string")) {
@@ -168,7 +192,7 @@ egg.bnf = function(data) {
     function expand(rule, parentheses) {
       rule = collapse(rule) || rule;
       if (typeof rule === "string") {
-        return "<" + rule + ">";
+        return spanRule(rule);
       }
       var key = Object.keys(rule)[0];
       var value = rule[key];
@@ -178,7 +202,7 @@ egg.bnf = function(data) {
           result = value.map(x => expand(x, false)).join(" ");
           break;
         case "list":
-          result = "(<" + value + "> " + expand(rule.separator) + ")* <" + value + ">";
+          result = "(" + spanRule(value) + " " + expand(rule.separator) + ")* " + spanRule(value);
           break;
         case "zeroOrOne":
           return expand(value, true) + "?";
@@ -187,11 +211,11 @@ egg.bnf = function(data) {
         case "oneOrMore":
           return expand(value, true) + "+";
         case "token":
-          return "'" + value + "'";
+          return spanToken(value);
         case "terminal":
-          return "<[" + value + "]>";
+          return spanTerminal(value);
         case "tokens":
-          return value.map(x => "'" + x + "'").join(" | ");
+          return value.map(x => spanToken(x)).join(" | ");
         default:
           console.error("Invalid tag:", JSON.stringify(key));
           return "<unknown>";
@@ -201,31 +225,37 @@ egg.bnf = function(data) {
       }
       return result;
     }
+    var html = "";
     for (var rule of rules) {
-      var lines = "";
-      var before = rule + " ::= ";
-      if (rulebase[rule].choice) {
-        for (var choice of rulebase[rule].choice) {
-          lines += before + expand(choice, false);
-          before = "\n" + " ".repeat(rule.length + 3) + "| ";
+      if (annotated || !collapse(rule)) {
+        var lines = "";
+        var before = spanRule(rule) + " ::= ";
+        if (rulebase[rule].choice) {
+          for (var choice of rulebase[rule].choice) {
+            lines += before + expand(choice, false);
+            before = "\n" + " ".repeat(rule.length + 5) + "| ";
+          }
+        } else if (rulebase[rule].list) {
+          lines += before + expand(rulebase[rule].list);
+          lines += "\n" + " ".repeat(rule.length + 5) + "| " + spanRule(rule) + " " + expand(rulebase[rule].separator) + " " + expand(rulebase[rule].list);
+        } else {
+          lines = before + expand(rulebase[rule], false);
         }
-      } else if (rulebase[rule].list) {
-        lines += before + expand(rulebase[rule].list);
-        lines += "\n" + " ".repeat(rule.length + 3) + "| <" + rule + "> " + expand(rulebase[rule].separator) + " " + expand(rulebase[rule].list);
-      } else {
-        lines = before + expand(rulebase[rule], false);
-      }
-      element.innerHTML += "<pre>" + safe(lines) + "</pre>";
-      if (!rulebase[rule].refs) {
-        element.innerHTML += "<div class='unused'>" + "Unused" + "</div>";
-      } else if (collapse(rule)) {
-        element.innerHTML += "<div class='collapsed'>" + "Collapsed into " + Object.keys(rulebase[rule].refs).join(", ") + "</div>";
-      } else {
-        element.innerHTML += "<div class='used'>" + "Used by " + Object.keys(rulebase[rule].refs).join(", ") + "</div>";
+        html += element("pre", {}, lines);
+        if (annotated) {
+          if (!rulebase[rule].refs) {
+            html += element("div", { class: "unused" }, "Unused");
+          } else if (collapse(rule)) {
+            html += element("div", { class: "collapsed" }, "Collapsed into " + Object.keys(rulebase[rule].refs).join(", "));
+          } else {
+            html += element("div", { class: "used" }, "Used by " + Object.keys(rulebase[rule].refs).join(", "));
+          }
+        }
       }
     }
+    return html;
   }
-  function bottlecaps(element, rulebase) {
+  function bottlecaps(rulebase) {
     var rules = Object.keys(rulebase);
     function expand(rule, parentheses) {
       if (typeof rule === "string") {
@@ -252,7 +282,7 @@ egg.bnf = function(data) {
           return value.map(x => "'" + x + "'").join(" | ");
         default:
           console.error("Invalid tag:", JSON.stringify(key));
-          return "<unknown>";
+          return "[unknown]";
       }
       if (parentheses) {
         return "(" + result + ")";
@@ -273,7 +303,7 @@ egg.bnf = function(data) {
       }
       text.push(lines);
     }
-    element.textContent = text.join("\n\n");
+    return text.join("\n\n");
   }
   function layout_xy() {
     var layout = {
@@ -444,21 +474,6 @@ egg.bnf = function(data) {
         }
       }
     }
-  }
-  function element(name, attributes, content) {
-    var result = "<" + name;
-    for (var i of Object.keys(attributes)) {
-      result += " " + i + "=\"" + attributes[i] + "\"";
-    }
-    if (content) {
-      result += ">" + content + "</" + name + ">";
-    } else {
-      result += "/>";
-    }
-    return result;
-  }
-  function link(href, content) {
-    return element("a", { href: href, target: "_blank" }, content);
   }
   var flow = [];
   var svg = "";
@@ -668,12 +683,12 @@ egg.bnf = function(data) {
   variation = data.variations.concise;
   rulebase = construct(data.rules, variation, true);
   if (rulebase) {
-    ascii(document.getElementById("ascii"), rulebase, variation.collapse);
+    document.getElementById("ascii").innerHTML = ascii(rulebase, false, false);
   }
   // http://www.bottlecaps.de/rr/ui
   variation = data.variations.full;
   rulebase = construct(data.rules, variation, true);
   if (rulebase) {
-    //bottlecaps(document.getElementById("bottlecaps"), rulebase);
+    document.getElementById("bottlecaps").textContent = bottlecaps(rulebase);
   }
 };

@@ -4,6 +4,9 @@
   <title>egg bnf - chilliant.com</title>
   <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
   <style>
+    #ascii {
+      font-weight: bold;
+    }
     #ascii > div {
       text-indent: 4em;
       font-size: small;
@@ -17,6 +20,26 @@
     }
     #ascii > .used {
       color: darkgrey;
+    }
+    #ascii .rule {
+      background-color: rgba(0,0,255,0.1);
+      color: rgb(0,0,255);
+      border-radius: 1em;
+      line-height: 150%;
+    }
+    #ascii .token {
+      background-color: rgba(0,255,0,0.2);
+      color: rgb(0,128,0);
+      border-radius: 0.3em;
+      line-height: 150%;
+    }
+    #ascii .terminal {
+      background-color: rgba(255,0,0,0.2);
+      color: rgb(128,0,0);
+      line-height: 150%;
+    }
+    #bottlecaps {
+      background-color: lightgrey;
     }
     svg a {
       cursor: pointer;

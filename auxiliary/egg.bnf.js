@@ -64,8 +64,7 @@ egg.bnf({
       {sequence: [{zeroOrMore: "attribute"}, {token: "..."}, "type-expression", {token: "["}, {token: "]"}, "identifier-variable"]}
     ]},
     "type-list": {list: "type-expression", separator: {token: ","}},
-    "type-expression": {choice: ["type-expression-union"]},
-    "type-expression-union": {list: "type-expression-union", separator: {token: "|" }},
+    "type-expression": {list: "type-expression-postfix", separator: {token: "|" }},
     "type-expression-postfix": {choice: [
       "type-expression-primary",
       {sequence: ["type-expression-postfix", {token: "?"}]},
