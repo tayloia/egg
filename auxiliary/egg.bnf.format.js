@@ -11,45 +11,60 @@ egg.bnf = function(data) {
   function safe(text) {
     return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
   }
-  function construct(src) {
-    var rules = Object.keys(src);
-    var dst = src;
-    function ref(from, to) {
-      if (!dst[to].refs) {
-        dst[to].refs = {};
+  function construct(src, variation) {
+    var constructed = Object.assign({}, src);
+    for (var key of Object.keys(variation)) {
+      if (variation[key] === null) {
+        delete constructed[key];
+      } else {
+        constructed[key] = variation[key];
       }
-      dst[to].refs[from] = true;
     }
-    function expand(name, rule) {
-      var keys = Object.keys(rule);
-      var key = keys[0] || "<unknown>";
-      var value = rule[key];
+    var referenced = {};
+    function ref(from, to) {
+      if (!referenced[to]) {
+        referenced[to] = {};
+      }
+      referenced[to][from] = true;
+    }
+    var rules = Object.keys(constructed);
+    function clone(name, src) {
+      var dst = Object.assign({}, src);
+      var key = Object.keys(src)[0];
+      if (!key) {
+        console.error("'" + name + "'", "is invalid object:", JSON.stringify(src));
+        return null;
+      }
+      var value = src[key];
       switch (key) {
         case "choice":
-          rule.collapse = false;
+          dst.collapse = false;
           /*fallsthrough*/
         case "sequence":
           if (!Array.isArray(value)) {
             console.error("'" + name + "'", key, "expected to be an array");
-            return false;
+            return null;
           }
-          for (var i in value) {
+          dst[key] = [];
+          for (var i = 0; i < value.length; ++i) {
             switch (typeof value[i]) {
               case "string":
                 if (!rules.includes(value[i])) {
                   console.warn("'" + name + "'", key, "has unknown rule: '" + value[i] + "'");
-                  return false;
+                  return null;
                 }
+                dst[key][i] = value[i];
                 ref(name, value[i]);
                 break;
               case "object":
-                if (!expand(name, value[i])) {
-                  return false;
+                dst[key][i] = clone(name, value[i]);
+                if (dst[key][i] === null) {
+                  return null;
                 }
                 break;
               default:
                 console.error("'" + name + "'", key, "has bad element " + i + ":", JSON.stringify(value[i]));
-                return false;
+                return null;
             }
           }
           break;
@@ -60,53 +75,64 @@ egg.bnf = function(data) {
             case "string":
               if (!rules.includes(value)) {
                 console.warn("'" + name + "'", key, "has unknown rule: '" + value + "'");
-                return false;
+                return null;
               }
               ref(name, value);
               break;
             case "object":
-              if (!expand(name, value)) {
-                return false;
+              dst[key] = clone(name, value);
+              if (dst[key] === null) {
+                return null;
               }
               break;
             default:
               console.error("'" + name + "'", key, "has bad value:", JSON.stringify(value));
-              return false;
+              return null;
           }
           break;
         case "token":
         case "terminal":
           if (typeof value !== "string") {
             console.error("'" + name + "'", key, "has bad value:", JSON.stringify(value));
-            return false;
+            return null;
           }
           break;
         case "tokens":
           if (!Array.isArray(value)) {
             console.error("'" + name + "'", key, "expected to be an array");
-            return false;
+            return null;
           }
           for (var j of value) {
             if (typeof j !== "string") {
               console.error("'" + name + "'", key, "has bad element " + i + ":", JSON.stringify(j));
-              return false;
+              return null;
             }
           }
-          rule.collapse = false;
+          dst.collapse = false;
           break;
         default:
           console.error("Invalid tag for '" + name + "':", JSON.stringify(key));
-          return false;
+          return null;
       }
-      return true;
+      return dst;
     }
     for (var rule of rules) {
-      if (!expand(rule, dst[rule])) {
-        return false;
+      var cloned = clone(rule, constructed[rule]);
+      if (cloned === null) {
+        return null;
       }
-      dst[rule].name = rule;
+      cloned.name = rule;
+      cloned.refs = referenced[rule];
+      constructed[rule] = cloned;
     }
-    return true;
+    return constructed;
+  }
+  function variation(rulebase, vary) {
+    // WIBBLE
+    for (var i of vary.remove) {
+      delete rulebase[i];
+    }
+    return rulebase;
   }
   function ascii(element, rulebase, collapsed) {
     var rules = Object.keys(rulebase);
@@ -127,7 +153,7 @@ egg.bnf = function(data) {
     function expand(rule, parentheses) {
       rule = collapse(rule) || rule;
       if (typeof rule === "string") {
-        return rule;
+        return "<" + rule + ">";
       }
       var key = Object.keys(rule)[0];
       var value = rule[key];
@@ -562,6 +588,8 @@ egg.bnf = function(data) {
     svgflow.setAttribute("viewBox", [vbox.x, vbox.y, vbox.width, vbox.height].join(" "));
     svgflow.innerHTML = element("rect", vbox) + svg;
   }
-  construct(data.rules);
-  ascii(document.getElementById("bnf"), data.rules, true);
+  var rulebase = construct(data.rules, data.variations.full);
+  if (rulebase) {
+    ascii(document.getElementById("bnf"), rulebase, true);
+  }
 };

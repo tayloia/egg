@@ -2,7 +2,7 @@
 egg.bnf({
   rules: {
     "module": {oneOrMore: {sequence: [{zeroOrMore:"attribute"}, "statement"]}},
-    "attribute": {sequence: [{token: "@"}, "identifier-attribute", {zeroOrMore: {sequence: [{token: "("}, "parameter-list", {token: ")"}]}}]},
+    "attribute": {sequence: [{token: "@"}, "identifier-attribute", {zeroOrOne: {sequence: [{token: "("}, "parameter-list", {token: ")"}]}}]},
     "statement": {choice: [
       {sequence: ["statement-simple", {token: ";"}]},
       "statement-compound",
@@ -96,14 +96,14 @@ egg.bnf({
       {sequence: [{token: "type"}, "literal-object"]},
       {sequence: [{token: "("}, "type-expression", {token: ")"}]}
     ]},
-    "expression": {choice: ["expression-conditional"]},
-    "expression-conditional": {choice: [
-      "expression-if-null",
-      {sequence: ["expression-if-null", {token: "?"}, "expression", {token: ":"}, "expression-conditional"]}
+    "expression": {choice: ["expression-ternary"]},
+    "expression-ternary": {choice: [
+      "expression-binary",
+      {sequence: ["expression-binary", {token: "?"}, "expression", {token: ":"}, "expression-ternary"]}
     ]},
-    "expression-if-null": {choice: [
+    "expression-binary": {choice: [
       "expression-logical-or",
-      {sequence: ["expression-if-null", {token: "??"}, "expression-logical-or"]}
+      {sequence: ["expression-binary", {token: "??"}, "expression-logical-or"]}
     ]},
     "expression-logical-or": {choice: [
       "expression-logical-and",
@@ -111,7 +111,7 @@ egg.bnf({
     ]},
     "expression-logical-and": {choice: [
       "expression-inclusive-or",
-    {sequence: ["expression-logical-and", {token: "&&"}, "expression-inclusive-or"]}
+      {sequence: ["expression-logical-and", {token: "&&"}, "expression-inclusive-or"]}
     ]},
     "expression-inclusive-or": {choice: [
       "expression-exclusive-or",
@@ -119,7 +119,7 @@ egg.bnf({
     ]},
     "expression-exclusive-or": {choice: [
       "expression-and",
-        {sequence: ["expression-exclusive-or", {token: "^"}, "expression-and"]}
+      {sequence: ["expression-exclusive-or", {token: "^"}, "expression-and"]}
     ]},
     "expression-and": {choice: [
       "expression-equality",
@@ -149,18 +149,15 @@ egg.bnf({
       {sequence: ["expression-additive", {token: "-"}, "expression-multiplicative"]}
     ]},
     "expression-multiplicative": {choice: [
-      "expression-prefix",
-      {sequence: ["expression-multiplicative", {token: "*"}, "expression-prefix"]},
-      {sequence: ["expression-multiplicative", {token: "/"}, "expression-prefix"]},
-      {sequence: ["expression-multiplicative", {token: "%"}, "expression-prefix"]}
+      "expression-unary",
+      {sequence: ["expression-multiplicative", {token: "*"}, "expression-unary"]},
+      {sequence: ["expression-multiplicative", {token: "/"}, "expression-unary"]},
+      {sequence: ["expression-multiplicative", {token: "%"}, "expression-unary"]}
     ]},
-    "expression-prefix": {choice: [
+    "expression-unary": {choice: [
       "expression-postfix",
-      {sequence: [{token: "&"}, "expression-prefix"]},
-      {sequence: [{token: "*"}, "expression-prefix"]},
-      {sequence: [{token: "-"}, "expression-prefix"]},
-      {sequence: [{token: "~"}, "expression-prefix"]},
-      {sequence: [{token: "!"}, "expression-prefix"]}
+      {sequence: [{token: "&"}, "identifier-variable"]},
+      {sequence: ["operator-unary", "expression-unary"]},
     ]},
     "expression-postfix": {choice: [
       "expression-primary",
@@ -176,6 +173,8 @@ egg.bnf({
       {sequence: [{token: "("}, "expression", {token: ")"}]}
     ]},
 
+    "operator-unary": {tokens: ["*", "-", "~", "!"]},
+    "operator-binary": {tokens: ["??", "||", "&&", "|", "^", "&", "==", "!=", "<", ">", "<=", ">=", "<<", ">>", ">>>", "+", "-", "*", "/", "%"]},
     "operator-assignment": {tokens: ["=", "+=", "-=", "*=", "/=", "%=", "<<=", ">>=", ">>>=", "&=", "|=", "^=", "&&=", "||=", "??="]},
     "operator-mutation": {tokens: ["++", "--"]},
 
@@ -255,5 +254,29 @@ egg.bnf({
       "expression",
       {sequence: [{token: "..."}, "expression"]}
     ]}
+  },
+  variations: {
+    full: {
+      "operator-binary": null
+    },
+    concise: {
+      "expression-binary": {choice: [
+        "expression-unary",
+        {sequence: ["expression-binary", "operator-binary", "expression-unary"]}
+      ]},
+      "expression-logical-or": null,
+      "expression-logical-and": null,
+      "expression-inclusive-or": null,
+      "expression-exclusive-or": null,
+      "expression-and": null,
+      "expression-equality": null,
+      "expression-relational": null,
+      "expression-shift": null,
+      "expression-additive": null,
+      "expression-multiplicative": null
+    }
   }
 });
+
+/*
+*/
