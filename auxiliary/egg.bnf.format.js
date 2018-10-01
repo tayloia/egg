@@ -103,7 +103,7 @@ egg.bnf = function(data) {
           dst = { choice: value };
           /*fallsthrough*/
         case "choice":
-          dst.collapse = false;
+          dst.inline = false;
           /*fallsthrough*/
         case "sequence":
           if (!Array.isArray(value)) {
@@ -174,7 +174,7 @@ egg.bnf = function(data) {
               return null;
             }
           }
-          dst.collapse = false;
+          dst.inline = false;
           break;
         default:
           console.error("Invalid tag for '" + name + "':", JSON.stringify(key));
@@ -193,11 +193,11 @@ egg.bnf = function(data) {
     }
     return constructed;
   }
-  function ascii(rulebase, collapsed, annotated) {
+  function ascii(rulebase, inlined, annotated) {
     var rules = Object.keys(rulebase);
-    function collapse(rule) {
-      if (collapsed && (typeof rule === "string")) {
-        switch (rulebase[rule].collapse) {
+    function inline(rule) {
+      if (inlined && (typeof rule === "string")) {
+        switch (rulebase[rule].inline) {
           case true:
             return rulebase[rule];
           case false:
@@ -210,7 +210,7 @@ egg.bnf = function(data) {
       return null;
     }
     function expand(rule, parentheses) {
-      rule = collapse(rule) || rule;
+      rule = inline(rule) || rule;
       if (typeof rule === "string") {
         return spanRule(rule);
       }
@@ -249,7 +249,7 @@ egg.bnf = function(data) {
     }
     var html = "";
     for (var rule of rules) {
-      if (annotated || !collapse(rule)) {
+      if (annotated || !inline(rule)) {
         var lines = "";
         var before = spanRule(rule) + " ::= ";
         if (rulebase[rule].choice) {
@@ -267,8 +267,8 @@ egg.bnf = function(data) {
         if (annotated) {
           if (!rulebase[rule].refs) {
             html += element("div", { class: "unused" }, "Unused");
-          } else if (collapse(rule)) {
-            html += element("div", { class: "collapsed" }, "Collapsed into " + Object.keys(rulebase[rule].refs).join(", "));
+          } else if (inline(rule)) {
+            html += element("div", { class: "inlined" }, "Collapsed into " + Object.keys(rulebase[rule].refs).join(", "));
           } else {
             html += element("div", { class: "used" }, "Used by " + Object.keys(rulebase[rule].refs).join(", "));
           }
@@ -355,22 +355,21 @@ egg.bnf = function(data) {
       function makeList(item, separator) {
         return { type: "list", item: item, separator: separator };
       }
-      function makeDefinition(name, item) {
-        switch (item.type) {
-        case "choice":
-          return { type: "definition", name: name, item: item, end: 0.1 };
-        case "sequence":
-        case "box":
-          return { type: "definition", name: name, item: item, end: 1.1 };
-        }
-        return { type: "definition", name: name, item: item, end: 0.6 };
-      }
       function makeRule(item) {
         return { type: "rule", item: item, end: 0.5 };
       }
-      function expand(rule) {
+      function makeDefinition(rule) {
+        return { type: "definition", name: rule.name, item: expand(rule, rule.name), left: rule.left || 0.5, right: rule.right || 0.5 };
+      }
+      function expand(rule, inside) {
         if (typeof rule === "string") {
-          if (rulebase[rule].collapse === false) {
+          if (mega && (rulebase[rule].inline == false)) {
+            if (!(rule in mega) || (mega[rule] === inside)) {
+              mega[rule] = true;
+              return makeDefinition(rulebase[rule]);
+            }
+          }
+          if (rulebase[rule].inline === false) {
             return makeBox("rule", rule);
           }
           rule = rulebase[rule];
@@ -380,31 +379,50 @@ egg.bnf = function(data) {
         var result;
         switch (key) {
           case "sequence":
-            return makeSequence(value.map(expand));
+            return makeSequence(value.map(x => expand(x, inside)));
           case "choice":
-            return makeChoice(value.map(expand));
+            return makeChoice(value.map(x => expand(x, inside)), false);
           case "zeroOrOne":
-            return makeZeroOrOne(expand(value));
+            value = expand(value, inside);
+            if (value.type === "choice") {
+              value.optional = true;
+              return value;
+            }
+            return makeZeroOrOne(value);
           case "zeroOrMore":
-            return makeZeroOrMore(expand(value));
+            value = expand(value, inside);
+            switch (value.type) {
+              case "sequence":
+              case "definition":
+                return makeOneOrMore(makeZeroOrOne(value));
+              case "choice":
+                value.optional = true;
+                return makeOneOrMore(value);
+            }
+            return makeZeroOrMore(value);
           case "oneOrMore":
-            return makeOneOrMore(expand(value));
+            return makeOneOrMore(expand(value, inside));
           case "list":
-            return makeList(expand(value), expand(rule.separator));
+            return makeList(expand(value, inside), expand(rule.separator, inside));
           case "tokens":
-            return makeChoice(value.map(x => makeBox("token", x)));
+            return makeChoice(value.map(x => makeBox("token", x)), false);
           case "alias":
             return makeBox("terminal", rule.name);
         }
         return makeBox(key, value);
       }
-      return makeRule(makeDefinition(rule.name, expand(rule)));
+      return makeRule(makeDefinition(rule));
     }
     function measure(item) {
       switch (item.type) {
       case "stack":
       case "choice":
         var height = 0;
+        if (item.optional) {
+          item.width = 0;
+          item.above = 0.5;
+          height = 1;
+        }
         for (var i of item.items) {
           if (height === 0) {
             item.width = measure(i);
@@ -456,8 +474,8 @@ egg.bnf = function(data) {
         item.below = item.item.below;
         break;
       case "definition":
-        item.width = measure(item.item) + item.end * 2;
-        item.above = item.item.above + 2;
+        item.width = measure(item.item) + item.left + item.right;
+        item.above = item.item.above + 2.5;
         item.below = item.item.below + 1;
         break;
       case "rule":
@@ -556,7 +574,6 @@ egg.bnf = function(data) {
       svg += element("rect", { x: x0, y: y1 - d, width: d, height: d, fill: "url(#gradient-sw)", stroke: "none" });
       svg += element("rect", { x: x0, y: y0 + d, width: d, height: y1 - y0 - d * 2, fill: "url(#gradient-w)", stroke: "none" });
       svg += element("rect", { x: x0, y: y0, width: d, height: d, fill: "url(#gradient-nw)", stroke: "none" });
-      svg += element("rect", { x: x0, y: y0, width: x1 - x0, height: y1 - y0, fill: "none", stroke: stroke("definition"), "stroke-width": 0.05 });
       return svg;
     }
     function loop(x0, y0, x1, y1, r, yline) {
@@ -596,10 +613,14 @@ egg.bnf = function(data) {
         break;
       case "choice":
         var joint = null;
+        svg += arc(x, y, 0.5, "es");
+        svg += arc(x + w, y, 0.5, "ws");
+        if (item.optional) {
+          y += 0.5;
+          joint = y;
+        }
         for (var i of item.items) {
           if (joint === null) {
-            svg += arc(x, y, 0.5, "es");
-            svg += arc(x + w, y, 0.5, "ws");
             joint = y + 0.5;
           } else {
             y += i.above;
@@ -619,11 +640,11 @@ egg.bnf = function(data) {
         svg += circle(x + item.width, y, 0.2);
         break;
       case "definition":
-        svg += element("rect", { x: x, y: y - item.above, width: item.name.length * 0.36 + 0.4, height: 1.3, fill: hsl("definition", "75%"), stroke: stroke("definition"), "stroke-width": 0.05, rx: 0.3, ry: 0.3 });
-        svg += gradient(x, y - item.above + 1, x + item.width, y + item.below, 0.8);
-        svg += element("text", { x: x + 0.2, y: y - item.above + 0.7, "font-family": "monospace", "font-size": 0.65, "font-weight": "bold", "text-anchor": "left", fill: stroke("definition") }, item.name);
+        svg += element("rect", { x: x, y: y - item.above + 0.5, width: item.name.length * 0.36 + 0.4, height: 1.3, fill: hsl("definition", "75%"), stroke: "none", rx: 0.3, ry: 0.3 });
+        svg += gradient(x, y - item.above + 1.5, x + item.width, y + item.below, 0.8);
+        svg += element("text", { x: x + 0.2, y: y - item.above + 1.2, "font-family": "monospace", "font-size": 0.65, "font-style": "italic", "text-anchor": "left", fill: stroke("definition") }, item.name);
         svg += line(x, y, x + item.width, y);
-        svg += draw(item.item, x + item.end, y, item.width - item.end * 2);
+        svg += draw(item.item, x + item.left, y, item.width - item.left - item.right);
         break;
       case "zeroOrOne":
         var yy = y + item.item.above + 0.5;
@@ -665,7 +686,7 @@ egg.bnf = function(data) {
     }
     for (var rule of rules) {
       if (rulebase[rule].railroad === false) {
-        rulebase[rule].collapse = true;
+        rulebase[rule].inline = true;
       }
     }
     var built = {
@@ -676,8 +697,11 @@ egg.bnf = function(data) {
       items: []
     };
     for (var rule of rules) {
-      if (rulebase[rule].collapse === false) {
+      if (rulebase[rule].inline === false) {
         built.items.push(build(rulebase[rule]));
+      }
+      if (mega) {
+        break;
       }
     }
     measure(built);
@@ -699,23 +723,26 @@ egg.bnf = function(data) {
     var defs = table.map(i => element(i[0], i[1], stops)).join("");
     return element("defs", {}, defs) + svg;
   }
-  var variation, rulebase;
   // ASCII
-  variation = data.variations.concise;
-  rulebase = construct(data.rules, variation, true);
+  var rulebase = construct(data.rules, data.variations.concise, true);
   if (rulebase) {
     document.getElementById("ascii").innerHTML = ascii(rulebase, false, false);
   }
   // http://www.bottlecaps.de/rr/ui
-  variation = data.variations.full;
-  rulebase = construct(data.rules, variation, true);
+  rulebase = construct(data.rules, data.variations.full, true);
   if (rulebase) {
     document.getElementById("bottlecaps").textContent = bottlecaps(rulebase);
   }
   // Railroad
-  variation = data.variations.concise;
-  rulebase = construct(data.rules, variation, false);
+  rulebase = construct(data.rules, data.variations.concise, false);
   if (rulebase) {
-    document.getElementById("railroad").innerHTML = railroad(rulebase, []);
+    document.getElementById("railroad").innerHTML = railroad(rulebase, {
+      "attribute": "definition-function-parameter",
+      "parameter-list": "statement-call",
+      "expression": "statement-action",
+      "expression-unary": "expression-binary",
+      "expression-primary": "expression-unary",
+      "definition-function-parameter": "definition-function"
+    });
   }
 };
