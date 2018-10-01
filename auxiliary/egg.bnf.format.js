@@ -8,6 +8,26 @@ if (typeof egg === "undefined") {
 }
 egg.bnf = function(data) {
   "use strict";
+  var hue = {
+    // egg: hsl256(21,255,238) = hsl(h,100%,93%)
+    // egg: hsl100(h,100,238)
+    // hue256: 21, 57, 94,  131, 167, 204, 240
+    // hue360: 30, 81, 132, 184, 235, 287, 338
+    definition: 184, // azure
+    rule: 30, // egg
+    track: 132, // green
+    terminal: 235, // blue
+    token: 287 // purple
+  }
+  function hsl(what, lightness) {
+    return "hsl(" + hue[what] + ",80%," + lightness + ")";
+  }
+  function stroke(what) {
+    return hsl(what, "25%");
+  }
+  function fill(what) {
+    return hsl(what, "93%");
+  }
   function safe(text) {
     return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
   }
@@ -137,6 +157,7 @@ egg.bnf = function(data) {
           break;
         case "token":
         case "terminal":
+        case "alias":
           if (typeof value !== "string") {
             console.error("'" + name + "'", key, "has bad value:", JSON.stringify(value));
             return null;
@@ -209,10 +230,12 @@ egg.bnf = function(data) {
           return expand(value, true) + "*";
         case "oneOrMore":
           return expand(value, true) + "+";
-        case "token":
-          return spanToken(value);
+        case "alias":
+          return spanRule(value);
         case "terminal":
           return spanTerminal(value);
+        case "token":
+          return spanToken(value);
         case "tokens":
           return value.map(x => spanToken(x)).join(" | ");
         default:
@@ -273,10 +296,11 @@ egg.bnf = function(data) {
           return expand(value, true) + "*";
         case "oneOrMore":
           return expand(value, true) + "+";
-        case "token":
-          return "'" + value + "'";
+        case "alias":
         case "terminal":
           return value;
+        case "token":
+          return "'" + value + "'";
         case "tokens":
           return value.map(x => "'" + x + "'").join(" | ");
         default:
@@ -304,7 +328,7 @@ egg.bnf = function(data) {
     }
     return text.join("\n\n");
   }
-  function railroad(rulebase) {
+  function railroad(rulebase, mega) {
     var rules = Object.keys(rulebase);
     function build(rule) {
       function makeBox(shape, name) {
@@ -331,15 +355,18 @@ egg.bnf = function(data) {
       function makeList(item, separator) {
         return { type: "list", item: item, separator: separator };
       }
-      function makeRule(name, item) {
+      function makeDefinition(name, item) {
         switch (item.type) {
         case "choice":
-          return { type: "rule", name: name, item: item, end: 0.1 };
+          return { type: "definition", name: name, item: item, end: 0.1 };
         case "sequence":
         case "box":
-          return { type: "rule", name: name, item: item, end: 1.1 };
+          return { type: "definition", name: name, item: item, end: 1.1 };
         }
-        return { type: "rule", name: name, item: item, end: 0.6 };
+        return { type: "definition", name: name, item: item, end: 0.6 };
+      }
+      function makeRule(item) {
+        return { type: "rule", item: item, end: 0.5 };
       }
       function expand(rule) {
         if (typeof rule === "string") {
@@ -366,10 +393,12 @@ egg.bnf = function(data) {
             return makeList(expand(value), expand(rule.separator));
           case "tokens":
             return makeChoice(value.map(x => makeBox("token", x)));
+          case "alias":
+            return makeBox("terminal", rule.name);
         }
         return makeBox(key, value);
       }
-      return makeRule(rule.name, expand(rule));
+      return makeRule(makeDefinition(rule.name, expand(rule)));
     }
     function measure(item) {
       switch (item.type) {
@@ -426,9 +455,14 @@ egg.bnf = function(data) {
         item.above = item.separator.above + item.separator.below + item.item.above;
         item.below = item.item.below;
         break;
+      case "definition":
+        item.width = measure(item.item) + item.end * 2;
+        item.above = item.item.above + 2;
+        item.below = item.item.below + 1;
+        break;
       case "rule":
         item.width = measure(item.item) + item.end * 2;
-        item.above = item.item.above + 1;
+        item.above = item.item.above;
         item.below = item.item.below;
         break;
       default:
@@ -440,11 +474,10 @@ egg.bnf = function(data) {
       return item.width;
     }
     function line(x0, y0, x1, y1) {
-      var path = ["M", x0, y0, "L", x1, y1];
-      return element("path", { d: path.join(" "), stroke: "green", "stroke-width": 0.2, fill: "none"});
+      return element("line", { x1: x0, y1: y0, x2: x1, y2: y1, stroke: stroke("track"), "stroke-width": 0.1, "stroke-linecap": "square", fill: "none"});
     }
     function circle(x, y, r) {
-      return element("ellipse", { cx: x, cy: y, rx: r, ry: r, fill: "green"});
+      return element("ellipse", { cx: x, cy: y, rx: r, ry: r, stroke: stroke("track"), "stroke-width": 0.1, fill: "white"});
     }
     function arc(x, y, r, d) {
       var path = ["M", x, y, "A", r, r, 0, 0];
@@ -477,147 +510,152 @@ egg.bnf = function(data) {
         console.error("Unknown railroad node arc direction: " + d);
         break;
       }
-      return element("path", { d: path.join(" "), stroke: "green", "stroke-width": 0.2, fill: "none"});
+      return element("path", { d: path.join(" "), stroke: stroke("track"), "stroke-width": 0.1, "stroke-linecap": "square", fill: "none"});
     }
     function box(x, y, w, h, text, shape) {
+      var style = "italic";
       y -= h * 0.5;
       var svg;
       switch (shape) {
       case "rule":
-        svg = element("rect", { x: x, y: y, width: w, height: h, fill: "#FED", stroke: "blue", "stroke-width": 0.1, rx: 0.4, ry: 0.4 });
+        svg = element("rect", { x: x, y: y, width: w, height: h, fill: fill("rule"), stroke: stroke("rule"), "stroke-width": 0.1, rx: 0.4, ry: 0.4 });
         break;
       case "token":
-        svg = element("rect", { x: x, y: y, width: w, height: h, fill: "#FED", stroke: "blue", "stroke-width": 0.1 });
+        style = "normal";
+        svg = element("rect", { x: x, y: y, width: w, height: h, fill: fill("token"), stroke: stroke("token"), "stroke-width": 0.1 });
         break;
       case "terminal":
         var dx = h / 3;
-        var path = [
-          "M", x, y + h * 0.5,
-          "L", x + dx, y,
-          "L", x + w - dx, y,
-          "L", x + w, y + h * 0.5,
-          "L", x + w - dx, y + h,
-          "L", x + dx, y + h,
-          "L", x, y + h * 0.5
+        var polygon = [
+          x, y + h * 0.5,
+          x + dx, y,
+          x + w - dx, y,
+          x + w, y + h * 0.5,
+          x + w - dx, y + h,
+          x + dx, y + h
         ];
-        svg = element("path", { d: path.join(" "), fill: "#FED", stroke: "lime", "stroke-width": 0.1 });
+        svg = element("polygon", { points: polygon.join(" "), fill: fill("terminal"), stroke: stroke("terminal"), "stroke-width": 0.1 });
         break;
       default:
-        svg = element("rect", { x: x, y: y, width: w, height: h, fill: "#FED", stroke: "red", "stroke-width": 0.1 });
+        svg = element("rect", { x: x, y: y, width: w, height: h, fill: "white", stroke: "red", "stroke-width": 0.1 });
         break;
       }
       var fontsize = h * 0.7;
       x += w * 0.5;
       y += fontsize;
-      svg += element("text", { x: x, y: y, "font-family": "monospace", "font-size": fontsize, "font-weight": "bold", "text-anchor": "middle", fill: "red" }, text);
+      svg += element("text", { x: x, y: y, "font-family": "monospace", "font-size": fontsize, "font-weight": "bold", "font-style": style, "text-anchor": "middle", fill: stroke(shape) }, text);
       return svg; //link("https://en.wikipedia.org/wiki/" + i.wiki, part);
     }
-    function draw(item, x, y, w, thru) {
+    function gradient(x0, y0, x1, y1, d) {
       var svg = "";
-      if (item.width) {
-        svg += element("rect", { x: x, y: y - item.above, width: w, height: item.above + item.below, stroke: "lime", "stroke-width": 0.02, fill: "none"});
+      svg += element("rect", { x: x0 + d, y: y0, width: x1 - x0 - d * 2, height: d, fill: "url(#gradient-n)", stroke: "none" });
+      svg += element("rect", { x: x1 - d, y: y0, width: d, height: d, fill: "url(#gradient-ne)", stroke: "none" });
+      svg += element("rect", { x: x1 - d, y: y0 + d, width: d, height: y1 - y0 - d * 2, fill: "url(#gradient-e)", stroke: "none" });
+      svg += element("rect", { x: x1 - d, y: y1 - d, width: d, height: d, fill: "url(#gradient-se)", stroke: "none" });
+      svg += element("rect", { x: x0 + d, y: y1 - d, width: x1 - x0 - d * 2, height: d, fill: "url(#gradient-s)", stroke: "none" });
+      svg += element("rect", { x: x0, y: y1 - d, width: d, height: d, fill: "url(#gradient-sw)", stroke: "none" });
+      svg += element("rect", { x: x0, y: y0 + d, width: d, height: y1 - y0 - d * 2, fill: "url(#gradient-w)", stroke: "none" });
+      svg += element("rect", { x: x0, y: y0, width: d, height: d, fill: "url(#gradient-nw)", stroke: "none" });
+      svg += element("rect", { x: x0, y: y0, width: x1 - x0, height: y1 - y0, fill: "none", stroke: stroke("definition"), "stroke-width": 0.05 });
+      return svg;
+    }
+    function loop(x0, y0, x1, y1, r, yline) {
+      var svg = "";
+      if ((y1 - r) < (y0 + r + 1e-8)) {
+        svg += arc(x0, y1, r, "we");
+        svg += arc(x1, y0, r, "ew");
+      } else {
+        svg += arc(x0, y1, r, "wn");
+        svg += line(x0 - r, y1 - r, x0 - r, y0 + r);
+        svg += arc(x0 - r, y0 + r, r, "ne");
+        svg += arc(x1, y0, r, "es");
+        svg += line(x1 + r, y0 + r, x1 + r, y1 - r);
+        svg += arc(x1, y1, r, "en");
       }
+      if (yline != null) { //sic '=='
+        svg += line(x0, yline, x1, yline);
+      }
+      return svg;
+    }
+    function draw(item, x, y, w) {
+      var svg = "";
       switch (item.type) {
       case "stack":
         y -= item.items[0].above;
         for (var i of item.items) {
           y += i.above;
-          svg += draw(i, x, y, w, true);
+          svg += draw(i, x, y, w);
           y += i.below + item.between;
         }
         break;
       case "sequence":
-        if (thru) {
-          svg += line(x, y, x + w, y);
-        }
         for (var i of item.items) {
-          svg += draw(i, x, y, i.width, false);
+          svg += draw(i, x, y, i.width);
           x += i.width + item.between;
         }
         break;
       case "choice":
-        if (thru) {
-          svg += line(x, y, x + w, y);
-        }
         var joint = null;
         for (var i of item.items) {
           if (joint === null) {
-            if (item.items.length !== 1) {
-              svg += arc(x, y, 0.5, "es");
-              svg += arc(x + w, y, 0.5, "ws");
-            }
+            svg += arc(x, y, 0.5, "es");
+            svg += arc(x + w, y, 0.5, "ws");
             joint = y + 0.5;
           } else {
             y += i.above;
             svg += line(x + 0.5, joint, x + 0.5, y - 0.5) + arc(x + 0.5, y - 0.5, 0.5, "se");
             svg += arc(x + w - 1, y, 0.5, "en") + line(x + w - 0.5, joint, x + w - 0.5, y - 0.5);
             joint = y - 0.5;
+            svg += line(x + 1, y, x + w - 1, y);
           }
-          svg += draw(i, x + 1, y, w - 2, true);
+          svg += draw(i, x + 1, y, w - 2);
           y += i.below + item.between;
         }
         break;
       case "rule":
-        svg += element("text", { x: 0, y: y - item.above + 0.7, "font-family": "monospace", "font-size": 0.7, "font-weight": "bold", "text-anchor": "left", fill: "green" }, item.name);
         svg += line(x, y, x + item.width, y);
+        svg += draw(item.item, x + item.end, y, item.width - item.end * 2);
         svg += circle(x, y, 0.2);
         svg += circle(x + item.width, y, 0.2);
-        svg += draw(item.item, x + item.end, y, item.width - item.end * 2, false);
+        break;
+      case "definition":
+        svg += element("rect", { x: x, y: y - item.above, width: item.name.length * 0.36 + 0.4, height: 1.3, fill: hsl("definition", "75%"), stroke: stroke("definition"), "stroke-width": 0.05, rx: 0.3, ry: 0.3 });
+        svg += gradient(x, y - item.above + 1, x + item.width, y + item.below, 0.8);
+        svg += element("text", { x: x + 0.2, y: y - item.above + 0.7, "font-family": "monospace", "font-size": 0.65, "font-weight": "bold", "text-anchor": "left", fill: stroke("definition") }, item.name);
+        svg += line(x, y, x + item.width, y);
+        svg += draw(item.item, x + item.end, y, item.width - item.end * 2);
         break;
       case "zeroOrOne":
+        var yy = y + item.item.above + 0.5;
+        svg += line(x + 1, yy, x + w - 1, yy);
         svg += arc(x, y, 0.5, "es");
         svg += arc(x + 0.5, y + item.item.above, 0.5, "se");
-        svg += arc(x + item.item.width + 1, y + item.item.above + 0.5, 0.5, "en");
+        svg += arc(x + item.item.width + 1, yy, 0.5, "en");
         svg += arc(x + item.item.width + 1.5, y + 0.5, 0.5, "ne");
         if (item.item.above !== 0.5) {
           svg += line(x + 0.5, y + 0.5, x + 0.5, y + item.item.above);
           svg += line(x + item.item.width + 1.5, y + 0.5, x + item.item.width + 1.5, y + item.item.above);
         }
-        svg += draw(item.item, x + 1, y + item.item.above + 0.5, item.item.width, true);
+        svg += draw(item.item, x + 1, yy, item.item.width);
         break;
       case "zeroOrMore":
-        svg += arc(x + 0.5, y, 0.5, "we");
-        svg += arc(x + item.item.width + 0.5, y - 1, 0.5, "ew");
-        svg += draw(item.item, x + 0.5, y - item.below - 0.5, item.item.width, true);
+        var yy = y - item.item.below - 0.5;
+        svg += loop(x + 0.5, yy, x + w - 0.5, y, 0.5, yy);
+        svg += draw(item.item, x + 0.5, yy, item.item.width);
         break;
       case "oneOrMore":
         var yy = y - item.item.above - 0.5;
-        if (item.item.above === 0.5) {
-          svg += arc(x + 0.5, y, 0.5, "we");
-          svg += arc(x + w - 0.5, y - 1, 0.5, "ew");
-        } else {
-          svg += arc(x + 0.5, y, 0.5, "wn");
-          svg += line(x, y - 0.5, x, yy + 0.5);
-          svg += arc(x, yy + 0.5, 0.5, "ne");
-          svg += arc(x + w - 0.5, yy, 0.5, "es");
-          svg += line(x + w, yy + 0.5, x + w, y - 0.5);
-          svg += arc(x + w - 0.5, y, 0.5, "en");
-        }
-        svg += line(x + 0.5, yy, x + item.item.width + 0.5, yy);
-        svg += draw(item.item, x + 0.5, y, item.item.width, true);
+        svg += loop(x + 0.5, yy, x + w - 0.5, y, 0.5, yy);
+        svg += draw(item.item, x + 0.5, y, item.item.width);
         break;
       case "list":
-        if (thru) {
-          svg += line(x, y, x + w, y);
-        }
-        svg += arc(x + 0.5, y, 0.5, "we");
-        svg += line(x + 0.5, y - 1, x + w - 0.5, y - 1);
-        svg += arc(x + w - 0.5, y - 1, 0.5, "ew");
-        svg += draw(item.separator, x + (w - item.separator.width) / 2, y - 1, item.separator.width, false);
-        svg += draw(item.item, x + (w - item.item.width) / 2, y, w - 1, false);
+        var yy = y - item.item.above - 0.5;
+        svg += loop(x + 0.5, yy, x + w - 0.5, y, 0.5, yy);
+        svg += draw(item.separator, x + (w - item.separator.width) / 2, yy, item.separator.width);
+        svg += draw(item.item, x + (w - item.item.width) / 2, y, w - 1);
         break;
       case "box":
-        if (thru) {
-          svg += line(x, y, x + w, y);
-        }
         svg += box(x, y, item.width, 0.8, item.text, item.shape);
-        break;
-      case "line":
-        var path = ["M", item.x0 + x, item.y0 + y, "L", item.x1 + x, item.y1 + y];
-        svg += element("path", { d: path.join(" "), stroke: "green", "stroke-width": 0.2, fill: "none"});
-        break;
-      case "arc":
-        svg += arc(item.x + x, item.y + y, 0.5, item.dir);
         break;
       default:
         console.error("Unknown railroad node: " + JSON.stringify(item));
@@ -643,8 +681,23 @@ egg.bnf = function(data) {
       }
     }
     measure(built);
-    var svg = draw(built, 0.2, built.above, built.width);
-    return element("g", { transform: "scale(25)" }, svg);
+    var svg = draw(built, 0.3, built.above, built.width);
+    svg = element("g", { transform: "scale(25)" }, svg);
+    var table = [
+      [ "linearGradient", { id: "gradient-n", x1: 0, y1: 1, x2: 0, y2: 0 } ],
+      [ "radialGradient", { id: "gradient-ne", cx: 0, cy: 1, r: 1 } ],
+      [ "linearGradient", { id: "gradient-e", x1: 0, y1: 0, x2: 1, y2: 0 } ],
+      [ "radialGradient", { id: "gradient-se", cx: 0, cy: 0, r: 1 } ],
+      [ "linearGradient", { id: "gradient-s", x1: 0, y1: 0, x2: 0, y2: 1 } ],
+      [ "radialGradient", { id: "gradient-sw", cx: 1, cy: 0, r: 1 } ],
+      [ "linearGradient", { id: "gradient-w", x1: 1, y1: 0, x2: 0, y2: 0 } ],
+      [ "radialGradient", { id: "gradient-nw", cx: 1, cy: 1, r: 1 } ]
+    ];
+    var stops = element("stop", { offset: 0.0, "stop-color": hsl("definition","100%") })
+              + element("stop", { offset: 0.6, "stop-color": hsl("definition","93%") })
+              + element("stop", { offset: 1.0, "stop-color": hsl("definition","75%") });
+    var defs = table.map(i => element(i[0], i[1], stops)).join("");
+    return element("defs", {}, defs) + svg;
   }
   var variation, rulebase;
   // ASCII
@@ -663,6 +716,6 @@ egg.bnf = function(data) {
   variation = data.variations.concise;
   rulebase = construct(data.rules, variation, false);
   if (rulebase) {
-    document.getElementById("railroad").innerHTML = railroad(rulebase);
+    document.getElementById("railroad").innerHTML = railroad(rulebase, []);
   }
 };
