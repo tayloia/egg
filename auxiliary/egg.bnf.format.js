@@ -736,13 +736,19 @@ egg.bnf = function(data) {
   // Railroad
   rulebase = construct(data.rules, data.variations.concise, false);
   if (rulebase) {
-    document.getElementById("railroad").innerHTML = railroad(rulebase, {
-      "attribute": "definition-function-parameter",
-      "parameter-list": "statement-call",
-      "expression": "statement-action",
-      "expression-unary": "expression-binary",
-      "expression-primary": "expression-unary",
-      "definition-function-parameter": "definition-function"
-    });
+    if (true) {
+      document.getElementById("railroad").innerHTML = railroad(rulebase, {
+        "attribute": "definition-function-parameter",
+        "parameter-list": "statement-call",
+        "expression": "statement-action",
+        "expression-unary": "expression-binary",
+        "expression-primary": "expression-unary",
+        "definition-function-parameter": "definition-function",
+        "type-expression": "definition-type"
+      });
+    } else {
+      document.getElementById("railroad").style.height = 10000;
+      document.getElementById("railroad").innerHTML = railroad(rulebase);
+    }
   }
 };

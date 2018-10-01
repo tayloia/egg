@@ -158,12 +158,13 @@ egg.bnf({
     "expression-unary": {sequence: [
       {zeroOrMore: "operator-unary"},
       "expression-primary"
-    ], inline: false, left: 1},
+    ], inline: false, left: 1, right: 1},
     "expression-primary": {sequence: ["expression-prefix", {zeroOrMore: "expression-suffix"}], inline: false, right: 1},
     "expression-prefix": {choice: [
       "identifier-variable",
       "literal",
-      //"lambda-value",
+      "expression-function",
+      "expression-lambda",
       {sequence: [{token: "("}, "expression", {token: ")"}]}
     ], railroad: false},
     "expression-suffix": {choice: [
@@ -171,6 +172,17 @@ egg.bnf({
       {sequence: [{token: "("}, {zeroOrOne: "parameter-list"}, {token: ")"}]},
       {sequence: [{token: "."}, "identifier-property"]},
       {sequence: [{token: "?."}, "identifier-property"]}
+    ], railroad: false},
+    "expression-function": {sequence: ["type-expression", {token: "("}, {zeroOrOne: "definition-function-parameter-list"}, {token: ")"}, "statement-compound"], inline: false, left: 1, right: 1},
+    "expression-lambda": {sequence: ["expression-lambda-parameters", {token: "=>"}, "expression-lambda-body"], inline: false},
+    "expression-lambda-parameters": {choice: [
+      "identifier-variable",
+      {sequence: [{token: "("}, {zeroOrOne: "expression-lambda-parameter-list"}, {token: ")"}]}
+    ], railroad: false},
+    "expression-lambda-parameter-list": {list: "identifier-variable", separator: {token: ","}},
+    "expression-lambda-body": {choice: [
+      "expression",
+      "statement-compound"
     ], railroad: false},
     "operator-unary": {tokens: ["*", "-", "~", "!"], railroad: false},
     "operator-binary": {tokens: ["??", "||", "&&", "|", "^", "&", "==", "!=", "<", ">", "<=", ">=", "<<", ">>", ">>>", "+", "-", "*", "/", "%"], railroad: false},
