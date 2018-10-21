@@ -169,9 +169,10 @@ egg.bnf({
     ], railroad: false},
     "expression-suffix": {choice: [
       {sequence: [{token: "["}, "expression", {token: "]"}]},
-      {sequence: [{token: "("}, {zeroOrOne: "parameter-list"}, {token: ")"}]},
+      {sequence: [{token: "?z["}, "expression", {token: "]"}]},
       {sequence: [{token: "."}, "identifier-property"]},
-      {sequence: [{token: "?."}, "identifier-property"]}
+      {sequence: [{token: "?."}, "identifier-property"]},
+      {sequence: [{token: "("}, {zeroOrOne: "parameter-list"}, {token: ")"}]}
     ], railroad: false},
     "expression-function": {sequence: ["type-expression", {token: "("}, {zeroOrOne: "definition-function-parameter-list"}, {token: ")"}, "statement-compound"], inline: false, left: 1, right: 1},
     "expression-lambda": {sequence: ["expression-lambda-parameters", {token: "=>"}, "expression-lambda-body"], inline: false},
@@ -252,7 +253,7 @@ egg.bnf({
       {token: "E"},
       {token: "e"}
     ], railroad: false},
-    "literal-string": {sequence: [{token: "\""}, {zeroOrMore: "literal-string-character"}, {token: "\""}], inline: false},
+    "literal-string": {sequence: [{token: "\""}, {zeroOrMore: "literal-string-character"}, {token: "\""}], inline: false, left: 1, right: 1},
     "literal-string-character": {choice: [
       {terminal: "any-character-except-backslash-and-double-quote"},
       {sequence: [{token: "\\"}, {token: "\\"}]},

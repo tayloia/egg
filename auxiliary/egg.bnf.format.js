@@ -705,8 +705,7 @@ egg.bnf = function(data) {
       }
     }
     measure(built);
-    var svg = draw(built, 0.3, built.above, built.width);
-    svg = element("g", { transform: "scale(25)" }, svg);
+    var svg = draw(built, 0.5, built.above, built.width);
     var table = [
       [ "linearGradient", { id: "gradient-n", x1: 0, y1: 1, x2: 0, y2: 0 } ],
       [ "radialGradient", { id: "gradient-ne", cx: 0, cy: 1, r: 1 } ],
@@ -721,7 +720,10 @@ egg.bnf = function(data) {
               + element("stop", { offset: 0.6, "stop-color": hsl("definition","93%") })
               + element("stop", { offset: 1.0, "stop-color": hsl("definition","75%") });
     var defs = table.map(i => element(i[0], i[1], stops)).join("");
-    return element("defs", {}, defs) + svg;
+    svg = element("defs", {}, defs) + svg;
+    var viewbox = [0, 0, built.width + 1, built.above + built.below + 1];
+    console.info(viewbox);
+    return element("svg", { xmlns: "http://www.w3.org/2000/svg", version: "1.1", viewBox: viewbox.join(" ")}, svg);
   }
   // ASCII
   var rulebase = construct(data.rules, data.variations.concise, true);
@@ -747,7 +749,6 @@ egg.bnf = function(data) {
         "type-expression": "definition-type"
       });
     } else {
-      document.getElementById("railroad").style.height = 10000;
       document.getElementById("railroad").innerHTML = railroad(rulebase);
     }
   }
