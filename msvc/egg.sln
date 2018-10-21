@@ -20,9 +20,6 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "yolk", "yolk.vcxproj", "{05
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Auxiliary Files", "Auxiliary Files", "{3A0C1E75-6808-444E-AAF5-812F75DFEDA8}"
 	ProjectSection(SolutionItems) = preProject
-		..\auxiliary\egg.bnf.format.js = ..\auxiliary\egg.bnf.format.js
-		..\auxiliary\egg.bnf.html = ..\auxiliary\egg.bnf.html
-		..\auxiliary\egg.bnf.js = ..\auxiliary\egg.bnf.js
 		..\auxiliary\egg.bnf.txt = ..\auxiliary\egg.bnf.txt
 		..\auxiliary\egg.vm.txt = ..\auxiliary\egg.vm.txt
 	EndProjectSection
