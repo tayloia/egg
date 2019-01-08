@@ -113,6 +113,7 @@ jump-statement ::= 'continue'
                  | 'return' '...' expression
                  | 'yield' expression?
                  | 'yield' '...' expression
+                 | 'throw' expression?
 
 else-statement ::= 'else' compound-statement
                  | 'else' 'if' '(' condition ')' compound-statement else-statement?
