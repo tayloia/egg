@@ -478,7 +478,10 @@ egg.syntax = function(syntax, div) {
       return element("line", { x1: x0, y1: y0, x2: x1, y2: y1, stroke: stroke("track"), "stroke-width": 0.1, "stroke-linecap": "square", fill: "none"});
     }
     function circle(x, y, r) {
-      return element("ellipse", { cx: x, cy: y, rx: r, ry: r, stroke: stroke("track"), "stroke-width": 0.1, fill: "white"});
+      return element("ellipse", { cx: x, cy: y, rx: r, ry: r, stroke: stroke("track"), "stroke-width": 0.1, fill: fill("track")});
+    }
+    function rounded(x, y, w, h, r, fill) {
+      return element("rect", { x: x, y: y, width: w, height: h, fill: fill, stroke: "none", rx: r, ry: r });
     }
     function arc(x, y, r, d) {
       var path = ["M", x, y, "A", r, r, 0, 0];
@@ -547,18 +550,6 @@ egg.syntax = function(syntax, div) {
       svg += element("text", { x: x, y: y, "font-family": "monospace", "font-size": fontsize, "font-weight": "bold", "font-style": style, "text-anchor": "middle", fill: stroke(shape) }, text);
       return svg; //link("https://en.wikipedia.org/wiki/" + i.wiki, part);
     }
-    function gradient(x0, y0, x1, y1, d) {
-      var svg = "";
-      svg += element("rect", { x: x0 + d, y: y0, width: x1 - x0 - d * 2, height: d, fill: "url(#gradient-n)", stroke: "none" });
-      svg += element("rect", { x: x1 - d, y: y0, width: d, height: d, fill: "url(#gradient-ne)", stroke: "none" });
-      svg += element("rect", { x: x1 - d, y: y0 + d, width: d, height: y1 - y0 - d * 2, fill: "url(#gradient-e)", stroke: "none" });
-      svg += element("rect", { x: x1 - d, y: y1 - d, width: d, height: d, fill: "url(#gradient-se)", stroke: "none" });
-      svg += element("rect", { x: x0 + d, y: y1 - d, width: x1 - x0 - d * 2, height: d, fill: "url(#gradient-s)", stroke: "none" });
-      svg += element("rect", { x: x0, y: y1 - d, width: d, height: d, fill: "url(#gradient-sw)", stroke: "none" });
-      svg += element("rect", { x: x0, y: y0 + d, width: d, height: y1 - y0 - d * 2, fill: "url(#gradient-w)", stroke: "none" });
-      svg += element("rect", { x: x0, y: y0, width: d, height: d, fill: "url(#gradient-nw)", stroke: "none" });
-      return svg;
-    }
     function loop(x0, y0, x1, y1, r, yline) {
       var svg = "";
       if ((y1 - r) < (y0 + r + 1e-8)) {
@@ -623,8 +614,10 @@ egg.syntax = function(syntax, div) {
         svg += circle(x + item.width, y, 0.2);
         break;
       case "definition":
-        svg += element("rect", { x: x, y: y - item.above + 0.5, width: item.name.length * 0.36 + 0.4, height: 1.3, fill: hsl("definition", "75%"), stroke: "none", rx: 0.3, ry: 0.3 });
-        svg += gradient(x, y - item.above + 1.5, x + item.width, y + item.below, 0.8);
+        var inside = hsl("definition", (mega && !mega.root) ? "100%" : "95%");
+        svg += rounded(x, y - item.above + 0.5, item.name.length * 0.36 + 0.4, 1.5, 0.25, hsl("definition", "75%"));
+        svg += rounded(x, y - item.above + 1.5, item.width, item.above + item.below - 1.5, 0.5, hsl("definition", "75%"));
+        svg += rounded(x + 0.25, y - item.above + 1.75, item.width - 0.5, item.above + item.below - 2, 0.25, inside);
         svg += element("text", { x: x + 0.2, y: y - item.above + 1.2, "font-family": "monospace", "font-size": 0.65, "font-style": "italic", "text-anchor": "left", fill: stroke("definition") }, item.name);
         svg += line(x, y, x + item.width, y);
         svg += draw(item.item, x + item.left, y, item.width - item.left - item.right);
@@ -691,21 +684,6 @@ egg.syntax = function(syntax, div) {
     }
     measure(built);
     var svg = draw(built, 0.5, built.above, built.width);
-    var table = [
-      [ "linearGradient", { id: "gradient-n", x1: 0, y1: 1, x2: 0, y2: 0 } ],
-      [ "radialGradient", { id: "gradient-ne", cx: 0, cy: 1, r: 1 } ],
-      [ "linearGradient", { id: "gradient-e", x1: 0, y1: 0, x2: 1, y2: 0 } ],
-      [ "radialGradient", { id: "gradient-se", cx: 0, cy: 0, r: 1 } ],
-      [ "linearGradient", { id: "gradient-s", x1: 0, y1: 0, x2: 0, y2: 1 } ],
-      [ "radialGradient", { id: "gradient-sw", cx: 1, cy: 0, r: 1 } ],
-      [ "linearGradient", { id: "gradient-w", x1: 1, y1: 0, x2: 0, y2: 0 } ],
-      [ "radialGradient", { id: "gradient-nw", cx: 1, cy: 1, r: 1 } ]
-    ];
-    var stops = element("stop", { offset: 0.0, "stop-color": hsl("definition","100%") })
-              + element("stop", { offset: 0.6, "stop-color": hsl("definition","93%") })
-              + element("stop", { offset: 1.0, "stop-color": hsl("definition","75%") });
-    var defs = table.map(i => element(i[0], i[1], stops)).join("");
-    svg = element("defs", {}, defs) + svg;
     var viewbox = [0, 0, built.width + 1, built.above + built.below + 1];
     if (scale) {
       svg = element("g", { transform: "scale(" + scale + ")" }, svg);
