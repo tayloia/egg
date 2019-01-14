@@ -30,7 +30,24 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "ovum", "ovum.vcxproj", "{F1
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "ovum-test", "ovum-test.vcxproj", "{31239C03-4A93-4DFD-BC85-4C1EC0C59B02}"
 EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "egg-website", "..\..\website\MSVC\egg-website\egg-website.vcxproj", "{4CA720EA-DDC1-4079-AB50-3F11135E5B43}"
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Website", "Website", "{09B0B484-8A55-4A2A-945D-1773D66EC17C}"
+	ProjectSection(SolutionItems) = preProject
+		..\www\egg.png = ..\www\egg.png
+		..\www\egg_text.svg = ..\www\egg_text.svg
+		..\www\favicon.ico = ..\www\favicon.ico
+		..\www\index.html = ..\www\index.html
+	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "v1", "v1", "{30F4A381-4F1D-46AF-A8B9-CBB05CC26736}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "syntax", "syntax", "{76A2604D-D7DD-4E5C-871A-44FA32990410}"
+	ProjectSection(SolutionItems) = preProject
+		..\www\v1\syntax\bnf.js = ..\www\v1\syntax\bnf.js
+		..\www\v1\syntax\poster.html = ..\www\v1\syntax\poster.html
+		..\www\v1\syntax\syntax.html = ..\www\v1\syntax\syntax.html
+		..\www\v1\syntax\syntax.js = ..\www\v1\syntax\syntax.js
+		..\www\v1\syntax\syntax.pdf = ..\www\v1\syntax\syntax.pdf
+	EndProjectSection
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -80,17 +97,13 @@ Global
 		{31239C03-4A93-4DFD-BC85-4C1EC0C59B02}.Release|x64.Build.0 = Release|x64
 		{31239C03-4A93-4DFD-BC85-4C1EC0C59B02}.Release|x86.ActiveCfg = Release|Win32
 		{31239C03-4A93-4DFD-BC85-4C1EC0C59B02}.Release|x86.Build.0 = Release|Win32
-		{4CA720EA-DDC1-4079-AB50-3F11135E5B43}.Debug|x64.ActiveCfg = Debug|x64
-		{4CA720EA-DDC1-4079-AB50-3F11135E5B43}.Debug|x64.Build.0 = Debug|x64
-		{4CA720EA-DDC1-4079-AB50-3F11135E5B43}.Debug|x86.ActiveCfg = Debug|Win32
-		{4CA720EA-DDC1-4079-AB50-3F11135E5B43}.Debug|x86.Build.0 = Debug|Win32
-		{4CA720EA-DDC1-4079-AB50-3F11135E5B43}.Release|x64.ActiveCfg = Release|x64
-		{4CA720EA-DDC1-4079-AB50-3F11135E5B43}.Release|x64.Build.0 = Release|x64
-		{4CA720EA-DDC1-4079-AB50-3F11135E5B43}.Release|x86.ActiveCfg = Release|Win32
-		{4CA720EA-DDC1-4079-AB50-3F11135E5B43}.Release|x86.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{30F4A381-4F1D-46AF-A8B9-CBB05CC26736} = {09B0B484-8A55-4A2A-945D-1773D66EC17C}
+		{76A2604D-D7DD-4E5C-871A-44FA32990410} = {30F4A381-4F1D-46AF-A8B9-CBB05CC26736}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {2DF38191-CD53-4856-9110-06DE454AA391}
