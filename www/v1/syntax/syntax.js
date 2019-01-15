@@ -458,7 +458,7 @@ egg.syntax = function(syntax, div) {
         break;
       case "definition":
         item.width = measure(item.item) + item.left + item.right;
-        item.above = item.item.above + 2.5;
+        item.above = item.item.above + 2.25;
         item.below = item.item.below + 1;
         break;
       case "rule":
@@ -615,10 +615,10 @@ egg.syntax = function(syntax, div) {
         break;
       case "definition":
         var inside = hsl("definition", (mega && !mega.root) ? "100%" : "95%");
-        svg += rounded(x, y - item.above + 0.5, item.name.length * 0.36 + 0.4, 1.5, 0.25, hsl("definition", "75%"));
+        svg += rounded(x, y - item.above + 0.75, item.name.length * 0.36 + 0.4, 1.5, 0.25, hsl("definition", "75%"));
         svg += rounded(x, y - item.above + 1.5, item.width, item.above + item.below - 1.5, 0.5, hsl("definition", "75%"));
         svg += rounded(x + 0.25, y - item.above + 1.75, item.width - 0.5, item.above + item.below - 2, 0.25, inside);
-        svg += element("text", { x: x + 0.2, y: y - item.above + 1.2, "font-family": "monospace", "font-size": 0.65, "font-style": "italic", "text-anchor": "left", fill: stroke("definition") }, item.name);
+        svg += element("text", { x: x + 0.2, y: y - item.above + 1.4, "font-family": "monospace", "font-size": 0.65, "font-style": "italic", "text-anchor": "left", fill: stroke("definition") }, item.name);
         svg += line(x, y, x + item.width, y);
         svg += draw(item.item, x + item.left, y, item.width - item.left - item.right);
         break;

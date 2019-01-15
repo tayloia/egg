@@ -48,7 +48,7 @@
     }
     pre {
       border: 1px solid hsl(30,100%,39%);
-      margin: 1em 0;
+      margin: 1.5em 0;
       padding: 1em;
     }
     code {
@@ -60,8 +60,8 @@
       text-decoration: none;
     }
     .railroad, .diagram {
-      margin-top: 0.5em;
-      padding-top: 0.25em;
+      margin: -0.5ex 0;
+      padding-top: 1ex;
       filter: drop-shadow(3px 3px 2px hsl(30,100%,25%,25%));
     }
     #ascii {
@@ -200,6 +200,7 @@ target = target - 1;</pre>
   // Loops from 0 to 99 inclusive
 }</pre>
   <h3>Flow Control</h3>
+  Flow control statements affect the order of execution of other statements.
   <h4>If Statement</h4>
   Like most computer languages, <code>if</code> statements can have optional <code>else</code> clauses:
   <div class="railroad">statement-if</div>
@@ -348,6 +349,7 @@ try {
 try {
   processResource(resource);
 } finally {
+  // Guaranteed to be called
   releaseResource(resource);
 }</pre>
   <h4>Return Statement</h4>
@@ -377,7 +379,7 @@ try {
     b = c;
   }
 }</pre>
-  If the <code>yield ...</code> form is used, all values, if any, in the expression are yielded, one after another:
+  If the <code>yield ...</code> form of the statement is used, all values in the expression are yielded, one after another:
   <pre class="code">any! prefix(any head, any! tail) {
   // Yield 'head' then all the values in 'tail'
   yield  head;
