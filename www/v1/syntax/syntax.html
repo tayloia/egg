@@ -49,7 +49,7 @@
     pre {
       border: 1px solid hsl(30,100%,39%);
       margin: 1em 0;
-      padding: 1ex;
+      padding: 1em;
     }
     code {
       background-color: hsl(30,100%,93%);
@@ -100,6 +100,8 @@
       margin-left: 22px;
       border-radius: 6px;
       box-shadow: 3px 3px 2px hsla(30,100%,39%,25%);
+      background-color: hsl(30,100%,96%);
+      width: fit-content;
     }
     .code-comment {
       color: hsl(132,100%,33%);
@@ -349,10 +351,40 @@ try {
   releaseResource(resource);
 }</pre>
   <h4>Return Statement</h4>
-  For functions defined to a return value, the <code>return</code> statement exits the function and return the expression to the caller:
+  For functions defined to return a value, the <code>return</code> statement exits the function, returning the expression to the caller:
   <div class="railroad">statement-return</div>
-  <h3>And...</h3>
+  For example:
+  <pre class="code">double computeSquare(double x) {
+  // Return the square of 'x'
+  return x * x;
+}</pre>
+  For functions with no return value, the <code>return</code> statement without an expression is used:
+  <pre class="code">void squareIt(double* p) {
+  // Squares the value pointed to by 'p'
+  *p *= *p;
+  return;
+}</pre>
+  <h4>Yield Statement</h4>
+  In <i>generator</i> functions, <code>yield</code> statements return values to the caller without terminating the function:
   <div class="railroad">statement-yield</div>
+  For example:
+  <pre class="code">int! fibonacci(int a, int b) {
+  // Compute an infinite series of Fibonacci numbers
+  for (;;) {
+    yield a;
+    var c = a + b;
+    a = b;
+    b = c;
+  }
+}</pre>
+  If the <code>yield ...</code> form is used, all values, if any, in the expression are yielded, one after another:
+  <pre class="code">any! prefix(any head, any! tail) {
+  // Yield 'head' then all the values in 'tail'
+  yield  head;
+  yield ...tail;
+}</pre>
+
+  <h3>And...</h3>
   <div class="railroad">definition-type</div>
   <div class="railroad">definition-variable</div>
   <div class="railroad">definition-function</div>
