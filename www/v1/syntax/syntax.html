@@ -4,19 +4,25 @@
   <title>Egg Syntax</title>
   <style>
     body {
+      background-color: hsl(30,100%,99%);
+      color: hsl(30,100%,9%);
       margin: 0 24px;
+      counter-reset: h1
+    }
+    header, h1, h1, h2, h3, h4, footer {
+      border: 1px solid hsl(30,100%,39%);
+      border-radius: 1ex;
+      margin: 16px -16px;
+      padding: 0.5ex 1ex;
+      background-color: hsl(30,100%,93%);
+      box-shadow: 3px 3px 2px hsla(30,100%,39%,25%);
+    }
+    header {
+      font-size: 250%;
+      font-weight: bold;
+    }
+    h1 {
       counter-reset: h2
-    }
-    pre {
-      display: table;
-      background-color: hsl(30,80%,96%);
-      border: 1px solid hsl(30,80%,75%);
-      margin: 1em 0;
-      padding: 1ex 2ex;
-    }
-    code {
-      background-color: hsl(30,80%,93%);
-      padding: 0 0.5ex;
     }
     h2 {
       counter-reset: h3
@@ -24,45 +30,46 @@
     h3 {
       counter-reset: h4
     }
-    h4 {
-      counter-reset: h5
+    h1:before {
+      counter-increment: h1;
+      content: counter(h1) ". "
     }
     h2:before {
       counter-increment: h2;
-      content: counter(h2) ". "
+      content: counter(h1) "." counter(h2) ". "
     }
     h3:before {
       counter-increment: h3;
-      content: counter(h2) "." counter(h3) ". "
+      content: counter(h1) "." counter(h2) "." counter(h3) ". "
     }
     h4:before {
       counter-increment: h4;
-      content: counter(h2) "." counter(h3) "." counter(h4) ". "
+      content: counter(h1) "." counter(h2) "." counter(h3) "." counter(h4) ". "
     }
-    h5:before {
-      counter-increment: h5;
-      content: counter(h2) "." counter(h3) "." counter(h4) "." counter(h5) ". "
+    pre {
+      border: 1px solid hsl(30,100%,39%);
+      margin: 1em 0;
+      padding: 1ex;
     }
-    h6 {
-      font-weight: normal;
+    code {
+      background-color: hsl(30,100%,93%);
+      padding: 0 0.5ex;
     }
-    h1, h2, h3, h4, h5, h6 {
-      border: 1px solid hsl(30,80%,25%);
-      border-radius: 1ex;
-      margin: 16px -16px;
-      padding: 0.5ex 1ex;
-      background-color: #FED;
-      box-shadow: 3px 3px 2px hsla(30,80%,25%,25%);
+    a {
+      color: hsl(30,100%,39%);
+      text-decoration: none;
     }
     .railroad, .diagram {
       margin-top: 0.5em;
       padding-top: 0.25em;
-      filter: drop-shadow(3px 3px 2px hsl(30,80%,25%,25%));
+      filter: drop-shadow(3px 3px 2px hsl(30,100%,25%,25%));
     }
     #ascii {
       font-weight: bold;
-      border: 1px solid hsl(30,80%,25%);
+      border: 1px solid hsl(30,100%,39%);
       margin: 1em 0 0 0;
+      overflow-x: auto;
+      box-shadow: 3px 3px 2px hsla(30,100%,39%,25%);
     }
     #ascii .rule {
       background-color: rgba(0,0,255,0.1);
@@ -85,22 +92,26 @@
       margin: 0;
       border: none;
     }
+    #bottlecaps {
+      overflow-x: auto;
+      box-shadow: 3px 3px 2px hsla(30,100%,39%,25%);
+    }
     .code {
       margin-left: 22px;
-      border-radius: 1ex;
-      box-shadow: 3px 3px 2px hsla(30,80%,25%,25%);
+      border-radius: 6px;
+      box-shadow: 3px 3px 2px hsla(30,100%,39%,25%);
     }
     .code-comment {
-      color: hsl(132,80%,33%);
+      color: hsl(132,100%,33%);
     }
     .code-string {
-      color: hsl(235,80%,33%);
+      color: hsl(235,100%,33%);
     }
     .code-identifier {
-      color: hsl(30,80%,33%);
+      color: hsl(30,100%,33%);
     }
     .code-keyword {
-      color: hsl(287,80%,33%);
+      color: hsl(287,100%,33%);
       font-weight: bold;
     }
   </style>
@@ -108,12 +119,12 @@
   <script lang="JavaScript" src="bnf.js" type="text/javascript"></script>
 </head>
 <body>
-  <h1>The Egg Programming Language Syntax</h1>
+  <header>The Egg Programming Language Syntax</header>
   This document contains details of the syntax of the egg programming language.
   It is not designed as a resource for learning the language from scratch, but programmers fluent in other computer languages may find it useful as an overview of egg.
-  <h2>Informal Syntax</h2>
+  <h1>Informal Syntax</h1>
   This section gives an informal overview of the syntax.
-  <h3>Egg Railroad Diagrams</h3>
+  <h2>Egg Railroad Diagrams</h2>
   A <a href="https://en.wikipedia.org/wiki/Syntax_diagram">railroad diagram</a> is a visual representation of a syntax specification.
   Egg uses a particular style of railroad diagram which we describe here.
   Each rule is enclosed in a cyan box with the rule name on a tab in the top-left.
@@ -139,10 +150,10 @@
   <div class="diagram">{ "name": {"oneOrMore": {"terminal": "letter"}, "inline": false, "left": 1, "right": 1} }</div>
   Finally, rules can be composed by referring to them within other rules using brown ovals:
   <div class="diagram">{ "greeting-personal": {"sequence": [{"rule": "greeting"}, {"rule": "name"}], "inline": false, "left": 1, "right": 1} }</div>
-  <h3>Egg Syntax</h3>
+  <h2>Egg Syntax</h2>
   Egg programs are split up into distinct parts, named "modules".
   The source code for each module is typically stored in a separate text file.
-  <h4>Comments</h4>
+  <h3>Comments</h3>
   Comments in egg source files can either be a single line or multiple lines:
   <div class="diagram">{ "comment": {"choice": [{"sequence": [{"token": "//"}, {"zeroOrMore": {"terminal": "any character except newline"} }, {"terminal": "newline"}]}, {"sequence": [{"token": "/*"}, {"zeroOrMore": {"terminal": "any character"}}, {"token": "*/"}]}] } }</div>
   For example:
@@ -152,11 +163,11 @@
     that's split over
      multiple lines */</pre>
   Comments can appear anywhere where whitespace is acceptable.
-  <h4>Modules</h4>
+  <h3>Modules</h3>
   Modules contain one or more statements.
   Each statement may be preceded one or more attributes.
   <div class="railroad">module</div>
-  <h4>Statements</h4>
+  <h3>Statements</h3>
   A statement is one of the following:
   <ul>
     <li>a compound statement consisting of zero or more statements within a pair of curly braces,</li>
@@ -186,8 +197,8 @@ target = target - 1;</pre>
   <pre class="code">for (i = 0; i < 100; ++i) {
   // Loops from 0 to 99 inclusive
 }</pre>
-  <h4>Flow Control</h4>
-  <h5>If Statement</h5>
+  <h3>Flow Control</h3>
+  <h4>If Statement</h4>
   Like most computer languages, <code>if</code> statements can have optional <code>else</code> clauses:
   <div class="railroad">statement-if</div>
   Note that the curly braces are compulsory, <i>except</i> when an <code>else</code> clause is immediately followed by another <code>if</code> statement:
@@ -208,7 +219,7 @@ if (condition3) {
 } else {
   // Do this if both 'condition3' and 'condition4' are false
 }</pre>
-  <h5>Switch Statement</h5>
+  <h4>Switch Statement</h4>
   The <code>switch</code> statement acts like a series of <code>if</code> statements:
   <div class="railroad">statement-switch</div>
   Unlike some other programming languages, expressions in the <code>case</code> statements need not be constant.
@@ -227,7 +238,7 @@ if (condition3) {
   default:
     throw "unknown greeting";
 }</pre>
-  <h5>While Loop</h5>
+  <h4>While Loop</h4>
   The <code>while</code> loop executes the statements within its curly brace block whilst a condition is true:
   <div class="railroad">statement-while</div>
   For example:
@@ -238,7 +249,7 @@ while (n > 1) {
   --n;
 }</pre>
   You can break out of the loop with a <code>break</code> statement or go to the next iteration with <code>continue</code>.
-  <h5>Do Loop</h5>
+  <h4>Do Loop</h4>
   The similar <code>do</code> loop executes the statements at least once:
   <div class="railroad">statement-do</div>
   For example:
@@ -249,7 +260,7 @@ do {
   --i;
 } while (i > 0);</pre>
   You can break out of the loop with a <code>break</code> statement or go to the next iteration with <code>continue</code>.
-  <h5>For Loop</h5>
+  <h4>For Loop</h4>
   The <code>for</code> loop comes in two flavours.
   The vanilla <code>for</code> loop takes an <i>initialization</i> statement, a <i>condition</i>, an <i>advance</i> statement and a block of statements within curly braces.
   <div class="railroad">statement-for</div>
@@ -270,7 +281,7 @@ for (var i : array) {
   sum += i;
 }</pre>
   In both flavours of <code>for</code>, you can break out of the loop with a <code>break</code> statement or go to the next iteration with <code>continue</code>.
-  <h5>Break Statement</h5>
+  <h4>Break Statement</h4>
   A <code>break</code> statement prematurely breaks out of a <code>while</code>, <code>do</code> or <code>for</code> loop.
   <div class="railroad">statement-break</div>
   For example:
@@ -284,11 +295,11 @@ for (var i : array) {
   }
 }</pre>
   It is also used to break out from a <code>switch</code> statement.
-  <h5>Continue Statement</h5>
+  <h4>Continue Statement</h4>
   A <code>continue</code> statement immediately starts the next iteration of a <code>while</code>, <code>do</code> or <code>for</code> loop.
   <div class="railroad">statement-continue</div>
   It can also be used in a <code>switch</code> statement to continue execution at the beginning of the next (or first) <code>case</code>/<code>default</code> clause.
-  <h5>Throw Statement</h5>
+  <h4>Throw Statement</h4>
   A <code>throw</code> statement raises an exception.
   <div class="railroad">statement-throw</div>
   Execution continues at the most recent, active <code>catch</code> clause that matches the type of the expression:
@@ -314,7 +325,7 @@ try {
   print("exception thrown: ", exception);
   throw; // Rethrow the exception
 }</pre>
-  <h5>Try Statement</h5>
+  <h4>Try Statement</h4>
   The <code>try</code> statement comes in two flavours.
   A <code>try</code> statement without a <code>finally</code> clause must have at least one <code>catch</code> clause:
   <div class="railroad">statement-try</div>
@@ -337,10 +348,10 @@ try {
 } finally {
   releaseResource(resource);
 }</pre>
-  <h5>Return Statement</h5>
+  <h4>Return Statement</h4>
   For functions defined to a return value, the <code>return</code> statement exits the function and return the expression to the caller:
   <div class="railroad">statement-return</div>
-  <h4>And...</h4>
+  <h3>And...</h3>
   <div class="railroad">statement-yield</div>
   <div class="railroad">definition-type</div>
   <div class="railroad">definition-variable</div>
@@ -365,23 +376,23 @@ try {
   <div class="railroad">literal-object</div>
   <div class="railroad">literal-array</div>
 
-  <h2>TODO</h2>
-  <h3>Attributes</h3>
+  <h1>TODO</h1>
+  <h2>Attributes</h2>
   <div class="railroad">attribute</div>
   <div class="railroad">statement-call</div>
 
-  <h2>Formal Syntax</h2>
-  <h3>EBNF</h3>
+  <h1>Formal Syntax</h1>
+  <h2>EBNF</h2>
   <details>
     <summary>Show syntax in <a href="https://en.wikipedia.org/wiki/Extended_Backus%E2%80%93Naur_form">extended Backus-Naur form</a></summary>
     <div id="ascii"></div>
   </details>
-  <h3>Railroad</h3>
+  <h2>Railroad</h2>
   <details>
     <summary>Show syntax in <a href="http://www.bottlecaps.de/rr/ui">Railroad Diagram Generator</a> format</summary>
     <pre id="bottlecaps"></pre>
   </details>
-  <h6>Copyright &copy; 2018-<span id="year">2019</span> <a href="http://chilliant.com">chilliant.com</a></h6>
+  <footer>Copyright &copy; 2018-<span id="year">2019</span> <a href="http://chilliant.com">chilliant.com</a></footer>
   <script lang="JavaScript" type="text/javascript">
     egg.year("year");
     egg.diagram(document.getElementsByClassName("diagram"));

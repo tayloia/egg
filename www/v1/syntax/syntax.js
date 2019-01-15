@@ -23,7 +23,7 @@ egg.syntax = function(syntax, div) {
     token: 287 // purple
   };
   function hsl(what, lightness) {
-    return "hsl(" + hue[what] + ",80%," + lightness + ")";
+    return "hsl(" + hue[what] + ",100%," + lightness + ")";
   }
   function stroke(what) {
     return hsl(what, "25%");
@@ -740,13 +740,13 @@ egg.code = function(element) {
     var dst = "";
     while (src.length) {
       var match;
-      if ((match = src.match(/^\/\/.*?\n\s*/))) {
+      if ((match = src.match(/^\/\/.*?\n/))) {
         dst += "<span class='code-comment'>" + src.slice(0, match[0].length) + "</span>";
-      } else if ((match = src.match(/^\/\*[\s\S]*?\*\/\s*/))) {
+      } else if ((match = src.match(/^\/\*[\s\S]*?\*\//))) {
         dst += "<span class='code-comment'>" + src.slice(0, match[0].length) + "</span>";
-      } else if ((match = src.match(/^"[^"\\]*(?:\\[\s\S][^"\\]*)*"\s*/))) {
+      } else if ((match = src.match(/^"[^"\\]*(?:\\[\s\S][^"\\]*)*"/))) {
         dst += "<span class='code-string'>" + src.slice(0, match[0].length) + "</span>";
-      } else if ((match = src.match(/^[a-zA-Z_][a-zA-Z0-9_]*\s*/))) {
+      } else if ((match = src.match(/^[a-zA-Z_][a-zA-Z0-9_]*/))) {
         switch (match[0].trim()) {
           case "any":
           case "bool":

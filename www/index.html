@@ -1,45 +1,54 @@
 <!DOCTYPE html>
-<html>
+<html lang="en-gb">
 <head>
+  <meta charset="utf-8">
   <title>egg.chilliant.com</title>
-  <meta name="author" content="Ian Taylor" />
+  <meta name="author" content="Ian Taylor">
   <style>
-    a {
-      text-decoration: none;
+    body {
+      background-color: hsl(30,100%,99%);
+      color: hsl(30,100%,9%);
     }
-    .header, .footer {
-      background: #FED;
-      border: solid 1ex #FED;
+    header, footer {
+      border: 1px solid hsl(30,100%,39%);
       border-radius: 1ex;
+      padding: 0.5ex 1ex;
+      background-color: hsl(30,100%,93%);
+      box-shadow: 3px 3px 2px hsla(30,100%,39%,25%);
     }
-    .header {
-      font-size: x-large;
-      font-weight: bolder;
+    header {
+      font-size: 250%;
+      font-weight: bold;
     }
-    .footer {
-      font-size: x-small;
-    }
-    .egg {
-      overflow: auto;
-    }
-    .egg>img {
+    img {
       float: right;
+    }
+    div {
+      overflow: auto;
+      margin: 1em 0 0 1em;
+    }
+    span {
+      font-style: italic;
+    }
+    a {
+      color: hsl(30,100%,39%);
+      text-decoration: none;
     }
   </style>
 </head>
 <body>
-  <div class="header">The Egg Programming Language</div>
-  <div class="egg">
+  <header>The Egg Programming Language</header>
+  <div>
     <img src="egg.png" alt="egg" />
-    <p>The "<i>egg</i>" project aims to create a pedagogical computer language with an emphasis on casual programming,</p>
+    The "<span>egg</span>" project aims to create a pedagogical computer language with an emphasis on casual programming,
     <ul>
-      <li><a href="http://blog.chilliant.com/search/label/egg">Blog posts relating to <i>egg</i></a></li>
-      <li><a href="https://github.com/tayloia/egg">The <i>egg</i> github repo</a></li>
-      <li><a href="v1/syntax/syntax.html">A walkthrough of the <i>egg</i> language syntax</a></li>
-      <li><a href="v1/syntax/poster.html">The <i>egg</i> language as an A3 syntax railroad diagram</a></li>
+      <li><a href="http://blog.chilliant.com/search/label/egg">Blog posts relating to <span>egg</span></a></li>
+      <li><a href="https://github.com/tayloia/egg">The <span>egg</span> github repo</a></li>
+      <li><a href="v1/syntax/syntax.html">A walkthrough of the <span>egg</span> language syntax</a></li>
+      <li><a href="v1/syntax/poster.html">The <span>egg</span> language as an A3 syntax railroad diagram</a></li>
     </ul>
-    <p>For more information, contact <a href="mailto:ian@chilliant.com">Ian Taylor</a></p>
+    For more information, contact <a href="mailto:ian@chilliant.com">Ian Taylor</a>
   </div>
-  <div class="footer">Copyright &copy; 2018 <a href="http://chilliant.com">chilliant.com</a></div>
+  <footer>Copyright &copy; 2018-2019 <a href="http://chilliant.com">chilliant.com</a></footer>
 </body>
 </html>
