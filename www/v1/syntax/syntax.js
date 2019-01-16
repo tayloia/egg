@@ -791,8 +791,28 @@ egg.code = function(element) {
   }
   element.innerHTML = enspan(element.textContent);
 };
-egg.year = function(span) {
-  document.getElementById(span).textContent = new Date().getFullYear();
+egg.anchor = function(text) {
+  return text.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim().replace(/ /g, "-");
+};
+egg.toc = function(id) {
+  var parent = document.getElementById(id);
+  var values = [0, 0, 0, 0, 0, 0];
+  for (var element of document.querySelectorAll("h1,h2,h3,h4,h5,h6")) {
+    element.id = egg.anchor(element.textContent);
+    var child = document.createElement("div");
+    var level = element.tagName.slice(1) - 1;
+    values[level]++;
+    var section = values.slice(0, level + 1).join(".") + ".";
+    child.innerHTML = "<a class='toc-" + level + "' href='#" + element.id + "'>" + section + " " + element.textContent + "</a>";
+    element.innerHTML = section + " " + element.textContent + " <a href='#" + element.id + "'><span class='link fas fa-link'></span></a>";
+    parent.appendChild(child);
+    while (++level < values.length) {
+      values[level] = 0;
+    }
+  }
+};
+egg.year = function(id) {
+  document.getElementById(id).textContent = new Date().getFullYear();
 };
 egg.diagram = function(elements) {
   for (var element of elements) {

@@ -8,9 +8,8 @@
       background-color: hsl(30,100%,99%);
       color: hsl(30,100%,9%);
       margin: 0 24px;
-      counter-reset: h1
     }
-    header, h1, h1, h2, h3, h4, footer {
+    header, h1, h2, h3, h4, footer {
       border: 1px solid hsl(30,100%,39%);
       border-radius: 1ex;
       margin: 16px -16px;
@@ -21,31 +20,6 @@
     header {
       font-size: 250%;
       font-weight: bold;
-    }
-    h1 {
-      counter-reset: h2
-    }
-    h2 {
-      counter-reset: h3
-    }
-    h3 {
-      counter-reset: h4
-    }
-    h1:before {
-      counter-increment: h1;
-      content: counter(h1) ". "
-    }
-    h2:before {
-      counter-increment: h2;
-      content: counter(h1) "." counter(h2) ". "
-    }
-    h3:before {
-      counter-increment: h3;
-      content: counter(h1) "." counter(h2) "." counter(h3) ". "
-    }
-    h4:before {
-      counter-increment: h4;
-      content: counter(h1) "." counter(h2) "." counter(h3) "." counter(h4) ". "
     }
     pre {
       border: 1px solid hsl(30,100%,39%);
@@ -117,14 +91,29 @@
       color: hsl(287,100%,33%);
       font-weight: bold;
     }
+    .link {
+      color: hsl(30,100%,33%);
+      font-size: 75%;
+      visibility: hidden;
+    }
+    h1:hover .link, h2:hover .link, h3:hover .link, h4:hover .link, h5:hover .link, h6:hover .link {
+      visibility: visible;
+    }
+    :target {
+      background: yellow;
+    }
   </style>
-  <script lang="JavaScript" src="syntax.js" type="text/javascript"></script>
-  <script lang="JavaScript" src="bnf.js" type="text/javascript"></script>
+  <script defer src="https://use.fontawesome.com/releases/v5.6.3/js/solid.js" integrity="sha384-F4BRNf3onawQt7LDHDJm/hwm3wBtbLIfGk1VSB/3nn3E+7Rox1YpYcKJMsmHBJIl" crossorigin="anonymous"></script>
+  <script defer src="https://use.fontawesome.com/releases/v5.6.3/js/fontawesome.js" integrity="sha384-treYPdjUrP4rW5q82SnECO7TPVAz4bpas16yuE9F5o7CeBn2YYw1yr5oC8s8Mf8t" crossorigin="anonymous"></script>
+  <script src="syntax.js"></script>
+  <script src="bnf.js"></script>
 </head>
 <body>
   <header>The Egg Programming Language Syntax</header>
   This document contains details of the syntax of the egg programming language.
   It is not designed as a resource for learning the language from scratch, but programmers fluent in other computer languages may find it useful as an overview of egg.
+  <h1>Table of Contents</h1>
+  <div id="toc"></div>
   <h1>Informal Syntax</h1>
   This section gives an informal overview of the syntax.
   <h2>Egg Railroad Diagrams</h2>
@@ -534,7 +523,7 @@ Number n; // Synonymous with 'int|float n'</pre>
   <div class="railroad">literal-array</div>
   <div class="railroad">literal-type</div>
 
-  <h1>TODO</h1>
+  <h1>TODO <a href="#todo"><span class="link fas fa-link"></span></a></h1>
   <h2>Attributes</h2>
   <div class="railroad">attribute</div>
   <div class="railroad">statement-call</div>
@@ -551,13 +540,14 @@ Number n; // Synonymous with 'int|float n'</pre>
     <pre id="bottlecaps"></pre>
   </details>
   <footer>Copyright &copy; 2018-<span id="year">2019</span> <a href="http://chilliant.com">chilliant.com</a></footer>
-  <script lang="JavaScript" type="text/javascript">
+  <script>
     egg.year("year");
     egg.diagram(document.getElementsByClassName("diagram"));
     egg.railroad(document.getElementsByClassName("railroad"));
     egg.prettify(document.getElementsByClassName("code"));
     egg.syntax("ascii");
     egg.syntax("bottlecaps");
+    egg.toc("toc");
   </script>
 </body>
 </html>
