@@ -21,14 +21,17 @@
       font-size: 250%;
       font-weight: bold;
     }
-    pre {
-      border: 1px solid hsl(30,100%,39%);
-      margin: 1.5em 0;
-      padding: 1em;
-    }
     code {
       background-color: hsl(30,100%,93%);
       padding: 0 0.5ex;
+    }
+    details > div {
+      border: 1px solid hsl(30,100%,39%);
+      background-color: hsl(30,100%,96%);
+      box-shadow: 3px 3px 2px hsla(30,100%,39%,25%);
+      margin: 1em 0 1em 22px;
+      padding: 1em;
+      width: fit-content;
     }
     a {
       color: hsl(30,100%,39%);
@@ -41,10 +44,6 @@
     }
     #ascii {
       font-weight: bold;
-      border: 1px solid hsl(30,100%,39%);
-      margin: 1em 0 0 0;
-      overflow-x: auto;
-      box-shadow: 3px 3px 2px hsla(30,100%,39%,25%);
     }
     #ascii .rule {
       background-color: rgba(0,0,255,0.1);
@@ -68,14 +67,31 @@
       border: none;
     }
     #bottlecaps {
-      overflow-x: auto;
-      box-shadow: 3px 3px 2px hsla(30,100%,39%,25%);
+      white-space: pre;
+      font-family: monospace;
+    }
+    .toc-2 {
+      margin-left: 1em;
+    }
+    .toc-3 {
+      margin-left: 2em;
+    }
+    .toc-4 {
+      margin-left: 3em;
+    }
+    .toc-5 {
+      margin-left: 4em;
+    }
+    .toc-6 {
+      margin-left: 5em;
     }
     .code {
-      margin-left: 22px;
+      border: 1px solid hsl(30,100%,39%);
       border-radius: 6px;
-      box-shadow: 3px 3px 2px hsla(30,100%,39%,25%);
       background-color: hsl(30,100%,96%);
+      box-shadow: 3px 3px 2px hsla(30,100%,39%,25%);
+      margin: 1.5em 0 1.5em 22px;
+      padding: 1em;
       width: fit-content;
     }
     .code-comment {
@@ -92,19 +108,26 @@
       font-weight: bold;
     }
     .link {
-      color: hsl(30,100%,33%);
-      font-size: 75%;
       visibility: hidden;
+    }
+    .link img {
+      height: 0.7em;
+      filter: hue-rotate(30deg) contrast(60%);
     }
     h1:hover .link, h2:hover .link, h3:hover .link, h4:hover .link, h5:hover .link, h6:hover .link {
       visibility: visible;
     }
+    .padded {
+      margin-top: 1.5ex;
+    }
     :target {
-      background: yellow;
+      animation: highlight 1s ease;
+    }
+    @keyframes highlight {
+      0% { background-color: hsl(30,100%,66%); }
+      100% { background-color: hsl(30,100%,93%); }
     }
   </style>
-  <script defer src="https://use.fontawesome.com/releases/v5.6.3/js/solid.js" integrity="sha384-F4BRNf3onawQt7LDHDJm/hwm3wBtbLIfGk1VSB/3nn3E+7Rox1YpYcKJMsmHBJIl" crossorigin="anonymous"></script>
-  <script defer src="https://use.fontawesome.com/releases/v5.6.3/js/fontawesome.js" integrity="sha384-treYPdjUrP4rW5q82SnECO7TPVAz4bpas16yuE9F5o7CeBn2YYw1yr5oC8s8Mf8t" crossorigin="anonymous"></script>
   <script src="syntax.js"></script>
   <script src="bnf.js"></script>
 </head>
@@ -112,8 +135,10 @@
   <header>The Egg Programming Language Syntax</header>
   This document contains details of the syntax of the egg programming language.
   It is not designed as a resource for learning the language from scratch, but programmers fluent in other computer languages may find it useful as an overview of egg.
-  <h1>Table of Contents</h1>
-  <div id="toc"></div>
+  <details class="padded">
+    <summary>Show Table of Contents</summary>
+    <div id="toc"></div>
+  </details>
   <h1>Informal Syntax</h1>
   This section gives an informal overview of the syntax.
   <h2>Egg Railroad Diagrams</h2>
@@ -537,7 +562,7 @@ Number n; // Synonymous with 'int|float n'</pre>
   <h2>Railroad</h2>
   <details>
     <summary>Show syntax in <a href="http://www.bottlecaps.de/rr/ui">Railroad Diagram Generator</a> format</summary>
-    <pre id="bottlecaps"></pre>
+    <div id="bottlecaps"></div>
   </details>
   <footer>Copyright &copy; 2018-<span id="year">2019</span> <a href="http://chilliant.com">chilliant.com</a></footer>
   <script>

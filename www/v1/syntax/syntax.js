@@ -800,11 +800,11 @@ egg.toc = function(id) {
   for (var element of document.querySelectorAll("h1,h2,h3,h4,h5,h6")) {
     element.id = egg.anchor(element.textContent);
     var child = document.createElement("div");
-    var level = element.tagName.slice(1) - 1;
-    values[level]++;
-    var section = values.slice(0, level + 1).join(".") + ".";
+    var level = +element.tagName.slice(1);
+    values[level - 1]++;
+    var section = values.slice(0, level).join(".") + ".";
     child.innerHTML = "<a class='toc-" + level + "' href='#" + element.id + "'>" + section + " " + element.textContent + "</a>";
-    element.innerHTML = section + " " + element.textContent + " <a href='#" + element.id + "'><span class='link fas fa-link'></span></a>";
+    element.innerHTML = section + " " + element.textContent + " <a class='link' href='#" + element.id + "'><img src='link.svg'></a>";
     parent.appendChild(child);
     while (++level < values.length) {
       values[level] = 0;
