@@ -740,9 +740,7 @@ egg.code = function(element) {
     var dst = "";
     while (src.length) {
       var match;
-      if ((match = src.match(/^\/\/.*?\n/))) {
-        dst += "<span class='code-comment'>" + src.slice(0, match[0].length) + "</span>";
-      } else if ((match = src.match(/^\/\*[\s\S]*?\*\//))) {
+      if ((match = src.match(/^\/\/.*?$/)) || (match = src.match(/^\/\/.*?\n/)) || (match = src.match(/^\/\*[\s\S]*?\*\//))) {
         dst += "<span class='code-comment'>" + src.slice(0, match[0].length) + "</span>";
       } else if ((match = src.match(/^"[^"\\]*(?:\\[\s\S][^"\\]*)*"/))) {
         dst += "<span class='code-string'>" + src.slice(0, match[0].length) + "</span>";
@@ -783,8 +781,8 @@ egg.code = function(element) {
             break;
         }
       } else {
-        match = "<span>" + src.match(/^[\s\S][^"/a-zA-Z_]*/) + "</span>";
-        dst += src.slice(0, match[0].length);
+        match = src.match(/^[\s\S][^"/a-zA-Z_]*/);
+        dst += "<span>" + src.slice(0, match[0].length) + "</span>";
       }
       src = src.slice(match[0].length);
     }

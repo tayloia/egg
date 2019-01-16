@@ -1,6 +1,7 @@
 <!DOCTYPE html>
-<html>
+<html lang="en-gb">
 <head>
+  <meta charset="us-ascii">
   <title>Egg Syntax</title>
   <style>
     body {
@@ -251,9 +252,21 @@ while (n > 1) {
   factorial *= n;
   --n;
 }</pre>
-  You can break out of the loop with a <code>break</code> statement or go to the next iteration with <code>continue</code>.
+  You can break out of the loop with a <code>break</code> statement or immediately go to the next iteration with <code>continue</code>.
+  <pre class="code">while (condition1) {
+  if (condition2) {
+    break;
+  }
+  if (condition3) {
+    continue;
+  }
+  doSomething();
+  // 'continue' jumps to here
+}
+// 'break' jumps to here
+doSomethingAfter();</pre>
   <h4>Do Loop</h4>
-  The similar <code>do</code> loop executes the statements at least once:
+  The <code>do</code> loop is similar to the <code>while</code> loop, but executes the statements at least once:
   <div class="railroad">statement-do</div>
   For example:
   <pre class="code">// Print 10 to 1 in descending order
@@ -262,8 +275,19 @@ do {
   print(i, "\n");
   --i;
 } while (i > 0);</pre>
-  You can break out of the loop with a <code>break</code> statement or go to the next iteration with <code>continue</code>.
-  <h4>For Loop</h4>
+  You can break out of the loop with a <code>break</code> statement or immediately go to the next iteration with <code>continue</code>.
+  <pre class="code">do {
+  if (condition1) {
+    break;
+  }
+  if (condition2) {
+    continue;
+  }
+  doSomething();
+  // 'continue' jumps to here
+} while (condition3);
+// 'break' jumps to here
+doSomethingAfter();</pre><h4>For Loop</h4>
   The <code>for</code> loop comes in two flavours.
   The vanilla <code>for</code> loop takes an <i>initialization</i> statement, a <i>condition</i>, an <i>advance</i> statement and a block of statements within curly braces.
   <div class="railroad">statement-for</div>
@@ -284,7 +308,18 @@ for (var i : array) {
   sum += i;
 }</pre>
   In both flavours of <code>for</code>, you can break out of the loop with a <code>break</code> statement or go to the next iteration with <code>continue</code>.
-  <h4>Break Statement</h4>
+  <pre class="code">for (var i = 0; i < n; ++i) {
+  if (condition1) {
+    break;
+  }
+  if (condition2) {
+    continue;
+  }
+  doSomething();
+  // 'continue' jumps to here
+}
+// 'break' jumps to here
+doSomethingAfter();</pre><h4>Break Statement</h4>
   A <code>break</code> statement prematurely breaks out of a <code>while</code>, <code>do</code> or <code>for</code> loop.
   <div class="railroad">statement-break</div>
   For example:
@@ -296,7 +331,8 @@ for (var i : array) {
   if (sum > 20) {
     break;
   }
-}</pre>
+}
+// 'break' jumps to here</pre>
   It is also used to break out from a <code>switch</code> statement.
   <h4>Continue Statement</h4>
   A <code>continue</code> statement immediately starts the next iteration of a <code>while</code>, <code>do</code> or <code>for</code> loop.
@@ -307,7 +343,7 @@ for (var i : array) {
   <div class="railroad">statement-throw</div>
   Execution continues at the most recent, active <code>catch</code> clause that matches the type of the expression:
   For example:
-  <pre class="code">float safeSqrt(double x) {
+  <pre class="code">float safeSqrt(float x) {
   if (x < 0) {
     throw "attempt to take the square root of a negative number";
   }
@@ -385,12 +421,89 @@ try {
   yield  head;
   yield ...tail;
 }</pre>
+  <h3>Definitions</h3>
+  Definitions introduce new identifiers.
+  <h4>Identifiers</h4>
+  There are four kinds of identifiers: <i>identifier-attribute</i>, <i>identifier-property</i>, <i>identifier-type</i> and <i>identifier-variable</i>.
+  They are all synonyms for <i>identifier</i>:
+  <div class="railroad">identifier</div>
+  Identifiers must begin with an ASCII letter ("<code>A</code>" to "<code>Z</code>" or "<code>a</code>" to "<code>z</code>") or an underscore ("<code>_</code>").
+  Subsequent characters may be ASCII letters, underscores, digits ("<code>0</code>" to "<code>9</code>") or non-ASCII unicode.
+  Identifiers are case-sensitive.
+  Valid identifiers include:
+  <ul>
+    <li><code>hello</code></li>
+    <li><code>HelloWorld</code></li>
+    <li><code>hello_world</code></li>
+    <li><code>_</code></li>
+    <li><code>_hello</code></li>
+    <li><code>hello123</code></li>
+    <li><code>ol&aacute;</code> (trailing accented letters are permitted)</li>
+  </ul>
+  Invalid identifiers include:
+  <ul>
+    <li><code>123hello</code> (must not start with a digit)</li>
+    <li><code>hello world</code> (must not contain spaces)</li>
+    <li><code>hello-world</code> (must not contain ASCII non-alphamerics such as a hyphen)</li>
+    <li><code>&gamma;&epsilon;&iota;&#940;_&sigma;&omicron;&upsilon;</code> (must not start with a non-ASCII character)</li>
+  </ul>
+  <h4>Function Definitions</h4>
+  Function definitions are divided into four sections:
+  <ol>
+    <li>The return type</li>
+    <li>The function name (variable identifier)</li>
+    <li>The parameter list inside parentheses</li>
+    <li>The statement block inside curly braces</li>
+  </ol>
+  All four sections must be given:
+  <div class="railroad">definition-function</div>
+  The return type is specified as a type expression.
+  The return type "<code>void</code>" is used for functions that do not return a value.
+  For example:
+  <pre class="code">void greet() {
+  print("hello\n");
+}</pre>
+  The function name ("<code>greet</code>" in the example above) introduces a new variable to the current scope.
+  The variable is initialized with a first-class entity that represents the function.
+  For example:
+  <pre class="code">float square(float x) {
+  return x * x;
+}
+print(square.name, "\n"); // Prints 'square'
+print(square(9), "\n"); // Prints '81'</pre>
+  The parameter list contains the types and names of the function parameters, if any, separated by commas:
+  <div class="railroad">definition-function-parameter</div>
+  The only permitted default value for optional parameters is "<code>null</code>".
+  For example:
+  <pre class="code">float logarithm(float x, float? base = null) {
+  if (base == null) {
+    return math.ln(x);
+  }
+  return math.ln(x) / math.ln(base);
+}</pre>
+  Two kinds of <i>variadic parameter</i> are supported.
+  <i>Name-based variadic parameters</i> are passed in as an object whose properties are the named parameters supplied by the caller.
+  For example:
+  <pre class="code">float divide(...object vargs) {
+  return vargs.x / vargs.y;
+}
+print(divide(x: 3, y: 4, z: 6), "\n"); // Prints '0.75' (z is ignored)</pre>
+  In the other kind, <i>index-based variadic parameters</i> are passed in to the function as an array, in the order supplied by the caller.
+  For example:
+  <pre class="code">int sum(...int[] vargs) {
+  int total = 0;
+  for (var element : vargs) {
+    total += element;
+  }
+  return total;
+}
+print(sum(3, 1, 4, 1, 5, 9), "\n"); // Prints '23'</pre>
+  <h4>Type Definitions</h4>
+  <div class="railroad">definition-type</div>
+  <h4>Variable Definitions</h4>
+  <div class="railroad">definition-variable</div>
 
   <h3>And...</h3>
-  <div class="railroad">definition-type</div>
-  <div class="railroad">definition-variable</div>
-  <div class="railroad">definition-function</div>
-  <div class="railroad">definition-function-parameter</div>
   <div class="railroad">type-expression</div>
   <div class="railroad">type-expression-primary</div>
   <div class="railroad">expression</div>
@@ -402,7 +515,6 @@ try {
   <div class="railroad">condition</div>
   <div class="railroad">assignment-target</div>
   <div class="railroad">parameter-list</div>
-  <div class="railroad">identifier</div>
   <div class="railroad">literal</div>
   <div class="railroad">literal-int</div>
   <div class="railroad">literal-float</div>
