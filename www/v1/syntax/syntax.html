@@ -498,8 +498,19 @@ print(divide(x: 3, y: 4, z: 6), "\n"); // Prints '0.75' (z is ignored)</pre>
   return total;
 }
 print(sum(3, 1, 4, 1, 5, 9), "\n"); // Prints '23'</pre>
+  Generator function definitions look like function definitions except they have at least one <code>yield</code> statement within the statement block.
   <h4>Type Definitions</h4>
+  Type definitions introduce new identifiers that are synonymous with an arbitrary type.
   <div class="railroad">definition-type</div>
+  For example:
+  <pre class="code">type Number = int|float;
+Number n; // Synonymous with 'int|float n'</pre>
+  <i>Generic type</i> definitions can be parameterized by one or more other types:
+  <pre class="code">type Dictionary&lt;K, V&gt; = type {
+  bool add(K key, V value),
+  bool remove(K key),
+  V? find(K key)
+};</pre>
   <h4>Variable Definitions</h4>
   <div class="railroad">definition-variable</div>
 
@@ -521,6 +532,7 @@ print(sum(3, 1, 4, 1, 5, 9), "\n"); // Prints '23'</pre>
   <div class="railroad">literal-string</div>
   <div class="railroad">literal-object</div>
   <div class="railroad">literal-array</div>
+  <div class="railroad">literal-type</div>
 
   <h1>TODO</h1>
   <h2>Attributes</h2>

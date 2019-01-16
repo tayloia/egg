@@ -715,6 +715,7 @@ egg.syntax = function(syntax, div) {
           "expression-primary": "expression-unary",
           "definition-function-parameter": "definition-function",
           "type-expression": "definition-type",
+          "type-expression-primary": null,
           "statement-switch": null,
           "statement-while": null,
           "statement-do": null,
