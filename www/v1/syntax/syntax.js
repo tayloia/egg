@@ -31,9 +31,6 @@ egg.syntax = function(syntax, div) {
   function fill(what) {
     return hsl(what, "93%");
   }
-  function safe(text) {
-    return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-  }
   function element(name, attributes, content) {
     var result = "<" + name;
     for (var i of Object.keys(attributes)) {
@@ -45,9 +42,6 @@ egg.syntax = function(syntax, div) {
       result += "/>";
     }
     return result;
-  }
-  function link(href, content) {
-    return element("a", { href: href, target: "_blank" }, content);
   }
   function spanRule(rule) {
     return element("span", { class: "rule" }, "&lt;" + rule + "&gt;");
@@ -793,6 +787,19 @@ egg.code = function(element) {
 };
 egg.anchor = function(text) {
   return text.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim().replace(/ /g, "-");
+};
+egg.collapsible = function(elements) {
+  for (var element of elements) {
+    var eye = document.createElement("a");
+    eye.href = "#";
+    eye.onclick = function(event) {
+      var style = this.parentElement.lastElementChild.style;
+      style.display = (style.display !== "block") ? "block" : "none";
+      event.preventDefault();
+    };
+    eye.innerHTML = "<img src='eye.svg'>";
+    element.insertBefore(eye, element.firstChild);
+  }
 };
 egg.toc = function(id) {
   var parent = document.getElementById(id);
