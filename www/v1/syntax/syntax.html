@@ -2,7 +2,7 @@
 <html lang="en-gb">
 <head>
   <meta charset="us-ascii">
-  <title>Egg Syntax</title>
+  <title>egg Syntax</title>
   <style>
     body {
       color: hsl(30,100%,9%);
@@ -24,13 +24,32 @@
       background-color: hsl(30,100%,93%);
       padding: 0 0.5ex;
     }
+    table {
+      border: 1px solid hsl(30,100%,39%);
+      border-radius: 1ex;
+      border-spacing: 2px;
+      background-color: hsl(30,100%,96%);
+      margin: 1em 0 1em 24px;
+      padding: 0.5ex;
+    }
+    tbody tr {
+      background-color: hsl(30,100%,93%);
+    }
+    tbody tr:nth-child(2n+1) {
+      background-color: hsl(30,100%,99%);
+    }
+    th {
+      vertical-align: bottom;
+    }
+    th, td {
+      padding: 0 1ex;
+      text-align: left;
+    }
     a {
       color: hsl(30,100%,39%);
       text-decoration: none;
     }
-    .railroad, .diagram {
-      margin: -0.5ex 0;
-      padding-top: 1ex;
+    .railroad, .diagram, table {
       filter: drop-shadow(3px 3px 2px hsl(30,100%,25%,25%));
     }
     #ascii {
@@ -81,7 +100,7 @@
       border-radius: 6px;
       background-color: hsl(30,100%,96%);
       box-shadow: 3px 3px 2px hsla(30,100%,39%,25%);
-      margin: 1.5em 0 1.5em 24px;
+      margin: 1em 0 1em 24px;
       padding: 1em;
       width: fit-content;
     }
@@ -106,29 +125,35 @@
     }
     .collapsible {
       border: 1px solid hsl(30,100%,39%);
-      background-color: hsl(30,100%,93%);
+      border-radius: 1ex;
+      background-color: hsl(30,100%,96%);
       box-shadow: 3px 3px 2px hsla(30,100%,39%,25%);
       margin: 1em 0 1em 24px;
       width: fit-content;
     }
     .collapsible > a {
       position: absolute;
-      left: 16px;
-      width: 32px;
-      height: 1.2em;
+      left: 8px;
+      width: 40px;
+      padding-top: 0.3ex;
     }
     .collapsible > a > img {
-      width: 30px;
+      width: 36px;
       visibility: hidden;
     }
-    .collapsible > span {
+    .collapsible > div:nth-child(2) {
       font-weight: bold;
-      margin: 1ex;
+      margin: 0.5ex 1em;
     }
-    .collapsible > div {
+    .collapsible > div:last-child {
       border-top: 1px solid hsl(30,100%,39%);
-      background-color: hsl(30,100%,96%);
-      padding: 1ex 2ex;
+      padding: 0.5em 1em;
+    }
+    .egg {
+      font-style: italic !important;
+    }
+    .fixed {
+      font-family: monospace;
     }
     @media screen {
       body {
@@ -147,7 +172,7 @@
       .collapsible:hover img {
         visibility: visible;
       }
-      .collapsible > div {
+      .collapsible > div:last-child {
         display: none;
       }
     }
@@ -161,18 +186,18 @@
   <script src="bnf.js"></script>
 </head>
 <body>
-  <header>The Egg Programming Language Syntax</header>
-  This document contains details of the syntax of the egg programming language.
-  It is not designed as a resource for learning the language from scratch, but programmers fluent in other computer languages may find it useful as an overview of egg.
+  <header>The <span class="egg">egg</span> Programming Language Syntax</header>
+  This document contains details of the syntax of the <span class="egg">egg</span> programming language.
+  It is not designed as a resource for learning the language from scratch, but programmers fluent in other computer languages may find it useful as an overview of <span class="egg">egg</span>.
   <div class="collapsible">
-    <span>Table of Contents</span>
+    <div>Table of Contents</div>
     <div id="toc"></div>
   </div>
   <h1>Informal Syntax</h1>
   This section gives an informal overview of the syntax.
-  <h2>Egg Railroad Diagrams</h2>
+  <h2><span class="egg">egg</span> Railroad Diagrams</h2>
   A <a href="https://en.wikipedia.org/wiki/Syntax_diagram">railroad diagram</a> is a visual representation of a syntax specification.
-  Egg uses a particular style of railroad diagram which we describe here.
+  <span class="egg">egg</span> uses a particular style of railroad diagram which we describe here.
   Each rule is enclosed in a cyan box with the rule name on a tab in the top-left.
   A green track flows into the rule from the left, passes through the rule box and exits to the right.
   In the example below, the rule "<i>greeting</i>" is defined simply as the token "<code>hello</code>", represented by a purple box:
@@ -196,11 +221,11 @@
   <div class="diagram">{ "name": {"oneOrMore": {"terminal": "letter"}, "inline": false, "left": 1, "right": 1} }</div>
   Finally, rules can be composed by referring to them within other rules using brown ovals:
   <div class="diagram">{ "greeting-personal": {"sequence": [{"rule": "greeting"}, {"rule": "name"}], "inline": false, "left": 1, "right": 1} }</div>
-  <h2>Egg Syntax</h2>
-  Egg programs are split up into distinct parts, named "modules".
+  <h2><span class="egg">egg</span> Syntax</h2>
+  <span class="egg">egg</span> programs are split up into distinct parts, named "modules".
   The source code for each module is typically stored in a separate text file.
   <h3>Comments</h3>
-  Comments in egg source files can either be a single line or multiple lines:
+  Comments in <span class="egg">egg</span> source files can either be a single line or multiple lines:
   <div class="diagram">{ "comment": {"choice": [{"sequence": [{"token": "//"}, {"zeroOrMore": {"terminal": "any character except newline"} }, {"terminal": "newline"}]}, {"sequence": [{"token": "/*"}, {"zeroOrMore": {"terminal": "any character"}}, {"token": "*/"}]}] } }</div>
   For example:
   <pre class="code">// This is a comment until the end of the line
@@ -221,19 +246,24 @@
     <li>a function definition, or</li>
     <li>a flow control statement.</li>
   </ul>
+  That is
   <div class="railroad">statement</div>
+  <h4>Simple Statement</h4>
   A simple statement is an action, a type definition or a variable definition:
   <div class="railroad">statement-simple</div>
+  <h4>Action Statement</h4>
   An action is an assignment, an increment/decrement or a function call statement:
   <div class="railroad">statement-action</div>
+  <h4>Assignment Statement</h4>
   Assignments can simply store a value in a target, such as:
   <pre class="code">target = value;</pre>
   or they may incorporate a binary operator to modify the target:
   <pre class="code">target += value;</pre>
   The latter is equivalent to the following (except that the target expression is evaluated only once):
   <pre class="code">target = target + value;</pre>
-  See below for details of binary operators.
-  In egg, increments and decrements are statements (not expressions) and must use the prefix unary operators:
+  See <a href="#binary-operators">below</a> for details of binary operators.
+  <h4>Increment/Decrement Statement</h4>
+  In <span class="egg">egg</span>, increments and decrements are statements (not expressions) and must use the prefix unary operators:
   <pre class="code">++target;
 --target;</pre>
   The statements above are analogous to:
@@ -555,42 +585,149 @@ Number n; // Synonymous with 'int|float n'</pre>
   V? find(K key)
 };</pre>
   <h4>Variable Definitions</h4>
+  Variables can either be defined with a specific type, or can have their type inferred.
   <div class="railroad">definition-variable</div>
+  If an explicit type is given, but no value, the variable is initially undefined:
+  <pre class="code">int i; // 'i' is undefined
+i = 10; // 'i' now has the value ten</pre>
+  If an initial value is give, the expression type should be appropriate:
+  <pre class="code">int i = 10; // 'i' has the value ten</pre>
+  If the <code>var</code> keyword is used, the type is inferred from the expression:
+  <pre class="code">var i = 4;     // 'i' is an 'int' with value four
+var j = i * i; // 'j' is an 'int' with value sixteen</pre>
+  However, the inferred type is never nullable.
+  To permit null values, use <code>var?</code>:
+  <pre class="code">float? root(float x) {
+  if (x < 0) {
+    return null;
+  }
+  return math.sqrt(x);
+}
 
-  <h3>And...</h3>
-  <div class="railroad">type-expression</div>
-  <div class="railroad">type-expression-primary</div>
+var x = root(4);   // 'x' is a 'float' with value two
+var? y = root(-4); // 'y' is a 'float?' with value null
+var z = root(-4);  // This causes a runtime error</pre>
+  <h3>Expressions</h3>
+  Expressions evaluate to values.
+  Values have types; therefore expressions also have types.
+  <h4>Literals</h4>
+  Literals represent fixed values.
+  <div class="railroad">literal</div>
+  The literal value of <code>null</code> and the Boolean literal values <code>false</code> and <code>true</code> each have their own keywords.
+  Integer literals are presented by a sequence of decimal digits, optionally prefix by a sign.
+  <div class="railroad">literal-int</div>
+  Floating-point literals are similar but contain a compulsory decimal point followed by at least one digit.
+  There may also be an optional, trailing, signed integer exponent.
+  <div class="railroad">literal-float</div>
+  String literals are surrounded by double quote characters.
+  They may contain any valid Unicode character.
+  <div class="railroad">literal-string</div>
+  Special characters within the string may be <i>escaped</i> using backslash sequences:
+  <table>
+    <thead>
+      <tr><th>Sequence</th><th>Interpretation</th><th>Unicode</th></tr>
+    </thead>
+    <tbody>
+      <tr><td class="fixed">\\</td><td>Single backslash</td><td class="fixed">U+005C</td></tr>
+      <tr><td class="fixed">\"</td><td>Double quote</td><td class="fixed">U+0022</td></tr>
+      <tr><td class="fixed">\b</td><td>Backspace</td><td class="fixed">U+0008</td></tr>
+      <tr><td class="fixed">\f</td><td>Form feed</td><td class="fixed">U+000C</td></tr>
+      <tr><td class="fixed">\n</td><td>Newline</td><td class="fixed">U+000A</td></tr>
+      <tr><td class="fixed">\r</td><td>Carriage return</td><td class="fixed">U+000D</td></tr>
+      <tr><td class="fixed">\t</td><td>Horizontal tab</td><td class="fixed">U+0009</td></tr>
+      <tr><td class="fixed">\v</td><td>Vertical tab</td><td class="fixed">U+000B</td></tr>
+      <tr><td class="fixed">\0</td><td>Nul</td><td class="fixed">U+0000</td></tr>
+      <tr><td class="fixed">\U+<i>hhhhh</i>;</td><td>Unicode character in hexadecimal</td><td class="fixed">U+<i>hhhhh</i></td></tr>
+    </tbody>
+  </table>
+  For example, the following would print the Unicode character "U+1F95A EGG" followed by a newline:
+  <pre class="code">print("\U+1f95a;\n");</pre>
+  Object literals are enclosed in curly braces: TODO
+  <div class="railroad">literal-object</div>
+  Array literals are enclosed in square brackets: TODO
+  <div class="railroad">literal-array</div>
+  Type literals are preceded by the <code>type</code> keyword: TODO
+  <div class="railroad">literal-type</div>
+  <h4>Ternary Operator</h4>
+  The ternary operator evaluates a Boolean expression and, depending on the result, returns the value of one of two expressions.
   <div class="railroad">expression</div>
+  For example, the following:
+  <pre class="code">var w = x ? y : z;</pre>
+  is analogous to
+  <pre class="code">any? w;
+if (x) {
+  w = y;
+} else {
+  w = z;
+}</pre>
+  Note that expression <code>y</code> is only evaluated if <code>x</code> is true and expression <code>z</code> is only evaluated if <code>x</code> is false.
+  The expression <code>x</code> must be Boolean.
+  The potential type of <code>w</code> is the union of the types of <code>y</code> and <code>z</code>.
+  <h4>Binary Operators</h4>
+  Binary operators take two operands: the left-hand side and the right-hand size.
   <div class="railroad">expression-binary</div>
+  The binary operators are defined thus:
+  <table>
+    <thead>
+      <tr><th>Precedence</th><th>Binary<br />Operator</th><th>Interpretation</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>1 (lowest)</td><td class="fixed">??</td><td>Null-coalescing</td></tr>
+      <tr><td>2</td><td class="fixed">||</td><td>Logical OR</td></tr>
+      <tr><td>3</td><td class="fixed">&&</td><td>Logical AND</td></tr>
+      <tr><td>4</td><td class="fixed">|</td><td>Bitwise inclusive OR</td></tr>
+      <tr><td>5</td><td class="fixed">^</td><td>Bitwise exclusive OR</td></tr>
+      <tr><td>6</td><td class="fixed">&</td><td>Bitwise AND</td></tr>
+      <tr><td>7</td><td class="fixed">==<br />!=</td><td>Equality<br />Inequality</td></tr>
+      <tr><td>8</td><td class="fixed">&lt;<br />&gt;<br />&lt;=<br />&gt;=</td><td>Less than<br />Greater than<br />Less than or equal to<br />Greater than or equal to</td></tr>
+      <tr><td>9</td><td class="fixed">&lt;&lt;<br />&gt;&gt;<br />&gt;&gt;&gt;</td><td>Shift left<br />Shift right<br />Shift right unsigned</td></tr>
+      <tr><td>10</td><td class="fixed">+<br />-</td><td>Add<br />Subtract</td></tr>
+      <tr><td>11 (highest)</td><td class="fixed">*<br />/<br />%</td><td>Multiply<br />Divide<br />Remainder</td></tr>
+    </tbody>
+  </table>
+  This is the same precedence order as other "curly brace" programming languages.
+  <h4>Unary Operators</h4>
+  Unary operators take a single operand.
+  In the <span class="egg">egg</span> programming language, unary operators always precede the operand:
   <div class="railroad">expression-unary</div>
+  Therefore, unary operators do not need a precedence order, other than that they are applied <i>before</i> binary operators.
+  <table>
+    <thead>
+      <tr><th>Unary<br />Operator</th><th>Interpretation</th></tr>
+    </thead>
+    <tbody>
+      <tr><td class="fixed">*</td><td>Pointer dereference</td></tr>
+      <tr><td class="fixed">-</td><td>Numeric negation</td></tr>
+      <tr><td class="fixed">~</td><td>Bitwise NOT</td></tr>
+      <tr><td class="fixed">!</td><td>Logical NOT</td></tr>
+    </tbody>
+  </table>
+  Unlike many other programming languages, prefix increment <code>++</code> and decrement <code>--</code> not not yield values; they are stements.
+  See <a href="#increment-decrement-statement">above</a>.
   <div class="railroad">expression-primary</div>
   <div class="railroad">expression-function</div>
   <div class="railroad">expression-lambda</div>
   <div class="railroad">condition</div>
   <div class="railroad">assignment-target</div>
   <div class="railroad">parameter-list</div>
-  <div class="railroad">literal</div>
-  <div class="railroad">literal-int</div>
-  <div class="railroad">literal-float</div>
-  <div class="railroad">literal-string</div>
-  <div class="railroad">literal-object</div>
-  <div class="railroad">literal-array</div>
-  <div class="railroad">literal-type</div>
 
   <h1>TODO</h1>
   <h2>Attributes</h2>
   <div class="railroad">attribute</div>
   <div class="railroad">statement-call</div>
+  <h2>Type Expressions</h2>
+  <div class="railroad">type-expression</div>
+  <div class="railroad">type-expression-primary</div>
 
   <h1>Formal Syntax</h1>
   <h2>EBNF</h2>
   <div class="collapsible">
-    <span>Syntax in <a href="https://en.wikipedia.org/wiki/Extended_Backus%E2%80%93Naur_form">extended Backus-Naur form</a></span>
+    <div>Syntax in <a href="https://en.wikipedia.org/wiki/Extended_Backus%E2%80%93Naur_form">extended Backus-Naur form</a></div>
     <div id="ascii"></div>
   </div>
   <h2>Railroad</h2>
   <div class="collapsible">
-    <span>Syntax in <a href="http://www.bottlecaps.de/rr/ui">Railroad Diagram Generator</a> format</span>
+    <div>Syntax in <a href="http://www.bottlecaps.de/rr/ui">Railroad Diagram Generator</a> format</div>
     <div id="bottlecaps"></div>
   </div>
   <footer>Copyright &copy; 2018-<span id="year">2019</span> <a href="http://chilliant.com">chilliant.com</a></footer>

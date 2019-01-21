@@ -458,7 +458,7 @@ egg.syntax = function(syntax, div) {
       case "rule":
         item.width = measure(item.item) + item.end * 2;
         item.above = item.item.above;
-        item.below = item.item.below;
+        item.below = item.item.below - 0.25;
         break;
       default:
         item.width = item.width || 0;
@@ -472,7 +472,7 @@ egg.syntax = function(syntax, div) {
       return element("line", { x1: x0, y1: y0, x2: x1, y2: y1, stroke: stroke("track"), "stroke-width": 0.1, "stroke-linecap": "square", fill: "none"});
     }
     function circle(x, y, r) {
-      return element("ellipse", { cx: x, cy: y, rx: r, ry: r, stroke: stroke("track"), "stroke-width": 0.1, fill: fill("track")});
+      return element("ellipse", { cx: x, cy: y, rx: r, ry: r, stroke: stroke("track"), "stroke-width": 0.1, fill: "none"});
     }
     function rounded(x, y, w, h, r, fill) {
       return element("rect", { x: x, y: y, width: w, height: h, fill: fill, stroke: "none", rx: r, ry: r });
@@ -602,7 +602,7 @@ egg.syntax = function(syntax, div) {
         }
         break;
       case "rule":
-        svg += line(x, y, x + item.width, y);
+        svg += line(x + 0.2, y, x + item.width - 0.2, y);
         svg += draw(item.item, x + item.end, y, item.width - item.end * 2);
         svg += circle(x, y, 0.2);
         svg += circle(x + item.width, y, 0.2);
@@ -680,6 +680,7 @@ egg.syntax = function(syntax, div) {
     var svg = draw(built, 0.5, built.above, built.width);
     var viewbox = [0, 0, built.width + 1, built.above + built.below + 1];
     if (scale) {
+      scale *= 1.2;
       svg = element("g", { transform: "scale(" + scale + ")" }, svg);
       return element("svg", { xmlns: "http://www.w3.org/2000/svg", version: "1.1", width: viewbox[2] * scale, height: viewbox[3] * scale }, svg);
     }
@@ -809,12 +810,12 @@ egg.toc = function(id) {
     var child = document.createElement("div");
     var level = +element.tagName.slice(1);
     values[level - 1]++;
-    var section = values.slice(0, level).join(".") + ".";
-    child.innerHTML = "<a class='toc-" + level + "' href='#" + element.id + "'>" + section + " " + element.textContent + "</a>";
-    element.innerHTML = section + " " + element.textContent + " <a class='link' href='#" + element.id + "'><img src='link.svg'></a>";
+    var section = values.slice(0, level).join(".") + "." + " " + element.innerHTML;
+    child.innerHTML = "<a class='toc-" + level + "' href='#" + element.id + "'>" + section + "</a>";
+    element.innerHTML = section + " <a class='link' href='#" + element.id + "'><img src='link.svg'></a>";
     parent.appendChild(child);
-    while (++level < values.length) {
-      values[level] = 0;
+    while (level < values.length) {
+      values[level++] = 0;
     }
   }
 };
