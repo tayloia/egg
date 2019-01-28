@@ -788,11 +788,16 @@ egg.code = function(element) {
   }
   element.innerHTML = enspan(element.textContent);
 };
+egg.foreach = function(collection, lambda) {
+  for (var i = 0; i < collection.length; ++i) {
+    lambda(collection[i]);
+  }
+};
 egg.anchor = function(text) {
   return text.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim().replace(/ /g, "-");
 };
 egg.collapsible = function(elements) {
-  for (var element of elements) {
+  egg.foreach(elements, element => {
     var eye = document.createElement("a");
     eye.href = "#";
     eye.tabIndex = -1;
@@ -803,13 +808,13 @@ egg.collapsible = function(elements) {
     };
     eye.innerHTML = "&#x1F441;";
     element.insertBefore(eye, element.firstChild);
-  }
+  });
 };
 egg.toc = function(id, anchors) {
   var parent = document.getElementById(id);
   var values = [0, 0, 0, 0, 0, 0];
   var known = {};
-  for (var element of document.querySelectorAll("h1,h2,h3,h4,h5,h6")) {
+  egg.foreach(document.querySelectorAll("h1,h2,h3,h4,h5,h6"), element => {
     element.id = egg.anchor(element.textContent);
     console.assert(!(element.id in known));
     var child = document.createElement("div");
@@ -823,9 +828,9 @@ egg.toc = function(id, anchors) {
       values[level++] = 0;
     }
     known[element.id] = section;
-  }
+  });
   if (anchors) {
-    for (var anchor of anchors) {
+    egg.foreach(anchors, anchor => {
       if (!anchor.href) {
         var link = known[anchor.textContent];
         console.assert(link);
@@ -834,24 +839,24 @@ egg.toc = function(id, anchors) {
       } else if (!anchor.hash) {
         anchor.innerHTML += "&#x1F87D;";
       }
-    }
+    });
   }
 };
 egg.year = function(id) {
   document.getElementById(id).textContent = new Date().getFullYear();
 };
 egg.diagram = function(elements) {
-  for (var element of elements) {
+  egg.foreach(elements, element => {
     egg.syntax(JSON.parse(element.textContent), element);
-  }
+  });
 };
 egg.railroad = function(elements) {
-  for (var element of elements) {
+  egg.foreach(elements, element => {
     egg.syntax(element.textContent, element);
-  }
+  });
 };
 egg.prettify = function(elements) {
-  for (var element of elements) {
+  egg.foreach(elements, element => {
     egg.code(element);
-  }
+  });
 };

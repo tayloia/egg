@@ -20,6 +20,10 @@
       font-size: 250%;
       font-weight: bold;
     }
+    header > a {
+      font-size: 85%;
+      float: right;
+    }
     code {
       background-color: hsl(30,100%,93%);
       padding: 0 0.5ex;
@@ -181,7 +185,7 @@
   <script src="bnf.js"></script>
 </head>
 <body>
-  <header>The <span class="egg">egg</span> Programming Language Syntax</header>
+  <header id="top">The <span class="egg">egg</span> Programming Language Syntax <a href="#top">&#x1F95A;</a></header>
   This document contains details of the syntax of the <span class="egg">egg</span> programming language.
   It is not designed as a resource for learning the language from scratch, but programmers fluent in other computer languages may find it useful as an overview of <span class="egg">egg</span>.
   <div class="collapsible">
@@ -285,7 +289,7 @@ d.field = 321; // Assign to property</pre>
   <pre class="code">target = target + 1;
 target = target - 1;</pre>
   They are included in the language so that classic index-based for-loop idioms can be used:
-  <pre class="code">for (i = 0; i < 100; ++i) {
+  <pre class="code">for (i = 0; i &lt; 100; ++i) {
   // Loops from 0 to 99 inclusive
 }</pre>
   <h3>Flow Control</h3>
@@ -382,7 +386,7 @@ doSomethingAfter();</pre><h4>For Loop</h4>
   For example:
   <pre class="code">// Sum the integers up to and including 'n'
 var sum = 0;
-for (var i = 1; i <= n; ++i) {
+for (var i = 1; i &lt;= n; ++i) {
   sum += i;
 }</pre>
   The second flavour of the <code>for</code> loop is "foreach".
@@ -396,7 +400,7 @@ for (var i : array) {
   sum += i;
 }</pre>
   In both flavours of <code>for</code>, you can break out of the loop with a <code>break</code> statement or go to the next iteration with <code>continue</code>.
-  <pre class="code">for (var i = 0; i < n; ++i) {
+  <pre class="code">for (var i = 0; i &lt; n; ++i) {
   if (condition1) {
     break;
   }
@@ -432,7 +436,7 @@ for (var i : array) {
   Execution continues at the most recent, active <code>catch</code> clause that matches the type of the expression:
   For example:
   <pre class="code">float safeSqrt(float x) {
-  if (x < 0) {
+  if (x &lt; 0) {
     throw "attempt to take the square root of a negative number";
   }
   return math.sqrt(x);
@@ -510,7 +514,7 @@ try {
   yield ...tail;
 }</pre>
   <h3>Definitions</h3>
-  Definitions introduce new identifiers.
+  Definitions introduce new identifiers to the current scope.
   <h4>Identifiers</h4>
   There are four kinds of identifiers: <i>identifier-attribute</i>, <i>identifier-property</i>, <i>identifier-type</i> and <i>identifier-variable</i>.
   They are all synonyms for <i>identifier</i>:
@@ -615,7 +619,7 @@ var j = i * i; // 'j' is an 'int' with value sixteen</pre>
   However, the inferred type is never nullable.
   To permit null values, use <code>var?</code>:
   <pre class="code">float? root(float x) {
-  if (x < 0) {
+  if (x &lt; 0) {
     return null;
   }
   return math.sqrt(x);
@@ -631,10 +635,13 @@ var z = root(-4);  // This causes a runtime error</pre>
   <h4>Integer Literals</h4>
   Integer literals are presented by a sequence of decimal digits, optionally prefix by a sign.
   <div class="railroad">literal-int</div>
+  Examples of valid integer literals include <code>0</code>, <code>123</code>, <code>-123</code> and <code>+123</code>.
+  Note that <span class="egg">egg</span> only support denary numeric literals; octal and hexadecimal are not supported.
   <h4>Floating-Point Literals</h4>
   Floating-point literals are similar but contain a compulsory decimal point followed by at least one digit.
   There may also be an optional, trailing, signed integer exponent.
   <div class="railroad">literal-float</div>
+  Examples of valid integer literals include <code>0.0</code>, <code>-123.45</code>, <code>+1.0e-9</code> and <code>0.01e+050</code>.
   <h4>String Literals</h4>
   String literals are surrounded by double quote characters.
   They may contain any valid Unicode character.
@@ -735,20 +742,20 @@ if (x) {
   The binary operators are defined thus:
   <table>
     <thead>
-      <tr><th>Precedence</th><th>Binary<br />Operator</th><th>Interpretation</th></tr>
+      <tr><th>Precedence</th><th>Binary<br />Operator</th><th>Interpretation</th><th>Operand<br />Types</th><th>Result<br />Type</th></tr>
     </thead>
     <tbody>
-      <tr><td>1 (lowest)</td><td class="fixed">??</td><td>Null-coalescing</td></tr>
-      <tr><td>2</td><td class="fixed">||</td><td>Logical OR</td></tr>
-      <tr><td>3</td><td class="fixed">&&</td><td>Logical AND</td></tr>
-      <tr><td>4</td><td class="fixed">|</td><td>Bitwise inclusive OR</td></tr>
-      <tr><td>5</td><td class="fixed">^</td><td>Bitwise exclusive OR</td></tr>
-      <tr><td>6</td><td class="fixed">&</td><td>Bitwise AND</td></tr>
-      <tr><td>7</td><td class="fixed">==<br />!=</td><td>Equality<br />Inequality</td></tr>
-      <tr><td>8</td><td class="fixed">&lt;<br />&gt;<br />&lt;=<br />&gt;=</td><td>Less than<br />Greater than<br />Less than or equal to<br />Greater than or equal to</td></tr>
-      <tr><td>9</td><td class="fixed">&lt;&lt;<br />&gt;&gt;<br />&gt;&gt;&gt;</td><td>Shift left<br />Shift right<br />Shift right unsigned</td></tr>
-      <tr><td>10</td><td class="fixed">+<br />-</td><td>Add<br />Subtract</td></tr>
-      <tr><td>11 (highest)</td><td class="fixed">*<br />/<br />%</td><td>Multiply<br />Divide<br />Remainder</td></tr>
+      <tr><td>1 (lowest)</td><td class="fixed">??</td><td>Null-coalescing</td><td class="fixed">L? R</td><td class="fixed">L|R</td></tr>
+      <tr><td>2</td><td class="fixed">||</td><td>Logical OR</td><td class="fixed">bool</td><td class="fixed">bool</td></tr>
+      <tr><td>3</td><td class="fixed">&&</td><td>Logical AND</td><td class="fixed">bool</td><td class="fixed">bool</td></tr>
+      <tr><td>4</td><td class="fixed">|</td><td>Bitwise inclusive OR</td><td class="fixed">bool<br />int</td><td class="fixed">bool<br />int</td></tr>
+      <tr><td>5</td><td class="fixed">^</td><td>Bitwise exclusive OR</td><td class="fixed">bool<br />int</td><td class="fixed">bool<br />int</td></tr>
+      <tr><td>6</td><td class="fixed">&</td><td>Bitwise AND</td><td class="fixed">bool<br />int</td><td class="fixed">bool<br />int</td></tr>
+      <tr><td>7</td><td class="fixed">==<br />!=</td><td>Equality<br />Inequality</td><td class="fixed">any?</td><td class="fixed">bool</td></tr>
+      <tr><td>8</td><td class="fixed">&lt;<br />&gt;<br />&lt;=<br />&gt;=</td><td>Less than<br />Greater than<br />Less than or equal to<br />Greater than or equal to</td><td class="fixed">int<br />float</td><td class="fixed">bool</td></tr>
+      <tr><td>9</td><td class="fixed">&lt;&lt;<br />&gt;&gt;<br />&gt;&gt;&gt;</td><td>Shift left<br />Shift right<br />Shift right unsigned</td><td class="fixed">int</td><td class="fixed">int</td></tr>
+      <tr><td>10</td><td class="fixed">+<br />-</td><td>Add<br />Subtract</td><td class="fixed">int<br />float</td><td class="fixed">int<br />float</td></tr>
+      <tr><td>11 (highest)</td><td class="fixed">*<br />/<br />%</td><td>Multiply<br />Divide<br />Remainder</td><td class="fixed">int<br />float</td><td class="fixed">int<br />float</td></tr>
     </tbody>
   </table>
   This is the same precedence order as other "curly brace" programming languages.
@@ -759,13 +766,13 @@ if (x) {
   Therefore, unary operators do not need a precedence order, other than that they are applied <i>before</i> binary operators.
   <table>
     <thead>
-      <tr><th>Unary<br />Operator</th><th>Interpretation</th></tr>
+      <tr><th>Unary<br />Operator</th><th>Interpretation</th><th>Operand<br />Type</th><th>Result<br />Type</th></tr>
     </thead>
     <tbody>
-      <tr><td class="fixed">*</td><td>Pointer dereference</td></tr>
-      <tr><td class="fixed">-</td><td>Numeric negation</td></tr>
-      <tr><td class="fixed">~</td><td>Bitwise NOT</td></tr>
-      <tr><td class="fixed">!</td><td>Logical NOT</td></tr>
+      <tr><td class="fixed">*</td><td>Pointer dereference</td><td class="fixed">T*</td><td class="fixed">T</td></tr>
+      <tr><td class="fixed">-</td><td>Numeric negation</td><td class="fixed">int<br />float</td><td class="fixed">int<br />float</td></tr>
+      <tr><td class="fixed">~</td><td>Bitwise NOT</td><td class="fixed">int</td><td class="fixed">int</td></tr>
+      <tr><td class="fixed">!</td><td>Logical NOT</td><td class="fixed">bool</td><td class="fixed">bool</td></tr>
     </tbody>
   </table>
   Unlike many other programming languages, increment <code>++</code> and decrement <code>--</code> are statements; they do not yield values.
@@ -812,10 +819,37 @@ print(obj["year-of-birth"], "\n"); // Prints 1889. Cannot use "dot" notation</pr
   <h4>Function Expressions</h4>
   Function expressions are like function definitions, but without a function name:
   <div class="railroad">expression-function</div>
-  TODO
+  For example:
+  <pre class="code">var func = int(int a, int b) { return a + b; };
+print(func(2, 3), "\n"); // Prints 5
+func = int(int a, int b) { return a - b; };
+print(func(2, 3), "\n"); // Prints -1</pre>
   <h4>Lambda Expressions</h4>
-  TODO
+  Lambda expressions are like function expressions but are more concise because types are inferred.
   <div class="railroad">expression-lambda</div>
+  For example:
+  <pre class="code">int applyBinary(int(int a, int b) func, int x, int y) {
+  return func(x, y);
+}
+var p = applyBinary((a, b) => { return a + b; }, 2, 3);
+print(p, "\n"); // Prints 5
+var q = applyBinary((a, b) => { return a - b; }, 2, 3);
+print(q, "\n"); // Prints -1</pre>
+  In the example above, because the bodies of the lambda expressions only contain <code>return</code> statements, we can use the shorter form:
+  <pre class="code">var p = applyBinary((a, b) => a + b, 2, 3);
+print(p, "\n"); // Prints 5
+var q = applyBinary((a, b) => a - b, 2, 3);
+print(q, "\n"); // Prints -1</pre>
+  If there is only one parameter to the lambda, an even shorter form can be used:
+  <pre class="code">int applyUnary(int(int a) func, int x) {
+  return func(x);
+}
+var p = applyUnary(a => -a, 2);
+print(p, "\n"); // Prints -2
+var q = applyUnary(a => a * a, 2);
+print(q, "\n"); // Prints 4</pre>
+  Note that lambda expressions may only be used when the parameter types can be <i>trivially</i> inferred.
+  At other times, the full function expression syntax must be used.
   <h3>Conditions</h3>
   TODO
   <div class="railroad">condition</div>
@@ -827,7 +861,7 @@ print(obj["year-of-birth"], "\n"); // Prints 1889. Cannot use "dot" notation</pr
   TODO
   <div class="railroad">parameter-list</div>
   <h4>Function Call Expressions</h4>
-  A function that returns a non-<code>void</code> value, can be used as an expression.
+  A function that returns a non-<code>void</code> value, may be used as an expression.
   TODO
   <h3>Attributes</h3>
   TODO
