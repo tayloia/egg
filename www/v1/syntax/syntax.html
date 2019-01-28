@@ -120,7 +120,7 @@
     .link {
       visibility: hidden;
     }
-    .link img {
+    .icon {
       height: 0.7em;
     }
     .collapsible {
@@ -263,7 +263,7 @@
   <pre class="code">target = target + value;</pre>
   TODO
   <div class="railroad">assignment-target</div>
-  See <a href="#binary-operators">below</a> for details of binary operators.
+  See <a>binary-operators</a>.
   <h4>Increment/Decrement Statement</h4>
   In <span class="egg">egg</span>, increments and decrements are statements (not expressions) and must use the prefix unary operators:
   <pre class="code">++target;
@@ -716,7 +716,7 @@ if (x) {
     </tbody>
   </table>
   Unlike many other programming languages, increment <code>++</code> and decrement <code>--</code> are statements; they do not yield values.
-  See <a href="#increment-decrement-statement">above</a>.
+  See <a>increment-decrement-statement</a>.
   <h4>Primary Expressions</h4>
   A primary expression is one of the following:
   <ul>
@@ -732,7 +732,7 @@ if (x) {
   An expression may be <i>indexed</i> using square brackets <code>[]</code>.
   The indexing expression may be of any type.
   Indexes for standard arrays are integers.
-  By convention, these indices start at zero.
+  By convention, array indices start at zero.
   <pre class="code">var arr = ["first", "second", "third", "fourth"];
 print(arr[1], "\n"); // Prints "second"</pre>
   Indexes for standard objects are strings representing the property name:
@@ -747,7 +747,7 @@ print(obj["surname"], "\n"); // Prints "Chaplin"</pre>
   Standard arrays have a read-only property named <code>length</code> which returns the number of elements in the array, as an integer:
   <pre class="code">var arr = ["a", "b", "c", "d"];
 print(arr.length, "\n"); // Prints 4</pre>
-  You can only access properties via the "dot" notation if those properties have names that conform to the <a href="#identifiers">identifier naming convention</a>.
+  You can only access properties via the "dot" notation if those properties have names that conform to the identifier naming convention (<a>identifiers</a>).
   <pre class="code">var obj = {
   forename: "Charlie",
   surname: "Chaplin",
@@ -803,7 +803,7 @@ print(obj["year-of-birth"], "\n"); // Prints 1889. Cannot use "dot" notation</pr
     egg.prettify(document.getElementsByClassName("code"));
     egg.syntax("ascii");
     egg.syntax("bottlecaps");
-    egg.toc("toc");
+    egg.toc("toc", document.getElementsByTagName("a"));
     egg.collapsible(document.getElementsByClassName("collapsible"));
   </script>
 </body>

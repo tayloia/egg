@@ -795,6 +795,7 @@ egg.collapsible = function(elements) {
   for (var element of elements) {
     var eye = document.createElement("a");
     eye.href = "#";
+    eye.tabIndex = -1;
     eye.onclick = function(event) {
       var style = this.parentElement.lastElementChild.style;
       style.display = (style.display !== "block") ? "block" : "none";
@@ -804,20 +805,35 @@ egg.collapsible = function(elements) {
     element.insertBefore(eye, element.firstChild);
   }
 };
-egg.toc = function(id) {
+egg.toc = function(id, anchors) {
   var parent = document.getElementById(id);
   var values = [0, 0, 0, 0, 0, 0];
+  var known = {};
   for (var element of document.querySelectorAll("h1,h2,h3,h4,h5,h6")) {
     element.id = egg.anchor(element.textContent);
+    console.assert(!(element.id in known));
     var child = document.createElement("div");
     var level = +element.tagName.slice(1);
     values[level - 1]++;
     var section = values.slice(0, level).join(".") + "." + " " + element.innerHTML;
     child.innerHTML = "<a class='toc-" + level + "' href='#" + element.id + "'>" + section + "</a>";
-    element.innerHTML = section + " <a class='link' href='#" + element.id + "'><img src='link.svg'></a>";
+    element.innerHTML = section + " <a class='link' href='#" + element.id + "'><img class='icon' src='link.svg'></a>";
     parent.appendChild(child);
     while (level < values.length) {
       values[level++] = 0;
+    }
+    known[element.id] = section;
+  }
+  if (anchors) {
+    for (var anchor of anchors) {
+      if (!anchor.href) {
+        var link = known[anchor.textContent];
+        console.assert(link);
+        anchor.href = "#" + anchor.textContent;
+        anchor.textContent = link;
+      } else if (!anchor.hash) {
+        anchor.innerHTML += "&nbsp;<img class='icon' src='external.svg'>";
+      }
     }
   }
 };
