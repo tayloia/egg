@@ -62,8 +62,12 @@ egg.bnf({
     "statement-return": {sequence: [{token: "return"}, {zeroOrOne: "expression"}, {token: ";"}], inline: false, left: 1, right: 1},
     "statement-yield": {sequence: [{token: "yield"}, {zeroOrOne: {token: "..."}}, "expression", {token: ";"}], inline: false, left: 1, right: 1},
     "statement-throw": {sequence: [{token: "throw"}, {zeroOrOne: "expression"}, {token: ";"}], inline: false, left: 1, right: 1},
-    "definition-type": {sequence: [{token: "type"}, "identifier-type", {zeroOrOne: {sequence: [{token: "<"}, "definition-type-list", {token: ">"}]}}, {token: "="}, "type-expression"], inline: false, left: 1, right: 1},
-    "definition-type-list": {list: "identifier-type", separator: {token: ","}},
+    "definition-type": {sequence: [{token: "type"}, "identifier-type", {zeroOrOne: {sequence: [{token: "<"}, "definition-type-list", {token: ">"}]}}, {token: "="}, "definition-type-value"], inline: false, left: 1, right: 1},
+    "definition-type-list": { list: "identifier-type", separator: { token: "," } },
+    "definition-type-value": {choice: [
+      "type-expression",
+      "literal-type"
+    ], railroad: false},
     "definition-variable": {choice: [
       {sequence: [{ token: "var" }, {zeroOrOne: {token: "?"}}, "identifier-variable", {token: "="}, "expression"]},
       {sequence: ["type-expression", "identifier-variable", {zeroOrOne: {sequence: [{token: "="}, "expression"]}}]}
@@ -89,7 +93,7 @@ egg.bnf({
       {token: "float"},
       {token: "string"},
       {token: "object"},
-      "literal-type",
+      {sequence: [{token: "type"}, "literal-type"]},
       {sequence: [{token: "("}, "type-expression", {token: ")"}]}
     ]},
     "type-expression-suffix": {choice: [
@@ -242,8 +246,7 @@ egg.bnf({
       "literal-float",
       "literal-string",
       "literal-object",
-      "literal-array",
-      "literal-type"
+      "literal-array"
     ]},
     "literal-int": {sequence: [{zeroOrOne: "literal-sign"}, "literal-digits"], inline: false, right: 1},
     "literal-sign": {tokens: ["+", "-"], railroad: false},
@@ -283,15 +286,10 @@ egg.bnf({
       "expression",
       {sequence: [{token: "..."}, "expression"]}
     ], railroad: false},
-    "literal-type": { sequence: [{token: "type"}, {token: "{"}, {zeroOrOne: "literal-type-list"}, {token: "}"}], inline: false, left: 1, right: 1 },
-    "literal-type-list": { list: "literal-type-entry", separator: {token: ","} },
-    "literal-type-entry": {
-      choice: [
-        {sequence: ["literal-object-key", {token: ":"}, "expression"]},
-        "literal-type-property"
-      ], railroad: false
-    },
-    "literal-type-property": { sequence: ["type-expression", "identifier-property", {zeroOrOne: {sequence: [{token: "("}, {zeroOrOne: "definition-function-parameter-list"}, {token: ")"}]}}], railroad: false }
+    "literal-type": {sequence: [{token: "{"}, {zeroOrOne: "literal-type-list"}, {token: "}"}], inline: false, left: 1, right: 1},
+    "literal-type-list": {list: "literal-type-entry", separator: {token: ","}},
+    "literal-type-entry": {sequence: ["literal-object-key", {token: ":"}, "literal-type-value"], railroad: false},
+    "literal-type-value": {choice: ["expression", "type-expression", "literal-type"], railroad: false}
   },
   variations: {
     full: {

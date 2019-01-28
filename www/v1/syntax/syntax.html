@@ -255,7 +255,7 @@
   An action is an assignment, an increment/decrement or a function call statement:
   <div class="railroad">statement-action</div>
   <h4>Assignment Statement</h4>
-  Assignments can simply store a value in a target, such as:
+  Assignments may simply store a value in a target, such as:
   <pre class="code">target = value;</pre>
   or they may incorporate a binary operator to modify the target:
   <pre class="code">target += value;</pre>
@@ -581,10 +581,12 @@ print(sum(3, 1, 4, 1, 5, 9), "\n"); // Prints '23'</pre>
   <pre class="code">type Number = int|float;
 Number n; // Synonymous with 'int|float n'</pre>
   <i>Generic type</i> definitions can be parameterized by one or more other types:
-  <pre class="code">type Dictionary&lt;K, V&gt; = type {
-  bool add(K key, V value),
-  bool remove(K key),
-  V? find(K key)
+  <pre class="code">type Dictionary&lt;K, V&gt; = {
+  properties: {
+    add: bool(K key, V value),
+    remove: bool(K key),
+    find: V?(K key)
+  }
 };</pre>
   <h4>Variable Definitions</h4>
   Variables can either be defined with a specific type, or can have their type inferred.
@@ -609,18 +611,18 @@ var j = i * i; // 'j' is an 'int' with value sixteen</pre>
 var x = root(4);   // 'x' is a 'float' with value two
 var? y = root(-4); // 'y' is a 'float?' with value null
 var z = root(-4);  // This causes a runtime error</pre>
-  <h3>Expressions</h3>
-  Expressions evaluate to values.
-  Values have types; therefore expressions also have types.
-  <h4>Literals</h4>
+  <h3>Literals</h3>
   Literals represent fixed values.
   <div class="railroad">literal</div>
-  The literal value of <code>null</code> and the Boolean literal values <code>false</code> and <code>true</code> each have their own keywords.
+  The literal value <code>null</code> and the Boolean literal values <code>false</code> and <code>true</code> each have their own keywords.
+  <h4>Integer Literals</h4>
   Integer literals are presented by a sequence of decimal digits, optionally prefix by a sign.
   <div class="railroad">literal-int</div>
+  <h4>Floating-Point Literals</h4>
   Floating-point literals are similar but contain a compulsory decimal point followed by at least one digit.
   There may also be an optional, trailing, signed integer exponent.
   <div class="railroad">literal-float</div>
+  <h4>String Literals</h4>
   String literals are surrounded by double quote characters.
   They may contain any valid Unicode character.
   <div class="railroad">literal-string</div>
@@ -638,21 +640,30 @@ var z = root(-4);  // This causes a runtime error</pre>
       <tr><td class="fixed">\r</td><td>Carriage return</td><td class="fixed">U+000D</td></tr>
       <tr><td class="fixed">\t</td><td>Horizontal tab</td><td class="fixed">U+0009</td></tr>
       <tr><td class="fixed">\v</td><td>Vertical tab</td><td class="fixed">U+000B</td></tr>
-      <tr><td class="fixed">\0</td><td>Nul</td><td class="fixed">U+0000</td></tr>
+      <tr><td class="fixed">\0</td><td>NUL (ASCII 0)</td><td class="fixed">U+0000</td></tr>
       <tr><td class="fixed">\U+<i>hhhhh</i>;</td><td>Unicode character in hexadecimal</td><td class="fixed">U+<i>hhhhh</i></td></tr>
     </tbody>
   </table>
   For example, the following would print the Unicode character "U+1F95A EGG" followed by a newline:
   <pre class="code">print("\U+1f95a;\n");</pre>
+  <h4>Object Literals</h4>
   Object literals are enclosed in curly braces: TODO
   <div class="railroad">literal-object</div>
+  <h4>Array Literals</h4>
   Array literals are enclosed in square brackets: TODO
   <div class="railroad">literal-array</div>
-  Type literals are preceded by the <code>type</code> keyword: TODO
+  <h4>Type Literals</h4>
+  Type literals are used in type definitions or in type expressions (where they are preceded by the <code>type</code> keyword):
   <div class="railroad">literal-type</div>
+  They are similar to object literals, except that the property values may be types and the ellipsis <code>...</code> syntax is not supported.
+  Type literals make use of <i>well-known</i> properties names.
+  See TODO for more information.
+  <h3>Expressions</h3>
+  Expressions evaluate to values.
+  Values have types; therefore expressions also have types.
+  <div class="railroad">expression</div>
   <h4>Ternary Operator</h4>
   The ternary operator evaluates a Boolean expression and, depending on the result, returns the value of one of two expressions.
-  <div class="railroad">expression</div>
   For example, the following:
   <pre class="code">var w = x ? y : z;</pre>
   is analogous to
@@ -737,7 +748,7 @@ print(obj["surname"], "\n"); // Prints "Chaplin"</pre>
   <pre class="code">var arr = ["a", "b", "c", "d"];
 print(arr.length, "\n"); // Prints 4</pre>
   You can only access properties via the "dot" notation if those properties have names that conform to the <a href="#identifiers">identifier naming convention</a>.
-                                                                                                           <pre class="code">var obj = {
+  <pre class="code">var obj = {
   forename: "Charlie",
   surname: "Chaplin",
   "year-of-birth": 1889

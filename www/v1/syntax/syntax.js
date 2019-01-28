@@ -722,7 +722,9 @@ egg.syntax = function(syntax, div) {
           "statement-try": null,
           "statement-try-finally": null,
           "statement-return": null,
-          "statement-yield": null
+          "statement-yield": null,
+          "statement-call": null,
+          "literal-type": "definition-type"
         });
         break;
       default:
