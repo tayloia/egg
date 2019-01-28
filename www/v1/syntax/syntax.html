@@ -261,6 +261,8 @@
   <pre class="code">target += value;</pre>
   The latter is equivalent to the following (except that the target expression is evaluated only once):
   <pre class="code">target = target + value;</pre>
+  TODO
+  <div class="railroad">assignment-target</div>
   See <a href="#binary-operators">below</a> for details of binary operators.
   <h4>Increment/Decrement Statement</h4>
   In <span class="egg">egg</span>, increments and decrements are statements (not expressions) and must use the prefix unary operators:
@@ -531,7 +533,7 @@ try {
   All four sections must be given:
   <div class="railroad">definition-function</div>
   The return type is specified as a type expression.
-  The return type "<code>void</code>" is used for functions that do not return a value.
+  The return type <code>void</code> is used for functions that do not return a value.
   For example:
   <pre class="code">void greet() {
   print("hello\n");
@@ -546,7 +548,7 @@ print(square.name, "\n"); // Prints 'square'
 print(square(9), "\n"); // Prints '81'</pre>
   The parameter list contains the types and names of the function parameters, if any, separated by commas:
   <div class="railroad">definition-function-parameter</div>
-  The only permitted default value for optional parameters is "<code>null</code>".
+  The only permitted default value for optional parameters is <code>null</code>.
   For example:
   <pre class="code">float logarithm(float x, float? base = null) {
   if (base == null) {
@@ -661,7 +663,7 @@ if (x) {
   w = z;
 }</pre>
   Note that expression <code>y</code> is only evaluated if <code>x</code> is true and expression <code>z</code> is only evaluated if <code>x</code> is false.
-  The expression <code>x</code> must be Boolean.
+  The expression <code>x</code> must evaluate to a Boolean.
   The potential type of <code>w</code> is the union of the types of <code>y</code> and <code>z</code>.
   <h4>Binary Operators</h4>
   Binary operators take two operands: the left-hand side and the right-hand size.
@@ -702,20 +704,72 @@ if (x) {
       <tr><td class="fixed">!</td><td>Logical NOT</td></tr>
     </tbody>
   </table>
-  Unlike many other programming languages, prefix increment <code>++</code> and decrement <code>--</code> not not yield values; they are stements.
+  Unlike many other programming languages, increment <code>++</code> and decrement <code>--</code> are statements; they do not yield values.
   See <a href="#increment-decrement-statement">above</a>.
+  <h4>Primary Expressions</h4>
+  A primary expression is one of the following:
+  <ul>
+    <li>a variable identifier,</li>
+    <li>a literal,</li>
+    <li>a function expression,</li>
+    <li>a lambda expression, or</li>
+    <li>another expression inside parentheses <code>()</code>.</li>
+  </ul>
+  These may be followed by any number of indexing operations, property lookups or function calls:
   <div class="railroad">expression-primary</div>
+  <h4>Indexing</h4>
+  An expression may be <i>indexed</i> using square brackets <code>[]</code>.
+  The indexing expression may be of any type.
+  Indexes for standard arrays are integers.
+  By convention, these indices start at zero.
+  <pre class="code">var arr = ["first", "second", "third", "fourth"];
+print(arr[1], "\n"); // Prints "second"</pre>
+  Indexes for standard objects are strings representing the property name:
+  <pre class="code">var obj = {
+  forename: "Charlie",
+  surname: "Chaplin",
+  year: 1889
+};
+print(obj["surname"], "\n"); // Prints "Chaplin"</pre>
+  <h4>Properties</h4>
+  Properties are named values associated with objects.
+  Standard arrays have a read-only property named <code>length</code> which returns the number of elements in the array, as an integer:
+  <pre class="code">var arr = ["a", "b", "c", "d"];
+print(arr.length, "\n"); // Prints 4</pre>
+  You can only access properties via the "dot" notation if those properties have names that conform to the <a href="#identifiers">identifier naming convention</a>.
+                                                                                                           <pre class="code">var obj = {
+  forename: "Charlie",
+  surname: "Chaplin",
+  "year-of-birth": 1889
+};
+print(obj.forename, "\n"); // Prints "Charlie"
+print(obj["surname"], "\n"); // Prints "Chaplin". Could also use 'obj.surname'
+print(obj["year-of-birth"], "\n"); // Prints 1889. Cannot use "dot" notation</pre>
+  <h4>Function Expressions</h4>
+  Function expressions are like function definitions, but without a function name:
   <div class="railroad">expression-function</div>
+  TODO
+  <h4>Lambda Expressions</h4>
+  TODO
   <div class="railroad">expression-lambda</div>
+  <h3>Conditions</h3>
+  TODO
   <div class="railroad">condition</div>
-  <div class="railroad">assignment-target</div>
-  <div class="railroad">parameter-list</div>
-
-  <h1>TODO</h1>
-  <h2>Attributes</h2>
-  <div class="railroad">attribute</div>
+  <h3>Function Calls</h3>
+  Function calls can either be statements or expressions.
+  <h4>Function Call Statements</h4>
+  A function with a return value of <code>void</code> can be invoked via a call statement:
   <div class="railroad">statement-call</div>
-  <h2>Type Expressions</h2>
+  TODO
+  <div class="railroad">parameter-list</div>
+  <h4>Function Call Expressions</h4>
+  A function that returns a non-<code>void</code> value, can be used as an expression.
+  TODO
+  <h3>Attributes</h3>
+  TODO
+  <div class="railroad">attribute</div>
+  <h3>Type Expressions</h3>
+  TODO
   <div class="railroad">type-expression</div>
   <div class="railroad">type-expression-primary</div>
 

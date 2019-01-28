@@ -171,11 +171,8 @@ egg.bnf({
     ], railroad: false},
     "expression-suffix": {choice: [
       {sequence: [{token: "["}, "expression", {token: "]"}]},
-      {sequence: [{token: "?.["}, "expression", {token: "]"}]},
       {sequence: [{token: "."}, "identifier-property"]},
-      {sequence: [{token: "?."}, "identifier-property"]},
-      {sequence: [{token: "("}, {zeroOrOne: "parameter-list"}, {token: ")"}]},
-      {sequence: [{token: "?.("}, {zeroOrOne: "parameter-list"}, {token: ")"}]}
+      {sequence: [{token: "("}, {zeroOrOne: "parameter-list"}, {token: ")"}]}
     ], railroad: false},
     "expression-function": {sequence: ["type-expression", {token: "("}, {zeroOrOne: "definition-function-parameter-list"}, {token: ")"}, "statement-compound"], inline: false, left: 1, right: 1},
     "expression-lambda": {sequence: ["expression-lambda-parameters", {token: "=>"}, "expression-lambda-body"], inline: false},
