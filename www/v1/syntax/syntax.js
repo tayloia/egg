@@ -830,7 +830,7 @@ egg.toc = function(id, anchors) {
         var link = known[anchor.textContent];
         console.assert(link);
         anchor.href = "#" + anchor.textContent;
-        anchor.textContent = link;
+        anchor.innerHTML = "&sect;" + link;
       } else if (!anchor.hash) {
         anchor.innerHTML += "&nbsp;<img class='icon' src='external.svg'>";
       }

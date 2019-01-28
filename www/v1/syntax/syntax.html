@@ -212,9 +212,9 @@
   In the following rule, "<code>hello</code>" is compulsory, but "<code>world</code>" is <i>optional</i> (however, it must follow "<code>hello</code>"):
   <div class="diagram">{ "greeting": {"sequence": [{"token": "hello"}, {"zeroOrOne": {"token": "world"}}], "inline": false, "left": 1} }</div>
   We can introduce <i>repetition</i> by making the tracks loops back on the themselves.
-  The following rule matches "<code>world</code>" followed by one or more question marks:
+  The following rule matches "<code>hello</code>" followed by one or more question marks:
   <div class="diagram">{ "greeting": {"sequence": [{"token": "hello"}, {"oneOrMore": {"token": "?"}}], "inline": false, "left": 1, "right": 1} }</div>
-  By comparison, this rule matches "<code>world</code>" followed by zero or more question marks:
+  By comparison, this rule matches "<code>hello</code>" followed by zero or more question marks:
   <div class="diagram">{ "greeting": {"sequence": [{"token": "hello"}, {"zeroOrMore": {"token": "?"}}], "inline": false, "left": 1, "right": 1} }</div>
   Sometimes, the items in the rule are not tokens, but some other kind of <i>terminal</i>, described informally elsewhere.
   In this case, the terminal is drawn in a blue hexagon:
@@ -236,7 +236,7 @@
   Comments can appear anywhere where whitespace is acceptable.
   <h3>Modules</h3>
   Modules contain one or more statements.
-  Each statement may be preceded one or more attributes.
+  Each statement may be preceded one or more attributes (<a>attributes</a>).
   <div class="railroad">module</div>
   <h3>Statements</h3>
   A statement is one of the following:
@@ -257,13 +257,31 @@
   <h4>Assignment Statement</h4>
   Assignments may simply store a value in a target, such as:
   <pre class="code">target = value;</pre>
-  or they may incorporate a binary operator to modify the target:
+  or they may incorporate a binary operator (&sect;<a>binary-operators</a>) to modify the target:
   <pre class="code">target += value;</pre>
   The latter is equivalent to the following (except that the target expression is evaluated only once):
   <pre class="code">target = target + value;</pre>
-  TODO
+  Assignment targets are one of the following:
+  <ul>
+    <li>a variable,</li>
+    <li>a dereferenced pointer expression,</li>
+    <li>an indexed expression, or</li>
+    <li>a property of an expression.</li>
+  </ul>
+  That is
   <div class="railroad">assignment-target</div>
-  See <a>binary-operators</a>.
+  For example:
+  <pre class="code">int a;
+a = 123; // Assign to variable
+
+int* b = &amp;a;
+*b = 321; // Assign via pointer
+
+int[] c = [9, 2, 3];
+c[0] = 1; // Assign to indexed element
+
+object d = {};
+d.field = 321; // Assign to property</pre>
   <h4>Increment/Decrement Statement</h4>
   In <span class="egg">egg</span>, increments and decrements are statements (not expressions) and must use the prefix unary operators:
   <pre class="code">++target;
@@ -647,17 +665,57 @@ var z = root(-4);  // This causes a runtime error</pre>
   For example, the following would print the Unicode character "U+1F95A EGG" followed by a newline:
   <pre class="code">print("\U+1f95a;\n");</pre>
   <h4>Object Literals</h4>
-  Object literals are enclosed in curly braces: TODO
+  Object literals are enclosed in curly braces:
   <div class="railroad">literal-object</div>
+  For example:
+  <pre class="code">var a = {
+  "well-known": true,
+  x: "hello",
+  y: 123,
+  z: [1, 2, 3]
+};</pre>
+  Double quotes are needed for the first propety because 'well-known' is not a valid property identifier (<a>identifiers</a>).
+  The ellipsis <code>...</code> syntax allows you to copy all the properties from another object.
+  Note that in
+  <pre class="code">var a = { x: "hello", y: 123, z: [1, 2, 3] };
+var b = a;
+var c = { ...a };</pre>
+  the resulting values of <code>b</code> and <code>c</code> are subtly different.
+  This is beause <code>a</code> and <code>b</code> refer to the same object, whereas the properties of <code>a</code> are duplicated in the new object <code>c</code>:
+  <pre class="code">c.y = 321; // Do not affect 'a.y'
+b.y = 321; // Affects 'a.y' also</pre>
+  Properties are assigned to the new object in the order they appear in the list.
+  For example:
+  <pre class="code">var a = { x: 1, y: 2, z: 3 };
+var b = { ...a, y: 4 }; // 'b' equals '{ x: 1, y: 4, z: 3 }'
+var c = { y: 4, ...a }; // 'c' equals '{ x: 1, y: 2, z: 3 }'</pre>
+  Object literals may be empty to denote an object that has no (initial) properties:
+  <pre class="code">var e = {};</pre>
   <h4>Array Literals</h4>
-  Array literals are enclosed in square brackets: TODO
+  Array literals are enclosed in square brackets:
   <div class="railroad">literal-array</div>
+  For example:
+  <pre class="code">var a = [
+  true,     // Element 0, a Boolean
+  "hello",  // Element 1, a string
+  123,      // Element 2, an integer
+  [1, 2, 3] // Element 4, another array
+];</pre>
+  Array elements may be <i>heterogeneous</i> (as in the case of <code>a</code> above) or <i>homogeneous</i> (all the elements have the same type):
+  <pre class="code">int[] b = [1, 2, 3];</pre>
+  The ellipsis <code>...</code> syntax allows you to copy all the elements from another array at that location:
+  <pre class="code">var a = ["hello", 123, [1, 2, 3]];
+var b = [true, ...a, 3.14159]; // Equals [true, "hello", 123, [1, 2, 3], 3.14159]</pre>
+  It can be used to create a <i>shallow copy</i> of another array:
+  <pre class="code">var c = [...a]; // Shallow copies 'a' into 'c'</pre>
+  Array literals may be empty to denote an array that has no (initial) elements:
+  <pre class="code">var e = [];</pre>
   <h4>Type Literals</h4>
-  Type literals are used in type definitions or in type expressions (where they are preceded by the <code>type</code> keyword):
+  Type literals are used in type definitions (<a>type-definitions</a>) and in type expressions (<a>type-expressions</a>) where they are preceded by the <code>type</code> keyword:
   <div class="railroad">literal-type</div>
   They are similar to object literals, except that the property values may be types and the ellipsis <code>...</code> syntax is not supported.
   Type literals make use of <i>well-known</i> properties names.
-  See TODO for more information.
+  See <a href="types.html">Type Schema</a> for more information.
   <h3>Expressions</h3>
   Expressions evaluate to values.
   Values have types; therefore expressions also have types.
