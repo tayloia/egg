@@ -120,9 +120,6 @@
     .link {
       visibility: hidden;
     }
-    .icon {
-      height: 0.7em;
-    }
     .collapsible {
       border: 1px solid hsl(30,100%,39%);
       border-radius: 1ex;
@@ -135,10 +132,8 @@
       position: absolute;
       left: 8px;
       width: 40px;
-      padding-top: 0.3ex;
-    }
-    .collapsible > a > img {
-      width: 36px;
+      margin-top: -14px;
+      font-size: 36px;
       visibility: hidden;
     }
     .collapsible > div:nth-child(2) {
@@ -169,7 +164,7 @@
         from { background-color: hsl(30,100%,93%); }
         to { background-color: hsl(30,100%,66%); }
       }
-      .collapsible:hover img {
+      .collapsible:hover > a {
         visibility: visible;
       }
       .collapsible > div:last-child {
@@ -257,7 +252,7 @@
   <h4>Assignment Statement</h4>
   Assignments may simply store a value in a target, such as:
   <pre class="code">target = value;</pre>
-  or they may incorporate a binary operator (&sect;<a>binary-operators</a>) to modify the target:
+  or they may incorporate a binary operator (<a>binary-operators</a>) to modify the target:
   <pre class="code">target += value;</pre>
   The latter is equivalent to the following (except that the target expression is evaluated only once):
   <pre class="code">target = target + value;</pre>
