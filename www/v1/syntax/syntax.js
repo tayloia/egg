@@ -304,7 +304,7 @@ egg.syntax = function(syntax, div) {
     var rules = Object.keys(rulebase);
     function build(rule) {
       function makeBox(shape, name) {
-        return { type: "box", shape: shape, width: name.length * 0.3 + 1, text: name };
+        return { type: "box", shape: shape, width: name.length * 0.33 + 1, text: name };
       }
       function makeSequence(items) {
         return { type: "sequence", between: 0.5, items: items };
@@ -540,9 +540,9 @@ egg.syntax = function(syntax, div) {
       }
       var fontsize = h * 0.7;
       x += w * 0.5;
-      y += fontsize;
-      svg += element("text", { x: x, y: y, "font-family": "monospace", "font-size": fontsize, "font-weight": "bold", "font-style": style, "text-anchor": "middle", fill: stroke(shape) }, text);
-      return svg; //link("https://en.wikipedia.org/wiki/" + i.wiki, part);
+      y += fontsize * 1.02;
+      svg += element("text", { x: x, y: y, "font-size": fontsize, "font-weight": "bold", "font-style": style, "text-anchor": "middle", fill: stroke(shape) }, text);
+      return svg;
     }
     function loop(x0, y0, x1, y1, r, yline) {
       var svg = "";
@@ -612,7 +612,7 @@ egg.syntax = function(syntax, div) {
         svg += rounded(x, y - item.above + 0.75, item.name.length * 0.36 + 0.4, 1.5, 0.25, hsl("definition", "75%"));
         svg += rounded(x, y - item.above + 1.5, item.width, item.above + item.below - 1.5, 0.5, hsl("definition", "75%"));
         svg += rounded(x + 0.25, y - item.above + 1.75, item.width - 0.5, item.above + item.below - 2, 0.25, inside);
-        svg += element("text", { x: x + 0.2, y: y - item.above + 1.4, "font-family": "monospace", "font-size": 0.65, "font-style": "italic", "text-anchor": "left", fill: stroke("definition") }, item.name);
+        svg += element("text", { x: x + 0.2, y: y - item.above + 1.4, "font-size": 0.6, "font-style": "italic", "text-anchor": "left", fill: stroke("definition") }, item.name);
         svg += line(x, y, x + item.width, y);
         svg += draw(item.item, x + item.left, y, item.width - item.left - item.right);
         break;
@@ -680,16 +680,16 @@ egg.syntax = function(syntax, div) {
     var svg = draw(built, 0.5, built.above, built.width);
     var viewbox = [0, 0, built.width + 1, built.above + built.below + 1];
     if (scale) {
-      scale *= 1.2;
       svg = element("g", { transform: "scale(" + scale + ")" }, svg);
       return element("svg", { xmlns: "http://www.w3.org/2000/svg", version: "1.1", width: viewbox[2] * scale, height: viewbox[3] * scale }, svg);
     }
     return element("svg", { xmlns: "http://www.w3.org/2000/svg", version: "1.1", viewBox: viewbox.join(" ") }, svg);
   }
   div = div || document.getElementById(syntax);
+  var scale = div.offsetHeight * 1.5;
   if (syntax instanceof Object) {
     div.innerHTML = "&nbsp;"; // So the line height is recalculated for a single line
-    div.innerHTML = railroad(construct(syntax, {}, false), null, div.offsetHeight);
+    div.innerHTML = railroad(construct(syntax, {}, false), null, scale);
   } else {
     switch (syntax) {
       case "ascii":
@@ -699,7 +699,7 @@ egg.syntax = function(syntax, div) {
         div.textContent = bottlecaps(construct(egg.data.rules, egg.data.variations.full, true));
         break;
       case "railroad":
-        div.innerHTML = railroad(construct(egg.data.rules, egg.data.variations.concise, false), null, div.offsetHeight);
+        div.innerHTML = railroad(construct(egg.data.rules, egg.data.variations.concise, false), null, scale);
         break;
       case "poster":
         div.innerHTML = railroad(construct(egg.data.rules, egg.data.variations.concise, false), {
@@ -728,7 +728,7 @@ egg.syntax = function(syntax, div) {
         });
         break;
       default:
-        div.innerHTML = railroad(construct(egg.data.rules, egg.data.variations.concise, false), { root: syntax }, div.offsetHeight);
+        div.innerHTML = railroad(construct(egg.data.rules, egg.data.variations.concise, false), { root: syntax }, scale);
         break;
     }
   }
@@ -806,7 +806,7 @@ egg.collapsible = function(elements) {
       style.display = (style.display !== "block") ? "block" : "none";
       event.preventDefault();
     };
-    eye.innerHTML = "&#x1F441;";
+    eye.innerHTML = "<img src='eye.svg'>";
     element.insertBefore(eye, element.firstChild);
   });
 };
@@ -822,7 +822,7 @@ egg.toc = function(id, anchors) {
     values[level - 1]++;
     var section = values.slice(0, level).join(".") + "." + " " + element.innerHTML;
     child.innerHTML = "<a class='toc-" + level + "' href='#" + element.id + "'>" + section + "</a>";
-    element.innerHTML = section + " <a class='link' href='#" + element.id + "'>&sect;</a>";
+    element.innerHTML = section + " <a class='link' href='#" + element.id + "'><img class='icon' src='link.svg'></a>";
     parent.appendChild(child);
     while (level < values.length) {
       values[level++] = 0;
@@ -835,9 +835,9 @@ egg.toc = function(id, anchors) {
         var link = known[anchor.textContent];
         console.assert(link);
         anchor.href = "#" + anchor.textContent;
-        anchor.innerHTML = "&sect;" + link;
+        anchor.innerHTML = link;
       } else if (!anchor.hash) {
-        anchor.innerHTML += "&#x1F87D;";
+        anchor.innerHTML += "&nbsp;<img class='icon' src='external.svg'>";
       }
     });
   }

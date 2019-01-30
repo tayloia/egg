@@ -3,10 +3,15 @@
 <head>
   <meta charset="us-ascii">
   <title>egg Syntax</title>
+  <link href="https://fonts.googleapis.com/css?family=Roboto+Mono:400,400i,700|Roboto+Slab:400,700" rel="stylesheet">
   <style>
     body {
+      font-family: "Roboto Slab", serif;
       color: hsl(30,100%,9%);
       margin: 0 24px;
+    }
+    pre, code, svg, .fixed, .egg, #bottlecaps {
+      font-family: "Roboto Mono", monospace;
     }
     header, h1, h2, h3, h4, footer {
       border: 1px solid hsl(30,100%,39%);
@@ -19,10 +24,6 @@
     header {
       font-size: 250%;
       font-weight: bold;
-    }
-    header > a {
-      font-size: 85%;
-      float: right;
     }
     code {
       background-color: hsl(30,100%,93%);
@@ -82,7 +83,6 @@
     }
     #bottlecaps {
       white-space: pre;
-      font-family: monospace;
     }
     .toc-2 {
       margin-left: 1em;
@@ -110,6 +110,7 @@
     }
     .code-comment {
       color: hsl(132,100%,33%);
+      font-style: italic;
     }
     .code-string {
       color: hsl(235,100%,33%);
@@ -124,6 +125,9 @@
     .link {
       visibility: hidden;
     }
+    .icon {
+      height: 0.7em;
+    }
     .collapsible {
       border: 1px solid hsl(30,100%,39%);
       border-radius: 1ex;
@@ -136,8 +140,10 @@
       position: absolute;
       left: 8px;
       width: 40px;
-      margin-top: -14px;
-      font-size: 36px;
+      padding-top: 0.3ex;
+    }
+    .collapsible > a > img {
+      width: 36px;
       visibility: hidden;
     }
     .collapsible > div:nth-child(2) {
@@ -149,10 +155,8 @@
       padding: 0.5em 1em;
     }
     .egg {
-      font-style: italic !important;
-    }
-    .fixed {
-      font-family: monospace;
+      font-weight: normal;
+      font-style: italic;
     }
     @media screen {
       body {
@@ -168,7 +172,7 @@
         from { background-color: hsl(30,100%,93%); }
         to { background-color: hsl(30,100%,66%); }
       }
-      .collapsible:hover > a {
+      .collapsible:hover img {
         visibility: visible;
       }
       .collapsible > div:last-child {
@@ -185,7 +189,11 @@
   <script src="bnf.js"></script>
 </head>
 <body>
-  <header id="top">The <span class="egg">egg</span> Programming Language Syntax <a href="#top">&#x1F95A;</a></header>
+  <header id="top">The <span class="egg">egg</span> Programming Language Syntax</header>
+  <p>This is standard text</p>
+  <p>This is <b>bold</b> text</p>
+  <p>This is <i>italic</i> text</p>
+  <p>This is <span class="egg">egg</span> text</p>
   This document contains details of the syntax of the <span class="egg">egg</span> programming language.
   It is not designed as a resource for learning the language from scratch, but programmers fluent in other computer languages may find it useful as an overview of <span class="egg">egg</span>.
   <div class="collapsible">
@@ -225,7 +233,7 @@
   The source code for each module is typically stored in a separate text file.
   <h3>Comments</h3>
   Comments in <span class="egg">egg</span> source files can either be a single line or multiple lines:
-  <div class="diagram">{ "comment": {"choice": [{"sequence": [{"token": "//"}, {"zeroOrMore": {"terminal": "any character except newline"} }, {"terminal": "newline"}]}, {"sequence": [{"token": "/*"}, {"zeroOrMore": {"terminal": "any character"}}, {"token": "*/"}]}] } }</div>
+  <div class="diagram">{ "comment": {"choice": [{"sequence": [{"token": "//"}, {"zeroOrMore": {"terminal": "any-character-except-newline"} }, {"terminal": "newline"}]}, {"sequence": [{"token": "/*"}, {"zeroOrMore": {"terminal": "any-character"}}, {"token": "*/"}]}] } }</div>
   For example:
   <pre class="code">// This is a comment until the end of the line
 
@@ -664,7 +672,7 @@ var z = root(-4);  // This causes a runtime error</pre>
       <tr><td class="fixed">\U+<i>hhhhh</i>;</td><td>Unicode character in hexadecimal</td><td class="fixed">U+<i>hhhhh</i></td></tr>
     </tbody>
   </table>
-  For example, the following would print the Unicode character "U+1F95A EGG" followed by a newline:
+  For example, the following would print the Unicode character "<code>U+1F95A EGG</code>" followed by a newline:
   <pre class="code">print("\U+1f95a;\n");</pre>
   <h4>Object Literals</h4>
   Object literals are enclosed in curly braces:
