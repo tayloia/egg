@@ -75,7 +75,7 @@
     #ascii .token {
       background-color: rgba(0,255,0,0.2);
       color: rgb(0,128,0);
-      border-radius: 0.3em;
+      border-radius: 1ex;
       line-height: 150%;
     }
     #ascii .terminal {
@@ -107,7 +107,7 @@
     }
     .code {
       border: 1px solid hsl(30,100%,39%);
-      border-radius: 6px;
+      border-radius: 1ex;
       background-color: hsl(30,100%,96%);
       box-shadow: 3px 3px 2px hsla(30,100%,39%,25%);
       margin: 1em 0 1em 24px;
@@ -196,10 +196,6 @@
 </head>
 <body>
   <header id="top">The <span class="egg">egg</span> Programming Language Syntax</header>
-  <p>This is standard text</p>
-  <p>This is <b>bold</b> text</p>
-  <p>This is <i>italic</i> <i>egg</i> text</p>
-  <p>This is <span class="egg">egg</span> text</p>
   This document contains details of the syntax of the <span class="egg">egg</span> programming language.
   It is not designed as a resource for learning the language from scratch, but programmers fluent in other computer languages may find it useful as an overview of <span class="egg">egg</span>.
   <div class="collapsible">
@@ -238,7 +234,7 @@
   <span class="egg">egg</span> programs are split up into distinct parts, named "modules".
   The source code for each module is typically stored in a separate text file.
   <h3>Comments</h3>
-  Comments in <span class="egg">egg</span> source files can either be a single line or multiple lines:
+  Comments in <span class="egg">egg</span> source code can either be a single line or multiple lines:
   <div class="diagram">{ "comment": {"choice": [{"sequence": [{"token": "//"}, {"zeroOrMore": {"terminal": "any-character-except-newline"} }, {"terminal": "newline"}]}, {"sequence": [{"token": "/*"}, {"zeroOrMore": {"terminal": "any-character"}}, {"token": "*/"}]}] } }</div>
   For example:
   <pre class="code">// This is a comment until the end of the line
@@ -270,7 +266,7 @@
   <h4>Assignment Statement</h4>
   Assignments may simply store a value in a target, such as:
   <pre class="code">target = value;</pre>
-  or they may incorporate a binary operator (<a>binary-operators</a>) to modify the target:
+  or they may incorporate a binary operator (<a>binary-operator</a>) to modify the target:
   <pre class="code">target += value;</pre>
   The latter is equivalent to the following (except that the target expression is evaluated only once):
   <pre class="code">target = target + value;</pre>
@@ -553,7 +549,7 @@ try {
     <li><code>hello-world</code> (must not contain ASCII non-alphamerics such as a hyphen)</li>
     <li><code>&gamma;&epsilon;&iota;&#940;_&sigma;&omicron;&upsilon;</code> (must not start with a non-ASCII character)</li>
   </ul>
-  <h4>Function Definitions</h4>
+  <h4>Function Definition</h4>
   Function definitions are divided into four sections:
   <ol>
     <li>The return type</li>
@@ -605,7 +601,7 @@ print(divide(x: 3, y: 4, z: 6), "\n"); // Prints '0.75' (z is ignored)</pre>
 }
 print(sum(3, 1, 4, 1, 5, 9), "\n"); // Prints '23'</pre>
   Generator function definitions look like function definitions except they have at least one <code>yield</code> statement within the statement block.
-  <h4>Type Definitions</h4>
+  <h4>Type Definition</h4>
   Type definitions introduce new identifiers that are synonymous with an arbitrary type.
   <div class="railroad">definition-type</div>
   For example:
@@ -619,7 +615,7 @@ Number n; // Synonymous with 'int|float n'</pre>
     find: V?(K key)
   }
 };</pre>
-  <h4>Variable Definitions</h4>
+  <h4>Variable Definition</h4>
   Variables can either be defined with a specific type, or can have their type inferred.
   <div class="railroad">definition-variable</div>
   If an explicit type is given, but no value, the variable is initially undefined:
@@ -646,17 +642,17 @@ var z = root(-4);  // This causes a runtime error</pre>
   Literals represent fixed values.
   <div class="railroad">literal</div>
   The literal value <code>null</code> and the Boolean literal values <code>false</code> and <code>true</code> each have their own keywords.
-  <h4>Integer Literals</h4>
+  <h4>Integer Literal</h4>
   Integer literals are presented by a sequence of decimal digits, optionally prefix by a sign.
   <div class="railroad">literal-int</div>
   Examples of valid integer literals include <code>0</code>, <code>123</code>, <code>-123</code> and <code>+123</code>.
   Note that <span class="egg">egg</span> only support denary numeric literals; octal and hexadecimal are not supported.
-  <h4>Floating-Point Literals</h4>
+  <h4>Floating-Point Literal</h4>
   Floating-point literals are similar but contain a compulsory decimal point followed by at least one digit.
   There may also be an optional, trailing, signed integer exponent.
   <div class="railroad">literal-float</div>
   Examples of valid integer literals include <code>0.0</code>, <code>-123.45</code>, <code>+1.0e-9</code> and <code>0.01e+050</code>.
-  <h4>String Literals</h4>
+  <h4>String Literal</h4>
   String literals are surrounded by double quote characters.
   They may contain any valid Unicode character.
   <div class="railroad">literal-string</div>
@@ -680,7 +676,7 @@ var z = root(-4);  // This causes a runtime error</pre>
   </table>
   For example, the following would print the Unicode character "<code>U+1F95A EGG</code>" followed by a newline:
   <pre class="code">print("\U+1f95a;\n");</pre>
-  <h4>Object Literals</h4>
+  <h4>Object Literal</h4>
   Object literals are enclosed in curly braces:
   <div class="railroad">literal-object</div>
   For example:
@@ -707,7 +703,7 @@ var b = { ...a, y: 4 }; // 'b' equals '{ x: 1, y: 4, z: 3 }'
 var c = { y: 4, ...a }; // 'c' equals '{ x: 1, y: 2, z: 3 }'</pre>
   Object literals may be empty to denote an object that has no (initial) properties:
   <pre class="code">var e = {};</pre>
-  <h4>Array Literals</h4>
+  <h4>Array Literal</h4>
   Array literals are enclosed in square brackets:
   <div class="railroad">literal-array</div>
   For example:
@@ -726,8 +722,8 @@ var b = [true, ...a, 3.14159]; // Equals [true, "hello", 123, [1, 2, 3], 3.14159
   <pre class="code">var c = [...a]; // Shallow copies 'a' into 'c'</pre>
   Array literals may be empty to denote an array that has no (initial) elements:
   <pre class="code">var e = [];</pre>
-  <h4>Type Literals</h4>
-  Type literals are used in type definitions (<a>type-definitions</a>) and in type expressions (<a>type-expressions</a>) where they are preceded by the <code>type</code> keyword:
+  <h4>Type Literal</h4>
+  Type literals are used in type definitions (<a>type-definition</a>) and in type expressions (<a>type-expression</a>) where they are preceded by the <code>type</code> keyword:
   <div class="railroad">literal-type</div>
   They are similar to object literals, except that the property values may be types and the ellipsis <code>...</code> syntax is not supported.
   Type literals make use of <i>well-known</i> properties names.
@@ -750,7 +746,7 @@ if (x) {
   Note that expression <code>y</code> is only evaluated if <code>x</code> is true and expression <code>z</code> is only evaluated if <code>x</code> is false.
   The expression <code>x</code> must evaluate to a Boolean.
   The potential type of <code>w</code> is the union of the types of <code>y</code> and <code>z</code>.
-  <h4>Binary Operators</h4>
+  <h4>Binary Operator</h4>
   Binary operators take two operands: the left-hand side and the right-hand size.
   <div class="railroad">expression-binary</div>
   The binary operators are defined thus:
@@ -773,7 +769,7 @@ if (x) {
     </tbody>
   </table>
   This is the same precedence order as other "curly brace" programming languages.
-  <h4>Unary Operators</h4>
+  <h4>Unary Operator</h4>
   Unary operators take a single operand.
   In the <span class="egg">egg</span> programming language, unary operators always precede the operand:
   <div class="railroad">expression-unary</div>
@@ -791,7 +787,7 @@ if (x) {
   </table>
   Unlike many other programming languages, increment <code>++</code> and decrement <code>--</code> are statements; they do not yield values.
   See <a>increment-decrement-statement</a>.
-  <h4>Primary Expressions</h4>
+  <h4>Primary Expression</h4>
   A primary expression is one of the following:
   <ul>
     <li>a variable identifier,</li>
@@ -802,35 +798,7 @@ if (x) {
   </ul>
   These may be followed by any number of indexing operations, property lookups or function calls:
   <div class="railroad">expression-primary</div>
-  <h4>Indexing</h4>
-  An expression may be <i>indexed</i> using square brackets <code>[]</code>.
-  The indexing expression may be of any type.
-  Indexes for standard arrays are integers.
-  By convention, array indices start at zero.
-  <pre class="code">var arr = ["first", "second", "third", "fourth"];
-print(arr[1], "\n"); // Prints "second"</pre>
-  Indexes for standard objects are strings representing the property name:
-  <pre class="code">var obj = {
-  forename: "Charlie",
-  surname: "Chaplin",
-  year: 1889
-};
-print(obj["surname"], "\n"); // Prints "Chaplin"</pre>
-  <h4>Properties</h4>
-  Properties are named values associated with objects.
-  Standard arrays have a read-only property named <code>length</code> which returns the number of elements in the array, as an integer:
-  <pre class="code">var arr = ["a", "b", "c", "d"];
-print(arr.length, "\n"); // Prints 4</pre>
-  You can only access properties via the "dot" notation if those properties have names that conform to the identifier naming convention (<a>identifiers</a>).
-  <pre class="code">var obj = {
-  forename: "Charlie",
-  surname: "Chaplin",
-  "year-of-birth": 1889
-};
-print(obj.forename, "\n"); // Prints "Charlie"
-print(obj["surname"], "\n"); // Prints "Chaplin". Could also use 'obj.surname'
-print(obj["year-of-birth"], "\n"); // Prints 1889. Cannot use "dot" notation</pre>
-  <h4>Function Expressions</h4>
+  <h4>Function Expression</h4>
   Function expressions are like function definitions, but without a function name:
   <div class="railroad">expression-function</div>
   For example:
@@ -838,7 +806,7 @@ print(obj["year-of-birth"], "\n"); // Prints 1889. Cannot use "dot" notation</pr
 print(func(2, 3), "\n"); // Prints 5
 func = int(int a, int b) { return a - b; };
 print(func(2, 3), "\n"); // Prints -1</pre>
-  <h4>Lambda Expressions</h4>
+  <h4>Lambda Expression</h4>
   Lambda expressions are like function expressions but are more concise because types are inferred.
   <div class="railroad">expression-lambda</div>
   For example:
@@ -864,26 +832,54 @@ var q = applyUnary(a => a * a, 2);
 print(q, "\n"); // Prints 4</pre>
   Note that lambda expressions may only be used when the parameter types can be <i>trivially</i> inferred.
   At other times, the full function expression syntax must be used.
+  <h4>Type Expression</h4>
+  TODO
+  <div class="railroad">type-expression</div>
+  <div class="railroad">type-expression-primary</div>
   <h3>Conditions</h3>
   TODO
   <div class="railroad">condition</div>
+  <h3>Indexing</h3>
+  An expression may be <i>indexed</i> using square brackets <code>[]</code>.
+  The indexing expression may be of any type.
+  Indexes for standard arrays are integers.
+  By convention, array indices start at zero.
+  <pre class="code">var arr = ["first", "second", "third", "fourth"];
+print(arr[1], "\n"); // Prints "second"</pre>
+  Indexes for standard objects are strings representing the property name:
+  <pre class="code">var obj = {
+  forename: "Charlie",
+  surname: "Chaplin",
+  year: 1889
+};
+print(obj["surname"], "\n"); // Prints "Chaplin"</pre>
+  <h3>Properties</h3>
+  Properties are named values associated with objects.
+  Standard arrays have a read-only property named <code>length</code> which returns the number of elements in the array, as an integer:
+  <pre class="code">var arr = ["a", "b", "c", "d"];
+print(arr.length, "\n"); // Prints 4</pre>
+  You can only access properties via the "dot" notation if those properties have names that conform to the identifier naming convention (<a>identifiers</a>).
+  <pre class="code">var obj = {
+  forename: "Charlie",
+  surname: "Chaplin",
+  "year-of-birth": 1889
+};
+print(obj.forename, "\n"); // Prints "Charlie"
+print(obj["surname"], "\n"); // Prints "Chaplin". Could also use 'obj.surname'
+print(obj["year-of-birth"], "\n"); // Prints 1889. Cannot use "dot" notation</pre>
   <h3>Function Calls</h3>
   Function calls can either be statements or expressions.
-  <h4>Function Call Statements</h4>
+  <h4>Function Call Statement</h4>
   A function with a return value of <code>void</code> can be invoked via a call statement:
   <div class="railroad">statement-call</div>
   TODO
   <div class="railroad">parameter-list</div>
-  <h4>Function Call Expressions</h4>
+  <h4>Function Call Expression</h4>
   A function that returns a non-<code>void</code> value, may be used as an expression.
   TODO
   <h3>Attributes</h3>
   TODO
   <div class="railroad">attribute</div>
-  <h3>Type Expressions</h3>
-  TODO
-  <div class="railroad">type-expression</div>
-  <div class="railroad">type-expression-primary</div>
   <h2><span class="egg">egg</span> Syntax Poster</h2>
   The syntax railroad diagrams above are available as a <a href="poster.html">single poster</a> suitable for printing at A3 size.
   <h1>Formal Syntax</h1>
