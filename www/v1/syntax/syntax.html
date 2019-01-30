@@ -10,7 +10,7 @@
       color: hsl(30,100%,9%);
       margin: 0 24px;
     }
-    pre, code, svg, .fixed, .egg, #bottlecaps {
+    pre, code, .egg, .fixed, .diagram, .railroad {
       font-family: "Roboto Mono", monospace;
     }
     header, h1, h2, h3, h4, footer {
@@ -54,8 +54,14 @@
       color: hsl(30,100%,39%);
       text-decoration: none;
     }
+    .railroad, .diagram {
+      font-size: 125%;
+    }
     .railroad, .diagram, table {
       filter: drop-shadow(3px 3px 2px hsl(30,100%,25%,25%));
+    }
+    #ascii, #bottlecaps, .code {
+      font-size: 75%;
     }
     #ascii {
       font-weight: bold;
@@ -192,7 +198,7 @@
   <header id="top">The <span class="egg">egg</span> Programming Language Syntax</header>
   <p>This is standard text</p>
   <p>This is <b>bold</b> text</p>
-  <p>This is <i>italic</i> text</p>
+  <p>This is <i>italic</i> <i>egg</i> text</p>
   <p>This is <span class="egg">egg</span> text</p>
   This document contains details of the syntax of the <span class="egg">egg</span> programming language.
   It is not designed as a resource for learning the language from scratch, but programmers fluent in other computer languages may find it useful as an overview of <span class="egg">egg</span>.
@@ -878,7 +884,8 @@ print(q, "\n"); // Prints 4</pre>
   TODO
   <div class="railroad">type-expression</div>
   <div class="railroad">type-expression-primary</div>
-
+  <h2><span class="egg">egg</span> Syntax Poster</h2>
+  The syntax railroad diagrams above are available as a <a href="poster.html">single poster</a> suitable for printing at A3 size.
   <h1>Formal Syntax</h1>
   <h2>EBNF</h2>
   <div class="collapsible">
@@ -888,7 +895,7 @@ print(q, "\n"); // Prints 4</pre>
   <h2>Railroad</h2>
   <div class="collapsible">
     <div>Syntax in <a href="http://www.bottlecaps.de/rr/ui">Railroad Diagram Generator</a> format</div>
-    <div id="bottlecaps"></div>
+    <div id="bottlecaps" class="fixed"></div>
   </div>
   <footer>Copyright &copy; 2018-<span id="year">2019</span> <a href="http://chilliant.com">chilliant.com</a></footer>
   <script>

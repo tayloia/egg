@@ -350,7 +350,6 @@ egg.syntax = function(syntax, div) {
         }
         var key = Object.keys(rule)[0];
         var value = rule[key];
-        var result;
         switch (key) {
           case "sequence":
             return makeSequence(value.map(x => expand(x, inside)));
@@ -540,7 +539,7 @@ egg.syntax = function(syntax, div) {
       }
       var fontsize = h * 0.7;
       x += w * 0.5;
-      y += fontsize * 1.02;
+      y += fontsize * 1.03;
       svg += element("text", { x: x, y: y, "font-size": fontsize, "font-weight": "bold", "font-style": style, "text-anchor": "middle", fill: stroke(shape) }, text);
       return svg;
     }
@@ -686,10 +685,9 @@ egg.syntax = function(syntax, div) {
     return element("svg", { xmlns: "http://www.w3.org/2000/svg", version: "1.1", viewBox: viewbox.join(" ") }, svg);
   }
   div = div || document.getElementById(syntax);
-  var scale = div.offsetHeight * 1.5;
   if (syntax instanceof Object) {
     div.innerHTML = "&nbsp;"; // So the line height is recalculated for a single line
-    div.innerHTML = railroad(construct(syntax, {}, false), null, scale);
+    div.innerHTML = railroad(construct(syntax, {}, false), null, div.offsetHeight);
   } else {
     switch (syntax) {
       case "ascii":
@@ -699,7 +697,7 @@ egg.syntax = function(syntax, div) {
         div.textContent = bottlecaps(construct(egg.data.rules, egg.data.variations.full, true));
         break;
       case "railroad":
-        div.innerHTML = railroad(construct(egg.data.rules, egg.data.variations.concise, false), null, scale);
+        div.innerHTML = railroad(construct(egg.data.rules, egg.data.variations.concise, false), null, div.offsetHeight);
         break;
       case "poster":
         div.innerHTML = railroad(construct(egg.data.rules, egg.data.variations.concise, false), {
@@ -728,7 +726,7 @@ egg.syntax = function(syntax, div) {
         });
         break;
       default:
-        div.innerHTML = railroad(construct(egg.data.rules, egg.data.variations.concise, false), { root: syntax }, scale);
+        div.innerHTML = railroad(construct(egg.data.rules, egg.data.variations.concise, false), { root: syntax }, div.offsetHeight);
         break;
     }
   }
