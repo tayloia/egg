@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en-gb">
 <head>
-  <meta charset="us-ascii">
+  <meta charset="utf-8">
   <title>egg Syntax</title>
   <meta name="description" content="egg Programming Language Syntax">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -950,14 +950,14 @@ T! someFunction(T! someInputIterator) {
   A pointer to a value of type <code>T</code> has a type <code>T*</code>.
   For example:
   <pre class="code">string comedian = "Laurel";
-string* pointer = &comedian;   // 'pointer' now points to variable 'comedian'
+string* pointer = &amp;comedian;   // 'pointer' now points to variable 'comedian'
 *pointer = "Hardy";            // 'comedian' now contains "Hardy"
 string swashbuckler = "Flynn";
-pointer = &swashbuckler;       // 'pointer' now points to variable 'swashbuckler'</pre>
+pointer = &amp;swashbuckler;       // 'pointer' now points to variable 'swashbuckler'</pre>
   Unlike some other languages, <span class="egg">egg</span> does <i>not</i> support pointer arithmetic.
   By default, pointers cannot be <code>null</code> unless their type explicitly uses the <code>?</code> suffix:
   <pre class="code">int i = 123;
-int*? p = &i; // 'p' can point to an integer or be null
+int*? p = &amp;i; // 'p' can point to an integer or be null
 p = null;</pre>
   There is a subtle interaction between pointers and nullability:
   <table>
@@ -1031,7 +1031,7 @@ dict.add(8, "eight");</pre>
   <h4>Boolean Condition</h4>
   A Boolean condition is simply an expression of type <code>bool</code>.
   For example:
-  <pre class="code">if (a < b) {
+  <pre class="code">if (a &lt; b) {
   print("a is smaller\n")
 } else {
   print("a is not smaller\n")
