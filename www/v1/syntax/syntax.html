@@ -469,7 +469,7 @@ try {
   y = safeSqrt(-1);
 } catch (any exception) {
   print("exception thrown: ", exception);
-  throw; // Rethrow the exception
+  throw; // Re-throw the exception
 }</pre>
   <h4>Try Statement</h4>
   The <code>try</code> statement comes in two flavours.
@@ -535,7 +535,7 @@ try {
   They are all synonyms for <i>identifier</i>:
   <div class="railroad">identifier</div>
   Identifiers must begin with an ASCII letter ("<code>A</code>" to "<code>Z</code>" or "<code>a</code>" to "<code>z</code>") or an underscore ("<code>_</code>").
-  Subsequent characters may be ASCII letters, underscores, digits ("<code>0</code>" to "<code>9</code>") or non-ASCII unicode.
+  Subsequent characters may be ASCII letters, underscores, digits ("<code>0</code>" to "<code>9</code>") or non-ASCII Unicode.
   Identifiers are case-sensitive.
   Valid identifiers include:
   <ul>
@@ -551,7 +551,7 @@ try {
   <ul>
     <li><code>123hello</code> (must not start with a digit)</li>
     <li><code>hello world</code> (must not contain spaces)</li>
-    <li><code>hello-world</code> (must not contain ASCII non-alphamerics such as a hyphen)</li>
+    <li><code>hello-world</code> (must not contain ASCII non-alphanumerics such as a hyphen)</li>
     <li><code>&gamma;&epsilon;&iota;&#940;_&sigma;&omicron;&upsilon;</code> (must not start with a non-ASCII character)</li>
   </ul>
   <h4>Function Definition</h4>
@@ -613,7 +613,7 @@ print(sum(3, 1, 4, 1, 5, 9), "\n"); // Prints '23'</pre>
   For example:
   <pre class="code">type Number = int|float;
 Number n; // Synonymous with 'int|float n'</pre>
-  <i>Generic type</i> definitions can be parameterized by one or more other types:
+  <i>Generic type</i> definitions can be parametrized by one or more other types:
   <pre class="code">type Dictionary&lt;K, V&gt; = {
   properties: {
     add: bool(K key, V value),
@@ -692,14 +692,14 @@ var z = root(-4);  // This causes a runtime error</pre>
   y: 123,
   z: [1, 2, 3]
 };</pre>
-  Double quotes are needed for the first propety because 'well-known' is not a valid property identifier (<a>identifiers</a>).
+  Double quotes are needed for the first property because 'well-known' is not a valid property identifier (<a>identifiers</a>).
   The ellipsis <code>...</code> syntax allows us to copy all the properties from another object.
   Note that in
   <pre class="code">var a = { x: "hello", y: 123, z: [1, 2, 3] };
 var b = a;
 var c = { ...a };</pre>
   the resulting values of <code>b</code> and <code>c</code> are subtly different.
-  This is beause <code>a</code> and <code>b</code> refer to the same object, whereas the properties of <code>a</code> are duplicated in the new object <code>c</code>:
+  This is because <code>a</code> and <code>b</code> refer to the same object, whereas the properties of <code>a</code> are duplicated in the new object <code>c</code>:
   <pre class="code">c.y = 321; // Do not affect 'a.y'
 b.y = 321; // Affects 'a.y' also</pre>
   Properties are assigned to the new object in the order they appear in the list.
@@ -872,7 +872,7 @@ print(obj["year-of-birth"], "\n"); // Prints 1889. Cannot use "dot" notation</pr
   <div class="railroad">type-expression</div>
   Primary types are one of the following:
   <ul>
-    <li>a parameterized generic type,</li>
+    <li>a parametrized generic type,</li>
     <li>a fundamental type,</li>
     <li>a type literal, or</li>
     <li>another type expression inside parentheses <code>()</code>.</li>
@@ -1064,17 +1064,48 @@ dict.add(8, "eight");</pre>
   Guard conditions can only be used in <code>if</code>, <code>for</code> and <code>while</code> statements.
   <h3>Function Calls</h3>
   Function calls can either be statements or expressions.
+  <div class="railroad">statement-call</div>
+  The optional parameter list consists of parameters separated by commas:
+  <div class="railroad">parameter-list</div>
+  Each parameter can be one of the following:
+  <ul>
+    <li>an unnamed value,</li>
+    <li>an array of values (preceded by an ellipsis <code>...</code>) to be used in sequence, or</li>
+    <li>a named value.</li>
+  </ul>
+  Unnamed values and values from an ellipsis array are assigned to parameter variables in the order they appear in the function definition.
+  Named values are then assigned to named parameters.
+  It is invalid for a single function parameter to be assigned more than once (either via unnamed and named parameter assignment or via duplicated names at the call site).
   <h4>Function Call Statement</h4>
   A function with a return value of <code>void</code> can be invoked via a call statement:
-  <div class="railroad">statement-call</div>
-  TODO
-  <div class="railroad">parameter-list</div>
+  For example:
+  <pre class="code">void greet(string name) {
+  print("hello ", name, "\n");
+}
+greet("world"); // Prints "hello world"</pre>
+  The compiler may report a warning if a function call expression is used as a statement, thereby discarding the return value.
   <h4>Function Call Expression</h4>
   A function that returns a non-<code>void</code> value, may be used as an expression.
-  TODO
+  For example:
+  <pre class="code">float square(float x) {
+  return x * x;
+}
+var s = square(1.5);
+print(s, "\n"); // Prints 2.25</pre>
+  Functions that return a value but do not have any other side effects are known as <i>pure</i>.
   <h3>Attributes</h3>
-  TODO
+  Attributes are metadata that can be attached to module statements (including function definitions) or function parameter definitions.
   <div class="railroad">attribute</div>
+  The attribute name is one or more identifiers separated by full stops.
+  This may be followed by a parameter list inside parentheses.
+  There can be any number of attributes attached to the same statement or parameter.
+  For example:
+  <pre class="code">@test(timeout: 0.001)
+void testFibonacci() {
+  assert(fibonacci(8) == 21);
+}</pre>
+  Attributes do not generally affect the functionality of a program but can be used by other subsystems for testing, documentation, static analysis, etc.
+  In this example, the attribute may mark the function as a unit test and specifies a timeout value for a test runner to use.
   <h2><span class="egg">egg</span> Syntax Poster</h2>
   The syntax railroad diagrams above are available as a <a href="poster.html">single poster</a> suitable for printing at A3 size.
   <h1>Formal Syntax</h1>

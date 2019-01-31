@@ -2,7 +2,7 @@
 egg.bnf({
   rules: {
     "module": {oneOrMore: {sequence: [{zeroOrMore:"attribute"}, "statement"]}, inline: false, left: 1, right: 1},
-    "attribute": {sequence: [{token: "@"}, "identifier-attribute", {zeroOrOne: {sequence: [{token: "("}, "parameter-list", {token: ")"}]}}], inline: false, left: 1},
+    "attribute": {sequence: [{token: "@"}, {list: "identifier-attribute", separator: {token: "."}}, {zeroOrOne: {sequence: [{token: "("}, "parameter-list", {token: ")"}]}}], inline: false, left: 1},
     "statement": {choice: [
       "statement-compound",
       {sequence: ["statement-simple", {token: ";"}]},
@@ -63,7 +63,7 @@ egg.bnf({
     "statement-yield": {sequence: [{token: "yield"}, {zeroOrOne: {token: "..."}}, "expression", {token: ";"}], inline: false, left: 1, right: 1},
     "statement-throw": {sequence: [{token: "throw"}, {zeroOrOne: "expression"}, {token: ";"}], inline: false, left: 1, right: 1},
     "definition-type": {sequence: [{token: "type"}, "identifier-type", {zeroOrOne: {sequence: [{token: "<"}, "definition-type-list", {token: ">"}]}}, {token: "="}, "definition-type-value"], inline: false, left: 1, right: 1},
-    "definition-type-list": { list: "identifier-type", separator: { token: "," } },
+    "definition-type-list": {list: "identifier-type", separator: {token: ","}},
     "definition-type-value": {choice: [
       "type-expression",
       "literal-type"
