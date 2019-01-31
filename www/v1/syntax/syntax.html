@@ -605,6 +605,7 @@ print(divide(x: 3, y: 4, z: 6), "\n"); // Prints '0.75' (z is ignored)</pre>
   return total;
 }
 print(sum(3, 1, 4, 1, 5, 9), "\n"); // Prints '23'</pre>
+  <h4>Generator Function Definition</h4>
   Generator function definitions look like function definitions except they have at least one <code>yield</code> statement within the statement block.
   <h4>Type Definition</h4>
   Type definitions introduce new identifiers that are synonymous with an arbitrary type.
@@ -728,13 +729,13 @@ var b = [true, ...a, 3.14159]; // Equals [true, "hello", 123, [1, 2, 3], 3.14159
   Array literals may be empty to denote an array that has no (initial) elements:
   <pre class="code">var e = [];</pre>
   <h4>Type Literal</h4>
-  Type literals are used in type definitions (<a>type-definition</a>) and in type expressions (<a>type-expression</a>) where they are preceded by the <code>type</code> keyword:
+  Type literals are used in type definitions (<a>type-definition</a>) and in type expressions (<a>type-expressions</a>) where they are preceded by the <code>type</code> keyword:
   <div class="railroad">literal-type</div>
   They are similar to object literals, except that the property values may be types and the ellipsis <code>...</code> syntax is not supported.
   Type literals make use of <i>well-known</i> properties names.
-  See <a href="types.html">Type Schema</a> for more information.
-  <h3>Expressions</h3>
-  Expressions evaluate to values.
+  See <a href="types.html">Type Schema</a> for more information [TODO].
+  <h3>Value Expressions</h3>
+  Value expressions (usually abbreviated to just "<i>expressions</i>") evaluate to values.
   Values have types; therefore expressions also have types.
   <div class="railroad">expression</div>
   <h4>Ternary Operator</h4>
@@ -837,13 +838,6 @@ var q = applyUnary(a => a * a, 2);
 print(q, "\n"); // Prints 4</pre>
   Note that lambda expressions may only be used when the parameter types can be <i>trivially</i> inferred.
   At other times, the full function expression syntax must be used.
-  <h4>Type Expression</h4>
-  TODO
-  <div class="railroad">type-expression</div>
-  <div class="railroad">type-expression-primary</div>
-  <h3>Conditions</h3>
-  TODO
-  <div class="railroad">condition</div>
   <h3>Indexing</h3>
   An expression may be <i>indexed</i> using square brackets <code>[]</code>.
   The indexing expression may be of any type.
@@ -863,7 +857,7 @@ print(obj["surname"], "\n"); // Prints "Chaplin"</pre>
   Standard arrays have a read-only property named <code>length</code> which returns the number of elements in the array, as an integer:
   <pre class="code">var arr = ["a", "b", "c", "d"];
 print(arr.length, "\n"); // Prints 4</pre>
-  You can only access properties via the "dot" notation if those properties have names that conform to the identifier naming convention (<a>identifiers</a>).
+  You can only access properties via the "dot" notation if those properties have names that conform to the identifier naming conventions (<a>identifiers</a>).
   <pre class="code">var obj = {
   forename: "Charlie",
   surname: "Chaplin",
@@ -872,6 +866,139 @@ print(arr.length, "\n"); // Prints 4</pre>
 print(obj.forename, "\n"); // Prints "Charlie"
 print(obj["surname"], "\n"); // Prints "Chaplin". Could also use 'obj.surname'
 print(obj["year-of-birth"], "\n"); // Prints 1889. Cannot use "dot" notation</pre>
+  <h3>Type Expressions</h3>
+  Type expressions are unions of one or more types.
+  Each item in the union is a primary type followed by zero or more suffixes.
+  <div class="railroad">type-expression</div>
+  Primary types are one of the following:
+  <ul>
+    <li>a parameterized generic type,</li>
+    <li>a fundamental type,</li>
+    <li>a type literal, or</li>
+    <li>another type expression inside parentheses <code>()</code>.</li>
+  </ul>
+  That is
+  <div class="railroad">type-expression-primary</div>
+  Note that <code>null</code> is a <i>value</i> whereas <code>type null</code> is a <i>type</i>.
+  <h4>Fundamental Type</h4>
+  There are seven fundamental types:
+  <table>
+    <thead>
+      <tr><th>Fundamental Type</th><th>Permissible Values</th><th>Inclusive Range</th></tr>
+    </thead>
+    <tbody>
+      <tr><td class="fixed">void</td><td>None</td><td></td></tr>
+      <tr><td class="fixed">bool</td><td><a href="https://en.wikipedia.org/wiki/Boolean_data_type">Boolean</a></td><td>Only <span class="fixed">false</span> or <span class="fixed">true</span></td></tr>
+      <tr><td class="fixed">int</td><td><a href="https://en.wikipedia.org/wiki/64-bit_computing">Integers (64-bit)</a></td><td>-2<sup>63</sup> to 2<sup>63</sup>-1</td></tr>
+      <tr><td class="fixed">float</td><td><a href="https://en.wikipedia.org/wiki/Double-precision_floating-point_format">Floating-point numbers (IEEE double 64-bit)</a></td><td>About -10<sup>308</sup> to 10<sup>308</sup></td></tr>
+      <tr><td class="fixed">string</td><td>Strings of zero or more <a href="https://en.wikipedia.org/wiki/Unicode">Unicode</a> code points</td><td>Each code point: <span class="fixed">U+0</span> to <span class="fixed">U+10FFFF</span></td></tr>
+      <tr><td class="fixed">object</td><td></td><td></td></tr>
+      <tr><td class="fixed">type null</td><td>Null</td><td>Only <span class="fixed">null</span></td></tr>
+    </tbody>
+  </table>
+  Note that <code>void</code> cannot be used as the type of a variable or function parameter, but may be used as the return type of a function:
+  <pre class="code">void greet(string name) {
+  print("hello ", name, "\n");
+}</pre>
+  In addition to the fundamental types, <code>any</code> is synonymous with <code>bool|int|float|string|object</code>:
+  <pre class="code">void display(any value) {
+  print("The value is ", value, "\n");
+}</pre>
+  <h4>Nullable Type</h4>
+  By default, <span class="egg">egg</span> types do not permit <code>null</code> values.
+  For example:
+  <pre class="code">string name;
+name = null; // Not permitted!</pre>
+  To permit values to be <i>nullable</i>, a question mark <code>?</code> is appended to the type:
+  <pre class="code">string? name;
+name = null; // Permitted</pre>
+  To clarify, the following two types are equivalent:
+  <pre class="code">type NullableString1 = string?;
+type NullableString2 = string|type null;</pre>
+  This even extends to <code>any</code>; to permit <code>null</code> to be stored, use <code>any?</code>.
+  <h4>Iterator Type</h4>
+  Generator functions (<a>generator-function-definition</a>) are functions that return other functions known as "<i>iterators</i>".
+  Iterators take no parameters and return either <code>void</code> or some type, say <code>T</code>.
+  An iterator therefore looks like the following:
+  <pre class="code">(T|void) someIterator() {
+ // ...
+}</pre>
+  A generator function therefore looks like:
+  <pre class="code">(T|void)() someGenerator(any someParameter1, any someParameter2) {
+ // ...
+}</pre>
+  If a function takes an iterator as a parameter, it could look like this:
+  <pre class="code">(T|void)() someFunction((T|void)() someInputIterator) {
+ // ...
+}</pre>
+  To simplify the syntax, the <code>!</code> suffix can be applied to a type <code>T</code> to obtain the appropriate iterator:
+  <pre class="code">T! someGenerator() {
+ // ...
+}
+
+T! someFunction(T! someInputIterator) {
+ // ...
+}</pre>
+  <h4>Pointer Type</h4>
+  A pointer <i>points</i> to another value.
+  More than one pointer can point to the same value.
+  You can change the value of the pointer or the value the pointer points to.
+  A pointer to a value of type <code>T</code> has a type <code>T*</code>.
+  For example:
+  <pre class="code">string comedian = "Laurel";
+string* pointer = &comedian;   // 'pointer' now points to variable 'comedian'
+*pointer = "Hardy";            // 'comedian' now contains "Hardy"
+string swashbuckler = "Flynn";
+pointer = &swashbuckler;       // 'pointer' now points to variable 'swashbuckler'</pre>
+  Unlike some other languages, <span class="egg">egg</span> does <i>not</i> support pointer arithmetic.
+  By default, pointers cannot be <code>null</code> unless their type explicitly uses the <code>?</code> suffix:
+  <pre class="code">int i = 123;
+int*? p = &i; // 'p' can point to an integer or be null
+p = null;</pre>
+  There is a subtle interaction between pointers and nullability:
+  <table>
+    <thead>
+      <tr><th>Pointer Type</th><th>Interpretation</th></tr>
+    </thead>
+    <tbody>
+      <tr><td class="fixed">T*</td><td>Can only point to values of type <span class="fixed">T</span></td></tr>
+      <tr><td class="fixed">T*?</td><td>Can be <span class="fixed">null</span> or point to values of type <span class="fixed">T</span></td></tr>
+      <tr><td class="fixed">T?*</td><td>Can only point to <span class="fixed">null</span> or values of type <span class="fixed">T</span></td></tr>
+      <tr><td class="fixed">T?*?</td><td>Can be <span class="fixed">null</span>, point to <span class="fixed">null</span> or point to values of type <span class="fixed">T</span></td></tr>
+    </tbody>
+  </table>
+  Pointer types are often used for function parameters to pass parameters by reference:
+  <pre class="code">int totalPositives(float[] input, float* output) {
+  int count = 0;
+  *output = 0.0;
+  for (var value : input) {
+    if (value &gt; 0) {
+      *output += value;
+      ++count;
+    }
+  }
+  return count;
+}</pre>
+  Pointers to pointers are valid.
+  <h4>Indexed Type</h4>
+
+  <h4>Generic Type</h4>
+  The <span class="egg">egg</span> language supports simple <i>generic types</i>.
+  These are defined in type definitions (<a>type-definition</a>) but instantiated by supplying the concrete types for the parameters:
+  <pre class="code">type Dictionary&lt;K, V&gt; = {
+  properties: {
+    add: bool(K key, V value),
+    remove: bool(K key),
+    find: V?(K key)
+  }
+};
+Dictionary&lt;int, string&gt; dict = createDictionary();
+dict.add(8, "eight");</pre>
+  The example above defines a dictionary generic type which takes two type parameters: the type of the dictionary key <code>K</code> and the type of the dictionary value <code>V</code>.
+  The variable <code>dict</code> is then introduced as a dictionary with the keys being integers and the values being strings.
+  <h3>Conditions</h3>
+  TODO
+  <div class="railroad">condition</div>
   <h3>Function Calls</h3>
   Function calls can either be statements or expressions.
   <h4>Function Call Statement</h4>

@@ -85,14 +85,14 @@ egg.bnf({
     "type-expression-postfix": {sequence: ["type-expression-primary", {zeroOrMore: "type-expression-suffix"}]},
     "type-expression-primary": {choice: [
       {sequence: ["identifier-type", {zeroOrOne: {sequence: [{token: "<"}, "type-list", {token: ">"}]}}]},
-      {token: "any"},
       {token: "void"},
-      {token: "null"},
       {token: "bool"},
       {token: "int"},
       {token: "float"},
       {token: "string"},
       {token: "object"},
+      {token: "any"},
+      {sequence: [{ token: "type" }, {token: "null"}]},
       {sequence: [{token: "type"}, "literal-type"]},
       {sequence: [{token: "("}, "type-expression", {token: ")"}]}
     ]},
