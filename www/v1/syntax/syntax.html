@@ -24,6 +24,11 @@
     header {
       font-size: 250%;
       font-weight: bold;
+      overflow: hidden;
+    }
+    header > a > img {
+      height: 1.5em;
+      float: right;
     }
     code {
       background-color: hsl(30,100%,93%);
@@ -195,7 +200,7 @@
   <script src="bnf.js"></script>
 </head>
 <body>
-  <header id="top">The <span class="egg">egg</span> Programming Language Syntax</header>
+  <header id="top">The <span class="egg">egg</span> Programming Language Syntax<a href="#top"><img src="../../egg.png" /></a></header>
   This document contains details of the syntax of the <span class="egg">egg</span> programming language.
   It is not designed as a resource for learning the language from scratch, but programmers fluent in other computer languages may find it useful as an overview of <span class="egg">egg</span>.
   <div class="collapsible">
@@ -755,7 +760,7 @@ if (x) {
       <tr><th>Precedence</th><th>Binary<br />Operator</th><th>Interpretation</th><th>Operand<br />Types</th><th>Result<br />Type</th></tr>
     </thead>
     <tbody>
-      <tr><td>1 (lowest)</td><td class="fixed">??</td><td>Null-coalescing</td><td class="fixed">L? R</td><td class="fixed">L|R</td></tr>
+      <tr><td>1 &mdash; lowest</td><td class="fixed">??</td><td>Null-coalescing</td><td class="fixed">L? R</td><td class="fixed">L|R</td></tr>
       <tr><td>2</td><td class="fixed">||</td><td>Logical OR</td><td class="fixed">bool</td><td class="fixed">bool</td></tr>
       <tr><td>3</td><td class="fixed">&&</td><td>Logical AND</td><td class="fixed">bool</td><td class="fixed">bool</td></tr>
       <tr><td>4</td><td class="fixed">|</td><td>Bitwise inclusive OR</td><td class="fixed">bool<br />int</td><td class="fixed">bool<br />int</td></tr>
@@ -765,7 +770,7 @@ if (x) {
       <tr><td>8</td><td class="fixed">&lt;<br />&gt;<br />&lt;=<br />&gt;=</td><td>Less than<br />Greater than<br />Less than or equal to<br />Greater than or equal to</td><td class="fixed">int<br />float</td><td class="fixed">bool</td></tr>
       <tr><td>9</td><td class="fixed">&lt;&lt;<br />&gt;&gt;<br />&gt;&gt;&gt;</td><td>Shift left<br />Shift right<br />Shift right unsigned</td><td class="fixed">int</td><td class="fixed">int</td></tr>
       <tr><td>10</td><td class="fixed">+<br />-</td><td>Add<br />Subtract</td><td class="fixed">int<br />float</td><td class="fixed">int<br />float</td></tr>
-      <tr><td>11 (highest)</td><td class="fixed">*<br />/<br />%</td><td>Multiply<br />Divide<br />Remainder</td><td class="fixed">int<br />float</td><td class="fixed">int<br />float</td></tr>
+      <tr><td>11 &mdash; highest</td><td class="fixed">*<br />/<br />%</td><td>Multiply<br />Divide<br />Remainder</td><td class="fixed">int<br />float</td><td class="fixed">int<br />float</td></tr>
     </tbody>
   </table>
   This is the same precedence order as other "curly brace" programming languages.
