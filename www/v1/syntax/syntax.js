@@ -804,7 +804,7 @@ egg.collapsible = function(elements) {
       style.display = (style.display !== "block") ? "block" : "none";
       event.preventDefault();
     };
-    eye.innerHTML = "<img src='eye.svg'>";
+    eye.innerHTML = "<img class='icon icon-eye' src='eye.svg' alt='" + element.firstElementChild.textContent + "' />";
     element.insertBefore(eye, element.firstChild);
   });
 };
@@ -820,7 +820,7 @@ egg.toc = function(id, anchors) {
     values[level - 1]++;
     var section = values.slice(0, level).join(".") + "." + " " + element.innerHTML;
     child.innerHTML = "<a class='toc-" + level + "' href='#" + element.id + "'>" + section + "</a>";
-    element.innerHTML = section + " <a class='link' href='#" + element.id + "'><img class='icon' src='link.svg'></a>";
+    element.innerHTML = section + " <a class='link' href='#" + element.id + "'><img class='icon icon-link' src='link.svg' alt='" + element.textContent + "' /></a>";
     parent.appendChild(child);
     while (level < values.length) {
       values[level++] = 0;
@@ -835,7 +835,7 @@ egg.toc = function(id, anchors) {
         anchor.href = "#" + anchor.textContent;
         anchor.innerHTML = link;
       } else if (!anchor.hash) {
-        anchor.innerHTML += "&nbsp;<img class='icon' src='external.svg'>";
+        anchor.innerHTML += " <img class='icon icon-external' src='external.svg' alt='" + anchor.textContent + "'>";
       }
     });
   }

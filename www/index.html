@@ -3,6 +3,8 @@
 <head>
   <meta charset="utf-8">
   <title>egg.chilliant.com</title>
+  <meta name="description" content="egg Programming Language">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <link href="https://fonts.googleapis.com/css?family=Roboto+Mono:400i%7CRoboto+Slab" rel="stylesheet">
   <meta name="author" content="Ian Taylor">
   <style>
@@ -22,12 +24,12 @@
       font-size: 250%;
       font-weight: bold;
     }
+    main {
+      overflow: auto;
+      margin: 1em 0 1em 1em;
+    }
     img {
       float: right;
-    }
-    div {
-      overflow: auto;
-      margin: 1em 0 0 1em;
     }
     span {
       font-family: "Roboto Mono", monospace;
@@ -42,7 +44,7 @@
 </head>
 <body>
   <header>The <span>egg</span> Programming Language</header>
-  <div>
+  <main>
     <img src="egg.png" alt="egg" />
     The <span>egg</span> project aims to create a pedagogical computer language with an emphasis on casual programming:
     <ul>
@@ -52,7 +54,7 @@
       <li><a href="v1/syntax/poster.html">The <span>egg</span> language as an A3 syntax railroad diagram</a>.</li>
     </ul>
     For more information, contact <a href="mailto:ian@chilliant.com">Ian Taylor</a>.
-  </div>
+  </main>
   <footer>Copyright &copy; 2018-2019 <a href="http://chilliant.com">chilliant.com</a></footer>
 </body>
 </html>

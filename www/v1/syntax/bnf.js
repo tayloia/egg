@@ -2,7 +2,8 @@
 egg.bnf({
   rules: {
     "module": {oneOrMore: {sequence: [{zeroOrMore:"attribute"}, "statement"]}, inline: false, left: 1, right: 1},
-    "attribute": {sequence: [{token: "@"}, {list: "identifier-attribute", separator: {token: "."}}, {zeroOrOne: {sequence: [{token: "("}, "parameter-list", {token: ")"}]}}], inline: false, left: 1},
+    "attribute": {sequence: [{token: "@"}, "attribute-name", {zeroOrOne: {sequence: [{token: "("}, "parameter-list", {token: ")"}]}}], inline: false, left: 1},
+    "attribute-name": {list: "identifier-attribute", separator: {token: "."}},
     "statement": {choice: [
       "statement-compound",
       {sequence: ["statement-simple", {token: ";"}]},

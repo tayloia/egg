@@ -3,12 +3,15 @@
 <head>
   <meta charset="us-ascii">
   <title>egg Syntax</title>
+  <meta name="description" content="egg Programming Language Syntax">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <link href="https://fonts.googleapis.com/css?family=Roboto+Mono:400,400i,700%7CRoboto+Slab:400,700" rel="stylesheet">
   <style>
     body {
       font-family: "Roboto Slab", serif;
       color: hsl(30,100%,9%);
       margin: 0 24px;
+      overflow-x: scroll;
     }
     pre, code, .egg, .fixed, .diagram, .railroad {
       font-family: "Roboto Mono", monospace;
@@ -155,6 +158,7 @@
     }
     .collapsible > a > img {
       width: 36px;
+      height: auto;
       visibility: hidden;
     }
     .collapsible > div:nth-child(2) {
@@ -200,7 +204,7 @@
   <script src="bnf.js"></script>
 </head>
 <body>
-  <header id="top">The <span class="egg">egg</span> Programming Language Syntax<a href="#top"><img src="../../egg.png" /></a></header>
+  <header id="top">The <span class="egg">egg</span> Programming Language Syntax<a href="#top"><img src="../../egg.png" alt="egg" /></a></header>
   This document contains details of the syntax of the <span class="egg">egg</span> programming language.
   It is not designed as a resource for learning the language from scratch, but programmers fluent in other computer languages may find it useful as an overview of <span class="egg">egg</span>.
   <div class="collapsible">
