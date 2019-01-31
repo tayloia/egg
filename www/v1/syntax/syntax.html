@@ -359,7 +359,7 @@ while (n > 1) {
   factorial *= n;
   --n;
 }</pre>
-  You can break out of the loop with a <code>break</code> statement or immediately go to the next iteration with <code>continue</code>.
+  We can break out of the loop with a <code>break</code> statement or immediately go to the next iteration with <code>continue</code>.
   <pre class="code">while (condition1) {
   if (condition2) {
     break;
@@ -382,7 +382,7 @@ do {
   print(i, "\n");
   --i;
 } while (i > 0);</pre>
-  You can break out of the loop with a <code>break</code> statement or immediately go to the next iteration with <code>continue</code>.
+  We can break out of the loop with a <code>break</code> statement or immediately go to the next iteration with <code>continue</code>.
   <pre class="code">do {
   if (condition1) {
     break;
@@ -414,7 +414,7 @@ var sum = 0;
 for (var i : array) {
   sum += i;
 }</pre>
-  In both flavours of <code>for</code>, you can break out of the loop with a <code>break</code> statement or go to the next iteration with <code>continue</code>.
+  In both flavours of <code>for</code>, we can break out of the loop with a <code>break</code> statement or go to the next iteration with <code>continue</code>.
   <pre class="code">for (var i = 0; i &lt; n; ++i) {
   if (condition1) {
     break;
@@ -693,7 +693,7 @@ var z = root(-4);  // This causes a runtime error</pre>
   z: [1, 2, 3]
 };</pre>
   Double quotes are needed for the first propety because 'well-known' is not a valid property identifier (<a>identifiers</a>).
-  The ellipsis <code>...</code> syntax allows you to copy all the properties from another object.
+  The ellipsis <code>...</code> syntax allows us to copy all the properties from another object.
   Note that in
   <pre class="code">var a = { x: "hello", y: 123, z: [1, 2, 3] };
 var b = a;
@@ -721,7 +721,7 @@ var c = { y: 4, ...a }; // 'c' equals '{ x: 1, y: 2, z: 3 }'</pre>
 ];</pre>
   Array elements may be <i>heterogeneous</i> (as in the case of <code>a</code> above) or <i>homogeneous</i> (all the elements have the same type):
   <pre class="code">int[] b = [1, 2, 3];</pre>
-  The ellipsis <code>...</code> syntax allows you to copy all the elements from another array at that location:
+  The ellipsis <code>...</code> syntax allows us to copy all the elements from another array at that location:
   <pre class="code">var a = ["hello", 123, [1, 2, 3]];
 var b = [true, ...a, 3.14159]; // Equals [true, "hello", 123, [1, 2, 3], 3.14159]</pre>
   It can be used to create a <i>shallow copy</i> of another array:
@@ -857,7 +857,7 @@ print(obj["surname"], "\n"); // Prints "Chaplin"</pre>
   Standard arrays have a read-only property named <code>length</code> which returns the number of elements in the array, as an integer:
   <pre class="code">var arr = ["a", "b", "c", "d"];
 print(arr.length, "\n"); // Prints 4</pre>
-  You can only access properties via the "dot" notation if those properties have names that conform to the identifier naming conventions (<a>identifiers</a>).
+  We can only access properties via the "dot" notation if those properties have names that conform to the identifier naming conventions (<a>identifiers</a>).
   <pre class="code">var obj = {
   forename: "Charlie",
   surname: "Chaplin",
@@ -942,7 +942,7 @@ T! someFunction(T! someInputIterator) {
   <h4>Pointer Type</h4>
   A pointer <i>points</i> to another value.
   More than one pointer can point to the same value.
-  You can change the value of the pointer or the value the pointer points to.
+  We can change the value of the pointer or the value the pointer points to.
   A pointer to a value of type <code>T</code> has a type <code>T*</code>.
   For example:
   <pre class="code">string comedian = "Laurel";
@@ -958,13 +958,13 @@ p = null;</pre>
   There is a subtle interaction between pointers and nullability:
   <table>
     <thead>
-      <tr><th>Pointer Type</th><th>Interpretation</th></tr>
+      <tr><th>Pointer Type</th><th>Read As</th><th>Interpretation</th></tr>
     </thead>
     <tbody>
-      <tr><td class="fixed">T*</td><td>Can only point to values of type <span class="fixed">T</span></td></tr>
-      <tr><td class="fixed">T*?</td><td>Can be <span class="fixed">null</span> or point to values of type <span class="fixed">T</span></td></tr>
-      <tr><td class="fixed">T?*</td><td>Can only point to <span class="fixed">null</span> or values of type <span class="fixed">T</span></td></tr>
-      <tr><td class="fixed">T?*?</td><td>Can be <span class="fixed">null</span>, point to <span class="fixed">null</span> or point to values of type <span class="fixed">T</span></td></tr>
+      <tr><td class="fixed">T*</td><td>A pointer to a <span class="fixed">T</span></td><td>Can only point to values of type <span class="fixed">T</span></td></tr>
+      <tr><td class="fixed">T*?</td><td>A nullable pointer to a <span class="fixed">T</span></td><td>Can be <span class="fixed">null</span> or point to values of type <span class="fixed">T</span></td></tr>
+      <tr><td class="fixed">T?*</td><td>A pointer to a nullable <span class="fixed">T</span></td><td>Can only point to <span class="fixed">null</span> or values of type <span class="fixed">T</span></td></tr>
+      <tr><td class="fixed">T?*?</td><td>A nullable pointer to a nullable <span class="fixed">T</span></td><td>Can be <span class="fixed">null</span>, point to <span class="fixed">null</span> or point to values of type <span class="fixed">T</span></td></tr>
     </tbody>
   </table>
   Pointer types are often used for function parameters to pass parameters by reference:
@@ -981,7 +981,31 @@ p = null;</pre>
 }</pre>
   Pointers to pointers are valid.
   <h4>Indexed Type</h4>
-
+  An indexed type value can be indexed using square brackets <code>[]</code>.
+  There are two kinds: <i>maps</i> and <i>arrays</i>.
+  Maps have an explicit index type and element type:
+  <pre class="code">int[string] lookup1 = createLookup1(); // 'lookup1' maps strings to integers
+var value1 = lookup1["key"]; // 'value1' is of type 'int' if "key" is in 'lookup1'</pre>
+  Arrays omit the index type:
+  <pre class="code">string[] lookup2 = createLookup2(); // 'lookup2' is an array of strings
+var value2 = lookup2[3]; // 'value2' is of type 'string' if the array has at least four elements</pre>
+  Array indices are assumed to be non-negative integers.
+  Generally speaking, we use arrays for contiguous lists of elements that are accessed at random.
+  <h4>Function Type</h4>
+  Functions have types.
+  The type of a function is dependent on the function's return type and parameter types, if any.
+  The type is not dependent on the function name or the names of any parameters.
+  For example:
+  <pre class="code">type BinaryFunction = float(float, float);
+BinaryFunction add = (a, b) => a + b;
+print(add(3, 4), "\n"); // Prints 7
+BinaryFunction sub = (a, b) => a - b;
+print(sub(3, 4), "\n"); // Prints -1</pre>
+  In the example above, <code>BinaryFunction</code> is a type for a function that takes two floats and returns a float.
+  <code>add</code> is an instance of that type that adds the two numbers.
+  <code>sub</code> is an instance of <code>BinaryFunction</code> that subtracts the two numbers.
+  Note that we must explicitly supply the type of <code>add</code> and <code>sub</code> when defining them so that the lambda parameter types can be trivially inferred.
+  See <a>lambda-expression</a>.
   <h4>Generic Type</h4>
   The <span class="egg">egg</span> language supports simple <i>generic types</i>.
   These are defined in type definitions (<a>type-definition</a>) but instantiated by supplying the concrete types for the parameters:
@@ -997,8 +1021,47 @@ dict.add(8, "eight");</pre>
   The example above defines a dictionary generic type which takes two type parameters: the type of the dictionary key <code>K</code> and the type of the dictionary value <code>V</code>.
   The variable <code>dict</code> is then introduced as a dictionary with the keys being integers and the values being strings.
   <h3>Conditions</h3>
-  TODO
+  Conditions are used in flow control statements (<a>flow-control</a>).
   <div class="railroad">condition</div>
+  They can either be Boolean expressions or <i>guard</i> conditions.
+  <h4>Boolean Condition</h4>
+  A Boolean condition is simply an expression of type <code>bool</code>.
+  For example:
+  <pre class="code">if (a < b) {
+  print("a is smaller\n")
+} else {
+  print("a is not smaller\n")
+}</pre>
+  Boolean conditions must be explicitly <code>bool</code>; not implicit type conversions are performed.
+  <h4>Guard Condition</h4>
+  Guard conditions attempt to introduce a new variable to the scope.
+  The condition <i>passes</i> if the value can be assigned to the new variable; otherwise, it <i>fails</i>.
+  In the following example, a guarded <code>if</code> statement is used to determine if the value is an integer (or a float that can be exactly converted):
+  <pre class="code">int? toInteger(any? value) {
+  if (int i = value) {
+    return i;
+  }
+  return null;
+}</pre>
+  Guard conditions are particularly useful when used in conjunction with iterators (<a>iterator-type</a>):
+  <pre class="code">any?! takeAlternate(any?! input) {
+  while (any? a = input())
+    yield a;
+    if (any? _ = input()) {
+      // Do not yield the element
+    } else {
+      break;
+    }
+  }
+}</pre>
+  The scope of a guard variable does not extend to the <code>else</code> clause of a guarded <code>if</code> statement.
+  For example:
+  <pre class="code">if (var x = someFunction()) {
+  // 'x' is defined here
+} else {
+  // 'x' is not defined here
+}</pre>
+  Guard conditions can only be used in <code>if</code>, <code>for</code> and <code>while</code> statements.
   <h3>Function Calls</h3>
   Function calls can either be statements or expressions.
   <h4>Function Call Statement</h4>
