@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en-gb">
 <head>
   <meta charset="utf-8">
@@ -21,7 +21,7 @@
       border-radius: 1ex;
       margin: 16px -16px;
       padding: 0.5ex 1ex;
-      background-color: hsl(30,100%,93%);
+      background: linear-gradient(90deg, hsl(30,100%,93%) 0%, white 61.8%);
       box-shadow: 3px 3px 2px hsla(30,100%,39%,25%);
     }
     header {
@@ -656,7 +656,7 @@ var z = root(-4);  // This causes a runtime error</pre>
   Integer literals are presented by a sequence of decimal digits, optionally prefix by a sign.
   <div class="railroad">literal-int</div>
   Examples of valid integer literals include <code>0</code>, <code>123</code>, <code>-123</code> and <code>+123</code>.
-  Note that <span class="egg">egg</span> only support denary numeric literals; octal and hexadecimal are not supported.
+  Note that <span class="egg">egg</span> only supports denary numeric literals; octal and hexadecimal are not supported.
   <h4>Floating-Point Literal</h4>
   Floating-point literals are similar but contain a compulsory decimal point followed by at least one digit.
   There may also be an optional, trailing, signed integer exponent.
@@ -1036,7 +1036,7 @@ dict.add(8, "eight");</pre>
 } else {
   print("a is not smaller\n")
 }</pre>
-  Boolean conditions must be explicitly <code>bool</code>; not implicit type conversions are performed.
+  Boolean conditions must be explicitly <code>bool</code>; no implicit type conversions are performed.
   <h4>Guard Condition</h4>
   Guard conditions attempt to introduce a new variable to the scope.
   The condition <i>passes</i> if the value can be assigned to the new variable; otherwise, it <i>fails</i>.
