@@ -128,7 +128,7 @@ namespace egg::ovum {
     }
     static bool equals(const Variant& lhs, const Variant& rhs);
     // Null
-    Variant(nullptr_t) : Variant(VariantBits::Null) {
+    Variant(std::nullptr_t) : Variant(VariantBits::Null) {
       assert(this->validate());
     }
     // Bool

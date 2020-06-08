@@ -102,7 +102,7 @@ namespace {
     // Iterate around the haystack for the needle from back-to-front
     auto haystackReader = readerIndex(haystack, fromIndex);
     auto index = int64_t(std::min(fromIndex, haystack.length()));
-    char32_t haystackCodePoint;
+    auto haystackCodePoint = needle;
     while (haystackReader.backward(haystackCodePoint)) {
       index--;
       if (haystackCodePoint == needle) {

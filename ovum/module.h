@@ -13,7 +13,7 @@ namespace egg::ovum {
 
   class Module : public HardPtr<IModule> {
   public:
-    Module(nullptr_t = nullptr) {} // implicit
+    Module(std::nullptr_t = nullptr) {} // implicit
     explicit Module(const IModule* module) : HardPtr(module) {}
 
     // Helpers

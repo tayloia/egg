@@ -51,6 +51,7 @@
 #include <cstdint>
 #include <cstring>
 #include <atomic>
+#include <algorithm>
 #include <functional>
 #include <list>
 #include <map>

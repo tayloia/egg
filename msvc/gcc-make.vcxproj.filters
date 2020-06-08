@@ -12,6 +12,8 @@
     <None Include="..\build.sh" />
     <None Include="..\runtest.sh" />
     <None Include="..\valgrind.sh" />
+    <None Include="..\make\cygwin.mak" />
+    <None Include="..\make\wsl.mak" />
   </ItemGroup>
   <ItemGroup>
     <CustomBuild Include="..\build.cmd" />

@@ -216,7 +216,7 @@ namespace egg::ovum {
 
 // We want this code generated from the header
 #if defined(_MSC_VER)
-  // Microsoft's run-time
+  // Microsoft-style run-time
   inline void* egg::ovum::AllocatorDefaultPolicy::memalloc(size_t bytes, size_t alignment) {
     return _aligned_malloc(bytes, alignment);
   }
@@ -227,17 +227,22 @@ namespace egg::ovum {
     return _aligned_free(allocated);
   }
 #else
-  // For malloc_usable_size()
-  #include <malloc.h>
-
-  // Linux run-time
+  // Platform-independent
   inline void* egg::ovum::AllocatorDefaultPolicy::memalloc(size_t bytes, size_t alignment) {
-    return aligned_alloc(alignment, bytes); // note switched order
+    auto total = bytes + std::max(alignment, sizeof(size_t) * 2);
+    auto allocated = static_cast<char*>(std::malloc(total));
+    auto unaligned = allocated + total - bytes;
+    auto aligned = unaligned - reinterpret_cast<uintptr_t>(unaligned) % uintptr_t(alignment);
+    auto preamble = reinterpret_cast<size_t*>(aligned);
+    preamble[-2] = size_t(aligned - allocated);
+    preamble[-1] = bytes;
+    return aligned;
   }
   inline size_t egg::ovum::AllocatorDefaultPolicy::memsize(void* allocated, size_t) {
-    return malloc_usable_size(allocated);
+    return reinterpret_cast<size_t*>(allocated)[-1];
   }
   inline void egg::ovum::AllocatorDefaultPolicy::memfree(void* allocated, size_t) {
-    return free(allocated);
+    auto padding = reinterpret_cast<size_t*>(allocated)[-2];
+    return free(reinterpret_cast<char*>(allocated) - padding);
   }
 #endif

@@ -42,7 +42,7 @@ namespace egg::ovum {
 
   class Node : public HardPtr<INode> {
   public:
-    Node(nullptr_t = nullptr) {} // implicit
+    Node(std::nullptr_t = nullptr) {} // implicit
     explicit Node(const INode* node) : HardPtr(node) {}
     String toString() const {
       return Node::toString(this->get());
@@ -75,7 +75,7 @@ namespace egg::ovum {
     static Node create(IAllocator& allocator, const NodeLocation& location, Opcode opcode, const Nodes* children, const Nodes* attributes, const String& operand);
     static Node create(IAllocator& allocator, const NodeLocation& location, Opcode opcode, const Nodes* children, const Nodes* attributes, Operator operand);
     // Values
-    static Node createValue(IAllocator& allocator, nullptr_t);
+    static Node createValue(IAllocator& allocator, std::nullptr_t);
     static Node createValue(IAllocator& allocator, bool value);
     static Node createValue(IAllocator& allocator, int32_t value);
     static Node createValue(IAllocator& allocator, int64_t value);

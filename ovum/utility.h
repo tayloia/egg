@@ -196,7 +196,7 @@ namespace egg::ovum {
   private:
     T* ptr;
   public:
-    HardPtr(nullptr_t = nullptr) : ptr(nullptr) {
+    HardPtr(std::nullptr_t = nullptr) : ptr(nullptr) {
     }
     explicit HardPtr(const T* rhs) : ptr(HardPtr::hardAcquire(rhs)) {
     }
@@ -208,7 +208,7 @@ namespace egg::ovum {
     template<typename U>
     HardPtr(const HardPtr<U>& rhs) : ptr(rhs.hardAcquire()) {
     }
-    HardPtr& operator=(nullptr_t) {
+    HardPtr& operator=(std::nullptr_t) {
       this->ptr->hardRelease();
       this->ptr = nullptr;
       return *this;
@@ -256,10 +256,10 @@ namespace egg::ovum {
       assert(this->ptr != nullptr);
       return this->ptr;
     }
-    bool operator==(nullptr_t) const {
+    bool operator==(std::nullptr_t) const {
       return this->ptr == nullptr;
     }
-    bool operator!=(nullptr_t) const {
+    bool operator!=(std::nullptr_t) const {
       return this->ptr != nullptr;
     }
     static T* hardAcquire(const T* ptr) {
@@ -270,12 +270,12 @@ namespace egg::ovum {
     }
   };
   template<typename T>
-  bool operator==(nullptr_t, const HardPtr<T>& ptr) {
+  bool operator==(std::nullptr_t, const HardPtr<T>& ptr) {
     // Yoda equality comparison used by GoogleTest
     return ptr == nullptr;
   }
   template<typename T>
-  bool operator!=(nullptr_t, const HardPtr<T>& ptr) {
+  bool operator!=(std::nullptr_t, const HardPtr<T>& ptr) {
     // Yoda inequality comparison used by GoogleTest
     return ptr != nullptr;
   }
@@ -313,10 +313,10 @@ namespace egg::ovum {
       assert(this->ptr != nullptr);
       return this->ptr;
     }
-    bool operator==(nullptr_t) const {
+    bool operator==(std::nullptr_t) const {
       return this->ptr == nullptr;
     }
-    bool operator!=(nullptr_t) const {
+    bool operator!=(std::nullptr_t) const {
       return this->ptr != nullptr;
     }
     static T* hardAcquire(const T* ptr) {
@@ -328,12 +328,12 @@ namespace egg::ovum {
     }
   };
   template<typename T>
-  bool operator==(nullptr_t, const SoftPtr<T>& ptr) {
+  bool operator==(std::nullptr_t, const SoftPtr<T>& ptr) {
     // Yoda equality comparison used by GoogleTest
     return ptr == nullptr;
   }
   template<typename T>
-  bool operator!=(nullptr_t, const SoftPtr<T>& ptr) {
+  bool operator!=(std::nullptr_t, const SoftPtr<T>& ptr) {
     // Yoda inequality comparison used by GoogleTest
     return ptr != nullptr;
   }

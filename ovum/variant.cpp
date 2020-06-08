@@ -8,14 +8,6 @@ namespace {
     return a == b;
   }
 
-  bool clearBit(egg::ovum::VariantBits& bits, egg::ovum::VariantBits mask) {
-    if (egg::ovum::Bits::hasOneSet(bits, mask)) {
-      bits = egg::ovum::Bits::clear(bits, mask);
-      return true;
-    }
-    return false;
-  }
-
   struct FloatParts {
     constexpr static size_t MANTISSA_CHARS = 32;
 
@@ -261,6 +253,16 @@ const egg::ovum::Variant egg::ovum::Variant::Rethrow{ VariantBits::Throw | Varia
 const egg::ovum::Variant egg::ovum::Variant::ReturnVoid{ VariantBits::Return | VariantBits::Void };
 
 #if !defined(NDEBUG)
+namespace {
+  bool clearBit(egg::ovum::VariantBits& bits, egg::ovum::VariantBits mask) {
+    if (egg::ovum::Bits::hasOneSet(bits, mask)) {
+      bits = egg::ovum::Bits::clear(bits, mask);
+      return true;
+    }
+    return false;
+  }
+}
+
 bool egg::ovum::Variant::validate(bool soft) const {
   const auto zero = VariantBits(0);
   auto bits = this->kind;

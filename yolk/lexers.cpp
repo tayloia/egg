@@ -59,22 +59,22 @@ namespace {
 
   private:
     static bool isWhitespace(int ch) {
-      return std::isspace(ch);
+      return std::isspace(ch) != 0;
     }
     static bool isIdentifierStart(int ch) {
-      return std::isalpha(ch) || (ch == '_');
+      return (std::isalpha(ch) != 0) || (ch == '_');
     }
     static bool isIdentifierContinue(int ch) {
-      return std::isalnum(ch) || (ch == '_');
+      return (std::isalnum(ch) != 0) || (ch == '_');
     }
     static bool isDigit(int ch) {
-      return std::isdigit(ch);
+      return std::isdigit(ch) != 0;
     }
     static bool isHexadecimal(int ch) {
-      return std::isxdigit(ch);
+      return std::isxdigit(ch) != 0;
     }
     static bool isLetter(int ch) {
-      return std::isalpha(ch);
+      return std::isalpha(ch) != 0;
     }
     static bool isOperator(int ch) {
       return std::strchr("!$%&()*+,-./:;<=>?@[]^{|}~", ch) != nullptr;

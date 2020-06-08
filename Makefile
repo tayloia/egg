@@ -71,7 +71,7 @@ TEST_EXE = $(BIN_DIR)/egg-testsuite.exe
 # This is the thing that is built when you just type 'make'
 default: all
 
-.PHONY: default bin test clean nuke release debug all rebuild valgrind
+.PHONY: default bin test clean nuke release debug all rebuild valgrind version
 
 # We need to create certain directories or our toolchain fails
 %/.:
@@ -160,3 +160,8 @@ rebuild: nuke
 valgrind: clean
 	$(SUBMAKE) $(TEST_EXE)
 	valgrind -v --leak-check=full --show-leak-kinds=all --track-origins=yes --suppressions=./valgrind.supp $(TEST_EXE)
+
+version:
+	$(ECHO) PLATFORM=$(PLATFORM)
+	$(ECHO) TOOLCHAIN=$(TOOLCHAIN)
+	$(ECHO) CONFIGURATION=$(CONFIGURATION)

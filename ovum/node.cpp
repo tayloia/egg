@@ -106,7 +106,7 @@ namespace {
   };
 
   struct NodeOperandNone {
-    using Type = nullptr_t;
+    using Type = std::nullptr_t;
     explicit NodeOperandNone(Type) {
     }
     INode::Operand getOperand() const {
@@ -320,10 +320,12 @@ namespace {
     return Node(node);
   }
 
+#if !defined(NDEBUG)
   bool validateOpcode(Opcode opcode, const Nodes* children, bool has_operand) {
     auto args = (children == nullptr) ? size_t(0) : children->size();
     return OpcodeProperties::from(opcode).validate(args, has_operand);
   }
+#endif
 
   void buildNodeString(StringBuilder& sb, const INode* node) {
     if (node == nullptr) {
@@ -543,7 +545,7 @@ egg::ovum::Node egg::ovum::NodeFactory::create(IAllocator& allocator, const Node
   return createNodeExtra<NodeOperandOperator, NodeLocationFixed>(allocator, &location, opcode, children, attributes, value);
 }
 
-egg::ovum::Node egg::ovum::NodeFactory::createValue(IAllocator& allocator, nullptr_t) {
+egg::ovum::Node egg::ovum::NodeFactory::createValue(IAllocator& allocator, std::nullptr_t) {
   return createNodeOperand<NodeOperandNone>(allocator, OPCODE_NULL, nullptr);
 }
 

@@ -822,11 +822,10 @@ std::unique_ptr<IEggSyntaxNode> EggSyntaxParserContext::parseStatement() {
     return this->parseStatementExpression(std::move(expression), EggTokenizerOperator::Semicolon);
   }
   auto type = this->parseType(nullptr);
-  if (type != nullptr) {
-    return this->parseStatementType(std::move(type), false);
+  if (type == nullptr) {
+      this->unexpected("Unexpected " + p0.toString()); // TODO
   }
-  this->unexpected("Unexpected " + p0.toString()); // TODO
-  return nullptr;
+  return this->parseStatementType(std::move(type), false);
 }
 
 std::unique_ptr<IEggSyntaxNode> EggSyntaxParserContext::parseStatementSimple(const char* expected, EggTokenizerOperator terminal) {
@@ -1841,7 +1840,6 @@ std::unique_ptr<IEggSyntaxNode> EggSyntaxParserContext::parseStatementType(std::
     }
   }
   this->unexpected("Expected variable identifier after type", p0);
-  return nullptr;
 }
 
 std::unique_ptr<IEggSyntaxNode> EggSyntaxParserContext::parseStatementWhile() {

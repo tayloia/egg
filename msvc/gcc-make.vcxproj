@@ -22,32 +22,32 @@
     <VCProjectVersion>15.0</VCProjectVersion>
     <ProjectGuid>{D61691B1-272F-405E-86A2-C790973D6B90}</ProjectGuid>
     <RootNamespace>gccmake</RootNamespace>
-    <WindowsTargetPlatformVersion>10.0.16299.0</WindowsTargetPlatformVersion>
+    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
-    <PlatformToolset>v141</PlatformToolset>
+    <PlatformToolset>v142</PlatformToolset>
     <CharacterSet>MultiByte</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
-    <PlatformToolset>v141</PlatformToolset>
+    <PlatformToolset>v142</PlatformToolset>
     <WholeProgramOptimization>true</WholeProgramOptimization>
     <CharacterSet>MultiByte</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
-    <PlatformToolset>v141</PlatformToolset>
+    <PlatformToolset>v142</PlatformToolset>
     <CharacterSet>MultiByte</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
-    <PlatformToolset>v141</PlatformToolset>
+    <PlatformToolset>v142</PlatformToolset>
     <WholeProgramOptimization>true</WholeProgramOptimization>
     <CharacterSet>MultiByte</CharacterSet>
   </PropertyGroup>
@@ -121,14 +121,14 @@
   <ItemGroup>
     <CustomBuild Include="..\build.cmd">
       <FileType>Document</FileType>
-      <Command Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">$(EggRoot)\build.cmd CONFIGURATION=debug</Command>
-      <Command Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(EggRoot)\build.cmd CONFIGURATION=debug</Command>
-      <Command Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">$(EggRoot)\build.cmd CONFIGURATION=release</Command>
-      <Command Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(EggRoot)\build.cmd CONFIGURATION=release</Command>
-      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">$(EggRoot)\gcc\bin\debug\egg-testsuite.exe.log;%(Outputs)</Outputs>
-      <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">$(EggRoot)\gcc\bin\release\egg-testsuite.exe.log;%(Outputs)</Outputs>
-      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(EggRoot)\gcc\bin\debug\egg-testsuite.exe.log;%(Outputs)</Outputs>
-      <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(EggRoot)\gcc\bin\release\egg-testsuite.exe.log;%(Outputs)</Outputs>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">$(EggRoot)\build.cmd CONFIGURATION=debug test</Command>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(EggRoot)\build.cmd CONFIGURATION=debug test</Command>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">$(EggRoot)\build.cmd CONFIGURATION=release test</Command>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(EggRoot)\build.cmd CONFIGURATION=release test</Command>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">$(EggRoot)\wsl\gcc\bin\debug\egg-testsuite.exe.log;%(Outputs)</Outputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">$(EggRoot)\wsl\gcc\bin\release\egg-testsuite.exe.log;%(Outputs)</Outputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(EggRoot)\wsl\gcc\bin\debug\egg-testsuite.exe.log;%(Outputs)</Outputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(EggRoot)\wsl\gcc\bin\release\egg-testsuite.exe.log;%(Outputs)</Outputs>
       <Message Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Making with make/gcc...</Message>
       <Message Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Making with make/gcc...</Message>
       <Message Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Making with make/gcc...</Message>
@@ -136,12 +136,14 @@
     </CustomBuild>
     <None Include="..\build.sh" />
     <None Include="..\Makefile" />
+    <None Include="..\make\cygwin.mak" />
     <None Include="..\make\gcc-common.mak" />
     <None Include="..\make\gcc-debug.mak" />
     <None Include="..\make\gcc-release.mak" />
     <None Include="..\make\linux.mak" />
     <None Include="..\make\mingw.mak" />
     <None Include="..\make\windows.mak" />
+    <None Include="..\make\wsl.mak" />
     <None Include="..\runtest.cmd" />
     <None Include="..\runtest.sh" />
     <None Include="..\valgrind.sh" />

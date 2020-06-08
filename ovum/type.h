@@ -39,7 +39,7 @@ namespace egg::ovum {
 
   class Type : public HardPtr<const IType> {
   public:
-    Type(nullptr_t = nullptr) : HardPtr() {
+    Type(std::nullptr_t = nullptr) : HardPtr() {
       // Implicit
     }
     explicit Type(const IType* rhs) : HardPtr(rhs) {

@@ -1,8 +1,9 @@
 #include "yolk/yolk.h"
 
 #if EGG_PLATFORM == EGG_PLATFORM_MSVC
+// WIBBLE WOBBLE
 #include <direct.h>
-#include <experimental/filesystem>
+#include <filesystem>
 #define getcwd _getcwd
 #else
 #include <unistd.h>
@@ -117,8 +118,8 @@ std::vector<std::string> egg::yolk::File::readDirectory(const std::string& path)
   auto native = File::denormalizePath(File::resolvePath(path), false);
   std::vector<std::string> filenames;
 #if EGG_PLATFORM == EGG_PLATFORM_MSVC
-  // Microsoft still classifies this as "experimental" at the time of writing
-  for (auto& file : std::experimental::filesystem::directory_iterator(native)) {
+  std::error_code error;
+  for (auto& file : std::filesystem::directory_iterator(native, error)) {
     filenames.push_back(File::normalizePath(file.path().filename().u8string()));
   }
 #elif EGG_PLATFORM == EGG_PLATFORM_GCC
