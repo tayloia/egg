@@ -18,29 +18,29 @@ namespace {
       std::memset(this->properties, 0, sizeof(this->properties));
       // cppcheck-suppress unreadVariable
       const size_t N = EGG_VM_NARGS; // used in the macro below
-#define EGG_VM_OPCODES_TABLE(opcode, minbyte, minargs, maxargs, text) this->fill(opcode, minargs, maxargs, text);
+#define EGG_VM_OPCODES_TABLE(opcode, minbyte, minargs, maxargs, text) this->fill(Opcode::opcode, minargs, maxargs, text);
       EGG_VM_OPCODES(EGG_VM_OPCODES_TABLE)
 #undef EGG_VM_OPCODES_TABLE
     }
     // cppcheck-suppress unusedPrivateFunction
     void fill(Opcode code, size_t minargs, size_t maxargs, const char* text) {
-      assert(code != OPCODE_reserved);
+      assert(code != Opcode::reserved);
       assert(text != nullptr);
       assert(minargs <= maxargs);
       assert(maxargs <= EGG_VM_NARGS);
-      assert((code >= 0x00) && (code <= 0xFF));
-      auto& prop = this->properties[code];
+      auto index = size_t(code);
+      assert(index <= 0xFF);
+      auto& prop = this->properties[index];
       assert(prop.name == 0);
       prop.name = text;
       prop.minargs = minargs;
       prop.maxargs = (maxargs < EGG_VM_NARGS) ? maxargs : SIZE_MAX;
-      prop.minbyte = uint8_t(code);
-      prop.maxbyte = uint8_t(code + maxargs - minargs);
-      prop.operand = (code < EGG_VM_ISTART);
-      auto index = size_t(code);
+      prop.minbyte = uint8_t(index);
+      prop.maxbyte = uint8_t(index + maxargs - minargs);
+      prop.operand = (index < EGG_VM_ISTART);
       while (minargs++ <= maxargs) {
         assert(index <= 0xFF);
-        assert(this->opcode[index] == OPCODE_reserved);
+        assert(this->opcode[index] == Opcode::reserved);
         this->opcode[index++] = code;
       }
     }
@@ -53,29 +53,30 @@ namespace {
   private:
     OperatorTable() {
       std::memset(this->properties, 0, sizeof(this->properties));
-#define EGG_VM_OPERATORS_TABLE(oper, opclass, index, text) this->fill(oper, opclass, index, text);
+#define EGG_VM_OPERATORS_TABLE(oper, opclass, index, text) this->fill(Operator::oper, Opclass::opclass, index, text);
       EGG_VM_OPERATORS(EGG_VM_OPERATORS_TABLE)
 #undef EGG_VM_OPERATORS_TABLE
     }
     // cppcheck-suppress unusedPrivateFunction
     void fill(Operator oper, Opclass opclass, size_t index, const char* text) {
       assert(text != nullptr);
-      assert((oper >= 0x00) && (oper <= 0x80)); // sic [0..128] inclusive
-      auto& prop = this->properties[oper];
+      auto value = size_t(oper);
+      assert(value <= 0x80); // sic [0..128] inclusive
+      auto& prop = this->properties[value];
       assert(prop.name == 0);
       prop.name = text;
       prop.opclass = opclass;
       prop.index = index;
-      prop.operands = 1 + size_t(oper) / EGG_VM_OOSTEP;
+      prop.operands = 1 + value / EGG_VM_OOSTEP;
       switch (opclass) {
-      case OPCLASS_UNARY:
+      case Opclass::UNARY:
         assert(prop.operands == 1);
         break;
-      case OPCLASS_BINARY:
-      case OPCLASS_COMPARE:
+      case Opclass::BINARY:
+      case Opclass::COMPARE:
         assert(prop.operands == 2);
         break;
-      case OPCLASS_TERNARY:
+      case Opclass::TERNARY:
         assert(prop.operands == 3);
         break;
       default:
@@ -121,7 +122,7 @@ namespace {
     const OpcodeProperties& attributeProperties;
   public:
     ModuleReader(IAllocator& allocator, std::istream& stream)
-      : allocator(allocator), stream(stream), attributeProperties(OpcodeProperties::from(OPCODE_ATTRIBUTE)) {
+      : allocator(allocator), stream(stream), attributeProperties(OpcodeProperties::from(Opcode::ATTRIBUTE)) {
     }
     Node read() {
       Node root;
@@ -257,7 +258,7 @@ namespace {
     Node readNode(bool insideAttribute) const {
       auto byte = this->readByte();
       auto opcode = Module::opcodeFromMachineByte(byte);
-      if (opcode == OPCODE_reserved) {
+      if (opcode == Opcode::reserved) {
         throw std::runtime_error("Invalid opcode in code section of binary module");
       }
       auto operand = std::numeric_limits<uint64_t>::max();
@@ -278,8 +279,8 @@ namespace {
         throw std::runtime_error("Invalid number of node children in binary module");
       }
       if (count == SIZE_MAX) {
-        // This is a list terminated with an OPCODE_END sentinel
-        while (this->stream.peek() != OPCODE_END) {
+        // This is a list terminated with an Opcode::END sentinel
+        while (this->stream.peek() != int(Opcode::END)) {
           children.push_back(this->readNode(insideAttribute));
         }
         this->stream.get(); // skip the sentinel
@@ -294,13 +295,13 @@ namespace {
       }
       EGG_WARNING_SUPPRESS_SWITCH_BEGIN();
       switch (opcode) {
-      case OPCODE_IVALUE:
+      case Opcode::IVALUE:
         // Operand is an index into the int table
         return NodeFactory::create(this->allocator, opcode, &children, &attributes, this->indexInt(operand));
-      case OPCODE_FVALUE:
+      case Opcode::FVALUE:
         // Operand is an index into the float table
         return NodeFactory::create(this->allocator, opcode, &children, &attributes, this->indexFloat(operand));
-      case OPCODE_SVALUE:
+      case Opcode::SVALUE:
         // Operand is an index into the string table
         return NodeFactory::create(this->allocator, opcode, &children, &attributes, this->indexString(operand));
       }
@@ -545,21 +546,21 @@ namespace {
       if ((n < properties.minargs) || (n > properties.maxargs)) {
         throw std::runtime_error("Invalid number of opcode arguments in binary module");
       }
-      auto byte = opcode - properties.minargs + std::min(n, size_t(EGG_VM_NARGS));
+      auto byte = size_t(opcode) - properties.minargs + std::min(n, size_t(EGG_VM_NARGS));
       assert(byte <= 0xFF);
       this->writeByte(target, uint8_t(byte));
       if (properties.operand) {
         EGG_WARNING_SUPPRESS_SWITCH_BEGIN();
         switch (opcode) {
-        case OPCODE_IVALUE:
+        case Opcode::IVALUE:
           this->writeUnsigned(target, this->ivalues.at(node.getInt()));
           break;
-        case OPCODE_FVALUE:
+        case Opcode::FVALUE:
           MantissaExponent me;
           me.fromFloat(node.getFloat());
           this->writeUnsigned(target, this->fvalues.at(std::make_pair(me.mantissa, me.exponent)));
           break;
-        case OPCODE_SVALUE:
+        case Opcode::SVALUE:
           this->writeUnsigned(target, this->svalues.at(node.getString()));
           break;
         default:
@@ -580,7 +581,7 @@ namespace {
         this->writeNode(target, node.getChild(i));
       }
       if (n >= EGG_VM_NARGS) {
-        this->writeByte(target, OPCODE_END);
+        this->writeByte(target, uint8_t(Opcode::END));
       }
     }
     template<typename TARGET>
@@ -659,13 +660,15 @@ egg::ovum::Opcode egg::ovum::Module::opcodeFromMachineByte(uint8_t byte) {
 }
 
 const egg::ovum::OpcodeProperties& egg::ovum::OpcodeProperties::from(Opcode opcode) {
-  assert((opcode >= 1) && (opcode <= 255));
-  return OpcodeTable::instance.properties[opcode];
+  auto index = size_t(opcode);
+  assert((index >= 1) && (index <= 255));
+  return OpcodeTable::instance.properties[index];
 }
 
 std::string egg::ovum::OpcodeProperties::str(Opcode opcode) {
-  if ((opcode >= 1) && (opcode <= 255)) {
-    auto& props = OpcodeTable::instance.properties[opcode];
+  auto index = size_t(opcode);
+  if ((index >= 1) && (index <= 255)) {
+    auto& props = OpcodeTable::instance.properties[index];
     if (props.name != nullptr) {
       return props.name;
     }
@@ -674,13 +677,15 @@ std::string egg::ovum::OpcodeProperties::str(Opcode opcode) {
 }
 
 const egg::ovum::OperatorProperties& egg::ovum::OperatorProperties::from(Operator oper) {
-  assert((oper >= 0) && (oper <= 128));
-  return OperatorTable::instance.properties[oper];
+  auto index = size_t(oper);
+  assert(index <= 128);
+  return OperatorTable::instance.properties[index];
 }
 
 std::string egg::ovum::OperatorProperties::str(Operator oper) {
-  if ((oper >= 1) && (oper <= 128)) {
-    auto& props = OperatorTable::instance.properties[oper];
+  auto index = size_t(oper);
+  if ((index >= 1) && (index <= 128)) {
+    auto& props = OperatorTable::instance.properties[index];
     if (props.name != nullptr) {
       return props.name;
     }
@@ -727,39 +732,39 @@ egg::ovum::ModuleBuilderBase::ModuleBuilderBase(IAllocator& allocator)
 
 void egg::ovum::ModuleBuilderBase::addAttribute(const String& key, Node&& value) {
   assert(value != nullptr);
-  auto name = NodeFactory::create(this->allocator, egg::ovum::OPCODE_SVALUE, nullptr, nullptr, key);
-  auto attr = NodeFactory::create(this->allocator, egg::ovum::OPCODE_ATTRIBUTE, std::move(name), std::move(value));
+  auto name = NodeFactory::create(this->allocator, egg::ovum::Opcode::SVALUE, nullptr, nullptr, key);
+  auto attr = NodeFactory::create(this->allocator, egg::ovum::Opcode::ATTRIBUTE, std::move(name), std::move(value));
   this->attributes.emplace_back(std::move(attr));
 }
 
 egg::ovum::Node egg::ovum::ModuleBuilderBase::createModule(Node&& block) {
-  return this->createNode(OPCODE_MODULE, std::move(block));
+  return this->createNode(Opcode::MODULE, std::move(block));
 }
 
 egg::ovum::Node egg::ovum::ModuleBuilderBase::createValueInt(Int value) {
   Nodes attrs;
   std::swap(this->attributes, attrs);
-  return NodeFactory::create(this->allocator, OPCODE_IVALUE, nullptr, &attrs, value);
+  return NodeFactory::create(this->allocator, Opcode::IVALUE, nullptr, &attrs, value);
 }
 
 egg::ovum::Node egg::ovum::ModuleBuilderBase::createValueFloat(Float value) {
   Nodes attrs;
   std::swap(this->attributes, attrs);
-  return NodeFactory::create(this->allocator, OPCODE_FVALUE, nullptr, &attrs, value);
+  return NodeFactory::create(this->allocator, Opcode::FVALUE, nullptr, &attrs, value);
 }
 
 egg::ovum::Node egg::ovum::ModuleBuilderBase::createValueString(const String& value) {
   Nodes attrs;
   std::swap(this->attributes, attrs);
-  return NodeFactory::create(this->allocator, OPCODE_SVALUE, nullptr, &attrs, value);
+  return NodeFactory::create(this->allocator, Opcode::SVALUE, nullptr, &attrs, value);
 }
 
 egg::ovum::Node egg::ovum::ModuleBuilderBase::createValueArray(const Nodes& elements) {
-  return this->createNode(OPCODE_AVALUE, elements);
+  return this->createNode(Opcode::AVALUE, elements);
 }
 
 egg::ovum::Node egg::ovum::ModuleBuilderBase::createValueObject(const Nodes& fields) {
-  return this->createNode(OPCODE_OVALUE, fields);
+  return this->createNode(Opcode::OVALUE, fields);
 }
 
 egg::ovum::Node egg::ovum::ModuleBuilderBase::createOperator(Opcode opcode, Operator oper, const Nodes& children) {

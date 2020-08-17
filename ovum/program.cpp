@@ -37,7 +37,7 @@ namespace {
       uint64_t uvalue;
       EGG_WARNING_SUPPRESS_SWITCH_BEGIN();
       switch (oper) {
-      case OPERATOR_ADD:
+      case Operator::ADD:
         switch (Binary::arithmetic("addition", lvalue, rvalue, lfloat, rfloat, retval)) {
         case Match::Float:
           lvalue = lfloat + rfloat;
@@ -47,7 +47,7 @@ namespace {
           return Variant::Void;
         }
         break;
-      case OPERATOR_SUB:
+      case Operator::SUB:
         switch (Binary::arithmetic("subtraction", lvalue, rvalue, lfloat, rfloat, retval)) {
         case Match::Float:
           lvalue = lfloat - rfloat;
@@ -57,7 +57,7 @@ namespace {
           return Variant::Void;
         }
         break;
-      case OPERATOR_MUL:
+      case Operator::MUL:
         switch (Binary::arithmetic("multiplication", lvalue, rvalue, lfloat, rfloat, retval)) {
         case Match::Float:
           lvalue = lfloat * rfloat;
@@ -67,7 +67,7 @@ namespace {
           return Variant::Void;
         }
         break;
-      case OPERATOR_DIV:
+      case Operator::DIV:
         switch (Binary::arithmetic("division", lvalue, rvalue, lfloat, rfloat, retval)) {
         case Match::Float:
           lvalue = lfloat / rfloat;
@@ -77,7 +77,7 @@ namespace {
           return Variant::Void;
         }
         break;
-      case OPERATOR_REM:
+      case Operator::REM:
         switch (Binary::arithmetic("remainder", lvalue, rvalue, lfloat, rfloat, retval)) {
         case Match::Float:
           lvalue = std::remainder(lfloat, rfloat);
@@ -87,7 +87,7 @@ namespace {
           return Variant::Void;
         }
         break;
-      case OPERATOR_BITAND:
+      case Operator::BITAND:
         switch (Binary::bitwise("bitwise-and", lvalue, rvalue, retval)) {
         case Match::Int:
           lvalue = lvalue.getInt() & rvalue.getInt();
@@ -97,7 +97,7 @@ namespace {
           return Variant::Void;
         }
         break;
-      case OPERATOR_BITOR:
+      case Operator::BITOR:
         switch (Binary::bitwise("bitwise-or", lvalue, rvalue, retval)) {
         case Match::Int:
           lvalue = lvalue.getInt() | rvalue.getInt();
@@ -107,7 +107,7 @@ namespace {
           return Variant::Void;
         }
         break;
-      case OPERATOR_BITXOR:
+      case Operator::BITXOR:
         switch (Binary::bitwise("bitwise-xor", lvalue, rvalue, retval)) {
         case Match::Int:
           lvalue = lvalue.getInt() ^ rvalue.getInt();
@@ -117,7 +117,7 @@ namespace {
           return Variant::Void;
         }
         break;
-      case OPERATOR_LOGAND:
+      case Operator::LOGAND:
         // Note that short-circuiting is handled previously in Target::apply()
         switch (Binary::logical("logical-and", lvalue, rvalue, retval)) {
         case Match::Bool:
@@ -125,7 +125,7 @@ namespace {
           return Variant::Void;
         }
         break;
-      case OPERATOR_LOGOR:
+      case Operator::LOGOR:
         // Note that short-circuiting is handled previously in Target::apply()
         switch (Binary::logical("logical-or", lvalue, rvalue, retval)) {
         case Match::Bool:
@@ -133,28 +133,28 @@ namespace {
           return Variant::Void;
         }
         break;
-      case OPERATOR_SHIFTL:
+      case Operator::SHIFTL:
         switch (Binary::shift("left-shift", lvalue, rvalue, uvalue, retval)) {
         case Match::Int:
           lvalue = lvalue.getInt() << uvalue;
           return Variant::Void;
         }
         break;
-      case OPERATOR_SHIFTR:
+      case Operator::SHIFTR:
         switch (Binary::shift("right-shift", lvalue, rvalue, uvalue, retval)) {
         case Match::Int:
           lvalue = lvalue.getInt() >> uvalue;
           return Variant::Void;
         }
         break;
-      case OPERATOR_SHIFTU:
+      case Operator::SHIFTU:
         switch (Binary::shift("unsigned-right-shift", lvalue, rvalue, uvalue, retval)) {
         case Match::Int:
           lvalue = Int(uint64_t(lvalue.getInt()) >> uvalue);
           return Variant::Void;
         }
         break;
-      case OPERATOR_IFNULL:
+      case Operator::IFNULL:
         if (lvalue.isNull()) {
           lvalue = rvalue;
         }
@@ -435,7 +435,7 @@ namespace {
         type(type),
         block(&block) {
       assert(type != nullptr);
-      assert(block.getOpcode() == OPCODE_BLOCK);
+      assert(block.getOpcode() == Opcode::BLOCK);
     }
     void setCaptured(const HardPtr<SymbolTable>& symtable) {
       assert(this->captured == nullptr);
@@ -485,7 +485,7 @@ namespace {
     Target(const Target&) = delete;
     Target& operator=(const Target&) = delete;
   public:
-    enum Flavour { Failed, Identifier, Index, Pointer, Property };
+    enum class Flavour { Failed, Identifier, Index, Pointer, Property };
   private:
     Flavour flavour;
     ProgramDefault& program;
@@ -635,7 +635,7 @@ namespace {
     }
     // Called by Target construction
     Target::Flavour targetDeclare(const INode& node, Variant& a, Block& block) {
-      assert(node.getOpcode() == OPCODE_DECLARE);
+      assert(node.getOpcode() == Opcode::DECLARE);
       assert(node.getChildren() == 2);
       auto vname = this->identifier(node.getChild(1));
       auto vtype = this->type(node.getChild(0), vname);
@@ -649,12 +649,12 @@ namespace {
       return Target::Flavour::Identifier;
     }
     Target::Flavour targetIdentifier(const INode& node, Variant& a) {
-      assert(node.getOpcode() == OPCODE_IDENTIFIER);
+      assert(node.getOpcode() == Opcode::IDENTIFIER);
       a = this->identifier(node);
       return Target::Flavour::Identifier;
     }
     Target::Flavour targetIndex(const INode& node, Variant& a, Variant& b) {
-      assert(node.getOpcode() == OPCODE_INDEX);
+      assert(node.getOpcode() == Opcode::INDEX);
       assert(node.getChildren() == 2);
       a = this->expression(node.getChild(0));
       if (!a.hasFlowControl()) {
@@ -668,8 +668,8 @@ namespace {
       return Target::Flavour::Failed;
     }
     Target::Flavour targetPointer(const INode& node, Variant& a) {
-      assert(node.getOpcode() == OPCODE_UNARY);
-      assert(node.getOperator() == OPERATOR_DEREF);
+      assert(node.getOpcode() == Opcode::UNARY);
+      assert(node.getOperator() == Operator::DEREF);
       assert(node.getChildren() == 1);
       a = this->expression(node.getChild(0)).direct();
       if (!a.hasPointer()) {
@@ -678,14 +678,14 @@ namespace {
       return Target::Flavour::Pointer;
     }
     Target::Flavour targetProperty(const INode& node, Variant& a, Variant& b) {
-      assert(node.getOpcode() == OPCODE_PROPERTY);
+      assert(node.getOpcode() == Opcode::PROPERTY);
       assert(node.getChildren() == 2);
       a = this->expression(node.getChild(0));
       if (a.hasFlowControl()) {
         return Target::Flavour::Failed;
       }
       auto& property = node.getChild(1);
-      if (property.getOpcode() == OPCODE_IDENTIFIER) {
+      if (property.getOpcode() == Opcode::IDENTIFIER) {
         // Handle explicit identifiers
         b = this->identifier(property);
       } else {
@@ -723,7 +723,7 @@ namespace {
     // Functions
     Variant executePredicate(const LocationSource& source, const INode& compare) {
       // We have to be careful to get the location correct
-      assert(compare.getOpcode() == OPCODE_COMPARE);
+      assert(compare.getOpcode() == Opcode::COMPARE);
       Variant lhs, rhs;
       auto retval = this->operatorCompare(compare, lhs, rhs);
       if (retval.hasFlowControl()) {
@@ -751,7 +751,7 @@ namespace {
     }
     Variant executeCall(const LocationSource& source, const IFunctionSignature& signature, const IParameters& runtime, const INode& block, SymbolTable& captured) {
       // We have to be careful to get the location correct
-      assert(block.getOpcode() == OPCODE_BLOCK);
+      assert(block.getOpcode() == Opcode::BLOCK);
       if (runtime.getNamedCount() > 0) {
         return this->raiseFormat(Function::signatureToString(signature), ": Named parameters are not yet supported"); // TODO
       }
@@ -826,7 +826,7 @@ namespace {
     }
   private:
     Variant executeRoot(const INode& node) {
-      if (this->validateOpcode(node) != OPCODE_MODULE) {
+      if (this->validateOpcode(node) != Opcode::MODULE) {
         throw this->unexpectedOpcode("module", node);
       }
       Block block(*this);
@@ -834,7 +834,7 @@ namespace {
     }
     Variant executeBlock(Block& inner, const INode& node) {
       this->updateLocation(node);
-      if (this->validateOpcode(node) != OPCODE_BLOCK) {
+      if (this->validateOpcode(node) != Opcode::BLOCK) {
         throw this->unexpectedOpcode("block", node);
       }
       size_t n = node.getChildren();
@@ -852,52 +852,52 @@ namespace {
       auto opcode = this->validateOpcode(node);
       EGG_WARNING_SUPPRESS_SWITCH_BEGIN();
       switch (opcode) {
-      case OPCODE_NOOP:
+      case Opcode::NOOP:
         return Variant::Void;
-      case OPCODE_BLOCK:
+      case Opcode::BLOCK:
         return this->statementBlock(node);
-      case OPCODE_ASSIGN:
+      case Opcode::ASSIGN:
         return this->statementAssign(node);
-      case OPCODE_BREAK:
+      case Opcode::BREAK:
         return Variant::Break;
-      case OPCODE_CALL:
+      case Opcode::CALL:
         return this->statementCall(node);
-      case OPCODE_CONTINUE:
+      case Opcode::CONTINUE:
         return Variant::Continue;
-      case OPCODE_DECLARE:
+      case Opcode::DECLARE:
         return this->statementDeclare(block, node);
-      case OPCODE_DECREMENT:
+      case Opcode::DECREMENT:
         return this->statementDecrement(node);
-      case OPCODE_DO:
+      case Opcode::DO:
         return this->statementDo(node);
-      case OPCODE_FOR:
+      case Opcode::FOR:
         return this->statementFor(node);
-      case OPCODE_FOREACH:
+      case Opcode::FOREACH:
         return this->statementForeach(node);
-      case OPCODE_FUNCTION:
+      case Opcode::FUNCTION:
         return this->statementFunction(block, node);
-      case OPCODE_IF:
+      case Opcode::IF:
         return this->statementIf(node);
-      case OPCODE_INCREMENT:
+      case Opcode::INCREMENT:
         return this->statementIncrement(node);
-      case OPCODE_MUTATE:
+      case Opcode::MUTATE:
         return this->statementMutate(node);
-      case OPCODE_RETURN:
+      case Opcode::RETURN:
         return this->statementReturn(node);
-      case OPCODE_SWITCH:
+      case Opcode::SWITCH:
         return this->statementSwitch(node);
-      case OPCODE_THROW:
+      case Opcode::THROW:
         return this->statementThrow(node);
-      case OPCODE_TRY:
+      case Opcode::TRY:
         return this->statementTry(node);
-      case OPCODE_WHILE:
+      case Opcode::WHILE:
         return this->statementWhile(node);
       }
       EGG_WARNING_SUPPRESS_SWITCH_END();
       throw this->unexpectedOpcode("statement", node);
     }
     Variant statementAssign(const INode& node) {
-      assert(node.getOpcode() == OPCODE_ASSIGN);
+      assert(node.getOpcode() == Opcode::ASSIGN);
       assert(node.getChildren() == 2);
       Target lvalue(*this, node.getChild(0));
       auto rvalue = this->expression(node.getChild(1));
@@ -907,12 +907,12 @@ namespace {
       return lvalue.assign(rvalue);
     }
     Variant statementBlock(const INode& node) {
-      assert(node.getOpcode() == OPCODE_BLOCK);
+      assert(node.getOpcode() == Opcode::BLOCK);
       Block block(*this);
       return this->executeBlock(block, node);
     }
     Variant statementCall(const INode& node) {
-      assert(node.getOpcode() == OPCODE_CALL);
+      assert(node.getOpcode() == Opcode::CALL);
       auto retval = this->expressionCall(node);
       if (retval.hasAny(VariantBits::FlowControl | VariantBits::Void)) {
         return retval;
@@ -922,7 +922,7 @@ namespace {
       return Variant::Void;
     }
     Variant statementDeclare(Block& block, const INode& node) {
-      assert(node.getOpcode() == OPCODE_DECLARE);
+      assert(node.getOpcode() == Opcode::DECLARE);
       this->updateLocation(node);
       auto vname = this->identifier(node.getChild(1));
       auto vtype = this->type(node.getChild(0), vname);
@@ -938,13 +938,13 @@ namespace {
       return block.declare(this->location, vtype, vname, &vinit);
     }
     Variant statementDecrement(const INode& node) {
-      assert(node.getOpcode() == OPCODE_DECREMENT);
+      assert(node.getOpcode() == Opcode::DECREMENT);
       assert(node.getChildren() == 1);
       Target lvalue(*this, node.getChild(0));
       return lvalue.nudge(-1);
     }
     Variant statementDo(const INode& node) {
-      assert(node.getOpcode() == OPCODE_DO);
+      assert(node.getOpcode() == Opcode::DO);
       assert(node.getChildren() == 2);
       Variant retval;
       do {
@@ -962,14 +962,14 @@ namespace {
       return Variant::Void;
     }
     Variant statementFor(const INode& node) {
-      assert(node.getOpcode() == OPCODE_FOR);
+      assert(node.getOpcode() == Opcode::FOR);
       assert(node.getChildren() == 4);
       auto& pre = node.getChild(0);
       auto* cond = &node.getChild(1);
       EGG_WARNING_SUPPRESS_SWITCH_BEGIN();
       switch (cond->getOpcode()) {
-      case OPCODE_NOOP:
-      case OPCODE_TRUE:
+      case Opcode::NOOP:
+      case Opcode::TRUE:
         // No condition: 'for(a; ; c) {}' or 'for(a; true; c) {}'
         cond = nullptr;
         break;
@@ -1010,7 +1010,7 @@ namespace {
       return retval;
     }
     Variant statementForeach(const INode& node) {
-      assert(node.getOpcode() == OPCODE_FOREACH);
+      assert(node.getOpcode() == Opcode::FOREACH);
       assert(node.getChildren() == 3);
       Block inner(*this);
       Target lvalue(*this, node.getChild(0), &inner);
@@ -1065,12 +1065,12 @@ namespace {
       return retval;
     }
     Variant statementFunction(Block& block, const INode& node) {
-      assert(node.getOpcode() == OPCODE_FUNCTION);
+      assert(node.getOpcode() == Opcode::FUNCTION);
       assert(node.getChildren() == 3);
       auto fname = this->identifier(node.getChild(2));
       auto ftype = this->type(node.getChild(0), fname);
       auto& fblock = node.getChild(1);
-      if (fblock.getOpcode() != OPCODE_BLOCK) {
+      if (fblock.getOpcode() != Opcode::BLOCK) {
         return this->raise("Generators are not yet supported"); // WIBBLE
       }
       this->updateLocation(node);
@@ -1082,11 +1082,11 @@ namespace {
       return retval;
     }
     Variant statementIf(const INode& node) {
-      assert(node.getOpcode() == OPCODE_IF);
+      assert(node.getOpcode() == Opcode::IF);
       auto n = &node;
       Block block(*this);
       do {
-        assert(n->getOpcode() == OPCODE_IF);
+        assert(n->getOpcode() == Opcode::IF);
         assert((n->getChildren() == 2) || (n->getChildren() == 3));
         auto retval = this->condition(n->getChild(0), &block);
         if (!retval.isBool()) {
@@ -1103,25 +1103,25 @@ namespace {
         }
         // Execute the 'else' clause
         n = &n->getChild(2);
-      } while (n->getOpcode() == OPCODE_IF);
+      } while (n->getOpcode() == Opcode::IF);
       assert(block.empty());
       return this->executeBlock(block, *n);
     }
     Variant statementIncrement(const INode& node) {
-      assert(node.getOpcode() == OPCODE_INCREMENT);
+      assert(node.getOpcode() == Opcode::INCREMENT);
       assert(node.getChildren() == 1);
       Target lvalue(*this, node.getChild(0));
       return lvalue.nudge(+1);
     }
     Variant statementMutate(const INode& node) {
-      assert(node.getOpcode() == OPCODE_MUTATE);
+      assert(node.getOpcode() == Opcode::MUTATE);
       assert(node.getChildren() == 2);
-      assert(OperatorProperties::from(node.getOperator()).opclass == Opclass::OPCLASS_BINARY);
+      assert(OperatorProperties::from(node.getOperator()).opclass == Opclass::BINARY);
       Target lvalue(*this, node.getChild(0));
       return lvalue.mutate(node, node.getChild(1));
     }
     Variant statementReturn(const INode& node) {
-      assert(node.getOpcode() == OPCODE_RETURN);
+      assert(node.getOpcode() == Opcode::RETURN);
       assert(node.getChildren() <= 1);
       if (node.getChildren() == 0) {
         // A naked return
@@ -1136,7 +1136,7 @@ namespace {
       return retval;
     }
     Variant statementSwitch(const INode& node) {
-      assert(node.getOpcode() == OPCODE_SWITCH);
+      assert(node.getOpcode() == Opcode::SWITCH);
       auto n = node.getChildren();
       assert(n >= 2);
       auto match = this->expression(node.getChild(0));
@@ -1151,7 +1151,7 @@ namespace {
         auto& clause = node.getChild(i);
         auto m = clause.getChildren();
         assert(m >= 1);
-        assert((clause.getOpcode() == OPCODE_CASE) || (clause.getOpcode() == OPCODE_DEFAULT));
+        assert((clause.getOpcode() == Opcode::CASE) || (clause.getOpcode() == Opcode::DEFAULT));
         for (size_t j = 1; !matched && (j < m); ++j) {
           auto expr = this->expression(node.getChild(0));
           if (expr.hasFlowControl()) {
@@ -1168,7 +1168,7 @@ namespace {
           // We matched!
           break;
         }
-        if (clause.getOpcode() == OPCODE_DEFAULT) {
+        if (clause.getOpcode() == Opcode::DEFAULT) {
           // Remember the default clause
           assert(defclause == 0);
           defclause = i;
@@ -1201,7 +1201,7 @@ namespace {
       return Variant::Void;
     }
     Variant statementThrow(const INode& node) {
-      assert(node.getOpcode() == OPCODE_THROW);
+      assert(node.getOpcode() == Opcode::THROW);
       assert(node.getChildren() <= 1);
       if (node.getChildren() == 0) {
         // A naked rethrow
@@ -1216,7 +1216,7 @@ namespace {
       return retval;
     }
     Variant statementTry(const INode& node) {
-      assert(node.getOpcode() == OPCODE_TRY);
+      assert(node.getOpcode() == Opcode::TRY);
       auto n = node.getChildren();
       assert(n >= 2);
       auto exception = this->statementBlock(node.getChild(0));
@@ -1228,7 +1228,7 @@ namespace {
       for (size_t i = 2; i < n; ++i) {
         // Look for the first matching catch clause
         auto& clause = node.getChild(i);
-        assert(clause.getOpcode() == OPCODE_CATCH);
+        assert(clause.getOpcode() == Opcode::CATCH);
         assert(clause.getChildren() == 3);
         this->updateLocation(clause);
         auto cname = this->identifier(clause.getChild(1));
@@ -1254,10 +1254,10 @@ namespace {
       return this->statementTryFinally(node, exception);
     }
     Variant statementTryFinally(const INode& node, const Variant& retval) {
-      assert(node.getOpcode() == OPCODE_TRY);
+      assert(node.getOpcode() == Opcode::TRY);
       assert(node.getChildren() >= 2);
       auto& clause = node.getChild(1);
-      if (clause.getOpcode() == OPCODE_NOOP) {
+      if (clause.getOpcode() == Opcode::NOOP) {
         // No finally clause
         return retval;
       }
@@ -1269,7 +1269,7 @@ namespace {
       return this->statementBlock(clause);
     }
     Variant statementWhile(const INode& node) {
-      assert(node.getOpcode() == OPCODE_WHILE);
+      assert(node.getOpcode() == Opcode::WHILE);
       assert(node.getChildren() == 2);
       for (;;) {
         Block block(*this);
@@ -1294,95 +1294,95 @@ namespace {
       auto opcode = this->validateOpcode(node);
       EGG_WARNING_SUPPRESS_SWITCH_BEGIN();
       switch (opcode) {
-      case OPCODE_NULL:
+      case Opcode::NULL_:
         return Variant::Null;
-      case OPCODE_FALSE:
+      case Opcode::FALSE:
         return Variant::False;
-      case OPCODE_TRUE:
+      case Opcode::TRUE:
         return Variant::True;
-      case OPCODE_UNARY:
+      case Opcode::UNARY:
         return this->expressionUnary(node);
-      case OPCODE_BINARY:
+      case Opcode::BINARY:
         return this->expressionBinary(node);
-      case OPCODE_TERNARY:
+      case Opcode::TERNARY:
         return this->expressionTernary(node);
-      case OPCODE_COMPARE:
+      case Opcode::COMPARE:
         return this->expressionCompare(node);
-      case OPCODE_AVALUE:
+      case Opcode::AVALUE:
         return this->expressionAvalue(node);
-      case OPCODE_FVALUE:
+      case Opcode::FVALUE:
         return this->expressionFvalue(node);
-      case OPCODE_IVALUE:
+      case Opcode::IVALUE:
         return this->expressionIvalue(node);
-      case OPCODE_OVALUE:
+      case Opcode::OVALUE:
         return this->expressionOvalue(node);
-      case OPCODE_SVALUE:
+      case Opcode::SVALUE:
         return this->expressionSvalue(node);
-      case OPCODE_CALL:
+      case Opcode::CALL:
         return this->expressionCall(node);
-      case OPCODE_GUARD:
+      case Opcode::GUARD:
         return this->expressionGuard(node, block);
-      case OPCODE_IDENTIFIER:
+      case Opcode::IDENTIFIER:
         return this->expressionIdentifier(node);
-      case OPCODE_INDEX:
+      case Opcode::INDEX:
         return this->expressionIndex(node);
-      case OPCODE_PREDICATE:
+      case Opcode::PREDICATE:
         return this->expressionPredicate(node);
-      case OPCODE_PROPERTY:
+      case Opcode::PROPERTY:
         return this->expressionProperty(node);
       }
       EGG_WARNING_SUPPRESS_SWITCH_END();
       throw this->unexpectedOpcode("expression", node);
     }
     Variant expressionUnary(const INode& node) {
-      assert(node.getOpcode() == OPCODE_UNARY);
+      assert(node.getOpcode() == Opcode::UNARY);
       assert(node.getChildren() == 1);
       auto oper = node.getOperator();
-      assert(OperatorProperties::from(oper).opclass == Opclass::OPCLASS_UNARY);
+      assert(OperatorProperties::from(oper).opclass == Opclass::UNARY);
       EGG_WARNING_SUPPRESS_SWITCH_BEGIN();
       switch (oper) {
-      case Operator::OPERATOR_LOGNOT:
+      case Operator::LOGNOT:
         return this->operatorLogicalNot(node.getChild(0));
-      case Operator::OPERATOR_DEREF:
+      case Operator::DEREF:
         return this->operatorDeref(node.getChild(0));
-      case Operator::OPERATOR_REF:
+      case Operator::REF:
         return this->operatorRef(node.getChild(0));
       }
       EGG_WARNING_SUPPRESS_SWITCH_END();
       throw this->unexpectedOperator("unary", node);
     }
     Variant expressionBinary(const INode& node) {
-      assert(node.getOpcode() == OPCODE_BINARY);
+      assert(node.getOpcode() == Opcode::BINARY);
       assert(node.getChildren() == 2);
       auto oper = node.getOperator();
-      assert(OperatorProperties::from(oper).opclass == Opclass::OPCLASS_BINARY);
+      assert(OperatorProperties::from(oper).opclass == Opclass::BINARY);
       EGG_WARNING_SUPPRESS_SWITCH_BEGIN();
       switch (oper) {
-      case Operator::OPERATOR_ADD:
-      case Operator::OPERATOR_SUB:
-      case Operator::OPERATOR_MUL:
-      case Operator::OPERATOR_DIV:
-      case Operator::OPERATOR_REM:
+      case Operator::ADD:
+      case Operator::SUB:
+      case Operator::MUL:
+      case Operator::DIV:
+      case Operator::REM:
         return this->operatorArithmetic(node, oper, node.getChild(0), node.getChild(1));
       }
       EGG_WARNING_SUPPRESS_SWITCH_END();
       throw this->unexpectedOperator("binary", node);
     }
     Variant expressionTernary(const INode& node) {
-      assert(node.getOpcode() == OPCODE_TERNARY);
+      assert(node.getOpcode() == Opcode::TERNARY);
       assert(node.getChildren() == 3);
       auto oper = node.getOperator();
-      assert(OperatorProperties::from(oper).opclass == Opclass::OPCLASS_TERNARY);
+      assert(OperatorProperties::from(oper).opclass == Opclass::TERNARY);
       EGG_WARNING_SUPPRESS_SWITCH_BEGIN();
       switch (oper) {
-      case Operator::OPERATOR_TERNARY:
+      case Operator::TERNARY:
         return this->operatorTernary(node.getChild(0), node.getChild(1), node.getChild(2));
       }
       EGG_WARNING_SUPPRESS_SWITCH_END();
       throw this->unexpectedOperator("ternary", node);
     }
     Variant expressionCompare(const INode& node) {
-      assert(node.getOpcode() == OPCODE_COMPARE);
+      assert(node.getOpcode() == Opcode::COMPARE);
       Variant lhs, rhs;
       auto retval = this->operatorCompare(node, lhs, rhs);
       if (retval.is(VariantBits::Break)) {
@@ -1391,7 +1391,7 @@ namespace {
       return retval;
     }
     Variant expressionAvalue(const INode& node) {
-      assert(node.getOpcode() == OPCODE_AVALUE);
+      assert(node.getOpcode() == Opcode::AVALUE);
       auto n = node.getChildren();
       auto array = ObjectFactory::createVanillaArray(this->allocator, n);
       for (size_t i = 0; i < n; ++i) {
@@ -1407,22 +1407,22 @@ namespace {
       return Variant(array);
     }
     Variant expressionFvalue(const INode& node) {
-      assert(node.getOpcode() == OPCODE_FVALUE);
+      assert(node.getOpcode() == Opcode::FVALUE);
       assert(node.getChildren() == 0);
       return Variant(node.getFloat());
     }
     Variant expressionIvalue(const INode& node) {
-      assert(node.getOpcode() == OPCODE_IVALUE);
+      assert(node.getOpcode() == Opcode::IVALUE);
       assert(node.getChildren() == 0);
       return Variant(node.getInt());
     }
     Variant expressionOvalue(const INode& node) {
-      assert(node.getOpcode() == OPCODE_OVALUE);
+      assert(node.getOpcode() == Opcode::OVALUE);
       auto object = ObjectFactory::createVanillaObject(this->allocator);
       auto n = node.getChildren();
       for (size_t i = 0; i < n; ++i) {
         auto& named = node.getChild(i);
-        assert(named.getOpcode() == OPCODE_NAMED);
+        assert(named.getOpcode() == Opcode::NAMED);
         auto name = this->identifier(named.getChild(0));
         auto expr = this->expression(named.getChild(1));
         if (expr.hasFlowControl()) {
@@ -1436,12 +1436,12 @@ namespace {
       return Variant(object);
     }
     Variant expressionSvalue(const INode& node) {
-      assert(node.getOpcode() == OPCODE_SVALUE);
+      assert(node.getOpcode() == Opcode::SVALUE);
       assert(node.getChildren() == 0);
       return Variant(node.getString());
     }
     Variant expressionCall(const INode& node) {
-      assert(node.getOpcode() == OPCODE_CALL);
+      assert(node.getOpcode() == Opcode::CALL);
       auto n = node.getChildren();
       assert(n >= 1);
       auto callee = this->expression(node.getChild(0));
@@ -1467,7 +1467,7 @@ namespace {
       return retval;
     }
     Variant expressionGuard(const INode& node, Block* block) {
-      assert(node.getOpcode() == OPCODE_GUARD);
+      assert(node.getOpcode() == Opcode::GUARD);
       assert(node.getChildren() == 3);
       if (block == nullptr) {
         throw this->unexpectedOpcode("guard", node);
@@ -1482,7 +1482,7 @@ namespace {
       return block->guard(this->location, vtype, vname, vinit);
     }
     Variant expressionIdentifier(const INode& node) {
-      assert(node.getOpcode() == OPCODE_IDENTIFIER);
+      assert(node.getOpcode() == Opcode::IDENTIFIER);
       auto name = this->identifier(node);
       auto* symbol = this->symtable->get(name);
       if (symbol == nullptr) {
@@ -1491,7 +1491,7 @@ namespace {
       return symbol->value.direct();
     }
     Variant expressionIndex(const INode& node) {
-      assert(node.getOpcode() == OPCODE_INDEX);
+      assert(node.getOpcode() == Opcode::INDEX);
       assert(node.getChildren() == 2);
       auto lhs = this->expression(node.getChild(0));
       if (lhs.hasFlowControl()) {
@@ -1514,12 +1514,12 @@ namespace {
       return this->raiseFormat("Values of type '", lhs.getRuntimeType().toString(), "' do not support the indexing '[]' operator");
     }
     Variant expressionPredicate(const INode& node) {
-      assert(node.getOpcode() == OPCODE_PREDICATE);
+      assert(node.getOpcode() == Opcode::PREDICATE);
       assert(node.getChildren() == 1);
       auto& child = node.getChild(0);
       if (child.getOperand() == INode::Operand::Operator) {
         auto oper = child.getOperator();
-        if (OperatorProperties::from(oper).opclass == OPCLASS_COMPARE) {
+        if (OperatorProperties::from(oper).opclass == Opclass::COMPARE) {
           // We only support predicates for comparisons
           this->updateLocation(node);
           return VariantFactory::createObject<PredicateFunction>(this->allocator, *this, this->location, child);
@@ -1528,7 +1528,7 @@ namespace {
       return this->expression(child);
     }
     Variant expressionProperty(const INode& node) {
-      assert(node.getOpcode() == OPCODE_PROPERTY);
+      assert(node.getOpcode() == Opcode::PROPERTY);
       assert(node.getChildren() == 2);
       auto lhs = this->expression(node.getChild(0));
       if (lhs.hasFlowControl()) {
@@ -1536,7 +1536,7 @@ namespace {
       }
       auto& pnode = node.getChild(1);
       String pname;
-      if (pnode.getOpcode() == OPCODE_IDENTIFIER) {
+      if (pnode.getOpcode() == Opcode::IDENTIFIER) {
         pname = this->identifier(pnode);
       } else {
         auto rhs = this->expression(pnode);
@@ -1608,28 +1608,28 @@ namespace {
     // Operators
     Variant operatorCompare(const INode& node, Variant& lhs, Variant& rhs) {
       // Returns 'break' for unknown operator
-      assert(node.getOpcode() == OPCODE_COMPARE);
+      assert(node.getOpcode() == Opcode::COMPARE);
       assert(node.getChildren() == 2);
       auto oper = node.getOperator();
-      assert(OperatorProperties::from(oper).opclass == Opclass::OPCLASS_COMPARE);
+      assert(OperatorProperties::from(oper).opclass == Opclass::COMPARE);
       EGG_WARNING_SUPPRESS_SWITCH_BEGIN();
       switch (oper) {
-      case Operator::OPERATOR_EQ:
+      case Operator::EQ:
         // (a == b) === (a == b)
         return this->operatorEquals(node.getChild(0), node.getChild(1), lhs, rhs, false);
-      case Operator::OPERATOR_GE:
+      case Operator::GE:
         // (a >= b) === !(a < b)
         return this->operatorLessThan(node.getChild(0), node.getChild(1), lhs, rhs, true, oper);
-      case Operator::OPERATOR_GT:
+      case Operator::GT:
         // (a > b) === (b < a)
         return this->operatorLessThan(node.getChild(1), node.getChild(0), rhs, lhs, false, oper);
-      case Operator::OPERATOR_LE:
+      case Operator::LE:
         // (a <= b) === !(b < a)
         return this->operatorLessThan(node.getChild(1), node.getChild(0), rhs, lhs, true, oper);
-      case Operator::OPERATOR_LT:
+      case Operator::LT:
         // (a < b) === (a < b)
         return this->operatorLessThan(node.getChild(0), node.getChild(1), lhs, rhs, false, oper);
-      case Operator::OPERATOR_NE:
+      case Operator::NE:
         // (a != b) === !(a == b)
         return this->operatorEquals(node.getChild(0), node.getChild(1), lhs, rhs, true);
       }
@@ -1686,7 +1686,7 @@ namespace {
           auto ib = vb.getInt();
           return bool((fa < Float(ib)) ^ invert); // need to force bool-ness
         }
-        auto side = ((oper == OPERATOR_GT) || (oper == OPERATOR_LE)) ? "left" : "right";
+        auto side = ((oper == Operator::GT) || (oper == Operator::LE)) ? "left" : "right";
         auto sign = OperatorProperties::str(oper);
         return this->raiseNode(b, "Expected ", side, "-hand side of comparison '", sign, "' to be an 'int' or 'float', but got '", vb.getRuntimeType().toString(), "' instead");
       }
@@ -1706,11 +1706,11 @@ namespace {
           auto ib = vb.getInt();
           return bool((ia < ib) ^ invert); // need to force bool-ness
         }
-        auto side = ((oper == OPERATOR_GT) || (oper == OPERATOR_LE)) ? "left" : "right";
+        auto side = ((oper == Operator::GT) || (oper == Operator::LE)) ? "left" : "right";
         auto sign = OperatorProperties::str(oper);
         return this->raiseNode(b, "Expected ", side, "-hand side of comparison '", sign, "' to be an 'int' or 'float', but got '", vb.getRuntimeType().toString(), "' instead");
       }
-      auto side = ((oper == OPERATOR_GT) || (oper == OPERATOR_LE)) ? "right" : "left";
+      auto side = ((oper == Operator::GT) || (oper == Operator::LE)) ? "right" : "left";
       auto sign = OperatorProperties::str(oper);
       return this->raiseNode(a, "Expected ", side, "-hand side of comparison '", sign, "' to be an 'int' or 'float', but got '", va.getRuntimeType().toString(), "' instead");
     }
@@ -1768,7 +1768,7 @@ namespace {
       return value.getPointee();
     }
     Variant operatorRef(const INode& a) {
-      if (a.getOpcode() != OPCODE_IDENTIFIER) {
+      if (a.getOpcode() != Opcode::IDENTIFIER) {
         return this->raiseNode(a, "Expected operand of unary '&' operator to be a variable identifier");
       }
       auto name = this->identifier(a);
@@ -1782,15 +1782,15 @@ namespace {
     Int operatorBinaryInt(const INode& node, Operator oper, Int lhs, Int rhs) {
       EGG_WARNING_SUPPRESS_SWITCH_BEGIN();
       switch (oper) {
-      case OPERATOR_ADD:
+      case Operator::ADD:
         return lhs + rhs;
-      case OPERATOR_SUB:
+      case Operator::SUB:
         return lhs - rhs;
-      case OPERATOR_MUL:
+      case Operator::MUL:
         return lhs * rhs;
-      case OPERATOR_DIV:
+      case Operator::DIV:
         return lhs / rhs;
-      case OPERATOR_REM:
+      case Operator::REM:
         return lhs % rhs;
       }
       EGG_WARNING_SUPPRESS_SWITCH_END();
@@ -1799,15 +1799,15 @@ namespace {
     Float operatorBinaryFloat(const INode& node, Operator oper, Float lhs, Float rhs) {
       EGG_WARNING_SUPPRESS_SWITCH_BEGIN();
       switch (oper) {
-      case OPERATOR_ADD:
+      case Operator::ADD:
         return lhs + rhs;
-      case OPERATOR_SUB:
+      case Operator::SUB:
         return lhs - rhs;
-      case OPERATOR_MUL:
+      case Operator::MUL:
         return lhs * rhs;
-      case OPERATOR_DIV:
+      case Operator::DIV:
         return lhs / rhs;
-      case OPERATOR_REM:
+      case Operator::REM:
         return std::remainder(lhs, rhs);
       }
       EGG_WARNING_SUPPRESS_SWITCH_END();
@@ -1852,11 +1852,11 @@ namespace {
     }
   public:
     String identifier(const INode& node) {
-      if (node.getOpcode() != OPCODE_IDENTIFIER) {
+      if (node.getOpcode() != Opcode::IDENTIFIER) {
         throw this->unexpectedOpcode("identifier", node);
       }
       auto& child = node.getChild(0);
-      if (child.getOpcode() != OPCODE_SVALUE) {
+      if (child.getOpcode() != Opcode::SVALUE) {
         throw this->unexpectedOpcode("svalue", child);
       }
       return child.getString();
@@ -1865,63 +1865,63 @@ namespace {
       auto children = node.getChildren();
       EGG_WARNING_SUPPRESS_SWITCH_BEGIN();
       switch (node.getOpcode()) {
-      case OPCODE_INFERRED:
+      case Opcode::INFERRED:
         assert(children == 0);
         return nullptr;
-      case OPCODE_VOID:
+      case Opcode::VOID:
         assert(children == 0);
         return Type::Void;
-      case OPCODE_NULL:
+      case Opcode::NULL_:
         assert(children == 0);
         return Type::Null;
-      case OPCODE_BOOL:
+      case Opcode::BOOL:
         if (children == 0) {
           return Type::Bool;
         }
         break;
-      case OPCODE_INT:
+      case Opcode::INT:
         if (children == 0) {
           return Type::Int;
         }
         break;
-      case OPCODE_FLOAT:
+      case Opcode::FLOAT:
         if (children == 0) {
           return Type::Float;
         }
         break;
-      case OPCODE_STRING:
+      case Opcode::STRING:
         if (children == 0) {
           return Type::String;
         }
         break;
-      case OPCODE_OBJECT:
+      case Opcode::OBJECT:
         if (children == 0) {
           return Type::Object;
         }
         if (children == 1) {
           auto& callable = node.getChild(0);
-          if (callable.getOpcode() == OPCODE_CALLABLE) {
+          if (callable.getOpcode() == Opcode::CALLABLE) {
             return UserFunction::makeType(this->allocator, *this, name, callable);
           }
         }
         break;
-      case OPCODE_ANY:
+      case Opcode::ANY:
         if (children == 0) {
           return Type::Any;
         }
         break;
-      case OPCODE_ANYQ:
+      case Opcode::ANYQ:
         if (children == 0) {
           return Type::AnyQ;
         }
         break;
-      case OPCODE_POINTER:
+      case Opcode::POINTER:
         if (children == 1) {
           auto pointee = this->type(node.getChild(0));
           return Type::makePointer(this->allocator, *pointee);
         }
         break;
-      case OPCODE_UNION:
+      case Opcode::UNION:
         if (children >= 1) {
           auto result = this->type(node.getChild(0));
           for (size_t i = 1; i < children; ++i) {
@@ -1942,7 +1942,7 @@ namespace {
       auto opcode = node.getOpcode();
       auto name = OpcodeProperties::from(opcode).name;
       if (name == nullptr) {
-        return RuntimeException(this->location, "Unknown ", expected, " opcode: '<", std::to_string(opcode), ">'");
+        return RuntimeException(this->location, "Unknown ", expected, " opcode: '<", std::to_string(int(opcode)), ">'");
       }
       return RuntimeException(this->location, "Unexpected ", expected, " opcode: '", name, "'");
     }
@@ -1951,7 +1951,7 @@ namespace {
       auto oper = node.getOperator();
       auto name = OperatorProperties::from(oper).name;
       if (name == nullptr) {
-        return RuntimeException(this->location, "Unknown ", expected, " operator: '<", std::to_string(oper), ">'");
+        return RuntimeException(this->location, "Unknown ", expected, " operator: '<", std::to_string(int(oper)), ">'");
       }
       return RuntimeException(this->location, "Unexpected ", expected, " operator: '", name, "'");
     }
@@ -1966,24 +1966,24 @@ Target::Target(ProgramDefault& program, const INode& node, Block* block)
   : flavour(Flavour::Failed), program(program), node(node) {
   EGG_WARNING_SUPPRESS_SWITCH_BEGIN();
   switch (node.getOpcode()) {
-  case OPCODE_DECLARE:
+  case Opcode::DECLARE:
     if (block != nullptr) {
       // Only allow declaration inside a foreach statement
       this->flavour = program.targetDeclare(node, this->a, *block);
       return;
     }
     break;
-  case OPCODE_IDENTIFIER:
+  case Opcode::IDENTIFIER:
     this->flavour = program.targetIdentifier(node, this->a);
     return;
-  case OPCODE_INDEX:
+  case Opcode::INDEX:
     this->flavour = program.targetIndex(node, this->a, this->b);
     return;
-  case OPCODE_PROPERTY:
+  case Opcode::PROPERTY:
     this->flavour = program.targetProperty(node, this->a, this->b);
     return;
-  case OPCODE_UNARY:
-    if (node.getOperator() != OPERATOR_DEREF) {
+  case Opcode::UNARY:
+    if (node.getOperator() != Operator::DEREF) {
       throw program.unexpectedOperator("target", node);
     }
     this->flavour = program.targetPointer(node, this->a);
@@ -2069,20 +2069,20 @@ egg::ovum::Variant Target::apply(const INode& opnode, Variant& lvalue, const INo
   auto oper = opnode.getOperator();
   EGG_WARNING_SUPPRESS_SWITCH_BEGIN();
   switch (oper) {
-  case Operator::OPERATOR_IFNULL:
+  case Operator::IFNULL:
     // Don't evaluate rhs of (lhs ??= rhs) unless lhs is null
     if (!lvalue.isNull()) {
       // Do nothing
       return Variant::Void;
     }
     break;
-  case Operator::OPERATOR_LOGAND:
+  case Operator::LOGAND:
     // Don't evaluate rhs of (lhs &&= rhs) if lhs is false
     if (lvalue.isBool() && !lvalue.getBool()) {
       return Variant::Void;
     }
     break;
-  case Operator::OPERATOR_LOGOR:
+  case Operator::LOGOR:
     // Don't evaluate rhs of (lhs ||= rhs) if lhs is true
     if (lvalue.isBool() && lvalue.getBool()) {
       return Variant::Void;
@@ -2196,7 +2196,7 @@ egg::ovum::Variant Block::guard(const LocationSource& source, const Type& type, 
 
 egg::ovum::Type UserFunction::makeType(IAllocator& allocator, ProgramDefault& program, const String& name, const INode& callable) {
   // Create a type appropriate for a standard "user" function
-  assert(callable.getOpcode() == OPCODE_CALLABLE);
+  assert(callable.getOpcode() == Opcode::CALLABLE);
   auto n = callable.getChildren();
   assert(n >= 1);
   auto rettype = program.type(callable.getChild(0));
@@ -2209,15 +2209,15 @@ egg::ovum::Type UserFunction::makeType(IAllocator& allocator, ProgramDefault& pr
     IFunctionSignatureParameter::Flags pflags;
     EGG_WARNING_SUPPRESS_SWITCH_BEGIN();
     switch (parameter.getOpcode()) {
-    case OPCODE_REQUIRED:
+    case Opcode::REQUIRED:
       assert((c == 1) || (c == 2));
       pflags = IFunctionSignatureParameter::Flags::Required;
       break;
-    case OPCODE_OPTIONAL:
+    case Opcode::OPTIONAL:
       assert((c == 1) || (c == 2));
       pflags = IFunctionSignatureParameter::Flags::None;
       break;
-    case OPCODE_VARARGS:
+    case Opcode::VARARGS:
       assert(c >= 2);
       pflags = IFunctionSignatureParameter::Flags::Variadic;
       if (c > 2) {
@@ -2225,7 +2225,7 @@ egg::ovum::Type UserFunction::makeType(IAllocator& allocator, ProgramDefault& pr
         pflags = Bits::set(pflags, IFunctionSignatureParameter::Flags::Required);
       }
       break;
-    case OPCODE_BYNAME:
+    case Opcode::BYNAME:
       assert(c == 2);
       pindex = SIZE_MAX;
       pflags = IFunctionSignatureParameter::Flags::None;

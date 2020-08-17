@@ -33,118 +33,118 @@
 
 // Macro to define module opcodes: X(opcode, minbyte, minargs, maxargs, text)
 #define EGG_VM_OPCODES(X) \
-  X(OPCODE_ANY, 24, 0, 0, "any") \
-  X(OPCODE_ANYQ, 30, 0, 0, "anyq") \
-  X(OPCODE_ASSERT, 25, 1, 1, "assert") \
-  X(OPCODE_ASSIGN, 26, 2, 2, "assign") \
-  X(OPCODE_ATTRIBUTE, 151, 1, N, "attribute") \
-  X(OPCODE_AVALUE, 210, 0, N, "avalue") \
-  X(OPCODE_BINARY, 2, 2, 2, "binary") \
-  X(OPCODE_BLOCK, 157, 1, N, "block") \
-  X(OPCODE_BOOL, 102, 0, 1, "bool") \
-  X(OPCODE_BREAK, 36, 0, 0, "break") \
-  X(OPCODE_BYNAME, 32, 2, 2, "byname") \
-  X(OPCODE_CALL, 163, 1, N, "call") \
-  X(OPCODE_CALLABLE, 169, 1, N, "callable") \
-  X(OPCODE_CASE, 128, 2, N, "case") \
-  X(OPCODE_CATCH, 27, 3, 3, "catch") \
-  X(OPCODE_CHOICE, 175, 1, N, "choice") \
-  X(OPCODE_COMPARE, 8, 2, 2, "compare") \
-  X(OPCODE_CONTINUE, 42, 0, 0, "continue") \
-  X(OPCODE_DECLARE, 92, 2, 3, "declare") \
-  X(OPCODE_DECREMENT, 31, 1, 1, "decrement") \
-  X(OPCODE_DEFAULT, 181, 1, N, "default") \
-  X(OPCODE_DO, 38, 2, 2, "do") \
-  X(OPCODE_ELLIPSIS, 37, 1, 1, "ellipsis") \
-  X(OPCODE_END, 0, 0, 0, "end") \
-  X(OPCODE_EXTENSIBLE, 187, 1, N, "extensible") \
-  X(OPCODE_FALSE, 48, 0, 0, "false") \
-  X(OPCODE_FINITE, 54, 0, 0, "finite") \
-  X(OPCODE_FLOAT, 216, 0, N, "float") \
-  X(OPCODE_FOR, 28, 4, 4, "for") \
-  X(OPCODE_FOREACH, 33, 3, 3, "foreach") \
-  X(OPCODE_FUNCTION, 98, 2, 3, "function") \
-  X(OPCODE_FVALUE, 12, 0, 0, "fvalue") \
-  X(OPCODE_GENERATOR, 104, 2, 3, "generator") \
-  X(OPCODE_GUARD, 39, 3, 3, "guard") \
-  X(OPCODE_IDENTIFIER, 43, 1, 1, "identifier") \
-  X(OPCODE_IF, 110, 2, 3, "if") \
-  X(OPCODE_INCREMENT, 49, 1, 1, "increment") \
-  X(OPCODE_INDEX, 44, 2, 2, "index") \
-  X(OPCODE_INDEXABLE, 34, 4, 4, "indexable") \
-  X(OPCODE_INFERRED, 60, 0, 0, "inferred") \
-  X(OPCODE_INT, 222, 0, N, "int") \
-  X(OPCODE_ITERABLE, 55, 1, 1, "iterable") \
-  X(OPCODE_IVALUE, 6, 0, 0, "ivalue") \
-  X(OPCODE_LAMBDA, 193, 1, N, "lambda") \
-  X(OPCODE_LENGTH, 199, 1, N, "length") \
-  X(OPCODE_META, 7, 1, 1, "meta") \
-  X(OPCODE_MODULE, 253, 1, 3, "module") \
-  X(OPCODE_MUTATE, 14, 2, 2, "mutate") \
-  X(OPCODE_NAMED, 56, 2, 2, "named") \
-  X(OPCODE_NOOP, 66, 0, 0, "noop") \
-  X(OPCODE_NOT, 61, 1, 1, "not") \
-  X(OPCODE_NULL, 72, 0, 0, "null") \
-  X(OPCODE_OBJECT, 228, 0, N, "object") \
-  X(OPCODE_OPTIONAL, 139, 1, 2, "optional") \
-  X(OPCODE_OVALUE, 234, 0, N, "ovalue") \
-  X(OPCODE_POINTEE, 67, 1, 1, "pointee") \
-  X(OPCODE_POINTER, 73, 1, 1, "pointer") \
-  X(OPCODE_PREDICATE, 79, 1, 1, "predicate") \
-  X(OPCODE_PROPERTY, 62, 2, 2, "property") \
-  X(OPCODE_PROPERTYQ, 68, 2, 2, "propertyq") \
-  X(OPCODE_REQUIRED, 145, 1, 2, "required") \
-  X(OPCODE_RETURN, 108, 0, 1, "return") \
-  X(OPCODE_STRING, 240, 0, N, "string") \
-  X(OPCODE_SVALUE, 18, 0, 0, "svalue") \
-  X(OPCODE_SWITCH, 122, 2, N, "switch") \
-  X(OPCODE_TERNARY, 3, 3, 3, "ternary") \
-  X(OPCODE_THROW, 114, 0, 1, "throw") \
-  X(OPCODE_TRUE, 78, 0, 0, "true") \
-  X(OPCODE_TRY, 116, 2, N, "try") \
-  X(OPCODE_TYPE, 246, 0, N, "type") \
-  X(OPCODE_UNARY, 1, 1, 1, "unary") \
-  X(OPCODE_UNION, 205, 1, N, "union") \
-  X(OPCODE_VARARGS, 134, 2, N, "varargs") \
-  X(OPCODE_VOID, 84, 0, 0, "void") \
-  X(OPCODE_WHILE, 74, 2, 2, "while") \
-  X(OPCODE_YIELD, 120, 0, 1, "yield")
+  X(ANY, 24, 0, 0, "any") \
+  X(ANYQ, 30, 0, 0, "anyq") \
+  X(ASSERT, 25, 1, 1, "assert") \
+  X(ASSIGN, 26, 2, 2, "assign") \
+  X(ATTRIBUTE, 151, 1, N, "attribute") \
+  X(AVALUE, 210, 0, N, "avalue") \
+  X(BINARY, 2, 2, 2, "binary") \
+  X(BLOCK, 157, 1, N, "block") \
+  X(BOOL, 102, 0, 1, "bool") \
+  X(BREAK, 36, 0, 0, "break") \
+  X(BYNAME, 32, 2, 2, "byname") \
+  X(CALL, 163, 1, N, "call") \
+  X(CALLABLE, 169, 1, N, "callable") \
+  X(CASE, 128, 2, N, "case") \
+  X(CATCH, 27, 3, 3, "catch") \
+  X(CHOICE, 175, 1, N, "choice") \
+  X(COMPARE, 8, 2, 2, "compare") \
+  X(CONTINUE, 42, 0, 0, "continue") \
+  X(DECLARE, 92, 2, 3, "declare") \
+  X(DECREMENT, 31, 1, 1, "decrement") \
+  X(DEFAULT, 181, 1, N, "default") \
+  X(DO, 38, 2, 2, "do") \
+  X(ELLIPSIS, 37, 1, 1, "ellipsis") \
+  X(END, 0, 0, 0, "end") \
+  X(EXTENSIBLE, 187, 1, N, "extensible") \
+  X(FALSE, 48, 0, 0, "false") \
+  X(FINITE, 54, 0, 0, "finite") \
+  X(FLOAT, 216, 0, N, "float") \
+  X(FOR, 28, 4, 4, "for") \
+  X(FOREACH, 33, 3, 3, "foreach") \
+  X(FUNCTION, 98, 2, 3, "function") \
+  X(FVALUE, 12, 0, 0, "fvalue") \
+  X(GENERATOR, 104, 2, 3, "generator") \
+  X(GUARD, 39, 3, 3, "guard") \
+  X(IDENTIFIER, 43, 1, 1, "identifier") \
+  X(IF, 110, 2, 3, "if") \
+  X(INCREMENT, 49, 1, 1, "increment") \
+  X(INDEX, 44, 2, 2, "index") \
+  X(INDEXABLE, 34, 4, 4, "indexable") \
+  X(INFERRED, 60, 0, 0, "inferred") \
+  X(INT, 222, 0, N, "int") \
+  X(ITERABLE, 55, 1, 1, "iterable") \
+  X(IVALUE, 6, 0, 0, "ivalue") \
+  X(LAMBDA, 193, 1, N, "lambda") \
+  X(LENGTH, 199, 1, N, "length") \
+  X(META, 7, 1, 1, "meta") \
+  X(MODULE, 253, 1, 3, "module") \
+  X(MUTATE, 14, 2, 2, "mutate") \
+  X(NAMED, 56, 2, 2, "named") \
+  X(NOOP, 66, 0, 0, "noop") \
+  X(NOT, 61, 1, 1, "not") \
+  X(NULL_, 72, 0, 0, "null") \
+  X(OBJECT, 228, 0, N, "object") \
+  X(OPTIONAL, 139, 1, 2, "optional") \
+  X(OVALUE, 234, 0, N, "ovalue") \
+  X(POINTEE, 67, 1, 1, "pointee") \
+  X(POINTER, 73, 1, 1, "pointer") \
+  X(PREDICATE, 79, 1, 1, "predicate") \
+  X(PROPERTY, 62, 2, 2, "property") \
+  X(PROPERTYQ, 68, 2, 2, "propertyq") \
+  X(REQUIRED, 145, 1, 2, "required") \
+  X(RETURN, 108, 0, 1, "return") \
+  X(STRING, 240, 0, N, "string") \
+  X(SVALUE, 18, 0, 0, "svalue") \
+  X(SWITCH, 122, 2, N, "switch") \
+  X(TERNARY, 3, 3, 3, "ternary") \
+  X(THROW, 114, 0, 1, "throw") \
+  X(TRUE, 78, 0, 0, "true") \
+  X(TRY, 116, 2, N, "try") \
+  X(TYPE, 246, 0, N, "type") \
+  X(UNARY, 1, 1, 1, "unary") \
+  X(UNION, 205, 1, N, "union") \
+  X(VARARGS, 134, 2, N, "varargs") \
+  X(VOID, 84, 0, 0, "void") \
+  X(WHILE, 74, 2, 2, "while") \
+  X(YIELD, 120, 0, 1, "yield")
 
 // Macro to define operator classes: X(opclass, unique, text)
 #define EGG_VM_OPCLASSES(X) \
-  X(OPCLASS_UNARY, 0, "unary") \
-  X(OPCLASS_BINARY, 2, "binary") \
-  X(OPCLASS_COMPARE, 3, "compare") \
-  X(OPCLASS_TERNARY, 4, "ternary")
+  X(UNARY, 0, "unary") \
+  X(BINARY, 2, "binary") \
+  X(COMPARE, 3, "compare") \
+  X(TERNARY, 4, "ternary")
 
 // Macro to define operators: X(operator, opclass, index, text)
 #define EGG_VM_OPERATORS(X) \
-  X(OPERATOR_ADD, OPCLASS_BINARY, 0, "+") \
-  X(OPERATOR_BITAND, OPCLASS_BINARY, 1, "&") \
-  X(OPERATOR_BITNOT, OPCLASS_UNARY, 0, "~") \
-  X(OPERATOR_BITOR, OPCLASS_BINARY, 2, "|") \
-  X(OPERATOR_BITXOR, OPCLASS_BINARY, 3, "^") \
-  X(OPERATOR_DEREF, OPCLASS_UNARY, 1, "*") \
-  X(OPERATOR_DIV, OPCLASS_BINARY, 4, "/") \
-  X(OPERATOR_EQ, OPCLASS_COMPARE, 0, "==") \
-  X(OPERATOR_GE, OPCLASS_COMPARE, 1, ">=") \
-  X(OPERATOR_GT, OPCLASS_COMPARE, 2, ">") \
-  X(OPERATOR_IFNULL, OPCLASS_BINARY, 5, "??") \
-  X(OPERATOR_LE, OPCLASS_COMPARE, 3, "<=") \
-  X(OPERATOR_LOGAND, OPCLASS_BINARY, 6, "&&") \
-  X(OPERATOR_LOGNOT, OPCLASS_UNARY, 2, "!") \
-  X(OPERATOR_LOGOR, OPCLASS_BINARY, 7, "||") \
-  X(OPERATOR_LT, OPCLASS_COMPARE, 4, "<") \
-  X(OPERATOR_MUL, OPCLASS_BINARY, 8, "*") \
-  X(OPERATOR_NE, OPCLASS_COMPARE, 5, "!=") \
-  X(OPERATOR_NEG, OPCLASS_UNARY, 3, "-") \
-  X(OPERATOR_REF, OPCLASS_UNARY, 4, "&") \
-  X(OPERATOR_REM, OPCLASS_BINARY, 9, "%") \
-  X(OPERATOR_SHIFTL, OPCLASS_BINARY, 10, "<<") \
-  X(OPERATOR_SHIFTR, OPCLASS_BINARY, 11, ">>") \
-  X(OPERATOR_SHIFTU, OPCLASS_BINARY, 12, ">>>") \
-  X(OPERATOR_SUB, OPCLASS_BINARY, 13, "-") \
-  X(OPERATOR_TERNARY, OPCLASS_TERNARY, 0, "?:")
+  X(ADD, BINARY, 0, "+") \
+  X(BITAND, BINARY, 1, "&") \
+  X(BITNOT, UNARY, 0, "~") \
+  X(BITOR, BINARY, 2, "|") \
+  X(BITXOR, BINARY, 3, "^") \
+  X(DEREF, UNARY, 1, "*") \
+  X(DIV, BINARY, 4, "/") \
+  X(EQ, COMPARE, 0, "==") \
+  X(GE, COMPARE, 1, ">=") \
+  X(GT, COMPARE, 2, ">") \
+  X(IFNULL, BINARY, 5, "??") \
+  X(LE, COMPARE, 3, "<=") \
+  X(LOGAND, BINARY, 6, "&&") \
+  X(LOGNOT, UNARY, 2, "!") \
+  X(LOGOR, BINARY, 7, "||") \
+  X(LT, COMPARE, 4, "<") \
+  X(MUL, BINARY, 8, "*") \
+  X(NE, COMPARE, 5, "!=") \
+  X(NEG, UNARY, 3, "-") \
+  X(REF, UNARY, 4, "&") \
+  X(REM, BINARY, 9, "%") \
+  X(SHIFTL, BINARY, 10, "<<") \
+  X(SHIFTR, BINARY, 11, ">>") \
+  X(SHIFTU, BINARY, 12, ">>>") \
+  X(SUB, BINARY, 13, "-") \
+  X(TERNARY, TERNARY, 0, "?:")
 
 // Macro to define basal types: X(type, text)
 #define EGG_VM_TYPES(X) \

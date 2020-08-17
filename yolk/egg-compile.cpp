@@ -39,9 +39,9 @@ egg::yolk::EggProgramCompilerNode& egg::yolk::EggProgramCompilerNode::add(const 
 
 egg::ovum::Node egg::yolk::EggProgramCompilerNode::build() {
   if (!this->failed) {
-    if (this->nodes.empty() && (this->opcode == egg::ovum::OPCODE_BLOCK)) {
+    if (this->nodes.empty() && (this->opcode == egg::ovum::Opcode::BLOCK)) {
       // Handle the special case of empty blocks needing a noop
-      this->add(this->compiler.create(this->location, egg::ovum::OPCODE_NOOP, nullptr));
+      this->add(this->compiler.create(this->location, egg::ovum::Opcode::NOOP, nullptr));
     }
     return this->compiler.create(this->location, this->opcode, &this->nodes);
   }
@@ -62,22 +62,22 @@ egg::ovum::Node egg::yolk::EggProgramCompiler::opcode(const egg::ovum::LocationS
 
 egg::ovum::Node egg::yolk::EggProgramCompiler::ivalue(const egg::ovum::LocationSource& location, egg::ovum::Int value) {
   egg::ovum::NodeLocation loc{ location.line, location.column };
-  return this->create(loc, egg::ovum::OPCODE_IVALUE, nullptr, nullptr, value);
+  return this->create(loc, egg::ovum::Opcode::IVALUE, nullptr, nullptr, value);
 }
 
 egg::ovum::Node egg::yolk::EggProgramCompiler::fvalue(const egg::ovum::LocationSource& location, egg::ovum::Float value) {
   egg::ovum::NodeLocation loc{ location.line, location.column };
-  return this->create(loc, egg::ovum::OPCODE_FVALUE, nullptr, nullptr, value);
+  return this->create(loc, egg::ovum::Opcode::FVALUE, nullptr, nullptr, value);
 }
 
 egg::ovum::Node egg::yolk::EggProgramCompiler::svalue(const egg::ovum::LocationSource& location, const egg::ovum::String& value) {
   egg::ovum::NodeLocation loc{ location.line, location.column };
-  return this->create(loc, egg::ovum::OPCODE_SVALUE, nullptr, nullptr, value);
+  return this->create(loc, egg::ovum::Opcode::SVALUE, nullptr, nullptr, value);
 }
 
 egg::ovum::Node egg::yolk::EggProgramCompiler::type(const egg::ovum::LocationSource& location, const egg::ovum::Type& type) {
   if (type == nullptr) {
-    return this->opcode(location, egg::ovum::OPCODE_INFERRED);
+    return this->opcode(location, egg::ovum::Opcode::INFERRED);
   }
   return type->compile(this->context.allocator(), { location.line, location.column });
 }
@@ -86,43 +86,43 @@ egg::ovum::Node egg::yolk::EggProgramCompiler::identifier(const egg::ovum::Locat
   assert(!id.empty());
   egg::ovum::NodeLocation loc{ location.line, location.column };
   egg::ovum::Nodes children{ this->svalue(location, id) };
-  return this->create(loc, egg::ovum::OPCODE_IDENTIFIER, &children);
+  return this->create(loc, egg::ovum::Opcode::IDENTIFIER, &children);
 }
 
 egg::ovum::Node egg::yolk::EggProgramCompiler::unary(const egg::ovum::LocationSource& location, EggProgramUnary op, const IEggProgramNode& a) {
   switch (op) {
-  case EggProgramUnary::LogicalNot: return this->operation(location, egg::ovum::OPCODE_UNARY, egg::ovum::OPERATOR_LOGNOT, a);
-  case EggProgramUnary::Ref: return this->operation(location, egg::ovum::OPCODE_UNARY, egg::ovum::OPERATOR_REF, a);
-  case EggProgramUnary::Deref: return this->operation(location, egg::ovum::OPCODE_UNARY, egg::ovum::OPERATOR_DEREF, a);
-  case EggProgramUnary::Negate: return this->operation(location, egg::ovum::OPCODE_UNARY, egg::ovum::OPERATOR_NEG, a);
-  case EggProgramUnary::Ellipsis: return this->expression(location, egg::ovum::OPCODE_ELLIPSIS, a);
-  case EggProgramUnary::BitwiseNot: return this->operation(location, egg::ovum::OPCODE_UNARY, egg::ovum::OPERATOR_BITNOT, a);
+  case EggProgramUnary::LogicalNot: return this->operation(location, egg::ovum::Opcode::UNARY, egg::ovum::Operator::LOGNOT, a);
+  case EggProgramUnary::Ref: return this->operation(location, egg::ovum::Opcode::UNARY, egg::ovum::Operator::REF, a);
+  case EggProgramUnary::Deref: return this->operation(location, egg::ovum::Opcode::UNARY, egg::ovum::Operator::DEREF, a);
+  case EggProgramUnary::Negate: return this->operation(location, egg::ovum::Opcode::UNARY, egg::ovum::Operator::NEG, a);
+  case EggProgramUnary::Ellipsis: return this->expression(location, egg::ovum::Opcode::ELLIPSIS, a);
+  case EggProgramUnary::BitwiseNot: return this->operation(location, egg::ovum::Opcode::UNARY, egg::ovum::Operator::BITNOT, a);
   }
   return this->raise("Unsupported unary operator");
 }
 
 egg::ovum::Node egg::yolk::EggProgramCompiler::binary(const egg::ovum::LocationSource& location, EggProgramBinary op, const IEggProgramNode& a, const IEggProgramNode& b) {
   switch (op) {
-  case EggProgramBinary::Unequal: return this->operation(location, egg::ovum::OPCODE_COMPARE, egg::ovum::OPERATOR_NE, a, b);
-  case EggProgramBinary::Remainder: return this->operation(location, egg::ovum::OPCODE_BINARY, egg::ovum::OPERATOR_REM, a, b);
-  case EggProgramBinary::BitwiseAnd: return this->operation(location, egg::ovum::OPCODE_BINARY, egg::ovum::OPERATOR_BITAND, a, b);
-  case EggProgramBinary::LogicalAnd: return this->operation(location, egg::ovum::OPCODE_BINARY, egg::ovum::OPERATOR_LOGAND, a, b);
-  case EggProgramBinary::Multiply: return this->operation(location, egg::ovum::OPCODE_BINARY, egg::ovum::OPERATOR_MUL, a, b);
-  case EggProgramBinary::Plus: return this->operation(location, egg::ovum::OPCODE_BINARY, egg::ovum::OPERATOR_ADD, a, b);
-  case EggProgramBinary::Minus: return this->operation(location, egg::ovum::OPCODE_BINARY, egg::ovum::OPERATOR_SUB, a, b);
-  case EggProgramBinary::Divide: return this->operation(location, egg::ovum::OPCODE_BINARY, egg::ovum::OPERATOR_DIV, a, b);
-  case EggProgramBinary::Less: return this->operation(location, egg::ovum::OPCODE_COMPARE, egg::ovum::OPERATOR_LT, a, b);
-  case EggProgramBinary::ShiftLeft: return this->operation(location, egg::ovum::OPCODE_BINARY, egg::ovum::OPERATOR_SHIFTL, a, b);
-  case EggProgramBinary::LessEqual: return this->operation(location, egg::ovum::OPCODE_COMPARE, egg::ovum::OPERATOR_LE, a, b);
-  case EggProgramBinary::Equal: return this->operation(location, egg::ovum::OPCODE_COMPARE, egg::ovum::OPERATOR_EQ, a, b);
-  case EggProgramBinary::Greater: return this->operation(location, egg::ovum::OPCODE_COMPARE, egg::ovum::OPERATOR_GT, a, b);
-  case EggProgramBinary::GreaterEqual: return this->operation(location, egg::ovum::OPCODE_COMPARE, egg::ovum::OPERATOR_GE, a, b);
-  case EggProgramBinary::ShiftRight: return this->operation(location, egg::ovum::OPCODE_BINARY, egg::ovum::OPERATOR_SHIFTR, a, b);
-  case EggProgramBinary::ShiftRightUnsigned: return this->operation(location, egg::ovum::OPCODE_BINARY, egg::ovum::OPERATOR_SHIFTU, a, b);
-  case EggProgramBinary::NullCoalescing: return this->operation(location, egg::ovum::OPCODE_BINARY, egg::ovum::OPERATOR_IFNULL, a, b);
-  case EggProgramBinary::BitwiseXor: return this->operation(location, egg::ovum::OPCODE_BINARY, egg::ovum::OPERATOR_BITXOR, a, b);
-  case EggProgramBinary::BitwiseOr: return this->operation(location, egg::ovum::OPCODE_BINARY, egg::ovum::OPERATOR_BITOR, a, b);
-  case EggProgramBinary::LogicalOr: return this->operation(location, egg::ovum::OPCODE_BINARY, egg::ovum::OPERATOR_LOGOR, a, b);
+  case EggProgramBinary::Unequal: return this->operation(location, egg::ovum::Opcode::COMPARE, egg::ovum::Operator::NE, a, b);
+  case EggProgramBinary::Remainder: return this->operation(location, egg::ovum::Opcode::BINARY, egg::ovum::Operator::REM, a, b);
+  case EggProgramBinary::BitwiseAnd: return this->operation(location, egg::ovum::Opcode::BINARY, egg::ovum::Operator::BITAND, a, b);
+  case EggProgramBinary::LogicalAnd: return this->operation(location, egg::ovum::Opcode::BINARY, egg::ovum::Operator::LOGAND, a, b);
+  case EggProgramBinary::Multiply: return this->operation(location, egg::ovum::Opcode::BINARY, egg::ovum::Operator::MUL, a, b);
+  case EggProgramBinary::Plus: return this->operation(location, egg::ovum::Opcode::BINARY, egg::ovum::Operator::ADD, a, b);
+  case EggProgramBinary::Minus: return this->operation(location, egg::ovum::Opcode::BINARY, egg::ovum::Operator::SUB, a, b);
+  case EggProgramBinary::Divide: return this->operation(location, egg::ovum::Opcode::BINARY, egg::ovum::Operator::DIV, a, b);
+  case EggProgramBinary::Less: return this->operation(location, egg::ovum::Opcode::COMPARE, egg::ovum::Operator::LT, a, b);
+  case EggProgramBinary::ShiftLeft: return this->operation(location, egg::ovum::Opcode::BINARY, egg::ovum::Operator::SHIFTL, a, b);
+  case EggProgramBinary::LessEqual: return this->operation(location, egg::ovum::Opcode::COMPARE, egg::ovum::Operator::LE, a, b);
+  case EggProgramBinary::Equal: return this->operation(location, egg::ovum::Opcode::COMPARE, egg::ovum::Operator::EQ, a, b);
+  case EggProgramBinary::Greater: return this->operation(location, egg::ovum::Opcode::COMPARE, egg::ovum::Operator::GT, a, b);
+  case EggProgramBinary::GreaterEqual: return this->operation(location, egg::ovum::Opcode::COMPARE, egg::ovum::Operator::GE, a, b);
+  case EggProgramBinary::ShiftRight: return this->operation(location, egg::ovum::Opcode::BINARY, egg::ovum::Operator::SHIFTR, a, b);
+  case EggProgramBinary::ShiftRightUnsigned: return this->operation(location, egg::ovum::Opcode::BINARY, egg::ovum::Operator::SHIFTU, a, b);
+  case EggProgramBinary::NullCoalescing: return this->operation(location, egg::ovum::Opcode::BINARY, egg::ovum::Operator::IFNULL, a, b);
+  case EggProgramBinary::BitwiseXor: return this->operation(location, egg::ovum::Opcode::BINARY, egg::ovum::Operator::BITXOR, a, b);
+  case EggProgramBinary::BitwiseOr: return this->operation(location, egg::ovum::Opcode::BINARY, egg::ovum::Operator::BITOR, a, b);
+  case EggProgramBinary::LogicalOr: return this->operation(location, egg::ovum::Opcode::BINARY, egg::ovum::Operator::LOGOR, a, b);
   case EggProgramBinary::Lambda:
     break;
   }
@@ -131,48 +131,48 @@ egg::ovum::Node egg::yolk::EggProgramCompiler::binary(const egg::ovum::LocationS
 
 egg::ovum::Node egg::yolk::EggProgramCompiler::ternary(const egg::ovum::LocationSource& location, EggProgramTernary op, const IEggProgramNode& a, const IEggProgramNode& b, const IEggProgramNode& c) {
   switch (op) {
-  case EggProgramTernary::Ternary: return this->operation(location, egg::ovum::OPCODE_TERNARY, egg::ovum::OPERATOR_TERNARY, a, b, c);
+  case EggProgramTernary::Ternary: return this->operation(location, egg::ovum::Opcode::TERNARY, egg::ovum::Operator::TERNARY, a, b, c);
   }
   return this->raise("Unsupported ternary operator");
 }
 
 egg::ovum::Node egg::yolk::EggProgramCompiler::mutate(const egg::ovum::LocationSource& location, EggProgramMutate op, const IEggProgramNode& a) {
   switch (op) {
-  case EggProgramMutate::Decrement: return this->statement(location, egg::ovum::OPCODE_DECREMENT, a);
-  case EggProgramMutate::Increment: return this->statement(location, egg::ovum::OPCODE_INCREMENT, a);
+  case EggProgramMutate::Decrement: return this->statement(location, egg::ovum::Opcode::DECREMENT, a);
+  case EggProgramMutate::Increment: return this->statement(location, egg::ovum::Opcode::INCREMENT, a);
   }
   return this->raise("Unsupported mutation operator");
 }
 
 egg::ovum::Node egg::yolk::EggProgramCompiler::assign(const egg::ovum::LocationSource& location, EggProgramAssign op, const IEggProgramNode& a, const IEggProgramNode& b) {
   switch (op) {
-  case EggProgramAssign::Remainder: return this->operation(location, egg::ovum::OPCODE_MUTATE, egg::ovum::OPERATOR_REM, a, b);
-  case EggProgramAssign::BitwiseAnd: return this->operation(location, egg::ovum::OPCODE_MUTATE, egg::ovum::OPERATOR_BITAND, a, b);
-  case EggProgramAssign::LogicalAnd: return this->operation(location, egg::ovum::OPCODE_MUTATE, egg::ovum::OPERATOR_LOGAND, a, b);
-  case EggProgramAssign::Multiply: return this->operation(location, egg::ovum::OPCODE_MUTATE, egg::ovum::OPERATOR_MUL, a, b);
-  case EggProgramAssign::Plus: return this->operation(location, egg::ovum::OPCODE_MUTATE, egg::ovum::OPERATOR_ADD, a, b);
-  case EggProgramAssign::Minus: return this->operation(location, egg::ovum::OPCODE_MUTATE, egg::ovum::OPERATOR_SUB, a, b);
-  case EggProgramAssign::Divide: return this->operation(location, egg::ovum::OPCODE_MUTATE, egg::ovum::OPERATOR_DIV, a, b);
-  case EggProgramAssign::ShiftLeft: return this->operation(location, egg::ovum::OPCODE_MUTATE, egg::ovum::OPERATOR_SHIFTL, a, b);
-  case EggProgramAssign::Equal: return this->statement(location, egg::ovum::OPCODE_ASSIGN, a, b);
-  case EggProgramAssign::ShiftRight: return this->operation(location, egg::ovum::OPCODE_MUTATE, egg::ovum::OPERATOR_SHIFTR, a, b);
-  case EggProgramAssign::ShiftRightUnsigned: return this->operation(location, egg::ovum::OPCODE_MUTATE, egg::ovum::OPERATOR_SHIFTU, a, b);
-  case EggProgramAssign::NullCoalescing: return this->operation(location, egg::ovum::OPCODE_MUTATE, egg::ovum::OPERATOR_IFNULL, a, b);
-  case EggProgramAssign::BitwiseXor: return this->operation(location, egg::ovum::OPCODE_MUTATE, egg::ovum::OPERATOR_BITXOR, a, b);
-  case EggProgramAssign::BitwiseOr: return this->operation(location, egg::ovum::OPCODE_MUTATE, egg::ovum::OPERATOR_BITOR, a, b);
-  case EggProgramAssign::LogicalOr: return this->operation(location, egg::ovum::OPCODE_MUTATE, egg::ovum::OPERATOR_LOGOR, a, b);
+  case EggProgramAssign::Remainder: return this->operation(location, egg::ovum::Opcode::MUTATE, egg::ovum::Operator::REM, a, b);
+  case EggProgramAssign::BitwiseAnd: return this->operation(location, egg::ovum::Opcode::MUTATE, egg::ovum::Operator::BITAND, a, b);
+  case EggProgramAssign::LogicalAnd: return this->operation(location, egg::ovum::Opcode::MUTATE, egg::ovum::Operator::LOGAND, a, b);
+  case EggProgramAssign::Multiply: return this->operation(location, egg::ovum::Opcode::MUTATE, egg::ovum::Operator::MUL, a, b);
+  case EggProgramAssign::Plus: return this->operation(location, egg::ovum::Opcode::MUTATE, egg::ovum::Operator::ADD, a, b);
+  case EggProgramAssign::Minus: return this->operation(location, egg::ovum::Opcode::MUTATE, egg::ovum::Operator::SUB, a, b);
+  case EggProgramAssign::Divide: return this->operation(location, egg::ovum::Opcode::MUTATE, egg::ovum::Operator::DIV, a, b);
+  case EggProgramAssign::ShiftLeft: return this->operation(location, egg::ovum::Opcode::MUTATE, egg::ovum::Operator::SHIFTL, a, b);
+  case EggProgramAssign::Equal: return this->statement(location, egg::ovum::Opcode::ASSIGN, a, b);
+  case EggProgramAssign::ShiftRight: return this->operation(location, egg::ovum::Opcode::MUTATE, egg::ovum::Operator::SHIFTR, a, b);
+  case EggProgramAssign::ShiftRightUnsigned: return this->operation(location, egg::ovum::Opcode::MUTATE, egg::ovum::Operator::SHIFTU, a, b);
+  case EggProgramAssign::NullCoalescing: return this->operation(location, egg::ovum::Opcode::MUTATE, egg::ovum::Operator::IFNULL, a, b);
+  case EggProgramAssign::BitwiseXor: return this->operation(location, egg::ovum::Opcode::MUTATE, egg::ovum::Operator::BITXOR, a, b);
+  case EggProgramAssign::BitwiseOr: return this->operation(location, egg::ovum::Opcode::MUTATE, egg::ovum::Operator::BITOR, a, b);
+  case EggProgramAssign::LogicalOr: return this->operation(location, egg::ovum::Opcode::MUTATE, egg::ovum::Operator::LOGOR, a, b);
   }
   return this->raise("Unsupported assignment operator");
 }
 
 egg::ovum::Node egg::yolk::EggProgramCompiler::predicate(const egg::ovum::LocationSource& location, EggProgramBinary op, const IEggProgramNode& a, const IEggProgramNode& b) {
   auto child = this->binary(location, op, a, b);
-  return this->expression(location, egg::ovum::OPCODE_PREDICATE, child);
+  return this->expression(location, egg::ovum::Opcode::PREDICATE, child);
 }
 
 egg::ovum::Node egg::yolk::EggProgramCompiler::noop(const egg::ovum::LocationSource& location, const IEggProgramNode* node) {
   if (node == nullptr) {
-    return this->opcode(location, egg::ovum::OPCODE_NOOP);
+    return this->opcode(location, egg::ovum::Opcode::NOOP);
   }
   return node->compile(*this);
 }

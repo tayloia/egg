@@ -1,19 +1,19 @@
 namespace egg::ovum {
-  enum Opcode {
+  enum class Opcode {
 #define EGG_VM_OPCODES_ENUM(opcode, minbyte, minargs, maxargs, text) opcode = minbyte,
     EGG_VM_OPCODES(EGG_VM_OPCODES_ENUM)
 #undef EGG_VM_OPCODES_ENUM
-    OPCODE_reserved = -1
+    reserved = -1
   };
 
-  enum Opclass {
+  enum class Opclass {
 #define EGG_VM_OPCLASSES_ENUM(opclass, value, text) opclass = value,
     EGG_VM_OPCLASSES(EGG_VM_OPCLASSES_ENUM)
 #undef EGG_VM_OPCLASSES_ENUM
   };
 
-  enum Operator {
-#define EGG_VM_OPERATORS_ENUM(oper, opclass, index, text) oper = opclass * EGG_VM_OCSTEP + index,
+  enum class Operator {
+#define EGG_VM_OPERATORS_ENUM(oper, opclass, index, text) oper = size_t(Opclass::opclass) * EGG_VM_OCSTEP + index,
     EGG_VM_OPERATORS(EGG_VM_OPERATORS_ENUM)
 #undef EGG_VM_OPERATORS_ENUM
   };
