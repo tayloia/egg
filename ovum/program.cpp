@@ -1667,24 +1667,24 @@ namespace {
         return vb;
       }
       if (va.isFloat()) {
-        auto da = va.getFloat();
-        if (std::isnan(da)) {
+        auto fa = va.getFloat();
+        if (std::isnan(fa)) {
           // An IEEE NaN does not compare with anything, even other NaNs
           return false;
         }
         if (vb.isFloat()) {
           // Comparing float with float
-          auto db = vb.getFloat();
-          if (std::isnan(db)) {
+          auto fb = vb.getFloat();
+          if (std::isnan(fb)) {
             // An IEEE NaN does not compare with anything, even other NaNs
             return false;
           }
-          return bool((da < db) ^ invert); // need to force bool-ness
+          return bool((fa < fb) ^ invert); // need to force bool-ness
         }
         if (vb.isInt()) {
           // Comparing float with int
           auto ib = vb.getInt();
-          return bool((da < ib) ^ invert); // need to force bool-ness
+          return bool((fa < Float(ib)) ^ invert); // need to force bool-ness
         }
         auto side = ((oper == OPERATOR_GT) || (oper == OPERATOR_LE)) ? "left" : "right";
         auto sign = OperatorProperties::str(oper);
@@ -1694,12 +1694,12 @@ namespace {
         auto ia = va.getInt();
         if (vb.isFloat()) {
           // Comparing int with float
-          auto db = vb.getFloat();
-          if (std::isnan(db)) {
+          auto fb = vb.getFloat();
+          if (std::isnan(fb)) {
             // An IEEE NaN does not compare with anything
             return false;
           }
-          return bool((ia < db) ^ invert); // need to force bool-ness
+          return bool((Float(ia) < fb) ^ invert); // need to force bool-ness
         }
         if (vb.isInt()) {
           // Comparing int with int

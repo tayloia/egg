@@ -4,8 +4,7 @@
 
 namespace {
   bool arithmeticEqual(double a, int64_t b) {
-    // TODO
-    return a == b;
+    return std::isfinite(a) && (int64_t(a) == b) && (a == double(b));
   }
 
   struct FloatParts {

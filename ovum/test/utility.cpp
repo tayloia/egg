@@ -31,8 +31,8 @@ TEST(TestUtility, MantissaExponent) {
   TEST_ME(-ten, -5, 1);
   // almost one
   auto mantissaBits = Limits::digits;
-  auto mantissaMax = Float(1ull << mantissaBits);
-  auto almost = (mantissaMax - 1) / mantissaMax;
+  auto mantissaMax = Int(1ull << mantissaBits);
+  auto almost = Float(mantissaMax - 1) / Float(mantissaMax);
   TEST_ME(almost, mantissaMax - 1, -mantissaBits);
   TEST_ME(-almost, -mantissaMax + 1, -mantissaBits);
   // epsilon
