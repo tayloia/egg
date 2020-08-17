@@ -261,11 +261,11 @@ void egg::yolk::EggProgramSymbol::setInferredType(const egg::ovum::Type& inferre
 egg::ovum::Variant egg::yolk::EggProgramSymbol::assign(EggProgramContext& context, const egg::ovum::Variant& rhs) {
   // Ask the type to assign the value so that type promotion can occur
   switch (this->kind) {
-  case Builtin:
+  case Kind::Builtin:
     return context.raiseFormat("Cannot re-assign built-in value: '", this->name, "'");
-  case Readonly:
+  case Kind::Readonly:
     return context.raiseFormat("Cannot modify read-only variable: '", this->name, "'");
-  case ReadWrite:
+  case Kind::ReadWrite:
   default:
     break;
   }
@@ -314,7 +314,7 @@ void egg::yolk::EggProgramSymbolTable::addBuiltins() {
 }
 
 void egg::yolk::EggProgramSymbolTable::addBuiltin(const std::string& name, const egg::ovum::Variant& value) {
-  (void)this->addSymbol(EggProgramSymbol::Builtin, name, value.getRuntimeType(), value);
+  (void)this->addSymbol(EggProgramSymbol::Kind::Builtin, name, value.getRuntimeType(), value);
 }
 
 std::shared_ptr<egg::yolk::EggProgramSymbol> egg::yolk::EggProgramSymbolTable::addSymbol(EggProgramSymbol::Kind kind, const egg::ovum::String& name, const egg::ovum::Type& type, const egg::ovum::Variant& value) {
@@ -341,7 +341,7 @@ std::shared_ptr<egg::yolk::EggProgramSymbol> egg::yolk::EggProgramSymbolTable::f
 std::string egg::yolk::EggProgram::unaryToString(egg::yolk::EggProgramUnary op) {
   static const char* const table[] = {
     EGG_PROGRAM_UNARY_OPERATORS(EGG_PROGRAM_OPERATOR_STRING)
-    nullptr // Stops GCC 7.3 complaining with error: array subscript is above array bounds [-Werror=array-bounds]
+    "" // Stops GCC 7.3 complaining with error: array subscript is above array bounds [-Werror=array-bounds]
   };
   auto index = static_cast<size_t>(op);
   assert(index < EGG_NELEMS(table));
@@ -351,7 +351,7 @@ std::string egg::yolk::EggProgram::unaryToString(egg::yolk::EggProgramUnary op) 
 std::string egg::yolk::EggProgram::binaryToString(egg::yolk::EggProgramBinary op) {
   static const char* const table[] = {
     EGG_PROGRAM_BINARY_OPERATORS(EGG_PROGRAM_OPERATOR_STRING)
-    nullptr // Stops GCC 7.3 complaining with error: array subscript is above array bounds [-Werror=array-bounds]
+    "" // Stops GCC 7.3 complaining with error: array subscript is above array bounds [-Werror=array-bounds]
   };
   auto index = static_cast<size_t>(op);
   assert(index < EGG_NELEMS(table));
@@ -361,7 +361,7 @@ std::string egg::yolk::EggProgram::binaryToString(egg::yolk::EggProgramBinary op
 std::string egg::yolk::EggProgram::assignToString(egg::yolk::EggProgramAssign op) {
   static const char* const table[] = {
     EGG_PROGRAM_ASSIGN_OPERATORS(EGG_PROGRAM_OPERATOR_STRING)
-    nullptr // Stops GCC 7.3 complaining with error: array subscript is above array bounds [-Werror=array-bounds]
+    "" // Stops GCC 7.3 complaining with error: array subscript is above array bounds [-Werror=array-bounds]
   };
   auto index = static_cast<size_t>(op);
   assert(index < EGG_NELEMS(table));
@@ -371,7 +371,7 @@ std::string egg::yolk::EggProgram::assignToString(egg::yolk::EggProgramAssign op
 std::string egg::yolk::EggProgram::mutateToString(egg::yolk::EggProgramMutate op) {
   static const char* const table[] = {
     EGG_PROGRAM_MUTATE_OPERATORS(EGG_PROGRAM_OPERATOR_STRING)
-    nullptr // Stops GCC 7.3 complaining with error: array subscript is above array bounds [-Werror=array-bounds]
+    "" // Stops GCC 7.3 complaining with error: array subscript is above array bounds [-Werror=array-bounds]
   };
   auto index = static_cast<size_t>(op);
   assert(index < EGG_NELEMS(table));

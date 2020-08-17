@@ -4,7 +4,6 @@ namespace egg::ovum {
     size_t line;
     size_t column;
 
-    inline LocationSource() = default;
     inline LocationSource(const LocationSource& rhs) = default;
     inline LocationSource(const String& file, size_t line, size_t column)
       : file(file), line(line), column(column) {

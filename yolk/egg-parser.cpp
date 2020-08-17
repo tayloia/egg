@@ -88,7 +88,7 @@ namespace {
     std::ostream* os;
   public:
     ParserDump(std::ostream& os, const char* text)
-      :os(&os) {
+      : os(&os) {
       *this->os << '(' << text;
     }
     ~ParserDump() {
@@ -123,6 +123,10 @@ namespace {
       *this->os << ' ' << item;
       return *this;
     }
+    static void simple(std::ostream& os, const char* text) {
+      os << '(' << text << ')';
+    }
+
   };
 
   class EggParserNodeBase : public IEggProgramNode {
@@ -352,7 +356,7 @@ namespace {
       return context.executeBreak(*this);
     }
     virtual void dump(std::ostream& os) const override {
-      ParserDump(os, "break");
+      ParserDump::simple(os, "break");
     }
     virtual egg::ovum::Node compile(EggProgramCompiler& compiler) const override {
       return compiler.opcode(this->locationSource, egg::ovum::Opcode::BREAK);
@@ -397,7 +401,7 @@ namespace {
       return context.executeContinue(*this);
     }
     virtual void dump(std::ostream& os) const override {
-      ParserDump(os, "continue");
+      ParserDump::simple(os, "continue");
     }
     virtual egg::ovum::Node compile(EggProgramCompiler& compiler) const override {
       return compiler.opcode(this->locationSource, egg::ovum::Opcode::CONTINUE);
@@ -1005,7 +1009,7 @@ namespace {
       return context.executeLiteral(*this, egg::ovum::Variant::Null);
     }
     virtual void dump(std::ostream& os) const override {
-      ParserDump(os, "literal null");
+      ParserDump::simple(os, "literal null");
     }
     virtual egg::ovum::Node compile(EggProgramCompiler& compiler) const override {
       return compiler.opcode(this->locationSource, egg::ovum::Opcode::NULL_);

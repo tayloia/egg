@@ -49,7 +49,7 @@ egg::ovum::Memory egg::ovum::MemoryFactory::createImmutable(IAllocator& allocato
   }
   auto* immutable = allocator.create<MemoryContiguous>(bytes, allocator, bytes, tag);
   assert(immutable != nullptr);
-  if (bytes > 0) {
+  if ((src != nullptr) && (bytes > 0)) {
     std::memcpy(immutable->base(), src, bytes);
   }
   return egg::ovum::Memory(immutable);

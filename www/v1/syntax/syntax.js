@@ -2,7 +2,7 @@
 /*jslint bitwise:true*/
 /*jshint loopfunc:true*/
 /*eslint no-extra-parens:0*/
-/*globals egg*/
+/*globals egg:writable*/
 if (typeof egg === "undefined") {
   egg = {};
 }

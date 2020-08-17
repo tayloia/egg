@@ -3,7 +3,10 @@
 // Reduce the warning level in MSVC
 #if defined(_MSC_VER)
 #pragma warning(push, 3)
+// Compiler warnings
 #pragma warning(disable: 4571 5045)
+// Code analysis/Intellisense warnings
+#pragma warning(disable: 6011 6031 6387 26451 26495 26812)
 #endif
 
 // Fix GCC GoogleTest issue 1521

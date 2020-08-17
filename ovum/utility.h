@@ -217,7 +217,7 @@ namespace egg::ovum {
       this->set(rhs.get());
       return *this;
     }
-    HardPtr& operator=(HardPtr&& rhs) {
+    HardPtr& operator=(HardPtr&& rhs) noexcept {
       if (this->ptr != nullptr) {
         this->ptr->hardRelease();
       }

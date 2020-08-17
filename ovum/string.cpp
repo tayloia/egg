@@ -355,7 +355,7 @@ int64_t egg::ovum::String::compareTo(const String& other) const {
   } else {
     cmp = std::memcmp(lhs->begin(), rhs->begin(), rsize);
   }
-  return (cmp > 0) - (cmp < 0); // ensure {-1,0,+1}
+  return int64_t(cmp > 0) - int64_t(cmp < 0); // ensure {-1,0,+1}
 }
 
 bool egg::ovum::String::contains(const String& needle) const {

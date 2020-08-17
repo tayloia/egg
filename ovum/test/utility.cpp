@@ -36,24 +36,24 @@ TEST(TestUtility, MantissaExponent) {
   TEST_ME(almost, mantissaMax - 1, -mantissaBits);
   TEST_ME(-almost, -mantissaMax + 1, -mantissaBits);
   // epsilon
-  auto epsilon = Limits::epsilon();
+  constexpr auto epsilon = Limits::epsilon();
   TEST_ME(epsilon, 1, 1 - mantissaBits);
   TEST_ME(-epsilon, -1, 1 - mantissaBits);
   // tiny (smallest positive normal)
-  auto exponentMax = Limits::max_exponent;
-  auto tiny = Limits::min();
+  constexpr auto exponentMax = Limits::max_exponent;
+  constexpr auto tiny = Limits::min();
   TEST_ME(tiny, 1, -exponentMax + 2);
   TEST_ME(-tiny, -1, -exponentMax + 2);
   // lowest (most negative normal)
-  auto lowest = Limits::lowest();
+  constexpr auto lowest = Limits::lowest();
   TEST_ME(lowest, -mantissaMax + 1, exponentMax - mantissaBits);
   TEST_ME(-lowest, +mantissaMax - 1, exponentMax - mantissaBits);
   // highest (most positive normal)
-  auto highest = Limits::max();
+  constexpr auto highest = Limits::max();
   TEST_ME(highest, mantissaMax - 1, exponentMax - mantissaBits);
   TEST_ME(-highest, -mantissaMax + 1, exponentMax - mantissaBits);
   // infinity
-  auto infinity = Limits::infinity();
+  constexpr auto infinity = Limits::infinity();
   TEST_ME(infinity, 0, MantissaExponent::ExponentPositiveInfinity);
   TEST_ME(-infinity, 0, MantissaExponent::ExponentNegativeInfinity);
   // not a number (cannot test equality)

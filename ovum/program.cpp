@@ -553,7 +553,8 @@ namespace {
       : HardReferenceCounted(allocator, 0),
         logger(logger),
         basket(&basket),
-        symtable(allocator.make<SymbolTable>()) {
+        symtable(allocator.make<SymbolTable>()),
+        location({}, 0, 0) {
       this->basket->take(*this->symtable);
     }
     virtual ~ProgramDefault() {

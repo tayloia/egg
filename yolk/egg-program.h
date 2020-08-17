@@ -58,7 +58,7 @@ namespace egg::yolk {
 
   class EggProgramSymbol {
   public:
-    enum Kind { Builtin, Readonly, ReadWrite };
+    enum class Kind { Builtin, Readonly, ReadWrite };
   private:
     Kind kind;
     egg::ovum::String name;

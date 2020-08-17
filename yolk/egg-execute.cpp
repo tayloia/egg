@@ -70,7 +70,7 @@ egg::ovum::Variant egg::yolk::EggProgramContext::executeScope(const IEggProgramN
   if ((node != nullptr) && node->symbol(name, type)) {
     // Perform the action with a new scope containing our symbol
     auto nested = this->getAllocator().make<EggProgramSymbolTable>(this->symtable.get());
-    nested->addSymbol(EggProgramSymbol::ReadWrite, name, type);
+    nested->addSymbol(EggProgramSymbol::Kind::ReadWrite, name, type);
     auto context = this->createNestedContext(*nested);
     return action(*context);
   }
@@ -85,7 +85,7 @@ egg::ovum::Variant egg::yolk::EggProgramContext::executeStatements(const std::ve
   for (auto& statement : statements) {
     if (statement->symbol(name, type)) {
       // We've checked for duplicate symbols already
-      this->symtable->addSymbol(EggProgramSymbol::ReadWrite, name, type);
+      this->symtable->addSymbol(EggProgramSymbol::Kind::ReadWrite, name, type);
     }
     auto retval = statement->execute(*this);
     if (retval.hasFlowControl()) {
@@ -379,7 +379,7 @@ egg::ovum::Variant egg::yolk::EggProgramContext::executeFunctionCall(const egg::
     auto pvalue = parameters.getPositional(i);
     assert(!pvalue.hasFlowControl());
     // Use 'assign' to perform promotion, etc.
-    auto result = nested->addSymbol(EggProgramSymbol::ReadWrite, pname, ptype)->assign(*this, pvalue);
+    auto result = nested->addSymbol(EggProgramSymbol::Kind::ReadWrite, pname, ptype)->assign(*this, pvalue);
     if (result.hasFlowControl()) {
       // Re-create the exception with the parameter name included
       auto* plocation = parameters.getPositionalLocation(i);
@@ -528,7 +528,7 @@ egg::ovum::Variant egg::yolk::EggProgramContext::executeCatch(const IEggProgramN
   assert(!exception->hasFlowControl());
   // TODO return false if typeof(exception) != type
   auto nested = this->getAllocator().make<EggProgramSymbolTable>(this->symtable.get());
-  nested->addSymbol(EggProgramSymbol::ReadWrite, name, type.getType(), *exception);
+  nested->addSymbol(EggProgramSymbol::Kind::ReadWrite, name, type.getType(), *exception);
   auto context = this->createNestedContext(*nested);
   auto retval = block.execute(*context);
   if (retval.hasFlowControl()) {

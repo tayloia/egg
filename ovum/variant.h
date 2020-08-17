@@ -104,7 +104,7 @@ namespace egg::ovum {
       assert(rhs.validate());
       return *this;
     }
-    Variant& operator=(Variant&& rhs) {
+    Variant& operator=(Variant&& rhs) noexcept {
       // See https://stackoverflow.com/a/9322542
       assert(this->validate());
       assert(rhs.validate());

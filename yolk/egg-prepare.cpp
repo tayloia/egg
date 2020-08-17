@@ -50,7 +50,7 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareScope(const 
   if ((node != nullptr) && node->symbol(name, type)) {
     // Perform the action with a new scope containing our symbol
     auto nested = this->getAllocator().make<EggProgramSymbolTable>(this->symtable.get());
-    nested->addSymbol(EggProgramSymbol::ReadWrite, name, type);
+    nested->addSymbol(EggProgramSymbol::Kind::ReadWrite, name, type);
     auto context = this->createNestedContext(*nested, this->scopeFunction);
     return action(*context);
   }
@@ -71,7 +71,7 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareStatements(c
     }
     if (statement->symbol(name, type)) {
       // We've checked for duplicate symbols already
-      this->symtable->addSymbol(EggProgramSymbol::ReadWrite, name, type);
+      this->symtable->addSymbol(EggProgramSymbol::Kind::ReadWrite, name, type);
     }
     retval = statement->prepare(*this);
     if (abandoned(retval)) {
@@ -235,7 +235,7 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareCatch(const 
     return EggProgramNodeFlags::Abandon;
   }
   auto nested = this->getAllocator().make<EggProgramSymbolTable>(this->symtable.get());
-  nested->addSymbol(EggProgramSymbol::ReadWrite, name, type.getType());
+  nested->addSymbol(EggProgramSymbol::Kind::ReadWrite, name, type.getType());
   auto context = this->createNestedContext(*nested, this->scopeFunction);
   return block.prepare(*context);
 }
@@ -318,7 +318,7 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareFunctionDefi
   auto n = callable->getParameterCount();
   for (size_t i = 0; i < n; ++i) {
     auto& parameter = callable->getParameter(i);
-    nested->addSymbol(EggProgramSymbol::ReadWrite, parameter.getName(), parameter.getType());
+    nested->addSymbol(EggProgramSymbol::Kind::ReadWrite, parameter.getName(), parameter.getType());
   }
   auto rettype = callable->getReturnType();
   // This structure will be overwritten later if this is actually a generator definition
