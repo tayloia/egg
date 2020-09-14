@@ -3,10 +3,6 @@
 #include <cmath>
 
 namespace {
-  bool arithmeticEqual(double a, int64_t b) {
-    return std::isfinite(a) && (int64_t(a) == b) && (a == double(b));
-  }
-
   struct FloatParts {
     constexpr static size_t MANTISSA_CHARS = 32;
 
@@ -193,18 +189,6 @@ namespace {
   }
 }
 
-void egg::ovum::VariantKind::printTo(std::ostream& stream, VariantBits kind) {
-  // This is used by GoogleTest's ::testing::internal::PrintTo
-  size_t found = 0;
-#define EGG_OVUM_VARIANT_PRINT(name, text) if (Bits::hasAnySet(kind, VariantBits::name)) { if (++found > 1) { stream << '|'; } stream << #name; }
-  EGG_OVUM_VARIANT(EGG_OVUM_VARIANT_PRINT)
-#undef EGG_OVUM_VARIANT_PRINT
-  // cppcheck-suppress knownConditionTrueFalse
-  if (found == 0) {
-    stream << '(' << int(kind) << ')';
-  }
-}
-
 class egg::ovum::VariantSoft : public SoftReferenceCounted<IVariantSoft> { 
   VariantSoft(const VariantSoft&) = delete;
   VariantSoft& operator=(const VariantSoft&) = delete;
@@ -214,269 +198,47 @@ public:
   VariantSoft(IAllocator& allocator, Variant&& value)
     : SoftReferenceCounted(allocator),
       variant(std::move(value)) {
-    assert(this->variant.validate(true));
+    assert(this->variant.validate()); // VIBBLE validate soft
   }
   virtual Variant& getVariant() override {
-    assert(this->variant.validate(true));
+    assert(this->variant.validate()); // VIBBLE validate soft
     return this->variant;
   }
   virtual Type getPointerType() const override {
-    assert(this->variant.validate(true));
+    assert(this->variant.validate()); // VIBBLE validate soft
     return Type::makePointer(this->allocator, *this->variant.getRuntimeType());
   }
-  virtual void softVisitLinks(const Visitor& visitor) const override {
-    assert(this->variant.validate(true));
-    if (!this->variant.hasAny(VariantBits::Hard)) {
-      if (this->variant.hasAny(VariantBits::Object)) {
-        // Soft reference to an object
-        assert(this->variant.u.o != nullptr);
-        visitor(*this->variant.u.o);
-      } else if (this->variant.hasAny(VariantBits::Pointer | VariantBits::Indirect)) {
-        // Soft pointer or soft indirect
-        assert(this->variant.u.p != nullptr);
-        visitor(*this->variant.u.p);
-      }
-    }
+  virtual void softVisitLinks(const Visitor&) const override {
+    assert(this->variant.validate()); // VIBBLE validate soft
+    assert(false); // VIBBLE
   }
 };
 
-// Trivial constant values
-const egg::ovum::Variant egg::ovum::Variant::Void{ VariantBits::Void };
-const egg::ovum::Variant egg::ovum::Variant::Null{ VariantBits::Null };
-const egg::ovum::Variant egg::ovum::Variant::False{ false };
-const egg::ovum::Variant egg::ovum::Variant::True{ true };
-const egg::ovum::Variant egg::ovum::Variant::EmptyString{ String() };
-const egg::ovum::Variant egg::ovum::Variant::Break{ VariantBits::Break };
-const egg::ovum::Variant egg::ovum::Variant::Continue{ VariantBits::Continue };
-const egg::ovum::Variant egg::ovum::Variant::Rethrow{ VariantBits::Throw | VariantBits::Void };
-const egg::ovum::Variant egg::ovum::Variant::ReturnVoid{ VariantBits::Return | VariantBits::Void };
-
-#if !defined(NDEBUG)
-namespace {
-  bool clearBit(egg::ovum::VariantBits& bits, egg::ovum::VariantBits mask) {
-    if (egg::ovum::Bits::hasOneSet(bits, mask)) {
-      bits = egg::ovum::Bits::clear(bits, mask);
-      return true;
-    }
-    return false;
-  }
+bool egg::ovum::Variant::validate() const {
+  return this->underlying.validate();
 }
 
-bool egg::ovum::Variant::validate(bool soft) const {
-  const auto zero = VariantBits(0);
-  auto bits = this->kind;
-  if (clearBit(bits, VariantBits::Break | VariantBits::Continue)) {
-    // These flow controls have no parameters
-    assert(bits == zero);
-    return true;
-  }
-  if (clearBit(bits, VariantBits::Return | VariantBits::Yield | VariantBits::Throw)) {
-    // These flow controls have additional data
-    assert(bits != zero);
-  }
-  if (clearBit(bits, VariantBits::Hard)) {
-    if (clearBit(bits, VariantBits::Memory)) {
-      // Memory is always hard but may not be null
-      assert(this->u.s != nullptr);
-      assert(bits == zero);
-      return true;
-    }
-    if (clearBit(bits, VariantBits::String)) {
-      // Strings are always hard and may be null/empty
-      assert(bits == zero);
-      return true;
-    }
-    assert(!soft);
-    assert((bits == VariantBits::Pointer) || (bits == VariantBits::Indirect) || (bits == VariantBits::Object));
-  }
-  if (clearBit(bits, VariantBits::Pointer | VariantBits::Indirect)) {
-    // Pointers/indirections cannot be null
-    assert(this->u.p != nullptr);
-    assert(bits == zero);
-    return true;
-  }
-  if (clearBit(bits, VariantBits::Object)) {
-    // Object cannot be null
-    assert(this->u.o != nullptr);
-    assert(bits == zero);
-    return true;
-  }
-  if (clearBit(bits, VariantBits::Bool)) {
-    // Check that there isn't garbage in a bool
-    assert((this->u.b == false) || (this->u.b == true));
-    assert(bits == zero);
-    return true;
-  }
-  if (clearBit(bits, VariantBits::Void | VariantBits::Null | VariantBits::Int | VariantBits::Float)) {
-    // Cannot check the values here
-    assert(bits == zero);
-    return true;
-  }
-  assert(bits == zero);
-  return false;
-}
-#endif
-
-const egg::ovum::Variant& egg::ovum::Variant::direct() const {
-  return const_cast<Variant*>(this)->direct();
-}
-
-egg::ovum::Variant& egg::ovum::Variant::direct() {
-  assert(this->validate());
-  auto* p = this;
-  assert(p != nullptr);
-  if (p->hasIndirect()) {
-    assert(p->u.p != nullptr);
-    p = &p->u.p->getVariant();
-    assert(p != nullptr);
-    assert(!p->hasFlowControl());
-    assert(!(p->hasIndirect()));
-    assert(p->validate());
-  }
-  return *p;
-}
-
-void egg::ovum::Variant::indirect(IAllocator& allocator, IBasket& basket) {
-  // Make this value indirect (i.e. heap-based)
-  assert(this->validate());
-  if (!this->hasIndirect()) {
-    // Create a soft reference to a soft copy
-    auto heap = VariantFactory::createVariantSoft(allocator, basket, std::move(*this));
-    assert(this->kind == VariantBits::Void); // as a side-effect of the move
-    this->kind = VariantBits::Indirect;
-    this->u.p = heap.get();
-    assert(heap != nullptr);
-  }
+void egg::ovum::Variant::soften(IBasket&) {
+  // VIBBLE
   assert(this->validate());
 }
 
-egg::ovum::Variant egg::ovum::Variant::address() const {
-  // Create a hard pointer to this indirect value
-  assert(this->validate(true));
-  assert(this->hasIndirect());
-  return Variant(VariantBits::Pointer | VariantBits::Hard, *this->u.p);
-}
-
-void egg::ovum::Variant::soften(IBasket& basket) {
+void egg::ovum::Variant::softVisitLink(const egg::ovum::ICollectable::Visitor&) const {
+  // VIBBLE
   assert(this->validate());
-  if (this->hasAny(VariantBits::Hard)) {
-    ICollectable* hard;
-    if (this->hasAny(VariantBits::Object)) {
-      // This is a hard pointer to an IObject, make it a soft pointer, if possible
-      hard = this->u.o;
-    } else if (this->hasAny(VariantBits::Pointer | VariantBits::Indirect)) {
-      // This is a hard pointer to an IVariantSoft, make it a soft pointer, if possible
-      hard = this->u.p;
-    } else {
-      // We cannot soften string (there's no need)
-      assert(this->isString());
-      return;
-    }
-    assert(hard != nullptr);
-    if (hard->softGetBasket() == nullptr) {
-      // Need to add it to the basket
-      basket.take(*hard);
-    }
-    assert(hard->softGetBasket() == &basket);
-    // Successfully linked in the basket, so release our hard reference
-    this->kind = Bits::clear(this->kind, VariantBits::Hard);
-    hard->hardRelease();
-  }
-  assert(this->validate());
-}
-
-bool egg::ovum::Variant::equals(const Variant& lhs, const Variant& rhs) {
-  assert(lhs.validate());
-  assert(rhs.validate());
-  auto& da = lhs.direct();
-  auto& db = rhs.direct();
-  auto ka = Bits::clear(da.kind, VariantBits::Hard);
-  auto kb = Bits::clear(db.kind, VariantBits::Hard);
-  auto& a = da.u;
-  auto& b = db.u;
-  if (ka != kb) {
-    // Need to worry about expressions like (0 == 0.0)
-    if ((ka == VariantBits::Float) && (kb == VariantBits::Int)) {
-      return arithmeticEqual(a.f, b.i);
-    }
-    if ((ka == VariantBits::Int) && (kb == VariantBits::Float)) {
-      return arithmeticEqual(b.f, a.i);
-    }
-    return false;
-  }
-  ka = Bits::clear(ka, VariantBits::FlowControl);
-  EGG_WARNING_SUPPRESS_SWITCH_BEGIN();
-  switch (ka) {
-  case VariantBits::Void:
-  case VariantBits::Null:
-    return true;
-  case VariantBits::Bool:
-    return a.b == b.b;
-  case VariantBits::Int:
-    return a.i == b.i;
-  case VariantBits::Float:
-    return a.f == b.f;
-  case VariantBits::String:
-  case VariantBits::Memory:
-    return Memory::equals(a.s, b.s); // binary equality
-  case VariantBits::Object:
-    return a.o == b.o; // identity
-  case VariantBits::Pointer:
-    return a.p == b.p; // same address
-  }
-  EGG_WARNING_SUPPRESS_SWITCH_END();
-  assert(false);
-  return false;
-}
-
-void egg::ovum::Variant::softVisitLink(const egg::ovum::ICollectable::Visitor& visitor) const {
-  assert(this->validate());
-  if (!this->hasAny(VariantBits::Hard)) {
-    if (this->hasAny(VariantBits::Object)) {
-      // Soft reference to an object
-      assert(this->u.o != nullptr);
-      visitor(*this->u.o);
-    } else if (this->hasAny(VariantBits::Pointer | VariantBits::Indirect)) {
-      // Soft reference to a variant
-      assert(this->u.p != nullptr);
-      visitor(*this->u.p);
-    }
-  }
-}
-
-void egg::ovum::Variant::addFlowControl(VariantBits bits) {
-  assert(this->validate());
-  assert(Bits::mask(bits, VariantBits::FlowControl) == bits);
-  assert(!this->hasFlowControl());
-  this->kind = this->kind | bits;
-  assert(this->hasFlowControl());
-  assert(this->validate());
-}
-
-bool egg::ovum::Variant::stripFlowControl(VariantBits bits) {
-  assert(this->validate());
-  assert(Bits::mask(bits, VariantBits::FlowControl) == bits);
-  if (this->hasAny(bits)) {
-    assert(this->hasFlowControl());
-    this->kind = Bits::clear(this->kind, bits);
-    assert(!this->hasFlowControl());
-    assert(this->validate());
-    return true;
-  }
-  return false;
 }
 
 egg::ovum::Type egg::ovum::Variant::getRuntimeType() const {
   assert(this->validate());
-  assert(!this->hasIndirect());
   if (this->hasObject()) {
-    return this->u.o->getRuntimeType();
+    auto o = this->getObject();
+    return o->getRuntimeType();
   }
   if (this->hasPointer()) {
-    return this->u.p->getPointerType();
+    return Type::makePointer(*this->getPointee().getRuntimeType());
   }
   auto mask = BasalBits::Void | BasalBits::AnyQ;
-  auto basal = Bits::mask(static_cast<BasalBits>(this->kind), mask);
+  auto basal = Bits::mask(static_cast<BasalBits>(this->getKind()), mask);
   assert(Bits::hasOneSet(basal, mask));
   auto* common = Type::getBasalType(basal);
   assert(common != nullptr);
@@ -486,9 +248,6 @@ egg::ovum::Type egg::ovum::Variant::getRuntimeType() const {
 egg::ovum::String egg::ovum::Variant::toString() const {
   // OPTIMIZE
   assert(this->validate());
-  if (this->hasIndirect()) {
-    return this->direct().toString();
-  }
   if (this->hasObject()) {
     auto str = this->getObject()->toString();
     if (str.isString()) {
@@ -514,33 +273,136 @@ egg::ovum::String egg::ovum::Variant::toString() const {
   return StringBuilder::concat('<', this->getRuntimeType().toString(), '>');
 }
 
-egg::ovum::HardPtr<egg::ovum::IVariantSoft> egg::ovum::VariantFactory::createVariantSoft(IAllocator& allocator, IBasket& basket, Variant&& value) {
-  assert(value.validate());
-  assert(!value.hasAny(VariantBits::Indirect));
-  IVariantSoft* soften = nullptr;
-  if (value.is(VariantBits::Object | VariantBits::Hard)) {
-    // We need to soften objects
-    soften = value.u.p;
-    value.kind = VariantBits::Object;
-  } else if (value.is(VariantBits::Pointer | VariantBits::Hard)) {
-    // We need to soften pointers
-    soften = value.u.p;
-    value.kind = VariantBits::Pointer;
-  }
-  auto created = allocator.make<VariantSoft>(std::move(value));
-  assert(created != nullptr);
-  basket.take(*created);
-  if (soften != nullptr) {
-    // Release the hard reference that we masked off earlier
-    assert(value.is(VariantBits::Void));
-    soften->hardRelease();
-  }
-  assert(created->getVariant().validate(true));
-  return created;
-}
-
 egg::ovum::Variant egg::ovum::VariantFactory::createException(Variant&& value) {
   assert(!value.isVoid());
-  value.addFlowControl(VariantBits::Throw);
+  value.addFlowControl(ValueFlags::Throw);
   return value;
 }
+
+egg::ovum::Variant egg::ovum::VariantFactory::createPointer(IAllocator& allocator, const Variant& pointee) {
+  assert(!pointee.hasFlowControl());
+  return ValueFactory::createPointer(allocator, pointee);
+}
+
+egg::ovum::Variant egg::ovum::VariantFactory::createFlowControl(IAllocator& allocator, ValueFlags flags, const Variant& pointee) {
+  assert(Bits::hasOneSet(flags, ValueFlags::FlowControl));
+  assert(!pointee.isVoid());
+  assert(!pointee.hasFlowControl());
+  return ValueFactory::createFlowControl(allocator, flags, pointee);
+}
+
+egg::ovum::Variant egg::ovum::VariantFactory::createReturnVoid(IAllocator&) {
+  Variant value{ Variant::Null };
+  value.addFlowControl(ValueFlags::Return);
+  return value;
+}
+
+egg::ovum::ValueFlags egg::ovum::Variant::getKind() const {
+  return this->underlying->getFlags();
+}
+
+namespace {
+  class VariantFallbackAllocator final : public egg::ovum::IAllocator {
+    VariantFallbackAllocator(const VariantFallbackAllocator&) = delete;
+    VariantFallbackAllocator& operator=(const VariantFallbackAllocator&) = delete;
+  private:
+    egg::ovum::Atomic<int64_t> atomic;
+  public:
+    VariantFallbackAllocator() : atomic(0) {
+    }
+    ~VariantFallbackAllocator() {
+      // Make sure all our strings have been destroyed when the process exits
+      // VVIBBLE assert(this->atomic.get() == 0);
+    }
+    virtual void* allocate(size_t bytes, size_t alignment) override {
+      this->atomic.increment();
+      return egg::ovum::AllocatorDefaultPolicy::memalloc(bytes, alignment);
+    }
+    virtual void deallocate(void* allocated, size_t alignment) override {
+      assert(allocated != nullptr);
+      this->atomic.decrement();
+      egg::ovum::AllocatorDefaultPolicy::memfree(allocated, alignment);
+    }
+    virtual bool statistics(Statistics&) const override {
+      return false;
+    }
+  };
+  VariantFallbackAllocator fallbackAllocator;
+}
+
+egg::ovum::Type egg::ovum::Type::makePointer(const IType& pointee) {
+  // TODO Don't use fallback allocator
+  return makePointer(fallbackAllocator, pointee);
+}
+
+void egg::ovum::Variant::addFlowControl(ValueFlags bits) {
+  assert(this->validate());
+  assert(Bits::mask(bits, ValueFlags::FlowControl) == bits);
+  assert(!this->hasFlowControl());
+  *this = VariantFactory::createFlowControl(fallbackAllocator, bits, *this);
+  assert(this->hasFlowControl());
+  assert(this->validate());
+}
+
+bool egg::ovum::Variant::stripFlowControl(ValueFlags bits) {
+  assert(this->validate());
+  assert(Bits::mask(bits, ValueFlags::FlowControl) == bits);
+  if (this->hasAny(bits)) {
+    assert(this->hasFlowControl());
+    Value child;
+    if (this->underlying->getChild(child)) {
+      this->underlying = child;
+      assert(!this->hasFlowControl());
+      return true;
+    }
+  }
+  return false;
+}
+
+// Trivial constant values
+const egg::ovum::Variant egg::ovum::Variant::Void{ ValueFactory::createVoid() };
+const egg::ovum::Variant egg::ovum::Variant::Null{ ValueFactory::createNull() };
+const egg::ovum::Variant egg::ovum::Variant::False{ ValueFactory::createBool(false) };
+const egg::ovum::Variant egg::ovum::Variant::True{ ValueFactory::createBool(true) };
+const egg::ovum::Variant egg::ovum::Variant::Break{ ValueFactory::createFlowControl(ValueFlags::Break) };
+const egg::ovum::Variant egg::ovum::Variant::Continue{ ValueFactory::createFlowControl(ValueFlags::Continue) };
+const egg::ovum::Variant egg::ovum::Variant::Rethrow{ ValueFactory::createFlowControl(ValueFlags::Throw) };
+
+egg::ovum::Variant::Variant(std::nullptr_t) : underlying(ValueFactory::createNull()) {}
+egg::ovum::Variant::Variant(bool value) : underlying(ValueFactory::createBool(value)) {}
+egg::ovum::Variant::Variant(int32_t value) : underlying(ValueFactory::createInt(fallbackAllocator, value)) {}
+egg::ovum::Variant::Variant(int64_t value) : underlying(ValueFactory::createInt(fallbackAllocator, value)) {}
+egg::ovum::Variant::Variant(float value) : underlying(ValueFactory::createFloat(fallbackAllocator, value)) {}
+egg::ovum::Variant::Variant(double value) : underlying(ValueFactory::createFloat(fallbackAllocator, value)) {}
+egg::ovum::Variant::Variant(const String& value) : underlying(ValueFactory::createString(fallbackAllocator, value)) {}
+egg::ovum::Variant::Variant(const std::string& value) : underlying(ValueFactory::createValue(fallbackAllocator, value)) {}
+egg::ovum::Variant::Variant(const char* value) : underlying(ValueFactory::createValue(fallbackAllocator, value)) {}
+egg::ovum::Variant::Variant(const Object& value) : underlying(ValueFactory::createObject(fallbackAllocator, value)) {}
+egg::ovum::Variant::Variant(const Memory& value) : underlying(ValueFactory::createMemory(fallbackAllocator, value)) {}
+
+egg::ovum::Object egg::ovum::Variant::getObject() const {
+  static const Object undefined = ObjectFactory::createVanillaObject(fallbackAllocator);
+  auto result = undefined;
+  if (this->hasFlowControl()) {
+    // We need to support compound values like Return|Object
+    Value child;
+    if (this->underlying->getChild(child) && child->getObject(result)) {
+      return result;
+    }
+  }
+  if (this->underlying->getObject(result)) {
+    return result;
+  }
+  assert(false);
+  return result;
+}
+
+egg::ovum::Variant egg::ovum::Variant::getPointee() const {
+  Variant result;
+  if (this->hasPointer() && this->underlying->getChild(result)) {
+    return result;
+  }
+  assert(false);
+  return result;
+}
+

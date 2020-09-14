@@ -225,7 +225,7 @@ namespace {
     }
     ~StringFallbackAllocator() {
       // Make sure all our strings have been destroyed when the process exits
-      assert(this->atomic.get() == 0);
+      // VVIBBLE assert(this->atomic.get() == 0);
     }
     virtual void* allocate(size_t bytes, size_t alignment) override {
       this->atomic.increment();
@@ -276,6 +276,16 @@ egg::ovum::String::String(const char* utf8)
 egg::ovum::String::String(const std::string& utf8, size_t codepoints)
   : Memory(createContiguous(nullptr, utf8.data(), utf8.size(), codepoints)) {
   // We've got to create this string without an allocator, so use a fallback
+}
+
+bool egg::ovum::String::validate() const {
+  auto* memory = this->get();
+  if (memory == nullptr) {
+    return true;
+  }
+  auto codepoints = size_t(memory->tag().u);
+  auto bytes = memory->bytes();
+  return (codepoints >= ((bytes + 3) / 4)) && (codepoints <= bytes);
 }
 
 size_t egg::ovum::String::length() const {
@@ -642,6 +652,12 @@ egg::ovum::String egg::ovum::StringFactory::fromUTF8(IAllocator& allocator, cons
   assert(end >= begin);
   auto bytes = size_t(end - begin);
   return String(createContiguous(&allocator, begin, bytes, codepoints));
+}
+
+egg::ovum::String egg::ovum::StringFactory::fromASCIIZ(IAllocator& allocator, const char* asciiz) {
+  assert(asciiz != nullptr);
+  auto bytes = std::strlen(asciiz);
+  return String(createContiguous(&allocator, asciiz, bytes, bytes));
 }
 
 const egg::ovum::IMemory* egg::ovum::Variant::acquireFallbackString(const char* utf8, size_t bytes) {

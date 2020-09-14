@@ -16,10 +16,10 @@ namespace egg::yolk {
   class ByteStream {
     EGG_NO_COPY(ByteStream);
   private:
-    std::iostream& stream;
+    std::istream& stream;
     std::string resource;
   public:
-    ByteStream(std::iostream& stream, const std::string& resource)
+    ByteStream(std::istream& stream, const std::string& resource)
       : stream(stream), resource(resource) {
     }
     int get() {

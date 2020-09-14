@@ -508,7 +508,7 @@ namespace {
         return this->program->raiseFormat("Parameters in generator iterator calls are not supported");
       }
       auto retval = this->iterateNext();
-      if (retval.stripFlowControl(egg::ovum::VariantBits::Return)) {
+      if (retval.stripFlowControl(egg::ovum::ValueFlags::Return)) {
         // The sequence has ended
         if (!retval.isVoid()) {
           return this->program->raiseFormat("Expected 'return' statement without a value in generator, but got '", retval.getRuntimeType().toString(), "' instead");
@@ -521,20 +521,20 @@ namespace {
       if (this->coroutine == nullptr) {
         // Don't re-create if we've already completed
         if (this->completed) {
-          return egg::ovum::Variant::ReturnVoid;
+          return egg::ovum::VariantFactory::createReturnVoid(this->allocator);
         }
         this->coroutine = egg::yolk::FunctionCoroutine::create(this->allocator, this->block);
       }
       assert(this->coroutine != nullptr);
       auto retval = this->coroutine->resume(*this->program);
-      if (retval.stripFlowControl(egg::ovum::VariantBits::Yield)) {
+      if (retval.stripFlowControl(egg::ovum::ValueFlags::Yield)) {
         // We yielded a value
         return retval;
       }
       // We either completed or failed
       this->completed = true;
       this->coroutine = nullptr;
-      if (retval.stripFlowControl(egg::ovum::VariantBits::Return)) {
+      if (retval.stripFlowControl(egg::ovum::ValueFlags::Return)) {
         // We explicitly terminated
         return retval;
       }

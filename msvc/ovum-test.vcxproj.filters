@@ -28,9 +28,6 @@
     <ClCompile Include="..\ovum\test\string.cpp">
       <Filter>Test Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\ovum\test\variant.cpp">
-      <Filter>Test Files</Filter>
-    </ClCompile>
     <ClCompile Include="..\ovum\test\module.cpp">
       <Filter>Test Files</Filter>
     </ClCompile>
@@ -41,6 +38,9 @@
       <Filter>Test Files</Filter>
     </ClCompile>
     <ClCompile Include="..\ovum\test\dictionary.cpp">
+      <Filter>Test Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\ovum\test\value.cpp">
       <Filter>Test Files</Filter>
     </ClCompile>
   </ItemGroup>

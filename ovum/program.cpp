@@ -270,7 +270,7 @@ namespace {
       auto retval = this->type->tryAssign(execution, this->value, rvalue);
       if (!retval.hasFlowControl()) {
         this->value.soften(execution.getBasket());
-        assert(this->value.validate(true));
+        assert(this->value.validate()); // VIBBLE validate soft
       }
       return retval;
     }
@@ -313,15 +313,6 @@ namespace {
         return nullptr;
       }
       return &retval->second;
-    }
-    HardPtr<SymbolTable> cloneIndirect() const {
-      // WIBBLE not needed once specific capture is implemented
-      auto clone = this->allocator.make<SymbolTable>();
-      for (auto& src : this->table) {
-        auto dst = clone->table.insert(src);
-        dst.first->second.value.indirect(this->allocator, *this->basket);
-      }
-      return clone;
     }
     void softVisitLinks(const Visitor& visitor) const {
       for (auto& entry : this->table) {
@@ -499,7 +490,7 @@ namespace {
     Variant nudge(Int rhs) const;
     Variant mutate(const INode& opnode, const INode& rhs) const;
   private:
-    Variant* ref() const;
+    bool ref(Variant& pointee) const;
     Variant get() const;
     Variant set(const Variant& value) const;
     Variant apply(const INode& opnode, Variant& lvalue, const INode& rhs) const;
@@ -672,7 +663,7 @@ namespace {
       assert(node.getOpcode() == Opcode::UNARY);
       assert(node.getOperator() == Operator::DEREF);
       assert(node.getChildren() == 1);
-      a = this->expression(node.getChild(0)).direct();
+      a = this->expression(node.getChild(0));
       if (!a.hasPointer()) {
         a = this->raiseNode(node, "Expected target to be a pointer, but got '", a.getRuntimeType().toString(), "' instead");
       }
@@ -728,7 +719,7 @@ namespace {
       Variant lhs, rhs;
       auto retval = this->operatorCompare(compare, lhs, rhs);
       if (retval.hasFlowControl()) {
-        if (retval.is(VariantBits::Break)) {
+        if (retval.is(ValueFlags::Break)) {
           return this->raiseLocation(source, "Internal runtime error: Unsupported predicate comparison");
         }
         return retval;
@@ -803,7 +794,7 @@ namespace {
         }
       }
       auto retval = this->executeBlock(scope, block);
-      if (retval.stripFlowControl(VariantBits::Return) || retval.hasThrow()) {
+      if (retval.stripFlowControl(ValueFlags::Return) || retval.hasThrow()) {
         // We got a return value or exception
         return retval;
       }
@@ -915,7 +906,7 @@ namespace {
     Variant statementCall(const INode& node) {
       assert(node.getOpcode() == Opcode::CALL);
       auto retval = this->expressionCall(node);
-      if (retval.hasAny(VariantBits::FlowControl | VariantBits::Void)) {
+      if (retval.hasAny(ValueFlags::FlowControl | ValueFlags::Void)) {
         return retval;
       }
       auto message = StringBuilder().add("Discarding call return value: '", retval.toString(), "'").toUTF8();
@@ -997,11 +988,11 @@ namespace {
         }
         retval = this->executeBlock(inner, loop);
         if (retval.hasFlowControl()) {
-          if (retval.is(VariantBits::Break)) {
+          if (retval.is(ValueFlags::Break)) {
             // Break from the loop
             return Variant::Void;
           }
-          if (!retval.is(VariantBits::Continue)) {
+          if (!retval.is(ValueFlags::Continue)) {
             // Some other flow control
             return retval;
           }
@@ -1044,7 +1035,7 @@ namespace {
       auto& block = node.getChild(2);
       for (;;) {
         retval = object->call(*this, Function::NoParameters);
-        if (retval.hasAny(VariantBits::FlowControl | VariantBits::Void)) {
+        if (retval.hasAny(ValueFlags::FlowControl | ValueFlags::Void)) {
           break;
         }
         retval = lvalue.assign(retval);
@@ -1053,11 +1044,11 @@ namespace {
         }
         retval = this->executeBlock(inner, block);
         if (retval.hasFlowControl()) {
-          if (retval.is(VariantBits::Break)) {
+          if (retval.is(ValueFlags::Break)) {
             // Break from the loop
             return Variant::Void;
           }
-          if (!retval.is(VariantBits::Continue)) {
+          if (!retval.is(ValueFlags::Continue)) {
             // Some other flow control
             break;
           }
@@ -1079,7 +1070,7 @@ namespace {
       // We have to be careful to ensure the function is declared before capturing symbols so that recursion works correctly
       Variant fvalue{ Object(*function) };
       auto retval = block.declare(this->location, ftype, fname, &fvalue);
-      function->setCaptured(this->symtable->cloneIndirect()); // TODO don't capture everything WIBBLE
+      function->setCaptured(this->symtable); // VIBBLE was cloneIndirect
       return retval;
     }
     Variant statementIf(const INode& node) {
@@ -1126,13 +1117,13 @@ namespace {
       assert(node.getChildren() <= 1);
       if (node.getChildren() == 0) {
         // A naked return
-        return Variant::ReturnVoid;
+        return VariantFactory::createReturnVoid(this->allocator);
       }
       auto retval = this->expression(node.getChild(0));
       if (!retval.hasFlowControl()) {
         // Convert the expression to a return
         assert(!retval.isVoid());
-        retval.addFlowControl(VariantBits::Return);
+        retval.addFlowControl(ValueFlags::Return);
       }
       return retval;
     }
@@ -1159,7 +1150,7 @@ namespace {
             // Failed to evaluate the value to match
             return expr;
           }
-          if (Variant::equals(expr, match)) {
+          if (Variant::equals(expr, match, ValueCompare::PromoteInts)) {
             // We've matched this clause
             matched = j;
             break;
@@ -1186,11 +1177,11 @@ namespace {
       for (;;) {
         // Run the clauses in round-robin order
         auto retval = this->statementBlock(node.getChild(matched).getChild(0));
-        if (retval.is(VariantBits::Break)) {
+        if (retval.is(ValueFlags::Break)) {
           // Explicit 'break' terminates the switch statement
           break;
         }
-        if (!retval.is(VariantBits::Continue)) {
+        if (!retval.is(ValueFlags::Continue)) {
           // Any other than 'continue' also terminates the switch statement
           return retval;
         }
@@ -1212,7 +1203,7 @@ namespace {
       if (!retval.hasFlowControl()) {
         // Convert the expression to an exception throw
         assert(!retval.isVoid());
-        retval.addFlowControl(VariantBits::Throw);
+        retval.addFlowControl(ValueFlags::Throw);
       }
       return retval;
     }
@@ -1221,7 +1212,7 @@ namespace {
       auto n = node.getChildren();
       assert(n >= 2);
       auto exception = this->statementBlock(node.getChild(0));
-      if (!exception.stripFlowControl(VariantBits::Throw)) {
+      if (!exception.stripFlowControl(ValueFlags::Throw)) {
         // No exception thrown
         return this->statementTryFinally(node, exception);
       }
@@ -1242,16 +1233,16 @@ namespace {
         assert(retval.isBool());
         if (retval.getBool()) {
           retval = this->executeBlock(block, clause.getChild(2));
-          if (retval.is(VariantBits::Throw | VariantBits::Void)) {
+          if (retval.is(ValueFlags::Throw | ValueFlags::Void)) {
             // This is a rethrow of the original exception
             retval = exception;
-            retval.addFlowControl(VariantBits::Throw);
+            retval.addFlowControl(ValueFlags::Throw);
           }
           return this->statementTryFinally(node, retval);
         }
       }
       // Propagate the original exception
-      exception.addFlowControl(VariantBits::Throw);
+      exception.addFlowControl(ValueFlags::Throw);
       return this->statementTryFinally(node, exception);
     }
     Variant statementTryFinally(const INode& node, const Variant& retval) {
@@ -1386,7 +1377,7 @@ namespace {
       assert(node.getOpcode() == Opcode::COMPARE);
       Variant lhs, rhs;
       auto retval = this->operatorCompare(node, lhs, rhs);
-      if (retval.is(VariantBits::Break)) {
+      if (retval.is(ValueFlags::Break)) {
         throw this->unexpectedOperator("compare", node);
       }
       return retval;
@@ -1489,7 +1480,7 @@ namespace {
       if (symbol == nullptr) {
         return this->raiseNode(node, "Unknown identifier in expression: '", name, "'");
       }
-      return symbol->value.direct();
+      return symbol->value;
     }
     Variant expressionIndex(const INode& node) {
       assert(node.getOpcode() == Opcode::INDEX);
@@ -1655,7 +1646,7 @@ namespace {
         // An IEEE NaN is not equal to anything, even other NaNs
         return invert;
       }
-      return bool(Variant::equals(va, vb) ^ invert); // need to force bool-ness
+      return bool(Variant::equals(va, vb, ValueCompare::PromoteInts) ^ invert); // need to force bool-ness
     }
     Variant operatorLessThan(const INode& a, const INode& b, Variant& va, Variant& vb, bool invert, Operator oper) {
       // Care with IEEE NaNs
@@ -1777,8 +1768,7 @@ namespace {
       if (symbol == nullptr) {
         return this->raiseNode(a, "Unknown identifier for unary '&' operator: '", name, "'");
       }
-      symbol->value.indirect(this->allocator, *this->basket);
-      return symbol->value.address();
+      return VariantFactory::createPointer(this->allocator, symbol->value);
     }
     Int operatorBinaryInt(const INode& node, Operator oper, Int lhs, Int rhs) {
       EGG_WARNING_SUPPRESS_SWITCH_BEGIN();
@@ -1824,7 +1814,7 @@ namespace {
     // Implementation
     Variant condition(const INode& node, Block* block) {
       auto value = this->expression(node, block);
-      if (!value.hasAny(VariantBits::FlowControl | VariantBits::Bool)) {
+      if (!value.hasAny(ValueFlags::FlowControl | ValueFlags::Bool)) {
         return this->raiseNode(node, "Expected condition to evaluate to a 'bool' value, but got '", value.getRuntimeType().toString(), "' instead");
       }
       return value;
@@ -2023,11 +2013,10 @@ Variant Target::assign(const Variant& rhs) const {
 Variant Target::nudge(Int rhs) const {
   assert(rhs != 0);
   Variant v;
-  auto* p = this->ref();
-  if (p != nullptr) {
-    if (p->isInt()) {
+  if (this->ref(v)) {
+    if (v.isInt()) {
       // Nudge directly
-      *p = p->getInt() + rhs;
+      v = v.getInt() + rhs;
       return Variant::Void;
     }
   } else {
@@ -2039,22 +2028,21 @@ Variant Target::nudge(Int rhs) const {
     if (v.isInt()) {
       return this->set(v.getInt() + rhs);
     }
-    p = &v;
   }
   if (rhs < 0) {
-    return Binary::unexpected(*p, "Expected decrement '--' operation to be applied to an 'int' value");
+    return Binary::unexpected(v, "Expected decrement '--' operation to be applied to an 'int' value");
   }
-  return Binary::unexpected(*p, "Expected increment '++' operation to be applied to an 'int' value");
+  return Binary::unexpected(v, "Expected increment '++' operation to be applied to an 'int' value");
 }
 
 Variant Target::mutate(const INode& opnode, const INode& rhs) const {
-  auto* p = this->ref();
-  if (p != nullptr) {
+  Variant v;
+  if (this->ref(v)) {
     // Mutate directly
-    return this->apply(opnode, *p, rhs);
+    return this->apply(opnode, v, rhs);
   }
   // Need to get/mutate/set
-  auto v = this->get();
+  v = this->get();
   if (v.hasFlowControl()) {
     return v;
   }
@@ -2096,41 +2084,39 @@ egg::ovum::Variant Target::apply(const INode& opnode, Variant& lvalue, const INo
     return rvalue;
   }
   auto result = Binary::apply(oper, lvalue, rvalue);
-  if (result.is(VariantBits::Break)) {
+  if (result.is(ValueFlags::Break)) {
     throw this->program.unexpectedOperator("target binary", opnode);
   }
   return result;
 }
 
-Variant* Target::ref() const {
+bool Target::ref(Variant& pointee) const {
   // Return null iff we cannot modify in-place
   switch (this->flavour) {
   case Flavour::Identifier:
-    break;
+    pointee = this->program.targetSymbol(this->node, this->a.getString()).value;
+    return true;
   case Flavour::Pointer:
-    return &this->a.getPointee();
+    pointee = this->a.getPointee();
+    return true;
   case Flavour::Index:
   case Flavour::Property:
   case Flavour::Failed:
-    return nullptr;
+    break;
   }
-  auto* value = &this->program.targetSymbol(this->node, this->a.getString()).value;
-  if (value->hasIndirect()) {
-    return &value->getPointee();
-  }
-  return value;
+  return false;
 }
 
 Variant Target::get() const {
   switch (this->flavour) {
   case Flavour::Identifier:
-    return this->program.targetSymbol(this->node, this->a.getString()).value.direct();
+    return this->program.targetSymbol(this->node, this->a.getString()).value;
   case Flavour::Index:
-    return this->a.getObject()->getIndex(this->program, this->b).direct();
+    return this->a.getObject()->getIndex(this->program, this->b);
   case Flavour::Pointer:
     return this->a.getPointee();
   case Flavour::Property:
-    return this->a.getObject()->getProperty(this->program, this->b.getString()).direct();
+    return this->a.getObject()->getProperty(this->program, this->b.getString());
   case Flavour::Failed:
     break;
   }
@@ -2145,7 +2131,8 @@ Variant Target::set(const Variant& value) const {
   case Flavour::Index:
     return this->a.getObject()->setIndex(this->program, this->b, value);
   case Flavour::Pointer:
-    this->a.getPointee() = value;
+    assert(false);
+    this->a.getPointee() = value; // VIBBLE
     return Variant::Void; // TODO always succeeds?
   case Flavour::Property:
     return this->a.getObject()->setProperty(this->program, this->b.getString(), value);

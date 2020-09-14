@@ -1,35 +1,43 @@
 namespace egg::ovum {
   class INode;
 
-#define EGG_OVUM_BASAL(X) \
-  EGG_VM_TYPES(X)
-#define EGG_OVUM_VARIANT(X) \
-  EGG_VM_TYPES(X) \
+#define EGG_OVUM_VALUE_FLAGS(X) \
+  EGG_VM_BASAL(X) \
   X(Memory, "memory") \
   X(Pointer, "pointer") \
-  X(Indirect, "indirect") \
   X(Break, "break") \
   X(Continue, "continue") \
   X(Return, "return") \
   X(Yield, "yield") \
-  X(Throw, "throw") \
-  X(Hard, "hard")
+  X(Throw, "throw")
 
-  namespace impl {
-    enum {
-      _ = -1 // We want the next element to start at zero
-#define EGG_OVUM_VARIANT_ENUM(name, text) , name
-      EGG_OVUM_VARIANT(EGG_OVUM_VARIANT_ENUM)
-#undef EGG_OVUM_VARIANT_ENUM
-    };
+  enum class ValueFlagsShift {
+    _ = -1 // We want the next element to start at zero
+#define EGG_OVUM_VALUE_FLAGS_SHIFT(name, text) , name
+    EGG_OVUM_VALUE_FLAGS(EGG_OVUM_VALUE_FLAGS_SHIFT)
+#undef EGG_OVUM_VALUE_FLAGS_SHIFT
+  };
+
+  enum class ValueFlags {
+    None = 0,
+#define EGG_OVUM_VALUE_FLAGS_ENUM(name, text) name = 1 << int(ValueFlagsShift::name),
+    EGG_OVUM_VALUE_FLAGS(EGG_OVUM_VALUE_FLAGS_ENUM)
+#undef EGG_OVUM_VALUE_FLAGS_ENUM
+    Arithmetic = Int | Float,
+    Any = Bool | Int | Float | String | Object | Pointer,
+    AnyQ = Null | Any,
+    FlowControl = Break | Continue | Return | Yield | Throw
+  };
+  inline constexpr ValueFlags operator|(ValueFlags lhs, ValueFlags rhs) {
+    return Bits::set(lhs, rhs);
   }
 
   // None, Void, Null, Bool, Int, Float, String, Object (plus Arithmetic, Any, AnyQ)
   enum class BasalBits {
     None = 0,
-#define EGG_OVUM_BASAL_ENUM(name, text) name = 1 << impl::name,
-    EGG_OVUM_BASAL(EGG_OVUM_BASAL_ENUM)
-#undef EGG_OVUM_BASAL_ENUM
+#define EGG_VM_BASAL_ENUM(name, text) name = 1 << int(ValueFlagsShift::name),
+    EGG_VM_BASAL(EGG_VM_BASAL_ENUM)
+#undef EGG_VM_BASAL_ENUM
     Any = Bool | Int | Float | String | Object,
     AnyQ = Any | Null
   };
@@ -73,6 +81,7 @@ namespace egg::ovum {
     static Type makeBasal(IAllocator& allocator, BasalBits basal);
     static Type makeUnion(IAllocator& allocator, const IType& lhs, const IType& rhs);
     static Type makePointer(IAllocator& allocator, const IType& pointee);
+    static Type makePointer(const IType& pointee); // TODO always supply an allocator
   };
 
   class TypeBase : public IType {
@@ -98,8 +107,15 @@ namespace egg::ovum {
 
   class Object : public HardPtr<IObject> {
   public:
+    Object() : HardPtr(nullptr) {
+      assert(this->get() == nullptr);
+    }
     explicit Object(const IObject& rhs) : HardPtr(&rhs) {
       assert(this->get() != nullptr);
+    }
+    bool validate() const {
+      auto* underlying = this->get();
+      return (underlying != nullptr) && underlying->validate();
     }
   };
 }

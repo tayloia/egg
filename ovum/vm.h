@@ -147,7 +147,7 @@
   X(TERNARY, TERNARY, 0, "?:")
 
 // Macro to define basal types: X(type, text)
-#define EGG_VM_TYPES(X) \
+#define EGG_VM_BASAL(X) \
   X(Void, "void") \
   X(Null, "null") \
   X(Bool, "bool") \

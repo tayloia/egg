@@ -29,6 +29,7 @@
     <ClCompile Include="..\ovum\program.cpp" />
     <ClCompile Include="..\ovum\string.cpp" />
     <ClCompile Include="..\ovum\type.cpp" />
+    <ClCompile Include="..\ovum\value.cpp" />
     <ClCompile Include="..\ovum\vanilla.cpp" />
     <ClCompile Include="..\ovum\variant.cpp" />
     <ClCompile Include="ovum.pch.cpp">
@@ -39,6 +40,7 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="..\ovum\arithmetic.h" />
     <ClInclude Include="..\ovum\context.h" />
     <ClInclude Include="..\ovum\dictionary.h" />
     <ClInclude Include="..\ovum\module.h" />
@@ -52,6 +54,7 @@
     <ClInclude Include="..\ovum\type.h" />
     <ClInclude Include="..\ovum\utf.h" />
     <ClInclude Include="..\ovum\utility.h" />
+    <ClInclude Include="..\ovum\value.h" />
     <ClInclude Include="..\ovum\variant.h" />
     <ClInclude Include="..\ovum\vm.h" />
   </ItemGroup>

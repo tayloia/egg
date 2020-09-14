@@ -47,7 +47,7 @@ namespace {
         name(name) {
     }
     virtual egg::ovum::Variant get() const override {
-      return this->program->get(this->name, false);
+      return this->program->get(this->name);
     }
     virtual egg::ovum::Variant set(const egg::ovum::Variant& value) override {
       return this->program->set(this->name, value);
@@ -67,7 +67,7 @@ namespace {
     bool evaluateInstance() const {
       if (this->instance.isVoid()) {
         // Need to evaluate the expression
-        this->instance = this->expression->execute(*this->program).direct();
+        this->instance = this->expression->execute(*this->program);
       }
       return !this->instance.hasFlowControl();
     }
@@ -110,7 +110,7 @@ namespace {
     bool evaluateIndex() const {
       if (this->index.isVoid()) {
         // Need to evaluate the index expression
-        this->index = this->indexExpression->execute(*this->program).direct();
+        this->index = this->indexExpression->execute(*this->program);
       }
       return !this->index.hasFlowControl();
     }
@@ -161,7 +161,7 @@ namespace {
       // Set the value of the dereferenced value
       if (this->evaluateInstance()) {
         assert(this->instance.hasPointer());
-        egg::ovum::Variant& pointee = this->instance.getPointee();
+        auto pointee = this->instance.getPointee();
         pointee = value;
         return egg::ovum::Variant::Void;
       }
@@ -273,15 +273,7 @@ egg::ovum::Variant egg::yolk::EggProgramSymbol::assign(EggProgramContext& contex
   if (rhs.isVoid()) {
     return context.raiseFormat("Cannot assign 'void' to '", this->name, "'");
   }
-  egg::ovum::Variant* target;
-  if (this->value.hasIndirect()) {
-    // We're already indirect, so store the value in our child
-    target = &this->value.getPointee();
-  } else {
-    // Store the value directly
-    target = &this->value;
-  }
-  auto retval = this->type->tryAssign(context, *target, rhs);
+  auto retval = this->type->tryAssign(context, this->value, rhs);
   if (retval.hasFlowControl()) {
     // The assignment failed
     if (retval.hasString()) {
@@ -454,17 +446,14 @@ egg::ovum::LocationRuntime egg::yolk::EggProgramContext::swapLocation(const egg:
   return before;
 }
 
-egg::ovum::Variant egg::yolk::EggProgramContext::get(const egg::ovum::String& name, bool byref) {
+egg::ovum::Variant egg::yolk::EggProgramContext::get(const egg::ovum::String& name) {
   auto symbol = this->symtable->findSymbol(name);
   if (symbol == nullptr) {
     return this->raiseFormat("Unknown identifier: '", name, "'");
   }
   auto& value = symbol->getValue();
-  if (value.direct().isVoid()) {
+  if (value.isVoid()) {
     return this->raiseFormat("Uninitialized identifier: '", name.toUTF8(), "'");
-  }
-  if (byref) {
-    value.indirect(this->allocator, *this->basket);
   }
   return value;
 }
@@ -500,10 +489,10 @@ egg::ovum::Variant egg::yolk::EggProgramContext::assign(EggProgramAssign op, con
   egg::ovum::Variant right;
   if (op == EggProgramAssign::Equal) {
     // Simple assignment without interrogation beforehand
-    right = rhs.execute(*this).direct();
+    right = rhs.execute(*this);
   } else {
     // We need to interrogate the value of the lhs so we can modify it
-    auto left = dst->get().direct();
+    auto left = dst->get();
     if (left.hasFlowControl()) {
       return left;
     }
@@ -566,7 +555,7 @@ egg::ovum::Variant egg::yolk::EggProgramContext::mutate(EggProgramMutate op, con
   if (dst == nullptr) {
     return this->raiseFormat("Operand of mutation '", EggProgram::mutateToString(op), "' operator is not a valid target");
   }
-  auto lhs = dst->get().direct();
+  auto lhs = dst->get();
   if (lhs.hasFlowControl()) {
     return lhs;
   }
@@ -594,7 +583,7 @@ egg::ovum::Variant egg::yolk::EggProgramContext::mutate(EggProgramMutate op, con
 }
 
 egg::ovum::Variant egg::yolk::EggProgramContext::condition(const IEggProgramNode& expression) {
-  auto retval = expression.execute(*this).direct();
+  auto retval = expression.execute(*this);
   if (retval.hasBool() || retval.hasFlowControl()) {
     return retval;
   }
@@ -604,28 +593,28 @@ egg::ovum::Variant egg::yolk::EggProgramContext::condition(const IEggProgramNode
 egg::ovum::Variant egg::yolk::EggProgramContext::unary(EggProgramUnary op, const IEggProgramNode& expr, egg::ovum::Variant& value) {
   switch (op) {
   case EggProgramUnary::LogicalNot:
-    if (this->operand(value, expr, egg::ovum::VariantBits::Bool, "Expected operand of logical-not '!' operator to be 'bool'")) {
+    if (this->operand(value, expr, egg::ovum::ValueFlags::Bool, "Expected operand of logical-not '!' operator to be 'bool'")) {
       return egg::ovum::Variant(!value.getBool());
     }
     return value;
   case EggProgramUnary::Negate:
-    if (this->operand(value, expr, egg::ovum::VariantBits::Arithmetic, "Expected operand of negation '-' operator to be 'int' or 'float'")) {
+    if (this->operand(value, expr, egg::ovum::ValueFlags::Arithmetic, "Expected operand of negation '-' operator to be 'int' or 'float'")) {
       return value.isInt() ? egg::ovum::Variant(-value.getInt()) : egg::ovum::Variant(-value.getFloat());
     }
     return value;
   case EggProgramUnary::BitwiseNot:
-    if (this->operand(value, expr, egg::ovum::VariantBits::Int, "Expected operand of bitwise-not '~' operator to be 'int'")) {
+    if (this->operand(value, expr, egg::ovum::ValueFlags::Int, "Expected operand of bitwise-not '~' operator to be 'int'")) {
       return egg::ovum::Variant(~value.getInt());
     }
     return value;
   case EggProgramUnary::Ref:
-    value = expr.execute(*this); // not .direct()
+    value = expr.execute(*this);
     if (value.hasFlowControl()) {
       return value;
     }
-    return value.address();
+    return egg::ovum::VariantFactory::createPointer(this->allocator, value);
   case EggProgramUnary::Deref:
-    value = expr.execute(*this).direct();
+    value = expr.execute(*this);
     if (value.hasFlowControl()) {
       return value;
     }
@@ -642,17 +631,18 @@ egg::ovum::Variant egg::yolk::EggProgramContext::unary(EggProgramUnary op, const
 
 egg::ovum::Variant egg::yolk::EggProgramContext::binary(EggProgramBinary op, const IEggProgramNode& lhs, const IEggProgramNode& rhs, egg::ovum::Variant& left, egg::ovum::Variant& right) {
   // OPTIMIZE
-  left = lhs.execute(*this).direct();
+  left = lhs.execute(*this);
   if (left.hasFlowControl()) {
     return left;
   }
   switch (op) {
   case EggProgramBinary::Unequal:
-    if (left.hasAny(egg::ovum::VariantBits::AnyQ)) {
-      if (!this->operand(right, rhs, egg::ovum::VariantBits::Any | egg::ovum::VariantBits::Null, "Expected right operand of inequality '!=' to be a value")) {
+    if (left.hasAny(egg::ovum::ValueFlags::AnyQ)) {
+      if (!this->operand(right, rhs, egg::ovum::ValueFlags::Any | egg::ovum::ValueFlags::Null, "Expected right operand of inequality '!=' to be a value")) {
         return right;
       }
-      return egg::ovum::Variant(left != right);
+      auto equals = egg::ovum::Variant::equals(left, right, egg::ovum::ValueCompare::PromoteInts);
+      return egg::ovum::Variant(!equals);
     }
     return this->unexpected("Expected left operand of inequality '!=' to be a value", left);
   case EggProgramBinary::Remainder:
@@ -678,11 +668,12 @@ egg::ovum::Variant egg::yolk::EggProgramContext::binary(EggProgramBinary op, con
   case EggProgramBinary::LessEqual:
     return this->arithmeticIntFloat(left, right, rhs, "comparison '<='", lessEqualInt, lessEqualFloat);
   case EggProgramBinary::Equal:
-    if (left.hasAny(egg::ovum::VariantBits::AnyQ)) {
-      if (!this->operand(right, rhs, egg::ovum::VariantBits::AnyQ, "Expected right operand of equality '==' to be a value")) {
+    if (left.hasAny(egg::ovum::ValueFlags::AnyQ)) {
+      if (!this->operand(right, rhs, egg::ovum::ValueFlags::AnyQ, "Expected right operand of equality '==' to be a value")) {
         return right;
       }
-      return egg::ovum::Variant(left == right);
+      auto equals = egg::ovum::Variant::equals(left, right, egg::ovum::ValueCompare::PromoteInts);
+      return egg::ovum::Variant(equals);
     }
     return this->unexpected("Expected left operand of equality '==' to be a value", left);
   case EggProgramBinary::Greater:
@@ -694,7 +685,7 @@ egg::ovum::Variant egg::yolk::EggProgramContext::binary(EggProgramBinary op, con
   case EggProgramBinary::ShiftRightUnsigned:
     return this->arithmeticInt(left, right, rhs, "shift-right-unsigned '>>>'", shiftRightUnsignedInt);
   case EggProgramBinary::NullCoalescing:
-    return left.isNull() ? rhs.execute(*this).direct() : left;
+    return left.isNull() ? rhs.execute(*this) : left;
   case EggProgramBinary::BitwiseXor:
     return this->arithmeticBoolInt(left, right, rhs, "xor '^'", bitwiseXorBool, bitwiseXorInt);
   case EggProgramBinary::BitwiseOr:
@@ -706,8 +697,8 @@ egg::ovum::Variant egg::yolk::EggProgramContext::binary(EggProgramBinary op, con
   }
 }
 
-bool egg::yolk::EggProgramContext::operand(egg::ovum::Variant& dst, const IEggProgramNode& src, egg::ovum::VariantBits expected, const char* expectation) {
-  dst = src.execute(*this).direct();
+bool egg::yolk::EggProgramContext::operand(egg::ovum::Variant& dst, const IEggProgramNode& src, egg::ovum::ValueFlags expected, const char* expectation) {
+  dst = src.execute(*this);
   if (dst.hasFlowControl()) {
     return false;
   }
@@ -719,18 +710,16 @@ bool egg::yolk::EggProgramContext::operand(egg::ovum::Variant& dst, const IEggPr
 }
 
 egg::ovum::Variant egg::yolk::EggProgramContext::coalesceNull(const egg::ovum::Variant& left, egg::ovum::Variant& right, const IEggProgramNode& rhs) {
-  assert(!left.hasIndirect());
   if (!left.isNull()) {
     // Short-circuit
     right = egg::ovum::Variant::Void;
     return left;
   }
-  right = rhs.execute(*this).direct();
+  right = rhs.execute(*this);
   return right;
 }
 
 egg::ovum::Variant egg::yolk::EggProgramContext::logicalBool(const egg::ovum::Variant& left, egg::ovum::Variant& right, const IEggProgramNode& rhs, const char* operation, EggProgramBinary binary) {
-  assert(!left.hasIndirect());
   if (!left.isBool()) {
     return this->unexpected("Expected left-hand side of " + std::string(operation) + " to be 'bool'", left);
   }
@@ -748,8 +737,7 @@ egg::ovum::Variant egg::yolk::EggProgramContext::logicalBool(const egg::ovum::Va
     }
   }
   // The result is always 'rhs' now
-  right = rhs.execute(*this).direct();
-  assert(!right.hasIndirect());
+  right = rhs.execute(*this);
   if (right.isBool()) {
     return right;
   }
@@ -760,12 +748,10 @@ egg::ovum::Variant egg::yolk::EggProgramContext::logicalBool(const egg::ovum::Va
 }
 
 egg::ovum::Variant egg::yolk::EggProgramContext::arithmeticBool(const egg::ovum::Variant& left, egg::ovum::Variant& right, const IEggProgramNode& rhs, const char* operation, ArithmeticBool bools) {
-  assert(!left.hasIndirect());
   if (!left.isBool()) {
     return this->unexpected("Expected left-hand side of " + std::string(operation) + " to be 'bool'", left);
   }
-  right = rhs.execute(*this).direct();
-  assert(!right.hasIndirect());
+  right = rhs.execute(*this);
   if (right.isBool()) {
     return bools(left.getBool(), right.getBool());
   }
@@ -776,12 +762,10 @@ egg::ovum::Variant egg::yolk::EggProgramContext::arithmeticBool(const egg::ovum:
 }
 
 egg::ovum::Variant egg::yolk::EggProgramContext::arithmeticInt(const egg::ovum::Variant& left, egg::ovum::Variant& right, const IEggProgramNode& rhs, const char* operation, ArithmeticInt ints) {
-  assert(!left.hasIndirect());
   if (!left.isInt()) {
     return this->unexpected("Expected left-hand side of " + std::string(operation) + " to be 'int'", left);
   }
-  right = rhs.execute(*this).direct();
-  assert(!right.hasIndirect());
+  right = rhs.execute(*this);
   if (right.isInt()) {
     return ints(left.getInt(), right.getInt());
   }
@@ -792,7 +776,6 @@ egg::ovum::Variant egg::yolk::EggProgramContext::arithmeticInt(const egg::ovum::
 }
 
 egg::ovum::Variant egg::yolk::EggProgramContext::arithmeticBoolInt(const egg::ovum::Variant& left, egg::ovum::Variant& right, const IEggProgramNode& rhs, const char* operation, ArithmeticBool bools, ArithmeticInt ints) {
-  assert(!left.hasIndirect());
   if (left.isBool()) {
     return this->arithmeticBool(left, right, rhs, operation, bools);
   }
@@ -806,12 +789,10 @@ egg::ovum::Variant egg::yolk::EggProgramContext::arithmeticBoolInt(const egg::ov
 }
 
 egg::ovum::Variant egg::yolk::EggProgramContext::arithmeticIntFloat(const egg::ovum::Variant& left, egg::ovum::Variant& right, const IEggProgramNode& rhs, const char* operation, ArithmeticInt ints, ArithmeticFloat floats) {
-  assert(!left.hasIndirect());
-  if (!left.hasAny(egg::ovum::VariantBits::Arithmetic)) {
+  if (!left.hasAny(egg::ovum::ValueFlags::Arithmetic)) {
     return this->unexpected("Expected left-hand side of " + std::string(operation) + " to be 'int' or 'float'", left);
   }
-  right = rhs.execute(*this).direct();
-  assert(!right.hasIndirect());
+  right = rhs.execute(*this);
   if (right.isInt()) {
     if (left.isInt()) {
       return ints(left.getInt(), right.getInt());
@@ -831,7 +812,7 @@ egg::ovum::Variant egg::yolk::EggProgramContext::arithmeticIntFloat(const egg::o
 }
 
 egg::ovum::Variant egg::yolk::EggProgramContext::call(const egg::ovum::Variant& callee, const egg::ovum::IParameters& parameters) {
-  auto& direct = callee.direct();
+  auto& direct = callee;
   if (!direct.hasObject()) {
     return this->unexpected("Expected function-like expression to be 'object'", direct);
   }
@@ -841,7 +822,7 @@ egg::ovum::Variant egg::yolk::EggProgramContext::call(const egg::ovum::Variant& 
 
 egg::ovum::Variant egg::yolk::EggProgramContext::dotGet(const egg::ovum::Variant& instance, const egg::ovum::String& property) {
   // Dispatch requests for strings and complex types
-  auto& direct = instance.direct();
+  auto& direct = instance;
   if (direct.hasObject()) {
     return direct.getObject()->getProperty(*this, property);
   }
@@ -853,7 +834,7 @@ egg::ovum::Variant egg::yolk::EggProgramContext::dotGet(const egg::ovum::Variant
 
 egg::ovum::Variant egg::yolk::EggProgramContext::dotSet(const egg::ovum::Variant& instance, const egg::ovum::String& property, const egg::ovum::Variant& value) {
   // Dispatch requests for complex types
-  auto& direct = instance.direct();
+  auto& direct = instance;
   if (direct.hasObject()) {
     auto object = direct.getObject();
     return object->setProperty(*this, property, value);
@@ -866,7 +847,7 @@ egg::ovum::Variant egg::yolk::EggProgramContext::dotSet(const egg::ovum::Variant
 
 egg::ovum::Variant egg::yolk::EggProgramContext::bracketsGet(const egg::ovum::Variant& instance, const egg::ovum::Variant& index) {
   // Dispatch requests for strings and complex types
-  auto& direct = instance.direct();
+  auto& direct = instance;
   if (direct.hasObject()) {
     auto object = direct.getObject();
     return object->getIndex(*this, index);
@@ -894,7 +875,7 @@ egg::ovum::Variant egg::yolk::EggProgramContext::bracketsGet(const egg::ovum::Va
 
 egg::ovum::Variant egg::yolk::EggProgramContext::bracketsSet(const egg::ovum::Variant& instance, const egg::ovum::Variant& index, const egg::ovum::Variant& value) {
   // Dispatch requests for complex types
-  auto& direct = instance.direct();
+  auto& direct = instance;
   if (direct.hasObject()) {
     auto object = direct.getObject();
     return object->setIndex(*this, index, value);
@@ -910,7 +891,7 @@ egg::ovum::Variant egg::yolk::EggProgramContext::unexpected(const std::string& e
 }
 
 egg::ovum::Variant egg::yolk::EggProgramContext::assertion(const egg::ovum::Variant& predicate) {
-  auto& direct = predicate.direct();
+  auto& direct = predicate;
   if (!direct.isBool()) {
     return this->unexpected("Expected assertion predicate to be 'bool'", direct);
   }
@@ -956,7 +937,7 @@ egg::ovum::Variant egg::test::Compiler::run(egg::ovum::IAllocator& allocator, eg
   auto result = program->run(*module);
   if (result.hasThrow()) {
     auto thrown = result;
-    thrown.stripFlowControl(egg::ovum::VariantBits::Throw);
+    thrown.stripFlowControl(egg::ovum::ValueFlags::Throw);
     if (!thrown.isVoid()) {
       // Don't log a rethrow
       logger.log(egg::ovum::ILogger::Source::User, egg::ovum::ILogger::Severity::Error, thrown.toString().toUTF8());

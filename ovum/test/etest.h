@@ -86,42 +86,69 @@ namespace egg::test {
     }
   };
 
+  inline ::testing::AssertionResult assertValueEQ(const char* lhs_expression, const char* rhs_expression, const egg::ovum::Value& lhs, const egg::ovum::Value& rhs) {
+    if (lhs->equals(rhs.get(), egg::ovum::ValueCompare::Binary)) {
+      return ::testing::AssertionSuccess();
+    }
+    return ::testing::internal::CmpHelperEQFailure(lhs_expression, rhs_expression, lhs, rhs);
+  }
   inline void assertString(const char* expected, const egg::ovum::String& actual) {
     ASSERT_STREQ(expected, actual.toUTF8().c_str());
   }
   inline void assertString(const egg::ovum::String& expected, const egg::ovum::String& actual) {
     ASSERT_STREQ(expected.toUTF8().c_str(), actual.toUTF8().c_str());
   }
-  inline void assertVariant(egg::ovum::VariantBits expected, const egg::ovum::Variant& variant) {
-    ASSERT_EQ(expected, variant.getKind());
+  inline void assertValue(egg::ovum::ValueFlags expected, const egg::ovum::Value& value) {
+    ASSERT_EQ(expected, value->getFlags());
   }
-  inline void assertVariant(bool expected, const egg::ovum::Variant& variant) {
-    ASSERT_EQ(egg::ovum::VariantBits::Bool, variant.getKind());
-    ASSERT_EQ(expected, variant.getBool());
+  inline void assertValue(std::nullptr_t, const egg::ovum::Value& value) {
+    ASSERT_EQ(egg::ovum::ValueFlags::Null, value->getFlags());
   }
-  inline void assertVariant(int expected, const egg::ovum::Variant& variant) {
-    ASSERT_EQ(egg::ovum::VariantBits::Int, variant.getKind());
-    ASSERT_EQ(expected, variant.getInt());
+  inline void assertValue(bool expected, const egg::ovum::Value& value) {
+    ASSERT_EQ(egg::ovum::ValueFlags::Bool, value->getFlags());
+    bool actual;
+    ASSERT_TRUE(value->getBool(actual));
+    ASSERT_EQ(expected, actual);
   }
-  inline void assertVariant(double expected, const egg::ovum::Variant& variant) {
-    ASSERT_EQ(egg::ovum::VariantBits::Float, variant.getKind());
-    ASSERT_EQ(expected, variant.getFloat());
+  inline void assertValue(int expected, const egg::ovum::Value& value) {
+    ASSERT_EQ(egg::ovum::ValueFlags::Int, value->getFlags());
+    egg::ovum::Int actual;
+    ASSERT_TRUE(value->getInt(actual));
+    ASSERT_EQ(expected, actual);
   }
-  inline void assertVariant(const char* expected, const egg::ovum::Variant& variant) {
+  inline void assertValue(double expected, const egg::ovum::Value& value) {
+    ASSERT_EQ(egg::ovum::ValueFlags::Float, value->getFlags());
+    egg::ovum::Float actual;
+    ASSERT_TRUE(value->getFloat(actual));
+    ASSERT_EQ(expected, actual);
+  }
+  inline void assertValue(const char* expected, const egg::ovum::Value& value) {
     if (expected == nullptr) {
-      ASSERT_EQ(egg::ovum::VariantBits::Null, variant.getKind());
+      ASSERT_EQ(egg::ovum::ValueFlags::Null, value->getFlags());
     } else {
-      ASSERT_EQ(egg::ovum::VariantBits::String | egg::ovum::VariantBits::Hard, variant.getKind());
-      ASSERT_STREQ(expected, variant.getString().toUTF8().c_str());
+      ASSERT_EQ(egg::ovum::ValueFlags::String, value->getFlags());
+      egg::ovum::String actual;
+      ASSERT_TRUE(value->getString(actual));
+      ASSERT_STREQ(expected, actual.toUTF8().c_str());
     }
+  }
+  inline void assertValue(const egg::ovum::Value& expected, const egg::ovum::Value& actual) {
+    ASSERT_PRED_FORMAT2(assertValueEQ, expected, actual);
   }
 }
 
 template<>
-inline void ::testing::internal::PrintTo(const egg::ovum::VariantBits& value, std::ostream* stream) {
-  // Pretty-print the variant kind
-  egg::ovum::VariantKind::printTo(*stream, value);
+inline void ::testing::internal::PrintTo(const egg::ovum::ValueFlags& value, std::ostream* stream) {
+  // Pretty-print the value flags
+  egg::ovum::Value::print(*stream, value);
+}
+
+template<>
+inline void ::testing::internal::PrintTo(const egg::ovum::Value& value, std::ostream* stream) {
+  // Pretty-print the value
+  egg::ovum::Value::print(*stream, value);
 }
 
 #define ASSERT_STRING(expected, string) egg::test::assertString(expected, string)
-#define ASSERT_VARIANT(expected, variant) egg::test::assertVariant(expected, variant)
+#define ASSERT_VALUE(expected, value) egg::test::assertValue(expected, value)
+#define ASSERT_VARIANT(expected, variant) egg::test::assertValue(expected, variant)

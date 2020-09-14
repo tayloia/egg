@@ -36,6 +36,46 @@ namespace egg::ovum {
     }
   };
 
+  template<typename T>
+  class AtomicPtr {
+    AtomicPtr() = delete;
+    AtomicPtr& operator=(const AtomicPtr& rhs) = delete;
+  public:
+    using Underlying = T;
+  private:
+    std::atomic<Underlying*> atomic;
+  public:
+    explicit AtomicPtr(Underlying* rhs) : atomic(rhs) {
+      // Raw pointer initialisation
+    }
+    explicit AtomicPtr(const AtomicPtr& rhs) : atomic(rhs.get()->clone()) {
+    }
+    explicit AtomicPtr(AtomicPtr&& rhs) noexcept : atomic(rhs.swap(nullptr)) {
+    }
+    ~AtomicPtr() {
+      auto* p = this->swap(nullptr);
+      if (p != nullptr) {
+        p->release();
+      }
+    }
+    Underlying* get() const {
+      return std::atomic_load(&this->atomic);
+    }
+    Underlying* swap(Underlying* value) {
+      return std::atomic_exchange(&this->atomic, value);
+    }
+    void copy(const AtomicPtr& rhs) {
+      if (this != &rhs) {
+        this->swap(rhs.get()->clone())->release();
+      }
+    }
+    void move(AtomicPtr&& rhs) noexcept {
+      if (this != &rhs) {
+        this->swap(rhs.swap(nullptr))->release();
+      }
+    }
+  };
+
   class Bits {
   public:
     template<typename T>
@@ -45,10 +85,20 @@ namespace egg::ovum {
       return (a & b) == b;
     }
     template<typename T>
+    static constexpr bool hasAnySet(T value) {
+      auto a = static_cast<std::underlying_type_t<T>>(value);
+      return a != 0;
+    }
+    template<typename T>
     static constexpr bool hasAnySet(T value, T bits) {
       auto a = static_cast<std::underlying_type_t<T>>(value);
       auto b = static_cast<std::underlying_type_t<T>>(bits);
       return (a & b) != 0;
+    }
+    template<typename T>
+    static constexpr bool hasOneSet(T value) {
+      auto a = static_cast<std::underlying_type_t<T>>(value);
+      return ((a & (a - 1)) == 0) && (a != 0);
     }
     template<typename T>
     static constexpr bool hasOneSet(T value, T bits) {
@@ -56,6 +106,18 @@ namespace egg::ovum {
       auto b = static_cast<std::underlying_type_t<T>>(bits);
       auto c = a & b;
       return ((c & (c - 1)) == 0) && (c != 0);
+    }
+    template<typename T>
+    static constexpr bool hasZeroOrOneSet(T value) {
+      auto a = static_cast<std::underlying_type_t<T>>(value);
+      return (a & (a - 1)) == 0;
+    }
+    template<typename T>
+    static constexpr bool hasZeroOrOneSet(T value, T bits) {
+      auto a = static_cast<std::underlying_type_t<T>>(value);
+      auto b = static_cast<std::underlying_type_t<T>>(bits);
+      auto c = a & b;
+      return (c & (c - 1)) == 0;
     }
     template<typename T>
     static constexpr T mask(T value, T bits) {
@@ -90,7 +152,7 @@ namespace egg::ovum {
       auto b = 1;
       while ((a >>= 1) != 0) {
         b <<= 1;
-      } while (a > 0);
+      }
       return static_cast<T>(b);
     }
   };
@@ -158,6 +220,9 @@ namespace egg::ovum {
       // Make sure we're no longer a member of a basket
       assert(this->basket == nullptr);
     }
+    virtual bool validate() const override {
+      return true;
+    }
     virtual bool softIsRoot() const override {
       // We're a root if there's a hard reference in addition to ours
       return this->atomic.get() > 1;
@@ -218,6 +283,7 @@ namespace egg::ovum {
       return *this;
     }
     HardPtr& operator=(HardPtr&& rhs) noexcept {
+      assert(this != &rhs);
       if (this->ptr != nullptr) {
         this->ptr->hardRelease();
       }
@@ -338,23 +404,13 @@ namespace egg::ovum {
     return ptr != nullptr;
   }
 
-  // Helper for converting IEEE to/from mantissa/exponents
-  struct MantissaExponent {
-    static constexpr int64_t ExponentNaN = 1;
-    static constexpr int64_t ExponentPositiveInfinity = 2;
-    static constexpr int64_t ExponentNegativeInfinity = -2;
-    int64_t mantissa;
-    int64_t exponent;
-    void fromFloat(Float f);
-    Float toFloat() const;
-  };
-
   class Memory : public HardPtr<const IMemory> {
   public:
     Memory() = default;
     explicit Memory(const IMemory* rhs) : HardPtr(rhs) {
     }
     static bool equals(const IMemory* lhs, const IMemory* rhs);
+    bool validate() const;
   };
 
   using Basket = HardPtr<IBasket>;

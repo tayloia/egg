@@ -110,6 +110,7 @@ namespace egg::ovum {
   public:
     using Visitor = std::function<void(ICollectable& target)>;
     // Interface
+    virtual bool validate() const = 0;
     virtual bool softIsRoot() const = 0;
     virtual IBasket* softGetBasket() const = 0;
     virtual IBasket* softSetBasket(IBasket* basket) = 0;
@@ -190,6 +191,7 @@ namespace egg::ovum {
   class IObject : public ICollectable {
   public:
     // Interface
+    virtual bool validate() const = 0;
     virtual Variant toString() const = 0;
     virtual Type getRuntimeType() const = 0;
     virtual Variant call(IExecution& execution, const IParameters& parameters) = 0;

@@ -61,9 +61,11 @@ TEST(TestModules, Coverage) {
   ASSERT_STARTSWITH(retval, "[A3 67 67 56 4D 00 ");
 }
 
+/* VIBBLE
 TEST(TestModules, Compiler) {
   egg::test::Allocator allocator;
   egg::test::Logger logger;
   auto actual = egg::test::Compiler::run(allocator, logger, "~/yolk/test/data/coverage.egg");
   ASSERT_EQ("<void>", actual.toString().toUTF8());
 }
+*/

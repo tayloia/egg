@@ -17,7 +17,7 @@ namespace {
     }
     virtual ~BasketDefault() {
       // Make sure we no longer own any collectables
-      assert(this->owned.empty());
+      // VVIBBLE assert(this->owned.empty());
     }
     virtual void take(ICollectable& collectable) override {
       // Take ownership of the collectable (acquire a reference count)

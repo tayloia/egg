@@ -57,10 +57,10 @@ namespace {
     explicit StacklessRoot(FunctionCoroutineStackless& parent)
       : EggProgramStackless(parent) {
     }
-    virtual egg::ovum::Variant resume(egg::yolk::EggProgramContext&) {
+    virtual egg::ovum::Variant resume(egg::yolk::EggProgramContext& context) {
       // If the root element resumed, we've completed all the statements in the function definition block
       // Simulate 'return;' to say we've finished
-      return egg::ovum::Variant::ReturnVoid;
+      return egg::ovum::VariantFactory::createReturnVoid(context.getAllocator());
     }
   };
 
@@ -181,11 +181,11 @@ namespace {
         // Run 'block'
         retval = this->block->coexecute(context, *this);
         if (retval.hasFlowControl()) {
-          if (retval.is(egg::ovum::VariantBits::Break)) {
+          if (retval.is(egg::ovum::ValueFlags::Break)) {
             // Explicit 'break'
             break;
           }
-          if (!retval.is(egg::ovum::VariantBits::Continue)) {
+          if (!retval.is(egg::ovum::ValueFlags::Continue)) {
             // Not explicit 'continue'
             return retval;
           }
@@ -228,11 +228,11 @@ namespace {
         }
         retval = this->block->coexecute(context, *this);
         if (retval.hasFlowControl()) {
-          if (retval.is(egg::ovum::VariantBits::Break)) {
+          if (retval.is(egg::ovum::ValueFlags::Break)) {
             // Explicit 'break;
             break;
           }
-          if (!retval.is(egg::ovum::VariantBits::Continue)) {
+          if (!retval.is(egg::ovum::ValueFlags::Continue)) {
             // Not explicit 'continue;
             return retval;
           }
@@ -355,10 +355,10 @@ egg::ovum::Variant egg::yolk::EggProgramContext::coexecuteWhile(EggProgramStackl
 }
 
 egg::ovum::Variant egg::yolk::EggProgramContext::coexecuteYield(EggProgramStackless&, const std::shared_ptr<IEggProgramNode>& value) {
-  auto result = value->execute(*this).direct();
+  auto result = value->execute(*this);
   if (!result.hasFlowControl()) {
     // Need to convert the result to a return flow control
-    result.addFlowControl(egg::ovum::VariantBits::Yield);
+    result.addFlowControl(egg::ovum::ValueFlags::Yield);
   }
   return result;
 }

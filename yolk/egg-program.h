@@ -200,7 +200,7 @@ namespace egg::yolk {
     std::unique_ptr<IEggProgramAssignee> assigneeDeref(const IEggProgramNode& self, const std::shared_ptr<IEggProgramNode>& instance);
     void statement(const IEggProgramNode& node); // TODO remove?
     egg::ovum::LocationRuntime swapLocation(const egg::ovum::LocationRuntime& loc); // TODO remove?
-    egg::ovum::Variant get(const egg::ovum::String& name, bool byref);
+    egg::ovum::Variant get(const egg::ovum::String& name);
     egg::ovum::Variant set(const egg::ovum::String& name, const egg::ovum::Variant& rvalue);
     egg::ovum::Variant guard(const egg::ovum::String& name, const egg::ovum::Variant& rvalue);
     egg::ovum::Variant assign(EggProgramAssign op, const IEggProgramNode& lhs, const IEggProgramNode& rhs);
@@ -252,7 +252,7 @@ namespace egg::yolk {
     egg::ovum::Variant executeArray(const IEggProgramNode& self, const std::vector<std::shared_ptr<IEggProgramNode>>& values);
     egg::ovum::Variant executeObject(const IEggProgramNode& self, const std::vector<std::shared_ptr<IEggProgramNode>>& values);
     egg::ovum::Variant executeCall(const IEggProgramNode& self, const IEggProgramNode& callee, const std::vector<std::shared_ptr<IEggProgramNode>>& parameters);
-    egg::ovum::Variant executeIdentifier(const IEggProgramNode& self, const egg::ovum::String& name, bool byref);
+    egg::ovum::Variant executeIdentifier(const IEggProgramNode& self, const egg::ovum::String& name);
     egg::ovum::Variant executeLiteral(const IEggProgramNode& self, const egg::ovum::Variant& value);
     egg::ovum::Variant executeBrackets(const IEggProgramNode& self, const IEggProgramNode& instance, const IEggProgramNode& index);
     egg::ovum::Variant executeDot(const IEggProgramNode& self, const IEggProgramNode& instance, const egg::ovum::String& property);
@@ -313,7 +313,7 @@ namespace egg::yolk {
     egg::ovum::Variant executeFinally(const egg::ovum::Variant& retval, const IEggProgramNode* block);
     egg::ovum::Variant executeForeachString(IEggProgramAssignee& target, const egg::ovum::String& source, const IEggProgramNode& block);
     egg::ovum::Variant executeForeachIterate(IEggProgramAssignee& target, egg::ovum::IObject& source, const IEggProgramNode& block);
-    bool operand(egg::ovum::Variant& dst, const IEggProgramNode& src, egg::ovum::VariantBits expected, const char* expectation);
+    bool operand(egg::ovum::Variant& dst, const IEggProgramNode& src, egg::ovum::ValueFlags expected, const char* expectation);
     typedef egg::ovum::Variant(*ArithmeticBool)(bool lhs, bool rhs);
     typedef egg::ovum::Variant(*ArithmeticInt)(int64_t lhs, int64_t rhs);
     typedef egg::ovum::Variant(*ArithmeticFloat)(double lhs, double rhs);

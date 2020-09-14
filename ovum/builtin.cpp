@@ -18,6 +18,9 @@ namespace {
         name(name) {
       assert(!name.empty());
     }
+    virtual bool validate() const override {
+      return true; // WIBBLE
+    }
     virtual Variant getProperty(IExecution& execution, const String& property) override {
       return this->raiseBuiltin(execution, "does not support properties such as '", property, "'");
     }
@@ -130,7 +133,7 @@ namespace {
       if (parameters.getPositionalCount() != 1) {
         return this->raiseBuiltin(execution, "accepts only 1 parameter, not ", parameters.getPositionalCount());
       }
-      return execution.assertion(parameters.getPositional(0).direct());
+      return execution.assertion(parameters.getPositional(0));
     }
   };
 
@@ -322,7 +325,7 @@ namespace {
       switch (n) {
       case 0:
         // Joining nothing always produces an empty string
-        return Variant::EmptyString;
+        return String();
       case 1:
         // Joining a single value does not require a separator
         return parameters.getPositional(0).toString();

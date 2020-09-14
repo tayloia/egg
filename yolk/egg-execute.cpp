@@ -113,7 +113,7 @@ egg::ovum::Variant egg::yolk::EggProgramContext::executeDeclare(const IEggProgra
   this->statement(self);
   if (rvalue != nullptr) {
     // The declaration contains an initial value
-    return this->set(name, rvalue->execute(*this)); // not .direct()
+    return this->set(name, rvalue->execute(*this));
   }
   return egg::ovum::Variant::Void;
 }
@@ -123,7 +123,7 @@ egg::ovum::Variant egg::yolk::EggProgramContext::executeGuard(const IEggProgramN
   EGG_UNUSED(type); // Used in assertion only
   this->statement(self);
   assert(type != nullptr);
-  return this->guard(name, rvalue.execute(*this)); // not .direct()
+  return this->guard(name, rvalue.execute(*this));
 }
 
 egg::ovum::Variant egg::yolk::EggProgramContext::executeAssign(const IEggProgramNode& self, EggProgramAssign op, const IEggProgramNode& lvalue, const IEggProgramNode& rvalue) {
@@ -152,11 +152,11 @@ egg::ovum::Variant egg::yolk::EggProgramContext::executeDo(const IEggProgramNode
   do {
     retval = block.execute(*this);
     if (retval.hasFlowControl()) {
-      if (retval.is(egg::ovum::VariantBits::Break)) {
+      if (retval.is(egg::ovum::ValueFlags::Break)) {
         // Just leave the loop
         return egg::ovum::Variant::Void;
       }
-      if (!retval.is(egg::ovum::VariantBits::Continue)) {
+      if (!retval.is(egg::ovum::ValueFlags::Continue)) {
         // Probably an exception
         return retval;
       }
@@ -204,11 +204,11 @@ egg::ovum::Variant egg::yolk::EggProgramContext::executeFor(const IEggProgramNod
       for (;;) {
         retval = block.execute(scope);
         if (retval.hasFlowControl()) {
-          if (retval.is(egg::ovum::VariantBits::Break)) {
+          if (retval.is(egg::ovum::ValueFlags::Break)) {
             // Just leave the loop
             return egg::ovum::Variant::Void;
           }
-          if (!retval.is(egg::ovum::VariantBits::Continue)) {
+          if (!retval.is(egg::ovum::ValueFlags::Continue)) {
             // Probably an exception in the block
             return retval;
           }
@@ -230,11 +230,11 @@ egg::ovum::Variant egg::yolk::EggProgramContext::executeFor(const IEggProgramNod
       }
       retval = block.execute(scope);
       if (retval.hasFlowControl()) {
-        if (retval.is(egg::ovum::VariantBits::Break)) {
+        if (retval.is(egg::ovum::ValueFlags::Break)) {
           // Just leave the loop
           return egg::ovum::Variant::Void;
         }
-        if (!retval.is(egg::ovum::VariantBits::Continue)) {
+        if (!retval.is(egg::ovum::ValueFlags::Continue)) {
           // Probably an exception in the block
           return retval;
         }
@@ -259,7 +259,7 @@ egg::ovum::Variant egg::yolk::EggProgramContext::executeForeach(const IEggProgra
     if (dst == nullptr) {
       return scope.raiseFormat("Iteration target in 'for' statement is not valid");
     }
-    auto src = rvalue.execute(scope).direct();
+    auto src = rvalue.execute(scope);
     if (src.hasFlowControl()) {
       return src;
     }
@@ -285,11 +285,11 @@ egg::ovum::Variant egg::yolk::EggProgramContext::executeForeachString(IEggProgra
     }
     retval = block.execute(*this);
     if (retval.hasFlowControl()) {
-      if (retval.is(egg::ovum::VariantBits::Break)) {
+      if (retval.is(egg::ovum::ValueFlags::Break)) {
         // Just leave the loop
         return egg::ovum::Variant::Void;
       }
-      if (!retval.is(egg::ovum::VariantBits::Continue)) {
+      if (!retval.is(egg::ovum::ValueFlags::Continue)) {
         // Probably an exception in the block
         return retval;
       }
@@ -329,11 +329,11 @@ egg::ovum::Variant egg::yolk::EggProgramContext::executeForeachIterate(IEggProgr
     }
     retval = block.execute(*this);
     if (retval.hasFlowControl()) {
-      if (retval.is(egg::ovum::VariantBits::Break)) {
+      if (retval.is(egg::ovum::ValueFlags::Break)) {
         // Just leave the loop
         break;
       }
-      if (!retval.is(egg::ovum::VariantBits::Continue)) {
+      if (!retval.is(egg::ovum::ValueFlags::Continue)) {
         // Probably an exception in the block
         return retval;
       }
@@ -393,7 +393,7 @@ egg::ovum::Variant egg::yolk::EggProgramContext::executeFunctionCall(const egg::
   }
   auto context = this->createNestedContext(*nested);
   auto retval = block->execute(*context);
-  if (retval.stripFlowControl(egg::ovum::VariantBits::Return)) {
+  if (retval.stripFlowControl(egg::ovum::ValueFlags::Return)) {
     // Explicit return
     return retval;
   }
@@ -407,7 +407,7 @@ egg::ovum::Variant egg::yolk::EggProgramContext::executeGeneratorDefinition(cons
   assert(gentype->callable() != nullptr);
   auto itertype = gentype->callable()->getReturnType();
   auto retval = this->createVanillaGenerator(itertype, rettype, block);
-  retval.addFlowControl(egg::ovum::VariantBits::Return);
+  retval.addFlowControl(egg::ovum::ValueFlags::Return);
   return retval;
 }
 
@@ -415,12 +415,12 @@ egg::ovum::Variant egg::yolk::EggProgramContext::executeReturn(const IEggProgram
   this->statement(self);
   if (value == nullptr) {
     // This is a void return
-    return egg::ovum::Variant::ReturnVoid;
+    return egg::ovum::VariantFactory::createReturnVoid(this->allocator);
   }
-  auto result = value->execute(*this).direct();
+  auto result = value->execute(*this);
   if (!result.hasFlowControl()) {
     // Need to convert the result to a return flow control
-    result.addFlowControl(egg::ovum::VariantBits::Return);
+    result.addFlowControl(egg::ovum::ValueFlags::Return);
   }
   return result;
 }
@@ -431,13 +431,13 @@ egg::ovum::Variant egg::yolk::EggProgramContext::executeSwitch(const IEggProgram
   // Phase 1 evaluates the case values
   // Phase 2 executes the block(s) as appropriate
   return this->executeScope(&value, [&](EggProgramContext& scope) {
-    auto expr = value.execute(scope).direct();
+    auto expr = value.execute(scope);
     if (expr.hasFlowControl()) {
       return expr;
     }
     auto matched = size_t(defaultIndex);
     for (size_t index = 0; index < cases.size(); ++index) {
-      auto retval = scope.executeWithValue(*cases[index], expr).direct();
+      auto retval = scope.executeWithValue(*cases[index], expr);
       if (!retval.isBool()) {
         // Failed to evaluate a case label
         return retval;
@@ -450,11 +450,11 @@ egg::ovum::Variant egg::yolk::EggProgramContext::executeSwitch(const IEggProgram
     }
     while (matched < cases.size()) {
       auto retval = cases[matched]->execute(scope);
-      if (retval.is(egg::ovum::VariantBits::Break)) {
+      if (retval.is(egg::ovum::ValueFlags::Break)) {
         // Explicit end of case clause
         break;
       }
-      if (!retval.is(egg::ovum::VariantBits::Continue)) {
+      if (!retval.is(egg::ovum::ValueFlags::Continue)) {
         // Probably some other flow control such as a return or exception
         return retval;
       }
@@ -469,11 +469,11 @@ egg::ovum::Variant egg::yolk::EggProgramContext::executeCase(const IEggProgramNo
   if (against != nullptr) {
     // We're matching against values
     for (auto& i : values) {
-      auto value = i->execute(*this).direct();
+      auto value = i->execute(*this);
       if (value.hasFlowControl()) {
         return value;
       }
-      if (value == *against) {
+      if (egg::ovum::Variant::equals(value, *against, egg::ovum::ValueCompare::PromoteInts)) {
         // Found a match, so return 'true'
         return egg::ovum::Variant::True;
       }
@@ -491,11 +491,11 @@ egg::ovum::Variant egg::yolk::EggProgramContext::executeThrow(const IEggProgramN
     // This is a rethrow
     return egg::ovum::Variant::Rethrow;
   }
-  auto value = exception->execute(*this).direct();
+  auto value = exception->execute(*this);
   if (value.hasFlowControl()) {
     return value;
   }
-  if (!value.hasOne(egg::ovum::VariantBits::Any)) {
+  if (!value.hasOne(egg::ovum::ValueFlags::Any)) {
     return this->raiseFormat("Cannot 'throw' a value of type '", value.getRuntimeType().toString(), "'");
   }
   return this->raise(value.getString());
@@ -504,10 +504,10 @@ egg::ovum::Variant egg::yolk::EggProgramContext::executeThrow(const IEggProgramN
 egg::ovum::Variant egg::yolk::EggProgramContext::executeTry(const IEggProgramNode& self, const IEggProgramNode& block, const std::vector<std::shared_ptr<IEggProgramNode>>& catches, const IEggProgramNode* final) {
   this->statement(self);
   auto retval = block.execute(*this);
-  if (retval.stripFlowControl(egg::ovum::VariantBits::Throw)) {
+  if (retval.stripFlowControl(egg::ovum::ValueFlags::Throw)) {
     // An exception has indeed been thrown
     for (auto& i : catches) {
-      auto match = this->executeWithValue(*i, retval).direct();
+      auto match = this->executeWithValue(*i, retval);
       if (!match.isBool()) {
         // Failed to evaluate the catch condition
         return this->executeFinally(match, final);
@@ -533,7 +533,7 @@ egg::ovum::Variant egg::yolk::EggProgramContext::executeCatch(const IEggProgramN
   auto retval = block.execute(*context);
   if (retval.hasFlowControl()) {
     // Check for a rethrow
-    if (retval.is(egg::ovum::VariantBits::Throw | egg::ovum::VariantBits::Void)) {
+    if (retval.is(egg::ovum::ValueFlags::Throw | egg::ovum::ValueFlags::Void)) {
       return *exception;
     }
     return retval;
@@ -566,11 +566,11 @@ egg::ovum::Variant egg::yolk::EggProgramContext::executeWhile(const IEggProgramN
       }
       retval = block.execute(scope);
       if (retval.hasFlowControl()) {
-        if (retval.is(egg::ovum::VariantBits::Break)) {
+        if (retval.is(egg::ovum::ValueFlags::Break)) {
           // Just leave the loop
           return egg::ovum::Variant::Void;
         }
-        if (!retval.is(egg::ovum::VariantBits::Continue)) {
+        if (!retval.is(egg::ovum::ValueFlags::Continue)) {
           // Probably an exception
           break;
         }
@@ -595,7 +595,7 @@ egg::ovum::Variant egg::yolk::EggProgramContext::executeArray(const IEggProgramN
     auto object = result.getObject();
     int64_t index = 0;
     for (auto& value : values) {
-      auto entry = value->execute(*this).direct();
+      auto entry = value->execute(*this);
       if (entry.hasFlowControl()) {
         return entry;
       }
@@ -621,7 +621,7 @@ egg::ovum::Variant egg::yolk::EggProgramContext::executeObject(const IEggProgram
       if (!value->symbol(name, type)) {
         return this->raiseFormat("Internal runtime error: Failed to fetch name of object property");
       }
-      auto entry = value->execute(*this).direct();
+      auto entry = value->execute(*this);
       if (entry.hasFlowControl()) {
         return entry;
       }
@@ -636,7 +636,7 @@ egg::ovum::Variant egg::yolk::EggProgramContext::executeObject(const IEggProgram
 
 egg::ovum::Variant egg::yolk::EggProgramContext::executeCall(const IEggProgramNode& self, const IEggProgramNode& callee, const std::vector<std::shared_ptr<IEggProgramNode>>& parameters) {
   EggProgramExpression expression(*this, self);
-  auto func = callee.execute(*this).direct();
+  auto func = callee.execute(*this);
   if (func.hasFlowControl()) {
     return func;
   }
@@ -644,7 +644,7 @@ egg::ovum::Variant egg::yolk::EggProgramContext::executeCall(const IEggProgramNo
   egg::ovum::String name;
   auto type = egg::ovum::Type::Void;
   for (auto& parameter : parameters) {
-    auto value = parameter->execute(*this).direct();
+    auto value = parameter->execute(*this);
     if (value.hasFlowControl()) {
       return value;
     }
@@ -657,9 +657,9 @@ egg::ovum::Variant egg::yolk::EggProgramContext::executeCall(const IEggProgramNo
   return this->call(func, params);
 }
 
-egg::ovum::Variant egg::yolk::EggProgramContext::executeIdentifier(const IEggProgramNode& self, const egg::ovum::String& name, bool byref) {
+egg::ovum::Variant egg::yolk::EggProgramContext::executeIdentifier(const IEggProgramNode& self, const egg::ovum::String& name) {
   EggProgramExpression expression(*this, self);
-  return this->get(name, byref);
+  return this->get(name);
 }
 
 egg::ovum::Variant egg::yolk::EggProgramContext::executeLiteral(const IEggProgramNode& self, const egg::ovum::Variant& value) {
@@ -671,11 +671,11 @@ egg::ovum::Variant egg::yolk::EggProgramContext::executeBrackets(const IEggProgr
   EggProgramExpression expression(*this, self);
   // Override our location with the index value
   this->location.column++; // TODO a better way of doing this?
-  auto lhs = instance.execute(*this).direct();
+  auto lhs = instance.execute(*this);
   if (lhs.hasFlowControl()) {
     return lhs;
   }
-  auto rhs = index.execute(*this).direct();
+  auto rhs = index.execute(*this);
   if (rhs.hasFlowControl()) {
     return rhs;
   }
@@ -684,7 +684,7 @@ egg::ovum::Variant egg::yolk::EggProgramContext::executeBrackets(const IEggProgr
 
 egg::ovum::Variant egg::yolk::EggProgramContext::executeDot(const IEggProgramNode& self, const IEggProgramNode& instance, const egg::ovum::String& property) {
   EggProgramExpression expression(*this, self);
-  auto lhs = instance.execute(*this).direct();
+  auto lhs = instance.execute(*this);
   if (lhs.hasFlowControl()) {
     return lhs;
   }
@@ -706,9 +706,9 @@ egg::ovum::Variant egg::yolk::EggProgramContext::executeBinary(const IEggProgram
 
 egg::ovum::Variant egg::yolk::EggProgramContext::executeTernary(const IEggProgramNode& self, const IEggProgramNode& cond, const IEggProgramNode& whenTrue, const IEggProgramNode& whenFalse) {
   EggProgramExpression expression(*this, self);
-  auto retval = this->condition(cond).direct();
+  auto retval = this->condition(cond);
   if (retval.isBool()) {
-    return retval.getBool() ? whenTrue.execute(*this).direct() : whenFalse.execute(*this).direct();
+    return retval.getBool() ? whenTrue.execute(*this) : whenFalse.execute(*this);
   }
   return retval;
 }
@@ -724,7 +724,7 @@ egg::ovum::Variant egg::yolk::EggProgramContext::executePredicate(const IEggProg
   }
   auto operation = EggProgram::binaryToString(op);
   auto raised = this->raiseFormat("Assertion is untrue: ", left.toString(), " ", operation, " ", right.toString());
-  if (raised.hasAll(egg::ovum::VariantBits::Throw | egg::ovum::VariantBits::Object)) {
+  if (raised.hasAll(egg::ovum::ValueFlags::Throw | egg::ovum::ValueFlags::Object)) {
     // Augment the exception with extra information
     auto exception = raised.getObject();
     exception->setProperty(*this, "left", left);
@@ -739,7 +739,7 @@ egg::ovum::Variant egg::yolk::EggProgramContext::executeWithValue(const IEggProg
   assert(this->scopeValue == nullptr);
   try {
     this->scopeValue = &value;
-    auto result = node.execute(*this); // not .direct()
+    auto result = node.execute(*this);
     this->scopeValue = nullptr;
     return result;
   } catch (...) {
@@ -757,7 +757,7 @@ egg::ovum::ILogger::Severity egg::yolk::EggProgram::execute(IEggEngineExecutionC
   egg::ovum::ILogger::Severity severity = egg::ovum::ILogger::Severity::None;
   auto context = this->createRootContext(allocator, execution, *symtable, severity);
   auto retval = this->root->execute(*context);
-  if (retval.stripFlowControl(egg::ovum::VariantBits::Throw)) {
+  if (retval.stripFlowControl(egg::ovum::ValueFlags::Throw)) {
     // TODO exception location
     execution.log(egg::ovum::ILogger::Source::Runtime, egg::ovum::ILogger::Severity::Error, retval.toString().toUTF8());
   } else if (!retval.isVoid()) {

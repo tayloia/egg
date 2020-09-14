@@ -62,7 +62,7 @@ namespace {
         if (engine->compile(*compilation, module) != egg::ovum::ILogger::Severity::Error) {
           auto program = egg::ovum::ProgramFactory::createProgram(allocator, *logger);
           auto result = program->run(*module);
-          if (result.stripFlowControl(egg::ovum::VariantBits::Throw)) {
+          if (result.stripFlowControl(egg::ovum::ValueFlags::Throw)) {
             if (!result.isVoid()) {
               // Don't re-print a rethrown exception
               logger->log(egg::ovum::ILogger::Source::Runtime, egg::ovum::ILogger::Severity::Error, result.toString().toUTF8());

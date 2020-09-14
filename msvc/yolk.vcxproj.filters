@@ -103,9 +103,6 @@
     <ClInclude Include="..\yolk\json-tokenizer.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\yolk\lexer.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="..\yolk\lexers.h">
       <Filter>Header Files</Filter>
     </ClInclude>

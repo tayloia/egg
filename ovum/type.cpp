@@ -43,8 +43,7 @@ namespace {
 
   Variant tryAssignBasal(IExecution& execution, BasalBits basal, Variant& lhs, const Variant& rhs) {
     assert(basal != BasalBits::None);
-    assert(!rhs.hasIndirect());
-    if (rhs.hasAny(static_cast<VariantBits>(basal))) {
+    if (rhs.hasAny(static_cast<ValueFlags>(basal))) {
       // It's an exact type match (narrowing)
       lhs = rhs;
       return Variant::Void;
@@ -315,9 +314,9 @@ namespace {
     switch (basal) {
     case BasalBits::None:
       return "var";
-#define EGG_OVUM_BASAL_COMPONENT(name, text) case BasalBits::name: return text;
-      EGG_OVUM_BASAL(EGG_OVUM_BASAL_COMPONENT)
-#undef EGG_OVUM_BASAL_COMPONENT
+#define EGG_VM_BASAL_COMPONENT(name, text) case BasalBits::name: return text;
+      EGG_VM_BASAL(EGG_VM_BASAL_COMPONENT)
+#undef EGG_VM_BASAL_COMPONENT
     case BasalBits::Any:
       return "any";
     case BasalBits::AnyQ:
@@ -332,9 +331,9 @@ const egg::ovum::IType* egg::ovum::Type::getBasalType(BasalBits basal) {
   switch (basal) {
   case BasalBits::None:
     break;
-#define EGG_OVUM_BASAL_INSTANCE(name, text) case BasalBits::name: return &type##name;
-    EGG_OVUM_BASAL(EGG_OVUM_BASAL_INSTANCE)
-#undef EGG_OVUM_BASAL_INSTANCE
+#define EGG_VM_BASAL_INSTANCE(name, text) case BasalBits::name: return &type##name;
+    EGG_VM_BASAL(EGG_VM_BASAL_INSTANCE)
+#undef EGG_VM_BASAL_INSTANCE
   case BasalBits::Any:
     return &typeAny;
   case BasalBits::AnyQ:
@@ -384,7 +383,6 @@ egg::ovum::Type egg::ovum::Type::makePointer(IAllocator& allocator, const IType&
 
 egg::ovum::Variant egg::ovum::TypeBase::tryAssign(IExecution& execution, Variant& lvalue, const Variant& rvalue) const {
   // By default, call canBeAssignedFrom() but do not actually promote
-  assert(!rvalue.hasIndirect());
   auto rtype = rvalue.getRuntimeType();
   if (this->canBeAssignedFrom(*rtype) == AssignmentSuccess::Never) {
     return execution.raiseFormat("Cannot assign a value of type '", rtype.toString(), "' to a target of type '", Type(this).toString(), "'");

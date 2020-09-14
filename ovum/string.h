@@ -9,6 +9,7 @@ namespace egg::ovum {
     explicit String(const IMemory* rhs) : Memory(rhs) {
     }
     String(const std::string& utf8, size_t codepoints = SIZE_MAX); // implicit; fallback to factory
+    bool validate() const;
 
     // See http://chilliant.blogspot.co.uk/2018/05/egg-strings.html
     size_t length() const;

@@ -964,10 +964,9 @@ namespace {
   private:
     egg::ovum::String name;
     egg::ovum::Type type; // Initially 'Void' because we don't know until we're prepared
-    bool byref;
   public:
     EggParserNode_Identifier(egg::ovum::IAllocator&, const egg::ovum::LocationSource& locationSource, const egg::ovum::String& name)
-      : EggParserNodeBase(locationSource), name(name), type(egg::ovum::Type::Void), byref(false) {
+      : EggParserNodeBase(locationSource), name(name), type(egg::ovum::Type::Void) {
     }
     virtual egg::ovum::Type getType() const override {
       return this->type;
@@ -977,11 +976,10 @@ namespace {
     }
     virtual EggProgramNodeFlags addressable(EggProgramContext&) override {
       // Identifiers are always addressable
-      this->byref = true;
       return EggProgramNodeFlags::None;
     }
     virtual egg::ovum::Variant execute(EggProgramContext& context) const override {
-      return context.executeIdentifier(*this, this->name, this->byref);
+      return context.executeIdentifier(*this, this->name);
     }
     virtual std::unique_ptr<IEggProgramAssignee> assignee(EggProgramContext& context) const override {
       return context.assigneeIdentifier(*this, this->name);

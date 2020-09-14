@@ -172,6 +172,7 @@ namespace egg::ovum {
     static String fromUTF8(IAllocator& allocator, const std::string& utf8) {
       return fromUTF8(allocator, utf8.data(), utf8.size());
     }
+    static String fromASCIIZ(IAllocator& allocator, const char* asciiz);
   };
 
   class ObjectFactory {
@@ -187,14 +188,77 @@ namespace egg::ovum {
     }
   };
 
+  class ValueFactory {
+  public:
+    static Value createVoid();
+    static Value createNull();
+    static Value createBool(Bool value);
+    static Value createInt(IAllocator& allocator, Int value);
+    static Value createFloat(IAllocator& allocator, Float value);
+    static Value createString(IAllocator& allocator, const String& value);
+    static Value createObject(IAllocator& allocator, const Object& value);
+    static Value createMemory(IAllocator& allocator, const Memory& value);
+    static Value createPointer(IAllocator& allocator, const Value& pointee);
+    template<typename... ARGS>
+    static Value createException(IAllocator& allocator, const LocationSource& location, ARGS&&... args) {
+      // Use perfect forwarding
+      return ValueFactory::createException(ObjectFactory::createVanillaException(allocator, location, StringBuilder::concat(std::forward<ARGS>(args)...)));
+    }
+    static Value createFlowControl(ValueFlags flags);
+    static Value createFlowControl(IAllocator& allocator, ValueFlags flags, const Value& value);
+    template<typename T, typename... ARGS>
+    static Value createObject(IAllocator& allocator, ARGS&&... args) {
+      // Use perfect forwarding
+      return createValue(allocator, ObjectFactory::create<T>(allocator, std::forward<ARGS>(args)...));
+    }
+
+    // Overloaded without implicit promotion
+    template<typename T>
+    static Value createValue(IAllocator& allocator, T value) = delete;
+    static Value createValue(IAllocator&, std::nullptr_t) {
+      return createNull();
+    }
+    static Value createValue(IAllocator&, bool value) {
+      return createBool(value);
+    }
+    static Value createValue(IAllocator& allocator, int32_t value) {
+      return createInt(allocator, value);
+    }
+    static Value createValue(IAllocator& allocator, int64_t value) {
+      return createInt(allocator, value);
+    }
+    static Value createValue(IAllocator& allocator, float value) {
+      return createFloat(allocator, value);
+    }
+    static Value createValue(IAllocator& allocator, double value) {
+      return createFloat(allocator, value);
+    }
+    static Value createValue(IAllocator& allocator, const String& value) {
+      return createString(allocator, value);
+    }
+    static Value createValue(IAllocator& allocator, const std::string& value) {
+      return createString(allocator, StringFactory::fromUTF8(allocator, value));
+    }
+    static Value createValue(IAllocator& allocator, const char* value) {
+      if (value == nullptr) {
+        return createNull();
+      }
+      return createString(allocator, StringFactory::fromASCIIZ(allocator, value));
+    }
+    static Value createValue(IAllocator& allocator, const Object& value) {
+      return createObject(allocator, value);
+    }
+  };
+
   class VariantFactory {
   public:
-    static HardPtr<IVariantSoft> createVariantSoft(IAllocator& allocator, IBasket& basket, Variant&& value);
     static Variant createBuiltinAssert(IAllocator& allocator);
     static Variant createBuiltinPrint(IAllocator& allocator);
     static Variant createBuiltinString(IAllocator& allocator);
     static Variant createBuiltinType(IAllocator& allocator);
     static Variant createStringProperty(IAllocator& allocator, const String& string, const String& property);
+    static Variant createFlowControl(IAllocator& allocator, ValueFlags flags, const Variant& pointee);
+    static Variant createPointer(IAllocator& allocator, const Variant& pointee);
     static Variant createException(Variant&& value);
     template<typename... ARGS>
     static Variant createException(IAllocator& allocator, const LocationSource& location, ARGS&&... args) {
@@ -206,6 +270,7 @@ namespace egg::ovum {
       // Use perfect forwarding
       return Variant(ObjectFactory::create<T>(allocator, std::forward<ARGS>(args)...));
     }
+    static Variant createReturnVoid(IAllocator& allocator);
   };
 
   class BasketFactory {

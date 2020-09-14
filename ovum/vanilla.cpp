@@ -80,7 +80,7 @@ namespace {
       if (u >= this->values.size()) {
         return execution.raiseFormat("Invalid array index for an array with ", this->values.size(), " element(s): ", i);
       }
-      return this->values[u].direct();
+      return this->values[u];
     }
     virtual Variant setIndex(IExecution& execution, const Variant& index, const Variant& value) override {
       if (!index.isInt()) {

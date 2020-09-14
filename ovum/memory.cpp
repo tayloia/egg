@@ -23,6 +23,17 @@ namespace {
   const MemoryEmpty MemoryEmpty::instance{};
 }
 
+bool egg::ovum::Memory::validate() const {
+  auto* memory = this->get();
+  if (memory == nullptr) {
+    return true;
+  }
+  auto* p = memory->begin();
+  auto* q = memory->end();
+  return (p != nullptr) && (q >= p);
+
+}
+
 bool egg::ovum::Memory::equals(const IMemory* lhs, const IMemory* rhs) {
   // Don't look at the tag
   if (lhs == rhs) {
