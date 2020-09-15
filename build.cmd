@@ -59,7 +59,7 @@ for /f "tokens=2 delims=)" %%F in ('%GCC_EXE% --version') do set GCC_VERSION=%%F
 set GCC_VERSION=%GCC_VERSION: =%
 echo %USING% gcc %GCC_VERSION%
 rem Call make with the appropriate flags
-rem if "%MAKE_VERSION%" geq "4.0" set MAKE_OPTIONS=%MAKE_OPTIONS% --output-sync=line
+if "%MAKE_VERSION%" geq "4.0" set MAKE_OPTIONS=%MAKE_OPTIONS% --output-sync=line
 %MAKE_EXE% %MAKE_OPTIONS% %*
 :end
 endlocal

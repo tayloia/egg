@@ -1,5 +1,3 @@
-#include <cmath>
-
 namespace egg::ovum {
   // Helper for converting IEEE to/from mantissa/exponents
   struct MantissaExponent {

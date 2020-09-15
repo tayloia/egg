@@ -5,7 +5,8 @@
 #include "ovum/function.h"
 #include "ovum/utf.h"
 
-#include <cmath>
+#include <map>
+#include <set>
 
 namespace {
   using namespace egg::ovum;
@@ -35,7 +36,7 @@ namespace {
       auto retval = Variant::Break;
       Float lfloat, rfloat;
       uint64_t uvalue;
-      EGG_WARNING_SUPPRESS_SWITCH_BEGIN();
+      EGG_WARNING_SUPPRESS_SWITCH_BEGIN
       switch (oper) {
       case Operator::ADD:
         switch (Binary::arithmetic("addition", lvalue, rvalue, lfloat, rfloat, retval)) {
@@ -160,7 +161,7 @@ namespace {
         }
         return Variant::Void;
       }
-      EGG_WARNING_SUPPRESS_SWITCH_END();
+      EGG_WARNING_SUPPRESS_SWITCH_END
       return retval;
     }
     static Match arithmetic(const char* operation, const Variant& a, const Variant& b, Float& fa, Float& fb, Variant& retval) {
@@ -843,7 +844,7 @@ namespace {
     Variant statement(Block& block, const INode& node) {
       this->updateLocation(node);
       auto opcode = this->validateOpcode(node);
-      EGG_WARNING_SUPPRESS_SWITCH_BEGIN();
+      EGG_WARNING_SUPPRESS_SWITCH_BEGIN
       switch (opcode) {
       case Opcode::NOOP:
         return Variant::Void;
@@ -886,7 +887,7 @@ namespace {
       case Opcode::WHILE:
         return this->statementWhile(node);
       }
-      EGG_WARNING_SUPPRESS_SWITCH_END();
+      EGG_WARNING_SUPPRESS_SWITCH_END
       throw this->unexpectedOpcode("statement", node);
     }
     Variant statementAssign(const INode& node) {
@@ -959,7 +960,7 @@ namespace {
       assert(node.getChildren() == 4);
       auto& pre = node.getChild(0);
       auto* cond = &node.getChild(1);
-      EGG_WARNING_SUPPRESS_SWITCH_BEGIN();
+      EGG_WARNING_SUPPRESS_SWITCH_BEGIN
       switch (cond->getOpcode()) {
       case Opcode::NOOP:
       case Opcode::TRUE:
@@ -967,7 +968,7 @@ namespace {
         cond = nullptr;
         break;
       }
-      EGG_WARNING_SUPPRESS_SWITCH_END();
+      EGG_WARNING_SUPPRESS_SWITCH_END
       auto& post = node.getChild(2);
       auto& loop = node.getChild(3);
       Block inner(*this);
@@ -1285,7 +1286,7 @@ namespace {
     // Expressions
     Variant expression(const INode& node, Block* block = nullptr) {
       auto opcode = this->validateOpcode(node);
-      EGG_WARNING_SUPPRESS_SWITCH_BEGIN();
+      EGG_WARNING_SUPPRESS_SWITCH_BEGIN
       switch (opcode) {
       case Opcode::NULL_:
         return Variant::Null;
@@ -1324,7 +1325,7 @@ namespace {
       case Opcode::PROPERTY:
         return this->expressionProperty(node);
       }
-      EGG_WARNING_SUPPRESS_SWITCH_END();
+      EGG_WARNING_SUPPRESS_SWITCH_END
       throw this->unexpectedOpcode("expression", node);
     }
     Variant expressionUnary(const INode& node) {
@@ -1332,7 +1333,7 @@ namespace {
       assert(node.getChildren() == 1);
       auto oper = node.getOperator();
       assert(OperatorProperties::from(oper).opclass == Opclass::UNARY);
-      EGG_WARNING_SUPPRESS_SWITCH_BEGIN();
+      EGG_WARNING_SUPPRESS_SWITCH_BEGIN
       switch (oper) {
       case Operator::LOGNOT:
         return this->operatorLogicalNot(node.getChild(0));
@@ -1341,7 +1342,7 @@ namespace {
       case Operator::REF:
         return this->operatorRef(node.getChild(0));
       }
-      EGG_WARNING_SUPPRESS_SWITCH_END();
+      EGG_WARNING_SUPPRESS_SWITCH_END
       throw this->unexpectedOperator("unary", node);
     }
     Variant expressionBinary(const INode& node) {
@@ -1349,7 +1350,7 @@ namespace {
       assert(node.getChildren() == 2);
       auto oper = node.getOperator();
       assert(OperatorProperties::from(oper).opclass == Opclass::BINARY);
-      EGG_WARNING_SUPPRESS_SWITCH_BEGIN();
+      EGG_WARNING_SUPPRESS_SWITCH_BEGIN
       switch (oper) {
       case Operator::ADD:
       case Operator::SUB:
@@ -1358,7 +1359,7 @@ namespace {
       case Operator::REM:
         return this->operatorArithmetic(node, oper, node.getChild(0), node.getChild(1));
       }
-      EGG_WARNING_SUPPRESS_SWITCH_END();
+      EGG_WARNING_SUPPRESS_SWITCH_END
       throw this->unexpectedOperator("binary", node);
     }
     Variant expressionTernary(const INode& node) {
@@ -1366,12 +1367,12 @@ namespace {
       assert(node.getChildren() == 3);
       auto oper = node.getOperator();
       assert(OperatorProperties::from(oper).opclass == Opclass::TERNARY);
-      EGG_WARNING_SUPPRESS_SWITCH_BEGIN();
+      EGG_WARNING_SUPPRESS_SWITCH_BEGIN
       switch (oper) {
       case Operator::TERNARY:
         return this->operatorTernary(node.getChild(0), node.getChild(1), node.getChild(2));
       }
-      EGG_WARNING_SUPPRESS_SWITCH_END();
+      EGG_WARNING_SUPPRESS_SWITCH_END
       throw this->unexpectedOperator("ternary", node);
     }
     Variant expressionCompare(const INode& node) {
@@ -1605,7 +1606,7 @@ namespace {
       assert(node.getChildren() == 2);
       auto oper = node.getOperator();
       assert(OperatorProperties::from(oper).opclass == Opclass::COMPARE);
-      EGG_WARNING_SUPPRESS_SWITCH_BEGIN();
+      EGG_WARNING_SUPPRESS_SWITCH_BEGIN
       switch (oper) {
       case Operator::EQ:
         // (a == b) === (a == b)
@@ -1626,7 +1627,7 @@ namespace {
         // (a != b) === !(a == b)
         return this->operatorEquals(node.getChild(0), node.getChild(1), lhs, rhs, true);
       }
-      EGG_WARNING_SUPPRESS_SWITCH_END();
+      EGG_WARNING_SUPPRESS_SWITCH_END
       return Variant::Break;
     }
     Variant operatorEquals(const INode& a, const INode& b, Variant& va, Variant& vb, bool invert) {
@@ -1772,7 +1773,7 @@ namespace {
       return VariantFactory::createPointer(this->allocator, symbol->value);
     }
     Int operatorBinaryInt(const INode& node, Operator oper, Int lhs, Int rhs) {
-      EGG_WARNING_SUPPRESS_SWITCH_BEGIN();
+      EGG_WARNING_SUPPRESS_SWITCH_BEGIN
       switch (oper) {
       case Operator::ADD:
         return lhs + rhs;
@@ -1785,11 +1786,11 @@ namespace {
       case Operator::REM:
         return lhs % rhs;
       }
-      EGG_WARNING_SUPPRESS_SWITCH_END();
+      EGG_WARNING_SUPPRESS_SWITCH_END
       throw this->unexpectedOperator("binary int", node);
     }
     Float operatorBinaryFloat(const INode& node, Operator oper, Float lhs, Float rhs) {
-      EGG_WARNING_SUPPRESS_SWITCH_BEGIN();
+      EGG_WARNING_SUPPRESS_SWITCH_BEGIN
       switch (oper) {
       case Operator::ADD:
         return lhs + rhs;
@@ -1802,7 +1803,7 @@ namespace {
       case Operator::REM:
         return std::remainder(lhs, rhs);
       }
-      EGG_WARNING_SUPPRESS_SWITCH_END();
+      EGG_WARNING_SUPPRESS_SWITCH_END
       throw this->unexpectedOperator("binary float", node);
     }
     Variant operatorTernary(const INode& a, const INode& b, const INode& c) {
@@ -1855,7 +1856,7 @@ namespace {
     }
     Type type(const INode& node, const String& name = String()) {
       auto children = node.getChildren();
-      EGG_WARNING_SUPPRESS_SWITCH_BEGIN();
+      EGG_WARNING_SUPPRESS_SWITCH_BEGIN
       switch (node.getOpcode()) {
       case Opcode::INFERRED:
         assert(children == 0);
@@ -1925,7 +1926,7 @@ namespace {
       default:
         throw this->unexpectedOpcode("type", node);
       }
-      EGG_WARNING_SUPPRESS_SWITCH_END();
+      EGG_WARNING_SUPPRESS_SWITCH_END
       this->updateLocation(node);
       throw RuntimeException(this->location, "Type constraints not yet supported"); // TODO
     }
@@ -1956,7 +1957,7 @@ namespace {
 
 Target::Target(ProgramDefault& program, const INode& node, Block* block)
   : flavour(Flavour::Failed), program(program), node(node) {
-  EGG_WARNING_SUPPRESS_SWITCH_BEGIN();
+  EGG_WARNING_SUPPRESS_SWITCH_BEGIN
   switch (node.getOpcode()) {
   case Opcode::DECLARE:
     if (block != nullptr) {
@@ -1981,7 +1982,7 @@ Target::Target(ProgramDefault& program, const INode& node, Block* block)
     this->flavour = program.targetPointer(node, this->a);
     return;
   }
-  EGG_WARNING_SUPPRESS_SWITCH_END();
+  EGG_WARNING_SUPPRESS_SWITCH_END
   throw program.unexpectedOpcode("target", node);
 }
 
@@ -2057,7 +2058,7 @@ Variant Target::mutate(const INode& opnode, const INode& rhs) const {
 egg::ovum::Variant Target::apply(const INode& opnode, Variant& lvalue, const INode& rhs) const {
   // Handle "short-circuit" cases before evaluating the rhs
   auto oper = opnode.getOperator();
-  EGG_WARNING_SUPPRESS_SWITCH_BEGIN();
+  EGG_WARNING_SUPPRESS_SWITCH_BEGIN
   switch (oper) {
   case Operator::IFNULL:
     // Don't evaluate rhs of (lhs ??= rhs) unless lhs is null
@@ -2079,7 +2080,7 @@ egg::ovum::Variant Target::apply(const INode& opnode, Variant& lvalue, const INo
     }
     break;
   }
-  EGG_WARNING_SUPPRESS_SWITCH_END();
+  EGG_WARNING_SUPPRESS_SWITCH_END
   auto rvalue = this->program.targetExpression(rhs);
   if (rvalue.hasFlowControl()) {
     return rvalue;
@@ -2196,7 +2197,7 @@ egg::ovum::Type UserFunction::makeType(IAllocator& allocator, ProgramDefault& pr
     auto c = parameter.getChildren();
     size_t pindex = i - 1;
     IFunctionSignatureParameter::Flags pflags;
-    EGG_WARNING_SUPPRESS_SWITCH_BEGIN();
+    EGG_WARNING_SUPPRESS_SWITCH_BEGIN
     switch (parameter.getOpcode()) {
     case Opcode::REQUIRED:
       assert((c == 1) || (c == 2));
@@ -2222,7 +2223,7 @@ egg::ovum::Type UserFunction::makeType(IAllocator& allocator, ProgramDefault& pr
     default:
       throw program.unexpectedOpcode("function type parameter", parameter);
     }
-    EGG_WARNING_SUPPRESS_SWITCH_END();
+    EGG_WARNING_SUPPRESS_SWITCH_END
     String pname;
     if (c > 1) {
       pname = program.identifier(parameter.getChild(1));

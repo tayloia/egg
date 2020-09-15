@@ -4,6 +4,7 @@
 #include "yolk/egg-syntax.h"
 #include "yolk/egg-parser.h"
 
+#include <map>
 #include <set>
 
 namespace {
@@ -25,7 +26,7 @@ namespace {
     // Accept only type-like keywords: void, null, bool, int, float, string, object and any
     // OPTIMIZE
     if (item.kind == EggTokenizerKind::Keyword) {
-      EGG_WARNING_SUPPRESS_SWITCH_BEGIN();
+      EGG_WARNING_SUPPRESS_SWITCH_BEGIN
       switch (item.value.k) {
       case EggTokenizerKeyword::Void:
         return egg::ovum::BasalBits::Void;
@@ -44,7 +45,7 @@ namespace {
       case EggTokenizerKeyword::Any:
         return egg::ovum::BasalBits::Any;
       }
-      EGG_WARNING_SUPPRESS_SWITCH_END();
+      EGG_WARNING_SUPPRESS_SWITCH_END
     }
     return egg::ovum::BasalBits::None;
   }
@@ -1137,7 +1138,7 @@ std::unique_ptr<IEggSyntaxNode> EggSyntaxParserContext::parseExpressionPrimary(c
     mark.accept(1);
     return std::make_unique<EggSyntaxNode_Identifier>(location, p0.value.s);
   case EggTokenizerKind::Keyword:
-    EGG_WARNING_SUPPRESS_SWITCH_BEGIN();
+    EGG_WARNING_SUPPRESS_SWITCH_BEGIN
     switch (p0.value.k) {
     case EggTokenizerKeyword::Null:
     case EggTokenizerKeyword::False:
@@ -1159,7 +1160,7 @@ std::unique_ptr<IEggSyntaxNode> EggSyntaxParserContext::parseExpressionPrimary(c
       }
       break;
     }
-    EGG_WARNING_SUPPRESS_SWITCH_END();
+    EGG_WARNING_SUPPRESS_SWITCH_END
     break;
   case EggTokenizerKind::Operator:
     if (p0.value.o == EggTokenizerOperator::ParenthesisLeft) {

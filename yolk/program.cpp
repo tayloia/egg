@@ -1,6 +1,8 @@
 #include "yolk/yolk.h"
 #include "yolk/program.h"
 
+#include <iostream>
+
 void egg0::Program::main(const std::vector<std::string>&)
 {
   std::ifstream ifs("example.egg");

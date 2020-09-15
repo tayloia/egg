@@ -1,3 +1,7 @@
+#include <deque>
+#include <fstream>
+#include <iomanip>
+
 namespace egg::yolk {
   class FileStream : public std::fstream {
     EGG_NO_COPY(FileStream);

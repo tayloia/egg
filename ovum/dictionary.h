@@ -1,3 +1,5 @@
+#include <algorithm>
+
 namespace egg::ovum {
   // See https://docs.oracle.com/javase/8/docs/api/java/util/Map.html
   template<typename K, typename V>

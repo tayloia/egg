@@ -1,7 +1,5 @@
 #include "ovum/test.h"
 
-#include <cmath>
-
 using namespace egg::ovum;
 
 #define TEST_ME(f, m, e) \

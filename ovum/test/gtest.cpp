@@ -1,16 +1,12 @@
 #include "ovum/test.h"
 
 // Reduce the warning level in MSVC
-#if defined(_MSC_VER)
+#if EGG_PLATFORM == EGG_PLATFORM_MSVC
 #pragma warning(push, 3)
-// Compiler warnings
-#pragma warning(disable: 4571 5045)
-// Code analysis/Intellisense warnings
-#pragma warning(disable: 6011 6031 6387 26451 26495 26812)
 #endif
 
 // Fix GCC GoogleTest issue 1521
-#if defined(__GNUC__)
+#if EGG_PLATFORM == EGG_PLATFORM_GCC
 // See https://github.com/google/googletest/issues/1521
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wmissing-field-initializers"
@@ -20,12 +16,12 @@
 #include "src/gtest-all.cc"
 
 // Restore warning level after GCC GoogleTest issue 1521
-#if defined(__GNUC__)
+#if EGG_PLATFORM == EGG_PLATFORM_GCC
 #pragma GCC diagnostic pop
 #endif
 
 // Restore the warning level in MSVC
-#if defined(_MSC_VER)
+#if EGG_PLATFORM == EGG_PLATFORM_MSVC
 #pragma warning(pop)
 // Google test for MSVC uses old POSIX names
 // See https://docs.microsoft.com/en-gb/cpp/c-runtime-library/backward-compatibility

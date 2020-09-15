@@ -1,22 +1,3 @@
-#include "yolk/platform.h"
-
-#include <algorithm>
-#include <atomic>
-#include <cassert>
-#include <cctype>
-#include <deque>
-#include <fstream>
-#include <functional>
-#include <iomanip>
-#include <iostream>
-#include <map>
-#include <memory>
-#include <sstream>
-#include <string>
-#include <type_traits>
-#include <vector>
-#include <unordered_map>
-
 #include "ovum/ovum.h"
 #include "ovum/node.h"
 #include "ovum/module.h"

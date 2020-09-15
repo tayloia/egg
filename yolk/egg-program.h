@@ -1,3 +1,5 @@
+#include <map>
+
 namespace egg::yolk {
   class EggProgramContext;
   class EggProgramStackless;

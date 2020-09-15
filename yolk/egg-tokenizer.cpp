@@ -2,8 +2,6 @@
 #include "yolk/lexers.h"
 #include "yolk/egg-tokenizer.h"
 
-#include <cstring>
-
 #define EGG_TOKENIZER_KEYWORD_DEFINE(key, text) \
   { egg::yolk::EggTokenizerKeyword::key, sizeof(text)-1, text },
 #define EGG_TOKENIZER_OPERATOR_DEFINE(key, text) \

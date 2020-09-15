@@ -1,8 +1,6 @@
 #include "ovum/ovum.h"
 #include "ovum/node.h"
 
-#include <cmath>
-
 namespace {
   using namespace egg::ovum;
 

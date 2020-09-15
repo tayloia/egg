@@ -2,7 +2,6 @@
 #include "yolk/lexers.h"
 #include "ovum/utf.h"
 
-#include <cstring>
 #include <iomanip>
 
 namespace {

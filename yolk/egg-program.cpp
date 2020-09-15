@@ -7,8 +7,6 @@
 #include "yolk/egg-program.h"
 #include "ovum/test/ctest.h"
 
-#include <cmath>
-
 namespace {
   // The yolk system expects a shared_ptr to a logger, so we use this adapter for testing
   class Relogger : public egg::ovum::ILogger {

@@ -1,5 +1,7 @@
 #include "yolk/yolk.h"
 
+#include <map>
+
 namespace {
   using Flags = egg::ovum::IFunctionSignatureParameter::Flags;
 

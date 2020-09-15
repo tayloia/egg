@@ -284,7 +284,7 @@ namespace egg::ovum {
 }
 
 // We want this code generated from the header
-#if defined(_MSC_VER)
+#if EGG_PLATFORM == EGG_PLATFORM_MSVC
   // Microsoft-style run-time
   inline void* egg::ovum::AllocatorDefaultPolicy::memalloc(size_t bytes, size_t alignment) {
     return _aligned_malloc(bytes, alignment);

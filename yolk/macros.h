@@ -27,12 +27,3 @@ namespace egg::yolk {
 #define EGG_NELEMS(arr) (sizeof(*egg::yolk::nelemsHelper(arr)))
 
 #define EGG_UNUSED(var) (void)(var)
-
-#if defined(_MSC_VER)
-#define EGG_PUSH_UNINIT __pragma()
-#elif !__has_cpp_attribute(fallthrough)
-#define EGG_FALLTHROUGH
-#else
-#define EGG_FALLTHROUGH [[fallthrough]];
-#endif
-

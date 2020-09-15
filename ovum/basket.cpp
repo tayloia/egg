@@ -1,5 +1,6 @@
 #include "ovum/ovum.h"
 
+#include <set>
 #include <stack>
 
 namespace {

@@ -109,9 +109,6 @@
     <ClInclude Include="..\yolk\macros.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\yolk\platform.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="..\yolk\program.h">
       <Filter>Header Files</Filter>
     </ClInclude>

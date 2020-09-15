@@ -390,7 +390,7 @@ namespace {
   bool validateFlags(ValueFlags flags) {
     auto upper = Bits::mask(flags, ValueFlags::FlowControl);
     auto lower = Bits::clear(flags, ValueFlags::FlowControl);
-    EGG_WARNING_SUPPRESS_SWITCH_BEGIN();
+    EGG_WARNING_SUPPRESS_SWITCH_BEGIN
     switch (upper) {
     case ValueFlags::None:
     case ValueFlags::Return:
@@ -405,7 +405,7 @@ namespace {
       // Throw with nothing is a rethrow
       return Bits::hasZeroOrOneSet(lower);
     }
-    EGG_WARNING_SUPPRESS_SWITCH_END();
+    EGG_WARNING_SUPPRESS_SWITCH_END
     return false;
   }
 }
@@ -499,7 +499,7 @@ void egg::ovum::Value::print(std::ostream& stream, ValueFlags flags) {
 void egg::ovum::Value::print(std::ostream& stream, const Value& value) {
   // This is used by GoogleTest's ::testing::internal::PrintTo
   auto flags = value->getFlags();
-  EGG_WARNING_SUPPRESS_SWITCH_BEGIN();
+  EGG_WARNING_SUPPRESS_SWITCH_BEGIN
   switch (flags) {
   case egg::ovum::ValueFlags::Void:
     stream << "void";
@@ -558,7 +558,7 @@ void egg::ovum::Value::print(std::ostream& stream, const Value& value) {
     break;
   }
   }
-  EGG_WARNING_SUPPRESS_SWITCH_END();
+  EGG_WARNING_SUPPRESS_SWITCH_END
   stream << "[BAD ";
   print(stream, value->getFlags());
   stream << ']';

@@ -1,7 +1,5 @@
 #include "ovum/ovum.h"
 
-#include <cmath>
-
 namespace {
   struct FloatParts {
     constexpr static size_t MANTISSA_CHARS = 32;

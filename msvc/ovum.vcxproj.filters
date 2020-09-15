@@ -112,5 +112,11 @@
     <ClInclude Include="..\ovum\slot.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="..\ovum\platform.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ovum\function.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

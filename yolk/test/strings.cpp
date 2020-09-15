@@ -1,7 +1,5 @@
 #include "yolk/test.h"
 
-#include <cmath>
-
 TEST(TestStrings, Empty) {
   egg::ovum::String s1;
   ASSERT_EQ(0u, s1.length());

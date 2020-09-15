@@ -44,11 +44,13 @@
     <ClInclude Include="..\ovum\arithmetic.h" />
     <ClInclude Include="..\ovum\context.h" />
     <ClInclude Include="..\ovum\dictionary.h" />
+    <ClInclude Include="..\ovum\function.h" />
     <ClInclude Include="..\ovum\module.h" />
     <ClInclude Include="..\ovum\factories.h" />
     <ClInclude Include="..\ovum\interfaces.h" />
     <ClInclude Include="..\ovum\node.h" />
     <ClInclude Include="..\ovum\ovum.h" />
+    <ClInclude Include="..\ovum\platform.h" />
     <ClInclude Include="..\ovum\program.h" />
     <ClInclude Include="..\ovum\slot.h" />
     <ClInclude Include="..\ovum\string.h" />
