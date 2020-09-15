@@ -90,7 +90,6 @@ namespace egg::ovum {
     TypeBase& operator=(const TypeBase&) = delete;
   public:
     TypeBase() = default;
-    virtual Variant tryAssign(IExecution& execution, Variant& lvalue, const egg::ovum::Variant& rvalue) const override;
     virtual bool hasBasalType(BasalBits basal) const override;
 
     virtual AssignmentSuccess canBeAssignedFrom(const IType& rhs) const override;

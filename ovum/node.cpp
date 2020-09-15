@@ -394,63 +394,6 @@ namespace {
   }
 }
 
-void egg::ovum::MantissaExponent::fromFloat(Float f) {
-  switch (std::fpclassify(f)) {
-  case FP_NORMAL:
-    // Finite
-    break;
-  case FP_ZERO:
-    // Zero
-    this->mantissa = 0;
-    this->exponent = 0;
-    return;
-  case FP_INFINITE:
-    // Positive or negative infinity
-    this->mantissa = 0;
-    this->exponent = std::signbit(f) ? ExponentNegativeInfinity : ExponentPositiveInfinity;
-    return;
-  case FP_NAN:
-    // Not-a-Number
-    this->mantissa = 0;
-    this->exponent = ExponentNaN;
-    return;
-  }
-  constexpr int bitsInMantissa = std::numeric_limits<Float>::digits; // DBL_MANT_DIG
-  constexpr double scale = 1ull << bitsInMantissa;
-  int e;
-  double m = std::frexp(f, &e);
-  m = std::floor(scale * m);
-  this->mantissa = std::llround(m);
-  if (this->mantissa == 0) {
-    // Failed to convert
-    this->exponent = ExponentNaN;
-    return;
-  }
-  this->exponent = int64_t(e) - bitsInMantissa;
-  while ((this->mantissa & 1) == 0) {
-    // Reduce the mantissa
-    this->mantissa >>= 1;
-    this->exponent++;
-  }
-}
-
-egg::ovum::Float egg::ovum::MantissaExponent::toFloat() const {
-  if (this->mantissa == 0) {
-    switch (this->exponent) {
-    case 0:
-      return 0.0;
-    case ExponentPositiveInfinity:
-      return std::numeric_limits<Float>::infinity();
-    case ExponentNegativeInfinity:
-      return -std::numeric_limits<Float>::infinity();
-    case ExponentNaN:
-    default:
-      return std::numeric_limits<Float>::quiet_NaN();
-    }
-  }
-  return std::ldexp(this->mantissa, int(this->exponent));
-}
-
 egg::ovum::Node egg::ovum::NodeFactory::create(IAllocator& allocator, Opcode opcode) {
   assert(OpcodeProperties::from(opcode).validate(0, false));
   return Node(createNodeExtra<NodeChildrenFixed<0>, NodeAttributesFixed<0>, NodeOperandNone, NodeLocationNone>(allocator, opcode, 0, nullptr));

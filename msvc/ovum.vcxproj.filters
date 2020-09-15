@@ -20,12 +20,6 @@
     <ClCompile Include="..\ovum\string.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\ovum\vanilla.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="..\ovum\variant.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="..\ovum\basket.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -35,25 +29,16 @@
     <ClCompile Include="..\ovum\node.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\ovum\type.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="..\ovum\context.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="..\ovum\program.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="..\ovum\builtin.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="..\ovum\function.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="..\ovum\value.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\ovum\slot.cpp">
+    <ClCompile Include="..\ovum\type.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\ovum\arithmetic.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -62,9 +47,6 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="..\ovum\factories.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="..\ovum\variant.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="..\ovum\interfaces.h">
@@ -107,9 +89,6 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="..\ovum\arithmetic.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="..\ovum\slot.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="..\ovum\platform.h">

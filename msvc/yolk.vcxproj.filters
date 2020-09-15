@@ -124,5 +124,8 @@
     <ClInclude Include="..\yolk\yolk.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="..\yolk\variant.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

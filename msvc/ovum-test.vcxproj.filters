@@ -43,7 +43,7 @@
     <ClCompile Include="..\ovum\test\value.cpp">
       <Filter>Test Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\ovum\test\slot.cpp">
+    <ClCompile Include="..\ovum\test\arithmetic.cpp">
       <Filter>Test Files</Filter>
     </ClCompile>
   </ItemGroup>

@@ -178,7 +178,7 @@ namespace {
       if (Bits::hasAnySet(compare, ValueCompare::PromoteInts)) {
         Float f;
         if (rhs.getFloat(f)) {
-          return arithmeticEquals(f, this->value);
+          return Arithmetic::equal(f, this->value);
         }
       }
       return false;
@@ -210,12 +210,12 @@ namespace {
     virtual bool equals(const IValue& rhs, ValueCompare compare) const override {
       Float f;
       if (rhs.getFloat(f)) {
-        return arithmeticEquals(this->value, f, false);
+        return Arithmetic::equal(this->value, f, false);
       }
       if (Bits::hasAnySet(compare, ValueCompare::PromoteInts)) {
         Int i;
         if (rhs.getInt(i)) {
-          return arithmeticEquals(this->value, i);
+          return Arithmetic::equal(this->value, i);
         }
       }
       return false;
@@ -282,31 +282,13 @@ namespace {
     }
   };
 
-  class ValueSoft : public ValueMutable {
-    ValueSoft(const ValueSoft&) = delete;
-    ValueSoft& operator=(const ValueSoft&) = delete;
-  protected:
-    Slot slot;
-  public:
-    ValueSoft(IAllocator& allocator) : ValueMutable(allocator) {
-    }
-    // Inherited via IValue
-    virtual IValue* softAcquire() const override {
-      assert(false); // WIBBLE
-      return nullptr;
-    }
-    virtual void softRelease() const override {
-      assert(false); // WIBBLE
-    }
-  };
-
-  class ValueObject final : public ValueSoft {
+  class ValueObject final : public ValueMutable {
     ValueObject(const ValueObject&) = delete;
     ValueObject& operator=(const ValueObject&) = delete;
   private:
     Object value;
   public:
-    ValueObject(IAllocator& allocator, const Object& value) : ValueSoft(allocator), value(value) {
+    ValueObject(IAllocator& allocator, const Object& value) : ValueMutable(allocator), value(value) {
       assert(this->validate());
     }
     virtual ValueFlags getFlags() const override {
@@ -328,13 +310,13 @@ namespace {
     }
   };
 
-  class ValuePointer final : public ValueSoft {
+  class ValuePointer final : public ValueMutable {
     ValuePointer(const ValuePointer&) = delete;
     ValuePointer& operator=(const ValuePointer&) = delete;
   private:
     Value child;
   public:
-    ValuePointer(IAllocator& allocator, const Value& child) : ValueSoft(allocator), child(child) {
+    ValuePointer(IAllocator& allocator, const Value& child) : ValueMutable(allocator), child(child) {
       assert(this->validate());
     }
     virtual ValueFlags getFlags() const override {

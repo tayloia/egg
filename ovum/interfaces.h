@@ -7,7 +7,7 @@ namespace egg::ovum {
   class Node;
   class String;
   class Type;
-  class Variant;
+  class Value;
   class ICollectable;
   class IExecution;
 
@@ -123,11 +123,11 @@ namespace egg::ovum {
     // Interface
     virtual ~IParameters() {}
     virtual size_t getPositionalCount() const = 0;
-    virtual Variant getPositional(size_t index) const = 0;
+    virtual Value getPositional(size_t index) const = 0;
     virtual const LocationSource* getPositionalLocation(size_t index) const = 0; // May return null
     virtual size_t getNamedCount() const = 0;
     virtual String getName(size_t index) const = 0;
-    virtual Variant getNamed(const String& name) const = 0;
+    virtual Value getNamed(const String& name) const = 0;
     virtual const LocationSource* getNamedLocation(const String& name) const = 0; // May return null
   };
 
@@ -168,7 +168,6 @@ namespace egg::ovum {
   class IType : public IHardAcquireRelease {
   public:
     // Type management
-    virtual Variant tryAssign(IExecution& execution, Variant& lvalue, const egg::ovum::Variant& rvalue) const = 0;
     virtual bool hasBasalType(BasalBits basal) const = 0;
 
     // No-man's land
@@ -192,13 +191,13 @@ namespace egg::ovum {
   public:
     // Interface
     virtual bool validate() const = 0;
-    virtual Variant toString() const = 0;
+    virtual Value toString() const = 0;
     virtual Type getRuntimeType() const = 0;
-    virtual Variant call(IExecution& execution, const IParameters& parameters) = 0;
-    virtual Variant getProperty(IExecution& execution, const String& property) = 0;
-    virtual Variant setProperty(IExecution& execution, const String& property, const Variant& value) = 0;
-    virtual Variant getIndex(IExecution& execution, const Variant& index) = 0;
-    virtual Variant setIndex(IExecution& execution, const Variant& index, const Variant& value) = 0;
-    virtual Variant iterate(IExecution& execution) = 0;
+    virtual Value call(IExecution& execution, const IParameters& parameters) = 0;
+    virtual Value getProperty(IExecution& execution, const String& property) = 0;
+    virtual Value setProperty(IExecution& execution, const String& property, const Value& value) = 0;
+    virtual Value getIndex(IExecution& execution, const Value& index) = 0;
+    virtual Value setIndex(IExecution& execution, const Value& index, const Value& value) = 0;
+    virtual Value iterate(IExecution& execution) = 0;
   };
 }

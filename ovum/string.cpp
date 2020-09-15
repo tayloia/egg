@@ -660,11 +660,6 @@ egg::ovum::String egg::ovum::StringFactory::fromASCIIZ(IAllocator& allocator, co
   return String(createContiguous(&allocator, asciiz, bytes, bytes));
 }
 
-const egg::ovum::IMemory* egg::ovum::Variant::acquireFallbackString(const char* utf8, size_t bytes) {
-  // We've got to create this string without an allocator, so use a fallback
-  return HardPtr<IMemory>::hardAcquire(createContiguous(nullptr, utf8, bytes));
-}
-
 std::ostream& operator<<(std::ostream& os, const egg::ovum::String& text) {
   // OPTIMIZE
   return os << text.toUTF8();

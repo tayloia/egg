@@ -41,21 +41,6 @@ namespace {
     return IType::AssignmentSuccess::Never;
   }
 
-  Variant tryAssignBasal(IExecution& execution, BasalBits basal, Variant& lhs, const Variant& rhs) {
-    assert(basal != BasalBits::None);
-    if (rhs.hasAny(static_cast<ValueFlags>(basal))) {
-      // It's an exact type match (narrowing)
-      lhs = rhs;
-      return Variant::Void;
-    }
-    if (Bits::hasAnySet(basal, BasalBits::Float) && rhs.isInt()) {
-      // We allow type promotion int->float
-      lhs = Variant(Float(rhs.getInt())); // TODO overflows?
-      return Variant::Void;
-    }
-    return execution.raiseFormat("Cannot assign a value of type '", rhs.getRuntimeType().toString(), "' to a target of type '", Type::getBasalString(basal), "'");
-  }
-
   // An 'omni' function looks like this: 'any?(...any?[])'
   class OmniFunctionSignature : public IFunctionSignature {
     OmniFunctionSignature(const OmniFunctionSignature&) = delete;
@@ -135,9 +120,6 @@ namespace {
     virtual std::pair<std::string, int> toStringPrecedence() const override {
       return tagToStringPriority(BASAL);
     }
-    virtual Variant tryAssign(IExecution& execution, Variant& lvalue, const Variant& rvalue) const override {
-      return tryAssignBasal(execution, BASAL, lvalue, rvalue);
-    }
   };
   const TypeCommon<BasalBits::Bool> typeBool{};
   const TypeCommon<BasalBits::Int> typeInt{};
@@ -156,9 +138,6 @@ namespace {
     virtual AssignmentSuccess canBeAssignedFrom(const IType&) const override {
       return AssignmentSuccess::Never;
     }
-    virtual Variant tryAssign(IExecution& execution, Variant&, const Variant&) const override {
-      return execution.raiseFormat("Cannot assign to 'void' value");
-    }
   };
   const TypeVoid typeVoid{};
 
@@ -173,9 +152,6 @@ namespace {
     }
     virtual AssignmentSuccess canBeAssignedFrom(const IType&) const override {
       return AssignmentSuccess::Never;
-    }
-    virtual Variant tryAssign(IExecution& execution, Variant&, const Variant&) const override {
-      return execution.raiseFormat("Cannot assign to 'null' value");
     }
   };
   const TypeNull typeNull{};
@@ -261,9 +237,6 @@ namespace {
     }
     virtual AssignmentSuccess canBeAssignedFrom(const IType& rhs) const override {
       return canBeAssignedFromBasalLegacy(this->tag, rhs);
-    }
-    virtual Variant tryAssign(IExecution& execution, Variant& lvalue, const Variant& rvalue) const override {
-      return tryAssignBasal(execution, this->tag, lvalue, rvalue);
     }
     virtual const IFunctionSignature* callable() const override {
       if (Bits::hasAnySet(this->tag, BasalBits::Object)) {
@@ -391,16 +364,6 @@ egg::ovum::Type egg::ovum::Type::makeUnion(IAllocator& allocator, const IType& a
 egg::ovum::Type egg::ovum::Type::makePointer(IAllocator& allocator, const IType& pointee) {
   // Return a new type 'Type*'
   return allocator.make<TypePointer, Type>(pointee);
-}
-
-egg::ovum::Variant egg::ovum::TypeBase::tryAssign(IExecution& execution, Variant& lvalue, const Variant& rvalue) const {
-  // By default, call canBeAssignedFrom() but do not actually promote
-  auto rtype = rvalue.getRuntimeType();
-  if (this->canBeAssignedFrom(*rtype) == AssignmentSuccess::Never) {
-    return execution.raiseFormat("Cannot assign a value of type '", rtype.toString(), "' to a target of type '", Type(this).toString(), "'");
-  }
-  lvalue = rvalue;
-  return Variant::Void;
 }
 
 bool egg::ovum::TypeBase::hasBasalType(BasalBits basal) const {

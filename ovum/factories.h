@@ -175,19 +175,6 @@ namespace egg::ovum {
     static String fromASCIIZ(IAllocator& allocator, const char* asciiz);
   };
 
-  class ObjectFactory {
-  public:
-    static Object createVanillaArray(IAllocator& allocator, size_t size = 0);
-    static Object createVanillaException(IAllocator& allocator, const LocationSource& location, const String& message);
-    static Object createVanillaKeyValue(IAllocator& allocator, IBasket& basket, const Value& key, const Value& value);
-    static Object createVanillaObject(IAllocator& allocator);
-    template<typename T, typename... ARGS>
-    static Object create(IAllocator& allocator, ARGS&&... args) {
-      // Use perfect forwarding
-      return Object(*allocator.make<T>(std::forward<ARGS>(args)...));
-    }
-  };
-
   class ValueFactory {
   public:
     static Value createVoid();
@@ -197,24 +184,10 @@ namespace egg::ovum {
     static Value createFloat(IAllocator& allocator, Float value);
     static Value createString(IAllocator& allocator, const String& value);
     static Value createObject(IAllocator& allocator, const Object& value);
-    template<typename T, typename... ARGS>
-    static Value createObject(IAllocator& allocator, ARGS&&... args) {
-      // Use perfect forwarding
-      return ValueFactory::createValue(allocator, ObjectFactory::create<T>(allocator, std::forward<ARGS>(args)...));
-    }
     static Value createMemory(IAllocator& allocator, const Memory& value);
     static Value createPointer(IAllocator& allocator, const Value& pointee);
     static Value createFlowControl(ValueFlags flags);
     static Value createFlowControl(IAllocator& allocator, ValueFlags flags, const Value& value);
-    static Value createException(IAllocator& allocator, const Value& value) {
-      return ValueFactory::createFlowControl(allocator, ValueFlags::Throw, value);
-    }
-    template<typename... ARGS>
-    static Value createException(IAllocator& allocator, const LocationSource& location, ARGS&&... args) {
-      // Use perfect forwarding
-      auto object = ValueFactory::createValue(allocator, ObjectFactory::createVanillaException(allocator, location, StringBuilder::concat(std::forward<ARGS>(args)...)));
-      return ValueFactory::createException(allocator, object);
-    }
 
     // Overloaded without implicit promotion
     template<typename T>
@@ -252,29 +225,6 @@ namespace egg::ovum {
     static Value createValue(IAllocator& allocator, const Object& value) {
       return createObject(allocator, value);
     }
-  };
-
-  class VariantFactory {
-  public:
-    static Variant createBuiltinAssert(IAllocator& allocator);
-    static Variant createBuiltinPrint(IAllocator& allocator);
-    static Variant createBuiltinString(IAllocator& allocator);
-    static Variant createBuiltinType(IAllocator& allocator);
-    static Variant createStringProperty(IAllocator& allocator, const String& string, const String& property);
-    static Variant createFlowControl(IAllocator& allocator, ValueFlags flags, const Variant& pointee);
-    static Variant createPointer(IAllocator& allocator, const Variant& pointee);
-    static Variant createException(Variant&& exception);
-    template<typename... ARGS>
-    static Variant createException(IAllocator& allocator, const LocationSource& location, ARGS&&... args) {
-      // Use perfect forwarding
-      return VariantFactory::createException(ObjectFactory::createVanillaException(allocator, location, StringBuilder::concat(std::forward<ARGS>(args)...)));
-    }
-    template<typename T, typename... ARGS>
-    static Variant createObject(IAllocator& allocator, ARGS&&... args) {
-      // Use perfect forwarding
-      return Variant(ObjectFactory::create<T>(allocator, std::forward<ARGS>(args)...));
-    }
-    static Variant createReturnVoid(IAllocator& allocator);
   };
 
   class BasketFactory {
