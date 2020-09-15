@@ -11,16 +11,15 @@ namespace {
   class TestExamples : public ::testing::TestWithParam<int> {
     EGG_NO_COPY(TestExamples);
   public:
-    enum class Age { Old, New };
     TestExamples() {}
-    void run(Age age) {
+    void run() {
       // Actually perform the testing
       int example = this->GetParam();
       auto resource = "~/examples/example-" + TestExamples::formatIndex(example) + ".egg";
       FileTextStream stream(resource);
-      auto actual = TestExamples::execute(stream, age);
+      auto actual = TestExamples::execute(stream);
       ASSERT_TRUE(stream.rewind());
-      auto expected = TestExamples::expectation(stream, age);
+      auto expected = TestExamples::expectation(stream);
       ASSERT_EQ(expected, actual);
     }
     static ::testing::internal::ParamGenerator<int> generator() {
@@ -32,26 +31,11 @@ namespace {
       return TestExamples::formatIndex(info.param);
     }
   private:
-    static std::string execute(TextStream& stream, Age age) {
+    static std::string execute(TextStream& stream) {
       egg::test::Allocator allocator;
       auto logger = std::make_shared<egg::test::Logger>(stream.getResourceName());
-      switch (age) {
-      case Age::Old:
-        TestExamples::executeOld(stream, allocator, logger);
-        break;
-      case Age::New:
-        TestExamples::executeNew(stream, allocator, logger);
-        break;
-      }
+      TestExamples::executeNew(stream, allocator, logger);
       return logger->logged.str();
-    }
-    static void executeOld(TextStream& stream, egg::ovum::IAllocator& allocator, const std::shared_ptr<egg::ovum::ILogger>& logger) {
-      auto engine = EggEngineFactory::createEngineFromTextStream(stream);
-      auto preparation = EggEngineFactory::createPreparationContext(allocator, logger);
-      if (engine->prepare(*preparation) != egg::ovum::ILogger::Severity::Error) {
-        auto execution = EggEngineFactory::createExecutionContext(allocator, logger);
-        engine->execute(*execution);
-      }
     }
     static void executeNew(TextStream& stream, egg::ovum::IAllocator& allocator, const std::shared_ptr<egg::ovum::ILogger>& logger) {
       auto engine = EggEngineFactory::createEngineFromTextStream(stream);
@@ -75,24 +59,12 @@ namespace {
         }
       }
     }
-    static std::string expectation(TextStream& stream, Age age) {
+    static std::string expectation(TextStream& stream) {
       std::string expected;
       std::string line;
       while (stream.readline(line)) {
         // Example output lines always begin with '///'
         if ((line.length() > 3) && (line[0] == '/') && (line[1] == '/') && (line[2] == '/')) {
-          switch (age) {
-          case Age::Old:
-            if (String::startsWith(line, "///OLD")) {
-              line = line.substr(3);
-            }
-            break;
-          case Age::New:
-            if (String::startsWith(line, "///NEW")) {
-              line = line.substr(3);
-            }
-            break;
-          }
           switch (line[3]) {
           case '>':
             // '///>message' for normal USER/INFO output, e.g. print()
@@ -147,12 +119,8 @@ namespace {
   };
 }
 
-TEST_P(TestExamples, RunOld) {
-  this->run(Age::Old);
-}
-
-TEST_P(TestExamples, RunNew) {
-  this->run(Age::New);
+TEST_P(TestExamples, Run) {
+  this->run();
 }
 
 EGG_INSTANTIATE_TEST_CASE_P(TestExamples)

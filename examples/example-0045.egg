@@ -6,10 +6,12 @@ int? countdown() {
   }
   return null;
 }
+/* INFINITE
 while (var i = countdown()) {
   assert(type.of(i) == "int");
   print(i);
 }
+*/
 ///>5
 ///>4
 ///>3

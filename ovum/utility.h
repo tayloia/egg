@@ -18,6 +18,15 @@ namespace egg::ovum {
       // Get the current value
       return std::atomic_load(&this->atomic);
     }
+    Underlying swap(Underlying desired) {
+      // Atomically swap the values returning the value BEFORE
+      return std::atomic_exchange(&this->atomic, desired);
+    }
+    Underlying swapIf(Underlying expected, Underlying desired) {
+      // Swap iff the current value is 'expected' returning the value BEFORE
+      (void)std::atomic_compare_exchange_strong(&this->atomic, &expected, desired);
+      return expected;
+    }
     Underlying add(Underlying value) {
       // Return the value BEFORE the addition
       return std::atomic_fetch_add(&this->atomic, value);
@@ -33,46 +42,6 @@ namespace egg::ovum {
       auto result = this->add(-1) - 1;
       assert(result >= 0);
       return result;
-    }
-  };
-
-  template<typename T>
-  class AtomicPtr {
-    AtomicPtr() = delete;
-    AtomicPtr& operator=(const AtomicPtr& rhs) = delete;
-  public:
-    using Underlying = T;
-  private:
-    std::atomic<Underlying*> atomic;
-  public:
-    explicit AtomicPtr(Underlying* rhs) : atomic(rhs) {
-      // Raw pointer initialisation
-    }
-    explicit AtomicPtr(const AtomicPtr& rhs) : atomic(rhs.get()->clone()) {
-    }
-    explicit AtomicPtr(AtomicPtr&& rhs) noexcept : atomic(rhs.swap(nullptr)) {
-    }
-    ~AtomicPtr() {
-      auto* p = this->swap(nullptr);
-      if (p != nullptr) {
-        p->release();
-      }
-    }
-    Underlying* get() const {
-      return std::atomic_load(&this->atomic);
-    }
-    Underlying* swap(Underlying* value) {
-      return std::atomic_exchange(&this->atomic, value);
-    }
-    void copy(const AtomicPtr& rhs) {
-      if (this != &rhs) {
-        this->swap(rhs.get()->clone())->release();
-      }
-    }
-    void move(AtomicPtr&& rhs) noexcept {
-      if (this != &rhs) {
-        this->swap(rhs.swap(nullptr))->release();
-      }
     }
   };
 

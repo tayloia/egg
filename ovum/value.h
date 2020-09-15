@@ -13,6 +13,7 @@ namespace egg::ovum {
   class Object;
   class Type;
   class Value;
+  class Slot;
 
   enum class ValueCompare {
     Binary = 0x00,
@@ -21,8 +22,8 @@ namespace egg::ovum {
 
   class IValue : public IHardAcquireRelease {
   public:
-    virtual ~IValue() {};
-    virtual IValue* clone() const = 0;
+    virtual IValue* softAcquire() const = 0;
+    virtual void softRelease() const = 0;
     virtual bool getVoid() const = 0;
     virtual bool getNull() const = 0;
     virtual bool getBool(Bool& value) const = 0;
@@ -33,13 +34,16 @@ namespace egg::ovum {
     virtual bool getMemory(Memory& value) const = 0;
     virtual bool getChild(Value& child) const = 0;
     virtual ValueFlags getFlags() const = 0;
+    virtual Type getRuntimeType() const = 0;
     virtual bool equals(const IValue& rhs, ValueCompare compare) const = 0;
+    // TODO virtual String toString() const = 0;
     virtual bool validate() const = 0;
   };
 
   class Value {
-    // Stop type promotion for implicit constructors
+    friend class Slot;
     friend class ValueFactory;
+    // Stop type promotion for implicit constructors
     template<typename T> Value(T rhs) = delete;
   private:
     HardPtr<IValue> ptr;
@@ -91,8 +95,7 @@ namespace egg::ovum {
     static void print(std::ostream& stream, const Value& value);
   private:
     explicit Value(IValue* rhs) : ptr(rhs) {
-      // Used solely for factory construction
+      // Used solely for factory/slot construction
     }
   };
-
 }

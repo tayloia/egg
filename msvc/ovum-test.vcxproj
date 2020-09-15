@@ -37,6 +37,7 @@
     </ClCompile>
     <ClCompile Include="..\ovum\test\memory.cpp" />
     <ClCompile Include="..\ovum\test\module.cpp" />
+    <ClCompile Include="..\ovum\test\slot.cpp" />
     <ClCompile Include="..\ovum\test\string.cpp" />
     <ClCompile Include="..\ovum\test\testing.cpp" />
     <ClCompile Include="..\ovum\test\utility.cpp" />

@@ -104,23 +104,21 @@ namespace {
     VanillaKeyValue& operator=(const VanillaKeyValue&) = delete;
     friend class VanillaKeyValueIterator;
   private:
-    Variant key;
-    Variant value;
+    Slot key;
+    Slot value;
   public:
-    explicit VanillaKeyValue(IAllocator& allocator, IBasket& basket, const Variant& key, const Variant& value)
+    explicit VanillaKeyValue(IAllocator& allocator, IBasket& basket, const Value& key, const Value& value)
       : VanillaBase(allocator),
         key(key),
         value(value) {
       basket.take(*this);
-      this->key.soften(basket);
-      this->value.soften(basket);
     }
     virtual void softVisitLinks(const Visitor& visitor) const override {
       this->key.softVisitLink(visitor);
       this->value.softVisitLink(visitor);
     }
     virtual Variant toString() const override {
-      return StringBuilder::concat("{key:", this->key.toString(), ",value:", this->value.toString(), '}');
+      return StringBuilder::concat("{key:", "WIBBLE", ",value:", "WIBBLE", '}');
     }
     virtual Type getRuntimeType() const override {
       return Type::Object;
@@ -130,10 +128,10 @@ namespace {
     }
     virtual Variant getProperty(IExecution&, const String& property) override {
       if (property.equals("key")) {
-        return this->key;
+        return this->key.get();
       }
       if (property.equals("value")) {
-        return this->value;
+        return this->value.get();
       }
       return Variant::Void;
     }
@@ -342,9 +340,9 @@ namespace {
       }
       switch (this->index++) {
       case 0:
-        return this->container->key;
+        return this->container->key.get();
       case 1:
-        return this->container->value;
+        return this->container->value.get();
       }
       this->index = SIZE_MAX;
       return Variant::Void;
@@ -379,7 +377,8 @@ namespace {
         return Variant::Void;
       }
       auto kv = values.getByIndex(i);
-      return ObjectFactory::createVanillaKeyValue(this->allocator, execution.getBasket(), kv.first, kv.second);
+      auto key = ValueFactory::createString(this->allocator, kv.first);
+      return ObjectFactory::createVanillaKeyValue(this->allocator, execution.getBasket(), key, kv.second);
     }
   };
 }
@@ -404,7 +403,7 @@ egg::ovum::Object egg::ovum::ObjectFactory::createVanillaException(IAllocator& a
   return ObjectFactory::create<VanillaException>(allocator, location, message);
 }
 
-egg::ovum::Object egg::ovum::ObjectFactory::createVanillaKeyValue(IAllocator& allocator, IBasket& basket, const Variant& key, const Variant& value) {
+egg::ovum::Object egg::ovum::ObjectFactory::createVanillaKeyValue(IAllocator& allocator, IBasket& basket, const Value& key, const Value& value) {
   return ObjectFactory::create<VanillaKeyValue>(allocator, basket, key, value);
 }
 

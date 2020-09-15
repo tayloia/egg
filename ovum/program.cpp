@@ -583,23 +583,24 @@ namespace {
     virtual IBasket& getBasket() const override {
       return *this->basket;
     }
-    virtual Variant raise(const String& message) override {
-      return VariantFactory::createException(this->allocator, this->location, message);
+    virtual Value raise(const String& message) override {
+      return ValueFactory::createException(this->allocator, this->location, message);
     }
-    virtual Variant assertion(const Variant& predicate) override {
-      if (predicate.hasObject()) {
+    virtual Value assertion(const Value& predicate) override {
+      Object object;
+      if (predicate->getObject(object)) {
         // Predicates can be functions that throw exceptions, as well as 'bool' values
-        auto object = predicate.getObject();
         auto type = object->getRuntimeType();
         if (type->callable() != nullptr) {
           // Call the predicate directly
           return object->call(*this, Function::NoParameters);
         }
       }
-      if (!predicate.isBool()) {
-        return this->raiseFormat("'assert()' expects its parameter to be a 'bool' or 'void()', but got '", predicate.getRuntimeType().toString(), "' instead");
+      bool value;
+      if (!predicate->getBool(value)) {
+        return this->raiseFormat("'assert()' expects its parameter to be a 'bool' or 'void()', but got '", predicate->getRuntimeType().toString(), "' instead");
       }
-      if (predicate.getBool()) {
+      if (value) {
         return Variant::Void;
       }
       return this->raise("Assertion is untrue");

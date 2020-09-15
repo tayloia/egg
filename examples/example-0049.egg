@@ -11,9 +11,4 @@ while (var i = f()) {
   assert(type.of(i) == "int");
   print(i);
 }
-///OLD>5
-///OLD>4
-///OLD>3
-///OLD>2
-///OLD>1
-///NEW<RUNTIME><ERROR><RESOURCE>(1,8): Generators are not yet supported
+///<RUNTIME><ERROR><RESOURCE>(1,8): Generators are not yet supported

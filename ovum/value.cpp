@@ -11,9 +11,11 @@ namespace {
     ValueImmutable& operator=(const ValueImmutable&) = delete;
   public:
     ValueImmutable() {}
-    virtual IValue* clone() const override {
-      // Constants are immutable, so just return self
+    virtual IValue* softAcquire() const override {
       return const_cast<ValueImmutable*>(this);
+    }
+    virtual void softRelease() const override {
+      // Do nothing
     }
     virtual bool getVoid() const override {
       return false;
@@ -45,6 +47,11 @@ namespace {
     virtual ValueFlags getFlags() const override {
       return FLAGS;
     }
+    virtual Type getRuntimeType() const override {
+      // We should NOT really be asked for type information here
+      assert(false);
+      return Type::Void;
+    }
     virtual bool equals(const IValue& rhs, ValueCompare) const override {
       // Default equality for constants is when the types are the same
       return rhs.getFlags() == FLAGS;
@@ -65,6 +72,9 @@ namespace {
     virtual bool getVoid() const override {
       return true;
     }
+    virtual Type getRuntimeType() const override {
+      return Type::Void;
+    }
   };
 
   class ValueNull : public ValueImmutable<ValueFlags::Null> {
@@ -74,6 +84,9 @@ namespace {
     ValueNull() {}
     virtual bool getNull() const override {
       return true;
+    }
+    virtual Type getRuntimeType() const override {
+      return Type::Null;
     }
   };
 
@@ -86,6 +99,9 @@ namespace {
     virtual bool getBool(Bool& value) const override {
       value = VALUE;
       return true;
+    }
+    virtual Type getRuntimeType() const override {
+      return Type::Bool;
     }
     virtual bool equals(const IValue& rhs, ValueCompare) const override {
       Bool value;
@@ -100,6 +116,12 @@ namespace {
     ValueMutable(IAllocator& allocator) : HardReferenceCounted(allocator, 0) {
     }
     // Inherited via IValue
+    virtual IValue* softAcquire() const override {
+      return this->hardAcquire();
+    }
+    virtual void softRelease() const override {
+      this->hardRelease();
+    }
     virtual bool getVoid() const override {
       return false;
     }
@@ -138,11 +160,11 @@ namespace {
     ValueInt(IAllocator& allocator, Int value) : ValueMutable(allocator), value(value) {
       assert(this->validate());
     }
-    virtual IValue* clone() const override {
-      return this->allocator.make<ValueInt, ValueInt*>(this->value);
-    }
     virtual ValueFlags getFlags() const override {
       return ValueFlags::Int;
+    }
+    virtual Type getRuntimeType() const override {
+      return Type::Int;
     }
     virtual bool getInt(Int& result) const override {
       result = this->value;
@@ -175,11 +197,11 @@ namespace {
     ValueFloat(IAllocator& allocator, Float value) : ValueMutable(allocator), value(value) {
       assert(this->validate());
     }
-    virtual IValue* clone() const override {
-      return this->allocator.make<ValueFloat, ValueFloat*>(this->value);
-    }
     virtual ValueFlags getFlags() const override {
       return ValueFlags::Float;
+    }
+    virtual Type getRuntimeType() const override {
+      return Type::Float;
     }
     virtual bool getFloat(Float& result) const override {
       result = this->value;
@@ -213,11 +235,11 @@ namespace {
     ValueString(IAllocator& allocator, const String& value) : ValueMutable(allocator), value(value) {
       assert(this->validate());
     }
-    virtual IValue* clone() const override {
-      return this->allocator.make<ValueString, ValueString*>(this->value);
-    }
     virtual ValueFlags getFlags() const override {
       return ValueFlags::String;
+    }
+    virtual Type getRuntimeType() const override {
+      return Type::String;
     }
     virtual bool getString(String& result) const override {
       result = this->value;
@@ -226,35 +248,6 @@ namespace {
     virtual bool equals(const IValue& rhs, ValueCompare) const override {
       String other;
       return rhs.getString(other) && this->value.equals(other);
-    }
-    virtual bool validate() const override {
-      return this->value.validate();
-    }
-  };
-
-  class ValueObject final : public ValueMutable {
-    ValueObject(const ValueObject&) = delete;
-    ValueObject& operator=(const ValueObject&) = delete;
-  private:
-    Object value;
-  public:
-    ValueObject(IAllocator& allocator, const Object& value) : ValueMutable(allocator), value(value) {
-      assert(this->validate());
-    }
-    virtual IValue* clone() const override {
-      // TODO Should we clone the reference to the object instance, not the object instance itself?
-      return this->allocator.make<ValueObject, ValueObject*>(this->value);
-    }
-    virtual ValueFlags getFlags() const override {
-      return ValueFlags::Object;
-    }
-    virtual bool getObject(Object& result) const override {
-      result = this->value;
-      return true;
-    }
-    virtual bool equals(const IValue& rhs, ValueCompare) const override {
-      Object other{ *this->value };
-      return rhs.getObject(other) && (this->value.get() == other.get());
     }
     virtual bool validate() const override {
       return this->value.validate();
@@ -270,11 +263,11 @@ namespace {
     ValueMemory(IAllocator& allocator, const Memory& value) : ValueMutable(allocator), value(value) {
       assert(this->validate());
     }
-    virtual IValue* clone() const override {
-      return this->allocator.make<ValueMemory, ValueMemory*>(this->value);
-    }
     virtual ValueFlags getFlags() const override {
       return ValueFlags::Memory;
+    }
+    virtual Type getRuntimeType() const override {
+      return Type::Memory;
     }
     virtual bool getMemory(Memory& result) const override {
       result = this->value;
@@ -289,20 +282,66 @@ namespace {
     }
   };
 
-  class ValuePointer final : public ValueMutable {
+  class ValueSoft : public ValueMutable {
+    ValueSoft(const ValueSoft&) = delete;
+    ValueSoft& operator=(const ValueSoft&) = delete;
+  protected:
+    Slot slot;
+  public:
+    ValueSoft(IAllocator& allocator) : ValueMutable(allocator) {
+    }
+    // Inherited via IValue
+    virtual IValue* softAcquire() const override {
+      assert(false); // WIBBLE
+      return nullptr;
+    }
+    virtual void softRelease() const override {
+      assert(false); // WIBBLE
+    }
+  };
+
+  class ValueObject final : public ValueSoft {
+    ValueObject(const ValueObject&) = delete;
+    ValueObject& operator=(const ValueObject&) = delete;
+  private:
+    Object value;
+  public:
+    ValueObject(IAllocator& allocator, const Object& value) : ValueSoft(allocator), value(value) {
+      assert(this->validate());
+    }
+    virtual ValueFlags getFlags() const override {
+      return ValueFlags::Object;
+    }
+    virtual Type getRuntimeType() const override {
+      return value->getRuntimeType();
+    }
+    virtual bool getObject(Object& result) const override {
+      result = this->value;
+      return true;
+    }
+    virtual bool equals(const IValue& rhs, ValueCompare) const override {
+      Object other{ *this->value };
+      return rhs.getObject(other) && (this->value.get() == other.get());
+    }
+    virtual bool validate() const override {
+      return this->value.validate();
+    }
+  };
+
+  class ValuePointer final : public ValueSoft {
     ValuePointer(const ValuePointer&) = delete;
     ValuePointer& operator=(const ValuePointer&) = delete;
   private:
     Value child;
   public:
-    ValuePointer(IAllocator& allocator, const Value& child) : ValueMutable(allocator), child(child) {
+    ValuePointer(IAllocator& allocator, const Value& child) : ValueSoft(allocator), child(child) {
       assert(this->validate());
-    }
-    virtual IValue* clone() const override {
-      return this->allocator.make<ValuePointer, ValuePointer*>(this->child);
     }
     virtual ValueFlags getFlags() const override {
       return ValueFlags::Pointer;
+    }
+    virtual Type getRuntimeType() const override {
+      return Type::makePointer(this->allocator, *this->child->getRuntimeType());
     }
     virtual bool getChild(Value& value) const override {
       value = child;
@@ -327,11 +366,13 @@ namespace {
     ValueFlowControl(IAllocator& allocator, ValueFlags flags, const Value& child) : ValueMutable(allocator), flags(flags), child(child) {
       assert(this->validate());
     }
-    virtual IValue* clone() const override {
-      return this->allocator.make<ValueFlowControl, ValueFlowControl*>(this->flags, this->child);
-    }
     virtual ValueFlags getFlags() const override {
       return this->flags | this->child->getFlags();
+    }
+    virtual Type getRuntimeType() const override {
+      // We should NOT really be asked for type information here
+      assert(false);
+      return Type::Void;
     }
     virtual bool getChild(Value& value) const override {
       value = this->child;

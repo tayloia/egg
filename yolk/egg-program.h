@@ -222,8 +222,8 @@ namespace egg::yolk {
     // Inherited via IExecution
     virtual egg::ovum::IAllocator& getAllocator() const override;
     virtual egg::ovum::IBasket& getBasket() const override;
-    virtual egg::ovum::Variant raise(const egg::ovum::String& message) override;
-    virtual egg::ovum::Variant assertion(const egg::ovum::Variant& predicate) override;
+    virtual egg::ovum::Value raise(const egg::ovum::String& message) override;
+    virtual egg::ovum::Value assertion(const egg::ovum::Value& predicate) override;
     virtual void print(const std::string& utf8) override;
     // Implemented in egg-execute.cpp
     egg::ovum::Variant executeModule(const IEggProgramNode& self, const std::vector<std::shared_ptr<IEggProgramNode>>& statements);

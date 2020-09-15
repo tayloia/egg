@@ -257,7 +257,7 @@ egg::ovum::Variant egg::yolk::EggProgramContext::executeForeach(const IEggProgra
   return this->executeScope(&lvalue, [&](EggProgramContext& scope) {
     auto dst = lvalue.assignee(scope);
     if (dst == nullptr) {
-      return scope.raiseFormat("Iteration target in 'for' statement is not valid");
+      return egg::ovum::Variant(scope.raiseFormat("Iteration target in 'for' statement is not valid"));
     }
     auto src = rvalue.execute(scope);
     if (src.hasFlowControl()) {
@@ -271,7 +271,7 @@ egg::ovum::Variant egg::yolk::EggProgramContext::executeForeach(const IEggProgra
       auto object = src.getObject();
       return scope.executeForeachIterate(*dst, *object, block);
     }
-    return scope.raiseFormat("Cannot iterate '", src.getRuntimeType().toString(), "'");
+    return egg::ovum::Variant(scope.raiseFormat("Cannot iterate '", src.getRuntimeType().toString(), "'"));
   });
 }
 
@@ -724,9 +724,9 @@ egg::ovum::Variant egg::yolk::EggProgramContext::executePredicate(const IEggProg
   }
   auto operation = EggProgram::binaryToString(op);
   auto raised = this->raiseFormat("Assertion is untrue: ", left.toString(), " ", operation, " ", right.toString());
-  if (raised.hasAll(egg::ovum::ValueFlags::Throw | egg::ovum::ValueFlags::Object)) {
+  egg::ovum::Object exception;
+  if (raised->getObject(exception)) {
     // Augment the exception with extra information
-    auto exception = raised.getObject();
     exception->setProperty(*this, "left", left);
     exception->setProperty(*this, "operator", egg::ovum::Variant(egg::ovum::String(operation)));
     exception->setProperty(*this, "right", right);

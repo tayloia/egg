@@ -890,12 +890,12 @@ egg::ovum::Variant egg::yolk::EggProgramContext::unexpected(const std::string& e
   return this->raiseFormat(expectation, ", but got '", value.getRuntimeType().toString(), "' instead");
 }
 
-egg::ovum::Variant egg::yolk::EggProgramContext::assertion(const egg::ovum::Variant& predicate) {
-  auto& direct = predicate;
-  if (!direct.isBool()) {
-    return this->unexpected("Expected assertion predicate to be 'bool'", direct);
+egg::ovum::Value egg::yolk::EggProgramContext::assertion(const egg::ovum::Value& predicate) {
+  egg::ovum::Bool value;
+  if (!predicate->getBool(value)) {
+    return this->unexpected("Expected assertion predicate to be 'bool'", predicate);
   }
-  if (!direct.getBool()) {
+  if (!value) {
     return this->raiseFormat("Assertion is untrue");
   }
   return egg::ovum::Variant::Void;
@@ -905,7 +905,7 @@ void egg::yolk::EggProgramContext::print(const std::string& utf8) {
   return this->log(egg::ovum::ILogger::Source::User, egg::ovum::ILogger::Severity::Information, utf8);
 }
 
-egg::ovum::Variant egg::yolk::EggProgramContext::raise(const egg::ovum::String& message) {
+egg::ovum::Value egg::yolk::EggProgramContext::raise(const egg::ovum::String& message) {
   return EggProgramContext::createVanillaException(message);
 }
 

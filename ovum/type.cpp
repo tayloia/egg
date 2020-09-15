@@ -207,6 +207,18 @@ namespace {
   };
   const TypeObject typeObject{};
 
+  class TypeMemory : public TypeCommon<BasalBits::String> {
+    TypeMemory(const TypeMemory&) = delete;
+    TypeMemory& operator=(const TypeMemory&) = delete;
+  public:
+    TypeMemory() = default;
+    virtual Type iterable() const override {
+      // When memory is iterated, it iterates through bytes
+      return Type::Int;
+    }
+  };
+  const TypeMemory typeMemory{};
+
   class TypeAny : public TypeCommon<BasalBits::Any> {
     TypeAny(const TypeAny&) = delete;
     TypeAny& operator=(const TypeAny&) = delete;
@@ -455,6 +467,7 @@ const egg::ovum::Type egg::ovum::Type::Int{ &typeInt };
 const egg::ovum::Type egg::ovum::Type::Float{ &typeFloat };
 const egg::ovum::Type egg::ovum::Type::String{ &typeString };
 const egg::ovum::Type egg::ovum::Type::Object{ &typeObject };
+const egg::ovum::Type egg::ovum::Type::Memory{ &typeMemory };
 const egg::ovum::Type egg::ovum::Type::Arithmetic{ &typeArithmetic };
 const egg::ovum::Type egg::ovum::Type::Any{ &typeAny };
 const egg::ovum::Type egg::ovum::Type::AnyQ{ &typeAnyQ };
