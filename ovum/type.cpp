@@ -1,6 +1,5 @@
 #include "ovum/ovum.h"
 #include "ovum/node.h"
-#include "ovum/function.h"
 
 namespace {
   using namespace egg::ovum;

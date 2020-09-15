@@ -373,14 +373,5 @@ namespace egg::ovum {
     return ptr != nullptr;
   }
 
-  class Memory : public HardPtr<const IMemory> {
-  public:
-    Memory() = default;
-    explicit Memory(const IMemory* rhs) : HardPtr(rhs) {
-    }
-    static bool equals(const IMemory* lhs, const IMemory* rhs);
-    bool validate() const;
-  };
-
   using Basket = HardPtr<IBasket>;
 }

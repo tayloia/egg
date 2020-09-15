@@ -13,6 +13,7 @@
 #include "ovum/vm.h"
 #include "ovum/interfaces.h"
 #include "ovum/utility.h"
+#include "ovum/memory.h"
 #include "ovum/string.h"
 #include "ovum/arithmetic.h"
 #include "ovum/type.h"
