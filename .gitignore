@@ -16,3 +16,4 @@ msvc/obj/
 
 # Keep but don't store in the repo
 keep/
+legacy/
