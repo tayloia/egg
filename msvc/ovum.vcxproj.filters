@@ -46,9 +46,6 @@
     <ClInclude Include="..\ovum\ovum.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\ovum\factories.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="..\ovum\interfaces.h">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -95,6 +92,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="..\ovum\memory.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ovum\basket.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

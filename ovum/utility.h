@@ -372,6 +372,4 @@ namespace egg::ovum {
     // Yoda inequality comparison used by GoogleTest
     return ptr != nullptr;
   }
-
-  using Basket = HardPtr<IBasket>;
 }

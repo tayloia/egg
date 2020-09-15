@@ -54,6 +54,52 @@ namespace egg::ovum {
     static String fromUTF8(const std::string& utf8, size_t codepoints = SIZE_MAX); // fallback to factory
     static String fromUTF32(const std::u32string& utf32); // fallback to factory
   };
+
+  class StringBuilder {
+    StringBuilder(const StringBuilder&) = delete;
+    StringBuilder& operator=(const StringBuilder&) = delete;
+  private:
+    std::stringstream ss;
+  public:
+    StringBuilder() {
+    }
+    template<typename T>
+    StringBuilder& add(T value) {
+      this->ss << value;
+      return *this;
+    }
+    template<typename T, typename... ARGS>
+    StringBuilder& add(T value, ARGS&&... args) {
+      return this->add(value).add(std::forward<ARGS>(args)...);
+    }
+    bool empty() const {
+      return this->ss.rdbuf()->in_avail() == 0;
+    }
+    std::string toUTF8() const {
+      return this->ss.str();
+    }
+    String str() const;
+
+    template<typename... ARGS>
+    static String concat(ARGS&&... args) {
+      return StringBuilder().add(std::forward<ARGS>(args)...).str();
+    }
+  };
+
+  class StringFactory {
+  public:
+    static String fromCodePoint(IAllocator& allocator, char32_t codepoint);
+    static String fromUTF8(IAllocator& allocator, const uint8_t* begin, const uint8_t* end, size_t codepoints = SIZE_MAX);
+    static String fromUTF8(IAllocator& allocator, const void* utf8, size_t bytes) {
+      auto begin = static_cast<const uint8_t*>(utf8);
+      assert(begin != nullptr);
+      return fromUTF8(allocator, begin, begin + bytes);
+    }
+    static String fromUTF8(IAllocator& allocator, const std::string& utf8) {
+      return fromUTF8(allocator, utf8.data(), utf8.size());
+    }
+    static String fromASCIIZ(IAllocator& allocator, const char* asciiz);
+  };
 }
 
 namespace std {

@@ -10,27 +10,27 @@ TEST(TestValue, Uninitialized) {
 }
 
 TEST(TestValue, Void) {
-  auto value = egg::ovum::ValueFactory::createVoid();
+  auto value = egg::ovum::Value::Void;
   ASSERT_EQ(Flags::Void, value->getFlags());
   ASSERT_TRUE(value->getVoid());
   ASSERT_VALUE(Flags::Void, value);
 }
 
 TEST(TestValue, Null) {
-  auto value = egg::ovum::ValueFactory::createNull();
+  auto value = egg::ovum::Value::Null;
   ASSERT_EQ(Flags::Null, value->getFlags());
   ASSERT_TRUE(value->getNull());
   ASSERT_VALUE(Flags::Null, value);
 }
 
 TEST(TestValue, Bool) {
-  auto value = egg::ovum::ValueFactory::createBool(false);
+  auto value = egg::ovum::Value::False;
   ASSERT_EQ(Flags::Bool, value->getFlags());
   bool actual = true;
   ASSERT_TRUE(value->getBool(actual));
   ASSERT_FALSE(actual);
   ASSERT_VALUE(false, value);
-  value = egg::ovum::ValueFactory::createBool(true);
+  value = egg::ovum::Value::True;
   ASSERT_EQ(Flags::Bool, value->getFlags());
   ASSERT_TRUE(value->getBool(actual));
   ASSERT_TRUE(actual);

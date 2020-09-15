@@ -89,13 +89,69 @@ namespace egg::ovum {
       auto& q = rhs.get();
       return p.equals(q, compare);
     }
-    // Debugging and test
+    // Debugging
     bool validate() const;
     static void print(std::ostream& stream, ValueFlags flags);
     static void print(std::ostream& stream, const Value& value);
+    // Constants
+    static const Value Void;
+    static const Value Null;
+    static const Value False;
+    static const Value True;
+    static const Value Break;
+    static const Value Continue;
+    static const Value Rethrow;
   private:
     explicit Value(IValue* rhs) : ptr(rhs) {
       // Used solely for factory/slot construction
+    }
+  };
+
+  class ValueFactory {
+  public:
+    static Value createInt(IAllocator& allocator, Int value);
+    static Value createFloat(IAllocator& allocator, Float value);
+    static Value createString(IAllocator& allocator, const String& value);
+    static Value createObject(IAllocator& allocator, const Object& value);
+    static Value createMemory(IAllocator& allocator, const Memory& value);
+    static Value createPointer(IAllocator& allocator, const Value& pointee);
+    static Value createFlowControl(IAllocator& allocator, ValueFlags flags, const Value& value);
+
+    // Overloaded without implicit promotion
+    template<typename T>
+    static Value createValue(IAllocator& allocator, T value) = delete;
+    static Value createValue(IAllocator&, std::nullptr_t) {
+      return Value::Null;
+    }
+    static Value createValue(IAllocator&, bool value) {
+      return value ? Value::True : Value::False;
+    }
+    static Value createValue(IAllocator& allocator, int32_t value) {
+      return createInt(allocator, value);
+    }
+    static Value createValue(IAllocator& allocator, int64_t value) {
+      return createInt(allocator, value);
+    }
+    static Value createValue(IAllocator& allocator, float value) {
+      return createFloat(allocator, value);
+    }
+    static Value createValue(IAllocator& allocator, double value) {
+      return createFloat(allocator, value);
+    }
+    static Value createValue(IAllocator& allocator, const String& value) {
+      return createString(allocator, value);
+    }
+    static Value createValue(IAllocator& allocator, const std::string& value) {
+      return createString(allocator, StringFactory::fromUTF8(allocator, value));
+    }
+    static Value createValue(IAllocator& allocator, const char* value) {
+      if (value == nullptr) {
+        return Value::Null;
+      }
+      return createString(allocator, StringFactory::fromASCIIZ(allocator, value));
+    }
+    static Value createValue(IAllocator& allocator, const Object& value) {
+      return createObject(allocator, value);
     }
   };
 }

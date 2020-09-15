@@ -41,7 +41,7 @@
     <ClInclude Include="..\ovum\dictionary.h" />
     <ClInclude Include="..\ovum\memory.h" />
     <ClInclude Include="..\ovum\module.h" />
-    <ClInclude Include="..\ovum\factories.h" />
+    <ClInclude Include="..\ovum\basket.h" />
     <ClInclude Include="..\ovum\interfaces.h" />
     <ClInclude Include="..\ovum\node.h" />
     <ClInclude Include="..\ovum\ovum.h" />

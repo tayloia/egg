@@ -63,6 +63,9 @@ namespace {
       return const_cast<ValueImmutable*>(this);
     }
   };
+  const ValueImmutable<ValueFlags::Break> theBreak;
+  const ValueImmutable<ValueFlags::Continue> theContinue;
+  const ValueImmutable<ValueFlags::Throw> theRethrow;
 
   class ValueVoid : public ValueImmutable<ValueFlags::Void> {
     ValueVoid(const ValueVoid&) = delete;
@@ -76,6 +79,7 @@ namespace {
       return Type::Void;
     }
   };
+  const ValueVoid theVoid;
 
   class ValueNull : public ValueImmutable<ValueFlags::Null> {
     ValueNull(const ValueNull&) = delete;
@@ -89,6 +93,7 @@ namespace {
       return Type::Null;
     }
   };
+  const ValueNull theNull;
 
   template<bool VALUE>
   class ValueBool : public ValueImmutable<ValueFlags::Bool> {
@@ -108,6 +113,8 @@ namespace {
       return rhs.getBool(value) && (value == VALUE);
     }
   };
+  const ValueBool<false> theFalse;
+  const ValueBool<true> theTrue;
 
   class ValueMutable : public HardReferenceCounted<IValue> {
     ValueMutable(const ValueMutable&) = delete;
@@ -392,25 +399,16 @@ namespace {
   }
 }
 
-egg::ovum::Value::Value() {
-  static const ValueVoid instance;
-  this->ptr.set(&instance);
+const egg::ovum::Value egg::ovum::Value::Void{ &theVoid };
+const egg::ovum::Value egg::ovum::Value::Null{ &theNull };
+const egg::ovum::Value egg::ovum::Value::False{ &theFalse };
+const egg::ovum::Value egg::ovum::Value::True{ &theTrue };
+const egg::ovum::Value egg::ovum::Value::Break{ &theBreak };
+const egg::ovum::Value egg::ovum::Value::Continue{ &theContinue };
+const egg::ovum::Value egg::ovum::Value::Rethrow{ &theRethrow };
+
+egg::ovum::Value::Value() : ptr(&theVoid) {
   assert(this->validate());
-}
-
-egg::ovum::Value egg::ovum::ValueFactory::createVoid() {
-  return Value();
-}
-
-egg::ovum::Value egg::ovum::ValueFactory::createNull() {
-  static const ValueNull instance;
-  return Value(&instance);
-}
-
-egg::ovum::Value egg::ovum::ValueFactory::createBool(Bool value) {
-  static const ValueBool<false> no;
-  static const ValueBool<true> yes;
-  return Value(value ? &yes : &no);
 }
 
 egg::ovum::Value egg::ovum::ValueFactory::createInt(IAllocator& allocator, Int value) {
@@ -435,20 +433,6 @@ egg::ovum::Value egg::ovum::ValueFactory::createMemory(IAllocator& allocator, co
 
 egg::ovum::Value egg::ovum::ValueFactory::createPointer(IAllocator& allocator, const Value& value) {
   return Value(allocator.make<ValuePointer, IValue*>(value));
-}
-
-egg::ovum::Value egg::ovum::ValueFactory::createFlowControl(ValueFlags flags) {
-  static const ValueImmutable<ValueFlags::Break> cbreak;
-  static const ValueImmutable<ValueFlags::Continue> ccontinue;
-  static const ValueImmutable<ValueFlags::Throw> crethrow;
-  if (flags == ValueFlags::Break) {
-    return Value(&cbreak);
-  }
-  if (flags == ValueFlags::Continue) {
-    return Value(&ccontinue);
-  }
-  assert(flags == ValueFlags::Throw);
-  return Value(&crethrow);
 }
 
 egg::ovum::Value egg::ovum::ValueFactory::createFlowControl(IAllocator& allocator, ValueFlags flags, const Value& value) {
