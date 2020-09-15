@@ -366,32 +366,6 @@ namespace {
       sb.add(')');
     }
   }
-
-  Opcode basalTypeToOpcode(BasalBits basal) {
-    switch (basal) {
-    case BasalBits::None:
-      break;
-    case BasalBits::Void:
-      return Opcode::VOID;
-    case BasalBits::Null:
-      return Opcode::NULL_;
-    case BasalBits::Bool:
-      return Opcode::BOOL;
-    case BasalBits::Int:
-      return Opcode::INT;
-    case BasalBits::Float:
-      return Opcode::FLOAT;
-    case BasalBits::String:
-      return Opcode::STRING;
-    case BasalBits::Object:
-      return Opcode::OBJECT;
-    case BasalBits::Any:
-      return Opcode::ANY;
-    case BasalBits::AnyQ:
-      return Opcode::ANYQ;
-    }
-    return Opcode::END;
-  }
 }
 
 egg::ovum::Node egg::ovum::NodeFactory::create(IAllocator& allocator, Opcode opcode) {
@@ -514,77 +488,6 @@ egg::ovum::Node egg::ovum::NodeFactory::createValue(IAllocator& allocator, doubl
 
 egg::ovum::Node egg::ovum::NodeFactory::createValue(IAllocator& allocator, const String& value) {
   return createNodeOperand<NodeOperandString>(allocator, Opcode::SVALUE, value);
-}
-
-egg::ovum::Node egg::ovum::NodeFactory::createBasalType(IAllocator& allocator, const NodeLocation& location, BasalBits basal) {
-  auto opcode = basalTypeToOpcode(basal);
-  if (opcode != Opcode::END) {
-    // This is a well-known basal type
-    return NodeFactory::create(allocator, opcode);
-  }
-  Nodes parts;
-  while (basal != BasalBits::None) {
-    // Construct a vector of all the constituent parts
-    auto top = Bits::topmost(basal);
-    opcode = basalTypeToOpcode(top);
-    assert(opcode != Opcode::END);
-    parts.push_back(NodeFactory::create(allocator, opcode));
-    basal = Bits::clear(basal, top);
-  }
-  return NodeFactory::create(allocator, location, Opcode::UNION, &parts);
-}
-
-egg::ovum::Node egg::ovum::NodeFactory::createPointerType(IAllocator& allocator, const NodeLocation& location, const Type& pointee) {
-  Nodes children{ pointee->compile(allocator, location) };
-  return NodeFactory::create(allocator, location, Opcode::POINTER, &children);
-}
-
-egg::ovum::Node egg::ovum::NodeFactory::createFunctionType(IAllocator& allocator, const NodeLocation& location, const IFunctionSignature& signature) {
-  Nodes children;
-  children.push_back(signature.getReturnType()->compile(allocator, location));
-  auto n = signature.getParameterCount();
-  Node child;
-  for (size_t i = 0; i < n; ++i) {
-    auto& parameter = signature.getParameter(i);
-    auto type = parameter.getType()->compile(allocator, location);
-    auto identifier = NodeFactory::create(allocator, Opcode::IDENTIFIER, NodeFactory::createValue(allocator, parameter.getName()));
-    auto flags = parameter.getFlags();
-    auto position = parameter.getPosition();
-    if (position == SIZE_MAX) {
-      // This is not positional, it's by name
-      // ('byname' type identifier)
-      assert(!Bits::hasAnySet(flags, IFunctionSignatureParameter::Flags::Variadic));
-      child = NodeFactory::create(allocator, Opcode::BYNAME, std::move(type), std::move(identifier));
-    } else {
-      // This is positional
-      assert(position == i);
-      if (Bits::hasAnySet(flags, IFunctionSignatureParameter::Flags::Variadic)) {
-        if (Bits::hasAnySet(flags, IFunctionSignatureParameter::Flags::Required)) {
-          // ('varargs' type identifier ('compare' OPERATOR_GT 0))
-          Nodes zero;
-          zero.push_back(NodeFactory::createValue(allocator, 0));
-          auto constraint = NodeFactory::create(allocator, Opcode::COMPARE, &zero, nullptr, Operator::GT);
-          child = NodeFactory::create(allocator, Opcode::VARARGS, std::move(type), std::move(identifier), std::move(constraint));
-        } else {
-          // ('varargs' type identifier)
-          child = NodeFactory::create(allocator, Opcode::VARARGS, std::move(type), std::move(identifier));
-        }
-      } else if (Bits::hasAnySet(flags, IFunctionSignatureParameter::Flags::Required)) {
-        // ('required' type identifier)
-        child = NodeFactory::create(allocator, Opcode::REQUIRED, std::move(type), std::move(identifier));
-      } else {
-        // ('optional' type identifier)
-        child = NodeFactory::create(allocator, Opcode::OPTIONAL, std::move(type), std::move(identifier));
-      }
-    }
-    children.push_back(child);
-  }
-  // ('callable' rettype parameter*)
-  auto callable = NodeFactory::create(allocator, Opcode::CALLABLE, &children);
-  // ('object' callable)
-  children.resize(1);
-  children[0] = callable;
-  return NodeFactory::create(allocator, location, Opcode::OBJECT, &children);
 }
 
 egg::ovum::String egg::ovum::Node::toString(const INode* node) {

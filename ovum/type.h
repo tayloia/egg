@@ -2,7 +2,13 @@ namespace egg::ovum {
   class INode;
 
 #define EGG_OVUM_VALUE_FLAGS(X) \
-  EGG_VM_BASAL(X) \
+  X(Void, "void") \
+  X(Null, "null") \
+  X(Bool, "bool") \
+  X(Int, "int") \
+  X(Float, "float") \
+  X(String, "string") \
+  X(Object, "object") \
   X(Memory, "memory") \
   X(Pointer, "pointer") \
   X(Break, "break") \
@@ -24,24 +30,11 @@ namespace egg::ovum {
     EGG_OVUM_VALUE_FLAGS(EGG_OVUM_VALUE_FLAGS_ENUM)
 #undef EGG_OVUM_VALUE_FLAGS_ENUM
     Arithmetic = Int | Float,
-    Any = Bool | Int | Float | String | Object | Pointer,
+    Any = Bool | Int | Float | String | Object | Memory | Pointer,
     AnyQ = Null | Any,
     FlowControl = Break | Continue | Return | Yield | Throw
   };
   inline constexpr ValueFlags operator|(ValueFlags lhs, ValueFlags rhs) {
-    return Bits::set(lhs, rhs);
-  }
-
-  // None, Void, Null, Bool, Int, Float, String, Object (plus Arithmetic, Any, AnyQ)
-  enum class BasalBits {
-    None = 0,
-#define EGG_VM_BASAL_ENUM(name, text) name = 1 << int(ValueFlagsShift::name),
-    EGG_VM_BASAL(EGG_VM_BASAL_ENUM)
-#undef EGG_VM_BASAL_ENUM
-    Any = Bool | Int | Float | String | Object,
-    AnyQ = Any | Null
-  };
-  inline constexpr BasalBits operator|(BasalBits lhs, BasalBits rhs) {
     return Bits::set(lhs, rhs);
   }
 
@@ -76,33 +69,6 @@ namespace egg::ovum {
     static const Type Arithmetic;
     static const Type Any;
     static const Type AnyQ;
-    // Helpers
-    static const IType* getBasalType(BasalBits basal);
-    static std::string getBasalString(BasalBits basal);
-    static Type makeBasal(IAllocator& allocator, BasalBits basal);
-    static Type makeUnion(IAllocator& allocator, const IType& lhs, const IType& rhs);
-    static Type makePointer(IAllocator& allocator, const IType& pointee);
-    static Type makePointer(const IType& pointee); // TODO always supply an allocator
-  };
-
-  class TypeBase : public IType {
-    TypeBase(const TypeBase&) = delete;
-    TypeBase& operator=(const TypeBase&) = delete;
-  public:
-    TypeBase() = default;
-    virtual bool hasBasalType(BasalBits basal) const override;
-
-    virtual AssignmentSuccess canBeAssignedFrom(const IType& rhs) const override;
-    virtual const IFunctionSignature* callable() const override;
-    virtual const IIndexSignature* indexable() const override;
-    virtual Type dotable(const String& property, String& error) const override;
-    virtual Type iterable() const override;
-    virtual Type pointeeType() const override;
-    virtual Type devoidedType() const override;
-    virtual Type denulledType() const override;
-    virtual Node compile(IAllocator& allocator, const NodeLocation& location) const override;
-
-    virtual BasalBits getBasalTypesLegacy() const override;
   };
 
   class Object : public HardPtr<IObject> {

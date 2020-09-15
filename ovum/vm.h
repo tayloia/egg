@@ -145,13 +145,3 @@
   X(SHIFTU, BINARY, 12, ">>>") \
   X(SUB, BINARY, 13, "-") \
   X(TERNARY, TERNARY, 0, "?:")
-
-// Macro to define basal types: X(type, text)
-#define EGG_VM_BASAL(X) \
-  X(Void, "void") \
-  X(Null, "null") \
-  X(Bool, "bool") \
-  X(Int, "int") \
-  X(Float, "float") \
-  X(String, "string") \
-  X(Object, "object")

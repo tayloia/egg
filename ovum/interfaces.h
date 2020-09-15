@@ -1,7 +1,7 @@
 namespace egg::ovum {
   // Forward declarations
   template<typename T> class HardPtr;
-  enum class BasalBits;
+  enum class ValueFlags;
   struct LocationSource;
   struct NodeLocation;
   class Node;
@@ -165,26 +165,30 @@ namespace egg::ovum {
     virtual Type getIndexType() const = 0;
   };
 
+  class IDotSignature {
+  public:
+    // Interface
+    virtual ~IDotSignature() {}
+    virtual Type getPropertyType(const String& name) const = 0;
+  };
+
+  class IPointSignature {
+  public:
+    // Interface
+    virtual ~IPointSignature() {}
+    virtual Type getPointeeType() const = 0;
+  };
+
   class IType : public IHardAcquireRelease {
   public:
-    // Type management
-    virtual bool hasBasalType(BasalBits basal) const = 0;
-
-    // No-man's land
-    enum class AssignmentSuccess { Never, Sometimes, Always };
-    virtual AssignmentSuccess canBeAssignedFrom(const IType& rhs) const = 0;
+    virtual ValueFlags getFlags() const = 0;
+    enum class Assignable { Never, Sometimes, Always };
+    virtual Assignable assignable(const IType& rhs) const = 0;
     virtual const IFunctionSignature* callable() const = 0;
     virtual const IIndexSignature* indexable() const = 0;
-    virtual Type dotable(const String& property, String& error) const = 0; // 'property' may be "" if asking whether we support ANY properties
-    virtual Type iterable() const = 0;
-    virtual Type pointeeType() const = 0;
-    virtual Type devoidedType() const = 0;
-    virtual Type denulledType() const = 0;
+    virtual const IDotSignature* dotable() const = 0;
+    virtual const IPointSignature* pointable() const = 0;
     virtual std::pair<std::string, int> toStringPrecedence() const = 0;
-
-    // WIBBLE legacy type interface
-    virtual BasalBits getBasalTypesLegacy() const = 0;
-    virtual Node compile(IAllocator& allocator, const NodeLocation& location) const = 0;
   };
 
   class IObject : public ICollectable {

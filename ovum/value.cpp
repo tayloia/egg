@@ -330,7 +330,7 @@ namespace {
       return ValueFlags::Pointer;
     }
     virtual Type getRuntimeType() const override {
-      return Type::makePointer(this->allocator, *this->child->getRuntimeType());
+      return Type::Null; // WIBBLE
     }
     virtual bool getChild(Value& value) const override {
       value = child;
