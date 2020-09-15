@@ -19,26 +19,26 @@ if %errorlevel% neq 0 (
   if exist %WSL64% (
     set USING=Using WSL64
     set MAKE_EXE=%WSL64% make
-    set MAKE_OPTIONS=PLATFORM=wsl
+    set MAKE_OPTIONS=%MAKE_OPTIONS% PLATFORM=wsl
     set GCC_EXE=%WSL64% g++
   ) else if exist %WSL32% (
     set USING=Using WSL32
     set MAKE_EXE=%WSL32% make
-    set MAKE_OPTIONS=PLATFORM=wsl
+    set MAKE_OPTIONS=%MAKE_OPTIONS% PLATFORM=wsl
     set GCC_EXE=%WSL32% g++
   ) else if exist %MINGW64%\%GCC_EXE% (
     set USING=Using MinGW64
-    set MAKE_OPTIONS=PLATFORM=mingw %MAKE_OPTIONS%
+    set MAKE_OPTIONS=%MAKE_OPTIONS% PLATFORM=mingw
     if not exist %MINGW64%\%MAKE_EXE% set MAKE_EXE=mingw32-make.exe
     set PATH=%MINGW64%
   ) else if exist %MINGW32%\%GCC_EXE% (
     set USING=Using MinGW32
-    set MAKE_OPTIONS=PLATFORM=mingw %MAKE_OPTIONS%
+    set MAKE_OPTIONS=%MAKE_OPTIONS% PLATFORM=mingw
     if not exist %MINGW32%\%MAKE_EXE% set MAKE_EXE=mingw32-make.exe
     set PATH=%MINGW32%
   ) else if exist %CYGWIN%\%GCC_EXE% (
     set USING=Using Cygwin
-    set MAKE_OPTIONS=PLATFORM=cygwin %MAKE_OPTIONS%
+    set MAKE_OPTIONS=%MAKE_OPTIONS% PLATFORM=cygwin
     set PATH=%CYGWIN%
   ) else (
     echo %~nx0: GCC/make not found: Giving up!
@@ -59,7 +59,7 @@ for /f "tokens=2 delims=)" %%F in ('%GCC_EXE% --version') do set GCC_VERSION=%%F
 set GCC_VERSION=%GCC_VERSION: =%
 echo %USING% gcc %GCC_VERSION%
 rem Call make with the appropriate flags
-if "%MAKE_VERSION%" geq "4.0" set MAKE_OPTIONS=%MAKE_OPTIONS% --output-sync=line
+rem if "%MAKE_VERSION%" geq "4.0" set MAKE_OPTIONS=%MAKE_OPTIONS% --output-sync=line
 %MAKE_EXE% %MAKE_OPTIONS% %*
 :end
 endlocal

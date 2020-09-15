@@ -84,7 +84,7 @@ $(OBJ_DIR)/%.o: %.cpp
 	$(call compile,$<,$(OBJ_DIR)/$*.o,$(OBJ_DIR)/$*.d)
 
 # Include the generated dependencies
--include $(ALL_OBJS:.o,.d)
+-include $(ALL_OBJS:.o=.d)
 
 # Rule for creating libraries from object files
 %.a:
