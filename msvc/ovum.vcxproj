@@ -26,6 +26,7 @@
     <ClCompile Include="..\ovum\memory.cpp" />
     <ClCompile Include="..\ovum\module.cpp" />
     <ClCompile Include="..\ovum\object.cpp" />
+    <ClCompile Include="..\ovum\print.cpp" />
     <ClCompile Include="..\ovum\string.cpp" />
     <ClCompile Include="..\ovum\type.cpp" />
     <ClCompile Include="..\ovum\value.cpp" />
@@ -48,6 +49,7 @@
     <ClInclude Include="..\ovum\object.h" />
     <ClInclude Include="..\ovum\ovum.h" />
     <ClInclude Include="..\ovum\platform.h" />
+    <ClInclude Include="..\ovum\print.h" />
     <ClInclude Include="..\ovum\program.h" />
     <ClInclude Include="..\ovum\string.h" />
     <ClInclude Include="..\ovum\test.h" />

@@ -105,6 +105,7 @@
     <ClCompile Include="..\yolk\test\egg-syntax.cpp" />
     <ClCompile Include="..\yolk\test\egg-tokenizer.cpp" />
     <ClCompile Include="..\yolk\test\egged-tokenizer.cpp" />
+    <ClCompile Include="..\yolk\test\examples.cpp" />
     <ClCompile Include="..\yolk\test\exceptions.cpp" />
     <ClCompile Include="..\yolk\test\files.cpp" />
     <ClCompile Include="..\yolk\test\utility.cpp" />

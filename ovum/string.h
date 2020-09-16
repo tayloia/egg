@@ -56,6 +56,7 @@ namespace egg::ovum {
   };
 
   class StringBuilder {
+    friend class Print;
     StringBuilder(const StringBuilder&) = delete;
     StringBuilder& operator=(const StringBuilder&) = delete;
   private:

@@ -240,7 +240,7 @@ egg::ovum::Float egg::ovum::MantissaExponent::toFloat() const {
   return std::ldexp(this->mantissa, int(this->exponent));
 }
 
-void egg::ovum::Arithmetic::write(std::ostream& stream, double value, size_t sigfigs) {
+void egg::ovum::Arithmetic::print(std::ostream& stream, double value, size_t sigfigs) {
   assert(sigfigs > 0);
   writeFloat(stream, value, sigfigs, sigfigs + 3, sigfigs + 3);
 }

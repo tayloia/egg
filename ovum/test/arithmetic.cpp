@@ -12,7 +12,7 @@ namespace {
 
   std::string format(double value, size_t sigfigs = egg::ovum::Arithmetic::DEFAULT_SIGFIGS) {
     std::stringstream ss;
-    egg::ovum::Arithmetic::write(ss, value, sigfigs);
+    egg::ovum::Arithmetic::print(ss, value, sigfigs);
     return ss.str();
   }
 }

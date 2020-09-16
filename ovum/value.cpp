@@ -1,6 +1,5 @@
 #include "ovum/ovum.h"
-
-#include <iomanip>
+#include "ovum/print.h"
 
 namespace {
   using namespace egg::ovum;
@@ -55,6 +54,9 @@ namespace {
     virtual bool equals(const IValue& rhs, ValueCompare) const override {
       // Default equality for constants is when the types are the same
       return rhs.getFlags() == FLAGS;
+    }
+    virtual String toString() const override {
+      return Print::toString(FLAGS);
     }
     virtual bool validate() const override {
       return true;
@@ -111,6 +113,9 @@ namespace {
     virtual bool equals(const IValue& rhs, ValueCompare) const override {
       Bool value;
       return rhs.getBool(value) && (value == VALUE);
+    }
+    virtual String toString() const override {
+      return Print::toString(VALUE);
     }
   };
   const ValueBool<false> theFalse;
@@ -190,6 +195,9 @@ namespace {
       }
       return false;
     }
+    virtual String toString() const override {
+      return Print::toString(this->value);
+    }
     virtual bool validate() const override {
       return true;
     }
@@ -227,6 +235,9 @@ namespace {
       }
       return false;
     }
+    virtual String toString() const override {
+      return Print::toString(this->value);
+    }
     virtual bool validate() const override {
       return true;
     }
@@ -256,6 +267,9 @@ namespace {
       String other;
       return rhs.getString(other) && this->value.equals(other);
     }
+    virtual String toString() const override {
+      return this->value;
+    }
     virtual bool validate() const override {
       return this->value.validate();
     }
@@ -283,6 +297,9 @@ namespace {
     virtual bool equals(const IValue& rhs, ValueCompare) const override {
       Memory other;
       return rhs.getMemory(other) && Memory::equals(this->value.get(), other.get());
+    }
+    virtual String toString() const override {
+      return "<memory>";
     }
     virtual bool validate() const override {
       return this->value.validate();
@@ -312,6 +329,9 @@ namespace {
       Object other{ *this->value };
       return rhs.getObject(other) && (this->value.get() == other.get());
     }
+    virtual String toString() const override {
+      return "<object>"; // TODO Object::toString()
+    }
     virtual bool validate() const override {
       return this->value.validate();
     }
@@ -339,6 +359,9 @@ namespace {
     virtual bool equals(const IValue& rhs, ValueCompare compare) const override {
       Value other;
       return (rhs.getFlags() == ValueFlags::Pointer) && rhs.getChild(other) && this->equals(other.get(), compare);
+    }
+    virtual String toString() const override {
+      return "<pointer>";
     }
     virtual bool validate() const override {
       return this->child.validate();
@@ -370,6 +393,13 @@ namespace {
     virtual bool equals(const IValue& rhs, ValueCompare compare) const override {
       Value other;
       return (rhs.getFlags() == this->flags) && rhs.getChild(other) && this->child->equals(other.get(), compare);
+    }
+    virtual String toString() const override {
+      StringBuilder sb;
+      Print::add(sb, this->flags);
+      sb.add(' ');
+      Print::add(sb, this->child);
+      return sb.str();
     }
     virtual bool validate() const override {
       return this->child.validate();
@@ -448,84 +478,4 @@ bool egg::ovum::Value::validate() const {
     return false;
   }
   return p->validate();
-}
-
-void egg::ovum::Value::print(std::ostream& stream, ValueFlags flags) {
-  // This is used by GoogleTest's ::testing::internal::PrintTo
-  size_t found = 0;
-#define EGG_OVUM_VARIANT_PRINT(name, text) if (Bits::hasAnySet(flags, ValueFlags::name)) { if (++found > 1) { stream << '|'; } stream << #name; }
-  EGG_OVUM_VALUE_FLAGS(EGG_OVUM_VARIANT_PRINT)
-#undef EGG_OVUM_VARIANT_PRINT
-    // cppcheck-suppress knownConditionTrueFalse
-    if (found == 0) {
-      stream << '(' << int(flags) << ')';
-    }
-}
-
-void egg::ovum::Value::print(std::ostream& stream, const Value& value) {
-  // This is used by GoogleTest's ::testing::internal::PrintTo
-  auto flags = value->getFlags();
-  EGG_WARNING_SUPPRESS_SWITCH_BEGIN();
-  switch (flags) {
-  case egg::ovum::ValueFlags::Void:
-    stream << "void";
-    return;
-  case egg::ovum::ValueFlags::Null:
-    stream << "null";
-    return;
-  case egg::ovum::ValueFlags::Bool: {
-    egg::ovum::Bool b;
-    if (value->getBool(b)) {
-      stream << (b ? "true" : "false");
-      return;
-    }
-    break;
-  }
-  case egg::ovum::ValueFlags::Int: {
-    egg::ovum::Int i;
-    if (value->getInt(i)) {
-      stream << i;
-      return;
-    }
-    break;
-  }
-  case egg::ovum::ValueFlags::Float: {
-    egg::ovum::Float f;
-    if (value->getFloat(f)) {
-      stream << f;
-      return;
-    }
-    break;
-  }
-  case egg::ovum::ValueFlags::String: {
-    egg::ovum::String s;
-    if (value->getString(s)) {
-      stream << '"' << s.toUTF8() << '"';
-      return;
-    }
-    break;
-  }
-  case egg::ovum::ValueFlags::Object: {
-    egg::ovum::Object o;
-    if (value->getObject(o)) {
-      auto* p = o.get();
-      stream << "[object 0x" << std::hex << std::setw(sizeof(p) * 2) << std::setfill('0') << p << ']';
-      return;
-    }
-    break;
-  }
-  case egg::ovum::ValueFlags::Pointer: {
-    egg::ovum::Value v;
-    if (value->getChild(v)) {
-      auto* p = &v.get();
-      stream << "[pointer 0x" << std::hex << std::setw(sizeof(p) * 2) << std::setfill('0') << p << ']';
-      return;
-    }
-    break;
-  }
-  }
-  EGG_WARNING_SUPPRESS_SWITCH_END();
-  stream << "[BAD ";
-  print(stream, value->getFlags());
-  stream << ']';
 }

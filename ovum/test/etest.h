@@ -140,13 +140,13 @@ namespace egg::test {
 template<>
 inline void ::testing::internal::PrintTo(const egg::ovum::ValueFlags& value, std::ostream* stream) {
   // Pretty-print the value flags
-  egg::ovum::Value::print(*stream, value);
+  egg::ovum::Print::write(*stream, value);
 }
 
 template<>
 inline void ::testing::internal::PrintTo(const egg::ovum::Value& value, std::ostream* stream) {
   // Pretty-print the value
-  egg::ovum::Value::print(*stream, value);
+  egg::ovum::Print::write(*stream, value);
 }
 
 #define ASSERT_STRING(expected, string) egg::test::assertString(expected, string)

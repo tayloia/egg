@@ -36,7 +36,7 @@ namespace egg::ovum {
     virtual ValueFlags getFlags() const = 0;
     virtual Type getRuntimeType() const = 0;
     virtual bool equals(const IValue& rhs, ValueCompare compare) const = 0;
-    // TODO virtual String toString() const = 0;
+    virtual String toString() const = 0;
     virtual bool validate() const = 0;
   };
 
@@ -91,8 +91,6 @@ namespace egg::ovum {
     }
     // Debugging
     bool validate() const;
-    static void print(std::ostream& stream, ValueFlags flags);
-    static void print(std::ostream& stream, const Value& value);
     // Constants
     static const Value Void;
     static const Value Null;

@@ -3,7 +3,7 @@ namespace egg::ovum {
   public:
     static const size_t DEFAULT_SIGFIGS = 12;
 
-    static void write(std::ostream& stream, double value, size_t sigfigs = DEFAULT_SIGFIGS);
+    static void print(std::ostream& stream, double value, size_t sigfigs = DEFAULT_SIGFIGS);
 
     inline static bool equal(double a, int64_t b) {
       return std::isfinite(a) && (int64_t(a) == b) && (a == double(b));
