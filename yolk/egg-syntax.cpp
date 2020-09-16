@@ -22,32 +22,32 @@ namespace {
     return nullptr;
   }
 
-  egg::ovum::BasalBits keywordToBasal(const EggTokenizerItem& item) {
+  egg::ovum::ValueFlags keywordToFlags(const EggTokenizerItem& item) {
     // Accept only type-like keywords: void, null, bool, int, float, string, object and any
     // OPTIMIZE
     if (item.kind == EggTokenizerKind::Keyword) {
-      EGG_WARNING_SUPPRESS_SWITCH_BEGIN
+      EGG_WARNING_SUPPRESS_SWITCH_BEGIN();
       switch (item.value.k) {
       case EggTokenizerKeyword::Void:
-        return egg::ovum::BasalBits::Void;
+        return egg::ovum::ValueFlags::Void;
       case EggTokenizerKeyword::Null:
-        return egg::ovum::BasalBits::Null;
+        return egg::ovum::ValueFlags::Null;
       case EggTokenizerKeyword::Bool:
-        return egg::ovum::BasalBits::Bool;
+        return egg::ovum::ValueFlags::Bool;
       case EggTokenizerKeyword::Int:
-        return egg::ovum::BasalBits::Int;
+        return egg::ovum::ValueFlags::Int;
       case EggTokenizerKeyword::Float:
-        return egg::ovum::BasalBits::Float;
+        return egg::ovum::ValueFlags::Float;
       case EggTokenizerKeyword::String:
-        return egg::ovum::BasalBits::String;
+        return egg::ovum::ValueFlags::String;
       case EggTokenizerKeyword::Object:
-        return egg::ovum::BasalBits::Object;
+        return egg::ovum::ValueFlags::Object;
       case EggTokenizerKeyword::Any:
-        return egg::ovum::BasalBits::Any;
+        return egg::ovum::ValueFlags::Any;
       }
-      EGG_WARNING_SUPPRESS_SWITCH_END
+      EGG_WARNING_SUPPRESS_SWITCH_END();
     }
-    return egg::ovum::BasalBits::None;
+    return egg::ovum::ValueFlags::None;
   }
 
   class ParserDump final {
@@ -1138,7 +1138,7 @@ std::unique_ptr<IEggSyntaxNode> EggSyntaxParserContext::parseExpressionPrimary(c
     mark.accept(1);
     return std::make_unique<EggSyntaxNode_Identifier>(location, p0.value.s);
   case EggTokenizerKind::Keyword:
-    EGG_WARNING_SUPPRESS_SWITCH_BEGIN
+    EGG_WARNING_SUPPRESS_SWITCH_BEGIN();
     switch (p0.value.k) {
     case EggTokenizerKeyword::Null:
     case EggTokenizerKeyword::False:
@@ -1160,7 +1160,7 @@ std::unique_ptr<IEggSyntaxNode> EggSyntaxParserContext::parseExpressionPrimary(c
       }
       break;
     }
-    EGG_WARNING_SUPPRESS_SWITCH_END
+    EGG_WARNING_SUPPRESS_SWITCH_END();
     break;
   case EggTokenizerKind::Operator:
     if (p0.value.o == EggTokenizerOperator::ParenthesisLeft) {
@@ -1991,7 +1991,7 @@ egg::ovum::Type EggSyntaxParserContext::parseTypePostfixFunction(const egg::ovum
   // cppcheck-suppress assertWithSideEffect
   assert(mark.peek(0).isOperator(EggTokenizerOperator::ParenthesisLeft));
   mark.advance(1);
-  auto* underlying = egg::ovum::FunctionType::createFunctionType(*this->allocator, egg::ovum::String(), rettype);
+  auto* underlying = egg::ovum::Type::makeFunction(*this->allocator, egg::ovum::String(), rettype);
   egg::ovum::Type function{ underlying };
   for (size_t index = 0; !mark.peek(0).isOperator(EggTokenizerOperator::ParenthesisRight); ++index) {
     egg::ovum::Type ptype{ egg::ovum::Type::Void };
@@ -2064,10 +2064,10 @@ bool EggSyntaxParserContext::parseTypePrimaryExpression(egg::ovum::Type& type) {
     }
     return false;
   }
-  auto basal = keywordToBasal(p0);
-  if (basal != egg::ovum::BasalBits::None) {
+  auto flags = keywordToFlags(p0);
+  if (flags != egg::ovum::ValueFlags::None) {
     mark.accept(1);
-    type = egg::ovum::Type::makeBasal(*this->allocator, basal);
+    type = egg::ovum::Type::makeSimple(*this->allocator, flags);
     return true;
   }
   return false;

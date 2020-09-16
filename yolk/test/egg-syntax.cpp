@@ -80,6 +80,7 @@ TEST(TestEggSyntaxParser, Extraneous) {
 }
 
 TEST(TestEggSyntaxParser, VariableDeclaration) {
+  ASSERT_PARSE_GOOD(parseStatementToString("int?*? c;"), "(declare 'c' (type 'null|int?*'))");
   //TODO should we allow 'var' without an initializer?
   // Good
   ASSERT_PARSE_GOOD(parseStatementToString("var a;"), "(declare 'a' (type 'var'))");
@@ -452,7 +453,7 @@ TEST(TestEggSyntaxParser, Vexatious) {
 }
 
 TEST(TestEggSyntaxParser, ExampleFile) {
-  egg::test::Allocator allocator{ egg::test::Allocator::Expectation::NoAllocations }; // TODO
+  egg::test::Allocator allocator;
   auto lexer = LexerFactory::createFromPath("~/yolk/test/data/example.egg");
   auto tokenizer = EggTokenizerFactory::createFromLexer(lexer);
   auto parser = EggParserFactory::createModuleSyntaxParser(allocator);

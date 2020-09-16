@@ -203,19 +203,10 @@
     <ClCompile Include="..\yolk\test\egged-tokenizer.cpp">
       <Filter>Test Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\yolk\test\egg-engine.cpp">
-      <Filter>Test Files</Filter>
-    </ClCompile>
-    <ClCompile Include="..\yolk\test\egg-parser.cpp">
-      <Filter>Test Files</Filter>
-    </ClCompile>
     <ClCompile Include="..\yolk\test\egg-syntax.cpp">
       <Filter>Test Files</Filter>
     </ClCompile>
     <ClCompile Include="..\yolk\test\egg-tokenizer.cpp">
-      <Filter>Test Files</Filter>
-    </ClCompile>
-    <ClCompile Include="..\yolk\test\examples.cpp">
       <Filter>Test Files</Filter>
     </ClCompile>
     <ClCompile Include="..\yolk\test\exceptions.cpp">
@@ -249,9 +240,6 @@
       <Filter>Infrastructure Files</Filter>
     </ClCompile>
     <ClCompile Include="..\yolk\test\utility.cpp">
-      <Filter>Test Files</Filter>
-    </ClCompile>
-    <ClCompile Include="..\yolk\test\modules.cpp">
       <Filter>Test Files</Filter>
     </ClCompile>
   </ItemGroup>

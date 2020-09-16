@@ -243,7 +243,7 @@ namespace {
     size_t attributes;
   };
 
-  EGG_WARNING_SUPPRESS_INTELLISENSE_BEGIN
+  EGG_WARNING_SUPPRESS_INTELLISENSE_BEGIN();
   template<typename CHILDREN, typename ATTRIBUTES, typename OPERAND, typename LOCATION>
   struct NodeExtra final : public CHILDREN, public ATTRIBUTES, public OPERAND, public LOCATION {
     // cppcheck-suppress uninitMemberVar
@@ -257,7 +257,7 @@ namespace {
     }
     INode* base[1];
   };
-  EGG_WARNING_SUPPRESS_INTELLISENSE_END
+  EGG_WARNING_SUPPRESS_INTELLISENSE_END();
 
   template<typename CHILDREN, typename ATTRIBUTES, typename OPERAND, typename LOCATION>
   NodeContiguous<NodeExtra<CHILDREN, ATTRIBUTES, OPERAND, LOCATION>>* createNodeExtra(IAllocator& allocator, Opcode opcode, size_t slots, typename OPERAND::Type operand) {

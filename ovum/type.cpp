@@ -5,18 +5,18 @@ namespace {
   using namespace egg::ovum;
 
   const char* flagsComponent(ValueFlags flags) {
-    EGG_WARNING_SUPPRESS_SWITCH_BEGIN
-    switch (flags) {
-    case ValueFlags::None:
-      return "var";
+    EGG_WARNING_SUPPRESS_SWITCH_BEGIN();
+      switch (flags) {
+      case ValueFlags::None:
+        return "var";
 #define EGG_OVUM_VALUE_FLAGS_COMPONENT(name, text) case ValueFlags::name: return text;
-      EGG_OVUM_VALUE_FLAGS(EGG_OVUM_VALUE_FLAGS_COMPONENT)
+        EGG_OVUM_VALUE_FLAGS(EGG_OVUM_VALUE_FLAGS_COMPONENT)
 #undef EGG_OVUM_VALUE_FLAGS_COMPONENT
-    case ValueFlags::Any:
-      return "any";
-    }
-    EGG_WARNING_SUPPRESS_SWITCH_END
-    return nullptr;
+      case ValueFlags::Any:
+        return "any";
+      }
+    EGG_WARNING_SUPPRESS_SWITCH_END();
+      return nullptr;
   }
 
   std::string flagsToString(ValueFlags flags) {
@@ -29,6 +29,7 @@ namespace {
     }
     auto head = Bits::topmost(flags);
     assert(head != ValueFlags::None);
+    assert(head != ValueFlags::Pointer);
     component = flagsComponent(head);
     assert(component != nullptr);
     return flagsToString(Bits::clear(flags, head)) + '|' + component;
@@ -52,6 +53,28 @@ namespace {
       return IType::Assignable::Sometimes;
     }
     return IType::Assignable::Never;
+  }
+
+  Type makeUnionJoin(IAllocator& allocator, const IType& lhs, const IType& rhs);
+
+  Type makeUnionFlags(IAllocator& allocator, ValueFlags flhs, const IType& lhs, const IType& rhs) {
+    // Check for identity early
+    if (&lhs == &rhs) {
+      return Type(&lhs);
+    }
+    auto frhs = rhs.getFlags();
+    if (Bits::hasAnySet(frhs, ValueFlags::Pointer)) {
+      return makeUnionJoin(allocator, lhs, rhs);
+    }
+    if (Bits::hasAllSet(frhs, flhs)) {
+      // The rhs is a superset of the types in lhs, just return rhs
+      return Type(&rhs);
+    }
+    if (Bits::hasAnySet(frhs, ValueFlags::Object)) {
+      // The superset check above should ensure this will not result in infinite recursion
+      return rhs.makeUnion(allocator, lhs);
+    }
+    return Type::makeSimple(allocator, flhs | frhs);
   }
 
   // An 'omni' function looks like this: 'any?(...any?[])'
@@ -115,23 +138,6 @@ namespace {
     }
   };
 
-  class TypePointer : public HardReferenceCounted<TypeBase> {
-    TypePointer(const TypePointer&) = delete;
-    TypePointer& operator=(const TypePointer&) = delete;
-  private:
-    Type referenced;
-  public:
-    TypePointer(IAllocator& allocator, const IType& referenced)
-      : HardReferenceCounted(allocator, 0), referenced(&referenced) {
-    }
-    virtual Assignable assignable(const IType&) const override {
-      return Assignable::Never; // TODO
-    }
-    virtual std::pair<std::string, int> toStringPrecedence() const override {
-      return std::make_pair(this->referenced.toString(0).toUTF8() + "*", 0);
-    }
-  };
-
   template<ValueFlags FLAGS>
   class TypeCommon : public NotReferenceCounted<TypeBase> {
     TypeCommon(const TypeCommon&) = delete;
@@ -140,6 +146,9 @@ namespace {
     TypeCommon() = default;
     virtual ValueFlags getFlags() const override {
       return FLAGS;
+    }
+    virtual Type makeUnion(IAllocator& allocator, const IType& rhs) const override {
+      return makeUnionFlags(allocator, FLAGS, *this, rhs);
     }
     virtual Assignable assignable(const IType& rhs) const override {
       return assignableFlags(FLAGS, rhs.getFlags());
@@ -224,6 +233,64 @@ namespace {
   };
   const TypeAnyQ typeAnyQ{};
 
+  class TypeUnion : public HardReferenceCounted<TypeBase> {
+    TypeUnion(const TypeUnion&) = delete;
+    TypeUnion& operator=(const TypeUnion&) = delete;
+  private:
+    Type a;
+    Type b;
+  public:
+    TypeUnion(IAllocator& allocator, const IType& a, const IType& b)
+      : HardReferenceCounted(allocator, 0), a(&a), b(&b) {
+    }
+    virtual ValueFlags getFlags() const override {
+      return this->a->getFlags() | this->b->getFlags();
+    }
+    virtual Type makeUnion(IAllocator& allocator2, const IType& rhs) const override {
+      assert(&this->allocator == &allocator2);
+      return makeUnionJoin(allocator2, *this, rhs);
+    }
+    virtual Assignable assignable(const IType& rhs) const override {
+      // The logic is:
+      //  Assignable to a Assignable to b Result
+      //  =============== =============== ======
+      //  Never           Never           Never
+      //  Never           Sometimes       Sometimes
+      //  Never           Always          Always
+      //  Sometimes       Never           Sometimes
+      //  Sometimes       Sometimes       Sometimes
+      //  Sometimes       Always          Always
+      //  Always          Never           Always
+      //  Always          Sometimes       Always
+      //  Always          Always          Always
+      switch (this->a->assignable(rhs)) {
+      case Assignable::Never:
+        return this->b->assignable(rhs);
+      case Assignable::Sometimes:
+        break;
+      case Assignable::Always:
+        return Assignable::Always;
+      }
+      if (this->b->assignable(rhs) == Assignable::Always) {
+        return Assignable::Always;
+      }
+      return Assignable::Sometimes;
+    }
+    virtual const IFunctionSignature* callable() const override {
+      // TODO What if both have signatures?
+      auto* signature = this->a->callable();
+      if (signature != nullptr) {
+        return signature;
+      }
+      return this->b->callable();
+    }
+    virtual std::pair<std::string, int> toStringPrecedence() const override {
+      // TODO
+      auto ab = StringBuilder().add(this->a.toString(0), '|', this->b.toString(0)).toUTF8();
+      return std::make_pair(ab, 0);
+    }
+  };
+
   class TypeSimple : public HardReferenceCounted<TypeBase> {
     TypeSimple(const TypeSimple&) = delete;
     TypeSimple& operator=(const TypeSimple&) = delete;
@@ -232,6 +299,13 @@ namespace {
   public:
     TypeSimple(IAllocator& allocator, ValueFlags flags)
       : HardReferenceCounted(allocator, 0), flags(flags) {
+    }
+    virtual ValueFlags getFlags() const override {
+      return this->flags;
+    }
+    virtual Type makeUnion(IAllocator& allocator2, const IType& rhs) const override {
+      assert(&this->allocator == &allocator2);
+      return makeUnionFlags(allocator2, this->flags, *this, rhs);
     }
     virtual Assignable assignable(const IType& rhs) const override {
       return assignableFlags(this->flags, rhs.getFlags());
@@ -242,7 +316,66 @@ namespace {
       }
       return nullptr;
     }
+    virtual std::pair<std::string, int> toStringPrecedence() const override {
+      return flagsToStringPrecedence(this->flags);
+    }
   };
+
+  class TypePointer : public HardReferenceCounted<TypeBase> {
+    TypePointer(const TypePointer&) = delete;
+    TypePointer& operator=(const TypePointer&) = delete;
+  private:
+    Type referenced;
+  public:
+    TypePointer(IAllocator& allocator, const IType& referenced)
+      : HardReferenceCounted(allocator, 0), referenced(&referenced) {
+    }
+    virtual ValueFlags getFlags() const override {
+      return ValueFlags::Pointer;
+    }
+    virtual Type makeUnion(IAllocator& allocator2, const IType& rhs) const override {
+      // TODO elide if similar
+      assert(&this->allocator == &allocator2);
+      return makeUnionJoin(allocator2, *this, rhs);
+    }
+    virtual Assignable assignable(const IType&) const override {
+      return Assignable::Never; // TODO
+    }
+    virtual std::pair<std::string, int> toStringPrecedence() const override {
+      auto p = StringBuilder().add(this->referenced.toString(0), '*').toUTF8();
+      return std::make_pair(p, 0);
+    }
+  };
+
+  Type makeUnionJoin(IAllocator& allocator, const IType& lhs, const IType& rhs) {
+    return allocator.make<TypeUnion, Type>(lhs, rhs);
+  }
+
+}
+
+egg::ovum::Type egg::ovum::Type::makeSimple(IAllocator& allocator, ValueFlags flags) {
+  // OPTIMIZE for known types
+  return allocator.make<TypeSimple, Type>(flags);
+}
+
+egg::ovum::Type egg::ovum::Type::makePointer(IAllocator& allocator, const IType& pointee) {
+  // OPTIMIZE with lazy pointer types in values instantiated when address-of is invoked
+  return allocator.make<TypePointer, Type>(pointee);
+}
+
+egg::ovum::Type egg::ovum::Type::makeUnion(IAllocator& allocator, const IType& a, const IType& b) {
+  if (&a == &b) {
+    return Type(&a);
+  }
+  return a.makeUnion(allocator, b);
+}
+
+egg::ovum::ITypeFunction* egg::ovum::Type::makeFunction(IAllocator& allocator, const egg::ovum::String& name, const Type& rettype) {
+  // WIBBLE
+  (void)allocator;
+  (void)name;
+  (void)rettype;
+  return nullptr;
 }
 
 // Common types
@@ -257,3 +390,4 @@ const egg::ovum::Type egg::ovum::Type::Memory{ &typeMemory };
 const egg::ovum::Type egg::ovum::Type::Arithmetic{ &typeArithmetic };
 const egg::ovum::Type egg::ovum::Type::Any{ &typeAny };
 const egg::ovum::Type egg::ovum::Type::AnyQ{ &typeAnyQ };
+

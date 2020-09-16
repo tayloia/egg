@@ -30,7 +30,7 @@ namespace egg::ovum {
     EGG_OVUM_VALUE_FLAGS(EGG_OVUM_VALUE_FLAGS_ENUM)
 #undef EGG_OVUM_VALUE_FLAGS_ENUM
     Arithmetic = Int | Float,
-    Any = Bool | Int | Float | String | Object | Memory | Pointer,
+    Any = Bool | Int | Float | String | Object,
     AnyQ = Null | Any,
     FlowControl = Break | Continue | Return | Yield | Throw
   };
@@ -69,6 +69,11 @@ namespace egg::ovum {
     static const Type Arithmetic;
     static const Type Any;
     static const Type AnyQ;
+    // Factories
+    static Type makeSimple(IAllocator& allocator, ValueFlags flags);
+    static Type makePointer(IAllocator& allocator, const IType& pointee);
+    static Type makeUnion(IAllocator& allocator, const IType& a, const IType& b);
+    static ITypeFunction* makeFunction(IAllocator& allocator, const egg::ovum::String& name, const Type& rettype);
   };
 
   class Object : public HardPtr<IObject> {

@@ -182,6 +182,7 @@ namespace egg::ovum {
   class IType : public IHardAcquireRelease {
   public:
     virtual ValueFlags getFlags() const = 0;
+    virtual Type makeUnion(IAllocator& allocator, const IType& rhs) const = 0;
     enum class Assignable { Never, Sometimes, Always };
     virtual Assignable assignable(const IType& rhs) const = 0;
     virtual const IFunctionSignature* callable() const = 0;
@@ -189,6 +190,11 @@ namespace egg::ovum {
     virtual const IDotSignature* dotable() const = 0;
     virtual const IPointSignature* pointable() const = 0;
     virtual std::pair<std::string, int> toStringPrecedence() const = 0;
+  };
+
+  class ITypeFunction : public IType {
+  public:
+    virtual void addParameter(const String& name, const Type& type, IFunctionSignatureParameter::Flags flags);
   };
 
   class IObject : public ICollectable {

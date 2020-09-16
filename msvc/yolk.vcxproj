@@ -19,23 +19,14 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="..\yolk\builtins.cpp" />
-    <ClCompile Include="..\yolk\egg-compile.cpp" />
-    <ClCompile Include="..\yolk\egg-engine.cpp" />
-    <ClCompile Include="..\yolk\egg-execute.cpp" />
-    <ClCompile Include="..\yolk\egg-parser.cpp" />
-    <ClCompile Include="..\yolk\egg-prepare.cpp" />
-    <ClCompile Include="..\yolk\egg-program.cpp" />
+    <ClCompile Include="..\yolk\egg-promote.cpp" />
     <ClCompile Include="..\yolk\egg-syntax.cpp" />
     <ClCompile Include="..\yolk\egg-tokenizer.cpp" />
-    <ClCompile Include="..\yolk\egg-vanilla.cpp" />
     <ClCompile Include="..\yolk\egged-tokenizer.cpp" />
     <ClCompile Include="..\yolk\exceptions.cpp" />
     <ClCompile Include="..\yolk\files.cpp" />
-    <ClCompile Include="..\yolk\functions.cpp" />
     <ClCompile Include="..\yolk\json-tokenizer.cpp" />
     <ClCompile Include="..\yolk\lexers.cpp" />
-    <ClCompile Include="..\yolk\program.cpp" />
     <ClCompile Include="..\yolk\streams.cpp" />
     <ClCompile Include="..\yolk\strings.cpp" />
     <ClCompile Include="yolk.pch.cpp">

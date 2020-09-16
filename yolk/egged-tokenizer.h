@@ -17,7 +17,7 @@ namespace egg::yolk {
 
   struct EggedTokenizerItem {
     EggedTokenizerKind kind;
-    egg::ovum::Variant value;
+    egg::ovum::Value value;
     size_t line;
     size_t column;
     bool contiguous;
@@ -31,6 +31,6 @@ namespace egg::yolk {
 
   class EggedTokenizerFactory {
   public:
-    static std::shared_ptr<IEggedTokenizer> createFromLexer(const std::shared_ptr<ILexer>& lexer);
+    static std::shared_ptr<IEggedTokenizer> createFromLexer(egg::ovum::IAllocator& allocator, const std::shared_ptr<ILexer>& lexer);
   };
 }
