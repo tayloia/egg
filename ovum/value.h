@@ -119,38 +119,38 @@ namespace egg::ovum {
 
     // Overloaded without implicit promotion
     template<typename T>
-    static Value createValue(IAllocator& allocator, T value) = delete;
-    static Value createValue(IAllocator&, std::nullptr_t) {
+    static Value create(IAllocator& allocator, T value) = delete;
+    static Value create(IAllocator&, std::nullptr_t) {
       return Value::Null;
     }
-    static Value createValue(IAllocator&, bool value) {
+    static Value create(IAllocator&, bool value) {
       return value ? Value::True : Value::False;
     }
-    static Value createValue(IAllocator& allocator, int32_t value) {
+    static Value create(IAllocator& allocator, int32_t value) {
       return createInt(allocator, value);
     }
-    static Value createValue(IAllocator& allocator, int64_t value) {
+    static Value create(IAllocator& allocator, int64_t value) {
       return createInt(allocator, value);
     }
-    static Value createValue(IAllocator& allocator, float value) {
+    static Value create(IAllocator& allocator, float value) {
       return createFloat(allocator, value);
     }
-    static Value createValue(IAllocator& allocator, double value) {
+    static Value create(IAllocator& allocator, double value) {
       return createFloat(allocator, value);
     }
-    static Value createValue(IAllocator& allocator, const String& value) {
+    static Value create(IAllocator& allocator, const String& value) {
       return createString(allocator, value);
     }
-    static Value createValue(IAllocator& allocator, const std::string& value) {
+    static Value create(IAllocator& allocator, const std::string& value) {
       return createString(allocator, StringFactory::fromUTF8(allocator, value));
     }
-    static Value createValue(IAllocator& allocator, const char* value) {
+    static Value create(IAllocator& allocator, const char* value) {
       if (value == nullptr) {
         return Value::Null;
       }
       return createString(allocator, StringFactory::fromASCIIZ(allocator, value));
     }
-    static Value createValue(IAllocator& allocator, const Object& value) {
+    static Value create(IAllocator& allocator, const Object& value) {
       return createObject(allocator, value);
     }
   };

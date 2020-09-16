@@ -25,6 +25,7 @@
     <ClCompile Include="..\ovum\basket.cpp" />
     <ClCompile Include="..\ovum\memory.cpp" />
     <ClCompile Include="..\ovum\module.cpp" />
+    <ClCompile Include="..\ovum\object.cpp" />
     <ClCompile Include="..\ovum\string.cpp" />
     <ClCompile Include="..\ovum\type.cpp" />
     <ClCompile Include="..\ovum\value.cpp" />
@@ -44,6 +45,7 @@
     <ClInclude Include="..\ovum\basket.h" />
     <ClInclude Include="..\ovum\interfaces.h" />
     <ClInclude Include="..\ovum\node.h" />
+    <ClInclude Include="..\ovum\object.h" />
     <ClInclude Include="..\ovum\ovum.h" />
     <ClInclude Include="..\ovum\platform.h" />
     <ClInclude Include="..\ovum\program.h" />

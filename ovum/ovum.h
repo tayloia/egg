@@ -17,6 +17,7 @@
 #include "ovum/string.h"
 #include "ovum/arithmetic.h"
 #include "ovum/type.h"
+#include "ovum/object.h"
 #include "ovum/value.h"
 #include "ovum/basket.h"
 #include "ovum/context.h"

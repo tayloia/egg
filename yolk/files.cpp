@@ -1,7 +1,6 @@
 #include "yolk/yolk.h"
 
 #if EGG_PLATFORM == EGG_PLATFORM_MSVC
-// WIBBLE WOBBLE
 #include <direct.h>
 #include <filesystem>
 #define getcwd _getcwd

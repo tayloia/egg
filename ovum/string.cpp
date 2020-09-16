@@ -225,7 +225,7 @@ namespace {
     }
     ~StringFallbackAllocator() {
       // Make sure all our strings have been destroyed when the process exits
-      // VVIBBLE assert(this->atomic.get() == 0);
+      assert(this->atomic.get() == 0);
     }
     virtual void* allocate(size_t bytes, size_t alignment) override {
       this->atomic.increment();

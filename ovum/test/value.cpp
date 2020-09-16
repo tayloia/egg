@@ -112,9 +112,9 @@ TEST(TestValue, Memory) {
   ASSERT_EQ(memory.get(), actual.get());
 }
 
-TEST(TestValue, DISABLED_Object) {
+TEST(TestValue, Object) {
   egg::test::Allocator allocator;
-  egg::ovum::Object object;
+  auto object = egg::ovum::ObjectFactory::createVanilla(allocator);
   auto value = egg::ovum::ValueFactory::createObject(allocator, object);
   ASSERT_EQ(Flags::Object, value->getFlags());
   egg::ovum::Object actual;
@@ -124,7 +124,7 @@ TEST(TestValue, DISABLED_Object) {
 
 TEST(TestValue, Pointer) {
   egg::test::Allocator allocator;
-  auto pointee = egg::ovum::ValueFactory::createValue(allocator, "hello world");
+  auto pointee = egg::ovum::ValueFactory::create(allocator, "hello world");
   ASSERT_VALUE(Flags::String, pointee);
   auto pointer = egg::ovum::ValueFactory::createPointer(allocator, pointee);
   ASSERT_VALUE(Flags::Pointer, pointer);
