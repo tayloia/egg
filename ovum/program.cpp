@@ -186,7 +186,7 @@ namespace {
     Value raise(const String& message) const;
     template<typename... ARGS>
     Value unexpected(const Value& value, ARGS&&... args) const {
-      return this->raise(StringBuilder::concat(std::forward<ARGS>(args)..., ", but got '", value.getRuntimeType().toString(), "' instead"));
+      return this->raise(StringBuilder::concat(std::forward<ARGS>(args)..., ", but got '", value->getRuntimeType().toString(), "' instead"));
     }
   };
 
@@ -331,7 +331,7 @@ namespace {
         auto type = object->getRuntimeType();
         if (type->callable() != nullptr) {
           // Call the predicate directly
-          return object->call(*this, IParameters::None);
+          return object->call(*this, Object::ParametersNone);
         }
       }
       Bool value;
@@ -443,10 +443,10 @@ namespace {
     Value statementCall(const INode& node) {
       assert(node.getOpcode() == Opcode::CALL);
       auto retval = this->expressionCall(node);
-      if (retval.hasAny(ValueFlags::FlowControl | ValueFlags::Void)) {
+      if (retval.hasAnyFlags(ValueFlags::FlowControl | ValueFlags::Void)) {
         return retval;
       }
-      auto message = StringBuilder().add("Discarding call return value: '", retval.toString(), "'").toUTF8();
+      auto message = StringBuilder().add("Discarding call return value: '", retval->toString(), "'").toUTF8();
       this->logger.log(ILogger::Source::Runtime, ILogger::Severity::Warning, message);
       return Value::Void;
     }
@@ -476,6 +476,7 @@ namespace {
       assert(node.getOpcode() == Opcode::DO);
       assert(node.getChildren() == 2);
       Value retval;
+      Bool condition;
       do {
         Block block(*this);
         retval = this->executeBlock(block, node.getChild(1));
@@ -483,11 +484,11 @@ namespace {
           return retval;
         }
         retval = this->condition(node.getChild(0), nullptr); // don't allow guards
-        if (!retval.isBool()) {
+        if (!retval->getBool(condition)) {
           // Problem with the condition
           return retval;
         }
-      } while (retval.getBool());
+      } while (condition);
       return Value::Void;
     }
     Value statementFor(const INode& node) {
@@ -511,25 +512,27 @@ namespace {
       if (retval.hasFlowControl()) {
         return retval;
       }
+      Bool condition;
       do {
         if (cond != nullptr) {
           retval = this->condition(*cond, &inner);
-          if (!retval.isBool()) {
+          if (!retval->getBool(condition)) {
             // Problem evaluating the condition
             return retval;
           }
-          if (!retval.getBool()) {
+          if (!condition) {
             // Condition evaluated to 'false'
             return Value::Void;
           }
         }
         retval = this->executeBlock(inner, loop);
-        if (retval.hasFlowControl()) {
-          if (retval.is(ValueFlags::Break)) {
+        auto flags = retval->getFlags();
+        if (Bits::hasAnySet(flags, ValueFlags::FlowControl)) {
+          if (flags == ValueFlags::Break) {
             // Break from the loop
             return Value::Void;
           }
-          if (!retval.is(ValueFlags::Continue)) {
+          if (flags != ValueFlags::Continue) {
             // Some other flow control
             return retval;
           }
@@ -551,28 +554,28 @@ namespace {
       if (rvalue.hasFlowControl()) {
         return rvalue;
       }
-      if (rvalue.hasString()) {
+      String string;
+      if (rvalue->getString(string)) {
         // Iterate around the codepoints in the string
-        return this->stringForeach(rvalue.getString(), inner, lvalue, node.getChild(2));
+        return this->stringForeach(string, inner, lvalue, node.getChild(2));
       }
-      if (!rvalue.hasObject()) {
-        return this->raiseFormat("The 'for' statement expected to iterate a 'string' or 'object', but got '", rvalue.getRuntimeType().toString(), "' instead");
+      Object object;
+      if (!rvalue->getObject(object)) {
+        return this->raiseFormat("The 'for' statement expected to iterate a 'string' or 'object', but got '", rvalue->getRuntimeType().toString(), "' instead");
       }
-      auto object = rvalue.getObject();
       assert(object != nullptr);
       auto iterate = object->iterate(*this);
       if (iterate.hasFlowControl()) {
         return iterate;
       }
-      if (!iterate.hasObject()) {
-        return this->raiseFormat("The 'for' statement expected an iterator, but got '", iterate.getRuntimeType().toString(), "' instead");
+      if (!iterate->getObject(object)) {
+        return this->raiseFormat("The 'for' statement expected an iterator, but got '", iterate->getRuntimeType().toString(), "' instead");
       }
-      object = iterate.getObject();
       assert(object != nullptr);
       auto& block = node.getChild(2);
       for (;;) {
-        retval = object->call(*this, IParameters::None);
-        if (retval.hasAny(ValueFlags::FlowControl | ValueFlags::Void)) {
+        retval = object->call(*this, Object::ParametersNone);
+        if (retval.hasAnyFlags(ValueFlags::FlowControl | ValueFlags::Void)) {
           break;
         }
         retval = lvalue.assign(retval);
@@ -580,12 +583,13 @@ namespace {
           break;
         }
         retval = this->executeBlock(inner, block);
-        if (retval.hasFlowControl()) {
-          if (retval.is(ValueFlags::Break)) {
+        auto flags = retval->getFlags();
+        if (Bits::hasAnySet(flags, ValueFlags::FlowControl)) {
+          if (flags == ValueFlags::Break) {
             // Break from the loop
             return Value::Void;
           }
-          if (!retval.is(ValueFlags::Continue)) {
+          if (flags != ValueFlags::Continue) {
             // Some other flow control
             break;
           }
@@ -618,11 +622,12 @@ namespace {
         assert(n->getOpcode() == Opcode::IF);
         assert((n->getChildren() == 2) || (n->getChildren() == 3));
         auto retval = this->condition(n->getChild(0), &block);
-        if (!retval.isBool()) {
+        Bool condition;
+        if (!retval->getBool(condition)) {
           // Problem with the condition
           return retval;
         }
-        if (retval.getBool()) {
+        if (condition) {
           // Execute the 'then' clause
           return this->executeBlock(block, n->getChild(1));
         }
@@ -659,7 +664,7 @@ namespace {
       auto retval = this->expression(node.getChild(0));
       if (!retval.hasFlowControl()) {
         // Convert the expression to a return
-        assert(!retval.isVoid());
+        assert(!retval->getVoid());
         return ValueFactory::createFlowControl(this->allocator, ValueFlags::Return, retval);
       }
       return retval;
@@ -714,11 +719,12 @@ namespace {
       for (;;) {
         // Run the clauses in round-robin order
         auto retval = this->statementBlock(node.getChild(matched).getChild(0));
-        if (retval.is(ValueFlags::Break)) {
+        auto flags = retval->getFlags();
+        if (flags == ValueFlags::Break) {
           // Explicit 'break' terminates the switch statement
           break;
         }
-        if (!retval.is(ValueFlags::Continue)) {
+        if (flags != ValueFlags::Continue) {
           // Any other than 'continue' also terminates the switch statement
           return retval;
         }
@@ -739,7 +745,7 @@ namespace {
       auto retval = this->expression(node.getChild(0));
       if (!retval.hasFlowControl()) {
         // Convert the expression to an exception throw
-        assert(!retval.isVoid());
+        assert(!retval->getVoid());
         return ValueFactory::createFlowControl(this->allocator, ValueFlags::Throw, retval);
       }
       return retval;
@@ -749,34 +755,35 @@ namespace {
       auto n = node.getChildren();
       assert(n >= 2);
       auto exception = this->statementBlock(node.getChild(0));
-      if (exception.stripFlowControl(ValueFlags::Throw)) {
-        // Find a matching catch block
-        Block block(*this);
-        for (size_t i = 2; i < n; ++i) {
-          // Look for the first matching catch clause
-          auto& clause = node.getChild(i);
-          assert(clause.getOpcode() == Opcode::CATCH);
-          assert(clause.getChildren() == 3);
-          this->updateLocation(clause);
-          auto cname = this->identifier(clause.getChild(1));
-          auto ctype = this->type(clause.getChild(0), cname);
-          auto retval = block.guard(this->location, ctype, cname, exception);
-          if (retval.hasFlowControl()) {
-            // Couldn't define the exception variable
-            return this->statementTryFinally(node, retval);
-          }
-          assert(retval.isBool());
-          if (retval.getBool()) {
-            retval = this->executeBlock(block, clause.getChild(2));
-            if (retval.is(ValueFlags::Throw | ValueFlags::Void)) {
-              // This is a rethrow of the original exception
-              return ValueFactory::createFlowControl(this->allocator, ValueFlags::Throw, exception);
+      if (exception.hasAnyFlags(ValueFlags::Throw)) {
+        Value thrown;
+        if (exception->getChild(thrown)) {
+          // Find a matching catch block
+          Block block(*this);
+          for (size_t i = 2; i < n; ++i) {
+            // Look for the first matching catch clause
+            auto& clause = node.getChild(i);
+            assert(clause.getOpcode() == Opcode::CATCH);
+            assert(clause.getChildren() == 3);
+            this->updateLocation(clause);
+            auto cname = this->identifier(clause.getChild(1));
+            auto ctype = this->type(clause.getChild(0), cname);
+            auto retval = block.guard(this->location, ctype, cname, thrown);
+            if (retval.hasFlowControl()) {
+              // Couldn't define the exception variable
+              return this->statementTryFinally(node, retval);
             }
-            return this->statementTryFinally(node, retval);
+            Bool found;
+            if (retval->getBool(found) && found) {
+              retval = this->executeBlock(block, clause.getChild(2));
+              if (retval->getFlags() == ValueFlags::Throw) {
+                // This is a rethrow of the original exception
+                return this->statementTryFinally(node, exception);
+              }
+              return this->statementTryFinally(node, retval);
+            }
           }
         }
-        // Propagate the original exception
-        exception = ValueFactory::createFlowControl(this->allocator, ValueFlags::Throw, exception);
       }
       return this->statementTryFinally(node, exception);
     }
@@ -801,11 +808,12 @@ namespace {
       for (;;) {
         Block block(*this);
         auto retval = this->condition(node.getChild(0), &block);
-        if (!retval.isBool()) {
+        Bool condition;
+        if (!retval->getBool(condition)) {
           // Problem with the condition
           return retval;
         }
-        if (!retval.getBool()) {
+        if (!condition) {
           // Condition is false
           break;
         }
@@ -912,7 +920,7 @@ namespace {
       assert(node.getOpcode() == Opcode::COMPARE);
       Value lhs, rhs;
       auto retval = this->operatorCompare(node, lhs, rhs);
-      if (retval.is(ValueFlags::Break)) {
+      if (retval->getFlags() == ValueFlags::Break) {
         throw this->unexpectedOperator("compare", node);
       }
       return retval;
@@ -975,8 +983,9 @@ namespace {
       if (callee.hasFlowControl()) {
         return callee;
       }
-      if (!callee.hasObject()) {
-        return this->raiseNode(node, "Expected function-like expression to be an 'object', but got '", callee.getRuntimeType().toString(), "' instead");
+      Object object;
+      if (!callee->getObject(object)) {
+        return this->raiseNode(node, "Expected function-like expression to be an 'object', but got '", callee->getRuntimeType().toString(), "' instead");
       }
       LocationSource before = this->location;
       Parameters parameters;
@@ -989,7 +998,7 @@ namespace {
         this->updateLocation(pnode);
         parameters.addPositional(this->location, std::move(pvalue));
       }
-      auto retval = callee.getObject()->call(*this, parameters);
+      auto retval = object->call(*this, parameters);
       this->location = before;
       return retval;
     }
@@ -1030,15 +1039,15 @@ namespace {
         return rhs;
       }
       this->updateLocation(index);
-      if (lhs.hasObject()) {
-        auto object = lhs.getObject();
+      Object object;
+      if (lhs->getObject(object)) {
         return object->getIndex(*this, rhs);
       }
-      if (lhs.hasString()) {
-        auto string = lhs.getString();
+      String string;
+      if (lhs->getString(string)) {
         return this->stringIndex(string, rhs);
       }
-      return this->raiseFormat("Values of type '", lhs.getRuntimeType().toString(), "' do not support the indexing '[]' operator");
+      return this->raiseFormat("Values of type '", lhs->getRuntimeType().toString(), "' do not support the indexing '[]' operator");
     }
     Value expressionPredicate(const INode& node) {
       assert(node.getOpcode() == Opcode::PREDICATE);
@@ -1071,24 +1080,23 @@ namespace {
         if (rhs.hasFlowControl()) {
           return rhs;
         }
-        if (!rhs.hasString()) {
-          return this->raiseNode(node, "Expected property name to be a 'string', but got '", rhs.getRuntimeType().toString(), "' instead");
+        if (!rhs->getString(pname)) {
+          return this->raiseNode(node, "Expected property name to be a 'string', but got '", rhs->getRuntimeType().toString(), "' instead");
         }
-        pname = rhs.getString();
       }
-      if (lhs.hasObject()) {
-        auto object = lhs.getObject();
+      Object object;
+      if (lhs->getObject(object)) {
         auto value = object->getProperty(*this, pname);
-        if (value.isVoid()) {
+        if (value->getVoid()) {
           return this->raiseNode(node, "Object does not have a property named '", pname, "'");
         }
         return value;
       }
-      if (lhs.hasString()) {
-        auto string = lhs.getString();
+      String string;
+      if (lhs->getString(string)) {
         return this->stringProperty(string, pname);
       }
-      return this->raiseNode(node, "Values of type '", lhs.getRuntimeType().toString(), "' do not support properties");
+      return this->raiseNode(node, "Values of type '", lhs->getRuntimeType().toString(), "' do not support properties");
     }
     // Strings
     Value stringForeach(const String& string, Block& block, Target& target, const INode& statements) {
@@ -1111,10 +1119,10 @@ namespace {
       return Value::Void;
     }
     Value stringIndex(const String& string, const Value& index) {
-      if (!index.isInt()) {
-        return this->raiseFormat("String indexing '[]' only supports indices of type 'int', but got '", index.getRuntimeType().toString(), "' instead");
+      Int i;
+      if (!index->getInt(i)) {
+        return this->raiseFormat("String indexing '[]' only supports indices of type 'int', but got '", index->getRuntimeType().toString(), "' instead");
       }
-      auto i = index.getInt();
       auto c = string.codePointAt(size_t(i));
       if (c < 0) {
         // Invalid index
@@ -1128,7 +1136,7 @@ namespace {
     }
     Value stringProperty(const String& string, const String& property) {
       auto retval = ValueFactory::createStringProperty(this->allocator, string, property);
-      if (retval.isVoid()) {
+      if (retval->getVoid()) {
         return this->raiseFormat("Unknown property for 'string' value: '", property, "'");
       }
       return retval;
@@ -1174,11 +1182,12 @@ namespace {
       if (vb.hasFlowControl()) {
         return vb;
       }
+      Float value;
       bool result;
-      if (va.isFloat() && std::isnan(va.getFloat())) {
+      if (va->getFloat(value) && std::isnan(value)) {
         // An IEEE NaN is not equal to anything, even other NaNs
         result = invert;
-      } else if (vb.isFloat() && std::isnan(vb.getFloat())) {
+      } else if (vb->getFloat(value) && std::isnan(value)) {
         // An IEEE NaN is not equal to anything, even other NaNs
         result = invert;
       } else {
@@ -1196,15 +1205,15 @@ namespace {
       if (vb.hasFlowControl()) {
         return vb;
       }
-      if (va.isFloat()) {
-        auto fa = va.getFloat();
+      Float fa;
+      if (va->getFloat(fa)) {
         if (std::isnan(fa)) {
           // An IEEE NaN does not compare with anything, even other NaNs
           return Value::False;
         }
-        if (vb.isFloat()) {
+        Float fb;
+        if (vb->getFloat(fb)) {
           // Comparing float with float
-          auto fb = vb.getFloat();
           if (std::isnan(fb)) {
             // An IEEE NaN does not compare with anything, even other NaNs
             return Value::False;
@@ -1212,21 +1221,21 @@ namespace {
           bool result = (fa < fb) ^ invert; // need to force bool-ness
           return ValueFactory::create(this->allocator, result);
         }
-        if (vb.isInt()) {
+        Int ib;
+        if (vb->getInt(ib)) {
           // Comparing float with int
-          auto ib = vb.getInt();
           bool result = (fa < Float(ib)) ^ invert; // need to force bool-ness
           return ValueFactory::create(this->allocator, result);
         }
         auto side = ((oper == Operator::GT) || (oper == Operator::LE)) ? "left" : "right";
         auto sign = OperatorProperties::str(oper);
-        return this->raiseNode(b, "Expected ", side, "-hand side of comparison '", sign, "' to be an 'int' or 'float', but got '", vb.getRuntimeType().toString(), "' instead");
+        return this->raiseNode(b, "Expected ", side, "-hand side of comparison '", sign, "' to be an 'int' or 'float', but got '", vb->getRuntimeType().toString(), "' instead");
       }
-      if (va.isInt()) {
-        auto ia = va.getInt();
-        if (vb.isFloat()) {
+      Int ia;
+      if (va->getInt(ia)) {
+        Float fb;
+        if (vb->getFloat(fb)) {
           // Comparing int with float
-          auto fb = vb.getFloat();
           if (std::isnan(fb)) {
             // An IEEE NaN does not compare with anything
             return Value::False;
@@ -1234,19 +1243,19 @@ namespace {
           bool result = (Float(ia) < fb) ^ invert; // need to force bool-ness
           return ValueFactory::create(this->allocator, result);
         }
-        if (vb.isInt()) {
+        Int ib;
+        if (vb->getInt(ib)) {
           // Comparing int with int
-          auto ib = vb.getInt();
           bool result = (ia < ib) ^ invert; // need to force bool-ness
           return ValueFactory::create(this->allocator, result);
         }
         auto side = ((oper == Operator::GT) || (oper == Operator::LE)) ? "left" : "right";
         auto sign = OperatorProperties::str(oper);
-        return this->raiseNode(b, "Expected ", side, "-hand side of comparison '", sign, "' to be an 'int' or 'float', but got '", vb.getRuntimeType().toString(), "' instead");
+        return this->raiseNode(b, "Expected ", side, "-hand side of comparison '", sign, "' to be an 'int' or 'float', but got '", vb->getRuntimeType().toString(), "' instead");
       }
       auto side = ((oper == Operator::GT) || (oper == Operator::LE)) ? "right" : "left";
       auto sign = OperatorProperties::str(oper);
-      return this->raiseNode(a, "Expected ", side, "-hand side of comparison '", sign, "' to be an 'int' or 'float', but got '", va.getRuntimeType().toString(), "' instead");
+      return this->raiseNode(a, "Expected ", side, "-hand side of comparison '", sign, "' to be an 'int' or 'float', but got '", va->getRuntimeType().toString(), "' instead");
     }
     Value operatorArithmetic(const INode& node, Operator oper, const INode& a, const INode& b) {
       auto lhs = this->expression(a);
@@ -1257,49 +1266,57 @@ namespace {
       if (rhs.hasFlowControl()) {
         return rhs;
       }
-      if (lhs.isFloat()) {
-        if (rhs.isFloat()) {
+      Float flhs;
+      if (lhs->getFloat(flhs)) {
+        Float frhs;
+        if (rhs->getFloat(frhs)) {
           // Both floats
-          return ValueFactory::createFloat(this->allocator, this->operatorBinaryFloat(node, oper, lhs.getFloat(), rhs.getFloat()));
+          return ValueFactory::createFloat(this->allocator, this->operatorBinaryFloat(node, oper, flhs, frhs));
         }
-        if (rhs.isInt()) {
+        Int irhs;
+        if (rhs->getInt(irhs)) {
           // Promote rhs
-          return ValueFactory::createFloat(this->allocator, this->operatorBinaryFloat(node, oper, lhs.getFloat(), Float(rhs.getInt())));
+          return ValueFactory::createFloat(this->allocator, this->operatorBinaryFloat(node, oper, flhs, Float(irhs)));
         }
-        return this->raiseNode(b, "Expected right-hand side of arithmetic '" + OperatorProperties::str(oper), "' operator to be an 'int' or 'float', but got '", rhs.getRuntimeType().toString(), "' instead");
+        return this->raiseNode(b, "Expected right-hand side of arithmetic '" + OperatorProperties::str(oper), "' operator to be an 'int' or 'float', but got '", rhs->getRuntimeType().toString(), "' instead");
       }
-      if (lhs.isInt()) {
-        if (rhs.isFloat()) {
+      Int ilhs;
+      if (lhs->getInt(ilhs)) {
+        Float frhs;
+        if (rhs->getFloat(frhs)) {
           // Promote lhs
-          return ValueFactory::createFloat(this->allocator, this->operatorBinaryFloat(node, oper, Float(lhs.getInt()), rhs.getFloat()));
+          return ValueFactory::createFloat(this->allocator, this->operatorBinaryFloat(node, oper, Float(ilhs), frhs));
         }
-        if (rhs.isInt()) {
+        Int irhs;
+        if (rhs->getInt(irhs)) {
           // Both ints
-          return ValueFactory::createInt(this->allocator, this->operatorBinaryInt(node, oper, lhs.getInt(), rhs.getInt()));
+          return ValueFactory::createInt(this->allocator, this->operatorBinaryInt(node, oper, ilhs, irhs));
         }
-        return this->raiseNode(b, "Expected right-hand side of arithmetic '" + OperatorProperties::str(oper), "' operator to be an 'int' or 'float', but got '", rhs.getRuntimeType().toString(), "' instead");
+        return this->raiseNode(b, "Expected right-hand side of arithmetic '" + OperatorProperties::str(oper), "' operator to be an 'int' or 'float', but got '", rhs->getRuntimeType().toString(), "' instead");
       }
-      return this->raiseNode(b, "Expected left-hand side of arithmetic '" + OperatorProperties::str(oper), "' operator to be an 'int' or 'float', but got '", rhs.getRuntimeType().toString(), "' instead");
+      return this->raiseNode(b, "Expected left-hand side of arithmetic '" + OperatorProperties::str(oper), "' operator to be an 'int' or 'float', but got '", rhs->getRuntimeType().toString(), "' instead");
     }
     Value operatorLogicalNot(const INode& a) {
       auto value = this->expression(a);
       if (value.hasFlowControl()) {
         return value;
       }
-      if (!value.isBool()) {
-        return this->raiseNode(a, "Expected operand of unary '!' operator to be a 'bool', but got '", value.getRuntimeType().toString(), "' instead");
+      Bool logical;
+      if (!value->getBool(logical)) {
+        return this->raiseNode(a, "Expected operand of unary '!' operator to be a 'bool', but got '", value->getRuntimeType().toString(), "' instead");
       }
-      return ValueFactory::create(this->allocator, !value.getBool());
+      return ValueFactory::create(this->allocator, !logical);
     }
     Value operatorDeref(const INode& a) {
       auto value = this->expression(a);
       if (value.hasFlowControl()) {
         return value;
       }
-      if (!value.hasPointer()) {
-        return this->raiseNode(a, "Expected operand of unary '*' operator to be a pointer, but got '", value.getRuntimeType().toString(), "' instead");
+      Value pointee;
+      if (!value.hasAnyFlags(ValueFlags::Pointer) || !value->getChild(pointee)) {
+        return this->raiseNode(a, "Expected operand of unary '*' operator to be a pointer, but got '", value->getRuntimeType().toString(), "' instead");
       }
-      return value.getPointee();
+      return pointee;
     }
     Value operatorRef(const INode& a) {
       if (a.getOpcode() != Opcode::IDENTIFIER) {
@@ -1350,16 +1367,17 @@ namespace {
     }
     Value operatorTernary(const INode& a, const INode& b, const INode& c) {
       auto cond = this->condition(a, nullptr);
-      if (!cond.isBool()) {
+      Bool condition;
+      if (!cond->getBool(condition)) {
         return cond;
       }
-      return cond.getBool() ? this->expression(b) : this->expression(c);
+      return condition ? this->expression(b) : this->expression(c);
     }
     // Implementation
     Value condition(const INode& node, Block* block) {
       auto value = this->expression(node, block);
-      if (!value.hasAny(ValueFlags::FlowControl | ValueFlags::Bool)) {
-        return this->raiseNode(node, "Expected condition to evaluate to a 'bool' value, but got '", value.getRuntimeType().toString(), "' instead");
+      if (!value.hasAnyFlags(ValueFlags::FlowControl | ValueFlags::Bool)) {
+        return this->raiseNode(node, "Expected condition to evaluate to a 'bool' value, but got '", value->getRuntimeType().toString(), "' instead");
       }
       return value;
     }
@@ -1568,8 +1586,9 @@ Value Target::assign(const Value& rhs) const {
 Value Target::nudge(Int rhs) const {
   assert(rhs != 0);
   Value v;
+  Int lhs;
   if (this->ref(v)) {
-    if (v.isInt()) {
+    if (v->getInt(lhs)) {
       // Nudge directly
       return Target::raise("WIBBLE: Cannot nudge references yet");
     }
@@ -1579,8 +1598,8 @@ Value Target::nudge(Int rhs) const {
     if (v.hasFlowControl()) {
       return v;
     }
-    if (v.isInt()) {
-      auto nudged = v.getInt() + rhs;
+    if (v->getInt(lhs)) {
+      auto nudged = lhs + rhs;
       return this->set(ValueFactory::createInt(this->program.getAllocator(), nudged));
     }
   }
@@ -1611,6 +1630,7 @@ Value Target::mutate(const INode& opnode, const INode& rhs) const {
 egg::ovum::Value Target::apply(const INode& opnode, Value& lvalue, const INode&) const {
   // Handle "short-circuit" cases before evaluating the rhs
   auto oper = opnode.getOperator();
+  Bool cond;
   EGG_WARNING_SUPPRESS_SWITCH_BEGIN();
   switch (oper) {
   case Operator::IFNULL:
@@ -1622,13 +1642,13 @@ egg::ovum::Value Target::apply(const INode& opnode, Value& lvalue, const INode&)
     break;
   case Operator::LOGAND:
     // Don't evaluate rhs of (lhs &&= rhs) if lhs is false
-    if (lvalue.isBool() && !lvalue.getBool()) {
+    if (lvalue->getBool(cond) && !cond) {
       return Value::Void;
     }
     break;
   case Operator::LOGOR:
     // Don't evaluate rhs of (lhs ||= rhs) if lhs is true
-    if (lvalue.isBool() && lvalue.getBool()) {
+    if (lvalue->getBool(cond) && cond) {
       return Value::Void;
     }
     break;
@@ -1655,8 +1675,7 @@ bool Target::ref(Value& pointee) const {
     // WIBBLE pointee = this->program.targetSymbol(this->node, this->a.getString()).value;
     return false;
   case Flavour::Pointer:
-    pointee = this->a.getPointee();
-    return true;
+    return this->a->getChild(pointee);
   case Flavour::Index:
   case Flavour::Property:
   case Flavour::Failed:
@@ -1670,12 +1689,28 @@ Value Target::get() const {
   case Flavour::Identifier:
     // WIBBLE return this->program.targetSymbol(this->node, this->a.getString()).value;
     return this->raise("WIBBLE: Getting identifiers not yet supported");
-  case Flavour::Index:
-    return this->a.getObject()->getIndex(this->program, this->b);
-  case Flavour::Pointer:
-    return this->a.getPointee();
-  case Flavour::Property:
-    return this->a.getObject()->getProperty(this->program, this->b.getString());
+  case Flavour::Index: {
+      Object object;
+      if (this->a->getObject(object)) {
+        return object->getIndex(this->program, this->b);
+      }
+    }
+    return this->raise("WIBBLE: Cannot get object index");
+  case Flavour::Pointer: {
+      Value pointee;
+      if (this->a->getChild(pointee)) {
+        return pointee;
+      }
+    }
+    return this->raise("WIBBLE: Cannot get pointee");
+  case Flavour::Property: {
+      Object object;
+      String property;
+      if (this->a->getObject(object) && this->b->getString(property)) {
+        return object->getProperty(this->program, property);
+      }
+    }
+    return this->raise("WIBBLE: Cannot get property");
   case Flavour::Failed:
     break;
   }
@@ -1688,14 +1723,23 @@ Value Target::set(const Value& value) const {
   case Flavour::Identifier:
     // WIBBLE return this->program.targetSymbol(this->node, this->a.getString()).tryAssign(this->program, value);
     return this->raise("WIBBLE: Setting identifiers not yet supported");
-  case Flavour::Index:
-    return this->a.getObject()->setIndex(this->program, this->b, value);
+  case Flavour::Index: {
+      Object object;
+      if (this->a->getObject(object)) {
+        return object->setIndex(this->program, this->b, value);
+      }
+    }
+    return this->raise("WIBBLE: Cannot set object index");
   case Flavour::Pointer:
-    assert(false);
-    this->a.getPointee() = value; // VIBBLE
-    return Value::Void; // TODO always succeeds?
-  case Flavour::Property:
-    return this->a.getObject()->setProperty(this->program, this->b.getString(), value);
+    return this->raise("WIBBLE: Setting pointers not yet supported");
+  case Flavour::Property: {
+      Object object;
+      String property;
+      if (this->a->getObject(object) && this->b->getString(property)) {
+        return object->setProperty(this->program, property, value);
+      }
+    }
+    return this->raise("WIBBLE: Cannot set property");
   case Flavour::Failed:
     break;
   }
@@ -1730,7 +1774,7 @@ egg::ovum::Value Block::declare(const LocationSource& source, const Type&, const
   }
   if (init != nullptr) {
     auto retval = symbol->tryAssign(this->program, *init);
-    if (!retval.isVoid()) {
+    if (!retval->getVoid()) {
       this->program.blockUndeclare(name);
       return retval;
     }
@@ -1749,7 +1793,7 @@ egg::ovum::Value Block::guard(const LocationSource& source, const Type&, const S
     return this->program.raiseLocation(source, "Duplicate name in declaration: '", name, "'");
   }
   auto retval = symbol->tryAssign(this->program, init);
-  if (!retval.isVoid()) {
+  if (!retval->getVoid()) {
     this->program.blockUndeclare(name);
     return Value::False;
   }
