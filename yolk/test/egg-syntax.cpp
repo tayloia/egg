@@ -80,7 +80,6 @@ TEST(TestEggSyntaxParser, Extraneous) {
 }
 
 TEST(TestEggSyntaxParser, VariableDeclaration) {
-  ASSERT_PARSE_GOOD(parseStatementToString("int?*? c;"), "(declare 'c' (type 'null|int?*'))");
   //TODO should we allow 'var' without an initializer?
   // Good
   ASSERT_PARSE_GOOD(parseStatementToString("var a;"), "(declare 'a' (type 'var'))");

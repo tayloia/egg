@@ -41,7 +41,10 @@
     <ClCompile Include="..\yolk\strings.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\yolk\egg-promote.cpp">
+    <ClCompile Include="..\yolk\egg-engine.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\yolk\egg-parser.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -55,9 +58,6 @@
     <ClInclude Include="..\yolk\egg-parser.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\yolk\egg-program.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="..\yolk\egg-syntax.h">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -68,9 +68,6 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="..\yolk\files.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="..\yolk\functions.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="..\yolk\json-tokenizer.h">

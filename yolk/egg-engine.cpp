@@ -4,7 +4,6 @@
 #include "yolk/egg-syntax.h"
 #include "yolk/egg-parser.h"
 #include "yolk/egg-engine.h"
-#include "yolk/egg-program.h"
 
 namespace {
   using namespace egg::yolk;
@@ -40,10 +39,42 @@ namespace {
     }
   };
 
+  class EggEngineProgram {
+    EGG_NO_COPY(EggEngineProgram);
+  private:
+    egg::ovum::Basket basket;
+    egg::ovum::String resource;
+    std::shared_ptr<IEggProgramNode> root;
+  public:
+    EggEngineProgram(egg::ovum::IAllocator& allocator, const egg::ovum::String& resource, const std::shared_ptr<IEggProgramNode>& root)
+      : basket(egg::ovum::BasketFactory::createBasket(allocator)),
+        resource(resource),
+        root(root) {
+      assert(root != nullptr);
+    }
+    ~EggEngineProgram() {
+      this->root.reset();
+      (void)this->basket->collect();
+      // The destructor for 'basket' will assert if this collection doesn't free up everything in the basket
+    }
+    egg::ovum::ILogger::Severity prepare(IEggEnginePreparationContext& preparation) {
+      preparation.log(egg::ovum::ILogger::Source::Compiler, egg::ovum::ILogger::Severity::Error, "WIBBLE: EggEngineProgram::prepare not yet implemented");
+      return egg::ovum::ILogger::Severity::Error;
+    }
+    egg::ovum::ILogger::Severity execute(IEggEngineExecutionContext& execution) {
+      execution.log(egg::ovum::ILogger::Source::Compiler, egg::ovum::ILogger::Severity::Error, "WIBBLE: EggEngineProgram::execute not yet implemented");
+      return egg::ovum::ILogger::Severity::Error;
+    }
+    egg::ovum::ILogger::Severity compile(IEggEngineCompilationContext& compilation, egg::ovum::Module&) {
+      compilation.log(egg::ovum::ILogger::Source::Compiler, egg::ovum::ILogger::Severity::Error, "WIBBLE: EggEngineProgram::compile not yet implemented");
+      return egg::ovum::ILogger::Severity::Error;
+    }
+  };
+
   class EggEngineParsed : public IEggEngine {
     EGG_NO_COPY(EggEngineParsed);
   private:
-    EggProgram program;
+    EggEngineProgram program;
     bool prepared;
   public:
     EggEngineParsed(egg::ovum::IAllocator& allocator, const egg::ovum::String& resource, const std::shared_ptr<IEggProgramNode>& root)
@@ -77,7 +108,7 @@ namespace {
     EGG_NO_COPY(EggEngineTextStream);
   private:
     TextStream* stream;
-    std::unique_ptr<EggProgram> program;
+    std::unique_ptr<EggEngineProgram> program;
   public:
     explicit EggEngineTextStream(TextStream& stream)
       : stream(&stream) {
@@ -90,7 +121,7 @@ namespace {
       return captureExceptions(egg::ovum::ILogger::Source::Compiler, preparation, [this, &preparation]{
         auto& allocator = preparation.allocator();
         auto root = EggParserFactory::parseModule(allocator, *this->stream);
-        this->program = std::make_unique<EggProgram>(allocator, this->stream->getResourceName(), root);
+        this->program = std::make_unique<EggEngineProgram>(allocator, this->stream->getResourceName(), root);
         return this->program->prepare(preparation);
       });
     }

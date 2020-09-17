@@ -19,7 +19,8 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="..\yolk\egg-promote.cpp" />
+    <ClCompile Include="..\yolk\egg-engine.cpp" />
+    <ClCompile Include="..\yolk\egg-parser.cpp" />
     <ClCompile Include="..\yolk\egg-syntax.cpp" />
     <ClCompile Include="..\yolk\egg-tokenizer.cpp" />
     <ClCompile Include="..\yolk\egged-tokenizer.cpp" />
@@ -39,13 +40,11 @@
   <ItemGroup>
     <ClInclude Include="..\yolk\egg-engine.h" />
     <ClInclude Include="..\yolk\egg-parser.h" />
-    <ClInclude Include="..\yolk\egg-program.h" />
     <ClInclude Include="..\yolk\egg-syntax.h" />
     <ClInclude Include="..\yolk\egg-tokenizer.h" />
     <ClInclude Include="..\yolk\egged-tokenizer.h" />
     <ClInclude Include="..\yolk\exceptions.h" />
     <ClInclude Include="..\yolk\files.h" />
-    <ClInclude Include="..\yolk\functions.h" />
     <ClInclude Include="..\yolk\json-tokenizer.h" />
     <ClInclude Include="..\yolk\lexers.h" />
     <ClInclude Include="..\yolk\macros.h" />

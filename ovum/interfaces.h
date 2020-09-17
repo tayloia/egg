@@ -129,6 +129,8 @@ namespace egg::ovum {
     virtual String getName(size_t index) const = 0;
     virtual Value getNamed(const String& name) const = 0;
     virtual const LocationSource* getNamedLocation(const String& name) const = 0; // May return null
+
+    static const IParameters& None;
   };
 
   class IFunctionSignatureParameter {
@@ -194,7 +196,7 @@ namespace egg::ovum {
 
   class ITypeFunction : public IType {
   public:
-    virtual void addParameter(const String& name, const Type& type, IFunctionSignatureParameter::Flags flags);
+    virtual void addParameter(const String& name, const Type& type, IFunctionSignatureParameter::Flags flags, size_t index = SIZE_MAX);
   };
 
   class IObject : public ICollectable {

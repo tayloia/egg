@@ -20,6 +20,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\ovum\arithmetic.cpp" />
+    <ClCompile Include="..\ovum\builtin.cpp" />
     <ClCompile Include="..\ovum\context.cpp" />
     <ClCompile Include="..\ovum\node.cpp" />
     <ClCompile Include="..\ovum\basket.cpp" />
@@ -27,6 +28,7 @@
     <ClCompile Include="..\ovum\module.cpp" />
     <ClCompile Include="..\ovum\object.cpp" />
     <ClCompile Include="..\ovum\print.cpp" />
+    <ClCompile Include="..\ovum\program.cpp" />
     <ClCompile Include="..\ovum\string.cpp" />
     <ClCompile Include="..\ovum\type.cpp" />
     <ClCompile Include="..\ovum\value.cpp" />

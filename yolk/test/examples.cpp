@@ -117,12 +117,8 @@ namespace {
   };
 }
 
-TEST(TestExamples, DISABLED_Run) {}
-
-/* WIBBLE
 TEST_P(TestExamples, Run) {
   this->run();
 }
 
 EGG_INSTANTIATE_TEST_CASE_P(TestExamples)
-*/

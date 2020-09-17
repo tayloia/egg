@@ -351,6 +351,31 @@ namespace {
     return allocator.make<TypeUnion, Type>(lhs, rhs);
   }
 
+  class ParametersNone : public IParameters {
+  public:
+    virtual size_t getPositionalCount() const override {
+      return 0;
+    }
+    virtual Value getPositional(size_t) const override {
+      return Value::Void;
+    }
+    virtual const LocationSource* getPositionalLocation(size_t) const override {
+      return nullptr;
+    }
+    virtual size_t getNamedCount() const override {
+      return 0;
+    }
+    virtual String getName(size_t) const override {
+      return String();
+    }
+    virtual Value getNamed(const String&) const override {
+      return Value::Void;
+    }
+    virtual const LocationSource* getNamedLocation(const String&) const override {
+      return nullptr;
+    }
+  };
+  const ParametersNone parametersNone{};
 }
 
 egg::ovum::Type egg::ovum::Type::makeSimple(IAllocator& allocator, ValueFlags flags) {
@@ -377,6 +402,8 @@ egg::ovum::ITypeFunction* egg::ovum::Type::makeFunction(IAllocator& allocator, c
   (void)rettype;
   return nullptr;
 }
+
+const egg::ovum::IParameters& egg::ovum::IParameters::None{ parametersNone };
 
 // Common types
 const egg::ovum::Type egg::ovum::Type::Void{ &typeVoid };

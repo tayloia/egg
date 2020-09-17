@@ -20,6 +20,7 @@ namespace egg::ovum {
       // Use perfect forwarding
       return Object(*allocator.make<T>(std::forward<ARGS>(args)...));
     }
-    static Object createVanilla(IAllocator& allocator);
+    static Object createVanillaObject(IAllocator& allocator);
+    static Object createVanillaArray(IAllocator& allocator, size_t fixed);
   };
 }

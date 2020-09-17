@@ -1,0 +1,1816 @@
+#include "ovum/ovum.h"
+#include "ovum/node.h"
+#include "ovum/module.h"
+#include "ovum/program.h"
+#include "ovum/utf.h"
+
+#include <cmath>
+#include <set>
+
+namespace {
+  using namespace egg::ovum;
+
+  // Forward declarations
+  class Block;
+  class ProgramDefault;
+
+  class RuntimeException : public std::runtime_error {
+  public:
+    String message;
+    template<typename... ARGS>
+    explicit RuntimeException(const LocationSource& location, ARGS&&... args)
+      : std::runtime_error("RuntimeException") {
+      StringBuilder sb;
+      location.formatSourceString(sb);
+      sb.add(':', ' ', std::forward<ARGS>(args)...);
+      this->message = sb.str();
+    }
+  };
+
+  class Parameters : public IParameters {
+    Parameters(const Parameters&) = delete;
+    Parameters& operator=(const Parameters&) = delete;
+  private:
+    std::vector<Value> positional;
+    std::vector<LocationSource> location;
+  public:
+    Parameters() = default;
+    void addPositional(const LocationSource& source, Value&& value) {
+      this->positional.emplace_back(std::move(value));
+      this->location.emplace_back(source);
+    }
+    virtual size_t getPositionalCount() const override {
+      return this->positional.size();
+    }
+    virtual Value getPositional(size_t index) const override {
+      return this->positional[index];
+    }
+    virtual const LocationSource* getPositionalLocation(size_t index) const override {
+      return &this->location[index];
+    }
+    virtual size_t getNamedCount() const override {
+      return 0;
+    }
+    virtual String getName(size_t) const override {
+      return String();
+    }
+    virtual Value getNamed(const String&) const override {
+      return Value::Void;
+    }
+    virtual const LocationSource* getNamedLocation(const String&) const override {
+      // TODO remove
+      return nullptr;
+    }
+  };
+
+  class PredicateFunction : public SoftReferenceCounted<IObject> {
+    PredicateFunction(const PredicateFunction&) = delete;
+    PredicateFunction& operator=(const PredicateFunction&) = delete;
+  private:
+    ProgramDefault& program; // ProgramDefault lifetime guaranteed to be longer than UserFunction instance
+    LocationSource location;
+    Node node;
+  public:
+    PredicateFunction(IAllocator& allocator, ProgramDefault& program, const LocationSource& location, const INode& node)
+      : SoftReferenceCounted(allocator),
+      program(program),
+      location(location),
+      node(&node) {
+    }
+    virtual void softVisitLinks(const Visitor&) const override {
+      // There are no soft link to visit
+    }
+    virtual Value toString() const override {
+      return ValueFactory::create(this->allocator, "<predicate>");
+    }
+    virtual Type getRuntimeType() const override {
+      return Type::Object;
+    }
+    virtual Value call(IExecution& execution, const IParameters& parameters) override;
+    virtual Value getProperty(IExecution& execution, const String&) override {
+      return execution.raise("Internal runtime error: Predicates do not support properties");
+    }
+    virtual Value setProperty(IExecution& execution, const String&, const Value&) override {
+      return execution.raise("Internal runtime error: Predicates do not support properties");
+    }
+    virtual Value getIndex(IExecution& execution, const Value&) override {
+      return execution.raise("Internal runtime error: Predicates do not support indexing");
+    }
+    virtual Value setIndex(IExecution& execution, const Value&, const Value&) override {
+      return execution.raise("Internal runtime error: Predicates do not support indexing");
+    }
+    virtual Value iterate(IExecution& execution) override {
+      return execution.raise("Internal runtime error: Predicates do not support iteration");
+    }
+  };
+
+  class UserFunction : public SoftReferenceCounted<IObject> {
+    UserFunction(const UserFunction&) = delete;
+    UserFunction& operator=(const UserFunction&) = delete;
+  private:
+    ProgramDefault& program; // ProgramDefault lifetime guaranteed to be longer than UserFunction instance
+    LocationSource location;
+    Type type;
+    Node block;
+  public:
+    UserFunction(IAllocator& allocator, ProgramDefault& program, const LocationSource& location, const Type& type, const INode& block)
+      : SoftReferenceCounted(allocator),
+        program(program),
+        location(location),
+        type(type),
+        block(&block) {
+      assert(type != nullptr);
+      assert(block.getOpcode() == Opcode::BLOCK);
+    }
+    virtual void softVisitLinks(const Visitor&) const override {
+      // WIBBLE
+    }
+    virtual Value toString() const override {
+      return ValueFactory::create(this->allocator, "<user-function>");
+    }
+    virtual Type getRuntimeType() const override {
+      return this->type;
+    }
+    virtual Value call(IExecution& execution, const IParameters& parameters) override;
+    virtual Value getProperty(IExecution& execution, const String& property) override {
+      return this->raise(execution, "does not support properties such as '", property, "'");
+    }
+    virtual Value setProperty(IExecution& execution, const String& property, const Value&) override {
+      return this->raise(execution, "does not support properties such as '", property, "'");
+    }
+    virtual Value getIndex(IExecution& execution, const Value&) override {
+      return this->raise(execution, "does not support indexing");
+    }
+    virtual Value setIndex(IExecution& execution, const Value&, const Value&) override {
+      return this->raise(execution, "does not support indexing");
+    }
+    virtual Value iterate(IExecution& execution) override {
+      return this->raise(execution, "does not support iteration");
+    }
+    template<typename... ARGS>
+    Value raise(IExecution& execution, ARGS&&... args) {
+      auto* signature = this->type->callable();
+      if (signature != nullptr) {
+        auto name = signature->getFunctionName();
+        if (!name.empty()) {
+          return execution.raiseFormat("Function '", name, "' ", std::forward<ARGS>(args)...);
+        }
+      }
+      return execution.raiseFormat("Function ", std::forward<ARGS>(args)...);
+    }
+    static Type makeType(IAllocator& allocator, ProgramDefault& program, const String& name, const INode& callable);
+  };
+
+  class Target {
+    Target(const Target&) = delete;
+    Target& operator=(const Target&) = delete;
+  public:
+    enum class Flavour { Failed, Identifier, Index, Pointer, Property };
+  private:
+    Flavour flavour;
+    ProgramDefault& program;
+    const INode& node;
+    Value a;
+    Value b;
+  public:
+    Target(ProgramDefault& program, const INode& node, Block* block = nullptr);
+    Value check() const;
+    Value assign(const Value& rhs) const;
+    Value nudge(Int rhs) const;
+    Value mutate(const INode& opnode, const INode& rhs) const;
+  private:
+    bool ref(Value& pointee) const;
+    Value get() const;
+    Value set(const Value& value) const;
+    Value apply(const INode& opnode, Value& lvalue, const INode& rhs) const;
+    Value raise(const String& message) const;
+    template<typename... ARGS>
+    Value unexpected(const Value& value, ARGS&&... args) const {
+      return this->raise(StringBuilder::concat(std::forward<ARGS>(args)..., ", but got '", value.getRuntimeType().toString(), "' instead"));
+    }
+  };
+
+  class Block final {
+    Block(const Block&) = delete;
+    Block& operator=(const Block&) = delete;
+  private:
+    ProgramDefault& program;
+    std::set<String> declared;
+  public:
+    explicit Block(ProgramDefault& program) : program(program) {
+    }
+    ~Block();
+    bool empty() const {
+      return this->declared.empty();
+    }
+    Value declare(const LocationSource& source, const Type& type, const String& name, const Value* init = nullptr);
+    Value guard(const LocationSource& source, const Type& type, const String& name, const Value& init);
+  };
+
+  class Symbol;
+
+  class SymbolTable : public SoftReferenceCounted<ICollectable> {
+    SymbolTable(const SymbolTable&) = delete;
+    SymbolTable& operator=(const SymbolTable&) = delete;
+  private:
+    SoftPtr<SymbolTable> parent;
+    SoftPtr<SymbolTable> capture;
+  public:
+    explicit SymbolTable(IAllocator& allocator, SymbolTable* parent = nullptr, SymbolTable* capture = nullptr)
+      : SoftReferenceCounted(allocator) {
+      this->parent.set(*this, parent);
+      this->capture.set(*this, capture);
+    }
+    std::pair<bool, Symbol*> add(const Type&, const String&, const LocationSource&) { return std::make_pair(false, nullptr); }
+    /* WIBBLE {
+      // Return true in the first of the pair iff the insertion occurred
+      Symbol symbol(type, name, source);
+      auto retval = this->table.insert(std::make_pair(name, std::move(symbol)));
+      return std::make_pair(retval.second, &retval.first->second);
+    }*/
+    bool remove(const String&) { return false; }
+    /* WIBBLE {
+      // Return true iff the removal occurred
+      auto retval = this->table.erase(name);
+      return retval == 1;
+    }*/
+    Symbol* get(const String&) { return nullptr; }
+    /* WIBBLE {
+      // Return a pointer to the symbol or null
+      auto retval = this->table.find(name);
+      if (retval == this->table.end()) {
+        if (this->capture != nullptr) {
+          return this->capture->get(name);
+        }
+        return nullptr;
+      }
+      return &retval->second;
+    }*/
+    void softVisitLinks(const Visitor& visitor) const {
+      // WIBBLE
+      this->parent.visit(visitor);
+      this->capture.visit(visitor);
+    }
+    SymbolTable* push(SymbolTable* captured = nullptr) {
+      // Push a table onto the symbol table stack
+      return this->allocator.create<SymbolTable>(0, this->allocator, this, captured);
+    }
+    SymbolTable* pop() {
+      // Pop an element from the symbol table stack
+      assert(this->parent != nullptr);
+      return this->parent.get();
+    }
+  };
+
+  class ProgramDefault final : public HardReferenceCounted<IProgram>, public IExecution {
+    ProgramDefault(const ProgramDefault&) = delete;
+    ProgramDefault& operator=(const ProgramDefault&) = delete;
+  private:
+    ILogger& logger;
+    Basket basket;
+    HardPtr<SymbolTable> symtable;
+    LocationSource location;
+  public:
+    ProgramDefault(IAllocator& allocator, IBasket& basket, ILogger& logger)
+      : HardReferenceCounted(allocator, 0),
+        logger(logger),
+        basket(&basket),
+        symtable(allocator.make<SymbolTable>()),
+        location({}, 0, 0) {
+      this->basket->take(*this->symtable);
+    }
+    virtual ~ProgramDefault() {
+      this->symtable.set(nullptr);
+      this->basket->collect();
+    }
+    // Inherited from IProgram
+    virtual bool builtin(const String&, const Value&) override {
+      /* WIBBLE
+      static const LocationSource source("<builtin>", 0, 0);
+      auto symbol = this->symtable->add(value->getRuntimeType(), name, source);
+      if (symbol.first) {
+        // Don't use tryAssign for builtins; it always fails
+        auto& added = symbol.second->value;
+        added = value;
+        added.soften(*this->basket);
+        return true;
+      }
+      */
+      return false;
+    }
+    virtual Value run(const IModule& module) override {
+      try {
+        this->location.file = module.getResourceName();
+        this->location.line = 0;
+        this->location.column = 0;
+        return this->executeRoot(module.getRootNode());
+      } catch (RuntimeException& exception) {
+        this->logger.log(ILogger::Source::Runtime, ILogger::Severity::Error, exception.message.toUTF8());
+        return Value::Rethrow;
+      }
+    }
+    // Inherited from IExecution
+    virtual IAllocator& getAllocator() const override {
+      return this->allocator;
+    }
+    virtual IBasket& getBasket() const override {
+      return *this->basket;
+    }
+    virtual Value raise(const String&) override {
+      LocationRuntime runtime{ this->location, StringFactory::fromASCIIZ(this->allocator, "<unknown-function>") };
+      auto object = ObjectFactory::createVanillaObject(this->allocator);
+      // TODO add runtime location
+      // TODO add message
+      auto value = ValueFactory::createObject(this->allocator, object);
+      return ValueFactory::createFlowControl(this->allocator, ValueFlags::Throw, value);
+    }
+    virtual Value assertion(const Value& predicate) override {
+      Object object;
+      if (predicate->getObject(object)) {
+        // Predicates can be functions that throw exceptions, as well as 'bool' values
+        auto type = object->getRuntimeType();
+        if (type->callable() != nullptr) {
+          // Call the predicate directly
+          return object->call(*this, IParameters::None);
+        }
+      }
+      Bool value;
+      if (!predicate->getBool(value)) {
+        return this->raiseFormat("'assert()' expects its parameter to be a 'bool' or 'void()', but got '", predicate->getRuntimeType().toString(), "' instead");
+      }
+      if (value) {
+        return Value::Void;
+      }
+      return this->raise("Assertion is untrue");
+    }
+    virtual void print(const std::string& utf8) override {
+      this->logger.log(ILogger::Source::User, ILogger::Severity::Information, utf8);
+    }
+    // Builtins
+    void addBuiltins() {
+      this->builtin("assert", ValueFactory::createBuiltinAssert(this->allocator));
+      this->builtin("print", ValueFactory::createBuiltinPrint(this->allocator));
+      this->builtin("string", ValueFactory::createBuiltinString(this->allocator));
+      this->builtin("type", ValueFactory::createBuiltinType(this->allocator));
+    }
+  private:
+    Value executeRoot(const INode& node) {
+      if (this->validateOpcode(node) != Opcode::MODULE) {
+        throw this->unexpectedOpcode("module", node);
+      }
+      Block block(*this);
+      return this->executeBlock(block, node.getChild(0));
+    }
+    Value executeBlock(Block& inner, const INode& node) {
+      this->updateLocation(node);
+      if (this->validateOpcode(node) != Opcode::BLOCK) {
+        throw this->unexpectedOpcode("block", node);
+      }
+      size_t n = node.getChildren();
+      for (size_t i = 0; i < n; ++i) {
+        auto retval = this->statement(inner, node.getChild(i));
+        if (retval.hasFlowControl()) {
+          return retval;
+        }
+      }
+      return Value::Void;
+    }
+    // Statements
+    Value statement(Block& block, const INode& node) {
+      this->updateLocation(node);
+      auto opcode = this->validateOpcode(node);
+      EGG_WARNING_SUPPRESS_SWITCH_BEGIN();
+      switch (opcode) {
+      case Opcode::NOOP:
+        return Value::Void;
+      case Opcode::BLOCK:
+        return this->statementBlock(node);
+      case Opcode::ASSIGN:
+        return this->statementAssign(node);
+      case Opcode::BREAK:
+        return Value::Break;
+      case Opcode::CALL:
+        return this->statementCall(node);
+      case Opcode::CONTINUE:
+        return Value::Continue;
+      case Opcode::DECLARE:
+        return this->statementDeclare(block, node);
+      case Opcode::DECREMENT:
+        return this->statementDecrement(node);
+      case Opcode::DO:
+        return this->statementDo(node);
+      case Opcode::FOR:
+        return this->statementFor(node);
+      case Opcode::FOREACH:
+        return this->statementForeach(node);
+      case Opcode::FUNCTION:
+        return this->statementFunction(block, node);
+      case Opcode::IF:
+        return this->statementIf(node);
+      case Opcode::INCREMENT:
+        return this->statementIncrement(node);
+      case Opcode::MUTATE:
+        return this->statementMutate(node);
+      case Opcode::RETURN:
+        return this->statementReturn(node);
+      case Opcode::SWITCH:
+        return this->statementSwitch(node);
+      case Opcode::THROW:
+        return this->statementThrow(node);
+      case Opcode::TRY:
+        return this->statementTry(node);
+      case Opcode::WHILE:
+        return this->statementWhile(node);
+      }
+      EGG_WARNING_SUPPRESS_SWITCH_END();
+      throw this->unexpectedOpcode("statement", node);
+    }
+    Value statementAssign(const INode& node) {
+      assert(node.getOpcode() == Opcode::ASSIGN);
+      assert(node.getChildren() == 2);
+      Target lvalue(*this, node.getChild(0));
+      auto rvalue = this->expression(node.getChild(1));
+      if (rvalue.hasFlowControl()) {
+        return rvalue;
+      }
+      return lvalue.assign(rvalue);
+    }
+    Value statementBlock(const INode& node) {
+      assert(node.getOpcode() == Opcode::BLOCK);
+      Block block(*this);
+      return this->executeBlock(block, node);
+    }
+    Value statementCall(const INode& node) {
+      assert(node.getOpcode() == Opcode::CALL);
+      auto retval = this->expressionCall(node);
+      if (retval.hasAny(ValueFlags::FlowControl | ValueFlags::Void)) {
+        return retval;
+      }
+      auto message = StringBuilder().add("Discarding call return value: '", retval.toString(), "'").toUTF8();
+      this->logger.log(ILogger::Source::Runtime, ILogger::Severity::Warning, message);
+      return Value::Void;
+    }
+    Value statementDeclare(Block& block, const INode& node) {
+      assert(node.getOpcode() == Opcode::DECLARE);
+      this->updateLocation(node);
+      auto vname = this->identifier(node.getChild(1));
+      auto vtype = this->type(node.getChild(0), vname);
+      if (node.getChildren() == 2) {
+        // No initializer
+        return block.declare(this->location, vtype, vname);
+      }
+      assert(node.getChildren() == 3);
+      auto vinit = this->expression(node.getChild(2));
+      if (vinit.hasFlowControl()) {
+        return vinit;
+      }
+      return block.declare(this->location, vtype, vname, &vinit);
+    }
+    Value statementDecrement(const INode& node) {
+      assert(node.getOpcode() == Opcode::DECREMENT);
+      assert(node.getChildren() == 1);
+      Target lvalue(*this, node.getChild(0));
+      return lvalue.nudge(-1);
+    }
+    Value statementDo(const INode& node) {
+      assert(node.getOpcode() == Opcode::DO);
+      assert(node.getChildren() == 2);
+      Value retval;
+      do {
+        Block block(*this);
+        retval = this->executeBlock(block, node.getChild(1));
+        if (retval.hasFlowControl()) {
+          return retval;
+        }
+        retval = this->condition(node.getChild(0), nullptr); // don't allow guards
+        if (!retval.isBool()) {
+          // Problem with the condition
+          return retval;
+        }
+      } while (retval.getBool());
+      return Value::Void;
+    }
+    Value statementFor(const INode& node) {
+      assert(node.getOpcode() == Opcode::FOR);
+      assert(node.getChildren() == 4);
+      auto& pre = node.getChild(0);
+      auto* cond = &node.getChild(1);
+      EGG_WARNING_SUPPRESS_SWITCH_BEGIN();
+      switch (cond->getOpcode()) {
+      case Opcode::NOOP:
+      case Opcode::TRUE:
+        // No condition: 'for(a; ; c) {}' or 'for(a; true; c) {}'
+        cond = nullptr;
+        break;
+      }
+      EGG_WARNING_SUPPRESS_SWITCH_END();
+      auto& post = node.getChild(2);
+      auto& loop = node.getChild(3);
+      Block inner(*this);
+      auto retval = this->statement(inner, pre);
+      if (retval.hasFlowControl()) {
+        return retval;
+      }
+      do {
+        if (cond != nullptr) {
+          retval = this->condition(*cond, &inner);
+          if (!retval.isBool()) {
+            // Problem evaluating the condition
+            return retval;
+          }
+          if (!retval.getBool()) {
+            // Condition evaluated to 'false'
+            return Value::Void;
+          }
+        }
+        retval = this->executeBlock(inner, loop);
+        if (retval.hasFlowControl()) {
+          if (retval.is(ValueFlags::Break)) {
+            // Break from the loop
+            return Value::Void;
+          }
+          if (!retval.is(ValueFlags::Continue)) {
+            // Some other flow control
+            return retval;
+          }
+        }
+        retval = this->statement(inner, post);
+      } while (!retval.hasFlowControl());
+      return retval;
+    }
+    Value statementForeach(const INode& node) {
+      assert(node.getOpcode() == Opcode::FOREACH);
+      assert(node.getChildren() == 3);
+      Block inner(*this);
+      Target lvalue(*this, node.getChild(0), &inner);
+      auto retval = lvalue.check();
+      if (retval.hasFlowControl()) {
+        return retval;
+      }
+      auto rvalue = this->expression(node.getChild(1));
+      if (rvalue.hasFlowControl()) {
+        return rvalue;
+      }
+      if (rvalue.hasString()) {
+        // Iterate around the codepoints in the string
+        return this->stringForeach(rvalue.getString(), inner, lvalue, node.getChild(2));
+      }
+      if (!rvalue.hasObject()) {
+        return this->raiseFormat("The 'for' statement expected to iterate a 'string' or 'object', but got '", rvalue.getRuntimeType().toString(), "' instead");
+      }
+      auto object = rvalue.getObject();
+      assert(object != nullptr);
+      auto iterate = object->iterate(*this);
+      if (iterate.hasFlowControl()) {
+        return iterate;
+      }
+      if (!iterate.hasObject()) {
+        return this->raiseFormat("The 'for' statement expected an iterator, but got '", iterate.getRuntimeType().toString(), "' instead");
+      }
+      object = iterate.getObject();
+      assert(object != nullptr);
+      auto& block = node.getChild(2);
+      for (;;) {
+        retval = object->call(*this, IParameters::None);
+        if (retval.hasAny(ValueFlags::FlowControl | ValueFlags::Void)) {
+          break;
+        }
+        retval = lvalue.assign(retval);
+        if (retval.hasFlowControl()) {
+          break;
+        }
+        retval = this->executeBlock(inner, block);
+        if (retval.hasFlowControl()) {
+          if (retval.is(ValueFlags::Break)) {
+            // Break from the loop
+            return Value::Void;
+          }
+          if (!retval.is(ValueFlags::Continue)) {
+            // Some other flow control
+            break;
+          }
+        }
+      }
+      return retval;
+    }
+    Value statementFunction(Block& block, const INode& node) {
+      assert(node.getOpcode() == Opcode::FUNCTION);
+      assert(node.getChildren() == 3);
+      auto fname = this->identifier(node.getChild(2));
+      auto ftype = this->type(node.getChild(0), fname);
+      auto& fblock = node.getChild(1);
+      if (fblock.getOpcode() != Opcode::BLOCK) {
+        return this->raise("Generators are not yet supported"); // WIBBLE
+      }
+      this->updateLocation(node);
+      auto function = this->allocator.make<UserFunction>(*this, this->location, ftype, fblock);
+      // We have to be careful to ensure the function is declared before capturing symbols so that recursion works correctly
+      auto fvalue = ValueFactory::createObject(this->allocator, Object(*function));
+      auto retval = block.declare(this->location, ftype, fname, &fvalue);
+      // WIBBLE function->setCaptured(this->symtable); // VIBBLE was cloneIndirect
+      return retval;
+    }
+    Value statementIf(const INode& node) {
+      assert(node.getOpcode() == Opcode::IF);
+      auto n = &node;
+      Block block(*this);
+      do {
+        assert(n->getOpcode() == Opcode::IF);
+        assert((n->getChildren() == 2) || (n->getChildren() == 3));
+        auto retval = this->condition(n->getChild(0), &block);
+        if (!retval.isBool()) {
+          // Problem with the condition
+          return retval;
+        }
+        if (retval.getBool()) {
+          // Execute the 'then' clause
+          return this->executeBlock(block, n->getChild(1));
+        }
+        if (n->getChildren() == 2) {
+          // No 'else' clause
+          return Value::Void;
+        }
+        // Execute the 'else' clause
+        n = &n->getChild(2);
+      } while (n->getOpcode() == Opcode::IF);
+      assert(block.empty());
+      return this->executeBlock(block, *n);
+    }
+    Value statementIncrement(const INode& node) {
+      assert(node.getOpcode() == Opcode::INCREMENT);
+      assert(node.getChildren() == 1);
+      Target lvalue(*this, node.getChild(0));
+      return lvalue.nudge(+1);
+    }
+    Value statementMutate(const INode& node) {
+      assert(node.getOpcode() == Opcode::MUTATE);
+      assert(node.getChildren() == 2);
+      assert(OperatorProperties::from(node.getOperator()).opclass == Opclass::BINARY);
+      Target lvalue(*this, node.getChild(0));
+      return lvalue.mutate(node, node.getChild(1));
+    }
+    Value statementReturn(const INode& node) {
+      assert(node.getOpcode() == Opcode::RETURN);
+      assert(node.getChildren() <= 1);
+      if (node.getChildren() == 0) {
+        // A naked return
+        return ValueFactory::createFlowControl(this->allocator, ValueFlags::Return, Value::Void);
+      }
+      auto retval = this->expression(node.getChild(0));
+      if (!retval.hasFlowControl()) {
+        // Convert the expression to a return
+        assert(!retval.isVoid());
+        return ValueFactory::createFlowControl(this->allocator, ValueFlags::Return, retval);
+      }
+      return retval;
+    }
+    Value statementSwitch(const INode& node) {
+      assert(node.getOpcode() == Opcode::SWITCH);
+      auto n = node.getChildren();
+      assert(n >= 2);
+      auto match = this->expression(node.getChild(0));
+      if (match.hasFlowControl()) {
+        // Failed to evaluate the value to match
+        return match;
+      }
+      size_t defclause = 0;
+      size_t matched = 0;
+      for (size_t i = 1; i < n; ++i) {
+        // Look for the first matching case clause
+        auto& clause = node.getChild(i);
+        auto m = clause.getChildren();
+        assert(m >= 1);
+        assert((clause.getOpcode() == Opcode::CASE) || (clause.getOpcode() == Opcode::DEFAULT));
+        for (size_t j = 1; !matched && (j < m); ++j) {
+          auto expr = this->expression(node.getChild(0));
+          if (expr.hasFlowControl()) {
+            // Failed to evaluate the value to match
+            return expr;
+          }
+          if (Value::equals(expr, match, ValueCompare::PromoteInts)) {
+            // We've matched this clause
+            matched = j;
+            break;
+          }
+        }
+        if (matched != 0) {
+          // We matched!
+          break;
+        }
+        if (clause.getOpcode() == Opcode::DEFAULT) {
+          // Remember the default clause
+          assert(defclause == 0);
+          defclause = i;
+        }
+      }
+      if (matched == 0) {
+        // Use the default clause, if any
+        matched = defclause;
+      }
+      if (matched == 0) {
+        // No clause to run
+        return Value::Void;
+      }
+      for (;;) {
+        // Run the clauses in round-robin order
+        auto retval = this->statementBlock(node.getChild(matched).getChild(0));
+        if (retval.is(ValueFlags::Break)) {
+          // Explicit 'break' terminates the switch statement
+          break;
+        }
+        if (!retval.is(ValueFlags::Continue)) {
+          // Any other than 'continue' also terminates the switch statement
+          return retval;
+        }
+        if (++matched >= n) {
+          // Round robin
+          matched = 1;
+        }
+      }
+      return Value::Void;
+    }
+    Value statementThrow(const INode& node) {
+      assert(node.getOpcode() == Opcode::THROW);
+      assert(node.getChildren() <= 1);
+      if (node.getChildren() == 0) {
+        // A naked rethrow
+        return Value::Rethrow;
+      }
+      auto retval = this->expression(node.getChild(0));
+      if (!retval.hasFlowControl()) {
+        // Convert the expression to an exception throw
+        assert(!retval.isVoid());
+        return ValueFactory::createFlowControl(this->allocator, ValueFlags::Throw, retval);
+      }
+      return retval;
+    }
+    Value statementTry(const INode& node) {
+      assert(node.getOpcode() == Opcode::TRY);
+      auto n = node.getChildren();
+      assert(n >= 2);
+      auto exception = this->statementBlock(node.getChild(0));
+      if (exception.stripFlowControl(ValueFlags::Throw)) {
+        // Find a matching catch block
+        Block block(*this);
+        for (size_t i = 2; i < n; ++i) {
+          // Look for the first matching catch clause
+          auto& clause = node.getChild(i);
+          assert(clause.getOpcode() == Opcode::CATCH);
+          assert(clause.getChildren() == 3);
+          this->updateLocation(clause);
+          auto cname = this->identifier(clause.getChild(1));
+          auto ctype = this->type(clause.getChild(0), cname);
+          auto retval = block.guard(this->location, ctype, cname, exception);
+          if (retval.hasFlowControl()) {
+            // Couldn't define the exception variable
+            return this->statementTryFinally(node, retval);
+          }
+          assert(retval.isBool());
+          if (retval.getBool()) {
+            retval = this->executeBlock(block, clause.getChild(2));
+            if (retval.is(ValueFlags::Throw | ValueFlags::Void)) {
+              // This is a rethrow of the original exception
+              return ValueFactory::createFlowControl(this->allocator, ValueFlags::Throw, exception);
+            }
+            return this->statementTryFinally(node, retval);
+          }
+        }
+        // Propagate the original exception
+        exception = ValueFactory::createFlowControl(this->allocator, ValueFlags::Throw, exception);
+      }
+      return this->statementTryFinally(node, exception);
+    }
+    Value statementTryFinally(const INode& node, const Value& retval) {
+      assert(node.getOpcode() == Opcode::TRY);
+      assert(node.getChildren() >= 2);
+      auto& clause = node.getChild(1);
+      if (clause.getOpcode() == Opcode::NOOP) {
+        // No finally clause
+        return retval;
+      }
+      if (retval.hasFlowControl()) {
+        // Run the block but return the original result
+        (void)this->statementBlock(clause);
+        return retval;
+      }
+      return this->statementBlock(clause);
+    }
+    Value statementWhile(const INode& node) {
+      assert(node.getOpcode() == Opcode::WHILE);
+      assert(node.getChildren() == 2);
+      for (;;) {
+        Block block(*this);
+        auto retval = this->condition(node.getChild(0), &block);
+        if (!retval.isBool()) {
+          // Problem with the condition
+          return retval;
+        }
+        if (!retval.getBool()) {
+          // Condition is false
+          break;
+        }
+        retval = this->executeBlock(block, node.getChild(1));
+        if (retval.hasFlowControl()) {
+          return retval;
+        }
+      }
+      return Value::Void;
+    }
+    // Expressions
+    Value expression(const INode& node, Block* block = nullptr) {
+      auto opcode = this->validateOpcode(node);
+      EGG_WARNING_SUPPRESS_SWITCH_BEGIN();
+      switch (opcode) {
+      case Opcode::NULL_:
+        return Value::Null;
+      case Opcode::FALSE:
+        return Value::False;
+      case Opcode::TRUE:
+        return Value::True;
+      case Opcode::UNARY:
+        return this->expressionUnary(node);
+      case Opcode::BINARY:
+        return this->expressionBinary(node);
+      case Opcode::TERNARY:
+        return this->expressionTernary(node);
+      case Opcode::COMPARE:
+        return this->expressionCompare(node);
+      case Opcode::AVALUE:
+        return this->expressionAvalue(node);
+      case Opcode::FVALUE:
+        return this->expressionFvalue(node);
+      case Opcode::IVALUE:
+        return this->expressionIvalue(node);
+      case Opcode::OVALUE:
+        return this->expressionOvalue(node);
+      case Opcode::SVALUE:
+        return this->expressionSvalue(node);
+      case Opcode::CALL:
+        return this->expressionCall(node);
+      case Opcode::GUARD:
+        return this->expressionGuard(node, block);
+      case Opcode::IDENTIFIER:
+        return this->expressionIdentifier(node);
+      case Opcode::INDEX:
+        return this->expressionIndex(node);
+      case Opcode::PREDICATE:
+        return this->expressionPredicate(node);
+      case Opcode::PROPERTY:
+        return this->expressionProperty(node);
+      }
+      EGG_WARNING_SUPPRESS_SWITCH_END();
+      throw this->unexpectedOpcode("expression", node);
+    }
+    Value expressionUnary(const INode& node) {
+      assert(node.getOpcode() == Opcode::UNARY);
+      assert(node.getChildren() == 1);
+      auto oper = node.getOperator();
+      assert(OperatorProperties::from(oper).opclass == Opclass::UNARY);
+      EGG_WARNING_SUPPRESS_SWITCH_BEGIN();
+      switch (oper) {
+      case Operator::LOGNOT:
+        return this->operatorLogicalNot(node.getChild(0));
+      case Operator::DEREF:
+        return this->operatorDeref(node.getChild(0));
+      case Operator::REF:
+        return this->operatorRef(node.getChild(0));
+      }
+      EGG_WARNING_SUPPRESS_SWITCH_END();
+      throw this->unexpectedOperator("unary", node);
+    }
+    Value expressionBinary(const INode& node) {
+      assert(node.getOpcode() == Opcode::BINARY);
+      assert(node.getChildren() == 2);
+      auto oper = node.getOperator();
+      assert(OperatorProperties::from(oper).opclass == Opclass::BINARY);
+      EGG_WARNING_SUPPRESS_SWITCH_BEGIN();
+      switch (oper) {
+      case Operator::ADD:
+      case Operator::SUB:
+      case Operator::MUL:
+      case Operator::DIV:
+      case Operator::REM:
+        return this->operatorArithmetic(node, oper, node.getChild(0), node.getChild(1));
+      }
+      EGG_WARNING_SUPPRESS_SWITCH_END();
+      throw this->unexpectedOperator("binary", node);
+    }
+    Value expressionTernary(const INode& node) {
+      assert(node.getOpcode() == Opcode::TERNARY);
+      assert(node.getChildren() == 3);
+      auto oper = node.getOperator();
+      assert(OperatorProperties::from(oper).opclass == Opclass::TERNARY);
+      EGG_WARNING_SUPPRESS_SWITCH_BEGIN();
+      switch (oper) {
+      case Operator::TERNARY:
+        return this->operatorTernary(node.getChild(0), node.getChild(1), node.getChild(2));
+      }
+      EGG_WARNING_SUPPRESS_SWITCH_END();
+      throw this->unexpectedOperator("ternary", node);
+    }
+    Value expressionCompare(const INode& node) {
+      assert(node.getOpcode() == Opcode::COMPARE);
+      Value lhs, rhs;
+      auto retval = this->operatorCompare(node, lhs, rhs);
+      if (retval.is(ValueFlags::Break)) {
+        throw this->unexpectedOperator("compare", node);
+      }
+      return retval;
+    }
+    Value expressionAvalue(const INode& node) {
+      assert(node.getOpcode() == Opcode::AVALUE);
+      auto n = node.getChildren();
+      auto array = ObjectFactory::createVanillaArray(this->allocator, n);
+      for (size_t i = 0; i < n; ++i) {
+        auto expr = this->expression(node.getChild(i));
+        if (expr.hasFlowControl()) {
+          return expr;
+        }
+        expr = array->setIndex(*this, ValueFactory::createInt(this->allocator, Int(i)), expr);
+        if (expr.hasFlowControl()) {
+          return expr;
+        }
+      }
+      return ValueFactory::create(this->allocator, array);
+    }
+    Value expressionFvalue(const INode& node) {
+      assert(node.getOpcode() == Opcode::FVALUE);
+      assert(node.getChildren() == 0);
+      return ValueFactory::createFloat(this->allocator, node.getFloat());
+    }
+    Value expressionIvalue(const INode& node) {
+      assert(node.getOpcode() == Opcode::IVALUE);
+      assert(node.getChildren() == 0);
+      return ValueFactory::createInt(this->allocator, node.getInt());
+    }
+    Value expressionOvalue(const INode& node) {
+      assert(node.getOpcode() == Opcode::OVALUE);
+      auto object = ObjectFactory::createVanillaObject(this->allocator);
+      auto n = node.getChildren();
+      for (size_t i = 0; i < n; ++i) {
+        auto& named = node.getChild(i);
+        assert(named.getOpcode() == Opcode::NAMED);
+        auto name = this->identifier(named.getChild(0));
+        auto expr = this->expression(named.getChild(1));
+        if (expr.hasFlowControl()) {
+          return expr;
+        }
+        expr = object->setProperty(*this, name, expr);
+        if (expr.hasFlowControl()) {
+          return expr;
+        }
+      }
+      return ValueFactory::createObject(this->allocator, object);
+    }
+    Value expressionSvalue(const INode& node) {
+      assert(node.getOpcode() == Opcode::SVALUE);
+      assert(node.getChildren() == 0);
+      return ValueFactory::createString(this->allocator, node.getString());
+    }
+    Value expressionCall(const INode& node) {
+      assert(node.getOpcode() == Opcode::CALL);
+      auto n = node.getChildren();
+      assert(n >= 1);
+      auto callee = this->expression(node.getChild(0));
+      if (callee.hasFlowControl()) {
+        return callee;
+      }
+      if (!callee.hasObject()) {
+        return this->raiseNode(node, "Expected function-like expression to be an 'object', but got '", callee.getRuntimeType().toString(), "' instead");
+      }
+      LocationSource before = this->location;
+      Parameters parameters;
+      for (size_t i = 1; i < n; ++i) {
+        auto& pnode = node.getChild(i);
+        auto pvalue = this->expression(pnode);
+        if (pvalue.hasFlowControl()) {
+          return pvalue;
+        }
+        this->updateLocation(pnode);
+        parameters.addPositional(this->location, std::move(pvalue));
+      }
+      auto retval = callee.getObject()->call(*this, parameters);
+      this->location = before;
+      return retval;
+    }
+    Value expressionGuard(const INode& node, Block* block) {
+      assert(node.getOpcode() == Opcode::GUARD);
+      assert(node.getChildren() == 3);
+      if (block == nullptr) {
+        throw this->unexpectedOpcode("guard", node);
+      }
+      auto vname = this->identifier(node.getChild(1));
+      auto vtype = this->type(node.getChild(0), vname);
+      auto vinit = this->expression(node.getChild(2));
+      if (vinit.hasFlowControl()) {
+        return vinit;
+      }
+      this->updateLocation(node);
+      return block->guard(this->location, vtype, vname, vinit);
+    }
+    Value expressionIdentifier(const INode& node) {
+      assert(node.getOpcode() == Opcode::IDENTIFIER);
+      auto name = this->identifier(node);
+      auto* symbol = this->symtable->get(name);
+      if (symbol == nullptr) {
+        return this->raiseNode(node, "Unknown identifier in expression: '", name, "'");
+      }
+      return this->raiseNode(node, "WIBBLE Symbols not yet supported: '", name, "'");
+    }
+    Value expressionIndex(const INode& node) {
+      assert(node.getOpcode() == Opcode::INDEX);
+      assert(node.getChildren() == 2);
+      auto lhs = this->expression(node.getChild(0));
+      if (lhs.hasFlowControl()) {
+        return lhs;
+      }
+      auto& index = node.getChild(1);
+      auto rhs = this->expression(index);
+      if (rhs.hasFlowControl()) {
+        return rhs;
+      }
+      this->updateLocation(index);
+      if (lhs.hasObject()) {
+        auto object = lhs.getObject();
+        return object->getIndex(*this, rhs);
+      }
+      if (lhs.hasString()) {
+        auto string = lhs.getString();
+        return this->stringIndex(string, rhs);
+      }
+      return this->raiseFormat("Values of type '", lhs.getRuntimeType().toString(), "' do not support the indexing '[]' operator");
+    }
+    Value expressionPredicate(const INode& node) {
+      assert(node.getOpcode() == Opcode::PREDICATE);
+      assert(node.getChildren() == 1);
+      auto& child = node.getChild(0);
+      if (child.getOperand() == INode::Operand::Operator) {
+        auto oper = child.getOperator();
+        if (OperatorProperties::from(oper).opclass == Opclass::COMPARE) {
+          // We only support predicates for comparisons
+          this->updateLocation(node);
+          auto predicate = ObjectFactory::create<PredicateFunction>(this->allocator, *this, this->location, child);
+          return ValueFactory::createObject(this->allocator, predicate);
+        }
+      }
+      return this->expression(child);
+    }
+    Value expressionProperty(const INode& node) {
+      assert(node.getOpcode() == Opcode::PROPERTY);
+      assert(node.getChildren() == 2);
+      auto lhs = this->expression(node.getChild(0));
+      if (lhs.hasFlowControl()) {
+        return lhs;
+      }
+      auto& pnode = node.getChild(1);
+      String pname;
+      if (pnode.getOpcode() == Opcode::IDENTIFIER) {
+        pname = this->identifier(pnode);
+      } else {
+        auto rhs = this->expression(pnode);
+        if (rhs.hasFlowControl()) {
+          return rhs;
+        }
+        if (!rhs.hasString()) {
+          return this->raiseNode(node, "Expected property name to be a 'string', but got '", rhs.getRuntimeType().toString(), "' instead");
+        }
+        pname = rhs.getString();
+      }
+      if (lhs.hasObject()) {
+        auto object = lhs.getObject();
+        auto value = object->getProperty(*this, pname);
+        if (value.isVoid()) {
+          return this->raiseNode(node, "Object does not have a property named '", pname, "'");
+        }
+        return value;
+      }
+      if (lhs.hasString()) {
+        auto string = lhs.getString();
+        return this->stringProperty(string, pname);
+      }
+      return this->raiseNode(node, "Values of type '", lhs.getRuntimeType().toString(), "' do not support properties");
+    }
+    // Strings
+    Value stringForeach(const String& string, Block& block, Target& target, const INode& statements) {
+      // Iterate around the codepoints of the string
+      auto* p = string.get();
+      if (p != nullptr) {
+        UTF8 reader(p->begin(), p->end(), 0);
+        char32_t codepoint;
+        while (reader.forward(codepoint)) {
+          auto retval = target.assign(ValueFactory::createString(this->allocator, StringFactory::fromCodePoint(this->allocator, codepoint)));
+          if (retval.hasFlowControl()) {
+            return retval;
+          }
+          retval = this->executeBlock(block, statements);
+          if (retval.hasFlowControl()) {
+            return retval;
+          }
+        }
+      }
+      return Value::Void;
+    }
+    Value stringIndex(const String& string, const Value& index) {
+      if (!index.isInt()) {
+        return this->raiseFormat("String indexing '[]' only supports indices of type 'int', but got '", index.getRuntimeType().toString(), "' instead");
+      }
+      auto i = index.getInt();
+      auto c = string.codePointAt(size_t(i));
+      if (c < 0) {
+        // Invalid index
+        auto n = string.length();
+        if ((i < 0) || (size_t(i) >= n)) {
+          return this->raiseFormat("String index ", i, " is out of range for a string of length ", n);
+        }
+        return this->raiseFormat("Cannot index a malformed string");
+      }
+      return ValueFactory::createString(this->allocator, StringFactory::fromCodePoint(this->allocator, char32_t(c)));
+    }
+    Value stringProperty(const String& string, const String& property) {
+      auto retval = ValueFactory::createStringProperty(this->allocator, string, property);
+      if (retval.isVoid()) {
+        return this->raiseFormat("Unknown property for 'string' value: '", property, "'");
+      }
+      return retval;
+    }
+    // Operators
+    Value operatorCompare(const INode& node, Value& lhs, Value& rhs) {
+      // Returns 'break' for unknown operator
+      assert(node.getOpcode() == Opcode::COMPARE);
+      assert(node.getChildren() == 2);
+      auto oper = node.getOperator();
+      assert(OperatorProperties::from(oper).opclass == Opclass::COMPARE);
+      EGG_WARNING_SUPPRESS_SWITCH_BEGIN();
+      switch (oper) {
+      case Operator::EQ:
+        // (a == b) === (a == b)
+        return this->operatorEquals(node.getChild(0), node.getChild(1), lhs, rhs, false);
+      case Operator::GE:
+        // (a >= b) === !(a < b)
+        return this->operatorLessThan(node.getChild(0), node.getChild(1), lhs, rhs, true, oper);
+      case Operator::GT:
+        // (a > b) === (b < a)
+        return this->operatorLessThan(node.getChild(1), node.getChild(0), rhs, lhs, false, oper);
+      case Operator::LE:
+        // (a <= b) === !(b < a)
+        return this->operatorLessThan(node.getChild(1), node.getChild(0), rhs, lhs, true, oper);
+      case Operator::LT:
+        // (a < b) === (a < b)
+        return this->operatorLessThan(node.getChild(0), node.getChild(1), lhs, rhs, false, oper);
+      case Operator::NE:
+        // (a != b) === !(a == b)
+        return this->operatorEquals(node.getChild(0), node.getChild(1), lhs, rhs, true);
+      }
+      EGG_WARNING_SUPPRESS_SWITCH_END();
+      return Value::Break;
+    }
+    Value operatorEquals(const INode& a, const INode& b, Value& va, Value& vb, bool invert) {
+      // Care with IEEE NaNs
+      va = this->expression(a);
+      if (va.hasFlowControl()) {
+        return va;
+      }
+      vb = this->expression(b);
+      if (vb.hasFlowControl()) {
+        return vb;
+      }
+      bool result;
+      if (va.isFloat() && std::isnan(va.getFloat())) {
+        // An IEEE NaN is not equal to anything, even other NaNs
+        result = invert;
+      } else if (vb.isFloat() && std::isnan(vb.getFloat())) {
+        // An IEEE NaN is not equal to anything, even other NaNs
+        result = invert;
+      } else {
+        result = Value::equals(va, vb, ValueCompare::PromoteInts) ^ invert;
+      }
+      return ValueFactory::create(this->allocator, result);
+    }
+    Value operatorLessThan(const INode& a, const INode& b, Value& va, Value& vb, bool invert, Operator oper) {
+      // Care with IEEE NaNs
+      va = this->expression(a);
+      if (va.hasFlowControl()) {
+        return va;
+      }
+      vb = this->expression(b);
+      if (vb.hasFlowControl()) {
+        return vb;
+      }
+      if (va.isFloat()) {
+        auto fa = va.getFloat();
+        if (std::isnan(fa)) {
+          // An IEEE NaN does not compare with anything, even other NaNs
+          return Value::False;
+        }
+        if (vb.isFloat()) {
+          // Comparing float with float
+          auto fb = vb.getFloat();
+          if (std::isnan(fb)) {
+            // An IEEE NaN does not compare with anything, even other NaNs
+            return Value::False;
+          }
+          bool result = (fa < fb) ^ invert; // need to force bool-ness
+          return ValueFactory::create(this->allocator, result);
+        }
+        if (vb.isInt()) {
+          // Comparing float with int
+          auto ib = vb.getInt();
+          bool result = (fa < Float(ib)) ^ invert; // need to force bool-ness
+          return ValueFactory::create(this->allocator, result);
+        }
+        auto side = ((oper == Operator::GT) || (oper == Operator::LE)) ? "left" : "right";
+        auto sign = OperatorProperties::str(oper);
+        return this->raiseNode(b, "Expected ", side, "-hand side of comparison '", sign, "' to be an 'int' or 'float', but got '", vb.getRuntimeType().toString(), "' instead");
+      }
+      if (va.isInt()) {
+        auto ia = va.getInt();
+        if (vb.isFloat()) {
+          // Comparing int with float
+          auto fb = vb.getFloat();
+          if (std::isnan(fb)) {
+            // An IEEE NaN does not compare with anything
+            return Value::False;
+          }
+          bool result = (Float(ia) < fb) ^ invert; // need to force bool-ness
+          return ValueFactory::create(this->allocator, result);
+        }
+        if (vb.isInt()) {
+          // Comparing int with int
+          auto ib = vb.getInt();
+          bool result = (ia < ib) ^ invert; // need to force bool-ness
+          return ValueFactory::create(this->allocator, result);
+        }
+        auto side = ((oper == Operator::GT) || (oper == Operator::LE)) ? "left" : "right";
+        auto sign = OperatorProperties::str(oper);
+        return this->raiseNode(b, "Expected ", side, "-hand side of comparison '", sign, "' to be an 'int' or 'float', but got '", vb.getRuntimeType().toString(), "' instead");
+      }
+      auto side = ((oper == Operator::GT) || (oper == Operator::LE)) ? "right" : "left";
+      auto sign = OperatorProperties::str(oper);
+      return this->raiseNode(a, "Expected ", side, "-hand side of comparison '", sign, "' to be an 'int' or 'float', but got '", va.getRuntimeType().toString(), "' instead");
+    }
+    Value operatorArithmetic(const INode& node, Operator oper, const INode& a, const INode& b) {
+      auto lhs = this->expression(a);
+      if (lhs.hasFlowControl()) {
+        return lhs;
+      }
+      auto rhs = this->expression(b);
+      if (rhs.hasFlowControl()) {
+        return rhs;
+      }
+      if (lhs.isFloat()) {
+        if (rhs.isFloat()) {
+          // Both floats
+          return ValueFactory::createFloat(this->allocator, this->operatorBinaryFloat(node, oper, lhs.getFloat(), rhs.getFloat()));
+        }
+        if (rhs.isInt()) {
+          // Promote rhs
+          return ValueFactory::createFloat(this->allocator, this->operatorBinaryFloat(node, oper, lhs.getFloat(), Float(rhs.getInt())));
+        }
+        return this->raiseNode(b, "Expected right-hand side of arithmetic '" + OperatorProperties::str(oper), "' operator to be an 'int' or 'float', but got '", rhs.getRuntimeType().toString(), "' instead");
+      }
+      if (lhs.isInt()) {
+        if (rhs.isFloat()) {
+          // Promote lhs
+          return ValueFactory::createFloat(this->allocator, this->operatorBinaryFloat(node, oper, Float(lhs.getInt()), rhs.getFloat()));
+        }
+        if (rhs.isInt()) {
+          // Both ints
+          return ValueFactory::createInt(this->allocator, this->operatorBinaryInt(node, oper, lhs.getInt(), rhs.getInt()));
+        }
+        return this->raiseNode(b, "Expected right-hand side of arithmetic '" + OperatorProperties::str(oper), "' operator to be an 'int' or 'float', but got '", rhs.getRuntimeType().toString(), "' instead");
+      }
+      return this->raiseNode(b, "Expected left-hand side of arithmetic '" + OperatorProperties::str(oper), "' operator to be an 'int' or 'float', but got '", rhs.getRuntimeType().toString(), "' instead");
+    }
+    Value operatorLogicalNot(const INode& a) {
+      auto value = this->expression(a);
+      if (value.hasFlowControl()) {
+        return value;
+      }
+      if (!value.isBool()) {
+        return this->raiseNode(a, "Expected operand of unary '!' operator to be a 'bool', but got '", value.getRuntimeType().toString(), "' instead");
+      }
+      return ValueFactory::create(this->allocator, !value.getBool());
+    }
+    Value operatorDeref(const INode& a) {
+      auto value = this->expression(a);
+      if (value.hasFlowControl()) {
+        return value;
+      }
+      if (!value.hasPointer()) {
+        return this->raiseNode(a, "Expected operand of unary '*' operator to be a pointer, but got '", value.getRuntimeType().toString(), "' instead");
+      }
+      return value.getPointee();
+    }
+    Value operatorRef(const INode& a) {
+      if (a.getOpcode() != Opcode::IDENTIFIER) {
+        return this->raiseNode(a, "Expected operand of unary '&' operator to be a variable identifier");
+      }
+      auto name = this->identifier(a);
+      auto* symbol = this->symtable->get(name);
+      if (symbol == nullptr) {
+        return this->raiseNode(a, "Unknown identifier for unary '&' operator: '", name, "'");
+      }
+      return this->raiseNode(a, "WIBBLE Symbol references not yet supported: '", name, "'");
+      // WIBBLE return ValueFactory::createPointer(this->allocator, symbol->value);
+    }
+    Int operatorBinaryInt(const INode& node, Operator oper, Int lhs, Int rhs) {
+      // WIBBLE return Value and handle div-by-zero etc more elegantly
+      EGG_WARNING_SUPPRESS_SWITCH_BEGIN();
+      switch (oper) {
+      case Operator::ADD:
+        return lhs + rhs;
+      case Operator::SUB:
+        return lhs - rhs;
+      case Operator::MUL:
+        return lhs * rhs;
+      case Operator::DIV:
+        return lhs / rhs;
+      case Operator::REM:
+        return lhs % rhs;
+      }
+      EGG_WARNING_SUPPRESS_SWITCH_END();
+      throw this->unexpectedOperator("binary int", node);
+    }
+    Float operatorBinaryFloat(const INode& node, Operator oper, Float lhs, Float rhs) {
+      EGG_WARNING_SUPPRESS_SWITCH_BEGIN();
+      switch (oper) {
+      case Operator::ADD:
+        return lhs + rhs;
+      case Operator::SUB:
+        return lhs - rhs;
+      case Operator::MUL:
+        return lhs * rhs;
+      case Operator::DIV:
+        return lhs / rhs;
+      case Operator::REM:
+        return std::remainder(lhs, rhs);
+      }
+      EGG_WARNING_SUPPRESS_SWITCH_END();
+      throw this->unexpectedOperator("binary float", node);
+    }
+    Value operatorTernary(const INode& a, const INode& b, const INode& c) {
+      auto cond = this->condition(a, nullptr);
+      if (!cond.isBool()) {
+        return cond;
+      }
+      return cond.getBool() ? this->expression(b) : this->expression(c);
+    }
+    // Implementation
+    Value condition(const INode& node, Block* block) {
+      auto value = this->expression(node, block);
+      if (!value.hasAny(ValueFlags::FlowControl | ValueFlags::Bool)) {
+        return this->raiseNode(node, "Expected condition to evaluate to a 'bool' value, but got '", value.getRuntimeType().toString(), "' instead");
+      }
+      return value;
+    }
+    // Error handling
+    template<typename... ARGS>
+    Value raiseNode(const INode& node, ARGS&&... args) {
+      this->updateLocation(node);
+      return this->raiseLocation(this->location, std::forward<ARGS>(args)...);
+    }
+    void updateLocation(const INode& node) {
+      auto* source = node.getLocation();
+      if (source != nullptr) {
+        this->location.line = source->line;
+        this->location.column = source->column;
+      }
+    }
+    Opcode validateOpcode(const INode& node) const {
+      auto opcode = node.getOpcode();
+      auto& properties = OpcodeProperties::from(opcode);
+      if (!properties.validate(node.getChildren(), node.getOperand() != INode::Operand::None)) {
+        assert(properties.name != nullptr);
+        throw RuntimeException(this->location, "Corrupt opcode: '", properties.name, "'");
+      }
+      return opcode;
+    }
+  public:
+    String identifier(const INode& node) {
+      if (node.getOpcode() != Opcode::IDENTIFIER) {
+        throw this->unexpectedOpcode("identifier", node);
+      }
+      auto& child = node.getChild(0);
+      if (child.getOpcode() != Opcode::SVALUE) {
+        throw this->unexpectedOpcode("svalue", child);
+      }
+      return child.getString();
+    }
+    Type type(const INode& node, const String& name = String()) {
+      auto children = node.getChildren();
+      EGG_WARNING_SUPPRESS_SWITCH_BEGIN();
+      switch (node.getOpcode()) {
+      case Opcode::INFERRED:
+        assert(children == 0);
+        return nullptr;
+      case Opcode::VOID:
+        assert(children == 0);
+        return Type::Void;
+      case Opcode::NULL_:
+        assert(children == 0);
+        return Type::Null;
+      case Opcode::BOOL:
+        if (children == 0) {
+          return Type::Bool;
+        }
+        break;
+      case Opcode::INT:
+        if (children == 0) {
+          return Type::Int;
+        }
+        break;
+      case Opcode::FLOAT:
+        if (children == 0) {
+          return Type::Float;
+        }
+        break;
+      case Opcode::STRING:
+        if (children == 0) {
+          return Type::String;
+        }
+        break;
+      case Opcode::OBJECT:
+        if (children == 0) {
+          return Type::Object;
+        }
+        if (children == 1) {
+          auto& callable = node.getChild(0);
+          if (callable.getOpcode() == Opcode::CALLABLE) {
+            return UserFunction::makeType(this->allocator, *this, name, callable);
+          }
+        }
+        break;
+      case Opcode::ANY:
+        if (children == 0) {
+          return Type::Any;
+        }
+        break;
+      case Opcode::ANYQ:
+        if (children == 0) {
+          return Type::AnyQ;
+        }
+        break;
+      case Opcode::POINTER:
+        if (children == 1) {
+          auto pointee = this->type(node.getChild(0));
+          return Type::makePointer(this->allocator, *pointee);
+        }
+        break;
+      case Opcode::UNION:
+        if (children >= 1) {
+          auto result = this->type(node.getChild(0));
+          for (size_t i = 1; i < children; ++i) {
+            result = Type::makeUnion(this->allocator, *result, *this->type(node.getChild(i)));
+          }
+          return result;
+        }
+        return Type::Void;
+      default:
+        throw this->unexpectedOpcode("type", node);
+      }
+      EGG_WARNING_SUPPRESS_SWITCH_END();
+      this->updateLocation(node);
+      throw RuntimeException(this->location, "Type constraints not yet supported"); // TODO
+    }
+    RuntimeException unexpectedOpcode(const char* expected, const INode& node) {
+      this->updateLocation(node);
+      auto opcode = node.getOpcode();
+      auto name = OpcodeProperties::from(opcode).name;
+      if (name == nullptr) {
+        return RuntimeException(this->location, "Unknown ", expected, " opcode: '<", std::to_string(int(opcode)), ">'");
+      }
+      return RuntimeException(this->location, "Unexpected ", expected, " opcode: '", name, "'");
+    }
+    RuntimeException unexpectedOperator(const char* expected, const INode& node) {
+      this->updateLocation(node);
+      auto oper = node.getOperator();
+      auto name = OperatorProperties::from(oper).name;
+      if (name == nullptr) {
+        return RuntimeException(this->location, "Unknown ", expected, " operator: '<", std::to_string(int(oper)), ">'");
+      }
+      return RuntimeException(this->location, "Unexpected ", expected, " operator: '", name, "'");
+    }
+    template<typename... ARGS>
+    Value raiseLocation(const LocationSource& where, ARGS&&... args) const {
+      LocationRuntime runtime{ where, StringFactory::fromASCIIZ(this->allocator, "<unknown-function>") };
+      auto message = StringBuilder::concat(std::forward<ARGS>(args)...);
+      auto object = ObjectFactory::createVanillaObject(this->allocator);
+      // TODO add runtime location
+      // TODO add message
+      auto value = ValueFactory::createObject(this->allocator, object);
+      return ValueFactory::createFlowControl(this->allocator, ValueFlags::Throw, value);
+    }
+  };
+}
+
+Target::Target(ProgramDefault& program, const INode& node, Block*)
+  : flavour(Flavour::Failed), program(program), node(node) {
+  /* WIBBLE
+  EGG_WARNING_SUPPRESS_SWITCH_BEGIN();
+  switch (node.getOpcode()) {
+  case Opcode::DECLARE:
+    if (block != nullptr) {
+      // Only allow declaration inside a foreach statement
+      this->flavour = program.targetDeclare(node, this->a, *block);
+      return;
+    }
+    break;
+  case Opcode::IDENTIFIER:
+    this->flavour = program.targetIdentifier(node, this->a);
+    return;
+  case Opcode::INDEX:
+    this->flavour = program.targetIndex(node, this->a, this->b);
+    return;
+  case Opcode::PROPERTY:
+    this->flavour = program.targetProperty(node, this->a, this->b);
+    return;
+  case Opcode::UNARY:
+    if (node.getOperator() != Operator::DEREF) {
+      throw program.unexpectedOperator("target", node);
+    }
+    this->flavour = program.targetPointer(node, this->a);
+    return;
+  }
+  EGG_WARNING_SUPPRESS_SWITCH_END();
+  */
+  throw program.unexpectedOpcode("target", node);
+}
+
+Value PredicateFunction::call(IExecution&, const IParameters& parameters) {
+  assert(parameters.getNamedCount() == 0);
+  assert(parameters.getPositionalCount() == 0);
+  (void)parameters; // ignore the parameters
+  // WIBBLE return this->program.executePredicate(this->location, *this->node);
+  return this->program.raiseLocation(this->location, "WIBBLE: PredicateFunction::call not yet implemented");
+}
+
+Value UserFunction::call(IExecution&, const IParameters&) {
+  auto signature = this->type->callable();
+  assert(signature != nullptr);
+  (void)signature;
+  // WIBBLE assert(this->captured != nullptr);
+  // WIBBLE return this->program.executeCall(this->location, *signature, parameters, *this->block, *this->captured);
+  return this->program.raiseLocation(this->location, "WIBBLE: UserFunction::call not yet implemented");
+}
+
+Value Target::check() const {
+  if (this->flavour == Flavour::Failed) {
+    // Return the problem we saved in the constructor
+    return this->a;
+  }
+  return Value::Void;
+}
+
+Value Target::assign(const Value& rhs) const {
+  return this->set(rhs);
+}
+
+Value Target::nudge(Int rhs) const {
+  assert(rhs != 0);
+  Value v;
+  if (this->ref(v)) {
+    if (v.isInt()) {
+      // Nudge directly
+      return Target::raise("WIBBLE: Cannot nudge references yet");
+    }
+  } else {
+    // Need to get/nudge/set
+    v = this->get();
+    if (v.hasFlowControl()) {
+      return v;
+    }
+    if (v.isInt()) {
+      auto nudged = v.getInt() + rhs;
+      return this->set(ValueFactory::createInt(this->program.getAllocator(), nudged));
+    }
+  }
+  if (rhs < 0) {
+    return Target::unexpected(v, "Expected decrement '--' operation to be applied to an 'int' value");
+  }
+  return Target::unexpected(v, "Expected increment '++' operation to be applied to an 'int' value");
+}
+
+Value Target::mutate(const INode& opnode, const INode& rhs) const {
+  Value v;
+  if (this->ref(v)) {
+    // Mutate directly
+    return this->apply(opnode, v, rhs);
+  }
+  // Need to get/mutate/set
+  v = this->get();
+  if (v.hasFlowControl()) {
+    return v;
+  }
+  auto retval = this->apply(opnode, v, rhs);
+  if (retval.hasFlowControl()) {
+    return retval;
+  }
+  return this->set(v);
+}
+
+egg::ovum::Value Target::apply(const INode& opnode, Value& lvalue, const INode&) const {
+  // Handle "short-circuit" cases before evaluating the rhs
+  auto oper = opnode.getOperator();
+  EGG_WARNING_SUPPRESS_SWITCH_BEGIN();
+  switch (oper) {
+  case Operator::IFNULL:
+    // Don't evaluate rhs of (lhs ??= rhs) unless lhs is null
+    if (!lvalue->getNull()) {
+      // Do nothing
+      return Value::Void;
+    }
+    break;
+  case Operator::LOGAND:
+    // Don't evaluate rhs of (lhs &&= rhs) if lhs is false
+    if (lvalue.isBool() && !lvalue.getBool()) {
+      return Value::Void;
+    }
+    break;
+  case Operator::LOGOR:
+    // Don't evaluate rhs of (lhs ||= rhs) if lhs is true
+    if (lvalue.isBool() && lvalue.getBool()) {
+      return Value::Void;
+    }
+    break;
+  }
+  EGG_WARNING_SUPPRESS_SWITCH_END();
+  /* WIBBLE
+  auto rvalue = this->program.targetExpression(rhs);
+  if (rvalue.hasFlowControl()) {
+    return rvalue;
+  }
+  auto result = Binary::apply(oper, lvalue, rvalue);
+  if (result.is(ValueFlags::Break)) {
+    throw this->program.unexpectedOperator("target binary", opnode);
+  }
+  return result;
+  */
+  throw this->program.unexpectedOperator("target binary", opnode);
+}
+
+bool Target::ref(Value& pointee) const {
+  // Return null iff we cannot modify in-place
+  switch (this->flavour) {
+  case Flavour::Identifier:
+    // WIBBLE pointee = this->program.targetSymbol(this->node, this->a.getString()).value;
+    return false;
+  case Flavour::Pointer:
+    pointee = this->a.getPointee();
+    return true;
+  case Flavour::Index:
+  case Flavour::Property:
+  case Flavour::Failed:
+    break;
+  }
+  return false;
+}
+
+Value Target::get() const {
+  switch (this->flavour) {
+  case Flavour::Identifier:
+    // WIBBLE return this->program.targetSymbol(this->node, this->a.getString()).value;
+    return this->raise("WIBBLE: Getting identifiers not yet supported");
+  case Flavour::Index:
+    return this->a.getObject()->getIndex(this->program, this->b);
+  case Flavour::Pointer:
+    return this->a.getPointee();
+  case Flavour::Property:
+    return this->a.getObject()->getProperty(this->program, this->b.getString());
+  case Flavour::Failed:
+    break;
+  }
+  // Return the problem we saved in the constructor
+  return this->a;
+}
+
+Value Target::set(const Value& value) const {
+  switch (this->flavour) {
+  case Flavour::Identifier:
+    // WIBBLE return this->program.targetSymbol(this->node, this->a.getString()).tryAssign(this->program, value);
+    return this->raise("WIBBLE: Setting identifiers not yet supported");
+  case Flavour::Index:
+    return this->a.getObject()->setIndex(this->program, this->b, value);
+  case Flavour::Pointer:
+    assert(false);
+    this->a.getPointee() = value; // VIBBLE
+    return Value::Void; // TODO always succeeds?
+  case Flavour::Property:
+    return this->a.getObject()->setProperty(this->program, this->b.getString(), value);
+  case Flavour::Failed:
+    break;
+  }
+  // Return the problem we saved in the constructor
+  return this->a;
+}
+
+Value Target::raise(const String&) const {
+  auto& allocator = this->program.getAllocator();
+  auto object = ObjectFactory::createVanillaObject(allocator);
+  // TODO add message
+  auto value = ValueFactory::createObject(allocator, object);
+  return ValueFactory::createFlowControl(allocator, ValueFlags::Throw, value);
+}
+
+Block::~Block() {
+  /* WIBBLE
+  // Undeclare all the names successfully declared by this block
+  for (auto& i : this->declared) {
+    this->program.blockUndeclare(i);
+  }
+  */
+}
+
+egg::ovum::Value Block::declare(const LocationSource& source, const Type&, const String& name, const Value*) {
+  return this->program.raiseLocation(source, "WIBBLE: Block::declare not yet implemented: '", name, "'");
+  /* WIBBLE
+  // Keep track of names successfully declared in this block
+  auto* symbol = this->program.blockDeclare(source, type, name);
+  if (symbol == nullptr) {
+    return this->program.raiseLocation(source, "Duplicate name in declaration: '", name, "'");
+  }
+  if (init != nullptr) {
+    auto retval = symbol->tryAssign(this->program, *init);
+    if (!retval.isVoid()) {
+      this->program.blockUndeclare(name);
+      return retval;
+    }
+  }
+  this->declared.insert(name);
+  return Value::Void;
+  */
+}
+
+egg::ovum::Value Block::guard(const LocationSource& source, const Type&, const String& name, const Value&) {
+  return this->program.raiseLocation(source, "WIBBLE: Block::guard not yet implemented: '", name, "'");
+  /* WIBBLE
+  // Keep track of names successfully declared in this block
+  auto* symbol = this->program.blockDeclare(source, type, name);
+  if (symbol == nullptr) {
+    return this->program.raiseLocation(source, "Duplicate name in declaration: '", name, "'");
+  }
+  auto retval = symbol->tryAssign(this->program, init);
+  if (!retval.isVoid()) {
+    this->program.blockUndeclare(name);
+    return Value::False;
+  }
+  this->declared.insert(name);
+  return Value::True;
+  */
+}
+
+egg::ovum::Type UserFunction::makeType(IAllocator& allocator, ProgramDefault& program, const String& name, const INode& callable) {
+  // Create a type appropriate for a standard "user" function
+  assert(callable.getOpcode() == Opcode::CALLABLE);
+  auto n = callable.getChildren();
+  assert(n >= 1);
+  auto rettype = program.type(callable.getChild(0));
+  assert(rettype != nullptr);
+  HardPtr<ITypeFunction> function{ Type::makeFunction(allocator, name, rettype) };
+  for (size_t i = 1; i < n; ++i) {
+    auto& parameter = callable.getChild(i);
+    auto c = parameter.getChildren();
+    size_t pindex = i - 1;
+    IFunctionSignatureParameter::Flags pflags;
+    EGG_WARNING_SUPPRESS_SWITCH_BEGIN();
+    switch (parameter.getOpcode()) {
+    case Opcode::REQUIRED:
+      assert((c == 1) || (c == 2));
+      pflags = IFunctionSignatureParameter::Flags::Required;
+      break;
+    case Opcode::OPTIONAL:
+      assert((c == 1) || (c == 2));
+      pflags = IFunctionSignatureParameter::Flags::None;
+      break;
+    case Opcode::VARARGS:
+      assert(c >= 2);
+      pflags = IFunctionSignatureParameter::Flags::Variadic;
+      if (c > 2) {
+        // TODO We assume the constraint is "length > 0" meaning required
+        pflags = Bits::set(pflags, IFunctionSignatureParameter::Flags::Required);
+      }
+      break;
+    case Opcode::BYNAME:
+      assert(c == 2);
+      pindex = SIZE_MAX;
+      pflags = IFunctionSignatureParameter::Flags::None;
+      break;
+    default:
+      throw program.unexpectedOpcode("function type parameter", parameter);
+    }
+    EGG_WARNING_SUPPRESS_SWITCH_END();
+    String pname;
+    if (c > 1) {
+      pname = program.identifier(parameter.getChild(1));
+    }
+    auto ptype = program.type(parameter.getChild(0), pname);
+    function->addParameter(pname, ptype, pflags, pindex);
+  }
+  return Type(function.get());
+}
+
+egg::ovum::Program egg::ovum::ProgramFactory::createProgram(IAllocator& allocator, ILogger& logger) {
+  auto basket = BasketFactory::createBasket(allocator);
+  auto program = allocator.make<ProgramDefault>(*basket, logger);
+  program->addBuiltins();
+  return program;
+}

@@ -50,6 +50,10 @@ namespace {
   };
 }
 
-egg::ovum::Object egg::ovum::ObjectFactory::createVanilla(IAllocator& allocator) {
+egg::ovum::Object egg::ovum::ObjectFactory::createVanillaObject(IAllocator& allocator) {
+  return ObjectFactory::create<ObjectVanilla>(allocator);
+}
+
+egg::ovum::Object egg::ovum::ObjectFactory::createVanillaArray(IAllocator& allocator, size_t) {
   return ObjectFactory::create<ObjectVanilla>(allocator);
 }

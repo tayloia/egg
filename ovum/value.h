@@ -91,6 +91,36 @@ namespace egg::ovum {
     }
     // Debugging
     bool validate() const;
+    // WIBBLE WOBBLE
+    bool hasAny(ValueFlags flags) const { return Bits::hasAnySet(this->get().getFlags(), flags); }
+    bool hasFlowControl() const { return this->hasAny(ValueFlags::FlowControl); }
+    bool hasString() const { return this->hasAny(ValueFlags::String); }
+    bool hasObject() const { return this->hasAny(ValueFlags::Object); }
+    bool hasPointer() const { return this->hasAny(ValueFlags::Pointer); }
+    bool is(ValueFlags flags) const { return this->get().getFlags() == flags; }
+    bool isVoid() const { return this->is(ValueFlags::Void); }
+    bool isBool() const { return this->is(ValueFlags::Bool); }
+    bool isInt() const { return this->is(ValueFlags::Int); }
+    bool isFloat() const { return this->is(ValueFlags::Float); }
+    Bool getBool() const { Bool value; this->get().getBool(value); return value; }
+    Int getInt() const { Int value; this->get().getInt(value); return value; }
+    Float getFloat() const { Float value; this->get().getFloat(value); return value; }
+    String getString() const { String value; this->get().getString(value); return value; }
+    Object getObject() const { Object value; this->get().getObject(value); return value; }
+    Value getPointee() const { Value value; this->get().getChild(value); return value; }
+    String toString() const { return this->get().toString(); }
+    Type getRuntimeType() const { return this->get().getRuntimeType(); }
+    bool stripFlowControl(ValueFlags flags) {
+      if (Bits::hasAllSet(this->get().getFlags(), flags)) {
+        Value child;
+        if (this->get().getChild(child)) {
+          *this = child;
+        } else {
+          *this = Value::Void;
+        }
+      }
+      return false;
+    }
     // Constants
     static const Value Void;
     static const Value Null;
@@ -151,5 +181,12 @@ namespace egg::ovum {
     static Value create(IAllocator& allocator, const Object& value) {
       return createObject(allocator, value);
     }
+
+    // Standard builtins
+    static Value createBuiltinAssert(IAllocator& allocator);
+    static Value createBuiltinPrint(IAllocator& allocator);
+    static Value createBuiltinString(IAllocator& allocator);
+    static Value createBuiltinType(IAllocator& allocator);
+    static Value createStringProperty(IAllocator& allocator, const String& string, const String& property);
   };
 }
