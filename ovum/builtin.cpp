@@ -116,7 +116,7 @@ namespace {
   public:
     BuiltinFunction(IAllocator& allocator, const String& name, const Type& rettype)
       : BuiltinBase(allocator, StringBuilder::concat(name, "()")),
-        type(Type::makeFunction(allocator, name, rettype)) {
+        type(TypeFactory::createFunction(allocator, name, rettype)) {
     }
     virtual void softVisitLinks(const Visitor&) const override {
       // There are no soft links to visit

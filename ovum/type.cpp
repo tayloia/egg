@@ -74,7 +74,7 @@ namespace {
       // The superset check above should ensure this will not result in infinite recursion
       return rhs.makeUnion(allocator, lhs);
     }
-    return Type::makeSimple(allocator, flhs | frhs);
+    return TypeFactory::createSimple(allocator, flhs | frhs);
   }
 
   // An 'omni' function looks like this: 'any?(...any?[])'
@@ -347,34 +347,213 @@ namespace {
     }
   };
 
+  class FunctionSignatureParameter : public IFunctionSignatureParameter {
+  private:
+    String name; // may be empty
+    Type type;
+    size_t position; // may be SIZE_MAX
+    Flags flags;
+  public:
+    FunctionSignatureParameter(const String& name, const Type& type, size_t position, Flags flags)
+      : name(name), type(type), position(position), flags(flags) {
+    }
+    virtual String getName() const override {
+      return this->name;
+    }
+    virtual Type getType() const override {
+      return this->type;
+    }
+    virtual size_t getPosition() const override {
+      return this->position;
+    }
+    virtual Flags getFlags() const override {
+      return this->flags;
+    }
+  };
+
+  class FunctionSignature : public IFunctionSignature {
+  private:
+    String name;
+    Type rettype;
+    std::vector<FunctionSignatureParameter> parameters;
+  public:
+    FunctionSignature(const String& name, const Type& rettype)
+      : name(name), rettype(rettype) {
+    }
+    void addSignatureParameter(const String& parameterName, const Type& parameterType, size_t position, IFunctionSignatureParameter::Flags flags) {
+      this->parameters.emplace_back(parameterName, parameterType, position, flags);
+    }
+    virtual String getFunctionName() const override {
+      return this->name;
+    }
+    virtual Type getReturnType() const override {
+      return this->rettype;
+    }
+    virtual size_t getParameterCount() const override {
+      return this->parameters.size();
+    }
+    virtual const IFunctionSignatureParameter& getParameter(size_t index) const override {
+      assert(index < this->parameters.size());
+      return this->parameters[index];
+    }
+    // Helpers
+    enum class Parts {
+      ReturnType = 0x01,
+      FunctionName = 0x02,
+      ParameterList = 0x04,
+      ParameterNames = 0x08,
+      NoNames = ReturnType | ParameterList,
+      All = ReturnType | FunctionName | ParameterList | ParameterNames
+    };
+    static void build(StringBuilder& sb, const IFunctionSignature& signature, Parts parts = Parts::All) {
+      // TODO better formatting of named/variadic etc.
+      if (Bits::hasAnySet(parts, Parts::ReturnType)) {
+        // Use precedence zero to get any necessary parentheses
+        sb.add(signature.getReturnType().toString(0));
+      }
+      if (Bits::hasAnySet(parts, Parts::FunctionName)) {
+        auto name = signature.getFunctionName();
+        if (!name.empty()) {
+          sb.add(' ', name);
+        }
+      }
+      if (Bits::hasAnySet(parts, Parts::ParameterList)) {
+        sb.add('(');
+        auto n = signature.getParameterCount();
+        for (size_t i = 0; i < n; ++i) {
+          if (i > 0) {
+            sb.add(", ");
+          }
+          auto& parameter = signature.getParameter(i);
+          assert(parameter.getPosition() != SIZE_MAX);
+          if (Bits::hasAnySet(parameter.getFlags(), IFunctionSignatureParameter::Flags::Variadic)) {
+            sb.add("...");
+          } else {
+            sb.add(parameter.getType().toString());
+            if (Bits::hasAnySet(parts, Parts::ParameterNames)) {
+              auto pname = parameter.getName();
+              if (!pname.empty()) {
+                sb.add(' ', pname);
+              }
+            }
+            if (!Bits::hasAnySet(parameter.getFlags(), IFunctionSignatureParameter::Flags::Required)) {
+              sb.add(" = null");
+            }
+          }
+        }
+        sb.add(')');
+      }
+    }
+  };
+
+  class FunctionType : public HardReferenceCounted<ITypeFunction> {
+    FunctionType(const FunctionType&) = delete;
+    FunctionType& operator=(const FunctionType&) = delete;
+  protected:
+    FunctionSignature signature;
+  public:
+    FunctionType(IAllocator& allocator, const String& name, const Type& rettype)
+      : HardReferenceCounted(allocator, 0),
+        signature(name, rettype) {
+    }
+    // Interface
+    virtual ValueFlags getFlags() const override {
+      return ValueFlags::Object;
+    }
+    virtual Type makeUnion(IAllocator& allocator2, const IType& rhs) const override {
+      assert(&this->allocator == &allocator2);
+      return makeUnionJoin(allocator2, *this, rhs);
+    }
+    virtual Assignable assignable(const IType& rhs) const override {
+      // We can assign if the signatures are the same or equal
+      auto* rsig = rhs.callable();
+      if (rsig == nullptr) {
+        return Assignable::Never;
+      }
+      auto* lsig = &this->signature;
+      if (lsig == rsig) {
+        return Assignable::Always;
+      }
+      // TODO fuzzy matching of signatures
+      if (lsig->getParameterCount() != rsig->getParameterCount()) {
+        return Assignable::Never;
+      }
+      return Assignable::Sometimes; // TODO
+    }
+    virtual const IFunctionSignature* callable() const override {
+      return &this->signature;
+    }
+    virtual const IIndexSignature* indexable() const override {
+      return nullptr;
+    }
+    virtual const IDotSignature* dotable() const override {
+      return nullptr;
+    }
+    virtual const IPointSignature* pointable() const override {
+      return nullptr;
+    }
+    virtual std::pair<std::string, int> toStringPrecedence() const override {
+      // Do not include names in the signature
+      StringBuilder sb;
+      FunctionSignature::build(sb, this->signature, FunctionSignature::Parts::NoNames);
+      return std::make_pair(sb.toUTF8(), 0);
+    }
+    virtual void addParameter(const String& name, const Type& type, IFunctionSignatureParameter::Flags flags, size_t index = SIZE_MAX) override {
+      assert((index == SIZE_MAX) || (index == this->signature.getParameterCount()));
+      this->signature.addSignatureParameter(name, type, index, flags);
+    }
+  };
+
+  class GeneratorFunctionType : public FunctionType {
+    GeneratorFunctionType(const GeneratorFunctionType&) = delete;
+    GeneratorFunctionType& operator=(const GeneratorFunctionType&) = delete;
+  private:
+    Type rettype;
+  public:
+    explicit GeneratorFunctionType(IAllocator& allocator, const Type& rettype)
+      : FunctionType(allocator, String(), TypeFactory::createUnion(allocator, *rettype, *Type::Void)),
+        rettype(rettype) {
+      assert(!egg::ovum::Bits::hasAnySet(rettype->getFlags(), egg::ovum::ValueFlags::Void));
+    }
+    virtual std::pair<std::string, int> toStringPrecedence() const override {
+      // Format a string along the lines of '<rettype>...'
+      return std::make_pair(this->rettype.toString(0).toUTF8() + "...", 0);
+    }
+    virtual Type iterable() const {
+      // We are indeed iterable
+      return this->rettype;
+    }
+  };
+
   Type makeUnionJoin(IAllocator& allocator, const IType& lhs, const IType& rhs) {
     return allocator.make<TypeUnion, Type>(lhs, rhs);
   }
 }
 
-egg::ovum::Type egg::ovum::Type::makeSimple(IAllocator& allocator, ValueFlags flags) {
+egg::ovum::Type egg::ovum::TypeFactory::createSimple(IAllocator& allocator, ValueFlags flags) {
   // OPTIMIZE for known types
   return allocator.make<TypeSimple, Type>(flags);
 }
 
-egg::ovum::Type egg::ovum::Type::makePointer(IAllocator& allocator, const IType& pointee) {
+egg::ovum::Type egg::ovum::TypeFactory::createPointer(IAllocator& allocator, const IType& pointee) {
   // OPTIMIZE with lazy pointer types in values instantiated when address-of is invoked
   return allocator.make<TypePointer, Type>(pointee);
 }
 
-egg::ovum::Type egg::ovum::Type::makeUnion(IAllocator& allocator, const IType& a, const IType& b) {
+egg::ovum::Type egg::ovum::TypeFactory::createUnion(IAllocator& allocator, const IType& a, const IType& b) {
   if (&a == &b) {
     return Type(&a);
   }
   return a.makeUnion(allocator, b);
 }
 
-egg::ovum::ITypeFunction* egg::ovum::Type::makeFunction(IAllocator& allocator, const egg::ovum::String& name, const Type& rettype) {
-  // WIBBLE
-  (void)allocator;
-  (void)name;
-  (void)rettype;
-  return nullptr;
+egg::ovum::ITypeFunction* egg::ovum::TypeFactory::createFunction(IAllocator& allocator, const String& name, const Type& rettype) {
+  return allocator.create<FunctionType>(0, allocator, name, rettype);
+}
+
+egg::ovum::ITypeFunction* egg::ovum::TypeFactory::createGenerator(IAllocator& allocator, const String& name, const Type& rettype) {
+  // Convert the return type (e.g. 'int') into a generator function 'int...' aka '(void|int)()'
+  return allocator.create<FunctionType>(0, allocator, name, allocator.make<GeneratorFunctionType, Type>(rettype));
 }
 
 // Common types

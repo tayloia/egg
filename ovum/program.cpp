@@ -611,7 +611,7 @@ namespace {
       // We have to be careful to ensure the function is declared before capturing symbols so that recursion works correctly
       auto fvalue = ValueFactory::createObject(this->allocator, Object(*function));
       auto retval = block.declare(this->location, ftype, fname, &fvalue);
-      // WIBBLE function->setCaptured(this->symtable); // VIBBLE was cloneIndirect
+      // WIBBLE function->setCaptured(this->symtable); // WIBBLE was cloneIndirect
       return retval;
     }
     Value statementIf(const INode& node) {
@@ -1471,14 +1471,14 @@ namespace {
       case Opcode::POINTER:
         if (children == 1) {
           auto pointee = this->type(node.getChild(0));
-          return Type::makePointer(this->allocator, *pointee);
+          return TypeFactory::createPointer(this->allocator, *pointee);
         }
         break;
       case Opcode::UNION:
         if (children >= 1) {
           auto result = this->type(node.getChild(0));
           for (size_t i = 1; i < children; ++i) {
-            result = Type::makeUnion(this->allocator, *result, *this->type(node.getChild(i)));
+            result = TypeFactory::createUnion(this->allocator, *result, *this->type(node.getChild(i)));
           }
           return result;
         }
@@ -1809,7 +1809,7 @@ egg::ovum::Type UserFunction::makeType(IAllocator& allocator, ProgramDefault& pr
   assert(n >= 1);
   auto rettype = program.type(callable.getChild(0));
   assert(rettype != nullptr);
-  HardPtr<ITypeFunction> function{ Type::makeFunction(allocator, name, rettype) };
+  HardPtr<ITypeFunction> function{ TypeFactory::createFunction(allocator, name, rettype) };
   for (size_t i = 1; i < n; ++i) {
     auto& parameter = callable.getChild(i);
     auto c = parameter.getChildren();

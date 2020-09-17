@@ -1279,13 +1279,17 @@ std::shared_ptr<egg::yolk::IEggProgramNode> egg::yolk::EggSyntaxNode_FunctionDef
   assert(this->child.size() >= 2);
   size_t parameters = this->child.size() - 2;
   auto rettype = context.promote(*this->child[0])->getType();
+  egg::ovum::ITypeFunction* underlying;
   if (this->generator) {
-    throw exceptionFromLocation(context, "WIBBLE Generators not supported", *this);
+    // Generators cannot explicitly return voids
+    if (egg::ovum::Bits::hasAnySet(rettype->getFlags(), egg::ovum::ValueFlags::Void)) {
+      throw exceptionFromLocation(context, "The return value of a generator may not include 'void'", *this);
+    }
+    underlying = egg::ovum::TypeFactory::createGenerator(context.allocator(), this->name, rettype);
+  } else {
+    underlying = egg::ovum::TypeFactory::createFunction(context.allocator(), this->name, rettype);
   }
-  auto* underlying = egg::ovum::Type::makeFunction(context.allocator(), this->name, rettype);
-  if (underlying == nullptr) {
-    throw exceptionFromLocation(context, "WIBBLE User functions not supported", *this);
-  }
+  assert(underlying != nullptr);
   egg::ovum::Type function{ underlying }; // takes ownership
   egg::ovum::String parameter_name;
   auto parameter_type = egg::ovum::Type::Void;
@@ -1567,7 +1571,7 @@ egg::ovum::Type EggParserNode_UnaryLogicalNot::getType() const {
 
 egg::ovum::Type EggParserNode_UnaryRef::getType() const {
   auto pointee = this->expr->getType();
-  return egg::ovum::Type::makePointer(*this->allocator, *pointee);
+  return egg::ovum::TypeFactory::createPointer(*this->allocator, *pointee);
 }
 
 egg::ovum::Type EggParserNode_UnaryDeref::getType() const {
@@ -1670,7 +1674,7 @@ egg::ovum::Type EggParserNode_BinaryNullCoalescing::getType() const {
     // The left-hand-side is only ever null, so only the right side is relevant
     return type2;
   }
-  return egg::ovum::Type::makeUnion(*this->allocator, *type1, *type2);
+  return egg::ovum::TypeFactory::createUnion(*this->allocator, *type1, *type2);
   */
 }
 
@@ -1694,7 +1698,7 @@ egg::ovum::Type EggParserNode_Ternary::getType() const {
   }
   auto type2 = this->whenTrue->getType();
   auto type3 = this->whenFalse->getType();
-  return egg::ovum::Type::makeUnion(*this->allocator, *type2, *type3);
+  return egg::ovum::TypeFactory::createUnion(*this->allocator, *type2, *type3);
 }
 
 std::shared_ptr<egg::yolk::IEggProgramNode> egg::yolk::EggParserFactory::parseModule(egg::ovum::IAllocator& allocator, TextStream& stream) {

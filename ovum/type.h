@@ -69,10 +69,14 @@ namespace egg::ovum {
     static const Type Arithmetic;
     static const Type Any;
     static const Type AnyQ;
-    // Factories
-    static Type makeSimple(IAllocator& allocator, ValueFlags flags);
-    static Type makePointer(IAllocator& allocator, const IType& pointee);
-    static Type makeUnion(IAllocator& allocator, const IType& a, const IType& b);
-    static ITypeFunction* makeFunction(IAllocator& allocator, const egg::ovum::String& name, const Type& rettype);
+  };
+
+  class TypeFactory {
+  public:
+    static Type createSimple(IAllocator& allocator, ValueFlags flags);
+    static Type createPointer(IAllocator& allocator, const IType& pointee);
+    static Type createUnion(IAllocator& allocator, const IType& a, const IType& b);
+    static ITypeFunction* createFunction(IAllocator& allocator, const egg::ovum::String& name, const Type& rettype);
+    static ITypeFunction* createGenerator(IAllocator& allocator, const egg::ovum::String& name, const Type& rettype);
   };
 }

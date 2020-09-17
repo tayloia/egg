@@ -194,7 +194,7 @@ namespace egg::ovum {
 
   class ITypeFunction : public IType {
   public:
-    virtual void addParameter(const String& name, const Type& type, IFunctionSignatureParameter::Flags flags, size_t index = SIZE_MAX);
+    virtual void addParameter(const String& name, const Type& type, IFunctionSignatureParameter::Flags flags, size_t index = SIZE_MAX) = 0;
   };
 
   class IObject : public ICollectable {

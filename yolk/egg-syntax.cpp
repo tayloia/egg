@@ -1925,7 +1925,7 @@ bool EggSyntaxParserContext::parseTypeExpression(egg::ovum::Type& type) {
       if (!this->parseTypePostfixExpression(other)) {
         this->unexpected("Expected type to follow '|' in type expression", mark.peek(0));
       }
-      type = egg::ovum::Type::makeUnion(*this->allocator, *type, *other);
+      type = egg::ovum::TypeFactory::createUnion(*this->allocator, *type, *other);
     }
     mark.accept(0);
     return true;
@@ -1955,7 +1955,7 @@ bool EggSyntaxParserContext::parseTypePostfixExpression(egg::ovum::Type& type) {
           this->unexpected("Redundant repetition of '?' in type expression");
         }
         mark.advance(1);
-        type = egg::ovum::Type::makeUnion(*this->allocator, *egg::ovum::Type::Null, *type);
+        type = egg::ovum::TypeFactory::createUnion(*this->allocator, *egg::ovum::Type::Null, *type);
         nullabled = true;
         continue;
       }
@@ -1963,7 +1963,7 @@ bool EggSyntaxParserContext::parseTypePostfixExpression(egg::ovum::Type& type) {
       if (p0.isOperator(EggTokenizerOperator::Star)) {
         // Pointer reference to 'type'
         mark.advance(1);
-        type = egg::ovum::Type::makePointer(*this->allocator, *type);
+        type = egg::ovum::TypeFactory::createPointer(*this->allocator, *type);
         continue;
       }
       if (p0.isOperator(EggTokenizerOperator::ParenthesisLeft)) {
@@ -1991,7 +1991,7 @@ egg::ovum::Type EggSyntaxParserContext::parseTypePostfixFunction(const egg::ovum
   // cppcheck-suppress assertWithSideEffect
   assert(mark.peek(0).isOperator(EggTokenizerOperator::ParenthesisLeft));
   mark.advance(1);
-  auto* underlying = egg::ovum::Type::makeFunction(*this->allocator, egg::ovum::String(), rettype);
+  auto* underlying = egg::ovum::TypeFactory::createFunction(*this->allocator, egg::ovum::String(), rettype);
   egg::ovum::Type function{ underlying };
   for (size_t index = 0; !mark.peek(0).isOperator(EggTokenizerOperator::ParenthesisRight); ++index) {
     egg::ovum::Type ptype{ egg::ovum::Type::Void };
@@ -2067,7 +2067,7 @@ bool EggSyntaxParserContext::parseTypePrimaryExpression(egg::ovum::Type& type) {
   auto flags = keywordToFlags(p0);
   if (flags != egg::ovum::ValueFlags::None) {
     mark.accept(1);
-    type = egg::ovum::Type::makeSimple(*this->allocator, flags);
+    type = egg::ovum::TypeFactory::createSimple(*this->allocator, flags);
     return true;
   }
   return false;
