@@ -102,6 +102,8 @@
       <AdditionalIncludeDirectories Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(GoogleTest);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <AdditionalIncludeDirectories Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(GoogleTest);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
+    <ClCompile Include="..\yolk\test\egg-engine.cpp" />
+    <ClCompile Include="..\yolk\test\egg-parser.cpp" />
     <ClCompile Include="..\yolk\test\egg-syntax.cpp" />
     <ClCompile Include="..\yolk\test\egg-tokenizer.cpp" />
     <ClCompile Include="..\yolk\test\egged-tokenizer.cpp" />

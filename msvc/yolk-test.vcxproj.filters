@@ -245,6 +245,12 @@
     <ClCompile Include="..\yolk\test\examples.cpp">
       <Filter>Test Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\yolk\test\egg-engine.cpp">
+      <Filter>Test Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\yolk\test\egg-parser.cpp">
+      <Filter>Test Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\ovum\test\gtest.h">

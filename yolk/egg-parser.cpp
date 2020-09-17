@@ -5,15 +5,6 @@
 #include "yolk/egg-parser.h"
 #include "yolk/egg-engine.h"
 
-class egg::yolk::IEggProgramNode {
-public:
-  virtual ~IEggProgramNode() {}
-  virtual egg::ovum::Type getType() const = 0;
-  virtual egg::ovum::LocationSource location() const = 0;
-  virtual bool symbol(egg::ovum::String& nameOut, egg::ovum::Type& typeOut) const = 0;
-  virtual void dump(std::ostream& os) const = 0;
-};
-
 namespace {
   using namespace egg::yolk;
 
