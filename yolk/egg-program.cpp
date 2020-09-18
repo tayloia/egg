@@ -5,37 +5,8 @@
 #include "yolk/egg-parser.h"
 #include "yolk/egg-engine.h"
 #include "yolk/egg-program.h"
-#include "ovum/test/ctest.h"
 
 #include <cmath>
-
-namespace {
-  // The yolk system expects a shared_ptr to a logger, so we use this adapter for testing
-  class Relogger : public egg::ovum::ILogger {
-  private:
-    ILogger* logger;
-  public:
-    explicit Relogger(ILogger& logger) : logger(&logger) {
-    }
-    virtual void log(Source source, Severity severity, const std::string & message) override {
-      this->logger->log(source, severity, message);
-    }
-  };
-
-  egg::ovum::Module compileModule(egg::ovum::IAllocator& allocator, egg::ovum::ILogger& logger, egg::yolk::TextStream& stream) {
-    auto relogger = std::make_shared<Relogger>(logger);
-    auto engine = egg::yolk::EggEngineFactory::createEngineFromTextStream(stream);
-    auto context = egg::yolk::EggEngineFactory::createContext(allocator, relogger);
-    if (engine->prepare(*context) == egg::ovum::ILogger::Severity::Error) {
-      return nullptr;
-    }
-    egg::ovum::Module module;
-    if (engine->compile(*context, module) == egg::ovum::ILogger::Severity::Error) {
-      return nullptr;
-    }
-    return module;
-  }
-}
 
 void egg::yolk::EggProgramSymbol::setInferredType(const egg::ovum::Type& inferred) {
   // We only allow inferred type updates
@@ -709,31 +680,4 @@ egg::ovum::IAllocator& egg::yolk::EggProgramContext::getAllocator() const {
 egg::ovum::IBasket& egg::yolk::EggProgramContext::getBasket() const {
   assert(this->basket != nullptr);
   return *this->basket;
-}
-
-egg::ovum::Module egg::test::Compiler::compileFile(egg::ovum::IAllocator& allocator, egg::ovum::ILogger& logger, const std::string& path) {
-  egg::yolk::FileTextStream stream(path);
-  return compileModule(allocator, logger, stream);
-}
-
-egg::ovum::Module egg::test::Compiler::compileText(egg::ovum::IAllocator& allocator, egg::ovum::ILogger& logger, const std::string& source) {
-  egg::yolk::StringTextStream stream(source);
-  return compileModule(allocator, logger, stream);
-}
-
-egg::ovum::Value egg::test::Compiler::run(egg::ovum::IAllocator& allocator, egg::ovum::ILogger& logger, const std::string& path) {
-  auto module = egg::test::Compiler::compileFile(allocator, logger, path);
-  if (module == nullptr) {
-    return egg::ovum::Value::Rethrow;
-  }
-  auto program = egg::ovum::ProgramFactory::createProgram(allocator, logger);
-  auto result = program->run(*module);
-  if (result.hasAnyFlags(egg::ovum::ValueFlags::Throw)) {
-    egg::ovum::Value thrown;
-    if (result->getChild(thrown)) {
-      // Don't log a rethrow
-      logger.log(egg::ovum::ILogger::Source::User, egg::ovum::ILogger::Severity::Error, thrown->toString().toUTF8());
-    }
-  }
-  return result;
 }
