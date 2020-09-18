@@ -4,6 +4,7 @@
 #include "yolk/egg-syntax.h"
 #include "yolk/egg-parser.h"
 #include "yolk/egg-engine.h"
+#include "yolk/egg-program.h"
 
 using namespace egg::yolk;
 

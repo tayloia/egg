@@ -1,12 +1,5 @@
 namespace egg::yolk {
-  class IEggProgramNode {
-  public:
-    virtual ~IEggProgramNode() {}
-    virtual egg::ovum::Type getType() const = 0;
-    virtual egg::ovum::LocationSource location() const = 0;
-    virtual bool symbol(egg::ovum::String& nameOut, egg::ovum::Type& typeOut) const = 0;
-    virtual void dump(std::ostream& os) const = 0;
-  };
+  class IEggProgramNode;
 
   class IEggEnginePreparationContext : public egg::ovum::ILogger {
   public:

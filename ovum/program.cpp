@@ -316,13 +316,8 @@ namespace {
     virtual IBasket& getBasket() const override {
       return *this->basket;
     }
-    virtual Value raise(const String&) override {
-      LocationRuntime runtime{ this->location, StringFactory::fromASCIIZ(this->allocator, "<unknown-function>") };
-      auto object = ObjectFactory::createVanillaObject(this->allocator);
-      // TODO add runtime location
-      // TODO add message
-      auto value = ValueFactory::createObject(this->allocator, object);
-      return ValueFactory::createFlowControl(this->allocator, ValueFlags::Throw, value);
+    virtual Value raise(const String& message) override {
+      return ValueFactory::createException(this->allocator, this->location, message);
     }
     virtual Value assertion(const Value& predicate) override {
       Object object;
@@ -1135,7 +1130,7 @@ namespace {
       return ValueFactory::createString(this->allocator, StringFactory::fromCodePoint(this->allocator, char32_t(c)));
     }
     Value stringProperty(const String& string, const String& property) {
-      auto retval = ValueFactory::createStringProperty(this->allocator, string, property);
+      auto retval = ValueFactory::createBuiltinStringProperty(this->allocator, string, property);
       if (retval->getVoid()) {
         return this->raiseFormat("Unknown property for 'string' value: '", property, "'");
       }
@@ -1510,13 +1505,8 @@ namespace {
     }
     template<typename... ARGS>
     Value raiseLocation(const LocationSource& where, ARGS&&... args) const {
-      LocationRuntime runtime{ where, StringFactory::fromASCIIZ(this->allocator, "<unknown-function>") };
       auto message = StringBuilder::concat(std::forward<ARGS>(args)...);
-      auto object = ObjectFactory::createVanillaObject(this->allocator);
-      // TODO add runtime location
-      // TODO add message
-      auto value = ValueFactory::createObject(this->allocator, object);
-      return ValueFactory::createFlowControl(this->allocator, ValueFlags::Throw, value);
+      return ValueFactory::createException(this->allocator, where, message);
     }
   };
 }
@@ -1747,12 +1737,9 @@ Value Target::set(const Value& value) const {
   return this->a;
 }
 
-Value Target::raise(const String&) const {
-  auto& allocator = this->program.getAllocator();
-  auto object = ObjectFactory::createVanillaObject(allocator);
-  // TODO add message
-  auto value = ValueFactory::createObject(allocator, object);
-  return ValueFactory::createFlowControl(allocator, ValueFlags::Throw, value);
+Value Target::raise(const String& message) const {
+  LocationSource location{ "<unknown>", 0, 0 }; // TODO
+  return ValueFactory::createException(this->program.getAllocator(), location, message);
 }
 
 Block::~Block() {

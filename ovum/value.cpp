@@ -469,6 +469,12 @@ egg::ovum::Value egg::ovum::ValueFactory::createFlowControl(IAllocator& allocato
   return Value(allocator.make<ValueFlowControl, IValue*>(flags, value));
 }
 
+egg::ovum::Value egg::ovum::ValueFactory::createException(IAllocator& allocator, const LocationSource& location, const String& message) {
+  auto object = ObjectFactory::createVanillaException(allocator, location, message);
+  auto value = ValueFactory::createObject(allocator, object);
+  return ValueFactory::createFlowControl(allocator, ValueFlags::Throw, value);
+}
+
 bool egg::ovum::Value::validate() const {
   auto p = this->ptr.get();
   if (p == nullptr) {

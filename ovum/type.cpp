@@ -136,6 +136,10 @@ namespace {
       // By default, we are not pointable
       return nullptr;
     }
+    virtual Type iterable() const override {
+      // By default, we are not iterable
+      return nullptr;
+    }
   };
 
   template<ValueFlags FLAGS>
@@ -490,6 +494,9 @@ namespace {
       return nullptr;
     }
     virtual const IPointSignature* pointable() const override {
+      return nullptr;
+    }
+    virtual Type iterable() const override {
       return nullptr;
     }
     virtual std::pair<std::string, int> toStringPrecedence() const override {

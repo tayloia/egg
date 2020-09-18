@@ -78,10 +78,17 @@ namespace {
 
 const egg::ovum::IParameters& egg::ovum::Object::ParametersNone{ parametersNone };
 
+egg::ovum::Object egg::ovum::ObjectFactory::createVanillaException(IAllocator& allocator, const LocationSource&, const String&) {
+  // TODO add location and message;
+  return ObjectFactory::create<ObjectVanilla>(allocator);
+}
+
 egg::ovum::Object egg::ovum::ObjectFactory::createVanillaObject(IAllocator& allocator) {
+  // TODO
   return ObjectFactory::create<ObjectVanilla>(allocator);
 }
 
 egg::ovum::Object egg::ovum::ObjectFactory::createVanillaArray(IAllocator& allocator, size_t) {
+  // TODO
   return ObjectFactory::create<ObjectVanilla>(allocator);
 }

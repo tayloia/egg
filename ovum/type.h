@@ -57,6 +57,10 @@ namespace egg::ovum {
       }
       return pair.first;
     }
+    // Helpers
+    bool hasAnyFlags(ValueFlags flags) const {
+      return Bits::hasAnySet(this->get()->getFlags(), flags);
+    }
     // Constants
     static const Type Void;
     static const Type Null;

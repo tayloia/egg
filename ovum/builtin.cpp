@@ -3,6 +3,8 @@
 #include "ovum/module.h"
 #include "ovum/program.h"
 
+#include <map>
+
 namespace {
   using namespace egg::ovum;
 
@@ -76,6 +78,9 @@ namespace {
       return nullptr;
     }
     virtual const IPointSignature* pointable() const override {
+      return nullptr;
+    }
+    virtual Type iterable() const override {
       return nullptr;
     }
     virtual std::pair<std::string, int> toStringPrecedence() const override {
@@ -518,8 +523,47 @@ namespace {
       }
       return this->makeValue(this->string);
     }
-    static Value makeFunction(IAllocator& allocator, const String& name, Function function, const String& string) {
-      return ValueFactory::createObject(allocator, ObjectFactory::create<BuiltinStringFunction>(allocator, name, function, string));
+    static Value createProperty(IAllocator& allocator, const String& string, const String& property) {
+      // Treat 'length' as a special case
+      if (property.equals("length")) {
+        return ValueFactory::createInt(allocator, Int(string.length()));
+      }
+      auto function = BuiltinStringFunction::findPropertyFunction(property);
+      if (function != nullptr) {
+        auto name = StringBuilder::concat("string.", property);
+        return ValueFactory::createObject(allocator, ObjectFactory::create<BuiltinStringFunction>(allocator, name, function, string));
+      }
+      return Value::Void;
+    }
+    static bool hasProperty(const String& property) {
+      // Treat 'length' as a special case
+      return property.equals("length") || (BuiltinStringFunction::findPropertyFunction(property) != nullptr);
+    }
+  private:
+    static Function findPropertyFunction(const String& property) {
+      static const std::map<String, Function> lookup = {
+#define EGG_STRING_PROPERTY(name) { #name, &BuiltinStringFunction::name }
+      EGG_STRING_PROPERTY(compareTo),
+      EGG_STRING_PROPERTY(contains),
+      EGG_STRING_PROPERTY(endsWith),
+      EGG_STRING_PROPERTY(hash),
+      EGG_STRING_PROPERTY(indexOf),
+      EGG_STRING_PROPERTY(join),
+      EGG_STRING_PROPERTY(lastIndexOf),
+      EGG_STRING_PROPERTY(padLeft),
+      EGG_STRING_PROPERTY(padRight),
+      EGG_STRING_PROPERTY(repeat),
+      EGG_STRING_PROPERTY(replace),
+      EGG_STRING_PROPERTY(slice),
+      EGG_STRING_PROPERTY(startsWith),
+      EGG_STRING_PROPERTY(toString)
+#undef EGG_STRING_PROPERTY
+      };
+      auto found = lookup.find(property);
+      if (found == lookup.end()) {
+        return nullptr;
+      }
+      return found->second;
     }
   };
 }
@@ -532,37 +576,20 @@ egg::ovum::Value egg::ovum::ValueFactory::createBuiltinPrint(IAllocator& allocat
   return ValueFactory::createObject(allocator, ObjectFactory::create<Builtin_Print>(allocator));
 }
 
-egg::ovum::Value egg::ovum::ValueFactory::createBuiltinString(IAllocator& allocator) {
-  static const BuiltinObjectType type{ "string" };
-  return ValueFactory::createObject(allocator, ObjectFactory::create<Builtin_String>(allocator, type));
-}
-
 egg::ovum::Value egg::ovum::ValueFactory::createBuiltinType(IAllocator& allocator) {
   static const BuiltinObjectType type{ "type" };
   return ValueFactory::createObject(allocator, ObjectFactory::create<Builtin_Type>(allocator, type));
 }
 
-egg::ovum::Value egg::ovum::ValueFactory::createStringProperty(IAllocator& allocator, const String& string, const String& property) {
-  // Treat 'length' as a special case
-  if (property.equals("length")) {
-    return ValueFactory::createInt(allocator, Int(string.length()));
-  }
-  // TODO optimize with lookup table
-#define EGG_STRING_PROPERTY(name) if (property == #name) return BuiltinStringFunction::makeFunction(allocator, "string." #name, &BuiltinStringFunction::name, string)
-  EGG_STRING_PROPERTY(compareTo);
-  EGG_STRING_PROPERTY(contains);
-  EGG_STRING_PROPERTY(endsWith);
-  EGG_STRING_PROPERTY(hash);
-  EGG_STRING_PROPERTY(indexOf);
-  EGG_STRING_PROPERTY(join);
-  EGG_STRING_PROPERTY(lastIndexOf);
-  EGG_STRING_PROPERTY(padLeft);
-  EGG_STRING_PROPERTY(padRight);
-  EGG_STRING_PROPERTY(repeat);
-  EGG_STRING_PROPERTY(replace);
-  EGG_STRING_PROPERTY(slice);
-  EGG_STRING_PROPERTY(startsWith);
-  EGG_STRING_PROPERTY(toString);
-#undef EGG_STRING_PROPERTY
-  return Value::Void;
+egg::ovum::Value egg::ovum::ValueFactory::createBuiltinString(IAllocator& allocator) {
+  static const BuiltinObjectType type{ "string" };
+  return ValueFactory::createObject(allocator, ObjectFactory::create<Builtin_String>(allocator, type));
+}
+
+egg::ovum::Value egg::ovum::ValueFactory::createBuiltinStringProperty(IAllocator& allocator, const String& string, const String& property) {
+  return BuiltinStringFunction::createProperty(allocator, string, property);
+}
+
+bool egg::ovum::ValueFactory::hasBuiltinStringProperty(const String& property) {
+  return BuiltinStringFunction::hasProperty(property);
 }

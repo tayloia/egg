@@ -4,6 +4,7 @@
 #include "yolk/egg-syntax.h"
 #include "yolk/egg-parser.h"
 #include "yolk/egg-engine.h"
+#include "yolk/egg-program.h"
 
 namespace {
   using namespace egg::yolk;
@@ -24,7 +25,7 @@ namespace {
   class EggEngineContext : public IEggEnginePreparationContext, public IEggEngineExecutionContext, public IEggEngineCompilationContext {
     EGG_NO_COPY(EggEngineContext);
   private:
-    egg::ovum::IAllocator& mallocator;
+    egg::ovum::IAllocator& mallocator; // WIBBLE ugly
     std::shared_ptr<egg::ovum::ILogger> logger;
   public:
     EggEngineContext(egg::ovum::IAllocator& allocator, const std::shared_ptr<egg::ovum::ILogger>& logger)
@@ -58,8 +59,8 @@ namespace {
       // The destructor for 'basket' will assert if this collection doesn't free up everything in the basket
     }
     egg::ovum::ILogger::Severity prepare(IEggEnginePreparationContext& preparation) {
-      preparation.log(egg::ovum::ILogger::Source::Compiler, egg::ovum::ILogger::Severity::Error, "WIBBLE: EggEngineProgram::prepare not yet implemented");
-      return egg::ovum::ILogger::Severity::Error;
+      EggProgram program(preparation.allocator(), this->resource, this->root);
+      return program.prepare(preparation);
     }
     egg::ovum::ILogger::Severity execute(IEggEngineExecutionContext& execution) {
       execution.log(egg::ovum::ILogger::Source::Compiler, egg::ovum::ILogger::Severity::Error, "WIBBLE: EggEngineProgram::execute not yet implemented");

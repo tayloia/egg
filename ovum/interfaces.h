@@ -189,6 +189,7 @@ namespace egg::ovum {
     virtual const IIndexSignature* indexable() const = 0;
     virtual const IDotSignature* dotable() const = 0;
     virtual const IPointSignature* pointable() const = 0;
+    virtual Type iterable() const = 0;
     virtual std::pair<std::string, int> toStringPrecedence() const = 0;
   };
 

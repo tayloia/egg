@@ -4,29 +4,11 @@
 #include "yolk/egg-syntax.h"
 #include "yolk/egg-parser.h"
 #include "yolk/egg-engine.h"
+#include "yolk/egg-program.h"
 
 namespace {
   using namespace egg::yolk;
 
-  enum class EggProgramUnary {
-    EGG_PROGRAM_UNARY_OPERATORS(EGG_PROGRAM_UNARY_OPERATOR_DECLARE)
-  };
-
-  enum class EggProgramBinary {
-    EGG_PROGRAM_BINARY_OPERATORS(EGG_PROGRAM_BINARY_OPERATOR_DECLARE)
-  };
-
-  enum class EggProgramTernary {
-    EGG_PROGRAM_TERNARY_OPERATORS(EGG_PROGRAM_TERNARY_OPERATOR_DECLARE)
-  };
-
-  enum class EggProgramAssign {
-    EGG_PROGRAM_ASSIGN_OPERATORS(EGG_PROGRAM_ASSIGN_OPERATOR_DECLARE)
-  };
-
-  enum class EggProgramMutate {
-    EGG_PROGRAM_MUTATE_OPERATORS(EGG_PROGRAM_ASSIGN_OPERATOR_DECLARE)
-  };
 #define EGG_PROGRAM_OPERATOR_STRING(name, text) text,
 
   std::string unaryToString(EggProgramUnary op) {
@@ -166,6 +148,12 @@ namespace {
       // Just return the source location
       return this->locationSource;
     }
+    virtual void empredicate(EggProgramContext&, std::shared_ptr<IEggProgramNode>&) override {
+      // By default, nodes do not change when they're used as predicates in function call parameters
+    }
+    virtual egg::ovum::Node compile(EggProgramCompiler& compiler) const override {
+      return compiler.raise("WIBBLE: EggParserNodeBase::compile called");
+    }
     virtual bool symbol(egg::ovum::String&, egg::ovum::Type&) const override {
       // By default, nodes do not declare symbols
       return false;
@@ -179,8 +167,18 @@ namespace {
     EggParserNode_Module(egg::ovum::IAllocator&, const egg::ovum::LocationSource& locationSource)
       : EggParserNodeBase(locationSource) {
     }
+    virtual EggProgramNodeFlags prepare(EggProgramContext& context) override {
+      return context.prepareModule(this->child);
+    }
     virtual void dump(std::ostream& os) const override {
       ParserDump(os, "module").add(this->child);
+    }
+    virtual egg::ovum::Node compile(EggProgramCompiler& compiler) const override {
+      auto block = compiler.statement(this->locationSource, egg::ovum::Opcode::BLOCK, this->child);
+      if (block == nullptr) {
+        return nullptr;
+      }
+      return compiler.statement(this->locationSource, egg::ovum::Opcode::MODULE, block);
     }
     void addChild(const std::shared_ptr<IEggProgramNode>& statement) {
       assert(statement != nullptr);
@@ -195,8 +193,14 @@ namespace {
     EggParserNode_Block(egg::ovum::IAllocator&, const egg::ovum::LocationSource& locationSource)
       : EggParserNodeBase(locationSource) {
     }
+    virtual EggProgramNodeFlags prepare(EggProgramContext& context) override {
+      return context.prepareBlock(this->child);
+    }
     virtual void dump(std::ostream& os) const override {
       ParserDump(os, "block").add(this->child);
+    }
+    virtual egg::ovum::Node compile(EggProgramCompiler& compiler) const override {
+      return compiler.statement(this->locationSource, egg::ovum::Opcode::BLOCK, this->child);
     }
     void addChild(const std::shared_ptr<IEggProgramNode>& statement) {
       assert(statement != nullptr);
@@ -214,8 +218,16 @@ namespace {
     virtual egg::ovum::Type getType() const override {
       return this->type;
     }
+    virtual EggProgramNodeFlags prepare(EggProgramContext&) override {
+      // Nothing to do: we're just a holder for the type
+      return EggProgramNodeFlags::None;
+    }
     virtual void dump(std::ostream& os) const override {
       ParserDump(os, "type").add(this->type.toString());
+    }
+    virtual egg::ovum::Node compile(EggProgramCompiler& compiler) const override {
+      // This is used, for example, in catch clauses
+      return compiler.type(this->locationSource, this->type);
     }
   };
 
@@ -234,9 +246,19 @@ namespace {
       typeOut = this->type;
       return true;
     }
+    virtual EggProgramNodeFlags prepare(EggProgramContext& context) override {
+      return context.prepareDeclare(this->locationSource, this->name, this->type, this->init.get());
+    }
     virtual void dump(std::ostream& os) const override {
       auto tname = (this->type == nullptr) ? "var" : this->type.toString();
       ParserDump(os, "declare").add(this->name).add(tname).add(this->init);
+    }
+    virtual egg::ovum::Node compile(EggProgramCompiler& compiler) const override {
+      if (this->init == nullptr) {
+        // No initializer
+        return compiler.statement(this->locationSource, egg::ovum::Opcode::DECLARE, compiler.type(this->locationSource, this->type), compiler.identifier(this->locationSource, this->name));
+      }
+      return compiler.statement(this->locationSource, egg::ovum::Opcode::DECLARE, compiler.type(this->locationSource, this->type), compiler.identifier(this->locationSource, this->name), *this->init);
     }
   };
 
@@ -255,8 +277,14 @@ namespace {
       typeOut = this->type;
       return true;
     }
+    virtual EggProgramNodeFlags prepare(EggProgramContext& context) override {
+      return context.prepareGuard(this->locationSource, this->name, this->type, *this->expr);
+    }
     virtual void dump(std::ostream& os) const override {
       ParserDump(os, "guard").add(this->name).add(this->type.toString()).add(this->expr);
+    }
+    virtual egg::ovum::Node compile(EggProgramCompiler& compiler) const override {
+      return compiler.statement(this->locationSource, egg::ovum::Opcode::GUARD, compiler.type(this->locationSource, this->type), compiler.identifier(this->locationSource, this->name), this->expr);
     }
   };
 
@@ -269,8 +297,14 @@ namespace {
       : EggParserNodeBase(locationSource), op(op), lvalue(lvalue) {
       assert(lvalue != nullptr);
     }
+    virtual EggProgramNodeFlags prepare(EggProgramContext& context) override {
+      return context.prepareMutate(this->locationSource, this->op, *this->lvalue);
+    }
     virtual void dump(std::ostream& os) const override {
       ParserDump(os, "mutate").add(mutateToString(this->op)).add(this->lvalue);
+    }
+    virtual egg::ovum::Node compile(EggProgramCompiler& compiler) const override {
+      return compiler.mutate(this->locationSource, this->op, *this->lvalue);
     }
   };
 
@@ -279,8 +313,15 @@ namespace {
     EggParserNode_Break(egg::ovum::IAllocator&, const egg::ovum::LocationSource& locationSource)
       : EggParserNodeBase(locationSource) {
     }
+    virtual EggProgramNodeFlags prepare(EggProgramContext&) override {
+      // Nothing to prepare, but we fallthrough
+      return EggProgramNodeFlags::Fallthrough;
+    }
     virtual void dump(std::ostream& os) const override {
       ParserDump::simple(os, "break");
+    }
+    virtual egg::ovum::Node compile(EggProgramCompiler& compiler) const override {
+      return compiler.opcode(this->locationSource, egg::ovum::Opcode::BREAK);
     }
   };
 
@@ -295,8 +336,14 @@ namespace {
       assert(type != nullptr);
       assert(block != nullptr);
     }
+    virtual EggProgramNodeFlags prepare(EggProgramContext& context) override {
+      return context.prepareCatch(this->name, *this->type, *this->block);
+    }
     virtual void dump(std::ostream& os) const override {
       ParserDump(os, "catch").add(this->name).add(this->type).add(this->block);
+    }
+    virtual egg::ovum::Node compile(EggProgramCompiler& compiler) const override {
+      return compiler.statement(this->locationSource, egg::ovum::Opcode::CATCH, this->type, compiler.identifier(this->locationSource, this->name), this->block);
     }
   };
 
@@ -305,8 +352,15 @@ namespace {
     EggParserNode_Continue(egg::ovum::IAllocator&, const egg::ovum::LocationSource& locationSource)
       : EggParserNodeBase(locationSource) {
     }
+    virtual EggProgramNodeFlags prepare(EggProgramContext&) override {
+      // Nothing to prepare, but no fallthrough
+      return EggProgramNodeFlags::None;
+    }
     virtual void dump(std::ostream& os) const override {
       ParserDump::simple(os, "continue");
+    }
+    virtual egg::ovum::Node compile(EggProgramCompiler& compiler) const override {
+      return compiler.opcode(this->locationSource, egg::ovum::Opcode::CONTINUE);
     }
   };
 
@@ -320,8 +374,14 @@ namespace {
       assert(condition != nullptr);
       assert(block != nullptr);
     }
+    virtual EggProgramNodeFlags prepare(EggProgramContext& context) override {
+      return context.prepareDo(*this->condition, *this->block);
+    }
     virtual void dump(std::ostream& os) const override {
       ParserDump(os, "do").add(this->condition).add(this->block);
+    }
+    virtual egg::ovum::Node compile(EggProgramCompiler& compiler) const override {
+      return compiler.statement(this->locationSource, egg::ovum::Opcode::DO, this->condition, this->block);
     }
   };
 
@@ -337,8 +397,18 @@ namespace {
       assert(trueBlock != nullptr);
       // falseBlock may be null if the 'else' clause is missing
     }
+    virtual EggProgramNodeFlags prepare(EggProgramContext& context) override {
+      return context.prepareIf(*this->condition, *this->trueBlock, this->falseBlock.get());
+    }
     virtual void dump(std::ostream& os) const override {
       ParserDump(os, "if").add(this->condition).add(this->trueBlock).add(this->falseBlock);
+    }
+    virtual egg::ovum::Node compile(EggProgramCompiler& compiler) const override {
+      if (this->falseBlock == nullptr) {
+        // No else clause
+        return compiler.statement(this->locationSource, egg::ovum::Opcode::IF, this->condition, this->trueBlock);
+      }
+      return compiler.statement(this->locationSource, egg::ovum::Opcode::IF, this->condition, this->trueBlock, this->falseBlock);
     }
   };
 
@@ -354,8 +424,14 @@ namespace {
       // pre/cond/post may be null
       assert(block != nullptr);
     }
+    virtual EggProgramNodeFlags prepare(EggProgramContext& context) override {
+      return context.prepareFor(this->pre.get(), this->cond.get(), this->post.get(), *this->block);
+    }
     virtual void dump(std::ostream& os) const override {
       ParserDump(os, "for").add(this->pre).add(this->cond).add(this->post).add(this->block);
+    }
+    virtual egg::ovum::Node compile(EggProgramCompiler& compiler) const override {
+      return compiler.statement(this->locationSource, egg::ovum::Opcode::FOR, compiler.noop(this->locationSource, this->pre.get()), compiler.noop(this->locationSource, this->cond.get()), compiler.noop(this->locationSource, this->post.get()), this->block);
     }
   };
 
@@ -371,8 +447,14 @@ namespace {
       assert(expr != nullptr);
       assert(block != nullptr);
     }
+    virtual EggProgramNodeFlags prepare(EggProgramContext& context) override {
+      return context.prepareForeach(*this->target, *this->expr, *this->block);
+    }
     virtual void dump(std::ostream& os) const override {
       ParserDump(os, "foreach").add(this->target).add(this->expr).add(this->block);
+    }
+    virtual egg::ovum::Node compile(EggProgramCompiler& compiler) const override {
+      return compiler.statement(this->locationSource, egg::ovum::Opcode::FOREACH, this->target, this->expr, this->block);
     }
   };
 
@@ -393,8 +475,17 @@ namespace {
       typeOut = this->type;
       return true;
     }
+    virtual EggProgramNodeFlags prepare(EggProgramContext& context) override {
+      return context.prepareFunctionDefinition(this->name, this->type, this->block);
+    }
     virtual void dump(std::ostream& os) const override {
       ParserDump(os, "function").add(this->name).add(this->type.toString()).add(this->block);
+    }
+    virtual egg::ovum::Node compile(EggProgramCompiler& compiler) const override {
+      if (this->name.empty()) {
+        return compiler.statement(this->locationSource, egg::ovum::Opcode::FUNCTION, compiler.type(this->locationSource, this->type), this->block);
+      }
+      return compiler.statement(this->locationSource, egg::ovum::Opcode::FUNCTION, compiler.type(this->locationSource, this->type), this->block, compiler.identifier(this->locationSource, this->name));
     }
   };
 
@@ -413,8 +504,14 @@ namespace {
       typeOut = this->type;
       return this->optional;
     }
+    virtual EggProgramNodeFlags prepare(EggProgramContext& context) override {
+      return context.compilerError(this->locationSource, "Internal parser error: Inappropriate 'prepare' call for function parameter");
+    }
     virtual void dump(std::ostream& os) const override {
       ParserDump(os, this->optional ? "parameter?" : "parameter").add(this->name).add(this->type.toString());
+    }
+    virtual egg::ovum::Node compile(EggProgramCompiler& compiler) const override {
+      return compiler.raise("Internal compile error: Inappropriate 'compile' call for function parameter");
     }
   };
 
@@ -429,8 +526,17 @@ namespace {
       : EggParserNodeBase(locationSource), name(name), gentype(gentype), rettype(rettype), block(block) {
       assert(block != nullptr);
     }
+    virtual EggProgramNodeFlags prepare(EggProgramContext& context) override {
+      return context.prepareGeneratorDefinition(this->rettype, this->block);
+    }
     virtual void dump(std::ostream& os) const override {
       ParserDump(os, "generator").add(this->name).add(this->gentype.toString()).add(this->block);
+    }
+    virtual egg::ovum::Node compile(EggProgramCompiler& compiler) const override {
+      if (this->name.empty()) {
+        return compiler.statement(this->locationSource, egg::ovum::Opcode::GENERATOR, compiler.type(this->locationSource, this->gentype), this->block);
+      }
+      return compiler.statement(this->locationSource, egg::ovum::Opcode::GENERATOR, compiler.type(this->locationSource, this->gentype), this->block, compiler.identifier(this->locationSource, this->name));
     }
   };
 
@@ -441,8 +547,17 @@ namespace {
     EggParserNode_Return(egg::ovum::IAllocator&, const egg::ovum::LocationSource& locationSource, const std::shared_ptr<IEggProgramNode>& expr = nullptr)
       : EggParserNodeBase(locationSource), expr(expr) {
     }
+    virtual EggProgramNodeFlags prepare(EggProgramContext& context) override {
+      return context.prepareReturn(this->locationSource, this->expr.get());
+    }
     virtual void dump(std::ostream& os) const override {
       ParserDump(os, "return").add(this->expr);
+    }
+    virtual egg::ovum::Node compile(EggProgramCompiler& compiler) const override {
+      if (this->expr == nullptr) {
+        return compiler.opcode(this->locationSource, egg::ovum::Opcode::RETURN);
+      }
+      return compiler.statement(this->locationSource, egg::ovum::Opcode::RETURN, this->expr);
     }
   };
 
@@ -456,8 +571,15 @@ namespace {
       : EggParserNodeBase(locationSource), block(std::make_shared<EggParserNode_Block>(allocator, locationSource)), defclause(false) {
       assert(this->block != nullptr);
     }
+    virtual EggProgramNodeFlags prepare(EggProgramContext& context) override {
+      return context.prepareCase(this->child, *this->block);
+    }
     virtual void dump(std::ostream& os) const override {
       ParserDump(os, "case").add(this->child).add(this->block);
+    }
+    virtual egg::ovum::Node compile(EggProgramCompiler& compiler) const override {
+      const IEggProgramNode& clause = *this->block;
+      return compiler.statement(this->locationSource, this->defclause ? egg::ovum::Opcode::DEFAULT : egg::ovum::Opcode::CASE, clause, this->child);
     }
     void addValue(const std::shared_ptr<IEggProgramNode>& value) {
       assert(value != nullptr);
@@ -484,8 +606,14 @@ namespace {
       : EggParserNodeBase(locationSource), expr(expr), defaultIndex(-1) {
       assert(expr != nullptr);
     }
+    virtual EggProgramNodeFlags prepare(EggProgramContext& context) override {
+      return context.prepareSwitch(*this->expr, this->defaultIndex, this->child);
+    }
     virtual void dump(std::ostream& os) const override {
       ParserDump(os, "switch").add(this->expr).raw(this->defaultIndex).add(this->child);
+    }
+    virtual egg::ovum::Node compile(EggProgramCompiler& compiler) const override {
+      return compiler.statement(this->locationSource, egg::ovum::Opcode::SWITCH, this->expr, this->child);
     }
     void newClause(const IEggParserContext& context, const IEggSyntaxNode& statement) {
       this->latest = makeParserNode<EggParserNode_Case>(context, statement);
@@ -527,8 +655,18 @@ namespace {
     EggParserNode_Throw(egg::ovum::IAllocator&, const egg::ovum::LocationSource& locationSource, const std::shared_ptr<IEggProgramNode>& expr = nullptr)
       : EggParserNodeBase(locationSource), expr(expr) {
     }
+    virtual EggProgramNodeFlags prepare(EggProgramContext& context) override {
+      return context.prepareThrow(this->expr.get());
+    }
     virtual void dump(std::ostream& os) const override {
       ParserDump(os, "throw").add(this->expr);
+    }
+    virtual egg::ovum::Node compile(EggProgramCompiler& compiler) const override {
+      if (this->expr == nullptr) {
+        // Rethrow
+        return compiler.opcode(this->locationSource, egg::ovum::Opcode::THROW);
+      }
+      return compiler.statement(this->locationSource, egg::ovum::Opcode::THROW, this->expr);
     }
   };
 
@@ -542,8 +680,14 @@ namespace {
       : EggParserNodeBase(locationSource), block(block) {
       assert(block != nullptr);
     }
+    virtual EggProgramNodeFlags prepare(EggProgramContext& context) override {
+      return context.prepareTry(*this->block, this->catches, this->final.get());
+    }
     virtual void dump(std::ostream& os) const override {
       ParserDump(os, "try").add(this->block).add(this->catches).add(this->final);
+    }
+    virtual egg::ovum::Node compile(EggProgramCompiler& compiler) const override {
+      return compiler.statement(this->locationSource, egg::ovum::Opcode::TRY, this->block, compiler.noop(this->locationSource, this->final.get()), this->catches);
     }
     void addCatch(const std::shared_ptr<IEggProgramNode>& catchNode) {
       this->catches.push_back(catchNode);
@@ -564,8 +708,14 @@ namespace {
       assert(condition != nullptr);
       assert(block != nullptr);
     }
+    virtual EggProgramNodeFlags prepare(EggProgramContext& context) override {
+      return context.prepareWhile(*this->condition, *this->block);
+    }
     virtual void dump(std::ostream& os) const override {
       ParserDump(os, "while").add(this->condition).add(this->block);
+    }
+    virtual egg::ovum::Node compile(EggProgramCompiler& compiler) const override {
+      return compiler.statement(this->locationSource, egg::ovum::Opcode::WHILE, this->condition, this->block);
     }
   };
 
@@ -577,8 +727,17 @@ namespace {
       : EggParserNodeBase(locationSource), expr(expr) {
       assert(expr != nullptr);
     }
+    virtual EggProgramNodeFlags prepare(EggProgramContext& context) override {
+      return context.prepareYield(this->locationSource, *this->expr);
+    }
     virtual void dump(std::ostream& os) const override {
       ParserDump(os, "yield").add(this->expr);
+    }
+    virtual egg::ovum::Node compile(EggProgramCompiler& compiler) const override {
+      if (this->expr == nullptr) {
+        return compiler.opcode(this->locationSource, egg::ovum::Opcode::YIELD);
+      }
+      return compiler.statement(this->locationSource, egg::ovum::Opcode::YIELD, *this->expr);
     }
   };
 
@@ -597,8 +756,14 @@ namespace {
       typeOut = this->expr->getType();
       return true;
     }
+    virtual EggProgramNodeFlags prepare(EggProgramContext& context) override {
+      return this->expr->prepare(context);
+    }
     virtual void dump(std::ostream& os) const override {
       ParserDump(os, "named").add(this->name).add(this->expr);
+    }
+    virtual egg::ovum::Node compile(EggProgramCompiler& compiler) const override {
+      return compiler.expression(this->locationSource, egg::ovum::Opcode::NAMED, compiler.identifier(this->locationSource, this->name), this->expr);
     }
   };
 
@@ -612,8 +777,14 @@ namespace {
     virtual egg::ovum::Type getType() const override {
       return egg::ovum::Type::Object; // WIBBLE VanillaArray;
     }
+    virtual EggProgramNodeFlags prepare(EggProgramContext& context) override {
+      return context.prepareArray(this->child);
+    }
     virtual void dump(std::ostream& os) const override {
       ParserDump(os, "array").add(this->child);
+    }
+    virtual egg::ovum::Node compile(EggProgramCompiler& compiler) const override {
+      return compiler.expression(this->locationSource, egg::ovum::Opcode::AVALUE, this->child);
     }
     void addValue(const std::shared_ptr<IEggProgramNode>& value) {
       this->child.emplace_back(value);
@@ -630,8 +801,14 @@ namespace {
     virtual egg::ovum::Type getType() const override {
       return egg::ovum::Type::Object; // VanillaObject
     }
+    virtual EggProgramNodeFlags prepare(EggProgramContext& context) override {
+      return context.prepareObject(this->child);
+    }
     virtual void dump(std::ostream& os) const override {
       ParserDump(os, "object").add(this->child);
+    }
+    virtual egg::ovum::Node compile(EggProgramCompiler& compiler) const override {
+      return compiler.expression(this->locationSource, egg::ovum::Opcode::OVALUE, this->child);
     }
     void addValue(const std::shared_ptr<IEggProgramNode>& value) {
       this->child.emplace_back(value);
@@ -655,8 +832,14 @@ namespace {
       }
       return signature->getReturnType();
     }
+    virtual EggProgramNodeFlags prepare(EggProgramContext& context) override {
+      return context.prepareCall(*this->callee, this->child);
+    }
     virtual void dump(std::ostream& os) const override {
       ParserDump(os, "call").add(this->callee).add(this->child);
+    }
+    virtual egg::ovum::Node compile(EggProgramCompiler& compiler) const override {
+      return compiler.expression(this->locationSource, egg::ovum::Opcode::CALL, this->callee, this->child);
     }
     void addParameter(const std::shared_ptr<IEggProgramNode>& parameter) {
       this->child.emplace_back(parameter);
@@ -674,8 +857,14 @@ namespace {
     virtual egg::ovum::Type getType() const override {
       return this->type;
     }
+    virtual EggProgramNodeFlags prepare(EggProgramContext& context) override {
+      return context.prepareIdentifier(this->locationSource, this->name, this->type);
+    }
     virtual void dump(std::ostream& os) const override {
       ParserDump(os, "identifier").add(this->name);
+    }
+    virtual egg::ovum::Node compile(EggProgramCompiler& compiler) const override {
+      return compiler.identifier(this->locationSource, this->name); // TODO byref
     }
   };
 
@@ -687,8 +876,14 @@ namespace {
     virtual egg::ovum::Type getType() const override {
       return egg::ovum::Type::Null;
     }
+    virtual EggProgramNodeFlags prepare(EggProgramContext&) override {
+      return EggProgramNodeFlags::Constant;
+    }
     virtual void dump(std::ostream& os) const override {
       ParserDump::simple(os, "literal null");
+    }
+    virtual egg::ovum::Node compile(EggProgramCompiler& compiler) const override {
+      return compiler.opcode(this->locationSource, egg::ovum::Opcode::NULL_);
     }
   };
 
@@ -702,8 +897,14 @@ namespace {
     virtual egg::ovum::Type getType() const override {
       return egg::ovum::Type::Bool;
     }
+    virtual EggProgramNodeFlags prepare(EggProgramContext&) override {
+      return EggProgramNodeFlags::Constant;
+    }
     virtual void dump(std::ostream& os) const override {
       ParserDump(os, "literal bool").raw(this->value);
+    }
+    virtual egg::ovum::Node compile(EggProgramCompiler& compiler) const override {
+      return compiler.opcode(this->locationSource, this->value ? egg::ovum::Opcode::TRUE : egg::ovum::Opcode::FALSE);
     }
   };
 
@@ -717,8 +918,14 @@ namespace {
     virtual egg::ovum::Type getType() const override {
       return egg::ovum::Type::Int;
     }
+    virtual EggProgramNodeFlags prepare(EggProgramContext&) override {
+      return EggProgramNodeFlags::Constant;
+    }
     virtual void dump(std::ostream& os) const override {
       ParserDump(os, "literal int").raw(this->value);
+    }
+    virtual egg::ovum::Node compile(EggProgramCompiler& compiler) const override {
+      return compiler.ivalue(this->locationSource, this->value);
     }
   };
 
@@ -732,8 +939,14 @@ namespace {
     virtual egg::ovum::Type getType() const override {
       return egg::ovum::Type::Float;
     }
+    virtual EggProgramNodeFlags prepare(EggProgramContext&) override {
+      return EggProgramNodeFlags::Constant;
+    }
     virtual void dump(std::ostream& os) const override {
       ParserDump(os, "literal float").raw(this->value);
+    }
+    virtual egg::ovum::Node compile(EggProgramCompiler& compiler) const override {
+      return compiler.fvalue(this->locationSource, this->value);
     }
   };
 
@@ -747,8 +960,14 @@ namespace {
     virtual egg::ovum::Type getType() const override {
       return egg::ovum::Type::String;
     }
+    virtual EggProgramNodeFlags prepare(EggProgramContext&) override {
+      return EggProgramNodeFlags::Constant;
+    }
     virtual void dump(std::ostream& os) const override {
       ParserDump(os, "literal string").add(this->value);
+    }
+    virtual egg::ovum::Node compile(EggProgramCompiler& compiler) const override {
+      return compiler.svalue(this->locationSource, this->value);
     }
   };
 
@@ -763,8 +982,14 @@ namespace {
       assert(rhs != nullptr);
     }
     virtual egg::ovum::Type getType() const override;
+    virtual EggProgramNodeFlags prepare(EggProgramContext& context) override {
+      return context.prepareBrackets(this->locationSource, *this->lhs, *this->rhs);
+    }
     virtual void dump(std::ostream& os) const override {
       ParserDump(os, "brackets").add(this->lhs).add(this->rhs);
+    }
+    virtual egg::ovum::Node compile(EggProgramCompiler& compiler) const override {
+      return compiler.expression(this->locationSource, egg::ovum::Opcode::INDEX, this->lhs, this->rhs);
     }
   };
 
@@ -777,9 +1002,15 @@ namespace {
       : EggParserNodeBase(locationSource), lhs(lhs), rhs(rhs) {
       assert(lhs != nullptr);
     }
+    virtual EggProgramNodeFlags prepare(EggProgramContext& context) override {
+      return context.prepareDot(this->locationSource, *this->lhs, this->rhs);
+    }
     virtual egg::ovum::Type getType() const override;
     virtual void dump(std::ostream& os) const override {
       ParserDump(os, "dot").add(this->lhs).add(this->rhs);
+    }
+    virtual egg::ovum::Node compile(EggProgramCompiler& compiler) const override {
+      return compiler.expression(this->locationSource, egg::ovum::Opcode::PROPERTY, this->lhs, compiler.identifier(this->locationSource, this->rhs));
     }
   };
 
@@ -793,8 +1024,14 @@ namespace {
       assert(expr != nullptr);
     }
   public:
+    virtual EggProgramNodeFlags prepare(EggProgramContext& context) override {
+      return context.prepareUnary(this->locationSource, this->op, *this->expr);
+    }
     virtual void dump(std::ostream& os) const override {
       ParserDump(os, "unary").add(unaryToString(this->op)).add(this->expr);
+    }
+    virtual egg::ovum::Node compile(EggProgramCompiler& compiler) const override {
+      return compiler.unary(this->locationSource, op, *this->expr);
     }
   };
 
@@ -808,20 +1045,29 @@ namespace {
   };
   EGG_PROGRAM_UNARY_OPERATORS(EGG_PARSER_UNARY_OPERATOR_DEFINE)
 
-  class EggParserNode_Binary : public EggParserNodeBase {
-  protected:
-    egg::ovum::IAllocator* allocator;
-    EggProgramBinary op;
-    std::shared_ptr<IEggProgramNode> lhs;
-    std::shared_ptr<IEggProgramNode> rhs;
-    EggParserNode_Binary(egg::ovum::IAllocator& allocator, const egg::ovum::LocationSource& locationSource, EggProgramBinary op, const std::shared_ptr<IEggProgramNode>& lhs, const std::shared_ptr<IEggProgramNode>& rhs)
-      : EggParserNodeBase(locationSource), allocator(&allocator), op(op), lhs(lhs), rhs(rhs) {
-      assert(lhs != nullptr);
-      assert(rhs != nullptr);
+    class EggParserNode_Binary : public EggParserNodeBase {
+    protected:
+      egg::ovum::IAllocator* allocator;
+      EggProgramBinary op;
+      std::shared_ptr<IEggProgramNode> lhs;
+      std::shared_ptr<IEggProgramNode> rhs;
+      EggParserNode_Binary(egg::ovum::IAllocator& allocator, const egg::ovum::LocationSource& locationSource, EggProgramBinary op, const std::shared_ptr<IEggProgramNode>& lhs, const std::shared_ptr<IEggProgramNode>& rhs)
+        : EggParserNodeBase(locationSource), allocator(&allocator), op(op), lhs(lhs), rhs(rhs) {
+        assert(lhs != nullptr);
+        assert(rhs != nullptr);
+      }
+    public:
+      virtual void empredicate(EggProgramContext& context, std::shared_ptr<IEggProgramNode>& node) override {
+        node = context.empredicateBinary(node, this->op, this->lhs, this->rhs);
+      }
+      virtual void dump(std::ostream& os) const override {
+        ParserDump(os, "binary").add(binaryToString(this->op)).add(this->lhs).add(this->rhs);
+      }
+    virtual EggProgramNodeFlags prepare(EggProgramContext& context) override {
+      return context.prepareBinary(this->locationSource, this->op, *this->lhs, *this->rhs);
     }
-  public:
-    virtual void dump(std::ostream& os) const override {
-      ParserDump(os, "binary").add(binaryToString(this->op)).add(this->lhs).add(this->rhs);
+    virtual egg::ovum::Node compile(EggProgramCompiler& compiler) const override {
+      return compiler.binary(this->locationSource, this->op, *this->lhs, *this->rhs);
     }
   };
 
@@ -852,6 +1098,12 @@ namespace {
       ParserDump(os, "ternary").add(this->condition).add(this->whenTrue).add(this->whenFalse);
     }
     virtual egg::ovum::Type getType() const override;
+    virtual EggProgramNodeFlags prepare(EggProgramContext& context) override {
+      return context.prepareTernary(this->locationSource, *this->condition, *this->whenTrue, *this->whenFalse);
+    }
+    virtual egg::ovum::Node compile(EggProgramCompiler& compiler) const override {
+      return compiler.ternary(this->locationSource, egg::yolk::EggProgramTernary::Ternary, *this->condition, *this->whenTrue, *this->whenFalse);
+    }
   };
 
   class EggParserNode_Assign : public EggParserNodeBase {
@@ -865,8 +1117,14 @@ namespace {
       assert(rhs != nullptr);
     }
   public:
+    virtual EggProgramNodeFlags prepare(EggProgramContext& context) override {
+      return context.prepareAssign(this->locationSource, this->op, *this->lhs, *this->rhs);
+    }
     virtual void dump(std::ostream& os) const override {
       ParserDump(os, "assign").add(assignToString(this->op)).add(this->lhs).add(this->rhs);
+    }
+    virtual egg::ovum::Node compile(EggProgramCompiler& compiler) const override {
+      return compiler.assign(this->locationSource, this->op, *this->lhs, *this->rhs);
     }
   };
 
@@ -879,20 +1137,25 @@ namespace {
   };
   EGG_PROGRAM_ASSIGN_OPERATORS(EGG_PARSER_ASSIGN_OPERATOR_DEFINE)
 
-  class EggParserNode_Predicate : public EggParserNodeBase {
-  private:
-    EggProgramBinary op;
-    std::shared_ptr<IEggProgramNode> lhs;
-    std::shared_ptr<IEggProgramNode> rhs;
-  public:
-    EggParserNode_Predicate(egg::ovum::IAllocator&, const egg::ovum::LocationSource& locationSource, EggProgramBinary op, const std::shared_ptr<IEggProgramNode>& lhs, const std::shared_ptr<IEggProgramNode>& rhs)
-      : EggParserNodeBase(locationSource), op(op), lhs(lhs), rhs(rhs) {
-      assert(lhs != nullptr);
-      assert(rhs != nullptr);
-    }
-  public:
-    virtual void dump(std::ostream& os) const override {
-      ParserDump(os, "predicate ").add(binaryToString(this->op)).add(this->lhs).add(this->rhs);
+    class EggParserNode_Predicate : public EggParserNodeBase {
+    private:
+      EggProgramBinary op;
+      std::shared_ptr<IEggProgramNode> lhs;
+      std::shared_ptr<IEggProgramNode> rhs;
+    public:
+      EggParserNode_Predicate(egg::ovum::IAllocator&, const egg::ovum::LocationSource& locationSource, EggProgramBinary op, const std::shared_ptr<IEggProgramNode>& lhs, const std::shared_ptr<IEggProgramNode>& rhs)
+        : EggParserNodeBase(locationSource), op(op), lhs(lhs), rhs(rhs) {
+        assert(lhs != nullptr);
+        assert(rhs != nullptr);
+      }
+    public:
+    virtual EggProgramNodeFlags prepare(EggProgramContext& context) override {
+      return context.preparePredicate(this->locationSource, this->op, *this->lhs, *this->rhs);
+    }      virtual void dump(std::ostream& os) const override {
+        ParserDump(os, "predicate ").add(binaryToString(this->op)).add(this->lhs).add(this->rhs);
+      }
+    virtual egg::ovum::Node compile(EggProgramCompiler& compiler) const override {
+      return compiler.predicate(this->locationSource, this->op, *this->lhs, *this->rhs);
     }
   };
 
@@ -953,7 +1216,7 @@ namespace {
     EggTokenizerKeyword previous;
   public:
     EggParserContextSwitch(IEggParserContext& parent, const IEggSyntaxNode& switchStatement, const IEggSyntaxNode& switchExpression)
-      : nested(parent, EggParserAllowed::Break|EggParserAllowed::Case|EggParserAllowed::Continue, EggParserAllowed::Rethrow|EggParserAllowed::Return|EggParserAllowed::Yield),
+      : nested(parent, EggParserAllowed::Break | EggParserAllowed::Case | EggParserAllowed::Continue, EggParserAllowed::Rethrow | EggParserAllowed::Return | EggParserAllowed::Yield),
         promoted(makeParserNode<EggParserNode_Switch>(parent, switchStatement, parent.promote(switchExpression))),
         previous(EggTokenizerKeyword::Null) {
       assert(this->promoted != nullptr);
@@ -1102,75 +1365,75 @@ std::shared_ptr<egg::yolk::IEggProgramNode> egg::yolk::EggSyntaxNode_Guard::prom
 
 std::shared_ptr<egg::yolk::IEggProgramNode> egg::yolk::EggSyntaxNode_Assignment::promote(egg::yolk::IEggParserContext& context) const {
   switch (this->op) {
-    case EggTokenizerOperator::PercentEqual:
-      return promoteBinary<EggParserNode_AssignRemainder>(context, *this, this->child);
-    case EggTokenizerOperator::AmpersandEqual:
-      return promoteBinary<EggParserNode_AssignBitwiseAnd>(context, *this, this->child);
-    case EggTokenizerOperator::AmpersandAmpersandEqual:
-      return promoteBinary<EggParserNode_AssignLogicalAnd>(context, *this, this->child);
-    case EggTokenizerOperator::StarEqual:
-      return promoteBinary<EggParserNode_AssignMultiply>(context, *this, this->child);
-    case EggTokenizerOperator::PlusEqual:
-      return promoteBinary<EggParserNode_AssignPlus>(context, *this, this->child);
-    case EggTokenizerOperator::MinusEqual:
-      return promoteBinary<EggParserNode_AssignMinus>(context, *this, this->child);
-    case EggTokenizerOperator::SlashEqual:
-      return promoteBinary<EggParserNode_AssignDivide>(context, *this, this->child);
-    case EggTokenizerOperator::ShiftLeftEqual:
-      return promoteBinary<EggParserNode_AssignShiftLeft>(context, *this, this->child);
-    case EggTokenizerOperator::Equal:
-      return promoteBinary<EggParserNode_AssignEqual>(context, *this, this->child);
-    case EggTokenizerOperator::ShiftRightEqual:
-      return promoteBinary<EggParserNode_AssignShiftRight>(context, *this, this->child);
-    case EggTokenizerOperator::ShiftRightUnsignedEqual:
-      return promoteBinary<EggParserNode_AssignShiftRightUnsigned>(context, *this, this->child);
-    case EggTokenizerOperator::QueryQueryEqual:
-      return promoteBinary<EggParserNode_AssignNullCoalescing>(context, *this, this->child);
-    case EggTokenizerOperator::CaretEqual:
-      return promoteBinary<EggParserNode_AssignBitwiseXor>(context, *this, this->child);
-    case EggTokenizerOperator::BarEqual:
-      return promoteBinary<EggParserNode_AssignBitwiseOr>(context, *this, this->child);
-    case EggTokenizerOperator::BarBarEqual:
-      return promoteBinary<EggParserNode_AssignLogicalOr>(context, *this, this->child);
-    case EggTokenizerOperator::Bang:
-    case EggTokenizerOperator::BangEqual:
-    case EggTokenizerOperator::Percent:
-    case EggTokenizerOperator::Ampersand:
-    case EggTokenizerOperator::AmpersandAmpersand:
-    case EggTokenizerOperator::ParenthesisLeft:
-    case EggTokenizerOperator::ParenthesisRight:
-    case EggTokenizerOperator::Star:
-    case EggTokenizerOperator::Plus:
-    case EggTokenizerOperator::PlusPlus:
-    case EggTokenizerOperator::Comma:
-    case EggTokenizerOperator::Minus:
-    case EggTokenizerOperator::MinusMinus:
-    case EggTokenizerOperator::Lambda:
-    case EggTokenizerOperator::Dot:
-    case EggTokenizerOperator::Ellipsis:
-    case EggTokenizerOperator::Slash:
-    case EggTokenizerOperator::Colon:
-    case EggTokenizerOperator::Semicolon:
-    case EggTokenizerOperator::Less:
-    case EggTokenizerOperator::ShiftLeft:
-    case EggTokenizerOperator::LessEqual:
-    case EggTokenizerOperator::EqualEqual:
-    case EggTokenizerOperator::Greater:
-    case EggTokenizerOperator::GreaterEqual:
-    case EggTokenizerOperator::ShiftRight:
-    case EggTokenizerOperator::ShiftRightUnsigned:
-    case EggTokenizerOperator::Query:
-    case EggTokenizerOperator::QueryQuery:
-    case EggTokenizerOperator::BracketLeft:
-    case EggTokenizerOperator::BracketRight:
-    case EggTokenizerOperator::Caret:
-    case EggTokenizerOperator::CurlyLeft:
-    case EggTokenizerOperator::Bar:
-    case EggTokenizerOperator::BarBar:
-    case EggTokenizerOperator::CurlyRight:
-    case EggTokenizerOperator::Tilde:
-    default:
-      throw exceptionFromToken(context, "Unknown assignment operator", *this);
+  case EggTokenizerOperator::PercentEqual:
+    return promoteBinary<EggParserNode_AssignRemainder>(context, *this, this->child);
+  case EggTokenizerOperator::AmpersandEqual:
+    return promoteBinary<EggParserNode_AssignBitwiseAnd>(context, *this, this->child);
+  case EggTokenizerOperator::AmpersandAmpersandEqual:
+    return promoteBinary<EggParserNode_AssignLogicalAnd>(context, *this, this->child);
+  case EggTokenizerOperator::StarEqual:
+    return promoteBinary<EggParserNode_AssignMultiply>(context, *this, this->child);
+  case EggTokenizerOperator::PlusEqual:
+    return promoteBinary<EggParserNode_AssignPlus>(context, *this, this->child);
+  case EggTokenizerOperator::MinusEqual:
+    return promoteBinary<EggParserNode_AssignMinus>(context, *this, this->child);
+  case EggTokenizerOperator::SlashEqual:
+    return promoteBinary<EggParserNode_AssignDivide>(context, *this, this->child);
+  case EggTokenizerOperator::ShiftLeftEqual:
+    return promoteBinary<EggParserNode_AssignShiftLeft>(context, *this, this->child);
+  case EggTokenizerOperator::Equal:
+    return promoteBinary<EggParserNode_AssignEqual>(context, *this, this->child);
+  case EggTokenizerOperator::ShiftRightEqual:
+    return promoteBinary<EggParserNode_AssignShiftRight>(context, *this, this->child);
+  case EggTokenizerOperator::ShiftRightUnsignedEqual:
+    return promoteBinary<EggParserNode_AssignShiftRightUnsigned>(context, *this, this->child);
+  case EggTokenizerOperator::QueryQueryEqual:
+    return promoteBinary<EggParserNode_AssignNullCoalescing>(context, *this, this->child);
+  case EggTokenizerOperator::CaretEqual:
+    return promoteBinary<EggParserNode_AssignBitwiseXor>(context, *this, this->child);
+  case EggTokenizerOperator::BarEqual:
+    return promoteBinary<EggParserNode_AssignBitwiseOr>(context, *this, this->child);
+  case EggTokenizerOperator::BarBarEqual:
+    return promoteBinary<EggParserNode_AssignLogicalOr>(context, *this, this->child);
+  case EggTokenizerOperator::Bang:
+  case EggTokenizerOperator::BangEqual:
+  case EggTokenizerOperator::Percent:
+  case EggTokenizerOperator::Ampersand:
+  case EggTokenizerOperator::AmpersandAmpersand:
+  case EggTokenizerOperator::ParenthesisLeft:
+  case EggTokenizerOperator::ParenthesisRight:
+  case EggTokenizerOperator::Star:
+  case EggTokenizerOperator::Plus:
+  case EggTokenizerOperator::PlusPlus:
+  case EggTokenizerOperator::Comma:
+  case EggTokenizerOperator::Minus:
+  case EggTokenizerOperator::MinusMinus:
+  case EggTokenizerOperator::Lambda:
+  case EggTokenizerOperator::Dot:
+  case EggTokenizerOperator::Ellipsis:
+  case EggTokenizerOperator::Slash:
+  case EggTokenizerOperator::Colon:
+  case EggTokenizerOperator::Semicolon:
+  case EggTokenizerOperator::Less:
+  case EggTokenizerOperator::ShiftLeft:
+  case EggTokenizerOperator::LessEqual:
+  case EggTokenizerOperator::EqualEqual:
+  case EggTokenizerOperator::Greater:
+  case EggTokenizerOperator::GreaterEqual:
+  case EggTokenizerOperator::ShiftRight:
+  case EggTokenizerOperator::ShiftRightUnsigned:
+  case EggTokenizerOperator::Query:
+  case EggTokenizerOperator::QueryQuery:
+  case EggTokenizerOperator::BracketLeft:
+  case EggTokenizerOperator::BracketRight:
+  case EggTokenizerOperator::Caret:
+  case EggTokenizerOperator::CurlyLeft:
+  case EggTokenizerOperator::Bar:
+  case EggTokenizerOperator::BarBar:
+  case EggTokenizerOperator::CurlyRight:
+  case EggTokenizerOperator::Tilde:
+  default:
+    throw exceptionFromToken(context, "Unknown assignment operator", *this);
   }
 }
 
@@ -1203,7 +1466,7 @@ std::shared_ptr<egg::yolk::IEggProgramNode> egg::yolk::EggSyntaxNode_Case::promo
 
 std::shared_ptr<egg::yolk::IEggProgramNode> egg::yolk::EggSyntaxNode_Catch::promote(egg::yolk::IEggParserContext& context) const {
   auto type = context.promote(*this->child[0]);
-  EggParserContextNested nested(context, EggParserAllowed::Rethrow|EggParserAllowed::Return|EggParserAllowed::Yield);
+  EggParserContextNested nested(context, EggParserAllowed::Rethrow | EggParserAllowed::Return | EggParserAllowed::Yield);
   auto block = context.promote(*this->child[1]);
   return makeParserNode<EggParserNode_Catch>(context, *this, this->name, type, block);
 }
@@ -1222,7 +1485,7 @@ std::shared_ptr<egg::yolk::IEggProgramNode> egg::yolk::EggSyntaxNode_Default::pr
 
 std::shared_ptr<egg::yolk::IEggProgramNode> egg::yolk::EggSyntaxNode_Do::promote(egg::yolk::IEggParserContext& context) const {
   auto condition = context.promote(*this->child[0]);
-  EggParserContextNested nested(context, EggParserAllowed::Break|EggParserAllowed::Continue, EggParserAllowed::Rethrow|EggParserAllowed::Return|EggParserAllowed::Yield);
+  EggParserContextNested nested(context, EggParserAllowed::Break | EggParserAllowed::Continue, EggParserAllowed::Rethrow | EggParserAllowed::Return | EggParserAllowed::Yield);
   auto block = context.promote(*this->child[1]);
   return makeParserNode<EggParserNode_Do>(context, *this, condition, block);
 }
@@ -1252,7 +1515,7 @@ std::shared_ptr<egg::yolk::IEggProgramNode> egg::yolk::EggSyntaxNode_For::promot
       promoted[i] = nested1.promote(*this->child[i]);
     }
   }
-  EggParserContextNested nested2(context, EggParserAllowed::Break|EggParserAllowed::Continue, EggParserAllowed::Rethrow|EggParserAllowed::Return|EggParserAllowed::Yield);
+  EggParserContextNested nested2(context, EggParserAllowed::Break | EggParserAllowed::Continue, EggParserAllowed::Rethrow | EggParserAllowed::Return | EggParserAllowed::Yield);
   auto block = nested2.promote(*this->child[3]);
   return makeParserNode<EggParserNode_For>(context, *this, promoted[0], promoted[1], promoted[2], block);
 }
@@ -1260,7 +1523,7 @@ std::shared_ptr<egg::yolk::IEggProgramNode> egg::yolk::EggSyntaxNode_For::promot
 std::shared_ptr<egg::yolk::IEggProgramNode> egg::yolk::EggSyntaxNode_Foreach::promote(egg::yolk::IEggParserContext& context) const {
   auto target = context.promote(*this->child[0]);
   auto expr = context.promote(*this->child[1]);
-  EggParserContextNested nested(context, EggParserAllowed::Break|EggParserAllowed::Continue, EggParserAllowed::Rethrow|EggParserAllowed::Return|EggParserAllowed::Yield);
+  EggParserContextNested nested(context, EggParserAllowed::Break | EggParserAllowed::Continue, EggParserAllowed::Rethrow | EggParserAllowed::Return | EggParserAllowed::Yield);
   auto block = nested.promote(*this->child[2]);
   return makeParserNode<EggParserNode_Foreach>(context, *this, target, expr, block);
 }
@@ -1273,7 +1536,7 @@ std::shared_ptr<egg::yolk::IEggProgramNode> egg::yolk::EggSyntaxNode_FunctionDef
   egg::ovum::ITypeFunction* underlying;
   if (this->generator) {
     // Generators cannot explicitly return voids
-    if (egg::ovum::Bits::hasAnySet(rettype->getFlags(), egg::ovum::ValueFlags::Void)) {
+    if (rettype.hasAnyFlags(egg::ovum::ValueFlags::Void)) {
       throw exceptionFromLocation(context, "The return value of a generator may not include 'void'", *this);
     }
     underlying = egg::ovum::TypeFactory::createGenerator(context.allocator(), this->name, rettype);
@@ -1335,12 +1598,12 @@ std::shared_ptr<egg::yolk::IEggProgramNode> egg::yolk::EggSyntaxNode_Throw::prom
 std::shared_ptr<egg::yolk::IEggProgramNode> egg::yolk::EggSyntaxNode_Try::promote(egg::yolk::IEggParserContext& context) const {
   // TODO There's some ambiguity amongst C++/Java/C# as to whether 'break' inside here breaks out of any enclosing loop
   // The 'switch' pattern is even more confusing, so we just disallow 'break'/'continue' inside 'try'/'catch'/'finally' for now
-  EggParserContextNested nested1(context, EggParserAllowed::None, EggParserAllowed::Rethrow|EggParserAllowed::Return|EggParserAllowed::Yield);
+  EggParserContextNested nested1(context, EggParserAllowed::None, EggParserAllowed::Rethrow | EggParserAllowed::Return | EggParserAllowed::Yield);
   auto clauses = this->child.size();
   assert(clauses >= 2);
   auto block = nested1.promote(*this->child[0]);
   auto result = makeParserNode<EggParserNode_Try>(context, *this, block);
-  EggParserContextNested nested2(context, EggParserAllowed::Rethrow, EggParserAllowed::Return|EggParserAllowed::Yield);
+  EggParserContextNested nested2(context, EggParserAllowed::Rethrow, EggParserAllowed::Return | EggParserAllowed::Yield);
   for (size_t i = 1; i < clauses; ++i) {
     auto& clause = *this->child[i];
     if (clause.keyword() == EggTokenizerKeyword::Catch) {
@@ -1360,7 +1623,7 @@ std::shared_ptr<egg::yolk::IEggProgramNode> egg::yolk::EggSyntaxNode_Try::promot
 
 std::shared_ptr<egg::yolk::IEggProgramNode> egg::yolk::EggSyntaxNode_While::promote(egg::yolk::IEggParserContext& context) const {
   auto condition = context.promote(*this->child[0]);
-  EggParserContextNested nested(context, EggParserAllowed::Break|EggParserAllowed::Continue, EggParserAllowed::Rethrow|EggParserAllowed::Return|EggParserAllowed::Yield);
+  EggParserContextNested nested(context, EggParserAllowed::Break | EggParserAllowed::Continue, EggParserAllowed::Rethrow | EggParserAllowed::Return | EggParserAllowed::Yield);
   auto block = nested.promote(*this->child[1]);
   return makeParserNode<EggParserNode_While>(context, *this, condition, block);
 }
@@ -1377,7 +1640,7 @@ std::shared_ptr<egg::yolk::IEggProgramNode> egg::yolk::EggSyntaxNode_Dot::promot
   auto instance = context.promote(*this->child);
   return makeParserNode<EggParserNode_Dot>(context, *this, instance, this->property);
 }
-    
+
 std::shared_ptr<egg::yolk::IEggProgramNode> egg::yolk::EggSyntaxNode_UnaryOperator::promote(egg::yolk::IEggParserContext& context) const {
   if (this->op == EggTokenizerOperator::Bang) {
     return promoteUnary<EggParserNode_UnaryLogicalNot>(context, *this, this->child);
@@ -1681,9 +1944,23 @@ egg::ovum::Type EggParserNode_BinaryLogicalOr::getType() const {
   return egg::ovum::Type::Bool;
 }
 
+std::shared_ptr<IEggProgramNode> EggProgramContext::empredicateBinary(const std::shared_ptr<IEggProgramNode>& node, EggProgramBinary op, const std::shared_ptr<IEggProgramNode>& lhs, const std::shared_ptr<IEggProgramNode>& rhs) {
+  // Wrap the expression in an appropriate predicate
+  // We currently only handle comparator operators
+  if ((op == EggProgramBinary::Equal) ||
+    (op == EggProgramBinary::Unequal) ||
+    (op == EggProgramBinary::Less) ||
+    (op == EggProgramBinary::LessEqual) ||
+    (op == EggProgramBinary::Greater) ||
+    (op == EggProgramBinary::GreaterEqual)) {
+    return std::make_shared<EggParserNode_Predicate>(this->allocator, node->location(), op, lhs, rhs);
+  }
+  return node;
+}
+
 egg::ovum::Type EggParserNode_Ternary::getType() const {
   auto type1 = this->condition->getType();
-  if (!egg::ovum::Bits::hasAnySet(type1->getFlags(), egg::ovum::ValueFlags::Bool)) {
+  if (!type1.hasAnyFlags(egg::ovum::ValueFlags::Bool)) {
     // The condition is not a bool, so the other values are irrelevant
     return egg::ovum::Type::Void;
   }

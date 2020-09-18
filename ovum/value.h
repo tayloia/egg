@@ -121,6 +121,7 @@ namespace egg::ovum {
     static Value createMemory(IAllocator& allocator, const Memory& value);
     static Value createPointer(IAllocator& allocator, const Value& pointee);
     static Value createFlowControl(IAllocator& allocator, ValueFlags flags, const Value& value);
+    static Value createException(IAllocator& allocator, const LocationSource& location, const String& message);
 
     // Overloaded without implicit promotion
     template<typename T>
@@ -162,8 +163,9 @@ namespace egg::ovum {
     // Standard builtins
     static Value createBuiltinAssert(IAllocator& allocator);
     static Value createBuiltinPrint(IAllocator& allocator);
-    static Value createBuiltinString(IAllocator& allocator);
     static Value createBuiltinType(IAllocator& allocator);
-    static Value createStringProperty(IAllocator& allocator, const String& string, const String& property);
+    static Value createBuiltinString(IAllocator& allocator);
+    static Value createBuiltinStringProperty(IAllocator& allocator, const String& instance, const String& property);
+    static bool hasBuiltinStringProperty(const String& property);
   };
 }
