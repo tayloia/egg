@@ -13,6 +13,7 @@ msvc/bin/
 msvc/obj/
 */gcc/bin/
 */gcc/obj/
+*/gcc/html/
 
 # Keep but don't store in the repo
 keep/

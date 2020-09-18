@@ -135,9 +135,11 @@
       <Message Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Making with make/gcc...</Message>
     </CustomBuild>
     <None Include="..\build.sh" />
+    <None Include="..\coverage.sh" />
     <None Include="..\Makefile" />
     <None Include="..\make\cygwin.mak" />
     <None Include="..\make\gcc-common.mak" />
+    <None Include="..\make\gcc-coverage.mak" />
     <None Include="..\make\gcc-debug.mak" />
     <None Include="..\make\gcc-release.mak" />
     <None Include="..\make\linux.mak" />

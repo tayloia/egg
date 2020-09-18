@@ -71,7 +71,7 @@ TEST_EXE = $(BIN_DIR)/egg-testsuite.exe
 # This is the thing that is built when you just type 'make'
 default: all
 
-.PHONY: default bin test clean nuke release debug all rebuild valgrind gdb gdb-run version
+.PHONY: default bin test clean nuke release debug all rebuild coverage valgrind gdb test-coverage test-gdb version
 
 # We need to create certain directories or our toolchain fails
 %/.:
@@ -129,8 +129,14 @@ valgrind: $(TEST_EXE)
 	$(ECHO) Grinding tests $<
 	valgrind -v --leak-check=full --show-leak-kinds=all --track-origins=yes --suppressions=./valgrind.supp $(TEST_EXE)
 
+# Pseudo-target to run test coverage
+test-coverage: #$(TEST_EXE)
+	$(ECHO) Running test coverage $<
+	./coverage.sh $(TEST_EXE) $(OBJ_DIR) $(PLATFORM)/$(TOOLCHAIN)/html
+	cmd.exe /C start $(PLATFORM)/$(TOOLCHAIN)/html/index.html
+
 # Pseudo-target to run gdb
-gdb-run: $(TEST_EXE)
+test-gdb: $(TEST_EXE)
 	$(ECHO) Debugging tests $<
 	gdb --batch --eval-command=run --eval-command=where --args $(TEST_EXE)
 
@@ -158,9 +164,13 @@ release:
 debug:
 	$(SUBMAKE) CONFIGURATION=debug bin
 
+# Pseudo-target to build and run coverage
+coverage:
+	$(SUBMAKE) CONFIGURATION=coverage test-coverage
+
 # Pseudo-target to build and run gdb
 gdb:
-	$(SUBMAKE) CONFIGURATION=debug gdb-run
+	$(SUBMAKE) CONFIGURATION=debug test-gdb
 
 # Pseudo-target for all binaries and tests (parallel-friendly)
 all: release debug

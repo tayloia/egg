@@ -14,6 +14,8 @@
     <None Include="..\valgrind.sh" />
     <None Include="..\make\cygwin.mak" />
     <None Include="..\make\wsl.mak" />
+    <None Include="..\make\gcc-coverage.mak" />
+    <None Include="..\coverage.sh" />
   </ItemGroup>
   <ItemGroup>
     <CustomBuild Include="..\build.cmd" />
