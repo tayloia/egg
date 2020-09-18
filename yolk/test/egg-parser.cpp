@@ -52,7 +52,7 @@ TEST(TestEggParser, ModuleSimple) {
   ASSERT_PARSE_GOOD(dumpToString(*root), "(module (declare 'a' 'var' (identifier 'b')) (assign '=' (identifier 'a') (identifier 'c')))");
 }
 
-TEST(TestEggParser, DISABLED_ExpressionType) {
+TEST(TestEggParser, ExpressionType) {
   egg::test::Allocator allocator;
   ASSERT_PARSE_GOOD(typeFromExpression(allocator, "null"), "null");
   ASSERT_PARSE_GOOD(typeFromExpression(allocator, "false"), "bool");

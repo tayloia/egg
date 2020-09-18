@@ -366,6 +366,32 @@ namespace {
       sb.add(')');
     }
   }
+
+  Opcode simpleTypeToOpcode(ValueFlags flags) {
+    EGG_WARNING_SUPPRESS_SWITCH_BEGIN();
+    switch (flags) {
+    case ValueFlags::Void:
+      return Opcode::VOID;
+    case ValueFlags::Null:
+      return Opcode::NULL_;
+    case ValueFlags::Bool:
+      return Opcode::BOOL;
+    case ValueFlags::Int:
+      return Opcode::INT;
+    case ValueFlags::Float:
+      return Opcode::FLOAT;
+    case ValueFlags::String:
+      return Opcode::STRING;
+    case ValueFlags::Object:
+      return Opcode::OBJECT;
+    case ValueFlags::Any:
+      return Opcode::ANY;
+    case ValueFlags::AnyQ:
+      return Opcode::ANYQ;
+    }
+    EGG_WARNING_SUPPRESS_SWITCH_END();
+    return Opcode::END;
+  }
 }
 
 egg::ovum::Node egg::ovum::NodeFactory::create(IAllocator& allocator, Opcode opcode) {
@@ -488,6 +514,24 @@ egg::ovum::Node egg::ovum::NodeFactory::createValue(IAllocator& allocator, doubl
 
 egg::ovum::Node egg::ovum::NodeFactory::createValue(IAllocator& allocator, const String& value) {
   return createNodeOperand<NodeOperandString>(allocator, Opcode::SVALUE, value);
+}
+
+egg::ovum::Node egg::ovum::NodeFactory::createSimpleType(IAllocator& allocator, const NodeLocation& location, ValueFlags flags) {
+  auto opcode = simpleTypeToOpcode(flags);
+  if (opcode != Opcode::END) {
+    // This is a well-known simple type
+    return NodeFactory::create(allocator, opcode);
+  }
+  Nodes parts;
+  while (flags != ValueFlags::None) {
+    // Construct a vector of all the constituent parts
+    auto top = Bits::topmost(flags);
+    opcode = simpleTypeToOpcode(top);
+    assert(opcode != Opcode::END);
+    parts.push_back(NodeFactory::create(allocator, opcode));
+    flags = Bits::clear(flags, top);
+  }
+  return NodeFactory::create(allocator, location, Opcode::UNION, &parts);
 }
 
 egg::ovum::String egg::ovum::Node::toString(const INode* node) {

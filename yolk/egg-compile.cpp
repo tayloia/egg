@@ -79,8 +79,9 @@ egg::ovum::Node egg::yolk::EggProgramCompiler::type(const egg::ovum::LocationSou
   if (type == nullptr) {
     return this->opcode(location, egg::ovum::Opcode::INFERRED);
   }
-  return this->raise("Type compilation not yet supported");
-  //return type->compile(this->context.getAllocator(), { location.line, location.column });
+  // WIBBLE
+  auto& allocator = this->context.getAllocator();
+  return egg::ovum::NodeFactory::createSimpleType(allocator, { location.line, location.column }, type->getFlags());
 }
 
 egg::ovum::Node egg::yolk::EggProgramCompiler::identifier(const egg::ovum::LocationSource& location, const egg::ovum::String& id) {
