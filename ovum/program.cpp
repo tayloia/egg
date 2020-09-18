@@ -4,7 +4,7 @@
 #include "ovum/program.h"
 #include "ovum/utf.h"
 
-#include <cmath>
+#include <map>
 #include <set>
 
 namespace {
@@ -207,12 +207,25 @@ namespace {
     Value guard(const LocationSource& source, const Type& type, const String& name, const Value& init);
   };
 
-  class Symbol;
+  struct Symbol {
+    Type type;
+    String name;
+    LocationSource source;
+    Value value;
+    Symbol(const Type& type, const String& name, const LocationSource& source)
+      : type(type),
+      name(name),
+      source(source),
+      value() {
+      assert(type != nullptr);
+    }
+  };
 
   class SymbolTable : public SoftReferenceCounted<ICollectable> {
     SymbolTable(const SymbolTable&) = delete;
     SymbolTable& operator=(const SymbolTable&) = delete;
   private:
+    std::map<String, Symbol> table;
     SoftPtr<SymbolTable> parent;
     SoftPtr<SymbolTable> capture;
   public:
@@ -221,21 +234,18 @@ namespace {
       this->parent.set(*this, parent);
       this->capture.set(*this, capture);
     }
-    std::pair<bool, Symbol*> add(const Type&, const String&, const LocationSource&) { return std::make_pair(false, nullptr); }
-    /* WIBBLE WOBBLE {
+    std::pair<bool, Symbol*> add(const Type& type, const String& name, const LocationSource& source) {
       // Return true in the first of the pair iff the insertion occurred
       Symbol symbol(type, name, source);
       auto retval = this->table.insert(std::make_pair(name, std::move(symbol)));
       return std::make_pair(retval.second, &retval.first->second);
-    }*/
-    bool remove(const String&) { return false; }
-    /* WIBBLE {
+    }
+    bool remove(const String& name) {
       // Return true iff the removal occurred
       auto retval = this->table.erase(name);
       return retval == 1;
-    }*/
-    Symbol* get(const String&) { return nullptr; }
-    /* WIBBLE {
+    }
+    Symbol* get(const String& name) {
       // Return a pointer to the symbol or null
       auto retval = this->table.find(name);
       if (retval == this->table.end()) {
@@ -245,7 +255,7 @@ namespace {
         return nullptr;
       }
       return &retval->second;
-    }*/
+    }
     void softVisitLinks(const Visitor& visitor) const {
       // WIBBLE
       this->parent.visit(visitor);
@@ -283,19 +293,16 @@ namespace {
       this->symtable.set(nullptr);
       this->basket->collect();
     }
-    // Inherited from IProgram
-    virtual bool builtin(const String&, const Value&) override {
-      /* WIBBLE
+    virtual bool builtin(const String& name, const Value& value) override {
       static const LocationSource source("<builtin>", 0, 0);
       auto symbol = this->symtable->add(value->getRuntimeType(), name, source);
       if (symbol.first) {
         // Don't use tryAssign for builtins; it always fails
         auto& added = symbol.second->value;
         added = value;
-        added.soften(*this->basket);
+        // WIBBLE WOBBLE added.soften(*this->basket);
         return true;
       }
-      */
       return false;
     }
     virtual Value run(const IModule& module) override {
@@ -1019,7 +1026,7 @@ namespace {
       if (symbol == nullptr) {
         return this->raiseNode(node, "Unknown identifier in expression: '", name, "'");
       }
-      return this->raiseNode(node, "WIBBLE Symbols not yet supported: '", name, "'");
+      return symbol->value;
     }
     Value expressionIndex(const INode& node) {
       assert(node.getOpcode() == Opcode::INDEX);

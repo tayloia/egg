@@ -71,7 +71,7 @@ TEST_EXE = $(BIN_DIR)/egg-testsuite.exe
 # This is the thing that is built when you just type 'make'
 default: all
 
-.PHONY: default bin test clean nuke release debug all rebuild valgrind version
+.PHONY: default bin test clean nuke release debug all rebuild valgrind gdb gdb-run version
 
 # We need to create certain directories or our toolchain fails
 %/.:
@@ -124,6 +124,16 @@ test: $(TEST_EXE)
 	$(ECHO) Running tests $<
 	$(RUNTEST) $<
 
+# Pseudo-target to run valgrind
+valgrind: $(TEST_EXE)
+	$(ECHO) Grinding tests $<
+	valgrind -v --leak-check=full --show-leak-kinds=all --track-origins=yes --suppressions=./valgrind.supp $(TEST_EXE)
+
+# Pseudo-target to run gdb
+gdb-run: $(TEST_EXE)
+	$(ECHO) Debugging tests $<
+	gdb --batch --eval-command=run --eval-command=where --args $(TEST_EXE)
+
 # Pseudo-target to clean the intermediates for the current configuration
 clean:
 	$(ECHO) Cleaning directory $(OBJ_DIR)
@@ -148,6 +158,10 @@ release:
 debug:
 	$(SUBMAKE) CONFIGURATION=debug bin
 
+# Pseudo-target to build and run gdb
+gdb:
+	$(SUBMAKE) CONFIGURATION=debug gdb-run
+
 # Pseudo-target for all binaries and tests (parallel-friendly)
 all: release debug
 	$(SUBMAKE) CONFIGURATION=release test
@@ -156,10 +170,6 @@ all: release debug
 # Pseudo-target for everything from scratch (parallel-friendly)
 rebuild: nuke
 	$(SUBMAKE) all
-
-valgrind: clean
-	$(SUBMAKE) $(TEST_EXE)
-	valgrind -v --leak-check=full --show-leak-kinds=all --track-origins=yes --suppressions=./valgrind.supp $(TEST_EXE)
 
 version:
 	$(ECHO) PLATFORM=$(PLATFORM)
