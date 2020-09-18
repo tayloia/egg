@@ -202,7 +202,7 @@ namespace egg::ovum {
   public:
     // Interface
     virtual bool validate() const = 0;
-    virtual Value toString() const = 0;
+    virtual String toString() const = 0;
     virtual Type getRuntimeType() const = 0;
     virtual Value call(IExecution& execution, const IParameters& parameters) = 0;
     virtual Value getProperty(IExecution& execution, const String& property) = 0;

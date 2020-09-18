@@ -64,6 +64,7 @@ void egg::ovum::Print::write(std::ostream& stream, const Value& value) {
   case egg::ovum::ValueFlags::String: {
     egg::ovum::String s;
     if (value->getString(s)) {
+      // TODO: escape
       stream << '"' << s.toUTF8() << '"';
       return;
     }
@@ -72,8 +73,7 @@ void egg::ovum::Print::write(std::ostream& stream, const Value& value) {
   case egg::ovum::ValueFlags::Object: {
     egg::ovum::Object o;
     if (value->getObject(o)) {
-      auto* p = o.get();
-      stream << "[object 0x" << std::hex << std::setw(sizeof(p) * 2) << std::setfill('0') << p << ']';
+      stream << o->toString().toUTF8();
       return;
     }
     break;

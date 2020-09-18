@@ -139,7 +139,7 @@ egg::ovum::ILogger::Severity egg::yolk::EggProgram::execute(IEggEngineContext& c
     egg::ovum::Value exception;
     if (result->getChild(exception)) {
       // Don't re-print a rethrown exception
-      context.log(egg::ovum::ILogger::Source::Runtime, egg::ovum::ILogger::Severity::Error, result->toString().toUTF8());
+      context.log(egg::ovum::ILogger::Source::Runtime, egg::ovum::ILogger::Severity::Error, exception->toString().toUTF8());
     }
     return egg::ovum::ILogger::Severity::Error;
   }
@@ -670,7 +670,7 @@ void egg::yolk::EggProgramContext::print(const std::string& utf8) {
 }
 
 egg::ovum::Value egg::yolk::EggProgramContext::raise(const egg::ovum::String& message) {
-  return egg::ovum::ValueFactory::createException(this->allocator, this->location, message);
+  return egg::ovum::ValueFactory::createThrowError(this->allocator, this->location, message);
 }
 
 egg::ovum::IAllocator& egg::yolk::EggProgramContext::getAllocator() const {

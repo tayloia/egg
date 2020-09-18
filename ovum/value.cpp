@@ -330,7 +330,7 @@ namespace {
       return rhs.getObject(other) && (this->value.get() == other.get());
     }
     virtual String toString() const override {
-      return "<object>"; // TODO Object::toString()
+      return this->value->toString();
     }
     virtual bool validate() const override {
       return this->value.validate();
@@ -469,8 +469,9 @@ egg::ovum::Value egg::ovum::ValueFactory::createFlowControl(IAllocator& allocato
   return Value(allocator.make<ValueFlowControl, IValue*>(flags, value));
 }
 
-egg::ovum::Value egg::ovum::ValueFactory::createException(IAllocator& allocator, const LocationSource& location, const String& message) {
-  auto object = ObjectFactory::createVanillaException(allocator, location, message);
+egg::ovum::Value egg::ovum::ValueFactory::createThrowError(IAllocator& allocator, const LocationSource& location, const String& message) {
+  // WIBBLE use RuntimeException instead?
+  auto object = ObjectFactory::createVanillaError(allocator, location, message);
   auto value = ValueFactory::createObject(allocator, object);
   return ValueFactory::createFlowControl(allocator, ValueFlags::Throw, value);
 }

@@ -29,21 +29,20 @@ namespace {
   };
   const ParametersNone parametersNone{};
 
-  class ObjectVanilla : public SoftReferenceCounted<IObject> {
-    ObjectVanilla(const ObjectVanilla&) = delete;
-    ObjectVanilla& operator=(const ObjectVanilla&) = delete;
+  class VanillaBase : public SoftReferenceCounted<IObject> {
+    VanillaBase(const VanillaBase&) = delete;
+    VanillaBase& operator=(const VanillaBase&) = delete;
   public:
-    explicit ObjectVanilla(IAllocator& allocator) : SoftReferenceCounted(allocator) {}
-    // Inherited via HardReferenceCounted
+    explicit VanillaBase(IAllocator& allocator) : SoftReferenceCounted(allocator) {}
     virtual void softVisitLinks(const Visitor&) const override {
       // WIBBLE
     }
     virtual bool validate() const override {
       return true;
     }
-    virtual Value toString() const override {
+    virtual String toString() const override {
       // WIBBLE
-      return ValueFactory::createString(this->allocator, "<object>");
+      return "<object>";
     }
     virtual Type getRuntimeType() const override {
       // WIBBLE
@@ -74,21 +73,77 @@ namespace {
       return execution.raiseFormat("WIBBLE: Objects do not support iteration");
     }
   };
+
+  class VanillaObject : public VanillaBase {
+    VanillaObject(const VanillaObject&) = delete;
+    VanillaObject& operator=(const VanillaObject&) = delete;
+  public:
+    explicit VanillaObject(IAllocator& allocator)
+      : VanillaBase(allocator) {
+      assert(this->validate());
+    }
+    virtual String toString() const override {
+      // WIBBLE
+      return "<vanilla-object>";
+    }
+    void addProperty(const String&, const String&) {
+      // WIBBLE
+    }
+  };
+
+  class VanillaArray : public VanillaBase {
+    VanillaArray(const VanillaArray&) = delete;
+    VanillaObject& operator=(const VanillaArray&) = delete;
+  public:
+    VanillaArray(IAllocator& allocator, size_t)
+      : VanillaBase(allocator) {
+      assert(this->validate());
+    }
+    virtual String toString() const override {
+      // WIBBLE
+      return "<vanilla-array>";
+    }
+  };
+
+  class VanillaError : public VanillaObject {
+    VanillaError(const VanillaError&) = delete;
+    VanillaError& operator=(const VanillaError&) = delete;
+  private:
+    String readable;
+  public:
+    VanillaError(IAllocator& allocator, const LocationSource& location, const String& message)
+      : VanillaObject(allocator) {
+      assert(this->validate());
+      this->addProperty("message", message);
+      StringBuilder sb;
+      location.formatSourceString(sb);
+      this->addProperty("location", sb.str());
+      if (!sb.empty()) {
+        sb.add(':', ' ');
+      }
+      sb.add(message);
+      this->readable = sb.str();
+    }
+    virtual String toString() const override {
+      // WIBBLE
+      return this->readable;
+    }
+  };
 }
 
 const egg::ovum::IParameters& egg::ovum::Object::ParametersNone{ parametersNone };
 
-egg::ovum::Object egg::ovum::ObjectFactory::createVanillaException(IAllocator& allocator, const LocationSource&, const String&) {
-  // TODO add location and message;
-  return ObjectFactory::create<ObjectVanilla>(allocator);
-}
-
 egg::ovum::Object egg::ovum::ObjectFactory::createVanillaObject(IAllocator& allocator) {
   // TODO
-  return ObjectFactory::create<ObjectVanilla>(allocator);
+  return ObjectFactory::create<VanillaObject>(allocator);
 }
 
-egg::ovum::Object egg::ovum::ObjectFactory::createVanillaArray(IAllocator& allocator, size_t) {
+egg::ovum::Object egg::ovum::ObjectFactory::createVanillaArray(IAllocator& allocator, size_t fixed) {
   // TODO
-  return ObjectFactory::create<ObjectVanilla>(allocator);
+  return ObjectFactory::create<VanillaArray>(allocator, fixed);
+}
+
+egg::ovum::Object egg::ovum::ObjectFactory::createVanillaError(IAllocator& allocator, const LocationSource& location, const String& message) {
+  // TODO add location and message;
+  return ObjectFactory::create<VanillaError>(allocator, location, message);
 }

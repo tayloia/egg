@@ -121,7 +121,7 @@ namespace egg::ovum {
     static Value createMemory(IAllocator& allocator, const Memory& value);
     static Value createPointer(IAllocator& allocator, const Value& pointee);
     static Value createFlowControl(IAllocator& allocator, ValueFlags flags, const Value& value);
-    static Value createException(IAllocator& allocator, const LocationSource& location, const String& message);
+    static Value createThrowError(IAllocator& allocator, const LocationSource& location, const String& message);
 
     // Overloaded without implicit promotion
     template<typename T>

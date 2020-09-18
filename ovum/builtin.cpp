@@ -105,8 +105,8 @@ namespace {
       // TODO
       assert(false);
     }
-    virtual Value toString() const override {
-      return this->makeValue(StringBuilder::concat('<', this->name, '>'));
+    virtual String toString() const override {
+      return StringBuilder::concat('<', this->name, '>');
     }
     virtual Type getRuntimeType() const override {
       return Type(this->type.get());
@@ -126,8 +126,8 @@ namespace {
     virtual void softVisitLinks(const Visitor&) const override {
       // There are no soft links to visit
     }
-    virtual Value toString() const override {
-      return this->makeValue(this->name);
+    virtual String toString() const override {
+      return this->name;
     }
     virtual Type getRuntimeType() const override {
       return Type(this->type.get());
@@ -255,8 +255,8 @@ namespace {
     virtual void softVisitLinks(const Visitor&) const override {
       // There are no soft links to visit
     }
-    virtual Value toString() const override {
-      return this->makeValue(StringBuilder::concat('<', this->name, '>')); // WIBBLE
+    virtual String toString() const override {
+      return StringBuilder::concat('<', this->name, '>'); // WIBBLE
     }
     virtual Type getRuntimeType() const override {
       return nullptr; // WIBBLE

@@ -80,8 +80,8 @@ namespace {
     virtual void softVisitLinks(const Visitor&) const override {
       // There are no soft link to visit
     }
-    virtual Value toString() const override {
-      return ValueFactory::create(this->allocator, "<predicate>");
+    virtual String toString() const override {
+      return "<predicate>";
     }
     virtual Type getRuntimeType() const override {
       return Type::Object;
@@ -125,8 +125,8 @@ namespace {
     virtual void softVisitLinks(const Visitor&) const override {
       // WIBBLE
     }
-    virtual Value toString() const override {
-      return ValueFactory::create(this->allocator, "<user-function>");
+    virtual String toString() const override {
+      return "<user-function>";
     }
     virtual Type getRuntimeType() const override {
       return this->type;
@@ -222,7 +222,7 @@ namespace {
       this->capture.set(*this, capture);
     }
     std::pair<bool, Symbol*> add(const Type&, const String&, const LocationSource&) { return std::make_pair(false, nullptr); }
-    /* WIBBLE {
+    /* WIBBLE WOBBLE {
       // Return true in the first of the pair iff the insertion occurred
       Symbol symbol(type, name, source);
       auto retval = this->table.insert(std::make_pair(name, std::move(symbol)));
@@ -317,7 +317,7 @@ namespace {
       return *this->basket;
     }
     virtual Value raise(const String& message) override {
-      return ValueFactory::createException(this->allocator, this->location, message);
+      return ValueFactory::createThrowError(this->allocator, this->location, message);
     }
     virtual Value assertion(const Value& predicate) override {
       Object object;
@@ -1506,7 +1506,7 @@ namespace {
     template<typename... ARGS>
     Value raiseLocation(const LocationSource& where, ARGS&&... args) const {
       auto message = StringBuilder::concat(std::forward<ARGS>(args)...);
-      return ValueFactory::createException(this->allocator, where, message);
+      return ValueFactory::createThrowError(this->allocator, where, message);
     }
   };
 }
@@ -1739,7 +1739,7 @@ Value Target::set(const Value& value) const {
 
 Value Target::raise(const String& message) const {
   LocationSource location{ "<unknown>", 0, 0 }; // TODO
-  return ValueFactory::createException(this->program.getAllocator(), location, message);
+  return ValueFactory::createThrowError(this->program.getAllocator(), location, message);
 }
 
 Block::~Block() {
