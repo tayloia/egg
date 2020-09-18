@@ -73,7 +73,7 @@ namespace egg::yolk {
   class IEggParserContext {
   public:
     virtual ~IEggParserContext() {}
-    virtual egg::ovum::IAllocator& allocator() const = 0;
+    virtual egg::ovum::IAllocator& getAllocator() const = 0;
     virtual egg::ovum::String getResourceName() const = 0;
     virtual bool isAllowed(EggParserAllowed allowed) const = 0;
     virtual EggParserAllowed inheritAllowed(EggParserAllowed allow, EggParserAllowed inherit) const = 0;

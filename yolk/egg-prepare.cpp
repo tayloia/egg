@@ -735,14 +735,14 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::typeCheck(const egg
   return EggProgramNodeFlags::Fallthrough;
 }
 
-egg::ovum::ILogger::Severity egg::yolk::EggProgram::prepare(IEggEnginePreparationContext& preparation) {
-  auto& allocator = preparation.allocator();
+egg::ovum::ILogger::Severity egg::yolk::EggProgram::prepare(IEggEngineContext& context) {
+  auto& allocator = context.getAllocator();
   auto symtable = allocator.make<EggProgramSymbolTable>();
   this->basket->take(*symtable);
   symtable->addBuiltins();
   egg::ovum::ILogger::Severity severity = egg::ovum::ILogger::Severity::None;
-  auto context = this->createRootContext(allocator, preparation, *symtable, severity);
-  if (abandoned(this->root->prepare(*context))) {
+  auto rootContext = this->createRootContext(allocator, context, *symtable, severity);
+  if (abandoned(this->root->prepare(*rootContext))) {
     return egg::ovum::ILogger::Severity::Error;
   }
   return severity;

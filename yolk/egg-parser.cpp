@@ -59,7 +59,7 @@ namespace {
   std::shared_ptr<T> makeParserNode(const IEggParserContext& context, const IEggSyntaxNode& node, ARGS&&... args) {
     // Fetch the syntax node's location and create a new 'T' based on it
     egg::ovum::LocationSource location(context.getResourceName(), node.location().begin.line, node.location().begin.column);
-    return std::make_shared<T>(context.allocator(), location, std::forward<ARGS>(args)...);
+    return std::make_shared<T>(context.getAllocator(), location, std::forward<ARGS>(args)...);
   }
 
   template<typename T>
@@ -1185,7 +1185,7 @@ namespace {
     EggParserContext(egg::ovum::IAllocator& allocator, const egg::ovum::String& resource, EggParserAllowed allowed = EggParserAllowed::None)
       : EggParserContextBase(allowed), mallocator(&allocator), resource(resource) {
     }
-    virtual egg::ovum::IAllocator& allocator() const override {
+    virtual egg::ovum::IAllocator& getAllocator() const override {
       return *this->mallocator;
     }
     virtual egg::ovum::String getResourceName() const override {
@@ -1201,8 +1201,8 @@ namespace {
       : EggParserContextBase(parent.inheritAllowed(allowed, inherited)), parent(&parent) {
       assert(this->parent != nullptr);
     }
-    virtual egg::ovum::IAllocator& allocator() const override {
-      return this->parent->allocator();
+    virtual egg::ovum::IAllocator& getAllocator() const override {
+      return this->parent->getAllocator();
     }
     virtual egg::ovum::String getResourceName() const override {
       return this->parent->getResourceName();
@@ -1221,8 +1221,8 @@ namespace {
         previous(EggTokenizerKeyword::Null) {
       assert(this->promoted != nullptr);
     }
-    virtual egg::ovum::IAllocator& allocator() const override {
-      return this->nested.allocator();
+    virtual egg::ovum::IAllocator& getAllocator() const override {
+      return this->nested.getAllocator();
     }
     virtual egg::ovum::String getResourceName() const override {
       return this->nested.getResourceName();
@@ -1539,9 +1539,9 @@ std::shared_ptr<egg::yolk::IEggProgramNode> egg::yolk::EggSyntaxNode_FunctionDef
     if (rettype.hasAnyFlags(egg::ovum::ValueFlags::Void)) {
       throw exceptionFromLocation(context, "The return value of a generator may not include 'void'", *this);
     }
-    underlying = egg::ovum::TypeFactory::createGenerator(context.allocator(), this->name, rettype);
+    underlying = egg::ovum::TypeFactory::createGenerator(context.getAllocator(), this->name, rettype);
   } else {
-    underlying = egg::ovum::TypeFactory::createFunction(context.allocator(), this->name, rettype);
+    underlying = egg::ovum::TypeFactory::createFunction(context.getAllocator(), this->name, rettype);
   }
   assert(underlying != nullptr);
   egg::ovum::Type function{ underlying }; // takes ownership

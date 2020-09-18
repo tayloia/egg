@@ -25,13 +25,12 @@ namespace {
   egg::ovum::Module compileModule(egg::ovum::IAllocator& allocator, egg::ovum::ILogger& logger, egg::yolk::TextStream& stream) {
     auto relogger = std::make_shared<Relogger>(logger);
     auto engine = egg::yolk::EggEngineFactory::createEngineFromTextStream(stream);
-    auto preparation = egg::yolk::EggEngineFactory::createPreparationContext(allocator, relogger);
-    if (engine->prepare(*preparation) == egg::ovum::ILogger::Severity::Error) {
+    auto context = egg::yolk::EggEngineFactory::createContext(allocator, relogger);
+    if (engine->prepare(*context) == egg::ovum::ILogger::Severity::Error) {
       return nullptr;
     }
-    auto compilation = egg::yolk::EggEngineFactory::createCompilationContext(allocator, relogger);
     egg::ovum::Module module;
-    if (engine->compile(*compilation, module) == egg::ovum::ILogger::Severity::Error) {
+    if (engine->compile(*context, module) == egg::ovum::ILogger::Severity::Error) {
       return nullptr;
     }
     return module;
@@ -158,6 +157,28 @@ std::string egg::yolk::EggProgram::mutateToString(egg::yolk::EggProgramMutate op
   auto index = static_cast<size_t>(op);
   assert(index < EGG_NELEMS(table));
   return table[index];
+}
+
+egg::ovum::ILogger::Severity egg::yolk::EggProgram::execute(IEggEngineContext& context, const egg::ovum::Module& module) {
+  // WIBBLE rationalise
+  auto& allocator = context.getAllocator();
+  auto program = egg::ovum::ProgramFactory::createProgram(allocator, context);
+  auto result = program->run(*module);
+  if (egg::ovum::Bits::hasAnySet(result->getFlags(), egg::ovum::ValueFlags::Throw)) {
+    egg::ovum::Value exception;
+    if (result->getChild(exception)) {
+      // Don't re-print a rethrown exception
+      context.log(egg::ovum::ILogger::Source::Runtime, egg::ovum::ILogger::Severity::Error, result->toString().toUTF8());
+    }
+    return egg::ovum::ILogger::Severity::Error;
+  }
+  if (!result->getVoid()) {
+    // We expect 'void' here
+    auto message = "Internal runtime error: Expected statement to return 'void', but got '" + result->getRuntimeType().toString().toUTF8() + "' instead";
+    context.log(egg::ovum::ILogger::Source::Runtime, egg::ovum::ILogger::Severity::Error, message);
+    return egg::ovum::ILogger::Severity::Error;
+  }
+  return egg::ovum::ILogger::Severity::None;
 }
 
 egg::ovum::HardPtr<egg::yolk::EggProgramContext> egg::yolk::EggProgram::createRootContext(egg::ovum::IAllocator& allocator, egg::ovum::ILogger& logger, EggProgramSymbolTable& symtable, egg::ovum::ILogger::Severity& maximumSeverity) {

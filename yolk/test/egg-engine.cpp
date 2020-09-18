@@ -10,13 +10,10 @@ using namespace egg::yolk;
 namespace {
   std::string logFromEngine(TextStream& stream) {
     egg::test::Allocator allocator;
-    auto engine = EggEngineFactory::createEngineFromTextStream(stream);
     auto logger = std::make_shared<egg::test::Logger>();
-    auto preparation = EggEngineFactory::createPreparationContext(allocator, logger);
-    if (engine->prepare(*preparation) != egg::ovum::ILogger::Severity::Error) {
-      auto execution = EggEngineFactory::createExecutionContext(allocator, logger);
-      engine->execute(*execution);
-    }
+    auto context = EggEngineFactory::createContext(allocator, logger);
+    auto engine = EggEngineFactory::createEngineFromTextStream(stream);
+    (void)engine->run(*context);
     return logger->logged.str();
   }
 }
@@ -27,8 +24,8 @@ TEST(TestEggEngine, CreateEngineFromParsed) {
   auto root = EggParserFactory::parseModule(allocator, stream);
   auto engine = EggEngineFactory::createEngineFromParsed(allocator, "<parsed>", root);
   auto logger = std::make_shared<egg::test::Logger>();
-  auto preparation = EggEngineFactory::createPreparationContext(allocator, logger);
-  ASSERT_EQ(egg::ovum::ILogger::Severity::Error, engine->prepare(*preparation));
+  auto context = EggEngineFactory::createContext(allocator, logger);
+  ASSERT_EQ(egg::ovum::ILogger::Severity::Error, engine->prepare(*context));
   ASSERT_STARTSWITH(logger->logged.str(), "<COMPILER><ERROR>~/yolk/test/data/example.egg(2,14): Unknown identifier: 'first'");
 }
 
@@ -37,8 +34,8 @@ TEST(TestEggEngine, CreateEngineFromTextStream) {
   FileTextStream stream("~/yolk/test/data/example.egg");
   auto engine = EggEngineFactory::createEngineFromTextStream(stream);
   auto logger = std::make_shared<egg::test::Logger>();
-  auto preparation = EggEngineFactory::createPreparationContext(allocator, logger);
-  ASSERT_EQ(egg::ovum::ILogger::Severity::Error, engine->prepare(*preparation));
+  auto context = EggEngineFactory::createContext(allocator, logger);
+  ASSERT_EQ(egg::ovum::ILogger::Severity::Error, engine->prepare(*context));
   ASSERT_STARTSWITH(logger->logged.str(), "<COMPILER><ERROR>~/yolk/test/data/example.egg(2,14): Unknown identifier: 'first'");
 }
 
@@ -47,8 +44,8 @@ TEST(TestEggEngine, CreateEngineFromGarbage) {
   StringTextStream stream("$");
   auto engine = EggEngineFactory::createEngineFromTextStream(stream);
   auto logger = std::make_shared<egg::test::Logger>();
-  auto preparation = EggEngineFactory::createPreparationContext(allocator, logger);
-  ASSERT_EQ(egg::ovum::ILogger::Severity::Error, engine->prepare(*preparation));
+  auto context = EggEngineFactory::createContext(allocator, logger);
+  ASSERT_EQ(egg::ovum::ILogger::Severity::Error, engine->prepare(*context));
   ASSERT_EQ("<COMPILER><ERROR>(1, 1): Unexpected character: '$'\n", logger->logged.str());
 }
 
@@ -57,10 +54,10 @@ TEST(TestEggEngine, PrepareTwice) {
   StringTextStream stream("print(123);");
   auto engine = EggEngineFactory::createEngineFromTextStream(stream);
   auto logger = std::make_shared<egg::test::Logger>();
-  auto preparation = EggEngineFactory::createPreparationContext(allocator, logger);
-  ASSERT_EQ(egg::ovum::ILogger::Severity::None, engine->prepare(*preparation));
+  auto context = EggEngineFactory::createContext(allocator, logger);
+  ASSERT_EQ(egg::ovum::ILogger::Severity::None, engine->prepare(*context));
   ASSERT_EQ("", logger->logged.str());
-  ASSERT_EQ(egg::ovum::ILogger::Severity::Error, engine->prepare(*preparation));
+  ASSERT_EQ(egg::ovum::ILogger::Severity::Error, engine->prepare(*context));
   ASSERT_EQ("<COMPILER><ERROR>Program prepared more than once\n", logger->logged.str());
 }
 
@@ -69,9 +66,9 @@ TEST(TestEggEngine, ExecuteUnprepared) {
   FileTextStream stream("~/yolk/test/data/example.egg");
   auto engine = EggEngineFactory::createEngineFromTextStream(stream);
   auto logger = std::make_shared<egg::test::Logger>();
-  auto execution = EggEngineFactory::createExecutionContext(allocator, logger);
-  ASSERT_EQ(egg::ovum::ILogger::Severity::Error, engine->execute(*execution));
-  ASSERT_EQ("<RUNTIME><ERROR>Program not prepared before execution\n", logger->logged.str());
+  auto context = EggEngineFactory::createContext(allocator, logger);
+  ASSERT_EQ(egg::ovum::ILogger::Severity::Error, engine->execute(*context));
+  ASSERT_EQ("<RUNTIME><ERROR>Program not prepared before compilation\n", logger->logged.str());
 }
 
 TEST(TestEggEngine, LogFromEngine) {
@@ -91,11 +88,10 @@ TEST(TestEggEngine, WorkingFile) {
   FileTextStream stream("~/yolk/test/data/working.egg");
   auto engine = EggEngineFactory::createEngineFromTextStream(stream);
   auto logger = std::make_shared<egg::test::Logger>();
-  auto preparation = EggEngineFactory::createPreparationContext(allocator, logger);
-  ASSERT_EQ(egg::ovum::ILogger::Severity::None, engine->prepare(*preparation));
+  auto context = EggEngineFactory::createContext(allocator, logger);
+  ASSERT_EQ(egg::ovum::ILogger::Severity::None, engine->prepare(*context));
   ASSERT_EQ("", logger->logged.str());
-  auto execution = EggEngineFactory::createExecutionContext(allocator, logger);
-  ASSERT_EQ(egg::ovum::ILogger::Severity::Information, engine->execute(*execution));
+  ASSERT_EQ(egg::ovum::ILogger::Severity::Information, engine->execute(*context));
   ASSERT_EQ("55\n4950\n", logger->logged.str());
 }
 
@@ -105,10 +101,9 @@ TEST(TestEggEngine, Coverage) {
   FileTextStream stream("~/yolk/test/data/coverage.egg");
   auto engine = EggEngineFactory::createEngineFromTextStream(stream);
   auto logger = std::make_shared<egg::test::Logger>();
-  auto preparation = EggEngineFactory::createPreparationContext(allocator, logger);
-  ASSERT_EQ(egg::ovum::ILogger::Severity::None, engine->prepare(*preparation));
+  auto context = EggEngineFactory::createContext(allocator, logger);
+  ASSERT_EQ(egg::ovum::ILogger::Severity::None, engine->prepare(*context));
   ASSERT_EQ("", logger->logged.str());
-  auto execution = EggEngineFactory::createExecutionContext(allocator, logger);
-  ASSERT_EQ(egg::ovum::ILogger::Severity::None, engine->execute(*execution));
+  ASSERT_EQ(egg::ovum::ILogger::Severity::None, engine->execute(*context));
   ASSERT_EQ("", logger->logged.str());
 }

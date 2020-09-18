@@ -102,9 +102,9 @@ namespace egg::yolk {
       // The destructor for 'basket' will assert if this collection doesn't free up everything in the basket
     }
     egg::ovum::HardPtr<EggProgramContext> createRootContext(egg::ovum::IAllocator& allocator, egg::ovum::ILogger& logger, EggProgramSymbolTable& symtable, egg::ovum::ILogger::Severity& maximumSeverity);
-    egg::ovum::ILogger::Severity prepare(IEggEnginePreparationContext& preparation);
-    egg::ovum::ILogger::Severity execute(IEggEngineExecutionContext& execution);
-    egg::ovum::ILogger::Severity compile(IEggEngineCompilationContext& compilation, egg::ovum::Module& out);
+    egg::ovum::ILogger::Severity prepare(IEggEngineContext& preparation);
+    egg::ovum::ILogger::Severity compile(IEggEngineContext& compilation, egg::ovum::Module& out);
+    egg::ovum::ILogger::Severity execute(IEggEngineContext& execution, const egg::ovum::Module& module);
     static std::string unaryToString(EggProgramUnary op);
     static std::string binaryToString(EggProgramBinary op);
     static std::string assignToString(EggProgramAssign op);
@@ -340,9 +340,9 @@ namespace egg::yolk {
     EGG_NO_COPY(EggProgramCompiler);
     friend class EggProgramCompilerNode;
   private:
-    IEggEngineCompilationContext& context;
+    IEggEngineContext& context;
   public:
-    explicit EggProgramCompiler(IEggEngineCompilationContext& context) : context(context) {
+    explicit EggProgramCompiler(IEggEngineContext& context) : context(context) {
     }
     egg::ovum::Node opcode(const egg::ovum::LocationSource& location, egg::ovum::Opcode value);
     egg::ovum::Node ivalue(const egg::ovum::LocationSource& location, egg::ovum::Int value);
@@ -371,7 +371,7 @@ namespace egg::yolk {
     }
     template<typename... ARGS>
     egg::ovum::Node create(const egg::ovum::NodeLocation& location, egg::ovum::Opcode op, ARGS&&... args) {
-      return egg::ovum::NodeFactory::create(this->context.allocator(), location, op, std::forward<ARGS>(args)...);
+      return egg::ovum::NodeFactory::create(this->context.getAllocator(), location, op, std::forward<ARGS>(args)...);
     }
     template<typename... ARGS>
     egg::ovum::Node raise(ARGS&&... args) {

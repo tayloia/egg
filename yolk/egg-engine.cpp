@@ -22,86 +22,50 @@ namespace {
     return egg::ovum::ILogger::Severity::Error;
   }
 
-  class EggEngineContext : public IEggEnginePreparationContext, public IEggEngineExecutionContext, public IEggEngineCompilationContext {
+  class EggEngineContext : public IEggEngineContext {
     EGG_NO_COPY(EggEngineContext);
   private:
-    egg::ovum::IAllocator& mallocator; // WIBBLE ugly
+    egg::ovum::IAllocator& allocator;
     std::shared_ptr<egg::ovum::ILogger> logger;
   public:
     EggEngineContext(egg::ovum::IAllocator& allocator, const std::shared_ptr<egg::ovum::ILogger>& logger)
-      : mallocator(allocator), logger(logger) {
+      : allocator(allocator), logger(logger) {
       assert(logger != nullptr);
     }
     virtual void log(egg::ovum::ILogger::Source source, egg::ovum::ILogger::Severity severity, const std::string& message) override {
       this->logger->log(source, severity, message);
     }
-    virtual egg::ovum::IAllocator& allocator() const override {
-      return this->mallocator;
-    }
-  };
-
-  class EggEngineProgram {
-    EGG_NO_COPY(EggEngineProgram);
-  private:
-    egg::ovum::Basket basket;
-    egg::ovum::String resource;
-    std::shared_ptr<IEggProgramNode> root;
-  public:
-    EggEngineProgram(egg::ovum::IAllocator& allocator, const egg::ovum::String& resource, const std::shared_ptr<IEggProgramNode>& root)
-      : basket(egg::ovum::BasketFactory::createBasket(allocator)),
-        resource(resource),
-        root(root) {
-      assert(root != nullptr);
-    }
-    ~EggEngineProgram() {
-      this->root.reset();
-      (void)this->basket->collect();
-      // The destructor for 'basket' will assert if this collection doesn't free up everything in the basket
-    }
-    egg::ovum::ILogger::Severity prepare(IEggEnginePreparationContext& preparation) {
-      EggProgram program(preparation.allocator(), this->resource, this->root);
-      return program.prepare(preparation);
-    }
-    egg::ovum::ILogger::Severity execute(IEggEngineExecutionContext& execution) {
-      execution.log(egg::ovum::ILogger::Source::Compiler, egg::ovum::ILogger::Severity::Error, "WIBBLE: EggEngineProgram::execute not yet implemented");
-      return egg::ovum::ILogger::Severity::Error;
-    }
-    egg::ovum::ILogger::Severity compile(IEggEngineCompilationContext& compilation, egg::ovum::Module&) {
-      compilation.log(egg::ovum::ILogger::Source::Compiler, egg::ovum::ILogger::Severity::Error, "WIBBLE: EggEngineProgram::compile not yet implemented");
-      return egg::ovum::ILogger::Severity::Error;
+    virtual egg::ovum::IAllocator& getAllocator() const override {
+      return this->allocator;
     }
   };
 
   class EggEngineParsed : public IEggEngine {
     EGG_NO_COPY(EggEngineParsed);
   private:
-    EggEngineProgram program;
+    EggProgram program;
     bool prepared;
   public:
     EggEngineParsed(egg::ovum::IAllocator& allocator, const egg::ovum::String& resource, const std::shared_ptr<IEggProgramNode>& root)
       : program(allocator, resource, root), prepared(false) {
     }
-    virtual egg::ovum::ILogger::Severity prepare(IEggEnginePreparationContext& preparation) override {
+    virtual egg::ovum::ILogger::Severity prepare(IEggEngineContext& context) override {
       if (this->prepared) {
-        preparation.log(egg::ovum::ILogger::Source::Compiler, egg::ovum::ILogger::Severity::Error, "Program prepared more than once");
+        context.log(egg::ovum::ILogger::Source::Compiler, egg::ovum::ILogger::Severity::Error, "Program prepared more than once");
         return egg::ovum::ILogger::Severity::Error;
       }
       this->prepared = true;
-      return this->program.prepare(preparation);
+      return this->program.prepare(context);
     }
-    virtual egg::ovum::ILogger::Severity execute(IEggEngineExecutionContext& execution) override {
+    virtual egg::ovum::ILogger::Severity execute(IEggEngineContext& context, const egg::ovum::Module& module) override {
+      return this->program.execute(context, module);
+    }
+    virtual egg::ovum::ILogger::Severity compile(IEggEngineContext& context, egg::ovum::Module& out) override {
       if (!this->prepared) {
-        execution.log(egg::ovum::ILogger::Source::Runtime, egg::ovum::ILogger::Severity::Error, "Program not prepared before execution");
+        context.log(egg::ovum::ILogger::Source::Runtime, egg::ovum::ILogger::Severity::Error, "Program not prepared before compilation");
         return egg::ovum::ILogger::Severity::Error;
       }
-      return this->program.execute(execution);
-    }
-    virtual egg::ovum::ILogger::Severity compile(IEggEngineCompilationContext& compilation, egg::ovum::Module& out) override {
-      if (!this->prepared) {
-        compilation.log(egg::ovum::ILogger::Source::Runtime, egg::ovum::ILogger::Severity::Error, "Program not prepared before compilation");
-        return egg::ovum::ILogger::Severity::Error;
-      }
-      return this->program.compile(compilation, out);
+      return this->program.compile(context, out);
     }
   };
 
@@ -109,49 +73,63 @@ namespace {
     EGG_NO_COPY(EggEngineTextStream);
   private:
     TextStream* stream;
-    std::unique_ptr<EggEngineProgram> program;
+    std::unique_ptr<EggProgram> program;
   public:
     explicit EggEngineTextStream(TextStream& stream)
       : stream(&stream) {
     }
-    virtual egg::ovum::ILogger::Severity prepare(IEggEnginePreparationContext& preparation) override {
+    virtual egg::ovum::ILogger::Severity prepare(IEggEngineContext& context) override {
       if (this->program != nullptr) {
-        preparation.log(egg::ovum::ILogger::Source::Compiler, egg::ovum::ILogger::Severity::Error, "Program prepared more than once");
+        context.log(egg::ovum::ILogger::Source::Compiler, egg::ovum::ILogger::Severity::Error, "Program prepared more than once");
         return egg::ovum::ILogger::Severity::Error;
       }
-      return captureExceptions(egg::ovum::ILogger::Source::Compiler, preparation, [this, &preparation]{
-        auto& allocator = preparation.allocator();
+      return captureExceptions(egg::ovum::ILogger::Source::Compiler, context, [this, &context]{
+        auto& allocator = context.getAllocator();
         auto root = EggParserFactory::parseModule(allocator, *this->stream);
-        this->program = std::make_unique<EggEngineProgram>(allocator, this->stream->getResourceName(), root);
-        return this->program->prepare(preparation);
+        this->program = std::make_unique<EggProgram>(allocator, this->stream->getResourceName(), root);
+        return this->program->prepare(context);
       });
     }
-    virtual egg::ovum::ILogger::Severity execute(IEggEngineExecutionContext& execution) override {
+    virtual egg::ovum::ILogger::Severity compile(IEggEngineContext& context, egg::ovum::Module& out) override {
       if (this->program == nullptr) {
-        execution.log(egg::ovum::ILogger::Source::Runtime, egg::ovum::ILogger::Severity::Error, "Program not prepared before execution");
+        context.log(egg::ovum::ILogger::Source::Runtime, egg::ovum::ILogger::Severity::Error, "Program not prepared before compilation");
         return egg::ovum::ILogger::Severity::Error;
       }
-      return this->program->execute(execution);
+      return this->program->compile(context, out);
     }
-    virtual egg::ovum::ILogger::Severity compile(IEggEngineCompilationContext& compilation, egg::ovum::Module& out) override {
+    virtual egg::ovum::ILogger::Severity execute(IEggEngineContext& context, const egg::ovum::Module& module) override {
       if (this->program == nullptr) {
-        compilation.log(egg::ovum::ILogger::Source::Runtime, egg::ovum::ILogger::Severity::Error, "Program not prepared before compilation");
+        context.log(egg::ovum::ILogger::Source::Runtime, egg::ovum::ILogger::Severity::Error, "Program not prepared before execution");
         return egg::ovum::ILogger::Severity::Error;
       }
-      return this->program->compile(compilation, out);
+      return this->program->execute(context, module);
     }
   };
 }
 
-std::shared_ptr<IEggEnginePreparationContext> egg::yolk::EggEngineFactory::createPreparationContext(egg::ovum::IAllocator& allocator, const std::shared_ptr<egg::ovum::ILogger>& logger) {
-  return std::make_shared<EggEngineContext>(allocator, logger);
+egg::ovum::ILogger::Severity egg::yolk::IEggEngine::execute(IEggEngineContext& context) {
+  // Helper for compile-and-execute
+  egg::ovum::Module module;
+  auto compilation = this->compile(context, module);
+  if (compilation != egg::ovum::ILogger::Severity::Error) {
+    assert(module != nullptr);
+    auto execution = this->execute(context, module);
+    return (int(compilation) > int(execution)) ? compilation : execution;
+  }
+  return compilation;
 }
 
-std::shared_ptr<IEggEngineExecutionContext> egg::yolk::EggEngineFactory::createExecutionContext(egg::ovum::IAllocator& allocator, const std::shared_ptr<egg::ovum::ILogger>& logger) {
-  return std::make_shared<EggEngineContext>(allocator, logger);
+egg::ovum::ILogger::Severity egg::yolk::IEggEngine::run(IEggEngineContext& context) {
+  // Helper for prepare-compile-and-execute
+  auto preparation = this->prepare(context);
+  if (preparation != egg::ovum::ILogger::Severity::Error) {
+    auto execution = this->execute(context);
+    return (int(preparation) > int(execution)) ? preparation : execution;
+  }
+  return preparation;
 }
 
-std::shared_ptr<IEggEngineCompilationContext> egg::yolk::EggEngineFactory::createCompilationContext(egg::ovum::IAllocator& allocator, const std::shared_ptr<egg::ovum::ILogger>& logger) {
+std::shared_ptr<IEggEngineContext> egg::yolk::EggEngineFactory::createContext(egg::ovum::IAllocator& allocator, const std::shared_ptr<egg::ovum::ILogger>& logger) {
   return std::make_shared<EggEngineContext>(allocator, logger);
 }
 

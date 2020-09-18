@@ -34,27 +34,9 @@ namespace {
     static std::string execute(TextStream& stream) {
       egg::test::Allocator allocator;
       auto logger = std::make_shared<egg::test::Logger>(stream.getResourceName());
+      auto context = EggEngineFactory::createContext(allocator, logger);
       auto engine = EggEngineFactory::createEngineFromTextStream(stream);
-      auto preparation = EggEngineFactory::createPreparationContext(allocator, logger);
-      if (engine->prepare(*preparation) != egg::ovum::ILogger::Severity::Error) {
-        auto compilation = EggEngineFactory::createCompilationContext(allocator, logger);
-        egg::ovum::Module module;
-        if (engine->compile(*compilation, module) != egg::ovum::ILogger::Severity::Error) {
-          auto program = egg::ovum::ProgramFactory::createProgram(allocator, *logger);
-          auto result = program->run(*module);
-          if (egg::ovum::Bits::hasAnySet(result->getFlags(), egg::ovum::ValueFlags::Throw)) {
-            egg::ovum::Value exception;
-            if (result->getChild(exception)) {
-              // Don't re-print a rethrown exception
-              logger->log(egg::ovum::ILogger::Source::Runtime, egg::ovum::ILogger::Severity::Error, result->toString().toUTF8());
-            }
-          } else if (!result->getVoid()) {
-            // We expect 'void' here
-            auto message = "Internal runtime error: Expected statement to return 'void', but got '" + result->getRuntimeType().toString().toUTF8() + "' instead";
-            logger->log(egg::ovum::ILogger::Source::Runtime, egg::ovum::ILogger::Severity::Error, message);
-          }
-        }
-      }
+      (void)engine->run(*context);
       return logger->logged.str();
     }
     static std::string expectation(TextStream& stream) {

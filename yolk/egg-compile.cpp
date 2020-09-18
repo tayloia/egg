@@ -80,7 +80,7 @@ egg::ovum::Node egg::yolk::EggProgramCompiler::type(const egg::ovum::LocationSou
     return this->opcode(location, egg::ovum::Opcode::INFERRED);
   }
   return this->raise("Type compilation not yet supported");
-  //return type->compile(this->context.allocator(), { location.line, location.column });
+  //return type->compile(this->context.getAllocator(), { location.line, location.column });
 }
 
 egg::ovum::Node egg::yolk::EggProgramCompiler::identifier(const egg::ovum::LocationSource& location, const egg::ovum::String& id) {
@@ -178,12 +178,12 @@ egg::ovum::Node egg::yolk::EggProgramCompiler::noop(const egg::ovum::LocationSou
   return node->compile(*this);
 }
 
-egg::ovum::ILogger::Severity egg::yolk::EggProgram::compile(IEggEngineCompilationContext& compilation, egg::ovum::Module& out) {
+egg::ovum::ILogger::Severity egg::yolk::EggProgram::compile(IEggEngineContext& context, egg::ovum::Module& out) {
   assert(this->root != nullptr);
-  EggProgramCompiler compiler(compilation);
+  EggProgramCompiler compiler(context);
   auto node = this->root->compile(compiler);
   if (node != nullptr) {
-    out = egg::ovum::ModuleFactory::fromRootNode(compilation.allocator(), this->resource, *node);
+    out = egg::ovum::ModuleFactory::fromRootNode(context.getAllocator(), this->resource, *node);
     return egg::ovum::ILogger::Severity::None;
   }
   return egg::ovum::ILogger::Severity::Error;
