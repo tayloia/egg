@@ -4,7 +4,7 @@ namespace egg::yolk {
   class IEggEngineContext : public egg::ovum::ILogger {
   public:
     virtual egg::ovum::IAllocator& getAllocator() const = 0;
-    };
+  };
 
   class IEggEngine {
   public:
