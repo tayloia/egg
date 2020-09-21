@@ -52,6 +52,10 @@ namespace {
     if (Bits::hasAnySet(lhs, rhs)) {
       return IType::Assignable::Sometimes;
     }
+    if (Bits::hasAnySet(lhs, ValueFlags::Float) && Bits::hasAnySet(rhs, ValueFlags::Int)) {
+      // Float<-Int promotion
+      return IType::Assignable::Sometimes;
+    }
     return IType::Assignable::Never;
   }
 
@@ -199,10 +203,32 @@ namespace {
   class TypeObject : public TypeCommon<ValueFlags::Object> {
     TypeObject(const TypeObject&) = delete;
     TypeObject& operator=(const TypeObject&) = delete;
+  private:
+    class IndexSignature : public IIndexSignature {
+      virtual Type getResultType() const override {
+        return Type::AnyQ;
+      }
+      virtual Type getIndexType() const override {
+        return Type::AnyQ;
+      }
+    };
+    class DotSignature : public IDotSignature {
+      virtual Type getPropertyType(const String&) const override {
+        return Type::AnyQ;
+      }
+    };
+    static inline const IndexSignature indexSignature;
+    static inline const DotSignature dotSignature;
   public:
     TypeObject() = default;
     virtual const IFunctionSignature* callable() const override {
       return &omniFunctionSignature;
+    }
+    virtual const IIndexSignature* indexable() const override {
+      return &indexSignature;
+    }
+    virtual const IDotSignature* dotable() const override {
+      return &dotSignature;
     }
   };
   const TypeObject typeObject{};

@@ -1,12 +1,11 @@
 # Visual Studio 2015 cache/options directory
 .vs/
 
-# OpenCppCoverage
-msvc/LastCoverageResults.log
-
 # CppCheck
 msvc/cppcheck/
 
+# gcov
+*.gcov
 
 # Output directories
 msvc/bin/
@@ -17,4 +16,3 @@ msvc/obj/
 
 # Keep but don't store in the repo
 keep/
-legacy/

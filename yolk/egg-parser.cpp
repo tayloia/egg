@@ -78,6 +78,44 @@ namespace {
     return makeParserNode<T>(context, node, lhs, rhs);
   }
 
+  egg::ovum::Type unaryArithmeticType(const std::shared_ptr<IEggProgramNode>& expr) {
+    switch (EggProgram::arithmeticTypes(expr->getType())) {
+    case EggProgram::ArithmeticTypes::None:
+      break;
+    case EggProgram::ArithmeticTypes::Int:
+      return egg::ovum::Type::Int;
+    case EggProgram::ArithmeticTypes::Float:
+      return egg::ovum::Type::Float;
+    case EggProgram::ArithmeticTypes::Both:
+      return egg::ovum::Type::Arithmetic;
+    }
+    return egg::ovum::Type::Void;
+  }
+
+  egg::ovum::Type binaryArithmeticType(const std::shared_ptr<IEggProgramNode>& lhs, const std::shared_ptr<IEggProgramNode>& rhs) {
+    auto lhsa = EggProgram::arithmeticTypes(lhs->getType());
+    auto rhsa = EggProgram::arithmeticTypes(rhs->getType());
+    if ((lhsa == EggProgram::ArithmeticTypes::None) || (rhsa == EggProgram::ArithmeticTypes::None)) {
+      return egg::ovum::Type::Void;
+    }
+    if ((lhsa == EggProgram::ArithmeticTypes::Int) && (rhsa == EggProgram::ArithmeticTypes::Int)) {
+      return egg::ovum::Type::Int;
+    }
+    if ((lhsa == EggProgram::ArithmeticTypes::Float) || (rhsa == EggProgram::ArithmeticTypes::Float)) {
+      return egg::ovum::Type::Float;
+    }
+    return egg::ovum::Type::Arithmetic;
+  }
+
+  egg::ovum::Type binaryBitwiseType(egg::ovum::IAllocator& allocator, const std::shared_ptr<IEggProgramNode>& lhs, const std::shared_ptr<IEggProgramNode>& rhs) {
+    auto common = egg::ovum::Bits::mask(lhs->getType()->getFlags(), rhs->getType()->getFlags());
+    common = egg::ovum::Bits::mask(common, egg::ovum::ValueFlags::Bool | egg::ovum::ValueFlags::Int);
+    if (common == egg::ovum::ValueFlags::None) {
+      return egg::ovum::Type::Void;
+    }
+    return egg::ovum::TypeFactory::createSimple(allocator, common);
+  }
+
   SyntaxException exceptionFromLocation(const IEggParserContext& context, const std::string& reason, const EggSyntaxNodeLocation& location) {
     return SyntaxException(reason, context.getResourceName().toUTF8(), location);
   }
@@ -150,9 +188,6 @@ namespace {
     }
     virtual void empredicate(EggProgramContext&, std::shared_ptr<IEggProgramNode>&) override {
       // By default, nodes do not change when they're used as predicates in function call parameters
-    }
-    virtual egg::ovum::Node compile(EggProgramCompiler& compiler) const override {
-      return compiler.raise("WIBBLE: EggParserNodeBase::compile called");
     }
     virtual bool symbol(egg::ovum::String&, egg::ovum::Type&) const override {
       // By default, nodes do not declare symbols
@@ -1829,11 +1864,11 @@ egg::ovum::Type EggParserNode_UnaryRef::getType() const {
 }
 
 egg::ovum::Type EggParserNode_UnaryDeref::getType() const {
-  return egg::ovum::Type::Void; // WIBBLE this->expr->getType()->pointeeType();
+  return egg::ovum::Type::AnyQ; // TODO
 }
 
 egg::ovum::Type EggParserNode_UnaryNegate::getType() const {
-  return egg::ovum::Type::Void; // WIBBLE unaryArithmeticType(this->expr);
+  return unaryArithmeticType(this->expr);
 }
 
 egg::ovum::Type EggParserNode_UnaryEllipsis::getType() const {
@@ -1851,11 +1886,11 @@ egg::ovum::Type EggParserNode_BinaryUnequal::getType() const {
 egg::ovum::Type EggParserNode_BinaryRemainder::getType() const {
   // See http://mindprod.com/jgloss/modulus.html
   // Turn out this equates to the rules for binary-multiply too
-  return egg::ovum::Type::Void; // WIBBLE binaryArithmeticType(this->lhs, this->rhs);
+  return binaryArithmeticType(this->lhs, this->rhs);
 }
 
 egg::ovum::Type EggParserNode_BinaryBitwiseAnd::getType() const {
-  return egg::ovum::Type::Void; // WIBBLE binaryBitwiseType(*this->allocator, this->lhs, this->rhs);
+  return binaryBitwiseType(*this->allocator, this->lhs, this->rhs);
 }
 
 egg::ovum::Type EggParserNode_BinaryLogicalAnd::getType() const {
@@ -1863,15 +1898,15 @@ egg::ovum::Type EggParserNode_BinaryLogicalAnd::getType() const {
 }
 
 egg::ovum::Type EggParserNode_BinaryMultiply::getType() const {
-  return egg::ovum::Type::Void; // WIBBLE binaryArithmeticType(this->lhs, this->rhs);
+  return binaryArithmeticType(this->lhs, this->rhs);
 }
 
 egg::ovum::Type EggParserNode_BinaryPlus::getType() const {
-  return egg::ovum::Type::Void; // WIBBLE binaryArithmeticType(this->lhs, this->rhs);
+  return binaryArithmeticType(this->lhs, this->rhs);
 }
 
 egg::ovum::Type EggParserNode_BinaryMinus::getType() const {
-  return egg::ovum::Type::Void; // WIBBLE binaryArithmeticType(this->lhs, this->rhs);
+  return binaryArithmeticType(this->lhs, this->rhs);
 }
 
 egg::ovum::Type EggParserNode_BinaryLambda::getType() const {
@@ -1879,7 +1914,7 @@ egg::ovum::Type EggParserNode_BinaryLambda::getType() const {
 }
 
 egg::ovum::Type EggParserNode_BinaryDivide::getType() const {
-  return egg::ovum::Type::Void; // WIBBLE binaryArithmeticType(this->lhs, this->rhs);
+  return binaryArithmeticType(this->lhs, this->rhs);
 }
 
 egg::ovum::Type EggParserNode_BinaryLess::getType() const {
@@ -1915,7 +1950,7 @@ egg::ovum::Type EggParserNode_BinaryShiftRightUnsigned::getType() const {
 }
 
 egg::ovum::Type EggParserNode_BinaryNullCoalescing::getType() const {
-  return egg::ovum::Type::Void; // WIBBLE 
+  return egg::ovum::Type::Void; // WIBBLE
   /*
   auto type1 = this->lhs->getType();
   if (!type1->hasBasalType(egg::ovum::BasalBits::Null)) {
@@ -1933,11 +1968,11 @@ egg::ovum::Type EggParserNode_BinaryNullCoalescing::getType() const {
 }
 
 egg::ovum::Type EggParserNode_BinaryBitwiseXor::getType() const {
-  return egg::ovum::Type::Void; // WIBBLE binaryBitwiseType(*this->allocator, this->lhs, this->rhs);
+  return binaryBitwiseType(*this->allocator, this->lhs, this->rhs);
 }
 
 egg::ovum::Type EggParserNode_BinaryBitwiseOr::getType() const {
-  return egg::ovum::Type::Void; // WIBBLE binaryBitwiseType(*this->allocator, this->lhs, this->rhs);
+  return binaryBitwiseType(*this->allocator, this->lhs, this->rhs);
 }
 
 egg::ovum::Type EggParserNode_BinaryLogicalOr::getType() const {

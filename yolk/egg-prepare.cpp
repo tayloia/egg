@@ -19,7 +19,7 @@ namespace {
     auto prepared = node.prepare(context);
     if (!abandoned(prepared)) {
       auto type = node.getType();
-      if (type->getFlags() != expected) {
+      if (!type.hasAnyFlags(expected)) {
         if (expected == egg::ovum::ValueFlags::Null) {
           context.compilerWarning(where, "Expected ", side, " of '", EggProgram::binaryToString(op), "' operator to be possibly 'null', but got '", type.toString(), "' instead");
         } else {
@@ -36,7 +36,7 @@ namespace {
       return lflags;
     }
     auto rflags = checkBinarySide(context, where, op, "right-hand side", rexp, rhs);
-    if (abandoned(lflags)) {
+    if (abandoned(rflags)) {
       return rflags;
     }
     return egg::ovum::Bits::mask(lflags, rflags);
