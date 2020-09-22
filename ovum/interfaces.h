@@ -6,6 +6,7 @@ namespace egg::ovum {
   struct NodeLocation;
   class Node;
   class String;
+  class Slot;
   class Type;
   class Value;
   class ICollectable;
@@ -169,7 +170,7 @@ namespace egg::ovum {
   public:
     // Interface
     virtual ~IDotSignature() {}
-    virtual Type getPropertyType(const String& name) const = 0;
+    virtual Type getPropertyType(const String& name, String& failure) const = 0;
   };
 
   class IPointSignature {
@@ -183,6 +184,7 @@ namespace egg::ovum {
   public:
     virtual ValueFlags getFlags() const = 0;
     virtual Type makeUnion(IAllocator& allocator, const IType& rhs) const = 0;
+    virtual bool tryAssign(IAllocator& allocator, Slot& lhs, const Value& rhs, String& failure) const = 0;
     enum class Assignable { Never, Sometimes, Always };
     virtual Assignable assignable(const IType& rhs) const = 0;
     virtual const IFunctionSignature* callable() const = 0;

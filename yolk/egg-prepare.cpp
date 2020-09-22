@@ -539,24 +539,12 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareBrackets(con
     return EggProgramNodeFlags::Abandon;
   }
   auto ltype = instance.getType();
-  if (ltype.hasAnyFlags(egg::ovum::ValueFlags::Object)) {
-    // Ask the object what indexing it supports
-    auto indexable = ltype->indexable();
-    if (indexable == nullptr) {
-      return this->compilerError(where, "Values of type '", ltype.toString(), "' do not support the indexing '[]' operator");
-    }
-    // TODO check type indexable->getIndexType()
-    return EggProgramNodeFlags::None;
+  auto indexable = ltype->indexable();
+  if (indexable == nullptr) {
+    return this->compilerError(where, "Values of type '", ltype.toString(), "' do not support the indexing '[]' operator");
   }
-  if (ltype.hasAnyFlags(egg::ovum::ValueFlags::String)) {
-    // Strings only accept integer indices
-    auto rtype = index.getType();
-    if (rtype.hasAnyFlags(egg::ovum::ValueFlags::Int)) {
-      return EggProgramNodeFlags::None;
-    }
-    return EggProgramNodeFlags::None;
-  }
-  return this->compilerError(where, "Expected subject of '[]' operator to be 'string' or 'object', but got '", ltype.toString(), "' instead");
+  // TODO check type indexable->getIndexType()
+  return EggProgramNodeFlags::None;
 }
 
 egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareDot(const egg::ovum::LocationSource& where, IEggProgramNode& instance, const egg::ovum::String& property) {
@@ -565,27 +553,19 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareDot(const eg
     return EggProgramNodeFlags::Abandon;
   }
   auto ltype = instance.getType();
-  if (ltype.hasAnyFlags(egg::ovum::ValueFlags::Object)) {
-    // Ask the object type what properties it supports
-    auto dotable = ltype->dotable();
-    if (dotable != nullptr) {
-      // We support properties
-      auto type = dotable->getPropertyType(property);
-      if (type != nullptr) {
-        return EggProgramNodeFlags::None;
-      }
-      return this->compilerError(where, "Unknown property for '", ltype.toString(), "' value: '.", property, "'");
-    }
-    return this->compilerError(where, "Properties not supported by '", ltype.toString(), "' value: '.", property, "'");
-  }
-  if (ltype.hasAnyFlags(egg::ovum::ValueFlags::String)) {
-    if (!egg::ovum::ValueFactory::hasBuiltinStringProperty(property)) {
-      // It's a known string builtin
+  auto dotable = ltype->dotable();
+  if (dotable != nullptr) {
+    // We support properties
+    egg::ovum::String failure;
+    auto type = dotable->getPropertyType(property, failure);
+    if (type != nullptr) {
+      // It's a supported property
+      // TODO remember the returned type
       return EggProgramNodeFlags::None;
     }
-    return this->compilerError(where, "Unknown property for 'string' value: '.", property, "'");
+    return this->compilerError(where, failure);
   }
-  return this->compilerError(where, "Expected subject of '.' operator to be 'string' or 'object', but got '", ltype.toString(), "' instead");
+  return this->compilerError(where, "Properties not supported by '", ltype.toString(), "' value: '.", property, "'");
 }
 
 egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareUnary(const egg::ovum::LocationSource& where, EggProgramUnary op, IEggProgramNode& value) {

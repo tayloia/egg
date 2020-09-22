@@ -1,4 +1,5 @@
 #include "ovum/ovum.h"
+#include "ovum/slot.h"
 #include "ovum/node.h"
 #include "ovum/module.h"
 #include "ovum/program.h"
@@ -164,14 +165,11 @@ namespace {
   class Target {
     Target(const Target&) = delete;
     Target& operator=(const Target&) = delete;
-  public:
-    enum class Flavour { Failed, Identifier, Index, Pointer, Property };
   private:
-    Flavour flavour;
     ProgramDefault& program;
     const INode& node;
-    Value a;
-    Value b;
+    Slot slot;
+    Value failure;
   public:
     Target(ProgramDefault& program, const INode& node, Block* block = nullptr);
     Value check() const;
@@ -211,13 +209,25 @@ namespace {
     Type type;
     String name;
     LocationSource source;
-    Value value;
+    Slot slot;
     Symbol(const Type& type, const String& name, const LocationSource& source)
       : type(type),
-      name(name),
-      source(source),
-      value() {
-      assert(type != nullptr);
+        name(name),
+        source(source),
+        slot() {
+      assert(this->validate(true));
+    }
+    Symbol(Symbol&& rhs) noexcept
+      : type(std::move(rhs.type)),
+        name(std::move(rhs.name)),
+        source(std::move(rhs.source)),
+        slot(std::move(rhs.slot)) {
+      assert(this->validate(true));
+    }
+    Symbol(const Symbol&) = delete;
+    Symbol& operator=(const Symbol&) = delete;
+    bool validate(bool optional) const {
+      return (this->type != nullptr) && !this->name.empty() && slot.validate(optional);
     }
   };
 
@@ -298,9 +308,7 @@ namespace {
       auto symbol = this->symtable->add(value->getRuntimeType(), name, source);
       if (symbol.first) {
         // Don't use tryAssign for builtins; it always fails
-        auto& added = symbol.second->value;
-        added = value;
-        // WIBBLE WOBBLE added.soften(*this->basket);
+        symbol.second->slot.set(value);
         return true;
       }
       return false;
@@ -1026,7 +1034,7 @@ namespace {
       if (symbol == nullptr) {
         return this->raiseNode(node, "Unknown identifier in expression: '", name, "'");
       }
-      return symbol->value;
+      return symbol->slot.get();
     }
     Value expressionIndex(const INode& node) {
       assert(node.getOpcode() == Opcode::INDEX);
@@ -1139,7 +1147,7 @@ namespace {
     Value stringProperty(const String& string, const String& property) {
       auto retval = ValueFactory::createBuiltinStringProperty(this->allocator, string, property);
       if (retval->getVoid()) {
-        return this->raiseFormat("Unknown property for 'string' value: '", property, "'");
+        return this->raiseFormat("Unknown property for 'string' value: '.", property, "'");
       }
       return retval;
     }
@@ -1492,6 +1500,9 @@ namespace {
       this->updateLocation(node);
       throw RuntimeException(this->location, "Type constraints not yet supported"); // TODO
     }
+    Value tryAssign(Symbol& symbol, const Value& value);
+    Symbol* blockDeclare(const LocationSource& source, const Type& type, const String& identifier);
+    void blockUndeclare(const String& identifier);
     RuntimeException unexpectedOpcode(const char* expected, const INode& node) {
       this->updateLocation(node);
       auto opcode = node.getOpcode();
@@ -1519,36 +1530,49 @@ namespace {
 }
 
 Target::Target(ProgramDefault& program, const INode& node, Block*)
-  : flavour(Flavour::Failed), program(program), node(node) {
-  /* WIBBLE
-  EGG_WARNING_SUPPRESS_SWITCH_BEGIN();
-  switch (node.getOpcode()) {
-  case Opcode::DECLARE:
-    if (block != nullptr) {
-      // Only allow declaration inside a foreach statement
-      this->flavour = program.targetDeclare(node, this->a, *block);
-      return;
-    }
-    break;
-  case Opcode::IDENTIFIER:
-    this->flavour = program.targetIdentifier(node, this->a);
-    return;
-  case Opcode::INDEX:
-    this->flavour = program.targetIndex(node, this->a, this->b);
-    return;
-  case Opcode::PROPERTY:
-    this->flavour = program.targetProperty(node, this->a, this->b);
-    return;
-  case Opcode::UNARY:
-    if (node.getOperator() != Operator::DEREF) {
-      throw program.unexpectedOperator("target", node);
-    }
-    this->flavour = program.targetPointer(node, this->a);
-    return;
-  }
-  EGG_WARNING_SUPPRESS_SWITCH_END();
-  */
+  : program(program), node(node) {
+  // WIBBLE WOBBLE
   throw program.unexpectedOpcode("target", node);
+}
+
+Value Target::check() const {
+  return this->failure;
+}
+
+Value Target::assign(const Value&) const {
+  return this->raise("WIBBLE: Target::assign not implemented");
+}
+
+Value Target::nudge(Int) const {
+  return this->raise("WIBBLE: Target::nudge not implemented");
+}
+
+Value Target::mutate(const INode&, const INode&) const {
+  return this->raise("WIBBLE: Target::mutate not implemented");
+}
+
+#if defined(WIBBLE)
+bool Target::ref(Value&) const {
+  // WIBBLE
+  return false;
+}
+
+Value Target::get() const {
+  return this->raise("WIBBLE: Target::get not implemented");
+}
+
+Value Target::set(const Value&) const {
+  return this->raise("WIBBLE: Target::set not implemented");
+}
+
+Value Target::apply(const INode&, Value&, const INode&) const {
+  return this->raise("WIBBLE: Target::apply not implemented");
+}
+#endif
+
+Value Target::raise(const String& message) const {
+  LocationSource location{ "<unknown>", 0, 0 }; // TODO
+  return ValueFactory::createThrowError(this->program.getAllocator(), location, message);
 }
 
 Value PredicateFunction::call(IExecution&, const IParameters& parameters) {
@@ -1568,232 +1592,63 @@ Value UserFunction::call(IExecution&, const IParameters&) {
   return this->program.raiseLocation(this->location, "WIBBLE: UserFunction::call not yet implemented");
 }
 
-Value Target::check() const {
-  if (this->flavour == Flavour::Failed) {
-    // Return the problem we saved in the constructor
-    return this->a;
-  }
-  return Value::Void;
-}
-
-Value Target::assign(const Value& rhs) const {
-  return this->set(rhs);
-}
-
-Value Target::nudge(Int rhs) const {
-  assert(rhs != 0);
-  Value v;
-  Int lhs;
-  if (this->ref(v)) {
-    if (v->getInt(lhs)) {
-      // Nudge directly
-      return Target::raise("WIBBLE: Cannot nudge references yet");
-    }
-  } else {
-    // Need to get/nudge/set
-    v = this->get();
-    if (v.hasFlowControl()) {
-      return v;
-    }
-    if (v->getInt(lhs)) {
-      auto nudged = lhs + rhs;
-      return this->set(ValueFactory::createInt(this->program.getAllocator(), nudged));
-    }
-  }
-  if (rhs < 0) {
-    return Target::unexpected(v, "Expected decrement '--' operation to be applied to an 'int' value");
-  }
-  return Target::unexpected(v, "Expected increment '++' operation to be applied to an 'int' value");
-}
-
-Value Target::mutate(const INode& opnode, const INode& rhs) const {
-  Value v;
-  if (this->ref(v)) {
-    // Mutate directly
-    return this->apply(opnode, v, rhs);
-  }
-  // Need to get/mutate/set
-  v = this->get();
-  if (v.hasFlowControl()) {
-    return v;
-  }
-  auto retval = this->apply(opnode, v, rhs);
-  if (retval.hasFlowControl()) {
-    return retval;
-  }
-  return this->set(v);
-}
-
-egg::ovum::Value Target::apply(const INode& opnode, Value& lvalue, const INode&) const {
-  // Handle "short-circuit" cases before evaluating the rhs
-  auto oper = opnode.getOperator();
-  Bool cond;
-  EGG_WARNING_SUPPRESS_SWITCH_BEGIN();
-  switch (oper) {
-  case Operator::IFNULL:
-    // Don't evaluate rhs of (lhs ??= rhs) unless lhs is null
-    if (!lvalue->getNull()) {
-      // Do nothing
-      return Value::Void;
-    }
-    break;
-  case Operator::LOGAND:
-    // Don't evaluate rhs of (lhs &&= rhs) if lhs is false
-    if (lvalue->getBool(cond) && !cond) {
-      return Value::Void;
-    }
-    break;
-  case Operator::LOGOR:
-    // Don't evaluate rhs of (lhs ||= rhs) if lhs is true
-    if (lvalue->getBool(cond) && cond) {
-      return Value::Void;
-    }
-    break;
-  }
-  EGG_WARNING_SUPPRESS_SWITCH_END();
-  /* WIBBLE
-  auto rvalue = this->program.targetExpression(rhs);
-  if (rvalue.hasFlowControl()) {
-    return rvalue;
-  }
-  auto result = Binary::apply(oper, lvalue, rvalue);
-  if (result.is(ValueFlags::Break)) {
-    throw this->program.unexpectedOperator("target binary", opnode);
-  }
-  return result;
-  */
-  throw this->program.unexpectedOperator("target binary", opnode);
-}
-
-bool Target::ref(Value& pointee) const {
-  // Return null iff we cannot modify in-place
-  switch (this->flavour) {
-  case Flavour::Identifier:
-    // WIBBLE pointee = this->program.targetSymbol(this->node, this->a.getString()).value;
-    return false;
-  case Flavour::Pointer:
-    return this->a->getChild(pointee);
-  case Flavour::Index:
-  case Flavour::Property:
-  case Flavour::Failed:
-    break;
-  }
-  return false;
-}
-
-Value Target::get() const {
-  switch (this->flavour) {
-  case Flavour::Identifier:
-    // WIBBLE return this->program.targetSymbol(this->node, this->a.getString()).value;
-    return this->raise("WIBBLE: Getting identifiers not yet supported");
-  case Flavour::Index: {
-      Object object;
-      if (this->a->getObject(object)) {
-        return object->getIndex(this->program, this->b);
-      }
-    }
-    return this->raise("WIBBLE: Cannot get object index");
-  case Flavour::Pointer: {
-      Value pointee;
-      if (this->a->getChild(pointee)) {
-        return pointee;
-      }
-    }
-    return this->raise("WIBBLE: Cannot get pointee");
-  case Flavour::Property: {
-      Object object;
-      String property;
-      if (this->a->getObject(object) && this->b->getString(property)) {
-        return object->getProperty(this->program, property);
-      }
-    }
-    return this->raise("WIBBLE: Cannot get property");
-  case Flavour::Failed:
-    break;
-  }
-  // Return the problem we saved in the constructor
-  return this->a;
-}
-
-Value Target::set(const Value& value) const {
-  switch (this->flavour) {
-  case Flavour::Identifier:
-    // WIBBLE return this->program.targetSymbol(this->node, this->a.getString()).tryAssign(this->program, value);
-    return this->raise("WIBBLE: Setting identifiers not yet supported");
-  case Flavour::Index: {
-      Object object;
-      if (this->a->getObject(object)) {
-        return object->setIndex(this->program, this->b, value);
-      }
-    }
-    return this->raise("WIBBLE: Cannot set object index");
-  case Flavour::Pointer:
-    return this->raise("WIBBLE: Setting pointers not yet supported");
-  case Flavour::Property: {
-      Object object;
-      String property;
-      if (this->a->getObject(object) && this->b->getString(property)) {
-        return object->setProperty(this->program, property, value);
-      }
-    }
-    return this->raise("WIBBLE: Cannot set property");
-  case Flavour::Failed:
-    break;
-  }
-  // Return the problem we saved in the constructor
-  return this->a;
-}
-
-Value Target::raise(const String& message) const {
-  LocationSource location{ "<unknown>", 0, 0 }; // TODO
-  return ValueFactory::createThrowError(this->program.getAllocator(), location, message);
-}
-
 Block::~Block() {
-  /* WIBBLE
   // Undeclare all the names successfully declared by this block
   for (auto& i : this->declared) {
     this->program.blockUndeclare(i);
   }
-  */
 }
 
-egg::ovum::Value Block::declare(const LocationSource& source, const Type&, const String& name, const Value*) {
-  return this->program.raiseLocation(source, "WIBBLE: Block::declare not yet implemented: '", name, "'");
-  /* WIBBLE
+Value ProgramDefault::tryAssign(Symbol& symbol, const Value& value) {
+  String failure;
+  if (!symbol.type->tryAssign(this->allocator, symbol.slot, value, failure)) {
+    return this->raise(failure);
+  }
+  return Value::Void;
+}
+
+Symbol* ProgramDefault::blockDeclare(const LocationSource& source, const Type& type, const String& identifier) {
+  auto result = this->symtable->add(type, identifier, source);
+  if (result.first) {
+    return result.second;
+  }
+  return nullptr;
+}
+
+void ProgramDefault::blockUndeclare(const String& identifier) {
+  this->symtable->remove(identifier);
+}
+
+egg::ovum::Value Block::declare(const LocationSource& source, const Type& type, const String& name, const Value* init) {
   // Keep track of names successfully declared in this block
   auto* symbol = this->program.blockDeclare(source, type, name);
   if (symbol == nullptr) {
     return this->program.raiseLocation(source, "Duplicate name in declaration: '", name, "'");
   }
   if (init != nullptr) {
-    auto retval = symbol->tryAssign(this->program, *init);
-    if (!retval->getVoid()) {
+    auto retval = this->program.tryAssign(*symbol, *init);
+    if (retval.hasFlowControl()) {
       this->program.blockUndeclare(name);
       return retval;
     }
   }
   this->declared.insert(name);
   return Value::Void;
-  */
 }
 
-egg::ovum::Value Block::guard(const LocationSource& source, const Type&, const String& name, const Value&) {
-  return this->program.raiseLocation(source, "WIBBLE: Block::guard not yet implemented: '", name, "'");
-  /* WIBBLE
+egg::ovum::Value Block::guard(const LocationSource& source, const Type& type, const String& name, const Value& init) {
   // Keep track of names successfully declared in this block
   auto* symbol = this->program.blockDeclare(source, type, name);
   if (symbol == nullptr) {
     return this->program.raiseLocation(source, "Duplicate name in declaration: '", name, "'");
   }
-  auto retval = symbol->tryAssign(this->program, init);
-  if (!retval->getVoid()) {
+  auto retval = this->program.tryAssign(*symbol, init);
+  if (retval.hasFlowControl()) {
     this->program.blockUndeclare(name);
     return Value::False;
   }
   this->declared.insert(name);
   return Value::True;
-  */
 }
 
 egg::ovum::Type UserFunction::makeType(IAllocator& allocator, ProgramDefault& program, const String& name, const INode& callable) {

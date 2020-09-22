@@ -8,12 +8,10 @@ int? countdown(int* p) {
   return null;
 }
 int counter = 5;
-/* INFINITE
 while (var i = countdown(&counter)) {
   assert(type.of(i) == "int");
   print(i);
 }
-*/
 ///>5
 ///>4
 ///>3

@@ -1,4 +1,5 @@
 #include "ovum/ovum.h"
+#include "ovum/slot.h"
 #include "ovum/node.h"
 
 namespace {
@@ -57,6 +58,27 @@ namespace {
       return IType::Assignable::Sometimes;
     }
     return IType::Assignable::Never;
+  }
+
+  bool tryAssignFlags(IAllocator& allocator, ValueFlags flhs, Slot& lhs, const Value& rhs, String& failure) {
+    auto frhs = rhs->getFlags();
+    if (Bits::hasAnySet(flhs, frhs)) {
+      lhs.set(rhs);
+      return true;
+    }
+    Int i;
+    if (Bits::hasAnySet(flhs, ValueFlags::Float) && rhs->getInt(i)) {
+      // Float<-Int promotion
+      auto f = Float(i);
+      if (Int(f) != i) {
+        failure = egg::ovum::StringBuilder::concat("Cannot convert 'int' to 'float' accurately: ", i);
+        return false;
+      }
+      lhs.set(egg::ovum::ValueFactory::createFloat(allocator, f));
+      return true;
+    }
+    failure = egg::ovum::StringBuilder::concat("Cannot convert '", rhs->getRuntimeType().toString(), "' to '", flagsToString(flhs), "'");
+    return false;
   }
 
   Type makeUnionJoin(IAllocator& allocator, const IType& lhs, const IType& rhs);
@@ -158,6 +180,9 @@ namespace {
     virtual Type makeUnion(IAllocator& allocator, const IType& rhs) const override {
       return makeUnionFlags(allocator, FLAGS, *this, rhs);
     }
+    virtual bool tryAssign(IAllocator& allocator, Slot& lhs, const Value& rhs, String& failure) const override {
+      return tryAssignFlags(allocator, FLAGS, lhs, rhs, failure);
+    }
     virtual Assignable assignable(const IType& rhs) const override {
       return assignableFlags(FLAGS, rhs.getFlags());
     }
@@ -213,7 +238,7 @@ namespace {
       }
     };
     class DotSignature : public IDotSignature {
-      virtual Type getPropertyType(const String&) const override {
+      virtual Type getPropertyType(const String&, String&) const override {
         return Type::AnyQ;
       }
     };
@@ -280,6 +305,18 @@ namespace {
       assert(&this->allocator == &allocator2);
       return makeUnionJoin(allocator2, *this, rhs);
     }
+    virtual bool tryAssign(IAllocator& allocator2, Slot& lhs, const Value& rhs, String& failure) const override {
+      assert(&this->allocator == &allocator2);
+      String fa;
+      if (a->tryAssign(allocator2, lhs, rhs, fa)) {
+        return true;
+      }
+      if (b->tryAssign(allocator2, lhs, rhs, failure)) {
+        return true;
+      }
+      failure = fa;
+      return false;
+    }
     virtual Assignable assignable(const IType& rhs) const override {
       // The logic is:
       //  Assignable to a Assignable to b Result
@@ -337,6 +374,10 @@ namespace {
       assert(&this->allocator == &allocator2);
       return makeUnionFlags(allocator2, this->flags, *this, rhs);
     }
+    virtual bool tryAssign(IAllocator& allocator2, Slot& lhs, const Value& rhs, String& failure) const override {
+      assert(&this->allocator == &allocator2);
+      return tryAssignFlags(allocator2, this->flags, lhs, rhs, failure);
+    }
     virtual Assignable assignable(const IType& rhs) const override {
       return assignableFlags(this->flags, rhs.getFlags());
     }
@@ -367,6 +408,12 @@ namespace {
       // TODO elide if similar
       assert(&this->allocator == &allocator2);
       return makeUnionJoin(allocator2, *this, rhs);
+    }
+    virtual bool tryAssign(IAllocator& allocator2, Slot&, const Value&, String& failure) const override {
+      assert(&this->allocator == &allocator2);
+      (void)&allocator2;
+      failure = "WIBBLE: Pointer assignment not yet implemented";
+      return false;
     }
     virtual Assignable assignable(const IType&) const override {
       return Assignable::Never; // TODO
@@ -493,6 +540,12 @@ namespace {
     virtual Type makeUnion(IAllocator& allocator2, const IType& rhs) const override {
       assert(&this->allocator == &allocator2);
       return makeUnionJoin(allocator2, *this, rhs);
+    }
+    virtual bool tryAssign(IAllocator& allocator2, Slot&, const Value&, String& failure) const override {
+      assert(&this->allocator == &allocator2);
+      (void)&allocator2;
+      failure = "WIBBLE: Function assignment not yet implemented";
+      return false;
     }
     virtual Assignable assignable(const IType& rhs) const override {
       // We can assign if the signatures are the same or equal

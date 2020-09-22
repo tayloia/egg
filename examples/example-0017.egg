@@ -1,5 +1,4 @@
 var s = "$£€🥚";
-/* INFINITE
 for (var i = 0; i < s.length; ++i) {
   print(s[i]);
 }
@@ -10,7 +9,6 @@ for (var i = 0; i < s.length; ++i) {
 for (var j : s) {
   print(j);
 }
-*/
 ///>$
 ///>£
 ///>€

@@ -65,16 +65,14 @@ namespace {
       assert(false); // WIBBLE
       return Type(&rhs);
     }
+    virtual bool tryAssign(IAllocator&, Slot&, const Value&, String& failure) const override {
+      failure = StringBuilder::concat("Cannot assign to built-in '", this->name, "'");
+      return false;
+    }
     virtual Assignable assignable(const IType&) const override {
       return Assignable::Never;
     }
-    virtual const IFunctionSignature* callable() const override {
-      return nullptr;
-    }
     virtual const IIndexSignature* indexable() const override {
-      return nullptr;
-    }
-    virtual const IDotSignature* dotable() const override {
       return nullptr;
     }
     virtual const IPointSignature* pointable() const override {
@@ -84,7 +82,7 @@ namespace {
       return nullptr;
     }
     virtual std::pair<std::string, int> toStringPrecedence() const override {
-      return std::make_pair("<" + this->name.toUTF8() + ">", 0);
+      return std::make_pair("<builtin-" + this->name.toUTF8() + ">", 0);
     }
     const String& getName() const {
       return this->name;
@@ -175,6 +173,58 @@ namespace {
     }
   };
 
+  class BuiltinType_String : public BuiltinObjectType {
+    BuiltinType_String(const BuiltinType_String&) = delete;
+    BuiltinType_String& operator=(const BuiltinType_String&) = delete;
+  private:
+    static inline String name{ "string" };
+    class FunctionSignatureParameter : public IFunctionSignatureParameter {
+    public:
+      virtual String getName() const override {
+        return "values";
+      }
+      virtual Type getType() const override {
+        return Type::AnyQ;
+      }
+      virtual size_t getPosition() const override {
+        return 0;
+      }
+      virtual Flags getFlags() const override {
+        return Flags::Variadic;
+      }
+    };
+    class FunctionSignature : public IFunctionSignature {
+    public:
+      virtual String getFunctionName() const override {
+        return name;
+      }
+      virtual Type getReturnType() const override {
+        return Type::String;
+      }
+      virtual size_t getParameterCount() const override {
+        return 1;
+      }
+      virtual const IFunctionSignatureParameter& getParameter(size_t) const override {
+        static const FunctionSignatureParameter parameter;
+        return parameter;
+      }
+    };
+    class DotSignature : public IDotSignature {
+    public:
+      virtual Type getPropertyType(const String& name, String& failure) const override;
+    };
+  public:
+    BuiltinType_String() : BuiltinObjectType(name) {}
+    virtual const IFunctionSignature* callable() const override {
+      static const FunctionSignature signature;
+      return &signature;
+    }
+    virtual const IDotSignature* dotable() const override {
+      static const DotSignature signature;
+      return &signature;
+    }
+  };
+
   class Builtin_String : public BuiltinObject {
     Builtin_String(const Builtin_String&) = delete;
     Builtin_String& operator=(const Builtin_String&) = delete;
@@ -193,6 +243,20 @@ namespace {
       }
       return this->makeValue(sb.str());
     }
+  };
+
+  class BuiltinType_Type : public BuiltinObjectType {
+    BuiltinType_Type(const BuiltinType_Type&) = delete;
+    BuiltinType_Type& operator=(const BuiltinType_Type&) = delete;
+  public:
+    BuiltinType_Type() : BuiltinObjectType("type") {}
+    virtual const IFunctionSignature* callable() const override {
+      return nullptr;
+    }
+    virtual const IDotSignature* dotable() const override {
+      return nullptr;
+    }
+
   };
 
   class Builtin_TypeOf : public BuiltinFunction {
@@ -243,6 +307,10 @@ namespace {
     BuiltinStringFunction& operator=(const BuiltinStringFunction&) = delete;
   public:
     using Function = Value(BuiltinStringFunction::*)(IExecution& execution, const IParameters& parameters) const;
+    struct Property {
+      Function function;
+      Type type;
+    };
   private:
     Function function;
     String string;
@@ -528,34 +596,43 @@ namespace {
       if (property.equals("length")) {
         return ValueFactory::createInt(allocator, Int(string.length()));
       }
-      auto function = BuiltinStringFunction::findPropertyFunction(property);
-      if (function != nullptr) {
-        auto name = StringBuilder::concat("string.", property);
-        return ValueFactory::createObject(allocator, ObjectFactory::create<BuiltinStringFunction>(allocator, name, function, string));
+      auto* found = BuiltinStringFunction::findProperty(property);
+      if (found != nullptr) {
+        auto name = StringBuilder::concat("string.", found);
+        return ValueFactory::createObject(allocator, ObjectFactory::create<BuiltinStringFunction>(allocator, name, found->function, string));
       }
       return Value::Void;
     }
-    static bool hasProperty(const String& property) {
+    static Type getPropertyType(const String& property, String& failure) {
       // Treat 'length' as a special case
-      return property.equals("length") || (BuiltinStringFunction::findPropertyFunction(property) != nullptr);
+      if (property.equals("length")) {
+        return Type::Int;
+      }
+      auto* found = BuiltinStringFunction::findProperty(property);
+      if (found != nullptr) {
+        return found->type;
+      }
+      failure = StringBuilder::concat("Unknown built-in property: 'string.", property, "'");
+      return nullptr;
     }
   private:
-    static Function findPropertyFunction(const String& property) {
-      static const std::map<String, Function> lookup = {
-#define EGG_STRING_PROPERTY(name) { #name, &BuiltinStringFunction::name }
-      EGG_STRING_PROPERTY(compareTo),
-      EGG_STRING_PROPERTY(contains),
-      EGG_STRING_PROPERTY(endsWith),
-      EGG_STRING_PROPERTY(hash),
-      EGG_STRING_PROPERTY(indexOf),
-      EGG_STRING_PROPERTY(join),
-      EGG_STRING_PROPERTY(lastIndexOf),
-      EGG_STRING_PROPERTY(padLeft),
-      EGG_STRING_PROPERTY(padRight),
-      EGG_STRING_PROPERTY(repeat),
-      EGG_STRING_PROPERTY(replace),
-      EGG_STRING_PROPERTY(slice),
-      EGG_STRING_PROPERTY(startsWith),
+    static const Property* findProperty(const String& property) {
+      // Excluding 'length'
+      static const std::map<String, Property> lookup = {
+#define EGG_STRING_PROPERTY(name) { #name, { &BuiltinStringFunction::name, Type::Int } },
+      EGG_STRING_PROPERTY(compareTo)
+      EGG_STRING_PROPERTY(contains)
+      EGG_STRING_PROPERTY(endsWith)
+      EGG_STRING_PROPERTY(hash)
+      EGG_STRING_PROPERTY(indexOf)
+      EGG_STRING_PROPERTY(join)
+      EGG_STRING_PROPERTY(lastIndexOf)
+      EGG_STRING_PROPERTY(padLeft)
+      EGG_STRING_PROPERTY(padRight)
+      EGG_STRING_PROPERTY(repeat)
+      EGG_STRING_PROPERTY(replace)
+      EGG_STRING_PROPERTY(slice)
+      EGG_STRING_PROPERTY(startsWith)
       EGG_STRING_PROPERTY(toString)
 #undef EGG_STRING_PROPERTY
       };
@@ -563,9 +640,13 @@ namespace {
       if (found == lookup.end()) {
         return nullptr;
       }
-      return found->second;
+      return &found->second;
     }
   };
+
+  Type BuiltinType_String::DotSignature::getPropertyType(const String& property, String& failure) const {
+    return BuiltinStringFunction::getPropertyType(property, failure);
+  }
 }
 
 egg::ovum::Value egg::ovum::ValueFactory::createBuiltinAssert(IAllocator& allocator) {
@@ -577,19 +658,15 @@ egg::ovum::Value egg::ovum::ValueFactory::createBuiltinPrint(IAllocator& allocat
 }
 
 egg::ovum::Value egg::ovum::ValueFactory::createBuiltinType(IAllocator& allocator) {
-  static const BuiltinObjectType type{ "type" };
+  static const BuiltinType_Type type;
   return ValueFactory::createObject(allocator, ObjectFactory::create<Builtin_Type>(allocator, type));
 }
 
 egg::ovum::Value egg::ovum::ValueFactory::createBuiltinString(IAllocator& allocator) {
-  static const BuiltinObjectType type{ "string" };
+  static const BuiltinType_String type;
   return ValueFactory::createObject(allocator, ObjectFactory::create<Builtin_String>(allocator, type));
 }
 
 egg::ovum::Value egg::ovum::ValueFactory::createBuiltinStringProperty(IAllocator& allocator, const String& string, const String& property) {
   return BuiltinStringFunction::createProperty(allocator, string, property);
-}
-
-bool egg::ovum::ValueFactory::hasBuiltinStringProperty(const String& property) {
-  return BuiltinStringFunction::hasProperty(property);
 }

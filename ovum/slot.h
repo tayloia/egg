@@ -10,16 +10,18 @@ namespace egg::ovum {
     // Construction/destruction
     Slot();
     Slot(const Value& rhs);
+    Slot(Slot&& rhs) noexcept;
     ~Slot();
     // Atomic access
     Value get() const;
     void set(const Value& value);
+    void clear();
     bool empty() const {
       return this->ptr.get() == nullptr;
     }
     // Garbage collection
     void softVisitLink(const ICollectable::Visitor& visitor) const;
     // Debugging and test
-    bool validate() const;
+    bool validate(bool optional) const;
   };
 }
