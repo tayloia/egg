@@ -46,39 +46,37 @@ namespace {
     return result;
   }
 
-  IType::Assignable assignableFlags(ValueFlags lhs, ValueFlags rhs) {
+  Erratic<bool> assignableFlags(ValueFlags lhs, ValueFlags rhs) {
     if (Bits::hasAllSet(lhs, rhs)) {
-      return IType::Assignable::Always;
+      return true; // always
     }
     if (Bits::hasAnySet(lhs, rhs)) {
-      return IType::Assignable::Sometimes;
+      return false; // sometimes
     }
     if (Bits::hasAnySet(lhs, ValueFlags::Float) && Bits::hasAnySet(rhs, ValueFlags::Int)) {
       // Float<-Int promotion
-      return IType::Assignable::Sometimes;
+      return false; // sometimes
     }
-    return IType::Assignable::Never;
+    return Erratic<bool>::fail("Cannot assign values of type '", flagsToString(rhs),"' to targets of type '", flagsToString(lhs), "'");
   }
 
-  bool tryAssignFlags(IAllocator& allocator, ValueFlags flhs, Slot& lhs, const Value& rhs, String& failure) {
+  Erratic<void> tryAssignFlags(IAllocator& allocator, ValueFlags flhs, Slot& lhs, const Value& rhs) {
     auto frhs = rhs->getFlags();
     if (Bits::hasAnySet(flhs, frhs)) {
       lhs.set(rhs);
-      return true;
+      return {};
     }
     Int i;
     if (Bits::hasAnySet(flhs, ValueFlags::Float) && rhs->getInt(i)) {
       // Float<-Int promotion
       auto f = Float(i);
       if (Int(f) != i) {
-        failure = egg::ovum::StringBuilder::concat("Cannot convert 'int' to 'float' accurately: ", i);
-        return false;
+        return Erratic<void>::fail("Cannot convert 'int' to 'float' accurately: ", i);
       }
       lhs.set(egg::ovum::ValueFactory::createFloat(allocator, f));
-      return true;
+      return {};
     }
-    failure = egg::ovum::StringBuilder::concat("Cannot convert '", rhs->getRuntimeType().toString(), "' to '", flagsToString(flhs), "'");
-    return false;
+    return Erratic<void>::fail("Cannot convert '", rhs->getRuntimeType().toString(), "' to '", flagsToString(flhs), "'");
   }
 
   Type makeUnionFlags(IAllocator& allocator, ValueFlags flhs, const IType& lhs, const IType& rhs) {
@@ -144,26 +142,25 @@ namespace {
     TypeBase& operator=(const TypeBase&) = delete;
   public:
     TypeBase() = default;
-    virtual Erratic<Type> queryDotPropertyType(const String& property) const {
+    virtual Erratic<Type> queryPropertyType(const String& property) const override {
       return Erratic<Type>::fail("Values of type '", this->str(), "' do not support properties such as '.", property, "'");
     }
-    virtual const IFunctionSignature* callable() const override {
+    virtual Erratic<Type> queryIterable() const override {
+      // By default, we are not iterable
+      return Erratic<Type>::fail("Values of type '", this->str(), "' are not iterable");
+    }
+    virtual Erratic<Type> queryPointeeType() const override {
+      // By default, we are not pointable
+      return Erratic<Type>::fail("Values of type '", this->str(), "' do not support the pointer dereferencing '*' operator");
+    }
+    virtual const IFunctionSignature* queryCallable() const override {
       // By default, we are not callable
       return nullptr;
     }
-    virtual const IIndexSignature* indexable() const override {
+    virtual const IIndexSignature* queryIndexable() const override {
       // By default, we are not indexable
       return nullptr;
     }
-    virtual const IPointSignature* pointable() const override {
-      // By default, we are not pointable
-      return nullptr;
-    }
-    virtual Type iterable() const override {
-      // By default, we are not iterable
-      return nullptr;
-    }
-  protected:
     std::string str() const {
       return this->toStringPrecedence().first;
     }
@@ -181,10 +178,10 @@ namespace {
     virtual Type makeUnion(IAllocator& allocator, const IType& rhs) const override {
       return makeUnionFlags(allocator, FLAGS, *this, rhs);
     }
-    virtual bool tryAssign(IAllocator& allocator, Slot& lhs, const Value& rhs, String& failure) const override {
-      return tryAssignFlags(allocator, FLAGS, lhs, rhs, failure);
+    virtual Erratic<void> tryAssign(IAllocator& allocator, Slot& lhs, const Value& rhs) const override {
+      return tryAssignFlags(allocator, FLAGS, lhs, rhs);
     }
-    virtual Assignable assignable(const IType& rhs) const override {
+    virtual Erratic<bool> queryAssignableAlways(const IType& rhs) const override {
       return assignableFlags(FLAGS, rhs.getFlags());
     }
     virtual std::pair<std::string, int> toStringPrecedence() const override {
@@ -201,8 +198,8 @@ namespace {
     TypeVoid& operator=(const TypeVoid&) = delete;
   public:
     TypeVoid() = default;
-    virtual Assignable assignable(const IType&) const override {
-      return Assignable::Never;
+    virtual Erratic<bool> queryAssignableAlways(const IType&) const override {
+      return Erratic<bool>::fail("Cannot assign values to 'void'");
     }
   };
   const TypeVoid typeVoid{};
@@ -212,23 +209,36 @@ namespace {
     TypeNull& operator=(const TypeNull&) = delete;
   public:
     TypeNull() = default;
-    virtual Assignable assignable(const IType&) const override {
-      return Assignable::Never;
-    }
   };
   const TypeNull typeNull{};
 
   class TypeString : public TypeCommon<ValueFlags::String> {
     TypeString(const TypeString&) = delete;
     TypeString& operator=(const TypeString&) = delete;
+  private:
+    class IndexSignature : public IIndexSignature {
+      virtual Type getResultType() const override {
+        return Type::String;
+      }
+      virtual Type getIndexType() const override {
+        return Type::Int;
+      }
+    };
   public:
     TypeString() = default;
-    virtual Erratic<Type> queryDotPropertyType(const String& property) const {
+    virtual Erratic<Type> queryPropertyType(const String& property) const {
       auto type = ValueFactory::queryBuiltinStringProperty(property);
       if (type == nullptr) {
         return Erratic<Type>::fail("Unknown property for string: '.", property, "'");
       }
       return type;
+    }
+    virtual const IIndexSignature* queryIndexable() const override {
+      static const IndexSignature indexSignature{};
+      return &indexSignature;
+    }
+    virtual Erratic<Type> queryIterable() const override {
+      return Type::String;
     }
   };
   const TypeString typeString{};
@@ -245,16 +255,16 @@ namespace {
         return Type::AnyQ;
       }
     };
-    static inline const IndexSignature indexSignature;
   public:
     TypeObject() = default;
-    virtual Erratic<Type> queryDotPropertyType(const String&) const {
+    virtual Erratic<Type> queryPropertyType(const String&) const {
       return Type::AnyQ;
     }
-    virtual const IFunctionSignature* callable() const override {
+    virtual const IFunctionSignature* queryCallable() const override {
       return &omniFunctionSignature;
     }
-    virtual const IIndexSignature* indexable() const override {
+    virtual const IIndexSignature* queryIndexable() const override {
+      static const IndexSignature indexSignature{};
       return &indexSignature;
     }
   };
@@ -273,7 +283,7 @@ namespace {
     TypeAny& operator=(const TypeAny&) = delete;
   public:
     TypeAny() = default;
-    virtual const IFunctionSignature* callable() const override {
+    virtual const IFunctionSignature* queryCallable() const override {
       return &omniFunctionSignature;
     }
   };
@@ -284,7 +294,7 @@ namespace {
     TypeAnyQ& operator=(const TypeAnyQ&) = delete;
   public:
     TypeAnyQ() = default;
-    virtual const IFunctionSignature* callable() const override {
+    virtual const IFunctionSignature* queryCallable() const override {
       return &omniFunctionSignature;
     }
   };
@@ -307,19 +317,18 @@ namespace {
       assert(&this->allocator == &allocator2);
       return TypeFactory::createUnionJoin(allocator2, *this, rhs);
     }
-    virtual bool tryAssign(IAllocator& allocator2, Slot& lhs, const Value& rhs, String& failure) const override {
+    virtual Erratic<void> tryAssign(IAllocator& allocator2, Slot& lhs, const Value& rhs) const override {
       assert(&this->allocator == &allocator2);
-      String fa;
-      if (a->tryAssign(allocator2, lhs, rhs, fa)) {
-        return true;
+      auto qa = a->tryAssign(allocator2, lhs, rhs);
+      if (qa.failed()) {
+        auto qb = b->tryAssign(allocator2, lhs, rhs);
+        if (!qb.failed()) {
+          return qb;
+        }
       }
-      if (b->tryAssign(allocator2, lhs, rhs, failure)) {
-        return true;
-      }
-      failure = fa;
-      return false;
+      return qa;
     }
-    virtual Assignable assignable(const IType& rhs) const override {
+    virtual Erratic<bool> queryAssignableAlways(const IType& rhs) const override {
       // The logic is:
       //  Assignable to a Assignable to b Result
       //  =============== =============== ======
@@ -332,36 +341,41 @@ namespace {
       //  Always          Never           Always
       //  Always          Sometimes       Always
       //  Always          Always          Always
-      switch (this->a->assignable(rhs)) {
-      case Assignable::Never:
-        return this->b->assignable(rhs);
-      case Assignable::Sometimes:
-        break;
-      case Assignable::Always:
-        return Assignable::Always;
-      }
-      if (this->b->assignable(rhs) == Assignable::Always) {
-        return Assignable::Always;
-      }
-      return Assignable::Sometimes;
-    }
-    virtual Erratic<Type> queryDotPropertyType(const String& property) const {
-      auto qa = this->a->queryDotPropertyType(property);
+      auto qa = this->a->queryAssignableAlways(rhs);
       if (qa.failed()) {
-        auto qb = this->b->queryDotPropertyType(property);
+        // Never assignable to a
+        return this->b->queryAssignableAlways(rhs);
+      }
+      if (qa.success() == true) {
+        // Always assignable to a
+        return qa;
+      }
+      // Sometimes assignable to a
+      auto qb = this->b->queryAssignableAlways(rhs);
+      if (qb.failed()) {
+        // Sometimes assignable to a, but never to b
+        return qa;
+      }
+      // Sometimes assignable to a, and sometimes/always to b
+      return qb;
+    }
+    virtual Erratic<Type> queryPropertyType(const String& property) const {
+      auto qa = this->a->queryPropertyType(property);
+      if (qa.failed()) {
+        auto qb = this->b->queryPropertyType(property);
         if (!qb.failed()) {
           return qb;
         }
       }
       return qa;
     }
-    virtual const IFunctionSignature* callable() const override {
+    virtual const IFunctionSignature* queryCallable() const override {
       // TODO What if both have signatures?
-      auto* signature = this->a->callable();
+      auto* signature = this->a->queryCallable();
       if (signature != nullptr) {
         return signature;
       }
-      return this->b->callable();
+      return this->b->queryCallable();
     }
     virtual std::pair<std::string, int> toStringPrecedence() const override {
       // TODO
@@ -386,14 +400,14 @@ namespace {
       assert(&this->allocator == &allocator2);
       return makeUnionFlags(allocator2, this->flags, *this, rhs);
     }
-    virtual bool tryAssign(IAllocator& allocator2, Slot& lhs, const Value& rhs, String& failure) const override {
+    virtual Erratic<void> tryAssign(IAllocator& allocator2, Slot& lhs, const Value& rhs) const override {
       assert(&this->allocator == &allocator2);
-      return tryAssignFlags(allocator2, this->flags, lhs, rhs, failure);
+      return tryAssignFlags(allocator2, this->flags, lhs, rhs);
     }
-    virtual Assignable assignable(const IType& rhs) const override {
+    virtual Erratic<bool> queryAssignableAlways(const IType& rhs) const override {
       return assignableFlags(this->flags, rhs.getFlags());
     }
-    virtual const IFunctionSignature* callable() const override {
+    virtual const IFunctionSignature* queryCallable() const override {
       if (Bits::hasAnySet(this->flags, ValueFlags::Object)) {
         return &omniFunctionSignature;
       }
@@ -421,14 +435,13 @@ namespace {
       assert(&this->allocator == &allocator2);
       return TypeFactory::createUnionJoin(allocator2, *this, rhs);
     }
-    virtual bool tryAssign(IAllocator& allocator2, Slot&, const Value&, String& failure) const override {
+    virtual Erratic<void> tryAssign(IAllocator& allocator2, Slot&, const Value&) const override {
       assert(&this->allocator == &allocator2);
       (void)&allocator2;
-      failure = "WIBBLE: Pointer assignment not yet implemented";
-      return false;
+      return Erratic<void>::fail("WIBBLE: Pointer assignment not yet implemented");
     }
-    virtual Assignable assignable(const IType&) const override {
-      return Assignable::Never; // TODO
+    virtual Erratic<bool> queryAssignableAlways(const IType& rhs) const override {
+      return Erratic<bool>::fail("TODO: Assignment of values of type '", Type(&rhs).toString(), "' to '", Type(this).toString(), "'");
     }
     virtual std::pair<std::string, int> toStringPrecedence() const override {
       auto p = StringBuilder().add(this->referenced.toString(0), '*').toUTF8();
@@ -553,41 +566,42 @@ namespace {
       assert(&this->allocator == &allocator2);
       return TypeFactory::createUnionJoin(allocator2, *this, rhs);
     }
-    virtual bool tryAssign(IAllocator& allocator2, Slot&, const Value&, String& failure) const override {
+    virtual Erratic<void> tryAssign(IAllocator& allocator2, Slot&, const Value&) const override {
       assert(&this->allocator == &allocator2);
       (void)&allocator2;
-      failure = "WIBBLE: Function assignment not yet implemented";
-      return false;
+      return Erratic<void>::fail("WIBBLE: Function assignment not yet implemented");
     }
-    virtual Assignable assignable(const IType& rhs) const override {
+    virtual Erratic<bool> queryAssignableAlways(const IType& rhs) const override {
       // We can assign if the signatures are the same or equal
-      auto* rsig = rhs.callable();
+      auto* rsig = rhs.queryCallable();
       if (rsig == nullptr) {
-        return Assignable::Never;
+        return Erratic<bool>::fail("Cannot assign values of type '", Type(&rhs).toString(), "' to targets expecting functions");
       }
       auto* lsig = &this->signature;
       if (lsig == rsig) {
-        return Assignable::Always;
+        return true; // always
       }
       // TODO fuzzy matching of signatures
-      if (lsig->getParameterCount() != rsig->getParameterCount()) {
-        return Assignable::Never;
+      auto lnum = lsig->getParameterCount();
+      auto rnum = rsig->getParameterCount();
+      if (lnum != rnum) {
+        return Erratic<bool>::fail("Cannot assign functions with ", rnum, " parameter(s) to targets expecting ", lnum, " function parameter(s)");
       }
-      return Assignable::Sometimes; // TODO
+      return false; // sometimes
     }
-    virtual Erratic<Type> queryDotPropertyType(const String& property) const {
+    virtual Erratic<Type> queryPropertyType(const String& property) const override {
       return Erratic<Type>::fail("Unknown property for function: '.", property, "'");
     }
-    virtual const IFunctionSignature* callable() const override {
+    virtual Erratic<Type> queryIterable() const override {
+      return Erratic<Type>::fail("Functions are not iterable");
+    }
+    virtual Erratic<Type> queryPointeeType() const override {
+      return Erratic<Type>::fail("Functions do not support the pointer dereferencing '*' operator");
+    }
+    virtual const IFunctionSignature* queryCallable() const override {
       return &this->signature;
     }
-    virtual const IIndexSignature* indexable() const override {
-      return nullptr;
-    }
-    virtual const IPointSignature* pointable() const override {
-      return nullptr;
-    }
-    virtual Type iterable() const override {
+    virtual const IIndexSignature* queryIndexable() const override {
       return nullptr;
     }
     virtual std::pair<std::string, int> toStringPrecedence() const override {

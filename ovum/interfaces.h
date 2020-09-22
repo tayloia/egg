@@ -178,14 +178,13 @@ namespace egg::ovum {
   public:
     virtual ValueFlags getFlags() const = 0;
     virtual Type makeUnion(IAllocator& allocator, const IType& rhs) const = 0;
-    virtual bool tryAssign(IAllocator& allocator, Slot& lhs, const Value& rhs, String& failure) const = 0;
-    enum class Assignable { Never, Sometimes, Always };
-    virtual Assignable assignable(const IType& rhs) const = 0;
-    virtual Erratic<Type> queryDotPropertyType(const String& name) const = 0;
-    virtual const IFunctionSignature* callable() const = 0;
-    virtual const IIndexSignature* indexable() const = 0;
-    virtual const IPointSignature* pointable() const = 0;
-    virtual Type iterable() const = 0;
+    virtual Erratic<void> tryAssign(IAllocator& allocator, Slot& lhs, const Value& rhs) const = 0;
+    virtual Erratic<bool> queryAssignableAlways(const IType& rhs) const = 0;
+    virtual Erratic<Type> queryPropertyType(const String& name) const = 0;
+    virtual Erratic<Type> queryIterable() const = 0;
+    virtual Erratic<Type> queryPointeeType() const = 0;
+    virtual const IFunctionSignature* queryCallable() const = 0;
+    virtual const IIndexSignature* queryIndexable() const = 0;
     virtual std::pair<std::string, int> toStringPrecedence() const = 0;
   };
 

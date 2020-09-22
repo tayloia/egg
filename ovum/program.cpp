@@ -150,7 +150,7 @@ namespace {
     }
     template<typename... ARGS>
     Value raise(IExecution& execution, ARGS&&... args) {
-      auto* signature = this->type->callable();
+      auto* signature = this->type->queryCallable();
       if (signature != nullptr) {
         auto name = signature->getFunctionName();
         if (!name.empty()) {
@@ -339,7 +339,7 @@ namespace {
       if (predicate->getObject(object)) {
         // Predicates can be functions that throw exceptions, as well as 'bool' values
         auto type = object->getRuntimeType();
-        if (type->callable() != nullptr) {
+        if (type->queryCallable() != nullptr) {
           // Call the predicate directly
           return object->call(*this, Object::ParametersNone);
         }
@@ -1584,7 +1584,7 @@ Value PredicateFunction::call(IExecution&, const IParameters& parameters) {
 }
 
 Value UserFunction::call(IExecution&, const IParameters&) {
-  auto signature = this->type->callable();
+  auto signature = this->type->queryCallable();
   assert(signature != nullptr);
   (void)signature;
   // WIBBLE assert(this->captured != nullptr);
@@ -1600,9 +1600,9 @@ Block::~Block() {
 }
 
 Value ProgramDefault::tryAssign(Symbol& symbol, const Value& value) {
-  String failure;
-  if (!symbol.type->tryAssign(this->allocator, symbol.slot, value, failure)) {
-    return this->raise(failure);
+  auto assign = symbol.type->tryAssign(this->allocator, symbol.slot, value);
+  if (assign.failed()) {
+    return this->raise(assign.failure().toString());
   }
   return Value::Void;
 }

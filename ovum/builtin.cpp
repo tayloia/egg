@@ -61,20 +61,19 @@ namespace {
     virtual ValueFlags getFlags() const override {
       return ValueFlags::Object;
     }
-    virtual bool tryAssign(IAllocator&, Slot&, const Value&, String& failure) const override {
-      failure = StringBuilder::concat("Cannot assign to built-in '", this->name, "'");
-      return false;
+    virtual Erratic<void> tryAssign(IAllocator&, Slot&, const Value&) const override {
+      return Erratic<void>::fail("Cannot assign to built-in '", this->name, "'");
     }
-    virtual Assignable assignable(const IType&) const override {
-      return Assignable::Never;
+    virtual Erratic<bool> queryAssignableAlways(const IType&) const override {
+      return Erratic<bool>::fail("Cannot assign to built-in '", this->name, "'");
     }
-    virtual const IIndexSignature* indexable() const override {
-      return nullptr;
+    virtual Erratic<Type> queryIterable() const override {
+      return Erratic<Type>::fail("Built-in '", this->name, "' is not iterable");
     }
-    virtual const IPointSignature* pointable() const override {
-      return nullptr;
+    virtual Erratic<Type> queryPointeeType() const override {
+      return Erratic<Type>::fail("Built-in '", this->name, "' does not support the pointer dereferencing '*' operator");
     }
-    virtual Type iterable() const override {
+    virtual const IIndexSignature* queryIndexable() const override {
       return nullptr;
     }
     virtual std::pair<std::string, int> toStringPrecedence() const override {
@@ -209,10 +208,10 @@ namespace {
     virtual Type makeUnion(IAllocator& allocator, const IType& rhs) const override {
       return TypeFactory::createUnionJoin(allocator, *this, rhs);
     }
-    virtual Erratic<Type> queryDotPropertyType(const String& property) const override {
+    virtual Erratic<Type> queryPropertyType(const String& property) const override {
       return Erratic<Type>::fail("Unknown built-in property: 'string.", property, "'");
     }
-    virtual const IFunctionSignature* callable() const override {
+    virtual const IFunctionSignature* queryCallable() const override {
       static const FunctionSignature signature;
       return &signature;
     }
@@ -243,17 +242,17 @@ namespace {
     BuiltinType_Type& operator=(const BuiltinType_Type&) = delete;
   public:
     BuiltinType_Type() : BuiltinObjectType("type") {}
-    virtual const IFunctionSignature* callable() const override {
-      return nullptr;
-    }
     virtual Type makeUnion(IAllocator& allocator, const IType& rhs) const override {
       return TypeFactory::createUnionJoin(allocator, *this, rhs);
     }
-    virtual Erratic<Type> queryDotPropertyType(const String& property) const override {
+    virtual Erratic<Type> queryPropertyType(const String& property) const override {
       if (property.equals("of")) {
         return Type::AnyQ; // WIBBLE
       }
       return Erratic<Type>::fail("Unknown built-in property: 'type.", property, "'");
+    }
+    virtual const IFunctionSignature* queryCallable() const override {
+      return nullptr;
     }
   };
 

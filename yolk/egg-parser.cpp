@@ -861,7 +861,7 @@ namespace {
     }
     virtual egg::ovum::Type getType() const override {
       // Get this from the function signature, if possible
-      auto* signature = this->callee->getType()->callable();
+      auto* signature = this->callee->getType()->queryCallable();
       if (signature == nullptr) {
         return egg::ovum::Type::Void;
       }
