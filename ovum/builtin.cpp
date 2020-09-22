@@ -61,10 +61,6 @@ namespace {
     virtual ValueFlags getFlags() const override {
       return ValueFlags::Object;
     }
-    virtual Type makeUnion(IAllocator&, const IType& rhs) const override {
-      assert(false); // WIBBLE
-      return Type(&rhs);
-    }
     virtual bool tryAssign(IAllocator&, Slot&, const Value&, String& failure) const override {
       failure = StringBuilder::concat("Cannot assign to built-in '", this->name, "'");
       return false;
@@ -177,7 +173,6 @@ namespace {
     BuiltinType_String(const BuiltinType_String&) = delete;
     BuiltinType_String& operator=(const BuiltinType_String&) = delete;
   private:
-    static inline String name{ "string" };
     class FunctionSignatureParameter : public IFunctionSignatureParameter {
     public:
       virtual String getName() const override {
@@ -196,7 +191,7 @@ namespace {
     class FunctionSignature : public IFunctionSignature {
     public:
       virtual String getFunctionName() const override {
-        return name;
+        return "string";
       }
       virtual Type getReturnType() const override {
         return Type::String;
@@ -209,18 +204,16 @@ namespace {
         return parameter;
       }
     };
-    class DotSignature : public IDotSignature {
-    public:
-      virtual Type getPropertyType(const String& name, String& failure) const override;
-    };
   public:
-    BuiltinType_String() : BuiltinObjectType(name) {}
+    BuiltinType_String() : BuiltinObjectType("string") {}
+    virtual Type makeUnion(IAllocator& allocator, const IType& rhs) const override {
+      return TypeFactory::createUnionJoin(allocator, *this, rhs);
+    }
+    virtual Erratic<Type> queryDotPropertyType(const String& property) const override {
+      return Erratic<Type>::fail("Unknown built-in property: 'string.", property, "'");
+    }
     virtual const IFunctionSignature* callable() const override {
       static const FunctionSignature signature;
-      return &signature;
-    }
-    virtual const IDotSignature* dotable() const override {
-      static const DotSignature signature;
       return &signature;
     }
   };
@@ -253,10 +246,15 @@ namespace {
     virtual const IFunctionSignature* callable() const override {
       return nullptr;
     }
-    virtual const IDotSignature* dotable() const override {
-      return nullptr;
+    virtual Type makeUnion(IAllocator& allocator, const IType& rhs) const override {
+      return TypeFactory::createUnionJoin(allocator, *this, rhs);
     }
-
+    virtual Erratic<Type> queryDotPropertyType(const String& property) const override {
+      if (property.equals("of")) {
+        return Type::AnyQ; // WIBBLE
+      }
+      return Erratic<Type>::fail("Unknown built-in property: 'type.", property, "'");
+    }
   };
 
   class Builtin_TypeOf : public BuiltinFunction {
@@ -341,7 +339,7 @@ namespace {
     }
     Value compareTo(IExecution& execution, const IParameters& parameters) const {
       if (parameters.getPositionalCount() != 1) {
-        return this->raise(execution, "expects one parameters, but got ", parameters.getPositionalCount());
+        return this->raise(execution, "expects one parameter, but got ", parameters.getPositionalCount());
       }
       auto parameter = parameters.getPositional(0);
       String other;
@@ -352,7 +350,7 @@ namespace {
     }
     Value contains(IExecution& execution, const IParameters& parameters) const {
       if (parameters.getPositionalCount() != 1) {
-        return this->raise(execution, "expects one parameters, but got ", parameters.getPositionalCount());
+        return this->raise(execution, "expects one parameter, but got ", parameters.getPositionalCount());
       }
       auto parameter = parameters.getPositional(0);
       String other;
@@ -363,7 +361,7 @@ namespace {
     }
     Value endsWith(IExecution& execution, const IParameters& parameters) const {
       if (parameters.getPositionalCount() != 1) {
-        return this->raise(execution, "expects one parameters, but got ", parameters.getPositionalCount());
+        return this->raise(execution, "expects one parameter, but got ", parameters.getPositionalCount());
       }
       auto parameter = parameters.getPositional(0);
       String other;
@@ -576,7 +574,7 @@ namespace {
     }
     Value startsWith(IExecution& execution, const IParameters& parameters) const {
       if (parameters.getPositionalCount() != 1) {
-        return this->raise(execution, "expects one parameters, but got ", parameters.getPositionalCount());
+        return this->raise(execution, "expects one parameter, but got ", parameters.getPositionalCount());
       }
       auto parameter = parameters.getPositional(0);
       String other;
@@ -603,7 +601,7 @@ namespace {
       }
       return Value::Void;
     }
-    static Type getPropertyType(const String& property, String& failure) {
+    static Type queryProperty(const String& property) {
       // Treat 'length' as a special case
       if (property.equals("length")) {
         return Type::Int;
@@ -612,28 +610,27 @@ namespace {
       if (found != nullptr) {
         return found->type;
       }
-      failure = StringBuilder::concat("Unknown built-in property: 'string.", property, "'");
       return nullptr;
     }
   private:
     static const Property* findProperty(const String& property) {
       // Excluding 'length'
       static const std::map<String, Property> lookup = {
-#define EGG_STRING_PROPERTY(name) { #name, { &BuiltinStringFunction::name, Type::Int } },
-      EGG_STRING_PROPERTY(compareTo)
-      EGG_STRING_PROPERTY(contains)
-      EGG_STRING_PROPERTY(endsWith)
-      EGG_STRING_PROPERTY(hash)
-      EGG_STRING_PROPERTY(indexOf)
-      EGG_STRING_PROPERTY(join)
-      EGG_STRING_PROPERTY(lastIndexOf)
-      EGG_STRING_PROPERTY(padLeft)
-      EGG_STRING_PROPERTY(padRight)
-      EGG_STRING_PROPERTY(repeat)
-      EGG_STRING_PROPERTY(replace)
-      EGG_STRING_PROPERTY(slice)
-      EGG_STRING_PROPERTY(startsWith)
-      EGG_STRING_PROPERTY(toString)
+#define EGG_STRING_PROPERTY(name, WIBBLE) { #name, { &BuiltinStringFunction::name, Type::Int } },
+      EGG_STRING_PROPERTY(compareTo, WIBBLE)
+      EGG_STRING_PROPERTY(contains, WIBBLE)
+      EGG_STRING_PROPERTY(endsWith, WIBBLE)
+      EGG_STRING_PROPERTY(hash, WIBBLE)
+      EGG_STRING_PROPERTY(indexOf, WIBBLE)
+      EGG_STRING_PROPERTY(join, WIBBLE)
+      EGG_STRING_PROPERTY(lastIndexOf, WIBBLE)
+      EGG_STRING_PROPERTY(padLeft, WIBBLE)
+      EGG_STRING_PROPERTY(padRight, WIBBLE)
+      EGG_STRING_PROPERTY(repeat, WIBBLE)
+      EGG_STRING_PROPERTY(replace, WIBBLE)
+      EGG_STRING_PROPERTY(slice, WIBBLE)
+      EGG_STRING_PROPERTY(startsWith, WIBBLE)
+      EGG_STRING_PROPERTY(toString, WIBBLE)
 #undef EGG_STRING_PROPERTY
       };
       auto found = lookup.find(property);
@@ -643,10 +640,6 @@ namespace {
       return &found->second;
     }
   };
-
-  Type BuiltinType_String::DotSignature::getPropertyType(const String& property, String& failure) const {
-    return BuiltinStringFunction::getPropertyType(property, failure);
-  }
 }
 
 egg::ovum::Value egg::ovum::ValueFactory::createBuiltinAssert(IAllocator& allocator) {
@@ -669,4 +662,8 @@ egg::ovum::Value egg::ovum::ValueFactory::createBuiltinString(IAllocator& alloca
 
 egg::ovum::Value egg::ovum::ValueFactory::createBuiltinStringProperty(IAllocator& allocator, const String& string, const String& property) {
   return BuiltinStringFunction::createProperty(allocator, string, property);
+}
+
+egg::ovum::Type egg::ovum::ValueFactory::queryBuiltinStringProperty(const String& property) {
+  return BuiltinStringFunction::queryProperty(property);
 }

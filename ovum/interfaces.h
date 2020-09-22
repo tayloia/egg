@@ -1,5 +1,6 @@
 namespace egg::ovum {
   // Forward declarations
+  template<typename T> class Erratic;
   template<typename T> class HardPtr;
   enum class ValueFlags;
   struct LocationSource;
@@ -166,13 +167,6 @@ namespace egg::ovum {
     virtual Type getIndexType() const = 0;
   };
 
-  class IDotSignature {
-  public:
-    // Interface
-    virtual ~IDotSignature() {}
-    virtual Type getPropertyType(const String& name, String& failure) const = 0;
-  };
-
   class IPointSignature {
   public:
     // Interface
@@ -187,9 +181,9 @@ namespace egg::ovum {
     virtual bool tryAssign(IAllocator& allocator, Slot& lhs, const Value& rhs, String& failure) const = 0;
     enum class Assignable { Never, Sometimes, Always };
     virtual Assignable assignable(const IType& rhs) const = 0;
+    virtual Erratic<Type> queryDotPropertyType(const String& name) const = 0;
     virtual const IFunctionSignature* callable() const = 0;
     virtual const IIndexSignature* indexable() const = 0;
-    virtual const IDotSignature* dotable() const = 0;
     virtual const IPointSignature* pointable() const = 0;
     virtual Type iterable() const = 0;
     virtual std::pair<std::string, int> toStringPrecedence() const = 0;

@@ -141,7 +141,7 @@ namespace {
       return *this;
     }
     ParserDump& add(const egg::ovum::String& text) {
-      *this->os << ' ' << '\'' << text << '\'';
+      *this->os << ' ' << '\'' << text.toUTF8() << '\'';
       return *this;
     }
     ParserDump& add(const std::shared_ptr<IEggProgramNode>& child) {

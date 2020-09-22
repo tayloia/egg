@@ -81,8 +81,6 @@ namespace {
     return false;
   }
 
-  Type makeUnionJoin(IAllocator& allocator, const IType& lhs, const IType& rhs);
-
   Type makeUnionFlags(IAllocator& allocator, ValueFlags flhs, const IType& lhs, const IType& rhs) {
     // Check for identity early
     if (&lhs == &rhs) {
@@ -90,7 +88,7 @@ namespace {
     }
     auto frhs = rhs.getFlags();
     if (Bits::hasAnySet(frhs, ValueFlags::Pointer)) {
-      return makeUnionJoin(allocator, lhs, rhs);
+      return TypeFactory::createUnionJoin(allocator, lhs, rhs);
     }
     if (Bits::hasAllSet(frhs, flhs)) {
       // The rhs is a superset of the types in lhs, just return rhs
@@ -146,16 +144,15 @@ namespace {
     TypeBase& operator=(const TypeBase&) = delete;
   public:
     TypeBase() = default;
+    virtual Erratic<Type> queryDotPropertyType(const String& property) const {
+      return Erratic<Type>::fail("Values of type '", this->str(), "' do not support properties such as '.", property, "'");
+    }
     virtual const IFunctionSignature* callable() const override {
       // By default, we are not callable
       return nullptr;
     }
     virtual const IIndexSignature* indexable() const override {
       // By default, we are not indexable
-      return nullptr;
-    }
-    virtual const IDotSignature* dotable() const override {
-      // By default, we are not dotable
       return nullptr;
     }
     virtual const IPointSignature* pointable() const override {
@@ -165,6 +162,10 @@ namespace {
     virtual Type iterable() const override {
       // By default, we are not iterable
       return nullptr;
+    }
+  protected:
+    std::string str() const {
+      return this->toStringPrecedence().first;
     }
   };
 
@@ -222,6 +223,13 @@ namespace {
     TypeString& operator=(const TypeString&) = delete;
   public:
     TypeString() = default;
+    virtual Erratic<Type> queryDotPropertyType(const String& property) const {
+      auto type = ValueFactory::queryBuiltinStringProperty(property);
+      if (type == nullptr) {
+        return Erratic<Type>::fail("Unknown property for string: '.", property, "'");
+      }
+      return type;
+    }
   };
   const TypeString typeString{};
 
@@ -237,23 +245,17 @@ namespace {
         return Type::AnyQ;
       }
     };
-    class DotSignature : public IDotSignature {
-      virtual Type getPropertyType(const String&, String&) const override {
-        return Type::AnyQ;
-      }
-    };
     static inline const IndexSignature indexSignature;
-    static inline const DotSignature dotSignature;
   public:
     TypeObject() = default;
+    virtual Erratic<Type> queryDotPropertyType(const String&) const {
+      return Type::AnyQ;
+    }
     virtual const IFunctionSignature* callable() const override {
       return &omniFunctionSignature;
     }
     virtual const IIndexSignature* indexable() const override {
       return &indexSignature;
-    }
-    virtual const IDotSignature* dotable() const override {
-      return &dotSignature;
     }
   };
   const TypeObject typeObject{};
@@ -303,7 +305,7 @@ namespace {
     }
     virtual Type makeUnion(IAllocator& allocator2, const IType& rhs) const override {
       assert(&this->allocator == &allocator2);
-      return makeUnionJoin(allocator2, *this, rhs);
+      return TypeFactory::createUnionJoin(allocator2, *this, rhs);
     }
     virtual bool tryAssign(IAllocator& allocator2, Slot& lhs, const Value& rhs, String& failure) const override {
       assert(&this->allocator == &allocator2);
@@ -342,6 +344,16 @@ namespace {
         return Assignable::Always;
       }
       return Assignable::Sometimes;
+    }
+    virtual Erratic<Type> queryDotPropertyType(const String& property) const {
+      auto qa = this->a->queryDotPropertyType(property);
+      if (qa.failed()) {
+        auto qb = this->b->queryDotPropertyType(property);
+        if (!qb.failed()) {
+          return qb;
+        }
+      }
+      return qa;
     }
     virtual const IFunctionSignature* callable() const override {
       // TODO What if both have signatures?
@@ -407,7 +419,7 @@ namespace {
     virtual Type makeUnion(IAllocator& allocator2, const IType& rhs) const override {
       // TODO elide if similar
       assert(&this->allocator == &allocator2);
-      return makeUnionJoin(allocator2, *this, rhs);
+      return TypeFactory::createUnionJoin(allocator2, *this, rhs);
     }
     virtual bool tryAssign(IAllocator& allocator2, Slot&, const Value&, String& failure) const override {
       assert(&this->allocator == &allocator2);
@@ -539,7 +551,7 @@ namespace {
     }
     virtual Type makeUnion(IAllocator& allocator2, const IType& rhs) const override {
       assert(&this->allocator == &allocator2);
-      return makeUnionJoin(allocator2, *this, rhs);
+      return TypeFactory::createUnionJoin(allocator2, *this, rhs);
     }
     virtual bool tryAssign(IAllocator& allocator2, Slot&, const Value&, String& failure) const override {
       assert(&this->allocator == &allocator2);
@@ -563,13 +575,13 @@ namespace {
       }
       return Assignable::Sometimes; // TODO
     }
+    virtual Erratic<Type> queryDotPropertyType(const String& property) const {
+      return Erratic<Type>::fail("Unknown property for function: '.", property, "'");
+    }
     virtual const IFunctionSignature* callable() const override {
       return &this->signature;
     }
     virtual const IIndexSignature* indexable() const override {
-      return nullptr;
-    }
-    virtual const IDotSignature* dotable() const override {
       return nullptr;
     }
     virtual const IPointSignature* pointable() const override {
@@ -610,10 +622,6 @@ namespace {
       return this->rettype;
     }
   };
-
-  Type makeUnionJoin(IAllocator& allocator, const IType& lhs, const IType& rhs) {
-    return allocator.make<TypeUnion, Type>(lhs, rhs);
-  }
 }
 
 egg::ovum::Type egg::ovum::TypeFactory::createSimple(IAllocator& allocator, ValueFlags flags) {
@@ -631,6 +639,13 @@ egg::ovum::Type egg::ovum::TypeFactory::createUnion(IAllocator& allocator, const
     return Type(&a);
   }
   return a.makeUnion(allocator, b);
+}
+
+egg::ovum::Type egg::ovum::TypeFactory::createUnionJoin(IAllocator& allocator, const IType& a, const IType& b) {
+  if (&a == &b) {
+    return Type(&a);
+  }
+  return allocator.make<TypeUnion, Type>(a, b);
 }
 
 egg::ovum::ITypeFunction* egg::ovum::TypeFactory::createFunction(IAllocator& allocator, const String& name, const Type& rettype) {

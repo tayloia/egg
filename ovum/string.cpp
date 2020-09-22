@@ -1,4 +1,5 @@
 #include "ovum/ovum.h"
+#include "ovum/print.h"
 #include "ovum/utf.h"
 
 #include <algorithm>
@@ -633,6 +634,26 @@ egg::ovum::String egg::ovum::String::fromUTF8(const std::string& utf8, size_t co
 egg::ovum::String egg::ovum::String::fromUTF32(const std::u32string& utf32) {
   auto utf8 = egg::ovum::UTF32::toUTF8(utf32);
   return String(createContiguous(nullptr, utf8.data(), utf8.size(), utf32.size()));
+}
+
+egg::ovum::StringBuilder& egg::ovum::StringBuilder::add(Bool value) {
+  Print::write(this->ss, value);
+  return *this;
+}
+
+egg::ovum::StringBuilder& egg::ovum::StringBuilder::add(Int value) {
+  Print::write(this->ss, value);
+  return *this;
+}
+
+egg::ovum::StringBuilder& egg::ovum::StringBuilder::add(Float value) {
+  Print::write(this->ss, value);
+  return *this;
+}
+
+egg::ovum::StringBuilder& egg::ovum::StringBuilder::add(const String& value) {
+  Print::write(this->ss, value);
+  return *this;
 }
 
 egg::ovum::String egg::ovum::StringBuilder::str() const {

@@ -69,6 +69,10 @@ namespace egg::ovum {
       this->ss << value;
       return *this;
     }
+    StringBuilder& add(Bool value);
+    StringBuilder& add(Int value);
+    StringBuilder& add(Float value);
+    StringBuilder& add(const String& value);
     template<typename T, typename... ARGS>
     StringBuilder& add(T value, ARGS&&... args) {
       return this->add(value).add(std::forward<ARGS>(args)...);
@@ -123,5 +127,3 @@ namespace std {
     }
   };
 }
-
-std::ostream& operator<<(std::ostream& os, const egg::ovum::String& text);

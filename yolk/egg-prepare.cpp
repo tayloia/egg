@@ -553,19 +553,13 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareDot(const eg
     return EggProgramNodeFlags::Abandon;
   }
   auto ltype = instance.getType();
-  auto dotable = ltype->dotable();
-  if (dotable != nullptr) {
-    // We support properties
-    egg::ovum::String failure;
-    auto type = dotable->getPropertyType(property, failure);
-    if (type != nullptr) {
-      // It's a supported property
-      // TODO remember the returned type
-      return EggProgramNodeFlags::None;
-    }
-    return this->compilerError(where, failure);
+  auto etype = ltype->queryDotPropertyType(property);
+  if (!etype.failed()) {
+    // It's a supported property
+    // TODO remember the returned type
+    return EggProgramNodeFlags::None;
   }
-  return this->compilerError(where, "Properties not supported by '", ltype.toString(), "' value: '.", property, "'");
+  return this->compilerError(where, etype.failure().toString());
 }
 
 egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareUnary(const egg::ovum::LocationSource& where, EggProgramUnary op, IEggProgramNode& value) {

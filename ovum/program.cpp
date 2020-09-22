@@ -1106,7 +1106,7 @@ namespace {
       if (lhs->getString(string)) {
         return this->stringProperty(string, pname);
       }
-      return this->raiseNode(node, "Values of type '", lhs->getRuntimeType().toString(), "' do not support properties");
+      return this->raiseNode(node, "Values of type '", lhs->getRuntimeType().toString(), "' do not support properties such as '.", pname, "'");
     }
     // Strings
     Value stringForeach(const String& string, Block& block, Target& target, const INode& statements) {

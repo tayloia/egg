@@ -68,7 +68,7 @@ namespace {
       this->os << ' ' << '\'' << text << '\'';
     }
     void add(const egg::ovum::String& text) {
-      this->os << ' ' << '\'' << text << '\'';
+      this->os << ' ' << '\'' << text.toUTF8() << '\'';
     }
     void add(EggTokenizerOperator op) {
       this->os << ' ' << '\'' << EggTokenizerValue::getOperatorString(op) << '\'';

@@ -80,6 +80,7 @@ namespace egg::ovum {
     static Type createSimple(IAllocator& allocator, ValueFlags flags);
     static Type createPointer(IAllocator& allocator, const IType& pointee);
     static Type createUnion(IAllocator& allocator, const IType& a, const IType& b);
+    static Type createUnionJoin(IAllocator& allocator, const IType& a, const IType& b);
     static ITypeFunction* createFunction(IAllocator& allocator, const egg::ovum::String& name, const Type& rettype);
     static ITypeFunction* createGenerator(IAllocator& allocator, const egg::ovum::String& name, const Type& rettype);
   };
