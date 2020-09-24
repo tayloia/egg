@@ -13,7 +13,6 @@ namespace egg::ovum {
   class Object;
   class Type;
   class Value;
-  class Slot;
 
   enum class ValueCompare {
     Binary = 0x00,
@@ -41,7 +40,6 @@ namespace egg::ovum {
   };
 
   class Value {
-    friend class Slot;
     friend class ValueFactory;
     // Stop type promotion for implicit constructors
     template<typename T> Value(T rhs) = delete;
@@ -54,6 +52,9 @@ namespace egg::ovum {
       assert(this->validate());
     }
     Value(Value&& rhs) noexcept : ptr(std::move(rhs.ptr)) {
+      assert(this->validate());
+    }
+    explicit Value(IValue& rhs) : ptr(&rhs) {
       assert(this->validate());
     }
     // Atomic assignment
@@ -106,10 +107,6 @@ namespace egg::ovum {
     static const Value Break;
     static const Value Continue;
     static const Value Rethrow;
-  private:
-    explicit Value(IValue* rhs) : ptr(rhs) {
-      // Used solely for factory/slot construction
-    }
   };
 
   class ValueFactory {

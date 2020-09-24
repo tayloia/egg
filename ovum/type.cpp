@@ -60,23 +60,79 @@ namespace {
     return Erratic<bool>::fail("Cannot assign values of type '", flagsToString(rhs),"' to targets of type '", flagsToString(lhs), "'");
   }
 
-  Erratic<void> tryAssignFlags(IAllocator& allocator, ValueFlags flhs, Slot& lhs, const Value& rhs) {
-    auto frhs = rhs->getFlags();
-    if (Bits::hasAnySet(flhs, frhs)) {
-      lhs.set(rhs);
-      return {};
+  Erratic<Value> tryAssignFlags(IAllocator& allocator, ValueFlags lflags, const Value& rhs) {
+    auto rflags = rhs->getFlags();
+    if (Bits::hasAnySet(lflags, rflags)) {
+      return rhs;
     }
     Int i;
-    if (Bits::hasAnySet(flhs, ValueFlags::Float) && rhs->getInt(i)) {
+    if (Bits::hasAnySet(lflags, ValueFlags::Float) && rhs->getInt(i)) {
       // Float<-Int promotion
       auto f = Float(i);
       if (Int(f) != i) {
-        return Erratic<void>::fail("Cannot convert 'int' to 'float' accurately: ", i);
+        return Erratic<Value>::fail("Cannot convert 'int' to 'float' accurately: ", i);
       }
-      lhs.set(egg::ovum::ValueFactory::createFloat(allocator, f));
+      return ValueFactory::createFloat(allocator, f);
+    }
+    return Erratic<Value>::fail("Cannot convert '", rhs->getRuntimeType().toString(), "' to '", flagsToString(lflags), "'");
+  }
+
+  Erratic<Value> tryMutateOperation(IAllocator& allocator, ValueFlags lflags, IValue& lhs, Mutation mutation, const Value&) {
+    if (mutation == Mutation::Increment) {
+      if (Bits::hasAnySet(lflags, ValueFlags::Int)) {
+        Int i;
+        if (lhs.getInt(i)) {
+          return ValueFactory::createInt(allocator, i + 1);
+        }
+      }
+      return Erratic<Value>::fail("Expected increment '++' operator to be applied to a target of type 'int', not '", lhs.getRuntimeType().toString(), "'");
+    }
+    if (mutation == Mutation::Decrement) {
+      if (Bits::hasAnySet(lflags, ValueFlags::Int)) {
+        Int i;
+        if (lhs.getInt(i)) {
+          return ValueFactory::createInt(allocator, i - 1);
+        }
+      }
+      return Erratic<Value>::fail("Expected decrement '--' operator to be applied to a target of type 'int', not '", lhs.getRuntimeType().toString(), "'");
+    }
+    return Erratic<Value>::fail("WIBBLE WOBBLE: tryMutateOperation() not implemented");
+  }
+
+  Error tryMutateFlags(IAllocator& allocator, ValueFlags lflags, Slot& slot, Mutation mutation, const Value& rhs) {
+    if (mutation == Mutation::Assign) {
+      // Treat assignment specially because the slot may be empty
+      auto result = tryAssignFlags(allocator, lflags, rhs);
+      if (result.failed()) {
+        // The assignment is invalid
+        return result.failure();
+      }
+      slot.clobber(result.success());
       return {};
     }
-    return Erratic<void>::fail("Cannot convert '", rhs->getRuntimeType().toString(), "' to '", flagsToString(flhs), "'");
+    for (;;) {
+      // Loop until we successfully (atomically) update the slot (or fail)
+      auto* lhs = slot.getReference();
+      if (lhs == nullptr) {
+        return Error("Cannot mutate an empty slot");
+      }
+      // If successful, 'error' will hold a hard reference to the result
+      auto result = tryMutateOperation(allocator, lflags, *lhs, mutation, rhs);
+      if (result.failed()) {
+        // The mutation is invalid
+        return result.failure();
+      }
+      auto desired = result.success();
+      if (lhs == &desired.get()) {
+        // No need to update
+        break;
+      }
+      if (slot.update(lhs, desired)) {
+        // We atomically updated the slot
+        break;
+      }
+    }
+    return {};
   }
 
   Type makeUnionFlags(IAllocator& allocator, ValueFlags flhs, const IType& lhs, const IType& rhs) {
@@ -178,8 +234,8 @@ namespace {
     virtual Type makeUnion(IAllocator& allocator, const IType& rhs) const override {
       return makeUnionFlags(allocator, FLAGS, *this, rhs);
     }
-    virtual Erratic<void> tryAssign(IAllocator& allocator, Slot& lhs, const Value& rhs) const override {
-      return tryAssignFlags(allocator, FLAGS, lhs, rhs);
+    virtual Error tryMutate(IAllocator& allocator, Slot& lhs, Mutation mutation, const Value& rhs) const override {
+      return tryMutateFlags(allocator, FLAGS, lhs, mutation, rhs);
     }
     virtual Erratic<bool> queryAssignableAlways(const IType& rhs) const override {
       return assignableFlags(FLAGS, rhs.getFlags());
@@ -317,12 +373,12 @@ namespace {
       assert(&this->allocator == &allocator2);
       return TypeFactory::createUnionJoin(allocator2, *this, rhs);
     }
-    virtual Erratic<void> tryAssign(IAllocator& allocator2, Slot& lhs, const Value& rhs) const override {
+    virtual Error tryMutate(IAllocator& allocator2, Slot& lhs, Mutation mutation, const Value& rhs) const override {
       assert(&this->allocator == &allocator2);
-      auto qa = a->tryAssign(allocator2, lhs, rhs);
-      if (qa.failed()) {
-        auto qb = b->tryAssign(allocator2, lhs, rhs);
-        if (!qb.failed()) {
+      auto qa = a->tryMutate(allocator2, lhs, mutation, rhs);
+      if (!qa.empty()) {
+        auto qb = b->tryMutate(allocator2, lhs, mutation, rhs);
+        if (qb.empty()) {
           return qb;
         }
       }
@@ -400,9 +456,9 @@ namespace {
       assert(&this->allocator == &allocator2);
       return makeUnionFlags(allocator2, this->flags, *this, rhs);
     }
-    virtual Erratic<void> tryAssign(IAllocator& allocator2, Slot& lhs, const Value& rhs) const override {
+    virtual Error tryMutate(IAllocator& allocator2, Slot& lhs, Mutation mutation, const Value& rhs) const override {
       assert(&this->allocator == &allocator2);
-      return tryAssignFlags(allocator2, this->flags, lhs, rhs);
+      return tryMutateFlags(allocator2, this->flags, lhs, mutation, rhs);
     }
     virtual Erratic<bool> queryAssignableAlways(const IType& rhs) const override {
       return assignableFlags(this->flags, rhs.getFlags());
@@ -435,10 +491,10 @@ namespace {
       assert(&this->allocator == &allocator2);
       return TypeFactory::createUnionJoin(allocator2, *this, rhs);
     }
-    virtual Erratic<void> tryAssign(IAllocator& allocator2, Slot&, const Value&) const override {
+    virtual Error tryMutate(IAllocator& allocator2, Slot&, Mutation, const Value&) const override {
       assert(&this->allocator == &allocator2);
       (void)&allocator2;
-      return Erratic<void>::fail("WIBBLE: Pointer assignment not yet implemented");
+      return Error("WIBBLE: Pointer modification not yet implemented");
     }
     virtual Erratic<bool> queryAssignableAlways(const IType& rhs) const override {
       return Erratic<bool>::fail("TODO: Assignment of values of type '", Type(&rhs).toString(), "' to '", Type(this).toString(), "'");
@@ -566,10 +622,10 @@ namespace {
       assert(&this->allocator == &allocator2);
       return TypeFactory::createUnionJoin(allocator2, *this, rhs);
     }
-    virtual Erratic<void> tryAssign(IAllocator& allocator2, Slot&, const Value&) const override {
+    virtual Error tryMutate(IAllocator& allocator2, Slot&, Mutation, const Value&) const override {
       assert(&this->allocator == &allocator2);
       (void)&allocator2;
-      return Erratic<void>::fail("WIBBLE: Function assignment not yet implemented");
+      return Error("WIBBLE: Function modification not yet implemented");
     }
     virtual Erratic<bool> queryAssignableAlways(const IType& rhs) const override {
       // We can assign if the signatures are the same or equal
@@ -625,7 +681,7 @@ namespace {
     explicit GeneratorFunctionType(IAllocator& allocator, const Type& rettype)
       : FunctionType(allocator, String(), TypeFactory::createUnion(allocator, *rettype, *Type::Void)),
         rettype(rettype) {
-      assert(!egg::ovum::Bits::hasAnySet(rettype->getFlags(), egg::ovum::ValueFlags::Void));
+      assert(!Bits::hasAnySet(rettype->getFlags(), ValueFlags::Void));
     }
     virtual std::pair<std::string, int> toStringPrecedence() const override {
       // Format a string along the lines of '<rettype>...'

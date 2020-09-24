@@ -61,8 +61,8 @@ namespace {
     virtual ValueFlags getFlags() const override {
       return ValueFlags::Object;
     }
-    virtual Erratic<void> tryAssign(IAllocator&, Slot&, const Value&) const override {
-      return Erratic<void>::fail("Cannot assign to built-in '", this->name, "'");
+    virtual Error tryMutate(IAllocator&, Slot&, Mutation, const Value&) const override {
+      return Error("Cannot modify built-in '", this->name, "'");
     }
     virtual Erratic<bool> queryAssignableAlways(const IType&) const override {
       return Erratic<bool>::fail("Cannot assign to built-in '", this->name, "'");

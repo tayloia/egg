@@ -61,8 +61,8 @@ namespace {
     virtual bool validate() const override {
       return true;
     }
-    constexpr IValue* operator&() const {
-      return const_cast<ValueImmutable*>(this);
+    constexpr IValue& instance() const {
+      return *const_cast<ValueImmutable*>(this);
     }
   };
   const ValueImmutable<ValueFlags::Break> theBreak;
@@ -429,44 +429,44 @@ namespace {
   }
 }
 
-const egg::ovum::Value egg::ovum::Value::Void{ &theVoid };
-const egg::ovum::Value egg::ovum::Value::Null{ &theNull };
-const egg::ovum::Value egg::ovum::Value::False{ &theFalse };
-const egg::ovum::Value egg::ovum::Value::True{ &theTrue };
-const egg::ovum::Value egg::ovum::Value::Break{ &theBreak };
-const egg::ovum::Value egg::ovum::Value::Continue{ &theContinue };
-const egg::ovum::Value egg::ovum::Value::Rethrow{ &theRethrow };
+const egg::ovum::Value egg::ovum::Value::Void{ theVoid.instance() };
+const egg::ovum::Value egg::ovum::Value::Null{ theNull.instance() };
+const egg::ovum::Value egg::ovum::Value::False{ theFalse.instance() };
+const egg::ovum::Value egg::ovum::Value::True{ theTrue.instance() };
+const egg::ovum::Value egg::ovum::Value::Break{ theBreak.instance() };
+const egg::ovum::Value egg::ovum::Value::Continue{ theContinue.instance() };
+const egg::ovum::Value egg::ovum::Value::Rethrow{ theRethrow.instance() };
 
 egg::ovum::Value::Value() : ptr(&theVoid) {
   assert(this->validate());
 }
 
 egg::ovum::Value egg::ovum::ValueFactory::createInt(IAllocator& allocator, Int value) {
-  return Value(allocator.make<ValueInt, IValue*>(value));
+  return Value(*allocator.make<ValueInt, IValue*>(value));
 }
 
 egg::ovum::Value egg::ovum::ValueFactory::createFloat(IAllocator& allocator, Float value) {
-  return Value(allocator.make<ValueFloat, IValue*>(value));
+  return Value(*allocator.make<ValueFloat, IValue*>(value));
 }
 
 egg::ovum::Value egg::ovum::ValueFactory::createString(IAllocator& allocator, const String& value) {
-  return Value(allocator.make<ValueString, IValue*>(value));
+  return Value(*allocator.make<ValueString, IValue*>(value));
 }
 
 egg::ovum::Value egg::ovum::ValueFactory::createObject(IAllocator& allocator, const Object& value) {
-  return Value(allocator.make<ValueObject, IValue*>(value));
+  return Value(*allocator.make<ValueObject, IValue*>(value));
 }
 
 egg::ovum::Value egg::ovum::ValueFactory::createMemory(IAllocator& allocator, const Memory& value) {
-  return Value(allocator.make<ValueMemory, IValue*>(value));
+  return Value(*allocator.make<ValueMemory, IValue*>(value));
 }
 
 egg::ovum::Value egg::ovum::ValueFactory::createPointer(IAllocator& allocator, const Value& value) {
-  return Value(allocator.make<ValuePointer, IValue*>(value));
+  return Value(*allocator.make<ValuePointer, IValue*>(value));
 }
 
 egg::ovum::Value egg::ovum::ValueFactory::createFlowControl(IAllocator& allocator, ValueFlags flags, const Value& value) {
-  return Value(allocator.make<ValueFlowControl, IValue*>(flags, value));
+  return Value(*allocator.make<ValueFlowControl, IValue*>(flags, value));
 }
 
 egg::ovum::Value egg::ovum::ValueFactory::createThrowError(IAllocator& allocator, const LocationSource& location, const String& message) {

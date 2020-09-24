@@ -1,27 +1,45 @@
 namespace egg::ovum {
-  class Slot {
-    // Stop type promotion for implicit constructors
-    template<typename T> Slot(T rhs) = delete;
+  enum class Mutation {
+    Assign,
+    Decrement,
+    Increment,
+    Add,
+    BitwiseAnd,
+    BitwiseOr,
+    BitwiseXor,
+    Divide,
+    IfNull,
+    LogicalAnd,
+    LogicalOr,
+    Multiply,
+    Remainder,
+    ShiftLeft,
+    ShiftRight,
+    ShiftRightUnsigned,
+    Subtract
+  };
+  class Slot : public SoftReferenceCounted<ICollectable> {
     Slot(const Slot& rhs) = delete;
     Slot& operator=(const Slot& rhs) = delete;
   private:
     Atomic<IValue*> ptr;
+    virtual ~Slot();
   public:
     // Construction/destruction
-    Slot();
-    Slot(const Value& rhs);
+    explicit Slot(IAllocator& allocator);
     Slot(Slot&& rhs) noexcept;
-    ~Slot();
     // Atomic access
-    Value get() const;
-    void set(const Value& value);
+    Value getValue() const; // 'void' if empty
+    IValue* getReference(); // nullptr if empty
+    void clobber(const Value& value);
+    bool update(IValue* expected, const Value& desired);
+    Error mutate(const IType& type, Mutation mutation, const Value& value);
     void clear();
-    bool empty() const {
-      return this->ptr.get() == nullptr;
-    }
-    // Garbage collection
-    void softVisitLink(const ICollectable::Visitor& visitor) const;
-    // Debugging and test
+    // Debugging
     bool validate(bool optional) const;
+    virtual bool validate() const override {
+      return this->validate(true);
+    }
+    virtual void softVisitLinks(const Visitor&) const override;
   };
 }

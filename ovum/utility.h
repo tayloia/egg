@@ -18,12 +18,12 @@ namespace egg::ovum {
       // Get the current value
       return std::atomic_load(&this->atomic);
     }
-    Underlying swap(Underlying desired) {
+    Underlying exchange(Underlying desired) {
       // Atomically swap the values returning the value BEFORE
       return std::atomic_exchange(&this->atomic, desired);
     }
-    Underlying swapIf(Underlying expected, Underlying desired) {
-      // Swap iff the current value is 'expected' returning the value BEFORE
+    Underlying update(Underlying expected, Underlying desired) {
+      // Atomically swap iff the current value is 'expected' returning the value BEFORE
       (void)std::atomic_compare_exchange_strong(&this->atomic, &expected, desired);
       return expected;
     }

@@ -2,16 +2,19 @@ namespace egg::ovum {
   // Forward declarations
   template<typename T> class Erratic;
   template<typename T> class HardPtr;
+  enum class Mutation;
   enum class ValueFlags;
   struct LocationSource;
   struct NodeLocation;
+  class Error;
   class Node;
-  class String;
   class Slot;
+  class String;
   class Type;
   class Value;
   class ICollectable;
   class IExecution;
+  class IValue;
 
   class ILogger {
   public:
@@ -178,7 +181,7 @@ namespace egg::ovum {
   public:
     virtual ValueFlags getFlags() const = 0;
     virtual Type makeUnion(IAllocator& allocator, const IType& rhs) const = 0;
-    virtual Erratic<void> tryAssign(IAllocator& allocator, Slot& lhs, const Value& rhs) const = 0;
+    virtual Error tryMutate(IAllocator& allocator, Slot& lhs, Mutation mutation, const Value& rhs) const = 0;
     virtual Erratic<bool> queryAssignableAlways(const IType& rhs) const = 0;
     virtual Erratic<Type> queryPropertyType(const String& name) const = 0;
     virtual Erratic<Type> queryIterable() const = 0;
