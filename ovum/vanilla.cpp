@@ -1,14 +1,44 @@
 #include "ovum/ovum.h"
+#include "ovum/dictionary.h"
 #include "ovum/node.h"
+#include "ovum/slot.h"
 #include "ovum/vanilla.h"
 
 namespace {
   using namespace egg::ovum;
 
-  // An 'omni' function looks like this: 'any?(...any?[])'
-  class VanillaFunctionSignature : public IFunctionSignature {
-    VanillaFunctionSignature(const VanillaFunctionSignature&) = delete;
-    VanillaFunctionSignature& operator=(const VanillaFunctionSignature&) = delete;
+  class VanillaDictionary : public SoftReferenceCounted<IVanillaDictionary> {
+    VanillaDictionary(const VanillaDictionary&) = delete;
+    VanillaDictionary& operator=(const VanillaDictionary&) = delete;
+  public:
+    Dictionary<String, Slot> container;
+  public:
+    VanillaDictionary(IAllocator& allocator)
+      : SoftReferenceCounted(allocator) {
+    }
+    virtual void softVisitLinks(const Visitor&) const override {
+      // WIBBLE
+    }
+    virtual bool get(const String&, Value&) const override {
+      // WIBBLE
+      return false;
+    }
+    virtual HardPtr<Slot> ref(const String&) const override {
+      // WIBBLE
+      return nullptr;
+    }
+    virtual void add(const String&, const Value&) override {
+      // WIBBLE
+    }
+    virtual void set(const String&, const Value&) override {
+      // WIBBLE
+    }
+  };
+
+  // An vanilla function looks like this: 'any?(...any?[])'
+  class FunctionSignature : public IFunctionSignature {
+    FunctionSignature(const FunctionSignature&) = delete;
+    FunctionSignature& operator=(const FunctionSignature&) = delete;
   private:
     class Parameter : public IFunctionSignatureParameter {
     public:
@@ -27,7 +57,7 @@ namespace {
     };
     Parameter parameter;
   public:
-    VanillaFunctionSignature() = default;
+    FunctionSignature() {}
     virtual String getFunctionName() const override {
       return String();
     }
@@ -41,32 +71,28 @@ namespace {
       return this->parameter;
     }
   };
-  const VanillaFunctionSignature functionSignature{};
+  const FunctionSignature functionSignature{};
 
-  class VanillaIndexSignature : public IIndexSignature {
-    virtual Type getResultType() const override {
-      return Type::AnyQ;
-    }
-    virtual Type getIndexType() const override {
-      return Type::AnyQ;
-    }
-  };
-  const VanillaIndexSignature indexSignature{};
-
-  class TypeObject : public NotReferenceCounted<IType> {
-    TypeObject(const TypeObject&) = delete;
-    TypeObject& operator=(const TypeObject&) = delete;
-  private:
+  class TypeBase : public NotReferenceCounted<IType> {
+    TypeBase(const TypeBase&) = delete;
+    TypeBase& operator=(const TypeBase&) = delete;
+  protected:
+    const char* name;
   public:
-    TypeObject() = default;
+    explicit TypeBase(const char* name) : name(name) {
+      assert(this->name != nullptr);
+    }
     virtual ValueFlags getFlags() const override {
       return ValueFlags::Object;
     }
     virtual Type makeUnion(IAllocator& allocator, const IType& rhs) const override {
       return TypeFactory::createUnionJoin(allocator, *this, rhs);
     }
-    virtual Error tryMutate(IAllocator&, Slot&, Mutation, const Value&) const override {
-      return Error("TypeObject::tryMutate not implemented");
+    virtual Error tryMutate(IAllocator& allocator, Slot& slot, Mutation mutation, const Value& value) const override {
+      if (mutation == Mutation::Assign) {
+        return this->tryAssign(allocator, slot, value);
+      }
+      return Error("Cannot modify values of type '", this->name, "'");
     }
     virtual Erratic<bool> queryAssignableAlways(const IType& rhs) const override {
       auto rflags = rhs.getFlags();
@@ -76,16 +102,13 @@ namespace {
       if (Bits::hasAnySet(rflags, ValueFlags::Object)) {
         return false; // sometimes
       }
-      return Erratic<bool>::fail("Cannot assign values of type '", Type::toString(rhs), "' to targets of type 'object'");
+      return Erratic<bool>::fail("Cannot assign values of type '", Type::toString(rhs), "' to targets of type '", this->name, "'");
     }
     virtual Erratic<Type> queryPropertyType(const String&) const {
       return Type::AnyQ;
     }
     virtual const IFunctionSignature* queryCallable() const override {
       return &functionSignature;
-    }
-    virtual const IIndexSignature* queryIndexable() const override {
-      return &indexSignature;
     }
     virtual Erratic<Type> queryIterable() const override {
       return Erratic<Type>::fail("WIBBLE: Object not iterable");
@@ -94,10 +117,65 @@ namespace {
       return Erratic<Type>::fail("WIBBLE: Object not pointable");
     }
     virtual std::pair<std::string, int> toStringPrecedence() const override {
-      return std::pair<std::string, int>();
+      return std::make_pair(this->name, 0);
+    }
+  protected:
+    virtual Error tryAssign(IAllocator& allocator, Slot& slot, const Value& value) const = 0;
+  };
+
+  class TypeObject : public TypeBase {
+    TypeObject(const TypeObject&) = delete;
+    TypeObject& operator=(const TypeObject&) = delete;
+  private:
+    class IndexSignature : public IIndexSignature {
+      virtual Type getResultType() const override {
+        return Type::AnyQ;
+      }
+      virtual Type getIndexType() const override {
+        return Type::AnyQ;
+      }
+    };
+    static inline const IndexSignature indexSignature{};
+  public:
+    TypeObject() : TypeBase("object") {
+    }
+    virtual const IIndexSignature* queryIndexable() const override {
+      return &indexSignature;
+    }
+  protected:
+    virtual Error tryAssign(IAllocator&, Slot& slot, const Value& value) const override {
+      slot.clobber(value);
+      return {};
     }
   };
   const TypeObject typeObject{};
+
+  class TypeArray : public TypeBase {
+    TypeArray(const TypeArray&) = delete;
+    TypeArray& operator=(const TypeArray&) = delete;
+  private:
+    class IndexSignature : public IIndexSignature {
+      virtual Type getResultType() const override {
+        return Type::AnyQ;
+      }
+      virtual Type getIndexType() const override {
+        return Type::Int;
+      }
+    };
+    static inline const IndexSignature indexSignature{};
+  public:
+    TypeArray() : TypeBase("any?[]") {
+    }
+    virtual const IIndexSignature* queryIndexable() const override {
+      return &indexSignature;
+    }
+  protected:
+    virtual Error tryAssign(IAllocator&, Slot& slot, const Value& value) const override {
+      slot.clobber(value);
+      return {};
+    }
+  };
+  const TypeArray typeArray{};
 
   // WIBBLE WOBBLE move in class hierarchy
   class VanillaPredicate : public SoftReferenceCounted<IObject> {
@@ -157,67 +235,118 @@ namespace {
       return true;
     }
     virtual String toString() const override {
-      // WIBBLE
-      return "<object>";
-    }
-    virtual Type getRuntimeType() const override {
-      // WIBBLE
-      return Vanilla::Object;
+      return StringBuilder::concat('<', this->getRuntimeType().toString(), '>');
     }
     virtual Value call(IExecution& execution, const IParameters&) override {
-      // WIBBLE
-      return execution.raiseFormat("WIBBLE: Objects do not support calling with '()'");
+      return execution.raise(this->trailing("do not support calling with '()'"));
     }
     virtual Value getProperty(IExecution& execution, const String&) override {
-      // WIBBLE
-      return execution.raiseFormat("WIBBLE: Objects do not support properties");
+      return execution.raise(this->trailing("do not support properties [get]"));
     }
     virtual Value setProperty(IExecution& execution, const String&, const Value&) override {
-      // WIBBLE
-      return execution.raiseFormat("WIBBLE: Objects do not support properties");
+      return execution.raise(this->trailing("do not support properties [set]"));
     }
     virtual Value getIndex(IExecution& execution, const Value&) override {
-      // WIBBLE
-      return execution.raiseFormat("WIBBLE: Objects do not support indexing with '[]'");
+      return execution.raise(this->trailing("do not support indexing with '[]' [get]"));
     }
     virtual Value setIndex(IExecution& execution, const Value&, const Value&) override {
-      // WIBBLE
-      return execution.raiseFormat("WIBBLE: Objects do not support indexing with '[]'");
+      return execution.raise(this->trailing("do not support indexing with '[]' [set]"));
     }
     virtual Value iterate(IExecution& execution) override {
-      // WIBBLE
-      return execution.raiseFormat("WIBBLE: Objects do not support iteration");
+      return execution.raise(this->trailing("do not support iteration"));
+    }
+  protected:
+    virtual String trailing(const char* suffix) const {
+      return StringBuilder::concat("Values of type '", this->getRuntimeType().toString(), "' ", suffix);
     }
   };
 
   class VanillaObject : public VanillaBase {
     VanillaObject(const VanillaObject&) = delete;
     VanillaObject& operator=(const VanillaObject&) = delete;
+  protected:
+    HardPtr<IVanillaDictionary> dictionary;
   public:
     explicit VanillaObject(IAllocator& allocator)
-      : VanillaBase(allocator) {
+      : VanillaBase(allocator),
+        dictionary(allocator.make<VanillaDictionary>()) {
       assert(this->validate());
     }
-    virtual String toString() const override {
-      // WIBBLE
-      return "<vanilla-object>";
+    virtual Type getRuntimeType() const override {
+      return Vanilla::Object;
     }
-    void addProperty(const String&, const String&) {
-      // WIBBLE
+    virtual Value getProperty(IExecution& execution, const String& property) override {
+      Value value;
+      if (!dictionary->get(property, value)) {
+        return execution.raiseFormat("Object does not have property: '.", property, "'");
+      }
+      return value;
     }
   };
 
   class VanillaArray : public VanillaBase {
     VanillaArray(const VanillaArray&) = delete;
     VanillaObject& operator=(const VanillaArray&) = delete;
+  private:
+    std::vector<Slot> container;
   public:
-    VanillaArray(IAllocator& allocator, size_t)
+    VanillaArray(IAllocator& allocator, size_t fixed)
       : VanillaBase(allocator) {
+      this->container.reserve(fixed);
+      for (size_t i = 0; i < fixed; ++i) {
+        this->container.emplace_back(allocator);
+      }
       assert(this->validate());
     }
+    virtual Type getRuntimeType() const override {
+      return Vanilla::Array;
+    }
+    virtual Value getProperty(IExecution& execution, const String& property) override {
+      Value value;
+      if (property == "length") {
+        return ValueFactory::createInt(this->allocator, Int(this->container.size()));
+      }
+      return execution.raiseFormat("Array does not have property: '.", property, "'");
+    }
+    virtual Value getIndex(IExecution& execution, const Value& index) override {
+      Int i;
+      if (!index->getInt(i)) {
+        return execution.raiseFormat("Array index was expected to be an 'int', not '", index->getRuntimeType().toString(), "'");
+      }
+      auto u = size_t(i);
+      if (u >= this->container.size()) {
+        return execution.raiseFormat("Invalid array index for an array with ", this->container.size(), " element(s): ", i);
+      }
+      return this->container[u].getValue();
+    }
+    virtual Value setIndex(IExecution& execution, const Value& index, const Value& value) override {
+      Int i;
+      if (!index->getInt(i)) {
+        return execution.raiseFormat("Array index was expected to be an 'int', not '", index->getRuntimeType().toString(), "'");
+      }
+      auto u = size_t(i);
+      if (u >= this->container.size()) {
+        return execution.raiseFormat("Invalid array index for an array with ", this->container.size(), " element(s): ", i);
+      }
+      this->container[u].clobber(value);
+      return Value::Void;
+    }
     virtual String toString() const override {
-      // WIBBLE
-      return "<vanilla-array>";
+      if (this->container.empty()) {
+        return "[]";
+      }
+      StringBuilder sb;
+      char separator = '[';
+      for (auto& slot : this->container) {
+        sb.add(separator);
+        auto* value = slot.getReference();
+        if (value != nullptr) {
+          sb.add(value->toString());
+        }
+        separator = ',';
+      }
+      sb.add(']');
+      return sb.str();
     }
   };
 
@@ -230,10 +359,10 @@ namespace {
     VanillaError(IAllocator& allocator, const LocationSource& location, const String& message)
       : VanillaObject(allocator) {
       assert(this->validate());
-      this->addProperty("message", message);
+      this->dictionary->add("message", ValueFactory::create(allocator, message));
       StringBuilder sb;
       location.formatSourceString(sb);
-      this->addProperty("location", sb.str());
+      this->dictionary->add("location", ValueFactory::create(allocator, sb.toUTF8()));
       if (!sb.empty()) {
         sb.add(':', ' ');
       }
@@ -241,14 +370,13 @@ namespace {
       this->readable = sb.str();
     }
     virtual String toString() const override {
-      // WIBBLE
       return this->readable;
     }
   };
 }
 
 const egg::ovum::Type egg::ovum::Vanilla::Object{ &typeObject };
-const egg::ovum::Type egg::ovum::Vanilla::Array{ &typeObject }; // WIBBLE WOBBLE
+const egg::ovum::Type egg::ovum::Vanilla::Array{ &typeArray };
 const egg::ovum::IFunctionSignature& egg::ovum::Vanilla::FunctionSignature{ functionSignature };
 
 egg::ovum::Object egg::ovum::VanillaFactory::createObject(IAllocator& allocator) {
@@ -257,7 +385,6 @@ egg::ovum::Object egg::ovum::VanillaFactory::createObject(IAllocator& allocator)
 }
 
 egg::ovum::Object egg::ovum::VanillaFactory::createArray(IAllocator& allocator, size_t fixed) {
-  // TODO
   return ObjectFactory::create<VanillaArray>(allocator, fixed);
 }
 

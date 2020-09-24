@@ -119,6 +119,14 @@ namespace egg::ovum {
       // Returns true iff the value exists
       return this->map.count(key) > 0;
     }
+    V* getOrNull(const K& key) const {
+      // Returns the address of the map value or nullptr if not present
+      auto found = this->map.find(key);
+      if (found != this->map.end()) {
+        return &found->second;
+      }
+      return nullptr;
+    }
     V getOrDefault(const K& key, const V& defval) const {
       // Returns the map value or a default if not present
       auto found = this->map.find(key);

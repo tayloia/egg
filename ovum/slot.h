@@ -23,13 +23,14 @@ namespace egg::ovum {
     Slot& operator=(const Slot& rhs) = delete;
   private:
     Atomic<IValue*> ptr;
-    virtual ~Slot();
   public:
     // Construction/destruction
     explicit Slot(IAllocator& allocator);
     Slot(Slot&& rhs) noexcept;
+    virtual ~Slot();
     // Atomic access
     Value getValue() const; // 'void' if empty
+    const IValue* getReference() const; // nullptr if empty
     IValue* getReference(); // nullptr if empty
     void clobber(const Value& value);
     bool update(IValue* expected, const Value& desired);

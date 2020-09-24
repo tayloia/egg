@@ -16,9 +16,15 @@ egg::ovum::Slot::~Slot() {
 }
 
 egg::ovum::Value egg::ovum::Slot::getValue() const {
-  auto underlying = this->ptr.get();
+  auto* underlying = this->ptr.get();
   assert((underlying != nullptr) && underlying->validate());
   return Value(*underlying);
+}
+
+const egg::ovum::IValue* egg::ovum::Slot::getReference() const {
+  auto* underlying = this->ptr.get();
+  assert((underlying == nullptr) || underlying->validate());
+  return underlying;
 }
 
 egg::ovum::IValue* egg::ovum::Slot::getReference() {
