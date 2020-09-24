@@ -810,7 +810,7 @@ namespace {
       : EggParserNodeBase(locationSource) {
     }
     virtual egg::ovum::Type getType() const override {
-      return egg::ovum::Type::Object; // WIBBLE VanillaArray;
+      return egg::ovum::Vanilla::Array;
     }
     virtual EggProgramNodeFlags prepare(EggProgramContext& context) override {
       return context.prepareArray(this->child);
@@ -834,7 +834,7 @@ namespace {
       : EggParserNodeBase(locationSource) {
     }
     virtual egg::ovum::Type getType() const override {
-      return egg::ovum::Type::Object; // VanillaObject
+      return egg::ovum::Vanilla::Object;
     }
     virtual EggProgramNodeFlags prepare(EggProgramContext& context) override {
       return context.prepareObject(this->child);
@@ -1080,24 +1080,24 @@ namespace {
   };
   EGG_PROGRAM_UNARY_OPERATORS(EGG_PARSER_UNARY_OPERATOR_DEFINE)
 
-    class EggParserNode_Binary : public EggParserNodeBase {
-    protected:
-      egg::ovum::IAllocator* allocator;
-      EggProgramBinary op;
-      std::shared_ptr<IEggProgramNode> lhs;
-      std::shared_ptr<IEggProgramNode> rhs;
-      EggParserNode_Binary(egg::ovum::IAllocator& allocator, const egg::ovum::LocationSource& locationSource, EggProgramBinary op, const std::shared_ptr<IEggProgramNode>& lhs, const std::shared_ptr<IEggProgramNode>& rhs)
-        : EggParserNodeBase(locationSource), allocator(&allocator), op(op), lhs(lhs), rhs(rhs) {
-        assert(lhs != nullptr);
-        assert(rhs != nullptr);
-      }
-    public:
-      virtual void empredicate(EggProgramContext& context, std::shared_ptr<IEggProgramNode>& node) override {
-        node = context.empredicateBinary(node, this->op, this->lhs, this->rhs);
-      }
-      virtual void dump(std::ostream& os) const override {
-        ParserDump(os, "binary").add(binaryToString(this->op)).add(this->lhs).add(this->rhs);
-      }
+  class EggParserNode_Binary : public EggParserNodeBase {
+  protected:
+    egg::ovum::IAllocator* allocator;
+    EggProgramBinary op;
+    std::shared_ptr<IEggProgramNode> lhs;
+    std::shared_ptr<IEggProgramNode> rhs;
+    EggParserNode_Binary(egg::ovum::IAllocator& allocator, const egg::ovum::LocationSource& locationSource, EggProgramBinary op, const std::shared_ptr<IEggProgramNode>& lhs, const std::shared_ptr<IEggProgramNode>& rhs)
+      : EggParserNodeBase(locationSource), allocator(&allocator), op(op), lhs(lhs), rhs(rhs) {
+      assert(lhs != nullptr);
+      assert(rhs != nullptr);
+    }
+  public:
+    virtual void empredicate(EggProgramContext& context, std::shared_ptr<IEggProgramNode>& node) override {
+      node = context.empredicateBinary(node, this->op, this->lhs, this->rhs);
+    }
+    virtual void dump(std::ostream& os) const override {
+      ParserDump(os, "binary").add(binaryToString(this->op)).add(this->lhs).add(this->rhs);
+    }
     virtual EggProgramNodeFlags prepare(EggProgramContext& context) override {
       return context.prepareBinary(this->locationSource, this->op, *this->lhs, *this->rhs);
     }

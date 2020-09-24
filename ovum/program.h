@@ -1,4 +1,7 @@
 namespace egg::ovum {
+  class IModule;
+  class INode;
+
   class IProgram : public IHardAcquireRelease {
   public:
     virtual bool builtin(const String& name, const Value& value) = 0;

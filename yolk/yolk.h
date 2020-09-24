@@ -4,6 +4,7 @@
 #include "ovum/program.h"
 #include "ovum/dictionary.h"
 #include "ovum/print.h"
+#include "ovum/vanilla.h"
 
 #include "yolk/macros.h"
 #include "yolk/exceptions.h"

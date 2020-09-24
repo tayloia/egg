@@ -1,6 +1,7 @@
 #include "ovum/ovum.h"
 #include "ovum/slot.h"
 #include "ovum/node.h"
+#include "ovum/vanilla.h"
 
 namespace {
   using namespace egg::ovum;
@@ -155,44 +156,6 @@ namespace {
     return TypeFactory::createSimple(allocator, flhs | frhs);
   }
 
-  // An 'omni' function looks like this: 'any?(...any?[])'
-  class OmniFunctionSignature : public IFunctionSignature {
-    OmniFunctionSignature(const OmniFunctionSignature&) = delete;
-    OmniFunctionSignature& operator=(const OmniFunctionSignature&) = delete;
-  private:
-    class Parameter : public IFunctionSignatureParameter {
-    public:
-      virtual String getName() const override {
-        return String();
-      }
-      virtual Type getType() const override {
-        return Type::AnyQ;
-      }
-      virtual size_t getPosition() const override {
-        return 0;
-      }
-      virtual Flags getFlags() const override {
-        return Flags::Variadic;
-      }
-    };
-    Parameter parameter;
-  public:
-    OmniFunctionSignature() = default;
-    virtual String getFunctionName() const override {
-      return String();
-    }
-    virtual Type getReturnType() const override {
-      return Type::AnyQ;
-    }
-    virtual size_t getParameterCount() const override {
-      return 1;
-    }
-    virtual const IFunctionSignatureParameter& getParameter(size_t) const override {
-      return this->parameter;
-    }
-  };
-  const OmniFunctionSignature omniFunctionSignature{};
-
   class TypeBase : public IType {
     TypeBase(const TypeBase&) = delete;
     TypeBase& operator=(const TypeBase&) = delete;
@@ -299,33 +262,6 @@ namespace {
   };
   const TypeString typeString{};
 
-  class TypeObject : public TypeCommon<ValueFlags::Object> {
-    TypeObject(const TypeObject&) = delete;
-    TypeObject& operator=(const TypeObject&) = delete;
-  private:
-    class IndexSignature : public IIndexSignature {
-      virtual Type getResultType() const override {
-        return Type::AnyQ;
-      }
-      virtual Type getIndexType() const override {
-        return Type::AnyQ;
-      }
-    };
-  public:
-    TypeObject() = default;
-    virtual Erratic<Type> queryPropertyType(const String&) const {
-      return Type::AnyQ;
-    }
-    virtual const IFunctionSignature* queryCallable() const override {
-      return &omniFunctionSignature;
-    }
-    virtual const IIndexSignature* queryIndexable() const override {
-      static const IndexSignature indexSignature{};
-      return &indexSignature;
-    }
-  };
-  const TypeObject typeObject{};
-
   class TypeMemory : public TypeCommon<ValueFlags::Memory> {
     TypeMemory(const TypeMemory&) = delete;
     TypeMemory& operator=(const TypeMemory&) = delete;
@@ -340,7 +276,7 @@ namespace {
   public:
     TypeAny() = default;
     virtual const IFunctionSignature* queryCallable() const override {
-      return &omniFunctionSignature;
+      return &Vanilla::FunctionSignature;
     }
   };
   const TypeAny typeAny{};
@@ -351,7 +287,7 @@ namespace {
   public:
     TypeAnyQ() = default;
     virtual const IFunctionSignature* queryCallable() const override {
-      return &omniFunctionSignature;
+      return &Vanilla::FunctionSignature;
     }
   };
   const TypeAnyQ typeAnyQ{};
@@ -465,7 +401,7 @@ namespace {
     }
     virtual const IFunctionSignature* queryCallable() const override {
       if (Bits::hasAnySet(this->flags, ValueFlags::Object)) {
-        return &omniFunctionSignature;
+        return &Vanilla::FunctionSignature;
       }
       return nullptr;
     }
@@ -734,7 +670,6 @@ const egg::ovum::Type egg::ovum::Type::Bool{ &typeBool };
 const egg::ovum::Type egg::ovum::Type::Int{ &typeInt };
 const egg::ovum::Type egg::ovum::Type::Float{ &typeFloat };
 const egg::ovum::Type egg::ovum::Type::String{ &typeString };
-const egg::ovum::Type egg::ovum::Type::Object{ &typeObject };
 const egg::ovum::Type egg::ovum::Type::Memory{ &typeMemory };
 const egg::ovum::Type egg::ovum::Type::Arithmetic{ &typeArithmetic };
 const egg::ovum::Type egg::ovum::Type::Any{ &typeAny };

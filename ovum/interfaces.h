@@ -170,13 +170,6 @@ namespace egg::ovum {
     virtual Type getIndexType() const = 0;
   };
 
-  class IPointSignature {
-  public:
-    // Interface
-    virtual ~IPointSignature() {}
-    virtual Type getPointeeType() const = 0;
-  };
-
   class IType : public IHardAcquireRelease {
   public:
     virtual ValueFlags getFlags() const = 0;

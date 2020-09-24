@@ -2,6 +2,7 @@
 #include "ovum/node.h"
 #include "ovum/module.h"
 #include "ovum/program.h"
+#include "ovum/vanilla.h"
 
 #include <map>
 
@@ -133,7 +134,7 @@ namespace {
   public:
     explicit Builtin_Assert(IAllocator& allocator)
       : BuiltinFunction(allocator, "assert", Type::Void) {
-      this->type->addParameter("predicate", Type::Any, IFunctionSignatureParameter::Flags::Required);
+      this->type->addParameter("predicate", Type::Any, Bits::set(IFunctionSignatureParameter::Flags::Required, IFunctionSignatureParameter::Flags::Predicate));
     }
     virtual Value call(IExecution& execution, const IParameters& parameters) override {
       if (parameters.getNamedCount() > 0) {
@@ -261,7 +262,7 @@ namespace {
     Builtin_TypeOf& operator=(const Builtin_TypeOf&) = delete;
   public:
     explicit Builtin_TypeOf(IAllocator& allocator)
-      : BuiltinFunction(allocator, "type.of", Type::Object) {
+      : BuiltinFunction(allocator, "type.of", Vanilla::Object) {
       this->type->addParameter("value", Type::String, IFunctionSignatureParameter::Flags::Required);
     }
     virtual Value call(IExecution& execution, const IParameters& parameters) override {

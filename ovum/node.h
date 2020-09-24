@@ -111,7 +111,7 @@ namespace egg::ovum {
       return (this->name != nullptr) && (args >= this->minargs) && (args <= this->maxargs) && (has_operand == this->operand);
     }
     static const OpcodeProperties& from(Opcode opcode);
-    static std::string str(Opcode opcode); // never null
+    static std::string str(Opcode opcode);
   };
 
   struct OperatorProperties {
@@ -123,6 +123,6 @@ namespace egg::ovum {
       return (this->name != nullptr) && (args == this->operands);
     }
     static const OperatorProperties& from(Operator oper);
-    static std::string str(Operator oper); // never null
+    static std::string str(Operator oper);
   };
 }

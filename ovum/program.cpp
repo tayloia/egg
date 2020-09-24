@@ -4,6 +4,7 @@
 #include "ovum/module.h"
 #include "ovum/program.h"
 #include "ovum/utf.h"
+#include "ovum/vanilla.h"
 
 #include <map>
 #include <set>
@@ -61,47 +62,6 @@ namespace {
     virtual const LocationSource* getNamedLocation(const String&) const override {
       // TODO remove
       return nullptr;
-    }
-  };
-
-  class PredicateFunction : public SoftReferenceCounted<IObject> {
-    PredicateFunction(const PredicateFunction&) = delete;
-    PredicateFunction& operator=(const PredicateFunction&) = delete;
-  private:
-    ProgramDefault& program; // ProgramDefault lifetime guaranteed to be longer than UserFunction instance
-    LocationSource location;
-    Node node;
-  public:
-    PredicateFunction(IAllocator& allocator, ProgramDefault& program, const LocationSource& location, const INode& node)
-      : SoftReferenceCounted(allocator),
-      program(program),
-      location(location),
-      node(&node) {
-    }
-    virtual void softVisitLinks(const Visitor&) const override {
-      // There are no soft link to visit
-    }
-    virtual String toString() const override {
-      return "<predicate>";
-    }
-    virtual Type getRuntimeType() const override {
-      return Type::Object;
-    }
-    virtual Value call(IExecution& execution, const IParameters& parameters) override;
-    virtual Value getProperty(IExecution& execution, const String&) override {
-      return execution.raise("Internal runtime error: Predicates do not support properties");
-    }
-    virtual Value setProperty(IExecution& execution, const String&, const Value&) override {
-      return execution.raise("Internal runtime error: Predicates do not support properties");
-    }
-    virtual Value getIndex(IExecution& execution, const Value&) override {
-      return execution.raise("Internal runtime error: Predicates do not support indexing");
-    }
-    virtual Value setIndex(IExecution& execution, const Value&, const Value&) override {
-      return execution.raise("Internal runtime error: Predicates do not support indexing");
-    }
-    virtual Value iterate(IExecution& execution) override {
-      return execution.raise("Internal runtime error: Predicates do not support iteration");
     }
   };
 
@@ -276,7 +236,7 @@ namespace {
     }
   };
 
-  class ProgramDefault final : public HardReferenceCounted<IProgram>, public IExecution {
+  class ProgramDefault final : public HardReferenceCounted<IProgram>, public IExecution, public Vanilla::IPredicateCallback {
     ProgramDefault(const ProgramDefault&) = delete;
     ProgramDefault& operator=(const ProgramDefault&) = delete;
   private:
@@ -315,10 +275,9 @@ namespace {
         return this->executeRoot(module.getRootNode());
       } catch (RuntimeException& exception) {
         this->logger.log(ILogger::Source::Runtime, ILogger::Severity::Error, exception.message.toUTF8());
-        return Value::Rethrow;
+        return Value::Rethrow; // WIBBLE
       }
     }
-    // Inherited from IExecution
     virtual IAllocator& getAllocator() const override {
       return this->allocator;
     }
@@ -349,6 +308,38 @@ namespace {
     }
     virtual void print(const std::string& utf8) override {
       this->logger.log(ILogger::Source::User, ILogger::Severity::Information, utf8);
+    }
+    virtual Value predicateCallback(const INode& node) override {
+      // We have to be careful to get the location correct
+      this->updateLocation(node);
+      auto source = this->location;
+      assert(node.getOpcode() == Opcode::COMPARE);
+      Value lhs, rhs;
+      auto retval = this->operatorCompare(node, lhs, rhs);
+      if (retval.hasFlowControl()) {
+        if (retval->getFlags() == ValueFlags::Break) {
+          return this->raiseLocation(source, "Internal runtime error: Unsupported predicate comparison");
+        }
+        return retval;
+      }
+      bool passed;
+      if (!retval->getBool(passed)) {
+        return this->raiseLocation(source, "Internal runtime error: Expected predicate to return a 'bool'");
+      }
+      if (passed) {
+        // The assertion has passed
+        return Value::Void;
+      }
+      auto str = OperatorProperties::str(node.getOperator());
+      auto exception = this->raiseLocation(source, "Assertion is untrue: ", lhs->toString(), ' ', str, ' ', rhs->toString());
+      Object error;
+      if (exception->getObject(error)) {
+        // Augment the exception with the actual evaluation
+        (void)error->setProperty(*this, "left", lhs);
+        (void)error->setProperty(*this, "operator", ValueFactory::create(this->allocator, str));
+        (void)error->setProperty(*this, "right", rhs);
+      }
+      return exception;
     }
     // Builtins
     void addBuiltins() {
@@ -929,7 +920,7 @@ namespace {
     Value expressionAvalue(const INode& node) {
       assert(node.getOpcode() == Opcode::AVALUE);
       auto n = node.getChildren();
-      auto array = ObjectFactory::createVanillaArray(this->allocator, n);
+      auto array = VanillaFactory::createArray(this->allocator, n);
       for (size_t i = 0; i < n; ++i) {
         auto expr = this->expression(node.getChild(i));
         if (expr.hasFlowControl()) {
@@ -954,7 +945,7 @@ namespace {
     }
     Value expressionOvalue(const INode& node) {
       assert(node.getOpcode() == Opcode::OVALUE);
-      auto object = ObjectFactory::createVanillaObject(this->allocator);
+      auto object = VanillaFactory::createObject(this->allocator);
       auto n = node.getChildren();
       for (size_t i = 0; i < n; ++i) {
         auto& named = node.getChild(i);
@@ -1058,8 +1049,7 @@ namespace {
         auto oper = child.getOperator();
         if (OperatorProperties::from(oper).opclass == Opclass::COMPARE) {
           // We only support predicates for comparisons
-          this->updateLocation(node);
-          auto predicate = ObjectFactory::create<PredicateFunction>(this->allocator, *this, this->location, child);
+          auto predicate = VanillaFactory::createPredicate(this->allocator, *this, child);
           return ValueFactory::createObject(this->allocator, predicate);
         }
       }
@@ -1445,7 +1435,7 @@ namespace {
         break;
       case Opcode::OBJECT:
         if (children == 0) {
-          return Type::Object;
+          return Vanilla::Object;
         }
         if (children == 1) {
           auto& callable = node.getChild(0);
@@ -1489,6 +1479,23 @@ namespace {
     Value tryAssign(Symbol& symbol, const Value& value);
     Symbol* blockDeclare(const LocationSource& source, const Type& type, const String& identifier);
     void blockUndeclare(const String& identifier);
+    Slot& slotDeclare(const INode& node, Type& type, Block& block) {
+      assert(node.getOpcode() == Opcode::DECLARE);
+      assert(node.getChildren() == 2);
+      auto identifier = this->identifier(node.getChild(1));
+      type = this->type(node.getChild(0), identifier);
+      this->updateLocation(node);
+      auto result = block.declare(this->location, type, identifier);
+      if (result.hasFlowControl()) {
+        throw RuntimeException(this->location, result->toString()); // WIBBLE
+      }
+      auto* symbol = this->symtable->get(identifier);
+      if (symbol == nullptr) {
+        throw RuntimeException(this->location, "Unknown identifier: '", identifier, "'");
+      }
+      type = symbol->type;
+      return *symbol->slot;
+    }
     Slot& slotIdentifier(const INode& node, Type& type) {
       assert(node.getOpcode() == Opcode::IDENTIFIER);
       auto identifier = this->identifier(node);
@@ -1621,7 +1628,7 @@ namespace {
   };
 }
 
-Target::Target(ProgramDefault& program, const INode& node, Block*)
+Target::Target(ProgramDefault& program, const INode& node, Block* block)
   : program(program) {
   // WIBBLE WOBBLE
   EGG_WARNING_SUPPRESS_SWITCH_BEGIN();
@@ -1629,6 +1636,13 @@ Target::Target(ProgramDefault& program, const INode& node, Block*)
   case Opcode::IDENTIFIER:
     this->slot.set(&program.slotIdentifier(node, this->type));
     return;
+  case Opcode::DECLARE:
+    if (block != nullptr) {
+      // Only allow declaration inside a foreach statement
+      this->slot.set(&program.slotDeclare(node, this->type, *block));
+      return;
+    }
+    break;
   }
   EGG_WARNING_SUPPRESS_SWITCH_END();
   throw program.unexpectedOpcode("target", node);
@@ -1648,14 +1662,6 @@ Value Target::increment(const INode& node) {
 
 Value Target::mutate(const INode& node, const INode& rhs) {
   return this->program.slotMutateLazy(*this->slot, node, *this->type, rhs);
-}
-
-Value PredicateFunction::call(IExecution&, const IParameters& parameters) {
-  assert(parameters.getNamedCount() == 0);
-  assert(parameters.getPositionalCount() == 0);
-  (void)parameters; // ignore the parameters
-  // WIBBLE return this->program.executePredicate(this->location, *this->node);
-  return this->program.raiseLocation(this->location, "WIBBLE: PredicateFunction::call not yet implemented");
 }
 
 Value UserFunction::call(IExecution&, const IParameters&) {
@@ -1695,6 +1701,7 @@ void ProgramDefault::blockUndeclare(const String& identifier) {
 }
 
 egg::ovum::Value Block::declare(const LocationSource& source, const Type& type, const String& name, const Value* init) {
+  // WIBBLE WOBBLE return Error instead
   // Keep track of names successfully declared in this block
   auto* symbol = this->program.blockDeclare(source, type, name);
   if (symbol == nullptr) {

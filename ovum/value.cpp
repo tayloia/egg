@@ -1,5 +1,6 @@
 #include "ovum/ovum.h"
 #include "ovum/print.h"
+#include "ovum/vanilla.h"
 
 namespace {
   using namespace egg::ovum;
@@ -471,7 +472,7 @@ egg::ovum::Value egg::ovum::ValueFactory::createFlowControl(IAllocator& allocato
 
 egg::ovum::Value egg::ovum::ValueFactory::createThrowError(IAllocator& allocator, const LocationSource& location, const String& message) {
   // WIBBLE use RuntimeException instead?
-  auto object = ObjectFactory::createVanillaError(allocator, location, message);
+  auto object = VanillaFactory::createError(allocator, location, message);
   auto value = ValueFactory::createObject(allocator, object);
   return ValueFactory::createFlowControl(allocator, ValueFlags::Throw, value);
 }

@@ -57,6 +57,9 @@ namespace egg::ovum {
       }
       return pair.first;
     }
+    static std::string toString(const IType& type) {
+      return type.toStringPrecedence().first;
+    }
     // Helpers
     bool hasAnyFlags(ValueFlags flags) const {
       return Bits::hasAnySet(this->get()->getFlags(), flags);
@@ -68,7 +71,6 @@ namespace egg::ovum {
     static const Type Int;
     static const Type Float;
     static const Type String;
-    static const Type Object;
     static const Type Memory;
     static const Type Arithmetic;
     static const Type Any;
