@@ -17,6 +17,7 @@ namespace egg::ovum {
   public:
     // Construction/destruction
     explicit Slot(IAllocator& allocator);
+    Slot(IAllocator& allocator, const Value& value);
     Slot(Slot&& rhs) noexcept;
     virtual ~Slot();
     // Atomic access

@@ -254,6 +254,20 @@ namespace {
       }
       return execution.raiseFormat("Array does not have property: '.", property, "'");
     }
+    virtual Value setProperty(IExecution& execution, const String& property, const Value& value) override {
+      if (property == "length") {
+        Int length;
+        if (!value->getInt(length)) {
+          return execution.raiseFormat("Array length was expected to be set to an 'int', not '", value->getRuntimeType().toString(), "'");
+        }
+        if ((length < 0) || (length > 0x7FFFFFFF)) {
+          return execution.raiseFormat("Invalid array length: ", length);
+        }
+        this->resize(size_t(length));
+        return Value::Void;
+      }
+      return execution.raiseFormat("Array does not have property: '.", property, "'");
+    }
     virtual Value getIndex(IExecution& execution, const Value& index) override {
       Int i;
       if (!index->getInt(i)) {
@@ -264,9 +278,7 @@ namespace {
         return execution.raiseFormat("Invalid array index for an array with ", this->container.size(), " element(s): ", i);
       }
       auto* value = this->container[u].get();
-      if (value == nullptr) {
-        return Value::Void;
-      }
+      assert(value != nullptr);
       return Value(*value);
     }
     virtual Value setIndex(IExecution& execution, const Value& index, const Value& value) override {
@@ -309,7 +321,7 @@ namespace {
       } else if (size > before) {
         this->container.reserve(size);
         for (auto i = before; i < size; ++i) {
-          this->container.emplace_back(allocator);
+          this->container.emplace_back(allocator, Value::Null);
         }
       }
       assert(this->container.size() == size);

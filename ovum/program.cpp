@@ -223,7 +223,7 @@ namespace {
   };
 
   struct Target {
-    enum class Flavour { Identifier, Property } flavour;
+    enum class Flavour { Identifier, Property, Index } flavour;
     Type type;
     String identifier;
     Object object;
@@ -1595,6 +1595,8 @@ namespace {
         return this->targetIdentifier(target, node);
       case Opcode::PROPERTY:
         return this->targetProperty(target, node);
+      case Opcode::INDEX:
+        return this->targetIndex(target, node);
       }
       EGG_WARNING_SUPPRESS_SWITCH_END();
       throw this->unexpectedOpcode("target", node);
@@ -1653,6 +1655,30 @@ namespace {
       }
       return this->raiseNode(node, "Values of type '", lhs->getRuntimeType().toString(), "' do not support properties such as '.", target.identifier, "'");
     }
+    Value targetIndex(Target& target, const INode& node) {
+      assert(node.getOpcode() == Opcode::INDEX);
+      assert(node.getChildren() == 2);
+      target.flavour = Target::Flavour::Index;
+      auto lhs = this->expression(node.getChild(0));
+      if (lhs.hasFlowControl()) {
+        return lhs;
+      }
+      target.index = this->expression(node.getChild(1));
+      if (target.index.hasFlowControl()) {
+        return target.index;
+      }
+      String string;
+      if (lhs->getObject(target.object)) {
+        auto* indexable = target.object->getRuntimeType()->queryIndexable();
+        if (indexable != nullptr) {
+          target.type = indexable->getResultType();
+          return Value::Void;
+        }
+      } else if (lhs->getString(string)) {
+        return this->raiseNode(node, "String cannot be modified using the indexing '[]' operator");
+      }
+      return this->raiseNode(node, "Values of type '", lhs->getRuntimeType().toString(), "' do not support the indexing '[]' operator");
+    }
     Value targetGet(const INode& node, const Target& target) {
       // Get the value of a target (used only as part of short-circuiting)
       switch (target.flavour) {
@@ -1669,6 +1695,8 @@ namespace {
       }
       case Target::Flavour::Property:
         return target.object->getProperty(*this, target.identifier);
+      case Target::Flavour::Index:
+        return target.object->getIndex(*this, target.index);
       }
       return this->raiseNode(node, "Internal runtime error: Unknown target flavour");
     }
@@ -1688,6 +1716,8 @@ namespace {
       }
       case Target::Flavour::Property:
         return target.object->setProperty(*this, target.identifier, rhs);
+      case Target::Flavour::Index:
+        return target.object->setIndex(*this, target.index, rhs);
       }
       return this->raiseNode(node, "Internal runtime error: Unknown target flavour");
     }
@@ -1707,6 +1737,8 @@ namespace {
       }
       case Target::Flavour::Property:
         return target.object->mutProperty(*this, target.identifier, mutation, rhs);
+      case Target::Flavour::Index:
+        return target.object->mutIndex(*this, target.index, mutation, rhs);
       }
       return this->raiseNode(node, "Internal runtime error: Unknown target flavour");
     }
