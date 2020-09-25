@@ -33,7 +33,7 @@ namespace {
 
 const egg::ovum::IParameters& egg::ovum::Object::ParametersNone{ parametersNone };
 
-egg::ovum::Object egg::ovum::ObjectFactory::createEmpty(IAllocator& allocator) {
+egg::ovum::Object egg::ovum::ObjectFactory::createEmptyMap(IAllocator& allocator) {
   // TODO optimize
-  return VanillaFactory::createObject(allocator);
+  return VanillaFactory::createMap(allocator);
 }

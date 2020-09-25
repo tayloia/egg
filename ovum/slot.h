@@ -18,7 +18,21 @@ namespace egg::ovum {
     ShiftRightUnsigned,
     Subtract
   };
-  class Slot : public SoftReferenceCounted<ICollectable> {
+
+  class ISlot : public ICollectable {
+  public:
+    virtual ~ISlot() {}
+    virtual Value getValue() const = 0; // 'void' if empty
+    virtual const IValue* getReference() const = 0; // nullptr if empty
+    virtual IValue* getReference() = 0; // nullptr if empty
+    virtual void assign(const Value& desired) = 0;
+    virtual bool update(IValue* expected, const Value& desired) = 0;
+    virtual Error mutate(const IType& type, Mutation mutation, const Value& value) = 0;
+    virtual void clear() = 0;
+  };
+
+  // TODO move to implementation .cpp
+  class Slot : public SoftReferenceCounted<ISlot> {
     Slot(const Slot& rhs) = delete;
     Slot& operator=(const Slot& rhs) = delete;
   private:
@@ -29,13 +43,14 @@ namespace egg::ovum {
     Slot(Slot&& rhs) noexcept;
     virtual ~Slot();
     // Atomic access
-    Value getValue() const; // 'void' if empty
-    const IValue* getReference() const; // nullptr if empty
-    IValue* getReference(); // nullptr if empty
+    virtual Value getValue() const override; // 'void' if empty
+    virtual const IValue* getReference() const override; // nullptr if empty
+    virtual IValue* getReference() override; // nullptr if empty
+    virtual void assign(const Value& desired) override;
+    virtual bool update(IValue* expected, const Value& desired) override;
+    virtual Error mutate(const IType& type, Mutation mutation, const Value& value) override;
+    virtual void clear() override;
     void clobber(const Value& value);
-    bool update(IValue* expected, const Value& desired);
-    Error mutate(const IType& type, Mutation mutation, const Value& value);
-    void clear();
     // Debugging
     bool validate(bool optional) const;
     virtual bool validate() const override {

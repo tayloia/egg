@@ -6,27 +6,30 @@ namespace egg::ovum {
       virtual Value predicateCallback(const INode& node) = 0;
     };
 
-    static const Type Object;
     static const Type Array;
+    static const Type Map;
+    static const Type Object;
     static const IFunctionSignature& FunctionSignature;
   };
 
-  class IVanillaDictionary : public ICollectable {
+  template<typename K, typename V>
+  class IVanillaMap : public ICollectable {
   public:
     // Construction/destruction
-    virtual ~IVanillaDictionary() {}
-    virtual bool get(const String& key, Value& value) const = 0;
-    virtual HardPtr<Slot> ref(const String& key) const = 0;
-    virtual void add(const String& key, const Value& value) = 0;
-    virtual void set(const String& key, const Value& value) = 0;
+    virtual ~IVanillaMap() {}
+    virtual bool get(const K& key, V& value) const = 0;
+    virtual void add(const K& key, const V& value) = 0;
+    virtual void set(const K& key, const V& value) = 0;
+    virtual HardPtr<ISlot> slot(const K& key) const = 0;
   };
 
   class VanillaFactory {
   public:
     static Object createArray(IAllocator& allocator, size_t fixed);
-    static Object createError(IAllocator& allocator, const LocationSource& location, const String& message);
+    static Object createMap(IAllocator& allocator);
     static Object createObject(IAllocator& allocator);
+    static Object createError(IAllocator& allocator, const LocationSource& location, const String& message);
     static Object createPredicate(IAllocator& allocator, Vanilla::IPredicateCallback& callback, const INode& node);
-    static HardPtr<IVanillaDictionary> createDictionary(IAllocator& allocator);
+    static HardPtr<IVanillaMap<String, Value>> createStringValueMap(IAllocator& allocator);
   };
 }

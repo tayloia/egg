@@ -33,14 +33,9 @@ egg::ovum::IValue* egg::ovum::Slot::getReference() {
   return underlying;
 }
 
-void egg::ovum::Slot::clobber(const Value& value) {
-  // Unconditionally update the value
-  assert(this->validate(true));
-  auto before = this->ptr.exchange(value->softAcquire());
-  if (before != nullptr) {
-    before->softRelease();
-  }
-  assert(this->validate(false));
+void egg::ovum::Slot::assign(const Value& value) {
+  // Update the value
+  this->clobber(value);
 }
 
 bool egg::ovum::Slot::update(IValue* expected, const Value& desired) {
@@ -74,6 +69,16 @@ void egg::ovum::Slot::clear() {
     before->softRelease();
   }
   assert(this->ptr.get() == nullptr);
+}
+
+void egg::ovum::Slot::clobber(const Value& value) {
+  // Unconditionally update the value
+  assert(this->validate(true));
+  auto before = this->ptr.exchange(value->softAcquire());
+  if (before != nullptr) {
+    before->softRelease();
+  }
+  assert(this->validate(false));
 }
 
 bool egg::ovum::Slot::validate(bool optional) const {

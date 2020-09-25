@@ -62,7 +62,7 @@ namespace {
     virtual ValueFlags getFlags() const override {
       return ValueFlags::Object;
     }
-    virtual Error tryMutate(IAllocator&, Slot&, Mutation, const Value&) const override {
+    virtual Error tryMutate(IAllocator&, ISlot&, Mutation, const Value&) const override {
       return Error("Cannot modify built-in '", this->name, "'");
     }
     virtual Erratic<bool> queryAssignableAlways(const IType&) const override {

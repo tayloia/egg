@@ -945,7 +945,7 @@ namespace {
     }
     Value expressionOvalue(const INode& node) {
       assert(node.getOpcode() == Opcode::OVALUE);
-      auto object = VanillaFactory::createObject(this->allocator);
+      auto object = VanillaFactory::createMap(this->allocator);
       auto n = node.getChildren();
       for (size_t i = 0; i < n; ++i) {
         auto& named = node.getChild(i);
@@ -1435,7 +1435,7 @@ namespace {
         break;
       case Opcode::OBJECT:
         if (children == 0) {
-          return Vanilla::Object;
+          return Vanilla::Map;
         }
         if (children == 1) {
           auto& callable = node.getChild(0);

@@ -7,13 +7,13 @@
 namespace {
   using namespace egg::ovum;
 
-  class VanillaDictionary : public SoftReferenceCounted<IVanillaDictionary> {
-    VanillaDictionary(const VanillaDictionary&) = delete;
-    VanillaDictionary& operator=(const VanillaDictionary&) = delete;
-  public:
+  class VanillaStringValueMap : public SoftReferenceCounted<IVanillaMap<String, Value>> {
+    VanillaStringValueMap(const VanillaStringValueMap&) = delete;
+    VanillaStringValueMap& operator=(const VanillaStringValueMap&) = delete;
+  private:
     Dictionary<String, Slot> container;
   public:
-    VanillaDictionary(IAllocator& allocator)
+    VanillaStringValueMap(IAllocator& allocator)
       : SoftReferenceCounted(allocator) {
     }
     virtual void softVisitLinks(const Visitor&) const override {
@@ -23,15 +23,15 @@ namespace {
       // WIBBLE
       return false;
     }
-    virtual HardPtr<Slot> ref(const String&) const override {
-      // WIBBLE
-      return nullptr;
-    }
     virtual void add(const String&, const Value&) override {
       // WIBBLE
     }
     virtual void set(const String&, const Value&) override {
       // WIBBLE
+    }
+    virtual HardPtr<ISlot> slot(const String&) const override {
+      // WIBBLE
+      return nullptr;
     }
   };
 
@@ -88,7 +88,7 @@ namespace {
     virtual Type makeUnion(IAllocator& allocator, const IType& rhs) const override {
       return TypeFactory::createUnionJoin(allocator, *this, rhs);
     }
-    virtual Error tryMutate(IAllocator& allocator, Slot& slot, Mutation mutation, const Value& value) const override {
+    virtual Error tryMutate(IAllocator& allocator, ISlot& slot, Mutation mutation, const Value& value) const override {
       if (mutation == Mutation::Assign) {
         return this->tryAssign(allocator, slot, value);
       }
@@ -120,35 +120,8 @@ namespace {
       return std::make_pair(this->name, 0);
     }
   protected:
-    virtual Error tryAssign(IAllocator& allocator, Slot& slot, const Value& value) const = 0;
+    virtual Error tryAssign(IAllocator& allocator, ISlot& slot, const Value& value) const = 0;
   };
-
-  class TypeObject : public TypeBase {
-    TypeObject(const TypeObject&) = delete;
-    TypeObject& operator=(const TypeObject&) = delete;
-  private:
-    class IndexSignature : public IIndexSignature {
-      virtual Type getResultType() const override {
-        return Type::AnyQ;
-      }
-      virtual Type getIndexType() const override {
-        return Type::AnyQ;
-      }
-    };
-    static inline const IndexSignature indexSignature{};
-  public:
-    TypeObject() : TypeBase("object") {
-    }
-    virtual const IIndexSignature* queryIndexable() const override {
-      return &indexSignature;
-    }
-  protected:
-    virtual Error tryAssign(IAllocator&, Slot& slot, const Value& value) const override {
-      slot.clobber(value);
-      return {};
-    }
-  };
-  const TypeObject typeObject{};
 
   class TypeArray : public TypeBase {
     TypeArray(const TypeArray&) = delete;
@@ -170,58 +143,66 @@ namespace {
       return &indexSignature;
     }
   protected:
-    virtual Error tryAssign(IAllocator&, Slot& slot, const Value& value) const override {
-      slot.clobber(value);
+    virtual Error tryAssign(IAllocator&, ISlot& slot, const Value& value) const override {
+      slot.assign(value);
       return {};
     }
   };
   const TypeArray typeArray{};
 
-  // WIBBLE WOBBLE move in class hierarchy
-  class VanillaPredicate : public SoftReferenceCounted<IObject> {
-    VanillaPredicate(const VanillaPredicate&) = delete;
-    VanillaPredicate& operator=(const VanillaPredicate&) = delete;
+  class TypeMap : public TypeBase {
+    TypeMap(const TypeMap&) = delete;
+    TypeMap& operator=(const TypeMap&) = delete;
   private:
-    Vanilla::IPredicateCallback& callback; // Guaranteed to be long-lived
-    Node node;
+    class IndexSignature : public IIndexSignature {
+      virtual Type getResultType() const override {
+        return Type::AnyQ;
+      }
+      virtual Type getIndexType() const override {
+        return Type::String;
+      }
+    };
+    static inline const IndexSignature indexSignature{};
   public:
-    VanillaPredicate(IAllocator& allocator, Vanilla::IPredicateCallback& callback, const INode& node)
-      : SoftReferenceCounted(allocator),
-        callback(callback),
-        node(&node) {
-      assert(this->node != nullptr);
+    TypeMap() : TypeBase("any?{string}") {
     }
-    virtual void softVisitLinks(const Visitor&) const override {
-      // There are no soft link to visit
+    virtual const IIndexSignature* queryIndexable() const override {
+      return &indexSignature;
     }
-    virtual String toString() const override {
-      return "<predicate>";
-    }
-    virtual Type getRuntimeType() const override {
-      return Vanilla::Object;
-    }
-    virtual Value call(IExecution&, const IParameters& parameters) override {
-      assert(parameters.getNamedCount() == 0);
-      assert(parameters.getPositionalCount() == 0);
-      (void)parameters; // ignore the parameters
-      return this->callback.predicateCallback(*this->node);
-    }
-    virtual Value getProperty(IExecution& execution, const String&) override {
-      return execution.raise("Internal runtime error: Predicates do not support properties");
-    }
-    virtual Value setProperty(IExecution& execution, const String&, const Value&) override {
-      return execution.raise("Internal runtime error: Predicates do not support properties");
-    }
-    virtual Value getIndex(IExecution& execution, const Value&) override {
-      return execution.raise("Internal runtime error: Predicates do not support indexing");
-    }
-    virtual Value setIndex(IExecution& execution, const Value&, const Value&) override {
-      return execution.raise("Internal runtime error: Predicates do not support indexing");
-    }
-    virtual Value iterate(IExecution& execution) override {
-      return execution.raise("Internal runtime error: Predicates do not support iteration");
+  protected:
+    virtual Error tryAssign(IAllocator&, ISlot& slot, const Value& value) const override {
+      slot.assign(value);
+      return {};
     }
   };
+  const TypeMap typeMap{};
+
+  class TypeObject : public TypeBase {
+    TypeObject(const TypeObject&) = delete;
+    TypeObject& operator=(const TypeObject&) = delete;
+  private:
+    class IndexSignature : public IIndexSignature {
+      virtual Type getResultType() const override {
+        return Type::AnyQ;
+      }
+      virtual Type getIndexType() const override {
+        return Type::AnyQ;
+      }
+    };
+    static inline const IndexSignature indexSignature{};
+  public:
+    TypeObject() : TypeBase("object") {
+    }
+    virtual const IIndexSignature* queryIndexable() const override {
+      return &indexSignature;
+    }
+  protected:
+    virtual Error tryAssign(IAllocator&, ISlot& slot, const Value& value) const override {
+      slot.assign(value);
+      return {};
+    }
+  };
+  const TypeObject typeObject{};
 
   class VanillaBase : public SoftReferenceCounted<IObject> {
     VanillaBase(const VanillaBase&) = delete;
@@ -261,41 +242,15 @@ namespace {
     }
   };
 
-  class VanillaObject : public VanillaBase {
-    VanillaObject(const VanillaObject&) = delete;
-    VanillaObject& operator=(const VanillaObject&) = delete;
-  protected:
-    HardPtr<IVanillaDictionary> dictionary;
-  public:
-    explicit VanillaObject(IAllocator& allocator)
-      : VanillaBase(allocator),
-        dictionary(allocator.make<VanillaDictionary>()) {
-      assert(this->validate());
-    }
-    virtual Type getRuntimeType() const override {
-      return Vanilla::Object;
-    }
-    virtual Value getProperty(IExecution& execution, const String& property) override {
-      Value value;
-      if (!dictionary->get(property, value)) {
-        return execution.raiseFormat("Object does not have property: '.", property, "'");
-      }
-      return value;
-    }
-  };
-
   class VanillaArray : public VanillaBase {
     VanillaArray(const VanillaArray&) = delete;
-    VanillaObject& operator=(const VanillaArray&) = delete;
+    VanillaArray& operator=(const VanillaArray&) = delete;
   private:
     std::vector<Slot> container;
   public:
     VanillaArray(IAllocator& allocator, size_t fixed)
       : VanillaBase(allocator) {
-      this->container.reserve(fixed);
-      for (size_t i = 0; i < fixed; ++i) {
-        this->container.emplace_back(allocator);
-      }
+      this->resize(fixed);
       assert(this->validate());
     }
     virtual Type getRuntimeType() const override {
@@ -348,6 +303,113 @@ namespace {
       sb.add(']');
       return sb.str();
     }
+  private:
+    void resize(size_t size) {
+      // Cannot simply resize because slots have no default constructor
+      auto before = this->container.size();
+      if (size < before) {
+        for (auto i = size; i < before; ++i) {
+          this->container.pop_back();
+        }
+      } else if (size > before) {
+        this->container.reserve(size);
+        for (auto i = before; i < size; ++i) {
+          this->container.emplace_back(allocator);
+        }
+      }
+      assert(this->container.size() == size);
+    }
+  };
+
+  class VanillaMap : public VanillaBase {
+    VanillaMap(const VanillaMap&) = delete;
+    VanillaMap& operator=(const VanillaMap&) = delete;
+  protected:
+    VanillaStringValueMap map;
+  public:
+    explicit VanillaMap(IAllocator& allocator)
+      : VanillaBase(allocator),
+        map(allocator) {
+      assert(this->validate());
+    }
+    virtual Type getRuntimeType() const override {
+      return Vanilla::Map;
+    }
+    virtual Value getProperty(IExecution& execution, const String& property) override {
+      Value value;
+      if (!map.get(property, value)) {
+        return execution.raiseFormat("Object does not have property: '.", property, "'");
+      }
+      return value;
+    }
+  };
+
+  class VanillaObject : public VanillaBase {
+    VanillaObject(const VanillaObject&) = delete;
+    VanillaObject& operator=(const VanillaObject&) = delete;
+  protected:
+    VanillaStringValueMap map;
+  public:
+    explicit VanillaObject(IAllocator& allocator)
+      : VanillaBase(allocator),
+        map(allocator) {
+      assert(this->validate());
+    }
+    virtual Type getRuntimeType() const override {
+      return Vanilla::Object;
+    }
+    virtual Value getProperty(IExecution& execution, const String& property) override {
+      Value value;
+      if (!map.get(property, value)) {
+        return execution.raiseFormat("Object does not have property: '.", property, "'");
+      }
+      return value;
+    }
+  };
+
+  class VanillaPredicate : public VanillaBase {
+    VanillaPredicate(const VanillaPredicate&) = delete;
+    VanillaPredicate& operator=(const VanillaPredicate&) = delete;
+  private:
+    Vanilla::IPredicateCallback& callback; // Guaranteed to be long-lived
+    Node node;
+  public:
+    VanillaPredicate(IAllocator& allocator, Vanilla::IPredicateCallback& callback, const INode& node)
+      : VanillaBase(allocator),
+      callback(callback),
+      node(&node) {
+      assert(this->node != nullptr);
+    }
+    virtual void softVisitLinks(const Visitor&) const override {
+      // There are no soft link to visit
+    }
+    virtual String toString() const override {
+      return "<predicate>";
+    }
+    virtual Type getRuntimeType() const override {
+      return Vanilla::Object;
+    }
+    virtual Value call(IExecution&, const IParameters& parameters) override {
+      assert(parameters.getNamedCount() == 0);
+      assert(parameters.getPositionalCount() == 0);
+      (void)parameters; // ignore the parameters
+      return this->callback.predicateCallback(*this->node);
+    }
+    virtual Value getProperty(IExecution& execution, const String&) override {
+      return execution.raise("Internal runtime error: Predicates do not support properties");
+    }
+    virtual Value setProperty(IExecution& execution, const String&, const Value&) override {
+      return execution.raise("Internal runtime error: Predicates do not support properties");
+    }
+    virtual Value getIndex(IExecution& execution, const Value&) override {
+      return execution.raise("Internal runtime error: Predicates do not support indexing");
+    }
+    virtual Value setIndex(IExecution& execution, const Value&, const Value&) override {
+      return execution.raise("Internal runtime error: Predicates do not support indexing");
+    }
+    virtual Value iterate(IExecution& execution) override {
+      return execution.raise("Internal runtime error: Predicates do not support iteration");
+    }
   };
 
   class VanillaError : public VanillaObject {
@@ -359,10 +421,10 @@ namespace {
     VanillaError(IAllocator& allocator, const LocationSource& location, const String& message)
       : VanillaObject(allocator) {
       assert(this->validate());
-      this->dictionary->add("message", ValueFactory::create(allocator, message));
+      this->map.add("message", ValueFactory::create(allocator, message));
       StringBuilder sb;
       location.formatSourceString(sb);
-      this->dictionary->add("location", ValueFactory::create(allocator, sb.toUTF8()));
+      this->map.add("location", ValueFactory::create(allocator, sb.toUTF8()));
       if (!sb.empty()) {
         sb.add(':', ' ');
       }
@@ -375,17 +437,21 @@ namespace {
   };
 }
 
-const egg::ovum::Type egg::ovum::Vanilla::Object{ &typeObject };
 const egg::ovum::Type egg::ovum::Vanilla::Array{ &typeArray };
+const egg::ovum::Type egg::ovum::Vanilla::Map{ &typeMap };
+const egg::ovum::Type egg::ovum::Vanilla::Object{ &typeObject };
 const egg::ovum::IFunctionSignature& egg::ovum::Vanilla::FunctionSignature{ functionSignature };
-
-egg::ovum::Object egg::ovum::VanillaFactory::createObject(IAllocator& allocator) {
-  // TODO
-  return ObjectFactory::create<VanillaObject>(allocator);
-}
 
 egg::ovum::Object egg::ovum::VanillaFactory::createArray(IAllocator& allocator, size_t fixed) {
   return ObjectFactory::create<VanillaArray>(allocator, fixed);
+}
+
+egg::ovum::Object egg::ovum::VanillaFactory::createMap(IAllocator& allocator) {
+  return ObjectFactory::create<VanillaMap>(allocator);
+}
+
+egg::ovum::Object egg::ovum::VanillaFactory::createObject(IAllocator& allocator) {
+  return ObjectFactory::create<VanillaObject>(allocator);
 }
 
 egg::ovum::Object egg::ovum::VanillaFactory::createError(IAllocator& allocator, const LocationSource& location, const String& message) {
@@ -394,4 +460,8 @@ egg::ovum::Object egg::ovum::VanillaFactory::createError(IAllocator& allocator, 
 
 egg::ovum::Object egg::ovum::VanillaFactory::createPredicate(IAllocator& allocator, Vanilla::IPredicateCallback& callback, const INode& node) {
   return ObjectFactory::create<VanillaPredicate>(allocator, callback, node);
+}
+
+egg::ovum::HardPtr<egg::ovum::IVanillaMap<egg::ovum::String, egg::ovum::Value>> egg::ovum::VanillaFactory::createStringValueMap(IAllocator& allocator) {
+  return allocator.make<VanillaStringValueMap>();
 }

@@ -100,7 +100,7 @@ namespace {
     return Erratic<Value>::fail("WIBBLE WOBBLE: tryMutateOperation() not implemented");
   }
 
-  Error tryMutateFlags(IAllocator& allocator, ValueFlags lflags, Slot& slot, Mutation mutation, const Value& rhs) {
+  Error tryMutateFlags(IAllocator& allocator, ValueFlags lflags, ISlot& slot, Mutation mutation, const Value& rhs) {
     if (mutation == Mutation::Assign) {
       // Treat assignment specially because the slot may be empty
       auto result = tryAssignFlags(allocator, lflags, rhs);
@@ -108,7 +108,7 @@ namespace {
         // The assignment is invalid
         return result.failure();
       }
-      slot.clobber(result.success());
+      slot.assign(result.success());
       return {};
     }
     for (;;) {
@@ -197,7 +197,7 @@ namespace {
     virtual Type makeUnion(IAllocator& allocator, const IType& rhs) const override {
       return makeUnionFlags(allocator, FLAGS, *this, rhs);
     }
-    virtual Error tryMutate(IAllocator& allocator, Slot& lhs, Mutation mutation, const Value& rhs) const override {
+    virtual Error tryMutate(IAllocator& allocator, ISlot& lhs, Mutation mutation, const Value& rhs) const override {
       return tryMutateFlags(allocator, FLAGS, lhs, mutation, rhs);
     }
     virtual Erratic<bool> queryAssignableAlways(const IType& rhs) const override {
@@ -309,7 +309,7 @@ namespace {
       assert(&this->allocator == &allocator2);
       return TypeFactory::createUnionJoin(allocator2, *this, rhs);
     }
-    virtual Error tryMutate(IAllocator& allocator2, Slot& lhs, Mutation mutation, const Value& rhs) const override {
+    virtual Error tryMutate(IAllocator& allocator2, ISlot& lhs, Mutation mutation, const Value& rhs) const override {
       assert(&this->allocator == &allocator2);
       auto qa = a->tryMutate(allocator2, lhs, mutation, rhs);
       if (!qa.empty()) {
@@ -392,7 +392,7 @@ namespace {
       assert(&this->allocator == &allocator2);
       return makeUnionFlags(allocator2, this->flags, *this, rhs);
     }
-    virtual Error tryMutate(IAllocator& allocator2, Slot& lhs, Mutation mutation, const Value& rhs) const override {
+    virtual Error tryMutate(IAllocator& allocator2, ISlot& lhs, Mutation mutation, const Value& rhs) const override {
       assert(&this->allocator == &allocator2);
       return tryMutateFlags(allocator2, this->flags, lhs, mutation, rhs);
     }
@@ -427,7 +427,7 @@ namespace {
       assert(&this->allocator == &allocator2);
       return TypeFactory::createUnionJoin(allocator2, *this, rhs);
     }
-    virtual Error tryMutate(IAllocator& allocator2, Slot&, Mutation, const Value&) const override {
+    virtual Error tryMutate(IAllocator& allocator2, ISlot&, Mutation, const Value&) const override {
       assert(&this->allocator == &allocator2);
       (void)&allocator2;
       return Error("WIBBLE: Pointer modification not yet implemented");
@@ -558,7 +558,7 @@ namespace {
       assert(&this->allocator == &allocator2);
       return TypeFactory::createUnionJoin(allocator2, *this, rhs);
     }
-    virtual Error tryMutate(IAllocator& allocator2, Slot&, Mutation, const Value&) const override {
+    virtual Error tryMutate(IAllocator& allocator2, ISlot&, Mutation, const Value&) const override {
       assert(&this->allocator == &allocator2);
       (void)&allocator2;
       return Error("WIBBLE: Function modification not yet implemented");
