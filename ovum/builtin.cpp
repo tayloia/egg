@@ -29,10 +29,16 @@ namespace {
     virtual Value setProperty(IExecution& execution, const String& property, const Value&) override {
       return this->raiseBuiltin(execution, "does not support properties such as '", property, "'");
     }
+    virtual Value mutProperty(IExecution& execution, const String& property, Mutation, const Value&) override {
+      return this->raiseBuiltin(execution, "does not support properties such as '", property, "'");
+    }
     virtual Value getIndex(IExecution& execution, const Value&) override {
       return this->raiseBuiltin(execution, "does not support indexing with '[]'");
     }
     virtual Value setIndex(IExecution& execution, const Value&, const Value&) override {
+      return this->raiseBuiltin(execution, "does not support indexing with '[]'");
+    }
+    virtual Value mutIndex(IExecution& execution, const Value&, Mutation, const Value&) override {
       return this->raiseBuiltin(execution, "does not support indexing with '[]'");
     }
     virtual Value iterate(IExecution& execution) override {
@@ -61,6 +67,9 @@ namespace {
     }
     virtual ValueFlags getFlags() const override {
       return ValueFlags::Object;
+    }
+    virtual Error tryAssign(IAllocator&, ISlot&, const Value&) const override {
+      return Error("Cannot assign to built-in '", this->name, "'");
     }
     virtual Error tryMutate(IAllocator&, ISlot&, Mutation, const Value&) const override {
       return Error("Cannot modify built-in '", this->name, "'");
@@ -297,6 +306,9 @@ namespace {
     }
     virtual Value setProperty(IExecution& execution, const String& property, const Value&) override {
       return this->raiseBuiltin(execution, "does not support assigning to properties such as '", property, "'");
+    }
+    virtual Value mutProperty(IExecution& execution, const String& property, Mutation, const Value&) override {
+      return this->raiseBuiltin(execution, "does not support modifying properties such as '", property, "'");
     }
   };
 

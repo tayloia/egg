@@ -61,21 +61,23 @@ namespace {
     return Erratic<bool>::fail("Cannot assign values of type '", flagsToString(rhs),"' to targets of type '", flagsToString(lhs), "'");
   }
 
-  Erratic<Value> tryAssignFlags(IAllocator& allocator, ValueFlags lflags, const Value& rhs) {
+  Error tryAssignFlags(IAllocator& allocator, ValueFlags lflags, ISlot& slot, const Value& rhs) {
     auto rflags = rhs->getFlags();
     if (Bits::hasAnySet(lflags, rflags)) {
-      return rhs;
+      slot.set(rhs);
+      return {};
     }
     Int i;
     if (Bits::hasAnySet(lflags, ValueFlags::Float) && rhs->getInt(i)) {
       // Float<-Int promotion
       auto f = Float(i);
       if (Int(f) != i) {
-        return Erratic<Value>::fail("Cannot convert 'int' to 'float' accurately: ", i);
+        return Error("Cannot convert 'int' to 'float' accurately: ", i);
       }
-      return ValueFactory::createFloat(allocator, f);
+      slot.set(ValueFactory::createFloat(allocator, f));
+      return {};
     }
-    return Erratic<Value>::fail("Cannot convert '", rhs->getRuntimeType().toString(), "' to '", flagsToString(lflags), "'");
+    return Error("Cannot convert '", rhs->getRuntimeType().toString(), "' to '", flagsToString(lflags), "'");
   }
 
   Erratic<Value> tryMutateOperation(IAllocator& allocator, ValueFlags lflags, IValue& lhs, Mutation mutation, const Value&) {
@@ -101,19 +103,9 @@ namespace {
   }
 
   Error tryMutateFlags(IAllocator& allocator, ValueFlags lflags, ISlot& slot, Mutation mutation, const Value& rhs) {
-    if (mutation == Mutation::Assign) {
-      // Treat assignment specially because the slot may be empty
-      auto result = tryAssignFlags(allocator, lflags, rhs);
-      if (result.failed()) {
-        // The assignment is invalid
-        return result.failure();
-      }
-      slot.assign(result.success());
-      return {};
-    }
     for (;;) {
       // Loop until we successfully (atomically) update the slot (or fail)
-      auto* lhs = slot.getReference();
+      auto* lhs = slot.get();
       if (lhs == nullptr) {
         return Error("Cannot mutate an empty slot");
       }
@@ -196,6 +188,9 @@ namespace {
     }
     virtual Type makeUnion(IAllocator& allocator, const IType& rhs) const override {
       return makeUnionFlags(allocator, FLAGS, *this, rhs);
+    }
+    virtual Error tryAssign(IAllocator& allocator, ISlot& lhs, const Value& rhs) const override {
+      return tryAssignFlags(allocator, FLAGS, lhs, rhs);
     }
     virtual Error tryMutate(IAllocator& allocator, ISlot& lhs, Mutation mutation, const Value& rhs) const override {
       return tryMutateFlags(allocator, FLAGS, lhs, mutation, rhs);
@@ -309,6 +304,17 @@ namespace {
       assert(&this->allocator == &allocator2);
       return TypeFactory::createUnionJoin(allocator2, *this, rhs);
     }
+    virtual Error tryAssign(IAllocator& allocator2, ISlot& lhs, const Value& rhs) const override {
+      assert(&this->allocator == &allocator2);
+      auto qa = a->tryAssign(allocator2, lhs, rhs);
+      if (!qa.empty()) {
+        auto qb = b->tryAssign(allocator2, lhs, rhs);
+        if (qb.empty()) {
+          return qb;
+        }
+      }
+      return qa;
+    }
     virtual Error tryMutate(IAllocator& allocator2, ISlot& lhs, Mutation mutation, const Value& rhs) const override {
       assert(&this->allocator == &allocator2);
       auto qa = a->tryMutate(allocator2, lhs, mutation, rhs);
@@ -392,6 +398,10 @@ namespace {
       assert(&this->allocator == &allocator2);
       return makeUnionFlags(allocator2, this->flags, *this, rhs);
     }
+    virtual Error tryAssign(IAllocator& allocator2, ISlot& lhs, const Value& rhs) const override {
+      assert(&this->allocator == &allocator2);
+      return tryAssignFlags(allocator2, this->flags, lhs, rhs);
+    }
     virtual Error tryMutate(IAllocator& allocator2, ISlot& lhs, Mutation mutation, const Value& rhs) const override {
       assert(&this->allocator == &allocator2);
       return tryMutateFlags(allocator2, this->flags, lhs, mutation, rhs);
@@ -426,6 +436,11 @@ namespace {
       // TODO elide if similar
       assert(&this->allocator == &allocator2);
       return TypeFactory::createUnionJoin(allocator2, *this, rhs);
+    }
+    virtual Error tryAssign(IAllocator& allocator2, ISlot&, const Value&) const override {
+      assert(&this->allocator == &allocator2);
+      (void)&allocator2;
+      return Error("WIBBLE: Pointer assignment not yet implemented");
     }
     virtual Error tryMutate(IAllocator& allocator2, ISlot&, Mutation, const Value&) const override {
       assert(&this->allocator == &allocator2);
@@ -557,6 +572,11 @@ namespace {
     virtual Type makeUnion(IAllocator& allocator2, const IType& rhs) const override {
       assert(&this->allocator == &allocator2);
       return TypeFactory::createUnionJoin(allocator2, *this, rhs);
+    }
+    virtual Error tryAssign(IAllocator& allocator2, ISlot&, const Value&) const override {
+      assert(&this->allocator == &allocator2);
+      (void)&allocator2;
+      return Error("WIBBLE: Function assignment not yet implemented");
     }
     virtual Error tryMutate(IAllocator& allocator2, ISlot&, Mutation, const Value&) const override {
       assert(&this->allocator == &allocator2);

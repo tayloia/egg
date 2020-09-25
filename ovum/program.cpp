@@ -99,10 +99,16 @@ namespace {
     virtual Value setProperty(IExecution& execution, const String& property, const Value&) override {
       return this->raise(execution, "does not support properties such as '", property, "'");
     }
+    virtual Value mutProperty(IExecution& execution, const String& property, Mutation, const Value&) override {
+      return this->raise(execution, "does not support properties such as '", property, "'");
+    }
     virtual Value getIndex(IExecution& execution, const Value&) override {
       return this->raise(execution, "does not support indexing");
     }
     virtual Value setIndex(IExecution& execution, const Value&, const Value&) override {
+      return this->raise(execution, "does not support indexing");
+    }
+    virtual Value mutIndex(IExecution& execution, const Value&, Mutation, const Value&) override {
       return this->raise(execution, "does not support indexing");
     }
     virtual Value iterate(IExecution& execution) override {
@@ -120,26 +126,6 @@ namespace {
       return execution.raiseFormat("Function ", std::forward<ARGS>(args)...);
     }
     static Type makeType(IAllocator& allocator, ProgramDefault& program, const String& name, const INode& callable);
-  };
-
-  class Target {
-    Target(const Target&) = delete;
-    Target& operator=(const Target&) = delete;
-  private:
-    ProgramDefault& program;
-    Type type;
-    HardPtr<Slot> slot;
-  public:
-    Target(ProgramDefault& program, const INode& node, Block* block = nullptr);
-    Value assign(const INode& node, const Value& rhs);
-    Value decrement(const INode& node);
-    Value increment(const INode& node);
-    Value mutate(const INode& node, const INode& rhs);
-  private:
-    template<typename... ARGS>
-    Value unexpected(const Value& value, ARGS&&... args) const {
-      return Error(std::forward<ARGS>(args)..., ", but got '", value->getRuntimeType().toString(), "' instead");
-    }
   };
 
   class Block final {
@@ -168,7 +154,7 @@ namespace {
       : type(type),
         name(name),
         source(source),
-        slot(allocator.create<Slot>(0, allocator)) {
+        slot(allocator.make<Slot>()) {
       assert(this->validate(true));
     }
     Symbol(Symbol&& rhs) noexcept
@@ -236,6 +222,14 @@ namespace {
     }
   };
 
+  struct Target {
+    enum class Flavour { Identifier, Property } flavour;
+    Type type;
+    String identifier;
+    Object object;
+    Value index;
+  };
+
   class ProgramDefault final : public HardReferenceCounted<IProgram>, public IExecution, public Vanilla::IPredicateCallback {
     ProgramDefault(const ProgramDefault&) = delete;
     ProgramDefault& operator=(const ProgramDefault&) = delete;
@@ -262,7 +256,7 @@ namespace {
       auto symbol = this->symtable->add(value->getRuntimeType(), name, source);
       if (symbol.first) {
         // Don't use assignment for builtins; it always fails
-        symbol.second->slot->clobber(value);
+        symbol.second->slot->set(value);
         return true;
       }
       return false;
@@ -423,12 +417,16 @@ namespace {
     Value statementAssign(const INode& node) {
       assert(node.getOpcode() == Opcode::ASSIGN);
       assert(node.getChildren() == 2);
-      Target lvalue(*this, node.getChild(0));
+      Target target;
+      auto lvalue = this->targetInit(target, node.getChild(0));
+      if (lvalue.hasFlowControl()) {
+        return lvalue;
+      }
       auto rvalue = this->expression(node.getChild(1));
       if (rvalue.hasFlowControl()) {
         return rvalue;
       }
-      return lvalue.assign(node, rvalue);
+      return this->targetAssign(target, node, rvalue);
     }
     Value statementBlock(const INode& node) {
       assert(node.getOpcode() == Opcode::BLOCK);
@@ -464,8 +462,12 @@ namespace {
     Value statementDecrement(const INode& node) {
       assert(node.getOpcode() == Opcode::DECREMENT);
       assert(node.getChildren() == 1);
-      Target lvalue(*this, node.getChild(0));
-      return lvalue.decrement(node);
+      Target target;
+      auto value = this->targetInit(target, node.getChild(0));
+      if (value.hasFlowControl()) {
+        return value;
+      }
+      return this->targetMutate(target, node, Mutation::Decrement, Value::Void);
     }
     Value statementDo(const INode& node) {
       assert(node.getOpcode() == Opcode::DO);
@@ -540,7 +542,11 @@ namespace {
       assert(node.getOpcode() == Opcode::FOREACH);
       assert(node.getChildren() == 3);
       Block inner(*this);
-      Target lvalue(*this, node.getChild(0), &inner);
+      Target target;
+      auto value = this->targetInit(target, node.getChild(0), &inner);
+      if (value.hasFlowControl()) {
+        return value;
+      }
       auto rvalue = this->expression(node.getChild(1));
       if (rvalue.hasFlowControl()) {
         return rvalue;
@@ -548,7 +554,7 @@ namespace {
       String string;
       if (rvalue->getString(string)) {
         // Iterate around the codepoints in the string
-        return this->stringForeach(string, inner, lvalue, node.getChild(2));
+        return this->stringForeach(string, target, node.getChild(2), inner);
       }
       Object object;
       if (!rvalue->getObject(object)) {
@@ -570,7 +576,7 @@ namespace {
         if (retval.hasAnyFlags(ValueFlags::FlowControl | ValueFlags::Void)) {
           break;
         }
-        retval = lvalue.assign(node, retval);
+        retval = this->targetAssign(target, node, retval);
         if (retval.hasFlowControl()) {
           break;
         }
@@ -636,15 +642,107 @@ namespace {
     Value statementIncrement(const INode& node) {
       assert(node.getOpcode() == Opcode::INCREMENT);
       assert(node.getChildren() == 1);
-      Target lvalue(*this, node.getChild(0));
-      return lvalue.increment(node);
+      Target target;
+      auto value = this->targetInit(target, node.getChild(0));
+      if (value.hasFlowControl()) {
+        return value;
+      }
+      return this->targetMutate(target, node, Mutation::Increment, Value::Void);
     }
     Value statementMutate(const INode& node) {
       assert(node.getOpcode() == Opcode::MUTATE);
       assert(node.getChildren() == 2);
       assert(OperatorProperties::from(node.getOperator()).opclass == Opclass::BINARY);
-      Target lvalue(*this, node.getChild(0));
-      return lvalue.mutate(node, node.getChild(1));
+      Target target;
+      auto value = this->targetInit(target, node.getChild(0));
+      if (value.hasFlowControl()) {
+        return value;
+      }
+      Mutation mutation;
+      bool logical;
+      auto op = node.getOperator();
+      EGG_WARNING_SUPPRESS_SWITCH_BEGIN();
+      switch (op) {
+      case Operator::ADD:
+        mutation = Mutation::Add;
+        break;
+      case Operator::BITAND:
+        mutation = Mutation::BitwiseAnd;
+        break;
+      case Operator::BITOR:
+        mutation = Mutation::BitwiseOr;
+        break;
+      case Operator::BITXOR:
+        mutation = Mutation::BitwiseXor;
+        break;
+      case Operator::DIV:
+        mutation = Mutation::Divide;
+        break;
+      case Operator::IFNULL:
+        value = this->targetGet(node, target);
+        if (value.hasFlowControl()) {
+          return value;
+        }
+        if (!value->getNull()) {
+          // Short-circuit
+          return value;
+        }
+        mutation = Mutation::IfNull;
+        break;
+      case Operator::LOGAND:
+        value = this->targetGet(node, target);
+        if (value.hasFlowControl()) {
+          return value;
+        }
+        if (value->getBool(logical) && !logical) {
+          // Short-circuit
+          return Value::False;
+        }
+        mutation = Mutation::LogicalAnd;
+        break;
+      case Operator::LOGOR:
+        value = this->targetGet(node, target);
+        if (value.hasFlowControl()) {
+          return value;
+        }
+        if (value->getBool(logical) && logical) {
+          // Short-circuit
+          return Value::True;
+        }
+        mutation = Mutation::LogicalOr;
+        break;
+      case Operator::MUL:
+        mutation = Mutation::Multiply;
+        break;
+      case Operator::REM:
+        mutation = Mutation::Remainder;
+        break;
+      case Operator::SHIFTL:
+        mutation = Mutation::ShiftLeft;
+        break;
+      case Operator::SHIFTR:
+        mutation = Mutation::ShiftRight;
+        break;
+      case Operator::SHIFTU:
+        mutation = Mutation::ShiftRightUnsigned;
+        break;
+      case Operator::SUB:
+        mutation = Mutation::Subtract;
+        break;
+      default: {
+        auto name = OperatorProperties::from(op).name;
+        if (name == nullptr) {
+          return this->raiseNode(node, "Unknown mutation operator: '<", int(op), ">'");
+        }
+        return this->raiseNode(node, "Unexpected mutation operator: '", name, "'");
+      }
+      }
+      EGG_WARNING_SUPPRESS_SWITCH_END();
+      value = this->expression(node.getChild(1));
+      if (value.hasFlowControl()) {
+        return value;
+      }
+      return this->targetMutate(target, node, mutation, value);
     }
     Value statementReturn(const INode& node) {
       assert(node.getOpcode() == Opcode::RETURN);
@@ -1016,7 +1114,11 @@ namespace {
       if (symbol == nullptr) {
         return this->raiseNode(node, "Unknown identifier in expression: '", name, "'");
       }
-      return symbol->slot->getValue();
+      auto* value = symbol->slot->get();
+      if (value == nullptr) {
+        return this->raiseNode(node, "Internal runtime error: Symbol table slot is empty: '", name, "'");
+      }
+      return Value(*value);
     }
     Value expressionIndex(const INode& node) {
       assert(node.getOpcode() == Opcode::INDEX);
@@ -1090,14 +1192,15 @@ namespace {
       return this->raiseNode(node, "Values of type '", lhs->getRuntimeType().toString(), "' do not support properties such as '.", pname, "'");
     }
     // Strings
-    Value stringForeach(const String& string, Block& block, Target& target, const INode& statements) {
+    Value stringForeach(const String& string, const Target& target, const INode& statements, Block& block) {
       // Iterate around the codepoints of the string
       auto* p = string.get();
       if (p != nullptr) {
         UTF8 reader(p->begin(), p->end(), 0);
         char32_t codepoint;
         while (reader.forward(codepoint)) {
-          auto retval = target.assign(statements, ValueFactory::createString(this->allocator, StringFactory::fromCodePoint(this->allocator, codepoint)));
+          auto rvalue = ValueFactory::createString(this->allocator, StringFactory::fromCodePoint(this->allocator, codepoint));
+          auto retval = this->targetAssign(target, statements, rvalue);
           if (retval.hasFlowControl()) {
             return retval;
           }
@@ -1479,123 +1582,133 @@ namespace {
     Value tryAssign(Symbol& symbol, const Value& value);
     Symbol* blockDeclare(const LocationSource& source, const Type& type, const String& identifier);
     void blockUndeclare(const String& identifier);
-    Slot& slotDeclare(const INode& node, Type& type, Block& block) {
-      assert(node.getOpcode() == Opcode::DECLARE);
-      assert(node.getChildren() == 2);
-      auto identifier = this->identifier(node.getChild(1));
-      type = this->type(node.getChild(0), identifier);
-      this->updateLocation(node);
-      auto result = block.declare(this->location, type, identifier);
-      if (result.hasFlowControl()) {
-        throw RuntimeException(this->location, result->toString()); // WIBBLE
-      }
-      auto* symbol = this->symtable->get(identifier);
-      if (symbol == nullptr) {
-        throw RuntimeException(this->location, "Unknown identifier: '", identifier, "'");
-      }
-      type = symbol->type;
-      return *symbol->slot;
-    }
-    Slot& slotIdentifier(const INode& node, Type& type) {
-      assert(node.getOpcode() == Opcode::IDENTIFIER);
-      auto identifier = this->identifier(node);
-      auto* symbol = this->symtable->get(identifier);
-      if (symbol == nullptr) {
-        throw RuntimeException(this->location, "Unknown identifier: '", identifier, "'");
-      }
-      type = symbol->type;
-      return *symbol->slot;
-    }
-    Value slotMutate(Slot& slot, const INode& node, const IType& type, Mutation mutation, const Value& rhs) {
-      auto error = slot.mutate(type, mutation, rhs);
-      if (!error.empty()) {
-        return this->raiseNode(node, error.toString());
-      }
-      return Value::Void;
-    }
-    Value slotMutateLazy(Slot& slot, const INode& node, const IType& type, const INode& rhs) {
-      Mutation mutation;
-      auto op = node.getOperator();
+    Value targetInit(Target& target, const INode& node, Block* block = nullptr) {
       EGG_WARNING_SUPPRESS_SWITCH_BEGIN();
-      switch (op) {
-      case Operator::ADD:
-        mutation = Mutation::Add;
-        break;
-      case Operator::BITAND:
-        mutation = Mutation::BitwiseAnd;
-        break;
-      case Operator::BITOR:
-        mutation = Mutation::BitwiseOr;
-        break;
-      case Operator::BITXOR:
-        mutation = Mutation::BitwiseXor;
-        break;
-      case Operator::DIV:
-        mutation = Mutation::Divide;
-        break;
-      case Operator::IFNULL: {
-        auto ref = slot.getReference();
-        if ((ref != nullptr) && !ref->getNull()) {
-          // Short-circuit
-          return Value(*ref);
+      switch (node.getOpcode()) {
+      case Opcode::DECLARE:
+        if (block != nullptr) {
+          // Only allow declaration inside a foreach statement
+          return this->targetDeclare(target, node, *block);
         }
-        mutation = Mutation::IfNull;
         break;
-      }
-      case Operator::LOGAND: {
-        bool logical;
-        if (slot.getValue()->getBool(logical) && !logical) {
-          // Short-circuit
-          return Value::False;
-        }
-        mutation = Mutation::LogicalAnd;
-        break;
-      }
-      case Operator::LOGOR: {
-        bool logical;
-        if (slot.getValue()->getBool(logical) && !logical) {
-          // Short-circuit
-          return Value::False;
-        }
-        mutation = Mutation::LogicalOr;
-        break;
-      }
-      case Operator::MUL:
-        mutation = Mutation::Multiply;
-        break;
-      case Operator::REM:
-        mutation = Mutation::Remainder;
-        break;
-      case Operator::SHIFTL:
-        mutation = Mutation::ShiftLeft;
-        break;
-      case Operator::SHIFTR:
-        mutation = Mutation::ShiftRight;
-        break;
-      case Operator::SHIFTU:
-        mutation = Mutation::ShiftRightUnsigned;
-        break;
-      case Operator::SUB:
-        mutation = Mutation::Subtract;
-        break;
-      default: {
-        auto name = OperatorProperties::from(op).name;
-        if (name == nullptr) {
-          return this->raiseNode(node, "Unknown mutation operator: '<", int(op), ">'");
-        }
-        return this->raiseNode(node, "Unexpected mutation operator: '", name, "'");
-      }
+      case Opcode::IDENTIFIER:
+        return this->targetIdentifier(target, node);
+      case Opcode::PROPERTY:
+        return this->targetProperty(target, node);
       }
       EGG_WARNING_SUPPRESS_SWITCH_END();
-      auto value = this->expression(rhs);
-      if (value.hasFlowControl()) {
-        return value;
+      throw this->unexpectedOpcode("target", node);
+    }
+    Value targetDeclare(Target& target, const INode& node, Block& block) {
+      assert(node.getOpcode() == Opcode::DECLARE);
+      assert(node.getChildren() == 2);
+      target.flavour = Target::Flavour::Identifier;
+      target.identifier = this->identifier(node.getChild(1));
+      target.type = this->type(node.getChild(0), target.identifier);
+      this->updateLocation(node);
+      return block.declare(this->location, target.type, target.identifier);
+    }
+    Value targetIdentifier(Target& target, const INode& node) {
+      assert(node.getOpcode() == Opcode::IDENTIFIER);
+      target.flavour = Target::Flavour::Identifier;
+      target.identifier = this->identifier(node);
+      auto* symbol = this->symtable->get(target.identifier);
+      if (symbol == nullptr) {
+        return this->raiseNode(node, "Unknown identifier: '", target.identifier, "'");
       }
-      auto error = slot.mutate(type, mutation, value);
-      if (!error.empty()) {
-        return this->raiseNode(node, error.toString());
-      }
+      target.type = symbol->type;
       return Value::Void;
+    }
+    Value targetProperty(Target& target, const INode& node) {
+      assert(node.getOpcode() == Opcode::PROPERTY);
+      assert(node.getChildren() == 2);
+      target.flavour = Target::Flavour::Property;
+      auto lhs = this->expression(node.getChild(0));
+      if (lhs.hasFlowControl()) {
+        return lhs;
+      }
+      auto& pnode = node.getChild(1);
+      if (pnode.getOpcode() == Opcode::IDENTIFIER) {
+        target.identifier = this->identifier(pnode);
+      } else {
+        auto rhs = this->expression(pnode);
+        if (rhs.hasFlowControl()) {
+          return rhs;
+        }
+        if (!rhs->getString(target.identifier)) {
+          return this->raiseNode(node, "Expected property name to be a 'string', but got '", rhs->getRuntimeType().toString(), "' instead");
+        }
+      }
+      if (lhs->getObject(target.object)) {
+        auto ptype = target.object->getRuntimeType()->queryPropertyType(target.identifier);
+        if (ptype.failed()) {
+          return this->raiseNode(node, ptype.failure().toString());
+        }
+        target.type = ptype.success();
+        return Value::Void;
+      }
+      String string;
+      if (lhs->getString(string)) {
+        return this->raiseNode(node, "Values of type 'string' do not support modification of properties such as '.", target.identifier, "'");
+      }
+      return this->raiseNode(node, "Values of type '", lhs->getRuntimeType().toString(), "' do not support properties such as '.", target.identifier, "'");
+    }
+    Value targetGet(const INode& node, const Target& target) {
+      // Get the value of a target (used only as part of short-circuiting)
+      switch (target.flavour) {
+      case Target::Flavour::Identifier: {
+        auto* symbol = this->symtable->get(target.identifier);
+        if (symbol == nullptr) {
+          return this->raiseNode(node, "Unknown identifier: '", target.identifier, "'");
+        }
+        auto* value = symbol->slot->get();
+        if (value == nullptr) {
+          return this->raiseNode(node, "Internal runtime error: Symbol table slot is empty: '", target.identifier, "'");
+        }
+        return Value(*value);
+      }
+      case Target::Flavour::Property:
+        return target.object->getProperty(*this, target.identifier);
+      }
+      return this->raiseNode(node, "Internal runtime error: Unknown target flavour");
+    }
+    Value targetAssign(const Target& target, const INode& node, const Value& rhs) {
+      // Set the value of a target
+      switch (target.flavour) {
+      case Target::Flavour::Identifier: {
+        auto* symbol = this->symtable->get(target.identifier);
+        if (symbol == nullptr) {
+          return this->raiseNode(node, "Unknown identifier: '", target.identifier, "'");
+        }
+        auto error = target.type->tryAssign(this->allocator, *symbol->slot, rhs);
+        if (!error.empty()) {
+          return this->raiseNode(node, error.toString());
+        }
+        return rhs;
+      }
+      case Target::Flavour::Property:
+        return target.object->setProperty(*this, target.identifier, rhs);
+      }
+      return this->raiseNode(node, "Internal runtime error: Unknown target flavour");
+    }
+    Value targetMutate(const Target& target, const INode& node, Mutation mutation, const Value& rhs) {
+      // Set the value of a target
+      switch (target.flavour) {
+      case Target::Flavour::Identifier: {
+        auto* symbol = this->symtable->get(target.identifier);
+        if (symbol == nullptr) {
+          return this->raiseNode(node, "Unknown identifier: '", target.identifier, "'");
+        }
+        auto error = target.type->tryMutate(this->allocator, *symbol->slot, mutation, rhs);
+        if (!error.empty()) {
+          return this->raiseNode(node, error.toString());
+        }
+        return rhs;
+      }
+      case Target::Flavour::Property:
+        return target.object->mutProperty(*this, target.identifier, mutation, rhs);
+      }
+      return this->raiseNode(node, "Internal runtime error: Unknown target flavour");
     }
     RuntimeException unexpectedOpcode(const char* expected, const INode& node) {
       this->updateLocation(node);
@@ -1628,42 +1741,6 @@ namespace {
   };
 }
 
-Target::Target(ProgramDefault& program, const INode& node, Block* block)
-  : program(program) {
-  // WIBBLE WOBBLE
-  EGG_WARNING_SUPPRESS_SWITCH_BEGIN();
-  switch (node.getOpcode()) {
-  case Opcode::IDENTIFIER:
-    this->slot.set(&program.slotIdentifier(node, this->type));
-    return;
-  case Opcode::DECLARE:
-    if (block != nullptr) {
-      // Only allow declaration inside a foreach statement
-      this->slot.set(&program.slotDeclare(node, this->type, *block));
-      return;
-    }
-    break;
-  }
-  EGG_WARNING_SUPPRESS_SWITCH_END();
-  throw program.unexpectedOpcode("target", node);
-}
-
-Value Target::assign(const INode& node, const Value& rhs) {
-  return this->program.slotMutate(*this->slot, node, *this->type, Mutation::Assign, rhs);
-}
-
-Value Target::decrement(const INode& node) {
-  return this->program.slotMutate(*this->slot, node, *this->type, Mutation::Decrement, Value::Void);
-}
-
-Value Target::increment(const INode& node) {
-  return this->program.slotMutate(*this->slot, node, *this->type, Mutation::Increment, Value::Void);
-}
-
-Value Target::mutate(const INode& node, const INode& rhs) {
-  return this->program.slotMutateLazy(*this->slot, node, *this->type, rhs);
-}
-
 Value UserFunction::call(IExecution&, const IParameters&) {
   auto signature = this->type->queryCallable();
   assert(signature != nullptr);
@@ -1681,10 +1758,12 @@ Block::~Block() {
 }
 
 Value ProgramDefault::tryAssign(Symbol& symbol, const Value& value) {
-  auto error = symbol.slot->mutate(*symbol.type, Mutation::Assign, value);
+  assert(symbol.validate(true));
+  auto error = symbol.type->tryAssign(this->allocator, *symbol.slot, value);
   if (!error.empty()) {
     return this->raise(error.toString());
   }
+  assert(symbol.validate(false));
   return Value::Void;
 }
 

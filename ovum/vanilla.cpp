@@ -88,10 +88,12 @@ namespace {
     virtual Type makeUnion(IAllocator& allocator, const IType& rhs) const override {
       return TypeFactory::createUnionJoin(allocator, *this, rhs);
     }
-    virtual Error tryMutate(IAllocator& allocator, ISlot& slot, Mutation mutation, const Value& value) const override {
-      if (mutation == Mutation::Assign) {
-        return this->tryAssign(allocator, slot, value);
-      }
+    virtual Error tryAssign(IAllocator&, ISlot& lhs, const Value& rhs) const override {
+      // WIBBLE
+      lhs.set(rhs);
+      return {};
+    }
+    virtual Error tryMutate(IAllocator&, ISlot&, Mutation, const Value&) const override {
       return Error("Cannot modify values of type '", this->name, "'");
     }
     virtual Erratic<bool> queryAssignableAlways(const IType& rhs) const override {
@@ -119,8 +121,6 @@ namespace {
     virtual std::pair<std::string, int> toStringPrecedence() const override {
       return std::make_pair(this->name, 0);
     }
-  protected:
-    virtual Error tryAssign(IAllocator& allocator, ISlot& slot, const Value& value) const = 0;
   };
 
   class TypeArray : public TypeBase {
@@ -141,11 +141,6 @@ namespace {
     }
     virtual const IIndexSignature* queryIndexable() const override {
       return &indexSignature;
-    }
-  protected:
-    virtual Error tryAssign(IAllocator&, ISlot& slot, const Value& value) const override {
-      slot.assign(value);
-      return {};
     }
   };
   const TypeArray typeArray{};
@@ -169,11 +164,6 @@ namespace {
     virtual const IIndexSignature* queryIndexable() const override {
       return &indexSignature;
     }
-  protected:
-    virtual Error tryAssign(IAllocator&, ISlot& slot, const Value& value) const override {
-      slot.assign(value);
-      return {};
-    }
   };
   const TypeMap typeMap{};
 
@@ -195,11 +185,6 @@ namespace {
     }
     virtual const IIndexSignature* queryIndexable() const override {
       return &indexSignature;
-    }
-  protected:
-    virtual Error tryAssign(IAllocator&, ISlot& slot, const Value& value) const override {
-      slot.assign(value);
-      return {};
     }
   };
   const TypeObject typeObject{};
@@ -227,11 +212,17 @@ namespace {
     virtual Value setProperty(IExecution& execution, const String&, const Value&) override {
       return execution.raise(this->trailing("do not support properties [set]"));
     }
+    virtual Value mutProperty(IExecution& execution, const String&, Mutation, const Value&) override {
+      return execution.raise(this->trailing("do not support properties [mut]"));
+    }
     virtual Value getIndex(IExecution& execution, const Value&) override {
       return execution.raise(this->trailing("do not support indexing with '[]' [get]"));
     }
     virtual Value setIndex(IExecution& execution, const Value&, const Value&) override {
       return execution.raise(this->trailing("do not support indexing with '[]' [set]"));
+    }
+    virtual Value mutIndex(IExecution& execution, const Value&, Mutation, const Value&) override {
+      return execution.raise(this->trailing("do not support indexing with '[]' [mut]"));
     }
     virtual Value iterate(IExecution& execution) override {
       return execution.raise(this->trailing("do not support iteration"));
@@ -272,7 +263,11 @@ namespace {
       if (u >= this->container.size()) {
         return execution.raiseFormat("Invalid array index for an array with ", this->container.size(), " element(s): ", i);
       }
-      return this->container[u].getValue();
+      auto* value = this->container[u].get();
+      if (value == nullptr) {
+        return Value::Void;
+      }
+      return Value(*value);
     }
     virtual Value setIndex(IExecution& execution, const Value& index, const Value& value) override {
       Int i;
@@ -283,7 +278,7 @@ namespace {
       if (u >= this->container.size()) {
         return execution.raiseFormat("Invalid array index for an array with ", this->container.size(), " element(s): ", i);
       }
-      this->container[u].clobber(value);
+      this->container[u].set(value);
       return Value::Void;
     }
     virtual String toString() const override {
@@ -294,7 +289,7 @@ namespace {
       char separator = '[';
       for (auto& slot : this->container) {
         sb.add(separator);
-        auto* value = slot.getReference();
+        auto* value = slot.get();
         if (value != nullptr) {
           sb.add(value->toString());
         }

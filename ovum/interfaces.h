@@ -2,7 +2,6 @@ namespace egg::ovum {
   // Forward declarations
   template<typename T> class Erratic;
   template<typename T> class HardPtr;
-  enum class Mutation;
   enum class ValueFlags;
   struct LocationSource;
   struct NodeLocation;
@@ -15,6 +14,25 @@ namespace egg::ovum {
   class IExecution;
   class ISlot;
   class IValue;
+
+  enum class Mutation {
+    Decrement,
+    Increment,
+    Add,
+    BitwiseAnd,
+    BitwiseOr,
+    BitwiseXor,
+    Divide,
+    IfNull,
+    LogicalAnd,
+    LogicalOr,
+    Multiply,
+    Remainder,
+    ShiftLeft,
+    ShiftRight,
+    ShiftRightUnsigned,
+    Subtract
+  };
 
   class ILogger {
   public:
@@ -174,6 +192,7 @@ namespace egg::ovum {
   public:
     virtual ValueFlags getFlags() const = 0;
     virtual Type makeUnion(IAllocator& allocator, const IType& rhs) const = 0;
+    virtual Error tryAssign(IAllocator& allocator, ISlot& lhs, const Value& rhs) const = 0;
     virtual Error tryMutate(IAllocator& allocator, ISlot& lhs, Mutation mutation, const Value& rhs) const = 0;
     virtual Erratic<bool> queryAssignableAlways(const IType& rhs) const = 0;
     virtual Erratic<Type> queryPropertyType(const String& name) const = 0;
@@ -198,8 +217,10 @@ namespace egg::ovum {
     virtual Value call(IExecution& execution, const IParameters& parameters) = 0;
     virtual Value getProperty(IExecution& execution, const String& property) = 0;
     virtual Value setProperty(IExecution& execution, const String& property, const Value& value) = 0;
+    virtual Value mutProperty(IExecution& execution, const String& property, Mutation mutation, const Value& value) = 0;
     virtual Value getIndex(IExecution& execution, const Value& index) = 0;
     virtual Value setIndex(IExecution& execution, const Value& index, const Value& value) = 0;
+    virtual Value mutIndex(IExecution& execution, const Value& index, Mutation mutation, const Value& value) = 0;
     virtual Value iterate(IExecution& execution) = 0;
   };
 }
