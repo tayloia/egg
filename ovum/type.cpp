@@ -154,7 +154,7 @@ namespace {
   public:
     TypeBase() = default;
     virtual Erratic<Type> queryPropertyType(const String& property) const override {
-      return Erratic<Type>::fail("Values of type '", this->str(), "' do not support properties such as '.", property, "'");
+      return Erratic<Type>::fail("Values of type '", this->str(), "' do not support properties such as '", property, "'");
     }
     virtual Erratic<Type> queryIterable() const override {
       // By default, we are not iterable
@@ -243,7 +243,7 @@ namespace {
     virtual Erratic<Type> queryPropertyType(const String& property) const {
       auto type = ValueFactory::queryBuiltinStringProperty(property);
       if (type == nullptr) {
-        return Erratic<Type>::fail("Unknown property for string: '.", property, "'");
+        return Erratic<Type>::fail("Unknown property for string: '", property, "'");
       }
       return type;
     }
@@ -602,7 +602,7 @@ namespace {
       return false; // sometimes
     }
     virtual Erratic<Type> queryPropertyType(const String& property) const override {
-      return Erratic<Type>::fail("Unknown property for function: '.", property, "'");
+      return Erratic<Type>::fail("Unknown property for function: '", property, "'");
     }
     virtual Erratic<Type> queryIterable() const override {
       return Erratic<Type>::fail("Functions are not iterable");

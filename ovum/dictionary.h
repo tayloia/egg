@@ -119,7 +119,7 @@ namespace egg::ovum {
       // Returns true iff the value exists
       return this->map.count(key) > 0;
     }
-    V* getOrNull(const K& key) const {
+    const V* getOrNull(const K& key) const {
       // Returns the address of the map value or nullptr if not present
       auto found = this->map.find(key);
       if (found != this->map.end()) {
@@ -150,14 +150,6 @@ namespace egg::ovum {
       }
       assert(this->map.size() == this->vec.size());
       return inserted;
-    }
-    void addUnique(const K& key, const V& value) {
-      // Asserts unless an insertion occurred
-      bool inserted = this->map.insert_or_assign(key, value).second;
-      assert(inserted);
-      this->vec.emplace_back(key);
-      assert(this->map.size() == this->vec.size());
-      (void)inserted;
     }
     size_t getKeys(Keys& keys) const {
       // Copy the keys in insertion order

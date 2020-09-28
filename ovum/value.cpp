@@ -56,11 +56,11 @@ namespace {
       // Default equality for constants is when the types are the same
       return rhs.getFlags() == FLAGS;
     }
-    virtual String toString() const override {
-      return Print::toString(FLAGS);
-    }
     virtual bool validate() const override {
       return true;
+    }
+    virtual void toStringBuilder(StringBuilder& sb) const override {
+      Print::add(sb, FLAGS);
     }
     constexpr IValue& instance() const {
       return *const_cast<ValueImmutable*>(this);
@@ -115,8 +115,8 @@ namespace {
       Bool value;
       return rhs.getBool(value) && (value == VALUE);
     }
-    virtual String toString() const override {
-      return Print::toString(VALUE);
+    virtual void toStringBuilder(StringBuilder& sb) const override {
+      Print::add(sb, VALUE);
     }
   };
   const ValueBool<false> theFalse;
@@ -196,11 +196,11 @@ namespace {
       }
       return false;
     }
-    virtual String toString() const override {
-      return Print::toString(this->value);
-    }
     virtual bool validate() const override {
       return true;
+    }
+    virtual void toStringBuilder(StringBuilder& sb) const override {
+      Print::add(sb, this->value);
     }
   };
 
@@ -236,11 +236,11 @@ namespace {
       }
       return false;
     }
-    virtual String toString() const override {
-      return Print::toString(this->value);
-    }
     virtual bool validate() const override {
       return true;
+    }
+    virtual void toStringBuilder(StringBuilder& sb) const override {
+      Print::add(sb, this->value);
     }
   };
 
@@ -268,11 +268,11 @@ namespace {
       String other;
       return rhs.getString(other) && this->value.equals(other);
     }
-    virtual String toString() const override {
-      return this->value;
-    }
     virtual bool validate() const override {
       return this->value.validate();
+    }
+    virtual void toStringBuilder(StringBuilder& sb) const override {
+      Print::add(sb, this->value);
     }
   };
 
@@ -299,11 +299,11 @@ namespace {
       Memory other;
       return rhs.getMemory(other) && Memory::equals(this->value.get(), other.get());
     }
-    virtual String toString() const override {
-      return "<memory>";
-    }
     virtual bool validate() const override {
       return this->value.validate();
+    }
+    virtual void toStringBuilder(StringBuilder& sb) const override {
+      sb.add("<memory>");
     }
   };
 
@@ -330,11 +330,11 @@ namespace {
       Object other{ *this->value };
       return rhs.getObject(other) && (this->value.get() == other.get());
     }
-    virtual String toString() const override {
-      return this->value->toString();
-    }
     virtual bool validate() const override {
       return this->value.validate();
+    }
+    virtual void toStringBuilder(StringBuilder& sb) const override {
+      this->value->toStringBuilder(sb);
     }
   };
 
@@ -361,11 +361,11 @@ namespace {
       Value other;
       return (rhs.getFlags() == ValueFlags::Pointer) && rhs.getChild(other) && this->equals(other.get(), compare);
     }
-    virtual String toString() const override {
-      return "<pointer>";
-    }
     virtual bool validate() const override {
       return this->child.validate();
+    }
+    virtual void toStringBuilder(StringBuilder& sb) const override {
+      sb.add("<pointer>");
     }
   };
 
@@ -395,15 +395,13 @@ namespace {
       Value other;
       return (rhs.getFlags() == this->flags) && rhs.getChild(other) && this->child->equals(other.get(), compare);
     }
-    virtual String toString() const override {
-      StringBuilder sb;
+    virtual bool validate() const override {
+      return this->child.validate();
+    }
+    virtual void toStringBuilder(StringBuilder& sb) const override {
       Print::add(sb, this->flags);
       sb.add(' ');
       Print::add(sb, this->child);
-      return sb.str();
-    }
-    virtual bool validate() const override {
-      return this->child.validate();
     }
   };
 

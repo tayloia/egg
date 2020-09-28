@@ -592,7 +592,7 @@ egg::ovum::Value egg::yolk::EggProgramContext::dotGet(const egg::ovum::Value& in
   if (direct.hasString()) {
     return egg::yolk::Builtins::stringBuiltin(*this, direct.getString(), property);
   }
-  return this->raiseFormat("Values of type '", instance.getRuntimeType().toString(), "' do not support properties such as '.", property, "'");
+  return this->raiseFormat("Values of type '", instance.getRuntimeType().toString(), "' do not support properties such as '", property, "'");
 }
 
 egg::ovum::Value egg::yolk::EggProgramContext::dotSet(const egg::ovum::Value& instance, const egg::ovum::String& property, const egg::ovum::Value& value) {
@@ -603,9 +603,9 @@ egg::ovum::Value egg::yolk::EggProgramContext::dotSet(const egg::ovum::Value& in
     return object->setProperty(*this, property, value);
   }
   if (direct.hasString()) {
-    return this->raiseFormat("Strings do not support modification through properties such as '.", property, "'");
+    return this->raiseFormat("Strings do not support modification through properties such as '", property, "'");
   }
-  return this->raiseFormat("Values of type '", instance.getRuntimeType().toString(), "' do not support modification of properties such as '.", property, "'");
+  return this->raiseFormat("Values of type '", instance.getRuntimeType().toString(), "' do not support modification of properties such as '", property, "'");
 }
 
 egg::ovum::Value egg::yolk::EggProgramContext::bracketsGet(const egg::ovum::Value& instance, const egg::ovum::Value& index) {

@@ -35,8 +35,13 @@ namespace egg::ovum {
     virtual ValueFlags getFlags() const = 0;
     virtual Type getRuntimeType() const = 0;
     virtual bool equals(const IValue& rhs, ValueCompare compare) const = 0;
-    virtual String toString() const = 0;
+    virtual void toStringBuilder(StringBuilder& sb) const = 0;
     virtual bool validate() const = 0;
+    String toString() const {
+      StringBuilder sb;
+      this->toStringBuilder(sb);
+      return sb.str();
+    }
   };
 
   class Value {

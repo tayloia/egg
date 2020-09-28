@@ -7,7 +7,7 @@ namespace egg::ovum {
     };
 
     static const Type Array;
-    static const Type Map;
+    static const Type Dictionary;
     static const Type Object;
     static const IFunctionSignature& FunctionSignature;
   };
@@ -26,7 +26,7 @@ namespace egg::ovum {
   class VanillaFactory {
   public:
     static Object createArray(IAllocator& allocator, size_t fixed);
-    static Object createMap(IAllocator& allocator);
+    static Object createDictionary(IAllocator& allocator);
     static Object createObject(IAllocator& allocator);
     static Object createError(IAllocator& allocator, const LocationSource& location, const String& message);
     static Object createPredicate(IAllocator& allocator, Vanilla::IPredicateCallback& callback, const INode& node);

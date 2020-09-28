@@ -6,5 +6,5 @@ print(a);
 ///>{p:123}
 a.i = "hello";
 print(a);
-///>{p:123,i:hello}
+///>{p:123,i:"hello"}
 // TODO delete map elements

@@ -2,6 +2,7 @@
 #include "ovum/dictionary.h"
 #include "ovum/node.h"
 #include "ovum/slot.h"
+#include "ovum/print.h"
 #include "ovum/vanilla.h"
 
 namespace {
@@ -11,7 +12,8 @@ namespace {
     VanillaStringValueMap(const VanillaStringValueMap&) = delete;
     VanillaStringValueMap& operator=(const VanillaStringValueMap&) = delete;
   private:
-    Dictionary<String, Slot> container;
+    using Container = SlotMap<String>;
+    Container container;
   public:
     VanillaStringValueMap(IAllocator& allocator)
       : SoftReferenceCounted(allocator) {
@@ -19,23 +21,39 @@ namespace {
     virtual void softVisitLinks(const Visitor&) const override {
       // WIBBLE
     }
-    virtual bool get(const String&, Value&) const override {
-      // WIBBLE
+    virtual bool get(const String& key, Value& value) const override {
+      auto ref = this->container.getOrNull(key);
+      if (ref != nullptr) {
+        value = Value(*ref->get());
+        return true;
+      }
       return false;
     }
-    virtual void add(const String&, const Value&) override {
-      // WIBBLE
+    virtual void add(const String& key, const Value& value) override {
+      auto added = this->container.addOrUpdate(this->allocator, key, value);
+      assert(added);
+      (void)added;
     }
-    virtual void set(const String&, const Value&) override {
-      // WIBBLE
+    virtual void set(const String& key, const Value& value) override {
+      (void)this->container.addOrUpdate(this->allocator, key, value);
     }
     virtual HardPtr<ISlot> slot(const String&) const override {
       // WIBBLE
       return nullptr;
     }
+    void toString(StringBuilder& sb, char& separator) const {
+      this->container.foreach([&](const String& key, const Slot& slot) {
+        auto* value = slot.get();
+        if (value != nullptr) {
+          sb.add(separator, key, ':');
+          Print::add(sb, Value(*value));
+          separator = ',';
+        }
+      });
+    }
   };
 
-  // An vanilla function looks like this: 'any?(...any?[])'
+  // A vanilla function looks like this: 'any?(...any?[])'
   class FunctionSignature : public IFunctionSignature {
     FunctionSignature(const FunctionSignature&) = delete;
     FunctionSignature& operator=(const FunctionSignature&) = delete;
@@ -43,7 +61,7 @@ namespace {
     class Parameter : public IFunctionSignatureParameter {
     public:
       virtual String getName() const override {
-        return String();
+        return "<WIBBLE>";
       }
       virtual Type getType() const override {
         return Type::AnyQ;
@@ -59,7 +77,7 @@ namespace {
   public:
     FunctionSignature() {}
     virtual String getFunctionName() const override {
-      return String();
+      return "<WIBBLE>";
     }
     virtual Type getReturnType() const override {
       return Type::AnyQ;
@@ -145,9 +163,9 @@ namespace {
   };
   const TypeArray typeArray{};
 
-  class TypeMap : public TypeBase {
-    TypeMap(const TypeMap&) = delete;
-    TypeMap& operator=(const TypeMap&) = delete;
+  class TypeDictionary : public TypeBase {
+    TypeDictionary(const TypeDictionary&) = delete;
+    TypeDictionary& operator=(const TypeDictionary&) = delete;
   private:
     class IndexSignature : public IIndexSignature {
       virtual Type getResultType() const override {
@@ -159,13 +177,13 @@ namespace {
     };
     static inline const IndexSignature indexSignature{};
   public:
-    TypeMap() : TypeBase("any?{string}") {
+    TypeDictionary() : TypeBase("any?{string}") {
     }
     virtual const IIndexSignature* queryIndexable() const override {
       return &indexSignature;
     }
   };
-  const TypeMap typeMap{};
+  const TypeDictionary typeDictionary{};
 
   class TypeObject : public TypeBase {
     TypeObject(const TypeObject&) = delete;
@@ -200,8 +218,8 @@ namespace {
     virtual bool validate() const override {
       return true;
     }
-    virtual String toString() const override {
-      return StringBuilder::concat('<', this->getRuntimeType().toString(), '>');
+    virtual void toStringBuilder(StringBuilder& sb) const override {
+      sb.add('<', this->getRuntimeType().toString(), '>');
     }
     virtual Value call(IExecution& execution, const IParameters&) override {
       return execution.raise(this->trailing("do not support calling with '()'"));
@@ -252,7 +270,7 @@ namespace {
       if (property == "length") {
         return ValueFactory::createInt(this->allocator, Int(this->container.size()));
       }
-      return execution.raiseFormat("Array does not have property: '.", property, "'");
+      return execution.raiseFormat("Array does not have property: '", property, "'");
     }
     virtual Value setProperty(IExecution& execution, const String& property, const Value& value) override {
       if (property == "length") {
@@ -266,7 +284,7 @@ namespace {
         this->resize(size_t(length));
         return Value::Void;
       }
-      return execution.raiseFormat("Array does not have property: '.", property, "'");
+      return execution.raiseFormat("Array does not have property: '", property, "'");
     }
     virtual Value getIndex(IExecution& execution, const Value& index) override {
       Int i;
@@ -293,11 +311,7 @@ namespace {
       this->container[u].set(value);
       return Value::Void;
     }
-    virtual String toString() const override {
-      if (this->container.empty()) {
-        return "[]";
-      }
-      StringBuilder sb;
+    virtual void toStringBuilder(StringBuilder& sb) const override {
       char separator = '[';
       for (auto& slot : this->container) {
         sb.add(separator);
@@ -307,8 +321,10 @@ namespace {
         }
         separator = ',';
       }
+      if (separator == '[') {
+        sb.add(separator);
+      }
       sb.add(']');
-      return sb.str();
     }
   private:
     void resize(size_t size) {
@@ -328,26 +344,38 @@ namespace {
     }
   };
 
-  class VanillaMap : public VanillaBase {
-    VanillaMap(const VanillaMap&) = delete;
-    VanillaMap& operator=(const VanillaMap&) = delete;
+  class VanillaDictionary : public VanillaBase {
+    VanillaDictionary(const VanillaDictionary&) = delete;
+    VanillaDictionary& operator=(const VanillaDictionary&) = delete;
   protected:
     VanillaStringValueMap map;
   public:
-    explicit VanillaMap(IAllocator& allocator)
+    explicit VanillaDictionary(IAllocator& allocator)
       : VanillaBase(allocator),
         map(allocator) {
       assert(this->validate());
     }
     virtual Type getRuntimeType() const override {
-      return Vanilla::Map;
+      return Vanilla::Dictionary;
     }
     virtual Value getProperty(IExecution& execution, const String& property) override {
       Value value;
-      if (!map.get(property, value)) {
-        return execution.raiseFormat("Object does not have property: '.", property, "'");
+      if (!this->map.get(property, value)) {
+        return execution.raiseFormat("Object does not have property: '", property, "'");
       }
       return value;
+    }
+    virtual Value setProperty(IExecution&, const String& property, const Value& value) override {
+      this->map.set(property, value);
+      return Value::Void;
+    }
+    virtual void toStringBuilder(StringBuilder& sb) const override {
+      char separator = '{';
+      this->map.toString(sb, separator);
+      if (separator == '{') {
+        sb.add(separator);
+      }
+      sb.add('}');
     }
   };
 
@@ -355,7 +383,7 @@ namespace {
     VanillaObject(const VanillaObject&) = delete;
     VanillaObject& operator=(const VanillaObject&) = delete;
   protected:
-    VanillaStringValueMap map;
+    VanillaStringValueMap map; // WIBBLE VanillaValueValueMap
   public:
     explicit VanillaObject(IAllocator& allocator)
       : VanillaBase(allocator),
@@ -367,10 +395,14 @@ namespace {
     }
     virtual Value getProperty(IExecution& execution, const String& property) override {
       Value value;
-      if (!map.get(property, value)) {
-        return execution.raiseFormat("Object does not have property: '.", property, "'");
+      if (!this->map.get(property, value)) {
+        return execution.raiseFormat("Object does not have property: '", property, "'");
       }
       return value;
+    }
+    virtual Value setProperty(IExecution&, const String& property, const Value& value) override {
+      this->map.set(property, value);
+      return Value::Void;
     }
   };
 
@@ -389,9 +421,6 @@ namespace {
     }
     virtual void softVisitLinks(const Visitor&) const override {
       // There are no soft link to visit
-    }
-    virtual String toString() const override {
-      return "<predicate>";
     }
     virtual Type getRuntimeType() const override {
       return Vanilla::Object;
@@ -417,6 +446,9 @@ namespace {
     virtual Value iterate(IExecution& execution) override {
       return execution.raise("Internal runtime error: Predicates do not support iteration");
     }
+    virtual void toStringBuilder(StringBuilder& sb) const override {
+      sb.add("<predicate>");
+    }
   };
 
   class VanillaError : public VanillaObject {
@@ -438,14 +470,14 @@ namespace {
       sb.add(message);
       this->readable = sb.str();
     }
-    virtual String toString() const override {
-      return this->readable;
+    virtual void toStringBuilder(StringBuilder& sb) const override {
+      sb.add(this->readable);
     }
   };
 }
 
 const egg::ovum::Type egg::ovum::Vanilla::Array{ &typeArray };
-const egg::ovum::Type egg::ovum::Vanilla::Map{ &typeMap };
+const egg::ovum::Type egg::ovum::Vanilla::Dictionary{ &typeDictionary };
 const egg::ovum::Type egg::ovum::Vanilla::Object{ &typeObject };
 const egg::ovum::IFunctionSignature& egg::ovum::Vanilla::FunctionSignature{ functionSignature };
 
@@ -453,8 +485,8 @@ egg::ovum::Object egg::ovum::VanillaFactory::createArray(IAllocator& allocator, 
   return ObjectFactory::create<VanillaArray>(allocator, fixed);
 }
 
-egg::ovum::Object egg::ovum::VanillaFactory::createMap(IAllocator& allocator) {
-  return ObjectFactory::create<VanillaMap>(allocator);
+egg::ovum::Object egg::ovum::VanillaFactory::createDictionary(IAllocator& allocator) {
+  return ObjectFactory::create<VanillaDictionary>(allocator);
 }
 
 egg::ovum::Object egg::ovum::VanillaFactory::createObject(IAllocator& allocator) {

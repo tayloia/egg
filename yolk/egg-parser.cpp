@@ -834,7 +834,7 @@ namespace {
       : EggParserNodeBase(locationSource) {
     }
     virtual egg::ovum::Type getType() const override {
-      return egg::ovum::Vanilla::Map;
+      return egg::ovum::Vanilla::Dictionary;
     }
     virtual EggProgramNodeFlags prepare(EggProgramContext& context) override {
       return context.prepareObject(this->child);

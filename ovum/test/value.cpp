@@ -114,7 +114,7 @@ TEST(TestValue, Memory) {
 
 TEST(TestValue, Object) {
   egg::test::Allocator allocator;
-  auto object = egg::ovum::ObjectFactory::createEmptyMap(allocator);
+  auto object = egg::ovum::ObjectFactory::createEmpty(allocator);
   auto value = egg::ovum::ValueFactory::createObject(allocator, object);
   ASSERT_EQ(Flags::Object, value->getFlags());
   egg::ovum::Object actual;

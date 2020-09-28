@@ -500,6 +500,7 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareCall(IEggPro
     return EggProgramNodeFlags::Abandon;
   }
   auto ctype = callee.getType();
+  assert(ctype != nullptr);
   auto* callable = ctype->queryCallable();
   if (callable == nullptr) {
     return this->compilerError(callee.location(), "Expected function-like expression to be callable, but got '", ctype.toString(), "' instead");

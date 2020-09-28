@@ -29,6 +29,56 @@ namespace {
     }
   };
 
+  enum class SignatureParts {
+    ReturnType = 0x01,
+    FunctionName = 0x02,
+    ParameterList = 0x04,
+    ParameterNames = 0x08,
+    NoNames = ReturnType | ParameterList,
+    All = ~0
+  };
+  String signatureToString(const IFunctionSignature& signature, SignatureParts parts = SignatureParts::All) {
+    // TODO better formatting of named/variadic etc.
+    StringBuilder sb;
+    if (Bits::hasAnySet(parts, SignatureParts::ReturnType)) {
+      // Use precedence zero to get any necessary parentheses
+      sb.add(signature.getReturnType().toString(0));
+    }
+    if (Bits::hasAnySet(parts, SignatureParts::FunctionName)) {
+      auto name = signature.getFunctionName();
+      if (!name.empty()) {
+        sb.add(' ', name);
+      }
+    }
+    if (Bits::hasAnySet(parts, SignatureParts::ParameterList)) {
+      sb.add('(');
+      auto n = signature.getParameterCount();
+      for (size_t i = 0; i < n; ++i) {
+        if (i > 0) {
+          sb.add(", ");
+        }
+        auto& parameter = signature.getParameter(i);
+        assert(parameter.getPosition() != SIZE_MAX);
+        if (Bits::hasAnySet(parameter.getFlags(), IFunctionSignatureParameter::Flags::Variadic)) {
+          sb.add("...");
+        } else {
+          sb.add(parameter.getType().toString());
+          if (Bits::hasAnySet(parts, SignatureParts::ParameterNames)) {
+            auto pname = parameter.getName();
+            if (!pname.empty()) {
+              sb.add(' ', pname);
+            }
+          }
+          if (!Bits::hasAnySet(parameter.getFlags(), IFunctionSignatureParameter::Flags::Required)) {
+            sb.add(" = null");
+          }
+        }
+      }
+      sb.add(')');
+    }
+    return sb.str();
+  }
+
   class Parameters : public IParameters {
     Parameters(const Parameters&) = delete;
     Parameters& operator=(const Parameters&) = delete;
@@ -86,8 +136,8 @@ namespace {
     virtual void softVisitLinks(const Visitor&) const override {
       // WIBBLE
     }
-    virtual String toString() const override {
-      return "<user-function>";
+    virtual void toStringBuilder(StringBuilder& sb) const override {
+      sb.add("<user-function>");
     }
     virtual Type getRuntimeType() const override {
       return this->type;
@@ -302,6 +352,81 @@ namespace {
     }
     virtual void print(const std::string& utf8) override {
       this->logger.log(ILogger::Source::User, ILogger::Severity::Information, utf8);
+    }
+    Value executeCall(const LocationSource& source, const IFunctionSignature& signature, const IParameters& runtime, const INode& block) {
+      // We have to be careful to get the location correct
+      assert(block.getOpcode() == Opcode::BLOCK);
+      if (runtime.getNamedCount() > 0) {
+        return this->raiseFormat(signatureToString(signature), ": Named parameters are not yet supported"); // TODO
+      }
+      auto maxPositional = signature.getParameterCount();
+      auto minPositional = maxPositional;
+      while ((minPositional > 0) && !Bits::hasAnySet(signature.getParameter(minPositional - 1).getFlags(), IFunctionSignatureParameter::Flags::Required)) {
+        minPositional--;
+      }
+      auto numPositional = runtime.getPositionalCount();
+      if (numPositional < minPositional) {
+        if (minPositional == 1) {
+          return this->raiseFormat(signatureToString(signature), ": At least 1 parameter was expected");
+        }
+        return this->raiseFormat(signatureToString(signature), ": At least ", minPositional, " parameters were expected, but got ", numPositional);
+      }
+      if ((maxPositional > 0) && Bits::hasAnySet(signature.getParameter(maxPositional - 1).getFlags(), IFunctionSignatureParameter::Flags::Variadic)) {
+        // TODO Variadic
+        return this->raiseFormat(signatureToString(signature), ": Variadic parameters not yet supported");
+      } else if (numPositional > maxPositional) {
+        // Not variadic
+        if (maxPositional == 1) {
+          return this->raiseFormat(signatureToString(signature), ": Only 1 parameter was expected, not ", numPositional);
+        }
+        return this->raiseFormat(signatureToString(signature), ": No more than ", maxPositional, " parameters were expected, but got ", numPositional);
+      }
+      Block scope(*this);
+      for (size_t i = 0; i < maxPositional; ++i) {
+        auto& sigparam = signature.getParameter(i);
+        auto pname = sigparam.getName();
+        assert(!pname.empty());
+        auto position = sigparam.getPosition();
+        assert(position < numPositional);
+        auto ptype = sigparam.getType();
+        auto pvalue = runtime.getPositional(position);
+        auto retval = scope.guard(source, ptype, pname, pvalue);
+        Bool matched;
+        if (!retval->getBool(matched)) {
+          return retval;
+        }
+        if (!matched) {
+          // Type mismatch on parameter
+          auto* plocation = runtime.getPositionalLocation(position);
+          if (plocation != nullptr) {
+            // Update our current source location (it will be restored when expressionCall returns)
+            this->location = *plocation;
+          }
+          return this->raiseFormat("Type mismatch for parameter '", pname, "': Expected '", ptype.toString(), "', but got '", pvalue->getRuntimeType().toString(), "' instead");
+        }
+      }
+      auto retval = this->executeBlock(scope, block);
+      if (retval.hasAnyFlags(ValueFlags::Return)) {
+        if (retval->getChild(retval)) {
+          // Simple 'return <value>'
+          return retval;
+        }
+        return Value::Void;
+      }
+      if (retval.hasFlowControl()) {
+        // Probably an exception
+        return retval;
+      }
+      if (retval->getVoid()) {
+        // Ran off the bottom of the function
+        auto rettype = signature.getReturnType();
+        assert(rettype != nullptr);
+        if (rettype.hasAnyFlags(ValueFlags::Void)) {
+          // Implicit 'return;' at end of function
+          return retval;
+        }
+      }
+      throw RuntimeException(this->location, "Expected function to return, but got '", retval->getRuntimeType().toString(), "' instead");
     }
     virtual Value predicateCallback(const INode& node) override {
       // We have to be careful to get the location correct
@@ -1043,7 +1168,7 @@ namespace {
     }
     Value expressionOvalue(const INode& node) {
       assert(node.getOpcode() == Opcode::OVALUE);
-      auto object = VanillaFactory::createMap(this->allocator);
+      auto object = VanillaFactory::createDictionary(this->allocator);
       auto n = node.getChildren();
       for (size_t i = 0; i < n; ++i) {
         auto& named = node.getChild(i);
@@ -1189,7 +1314,7 @@ namespace {
       if (lhs->getString(string)) {
         return this->stringProperty(string, pname);
       }
-      return this->raiseNode(node, "Values of type '", lhs->getRuntimeType().toString(), "' do not support properties such as '.", pname, "'");
+      return this->raiseNode(node, "Values of type '", lhs->getRuntimeType().toString(), "' do not support properties such as '", pname, "'");
     }
     // Strings
     Value stringForeach(const String& string, const Target& target, const INode& statements, Block& block) {
@@ -1231,7 +1356,7 @@ namespace {
     Value stringProperty(const String& string, const String& property) {
       auto retval = ValueFactory::createBuiltinStringProperty(this->allocator, string, property);
       if (retval->getVoid()) {
-        return this->raiseFormat("Unknown property for 'string' value: '.", property, "'");
+        return this->raiseFormat("Unknown property for 'string' value: '", property, "'");
       }
       return retval;
     }
@@ -1538,7 +1663,7 @@ namespace {
         break;
       case Opcode::OBJECT:
         if (children == 0) {
-          return Vanilla::Map;
+          return Vanilla::Dictionary;
         }
         if (children == 1) {
           auto& callable = node.getChild(0);
@@ -1651,9 +1776,9 @@ namespace {
       }
       String string;
       if (lhs->getString(string)) {
-        return this->raiseNode(node, "Values of type 'string' do not support modification of properties such as '.", target.identifier, "'");
+        return this->raiseNode(node, "Strings do not support modification of properties such as '", target.identifier, "'");
       }
-      return this->raiseNode(node, "Values of type '", lhs->getRuntimeType().toString(), "' do not support properties such as '.", target.identifier, "'");
+      return this->raiseNode(node, "Values of type '", lhs->getRuntimeType().toString(), "' do not support properties such as '", target.identifier, "'");
     }
     Value targetIndex(Target& target, const INode& node) {
       assert(node.getOpcode() == Opcode::INDEX);
@@ -1773,13 +1898,10 @@ namespace {
   };
 }
 
-Value UserFunction::call(IExecution&, const IParameters&) {
+Value UserFunction::call(IExecution&, const IParameters& parameters) {
   auto signature = this->type->queryCallable();
   assert(signature != nullptr);
-  (void)signature;
-  // WIBBLE assert(this->captured != nullptr);
-  // WIBBLE return this->program.executeCall(this->location, *signature, parameters, *this->block, *this->captured);
-  return this->program.raiseLocation(this->location, "WIBBLE: UserFunction::call not yet implemented");
+  return this->program.executeCall(this->location, *signature, parameters, *this->block);
 }
 
 Block::~Block() {
@@ -1812,7 +1934,6 @@ void ProgramDefault::blockUndeclare(const String& identifier) {
 }
 
 egg::ovum::Value Block::declare(const LocationSource& source, const Type& type, const String& name, const Value* init) {
-  // WIBBLE WOBBLE return Error instead
   // Keep track of names successfully declared in this block
   auto* symbol = this->program.blockDeclare(source, type, name);
   if (symbol == nullptr) {

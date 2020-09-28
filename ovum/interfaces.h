@@ -8,6 +8,7 @@ namespace egg::ovum {
   class Error;
   class Node;
   class String;
+  class StringBuilder;
   class Type;
   class Value;
   class ICollectable;
@@ -212,7 +213,7 @@ namespace egg::ovum {
   public:
     // Interface
     virtual bool validate() const = 0;
-    virtual String toString() const = 0;
+    virtual void toStringBuilder(StringBuilder& sb) const = 0;
     virtual Type getRuntimeType() const = 0;
     virtual Value call(IExecution& execution, const IParameters& parameters) = 0;
     virtual Value getProperty(IExecution& execution, const String& property) = 0;
@@ -222,5 +223,6 @@ namespace egg::ovum {
     virtual Value setIndex(IExecution& execution, const Value& index, const Value& value) = 0;
     virtual Value mutIndex(IExecution& execution, const Value& index, Mutation mutation, const Value& value) = 0;
     virtual Value iterate(IExecution& execution) = 0;
+    String toString() const;
   };
 }
