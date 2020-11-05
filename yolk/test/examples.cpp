@@ -99,7 +99,7 @@ namespace {
   };
 }
 
-TEST_P(TestExamples, Run) {
+TEST_P(TestExamples, DISABLED_Run) {
   this->run();
 }
 

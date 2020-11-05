@@ -69,7 +69,7 @@ TEST(TestEggEngine, DuplicateSymbols) {
                                       "<COMPILER>(1,5): Previous declaration was here\n");
 }
 
-TEST(TestEggEngine, WorkingFile) {
+TEST(TestEggEngine, DISABLED_WorkingFile) {
   // TODO still needed?
   egg::test::EggEngineContext context;
   FileTextStream stream("~/yolk/test/data/working.egg");
@@ -80,7 +80,7 @@ TEST(TestEggEngine, WorkingFile) {
   ASSERT_EQ("55\n4950\n", context.logged());
 }
 
-TEST(TestEggEngine, Coverage) {
+TEST(TestEggEngine, DISABLED_Coverage) {
   // This script is used to cover most language feature
   egg::test::EggEngineContext context;
   FileTextStream stream("~/yolk/test/data/coverage.egg");
