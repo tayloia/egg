@@ -9,7 +9,6 @@ namespace egg::ovum {
   X(Float, "float") \
   X(String, "string") \
   X(Object, "object") \
-  X(Memory, "memory") \
   X(Pointer, "pointer") \
   X(Break, "break") \
   X(Continue, "continue") \
@@ -61,7 +60,6 @@ namespace egg::ovum {
     static const Type Int;
     static const Type Float;
     static const Type String;
-    static const Type Memory;
     static const Type Arithmetic;
     static const Type Any;
     static const Type AnyQ;

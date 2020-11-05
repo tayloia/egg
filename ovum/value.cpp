@@ -38,9 +38,6 @@ namespace {
     virtual bool getObject(Object&) const override {
       return false;
     }
-    virtual bool getMemory(Memory&) const override {
-      return false;
-    }
     virtual bool getChild(Value&) const override {
       return false;
     }
@@ -154,9 +151,6 @@ namespace {
       return false;
     }
     virtual bool getObject(Object&) const override {
-      return false;
-    }
-    virtual bool getMemory(Memory&) const override {
       return false;
     }
     virtual bool getChild(Value&) const override {
@@ -273,37 +267,6 @@ namespace {
     }
     virtual void toStringBuilder(StringBuilder& sb) const override {
       Print::add(sb, this->value);
-    }
-  };
-
-  class ValueMemory final : public ValueMutable {
-    ValueMemory(const ValueMemory&) = delete;
-    ValueMemory& operator=(const ValueMemory&) = delete;
-  private:
-    Memory value;
-  public:
-    ValueMemory(IAllocator& allocator, const Memory& value) : ValueMutable(allocator), value(value) {
-      assert(this->validate());
-    }
-    virtual ValueFlags getFlags() const override {
-      return ValueFlags::Memory;
-    }
-    virtual Type getRuntimeType() const override {
-      return Type::Memory;
-    }
-    virtual bool getMemory(Memory& result) const override {
-      result = this->value;
-      return true;
-    }
-    virtual bool equals(const IValue& rhs, ValueCompare) const override {
-      Memory other;
-      return rhs.getMemory(other) && Memory::equals(this->value.get(), other.get());
-    }
-    virtual bool validate() const override {
-      return this->value.validate();
-    }
-    virtual void toStringBuilder(StringBuilder& sb) const override {
-      sb.add("<memory>");
     }
   };
 
@@ -454,10 +417,6 @@ egg::ovum::Value egg::ovum::ValueFactory::createString(IAllocator& allocator, co
 
 egg::ovum::Value egg::ovum::ValueFactory::createObject(IAllocator& allocator, const Object& value) {
   return Value(*allocator.make<ValueObject, IValue*>(value));
-}
-
-egg::ovum::Value egg::ovum::ValueFactory::createMemory(IAllocator& allocator, const Memory& value) {
-  return Value(*allocator.make<ValueMemory, IValue*>(value));
 }
 
 egg::ovum::Value egg::ovum::ValueFactory::createPointer(IAllocator& allocator, const Value& value) {

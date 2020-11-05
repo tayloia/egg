@@ -295,14 +295,6 @@ namespace {
   };
   const TypeString typeString{};
 
-  class TypeMemory : public TypeCommon<ValueFlags::Memory> {
-    TypeMemory(const TypeMemory&) = delete;
-    TypeMemory& operator=(const TypeMemory&) = delete;
-  public:
-    TypeMemory() = default;
-  };
-  const TypeMemory typeMemory{};
-
   class TypeAny : public TypeCommon<ValueFlags::Any> {
     TypeAny(const TypeAny&) = delete;
     TypeAny& operator=(const TypeAny&) = delete;
@@ -844,7 +836,6 @@ const egg::ovum::Type egg::ovum::Type::Bool{ &typeBool };
 const egg::ovum::Type egg::ovum::Type::Int{ &typeInt };
 const egg::ovum::Type egg::ovum::Type::Float{ &typeFloat };
 const egg::ovum::Type egg::ovum::Type::String{ &typeString };
-const egg::ovum::Type egg::ovum::Type::Memory{ &typeMemory };
 const egg::ovum::Type egg::ovum::Type::Arithmetic{ &typeArithmetic };
 const egg::ovum::Type egg::ovum::Type::Any{ &typeAny };
 const egg::ovum::Type egg::ovum::Type::AnyQ{ &typeAnyQ };

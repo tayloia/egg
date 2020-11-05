@@ -30,7 +30,6 @@ namespace egg::ovum {
     virtual bool getFloat(Float& value) const = 0;
     virtual bool getString(String& value) const = 0;
     virtual bool getObject(Object& value) const = 0;
-    virtual bool getMemory(Memory& value) const = 0;
     virtual bool getChild(Value& child) const = 0;
     virtual ValueFlags getFlags() const = 0;
     virtual Type getRuntimeType() const = 0;
@@ -120,7 +119,6 @@ namespace egg::ovum {
     static Value createFloat(IAllocator& allocator, Float value);
     static Value createString(IAllocator& allocator, const String& value);
     static Value createObject(IAllocator& allocator, const Object& value);
-    static Value createMemory(IAllocator& allocator, const Memory& value);
     static Value createPointer(IAllocator& allocator, const Value& pointee);
     static Value createFlowControl(IAllocator& allocator, ValueFlags flags, const Value& value);
     static Value createThrowError(IAllocator& allocator, const LocationSource& location, const String& message);

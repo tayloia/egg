@@ -97,21 +97,6 @@ TEST(TestValue, String) {
   ASSERT_VALUE("goodbye", value);
 }
 
-TEST(TestValue, Memory) {
-  egg::test::Allocator allocator;
-  char goodbye[] = "goodbye";
-  egg::ovum::IMemory::Tag tag;
-  tag.p = goodbye;
-  auto memory = egg::ovum::MemoryFactory::createImmutable(allocator, "hello world", 11, tag);
-  ASSERT_NE(nullptr, memory);
-  ASSERT_EQ(goodbye, memory->tag().p);
-  auto value = egg::ovum::ValueFactory::createMemory(allocator, memory);
-  ASSERT_VALUE(Flags::Memory, value);
-  egg::ovum::Memory actual;
-  ASSERT_TRUE(value->getMemory(actual));
-  ASSERT_EQ(memory.get(), actual.get());
-}
-
 TEST(TestValue, Object) {
   egg::test::Allocator allocator;
   auto object = egg::ovum::ObjectFactory::createEmpty(allocator);
