@@ -34,7 +34,7 @@ namespace egg::test {
     // See https://github.com/google/googletest/blob/master/googletest/docs/AdvancedGuide.md#how-to-write-value-parameterized-tests
     auto& registry = ::testing::UnitTest::GetInstance()->parameterized_test_registry();
     auto* holder = registry.GetTestCasePatternHolder<T>(name, ::testing::internal::CodeLocation(file, line));
-    return holder->AddTestCaseInstantiation("", &T::generator, &T::name, file, line);
+    return holder->AddTestSuiteInstantiation("", &T::generator, &T::name, file, line);
   }
 }
 

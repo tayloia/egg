@@ -1,13 +1,12 @@
 ########################################################################
+# Note: CMake support is community-based. The maintainers do not use CMake
+# internally.
+#
 # CMake build script for Google Test.
 #
 # To run the tests for Google Test itself on Linux, use 'make test' or
 # ctest.  You can select which tests to run using 'ctest -R regex'.
 # For more options, run 'ctest --help'.
-
-# BUILD_SHARED_LIBS is a standard CMake variable, but we declare it here to
-# make it prominent in the GUI.
-option(BUILD_SHARED_LIBS "Build shared libraries (DLLs)." OFF)
 
 # When other libraries are using a shared version of runtime libraries,
 # Google Test also has to use one.
@@ -44,11 +43,15 @@ endif()
 # as ${gtest_SOURCE_DIR} and to the root binary directory as
 # ${gtest_BINARY_DIR}.
 # Language "C" is required for find_package(Threads).
+
+# Project version:
+
 if (CMAKE_VERSION VERSION_LESS 3.0)
   project(gtest CXX C)
+  set(PROJECT_VERSION ${GOOGLETEST_VERSION})
 else()
   cmake_policy(SET CMP0048 NEW)
-  project(gtest VERSION 1.9.0 LANGUAGES CXX C)
+  project(gtest VERSION ${GOOGLETEST_VERSION} LANGUAGES CXX C)
 endif()
 cmake_minimum_required(VERSION 2.6.4)
 
@@ -60,6 +63,25 @@ if (COMMAND set_up_hermetic_build)
   set_up_hermetic_build()
 endif()
 
+# These commands only run if this is the main project
+if(CMAKE_PROJECT_NAME STREQUAL "gtest" OR CMAKE_PROJECT_NAME STREQUAL "googletest-distribution")
+
+  # BUILD_SHARED_LIBS is a standard CMake variable, but we declare it here to
+  # make it prominent in the GUI.
+  option(BUILD_SHARED_LIBS "Build shared libraries (DLLs)." OFF)
+
+else()
+
+  mark_as_advanced(
+    gtest_force_shared_crt
+    gtest_build_tests
+    gtest_build_samples
+    gtest_disable_pthreads
+    gtest_hide_internal_symbols)
+
+endif()
+
+
 if (gtest_hide_internal_symbols)
   set(CMAKE_CXX_VISIBILITY_PRESET hidden)
   set(CMAKE_VISIBILITY_INLINES_HIDDEN 1)
@@ -70,22 +92,30 @@ include(cmake/internal_utils.cmake)
 
 config_compiler_and_linker()  # Defined in internal_utils.cmake.
 
+# Create the CMake package file descriptors.
+if (INSTALL_GTEST)
+  include(CMakePackageConfigHelpers)
+  set(cmake_package_name GTest)
+  set(targets_export_name ${cmake_package_name}Targets CACHE INTERNAL "")
+  set(generated_dir "${CMAKE_CURRENT_BINARY_DIR}/generated" CACHE INTERNAL "")
+  set(cmake_files_install_dir "${CMAKE_INSTALL_LIBDIR}/cmake/${cmake_package_name}")
+  set(version_file "${generated_dir}/${cmake_package_name}ConfigVersion.cmake")
+  write_basic_package_version_file(${version_file} VERSION ${GOOGLETEST_VERSION} COMPATIBILITY AnyNewerVersion)
+  install(EXPORT ${targets_export_name}
+    NAMESPACE ${cmake_package_name}::
+    DESTINATION ${cmake_files_install_dir})
+  set(config_file "${generated_dir}/${cmake_package_name}Config.cmake")
+  configure_package_config_file("${gtest_SOURCE_DIR}/cmake/Config.cmake.in"
+    "${config_file}" INSTALL_DESTINATION ${cmake_files_install_dir})
+  install(FILES ${version_file} ${config_file}
+    DESTINATION ${cmake_files_install_dir})
+endif()
+
 # Where Google Test's .h files can be found.
-include_directories(
+set(gtest_build_include_dirs
   "${gtest_SOURCE_DIR}/include"
   "${gtest_SOURCE_DIR}")
-
-# Summary of tuple support for Microsoft Visual Studio:
-# Compiler    version(MS)  version(cmake)  Support
-# ----------  -----------  --------------  -----------------------------
-# <= VS 2010  <= 10        <= 1600         Use Google Tests's own tuple.
-# VS 2012     11           1700            std::tr1::tuple + _VARIADIC_MAX=10
-# VS 2013     12           1800            std::tr1::tuple
-# VS 2015     14           1900            std::tuple
-# VS 2017     15           >= 1910         std::tuple
-if (MSVC AND MSVC_VERSION EQUAL 1700)
-  add_definitions(/D _VARIADIC_MAX=10)
-endif()
+include_directories(${gtest_build_include_dirs})
 
 ########################################################################
 #
@@ -96,40 +126,26 @@ endif()
 # are used for other targets, to ensure that gtest can be compiled by a user
 # aggressive about warnings.
 cxx_library(gtest "${cxx_strict}" src/gtest-all.cc)
+set_target_properties(gtest PROPERTIES VERSION ${GOOGLETEST_VERSION})
 cxx_library(gtest_main "${cxx_strict}" src/gtest_main.cc)
-target_link_libraries(gtest_main gtest)
-
+set_target_properties(gtest_main PROPERTIES VERSION ${GOOGLETEST_VERSION})
 # If the CMake version supports it, attach header directory information
 # to the targets for when we are part of a parent build (ie being pulled
 # in via add_subdirectory() rather than being a standalone build).
 if (DEFINED CMAKE_VERSION AND NOT "${CMAKE_VERSION}" VERSION_LESS "2.8.11")
-  target_include_directories(gtest      SYSTEM INTERFACE "${gtest_SOURCE_DIR}/include")
-  target_include_directories(gtest_main SYSTEM INTERFACE "${gtest_SOURCE_DIR}/include")
+  target_include_directories(gtest SYSTEM INTERFACE
+    "$<BUILD_INTERFACE:${gtest_build_include_dirs}>"
+    "$<INSTALL_INTERFACE:$<INSTALL_PREFIX>/${CMAKE_INSTALL_INCLUDEDIR}>")
+  target_include_directories(gtest_main SYSTEM INTERFACE
+    "$<BUILD_INTERFACE:${gtest_build_include_dirs}>"
+    "$<INSTALL_INTERFACE:$<INSTALL_PREFIX>/${CMAKE_INSTALL_INCLUDEDIR}>")
 endif()
+target_link_libraries(gtest_main PUBLIC gtest)
 
 ########################################################################
 #
 # Install rules
-if(INSTALL_GTEST)
-  install(TARGETS gtest gtest_main
-    RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}"
-    ARCHIVE DESTINATION "${CMAKE_INSTALL_LIBDIR}"
-    LIBRARY DESTINATION "${CMAKE_INSTALL_LIBDIR}")
-  install(DIRECTORY "${gtest_SOURCE_DIR}/include/gtest"
-    DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}")
-
-  # configure and install pkgconfig files
-  configure_file(
-    cmake/gtest.pc.in
-    "${CMAKE_BINARY_DIR}/gtest.pc"
-    @ONLY)
-  configure_file(
-    cmake/gtest_main.pc.in
-    "${CMAKE_BINARY_DIR}/gtest_main.pc"
-    @ONLY)
-  install(FILES "${CMAKE_BINARY_DIR}/gtest.pc" "${CMAKE_BINARY_DIR}/gtest_main.pc"
-    DESTINATION "${CMAKE_INSTALL_LIBDIR}/pkgconfig")
-endif()
+install_project(gtest gtest_main)
 
 ########################################################################
 #
@@ -168,13 +184,26 @@ if (gtest_build_tests)
   # 'make test' or ctest.
   enable_testing()
 
+  if (WIN32)
+    file(GENERATE OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>/RunTest.ps1"
+         CONTENT
+"$project_bin = \"${CMAKE_BINARY_DIR}/bin/$<CONFIG>\"
+$env:Path = \"$project_bin;$env:Path\"
+& $args")
+  elseif (MINGW OR CYGWIN)
+    file(GENERATE OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/RunTest.ps1"
+         CONTENT
+"$project_bin = (cygpath --windows ${CMAKE_BINARY_DIR}/bin)
+$env:Path = \"$project_bin;$env:Path\"
+& $args")
+  endif()
+
   ############################################################
   # C++ tests built with standard compiler flags.
 
   cxx_test(googletest-death-test-test gtest_main)
   cxx_test(gtest_environment_test gtest)
   cxx_test(googletest-filepath-test gtest_main)
-  cxx_test(googletest-linked-ptr-test gtest_main)
   cxx_test(googletest-listener-test gtest_main)
   cxx_test(gtest_main_unittest gtest_main)
   cxx_test(googletest-message-test gtest_main)
@@ -198,6 +227,8 @@ if (gtest_build_tests)
     test/gtest-typed-test2_test.cc)
   cxx_test(gtest_unittest gtest_main)
   cxx_test(gtest-unittest-api_test gtest)
+  cxx_test(gtest_skip_in_environment_setup_test gtest_main)
+  cxx_test(gtest_skip_test gtest_main)
 
   ############################################################
   # C++ tests built with non-standard compiler flags.
@@ -231,26 +262,14 @@ if (gtest_build_tests)
                         PROPERTIES
                         COMPILE_DEFINITIONS "GTEST_LINKED_AS_SHARED_LIBRARY=1")
 
-  if (NOT MSVC OR MSVC_VERSION LESS 1600)  # 1600 is Visual Studio 2010.
-    # Visual Studio 2010, 2012, and 2013 define symbols in std::tr1 that
-    # conflict with our own definitions. Therefore using our own tuple does not
-    # work on those compilers.
-    cxx_library(gtest_main_use_own_tuple "${cxx_use_own_tuple}"
-      src/gtest-all.cc src/gtest_main.cc)
-
-    cxx_test_with_flags(googletest-tuple-test "${cxx_use_own_tuple}"
-      gtest_main_use_own_tuple test/googletest-tuple-test.cc)
-
-    cxx_test_with_flags(gtest_use_own_tuple_test "${cxx_use_own_tuple}"
-      gtest_main_use_own_tuple
-      test/googletest-param-test-test.cc test/googletest-param-test2-test.cc)
-  endif()
-
   ############################################################
   # Python tests.
 
   cxx_executable(googletest-break-on-failure-unittest_ test gtest)
   py_test(googletest-break-on-failure-unittest)
+
+  py_test(gtest_skip_check_output_test)
+  py_test(gtest_skip_environment_check_output_test)
 
   # Visual Studio .NET 2003 does not support STL with exceptions disabled.
   if (NOT MSVC OR MSVC_VERSION GREATER 1310)  # 1310 is Visual Studio .NET 2003
@@ -300,6 +319,9 @@ if (gtest_build_tests)
 
   cxx_executable(googletest-uninitialized-test_ test gtest)
   py_test(googletest-uninitialized-test)
+
+  cxx_executable(gtest_list_output_unittest_ test gtest)
+  py_test(gtest_list_output_unittest)
 
   cxx_executable(gtest_xml_outfile1_test_ test gtest_main)
   cxx_executable(gtest_xml_outfile2_test_ test gtest_main)
