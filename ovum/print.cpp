@@ -78,15 +78,6 @@ void egg::ovum::Print::write(std::ostream& stream, const Value& value) {
     }
     break;
   }
-  case egg::ovum::ValueFlags::Pointer: {
-    egg::ovum::Value v;
-    if (value->getChild(v)) {
-      auto* p = &v.get();
-      stream << "[pointer 0x" << std::hex << std::setw(sizeof(p) * 2) << std::setfill('0') << p << ']';
-      return;
-    }
-    break;
-  }
   }
   EGG_WARNING_SUPPRESS_SWITCH_END();
   Print::write(stream, value->toString());

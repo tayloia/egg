@@ -598,8 +598,8 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareUnary(const 
     return this->compilerError(where, "Pointer dereference '*' operator not yet supported"); // TODO
   case EggProgramUnary::Deref:
     // Dereference '*' operation
-    if (!type.hasAnyFlags(egg::ovum::ValueFlags::Pointer)) {
-      return this->compilerError(where, "Expected operand of dereference '*' operator to be a pointer, but got '", type.toString(), "' instead");
+    if (!type.hasAnyFlags(egg::ovum::ValueFlags::Object)) {
+      return this->compilerError(where, "Expected operand of dereference '*' operator to be an object, but got '", type.toString(), "' instead");
     }
     break;
   case EggProgramUnary::Ellipsis:

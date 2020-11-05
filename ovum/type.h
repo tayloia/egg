@@ -9,7 +9,6 @@ namespace egg::ovum {
   X(Float, "float") \
   X(String, "string") \
   X(Object, "object") \
-  X(Pointer, "pointer") \
   X(Break, "break") \
   X(Continue, "continue") \
   X(Return, "return") \

@@ -112,7 +112,6 @@ TEST(TestValue, Pointer) {
   auto pointee = egg::ovum::ValueFactory::create(allocator, "hello world");
   ASSERT_VALUE(Flags::String, pointee);
   auto pointer = egg::ovum::ValueFactory::createPointer(allocator, pointee);
-  ASSERT_VALUE(Flags::Pointer, pointer);
   egg::ovum::Value actual;
   ASSERT_TRUE(pointer->getChild(actual));
   ASSERT_VALUE(pointee, actual);

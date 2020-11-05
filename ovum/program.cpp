@@ -1556,11 +1556,7 @@ namespace {
       if (value.hasFlowControl()) {
         return value;
       }
-      Value pointee;
-      if (!value.hasAnyFlags(ValueFlags::Pointer) || !value->getChild(pointee)) {
-        return this->raiseNode(a, "Expected operand of unary '*' operator to be a pointer, but got '", value->getRuntimeType().toString(), "' instead");
-      }
-      return pointee;
+      return this->raiseNode(a, "WIBBLE: Pointer dereference '*' operator not yet supported");
     }
     Value operatorRef(const INode& a) {
       if (a.getOpcode() != Opcode::IDENTIFIER) {

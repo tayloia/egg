@@ -311,7 +311,7 @@ namespace {
       assert(this->validate());
     }
     virtual ValueFlags getFlags() const override {
-      return ValueFlags::Pointer;
+      return ValueFlags::Object;
     }
     virtual Type getRuntimeType() const override {
       return Type::Null; // WIBBLE
@@ -322,7 +322,7 @@ namespace {
     }
     virtual bool equals(const IValue& rhs, ValueCompare compare) const override {
       Value other;
-      return (rhs.getFlags() == ValueFlags::Pointer) && rhs.getChild(other) && this->equals(other.get(), compare);
+      return (rhs.getFlags() == ValueFlags::Object) && rhs.getChild(other) && this->equals(other.get(), compare);
     }
     virtual bool validate() const override {
       return this->child.validate();

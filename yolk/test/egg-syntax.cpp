@@ -85,7 +85,7 @@ TEST(TestEggSyntaxParser, VariableDeclaration) {
   ASSERT_PARSE_GOOD(parseStatementToString("var a;"), "(declare 'a' (type 'var'))");
   ASSERT_PARSE_GOOD(parseStatementToString("any? b;"), "(declare 'b' (type 'any?'))");
   ASSERT_PARSE_GOOD(parseStatementToString("int* c;"), "(declare 'c' (type 'int*'))");
-  ASSERT_PARSE_GOOD(parseStatementToString("int?*? c;"), "(declare 'c' (type 'null|int?*'))");
+  ASSERT_PARSE_GOOD(parseStatementToString("int?*? c;"), "(declare 'c' (type 'int?*|null'))");
   // Bad
   ASSERT_PARSE_BAD(parseStatementToString("var"), "(1, 4): Expected variable identifier after type");
   ASSERT_PARSE_BAD(parseStatementToString("var foo"), "(1, 5): Malformed variable declaration or initialization");

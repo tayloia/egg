@@ -69,7 +69,6 @@ namespace {
     }
     auto head = Bits::topmost(flags);
     assert(head != ValueFlags::None);
-    assert(head != ValueFlags::Pointer);
     component = flagsComponent(head);
     assert(component != nullptr);
     return flagsToString(Bits::clear(flags, head)) + '|' + component;
@@ -172,9 +171,6 @@ namespace {
       return Type(&lhs);
     }
     auto frhs = rhs.getFlags();
-    if (Bits::hasAnySet(frhs, ValueFlags::Pointer)) {
-      return TypeFactory::createUnionJoin(allocator, lhs, rhs);
-    }
     if (Bits::hasAllSet(frhs, flhs)) {
       // The rhs is a superset of the types in lhs, just return rhs
       return Type(&rhs);
@@ -460,7 +456,7 @@ namespace {
       : HardReferenceCounted(allocator, 0), referenced(&referenced) {
     }
     virtual ValueFlags getFlags() const override {
-      return ValueFlags::Pointer;
+      return ValueFlags::Object;
     }
     virtual Type makeUnion(IAllocator& allocator2, const IType& rhs) const override {
       // TODO elide if similar
