@@ -9,7 +9,6 @@ namespace egg::ovum {
     static const Type Array;
     static const Type Dictionary;
     static const Type Object;
-    static const IFunctionSignature& FunctionSignature;
   };
 
   template<typename K, typename V>

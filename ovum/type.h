@@ -46,17 +46,7 @@ namespace egg::ovum {
     explicit Type(const IType* rhs) : HardPtr(rhs) {
     }
     // We need to qualify the return type because 'String' is a member further down!
-    egg::ovum::String toString(int precedence = -1) const {
-      auto* type = this->get();
-      if (type == nullptr) {
-        return "<unknown>";
-      }
-      auto pair = type->toStringPrecedence();
-      if (pair.second < precedence) {
-        return "(" + pair.first + ")";
-      }
-      return pair.first;
-    }
+    egg::ovum::String toString(int precedence = -1) const;
     static std::string toString(const IType& type) {
       return type.toStringPrecedence().first;
     }
@@ -77,13 +67,24 @@ namespace egg::ovum {
     static const Type AnyQ;
   };
 
+  class ITypeBuilder : public IHardAcquireRelease {
+    public:
+      virtual void addPositionalParameter(const Type& type, const String& name, IFunctionSignatureParameter::Flags flags) = 0;
+      virtual void addNamedParameter(const Type& type, const String& name, IFunctionSignatureParameter::Flags flags) = 0;
+      virtual Type build() = 0;
+  };
+  using TypeBuilder = HardPtr<ITypeBuilder>;
+
   class TypeFactory {
   public:
     static Type createSimple(IAllocator& allocator, ValueFlags flags);
     static Type createPointer(IAllocator& allocator, const IType& pointee);
     static Type createUnion(IAllocator& allocator, const IType& a, const IType& b);
     static Type createUnionJoin(IAllocator& allocator, const IType& a, const IType& b);
-    static ITypeFunction* createFunction(IAllocator& allocator, const egg::ovum::String& name, const Type& rettype);
-    static ITypeFunction* createGenerator(IAllocator& allocator, const egg::ovum::String& name, const Type& rettype);
+    static TypeBuilder createFunctionBuilder(IAllocator& allocator, const Type& rettype, const String& name);
+    static TypeBuilder createGeneratorBuilder(IAllocator& allocator, const Type& rettype, const String& name);
+
+    static const IParameters& ParametersNone;
+    static const IFunctionSignature& OmniFunctionSignature; // any?(...any?)
   };
 }

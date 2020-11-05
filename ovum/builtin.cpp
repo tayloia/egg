@@ -120,11 +120,14 @@ namespace {
     BuiltinFunction(const BuiltinFunction&) = delete;
     BuiltinFunction& operator=(const BuiltinFunction&) = delete;
   protected:
-    HardPtr<ITypeFunction> type;
+    TypeBuilder builder;
+    Type type;
   public:
-    BuiltinFunction(IAllocator& allocator, const String& name, const Type& rettype)
+    BuiltinFunction(IAllocator& allocator, const Type& rettype, const String& name)
       : BuiltinBase(allocator, StringBuilder::concat(name, "()")),
-        type(TypeFactory::createFunction(allocator, name, rettype)) {
+        builder(TypeFactory::createFunctionBuilder(allocator, rettype, name)),
+        type() {
+      // 'type' will be initialized by derived class constructors
     }
     virtual void softVisitLinks(const Visitor&) const override {
       // There are no soft links to visit
@@ -142,8 +145,9 @@ namespace {
     Builtin_Assert& operator=(const Builtin_Assert&) = delete;
   public:
     explicit Builtin_Assert(IAllocator& allocator)
-      : BuiltinFunction(allocator, "assert", Type::Void) {
-      this->type->addParameter("predicate", Type::Any, Bits::set(IFunctionSignatureParameter::Flags::Required, IFunctionSignatureParameter::Flags::Predicate));
+      : BuiltinFunction(allocator, Type::Void, "assert") {
+      this->builder->addPositionalParameter(Type::Any, "predicate", Bits::set(IFunctionSignatureParameter::Flags::Required, IFunctionSignatureParameter::Flags::Predicate));
+      this->type = this->builder->build();
     }
     virtual Value call(IExecution& execution, const IParameters& parameters) override {
       if (parameters.getNamedCount() > 0) {
@@ -161,8 +165,9 @@ namespace {
     Builtin_Print& operator=(const Builtin_Print&) = delete;
   public:
     explicit Builtin_Print(IAllocator& allocator)
-      : BuiltinFunction(allocator, "print", Type::Void) {
-      this->type->addParameter("values", Type::Any, IFunctionSignatureParameter::Flags::Variadic);
+      : BuiltinFunction(allocator, Type::Void, "print") {
+      this->builder->addPositionalParameter(Type::Any, "values", IFunctionSignatureParameter::Flags::Variadic);
+      this->type = this->builder->build();
     }
     virtual Value call(IExecution& execution, const IParameters& parameters) override {
       if (parameters.getNamedCount() > 0) {
@@ -271,8 +276,9 @@ namespace {
     Builtin_TypeOf& operator=(const Builtin_TypeOf&) = delete;
   public:
     explicit Builtin_TypeOf(IAllocator& allocator)
-      : BuiltinFunction(allocator, "type.of", Vanilla::Object) {
-      this->type->addParameter("value", Type::String, IFunctionSignatureParameter::Flags::Required);
+      : BuiltinFunction(allocator, Vanilla::Object, "type.of") {
+      this->builder->addPositionalParameter(Type::String, "value", IFunctionSignatureParameter::Flags::Required);
+      this->type = this->builder->build();
     }
     virtual Value call(IExecution& execution, const IParameters& parameters) override {
       if (parameters.getNamedCount() > 0) {

@@ -1991,8 +1991,7 @@ egg::ovum::Type EggSyntaxParserContext::parseTypePostfixFunction(const egg::ovum
   // cppcheck-suppress assertWithSideEffect
   assert(mark.peek(0).isOperator(EggTokenizerOperator::ParenthesisLeft));
   mark.advance(1);
-  auto* underlying = egg::ovum::TypeFactory::createFunction(*this->allocator, egg::ovum::String(), rettype);
-  egg::ovum::Type function{ underlying };
+  auto builder = egg::ovum::TypeFactory::createFunctionBuilder(*this->allocator, rettype, egg::ovum::String());
   for (size_t index = 0; !mark.peek(0).isOperator(EggTokenizerOperator::ParenthesisRight); ++index) {
     egg::ovum::Type ptype{ egg::ovum::Type::Void };
     if (!this->parseTypeExpression(ptype)) {
@@ -2018,7 +2017,7 @@ egg::ovum::Type EggSyntaxParserContext::parseTypePostfixFunction(const egg::ovum
       mark.advance(2);
       flags = egg::ovum::IFunctionSignatureParameter::Flags::None;
     }
-    underlying->addParameter(pname, ptype, flags);
+    builder->addPositionalParameter(ptype, pname, flags);
     auto& p3 = mark.peek(0);
     if (p3.isOperator(EggTokenizerOperator::Comma)) {
       mark.advance(1);
@@ -2027,7 +2026,7 @@ egg::ovum::Type EggSyntaxParserContext::parseTypePostfixFunction(const egg::ovum
     }
   }
   mark.accept(1); // Skip ')'
-  return function;
+  return builder->build();
 }
 
 bool EggSyntaxParserContext::parseTypePrimaryExpression(egg::ovum::Type& type) {

@@ -115,69 +115,6 @@ namespace {
     }
   };
 
-  class UserFunction : public SoftReferenceCounted<IObject> {
-    UserFunction(const UserFunction&) = delete;
-    UserFunction& operator=(const UserFunction&) = delete;
-  private:
-    ProgramDefault& program; // ProgramDefault lifetime guaranteed to be longer than UserFunction instance
-    LocationSource location;
-    Type type;
-    Node block;
-  public:
-    UserFunction(IAllocator& allocator, ProgramDefault& program, const LocationSource& location, const Type& type, const INode& block)
-      : SoftReferenceCounted(allocator),
-        program(program),
-        location(location),
-        type(type),
-        block(&block) {
-      assert(type != nullptr);
-      assert(block.getOpcode() == Opcode::BLOCK);
-    }
-    virtual void softVisitLinks(const Visitor&) const override {
-      // WIBBLE
-    }
-    virtual void toStringBuilder(StringBuilder& sb) const override {
-      sb.add("<user-function>");
-    }
-    virtual Type getRuntimeType() const override {
-      return this->type;
-    }
-    virtual Value call(IExecution& execution, const IParameters& parameters) override;
-    virtual Value getProperty(IExecution& execution, const String& property) override {
-      return this->raise(execution, "does not support properties such as '", property, "'");
-    }
-    virtual Value setProperty(IExecution& execution, const String& property, const Value&) override {
-      return this->raise(execution, "does not support properties such as '", property, "'");
-    }
-    virtual Value mutProperty(IExecution& execution, const String& property, Mutation, const Value&) override {
-      return this->raise(execution, "does not support properties such as '", property, "'");
-    }
-    virtual Value getIndex(IExecution& execution, const Value&) override {
-      return this->raise(execution, "does not support indexing");
-    }
-    virtual Value setIndex(IExecution& execution, const Value&, const Value&) override {
-      return this->raise(execution, "does not support indexing");
-    }
-    virtual Value mutIndex(IExecution& execution, const Value&, Mutation, const Value&) override {
-      return this->raise(execution, "does not support indexing");
-    }
-    virtual Value iterate(IExecution& execution) override {
-      return this->raise(execution, "does not support iteration");
-    }
-    template<typename... ARGS>
-    Value raise(IExecution& execution, ARGS&&... args) {
-      auto* signature = this->type->queryCallable();
-      if (signature != nullptr) {
-        auto name = signature->getFunctionName();
-        if (!name.empty()) {
-          return execution.raiseFormat("Function '", name, "' ", std::forward<ARGS>(args)...);
-        }
-      }
-      return execution.raiseFormat("Function ", std::forward<ARGS>(args)...);
-    }
-    static Type makeType(IAllocator& allocator, ProgramDefault& program, const String& name, const INode& callable);
-  };
-
   class Block final {
     Block(const Block&) = delete;
     Block& operator=(const Block&) = delete;
@@ -280,6 +217,93 @@ namespace {
     Value index;
   };
 
+  class UserFunction : public SoftReferenceCounted<IObject> {
+    UserFunction(const UserFunction&) = delete;
+    UserFunction& operator=(const UserFunction&) = delete;
+  private:
+    ProgramDefault& program; // ProgramDefault lifetime guaranteed to be longer than UserFunction instance
+    LocationSource location;
+    Type type;
+    Node block;
+    SoftPtr<SymbolTable> captured;
+  public:
+    UserFunction(IAllocator& allocator, ProgramDefault& program, const LocationSource& location, const Type& type, const INode& block)
+      : SoftReferenceCounted(allocator),
+      program(program),
+      location(location),
+      type(type),
+      block(&block) {
+      assert(type != nullptr);
+      assert(block.getOpcode() == Opcode::BLOCK);
+    }
+    void setCaptured(const HardPtr<SymbolTable>& symtable) {
+      assert(this->captured == nullptr);
+      this->captured.set(*this, symtable.get());
+      assert(this->captured != nullptr);
+    }
+    virtual void softVisitLinks(const Visitor& visitor) const override {
+      this->captured.visit(visitor);
+    }
+    virtual void toStringBuilder(StringBuilder& sb) const override {
+      sb.add("<user-function>");
+    }
+    virtual Type getRuntimeType() const override {
+      return this->type;
+    }
+    virtual Value call(IExecution& execution, const IParameters& parameters) override;
+    virtual Value getProperty(IExecution& execution, const String& property) override {
+      return this->raise(execution, "does not support properties such as '", property, "'");
+    }
+    virtual Value setProperty(IExecution& execution, const String& property, const Value&) override {
+      return this->raise(execution, "does not support properties such as '", property, "'");
+    }
+    virtual Value mutProperty(IExecution& execution, const String& property, Mutation, const Value&) override {
+      return this->raise(execution, "does not support properties such as '", property, "'");
+    }
+    virtual Value getIndex(IExecution& execution, const Value&) override {
+      return this->raise(execution, "does not support indexing");
+    }
+    virtual Value setIndex(IExecution& execution, const Value&, const Value&) override {
+      return this->raise(execution, "does not support indexing");
+    }
+    virtual Value mutIndex(IExecution& execution, const Value&, Mutation, const Value&) override {
+      return this->raise(execution, "does not support indexing");
+    }
+    virtual Value iterate(IExecution& execution) override {
+      return this->raise(execution, "does not support iteration");
+    }
+    template<typename... ARGS>
+    Value raise(IExecution& execution, ARGS&&... args) {
+      auto* signature = this->type->queryCallable();
+      if (signature != nullptr) {
+        auto name = signature->getFunctionName();
+        if (!name.empty()) {
+          return execution.raiseFormat("Function '", name, "' ", std::forward<ARGS>(args)...);
+        }
+      }
+      return execution.raiseFormat("Function ", std::forward<ARGS>(args)...);
+    }
+    static Type makeType(IAllocator& allocator, ProgramDefault& program, const String& name, const INode& callable);
+  };
+
+  class CallStack final {
+    CallStack(const CallStack&) = delete;
+    CallStack& operator=(const CallStack&) = delete;
+  private:
+    HardPtr<SymbolTable>& symtable;
+  public:
+    CallStack(HardPtr<SymbolTable>& symtable, SymbolTable* capture) : symtable(symtable) {
+      // Push an element onto the symbol table stack
+      this->symtable.set(this->symtable->push(capture));
+      assert(this->symtable != nullptr);
+    }
+    ~CallStack() {
+      // Pop an element from the symbol table stack
+      this->symtable.set(this->symtable->pop());
+      assert(this->symtable != nullptr);
+    }
+  };
+
   class ProgramDefault final : public HardReferenceCounted<IProgram>, public IExecution, public Vanilla::IPredicateCallback {
     ProgramDefault(const ProgramDefault&) = delete;
     ProgramDefault& operator=(const ProgramDefault&) = delete;
@@ -353,7 +377,7 @@ namespace {
     virtual void print(const std::string& utf8) override {
       this->logger.log(ILogger::Source::User, ILogger::Severity::Information, utf8);
     }
-    Value executeCall(const LocationSource& source, const IFunctionSignature& signature, const IParameters& runtime, const INode& block) {
+    Value executeCall(const LocationSource& source, const IFunctionSignature& signature, const IParameters& runtime, const INode& block, SymbolTable& captured) {
       // We have to be careful to get the location correct
       assert(block.getOpcode() == Opcode::BLOCK);
       if (runtime.getNamedCount() > 0) {
@@ -373,7 +397,7 @@ namespace {
       }
       if ((maxPositional > 0) && Bits::hasAnySet(signature.getParameter(maxPositional - 1).getFlags(), IFunctionSignatureParameter::Flags::Variadic)) {
         // TODO Variadic
-        return this->raiseFormat(signatureToString(signature), ": Variadic parameters not yet supported");
+        maxPositional = numPositional;
       } else if (numPositional > maxPositional) {
         // Not variadic
         if (maxPositional == 1) {
@@ -381,6 +405,7 @@ namespace {
         }
         return this->raiseFormat(signatureToString(signature), ": No more than ", maxPositional, " parameters were expected, but got ", numPositional);
       }
+      CallStack stack(this->symtable, &captured);
       Block scope(*this);
       for (size_t i = 0; i < maxPositional; ++i) {
         auto& sigparam = signature.getParameter(i);
@@ -734,7 +759,7 @@ namespace {
       // We have to be careful to ensure the function is declared before capturing symbols so that recursion works correctly
       auto fvalue = ValueFactory::createObject(this->allocator, Object(*function));
       auto retval = block.declare(this->location, ftype, fname, &fvalue);
-      // WIBBLE function->setCaptured(this->symtable); // WIBBLE was cloneIndirect
+      function->setCaptured(this->symtable);
       return retval;
     }
     Value statementIf(const INode& node) {
@@ -1901,7 +1926,8 @@ namespace {
 Value UserFunction::call(IExecution&, const IParameters& parameters) {
   auto signature = this->type->queryCallable();
   assert(signature != nullptr);
-  return this->program.executeCall(this->location, *signature, parameters, *this->block);
+  assert(this->captured != nullptr);
+  return this->program.executeCall(this->location, *signature, parameters, *this->block, *this->captured);
 }
 
 Block::~Block() {
@@ -1972,33 +1998,33 @@ egg::ovum::Type UserFunction::makeType(IAllocator& allocator, ProgramDefault& pr
   assert(n >= 1);
   auto rettype = program.type(callable.getChild(0));
   assert(rettype != nullptr);
-  HardPtr<ITypeFunction> function{ TypeFactory::createFunction(allocator, name, rettype) };
+  auto builder = TypeFactory::createFunctionBuilder(allocator, rettype, name);
   for (size_t i = 1; i < n; ++i) {
     auto& parameter = callable.getChild(i);
-    auto c = parameter.getChildren();
-    size_t pindex = i - 1;
+    auto children = parameter.getChildren();
+    auto named = false;
     IFunctionSignatureParameter::Flags pflags;
     EGG_WARNING_SUPPRESS_SWITCH_BEGIN();
     switch (parameter.getOpcode()) {
     case Opcode::REQUIRED:
-      assert((c == 1) || (c == 2));
+      assert((children == 1) || (children == 2));
       pflags = IFunctionSignatureParameter::Flags::Required;
       break;
     case Opcode::OPTIONAL:
-      assert((c == 1) || (c == 2));
+      assert((children == 1) || (children == 2));
       pflags = IFunctionSignatureParameter::Flags::None;
       break;
     case Opcode::VARARGS:
-      assert(c >= 2);
+      assert(children >= 2);
       pflags = IFunctionSignatureParameter::Flags::Variadic;
-      if (c > 2) {
+      if (children > 2) {
         // TODO We assume the constraint is "length > 0" meaning required
         pflags = Bits::set(pflags, IFunctionSignatureParameter::Flags::Required);
       }
       break;
     case Opcode::BYNAME:
-      assert(c == 2);
-      pindex = SIZE_MAX;
+      assert(children == 2);
+      named = true;
       pflags = IFunctionSignatureParameter::Flags::None;
       break;
     default:
@@ -2006,13 +2032,17 @@ egg::ovum::Type UserFunction::makeType(IAllocator& allocator, ProgramDefault& pr
     }
     EGG_WARNING_SUPPRESS_SWITCH_END();
     String pname;
-    if (c > 1) {
+    if (children > 1) {
       pname = program.identifier(parameter.getChild(1));
     }
     auto ptype = program.type(parameter.getChild(0), pname);
-    function->addParameter(pname, ptype, pflags, pindex);
+    if (named) {
+      builder->addPositionalParameter(ptype, pname, pflags);
+    } else {
+      builder->addNamedParameter(ptype, pname, pflags);
+    }
   }
-  return Type(function.get());
+  return builder->build();
 }
 
 egg::ovum::Program egg::ovum::ProgramFactory::createProgram(IAllocator& allocator, ILogger& logger) {

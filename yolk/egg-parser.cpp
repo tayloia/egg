@@ -1568,18 +1568,17 @@ std::shared_ptr<egg::yolk::IEggProgramNode> egg::yolk::EggSyntaxNode_FunctionDef
   assert(this->child.size() >= 2);
   size_t parameters = this->child.size() - 2;
   auto rettype = context.promote(*this->child[0])->getType();
-  egg::ovum::ITypeFunction* underlying;
+  egg::ovum::TypeBuilder builder;
   if (this->generator) {
     // Generators cannot explicitly return voids
     if (rettype.hasAnyFlags(egg::ovum::ValueFlags::Void)) {
       throw exceptionFromLocation(context, "The return value of a generator may not include 'void'", *this);
     }
-    underlying = egg::ovum::TypeFactory::createGenerator(context.getAllocator(), this->name, rettype);
+    builder = egg::ovum::TypeFactory::createGeneratorBuilder(context.getAllocator(), rettype, this->name);
   } else {
-    underlying = egg::ovum::TypeFactory::createFunction(context.getAllocator(), this->name, rettype);
+    builder = egg::ovum::TypeFactory::createFunctionBuilder(context.getAllocator(), rettype, this->name);
   }
-  assert(underlying != nullptr);
-  egg::ovum::Type function{ underlying }; // takes ownership
+  assert(builder != nullptr);
   egg::ovum::String parameter_name;
   auto parameter_type = egg::ovum::Type::Void;
   for (size_t i = 1; i <= parameters; ++i) {
@@ -1587,15 +1586,16 @@ std::shared_ptr<egg::yolk::IEggProgramNode> egg::yolk::EggSyntaxNode_FunctionDef
     auto parameter = context.promote(*this->child[i]);
     auto parameter_optional = parameter->symbol(parameter_name, parameter_type);
     auto parameter_flags = parameter_optional ? egg::ovum::IFunctionSignatureParameter::Flags::None : egg::ovum::IFunctionSignatureParameter::Flags::Required;
-    underlying->addParameter(parameter_name, parameter_type, parameter_flags);
+    builder->addPositionalParameter(parameter_type, parameter_name, parameter_flags);
   }
+  auto type = builder->build();
   auto allowed = this->generator ? (EggParserAllowed::Return | EggParserAllowed::Yield) : EggParserAllowed::Return;
   EggParserContextNested nested(context, allowed);
   auto block = nested.promote(*this->child[parameters + 1]);
   if (this->generator) {
-    block = makeParserNode<EggParserNode_GeneratorDefinition>(context, *this, this->name, function, rettype, block);
+    block = makeParserNode<EggParserNode_GeneratorDefinition>(context, *this, this->name, type, rettype, block);
   }
-  return makeParserNode<EggParserNode_FunctionDefinition>(context, *this, this->name, function, block);
+  return makeParserNode<EggParserNode_FunctionDefinition>(context, *this, this->name, type, block);
 }
 
 std::shared_ptr<egg::yolk::IEggProgramNode> egg::yolk::EggSyntaxNode_Parameter::promote(egg::yolk::IEggParserContext& context) const {

@@ -204,11 +204,6 @@ namespace egg::ovum {
     virtual std::pair<std::string, int> toStringPrecedence() const = 0;
   };
 
-  class ITypeFunction : public IType {
-  public:
-    virtual void addParameter(const String& name, const Type& type, IFunctionSignatureParameter::Flags flags, size_t index = SIZE_MAX) = 0;
-  };
-
   class IObject : public ICollectable {
   public:
     // Interface

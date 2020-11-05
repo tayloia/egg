@@ -53,44 +53,6 @@ namespace {
     }
   };
 
-  // A vanilla function looks like this: 'any?(...any?[])'
-  class FunctionSignature : public IFunctionSignature {
-    FunctionSignature(const FunctionSignature&) = delete;
-    FunctionSignature& operator=(const FunctionSignature&) = delete;
-  private:
-    class Parameter : public IFunctionSignatureParameter {
-    public:
-      virtual String getName() const override {
-        return "<WIBBLE>";
-      }
-      virtual Type getType() const override {
-        return Type::AnyQ;
-      }
-      virtual size_t getPosition() const override {
-        return 0;
-      }
-      virtual Flags getFlags() const override {
-        return Flags::Variadic;
-      }
-    };
-    Parameter parameter;
-  public:
-    FunctionSignature() {}
-    virtual String getFunctionName() const override {
-      return "<WIBBLE>";
-    }
-    virtual Type getReturnType() const override {
-      return Type::AnyQ;
-    }
-    virtual size_t getParameterCount() const override {
-      return 1;
-    }
-    virtual const IFunctionSignatureParameter& getParameter(size_t) const override {
-      return this->parameter;
-    }
-  };
-  const FunctionSignature functionSignature{};
-
   class TypeBase : public NotReferenceCounted<IType> {
     TypeBase(const TypeBase&) = delete;
     TypeBase& operator=(const TypeBase&) = delete;
@@ -128,7 +90,7 @@ namespace {
       return Type::AnyQ;
     }
     virtual const IFunctionSignature* queryCallable() const override {
-      return &functionSignature;
+      return &TypeFactory::OmniFunctionSignature;
     }
     virtual Erratic<Type> queryIterable() const override {
       return Erratic<Type>::fail("WIBBLE: Object not iterable");
@@ -479,7 +441,6 @@ namespace {
 const egg::ovum::Type egg::ovum::Vanilla::Array{ &typeArray };
 const egg::ovum::Type egg::ovum::Vanilla::Dictionary{ &typeDictionary };
 const egg::ovum::Type egg::ovum::Vanilla::Object{ &typeObject };
-const egg::ovum::IFunctionSignature& egg::ovum::Vanilla::FunctionSignature{ functionSignature };
 
 egg::ovum::Object egg::ovum::VanillaFactory::createArray(IAllocator& allocator, size_t fixed) {
   return ObjectFactory::create<VanillaArray>(allocator, fixed);

@@ -6,6 +6,44 @@
 namespace {
   using namespace egg::ovum;
 
+  // An omni function looks like this: 'any?(...any?[])'
+  class OmniFunctionSignature : public IFunctionSignature {
+    OmniFunctionSignature(const OmniFunctionSignature&) = delete;
+    OmniFunctionSignature& operator=(const OmniFunctionSignature&) = delete;
+  private:
+    class Parameter : public IFunctionSignatureParameter {
+    public:
+      virtual String getName() const override {
+        return "params";
+      }
+      virtual Type getType() const override {
+        return Type::AnyQ;
+      }
+      virtual size_t getPosition() const override {
+        return 0;
+      }
+      virtual Flags getFlags() const override {
+        return Flags::Variadic;
+      }
+    };
+    Parameter params;
+  public:
+    OmniFunctionSignature() {}
+    virtual String getFunctionName() const override {
+      return String();
+    }
+    virtual Type getReturnType() const override {
+      return Type::AnyQ;
+    }
+    virtual size_t getParameterCount() const override {
+      return 1;
+    }
+    virtual const IFunctionSignatureParameter& getParameter(size_t) const override {
+      return this->params;
+    }
+  };
+  const OmniFunctionSignature omniFunctionSignature{};
+
   const char* flagsComponent(ValueFlags flags) {
     EGG_WARNING_SUPPRESS_SWITCH_BEGIN();
       switch (flags) {
@@ -271,7 +309,7 @@ namespace {
   public:
     TypeAny() = default;
     virtual const IFunctionSignature* queryCallable() const override {
-      return &Vanilla::FunctionSignature;
+      return &omniFunctionSignature;
     }
   };
   const TypeAny typeAny{};
@@ -282,7 +320,7 @@ namespace {
   public:
     TypeAnyQ() = default;
     virtual const IFunctionSignature* queryCallable() const override {
-      return &Vanilla::FunctionSignature;
+      return &omniFunctionSignature;
     }
   };
   const TypeAnyQ typeAnyQ{};
@@ -411,7 +449,7 @@ namespace {
     }
     virtual const IFunctionSignature* queryCallable() const override {
       if (Bits::hasAnySet(this->flags, ValueFlags::Object)) {
-        return &Vanilla::FunctionSignature;
+        return &omniFunctionSignature;
       }
       return nullptr;
     }
@@ -448,7 +486,7 @@ namespace {
       return Error("WIBBLE: Pointer modification not yet implemented");
     }
     virtual Erratic<bool> queryAssignableAlways(const IType& rhs) const override {
-      return Erratic<bool>::fail("TODO: Assignment of values of type '", Type(&rhs).toString(), "' to '", Type(this).toString(), "'");
+      return Erratic<bool>::fail("TODO: Assignment of values of type '", Type::toString(rhs), "' to '", Type::toString(*this), "'");
     }
     virtual std::pair<std::string, int> toStringPrecedence() const override {
       auto p = StringBuilder().add(this->referenced.toString(0), '*').toUTF8();
@@ -555,17 +593,171 @@ namespace {
     }
   };
 
-  class FunctionType : public HardReferenceCounted<ITypeFunction> {
-    FunctionType(const FunctionType&) = delete;
-    FunctionType& operator=(const FunctionType&) = delete;
-  protected:
+  class FunctionBuilder : public HardReferenceCounted<ITypeBuilder>, public IFunctionSignature {
+    FunctionBuilder(const FunctionBuilder&) = delete;
+    FunctionBuilder& operator=(const FunctionBuilder&) = delete;
+  private:
+    class Parameter : public IFunctionSignatureParameter {
+    private:
+      Type type;
+      String name;
+      size_t position; // SIZE_MAX for named
+      Flags flags;
+    public:
+      Parameter(const Type& type, const String& name, Flags flags, size_t position)
+        : type(type),
+          name(name),
+          position(position),
+          flags(flags) {
+      }
+      virtual String getName() const override {
+        return this->name;
+      }
+      virtual Type getType() const override {
+        return this->type;
+      }
+      virtual Flags getFlags() const override {
+        return this->flags;
+      }
+      virtual size_t getPosition() const override {
+        return this->position;
+      }
+    };
+    class Built : public HardReferenceCounted<IType> {
+      Built(const Built&) = delete;
+      Built& operator=(const Built&) = delete;
+    private:
+      HardPtr<FunctionBuilder> builder;
+    public:
+      Built(IAllocator& allocator, FunctionBuilder& builder)
+        : HardReferenceCounted(allocator, 0),
+          builder(&builder) {
+      }
+      virtual ValueFlags getFlags() const override {
+        return ValueFlags::Object;
+      }
+      virtual Type makeUnion(IAllocator& allocator2, const IType& rhs) const override {
+        assert(&this->allocator == &allocator2);
+        return TypeFactory::createUnionJoin(allocator2, *this, rhs);
+      }
+      virtual Error tryAssign(IAllocator& allocator2, ISlot&, const Value&) const override {
+        assert(&this->allocator == &allocator2);
+        (void)&allocator2;
+        return Error("WIBBLE: FunctionBuilder assignment not yet implemented");
+      }
+      virtual Error tryMutate(IAllocator& allocator2, ISlot&, Mutation, const Value&) const override {
+        assert(&this->allocator == &allocator2);
+        (void)&allocator2;
+        return Error("WIBBLE: FunctionBuilder mutation not yet implemented");
+      }
+      virtual Erratic<bool> queryAssignableAlways(const IType&) const override {
+        return Erratic<bool>::fail("WIBBLE: FunctionBuilder query assignment not yet implemented");
+      }
+      virtual Erratic<Type> queryPropertyType(const String& property) const override {
+        return Erratic<Type>::fail("Values of type '", this->str(), "' do not support properties such as '", property, "'");
+      }
+      virtual Erratic<Type> queryIterable() const override {
+        return Erratic<Type>::fail("Values of type '", this->str(), "' are not iterable");
+      }
+      virtual Erratic<Type> queryPointeeType() const override {
+        return Erratic<Type>::fail("Values of type '", this->str(), "' do not support the pointer dereferencing '*' operator");
+      }
+      virtual const IFunctionSignature* queryCallable() const override {
+        return this->builder.get();
+      }
+      virtual const IIndexSignature* queryIndexable() const override {
+        return nullptr;
+      }
+      virtual std::pair<std::string, int> toStringPrecedence() const override {
+        return std::pair<std::string, int>();
+      }
+      std::string str() const {
+        return this->toStringPrecedence().first;
+      }
+    };
+    friend class Built;
+    Type rettype;
+    String name;
+    std::vector<Parameter> positional;
+    std::vector<Parameter> named;
+    bool built;
+  public:
+    FunctionBuilder(IAllocator& allocator, const Type& rettype, const String& name)
+      : HardReferenceCounted(allocator, 0),
+        rettype(rettype),
+        name(name),
+        built(false) {
+      assert(rettype != nullptr);
+    }
+    virtual void addPositionalParameter(const Type& ptype, const String& pname, IFunctionSignatureParameter::Flags pflags) {
+      assert(!this->built);
+      auto pindex = this->positional.size();
+      this->positional.emplace_back(ptype, pname, pflags, pindex);
+    }
+    virtual void addNamedParameter(const Type& ptype, const String& pname, IFunctionSignatureParameter::Flags pflags) {
+      assert(!this->built);
+      this->named.emplace_back(ptype, pname, pflags, SIZE_MAX);
+    }
+    virtual String getFunctionName() const override {
+      return this->name;
+    }
+    virtual Type getReturnType() const override {
+      return this->rettype;
+    }
+    virtual size_t getParameterCount() const override {
+      assert(this->built);
+      return this->positional.size() + this->named.size();
+    }
+    virtual const IFunctionSignatureParameter& getParameter(size_t index) const override {
+      assert(this->built);
+      if (index < this->positional.size()) {
+        return this->positional[index];
+      }
+      return this->named.at(index - this->positional.size());
+    }
+    virtual Type build() override {
+      assert(!this->built);
+      this->built = true;
+      return this->allocator.make<Built, Type>(*this);
+    }
+  };
+
+  class GeneratorReturnType : public HardReferenceCounted<TypeBase> {
+    GeneratorReturnType(const GeneratorReturnType&) = delete;
+    GeneratorReturnType& operator=(const GeneratorReturnType&) = delete;
+  private:
+    class FunctionSignature : public IFunctionSignature {
+      FunctionSignature(const FunctionSignature&) = delete;
+      FunctionSignature& operator=(const FunctionSignature&) = delete;
+    private:
+      Type rettype;
+    public:
+      FunctionSignature(Type rettype)
+        : rettype(rettype) {
+      }
+      virtual String getFunctionName() const override {
+        return String();
+      }
+      virtual Type getReturnType() const override {
+        return this->rettype;
+      }
+      virtual size_t getParameterCount() const override {
+        return 0;
+      }
+      virtual const IFunctionSignatureParameter& getParameter(size_t) const override {
+        // Should never be called
+        assert(false);
+        return *static_cast<const IFunctionSignatureParameter*>(nullptr);
+      }
+    };
+    Type gentype; // e.g. 'int' for 'int! generator()'
     FunctionSignature signature;
   public:
-    FunctionType(IAllocator& allocator, const String& name, const Type& rettype)
+    GeneratorReturnType(IAllocator& allocator, const Type& gentype)
       : HardReferenceCounted(allocator, 0),
-        signature(name, rettype) {
+        gentype(gentype),
+        signature(gentype->makeUnion(allocator, *Type::Void)) {
     }
-    // Interface
     virtual ValueFlags getFlags() const override {
       return ValueFlags::Object;
     }
@@ -576,78 +768,40 @@ namespace {
     virtual Error tryAssign(IAllocator& allocator2, ISlot&, const Value&) const override {
       assert(&this->allocator == &allocator2);
       (void)&allocator2;
-      return Error("WIBBLE: Function assignment not yet implemented");
+      return Error("WIBBLE: GeneratorReturnType assignment not yet implemented");
     }
     virtual Error tryMutate(IAllocator& allocator2, ISlot&, Mutation, const Value&) const override {
       assert(&this->allocator == &allocator2);
       (void)&allocator2;
-      return Error("WIBBLE: Function modification not yet implemented");
-    }
-    virtual Erratic<bool> queryAssignableAlways(const IType& rhs) const override {
-      // We can assign if the signatures are the same or equal
-      auto* rsig = rhs.queryCallable();
-      if (rsig == nullptr) {
-        return Erratic<bool>::fail("Cannot assign values of type '", Type(&rhs).toString(), "' to targets expecting functions");
-      }
-      auto* lsig = &this->signature;
-      if (lsig == rsig) {
-        return true; // always
-      }
-      // TODO fuzzy matching of signatures
-      auto lnum = lsig->getParameterCount();
-      auto rnum = rsig->getParameterCount();
-      if (lnum != rnum) {
-        return Erratic<bool>::fail("Cannot assign functions with ", rnum, " parameter(s) to targets expecting ", lnum, " function parameter(s)");
-      }
-      return false; // sometimes
-    }
-    virtual Erratic<Type> queryPropertyType(const String& property) const override {
-      return Erratic<Type>::fail("Unknown property for function: '", property, "'");
+      return Error("WIBBLE: GeneratorReturnType modification not yet implemented");
     }
     virtual Erratic<Type> queryIterable() const override {
-      return Erratic<Type>::fail("Functions are not iterable");
-    }
-    virtual Erratic<Type> queryPointeeType() const override {
-      return Erratic<Type>::fail("Functions do not support the pointer dereferencing '*' operator");
+      return Erratic<Type>::fail("Values of type '", this->str(), "' are not iterable");
     }
     virtual const IFunctionSignature* queryCallable() const override {
       return &this->signature;
     }
-    virtual const IIndexSignature* queryIndexable() const override {
-      return nullptr;
+    virtual Erratic<bool> queryAssignableAlways(const IType& rhs) const override {
+      return Erratic<bool>::fail("TODO: Assignment of values of type '", Type::toString(rhs), "' to '", Type::toString(*this), "'");
     }
     virtual std::pair<std::string, int> toStringPrecedence() const override {
-      // Do not include names in the signature
-      StringBuilder sb;
-      FunctionSignature::build(sb, this->signature, FunctionSignature::Parts::NoNames);
-      return std::make_pair(sb.toUTF8(), 0);
-    }
-    virtual void addParameter(const String& name, const Type& type, IFunctionSignatureParameter::Flags flags, size_t index = SIZE_MAX) override {
-      assert((index == SIZE_MAX) || (index == this->signature.getParameterCount()));
-      this->signature.addSignatureParameter(name, type, index, flags);
+      // WIBBLE
+      auto p = StringBuilder().add(this->gentype.toString(0), '!').toUTF8();
+      return std::make_pair("", 0);
     }
   };
+}
 
-  class GeneratorFunctionType : public FunctionType {
-    GeneratorFunctionType(const GeneratorFunctionType&) = delete;
-    GeneratorFunctionType& operator=(const GeneratorFunctionType&) = delete;
-  private:
-    Type rettype;
-  public:
-    explicit GeneratorFunctionType(IAllocator& allocator, const Type& rettype)
-      : FunctionType(allocator, String(), TypeFactory::createUnion(allocator, *rettype, *Type::Void)),
-        rettype(rettype) {
-      assert(!Bits::hasAnySet(rettype->getFlags(), ValueFlags::Void));
-    }
-    virtual std::pair<std::string, int> toStringPrecedence() const override {
-      // Format a string along the lines of '<rettype>...'
-      return std::make_pair(this->rettype.toString(0).toUTF8() + "...", 0);
-    }
-    virtual Type iterable() const {
-      // We are indeed iterable
-      return this->rettype;
-    }
-  };
+egg::ovum::String egg::ovum::Type::toString(int precedence) const {
+  auto* type = this->get();
+  if (type == nullptr) {
+    return "<unknown>";
+  }
+  auto pair = type->toStringPrecedence();
+  if (pair.second < precedence) {
+    return "(" + pair.first + ")";
+  }
+  return pair.first;
 }
 
 egg::ovum::Type egg::ovum::TypeFactory::createSimple(IAllocator& allocator, ValueFlags flags) {
@@ -674,13 +828,13 @@ egg::ovum::Type egg::ovum::TypeFactory::createUnionJoin(IAllocator& allocator, c
   return allocator.make<TypeUnion, Type>(a, b);
 }
 
-egg::ovum::ITypeFunction* egg::ovum::TypeFactory::createFunction(IAllocator& allocator, const String& name, const Type& rettype) {
-  return allocator.create<FunctionType>(0, allocator, name, rettype);
+egg::ovum::TypeBuilder egg::ovum::TypeFactory::createFunctionBuilder(IAllocator& allocator, const Type& rettype, const String& name) {
+  return allocator.make<FunctionBuilder>(rettype, name);
 }
 
-egg::ovum::ITypeFunction* egg::ovum::TypeFactory::createGenerator(IAllocator& allocator, const String& name, const Type& rettype) {
+egg::ovum::TypeBuilder egg::ovum::TypeFactory::createGeneratorBuilder(IAllocator& allocator, const Type& rettype, const String& name) {
   // Convert the return type (e.g. 'int') into a generator function 'int...' aka '(void|int)()'
-  return allocator.create<FunctionType>(0, allocator, name, allocator.make<GeneratorFunctionType, Type>(rettype));
+  return allocator.make<FunctionBuilder>(allocator.make<GeneratorReturnType, Type>(rettype), name);
 }
 
 // Common types
@@ -695,3 +849,4 @@ const egg::ovum::Type egg::ovum::Type::Arithmetic{ &typeArithmetic };
 const egg::ovum::Type egg::ovum::Type::Any{ &typeAny };
 const egg::ovum::Type egg::ovum::Type::AnyQ{ &typeAnyQ };
 
+const egg::ovum::IFunctionSignature& egg::ovum::TypeFactory::OmniFunctionSignature{ omniFunctionSignature };
