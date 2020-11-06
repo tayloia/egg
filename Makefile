@@ -130,7 +130,7 @@ valgrind: $(TEST_EXE)
 	valgrind -v --leak-check=full --show-leak-kinds=all --track-origins=yes --suppressions=./valgrind.supp $(TEST_EXE)
 
 # Pseudo-target to run test coverage
-test-coverage: #$(TEST_EXE)
+test-coverage: $(TEST_EXE)
 	$(ECHO) Running test coverage $<
 	./coverage.sh $(TEST_EXE) $(OBJ_DIR) $(PLATFORM)/$(TOOLCHAIN)/html
 	cmd.exe /C start $(PLATFORM)/$(TOOLCHAIN)/html/index.html
