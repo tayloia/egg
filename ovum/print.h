@@ -17,6 +17,8 @@ namespace egg::ovum {
     static void write(std::ostream& stream, const String& value);
     static void write(std::ostream& stream, const Value& value);
     static void write(std::ostream& stream, ValueFlags value);
+    static void write(std::ostream& stream, ILogger::Severity value);
+    static void write(std::ostream& stream, ILogger::Source value);
 
     // Print to string builder
     template<typename T>

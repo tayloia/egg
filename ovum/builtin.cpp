@@ -105,14 +105,14 @@ namespace {
     virtual ValueFlags getFlags() const override {
       return ValueFlags::Object;
     }
-    virtual Error tryAssign(IAllocator&, ISlot&, const Value&) const override {
-      return Error("Cannot assign to built-in '", this->name, "'");
+    virtual Assignability tryAssign(IAllocator&, ISlot&, const Value&) const override {
+      return Assignability::Readonly;
     }
-    virtual Error tryMutate(IAllocator&, ISlot&, Mutation, const Value&) const override {
-      return Error("Cannot modify built-in '", this->name, "'");
+    virtual Assignability tryMutate(IAllocator&, ISlot&, Mutation, const Value&) const override {
+      return Assignability::Readonly;
     }
-    virtual Erratic<bool> queryAssignableAlways(const IType&) const override {
-      return Erratic<bool>::fail("Cannot assign to built-in '", this->name, "'");
+    virtual Assignability queryAssignable(const IType&) const override {
+      return Assignability::Readonly;
     }
     virtual const IIndexSignature* queryIndexable() const override {
       return nullptr;

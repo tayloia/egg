@@ -43,6 +43,13 @@ namespace egg::ovum {
     Delete = 1 << 3
   };
 
+  enum class Assignability {
+    Readonly,
+    Never,
+    Sometimes,
+    Always
+  };
+
   class ILogger {
   public:
     enum class Source {
@@ -226,9 +233,9 @@ namespace egg::ovum {
   public:
     virtual ValueFlags getFlags() const = 0;
     virtual Type makeUnion(IAllocator& allocator, const IType& rhs) const = 0;
-    virtual Error tryAssign(IAllocator& allocator, ISlot& lhs, const Value& rhs) const = 0;
-    virtual Error tryMutate(IAllocator& allocator, ISlot& lhs, Mutation mutation, const Value& rhs) const = 0;
-    virtual Erratic<bool> queryAssignableAlways(const IType& rhs) const = 0;
+    virtual Assignability tryAssign(IAllocator& allocator, ISlot& lhs, const Value& rhs) const = 0;
+    virtual Assignability tryMutate(IAllocator& allocator, ISlot& lhs, Mutation mutation, const Value& rhs) const = 0;
+    virtual Assignability queryAssignable(const IType& rhs) const = 0;
     virtual const IFunctionSignature* queryCallable() const = 0;
     virtual const IPropertySignature* queryDotable() const = 0;
     virtual const IIndexSignature* queryIndexable() const = 0;

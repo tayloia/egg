@@ -49,9 +49,6 @@
     <ClCompile Include="..\ovum\test\print.cpp">
       <Filter>Test Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\ovum\test\error.cpp">
-      <Filter>Test Files</Filter>
-    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\ovum\test\gtest.h">

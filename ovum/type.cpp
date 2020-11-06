@@ -84,75 +84,75 @@ namespace {
     return result;
   }
 
-  Erratic<bool> assignableFlags(ValueFlags lhs, ValueFlags rhs) {
+  Assignability assignableFlags(ValueFlags lhs, ValueFlags rhs) {
     if (Bits::hasAllSet(lhs, rhs)) {
-      return true; // always
+      return Assignability::Always;
     }
     if (Bits::hasAnySet(lhs, rhs)) {
-      return false; // sometimes
+      return Assignability::Sometimes;
     }
     if (Bits::hasAnySet(lhs, ValueFlags::Float) && Bits::hasAnySet(rhs, ValueFlags::Int)) {
       // Float<-Int promotion
-      return false; // sometimes
+      return Assignability::Sometimes;
     }
-    return Erratic<bool>::fail("Cannot assign values of type '", flagsToString(rhs),"' to targets of type '", flagsToString(lhs), "'");
+    return Assignability::Never;
   }
 
-  Error tryAssignFlags(IAllocator& allocator, ValueFlags lflags, ISlot& slot, const Value& rhs) {
+  Assignability tryAssignFlags(IAllocator& allocator, ValueFlags lflags, ISlot& slot, const Value& rhs) {
     auto rflags = rhs->getFlags();
     if (Bits::hasAnySet(lflags, rflags)) {
       slot.set(rhs);
-      return {};
+      return Assignability::Always;
     }
     Int i;
     if (Bits::hasAnySet(lflags, ValueFlags::Float) && rhs->getInt(i)) {
       // Float<-Int promotion
       auto f = Float(i);
       if (Int(f) != i) {
-        return Error("Cannot convert 'int' to 'float' accurately: ", i);
+        return Assignability::Sometimes;
       }
       slot.set(ValueFactory::createFloat(allocator, f));
-      return {};
+      return Assignability::Always;
     }
-    return Error("Cannot convert '", rhs->getRuntimeType().toString(), "' to '", flagsToString(lflags), "'");
+    return Assignability::Never;
   }
 
-  Erratic<Value> tryMutateOperation(IAllocator& allocator, ValueFlags lflags, IValue& lhs, Mutation mutation, const Value&) {
+  Assignability tryMutateOperation(IAllocator& allocator, ValueFlags lflags, const IValue& lhs, Mutation mutation, const Value&, Value& out) {
     if (mutation == Mutation::Increment) {
       if (Bits::hasAnySet(lflags, ValueFlags::Int)) {
         Int i;
         if (lhs.getInt(i)) {
-          return ValueFactory::createInt(allocator, i + 1);
+          out = ValueFactory::createInt(allocator, i + 1);
+          return Assignability::Always;
         }
       }
-      return Erratic<Value>::fail("Expected increment '++' operator to be applied to a target of type 'int', not '", lhs.getRuntimeType().toString(), "'");
+      return Assignability::Never;
     }
     if (mutation == Mutation::Decrement) {
       if (Bits::hasAnySet(lflags, ValueFlags::Int)) {
         Int i;
         if (lhs.getInt(i)) {
-          return ValueFactory::createInt(allocator, i - 1);
+          out = ValueFactory::createInt(allocator, i - 1);
+          return Assignability::Always;
         }
       }
-      return Erratic<Value>::fail("Expected decrement '--' operator to be applied to a target of type 'int', not '", lhs.getRuntimeType().toString(), "'");
+      return Assignability::Never;
     }
-    return Erratic<Value>::fail("WIBBLE WOBBLE: tryMutateOperation() not implemented");
+    return Assignability::Readonly; // WIBBLE unimplemented
   }
 
-  Error tryMutateFlags(IAllocator& allocator, ValueFlags lflags, ISlot& slot, Mutation mutation, const Value& rhs) {
+  Assignability tryMutateFlags(IAllocator& allocator, ValueFlags lflags, ISlot& slot, Mutation mutation, const Value& rhs) {
+    Value desired;
     for (;;) {
       // Loop until we successfully (atomically) update the slot (or fail)
       auto* lhs = slot.get();
       if (lhs == nullptr) {
-        return Error("Cannot mutate an empty slot");
+        return Assignability::Never;
       }
-      // If successful, 'error' will hold a hard reference to the result
-      auto result = tryMutateOperation(allocator, lflags, *lhs, mutation, rhs);
-      if (result.failed()) {
-        // The mutation is invalid
-        return result.failure();
+      auto assignability = tryMutateOperation(allocator, lflags, *lhs, mutation, rhs, desired);
+      if (assignability != Assignability::Always) {
+        return assignability;
       }
-      auto desired = result.success();
       if (lhs == &desired.get()) {
         // No need to update
         break;
@@ -162,7 +162,7 @@ namespace {
         break;
       }
     }
-    return {};
+    return Assignability::Always;
   }
 
   Type makeUnionFlags(IAllocator& allocator, ValueFlags flhs, const IType& lhs, const IType& rhs) {
@@ -227,13 +227,13 @@ namespace {
     virtual Type makeUnion(IAllocator& allocator, const IType& rhs) const override {
       return makeUnionFlags(allocator, FLAGS, *this, rhs);
     }
-    virtual Error tryAssign(IAllocator& allocator, ISlot& lhs, const Value& rhs) const override {
+    virtual Assignability tryAssign(IAllocator& allocator, ISlot& lhs, const Value& rhs) const override {
       return tryAssignFlags(allocator, FLAGS, lhs, rhs);
     }
-    virtual Error tryMutate(IAllocator& allocator, ISlot& lhs, Mutation mutation, const Value& rhs) const override {
+    virtual Assignability tryMutate(IAllocator& allocator, ISlot& lhs, Mutation mutation, const Value& rhs) const override {
       return tryMutateFlags(allocator, FLAGS, lhs, mutation, rhs);
     }
-    virtual Erratic<bool> queryAssignableAlways(const IType& rhs) const override {
+    virtual Assignability queryAssignable(const IType& rhs) const override {
       return assignableFlags(FLAGS, rhs.getFlags());
     }
     virtual std::pair<std::string, int> toStringPrecedence() const override {
@@ -250,8 +250,8 @@ namespace {
     TypeVoid& operator=(const TypeVoid&) = delete;
   public:
     TypeVoid() = default;
-    virtual Erratic<bool> queryAssignableAlways(const IType&) const override {
-      return Erratic<bool>::fail("Cannot assign values to 'void'");
+    virtual Assignability queryAssignable(const IType&) const override {
+      return Assignability::Never;
     }
   };
   const TypeVoid typeVoid{};
@@ -354,58 +354,54 @@ namespace {
       assert(&this->allocator == &allocator2);
       return TypeFactory::createUnionJoin(allocator2, *this, rhs);
     }
-    virtual Error tryAssign(IAllocator& allocator2, ISlot& lhs, const Value& rhs) const override {
+    virtual Assignability tryAssign(IAllocator& allocator2, ISlot& lhs, const Value& rhs) const override {
       assert(&this->allocator == &allocator2);
-      auto qa = a->tryAssign(allocator2, lhs, rhs);
-      if (!qa.empty()) {
-        auto qb = b->tryAssign(allocator2, lhs, rhs);
-        if (qb.empty()) {
-          return qb;
-        }
+      auto q = a->tryAssign(allocator2, lhs, rhs);
+      if (q != Assignability::Always) {
+        return b->tryAssign(allocator2, lhs, rhs);
       }
-      return qa;
+      return q;
     }
-    virtual Error tryMutate(IAllocator& allocator2, ISlot& lhs, Mutation mutation, const Value& rhs) const override {
+    virtual Assignability tryMutate(IAllocator& allocator2, ISlot& lhs, Mutation mutation, const Value& rhs) const override {
       assert(&this->allocator == &allocator2);
-      auto qa = a->tryMutate(allocator2, lhs, mutation, rhs);
-      if (!qa.empty()) {
-        auto qb = b->tryMutate(allocator2, lhs, mutation, rhs);
-        if (qb.empty()) {
-          return qb;
-        }
+      auto q = a->tryMutate(allocator2, lhs, mutation, rhs);
+      if (q != Assignability::Always) {
+        return b->tryMutate(allocator2, lhs, mutation, rhs);
       }
-      return qa;
+      return q;
     }
-    virtual Erratic<bool> queryAssignableAlways(const IType& rhs) const override {
+    virtual Assignability queryAssignable(const IType& rhs) const override {
       // The logic is:
       //  Assignable to a Assignable to b Result
       //  =============== =============== ======
+      //  Readonly        Readonly        Readonly
+      //  Readonly        Never           Never
+      //  Readonly        Sometimes       Sometimes
+      //  Readonly        Always          Always
+      //  Never           Readonly        Never
       //  Never           Never           Never
       //  Never           Sometimes       Sometimes
       //  Never           Always          Always
+      //  Sometimes       Readonly        Sometimes
       //  Sometimes       Never           Sometimes
       //  Sometimes       Sometimes       Sometimes
       //  Sometimes       Always          Always
+      //  Always          Readonly        Always
       //  Always          Never           Always
       //  Always          Sometimes       Always
       //  Always          Always          Always
-      auto qa = this->a->queryAssignableAlways(rhs);
-      if (qa.failed()) {
-        // Never assignable to a
-        return this->b->queryAssignableAlways(rhs);
+      auto qa = this->a->queryAssignable(rhs);
+      if (qa == Assignability::Always) {
+        return Assignability::Always;
       }
-      if (qa.success() == true) {
-        // Always assignable to a
-        return qa;
+      auto qb = this->b->queryAssignable(rhs);
+      if (qb == Assignability::Always) {
+        return Assignability::Always;
       }
-      // Sometimes assignable to a
-      auto qb = this->b->queryAssignableAlways(rhs);
-      if (qb.failed()) {
-        // Sometimes assignable to a, but never to b
-        return qa;
+      if ((qa == Assignability::Sometimes) || (qb == Assignability::Sometimes)) {
+        return Assignability::Sometimes;
       }
-      // Sometimes assignable to a, and sometimes/always to b
-      return qb;
+      return (qa == Assignability::Readonly) ? qb : qa;
     }
     virtual const IFunctionSignature* queryCallable() const override {
       // TODO What if both have signatures?
@@ -438,15 +434,15 @@ namespace {
       assert(&this->allocator == &allocator2);
       return makeUnionFlags(allocator2, this->flags, *this, rhs);
     }
-    virtual Error tryAssign(IAllocator& allocator2, ISlot& lhs, const Value& rhs) const override {
+    virtual Assignability tryAssign(IAllocator& allocator2, ISlot& lhs, const Value& rhs) const override {
       assert(&this->allocator == &allocator2);
       return tryAssignFlags(allocator2, this->flags, lhs, rhs);
     }
-    virtual Error tryMutate(IAllocator& allocator2, ISlot& lhs, Mutation mutation, const Value& rhs) const override {
+    virtual Assignability tryMutate(IAllocator& allocator2, ISlot& lhs, Mutation mutation, const Value& rhs) const override {
       assert(&this->allocator == &allocator2);
       return tryMutateFlags(allocator2, this->flags, lhs, mutation, rhs);
     }
-    virtual Erratic<bool> queryAssignableAlways(const IType& rhs) const override {
+    virtual Assignability queryAssignable(const IType& rhs) const override {
       return assignableFlags(this->flags, rhs.getFlags());
     }
     virtual const IFunctionSignature* queryCallable() const override {
@@ -477,18 +473,18 @@ namespace {
       assert(&this->allocator == &allocator2);
       return TypeFactory::createUnionJoin(allocator2, *this, rhs);
     }
-    virtual Error tryAssign(IAllocator& allocator2, ISlot&, const Value&) const override {
+    virtual Assignability tryAssign(IAllocator& allocator2, ISlot&, const Value&) const override {
       assert(&this->allocator == &allocator2);
       (void)&allocator2;
-      return Error("WIBBLE: Pointer assignment not yet implemented");
+      return Assignability::Readonly; // WIBBLE unimplemented
     }
-    virtual Error tryMutate(IAllocator& allocator2, ISlot&, Mutation, const Value&) const override {
+    virtual Assignability tryMutate(IAllocator& allocator2, ISlot&, Mutation, const Value&) const override {
       assert(&this->allocator == &allocator2);
       (void)&allocator2;
-      return Error("WIBBLE: Pointer modification not yet implemented");
+      return Assignability::Readonly; // WIBBLE unimplemented
     }
-    virtual Erratic<bool> queryAssignableAlways(const IType& rhs) const override {
-      return Erratic<bool>::fail("TODO: Assignment of values of type '", Type::toString(rhs), "' to '", Type::toString(*this), "'");
+    virtual Assignability queryAssignable(const IType&) const override {
+      return Assignability::Readonly; // WIBBLE unimplemented
     }
     virtual std::pair<std::string, int> toStringPrecedence() const override {
       auto p = StringBuilder().add(this->referenced.toString(0), '*').toUTF8();
@@ -642,18 +638,18 @@ namespace {
         assert(&this->allocator == &allocator2);
         return TypeFactory::createUnionJoin(allocator2, *this, rhs);
       }
-      virtual Error tryAssign(IAllocator& allocator2, ISlot&, const Value&) const override {
+      virtual Assignability tryAssign(IAllocator& allocator2, ISlot&, const Value&) const override {
         assert(&this->allocator == &allocator2);
         (void)&allocator2;
-        return Error("WIBBLE: FunctionBuilder assignment not yet implemented");
+        return Assignability::Readonly; // WIBBLE unimplemented
       }
-      virtual Error tryMutate(IAllocator& allocator2, ISlot&, Mutation, const Value&) const override {
+      virtual Assignability tryMutate(IAllocator& allocator2, ISlot&, Mutation, const Value&) const override {
         assert(&this->allocator == &allocator2);
         (void)&allocator2;
-        return Error("WIBBLE: FunctionBuilder mutation not yet implemented");
+        return Assignability::Readonly; // WIBBLE unimplemented
       }
-      virtual Erratic<bool> queryAssignableAlways(const IType&) const override {
-        return Erratic<bool>::fail("WIBBLE: FunctionBuilder query assignment not yet implemented");
+      virtual Assignability queryAssignable(const IType&) const override {
+        return Assignability::Readonly; // WIBBLE unimplemented
       }
       virtual const IFunctionSignature* queryCallable() const override {
         return this->builder.get();
@@ -770,15 +766,15 @@ namespace {
       assert(&this->allocator == &allocator2);
       return TypeFactory::createUnionJoin(allocator2, *this, rhs);
     }
-    virtual Error tryAssign(IAllocator& allocator2, ISlot&, const Value&) const override {
+    virtual Assignability tryAssign(IAllocator& allocator2, ISlot&, const Value&) const override {
       assert(&this->allocator == &allocator2);
       (void)&allocator2;
-      return Error("WIBBLE: GeneratorReturnType assignment not yet implemented");
+      return Assignability::Readonly; // WIBBLE unimplemented
     }
-    virtual Error tryMutate(IAllocator& allocator2, ISlot&, Mutation, const Value&) const override {
+    virtual Assignability tryMutate(IAllocator& allocator2, ISlot&, Mutation, const Value&) const override {
       assert(&this->allocator == &allocator2);
       (void)&allocator2;
-      return Error("WIBBLE: GeneratorReturnType modification not yet implemented");
+      return Assignability::Readonly; // WIBBLE unimplemented
     }
     virtual const IFunctionSignature* queryCallable() const override {
       return &this->signature;
@@ -786,8 +782,8 @@ namespace {
     virtual const IIteratorSignature* queryIterable() const override {
       return nullptr;
     }
-    virtual Erratic<bool> queryAssignableAlways(const IType& rhs) const override {
-      return Erratic<bool>::fail("TODO: Assignment of values of type '", Type::toString(rhs), "' to '", Type::toString(*this), "'");
+    virtual Assignability queryAssignable(const IType&) const override {
+      return Assignability::Readonly; // WIBBLE unimplemented
     }
     virtual std::pair<std::string, int> toStringPrecedence() const override {
       // WIBBLE

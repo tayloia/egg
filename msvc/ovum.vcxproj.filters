@@ -127,9 +127,6 @@
     <ClInclude Include="..\ovum\slot.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\ovum\error.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="..\ovum\vanilla.h">
       <Filter>Header Files</Filter>
     </ClInclude>

@@ -1883,9 +1883,15 @@ namespace {
         if (symbol == nullptr) {
           return this->raiseNode(node, "Unknown identifier: '", target.identifier, "'");
         }
-        auto error = target.type->tryAssign(this->allocator, *symbol->slot, rhs);
-        if (!error.empty()) {
-          return this->raiseNode(node, error.toString());
+        switch (target.type->tryAssign(this->allocator, *symbol->slot, rhs)) {
+        case Assignability::Readonly:
+          return this->raiseNode(node, target.type.describeValue(), " cannot be modified");
+        case Assignability::Never:
+          return this->raiseNode(node, target.type.describeValue(), " cannot be assigned a value of type '", rhs->getRuntimeType().toString(), "'");
+        case Assignability::Sometimes:
+          return this->raiseNode(node, target.type.describeValue(), " cannot be assigned the value ", rhs->toString());
+        case Assignability::Always:
+          break;
         }
         return rhs;
       }
@@ -1904,9 +1910,15 @@ namespace {
         if (symbol == nullptr) {
           return this->raiseNode(node, "Unknown identifier: '", target.identifier, "'");
         }
-        auto error = target.type->tryMutate(this->allocator, *symbol->slot, mutation, rhs);
-        if (!error.empty()) {
-          return this->raiseNode(node, error.toString());
+        switch (target.type->tryMutate(this->allocator, *symbol->slot, mutation, rhs)) {
+        case Assignability::Readonly:
+          return this->raiseNode(node, target.type.describeValue(), " cannot be modified");
+        case Assignability::Never:
+          return this->raiseNode(node, target.type.describeValue(), " cannot be modified via a value of type '", rhs->getRuntimeType().toString(), "'");
+        case Assignability::Sometimes:
+          return this->raiseNode(node, target.type.describeValue(), " cannot be modified via the value ", rhs->toString());
+        case Assignability::Always:
+          break;
         }
         return rhs;
       }
@@ -1964,9 +1976,15 @@ Block::~Block() {
 
 Value ProgramDefault::tryAssign(Symbol& symbol, const Value& value) {
   assert(symbol.validate(true));
-  auto error = symbol.type->tryAssign(this->allocator, *symbol.slot, value);
-  if (!error.empty()) {
-    return this->raise(error.toString());
+  switch (symbol.type->tryAssign(this->allocator, *symbol.slot, value)) {
+  case Assignability::Readonly:
+    return this->raiseFormat(symbol.type.describeValue(), " cannot be modified");
+  case Assignability::Never:
+    return this->raiseFormat(symbol.type.describeValue(), " cannot be assigned a value of type '", value->getRuntimeType().toString(), "'");
+  case Assignability::Sometimes:
+    return this->raiseFormat(symbol.type.describeValue(), " cannot be assigned the value ", value->toString());
+  case Assignability::Always:
+    break;
   }
   assert(symbol.validate(false));
   return Value::Void;

@@ -46,7 +46,6 @@
     <ClInclude Include="..\ovum\arithmetic.h" />
     <ClInclude Include="..\ovum\context.h" />
     <ClInclude Include="..\ovum\dictionary.h" />
-    <ClInclude Include="..\ovum\error.h" />
     <ClInclude Include="..\ovum\memory.h" />
     <ClInclude Include="..\ovum\module.h" />
     <ClInclude Include="..\ovum\basket.h" />

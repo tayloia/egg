@@ -68,23 +68,23 @@ namespace {
     virtual Type makeUnion(IAllocator& allocator, const IType& rhs) const override {
       return TypeFactory::createUnionJoin(allocator, *this, rhs);
     }
-    virtual Error tryAssign(IAllocator&, ISlot& lhs, const Value& rhs) const override {
+    virtual Assignability tryAssign(IAllocator&, ISlot& lhs, const Value& rhs) const override {
       // WIBBLE
       lhs.set(rhs);
-      return {};
+      return Assignability::Always;
     }
-    virtual Error tryMutate(IAllocator&, ISlot&, Mutation, const Value&) const override {
-      return Error("Cannot modify values of type '", this->name, "'");
+    virtual Assignability tryMutate(IAllocator&, ISlot&, Mutation, const Value&) const override {
+      return Assignability::Readonly; // unimplemented
     }
-    virtual Erratic<bool> queryAssignableAlways(const IType& rhs) const override {
+    virtual Assignability queryAssignable(const IType& rhs) const override {
       auto rflags = rhs.getFlags();
       if (rflags == ValueFlags::Object) {
-        return true; // always
+        return Assignability::Always;
       }
       if (Bits::hasAnySet(rflags, ValueFlags::Object)) {
-        return false; // sometimes
+        return Assignability::Sometimes;
       }
-      return Erratic<bool>::fail("Cannot assign values of type '", Type::toString(rhs), "' to targets of type '", this->name, "'");
+      return Assignability::Never;
     }
     virtual const IFunctionSignature* queryCallable() const override {
       return &TypeFactory::OmniFunctionSignature;

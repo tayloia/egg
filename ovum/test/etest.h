@@ -186,13 +186,25 @@ namespace egg::test {
 
 template<>
 inline void ::testing::internal::PrintTo(const egg::ovum::ValueFlags& value, std::ostream* stream) {
-  // Pretty-print the value flags WIBBLE WOBBLE
+  // Pretty-print the value flags
   egg::ovum::Print::write(*stream, value);
 }
 
 template<>
 inline void ::testing::internal::PrintTo(const egg::ovum::Value& value, std::ostream* stream) {
   // Pretty-print the value
+  egg::ovum::Print::write(*stream, value);
+}
+
+template<>
+inline void ::testing::internal::PrintTo(const egg::ovum::ILogger::Severity& value, std::ostream* stream) {
+  // Pretty-print the value flags
+  egg::ovum::Print::write(*stream, value);
+}
+
+template<>
+inline void ::testing::internal::PrintTo(const egg::ovum::ILogger::Source& value, std::ostream* stream) {
+  // Pretty-print the value flags
   egg::ovum::Print::write(*stream, value);
 }
 
