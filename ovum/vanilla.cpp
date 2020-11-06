@@ -195,6 +195,12 @@ namespace {
     virtual Value mutProperty(IExecution& execution, const String&, Mutation, const Value&) override {
       return execution.raise(this->trailing("do not support properties [mut]"));
     }
+    virtual Value delProperty(IExecution& execution, const String&) override {
+      return execution.raise(this->trailing("do not support properties [del]"));
+    }
+    virtual Value refProperty(IExecution& execution, const String&) override {
+      return execution.raise(this->trailing("do not support properties [ref]"));
+    }
     virtual Value getIndex(IExecution& execution, const Value&) override {
       return execution.raise(this->trailing("do not support indexing with '[]' [get]"));
     }
@@ -203,6 +209,21 @@ namespace {
     }
     virtual Value mutIndex(IExecution& execution, const Value&, Mutation, const Value&) override {
       return execution.raise(this->trailing("do not support indexing with '[]' [mut]"));
+    }
+    virtual Value delIndex(IExecution& execution, const Value&) override {
+      return execution.raise(this->trailing("do not support indexing with '[]' [del]"));
+    }
+    virtual Value refIndex(IExecution& execution, const Value&) override {
+      return execution.raise(this->trailing("do not support indexing with '[]' [ref]"));
+    }
+    virtual Value getPointee(IExecution& execution) override {
+      return execution.raise(this->trailing("do not support pointer dereferencing with '*' [get]"));
+    }
+    virtual Value setPointee(IExecution& execution, const Value&) override {
+      return execution.raise(this->trailing("do not support pointer dereferencing with '*' [set]"));
+    }
+    virtual Value mutPointee(IExecution& execution, Mutation, const Value&) override {
+      return execution.raise(this->trailing("do not support pointer dereferencing with '*' [mut]"));
     }
     virtual Value iterate(IExecution& execution) override {
       return execution.raise(this->trailing("do not support iteration"));
@@ -425,7 +446,7 @@ namespace {
       this->map.add("message", ValueFactory::create(allocator, message));
       StringBuilder sb;
       location.formatSourceString(sb);
-      this->map.add("location", ValueFactory::create(allocator, sb.toUTF8()));
+      this->map.add("location", ValueFactory::createUTF8(allocator, sb.toUTF8()));
       if (!sb.empty()) {
         sb.add(':', ' ');
       }

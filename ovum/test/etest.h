@@ -35,6 +35,53 @@ namespace egg::test {
     }
   };
 
+  class Execution final : public egg::ovum::IExecution {
+    Execution(const Execution&) = delete;
+    Execution& operator=(const Execution&) = delete;
+  private:
+    egg::ovum::IAllocator& allocator;
+    egg::ovum::Basket basket;
+    egg::ovum::ILogger& logger;
+  public:
+    Execution(egg::ovum::IAllocator& allocator, egg::ovum::ILogger& logger)
+      : allocator(allocator),
+        basket(egg::ovum::BasketFactory::createBasket(allocator)),
+        logger(logger) {
+    }
+    virtual egg::ovum::IAllocator& getAllocator() const override {
+      return this->allocator;
+    }
+    virtual egg::ovum::IBasket& getBasket() const override {
+      return *this->basket;
+    }
+    virtual egg::ovum::Value raise(const egg::ovum::String& message) override {
+      auto value = egg::ovum::ValueFactory::create(this->allocator, message);
+      return egg::ovum::ValueFactory::createFlowControl(this->allocator, egg::ovum::ValueFlags::Throw, value);
+    }
+    virtual egg::ovum::Value assertion(const egg::ovum::Value& predicate) override {
+      egg::ovum::Object object;
+      if (predicate->getObject(object)) {
+        // Predicates can be functions that throw exceptions, as well as 'bool' values
+        auto type = object->getRuntimeType();
+        if (type->queryCallable() != nullptr) {
+          // Call the predicate directly
+          return object->call(*this, egg::ovum::Object::ParametersNone);
+        }
+      }
+      egg::ovum::Bool value;
+      if (!predicate->getBool(value)) {
+        return this->raiseFormat("'assert()' expects its parameter to be a 'bool' or 'void()', but got '", predicate->getRuntimeType().toString(), "' instead");
+      }
+      if (value) {
+        return egg::ovum::Value::Void;
+      }
+      return this->raise("Assertion is untrue");
+    }
+    virtual void print(const std::string& utf8) override {
+      this->logger.log(egg::ovum::ILogger::Source::User, egg::ovum::ILogger::Severity::None, utf8);
+    }
+  };
+
   class Logger final : public egg::ovum::ILogger {
     Logger(const Logger&) = delete;
     Logger& operator=(const Logger&) = delete;
@@ -139,7 +186,7 @@ namespace egg::test {
 
 template<>
 inline void ::testing::internal::PrintTo(const egg::ovum::ValueFlags& value, std::ostream* stream) {
-  // Pretty-print the value flags
+  // Pretty-print the value flags WIBBLE WOBBLE
   egg::ovum::Print::write(*stream, value);
 }
 

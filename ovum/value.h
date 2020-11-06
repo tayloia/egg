@@ -119,7 +119,6 @@ namespace egg::ovum {
     static Value createFloat(IAllocator& allocator, Float value);
     static Value createString(IAllocator& allocator, const String& value);
     static Value createObject(IAllocator& allocator, const Object& value);
-    static Value createPointer(IAllocator& allocator, const Value& pointee);
     static Value createFlowControl(IAllocator& allocator, ValueFlags flags, const Value& value);
     static Value createThrowError(IAllocator& allocator, const LocationSource& location, const String& message);
 
@@ -147,17 +146,17 @@ namespace egg::ovum {
     static Value create(IAllocator& allocator, const String& value) {
       return createString(allocator, value);
     }
-    static Value create(IAllocator& allocator, const std::string& value) {
+    static Value create(IAllocator& allocator, const Object& value) {
+      return createObject(allocator, value);
+    }
+    static Value createUTF8(IAllocator& allocator, const std::string& value) {
       return createString(allocator, StringFactory::fromUTF8(allocator, value));
     }
-    static Value create(IAllocator& allocator, const char* value) {
+    static Value createASCIIZ(IAllocator& allocator, const char* value) {
       if (value == nullptr) {
         return Value::Null;
       }
       return createString(allocator, StringFactory::fromASCIIZ(allocator, value));
-    }
-    static Value create(IAllocator& allocator, const Object& value) {
-      return createObject(allocator, value);
     }
 
     // Standard builtins

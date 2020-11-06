@@ -208,16 +208,23 @@ namespace egg::ovum {
   public:
     // Interface
     virtual bool validate() const = 0;
-    virtual void toStringBuilder(StringBuilder& sb) const = 0;
     virtual Type getRuntimeType() const = 0;
     virtual Value call(IExecution& execution, const IParameters& parameters) = 0;
     virtual Value getProperty(IExecution& execution, const String& property) = 0;
     virtual Value setProperty(IExecution& execution, const String& property, const Value& value) = 0;
     virtual Value mutProperty(IExecution& execution, const String& property, Mutation mutation, const Value& value) = 0;
+    virtual Value delProperty(IExecution& execution, const String& property) = 0;
+    virtual Value refProperty(IExecution& execution, const String& property) = 0;
     virtual Value getIndex(IExecution& execution, const Value& index) = 0;
     virtual Value setIndex(IExecution& execution, const Value& index, const Value& value) = 0;
     virtual Value mutIndex(IExecution& execution, const Value& index, Mutation mutation, const Value& value) = 0;
+    virtual Value delIndex(IExecution& execution, const Value& index) = 0;
+    virtual Value refIndex(IExecution& execution, const Value& index) = 0;
+    virtual Value getPointee(IExecution& execution) = 0;
+    virtual Value setPointee(IExecution& execution, const Value& value) = 0;
+    virtual Value mutPointee(IExecution& execution, Mutation mutation, const Value& value) = 0;
     virtual Value iterate(IExecution& execution) = 0;
+    virtual void toStringBuilder(StringBuilder& sb) const = 0;
     String toString() const;
   };
 }

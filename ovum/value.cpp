@@ -419,10 +419,6 @@ egg::ovum::Value egg::ovum::ValueFactory::createObject(IAllocator& allocator, co
   return Value(*allocator.make<ValueObject, IValue*>(value));
 }
 
-egg::ovum::Value egg::ovum::ValueFactory::createPointer(IAllocator& allocator, const Value& value) {
-  return Value(*allocator.make<ValuePointer, IValue*>(value));
-}
-
 egg::ovum::Value egg::ovum::ValueFactory::createFlowControl(IAllocator& allocator, ValueFlags flags, const Value& value) {
   return Value(*allocator.make<ValueFlowControl, IValue*>(flags, value));
 }

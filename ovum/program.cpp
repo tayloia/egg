@@ -260,6 +260,12 @@ namespace {
     virtual Value mutProperty(IExecution& execution, const String& property, Mutation, const Value&) override {
       return this->raise(execution, "does not support properties such as '", property, "'");
     }
+    virtual Value delProperty(IExecution& execution, const String& property) override {
+      return this->raise(execution, "does not support properties such as '", property, "'");
+    }
+    virtual Value refProperty(IExecution& execution, const String& property) override {
+      return this->raise(execution, "does not support properties such as '", property, "'");
+    }
     virtual Value getIndex(IExecution& execution, const Value&) override {
       return this->raise(execution, "does not support indexing");
     }
@@ -268,6 +274,21 @@ namespace {
     }
     virtual Value mutIndex(IExecution& execution, const Value&, Mutation, const Value&) override {
       return this->raise(execution, "does not support indexing");
+    }
+    virtual Value delIndex(IExecution& execution, const Value&) override {
+      return this->raise(execution, "does not support indexing");
+    }
+    virtual Value refIndex(IExecution& execution, const Value&) override {
+      return this->raise(execution, "does not support indexing");
+    }
+    virtual Value getPointee(IExecution& execution) override {
+      return this->raise(execution, "does not support pointer dereferencing");
+    }
+    virtual Value setPointee(IExecution& execution, const Value&) override {
+      return this->raise(execution, "does not support pointer dereferencing");
+    }
+    virtual Value mutPointee(IExecution& execution, Mutation, const Value&) override {
+      return this->raise(execution, "does not support pointer dereferencing");
     }
     virtual Value iterate(IExecution& execution) override {
       return this->raise(execution, "does not support iteration");
@@ -480,7 +501,7 @@ namespace {
       if (exception->getObject(error)) {
         // Augment the exception with the actual evaluation
         (void)error->setProperty(*this, "left", lhs);
-        (void)error->setProperty(*this, "operator", ValueFactory::create(this->allocator, str));
+        (void)error->setProperty(*this, "operator", ValueFactory::createUTF8(this->allocator, str));
         (void)error->setProperty(*this, "right", rhs);
       }
       return exception;

@@ -32,6 +32,12 @@ namespace {
     virtual Value mutProperty(IExecution& execution, const String& property, Mutation, const Value&) override {
       return this->raiseBuiltin(execution, "does not support properties such as '", property, "'");
     }
+    virtual Value delProperty(IExecution& execution, const String& property) override {
+      return this->raiseBuiltin(execution, "does not support properties such as '", property, "'");
+    }
+    virtual Value refProperty(IExecution& execution, const String& property) override {
+      return this->raiseBuiltin(execution, "does not support properties such as '", property, "'");
+    }
     virtual Value getIndex(IExecution& execution, const Value&) override {
       return this->raiseBuiltin(execution, "does not support indexing with '[]'");
     }
@@ -40,6 +46,21 @@ namespace {
     }
     virtual Value mutIndex(IExecution& execution, const Value&, Mutation, const Value&) override {
       return this->raiseBuiltin(execution, "does not support indexing with '[]'");
+    }
+    virtual Value delIndex(IExecution& execution, const Value&) override {
+      return this->raiseBuiltin(execution, "does not support indexing with '[]'");
+    }
+    virtual Value refIndex(IExecution& execution, const Value&) override {
+      return this->raiseBuiltin(execution, "does not support indexing with '[]'");
+    }
+    virtual Value getPointee(IExecution& execution) override {
+      return this->raiseBuiltin(execution, "does not support pointer referencing with '*'");
+    }
+    virtual Value setPointee(IExecution& execution, const Value&) override {
+      return this->raiseBuiltin(execution, "does not support pointer referencing with '*'");
+    }
+    virtual Value mutPointee(IExecution& execution, Mutation, const Value&) override {
+      return this->raiseBuiltin(execution, "does not support pointer referencing with '*'");
     }
     virtual Value iterate(IExecution& execution) override {
       return this->raiseBuiltin(execution, "does not support iteration");
