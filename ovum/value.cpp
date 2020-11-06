@@ -38,7 +38,7 @@ namespace {
     virtual bool getObject(Object&) const override {
       return false;
     }
-    virtual bool getChild(Value&) const override {
+    virtual bool getInner(Value&) const override {
       return false;
     }
     virtual ValueFlags getFlags() const override {
@@ -153,7 +153,7 @@ namespace {
     virtual bool getObject(Object&) const override {
       return false;
     }
-    virtual bool getChild(Value&) const override {
+    virtual bool getInner(Value&) const override {
       return false;
     }
   };
@@ -301,70 +301,39 @@ namespace {
     }
   };
 
-  class ValuePointer final : public ValueMutable {
-    ValuePointer(const ValuePointer&) = delete;
-    ValuePointer& operator=(const ValuePointer&) = delete;
-  private:
-    Value child;
-  public:
-    ValuePointer(IAllocator& allocator, const Value& child) : ValueMutable(allocator), child(child) {
-      assert(this->validate());
-    }
-    virtual ValueFlags getFlags() const override {
-      return ValueFlags::Object;
-    }
-    virtual Type getRuntimeType() const override {
-      return Type::Null; // WIBBLE
-    }
-    virtual bool getChild(Value& value) const override {
-      value = child;
-      return true;
-    }
-    virtual bool equals(const IValue& rhs, ValueCompare compare) const override {
-      Value other;
-      return (rhs.getFlags() == ValueFlags::Object) && rhs.getChild(other) && this->equals(other.get(), compare);
-    }
-    virtual bool validate() const override {
-      return this->child.validate();
-    }
-    virtual void toStringBuilder(StringBuilder& sb) const override {
-      sb.add("<pointer>");
-    }
-  };
-
   class ValueFlowControl final : public ValueMutable {
     ValueFlowControl(const ValueFlowControl&) = delete;
     ValueFlowControl& operator=(const ValueFlowControl&) = delete;
   private:
     ValueFlags flags;
-    Value child;
+    Value inner;
   public:
-    ValueFlowControl(IAllocator& allocator, ValueFlags flags, const Value& child) : ValueMutable(allocator), flags(flags), child(child) {
+    ValueFlowControl(IAllocator& allocator, ValueFlags flags, const Value& child) : ValueMutable(allocator), flags(flags), inner(child) {
       assert(this->validate());
     }
     virtual ValueFlags getFlags() const override {
-      return this->flags | this->child->getFlags();
+      return this->flags | this->inner->getFlags();
     }
     virtual Type getRuntimeType() const override {
       // We should NOT really be asked for type information here
       assert(false);
       return Type::Void;
     }
-    virtual bool getChild(Value& value) const override {
-      value = this->child;
+    virtual bool getInner(Value& value) const override {
+      value = this->inner;
       return true;
     }
     virtual bool equals(const IValue& rhs, ValueCompare compare) const override {
       Value other;
-      return (rhs.getFlags() == this->flags) && rhs.getChild(other) && this->child->equals(other.get(), compare);
+      return (rhs.getFlags() == this->flags) && rhs.getInner(other) && this->inner->equals(other.get(), compare);
     }
     virtual bool validate() const override {
-      return this->child.validate();
+      return this->inner.validate();
     }
     virtual void toStringBuilder(StringBuilder& sb) const override {
       Print::add(sb, this->flags);
       sb.add(' ');
-      Print::add(sb, this->child);
+      Print::add(sb, this->inner);
     }
   };
 

@@ -137,7 +137,7 @@ egg::ovum::ILogger::Severity egg::yolk::EggProgram::execute(IEggEngineContext& c
   auto result = program->run(*module);
   if (egg::ovum::Bits::hasAnySet(result->getFlags(), egg::ovum::ValueFlags::Throw)) {
     egg::ovum::Value exception;
-    if (result->getChild(exception)) {
+    if (result->getInner(exception)) {
       // Don't re-print a rethrown exception
       context.log(egg::ovum::ILogger::Source::Runtime, egg::ovum::ILogger::Severity::Error, exception->toString().toUTF8());
     }

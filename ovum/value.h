@@ -30,12 +30,12 @@ namespace egg::ovum {
     virtual bool getFloat(Float& value) const = 0;
     virtual bool getString(String& value) const = 0;
     virtual bool getObject(Object& value) const = 0;
-    virtual bool getChild(Value& child) const = 0;
+    virtual bool getInner(Value& inner) const = 0;
     virtual ValueFlags getFlags() const = 0;
     virtual Type getRuntimeType() const = 0;
     virtual bool equals(const IValue& rhs, ValueCompare compare) const = 0;
-    virtual void toStringBuilder(StringBuilder& sb) const = 0;
     virtual bool validate() const = 0;
+    virtual void toStringBuilder(StringBuilder& sb) const = 0;
     String toString() const {
       StringBuilder sb;
       this->toStringBuilder(sb);

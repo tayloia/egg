@@ -453,7 +453,7 @@ namespace {
       }
       auto retval = this->executeBlock(scope, block);
       if (retval.hasAnyFlags(ValueFlags::Return)) {
-        if (retval->getChild(retval)) {
+        if (retval->getInner(retval)) {
           // Simple 'return <value>'
           return retval;
         }
@@ -1018,7 +1018,7 @@ namespace {
       auto exception = this->statementBlock(node.getChild(0));
       if (exception.hasAnyFlags(ValueFlags::Throw)) {
         Value thrown;
-        if (exception->getChild(thrown)) {
+        if (exception->getInner(thrown)) {
           // Find a matching catch block
           Block block(*this);
           for (size_t i = 2; i < n; ++i) {
