@@ -86,20 +86,23 @@ namespace {
       }
       return Erratic<bool>::fail("Cannot assign values of type '", Type::toString(rhs), "' to targets of type '", this->name, "'");
     }
-    virtual Erratic<Type> queryPropertyType(const String&) const {
-      return Type::AnyQ;
-    }
     virtual const IFunctionSignature* queryCallable() const override {
       return &TypeFactory::OmniFunctionSignature;
     }
-    virtual Erratic<Type> queryIterable() const override {
-      return Erratic<Type>::fail("WIBBLE: Object not iterable");
+    virtual const IPropertySignature* queryDotable() const override {
+      return nullptr;
     }
-    virtual Erratic<Type> queryPointeeType() const override {
-      return Erratic<Type>::fail("WIBBLE: Object not pointable");
+    virtual const IIteratorSignature* queryIterable() const override {
+      return nullptr;
+    }
+    virtual const IPointerSignature* queryPointable() const override {
+      return nullptr;
     }
     virtual std::pair<std::string, int> toStringPrecedence() const override {
       return std::make_pair(this->name, 0);
+    }
+    virtual String describeValue() const override {
+      return StringBuilder::concat("Value of type '", this->name, "'");
     }
   };
 
@@ -108,19 +111,48 @@ namespace {
     TypeArray& operator=(const TypeArray&) = delete;
   private:
     class IndexSignature : public IIndexSignature {
+    public:
       virtual Type getResultType() const override {
         return Type::AnyQ;
       }
       virtual Type getIndexType() const override {
         return Type::Int;
       }
+      virtual Modifiability getModifiability() const override {
+        return Modifiability::Read | Modifiability::Write | Modifiability::Mutate;
+      }
+    };
+    class PropertySignature : public IPropertySignature {
+    public:
+      virtual Type getType(const String& property) const override {
+        if (property == "length") {
+          return Type::Int;
+        }
+        return nullptr;
+      }
+      virtual Modifiability getModifiability(const String& property) const override {
+        if (property == "length") {
+          return Modifiability::Read | Modifiability::Write | Modifiability::Mutate;
+        }
+        return Modifiability::None;
+      }
+      virtual String getName(size_t index) const override {
+        if (index == 0) {
+          return "length";
+        }
+        return {};
+      }
     };
     static inline const IndexSignature indexSignature{};
+    static inline const PropertySignature propertySignature{};
   public:
     TypeArray() : TypeBase("any?[]") {
     }
     virtual const IIndexSignature* queryIndexable() const override {
       return &indexSignature;
+    }
+    virtual const IPropertySignature* queryDotable() const override {
+      return &propertySignature;
     }
   };
   const TypeArray typeArray{};
@@ -130,19 +162,39 @@ namespace {
     TypeDictionary& operator=(const TypeDictionary&) = delete;
   private:
     class IndexSignature : public IIndexSignature {
+    public:
       virtual Type getResultType() const override {
         return Type::AnyQ;
       }
       virtual Type getIndexType() const override {
         return Type::String;
       }
+      virtual Modifiability getModifiability() const override {
+        return Modifiability::Read | Modifiability::Write | Modifiability::Mutate | Modifiability::Delete;
+      }
+    };
+    class PropertySignature : public IPropertySignature {
+    public:
+      virtual Type getType(const String&) const override {
+        return Type::AnyQ;
+      }
+      virtual Modifiability getModifiability(const String&) const override {
+        return Modifiability::Read | Modifiability::Write | Modifiability::Mutate | Modifiability::Delete;
+      }
+      virtual String getName(size_t) const override {
+        return {};
+      }
     };
     static inline const IndexSignature indexSignature{};
+    static inline const PropertySignature propertySignature{};
   public:
     TypeDictionary() : TypeBase("any?{string}") {
     }
     virtual const IIndexSignature* queryIndexable() const override {
       return &indexSignature;
+    }
+    virtual const IPropertySignature* queryDotable() const override {
+      return &propertySignature;
     }
   };
   const TypeDictionary typeDictionary{};
@@ -152,19 +204,39 @@ namespace {
     TypeObject& operator=(const TypeObject&) = delete;
   private:
     class IndexSignature : public IIndexSignature {
+    public:
       virtual Type getResultType() const override {
         return Type::AnyQ;
       }
       virtual Type getIndexType() const override {
         return Type::AnyQ;
       }
+      virtual Modifiability getModifiability() const override {
+        return Modifiability::Read | Modifiability::Write | Modifiability::Mutate | Modifiability::Delete;
+      }
+    };
+    class PropertySignature : public IPropertySignature {
+    public:
+      virtual Type getType(const String&) const override {
+        return Type::AnyQ;
+      }
+      virtual Modifiability getModifiability(const String&) const override {
+        return Modifiability::Read | Modifiability::Write | Modifiability::Mutate | Modifiability::Delete;
+      }
+      virtual String getName(size_t) const override {
+        return {};
+      }
     };
     static inline const IndexSignature indexSignature{};
+    static inline const PropertySignature propertySignature{};
   public:
     TypeObject() : TypeBase("object") {
     }
     virtual const IIndexSignature* queryIndexable() const override {
       return &indexSignature;
+    }
+    virtual const IPropertySignature* queryDotable() const override {
+      return &propertySignature;
     }
   };
   const TypeObject typeObject{};
@@ -184,53 +256,53 @@ namespace {
       sb.add('<', this->getRuntimeType().toString(), '>');
     }
     virtual Value call(IExecution& execution, const IParameters&) override {
-      return execution.raise(this->trailing("do not support calling with '()'"));
+      return execution.raise(this->trailing("does not support calling with '()'"));
     }
     virtual Value getProperty(IExecution& execution, const String&) override {
-      return execution.raise(this->trailing("do not support properties [get]"));
+      return execution.raise(this->trailing("does not support properties [get]"));
     }
     virtual Value setProperty(IExecution& execution, const String&, const Value&) override {
-      return execution.raise(this->trailing("do not support properties [set]"));
+      return execution.raise(this->trailing("does not support properties [set]"));
     }
     virtual Value mutProperty(IExecution& execution, const String&, Mutation, const Value&) override {
-      return execution.raise(this->trailing("do not support properties [mut]"));
+      return execution.raise(this->trailing("does not support properties [mut]"));
     }
     virtual Value delProperty(IExecution& execution, const String&) override {
-      return execution.raise(this->trailing("do not support properties [del]"));
+      return execution.raise(this->trailing("does not support properties [del]"));
     }
     virtual Value refProperty(IExecution& execution, const String&) override {
-      return execution.raise(this->trailing("do not support properties [ref]"));
+      return execution.raise(this->trailing("does not support properties [ref]"));
     }
     virtual Value getIndex(IExecution& execution, const Value&) override {
-      return execution.raise(this->trailing("do not support indexing with '[]' [get]"));
+      return execution.raise(this->trailing("does not support indexing with '[]' [get]"));
     }
     virtual Value setIndex(IExecution& execution, const Value&, const Value&) override {
-      return execution.raise(this->trailing("do not support indexing with '[]' [set]"));
+      return execution.raise(this->trailing("does not support indexing with '[]' [set]"));
     }
     virtual Value mutIndex(IExecution& execution, const Value&, Mutation, const Value&) override {
-      return execution.raise(this->trailing("do not support indexing with '[]' [mut]"));
+      return execution.raise(this->trailing("does not support indexing with '[]' [mut]"));
     }
     virtual Value delIndex(IExecution& execution, const Value&) override {
-      return execution.raise(this->trailing("do not support indexing with '[]' [del]"));
+      return execution.raise(this->trailing("does not support indexing with '[]' [del]"));
     }
     virtual Value refIndex(IExecution& execution, const Value&) override {
-      return execution.raise(this->trailing("do not support indexing with '[]' [ref]"));
+      return execution.raise(this->trailing("does not support indexing with '[]' [ref]"));
     }
     virtual Value getPointee(IExecution& execution) override {
-      return execution.raise(this->trailing("do not support pointer dereferencing with '*' [get]"));
+      return execution.raise(this->trailing("does not support pointer dereferencing with '*' [get]"));
     }
     virtual Value setPointee(IExecution& execution, const Value&) override {
-      return execution.raise(this->trailing("do not support pointer dereferencing with '*' [set]"));
+      return execution.raise(this->trailing("does not support pointer dereferencing with '*' [set]"));
     }
     virtual Value mutPointee(IExecution& execution, Mutation, const Value&) override {
-      return execution.raise(this->trailing("do not support pointer dereferencing with '*' [mut]"));
+      return execution.raise(this->trailing("does not support pointer dereferencing with '*' [mut]"));
     }
     virtual Value iterate(IExecution& execution) override {
-      return execution.raise(this->trailing("do not support iteration"));
+      return execution.raise(this->trailing("does not support iteration"));
     }
   protected:
     virtual String trailing(const char* suffix) const {
-      return StringBuilder::concat("Values of type '", this->getRuntimeType().toString(), "' ", suffix);
+      return StringBuilder::concat(this->getRuntimeType().describeValue(), " ", suffix);
     }
   };
 

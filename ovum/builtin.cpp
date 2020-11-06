@@ -6,6 +6,22 @@
 
 #include <map>
 
+#define EGG_STRING_PROPERTIES(X) \
+  X(compareTo, WIBBLE) \
+  X(contains, WIBBLE) \
+  X(endsWith, WIBBLE) \
+  X(hash, WIBBLE) \
+  X(indexOf, WIBBLE) \
+  X(join, WIBBLE) \
+  X(lastIndexOf, WIBBLE) \
+  X(padLeft, WIBBLE) \
+  X(padRight, WIBBLE) \
+  X(repeat, WIBBLE) \
+  X(replace, WIBBLE) \
+  X(slice, WIBBLE) \
+  X(startsWith, WIBBLE) \
+  X(toString, WIBBLE)
+
 namespace {
   using namespace egg::ovum;
 
@@ -76,13 +92,13 @@ namespace {
     }
   };
 
-  class BuiltinObjectType : public NotReferenceCounted<IType> {
-    BuiltinObjectType(const BuiltinObjectType&) = delete;
-    BuiltinObjectType& operator=(const BuiltinObjectType&) = delete;
+  class BuiltinType_Base : public NotReferenceCounted<IType> {
+    BuiltinType_Base(const BuiltinType_Base&) = delete;
+    BuiltinType_Base& operator=(const BuiltinType_Base&) = delete;
   private:
     String name;
   public:
-    explicit BuiltinObjectType(const String& name)
+    explicit BuiltinType_Base(const String& name)
       : name(name) {
       assert(!name.empty());
     }
@@ -98,30 +114,33 @@ namespace {
     virtual Erratic<bool> queryAssignableAlways(const IType&) const override {
       return Erratic<bool>::fail("Cannot assign to built-in '", this->name, "'");
     }
-    virtual Erratic<Type> queryIterable() const override {
-      return Erratic<Type>::fail("Built-in '", this->name, "' is not iterable");
-    }
-    virtual Erratic<Type> queryPointeeType() const override {
-      return Erratic<Type>::fail("Built-in '", this->name, "' does not support the pointer dereferencing '*' operator");
-    }
     virtual const IIndexSignature* queryIndexable() const override {
+      return nullptr;
+    }
+    virtual const IIteratorSignature* queryIterable() const override {
+      return nullptr;
+    }
+    virtual const IPointerSignature* queryPointable() const override {
       return nullptr;
     }
     virtual std::pair<std::string, int> toStringPrecedence() const override {
       return std::make_pair("<builtin-" + this->name.toUTF8() + ">", 0);
+    }
+    virtual String describeValue() const override {
+      return StringBuilder::concat("Type '", this->name, "'");
     }
     const String& getName() const {
       return this->name;
     }
   };
 
-  class BuiltinObject : public BuiltinBase {
-    BuiltinObject(const BuiltinObject&) = delete;
-    BuiltinObject& operator=(const BuiltinObject&) = delete;
+  class Builtin_Base : public BuiltinBase {
+    Builtin_Base(const Builtin_Base&) = delete;
+    Builtin_Base& operator=(const Builtin_Base&) = delete;
   private:
-    HardPtr<BuiltinObjectType> type;
+    HardPtr<BuiltinType_Base> type;
   public:
-    BuiltinObject(IAllocator& allocator, const BuiltinObjectType& type)
+    Builtin_Base(IAllocator& allocator, const BuiltinType_Base& type)
       : BuiltinBase(allocator, type.getName()),
         type(&type) {
     }
@@ -204,7 +223,7 @@ namespace {
     }
   };
 
-  class BuiltinType_String : public BuiltinObjectType {
+  class BuiltinType_String : public BuiltinType_Base {
     BuiltinType_String(const BuiltinType_String&) = delete;
     BuiltinType_String& operator=(const BuiltinType_String&) = delete;
   private:
@@ -239,26 +258,39 @@ namespace {
         return parameter;
       }
     };
+    class PropertySignature : public IPropertySignature {
+    public:
+      virtual Type getType(const String&) const override {
+        return {};
+      }
+      virtual Modifiability getModifiability(const String&) const override {
+        return Modifiability::None;
+      }
+      virtual String getName(size_t) const override {
+        return {};
+      }
+    };
   public:
-    BuiltinType_String() : BuiltinObjectType("string") {}
+    BuiltinType_String() : BuiltinType_Base("string") {}
     virtual Type makeUnion(IAllocator& allocator, const IType& rhs) const override {
       return TypeFactory::createUnionJoin(allocator, *this, rhs);
-    }
-    virtual Erratic<Type> queryPropertyType(const String& property) const override {
-      return Erratic<Type>::fail("Unknown built-in property: 'string.", property, "'");
     }
     virtual const IFunctionSignature* queryCallable() const override {
       static const FunctionSignature signature;
       return &signature;
     }
+    virtual const IPropertySignature* queryDotable() const override {
+      static const PropertySignature signature;
+      return &signature;
+    }
   };
 
-  class Builtin_String : public BuiltinObject {
+  class Builtin_String : public Builtin_Base {
     Builtin_String(const Builtin_String&) = delete;
     Builtin_String& operator=(const Builtin_String&) = delete;
   public:
-    explicit Builtin_String(IAllocator& allocator, const BuiltinObjectType& type)
-      : BuiltinObject(allocator, type) {
+    explicit Builtin_String(IAllocator& allocator, const BuiltinType_Base& type)
+      : Builtin_Base(allocator, type) {
     }
     virtual Value call(IExecution& execution, const IParameters& parameters) override {
       if (parameters.getNamedCount() > 0) {
@@ -273,21 +305,44 @@ namespace {
     }
   };
 
-  class BuiltinType_Type : public BuiltinObjectType {
+  class BuiltinType_Type : public BuiltinType_Base {
     BuiltinType_Type(const BuiltinType_Type&) = delete;
     BuiltinType_Type& operator=(const BuiltinType_Type&) = delete;
+  private:
+    class PropertySignature : public IPropertySignature {
+    public:
+      virtual Type getType(const String& property) const override {
+        if (property.equals("of")) {
+          return Type::AnyQ; // WIBBLE
+        }
+        return nullptr;
+      }
+      virtual Modifiability getModifiability(const String& property) const override {
+        if (property.equals("of")) {
+          return Modifiability::Read; // WIBBLE
+        }
+        return Modifiability::None;
+      }
+      virtual String getName(size_t index) const override {
+        if (index == 0) {
+          return "of"; // WIBBLE
+        }
+        return {};
+      }
+    };
   public:
-    BuiltinType_Type() : BuiltinObjectType("type") {}
+    BuiltinType_Type() : BuiltinType_Base("type") {}
     virtual Type makeUnion(IAllocator& allocator, const IType& rhs) const override {
       return TypeFactory::createUnionJoin(allocator, *this, rhs);
     }
-    virtual Erratic<Type> queryPropertyType(const String& property) const override {
-      if (property.equals("of")) {
-        return Type::AnyQ; // WIBBLE
-      }
-      return Erratic<Type>::fail("Unknown built-in property: 'type.", property, "'");
-    }
     virtual const IFunctionSignature* queryCallable() const override {
+      return nullptr;
+    }
+    virtual const IPropertySignature* queryDotable() const override {
+      static const PropertySignature signature;
+      return &signature;
+    }
+    virtual const IPointerSignature* queryPointable() const override {
       return nullptr;
     }
   };
@@ -312,12 +367,12 @@ namespace {
     }
   };
 
-  class Builtin_Type : public BuiltinObject {
+  class Builtin_Type : public Builtin_Base {
     Builtin_Type(const Builtin_Type&) = delete;
     Builtin_Type& operator=(const Builtin_Type&) = delete;
   public:
-    explicit Builtin_Type(IAllocator& allocator, const BuiltinObjectType& type)
-      : BuiltinObject(allocator, type) {
+    explicit Builtin_Type(IAllocator& allocator, const BuiltinType_Base& type)
+      : Builtin_Base(allocator, type) {
     }
     virtual Value call(IExecution& execution, const IParameters& parameters) override {
       if (parameters.getNamedCount() > 0) {
@@ -633,50 +688,68 @@ namespace {
       if (property.equals("length")) {
         return ValueFactory::createInt(allocator, Int(string.length()));
       }
-      auto* found = BuiltinStringFunction::findProperty(property);
+      auto* found = BuiltinStringFunction::findPropertyByName(property);
       if (found != nullptr) {
         auto name = StringBuilder::concat("string.", found);
         return ValueFactory::createObject(allocator, ObjectFactory::create<BuiltinStringFunction>(allocator, name, found->function, string));
       }
       return Value::Void;
     }
-    static Type queryProperty(const String& property) {
+    static Modifiability queryPropertyModifiability(const String& property) {
+      // Treat 'length' as a special case
+      if (property.equals("length")) {
+        return Modifiability::Read;
+      }
+      auto* found = BuiltinStringFunction::findPropertyByName(property);
+      if (found != nullptr) {
+        return Modifiability::Read;
+      }
+      return Modifiability::None;
+    }
+    static Type queryPropertyType(const String& property) {
       // Treat 'length' as a special case
       if (property.equals("length")) {
         return Type::Int;
       }
-      auto* found = BuiltinStringFunction::findProperty(property);
+      auto* found = BuiltinStringFunction::findPropertyByName(property);
       if (found != nullptr) {
         return found->type;
       }
       return nullptr;
     }
+    static String queryPropertyName(size_t index) {
+      auto* found = BuiltinStringFunction::findPropertyByIndex(index);
+      if (found != nullptr) {
+        return *found;
+      }
+      return {};
+    }
   private:
-    static const Property* findProperty(const String& property) {
+    static const Property* findPropertyByName(const String& property) {
       // Excluding 'length'
+#define EGG_STRING_PROPERTY_MAP(name, WIBBLE) { #name, { &BuiltinStringFunction::name, Type::Int } },
       static const std::map<String, Property> lookup = {
-#define EGG_STRING_PROPERTY(name, WIBBLE) { #name, { &BuiltinStringFunction::name, Type::Int } },
-      EGG_STRING_PROPERTY(compareTo, WIBBLE)
-      EGG_STRING_PROPERTY(contains, WIBBLE)
-      EGG_STRING_PROPERTY(endsWith, WIBBLE)
-      EGG_STRING_PROPERTY(hash, WIBBLE)
-      EGG_STRING_PROPERTY(indexOf, WIBBLE)
-      EGG_STRING_PROPERTY(join, WIBBLE)
-      EGG_STRING_PROPERTY(lastIndexOf, WIBBLE)
-      EGG_STRING_PROPERTY(padLeft, WIBBLE)
-      EGG_STRING_PROPERTY(padRight, WIBBLE)
-      EGG_STRING_PROPERTY(repeat, WIBBLE)
-      EGG_STRING_PROPERTY(replace, WIBBLE)
-      EGG_STRING_PROPERTY(slice, WIBBLE)
-      EGG_STRING_PROPERTY(startsWith, WIBBLE)
-      EGG_STRING_PROPERTY(toString, WIBBLE)
-#undef EGG_STRING_PROPERTY
+        EGG_STRING_PROPERTIES(EGG_STRING_PROPERTY_MAP)
       };
+#undef EGG_STRING_PROPERTY_MAP
       auto found = lookup.find(property);
       if (found == lookup.end()) {
         return nullptr;
       }
       return &found->second;
+    }
+    static const String* findPropertyByIndex(size_t index) {
+      // Including 'length'
+#define EGG_STRING_PROPERTY_LIST(name, _) , #name
+      static const String lookup[] = {
+        "length"
+        EGG_STRING_PROPERTIES(EGG_STRING_PROPERTY_LIST)
+      };
+#undef EGG_STRING_PROPERTY_LIST
+      if (index < (sizeof(lookup) / sizeof(lookup[0]))) {
+        return &lookup[index];
+      }
+      return nullptr;
     }
   };
 }
@@ -703,6 +776,14 @@ egg::ovum::Value egg::ovum::ValueFactory::createBuiltinStringProperty(IAllocator
   return BuiltinStringFunction::createProperty(allocator, string, property);
 }
 
-egg::ovum::Type egg::ovum::ValueFactory::queryBuiltinStringProperty(const String& property) {
-  return BuiltinStringFunction::queryProperty(property);
+egg::ovum::Type egg::ovum::ValueFactory::queryBuiltinStringPropertyType(const String& property) {
+  return BuiltinStringFunction::queryPropertyType(property);
+}
+
+egg::ovum::Modifiability egg::ovum::ValueFactory::queryBuiltinStringPropertyModifiability(const String& property) {
+  return BuiltinStringFunction::queryPropertyModifiability(property);
+}
+
+egg::ovum::String egg::ovum::ValueFactory::queryBuiltinStringPropertyName(size_t index) {
+  return BuiltinStringFunction::queryPropertyName(index);
 }

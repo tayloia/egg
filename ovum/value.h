@@ -165,6 +165,8 @@ namespace egg::ovum {
     static Value createBuiltinType(IAllocator& allocator);
     static Value createBuiltinString(IAllocator& allocator);
     static Value createBuiltinStringProperty(IAllocator& allocator, const String& instance, const String& property);
-    static Type queryBuiltinStringProperty(const String& property);
+    static Modifiability queryBuiltinStringPropertyModifiability(const String& property);
+    static Type queryBuiltinStringPropertyType(const String& property);
+    static String queryBuiltinStringPropertyName(size_t index);
   };
 }

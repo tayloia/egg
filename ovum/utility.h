@@ -372,4 +372,8 @@ namespace egg::ovum {
     // Yoda inequality comparison used by GoogleTest
     return ptr != nullptr;
   }
+
+  inline constexpr Modifiability operator|(Modifiability lhs, Modifiability rhs) {
+    return Bits::set(lhs, rhs);
+  }
 }

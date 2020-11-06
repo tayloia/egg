@@ -301,10 +301,10 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareForeach(IEgg
     }
     auto type = rvalue.getType();
     auto iterable = type->queryIterable();
-    if (iterable.failed()) {
-      return scope.compilerError(rvalue.location(), iterable.failure().toString());
+    if (iterable == nullptr) {
+      return scope.compilerError(rvalue.location(), type.describeValue(), " is not iterable");
     }
-    if (abandoned(scope.prepareWithType(lvalue, iterable.success()))) {
+    if (abandoned(scope.prepareWithType(lvalue, iterable->getType()))) {
       return EggProgramNodeFlags::Abandon;
     }
     return block.prepare(scope);
@@ -338,7 +338,7 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareFunctionDefi
       if (!name.empty()) {
         suffix = egg::ovum::StringBuilder::concat(": '", name, "'");
       }
-      return context->compilerError(block->location(), "Missing 'return' statement with a value of type '", egg::ovum::Type(function.rettype).toString(), "' at the end of the function definition", suffix);
+      return context->compilerError(block->location(), "Missing 'return' statement with a value of type '", egg::ovum::Type::toString(*function.rettype), "' at the end of the function definition", suffix);
     }
   }
   return EggProgramNodeFlags::Fallthrough; // We fallthrough AFTER the function definition
@@ -377,7 +377,7 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareReturn(const
     // No return value
     auto voidable = rettype->queryAssignableAlways(*egg::ovum::Type::Void);
     if (voidable.failed()) {
-      return this->compilerError(where, "Expected 'return' statement with a value of type '", egg::ovum::Type(rettype).toString(), "'");
+      return this->compilerError(where, "Expected 'return' statement with a value of type '", egg::ovum::Type::toString(*rettype), "'");
     }
     return EggProgramNodeFlags::None; // No fallthrough
   }
@@ -387,7 +387,7 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareReturn(const
   auto rtype = value->getType();
   auto always = rettype->queryAssignableAlways(*rtype);
   if (always.failed()) {
-    return this->compilerError(where, "Expected 'return' statement with a value of type '", egg::ovum::Type(rettype).toString(), "', but got '", rtype.toString(), "' instead");
+    return this->compilerError(where, "Expected 'return' statement with a value of type '", egg::ovum::Type::toString(*rettype), "', but got '", rtype.toString(), "' instead");
   }
   return EggProgramNodeFlags::None; // No fallthrough
 }
@@ -470,7 +470,7 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareYield(const 
   assert(rettype != nullptr);
   auto always = rettype->queryAssignableAlways(*rtype);
   if (always.failed()) {
-    return this->compilerError(where, "Expected 'yield' statement with a value of type '", egg::ovum::Type(rettype).toString(), "', but got '", rtype.toString(), "' instead");
+    return this->compilerError(where, "Expected 'yield' statement with a value of type '", egg::ovum::Type::toString(*rettype), "', but got '", rtype.toString(), "' instead");
   }
   return EggProgramNodeFlags::Fallthrough;
 }
@@ -548,7 +548,7 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareBrackets(con
   auto ltype = instance.getType();
   auto indexable = ltype->queryIndexable();
   if (indexable == nullptr) {
-    return this->compilerError(where, "Values of type '", ltype.toString(), "' do not support the indexing '[]' operator");
+    return this->compilerError(where, ltype.describeValue(), " does not support the indexing '[]' operator");
   }
   // TODO check type indexable->getIndexType()
   return EggProgramNodeFlags::None;
@@ -560,13 +560,16 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareDot(const eg
     return EggProgramNodeFlags::Abandon;
   }
   auto ltype = instance.getType();
-  auto etype = ltype->queryPropertyType(property);
-  if (!etype.failed()) {
-    // It's a supported property
-    // TODO remember the returned type
-    return EggProgramNodeFlags::None;
+  auto dotable = ltype->queryDotable();
+  if (dotable == nullptr) {
+    return this->compilerError(where, ltype.describeValue(), " does not support the property '.' operator");
   }
-  return this->compilerError(where, etype.failure().toString());
+  auto modifiability = dotable->getModifiability(property);
+  if (modifiability == egg::ovum::Modifiability::None) {
+    return this->compilerError(where, ltype.describeValue(), " does not support the property '", property, "'");
+  }
+  // TODO read/write/mutate checks
+  return EggProgramNodeFlags::None;
 }
 
 egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareUnary(const egg::ovum::LocationSource& where, EggProgramUnary op, IEggProgramNode& value) {

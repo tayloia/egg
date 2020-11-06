@@ -1312,7 +1312,7 @@ namespace {
       if (lhs->getString(string)) {
         return this->stringIndex(string, rhs);
       }
-      return this->raiseFormat("Values of type '", lhs->getRuntimeType().toString(), "' do not support the indexing '[]' operator");
+      return this->raiseFormat(lhs->getRuntimeType().describeValue(), " does not support the indexing '[]' operator");
     }
     Value expressionPredicate(const INode& node) {
       assert(node.getOpcode() == Opcode::PREDICATE);
@@ -1360,7 +1360,7 @@ namespace {
       if (lhs->getString(string)) {
         return this->stringProperty(string, pname);
       }
-      return this->raiseNode(node, "Values of type '", lhs->getRuntimeType().toString(), "' do not support properties such as '", pname, "'");
+      return this->raiseNode(node, lhs->getRuntimeType().describeValue(), " does not support properties such as '", pname, "'");
     }
     // Strings
     Value stringForeach(const String& string, const Target& target, const INode& statements, Block& block) {
@@ -1809,18 +1809,26 @@ namespace {
         }
       }
       if (lhs->getObject(target.object)) {
-        auto ptype = target.object->getRuntimeType()->queryPropertyType(target.identifier);
-        if (ptype.failed()) {
-          return this->raiseNode(node, ptype.failure().toString());
+        auto type = target.object->getRuntimeType();
+        auto dotable = type->queryDotable();
+        if (dotable == nullptr) {
+          return this->raiseNode(node, type.describeValue(), " does not support properties such as '", target.identifier, "'");
         }
-        target.type = ptype.success();
+        auto modifiability = dotable->getModifiability(target.identifier);
+        if (modifiability == Modifiability::None) {
+          return this->raiseNode(node, type.describeValue(), " does not support the property '", target.identifier, "'");
+        }
+        if (!Bits::hasAnySet(modifiability, Modifiability::Write)) { // WIBBLE Mutate?
+          return this->raiseNode(node, type.describeValue(), " does not support modification of the property '", target.identifier, "'");
+        }
+        target.type = dotable->getType(target.identifier);
         return Value::Void;
       }
       String string;
       if (lhs->getString(string)) {
         return this->raiseNode(node, "Strings do not support modification of properties such as '", target.identifier, "'");
       }
-      return this->raiseNode(node, "Values of type '", lhs->getRuntimeType().toString(), "' do not support properties such as '", target.identifier, "'");
+      return this->raiseNode(node, lhs->getRuntimeType().describeValue(), " does not support properties such as '", target.identifier, "'");
     }
     Value targetIndex(Target& target, const INode& node) {
       assert(node.getOpcode() == Opcode::INDEX);
@@ -1844,7 +1852,7 @@ namespace {
       } else if (lhs->getString(string)) {
         return this->raiseNode(node, "String cannot be modified using the indexing '[]' operator");
       }
-      return this->raiseNode(node, "Values of type '", lhs->getRuntimeType().toString(), "' do not support the indexing '[]' operator");
+      return this->raiseNode(node, lhs->getRuntimeType().describeValue(), " does not support the indexing '[]' operator");
     }
     Value targetGet(const INode& node, const Target& target) {
       // Get the value of a target (used only as part of short-circuiting)

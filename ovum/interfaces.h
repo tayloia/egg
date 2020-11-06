@@ -35,6 +35,14 @@ namespace egg::ovum {
     Subtract
   };
 
+  enum class Modifiability {
+    None = 0,
+    Read = 1 << 0,
+    Write = 1 << 1,
+    Mutate = 1 << 2,
+    Delete = 1 << 3
+  };
+
   class ILogger {
   public:
     enum class Source {
@@ -187,6 +195,31 @@ namespace egg::ovum {
     virtual ~IIndexSignature() {}
     virtual Type getResultType() const = 0;
     virtual Type getIndexType() const = 0;
+    virtual Modifiability getModifiability() const = 0;
+  };
+
+  class IIteratorSignature {
+  public:
+    // Interface
+    virtual ~IIteratorSignature() {}
+    virtual Type getType() const = 0;
+  };
+
+  class IPointerSignature {
+  public:
+    // Interface
+    virtual ~IPointerSignature() {}
+    virtual Type getType() const = 0;
+    virtual Modifiability getModifiability() const = 0;
+  };
+
+  class IPropertySignature {
+  public:
+    // Interface
+    virtual ~IPropertySignature() {}
+    virtual Type getType(const String& property) const = 0;
+    virtual Modifiability getModifiability(const String& property) const = 0;
+    virtual String getName(size_t index) const = 0;
   };
 
   class IType : public IHardAcquireRelease {
@@ -196,12 +229,13 @@ namespace egg::ovum {
     virtual Error tryAssign(IAllocator& allocator, ISlot& lhs, const Value& rhs) const = 0;
     virtual Error tryMutate(IAllocator& allocator, ISlot& lhs, Mutation mutation, const Value& rhs) const = 0;
     virtual Erratic<bool> queryAssignableAlways(const IType& rhs) const = 0;
-    virtual Erratic<Type> queryPropertyType(const String& name) const = 0;
-    virtual Erratic<Type> queryIterable() const = 0;
-    virtual Erratic<Type> queryPointeeType() const = 0;
     virtual const IFunctionSignature* queryCallable() const = 0;
+    virtual const IPropertySignature* queryDotable() const = 0;
     virtual const IIndexSignature* queryIndexable() const = 0;
+    virtual const IIteratorSignature* queryIterable() const = 0;
+    virtual const IPointerSignature* queryPointable() const = 0;
     virtual std::pair<std::string, int> toStringPrecedence() const = 0;
+    virtual String describeValue() const = 0;
   };
 
   class IObject : public ICollectable {

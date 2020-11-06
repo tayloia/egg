@@ -44,6 +44,7 @@ namespace egg::ovum {
     explicit Type(const IType* rhs) : HardPtr(rhs) {
     }
     // We need to qualify the return type because 'String' is a member further down!
+    egg::ovum::String describeValue() const;
     egg::ovum::String toString(int precedence = -1) const;
     static std::string toString(const IType& type) {
       return type.toStringPrecedence().first;

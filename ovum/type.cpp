@@ -187,24 +187,28 @@ namespace {
     TypeBase& operator=(const TypeBase&) = delete;
   public:
     TypeBase() = default;
-    virtual Erratic<Type> queryPropertyType(const String& property) const override {
-      return Erratic<Type>::fail("Values of type '", this->str(), "' do not support properties such as '", property, "'");
-    }
-    virtual Erratic<Type> queryIterable() const override {
-      // By default, we are not iterable
-      return Erratic<Type>::fail("Values of type '", this->str(), "' are not iterable");
-    }
-    virtual Erratic<Type> queryPointeeType() const override {
-      // By default, we are not pointable
-      return Erratic<Type>::fail("Values of type '", this->str(), "' do not support the pointer dereferencing '*' operator");
-    }
     virtual const IFunctionSignature* queryCallable() const override {
       // By default, we are not callable
+      return nullptr;
+    }
+    virtual const IPropertySignature* queryDotable() const override {
+      // By default, we do not support properties
       return nullptr;
     }
     virtual const IIndexSignature* queryIndexable() const override {
       // By default, we are not indexable
       return nullptr;
+    }
+    virtual const IIteratorSignature* queryIterable() const override {
+      // By default, we are not iterable
+      return nullptr;
+    }
+    virtual const IPointerSignature* queryPointable() const override {
+      // By default, we do not support dereferencing
+      return nullptr;
+    }
+    virtual String describeValue() const override {
+      return StringBuilder::concat("Value of type '", this->toStringPrecedence().first, "'");
     }
     std::string str() const {
       return this->toStringPrecedence().first;
@@ -265,28 +269,48 @@ namespace {
     TypeString& operator=(const TypeString&) = delete;
   private:
     class IndexSignature : public IIndexSignature {
+    public:
       virtual Type getResultType() const override {
         return Type::String;
       }
       virtual Type getIndexType() const override {
         return Type::Int;
       }
+      virtual Modifiability getModifiability() const override {
+        return Modifiability::Read;
+      }
+    };
+    class IteratorSignature : public IIteratorSignature {
+    public:
+      virtual Type getType() const override {
+        return Type::String;
+      }
+    };
+    class PropertySignature : public IPropertySignature {
+    public:
+      virtual Type getType(const String& property) const override {
+        return ValueFactory::queryBuiltinStringPropertyType(property);
+      }
+      virtual Modifiability getModifiability(const String& property) const override {
+        return ValueFactory::queryBuiltinStringPropertyModifiability(property);
+      }
+      virtual String getName(size_t index) const override {
+        return ValueFactory::queryBuiltinStringPropertyName(index);
+      }
     };
   public:
     TypeString() = default;
-    virtual Erratic<Type> queryPropertyType(const String& property) const {
-      auto type = ValueFactory::queryBuiltinStringProperty(property);
-      if (type == nullptr) {
-        return Erratic<Type>::fail("Unknown property for string: '", property, "'");
-      }
-      return type;
+    virtual const IPropertySignature* queryDotable() const override {
+      static const PropertySignature propertySignature{};
+      return &propertySignature;
     }
     virtual const IIndexSignature* queryIndexable() const override {
       static const IndexSignature indexSignature{};
       return &indexSignature;
     }
-    virtual Erratic<Type> queryIterable() const override {
-      return Type::String;
+    virtual const IIteratorSignature* queryIterable() const override {
+      static const IteratorSignature iteratorSignature{};
+      return &iteratorSignature;
     }
   };
   const TypeString typeString{};
@@ -382,16 +406,6 @@ namespace {
       }
       // Sometimes assignable to a, and sometimes/always to b
       return qb;
-    }
-    virtual Erratic<Type> queryPropertyType(const String& property) const {
-      auto qa = this->a->queryPropertyType(property);
-      if (qa.failed()) {
-        auto qb = this->b->queryPropertyType(property);
-        if (!qb.failed()) {
-          return qb;
-        }
-      }
-      return qa;
     }
     virtual const IFunctionSignature* queryCallable() const override {
       // TODO What if both have signatures?
@@ -641,23 +655,26 @@ namespace {
       virtual Erratic<bool> queryAssignableAlways(const IType&) const override {
         return Erratic<bool>::fail("WIBBLE: FunctionBuilder query assignment not yet implemented");
       }
-      virtual Erratic<Type> queryPropertyType(const String& property) const override {
-        return Erratic<Type>::fail("Values of type '", this->str(), "' do not support properties such as '", property, "'");
-      }
-      virtual Erratic<Type> queryIterable() const override {
-        return Erratic<Type>::fail("Values of type '", this->str(), "' are not iterable");
-      }
-      virtual Erratic<Type> queryPointeeType() const override {
-        return Erratic<Type>::fail("Values of type '", this->str(), "' do not support the pointer dereferencing '*' operator");
-      }
       virtual const IFunctionSignature* queryCallable() const override {
         return this->builder.get();
+      }
+      virtual const IPropertySignature* queryDotable() const override {
+        return nullptr;
       }
       virtual const IIndexSignature* queryIndexable() const override {
         return nullptr;
       }
+      virtual const IIteratorSignature* queryIterable() const override {
+        return nullptr;
+      }
+      virtual const IPointerSignature* queryPointable() const override {
+        return nullptr;
+      }
       virtual std::pair<std::string, int> toStringPrecedence() const override {
         return std::pair<std::string, int>();
+      }
+      virtual String describeValue() const override {
+        return StringBuilder::concat("Value of type '", this->toStringPrecedence().first, "'");
       }
       std::string str() const {
         return this->toStringPrecedence().first;
@@ -763,11 +780,11 @@ namespace {
       (void)&allocator2;
       return Error("WIBBLE: GeneratorReturnType modification not yet implemented");
     }
-    virtual Erratic<Type> queryIterable() const override {
-      return Erratic<Type>::fail("Values of type '", this->str(), "' are not iterable");
-    }
     virtual const IFunctionSignature* queryCallable() const override {
       return &this->signature;
+    }
+    virtual const IIteratorSignature* queryIterable() const override {
+      return nullptr;
     }
     virtual Erratic<bool> queryAssignableAlways(const IType& rhs) const override {
       return Erratic<bool>::fail("TODO: Assignment of values of type '", Type::toString(rhs), "' to '", Type::toString(*this), "'");
@@ -778,6 +795,14 @@ namespace {
       return std::make_pair("", 0);
     }
   };
+}
+
+egg::ovum::String egg::ovum::Type::describeValue() const {
+  auto* type = this->get();
+  if (type == nullptr) {
+    return "Value of unknown type";
+  }
+  return type->describeValue();
 }
 
 egg::ovum::String egg::ovum::Type::toString(int precedence) const {
