@@ -46,6 +46,8 @@
     <ClInclude Include="..\ovum\arithmetic.h" />
     <ClInclude Include="..\ovum\context.h" />
     <ClInclude Include="..\ovum\dictionary.h" />
+    <ClInclude Include="..\ovum\error.h" />
+    <ClInclude Include="..\ovum\hardptr.h" />
     <ClInclude Include="..\ovum\memory.h" />
     <ClInclude Include="..\ovum\module.h" />
     <ClInclude Include="..\ovum\basket.h" />
@@ -57,6 +59,7 @@
     <ClInclude Include="..\ovum\print.h" />
     <ClInclude Include="..\ovum\program.h" />
     <ClInclude Include="..\ovum\slot.h" />
+    <ClInclude Include="..\ovum\softptr.h" />
     <ClInclude Include="..\ovum\string.h" />
     <ClInclude Include="..\ovum\test.h" />
     <ClInclude Include="..\ovum\type.h" />

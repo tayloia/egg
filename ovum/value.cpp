@@ -6,7 +6,7 @@ namespace {
   using namespace egg::ovum;
 
   template<ValueFlags FLAGS>
-  class ValueImmutable : public NotReferenceCounted<IValue> {
+  class ValueImmutable : public NotHardReferenceCounted<IValue> {
     ValueImmutable(const ValueImmutable&) = delete;
     ValueImmutable& operator=(const ValueImmutable&) = delete;
   public:
@@ -53,11 +53,11 @@ namespace {
       // Default equality for constants is when the types are the same
       return rhs.getFlags() == FLAGS;
     }
-    virtual bool validate() const override {
-      return true;
-    }
     virtual void toStringBuilder(StringBuilder& sb) const override {
       Print::add(sb, FLAGS);
+    }
+    virtual bool validate() const override {
+      return true;
     }
     constexpr IValue& instance() const {
       return *const_cast<ValueImmutable*>(this);
@@ -156,6 +156,10 @@ namespace {
     virtual bool getInner(Value&) const override {
       return false;
     }
+    virtual bool validate() const override {
+      // Assume all values are valid
+      return true;
+    }
   };
 
   class ValueInt final : public ValueMutable {
@@ -189,9 +193,6 @@ namespace {
         }
       }
       return false;
-    }
-    virtual bool validate() const override {
-      return true;
     }
     virtual void toStringBuilder(StringBuilder& sb) const override {
       Print::add(sb, this->value);
@@ -230,9 +231,6 @@ namespace {
       }
       return false;
     }
-    virtual bool validate() const override {
-      return true;
-    }
     virtual void toStringBuilder(StringBuilder& sb) const override {
       Print::add(sb, this->value);
     }
@@ -263,7 +261,7 @@ namespace {
       return rhs.getString(other) && this->value.equals(other);
     }
     virtual bool validate() const override {
-      return this->value.validate();
+      return ValueMutable::validate() && this->value.validate();
     }
     virtual void toStringBuilder(StringBuilder& sb) const override {
       Print::add(sb, this->value);
@@ -294,7 +292,7 @@ namespace {
       return rhs.getObject(other) && (this->value.get() == other.get());
     }
     virtual bool validate() const override {
-      return this->value.validate();
+      return ValueMutable::validate() && this->value.validate();
     }
     virtual void toStringBuilder(StringBuilder& sb) const override {
       this->value->toStringBuilder(sb);

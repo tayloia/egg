@@ -33,8 +33,9 @@ namespace egg::ovum {
     }
     virtual void deallocate(void* allocated, size_t alignment) override {
       assert(allocated != nullptr);
+      auto bytes = POLICY::memsize(allocated, alignment);
       this->deallocatedBlocks.add(1);
-      this->deallocatedBytes.add(POLICY::memsize(allocated, alignment));
+      this->deallocatedBytes.add(bytes);
       POLICY::memfree(allocated, alignment);
     }
     virtual bool statistics(Statistics& out) const override {

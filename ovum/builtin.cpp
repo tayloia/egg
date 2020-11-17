@@ -36,9 +36,6 @@ namespace {
         name(name) {
       assert(!name.empty());
     }
-    virtual bool validate() const override {
-      return true; // WIBBLE
-    }
     virtual Value getProperty(IExecution& execution, const String& property) override {
       return this->raiseBuiltin(execution, "does not support properties such as '", property, "'");
     }
@@ -92,24 +89,19 @@ namespace {
     }
   };
 
-  class BuiltinType_Base : public NotReferenceCounted<IType> {
+  class BuiltinType_Base : public SoftReferenceCounted<IType> {
     BuiltinType_Base(const BuiltinType_Base&) = delete;
     BuiltinType_Base& operator=(const BuiltinType_Base&) = delete;
   private:
     String name;
   public:
-    explicit BuiltinType_Base(const String& name)
-      : name(name) {
+    BuiltinType_Base(IAllocator& allocator, const String& name)
+      : SoftReferenceCounted(allocator),
+        name(name) {
       assert(!name.empty());
     }
     virtual ValueFlags getFlags() const override {
       return ValueFlags::Object;
-    }
-    virtual Assignability tryAssign(IAllocator&, ISlot&, const Value&) const override {
-      return Assignability::Readonly;
-    }
-    virtual Assignability tryMutate(IAllocator&, ISlot&, Mutation, const Value&) const override {
-      return Assignability::Readonly;
     }
     virtual Assignability queryAssignable(const IType&) const override {
       return Assignability::Readonly;
@@ -128,6 +120,9 @@ namespace {
     }
     virtual String describeValue() const override {
       return StringBuilder::concat("Type '", this->name, "'");
+    }
+    virtual void softVisitLinks(const ICollectable::Visitor&) const override {
+      // No children
     }
     const String& getName() const {
       return this->name;
@@ -271,13 +266,13 @@ namespace {
       }
     };
   public:
-    BuiltinType_String() : BuiltinType_Base("string") {}
-    virtual Type makeUnion(IAllocator& allocator, const IType& rhs) const override {
-      return TypeFactory::createUnionJoin(allocator, *this, rhs);
-    }
+    explicit BuiltinType_String(IAllocator& allocator) : BuiltinType_Base(allocator, "string") {}
     virtual const IFunctionSignature* queryCallable() const override {
       static const FunctionSignature signature;
       return &signature;
+    }
+    virtual ~BuiltinType_String() {
+      fprintf(stderr, "%s called\n", __FUNCTION__);
     }
     virtual const IPropertySignature* queryDotable() const override {
       static const PropertySignature signature;
@@ -285,12 +280,15 @@ namespace {
     }
   };
 
-  class Builtin_String : public Builtin_Base {
+  class Builtin_String : public BuiltinBase {
     Builtin_String(const Builtin_String&) = delete;
     Builtin_String& operator=(const Builtin_String&) = delete;
+  private:
+    Type type;
   public:
-    explicit Builtin_String(IAllocator& allocator, const BuiltinType_Base& type)
-      : Builtin_Base(allocator, type) {
+    explicit Builtin_String(IAllocator& allocator)
+      : BuiltinBase(allocator, "string"),
+        type(allocator.make<BuiltinType_String, Type>()) {
     }
     virtual Value call(IExecution& execution, const IParameters& parameters) override {
       if (parameters.getNamedCount() > 0) {
@@ -302,6 +300,16 @@ namespace {
         sb.add(parameters.getPositional(i)->toString());
       }
       return this->makeValue(sb.str());
+    }
+    virtual void softVisitLinks(const Visitor&) const override {
+      // TODO
+      assert(false);
+    }
+    virtual void toStringBuilder(StringBuilder& sb) const override {
+      sb.add('<', this->name, '>');
+    }
+    virtual Type getRuntimeType() const override {
+      return this->type;
     }
   };
 
@@ -331,9 +339,9 @@ namespace {
       }
     };
   public:
-    BuiltinType_Type() : BuiltinType_Base("type") {}
-    virtual Type makeUnion(IAllocator& allocator, const IType& rhs) const override {
-      return TypeFactory::createUnionJoin(allocator, *this, rhs);
+    explicit BuiltinType_Type(IAllocator& allocator) : BuiltinType_Base(allocator, "type") {}
+    virtual ~BuiltinType_Type() {
+      fprintf(stderr, "%s called\n", __FUNCTION__);
     }
     virtual const IFunctionSignature* queryCallable() const override {
       return nullptr;
@@ -367,12 +375,19 @@ namespace {
     }
   };
 
-  class Builtin_Type : public Builtin_Base {
+  class Builtin_Type : public BuiltinBase {
     Builtin_Type(const Builtin_Type&) = delete;
     Builtin_Type& operator=(const Builtin_Type&) = delete;
+  private:
+    Type type;
   public:
-    explicit Builtin_Type(IAllocator& allocator, const BuiltinType_Base& type)
-      : Builtin_Base(allocator, type) {
+    explicit Builtin_Type(IAllocator& allocator)
+      : BuiltinBase(allocator, "type"),
+        type(allocator.make<BuiltinType_String, Type>()) {
+    }
+    virtual void softVisitLinks(const Visitor&) const override {
+      // TODO
+      assert(false);
     }
     virtual Value call(IExecution& execution, const IParameters& parameters) override {
       if (parameters.getNamedCount() > 0) {
@@ -391,6 +406,12 @@ namespace {
     }
     virtual Value mutProperty(IExecution& execution, const String& property, Mutation, const Value&) override {
       return this->raiseBuiltin(execution, "does not support modifying properties such as '", property, "'");
+    }
+    virtual void toStringBuilder(StringBuilder& sb) const override {
+      sb.add('<', this->name, '>');
+    }
+    virtual Type getRuntimeType() const override {
+      return this->type;
     }
   };
 
@@ -763,13 +784,11 @@ egg::ovum::Value egg::ovum::ValueFactory::createBuiltinPrint(IAllocator& allocat
 }
 
 egg::ovum::Value egg::ovum::ValueFactory::createBuiltinType(IAllocator& allocator) {
-  static const BuiltinType_Type type;
-  return ValueFactory::createObject(allocator, ObjectFactory::create<Builtin_Type>(allocator, type));
+  return ValueFactory::createObject(allocator, ObjectFactory::create<Builtin_Type>(allocator));
 }
 
 egg::ovum::Value egg::ovum::ValueFactory::createBuiltinString(IAllocator& allocator) {
-  static const BuiltinType_String type;
-  return ValueFactory::createObject(allocator, ObjectFactory::create<Builtin_String>(allocator, type));
+  return ValueFactory::createObject(allocator, ObjectFactory::create<Builtin_String>(allocator));
 }
 
 egg::ovum::Value egg::ovum::ValueFactory::createBuiltinStringProperty(IAllocator& allocator, const String& string, const String& property) {

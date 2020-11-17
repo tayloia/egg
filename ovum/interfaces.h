@@ -97,19 +97,23 @@ namespace egg::ovum {
       // Use perfect forwarding to in-place new
       size_t bytes = sizeof(T) + extra;
       void* allocated = this->allocate(bytes, alignof(T));
+      fprintf(stderr, "Allocated %u bytes at %p (create)\n", unsigned(bytes), allocated);
       assert(allocated != nullptr);
       return new(allocated) T(std::forward<ARGS>(args)...);
     }
     template<typename T>
     void destroy(const T* allocated) {
+      fprintf(stderr, "Destroying %p\n", allocated);
       assert(allocated != nullptr);
       allocated->~T();
+      fprintf(stderr, "Destroyed %p\n", allocated);
       this->deallocate(const_cast<T*>(allocated), alignof(T));
     }
     template<typename T, typename RETTYPE = HardPtr<T>, typename... ARGS>
     inline RETTYPE make(ARGS&&... args) {
       // Use perfect forwarding to in-place new
       void* allocated = this->allocate(sizeof(T), alignof(T));
+      fprintf(stderr, "Allocated %u bytes at %p (make)\n", unsigned(sizeof(T)), allocated);
       assert(allocated != nullptr);
       return RETTYPE(new(allocated) T(*this, std::forward<ARGS>(args)...));
     }
@@ -229,12 +233,9 @@ namespace egg::ovum {
     virtual String getName(size_t index) const = 0;
   };
 
-  class IType : public IHardAcquireRelease {
+  class IType : public ICollectable {
   public:
     virtual ValueFlags getFlags() const = 0;
-    virtual Type makeUnion(IAllocator& allocator, const IType& rhs) const = 0;
-    virtual Assignability tryAssign(IAllocator& allocator, ISlot& lhs, const Value& rhs) const = 0;
-    virtual Assignability tryMutate(IAllocator& allocator, ISlot& lhs, Mutation mutation, const Value& rhs) const = 0;
     virtual Assignability queryAssignable(const IType& rhs) const = 0;
     virtual const IFunctionSignature* queryCallable() const = 0;
     virtual const IPropertySignature* queryDotable() const = 0;
@@ -248,7 +249,6 @@ namespace egg::ovum {
   class IObject : public ICollectable {
   public:
     // Interface
-    virtual bool validate() const = 0;
     virtual Type getRuntimeType() const = 0;
     virtual Value call(IExecution& execution, const IParameters& parameters) = 0;
     virtual Value getProperty(IExecution& execution, const String& property) = 0;

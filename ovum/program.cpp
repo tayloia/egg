@@ -1883,7 +1883,8 @@ namespace {
         if (symbol == nullptr) {
           return this->raiseNode(node, "Unknown identifier: '", target.identifier, "'");
         }
-        switch (target.type->tryAssign(this->allocator, *symbol->slot, rhs)) {
+        /* WOBBLE
+        switch (target.type->tryAssign(*symbol->slot, rhs)) {
         case Assignability::Readonly:
           return this->raiseNode(node, target.type.describeValue(), " cannot be modified");
         case Assignability::Never:
@@ -1893,6 +1894,7 @@ namespace {
         case Assignability::Always:
           break;
         }
+        */
         return rhs;
       }
       case Target::Flavour::Property:
@@ -1910,7 +1912,8 @@ namespace {
         if (symbol == nullptr) {
           return this->raiseNode(node, "Unknown identifier: '", target.identifier, "'");
         }
-        switch (target.type->tryMutate(this->allocator, *symbol->slot, mutation, rhs)) {
+        /* WOBBLE
+        switch (target.type->tryMutate(*symbol->slot, mutation, rhs)) {
         case Assignability::Readonly:
           return this->raiseNode(node, target.type.describeValue(), " cannot be modified");
         case Assignability::Never:
@@ -1920,6 +1923,7 @@ namespace {
         case Assignability::Always:
           break;
         }
+        */
         return rhs;
       }
       case Target::Flavour::Property:
@@ -1976,7 +1980,8 @@ Block::~Block() {
 
 Value ProgramDefault::tryAssign(Symbol& symbol, const Value& value) {
   assert(symbol.validate(true));
-  switch (symbol.type->tryAssign(this->allocator, *symbol.slot, value)) {
+  /* WOBBLE
+  switch (symbol.type->tryAssign(*symbol.slot, value)) {
   case Assignability::Readonly:
     return this->raiseFormat(symbol.type.describeValue(), " cannot be modified");
   case Assignability::Never:
@@ -1986,6 +1991,8 @@ Value ProgramDefault::tryAssign(Symbol& symbol, const Value& value) {
   case Assignability::Always:
     break;
   }
+  */
+  symbol.slot->set(value); // WOBBLE
   assert(symbol.validate(false));
   return Value::Void;
 }

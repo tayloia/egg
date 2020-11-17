@@ -83,9 +83,7 @@ namespace egg::ovum {
     static Node createValue(IAllocator& allocator, double value);
     static Node createValue(IAllocator& allocator, const String& value);
     // Types
-    static Node createSimpleType(IAllocator& allocator, const NodeLocation& location, ValueFlags flags);
-    static Node createPointerType(IAllocator& allocator, const NodeLocation& location, const Type& pointee);
-    static Node createFunctionType(IAllocator& allocator, const NodeLocation& location, const IFunctionSignature& signature);
+    static Node createPrimitiveType(IAllocator& allocator, const NodeLocation& location, ValueFlags flags);
   };
 
   struct OpcodeProperties {

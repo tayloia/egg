@@ -86,18 +86,18 @@ TEST(TestGC, Monitor) {
   ASSERT_EQ("~stack", monitor.read());
 }
 
-TEST(TestGC, NotReferenceCounted) {
+TEST(TestGC, NotHardReferenceCounted) {
   Monitor monitor;
   ASSERT_EQ("", monitor.read());
   {
-    egg::ovum::NotReferenceCounted<Instance> instance(monitor, "nrc");
-    ASSERT_EQ("*nrc", monitor.read());
+    egg::ovum::NotHardReferenceCounted<Instance> instance(monitor, "nhrc");
+    ASSERT_EQ("*nhrc", monitor.read());
     ASSERT_EQ(&instance, instance.hardAcquire());
     ASSERT_EQ("", monitor.read());
     instance.hardRelease();
     ASSERT_EQ("", monitor.read());
   }
-  ASSERT_EQ("~nrc", monitor.read());
+  ASSERT_EQ("~nhrc", monitor.read());
 }
 
 TEST(TestGC, HardPtr) {
@@ -116,14 +116,14 @@ TEST(TestGC, HardPtr) {
         egg::ovum::HardPtr<Instance> ref3{ raw }; // rc=4
         ASSERT_EQ(raw, ref3.get());
         {
-          egg::ovum::NotReferenceCounted<Instance> stack(monitor, "nrc");
-          ASSERT_EQ("*nrc", monitor.read());
+          egg::ovum::NotHardReferenceCounted<Instance> stack(monitor, "nhrc");
+          ASSERT_EQ("*nhrc", monitor.read());
           ref3.set(&stack); // rc=3
           ASSERT_EQ(&stack, ref3.get());
           ref3 = ref2; // rc=4
           ASSERT_EQ(raw, ref3.get());
         }
-        ASSERT_EQ("~nrc", monitor.read());
+        ASSERT_EQ("~nhrc", monitor.read());
       } // rc=3
     } // rc=2
     ASSERT_EQ(raw, ref1.hardAcquire()); // rc=3

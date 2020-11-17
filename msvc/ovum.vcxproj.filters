@@ -130,5 +130,14 @@
     <ClInclude Include="..\ovum\vanilla.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="..\ovum\error.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ovum\hardptr.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ovum\softptr.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

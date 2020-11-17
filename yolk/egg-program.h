@@ -47,17 +47,30 @@ namespace egg::yolk {
     EGG_PROGRAM_MUTATE_OPERATORS(EGG_PROGRAM_ASSIGN_OPERATOR_DECLARE)
   };
 
-  class EggProgramSymbol {
+  class EggProgramSymbol final {
   public:
     enum class Kind { Builtin, Readonly, ReadWrite };
   private:
+    uint64_t sentinel0;
     Kind kind;
+    uint64_t sentinel1;
     egg::ovum::String name;
+    uint64_t sentinel2;
     egg::ovum::Type type;
+    uint64_t sentinel3;
     egg::ovum::Value value;
+    uint64_t sentinel4;
   public:
     EggProgramSymbol(Kind kind, const egg::ovum::String& name, const egg::ovum::Type& type, const egg::ovum::Value& value)
       : kind(kind), name(name), type(type), value(value) {
+      sentinel0 = 0x0102030405060708ull;
+      sentinel1 = 0x1112131415161718ull;
+      sentinel2 = 0x2122232425262728ull;
+      sentinel3 = 0x3132333435363738ull;
+      sentinel4 = 0x4142434445464748ull;
+    }
+    ~EggProgramSymbol() {
+      fprintf(stderr, "%s called\n", __FUNCTION__);
     }
     const egg::ovum::String& getName() const { return this->name; }
     const egg::ovum::IType& getType() const { return *this->type; }
@@ -66,7 +79,7 @@ namespace egg::yolk {
     egg::ovum::Value assign(EggProgramContext& context, const egg::ovum::Value& rhs);
   };
 
-  class EggProgramSymbolTable : public egg::ovum::SoftReferenceCounted<egg::ovum::ICollectable> {
+  class EggProgramSymbolTable final : public egg::ovum::SoftReferenceCounted<egg::ovum::ICollectable> {
     EGG_NO_COPY(EggProgramSymbolTable);
   private:
     std::map<egg::ovum::String, std::shared_ptr<EggProgramSymbol>> map;
@@ -76,6 +89,9 @@ namespace egg::yolk {
       : SoftReferenceCounted(allocator) {
       this->parent.set(*this, parent);
     }
+    virtual ~EggProgramSymbolTable() {
+      fprintf(stderr, "%s called\n", __FUNCTION__);
+    }
     virtual void softVisitLinks(const Visitor& visitor) const override;
     void addBuiltins();
     void addBuiltin(const std::string& name, const egg::ovum::Value& value);
@@ -83,7 +99,7 @@ namespace egg::yolk {
     std::shared_ptr<EggProgramSymbol> findSymbol(const egg::ovum::String& name, bool includeParents = true) const;
   };
 
-  class EggProgram {
+  class EggProgram final {
     EGG_NO_COPY(EggProgram);
   private:
     egg::ovum::Basket basket;

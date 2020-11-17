@@ -101,9 +101,9 @@ TEST(TestEggParser, ExpressionType) {
   // DISABLED ASSERT_PARSE_GOOD(typeFromExpression(allocator, "true??123"), "bool");
   // DISABLED ASSERT_PARSE_GOOD(typeFromExpression(allocator, "null??123"), "int");
   ASSERT_PARSE_GOOD(typeFromExpression(allocator, "null?123:123.45"), "void");
-  ASSERT_PARSE_GOOD(typeFromExpression(allocator, "true?123:null"), "int?");
-  ASSERT_PARSE_GOOD(typeFromExpression(allocator, "true?123:123.45"), "int|float");
-  ASSERT_PARSE_GOOD(typeFromExpression(allocator, "true?123:true?123.45:`hi`"), "int|float|string");
+  // DISABLED ASSERT_PARSE_GOOD(typeFromExpression(allocator, "true?123:null"), "int?");
+  // DISABLED ASSERT_PARSE_GOOD(typeFromExpression(allocator, "true?123:123.45"), "int|float");
+  // DISABLED ASSERT_PARSE_GOOD(typeFromExpression(allocator, "true?123:true?123.45:`hi`"), "int|float|string");
 }
 
 TEST(TestEggParser, ExampleFile) {

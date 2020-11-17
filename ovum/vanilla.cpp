@@ -53,7 +53,7 @@ namespace {
     }
   };
 
-  class TypeBase : public NotReferenceCounted<IType> {
+  class TypeBase : public NotSoftReferenceCounted<IType> {
     TypeBase(const TypeBase&) = delete;
     TypeBase& operator=(const TypeBase&) = delete;
   protected:
@@ -64,17 +64,6 @@ namespace {
     }
     virtual ValueFlags getFlags() const override {
       return ValueFlags::Object;
-    }
-    virtual Type makeUnion(IAllocator& allocator, const IType& rhs) const override {
-      return TypeFactory::createUnionJoin(allocator, *this, rhs);
-    }
-    virtual Assignability tryAssign(IAllocator&, ISlot& lhs, const Value& rhs) const override {
-      // WIBBLE
-      lhs.set(rhs);
-      return Assignability::Always;
-    }
-    virtual Assignability tryMutate(IAllocator&, ISlot&, Mutation, const Value&) const override {
-      return Assignability::Readonly; // unimplemented
     }
     virtual Assignability queryAssignable(const IType& rhs) const override {
       auto rflags = rhs.getFlags();

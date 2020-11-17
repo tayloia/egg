@@ -98,90 +98,6 @@ namespace {
     return Assignability::Never;
   }
 
-  Assignability tryAssignFlags(IAllocator& allocator, ValueFlags lflags, ISlot& slot, const Value& rhs) {
-    auto rflags = rhs->getFlags();
-    if (Bits::hasAnySet(lflags, rflags)) {
-      slot.set(rhs);
-      return Assignability::Always;
-    }
-    Int i;
-    if (Bits::hasAnySet(lflags, ValueFlags::Float) && rhs->getInt(i)) {
-      // Float<-Int promotion
-      auto f = Float(i);
-      if (Int(f) != i) {
-        return Assignability::Sometimes;
-      }
-      slot.set(ValueFactory::createFloat(allocator, f));
-      return Assignability::Always;
-    }
-    return Assignability::Never;
-  }
-
-  Assignability tryMutateOperation(IAllocator& allocator, ValueFlags lflags, const IValue& lhs, Mutation mutation, const Value&, Value& out) {
-    if (mutation == Mutation::Increment) {
-      if (Bits::hasAnySet(lflags, ValueFlags::Int)) {
-        Int i;
-        if (lhs.getInt(i)) {
-          out = ValueFactory::createInt(allocator, i + 1);
-          return Assignability::Always;
-        }
-      }
-      return Assignability::Never;
-    }
-    if (mutation == Mutation::Decrement) {
-      if (Bits::hasAnySet(lflags, ValueFlags::Int)) {
-        Int i;
-        if (lhs.getInt(i)) {
-          out = ValueFactory::createInt(allocator, i - 1);
-          return Assignability::Always;
-        }
-      }
-      return Assignability::Never;
-    }
-    return Assignability::Readonly; // WIBBLE unimplemented
-  }
-
-  Assignability tryMutateFlags(IAllocator& allocator, ValueFlags lflags, ISlot& slot, Mutation mutation, const Value& rhs) {
-    Value desired;
-    for (;;) {
-      // Loop until we successfully (atomically) update the slot (or fail)
-      auto* lhs = slot.get();
-      if (lhs == nullptr) {
-        return Assignability::Never;
-      }
-      auto assignability = tryMutateOperation(allocator, lflags, *lhs, mutation, rhs, desired);
-      if (assignability != Assignability::Always) {
-        return assignability;
-      }
-      if (lhs == &desired.get()) {
-        // No need to update
-        break;
-      }
-      if (slot.update(lhs, desired)) {
-        // We atomically updated the slot
-        break;
-      }
-    }
-    return Assignability::Always;
-  }
-
-  Type makeUnionFlags(IAllocator& allocator, ValueFlags flhs, const IType& lhs, const IType& rhs) {
-    // Check for identity early
-    if (&lhs == &rhs) {
-      return Type(&lhs);
-    }
-    auto frhs = rhs.getFlags();
-    if (Bits::hasAllSet(frhs, flhs)) {
-      // The rhs is a superset of the types in lhs, just return rhs
-      return Type(&rhs);
-    }
-    if (Bits::hasAnySet(frhs, ValueFlags::Object)) {
-      // The superset check above should ensure this will not result in infinite recursion
-      return rhs.makeUnion(allocator, lhs);
-    }
-    return TypeFactory::createSimple(allocator, flhs | frhs);
-  }
-
   class TypeBase : public IType {
     TypeBase(const TypeBase&) = delete;
     TypeBase& operator=(const TypeBase&) = delete;
@@ -216,22 +132,13 @@ namespace {
   };
 
   template<ValueFlags FLAGS>
-  class TypeCommon : public NotReferenceCounted<TypeBase> {
+  class TypeCommon : public NotSoftReferenceCounted<TypeBase> {
     TypeCommon(const TypeCommon&) = delete;
     TypeCommon& operator=(const TypeCommon&) = delete;
   public:
-    TypeCommon() = default;
+    TypeCommon() : NotSoftReferenceCounted() {}
     virtual ValueFlags getFlags() const override {
       return FLAGS;
-    }
-    virtual Type makeUnion(IAllocator& allocator, const IType& rhs) const override {
-      return makeUnionFlags(allocator, FLAGS, *this, rhs);
-    }
-    virtual Assignability tryAssign(IAllocator& allocator, ISlot& lhs, const Value& rhs) const override {
-      return tryAssignFlags(allocator, FLAGS, lhs, rhs);
-    }
-    virtual Assignability tryMutate(IAllocator& allocator, ISlot& lhs, Mutation mutation, const Value& rhs) const override {
-      return tryMutateFlags(allocator, FLAGS, lhs, mutation, rhs);
     }
     virtual Assignability queryAssignable(const IType& rhs) const override {
       return assignableFlags(FLAGS, rhs.getFlags());
@@ -337,7 +244,7 @@ namespace {
   };
   const TypeAnyQ typeAnyQ{};
 
-  class TypeUnion : public HardReferenceCounted<TypeBase> {
+  class TypeUnion : public SoftReferenceCounted<TypeBase> {
     TypeUnion(const TypeUnion&) = delete;
     TypeUnion& operator=(const TypeUnion&) = delete;
   private:
@@ -345,30 +252,14 @@ namespace {
     Type b;
   public:
     TypeUnion(IAllocator& allocator, const IType& a, const IType& b)
-      : HardReferenceCounted(allocator, 0), a(&a), b(&b) {
+      : SoftReferenceCounted(allocator), a(&a), b(&b) {
+    }
+    virtual void softVisitLinks(const Visitor& visitor) const {
+      this->a->softVisitLinks(visitor);
+      this->b->softVisitLinks(visitor);
     }
     virtual ValueFlags getFlags() const override {
       return this->a->getFlags() | this->b->getFlags();
-    }
-    virtual Type makeUnion(IAllocator& allocator2, const IType& rhs) const override {
-      assert(&this->allocator == &allocator2);
-      return TypeFactory::createUnionJoin(allocator2, *this, rhs);
-    }
-    virtual Assignability tryAssign(IAllocator& allocator2, ISlot& lhs, const Value& rhs) const override {
-      assert(&this->allocator == &allocator2);
-      auto q = a->tryAssign(allocator2, lhs, rhs);
-      if (q != Assignability::Always) {
-        return b->tryAssign(allocator2, lhs, rhs);
-      }
-      return q;
-    }
-    virtual Assignability tryMutate(IAllocator& allocator2, ISlot& lhs, Mutation mutation, const Value& rhs) const override {
-      assert(&this->allocator == &allocator2);
-      auto q = a->tryMutate(allocator2, lhs, mutation, rhs);
-      if (q != Assignability::Always) {
-        return b->tryMutate(allocator2, lhs, mutation, rhs);
-      }
-      return q;
     }
     virtual Assignability queryAssignable(const IType& rhs) const override {
       // The logic is:
@@ -418,29 +309,20 @@ namespace {
     }
   };
 
-  class TypeSimple : public HardReferenceCounted<TypeBase> {
+  class TypeSimple : public SoftReferenceCounted<TypeBase> {
     TypeSimple(const TypeSimple&) = delete;
     TypeSimple& operator=(const TypeSimple&) = delete;
   private:
     ValueFlags flags;
   public:
     TypeSimple(IAllocator& allocator, ValueFlags flags)
-      : HardReferenceCounted(allocator, 0), flags(flags) {
+      : SoftReferenceCounted(allocator), flags(flags) {
+    }
+    virtual void softVisitLinks(const Visitor&) const {
+      // Nothing to visit
     }
     virtual ValueFlags getFlags() const override {
       return this->flags;
-    }
-    virtual Type makeUnion(IAllocator& allocator2, const IType& rhs) const override {
-      assert(&this->allocator == &allocator2);
-      return makeUnionFlags(allocator2, this->flags, *this, rhs);
-    }
-    virtual Assignability tryAssign(IAllocator& allocator2, ISlot& lhs, const Value& rhs) const override {
-      assert(&this->allocator == &allocator2);
-      return tryAssignFlags(allocator2, this->flags, lhs, rhs);
-    }
-    virtual Assignability tryMutate(IAllocator& allocator2, ISlot& lhs, Mutation mutation, const Value& rhs) const override {
-      assert(&this->allocator == &allocator2);
-      return tryMutateFlags(allocator2, this->flags, lhs, mutation, rhs);
     }
     virtual Assignability queryAssignable(const IType& rhs) const override {
       return assignableFlags(this->flags, rhs.getFlags());
@@ -456,32 +338,20 @@ namespace {
     }
   };
 
-  class TypePointer : public HardReferenceCounted<TypeBase> {
+  class TypePointer : public SoftReferenceCounted<TypeBase> {
     TypePointer(const TypePointer&) = delete;
     TypePointer& operator=(const TypePointer&) = delete;
   private:
-    Type referenced;
+    Type referenced; // WOBBLE soft?
   public:
     TypePointer(IAllocator& allocator, const IType& referenced)
-      : HardReferenceCounted(allocator, 0), referenced(&referenced) {
+      : SoftReferenceCounted(allocator), referenced(&referenced) {
+    }
+    virtual void softVisitLinks(const Visitor& visitor) const {
+      this->referenced->softVisitLinks(visitor);
     }
     virtual ValueFlags getFlags() const override {
       return ValueFlags::Object;
-    }
-    virtual Type makeUnion(IAllocator& allocator2, const IType& rhs) const override {
-      // TODO elide if similar
-      assert(&this->allocator == &allocator2);
-      return TypeFactory::createUnionJoin(allocator2, *this, rhs);
-    }
-    virtual Assignability tryAssign(IAllocator& allocator2, ISlot&, const Value&) const override {
-      assert(&this->allocator == &allocator2);
-      (void)&allocator2;
-      return Assignability::Readonly; // WIBBLE unimplemented
-    }
-    virtual Assignability tryMutate(IAllocator& allocator2, ISlot&, Mutation, const Value&) const override {
-      assert(&this->allocator == &allocator2);
-      (void)&allocator2;
-      return Assignability::Readonly; // WIBBLE unimplemented
     }
     virtual Assignability queryAssignable(const IType&) const override {
       return Assignability::Readonly; // WIBBLE unimplemented
@@ -621,32 +491,21 @@ namespace {
         return this->position;
       }
     };
-    class Built : public HardReferenceCounted<IType> {
+    class Built : public SoftReferenceCounted<IType> {
       Built(const Built&) = delete;
       Built& operator=(const Built&) = delete;
     private:
       HardPtr<FunctionBuilder> builder;
     public:
       Built(IAllocator& allocator, FunctionBuilder& builder)
-        : HardReferenceCounted(allocator, 0),
+        : SoftReferenceCounted(allocator),
           builder(&builder) {
+      }
+      virtual void softVisitLinks(const Visitor&) const {
+        // WOBBLE
       }
       virtual ValueFlags getFlags() const override {
         return ValueFlags::Object;
-      }
-      virtual Type makeUnion(IAllocator& allocator2, const IType& rhs) const override {
-        assert(&this->allocator == &allocator2);
-        return TypeFactory::createUnionJoin(allocator2, *this, rhs);
-      }
-      virtual Assignability tryAssign(IAllocator& allocator2, ISlot&, const Value&) const override {
-        assert(&this->allocator == &allocator2);
-        (void)&allocator2;
-        return Assignability::Readonly; // WIBBLE unimplemented
-      }
-      virtual Assignability tryMutate(IAllocator& allocator2, ISlot&, Mutation, const Value&) const override {
-        assert(&this->allocator == &allocator2);
-        (void)&allocator2;
-        return Assignability::Readonly; // WIBBLE unimplemented
       }
       virtual Assignability queryAssignable(const IType&) const override {
         return Assignability::Readonly; // WIBBLE unimplemented
@@ -723,7 +582,7 @@ namespace {
     }
   };
 
-  class GeneratorReturnType : public HardReferenceCounted<TypeBase> {
+  class GeneratorReturnType : public SoftReferenceCounted<TypeBase> {
     GeneratorReturnType(const GeneratorReturnType&) = delete;
     GeneratorReturnType& operator=(const GeneratorReturnType&) = delete;
   private:
@@ -755,26 +614,15 @@ namespace {
     FunctionSignature signature;
   public:
     GeneratorReturnType(IAllocator& allocator, const Type& gentype)
-      : HardReferenceCounted(allocator, 0),
+      : SoftReferenceCounted(allocator),
         gentype(gentype),
-        signature(gentype->makeUnion(allocator, *Type::Void)) {
+        signature(gentype) { // WOBBLE gentype->makeUnion(*Type::Void)
+    }
+    virtual void softVisitLinks(const Visitor&) const {
+      // WOBBLE
     }
     virtual ValueFlags getFlags() const override {
       return ValueFlags::Object;
-    }
-    virtual Type makeUnion(IAllocator& allocator2, const IType& rhs) const override {
-      assert(&this->allocator == &allocator2);
-      return TypeFactory::createUnionJoin(allocator2, *this, rhs);
-    }
-    virtual Assignability tryAssign(IAllocator& allocator2, ISlot&, const Value&) const override {
-      assert(&this->allocator == &allocator2);
-      (void)&allocator2;
-      return Assignability::Readonly; // WIBBLE unimplemented
-    }
-    virtual Assignability tryMutate(IAllocator& allocator2, ISlot&, Mutation, const Value&) const override {
-      assert(&this->allocator == &allocator2);
-      (void)&allocator2;
-      return Assignability::Readonly; // WIBBLE unimplemented
     }
     virtual const IFunctionSignature* queryCallable() const override {
       return &this->signature;
@@ -823,11 +671,12 @@ egg::ovum::Type egg::ovum::TypeFactory::createPointer(IAllocator& allocator, con
   return allocator.make<TypePointer, Type>(pointee);
 }
 
-egg::ovum::Type egg::ovum::TypeFactory::createUnion(IAllocator& allocator, const IType& a, const IType& b) {
+egg::ovum::Type egg::ovum::TypeFactory::createUnion(IAllocator&, const IType& a, const IType& b) {
   if (&a == &b) {
     return Type(&a);
   }
-  return a.makeUnion(allocator, b);
+  // WOBBLE
+  return Type(&a);
 }
 
 egg::ovum::Type egg::ovum::TypeFactory::createUnionJoin(IAllocator& allocator, const IType& a, const IType& b) {

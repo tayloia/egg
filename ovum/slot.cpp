@@ -9,7 +9,6 @@ egg::ovum::Slot::Slot(IAllocator& allocator)
 egg::ovum::Slot::Slot(IAllocator& allocator, const Value& value)
   : SoftReferenceCounted(allocator), ptr(value->softAcquire()) {
   assert(this->validate(false));
-  assert(this->validate(false));
 }
 
 egg::ovum::Slot::Slot(Slot&& rhs) noexcept
@@ -64,6 +63,9 @@ void egg::ovum::Slot::clear() {
 }
 
 bool egg::ovum::Slot::validate(bool optional) const {
+  if (!SoftReferenceCounted::validate()) {
+    return false;
+  }
   auto underlying = this->ptr.get();
   if (underlying == nullptr) {
     return optional;

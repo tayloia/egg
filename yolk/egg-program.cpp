@@ -70,11 +70,9 @@ void egg::yolk::EggProgramSymbolTable::addBuiltin(const std::string& name, const
 }
 
 std::shared_ptr<egg::yolk::EggProgramSymbol> egg::yolk::EggProgramSymbolTable::addSymbol(EggProgramSymbol::Kind kind, const egg::ovum::String& name, const egg::ovum::Type& type, const egg::ovum::Value& value) {
-  auto result = this->map.emplace(name, std::make_shared<EggProgramSymbol>(kind, name, type, value));
-  assert(result.second);
-  auto symbol = result.first->second;
-  // WIBBLE symbol->getValue().soften(*this->basket);
-  return symbol;
+  auto inserted = this->map.emplace(name, std::make_shared<EggProgramSymbol>(kind, name, type, value));
+  assert(inserted.second);
+  return inserted.first->second;
 }
 
 std::shared_ptr<egg::yolk::EggProgramSymbol> egg::yolk::EggProgramSymbolTable::findSymbol(const egg::ovum::String& name, bool includeParents) const {
