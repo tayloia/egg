@@ -9,12 +9,6 @@
 namespace {
   using namespace egg::ovum;
 
-  template<typename T>
-  Type constructType() {
-    static const T instance;
-    return Type(&instance);
-  }
-
   class Type_Shape : public NotSoftReferenceCounted<IType> {
     Type_Shape(const Type_Shape&) = delete;
     Type_Shape& operator=(const Type_Shape&) = delete;
@@ -121,60 +115,22 @@ namespace {
       return { "keyvalue", 0 };
     }
   };
-
-  class Type_Object final : public NotSoftReferenceCounted<IType> {
-    Type_Object(const Type_Object&) = delete;
-    Type_Object& operator=(const Type_Object&) = delete;
-  public:
-    Type_Object() {}
-    virtual ValueFlags getFlags() const override {
-      return ValueFlags::Object;
-    }
-    virtual const IntShape* getIntShape() const override {
-      // We are not shaped like an int
-      return nullptr;
-    }
-    virtual const FloatShape* getFloatShape() const override {
-      // We are not shaped like a float
-      return nullptr;
-    }
-    virtual const ObjectShape* getStringShape() const override {
-      // We are not shaped like a string
-      return nullptr;
-    }
-    virtual const ObjectShape* getObjectShape(size_t index) const override {
-      // We only have one object shape
-      return (index == 0) ? &BuiltinFactory::ObjectShape : nullptr;
-    }
-    virtual size_t getObjectShapeCount() const override {
-      // We only have one object shape
-      return 1;
-    }
-    virtual String describeValue() const override {
-      // TODO i18n
-      return "Object";
-    }
-    virtual std::pair<std::string, int> toStringPrecedence() const override {
-      return { "object", 0 };
-    }
-  };
 }
 
 // Vanilla types
 egg::ovum::Type egg::ovum::Vanilla::getArrayType() {
-  return constructType<Type_Array>();
+  static const Type_Array instance;
+  return Type(&instance);
 }
 
 egg::ovum::Type egg::ovum::Vanilla::getDictionaryType() {
-  return constructType<Type_Dictionary>();
+  static const Type_Dictionary instance;
+  return Type(&instance);
 }
 
 egg::ovum::Type egg::ovum::Vanilla::getKeyValueType() {
-  return constructType<Type_KeyValue>();
-}
-
-egg::ovum::Type egg::ovum::Vanilla::getObjectType() {
-  return constructType<Type_Object>();
+  static const Type_KeyValue instance;
+  return Type(&instance);
 }
 
 namespace {
@@ -450,7 +406,7 @@ namespace {
       assert(this->validate());
     }
     virtual Type getRuntimeType() const override {
-      return Vanilla::getObjectType();
+      return Type::Object;
     }
     virtual Value getProperty(IExecution& execution, const String& property) override {
       Value value;
@@ -493,7 +449,7 @@ namespace {
       // There are no soft link to visit
     }
     virtual Type getRuntimeType() const override {
-      return Vanilla::getObjectType(); // WIBBLE
+      return Type::Object; // WIBBLE
     }
     virtual Value call(IExecution&, const IParameters& parameters) override {
       assert(parameters.getNamedCount() == 0);

@@ -76,7 +76,7 @@ namespace {
       return results;
     }
     static bool isDisabled(int index) {
-      return index > 10;
+      return index > 8;
     }
     static bool isDisabledWOBBLE(int index) {
       static const int disabled[] = { 25,26,27,28,29,30,35,36,40,41,42,43,44,45,46,47,48,49,50,51 };

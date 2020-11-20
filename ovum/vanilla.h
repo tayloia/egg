@@ -9,7 +9,6 @@ namespace egg::ovum {
     static Type getArrayType(); // any?[int] with well-known properties
     static Type getDictionaryType(); // any?[string] with forwarded properties
     static Type getKeyValueType(); // { string key; any? value; }
-    static Type getObjectType(); // any?[any?] with separate properties
   };
 
   template<typename K, typename V>

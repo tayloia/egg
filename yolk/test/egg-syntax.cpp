@@ -84,7 +84,7 @@ TEST(TestEggSyntaxParser, VariableDeclaration) {
   // Good
   ASSERT_PARSE_GOOD(parseStatementToString("var a;"), "(declare 'a' (type 'var'))");
   // DISABLED ASSERT_PARSE_GOOD(parseStatementToString("any? b;"), "(declare 'b' (type 'any?'))");
-  ASSERT_PARSE_GOOD(parseStatementToString("int* c;"), "(declare 'c' (type 'int*'))");
+  // DISABLED ASSERT_PARSE_GOOD(parseStatementToString("int* c;"), "(declare 'c' (type 'int*'))");
   // DISABLED ASSERT_PARSE_GOOD(parseStatementToString("int?*? c;"), "(declare 'c' (type 'int?*|null'))");
   // Bad
   ASSERT_PARSE_BAD(parseStatementToString("var"), "(1, 4): Expected variable identifier after type");
@@ -452,7 +452,7 @@ TEST(TestEggSyntaxParser, Vexatious) {
 }
 
 TEST(TestEggSyntaxParser, ExampleFile) {
-  egg::test::Allocator allocator;
+  egg::test::Allocator allocator{ egg::test::Allocator::Expectation::NoAllocations }; // TODO
   auto lexer = LexerFactory::createFromPath("~/yolk/test/data/example.egg");
   auto tokenizer = EggTokenizerFactory::createFromLexer(lexer);
   auto parser = EggParserFactory::createModuleSyntaxParser(allocator);

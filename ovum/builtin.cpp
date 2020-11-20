@@ -374,7 +374,7 @@ namespace {
   public:
     explicit Builtin_Print(IAllocator& allocator)
       : BuiltinFunction(allocator, Type::Void, "print") {
-      this->builder->addPositionalParameter(Type::Any, "values", IFunctionSignatureParameter::Flags::Variadic);
+      this->builder->addPositionalParameter(Type::AnyQ, "values", IFunctionSignatureParameter::Flags::Variadic);
       this->type = this->builder->build();
     }
     virtual Value call(IExecution& execution, const IParameters& parameters) override {
@@ -388,6 +388,48 @@ namespace {
       }
       execution.print(sb.toUTF8());
       return Value::Void;
+    }
+  };
+
+  class Builtin_String : public BuiltinFunction {
+    Builtin_String(const Builtin_String&) = delete;
+    Builtin_String& operator=(const Builtin_String&) = delete;
+  public:
+    explicit Builtin_String(IAllocator& allocator)
+      : BuiltinFunction(allocator, Type::String, "string") {
+      this->builder->addPositionalParameter(Type::AnyQ, "values", IFunctionSignatureParameter::Flags::Variadic);
+      this->type = this->builder->build();
+    }
+    virtual Value call(IExecution& execution, const IParameters& parameters) override {
+      if (parameters.getNamedCount() > 0) {
+        return this->raiseBuiltin(execution, "does not accept named parameters");
+      }
+      StringBuilder sb;
+      auto n = parameters.getPositionalCount();
+      for (size_t i = 0; i < n; ++i) {
+        sb.add(parameters.getPositional(i)->toString());
+      }
+      return ValueFactory::createString(allocator, sb.str());
+    }
+  };
+
+  class Builtin_Type : public BuiltinFunction {
+    Builtin_Type(const Builtin_Type&) = delete;
+    Builtin_Type& operator=(const Builtin_Type&) = delete;
+  public:
+    explicit Builtin_Type(IAllocator& allocator)
+      : BuiltinFunction(allocator, Type::String, "type") {
+      this->type = this->builder->build();
+    }
+    virtual Value call(IExecution& execution, const IParameters& parameters) override {
+      // TODO 'type.of' et al
+      if (parameters.getNamedCount() > 0) {
+        return this->raiseBuiltin(execution, "does not accept named parameters");
+      }
+      if (parameters.getPositionalCount() > 0) {
+        return this->raiseBuiltin(execution, "does not accept parameters");
+      }
+      return ValueFactory::createString(allocator, "WOBBLE");
     }
   };
 }
@@ -408,10 +450,10 @@ egg::ovum::Value egg::ovum::BuiltinFactory::createPrint(IAllocator& allocator) {
   return ValueFactory::createObject(allocator, ObjectFactory::create<Builtin_Print>(allocator));
 }
 
-egg::ovum::Value egg::ovum::BuiltinFactory::createString(IAllocator&) {
-  throw std::logic_error("WOBBLE: Not implemented: " + std::string(__FUNCTION__));
+egg::ovum::Value egg::ovum::BuiltinFactory::createString(IAllocator& allocator) {
+  return ValueFactory::createObject(allocator, ObjectFactory::create<Builtin_String>(allocator));
 }
 
-egg::ovum::Value egg::ovum::BuiltinFactory::createType(IAllocator&) {
-  throw std::logic_error("WOBBLE: Not implemented: " + std::string(__FUNCTION__));
+egg::ovum::Value egg::ovum::BuiltinFactory::createType(IAllocator& allocator) {
+  return ValueFactory::createObject(allocator, ObjectFactory::create<Builtin_Type>(allocator));
 }

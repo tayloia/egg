@@ -194,6 +194,26 @@ namespace {
   };
   const Type_String typeString{};
 
+  class Type_Object final : public Type_Shape {
+    Type_Object(const Type_Object&) = delete;
+    Type_Object& operator=(const Type_Object&) = delete;
+  public:
+    Type_Object() = default;
+    virtual ValueFlags getFlags() const override {
+      return ValueFlags::Object;
+    }
+    virtual const ObjectShape* getObjectShape(size_t index) const override {
+      return (index == 0) ? &BuiltinFactory::ObjectShape : nullptr;
+    }
+    virtual size_t getObjectShapeCount() const override {
+      return 1;
+    }
+    virtual std::pair<std::string, int> toStringPrecedence() const override {
+      return { "object", 0 };
+    }
+  };
+  const Type_Object typeObject{};
+
   class Type_Any final : public Type_Shape {
     Type_Any(const Type_Any&) = delete;
     Type_Any& operator=(const Type_Any&) = delete;
@@ -683,6 +703,16 @@ namespace {
       return this->allocator.make<Built, Type>(*this, this);
     }
   };
+
+  const ObjectShape* queryObjectShape(const IType* type) {
+    assert(type != nullptr);
+    auto count = type->getObjectShapeCount();
+    assert(count <= 1);
+    if (count == 0) {
+      return nullptr;
+    }
+    return type->getObjectShape(0);
+  }
 }
 
 egg::ovum::Type::Assignability egg::ovum::Type::queryAssignable(const IType&) const {
@@ -690,19 +720,23 @@ egg::ovum::Type::Assignability egg::ovum::Type::queryAssignable(const IType&) co
 }
 
 const egg::ovum::IFunctionSignature* egg::ovum::Type::queryCallable() const {
-  throw std::logic_error("WOBBLE: Not implemented: " + std::string(__FUNCTION__));
+  auto* shape = queryObjectShape(this->get());
+  return (shape == nullptr) ? nullptr : shape->callable;
 }
 
 const egg::ovum::IPropertySignature* egg::ovum::Type::queryDotable() const {
-  throw std::logic_error("WOBBLE: Not implemented: " + std::string(__FUNCTION__));
+  auto* shape = queryObjectShape(this->get());
+  return (shape == nullptr) ? nullptr : shape->dotable;
 }
 
 const egg::ovum::IIndexSignature* egg::ovum::Type::queryIndexable() const {
-  throw std::logic_error("WOBBLE: Not implemented: " + std::string(__FUNCTION__));
+  auto* shape = queryObjectShape(this->get());
+  return (shape == nullptr) ? nullptr : shape->indexable;
 }
 
 const egg::ovum::IIteratorSignature* egg::ovum::Type::queryIterable() const {
-  throw std::logic_error("WOBBLE: Not implemented: " + std::string(__FUNCTION__));
+  auto* shape = queryObjectShape(this->get());
+  return (shape == nullptr) ? nullptr : shape->iterable;
 }
 
 egg::ovum::Type egg::ovum::Type::addVoid(IAllocator& allocator) const {
@@ -732,6 +766,36 @@ egg::ovum::String egg::ovum::Type::toString(int precedence) const {
 }
 
 egg::ovum::Type egg::ovum::TypeFactory::createSimple(IAllocator& allocator, ValueFlags flags) {
+  switch (flags) {
+  case ValueFlags::Void:
+    return Type::Void;
+  case ValueFlags::Null:
+    return Type::Null;
+  case ValueFlags::Bool:
+    return Type::Bool;
+  case ValueFlags::Int:
+    return Type::Int;
+  case ValueFlags::Float:
+    return Type::Float;
+  case ValueFlags::Arithmetic:
+    return Type::Arithmetic;
+  case ValueFlags::String:
+    return Type::String;
+  case ValueFlags::Object:
+    return Type::Object;
+  case ValueFlags::Any:
+    return Type::Any;
+  case ValueFlags::AnyQ:
+    return Type::AnyQ;
+  case ValueFlags::None:
+  case ValueFlags::Break:
+  case ValueFlags::Continue:
+  case ValueFlags::Return:
+  case ValueFlags::Yield:
+  case ValueFlags::Throw:
+  case ValueFlags::FlowControl:
+    break;
+  }
   return allocator.make<TypeSimple, Type>(flags);
 }
 
@@ -769,5 +833,6 @@ const egg::ovum::Type egg::ovum::Type::Int{ &typeInt };
 const egg::ovum::Type egg::ovum::Type::Float{ &typeFloat };
 const egg::ovum::Type egg::ovum::Type::String{ &typeString };
 const egg::ovum::Type egg::ovum::Type::Arithmetic{ &typeArithmetic };
+const egg::ovum::Type egg::ovum::Type::Object{ &typeObject };
 const egg::ovum::Type egg::ovum::Type::Any{ &typeAny };
 const egg::ovum::Type egg::ovum::Type::AnyQ{ &typeAnyQ };
