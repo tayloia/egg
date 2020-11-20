@@ -63,7 +63,7 @@ namespace egg::test {
       if (predicate->getObject(object)) {
         // Predicates can be functions that throw exceptions, as well as 'bool' values
         auto type = object->getRuntimeType();
-        if (type->queryCallable() != nullptr) {
+        if (type.queryCallable() != nullptr) {
           // Call the predicate directly
           return object->call(*this, egg::ovum::Object::ParametersNone);
         }

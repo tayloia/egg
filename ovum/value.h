@@ -94,6 +94,7 @@ namespace egg::ovum {
       auto& q = rhs.get();
       return p.equals(q, compare);
     }
+    static IValue* mutate(const IValue& lhs, const IValue& rhs, Mutation mutation, String& error);
     // Debugging
     bool validate() const;
     // Helpers
@@ -121,6 +122,12 @@ namespace egg::ovum {
     static Value createObject(IAllocator& allocator, const Object& value);
     static Value createFlowControl(IAllocator& allocator, ValueFlags flags, const Value& value);
     static Value createThrowError(IAllocator& allocator, const LocationSource& location, const String& message);
+    template<typename... ARGS>
+    static Value createThrowString(IAllocator& allocator, ARGS&&... args) {
+      auto message = StringBuilder::concat(std::forward<ARGS>(args)...);
+      auto value = ValueFactory::createString(allocator, message);
+      return ValueFactory::createFlowControl(allocator, ValueFlags::Throw, value);
+    }
 
     // Overloaded without implicit promotion
     template<typename T>
@@ -158,15 +165,5 @@ namespace egg::ovum {
       }
       return createString(allocator, StringFactory::fromASCIIZ(allocator, value));
     }
-
-    // Standard builtins
-    static Value createBuiltinAssert(IAllocator& allocator);
-    static Value createBuiltinPrint(IAllocator& allocator);
-    static Value createBuiltinType(IAllocator& allocator);
-    static Value createBuiltinString(IAllocator& allocator);
-    static Value createBuiltinStringProperty(IAllocator& allocator, const String& instance, const String& property);
-    static Modifiability queryBuiltinStringPropertyModifiability(const String& property);
-    static Type queryBuiltinStringPropertyType(const String& property);
-    static String queryBuiltinStringPropertyName(size_t index);
   };
 }

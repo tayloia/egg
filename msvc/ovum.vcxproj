@@ -44,6 +44,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\ovum\arithmetic.h" />
+    <ClInclude Include="..\ovum\builtin.h" />
     <ClInclude Include="..\ovum\context.h" />
     <ClInclude Include="..\ovum\dictionary.h" />
     <ClInclude Include="..\ovum\error.h" />

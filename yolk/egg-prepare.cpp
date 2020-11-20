@@ -138,13 +138,13 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareAssign(const
   switch (op) {
   case EggProgramAssign::Equal:
     // Simple assignment
-    switch (ltype->queryAssignable(*rtype)) {
-    case egg::ovum::Assignability::Readonly:
+    switch (ltype.queryAssignable(*rtype)) {
+    case egg::ovum::Type::Assignability::Readonly:
       return this->compilerError(where, ltype.describeValue(), " cannot be assigned to");
-    case egg::ovum::Assignability::Never:
+    case egg::ovum::Type::Assignability::Never:
       return this->compilerError(where, ltype.describeValue(), " cannot be assigned a value of type '", rtype.toString(), "'");
-    case egg::ovum::Assignability::Sometimes:
-    case egg::ovum::Assignability::Always:
+    case egg::ovum::Type::Assignability::Sometimes:
+    case egg::ovum::Type::Assignability::Always:
       break;
     }
     break;
@@ -205,13 +205,13 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareAssign(const
     }
     break;
   case EggProgramAssign::NullCoalescing:
-    switch (ltype->queryAssignable(*rtype)) {
-    case egg::ovum::Assignability::Readonly:
+    switch (ltype.queryAssignable(*rtype)) {
+    case egg::ovum::Type::Assignability::Readonly:
       return this->compilerError(where, ltype.describeValue(), " cannot be modified");
-    case egg::ovum::Assignability::Never:
+    case egg::ovum::Type::Assignability::Never:
       return this->compilerError(where, ltype.describeValue(), " cannot be assigned a value of type '", rtype.toString(), "'");
-    case egg::ovum::Assignability::Sometimes:
-    case egg::ovum::Assignability::Always:
+    case egg::ovum::Type::Assignability::Sometimes:
+    case egg::ovum::Type::Assignability::Always:
       break;
     }
     if (!ltype.hasAnyFlags(egg::ovum::ValueFlags::Null)) {
@@ -309,7 +309,7 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareForeach(IEgg
       return EggProgramNodeFlags::Abandon;
     }
     auto type = rvalue.getType();
-    auto iterable = type->queryIterable();
+    auto iterable = type.queryIterable();
     if (iterable == nullptr) {
       return scope.compilerError(rvalue.location(), type.describeValue(), " is not iterable");
     }
@@ -322,7 +322,7 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareForeach(IEgg
 
 egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareFunctionDefinition(const egg::ovum::String& name, const egg::ovum::Type& type, const std::shared_ptr<IEggProgramNode>& block) {
   // TODO type check
-  auto callable = type->queryCallable();
+  auto callable = type.queryCallable();
   assert(callable != nullptr);
   assert(callable->getFunctionName() == name);
   auto nested = this->getAllocator().make<EggProgramSymbolTable>(this->symtable.get());
@@ -380,18 +380,18 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareReturn(const
     }
     return this->compilerError(where, "Unexpected value in generator 'return' statement");
   }
-  auto* rettype = this->scopeFunction->rettype;
+  egg::ovum::Type rettype{ this->scopeFunction->rettype };
   assert(rettype != nullptr);
   if (value == nullptr) {
     // No return value
-    switch (rettype->queryAssignable(*egg::ovum::Type::Void)) {
-    case egg::ovum::Assignability::Readonly:
+    switch (rettype.queryAssignable(*egg::ovum::Type::Void)) {
+    case egg::ovum::Type::Assignability::Readonly:
       assert(false);
       // DROPTHROUGH
-    case egg::ovum::Assignability::Never:
-      return this->compilerError(where, "Expected 'return' statement with a value of type '", egg::ovum::Type::toString(*rettype), "'");
-    case egg::ovum::Assignability::Sometimes:
-    case egg::ovum::Assignability::Always:
+    case egg::ovum::Type::Assignability::Never:
+      return this->compilerError(where, "Expected 'return' statement with a value of type '", rettype.toString(), "'");
+    case egg::ovum::Type::Assignability::Sometimes:
+    case egg::ovum::Type::Assignability::Always:
       break;
     }
     return EggProgramNodeFlags::None; // No fallthrough
@@ -400,14 +400,14 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareReturn(const
     return EggProgramNodeFlags::Abandon;
   }
   auto rtype = value->getType();
-  switch (rettype->queryAssignable(*rtype)) {
-  case egg::ovum::Assignability::Readonly:
+  switch (rettype.queryAssignable(*rtype)) {
+  case egg::ovum::Type::Assignability::Readonly:
     assert(false);
     // DROPTHROUGH
-  case egg::ovum::Assignability::Never:
-    return this->compilerError(where, "Expected 'return' statement with a value of type '", egg::ovum::Type::toString(*rettype), "', but got '", rtype.toString(), "' instead");
-  case egg::ovum::Assignability::Sometimes:
-  case egg::ovum::Assignability::Always:
+  case egg::ovum::Type::Assignability::Never:
+    return this->compilerError(where, "Expected 'return' statement with a value of type '", rettype.toString(), "', but got '", rtype.toString(), "' instead");
+  case egg::ovum::Type::Assignability::Sometimes:
+  case egg::ovum::Type::Assignability::Always:
     break;
   }
   return EggProgramNodeFlags::None; // No fallthrough
@@ -487,16 +487,16 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareYield(const 
     return EggProgramNodeFlags::Abandon;
   }
   auto rtype = value.getType();
-  auto* rettype = this->scopeFunction->rettype;
+  egg::ovum::Type rettype{ this->scopeFunction->rettype };
   assert(rettype != nullptr);
-  switch (rettype->queryAssignable(*rtype)) {
-  case egg::ovum::Assignability::Readonly:
+  switch (rettype.queryAssignable(*rtype)) {
+  case egg::ovum::Type::Assignability::Readonly:
     assert(false);
     // DROPTHROUGH
-  case egg::ovum::Assignability::Never:
-    return this->compilerError(where, "Expected 'yield' statement with a value of type '", egg::ovum::Type::toString(*rettype), "', but got '", rtype.toString(), "' instead");
-  case egg::ovum::Assignability::Sometimes:
-  case egg::ovum::Assignability::Always:
+  case egg::ovum::Type::Assignability::Never:
+    return this->compilerError(where, "Expected 'yield' statement with a value of type '", rettype.toString(), "', but got '", rtype.toString(), "' instead");
+  case egg::ovum::Type::Assignability::Sometimes:
+  case egg::ovum::Type::Assignability::Always:
     break;
   }
   return EggProgramNodeFlags::Fallthrough;
@@ -528,7 +528,7 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareCall(IEggPro
   }
   auto ctype = callee.getType();
   assert(ctype != nullptr);
-  auto* callable = ctype->queryCallable();
+  auto* callable = ctype.queryCallable();
   if (callable == nullptr) {
     return this->compilerError(callee.location(), "Expected function-like expression to be callable, but got '", ctype.toString(), "' instead");
   }
@@ -573,7 +573,7 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareBrackets(con
     return EggProgramNodeFlags::Abandon;
   }
   auto ltype = instance.getType();
-  auto indexable = ltype->queryIndexable();
+  auto indexable = ltype.queryIndexable();
   if (indexable == nullptr) {
     return this->compilerError(where, ltype.describeValue(), " does not support the indexing '[]' operator");
   }
@@ -587,7 +587,7 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareDot(const eg
     return EggProgramNodeFlags::Abandon;
   }
   auto ltype = instance.getType();
-  auto dotable = ltype->queryDotable();
+  auto dotable = ltype.queryDotable();
   if (dotable == nullptr) {
     return this->compilerError(where, ltype.describeValue(), " does not support the property '.' operator");
   }
@@ -723,7 +723,7 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::typeCheck(const egg
   if (ltype == nullptr) {
     // We need to infer the type
     ltype = rtype;
-    /* WIBBLE WOBBLE
+    /* WIBBLE
     ltype = rtype->devoidedType();
     if (guard && (ltype != nullptr)) {
       ltype = ltype->denulledType();
@@ -736,15 +736,15 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::typeCheck(const egg
     assert(symbol != nullptr);
     symbol->setInferredType(ltype);
   }
-  switch (ltype->queryAssignable(*rtype)) {
-  case egg::ovum::Assignability::Readonly:
+  switch (ltype.queryAssignable(*rtype)) {
+  case egg::ovum::Type::Assignability::Readonly:
     assert(false);
-    // DROPTHROUGH
-  case egg::ovum::Assignability::Never:
+    EGG_FALLTHROUGH
+  case egg::ovum::Type::Assignability::Never:
     return this->compilerError(where, "Cannot initialize '", name, "' of type '", ltype.toString(), "' with a value of type '", rtype.toString(), "'");
-  case egg::ovum::Assignability::Sometimes:
+  case egg::ovum::Type::Assignability::Sometimes:
     break;
-  case egg::ovum::Assignability::Always:
+  case egg::ovum::Type::Assignability::Always:
     if (guard) {
       this->compilerWarning(where, "Guarded assignment to '", name, "' of type '", ltype.toString(), "' will always succeed");
     }

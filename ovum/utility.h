@@ -1,8 +1,4 @@
 namespace egg::ovum {
-  using Bool = bool;
-  using Int = int64_t;
-  using Float = double;
-
   template<typename T>
   class Atomic {
     Atomic(Atomic&) = delete;

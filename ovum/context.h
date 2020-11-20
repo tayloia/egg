@@ -26,24 +26,6 @@ namespace egg::ovum {
     String toRuntimeString() const;
   };
 
-  class IPreparation {
-  public:
-    virtual ~IPreparation() {}
-    virtual void raise(ILogger::Severity severity, const String& message) = 0;
-
-    // Useful helpers
-    template<typename... ARGS>
-    void raiseWarning(ARGS&&... args) {
-      auto message = StringBuilder::concat(std::forward<ARGS>(args)...);
-      this->raise(ILogger::Severity::Warning, message);
-    }
-    template<typename... ARGS>
-    void raiseError(ARGS&&... args) {
-      auto message = StringBuilder::concat(std::forward<ARGS>(args)...);
-      this->raise(ILogger::Severity::Error, message);
-    }
-  };
-
   class IExecution {
   public:
     virtual ~IExecution() {}

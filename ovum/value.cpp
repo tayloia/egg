@@ -370,6 +370,35 @@ egg::ovum::Value::Value() : ptr(&theVoid) {
   assert(this->validate());
 }
 
+egg::ovum::IValue* egg::ovum::Value::mutate(const IValue& lhs, const IValue& rhs, Mutation mutation, String& error) {
+  assert(lhs.validate());
+  assert(rhs.validate());
+  switch (mutation) {
+  case Mutation::Assign:
+  case Mutation::Noop:
+  case Mutation::Decrement:
+  case Mutation::Increment:
+  case Mutation::Add:
+  case Mutation::BitwiseAnd:
+  case Mutation::BitwiseOr:
+  case Mutation::BitwiseXor:
+  case Mutation::Divide:
+  case Mutation::IfNull:
+  case Mutation::LogicalAnd:
+  case Mutation::LogicalOr:
+  case Mutation::Multiply:
+  case Mutation::Remainder:
+  case Mutation::ShiftLeft:
+  case Mutation::ShiftRight:
+  case Mutation::ShiftRightUnsigned:
+  case Mutation::Subtract:
+  default:
+    error = "WOBBLE: Unsupported mutation";
+    break;
+  }
+  return const_cast<IValue*>(&lhs);
+}
+
 egg::ovum::Value egg::ovum::ValueFactory::createInt(IAllocator& allocator, Int value) {
   return Value(*allocator.make<ValueInt, IValue*>(value));
 }

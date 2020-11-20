@@ -3,7 +3,179 @@
 #include "ovum/node.h"
 #include "ovum/slot.h"
 #include "ovum/print.h"
+#include "ovum/builtin.h"
 #include "ovum/vanilla.h"
+
+namespace {
+  using namespace egg::ovum;
+
+  template<typename T>
+  Type constructType() {
+    static const T instance;
+    return Type(&instance);
+  }
+
+  class Type_Shape : public NotSoftReferenceCounted<IType> {
+    Type_Shape(const Type_Shape&) = delete;
+    Type_Shape& operator=(const Type_Shape&) = delete;
+  private:
+    ObjectShape shape;
+  public:
+    Type_Shape(const IFunctionSignature* callable, const IPropertySignature* dotable, const IIndexSignature* indexable, const IIteratorSignature* iterable)
+      : shape({ callable, dotable, indexable, iterable }) {
+    }
+    virtual ValueFlags getFlags() const override {
+      return ValueFlags::Object;
+    }
+    virtual const IntShape* getIntShape() const override {
+      // We are not shaped like an int
+      return nullptr;
+    }
+    virtual const FloatShape* getFloatShape() const override {
+      // We are not shaped like a float
+      return nullptr;
+    }
+    virtual const ObjectShape* getStringShape() const override {
+      // We are not shaped like a string
+      return nullptr;
+    }
+    virtual const ObjectShape* getObjectShape(size_t index) const override {
+      // We only have one object shape
+      return (index == 0) ? &this->shape : nullptr;
+    }
+    virtual size_t getObjectShapeCount() const override {
+      // We only have one object shape
+      return 1;
+    }
+    virtual String describeValue() const override {
+      // TODO i18n
+      return StringBuilder::concat("Value of type '", this->toStringPrecedence().first, "'");
+    }
+  };
+
+  class Type_Array final : public Type_Shape {
+    Type_Array(const Type_Array&) = delete;
+    Type_Array& operator=(const Type_Array&) = delete;
+  private:
+    TypeBuilderProperties dotable;
+    TypeBuilderIndexable indexable;
+    TypeBuilderIterable iterable;
+  public:
+    Type_Array()
+      : Type_Shape(nullptr, &dotable, &indexable, &iterable),
+        dotable(true),
+        indexable(Type::AnyQ, Type::Int, Modifiability::Read | Modifiability::Write | Modifiability::Mutate),
+        iterable(Type::AnyQ) {
+      this->dotable.add(Type::Int, "length", Modifiability::Read);
+    }
+    virtual std::pair<std::string, int> toStringPrecedence() const override {
+      return { "any?[]", 1 };
+    }
+  };
+
+  class Type_DictionaryBase : public Type_Shape {
+    Type_DictionaryBase(const Type_DictionaryBase&) = delete;
+    Type_DictionaryBase& operator=(const Type_DictionaryBase&) = delete;
+  protected:
+    class KeyValueIterable : public IIteratorSignature {
+    public:
+      virtual Type getType() const override {
+        // This convolution is necessary because 'keyvalue' types are recursively defined
+        return Vanilla::getKeyValueType();
+      }
+    };
+    TypeBuilderProperties dotable;
+    TypeBuilderIndexable indexable;
+    KeyValueIterable iterable;
+  public:
+    Type_DictionaryBase(Modifiability modifiability, bool closed)
+      : Type_Shape(nullptr, &dotable, &indexable, &iterable),
+        dotable(closed),
+        indexable(Type::AnyQ, Type::String, modifiability),
+        iterable() {
+    }
+  };
+
+  class Type_Dictionary final : public Type_DictionaryBase {
+    Type_Dictionary(const Type_Dictionary&) = delete;
+    Type_Dictionary& operator=(const Type_Dictionary&) = delete;
+  public:
+    Type_Dictionary()
+      : Type_DictionaryBase(Modifiability::Read | Modifiability::Write | Modifiability::Mutate | Modifiability::Delete, false) {
+    }
+    virtual std::pair<std::string, int> toStringPrecedence() const override {
+      return { "dictionary", 0 };
+    }
+  };
+
+  class Type_KeyValue final : public Type_DictionaryBase {
+    Type_KeyValue(const Type_KeyValue&) = delete;
+    Type_KeyValue& operator=(const Type_KeyValue&) = delete;
+  public:
+    Type_KeyValue()
+      : Type_DictionaryBase(Modifiability::Read, true) {
+      this->dotable.add(Type::String, "key", Modifiability::Read);
+      this->dotable.add(Type::AnyQ, "value", Modifiability::Read);
+    }
+    virtual std::pair<std::string, int> toStringPrecedence() const override {
+      return { "keyvalue", 0 };
+    }
+  };
+
+  class Type_Object final : public NotSoftReferenceCounted<IType> {
+    Type_Object(const Type_Object&) = delete;
+    Type_Object& operator=(const Type_Object&) = delete;
+  public:
+    Type_Object() {}
+    virtual ValueFlags getFlags() const override {
+      return ValueFlags::Object;
+    }
+    virtual const IntShape* getIntShape() const override {
+      // We are not shaped like an int
+      return nullptr;
+    }
+    virtual const FloatShape* getFloatShape() const override {
+      // We are not shaped like a float
+      return nullptr;
+    }
+    virtual const ObjectShape* getStringShape() const override {
+      // We are not shaped like a string
+      return nullptr;
+    }
+    virtual const ObjectShape* getObjectShape(size_t index) const override {
+      // We only have one object shape
+      return (index == 0) ? &BuiltinFactory::ObjectShape : nullptr;
+    }
+    virtual size_t getObjectShapeCount() const override {
+      // We only have one object shape
+      return 1;
+    }
+    virtual String describeValue() const override {
+      // TODO i18n
+      return "Object";
+    }
+    virtual std::pair<std::string, int> toStringPrecedence() const override {
+      return { "object", 0 };
+    }
+  };
+}
+
+// Vanilla types
+egg::ovum::Type egg::ovum::Vanilla::getArrayType() {
+  return constructType<Type_Array>();
+}
+
+egg::ovum::Type egg::ovum::Vanilla::getDictionaryType() {
+  return constructType<Type_Dictionary>();
+}
+
+egg::ovum::Type egg::ovum::Vanilla::getKeyValueType() {
+  return constructType<Type_KeyValue>();
+}
+
+egg::ovum::Type egg::ovum::Vanilla::getObjectType() {
+  return constructType<Type_Object>();
+}
 
 namespace {
   using namespace egg::ovum;
@@ -21,6 +193,9 @@ namespace {
     virtual void softVisitLinks(const Visitor&) const override {
       // WIBBLE
     }
+    virtual bool add(const String& key, const Value& value) override {
+      return this->container.add(this->allocator, key, value);
+    }
     virtual bool get(const String& key, Value& value) const override {
       auto ref = this->container.getOrNull(key);
       if (ref != nullptr) {
@@ -29,17 +204,23 @@ namespace {
       }
       return false;
     }
-    virtual void add(const String& key, const Value& value) override {
-      auto added = this->container.addOrUpdate(this->allocator, key, value);
-      assert(added);
-      (void)added;
-    }
     virtual void set(const String& key, const Value& value) override {
-      (void)this->container.addOrUpdate(this->allocator, key, value);
+      (void)this->container.set(this->allocator, key, value);
     }
-    virtual HardPtr<ISlot> slot(const String&) const override {
-      // WIBBLE
-      return nullptr;
+    virtual Value mut(const String& key, Mutation mutation, const Value& value) override {
+      auto slot = this->container.getOrNull(key);
+      if (slot == nullptr) {
+        return ValueFactory::createThrowString(this->allocator, "Object does not have a property named '", key, "'");
+      }
+      String error;
+      auto result = slot->mutate(mutation, value, error);
+      if (result->getFlags() == ValueFlags::Void) {
+        return ValueFactory::createThrowString(this->allocator, error);
+      }
+      return result;
+    }
+    virtual bool del(const String& key) override {
+      return this->container.remove(key);
     }
     void toString(StringBuilder& sb, char& separator) const {
       this->container.foreach([&](const String& key, const Slot& slot) {
@@ -52,183 +233,6 @@ namespace {
       });
     }
   };
-
-  class TypeBase : public NotSoftReferenceCounted<IType> {
-    TypeBase(const TypeBase&) = delete;
-    TypeBase& operator=(const TypeBase&) = delete;
-  protected:
-    const char* name;
-  public:
-    explicit TypeBase(const char* name) : name(name) {
-      assert(this->name != nullptr);
-    }
-    virtual ValueFlags getFlags() const override {
-      return ValueFlags::Object;
-    }
-    virtual Assignability queryAssignable(const IType& rhs) const override {
-      auto rflags = rhs.getFlags();
-      if (rflags == ValueFlags::Object) {
-        return Assignability::Always;
-      }
-      if (Bits::hasAnySet(rflags, ValueFlags::Object)) {
-        return Assignability::Sometimes;
-      }
-      return Assignability::Never;
-    }
-    virtual const IFunctionSignature* queryCallable() const override {
-      return &TypeFactory::OmniFunctionSignature;
-    }
-    virtual const IPropertySignature* queryDotable() const override {
-      return nullptr;
-    }
-    virtual const IIteratorSignature* queryIterable() const override {
-      return nullptr;
-    }
-    virtual const IPointerSignature* queryPointable() const override {
-      return nullptr;
-    }
-    virtual std::pair<std::string, int> toStringPrecedence() const override {
-      return std::make_pair(this->name, 0);
-    }
-    virtual String describeValue() const override {
-      return StringBuilder::concat("Value of type '", this->name, "'");
-    }
-  };
-
-  class TypeArray : public TypeBase {
-    TypeArray(const TypeArray&) = delete;
-    TypeArray& operator=(const TypeArray&) = delete;
-  private:
-    class IndexSignature : public IIndexSignature {
-    public:
-      virtual Type getResultType() const override {
-        return Type::AnyQ;
-      }
-      virtual Type getIndexType() const override {
-        return Type::Int;
-      }
-      virtual Modifiability getModifiability() const override {
-        return Modifiability::Read | Modifiability::Write | Modifiability::Mutate;
-      }
-    };
-    class PropertySignature : public IPropertySignature {
-    public:
-      virtual Type getType(const String& property) const override {
-        if (property == "length") {
-          return Type::Int;
-        }
-        return nullptr;
-      }
-      virtual Modifiability getModifiability(const String& property) const override {
-        if (property == "length") {
-          return Modifiability::Read | Modifiability::Write | Modifiability::Mutate;
-        }
-        return Modifiability::None;
-      }
-      virtual String getName(size_t index) const override {
-        if (index == 0) {
-          return "length";
-        }
-        return {};
-      }
-    };
-    static inline const IndexSignature indexSignature{};
-    static inline const PropertySignature propertySignature{};
-  public:
-    TypeArray() : TypeBase("any?[]") {
-    }
-    virtual const IIndexSignature* queryIndexable() const override {
-      return &indexSignature;
-    }
-    virtual const IPropertySignature* queryDotable() const override {
-      return &propertySignature;
-    }
-  };
-  const TypeArray typeArray{};
-
-  class TypeDictionary : public TypeBase {
-    TypeDictionary(const TypeDictionary&) = delete;
-    TypeDictionary& operator=(const TypeDictionary&) = delete;
-  private:
-    class IndexSignature : public IIndexSignature {
-    public:
-      virtual Type getResultType() const override {
-        return Type::AnyQ;
-      }
-      virtual Type getIndexType() const override {
-        return Type::String;
-      }
-      virtual Modifiability getModifiability() const override {
-        return Modifiability::Read | Modifiability::Write | Modifiability::Mutate | Modifiability::Delete;
-      }
-    };
-    class PropertySignature : public IPropertySignature {
-    public:
-      virtual Type getType(const String&) const override {
-        return Type::AnyQ;
-      }
-      virtual Modifiability getModifiability(const String&) const override {
-        return Modifiability::Read | Modifiability::Write | Modifiability::Mutate | Modifiability::Delete;
-      }
-      virtual String getName(size_t) const override {
-        return {};
-      }
-    };
-    static inline const IndexSignature indexSignature{};
-    static inline const PropertySignature propertySignature{};
-  public:
-    TypeDictionary() : TypeBase("any?{string}") {
-    }
-    virtual const IIndexSignature* queryIndexable() const override {
-      return &indexSignature;
-    }
-    virtual const IPropertySignature* queryDotable() const override {
-      return &propertySignature;
-    }
-  };
-  const TypeDictionary typeDictionary{};
-
-  class TypeObject : public TypeBase {
-    TypeObject(const TypeObject&) = delete;
-    TypeObject& operator=(const TypeObject&) = delete;
-  private:
-    class IndexSignature : public IIndexSignature {
-    public:
-      virtual Type getResultType() const override {
-        return Type::AnyQ;
-      }
-      virtual Type getIndexType() const override {
-        return Type::AnyQ;
-      }
-      virtual Modifiability getModifiability() const override {
-        return Modifiability::Read | Modifiability::Write | Modifiability::Mutate | Modifiability::Delete;
-      }
-    };
-    class PropertySignature : public IPropertySignature {
-    public:
-      virtual Type getType(const String&) const override {
-        return Type::AnyQ;
-      }
-      virtual Modifiability getModifiability(const String&) const override {
-        return Modifiability::Read | Modifiability::Write | Modifiability::Mutate | Modifiability::Delete;
-      }
-      virtual String getName(size_t) const override {
-        return {};
-      }
-    };
-    static inline const IndexSignature indexSignature{};
-    static inline const PropertySignature propertySignature{};
-  public:
-    TypeObject() : TypeBase("object") {
-    }
-    virtual const IIndexSignature* queryIndexable() const override {
-      return &indexSignature;
-    }
-    virtual const IPropertySignature* queryDotable() const override {
-      return &propertySignature;
-    }
-  };
-  const TypeObject typeObject{};
 
   class VanillaBase : public SoftReferenceCounted<IObject> {
     VanillaBase(const VanillaBase&) = delete;
@@ -307,7 +311,7 @@ namespace {
       assert(this->validate());
     }
     virtual Type getRuntimeType() const override {
-      return Vanilla::Array;
+      return Vanilla::getArrayType();
     }
     virtual Value getProperty(IExecution& execution, const String& property) override {
       Value value;
@@ -400,7 +404,7 @@ namespace {
       assert(this->validate());
     }
     virtual Type getRuntimeType() const override {
-      return Vanilla::Dictionary;
+      return Vanilla::getDictionaryType();
     }
     virtual Value getProperty(IExecution& execution, const String& property) override {
       Value value;
@@ -412,6 +416,17 @@ namespace {
     virtual Value setProperty(IExecution&, const String& property, const Value& value) override {
       this->map.set(property, value);
       return Value::Void;
+    }
+    virtual Value mutProperty(IExecution& execution, const String& key, Mutation mutation, const Value& value) override {
+      auto result = this->map.mut(key, mutation, value);
+      if (result->getFlags() == (ValueFlags::Throw | ValueFlags::String)) {
+        // The mutation failed with a thrown string: augment it with the location
+        Value thrown;
+        if (result->getInner(thrown)) {
+          result = execution.raise(thrown->toString());
+        }
+      }
+      return result;
     }
     virtual void toStringBuilder(StringBuilder& sb) const override {
       char separator = '{';
@@ -435,7 +450,7 @@ namespace {
       assert(this->validate());
     }
     virtual Type getRuntimeType() const override {
-      return Vanilla::Object;
+      return Vanilla::getObjectType();
     }
     virtual Value getProperty(IExecution& execution, const String& property) override {
       Value value;
@@ -447,6 +462,17 @@ namespace {
     virtual Value setProperty(IExecution&, const String& property, const Value& value) override {
       this->map.set(property, value);
       return Value::Void;
+    }
+    virtual Value mutProperty(IExecution& execution, const String& key, Mutation mutation, const Value& value) override {
+      auto result = this->map.mut(key, mutation, value);
+      if (result->getFlags() == (ValueFlags::Throw | ValueFlags::String)) {
+        // The mutation failed with a thrown string: augment it with the location
+        Value thrown;
+        if (result->getInner(thrown)) {
+          result = execution.raise(thrown->toString());
+        }
+      }
+      return result;
     }
   };
 
@@ -467,7 +493,7 @@ namespace {
       // There are no soft link to visit
     }
     virtual Type getRuntimeType() const override {
-      return Vanilla::Object;
+      return Vanilla::getObjectType(); // WIBBLE
     }
     virtual Value call(IExecution&, const IParameters& parameters) override {
       assert(parameters.getNamedCount() == 0);
@@ -520,10 +546,6 @@ namespace {
   };
 }
 
-const egg::ovum::Type egg::ovum::Vanilla::Array{ &typeArray };
-const egg::ovum::Type egg::ovum::Vanilla::Dictionary{ &typeDictionary };
-const egg::ovum::Type egg::ovum::Vanilla::Object{ &typeObject };
-
 egg::ovum::Object egg::ovum::VanillaFactory::createArray(IAllocator& allocator, size_t fixed) {
   return ObjectFactory::create<VanillaArray>(allocator, fixed);
 }
@@ -542,8 +564,4 @@ egg::ovum::Object egg::ovum::VanillaFactory::createError(IAllocator& allocator, 
 
 egg::ovum::Object egg::ovum::VanillaFactory::createPredicate(IAllocator& allocator, Vanilla::IPredicateCallback& callback, const INode& node) {
   return ObjectFactory::create<VanillaPredicate>(allocator, callback, node);
-}
-
-egg::ovum::HardPtr<egg::ovum::IVanillaMap<egg::ovum::String, egg::ovum::Value>> egg::ovum::VanillaFactory::createStringValueMap(IAllocator& allocator) {
-  return allocator.make<VanillaStringValueMap>();
 }

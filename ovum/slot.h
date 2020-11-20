@@ -25,6 +25,7 @@ namespace egg::ovum {
     virtual void set(const Value& value) override;
     virtual bool update(IValue* expected, const Value& desired) override;
     virtual void clear() override;
+    Value mutate(Mutation mutation, const Value& value, String& error);
     // Debugging
     bool validate(bool optional) const;
     virtual bool validate() const override {
@@ -52,6 +53,14 @@ namespace egg::ovum {
       // Returns true iff the value exists
       return this->map.count(key) > 0;
     }
+    Slot* getOrNull(const K& key) {
+      // Returns the address of the map value or nullptr if not present
+      auto found = this->map.find(key);
+      if (found != this->map.end()) {
+        return &found->second;
+      }
+      return nullptr;
+    }
     const Slot* getOrNull(const K& key) const {
       // Returns the address of the map value or nullptr if not present
       auto found = this->map.find(key);
@@ -60,7 +69,17 @@ namespace egg::ovum {
       }
       return nullptr;
     }
-    bool addOrUpdate(IAllocator& allocator, const K& key, const Value& value) {
+    bool add(IAllocator& allocator, const K& key, const Value& value) {
+      // Add a new slot
+      Slot slot(allocator, value);
+      auto inserted = this->map.insert(std::move(std::make_pair(key, std::move(slot))));
+      if (inserted.second) {
+        this->vec.emplace_back(key);
+        return true;
+      }
+      return false;
+    }
+    bool set(IAllocator& allocator, const K& key, const Value& value) {
       // Updates or adds a new slot
       auto found = this->map.find(key);
       if (found != this->map.end()) {
@@ -72,6 +91,17 @@ namespace egg::ovum {
       this->map.insert(std::move(std::make_pair(key, std::move(slot))));
       this->vec.emplace_back(key);
       return true;
+    }
+    bool remove(const K& key) {
+      // Remove a single slot
+      auto erased = this->map.erase(key);
+      assert(erased <= 1);
+      if (erased == 1) {
+        this->vec.erase(std::remove(this->vec.begin(), this->vec.end(), key), this->vec.end());
+        assert(this->map.size() == this->vec.size());
+        return true;
+      }
+      return false;
     }
     void removeAll() {
       this->map.clear();

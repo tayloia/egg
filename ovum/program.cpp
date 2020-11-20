@@ -4,6 +4,7 @@
 #include "ovum/module.h"
 #include "ovum/program.h"
 #include "ovum/utf.h"
+#include "ovum/builtin.h"
 #include "ovum/vanilla.h"
 
 #include <map>
@@ -295,7 +296,7 @@ namespace {
     }
     template<typename... ARGS>
     Value raise(IExecution& execution, ARGS&&... args) {
-      auto* signature = this->type->queryCallable();
+      auto* signature = this->type.queryCallable();
       if (signature != nullptr) {
         auto name = signature->getFunctionName();
         if (!name.empty()) {
@@ -381,7 +382,7 @@ namespace {
       if (predicate->getObject(object)) {
         // Predicates can be functions that throw exceptions, as well as 'bool' values
         auto type = object->getRuntimeType();
-        if (type->queryCallable() != nullptr) {
+        if (type.queryCallable() != nullptr) {
           // Call the predicate directly
           return object->call(*this, Object::ParametersNone);
         }
@@ -508,10 +509,10 @@ namespace {
     }
     // Builtins
     void addBuiltins() {
-      this->builtin("assert", ValueFactory::createBuiltinAssert(this->allocator));
-      this->builtin("print", ValueFactory::createBuiltinPrint(this->allocator));
-      this->builtin("string", ValueFactory::createBuiltinString(this->allocator));
-      this->builtin("type", ValueFactory::createBuiltinType(this->allocator));
+      this->builtin("assert", BuiltinFactory::createAssert(this->allocator));
+      this->builtin("print", BuiltinFactory::createPrint(this->allocator));
+      this->builtin("string", BuiltinFactory::createString(this->allocator));
+      this->builtin("type", BuiltinFactory::createType(this->allocator));
     }
   private:
     Value executeRoot(const INode& node) {
@@ -1356,10 +1357,12 @@ namespace {
         }
         return value;
       }
+      /* WOBBLE
       String string;
       if (lhs->getString(string)) {
         return this->stringProperty(string, pname);
       }
+      */
       return this->raiseNode(node, lhs->getRuntimeType().describeValue(), " does not support properties such as '", pname, "'");
     }
     // Strings
@@ -1399,13 +1402,7 @@ namespace {
       }
       return ValueFactory::createString(this->allocator, StringFactory::fromCodePoint(this->allocator, char32_t(c)));
     }
-    Value stringProperty(const String& string, const String& property) {
-      auto retval = ValueFactory::createBuiltinStringProperty(this->allocator, string, property);
-      if (retval->getVoid()) {
-        return this->raiseFormat("Unknown property for 'string' value: '", property, "'");
-      }
-      return retval;
-    }
+    // WOBBLE Value stringProperty(const String& string, const String& property);
     // Operators
     Value operatorCompare(const INode& node, Value& lhs, Value& rhs) {
       // Returns 'break' for unknown operator
@@ -1705,7 +1702,7 @@ namespace {
         break;
       case Opcode::OBJECT:
         if (children == 0) {
-          return Vanilla::Dictionary;
+          return Vanilla::getDictionaryType();
         }
         if (children == 1) {
           auto& callable = node.getChild(0);
@@ -1810,7 +1807,7 @@ namespace {
       }
       if (lhs->getObject(target.object)) {
         auto type = target.object->getRuntimeType();
-        auto dotable = type->queryDotable();
+        auto dotable = type.queryDotable();
         if (dotable == nullptr) {
           return this->raiseNode(node, type.describeValue(), " does not support properties such as '", target.identifier, "'");
         }
@@ -1844,7 +1841,7 @@ namespace {
       }
       String string;
       if (lhs->getObject(target.object)) {
-        auto* indexable = target.object->getRuntimeType()->queryIndexable();
+        auto* indexable = target.object->getRuntimeType().queryIndexable();
         if (indexable != nullptr) {
           target.type = indexable->getResultType();
           return Value::Void;
@@ -1965,7 +1962,7 @@ namespace {
 }
 
 Value UserFunction::call(IExecution&, const IParameters& parameters) {
-  auto signature = this->type->queryCallable();
+  auto signature = this->type.queryCallable();
   assert(signature != nullptr);
   assert(this->captured != nullptr);
   return this->program.executeCall(this->location, *signature, parameters, *this->block, *this->captured);

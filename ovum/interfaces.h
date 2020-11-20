@@ -1,4 +1,8 @@
 namespace egg::ovum {
+  using Bool = bool;
+  using Int = int64_t;
+  using Float = double;
+
   // Forward declarations
   template<typename T> class Erratic;
   template<typename T> class HardPtr;
@@ -17,6 +21,8 @@ namespace egg::ovum {
   class IValue;
 
   enum class Mutation {
+    Assign,
+    Noop,
     Decrement,
     Increment,
     Add,
@@ -41,13 +47,6 @@ namespace egg::ovum {
     Write = 1 << 1,
     Mutate = 1 << 2,
     Delete = 1 << 3
-  };
-
-  enum class Assignability {
-    Readonly,
-    Never,
-    Sometimes,
-    Always
   };
 
   class ILogger {
@@ -97,23 +96,19 @@ namespace egg::ovum {
       // Use perfect forwarding to in-place new
       size_t bytes = sizeof(T) + extra;
       void* allocated = this->allocate(bytes, alignof(T));
-      fprintf(stderr, "Allocated %u bytes at %p (create)\n", unsigned(bytes), allocated);
       assert(allocated != nullptr);
       return new(allocated) T(std::forward<ARGS>(args)...);
     }
     template<typename T>
     void destroy(const T* allocated) {
-      fprintf(stderr, "Destroying %p\n", allocated);
       assert(allocated != nullptr);
       allocated->~T();
-      fprintf(stderr, "Destroyed %p\n", allocated);
       this->deallocate(const_cast<T*>(allocated), alignof(T));
     }
     template<typename T, typename RETTYPE = HardPtr<T>, typename... ARGS>
     inline RETTYPE make(ARGS&&... args) {
       // Use perfect forwarding to in-place new
       void* allocated = this->allocate(sizeof(T), alignof(T));
-      fprintf(stderr, "Allocated %u bytes at %p (make)\n", unsigned(sizeof(T)), allocated);
       assert(allocated != nullptr);
       return RETTYPE(new(allocated) T(*this, std::forward<ARGS>(args)...));
     }
@@ -216,14 +211,6 @@ namespace egg::ovum {
     virtual Type getType() const = 0;
   };
 
-  class IPointerSignature {
-  public:
-    // Interface
-    virtual ~IPointerSignature() {}
-    virtual Type getType() const = 0;
-    virtual Modifiability getModifiability() const = 0;
-  };
-
   class IPropertySignature {
   public:
     // Interface
@@ -231,17 +218,42 @@ namespace egg::ovum {
     virtual Type getType(const String& property) const = 0;
     virtual Modifiability getModifiability(const String& property) const = 0;
     virtual String getName(size_t index) const = 0;
+    virtual size_t getNameCount() const = 0;
+    virtual bool isClosed() const = 0;
+  };
+
+  struct IntShape {
+    static constexpr Int Minimum = std::numeric_limits<Int>::min();
+    static constexpr Int Maximum = std::numeric_limits<Int>::max();
+    Int minimum;
+    Int maximum;
+  };
+
+  struct FloatShape {
+    static constexpr Float Minimum = std::numeric_limits<Float>::min();
+    static constexpr Float Maximum = std::numeric_limits<Float>::max();
+    Float minimum;
+    Float maximum;
+    bool allowNaN;
+    bool allowNInf;
+    bool allowPInf;
+  };
+
+  struct ObjectShape {
+    const IFunctionSignature* callable;
+    const IPropertySignature* dotable;
+    const IIndexSignature* indexable;
+    const IIteratorSignature* iterable;
   };
 
   class IType : public ICollectable {
   public:
     virtual ValueFlags getFlags() const = 0;
-    virtual Assignability queryAssignable(const IType& rhs) const = 0;
-    virtual const IFunctionSignature* queryCallable() const = 0;
-    virtual const IPropertySignature* queryDotable() const = 0;
-    virtual const IIndexSignature* queryIndexable() const = 0;
-    virtual const IIteratorSignature* queryIterable() const = 0;
-    virtual const IPointerSignature* queryPointable() const = 0;
+    virtual const IntShape* getIntShape() const = 0;
+    virtual const FloatShape* getFloatShape() const = 0;
+    virtual const ObjectShape* getStringShape() const = 0;
+    virtual const ObjectShape* getObjectShape(size_t index) const = 0;
+    virtual size_t getObjectShapeCount() const = 0;
     virtual std::pair<std::string, int> toStringPrecedence() const = 0;
     virtual String describeValue() const = 0;
   };

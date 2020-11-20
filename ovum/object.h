@@ -14,6 +14,9 @@ namespace egg::ovum {
 
     // Useful constant for calling function with no parameters
     static const IParameters& ParametersNone;
+
+    // An "omni" function looks like 'any?(...any?)'
+    static const IFunctionSignature& OmniFunctionSignature;
   };
 
   class ObjectFactory {

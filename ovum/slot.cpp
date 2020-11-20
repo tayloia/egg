@@ -59,7 +59,33 @@ void egg::ovum::Slot::clear() {
   if (before != nullptr) {
     before->softRelease();
   }
-  assert(this->ptr.get() == nullptr);
+  assert(this->ptr.get() == nullptr); // TODO remove because not thread-safe
+}
+
+egg::ovum::Value egg::ovum::Slot::mutate(Mutation mutation, const Value& value, String& error) {
+  // Returns 'void' on failure and sets 'error'
+  assert(this->validate(false));
+  for (;;) {
+    auto* before = this->ptr.get();
+    if (before == nullptr) {
+      // Special case for '??' applied to initialized slot
+      if (mutation == Mutation::IfNull) {
+        return value; // TODO check examples
+      }
+      error = "Mutation applied to uninitialized slot";
+      return Value::Void;
+    }
+    auto after = Value::mutate(*before, value.get(), mutation, error);
+    if (after == nullptr) {
+      assert(error != "");
+      return Value::Void;
+    }
+    if (this->ptr.update(before, after) == before) {
+      // Successfully updated the slot
+      assert(this->validate(true));
+      return Value(*after);
+    }
+  }
 }
 
 bool egg::ovum::Slot::validate(bool optional) const {

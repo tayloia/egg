@@ -1,48 +1,14 @@
 #include "ovum/ovum.h"
 #include "ovum/slot.h"
 #include "ovum/node.h"
-#include "ovum/vanilla.h"
+#include "ovum/builtin.h"
+
+#include <array>
+#include <map>
+#include <unordered_set>
 
 namespace {
   using namespace egg::ovum;
-
-  // An omni function looks like this: 'any?(...any?[])'
-  class OmniFunctionSignature : public IFunctionSignature {
-    OmniFunctionSignature(const OmniFunctionSignature&) = delete;
-    OmniFunctionSignature& operator=(const OmniFunctionSignature&) = delete;
-  private:
-    class Parameter : public IFunctionSignatureParameter {
-    public:
-      virtual String getName() const override {
-        return "params";
-      }
-      virtual Type getType() const override {
-        return Type::AnyQ;
-      }
-      virtual size_t getPosition() const override {
-        return 0;
-      }
-      virtual Flags getFlags() const override {
-        return Flags::Variadic;
-      }
-    };
-    Parameter params;
-  public:
-    OmniFunctionSignature() {}
-    virtual String getFunctionName() const override {
-      return String();
-    }
-    virtual Type getReturnType() const override {
-      return Type::AnyQ;
-    }
-    virtual size_t getParameterCount() const override {
-      return 1;
-    }
-    virtual const IFunctionSignatureParameter& getParameter(size_t) const override {
-      return this->params;
-    }
-  };
-  const OmniFunctionSignature omniFunctionSignature{};
 
   const char* flagsComponent(ValueFlags flags) {
     EGG_WARNING_SUPPRESS_SWITCH_BEGIN();
@@ -84,281 +50,346 @@ namespace {
     return result;
   }
 
-  Assignability assignableFlags(ValueFlags lhs, ValueFlags rhs) {
-    if (Bits::hasAllSet(lhs, rhs)) {
-      return Assignability::Always;
-    }
-    if (Bits::hasAnySet(lhs, rhs)) {
-      return Assignability::Sometimes;
-    }
-    if (Bits::hasAnySet(lhs, ValueFlags::Float) && Bits::hasAnySet(rhs, ValueFlags::Int)) {
-      // Float<-Int promotion
-      return Assignability::Sometimes;
-    }
-    return Assignability::Never;
-  }
-
-  class TypeBase : public IType {
-    TypeBase(const TypeBase&) = delete;
-    TypeBase& operator=(const TypeBase&) = delete;
+  class Type_Shape : public NotSoftReferenceCounted<IType> {
+    Type_Shape(const Type_Shape&) = delete;
+    Type_Shape& operator=(const Type_Shape&) = delete;
   public:
-    TypeBase() = default;
-    virtual const IFunctionSignature* queryCallable() const override {
-      // By default, we are not callable
+    Type_Shape() = default;
+    virtual const IntShape* getIntShape() const override {
+      // By default, we are not shaped like an int
       return nullptr;
     }
-    virtual const IPropertySignature* queryDotable() const override {
-      // By default, we do not support properties
+    virtual const FloatShape* getFloatShape() const override {
+      // By default, we are not shaped like a float
       return nullptr;
     }
-    virtual const IIndexSignature* queryIndexable() const override {
-      // By default, we are not indexable
+    virtual const ObjectShape* getStringShape() const override {
+      // By default, we are not shaped like a string
       return nullptr;
     }
-    virtual const IIteratorSignature* queryIterable() const override {
-      // By default, we are not iterable
+    virtual const ObjectShape* getObjectShape(size_t) const override {
+      // By default, we are not shaped like objects
       return nullptr;
     }
-    virtual const IPointerSignature* queryPointable() const override {
-      // By default, we do not support dereferencing
-      return nullptr;
+    virtual size_t getObjectShapeCount() const override {
+      // By default, we are not shaped like objects
+      return 0;
     }
     virtual String describeValue() const override {
+      // TODO i18n
       return StringBuilder::concat("Value of type '", this->toStringPrecedence().first, "'");
     }
-    std::string str() const {
-      return this->toStringPrecedence().first;
-    }
   };
 
-  template<ValueFlags FLAGS>
-  class TypeCommon : public NotSoftReferenceCounted<TypeBase> {
-    TypeCommon(const TypeCommon&) = delete;
-    TypeCommon& operator=(const TypeCommon&) = delete;
+  class Type_Void final : public Type_Shape {
+    Type_Void(const Type_Void&) = delete;
+    Type_Void& operator=(const Type_Void&) = delete;
   public:
-    TypeCommon() : NotSoftReferenceCounted() {}
+    Type_Void() = default;
     virtual ValueFlags getFlags() const override {
-      return FLAGS;
-    }
-    virtual Assignability queryAssignable(const IType& rhs) const override {
-      return assignableFlags(FLAGS, rhs.getFlags());
+      return ValueFlags::Void;
     }
     virtual std::pair<std::string, int> toStringPrecedence() const override {
-      return flagsToStringPrecedence(FLAGS);
+      return { "void", 0 };
     }
   };
-  const TypeCommon<ValueFlags::Bool> typeBool{};
-  const TypeCommon<ValueFlags::Int> typeInt{};
-  const TypeCommon<ValueFlags::Float> typeFloat{};
-  const TypeCommon<ValueFlags::Int | ValueFlags::Float> typeArithmetic{};
+  const Type_Void typeVoid{};
 
-  class TypeVoid : public TypeCommon<ValueFlags::Void> {
-    TypeVoid(const TypeVoid&) = delete;
-    TypeVoid& operator=(const TypeVoid&) = delete;
+  class Type_Null final : public Type_Shape {
+    Type_Null(const Type_Null&) = delete;
+    Type_Null& operator=(const Type_Null&) = delete;
   public:
-    TypeVoid() = default;
-    virtual Assignability queryAssignable(const IType&) const override {
-      return Assignability::Never;
-    }
-  };
-  const TypeVoid typeVoid{};
-
-  class TypeNull : public TypeCommon<ValueFlags::Null> {
-    TypeNull(const TypeNull&) = delete;
-    TypeNull& operator=(const TypeNull&) = delete;
-  public:
-    TypeNull() = default;
-  };
-  const TypeNull typeNull{};
-
-  class TypeString : public TypeCommon<ValueFlags::String> {
-    TypeString(const TypeString&) = delete;
-    TypeString& operator=(const TypeString&) = delete;
-  private:
-    class IndexSignature : public IIndexSignature {
-    public:
-      virtual Type getResultType() const override {
-        return Type::String;
-      }
-      virtual Type getIndexType() const override {
-        return Type::Int;
-      }
-      virtual Modifiability getModifiability() const override {
-        return Modifiability::Read;
-      }
-    };
-    class IteratorSignature : public IIteratorSignature {
-    public:
-      virtual Type getType() const override {
-        return Type::String;
-      }
-    };
-    class PropertySignature : public IPropertySignature {
-    public:
-      virtual Type getType(const String& property) const override {
-        return ValueFactory::queryBuiltinStringPropertyType(property);
-      }
-      virtual Modifiability getModifiability(const String& property) const override {
-        return ValueFactory::queryBuiltinStringPropertyModifiability(property);
-      }
-      virtual String getName(size_t index) const override {
-        return ValueFactory::queryBuiltinStringPropertyName(index);
-      }
-    };
-  public:
-    TypeString() = default;
-    virtual const IPropertySignature* queryDotable() const override {
-      static const PropertySignature propertySignature{};
-      return &propertySignature;
-    }
-    virtual const IIndexSignature* queryIndexable() const override {
-      static const IndexSignature indexSignature{};
-      return &indexSignature;
-    }
-    virtual const IIteratorSignature* queryIterable() const override {
-      static const IteratorSignature iteratorSignature{};
-      return &iteratorSignature;
-    }
-  };
-  const TypeString typeString{};
-
-  class TypeAny : public TypeCommon<ValueFlags::Any> {
-    TypeAny(const TypeAny&) = delete;
-    TypeAny& operator=(const TypeAny&) = delete;
-  public:
-    TypeAny() = default;
-    virtual const IFunctionSignature* queryCallable() const override {
-      return &omniFunctionSignature;
-    }
-  };
-  const TypeAny typeAny{};
-
-  class TypeAnyQ : public TypeCommon<ValueFlags::AnyQ> {
-    TypeAnyQ(const TypeAnyQ&) = delete;
-    TypeAnyQ& operator=(const TypeAnyQ&) = delete;
-  public:
-    TypeAnyQ() = default;
-    virtual const IFunctionSignature* queryCallable() const override {
-      return &omniFunctionSignature;
-    }
-  };
-  const TypeAnyQ typeAnyQ{};
-
-  class TypeUnion : public SoftReferenceCounted<TypeBase> {
-    TypeUnion(const TypeUnion&) = delete;
-    TypeUnion& operator=(const TypeUnion&) = delete;
-  private:
-    Type a;
-    Type b;
-  public:
-    TypeUnion(IAllocator& allocator, const IType& a, const IType& b)
-      : SoftReferenceCounted(allocator), a(&a), b(&b) {
-    }
-    virtual void softVisitLinks(const Visitor& visitor) const {
-      this->a->softVisitLinks(visitor);
-      this->b->softVisitLinks(visitor);
-    }
+    Type_Null() = default;
     virtual ValueFlags getFlags() const override {
-      return this->a->getFlags() | this->b->getFlags();
-    }
-    virtual Assignability queryAssignable(const IType& rhs) const override {
-      // The logic is:
-      //  Assignable to a Assignable to b Result
-      //  =============== =============== ======
-      //  Readonly        Readonly        Readonly
-      //  Readonly        Never           Never
-      //  Readonly        Sometimes       Sometimes
-      //  Readonly        Always          Always
-      //  Never           Readonly        Never
-      //  Never           Never           Never
-      //  Never           Sometimes       Sometimes
-      //  Never           Always          Always
-      //  Sometimes       Readonly        Sometimes
-      //  Sometimes       Never           Sometimes
-      //  Sometimes       Sometimes       Sometimes
-      //  Sometimes       Always          Always
-      //  Always          Readonly        Always
-      //  Always          Never           Always
-      //  Always          Sometimes       Always
-      //  Always          Always          Always
-      auto qa = this->a->queryAssignable(rhs);
-      if (qa == Assignability::Always) {
-        return Assignability::Always;
-      }
-      auto qb = this->b->queryAssignable(rhs);
-      if (qb == Assignability::Always) {
-        return Assignability::Always;
-      }
-      if ((qa == Assignability::Sometimes) || (qb == Assignability::Sometimes)) {
-        return Assignability::Sometimes;
-      }
-      return (qa == Assignability::Readonly) ? qb : qa;
-    }
-    virtual const IFunctionSignature* queryCallable() const override {
-      // TODO What if both have signatures?
-      auto* signature = this->a->queryCallable();
-      if (signature != nullptr) {
-        return signature;
-      }
-      return this->b->queryCallable();
+      return ValueFlags::Null;
     }
     virtual std::pair<std::string, int> toStringPrecedence() const override {
-      // TODO
-      auto ab = StringBuilder().add(this->a.toString(0), '|', this->b.toString(0)).toUTF8();
-      return std::make_pair(ab, 0);
+      return { "null", 0 };
     }
   };
+  const Type_Null typeNull{};
 
-  class TypeSimple : public SoftReferenceCounted<TypeBase> {
+  class Type_Bool final : public Type_Shape {
+    Type_Bool(const Type_Bool&) = delete;
+    Type_Bool& operator=(const Type_Bool&) = delete;
+  public:
+    Type_Bool() = default;
+    virtual ValueFlags getFlags() const override {
+      return ValueFlags::Bool;
+    }
+    virtual std::pair<std::string, int> toStringPrecedence() const override {
+      return { "bool", 0 };
+    }
+  };
+  const Type_Bool typeBool{};
+
+  class Type_Int final : public Type_Shape {
+    Type_Int(const Type_Int&) = delete;
+    Type_Int& operator=(const Type_Int&) = delete;
+  public:
+    Type_Int() = default;
+    virtual ValueFlags getFlags() const override {
+      return ValueFlags::Int;
+    }
+    virtual const IntShape* getIntShape() const override {
+      return &BuiltinFactory::IntShape;
+    }
+    virtual std::pair<std::string, int> toStringPrecedence() const override {
+      return { "int", 0 };
+    }
+  };
+  const Type_Int typeInt{};
+
+  class Type_Float final : public Type_Shape {
+    Type_Float(const Type_Float&) = delete;
+    Type_Float& operator=(const Type_Float&) = delete;
+  public:
+    Type_Float() = default;
+    virtual ValueFlags getFlags() const override {
+      return ValueFlags::Float;
+    }
+    virtual const FloatShape* getFloatShape() const override {
+      return &BuiltinFactory::FloatShape;
+    }
+    virtual std::pair<std::string, int> toStringPrecedence() const override {
+      return { "float", 0 };
+    }
+  };
+  const Type_Float typeFloat{};
+
+  class Type_Arithmetic final : public Type_Shape {
+    Type_Arithmetic(const Type_Arithmetic&) = delete;
+    Type_Arithmetic& operator=(const Type_Arithmetic&) = delete;
+  public:
+    Type_Arithmetic() = default;
+    virtual ValueFlags getFlags() const override {
+      return ValueFlags::Arithmetic;
+    }
+    virtual const IntShape* getIntShape() const override {
+      return &BuiltinFactory::IntShape;
+    }
+    virtual const FloatShape* getFloatShape() const override {
+      return &BuiltinFactory::FloatShape;
+    }
+    virtual std::pair<std::string, int> toStringPrecedence() const override {
+      return { "int|float", 2 };
+    }
+  };
+  const Type_Arithmetic typeArithmetic{};
+
+  class Type_String final : public Type_Shape {
+    Type_String(const Type_String&) = delete;
+    Type_String& operator=(const Type_String&) = delete;
+  public:
+    Type_String() = default;
+    virtual ValueFlags getFlags() const override {
+      return ValueFlags::String;
+    }
+    virtual const ObjectShape* getStringShape() const override {
+      return &BuiltinFactory::StringShape;
+    }
+    virtual std::pair<std::string, int> toStringPrecedence() const override {
+      return { "string", 0 };
+    }
+  };
+  const Type_String typeString{};
+
+  class Type_Any final : public Type_Shape {
+    Type_Any(const Type_Any&) = delete;
+    Type_Any& operator=(const Type_Any&) = delete;
+  public:
+    Type_Any() = default;
+    virtual ValueFlags getFlags() const override {
+      return ValueFlags::Any;
+    }
+    virtual const IntShape* getIntShape() const override {
+      return &BuiltinFactory::IntShape;
+    }
+    virtual const FloatShape* getFloatShape() const override {
+      return &BuiltinFactory::FloatShape;
+    }
+    virtual const ObjectShape* getStringShape() const override {
+      return &BuiltinFactory::StringShape;
+    }
+    virtual const ObjectShape* getObjectShape(size_t index) const override {
+      return (index == 0) ? &BuiltinFactory::ObjectShape : nullptr;
+    }
+    virtual size_t getObjectShapeCount() const override {
+      return 1;
+    }
+    virtual std::pair<std::string, int> toStringPrecedence() const override {
+      return { "any", 0 };
+    }
+  };
+  const Type_Any typeAny{};
+
+  class Type_AnyQ final : public Type_Shape {
+    Type_AnyQ(const Type_AnyQ&) = delete;
+    Type_AnyQ& operator=(const Type_AnyQ&) = delete;
+  public:
+    Type_AnyQ() = default;
+    virtual ValueFlags getFlags() const override {
+      return ValueFlags::AnyQ;
+    }
+    virtual const IntShape* getIntShape() const override {
+      return &BuiltinFactory::IntShape;
+    }
+    virtual const FloatShape* getFloatShape() const override {
+      return &BuiltinFactory::FloatShape;
+    }
+    virtual const ObjectShape* getStringShape() const override {
+      return &BuiltinFactory::StringShape;
+    }
+    virtual const ObjectShape* getObjectShape(size_t index) const override {
+      return (index == 0) ? &BuiltinFactory::ObjectShape : nullptr;
+    }
+    virtual size_t getObjectShapeCount() const override {
+      return 1;
+    }
+    virtual std::pair<std::string, int> toStringPrecedence() const override {
+      return { "any?", 1 };
+    }
+  };
+  const Type_AnyQ typeAnyQ{};
+
+  class TypeSimple : public SoftReferenceCounted<IType> {
     TypeSimple(const TypeSimple&) = delete;
     TypeSimple& operator=(const TypeSimple&) = delete;
   private:
     ValueFlags flags;
   public:
     TypeSimple(IAllocator& allocator, ValueFlags flags)
-      : SoftReferenceCounted(allocator), flags(flags) {
+      : SoftReferenceCounted(allocator),
+        flags(flags) {
+      assert(flags != ValueFlags::None);
     }
-    virtual void softVisitLinks(const Visitor&) const {
+    virtual void softVisitLinks(const Visitor&) const override {
       // Nothing to visit
     }
     virtual ValueFlags getFlags() const override {
       return this->flags;
     }
-    virtual Assignability queryAssignable(const IType& rhs) const override {
-      return assignableFlags(this->flags, rhs.getFlags());
+    virtual const IntShape* getIntShape() const override {
+      return Bits::hasAnySet(this->flags, ValueFlags::Int) ? &BuiltinFactory::IntShape : nullptr;
     }
-    virtual const IFunctionSignature* queryCallable() const override {
-      if (Bits::hasAnySet(this->flags, ValueFlags::Object)) {
-        return &omniFunctionSignature;
-      }
-      return nullptr;
+    virtual const FloatShape* getFloatShape() const override {
+      return Bits::hasAnySet(this->flags, ValueFlags::Float) ? &BuiltinFactory::FloatShape : nullptr;
+    }
+    virtual const ObjectShape* getStringShape() const override {
+      return Bits::hasAnySet(this->flags, ValueFlags::String) ? &BuiltinFactory::StringShape : nullptr;
+    }
+    virtual const ObjectShape* getObjectShape(size_t index) const override {
+      return ((index == 0) && Bits::hasAnySet(this->flags, ValueFlags::Object)) ? &BuiltinFactory::ObjectShape : nullptr;
+    }
+    virtual size_t getObjectShapeCount() const override {
+      return Bits::hasAnySet(this->flags, ValueFlags::Object) ? 1u : 0u;
     }
     virtual std::pair<std::string, int> toStringPrecedence() const override {
-      return flagsToStringPrecedence(this->flags);
+      return std::make_pair("WOBBLE", 0);
+    }
+    virtual String describeValue() const override {
+      // TODO i18n
+      return StringBuilder::concat("Value of type '", this->toStringPrecedence().first, "'");
     }
   };
 
-  class TypePointer : public SoftReferenceCounted<TypeBase> {
-    TypePointer(const TypePointer&) = delete;
-    TypePointer& operator=(const TypePointer&) = delete;
+  class TypeUnion : public SoftReferenceCounted<IType> {
+    TypeUnion(const TypeUnion&) = delete;
+    TypeUnion& operator=(const TypeUnion&) = delete;
   private:
-    Type referenced; // WOBBLE soft?
+    Type a; // TODO make soft
+    Type b; // TODO make soft
+    ValueFlags flags;
+    IntShape intShape;
+    FloatShape floatShape;
+    std::vector<const ObjectShape*> objectShape;
   public:
-    TypePointer(IAllocator& allocator, const IType& referenced)
-      : SoftReferenceCounted(allocator), referenced(&referenced) {
+    TypeUnion(IAllocator& allocator, const IType& a, const IType& b)
+      : SoftReferenceCounted(allocator),
+        a(&a),
+        b(&b),
+        flags(a.getFlags() | b.getFlags()),
+        intShape(unionInt(a.getIntShape(), b.getIntShape())),
+        floatShape(unionFloat(a.getFloatShape(), b.getFloatShape())),
+        objectShape(unionObject({ &a, &b })) {
+      assert(this->a != nullptr);
+      assert(this->b != nullptr);
     }
-    virtual void softVisitLinks(const Visitor& visitor) const {
-      this->referenced->softVisitLinks(visitor);
+    virtual void softVisitLinks(const Visitor&) const override {
+      // TODO
     }
     virtual ValueFlags getFlags() const override {
-      return ValueFlags::Object;
+      return this->flags;
     }
-    virtual Assignability queryAssignable(const IType&) const override {
-      return Assignability::Readonly; // WIBBLE unimplemented
+    virtual const IntShape* getIntShape() const override {
+      return Bits::hasAnySet(this->flags, ValueFlags::Int) ? &this->intShape : nullptr;
+    }
+    virtual const FloatShape* getFloatShape() const override {
+      return Bits::hasAnySet(this->flags, ValueFlags::Float) ? &this->floatShape : nullptr;
+    }
+    virtual const ObjectShape* getStringShape() const override {
+      return Bits::hasAnySet(this->flags, ValueFlags::String) ? &BuiltinFactory::StringShape : nullptr;
+    }
+    virtual const ObjectShape* getObjectShape(size_t index) const override {
+      return this->objectShape.at(index);
+    }
+    virtual size_t getObjectShapeCount() const override {
+      return this->objectShape.size();
     }
     virtual std::pair<std::string, int> toStringPrecedence() const override {
-      auto p = StringBuilder().add(this->referenced.toString(0), '*').toUTF8();
-      return std::make_pair(p, 0);
+      return std::make_pair("WOBBLE", 0);
+    }
+    virtual String describeValue() const override {
+      // TODO i18n
+      return StringBuilder::concat("Value of type '", this->toStringPrecedence().first, "'");
+    }
+  private:
+    static IntShape unionInt(const IntShape* p, const IntShape* q) {
+      if (p == nullptr) {
+        if (q == nullptr) {
+          return BuiltinFactory::IntShape;
+        }
+        return *q;
+      }
+      if (q == nullptr) {
+        return *p;
+      }
+      return {
+        std::min(p->minimum, q->minimum), // min
+        std::max(p->maximum, q->maximum)  // max
+      };
+    }
+    static FloatShape unionFloat(const FloatShape* p, const FloatShape* q) {
+      if (p == nullptr) {
+        if (q == nullptr) {
+          return BuiltinFactory::FloatShape;
+        }
+        return *q;
+      }
+      if (q == nullptr) {
+        return *p;
+      }
+      return {
+        std::min(p->minimum, q->minimum), // min
+        std::max(p->maximum, q->maximum), // max
+        p->allowNaN || q->allowNaN,       // nan
+        p->allowNInf || q->allowNInf,     // ninf
+        p->allowPInf || q->allowPInf      // pinf
+      };
+    }
+    static std::vector<const ObjectShape*> unionObject(const std::array<const IType*, 2>& types) {
+      std::unordered_set<const ObjectShape*> unique;
+      std::vector<const ObjectShape*> list;
+      for (auto type : types) {
+        auto count = type->getObjectShapeCount();
+        for (size_t index = 0; index < count; ++index) {
+          auto* shape = type->getObjectShape(index);
+          if ((shape != nullptr) && unique.insert(shape).second) {
+            list.push_back(shape);
+          }
+        }
+      }
+      return list;
     }
   };
 
@@ -461,7 +492,117 @@ namespace {
     }
   };
 
-  class FunctionBuilder : public HardReferenceCounted<ITypeBuilder>, public IFunctionSignature {
+  class Builder : public HardReferenceCounted<ITypeBuilder> {
+    Builder(const Builder&) = delete;
+    Builder& operator=(const Builder&) = delete;
+  protected:
+    class Built;
+    friend class Built;
+    std::string name;
+    std::unique_ptr<TypeBuilderIndexable> indexable;
+    std::unique_ptr<TypeBuilderIterable> iterable;
+    std::unique_ptr<TypeBuilderProperties> properties;
+    bool built;
+  public:
+    explicit Builder(IAllocator& allocator, const String& name)
+      : HardReferenceCounted(allocator, 0),
+        name(name.toUTF8()),
+        built(false) {
+    }
+    virtual void addPositionalParameter(const Type&, const String&, IFunctionSignatureParameter::Flags) {
+      throw std::logic_error("TypeBuilder::addPositionalParameter() called for non-function type");
+    }
+    virtual void addNamedParameter(const Type&, const String&, IFunctionSignatureParameter::Flags) {
+      throw std::logic_error("TypeBuilder::addNamedParameter() called for non-function type");
+    }
+    virtual void addProperty(const Type& ptype, const String& pname, Modifiability modifiability) override;
+    virtual void defineDotable(bool closed) override;
+    virtual void defineIndexable(const Type& resultType, const Type& indexType, Modifiability modifiability) override;
+    virtual void defineIterable(const Type& resultType) override;
+    virtual Type build() override {
+      if (this->built) {
+        throw std::logic_error("TypeBuilder::build() called more than once");
+      }
+      this->built = true;
+      return this->allocator.make<Built, Type>(*this);
+    }
+  };
+
+  class Builder::Built : public SoftReferenceCounted<IType> {
+    Built(const Built&) = delete;
+    Built& operator=(const Built&) = delete;
+  private:
+    HardPtr<Builder> builder;
+    ObjectShape shape;
+  public:
+    Built(IAllocator& allocator, Builder& builder, IFunctionSignature* callable = nullptr)
+      : SoftReferenceCounted(allocator),
+      builder(&builder) {
+      this->shape.callable = callable;
+      this->shape.dotable = builder.properties.get();
+      this->shape.indexable = builder.indexable.get();
+      this->shape.iterable = builder.iterable.get();
+    }
+    virtual void softVisitLinks(const Visitor&) const {
+      // TODO visit soft links in Builder?
+    }
+    virtual ValueFlags getFlags() const override {
+      return ValueFlags::Object;
+    }
+    virtual const IntShape* getIntShape() const override {
+      return nullptr;
+    }
+    virtual const FloatShape* getFloatShape() const override {
+      return nullptr;
+    }
+    virtual const ObjectShape* getStringShape() const override {
+      return nullptr;
+    }
+    virtual const ObjectShape* getObjectShape(size_t index) const override {
+      return (index == 0) ? &this->shape : nullptr;
+    }
+    virtual size_t getObjectShapeCount() const override {
+      return 1;
+    }
+    virtual std::pair<std::string, int> toStringPrecedence() const override {
+      return std::make_pair(this->builder->name, 0);
+    }
+    virtual String describeValue() const override {
+      return StringBuilder::concat("Value of type '", this->builder->name, "'");
+    }
+  };
+
+  void Builder::addProperty(const Type& ptype, const String& pname, Modifiability modifiability) {
+    if (this->properties == nullptr) {
+      throw std::logic_error("TypeBuilder::addProperty() called before TypeBuilder::defineDotable()");
+    }
+    if (!this->properties->add(ptype, pname, modifiability)) {
+      throw std::logic_error("TypeBuilder::addProperty() found duplicate property name: " + pname.toUTF8());
+    }
+  }
+
+  void Builder::defineDotable(bool closed) {
+    if (this->properties != nullptr) {
+      throw std::logic_error("TypeBuilder::defineDotable() called more than once");
+    }
+    this->properties = std::make_unique<TypeBuilderProperties>(closed);
+  }
+
+  void Builder::defineIndexable(const Type& resultType, const Type& indexType, Modifiability modifiability) {
+    if (this->indexable != nullptr) {
+      throw std::logic_error("TypeBuilder::defineIndexable() called more than once");
+    }
+    this->indexable = std::make_unique<TypeBuilderIndexable>(resultType, indexType, modifiability);
+  }
+
+  void Builder::defineIterable(const Type& resultType) {
+    if (this->iterable != nullptr) {
+      throw std::logic_error("TypeBuilder::defineIterable() called more than once");
+    }
+    this->iterable = std::make_unique<TypeBuilderIterable>(resultType);
+  }
+
+  class FunctionBuilder : public Builder, public IFunctionSignature {
     FunctionBuilder(const FunctionBuilder&) = delete;
     FunctionBuilder& operator=(const FunctionBuilder&) = delete;
   private:
@@ -491,71 +632,26 @@ namespace {
         return this->position;
       }
     };
-    class Built : public SoftReferenceCounted<IType> {
-      Built(const Built&) = delete;
-      Built& operator=(const Built&) = delete;
-    private:
-      HardPtr<FunctionBuilder> builder;
-    public:
-      Built(IAllocator& allocator, FunctionBuilder& builder)
-        : SoftReferenceCounted(allocator),
-          builder(&builder) {
-      }
-      virtual void softVisitLinks(const Visitor&) const {
-        // WOBBLE
-      }
-      virtual ValueFlags getFlags() const override {
-        return ValueFlags::Object;
-      }
-      virtual Assignability queryAssignable(const IType&) const override {
-        return Assignability::Readonly; // WIBBLE unimplemented
-      }
-      virtual const IFunctionSignature* queryCallable() const override {
-        return this->builder.get();
-      }
-      virtual const IPropertySignature* queryDotable() const override {
-        return nullptr;
-      }
-      virtual const IIndexSignature* queryIndexable() const override {
-        return nullptr;
-      }
-      virtual const IIteratorSignature* queryIterable() const override {
-        return nullptr;
-      }
-      virtual const IPointerSignature* queryPointable() const override {
-        return nullptr;
-      }
-      virtual std::pair<std::string, int> toStringPrecedence() const override {
-        return std::pair<std::string, int>();
-      }
-      virtual String describeValue() const override {
-        return StringBuilder::concat("Value of type '", this->toStringPrecedence().first, "'");
-      }
-      std::string str() const {
-        return this->toStringPrecedence().first;
-      }
-    };
-    friend class Built;
     Type rettype;
-    String name;
     std::vector<Parameter> positional;
     std::vector<Parameter> named;
-    bool built;
   public:
     FunctionBuilder(IAllocator& allocator, const Type& rettype, const String& name)
-      : HardReferenceCounted(allocator, 0),
-        rettype(rettype),
-        name(name),
-        built(false) {
+      : Builder(allocator, name),
+        rettype(rettype) {
       assert(rettype != nullptr);
     }
     virtual void addPositionalParameter(const Type& ptype, const String& pname, IFunctionSignatureParameter::Flags pflags) {
-      assert(!this->built);
+      if (this->built) {
+        throw std::logic_error("FunctionBuilder::addPositionalParameter() called after type is built");
+      }
       auto pindex = this->positional.size();
       this->positional.emplace_back(ptype, pname, pflags, pindex);
     }
     virtual void addNamedParameter(const Type& ptype, const String& pname, IFunctionSignatureParameter::Flags pflags) {
-      assert(!this->built);
+      if (this->built) {
+        throw std::logic_error("FunctionBuilder::addNamedParameter() called after type is built");
+      }
       this->named.emplace_back(ptype, pname, pflags, SIZE_MAX);
     }
     virtual String getFunctionName() const override {
@@ -565,80 +661,54 @@ namespace {
       return this->rettype;
     }
     virtual size_t getParameterCount() const override {
-      assert(this->built);
+      if (!this->built) {
+        throw std::logic_error("FunctionBuilder::getParameterCount() called before type is built");
+      }
       return this->positional.size() + this->named.size();
     }
     virtual const IFunctionSignatureParameter& getParameter(size_t index) const override {
-      assert(this->built);
+      if (!this->built) {
+        throw std::logic_error("FunctionBuilder::getParameter() called before type is built");
+      }
       if (index < this->positional.size()) {
         return this->positional[index];
       }
       return this->named.at(index - this->positional.size());
     }
     virtual Type build() override {
-      assert(!this->built);
+      if (this->built) {
+        throw std::logic_error("FunctionBuilder::build() called more than once");
+      }
       this->built = true;
-      return this->allocator.make<Built, Type>(*this);
+      return this->allocator.make<Built, Type>(*this, this);
     }
   };
+}
 
-  class GeneratorReturnType : public SoftReferenceCounted<TypeBase> {
-    GeneratorReturnType(const GeneratorReturnType&) = delete;
-    GeneratorReturnType& operator=(const GeneratorReturnType&) = delete;
-  private:
-    class FunctionSignature : public IFunctionSignature {
-      FunctionSignature(const FunctionSignature&) = delete;
-      FunctionSignature& operator=(const FunctionSignature&) = delete;
-    private:
-      Type rettype;
-    public:
-      FunctionSignature(Type rettype)
-        : rettype(rettype) {
-      }
-      virtual String getFunctionName() const override {
-        return String();
-      }
-      virtual Type getReturnType() const override {
-        return this->rettype;
-      }
-      virtual size_t getParameterCount() const override {
-        return 0;
-      }
-      virtual const IFunctionSignatureParameter& getParameter(size_t) const override {
-        // Should never be called
-        assert(false);
-        return *static_cast<const IFunctionSignatureParameter*>(nullptr);
-      }
-    };
-    Type gentype; // e.g. 'int' for 'int! generator()'
-    FunctionSignature signature;
-  public:
-    GeneratorReturnType(IAllocator& allocator, const Type& gentype)
-      : SoftReferenceCounted(allocator),
-        gentype(gentype),
-        signature(gentype) { // WOBBLE gentype->makeUnion(*Type::Void)
-    }
-    virtual void softVisitLinks(const Visitor&) const {
-      // WOBBLE
-    }
-    virtual ValueFlags getFlags() const override {
-      return ValueFlags::Object;
-    }
-    virtual const IFunctionSignature* queryCallable() const override {
-      return &this->signature;
-    }
-    virtual const IIteratorSignature* queryIterable() const override {
-      return nullptr;
-    }
-    virtual Assignability queryAssignable(const IType&) const override {
-      return Assignability::Readonly; // WIBBLE unimplemented
-    }
-    virtual std::pair<std::string, int> toStringPrecedence() const override {
-      // WIBBLE
-      auto p = StringBuilder().add(this->gentype.toString(0), '!').toUTF8();
-      return std::make_pair("", 0);
-    }
-  };
+egg::ovum::Type::Assignability egg::ovum::Type::queryAssignable(const IType&) const {
+  throw std::logic_error("WOBBLE: Not implemented: " + std::string(__FUNCTION__));
+}
+
+const egg::ovum::IFunctionSignature* egg::ovum::Type::queryCallable() const {
+  throw std::logic_error("WOBBLE: Not implemented: " + std::string(__FUNCTION__));
+}
+
+const egg::ovum::IPropertySignature* egg::ovum::Type::queryDotable() const {
+  throw std::logic_error("WOBBLE: Not implemented: " + std::string(__FUNCTION__));
+}
+
+const egg::ovum::IIndexSignature* egg::ovum::Type::queryIndexable() const {
+  throw std::logic_error("WOBBLE: Not implemented: " + std::string(__FUNCTION__));
+}
+
+const egg::ovum::IIteratorSignature* egg::ovum::Type::queryIterable() const {
+  throw std::logic_error("WOBBLE: Not implemented: " + std::string(__FUNCTION__));
+}
+
+egg::ovum::Type egg::ovum::Type::addVoid(IAllocator& allocator) const {
+  // TODO optimize
+  assert(!this->hasAnyFlags(ValueFlags::Void));
+  return TypeFactory::createUnion(allocator, *Type::Void, **this);
 }
 
 egg::ovum::String egg::ovum::Type::describeValue() const {
@@ -662,37 +732,33 @@ egg::ovum::String egg::ovum::Type::toString(int precedence) const {
 }
 
 egg::ovum::Type egg::ovum::TypeFactory::createSimple(IAllocator& allocator, ValueFlags flags) {
-  // OPTIMIZE for known types
   return allocator.make<TypeSimple, Type>(flags);
 }
 
-egg::ovum::Type egg::ovum::TypeFactory::createPointer(IAllocator& allocator, const IType& pointee) {
-  // OPTIMIZE with lazy pointer types in values instantiated when address-of is invoked
-  return allocator.make<TypePointer, Type>(pointee);
+egg::ovum::Type egg::ovum::TypeFactory::createPointer(IAllocator&, const IType&) {
+  throw std::logic_error("WOBBLE: Not implemented: " + std::string(__FUNCTION__));
 }
 
-egg::ovum::Type egg::ovum::TypeFactory::createUnion(IAllocator&, const IType& a, const IType& b) {
-  if (&a == &b) {
-    return Type(&a);
-  }
-  // WOBBLE
-  return Type(&a);
-}
-
-egg::ovum::Type egg::ovum::TypeFactory::createUnionJoin(IAllocator& allocator, const IType& a, const IType& b) {
+egg::ovum::Type egg::ovum::TypeFactory::createUnion(IAllocator& allocator, const IType& a, const IType& b) {
   if (&a == &b) {
     return Type(&a);
   }
   return allocator.make<TypeUnion, Type>(a, b);
 }
 
+egg::ovum::TypeBuilder egg::ovum::TypeFactory::createTypeBuilder(IAllocator& allocator, const String& name) {
+  return allocator.make<Builder>(name);
+}
+
 egg::ovum::TypeBuilder egg::ovum::TypeFactory::createFunctionBuilder(IAllocator& allocator, const Type& rettype, const String& name) {
   return allocator.make<FunctionBuilder>(rettype, name);
 }
 
-egg::ovum::TypeBuilder egg::ovum::TypeFactory::createGeneratorBuilder(IAllocator& allocator, const Type& rettype, const String& name) {
+egg::ovum::TypeBuilder egg::ovum::TypeFactory::createGeneratorBuilder(IAllocator& allocator, const Type& gentype, const String& name) {
   // Convert the return type (e.g. 'int') into a generator function 'int...' aka '(void|int)()'
-  return allocator.make<FunctionBuilder>(allocator.make<GeneratorReturnType, Type>(rettype), name);
+  assert(!gentype.hasAnyFlags(ValueFlags::Void));
+  auto generator = TypeFactory::createFunctionBuilder(allocator, gentype.addVoid(allocator), name);
+  return allocator.make<FunctionBuilder>(generator->build(), name);
 }
 
 // Common types
@@ -705,5 +771,3 @@ const egg::ovum::Type egg::ovum::Type::String{ &typeString };
 const egg::ovum::Type egg::ovum::Type::Arithmetic{ &typeArithmetic };
 const egg::ovum::Type egg::ovum::Type::Any{ &typeAny };
 const egg::ovum::Type egg::ovum::Type::AnyQ{ &typeAnyQ };
-
-const egg::ovum::IFunctionSignature& egg::ovum::TypeFactory::OmniFunctionSignature{ omniFunctionSignature };

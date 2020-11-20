@@ -51,26 +51,13 @@ namespace egg::yolk {
   public:
     enum class Kind { Builtin, Readonly, ReadWrite };
   private:
-    uint64_t sentinel0;
     Kind kind;
-    uint64_t sentinel1;
     egg::ovum::String name;
-    uint64_t sentinel2;
     egg::ovum::Type type;
-    uint64_t sentinel3;
     egg::ovum::Value value;
-    uint64_t sentinel4;
   public:
     EggProgramSymbol(Kind kind, const egg::ovum::String& name, const egg::ovum::Type& type, const egg::ovum::Value& value)
       : kind(kind), name(name), type(type), value(value) {
-      sentinel0 = 0x0102030405060708ull;
-      sentinel1 = 0x1112131415161718ull;
-      sentinel2 = 0x2122232425262728ull;
-      sentinel3 = 0x3132333435363738ull;
-      sentinel4 = 0x4142434445464748ull;
-    }
-    ~EggProgramSymbol() {
-      fprintf(stderr, "%s called\n", __FUNCTION__);
     }
     const egg::ovum::String& getName() const { return this->name; }
     const egg::ovum::IType& getType() const { return *this->type; }
@@ -88,9 +75,6 @@ namespace egg::yolk {
     explicit EggProgramSymbolTable(egg::ovum::IAllocator& allocator, EggProgramSymbolTable* parent = nullptr)
       : SoftReferenceCounted(allocator) {
       this->parent.set(*this, parent);
-    }
-    virtual ~EggProgramSymbolTable() {
-      fprintf(stderr, "%s called\n", __FUNCTION__);
     }
     virtual void softVisitLinks(const Visitor& visitor) const override;
     void addBuiltins();
@@ -144,15 +128,6 @@ namespace egg::yolk {
     }
     static const egg::ovum::IType& VanillaArray;
     static const egg::ovum::IType& VanillaObject;
-  };
-
-  class EggProgramExpression {
-  private:
-    EggProgramContext* context;
-    egg::ovum::LocationRuntime before;
-  public:
-    EggProgramExpression(EggProgramContext& context, const IEggProgramNode& node);
-    ~EggProgramExpression();
   };
 
   class EggProgramContext : public egg::ovum::SoftReferenceCounted<egg::ovum::ICollectable>, public egg::ovum::IExecution {
@@ -211,18 +186,6 @@ namespace egg::yolk {
     void statement(const IEggProgramNode& node); // TODO remove?
     egg::ovum::LocationRuntime swapLocation(const egg::ovum::LocationRuntime& loc); // TODO remove?
     egg::ovum::Value get(const egg::ovum::String& name);
-    egg::ovum::Value set(const egg::ovum::String& name, const egg::ovum::Value& rvalue);
-    egg::ovum::Value guard(const egg::ovum::String& name, const egg::ovum::Value& rvalue);
-    egg::ovum::Value assign(EggProgramAssign op, const IEggProgramNode& lhs, const IEggProgramNode& rhs);
-    egg::ovum::Value mutate(EggProgramMutate op, const IEggProgramNode& lhs);
-    egg::ovum::Value condition(const IEggProgramNode& expr);
-    egg::ovum::Value unary(EggProgramUnary op, const IEggProgramNode& expr, egg::ovum::Value& value);
-    egg::ovum::Value binary(EggProgramBinary op, const IEggProgramNode& lhs, const IEggProgramNode& rhs, egg::ovum::Value& left, egg::ovum::Value& right);
-    egg::ovum::Value call(const egg::ovum::Value& callee, const egg::ovum::IParameters& parameters);
-    egg::ovum::Value dotGet(const egg::ovum::Value& instance, const egg::ovum::String& property);
-    egg::ovum::Value dotSet(const egg::ovum::Value& instance, const egg::ovum::String& property, const egg::ovum::Value& value);
-    egg::ovum::Value bracketsGet(const egg::ovum::Value& instance, const egg::ovum::Value& index);
-    egg::ovum::Value bracketsSet(const egg::ovum::Value& instance, const egg::ovum::Value& index, const egg::ovum::Value& value);
 
     // Inherited via IExecution
     virtual egg::ovum::IAllocator& getAllocator() const override;
@@ -230,48 +193,6 @@ namespace egg::yolk {
     virtual egg::ovum::Value raise(const egg::ovum::String& message) override;
     virtual egg::ovum::Value assertion(const egg::ovum::Value& predicate) override;
     virtual void print(const std::string& utf8) override;
-    // Implemented in egg-execute.cpp
-    egg::ovum::Value executeModule(const IEggProgramNode& self, const std::vector<std::shared_ptr<IEggProgramNode>>& statements);
-    egg::ovum::Value executeBlock(const IEggProgramNode& self, const std::vector<std::shared_ptr<IEggProgramNode>>& statements);
-    egg::ovum::Value executeDeclare(const IEggProgramNode& self, const egg::ovum::String& name, const egg::ovum::Type& type, const IEggProgramNode* rvalue);
-    egg::ovum::Value executeGuard(const IEggProgramNode& self, const egg::ovum::String& name, const egg::ovum::Type& type, const IEggProgramNode& rvalue);
-    egg::ovum::Value executeAssign(const IEggProgramNode& self, EggProgramAssign op, const IEggProgramNode& lvalue, const IEggProgramNode& rvalue);
-    egg::ovum::Value executeMutate(const IEggProgramNode& self, EggProgramMutate op, const IEggProgramNode& lvalue);
-    egg::ovum::Value executeBreak(const IEggProgramNode& self);
-    egg::ovum::Value executeCatch(const IEggProgramNode& self, const egg::ovum::String& name, const IEggProgramNode& type, const IEggProgramNode& block); // exception in 'scopeValue'
-    egg::ovum::Value executeContinue(const IEggProgramNode& self);
-    egg::ovum::Value executeDo(const IEggProgramNode& self, const IEggProgramNode& cond, const IEggProgramNode& block);
-    egg::ovum::Value executeIf(const IEggProgramNode& self, const IEggProgramNode& cond, const IEggProgramNode& trueBlock, const IEggProgramNode* falseBlock);
-    egg::ovum::Value executeFor(const IEggProgramNode& self, const IEggProgramNode* pre, const IEggProgramNode* cond, const IEggProgramNode* post, const IEggProgramNode& block);
-    egg::ovum::Value executeForeach(const IEggProgramNode& self, const IEggProgramNode& lvalue, const IEggProgramNode& rvalue, const IEggProgramNode& block);
-    egg::ovum::Value executeFunctionDefinition(const IEggProgramNode& self, const egg::ovum::String& name, const egg::ovum::Type& type, const std::shared_ptr<IEggProgramNode>& block);
-    egg::ovum::Value executeFunctionCall(const egg::ovum::Type& type, const egg::ovum::IParameters& parameters, const std::shared_ptr<IEggProgramNode>& block);
-    egg::ovum::Value executeGeneratorDefinition(const IEggProgramNode& self, const egg::ovum::Type& gentype, const egg::ovum::Type& rettype, const std::shared_ptr<IEggProgramNode>& block);
-    egg::ovum::Value executeReturn(const IEggProgramNode& self, const IEggProgramNode* value);
-    egg::ovum::Value executeCase(const IEggProgramNode& self, const std::vector<std::shared_ptr<IEggProgramNode>>& values, const IEggProgramNode& block); // against in 'scopeValue'
-    egg::ovum::Value executeSwitch(const IEggProgramNode& self, const IEggProgramNode& value, int64_t defaultIndex, const std::vector<std::shared_ptr<IEggProgramNode>>& cases);
-    egg::ovum::Value executeThrow(const IEggProgramNode& self, const IEggProgramNode* exception);
-    egg::ovum::Value executeTry(const IEggProgramNode& self, const IEggProgramNode& block, const std::vector<std::shared_ptr<IEggProgramNode>>& catches, const IEggProgramNode* final);
-    egg::ovum::Value executeWhile(const IEggProgramNode& self, const IEggProgramNode& cond, const IEggProgramNode& block);
-    egg::ovum::Value executeYield(const IEggProgramNode& self, const IEggProgramNode& value);
-    egg::ovum::Value executeArray(const IEggProgramNode& self, const std::vector<std::shared_ptr<IEggProgramNode>>& values);
-    egg::ovum::Value executeObject(const IEggProgramNode& self, const std::vector<std::shared_ptr<IEggProgramNode>>& values);
-    egg::ovum::Value executeCall(const IEggProgramNode& self, const IEggProgramNode& callee, const std::vector<std::shared_ptr<IEggProgramNode>>& parameters);
-    egg::ovum::Value executeIdentifier(const IEggProgramNode& self, const egg::ovum::String& name);
-    egg::ovum::Value executeLiteral(const IEggProgramNode& self, const egg::ovum::Value& value);
-    egg::ovum::Value executeBrackets(const IEggProgramNode& self, const IEggProgramNode& instance, const IEggProgramNode& index);
-    egg::ovum::Value executeDot(const IEggProgramNode& self, const IEggProgramNode& instance, const egg::ovum::String& property);
-    egg::ovum::Value executeUnary(const IEggProgramNode& self, EggProgramUnary op, const IEggProgramNode& expr);
-    egg::ovum::Value executeBinary(const IEggProgramNode& self, EggProgramBinary op, const IEggProgramNode& lhs, const IEggProgramNode& rhs);
-    egg::ovum::Value executeTernary(const IEggProgramNode& self, const IEggProgramNode& cond, const IEggProgramNode& whenTrue, const IEggProgramNode& whenFalse);
-    egg::ovum::Value executePredicate(const IEggProgramNode& self, EggProgramBinary op, const IEggProgramNode& lhs, const IEggProgramNode& rhs);
-    // Implemented in function.cpp
-    egg::ovum::Value coexecuteBlock(EggProgramStackless& stackless, const std::vector<std::shared_ptr<IEggProgramNode>>& statements);
-    egg::ovum::Value coexecuteDo(EggProgramStackless& stackless, const std::shared_ptr<IEggProgramNode>& cond, const std::shared_ptr<IEggProgramNode>& block);
-    egg::ovum::Value coexecuteFor(EggProgramStackless& stackless, const std::shared_ptr<IEggProgramNode>& pre, const std::shared_ptr<IEggProgramNode>& cond, const std::shared_ptr<IEggProgramNode>& post, const std::shared_ptr<IEggProgramNode>& block);
-    egg::ovum::Value coexecuteForeach(EggProgramStackless& stackless, const std::shared_ptr<IEggProgramNode>& lvalue, const std::shared_ptr<IEggProgramNode>& rvalue, const std::shared_ptr<IEggProgramNode>& block);
-    egg::ovum::Value coexecuteWhile(EggProgramStackless& stackless, const std::shared_ptr<IEggProgramNode>& cond, const std::shared_ptr<IEggProgramNode>& block);
-    egg::ovum::Value coexecuteYield(EggProgramStackless& stackless, const std::shared_ptr<IEggProgramNode>& value);
     // Implemented in egg-prepare.cpp
     std::shared_ptr<IEggProgramNode> empredicateBinary(const std::shared_ptr<IEggProgramNode>& node, EggProgramBinary op, const std::shared_ptr<IEggProgramNode>& lhs, const std::shared_ptr<IEggProgramNode>& rhs);
     EggProgramNodeFlags prepareModule(const std::vector<std::shared_ptr<IEggProgramNode>>& statements);
@@ -306,22 +227,14 @@ namespace egg::yolk {
     EggProgramNodeFlags preparePredicate(const egg::ovum::LocationSource& where, EggProgramBinary op, IEggProgramNode& lhs, IEggProgramNode& rhs);
     // Temporary scope modifiers
     EggProgramNodeFlags prepareWithType(IEggProgramNode& node, const egg::ovum::Type& type);
-    egg::ovum::Value executeWithValue(const IEggProgramNode& node, const egg::ovum::Value& value);
   private:
     bool findDuplicateSymbols(const std::vector<std::shared_ptr<IEggProgramNode>>& statements);
     EggProgramNodeFlags prepareScope(const IEggProgramNode* node, std::function<EggProgramNodeFlags(EggProgramContext&)> action);
     EggProgramNodeFlags prepareStatements(const std::vector<std::shared_ptr<IEggProgramNode>>& statements);
     EggProgramNodeFlags typeCheck(const egg::ovum::LocationSource& where, egg::ovum::Type& ltype, const egg::ovum::Type& rtype, const egg::ovum::String& name, bool guard);
-    bool operand(egg::ovum::Value& dst, const IEggProgramNode& src, egg::ovum::ValueFlags expected, const char* expectation);
     typedef egg::ovum::Value(*ArithmeticBool)(bool lhs, bool rhs);
     typedef egg::ovum::Value(*ArithmeticInt)(int64_t lhs, int64_t rhs);
     typedef egg::ovum::Value(*ArithmeticFloat)(double lhs, double rhs);
-    egg::ovum::Value coalesceNull(const egg::ovum::Value& left, egg::ovum::Value& right, const IEggProgramNode& rhs);
-    egg::ovum::Value logicalBool(const egg::ovum::Value& left, egg::ovum::Value& right, const IEggProgramNode& rhs, const char* operation, EggProgramBinary binary);
-    egg::ovum::Value arithmeticBool(const egg::ovum::Value& left, egg::ovum::Value& right, const IEggProgramNode& rhs, const char* operation, ArithmeticBool bools);
-    egg::ovum::Value arithmeticInt(const egg::ovum::Value& left, egg::ovum::Value& right, const IEggProgramNode& rhs, const char* operation, ArithmeticInt ints);
-    egg::ovum::Value arithmeticBoolInt(const egg::ovum::Value& left, egg::ovum::Value& right, const IEggProgramNode& rhs, const char* operation, ArithmeticBool bools, ArithmeticInt ints);
-    egg::ovum::Value arithmeticIntFloat(const egg::ovum::Value& left, egg::ovum::Value& right, const IEggProgramNode& rhs, const char* operation, ArithmeticInt ints, ArithmeticFloat floats);
     egg::ovum::Value unexpected(const std::string& expectation, const egg::ovum::Value& value);
   };
 

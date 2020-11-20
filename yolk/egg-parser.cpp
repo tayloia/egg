@@ -810,7 +810,7 @@ namespace {
       : EggParserNodeBase(locationSource) {
     }
     virtual egg::ovum::Type getType() const override {
-      return egg::ovum::Vanilla::Array;
+      return egg::ovum::Vanilla::getArrayType();
     }
     virtual EggProgramNodeFlags prepare(EggProgramContext& context) override {
       return context.prepareArray(this->child);
@@ -834,7 +834,7 @@ namespace {
       : EggParserNodeBase(locationSource) {
     }
     virtual egg::ovum::Type getType() const override {
-      return egg::ovum::Vanilla::Dictionary;
+      return egg::ovum::Vanilla::getDictionaryType();
     }
     virtual EggProgramNodeFlags prepare(EggProgramContext& context) override {
       return context.prepareObject(this->child);
@@ -861,7 +861,7 @@ namespace {
     }
     virtual egg::ovum::Type getType() const override {
       // Get this from the function signature, if possible
-      auto* signature = this->callee->getType()->queryCallable();
+      auto* signature = this->callee->getType().queryCallable();
       if (signature == nullptr) {
         return egg::ovum::Type::Void;
       }
