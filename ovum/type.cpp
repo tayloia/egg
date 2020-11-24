@@ -776,6 +776,8 @@ namespace {
     // WOBBLE range
     assert(lhs != nullptr);
     assert(rhs != nullptr);
+    (void)lhs;
+    (void)rhs;
     return Type::Assignability::Always;
   }
 
@@ -783,11 +785,15 @@ namespace {
     // WOBBLE range
     assert(lhs != nullptr);
     assert(rhs != nullptr);
+    (void)lhs;
+    (void)rhs;
     return Type::Assignability::Always;
   }
 
-  Type::Assignability queryAssignableObject(const IType&, const IType&) {
+  Type::Assignability queryAssignableObject(const IType& lhs, const IType& rhs) {
     // WOBBLE shapes
+    (void)lhs;
+    (void)rhs;
     return Type::Assignability::Always;
   }
 
@@ -1032,6 +1038,7 @@ egg::ovum::Type::Assignment egg::ovum::Type::promote(IAllocator& allocator, cons
 egg::ovum::Type::Assignment egg::ovum::Type::mutate(IAllocator& allocator, const Value& lhs, const Value& rhs, Mutation mutation, Value& out) const {
   assert(lhs.validate());
   assert(rhs.validate());
+  egg::ovum::Int i;
   switch (mutation) {
   case Mutation::Assign:
     return this->promote(allocator, rhs, out);
@@ -1039,7 +1046,19 @@ egg::ovum::Type::Assignment egg::ovum::Type::mutate(IAllocator& allocator, const
     out = lhs;
     return Assignment::Success;
   case Mutation::Decrement:
+    assert(rhs->getVoid());
+    if (!lhs->getInt(i)) {
+      return Assignment::Incompatible;
+    }
+    out = ValueFactory::createInt(allocator, i - 1);
+    return Assignment::Success;
   case Mutation::Increment:
+    assert(rhs->getVoid());
+    if (!lhs->getInt(i)) {
+      return Assignment::Incompatible;
+    }
+    out = ValueFactory::createInt(allocator, i + 1);
+    return Assignment::Success;
   case Mutation::Add:
   case Mutation::BitwiseAnd:
   case Mutation::BitwiseOr:

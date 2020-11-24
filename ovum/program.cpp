@@ -1649,14 +1649,6 @@ namespace {
       }
       return condition ? this->expression(b) : this->expression(c);
     }
-    // Implementation
-    Value condition(const INode& node, Block* block) {
-      auto value = this->expression(node, block);
-      if (!value.hasAnyFlags(ValueFlags::FlowControl | ValueFlags::Bool)) {
-        return this->raiseNode(node, "Expected condition to evaluate to a 'bool' value, but got '", value->getRuntimeType().toString(), "' instead");
-      }
-      return value;
-    }
     // Error handling
     void updateLocation(const INode& node) {
       auto* source = node.getLocation();
@@ -1760,6 +1752,55 @@ namespace {
       EGG_WARNING_SUPPRESS_SWITCH_END();
       this->updateLocation(node);
       throw RuntimeException(this->location, "Type constraints not yet supported"); // TODO
+    }
+    Value condition(const INode& node, Block* block) {
+      auto value = this->expression(node, block);
+      if (!value.hasAnyFlags(ValueFlags::FlowControl | ValueFlags::Bool)) {
+        return this->raiseNode(node, "Expected condition to evaluate to a 'bool' value, but got '", value->getRuntimeType().toString(), "' instead");
+      }
+      return value;
+    }
+    static const char* mutationToString(Mutation mutation) {
+      switch (mutation) {
+      case Mutation::Assign:
+        return "=";
+      case Mutation::Noop:
+        return "<no-op>";
+      case Mutation::Decrement:
+        return "--";
+      case Mutation::Increment:
+        return "++";
+      case Mutation::Add:
+        return "+=";
+      case Mutation::BitwiseAnd:
+        return "&=";
+      case Mutation::BitwiseOr:
+        return "|=";
+      case Mutation::BitwiseXor:
+        return "^=";
+      case Mutation::Divide:
+        return "/=";
+      case Mutation::IfNull:
+        return "??=";
+      case Mutation::LogicalAnd:
+        return "&&=";
+      case Mutation::LogicalOr:
+        return "||=";
+      case Mutation::Multiply:
+        return "*=";
+      case Mutation::Remainder:
+        return "%=";
+      case Mutation::ShiftLeft:
+        return "<<=";
+      case Mutation::ShiftRight:
+        return ">>=";
+      case Mutation::ShiftRightUnsigned:
+        return ">>>=";
+      case Mutation::Subtract:
+        return "-=";
+      };
+      assert(false);
+      return "<unknown>";
     }
     Value tryInitialize(Symbol& symbol, const Value& value);
     Value tryAssign(Symbol& symbol, const Value& value);
@@ -1975,8 +2016,14 @@ Value ProgramDefault::tryInitialize(Symbol& symbol, const Value& value) {
   assert(symbol.validate(true));
   Value after;
   auto retval = symbol.slot->assign(symbol.type, value, after);
-  if (retval != Type::Assignment::Success) {
-    return this->raiseFormat("Cannot initialize '", symbol.name, "' of type '", symbol.type.toString(), "' with WOBBLE");
+  switch (retval) {
+  case Type::Assignment::Success:
+    break;
+  case Type::Assignment::Uninitialized:
+  case Type::Assignment::Incompatible:
+  case Type::Assignment::BadIntToFloat:
+  case Type::Assignment::Unimplemented:
+    return this->raiseFormat("Internal error: Cannot initialize '", symbol.name, "' of type '", symbol.type.toString(), "' with a value of type '", value->getRuntimeType().toString(), "'");
   }
   assert(symbol.validate(false));
   return after;
@@ -1986,8 +2033,14 @@ Value ProgramDefault::tryAssign(Symbol& symbol, const Value& value) {
   assert(symbol.validate(true));
   Value after;
   auto retval = symbol.slot->assign(symbol.type, value, after);
-  if (retval != Type::Assignment::Success) {
-    return this->raiseFormat("Cannot assign '", symbol.name, "' of type '", symbol.type.toString(), "' with WOBBLE");
+  switch (retval) {
+  case Type::Assignment::Success:
+    break;
+  case Type::Assignment::Uninitialized:
+  case Type::Assignment::Incompatible:
+  case Type::Assignment::BadIntToFloat:
+  case Type::Assignment::Unimplemented:
+    return this->raiseFormat("Internal error: Cannot assign '", symbol.name, "' of type '", symbol.type.toString(), "' with a value of type '", value->getRuntimeType().toString(), "'");
   }
   assert(symbol.validate(false));
   return after;
@@ -1997,8 +2050,14 @@ Value ProgramDefault::tryMutate(Symbol& symbol, Mutation mutation, const Value& 
   assert(symbol.validate(true));
   Value before;
   auto retval = symbol.slot->mutate(symbol.type, mutation, value, before);
-  if (retval != Type::Assignment::Success) {
-    return this->raiseFormat("Cannot mutate '", symbol.name, "' of type '", symbol.type.toString(), "' with WOBBLE");
+  switch (retval) {
+  case Type::Assignment::Success:
+    break;
+  case Type::Assignment::Uninitialized:
+  case Type::Assignment::Incompatible:
+  case Type::Assignment::BadIntToFloat:
+  case Type::Assignment::Unimplemented:
+    return this->raiseFormat("Internal error: Cannot modify ('", mutationToString(mutation), "') '", symbol.name, "' of type '", symbol.type.toString(), "' with a value of type '", value->getRuntimeType().toString(), "'");
   }
   assert(symbol.validate(false));
   return before;
