@@ -129,4 +129,51 @@ namespace egg::ovum {
   inline constexpr Modifiability operator|(Modifiability lhs, Modifiability rhs) {
     return Bits::set(lhs, rhs);
   }
+
+  template<typename K, typename V>
+  class OrderedMap {
+    OrderedMap(const OrderedMap&) = delete;
+    OrderedMap& operator=(const OrderedMap&) = delete;
+  private:
+    std::unordered_map<K, V> map;
+    std::vector<K> vec; // insertion order
+  public:
+    OrderedMap() = default;
+    void add(const K& key, V&& value) {
+      // Add the new entry (asserts if extant)
+      auto inserted = this->map.emplace(key, std::move(value));
+      assert(inserted.second);
+      this->vec.emplace_back(inserted.first->first);
+    }
+    bool insert(const K& key, V&& value) {
+      // Try to add a new entry
+      auto inserted = this->map.emplace(key, std::move(value));
+      if (inserted) {
+        this->vec.emplace_back(inserted.first->first);
+      }
+      return inserted;
+    }
+    const V* get(const K& key) const {
+      // Fetch an entry by key
+      auto found = this->map.find(key);
+      if (found == this->map.end()) {
+        return nullptr;
+      }
+      return &found->second;
+    }
+    const V* get(size_t index, K& key) const {
+      // Fetch a key and entry by insertion order
+      if (index >= this->vec.size()) {
+        return nullptr;
+      }
+      key = this->vec[index];
+      auto found = this->map.find(key);
+      assert(found != this->map.end());
+      return &found->second;
+    }
+    size_t size() const {
+      // Fetch the number of entries
+      return this->vec.size();
+    }
+  };
 }

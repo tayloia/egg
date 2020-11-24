@@ -53,7 +53,7 @@ TEST(TestEggParser, ModuleSimple) {
 }
 
 TEST(TestEggParser, ExpressionType) {
-  egg::test::Allocator allocator{ egg::test::Allocator::Expectation::NoAllocations }; // TODO
+  egg::test::Allocator allocator;
   ASSERT_PARSE_GOOD(typeFromExpression(allocator, "null"), "null");
   ASSERT_PARSE_GOOD(typeFromExpression(allocator, "false"), "bool");
   ASSERT_PARSE_GOOD(typeFromExpression(allocator, "true"), "bool");
@@ -64,9 +64,9 @@ TEST(TestEggParser, ExpressionType) {
   ASSERT_PARSE_GOOD(typeFromExpression(allocator, "`bye`"), "string");
   ASSERT_PARSE_GOOD(typeFromExpression(allocator, "[]"), "any?[]");
   ASSERT_PARSE_GOOD(typeFromExpression(allocator, "[1,2,3]"), "any?[]");
-  ASSERT_PARSE_GOOD(typeFromExpression(allocator, "{}"), "dictionary");
-  ASSERT_PARSE_GOOD(typeFromExpression(allocator, "{a:1,b:2,c:3}"), "dictionary");
-  // DISABLED ASSERT_PARSE_GOOD(typeFromExpression(allocator, "&123"), "int*");
+  ASSERT_PARSE_GOOD(typeFromExpression(allocator, "{}"), "any?{string}");
+  ASSERT_PARSE_GOOD(typeFromExpression(allocator, "{a:1,b:2,c:3}"), "any?{string}");
+  ASSERT_PARSE_GOOD(typeFromExpression(allocator, "&123"), "int*");
   // DISABLED ASSERT_PARSE_GOOD(typeFromExpression(allocator, "*123"), "<unknown>");
   ASSERT_PARSE_GOOD(typeFromExpression(allocator, "!true"), "bool");
   ASSERT_PARSE_GOOD(typeFromExpression(allocator, "- 123"), "int");

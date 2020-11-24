@@ -62,7 +62,14 @@ namespace egg::ovum {
     const IIndexSignature* queryIndexable() const;
     const IIteratorSignature* queryIterable() const;
     Type addVoid(IAllocator& allocator) const;
-    
+
+    enum class Assignment {
+      Success, Uninitialized, Incompatible, BadIntToFloat,
+      Unimplemented // WOBBLE
+    };
+    Assignment promote(IAllocator& allocator, const Value& rhs, Value& out) const;
+    Assignment mutate(IAllocator& allocator, const Value& lhs, const Value& rhs, Mutation mutation, Value& out) const;
+
     // Constants
     static const Type Void;
     static const Type Null;

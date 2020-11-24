@@ -114,7 +114,7 @@ egg::ovum::ILogger::Severity egg::yolk::IEggEngine::execute(IEggEngineContext& c
   if (compilation != egg::ovum::ILogger::Severity::Error) {
     assert(module != nullptr);
     auto execution = this->execute(context, module);
-    return (int(compilation) > int(execution)) ? compilation : execution;
+    return std::max(compilation, execution);
   }
   return compilation;
 }
@@ -124,7 +124,7 @@ egg::ovum::ILogger::Severity egg::yolk::IEggEngine::run(IEggEngineContext& conte
   auto preparation = this->prepare(context);
   if (preparation != egg::ovum::ILogger::Severity::Error) {
     auto execution = this->execute(context);
-    return (int(preparation) > int(execution)) ? preparation : execution;
+    return std::max(preparation, execution);
   }
   return preparation;
 }

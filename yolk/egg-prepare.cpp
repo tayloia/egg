@@ -387,7 +387,7 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareReturn(const
     switch (rettype.queryAssignable(*egg::ovum::Type::Void)) {
     case egg::ovum::Type::Assignability::Readonly:
       assert(false);
-      // DROPTHROUGH
+      EGG_FALLTHROUGH
     case egg::ovum::Type::Assignability::Never:
       return this->compilerError(where, "Expected 'return' statement with a value of type '", rettype.toString(), "'");
     case egg::ovum::Type::Assignability::Sometimes:
@@ -403,7 +403,7 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareReturn(const
   switch (rettype.queryAssignable(*rtype)) {
   case egg::ovum::Type::Assignability::Readonly:
     assert(false);
-    // DROPTHROUGH
+    EGG_FALLTHROUGH
   case egg::ovum::Type::Assignability::Never:
     return this->compilerError(where, "Expected 'return' statement with a value of type '", rettype.toString(), "', but got '", rtype.toString(), "' instead");
   case egg::ovum::Type::Assignability::Sometimes:
@@ -492,7 +492,7 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareYield(const 
   switch (rettype.queryAssignable(*rtype)) {
   case egg::ovum::Type::Assignability::Readonly:
     assert(false);
-    // DROPTHROUGH
+    EGG_FALLTHROUGH
   case egg::ovum::Type::Assignability::Never:
     return this->compilerError(where, "Expected 'yield' statement with a value of type '", rettype.toString(), "', but got '", rtype.toString(), "' instead");
   case egg::ovum::Type::Assignability::Sometimes:

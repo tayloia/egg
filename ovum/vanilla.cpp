@@ -9,13 +9,13 @@
 namespace {
   using namespace egg::ovum;
 
-  class Type_Shape : public NotSoftReferenceCounted<IType> {
-    Type_Shape(const Type_Shape&) = delete;
-    Type_Shape& operator=(const Type_Shape&) = delete;
+  class TypeBase : public NotSoftReferenceCounted<IType> {
+    TypeBase(const TypeBase&) = delete;
+    TypeBase& operator=(const TypeBase&) = delete;
   private:
     ObjectShape shape;
   public:
-    Type_Shape(const IFunctionSignature* callable, const IPropertySignature* dotable, const IIndexSignature* indexable, const IIteratorSignature* iterable)
+    TypeBase(const IFunctionSignature* callable, const IPropertySignature* dotable, const IIndexSignature* indexable, const IIteratorSignature* iterable)
       : shape({ callable, dotable, indexable, iterable }) {
     }
     virtual ValueFlags getFlags() const override {
@@ -47,7 +47,7 @@ namespace {
     }
   };
 
-  class Type_Array final : public Type_Shape {
+  class Type_Array final : public TypeBase {
     Type_Array(const Type_Array&) = delete;
     Type_Array& operator=(const Type_Array&) = delete;
   private:
@@ -56,7 +56,7 @@ namespace {
     TypeBuilderIterable iterable;
   public:
     Type_Array()
-      : Type_Shape(nullptr, &dotable, &indexable, &iterable),
+      : TypeBase(nullptr, &dotable, &indexable, &iterable),
         dotable(true),
         indexable(Type::AnyQ, Type::Int, Modifiability::Read | Modifiability::Write | Modifiability::Mutate),
         iterable(Type::AnyQ) {
@@ -67,7 +67,7 @@ namespace {
     }
   };
 
-  class Type_DictionaryBase : public Type_Shape {
+  class Type_DictionaryBase : public TypeBase {
     Type_DictionaryBase(const Type_DictionaryBase&) = delete;
     Type_DictionaryBase& operator=(const Type_DictionaryBase&) = delete;
   protected:
@@ -83,7 +83,7 @@ namespace {
     KeyValueIterable iterable;
   public:
     Type_DictionaryBase(Modifiability modifiability, bool closed)
-      : Type_Shape(nullptr, &dotable, &indexable, &iterable),
+      : TypeBase(nullptr, &dotable, &indexable, &iterable),
         dotable(closed),
         indexable(Type::AnyQ, Type::String, modifiability),
         iterable() {
@@ -98,7 +98,7 @@ namespace {
       : Type_DictionaryBase(Modifiability::Read | Modifiability::Write | Modifiability::Mutate | Modifiability::Delete, false) {
     }
     virtual std::pair<std::string, int> toStringPrecedence() const override {
-      return { "dictionary", 0 };
+      return { "any?{string}", 0 };
     }
   };
 
@@ -168,12 +168,12 @@ namespace {
       if (slot == nullptr) {
         return ValueFactory::createThrowString(this->allocator, "Object does not have a property named '", key, "'");
       }
-      String error;
-      auto result = slot->mutate(mutation, value, error);
-      if (result->getFlags() == ValueFlags::Void) {
-        return ValueFactory::createThrowString(this->allocator, error);
+      Value before;
+      auto retval = slot->mutate(Type::AnyQ, mutation, value, before);
+      if (retval != Type::Assignment::Success) {
+        return ValueFactory::createThrowString(this->allocator, "Cannot mutate map value: WOBBLE");
       }
-      return result;
+      return before;
     }
     virtual bool del(const String& key) override {
       return this->container.remove(key);

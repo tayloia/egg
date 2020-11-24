@@ -56,7 +56,7 @@ TEST(TestEggEngine, LogFromEngine) {
   egg::test::EggEngineContext context;
   StringTextStream stream("print(`hello`, 123);");
   auto engine = EggEngineFactory::createEngineFromTextStream(stream);
-  ASSERT_EQ(egg::ovum::ILogger::Severity::None, engine->run(context));
+  ASSERT_EQ(egg::ovum::ILogger::Severity::Information, engine->run(context));
   ASSERT_EQ("hello123\n", context.logged());
 }
 

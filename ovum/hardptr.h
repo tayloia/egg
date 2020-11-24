@@ -19,6 +19,7 @@ namespace egg::ovum {
     virtual T* hardAcquire() const override {
       auto count = this->atomic.increment();
       assert(count > 0);
+      (void)count;
       return const_cast<T*>(static_cast<const T*>(this));
     }
     virtual void hardRelease() const override {

@@ -1851,7 +1851,10 @@ egg::ovum::Type EggParserNode_Brackets::getType() const {
 }
 
 egg::ovum::Type EggParserNode_Dot::getType() const {
-  return egg::ovum::Type::AnyQ; // TODO
+  auto ltype = this->lhs->getType();
+  auto dotable = ltype.queryDotable();
+  assert(dotable != nullptr);
+  return dotable->getType(this->rhs);
 }
 
 egg::ovum::Type EggParserNode_UnaryLogicalNot::getType() const {

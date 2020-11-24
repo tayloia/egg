@@ -23,6 +23,7 @@
     <ClCompile Include="..\ovum\builtin.cpp" />
     <ClCompile Include="..\ovum\context.cpp" />
     <ClCompile Include="..\ovum\error.cpp" />
+    <ClCompile Include="..\ovum\function.cpp" />
     <ClCompile Include="..\ovum\node.cpp" />
     <ClCompile Include="..\ovum\basket.cpp" />
     <ClCompile Include="..\ovum\memory.cpp" />
@@ -48,6 +49,7 @@
     <ClInclude Include="..\ovum\context.h" />
     <ClInclude Include="..\ovum\dictionary.h" />
     <ClInclude Include="..\ovum\error.h" />
+    <ClInclude Include="..\ovum\function.h" />
     <ClInclude Include="..\ovum\hardptr.h" />
     <ClInclude Include="..\ovum\memory.h" />
     <ClInclude Include="..\ovum\module.h" />

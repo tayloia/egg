@@ -35,7 +35,11 @@ namespace egg::ovum {
     virtual Value assertion(const Value& predicate) = 0;
     virtual void print(const std::string& utf8) = 0;
 
-    // Useful helper
+    // Useful helpers
+    template<typename T>
+    Value makeValue(T&& value) {
+      return ValueFactory::create(this->getAllocator(), std::forward<T>(value));
+    }
     template<typename... ARGS>
     Value raiseFormat(ARGS&&... args) {
       auto message = StringBuilder::concat(std::forward<ARGS>(args)...);

@@ -3,25 +3,9 @@
 #include "ovum/module.h"
 #include "ovum/program.h"
 #include "ovum/builtin.h"
+#include "ovum/function.h"
 
 #include <map>
-
-// WOBBLE
-#define EGG_STRING_PROPERTIES(X) \
-  X(compareTo, WIBBLE) \
-  X(contains, WIBBLE) \
-  X(endsWith, WIBBLE) \
-  X(hash, WIBBLE) \
-  X(indexOf, WIBBLE) \
-  X(join, WIBBLE) \
-  X(lastIndexOf, WIBBLE) \
-  X(padLeft, WIBBLE) \
-  X(padRight, WIBBLE) \
-  X(repeat, WIBBLE) \
-  X(replace, WIBBLE) \
-  X(slice, WIBBLE) \
-  X(startsWith, WIBBLE) \
-  X(toString, WIBBLE)
 
 namespace {
   using namespace egg::ovum;
@@ -52,58 +36,294 @@ namespace {
   };
   const ParametersNone parametersNone{};
 
-  class StringShapeTable {
-    StringShapeTable(const StringShapeTable&) = delete;
-    StringShapeTable& operator=(const StringShapeTable&) = delete;
-  public:
-    struct Member {
+  class StringProperty_FunctionType : public NotSoftReferenceCounted<IType>, public IFunctionSignature {
+    StringProperty_FunctionType(const StringProperty_FunctionType&) = delete;
+    StringProperty_FunctionType& operator=(const StringProperty_FunctionType&) = delete;
+  private:
+    struct Parameter : public IFunctionSignatureParameter {
       String name;
       Type type;
+      size_t position;
+      Flags flags;
+      virtual String getName() const override {
+        return this->name;
+      }
+      virtual Type getType() const override {
+        return this->type;
+      }
+      virtual size_t getPosition() const override {
+        return this->position;
+      }
+      virtual Flags getFlags() const override {
+        return this->flags;
+      }
     };
-  private:
-    std::vector<Member> vec;
-    std::unordered_map<String, size_t> map;
+    static const size_t MAX_PARAMETERS = 2;
+    String name;
+    Type rettype;
+    size_t parameters;
+    Parameter parameter[MAX_PARAMETERS];
+    ObjectShape shape;
   public:
-    StringShapeTable() {
-      this->add({ "length", Type::Int });
+    StringProperty_FunctionType(const String& name, const Type& rettype)
+      : name(name),
+        rettype(rettype),
+        parameters(0),
+        shape({}) {
+      this->shape.callable = this;
     }
-    const Member* findByName(const String& name) const {
-      const auto& found = this->map.find(name);
-      return (found != this->map.end()) ? &this->vec[found->second] : nullptr;
+    virtual ValueFlags getFlags() const override {
+      return ValueFlags::Object;
     }
-    const Member* findByIndex(size_t index) const {
-      return (index < this->vec.size()) ? &this->vec[index] : nullptr;
+    virtual const IntShape* getIntShape() const override {
+      return nullptr;
     }
-    size_t size() const {
-      return this->vec.size();
+    virtual const FloatShape* getFloatShape() const override {
+      return nullptr;
     }
-  private:
-    void add(Member&& member) {
-      auto index = this->vec.size();
-      auto inserted = this->map.insert(std::make_pair(member.name, index));
-      assert(inserted.second);
-      (void)inserted;
-      this->vec.emplace_back(std::move(member));
+    virtual const ObjectShape* getStringShape() const override {
+      return nullptr;
+    }
+    virtual const ObjectShape* getObjectShape(size_t index) const override {
+      return (index == 0) ? &this->shape : nullptr;
+    }
+    virtual size_t getObjectShapeCount() const override {
+      return 1;
+    }
+    virtual std::pair<std::string, int> toStringPrecedence() const override {
+      return std::make_pair(this->name.toUTF8(), 0);
+    }
+    virtual String describeValue() const override {
+      return StringBuilder::concat("Built-in 'string.", this->name, "'");
+    }
+    virtual String getFunctionName() const override {
+      return this->name;
+    }
+    virtual Type getReturnType() const override {
+      return this->rettype;
+    }
+    virtual size_t getParameterCount() const override {
+      return this->parameters;
+    }
+    virtual const IFunctionSignatureParameter& getParameter(size_t index) const override {
+      assert(index < this->parameters);
+      return this->parameter[index];
+    }
+    void addParameter(const String& pname, const Type& ptype, IFunctionSignatureParameter::Flags pflags) {
+      assert(this->parameters < MAX_PARAMETERS);
+      auto index = this->parameters++;
+      auto& entry = this->parameter[index];
+      entry.name = pname;
+      entry.type = ptype;
+      entry.position = index;
+      entry.flags = pflags;
     }
   };
-  const StringShapeTable stringShapeTable{};
+
+  class StringProperty_Length final : public BuiltinFactory::StringProperty {
+    StringProperty_Length(const StringProperty_Length&) = delete;
+    StringProperty_Length& operator=(const StringProperty_Length&) = delete;
+  public:
+    StringProperty_Length() {}
+    virtual Value createInstance(IAllocator& allocator, const String& string) const override {
+      return ValueFactory::createInt(allocator, Int(string.length()));
+    }
+    virtual String getName() const override {
+      return "length";
+    }
+    virtual Type getType() const override {
+      return Type::Int;
+    }
+  };
+
+  class StringProperty_Member : public BuiltinFactory::StringProperty {
+    StringProperty_Member(const StringProperty_Member&) = delete;
+    StringProperty_Member& operator=(const StringProperty_Member&) = delete;
+  private:
+    StringProperty_FunctionType ftype;
+  public:
+    StringProperty_Member(const String& name, const Type& rettype)
+      : ftype(name, rettype) {
+    }
+    virtual Value createInstance(IAllocator& allocator, const String& string) const override;
+    virtual String getName() const override {
+      return this->ftype.getFunctionName();
+    }
+    virtual Type getType() const override {
+      return Type(&this->ftype);
+    }
+    virtual Value invoke(IExecution& execution, const String& string, ParameterChecker& checker) const = 0;
+    void addRequiredParameter(const String& pname, const Type& ptype) {
+      this->ftype.addParameter(pname, ptype, IFunctionSignatureParameter::Flags::Required);
+    }
+    void addOptionalParameter(const String& pname, const Type& ptype) {
+      this->ftype.addParameter(pname, ptype, IFunctionSignatureParameter::Flags::None);
+    }
+    void addVariadicParameter(const String& pname, const Type& ptype) {
+      this->ftype.addParameter(pname, ptype, IFunctionSignatureParameter::Flags::Variadic);
+    }
+    Value call(IExecution& execution, const String& string, const IParameters& parameters) const {
+      if (parameters.getNamedCount() > 0) {
+        return this->raise(execution, "does not accept named parameters"); // TODO
+      }
+      ParameterChecker checker{ parameters, &this->ftype };
+      if (!checker.validateCount()) {
+        return this->raise(execution, checker.error);
+      }
+      return this->invoke(execution, string, checker);
+    }
+    template<typename... ARGS>
+    Value raise(IExecution& execution, ARGS&&... args) const {
+      return execution.raiseFormat("String property function '", this->getName(), "' ", std::forward<ARGS>(args)...);
+    }
+  };
+
+  class StringProperty_Instance : public SoftReferenceCounted<IObject> {
+    StringProperty_Instance(const StringProperty_Instance&) = delete;
+    StringProperty_Instance& operator=(const StringProperty_Instance&) = delete;
+  private:
+    const StringProperty_Member& member;
+    String string;
+  public:
+    StringProperty_Instance(IAllocator& allocator, const StringProperty_Member& member, const String& string)
+      : SoftReferenceCounted(allocator),
+        member(member),
+        string(string) {
+    }
+    virtual void softVisitLinks(const Visitor&) const override {
+      // Nothing to visit
+    }
+    virtual Type getRuntimeType() const override {
+      return this->member.getType();
+    }
+    virtual Value call(IExecution& execution, const IParameters& parameters) override {
+      return this->member.call(execution, this->string, parameters);
+    }
+    virtual Value getProperty(IExecution& execution, const String& property) override {
+      return this->unsupported(execution, "properties such as '", property, "'");
+    }
+    virtual Value setProperty(IExecution& execution, const String& property, const Value&) override {
+      return this->unsupported(execution, "properties such as '", property, "'");
+    }
+    virtual Value mutProperty(IExecution& execution, const String& property, Mutation, const Value&) override {
+      return this->unsupported(execution, "properties such as '", property, "'");
+    }
+    virtual Value delProperty(IExecution& execution, const String& property) override {
+      return this->unsupported(execution, "properties such as '", property, "'");
+    }
+    virtual Value refProperty(IExecution& execution, const String& property) override {
+      return this->unsupported(execution, "properties such as '", property, "'");
+    }
+    virtual Value getIndex(IExecution& execution, const Value&) override {
+      return this->unsupported(execution, "indexing with '[]'");
+    }
+    virtual Value setIndex(IExecution& execution, const Value&, const Value&) override {
+      return this->unsupported(execution, "indexing with '[]'");
+    }
+    virtual Value mutIndex(IExecution& execution, const Value&, Mutation, const Value&) override {
+      return this->unsupported(execution, "indexing with '[]'");
+    }
+    virtual Value delIndex(IExecution& execution, const Value&) override {
+      return this->unsupported(execution, "indexing with '[]'");
+    }
+    virtual Value refIndex(IExecution& execution, const Value&) override {
+      return this->unsupported(execution, "indexing with '[]'");
+    }
+    virtual Value getPointee(IExecution& execution) override {
+      return this->unsupported(execution, "pointer dereferencing with '*'");
+    }
+    virtual Value setPointee(IExecution& execution, const Value&) override {
+      return this->unsupported(execution, "pointer dereferencing with '*'");
+    }
+    virtual Value mutPointee(IExecution& execution, Mutation, const Value&) override {
+      return this->unsupported(execution, "pointer dereferencing with '*'");
+    }
+    virtual Value iterate(IExecution& execution) override {
+      return this->unsupported(execution, "iteration");
+    }
+    virtual void toStringBuilder(StringBuilder& sb) const override {
+      sb.add("<string-", this->member.getName(), '>');
+    }
+  private:
+    template<typename... ARGS>
+    Value unsupported(IExecution& execution, ARGS&&... args) {
+      return this->member.raise(execution, "does not support ", std::forward<ARGS>(args)...);
+    }
+  };
+
+  Value StringProperty_Member::createInstance(IAllocator& allocator, const String& string) const {
+    auto object = ObjectFactory::create<StringProperty_Instance>(allocator, *this, string);
+    return ValueFactory::createObject(allocator, object);
+  }
+
+  class StringProperty_CompareTo final : public StringProperty_Member {
+    StringProperty_CompareTo(const StringProperty_CompareTo&) = delete;
+    StringProperty_CompareTo& operator=(const StringProperty_CompareTo&) = delete;
+  public:
+    StringProperty_CompareTo() : StringProperty_Member("compareTo", Type::Int) {
+      this->addRequiredParameter("other", Type::String);
+    }
+    virtual Value invoke(IExecution& execution, const String& string, ParameterChecker& checker) const override {
+      String other;
+      if (!checker.validateCount() || !checker.validateParameter(0, other)) {
+        return this->raise(execution, checker.error);
+      }
+      auto result = string.compareTo(other);
+      return execution.makeValue(result);
+    }
+  };
+
+  class StringProperties : public OrderedMap<String, std::unique_ptr<BuiltinFactory::StringProperty>> {
+    StringProperties(const StringProperties&) = delete;
+    StringProperties& operator=(const StringProperties&) = delete;
+    typedef Type (*MemberBuilder)();
+  public:
+    StringProperties() {
+      this->addMember<StringProperty_Length>();
+      this->addMember<StringProperty_CompareTo>();
+      //this->addMember<StringProperty_Contains>();
+      //this->addMember<StringProperty_EndsWith>();
+      //this->addMember<StringProperty_Hash>();
+      //this->addMember<StringProperty_IndexOf>();
+      //this->addMember<StringProperty_Join>();
+      //this->addMember<StringProperty_LastIndexOf>();
+      //this->addMember<StringProperty_PadLeft>();
+      //this->addMember<StringProperty_PadRight>();
+      //this->addMember<StringProperty_Repeat>();
+      //this->addMember<StringProperty_Replace>();
+      //this->addMember<StringProperty_Slice>();
+      //this->addMember<StringProperty_StartsWith>();
+    };
+    static const StringProperties& instance() {
+      static const StringProperties result;
+      return result;
+    }
+  private:
+    template<typename T>
+    void addMember() {
+      auto property = std::make_unique<T>();
+      auto name = property->getName();
+      this->add(name, std::move(property));
+    }
+  };
 
   class StringShapeDotable : public IPropertySignature {
   public:
     virtual Type getType(const String& property) const override {
-      auto* found = stringShapeTable.findByName(property);
-      return (found == nullptr) ? Type::Void : found->type;
+      auto* found = StringProperties::instance().get(property);
+      return (found == nullptr) ? Type::Void : (*found)->getType();
     }
     virtual Modifiability getModifiability(const String& property) const override {
-      auto* found = stringShapeTable.findByName(property);
+      auto* found = StringProperties::instance().get(property);
       return (found == nullptr) ? Modifiability::None : Modifiability::Read;
     }
     virtual String getName(size_t index) const override {
-      auto* found = stringShapeTable.findByIndex(index);
-      return (found == nullptr) ? String() : found->name;
+      String key;
+      auto* found = StringProperties::instance().get(index, key);
+      return (found == nullptr) ? String() : key;
     }
     virtual size_t getNameCount() const override {
-      return stringShapeTable.size();
+      return StringProperties::instance().size();
     }
     virtual bool isClosed() const override {
       return true;
@@ -437,23 +657,53 @@ namespace {
 const egg::ovum::IParameters& egg::ovum::Object::ParametersNone{ parametersNone };
 const egg::ovum::IFunctionSignature& egg::ovum::Object::OmniFunctionSignature{ objectShapeCallable };
 
-const egg::ovum::IntShape egg::ovum::BuiltinFactory::IntShape{ IntShape::Minimum, IntShape::Maximum };
-const egg::ovum::FloatShape egg::ovum::BuiltinFactory::FloatShape{ FloatShape::Minimum, FloatShape::Maximum, true, true, true };
-const egg::ovum::ObjectShape egg::ovum::BuiltinFactory::StringShape{ nullptr, &stringShapeDotable, &stringShapeIndexable, &stringShapeIterable };
-const egg::ovum::ObjectShape egg::ovum::BuiltinFactory::ObjectShape{ &objectShapeCallable, &objectShapeDotable, &objectShapeIndexable, &objectShapeIterable };
+const egg::ovum::IntShape& egg::ovum::BuiltinFactory::getIntShape() {
+  static const IntShape instance{ IntShape::Minimum, IntShape::Maximum };
+  return instance;
+}
 
-egg::ovum::Value egg::ovum::BuiltinFactory::createAssert(IAllocator& allocator) {
+const egg::ovum::FloatShape& egg::ovum::BuiltinFactory::getFloatShape() {
+  static const FloatShape instance{ FloatShape::Minimum, FloatShape::Maximum, true, true, true };
+  return instance;
+}
+
+const egg::ovum::ObjectShape& egg::ovum::BuiltinFactory::getStringShape() {
+  static const ObjectShape instance{ nullptr, &stringShapeDotable, &stringShapeIndexable, &stringShapeIterable };
+  return instance;
+}
+
+const egg::ovum::ObjectShape& egg::ovum::BuiltinFactory::getObjectShape() {
+  static const ObjectShape instance{ &objectShapeCallable, &objectShapeDotable, &objectShapeIndexable, &objectShapeIterable };
+  return instance;
+}
+
+const egg::ovum::BuiltinFactory::StringProperty* egg::ovum::BuiltinFactory::getStringPropertyByName(const String& property) {
+  auto* entry = StringProperties::instance().get(property);
+  return (entry == nullptr) ? nullptr : entry->get();
+}
+
+const egg::ovum::BuiltinFactory::StringProperty* egg::ovum::BuiltinFactory::getStringPropertyByIndex(size_t index) {
+  String key;
+  auto* entry = StringProperties::instance().get(index, key);
+  return (entry == nullptr) ? nullptr : entry->get();
+}
+
+size_t egg::ovum::BuiltinFactory::getStringPropertyCount() {
+  return StringProperties::instance().size();
+}
+
+egg::ovum::Value egg::ovum::BuiltinFactory::createAssertInstance(IAllocator& allocator) {
   return ValueFactory::createObject(allocator, ObjectFactory::create<Builtin_Assert>(allocator));
 }
 
-egg::ovum::Value egg::ovum::BuiltinFactory::createPrint(IAllocator& allocator) {
+egg::ovum::Value egg::ovum::BuiltinFactory::createPrintInstance(IAllocator& allocator) {
   return ValueFactory::createObject(allocator, ObjectFactory::create<Builtin_Print>(allocator));
 }
 
-egg::ovum::Value egg::ovum::BuiltinFactory::createString(IAllocator& allocator) {
+egg::ovum::Value egg::ovum::BuiltinFactory::createStringInstance(IAllocator& allocator) {
   return ValueFactory::createObject(allocator, ObjectFactory::create<Builtin_String>(allocator));
 }
 
-egg::ovum::Value egg::ovum::BuiltinFactory::createType(IAllocator& allocator) {
+egg::ovum::Value egg::ovum::BuiltinFactory::createTypeInstance(IAllocator& allocator) {
   return ValueFactory::createObject(allocator, ObjectFactory::create<Builtin_Type>(allocator));
 }

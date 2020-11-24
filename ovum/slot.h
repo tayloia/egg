@@ -25,7 +25,8 @@ namespace egg::ovum {
     virtual void set(const Value& value) override;
     virtual bool update(IValue* expected, const Value& desired) override;
     virtual void clear() override;
-    Value mutate(Mutation mutation, const Value& value, String& error);
+    Type::Assignment assign(const Type& type, const Value& value, Value& after);
+    Type::Assignment mutate(const Type& type, Mutation mutation, const Value& value, Value& before);
     // Debugging
     bool validate(bool optional) const;
     virtual bool validate() const override {

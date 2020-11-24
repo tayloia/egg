@@ -94,7 +94,6 @@ namespace egg::ovum {
       auto& q = rhs.get();
       return p.equals(q, compare);
     }
-    static IValue* mutate(const IValue& lhs, const IValue& rhs, Mutation mutation, String& error);
     // Debugging
     bool validate() const;
     // Helpers

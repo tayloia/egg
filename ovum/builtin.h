@@ -1,14 +1,25 @@
 namespace egg::ovum {
   class BuiltinFactory {
   public:
-    static const IntShape IntShape;
-    static const FloatShape FloatShape;
-    static const ObjectShape StringShape;
-    static const ObjectShape ObjectShape;
+    static const IntShape& getIntShape();
+    static const FloatShape& getFloatShape();
+    static const ObjectShape& getStringShape();
+    static const ObjectShape& getObjectShape();
 
-    static Value createAssert(IAllocator& allocator);
-    static Value createPrint(IAllocator& allocator);
-    static Value createType(IAllocator& allocator);
-    static Value createString(IAllocator& allocator);
+    class StringProperty {
+    public:
+      virtual ~StringProperty() {}
+      virtual Value createInstance(IAllocator& allocator, const String& string) const = 0;
+      virtual String getName() const = 0;
+      virtual Type getType() const = 0;
+    };
+    static const StringProperty* getStringPropertyByName(const String& property);
+    static const StringProperty* getStringPropertyByIndex(size_t index);
+    static size_t getStringPropertyCount();
+
+    static Value createAssertInstance(IAllocator& allocator);
+    static Value createPrintInstance(IAllocator& allocator);
+    static Value createTypeInstance(IAllocator& allocator);
+    static Value createStringInstance(IAllocator& allocator);
   };
 }

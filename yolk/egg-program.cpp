@@ -59,10 +59,10 @@ void egg::yolk::EggProgramSymbolTable::softVisitLinks(const Visitor& visitor) co
 
 void egg::yolk::EggProgramSymbolTable::addBuiltins() {
   // TODO add built-in symbol to symbol table here
-  this->addBuiltin("string", egg::ovum::BuiltinFactory::createString(this->allocator));
-  this->addBuiltin("type", egg::ovum::BuiltinFactory::createType(this->allocator));
-  this->addBuiltin("assert", egg::ovum::BuiltinFactory::createAssert(this->allocator));
-  this->addBuiltin("print", egg::ovum::BuiltinFactory::createPrint(this->allocator));
+  this->addBuiltin("string", egg::ovum::BuiltinFactory::createStringInstance(this->allocator));
+  this->addBuiltin("type", egg::ovum::BuiltinFactory::createTypeInstance(this->allocator));
+  this->addBuiltin("assert", egg::ovum::BuiltinFactory::createAssertInstance(this->allocator));
+  this->addBuiltin("print", egg::ovum::BuiltinFactory::createPrintInstance(this->allocator));
 }
 
 void egg::yolk::EggProgramSymbolTable::addBuiltin(const std::string& name, const egg::ovum::Value& value) {
@@ -132,11 +132,12 @@ egg::ovum::ILogger::Severity egg::yolk::EggProgram::execute(IEggEngineContext& c
   // WIBBLE rationalise
   auto& allocator = context.getAllocator();
   auto program = egg::ovum::ProgramFactory::createProgram(allocator, context);
-  auto result = program->run(*module);
+  auto severity = egg::ovum::ILogger::Severity::None;;
+  auto result = program->run(*module, &severity);
   if (egg::ovum::Bits::hasAnySet(result->getFlags(), egg::ovum::ValueFlags::Throw)) {
     egg::ovum::Value exception;
     if (result->getInner(exception)) {
-      // Don't re-print a rethrown exception
+      // We've made sure we don't re-print a rethrown exception
       context.log(egg::ovum::ILogger::Source::Runtime, egg::ovum::ILogger::Severity::Error, exception->toString().toUTF8());
     }
     return egg::ovum::ILogger::Severity::Error;
@@ -147,7 +148,7 @@ egg::ovum::ILogger::Severity egg::yolk::EggProgram::execute(IEggEngineContext& c
     context.log(egg::ovum::ILogger::Source::Runtime, egg::ovum::ILogger::Severity::Error, message);
     return egg::ovum::ILogger::Severity::Error;
   }
-  return egg::ovum::ILogger::Severity::None;
+  return severity;
 }
 
 egg::ovum::HardPtr<egg::yolk::EggProgramContext> egg::yolk::EggProgram::createRootContext(egg::ovum::IAllocator& allocator, egg::ovum::ILogger& logger, EggProgramSymbolTable& symtable, egg::ovum::ILogger::Severity& maximumSeverity) {

@@ -331,6 +331,7 @@ namespace {
     ProgramDefault& operator=(const ProgramDefault&) = delete;
   private:
     ILogger& logger;
+    ILogger::Severity maxseverity;
     Basket basket;
     HardPtr<SymbolTable> symtable;
     LocationSource location;
@@ -338,6 +339,7 @@ namespace {
     ProgramDefault(IAllocator& allocator, IBasket& basket, ILogger& logger)
       : HardReferenceCounted(allocator, 0),
         logger(logger),
+        maxseverity(ILogger::Severity::None),
         basket(&basket),
         symtable(allocator.make<SymbolTable>()),
         location({}, 0, 0) {
@@ -357,16 +359,20 @@ namespace {
       }
       return false;
     }
-    virtual Value run(const IModule& module) override {
+    virtual Value run(const IModule& module, ILogger::Severity* severity) override {
+      Value result{ Value::Rethrow };
       try {
         this->location.file = module.getResourceName();
         this->location.line = 0;
         this->location.column = 0;
-        return this->executeRoot(module.getRootNode());
+        result = this->executeRoot(module.getRootNode());
       } catch (RuntimeException& exception) {
-        this->logger.log(ILogger::Source::Runtime, ILogger::Severity::Error, exception.message.toUTF8());
-        return Value::Rethrow; // WIBBLE
+        this->log(ILogger::Source::Runtime, ILogger::Severity::Error, exception.message.toUTF8());
       }
+      if (severity != nullptr) {
+        *severity = this->maxseverity;
+      }
+      return result;
     }
     virtual IAllocator& getAllocator() const override {
       return this->allocator;
@@ -397,7 +403,7 @@ namespace {
       return this->raise("Assertion is untrue");
     }
     virtual void print(const std::string& utf8) override {
-      this->logger.log(ILogger::Source::User, ILogger::Severity::Information, utf8);
+      this->log(ILogger::Source::User, ILogger::Severity::Information, utf8);
     }
     Value executeCall(const LocationSource& source, const IFunctionSignature& signature, const IParameters& runtime, const INode& block, SymbolTable& captured) {
       // We have to be careful to get the location correct
@@ -509,12 +515,16 @@ namespace {
     }
     // Builtins
     void addBuiltins() {
-      this->builtin("assert", BuiltinFactory::createAssert(this->allocator));
-      this->builtin("print", BuiltinFactory::createPrint(this->allocator));
-      this->builtin("string", BuiltinFactory::createString(this->allocator));
-      this->builtin("type", BuiltinFactory::createType(this->allocator));
+      this->builtin("assert", BuiltinFactory::createAssertInstance(this->allocator));
+      this->builtin("print", BuiltinFactory::createPrintInstance(this->allocator));
+      this->builtin("string", BuiltinFactory::createStringInstance(this->allocator));
+      this->builtin("type", BuiltinFactory::createTypeInstance(this->allocator));
     }
   private:
+    void log(ILogger::Source source, ILogger::Severity severity, const std::string& message) {
+      this->maxseverity = std::max(this->maxseverity, severity);
+      this->logger.log(source, severity, message);
+    }
     Value executeRoot(const INode& node) {
       if (this->validateOpcode(node) != Opcode::MODULE) {
         throw this->unexpectedOpcode("module", node);
@@ -612,7 +622,7 @@ namespace {
         return retval;
       }
       auto message = StringBuilder().add("Discarding call return value: '", retval->toString(), "'").toUTF8();
-      this->logger.log(ILogger::Source::Runtime, ILogger::Severity::Warning, message);
+      this->log(ILogger::Source::Runtime, ILogger::Severity::Warning, message);
       return Value::Void;
     }
     Value statementDeclare(Block& block, const INode& node) {
@@ -1357,12 +1367,14 @@ namespace {
         }
         return value;
       }
-      /* WOBBLE
       String string;
       if (lhs->getString(string)) {
-        return this->stringProperty(string, pname);
+        auto value = this->stringProperty(string, pname);
+        if (value->getVoid()) {
+          return this->raiseNode(node, "String does not have a property named '", pname, "'");
+        }
+        return value;
       }
-      */
       return this->raiseNode(node, lhs->getRuntimeType().describeValue(), " does not support properties such as '", pname, "'");
     }
     // Strings
@@ -1402,7 +1414,13 @@ namespace {
       }
       return ValueFactory::createString(this->allocator, StringFactory::fromCodePoint(this->allocator, char32_t(c)));
     }
-    // WOBBLE Value stringProperty(const String& string, const String& property);
+    Value stringProperty(const String& string, const String& property) {
+      auto* found = BuiltinFactory::getStringPropertyByName(property);
+      if (found == nullptr) {
+        return Value::Void;
+      }
+      return found->createInstance(this->allocator, string);
+    }
     // Operators
     Value operatorCompare(const INode& node, Value& lhs, Value& rhs) {
       // Returns 'break' for unknown operator
@@ -1743,7 +1761,9 @@ namespace {
       this->updateLocation(node);
       throw RuntimeException(this->location, "Type constraints not yet supported"); // TODO
     }
+    Value tryInitialize(Symbol& symbol, const Value& value);
     Value tryAssign(Symbol& symbol, const Value& value);
+    Value tryMutate(Symbol& symbol, Mutation mutation, const Value& value);
     Symbol* blockDeclare(const LocationSource& source, const Type& type, const String& identifier);
     void blockUndeclare(const String& identifier);
     Value targetInit(Target& target, const INode& node, Block* block = nullptr) {
@@ -1880,19 +1900,7 @@ namespace {
         if (symbol == nullptr) {
           return this->raiseNode(node, "Unknown identifier: '", target.identifier, "'");
         }
-        /* WOBBLE
-        switch (target.type->tryAssign(*symbol->slot, rhs)) {
-        case Assignability::Readonly:
-          return this->raiseNode(node, target.type.describeValue(), " cannot be modified");
-        case Assignability::Never:
-          return this->raiseNode(node, target.type.describeValue(), " cannot be assigned a value of type '", rhs->getRuntimeType().toString(), "'");
-        case Assignability::Sometimes:
-          return this->raiseNode(node, target.type.describeValue(), " cannot be assigned the value ", rhs->toString());
-        case Assignability::Always:
-          break;
-        }
-        */
-        return rhs;
+        return this->tryAssign(*symbol, rhs);
       }
       case Target::Flavour::Property:
         return target.object->setProperty(*this, target.identifier, rhs);
@@ -1909,19 +1917,7 @@ namespace {
         if (symbol == nullptr) {
           return this->raiseNode(node, "Unknown identifier: '", target.identifier, "'");
         }
-        /* WOBBLE
-        switch (target.type->tryMutate(*symbol->slot, mutation, rhs)) {
-        case Assignability::Readonly:
-          return this->raiseNode(node, target.type.describeValue(), " cannot be modified");
-        case Assignability::Never:
-          return this->raiseNode(node, target.type.describeValue(), " cannot be modified via a value of type '", rhs->getRuntimeType().toString(), "'");
-        case Assignability::Sometimes:
-          return this->raiseNode(node, target.type.describeValue(), " cannot be modified via the value ", rhs->toString());
-        case Assignability::Always:
-          break;
-        }
-        */
-        return rhs;
+        return this->tryMutate(*symbol, mutation, rhs);
       }
       case Target::Flavour::Property:
         return target.object->mutProperty(*this, target.identifier, mutation, rhs);
@@ -1975,23 +1971,37 @@ Block::~Block() {
   }
 }
 
+Value ProgramDefault::tryInitialize(Symbol& symbol, const Value& value) {
+  assert(symbol.validate(true));
+  Value after;
+  auto retval = symbol.slot->assign(symbol.type, value, after);
+  if (retval != Type::Assignment::Success) {
+    return this->raiseFormat("Cannot initialize '", symbol.name, "' of type '", symbol.type.toString(), "' with WOBBLE");
+  }
+  assert(symbol.validate(false));
+  return after;
+}
+
 Value ProgramDefault::tryAssign(Symbol& symbol, const Value& value) {
   assert(symbol.validate(true));
-  /* WOBBLE
-  switch (symbol.type->tryAssign(*symbol.slot, value)) {
-  case Assignability::Readonly:
-    return this->raiseFormat(symbol.type.describeValue(), " cannot be modified");
-  case Assignability::Never:
-    return this->raiseFormat(symbol.type.describeValue(), " cannot be assigned a value of type '", value->getRuntimeType().toString(), "'");
-  case Assignability::Sometimes:
-    return this->raiseFormat(symbol.type.describeValue(), " cannot be assigned the value ", value->toString());
-  case Assignability::Always:
-    break;
+  Value after;
+  auto retval = symbol.slot->assign(symbol.type, value, after);
+  if (retval != Type::Assignment::Success) {
+    return this->raiseFormat("Cannot assign '", symbol.name, "' of type '", symbol.type.toString(), "' with WOBBLE");
   }
-  */
-  symbol.slot->set(value); // WOBBLE
   assert(symbol.validate(false));
-  return Value::Void;
+  return after;
+}
+
+Value ProgramDefault::tryMutate(Symbol& symbol, Mutation mutation, const Value& value) {
+  assert(symbol.validate(true));
+  Value before;
+  auto retval = symbol.slot->mutate(symbol.type, mutation, value, before);
+  if (retval != Type::Assignment::Success) {
+    return this->raiseFormat("Cannot mutate '", symbol.name, "' of type '", symbol.type.toString(), "' with WOBBLE");
+  }
+  assert(symbol.validate(false));
+  return before;
 }
 
 Symbol* ProgramDefault::blockDeclare(const LocationSource& source, const Type& type, const String& identifier) {
@@ -2013,7 +2023,7 @@ egg::ovum::Value Block::declare(const LocationSource& source, const Type& type, 
     return this->program.raiseLocation(source, "Duplicate name in declaration: '", name, "'");
   }
   if (init != nullptr) {
-    auto retval = this->program.tryAssign(*symbol, *init);
+    auto retval = this->program.tryInitialize(*symbol, *init);
     if (retval.hasFlowControl()) {
       this->program.blockUndeclare(name);
       return retval;
@@ -2029,7 +2039,7 @@ egg::ovum::Value Block::guard(const LocationSource& source, const Type& type, co
   if (symbol == nullptr) {
     return this->program.raiseLocation(source, "Duplicate name in declaration: '", name, "'");
   }
-  auto retval = this->program.tryAssign(*symbol, init);
+  auto retval = this->program.tryInitialize(*symbol, init);
   if (retval.hasFlowControl()) {
     this->program.blockUndeclare(name);
     return Value::False;

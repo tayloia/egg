@@ -18,8 +18,8 @@ namespace egg::ovum {
     int64_t hash() const;
     int64_t compareTo(const String& other) const;
     bool contains(const String& needle) const;
-    bool startsWith(const String& other) const;
-    bool endsWith(const String& other) const;
+    bool startsWith(const String& needle) const;
+    bool endsWith(const String& needle) const;
     int64_t indexOfCodePoint(char32_t codepoint, size_t fromIndex = 0) const;
     int64_t indexOfString(const String& needle, size_t fromIndex = 0) const;
     int64_t lastIndexOfCodePoint(char32_t codepoint, size_t fromIndex = SIZE_MAX) const;
