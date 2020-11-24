@@ -75,6 +75,7 @@ namespace egg::ovum {
     static const Type Null;
     static const Type Bool;
     static const Type Int;
+    static const Type IntQ;
     static const Type Float;
     static const Type String;
     static const Type Arithmetic;

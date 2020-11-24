@@ -2,6 +2,8 @@
 #include "ovum/function.h"
 
 namespace {
+  using namespace egg::ovum;
+
   std::string ordinal(size_t position) {
     // TODO i18n
     static const char lookup[][16] = {
@@ -63,12 +65,23 @@ bool egg::ovum::ParameterChecker::validateCount(const egg::ovum::IParameters& pa
 
 bool egg::ovum::ParameterChecker::validateParameter(const IParameters& parameters, size_t position, Value& value, String& error) {
   auto expected = parameters.getPositionalCount();
-  if (position > expected) {
+  if (position >= expected) {
     error = StringBuilder::concat("queried for undeclared ", ordinal(position), " parameter");
     return false;
   }
   value = parameters.getPositional(position);
   return true;
+}
+
+bool egg::ovum::ParameterChecker::validateParameter(const IParameters& parameters, size_t position, Int& value, String& error) {
+  Value parameter;
+  if (ParameterChecker::validateParameter(parameters, position, parameter, error)) {
+    if (parameter->getInt(value)) {
+      return true;
+    }
+    error = StringBuilder::concat("expected ", ordinal(position), " parameter to be of type 'int', but got '", parameter->getRuntimeType().toString(), "'");
+  }
+  return false;
 }
 
 bool egg::ovum::ParameterChecker::validateParameter(const IParameters& parameters, size_t position, String& value, String& error) {
@@ -77,8 +90,62 @@ bool egg::ovum::ParameterChecker::validateParameter(const IParameters& parameter
     if (parameter->getString(value)) {
       return true;
     }
-    error = StringBuilder::concat("expected ", ordinal(position), " parameter to be of type 'string'");
+    error = StringBuilder::concat("expected ", ordinal(position), " parameter to be of type 'string', but got '", parameter->getRuntimeType().toString(), "'");
   }
+  return false;
+}
+
+bool egg::ovum::ParameterChecker::validateParameter(const IParameters& parameters, size_t position, Object& value, String& error) {
+  Value parameter;
+  if (ParameterChecker::validateParameter(parameters, position, parameter, error)) {
+    if (parameter->getObject(value)) {
+      return true;
+    }
+    error = StringBuilder::concat("expected ", ordinal(position), " parameter to be an object, but got '", parameter->getRuntimeType().toString(), "'");
+  }
+  return false;
+}
+
+bool egg::ovum::ParameterChecker::validateParameter(const IParameters& parameters, size_t position, std::optional<Value>& value, String&) {
+  // Cannot fail
+  auto expected = parameters.getPositionalCount();
+  if (position >= expected) {
+    value = std::nullopt;
+    return true;
+  }
+  value = parameters.getPositional(position);
+  return true;
+}
+
+bool egg::ovum::ParameterChecker::validateParameter(const IParameters& parameters, size_t position, std::optional<Int>& value, String& error) {
+  auto expected = parameters.getPositionalCount();
+  if (position >= expected) {
+    value = std::nullopt;
+    return true;
+  }
+  auto parameter = parameters.getPositional(position);
+  Int ivalue;
+  if (parameter->getInt(ivalue)) {
+    value = ivalue;
+    return true;
+  }
+  error = StringBuilder::concat("expected optional ", ordinal(position), " parameter to be of type 'int', but got '", parameter->getRuntimeType().toString(), "'");
+  return false;
+}
+
+bool egg::ovum::ParameterChecker::validateParameter(const IParameters& parameters, size_t position, std::optional<String>& value, String& error) {
+  auto expected = parameters.getPositionalCount();
+  if (position >= expected) {
+    value = std::nullopt;
+    return true;
+  }
+  auto parameter = parameters.getPositional(position);
+  String svalue;
+  if (parameter->getString(svalue)) {
+    value = svalue;
+    return true;
+  }
+  error = StringBuilder::concat("expected optional ", ordinal(position), " parameter to be of type 'string'");
   return false;
 }
 

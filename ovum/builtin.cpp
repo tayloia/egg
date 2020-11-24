@@ -58,7 +58,7 @@ namespace {
         return this->flags;
       }
     };
-    static const size_t MAX_PARAMETERS = 2;
+    static const size_t MAX_PARAMETERS = 3;
     String name;
     Type rettype;
     size_t parameters;
@@ -265,11 +265,269 @@ namespace {
     }
     virtual Value invoke(IExecution& execution, const String& string, ParameterChecker& checker) const override {
       String other;
-      if (!checker.validateCount() || !checker.validateParameter(0, other)) {
-        return this->raise(execution, checker.error);
+      if (checker.validateParameter(0, other)) {
+        auto result = string.compareTo(other);
+        return execution.makeValue(result);
       }
-      auto result = string.compareTo(other);
+      return this->raise(execution, checker.error);
+    }
+  };
+
+  class StringProperty_Contains final : public StringProperty_Member {
+    StringProperty_Contains(const StringProperty_Contains&) = delete;
+    StringProperty_Contains& operator=(const StringProperty_Contains&) = delete;
+  public:
+    StringProperty_Contains() : StringProperty_Member("contains", Type::Bool) {
+      this->addRequiredParameter("needle", Type::String);
+    }
+    virtual Value invoke(IExecution& execution, const String& string, ParameterChecker& checker) const override {
+      String needle;
+      if (checker.validateParameter(0, needle)) {
+        auto result = string.contains(needle);
+        return execution.makeValue(result);
+      }
+      return this->raise(execution, checker.error);
+    }
+  };
+
+  class StringProperty_EndsWith final : public StringProperty_Member {
+    StringProperty_EndsWith(const StringProperty_EndsWith&) = delete;
+    StringProperty_EndsWith& operator=(const StringProperty_EndsWith&) = delete;
+  public:
+    StringProperty_EndsWith() : StringProperty_Member("endsWith", Type::Bool) {
+      this->addRequiredParameter("needle", Type::String);
+    }
+    virtual Value invoke(IExecution& execution, const String& string, ParameterChecker& checker) const override {
+      String needle;
+      if (checker.validateParameter(0, needle)) {
+        auto result = string.endsWith(needle);
+        return execution.makeValue(result);
+      }
+      return this->raise(execution, checker.error);
+    }
+  };
+
+  class StringProperty_Hash final : public StringProperty_Member {
+    StringProperty_Hash(const StringProperty_Hash&) = delete;
+    StringProperty_Hash& operator=(const StringProperty_Hash&) = delete;
+  public:
+    StringProperty_Hash() : StringProperty_Member("hash", Type::Int) {
+    }
+    virtual Value invoke(IExecution& execution, const String& string, ParameterChecker&) const override {
+      auto result = string.hash();
       return execution.makeValue(result);
+    }
+  };
+
+  class StringProperty_IndexOf final : public StringProperty_Member {
+    StringProperty_IndexOf(const StringProperty_IndexOf&) = delete;
+    StringProperty_IndexOf& operator=(const StringProperty_IndexOf&) = delete;
+  public:
+    StringProperty_IndexOf() : StringProperty_Member("indexOf", Type::IntQ) {
+      this->addRequiredParameter("needle", Type::String);
+      this->addOptionalParameter("fromIndex", Type::Int);
+    }
+    virtual Value invoke(IExecution& execution, const String& string, ParameterChecker& checker) const override {
+      String needle;
+      std::optional<Int> fromIndex;
+      if (checker.validateParameter(0, needle) && checker.validateParameter(1, fromIndex)) {
+        Int result;
+        if (fromIndex) {
+          if (*fromIndex < 0) {
+            return this->raise(execution, "expected optional second parameter 'fromIndex' to be a non-negative integer, but got ", *fromIndex);
+          }
+          result = string.indexOfString(needle, size_t(*fromIndex));
+        } else {
+          result = string.indexOfString(needle);
+        }
+        return (result < 0) ? Value::Null : execution.makeValue(result);
+      }
+      return this->raise(execution, checker.error);
+    }
+  };
+
+  class StringProperty_Join final : public StringProperty_Member {
+    StringProperty_Join(const StringProperty_Join&) = delete;
+    StringProperty_Join& operator=(const StringProperty_Join&) = delete;
+  public:
+    StringProperty_Join() : StringProperty_Member("join", Type::String) {
+      this->addVariadicParameter("parts", Type::String);
+    }
+    virtual Value invoke(IExecution& execution, const String& string, ParameterChecker& checker) const override {
+      auto separator = string.toUTF8();
+      auto count = checker.parameters->getPositionalCount();
+      StringBuilder sb;
+      for (size_t index = 0; index < count; ++index) {
+        auto value = checker.parameters->getPositional(index);
+        if (index > 0) {
+          sb.add(separator);
+        }
+        value->toStringBuilder(sb);
+      }
+      return execution.makeValue(sb.str());
+    }
+  };
+
+  class StringProperty_LastIndexOf final : public StringProperty_Member {
+    StringProperty_LastIndexOf(const StringProperty_LastIndexOf&) = delete;
+    StringProperty_LastIndexOf& operator=(const StringProperty_LastIndexOf&) = delete;
+  public:
+    StringProperty_LastIndexOf() : StringProperty_Member("lastIndexOf", Type::IntQ) {
+      this->addRequiredParameter("needle", Type::String);
+      this->addOptionalParameter("fromIndex", Type::Int);
+    }
+    virtual Value invoke(IExecution& execution, const String& string, ParameterChecker& checker) const override {
+      String needle;
+      std::optional<Int> fromIndex;
+      if (checker.validateParameter(0, needle) && checker.validateParameter(1, fromIndex)) {
+        Int result;
+        if (fromIndex) {
+          if (*fromIndex < 0) {
+            return this->raise(execution, "expected optional second parameter 'fromIndex' to be a non-negative integer, but got ", *fromIndex);
+          }
+          result = string.lastIndexOfString(needle, size_t(*fromIndex));
+        } else {
+          result = string.lastIndexOfString(needle);
+        }
+        return (result < 0) ? Value::Null : execution.makeValue(result);
+      }
+      return this->raise(execution, checker.error);
+    }
+  };
+
+  class StringProperty_PadLeft final : public StringProperty_Member {
+    StringProperty_PadLeft(const StringProperty_PadLeft&) = delete;
+    StringProperty_PadLeft& operator=(const StringProperty_PadLeft&) = delete;
+  public:
+    StringProperty_PadLeft() : StringProperty_Member("padLeft", Type::String) {
+      this->addRequiredParameter("target", Type::Int);
+      this->addOptionalParameter("padding", Type::String);
+    }
+    virtual Value invoke(IExecution& execution, const String& string, ParameterChecker& checker) const override {
+      Int target;
+      if (checker.validateParameter(0, target)) {
+        if (target < 0) {
+          return this->raise(execution, "expected first parameter 'target' to be a non-negative integer, but got ", target);
+        }
+        std::optional<String> padding;
+        if (checker.validateParameter(1, padding)) {
+          auto result = padding ? string.padLeft(size_t(target), *padding) : string.padLeft(size_t(target));
+          return execution.makeValue(result);
+        }
+      }
+      return this->raise(execution, checker.error);
+    }
+  };
+
+  class StringProperty_PadRight final : public StringProperty_Member {
+    StringProperty_PadRight(const StringProperty_PadRight&) = delete;
+    StringProperty_PadRight& operator=(const StringProperty_PadRight&) = delete;
+  public:
+    StringProperty_PadRight() : StringProperty_Member("padRight", Type::String) {
+      this->addRequiredParameter("target", Type::Int);
+      this->addOptionalParameter("padding", Type::String);
+    }
+    virtual Value invoke(IExecution& execution, const String& string, ParameterChecker& checker) const override {
+      Int target;
+      if (checker.validateParameter(0, target)) {
+        if (target < 0) {
+          return this->raise(execution, "expected first parameter 'target' to be a non-negative integer, but got ", target);
+        }
+        std::optional<String> padding;
+        if (checker.validateParameter(1, padding)) {
+          auto result = padding ? string.padRight(size_t(target), *padding) : string.padRight(size_t(target));
+          return execution.makeValue(result);
+        }
+      }
+      return this->raise(execution, checker.error);
+    }
+  };
+
+  class StringProperty_Slice final : public StringProperty_Member {
+    StringProperty_Slice(const StringProperty_Slice&) = delete;
+    StringProperty_Slice& operator=(const StringProperty_Slice&) = delete;
+  public:
+    StringProperty_Slice() : StringProperty_Member("slice", Type::String) {
+      this->addRequiredParameter("begin", Type::Int);
+      this->addOptionalParameter("end", Type::Int);
+    }
+    virtual Value invoke(IExecution& execution, const String& string, ParameterChecker& checker) const override {
+      Int begin;
+      std::optional<Int> end;
+      if (checker.validateParameter(0, begin) && checker.validateParameter(1, end)) {
+        auto result = end ? string.slice(begin, *end) : string.slice(begin);
+        return execution.makeValue(result);
+      }
+      return this->raise(execution, checker.error);
+    }
+  };
+
+  class StringProperty_Repeat final : public StringProperty_Member {
+    StringProperty_Repeat(const StringProperty_Repeat&) = delete;
+    StringProperty_Repeat& operator=(const StringProperty_Repeat&) = delete;
+  public:
+    StringProperty_Repeat() : StringProperty_Member("repeat", Type::String) {
+      this->addRequiredParameter("count", Type::Int);
+    }
+    virtual Value invoke(IExecution& execution, const String& string, ParameterChecker& checker) const override {
+      Int count;
+      if (checker.validateParameter(0, count)) {
+        if (count < 0) {
+          return this->raise(execution, "expected parameter 'count' to be a non-negative integer, but got ", count);
+        }
+        auto result = string.repeat(size_t(count));
+        return execution.makeValue(result);
+      }
+      return this->raise(execution, checker.error);
+    }
+  };
+
+  class StringProperty_Replace final : public StringProperty_Member {
+    StringProperty_Replace(const StringProperty_Replace&) = delete;
+    StringProperty_Replace& operator=(const StringProperty_Replace&) = delete;
+  public:
+    StringProperty_Replace() : StringProperty_Member("replace", Type::String) {
+      this->addRequiredParameter("needle", Type::String);
+      this->addRequiredParameter("replacement", Type::String);
+      this->addOptionalParameter("occurrences", Type::Int);
+    }
+    virtual Value invoke(IExecution& execution, const String& string, ParameterChecker& checker) const override {
+      String needle;
+      String replacement;
+      std::optional<Int> occurrences;
+      if (checker.validateParameter(0, needle) && checker.validateParameter(1, replacement) && checker.validateParameter(2, occurrences)) {
+        auto result = occurrences ? string.replace(needle, replacement, *occurrences) : string.replace(needle, replacement);
+        return execution.makeValue(result);
+      }
+      return this->raise(execution, checker.error);
+    }
+  };
+
+  class StringProperty_StartsWith final : public StringProperty_Member {
+    StringProperty_StartsWith(const StringProperty_StartsWith&) = delete;
+    StringProperty_StartsWith& operator=(const StringProperty_StartsWith&) = delete;
+  public:
+    StringProperty_StartsWith() : StringProperty_Member("startsWith", Type::Bool) {
+      this->addRequiredParameter("needle", Type::String);
+    }
+    virtual Value invoke(IExecution& execution, const String& string, ParameterChecker& checker) const override {
+      String needle;
+      if (checker.validateParameter(0, needle)) {
+        auto result = string.startsWith(needle);
+        return execution.makeValue(result);
+      }
+      return this->raise(execution, checker.error);
+    }
+  };
+
+  class StringProperty_ToString final : public StringProperty_Member {
+    StringProperty_ToString(const StringProperty_ToString&) = delete;
+    StringProperty_ToString& operator=(const StringProperty_ToString&) = delete;
+  public:
+    StringProperty_ToString() : StringProperty_Member("toString", Type::String) {
+    }
+    virtual Value invoke(IExecution& execution, const String& string, ParameterChecker&) const override {
+      return execution.makeValue(string);
     }
   };
 
@@ -281,18 +539,19 @@ namespace {
     StringProperties() {
       this->addMember<StringProperty_Length>();
       this->addMember<StringProperty_CompareTo>();
-      //this->addMember<StringProperty_Contains>();
-      //this->addMember<StringProperty_EndsWith>();
-      //this->addMember<StringProperty_Hash>();
-      //this->addMember<StringProperty_IndexOf>();
-      //this->addMember<StringProperty_Join>();
-      //this->addMember<StringProperty_LastIndexOf>();
-      //this->addMember<StringProperty_PadLeft>();
-      //this->addMember<StringProperty_PadRight>();
-      //this->addMember<StringProperty_Repeat>();
-      //this->addMember<StringProperty_Replace>();
-      //this->addMember<StringProperty_Slice>();
-      //this->addMember<StringProperty_StartsWith>();
+      this->addMember<StringProperty_Contains>();
+      this->addMember<StringProperty_EndsWith>();
+      this->addMember<StringProperty_Hash>();
+      this->addMember<StringProperty_IndexOf>();
+      this->addMember<StringProperty_Join>();
+      this->addMember<StringProperty_LastIndexOf>();
+      this->addMember<StringProperty_PadLeft>();
+      this->addMember<StringProperty_PadRight>();
+      this->addMember<StringProperty_Repeat>();
+      this->addMember<StringProperty_Replace>();
+      this->addMember<StringProperty_Slice>();
+      this->addMember<StringProperty_StartsWith>();
+      this->addMember<StringProperty_ToString>();
     };
     static const StringProperties& instance() {
       static const StringProperties result;

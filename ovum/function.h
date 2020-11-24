@@ -1,3 +1,5 @@
+#include <optional>
+
 namespace egg::ovum {
   class ParameterChecker {
     ParameterChecker(const ParameterChecker&) = delete;
@@ -37,7 +39,17 @@ namespace egg::ovum {
       return this->validateParameter(*this->parameters, position, value, this->error);
     }
     static bool validateParameter(const IParameters& parameters, size_t position, Value& value, String& error);
+    static bool validateParameter(const IParameters& parameters, size_t position, Bool& value, String& error);
+    static bool validateParameter(const IParameters& parameters, size_t position, Int& value, String& error);
+    static bool validateParameter(const IParameters& parameters, size_t position, Float& value, String& error);
     static bool validateParameter(const IParameters& parameters, size_t position, String& value, String& error);
+    static bool validateParameter(const IParameters& parameters, size_t position, Object& value, String& error);
+    static bool validateParameter(const IParameters& parameters, size_t position, std::optional<Value>& value, String& error);
+    static bool validateParameter(const IParameters& parameters, size_t position, std::optional<Bool>& value, String& error);
+    static bool validateParameter(const IParameters& parameters, size_t position, std::optional<Int>& value, String& error);
+    static bool validateParameter(const IParameters& parameters, size_t position, std::optional<Float>& value, String& error);
+    static bool validateParameter(const IParameters& parameters, size_t position, std::optional<String>& value, String& error);
+    static bool validateParameter(const IParameters& parameters, size_t position, std::optional<Object>& value, String& error);
     static size_t getMinimumCount(const IFunctionSignature& signature);
     static size_t getMaximumCount(const IFunctionSignature& signature);
   };

@@ -140,6 +140,23 @@ namespace {
   };
   const TypeInt typeInt{};
 
+  class TypeIntQ final : public TypeBase {
+    TypeIntQ(const TypeIntQ&) = delete;
+    TypeIntQ& operator=(const TypeIntQ&) = delete;
+  public:
+    TypeIntQ() = default;
+    virtual ValueFlags getFlags() const override {
+      return ValueFlags::Null | ValueFlags::Int;
+    }
+    virtual const IntShape* getIntShape() const override {
+      return &BuiltinFactory::getIntShape();
+    }
+    virtual std::pair<std::string, int> toStringPrecedence() const override {
+      return { "int?", 1 };
+    }
+  };
+  const TypeIntQ typeIntQ{};
+
   class TypeFloat final : public TypeBase {
     TypeFloat(const TypeFloat&) = delete;
     TypeFloat& operator=(const TypeFloat&) = delete;
@@ -961,6 +978,7 @@ const egg::ovum::Type egg::ovum::Type::Void{ &typeVoid };
 const egg::ovum::Type egg::ovum::Type::Null{ &typeNull };
 const egg::ovum::Type egg::ovum::Type::Bool{ &typeBool };
 const egg::ovum::Type egg::ovum::Type::Int{ &typeInt };
+const egg::ovum::Type egg::ovum::Type::IntQ{ &typeIntQ };
 const egg::ovum::Type egg::ovum::Type::Float{ &typeFloat };
 const egg::ovum::Type egg::ovum::Type::String{ &typeString };
 const egg::ovum::Type egg::ovum::Type::Arithmetic{ &typeArithmetic };
@@ -1077,4 +1095,3 @@ egg::ovum::Type::Assignment egg::ovum::Type::mutate(IAllocator& allocator, const
     return Assignment::Unimplemented;
   }
 }
-
