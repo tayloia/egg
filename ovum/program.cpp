@@ -1712,7 +1712,7 @@ namespace {
         break;
       case Opcode::OBJECT:
         if (children == 0) {
-          return Vanilla::getDictionaryType();
+          return Type::Object;
         }
         if (children == 1) {
           auto& callable = node.getChild(0);
@@ -1998,9 +1998,11 @@ namespace {
   };
 }
 
-Value UserFunction::call(IExecution&, const IParameters& parameters) {
+Value UserFunction::call(IExecution& execution, const IParameters& parameters) {
   auto signature = this->type.queryCallable();
-  assert(signature != nullptr);
+  if (signature == nullptr) {
+    return execution.raise("Attempt to call a function without a signature");
+  }
   assert(this->captured != nullptr);
   return this->program.executeCall(this->location, *signature, parameters, *this->block, *this->captured);
 }
@@ -2153,9 +2155,9 @@ egg::ovum::Type UserFunction::makeType(IAllocator& allocator, ProgramDefault& pr
     }
     auto ptype = program.type(parameter.getChild(0), pname);
     if (named) {
-      builder->addPositionalParameter(ptype, pname, pflags);
-    } else {
       builder->addNamedParameter(ptype, pname, pflags);
+    } else {
+      builder->addPositionalParameter(ptype, pname, pflags);
     }
   }
   return builder->build();

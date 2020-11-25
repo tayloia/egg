@@ -1,5 +1,6 @@
 #include "ovum/ovum.h"
 #include "ovum/node.h"
+#include "ovum/builtin.h"
 
 namespace {
   using namespace egg::ovum;
@@ -392,6 +393,101 @@ namespace {
     EGG_WARNING_SUPPRESS_SWITCH_END();
     return Opcode::END;
   }
+
+  Node buildPrimitiveType(IAllocator& allocator, const NodeLocation& location, ValueFlags flags) {
+    auto opcode = simpleTypeToOpcode(flags);
+    if (opcode != Opcode::END) {
+      // This is a well-known simple type
+      return NodeFactory::create(allocator, opcode);
+    }
+    Nodes parts;
+    while (flags != ValueFlags::None) {
+      // Construct a vector of all the constituent parts
+      auto top = Bits::topmost(flags);
+      opcode = simpleTypeToOpcode(top);
+      assert(opcode != Opcode::END);
+      parts.push_back(NodeFactory::create(allocator, opcode));
+      flags = Bits::clear(flags, top);
+    }
+    return NodeFactory::create(allocator, location, Opcode::UNION, &parts);
+  }
+
+  Node buildCallable(IAllocator& allocator, const NodeLocation& location, const IFunctionSignature& signature) {
+    Nodes children;
+    children.push_back(NodeFactory::createType(allocator, location, signature.getReturnType()));
+    auto n = signature.getParameterCount();
+    Node child;
+    for (size_t i = 0; i < n; ++i) {
+      auto& parameter = signature.getParameter(i);
+      auto type = NodeFactory::createType(allocator, location, parameter.getType());
+      auto identifier = NodeFactory::create(allocator, Opcode::IDENTIFIER, NodeFactory::createValue(allocator, parameter.getName()));
+      auto flags = parameter.getFlags();
+      auto position = parameter.getPosition();
+      if (position == SIZE_MAX) {
+        // This is not positional, it's by name
+        // ('byname' type identifier)
+        assert(!Bits::hasAnySet(flags, IFunctionSignatureParameter::Flags::Variadic));
+        child = NodeFactory::create(allocator, Opcode::BYNAME, std::move(type), std::move(identifier));
+      } else {
+        // This is positional
+        assert(position == i);
+        if (Bits::hasAnySet(flags, IFunctionSignatureParameter::Flags::Variadic)) {
+          if (Bits::hasAnySet(flags, IFunctionSignatureParameter::Flags::Required)) {
+            // ('varargs' type identifier ('compare' OPERATOR_GT 0))
+            Nodes zero;
+            zero.push_back(NodeFactory::createValue(allocator, 0));
+            auto constraint = NodeFactory::create(allocator, Opcode::COMPARE, &zero, nullptr, Operator::GT);
+            child = NodeFactory::create(allocator, Opcode::VARARGS, std::move(type), std::move(identifier), std::move(constraint));
+          } else {
+            // ('varargs' type identifier)
+            child = NodeFactory::create(allocator, Opcode::VARARGS, std::move(type), std::move(identifier));
+          }
+        } else if (Bits::hasAnySet(flags, IFunctionSignatureParameter::Flags::Required)) {
+          // ('required' type identifier)
+          child = NodeFactory::create(allocator, Opcode::REQUIRED, std::move(type), std::move(identifier));
+        } else {
+          // ('optional' type identifier)
+          child = NodeFactory::create(allocator, Opcode::OPTIONAL, std::move(type), std::move(identifier));
+        }
+      }
+      children.push_back(child);
+    }
+    // ('callable' rettype parameter*)
+    return NodeFactory::create(allocator, Opcode::CALLABLE, &children);
+  }
+
+  Node buildObjectType(IAllocator& allocator, const NodeLocation& location, const ObjectShape* shape) {
+    if ((shape == nullptr) || (shape == &BuiltinFactory::getObjectShape())) {
+      return NodeFactory::create(allocator, Opcode::OBJECT);
+    }
+    Nodes children;
+    if (shape->callable != nullptr) {
+      children.push_back(buildCallable(allocator, location, *shape->callable));
+    }
+    return NodeFactory::create(allocator, location, Opcode::OBJECT, &children);
+  }
+
+  Node buildType(IAllocator& allocator, const NodeLocation& location, const IType& type) {
+    // WIBBLE shapes other than object
+    auto shapes = type.getObjectShapeCount();
+    if (shapes == 0) {
+      return buildPrimitiveType(allocator, location, type.getFlags());
+    }
+    if (shapes == 1) {
+      auto* shape = type.getObjectShape(0);
+      if ((shape == nullptr) || (shape == &BuiltinFactory::getObjectShape())) {
+        return buildPrimitiveType(allocator, location, type.getFlags());
+      }
+      assert(type.getFlags() == ValueFlags::Object); // TODO support complex unions
+      return buildObjectType(allocator, location, shape);
+    }
+    assert(type.getFlags() == ValueFlags::Object); // TODO support complex unions
+    Nodes parts;
+    for (size_t index = 0; index < shapes; ++index) {
+      parts.push_back(buildObjectType(allocator, location, type.getObjectShape(index)));
+    }
+    return NodeFactory::create(allocator, location, Opcode::UNION, &parts);
+  }
 }
 
 egg::ovum::Node egg::ovum::NodeFactory::create(IAllocator& allocator, Opcode opcode) {
@@ -516,22 +612,11 @@ egg::ovum::Node egg::ovum::NodeFactory::createValue(IAllocator& allocator, const
   return createNodeOperand<NodeOperandString>(allocator, Opcode::SVALUE, value);
 }
 
-egg::ovum::Node egg::ovum::NodeFactory::createPrimitiveType(IAllocator& allocator, const NodeLocation& location, ValueFlags flags) {
-  auto opcode = simpleTypeToOpcode(flags);
-  if (opcode != Opcode::END) {
-    // This is a well-known simple type
-    return NodeFactory::create(allocator, opcode);
+egg::ovum::Node egg::ovum::NodeFactory::createType(IAllocator& allocator, const NodeLocation& location, const Type& type) {
+  if (type == nullptr) {
+    return NodeFactory::create(allocator, location, egg::ovum::Opcode::INFERRED, nullptr);
   }
-  Nodes parts;
-  while (flags != ValueFlags::None) {
-    // Construct a vector of all the constituent parts
-    auto top = Bits::topmost(flags);
-    opcode = simpleTypeToOpcode(top);
-    assert(opcode != Opcode::END);
-    parts.push_back(NodeFactory::create(allocator, opcode));
-    flags = Bits::clear(flags, top);
-  }
-  return NodeFactory::create(allocator, location, Opcode::UNION, &parts);
+  return buildType(allocator, location, *type);
 }
 
 egg::ovum::String egg::ovum::Node::toString(const INode* node) {

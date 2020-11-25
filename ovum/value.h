@@ -67,7 +67,6 @@ namespace egg::ovum {
       assert(rhs.validate());
       this->ptr = rhs.ptr;
       assert(this->validate());
-      assert(rhs.validate());
       return *this;
     }
     Value& operator=(Value&& rhs) noexcept {

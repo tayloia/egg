@@ -76,12 +76,8 @@ egg::ovum::Node egg::yolk::EggProgramCompiler::svalue(const egg::ovum::LocationS
 }
 
 egg::ovum::Node egg::yolk::EggProgramCompiler::type(const egg::ovum::LocationSource& location, const egg::ovum::Type& type) {
-  if (type == nullptr) {
-    return this->opcode(location, egg::ovum::Opcode::INFERRED);
-  }
-  // WIBBLE
   auto& allocator = this->context.getAllocator();
-  return egg::ovum::NodeFactory::createPrimitiveType(allocator, { location.line, location.column }, type->getFlags());
+  return egg::ovum::NodeFactory::createType(allocator, { location.line, location.column }, type);
 }
 
 egg::ovum::Node egg::yolk::EggProgramCompiler::identifier(const egg::ovum::LocationSource& location, const egg::ovum::String& id) {

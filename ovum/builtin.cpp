@@ -908,7 +908,7 @@ namespace {
       if (parameters.getPositionalCount() > 0) {
         return this->raiseBuiltin(execution, "does not accept parameters");
       }
-      return ValueFactory::createString(allocator, "WOBBLE");
+      return this->raiseBuiltin(execution, "not yet implemented"); // TODO
     }
   };
 }

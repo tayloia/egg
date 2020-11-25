@@ -326,7 +326,7 @@ namespace {
       return (rhs.getFlags() == this->flags) && rhs.getInner(other) && this->inner->equals(other.get(), compare);
     }
     virtual bool validate() const override {
-      return this->inner.validate();
+      return ValueMutable::validate() && Bits::hasAnySet(this->flags, ValueFlags::FlowControl) && this->inner.validate();
     }
     virtual void toStringBuilder(StringBuilder& sb) const override {
       Print::add(sb, this->flags);
