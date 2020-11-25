@@ -12,6 +12,9 @@ namespace {
   class TypeBase : public NotSoftReferenceCounted<IType> {
     TypeBase(const TypeBase&) = delete;
     TypeBase& operator=(const TypeBase&) = delete;
+  protected:
+    static const Modifiability ReadWriteMutate = Modifiability::Read | Modifiability::Write | Modifiability::Mutate;
+    static const Modifiability ReadWriteMutateDelete = Modifiability::Read | Modifiability::Write | Modifiability::Mutate | Modifiability::Delete;
   private:
     ObjectShape shape;
   public:
@@ -57,13 +60,17 @@ namespace {
   public:
     Type_Array()
       : TypeBase(nullptr, &dotable, &indexable, &iterable),
-        dotable(true),
-        indexable(Type::AnyQ, Type::Int, Modifiability::Read | Modifiability::Write | Modifiability::Mutate),
+        dotable(),
+        indexable(Type::AnyQ, Type::Int, ReadWriteMutate),
         iterable(Type::AnyQ) {
-      this->dotable.add(Type::Int, "length", Modifiability::Read);
+      this->dotable.add(Type::Int, "length", ReadWriteMutate);
     }
     virtual std::pair<std::string, int> toStringPrecedence() const override {
       return { "any?[]", 1 };
+    }
+    virtual String describeValue() const override {
+      // TODO i18n
+      return "Array";
     }
   };
 
@@ -82,9 +89,9 @@ namespace {
     TypeBuilderIndexable indexable;
     KeyValueIterable iterable;
   public:
-    Type_DictionaryBase(Modifiability modifiability, bool closed)
+    Type_DictionaryBase(Modifiability modifiability, const Type& unknownType, Modifiability unknownModifiability)
       : TypeBase(nullptr, &dotable, &indexable, &iterable),
-        dotable(closed),
+        dotable(unknownType, unknownModifiability),
         indexable(Type::AnyQ, Type::String, modifiability),
         iterable() {
     }
@@ -95,10 +102,14 @@ namespace {
     Type_Dictionary& operator=(const Type_Dictionary&) = delete;
   public:
     Type_Dictionary()
-      : Type_DictionaryBase(Modifiability::Read | Modifiability::Write | Modifiability::Mutate | Modifiability::Delete, false) {
+      : Type_DictionaryBase(ReadWriteMutateDelete, Type::AnyQ, ReadWriteMutateDelete) {
     }
     virtual std::pair<std::string, int> toStringPrecedence() const override {
       return { "any?{string}", 0 };
+    }
+    virtual String describeValue() const override {
+      // TODO i18n
+      return "Object";
     }
   };
 
@@ -107,7 +118,7 @@ namespace {
     Type_KeyValue& operator=(const Type_KeyValue&) = delete;
   public:
     Type_KeyValue()
-      : Type_DictionaryBase(Modifiability::Read, true) {
+      : Type_DictionaryBase(Modifiability::Read, nullptr, Modifiability::None) {
       this->dotable.add(Type::String, "key", Modifiability::Read);
       this->dotable.add(Type::AnyQ, "value", Modifiability::Read);
     }

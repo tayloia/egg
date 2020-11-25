@@ -593,9 +593,10 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareDot(const eg
   }
   auto modifiability = dotable->getModifiability(property);
   if (modifiability == egg::ovum::Modifiability::None) {
-    return this->compilerError(where, ltype.describeValue(), " does not support the property '", property, "'");
+    if (dotable->isClosed()) {
+      return this->compilerError(where, ltype.describeValue(), " does not support the property '", property, "'");
+    }
   }
-  // TODO read/write/mutate checks
   return EggProgramNodeFlags::None;
 }
 

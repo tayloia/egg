@@ -89,7 +89,7 @@ namespace egg::ovum {
       virtual void addPositionalParameter(const Type& type, const String& name, IFunctionSignatureParameter::Flags flags) = 0;
       virtual void addNamedParameter(const Type& type, const String& name, IFunctionSignatureParameter::Flags flags) = 0;
       virtual void addProperty(const Type& type, const String& name, Modifiability modifiability) = 0;
-      virtual void defineDotable(bool closed) = 0;
+      virtual void defineDotable(const Type& unknownType, Modifiability unknownModifiability) = 0;
       virtual void defineIndexable(const Type& resultType, const Type& indexType, Modifiability modifiability) = 0;
       virtual void defineIterable(const Type& resultType) = 0;
       virtual Type build() = 0;
@@ -107,22 +107,29 @@ namespace egg::ovum {
     };
     std::map<String, size_t> map;
     std::vector<Property> vec;
-    bool closed;
+    Type unknownType; // the type of unknown properties or null
+    Modifiability unknownModifiability; // the modifiability of unknown properties
   public:
-    explicit TypeBuilderProperties(bool closed)
-      : closed(closed) {
+    TypeBuilderProperties()
+      : unknownType(nullptr),
+        unknownModifiability(Modifiability::None) {
+      // Closed properties (i.e. unknown properties are not allowed)
+    }
+    TypeBuilderProperties(const Type& unknownType, Modifiability unknownModifiability)
+      : unknownType(unknownType),
+        unknownModifiability(unknownModifiability) {
     }
     virtual Type getType(const String& property) const override {
       auto index = this->map.find(property);
       if (index == this->map.end()) {
-        return Type::Void;
+        return this->unknownType;
       }
       return this->vec[index->second].type;
     }
     virtual Modifiability getModifiability(const String& property) const override {
       auto index = this->map.find(property);
       if (index == this->map.end()) {
-        return Modifiability::None;
+        return this->unknownModifiability;
       }
       return this->vec[index->second].modifiability;
     }
@@ -133,7 +140,7 @@ namespace egg::ovum {
       return this->vec.size();
     }
     virtual bool isClosed() const override {
-      return this->closed;
+      return this->unknownModifiability == Modifiability::None;
     }
     bool add(const Type& type, const String& name, Modifiability modifiability) {
       // TODO use std::map::try_emplace()

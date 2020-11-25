@@ -2057,7 +2057,7 @@ Value ProgramDefault::tryMutate(Symbol& symbol, Mutation mutation, const Value& 
   case Type::Assignment::Incompatible:
   case Type::Assignment::BadIntToFloat:
   case Type::Assignment::Unimplemented:
-    return this->raiseFormat("Internal error: Cannot modify ('", mutationToString(mutation), "') '", symbol.name, "' of type '", symbol.type.toString(), "' with a value of type '", value->getRuntimeType().toString(), "'");
+    return this->raiseFormat("Internal error: Cannot apply '", mutationToString(mutation), "' to modify '", symbol.name, "' of type '", symbol.type.toString(), "' with a value of type '", value->getRuntimeType().toString(), "'");
   }
   assert(symbol.validate(false));
   return before;

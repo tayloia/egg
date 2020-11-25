@@ -607,7 +607,7 @@ namespace {
       throw std::logic_error("TypeBuilder::addNamedParameter() called for non-function type");
     }
     virtual void addProperty(const Type& ptype, const String& pname, Modifiability modifiability) override;
-    virtual void defineDotable(bool closed) override;
+    virtual void defineDotable(const Type& unknownType, Modifiability unknownModifiability) override;
     virtual void defineIndexable(const Type& resultType, const Type& indexType, Modifiability modifiability) override;
     virtual void defineIterable(const Type& resultType) override;
     virtual Type build() override {
@@ -672,11 +672,11 @@ namespace {
     }
   }
 
-  void Builder::defineDotable(bool closed) {
+  void Builder::defineDotable(const Type& unknownType, Modifiability unknownModifiability) {
     if (this->properties != nullptr) {
       throw std::logic_error("TypeBuilder::defineDotable() called more than once");
     }
-    this->properties = std::make_unique<TypeBuilderProperties>(closed);
+    this->properties = std::make_unique<TypeBuilderProperties>(unknownType, unknownModifiability);
   }
 
   void Builder::defineIndexable(const Type& resultType, const Type& indexType, Modifiability modifiability) {
