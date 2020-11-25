@@ -6,7 +6,7 @@ namespace egg::ovum {
       virtual Value predicateCallback(const INode& node) = 0;
     };
 
-    static Type getArrayType(); // any?[int] with well-known properties
+    static Type getArrayType(); // any?[] with well-known properties
     static Type getDictionaryType(); // any?[string] with forwarded properties
     static Type getKeyValueType(); // { string key; any? value; }
   };
@@ -30,6 +30,5 @@ namespace egg::ovum {
     static Object createObject(IAllocator& allocator);
     static Object createError(IAllocator& allocator, const LocationSource& location, const String& message);
     static Object createPredicate(IAllocator& allocator, Vanilla::IPredicateCallback& callback, const INode& node);
-    static HardPtr<IVanillaMap<String, Value>> createStringValueMap(IAllocator& allocator);
   };
 }

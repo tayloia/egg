@@ -50,6 +50,27 @@ namespace {
     }
   };
 
+  class Type_Iterator final : public TypeBase {
+    Type_Iterator(const Type_Iterator&) = delete;
+    Type_Iterator& operator=(const Type_Iterator&) = delete;
+  private:
+    TypeBuilderCallable callable;
+  public:
+    explicit Type_Iterator(const Type& rettype)
+      : TypeBase(&callable, nullptr, nullptr, nullptr),
+        callable(rettype, {}) {
+      assert(rettype.hasAnyFlags(ValueFlags::Void));
+    }
+    virtual std::pair<std::string, int> toStringPrecedence() const override {
+      auto retval = this->callable.getReturnType()->toStringPrecedence();
+      return { '(' + retval.first + ')' + '(' + ')' , 0 };
+    }
+    virtual String describeValue() const override {
+      // TODO i18n
+      return "Iterator";
+    }
+  };
+
   class Type_Array final : public TypeBase {
     Type_Array(const Type_Array&) = delete;
     Type_Array& operator=(const Type_Array&) = delete;
@@ -81,7 +102,6 @@ namespace {
     class KeyValueIterable : public IIteratorSignature {
     public:
       virtual Type getType() const override {
-        // This convolution is necessary because 'keyvalue' types are recursively defined
         return Vanilla::getKeyValueType();
       }
     };
@@ -147,7 +167,7 @@ egg::ovum::Type egg::ovum::Vanilla::getKeyValueType() {
 namespace {
   using namespace egg::ovum;
 
-  class VanillaStringValueMap : public SoftReferenceCounted<IVanillaMap<String, Value>> {
+  class VanillaStringValueMap final : public SoftReferenceCounted<IVanillaMap<String, Value>> {
     VanillaStringValueMap(const VanillaStringValueMap&) = delete;
     VanillaStringValueMap& operator=(const VanillaStringValueMap&) = delete;
   private:
@@ -157,8 +177,8 @@ namespace {
     VanillaStringValueMap(IAllocator& allocator)
       : SoftReferenceCounted(allocator) {
     }
-    virtual void softVisitLinks(const Visitor&) const override {
-      // WIBBLE
+    virtual void softVisitLinks(const Visitor& visitor) const override {
+      this->container.softVisitLinks(visitor);
     }
     virtual bool add(const String& key, const Value& value) override {
       return this->container.add(this->allocator, key, value);
@@ -206,9 +226,6 @@ namespace {
     VanillaBase& operator=(const VanillaBase&) = delete;
   public:
     explicit VanillaBase(IAllocator& allocator) : SoftReferenceCounted(allocator) {}
-    virtual void softVisitLinks(const Visitor&) const override {
-      // WIBBLE
-    }
     virtual bool validate() const override {
       return true;
     }
@@ -266,7 +283,67 @@ namespace {
     }
   };
 
-  class VanillaArray : public VanillaBase {
+  class VanillaArrayIterator final : public VanillaBase {
+    VanillaArrayIterator(const VanillaArrayIterator&) = delete;
+    VanillaArrayIterator& operator=(const VanillaArrayIterator&) = delete;
+  private:
+    Type_Iterator type;
+    HardPtr<IObject> array; // WIBBLE SoftPtr
+    Int index;
+    Int length;
+  public:
+    VanillaArrayIterator(IAllocator& allocator, IObject& array)
+      : VanillaBase(allocator),
+        type(TypeFactory::createUnion(allocator, *Type::Void, *Type::AnyQ)),
+        array(&array),
+        index(0),
+        length(0) {
+      assert(this->validate());
+    }
+    virtual void softVisitLinks(const Visitor& visitor) const override {
+      array->softVisitLinks(visitor);
+    }
+    virtual Type getRuntimeType() const override {
+      return Type(&this->type);
+    }
+    virtual Value call(IExecution& execution, const IParameters& parameters) override {
+      if ((parameters.getPositionalCount() > 0) || (parameters.getNamedCount() > 0)) {
+        return execution.raise("Array iterator function does not expect any parameters");
+      }
+      if (this->index < 0) {
+        return Value::Void;
+      }
+      auto vlength = this->array->getProperty(execution, "length");
+      if (vlength.hasFlowControl()) {
+        this->index = -1;
+        return vlength;
+      }
+      Int ilength;
+      if (!vlength->getInt(ilength) || (ilength < 0)) {
+        this->index = -1;
+        return execution.raiseFormat("Array iterator expected 'length' property of array to be non-negative 'int' value, but got ", vlength->toString());
+      }
+      if (index == 0) {
+        this->length = ilength;
+      } else if (this->length != ilength) {
+        this->index = -1;
+        return execution.raise("Array iterator has detected the underlying array has changed size");
+      }
+      if (this->index >= this->length) {
+        this->index = -1;
+        return Value::Void;
+      }
+      auto element = this->array->getIndex(execution, ValueFactory::createInt(execution.getAllocator(), this->index));
+      if (element.hasFlowControl()) {
+        this->index = -1;
+      } else {
+        this->index++;
+      }
+      return element;
+    }
+  };
+
+  class VanillaArray final : public VanillaBase {
     VanillaArray(const VanillaArray&) = delete;
     VanillaArray& operator=(const VanillaArray&) = delete;
   private:
@@ -276,6 +353,11 @@ namespace {
       : VanillaBase(allocator) {
       this->resize(fixed);
       assert(this->validate());
+    }
+    virtual void softVisitLinks(const Visitor& visitor) const override {
+      for (const Slot& slot : this->container) {
+        slot.softVisitLinks(visitor);
+      }
     }
     virtual Type getRuntimeType() const override {
       return Vanilla::getArrayType();
@@ -326,6 +408,10 @@ namespace {
       this->container[u].set(value);
       return Value::Void;
     }
+    virtual Value iterate(IExecution& execution) override {
+      auto object = ObjectFactory::create<VanillaArrayIterator>(execution.getAllocator(), *this);
+      return ValueFactory::create(execution.getAllocator(), object);
+    }
     virtual void toStringBuilder(StringBuilder& sb) const override {
       char separator = '[';
       for (auto& slot : this->container) {
@@ -359,7 +445,7 @@ namespace {
     }
   };
 
-  class VanillaDictionary : public VanillaBase {
+  class VanillaDictionary final : public VanillaBase {
     VanillaDictionary(const VanillaDictionary&) = delete;
     VanillaDictionary& operator=(const VanillaDictionary&) = delete;
   protected:
@@ -369,6 +455,9 @@ namespace {
       : VanillaBase(allocator),
         map(allocator) {
       assert(this->validate());
+    }
+    virtual void softVisitLinks(const Visitor& visitor) const override {
+      this->map.softVisitLinks(visitor);
     }
     virtual Type getRuntimeType() const override {
       return Vanilla::getDictionaryType();
@@ -416,6 +505,9 @@ namespace {
         map(allocator) {
       assert(this->validate());
     }
+    virtual void softVisitLinks(const Visitor& visitor) const override {
+      this->map.softVisitLinks(visitor);
+    }
     virtual Type getRuntimeType() const override {
       return Type::Object;
     }
@@ -457,7 +549,7 @@ namespace {
       assert(this->node != nullptr);
     }
     virtual void softVisitLinks(const Visitor&) const override {
-      // There are no soft link to visit
+      // There are no soft links to visit
     }
     virtual Type getRuntimeType() const override {
       return Type::Object; // WIBBLE

@@ -44,73 +44,77 @@ namespace egg::ovum {
   class Bits {
   public:
     template<typename T>
+    static constexpr std::underlying_type_t<T> underlying(T value) {
+      return static_cast<std::underlying_type_t<T>>(value);
+    }
+    template<typename T>
     static constexpr bool hasAllSet(T value, T bits) {
-      auto a = static_cast<std::underlying_type_t<T>>(value);
-      auto b = static_cast<std::underlying_type_t<T>>(bits);
+      auto a = Bits::underlying(value);
+      auto b = Bits::underlying(bits);
       return (a & b) == b;
     }
     template<typename T>
     static constexpr bool hasAnySet(T value) {
-      auto a = static_cast<std::underlying_type_t<T>>(value);
+      auto a = Bits::underlying(value);
       return a != 0;
     }
     template<typename T>
     static constexpr bool hasAnySet(T value, T bits) {
-      auto a = static_cast<std::underlying_type_t<T>>(value);
-      auto b = static_cast<std::underlying_type_t<T>>(bits);
+      auto a = Bits::underlying(value);
+      auto b = Bits::underlying(bits);
       return (a & b) != 0;
     }
     template<typename T>
     static constexpr bool hasOneSet(T value) {
-      auto a = static_cast<std::underlying_type_t<T>>(value);
+      auto a = Bits::underlying(value);
       return ((a & (a - 1)) == 0) && (a != 0);
     }
     template<typename T>
     static constexpr bool hasOneSet(T value, T bits) {
-      auto a = static_cast<std::underlying_type_t<T>>(value);
-      auto b = static_cast<std::underlying_type_t<T>>(bits);
+      auto a = Bits::underlying(value);
+      auto b = Bits::underlying(bits);
       auto c = a & b;
       return ((c & (c - 1)) == 0) && (c != 0);
     }
     template<typename T>
     static constexpr bool hasZeroOrOneSet(T value) {
-      auto a = static_cast<std::underlying_type_t<T>>(value);
+      auto a = Bits::underlying(value);
       return (a & (a - 1)) == 0;
     }
     template<typename T>
     static constexpr bool hasZeroOrOneSet(T value, T bits) {
-      auto a = static_cast<std::underlying_type_t<T>>(value);
-      auto b = static_cast<std::underlying_type_t<T>>(bits);
+      auto a = Bits::underlying(value);
+      auto b = Bits::underlying(bits);
       auto c = a & b;
       return (c & (c - 1)) == 0;
     }
     template<typename T>
     static constexpr T mask(T value, T bits) {
-      auto a = static_cast<std::underlying_type_t<T>>(value);
-      auto b = static_cast<std::underlying_type_t<T>>(bits);
+      auto a = Bits::underlying(value);
+      auto b = Bits::underlying(bits);
       return static_cast<T>(a & b);
     }
     template<typename T>
     static constexpr T set(T value, T bits) {
-      auto a = static_cast<std::underlying_type_t<T>>(value);
-      auto b = static_cast<std::underlying_type_t<T>>(bits);
+      auto a = Bits::underlying(value);
+      auto b = Bits::underlying(bits);
       return static_cast<T>(a | b);
     }
     template<typename T>
     static constexpr T clear(T value, T bits) {
-      auto a = static_cast<std::underlying_type_t<T>>(value);
-      auto b = static_cast<std::underlying_type_t<T>>(bits);
+      auto a = Bits::underlying(value);
+      auto b = Bits::underlying(bits);
       return static_cast<T>(a & ~b);
     }
     template<typename T>
     static constexpr T invert(T value, T bits) {
-      auto a = static_cast<std::underlying_type_t<T>>(value);
-      auto b = static_cast<std::underlying_type_t<T>>(bits);
+      auto a = Bits::underlying(value);
+      auto b = Bits::underlying(bits);
       return static_cast<T>(a ^ b);
     }
     template<typename T>
     static T topmost(T value) {
-      auto a = static_cast<std::underlying_type_t<T>>(value);
+      auto a = Bits::underlying(value);
       if (a <= 0) {
         return static_cast<T>(0);
       }

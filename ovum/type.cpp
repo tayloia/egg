@@ -693,85 +693,35 @@ namespace {
     this->iterable = std::make_unique<TypeBuilderIterable>(resultType);
   }
 
-  class FunctionBuilder : public Builder, public IFunctionSignature {
+  class FunctionBuilder : public Builder {
     FunctionBuilder(const FunctionBuilder&) = delete;
     FunctionBuilder& operator=(const FunctionBuilder&) = delete;
   private:
-    class Parameter : public IFunctionSignatureParameter {
-    private:
-      Type type;
-      String name;
-      size_t position; // SIZE_MAX for named
-      Flags flags;
-    public:
-      Parameter(const Type& type, const String& name, Flags flags, size_t position)
-        : type(type),
-          name(name),
-          position(position),
-          flags(flags) {
-      }
-      virtual String getName() const override {
-        return this->name;
-      }
-      virtual Type getType() const override {
-        return this->type;
-      }
-      virtual Flags getFlags() const override {
-        return this->flags;
-      }
-      virtual size_t getPosition() const override {
-        return this->position;
-      }
-    };
-    Type rettype;
-    std::vector<Parameter> positional;
-    std::vector<Parameter> named;
+    TypeBuilderCallable callable;
   public:
     FunctionBuilder(IAllocator& allocator, const Type& rettype, const String& name)
       : Builder(allocator, name),
-        rettype(rettype) {
+        callable(rettype, name) {
       assert(rettype != nullptr);
     }
     virtual void addPositionalParameter(const Type& ptype, const String& pname, IFunctionSignatureParameter::Flags pflags) {
       if (this->built) {
         throw std::logic_error("FunctionBuilder::addPositionalParameter() called after type is built");
       }
-      auto pindex = this->positional.size();
-      this->positional.emplace_back(ptype, pname, pflags, pindex);
+      this->callable.addPositionalParameter(ptype, pname, pflags);
     }
     virtual void addNamedParameter(const Type& ptype, const String& pname, IFunctionSignatureParameter::Flags pflags) {
       if (this->built) {
         throw std::logic_error("FunctionBuilder::addNamedParameter() called after type is built");
       }
-      this->named.emplace_back(ptype, pname, pflags, SIZE_MAX);
-    }
-    virtual String getFunctionName() const override {
-      return this->name;
-    }
-    virtual Type getReturnType() const override {
-      return this->rettype;
-    }
-    virtual size_t getParameterCount() const override {
-      if (!this->built) {
-        throw std::logic_error("FunctionBuilder::getParameterCount() called before type is built");
-      }
-      return this->positional.size() + this->named.size();
-    }
-    virtual const IFunctionSignatureParameter& getParameter(size_t index) const override {
-      if (!this->built) {
-        throw std::logic_error("FunctionBuilder::getParameter() called before type is built");
-      }
-      if (index < this->positional.size()) {
-        return this->positional[index];
-      }
-      return this->named.at(index - this->positional.size());
+      this->callable.addNamedParameter(ptype, pname, pflags);
     }
     virtual Type build() override {
       if (this->built) {
         throw std::logic_error("FunctionBuilder::build() called more than once");
       }
       this->built = true;
-      return this->allocator.make<Built, Type>(*this, this);
+      return this->allocator.make<Built, Type>(*this, &this->callable);
     }
   };
 
@@ -814,11 +764,10 @@ namespace {
     return Type::Assignability::Always;
   }
 
-  Type::Assignability queryAssignableType(const IType& lhs, const IType& rhs) {
+  Type::Assignability queryAssignablePrimitive(const IType& lhs, const IType& rhs, ValueFlags lflags, ValueFlags rflags) {
     assert(lhs.validate());
     assert(rhs.validate());
-    auto lflags = lhs.getFlags();
-    auto rflags = rhs.getFlags();
+    assert(Bits::hasOneSet(rflags, ValueFlags::AnyQ));
     EGG_WARNING_SUPPRESS_SWITCH_BEGIN();
     switch (rflags) {
     case ValueFlags::Null:
@@ -855,9 +804,38 @@ namespace {
         return Type::Assignability::Sometimes;
       }
       break;
+    default:
+      assert(0); // not a type within 'any?'
+      break;
     }
     EGG_WARNING_SUPPRESS_SWITCH_END();
     return Type::Assignability::Never;
+  }
+
+  Type::Assignability queryAssignableType(const IType& lhs, const IType& rhs) {
+    assert(lhs.validate());
+    assert(rhs.validate());
+    auto lflags = lhs.getFlags();
+    auto rflags = rhs.getFlags();
+    if (Bits::hasOneSet(rflags, ValueFlags::AnyQ)) {
+      return queryAssignablePrimitive(lhs, rhs, lflags, rflags);
+    }
+    auto rflag = Bits::topmost(rflags);
+    assert(rflag != ValueFlags::None);
+    auto assignability = queryAssignablePrimitive(lhs, rhs, lflags, rflag);
+    if (assignability == Type::Assignability::Sometimes) {
+      return Type::Assignability::Sometimes;
+    }
+    rflags = Bits::clear(rflags, rflag);
+    rflag = Bits::topmost(rflags);
+    while (rflag != ValueFlags::None) {
+      if (queryAssignablePrimitive(lhs, rhs, lflags, rflag) != assignability) {
+        return Type::Assignability::Sometimes;
+      }
+      rflags = Bits::clear(rflags, rflag);
+      rflag = Bits::topmost(rflags);
+    }
+    return assignability;
   }
 }
 

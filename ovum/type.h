@@ -55,7 +55,7 @@ namespace egg::ovum {
     bool hasAnyFlags(ValueFlags flags) const {
       return Bits::hasAnySet(this->get()->getFlags(), flags);
     }
-    enum class Assignability { Readonly, Never, Sometimes, Always };
+    enum class Assignability { Never, Sometimes, Always };
     Assignability queryAssignable(const IType& from) const;
     const IFunctionSignature* queryCallable() const;
     const IPropertySignature* queryDotable() const;
@@ -95,6 +95,71 @@ namespace egg::ovum {
       virtual Type build() = 0;
   };
   using TypeBuilder = HardPtr<ITypeBuilder>;
+
+  class TypeBuilderParameter : public IFunctionSignatureParameter {
+  private:
+    Type type;
+    String name;
+    size_t position; // SIZE_MAX for named
+    Flags flags;
+  public:
+    TypeBuilderParameter(const Type& type, const String& name, Flags flags, size_t position)
+      : type(type),
+        name(name),
+        position(position),
+        flags(flags) {
+    }
+    virtual String getName() const override {
+      return this->name;
+    }
+    virtual Type getType() const override {
+      return this->type;
+    }
+    virtual Flags getFlags() const override {
+      return this->flags;
+    }
+    virtual size_t getPosition() const override {
+      return this->position;
+    }
+  };
+
+  class TypeBuilderCallable : public IFunctionSignature {
+    TypeBuilderCallable(const TypeBuilderCallable&) = delete;
+    TypeBuilderCallable& operator=(const TypeBuilderCallable&) = delete;
+  private:
+    Type rettype;
+    String name;
+    std::vector<TypeBuilderParameter> positional;
+    std::vector<TypeBuilderParameter> named;
+  public:
+    TypeBuilderCallable(const Type& rettype, const String& name)
+      : rettype(rettype),
+        name(name) {
+      assert(rettype != nullptr);
+    }
+    virtual String getFunctionName() const override {
+      return this->name;
+    }
+    virtual Type getReturnType() const override {
+      return this->rettype;
+    }
+    virtual size_t getParameterCount() const override {
+      return this->positional.size() + this->named.size();
+    }
+    virtual const IFunctionSignatureParameter& getParameter(size_t index) const override {
+      if (index < this->positional.size()) {
+        return this->positional[index];
+      }
+      return this->named.at(index - this->positional.size());
+    }
+    void addPositionalParameter(const Type& ptype, const String& pname, IFunctionSignatureParameter::Flags pflags) {
+      auto pindex = this->positional.size();
+      this->positional.emplace_back(ptype, pname, pflags, pindex);
+    }
+    void addNamedParameter(const Type& ptype, const String& pname, IFunctionSignatureParameter::Flags pflags) {
+      this->named.emplace_back(ptype, pname, pflags, SIZE_MAX);
+    }
+  };
 
   class TypeBuilderProperties : public IPropertySignature {
     TypeBuilderProperties(const TypeBuilderProperties&) = delete;

@@ -139,8 +139,6 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareAssign(const
   case EggProgramAssign::Equal:
     // Simple assignment
     switch (ltype.queryAssignable(*rtype)) {
-    case egg::ovum::Type::Assignability::Readonly:
-      return this->compilerError(where, ltype.describeValue(), " cannot be assigned to");
     case egg::ovum::Type::Assignability::Never:
       return this->compilerError(where, ltype.describeValue(), " cannot be assigned a value of type '", rtype.toString(), "'");
     case egg::ovum::Type::Assignability::Sometimes:
@@ -206,8 +204,6 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareAssign(const
     break;
   case EggProgramAssign::NullCoalescing:
     switch (ltype.queryAssignable(*rtype)) {
-    case egg::ovum::Type::Assignability::Readonly:
-      return this->compilerError(where, ltype.describeValue(), " cannot be modified");
     case egg::ovum::Type::Assignability::Never:
       return this->compilerError(where, ltype.describeValue(), " cannot be assigned a value of type '", rtype.toString(), "'");
     case egg::ovum::Type::Assignability::Sometimes:
@@ -385,9 +381,6 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareReturn(const
   if (value == nullptr) {
     // No return value
     switch (rettype.queryAssignable(*egg::ovum::Type::Void)) {
-    case egg::ovum::Type::Assignability::Readonly:
-      assert(false);
-      EGG_FALLTHROUGH
     case egg::ovum::Type::Assignability::Never:
       return this->compilerError(where, "Expected 'return' statement with a value of type '", rettype.toString(), "'");
     case egg::ovum::Type::Assignability::Sometimes:
@@ -401,9 +394,6 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareReturn(const
   }
   auto rtype = value->getType();
   switch (rettype.queryAssignable(*rtype)) {
-  case egg::ovum::Type::Assignability::Readonly:
-    assert(false);
-    EGG_FALLTHROUGH
   case egg::ovum::Type::Assignability::Never:
     return this->compilerError(where, "Expected 'return' statement with a value of type '", rettype.toString(), "', but got '", rtype.toString(), "' instead");
   case egg::ovum::Type::Assignability::Sometimes:
@@ -490,9 +480,6 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareYield(const 
   egg::ovum::Type rettype{ this->scopeFunction->rettype };
   assert(rettype != nullptr);
   switch (rettype.queryAssignable(*rtype)) {
-  case egg::ovum::Type::Assignability::Readonly:
-    assert(false);
-    EGG_FALLTHROUGH
   case egg::ovum::Type::Assignability::Never:
     return this->compilerError(where, "Expected 'yield' statement with a value of type '", rettype.toString(), "', but got '", rtype.toString(), "' instead");
   case egg::ovum::Type::Assignability::Sometimes:
@@ -738,9 +725,6 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::typeCheck(const egg
     symbol->setInferredType(ltype);
   }
   switch (ltype.queryAssignable(*rtype)) {
-  case egg::ovum::Type::Assignability::Readonly:
-    assert(false);
-    EGG_FALLTHROUGH
   case egg::ovum::Type::Assignability::Never:
     return this->compilerError(where, "Cannot initialize '", name, "' of type '", ltype.toString(), "' with a value of type '", rtype.toString(), "'");
   case egg::ovum::Type::Assignability::Sometimes:

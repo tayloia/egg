@@ -114,5 +114,11 @@ namespace egg::ovum {
         visitor(key, this->map.at(key));
       }
     }
+    void softVisitLinks(const ICollectable::Visitor& visitor) const {
+      // Iterate in fastest order
+      for (auto& kv : this->map) {
+        kv.second.softVisitLinks(visitor);
+      }
+    }
   };
 }
