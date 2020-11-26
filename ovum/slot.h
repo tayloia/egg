@@ -35,10 +35,64 @@ namespace egg::ovum {
     virtual void softVisitLinks(const Visitor&) const override;
   };
 
+  class SlotArray {
+    SlotArray(const Slot&) = delete;
+    SlotArray& operator=(const SlotArray&) = delete;
+  private:
+    std::vector<std::unique_ptr<Slot>> vec; // Address stable
+  public:
+    explicit SlotArray(size_t size) : vec(size) {
+    };
+    bool empty() const {
+      return this->vec.empty();
+    }
+    size_t length() const {
+      return this->vec.size();
+    }
+    Slot* get(size_t index) const {
+      // Returns the address of the slot or nullptr if not present
+      if (index < this->vec.size()) {
+        return this->vec[index].get();
+      }
+      return nullptr;
+    }
+    Slot* set(IAllocator& allocator, size_t index, const Value& value) {
+      // Updates a slot
+      if (index < this->vec.size()) {
+        auto& ptr = this->vec[index];
+        if (ptr == nullptr) {
+          ptr = std::make_unique<Slot>(allocator, value);
+        } else {
+          ptr->set(value);
+        }
+        return ptr.get();
+      }
+      return nullptr;
+    }
+    void resize(IAllocator& allocator, size_t size) {
+      auto before = this->vec.size();
+      this->vec.resize(size);
+      while (before < size) {
+        this->vec[before++] = std::make_unique<Slot>(allocator, Value::Null);
+      }
+    }
+    void foreach(std::function<void(const Slot& slot)> visitor) const {
+      // Iterate in order
+      for (auto& entry : this->vec) {
+        visitor(*entry);
+      }
+    }
+    void softVisitLinks(const ICollectable::Visitor& visitor) const {
+      for (auto& entry : this->vec) {
+        entry->softVisitLinks(visitor);
+      }
+    }
+  };
+
   template<typename K>
   class SlotMap {
-    SlotMap(const Slot&) = delete;
-    SlotMap& operator=(const Slot&) = delete;
+    SlotMap(const SlotMap&) = delete;
+    SlotMap& operator=(const SlotMap&) = delete;
   private:
     std::unordered_map<K, Slot> map;
     std::vector<K> vec; // In insertion order
@@ -53,6 +107,14 @@ namespace egg::ovum {
     bool contains(const K& key) const {
       // Returns true iff the value exists
       return this->map.count(key) > 0;
+    }
+    const Slot* getByIndex(size_t index, K& key) const {
+      // Returns the address of the map value or nullptr if not present
+      if (index < this->vec.size()) {
+        key = this->vec[index];
+        return this->getOrNull(key);
+      }
+      return nullptr;
     }
     Slot* getOrNull(const K& key) {
       // Returns the address of the map value or nullptr if not present

@@ -138,7 +138,7 @@ egg::ovum::ILogger::Severity egg::yolk::EggProgram::execute(IEggEngineContext& c
     egg::ovum::Value exception;
     if (result->getInner(exception)) {
       // We've made sure we don't re-print a rethrown exception
-      context.log(egg::ovum::ILogger::Source::Runtime, egg::ovum::ILogger::Severity::Error, exception->toString().toUTF8());
+      context.log(egg::ovum::ILogger::Source::Runtime, egg::ovum::ILogger::Severity::Error, exception.readable());
     }
     return egg::ovum::ILogger::Severity::Error;
   }

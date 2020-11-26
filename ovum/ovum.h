@@ -16,6 +16,7 @@
 #include "ovum/hardptr.h"
 #include "ovum/softptr.h"
 #include "ovum/memory.h"
+#include "ovum/print.h"
 #include "ovum/string.h"
 #include "ovum/error.h"
 #include "ovum/arithmetic.h"

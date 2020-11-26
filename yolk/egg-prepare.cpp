@@ -23,7 +23,7 @@ namespace {
         if (expected == egg::ovum::ValueFlags::Null) {
           context.compilerWarning(where, "Expected ", side, " of '", EggProgram::binaryToString(op), "' operator to be possibly 'null', but got '", type.toString(), "' instead");
         } else {
-          auto readable = egg::ovum::Print::toString(expected).replace("|", "' or '");
+          auto readable = egg::ovum::StringBuilder::concat(expected).replace("|", "' or '");
           prepared = context.compilerError(where, "Expected ", side, " of '", EggProgram::binaryToString(op), "' operator to be '", readable, "', but got '", type.toString(), "' instead");
         }
       }

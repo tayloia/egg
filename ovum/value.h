@@ -35,12 +35,7 @@ namespace egg::ovum {
     virtual Type getRuntimeType() const = 0;
     virtual bool equals(const IValue& rhs, ValueCompare compare) const = 0;
     virtual bool validate() const = 0;
-    virtual void toStringBuilder(StringBuilder& sb) const = 0;
-    String toString() const {
-      StringBuilder sb;
-      this->toStringBuilder(sb);
-      return sb.str();
-    }
+    virtual void print(Printer& printer) const = 0;
   };
 
   class Value {
@@ -94,6 +89,7 @@ namespace egg::ovum {
       return p.equals(q, compare);
     }
     // Debugging
+    std::string readable() const;
     bool validate() const;
     // Helpers
     bool hasAnyFlags(ValueFlags flags) const {

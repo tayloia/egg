@@ -241,8 +241,8 @@ namespace {
     virtual Value iterate(IExecution& execution) override {
       return this->unsupported(execution, "iteration");
     }
-    virtual void toStringBuilder(StringBuilder& sb) const override {
-      sb.add("<string-", this->member.getName(), '>');
+    virtual void print(Printer& printer) const override {
+      printer << "<string-" << this->member.getName() << '>';
     }
   private:
     template<typename... ARGS>
@@ -362,7 +362,7 @@ namespace {
         if (index > 0) {
           sb.add(separator);
         }
-        value->toStringBuilder(sb);
+        value->print(sb);
       }
       return execution.makeValue(sb.str());
     }
@@ -795,8 +795,8 @@ namespace {
       // TODO
       assert(false);
     }
-    virtual void toStringBuilder(StringBuilder& sb) const override {
-      sb.add('<', this->name, '>');
+    virtual void print(Printer& printer) const override {
+      printer << '<' << this->name << '>';
     }
     virtual Type getRuntimeType() const override {
       return Type(this->type.get());
@@ -819,8 +819,8 @@ namespace {
     virtual void softVisitLinks(const Visitor&) const override {
       // There are no soft links to visit
     }
-    virtual void toStringBuilder(StringBuilder& sb) const override {
-      sb.add(this->name);
+    virtual void print(Printer& printer) const override {
+      printer.write(this->name);
     }
     virtual Type getRuntimeType() const override {
       return Type(this->type.get());
@@ -863,7 +863,7 @@ namespace {
       StringBuilder sb;
       auto n = parameters.getPositionalCount();
       for (size_t i = 0; i < n; ++i) {
-        sb.add(parameters.getPositional(i)->toString());
+        parameters.getPositional(i)->print(sb);
       }
       execution.print(sb.toUTF8());
       return Value::Void;
@@ -886,7 +886,7 @@ namespace {
       StringBuilder sb;
       auto n = parameters.getPositionalCount();
       for (size_t i = 0; i < n; ++i) {
-        sb.add(parameters.getPositional(i)->toString());
+        parameters.getPositional(i)->print(sb);
       }
       return ValueFactory::createString(allocator, sb.str());
     }

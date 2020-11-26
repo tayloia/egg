@@ -6,4 +6,4 @@ print(a);
 ///>[null,null,null]
 a[1] = "hello";
 print(a);
-///>[null,hello,null]
+///>[null,"hello",null]

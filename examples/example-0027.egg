@@ -4,4 +4,4 @@ for (var i : o) {
 }
 ///>{key:a,value:1}
 ///>{key:b,value:2.0}
-///>{key:c,value:three}
+///>{key:c,value:"three"}

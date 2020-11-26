@@ -11,6 +11,7 @@ namespace egg::ovum {
   struct NodeLocation;
   class Error;
   class Node;
+  class Printer;
   class String;
   class StringBuilder;
   class Type;
@@ -277,7 +278,6 @@ namespace egg::ovum {
     virtual Value setPointee(IExecution& execution, const Value& value) = 0;
     virtual Value mutPointee(IExecution& execution, Mutation mutation, const Value& value) = 0;
     virtual Value iterate(IExecution& execution) = 0;
-    virtual void toStringBuilder(StringBuilder& sb) const = 0;
-    String toString() const;
+    virtual void print(Printer& printer) const = 0;
   };
 }

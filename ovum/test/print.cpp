@@ -4,14 +4,13 @@ namespace {
   template<typename T>
   std::string print(T value) {
     std::stringstream ss;
-    egg::ovum::Print::write(ss, value);
+    egg::ovum::Print::write(ss, value, egg::ovum::Print::Options::DEFAULT);
     return ss.str();
   }
 }
 
 #define CHECK(value, expected) \
-  ASSERT_EQ(expected, print(value)); \
-  ASSERT_STRING(expected, egg::ovum::Print::toString(value))
+  ASSERT_EQ(expected, print(value))
 
 TEST(TestPrint, Null) {
   CHECK(nullptr, "null");
@@ -56,8 +55,6 @@ TEST(TestPrint, Double) {
 }
 
 TEST(TestPrint, String) {
-  CHECK("", "");
-  CHECK("hello", "hello");
   CHECK(std::string(), "");
   CHECK(std::string("hello"), "hello");
   CHECK(egg::ovum::String(), "");

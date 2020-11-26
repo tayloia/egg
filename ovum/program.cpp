@@ -245,8 +245,8 @@ namespace {
     virtual void softVisitLinks(const Visitor& visitor) const override {
       this->captured.visit(visitor);
     }
-    virtual void toStringBuilder(StringBuilder& sb) const override {
-      sb.add("<user-function>");
+    virtual void print(Printer& printer) const override {
+      printer << "<user-function>";
     }
     virtual Type getRuntimeType() const override {
       return this->type;
@@ -503,7 +503,7 @@ namespace {
         return Value::Void;
       }
       auto str = OperatorProperties::str(node.getOperator());
-      auto exception = this->raiseLocation(source, "Assertion is untrue: ", lhs->toString(), ' ', str, ' ', rhs->toString());
+      auto exception = this->raiseLocation(source, "Assertion is untrue: ", lhs.readable(), ' ', str, ' ', rhs.readable());
       Object error;
       if (exception->getObject(error)) {
         // Augment the exception with the actual evaluation
@@ -621,8 +621,10 @@ namespace {
       if (retval.hasAnyFlags(ValueFlags::FlowControl | ValueFlags::Void)) {
         return retval;
       }
-      auto message = StringBuilder().add("Discarding call return value: '", retval->toString(), "'").toUTF8();
-      this->log(ILogger::Source::Runtime, ILogger::Severity::Warning, message);
+      StringBuilder sb;
+      sb.add("Discarding call return value: ");
+      retval->print(sb);
+      this->log(ILogger::Source::Runtime, ILogger::Severity::Warning, sb.toUTF8());
       return Value::Void;
     }
     Value statementDeclare(Block& block, const INode& node) {

@@ -2,7 +2,6 @@
 #include "ovum/dictionary.h"
 #include "ovum/node.h"
 #include "ovum/slot.h"
-#include "ovum/print.h"
 #include "ovum/builtin.h"
 #include "ovum/vanilla.h"
 
@@ -167,6 +166,64 @@ egg::ovum::Type egg::ovum::Vanilla::getKeyValueType() {
 namespace {
   using namespace egg::ovum;
 
+  class VanillaValueArray final : public SoftReferenceCounted<IVanillaArray<Value>> {
+    VanillaValueArray(const VanillaValueArray&) = delete;
+    VanillaValueArray& operator=(const VanillaValueArray&) = delete;
+  private:
+    using Container = SlotArray;
+    Container container;
+  public:
+    VanillaValueArray(IAllocator& allocator, size_t length)
+      : SoftReferenceCounted(allocator),
+        container(length) {
+      assert(this->validate());
+    }
+    virtual void softVisitLinks(const Visitor& visitor) const override {
+      this->container.softVisitLinks(visitor);
+    }
+    virtual bool get(size_t index, Value& value) const override {
+      auto* slot = this->container.get(index);
+      if (slot != nullptr) {
+        auto underlying = slot->get();
+        value = (underlying == nullptr) ? Value::Void : Value(*underlying);
+        return true;
+      }
+      return false;
+    }
+    virtual bool set(size_t index, const Value& value) override {
+      return this->container.set(this->allocator, index, value) != nullptr;
+    }
+    virtual Value mut(size_t index, Mutation mutation, const Value& value) override {
+      auto slot = this->container.get(index);
+      if (slot == nullptr) {
+        return ValueFactory::createThrowString(this->allocator, "Array does not have element ", index);
+      }
+      Value before;
+      auto retval = slot->mutate(Type::AnyQ, mutation, value, before);
+      if (retval != Type::Assignment::Success) {
+        return ValueFactory::createThrowString(this->allocator, "Cannot mutate array value: WOBBLE");
+      }
+      return before;
+    }
+    virtual size_t length() const override {
+      return this->container.length();
+    }
+    virtual bool resize(size_t size) override {
+      this->container.resize(this->allocator, size);
+      return true;
+    }
+    void print(Printer& printer, char& separator) const {
+      this->container.foreach([&](const Slot& slot) {
+        printer << separator;
+        auto* value = slot.get();
+        if (value != nullptr) {
+          printer.write(Value(*value));
+        }
+        separator = ',';
+      });
+    }
+  };
+
   class VanillaStringValueMap final : public SoftReferenceCounted<IVanillaMap<String, Value>> {
     VanillaStringValueMap(const VanillaStringValueMap&) = delete;
     VanillaStringValueMap& operator=(const VanillaStringValueMap&) = delete;
@@ -184,9 +241,10 @@ namespace {
       return this->container.add(this->allocator, key, value);
     }
     virtual bool get(const String& key, Value& value) const override {
-      auto ref = this->container.getOrNull(key);
-      if (ref != nullptr) {
-        value = Value(*ref->get());
+      auto slot = this->container.getOrNull(key);
+      if (slot != nullptr) {
+        auto underlying = slot->get();
+        value = (underlying == nullptr) ? Value::Void : Value(*underlying);
         return true;
       }
       return false;
@@ -209,14 +267,26 @@ namespace {
     virtual bool del(const String& key) override {
       return this->container.remove(key);
     }
-    void toString(StringBuilder& sb, char& separator) const {
+    size_t length() const {
+      return this->container.length();
+    }
+    bool getKeyValue(size_t index, String& key, Value& value) const {
+      auto slot = this->container.getByIndex(index, key);
+      if (slot != nullptr) {
+        auto underlying = slot->get();
+        value = (underlying == nullptr) ? Value::Void : Value(*underlying);
+        return true;
+      }
+      return false;
+    }
+    void print(Printer& printer, char& separator) const {
       this->container.foreach([&](const String& key, const Slot& slot) {
         auto* value = slot.get();
+        printer << separator << key.toUTF8() << ':';
         if (value != nullptr) {
-          sb.add(separator, key, ':');
-          Print::add(sb, Value(*value));
-          separator = ',';
+          printer.write(Value(*value));
         }
+        separator = ',';
       });
     }
   };
@@ -228,9 +298,6 @@ namespace {
     explicit VanillaBase(IAllocator& allocator) : SoftReferenceCounted(allocator) {}
     virtual bool validate() const override {
       return true;
-    }
-    virtual void toStringBuilder(StringBuilder& sb) const override {
-      sb.add('<', this->getRuntimeType().toString(), '>');
     }
     virtual Value call(IExecution& execution, const IParameters&) override {
       return execution.raise(this->trailing("does not support calling with '()'"));
@@ -277,87 +344,78 @@ namespace {
     virtual Value iterate(IExecution& execution) override {
       return execution.raise(this->trailing("does not support iteration"));
     }
+    virtual void print(Printer& printer) const override {
+      printer << '<' << this->getRuntimeType().toString() << '>';
+    }
   protected:
     virtual String trailing(const char* suffix) const {
       return StringBuilder::concat(this->getRuntimeType().describeValue(), " ", suffix);
     }
   };
 
-  class VanillaArrayIterator final : public VanillaBase {
-    VanillaArrayIterator(const VanillaArrayIterator&) = delete;
-    VanillaArrayIterator& operator=(const VanillaArrayIterator&) = delete;
-  private:
-    Type_Iterator type;
-    HardPtr<IObject> array; // WIBBLE SoftPtr
-    Int index;
-    Int length;
+  class VanillaIterable : public VanillaBase {
+    VanillaIterable(const VanillaIterable&) = delete;
+    VanillaIterable& operator=(const VanillaIterable&) = delete;
   public:
-    VanillaArrayIterator(IAllocator& allocator, IObject& array)
-      : VanillaBase(allocator),
-        type(TypeFactory::createUnion(allocator, *Type::Void, *Type::AnyQ)),
-        array(&array),
-        index(0),
-        length(0) {
+    explicit VanillaIterable(IAllocator& allocator) : VanillaBase(allocator) {}
+    struct State {
+      Int a;
+      Int b;
+    };
+    virtual State iterateStart(IExecution& execution) const = 0;
+    virtual Value iterateNext(IExecution& execution, State& state) const = 0;
+    Value createIterator(IExecution& execution, const Type& elementType);
+  };
+
+  class VanillaIterator final : public VanillaBase {
+    VanillaIterator(const VanillaIterator&) = delete;
+    VanillaIterator& operator=(const VanillaIterator&) = delete;
+  private:
+    HardPtr<VanillaIterable> container; // WIBBLE SoftPtr
+    Type_Iterator type;
+    VanillaIterable::State state;
+  public:
+    VanillaIterator(IExecution& execution, VanillaIterable& container, const Type& rettype)
+      : VanillaBase(execution.getAllocator()),
+        container(&container),
+        type(rettype),
+        state(container.iterateStart(execution)) {
       assert(this->validate());
     }
     virtual void softVisitLinks(const Visitor& visitor) const override {
-      array->softVisitLinks(visitor);
+      this->container->softVisitLinks(visitor);
     }
     virtual Type getRuntimeType() const override {
       return Type(&this->type);
     }
     virtual Value call(IExecution& execution, const IParameters& parameters) override {
       if ((parameters.getPositionalCount() > 0) || (parameters.getNamedCount() > 0)) {
-        return execution.raise("Array iterator function does not expect any parameters");
+        return execution.raise("Iterator function does not expect any parameters");
       }
-      if (this->index < 0) {
-        return Value::Void;
-      }
-      auto vlength = this->array->getProperty(execution, "length");
-      if (vlength.hasFlowControl()) {
-        this->index = -1;
-        return vlength;
-      }
-      Int ilength;
-      if (!vlength->getInt(ilength) || (ilength < 0)) {
-        this->index = -1;
-        return execution.raiseFormat("Array iterator expected 'length' property of array to be non-negative 'int' value, but got ", vlength->toString());
-      }
-      if (index == 0) {
-        this->length = ilength;
-      } else if (this->length != ilength) {
-        this->index = -1;
-        return execution.raise("Array iterator has detected the underlying array has changed size");
-      }
-      if (this->index >= this->length) {
-        this->index = -1;
-        return Value::Void;
-      }
-      auto element = this->array->getIndex(execution, ValueFactory::createInt(execution.getAllocator(), this->index));
-      if (element.hasFlowControl()) {
-        this->index = -1;
-      } else {
-        this->index++;
-      }
-      return element;
+      return this->container->iterateNext(execution, this->state);
     }
   };
 
-  class VanillaArray final : public VanillaBase {
+  Value VanillaIterable::createIterator(IExecution& execution, const Type& elementType) {
+    assert(elementType != nullptr);
+    auto rettype = TypeFactory::createUnion(execution.getAllocator(), *Type::Void, *elementType);
+    Object iterator(*allocator.create<VanillaIterator>(0, execution, *this, rettype));
+    return ValueFactory::create(allocator, iterator);
+  }
+
+  class VanillaArray final : public VanillaIterable {
     VanillaArray(const VanillaArray&) = delete;
     VanillaArray& operator=(const VanillaArray&) = delete;
   private:
-    std::vector<Slot> container;
+    VanillaValueArray array;
   public:
-    VanillaArray(IAllocator& allocator, size_t fixed)
-      : VanillaBase(allocator) {
-      this->resize(fixed);
+    VanillaArray(IAllocator& allocator, size_t length)
+      : VanillaIterable(allocator),
+        array(allocator, length) {
       assert(this->validate());
     }
     virtual void softVisitLinks(const Visitor& visitor) const override {
-      for (const Slot& slot : this->container) {
-        slot.softVisitLinks(visitor);
-      }
+      this->array.softVisitLinks(visitor);
     }
     virtual Type getRuntimeType() const override {
       return Vanilla::getArrayType();
@@ -365,7 +423,7 @@ namespace {
     virtual Value getProperty(IExecution& execution, const String& property) override {
       Value value;
       if (property == "length") {
-        return ValueFactory::createInt(this->allocator, Int(this->container.size()));
+        return ValueFactory::createInt(this->allocator, Int(this->array.length()));
       }
       return execution.raiseFormat("Array does not have property: '", property, "'");
     }
@@ -378,7 +436,9 @@ namespace {
         if ((length < 0) || (length > 0x7FFFFFFF)) {
           return execution.raiseFormat("Invalid array length: ", length);
         }
-        this->resize(size_t(length));
+        if (!this->array.resize(size_t(length))) {
+          return execution.raiseFormat("Unable to resize array to length ", length);
+        }
         return Value::Void;
       }
       return execution.raiseFormat("Array does not have property: '", property, "'");
@@ -388,71 +448,67 @@ namespace {
       if (!index->getInt(i)) {
         return execution.raiseFormat("Array index was expected to be an 'int', not '", index->getRuntimeType().toString(), "'");
       }
-      auto u = size_t(i);
-      if (u >= this->container.size()) {
-        return execution.raiseFormat("Invalid array index for an array with ", this->container.size(), " element(s): ", i);
+      Value value;
+      if (!this->array.get(size_t(i), value)) {
+        return execution.raiseFormat("Invalid array index for an array with ", this->array.length(), " element(s): ", i);
       }
-      auto* value = this->container[u].get();
-      assert(value != nullptr);
-      return Value(*value);
+      return value;
     }
     virtual Value setIndex(IExecution& execution, const Value& index, const Value& value) override {
       Int i;
       if (!index->getInt(i)) {
         return execution.raiseFormat("Array index was expected to be an 'int', not '", index->getRuntimeType().toString(), "'");
       }
-      auto u = size_t(i);
-      if (u >= this->container.size()) {
-        return execution.raiseFormat("Invalid array index for an array with ", this->container.size(), " element(s): ", i);
+      if (!this->array.set(size_t(i), value)) {
+        return execution.raiseFormat("Invalid array index for an array with ", this->array.length(), " element(s): ", i);
       }
-      this->container[u].set(value);
       return Value::Void;
     }
     virtual Value iterate(IExecution& execution) override {
-      auto object = ObjectFactory::create<VanillaArrayIterator>(execution.getAllocator(), *this);
-      return ValueFactory::create(execution.getAllocator(), object);
+      return this->createIterator(execution, Type::AnyQ);
     }
-    virtual void toStringBuilder(StringBuilder& sb) const override {
+    virtual State iterateStart(IExecution&) const override {
+      // state.a is the next index into the array
+      // state.b is the size of the array
+      return { 0, Int(this->array.length()) };
+    }
+    virtual Value iterateNext(IExecution& execution, State& state) const override {
+      // state.a is the next index into the array (negative when finished)
+      // state.b is the size of the array
+      if (state.a < 0) {
+        return Value::Void;
+      }
+      auto length = Int(this->array.length());
+      if (state.b != length) {
+        state.a = -1;
+        return execution.raise("Array iterator has detected that the underlying array has changed size");
+      }
+      Value value;
+      if (!this->array.get(size_t(state.a), value)) {
+        state.a = -1;
+        return Value::Void;
+      }
+      state.a++;
+      return value;
+    }
+    virtual void print(Printer& printer) const override {
       char separator = '[';
-      for (auto& slot : this->container) {
-        sb.add(separator);
-        auto* value = slot.get();
-        if (value != nullptr) {
-          sb.add(value->toString());
-        }
-        separator = ',';
-      }
+      this->array.print(printer, separator);
       if (separator == '[') {
-        sb.add(separator);
+        printer << separator;
       }
-      sb.add(']');
-    }
-  private:
-    void resize(size_t size) {
-      // Cannot simply resize because slots have no default constructor
-      auto before = this->container.size();
-      if (size < before) {
-        for (auto i = size; i < before; ++i) {
-          this->container.pop_back();
-        }
-      } else if (size > before) {
-        this->container.reserve(size);
-        for (auto i = before; i < size; ++i) {
-          this->container.emplace_back(allocator, Value::Null);
-        }
-      }
-      assert(this->container.size() == size);
+      printer << ']';
     }
   };
 
-  class VanillaDictionary final : public VanillaBase {
+  class VanillaDictionary final : public VanillaIterable {
     VanillaDictionary(const VanillaDictionary&) = delete;
     VanillaDictionary& operator=(const VanillaDictionary&) = delete;
   protected:
     VanillaStringValueMap map;
   public:
     explicit VanillaDictionary(IAllocator& allocator)
-      : VanillaBase(allocator),
+      : VanillaIterable(allocator),
         map(allocator) {
       assert(this->validate());
     }
@@ -479,18 +535,46 @@ namespace {
         // The mutation failed with a thrown string: augment it with the location
         Value thrown;
         if (result->getInner(thrown)) {
-          result = execution.raise(thrown->toString());
+          result = execution.raise(thrown.readable());
         }
       }
       return result;
     }
-    virtual void toStringBuilder(StringBuilder& sb) const override {
-      char separator = '{';
-      this->map.toString(sb, separator);
-      if (separator == '{') {
-        sb.add(separator);
+    virtual Value iterate(IExecution& execution) override {
+      return this->createIterator(execution, Vanilla::getKeyValueType());
+    }
+    virtual State iterateStart(IExecution&) const override {
+      // state.a is the next index into the key vector
+      // state.b is the size of the key vector
+      return { 0, Int(this->map.length()) };
+    }
+    virtual Value iterateNext(IExecution& execution, State& state) const override {
+      // state.a is the next index into the key vector
+      // state.b is the size of the key vector
+      if (state.a < 0) {
+        return Value::Void;
       }
-      sb.add('}');
+      auto length = Int(this->map.length());
+      if (state.b != length) {
+        state.a = -1;
+        return execution.raise("Array iterator has detected that the underlying object has changed size");
+      }
+      String key;
+      Value value;
+      if (!this->map.getKeyValue(size_t(state.a), key, value)) {
+        state.a = -1;
+        return Value::Void;
+      }
+      state.a++;
+      return execution.makeValue(VanillaFactory::createKeyValue(execution.getAllocator(), key, value));
+    }
+    virtual void print(Printer& printer) const override {
+      char separator = '{';
+      this->map.print(printer, separator);
+      if (separator == '{') {
+        printer << separator;
+      }
+      printer << '}';
     }
   };
 
@@ -528,10 +612,80 @@ namespace {
         // The mutation failed with a thrown string: augment it with the location
         Value thrown;
         if (result->getInner(thrown)) {
-          result = execution.raise(thrown->toString());
+          result = execution.raise(thrown.readable());
         }
       }
       return result;
+    }
+  };
+
+  class VanillaKeyValue final : public VanillaIterable {
+    VanillaKeyValue(const VanillaKeyValue&) = delete;
+    VanillaKeyValue& operator=(const VanillaKeyValue&) = delete;
+  protected:
+    String key;
+    Value value; // TODO SoftPtr
+  public:
+    explicit VanillaKeyValue(IAllocator& allocator, const String& key, const Value& value)
+      : VanillaIterable(allocator),
+        key(key),
+        value(value) {
+      assert(this->validate());
+    }
+    virtual void softVisitLinks(const Visitor&) const override {
+      // TODO
+    }
+    virtual Type getRuntimeType() const override {
+      return Vanilla::getKeyValueType();
+    }
+    virtual Value getProperty(IExecution& execution, const String& property) override {
+      if (property == "key") {
+        return execution.makeValue(this->key);
+      }
+      if (property == "value") {
+        return this->value;
+      }
+      return execution.raiseFormat("Key-value object does support property '", property, "'");
+    }
+    virtual Value setProperty(IExecution& execution, const String& property, const Value&) override {
+      if ((property == "key") || (property == "value")) {
+        return execution.raiseFormat("Key-value object does not support the modification of property '", property, "'");
+      }
+      return execution.raiseFormat("Key-value object does not support property '", property, "'");
+    }
+    virtual Value mutProperty(IExecution& execution, const String& property, Mutation, const Value&) override {
+      if ((property == "key") || (property == "value")) {
+        return execution.raiseFormat("Key-value object does not support the modification of property '", property, "'");
+      }
+      return execution.raiseFormat("Key-value object does not support property '", property, "'");
+    }
+    virtual Value iterate(IExecution& execution) override {
+      return this->createIterator(execution, Vanilla::getKeyValueType());
+    }
+    virtual State iterateStart(IExecution&) const override {
+      // state.a is the next index into the key vector
+      return { 0, 0 };
+    }
+    virtual Value iterateNext(IExecution& execution, State& state) const override {
+      // state.a is the next index into the key vector
+      switch (state.a) {
+      case 0:
+        state.a = 1;
+        return execution.makeValue(VanillaFactory::createKeyValue(execution.getAllocator(), "key", execution.makeValue(this->key)));
+      case 1:
+        state.a = -1;
+        return execution.makeValue(VanillaFactory::createKeyValue(execution.getAllocator(), "value", this->value));
+      }
+      state.a = -1;
+      return Value::Void;
+    }
+    virtual void print(Printer& printer) const override {
+      printer << "{key:" << this->key << ",value:";
+      printer.write(this->value);
+      printer << '}';
+    }
+    virtual bool validate() const override {
+      return VanillaBase::validate() && this->value.validate();
     }
   };
 
@@ -575,8 +729,8 @@ namespace {
     virtual Value iterate(IExecution& execution) override {
       return execution.raise("Internal runtime error: Predicates do not support iteration");
     }
-    virtual void toStringBuilder(StringBuilder& sb) const override {
-      sb.add("<predicate>");
+    virtual void print(Printer& printer) const override {
+      printer << "<predicate>";
     }
   };
 
@@ -584,7 +738,7 @@ namespace {
     VanillaError(const VanillaError&) = delete;
     VanillaError& operator=(const VanillaError&) = delete;
   private:
-    String readable;
+    std::string readable;
   public:
     VanillaError(IAllocator& allocator, const LocationSource& location, const String& message)
       : VanillaObject(allocator) {
@@ -597,16 +751,17 @@ namespace {
         sb.add(':', ' ');
       }
       sb.add(message);
-      this->readable = sb.str();
+      this->readable = sb.toUTF8();
     }
-    virtual void toStringBuilder(StringBuilder& sb) const override {
-      sb.add(this->readable);
+    virtual void print(Printer& printer) const override {
+      // We print the raw value here
+      printer << this->readable;
     }
   };
 }
 
-egg::ovum::Object egg::ovum::VanillaFactory::createArray(IAllocator& allocator, size_t fixed) {
-  return ObjectFactory::create<VanillaArray>(allocator, fixed);
+egg::ovum::Object egg::ovum::VanillaFactory::createArray(IAllocator& allocator, size_t length) {
+  return ObjectFactory::create<VanillaArray>(allocator, length);
 }
 
 egg::ovum::Object egg::ovum::VanillaFactory::createDictionary(IAllocator& allocator) {
@@ -615,6 +770,10 @@ egg::ovum::Object egg::ovum::VanillaFactory::createDictionary(IAllocator& alloca
 
 egg::ovum::Object egg::ovum::VanillaFactory::createObject(IAllocator& allocator) {
   return ObjectFactory::create<VanillaObject>(allocator);
+}
+
+egg::ovum::Object egg::ovum::VanillaFactory::createKeyValue(IAllocator& allocator, const String& key, const Value& value) {
+  return ObjectFactory::create<VanillaKeyValue>(allocator, key, value);
 }
 
 egg::ovum::Object egg::ovum::VanillaFactory::createError(IAllocator& allocator, const LocationSource& location, const String& message) {

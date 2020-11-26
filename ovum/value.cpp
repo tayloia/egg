@@ -1,5 +1,4 @@
 #include "ovum/ovum.h"
-#include "ovum/print.h"
 #include "ovum/vanilla.h"
 
 namespace {
@@ -53,8 +52,8 @@ namespace {
       // Default equality for constants is when the types are the same
       return rhs.getFlags() == FLAGS;
     }
-    virtual void toStringBuilder(StringBuilder& sb) const override {
-      Print::add(sb, FLAGS);
+    virtual void print(Printer& printer) const override {
+      printer.write(FLAGS);
     }
     virtual bool validate() const override {
       return true;
@@ -112,8 +111,8 @@ namespace {
       Bool value;
       return rhs.getBool(value) && (value == VALUE);
     }
-    virtual void toStringBuilder(StringBuilder& sb) const override {
-      Print::add(sb, VALUE);
+    virtual void print(Printer& printer) const override {
+      printer.write(VALUE);
     }
   };
   const ValueBool<false> theFalse;
@@ -194,8 +193,8 @@ namespace {
       }
       return false;
     }
-    virtual void toStringBuilder(StringBuilder& sb) const override {
-      Print::add(sb, this->value);
+    virtual void print(Printer& printer) const override {
+      printer.write(this->value);
     }
   };
 
@@ -231,8 +230,8 @@ namespace {
       }
       return false;
     }
-    virtual void toStringBuilder(StringBuilder& sb) const override {
-      Print::add(sb, this->value);
+    virtual void print(Printer& printer) const override {
+      printer.write(this->value);
     }
   };
 
@@ -263,8 +262,8 @@ namespace {
     virtual bool validate() const override {
       return ValueMutable::validate() && this->value.validate();
     }
-    virtual void toStringBuilder(StringBuilder& sb) const override {
-      Print::add(sb, this->value);
+    virtual void print(Printer& printer) const override {
+      printer.write(this->value);
     }
   };
 
@@ -294,8 +293,8 @@ namespace {
     virtual bool validate() const override {
       return ValueMutable::validate() && this->value.validate();
     }
-    virtual void toStringBuilder(StringBuilder& sb) const override {
-      this->value->toStringBuilder(sb);
+    virtual void print(Printer& printer) const override {
+      this->value->print(printer);
     }
   };
 
@@ -328,10 +327,10 @@ namespace {
     virtual bool validate() const override {
       return ValueMutable::validate() && Bits::hasAnySet(this->flags, ValueFlags::FlowControl) && this->inner.validate();
     }
-    virtual void toStringBuilder(StringBuilder& sb) const override {
-      Print::add(sb, this->flags);
-      sb.add(' ');
-      Print::add(sb, this->inner);
+    virtual void print(Printer& printer) const override {
+      printer.write(this->flags);
+      printer << ' ';
+      printer.write(this->inner);
     }
   };
 
@@ -395,6 +394,16 @@ egg::ovum::Value egg::ovum::ValueFactory::createThrowError(IAllocator& allocator
   auto object = VanillaFactory::createError(allocator, location, message);
   auto value = ValueFactory::createObject(allocator, object);
   return ValueFactory::createFlowControl(allocator, ValueFlags::Throw, value);
+}
+
+std::string egg::ovum::Value::readable() const {
+  auto p = this->ptr.get();
+  if (p != nullptr) {
+    std::stringstream ss;
+    Print::write(ss, *this, Print::Options::DEFAULT);
+    return ss.str();
+  }
+  return {};
 }
 
 bool egg::ovum::Value::validate() const {

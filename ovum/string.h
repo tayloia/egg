@@ -55,24 +55,28 @@ namespace egg::ovum {
     static String fromUTF32(const std::u32string& utf32); // fallback to factory
   };
 
-  class StringBuilder {
-    friend class Print;
+  class StringBuilder : public Printer {
     StringBuilder(const StringBuilder&) = delete;
     StringBuilder& operator=(const StringBuilder&) = delete;
   private:
     std::stringstream ss;
   public:
-    StringBuilder() {
+    StringBuilder() : Printer(ss, Print::Options::DEFAULT) {
     }
     template<typename T>
     StringBuilder& add(T value) {
+      this->write(value);
+      return *this;
+    }
+    StringBuilder& add(char value) {
+      this->ss.put(value);
+      return *this;
+    }
+    StringBuilder& add(const char* value) {
+      assert(value != nullptr);
       this->ss << value;
       return *this;
     }
-    StringBuilder& add(Bool value);
-    StringBuilder& add(Int value);
-    StringBuilder& add(Float value);
-    StringBuilder& add(const String& value);
     template<typename T, typename... ARGS>
     StringBuilder& add(T value, ARGS&&... args) {
       return this->add(value).add(std::forward<ARGS>(args)...);

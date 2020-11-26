@@ -187,25 +187,25 @@ namespace egg::test {
 template<>
 inline void ::testing::internal::PrintTo(const egg::ovum::ValueFlags& value, std::ostream* stream) {
   // Pretty-print the value flags
-  egg::ovum::Print::write(*stream, value);
+  egg::ovum::Print::write(*stream, value, egg::ovum::Print::Options::DEFAULT);
 }
 
 template<>
 inline void ::testing::internal::PrintTo(const egg::ovum::Value& value, std::ostream* stream) {
   // Pretty-print the value
-  egg::ovum::Print::write(*stream, value);
+  egg::ovum::Print::write(*stream, value, egg::ovum::Print::Options::DEFAULT);
 }
 
 template<>
 inline void ::testing::internal::PrintTo(const egg::ovum::ILogger::Severity& value, std::ostream* stream) {
   // Pretty-print the value flags
-  egg::ovum::Print::write(*stream, value);
+  egg::ovum::Print::write(*stream, value, egg::ovum::Print::Options::DEFAULT);
 }
 
 template<>
 inline void ::testing::internal::PrintTo(const egg::ovum::ILogger::Source& value, std::ostream* stream) {
   // Pretty-print the value flags
-  egg::ovum::Print::write(*stream, value);
+  egg::ovum::Print::write(*stream, value, egg::ovum::Print::Options::DEFAULT);
 }
 
 #define ASSERT_STRING(expected, string) egg::test::assertString(expected, string)
