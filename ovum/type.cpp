@@ -727,14 +727,10 @@ namespace {
 
   const ObjectShape* queryObjectShape(const IType* type) {
     assert(type != nullptr);
-    auto shape = type->getStringShape();
-    if (shape != nullptr) {
-      return shape;
-    }
     auto count = type->getObjectShapeCount();
     assert(count <= 1);
     if (count == 0) {
-      return nullptr;
+      return type->getStringShape();
     }
     return type->getObjectShape(0);
   }

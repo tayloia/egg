@@ -1,4 +1,5 @@
 #include "ovum/ovum.h"
+#include "ovum/utf.h"
 
 #include <iomanip>
 
@@ -11,10 +12,39 @@ namespace {
     return options;
   }
 
-  constexpr Print::Options constructPretty() {
-    Print::Options options{};
-    options.quote = '\"';
-    return options;
+  void escapeCodepoint(std::ostream& stream, char quote, char32_t codepoint) {
+    switch (codepoint) {
+    case '\0':
+      stream << '\\' << '0';
+      break;
+    case '\\':
+      stream << '\\' << '\\';
+      break;
+    case '\b':
+      stream << '\\' << 'b';
+      break;
+    case '\f':
+      stream << '\\' << 'f';
+      break;
+    case '\n':
+      stream << '\\' << 'n';
+      break;
+    case '\r':
+      stream << '\\' << 'r';
+      break;
+    case '\t':
+      stream << '\\' << 't';
+      break;
+    case '\v':
+      stream << '\\' << 'v';
+      break;
+    default:
+      if (codepoint == char32_t(quote)) {
+        stream << '\\' << codepoint;
+      } else {
+        stream << codepoint;
+      }
+    }
   }
 }
 
@@ -53,46 +83,13 @@ void egg::ovum::Print::write(std::ostream& stream, double value, const Options&)
 }
 
 void egg::ovum::Print::write(std::ostream& stream, const std::string& value, const Options& options) {
-  // Through the magic of UTF8 we don't have to decode-recode all codeunits!
   if (options.quote == '\0') {
     stream << value;
-    return;
+  } else {
+    stream << options.quote;
+    Print::escape(stream, value, options.quote);
+    stream << options.quote;
   }
-  stream << options.quote;
-  for (auto codeunit : value) {
-    switch (codeunit) {
-    case '\0':
-      stream << '\\' << '0';
-      continue;
-    case '\\':
-      stream << '\\' << '\\';
-      continue;
-    case '\b':
-      stream << '\\' << 'b';
-      continue;
-    case '\f':
-      stream << '\\' << 'f';
-      continue;
-    case '\n':
-      stream << '\\' << 'n';
-      continue;
-    case '\r':
-      stream << '\\' << 'r';
-      continue;
-    case '\t':
-      stream << '\\' << 't';
-      continue;
-    case '\v':
-      stream << '\\' << 'v';
-      continue;
-    }
-    if (codeunit == options.quote) {
-      stream << '\\' << codeunit;
-    } else {
-      stream << codeunit;
-    }
-  }
-  stream << options.quote;
 }
 
 void egg::ovum::Print::write(std::ostream& stream, const String& value, const Options& options) {
@@ -161,6 +158,25 @@ void egg::ovum::Print::write(std::ostream& stream, const Value& value, const Opt
     pretty.quote = '"';
     Printer printer(stream, pretty);
     value->print(printer);
+  }
+}
+
+void egg::ovum::Print::ascii(std::ostream& stream, const std::string& value, char quote) {
+  UTF8 reader{ value, 0 };
+  char32_t codepoint;
+  while (reader.forward(codepoint)) {
+    escapeCodepoint(stream, quote, codepoint);
+  }
+}
+
+void egg::ovum::Print::escape(std::ostream& stream, const std::string& value, char quote) {
+  // Through the magic of UTF8 we don't have to decode-recode all codeunits!
+  for (auto codeunit : value) {
+    if ((codeunit >= 32) && (codeunit <= 126)) {
+      stream << codeunit;
+    } else {
+      escapeCodepoint(stream, quote, char32_t(codeunit));
+    }
   }
 }
 

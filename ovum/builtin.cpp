@@ -43,8 +43,8 @@ namespace {
     struct Parameter : public IFunctionSignatureParameter {
       String name;
       Type type;
-      size_t position;
-      Flags flags;
+      size_t position = SIZE_MAX;
+      Flags flags = Flags::None;
       virtual String getName() const override {
         return this->name;
       }

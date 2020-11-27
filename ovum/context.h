@@ -8,7 +8,7 @@ namespace egg::ovum {
     inline LocationSource(const String& file, size_t line, size_t column)
       : file(file), line(line), column(column) {
     }
-    void formatSourceString(StringBuilder& sb) const;
+    bool printSource(Printer& printer) const;
     String toSourceString() const;
   };
 
@@ -22,7 +22,7 @@ namespace egg::ovum {
     inline LocationRuntime(const LocationSource& source, const String& function, const LocationRuntime* parent = nullptr)
       : LocationSource(source), function(function), parent(parent) {
     }
-    void formatRuntimeString(StringBuilder& sb) const;
+    bool printRuntime(Printer& printer) const;
     String toRuntimeString() const;
   };
 

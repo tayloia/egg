@@ -89,7 +89,7 @@ namespace egg::ovum {
       return p.equals(q, compare);
     }
     // Debugging
-    std::string readable() const;
+    std::string readable() const; // TODO remove
     bool validate() const;
     // Helpers
     bool hasAnyFlags(ValueFlags flags) const {
@@ -115,13 +115,6 @@ namespace egg::ovum {
     static Value createString(IAllocator& allocator, const String& value);
     static Value createObject(IAllocator& allocator, const Object& value);
     static Value createFlowControl(IAllocator& allocator, ValueFlags flags, const Value& value);
-    static Value createThrowError(IAllocator& allocator, const LocationSource& location, const String& message);
-    template<typename... ARGS>
-    static Value createThrowString(IAllocator& allocator, ARGS&&... args) {
-      auto message = StringBuilder::concat(std::forward<ARGS>(args)...);
-      auto value = ValueFactory::createString(allocator, message);
-      return ValueFactory::createFlowControl(allocator, ValueFlags::Throw, value);
-    }
 
     // Overloaded without implicit promotion
     template<typename T>

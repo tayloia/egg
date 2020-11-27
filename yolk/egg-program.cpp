@@ -239,7 +239,9 @@ void egg::yolk::EggProgramContext::print(const std::string& utf8) {
 }
 
 egg::ovum::Value egg::yolk::EggProgramContext::raise(const egg::ovum::String& message) {
-  return egg::ovum::ValueFactory::createThrowError(this->allocator, this->location, message);
+  auto object = egg::ovum::VanillaFactory::createError(this->allocator, this->location, message);
+  auto value = egg::ovum::ValueFactory::createObject(this->allocator, object);
+  return egg::ovum::ValueFactory::createFlowControl(this->allocator, egg::ovum::ValueFlags::Throw, value);
 }
 
 egg::ovum::IAllocator& egg::yolk::EggProgramContext::getAllocator() const {

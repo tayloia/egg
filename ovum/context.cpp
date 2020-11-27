@@ -1,32 +1,40 @@
 #include "ovum/ovum.h"
 
-void egg::ovum::LocationSource::formatSourceString(StringBuilder& sb) const {
-  sb.add(this->file);
+bool egg::ovum::LocationSource::printSource(Printer& printer) const {
+  // Return 'true' iff something is written
+  printer << this->file;
   if (this->column > 0) {
-    sb.add('(', this->line, ',', this->column, ')');
-  } else if (this->line > 0) {
-    sb.add('(', this->line, ')');
+    printer << '(' << this->line << ',' << this->column << ')';
+    return true;
   }
+  if (this->line > 0) {
+    printer << '(' << this->line << ')';
+    return true;
+  }
+  return !this->file.empty();
 }
 
 egg::ovum::String egg::ovum::LocationSource::toSourceString() const {
   StringBuilder sb;
-  this->formatSourceString(sb);
+  (void)this->printSource(sb);
   return sb.str();
 }
 
-void egg::ovum::LocationRuntime::formatRuntimeString(StringBuilder& sb) const {
-  this->formatSourceString(sb);
+bool egg::ovum::LocationRuntime::printRuntime(Printer& printer) const {
+  // Return 'true' iff something is written
+  auto written = this->printSource(printer);
   if (!this->function.empty()) {
-    if (sb.empty()) {
-      sb.add(' ');
+    if (written) {
+      printer << ' ';
     }
-    sb.add('<', this->function, '>');
+    printer << '<' << this->function << '>';
+    return true;
   }
+  return written;
 }
 
 egg::ovum::String egg::ovum::LocationRuntime::toRuntimeString() const {
   StringBuilder sb;
-  this->formatRuntimeString(sb);
+  (void)this->printRuntime(sb);
   return sb.str();
 }

@@ -24,7 +24,7 @@ namespace {
     explicit RuntimeException(const LocationSource& location, ARGS&&... args)
       : std::runtime_error("RuntimeException") {
       StringBuilder sb;
-      location.formatSourceString(sb);
+      location.printSource(sb);
       sb.add(':', ' ', std::forward<ARGS>(args)...);
       this->message = sb.str();
     }
@@ -211,7 +211,7 @@ namespace {
   };
 
   struct Target {
-    enum class Flavour { Identifier, Property, Index } flavour;
+    enum class Flavour { Identifier, Property, Index } flavour = Flavour::Identifier;
     Type type;
     String identifier;
     Object object;
@@ -381,7 +381,7 @@ namespace {
       return *this->basket;
     }
     virtual Value raise(const String& message) override {
-      return ValueFactory::createThrowError(this->allocator, this->location, message);
+      return this->raiseError(this->location, message);
     }
     virtual Value assertion(const Value& predicate) override {
       Object object;
@@ -484,7 +484,7 @@ namespace {
     virtual Value predicateCallback(const INode& node) override {
       // We have to be careful to get the location correct
       this->updateLocation(node);
-      auto source = this->location;
+      auto& source = this->location;
       assert(node.getOpcode() == Opcode::COMPARE);
       Value lhs, rhs;
       auto retval = this->operatorCompare(node, lhs, rhs);
@@ -503,15 +503,13 @@ namespace {
         return Value::Void;
       }
       auto str = OperatorProperties::str(node.getOperator());
-      auto exception = this->raiseLocation(source, "Assertion is untrue: ", lhs.readable(), ' ', str, ' ', rhs.readable());
-      Object error;
-      if (exception->getObject(error)) {
-        // Augment the exception with the actual evaluation
-        (void)error->setProperty(*this, "left", lhs);
-        (void)error->setProperty(*this, "operator", ValueFactory::createUTF8(this->allocator, str));
-        (void)error->setProperty(*this, "right", rhs);
-      }
-      return exception;
+      auto message = StringBuilder::concat("Assertion is untrue: ", lhs.readable(), ' ', str, ' ', rhs.readable());
+      auto object = VanillaFactory::createError(this->allocator, source, message);
+      (void)object->setProperty(*this, "left", lhs);
+      (void)object->setProperty(*this, "operator", ValueFactory::createUTF8(this->allocator, str));
+      (void)object->setProperty(*this, "right", rhs);
+      auto value = ValueFactory::createObject(this->allocator, object);
+      return ValueFactory::createFlowControl(this->allocator, ValueFlags::Throw, value);
     }
     // Builtins
     void addBuiltins() {
@@ -657,7 +655,7 @@ namespace {
       assert(node.getOpcode() == Opcode::DO);
       assert(node.getChildren() == 2);
       Value retval;
-      Bool condition;
+      auto condition = false;
       do {
         Block block(*this);
         retval = this->executeBlock(block, node.getChild(1));
@@ -1987,10 +1985,15 @@ namespace {
       }
       return RuntimeException(this->location, "Unexpected ", expected, " operator: '", name, "'");
     }
+    Value raiseError(const LocationSource& where, const String& message) const {
+      auto object = VanillaFactory::createError(this->allocator, where, message);
+      auto value = ValueFactory::createObject(this->allocator, object);
+      return ValueFactory::createFlowControl(this->allocator, ValueFlags::Throw, value);
+    }
     template<typename... ARGS>
     Value raiseLocation(const LocationSource& where, ARGS&&... args) const {
       auto message = StringBuilder::concat(std::forward<ARGS>(args)...);
-      return ValueFactory::createThrowError(this->allocator, where, message);
+      return this->raiseError(where, message);
     }
     template<typename... ARGS>
     Value raiseNode(const INode& node, ARGS&&... args) {

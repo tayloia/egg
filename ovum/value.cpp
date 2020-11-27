@@ -389,13 +389,6 @@ egg::ovum::Value egg::ovum::ValueFactory::createFlowControl(IAllocator& allocato
   return Value(*allocator.make<ValueFlowControl, IValue*>(flags, value));
 }
 
-egg::ovum::Value egg::ovum::ValueFactory::createThrowError(IAllocator& allocator, const LocationSource& location, const String& message) {
-  // WIBBLE use RuntimeException instead?
-  auto object = VanillaFactory::createError(allocator, location, message);
-  auto value = ValueFactory::createObject(allocator, object);
-  return ValueFactory::createFlowControl(allocator, ValueFlags::Throw, value);
-}
-
 std::string egg::ovum::Value::readable() const {
   auto p = this->ptr.get();
   if (p != nullptr) {

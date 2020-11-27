@@ -166,6 +166,13 @@ egg::ovum::Type egg::ovum::Vanilla::getKeyValueType() {
 namespace {
   using namespace egg::ovum;
 
+  template<typename... ARGS>
+  static Value raiseString(IAllocator& allocator, ARGS&&... args) {
+    auto message = StringBuilder::concat(std::forward<ARGS>(args)...);
+    auto value = ValueFactory::createString(allocator, message);
+    return ValueFactory::createFlowControl(allocator, ValueFlags::Throw, value);
+  }
+
   class VanillaValueArray final : public SoftReferenceCounted<IVanillaArray<Value>> {
     VanillaValueArray(const VanillaValueArray&) = delete;
     VanillaValueArray& operator=(const VanillaValueArray&) = delete;
@@ -196,12 +203,12 @@ namespace {
     virtual Value mut(size_t index, Mutation mutation, const Value& value) override {
       auto slot = this->container.get(index);
       if (slot == nullptr) {
-        return ValueFactory::createThrowString(this->allocator, "Array does not have element ", index);
+        return raiseString(this->allocator, "Array does not have element ", index);
       }
       Value before;
       auto retval = slot->mutate(Type::AnyQ, mutation, value, before);
       if (retval != Type::Assignment::Success) {
-        return ValueFactory::createThrowString(this->allocator, "Cannot mutate array value: WOBBLE");
+        return raiseString(this->allocator, "Cannot mutate array value: WOBBLE");
       }
       return before;
     }
@@ -255,12 +262,12 @@ namespace {
     virtual Value mut(const String& key, Mutation mutation, const Value& value) override {
       auto slot = this->container.getOrNull(key);
       if (slot == nullptr) {
-        return ValueFactory::createThrowString(this->allocator, "Object does not have a property named '", key, "'");
+        return raiseString(this->allocator, "Object does not have a property named '", key, "'");
       }
       Value before;
       auto retval = slot->mutate(Type::AnyQ, mutation, value, before);
       if (retval != Type::Assignment::Success) {
-        return ValueFactory::createThrowString(this->allocator, "Cannot mutate map value: WOBBLE");
+        return raiseString(this->allocator, "Cannot mutate map value: WOBBLE");
       }
       return before;
     }
@@ -501,7 +508,7 @@ namespace {
     }
   };
 
-  class VanillaDictionary final : public VanillaIterable {
+  class VanillaDictionary : public VanillaIterable {
     VanillaDictionary(const VanillaDictionary&) = delete;
     VanillaDictionary& operator=(const VanillaDictionary&) = delete;
   protected:
@@ -578,10 +585,10 @@ namespace {
     }
   };
 
-  class VanillaObject : public VanillaBase {
+  class VanillaObject final : public VanillaBase {
     VanillaObject(const VanillaObject&) = delete;
     VanillaObject& operator=(const VanillaObject&) = delete;
-  protected:
+  private:
     VanillaStringValueMap map; // WIBBLE VanillaValueValueMap
   public:
     explicit VanillaObject(IAllocator& allocator)
@@ -734,20 +741,27 @@ namespace {
     }
   };
 
-  class VanillaError : public VanillaObject {
+  class VanillaError : public VanillaDictionary {
     VanillaError(const VanillaError&) = delete;
     VanillaError& operator=(const VanillaError&) = delete;
   private:
     std::string readable;
   public:
     VanillaError(IAllocator& allocator, const LocationSource& location, const String& message)
-      : VanillaObject(allocator) {
+      : VanillaDictionary(allocator) {
       assert(this->validate());
       this->map.add("message", ValueFactory::create(allocator, message));
+      if (!location.file.empty()) {
+        this->map.add("file", ValueFactory::create(allocator, location.file));
+      }
+      if (location.line > 0) {
+        this->map.add("line", ValueFactory::create(allocator, Int(location.line)));
+      }
+      if (location.column > 0) {
+        this->map.add("column", ValueFactory::create(allocator, Int(location.column)));
+      }
       StringBuilder sb;
-      location.formatSourceString(sb);
-      this->map.add("location", ValueFactory::createUTF8(allocator, sb.toUTF8()));
-      if (!sb.empty()) {
+      if (location.printSource(sb)) {
         sb.add(':', ' ');
       }
       sb.add(message);

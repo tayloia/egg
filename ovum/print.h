@@ -23,6 +23,10 @@ namespace egg::ovum {
     static void write(std::ostream& stream, ValueFlags value, const Options& options);
     static void write(std::ostream& stream, ILogger::Severity value, const Options& options);
     static void write(std::ostream& stream, ILogger::Source value, const Options& options);
+
+    // Print string to stream
+    static void ascii(std::ostream& stream, const std::string& value, char quote);
+    static void escape(std::ostream& stream, const std::string& value, char quote);
   };
 
   class Printer {

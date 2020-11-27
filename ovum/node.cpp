@@ -328,32 +328,33 @@ namespace {
   }
 #endif
 
-  void buildNodeString(StringBuilder& sb, const INode* node) {
+  void printNode(Printer& printer, const INode* node) {
     if (node == nullptr) {
-      sb.add("<null>");
+      printer << "<null>";
     } else {
       auto opcode = node->getOpcode();
       auto& props = OpcodeProperties::from(opcode);
-      sb.add('(', props.name);
+      printer << '(' << props.name;
       // Attributes
       auto n = node->getAttributes();
       for (size_t i = 0; i < n; ++i) {
-        sb.add(' ');
-        buildNodeString(sb, &node->getAttribute(i));
+        printer << ' ';
+        printNode(printer, &node->getAttribute(i));
       }
       // Operand
       switch (node->getOperand()) {
       case INode::Operand::Int:
-        sb.add(' ', node->getInt());
+        printer << ' ' << node->getInt();
         break;
       case INode::Operand::Float:
-        sb.add(' ', node->getFloat());
+        printer << ' ' << node->getFloat();
         break;
       case INode::Operand::String:
-        sb.add(' ', '"', node->getString(), '"');
+        printer << ' ';
+        Print::ascii(printer.stream(), node->getString().toUTF8(), '"');
         break;
       case INode::Operand::Operator:
-        sb.add(' ', OperatorProperties::str(node->getOperator()));
+        printer << ' ' << OperatorProperties::str(node->getOperator());
         break;
       case INode::Operand::None:
         break;
@@ -361,10 +362,10 @@ namespace {
       // Children
       n = node->getChildren();
       for (size_t i = 0; i < n; ++i) {
-        sb.add(' ');
-        buildNodeString(sb, &node->getChild(i));
+        printer << ' ';
+        printNode(printer, &node->getChild(i));
       }
-      sb.add(')');
+      printer << ')';
     }
   }
 
@@ -617,10 +618,4 @@ egg::ovum::Node egg::ovum::NodeFactory::createType(IAllocator& allocator, const 
     return NodeFactory::create(allocator, location, egg::ovum::Opcode::INFERRED, nullptr);
   }
   return buildType(allocator, location, *type);
-}
-
-egg::ovum::String egg::ovum::Node::toString(const INode* node) {
-  StringBuilder sb;
-  buildNodeString(sb, node);
-  return sb.str();
 }

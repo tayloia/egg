@@ -8,9 +8,7 @@ namespace egg::ovum {
   template<typename T> class HardPtr;
   enum class ValueFlags;
   struct LocationSource;
-  struct NodeLocation;
   class Error;
-  class Node;
   class Printer;
   class String;
   class StringBuilder;

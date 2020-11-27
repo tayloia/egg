@@ -40,17 +40,7 @@ namespace egg::ovum {
     virtual void setChild(size_t index, INode& value) = 0;
   };
 
-  class Node : public HardPtr<INode> {
-  public:
-    Node(std::nullptr_t = nullptr) {} // implicit
-    explicit Node(const INode* node) : HardPtr(node) {}
-    String toString() const {
-      return Node::toString(this->get());
-    }
-
-    // Helpers
-    static String toString(const INode* node);
-  };
+  using Node = HardPtr<INode>;
 
   using Nodes = std::vector<Node>;
 

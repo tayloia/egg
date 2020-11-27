@@ -1187,7 +1187,7 @@ namespace {
     virtual EggProgramNodeFlags prepare(EggProgramContext& context) override {
       return context.preparePredicate(this->locationSource, this->op, *this->lhs, *this->rhs);
     }      virtual void dump(std::ostream& os) const override {
-        ParserDump(os, "predicate ").add(binaryToString(this->op)).add(this->lhs).add(this->rhs);
+        ParserDump(os, "predicate").add(binaryToString(this->op)).add(this->lhs).add(this->rhs);
       }
     virtual egg::ovum::Node compile(EggProgramCompiler& compiler) const override {
       return compiler.predicate(this->locationSource, this->op, *this->lhs, *this->rhs);
