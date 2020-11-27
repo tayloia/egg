@@ -48,7 +48,7 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareScope(const 
   egg::ovum::Type type{ egg::ovum::Type::Void };
   if ((node != nullptr) && node->symbol(name, type)) {
     // Perform the action with a new scope containing our symbol
-    auto nested = this->getAllocator().make<EggProgramSymbolTable>(this->symtable.get());
+    auto nested = this->allocator.make<EggProgramSymbolTable>(this->symtable.get());
     nested->addSymbol(EggProgramSymbol::Kind::ReadWrite, name, type);
     auto context = this->createNestedContext(*nested, this->scopeFunction);
     return action(*context);
@@ -98,7 +98,7 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareBlock(const 
   if (this->findDuplicateSymbols(statements)) {
     return EggProgramNodeFlags::Abandon;
   }
-  auto nested = this->getAllocator().make<EggProgramSymbolTable>(this->symtable.get());
+  auto nested = this->allocator.make<EggProgramSymbolTable>(this->symtable.get());
   auto context = this->createNestedContext(*nested, this->scopeFunction);
   return context->prepareStatements(statements);
 }
@@ -241,7 +241,7 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareCatch(const 
   if (abandoned(type.prepare(*this))) {
     return EggProgramNodeFlags::Abandon;
   }
-  auto nested = this->getAllocator().make<EggProgramSymbolTable>(this->symtable.get());
+  auto nested = this->allocator.make<EggProgramSymbolTable>(this->symtable.get());
   nested->addSymbol(EggProgramSymbol::Kind::ReadWrite, name, type.getType());
   auto context = this->createNestedContext(*nested, this->scopeFunction);
   return block.prepare(*context);
@@ -321,7 +321,7 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareFunctionDefi
   auto callable = type.queryCallable();
   assert(callable != nullptr);
   assert(callable->getFunctionName() == name);
-  auto nested = this->getAllocator().make<EggProgramSymbolTable>(this->symtable.get());
+  auto nested = this->allocator.make<EggProgramSymbolTable>(this->symtable.get());
   auto n = callable->getParameterCount();
   for (size_t i = 0; i < n; ++i) {
     auto& parameter = callable->getParameter(i);
@@ -710,13 +710,8 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareWithType(IEg
 egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::typeCheck(const egg::ovum::LocationSource& where, egg::ovum::Type& ltype, const egg::ovum::Type& rtype, const egg::ovum::String& name, bool guard) {
   if (ltype == nullptr) {
     // We need to infer the type
-    ltype = rtype;
-    /* WIBBLE
-    ltype = rtype->devoidedType();
-    if (guard && (ltype != nullptr)) {
-      ltype = ltype->denulledType();
-    }
-    */
+    auto strip = guard ? (egg::ovum::ValueFlags::Void | egg::ovum::ValueFlags::Null) : egg::ovum::ValueFlags::Void;
+    ltype = rtype.stripFlags(this->allocator, strip);
     if (ltype == nullptr) {
       return this->compilerError(where, "Cannot infer type of '", name, "' based on a value of type '", rtype.toString(), "'"); // TODO useful?
     }
@@ -741,7 +736,6 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::typeCheck(const egg
 egg::ovum::ILogger::Severity egg::yolk::EggProgram::prepare(IEggEngineContext& context) {
   auto& allocator = context.getAllocator();
   auto symtable = allocator.make<EggProgramSymbolTable>();
-  this->basket->take(*symtable);
   symtable->addBuiltins();
   egg::ovum::ILogger::Severity severity = egg::ovum::ILogger::Severity::None;
   auto rootContext = this->createRootContext(allocator, context, *symtable, severity);

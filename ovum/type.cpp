@@ -384,6 +384,51 @@ namespace {
       return pair.first + '*';
     }
   };
+
+  class TypeStrip : public SoftReferenceCounted<IType> {
+    TypeStrip(const TypeStrip&) = delete;
+    TypeStrip& operator=(const TypeStrip&) = delete;
+  private:
+    Type underlying; // TODO make soft
+    ValueFlags strip;
+  public:
+    TypeStrip(IAllocator& allocator, const IType& underlying, ValueFlags strip)
+      : SoftReferenceCounted(allocator),
+        underlying(&underlying),
+        strip(strip) {
+      assert(this->underlying != nullptr);
+      assert(!Bits::hasAnySet(this->strip, ValueFlags::FlowControl | ValueFlags::Object));
+    }
+    virtual void softVisitLinks(const Visitor&) const override {
+      // TODO
+    }
+    virtual ValueFlags getFlags() const override {
+      return Bits::clear(this->underlying->getFlags(), this->strip);
+    }
+    virtual const IntShape* getIntShape() const override {
+      return Bits::hasAnySet(this->strip, ValueFlags::Int) ? nullptr : this->underlying->getIntShape();
+    }
+    virtual const FloatShape* getFloatShape() const override {
+      return Bits::hasAnySet(this->strip, ValueFlags::Float) ? nullptr : this->underlying->getFloatShape();
+    }
+    virtual const ObjectShape* getStringShape() const override {
+      return Bits::hasAnySet(this->strip, ValueFlags::String) ? nullptr : this->underlying->getStringShape();
+    }
+    virtual const ObjectShape* getObjectShape(size_t index) const override {
+      return this->underlying->getObjectShape(index);
+    }
+    virtual size_t getObjectShapeCount() const override {
+      return this->underlying->getObjectShapeCount();
+    }
+    virtual std::pair<std::string, int> toStringPrecedence() const override {
+      return std::make_pair("WOBBLE", 0);
+    }
+    virtual String describeValue() const override {
+      // TODO i18n
+      return StringBuilder::concat("Value of type '", this->toStringPrecedence().first, "'");
+    }
+  };
+
   class TypeUnion : public SoftReferenceCounted<IType> {
     TypeUnion(const TypeUnion&) = delete;
     TypeUnion& operator=(const TypeUnion&) = delete;
@@ -397,12 +442,12 @@ namespace {
   public:
     TypeUnion(IAllocator& allocator, const IType& a, const IType& b)
       : SoftReferenceCounted(allocator),
-        a(&a),
-        b(&b),
-        flags(a.getFlags() | b.getFlags()),
-        intShape(unionInt(a.getIntShape(), b.getIntShape())),
-        floatShape(unionFloat(a.getFloatShape(), b.getFloatShape())),
-        objectShape(unionObject({ &a, &b })) {
+      a(&a),
+      b(&b),
+      flags(a.getFlags() | b.getFlags()),
+      intShape(unionInt(a.getIntShape(), b.getIntShape())),
+      floatShape(unionFloat(a.getFloatShape(), b.getFloatShape())),
+      objectShape(unionObject({ &a, &b })) {
       assert(this->a != nullptr);
       assert(this->b != nullptr);
     }
@@ -861,10 +906,33 @@ const egg::ovum::IIteratorSignature* egg::ovum::Type::queryIterable() const {
   return (shape == nullptr) ? nullptr : shape->iterable;
 }
 
-egg::ovum::Type egg::ovum::Type::addVoid(IAllocator& allocator) const {
+egg::ovum::Type egg::ovum::Type::addFlags(IAllocator& allocator, ValueFlags flags) const {
   // TODO optimize
-  assert(!this->hasAnyFlags(ValueFlags::Void));
+  if (flags != ValueFlags::Void) {
+    throw std::logic_error("Type::addFlags() can only add 'void'");
+  }
+  if (this->hasAnyFlags(ValueFlags::Void)) {
+    return *this;
+  }
   return TypeFactory::createUnion(allocator, *Type::Void, **this);
+}
+
+egg::ovum::Type egg::ovum::Type::stripFlags(IAllocator& allocator, ValueFlags flags) const {
+  // TODO optimize
+  auto* underlying = this->get();
+  if (underlying != nullptr) {
+    const auto acceptable = ValueFlags::Void | ValueFlags::Null;
+    if (Bits::set(flags, acceptable) != acceptable) {
+      throw std::logic_error("Type::stripFlags() can only strip 'void' and 'null'");
+    }
+    if (Bits::hasAnySet(underlying->getFlags(), flags)) {
+      if (underlying->getFlags() == flags) {
+        return nullptr;
+      }
+      return allocator.make<TypeStrip, Type>(*underlying, flags);
+    }
+  }
+  return *this;
 }
 
 egg::ovum::String egg::ovum::Type::describeValue() const {
@@ -943,7 +1011,7 @@ egg::ovum::TypeBuilder egg::ovum::TypeFactory::createFunctionBuilder(IAllocator&
 egg::ovum::TypeBuilder egg::ovum::TypeFactory::createGeneratorBuilder(IAllocator& allocator, const Type& gentype, const String& name) {
   // Convert the return type (e.g. 'int') into a generator function 'int...' aka '(void|int)()'
   assert(!gentype.hasAnyFlags(ValueFlags::Void));
-  auto generator = TypeFactory::createFunctionBuilder(allocator, gentype.addVoid(allocator), name);
+  auto generator = TypeFactory::createFunctionBuilder(allocator, gentype.addFlags(allocator, ValueFlags::Void), name);
   return allocator.make<FunctionBuilder>(generator->build(), name);
 }
 

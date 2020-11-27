@@ -14,49 +14,6 @@ void egg::yolk::EggProgramSymbol::setInferredType(const egg::ovum::Type& inferre
   this->type = inferred;
 }
 
-#if defined(WIBBLE)
-egg::ovum::Value egg::yolk::EggProgramSymbol::assign(EggProgramContext& context, const egg::ovum::Value& rhs) {
-  // Ask the type to assign the value so that type promotion can occur
-  switch (this->kind) {
-  case Kind::Builtin:
-    return context.raiseFormat("Cannot re-assign built-in value: '", this->name, "'");
-  case Kind::Readonly:
-    return context.raiseFormat("Cannot modify read-only variable: '", this->name, "'");
-  case Kind::ReadWrite:
-  default:
-    break;
-  }
-  assert(!rhs.hasFlowControl());
-  if (rhs.isVoid()) {
-    return context.raiseFormat("Cannot assign 'void' to '", this->name, "'");
-  }
-  auto retval = this->type->tryAssign(context, this->value, rhs);
-  if (retval.hasFlowControl()) {
-    // The assignment failed
-    if (retval.hasString()) {
-      // Convert the error message to a full-blown exception
-      return context.raise(retval.getString());
-    }
-    return retval;
-  }
-  auto* basket = context.softGetBasket();
-  assert(basket != nullptr);
-  this->value.soften(*basket);
-  return egg::ovum::Value::Void;
-}
-#endif
-
-void egg::yolk::EggProgramSymbolTable::softVisitLinks(const Visitor& visitor) const {
-  // Visit all our soft links
-  this->parent.visit(visitor);
-  /* WIBBLE
-  for (auto& kv : this->map) {
-    auto& symbol = *kv.second;
-    symbol.getValue().softVisitLink(visitor);
-  }
-  */
-}
-
 void egg::yolk::EggProgramSymbolTable::addBuiltins() {
   // TODO add built-in symbol to symbol table here
   this->addBuiltin("string", egg::ovum::BuiltinFactory::createStringInstance(this->allocator));
@@ -66,11 +23,11 @@ void egg::yolk::EggProgramSymbolTable::addBuiltins() {
 }
 
 void egg::yolk::EggProgramSymbolTable::addBuiltin(const std::string& name, const egg::ovum::Value& value) {
-  (void)this->addSymbol(EggProgramSymbol::Kind::Builtin, name, value->getRuntimeType(), value);
+  (void)this->addSymbol(EggProgramSymbol::Kind::Builtin, name, value->getRuntimeType());
 }
 
-std::shared_ptr<egg::yolk::EggProgramSymbol> egg::yolk::EggProgramSymbolTable::addSymbol(EggProgramSymbol::Kind kind, const egg::ovum::String& name, const egg::ovum::Type& type, const egg::ovum::Value& value) {
-  auto inserted = this->map.emplace(name, std::make_shared<EggProgramSymbol>(kind, name, type, value));
+std::shared_ptr<egg::yolk::EggProgramSymbol> egg::yolk::EggProgramSymbolTable::addSymbol(EggProgramSymbol::Kind kind, const egg::ovum::String& name, const egg::ovum::Type& type) {
+  auto inserted = this->map.emplace(name, std::make_shared<EggProgramSymbol>(kind, name, type));
   assert(inserted.second);
   return inserted.first->second;
 }
@@ -156,10 +113,6 @@ egg::ovum::HardPtr<egg::yolk::EggProgramContext> egg::yolk::EggProgram::createRo
   return allocator.make<EggProgramContext>(location, logger, symtable, maximumSeverity);
 }
 
-void egg::yolk::EggProgramContext::softVisitLinks(const Visitor& visitor) const {
-  this->symtable.visit(visitor);
-}
-
 egg::ovum::HardPtr<egg::yolk::EggProgramContext> egg::yolk::EggProgramContext::createNestedContext(EggProgramSymbolTable& parent, ScopeFunction* prepareFunction) {
   return this->allocator.make<EggProgramContext>(*this, parent, prepareFunction);
 }
@@ -183,8 +136,8 @@ bool egg::yolk::EggProgramContext::findDuplicateSymbols(const std::vector<std::s
       auto already = seen.emplace(std::make_pair(name, here));
       if (!already.second) {
         // Already seen at this level
-        this->compiler(egg::ovum::ILogger::Severity::Error, here, "Duplicate symbol declared at module level: '", name, "'");
-        this->compiler(egg::ovum::ILogger::Severity::Information, already.first->second, "Previous declaration was here");
+        this->compilerProblem(egg::ovum::ILogger::Severity::Error, here, "Duplicate symbol declared at module level: '", name, "'");
+        this->compilerProblem(egg::ovum::ILogger::Severity::Information, already.first->second, "Previous declaration was here");
         error = true;
       } else if (this->symtable->findSymbol(name) != nullptr) {
         // Seen at an enclosing level
@@ -193,62 +146,4 @@ bool egg::yolk::EggProgramContext::findDuplicateSymbols(const std::vector<std::s
     }
   }
   return error;
-}
-
-void egg::yolk::EggProgramContext::statement(const IEggProgramNode& node) {
-  // TODO use runtime location, not source location
-  egg::ovum::LocationSource& source = this->location;
-  source = node.location();
-}
-
-egg::ovum::LocationRuntime egg::yolk::EggProgramContext::swapLocation(const egg::ovum::LocationRuntime& loc) {
-  egg::ovum::LocationRuntime before = this->location;
-  this->location = loc;
-  return before;
-}
-
-egg::ovum::Value egg::yolk::EggProgramContext::get(const egg::ovum::String& name) {
-  auto symbol = this->symtable->findSymbol(name);
-  if (symbol == nullptr) {
-    return this->raiseFormat("Unknown identifier: '", name, "'");
-  }
-  auto& value = symbol->getValue();
-  if (value->getVoid()) {
-    return this->raiseFormat("Uninitialized identifier: '", name.toUTF8(), "'");
-  }
-  return value;
-}
-
-egg::ovum::Value egg::yolk::EggProgramContext::unexpected(const std::string& expectation, const egg::ovum::Value& value) {
-  return this->raiseFormat(expectation, ", but got '", value->getRuntimeType().toString(), "' instead");
-}
-
-egg::ovum::Value egg::yolk::EggProgramContext::assertion(const egg::ovum::Value& predicate) {
-  egg::ovum::Bool value;
-  if (!predicate->getBool(value)) {
-    return this->unexpected("Expected assertion predicate to be 'bool'", predicate);
-  }
-  if (!value) {
-    return this->raiseFormat("Assertion is untrue");
-  }
-  return egg::ovum::Value::Void;
-}
-
-void egg::yolk::EggProgramContext::print(const std::string& utf8) {
-  return this->log(egg::ovum::ILogger::Source::User, egg::ovum::ILogger::Severity::Information, utf8);
-}
-
-egg::ovum::Value egg::yolk::EggProgramContext::raise(const egg::ovum::String& message) {
-  auto object = egg::ovum::VanillaFactory::createError(this->allocator, this->location, message);
-  auto value = egg::ovum::ValueFactory::createObject(this->allocator, object);
-  return egg::ovum::ValueFactory::createFlowControl(this->allocator, egg::ovum::ValueFlags::Throw, value);
-}
-
-egg::ovum::IAllocator& egg::yolk::EggProgramContext::getAllocator() const {
-  return this->allocator;
-}
-
-egg::ovum::IBasket& egg::yolk::EggProgramContext::getBasket() const {
-  assert(this->basket != nullptr);
-  return *this->basket;
 }

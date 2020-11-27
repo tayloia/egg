@@ -61,7 +61,8 @@ namespace egg::ovum {
     const IPropertySignature* queryDotable() const;
     const IIndexSignature* queryIndexable() const;
     const IIteratorSignature* queryIterable() const;
-    Type addVoid(IAllocator& allocator) const;
+    Type addFlags(IAllocator& allocator, ValueFlags flags) const;
+    Type stripFlags(IAllocator& allocator, ValueFlags flags) const;
 
     enum class Assignment {
       Success, Uninitialized, Incompatible, BadIntToFloat,
