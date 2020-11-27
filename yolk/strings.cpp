@@ -170,9 +170,9 @@ std::string egg::yolk::String::fromUnsigned(uint64_t value) {
 
 std::string egg::yolk::String::fromFloat(double value, size_t sigfigs) {
   assert(sigfigs > 0);
-  std::stringstream ss;
-  String::writeFloat(ss, value, sigfigs, sigfigs + 3, sigfigs + 3);
-  return ss.str();
+  std::stringstream oss;
+  String::writeFloat(oss, value, sigfigs, sigfigs + 3, sigfigs + 3);
+  return oss.str();
 }
 
 void egg::yolk::String::writeFloat(std::ostream& os, double value, size_t sigfigs, size_t max_before, size_t max_after) {

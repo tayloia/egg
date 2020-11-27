@@ -11,9 +11,9 @@ namespace {
   inline constexpr double ninf = -pinf;
 
   std::string format(double value, size_t sigfigs = egg::ovum::Arithmetic::DEFAULT_SIGFIGS) {
-    std::stringstream ss;
-    egg::ovum::Arithmetic::print(ss, value, sigfigs);
-    return ss.str();
+    std::stringstream oss;
+    egg::ovum::Arithmetic::print(oss, value, sigfigs);
+    return oss.str();
   }
 }
 

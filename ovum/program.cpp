@@ -5,6 +5,7 @@
 #include "ovum/program.h"
 #include "ovum/utf.h"
 #include "ovum/builtin.h"
+#include "ovum/function.h"
 #include "ovum/vanilla.h"
 
 #include <map>
@@ -29,56 +30,6 @@ namespace {
       this->message = sb.str();
     }
   };
-
-  enum class SignatureParts {
-    ReturnType = 0x01,
-    FunctionName = 0x02,
-    ParameterList = 0x04,
-    ParameterNames = 0x08,
-    NoNames = ReturnType | ParameterList,
-    All = ~0
-  };
-  String signatureToString(const IFunctionSignature& signature, SignatureParts parts = SignatureParts::All) {
-    // TODO better formatting of named/variadic etc.
-    StringBuilder sb;
-    if (Bits::hasAnySet(parts, SignatureParts::ReturnType)) {
-      // Use precedence zero to get any necessary parentheses
-      sb.add(signature.getReturnType().toString(0));
-    }
-    if (Bits::hasAnySet(parts, SignatureParts::FunctionName)) {
-      auto name = signature.getFunctionName();
-      if (!name.empty()) {
-        sb.add(' ', name);
-      }
-    }
-    if (Bits::hasAnySet(parts, SignatureParts::ParameterList)) {
-      sb.add('(');
-      auto n = signature.getParameterCount();
-      for (size_t i = 0; i < n; ++i) {
-        if (i > 0) {
-          sb.add(", ");
-        }
-        auto& parameter = signature.getParameter(i);
-        assert(parameter.getPosition() != SIZE_MAX);
-        if (Bits::hasAnySet(parameter.getFlags(), IFunctionSignatureParameter::Flags::Variadic)) {
-          sb.add("...");
-        } else {
-          sb.add(parameter.getType().toString());
-          if (Bits::hasAnySet(parts, SignatureParts::ParameterNames)) {
-            auto pname = parameter.getName();
-            if (!pname.empty()) {
-              sb.add(' ', pname);
-            }
-          }
-          if (!Bits::hasAnySet(parameter.getFlags(), IFunctionSignatureParameter::Flags::Required)) {
-            sb.add(" = null");
-          }
-        }
-      }
-      sb.add(')');
-    }
-    return sb.str();
-  }
 
   class Parameters : public IParameters {
     Parameters(const Parameters&) = delete;
@@ -410,7 +361,7 @@ namespace {
       // We have to be careful to get the location correct
       assert(block.getOpcode() == Opcode::BLOCK);
       if (runtime.getNamedCount() > 0) {
-        return this->raiseFormat(signatureToString(signature), ": Named parameters are not yet supported"); // TODO
+        return this->raiseFormat(FunctionSignature::toString(signature), ": Named parameters are not yet supported"); // TODO
       }
       auto maxPositional = signature.getParameterCount();
       auto minPositional = maxPositional;
@@ -420,9 +371,9 @@ namespace {
       auto numPositional = runtime.getPositionalCount();
       if (numPositional < minPositional) {
         if (minPositional == 1) {
-          return this->raiseFormat(signatureToString(signature), ": At least 1 parameter was expected");
+          return this->raiseFormat(FunctionSignature::toString(signature), ": At least 1 parameter was expected");
         }
-        return this->raiseFormat(signatureToString(signature), ": At least ", minPositional, " parameters were expected, but got ", numPositional);
+        return this->raiseFormat(FunctionSignature::toString(signature), ": At least ", minPositional, " parameters were expected, but got ", numPositional);
       }
       if ((maxPositional > 0) && Bits::hasAnySet(signature.getParameter(maxPositional - 1).getFlags(), IFunctionSignatureParameter::Flags::Variadic)) {
         // TODO Variadic
@@ -430,9 +381,9 @@ namespace {
       } else if (numPositional > maxPositional) {
         // Not variadic
         if (maxPositional == 1) {
-          return this->raiseFormat(signatureToString(signature), ": Only 1 parameter was expected, not ", numPositional);
+          return this->raiseFormat(FunctionSignature::toString(signature), ": Only 1 parameter was expected, not ", numPositional);
         }
-        return this->raiseFormat(signatureToString(signature), ": No more than ", maxPositional, " parameters were expected, but got ", numPositional);
+        return this->raiseFormat(FunctionSignature::toString(signature), ": No more than ", maxPositional, " parameters were expected, but got ", numPositional);
       }
       CallStack stack(this->symtable, &captured);
       Block scope(*this);
@@ -2027,8 +1978,10 @@ Value ProgramDefault::tryInitialize(Symbol& symbol, const Value& value) {
   switch (retval) {
   case Type::Assignment::Success:
     break;
-  case Type::Assignment::Uninitialized:
   case Type::Assignment::Incompatible:
+    // Occurs when the RHS *may* be assignable to the LHS at compile-time, but not at runtime
+    return this->raiseFormat("Cannot initialize '", symbol.name, "' of type '", symbol.type.toString(), "' with a value of type '", value->getRuntimeType().toString(), "'");
+  case Type::Assignment::Uninitialized:
   case Type::Assignment::BadIntToFloat:
   case Type::Assignment::Unimplemented:
     return this->raiseFormat("Internal error: Cannot initialize '", symbol.name, "' of type '", symbol.type.toString(), "' with a value of type '", value->getRuntimeType().toString(), "'");
@@ -2050,8 +2003,9 @@ Value ProgramDefault::tryAssign(Symbol& symbol, const Value& value) {
   switch (retval) {
   case Type::Assignment::Success:
     break;
-  case Type::Assignment::Uninitialized:
   case Type::Assignment::Incompatible:
+    return this->raiseFormat("Cannot assign '", symbol.name, "' of type '", symbol.type.toString(), "' with a value of type '", value->getRuntimeType().toString(), "'");
+  case Type::Assignment::Uninitialized:
   case Type::Assignment::BadIntToFloat:
   case Type::Assignment::Unimplemented:
     return this->raiseFormat("Internal error: Cannot assign '", symbol.name, "' of type '", symbol.type.toString(), "' with a value of type '", value->getRuntimeType().toString(), "'");

@@ -2,6 +2,7 @@
 #include "ovum/slot.h"
 #include "ovum/node.h"
 #include "ovum/builtin.h"
+#include "ovum/function.h"
 
 #include <array>
 #include <map>
@@ -25,29 +26,19 @@ namespace {
       return nullptr;
   }
 
-  std::string flagsToString(ValueFlags flags) {
+  std::pair<std::string, int> flagsToStringPrecedence(ValueFlags flags) {
     auto* component = flagsComponent(flags);
     if (component != nullptr) {
-      return component;
+      return { component, 0 };
     }
     if (Bits::hasAnySet(flags, ValueFlags::Null)) {
-      return flagsToString(Bits::clear(flags, ValueFlags::Null)) + "?";
+      return { flagsToStringPrecedence(Bits::clear(flags, ValueFlags::Null)).first + "?", 1 };
     }
     auto head = Bits::topmost(flags);
     assert(head != ValueFlags::None);
     component = flagsComponent(head);
     assert(component != nullptr);
-    return flagsToString(Bits::clear(flags, head)) + '|' + component;
-  }
-
-  std::pair<std::string, int> flagsToStringPrecedence(ValueFlags flags) {
-    // Adjust the precedence of the result if the string has '|' (union) in it
-    // This is so that parentheses can be added appropriately to handle "(void|int)*" versus "void|int*"
-    auto result = std::make_pair(flagsToString(flags), 0);
-    if (result.first.find('|') != std::string::npos) {
-      result.second--;
-    }
-    return result;
+    return { flagsToStringPrecedence(Bits::clear(flags, head)).first + '|' + component, 2 };
   }
 
   class TypeBase : public NotSoftReferenceCounted<IType> {
@@ -340,7 +331,7 @@ namespace {
   public:
     TypePointer(IAllocator& allocator, const IType& pointee)
       : SoftReferenceCounted(allocator),
-        name(TypePointer::makeName(pointee.toStringPrecedence())),
+        name(TypePointer::makeTypeName(pointee.toStringPrecedence())),
         pointee(&pointee) {
       assert(this->pointee != nullptr);
       this->shape.callable = nullptr;
@@ -370,13 +361,13 @@ namespace {
       return 1;
     }
     virtual std::pair<std::string, int> toStringPrecedence() const override {
-      return std::make_pair(this->name, 0);
+      return { this->name, 0 };
     }
     virtual String describeValue() const override {
       // TODO i18n
       return StringBuilder::concat("Value of type '", this->name, "'");
     }
-    static std::string makeName(const std::pair<std::string, int>& pair) {
+    static std::string makeTypeName(const std::pair<std::string, int>& pair) {
       auto name = pair.first;
       if (pair.second > 1) {
         return '(' + pair.first + ')' + '*';
@@ -421,7 +412,11 @@ namespace {
       return this->underlying->getObjectShapeCount();
     }
     virtual std::pair<std::string, int> toStringPrecedence() const override {
-      return std::make_pair("WOBBLE", 0);
+      if (this->underlying->getObjectShapeCount() == 0) {
+        // Primitive types only
+        return flagsToStringPrecedence(this->getFlags());
+      }
+      return { "WOBBLE", 0 };
     }
     virtual String describeValue() const override {
       // TODO i18n
@@ -473,7 +468,11 @@ namespace {
       return this->objectShape.size();
     }
     virtual std::pair<std::string, int> toStringPrecedence() const override {
-      return std::make_pair("WOBBLE", 0);
+      if (this->objectShape.empty()) {
+        // Primitive types only
+        return flagsToStringPrecedence(this->flags);
+      }
+      return { "WOBBLE", 0 };
     }
     virtual String describeValue() const override {
       // TODO i18n
@@ -647,10 +646,10 @@ namespace {
         description(description),
         built(false) {
     }
-    virtual void addPositionalParameter(const Type&, const String&, IFunctionSignatureParameter::Flags) {
+    virtual void addPositionalParameter(const Type&, const String&, IFunctionSignatureParameter::Flags) override {
       throw std::logic_error("TypeBuilder::addPositionalParameter() called for non-function type");
     }
-    virtual void addNamedParameter(const Type&, const String&, IFunctionSignatureParameter::Flags) {
+    virtual void addNamedParameter(const Type&, const String&, IFunctionSignatureParameter::Flags) override {
       throw std::logic_error("TypeBuilder::addNamedParameter() called for non-function type");
     }
     virtual void addProperty(const Type& ptype, const String& pname, Modifiability modifiability) override;
@@ -703,7 +702,11 @@ namespace {
       return 1;
     }
     virtual std::pair<std::string, int> toStringPrecedence() const override {
-      return std::make_pair(this->builder->name, 0);
+      if (this->shape.callable != nullptr) {
+        // Use the type of the function signature
+        return egg::ovum::FunctionSignature::toStringPrecedence(*this->shape.callable);
+      }
+      return { this->builder->name, 0 };
     }
     virtual String describeValue() const override {
       return this->builder->description;
@@ -821,41 +824,39 @@ namespace {
   Type::Assignability queryAssignablePrimitive(const IType& lhs, const IType& rhs, ValueFlags lflags, ValueFlags rflags) {
     assert(lhs.validate());
     assert(rhs.validate());
-    assert(Bits::hasOneSet(rflags, ValueFlags::AnyQ));
+    assert(Bits::hasOneSet(rflags, ValueFlags::Void | ValueFlags::AnyQ));
+    auto result = Type::Assignability::Never;
     EGG_WARNING_SUPPRESS_SWITCH_BEGIN();
     switch (rflags) {
+    case ValueFlags::Void:
+      break;
     case ValueFlags::Null:
     case ValueFlags::Bool:
     case ValueFlags::String:
-      if (lflags == rflags) {
-        return Type::Assignability::Always;
-      }
       if (Bits::hasAnySet(lflags, rflags)) {
-        return Type::Assignability::Sometimes;
+        result = Type::Assignability::Always;
       }
       break;
     case ValueFlags::Int:
-      if (lflags == rflags) {
-        return queryAssignableInt(lhs.getIntShape(), rhs.getIntShape());
+      if (Bits::hasAnySet(lflags, ValueFlags::Int)) {
+        result = queryAssignableInt(lhs.getIntShape(), rhs.getIntShape());
+        if (result == Type::Assignability::Always) {
+          return Type::Assignability::Always;
+        }
       }
-      if (Bits::hasAnySet(lflags, ValueFlags::Arithmetic)) {
-        return Type::Assignability::Sometimes;
+      if (Bits::hasAnySet(lflags, ValueFlags::Float)) {
+        // Permit type promotion int->float
+        result = Type::Assignability::Sometimes;
       }
       break;
     case ValueFlags::Float:
-      if (lflags == rflags) {
-        return queryAssignableFloat(lhs.getFloatShape(), rhs.getFloatShape());
-      }
-      if (Bits::hasAnySet(lflags, rflags)) {
-        return Type::Assignability::Sometimes;
+      if (Bits::hasAnySet(lflags, ValueFlags::Float)) {
+        result = queryAssignableFloat(lhs.getFloatShape(), rhs.getFloatShape());
       }
       break;
     case ValueFlags::Object:
-      if (lflags == rflags) {
-        return queryAssignableObject(lhs, rhs);
-      }
-      if (Bits::hasAnySet(lflags, rflags)) {
-        return Type::Assignability::Sometimes;
+      if (Bits::hasAnySet(lflags, ValueFlags::Object)) {
+        result = queryAssignableObject(lhs, rhs);
       }
       break;
     default:
@@ -863,7 +864,7 @@ namespace {
       break;
     }
     EGG_WARNING_SUPPRESS_SWITCH_END();
-    return Type::Assignability::Never;
+    return result;
   }
 
   Type::Assignability queryAssignableType(const IType& lhs, const IType& rhs) {
@@ -871,7 +872,7 @@ namespace {
     assert(rhs.validate());
     auto lflags = lhs.getFlags();
     auto rflags = rhs.getFlags();
-    if (Bits::hasOneSet(rflags, ValueFlags::AnyQ)) {
+    if (Bits::hasOneSet(rflags, ValueFlags::Void | ValueFlags::AnyQ)) {
       return queryAssignablePrimitive(lhs, rhs, lflags, rflags);
     }
     auto rflag = Bits::topmost(rflags);

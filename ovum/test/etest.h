@@ -88,7 +88,7 @@ namespace egg::test {
   private:
     std::string resource;
   public:
-    std::stringstream logged;
+    std::ostringstream logged;
     explicit Logger(const std::string& resource = std::string())
       : resource(resource) {
     }

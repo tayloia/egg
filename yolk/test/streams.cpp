@@ -6,9 +6,9 @@ static const size_t expected_lengths[] = { 0,36,36,0,79,0,0,64,49,0,0,75,0,25,0,
 
 TEST(TestStreams, FileStreamIn) {
   egg::yolk::FileStream fsi("~/yolk/test/data/utf-8-demo.txt");
-  std::stringstream ss;
-  ss << fsi.rdbuf();
-  ASSERT_EQ(14270u, ss.str().size());
+  std::stringstream oss;
+  oss << fsi.rdbuf();
+  ASSERT_EQ(14270u, oss.str().size());
 }
 
 TEST(TestStreams, FileStreamInMissing) {

@@ -2,13 +2,13 @@
 
 namespace {
   std::string formatWhere(const std::string& resource, const egg::yolk::ExceptionLocation& location) {
-    std::stringstream ss;
-    ss << resource << '(' << location.line;
+    std::stringstream oss;
+    oss << resource << '(' << location.line;
     if (location.column > 0) {
-      ss << ',' << ' ' << location.column;
+      oss << ',' << ' ' << location.column;
     }
-    ss << ')';
-    return ss.str();
+    oss << ')';
+    return oss.str();
   }
 }
 

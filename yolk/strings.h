@@ -78,15 +78,15 @@ namespace egg::yolk {
       return false;
     }
     static std::string unicodeToString(int ch) {
-      std::stringstream ss;
+      std::stringstream oss;
       if ((ch >= 32) && (ch <= 126)) {
-        ss << '\'' << char(ch) << '\'';
+        oss << '\'' << char(ch) << '\'';
       } else if (ch < 0) {
-        ss << "<EOF>";
+        oss << "<EOF>";
       } else {
-        ss << "U+" << std::uppercase << std::setfill('0') << std::setw(4) << std::hex << ch;
+        oss << "U+" << std::uppercase << std::setfill('0') << std::setw(4) << std::hex << ch;
       }
-      return ss.str();
+      return oss.str();
     }
     struct StringFromEnum {
       int value;

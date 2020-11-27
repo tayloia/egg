@@ -217,11 +217,11 @@ namespace {
     }
     String readString() const {
       size_t codepoints = 0;
-      std::stringstream ss;
-      while (this->readCodePoint(ss)) {
+      std::ostringstream oss;
+      while (this->readCodePoint(oss)) {
         codepoints++;
       }
-      return String(ss.str(), codepoints);
+      return String(oss.str(), codepoints);
     }
     bool readCodePoint(std::ostream& out) const {
       char ch;

@@ -452,9 +452,9 @@ TEST(TestModule, ToBinaryStream) {
   const uint8_t minimal[] = { MAGIC SECTION_CODE, uint8_t(Opcode::MODULE), uint8_t(Opcode::BLOCK), uint8_t(Opcode::NOOP) };
   auto module = ModuleFactory::fromMemory(allocator, "<memory>", std::begin(minimal), std::end(minimal));
   ASSERT_NE(nullptr, module);
-  std::stringstream ss;
-  ModuleFactory::toBinaryStream(*module, ss);
-  auto binary = ss.str();
+  std::ostringstream oss;
+  ModuleFactory::toBinaryStream(*module, oss);
+  auto binary = oss.str();
   ASSERT_EQ(sizeof(minimal), binary.length());
   ASSERT_EQ(0, std::memcmp(binary.data(), minimal, sizeof(minimal)));
 }

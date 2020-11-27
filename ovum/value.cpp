@@ -392,9 +392,9 @@ egg::ovum::Value egg::ovum::ValueFactory::createFlowControl(IAllocator& allocato
 std::string egg::ovum::Value::readable() const {
   auto p = this->ptr.get();
   if (p != nullptr) {
-    std::stringstream ss;
-    Print::write(ss, *this, Print::Options::DEFAULT);
-    return ss.str();
+    std::stringstream oss;
+    Print::write(oss, *this, Print::Options::DEFAULT);
+    return oss.str();
   }
   return {};
 }
