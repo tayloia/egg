@@ -635,14 +635,16 @@ namespace {
     class Built;
     friend class Built;
     std::string name;
+    String description;
     std::unique_ptr<TypeBuilderIndexable> indexable;
     std::unique_ptr<TypeBuilderIterable> iterable;
     std::unique_ptr<TypeBuilderProperties> properties;
     bool built;
   public:
-    explicit Builder(IAllocator& allocator, const String& name)
+    Builder(IAllocator& allocator, const String& name, const String& description)
       : HardReferenceCounted(allocator, 0),
         name(name.toUTF8()),
+        description(description),
         built(false) {
     }
     virtual void addPositionalParameter(const Type&, const String&, IFunctionSignatureParameter::Flags) {
@@ -704,7 +706,7 @@ namespace {
       return std::make_pair(this->builder->name, 0);
     }
     virtual String describeValue() const override {
-      return StringBuilder::concat("Value of type '", this->builder->name, "'");
+      return this->builder->description;
     }
   };
 
@@ -744,8 +746,8 @@ namespace {
   private:
     TypeBuilderCallable callable;
   public:
-    FunctionBuilder(IAllocator& allocator, const Type& rettype, const String& name)
-      : Builder(allocator, name),
+    FunctionBuilder(IAllocator& allocator, const Type& rettype, const String& name, const String& description)
+      : Builder(allocator, name, description),
         callable(rettype, name) {
       assert(rettype != nullptr);
     }
@@ -770,14 +772,25 @@ namespace {
     }
   };
 
-  const ObjectShape* queryObjectShape(const IType* type) {
+  template<typename T, typename F>
+  const T* queryObjectShape(const IType* type, F field) {
     assert(type != nullptr);
     auto count = type->getObjectShapeCount();
     assert(count <= 1);
-    if (count == 0) {
-      return type->getStringShape();
+    if (count > 0) {
+      auto* object = type->getObjectShape(0);
+      if (object != nullptr) {
+        auto* result = object->*field;
+        if (result != nullptr) {
+          return result;
+        }
+      }
     }
-    return type->getObjectShape(0);
+    auto* string = type->getStringShape();
+    if (string != nullptr) {
+      return string->*field;
+    }
+    return nullptr;
   }
 
   Type::Assignability queryAssignableInt(const IntShape* lhs, const IntShape* rhs) {
@@ -887,23 +900,19 @@ egg::ovum::Type::Assignability egg::ovum::Type::queryAssignable(const IType& fro
 }
 
 const egg::ovum::IFunctionSignature* egg::ovum::Type::queryCallable() const {
-  auto* shape = queryObjectShape(this->get());
-  return (shape == nullptr) ? nullptr : shape->callable;
+  return queryObjectShape<IFunctionSignature>(this->get(), &ObjectShape::callable);
 }
 
 const egg::ovum::IPropertySignature* egg::ovum::Type::queryDotable() const {
-  auto* shape = queryObjectShape(this->get());
-  return (shape == nullptr) ? nullptr : shape->dotable;
+  return queryObjectShape<IPropertySignature>(this->get(), &ObjectShape::dotable);
 }
 
 const egg::ovum::IIndexSignature* egg::ovum::Type::queryIndexable() const {
-  auto* shape = queryObjectShape(this->get());
-  return (shape == nullptr) ? nullptr : shape->indexable;
+  return queryObjectShape<IIndexSignature>(this->get(), &ObjectShape::indexable);
 }
 
 const egg::ovum::IIteratorSignature* egg::ovum::Type::queryIterable() const {
-  auto* shape = queryObjectShape(this->get());
-  return (shape == nullptr) ? nullptr : shape->iterable;
+  return queryObjectShape<IIteratorSignature>(this->get(), &ObjectShape::iterable);
 }
 
 egg::ovum::Type egg::ovum::Type::addFlags(IAllocator& allocator, ValueFlags flags) const {
@@ -1000,19 +1009,19 @@ egg::ovum::Type egg::ovum::TypeFactory::createUnion(IAllocator& allocator, const
   return allocator.make<TypeUnion, Type>(a, b);
 }
 
-egg::ovum::TypeBuilder egg::ovum::TypeFactory::createTypeBuilder(IAllocator& allocator, const String& name) {
-  return allocator.make<Builder>(name);
+egg::ovum::TypeBuilder egg::ovum::TypeFactory::createTypeBuilder(IAllocator& allocator, const String& name, const String& description) {
+  return allocator.make<Builder>(name, description);
 }
 
-egg::ovum::TypeBuilder egg::ovum::TypeFactory::createFunctionBuilder(IAllocator& allocator, const Type& rettype, const String& name) {
-  return allocator.make<FunctionBuilder>(rettype, name);
+egg::ovum::TypeBuilder egg::ovum::TypeFactory::createFunctionBuilder(IAllocator& allocator, const Type& rettype, const String& name, const String& description) {
+  return allocator.make<FunctionBuilder>(rettype, name, description);
 }
 
-egg::ovum::TypeBuilder egg::ovum::TypeFactory::createGeneratorBuilder(IAllocator& allocator, const Type& gentype, const String& name) {
+egg::ovum::TypeBuilder egg::ovum::TypeFactory::createGeneratorBuilder(IAllocator& allocator, const Type& gentype, const String& name, const String& description) {
   // Convert the return type (e.g. 'int') into a generator function 'int...' aka '(void|int)()'
   assert(!gentype.hasAnyFlags(ValueFlags::Void));
-  auto generator = TypeFactory::createFunctionBuilder(allocator, gentype.addFlags(allocator, ValueFlags::Void), name);
-  return allocator.make<FunctionBuilder>(generator->build(), name);
+  auto generator = TypeFactory::createFunctionBuilder(allocator, gentype.addFlags(allocator, ValueFlags::Void), name, description);
+  return allocator.make<FunctionBuilder>(generator->build(), name, description);
 }
 
 // Common types

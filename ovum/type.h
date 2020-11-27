@@ -267,8 +267,8 @@ namespace egg::ovum {
     static Type createSimple(IAllocator& allocator, ValueFlags flags);
     static Type createPointer(IAllocator& allocator, const IType& pointee);
     static Type createUnion(IAllocator& allocator, const IType& a, const IType& b);
-    static TypeBuilder createTypeBuilder(IAllocator& allocator, const String& name);
-    static TypeBuilder createFunctionBuilder(IAllocator& allocator, const Type& rettype, const String& name);
-    static TypeBuilder createGeneratorBuilder(IAllocator& allocator, const Type& gentype, const String& name);
+    static TypeBuilder createTypeBuilder(IAllocator& allocator, const String& name, const String& description);
+    static TypeBuilder createFunctionBuilder(IAllocator& allocator, const Type& rettype, const String& name, const String& description);
+    static TypeBuilder createGeneratorBuilder(IAllocator& allocator, const Type& gentype, const String& name, const String& description);
   };
 }

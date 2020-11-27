@@ -2124,7 +2124,8 @@ egg::ovum::Type UserFunction::makeType(IAllocator& allocator, ProgramDefault& pr
   assert(n >= 1);
   auto rettype = program.type(callable.getChild(0));
   assert(rettype != nullptr);
-  auto builder = TypeFactory::createFunctionBuilder(allocator, rettype, name);
+  auto description = StringBuilder::concat("Function '", name, "'");
+  auto builder = TypeFactory::createFunctionBuilder(allocator, rettype, name, description);
   for (size_t i = 1; i < n; ++i) {
     auto& parameter = callable.getChild(i);
     auto children = parameter.getChildren();

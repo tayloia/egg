@@ -1991,7 +1991,7 @@ egg::ovum::Type EggSyntaxParserContext::parseTypePostfixFunction(const egg::ovum
   // cppcheck-suppress assertWithSideEffect
   assert(mark.peek(0).isOperator(EggTokenizerOperator::ParenthesisLeft));
   mark.advance(1);
-  auto builder = egg::ovum::TypeFactory::createFunctionBuilder(*this->allocator, rettype, egg::ovum::String());
+  auto builder = egg::ovum::TypeFactory::createFunctionBuilder(*this->allocator, rettype, egg::ovum::String(), "Function");
   for (size_t index = 0; !mark.peek(0).isOperator(EggTokenizerOperator::ParenthesisRight); ++index) {
     egg::ovum::Type ptype{ egg::ovum::Type::Void };
     if (!this->parseTypeExpression(ptype)) {

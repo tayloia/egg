@@ -692,114 +692,62 @@ namespace {
   class BuiltinBase : public SoftReferenceCounted<IObject> {
     BuiltinBase(const BuiltinBase&) = delete;
     BuiltinBase& operator=(const BuiltinBase&) = delete;
-  protected:
-    String name;
   public:
-    BuiltinBase(IAllocator& allocator, const String& name)
-      : SoftReferenceCounted(allocator),
-        name(name) {
-      assert(!name.empty());
+    explicit BuiltinBase(IAllocator& allocator)
+      : SoftReferenceCounted(allocator) {
     }
     virtual Value getProperty(IExecution& execution, const String& property) override {
-      return this->raiseBuiltin(execution, "does not support properties such as '", property, "'");
+      return this->unsupported(execution, "properties such as '", property, "'");
     }
     virtual Value setProperty(IExecution& execution, const String& property, const Value&) override {
-      return this->raiseBuiltin(execution, "does not support properties such as '", property, "'");
+      return this->unsupported(execution, "properties such as '", property, "'");
     }
     virtual Value mutProperty(IExecution& execution, const String& property, Mutation, const Value&) override {
-      return this->raiseBuiltin(execution, "does not support properties such as '", property, "'");
+      return this->unsupported(execution, "properties such as '", property, "'");
     }
     virtual Value delProperty(IExecution& execution, const String& property) override {
-      return this->raiseBuiltin(execution, "does not support properties such as '", property, "'");
+      return this->unsupported(execution, "properties such as '", property, "'");
     }
     virtual Value refProperty(IExecution& execution, const String& property) override {
-      return this->raiseBuiltin(execution, "does not support properties such as '", property, "'");
+      return this->unsupported(execution, "properties such as '", property, "'");
     }
     virtual Value getIndex(IExecution& execution, const Value&) override {
-      return this->raiseBuiltin(execution, "does not support indexing with '[]'");
+      return this->unsupported(execution, "indexing with '[]'");
     }
     virtual Value setIndex(IExecution& execution, const Value&, const Value&) override {
-      return this->raiseBuiltin(execution, "does not support indexing with '[]'");
+      return this->unsupported(execution, "indexing with '[]'");
     }
     virtual Value mutIndex(IExecution& execution, const Value&, Mutation, const Value&) override {
-      return this->raiseBuiltin(execution, "does not support indexing with '[]'");
+      return this->unsupported(execution, "indexing with '[]'");
     }
     virtual Value delIndex(IExecution& execution, const Value&) override {
-      return this->raiseBuiltin(execution, "does not support indexing with '[]'");
+      return this->unsupported(execution, "indexing with '[]'");
     }
     virtual Value refIndex(IExecution& execution, const Value&) override {
-      return this->raiseBuiltin(execution, "does not support indexing with '[]'");
+      return this->unsupported(execution, "indexing with '[]'");
     }
     virtual Value getPointee(IExecution& execution) override {
-      return this->raiseBuiltin(execution, "does not support pointer dereferencing with '*'");
+      return this->unsupported(execution, "pointer dereferencing with '*'");
     }
     virtual Value setPointee(IExecution& execution, const Value&) override {
-      return this->raiseBuiltin(execution, "does not support pointer dereferencing with '*'");
+      return this->unsupported(execution, "pointer dereferencing with '*'");
     }
     virtual Value mutPointee(IExecution& execution, Mutation, const Value&) override {
-      return this->raiseBuiltin(execution, "does not support pointer dereferencing with '*'");
+      return this->unsupported(execution, "pointer dereferencing with '*'");
     }
     virtual Value iterate(IExecution& execution) override {
-      return this->raiseBuiltin(execution, "does not support iteration");
+      return this->unsupported(execution, "iteration");
     }
   protected:
+    virtual std::string prefix() const = 0;
     template<typename... ARGS>
-    Value raiseBuiltin(IExecution& execution, ARGS&&... args) {
-      return execution.raiseFormat("Built-in '", this->name, "' ", std::forward<ARGS>(args)...);
+    Value unsupported(IExecution& execution, ARGS&&... args) {
+      // TODO i18n
+      return execution.raiseFormat(this->prefix(), " does not support ", std::forward<ARGS>(args)...);
     }
     template<typename T>
     Value makeValue(T value) const {
       return ValueFactory::create(this->allocator, value);
-    }
-  };
-
-  class BuiltinType_Base : public SoftReferenceCounted<IType> {
-    BuiltinType_Base(const BuiltinType_Base&) = delete;
-    BuiltinType_Base& operator=(const BuiltinType_Base&) = delete;
-  private:
-    String name;
-  public:
-    BuiltinType_Base(IAllocator& allocator, const String& name)
-      : SoftReferenceCounted(allocator),
-        name(name) {
-      assert(!name.empty());
-    }
-    virtual ValueFlags getFlags() const override {
-      return ValueFlags::Object;
-    }
-    virtual std::pair<std::string, int> toStringPrecedence() const override {
-      return std::make_pair("<builtin-" + this->name.toUTF8() + ">", 0);
-    }
-    virtual String describeValue() const override {
-      return StringBuilder::concat("Type '", this->name, "'");
-    }
-    virtual void softVisitLinks(const ICollectable::Visitor&) const override {
-      // No children
-    }
-    const String& getName() const {
-      return this->name;
-    }
-  };
-
-  class Builtin_Base : public BuiltinBase {
-    Builtin_Base(const Builtin_Base&) = delete;
-    Builtin_Base& operator=(const Builtin_Base&) = delete;
-  private:
-    HardPtr<BuiltinType_Base> type;
-  public:
-    Builtin_Base(IAllocator& allocator, const BuiltinType_Base& type)
-      : BuiltinBase(allocator, type.getName()),
-        type(&type) {
-    }
-    virtual void softVisitLinks(const Visitor&) const override {
-      // TODO
-      assert(false);
-    }
-    virtual void print(Printer& printer) const override {
-      printer << '<' << this->name << '>';
-    }
-    virtual Type getRuntimeType() const override {
-      return Type(this->type.get());
     }
   };
 
@@ -809,11 +757,13 @@ namespace {
   protected:
     TypeBuilder builder;
     Type type;
+    String name;
   public:
-    BuiltinFunction(IAllocator& allocator, const Type& rettype, const String& name)
-      : BuiltinBase(allocator, StringBuilder::concat(name, "()")),
-        builder(TypeFactory::createFunctionBuilder(allocator, rettype, name)),
-        type() {
+    BuiltinFunction(IAllocator& allocator, const Type& rettype, const String& name, const String& description)
+      : BuiltinBase(allocator),
+        builder(TypeFactory::createFunctionBuilder(allocator, rettype, name, description)),
+        type(),
+        name(name) {
       // 'type' will be initialized by derived class constructors
     }
     virtual void softVisitLinks(const Visitor&) const override {
@@ -825,40 +775,44 @@ namespace {
     virtual Type getRuntimeType() const override {
       return Type(this->type.get());
     }
+  protected:
+    virtual std::string prefix() const override {
+      return this->type.describeValue().toUTF8();
+    }
   };
 
-  class Builtin_Assert : public BuiltinFunction {
+  class Builtin_Assert final : public BuiltinFunction {
     Builtin_Assert(const Builtin_Assert&) = delete;
     Builtin_Assert& operator=(const Builtin_Assert&) = delete;
   public:
     explicit Builtin_Assert(IAllocator& allocator)
-      : BuiltinFunction(allocator, Type::Void, "assert") {
+      : BuiltinFunction(allocator, Type::Void, "assert", "Built-in function 'assert'") {
       this->builder->addPositionalParameter(Type::Any, "predicate", Bits::set(IFunctionSignatureParameter::Flags::Required, IFunctionSignatureParameter::Flags::Predicate));
       this->type = this->builder->build();
     }
     virtual Value call(IExecution& execution, const IParameters& parameters) override {
       if (parameters.getNamedCount() > 0) {
-        return this->raiseBuiltin(execution, "does not accept named parameters");
+        return execution.raiseFormat(this->prefix(), " does not accept named parameters");
       }
       if (parameters.getPositionalCount() != 1) {
-        return this->raiseBuiltin(execution, "accepts only 1 parameter, not ", parameters.getPositionalCount());
+        return execution.raiseFormat(this->prefix(), " accepts only 1 parameter, not ", parameters.getPositionalCount());
       }
       return execution.assertion(parameters.getPositional(0));
     }
   };
 
-  class Builtin_Print : public BuiltinFunction {
+  class Builtin_Print final : public BuiltinFunction {
     Builtin_Print(const Builtin_Print&) = delete;
     Builtin_Print& operator=(const Builtin_Print&) = delete;
   public:
     explicit Builtin_Print(IAllocator& allocator)
-      : BuiltinFunction(allocator, Type::Void, "print") {
+      : BuiltinFunction(allocator, Type::Void, "print", "Built-in function 'print'") {
       this->builder->addPositionalParameter(Type::AnyQ, "values", IFunctionSignatureParameter::Flags::Variadic);
       this->type = this->builder->build();
     }
     virtual Value call(IExecution& execution, const IParameters& parameters) override {
       if (parameters.getNamedCount() > 0) {
-        return this->raiseBuiltin(execution, "does not accept named parameters");
+        return execution.raiseFormat(this->prefix(), " does not accept named parameters");
       }
       StringBuilder sb;
       auto n = parameters.getPositionalCount();
@@ -870,18 +824,20 @@ namespace {
     }
   };
 
-  class Builtin_String : public BuiltinFunction {
+  class Builtin_String final : public BuiltinFunction {
     Builtin_String(const Builtin_String&) = delete;
     Builtin_String& operator=(const Builtin_String&) = delete;
   public:
     explicit Builtin_String(IAllocator& allocator)
-      : BuiltinFunction(allocator, Type::String, "string") {
+      : BuiltinFunction(allocator, Type::String, "string", "Type 'string'") {
       this->builder->addPositionalParameter(Type::AnyQ, "values", IFunctionSignatureParameter::Flags::Variadic);
+      this->builder->defineDotable(Type::Void, Modifiability::None);
+      this->builder->addProperty(Type::String, "from", Modifiability::Read);
       this->type = this->builder->build();
     }
     virtual Value call(IExecution& execution, const IParameters& parameters) override {
       if (parameters.getNamedCount() > 0) {
-        return this->raiseBuiltin(execution, "does not accept named parameters");
+        return execution.raiseFormat(this->prefix(), " does not accept named parameters");
       }
       StringBuilder sb;
       auto n = parameters.getPositionalCount();
@@ -892,23 +848,20 @@ namespace {
     }
   };
 
-  class Builtin_Type : public BuiltinFunction {
+  class Builtin_Type final : public BuiltinFunction {
     Builtin_Type(const Builtin_Type&) = delete;
     Builtin_Type& operator=(const Builtin_Type&) = delete;
   public:
     explicit Builtin_Type(IAllocator& allocator)
-      : BuiltinFunction(allocator, Type::String, "type") {
+      : BuiltinFunction(allocator, Type::String, "type", "Type 'type'") {
       this->type = this->builder->build();
     }
     virtual Value call(IExecution& execution, const IParameters& parameters) override {
       // TODO 'type.of' et al
       if (parameters.getNamedCount() > 0) {
-        return this->raiseBuiltin(execution, "does not accept named parameters");
+        return execution.raiseFormat(this->prefix(), " does not accept named parameters");
       }
-      if (parameters.getPositionalCount() > 0) {
-        return this->raiseBuiltin(execution, "does not accept parameters");
-      }
-      return this->raiseBuiltin(execution, "not yet implemented"); // TODO
+      return execution.raiseFormat(this->prefix(), " not yet implemented"); // TODO
     }
   };
 }

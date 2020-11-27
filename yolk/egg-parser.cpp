@@ -1574,9 +1574,11 @@ std::shared_ptr<egg::yolk::IEggProgramNode> egg::yolk::EggSyntaxNode_FunctionDef
     if (rettype.hasAnyFlags(egg::ovum::ValueFlags::Void)) {
       throw exceptionFromLocation(context, "The return value of a generator may not include 'void'", *this);
     }
-    builder = egg::ovum::TypeFactory::createGeneratorBuilder(context.getAllocator(), rettype, this->name);
+    auto description = egg::ovum::StringBuilder::concat("Generator '", this->name, "'");
+    builder = egg::ovum::TypeFactory::createGeneratorBuilder(context.getAllocator(), rettype, this->name, description);
   } else {
-    builder = egg::ovum::TypeFactory::createFunctionBuilder(context.getAllocator(), rettype, this->name);
+    auto description = egg::ovum::StringBuilder::concat("Function '", this->name, "'");
+    builder = egg::ovum::TypeFactory::createFunctionBuilder(context.getAllocator(), rettype, this->name, description);
   }
   assert(builder != nullptr);
   egg::ovum::String parameter_name;
