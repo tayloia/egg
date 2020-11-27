@@ -133,9 +133,10 @@ namespace egg::ovum {
       return nullptr;
     }
     bool add(IAllocator& allocator, const K& key, const Value& value) {
-      // Add a new slot
-      Slot slot(allocator, value);
-      auto inserted = this->map.insert(std::move(std::make_pair(key, std::move(slot))));
+      // Add a new slot (returns 'true' iff added)
+      auto inserted = this->map.emplace(std::piecewise_construct,
+                                        std::forward_as_tuple(key),
+                                        std::forward_as_tuple(allocator, value));
       if (inserted.second) {
         this->vec.emplace_back(key);
         return true;
@@ -143,15 +144,16 @@ namespace egg::ovum {
       return false;
     }
     bool set(IAllocator& allocator, const K& key, const Value& value) {
-      // Updates or adds a new slot
+      // Updates or adds a new slot (returns 'true' iff added)
       auto found = this->map.find(key);
       if (found != this->map.end()) {
         found->second.set(value);
         return false;
       }
       // Add a new slot
-      Slot slot(allocator, value);
-      this->map.insert(std::move(std::make_pair(key, std::move(slot))));
+      this->map.emplace(std::piecewise_construct,
+                        std::forward_as_tuple(key),
+                        std::forward_as_tuple(allocator, value));
       this->vec.emplace_back(key);
       return true;
     }

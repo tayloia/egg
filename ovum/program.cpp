@@ -134,24 +134,24 @@ namespace {
   };
 
   struct Symbol {
+    enum class Kind {
+      Builtin,
+      Variable
+    };
+    Kind kind;
     Type type;
     String name;
     LocationSource source;
     HardPtr<Slot> slot;
-    Symbol(IAllocator& allocator, const Type& type, const String& name, const LocationSource& source)
-      : type(type),
+    Symbol(IAllocator& allocator, Kind kind, const Type& type, const String& name, const LocationSource& source)
+      : kind(kind),
+        type(type),
         name(name),
         source(source),
         slot(allocator.make<Slot>()) {
       assert(this->validate(true));
     }
-    Symbol(Symbol&& rhs) noexcept
-      : type(std::move(rhs.type)),
-        name(std::move(rhs.name)),
-        source(std::move(rhs.source)),
-        slot(std::move(rhs.slot)) {
-      assert(this->validate(true));
-    }
+    Symbol(Symbol&& rhs) noexcept = default;
     Symbol(const Symbol&) = delete;
     Symbol& operator=(const Symbol&) = delete;
     bool validate(bool optional) const {
@@ -172,11 +172,12 @@ namespace {
       this->parent.set(*this, parent);
       this->capture.set(*this, capture);
     }
-    std::pair<bool, Symbol*> add(const Type& type, const String& name, const LocationSource& source) {
+    Symbol* add(Symbol::Kind kind, const Type& type, const String& name, const LocationSource& source) {
       // Return true in the first of the pair iff the insertion occurred
-      Symbol symbol(this->allocator, type, name, source);
-      auto retval = this->table.insert(std::make_pair(name, std::move(symbol)));
-      return std::make_pair(retval.second, &retval.first->second);
+      auto retval = this->table.emplace(std::piecewise_construct,
+                                        std::forward_as_tuple(name),
+                                        std::forward_as_tuple(this->allocator, kind, type, name, source));
+      return retval.second ? &retval.first->second : nullptr;
     }
     bool remove(const String& name) {
       // Return true iff the removal occurred
@@ -351,10 +352,10 @@ namespace {
     }
     virtual bool builtin(const String& name, const Value& value) override {
       static const LocationSource source("<builtin>", 0, 0);
-      auto symbol = this->symtable->add(value->getRuntimeType(), name, source);
-      if (symbol.first) {
+      auto symbol = this->symtable->add(Symbol::Kind::Builtin, value->getRuntimeType(), name, source);
+      if (symbol != nullptr) {
         // Don't use assignment for builtins; it always fails
-        symbol.second->slot->set(value);
+        symbol->slot->set(value);
         return true;
       }
       return false;
@@ -2038,6 +2039,12 @@ Value ProgramDefault::tryInitialize(Symbol& symbol, const Value& value) {
 
 Value ProgramDefault::tryAssign(Symbol& symbol, const Value& value) {
   assert(symbol.validate(true));
+  switch (symbol.kind) {
+  case Symbol::Kind::Builtin:
+    return this->raiseFormat("Cannot re-assign built-in value: '", symbol.name, "'");
+  case Symbol::Kind::Variable:
+    break;;
+  }
   Value after;
   auto retval = symbol.slot->assign(symbol.type, value, after);
   switch (retval) {
@@ -2071,11 +2078,7 @@ Value ProgramDefault::tryMutate(Symbol& symbol, Mutation mutation, const Value& 
 }
 
 Symbol* ProgramDefault::blockDeclare(const LocationSource& source, const Type& type, const String& identifier) {
-  auto result = this->symtable->add(type, identifier, source);
-  if (result.first) {
-    return result.second;
-  }
-  return nullptr;
+  return this->symtable->add(Symbol::Kind::Variable, type, identifier, source);
 }
 
 void ProgramDefault::blockUndeclare(const String& identifier) {

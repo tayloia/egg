@@ -9,7 +9,6 @@ namespace egg::ovum {
       : file(file), line(line), column(column) {
     }
     bool printSource(Printer& printer) const;
-    String toSourceString() const;
   };
 
   struct LocationRuntime : public LocationSource {
@@ -23,7 +22,6 @@ namespace egg::ovum {
       : LocationSource(source), function(function), parent(parent) {
     }
     bool printRuntime(Printer& printer) const;
-    String toRuntimeString() const;
   };
 
   class IExecution {
