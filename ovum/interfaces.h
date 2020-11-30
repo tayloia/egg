@@ -210,6 +210,14 @@ namespace egg::ovum {
     virtual Type getType() const = 0;
   };
 
+  class IPointerSignature {
+  public:
+    // Interface
+    virtual ~IPointerSignature() {}
+    virtual Type getType() const = 0;
+    virtual Modifiability getModifiability() const = 0;
+  };
+
   class IPropertySignature {
   public:
     // Interface
@@ -243,6 +251,7 @@ namespace egg::ovum {
     const IPropertySignature* dotable;
     const IIndexSignature* indexable;
     const IIteratorSignature* iterable;
+    const IPointerSignature* pointable;
   };
 
   class IType : public ICollectable {

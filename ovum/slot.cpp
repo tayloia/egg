@@ -62,43 +62,38 @@ void egg::ovum::Slot::clear() {
   assert(this->ptr.get() == nullptr); // TODO remove because not thread-safe
 }
 
-egg::ovum::Type::Assignment egg::ovum::Slot::assign(const Type& type, const Value& value, Value& after) {
+egg::ovum::Type::Assignment egg::ovum::Slot::mutate(ISlot& slot, IAllocator& allocator, const Type& type, Mutation mutation, const Value& value, Value& before) {
   assert(type != nullptr);
-  assert(this->validate(true));
-  auto retval = type.promote(this->allocator, value, after);
-  if (retval == Type::Assignment::Success) {
-    this->set(after);
-  }
-  return retval;
-}
-
-egg::ovum::Type::Assignment egg::ovum::Slot::mutate(const Type& type, Mutation mutation, const Value& value, Value& before) {
-  assert(type != nullptr);
-  assert(this->validate(false));
   for (;;) {
-    auto* raw = this->get();
+    auto* raw = slot.get();
     while (raw == nullptr) {
-      // Special case for '??' applied to initialized slot
-      if (mutation != Mutation::IfNull) {
+      // Special case for '=' and '??' applied to initialized slot
+      if ((mutation == Mutation::Assign) || (mutation != Mutation::IfNull)) {
         return Type::Assignment::Uninitialized;
       }
-      if (this->update(nullptr, value)) {
+      if (slot.update(nullptr, value)) {
         return Type::Assignment::Success;
       }
-      raw = this->get();
+      raw = slot.get();
     }
+    assert(raw->validate());
     before = Value(*raw);
     Value after;
-    auto retval = type.mutate(this->allocator, before, value, mutation, after);
+    auto retval = type.mutate(allocator, before, value, mutation, after);
     if (retval != Type::Assignment::Success) {
       return retval;
     }
-    if (this->update(raw, after)) {
+    if (slot.update(raw, after)) {
       // Successfully updated the slot
-      assert(this->validate(true));
+      assert(slot.validate());
       return Type::Assignment::Success;
     }
   }
+}
+
+egg::ovum::Value egg::ovum::Slot::reference(Modifiability modifiability) {
+  assert(this->validate(false));
+  return ValueFactory::createPointer(this->allocator, *this, modifiability);
 }
 
 bool egg::ovum::Slot::validate(bool optional) const {

@@ -8,17 +8,22 @@
 namespace {
   using namespace egg::ovum;
 
-  class TypeBase : public NotSoftReferenceCounted<IType> {
-    TypeBase(const TypeBase&) = delete;
-    TypeBase& operator=(const TypeBase&) = delete;
+  template<typename T, typename... ARGS>
+  static Object createVanillaObject(IAllocator& allocator, ARGS&&... args) {
+    return Object(*allocator.make<T>(std::forward<ARGS>(args)...));
+  }
+
+  class Type_Base : public NotSoftReferenceCounted<IType> {
+    Type_Base(const Type_Base&) = delete;
+    Type_Base& operator=(const Type_Base&) = delete;
   protected:
     static const Modifiability ReadWriteMutate = Modifiability::Read | Modifiability::Write | Modifiability::Mutate;
     static const Modifiability ReadWriteMutateDelete = Modifiability::Read | Modifiability::Write | Modifiability::Mutate | Modifiability::Delete;
   private:
     ObjectShape shape;
   public:
-    TypeBase(const IFunctionSignature* callable, const IPropertySignature* dotable, const IIndexSignature* indexable, const IIteratorSignature* iterable)
-      : shape({ callable, dotable, indexable, iterable }) {
+    Type_Base(const IFunctionSignature* callable, const IPropertySignature* dotable, const IIndexSignature* indexable, const IIteratorSignature* iterable, const IPointerSignature* pointable)
+      : shape({ callable, dotable, indexable, iterable, pointable }) {
     }
     virtual ValueFlags getFlags() const override {
       return ValueFlags::Object;
@@ -49,14 +54,14 @@ namespace {
     }
   };
 
-  class Type_Iterator final : public TypeBase {
+  class Type_Iterator final : public Type_Base {
     Type_Iterator(const Type_Iterator&) = delete;
     Type_Iterator& operator=(const Type_Iterator&) = delete;
   private:
     TypeBuilderCallable callable;
   public:
     explicit Type_Iterator(const Type& rettype)
-      : TypeBase(&callable, nullptr, nullptr, nullptr),
+      : Type_Base(&callable, nullptr, nullptr, nullptr, nullptr),
         callable(rettype, {}) {
       assert(rettype.hasAnyFlags(ValueFlags::Void));
     }
@@ -70,7 +75,7 @@ namespace {
     }
   };
 
-  class Type_Array final : public TypeBase {
+  class Type_Array final : public Type_Base {
     Type_Array(const Type_Array&) = delete;
     Type_Array& operator=(const Type_Array&) = delete;
   private:
@@ -79,7 +84,7 @@ namespace {
     TypeBuilderIterable iterable;
   public:
     Type_Array()
-      : TypeBase(nullptr, &dotable, &indexable, &iterable),
+      : Type_Base(nullptr, &dotable, &indexable, &iterable, nullptr),
         dotable(),
         indexable(Type::AnyQ, Type::Int, ReadWriteMutate),
         iterable(Type::AnyQ) {
@@ -94,7 +99,7 @@ namespace {
     }
   };
 
-  class Type_DictionaryBase : public TypeBase {
+  class Type_DictionaryBase : public Type_Base {
     Type_DictionaryBase(const Type_DictionaryBase&) = delete;
     Type_DictionaryBase& operator=(const Type_DictionaryBase&) = delete;
   protected:
@@ -109,7 +114,7 @@ namespace {
     KeyValueIterable iterable;
   public:
     Type_DictionaryBase(Modifiability modifiability, const Type& unknownType, Modifiability unknownModifiability)
-      : TypeBase(nullptr, &dotable, &indexable, &iterable),
+      : Type_Base(nullptr, &dotable, &indexable, &iterable, nullptr),
         dotable(unknownType, unknownModifiability),
         indexable(Type::AnyQ, Type::String, modifiability),
         iterable() {
@@ -652,7 +657,7 @@ namespace {
       if (property == "value") {
         return this->value;
       }
-      return execution.raiseFormat("Key-value object does support property '", property, "'");
+      return execution.raiseFormat("Key-value object does not support property '", property, "'");
     }
     virtual Value setProperty(IExecution& execution, const String& property, const Value&) override {
       if ((property == "key") || (property == "value")) {
@@ -696,48 +701,132 @@ namespace {
     }
   };
 
-  class VanillaPredicate : public VanillaBase {
-    VanillaPredicate(const VanillaPredicate&) = delete;
-    VanillaPredicate& operator=(const VanillaPredicate&) = delete;
+  class VanillaPointer : public VanillaBase {
+    VanillaPointer(const VanillaPointer&) = delete;
+    VanillaPointer& operator=(const VanillaPointer&) = delete;
   private:
-    Vanilla::IPredicateCallback& callback; // Guaranteed to be long-lived
-    Node node;
+    SoftPtr<ISlot> slot;
+    SoftPtr<IType> type;
   public:
-    VanillaPredicate(IAllocator& allocator, Vanilla::IPredicateCallback& callback, const INode& node)
+    class PointerSignature;
+    class DynamicType;
+    VanillaPointer(IAllocator& allocator, ISlot& slot, IType& type)
       : VanillaBase(allocator),
-      callback(callback),
-      node(&node) {
-      assert(this->node != nullptr);
+        slot(),
+        type() {
+      this->slot.set(*this, &slot);
+      this->type.set(*this, &type);
     }
-    virtual void softVisitLinks(const Visitor&) const override {
-      // There are no soft links to visit
+    virtual void softVisitLinks(const Visitor& visitor) const override {
+      this->slot.visit(visitor);
     }
     virtual Type getRuntimeType() const override {
-      return Type::Object; // WIBBLE
+      return Type(this->type.get());
     }
-    virtual Value call(IExecution&, const IParameters& parameters) override {
-      assert(parameters.getNamedCount() == 0);
-      assert(parameters.getPositionalCount() == 0);
-      (void)parameters; // ignore the parameters
-      return this->callback.predicateCallback(*this->node);
+    virtual Value getPointee(IExecution& execution) override {
+      if (this->hasModifiability(Modifiability::Read)) {
+        auto* value = this->slot->get();
+        if (value == nullptr) {
+          return Value::Void;
+        }
+        return Value(*value);
+      }
+      return execution.raise(this->trailing("does not support reading via pointer operator '*'"));
     }
-    virtual Value getProperty(IExecution& execution, const String&) override {
-      return execution.raise("Internal runtime error: Predicates do not support properties");
+    virtual Value setPointee(IExecution& execution, const Value& value) override {
+      if (this->hasModifiability(Modifiability::Write)) {
+        this->slot->set(value);
+        return Value::Void;
+      }
+      return execution.raise(this->trailing("does not support writing via pointer operator '*'"));
     }
-    virtual Value setProperty(IExecution& execution, const String&, const Value&) override {
-      return execution.raise("Internal runtime error: Predicates do not support properties");
+    virtual Value mutPointee(IExecution& execution, Mutation mutation, const Value& value) override {
+      if (this->hasModifiability(Modifiability::Mutate)) {
+        Value before;
+        switch (Slot::mutate(*this->slot, this->allocator, Type::AnyQ, mutation, value, before)) {
+        case Type::Assignment::Success:
+          break;
+        case Type::Assignment::Uninitialized:
+        case Type::Assignment::Incompatible:
+        case Type::Assignment::BadIntToFloat:
+        case Type::Assignment::Unimplemented:
+          return execution.raise(this->trailing("failed to mutate via pointer operator '*' [WOBBLE]"));
+        }
+        return before;
+      }
+      return execution.raise(this->trailing("does not support mutating via pointer operator '*'"));
     }
-    virtual Value getIndex(IExecution& execution, const Value&) override {
-      return execution.raise("Internal runtime error: Predicates do not support indexing");
+  private:
+    bool hasModifiability(Modifiability flags) {
+      auto modifiability = this->type->getObjectShape(0)->pointable->getModifiability();
+      return Bits::hasAllSet(modifiability, flags);
     }
-    virtual Value setIndex(IExecution& execution, const Value&, const Value&) override {
-      return execution.raise("Internal runtime error: Predicates do not support indexing");
+  };
+
+  // WUBBLE
+  class VanillaPointer::DynamicType : public SoftReferenceCounted<IType>, IPointerSignature {
+    DynamicType(const DynamicType&) = delete;
+    DynamicType& operator=(const DynamicType&) = delete;
+  public:
+    SoftPtr<ISlot> slot;
+    Modifiability modifiability;
+    ObjectShape shape;
+  public:
+    DynamicType(IAllocator& allocator, ISlot& slot, Modifiability modifiability)
+      : SoftReferenceCounted(allocator),
+        slot(),
+        modifiability(modifiability),
+        shape({}) {
+      this->shape.pointable = this;
+      this->slot.set(*this, &slot);
     }
-    virtual Value iterate(IExecution& execution) override {
-      return execution.raise("Internal runtime error: Predicates do not support iteration");
+    virtual void softVisitLinks(const Visitor& visitor) const override {
+      this->slot.visit(visitor);
     }
-    virtual void print(Printer& printer) const override {
-      printer << "<predicate>";
+    virtual ValueFlags getFlags() const override {
+      return ValueFlags::Object;
+    }
+    virtual const IntShape* getIntShape() const override {
+      return nullptr;
+    }
+    virtual const FloatShape* getFloatShape() const override {
+      return nullptr;
+    }
+    virtual const ObjectShape* getStringShape() const override {
+      return nullptr;
+    }
+    virtual const ObjectShape* getObjectShape(size_t index) const override {
+      return (index == 0) ? &this->shape : nullptr;
+    }
+    virtual size_t getObjectShapeCount() const override {
+      return 1;
+    }
+    virtual std::pair<std::string, int> toStringPrecedence() const override {
+      return { this->pointeeType() + '*', 1 };
+    }
+    virtual String describeValue() const override {
+      // TODO i18n
+      return StringBuilder::concat("Value of type '", this->pointeeType(), "*'");
+    }
+    virtual Type getType() const override {
+      // IPointerSignature
+      auto* value = this->slot->get();
+      if (value == nullptr) {
+        return Type::Void;
+      }
+      return value->getRuntimeType();
+    }
+    virtual Modifiability getModifiability() const override {
+      // IPointerSignature
+      return this->modifiability;
+    }
+  private:
+    std::string pointeeType() const {
+      auto pair = this->getType()->toStringPrecedence();
+      if (pair.second > 1) {
+        return '(' + pair.first + ')';
+      }
+      return pair.first;
     }
   };
 
@@ -772,28 +861,67 @@ namespace {
       printer << this->readable;
     }
   };
+
+  class VanillaPredicate : public VanillaBase {
+    VanillaPredicate(const VanillaPredicate&) = delete;
+    VanillaPredicate& operator=(const VanillaPredicate&) = delete;
+  private:
+    Vanilla::IPredicateCallback& callback; // Guaranteed to be long-lived
+    Node node;
+  public:
+    VanillaPredicate(IAllocator& allocator, Vanilla::IPredicateCallback& callback, const INode& node)
+      : VanillaBase(allocator),
+      callback(callback),
+      node(&node) {
+      assert(this->node != nullptr);
+    }
+    virtual void softVisitLinks(const Visitor&) const override {
+      // There are no soft links to visit
+    }
+    virtual Type getRuntimeType() const override {
+      return Type::Object; // WIBBLE
+    }
+    virtual Value call(IExecution&, const IParameters& parameters) override {
+      assert(parameters.getNamedCount() == 0);
+      assert(parameters.getPositionalCount() == 0);
+      (void)parameters; // ignore the parameters
+      return this->callback.predicateCallback(*this->node);
+    }
+    virtual void print(Printer& printer) const override {
+      printer << "<predicate>";
+    }
+  protected:
+    virtual String trailing(const char* suffix) const {
+      return StringBuilder::concat("Internal runtime error: Predicate ", suffix);
+    }
+  };
 }
 
 egg::ovum::Object egg::ovum::VanillaFactory::createArray(IAllocator& allocator, size_t length) {
-  return ObjectFactory::create<VanillaArray>(allocator, length);
+  return createVanillaObject<VanillaArray>(allocator, length);
 }
 
 egg::ovum::Object egg::ovum::VanillaFactory::createDictionary(IAllocator& allocator) {
-  return ObjectFactory::create<VanillaDictionary>(allocator);
+  return createVanillaObject<VanillaDictionary>(allocator);
 }
 
 egg::ovum::Object egg::ovum::VanillaFactory::createObject(IAllocator& allocator) {
-  return ObjectFactory::create<VanillaObject>(allocator);
+  return createVanillaObject<VanillaObject>(allocator);
 }
 
 egg::ovum::Object egg::ovum::VanillaFactory::createKeyValue(IAllocator& allocator, const String& key, const Value& value) {
-  return ObjectFactory::create<VanillaKeyValue>(allocator, key, value);
+  return createVanillaObject<VanillaKeyValue>(allocator, key, value);
 }
 
 egg::ovum::Object egg::ovum::VanillaFactory::createError(IAllocator& allocator, const LocationSource& location, const String& message) {
-  return ObjectFactory::create<VanillaError>(allocator, location, message);
+  return createVanillaObject<VanillaError>(allocator, location, message);
 }
 
 egg::ovum::Object egg::ovum::VanillaFactory::createPredicate(IAllocator& allocator, Vanilla::IPredicateCallback& callback, const INode& node) {
-  return ObjectFactory::create<VanillaPredicate>(allocator, callback, node);
+  return createVanillaObject<VanillaPredicate>(allocator, callback, node);
+}
+
+egg::ovum::Object egg::ovum::VanillaFactory::createPointer(IAllocator& allocator, ISlot& slot, Modifiability modifiability) {
+  auto type = allocator.make<VanillaPointer::DynamicType>(slot, modifiability);
+  return createVanillaObject<VanillaPointer>(allocator, slot, *type);
 }

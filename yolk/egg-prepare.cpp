@@ -588,7 +588,8 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareDot(const eg
 }
 
 egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareUnary(const egg::ovum::LocationSource& where, EggProgramUnary op, IEggProgramNode& value) {
-  if (abandoned(value.prepare(*this))) {
+  auto prepared = value.prepare(*this);
+  if (abandoned(prepared)) {
     return EggProgramNodeFlags::Abandon;
   }
   auto type = value.getType();
@@ -613,7 +614,8 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareUnary(const 
     break;
   case EggProgramUnary::Ref:
     // Reference '&' operation tells the child node to return the address of the value ("byref")
-    return this->compilerError(where, "Pointer dereference '*' operator not yet supported"); // TODO
+    // TODO check the expression: do we allow, for example, '&0'?
+    break;
   case EggProgramUnary::Deref:
     // Dereference '*' operation
     if (!type.hasAnyFlags(egg::ovum::ValueFlags::Object)) {

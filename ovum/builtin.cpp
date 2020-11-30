@@ -10,6 +10,12 @@
 namespace {
   using namespace egg::ovum;
 
+  template<typename T, typename... ARGS>
+  static Value createBuiltinValue(IAllocator& allocator, ARGS&&... args) {
+    Object object{ *allocator.make<T>(std::forward<ARGS>(args)...) };
+    return ValueFactory::createObject(allocator, object);
+  }
+
   class ParametersNone : public IParameters {
   public:
     virtual size_t getPositionalCount() const override {
@@ -252,8 +258,7 @@ namespace {
   };
 
   Value StringProperty_Member::createInstance(IAllocator& allocator, const String& string) const {
-    auto object = ObjectFactory::create<StringProperty_Instance>(allocator, *this, string);
-    return ValueFactory::createObject(allocator, object);
+    return createBuiltinValue<StringProperty_Instance>(allocator, *this, string);
   }
 
   class StringProperty_CompareTo final : public StringProperty_Member {
@@ -689,6 +694,17 @@ namespace {
   };
   const ObjectShapeIterable objectShapeIterable{};
 
+  class ObjectShapePointable : public IPointerSignature {
+  public:
+    virtual Type getType() const override {
+      return Type::AnyQ;
+    }
+    virtual Modifiability getModifiability() const override {
+      return Modifiability::Read | Modifiability::Write | Modifiability::Mutate;
+    }
+  };
+  const ObjectShapePointable objectShapePointable{};
+
   class BuiltinBase : public SoftReferenceCounted<IObject> {
     BuiltinBase(const BuiltinBase&) = delete;
     BuiltinBase& operator=(const BuiltinBase&) = delete;
@@ -793,7 +809,7 @@ namespace {
     }
     template<typename T>
     Value addMember(const String& member) {
-      auto instance = ValueFactory::createObject(allocator, ObjectFactory::create<T>(allocator));
+      auto instance = createBuiltinValue<T>(allocator);
       if (this->properties.empty()) {
         this->builder->defineDotable(Type::Void, Modifiability::None);
       }
@@ -940,12 +956,24 @@ const egg::ovum::FloatShape& egg::ovum::BuiltinFactory::getFloatShape() {
 }
 
 const egg::ovum::ObjectShape& egg::ovum::BuiltinFactory::getStringShape() {
-  static const ObjectShape instance{ nullptr, &stringShapeDotable, &stringShapeIndexable, &stringShapeIterable };
+  static const ObjectShape instance{
+    nullptr,
+    &stringShapeDotable,
+    &stringShapeIndexable,
+    &stringShapeIterable,
+    nullptr
+  };
   return instance;
 }
 
 const egg::ovum::ObjectShape& egg::ovum::BuiltinFactory::getObjectShape() {
-  static const ObjectShape instance{ &objectShapeCallable, &objectShapeDotable, &objectShapeIndexable, &objectShapeIterable };
+  static const ObjectShape instance{
+    &objectShapeCallable,
+    &objectShapeDotable,
+    &objectShapeIndexable,
+    &objectShapeIterable,
+    &objectShapePointable
+  };
   return instance;
 }
 
@@ -965,17 +993,17 @@ size_t egg::ovum::BuiltinFactory::getStringPropertyCount() {
 }
 
 egg::ovum::Value egg::ovum::BuiltinFactory::createAssertInstance(IAllocator& allocator) {
-  return ValueFactory::createObject(allocator, ObjectFactory::create<Builtin_Assert>(allocator));
+  return createBuiltinValue<Builtin_Assert>(allocator);
 }
 
 egg::ovum::Value egg::ovum::BuiltinFactory::createPrintInstance(IAllocator& allocator) {
-  return ValueFactory::createObject(allocator, ObjectFactory::create<Builtin_Print>(allocator));
+  return createBuiltinValue<Builtin_Print>(allocator);
 }
 
 egg::ovum::Value egg::ovum::BuiltinFactory::createStringInstance(IAllocator& allocator) {
-  return ValueFactory::createObject(allocator, ObjectFactory::create<Builtin_String>(allocator));
+  return createBuiltinValue<Builtin_String>(allocator);
 }
 
 egg::ovum::Value egg::ovum::BuiltinFactory::createTypeInstance(IAllocator& allocator) {
-  return ValueFactory::createObject(allocator, ObjectFactory::create<Builtin_Type>(allocator));
+  return createBuiltinValue<Builtin_Type>(allocator);
 }

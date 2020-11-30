@@ -1,4 +1,5 @@
 #include "ovum/ovum.h"
+#include "ovum/slot.h"
 #include "ovum/vanilla.h"
 
 namespace {
@@ -383,6 +384,10 @@ egg::ovum::Value egg::ovum::ValueFactory::createString(IAllocator& allocator, co
 
 egg::ovum::Value egg::ovum::ValueFactory::createObject(IAllocator& allocator, const Object& value) {
   return Value(*allocator.make<ValueObject, IValue*>(value));
+}
+
+egg::ovum::Value egg::ovum::ValueFactory::createPointer(IAllocator& allocator, ISlot& slot, Modifiability modifiability) {
+  return ValueFactory::createObject(allocator, ObjectFactory::createPointer(allocator, slot, modifiability));
 }
 
 egg::ovum::Value egg::ovum::ValueFactory::createFlowControl(IAllocator& allocator, ValueFlags flags, const Value& value) {

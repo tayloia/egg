@@ -321,23 +321,45 @@ namespace {
     }
   };
 
+  class PointerSignature : public IPointerSignature {
+    PointerSignature(const PointerSignature&) = delete;
+    PointerSignature& operator=(const PointerSignature&) = delete;
+  private:
+    Type type; // TODO make soft
+    Modifiability modifiability;
+  public:
+    PointerSignature(const IType& type, Modifiability modifiability)
+      : type(&type),
+        modifiability(modifiability) {
+      assert(this->type != nullptr);
+      assert(this->modifiability != Modifiability::None);
+      assert(!Bits::hasAnySet(this->modifiability, Modifiability::Delete));
+    }
+    virtual Type getType() const override {
+      return this->type;
+    }
+    virtual Modifiability getModifiability() const override {
+      return this->modifiability;
+    }
+  };
+
   class TypePointer : public SoftReferenceCounted<IType> {
     TypePointer(const TypePointer&) = delete;
     TypePointer& operator=(const TypePointer&) = delete;
   private:
     std::string name;
     Type pointee; // TODO make soft
+    PointerSignature signature;
     ObjectShape shape;
   public:
-    TypePointer(IAllocator& allocator, const IType& pointee)
+    TypePointer(IAllocator& allocator, const IType& pointee, Modifiability modifiability)
       : SoftReferenceCounted(allocator),
         name(TypePointer::makeTypeName(pointee.toStringPrecedence())),
-        pointee(&pointee) {
+        pointee(&pointee),
+        signature(pointee, modifiability),
+        shape({}) {
       assert(this->pointee != nullptr);
-      this->shape.callable = nullptr;
-      this->shape.dotable = nullptr;
-      this->shape.indexable = nullptr;
-      this->shape.iterable = nullptr;
+      this->shape.pointable = &this->signature;
     }
     virtual void softVisitLinks(const Visitor&) const override {
       // TODO
@@ -892,6 +914,11 @@ namespace {
     }
     return assignability;
   }
+
+  bool isAssignableObject(const IType&, const IObject&) {
+    return true;
+    // WUBBLE return &ltype == rhs.getRuntimeType().get();
+  }
 }
 
 egg::ovum::Type::Assignability egg::ovum::Type::queryAssignable(const IType& from) const {
@@ -914,6 +941,10 @@ const egg::ovum::IIndexSignature* egg::ovum::Type::queryIndexable() const {
 
 const egg::ovum::IIteratorSignature* egg::ovum::Type::queryIterable() const {
   return queryObjectShape<IIteratorSignature>(this->get(), &ObjectShape::iterable);
+}
+
+const egg::ovum::IPointerSignature* egg::ovum::Type::queryPointable() const {
+  return queryObjectShape<IPointerSignature>(this->get(), &ObjectShape::pointable);
 }
 
 egg::ovum::Type egg::ovum::Type::addFlags(IAllocator& allocator, ValueFlags flags) const {
@@ -999,8 +1030,8 @@ egg::ovum::Type egg::ovum::TypeFactory::createSimple(IAllocator& allocator, Valu
   return allocator.make<TypeSimple, Type>(flags);
 }
 
-egg::ovum::Type egg::ovum::TypeFactory::createPointer(IAllocator& allocator, const IType& pointee) {
-  return allocator.make<TypePointer, Type>(pointee);
+egg::ovum::Type egg::ovum::TypeFactory::createPointer(IAllocator& allocator, const IType& pointee, Modifiability modifiability) {
+  return allocator.make<TypePointer, Type>(pointee, modifiability);
 }
 
 egg::ovum::Type egg::ovum::TypeFactory::createUnion(IAllocator& allocator, const IType& a, const IType& b) {
@@ -1084,10 +1115,13 @@ egg::ovum::Type::Assignment egg::ovum::Type::promote(IAllocator& allocator, cons
     }
     break;
   case ValueFlags::Object:
-    if (!this->hasAnyFlags(ValueFlags::Object)) {
-      return Assignment::Incompatible;
+    if (this->hasAnyFlags(ValueFlags::Object)) {
+      egg::ovum::Object o;
+      if (rhs->getObject(o) && isAssignableObject(**this, *o)) {
+        break;
+      }
     }
-    break;
+    return Assignment::Incompatible;
   case egg::ovum::ValueFlags::None:
   case egg::ovum::ValueFlags::Any:
   case egg::ovum::ValueFlags::AnyQ:

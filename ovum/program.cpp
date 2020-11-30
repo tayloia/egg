@@ -163,7 +163,7 @@ namespace {
   };
 
   struct Target {
-    enum class Flavour { Identifier, Property, Index } flavour = Flavour::Identifier;
+    enum class Flavour { Identifier, Property, Index, Pointer } flavour = Flavour::Identifier;
     Type type;
     String identifier;
     Object object;
@@ -1544,7 +1544,11 @@ namespace {
       if (value.hasFlowControl()) {
         return value;
       }
-      return this->raiseNode(a, "WIBBLE: Pointer dereference '*' operator not yet supported");
+      Object pointer;
+      if (!value->getObject(pointer)) {
+        return this->raiseNode(a, "Expected operand of unary '*' operator to be a pointer-like object, but got '", value->getRuntimeType().toString(), "' instead");
+      }
+      return pointer->getPointee(*this);
     }
     Value operatorRef(const INode& a) {
       if (a.getOpcode() != Opcode::IDENTIFIER) {
@@ -1555,8 +1559,7 @@ namespace {
       if (symbol == nullptr) {
         return this->raiseNode(a, "Unknown identifier for unary '&' operator: '", name, "'");
       }
-      return this->raiseNode(a, "WIBBLE Symbol references not yet supported: '", name, "'");
-      // WIBBLE return ValueFactory::createPointer(this->allocator, symbol->value);
+      return this->referenceSymbol(a, *symbol);
     }
     Int operatorBinaryInt(const INode& node, Operator oper, Int lhs, Int rhs) {
       // WIBBLE return Value and handle div-by-zero etc more elegantly
@@ -1686,7 +1689,8 @@ namespace {
       case Opcode::POINTER:
         if (children == 1) {
           auto pointee = this->type(node.getChild(0));
-          return TypeFactory::createPointer(this->allocator, *pointee);
+          auto modifiability = Modifiability::Read | Modifiability::Write | Modifiability::Mutate; // TODO
+          return TypeFactory::createPointer(this->allocator, *pointee, modifiability);
         }
         break;
       case Opcode::UNION:
@@ -1774,6 +1778,12 @@ namespace {
         return this->targetProperty(target, node);
       case Opcode::INDEX:
         return this->targetIndex(target, node);
+      case Opcode::UNARY:
+        if (node.getOperator() == Operator::DEREF) {
+          // The only unary operator we support for a target is '*'
+          return this->targetPointer(target, node);
+        }
+        break;
       }
       EGG_WARNING_SUPPRESS_SWITCH_END();
       throw this->unexpectedOpcode("target", node);
@@ -1864,6 +1874,28 @@ namespace {
       }
       return this->raiseNode(node, lhs->getRuntimeType().describeValue(), " does not support the indexing '[]' operator");
     }
+    Value targetPointer(Target& target, const INode& node) {
+      assert(node.getOpcode() == Opcode::UNARY);
+      assert(node.getOperator() == Operator::DEREF);
+      assert(node.getChildren() == 1);
+      target.flavour = Target::Flavour::Pointer;
+      auto pointer = this->expression(node.getChild(0));
+      if (pointer.hasFlowControl()) {
+        return pointer;
+      }
+      if (pointer->getObject(target.object)) {
+        auto* pointable = target.object->getRuntimeType().queryPointable();
+        if (pointable != nullptr) {
+          auto modifiability = pointable->getModifiability();
+          if (!Bits::hasAnySet(modifiability, Modifiability::Write | Modifiability::Mutate)) {
+            return this->raiseNode(node, pointer->getRuntimeType().describeValue(), " does not support modification via the pointer dereferencing '*' operator");
+          }
+          target.type = pointable->getType();
+          return Value::Void;
+        }
+      }
+      return this->raiseNode(node, pointer->getRuntimeType().describeValue(), " does not support the pointer dereferencing '*' operator");
+    }
     Value targetGet(const INode& node, const Target& target) {
       // Get the value of a target (used only as part of short-circuiting)
       switch (target.flavour) {
@@ -1882,6 +1914,8 @@ namespace {
         return target.object->getProperty(*this, target.identifier);
       case Target::Flavour::Index:
         return target.object->getIndex(*this, target.index);
+      case Target::Flavour::Pointer:
+        return target.object->getPointee(*this);
       }
       return this->raiseNode(node, "Internal runtime error: Unknown target flavour");
     }
@@ -1899,6 +1933,8 @@ namespace {
         return target.object->setProperty(*this, target.identifier, rhs);
       case Target::Flavour::Index:
         return target.object->setIndex(*this, target.index, rhs);
+      case Target::Flavour::Pointer:
+        return target.object->setPointee(*this, rhs);
       }
       return this->raiseNode(node, "Internal runtime error: Unknown target flavour");
     }
@@ -1916,8 +1952,25 @@ namespace {
         return target.object->mutProperty(*this, target.identifier, mutation, rhs);
       case Target::Flavour::Index:
         return target.object->mutIndex(*this, target.index, mutation, rhs);
+      case Target::Flavour::Pointer:
+        return target.object->mutPointee(*this, mutation, rhs);
       }
       return this->raiseNode(node, "Internal runtime error: Unknown target flavour");
+    }
+    Value referenceSymbol(const INode& node, const Symbol& symbol) {
+      if (symbol.slot->get() == nullptr) {
+        return this->raiseNode(node, "Internal runtime error: Symbol table slot is empty: '", symbol.name, "'");
+      }
+      switch (symbol.kind) {
+      case Symbol::Kind::Builtin:
+        return symbol.slot->reference(Modifiability::Read);
+        break;
+      case Symbol::Kind::Variable:
+      default:
+        break;
+      }
+      this->basket->take(*symbol.slot);
+      return symbol.slot->reference(Modifiability::Read | Modifiability::Write | Modifiability::Mutate);
     }
     RuntimeException unexpectedOpcode(const char* expected, const INode& node) {
       this->updateLocation(node);
@@ -1973,10 +2026,12 @@ Block::~Block() {
 
 Value ProgramDefault::tryInitialize(Symbol& symbol, const Value& value) {
   assert(symbol.validate(true));
-  Value after;
-  auto retval = symbol.slot->assign(symbol.type, value, after);
+  assert(symbol.type != nullptr);
+  Value promoted;
+  auto retval = symbol.type.promote(this->allocator, value, promoted);
   switch (retval) {
   case Type::Assignment::Success:
+    symbol.slot->set(promoted);
     break;
   case Type::Assignment::Incompatible:
     // Occurs when the RHS *may* be assignable to the LHS at compile-time, but not at runtime
@@ -1987,21 +2042,23 @@ Value ProgramDefault::tryInitialize(Symbol& symbol, const Value& value) {
     return this->raiseFormat("Internal error: Cannot initialize '", symbol.name, "' of type '", symbol.type.toString(), "' with a value of type '", value->getRuntimeType().toString(), "'");
   }
   assert(symbol.validate(false));
-  return after;
+  return promoted;
 }
 
 Value ProgramDefault::tryAssign(Symbol& symbol, const Value& value) {
   assert(symbol.validate(true));
+  assert(symbol.type != nullptr);
   switch (symbol.kind) {
   case Symbol::Kind::Builtin:
     return this->raiseFormat("Cannot re-assign built-in value: '", symbol.name, "'");
   case Symbol::Kind::Variable:
-    break;;
+    break;
   }
-  Value after;
-  auto retval = symbol.slot->assign(symbol.type, value, after);
+  Value promoted;
+  auto retval = symbol.type.promote(this->allocator, value, promoted);
   switch (retval) {
   case Type::Assignment::Success:
+    symbol.slot->set(promoted);
     break;
   case Type::Assignment::Incompatible:
     return this->raiseFormat("Cannot assign '", symbol.name, "' of type '", symbol.type.toString(), "' with a value of type '", value->getRuntimeType().toString(), "'");
@@ -2011,7 +2068,7 @@ Value ProgramDefault::tryAssign(Symbol& symbol, const Value& value) {
     return this->raiseFormat("Internal error: Cannot assign '", symbol.name, "' of type '", symbol.type.toString(), "' with a value of type '", value->getRuntimeType().toString(), "'");
   }
   assert(symbol.validate(false));
-  return after;
+  return promoted;
 }
 
 Value ProgramDefault::tryMutate(Symbol& symbol, Mutation mutation, const Value& value) {

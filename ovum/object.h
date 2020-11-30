@@ -21,11 +21,7 @@ namespace egg::ovum {
 
   class ObjectFactory {
   public:
-    template<typename T, typename... ARGS>
-    static Object create(IAllocator& allocator, ARGS&&... args) {
-      // Use perfect forwarding
-      return Object(*allocator.make<T>(std::forward<ARGS>(args)...));
-    }
     static Object createEmpty(IAllocator& allocator);
+    static Object createPointer(IAllocator& allocator, ISlot& slot, Modifiability modifiability);
   };
 }

@@ -1865,11 +1865,17 @@ egg::ovum::Type EggParserNode_UnaryLogicalNot::getType() const {
 
 egg::ovum::Type EggParserNode_UnaryRef::getType() const {
   auto pointee = this->expr->getType();
-  return egg::ovum::TypeFactory::createPointer(*this->allocator, *pointee);
+  auto modifiability = egg::ovum::Modifiability::Read | egg::ovum::Modifiability::Write | egg::ovum::Modifiability::Mutate; // TODO
+  return egg::ovum::TypeFactory::createPointer(*this->allocator, *pointee, modifiability);
 }
 
 egg::ovum::Type EggParserNode_UnaryDeref::getType() const {
-  return egg::ovum::Type::AnyQ; // TODO
+  auto pointer = this->expr->getType();
+  auto* pointable = pointer.queryPointable();
+  if (pointable != nullptr) {
+    return pointable->getType();
+  }
+  return nullptr;
 }
 
 egg::ovum::Type EggParserNode_UnaryNegate::getType() const {
@@ -1955,21 +1961,18 @@ egg::ovum::Type EggParserNode_BinaryShiftRightUnsigned::getType() const {
 }
 
 egg::ovum::Type EggParserNode_BinaryNullCoalescing::getType() const {
-  return egg::ovum::Type::Void; // WIBBLE
-  /*
-  auto type1 = this->lhs->getType();
-  if (!type1->hasBasalType(egg::ovum::BasalBits::Null)) {
+  auto ltype = this->lhs->getType();
+  if (!ltype.hasAnyFlags(egg::ovum::ValueFlags::Null)) {
     // The left-hand-side cannot be null, so the right side is irrelevant
-    return type1;
+    return ltype;
   }
-  auto type2 = this->rhs->getType();
-  type1 = type1->denulledType();
-  if (type1 == nullptr) {
+  auto rtype = this->rhs->getType();
+  if (ltype->getFlags() == egg::ovum::ValueFlags::Null) {
     // The left-hand-side is only ever null, so only the right side is relevant
-    return type2;
+    return rtype;
   }
-  return egg::ovum::TypeFactory::createUnion(*this->allocator, *type1, *type2);
-  */
+  ltype = ltype.stripFlags(*this->allocator, egg::ovum::ValueFlags::Null);
+  return egg::ovum::TypeFactory::createUnion(*this->allocator, *ltype, *rtype);
 }
 
 egg::ovum::Type EggParserNode_BinaryBitwiseXor::getType() const {

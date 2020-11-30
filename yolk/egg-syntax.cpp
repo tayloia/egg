@@ -1963,7 +1963,8 @@ bool EggSyntaxParserContext::parseTypePostfixExpression(egg::ovum::Type& type) {
       if (p0.isOperator(EggTokenizerOperator::Star)) {
         // Pointer reference to 'type'
         mark.advance(1);
-        type = egg::ovum::TypeFactory::createPointer(*this->allocator, *type);
+        auto modifiability = egg::ovum::Modifiability::Read | egg::ovum::Modifiability::Write | egg::ovum::Modifiability::Mutate; // TODO
+        type = egg::ovum::TypeFactory::createPointer(*this->allocator, *type, modifiability);
         continue;
       }
       if (p0.isOperator(EggTokenizerOperator::ParenthesisLeft)) {

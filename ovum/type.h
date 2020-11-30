@@ -61,6 +61,7 @@ namespace egg::ovum {
     const IPropertySignature* queryDotable() const;
     const IIndexSignature* queryIndexable() const;
     const IIteratorSignature* queryIterable() const;
+    const IPointerSignature* queryPointable() const;
     Type addFlags(IAllocator& allocator, ValueFlags flags) const;
     Type stripFlags(IAllocator& allocator, ValueFlags flags) const;
 
@@ -265,7 +266,7 @@ namespace egg::ovum {
   class TypeFactory {
   public:
     static Type createSimple(IAllocator& allocator, ValueFlags flags);
-    static Type createPointer(IAllocator& allocator, const IType& pointee);
+    static Type createPointer(IAllocator& allocator, const IType& pointee, Modifiability modifiability);
     static Type createUnion(IAllocator& allocator, const IType& a, const IType& b);
     static TypeBuilder createTypeBuilder(IAllocator& allocator, const String& name, const String& description);
     static TypeBuilder createFunctionBuilder(IAllocator& allocator, const Type& rettype, const String& name, const String& description);

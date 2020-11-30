@@ -25,8 +25,12 @@ namespace egg::ovum {
     virtual void set(const Value& value) override;
     virtual bool update(IValue* expected, const Value& desired) override;
     virtual void clear() override;
-    Type::Assignment assign(const Type& type, const Value& value, Value& after);
-    Type::Assignment mutate(const Type& type, Mutation mutation, const Value& value, Value& before);
+    // Helpers
+    static Type::Assignment mutate(ISlot& slot, IAllocator& allocator, const Type& type, Mutation mutation, const Value& value, Value& before);
+    Type::Assignment mutate(const Type& type, Mutation mutation, const Value& value, Value& before) {
+      return Slot::mutate(*this, this->allocator, type, mutation, value, before);
+    }
+    Value reference(Modifiability modifiability);
     // Debugging
     bool validate(bool optional) const;
     virtual bool validate() const override {

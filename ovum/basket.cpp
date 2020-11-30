@@ -26,7 +26,7 @@ namespace {
       // We don't support tear-offs
       assert(acquired == &collectable);
       auto* previous = collectable.softSetBasket(this);
-      assert(previous == nullptr);
+      assert((previous == nullptr) || (previous == this));
       if (previous != nullptr) {
         // Edge cases: ownership directly transferred (shouldn't happen, but clean up anyway)
         acquired->hardRelease();
