@@ -84,27 +84,56 @@ namespace {
     Value guard(const LocationSource& source, const Type& type, const String& name, const Value& init);
   };
 
-  struct Symbol {
+  class Symbol {
+    Symbol(Symbol&& rhs) noexcept = delete;
+    Symbol(const Symbol&) = delete;
+    Symbol& operator=(const Symbol&) = delete;
+  public:
     enum class Kind {
       Builtin,
       Variable
     };
-    Kind kind;
-    Type type;
-    String name;
+  private:
     LocationSource source;
-    HardPtr<Slot> slot;
-    Symbol(IAllocator& allocator, Kind kind, const Type& type, const String& name, const LocationSource& source)
-      : kind(kind),
-        type(type),
+    Kind kind;
+    SoftPtr<IType> type;
+    String name;
+    SoftPtr<Slot> slot;
+  public:
+    Symbol(ICollectable& container, const LocationSource& source, Kind kind, const IType& type, const String& name, Slot& slot)
+      : source(source),
+        kind(kind),
+        type(),
         name(name),
-        source(source),
-        slot(allocator.make<Slot>()) {
+        slot() {
+      this->type.set(container, &type);
+      this->slot.set(container, &slot);
       assert(this->validate(true));
     }
-    Symbol(Symbol&& rhs) noexcept = default;
-    Symbol(const Symbol&) = delete;
-    Symbol& operator=(const Symbol&) = delete;
+    Type getType() const {
+      return Type(this->type.get());
+    }
+    Kind getKind() const {
+      return this->kind;
+    }
+    const String& getName() const {
+      return this->name;
+    }
+    HardPtr<Slot> getSlot() const {
+      return HardPtr<Slot>(this->slot.get());
+    }
+    Value getValue() const {
+      auto value = this->slot->get();
+      return (value == nullptr) ? Value::Break : Value(*value);
+    }
+    void clone(ICollectable& container, std::map<String, Symbol>& table) {
+      table.emplace(std::piecewise_construct, std::forward_as_tuple(this->name),
+                                              std::forward_as_tuple(container, this->source, this->kind, *this->type, this->name, *this->slot));
+    }
+    void visit(const ICollectable::Visitor& visitor) const {
+      this->type.visit(visitor);
+      this->slot.visit(visitor);
+    }
     bool validate(bool optional) const {
       return (this->type != nullptr) && !this->name.empty() && (slot != nullptr) && slot->validate(optional);
     }
@@ -118,24 +147,29 @@ namespace {
     SoftPtr<SymbolTable> parent;
     SoftPtr<SymbolTable> capture;
   public:
-    explicit SymbolTable(IAllocator& allocator, SymbolTable* parent = nullptr, SymbolTable* capture = nullptr)
+    explicit SymbolTable(IAllocator& allocator, SymbolTable* parent, SymbolTable* capture)
       : SoftReferenceCounted(allocator) {
+      printf("WIBBLE: SYMTABLE %p: CREATED %p %p\n", this, parent, capture);
       this->parent.set(*this, parent);
       this->capture.set(*this, capture);
     }
-    Symbol* add(Symbol::Kind kind, const Type& type, const String& name, const LocationSource& source) {
-      // Return true in the first of the pair iff the insertion occurred
+    Symbol* add(const LocationSource& source, Symbol::Kind kind, const Type& type, const String& name) {
+      // Return non-null iff the insertion occurred
+      printf("WIBBLE: SYMTABLE %p: ADD %s\n", this, name.toUTF8().c_str());
+      auto slot = this->allocator.make<Slot>();
       auto retval = this->table.emplace(std::piecewise_construct,
                                         std::forward_as_tuple(name),
-                                        std::forward_as_tuple(this->allocator, kind, type, name, source));
+                                        std::forward_as_tuple(*this, source, kind, *type, name, *slot));
       return retval.second ? &retval.first->second : nullptr;
     }
     bool remove(const String& name) {
+      printf("WIBBLE: SYMTABLE %p: REMOVE %s\n", this, name.toUTF8().c_str());
       // Return true iff the removal occurred
       auto retval = this->table.erase(name);
       return retval == 1;
     }
     Symbol* get(const String& name) {
+      printf("WIBBLE: SYMTABLE %p: GET %s\n", this, name.toUTF8().c_str());
       // Return a pointer to the symbol or null
       auto retval = this->table.find(name);
       if (retval == this->table.end()) {
@@ -147,18 +181,34 @@ namespace {
       return &retval->second;
     }
     void softVisitLinks(const Visitor& visitor) const {
+      printf("WIBBLE: SYMTABLE %p: SOFTVISITLINKS\n", this);
       // WIBBLE
+      for (auto& each : this->table) {
+        each.second.visit(visitor);
+      }
       this->parent.visit(visitor);
       this->capture.visit(visitor);
     }
     SymbolTable* push(SymbolTable* captured = nullptr) {
+      printf("WIBBLE: SYMTABLE %p: PUSH %p\n", this, captured);
       // Push a table onto the symbol table stack
       return this->allocator.create<SymbolTable>(0, this->allocator, this, captured);
     }
     SymbolTable* pop() {
+      printf("WIBBLE: SYMTABLE %p: POP\n", this);
       // Pop an element from the symbol table stack
       assert(this->parent != nullptr);
       return this->parent.get();
+    }
+    HardPtr<SymbolTable> clone() {
+      printf("WIBBLE: SYMTABLE %p: CLONE\n", this);
+      // Shallow clone the symbol table
+      auto cloned = this->allocator.make<SymbolTable>(nullptr, nullptr);
+      this->basket->take(*cloned);
+      for (auto& each : this->table) {
+        each.second.clone(*this, cloned->table);
+      }
+      return cloned;
     }
   };
 
@@ -269,6 +319,7 @@ namespace {
     CallStack(HardPtr<SymbolTable>& symtable, SymbolTable* capture) : symtable(symtable) {
       // Push an element onto the symbol table stack
       this->symtable.set(this->symtable->push(capture));
+      printf("WIBBLE: SYMTABLE %p: SET\n", this->symtable.get());
       assert(this->symtable != nullptr);
     }
     ~CallStack() {
@@ -293,7 +344,7 @@ namespace {
         logger(logger),
         maxseverity(ILogger::Severity::None),
         basket(&basket),
-        symtable(allocator.make<SymbolTable>()),
+        symtable(allocator.make<SymbolTable>(nullptr, nullptr)),
         location({}, 0, 0) {
       this->basket->take(*this->symtable);
     }
@@ -303,10 +354,10 @@ namespace {
     }
     virtual bool builtin(const String& name, const Value& value) override {
       static const LocationSource source("<builtin>", 0, 0);
-      auto symbol = this->symtable->add(Symbol::Kind::Builtin, value->getRuntimeType(), name, source);
+      auto symbol = this->symtable->add(source, Symbol::Kind::Builtin, value->getRuntimeType(), name);
       if (symbol != nullptr) {
         // Don't use assignment for builtins; it always fails
-        symbol->slot->set(value);
+        symbol->getSlot()->set(value);
         return true;
       }
       return false;
@@ -385,8 +436,11 @@ namespace {
         }
         return this->raiseFormat(FunctionSignature::toString(signature), ": No more than ", maxPositional, " parameters were expected, but got ", numPositional);
       }
+      printf("WIBBLE: EXECUTE_CALL: before CallStack %p %p\n", this->symtable.get(), &captured);
       CallStack stack(this->symtable, &captured);
+      printf("WIBBLE: EXECUTE_CALL: after CallStack %p %p\n", this->symtable.get(), &captured);
       Block scope(*this);
+      printf("WIBBLE: EXECUTE_CALL: after Block %p\n", this->symtable.get());
       for (size_t i = 0; i < maxPositional; ++i) {
         auto& sigparam = signature.getParameter(i);
         auto pname = sigparam.getName();
@@ -410,7 +464,9 @@ namespace {
           return this->raiseFormat("Type mismatch for parameter '", pname, "': Expected '", ptype.toString(), "', but got '", pvalue->getRuntimeType().toString(), "' instead");
         }
       }
+      printf("WIBBLE: EXECUTE_CALL: before executeBlock %p\n", this->symtable.get());
       auto retval = this->executeBlock(scope, block);
+      printf("WIBBLE: EXECUTE_CALL: after executeBlock %p\n", this->symtable.get());
       if (retval.hasAnyFlags(ValueFlags::Return)) {
         if (retval->getInner(retval)) {
           // Simple 'return <value>'
@@ -743,7 +799,7 @@ namespace {
       // We have to be careful to ensure the function is declared before capturing symbols so that recursion works correctly
       auto fvalue = ValueFactory::createObject(this->allocator, Object(*function));
       auto retval = block.declare(this->location, ftype, fname, &fvalue);
-      function->setCaptured(this->symtable);
+      function->setCaptured(this->symtable->clone());
       return retval;
     }
     Value statementIf(const INode& node) {
@@ -1248,11 +1304,11 @@ namespace {
       if (symbol == nullptr) {
         return this->raiseNode(node, "Unknown identifier in expression: '", name, "'");
       }
-      auto* value = symbol->slot->get();
-      if (value == nullptr) {
+      auto value = symbol->getValue();
+      if (value.hasFlowControl()) {
         return this->raiseNode(node, "Internal runtime error: Symbol table slot is empty: '", name, "'");
       }
-      return Value(*value);
+      return value;
     }
     Value expressionIndex(const INode& node) {
       assert(node.getOpcode() == Opcode::INDEX);
@@ -1805,7 +1861,7 @@ namespace {
       if (symbol == nullptr) {
         return this->raiseNode(node, "Unknown identifier: '", target.identifier, "'");
       }
-      target.type = symbol->type;
+      target.type = symbol->getType();
       return Value::Void;
     }
     Value targetProperty(Target& target, const INode& node) {
@@ -1900,11 +1956,11 @@ namespace {
         if (symbol == nullptr) {
           return this->raiseNode(node, "Unknown identifier: '", target.identifier, "'");
         }
-        auto* value = symbol->slot->get();
-        if (value == nullptr) {
+        auto value = symbol->getValue();
+        if (value.hasFlowControl()) {
           return this->raiseNode(node, "Internal runtime error: Symbol table slot is empty: '", target.identifier, "'");
         }
-        return Value(*value);
+        return value;
       }
       case Target::Flavour::Property:
         return target.object->getProperty(*this, target.identifier);
@@ -1954,11 +2010,12 @@ namespace {
       return this->raiseNode(node, "Internal runtime error: Unknown target flavour");
     }
     Value referenceSymbol(const INode& node, const Symbol& symbol) {
-      if (symbol.slot->get() == nullptr) {
-        return this->raiseNode(node, "Internal runtime error: Symbol table slot is empty: '", symbol.name, "'");
+      auto slot = symbol.getSlot();
+      if (slot->get() == nullptr) {
+        return this->raiseNode(node, "Internal runtime error: Symbol table slot is empty: '", symbol.getName(), "'");
       }
       auto modifiability = Modifiability::Read | Modifiability::Write | Modifiability::Mutate;
-      switch (symbol.kind) {
+      switch (symbol.getKind()) {
       case Symbol::Kind::Builtin:
         modifiability = Modifiability::Read;
         break;
@@ -1966,8 +2023,8 @@ namespace {
       default:
         break;
       }
-      this->basket->take(*symbol.slot);
-      return symbol.slot->reference(symbol.type, modifiability);
+      this->basket->take(*slot);
+      return slot->reference(symbol.getType(), modifiability);
     }
     RuntimeException unexpectedOpcode(const char* expected, const INode& node) {
       this->updateLocation(node);
@@ -2023,20 +2080,21 @@ Block::~Block() {
 
 Value ProgramDefault::tryInitialize(Symbol& symbol, const Value& value) {
   assert(symbol.validate(true));
-  assert(symbol.type != nullptr);
+  auto type = symbol.getType();
+  assert(type != nullptr);
   Value promoted;
-  auto retval = symbol.type.promote(this->allocator, value, promoted);
+  auto retval = type.promote(this->allocator, value, promoted);
   switch (retval) {
   case Type::Assignment::Success:
-    symbol.slot->set(promoted);
+    symbol.getSlot()->set(promoted);
     break;
   case Type::Assignment::Incompatible:
     // Occurs when the RHS *may* be assignable to the LHS at compile-time, but not at runtime
-    return this->raiseFormat("Cannot initialize '", symbol.name, "' of type '", symbol.type.toString(), "' with a value of type '", value->getRuntimeType().toString(), "'");
+    return this->raiseFormat("Cannot initialize '", symbol.getName(), "' of type '", type.toString(), "' with a value of type '", value->getRuntimeType().toString(), "'");
   case Type::Assignment::Uninitialized:
   case Type::Assignment::BadIntToFloat:
   case Type::Assignment::Unimplemented:
-    return this->raiseFormat("Internal error: Cannot initialize '", symbol.name, "' of type '", symbol.type.toString(), "' with a value of type '", value->getRuntimeType().toString(), "'");
+    return this->raiseFormat("Internal error: Cannot initialize '", symbol.getName(), "' of type '", type.toString(), "' with a value of type '", value->getRuntimeType().toString(), "'");
   }
   assert(symbol.validate(false));
   return promoted;
@@ -2044,25 +2102,26 @@ Value ProgramDefault::tryInitialize(Symbol& symbol, const Value& value) {
 
 Value ProgramDefault::tryAssign(Symbol& symbol, const Value& value) {
   assert(symbol.validate(true));
-  assert(symbol.type != nullptr);
-  switch (symbol.kind) {
+  auto type = symbol.getType();
+  assert(type != nullptr);
+  switch (symbol.getKind()) {
   case Symbol::Kind::Builtin:
-    return this->raiseFormat("Cannot re-assign built-in value: '", symbol.name, "'");
+    return this->raiseFormat("Cannot re-assign built-in value: '", symbol.getName(), "'");
   case Symbol::Kind::Variable:
     break;
   }
   Value promoted;
-  auto retval = symbol.type.promote(this->allocator, value, promoted);
+  auto retval = type.promote(this->allocator, value, promoted);
   switch (retval) {
   case Type::Assignment::Success:
-    symbol.slot->set(promoted);
+    symbol.getSlot()->set(promoted);
     break;
   case Type::Assignment::Incompatible:
-    return this->raiseFormat("Cannot assign '", symbol.name, "' of type '", symbol.type.toString(), "' with a value of type '", value->getRuntimeType().toString(), "'");
+    return this->raiseFormat("Cannot assign '", symbol.getName(), "' of type '", type.toString(), "' with a value of type '", value->getRuntimeType().toString(), "'");
   case Type::Assignment::Uninitialized:
   case Type::Assignment::BadIntToFloat:
   case Type::Assignment::Unimplemented:
-    return this->raiseFormat("Internal error: Cannot assign '", symbol.name, "' of type '", symbol.type.toString(), "' with a value of type '", value->getRuntimeType().toString(), "'");
+    return this->raiseFormat("Internal error: Cannot assign '", symbol.getName(), "' of type '", type.toString(), "' with a value of type '", value->getRuntimeType().toString(), "'");
   }
   assert(symbol.validate(false));
   return promoted;
@@ -2070,8 +2129,10 @@ Value ProgramDefault::tryAssign(Symbol& symbol, const Value& value) {
 
 Value ProgramDefault::tryMutate(Symbol& symbol, Mutation mutation, const Value& value) {
   assert(symbol.validate(true));
+  auto type = symbol.getType();
+  assert(type != nullptr);
   Value before;
-  auto retval = symbol.slot->mutate(symbol.type, mutation, value, before);
+  auto retval = symbol.getSlot()->mutate(type, mutation, value, before);
   switch (retval) {
   case Type::Assignment::Success:
     break;
@@ -2079,17 +2140,19 @@ Value ProgramDefault::tryMutate(Symbol& symbol, Mutation mutation, const Value& 
   case Type::Assignment::Incompatible:
   case Type::Assignment::BadIntToFloat:
   case Type::Assignment::Unimplemented:
-    return this->raiseFormat("Internal error: Cannot apply '", mutationToString(mutation), "' to modify '", symbol.name, "' of type '", symbol.type.toString(), "' with a value of type '", value->getRuntimeType().toString(), "'");
+    return this->raiseFormat("Internal error: Cannot apply '", mutationToString(mutation), "' to modify '", symbol.getName(), "' of type '", type.toString(), "' with a value of type '", value->getRuntimeType().toString(), "'");
   }
   assert(symbol.validate(false));
   return before;
 }
 
 Symbol* ProgramDefault::blockDeclare(const LocationSource& source, const Type& type, const String& identifier) {
-  return this->symtable->add(Symbol::Kind::Variable, type, identifier, source);
+  printf("WIBBLE: SYMTABLE %p: DECLARE %s\n", this->symtable.get(), identifier.toUTF8().c_str());
+  return this->symtable->add(source, Symbol::Kind::Variable, type, identifier);
 }
 
 void ProgramDefault::blockUndeclare(const String& identifier) {
+  printf("WIBBLE: SYMTABLE %p: UNDECLARE %s\n", this->symtable.get(), identifier.toUTF8().c_str());
   this->symtable->remove(identifier);
 }
 

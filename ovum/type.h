@@ -47,7 +47,7 @@ namespace egg::ovum {
     }
     // We need to qualify the return type because 'String' is a member further down!
     egg::ovum::String describeValue() const;
-    egg::ovum::String toString(int precedence = -1) const;
+    egg::ovum::String toString() const;
     static std::string toString(const IType& type) {
       return type.toStringPrecedence().first;
     }

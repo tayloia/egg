@@ -343,7 +343,8 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareFunctionDefi
       if (!name.empty()) {
         suffix = egg::ovum::StringBuilder::concat(": '", name, "'");
       }
-      return context->compilerError(block->location(), "Missing 'return' statement with a value of type '", egg::ovum::Type::toString(*function.rettype), "' at the end of the function definition", suffix);
+      egg::ovum::Type expected{ function.rettype };
+      return context->compilerError(block->location(), "Missing 'return' statement with a value of type '", expected.toString(), "' at the end of the function definition", suffix);
     }
   }
   return EggProgramNodeFlags::Fallthrough; // We fallthrough AFTER the function definition

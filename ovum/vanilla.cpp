@@ -704,7 +704,7 @@ namespace {
     SoftPtr<ISlot> slot;
     SoftPtr<IType> type;
   public:
-    VanillaPointer(IAllocator& allocator, ISlot& slot, IType& type)
+    VanillaPointer(IAllocator& allocator, const ISlot& slot, const IType& type)
       : VanillaBase(allocator),
         slot(),
         type() {
@@ -850,5 +850,5 @@ egg::ovum::Object egg::ovum::VanillaFactory::createPredicate(IAllocator& allocat
 
 egg::ovum::Object egg::ovum::VanillaFactory::createPointer(IAllocator& allocator, ISlot& slot, const Type& pointee, Modifiability modifiability) {
   auto type = TypeFactory::createPointer(allocator, *pointee, modifiability);
-  return createVanillaObject<VanillaPointer>(allocator, slot, *const_cast<IType*>(type.get()));
+  return createVanillaObject<VanillaPointer>(allocator, slot, *type);
 }

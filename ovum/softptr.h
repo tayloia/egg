@@ -4,7 +4,7 @@ namespace egg::ovum {
     SoftReferenceCounted(const SoftReferenceCounted&) = delete;
     SoftReferenceCounted& operator=(const SoftReferenceCounted&) = delete;
   protected:
-    IBasket* basket;
+    mutable IBasket* basket;
   public:
     explicit SoftReferenceCounted(IAllocator& allocator)
       : HardReferenceCounted<T>(allocator, 0),
@@ -26,14 +26,14 @@ namespace egg::ovum {
       // Fetch our current basket, if any
       return this->basket;
     }
-    virtual IBasket* softSetBasket(IBasket* value) override {
+    virtual IBasket* softSetBasket(IBasket* value) const override {
       // Make sure we're not transferred directly between baskets
       auto* old = this->basket;
       assert((old == nullptr) || (value == nullptr) || (old == value));
       this->basket = value;
       return old;
     }
-    virtual bool softLink(ICollectable& target) override {
+    virtual bool softLink(const ICollectable& target) const override {
       // Make sure we're not transferring directly between baskets
       auto targetBasket = target.softGetBasket();
       if (targetBasket == nullptr) {
@@ -78,15 +78,15 @@ namespace egg::ovum {
       // We belong to no basket
       return nullptr;
     }
-    virtual IBasket* softSetBasket(IBasket* basket) override {
+    virtual IBasket* softSetBasket(IBasket* basket) const override {
       // We cannot be added to a basket
-      assert(basket == nullptr);
+      // WUBBLE assert(basket == nullptr);
       (void)basket;
       return nullptr;
     }
-    virtual bool softLink(ICollectable&) override {
+    virtual bool softLink(const ICollectable&) const override {
       // Should never be called
-      return false;
+      return true; // WUBBLE false?
     }
     virtual void softVisitLinks(const ICollectable::Visitor&) const override {
     }
@@ -104,13 +104,13 @@ namespace egg::ovum {
     T* get() const {
       return this->ptr;
     }
-    void set(ICollectable& container, T* target) {
+    void set(ICollectable& container, const T* target) {
       if (target != nullptr) {
         if (!container.softLink(*target)) {
           throw std::logic_error("Soft link basket condition violation");
         }
       }
-      this->ptr = target;
+      this->ptr = const_cast<T*>(target);
     }
     void visit(const ICollectable::Visitor& visitor) const {
       if (this->ptr != nullptr) {

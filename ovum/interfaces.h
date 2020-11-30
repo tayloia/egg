@@ -137,8 +137,8 @@ namespace egg::ovum {
       uint64_t currentBytesOwned;
     };
     // Interface
-    virtual void take(ICollectable& collectable) = 0;
-    virtual void drop(ICollectable& collectable) = 0;
+    virtual void take(const ICollectable& collectable) = 0;
+    virtual void drop(const ICollectable& collectable) = 0;
     virtual size_t collect() = 0;
     virtual size_t purge() = 0;
     virtual bool statistics(Statistics& out) const = 0;
@@ -151,8 +151,8 @@ namespace egg::ovum {
     virtual bool validate() const = 0;
     virtual bool softIsRoot() const = 0;
     virtual IBasket* softGetBasket() const = 0;
-    virtual IBasket* softSetBasket(IBasket* basket) = 0;
-    virtual bool softLink(ICollectable& target) = 0;
+    virtual IBasket* softSetBasket(IBasket* basket) const = 0;
+    virtual bool softLink(const ICollectable& target) const = 0;
     virtual void softVisitLinks(const Visitor& visitor) const = 0;
   };
 

@@ -818,16 +818,12 @@ egg::ovum::String egg::ovum::Type::describeValue() const {
   return type->describeValue();
 }
 
-egg::ovum::String egg::ovum::Type::toString(int precedence) const {
+egg::ovum::String egg::ovum::Type::toString() const {
   auto* type = this->get();
   if (type == nullptr) {
     return "<unknown>";
   }
-  auto pair = type->toStringPrecedence();
-  if (pair.second < precedence) {
-    return "(" + pair.first + ")";
-  }
-  return pair.first;
+  return type->toStringPrecedence().first;
 }
 
 egg::ovum::Type egg::ovum::TypeFactory::createSimple(IAllocator& allocator, ValueFlags flags) {

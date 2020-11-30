@@ -16,6 +16,63 @@ namespace {
   }
 }
 
+void egg::ovum::FunctionSignature::print(Printer& printer, const IFunctionSignature& signature, Parts parts) {
+  // TODO better formatting of named/variadic etc.
+  if (Bits::hasAnySet(parts, Parts::ReturnType)) {
+    // Use precedence to get any necessary parentheses
+    auto pair = signature.getReturnType()->toStringPrecedence();
+    if (pair.second < 2) {
+      printer << pair.first;
+    } else {
+      printer << '(' << pair.first << ')';
+    }
+  }
+  if (Bits::hasAnySet(parts, Parts::FunctionName)) {
+    auto name = signature.getFunctionName();
+    if (!name.empty()) {
+      printer << ' ' << name;
+    }
+  }
+  if (Bits::hasAnySet(parts, Parts::ParameterList)) {
+    printer << '(';
+    auto n = signature.getParameterCount();
+    for (size_t i = 0; i < n; ++i) {
+      if (i > 0) {
+        printer << ", ";
+      }
+      auto& parameter = signature.getParameter(i);
+      assert(parameter.getPosition() != SIZE_MAX);
+      if (Bits::hasAnySet(parameter.getFlags(), IFunctionSignatureParameter::Flags::Variadic)) {
+        printer << "...";
+      } else {
+        printer << parameter.getType().toString();
+        if (Bits::hasAnySet(parts, Parts::ParameterNames)) {
+          auto pname = parameter.getName();
+          if (!pname.empty()) {
+            printer << ' ' << pname;
+          }
+        }
+        if (!Bits::hasAnySet(parameter.getFlags(), IFunctionSignatureParameter::Flags::Required)) {
+          printer << " = null";
+        }
+      }
+    }
+    printer << ')';
+  }
+}
+
+egg::ovum::String egg::ovum::FunctionSignature::toString(const IFunctionSignature& signature, Parts parts) {
+  StringBuilder sb;
+  FunctionSignature::print(sb, signature, parts);
+  return sb.str();
+}
+
+std::pair<std::string, int> egg::ovum::FunctionSignature::toStringPrecedence(const IFunctionSignature& signature) {
+  StringBuilder sb;
+  FunctionSignature::print(sb, signature, Parts::NoNames);
+  return { sb.toUTF8(), 0 };
+}
+
 bool egg::ovum::ParameterChecker::validateCount(const egg::ovum::IParameters& parameters, size_t minimum, size_t maximum, String& error) {
   assert(minimum < SIZE_MAX);
   assert(minimum <= maximum);

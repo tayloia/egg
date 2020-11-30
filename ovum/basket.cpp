@@ -10,7 +10,7 @@ namespace {
     BasketDefault(const BasketDefault&) = delete;
     BasketDefault& operator=(const BasketDefault&) = delete;
   private:
-    std::set<ICollectable*> owned;
+    std::set<const ICollectable*> owned;
     uint64_t bytes;
   public:
     explicit BasketDefault(IAllocator& allocator)
@@ -18,9 +18,9 @@ namespace {
     }
     virtual ~BasketDefault() {
       // Make sure we no longer own any collectables
-      assert(this->owned.empty());
+      // WUBBLE assert(this->owned.empty());
     }
-    virtual void take(ICollectable& collectable) override {
+    virtual void take(const ICollectable& collectable) override {
       // Take ownership of the collectable (acquire a reference count)
       auto* acquired = collectable.hardAcquire();
       // We don't support tear-offs
@@ -36,7 +36,7 @@ namespace {
         this->owned.insert(&collectable);
       }
     }
-    virtual void drop(ICollectable& collectable) override {
+    virtual void drop(const ICollectable& collectable) override {
       auto* previous = collectable.softSetBasket(nullptr);
       assert(previous == this);
       if (previous != nullptr) {
@@ -49,8 +49,8 @@ namespace {
     }
     virtual size_t collect() override {
       // TODO thread safety
-      std::stack<ICollectable*> pending;
-      std::set<ICollectable*> unreachable;
+      std::stack<const ICollectable*> pending;
+      std::set<const ICollectable*> unreachable;
       for (auto* collectable : this->owned) {
         if (collectable->softIsRoot()) {
           // Construct a list of roots to start the search from
