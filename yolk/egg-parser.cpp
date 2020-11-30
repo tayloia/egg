@@ -108,7 +108,7 @@ namespace {
   }
 
   egg::ovum::Type binaryBitwiseType(egg::ovum::IAllocator& allocator, const std::shared_ptr<IEggProgramNode>& lhs, const std::shared_ptr<IEggProgramNode>& rhs) {
-    auto common = egg::ovum::Bits::mask(lhs->getType()->getFlags(), rhs->getType()->getFlags());
+    auto common = egg::ovum::Bits::mask(lhs->getType()->getPrimitiveFlags(), rhs->getType()->getPrimitiveFlags());
     common = egg::ovum::Bits::mask(common, egg::ovum::ValueFlags::Bool | egg::ovum::ValueFlags::Int);
     if (common == egg::ovum::ValueFlags::None) {
       return egg::ovum::Type::Void;
@@ -1571,7 +1571,7 @@ std::shared_ptr<egg::yolk::IEggProgramNode> egg::yolk::EggSyntaxNode_FunctionDef
   egg::ovum::TypeBuilder builder;
   if (this->generator) {
     // Generators cannot explicitly return voids
-    if (rettype.hasAnyFlags(egg::ovum::ValueFlags::Void)) {
+    if (rettype.hasPrimitiveFlag(egg::ovum::ValueFlags::Void)) {
       throw exceptionFromLocation(context, "The return value of a generator may not include 'void'", *this);
     }
     auto description = egg::ovum::StringBuilder::concat("Generator '", this->name, "'");
@@ -1873,7 +1873,7 @@ egg::ovum::Type EggParserNode_UnaryDeref::getType() const {
   auto pointer = this->expr->getType();
   auto* pointable = pointer.queryPointable();
   if (pointable != nullptr) {
-    return pointable->getType();
+    return egg::ovum::Type(pointable->pointee);
   }
   return nullptr;
 }
@@ -1962,12 +1962,12 @@ egg::ovum::Type EggParserNode_BinaryShiftRightUnsigned::getType() const {
 
 egg::ovum::Type EggParserNode_BinaryNullCoalescing::getType() const {
   auto ltype = this->lhs->getType();
-  if (!ltype.hasAnyFlags(egg::ovum::ValueFlags::Null)) {
+  if (!ltype.hasPrimitiveFlag(egg::ovum::ValueFlags::Null)) {
     // The left-hand-side cannot be null, so the right side is irrelevant
     return ltype;
   }
   auto rtype = this->rhs->getType();
-  if (ltype->getFlags() == egg::ovum::ValueFlags::Null) {
+  if (ltype->getPrimitiveFlags() == egg::ovum::ValueFlags::Null) {
     // The left-hand-side is only ever null, so only the right side is relevant
     return rtype;
   }
@@ -2003,7 +2003,7 @@ std::shared_ptr<IEggProgramNode> EggProgramContext::empredicateBinary(const std:
 
 egg::ovum::Type EggParserNode_Ternary::getType() const {
   auto type1 = this->condition->getType();
-  if (!type1.hasAnyFlags(egg::ovum::ValueFlags::Bool)) {
+  if (!type1.hasPrimitiveFlag(egg::ovum::ValueFlags::Bool)) {
     // The condition is not a bool, so the other values are irrelevant
     return egg::ovum::Type::Void;
   }

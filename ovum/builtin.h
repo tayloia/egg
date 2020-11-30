@@ -1,8 +1,6 @@
 namespace egg::ovum {
   class BuiltinFactory {
   public:
-    static const IntShape& getIntShape();
-    static const FloatShape& getFloatShape();
     static const ObjectShape& getStringShape();
     static const ObjectShape& getObjectShape();
 

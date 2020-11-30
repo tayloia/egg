@@ -115,7 +115,7 @@ namespace egg::ovum {
     static Value createFloat(IAllocator& allocator, Float value);
     static Value createString(IAllocator& allocator, const String& value);
     static Value createObject(IAllocator& allocator, const Object& value);
-    static Value createPointer(IAllocator& allocator, ISlot& slot, Modifiability modifiability);
+    static Value createPointer(IAllocator& allocator, ISlot& slot, const Type& pointee, Modifiability modifiability);
     static Value createFlowControl(IAllocator& allocator, ValueFlags flags, const Value& value);
 
     // Overloaded without implicit promotion

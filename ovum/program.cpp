@@ -426,7 +426,7 @@ namespace {
         // Ran off the bottom of the function
         auto rettype = signature.getReturnType();
         assert(rettype != nullptr);
-        if (rettype.hasAnyFlags(ValueFlags::Void)) {
+        if (rettype.hasPrimitiveFlag(ValueFlags::Void)) {
           // Implicit 'return;' at end of function
           return retval;
         }
@@ -1886,11 +1886,7 @@ namespace {
       if (pointer->getObject(target.object)) {
         auto* pointable = target.object->getRuntimeType().queryPointable();
         if (pointable != nullptr) {
-          auto modifiability = pointable->getModifiability();
-          if (!Bits::hasAnySet(modifiability, Modifiability::Write | Modifiability::Mutate)) {
-            return this->raiseNode(node, pointer->getRuntimeType().describeValue(), " does not support modification via the pointer dereferencing '*' operator");
-          }
-          target.type = pointable->getType();
+          target.type.set(pointable->pointee);
           return Value::Void;
         }
       }
@@ -1961,16 +1957,17 @@ namespace {
       if (symbol.slot->get() == nullptr) {
         return this->raiseNode(node, "Internal runtime error: Symbol table slot is empty: '", symbol.name, "'");
       }
+      auto modifiability = Modifiability::Read | Modifiability::Write | Modifiability::Mutate;
       switch (symbol.kind) {
       case Symbol::Kind::Builtin:
-        return symbol.slot->reference(Modifiability::Read);
+        modifiability = Modifiability::Read;
         break;
       case Symbol::Kind::Variable:
       default:
         break;
       }
       this->basket->take(*symbol.slot);
-      return symbol.slot->reference(Modifiability::Read | Modifiability::Write | Modifiability::Mutate);
+      return symbol.slot->reference(symbol.type, modifiability);
     }
     RuntimeException unexpectedOpcode(const char* expected, const INode& node) {
       this->updateLocation(node);

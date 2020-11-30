@@ -386,8 +386,8 @@ egg::ovum::Value egg::ovum::ValueFactory::createObject(IAllocator& allocator, co
   return Value(*allocator.make<ValueObject, IValue*>(value));
 }
 
-egg::ovum::Value egg::ovum::ValueFactory::createPointer(IAllocator& allocator, ISlot& slot, Modifiability modifiability) {
-  return ValueFactory::createObject(allocator, ObjectFactory::createPointer(allocator, slot, modifiability));
+egg::ovum::Value egg::ovum::ValueFactory::createPointer(IAllocator& allocator, ISlot& slot, const Type& pointee, Modifiability modifiability) {
+  return ValueFactory::createObject(allocator, ObjectFactory::createPointer(allocator, slot, pointee, modifiability));
 }
 
 egg::ovum::Value egg::ovum::ValueFactory::createFlowControl(IAllocator& allocator, ValueFlags flags, const Value& value) {

@@ -52,8 +52,8 @@ namespace egg::ovum {
       return type.toStringPrecedence().first;
     }
     // Helpers
-    bool hasAnyFlags(ValueFlags flags) const {
-      return Bits::hasAnySet(this->get()->getFlags(), flags);
+    bool hasPrimitiveFlag(ValueFlags flag) const {
+      return Bits::hasAnySet(this->get()->getPrimitiveFlags(), flag);
     }
     enum class Assignability { Never, Sometimes, Always };
     Assignability queryAssignable(const IType& from) const;
@@ -61,7 +61,7 @@ namespace egg::ovum {
     const IPropertySignature* queryDotable() const;
     const IIndexSignature* queryIndexable() const;
     const IIteratorSignature* queryIterable() const;
-    const IPointerSignature* queryPointable() const;
+    const PointerShape* queryPointable() const;
     Type addFlags(IAllocator& allocator, ValueFlags flags) const;
     Type stripFlags(IAllocator& allocator, ValueFlags flags) const;
 

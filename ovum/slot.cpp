@@ -91,9 +91,9 @@ egg::ovum::Type::Assignment egg::ovum::Slot::mutate(ISlot& slot, IAllocator& all
   }
 }
 
-egg::ovum::Value egg::ovum::Slot::reference(Modifiability modifiability) {
+egg::ovum::Value egg::ovum::Slot::reference(const Type& pointee, Modifiability modifiability) {
   assert(this->validate(false));
-  return ValueFactory::createPointer(this->allocator, *this, modifiability);
+  return ValueFactory::createPointer(this->allocator, *this, pointee, modifiability);
 }
 
 bool egg::ovum::Slot::validate(bool optional) const {

@@ -395,22 +395,21 @@ namespace {
     return Opcode::END;
   }
 
-  Node buildPrimitiveType(IAllocator& allocator, const NodeLocation& location, ValueFlags flags) {
+  void buildPrimitiveType(Nodes& nodes, IAllocator& allocator, ValueFlags flags) {
     auto opcode = simpleTypeToOpcode(flags);
     if (opcode != Opcode::END) {
       // This is a well-known simple type
-      return NodeFactory::create(allocator, opcode);
+      nodes.push_back(NodeFactory::create(allocator, opcode));
+    } else {
+      while (flags != ValueFlags::None) {
+        // Construct a vector of all the constituent parts
+        auto top = Bits::topmost(flags);
+        opcode = simpleTypeToOpcode(top);
+        assert(opcode != Opcode::END);
+        nodes.push_back(NodeFactory::create(allocator, opcode));
+        flags = Bits::clear(flags, top);
+      }
     }
-    Nodes parts;
-    while (flags != ValueFlags::None) {
-      // Construct a vector of all the constituent parts
-      auto top = Bits::topmost(flags);
-      opcode = simpleTypeToOpcode(top);
-      assert(opcode != Opcode::END);
-      parts.push_back(NodeFactory::create(allocator, opcode));
-      flags = Bits::clear(flags, top);
-    }
-    return NodeFactory::create(allocator, location, Opcode::UNION, &parts);
   }
 
   Node buildCallable(IAllocator& allocator, const NodeLocation& location, const IFunctionSignature& signature) {
@@ -457,37 +456,44 @@ namespace {
     return NodeFactory::create(allocator, Opcode::CALLABLE, &children);
   }
 
-  Node buildObjectType(IAllocator& allocator, const NodeLocation& location, const ObjectShape* shape) {
-    if ((shape == nullptr) || (shape == &BuiltinFactory::getObjectShape())) {
-      return NodeFactory::create(allocator, Opcode::OBJECT);
-    }
+  Node buildObjectType(IAllocator& allocator, const NodeLocation& location, const ObjectShape& shape) {
     Nodes children;
-    if (shape->callable != nullptr) {
-      children.push_back(buildCallable(allocator, location, *shape->callable));
+    if (shape.callable != nullptr) {
+      children.push_back(buildCallable(allocator, location, *shape.callable));
     }
     return NodeFactory::create(allocator, location, Opcode::OBJECT, &children);
   }
 
+  // Forward declaration for recursion
+  Node buildType(IAllocator& allocator, const NodeLocation& location, const IType& type);
+
+  Node buildPointerType(IAllocator& allocator, const NodeLocation& location, const PointerShape& shape) {
+    assert(shape.pointee != nullptr);
+    Node child = buildType(allocator, location, *shape.pointee);
+    return NodeFactory::create(allocator, Opcode::POINTER, std::move(child));
+  }
+
   Node buildType(IAllocator& allocator, const NodeLocation& location, const IType& type) {
     // WIBBLE shapes other than object
-    auto shapes = type.getObjectShapeCount();
-    if (shapes == 0) {
-      return buildPrimitiveType(allocator, location, type.getFlags());
+    Nodes nodes;
+    buildPrimitiveType(nodes, allocator, type.getPrimitiveFlags());
+    auto oshapes = type.getObjectShapeCount();
+    for (size_t oshape = 0; oshape < oshapes; ++oshape) {
+      auto* shape = type.getObjectShape(oshape);
+      assert(shape != nullptr);
+      nodes.push_back(buildObjectType(allocator, location, *shape));
     }
-    if (shapes == 1) {
-      auto* shape = type.getObjectShape(0);
-      if ((shape == nullptr) || (shape == &BuiltinFactory::getObjectShape())) {
-        return buildPrimitiveType(allocator, location, type.getFlags());
-      }
-      assert(type.getFlags() == ValueFlags::Object); // TODO support complex unions
-      return buildObjectType(allocator, location, shape);
+    auto pshapes = type.getPointerShapeCount();
+    for (size_t pshape = 0; pshape < pshapes; ++pshape) {
+      auto* shape = type.getPointerShape(pshape);
+      assert(shape != nullptr);
+      nodes.push_back(buildPointerType(allocator, location, *shape));
     }
-    assert(type.getFlags() == ValueFlags::Object); // TODO support complex unions
-    Nodes parts;
-    for (size_t index = 0; index < shapes; ++index) {
-      parts.push_back(buildObjectType(allocator, location, type.getObjectShape(index)));
+    assert(!nodes.empty());
+    if (nodes.size() == 1) {
+      return nodes[0];
     }
-    return NodeFactory::create(allocator, location, Opcode::UNION, &parts);
+    return NodeFactory::create(allocator, location, Opcode::UNION, &nodes);
   }
 }
 

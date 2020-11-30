@@ -17,6 +17,7 @@ namespace egg::ovum {
   class ICollectable;
   class IExecution;
   class ISlot;
+  class IType;
   class IValue;
 
   enum class Mutation {
@@ -210,14 +211,6 @@ namespace egg::ovum {
     virtual Type getType() const = 0;
   };
 
-  class IPointerSignature {
-  public:
-    // Interface
-    virtual ~IPointerSignature() {}
-    virtual Type getType() const = 0;
-    virtual Modifiability getModifiability() const = 0;
-  };
-
   class IPropertySignature {
   public:
     // Interface
@@ -229,39 +222,25 @@ namespace egg::ovum {
     virtual bool isClosed() const = 0;
   };
 
-  struct IntShape {
-    static constexpr Int Minimum = std::numeric_limits<Int>::min();
-    static constexpr Int Maximum = std::numeric_limits<Int>::max();
-    Int minimum;
-    Int maximum;
-  };
-
-  struct FloatShape {
-    static constexpr Float Minimum = std::numeric_limits<Float>::min();
-    static constexpr Float Maximum = std::numeric_limits<Float>::max();
-    Float minimum;
-    Float maximum;
-    bool allowNaN;
-    bool allowNInf;
-    bool allowPInf;
-  };
-
   struct ObjectShape {
     const IFunctionSignature* callable;
     const IPropertySignature* dotable;
     const IIndexSignature* indexable;
     const IIteratorSignature* iterable;
-    const IPointerSignature* pointable;
+  };
+
+  struct PointerShape {
+    const IType* pointee;
+    Modifiability modifiability;
   };
 
   class IType : public ICollectable {
   public:
-    virtual ValueFlags getFlags() const = 0;
-    virtual const IntShape* getIntShape() const = 0;
-    virtual const FloatShape* getFloatShape() const = 0;
-    virtual const ObjectShape* getStringShape() const = 0;
+    virtual ValueFlags getPrimitiveFlags() const = 0;
     virtual const ObjectShape* getObjectShape(size_t index) const = 0;
     virtual size_t getObjectShapeCount() const = 0;
+    virtual const PointerShape* getPointerShape(size_t index) const = 0;
+    virtual size_t getPointerShapeCount() const = 0;
     virtual std::pair<std::string, int> toStringPrecedence() const = 0;
     virtual String describeValue() const = 0;
   };

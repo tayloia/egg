@@ -22,23 +22,11 @@ namespace {
   private:
     ObjectShape shape;
   public:
-    Type_Base(const IFunctionSignature* callable, const IPropertySignature* dotable, const IIndexSignature* indexable, const IIteratorSignature* iterable, const IPointerSignature* pointable)
-      : shape({ callable, dotable, indexable, iterable, pointable }) {
+    Type_Base(const IFunctionSignature* callable, const IPropertySignature* dotable, const IIndexSignature* indexable, const IIteratorSignature* iterable)
+      : shape({ callable, dotable, indexable, iterable }) {
     }
-    virtual ValueFlags getFlags() const override {
-      return ValueFlags::Object;
-    }
-    virtual const IntShape* getIntShape() const override {
-      // We are not shaped like an int
-      return nullptr;
-    }
-    virtual const FloatShape* getFloatShape() const override {
-      // We are not shaped like a float
-      return nullptr;
-    }
-    virtual const ObjectShape* getStringShape() const override {
-      // We are not shaped like a string
-      return nullptr;
+    virtual ValueFlags getPrimitiveFlags() const override {
+      return ValueFlags::None;
     }
     virtual const ObjectShape* getObjectShape(size_t index) const override {
       // We only have one object shape
@@ -47,6 +35,14 @@ namespace {
     virtual size_t getObjectShapeCount() const override {
       // We only have one object shape
       return 1;
+    }
+    virtual const PointerShape* getPointerShape(size_t) const override {
+      // We are not a pointer
+      return nullptr;
+    }
+    virtual size_t getPointerShapeCount() const override {
+      // We are not a pointer
+      return 0;
     }
     virtual String describeValue() const override {
       // TODO i18n
@@ -61,9 +57,9 @@ namespace {
     TypeBuilderCallable callable;
   public:
     explicit Type_Iterator(const Type& rettype)
-      : Type_Base(&callable, nullptr, nullptr, nullptr, nullptr),
+      : Type_Base(&callable, nullptr, nullptr, nullptr),
         callable(rettype, {}) {
-      assert(rettype.hasAnyFlags(ValueFlags::Void));
+      assert(rettype.hasPrimitiveFlag(ValueFlags::Void));
     }
     virtual std::pair<std::string, int> toStringPrecedence() const override {
       auto retval = this->callable.getReturnType()->toStringPrecedence();
@@ -84,7 +80,7 @@ namespace {
     TypeBuilderIterable iterable;
   public:
     Type_Array()
-      : Type_Base(nullptr, &dotable, &indexable, &iterable, nullptr),
+      : Type_Base(nullptr, &dotable, &indexable, &iterable),
         dotable(),
         indexable(Type::AnyQ, Type::Int, ReadWriteMutate),
         iterable(Type::AnyQ) {
@@ -114,7 +110,7 @@ namespace {
     KeyValueIterable iterable;
   public:
     Type_DictionaryBase(Modifiability modifiability, const Type& unknownType, Modifiability unknownModifiability)
-      : Type_Base(nullptr, &dotable, &indexable, &iterable, nullptr),
+      : Type_Base(nullptr, &dotable, &indexable, &iterable),
         dotable(unknownType, unknownModifiability),
         indexable(Type::AnyQ, Type::String, modifiability),
         iterable() {
@@ -708,8 +704,6 @@ namespace {
     SoftPtr<ISlot> slot;
     SoftPtr<IType> type;
   public:
-    class PointerSignature;
-    class DynamicType;
     VanillaPointer(IAllocator& allocator, ISlot& slot, IType& type)
       : VanillaBase(allocator),
         slot(),
@@ -758,75 +752,8 @@ namespace {
     }
   private:
     bool hasModifiability(Modifiability flags) {
-      auto modifiability = this->type->getObjectShape(0)->pointable->getModifiability();
+      auto modifiability = this->type->getPointerShape(0)->modifiability;
       return Bits::hasAllSet(modifiability, flags);
-    }
-  };
-
-  // WUBBLE
-  class VanillaPointer::DynamicType : public SoftReferenceCounted<IType>, IPointerSignature {
-    DynamicType(const DynamicType&) = delete;
-    DynamicType& operator=(const DynamicType&) = delete;
-  public:
-    SoftPtr<ISlot> slot;
-    Modifiability modifiability;
-    ObjectShape shape;
-  public:
-    DynamicType(IAllocator& allocator, ISlot& slot, Modifiability modifiability)
-      : SoftReferenceCounted(allocator),
-        slot(),
-        modifiability(modifiability),
-        shape({}) {
-      this->shape.pointable = this;
-      this->slot.set(*this, &slot);
-    }
-    virtual void softVisitLinks(const Visitor& visitor) const override {
-      this->slot.visit(visitor);
-    }
-    virtual ValueFlags getFlags() const override {
-      return ValueFlags::Object;
-    }
-    virtual const IntShape* getIntShape() const override {
-      return nullptr;
-    }
-    virtual const FloatShape* getFloatShape() const override {
-      return nullptr;
-    }
-    virtual const ObjectShape* getStringShape() const override {
-      return nullptr;
-    }
-    virtual const ObjectShape* getObjectShape(size_t index) const override {
-      return (index == 0) ? &this->shape : nullptr;
-    }
-    virtual size_t getObjectShapeCount() const override {
-      return 1;
-    }
-    virtual std::pair<std::string, int> toStringPrecedence() const override {
-      return { this->pointeeType() + '*', 1 };
-    }
-    virtual String describeValue() const override {
-      // TODO i18n
-      return StringBuilder::concat("Value of type '", this->pointeeType(), "*'");
-    }
-    virtual Type getType() const override {
-      // IPointerSignature
-      auto* value = this->slot->get();
-      if (value == nullptr) {
-        return Type::Void;
-      }
-      return value->getRuntimeType();
-    }
-    virtual Modifiability getModifiability() const override {
-      // IPointerSignature
-      return this->modifiability;
-    }
-  private:
-    std::string pointeeType() const {
-      auto pair = this->getType()->toStringPrecedence();
-      if (pair.second > 1) {
-        return '(' + pair.first + ')';
-      }
-      return pair.first;
     }
   };
 
@@ -921,7 +848,7 @@ egg::ovum::Object egg::ovum::VanillaFactory::createPredicate(IAllocator& allocat
   return createVanillaObject<VanillaPredicate>(allocator, callback, node);
 }
 
-egg::ovum::Object egg::ovum::VanillaFactory::createPointer(IAllocator& allocator, ISlot& slot, Modifiability modifiability) {
-  auto type = allocator.make<VanillaPointer::DynamicType>(slot, modifiability);
-  return createVanillaObject<VanillaPointer>(allocator, slot, *type);
+egg::ovum::Object egg::ovum::VanillaFactory::createPointer(IAllocator& allocator, ISlot& slot, const Type& pointee, Modifiability modifiability) {
+  auto type = TypeFactory::createPointer(allocator, *pointee, modifiability);
+  return createVanillaObject<VanillaPointer>(allocator, slot, *const_cast<IType*>(type.get()));
 }

@@ -30,7 +30,7 @@ namespace egg::ovum {
     Type::Assignment mutate(const Type& type, Mutation mutation, const Value& value, Value& before) {
       return Slot::mutate(*this, this->allocator, type, mutation, value, before);
     }
-    Value reference(Modifiability modifiability);
+    Value reference(const Type& pointee, Modifiability modifiability);
     // Debugging
     bool validate(bool optional) const;
     virtual bool validate() const override {

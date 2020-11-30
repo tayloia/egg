@@ -11,7 +11,7 @@
 namespace {
   using namespace egg::ovum;
 
-  const char* flagsComponent(ValueFlags flags) {
+  const char* primitiveComponent(ValueFlags flags) {
     EGG_WARNING_SUPPRESS_SWITCH_BEGIN();
       switch (flags) {
       case ValueFlags::None:
@@ -26,19 +26,63 @@ namespace {
       return nullptr;
   }
 
-  std::pair<std::string, int> flagsToStringPrecedence(ValueFlags flags) {
-    auto* component = flagsComponent(flags);
+  std::pair<std::string, int> primitiveToStringPrecedence(ValueFlags flags) {
+    auto* component = primitiveComponent(flags);
     if (component != nullptr) {
       return { component, 0 };
     }
     if (Bits::hasAnySet(flags, ValueFlags::Null)) {
-      return { flagsToStringPrecedence(Bits::clear(flags, ValueFlags::Null)).first + "?", 1 };
+      return { primitiveToStringPrecedence(Bits::clear(flags, ValueFlags::Null)).first + "?", 1 };
     }
     auto head = Bits::topmost(flags);
     assert(head != ValueFlags::None);
-    component = flagsComponent(head);
+    component = primitiveComponent(head);
     assert(component != nullptr);
-    return { flagsToStringPrecedence(Bits::clear(flags, head)).first + '|' + component, 2 };
+    return { primitiveToStringPrecedence(Bits::clear(flags, head)).first + '|' + component, 2 };
+  }
+
+  void complexComponentAdd(std::pair<std::string, int>& out, const std::pair<std::string, int>& in) {
+    assert(!in.first.empty());
+    assert((in.second >= 0) && (in.second <= 2));
+    if (out.first.empty()) {
+      out = in;
+    } else {
+      out.first += '|' + in.first;
+      out.second = 2;
+    }
+  }
+
+  std::pair<std::string, int> complexComponentObject(const ObjectShape* shape) {
+    assert(shape != nullptr);
+    (void)shape;
+    return { "WOBBLE", 0 };
+  }
+
+  std::pair<std::string, int> complexComponentPointer(const PointerShape* shape) {
+    assert(shape != nullptr);
+    (void)shape;
+    return { "WOBBLE", 0 };
+  }
+
+  std::pair<std::string, int> complexToStringPrecedence(ValueFlags primitive, const IType& complex) {
+    auto on = complex.getObjectShapeCount();
+    auto pn = complex.getPointerShapeCount();
+    if ((on == 0) && (pn == 0)) {
+      // Primitive types only
+      return primitiveToStringPrecedence(primitive);
+    }
+    std::pair<std::string, int> result;
+    if (primitive != ValueFlags::None) {
+      result = primitiveToStringPrecedence(primitive);
+    }
+    for (size_t oi = 0; oi < on; ++oi) {
+      complexComponentAdd(result, complexComponentObject(complex.getObjectShape(oi)));
+    }
+    for (size_t pi = 0; pi < pn; ++pi) {
+      complexComponentAdd(result, complexComponentPointer(complex.getPointerShape(pi)));
+    }
+    assert(!result.first.empty());
+    return result;
   }
 
   class TypeBase : public NotSoftReferenceCounted<IType> {
@@ -46,18 +90,6 @@ namespace {
     TypeBase& operator=(const TypeBase&) = delete;
   public:
     TypeBase() = default;
-    virtual const IntShape* getIntShape() const override {
-      // By default, we are not shaped like an int
-      return nullptr;
-    }
-    virtual const FloatShape* getFloatShape() const override {
-      // By default, we are not shaped like a float
-      return nullptr;
-    }
-    virtual const ObjectShape* getStringShape() const override {
-      // By default, we are not shaped like a string
-      return nullptr;
-    }
     virtual const ObjectShape* getObjectShape(size_t) const override {
       // By default, we are not shaped like objects
       return nullptr;
@@ -66,221 +98,47 @@ namespace {
       // By default, we are not shaped like objects
       return 0;
     }
+    virtual const PointerShape* getPointerShape(size_t) const override {
+      // By default, we are not a pointer
+      return nullptr;
+    }
+    virtual size_t getPointerShapeCount() const override {
+      // By default, we are not a pointer
+      return 0;
+    }
     virtual String describeValue() const override {
       // TODO i18n
       return StringBuilder::concat("Value of type '", this->toStringPrecedence().first, "'");
     }
   };
 
-  class TypeVoid final : public TypeBase {
-    TypeVoid(const TypeVoid&) = delete;
-    TypeVoid& operator=(const TypeVoid&) = delete;
+  template<enum ValueFlags FLAGS>
+  class TypePrimitive final : public TypeBase {
+    TypePrimitive(const TypePrimitive&) = delete;
+    TypePrimitive& operator=(const TypePrimitive&) = delete;
   public:
-    TypeVoid() = default;
-    virtual ValueFlags getFlags() const override {
-      return ValueFlags::Void;
+    TypePrimitive() = default;
+    virtual ValueFlags getPrimitiveFlags() const override {
+      return FLAGS;
     }
     virtual std::pair<std::string, int> toStringPrecedence() const override {
-      return { "void", 0 };
+      return primitiveToStringPrecedence(FLAGS);
     }
   };
-  const TypeVoid typeVoid{};
 
-  class TypeNull final : public TypeBase {
-    TypeNull(const TypeNull&) = delete;
-    TypeNull& operator=(const TypeNull&) = delete;
-  public:
-    TypeNull() = default;
-    virtual ValueFlags getFlags() const override {
-      return ValueFlags::Null;
-    }
-    virtual std::pair<std::string, int> toStringPrecedence() const override {
-      return { "null", 0 };
-    }
-  };
-  const TypeNull typeNull{};
+  TypePrimitive<ValueFlags::Void> typeVoid{};
+  TypePrimitive<ValueFlags::Null> typeNull{};
+  TypePrimitive<ValueFlags::Bool> typeBool{};
+  TypePrimitive<ValueFlags::Int> typeInt{};
+  TypePrimitive<ValueFlags::Null | ValueFlags::Int> typeIntQ{};
+  TypePrimitive<ValueFlags::Float> typeFloat{};
+  TypePrimitive<ValueFlags::Arithmetic> typeArithmetic{};
+  TypePrimitive<ValueFlags::String> typeString{};
+  TypePrimitive<ValueFlags::Object> typeObject{};
+  TypePrimitive<ValueFlags::Any> typeAny{};
+  TypePrimitive<ValueFlags::AnyQ> typeAnyQ{};
 
-  class TypeBool final : public TypeBase {
-    TypeBool(const TypeBool&) = delete;
-    TypeBool& operator=(const TypeBool&) = delete;
-  public:
-    TypeBool() = default;
-    virtual ValueFlags getFlags() const override {
-      return ValueFlags::Bool;
-    }
-    virtual std::pair<std::string, int> toStringPrecedence() const override {
-      return { "bool", 0 };
-    }
-  };
-  const TypeBool typeBool{};
-
-  class TypeInt final : public TypeBase {
-    TypeInt(const TypeInt&) = delete;
-    TypeInt& operator=(const TypeInt&) = delete;
-  public:
-    TypeInt() = default;
-    virtual ValueFlags getFlags() const override {
-      return ValueFlags::Int;
-    }
-    virtual const IntShape* getIntShape() const override {
-      return &BuiltinFactory::getIntShape();
-    }
-    virtual std::pair<std::string, int> toStringPrecedence() const override {
-      return { "int", 0 };
-    }
-  };
-  const TypeInt typeInt{};
-
-  class TypeIntQ final : public TypeBase {
-    TypeIntQ(const TypeIntQ&) = delete;
-    TypeIntQ& operator=(const TypeIntQ&) = delete;
-  public:
-    TypeIntQ() = default;
-    virtual ValueFlags getFlags() const override {
-      return ValueFlags::Null | ValueFlags::Int;
-    }
-    virtual const IntShape* getIntShape() const override {
-      return &BuiltinFactory::getIntShape();
-    }
-    virtual std::pair<std::string, int> toStringPrecedence() const override {
-      return { "int?", 1 };
-    }
-  };
-  const TypeIntQ typeIntQ{};
-
-  class TypeFloat final : public TypeBase {
-    TypeFloat(const TypeFloat&) = delete;
-    TypeFloat& operator=(const TypeFloat&) = delete;
-  public:
-    TypeFloat() = default;
-    virtual ValueFlags getFlags() const override {
-      return ValueFlags::Float;
-    }
-    virtual const FloatShape* getFloatShape() const override {
-      return &BuiltinFactory::getFloatShape();
-    }
-    virtual std::pair<std::string, int> toStringPrecedence() const override {
-      return { "float", 0 };
-    }
-  };
-  const TypeFloat typeFloat{};
-
-  class TypeArithmetic final : public TypeBase {
-    TypeArithmetic(const TypeArithmetic&) = delete;
-    TypeArithmetic& operator=(const TypeArithmetic&) = delete;
-  public:
-    TypeArithmetic() = default;
-    virtual ValueFlags getFlags() const override {
-      return ValueFlags::Arithmetic;
-    }
-    virtual const IntShape* getIntShape() const override {
-      return &BuiltinFactory::getIntShape();
-    }
-    virtual const FloatShape* getFloatShape() const override {
-      return &BuiltinFactory::getFloatShape();
-    }
-    virtual std::pair<std::string, int> toStringPrecedence() const override {
-      return { "int|float", 2 };
-    }
-  };
-  const TypeArithmetic typeArithmetic{};
-
-  class TypeString final : public TypeBase {
-    TypeString(const TypeString&) = delete;
-    TypeString& operator=(const TypeString&) = delete;
-  public:
-    TypeString() = default;
-    virtual ValueFlags getFlags() const override {
-      return ValueFlags::String;
-    }
-    virtual const ObjectShape* getStringShape() const override {
-      return &BuiltinFactory::getStringShape();
-    }
-    virtual std::pair<std::string, int> toStringPrecedence() const override {
-      return { "string", 0 };
-    }
-  };
-  const TypeString typeString{};
-
-  class TypeObject final : public TypeBase {
-    TypeObject(const TypeObject&) = delete;
-    TypeObject& operator=(const TypeObject&) = delete;
-  public:
-    TypeObject() = default;
-    virtual ValueFlags getFlags() const override {
-      return ValueFlags::Object;
-    }
-    virtual const ObjectShape* getObjectShape(size_t index) const override {
-      return (index == 0) ? &BuiltinFactory::getObjectShape() : nullptr;
-    }
-    virtual size_t getObjectShapeCount() const override {
-      return 1;
-    }
-    virtual std::pair<std::string, int> toStringPrecedence() const override {
-      return { "object", 0 };
-    }
-  };
-  const TypeObject typeObject{};
-
-  class TypeAny final : public TypeBase {
-    TypeAny(const TypeAny&) = delete;
-    TypeAny& operator=(const TypeAny&) = delete;
-  public:
-    TypeAny() = default;
-    virtual ValueFlags getFlags() const override {
-      return ValueFlags::Any;
-    }
-    virtual const IntShape* getIntShape() const override {
-      return &BuiltinFactory::getIntShape();
-    }
-    virtual const FloatShape* getFloatShape() const override {
-      return &BuiltinFactory::getFloatShape();
-    }
-    virtual const ObjectShape* getStringShape() const override {
-      return &BuiltinFactory::getStringShape();
-    }
-    virtual const ObjectShape* getObjectShape(size_t index) const override {
-      return (index == 0) ? &BuiltinFactory::getObjectShape() : nullptr;
-    }
-    virtual size_t getObjectShapeCount() const override {
-      return 1;
-    }
-    virtual std::pair<std::string, int> toStringPrecedence() const override {
-      return { "any", 0 };
-    }
-  };
-  const TypeAny typeAny{};
-
-  class TypeAnyQ final : public TypeBase {
-    TypeAnyQ(const TypeAnyQ&) = delete;
-    TypeAnyQ& operator=(const TypeAnyQ&) = delete;
-  public:
-    TypeAnyQ() = default;
-    virtual ValueFlags getFlags() const override {
-      return ValueFlags::AnyQ;
-    }
-    virtual const IntShape* getIntShape() const override {
-      return &BuiltinFactory::getIntShape();
-    }
-    virtual const FloatShape* getFloatShape() const override {
-      return &BuiltinFactory::getFloatShape();
-    }
-    virtual const ObjectShape* getStringShape() const override {
-      return &BuiltinFactory::getStringShape();
-    }
-    virtual const ObjectShape* getObjectShape(size_t index) const override {
-      return (index == 0) ? &BuiltinFactory::getObjectShape() : nullptr;
-    }
-    virtual size_t getObjectShapeCount() const override {
-      return 1;
-    }
-    virtual std::pair<std::string, int> toStringPrecedence() const override {
-      return { "any?", 1 };
-    }
-  };
-  const TypeAnyQ typeAnyQ{};
-
-  class TypeSimple : public SoftReferenceCounted<IType> {
+  class TypeSimple final : public SoftReferenceCounted<IType> {
     TypeSimple(const TypeSimple&) = delete;
     TypeSimple& operator=(const TypeSimple&) = delete;
   private:
@@ -294,26 +152,23 @@ namespace {
     virtual void softVisitLinks(const Visitor&) const override {
       // Nothing to visit
     }
-    virtual ValueFlags getFlags() const override {
+    virtual ValueFlags getPrimitiveFlags() const override {
       return this->flags;
     }
-    virtual const IntShape* getIntShape() const override {
-      return Bits::hasAnySet(this->flags, ValueFlags::Int) ? &BuiltinFactory::getIntShape() : nullptr;
-    }
-    virtual const FloatShape* getFloatShape() const override {
-      return Bits::hasAnySet(this->flags, ValueFlags::Float) ? &BuiltinFactory::getFloatShape() : nullptr;
-    }
-    virtual const ObjectShape* getStringShape() const override {
-      return Bits::hasAnySet(this->flags, ValueFlags::String) ? &BuiltinFactory::getStringShape() : nullptr;
-    }
-    virtual const ObjectShape* getObjectShape(size_t index) const override {
-      return ((index == 0) && Bits::hasAnySet(this->flags, ValueFlags::Object)) ? &BuiltinFactory::getObjectShape() : nullptr;
+    virtual const ObjectShape* getObjectShape(size_t) const override {
+      return nullptr;
     }
     virtual size_t getObjectShapeCount() const override {
-      return Bits::hasAnySet(this->flags, ValueFlags::Object) ? 1u : 0u;
+      return 0;
+    }
+    virtual const PointerShape* getPointerShape(size_t) const override {
+      return nullptr;
+    }
+    virtual size_t getPointerShapeCount() const override {
+      return 0;
     }
     virtual std::pair<std::string, int> toStringPrecedence() const override {
-      return flagsToStringPrecedence(this->flags);
+      return primitiveToStringPrecedence(this->flags);
     }
     virtual String describeValue() const override {
       // TODO i18n
@@ -321,65 +176,37 @@ namespace {
     }
   };
 
-  class PointerSignature : public IPointerSignature {
-    PointerSignature(const PointerSignature&) = delete;
-    PointerSignature& operator=(const PointerSignature&) = delete;
-  private:
-    Type type; // TODO make soft
-    Modifiability modifiability;
-  public:
-    PointerSignature(const IType& type, Modifiability modifiability)
-      : type(&type),
-        modifiability(modifiability) {
-      assert(this->type != nullptr);
-      assert(this->modifiability != Modifiability::None);
-      assert(!Bits::hasAnySet(this->modifiability, Modifiability::Delete));
-    }
-    virtual Type getType() const override {
-      return this->type;
-    }
-    virtual Modifiability getModifiability() const override {
-      return this->modifiability;
-    }
-  };
-
-  class TypePointer : public SoftReferenceCounted<IType> {
+  class TypePointer final : public SoftReferenceCounted<IType> {
     TypePointer(const TypePointer&) = delete;
     TypePointer& operator=(const TypePointer&) = delete;
   private:
     std::string name;
     Type pointee; // TODO make soft
-    PointerSignature signature;
-    ObjectShape shape;
+    PointerShape shape;
   public:
     TypePointer(IAllocator& allocator, const IType& pointee, Modifiability modifiability)
       : SoftReferenceCounted(allocator),
         name(TypePointer::makeTypeName(pointee.toStringPrecedence())),
         pointee(&pointee),
-        signature(pointee, modifiability),
-        shape({}) {
+      shape({ &pointee, modifiability }) {
       assert(this->pointee != nullptr);
-      this->shape.pointable = &this->signature;
     }
     virtual void softVisitLinks(const Visitor&) const override {
       // TODO
     }
-    virtual ValueFlags getFlags() const override {
-      return ValueFlags::Object;
+    virtual ValueFlags getPrimitiveFlags() const override {
+      return ValueFlags::None;
     }
-    virtual const IntShape* getIntShape() const override {
+    virtual const ObjectShape* getObjectShape(size_t) const override {
       return nullptr;
-    }
-    virtual const FloatShape* getFloatShape() const override {
-      return nullptr;
-    }
-    virtual const ObjectShape* getStringShape() const override {
-      return nullptr;
-    }
-    virtual const ObjectShape* getObjectShape(size_t index) const override {
-      return (index == 0) ? &this->shape : nullptr;
     }
     virtual size_t getObjectShapeCount() const override {
+      return 0;
+    }
+    virtual const PointerShape* getPointerShape(size_t index) const override {
+      return (index == 0) ? &this->shape : nullptr;
+    }
+    virtual size_t getPointerShapeCount() const override {
       return 1;
     }
     virtual std::pair<std::string, int> toStringPrecedence() const override {
@@ -398,7 +225,7 @@ namespace {
     }
   };
 
-  class TypeStrip : public SoftReferenceCounted<IType> {
+  class TypeStrip final : public SoftReferenceCounted<IType> {
     TypeStrip(const TypeStrip&) = delete;
     TypeStrip& operator=(const TypeStrip&) = delete;
   private:
@@ -415,17 +242,8 @@ namespace {
     virtual void softVisitLinks(const Visitor&) const override {
       // TODO
     }
-    virtual ValueFlags getFlags() const override {
-      return Bits::clear(this->underlying->getFlags(), this->strip);
-    }
-    virtual const IntShape* getIntShape() const override {
-      return Bits::hasAnySet(this->strip, ValueFlags::Int) ? nullptr : this->underlying->getIntShape();
-    }
-    virtual const FloatShape* getFloatShape() const override {
-      return Bits::hasAnySet(this->strip, ValueFlags::Float) ? nullptr : this->underlying->getFloatShape();
-    }
-    virtual const ObjectShape* getStringShape() const override {
-      return Bits::hasAnySet(this->strip, ValueFlags::String) ? nullptr : this->underlying->getStringShape();
+    virtual ValueFlags getPrimitiveFlags() const override {
+      return Bits::clear(this->underlying->getPrimitiveFlags(), this->strip);
     }
     virtual const ObjectShape* getObjectShape(size_t index) const override {
       return this->underlying->getObjectShape(index);
@@ -433,12 +251,14 @@ namespace {
     virtual size_t getObjectShapeCount() const override {
       return this->underlying->getObjectShapeCount();
     }
+    virtual const PointerShape* getPointerShape(size_t index) const override {
+      return this->underlying->getPointerShape(index);
+    }
+    virtual size_t getPointerShapeCount() const override {
+      return this->underlying->getPointerShapeCount();
+    }
     virtual std::pair<std::string, int> toStringPrecedence() const override {
-      if (this->underlying->getObjectShapeCount() == 0) {
-        // Primitive types only
-        return flagsToStringPrecedence(this->getFlags());
-      }
-      return { "WOBBLE", 0 };
+      return complexToStringPrecedence(this->getPrimitiveFlags(), *this->underlying);
     }
     virtual String describeValue() const override {
       // TODO i18n
@@ -446,101 +266,73 @@ namespace {
     }
   };
 
-  class TypeUnion : public SoftReferenceCounted<IType> {
+  class TypeUnion final : public SoftReferenceCounted<IType> {
     TypeUnion(const TypeUnion&) = delete;
     TypeUnion& operator=(const TypeUnion&) = delete;
   private:
     Type a; // TODO make soft
     Type b; // TODO make soft
     ValueFlags flags;
-    IntShape intShape;
-    FloatShape floatShape;
-    std::vector<const ObjectShape*> objectShape;
+    std::vector<const ObjectShape*> objectShapes;
+    std::vector<const PointerShape*> pointerShapes;
   public:
     TypeUnion(IAllocator& allocator, const IType& a, const IType& b)
       : SoftReferenceCounted(allocator),
       a(&a),
       b(&b),
-      flags(a.getFlags() | b.getFlags()),
-      intShape(unionInt(a.getIntShape(), b.getIntShape())),
-      floatShape(unionFloat(a.getFloatShape(), b.getFloatShape())),
-      objectShape(unionObject({ &a, &b })) {
+      flags(a.getPrimitiveFlags() | b.getPrimitiveFlags()),
+      objectShapes(unionObjects({ &a, &b })),
+      pointerShapes(unionPointers({ &a, &b })) {
       assert(this->a != nullptr);
       assert(this->b != nullptr);
     }
     virtual void softVisitLinks(const Visitor&) const override {
       // TODO
     }
-    virtual ValueFlags getFlags() const override {
+    virtual ValueFlags getPrimitiveFlags() const override {
       return this->flags;
     }
-    virtual const IntShape* getIntShape() const override {
-      return Bits::hasAnySet(this->flags, ValueFlags::Int) ? &this->intShape : nullptr;
-    }
-    virtual const FloatShape* getFloatShape() const override {
-      return Bits::hasAnySet(this->flags, ValueFlags::Float) ? &this->floatShape : nullptr;
-    }
-    virtual const ObjectShape* getStringShape() const override {
-      return Bits::hasAnySet(this->flags, ValueFlags::String) ? &BuiltinFactory::getStringShape() : nullptr;
-    }
     virtual const ObjectShape* getObjectShape(size_t index) const override {
-      return this->objectShape.at(index);
+      return this->objectShapes.at(index);
     }
     virtual size_t getObjectShapeCount() const override {
-      return this->objectShape.size();
+      return this->objectShapes.size();
+    }
+    virtual const PointerShape* getPointerShape(size_t index) const override {
+      return this->pointerShapes.at(index);
+    }
+    virtual size_t getPointerShapeCount() const override {
+      return this->pointerShapes.size();
     }
     virtual std::pair<std::string, int> toStringPrecedence() const override {
-      if (this->objectShape.empty()) {
-        // Primitive types only
-        return flagsToStringPrecedence(this->flags);
-      }
-      return { "WOBBLE", 0 };
+      return complexToStringPrecedence(this->flags, *this);
     }
     virtual String describeValue() const override {
       // TODO i18n
       return StringBuilder::concat("Value of type '", this->toStringPrecedence().first, "'");
     }
   private:
-    static IntShape unionInt(const IntShape* p, const IntShape* q) {
-      if (p == nullptr) {
-        if (q == nullptr) {
-          return BuiltinFactory::getIntShape();
-        }
-        return *q;
-      }
-      if (q == nullptr) {
-        return *p;
-      }
-      return {
-        std::min(p->minimum, q->minimum), // min
-        std::max(p->maximum, q->maximum)  // max
-      };
-    }
-    static FloatShape unionFloat(const FloatShape* p, const FloatShape* q) {
-      if (p == nullptr) {
-        if (q == nullptr) {
-          return BuiltinFactory::getFloatShape();
-        }
-        return *q;
-      }
-      if (q == nullptr) {
-        return *p;
-      }
-      return {
-        std::min(p->minimum, q->minimum), // min
-        std::max(p->maximum, q->maximum), // max
-        p->allowNaN || q->allowNaN,       // nan
-        p->allowNInf || q->allowNInf,     // ninf
-        p->allowPInf || q->allowPInf      // pinf
-      };
-    }
-    static std::vector<const ObjectShape*> unionObject(const std::array<const IType*, 2>& types) {
+    static std::vector<const ObjectShape*> unionObjects(const std::array<const IType*, 2>& types) {
       std::unordered_set<const ObjectShape*> unique;
       std::vector<const ObjectShape*> list;
       for (auto type : types) {
         auto count = type->getObjectShapeCount();
         for (size_t index = 0; index < count; ++index) {
           auto* shape = type->getObjectShape(index);
+          if ((shape != nullptr) && unique.insert(shape).second) {
+            list.push_back(shape);
+          }
+        }
+      }
+      return list;
+    }
+    static std::vector<const PointerShape*> unionPointers(const std::array<const IType*, 2>& types) {
+      std::unordered_set<const PointerShape*> unique;
+      std::vector<const PointerShape*> list;
+      for (auto type : types) {
+        auto count = type->getPointerShapeCount();
+        for (size_t index = 0; index < count; ++index) {
+          auto* shape = type->getPointerShape(index);
           if ((shape != nullptr) && unique.insert(shape).second) {
             list.push_back(shape);
           }
@@ -705,23 +497,20 @@ namespace {
     virtual void softVisitLinks(const Visitor&) const {
       // TODO visit soft links in Builder?
     }
-    virtual ValueFlags getFlags() const override {
-      return ValueFlags::Object;
-    }
-    virtual const IntShape* getIntShape() const override {
-      return nullptr;
-    }
-    virtual const FloatShape* getFloatShape() const override {
-      return nullptr;
-    }
-    virtual const ObjectShape* getStringShape() const override {
-      return nullptr;
+    virtual ValueFlags getPrimitiveFlags() const override {
+      return ValueFlags::None;
     }
     virtual const ObjectShape* getObjectShape(size_t index) const override {
       return (index == 0) ? &this->shape : nullptr;
     }
     virtual size_t getObjectShapeCount() const override {
       return 1;
+    }
+    virtual const PointerShape* getPointerShape(size_t) const override {
+      return nullptr;
+    }
+    virtual size_t getPointerShapeCount() const override {
+      return 0;
     }
     virtual std::pair<std::string, int> toStringPrecedence() const override {
       if (this->shape.callable != nullptr) {
@@ -803,82 +592,67 @@ namespace {
     auto count = type->getObjectShapeCount();
     assert(count <= 1);
     if (count > 0) {
-      auto* object = type->getObjectShape(0);
-      if (object != nullptr) {
-        auto* result = object->*field;
+      auto* shape = type->getObjectShape(0);
+      if (shape != nullptr) {
+        auto* result = shape->*field;
         if (result != nullptr) {
           return result;
         }
       }
     }
-    auto* string = type->getStringShape();
-    if (string != nullptr) {
-      return string->*field;
+    auto flags = type->getPrimitiveFlags();
+    if (Bits::hasAnySet(flags, ValueFlags::Object)) {
+      auto* result = BuiltinFactory::getObjectShape().*field;
+      if (result != nullptr) {
+        return result;
+      }
+    }
+    if (Bits::hasAnySet(flags, ValueFlags::String)) {
+      return BuiltinFactory::getStringShape().*field;
     }
     return nullptr;
   }
 
-  Type::Assignability queryAssignableInt(const IntShape* lhs, const IntShape* rhs) {
-    // WOBBLE range
-    assert(lhs != nullptr);
-    assert(rhs != nullptr);
-    (void)lhs;
-    (void)rhs;
-    return Type::Assignability::Always;
-  }
-
-  Type::Assignability queryAssignableFloat(const FloatShape* lhs, const FloatShape* rhs) {
-    // WOBBLE range
-    assert(lhs != nullptr);
-    assert(rhs != nullptr);
-    (void)lhs;
-    (void)rhs;
-    return Type::Assignability::Always;
-  }
-
-  Type::Assignability queryAssignableObject(const IType& lhs, const IType& rhs) {
+  Type::Assignability queryAssignableObject(const IType& ltype, const IType& rtype) {
     // WOBBLE shapes
-    (void)lhs;
-    (void)rhs;
+    (void)ltype;
+    (void)rtype;
     return Type::Assignability::Always;
   }
 
-  Type::Assignability queryAssignablePrimitive(const IType& lhs, const IType& rhs, ValueFlags lflags, ValueFlags rflags) {
-    assert(lhs.validate());
-    assert(rhs.validate());
-    assert(Bits::hasOneSet(rflags, ValueFlags::Void | ValueFlags::AnyQ));
+  Type::Assignability queryAssignablePointer(const IType& ltype, const IType& rtype) {
+    // WOBBLE shapes
+    (void)ltype;
+    (void)rtype;
+    return Type::Assignability::Always;
+  }
+
+  Type::Assignability queryAssignablePrimitive(const IType& ltype, const IType& rtype, ValueFlags lflags, ValueFlags rflag) {
+    assert(Bits::hasOneSet(rflag, ValueFlags::Void | ValueFlags::AnyQ));
     auto result = Type::Assignability::Never;
     EGG_WARNING_SUPPRESS_SWITCH_BEGIN();
-    switch (rflags) {
+    switch (rflag) {
     case ValueFlags::Void:
       break;
     case ValueFlags::Null:
     case ValueFlags::Bool:
+    case ValueFlags::Float:
     case ValueFlags::String:
-      if (Bits::hasAnySet(lflags, rflags)) {
+      if (Bits::hasAnySet(lflags, rflag)) {
         result = Type::Assignability::Always;
       }
       break;
     case ValueFlags::Int:
       if (Bits::hasAnySet(lflags, ValueFlags::Int)) {
-        result = queryAssignableInt(lhs.getIntShape(), rhs.getIntShape());
-        if (result == Type::Assignability::Always) {
-          return Type::Assignability::Always;
-        }
-      }
-      if (Bits::hasAnySet(lflags, ValueFlags::Float)) {
+        result = Type::Assignability::Always;
+      } else if (Bits::hasAnySet(lflags, ValueFlags::Float)) {
         // Permit type promotion int->float
         result = Type::Assignability::Sometimes;
       }
       break;
-    case ValueFlags::Float:
-      if (Bits::hasAnySet(lflags, ValueFlags::Float)) {
-        result = queryAssignableFloat(lhs.getFloatShape(), rhs.getFloatShape());
-      }
-      break;
     case ValueFlags::Object:
       if (Bits::hasAnySet(lflags, ValueFlags::Object)) {
-        result = queryAssignableObject(lhs, rhs);
+        result = queryAssignableObject(ltype, rtype);
       }
       break;
     default:
@@ -889,24 +663,21 @@ namespace {
     return result;
   }
 
-  Type::Assignability queryAssignableType(const IType& lhs, const IType& rhs) {
-    assert(lhs.validate());
-    assert(rhs.validate());
-    auto lflags = lhs.getFlags();
-    auto rflags = rhs.getFlags();
+  Type::Assignability queryAssignablePrimitives(const IType& ltype, const IType& rtype, ValueFlags lflags, ValueFlags rflags) {
+    assert(Bits::hasAnySet(rflags, ValueFlags::Void | ValueFlags::AnyQ));
     if (Bits::hasOneSet(rflags, ValueFlags::Void | ValueFlags::AnyQ)) {
-      return queryAssignablePrimitive(lhs, rhs, lflags, rflags);
+      return queryAssignablePrimitive(ltype, rtype, lflags, rflags);
     }
     auto rflag = Bits::topmost(rflags);
     assert(rflag != ValueFlags::None);
-    auto assignability = queryAssignablePrimitive(lhs, rhs, lflags, rflag);
+    auto assignability = queryAssignablePrimitive(ltype, rtype, lflags, rflag);
     if (assignability == Type::Assignability::Sometimes) {
       return Type::Assignability::Sometimes;
     }
     rflags = Bits::clear(rflags, rflag);
     rflag = Bits::topmost(rflags);
     while (rflag != ValueFlags::None) {
-      if (queryAssignablePrimitive(lhs, rhs, lflags, rflag) != assignability) {
+      if (queryAssignablePrimitive(ltype, rtype, lflags, rflag) != assignability) {
         return Type::Assignability::Sometimes;
       }
       rflags = Bits::clear(rflags, rflag);
@@ -915,9 +686,161 @@ namespace {
     return assignability;
   }
 
-  bool isAssignableObject(const IType&, const IObject&) {
-    return true;
-    // WUBBLE return &ltype == rhs.getRuntimeType().get();
+  Type::Assignability queryAssignableType(const IType& ltype, const IType& rtype) {
+    // TODO complex
+    // Composability is like this:
+    //  ALWAYS + ALWAYS = ALWAYS
+    //  ALWAYS + SOMETIMES = SOMETIMES
+    //  ALWAYS + NEVER = SOMETIMES
+    //  SOMETIMES + ALWAYS = SOMETIMES
+    //  SOMETIMES + SOMETIMES = SOMETIMES
+    //  SOMETIMES + NEVER = SOMETIMES
+    //  NEVER + ALWAYS = SOMETIMES
+    //  NEVER + SOMETIMES = SOMETIMES
+    //  NEVER + NEVER = NEVER
+    // which is:
+    //  (a == b) ? a : SOMETIMES
+    assert(ltype.validate());
+    assert(rtype.validate());
+    auto lflags = ltype.getPrimitiveFlags();
+    auto rflags = rtype.getPrimitiveFlags();
+    if (Bits::hasAnySet(rflags, ValueFlags::Void | ValueFlags::AnyQ)) {
+      // We have at least one primitive type and possibly object/pointer shapes
+      auto assignability = queryAssignablePrimitives(ltype, rtype, lflags, rflags);
+      if (assignability == Type::Assignability::Sometimes) {
+        return Type::Assignability::Sometimes;
+      }
+      if ((rtype.getObjectShapeCount() > 0) && (queryAssignableObject(ltype, rtype) != assignability)) {
+        return Type::Assignability::Sometimes;
+      }
+      if ((rtype.getPointerShapeCount() > 0) && (queryAssignablePointer(ltype, rtype) != assignability)) {
+        return Type::Assignability::Sometimes;
+      }
+      return assignability;
+    }
+    if (rtype.getObjectShapeCount() > 0) {
+      // We have no primitive types, but at least one object shape and possibly pointer shapes
+      auto assignability = queryAssignableObject(ltype, rtype);
+      if (assignability == Type::Assignability::Sometimes) {
+        return Type::Assignability::Sometimes;
+      }
+      if ((rtype.getPointerShapeCount() > 0) && (queryAssignablePointer(ltype, rtype) != assignability)) {
+        return Type::Assignability::Sometimes;
+      }
+      return assignability;
+    }
+    if (rtype.getPointerShapeCount() > 0) {
+      // We have no primitive types nor object shapes, but at least one pointer shape
+      return queryAssignablePointer(ltype, rtype);
+    }
+    throw std::logic_error("Type has no known shape");
+  }
+
+  bool isAssignableInstanceObjectShapeCallable(const IFunctionSignature* lcallable, const IFunctionSignature* rcallable) {
+    if (lcallable == rcallable) {
+      return true;
+    }
+    if ((lcallable == nullptr) || (rcallable == nullptr)) {
+      return false;
+    }
+    return true; // TODO
+  }
+
+  bool isAssignableInstanceObjectShapeDotable(const IPropertySignature* ldotable, const IPropertySignature* rdotable) {
+    if (ldotable == rdotable) {
+      return true;
+    }
+    if ((ldotable == nullptr) || (rdotable == nullptr)) {
+      return false;
+    }
+    return true; // TODO
+  }
+
+  bool isAssignableInstanceObjectShapeIndexable(const IIndexSignature* lindexable, const IIndexSignature* rindexable) {
+    if (lindexable == rindexable) {
+      return true;
+    }
+    if ((lindexable == nullptr) || (rindexable == nullptr)) {
+      return false;
+    }
+    return true; // TODO
+  }
+
+  bool isAssignableInstanceObjectShapeIterable(const IIteratorSignature* literable, const IIteratorSignature* riterable) {
+    if (literable == riterable) {
+      return true;
+    }
+    if ((literable == nullptr) || (riterable == nullptr)) {
+      return false;
+    }
+    return true; // TODO
+  }
+
+  bool isAssignableInstanceObjectShape(const ObjectShape* lshape, const ObjectShape* rshape) {
+    assert(lshape != nullptr);
+    assert(rshape != nullptr);
+    return
+      isAssignableInstanceObjectShapeCallable(lshape->callable, rshape->callable) &&
+      isAssignableInstanceObjectShapeDotable(lshape->dotable, rshape->dotable) &&
+      isAssignableInstanceObjectShapeIndexable(lshape->indexable, rshape->indexable) &&
+      isAssignableInstanceObjectShapeIterable(lshape->iterable, rshape->iterable);
+  }
+
+  bool isAssignableInstanceObject(const IType& ltype, const IType& rtype) {
+    // Complex (non-pointer) objects can be assigned if *any* of their object shapes are compatible
+    auto lcount = ltype.getObjectShapeCount();
+    auto rcount = rtype.getObjectShapeCount();
+    for (size_t lindex = 0; lindex < lcount; ++lindex) {
+      for (size_t rindex = 0; rindex < rcount; ++rindex) {
+        if (isAssignableInstanceObjectShape(ltype.getObjectShape(lindex), rtype.getObjectShape(rindex))) {
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
+  bool isAssignableInstancePointerShapePointee(const IType* lpointee, const IType* rpointee) {
+    assert(lpointee != nullptr);
+    assert(rpointee != nullptr);
+    if (lpointee == rpointee) {
+      return true;
+    }
+    return false; // TODO
+  }
+
+  bool isAssignableInstancePointerShape(const PointerShape* lshape, const PointerShape* rshape) {
+    assert(lshape != nullptr);
+    assert(rshape != nullptr);
+    return isAssignableInstancePointerShapePointee(lshape->pointee, rshape->pointee);
+  }
+
+  bool isAssignableInstancePointer(const IType& ltype, const IType& rtype) {
+    // Pointers can be assigned if *any* of their pointees have identical types
+    auto lcount = ltype.getPointerShapeCount();
+    auto rcount = rtype.getPointerShapeCount();
+    for (size_t lindex = 0; lindex < lcount; ++lindex) {
+      for (size_t rindex = 0; rindex < rcount; ++rindex) {
+        if (isAssignableInstancePointerShape(ltype.getPointerShape(lindex), rtype.getPointerShape(rindex))) {
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
+  bool isAssignableInstance(const IType& ltype, const IObject& rhs) {
+    // Determine if we can assign an object to a complex target
+    assert(ltype.getPrimitiveFlags() == ValueFlags::None);
+    auto* rtype = rhs.getRuntimeType().get();
+    assert(rtype != nullptr);
+    if (&ltype == rtype) {
+      return true;
+    }
+    if (isAssignableInstanceObject(ltype, *rtype)) {
+      return true;
+    }
+    return isAssignableInstancePointer(ltype, *rtype);
   }
 }
 
@@ -943,8 +866,21 @@ const egg::ovum::IIteratorSignature* egg::ovum::Type::queryIterable() const {
   return queryObjectShape<IIteratorSignature>(this->get(), &ObjectShape::iterable);
 }
 
-const egg::ovum::IPointerSignature* egg::ovum::Type::queryPointable() const {
-  return queryObjectShape<IPointerSignature>(this->get(), &ObjectShape::pointable);
+const egg::ovum::PointerShape* egg::ovum::Type::queryPointable() const {
+  if (this->hasPrimitiveFlag(ValueFlags::Object)) {
+    // Allow a pointer to anything
+    static const PointerShape anything{ &typeAnyQ, Modifiability::Read | Modifiability::Write | Modifiability::Mutate };
+    return &anything;
+  }
+  auto count = (*this)->getPointerShapeCount();
+  assert(count <= 1);
+  if (count > 0) {
+    auto* shape = (*this)->getPointerShape(0);
+    if (shape != nullptr) {
+      return shape;
+    }
+  }
+  return nullptr;
 }
 
 egg::ovum::Type egg::ovum::Type::addFlags(IAllocator& allocator, ValueFlags flags) const {
@@ -952,7 +888,7 @@ egg::ovum::Type egg::ovum::Type::addFlags(IAllocator& allocator, ValueFlags flag
   if (flags != ValueFlags::Void) {
     throw std::logic_error("Type::addFlags() can only add 'void'");
   }
-  if (this->hasAnyFlags(ValueFlags::Void)) {
+  if (this->hasPrimitiveFlag(ValueFlags::Void)) {
     return *this;
   }
   return TypeFactory::createUnion(allocator, *Type::Void, **this);
@@ -966,10 +902,10 @@ egg::ovum::Type egg::ovum::Type::stripFlags(IAllocator& allocator, ValueFlags fl
     if (Bits::set(flags, acceptable) != acceptable) {
       throw std::logic_error("Type::stripFlags() can only strip 'void' and 'null'");
     }
-    if (Bits::hasAnySet(underlying->getFlags(), flags)) {
-      if (underlying->getFlags() == flags) {
-        return nullptr;
-      }
+    auto uflags = underlying->getPrimitiveFlags();
+    if (uflags == flags) {
+      return nullptr;
+    } else if (Bits::hasAnySet(uflags, flags)) {
       return allocator.make<TypeStrip, Type>(*underlying, flags);
     }
   }
@@ -1051,7 +987,7 @@ egg::ovum::TypeBuilder egg::ovum::TypeFactory::createFunctionBuilder(IAllocator&
 
 egg::ovum::TypeBuilder egg::ovum::TypeFactory::createGeneratorBuilder(IAllocator& allocator, const Type& gentype, const String& name, const String& description) {
   // Convert the return type (e.g. 'int') into a generator function 'int...' aka '(void|int)()'
-  assert(!gentype.hasAnyFlags(ValueFlags::Void));
+  assert(!gentype.hasPrimitiveFlag(ValueFlags::Void));
   auto generator = TypeFactory::createFunctionBuilder(allocator, gentype.addFlags(allocator, ValueFlags::Void), name, description);
   return allocator.make<FunctionBuilder>(generator->build(), name, description);
 }
@@ -1076,19 +1012,18 @@ egg::ovum::Type::Assignment egg::ovum::Type::promote(IAllocator& allocator, cons
   case ValueFlags::Void:
     return Assignment::Incompatible;
   case ValueFlags::Null:
-    if (!this->hasAnyFlags(ValueFlags::Null)) {
+    if (!this->hasPrimitiveFlag(ValueFlags::Null)) {
       return Assignment::Incompatible;
     }
     break;
   case ValueFlags::Bool:
-    if (!this->hasAnyFlags(ValueFlags::Bool)) {
+    if (!this->hasPrimitiveFlag(ValueFlags::Bool)) {
       return Assignment::Incompatible;
     }
     break;
   case ValueFlags::Int:
-    // WOBBLE range
-    if (!this->hasAnyFlags(ValueFlags::Int)) {
-      if (this->hasAnyFlags(ValueFlags::Float)) {
+    if (!this->hasPrimitiveFlag(ValueFlags::Int)) {
+      if (this->hasPrimitiveFlag(ValueFlags::Float)) {
         egg::ovum::Int i;
         if (rhs->getInt(i)) {
           // Attempt int-to-float promotion
@@ -1105,23 +1040,27 @@ egg::ovum::Type::Assignment egg::ovum::Type::promote(IAllocator& allocator, cons
     }
     break;
   case ValueFlags::Float:
-    if (!this->hasAnyFlags(ValueFlags::Float)) {
+    if (!this->hasPrimitiveFlag(ValueFlags::Float)) {
       return Assignment::Incompatible;
     }
     break;
   case ValueFlags::String:
-    if (!this->hasAnyFlags(ValueFlags::String)) {
+    if (!this->hasPrimitiveFlag(ValueFlags::String)) {
       return Assignment::Incompatible;
     }
     break;
   case ValueFlags::Object:
-    if (this->hasAnyFlags(ValueFlags::Object)) {
+    if (this->get()->getPrimitiveFlags() == ValueFlags::None) {
+      // Complex
       egg::ovum::Object o;
-      if (rhs->getObject(o) && isAssignableObject(**this, *o)) {
-        break;
+      if (!rhs->getObject(o) || !isAssignableInstance(**this, *o)) {
+        return Assignment::Incompatible;
       }
+    } else if (!this->hasPrimitiveFlag(ValueFlags::Object)) {
+      // We cannot assign any object-like value to this type
+      return Assignment::Incompatible;
     }
-    return Assignment::Incompatible;
+    break;
   case egg::ovum::ValueFlags::None:
   case egg::ovum::ValueFlags::Any:
   case egg::ovum::ValueFlags::AnyQ:

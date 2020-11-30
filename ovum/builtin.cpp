@@ -78,23 +78,20 @@ namespace {
         shape({}) {
       this->shape.callable = this;
     }
-    virtual ValueFlags getFlags() const override {
-      return ValueFlags::Object;
-    }
-    virtual const IntShape* getIntShape() const override {
-      return nullptr;
-    }
-    virtual const FloatShape* getFloatShape() const override {
-      return nullptr;
-    }
-    virtual const ObjectShape* getStringShape() const override {
-      return nullptr;
+    virtual ValueFlags getPrimitiveFlags() const override {
+      return ValueFlags::None;
     }
     virtual const ObjectShape* getObjectShape(size_t index) const override {
       return (index == 0) ? &this->shape : nullptr;
     }
     virtual size_t getObjectShapeCount() const override {
       return 1;
+    }
+    virtual const PointerShape* getPointerShape(size_t) const override {
+      return nullptr;
+    }
+    virtual size_t getPointerShapeCount() const override {
+      return 0;
     }
     virtual std::pair<std::string, int> toStringPrecedence() const override {
       return FunctionSignature::toStringPrecedence(*this);
@@ -694,17 +691,6 @@ namespace {
   };
   const ObjectShapeIterable objectShapeIterable{};
 
-  class ObjectShapePointable : public IPointerSignature {
-  public:
-    virtual Type getType() const override {
-      return Type::AnyQ;
-    }
-    virtual Modifiability getModifiability() const override {
-      return Modifiability::Read | Modifiability::Write | Modifiability::Mutate;
-    }
-  };
-  const ObjectShapePointable objectShapePointable{};
-
   class BuiltinBase : public SoftReferenceCounted<IObject> {
     BuiltinBase(const BuiltinBase&) = delete;
     BuiltinBase& operator=(const BuiltinBase&) = delete;
@@ -945,23 +931,12 @@ namespace {
 const egg::ovum::IParameters& egg::ovum::Object::ParametersNone{ parametersNone };
 const egg::ovum::IFunctionSignature& egg::ovum::Object::OmniFunctionSignature{ objectShapeCallable };
 
-const egg::ovum::IntShape& egg::ovum::BuiltinFactory::getIntShape() {
-  static const IntShape instance{ IntShape::Minimum, IntShape::Maximum };
-  return instance;
-}
-
-const egg::ovum::FloatShape& egg::ovum::BuiltinFactory::getFloatShape() {
-  static const FloatShape instance{ FloatShape::Minimum, FloatShape::Maximum, true, true, true };
-  return instance;
-}
-
 const egg::ovum::ObjectShape& egg::ovum::BuiltinFactory::getStringShape() {
   static const ObjectShape instance{
     nullptr,
     &stringShapeDotable,
     &stringShapeIndexable,
-    &stringShapeIterable,
-    nullptr
+    &stringShapeIterable
   };
   return instance;
 }
@@ -971,8 +946,7 @@ const egg::ovum::ObjectShape& egg::ovum::BuiltinFactory::getObjectShape() {
     &objectShapeCallable,
     &objectShapeDotable,
     &objectShapeIndexable,
-    &objectShapeIterable,
-    &objectShapePointable
+    &objectShapeIterable
   };
   return instance;
 }

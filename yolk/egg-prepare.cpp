@@ -19,7 +19,7 @@ namespace {
     auto prepared = node.prepare(context);
     if (!abandoned(prepared)) {
       auto type = node.getType();
-      if (!type.hasAnyFlags(expected)) {
+      if (!type.hasPrimitiveFlag(expected)) {
         if (expected == egg::ovum::ValueFlags::Null) {
           context.compilerWarning(where, "Expected ", side, " of '", EggProgram::binaryToString(op), "' operator to be possibly 'null', but got '", type.toString(), "' instead");
         } else {
@@ -78,7 +78,7 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareStatements(c
     }
     // We can only perform this after preparing the statement, otherwise the type information isn't correct (always 'void')
     auto rettype = statement->getType();
-    if (rettype->getFlags() != egg::ovum::ValueFlags::Void) {
+    if (rettype->getPrimitiveFlags() != egg::ovum::ValueFlags::Void) {
       this->compilerWarning(statement->location(), "Expected statement to return 'void', but got '", rettype.toString(), "' instead");
     }
   }
@@ -149,10 +149,10 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareAssign(const
   case EggProgramAssign::LogicalAnd:
   case EggProgramAssign::LogicalOr:
     // Boolean operation
-    if (!ltype.hasAnyFlags(egg::ovum::ValueFlags::Bool)) {
+    if (!ltype.hasPrimitiveFlag(egg::ovum::ValueFlags::Bool)) {
       return this->compilerError(where, "Expected left-hand side of '", EggProgram::assignToString(op), "' assignment operator to be 'bool', but got '", ltype.toString(), "' instead");
     }
-    if (!rtype.hasAnyFlags(egg::ovum::ValueFlags::Bool)) {
+    if (!rtype.hasPrimitiveFlag(egg::ovum::ValueFlags::Bool)) {
       return this->compilerError(where, "Expected right-hand side of '", EggProgram::assignToString(op), "' assignment operator to be 'bool', but got '", ltype.toString(), "' instead");
     }
     break;
@@ -160,10 +160,10 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareAssign(const
   case EggProgramAssign::BitwiseOr:
   case EggProgramAssign::BitwiseXor:
     // Boolean/Integer operation
-    if (!ltype.hasAnyFlags(egg::ovum::ValueFlags::Bool | egg::ovum::ValueFlags::Int)) {
+    if (!ltype.hasPrimitiveFlag(egg::ovum::ValueFlags::Bool | egg::ovum::ValueFlags::Int)) {
       return this->compilerError(where, "Expected left-hand side of '", EggProgram::assignToString(op), "' assignment operator to be 'bool' or 'int', but got '", ltype.toString(), "' instead");
     }
-    if (rtype->getFlags() != ltype->getFlags()) {
+    if (rtype->getPrimitiveFlags() != ltype->getPrimitiveFlags()) {
       return this->compilerError(where, "Expected right-hand target of '", EggProgram::assignToString(op), "' assignment operator to be '", ltype.toString(), "', but got '", rtype.toString(), "' instead");
     }
     break;
@@ -171,10 +171,10 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareAssign(const
   case EggProgramAssign::ShiftRight:
   case EggProgramAssign::ShiftRightUnsigned:
     // Integer-only operation
-    if (!ltype.hasAnyFlags(egg::ovum::ValueFlags::Int)) {
+    if (!ltype.hasPrimitiveFlag(egg::ovum::ValueFlags::Int)) {
       return this->compilerError(where, "Expected left-hand target of integer '", EggProgram::assignToString(op), "' assignment operator to be 'int', but got '", ltype.toString(), "' instead");
     }
-    if (!rtype.hasAnyFlags(egg::ovum::ValueFlags::Int)) {
+    if (!rtype.hasPrimitiveFlag(egg::ovum::ValueFlags::Int)) {
       return this->compilerError(where, "Expected right-hand side of integer '", EggProgram::assignToString(op), "' assignment operator to be 'int', but got '", rtype.toString(), "' instead");
     }
     break;
@@ -187,7 +187,7 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareAssign(const
     switch (EggProgram::arithmeticTypes(rtype)) {
     case EggProgram::ArithmeticTypes::Float:
       // Float-only operation
-      if (!ltype.hasAnyFlags(egg::ovum::ValueFlags::Float)) {
+      if (!ltype.hasPrimitiveFlag(egg::ovum::ValueFlags::Float)) {
         return this->compilerError(where, "Expected left-hand target of floating-point '", EggProgram::assignToString(op), "' assignment operator to be 'float', but got '", ltype.toString(), "' instead");
       }
       break;
@@ -210,7 +210,7 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareAssign(const
     case egg::ovum::Type::Assignability::Always:
       break;
     }
-    if (!ltype.hasAnyFlags(egg::ovum::ValueFlags::Null)) {
+    if (!ltype.hasPrimitiveFlag(egg::ovum::ValueFlags::Null)) {
       // This is just a warning
       this->compilerWarning(where, "Expected left-hand target of null-coalescing '??=' assignment operator to be possibly 'null', but got '", ltype.toString(), "' instead");
     }
@@ -228,7 +228,7 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareMutate(const
   case EggProgramMutate::Increment:
   case EggProgramMutate::Decrement:
     // Integer-only operation
-    if (!ltype.hasAnyFlags(egg::ovum::ValueFlags::Int)) {
+    if (!ltype.hasPrimitiveFlag(egg::ovum::ValueFlags::Int)) {
       return this->compilerError(where, "Expected target of integer '", EggProgram::mutateToString(op), "' operator to be 'int', but got '", ltype.toString(), "' instead");
     }
     break;
@@ -338,7 +338,7 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareFunctionDefi
   }
   if (fallthrough(flags)) {
     // Falling through to the end of a non-generator function is the same as an implicit 'return' with no parameters
-    if (!egg::ovum::Bits::hasAnySet(function.rettype->getFlags(), egg::ovum::ValueFlags::Void)) {
+    if (!egg::ovum::Bits::hasAnySet(function.rettype->getPrimitiveFlags(), egg::ovum::ValueFlags::Void)) {
       egg::ovum::String suffix;
       if (!name.empty()) {
         suffix = egg::ovum::StringBuilder::concat(": '", name, "'");
@@ -596,13 +596,13 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareUnary(const 
   switch (op) {
   case EggProgramUnary::LogicalNot:
     // Boolean-only operation
-    if (!type.hasAnyFlags(egg::ovum::ValueFlags::Bool)) {
+    if (!type.hasPrimitiveFlag(egg::ovum::ValueFlags::Bool)) {
       return this->compilerError(where, "Expected operand of logical-not '!' operator to be 'bool', but got '", type.toString(), "' instead");
     }
     break;
   case EggProgramUnary::BitwiseNot:
     // Integer-only operation
-    if (!type.hasAnyFlags(egg::ovum::ValueFlags::Int)) {
+    if (!type.hasPrimitiveFlag(egg::ovum::ValueFlags::Int)) {
       return this->compilerError(where, "Expected operand of bitwise-not '~' operator to be 'int', but got '", type.toString(), "' instead");
     }
     break;
@@ -618,8 +618,8 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareUnary(const 
     break;
   case EggProgramUnary::Deref:
     // Dereference '*' operation
-    if (!type.hasAnyFlags(egg::ovum::ValueFlags::Object)) {
-      return this->compilerError(where, "Expected operand of dereference '*' operator to be an object, but got '", type.toString(), "' instead");
+    if (type->getPointerShapeCount() == 0) {
+      return this->compilerError(where, "Expected operand of dereference '*' operator to be a pointer, but got '", type.toString(), "' instead");
     }
     break;
   case EggProgramUnary::Ellipsis:
@@ -677,15 +677,15 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareTernary(cons
     return EggProgramNodeFlags::Abandon;
   }
   auto type = cond.getType();
-  if (!type.hasAnyFlags(egg::ovum::ValueFlags::Bool)) {
+  if (!type.hasPrimitiveFlag(egg::ovum::ValueFlags::Bool)) {
     return this->compilerError(where, "Expected condition of ternary '?:' operator to be 'bool', but got '", type.toString(), "' instead");
   }
   type = whenTrue.getType();
-  if (type->getFlags() == egg::ovum::ValueFlags::None) {
+  if (type->getPrimitiveFlags() == egg::ovum::ValueFlags::None) {
     return this->compilerError(whenTrue.location(), "Expected value for second operand of ternary '?:' operator , but got '", type.toString(), "' instead");
   }
   type = whenFalse.getType();
-  if (type->getFlags() == egg::ovum::ValueFlags::None) {
+  if (type->getPrimitiveFlags() == egg::ovum::ValueFlags::None) {
   return this->compilerError(whenTrue.location(), "Expected value for third operand of ternary '?:' operator , but got '", type.toString(), "' instead");
   }
   return EggProgramNodeFlags::None;

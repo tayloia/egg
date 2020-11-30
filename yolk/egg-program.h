@@ -112,7 +112,7 @@ namespace egg::yolk {
     static ArithmeticTypes arithmeticTypes(const egg::ovum::Type& type) {
       assert(type != nullptr);
       EGG_WARNING_SUPPRESS_SWITCH_BEGIN();
-      switch (egg::ovum::Bits::mask(type->getFlags(), egg::ovum::ValueFlags::Arithmetic)) {
+      switch (egg::ovum::Bits::mask(type->getPrimitiveFlags(), egg::ovum::ValueFlags::Arithmetic)) {
       case egg::ovum::ValueFlags::Int:
         return ArithmeticTypes::Int;
       case egg::ovum::ValueFlags::Float:
