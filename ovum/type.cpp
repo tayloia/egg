@@ -54,14 +54,20 @@ namespace {
 
   std::pair<std::string, int> complexComponentObject(const ObjectShape* shape) {
     assert(shape != nullptr);
-    (void)shape;
-    return { "WOBBLE", 0 };
+    if (shape->callable != nullptr) {
+      return FunctionSignature::toStringPrecedence(*shape->callable);
+    }
+    return { "<complex>", 0 }; // TODO
   }
 
   std::pair<std::string, int> complexComponentPointer(const PointerShape* shape) {
     assert(shape != nullptr);
-    (void)shape;
-    return { "WOBBLE", 0 };
+    assert(shape->pointee != nullptr);
+    auto pointee = shape->pointee->toStringPrecedence();
+    if (pointee.second > 1) {
+      return { '(' + pointee.first + ')' + '*', 1 };
+    }
+    return { pointee.first + '*', 1 };
   }
 
   std::pair<std::string, int> complexToStringPrecedence(ValueFlags primitive, const IType& complex) {
@@ -180,13 +186,11 @@ namespace {
     TypePointer(const TypePointer&) = delete;
     TypePointer& operator=(const TypePointer&) = delete;
   private:
-    std::string name;
     Type pointee; // TODO make soft
     PointerShape shape;
   public:
     TypePointer(IAllocator& allocator, const IType& pointee, Modifiability modifiability)
       : SoftReferenceCounted(allocator),
-        name(TypePointer::makeTypeName(pointee.toStringPrecedence())),
         pointee(&pointee),
       shape({ &pointee, modifiability }) {
       assert(this->pointee != nullptr);
@@ -210,18 +214,11 @@ namespace {
       return 1;
     }
     virtual std::pair<std::string, int> toStringPrecedence() const override {
-      return { this->name, 0 };
+      return complexToStringPrecedence(ValueFlags::None, *this);
     }
     virtual String describeValue() const override {
       // TODO i18n
-      return StringBuilder::concat("Value of type '", this->name, "'");
-    }
-    static std::string makeTypeName(const std::pair<std::string, int>& pair) {
-      auto name = pair.first;
-      if (pair.second > 1) {
-        return '(' + pair.first + ')' + '*';
-      }
-      return pair.first + '*';
+      return StringBuilder::concat("Pointer of type '", this->toStringPrecedence().first, "'");
     }
   };
 
@@ -342,105 +339,6 @@ namespace {
     }
   };
 
-  class FunctionSignatureParameter : public IFunctionSignatureParameter {
-  private:
-    String name; // may be empty
-    Type type;
-    size_t position; // may be SIZE_MAX
-    Flags flags;
-  public:
-    FunctionSignatureParameter(const String& name, const Type& type, size_t position, Flags flags)
-      : name(name), type(type), position(position), flags(flags) {
-    }
-    virtual String getName() const override {
-      return this->name;
-    }
-    virtual Type getType() const override {
-      return this->type;
-    }
-    virtual size_t getPosition() const override {
-      return this->position;
-    }
-    virtual Flags getFlags() const override {
-      return this->flags;
-    }
-  };
-
-  class FunctionSignature : public IFunctionSignature {
-  private:
-    String name;
-    Type rettype;
-    std::vector<FunctionSignatureParameter> parameters;
-  public:
-    FunctionSignature(const String& name, const Type& rettype)
-      : name(name), rettype(rettype) {
-    }
-    void addSignatureParameter(const String& parameterName, const Type& parameterType, size_t position, IFunctionSignatureParameter::Flags flags) {
-      this->parameters.emplace_back(parameterName, parameterType, position, flags);
-    }
-    virtual String getFunctionName() const override {
-      return this->name;
-    }
-    virtual Type getReturnType() const override {
-      return this->rettype;
-    }
-    virtual size_t getParameterCount() const override {
-      return this->parameters.size();
-    }
-    virtual const IFunctionSignatureParameter& getParameter(size_t index) const override {
-      assert(index < this->parameters.size());
-      return this->parameters[index];
-    }
-    // Helpers
-    enum class Parts {
-      ReturnType = 0x01,
-      FunctionName = 0x02,
-      ParameterList = 0x04,
-      ParameterNames = 0x08,
-      NoNames = ReturnType | ParameterList,
-      All = ReturnType | FunctionName | ParameterList | ParameterNames
-    };
-    static void build(StringBuilder& sb, const IFunctionSignature& signature, Parts parts = Parts::All) {
-      // TODO better formatting of named/variadic etc.
-      if (Bits::hasAnySet(parts, Parts::ReturnType)) {
-        // Use precedence zero to get any necessary parentheses
-        sb.add(signature.getReturnType().toString(0));
-      }
-      if (Bits::hasAnySet(parts, Parts::FunctionName)) {
-        auto name = signature.getFunctionName();
-        if (!name.empty()) {
-          sb.add(' ', name);
-        }
-      }
-      if (Bits::hasAnySet(parts, Parts::ParameterList)) {
-        sb.add('(');
-        auto n = signature.getParameterCount();
-        for (size_t i = 0; i < n; ++i) {
-          if (i > 0) {
-            sb.add(", ");
-          }
-          auto& parameter = signature.getParameter(i);
-          assert(parameter.getPosition() != SIZE_MAX);
-          if (Bits::hasAnySet(parameter.getFlags(), IFunctionSignatureParameter::Flags::Variadic)) {
-            sb.add("...");
-          } else {
-            sb.add(parameter.getType().toString());
-            if (Bits::hasAnySet(parts, Parts::ParameterNames)) {
-              auto pname = parameter.getName();
-              if (!pname.empty()) {
-                sb.add(' ', pname);
-              }
-            }
-            if (!Bits::hasAnySet(parameter.getFlags(), IFunctionSignatureParameter::Flags::Required)) {
-              sb.add(" = null");
-            }
-          }
-        }
-        sb.add(')');
-      }
-    }
-  };
-
   class Builder : public HardReferenceCounted<ITypeBuilder> {
     Builder(const Builder&) = delete;
     Builder& operator=(const Builder&) = delete;
@@ -515,7 +413,7 @@ namespace {
     virtual std::pair<std::string, int> toStringPrecedence() const override {
       if (this->shape.callable != nullptr) {
         // Use the type of the function signature
-        return egg::ovum::FunctionSignature::toStringPrecedence(*this->shape.callable);
+        return FunctionSignature::toStringPrecedence(*this->shape.callable);
       }
       return { this->builder->name, 0 };
     }
