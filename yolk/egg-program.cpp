@@ -14,12 +14,12 @@ void egg::yolk::EggProgramSymbol::setInferredType(const egg::ovum::Type& inferre
   this->type = inferred;
 }
 
-void egg::yolk::EggProgramSymbolTable::addBuiltins() {
+void egg::yolk::EggProgramSymbolTable::addBuiltins(egg::ovum::IBasket& basket) {
   // TODO add built-in symbol to symbol table here
-  this->addBuiltin("string", egg::ovum::BuiltinFactory::createStringInstance(this->allocator));
-  this->addBuiltin("type", egg::ovum::BuiltinFactory::createTypeInstance(this->allocator));
-  this->addBuiltin("assert", egg::ovum::BuiltinFactory::createAssertInstance(this->allocator));
-  this->addBuiltin("print", egg::ovum::BuiltinFactory::createPrintInstance(this->allocator));
+  this->addBuiltin("string", egg::ovum::BuiltinFactory::createStringInstance(this->allocator, basket));
+  this->addBuiltin("type", egg::ovum::BuiltinFactory::createTypeInstance(this->allocator, basket));
+  this->addBuiltin("assert", egg::ovum::BuiltinFactory::createAssertInstance(this->allocator, basket));
+  this->addBuiltin("print", egg::ovum::BuiltinFactory::createPrintInstance(this->allocator, basket));
 }
 
 void egg::yolk::EggProgramSymbolTable::addBuiltin(const std::string& name, const egg::ovum::Value& value) {

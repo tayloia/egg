@@ -96,18 +96,16 @@ namespace {
   private:
     LocationSource source;
     Kind kind;
-    SoftPtr<IType> type;
+    SoftPtr<const IType> type;
     String name;
     SoftPtr<Slot> slot;
   public:
-    Symbol(ICollectable& container, const LocationSource& source, Kind kind, const IType& type, const String& name, Slot& slot)
+    Symbol(IBasket& basket, const LocationSource& source, Kind kind, const IType& type, const String& name, Slot& slot)
       : source(source),
         kind(kind),
-        type(),
+        type(basket, &type),
         name(name),
-        slot() {
-      this->type.set(container, &type);
-      this->slot.set(container, &slot);
+        slot(basket, &slot) {
       assert(this->validate(true));
     }
     Type getType() const {
@@ -123,12 +121,23 @@ namespace {
       return HardPtr<Slot>(this->slot.get());
     }
     Value getValue() const {
-      auto value = this->slot->get();
-      return (value == nullptr) ? Value::Break : Value(*value);
+      return this->slot->value(Value::Break);
     }
-    void clone(ICollectable& container, std::map<String, Symbol>& table) {
+    void assign(const Value& value) {
+
+      auto* target = this->slot.get();
+      assert(target != nullptr);
+      auto* basket = target->softGetBasket();
+      assert(basket != nullptr);
+      Object object;
+      if (value->getObject(object)) {
+        basket->take(*object);
+      }
+      target->set(value);
+    }
+    void clone(IBasket& basket, std::map<String, Symbol>& table) {
       table.emplace(std::piecewise_construct, std::forward_as_tuple(this->name),
-                                              std::forward_as_tuple(container, this->source, this->kind, *this->type, this->name, *this->slot));
+                                              std::forward_as_tuple(basket, this->source, this->kind, *this->type, this->name, *this->slot));
     }
     void visit(const ICollectable::Visitor& visitor) const {
       this->type.visit(visitor);
@@ -147,11 +156,12 @@ namespace {
     SoftPtr<SymbolTable> parent;
     SoftPtr<SymbolTable> capture;
   public:
-    explicit SymbolTable(IAllocator& allocator, SymbolTable* parent, SymbolTable* capture)
+    SymbolTable(IAllocator& allocator, IBasket& basket, SymbolTable* parent, SymbolTable* capture)
       : SoftReferenceCounted(allocator) {
       printf("WIBBLE: SYMTABLE %p: CREATED %p %p\n", this, parent, capture);
-      this->parent.set(*this, parent);
-      this->capture.set(*this, capture);
+      this->parent.set(basket, parent);
+      this->capture.set(basket, capture);
+      basket.take(*this);
     }
     Symbol* add(const LocationSource& source, Symbol::Kind kind, const Type& type, const String& name) {
       // Return non-null iff the insertion occurred
@@ -159,7 +169,7 @@ namespace {
       auto slot = this->allocator.make<Slot>();
       auto retval = this->table.emplace(std::piecewise_construct,
                                         std::forward_as_tuple(name),
-                                        std::forward_as_tuple(*this, source, kind, *type, name, *slot));
+                                        std::forward_as_tuple(*this->basket, source, kind, *type, name, *slot));
       return retval.second ? &retval.first->second : nullptr;
     }
     bool remove(const String& name) {
@@ -180,7 +190,7 @@ namespace {
       }
       return &retval->second;
     }
-    void softVisitLinks(const Visitor& visitor) const {
+    void softVisit(const Visitor& visitor) const override {
       printf("WIBBLE: SYMTABLE %p: SOFTVISITLINKS\n", this);
       // WIBBLE
       for (auto& each : this->table) {
@@ -192,7 +202,7 @@ namespace {
     SymbolTable* push(SymbolTable* captured = nullptr) {
       printf("WIBBLE: SYMTABLE %p: PUSH %p\n", this, captured);
       // Push a table onto the symbol table stack
-      return this->allocator.create<SymbolTable>(0, this->allocator, this, captured);
+      return this->allocator.create<SymbolTable>(0, this->allocator, *this->basket, this, captured);
     }
     SymbolTable* pop() {
       printf("WIBBLE: SYMTABLE %p: POP\n", this);
@@ -203,10 +213,10 @@ namespace {
     HardPtr<SymbolTable> clone() {
       printf("WIBBLE: SYMTABLE %p: CLONE\n", this);
       // Shallow clone the symbol table
-      auto cloned = this->allocator.make<SymbolTable>(nullptr, nullptr);
-      this->basket->take(*cloned);
+      auto cloned = this->allocator.make<SymbolTable>(*this->basket, nullptr, nullptr);
+      // WEBBLE this->basket->take(*cloned);
       for (auto& each : this->table) {
-        each.second.clone(*this, cloned->table);
+        each.second.clone(*this->basket, cloned->table);
       }
       return cloned;
     }
@@ -226,32 +236,34 @@ namespace {
   private:
     ProgramDefault& program; // ProgramDefault lifetime guaranteed to be longer than UserFunction instance
     LocationSource location;
-    Type type;
+    SoftPtr<const IType> type;
     Node block;
     SoftPtr<SymbolTable> captured;
   public:
-    UserFunction(IAllocator& allocator, ProgramDefault& program, const LocationSource& location, const Type& type, const INode& block)
+    UserFunction(IAllocator& allocator, ProgramDefault& program, const LocationSource& location, const Type& ftype, const INode& block)
       : SoftReferenceCounted(allocator),
       program(program),
       location(location),
-      type(type),
+      type(),
       block(&block) {
-      assert(type != nullptr);
       assert(block.getOpcode() == Opcode::BLOCK);
+      this->initialize(ftype.get());
+      assert(type != nullptr);
     }
     void setCaptured(const HardPtr<SymbolTable>& symtable) {
       assert(this->captured == nullptr);
-      this->captured.set(*this, symtable.get());
+      this->captured.set(*this->basket, symtable.get());
       assert(this->captured != nullptr);
     }
-    virtual void softVisitLinks(const Visitor& visitor) const override {
+    virtual void softVisit(const Visitor& visitor) const override {
+      this->type.visit(visitor);
       this->captured.visit(visitor);
     }
     virtual void print(Printer& printer) const override {
       printer << "<user-function>";
     }
     virtual Type getRuntimeType() const override {
-      return this->type;
+      return Type(this->type);
     }
     virtual Value call(IExecution& execution, const IParameters& parameters) override;
     virtual Value getProperty(IExecution& execution, const String& property) override {
@@ -298,7 +310,7 @@ namespace {
     }
     template<typename... ARGS>
     Value raise(IExecution& execution, ARGS&&... args) {
-      auto* signature = this->type.queryCallable();
+      auto* signature = this->getFunctionSignature();
       if (signature != nullptr) {
         auto name = signature->getFunctionName();
         if (!name.empty()) {
@@ -308,6 +320,14 @@ namespace {
       return execution.raiseFormat("Function ", std::forward<ARGS>(args)...);
     }
     static Type makeType(IAllocator& allocator, ProgramDefault& program, const String& name, const INode& callable);
+  private:
+    void initialize(const IType* ftype);
+    const IFunctionSignature* getFunctionSignature() const {
+      assert(this->type->getObjectShapeCount() == 1);
+      auto* shape = this->type->getObjectShape(0);
+      assert(shape != nullptr);
+      return shape->callable;
+    }
   };
 
   class CallStack final {
@@ -344,20 +364,21 @@ namespace {
         logger(logger),
         maxseverity(ILogger::Severity::None),
         basket(&basket),
-        symtable(allocator.make<SymbolTable>(nullptr, nullptr)),
+        symtable(allocator.make<SymbolTable>(basket, nullptr, nullptr)),
         location({}, 0, 0) {
-      this->basket->take(*this->symtable);
+      basket.dump();
     }
     virtual ~ProgramDefault() {
       this->symtable.set(nullptr);
       this->basket->collect();
+      this->basket->collect(); // WYBBLE
     }
     virtual bool builtin(const String& name, const Value& value) override {
       static const LocationSource source("<builtin>", 0, 0);
       auto symbol = this->symtable->add(source, Symbol::Kind::Builtin, value->getRuntimeType(), name);
       if (symbol != nullptr) {
         // Don't use assignment for builtins; it always fails
-        symbol->getSlot()->set(value);
+        symbol->assign(value);
         return true;
       }
       return false;
@@ -437,35 +458,40 @@ namespace {
         return this->raiseFormat(FunctionSignature::toString(signature), ": No more than ", maxPositional, " parameters were expected, but got ", numPositional);
       }
       printf("WIBBLE: EXECUTE_CALL: before CallStack %p %p\n", this->symtable.get(), &captured);
-      CallStack stack(this->symtable, &captured);
-      printf("WIBBLE: EXECUTE_CALL: after CallStack %p %p\n", this->symtable.get(), &captured);
-      Block scope(*this);
-      printf("WIBBLE: EXECUTE_CALL: after Block %p\n", this->symtable.get());
-      for (size_t i = 0; i < maxPositional; ++i) {
-        auto& sigparam = signature.getParameter(i);
-        auto pname = sigparam.getName();
-        assert(!pname.empty());
-        auto position = sigparam.getPosition();
-        assert(position < numPositional);
-        auto ptype = sigparam.getType();
-        auto pvalue = runtime.getPositional(position);
-        auto retval = scope.guard(source, ptype, pname, pvalue);
-        Bool matched;
-        if (!retval->getBool(matched)) {
-          return retval;
-        }
-        if (!matched) {
-          // Type mismatch on parameter
-          auto* plocation = runtime.getPositionalLocation(position);
-          if (plocation != nullptr) {
-            // Update our current source location (it will be restored when expressionCall returns)
-            this->location = *plocation;
+      Value retval;
+      {
+        // This scope pushes/pops a symbol table context
+        // TODO rationalize CallStack/Block usage
+        CallStack stack(this->symtable, &captured);
+        printf("WIBBLE: EXECUTE_CALL: after CallStack %p %p\n", this->symtable.get(), &captured);
+        Block scope(*this);
+        printf("WIBBLE: EXECUTE_CALL: after Block %p\n", this->symtable.get());
+        for (size_t i = 0; i < maxPositional; ++i) {
+          auto& sigparam = signature.getParameter(i);
+          auto pname = sigparam.getName();
+          assert(!pname.empty());
+          auto position = sigparam.getPosition();
+          assert(position < numPositional);
+          auto ptype = sigparam.getType();
+          auto pvalue = runtime.getPositional(position);
+          auto guarded = scope.guard(source, ptype, pname, pvalue);
+          Bool matched;
+          if (!guarded->getBool(matched)) {
+            return guarded;
           }
-          return this->raiseFormat("Type mismatch for parameter '", pname, "': Expected '", ptype.toString(), "', but got '", pvalue->getRuntimeType().toString(), "' instead");
+          if (!matched) {
+            // Type mismatch on parameter
+            auto* plocation = runtime.getPositionalLocation(position);
+            if (plocation != nullptr) {
+              // Update our current source location (it will be restored when expressionCall returns)
+              this->location = *plocation;
+            }
+            return this->raiseFormat("Type mismatch for parameter '", pname, "': Expected '", ptype.toString(), "', but got '", pvalue->getRuntimeType().toString(), "' instead");
+          }
         }
+        printf("WIBBLE: EXECUTE_CALL: before executeBlock %p\n", this->symtable.get());
+        retval = this->executeBlock(scope, block);
       }
-      printf("WIBBLE: EXECUTE_CALL: before executeBlock %p\n", this->symtable.get());
-      auto retval = this->executeBlock(scope, block);
       printf("WIBBLE: EXECUTE_CALL: after executeBlock %p\n", this->symtable.get());
       if (retval.hasAnyFlags(ValueFlags::Return)) {
         if (retval->getInner(retval)) {
@@ -512,19 +538,21 @@ namespace {
       }
       auto str = OperatorProperties::str(node.getOperator());
       auto message = StringBuilder::concat("Assertion is untrue: ", lhs.readable(), ' ', str, ' ', rhs.readable());
-      auto object = VanillaFactory::createError(this->allocator, source, message);
+      auto object = VanillaFactory::createError(this->allocator, *this->basket, source, message);
       (void)object->setProperty(*this, "left", lhs);
       (void)object->setProperty(*this, "operator", ValueFactory::createUTF8(this->allocator, str));
       (void)object->setProperty(*this, "right", rhs);
-      auto value = ValueFactory::createObject(this->allocator, object);
+      auto value = ValueFactory::createObjectHard(this->allocator, object);
       return ValueFactory::createFlowControl(this->allocator, ValueFlags::Throw, value);
     }
     // Builtins
     void addBuiltins() {
-      this->builtin("assert", BuiltinFactory::createAssertInstance(this->allocator));
-      this->builtin("print", BuiltinFactory::createPrintInstance(this->allocator));
-      this->builtin("string", BuiltinFactory::createStringInstance(this->allocator));
-      this->builtin("type", BuiltinFactory::createTypeInstance(this->allocator));
+      assert(this->basket != nullptr);
+      this->builtin("assert", BuiltinFactory::createAssertInstance(this->allocator, *this->basket));
+      this->builtin("print", BuiltinFactory::createPrintInstance(this->allocator, *this->basket));
+      this->builtin("string", BuiltinFactory::createStringInstance(this->allocator, *this->basket));
+      this->builtin("type", BuiltinFactory::createTypeInstance(this->allocator, *this->basket));
+      this->basket->dump();
     }
   private:
     void log(ILogger::Source source, ILogger::Severity severity, const std::string& message) {
@@ -797,7 +825,7 @@ namespace {
       this->updateLocation(node);
       auto function = this->allocator.make<UserFunction>(*this, this->location, ftype, fblock);
       // We have to be careful to ensure the function is declared before capturing symbols so that recursion works correctly
-      auto fvalue = ValueFactory::createObject(this->allocator, Object(*function));
+      auto fvalue = ValueFactory::createObjectHard(this->allocator, Object(*function));
       auto retval = block.declare(this->location, ftype, fname, &fvalue);
       function->setCaptured(this->symtable->clone());
       return retval;
@@ -1208,7 +1236,7 @@ namespace {
     Value expressionAvalue(const INode& node) {
       assert(node.getOpcode() == Opcode::AVALUE);
       auto n = node.getChildren();
-      auto array = VanillaFactory::createArray(this->allocator, n);
+      auto array = VanillaFactory::createArray(this->allocator, *this->basket, n);
       for (size_t i = 0; i < n; ++i) {
         auto expr = this->expression(node.getChild(i));
         if (expr.hasFlowControl()) {
@@ -1233,7 +1261,7 @@ namespace {
     }
     Value expressionOvalue(const INode& node) {
       assert(node.getOpcode() == Opcode::OVALUE);
-      auto object = VanillaFactory::createDictionary(this->allocator);
+      auto object = VanillaFactory::createDictionary(this->allocator, *this->basket);
       auto n = node.getChildren();
       for (size_t i = 0; i < n; ++i) {
         auto& named = node.getChild(i);
@@ -1248,7 +1276,7 @@ namespace {
           return expr;
         }
       }
-      return ValueFactory::createObject(this->allocator, object);
+      return ValueFactory::createObjectHard(this->allocator, object);
     }
     Value expressionSvalue(const INode& node) {
       assert(node.getOpcode() == Opcode::SVALUE);
@@ -1341,8 +1369,8 @@ namespace {
         auto oper = child.getOperator();
         if (OperatorProperties::from(oper).opclass == Opclass::COMPARE) {
           // We only support predicates for comparisons
-          auto predicate = VanillaFactory::createPredicate(this->allocator, *this, child);
-          return ValueFactory::createObject(this->allocator, predicate);
+          auto predicate = VanillaFactory::createPredicate(this->allocator, *this->basket, *this, child);
+          return ValueFactory::createObjectHard(this->allocator, predicate);
         }
       }
       return this->expression(child);
@@ -2023,7 +2051,7 @@ namespace {
       default:
         break;
       }
-      this->basket->take(*slot);
+      // WEBBLE this->basket->take(*slot);
       return slot->reference(symbol.getType(), modifiability);
     }
     RuntimeException unexpectedOpcode(const char* expected, const INode& node) {
@@ -2045,8 +2073,8 @@ namespace {
       return RuntimeException(this->location, "Unexpected ", expected, " operator: '", name, "'");
     }
     Value raiseError(const LocationSource& where, const String& message) const {
-      auto object = VanillaFactory::createError(this->allocator, where, message);
-      auto value = ValueFactory::createObject(this->allocator, object);
+      auto object = VanillaFactory::createError(this->allocator, *this->basket, where, message);
+      auto value = ValueFactory::createObjectHard(this->allocator, object);
       return ValueFactory::createFlowControl(this->allocator, ValueFlags::Throw, value);
     }
     template<typename... ARGS>
@@ -2062,8 +2090,15 @@ namespace {
   };
 }
 
+void UserFunction::initialize(const IType* ftype) {
+  assert(ftype != nullptr);
+  auto& trug = this->program.getBasket();
+  this->type.set(trug, ftype);
+  trug.take(*this);
+}
+
 Value UserFunction::call(IExecution& execution, const IParameters& parameters) {
-  auto signature = this->type.queryCallable();
+  auto signature = this->getFunctionSignature();
   if (signature == nullptr) {
     return execution.raise("Attempt to call a function without a signature");
   }
@@ -2086,7 +2121,7 @@ Value ProgramDefault::tryInitialize(Symbol& symbol, const Value& value) {
   auto retval = type.promote(this->allocator, value, promoted);
   switch (retval) {
   case Type::Assignment::Success:
-    symbol.getSlot()->set(promoted);
+    symbol.assign(promoted);
     break;
   case Type::Assignment::Incompatible:
     // Occurs when the RHS *may* be assignable to the LHS at compile-time, but not at runtime
@@ -2114,7 +2149,7 @@ Value ProgramDefault::tryAssign(Symbol& symbol, const Value& value) {
   auto retval = type.promote(this->allocator, value, promoted);
   switch (retval) {
   case Type::Assignment::Success:
-    symbol.getSlot()->set(promoted);
+    symbol.assign(promoted);
     break;
   case Type::Assignment::Incompatible:
     return this->raiseFormat("Cannot assign '", symbol.getName(), "' of type '", type.toString(), "' with a value of type '", value->getRuntimeType().toString(), "'");
@@ -2240,7 +2275,7 @@ egg::ovum::Type UserFunction::makeType(IAllocator& allocator, ProgramDefault& pr
       builder->addPositionalParameter(ptype, pname, pflags);
     }
   }
-  return builder->build();
+  return builder->build(&program.getBasket());
 }
 
 egg::ovum::Program egg::ovum::ProgramFactory::createProgram(IAllocator& allocator, ILogger& logger) {

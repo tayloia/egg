@@ -4,6 +4,7 @@
 #include "ovum/program.h"
 #include "ovum/builtin.h"
 #include "ovum/function.h"
+#include "ovum/slot.h"
 
 #include <map>
 
@@ -11,9 +12,16 @@ namespace {
   using namespace egg::ovum;
 
   template<typename T, typename... ARGS>
-  static Value createBuiltinValue(IAllocator& allocator, ARGS&&... args) {
+  static Value createBuiltinValueHard(IAllocator& allocator, ARGS&&... args) {
     Object object{ *allocator.make<T>(std::forward<ARGS>(args)...) };
-    return ValueFactory::createObject(allocator, object);
+    return ValueFactory::createObjectHard(allocator, object);
+  }
+
+  // WEBBLE conflate?
+  template<typename T, typename... ARGS>
+  static Value createBuiltinValueSoft(IAllocator& allocator, IBasket& basket, ARGS&&... args) {
+    Object object{ *allocator.make<T>(basket, std::forward<ARGS>(args)...) };
+    return ValueFactory::createObjectHard(allocator, object);
   }
 
   class ParametersNone : public IParameters {
@@ -193,7 +201,7 @@ namespace {
         member(member),
         string(string) {
     }
-    virtual void softVisitLinks(const Visitor&) const override {
+    virtual void softVisit(const Visitor&) const override {
       // Nothing to visit
     }
     virtual Type getRuntimeType() const override {
@@ -255,7 +263,7 @@ namespace {
   };
 
   Value StringProperty_Member::createInstance(IAllocator& allocator, const String& string) const {
-    return createBuiltinValue<StringProperty_Instance>(allocator, *this, string);
+    return createBuiltinValueHard<StringProperty_Instance>(allocator, *this, string);
   }
 
   class StringProperty_CompareTo final : public StringProperty_Member {
@@ -696,26 +704,29 @@ namespace {
     BuiltinBase& operator=(const BuiltinBase&) = delete;
   protected:
     TypeBuilder builder;
-    Type type;
+    SoftPtr<const IType> type;
     String name;
-    std::unordered_map<String, Value> properties;
-  public:
-    BuiltinBase(IAllocator& allocator, const String& name, const String& description)
+    SlotMap<String> properties;
+    BuiltinBase(IAllocator& allocator, IBasket& basket, TypeBuilder&& builder, const String& name)
       : SoftReferenceCounted(allocator),
-        builder(TypeFactory::createTypeBuilder(allocator, name, description)),
+        builder(std::move(builder)),
         type(),
-        name(name) {
+        name(name),
+        properties() {
       // 'type' will be initialized by derived class constructors
+      basket.take(*this);
     }
-    BuiltinBase(IAllocator& allocator, const String& name, const String& description, const Type& rettype)
-      : SoftReferenceCounted(allocator),
-      builder(TypeFactory::createFunctionBuilder(allocator, rettype, name, description)),
-      type(),
-      name(name) {
-      // 'type' will be initialized by derived class constructors
+  public:
+    BuiltinBase(IAllocator& allocator, IBasket& basket, const String& name, const String& description)
+      : BuiltinBase(allocator, basket, TypeFactory::createTypeBuilder(allocator, name, description), name) {
     }
-    virtual void softVisitLinks(const Visitor&) const override {
-      // There are no soft links to visit
+    BuiltinBase(IAllocator& allocator, IBasket& basket, const String& name, const String& description, const Type& rettype)
+      : BuiltinBase(allocator, basket, TypeFactory::createFunctionBuilder(allocator, rettype, name, description), name) {
+    }
+    virtual void softVisit(const Visitor& visitor) const override {
+      // We have taken ownership of 'builder' which has no soft links
+      this->type.visit(visitor);
+      this->properties.visit(visitor);
     }
     virtual Value call(IExecution& execution, const IParameters&) override {
       return this->unsupported(execution, "function calling with '()'");
@@ -724,11 +735,11 @@ namespace {
       if (this->properties.empty()) {
         return this->unsupported(execution, "properties such as '", property, "'");
       }
-      auto found = this->properties.find(property);
-      if (found == this->properties.end()) {
+      auto slot = this->properties.find(property);
+      if (slot == nullptr) {
         return this->unsupported(execution, "property '", property, "'");
       }
-      return found->second;
+      return slot->value(Value::Void);
     }
     virtual Value setProperty(IExecution& execution, const String& property, const Value&) override {
       auto value = this->getProperty(execution, property);
@@ -787,21 +798,26 @@ namespace {
     template<typename... ARGS>
     Value unsupported(IExecution& execution, ARGS&&... args) {
       // TODO i18n
-      return execution.raiseFormat(this->type.describeValue(), " does not support ", std::forward<ARGS>(args)...);
+      return execution.raiseFormat(this->type->describeValue(), " does not support ", std::forward<ARGS>(args)...);
     }
     template<typename T>
     Value makeValue(T value) const {
       return ValueFactory::create(this->allocator, value);
     }
     template<typename T>
-    Value addMember(const String& member) {
-      auto instance = createBuiltinValue<T>(allocator);
+    void addMember(const String& member) {
+      assert(this->basket != nullptr);
+      auto value = createBuiltinValueHard<T>(this->allocator, *this->basket);
       if (this->properties.empty()) {
+        // We have members, but it's a closed set
         this->builder->defineDotable(Type::Void, Modifiability::None);
       }
-      this->builder->addProperty(instance->getRuntimeType(), member, Modifiability::Read);
-      this->properties[member] = instance;
-      return instance;
+      this->builder->addProperty(value->getRuntimeType(), member, Modifiability::Read);
+      this->properties.add(this->allocator, *this->basket, member, value);
+    }
+    void build() {
+      auto built = this->builder->build(this->basket);
+      this->type.set(*this->basket, built.get());
     }
   };
 
@@ -809,10 +825,10 @@ namespace {
     Builtin_Assert(const Builtin_Assert&) = delete;
     Builtin_Assert& operator=(const Builtin_Assert&) = delete;
   public:
-    explicit Builtin_Assert(IAllocator& allocator)
-      : BuiltinBase(allocator, "assert", "Built-in 'assert'", Type::Void) {
+    Builtin_Assert(IAllocator& allocator, IBasket& basket)
+      : BuiltinBase(allocator, basket, "assert", "Built-in 'assert'", Type::Void) {
       this->builder->addPositionalParameter(Type::Any, "predicate", Bits::set(IFunctionSignatureParameter::Flags::Required, IFunctionSignatureParameter::Flags::Predicate));
-      this->type = this->builder->build();
+      this->build();
     }
     virtual Value call(IExecution& execution, const IParameters& parameters) override {
       if (parameters.getNamedCount() > 0) {
@@ -829,10 +845,10 @@ namespace {
     Builtin_Print(const Builtin_Print&) = delete;
     Builtin_Print& operator=(const Builtin_Print&) = delete;
   public:
-    explicit Builtin_Print(IAllocator& allocator)
-      : BuiltinBase(allocator, "print", "Built-in 'print'", Type::Void) {
+    Builtin_Print(IAllocator& allocator, IBasket& basket)
+      : BuiltinBase(allocator, basket, "print", "Built-in 'print'", Type::Void) {
       this->builder->addPositionalParameter(Type::AnyQ, "values", IFunctionSignatureParameter::Flags::Variadic);
-      this->type = this->builder->build();
+      this->build();
     }
     virtual Value call(IExecution& execution, const IParameters& parameters) override {
       if (parameters.getNamedCount() > 0) {
@@ -852,11 +868,24 @@ namespace {
     Builtin_StringFrom(const Builtin_StringFrom&) = delete;
     Builtin_StringFrom& operator=(const Builtin_StringFrom&) = delete;
   public:
-    explicit Builtin_StringFrom(IAllocator& allocator)
-      : BuiltinBase(allocator, "string.from", "Built-in function 'string.from'", Type::String) {
+    Builtin_StringFrom(IAllocator& allocator, IBasket& basket)
+      : BuiltinBase(allocator, basket, "string.from", "Built-in function 'string.from'", Type::String) {
       this->builder->addPositionalParameter(Type::AnyQ, "value", IFunctionSignatureParameter::Flags::Required);
-      this->type = this->builder->build();
+      this->build();
+      printf("--- WUBBLE: Builtin_StringFrom::Builtin_StringFrom()\n");
     }
+    virtual ~Builtin_StringFrom() override {
+      printf("--- WUBBLE: Builtin_StringFrom::~Builtin_StringFrom()\n");
+    }
+    virtual IObject* hardAcquire() const override {
+      printf("--- WUBBLE: Builtin_StringFrom::hardAcquire()\n");
+      return BuiltinBase::hardAcquire();
+    }
+    virtual void hardRelease() const override {
+      printf("--- WUBBLE: Builtin_StringFrom::hardRelease()\n");
+      BuiltinBase::hardRelease();
+    }
+
     virtual Value call(IExecution& execution, const IParameters& parameters) override {
       if (parameters.getNamedCount() > 0) {
         return execution.raiseFormat("Built-in function 'string.from' does not accept named parameters");
@@ -876,11 +905,11 @@ namespace {
     Builtin_String(const Builtin_String&) = delete;
     Builtin_String& operator=(const Builtin_String&) = delete;
   public:
-    explicit Builtin_String(IAllocator& allocator)
-      : BuiltinBase(allocator, "string", "Type 'string'", Type::String) {
+    Builtin_String(IAllocator& allocator, IBasket& basket)
+      : BuiltinBase(allocator, basket, "string", "Type 'string'", Type::String) {
       this->builder->addPositionalParameter(Type::AnyQ, "values", IFunctionSignatureParameter::Flags::Variadic);
       this->addMember<Builtin_StringFrom>("from");
-      this->type = this->builder->build();
+      this->build();
     }
     virtual Value call(IExecution& execution, const IParameters& parameters) override {
       if (parameters.getNamedCount() > 0) {
@@ -899,10 +928,10 @@ namespace {
     Builtin_TypeOf(const Builtin_TypeOf&) = delete;
     Builtin_TypeOf& operator=(const Builtin_TypeOf&) = delete;
   public:
-    explicit Builtin_TypeOf(IAllocator& allocator)
-      : BuiltinBase(allocator, "type.of", "Built-in function 'type.of'", Type::String) {
+    Builtin_TypeOf(IAllocator& allocator, IBasket& basket)
+      : BuiltinBase(allocator, basket, "type.of", "Built-in function 'type.of'", Type::String) {
       this->builder->addPositionalParameter(Type::AnyQ, "value", IFunctionSignatureParameter::Flags::Required);
-      this->type = this->builder->build();
+      this->build();
     }
     virtual Value call(IExecution& execution, const IParameters& parameters) override {
       if (parameters.getNamedCount() > 0) {
@@ -920,10 +949,10 @@ namespace {
     Builtin_Type(const Builtin_Type&) = delete;
     Builtin_Type& operator=(const Builtin_Type&) = delete;
   public:
-    explicit Builtin_Type(IAllocator& allocator)
-      : BuiltinBase(allocator, "type", "Type 'type'") {
+    Builtin_Type(IAllocator& allocator, IBasket& basket)
+      : BuiltinBase(allocator, basket, "type", "Type 'type'") {
       this->addMember<Builtin_TypeOf>("of");
-      this->type = this->builder->build();
+      this->build();
     }
   };
 }
@@ -966,18 +995,18 @@ size_t egg::ovum::BuiltinFactory::getStringPropertyCount() {
   return StringProperties::instance().size();
 }
 
-egg::ovum::Value egg::ovum::BuiltinFactory::createAssertInstance(IAllocator& allocator) {
-  return createBuiltinValue<Builtin_Assert>(allocator);
+egg::ovum::Value egg::ovum::BuiltinFactory::createAssertInstance(IAllocator& allocator, IBasket& basket) {
+  return createBuiltinValueHard<Builtin_Assert>(allocator, basket);
 }
 
-egg::ovum::Value egg::ovum::BuiltinFactory::createPrintInstance(IAllocator& allocator) {
-  return createBuiltinValue<Builtin_Print>(allocator);
+egg::ovum::Value egg::ovum::BuiltinFactory::createPrintInstance(IAllocator& allocator, IBasket& basket) {
+  return createBuiltinValueHard<Builtin_Print>(allocator, basket);
 }
 
-egg::ovum::Value egg::ovum::BuiltinFactory::createStringInstance(IAllocator& allocator) {
-  return createBuiltinValue<Builtin_String>(allocator);
+egg::ovum::Value egg::ovum::BuiltinFactory::createStringInstance(IAllocator& allocator, IBasket& basket) {
+  return createBuiltinValueHard<Builtin_String>(allocator, basket);
 }
 
-egg::ovum::Value egg::ovum::BuiltinFactory::createTypeInstance(IAllocator& allocator) {
-  return createBuiltinValue<Builtin_Type>(allocator);
+egg::ovum::Value egg::ovum::BuiltinFactory::createTypeInstance(IAllocator& allocator, IBasket& basket) {
+  return createBuiltinValueHard<Builtin_Type>(allocator, basket);
 }

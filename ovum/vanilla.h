@@ -35,12 +35,13 @@ namespace egg::ovum {
 
   class VanillaFactory {
   public:
-    static Object createArray(IAllocator& allocator, size_t length);
-    static Object createDictionary(IAllocator& allocator);
-    static Object createObject(IAllocator& allocator);
-    static Object createKeyValue(IAllocator& allocator, const String& key, const Value& value);
-    static Object createError(IAllocator& allocator, const LocationSource& location, const String& message);
-    static Object createPredicate(IAllocator& allocator, Vanilla::IPredicateCallback& callback, const INode& node);
-    static Object createPointer(IAllocator& allocator, ISlot& slot, const Type& pointee, Modifiability modifiability);
+    static Object createEmpty(IAllocator& allocator);
+    static Object createArray(IAllocator& allocator, IBasket& basket, size_t length);
+    static Object createDictionary(IAllocator& allocator, IBasket& basket);
+    static Object createObject(IAllocator& allocator, IBasket& basket);
+    static Object createKeyValue(IAllocator& allocator, IBasket& basket, const String& key, const Value& value);
+    static Object createError(IAllocator& allocator, IBasket& basket, const LocationSource& location, const String& message);
+    static Object createPredicate(IAllocator& allocator, IBasket& basket, Vanilla::IPredicateCallback& callback, const INode& node);
+    static Object createPointer(IAllocator& allocator, IBasket& basket, ISlot& slot, const Type& pointee, Modifiability modifiability);
   };
 }

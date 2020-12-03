@@ -97,15 +97,28 @@ TEST(TestValue, String) {
   ASSERT_VALUE("goodbye", value);
 }
 
-TEST(TestValue, Object) {
+TEST(TestValue, ObjectHard) {
   egg::test::Allocator allocator;
   auto object = egg::ovum::ObjectFactory::createEmpty(allocator);
-  auto value = egg::ovum::ValueFactory::createObject(allocator, object);
+  auto value = egg::ovum::ValueFactory::createObjectHard(allocator, object);
   ASSERT_EQ(Flags::Object, value->getFlags());
   egg::ovum::Object actual;
   ASSERT_TRUE(value->getObject(actual));
   ASSERT_EQ(object.get(), actual.get());
 }
+
+/* WEBBLE
+TEST(TestValue, ObjectSoft) {
+  egg::test::Allocator allocator;
+  auto basket = egg::ovum::BasketFactory::createBasket(allocator);
+  auto object = egg::ovum::ObjectFactory::createEmpty(allocator);
+  auto value = egg::ovum::ValueFactory::createObjectSoft(allocator, *basket, *object);
+  ASSERT_EQ(Flags::Object, value->getFlags());
+  egg::ovum::Object actual;
+  ASSERT_TRUE(value->getObject(actual));
+  ASSERT_EQ(object.get(), actual.get());
+}
+*/
 
 TEST(TestValue, Value) {
   egg::test::Allocator allocator;

@@ -26,28 +26,17 @@ namespace egg::ovum {
       // Fetch our current basket, if any
       return this->basket;
     }
-    virtual IBasket* softSetBasket(IBasket* value) const override {
+    virtual ICollectable::SetBasketResult softSetBasket(IBasket* desired) const override {
       // Make sure we're not transferred directly between baskets
-      auto* old = this->basket;
-      assert((old == nullptr) || (value == nullptr) || (old == value));
-      this->basket = value;
-      return old;
-    }
-    virtual bool softLink(const ICollectable& target) const override {
-      // Make sure we're not transferring directly between baskets
-      auto targetBasket = target.softGetBasket();
-      if (targetBasket == nullptr) {
-        if (this->basket == nullptr) {
-          return false;
-        }
-        this->basket->take(target);
-        return true;
+      auto* before = this->basket;
+      if (desired == before) {
+        return ICollectable::SetBasketResult::Unaltered;
       }
-      if (this->basket == nullptr) {
-        targetBasket->take(*this);
-        return true;
+      if ((desired == nullptr) || (before == nullptr)) {
+        this->basket = desired;
+        return ICollectable::SetBasketResult::Altered;
       }
-      return this->basket == targetBasket;
+      return ICollectable::SetBasketResult::Failed;
     }
   };
 
@@ -78,17 +67,12 @@ namespace egg::ovum {
       // We belong to no basket
       return nullptr;
     }
-    virtual IBasket* softSetBasket(IBasket* basket) const override {
+    virtual ICollectable::SetBasketResult softSetBasket(IBasket*) const override {
       // We cannot be added to a basket
-      // WUBBLE assert(basket == nullptr);
-      (void)basket;
-      return nullptr;
+      return ICollectable::SetBasketResult::Exempt;
     }
-    virtual bool softLink(const ICollectable&) const override {
-      // Should never be called
-      return true; // WUBBLE false?
-    }
-    virtual void softVisitLinks(const ICollectable::Visitor&) const override {
+    virtual void softVisit(const ICollectable::Visitor&) const override {
+      // Nothing to do
     }
   };
 
@@ -99,22 +83,22 @@ namespace egg::ovum {
   private:
     T* ptr;
   public:
-    SoftPtr() : ptr(nullptr) {
+    SoftPtr(std::nullptr_t = nullptr) : ptr(nullptr) { // implicit
+    }
+    SoftPtr(IBasket& basket, const T* target) : ptr(SoftPtr::softAcquire(basket, target)) {
+    }
+    SoftPtr(SoftPtr&& rhs) noexcept : ptr(rhs.ptr) {
+      rhs.ptr = nullptr;
     }
     T* get() const {
       return this->ptr;
     }
-    void set(ICollectable& container, const T* target) {
-      if (target != nullptr) {
-        if (!container.softLink(*target)) {
-          throw std::logic_error("Soft link basket condition violation");
-        }
-      }
-      this->ptr = const_cast<T*>(target);
+    void set(IBasket& basket, const T* target) {
+      this->ptr = SoftPtr::softAcquire(basket, target);
     }
     void visit(const ICollectable::Visitor& visitor) const {
       if (this->ptr != nullptr) {
-        visitor(*this->ptr);
+        this->ptr->softVisit(visitor);
       }
     }
     T& operator*() const {
@@ -131,10 +115,16 @@ namespace egg::ovum {
     bool operator!=(std::nullptr_t) const {
       return this->ptr != nullptr;
     }
-    static T* hardAcquire(const T* ptr) {
-      if (ptr != nullptr) {
+    static T* hardAcquire(const T* target) {
+      if (target != nullptr) {
         // See https://stackoverflow.com/a/15572442
-        return ptr->template hardAcquire<T>();
+        return target->template hardAcquire<T>();
+      }
+      return nullptr;
+    }
+    static T* softAcquire(IBasket& basket, const T* target) {
+      if (target != nullptr) {
+        return static_cast<T*>(basket.take(*target));
       }
       return nullptr;
     }

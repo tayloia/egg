@@ -181,25 +181,26 @@ namespace {
     using Container = SlotArray;
     Container container;
   public:
-    VanillaValueArray(IAllocator& allocator, size_t length)
+    VanillaValueArray(IAllocator& allocator, IBasket& basket, size_t length)
       : SoftReferenceCounted(allocator),
         container(length) {
+      basket.take(*this);
       assert(this->validate());
     }
-    virtual void softVisitLinks(const Visitor& visitor) const override {
-      this->container.softVisitLinks(visitor);
+    virtual void softVisit(const Visitor& visitor) const override {
+      this->container.softVisit(visitor);
     }
     virtual bool get(size_t index, Value& value) const override {
       auto* slot = this->container.get(index);
       if (slot != nullptr) {
-        auto underlying = slot->get();
-        value = (underlying == nullptr) ? Value::Void : Value(*underlying);
+        value = slot->value(Value::Void);
         return true;
       }
       return false;
     }
     virtual bool set(size_t index, const Value& value) override {
-      return this->container.set(this->allocator, index, value) != nullptr;
+      assert(this->basket != nullptr);
+      return this->container.set(this->allocator, *this->basket, index, value) != nullptr;
     }
     virtual Value mut(size_t index, Mutation mutation, const Value& value) override {
       auto slot = this->container.get(index);
@@ -217,7 +218,8 @@ namespace {
       return this->container.length();
     }
     virtual bool resize(size_t size) override {
-      this->container.resize(this->allocator, size);
+      assert(this->basket != nullptr);
+      this->container.resize(this->allocator, *this->basket, size, Value::Null);
       return true;
     }
     void print(Printer& printer, char& separator) const {
@@ -239,29 +241,31 @@ namespace {
     using Container = SlotMap<String>;
     Container container;
   public:
-    VanillaStringValueMap(IAllocator& allocator)
+    VanillaStringValueMap(IAllocator& allocator, IBasket& basket)
       : SoftReferenceCounted(allocator) {
+      basket.take(*this);
     }
-    virtual void softVisitLinks(const Visitor& visitor) const override {
-      this->container.softVisitLinks(visitor);
+    virtual void softVisit(const Visitor& visitor) const override {
+      this->container.visit(visitor);
     }
     virtual bool add(const String& key, const Value& value) override {
-      return this->container.add(this->allocator, key, value);
+      assert(this->basket != nullptr);
+      return this->container.add(this->allocator, *this->basket, key, value);
     }
     virtual bool get(const String& key, Value& value) const override {
-      auto slot = this->container.getOrNull(key);
+      auto slot = this->container.find(key);
       if (slot != nullptr) {
-        auto underlying = slot->get();
-        value = (underlying == nullptr) ? Value::Void : Value(*underlying);
+        value = slot->value(Value::Void);
         return true;
       }
       return false;
     }
     virtual void set(const String& key, const Value& value) override {
-      (void)this->container.set(this->allocator, key, value);
+      assert(this->basket != nullptr);
+      (void)this->container.set(this->allocator, *this->basket, key, value);
     }
     virtual Value mut(const String& key, Mutation mutation, const Value& value) override {
-      auto slot = this->container.getOrNull(key);
+      auto slot = this->container.find(key);
       if (slot == nullptr) {
         return raiseString(this->allocator, "Object does not have a property named '", key, "'");
       }
@@ -279,18 +283,17 @@ namespace {
       return this->container.length();
     }
     bool getKeyValue(size_t index, String& key, Value& value) const {
-      auto slot = this->container.getByIndex(index, key);
+      auto slot = this->container.lookup(index, key);
       if (slot != nullptr) {
-        auto underlying = slot->get();
-        value = (underlying == nullptr) ? Value::Void : Value(*underlying);
+        value = slot->value(Value::Void);
         return true;
       }
       return false;
     }
     void print(Printer& printer, char& separator) const {
       this->container.foreach([&](const String& key, const Slot& slot) {
-        auto* value = slot.get();
         printer << separator << key.toUTF8() << ':';
+        auto* value = slot.get();
         if (value != nullptr) {
           printer.write(Value(*value));
         }
@@ -379,7 +382,7 @@ namespace {
     VanillaIterator(const VanillaIterator&) = delete;
     VanillaIterator& operator=(const VanillaIterator&) = delete;
   private:
-    HardPtr<VanillaIterable> container; // WIBBLE SoftPtr
+    HardPtr<VanillaIterable> container; // WEBBLE SoftPtr
     Type_Iterator type;
     VanillaIterable::State state;
   public:
@@ -390,8 +393,9 @@ namespace {
         state(container.iterateStart(execution)) {
       assert(this->validate());
     }
-    virtual void softVisitLinks(const Visitor& visitor) const override {
-      this->container->softVisitLinks(visitor);
+    virtual void softVisit(const Visitor& visitor) const override {
+      // WEBBLE
+      this->container->softVisit(visitor);
     }
     virtual Type getRuntimeType() const override {
       return Type(&this->type);
@@ -415,15 +419,15 @@ namespace {
     VanillaArray(const VanillaArray&) = delete;
     VanillaArray& operator=(const VanillaArray&) = delete;
   private:
-    VanillaValueArray array;
+    SoftPtr<VanillaValueArray> array;
   public:
-    VanillaArray(IAllocator& allocator, size_t length)
+    VanillaArray(IAllocator& allocator, IBasket& basket, size_t length)
       : VanillaIterable(allocator),
-        array(allocator, length) {
+      array(basket, allocator.make<VanillaValueArray, VanillaValueArray*>(basket, length)) {
       assert(this->validate());
     }
-    virtual void softVisitLinks(const Visitor& visitor) const override {
-      this->array.softVisitLinks(visitor);
+    virtual void softVisit(const Visitor& visitor) const override {
+      this->array->softVisit(visitor);
     }
     virtual Type getRuntimeType() const override {
       return Vanilla::getArrayType();
@@ -431,7 +435,7 @@ namespace {
     virtual Value getProperty(IExecution& execution, const String& property) override {
       Value value;
       if (property == "length") {
-        return ValueFactory::createInt(this->allocator, Int(this->array.length()));
+        return ValueFactory::createInt(this->allocator, Int(this->array->length()));
       }
       return execution.raiseFormat("Array does not have property: '", property, "'");
     }
@@ -444,7 +448,7 @@ namespace {
         if ((length < 0) || (length > 0x7FFFFFFF)) {
           return execution.raiseFormat("Invalid array length: ", length);
         }
-        if (!this->array.resize(size_t(length))) {
+        if (!this->array->resize(size_t(length))) {
           return execution.raiseFormat("Unable to resize array to length ", length);
         }
         return Value::Void;
@@ -457,8 +461,8 @@ namespace {
         return execution.raiseFormat("Array index was expected to be an 'int', not '", index->getRuntimeType().toString(), "'");
       }
       Value value;
-      if (!this->array.get(size_t(i), value)) {
-        return execution.raiseFormat("Invalid array index for an array with ", this->array.length(), " element(s): ", i);
+      if (!this->array->get(size_t(i), value)) {
+        return execution.raiseFormat("Invalid array index for an array with ", this->array->length(), " element(s): ", i);
       }
       return value;
     }
@@ -467,8 +471,8 @@ namespace {
       if (!index->getInt(i)) {
         return execution.raiseFormat("Array index was expected to be an 'int', not '", index->getRuntimeType().toString(), "'");
       }
-      if (!this->array.set(size_t(i), value)) {
-        return execution.raiseFormat("Invalid array index for an array with ", this->array.length(), " element(s): ", i);
+      if (!this->array->set(size_t(i), value)) {
+        return execution.raiseFormat("Invalid array index for an array with ", this->array->length(), " element(s): ", i);
       }
       return Value::Void;
     }
@@ -478,7 +482,7 @@ namespace {
     virtual State iterateStart(IExecution&) const override {
       // state.a is the next index into the array
       // state.b is the size of the array
-      return { 0, Int(this->array.length()) };
+      return { 0, Int(this->array->length()) };
     }
     virtual Value iterateNext(IExecution& execution, State& state) const override {
       // state.a is the next index into the array (negative when finished)
@@ -486,13 +490,13 @@ namespace {
       if (state.a < 0) {
         return Value::Void;
       }
-      auto length = Int(this->array.length());
+      auto length = Int(this->array->length());
       if (state.b != length) {
         state.a = -1;
         return execution.raise("Array iterator has detected that the underlying array has changed size");
       }
       Value value;
-      if (!this->array.get(size_t(state.a), value)) {
+      if (!this->array->get(size_t(state.a), value)) {
         state.a = -1;
         return Value::Void;
       }
@@ -501,7 +505,7 @@ namespace {
     }
     virtual void print(Printer& printer) const override {
       char separator = '[';
-      this->array.print(printer, separator);
+      this->array->print(printer, separator);
       if (separator == '[') {
         printer << separator;
       }
@@ -513,32 +517,33 @@ namespace {
     VanillaDictionary(const VanillaDictionary&) = delete;
     VanillaDictionary& operator=(const VanillaDictionary&) = delete;
   protected:
-    VanillaStringValueMap map;
+    SoftPtr<VanillaStringValueMap> map;
   public:
-    explicit VanillaDictionary(IAllocator& allocator)
+    VanillaDictionary(IAllocator& allocator, IBasket& basket)
       : VanillaIterable(allocator),
-        map(allocator) {
+        map(basket, allocator.make<VanillaStringValueMap, VanillaStringValueMap*>(basket)) {
+      basket.take(*this);
       assert(this->validate());
     }
-    virtual void softVisitLinks(const Visitor& visitor) const override {
-      this->map.softVisitLinks(visitor);
+    virtual void softVisit(const Visitor& visitor) const override {
+      this->map->softVisit(visitor);
     }
     virtual Type getRuntimeType() const override {
       return Vanilla::getDictionaryType();
     }
     virtual Value getProperty(IExecution& execution, const String& property) override {
       Value value;
-      if (!this->map.get(property, value)) {
+      if (!this->map->get(property, value)) {
         return execution.raiseFormat("Object does not have property: '", property, "'");
       }
       return value;
     }
     virtual Value setProperty(IExecution&, const String& property, const Value& value) override {
-      this->map.set(property, value);
+      this->map->set(property, value);
       return Value::Void;
     }
     virtual Value mutProperty(IExecution& execution, const String& key, Mutation mutation, const Value& value) override {
-      auto result = this->map.mut(key, mutation, value);
+      auto result = this->map->mut(key, mutation, value);
       if (result->getFlags() == (ValueFlags::Throw | ValueFlags::String)) {
         // The mutation failed with a thrown string: augment it with the location
         Value thrown;
@@ -554,7 +559,7 @@ namespace {
     virtual State iterateStart(IExecution&) const override {
       // state.a is the next index into the key vector
       // state.b is the size of the key vector
-      return { 0, Int(this->map.length()) };
+      return { 0, Int(this->map->length()) };
     }
     virtual Value iterateNext(IExecution& execution, State& state) const override {
       // state.a is the next index into the key vector
@@ -562,23 +567,23 @@ namespace {
       if (state.a < 0) {
         return Value::Void;
       }
-      auto length = Int(this->map.length());
+      auto length = Int(this->map->length());
       if (state.b != length) {
         state.a = -1;
-        return execution.raise("Array iterator has detected that the underlying object has changed size");
+        return execution.raise("Dictionary iterator has detected that the underlying object has changed size");
       }
       String key;
       Value value;
-      if (!this->map.getKeyValue(size_t(state.a), key, value)) {
+      if (!this->map->getKeyValue(size_t(state.a), key, value)) {
         state.a = -1;
         return Value::Void;
       }
       state.a++;
-      return execution.makeValue(VanillaFactory::createKeyValue(execution.getAllocator(), key, value));
+      return execution.makeValue(VanillaFactory::createKeyValue(execution.getAllocator(), execution.getBasket(), key, value));
     }
     virtual void print(Printer& printer) const override {
       char separator = '{';
-      this->map.print(printer, separator);
+      this->map->print(printer, separator);
       if (separator == '{') {
         printer << separator;
       }
@@ -586,36 +591,68 @@ namespace {
     }
   };
 
+  class VanillaEmpty final : public VanillaIterable {
+    VanillaEmpty(const VanillaEmpty&) = delete;
+    VanillaEmpty& operator=(const VanillaEmpty&) = delete;
+  public:
+    VanillaEmpty(IAllocator& allocator)
+      : VanillaIterable(allocator) {
+      assert(this->validate());
+    }
+    virtual void softVisit(const Visitor&) const override {
+      // Nothing to do
+    }
+    virtual Type getRuntimeType() const override {
+      return Vanilla::getDictionaryType();
+    }
+    virtual Value iterate(IExecution& execution) override {
+      return this->createIterator(execution, Vanilla::getKeyValueType());
+    }
+    virtual State iterateStart(IExecution&) const override {
+      // state.a is irrelevant
+      // state.b is irrelevant
+      return { 0, 0 };
+    }
+    virtual Value iterateNext(IExecution&, State&) const override {
+      // state.a is irrelevant
+      // state.b is irrelevant
+      return Value::Void;
+    }
+    virtual void print(Printer& printer) const override {
+      printer << '{' << '}';
+    }
+  };
+
   class VanillaObject final : public VanillaBase {
     VanillaObject(const VanillaObject&) = delete;
     VanillaObject& operator=(const VanillaObject&) = delete;
   private:
-    VanillaStringValueMap map; // WIBBLE VanillaValueValueMap
+    SoftPtr<VanillaStringValueMap> map; // WIBBLE VanillaValueValueMap
   public:
-    explicit VanillaObject(IAllocator& allocator)
+    VanillaObject(IAllocator& allocator, IBasket& basket)
       : VanillaBase(allocator),
-        map(allocator) {
+        map(basket, allocator.make<VanillaStringValueMap, VanillaStringValueMap*>(basket)) {
       assert(this->validate());
     }
-    virtual void softVisitLinks(const Visitor& visitor) const override {
-      this->map.softVisitLinks(visitor);
+    virtual void softVisit(const Visitor& visitor) const override {
+      this->map->softVisit(visitor);
     }
     virtual Type getRuntimeType() const override {
       return Type::Object;
     }
     virtual Value getProperty(IExecution& execution, const String& property) override {
       Value value;
-      if (!this->map.get(property, value)) {
+      if (!this->map->get(property, value)) {
         return execution.raiseFormat("Object does not have property: '", property, "'");
       }
       return value;
     }
     virtual Value setProperty(IExecution&, const String& property, const Value& value) override {
-      this->map.set(property, value);
+      this->map->set(property, value);
       return Value::Void;
     }
     virtual Value mutProperty(IExecution& execution, const String& key, Mutation mutation, const Value& value) override {
-      auto result = this->map.mut(key, mutation, value);
+      auto result = this->map->mut(key, mutation, value);
       if (result->getFlags() == (ValueFlags::Throw | ValueFlags::String)) {
         // The mutation failed with a thrown string: augment it with the location
         Value thrown;
@@ -634,14 +671,14 @@ namespace {
     String key;
     Value value; // TODO SoftPtr
   public:
-    explicit VanillaKeyValue(IAllocator& allocator, const String& key, const Value& value)
+    explicit VanillaKeyValue(IAllocator& allocator, IBasket&, const String& key, const Value& value)
       : VanillaIterable(allocator),
         key(key),
         value(value) {
       assert(this->validate());
     }
-    virtual void softVisitLinks(const Visitor&) const override {
-      // TODO
+    virtual void softVisit(const Visitor&) const override {
+      // WEBBLE
     }
     virtual Type getRuntimeType() const override {
       return Vanilla::getKeyValueType();
@@ -679,10 +716,10 @@ namespace {
       switch (state.a) {
       case 0:
         state.a = 1;
-        return execution.makeValue(VanillaFactory::createKeyValue(execution.getAllocator(), "key", execution.makeValue(this->key)));
+        return execution.makeValue(VanillaFactory::createKeyValue(execution.getAllocator(), execution.getBasket(), "key", execution.makeValue(this->key)));
       case 1:
         state.a = -1;
-        return execution.makeValue(VanillaFactory::createKeyValue(execution.getAllocator(), "value", this->value));
+        return execution.makeValue(VanillaFactory::createKeyValue(execution.getAllocator(), execution.getBasket(), "value", this->value));
       }
       state.a = -1;
       return Value::Void;
@@ -702,17 +739,18 @@ namespace {
     VanillaPointer& operator=(const VanillaPointer&) = delete;
   private:
     SoftPtr<ISlot> slot;
-    SoftPtr<IType> type;
+    SoftPtr<const IType> type;
   public:
-    VanillaPointer(IAllocator& allocator, const ISlot& slot, const IType& type)
+    VanillaPointer(IAllocator& allocator, IBasket& basket, const ISlot& slot, const IType& type)
       : VanillaBase(allocator),
         slot(),
         type() {
-      this->slot.set(*this, &slot);
-      this->type.set(*this, &type);
+      this->slot.set(basket, &slot);
+      this->type.set(basket, &type);
     }
-    virtual void softVisitLinks(const Visitor& visitor) const override {
+    virtual void softVisit(const Visitor& visitor) const override {
       this->slot.visit(visitor);
+      this->type.visit(visitor);
     }
     virtual Type getRuntimeType() const override {
       return Type(this->type.get());
@@ -763,18 +801,18 @@ namespace {
   private:
     std::string readable;
   public:
-    VanillaError(IAllocator& allocator, const LocationSource& location, const String& message)
-      : VanillaDictionary(allocator) {
+    VanillaError(IAllocator& allocator, IBasket& basket, const LocationSource& location, const String& message)
+      : VanillaDictionary(allocator, basket) {
       assert(this->validate());
-      this->map.add("message", ValueFactory::create(allocator, message));
+      this->map->add("message", ValueFactory::create(allocator, message));
       if (!location.file.empty()) {
-        this->map.add("file", ValueFactory::create(allocator, location.file));
+        this->map->add("file", ValueFactory::create(allocator, location.file));
       }
       if (location.line > 0) {
-        this->map.add("line", ValueFactory::create(allocator, Int(location.line)));
+        this->map->add("line", ValueFactory::create(allocator, Int(location.line)));
       }
       if (location.column > 0) {
-        this->map.add("column", ValueFactory::create(allocator, Int(location.column)));
+        this->map->add("column", ValueFactory::create(allocator, Int(location.column)));
       }
       StringBuilder sb;
       if (location.printSource(sb)) {
@@ -796,13 +834,13 @@ namespace {
     Vanilla::IPredicateCallback& callback; // Guaranteed to be long-lived
     Node node;
   public:
-    VanillaPredicate(IAllocator& allocator, Vanilla::IPredicateCallback& callback, const INode& node)
+    VanillaPredicate(IAllocator& allocator, IBasket&, Vanilla::IPredicateCallback& callback, const INode& node)
       : VanillaBase(allocator),
       callback(callback),
       node(&node) {
       assert(this->node != nullptr);
     }
-    virtual void softVisitLinks(const Visitor&) const override {
+    virtual void softVisit(const Visitor&) const override {
       // There are no soft links to visit
     }
     virtual Type getRuntimeType() const override {
@@ -824,31 +862,35 @@ namespace {
   };
 }
 
-egg::ovum::Object egg::ovum::VanillaFactory::createArray(IAllocator& allocator, size_t length) {
-  return createVanillaObject<VanillaArray>(allocator, length);
+egg::ovum::Object egg::ovum::VanillaFactory::createEmpty(IAllocator& allocator) {
+  return createVanillaObject<VanillaEmpty>(allocator);
 }
 
-egg::ovum::Object egg::ovum::VanillaFactory::createDictionary(IAllocator& allocator) {
-  return createVanillaObject<VanillaDictionary>(allocator);
+egg::ovum::Object egg::ovum::VanillaFactory::createArray(IAllocator& allocator, IBasket& basket, size_t length) {
+  return createVanillaObject<VanillaArray>(allocator, basket, length);
 }
 
-egg::ovum::Object egg::ovum::VanillaFactory::createObject(IAllocator& allocator) {
-  return createVanillaObject<VanillaObject>(allocator);
+egg::ovum::Object egg::ovum::VanillaFactory::createDictionary(IAllocator& allocator, IBasket& basket) {
+  return createVanillaObject<VanillaDictionary>(allocator, basket);
 }
 
-egg::ovum::Object egg::ovum::VanillaFactory::createKeyValue(IAllocator& allocator, const String& key, const Value& value) {
-  return createVanillaObject<VanillaKeyValue>(allocator, key, value);
+egg::ovum::Object egg::ovum::VanillaFactory::createObject(IAllocator& allocator, IBasket& basket) {
+  return createVanillaObject<VanillaObject>(allocator, basket);
 }
 
-egg::ovum::Object egg::ovum::VanillaFactory::createError(IAllocator& allocator, const LocationSource& location, const String& message) {
-  return createVanillaObject<VanillaError>(allocator, location, message);
+egg::ovum::Object egg::ovum::VanillaFactory::createKeyValue(IAllocator& allocator, IBasket& basket, const String& key, const Value& value) {
+  return createVanillaObject<VanillaKeyValue>(allocator, basket, key, value);
 }
 
-egg::ovum::Object egg::ovum::VanillaFactory::createPredicate(IAllocator& allocator, Vanilla::IPredicateCallback& callback, const INode& node) {
-  return createVanillaObject<VanillaPredicate>(allocator, callback, node);
+egg::ovum::Object egg::ovum::VanillaFactory::createError(IAllocator& allocator, IBasket& basket, const LocationSource& location, const String& message) {
+  return createVanillaObject<VanillaError>(allocator, basket, location, message);
 }
 
-egg::ovum::Object egg::ovum::VanillaFactory::createPointer(IAllocator& allocator, ISlot& slot, const Type& pointee, Modifiability modifiability) {
+egg::ovum::Object egg::ovum::VanillaFactory::createPredicate(IAllocator& allocator, IBasket& basket, Vanilla::IPredicateCallback& callback, const INode& node) {
+  return createVanillaObject<VanillaPredicate>(allocator, basket, callback, node);
+}
+
+egg::ovum::Object egg::ovum::VanillaFactory::createPointer(IAllocator& allocator, IBasket& basket, ISlot& slot, const Type& pointee, Modifiability modifiability) {
   auto type = TypeFactory::createPointer(allocator, *pointee, modifiability);
-  return createVanillaObject<VanillaPointer>(allocator, slot, *type);
+  return createVanillaObject<VanillaPointer>(allocator, basket, slot, *type);
 }

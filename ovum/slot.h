@@ -13,13 +13,11 @@ namespace egg::ovum {
     Slot(const Slot&) = delete;
     Slot& operator=(const Slot&) = delete;
   private:
-    Atomic<IValue*> ptr;
+    Atomic<IValue*> ptr; // SoftPtr
   public:
-    // Construction/destruction
+    // Construction
     explicit Slot(IAllocator& allocator);
     Slot(IAllocator& allocator, const Value& value);
-    Slot(Slot&& rhs) noexcept;
-    virtual ~Slot();
     // Atomic access
     virtual IValue* get() const override; // nullptr if empty
     virtual void set(const Value& value) override;
@@ -30,22 +28,27 @@ namespace egg::ovum {
     Type::Assignment mutate(const Type& type, Mutation mutation, const Value& value, Value& before) {
       return Slot::mutate(*this, this->allocator, type, mutation, value, before);
     }
+    Value value(const Value& empty) const {
+      auto* value = this->get();
+      return (value == nullptr) ? empty : Value(*value);
+    }
     Value reference(const Type& pointee, Modifiability modifiability);
     // Debugging
     bool validate(bool optional) const;
     virtual bool validate() const override {
       return this->validate(true);
     }
-    virtual void softVisitLinks(const Visitor&) const override;
+    virtual void softVisit(const Visitor&) const override;
   };
 
   class SlotArray {
-    SlotArray(const Slot&) = delete;
+    SlotArray(const SlotArray&) = delete;
     SlotArray& operator=(const SlotArray&) = delete;
   private:
-    std::vector<std::unique_ptr<Slot>> vec; // Address stable
+    std::vector<SoftPtr<Slot>> vec; // Address stable
   public:
-    explicit SlotArray(size_t size) : vec(size) {
+    explicit SlotArray(size_t size)
+      : vec(size) {
     };
     bool empty() const {
       return this->vec.empty();
@@ -60,24 +63,24 @@ namespace egg::ovum {
       }
       return nullptr;
     }
-    Slot* set(IAllocator& allocator, size_t index, const Value& value) {
+    Slot* set(IAllocator& allocator, IBasket& basket, size_t index, const Value& value) {
       // Updates a slot
       if (index < this->vec.size()) {
-        auto& ptr = this->vec[index];
-        if (ptr == nullptr) {
-          ptr = std::make_unique<Slot>(allocator, value);
+        auto& slot = this->vec[index];
+        if (slot != nullptr) {
+          slot->set(value);
         } else {
-          ptr->set(value);
+          slot.set(basket, allocator.make<Slot, Slot*>(value));
         }
-        return ptr.get();
+        return slot.get();
       }
       return nullptr;
     }
-    void resize(IAllocator& allocator, size_t size) {
+    void resize(IAllocator& allocator, IBasket& basket, size_t size, const Value& fill) {
       auto before = this->vec.size();
       this->vec.resize(size);
       while (before < size) {
-        this->vec[before++] = std::make_unique<Slot>(allocator, Value::Null);
+        this->vec[before++].set(basket, allocator.make<Slot, Slot*>(fill));
       }
     }
     void foreach(std::function<void(const Slot& slot)> visitor) const {
@@ -86,9 +89,9 @@ namespace egg::ovum {
         visitor(*entry);
       }
     }
-    void softVisitLinks(const ICollectable::Visitor& visitor) const {
+    void softVisit(const ICollectable::Visitor& visitor) const {
       for (auto& entry : this->vec) {
-        entry->softVisitLinks(visitor);
+        entry->softVisit(visitor);
       }
     }
   };
@@ -98,10 +101,11 @@ namespace egg::ovum {
     SlotMap(const SlotMap&) = delete;
     SlotMap& operator=(const SlotMap&) = delete;
   private:
-    std::unordered_map<K, Slot> map;
+    std::unordered_map<K, SoftPtr<Slot>> map;
     std::vector<K> vec; // In insertion order
   public:
-    SlotMap() = default;
+    SlotMap() {
+    }
     bool empty() const {
       return this->vec.empty();
     }
@@ -112,52 +116,46 @@ namespace egg::ovum {
       // Returns true iff the value exists
       return this->map.count(key) > 0;
     }
-    const Slot* getByIndex(size_t index, K& key) const {
-      // Returns the address of the map value or nullptr if not present
-      if (index < this->vec.size()) {
-        key = this->vec[index];
-        return this->getOrNull(key);
+    Slot* lookup(size_t idx, K& key) const {
+      // Returns the address of the slot or nullptr if not present
+      if (idx < this->vec.size()) {
+        key = this->vec[idx];
+        auto found = this->map.find(key);
+        assert(found != this->map.end());
+        return found->second.get();
       }
       return nullptr;
     }
-    Slot* getOrNull(const K& key) {
-      // Returns the address of the map value or nullptr if not present
+    Slot* find(const K& key) const {
+      // Returns the address of the slot or nullptr if not present
       auto found = this->map.find(key);
       if (found != this->map.end()) {
-        return &found->second;
+        return found->second.get();
       }
       return nullptr;
     }
-    const Slot* getOrNull(const K& key) const {
-      // Returns the address of the map value or nullptr if not present
-      auto found = this->map.find(key);
-      if (found != this->map.end()) {
-        return &found->second;
-      }
-      return nullptr;
-    }
-    bool add(IAllocator& allocator, const K& key, const Value& value) {
+    bool add(IAllocator& allocator, IBasket& basket, const K& key, const Value& value) {
       // Add a new slot (returns 'true' iff added)
       auto inserted = this->map.emplace(std::piecewise_construct,
                                         std::forward_as_tuple(key),
-                                        std::forward_as_tuple(allocator, value));
+                                        std::forward_as_tuple(basket, allocator.make<Slot, Slot*>(value)));
       if (inserted.second) {
         this->vec.emplace_back(key);
         return true;
       }
       return false;
     }
-    bool set(IAllocator& allocator, const K& key, const Value& value) {
+    bool set(IAllocator& allocator, IBasket& basket, const K& key, const Value& value) {
       // Updates or adds a new slot (returns 'true' iff added)
       auto found = this->map.find(key);
       if (found != this->map.end()) {
-        found->second.set(value);
+        found->second->set(value);
         return false;
       }
       // Add a new slot
       this->map.emplace(std::piecewise_construct,
                         std::forward_as_tuple(key),
-                        std::forward_as_tuple(allocator, value));
+                        std::forward_as_tuple(basket, allocator.make<Slot, Slot*>(value)));
       this->vec.emplace_back(key);
       return true;
     }
@@ -179,13 +177,13 @@ namespace egg::ovum {
     void foreach(std::function<void(const K& key, const Slot& slot)> visitor) const {
       // Iterate in insertion order
       for (auto& key : this->vec) {
-        visitor(key, this->map.at(key));
+        visitor(key, *this->map.at(key));
       }
     }
-    void softVisitLinks(const ICollectable::Visitor& visitor) const {
-      // Iterate in fastest order
+    void visit(const ICollectable::Visitor& visitor) const {
+      // Iterate through everything as fast as possible
       for (auto& kv : this->map) {
-        kv.second.softVisitLinks(visitor);
+        kv.second->softVisit(visitor);
       }
     }
   };

@@ -17,6 +17,9 @@ namespace {
     virtual void softRelease() const override {
       // Do nothing
     }
+    virtual void softVisit(const ICollectable::Visitor&) const override {
+      // Nothing to visit
+    }
     virtual bool getVoid() const override {
       return false;
     }
@@ -131,6 +134,9 @@ namespace {
     }
     virtual void softRelease() const override {
       this->hardRelease();
+    }
+    virtual void softVisit(const ICollectable::Visitor&) const override {
+      // By default, nothing to visit
     }
     virtual bool getVoid() const override {
       return false;
@@ -268,14 +274,83 @@ namespace {
     }
   };
 
-  class ValueObject final : public ValueMutable {
-    ValueObject(const ValueObject&) = delete;
-    ValueObject& operator=(const ValueObject&) = delete;
+  class ValueObjectSoft final : public ValueMutable {
+    ValueObjectSoft(const ValueObjectSoft&) = delete;
+    ValueObjectSoft& operator=(const ValueObjectSoft&) = delete;
+  private:
+    SoftPtr<IObject> value; // never null
+  public:
+    ValueObjectSoft(IAllocator& allocator, IBasket& basket, const Object& value)
+      : ValueMutable(allocator),
+        value(basket, value.get()) {
+      assert(this->validate());
+    }
+    virtual IValue* hardAcquire() const override {
+      // WYBBLE
+      return const_cast<ValueObjectSoft*>(this);
+    }
+    virtual void hardRelease() const override {
+      // WYBBLE
+    }
+    virtual IValue* softAcquire() const override {
+      assert(this->value->softGetBasket() != nullptr);
+      return const_cast<ValueObjectSoft*>(this);
+    }
+    virtual void softRelease() const override {
+      // Do nothing
+      assert(this->value->softGetBasket() != nullptr);
+    }
+    virtual void softVisit(const ICollectable::Visitor& visitor) const override {
+      this->value.visit(visitor);
+    }
+    virtual ValueFlags getFlags() const override {
+      assert(this->validate());
+      return ValueFlags::Object;
+    }
+    virtual Type getRuntimeType() const override {
+      assert(this->validate());
+      return value->getRuntimeType();
+    }
+    virtual bool getObject(Object& result) const override {
+      assert(this->validate());
+      result.set(this->value.get());
+      return true;
+    }
+    virtual bool equals(const IValue& rhs, ValueCompare) const override {
+      assert(this->validate());
+      // TODO: Identity is not appropriate for pointers
+      Object other{ *this->value };
+      return rhs.getObject(other) && (this->value.get() == other.get());
+    }
+    virtual bool validate() const override {
+      return ValueMutable::validate() && (this->value != nullptr) && this->value->validate();
+    }
+    virtual void print(Printer& printer) const override {
+      assert(this->validate());
+      this->value->print(printer);
+    }
+  };
+
+  class ValueObjectHard final : public ValueMutable {
+    ValueObjectHard(const ValueObjectHard&) = delete;
+    ValueObjectHard& operator=(const ValueObjectHard&) = delete;
   private:
     Object value;
   public:
-    ValueObject(IAllocator& allocator, const Object& value) : ValueMutable(allocator), value(value) {
+    ValueObjectHard(IAllocator& allocator, const Object& value) : ValueMutable(allocator), value(value) {
       assert(this->validate());
+    }
+    virtual IValue* softAcquire() const override {
+      auto* basket = this->value->softGetBasket();
+      assert(basket != nullptr);
+      return this->allocator.make<ValueObjectSoft, IValue*>(*basket, value);
+    }
+    virtual void softRelease() const override {
+      assert(false); // WEBBLE
+      this->hardRelease(); // WEBBLE
+    }
+    virtual void softVisit(const ICollectable::Visitor&) const override {
+      assert(false); // WEBBLE
     }
     virtual ValueFlags getFlags() const override {
       return ValueFlags::Object;
@@ -308,6 +383,9 @@ namespace {
   public:
     ValueFlowControl(IAllocator& allocator, ValueFlags flags, const Value& child) : ValueMutable(allocator), flags(flags), inner(child) {
       assert(this->validate());
+    }
+    virtual void softVisit(const ICollectable::Visitor& visitor) const override {
+      this->inner->softVisit(visitor);
     }
     virtual ValueFlags getFlags() const override {
       return this->flags | this->inner->getFlags();
@@ -382,12 +460,16 @@ egg::ovum::Value egg::ovum::ValueFactory::createString(IAllocator& allocator, co
   return Value(*allocator.make<ValueString, IValue*>(value));
 }
 
-egg::ovum::Value egg::ovum::ValueFactory::createObject(IAllocator& allocator, const Object& value) {
-  return Value(*allocator.make<ValueObject, IValue*>(value));
+egg::ovum::Value egg::ovum::ValueFactory::createObjectHard(IAllocator& allocator, const Object& value) {
+  return Value(*allocator.make<ValueObjectHard, IValue*>(value));
 }
 
-egg::ovum::Value egg::ovum::ValueFactory::createPointer(IAllocator& allocator, ISlot& slot, const Type& pointee, Modifiability modifiability) {
-  return ValueFactory::createObject(allocator, ObjectFactory::createPointer(allocator, slot, pointee, modifiability));
+egg::ovum::Value egg::ovum::ValueFactory::createObjectSoft(IAllocator& allocator, IBasket& basket, const Object& value) {
+  return Value(*allocator.make<ValueObjectSoft, IValue*>(basket, value));
+}
+
+egg::ovum::Value egg::ovum::ValueFactory::createPointerHard(IAllocator& allocator, ISlot& slot, const Type& pointee, Modifiability modifiability) {
+  return ValueFactory::createObjectHard(allocator, ObjectFactory::createPointer(allocator, slot, pointee, modifiability));
 }
 
 egg::ovum::Value egg::ovum::ValueFactory::createFlowControl(IAllocator& allocator, ValueFlags flags, const Value& value) {

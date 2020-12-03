@@ -11,6 +11,11 @@
 namespace {
   using namespace egg::ovum;
 
+  IBasket& sharedBasket() {
+    assert(TypeFactory::basketWIBBLE != nullptr);
+    return *TypeFactory::basketWIBBLE;
+  }
+
   const char* primitiveComponent(ValueFlags flags) {
     EGG_WARNING_SUPPRESS_SWITCH_BEGIN();
       switch (flags) {
@@ -155,7 +160,7 @@ namespace {
         flags(flags) {
       assert(flags != ValueFlags::None);
     }
-    virtual void softVisitLinks(const Visitor&) const override {
+    virtual void softVisit(const Visitor&) const override {
       // Nothing to visit
     }
     virtual ValueFlags getPrimitiveFlags() const override {
@@ -186,17 +191,17 @@ namespace {
     TypePointer(const TypePointer&) = delete;
     TypePointer& operator=(const TypePointer&) = delete;
   private:
-    Type pointee; // TODO make soft
+    SoftPtr<const IType> pointee;
     PointerShape shape;
   public:
-    TypePointer(IAllocator& allocator, const IType& pointee, Modifiability modifiability)
+    TypePointer(IAllocator& allocator, IBasket& basket, const IType& pointee, Modifiability modifiability)
       : SoftReferenceCounted(allocator),
-        pointee(&pointee),
-      shape({ &pointee, modifiability }) {
+        pointee(basket, &pointee),
+        shape({ &pointee, modifiability }) {
       assert(this->pointee != nullptr);
     }
-    virtual void softVisitLinks(const Visitor&) const override {
-      // TODO
+    virtual void softVisit(const Visitor& visitor) const override {
+      this->pointee.visit(visitor);
     }
     virtual ValueFlags getPrimitiveFlags() const override {
       return ValueFlags::None;
@@ -226,18 +231,18 @@ namespace {
     TypeStrip(const TypeStrip&) = delete;
     TypeStrip& operator=(const TypeStrip&) = delete;
   private:
-    Type underlying; // TODO make soft
+    SoftPtr<const IType> underlying;
     ValueFlags strip;
   public:
-    TypeStrip(IAllocator& allocator, const IType& underlying, ValueFlags strip)
+    TypeStrip(IAllocator& allocator, IBasket& basket, const IType& underlying, ValueFlags strip)
       : SoftReferenceCounted(allocator),
-        underlying(&underlying),
+        underlying(basket, &underlying),
         strip(strip) {
       assert(this->underlying != nullptr);
       assert(!Bits::hasAnySet(this->strip, ValueFlags::FlowControl | ValueFlags::Object));
     }
-    virtual void softVisitLinks(const Visitor&) const override {
-      // TODO
+    virtual void softVisit(const Visitor& visitor) const override {
+      this->underlying.visit(visitor);
     }
     virtual ValueFlags getPrimitiveFlags() const override {
       return Bits::clear(this->underlying->getPrimitiveFlags(), this->strip);
@@ -267,24 +272,25 @@ namespace {
     TypeUnion(const TypeUnion&) = delete;
     TypeUnion& operator=(const TypeUnion&) = delete;
   private:
-    Type a; // TODO make soft
-    Type b; // TODO make soft
+    SoftPtr<const IType> a;
+    SoftPtr<const IType> b;
     ValueFlags flags;
     std::vector<const ObjectShape*> objectShapes;
     std::vector<const PointerShape*> pointerShapes;
   public:
-    TypeUnion(IAllocator& allocator, const IType& a, const IType& b)
+    TypeUnion(IAllocator& allocator, IBasket& basket, const IType& a, const IType& b)
       : SoftReferenceCounted(allocator),
-      a(&a),
-      b(&b),
+      a(basket, &a),
+      b(basket, &b),
       flags(a.getPrimitiveFlags() | b.getPrimitiveFlags()),
       objectShapes(unionObjects({ &a, &b })),
       pointerShapes(unionPointers({ &a, &b })) {
       assert(this->a != nullptr);
       assert(this->b != nullptr);
     }
-    virtual void softVisitLinks(const Visitor&) const override {
-      // TODO
+    virtual void softVisit(const Visitor& visitor) const override {
+      this->a.visit(visitor);
+      this->b.visit(visitor);
     }
     virtual ValueFlags getPrimitiveFlags() const override {
       return this->flags;
@@ -368,12 +374,28 @@ namespace {
     virtual void defineDotable(const Type& unknownType, Modifiability unknownModifiability) override;
     virtual void defineIndexable(const Type& resultType, const Type& indexType, Modifiability modifiability) override;
     virtual void defineIterable(const Type& resultType) override;
-    virtual Type build() override {
+    virtual Type build(IBasket* basket) override {
       if (this->built) {
         throw std::logic_error("TypeBuilder::build() called more than once");
       }
+      return buildOnce(basket, nullptr);
+    }
+    void visit(const ICollectable::Visitor& visitor) const {
+      assert(this->built);
+      if (this->properties != nullptr) {
+        this->properties->visit(visitor);
+      }
+    }
+  protected:
+    Type buildOnce(IBasket* basket, const IFunctionSignature* callable) {
+      assert(!this->built);
       this->built = true;
-      return this->allocator.make<Built, Type>(*this);
+      if (basket != nullptr) {
+        if (this->properties != nullptr) {
+          this->properties->soften(*basket);
+        }
+      }
+      return this->allocator.make<Built, Type>(*this, callable);
     }
   };
 
@@ -384,7 +406,7 @@ namespace {
     HardPtr<Builder> builder;
     ObjectShape shape;
   public:
-    Built(IAllocator& allocator, Builder& builder, IFunctionSignature* callable = nullptr)
+    Built(IAllocator& allocator, Builder& builder, const IFunctionSignature* callable = nullptr)
       : SoftReferenceCounted(allocator),
         builder(&builder) {
       this->shape.callable = callable;
@@ -392,8 +414,8 @@ namespace {
       this->shape.indexable = builder.indexable.get();
       this->shape.iterable = builder.iterable.get();
     }
-    virtual void softVisitLinks(const Visitor&) const {
-      // TODO visit soft links in Builder?
+    virtual void softVisit(const Visitor& visitor) const override {
+      this->builder->visit(visitor);
     }
     virtual ValueFlags getPrimitiveFlags() const override {
       return ValueFlags::None;
@@ -475,12 +497,11 @@ namespace {
       }
       this->callable.addNamedParameter(ptype, pname, pflags);
     }
-    virtual Type build() override {
+    virtual Type build(IBasket* basket) override {
       if (this->built) {
         throw std::logic_error("FunctionBuilder::build() called more than once");
       }
-      this->built = true;
-      return this->allocator.make<Built, Type>(*this, &this->callable);
+      return buildOnce(basket, &this->callable);
     }
   };
 
@@ -804,7 +825,8 @@ egg::ovum::Type egg::ovum::Type::stripFlags(IAllocator& allocator, ValueFlags fl
     if (uflags == flags) {
       return nullptr;
     } else if (Bits::hasAnySet(uflags, flags)) {
-      return allocator.make<TypeStrip, Type>(*underlying, flags);
+      auto& basket = sharedBasket();
+      return allocator.make<TypeStrip, Type>(basket, *underlying, flags);
     }
   }
   return *this;
@@ -861,14 +883,15 @@ egg::ovum::Type egg::ovum::TypeFactory::createSimple(IAllocator& allocator, Valu
 }
 
 egg::ovum::Type egg::ovum::TypeFactory::createPointer(IAllocator& allocator, const IType& pointee, Modifiability modifiability) {
-  return allocator.make<TypePointer, Type>(pointee, modifiability);
+  auto& basket = sharedBasket();
+  return allocator.make<TypePointer, Type>(basket, pointee, modifiability);
 }
 
 egg::ovum::Type egg::ovum::TypeFactory::createUnion(IAllocator& allocator, const IType& a, const IType& b) {
   if (&a == &b) {
     return Type(&a);
   }
-  return allocator.make<TypeUnion, Type>(a, b);
+  return allocator.make<TypeUnion, Type>(sharedBasket(), a, b);
 }
 
 egg::ovum::TypeBuilder egg::ovum::TypeFactory::createTypeBuilder(IAllocator& allocator, const String& name, const String& description) {
@@ -881,9 +904,11 @@ egg::ovum::TypeBuilder egg::ovum::TypeFactory::createFunctionBuilder(IAllocator&
 
 egg::ovum::TypeBuilder egg::ovum::TypeFactory::createGeneratorBuilder(IAllocator& allocator, const Type& gentype, const String& name, const String& description) {
   // Convert the return type (e.g. 'int') into a generator function 'int...' aka '(void|int)()'
+  auto& basket = sharedBasket();
   assert(!gentype.hasPrimitiveFlag(ValueFlags::Void));
-  auto generator = TypeFactory::createFunctionBuilder(allocator, gentype.addFlags(allocator, ValueFlags::Void), name, description);
-  return allocator.make<FunctionBuilder>(generator->build(), name, description);
+  auto rettype = gentype.addFlags(allocator, ValueFlags::Void);
+  auto generator = TypeFactory::createFunctionBuilder(allocator, rettype, name, description);
+  return allocator.make<FunctionBuilder>(generator->build(&basket), name, description);
 }
 
 // Common types
@@ -1012,5 +1037,38 @@ egg::ovum::Type::Assignment egg::ovum::Type::mutate(IAllocator& allocator, const
   case Mutation::Subtract:
   default:
     return Assignment::Unimplemented;
+  }
+}
+
+egg::ovum::TypeBuilderProperties::~TypeBuilderProperties() {
+  // We only have to release the fields if we've got hard references
+  if (!this->soft) {
+    if (this->unknownType != nullptr) {
+      this->unknownType->hardRelease();
+    }
+    for (const auto& entry : this->map) {
+      if (entry.second.type != nullptr) {
+        entry.second.type->hardRelease();
+      }
+    }
+  }
+}
+
+void egg::ovum::TypeBuilderProperties::soften(IBasket& basket) {
+  assert(!this->soft);
+  this->soft = true;
+  this->unknownType = basket.soften(this->unknownType);
+  for (auto& entry : this->map) {
+    entry.second.type = basket.soften(entry.second.type);
+  }
+}
+
+void egg::ovum::TypeBuilderProperties::visit(const ICollectable::Visitor& visitor) const {
+  assert(this->soft);
+  if (this->unknownType != nullptr) {
+    this->unknownType->softVisit(visitor);
+  }
+  for (const auto& entry : this->map) {
+    entry.second.type->softVisit(visitor);
   }
 }

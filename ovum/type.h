@@ -45,6 +45,9 @@ namespace egg::ovum {
     }
     explicit Type(const IType* rhs) : HardPtr(rhs) {
     }
+    template<typename T>
+    explicit Type(const SoftPtr<T>& rhs) : HardPtr(rhs.get()) {
+    }
     // We need to qualify the return type because 'String' is a member further down!
     egg::ovum::String describeValue() const;
     egg::ovum::String toString() const;
@@ -94,7 +97,7 @@ namespace egg::ovum {
       virtual void defineDotable(const Type& unknownType, Modifiability unknownModifiability) = 0;
       virtual void defineIndexable(const Type& resultType, const Type& indexType, Modifiability modifiability) = 0;
       virtual void defineIterable(const Type& resultType) = 0;
-      virtual Type build() = 0;
+      virtual Type build(IBasket* basket) = 0;
   };
   using TypeBuilder = HardPtr<ITypeBuilder>;
 
@@ -168,40 +171,46 @@ namespace egg::ovum {
     TypeBuilderProperties& operator=(const TypeBuilderProperties&) = delete;
   private:
     struct Property {
-      Type type;
+      const IType* type;
       String name;
       Modifiability modifiability;
     };
-    std::map<String, size_t> map;
-    std::vector<Property> vec;
-    Type unknownType; // the type of unknown properties or null
+    // TODO use Dictionary?
+    std::map<String, Property> map;
+    std::vector<String> vec;
+    const IType* unknownType; // the type of unknown properties or null
     Modifiability unknownModifiability; // the modifiability of unknown properties
+    bool soft; // Whether we're using hard or soft references to types
   public:
     TypeBuilderProperties()
       : unknownType(nullptr),
-        unknownModifiability(Modifiability::None) {
+        unknownModifiability(Modifiability::None),
+        soft(false) {
       // Closed properties (i.e. unknown properties are not allowed)
     }
     TypeBuilderProperties(const Type& unknownType, Modifiability unknownModifiability)
-      : unknownType(unknownType),
-        unknownModifiability(unknownModifiability) {
+      : unknownType(unknownType.hardAcquire()),
+        unknownModifiability(unknownModifiability),
+        soft(false) {
+      // Open set of properties
     }
+    virtual ~TypeBuilderProperties();
     virtual Type getType(const String& property) const override {
-      auto index = this->map.find(property);
-      if (index == this->map.end()) {
-        return this->unknownType;
+      auto found = this->map.find(property);
+      if (found == this->map.end()) {
+        return Type(this->unknownType);
       }
-      return this->vec[index->second].type;
+      return Type(found->second.type);
     }
     virtual Modifiability getModifiability(const String& property) const override {
-      auto index = this->map.find(property);
-      if (index == this->map.end()) {
+      auto found = this->map.find(property);
+      if (found == this->map.end()) {
         return this->unknownModifiability;
       }
-      return this->vec[index->second].modifiability;
+      return found->second.modifiability;
     }
     virtual String getName(size_t index) const override {
-      return this->vec.at(index).name;
+      return this->vec.at(index);
     }
     virtual size_t getNameCount() const override {
       return this->vec.size();
@@ -210,15 +219,19 @@ namespace egg::ovum {
       return this->unknownModifiability == Modifiability::None;
     }
     bool add(const Type& type, const String& name, Modifiability modifiability) {
-      // TODO use std::map::try_emplace()
-      auto index = this->vec.size();
-      if (!this->map.emplace(name, index).second) {
+      // Careful with reference counting under exception conditions!
+      assert(!this->soft);
+      Property property{ nullptr, name, modifiability };
+      auto added = this->map.try_emplace(name, std::move(property));
+      if (!added.second) {
         return false;
       }
-      Property entry{ type, name, modifiability };
-      this->vec.emplace_back(std::move(entry));
+      added.first->second.type = type.hardAcquire();
+      this->vec.emplace_back(name);
       return true;
     }
+    void soften(IBasket& basket);
+    void visit(const ICollectable::Visitor& visitor) const;
   };
 
   class TypeBuilderIndexable : public IIndexSignature {
@@ -265,6 +278,8 @@ namespace egg::ovum {
 
   class TypeFactory {
   public:
+    static IBasket* basketWIBBLE;
+
     static Type createSimple(IAllocator& allocator, ValueFlags flags);
     static Type createPointer(IAllocator& allocator, const IType& pointee, Modifiability modifiability);
     static Type createUnion(IAllocator& allocator, const IType& a, const IType& b);

@@ -2027,7 +2027,7 @@ egg::ovum::Type EggSyntaxParserContext::parseTypePostfixFunction(const egg::ovum
     }
   }
   mark.accept(1); // Skip ')'
-  return builder->build();
+  return builder->build(nullptr);
 }
 
 bool EggSyntaxParserContext::parseTypePrimaryExpression(egg::ovum::Type& type) {

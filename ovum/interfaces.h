@@ -4,11 +4,11 @@ namespace egg::ovum {
   using Float = double;
 
   // Forward declarations
-  template<typename T> class Erratic;
   template<typename T> class HardPtr;
+  template<typename T> class SoftPtr;
   enum class ValueFlags;
   struct LocationSource;
-  class Error;
+  class Error; // WUBBLE
   class Printer;
   class String;
   class StringBuilder;
@@ -137,23 +137,35 @@ namespace egg::ovum {
       uint64_t currentBytesOwned;
     };
     // Interface
-    virtual void take(const ICollectable& collectable) = 0;
+    virtual ICollectable* take(const ICollectable& collectable) = 0;
     virtual void drop(const ICollectable& collectable) = 0;
     virtual size_t collect() = 0;
     virtual size_t purge() = 0;
+    virtual void dump(std::ostream* out = nullptr) const = 0; // WEBBLE
     virtual bool statistics(Statistics& out) const = 0;
+    // Helpers
+    template<typename T>
+    T* soften(const T* collectable) {
+      if (collectable != nullptr) {
+        auto* taken = this->take(*collectable);
+        assert(taken != nullptr);
+        taken->hardRelease();
+        return static_cast<T*>(taken);
+      }
+      return nullptr;
+    }
   };
 
   class ICollectable : public IHardAcquireRelease {
   public:
-    using Visitor = std::function<void(ICollectable& target)>;
+    enum class SetBasketResult { Exempt, Unaltered, Altered, Failed };
+    using Visitor = std::function<void(const ICollectable& target)>;
     // Interface
     virtual bool validate() const = 0;
     virtual bool softIsRoot() const = 0;
     virtual IBasket* softGetBasket() const = 0;
-    virtual IBasket* softSetBasket(IBasket* basket) const = 0;
-    virtual bool softLink(const ICollectable& target) const = 0;
-    virtual void softVisitLinks(const Visitor& visitor) const = 0;
+    virtual SetBasketResult softSetBasket(IBasket* desired) const = 0;
+    virtual void softVisit(const Visitor& visitor) const = 0;
   };
 
   class IParameters {

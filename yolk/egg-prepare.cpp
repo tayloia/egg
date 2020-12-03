@@ -739,7 +739,7 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::typeCheck(const egg
 egg::ovum::ILogger::Severity egg::yolk::EggProgram::prepare(IEggEngineContext& context) {
   auto& allocator = context.getAllocator();
   auto symtable = allocator.make<EggProgramSymbolTable>();
-  symtable->addBuiltins();
+  symtable->addBuiltins(*this->basket);
   egg::ovum::ILogger::Severity severity = egg::ovum::ILogger::Severity::None;
   auto rootContext = this->createRootContext(allocator, context, *symtable, severity);
   if (abandoned(this->root->prepare(*rootContext))) {

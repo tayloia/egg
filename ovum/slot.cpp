@@ -11,15 +11,6 @@ egg::ovum::Slot::Slot(IAllocator& allocator, const Value& value)
   assert(this->validate(false));
 }
 
-egg::ovum::Slot::Slot(Slot&& rhs) noexcept
-  : SoftReferenceCounted(rhs.allocator), ptr(rhs.ptr.exchange(nullptr)) {
-  assert(this->validate(true));
-}
-
-egg::ovum::Slot::~Slot() {
-  this->clear();
-}
-
 egg::ovum::IValue* egg::ovum::Slot::get() const {
   auto* underlying = this->ptr.get();
   assert((underlying == nullptr) || underlying->validate());
@@ -93,7 +84,7 @@ egg::ovum::Type::Assignment egg::ovum::Slot::mutate(ISlot& slot, IAllocator& all
 
 egg::ovum::Value egg::ovum::Slot::reference(const Type& pointee, Modifiability modifiability) {
   assert(this->validate(false));
-  return ValueFactory::createPointer(this->allocator, *this, pointee, modifiability);
+  return ValueFactory::createPointerHard(this->allocator, *this, pointee, modifiability);
 }
 
 bool egg::ovum::Slot::validate(bool optional) const {
@@ -107,6 +98,11 @@ bool egg::ovum::Slot::validate(bool optional) const {
   return underlying->validate();
 }
 
-void egg::ovum::Slot::softVisitLinks(const Visitor&) const {
-  // WIBBLE
+void egg::ovum::Slot::softVisit(const Visitor& visitor) const {
+  // WEBBLE
+  assert(this->validate(true));
+  auto underlying = this->ptr.get();
+  if (underlying != nullptr) {
+    underlying->softVisit(visitor);
+  }
 }

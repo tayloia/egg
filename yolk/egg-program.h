@@ -74,7 +74,7 @@ namespace egg::yolk {
         map(),
         parent(parent) {
     }
-    void addBuiltins();
+    void addBuiltins(egg::ovum::IBasket& basket);
     void addBuiltin(const std::string& name, const egg::ovum::Value& value);
     std::shared_ptr<EggProgramSymbol> addSymbol(EggProgramSymbol::Kind kind, const egg::ovum::String& name, const egg::ovum::Type& type);
     std::shared_ptr<EggProgramSymbol> findSymbol(const egg::ovum::String& name, bool includeParents = true) const;
@@ -123,8 +123,6 @@ namespace egg::yolk {
       EGG_WARNING_SUPPRESS_SWITCH_END();
       return ArithmeticTypes::None;
     }
-    static const egg::ovum::IType& VanillaArray;
-    static const egg::ovum::IType& VanillaObject;
   };
 
   class EggProgramContext final : public egg::ovum::HardReferenceCounted<egg::ovum::IHardAcquireRelease> {

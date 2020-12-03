@@ -1590,7 +1590,7 @@ std::shared_ptr<egg::yolk::IEggProgramNode> egg::yolk::EggSyntaxNode_FunctionDef
     auto parameter_flags = parameter_optional ? egg::ovum::IFunctionSignatureParameter::Flags::None : egg::ovum::IFunctionSignatureParameter::Flags::Required;
     builder->addPositionalParameter(parameter_type, parameter_name, parameter_flags);
   }
-  auto type = builder->build();
+  auto type = builder->build(nullptr);
   auto allowed = this->generator ? (EggParserAllowed::Return | EggParserAllowed::Yield) : EggParserAllowed::Return;
   EggParserContextNested nested(context, allowed);
   auto block = nested.promote(*this->child[parameters + 1]);

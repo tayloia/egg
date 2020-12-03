@@ -15,9 +15,9 @@ namespace egg::ovum {
     static const StringProperty* getStringPropertyByIndex(size_t index);
     static size_t getStringPropertyCount();
 
-    static Value createAssertInstance(IAllocator& allocator);
-    static Value createPrintInstance(IAllocator& allocator);
-    static Value createTypeInstance(IAllocator& allocator);
-    static Value createStringInstance(IAllocator& allocator);
+    static Value createAssertInstance(IAllocator& allocator, IBasket& basket);
+    static Value createPrintInstance(IAllocator& allocator, IBasket& basket);
+    static Value createTypeInstance(IAllocator& allocator, IBasket& basket);
+    static Value createStringInstance(IAllocator& allocator, IBasket& basket);
   };
 }
