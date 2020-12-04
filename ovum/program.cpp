@@ -96,14 +96,14 @@ namespace {
   private:
     LocationSource source;
     Kind kind;
-    SoftPtr<const IType> type;
+    Type type;
     String name;
     SoftPtr<Slot> slot;
   public:
     Symbol(IBasket& basket, const LocationSource& source, Kind kind, const IType& type, const String& name, Slot& slot)
       : source(source),
         kind(kind),
-        type(basket, &type),
+        type(&type),
         name(name),
         slot(basket, &slot) {
       assert(this->validate(true));
@@ -124,7 +124,6 @@ namespace {
       return this->slot->value(Value::Break);
     }
     void assign(const Value& value) {
-
       auto* target = this->slot.get();
       assert(target != nullptr);
       auto* basket = target->softGetBasket();
@@ -140,7 +139,6 @@ namespace {
                                               std::forward_as_tuple(basket, this->source, this->kind, *this->type, this->name, *this->slot));
     }
     void visit(const ICollectable::Visitor& visitor) const {
-      this->type.visit(visitor);
       this->slot.visit(visitor);
     }
     bool validate(bool optional) const {
@@ -166,7 +164,7 @@ namespace {
     Symbol* add(const LocationSource& source, Symbol::Kind kind, const Type& type, const String& name) {
       // Return non-null iff the insertion occurred
       printf("WIBBLE: SYMTABLE %p: ADD %s\n", this, name.toUTF8().c_str());
-      auto slot = this->allocator.make<Slot>();
+      auto slot = this->allocator.makeHard<Slot>(*this->basket);
       auto retval = this->table.emplace(std::piecewise_construct,
                                         std::forward_as_tuple(name),
                                         std::forward_as_tuple(*this->basket, source, kind, *type, name, *slot));
@@ -213,7 +211,7 @@ namespace {
     HardPtr<SymbolTable> clone() {
       printf("WIBBLE: SYMTABLE %p: CLONE\n", this);
       // Shallow clone the symbol table
-      auto cloned = this->allocator.make<SymbolTable>(*this->basket, nullptr, nullptr);
+      auto cloned = this->allocator.makeHard<SymbolTable>(*this->basket, nullptr, nullptr);
       // WEBBLE this->basket->take(*cloned);
       for (auto& each : this->table) {
         each.second.clone(*this->basket, cloned->table);
@@ -236,8 +234,8 @@ namespace {
   private:
     ProgramDefault& program; // ProgramDefault lifetime guaranteed to be longer than UserFunction instance
     LocationSource location;
-    SoftPtr<const IType> type;
-    Node block;
+    Type type;
+    const INode* block;
     SoftPtr<SymbolTable> captured;
   public:
     UserFunction(IAllocator& allocator, ProgramDefault& program, const LocationSource& location, const Type& ftype, const INode& block)
@@ -247,7 +245,7 @@ namespace {
       type(),
       block(&block) {
       assert(block.getOpcode() == Opcode::BLOCK);
-      this->initialize(ftype.get());
+      this->initialize(ftype);
       assert(type != nullptr);
     }
     void setCaptured(const HardPtr<SymbolTable>& symtable) {
@@ -256,7 +254,6 @@ namespace {
       assert(this->captured != nullptr);
     }
     virtual void softVisit(const Visitor& visitor) const override {
-      this->type.visit(visitor);
       this->captured.visit(visitor);
     }
     virtual void print(Printer& printer) const override {
@@ -319,9 +316,9 @@ namespace {
       }
       return execution.raiseFormat("Function ", std::forward<ARGS>(args)...);
     }
-    static Type makeType(IAllocator& allocator, ProgramDefault& program, const String& name, const INode& callable);
+    static Type makeType(TypeFactory& factory, ProgramDefault& program, const String& name, const INode& callable);
   private:
-    void initialize(const IType* ftype);
+    void initialize(const Type& ftype);
     const IFunctionSignature* getFunctionSignature() const {
       assert(this->type->getObjectShapeCount() == 1);
       auto* shape = this->type->getObjectShape(0);
@@ -355,23 +352,26 @@ namespace {
   private:
     ILogger& logger;
     ILogger::Severity maxseverity;
+    TypeFactory factory;
     Basket basket;
     HardPtr<SymbolTable> symtable;
     LocationSource location;
   public:
-    ProgramDefault(IAllocator& allocator, IBasket& basket, ILogger& logger)
+    ProgramDefault(IAllocator& allocator, ILogger& logger)
       : HardReferenceCounted(allocator, 0),
         logger(logger),
         maxseverity(ILogger::Severity::None),
-        basket(&basket),
-        symtable(allocator.make<SymbolTable>(basket, nullptr, nullptr)),
+        factory(allocator),
+        basket(egg::ovum::BasketFactory::createBasket(allocator)),
+        symtable(factory.allocator.makeHard<SymbolTable>(*basket, nullptr, nullptr)),
         location({}, 0, 0) {
-      basket.dump();
+      basket->dump();
     }
     virtual ~ProgramDefault() {
       this->symtable.set(nullptr);
       this->basket->collect();
-      this->basket->collect(); // WYBBLE
+      // Check for incomplete collection (usually an indication that soft pointer tracing is incorrect)
+      assert(this->basket->collect() == 0);
     }
     virtual bool builtin(const String& name, const Value& value) override {
       static const LocationSource source("<builtin>", 0, 0);
@@ -399,10 +399,13 @@ namespace {
       return result;
     }
     virtual IAllocator& getAllocator() const override {
-      return this->allocator;
+      return this->factory.allocator;
     }
     virtual IBasket& getBasket() const override {
       return *this->basket;
+    }
+    virtual TypeFactory& getTypeFactory() override {
+      return this->factory;
     }
     virtual Value raise(const String& message) override {
       return this->raiseError(this->location, message);
@@ -542,16 +545,15 @@ namespace {
       (void)object->setProperty(*this, "left", lhs);
       (void)object->setProperty(*this, "operator", ValueFactory::createUTF8(this->allocator, str));
       (void)object->setProperty(*this, "right", rhs);
-      auto value = ValueFactory::createObjectHard(this->allocator, object);
+      auto value = ValueFactory::createObject(this->allocator, object);
       return ValueFactory::createFlowControl(this->allocator, ValueFlags::Throw, value);
     }
     // Builtins
     void addBuiltins() {
-      assert(this->basket != nullptr);
-      this->builtin("assert", BuiltinFactory::createAssertInstance(this->allocator, *this->basket));
-      this->builtin("print", BuiltinFactory::createPrintInstance(this->allocator, *this->basket));
-      this->builtin("string", BuiltinFactory::createStringInstance(this->allocator, *this->basket));
-      this->builtin("type", BuiltinFactory::createTypeInstance(this->allocator, *this->basket));
+      this->builtin("assert", BuiltinFactory::createAssertInstance(this->factory, *this->basket));
+      this->builtin("print", BuiltinFactory::createPrintInstance(this->factory, *this->basket));
+      this->builtin("string", BuiltinFactory::createStringInstance(this->factory, *this->basket));
+      this->builtin("type", BuiltinFactory::createTypeInstance(this->factory, *this->basket));
       this->basket->dump();
     }
   private:
@@ -823,9 +825,9 @@ namespace {
         return this->raise("Generators are not yet supported"); // WIBBLE
       }
       this->updateLocation(node);
-      auto function = this->allocator.make<UserFunction>(*this, this->location, ftype, fblock);
+      auto function = this->allocator.makeHard<UserFunction>(*this, this->location, ftype, fblock);
       // We have to be careful to ensure the function is declared before capturing symbols so that recursion works correctly
-      auto fvalue = ValueFactory::createObjectHard(this->allocator, Object(*function));
+      auto fvalue = ValueFactory::createObject(this->allocator, Object(*function));
       auto retval = block.declare(this->location, ftype, fname, &fvalue);
       function->setCaptured(this->symtable->clone());
       return retval;
@@ -1276,7 +1278,7 @@ namespace {
           return expr;
         }
       }
-      return ValueFactory::createObjectHard(this->allocator, object);
+      return ValueFactory::createObject(this->allocator, object);
     }
     Value expressionSvalue(const INode& node) {
       assert(node.getOpcode() == Opcode::SVALUE);
@@ -1370,7 +1372,7 @@ namespace {
         if (OperatorProperties::from(oper).opclass == Opclass::COMPARE) {
           // We only support predicates for comparisons
           auto predicate = VanillaFactory::createPredicate(this->allocator, *this->basket, *this, child);
-          return ValueFactory::createObjectHard(this->allocator, predicate);
+          return ValueFactory::createObject(this->allocator, predicate);
         }
       }
       return this->expression(child);
@@ -1455,7 +1457,7 @@ namespace {
       if (found == nullptr) {
         return Value::Void;
       }
-      return found->createInstance(this->allocator, string);
+      return found->createInstance(this->factory, *this->basket, string);
     }
     // Operators
     Value operatorCompare(const INode& node, Value& lhs, Value& rhs) {
@@ -1756,7 +1758,7 @@ namespace {
         if (children == 1) {
           auto& callable = node.getChild(0);
           if (callable.getOpcode() == Opcode::CALLABLE) {
-            return UserFunction::makeType(this->allocator, *this, name, callable);
+            return UserFunction::makeType(this->factory, *this, name, callable);
           }
         }
         break;
@@ -1774,14 +1776,14 @@ namespace {
         if (children == 1) {
           auto pointee = this->type(node.getChild(0));
           auto modifiability = Modifiability::Read | Modifiability::Write | Modifiability::Mutate; // TODO
-          return TypeFactory::createPointer(this->allocator, *pointee, modifiability);
+          return this->factory.createPointer(pointee, modifiability);
         }
         break;
       case Opcode::UNION:
         if (children >= 1) {
           auto result = this->type(node.getChild(0));
           for (size_t i = 1; i < children; ++i) {
-            result = TypeFactory::createUnion(this->allocator, *result, *this->type(node.getChild(i)));
+            result = this->factory.createUnion(result, this->type(node.getChild(i)));
           }
           return result;
         }
@@ -2051,8 +2053,8 @@ namespace {
       default:
         break;
       }
-      // WEBBLE this->basket->take(*slot);
-      return slot->reference(symbol.getType(), modifiability);
+      // WEBBLE this->factory.basket.take(*slot);
+      return slot->reference(this->factory, *this->basket, symbol.getType(), modifiability);
     }
     RuntimeException unexpectedOpcode(const char* expected, const INode& node) {
       this->updateLocation(node);
@@ -2074,7 +2076,7 @@ namespace {
     }
     Value raiseError(const LocationSource& where, const String& message) const {
       auto object = VanillaFactory::createError(this->allocator, *this->basket, where, message);
-      auto value = ValueFactory::createObjectHard(this->allocator, object);
+      auto value = ValueFactory::createObject(this->allocator, object);
       return ValueFactory::createFlowControl(this->allocator, ValueFlags::Throw, value);
     }
     template<typename... ARGS>
@@ -2090,11 +2092,10 @@ namespace {
   };
 }
 
-void UserFunction::initialize(const IType* ftype) {
+void UserFunction::initialize(const Type& ftype) {
   assert(ftype != nullptr);
-  auto& trug = this->program.getBasket();
-  this->type.set(trug, ftype);
-  trug.take(*this);
+  this->type = ftype;
+  this->program.getBasket().take(*this);
 }
 
 Value UserFunction::call(IExecution& execution, const IParameters& parameters) {
@@ -2223,7 +2224,7 @@ egg::ovum::Value Block::guard(const LocationSource& source, const Type& type, co
   return Value::True;
 }
 
-egg::ovum::Type UserFunction::makeType(IAllocator& allocator, ProgramDefault& program, const String& name, const INode& callable) {
+egg::ovum::Type UserFunction::makeType(TypeFactory& factory, ProgramDefault& program, const String& name, const INode& callable) {
   // Create a type appropriate for a standard "user" function
   assert(callable.getOpcode() == Opcode::CALLABLE);
   auto n = callable.getChildren();
@@ -2231,7 +2232,7 @@ egg::ovum::Type UserFunction::makeType(IAllocator& allocator, ProgramDefault& pr
   auto rettype = program.type(callable.getChild(0));
   assert(rettype != nullptr);
   auto description = StringBuilder::concat("Function '", name, "'");
-  auto builder = TypeFactory::createFunctionBuilder(allocator, rettype, name, description);
+  auto builder = factory.createFunctionBuilder(rettype, name, description);
   for (size_t i = 1; i < n; ++i) {
     auto& parameter = callable.getChild(i);
     auto children = parameter.getChildren();
@@ -2275,12 +2276,11 @@ egg::ovum::Type UserFunction::makeType(IAllocator& allocator, ProgramDefault& pr
       builder->addPositionalParameter(ptype, pname, pflags);
     }
   }
-  return builder->build(&program.getBasket());
+  return builder->build();
 }
 
 egg::ovum::Program egg::ovum::ProgramFactory::createProgram(IAllocator& allocator, ILogger& logger) {
-  auto basket = BasketFactory::createBasket(allocator);
-  auto program = allocator.make<ProgramDefault>(*basket, logger);
+  HardPtr<ProgramDefault> program{ allocator.makeRaw<ProgramDefault>(allocator, logger) };
   program->addBuiltins();
   return program;
 }

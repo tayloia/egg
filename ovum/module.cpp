@@ -695,7 +695,7 @@ std::string egg::ovum::OperatorProperties::str(Operator oper) {
 }
 
 egg::ovum::Module egg::ovum::ModuleFactory::fromBinaryStream(IAllocator& allocator, const String& resource, std::istream& stream) {
-  auto module = allocator.make<ModuleDefault>(resource);
+  auto module = allocator.makeHard<ModuleDefault>(resource);
   module->readFromStream(stream);
   return Module(module.get());
 }
@@ -706,7 +706,7 @@ egg::ovum::Module egg::ovum::ModuleFactory::fromMemory(IAllocator& allocator, co
 }
 
 egg::ovum::Module egg::ovum::ModuleFactory::fromRootNode(IAllocator& allocator, const String& resource, INode& root) {
-  return allocator.make<ModuleDefault, Module>(resource, &root);
+  return allocator.makeHard<ModuleDefault, Module>(resource, &root);
 }
 
 void egg::ovum::ModuleFactory::toBinaryStream(const IModule& module, std::ostream& stream) {

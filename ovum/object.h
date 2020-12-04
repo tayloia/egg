@@ -21,7 +21,6 @@ namespace egg::ovum {
 
   class ObjectFactory {
   public:
-    static Object createEmpty(IAllocator& allocator);
-    static Object createPointer(IAllocator& allocator, ISlot& slot, const Type& pointee, Modifiability modifiability);
+    static Object createEmpty(IAllocator& allocator, IBasket& basket);
   };
 }

@@ -105,12 +105,17 @@ namespace egg::ovum {
       allocated->~T();
       this->deallocate(const_cast<T*>(allocated), alignof(T));
     }
-    template<typename T, typename RETTYPE = HardPtr<T>, typename... ARGS>
-    inline RETTYPE make(ARGS&&... args) {
+    template<typename T, typename... ARGS>
+    inline T* makeRaw(ARGS&&... args) {
       // Use perfect forwarding to in-place new
       void* allocated = this->allocate(sizeof(T), alignof(T));
       assert(allocated != nullptr);
-      return RETTYPE(new(allocated) T(*this, std::forward<ARGS>(args)...));
+      return new(allocated) T(std::forward<ARGS>(args)...);
+    }
+    template<typename T, typename RETTYPE = HardPtr<T>, typename... ARGS>
+    inline RETTYPE makeHard(ARGS&&... args) {
+      // Use perfect forwarding
+      return RETTYPE(this->makeRaw<T>(*this, std::forward<ARGS>(args)...));
     }
   };
 
@@ -246,7 +251,7 @@ namespace egg::ovum {
     Modifiability modifiability;
   };
 
-  class IType : public ICollectable {
+  class IType : public IHardAcquireRelease {
   public:
     virtual ValueFlags getPrimitiveFlags() const = 0;
     virtual const ObjectShape* getObjectShape(size_t index) const = 0;

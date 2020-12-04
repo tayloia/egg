@@ -65,8 +65,6 @@ namespace egg::ovum {
     const IIndexSignature* queryIndexable() const;
     const IIteratorSignature* queryIterable() const;
     const PointerShape* queryPointable() const;
-    Type addFlags(IAllocator& allocator, ValueFlags flags) const;
-    Type stripFlags(IAllocator& allocator, ValueFlags flags) const;
 
     enum class Assignment {
       Success, Uninitialized, Incompatible, BadIntToFloat,
@@ -79,6 +77,7 @@ namespace egg::ovum {
     static const Type Void;
     static const Type Null;
     static const Type Bool;
+    static const Type BoolInt;
     static const Type Int;
     static const Type IntQ;
     static const Type Float;
@@ -97,7 +96,7 @@ namespace egg::ovum {
       virtual void defineDotable(const Type& unknownType, Modifiability unknownModifiability) = 0;
       virtual void defineIndexable(const Type& resultType, const Type& indexType, Modifiability modifiability) = 0;
       virtual void defineIterable(const Type& resultType) = 0;
-      virtual Type build(IBasket* basket) = 0;
+      virtual Type build() = 0;
   };
   using TypeBuilder = HardPtr<ITypeBuilder>;
 
@@ -171,30 +170,26 @@ namespace egg::ovum {
     TypeBuilderProperties& operator=(const TypeBuilderProperties&) = delete;
   private:
     struct Property {
-      const IType* type;
+      Type type;
       String name;
       Modifiability modifiability;
     };
     // TODO use Dictionary?
     std::map<String, Property> map;
     std::vector<String> vec;
-    const IType* unknownType; // the type of unknown properties or null
+    Type unknownType; // the type of unknown properties or null
     Modifiability unknownModifiability; // the modifiability of unknown properties
-    bool soft; // Whether we're using hard or soft references to types
   public:
     TypeBuilderProperties()
       : unknownType(nullptr),
-        unknownModifiability(Modifiability::None),
-        soft(false) {
+        unknownModifiability(Modifiability::None) {
       // Closed properties (i.e. unknown properties are not allowed)
     }
     TypeBuilderProperties(const Type& unknownType, Modifiability unknownModifiability)
-      : unknownType(unknownType.hardAcquire()),
-        unknownModifiability(unknownModifiability),
-        soft(false) {
+      : unknownType(unknownType),
+        unknownModifiability(unknownModifiability) {
       // Open set of properties
     }
-    virtual ~TypeBuilderProperties();
     virtual Type getType(const String& property) const override {
       auto found = this->map.find(property);
       if (found == this->map.end()) {
@@ -220,18 +215,14 @@ namespace egg::ovum {
     }
     bool add(const Type& type, const String& name, Modifiability modifiability) {
       // Careful with reference counting under exception conditions!
-      assert(!this->soft);
-      Property property{ nullptr, name, modifiability };
+      Property property{ type, name, modifiability };
       auto added = this->map.try_emplace(name, std::move(property));
       if (!added.second) {
         return false;
       }
-      added.first->second.type = type.hardAcquire();
       this->vec.emplace_back(name);
       return true;
     }
-    void soften(IBasket& basket);
-    void visit(const ICollectable::Visitor& visitor) const;
   };
 
   class TypeBuilderIndexable : public IIndexSignature {
@@ -277,14 +268,24 @@ namespace egg::ovum {
   };
 
   class TypeFactory {
+    TypeFactory(const TypeFactory&) = delete;
+    TypeFactory& operator=(const TypeFactory&) = delete;
   public:
-    static IBasket* basketWIBBLE;
+    IAllocator& allocator;
+  public:
+    explicit TypeFactory(IAllocator& allocator)
+      : allocator(allocator) {
+    }
+    Type createSimple(ValueFlags flags);
+    Type createPointer(const Type& pointee, Modifiability modifiability);
+    Type createUnion(const Type& a, const Type& b);
 
-    static Type createSimple(IAllocator& allocator, ValueFlags flags);
-    static Type createPointer(IAllocator& allocator, const IType& pointee, Modifiability modifiability);
-    static Type createUnion(IAllocator& allocator, const IType& a, const IType& b);
-    static TypeBuilder createTypeBuilder(IAllocator& allocator, const String& name, const String& description);
-    static TypeBuilder createFunctionBuilder(IAllocator& allocator, const Type& rettype, const String& name, const String& description);
-    static TypeBuilder createGeneratorBuilder(IAllocator& allocator, const Type& gentype, const String& name, const String& description);
+    Type addVoid(const Type& type);
+    Type addNull(const Type& type);
+    Type stripFlags(const Type& type, ValueFlags flags);
+
+    TypeBuilder createTypeBuilder(const String& name, const String& description);
+    TypeBuilder createFunctionBuilder(const Type& rettype, const String& name, const String& description);
+    TypeBuilder createGeneratorBuilder(const Type& gentype, const String& name, const String& description);
   };
 }

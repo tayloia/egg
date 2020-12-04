@@ -13,9 +13,10 @@ using namespace egg::yolk;
 
 namespace {
   std::shared_ptr<IEggProgramNode> parseFromString(egg::ovum::IAllocator& allocator, IEggParser& parser, const std::string& text) {
+    egg::ovum::TypeFactory factory{ allocator };
     auto lexer = LexerFactory::createFromString(text);
     auto tokenizer = EggTokenizerFactory::createFromLexer(lexer);
-    return parser.parse(allocator, *tokenizer);
+    return parser.parse(factory, *tokenizer);
   }
   std::string dumpToString(IEggProgramNode& tree) {
     std::ostringstream oss;
@@ -23,10 +24,11 @@ namespace {
     return oss.str();
   }
   std::string typeFromExpression(egg::ovum::IAllocator& allocator, const std::string& expression) {
+    egg::ovum::TypeFactory factory{ allocator };
     auto lexer = LexerFactory::createFromString(expression);
     auto tokenizer = EggTokenizerFactory::createFromLexer(lexer);
     auto parser = EggParserFactory::createExpressionParser();
-    auto type = parser->parse(allocator, *tokenizer)->getType();
+    auto type = parser->parse(factory, *tokenizer)->getType();
     return type.toString().toUTF8();
   }
 }
@@ -110,8 +112,9 @@ TEST(TestEggParser, ExpressionType) {
 
 TEST(TestEggParser, ExampleFile) {
   egg::test::Allocator allocator{ egg::test::Allocator::Expectation::NoAllocations }; // TODO
+  egg::ovum::TypeFactory factory{ allocator };
   FileTextStream stream("~/yolk/test/data/example.egg");
-  auto root = EggParserFactory::parseModule(allocator, stream);
+  auto root = EggParserFactory::parseModule(factory, stream);
   root->dump(std::cout);
   std::cout << std::endl;
 }

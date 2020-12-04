@@ -117,9 +117,8 @@ namespace egg::ovum {
     static Value createInt(IAllocator& allocator, Int value);
     static Value createFloat(IAllocator& allocator, Float value);
     static Value createString(IAllocator& allocator, const String& value);
-    static Value createObjectHard(IAllocator& allocator, const Object& value);
-    static Value createObjectSoft(IAllocator& allocator, IBasket& basket, const Object& value); // WEBBLE
-    static Value createPointerHard(IAllocator& allocator, ISlot& slot, const Type& pointee, Modifiability modifiability);
+    static Value createObject(IAllocator& allocator, const Object& value);
+    static Value createPointer(IAllocator& allocator, ISlot& slot, const Type& pointee, Modifiability modifiability);
     static Value createFlowControl(IAllocator& allocator, ValueFlags flags, const Value& value);
 
     // Overloaded without implicit promotion
@@ -147,7 +146,7 @@ namespace egg::ovum {
       return createString(allocator, value);
     }
     static Value create(IAllocator& allocator, const Object& value) {
-      return createObjectHard(allocator, value);
+      return createObject(allocator, value);
     }
     static Value createUTF8(IAllocator& allocator, const std::string& value) {
       return createString(allocator, StringFactory::fromUTF8(allocator, value));

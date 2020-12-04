@@ -16,8 +16,8 @@ namespace egg::ovum {
     Atomic<IValue*> ptr; // SoftPtr
   public:
     // Construction
-    explicit Slot(IAllocator& allocator);
-    Slot(IAllocator& allocator, const Value& value);
+    Slot(IAllocator& allocator, IBasket& basket);
+    Slot(IAllocator& allocator, IBasket& basket, const Value& value);
     // Atomic access
     virtual IValue* get() const override; // nullptr if empty
     virtual void set(const Value& value) override;
@@ -32,7 +32,7 @@ namespace egg::ovum {
       auto* value = this->get();
       return (value == nullptr) ? empty : Value(*value);
     }
-    Value reference(const Type& pointee, Modifiability modifiability);
+    Value reference(TypeFactory& factory, IBasket& basket, const Type& pointee, Modifiability modifiability);
     // Debugging
     bool validate(bool optional) const;
     virtual bool validate() const override {
@@ -70,7 +70,7 @@ namespace egg::ovum {
         if (slot != nullptr) {
           slot->set(value);
         } else {
-          slot.set(basket, allocator.make<Slot, Slot*>(value));
+          slot.set(basket, allocator.makeRaw<Slot>(allocator, basket, value));
         }
         return slot.get();
       }
@@ -80,7 +80,7 @@ namespace egg::ovum {
       auto before = this->vec.size();
       this->vec.resize(size);
       while (before < size) {
-        this->vec[before++].set(basket, allocator.make<Slot, Slot*>(fill));
+        this->vec[before++].set(basket, allocator.makeRaw<Slot>(allocator, basket, fill));
       }
     }
     void foreach(std::function<void(const Slot& slot)> visitor) const {
@@ -138,7 +138,7 @@ namespace egg::ovum {
       // Add a new slot (returns 'true' iff added)
       auto inserted = this->map.emplace(std::piecewise_construct,
                                         std::forward_as_tuple(key),
-                                        std::forward_as_tuple(basket, allocator.make<Slot, Slot*>(value)));
+                                        std::forward_as_tuple(basket, allocator.makeRaw<Slot>(allocator, basket, value)));
       if (inserted.second) {
         this->vec.emplace_back(key);
         return true;
@@ -155,7 +155,7 @@ namespace egg::ovum {
       // Add a new slot
       this->map.emplace(std::piecewise_construct,
                         std::forward_as_tuple(key),
-                        std::forward_as_tuple(basket, allocator.make<Slot, Slot*>(value)));
+                        std::forward_as_tuple(basket, allocator.makeRaw<Slot>(allocator, basket, value)));
       this->vec.emplace_back(key);
       return true;
     }

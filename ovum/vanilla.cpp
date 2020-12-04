@@ -10,10 +10,10 @@ namespace {
 
   template<typename T, typename... ARGS>
   static Object createVanillaObject(IAllocator& allocator, ARGS&&... args) {
-    return Object(*allocator.make<T>(std::forward<ARGS>(args)...));
+    return Object(*allocator.makeRaw<T>(allocator, std::forward<ARGS>(args)...));
   }
 
-  class Type_Base : public NotSoftReferenceCounted<IType> {
+  class Type_Base : public NotHardReferenceCounted<IType> {
     Type_Base(const Type_Base&) = delete;
     Type_Base& operator=(const Type_Base&) = delete;
   protected:
@@ -382,15 +382,16 @@ namespace {
     VanillaIterator(const VanillaIterator&) = delete;
     VanillaIterator& operator=(const VanillaIterator&) = delete;
   private:
-    HardPtr<VanillaIterable> container; // WEBBLE SoftPtr
+    SoftPtr<VanillaIterable> container;
     Type_Iterator type;
     VanillaIterable::State state;
   public:
     VanillaIterator(IExecution& execution, VanillaIterable& container, const Type& rettype)
       : VanillaBase(execution.getAllocator()),
-        container(&container),
+        container(execution.getBasket(), &container),
         type(rettype),
         state(container.iterateStart(execution)) {
+      execution.getBasket().take(*this);
       assert(this->validate());
     }
     virtual void softVisit(const Visitor& visitor) const override {
@@ -410,7 +411,7 @@ namespace {
 
   Value VanillaIterable::createIterator(IExecution& execution, const Type& elementType) {
     assert(elementType != nullptr);
-    auto rettype = TypeFactory::createUnion(execution.getAllocator(), *Type::Void, *elementType);
+    auto rettype = execution.getTypeFactory().addVoid(elementType);
     Object iterator(*allocator.create<VanillaIterator>(0, execution, *this, rettype));
     return ValueFactory::create(allocator, iterator);
   }
@@ -423,7 +424,8 @@ namespace {
   public:
     VanillaArray(IAllocator& allocator, IBasket& basket, size_t length)
       : VanillaIterable(allocator),
-      array(basket, allocator.make<VanillaValueArray, VanillaValueArray*>(basket, length)) {
+        array(basket, allocator.makeRaw<VanillaValueArray>(allocator, basket, length)) {
+      basket.take(*this);
       assert(this->validate());
     }
     virtual void softVisit(const Visitor& visitor) const override {
@@ -521,7 +523,7 @@ namespace {
   public:
     VanillaDictionary(IAllocator& allocator, IBasket& basket)
       : VanillaIterable(allocator),
-        map(basket, allocator.make<VanillaStringValueMap, VanillaStringValueMap*>(basket)) {
+        map(basket, allocator.makeRaw<VanillaStringValueMap>(allocator, basket)) {
       basket.take(*this);
       assert(this->validate());
     }
@@ -591,38 +593,6 @@ namespace {
     }
   };
 
-  class VanillaEmpty final : public VanillaIterable {
-    VanillaEmpty(const VanillaEmpty&) = delete;
-    VanillaEmpty& operator=(const VanillaEmpty&) = delete;
-  public:
-    VanillaEmpty(IAllocator& allocator)
-      : VanillaIterable(allocator) {
-      assert(this->validate());
-    }
-    virtual void softVisit(const Visitor&) const override {
-      // Nothing to do
-    }
-    virtual Type getRuntimeType() const override {
-      return Vanilla::getDictionaryType();
-    }
-    virtual Value iterate(IExecution& execution) override {
-      return this->createIterator(execution, Vanilla::getKeyValueType());
-    }
-    virtual State iterateStart(IExecution&) const override {
-      // state.a is irrelevant
-      // state.b is irrelevant
-      return { 0, 0 };
-    }
-    virtual Value iterateNext(IExecution&, State&) const override {
-      // state.a is irrelevant
-      // state.b is irrelevant
-      return Value::Void;
-    }
-    virtual void print(Printer& printer) const override {
-      printer << '{' << '}';
-    }
-  };
-
   class VanillaObject final : public VanillaBase {
     VanillaObject(const VanillaObject&) = delete;
     VanillaObject& operator=(const VanillaObject&) = delete;
@@ -631,7 +601,8 @@ namespace {
   public:
     VanillaObject(IAllocator& allocator, IBasket& basket)
       : VanillaBase(allocator),
-        map(basket, allocator.make<VanillaStringValueMap, VanillaStringValueMap*>(basket)) {
+        map(basket, allocator.makeRaw<VanillaStringValueMap>(allocator, basket)) {
+      basket.take(*this);
       assert(this->validate());
     }
     virtual void softVisit(const Visitor& visitor) const override {
@@ -669,16 +640,17 @@ namespace {
     VanillaKeyValue& operator=(const VanillaKeyValue&) = delete;
   protected:
     String key;
-    Value value; // TODO SoftPtr
+    SoftPtr<Slot> value;
   public:
-    explicit VanillaKeyValue(IAllocator& allocator, IBasket&, const String& key, const Value& value)
+    explicit VanillaKeyValue(IAllocator& allocator, IBasket& basket, const String& key, const Value& value)
       : VanillaIterable(allocator),
         key(key),
-        value(value) {
+        value(basket, allocator.makeRaw<Slot>(allocator, basket, value)) {
+      basket.take(*this); // WOBBLE place in base class throughout?
       assert(this->validate());
     }
-    virtual void softVisit(const Visitor&) const override {
-      // WEBBLE
+    virtual void softVisit(const Visitor& visitor) const override {
+      this->value.visit(visitor);
     }
     virtual Type getRuntimeType() const override {
       return Vanilla::getKeyValueType();
@@ -688,7 +660,7 @@ namespace {
         return execution.makeValue(this->key);
       }
       if (property == "value") {
-        return this->value;
+        return this->getValue();
       }
       return execution.raiseFormat("Key-value object does not support property '", property, "'");
     }
@@ -719,18 +691,22 @@ namespace {
         return execution.makeValue(VanillaFactory::createKeyValue(execution.getAllocator(), execution.getBasket(), "key", execution.makeValue(this->key)));
       case 1:
         state.a = -1;
-        return execution.makeValue(VanillaFactory::createKeyValue(execution.getAllocator(), execution.getBasket(), "value", this->value));
+        return execution.makeValue(VanillaFactory::createKeyValue(execution.getAllocator(), execution.getBasket(), "value", this->getValue()));
       }
       state.a = -1;
       return Value::Void;
     }
     virtual void print(Printer& printer) const override {
       printer << "{key:" << this->key << ",value:";
-      printer.write(this->value);
+      printer.write(this->getValue());
       printer << '}';
     }
     virtual bool validate() const override {
-      return VanillaBase::validate() && this->value.validate();
+      return VanillaBase::validate() && (this->value != nullptr) && this->value->validate();
+    }
+  private:
+    Value getValue() const {
+      return Value(*this->value->get());
     }
   };
 
@@ -739,18 +715,18 @@ namespace {
     VanillaPointer& operator=(const VanillaPointer&) = delete;
   private:
     SoftPtr<ISlot> slot;
-    SoftPtr<const IType> type;
+    Type type;
   public:
-    VanillaPointer(IAllocator& allocator, IBasket& basket, const ISlot& slot, const IType& type)
+    VanillaPointer(IAllocator& allocator, IBasket& basket, const ISlot& slot, const Type& type)
       : VanillaBase(allocator),
         slot(),
-        type() {
+        type(type) {
+      assert(type != nullptr);
       this->slot.set(basket, &slot);
-      this->type.set(basket, &type);
+      basket.take(*this);
     }
     virtual void softVisit(const Visitor& visitor) const override {
       this->slot.visit(visitor);
-      this->type.visit(visitor);
     }
     virtual Type getRuntimeType() const override {
       return Type(this->type.get());
@@ -834,11 +810,12 @@ namespace {
     Vanilla::IPredicateCallback& callback; // Guaranteed to be long-lived
     Node node;
   public:
-    VanillaPredicate(IAllocator& allocator, IBasket&, Vanilla::IPredicateCallback& callback, const INode& node)
+    VanillaPredicate(IAllocator& allocator, IBasket& basket, Vanilla::IPredicateCallback& callback, const INode& node)
       : VanillaBase(allocator),
       callback(callback),
       node(&node) {
       assert(this->node != nullptr);
+      basket.take(*this);
     }
     virtual void softVisit(const Visitor&) const override {
       // There are no soft links to visit
@@ -860,10 +837,6 @@ namespace {
       return StringBuilder::concat("Internal runtime error: Predicate ", suffix);
     }
   };
-}
-
-egg::ovum::Object egg::ovum::VanillaFactory::createEmpty(IAllocator& allocator) {
-  return createVanillaObject<VanillaEmpty>(allocator);
 }
 
 egg::ovum::Object egg::ovum::VanillaFactory::createArray(IAllocator& allocator, IBasket& basket, size_t length) {
@@ -890,7 +863,6 @@ egg::ovum::Object egg::ovum::VanillaFactory::createPredicate(IAllocator& allocat
   return createVanillaObject<VanillaPredicate>(allocator, basket, callback, node);
 }
 
-egg::ovum::Object egg::ovum::VanillaFactory::createPointer(IAllocator& allocator, IBasket& basket, ISlot& slot, const Type& pointee, Modifiability modifiability) {
-  auto type = TypeFactory::createPointer(allocator, *pointee, modifiability);
-  return createVanillaObject<VanillaPointer>(allocator, basket, slot, *type);
+egg::ovum::Object egg::ovum::VanillaFactory::createPointer(IAllocator& allocator, IBasket& basket, ISlot& slot, const Type& pointer) {
+  return createVanillaObject<VanillaPointer>(allocator, basket, slot, pointer);
 }

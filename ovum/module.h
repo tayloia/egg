@@ -25,7 +25,6 @@ namespace egg::ovum {
     static Opcode opcodeFromMachineByte(uint8_t byte);
   };
 
-
   class ModuleFactory {
   public:
     static Module fromBinaryStream(IAllocator& allocator, const String& resource, std::istream& stream);

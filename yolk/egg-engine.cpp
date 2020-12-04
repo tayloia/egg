@@ -25,18 +25,24 @@ namespace {
   class EggEngineContext : public IEggEngineContext {
     EGG_NO_COPY(EggEngineContext);
   private:
-    egg::ovum::IAllocator& allocator;
+    egg::ovum::TypeFactory& factory;
+    egg::ovum::IBasket& basket;
     std::shared_ptr<egg::ovum::ILogger> logger;
   public:
-    EggEngineContext(egg::ovum::IAllocator& allocator, const std::shared_ptr<egg::ovum::ILogger>& logger)
-      : allocator(allocator), logger(logger) {
+    EggEngineContext(egg::ovum::TypeFactory& factory, egg::ovum::IBasket& basket, const std::shared_ptr<egg::ovum::ILogger>& logger)
+      : factory(factory),
+        basket(basket),
+        logger(logger) {
       assert(logger != nullptr);
     }
     virtual void log(egg::ovum::ILogger::Source source, egg::ovum::ILogger::Severity severity, const std::string& message) override {
       this->logger->log(source, severity, message);
     }
-    virtual egg::ovum::IAllocator& getAllocator() const override {
-      return this->allocator;
+    virtual egg::ovum::IAllocator& getAllocator() override {
+      return this->factory.allocator;
+    }
+    virtual egg::ovum::TypeFactory& getTypeFactory() override {
+      return this->factory;
     }
   };
 
@@ -84,8 +90,9 @@ namespace {
         return egg::ovum::ILogger::Severity::Error;
       }
       return captureExceptions(egg::ovum::ILogger::Source::Compiler, context, [this, &context]{
+        auto& factory = context.getTypeFactory();
+        auto root = EggParserFactory::parseModule(factory, *this->stream);
         auto& allocator = context.getAllocator();
-        auto root = EggParserFactory::parseModule(allocator, *this->stream);
         this->program = std::make_unique<EggProgram>(allocator, this->stream->getResourceName(), root);
         return this->program->prepare(context);
       });
@@ -129,8 +136,8 @@ egg::ovum::ILogger::Severity egg::yolk::IEggEngine::run(IEggEngineContext& conte
   return preparation;
 }
 
-std::shared_ptr<IEggEngineContext> egg::yolk::EggEngineFactory::createContext(egg::ovum::IAllocator& allocator, const std::shared_ptr<egg::ovum::ILogger>& logger) {
-  return std::make_shared<EggEngineContext>(allocator, logger);
+std::shared_ptr<IEggEngineContext> egg::yolk::EggEngineFactory::createContext(egg::ovum::TypeFactory& factory, egg::ovum::IBasket& basket, const std::shared_ptr<egg::ovum::ILogger>& logger) {
+  return std::make_shared<EggEngineContext>(factory, basket, logger);
 }
 
 std::shared_ptr<egg::yolk::IEggEngine> egg::yolk::EggEngineFactory::createEngineFromParsed(egg::ovum::IAllocator& allocator, const egg::ovum::String& resource, const std::shared_ptr<IEggProgramNode>& root) {

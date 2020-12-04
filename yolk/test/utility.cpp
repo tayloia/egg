@@ -105,7 +105,7 @@ TEST(TestGC, HardPtr) {
   Monitor monitor;
   ASSERT_EQ("", monitor.read());
   {
-    egg::ovum::HardPtr<Instance> ref1{ allocator.make<InstanceRC>(1, monitor, "hrc") }; // rc=2
+    egg::ovum::HardPtr<Instance> ref1{ allocator.makeHard<InstanceRC>(1, monitor, "hrc") }; // rc=2
     ASSERT_EQ("*hrc", monitor.read());
     const Instance* raw = ref1->getInstanceAddress();
     ASSERT_EQ(raw, ref1.get());

@@ -22,13 +22,15 @@ namespace {
   }
   std::string parseStatementToString(const std::string& text) {
     egg::test::Allocator allocator{ egg::test::Allocator::Expectation::Unknown }; // TODO
-    auto parser = EggParserFactory::createStatementSyntaxParser(allocator);
+    egg::ovum::TypeFactory factory{ allocator };
+    auto parser = EggParserFactory::createStatementSyntaxParser(factory);
     auto root = parseFromString(*parser, text);
     return dumpToString(*root);
   }
   std::string parseExpressionToString(const std::string& text) {
     egg::test::Allocator allocator{ egg::test::Allocator::Expectation::NoAllocations }; // TODO
-    auto parser = EggParserFactory::createExpressionSyntaxParser(allocator);
+    egg::ovum::TypeFactory factory{ allocator };
+    auto parser = EggParserFactory::createExpressionSyntaxParser(factory);
     auto root = parseFromString(*parser, text);
     return dumpToString(*root);
   }
@@ -46,7 +48,8 @@ namespace {
 
 TEST(TestEggSyntaxParser, SyntaxException) {
   egg::test::Allocator allocator{ egg::test::Allocator::Expectation::NoAllocations }; // TODO
-  auto parser = EggParserFactory::createModuleSyntaxParser(allocator);
+  egg::ovum::TypeFactory factory{ allocator };
+  auto parser = EggParserFactory::createModuleSyntaxParser(factory);
   auto lexer = LexerFactory::createFromString("var null", "<string>");
   auto tokenizer = EggTokenizerFactory::createFromLexer(lexer);
   ASSERT_THROW_E(parser->parse(*tokenizer), SyntaxException, expectSyntaxException(e));
@@ -54,21 +57,24 @@ TEST(TestEggSyntaxParser, SyntaxException) {
 
 TEST(TestEggSyntaxParser, ModuleEmpty) {
   egg::test::Allocator allocator{ egg::test::Allocator::Expectation::NoAllocations }; // TODO
-  auto parser = EggParserFactory::createModuleSyntaxParser(allocator);
+  egg::ovum::TypeFactory factory{ allocator };
+  auto parser = EggParserFactory::createModuleSyntaxParser(factory);
   auto root = parseFromString(*parser, "");
   ASSERT_EQ("(module)", dumpToString(*root));
 }
 
 TEST(TestEggSyntaxParser, ModuleOneStatement) {
   egg::test::Allocator allocator{ egg::test::Allocator::Expectation::NoAllocations }; // TODO
-  auto parser = EggParserFactory::createModuleSyntaxParser(allocator);
+  egg::ovum::TypeFactory factory{ allocator };
+  auto parser = EggParserFactory::createModuleSyntaxParser(factory);
   auto root = parseFromString(*parser, "var foo;");
   ASSERT_EQ("(module (declare 'foo' (type 'var')))", dumpToString(*root));
 }
 
 TEST(TestEggSyntaxParser, ModuleTwoStatements) {
   egg::test::Allocator allocator{ egg::test::Allocator::Expectation::NoAllocations }; // TODO
-  auto parser = EggParserFactory::createModuleSyntaxParser(allocator);
+  egg::ovum::TypeFactory factory{ allocator };
+  auto parser = EggParserFactory::createModuleSyntaxParser(factory);
   auto root = parseFromString(*parser, "var foo;\nvar bar;");
   ASSERT_EQ("(module (declare 'foo' (type 'var')) (declare 'bar' (type 'var')))", dumpToString(*root));
 }
@@ -453,9 +459,10 @@ TEST(TestEggSyntaxParser, Vexatious) {
 
 TEST(TestEggSyntaxParser, ExampleFile) {
   egg::test::Allocator allocator{ egg::test::Allocator::Expectation::NoAllocations }; // TODO
+  egg::ovum::TypeFactory factory{ allocator };
   auto lexer = LexerFactory::createFromPath("~/yolk/test/data/example.egg");
   auto tokenizer = EggTokenizerFactory::createFromLexer(lexer);
-  auto parser = EggParserFactory::createModuleSyntaxParser(allocator);
+  auto parser = EggParserFactory::createModuleSyntaxParser(factory);
   auto root = parser->parse(*tokenizer);
   root->dump(std::cout);
   std::cout << std::endl;

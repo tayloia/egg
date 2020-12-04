@@ -1,13 +1,18 @@
 #include "ovum/ovum.h"
 #include "ovum/slot.h"
+#include "ovum/vanilla.h"
 
-egg::ovum::Slot::Slot(IAllocator& allocator)
-  : SoftReferenceCounted(allocator), ptr(nullptr) {
+egg::ovum::Slot::Slot(IAllocator& allocator, IBasket& basket)
+  : SoftReferenceCounted(allocator),
+    ptr(nullptr) {
+  basket.take(*this);
   assert(this->validate(true));
 }
 
-egg::ovum::Slot::Slot(IAllocator& allocator, const Value& value)
-  : SoftReferenceCounted(allocator), ptr(value->softAcquire()) {
+egg::ovum::Slot::Slot(IAllocator& allocator, IBasket& basket, const Value& value)
+  : SoftReferenceCounted(allocator),
+    ptr(value->softAcquire()) {
+  basket.take(*this);
   assert(this->validate(false));
 }
 
@@ -82,13 +87,17 @@ egg::ovum::Type::Assignment egg::ovum::Slot::mutate(ISlot& slot, IAllocator& all
   }
 }
 
-egg::ovum::Value egg::ovum::Slot::reference(const Type& pointee, Modifiability modifiability) {
+egg::ovum::Value egg::ovum::Slot::reference(TypeFactory& factory, IBasket& trug, const Type& pointee, Modifiability modifiability) {
   assert(this->validate(false));
-  return ValueFactory::createPointerHard(this->allocator, *this, pointee, modifiability);
+  auto pointer = factory.createPointer(pointee, modifiability);
+  return ValueFactory::createObject(allocator, VanillaFactory::createPointer(factory.allocator, trug, *this, pointer));
 }
 
 bool egg::ovum::Slot::validate(bool optional) const {
   if (!SoftReferenceCounted::validate()) {
+    return false;
+  }
+  if (this->softGetBasket() == nullptr) {
     return false;
   }
   auto underlying = this->ptr.get();

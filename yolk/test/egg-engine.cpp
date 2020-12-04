@@ -10,10 +10,11 @@ using namespace egg::yolk;
 
 TEST(TestEggEngine, CreateEngineFromParsed) {
   egg::test::Allocator allocator;
+  egg::ovum::TypeFactory factory{ allocator };
   FileTextStream stream("~/yolk/test/data/example.egg");
-  auto root = EggParserFactory::parseModule(allocator, stream);
+  auto root = EggParserFactory::parseModule(factory, stream);
   auto engine = EggEngineFactory::createEngineFromParsed(allocator, "<parsed>", root);
-  egg::test::EggEngineContextAllocator context{ allocator };
+  egg::test::EggEngineContextFromFactory context{ factory };
   ASSERT_EQ(egg::ovum::ILogger::Severity::Error, engine->prepare(context));
   ASSERT_STARTSWITH(context.logged(), "<COMPILER><ERROR>~/yolk/test/data/example.egg(2,14): Unknown identifier: 'first'");
 }

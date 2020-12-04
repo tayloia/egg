@@ -1,14 +1,17 @@
 namespace egg::test {
-  class EggEngineContextAllocator : public egg::yolk::IEggEngineContext {
-    EggEngineContextAllocator(const EggEngineContextAllocator&) = delete;
-    EggEngineContextAllocator& operator=(const EggEngineContextAllocator&) = delete;
+  class EggEngineContextFromFactory : public egg::yolk::IEggEngineContext {
+    EggEngineContextFromFactory(const EggEngineContextFromFactory&) = delete;
+    EggEngineContextFromFactory& operator=(const EggEngineContextFromFactory&) = delete;
   private:
-    Allocator& allocator;
+    egg::ovum::TypeFactory& factory;
     Logger logger;
   public:
-    explicit EggEngineContextAllocator(Allocator& allocator) : allocator(allocator), logger() {}
-    virtual egg::ovum::IAllocator& getAllocator() const override {
-      return this->allocator;
+    explicit EggEngineContextFromFactory(egg::ovum::TypeFactory& factory) : factory(factory), logger() {}
+    virtual egg::ovum::IAllocator& getAllocator() override {
+      return this->factory.allocator;
+    }
+    virtual egg::ovum::TypeFactory& getTypeFactory() override {
+      return this->factory;
     }
     virtual void log(Source source, Severity severity, const std::string& message) override {
       this->logger.log(source, severity, message);
@@ -18,15 +21,17 @@ namespace egg::test {
     }
   };
 
-  class EggEngineContext final : public EggEngineContextAllocator {
+  class EggEngineContext final : public EggEngineContextFromFactory {
     EggEngineContext(const EggEngineContext&) = delete;
     EggEngineContext& operator=(const EggEngineContext&) = delete;
   private:
     egg::test::Allocator allocator;
+    egg::ovum::TypeFactory factory;
   public:
     explicit EggEngineContext(Allocator::Expectation expectation = Allocator::Expectation::AtLeastOneAllocation)
-      : EggEngineContextAllocator(allocator),
-        allocator(expectation) {
+      : EggEngineContextFromFactory(factory),
+        allocator(expectation),
+        factory(allocator) {
     }
   };
 }

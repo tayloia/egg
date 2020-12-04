@@ -9,22 +9,19 @@
 namespace {
   using namespace egg::ovum;
 
-  class BasketBase : public IBasket {
-    BasketBase(const BasketBase&) = delete;
-    BasketBase& operator=(const BasketBase&) = delete;
+  class BasketDefault : public HardReferenceCounted<IBasket> {
+    BasketDefault(const BasketDefault&) = delete;
+    BasketDefault& operator=(const BasketDefault&) = delete;
   private:
     std::set<const ICollectable*> owned; // TODO unordered_set?
     uint64_t bytes;
-    IBasket* before;
   public:
-    BasketBase()
-      : bytes(0),
-        before(TypeFactory::basketWIBBLE) {
-      TypeFactory::basketWIBBLE = this;
+    explicit BasketDefault(IAllocator& allocator)
+      : HardReferenceCounted(allocator, 0),
+        bytes(0) {
     }
-    virtual ~BasketBase() {
+    virtual ~BasketDefault() {
       // Make sure we no longer own any collectables
-      TypeFactory::basketWIBBLE = this->before;
       this->dump();
       assert(this->owned.empty());
     }
@@ -68,18 +65,18 @@ namespace {
     }
     virtual size_t collect() override {
       // TODO thread safety
-      std::cout << "&&& COLLECT: BEGIN" << std::endl;
+      // WIBBLE std::cout << "&&& COLLECT: BEGIN" << std::endl;
       std::stack<const ICollectable*> pending;
       std::set<const ICollectable*> unreachable;
       for (auto* collectable : this->owned) {
         assert(collectable->softGetBasket() == this);
         if (collectable->softIsRoot()) {
           // Construct a list of roots to start the search from
-          std::cout << "&&& COLLECT: ROOT " << collectable << " " << typeid(*collectable).name() << std::endl;
+          // WIBBLE std::cout << "&&& COLLECT: ROOT " << collectable << " " << typeid(*collectable).name() << std::endl;
           pending.push(collectable);
         } else {
           // Assume all non-roots are unreachable
-          std::cout << "&&& COLLECT: UNREACHABLE " << collectable << " " << typeid(*collectable).name() << std::endl;
+          // WIBBLE std::cout << "&&& COLLECT: UNREACHABLE " << collectable << " " << typeid(*collectable).name() << std::endl;
           unreachable.insert(collectable);
         }
       }
@@ -92,16 +89,16 @@ namespace {
           assert(this->owned.find(&target) != this->owned.end());
           if (unreachable.erase(&target) > 0) {
             // It's a node that has just been deemed reachable
-            std::cout << "&&& COLLECT: REACHABLE " << collectable << " " << typeid(*collectable).name() << std::endl;
+            // WIBBLE std::cout << "&&& COLLECT: REACHABLE " << collectable << " " << typeid(*collectable).name() << std::endl;
             pending.push(&target);
           }
           });
       }
       for (auto collectable : unreachable) {
-        std::cout << "&&& COLLECT: DROP " << collectable << " " << typeid(*collectable).name() << std::endl;
+        // WIBBLE std::cout << "&&& COLLECT: DROP " << collectable << " " << typeid(*collectable).name() << std::endl;
         this->drop(*collectable);
       }
-      std::cout << "&&& COLLECT: END" << std::endl;
+      // WIBBLE std::cout << "&&& COLLECT: END" << std::endl;
       return unreachable.size();
     }
     virtual size_t purge() override {
@@ -134,19 +131,8 @@ namespace {
       os << "^^^ BASKET DUMP END" << std::endl;
     }
   };
-
-  class BasketDefault : public HardReferenceCounted<BasketBase> {
-    BasketDefault(const BasketDefault&) = delete;
-    BasketDefault& operator=(const BasketDefault&) = delete;
-  public:
-    explicit BasketDefault(IAllocator& allocator)
-      : HardReferenceCounted(allocator, 0) {
-    }
-  };
 }
 
-egg::ovum::IBasket* egg::ovum::TypeFactory::basketWIBBLE = new NotHardReferenceCounted<BasketBase>();
-
 egg::ovum::Basket egg::ovum::BasketFactory::createBasket(egg::ovum::IAllocator& allocator) {
-  return allocator.make<BasketDefault>();
+  return allocator.makeHard<BasketDefault>();
 }

@@ -589,11 +589,11 @@ namespace {
 
   class EggSyntaxParserContext {
   private:
-    egg::ovum::IAllocator* allocator;
+    egg::ovum::TypeFactory* factory;
     EggSyntaxParserBacktrack backtrack;
   public:
-    EggSyntaxParserContext(egg::ovum::IAllocator& allocator, IEggTokenizer& tokenizer)
-      : allocator(&allocator), backtrack(tokenizer) {
+    EggSyntaxParserContext(egg::ovum::TypeFactory& factory, IEggTokenizer& tokenizer)
+      : factory(&factory), backtrack(tokenizer) {
     }
     EGG_NORETURN void unexpected(const std::string& message) {
       auto& item = this->backtrack.peek(0);
@@ -658,26 +658,27 @@ namespace {
     bool parseTypePrimaryExpression(egg::ovum::Type& type);
   };
 
-  class EggSyntaxParserModule : public IEggSyntaxParser {
-  private:
-    egg::ovum::IAllocator* allocator;
+  class EggSyntaxParserBase : public IEggSyntaxParser {
+  protected:
+    egg::ovum::TypeFactory* factory;
   public:
-    explicit EggSyntaxParserModule(egg::ovum::IAllocator& allocator) : allocator(&allocator) {
-    }
+    explicit EggSyntaxParserBase(egg::ovum::TypeFactory& factory) : factory(&factory) {}
+  };
+
+  class EggSyntaxParserModule final : public EggSyntaxParserBase {
+  public:
+    explicit EggSyntaxParserModule(egg::ovum::TypeFactory& factory) : EggSyntaxParserBase(factory) {}
     virtual std::shared_ptr<IEggSyntaxNode> parse(IEggTokenizer& tokenizer) override {
-      EggSyntaxParserContext context(*this->allocator, tokenizer);
+      EggSyntaxParserContext context(*this->factory, tokenizer);
       return context.parseModule();
     }
   };
 
-  class EggSyntaxParserStatement : public IEggSyntaxParser {
-  private:
-    egg::ovum::IAllocator* allocator;
+  class EggSyntaxParserStatement final : public EggSyntaxParserBase {
   public:
-    explicit EggSyntaxParserStatement(egg::ovum::IAllocator& allocator) : allocator(&allocator) {
-    }
+    explicit EggSyntaxParserStatement(egg::ovum::TypeFactory& factory) : EggSyntaxParserBase(factory) {}
     virtual std::shared_ptr<IEggSyntaxNode> parse(IEggTokenizer& tokenizer) override {
-      EggSyntaxParserContext context(*this->allocator, tokenizer);
+      EggSyntaxParserContext context(*this->factory, tokenizer);
       auto result = context.parseStatement();
       assert(result != nullptr);
       context.parseEndOfFile("Expected end of input after statement");
@@ -685,14 +686,11 @@ namespace {
     }
   };
 
-  class EggSyntaxParserExpression : public IEggSyntaxParser {
-  private:
-    egg::ovum::IAllocator* allocator;
+  class EggSyntaxParserExpression final : public EggSyntaxParserBase {
   public:
-    explicit EggSyntaxParserExpression(egg::ovum::IAllocator& allocator) : allocator(&allocator) {
-    }
+    explicit EggSyntaxParserExpression(egg::ovum::TypeFactory& factory) : EggSyntaxParserBase(factory) {}
     virtual std::shared_ptr<IEggSyntaxNode> parse(IEggTokenizer& tokenizer) override {
-      EggSyntaxParserContext context(*this->allocator, tokenizer);
+      EggSyntaxParserContext context(*this->factory, tokenizer);
       auto result = context.parseExpression("Expression expected");
       assert(result != nullptr);
       context.parseEndOfFile("Expected end of input after expression");
@@ -1925,7 +1923,7 @@ bool EggSyntaxParserContext::parseTypeExpression(egg::ovum::Type& type) {
       if (!this->parseTypePostfixExpression(other)) {
         this->unexpected("Expected type to follow '|' in type expression", mark.peek(0));
       }
-      type = egg::ovum::TypeFactory::createUnion(*this->allocator, *type, *other);
+      type = this->factory->createUnion(type, other);
     }
     mark.accept(0);
     return true;
@@ -1955,7 +1953,7 @@ bool EggSyntaxParserContext::parseTypePostfixExpression(egg::ovum::Type& type) {
           this->unexpected("Redundant repetition of '?' in type expression");
         }
         mark.advance(1);
-        type = egg::ovum::TypeFactory::createUnion(*this->allocator, *egg::ovum::Type::Null, *type);
+        type = this->factory->addNull(type);
         nullabled = true;
         continue;
       }
@@ -1964,7 +1962,7 @@ bool EggSyntaxParserContext::parseTypePostfixExpression(egg::ovum::Type& type) {
         // Pointer reference to 'type'
         mark.advance(1);
         auto modifiability = egg::ovum::Modifiability::Read | egg::ovum::Modifiability::Write | egg::ovum::Modifiability::Mutate; // TODO
-        type = egg::ovum::TypeFactory::createPointer(*this->allocator, *type, modifiability);
+        type = this->factory->createPointer(type, modifiability);
         continue;
       }
       if (p0.isOperator(EggTokenizerOperator::ParenthesisLeft)) {
@@ -1992,7 +1990,7 @@ egg::ovum::Type EggSyntaxParserContext::parseTypePostfixFunction(const egg::ovum
   // cppcheck-suppress assertWithSideEffect
   assert(mark.peek(0).isOperator(EggTokenizerOperator::ParenthesisLeft));
   mark.advance(1);
-  auto builder = egg::ovum::TypeFactory::createFunctionBuilder(*this->allocator, rettype, egg::ovum::String(), "Function");
+  auto builder = this->factory->createFunctionBuilder(rettype, egg::ovum::String(), "Function");
   for (size_t index = 0; !mark.peek(0).isOperator(EggTokenizerOperator::ParenthesisRight); ++index) {
     egg::ovum::Type ptype{ egg::ovum::Type::Void };
     if (!this->parseTypeExpression(ptype)) {
@@ -2027,7 +2025,7 @@ egg::ovum::Type EggSyntaxParserContext::parseTypePostfixFunction(const egg::ovum
     }
   }
   mark.accept(1); // Skip ')'
-  return builder->build(nullptr);
+  return builder->build();
 }
 
 bool EggSyntaxParserContext::parseTypePrimaryExpression(egg::ovum::Type& type) {
@@ -2067,20 +2065,20 @@ bool EggSyntaxParserContext::parseTypePrimaryExpression(egg::ovum::Type& type) {
   auto flags = keywordToFlags(p0);
   if (flags != egg::ovum::ValueFlags::None) {
     mark.accept(1);
-    type = egg::ovum::TypeFactory::createSimple(*this->allocator, flags);
+    type = this->factory->createSimple(flags);
     return true;
   }
   return false;
 }
 
-std::shared_ptr<egg::yolk::IEggSyntaxParser> egg::yolk::EggParserFactory::createModuleSyntaxParser(egg::ovum::IAllocator& allocator) {
-  return std::make_shared<EggSyntaxParserModule>(allocator);
+std::shared_ptr<egg::yolk::IEggSyntaxParser> egg::yolk::EggParserFactory::createModuleSyntaxParser(egg::ovum::TypeFactory& factory) {
+  return std::make_shared<EggSyntaxParserModule>(factory);
 }
 
-std::shared_ptr<egg::yolk::IEggSyntaxParser> egg::yolk::EggParserFactory::createStatementSyntaxParser(egg::ovum::IAllocator& allocator) {
-  return std::make_shared<EggSyntaxParserStatement>(allocator);
+std::shared_ptr<egg::yolk::IEggSyntaxParser> egg::yolk::EggParserFactory::createStatementSyntaxParser(egg::ovum::TypeFactory& factory) {
+  return std::make_shared<EggSyntaxParserStatement>(factory);
 }
 
-std::shared_ptr<egg::yolk::IEggSyntaxParser> egg::yolk::EggParserFactory::createExpressionSyntaxParser(egg::ovum::IAllocator& allocator) {
-  return std::make_shared<EggSyntaxParserExpression>(allocator);
+std::shared_ptr<egg::yolk::IEggSyntaxParser> egg::yolk::EggParserFactory::createExpressionSyntaxParser(egg::ovum::TypeFactory& factory) {
+  return std::make_shared<EggSyntaxParserExpression>(factory);
 }

@@ -14,12 +14,12 @@ void egg::yolk::EggProgramSymbol::setInferredType(const egg::ovum::Type& inferre
   this->type = inferred;
 }
 
-void egg::yolk::EggProgramSymbolTable::addBuiltins(egg::ovum::IBasket& basket) {
+void egg::yolk::EggProgramSymbolTable::addBuiltins(egg::ovum::TypeFactory& factory, egg::ovum::IBasket& basket) {
   // TODO add built-in symbol to symbol table here
-  this->addBuiltin("string", egg::ovum::BuiltinFactory::createStringInstance(this->allocator, basket));
-  this->addBuiltin("type", egg::ovum::BuiltinFactory::createTypeInstance(this->allocator, basket));
-  this->addBuiltin("assert", egg::ovum::BuiltinFactory::createAssertInstance(this->allocator, basket));
-  this->addBuiltin("print", egg::ovum::BuiltinFactory::createPrintInstance(this->allocator, basket));
+  this->addBuiltin("string", egg::ovum::BuiltinFactory::createStringInstance(factory, basket));
+  this->addBuiltin("type", egg::ovum::BuiltinFactory::createTypeInstance(factory, basket));
+  this->addBuiltin("assert", egg::ovum::BuiltinFactory::createAssertInstance(factory, basket));
+  this->addBuiltin("print", egg::ovum::BuiltinFactory::createPrintInstance(factory, basket));
 }
 
 void egg::yolk::EggProgramSymbolTable::addBuiltin(const std::string& name, const egg::ovum::Value& value) {
@@ -87,9 +87,8 @@ std::string egg::yolk::EggProgram::mutateToString(egg::yolk::EggProgramMutate op
 
 egg::ovum::ILogger::Severity egg::yolk::EggProgram::execute(IEggEngineContext& context, const egg::ovum::Module& module) {
   // WIBBLE rationalise
-  auto& allocator = context.getAllocator();
-  auto program = egg::ovum::ProgramFactory::createProgram(allocator, context);
-  auto severity = egg::ovum::ILogger::Severity::None;;
+  auto program = egg::ovum::ProgramFactory::createProgram(context.getAllocator(), context);
+  auto severity = egg::ovum::ILogger::Severity::None;
   auto result = program->run(*module, &severity);
   if (egg::ovum::Bits::hasAnySet(result->getFlags(), egg::ovum::ValueFlags::Throw)) {
     egg::ovum::Value exception;
@@ -108,13 +107,13 @@ egg::ovum::ILogger::Severity egg::yolk::EggProgram::execute(IEggEngineContext& c
   return severity;
 }
 
-egg::ovum::HardPtr<egg::yolk::EggProgramContext> egg::yolk::EggProgram::createRootContext(egg::ovum::IAllocator& allocator, egg::ovum::ILogger& logger, EggProgramSymbolTable& symtable, egg::ovum::ILogger::Severity& maximumSeverity) {
+egg::ovum::HardPtr<egg::yolk::EggProgramContext> egg::yolk::EggProgram::createRootContext(egg::ovum::TypeFactory& factory, egg::ovum::ILogger& logger, EggProgramSymbolTable& symtable, egg::ovum::ILogger::Severity& maximumSeverity) {
   egg::ovum::LocationRuntime location(this->root->location(), "<module>");
-  return allocator.make<EggProgramContext>(location, logger, symtable, maximumSeverity);
+  return egg::ovum::HardPtr<EggProgramContext>(factory.allocator.makeRaw<EggProgramContext>(factory, location, logger, symtable, maximumSeverity));
 }
 
 egg::ovum::HardPtr<egg::yolk::EggProgramContext> egg::yolk::EggProgramContext::createNestedContext(EggProgramSymbolTable& parent, ScopeFunction* prepareFunction) {
-  return this->allocator.make<EggProgramContext>(*this, parent, prepareFunction);
+  return egg::ovum::HardPtr<EggProgramContext>(factory.allocator.makeRaw<EggProgramContext>(*this, parent, prepareFunction));
 }
 
 void egg::yolk::EggProgramContext::log(egg::ovum::ILogger::Source source, egg::ovum::ILogger::Severity severity, const std::string& message) {

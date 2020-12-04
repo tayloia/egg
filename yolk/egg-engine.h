@@ -3,7 +3,8 @@ namespace egg::yolk {
 
   class IEggEngineContext : public egg::ovum::ILogger {
   public:
-    virtual egg::ovum::IAllocator& getAllocator() const = 0;
+    virtual egg::ovum::IAllocator& getAllocator() = 0;
+    virtual egg::ovum::TypeFactory& getTypeFactory() = 0;
   };
 
   class IEggEngine {
@@ -22,7 +23,7 @@ namespace egg::yolk {
 
   class EggEngineFactory {
   public:
-    static std::shared_ptr<IEggEngineContext> createContext(egg::ovum::IAllocator& allocator, const std::shared_ptr<egg::ovum::ILogger>& logger);
+    static std::shared_ptr<IEggEngineContext> createContext(egg::ovum::TypeFactory& factory, egg::ovum::IBasket& basket, const std::shared_ptr<egg::ovum::ILogger>& logger);
     static std::shared_ptr<IEggEngine> createEngineFromParsed(egg::ovum::IAllocator& allocator, const egg::ovum::String& resource, const std::shared_ptr<IEggProgramNode>& root);
     static std::shared_ptr<IEggEngine> createEngineFromTextStream(TextStream& stream);
   };

@@ -39,9 +39,7 @@ namespace egg::ovum {
     virtual const NodeLocation* getLocation() const = 0;
     virtual void setChild(size_t index, INode& value) = 0;
   };
-
   using Node = HardPtr<INode>;
-
   using Nodes = std::vector<Node>;
 
   class NodeFactory {

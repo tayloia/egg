@@ -35,24 +35,23 @@ namespace egg::test {
     }
   };
 
-  class Execution final : public egg::ovum::IExecution {
+  class Execution final : public egg::ovum::IExecution, public egg::ovum::TypeFactory {
     Execution(const Execution&) = delete;
     Execution& operator=(const Execution&) = delete;
   private:
-    egg::ovum::IAllocator& allocator;
-    egg::ovum::Basket basket;
+    egg::ovum::IBasket& basket;
     egg::ovum::ILogger& logger;
   public:
-    Execution(egg::ovum::IAllocator& allocator, egg::ovum::ILogger& logger)
-      : allocator(allocator),
-        basket(egg::ovum::BasketFactory::createBasket(allocator)),
+    Execution(egg::ovum::IAllocator& allocator, egg::ovum::IBasket& basket, egg::ovum::ILogger& logger)
+      : TypeFactory(allocator),
+        basket(basket),
         logger(logger) {
     }
     virtual egg::ovum::IAllocator& getAllocator() const override {
       return this->allocator;
     }
     virtual egg::ovum::IBasket& getBasket() const override {
-      return *this->basket;
+      return this->basket;
     }
     virtual egg::ovum::Value raise(const egg::ovum::String& message) override {
       auto value = egg::ovum::ValueFactory::create(this->allocator, message);

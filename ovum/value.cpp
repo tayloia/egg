@@ -5,6 +5,11 @@
 namespace {
   using namespace egg::ovum;
 
+  template<typename T, typename... ARGS>
+  Value makeValue(IAllocator& allocator, ARGS&&... args) {
+    return Value(*static_cast<IValue*>(allocator.makeRaw<T>(allocator, std::forward<ARGS>(args)...)));
+  }
+
   template<ValueFlags FLAGS>
   class ValueImmutable : public NotHardReferenceCounted<IValue> {
     ValueImmutable(const ValueImmutable&) = delete;
@@ -285,21 +290,6 @@ namespace {
         value(basket, value.get()) {
       assert(this->validate());
     }
-    virtual IValue* hardAcquire() const override {
-      // WYBBLE
-      return const_cast<ValueObjectSoft*>(this);
-    }
-    virtual void hardRelease() const override {
-      // WYBBLE
-    }
-    virtual IValue* softAcquire() const override {
-      assert(this->value->softGetBasket() != nullptr);
-      return const_cast<ValueObjectSoft*>(this);
-    }
-    virtual void softRelease() const override {
-      // Do nothing
-      assert(this->value->softGetBasket() != nullptr);
-    }
     virtual void softVisit(const ICollectable::Visitor& visitor) const override {
       this->value.visit(visitor);
     }
@@ -343,7 +333,7 @@ namespace {
     virtual IValue* softAcquire() const override {
       auto* basket = this->value->softGetBasket();
       assert(basket != nullptr);
-      return this->allocator.make<ValueObjectSoft, IValue*>(*basket, value);
+      return this->allocator.makeRaw<ValueObjectSoft>(this->allocator, *basket, value);
     }
     virtual void softRelease() const override {
       assert(false); // WEBBLE
@@ -449,31 +439,25 @@ egg::ovum::Value::Value() : ptr(&theVoid) {
 }
 
 egg::ovum::Value egg::ovum::ValueFactory::createInt(IAllocator& allocator, Int value) {
-  return Value(*allocator.make<ValueInt, IValue*>(value));
+  return makeValue<ValueInt>(allocator, value);
 }
 
 egg::ovum::Value egg::ovum::ValueFactory::createFloat(IAllocator& allocator, Float value) {
-  return Value(*allocator.make<ValueFloat, IValue*>(value));
+  return makeValue<ValueFloat>(allocator, value);
 }
 
 egg::ovum::Value egg::ovum::ValueFactory::createString(IAllocator& allocator, const String& value) {
-  return Value(*allocator.make<ValueString, IValue*>(value));
+  return makeValue<ValueString>(allocator, value);
 }
 
-egg::ovum::Value egg::ovum::ValueFactory::createObjectHard(IAllocator& allocator, const Object& value) {
-  return Value(*allocator.make<ValueObjectHard, IValue*>(value));
-}
-
-egg::ovum::Value egg::ovum::ValueFactory::createObjectSoft(IAllocator& allocator, IBasket& basket, const Object& value) {
-  return Value(*allocator.make<ValueObjectSoft, IValue*>(basket, value));
-}
-
-egg::ovum::Value egg::ovum::ValueFactory::createPointerHard(IAllocator& allocator, ISlot& slot, const Type& pointee, Modifiability modifiability) {
-  return ValueFactory::createObjectHard(allocator, ObjectFactory::createPointer(allocator, slot, pointee, modifiability));
+egg::ovum::Value egg::ovum::ValueFactory::createObject(IAllocator& allocator, const Object& value) {
+  auto* basket = value->softGetBasket();
+  assert(basket != nullptr);
+  return makeValue<ValueObjectSoft>(allocator, *basket, value);
 }
 
 egg::ovum::Value egg::ovum::ValueFactory::createFlowControl(IAllocator& allocator, ValueFlags flags, const Value& value) {
-  return Value(*allocator.make<ValueFlowControl, IValue*>(flags, value));
+  return makeValue<ValueFlowControl>(allocator, flags, value);
 }
 
 std::string egg::ovum::Value::readable() const {

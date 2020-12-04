@@ -33,8 +33,10 @@ namespace {
   private:
     static std::string execute(TextStream& stream) {
       egg::test::Allocator allocator;
+      egg::ovum::TypeFactory factory{ allocator };
+      auto basket = egg::ovum::BasketFactory::createBasket(allocator);
       auto logger = std::make_shared<egg::test::Logger>(stream.getResourceName());
-      auto context = EggEngineFactory::createContext(allocator, logger);
+      auto context = EggEngineFactory::createContext(factory, *basket, logger);
       auto engine = EggEngineFactory::createEngineFromTextStream(stream);
       (void)engine->run(*context);
       return logger->logged.str();
