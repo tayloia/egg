@@ -92,7 +92,7 @@ namespace egg::ovum {
     }
     void softVisit(const ICollectable::Visitor& visitor) const {
       for (auto& entry : this->vec) {
-        entry->softVisit(visitor);
+        entry.visit(visitor);
       }
     }
   };
@@ -184,7 +184,7 @@ namespace egg::ovum {
     void visit(const ICollectable::Visitor& visitor) const {
       // Iterate through everything as fast as possible
       for (auto& kv : this->map) {
-        kv.second->softVisit(visitor);
+        kv.second.visit(visitor);
       }
     }
   };

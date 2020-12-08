@@ -2,9 +2,6 @@
 #include "ovum/slot.h"
 #include "ovum/vanilla.h"
 
-// WYBBLE
-#include <iostream>
-
 namespace {
   using namespace egg::ovum;
 
@@ -19,12 +16,10 @@ namespace {
     ValueImmutable& operator=(const ValueImmutable&) = delete;
   public:
     ValueImmutable() {}
-    virtual IValue* softAcquire(IBasket&) const override {
-      printf("WYBBLE: %p %s\n", this, __FUNCTION__);
+    virtual IValue* softAcquire() const override {
       return const_cast<ValueImmutable*>(this);
     }
     virtual void softRelease() const override {
-      printf("WYBBLE: %p %s\n", this, __FUNCTION__);
       // Do nothing (no dynamic memory to reclaim)
     }
     virtual void softVisit(const ICollectable::Visitor&) const override {
@@ -138,13 +133,12 @@ namespace {
   public:
     explicit ValueMutable(IAllocator& allocator, decltype(atomic)::Underlying atomic = 0) : HardReferenceCounted(allocator, atomic) {
     }
-    // Inherited via IValue
-    virtual IValue* softAcquire(IBasket&) const override {
-      printf("WYBBLE: %p %s\n", this, __FUNCTION__);
+    virtual IValue* softAcquire() const override {
+      // By default, values are hard reference-counted and not within a GC basket
       return this->hardAcquire();
     }
     virtual void softRelease() const override {
-      printf("WYBBLE: %p %s\n", this, __FUNCTION__);
+      // By default, values are hard reference-counted and not within a GC basket
       this->hardRelease();
     }
     virtual void softVisit(const ICollectable::Visitor&) const override {
@@ -291,57 +285,32 @@ namespace {
     ValueObjectSoft& operator=(const ValueObjectSoft&) = delete;
   private:
     IObject* object;
-    using Delta = decltype(atomic)::Underlying;
-    const Delta DELTA_SOFT = 1;
-    const Delta DELTA_HARD = DELTA_SOFT << (sizeof(Delta) * 4);
   public:
-    ValueObjectSoft(IAllocator& allocator, IBasket& basket, const Object& object)
-      : ValueMutable(allocator),
+    ValueObjectSoft(IAllocator& allocator, const Object& object)
+      : ValueMutable(allocator, 1),
       object(object.get()) {
-      this->delta(+DELTA_SOFT);
       assert(this->validate());
-      assert(this->object->softGetBasket() == &basket);
-      (void)basket; // WYBBLE remove basket from signature
-      printf("WYBBLE: CONSTRUCT ValueObjectSoft %p(%p) = %s = ", this, this->object, typeid(*this).name());
-      Printer printer{ std::cout, Print::Options::DEFAULT };
-      this->object->print(printer);
-      putchar('\n');
-    }
-    virtual ~ValueObjectSoft() {
-      printf("WYBBLE: DESTRUCT ValueObjectSoft %p(%p) = %s\n", this, this->object, typeid(*this).name());
     }
     virtual IValue* hardAcquire() const override {
-      auto count = this->delta(+DELTA_HARD);
-      assert(count >= DELTA_HARD);
-      (void)count;
-      printf("WYBBLE: %p %s -> %u\n", this, __FUNCTION__, unsigned(count));
-      return const_cast<ValueObjectSoft*>(this);
+      // Handle the case of an external reference being taken to the slot object pointer
+      // by increasing the reference count of the object pointer *and* the object itself
+      auto acquired = this->object->hardAcquire();
+      assert(acquired == this->object);
+      (void)acquired;
+      return this->ValueMutable::hardAcquire();
     }
     virtual void hardRelease() const override {
-      auto count = this->delta(-DELTA_HARD);
-      assert(count >= 0);
-      (void)count;
-      printf("WYBBLE: %p %s -> %u\n", this, __FUNCTION__, unsigned(count));
-      if (count == 0) {
-        this->allocator.destroy(this);
-      }
+      // Release both reference counts
+      this->object->hardRelease();
+      this->ValueMutable::hardRelease();
     }
-    virtual IValue* softAcquire(IBasket&) const override {
-      auto count = this->delta(+DELTA_SOFT);
-      assert(count >= DELTA_SOFT);
-      (void)count;
-      printf("WYBBLE: %p %s -> %u\n", this, __FUNCTION__, unsigned(count));
-      return const_cast<ValueObjectSoft*>(this);
+    virtual IValue* softAcquire() const override {
+      // Only one reference count used for soft references
+      return this->ValueMutable::hardAcquire();
     }
     virtual void softRelease() const override {
-      auto count = this->delta(-DELTA_SOFT);
-      assert(count >= 0);
-      (void)count;
-      printf("WYBBLE: %p %s -> %u\n", this, __FUNCTION__, unsigned(count));
-      // The object we're pointing to has a lifetime managed by the basket, so just reclaim our memory
-      if (count == 0) {
-        this->allocator.destroy(this);
-      }
+      // Only one reference count used for soft references
+      this->ValueMutable::hardRelease();
     }
     virtual void softVisit(const ICollectable::Visitor& visitor) const override {
       assert(this->validate());
@@ -373,10 +342,6 @@ namespace {
       assert(this->validate());
       this->object->print(printer);
     }
-  private:
-    Delta delta(Delta offset) const {
-      return this->atomic.add(offset) + offset;
-    }
   };
 
   class ValueObjectHard final : public ValueMutable {
@@ -389,24 +354,15 @@ namespace {
       : ValueMutable(allocator),
         object(*object) {
       assert(this->validate());
-      printf("WYBBLE: CONSTRUCT ValueObjectHard %p(%p) = %s = ", this, this->object.get(), typeid(*this).name());
-      Printer printer{ std::cout, Print::Options::DEFAULT };
-      this->object->print(printer);
-      putchar('\n');
     }
-    virtual ~ValueObjectHard() {
-      printf("WYBBLE: DESTRUCT ValueObjectHard %p(%p) = %s\n", this, this->object.get(), typeid(*this).name());
-    }
-    virtual IValue* softAcquire(IBasket& basket) const override {
-      printf("WYBBLE: %p %s\n", this, __FUNCTION__);
-      return this->allocator.makeRaw<ValueObjectSoft>(this->allocator, basket, this->object);
+    virtual IValue* softAcquire() const override {
+      return this->allocator.makeRaw<ValueObjectSoft>(this->allocator, this->object);
     }
     virtual void softRelease() const override {
-      printf("WYBBLE: %p %s\n", this, __FUNCTION__);
-      assert(false); // WYBBLE
+      throw std::logic_error("Hard object value erroneously softly released");
     }
     virtual void softVisit(const ICollectable::Visitor&) const override {
-      assert(false); // WYBBLE
+      throw std::logic_error("Hard object value erroneously softly visited");
     }
     virtual ValueFlags getFlags() const override {
       assert(this->validate());
@@ -414,7 +370,7 @@ namespace {
     }
     virtual Type getRuntimeType() const override {
       assert(this->validate());
-      return object->getRuntimeType();
+      return this->object->getRuntimeType();
     }
     virtual bool getObject(Object& result) const override {
       assert(this->validate());

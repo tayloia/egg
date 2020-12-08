@@ -225,7 +225,7 @@ namespace {
     }
     ~StringFallbackAllocator() {
       // Make sure all our strings have been destroyed when the process exits
-      // WUBBLE assert(this->atomic.get() == 0);
+      assert(this->atomic.get() == 0);
     }
     virtual void* allocate(size_t bytes, size_t alignment) override {
       this->atomic.increment();
@@ -238,10 +238,6 @@ namespace {
     }
     virtual bool statistics(Statistics&) const override {
       return false;
-    }
-    virtual void onConstruct(const void*, const char*) override {
-    }
-    virtual void onDestruct(const void*) override {
     }
   };
 

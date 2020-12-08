@@ -21,7 +21,7 @@ namespace egg::ovum {
 
   class IValue : public IHardAcquireRelease {
   public:
-    virtual IValue* softAcquire(IBasket& basket) const = 0;
+    virtual IValue* softAcquire() const = 0;
     virtual void softRelease() const = 0;
     virtual void softVisit(const ICollectable::Visitor& visitor) const = 0;
     virtual bool getVoid() const = 0;

@@ -156,14 +156,12 @@ namespace {
   public:
     SymbolTable(IAllocator& allocator, IBasket& basket, SymbolTable* parent, SymbolTable* capture)
       : SoftReferenceCounted(allocator) {
-      printf("WIBBLE: SYMTABLE %p: CREATED %p %p\n", this, parent, capture);
       this->parent.set(basket, parent);
       this->capture.set(basket, capture);
       basket.take(*this);
     }
     Symbol* add(const LocationSource& source, Symbol::Kind kind, const Type& type, const String& name) {
       // Return non-null iff the insertion occurred
-      printf("WIBBLE: SYMTABLE %p: ADD %s\n", this, name.toUTF8().c_str());
       auto slot = this->allocator.makeHard<Slot>(*this->basket);
       auto retval = this->table.emplace(std::piecewise_construct,
                                         std::forward_as_tuple(name),
@@ -171,13 +169,11 @@ namespace {
       return retval.second ? &retval.first->second : nullptr;
     }
     bool remove(const String& name) {
-      printf("WIBBLE: SYMTABLE %p: REMOVE %s\n", this, name.toUTF8().c_str());
       // Return true iff the removal occurred
       auto retval = this->table.erase(name);
       return retval == 1;
     }
     Symbol* get(const String& name) {
-      printf("WIBBLE: SYMTABLE %p: GET %s\n", this, name.toUTF8().c_str());
       // Return a pointer to the symbol or null
       auto retval = this->table.find(name);
       if (retval == this->table.end()) {
@@ -189,7 +185,6 @@ namespace {
       return &retval->second;
     }
     void softVisit(const Visitor& visitor) const override {
-      printf("WIBBLE: SYMTABLE %p: SOFTVISITLINKS\n", this);
       // WIBBLE
       for (auto& each : this->table) {
         each.second.visit(visitor);
@@ -198,18 +193,15 @@ namespace {
       this->capture.visit(visitor);
     }
     SymbolTable* push(SymbolTable* captured = nullptr) {
-      printf("WIBBLE: SYMTABLE %p: PUSH %p\n", this, captured);
       // Push a table onto the symbol table stack
       return this->allocator.create<SymbolTable>(0, this->allocator, *this->basket, this, captured);
     }
     SymbolTable* pop() {
-      printf("WIBBLE: SYMTABLE %p: POP\n", this);
       // Pop an element from the symbol table stack
       assert(this->parent != nullptr);
       return this->parent.get();
     }
     HardPtr<SymbolTable> clone() {
-      printf("WIBBLE: SYMTABLE %p: CLONE\n", this);
       // Shallow clone the symbol table
       auto cloned = this->allocator.makeHard<SymbolTable>(*this->basket, nullptr, nullptr);
       assert(cloned->softGetBasket() == this->basket);
@@ -336,7 +328,6 @@ namespace {
     CallStack(HardPtr<SymbolTable>& symtable, SymbolTable* capture) : symtable(symtable) {
       // Push an element onto the symbol table stack
       this->symtable.set(this->symtable->push(capture));
-      printf("WIBBLE: SYMTABLE %p: SET\n", this->symtable.get());
       assert(this->symtable != nullptr);
     }
     ~CallStack() {
@@ -365,7 +356,6 @@ namespace {
         basket(egg::ovum::BasketFactory::createBasket(allocator)),
         symtable(factory.allocator.makeHard<SymbolTable>(*basket, nullptr, nullptr)),
         location({}, 0, 0) {
-      basket->dump();
     }
     virtual ~ProgramDefault() {
       this->symtable.set(nullptr);
@@ -460,15 +450,12 @@ namespace {
         }
         return this->raiseFormat(FunctionSignature::toString(signature), ": No more than ", maxPositional, " parameters were expected, but got ", numPositional);
       }
-      printf("WIBBLE: EXECUTE_CALL: before CallStack %p %p\n", this->symtable.get(), &captured);
       Value retval;
       {
         // This scope pushes/pops a symbol table context
         // TODO rationalize CallStack/Block usage
         CallStack stack(this->symtable, &captured);
-        printf("WIBBLE: EXECUTE_CALL: after CallStack %p %p\n", this->symtable.get(), &captured);
         Block scope(*this);
-        printf("WIBBLE: EXECUTE_CALL: after Block %p\n", this->symtable.get());
         for (size_t i = 0; i < maxPositional; ++i) {
           auto& sigparam = signature.getParameter(i);
           auto pname = sigparam.getName();
@@ -492,10 +479,8 @@ namespace {
             return this->raiseFormat("Type mismatch for parameter '", pname, "': Expected '", ptype.toString(), "', but got '", pvalue->getRuntimeType().toString(), "' instead");
           }
         }
-        printf("WIBBLE: EXECUTE_CALL: before executeBlock %p\n", this->symtable.get());
         retval = this->executeBlock(scope, block);
       }
-      printf("WIBBLE: EXECUTE_CALL: after executeBlock %p\n", this->symtable.get());
       if (retval.hasAnyFlags(ValueFlags::Return)) {
         if (retval->getInner(retval)) {
           // Simple 'return <value>'
@@ -554,7 +539,6 @@ namespace {
       this->builtin("print", BuiltinFactory::createPrintInstance(this->factory, *this->basket));
       this->builtin("string", BuiltinFactory::createStringInstance(this->factory, *this->basket));
       this->builtin("type", BuiltinFactory::createTypeInstance(this->factory, *this->basket));
-      this->basket->dump();
     }
   private:
     void log(ILogger::Source source, ILogger::Severity severity, const std::string& message) {
@@ -2183,12 +2167,10 @@ Value ProgramDefault::tryMutate(Symbol& symbol, Mutation mutation, const Value& 
 }
 
 Symbol* ProgramDefault::blockDeclare(const LocationSource& source, const Type& type, const String& identifier) {
-  printf("WIBBLE: SYMTABLE %p: DECLARE %s\n", this->symtable.get(), identifier.toUTF8().c_str());
   return this->symtable->add(source, Symbol::Kind::Variable, type, identifier);
 }
 
 void ProgramDefault::blockUndeclare(const String& identifier) {
-  printf("WIBBLE: SYMTABLE %p: UNDECLARE %s\n", this->symtable.get(), identifier.toUTF8().c_str());
   this->symtable->remove(identifier);
 }
 

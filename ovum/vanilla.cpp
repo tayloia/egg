@@ -395,8 +395,7 @@ namespace {
       assert(this->validate());
     }
     virtual void softVisit(const Visitor& visitor) const override {
-      // WEBBLE
-      this->container->softVisit(visitor);
+      this->container.visit(visitor);
     }
     virtual Type getRuntimeType() const override {
       return Type(&this->type);
@@ -429,7 +428,7 @@ namespace {
       assert(this->validate());
     }
     virtual void softVisit(const Visitor& visitor) const override {
-      this->array->softVisit(visitor);
+      this->array.visit(visitor);
     }
     virtual Type getRuntimeType() const override {
       return Vanilla::getArrayType();
@@ -528,7 +527,7 @@ namespace {
       assert(this->validate());
     }
     virtual void softVisit(const Visitor& visitor) const override {
-      this->map->softVisit(visitor);
+      this->map.visit(visitor);
     }
     virtual Type getRuntimeType() const override {
       return Vanilla::getDictionaryType();
@@ -606,7 +605,7 @@ namespace {
       assert(this->validate());
     }
     virtual void softVisit(const Visitor& visitor) const override {
-      this->map->softVisit(visitor);
+      this->map.visit(visitor);
     }
     virtual Type getRuntimeType() const override {
       return Type::Object;

@@ -95,14 +95,12 @@ namespace egg::ovum {
       // Use perfect forwarding to in-place new
       size_t bytes = sizeof(T) + extra;
       void* allocated = this->allocate(bytes, alignof(T));
-      this->onConstruct(allocated, typeid(T).name());
       assert(allocated != nullptr);
       return new(allocated) T(std::forward<ARGS>(args)...);
     }
     template<typename T>
     void destroy(const T* allocated) {
       assert(allocated != nullptr);
-      this->onDestruct(allocated);
       allocated->~T();
       this->deallocate(const_cast<T*>(allocated), alignof(T));
     }
@@ -110,7 +108,6 @@ namespace egg::ovum {
     inline T* makeRaw(ARGS&&... args) {
       // Use perfect forwarding to in-place new
       void* allocated = this->allocate(sizeof(T), alignof(T));
-      this->onConstruct(allocated, typeid(T).name());
       assert(allocated != nullptr);
       return new(allocated) T(std::forward<ARGS>(args)...);
     }
@@ -119,9 +116,6 @@ namespace egg::ovum {
       // Use perfect forwarding
       return RETTYPE(this->makeRaw<T>(*this, std::forward<ARGS>(args)...));
     }
-    // WYBBLE
-    virtual void onConstruct(const void* memory, const char* tag) = 0;
-    virtual void onDestruct(const void* memory) = 0;
   };
 
   class IMemory : public IHardAcquireRelease {
@@ -151,7 +145,6 @@ namespace egg::ovum {
     virtual void drop(const ICollectable& collectable) = 0;
     virtual size_t collect() = 0;
     virtual size_t purge() = 0;
-    virtual void dump(std::ostream* out = nullptr) const = 0; // WEBBLE
     virtual bool statistics(Statistics& out) const = 0;
     // Helpers
     template<typename T>

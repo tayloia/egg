@@ -702,27 +702,23 @@ namespace {
     Type type;
     String name;
     SlotMap<String> properties;
-  public:
-    // WEBBLE make constructors common
-    BuiltinBase(TypeFactory& factory, IBasket& basket, const String& name, const String& description)
+  private:
+    BuiltinBase(TypeFactory& factory, IBasket& basket, const String& name, const egg::ovum::TypeBuilder& builder)
       : SoftReferenceCounted(factory.allocator),
         factory(factory),
-        builder(factory.createTypeBuilder(name, description)),
+        builder(builder),
         type(),
         name(name),
         properties() {
       // 'type' will be initialized by derived class constructors
       basket.take(*this);
     }
+  public:
+    BuiltinBase(TypeFactory& factory, IBasket& basket, const String& name, const String& description)
+      : BuiltinBase(factory, basket, name, factory.createTypeBuilder(name, description)) {
+    }
     BuiltinBase(TypeFactory& factory, IBasket& basket, const String& name, const String& description, const Type& rettype)
-      : SoftReferenceCounted(factory.allocator),
-        factory(factory),
-        builder(factory.createFunctionBuilder(rettype, name, description)),
-        type(),
-        name(name),
-        properties() {
-      // 'type' will be initialized by derived class constructors
-      basket.take(*this);
+      : BuiltinBase(factory, basket, name, factory.createFunctionBuilder(rettype, name, description)) {
     }
     virtual void softVisit(const Visitor& visitor) const override {
       // We have taken ownership of 'builder' which has no soft links
@@ -871,15 +867,6 @@ namespace {
       this->builder->addPositionalParameter(Type::AnyQ, "value", IFunctionSignatureParameter::Flags::Required);
       this->build();
     }
-    virtual IObject* hardAcquire() const {
-      auto* retval = BuiltinBase::hardAcquire();
-      printf("WYBBLE: %s -> %u\n", __FUNCTION__, unsigned(this->atomic.get()));
-      return retval;
-    }
-    virtual void hardRelease() const {
-      printf("WYBBLE: %s -> %u\n", __FUNCTION__, unsigned(this->atomic.get() - 1));
-      BuiltinBase::hardRelease();
-    }
     virtual Value call(IExecution& execution, const IParameters& parameters) override {
       if (parameters.getNamedCount() > 0) {
         return execution.raiseFormat("Built-in function 'string.from' does not accept named parameters");
@@ -892,10 +879,6 @@ namespace {
       Printer printer{ oss, Print::Options::DEFAULT };
       parameter->print(printer);
       return ValueFactory::createString(this->allocator, oss.str());
-    }
-    virtual void softVisit(const ICollectable::Visitor& visitor) const {
-      printf("WYBBLE: %s\n", __FUNCTION__);
-      BuiltinBase::softVisit(visitor);
     }
   };
 
