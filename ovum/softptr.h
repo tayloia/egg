@@ -122,7 +122,7 @@ namespace egg::ovum {
       }
       return nullptr;
     }
-    static T* softAcquire(IBasket& basket, const T* target) {
+    static T* softAcquire(IBasket& basket, const ICollectable* target) {
       if (target != nullptr) {
         return static_cast<T*>(basket.take(*target));
       }

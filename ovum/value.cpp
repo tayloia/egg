@@ -2,6 +2,9 @@
 #include "ovum/slot.h"
 #include "ovum/vanilla.h"
 
+// WYBBLE
+#include <iostream>
+
 namespace {
   using namespace egg::ovum;
 
@@ -16,11 +19,13 @@ namespace {
     ValueImmutable& operator=(const ValueImmutable&) = delete;
   public:
     ValueImmutable() {}
-    virtual IValue* softAcquire() const override {
+    virtual IValue* softAcquire(IBasket&) const override {
+      printf("WYBBLE: %p %s\n", this, __FUNCTION__);
       return const_cast<ValueImmutable*>(this);
     }
     virtual void softRelease() const override {
-      // Do nothing
+      printf("WYBBLE: %p %s\n", this, __FUNCTION__);
+      // Do nothing (no dynamic memory to reclaim)
     }
     virtual void softVisit(const ICollectable::Visitor&) const override {
       // Nothing to visit
@@ -131,13 +136,15 @@ namespace {
     ValueMutable(const ValueMutable&) = delete;
     ValueMutable& operator=(const ValueMutable&) = delete;
   public:
-    ValueMutable(IAllocator& allocator) : HardReferenceCounted(allocator, 0) {
+    explicit ValueMutable(IAllocator& allocator, decltype(atomic)::Underlying atomic = 0) : HardReferenceCounted(allocator, atomic) {
     }
     // Inherited via IValue
-    virtual IValue* softAcquire() const override {
+    virtual IValue* softAcquire(IBasket&) const override {
+      printf("WYBBLE: %p %s\n", this, __FUNCTION__);
       return this->hardAcquire();
     }
     virtual void softRelease() const override {
+      printf("WYBBLE: %p %s\n", this, __FUNCTION__);
       this->hardRelease();
     }
     virtual void softVisit(const ICollectable::Visitor&) const override {
@@ -169,7 +176,7 @@ namespace {
     }
     virtual bool validate() const override {
       // Assume all values are valid
-      return true;
+      return this->atomic.get() >= 0;
     }
   };
 
@@ -283,15 +290,62 @@ namespace {
     ValueObjectSoft(const ValueObjectSoft&) = delete;
     ValueObjectSoft& operator=(const ValueObjectSoft&) = delete;
   private:
-    SoftPtr<IObject> value; // never null
+    IObject* object;
+    using Delta = decltype(atomic)::Underlying;
+    const Delta DELTA_SOFT = 1;
+    const Delta DELTA_HARD = DELTA_SOFT << (sizeof(Delta) * 4);
   public:
-    ValueObjectSoft(IAllocator& allocator, IBasket& basket, const Object& value)
+    ValueObjectSoft(IAllocator& allocator, IBasket& basket, const Object& object)
       : ValueMutable(allocator),
-        value(basket, value.get()) {
+      object(object.get()) {
+      this->delta(+DELTA_SOFT);
       assert(this->validate());
+      assert(this->object->softGetBasket() == &basket);
+      (void)basket; // WYBBLE remove basket from signature
+      printf("WYBBLE: CONSTRUCT ValueObjectSoft %p(%p) = %s = ", this, this->object, typeid(*this).name());
+      Printer printer{ std::cout, Print::Options::DEFAULT };
+      this->object->print(printer);
+      putchar('\n');
+    }
+    virtual ~ValueObjectSoft() {
+      printf("WYBBLE: DESTRUCT ValueObjectSoft %p(%p) = %s\n", this, this->object, typeid(*this).name());
+    }
+    virtual IValue* hardAcquire() const override {
+      auto count = this->delta(+DELTA_HARD);
+      assert(count >= DELTA_HARD);
+      (void)count;
+      printf("WYBBLE: %p %s -> %u\n", this, __FUNCTION__, unsigned(count));
+      return const_cast<ValueObjectSoft*>(this);
+    }
+    virtual void hardRelease() const override {
+      auto count = this->delta(-DELTA_HARD);
+      assert(count >= 0);
+      (void)count;
+      printf("WYBBLE: %p %s -> %u\n", this, __FUNCTION__, unsigned(count));
+      if (count == 0) {
+        this->allocator.destroy(this);
+      }
+    }
+    virtual IValue* softAcquire(IBasket&) const override {
+      auto count = this->delta(+DELTA_SOFT);
+      assert(count >= DELTA_SOFT);
+      (void)count;
+      printf("WYBBLE: %p %s -> %u\n", this, __FUNCTION__, unsigned(count));
+      return const_cast<ValueObjectSoft*>(this);
+    }
+    virtual void softRelease() const override {
+      auto count = this->delta(-DELTA_SOFT);
+      assert(count >= 0);
+      (void)count;
+      printf("WYBBLE: %p %s -> %u\n", this, __FUNCTION__, unsigned(count));
+      // The object we're pointing to has a lifetime managed by the basket, so just reclaim our memory
+      if (count == 0) {
+        this->allocator.destroy(this);
+      }
     }
     virtual void softVisit(const ICollectable::Visitor& visitor) const override {
-      this->value.visit(visitor);
+      assert(this->validate());
+      this->object->softVisit(visitor);
     }
     virtual ValueFlags getFlags() const override {
       assert(this->validate());
@@ -299,25 +353,29 @@ namespace {
     }
     virtual Type getRuntimeType() const override {
       assert(this->validate());
-      return value->getRuntimeType();
+      return this->object->getRuntimeType();
     }
     virtual bool getObject(Object& result) const override {
       assert(this->validate());
-      result.set(this->value.get());
+      result.set(this->object);
       return true;
     }
     virtual bool equals(const IValue& rhs, ValueCompare) const override {
       assert(this->validate());
       // TODO: Identity is not appropriate for pointers
-      Object other{ *this->value };
-      return rhs.getObject(other) && (this->value.get() == other.get());
+      Object other{ *this->object };
+      return rhs.getObject(other) && (this->object == other.get());
     }
     virtual bool validate() const override {
-      return ValueMutable::validate() && (this->value != nullptr) && this->value->validate();
+      return ValueMutable::validate() && (this->object != nullptr) && this->object->validate();
     }
     virtual void print(Printer& printer) const override {
       assert(this->validate());
-      this->value->print(printer);
+      this->object->print(printer);
+    }
+  private:
+    Delta delta(Delta offset) const {
+      return this->atomic.add(offset) + offset;
     }
   };
 
@@ -325,42 +383,56 @@ namespace {
     ValueObjectHard(const ValueObjectHard&) = delete;
     ValueObjectHard& operator=(const ValueObjectHard&) = delete;
   private:
-    Object value;
+    Object object; // never null
   public:
-    ValueObjectHard(IAllocator& allocator, const Object& value) : ValueMutable(allocator), value(value) {
+    ValueObjectHard(IAllocator& allocator, const Object& object)
+      : ValueMutable(allocator),
+        object(*object) {
       assert(this->validate());
+      printf("WYBBLE: CONSTRUCT ValueObjectHard %p(%p) = %s = ", this, this->object.get(), typeid(*this).name());
+      Printer printer{ std::cout, Print::Options::DEFAULT };
+      this->object->print(printer);
+      putchar('\n');
     }
-    virtual IValue* softAcquire() const override {
-      auto* basket = this->value->softGetBasket();
-      assert(basket != nullptr);
-      return this->allocator.makeRaw<ValueObjectSoft>(this->allocator, *basket, value);
+    virtual ~ValueObjectHard() {
+      printf("WYBBLE: DESTRUCT ValueObjectHard %p(%p) = %s\n", this, this->object.get(), typeid(*this).name());
+    }
+    virtual IValue* softAcquire(IBasket& basket) const override {
+      printf("WYBBLE: %p %s\n", this, __FUNCTION__);
+      return this->allocator.makeRaw<ValueObjectSoft>(this->allocator, basket, this->object);
     }
     virtual void softRelease() const override {
-      assert(false); // WEBBLE
-      this->hardRelease(); // WEBBLE
+      printf("WYBBLE: %p %s\n", this, __FUNCTION__);
+      assert(false); // WYBBLE
     }
     virtual void softVisit(const ICollectable::Visitor&) const override {
-      assert(false); // WEBBLE
+      assert(false); // WYBBLE
     }
     virtual ValueFlags getFlags() const override {
+      assert(this->validate());
       return ValueFlags::Object;
     }
     virtual Type getRuntimeType() const override {
-      return value->getRuntimeType();
+      assert(this->validate());
+      return object->getRuntimeType();
     }
     virtual bool getObject(Object& result) const override {
-      result = this->value;
+      assert(this->validate());
+      result.set(this->object.get());
       return true;
     }
     virtual bool equals(const IValue& rhs, ValueCompare) const override {
-      Object other{ *this->value };
-      return rhs.getObject(other) && (this->value.get() == other.get());
+      assert(this->validate());
+      // TODO: Identity is not appropriate for pointers
+      Object other{ *this->object };
+      return rhs.getObject(other) && (this->object.get() == other.get());
     }
     virtual bool validate() const override {
-      return ValueMutable::validate() && this->value.validate();
+      return ValueMutable::validate() && (this->object != nullptr) && this->object->validate();
     }
     virtual void print(Printer& printer) const override {
-      this->value->print(printer);
+      assert(this->validate());
+      this->object->print(printer);
     }
   };
 
@@ -451,9 +523,7 @@ egg::ovum::Value egg::ovum::ValueFactory::createString(IAllocator& allocator, co
 }
 
 egg::ovum::Value egg::ovum::ValueFactory::createObject(IAllocator& allocator, const Object& value) {
-  auto* basket = value->softGetBasket();
-  assert(basket != nullptr);
-  return makeValue<ValueObjectSoft>(allocator, *basket, value);
+  return makeValue<ValueObjectHard>(allocator, value);
 }
 
 egg::ovum::Value egg::ovum::ValueFactory::createFlowControl(IAllocator& allocator, ValueFlags flags, const Value& value) {

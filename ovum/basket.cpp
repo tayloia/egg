@@ -3,7 +3,7 @@
 #include <set>
 #include <stack>
 
-// WUBBLE
+// WEBBLE
 #include <iostream>
 
 namespace {
@@ -65,18 +65,18 @@ namespace {
     }
     virtual size_t collect() override {
       // TODO thread safety
-      // WIBBLE std::cout << "&&& COLLECT: BEGIN" << std::endl;
+      std::cout << "&&& COLLECT: BEGIN" << std::endl;
       std::stack<const ICollectable*> pending;
       std::set<const ICollectable*> unreachable;
       for (auto* collectable : this->owned) {
         assert(collectable->softGetBasket() == this);
         if (collectable->softIsRoot()) {
           // Construct a list of roots to start the search from
-          // WIBBLE std::cout << "&&& COLLECT: ROOT " << collectable << " " << typeid(*collectable).name() << std::endl;
+          std::cout << "&&& COLLECT: ROOT " << collectable << " " << typeid(*collectable).name() << std::endl;
           pending.push(collectable);
         } else {
           // Assume all non-roots are unreachable
-          // WIBBLE std::cout << "&&& COLLECT: UNREACHABLE " << collectable << " " << typeid(*collectable).name() << std::endl;
+          std::cout << "&&& COLLECT: UNREACHABLE " << collectable << " " << typeid(*collectable).name() << std::endl;
           unreachable.insert(collectable);
         }
       }
@@ -89,16 +89,16 @@ namespace {
           assert(this->owned.find(&target) != this->owned.end());
           if (unreachable.erase(&target) > 0) {
             // It's a node that has just been deemed reachable
-            // WIBBLE std::cout << "&&& COLLECT: REACHABLE " << collectable << " " << typeid(*collectable).name() << std::endl;
+            std::cout << "&&& COLLECT: REACHABLE " << collectable << " " << typeid(*collectable).name() << std::endl;
             pending.push(&target);
           }
           });
       }
       for (auto collectable : unreachable) {
-        // WIBBLE std::cout << "&&& COLLECT: DROP " << collectable << " " << typeid(*collectable).name() << std::endl;
+        std::cout << "&&& COLLECT: DROP " << collectable << " " << typeid(*collectable).name() << std::endl;
         this->drop(*collectable);
       }
-      // WIBBLE std::cout << "&&& COLLECT: END" << std::endl;
+      std::cout << "&&& COLLECT: END" << std::endl;
       return unreachable.size();
     }
     virtual size_t purge() override {

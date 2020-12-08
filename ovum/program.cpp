@@ -212,7 +212,7 @@ namespace {
       printf("WIBBLE: SYMTABLE %p: CLONE\n", this);
       // Shallow clone the symbol table
       auto cloned = this->allocator.makeHard<SymbolTable>(*this->basket, nullptr, nullptr);
-      // WEBBLE this->basket->take(*cloned);
+      assert(cloned->softGetBasket() == this->basket);
       for (auto& each : this->table) {
         each.second.clone(*this->basket, cloned->table);
       }
@@ -2041,9 +2041,10 @@ namespace {
     }
     Value referenceSymbol(const INode& node, const Symbol& symbol) {
       auto slot = symbol.getSlot();
-      if (slot->get() == nullptr) {
+      if (slot == nullptr) {
         return this->raiseNode(node, "Internal runtime error: Symbol table slot is empty: '", symbol.getName(), "'");
       }
+      assert(slot->softGetBasket() == this->basket.get());
       auto modifiability = Modifiability::Read | Modifiability::Write | Modifiability::Mutate;
       switch (symbol.getKind()) {
       case Symbol::Kind::Builtin:
@@ -2053,7 +2054,6 @@ namespace {
       default:
         break;
       }
-      // WEBBLE this->factory.basket.take(*slot);
       return slot->reference(this->factory, *this->basket, symbol.getType(), modifiability);
     }
     RuntimeException unexpectedOpcode(const char* expected, const INode& node) {

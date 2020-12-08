@@ -15,9 +15,10 @@ namespace egg::ovum {
   private:
     Atomic<IValue*> ptr; // SoftPtr
   public:
-    // Construction
+    // Construction/destruction
     Slot(IAllocator& allocator, IBasket& basket);
     Slot(IAllocator& allocator, IBasket& basket, const Value& value);
+    virtual ~Slot();
     // Atomic access
     virtual IValue* get() const override; // nullptr if empty
     virtual void set(const Value& value) override;

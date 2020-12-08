@@ -18,6 +18,7 @@ namespace egg::ovum {
     AllocatorWithPolicy(const AllocatorWithPolicy&) = delete;
     AllocatorWithPolicy& operator=(const AllocatorWithPolicy&) = delete;
   private:
+    std::map<const void*, const char*> known;
     Atomic<uint64_t> allocatedBlocks;
     Atomic<uint64_t> allocatedBytes;
     Atomic<uint64_t> deallocatedBlocks;
@@ -43,7 +44,21 @@ namespace egg::ovum {
       out.totalBytesAllocated = this->allocatedBytes.get();
       out.currentBlocksAllocated = diff(out.totalBlocksAllocated, this->deallocatedBlocks.get());
       out.currentBytesAllocated = diff(out.totalBytesAllocated, this->deallocatedBytes.get());
+      printf("WYBBLE: DUMP begin\n");
+      for (const auto& entry : this->known) {
+        printf("%p = %s\n", entry.first, entry.second);
+      }
+      printf("WYBBLE: DUMP end\n");
       return true;
+    }
+    virtual void onConstruct(const void* memory, const char* tag) override {
+      assert(this->known.emplace(memory, tag).second);
+      (void)memory;
+      (void)tag;
+    }
+    virtual void onDestruct(const void* memory) override {
+      assert(this->known.erase(memory) == 1);
+      (void)memory;
     }
   private:
     static uint64_t diff(uint64_t a, uint64_t b) {

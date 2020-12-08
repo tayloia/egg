@@ -239,6 +239,10 @@ namespace {
     virtual bool statistics(Statistics&) const override {
       return false;
     }
+    virtual void onConstruct(const void*, const char*) override {
+    }
+    virtual void onDestruct(const void*) override {
+    }
   };
 
   const IMemory* createContiguous(IAllocator* allocator, const void* buffer, size_t bytes, size_t codepoints = SIZE_MAX) {

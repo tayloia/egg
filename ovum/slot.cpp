@@ -7,13 +7,24 @@ egg::ovum::Slot::Slot(IAllocator& allocator, IBasket& basket)
     ptr(nullptr) {
   basket.take(*this);
   assert(this->validate(true));
+  printf("WYBBLE: CONSTRUCT Slot %p (empty)\n", this);
 }
 
 egg::ovum::Slot::Slot(IAllocator& allocator, IBasket& basket, const Value& value)
   : SoftReferenceCounted(allocator),
-    ptr(value->softAcquire()) {
+    ptr(value->softAcquire(basket)) {
   basket.take(*this);
   assert(this->validate(false));
+  printf("WYBBLE: CONSTRUCT Slot %p (value) = %s\n", this, typeid(value.get()).name());
+}
+
+egg::ovum::Slot::~Slot() {
+  // Like 'clear()' but without validation
+  auto before = this->ptr.exchange(nullptr);
+  printf("WYBBLE: DESTRUCT Slot %p(%p)\n", this, before);
+  if (before != nullptr) {
+    before->softRelease();
+  }
 }
 
 egg::ovum::IValue* egg::ovum::Slot::get() const {
@@ -24,7 +35,7 @@ egg::ovum::IValue* egg::ovum::Slot::get() const {
 
 void egg::ovum::Slot::set(const Value& value) {
   assert(this->validate(true));
-  auto* before = this->ptr.exchange(value->softAcquire());
+  auto* before = this->ptr.exchange(value->softAcquire(*this->basket));
   if (before != nullptr) {
     before->softRelease();
   }
@@ -34,7 +45,7 @@ void egg::ovum::Slot::set(const Value& value) {
 bool egg::ovum::Slot::update(IValue* expected, const Value& desired) {
   // Update the value iff the current value is 'expected'
   assert(this->validate(true));
-  auto* after = desired->softAcquire();
+  auto* after = desired->softAcquire(*this->basket);
   auto* before = this->ptr.update(expected, after);
   if (before != expected) {
     // The update was not performed

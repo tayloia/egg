@@ -380,10 +380,6 @@ namespace {
       this->shape.dotable = builder.properties.get();
       this->shape.indexable = builder.indexable.get();
       this->shape.iterable = builder.iterable.get();
-      printf("Builder::Built: CONSTRUCT %p %s\n", this, builder.description.toUTF8().c_str());
-    }
-    virtual ~Built() {
-      printf("Builder::Built: DESTRUCT %p %s\n", this, this->builder->description.toUTF8().c_str());
     }
     virtual ValueFlags getPrimitiveFlags() const override {
       return ValueFlags::None;

@@ -18,7 +18,6 @@
 #include "ovum/memory.h"
 #include "ovum/print.h"
 #include "ovum/string.h"
-#include "ovum/error.h"
 #include "ovum/arithmetic.h"
 #include "ovum/type.h"
 #include "ovum/object.h"
