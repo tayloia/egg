@@ -67,8 +67,7 @@ namespace egg::ovum {
     const PointerShape* queryPointable() const;
 
     enum class Assignment {
-      Success, Uninitialized, Incompatible, BadIntToFloat,
-      Unimplemented // WOBBLE
+      Success, Uninitialized, Incompatible, BadIntToFloat
     };
     Assignment promote(IAllocator& allocator, const Value& rhs, Value& out) const;
     Assignment mutate(IAllocator& allocator, const Value& lhs, const Value& rhs, Mutation mutation, Value& out) const;

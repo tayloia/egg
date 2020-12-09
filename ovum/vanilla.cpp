@@ -168,10 +168,23 @@ namespace {
   using namespace egg::ovum;
 
   template<typename... ARGS>
-  static Value raiseString(IAllocator& allocator, ARGS&&... args) {
+  Value raiseString(IAllocator& allocator, ARGS&&... args) {
+    // TODO possibly conflate to ValueFlags::Throw|ValueFlags::String
     auto message = StringBuilder::concat(std::forward<ARGS>(args)...);
     auto value = ValueFactory::createString(allocator, message);
     return ValueFactory::createFlowControl(allocator, ValueFlags::Throw, value);
+  }
+
+  Value augment(IExecution& execution, const Value& value) {
+    // Reverse of 'raiseString'
+    if (value->getFlags() == (ValueFlags::Throw | ValueFlags::String)) {
+      // The operation failed with a thrown string: augment it with the location
+      Value thrown;
+      if (value->getInner(thrown)) {
+        return execution.raise(thrown.readable());
+      }
+    }
+    return value;
   }
 
   class VanillaValueArray final : public SoftReferenceCounted<IVanillaArray<Value>> {
@@ -477,6 +490,13 @@ namespace {
       }
       return Value::Void;
     }
+    virtual Value mutIndex(IExecution& execution, const Value& index, Mutation mutation, const Value& value) override {
+      Int i;
+      if (!index->getInt(i)) {
+        return execution.raiseFormat("Array index was expected to be an 'int', not '", index->getRuntimeType().toString(), "'");
+      }
+      return augment(execution, this->array->mut(size_t(i), mutation, value));
+    }
     virtual Value iterate(IExecution& execution) override {
       return this->createIterator(execution, Type::AnyQ);
     }
@@ -544,15 +564,33 @@ namespace {
       return Value::Void;
     }
     virtual Value mutProperty(IExecution& execution, const String& key, Mutation mutation, const Value& value) override {
-      auto result = this->map->mut(key, mutation, value);
-      if (result->getFlags() == (ValueFlags::Throw | ValueFlags::String)) {
-        // The mutation failed with a thrown string: augment it with the location
-        Value thrown;
-        if (result->getInner(thrown)) {
-          result = execution.raise(thrown.readable());
-        }
+      return augment(execution, this->map->mut(key, mutation, value));
+    }
+    virtual Value getIndex(IExecution& execution, const Value& index) override {
+      String property;
+      if (!index->getString(property)) {
+        return execution.raiseFormat("Object index was expected to be a 'string', not '", index->getRuntimeType().toString(), "'");
       }
-      return result;
+      Value value;
+      if (!this->map->get(property, value)) {
+        return execution.raiseFormat("Object does not have property index '", property, "'");
+      }
+      return value;
+    }
+    virtual Value setIndex(IExecution& execution, const Value& index, const Value& value) override {
+      String property;
+      if (!index->getString(property)) {
+        return execution.raiseFormat("Object index was expected to be a 'string', not '", index->getRuntimeType().toString(), "'");
+      }
+      this->map->set(property, value);
+      return Value::Void;
+    }
+    virtual Value mutIndex(IExecution& execution, const Value& index, Mutation mutation, const Value& value) override {
+      String property;
+      if (!index->getString(property)) {
+        return execution.raiseFormat("Object index was expected to be a 'string', not '", index->getRuntimeType().toString(), "'");
+      }
+      return augment(execution, this->map->mut(property, mutation, value));
     }
     virtual Value iterate(IExecution& execution) override {
       return this->createIterator(execution, Vanilla::getKeyValueType());
@@ -613,7 +651,7 @@ namespace {
     virtual Value getProperty(IExecution& execution, const String& property) override {
       Value value;
       if (!this->map->get(property, value)) {
-        return execution.raiseFormat("Object does not have property: '", property, "'");
+        return execution.raiseFormat("Object does not have property '", property, "'");
       }
       return value;
     }
@@ -622,15 +660,7 @@ namespace {
       return Value::Void;
     }
     virtual Value mutProperty(IExecution& execution, const String& key, Mutation mutation, const Value& value) override {
-      auto result = this->map->mut(key, mutation, value);
-      if (result->getFlags() == (ValueFlags::Throw | ValueFlags::String)) {
-        // The mutation failed with a thrown string: augment it with the location
-        Value thrown;
-        if (result->getInner(thrown)) {
-          result = execution.raise(thrown.readable());
-        }
-      }
-      return result;
+      return augment(execution, this->map->mut(key, mutation, value));
     }
   };
 
@@ -756,7 +786,6 @@ namespace {
         case Type::Assignment::Uninitialized:
         case Type::Assignment::Incompatible:
         case Type::Assignment::BadIntToFloat:
-        case Type::Assignment::Unimplemented:
           return execution.raise(this->trailing("failed to mutate via pointer operator '*' [WOBBLE]"));
         }
         return before;

@@ -81,8 +81,8 @@ TEST(TestEggEngine, WorkingFile) {
   ASSERT_EQ("55\n4950\n", context.logged());
 }
 
-TEST(TestEggEngine, DISABLED_Coverage) {
-  // This script is used to cover most language feature
+TEST(TestEggEngine, Coverage) {
+  // This script is used to cover most language features
   egg::test::EggEngineContext context;
   FileTextStream stream("~/yolk/test/data/coverage.egg");
   auto engine = EggEngineFactory::createEngineFromTextStream(stream);

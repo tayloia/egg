@@ -508,11 +508,12 @@ namespace {
       this->updateLocation(node);
       auto& source = this->location;
       assert(node.getOpcode() == Opcode::COMPARE);
+      auto oper = node.getOperator();
       Value lhs, rhs;
-      auto retval = this->operatorCompare(node, lhs, rhs);
+      auto retval = this->operatorCompare(node, oper, lhs, rhs);
       if (retval.hasFlowControl()) {
         if (retval->getFlags() == ValueFlags::Break) {
-          return this->raiseLocation(source, "Internal runtime error: Unsupported predicate comparison");
+          return this->raiseLocation(source, "Internal runtime error: Unsupported predicate comparison: '", OperatorProperties::str(oper), "'");
         }
         return retval;
       }
@@ -1170,6 +1171,10 @@ namespace {
       assert(OperatorProperties::from(oper).opclass == Opclass::UNARY);
       EGG_WARNING_SUPPRESS_SWITCH_BEGIN();
       switch (oper) {
+      case Operator::NEG:
+        return this->operatorNegate(node.getChild(0));
+      case Operator::BITNOT:
+        return this->operatorBitwiseNot(node.getChild(0));
       case Operator::LOGNOT:
         return this->operatorLogicalNot(node.getChild(0));
       case Operator::DEREF:
@@ -1178,7 +1183,7 @@ namespace {
         return this->operatorRef(node.getChild(0));
       }
       EGG_WARNING_SUPPRESS_SWITCH_END();
-      throw this->unexpectedOperator("unary", node);
+      return this->raiseNode(node, "Internal runtime error: Unsupported unary operator: '", OperatorProperties::str(oper), "'");
     }
     Value expressionBinary(const INode& node) {
       assert(node.getOpcode() == Opcode::BINARY);
@@ -1193,9 +1198,21 @@ namespace {
       case Operator::DIV:
       case Operator::REM:
         return this->operatorArithmetic(node, oper, node.getChild(0), node.getChild(1));
+      case Operator::BITAND:
+      case Operator::BITOR:
+      case Operator::BITXOR:
+        return this->operatorBitwise(node, oper, node.getChild(0), node.getChild(1));
+      case Operator::IFNULL:
+      case Operator::LOGAND:
+      case Operator::LOGOR:
+        return this->operatorLogical(node, oper, node.getChild(0), node.getChild(1));
+      case Operator::SHIFTL:
+      case Operator::SHIFTR:
+      case Operator::SHIFTU:
+        return this->operatorShift(node, oper, node.getChild(0), node.getChild(1));
       }
       EGG_WARNING_SUPPRESS_SWITCH_END();
-      throw this->unexpectedOperator("binary", node);
+      return this->raiseNode(node, "Internal runtime error: Unsupported binary operator: '", OperatorProperties::str(oper), "'");
     }
     Value expressionTernary(const INode& node) {
       assert(node.getOpcode() == Opcode::TERNARY);
@@ -1208,14 +1225,15 @@ namespace {
         return this->operatorTernary(node.getChild(0), node.getChild(1), node.getChild(2));
       }
       EGG_WARNING_SUPPRESS_SWITCH_END();
-      throw this->unexpectedOperator("ternary", node);
+      return this->raiseNode(node, "Internal runtime error: Unsupported ternary operator: '", OperatorProperties::str(oper), "'");
     }
     Value expressionCompare(const INode& node) {
       assert(node.getOpcode() == Opcode::COMPARE);
+      auto oper = node.getOperator();
       Value lhs, rhs;
-      auto retval = this->operatorCompare(node, lhs, rhs);
+      auto retval = this->operatorCompare(node, oper, lhs, rhs);
       if (retval->getFlags() == ValueFlags::Break) {
-        throw this->unexpectedOperator("compare", node);
+        return this->raiseNode(node, "Internal runtime error: Unexpected comparison operator: '", OperatorProperties::str(oper), "'");
       }
       return retval;
     }
@@ -1444,11 +1462,10 @@ namespace {
       return found->createInstance(this->factory, *this->basket, string);
     }
     // Operators
-    Value operatorCompare(const INode& node, Value& lhs, Value& rhs) {
+    Value operatorCompare(const INode& node, Operator oper, Value& lhs, Value& rhs) {
       // Returns 'break' for unknown operator
       assert(node.getOpcode() == Opcode::COMPARE);
       assert(node.getChildren() == 2);
-      auto oper = node.getOperator();
       assert(OperatorProperties::from(oper).opclass == Opclass::COMPARE);
       EGG_WARNING_SUPPRESS_SWITCH_BEGIN();
       switch (oper) {
@@ -1559,6 +1576,76 @@ namespace {
       auto sign = OperatorProperties::str(oper);
       return this->raiseNode(a, "Expected ", side, "-hand side of comparison '", sign, "' to be an 'int' or 'float', but got '", va->getRuntimeType().toString(), "' instead");
     }
+    Value operatorBinaryBool(const INode& node, Operator oper, Bool lhs, Bool rhs) {
+      EGG_WARNING_SUPPRESS_SWITCH_BEGIN();
+      switch (oper) {
+      case Operator::BITAND:
+        return ValueFactory::createBool(lhs & rhs);
+      case Operator::BITOR:
+        return ValueFactory::createBool(lhs | rhs);
+      case Operator::BITXOR:
+        return ValueFactory::createBool(lhs ^ rhs);
+      }
+      EGG_WARNING_SUPPRESS_SWITCH_END();
+      return this->raiseNode(node, "Internal runtime error: Unexpected binary bool operator: '", OperatorProperties::str(oper), "'");
+    }
+    Value operatorBinaryInt(const INode& node, Operator oper, Int lhs, Int rhs) {
+      // WIBBLE handle div-by-zero etc more elegantly
+      EGG_WARNING_SUPPRESS_SWITCH_BEGIN();
+      switch (oper) {
+      case Operator::ADD:
+        return ValueFactory::createInt(this->allocator, lhs + rhs);
+      case Operator::SUB:
+        return ValueFactory::createInt(this->allocator, lhs - rhs);
+      case Operator::MUL:
+        return ValueFactory::createInt(this->allocator, lhs * rhs);
+      case Operator::DIV:
+        return ValueFactory::createInt(this->allocator, lhs / rhs);
+      case Operator::REM:
+        return ValueFactory::createInt(this->allocator, lhs % rhs);
+      case Operator::BITAND:
+        return ValueFactory::createInt(this->allocator, lhs & rhs);
+      case Operator::BITOR:
+        return ValueFactory::createInt(this->allocator, lhs | rhs);
+      case Operator::BITXOR:
+        return ValueFactory::createInt(this->allocator, lhs ^ rhs);
+      case Operator::SHIFTL:
+        if (rhs < 0) {
+          return ValueFactory::createInt(this->allocator, lhs >> -rhs);
+        }
+        return ValueFactory::createInt(this->allocator, lhs << rhs);
+      case Operator::SHIFTR:
+        if (rhs < 0) {
+          return ValueFactory::createInt(this->allocator, lhs << -rhs);
+        }
+        return ValueFactory::createInt(this->allocator, lhs >> rhs);
+      case Operator::SHIFTU:
+        if (rhs < 0) {
+          return ValueFactory::createInt(this->allocator, lhs << -rhs);
+        }
+        return ValueFactory::createInt(this->allocator, Int(uint64_t(lhs) >> rhs));
+      }
+      EGG_WARNING_SUPPRESS_SWITCH_END();
+      return this->raiseNode(node, "Internal runtime error: Unexpected binary integer operator: '", OperatorProperties::str(oper), "'");
+    }
+    Value operatorBinaryFloat(const INode& node, Operator oper, Float lhs, Float rhs) {
+      // WIBBLE handle div-by-zero etc more elegantly
+      EGG_WARNING_SUPPRESS_SWITCH_BEGIN();
+      switch (oper) {
+      case Operator::ADD:
+        return ValueFactory::createFloat(this->allocator, lhs + rhs);
+      case Operator::SUB:
+        return ValueFactory::createFloat(this->allocator, lhs - rhs);
+      case Operator::MUL:
+        return ValueFactory::createFloat(this->allocator, lhs * rhs);
+      case Operator::DIV:
+        return ValueFactory::createFloat(this->allocator, lhs / rhs);
+      case Operator::REM:
+        return ValueFactory::createFloat(this->allocator, std::remainder(lhs, rhs));
+      }
+      EGG_WARNING_SUPPRESS_SWITCH_END();
+      return this->raiseNode(node, "Internal runtime error: Unexpected binary float operator: '", OperatorProperties::str(oper), "'");
+    }
     Value operatorArithmetic(const INode& node, Operator oper, const INode& a, const INode& b) {
       auto lhs = this->expression(a);
       if (lhs.hasFlowControl()) {
@@ -1573,12 +1660,12 @@ namespace {
         Float frhs;
         if (rhs->getFloat(frhs)) {
           // Both floats
-          return ValueFactory::createFloat(this->allocator, this->operatorBinaryFloat(node, oper, flhs, frhs));
+          return this->operatorBinaryFloat(node, oper, flhs, frhs);
         }
         Int irhs;
         if (rhs->getInt(irhs)) {
           // Promote rhs
-          return ValueFactory::createFloat(this->allocator, this->operatorBinaryFloat(node, oper, flhs, Float(irhs)));
+          return this->operatorBinaryFloat(node, oper, flhs, Float(irhs));
         }
         return this->raiseNode(b, "Expected right-hand side of arithmetic '" + OperatorProperties::str(oper), "' operator to be an 'int' or 'float', but got '", rhs->getRuntimeType().toString(), "' instead");
       }
@@ -1587,16 +1674,116 @@ namespace {
         Float frhs;
         if (rhs->getFloat(frhs)) {
           // Promote lhs
-          return ValueFactory::createFloat(this->allocator, this->operatorBinaryFloat(node, oper, Float(ilhs), frhs));
+          return this->operatorBinaryFloat(node, oper, Float(ilhs), frhs);
         }
         Int irhs;
         if (rhs->getInt(irhs)) {
           // Both ints
-          return ValueFactory::createInt(this->allocator, this->operatorBinaryInt(node, oper, ilhs, irhs));
+          return this->operatorBinaryInt(node, oper, ilhs, irhs);
         }
         return this->raiseNode(b, "Expected right-hand side of arithmetic '" + OperatorProperties::str(oper), "' operator to be an 'int' or 'float', but got '", rhs->getRuntimeType().toString(), "' instead");
       }
-      return this->raiseNode(b, "Expected left-hand side of arithmetic '" + OperatorProperties::str(oper), "' operator to be an 'int' or 'float', but got '", rhs->getRuntimeType().toString(), "' instead");
+      return this->raiseNode(a, "Expected left-hand side of arithmetic '" + OperatorProperties::str(oper), "' operator to be an 'int' or 'float', but got '", lhs->getRuntimeType().toString(), "' instead");
+    }
+    Value operatorBitwise(const INode& node, Operator oper, const INode& a, const INode& b) {
+      auto lhs = this->expression(a);
+      if (lhs.hasFlowControl()) {
+        return lhs;
+      }
+      auto rhs = this->expression(b);
+      if (rhs.hasFlowControl()) {
+        return rhs;
+      }
+      Int ilhs;
+      if (lhs->getInt(ilhs)) {
+        Int irhs;
+        if (rhs->getInt(irhs)) {
+          // Both ints
+          return this->operatorBinaryInt(node, oper, ilhs, irhs);
+        }
+        return this->raiseNode(b, "Expected right-hand side of 'int' '" + OperatorProperties::str(oper), "' operator to be an 'int', but got '", rhs->getRuntimeType().toString(), "' instead");
+      }
+      Bool blhs;
+      if (lhs->getBool(blhs)) {
+        Bool brhs;
+        if (rhs->getBool(brhs)) {
+          // Both bools
+          return this->operatorBinaryBool(node, oper, blhs, brhs);
+        }
+        return this->raiseNode(b, "Expected right-hand side of 'bool' '" + OperatorProperties::str(oper), "' operator to be a 'bool', but got '", rhs->getRuntimeType().toString(), "' instead");
+      }
+      return this->raiseNode(a, "Expected left-hand side of '" + OperatorProperties::str(oper), "' operator to be a 'bool' or 'int', but got '", rhs->getRuntimeType().toString(), "' instead");
+    }
+    Value operatorLogical(const INode&, Operator oper, const INode& a, const INode& b) {
+      auto lhs = this->expression(a);
+      if (lhs.hasFlowControl()) {
+        return lhs;
+      }
+      if (oper == Operator::IFNULL) {
+        return lhs->getNull() ? this->expression(b) : lhs;
+      }
+      Bool blhs;
+      if (lhs->getBool(blhs)) {
+        if (blhs == Bool(oper == Operator::LOGOR)) {
+          // Short circuit
+          return lhs;
+        }
+        auto rhs = this->expression(b);
+        if (rhs.hasFlowControl()) {
+          return rhs;
+        }
+        Bool brhs;
+        if (rhs->getBool(brhs)) {
+          return rhs;
+        }
+        return this->raiseNode(b, "Expected right-hand side of '" + OperatorProperties::str(oper), "' operator to be a 'bool', but got '", rhs->getRuntimeType().toString(), "' instead");
+      }
+      return this->raiseNode(a, "Expected left-hand side of '" + OperatorProperties::str(oper), "' operator to be a 'bool', but got '", lhs->getRuntimeType().toString(), "' instead");
+    }
+    Value operatorShift(const INode& node, Operator oper, const INode& a, const INode& b) {
+      auto lhs = this->expression(a);
+      if (lhs.hasFlowControl()) {
+        return lhs;
+      }
+      auto rhs = this->expression(b);
+      if (rhs.hasFlowControl()) {
+        return rhs;
+      }
+      Int ilhs;
+      if (lhs->getInt(ilhs)) {
+        Int irhs;
+        if (rhs->getInt(irhs)) {
+          return operatorBinaryInt(node, oper, ilhs, irhs);
+        }
+        return this->raiseNode(b, "Expected right-hand side of shift '" + OperatorProperties::str(oper), "' operator to be an 'int', but got '", rhs->getRuntimeType().toString(), "' instead");
+      }
+      return this->raiseNode(a, "Expected left-hand side of shift '" + OperatorProperties::str(oper), "' operator to be an 'int', but got '", lhs->getRuntimeType().toString(), "' instead");
+    }
+    Value operatorNegate(const INode& a) {
+      auto value = this->expression(a);
+      if (value.hasFlowControl()) {
+        return value;
+      }
+      Float fvalue;
+      if (value->getFloat(fvalue)) {
+        return ValueFactory::createFloat(this->allocator, -fvalue);
+      }
+      Int ivalue;
+      if (value->getInt(ivalue)) {
+        return ValueFactory::createInt(this->allocator, -ivalue);
+      }
+      return this->raiseNode(a, "Expected operand of unary '-' operator to be an 'int' or 'float', but got '", value->getRuntimeType().toString(), "' instead");
+    }
+    Value operatorBitwiseNot(const INode& a) {
+      auto value = this->expression(a);
+      if (value.hasFlowControl()) {
+        return value;
+      }
+      Int bits;
+      if (!value->getInt(bits)) {
+        return this->raiseNode(a, "Expected operand of unary '~' operator to be an 'int', but got '", value->getRuntimeType().toString(), "' instead");
+      }
+      return ValueFactory::createInt(this->allocator, ~bits);
     }
     Value operatorLogicalNot(const INode& a) {
       auto value = this->expression(a);
@@ -1630,41 +1817,6 @@ namespace {
         return this->raiseNode(a, "Unknown identifier for unary '&' operator: '", name, "'");
       }
       return this->referenceSymbol(a, *symbol);
-    }
-    Int operatorBinaryInt(const INode& node, Operator oper, Int lhs, Int rhs) {
-      // WIBBLE return Value and handle div-by-zero etc more elegantly
-      EGG_WARNING_SUPPRESS_SWITCH_BEGIN();
-      switch (oper) {
-      case Operator::ADD:
-        return lhs + rhs;
-      case Operator::SUB:
-        return lhs - rhs;
-      case Operator::MUL:
-        return lhs * rhs;
-      case Operator::DIV:
-        return lhs / rhs;
-      case Operator::REM:
-        return lhs % rhs;
-      }
-      EGG_WARNING_SUPPRESS_SWITCH_END();
-      throw this->unexpectedOperator("binary int", node);
-    }
-    Float operatorBinaryFloat(const INode& node, Operator oper, Float lhs, Float rhs) {
-      EGG_WARNING_SUPPRESS_SWITCH_BEGIN();
-      switch (oper) {
-      case Operator::ADD:
-        return lhs + rhs;
-      case Operator::SUB:
-        return lhs - rhs;
-      case Operator::MUL:
-        return lhs * rhs;
-      case Operator::DIV:
-        return lhs / rhs;
-      case Operator::REM:
-        return std::remainder(lhs, rhs);
-      }
-      EGG_WARNING_SUPPRESS_SWITCH_END();
-      throw this->unexpectedOperator("binary float", node);
     }
     Value operatorTernary(const INode& a, const INode& b, const INode& c) {
       auto cond = this->condition(a, nullptr);
@@ -2049,15 +2201,6 @@ namespace {
       }
       return RuntimeException(this->location, "Unexpected ", expected, " opcode: '", name, "'");
     }
-    RuntimeException unexpectedOperator(const char* expected, const INode& node) {
-      this->updateLocation(node);
-      auto oper = node.getOperator();
-      auto name = OperatorProperties::from(oper).name;
-      if (name == nullptr) {
-        return RuntimeException(this->location, "Unknown ", expected, " operator: '<", std::to_string(int(oper)), ">'");
-      }
-      return RuntimeException(this->location, "Unexpected ", expected, " operator: '", name, "'");
-    }
     Value raiseError(const LocationSource& where, const String& message) const {
       auto object = VanillaFactory::createError(this->allocator, *this->basket, where, message);
       auto value = ValueFactory::createObject(this->allocator, object);
@@ -2113,7 +2256,6 @@ Value ProgramDefault::tryInitialize(Symbol& symbol, const Value& value) {
     return this->raiseFormat("Cannot initialize '", symbol.getName(), "' of type '", type.toString(), "' with a value of type '", value->getRuntimeType().toString(), "'");
   case Type::Assignment::Uninitialized:
   case Type::Assignment::BadIntToFloat:
-  case Type::Assignment::Unimplemented:
     return this->raiseFormat("Internal error: Cannot initialize '", symbol.getName(), "' of type '", type.toString(), "' with a value of type '", value->getRuntimeType().toString(), "'");
   }
   assert(symbol.validate(false));
@@ -2140,7 +2282,6 @@ Value ProgramDefault::tryAssign(Symbol& symbol, const Value& value) {
     return this->raiseFormat("Cannot assign '", symbol.getName(), "' of type '", type.toString(), "' with a value of type '", value->getRuntimeType().toString(), "'");
   case Type::Assignment::Uninitialized:
   case Type::Assignment::BadIntToFloat: // TODO
-  case Type::Assignment::Unimplemented:
     return this->raiseFormat("Internal error: Cannot assign '", symbol.getName(), "' of type '", type.toString(), "' with a value of type '", value->getRuntimeType().toString(), "'");
   }
   assert(symbol.validate(false));
@@ -2160,7 +2301,6 @@ Value ProgramDefault::tryMutate(Symbol& symbol, Mutation mutation, const Value& 
     return this->raiseFormat("Cannot apply '", mutationToString(mutation), "' to modify uninitialized '", symbol.getName(), "' of type '", type.toString(), "'");
   case Type::Assignment::Incompatible:
   case Type::Assignment::BadIntToFloat: // TODO
-  case Type::Assignment::Unimplemented:
     return this->raiseFormat("Internal error: Cannot apply '", mutationToString(mutation), "' to modify '", symbol.getName(), "' of type '", type.toString(), "' with a value of type '", value->getRuntimeType().toString(), "'");
   }
   assert(symbol.validate(false));

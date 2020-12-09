@@ -83,8 +83,6 @@ namespace egg::ovum {
     IValue* operator->() const {
       return &this->get();
     }
-    // Hard/soft
-    IValue* soften();
     // Equality
     static bool equals(const Value& lhs, const Value& rhs, ValueCompare compare) {
       auto& p = lhs.get();
@@ -114,6 +112,9 @@ namespace egg::ovum {
 
   class ValueFactory {
   public:
+    static const Value& createBool(bool value) {
+      return value ? Value::True : Value::False;
+    }
     static Value createInt(IAllocator& allocator, Int value);
     static Value createFloat(IAllocator& allocator, Float value);
     static Value createString(IAllocator& allocator, const String& value);
@@ -128,7 +129,7 @@ namespace egg::ovum {
       return Value::Null;
     }
     static Value create(IAllocator&, bool value) {
-      return value ? Value::True : Value::False;
+      return createBool(value);
     }
     static Value create(IAllocator& allocator, int32_t value) {
       return createInt(allocator, value);

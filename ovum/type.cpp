@@ -975,10 +975,187 @@ egg::ovum::Type::Assignment egg::ovum::Type::promote(IAllocator& allocator, cons
   return Assignment::Success;
 }
 
+namespace {
+  using namespace egg::ovum;
+
+  Type::Assignment mutateDelta(IAllocator& allocator, const Value& lhs, Int rhs, Value& out) {
+    Int i;
+    if (!lhs->getInt(i)) {
+      return Type::Assignment::Incompatible;
+    }
+    out = ValueFactory::createInt(allocator, i + rhs);
+    return Type::Assignment::Success;
+  }
+
+  Type::Assignment mutateBool(IAllocator&, Bool lhs, Bool rhs, Mutation mutation, Value& out) {
+    EGG_WARNING_SUPPRESS_SWITCH_BEGIN();
+    switch (mutation) {
+    case Mutation::BitwiseAnd:
+    case Mutation::LogicalAnd:
+      // No harm in using the short-circuit form (MSVC complains less too!)
+      out = ValueFactory::createBool(lhs && rhs);
+      return Type::Assignment::Success;
+    case Mutation::BitwiseOr:
+    case Mutation::LogicalOr:
+      // No harm in using the short-circuit form (MSVC complains less too!)
+      out = ValueFactory::createBool(lhs || rhs);
+      return Type::Assignment::Success;
+    case Mutation::BitwiseXor:
+      out = ValueFactory::createBool(lhs ^ rhs);
+      return Type::Assignment::Success;
+    }
+    EGG_WARNING_SUPPRESS_SWITCH_END();
+    throw std::logic_error("Unsupported bool mutation");
+  }
+
+  Type::Assignment mutateInt(IAllocator& allocator, Int lhs, Int rhs, Mutation mutation, Value& out) {
+    EGG_WARNING_SUPPRESS_SWITCH_BEGIN();
+    switch (mutation) {
+    case Mutation::Add:
+      out = ValueFactory::createInt(allocator, lhs + rhs);
+      return Type::Assignment::Success;
+    case Mutation::Subtract:
+      out = ValueFactory::createInt(allocator, lhs - rhs);
+      return Type::Assignment::Success;
+    case Mutation::Multiply:
+      out = ValueFactory::createInt(allocator, lhs * rhs);
+      return Type::Assignment::Success;
+    case Mutation::Divide:
+      out = ValueFactory::createInt(allocator, lhs / rhs);
+      return Type::Assignment::Success;
+    case Mutation::Remainder:
+      out = ValueFactory::createInt(allocator, lhs % rhs);
+      return Type::Assignment::Success;
+    case Mutation::BitwiseAnd:
+      out = ValueFactory::createInt(allocator, lhs & rhs);
+      return Type::Assignment::Success;
+    case Mutation::BitwiseOr:
+      out = ValueFactory::createInt(allocator, lhs | rhs);
+      return Type::Assignment::Success;
+    case Mutation::BitwiseXor:
+      out = ValueFactory::createInt(allocator, lhs ^ rhs);
+      return Type::Assignment::Success;
+    case Mutation::ShiftLeft:
+      if (rhs < 0) {
+        out = ValueFactory::createInt(allocator, lhs >> -rhs);
+      } else {
+        out = ValueFactory::createInt(allocator, lhs << rhs);
+      }
+      return Type::Assignment::Success;
+    case Mutation::ShiftRight:
+      if (rhs < 0) {
+        out = ValueFactory::createInt(allocator, lhs << -rhs);
+      } else {
+        out = ValueFactory::createInt(allocator, lhs >> rhs);
+      }
+      return Type::Assignment::Success;
+    case Mutation::ShiftRightUnsigned:
+      if (rhs < 0) {
+        out = ValueFactory::createInt(allocator, lhs << -rhs);
+      } else {
+        out = ValueFactory::createInt(allocator, Int(uint64_t(lhs) >> rhs));
+      }
+      return Type::Assignment::Success;
+    }
+    EGG_WARNING_SUPPRESS_SWITCH_END();
+    throw std::logic_error("Unsupported int mutation");
+  }
+
+  Type::Assignment mutateFloat(IAllocator& allocator, Float lhs, Float rhs, Mutation mutation, Value& out) {
+    EGG_WARNING_SUPPRESS_SWITCH_BEGIN();
+    switch (mutation) {
+    case Mutation::Add:
+      out = ValueFactory::createFloat(allocator, lhs + rhs);
+      return Type::Assignment::Success;
+    }
+    EGG_WARNING_SUPPRESS_SWITCH_END();
+    throw std::logic_error("Unsupported float mutation");
+  }
+
+  Type::Assignment mutateArithmetic(IAllocator& allocator, const Type& type, const Value& lhs, const Value& rhs, Mutation mutation, Value& out) {
+    Float flhs;
+    if (lhs->getFloat(flhs)) {
+      Float frhs;
+      if (rhs->getFloat(frhs)) {
+        assert(type.hasPrimitiveFlag(ValueFlags::Float));
+        return mutateFloat(allocator, flhs, frhs, mutation, out);
+      }
+      Int irhs;
+      if (rhs->getInt(irhs)) {
+        assert(type.hasPrimitiveFlag(ValueFlags::Float));
+        // Allow inaccurate promotion
+        return mutateFloat(allocator, flhs, Float(irhs), mutation, out);
+      }
+      return Type::Assignment::Incompatible;
+    }
+    Int ilhs;
+    if (lhs->getInt(ilhs)) {
+      Int irhs;
+      if (rhs->getInt(irhs)) {
+        assert(type.hasPrimitiveFlag(ValueFlags::Int));
+        return mutateInt(allocator, ilhs, irhs, mutation, out);
+      }
+      Float frhs;
+      if (rhs->getFloat(frhs)) {
+        if (!type.hasPrimitiveFlag(ValueFlags::Float)) {
+          return Type::Assignment::BadIntToFloat;
+        }
+        // Allow inaccurate promotion
+        return mutateFloat(allocator, Float(ilhs), frhs, mutation, out);
+      }
+    }
+    return Type::Assignment::Incompatible;
+  }
+
+  Type::Assignment mutateBitwise(IAllocator& allocator, const Value& lhs, const Value& rhs, Mutation mutation, Value& out) {
+    Int ilhs;
+    if (lhs->getInt(ilhs)) {
+      Int irhs;
+      if (rhs->getInt(irhs)) {
+        return mutateInt(allocator, ilhs, irhs, mutation, out);
+      }
+    }
+    Bool blhs;
+    if (lhs->getBool(blhs)) {
+      Bool brhs;
+      if (rhs->getBool(brhs)) {
+        return mutateBool(allocator, blhs, brhs, mutation, out);
+      }
+    }
+    return Type::Assignment::Incompatible;
+  }
+
+  Type::Assignment mutateLogical(IAllocator& allocator, const Value& lhs, const Value& rhs, Mutation mutation, Value& out) {
+    Bool blhs;
+    if (lhs->getBool(blhs)) {
+      Bool brhs;
+      if (rhs->getBool(brhs)) {
+        return mutateBool(allocator, blhs, brhs, mutation, out);
+      }
+    }
+    return Type::Assignment::Incompatible;
+  }
+
+  Type::Assignment mutateShift(IAllocator& allocator, const Value& lhs, const Value& rhs, Mutation mutation, Value& out) {
+    Int ilhs;
+    if (lhs->getInt(ilhs)) {
+      Int irhs;
+      if (rhs->getInt(irhs)) {
+        return mutateInt(allocator, ilhs, irhs, mutation, out);
+      }
+    }
+    return Type::Assignment::Incompatible;
+  }
+
+  Type::Assignment mutateIfNull(IAllocator&, const Value& lhs, const Value& rhs, Value& out) {
+    out = lhs->getNull() ? rhs : lhs;
+    return Type::Assignment::Success;
+  }
+}
+
 egg::ovum::Type::Assignment egg::ovum::Type::mutate(IAllocator& allocator, const Value& lhs, const Value& rhs, Mutation mutation, Value& out) const {
   assert(lhs.validate());
   assert(rhs.validate());
-  egg::ovum::Int i;
   switch (mutation) {
   case Mutation::Assign:
     return this->promote(allocator, rhs, out);
@@ -987,41 +1164,29 @@ egg::ovum::Type::Assignment egg::ovum::Type::mutate(IAllocator& allocator, const
     return Assignment::Success;
   case Mutation::Decrement:
     assert(rhs->getVoid());
-    if (!lhs->getInt(i)) {
-      return Assignment::Incompatible;
-    }
-    out = ValueFactory::createInt(allocator, i - 1);
-    return Assignment::Success;
+    return mutateDelta(allocator, lhs, -1, out);
   case Mutation::Increment:
     assert(rhs->getVoid());
-    if (!lhs->getInt(i)) {
-      return Assignment::Incompatible;
-    }
-    out = ValueFactory::createInt(allocator, i + 1);
-    return Assignment::Success;
+    return mutateDelta(allocator, lhs, +1, out);
   case Mutation::Add:
-    if (lhs->getInt(i)) {
-      egg::ovum::Int ri;
-      if (rhs->getInt(ri)) {
-        out = ValueFactory::createInt(allocator, i + ri);
-        return Assignment::Success;
-      }
-    }
-    return Assignment::Unimplemented;
+  case Mutation::Subtract:
+  case Mutation::Multiply:
+  case Mutation::Divide:
+  case Mutation::Remainder:
+    return mutateArithmetic(allocator, *this, lhs, rhs, mutation, out);
   case Mutation::BitwiseAnd:
   case Mutation::BitwiseOr:
   case Mutation::BitwiseXor:
-  case Mutation::Divide:
-  case Mutation::IfNull:
+    return mutateBitwise(allocator, lhs, rhs, mutation, out);
   case Mutation::LogicalAnd:
   case Mutation::LogicalOr:
-  case Mutation::Multiply:
-  case Mutation::Remainder:
+    return mutateLogical(allocator, lhs, rhs, mutation, out);
   case Mutation::ShiftLeft:
   case Mutation::ShiftRight:
   case Mutation::ShiftRightUnsigned:
-  case Mutation::Subtract:
-  default:
-    return Assignment::Unimplemented;
+    return mutateShift(allocator, lhs, rhs, mutation, out);
+  case Mutation::IfNull:
+    return mutateIfNull(allocator, lhs, rhs, out);
   }
+  throw std::logic_error("Unsupported value mutation");
 }
