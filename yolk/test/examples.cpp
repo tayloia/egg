@@ -77,19 +77,10 @@ namespace {
       }
       return results;
     }
-    static bool isDisabled(int index) {
-      return index >= 50;
-    }
-    static bool isDisabledWOBBLE(int index) {
-      static const int disabled[] = { 25,26,27,28,29,30,35,36,40,41,42,43,44,45,46,47,48,49,50,51 };
-      auto* p = disabled;
-      auto* q = p + EGG_NELEMS(disabled);
-      return std::find(p, q, index) != q;
-    }
     static std::string formatIndex(int index) {
       // Format the example index nicely
       char buffer[32];
-      std::snprintf(buffer, EGG_NELEMS(buffer), "%s%04d", TestExamples::isDisabled(index) ? "DISABLED_" : "", index);
+      std::snprintf(buffer, EGG_NELEMS(buffer), "%04d", index);
       return buffer;
     }
     static int extractIndex(const std::string& text) {

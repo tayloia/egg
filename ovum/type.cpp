@@ -884,6 +884,7 @@ egg::ovum::TypeBuilder egg::ovum::TypeFactory::createGeneratorBuilder(const Type
   assert(!gentype.hasPrimitiveFlag(ValueFlags::Void));
   auto rettype = this->addVoid(gentype);
   auto generator = this->createFunctionBuilder(rettype, name, description);
+  generator->defineIterable(gentype);
   return this->allocator.makeHard<FunctionBuilder>(generator->build(), name, description);
 }
 
