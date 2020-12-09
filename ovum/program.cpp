@@ -2139,7 +2139,7 @@ Value ProgramDefault::tryAssign(Symbol& symbol, const Value& value) {
   case Type::Assignment::Incompatible:
     return this->raiseFormat("Cannot assign '", symbol.getName(), "' of type '", type.toString(), "' with a value of type '", value->getRuntimeType().toString(), "'");
   case Type::Assignment::Uninitialized:
-  case Type::Assignment::BadIntToFloat:
+  case Type::Assignment::BadIntToFloat: // TODO
   case Type::Assignment::Unimplemented:
     return this->raiseFormat("Internal error: Cannot assign '", symbol.getName(), "' of type '", type.toString(), "' with a value of type '", value->getRuntimeType().toString(), "'");
   }
@@ -2157,8 +2157,9 @@ Value ProgramDefault::tryMutate(Symbol& symbol, Mutation mutation, const Value& 
   case Type::Assignment::Success:
     break;
   case Type::Assignment::Uninitialized:
+    return this->raiseFormat("Cannot apply '", mutationToString(mutation), "' to modify uninitialized '", symbol.getName(), "' of type '", type.toString(), "'");
   case Type::Assignment::Incompatible:
-  case Type::Assignment::BadIntToFloat:
+  case Type::Assignment::BadIntToFloat: // TODO
   case Type::Assignment::Unimplemented:
     return this->raiseFormat("Internal error: Cannot apply '", mutationToString(mutation), "' to modify '", symbol.getName(), "' of type '", type.toString(), "' with a value of type '", value->getRuntimeType().toString(), "'");
   }

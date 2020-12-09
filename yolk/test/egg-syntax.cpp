@@ -89,9 +89,9 @@ TEST(TestEggSyntaxParser, VariableDeclaration) {
   //TODO should we allow 'var' without an initializer?
   // Good
   ASSERT_PARSE_GOOD(parseStatementToString("var a;"), "(declare 'a' (type 'var'))");
-  // DISABLED ASSERT_PARSE_GOOD(parseStatementToString("any? b;"), "(declare 'b' (type 'any?'))");
-  // DISABLED ASSERT_PARSE_GOOD(parseStatementToString("int* c;"), "(declare 'c' (type 'int*'))");
-  // DISABLED ASSERT_PARSE_GOOD(parseStatementToString("int?*? c;"), "(declare 'c' (type 'int?*|null'))");
+  ASSERT_PARSE_GOOD(parseStatementToString("any? b;"), "(declare 'b' (type 'any?'))");
+  ASSERT_PARSE_GOOD(parseStatementToString("int* c;"), "(declare 'c' (type 'int*'))");
+  ASSERT_PARSE_GOOD(parseStatementToString("int?*? c;"), "(declare 'c' (type 'null|int?*'))");
   // Bad
   ASSERT_PARSE_BAD(parseStatementToString("var"), "(1, 4): Expected variable identifier after type");
   ASSERT_PARSE_BAD(parseStatementToString("var foo"), "(1, 5): Malformed variable declaration or initialization");
@@ -104,7 +104,7 @@ TEST(TestEggSyntaxParser, VariableDeclaration) {
 TEST(TestEggSyntaxParser, VariableInitialization) {
   // Good
   ASSERT_PARSE_GOOD(parseStatementToString("var foo = 42;"), "(declare 'foo' (type 'var') (literal int 42))");
-  // DISABLED ASSERT_PARSE_GOOD(parseStatementToString("any? bar = `hello`;"), "(declare 'bar' (type 'any?') (literal string 'hello'))");
+  ASSERT_PARSE_GOOD(parseStatementToString("any? bar = `hello`;"), "(declare 'bar' (type 'any?') (literal string 'hello'))");
   // Bad
   ASSERT_PARSE_BAD(parseStatementToString("var foo ="), "(1, 10): Expected expression after assignment");
   ASSERT_PARSE_BAD(parseStatementToString("var foo = ;"), "(1, 11): Expected expression after assignment");
@@ -313,11 +313,11 @@ TEST(TestEggSyntaxParser, StatementFunction) {
   // Good
   ASSERT_PARSE_GOOD(parseStatementToString("void func() {}"), "(function 'func' (type 'void') (block))");
   ASSERT_PARSE_GOOD(parseStatementToString("int func() { return 123; }"), "(function 'func' (type 'int') (block (return (literal int 123))))");
-  // DISABLED ASSERT_PARSE_GOOD(parseStatementToString("int? func() { return null; }"), "(function 'func' (type 'int?') (block (return (literal null))))");
+  ASSERT_PARSE_GOOD(parseStatementToString("int? func() { return null; }"), "(function 'func' (type 'int?') (block (return (literal null))))");
   ASSERT_PARSE_GOOD(parseStatementToString("void func(int a) {}"), "(function 'func' (type 'void') (parameter 'a' (type 'int')) (block))");
   ASSERT_PARSE_GOOD(parseStatementToString("void func(int a, string b) {}"), "(function 'func' (type 'void') (parameter 'a' (type 'int')) (parameter 'b' (type 'string')) (block))");
-  // DISABLED ASSERT_PARSE_GOOD(parseStatementToString("void func(int a, string? b) {}"), "(function 'func' (type 'void') (parameter 'a' (type 'int')) (parameter 'b' (type 'string?')) (block))");
-  // DISABLED ASSERT_PARSE_GOOD(parseStatementToString("void func(int a, string? b = null) {}"), "(function 'func' (type 'void') (parameter 'a' (type 'int')) (parameter? 'b' (type 'string?')) (block))");
+  ASSERT_PARSE_GOOD(parseStatementToString("void func(int a, string? b) {}"), "(function 'func' (type 'void') (parameter 'a' (type 'int')) (parameter 'b' (type 'string?')) (block))");
+  ASSERT_PARSE_GOOD(parseStatementToString("void func(int a, string? b = null) {}"), "(function 'func' (type 'void') (parameter 'a' (type 'int')) (parameter? 'b' (type 'string?')) (block))");
 }
 
 TEST(TestEggSyntaxParser, StatementIf) {

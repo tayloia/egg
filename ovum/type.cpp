@@ -958,16 +958,16 @@ egg::ovum::Type::Assignment egg::ovum::Type::promote(IAllocator& allocator, cons
       return Assignment::Incompatible;
     }
     break;
-  case egg::ovum::ValueFlags::None:
-  case egg::ovum::ValueFlags::Any:
-  case egg::ovum::ValueFlags::AnyQ:
-  case egg::ovum::ValueFlags::Arithmetic:
-  case egg::ovum::ValueFlags::FlowControl:
-  case egg::ovum::ValueFlags::Break:
-  case egg::ovum::ValueFlags::Continue:
-  case egg::ovum::ValueFlags::Return:
-  case egg::ovum::ValueFlags::Yield:
-  case egg::ovum::ValueFlags::Throw:
+  case ValueFlags::None:
+  case ValueFlags::Any:
+  case ValueFlags::AnyQ:
+  case ValueFlags::Arithmetic:
+  case ValueFlags::FlowControl:
+  case ValueFlags::Break:
+  case ValueFlags::Continue:
+  case ValueFlags::Return:
+  case ValueFlags::Yield:
+  case ValueFlags::Throw:
   default:
     return Assignment::Incompatible;
   }
@@ -1000,6 +1000,14 @@ egg::ovum::Type::Assignment egg::ovum::Type::mutate(IAllocator& allocator, const
     out = ValueFactory::createInt(allocator, i + 1);
     return Assignment::Success;
   case Mutation::Add:
+    if (lhs->getInt(i)) {
+      egg::ovum::Int ri;
+      if (rhs->getInt(ri)) {
+        out = ValueFactory::createInt(allocator, i + ri);
+        return Assignment::Success;
+      }
+    }
+    return Assignment::Unimplemented;
   case Mutation::BitwiseAnd:
   case Mutation::BitwiseOr:
   case Mutation::BitwiseXor:
