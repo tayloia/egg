@@ -63,7 +63,8 @@ namespace {
     }
     virtual std::pair<std::string, int> toStringPrecedence() const override {
       auto retval = this->callable.getReturnType()->toStringPrecedence();
-      return { '(' + retval.first + ')' + '(' + ')' , 0 };
+      assert(retval.second == 2);
+      return { '(' + retval.first + ')' + '(' + ')', 0 };
     }
     virtual String describeValue() const override {
       // TODO i18n

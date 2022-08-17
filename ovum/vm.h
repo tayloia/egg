@@ -2,7 +2,7 @@
 #define EGG_VM_NARGS 5
 
 // This is the first machine byte without an integer operand for its opcode
-#define EGG_VM_ISTART 24
+#define EGG_VM_ISTART 30
 
 // This is the integer step between operator classes
 #define EGG_VM_OCSTEP 32
@@ -33,66 +33,66 @@
 
 // Macro to define module opcodes: X(opcode, minbyte, minargs, maxargs, text)
 #define EGG_VM_OPCODES(X) \
-  X(ANY, 24, 0, 0, "any") \
-  X(ANYQ, 30, 0, 0, "anyq") \
-  X(ASSERT, 25, 1, 1, "assert") \
-  X(ASSIGN, 26, 2, 2, "assign") \
+  X(ANY, 30, 0, 0, "any") \
+  X(ANYQ, 36, 0, 0, "anyq") \
+  X(ASSERT, 31, 1, 1, "assert") \
+  X(ASSIGN, 32, 2, 2, "assign") \
   X(ATTRIBUTE, 151, 1, N, "attribute") \
   X(AVALUE, 210, 0, N, "avalue") \
   X(BINARY, 2, 2, 2, "binary") \
   X(BLOCK, 157, 1, N, "block") \
   X(BOOL, 102, 0, 1, "bool") \
-  X(BREAK, 36, 0, 0, "break") \
-  X(BYNAME, 32, 2, 2, "byname") \
+  X(BREAK, 42, 0, 0, "break") \
+  X(BYNAME, 38, 2, 2, "byname") \
   X(CALL, 163, 1, N, "call") \
   X(CALLABLE, 169, 1, N, "callable") \
   X(CASE, 128, 2, N, "case") \
-  X(CATCH, 27, 3, 3, "catch") \
+  X(CATCH, 33, 3, 3, "catch") \
   X(CHOICE, 175, 1, N, "choice") \
   X(COMPARE, 8, 2, 2, "compare") \
-  X(CONTINUE, 42, 0, 0, "continue") \
+  X(CONTINUE, 48, 0, 0, "continue") \
   X(DECLARE, 92, 2, 3, "declare") \
-  X(DECREMENT, 31, 1, 1, "decrement") \
+  X(DECREMENT, 37, 1, 1, "decrement") \
   X(DEFAULT, 181, 1, N, "default") \
-  X(DO, 38, 2, 2, "do") \
-  X(ELLIPSIS, 37, 1, 1, "ellipsis") \
+  X(DO, 44, 2, 2, "do") \
+  X(ELLIPSIS, 43, 1, 1, "ellipsis") \
   X(END, 0, 0, 0, "end") \
   X(EXTENSIBLE, 187, 1, N, "extensible") \
-  X(FALSE, 48, 0, 0, "false") \
-  X(FINITE, 54, 0, 0, "finite") \
+  X(FALSE, 54, 0, 0, "false") \
+  X(FINITE, 60, 0, 0, "finite") \
   X(FLOAT, 216, 0, N, "float") \
-  X(FOR, 28, 4, 4, "for") \
-  X(FOREACH, 33, 3, 3, "foreach") \
+  X(FOR, 34, 4, 4, "for") \
+  X(FOREACH, 39, 3, 3, "foreach") \
   X(FUNCTION, 98, 2, 3, "function") \
   X(FVALUE, 12, 0, 0, "fvalue") \
-  X(GENERATOR, 104, 2, 3, "generator") \
-  X(GUARD, 39, 3, 3, "guard") \
-  X(IDENTIFIER, 43, 1, 1, "identifier") \
+  X(GENERATOR, 105, 3, 3, "generator") \
+  X(GUARD, 45, 3, 3, "guard") \
+  X(IDENTIFIER, 49, 1, 1, "identifier") \
   X(IF, 110, 2, 3, "if") \
-  X(INCREMENT, 49, 1, 1, "increment") \
-  X(INDEX, 44, 2, 2, "index") \
-  X(INDEXABLE, 34, 4, 4, "indexable") \
-  X(INFERRED, 60, 0, 0, "inferred") \
+  X(INCREMENT, 55, 1, 1, "increment") \
+  X(INDEX, 50, 2, 2, "index") \
+  X(INDEXABLE, 40, 4, 4, "indexable") \
+  X(INFERRED, 66, 0, 0, "inferred") \
   X(INT, 222, 0, N, "int") \
-  X(ITERABLE, 55, 1, 1, "iterable") \
+  X(ITERABLE, 61, 1, 1, "iterable") \
   X(IVALUE, 6, 0, 0, "ivalue") \
   X(LAMBDA, 193, 1, N, "lambda") \
   X(LENGTH, 199, 1, N, "length") \
   X(META, 7, 1, 1, "meta") \
   X(MODULE, 253, 1, 3, "module") \
   X(MUTATE, 14, 2, 2, "mutate") \
-  X(NAMED, 56, 2, 2, "named") \
-  X(NOOP, 66, 0, 0, "noop") \
-  X(NOT, 61, 1, 1, "not") \
-  X(NULL_, 72, 0, 0, "null") \
+  X(NAMED, 62, 2, 2, "named") \
+  X(NOOP, 72, 0, 0, "noop") \
+  X(NOT, 67, 1, 1, "not") \
+  X(NULL_, 78, 0, 0, "null") \
   X(OBJECT, 228, 0, N, "object") \
   X(OPTIONAL, 139, 1, 2, "optional") \
   X(OVALUE, 234, 0, N, "ovalue") \
-  X(POINTEE, 67, 1, 1, "pointee") \
-  X(POINTER, 73, 1, 1, "pointer") \
-  X(PREDICATE, 79, 1, 1, "predicate") \
-  X(PROPERTY, 62, 2, 2, "property") \
-  X(PROPERTYQ, 68, 2, 2, "propertyq") \
+  X(POINTEE, 73, 1, 1, "pointee") \
+  X(POINTER, 79, 1, 1, "pointer") \
+  X(PREDICATE, 85, 1, 1, "predicate") \
+  X(PROPERTY, 68, 2, 2, "property") \
+  X(PROPERTYQ, 74, 2, 2, "propertyq") \
   X(REQUIRED, 145, 1, 2, "required") \
   X(RETURN, 108, 0, 1, "return") \
   X(STRING, 240, 0, N, "string") \
@@ -100,14 +100,14 @@
   X(SWITCH, 122, 2, N, "switch") \
   X(TERNARY, 3, 3, 3, "ternary") \
   X(THROW, 114, 0, 1, "throw") \
-  X(TRUE, 78, 0, 0, "true") \
+  X(TRUE, 84, 0, 0, "true") \
   X(TRY, 116, 2, N, "try") \
-  X(TYPE, 246, 0, N, "type") \
+  X(TVALUE, 24, 0, N, "tvalue") \
   X(UNARY, 1, 1, 1, "unary") \
   X(UNION, 205, 1, N, "union") \
   X(VARARGS, 134, 2, N, "varargs") \
-  X(VOID, 84, 0, 0, "void") \
-  X(WHILE, 74, 2, 2, "while") \
+  X(VOID, 90, 0, 0, "void") \
+  X(WHILE, 80, 2, 2, "while") \
   X(YIELD, 120, 0, 1, "yield")
 
 // Macro to define operator classes: X(opclass, unique, text)

@@ -3,7 +3,7 @@
 // Reduce the warning level in MSVC
 #if EGG_PLATFORM == EGG_PLATFORM_MSVC
 #pragma warning(push, 3)
-#pragma warning(disable: 6011 6031 6387 26812 26495)
+#pragma warning(disable: 5039 6011 6031 6387 26812 26495)
 #endif
 
 // Fix GCC GoogleTest issue 1521
