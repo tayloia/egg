@@ -7,7 +7,6 @@
     <None Include="..\make\gcc-debug.mak" />
     <None Include="..\make\gcc-release.mak" />
     <None Include="..\make\mingw.mak" />
-    <None Include="..\make\windows.mak" />
     <None Include="..\make\linux.mak" />
     <None Include="..\build.sh" />
     <None Include="..\runtest.sh" />

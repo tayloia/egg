@@ -144,7 +144,6 @@
     <None Include="..\make\gcc-release.mak" />
     <None Include="..\make\linux.mak" />
     <None Include="..\make\mingw.mak" />
-    <None Include="..\make\windows.mak" />
     <None Include="..\make\wsl.mak" />
     <None Include="..\runtest.cmd" />
     <None Include="..\runtest.sh" />
