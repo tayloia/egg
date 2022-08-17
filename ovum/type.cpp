@@ -270,8 +270,8 @@ namespace {
       a(a),
       b(b),
       flags(a->getPrimitiveFlags() | b->getPrimitiveFlags()),
-      objectShapes(unionObjects({ a.get(), b.get() })),
-      pointerShapes(unionPointers({ a.get(), b.get() })) {
+      objectShapes(unionObjects({{ a.get(), b.get() }})),
+      pointerShapes(unionPointers({{ a.get(), b.get() }})) {
       assert(this->a != nullptr);
       assert(this->b != nullptr);
     }
