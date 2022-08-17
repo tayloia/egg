@@ -12,7 +12,7 @@ namespace {
   using namespace egg::ovum;
 
   const char* primitiveComponent(ValueFlags flags) {
-    EGG_WARNING_SUPPRESS_SWITCH_BEGIN();
+    EGG_WARNING_SUPPRESS_SWITCH_BEGIN
       switch (flags) {
       case ValueFlags::None:
         return "var";
@@ -22,7 +22,7 @@ namespace {
       case ValueFlags::Any:
         return "any";
       }
-    EGG_WARNING_SUPPRESS_SWITCH_END();
+    EGG_WARNING_SUPPRESS_SWITCH_END
       return nullptr;
   }
 
@@ -514,7 +514,7 @@ namespace {
   Type::Assignability queryAssignablePrimitive(const IType& ltype, const IType& rtype, ValueFlags lflags, ValueFlags rflag) {
     assert(Bits::hasOneSet(rflag, ValueFlags::Void | ValueFlags::AnyQ));
     auto result = Type::Assignability::Never;
-    EGG_WARNING_SUPPRESS_SWITCH_BEGIN();
+    EGG_WARNING_SUPPRESS_SWITCH_BEGIN
     switch (rflag) {
     case ValueFlags::Void:
       break;
@@ -543,7 +543,7 @@ namespace {
       assert(0); // not a type within 'any?'
       break;
     }
-    EGG_WARNING_SUPPRESS_SWITCH_END();
+    EGG_WARNING_SUPPRESS_SWITCH_END
     return result;
   }
 
@@ -988,7 +988,7 @@ namespace {
   }
 
   Type::Assignment mutateBool(IAllocator&, Bool lhs, Bool rhs, Mutation mutation, Value& out) {
-    EGG_WARNING_SUPPRESS_SWITCH_BEGIN();
+    EGG_WARNING_SUPPRESS_SWITCH_BEGIN
     switch (mutation) {
     case Mutation::BitwiseAnd:
     case Mutation::LogicalAnd:
@@ -1004,12 +1004,12 @@ namespace {
       out = ValueFactory::createBool(lhs ^ rhs);
       return Type::Assignment::Success;
     }
-    EGG_WARNING_SUPPRESS_SWITCH_END();
+    EGG_WARNING_SUPPRESS_SWITCH_END
     throw std::logic_error("Unsupported bool mutation");
   }
 
   Type::Assignment mutateInt(IAllocator& allocator, Int lhs, Int rhs, Mutation mutation, Value& out) {
-    EGG_WARNING_SUPPRESS_SWITCH_BEGIN();
+    EGG_WARNING_SUPPRESS_SWITCH_BEGIN
     switch (mutation) {
     case Mutation::Add:
       out = ValueFactory::createInt(allocator, lhs + rhs);
@@ -1057,18 +1057,18 @@ namespace {
       }
       return Type::Assignment::Success;
     }
-    EGG_WARNING_SUPPRESS_SWITCH_END();
+    EGG_WARNING_SUPPRESS_SWITCH_END
     throw std::logic_error("Unsupported int mutation");
   }
 
   Type::Assignment mutateFloat(IAllocator& allocator, Float lhs, Float rhs, Mutation mutation, Value& out) {
-    EGG_WARNING_SUPPRESS_SWITCH_BEGIN();
+    EGG_WARNING_SUPPRESS_SWITCH_BEGIN
     switch (mutation) {
     case Mutation::Add:
       out = ValueFactory::createFloat(allocator, lhs + rhs);
       return Type::Assignment::Success;
     }
-    EGG_WARNING_SUPPRESS_SWITCH_END();
+    EGG_WARNING_SUPPRESS_SWITCH_END
     throw std::logic_error("Unsupported float mutation");
   }
 

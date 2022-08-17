@@ -64,7 +64,7 @@ namespace egg::yolk {
   };
 
   class EggProgramSymbolTable final : public egg::ovum::HardReferenceCounted<egg::ovum::IHardAcquireRelease> {
-    EGG_NO_COPY(EggProgramSymbolTable);
+    EGG_NO_COPY(EggProgramSymbolTable)
   private:
     std::map<egg::ovum::String, std::shared_ptr<EggProgramSymbol>> map;
     egg::ovum::HardPtr<EggProgramSymbolTable> parent;
@@ -81,7 +81,7 @@ namespace egg::yolk {
   };
 
   class EggProgram final {
-    EGG_NO_COPY(EggProgram);
+    EGG_NO_COPY(EggProgram)
   private:
     egg::ovum::Basket basket;
     egg::ovum::String resource;
@@ -111,7 +111,7 @@ namespace egg::yolk {
     };
     static ArithmeticTypes arithmeticTypes(const egg::ovum::Type& type) {
       assert(type != nullptr);
-      EGG_WARNING_SUPPRESS_SWITCH_BEGIN();
+      EGG_WARNING_SUPPRESS_SWITCH_BEGIN
       switch (egg::ovum::Bits::mask(type->getPrimitiveFlags(), egg::ovum::ValueFlags::Arithmetic)) {
       case egg::ovum::ValueFlags::Int:
         return ArithmeticTypes::Int;
@@ -120,13 +120,13 @@ namespace egg::yolk {
       case egg::ovum::ValueFlags::Arithmetic:
         return ArithmeticTypes::Both;
       }
-      EGG_WARNING_SUPPRESS_SWITCH_END();
+      EGG_WARNING_SUPPRESS_SWITCH_END
       return ArithmeticTypes::None;
     }
   };
 
   class EggProgramContext final : public egg::ovum::HardReferenceCounted<egg::ovum::IHardAcquireRelease> {
-    EGG_NO_COPY(EggProgramContext);
+    EGG_NO_COPY(EggProgramContext)
   public:
     struct ScopeFunction {
       const egg::ovum::IType* rettype;
@@ -249,7 +249,7 @@ namespace egg::yolk {
   };
 
   class EggProgramCompiler {
-    EGG_NO_COPY(EggProgramCompiler);
+    EGG_NO_COPY(EggProgramCompiler)
     friend class EggProgramCompilerNode;
   private:
     IEggEngineContext& context;

@@ -2,7 +2,7 @@
 
 namespace {
   class Monitor {
-    EGG_NO_COPY(Monitor);
+    EGG_NO_COPY(Monitor)
   private:
     std::string data;
   public:

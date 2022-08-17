@@ -23,7 +23,7 @@ namespace {
   };
 
   class TestUTF : public ::testing::TestWithParam<size_t> {
-    EGG_NO_COPY(TestUTF);
+    EGG_NO_COPY(TestUTF)
     // You can implement all the usual fixture class members here.
     // To access the test parameter, call GetParam() from class
     // TestWithParam<T>.

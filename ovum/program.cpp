@@ -571,7 +571,7 @@ namespace {
     Value statement(Block& block, const INode& node) {
       this->updateLocation(node);
       auto opcode = this->validateOpcode(node);
-      EGG_WARNING_SUPPRESS_SWITCH_BEGIN();
+      EGG_WARNING_SUPPRESS_SWITCH_BEGIN
       switch (opcode) {
       case Opcode::NOOP:
         return Value::Void;
@@ -614,7 +614,7 @@ namespace {
       case Opcode::WHILE:
         return this->statementWhile(node);
       }
-      EGG_WARNING_SUPPRESS_SWITCH_END();
+      EGG_WARNING_SUPPRESS_SWITCH_END
       throw this->unexpectedOpcode("statement", node);
     }
     Value statementAssign(const INode& node) {
@@ -698,7 +698,7 @@ namespace {
       assert(node.getChildren() == 4);
       auto& pre = node.getChild(0);
       auto* cond = &node.getChild(1);
-      EGG_WARNING_SUPPRESS_SWITCH_BEGIN();
+      EGG_WARNING_SUPPRESS_SWITCH_BEGIN
       switch (cond->getOpcode()) {
       case Opcode::NOOP:
       case Opcode::TRUE:
@@ -706,7 +706,7 @@ namespace {
         cond = nullptr;
         break;
       }
-      EGG_WARNING_SUPPRESS_SWITCH_END();
+      EGG_WARNING_SUPPRESS_SWITCH_END
       auto& post = node.getChild(2);
       auto& loop = node.getChild(3);
       Block inner(*this);
@@ -866,7 +866,7 @@ namespace {
       Mutation mutation;
       bool logical;
       auto op = node.getOperator();
-      EGG_WARNING_SUPPRESS_SWITCH_BEGIN();
+      EGG_WARNING_SUPPRESS_SWITCH_BEGIN
       switch (op) {
       case Operator::ADD:
         mutation = Mutation::Add;
@@ -942,7 +942,7 @@ namespace {
         return this->raiseNode(node, "Unexpected mutation operator: '", name, "'");
       }
       }
-      EGG_WARNING_SUPPRESS_SWITCH_END();
+      EGG_WARNING_SUPPRESS_SWITCH_END
       value = this->expression(node.getChild(1));
       if (value.hasFlowControl()) {
         return value;
@@ -1122,7 +1122,7 @@ namespace {
     // Expressions
     Value expression(const INode& node, Block* block = nullptr) {
       auto opcode = this->validateOpcode(node);
-      EGG_WARNING_SUPPRESS_SWITCH_BEGIN();
+      EGG_WARNING_SUPPRESS_SWITCH_BEGIN
       switch (opcode) {
       case Opcode::NULL_:
         return Value::Null;
@@ -1161,7 +1161,7 @@ namespace {
       case Opcode::PROPERTY:
         return this->expressionProperty(node);
       }
-      EGG_WARNING_SUPPRESS_SWITCH_END();
+      EGG_WARNING_SUPPRESS_SWITCH_END
       throw this->unexpectedOpcode("expression", node);
     }
     Value expressionUnary(const INode& node) {
@@ -1169,7 +1169,7 @@ namespace {
       assert(node.getChildren() == 1);
       auto oper = node.getOperator();
       assert(OperatorProperties::from(oper).opclass == Opclass::UNARY);
-      EGG_WARNING_SUPPRESS_SWITCH_BEGIN();
+      EGG_WARNING_SUPPRESS_SWITCH_BEGIN
       switch (oper) {
       case Operator::NEG:
         return this->operatorNegate(node.getChild(0));
@@ -1182,7 +1182,7 @@ namespace {
       case Operator::REF:
         return this->operatorRef(node.getChild(0));
       }
-      EGG_WARNING_SUPPRESS_SWITCH_END();
+      EGG_WARNING_SUPPRESS_SWITCH_END
       return this->raiseNode(node, "Internal runtime error: Unsupported unary operator: '", OperatorProperties::str(oper), "'");
     }
     Value expressionBinary(const INode& node) {
@@ -1190,7 +1190,7 @@ namespace {
       assert(node.getChildren() == 2);
       auto oper = node.getOperator();
       assert(OperatorProperties::from(oper).opclass == Opclass::BINARY);
-      EGG_WARNING_SUPPRESS_SWITCH_BEGIN();
+      EGG_WARNING_SUPPRESS_SWITCH_BEGIN
       switch (oper) {
       case Operator::ADD:
       case Operator::SUB:
@@ -1211,7 +1211,7 @@ namespace {
       case Operator::SHIFTU:
         return this->operatorShift(node, oper, node.getChild(0), node.getChild(1));
       }
-      EGG_WARNING_SUPPRESS_SWITCH_END();
+      EGG_WARNING_SUPPRESS_SWITCH_END
       return this->raiseNode(node, "Internal runtime error: Unsupported binary operator: '", OperatorProperties::str(oper), "'");
     }
     Value expressionTernary(const INode& node) {
@@ -1219,12 +1219,12 @@ namespace {
       assert(node.getChildren() == 3);
       auto oper = node.getOperator();
       assert(OperatorProperties::from(oper).opclass == Opclass::TERNARY);
-      EGG_WARNING_SUPPRESS_SWITCH_BEGIN();
+      EGG_WARNING_SUPPRESS_SWITCH_BEGIN
       switch (oper) {
       case Operator::TERNARY:
         return this->operatorTernary(node.getChild(0), node.getChild(1), node.getChild(2));
       }
-      EGG_WARNING_SUPPRESS_SWITCH_END();
+      EGG_WARNING_SUPPRESS_SWITCH_END
       return this->raiseNode(node, "Internal runtime error: Unsupported ternary operator: '", OperatorProperties::str(oper), "'");
     }
     Value expressionCompare(const INode& node) {
@@ -1467,7 +1467,7 @@ namespace {
       assert(node.getOpcode() == Opcode::COMPARE);
       assert(node.getChildren() == 2);
       assert(OperatorProperties::from(oper).opclass == Opclass::COMPARE);
-      EGG_WARNING_SUPPRESS_SWITCH_BEGIN();
+      EGG_WARNING_SUPPRESS_SWITCH_BEGIN
       switch (oper) {
       case Operator::EQ:
         // (a == b) === (a == b)
@@ -1488,7 +1488,7 @@ namespace {
         // (a != b) === !(a == b)
         return this->operatorEquals(node.getChild(0), node.getChild(1), lhs, rhs, true);
       }
-      EGG_WARNING_SUPPRESS_SWITCH_END();
+      EGG_WARNING_SUPPRESS_SWITCH_END
       return Value::Break;
     }
     Value operatorEquals(const INode& a, const INode& b, Value& va, Value& vb, bool invert) {
@@ -1581,7 +1581,7 @@ namespace {
       return this->raiseNode(a, "Expected ", side, "-hand side of comparison '", sign, "' to be an 'int' or 'float', but got '", va->getRuntimeType().toString(), "' instead");
     }
     Value operatorBinaryBool(const INode& node, Operator oper, Bool lhs, Bool rhs) {
-      EGG_WARNING_SUPPRESS_SWITCH_BEGIN();
+      EGG_WARNING_SUPPRESS_SWITCH_BEGIN
       switch (oper) {
       case Operator::BITAND:
         return ValueFactory::createBool(lhs && rhs);
@@ -1590,12 +1590,12 @@ namespace {
       case Operator::BITXOR:
         return ValueFactory::createBool(lhs ^ rhs);
       }
-      EGG_WARNING_SUPPRESS_SWITCH_END();
+      EGG_WARNING_SUPPRESS_SWITCH_END
       return this->raiseNode(node, "Internal runtime error: Unexpected binary bool operator: '", OperatorProperties::str(oper), "'");
     }
     Value operatorBinaryInt(const INode& node, Operator oper, Int lhs, Int rhs) {
       // TODO: handle div-by-zero etc more elegantly
-      EGG_WARNING_SUPPRESS_SWITCH_BEGIN();
+      EGG_WARNING_SUPPRESS_SWITCH_BEGIN
       switch (oper) {
       case Operator::ADD:
         return ValueFactory::createInt(this->allocator, lhs + rhs);
@@ -1629,12 +1629,12 @@ namespace {
         }
         return ValueFactory::createInt(this->allocator, Int(uint64_t(lhs) >> rhs));
       }
-      EGG_WARNING_SUPPRESS_SWITCH_END();
+      EGG_WARNING_SUPPRESS_SWITCH_END
       return this->raiseNode(node, "Internal runtime error: Unexpected binary integer operator: '", OperatorProperties::str(oper), "'");
     }
     Value operatorBinaryFloat(const INode& node, Operator oper, Float lhs, Float rhs) {
       // TODO: handle div-by-zero etc more elegantly
-      EGG_WARNING_SUPPRESS_SWITCH_BEGIN();
+      EGG_WARNING_SUPPRESS_SWITCH_BEGIN
       switch (oper) {
       case Operator::ADD:
         return ValueFactory::createFloat(this->allocator, lhs + rhs);
@@ -1647,7 +1647,7 @@ namespace {
       case Operator::REM:
         return ValueFactory::createFloat(this->allocator, std::remainder(lhs, rhs));
       }
-      EGG_WARNING_SUPPRESS_SWITCH_END();
+      EGG_WARNING_SUPPRESS_SWITCH_END
       return this->raiseNode(node, "Internal runtime error: Unexpected binary float operator: '", OperatorProperties::str(oper), "'");
     }
     Value operatorArithmetic(const INode& node, Operator oper, const INode& a, const INode& b) {
@@ -1860,7 +1860,7 @@ namespace {
     }
     Type type(const INode& node, const String& name = String()) {
       auto children = node.getChildren();
-      EGG_WARNING_SUPPRESS_SWITCH_BEGIN();
+      EGG_WARNING_SUPPRESS_SWITCH_BEGIN
       switch (node.getOpcode()) {
       case Opcode::INFERRED:
         assert(children == 0);
@@ -1931,7 +1931,7 @@ namespace {
       default:
         throw this->unexpectedOpcode("type", node);
       }
-      EGG_WARNING_SUPPRESS_SWITCH_END();
+      EGG_WARNING_SUPPRESS_SWITCH_END
       this->updateLocation(node);
       throw RuntimeException(this->location, "Type constraints not yet supported"); // TODO
     }
@@ -1990,7 +1990,7 @@ namespace {
     Symbol* blockDeclare(const LocationSource& source, const Type& type, const String& identifier);
     void blockUndeclare(const String& identifier);
     Value targetInit(Target& target, const INode& node, Block* block = nullptr) {
-      EGG_WARNING_SUPPRESS_SWITCH_BEGIN();
+      EGG_WARNING_SUPPRESS_SWITCH_BEGIN
       switch (node.getOpcode()) {
       case Opcode::DECLARE:
         if (block != nullptr) {
@@ -2011,7 +2011,7 @@ namespace {
         }
         break;
       }
-      EGG_WARNING_SUPPRESS_SWITCH_END();
+      EGG_WARNING_SUPPRESS_SWITCH_END
       throw this->unexpectedOpcode("target", node);
     }
     Value targetDeclare(Target& target, const INode& node, Block& block) {
@@ -2365,7 +2365,7 @@ egg::ovum::Type UserFunction::makeType(TypeFactory& factory, ProgramDefault& pro
     auto children = parameter.getChildren();
     auto named = false;
     IFunctionSignatureParameter::Flags pflags;
-    EGG_WARNING_SUPPRESS_SWITCH_BEGIN();
+    EGG_WARNING_SUPPRESS_SWITCH_BEGIN
     switch (parameter.getOpcode()) {
     case Opcode::REQUIRED:
       assert((children == 1) || (children == 2));
@@ -2391,7 +2391,7 @@ egg::ovum::Type UserFunction::makeType(TypeFactory& factory, ProgramDefault& pro
     default:
       throw program.unexpectedOpcode("function type parameter", parameter);
     }
-    EGG_WARNING_SUPPRESS_SWITCH_END();
+    EGG_WARNING_SUPPRESS_SWITCH_END
     String pname;
     if (children > 1) {
       pname = program.identifier(parameter.getChild(1));

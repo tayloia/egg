@@ -4,7 +4,7 @@
 
 namespace egg::yolk {
   class FileStream : public std::fstream {
-    EGG_NO_COPY(FileStream);
+    EGG_NO_COPY(FileStream)
   public:
     FileStream(const std::string& unresolved, const std::string& resolved, ios_base::openmode mode)
       : std::fstream(resolved, mode) {
@@ -18,7 +18,7 @@ namespace egg::yolk {
   };
 
   class ByteStream {
-    EGG_NO_COPY(ByteStream);
+    EGG_NO_COPY(ByteStream)
   private:
     std::istream& stream;
     std::string resource;
@@ -46,7 +46,7 @@ namespace egg::yolk {
   };
 
   class FileByteStream : public ByteStream {
-    EGG_NO_COPY(FileByteStream);
+    EGG_NO_COPY(FileByteStream)
   private:
     FileStream fs;
   public:
@@ -56,7 +56,7 @@ namespace egg::yolk {
   };
 
   class StringByteStream : public ByteStream {
-    EGG_NO_COPY(StringByteStream);
+    EGG_NO_COPY(StringByteStream)
   private:
     std::stringstream ss;
   public:
@@ -66,7 +66,7 @@ namespace egg::yolk {
   };
 
   class CharStream {
-    EGG_NO_COPY(CharStream);
+    EGG_NO_COPY(CharStream)
   private:
     ByteStream& bytes;
     bool swallowBOM;
@@ -83,7 +83,7 @@ namespace egg::yolk {
   };
 
   class FileCharStream : public CharStream {
-    EGG_NO_COPY(FileCharStream);
+    EGG_NO_COPY(FileCharStream)
   private:
     FileByteStream fbs;
   public:
@@ -93,7 +93,7 @@ namespace egg::yolk {
   };
 
   class StringCharStream : public CharStream {
-    EGG_NO_COPY(StringCharStream);
+    EGG_NO_COPY(StringCharStream)
   private:
     StringByteStream sbs;
   public:
@@ -103,7 +103,7 @@ namespace egg::yolk {
   };
 
   class TextStream {
-    EGG_NO_COPY(TextStream);
+    EGG_NO_COPY(TextStream)
   private:
     CharStream& chars;
     std::deque<int> upcoming;
@@ -141,7 +141,7 @@ namespace egg::yolk {
   };
 
   class FileTextStream : public TextStream {
-    EGG_NO_COPY(FileTextStream);
+    EGG_NO_COPY(FileTextStream)
   private:
     FileCharStream fcs;
   public:
@@ -151,7 +151,7 @@ namespace egg::yolk {
   };
 
   class StringTextStream : public TextStream {
-    EGG_NO_COPY(StringTextStream);
+    EGG_NO_COPY(StringTextStream)
   private:
     StringCharStream scs;
   public:

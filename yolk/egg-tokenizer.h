@@ -118,7 +118,6 @@ namespace egg::yolk {
     static bool tryParseOperator(const std::string& text, EggTokenizerOperator& value, size_t& length);
   };
 
-  EGG_WARNING_SUPPRESS_INTELLISENSE_BEGIN();
   struct EggTokenizerItem : public ExceptionLocation {
     EggTokenizerKind kind;
     EggTokenizerValue value;
@@ -133,7 +132,6 @@ namespace egg::yolk {
     size_t width() const;
     std::string toString() const;
   };
-  EGG_WARNING_SUPPRESS_INTELLISENSE_END();
 
   class IEggTokenizer {
   public:

@@ -434,7 +434,7 @@ namespace {
   bool validateFlags(ValueFlags flags) {
     auto upper = Bits::mask(flags, ValueFlags::FlowControl);
     auto lower = Bits::clear(flags, ValueFlags::FlowControl);
-    EGG_WARNING_SUPPRESS_SWITCH_BEGIN();
+    EGG_WARNING_SUPPRESS_SWITCH_BEGIN
     switch (upper) {
     case ValueFlags::None:
     case ValueFlags::Return:
@@ -449,7 +449,7 @@ namespace {
       // Throw with nothing is a rethrow
       return Bits::hasZeroOrOneSet(lower);
     }
-    EGG_WARNING_SUPPRESS_SWITCH_END();
+    EGG_WARNING_SUPPRESS_SWITCH_END
     return false;
   }
 }

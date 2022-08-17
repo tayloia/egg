@@ -21,13 +21,11 @@ namespace egg::yolk {
     std::u32string s;
   };
 
-  EGG_WARNING_SUPPRESS_INTELLISENSE_BEGIN();
   struct LexerItem : public ExceptionLocation {
     LexerKind kind;
     LexerValue value;
     std::string verbatim;
   };
-  EGG_WARNING_SUPPRESS_INTELLISENSE_END();
 
   class ILexer {
   public:

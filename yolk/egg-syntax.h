@@ -45,7 +45,7 @@ namespace egg::yolk {
   };
 
   class EggSyntaxNodeChildren1 : public EggSyntaxNodeBase {
-    EGG_NO_COPY(EggSyntaxNodeChildren1);
+    EGG_NO_COPY(EggSyntaxNodeChildren1)
   protected:
     std::unique_ptr<IEggSyntaxNode> child;
     EggSyntaxNodeChildren1(const EggSyntaxNodeLocation& location, std::unique_ptr<IEggSyntaxNode>&& child)
@@ -56,7 +56,7 @@ namespace egg::yolk {
 
   template<size_t N>
   class EggSyntaxNodeChildrenN : public EggSyntaxNodeBase {
-    EGG_NO_COPY(EggSyntaxNodeChildrenN);
+    EGG_NO_COPY(EggSyntaxNodeChildrenN)
   protected:
     static const size_t count = N;
     std::unique_ptr<IEggSyntaxNode> child[N];
@@ -74,7 +74,7 @@ namespace egg::yolk {
   };
 
   class EggSyntaxNodeChildrenV : public EggSyntaxNodeBase {
-    EGG_NO_COPY(EggSyntaxNodeChildrenV);
+    EGG_NO_COPY(EggSyntaxNodeChildrenV)
   protected:
     std::vector<std::unique_ptr<IEggSyntaxNode>> child;
     explicit EggSyntaxNodeChildrenV(const EggSyntaxNodeLocation& location)
@@ -90,7 +90,7 @@ namespace egg::yolk {
   };
 
   class EggSyntaxNode_Module : public EggSyntaxNodeChildrenV {
-    EGG_NO_COPY(EggSyntaxNode_Module);
+    EGG_NO_COPY(EggSyntaxNode_Module)
   public:
     explicit EggSyntaxNode_Module(const EggSyntaxNodeLocation& location)
       : EggSyntaxNodeChildrenV(location) {
@@ -100,7 +100,7 @@ namespace egg::yolk {
   };
 
   class EggSyntaxNode_Block : public EggSyntaxNodeChildrenV {
-    EGG_NO_COPY(EggSyntaxNode_Block);
+    EGG_NO_COPY(EggSyntaxNode_Block)
   public:
     explicit EggSyntaxNode_Block(const EggSyntaxNodeLocation& location)
       : EggSyntaxNodeChildrenV(location) {
@@ -110,7 +110,7 @@ namespace egg::yolk {
   };
 
   class EggSyntaxNode_Type : public EggSyntaxNodeBase {
-    EGG_NO_COPY(EggSyntaxNode_Type);
+    EGG_NO_COPY(EggSyntaxNode_Type)
   private:
     egg::ovum::Type type;
   public:
@@ -123,7 +123,7 @@ namespace egg::yolk {
   };
 
   class EggSyntaxNode_Declare : public EggSyntaxNodeChildrenV {
-    EGG_NO_COPY(EggSyntaxNode_Declare);
+    EGG_NO_COPY(EggSyntaxNode_Declare)
   private:
     egg::ovum::String name;
   public:
@@ -145,7 +145,7 @@ namespace egg::yolk {
   };
 
   class EggSyntaxNode_Guard : public EggSyntaxNodeChildrenN<2> {
-    EGG_NO_COPY(EggSyntaxNode_Guard);
+    EGG_NO_COPY(EggSyntaxNode_Guard)
   private:
     egg::ovum::String name;
   public:
@@ -158,7 +158,7 @@ namespace egg::yolk {
   };
 
   class EggSyntaxNode_Assignment : public EggSyntaxNodeChildrenN<2> {
-    EGG_NO_COPY(EggSyntaxNode_Assignment);
+    EGG_NO_COPY(EggSyntaxNode_Assignment)
   private:
     EggTokenizerOperator op;
   public:
@@ -171,7 +171,7 @@ namespace egg::yolk {
   };
 
   class EggSyntaxNode_Mutate : public EggSyntaxNodeChildren1 {
-    EGG_NO_COPY(EggSyntaxNode_Mutate);
+    EGG_NO_COPY(EggSyntaxNode_Mutate)
   private:
     EggTokenizerOperator op;
   public:
@@ -184,7 +184,7 @@ namespace egg::yolk {
   };
 
   class EggSyntaxNode_Break : public EggSyntaxNodeBase {
-    EGG_NO_COPY(EggSyntaxNode_Break);
+    EGG_NO_COPY(EggSyntaxNode_Break)
   public:
     explicit EggSyntaxNode_Break(const EggSyntaxNodeLocation& location)
       : EggSyntaxNodeBase(location) {
@@ -195,7 +195,7 @@ namespace egg::yolk {
   };
 
   class EggSyntaxNode_Case : public EggSyntaxNodeChildren1 {
-    EGG_NO_COPY(EggSyntaxNode_Case);
+    EGG_NO_COPY(EggSyntaxNode_Case)
   public:
     EggSyntaxNode_Case(const EggSyntaxNodeLocation& location, std::unique_ptr<IEggSyntaxNode>&& expr)
       : EggSyntaxNodeChildren1(location, std::move(expr)) {
@@ -206,7 +206,7 @@ namespace egg::yolk {
   };
 
   class EggSyntaxNode_Catch : public EggSyntaxNodeChildrenN<2> {
-    EGG_NO_COPY(EggSyntaxNode_Catch);
+    EGG_NO_COPY(EggSyntaxNode_Catch)
   private:
     egg::ovum::String name;
   public:
@@ -220,7 +220,7 @@ namespace egg::yolk {
   };
 
   class EggSyntaxNode_Continue : public EggSyntaxNodeBase {
-    EGG_NO_COPY(EggSyntaxNode_Continue);
+    EGG_NO_COPY(EggSyntaxNode_Continue)
   public:
     explicit EggSyntaxNode_Continue(const EggSyntaxNodeLocation& location)
       : EggSyntaxNodeBase(location) {
@@ -231,7 +231,7 @@ namespace egg::yolk {
   };
 
   class EggSyntaxNode_Default : public EggSyntaxNodeBase {
-    EGG_NO_COPY(EggSyntaxNode_Default);
+    EGG_NO_COPY(EggSyntaxNode_Default)
   public:
     explicit EggSyntaxNode_Default(const EggSyntaxNodeLocation& location)
       : EggSyntaxNodeBase(location) {
@@ -242,7 +242,7 @@ namespace egg::yolk {
   };
 
   class EggSyntaxNode_Do : public EggSyntaxNodeChildrenN<2> {
-    EGG_NO_COPY(EggSyntaxNode_Do);
+    EGG_NO_COPY(EggSyntaxNode_Do)
   public:
     EggSyntaxNode_Do(const EggSyntaxNodeLocation& location, std::unique_ptr<IEggSyntaxNode>&& cond, std::unique_ptr<IEggSyntaxNode>&& block)
       : EggSyntaxNodeChildrenN(location, std::move(cond), std::move(block)) {
@@ -253,7 +253,7 @@ namespace egg::yolk {
   };
 
   class EggSyntaxNode_If : public EggSyntaxNodeChildrenV {
-    EGG_NO_COPY(EggSyntaxNode_If);
+    EGG_NO_COPY(EggSyntaxNode_If)
   public:
     EggSyntaxNode_If(const EggSyntaxNodeLocation& location, std::unique_ptr<IEggSyntaxNode>&& cond, std::unique_ptr<IEggSyntaxNode>&& block)
       : EggSyntaxNodeChildrenV(location) {
@@ -266,7 +266,7 @@ namespace egg::yolk {
   };
 
   class EggSyntaxNode_Finally : public EggSyntaxNodeChildren1 {
-    EGG_NO_COPY(EggSyntaxNode_Finally);
+    EGG_NO_COPY(EggSyntaxNode_Finally)
   public:
     EggSyntaxNode_Finally(const EggSyntaxNodeLocation& location, std::unique_ptr<IEggSyntaxNode>&& block)
       : EggSyntaxNodeChildren1(location, std::move(block)) {
@@ -277,7 +277,7 @@ namespace egg::yolk {
   };
 
   class EggSyntaxNode_For : public EggSyntaxNodeChildrenV {
-    EGG_NO_COPY(EggSyntaxNode_For);
+    EGG_NO_COPY(EggSyntaxNode_For)
   public:
     EggSyntaxNode_For(const EggSyntaxNodeLocation& location, std::unique_ptr<IEggSyntaxNode>&& pre, std::unique_ptr<IEggSyntaxNode>&& cond, std::unique_ptr<IEggSyntaxNode>&& post, std::unique_ptr<IEggSyntaxNode>&& block)
       : EggSyntaxNodeChildrenV(location) {
@@ -293,7 +293,7 @@ namespace egg::yolk {
   };
 
   class EggSyntaxNode_Foreach : public EggSyntaxNodeChildrenN<3> {
-    EGG_NO_COPY(EggSyntaxNode_Foreach);
+    EGG_NO_COPY(EggSyntaxNode_Foreach)
   public:
     EggSyntaxNode_Foreach(const EggSyntaxNodeLocation& location, std::unique_ptr<IEggSyntaxNode>&& target, std::unique_ptr<IEggSyntaxNode>&& expr, std::unique_ptr<IEggSyntaxNode>&& block)
       : EggSyntaxNodeChildrenN(location, std::move(target), std::move(expr)) {
@@ -306,7 +306,7 @@ namespace egg::yolk {
   };
 
   class EggSyntaxNode_FunctionDefinition : public EggSyntaxNodeChildrenV {
-    EGG_NO_COPY(EggSyntaxNode_FunctionDefinition);
+    EGG_NO_COPY(EggSyntaxNode_FunctionDefinition)
   private:
     egg::ovum::String name;
     bool generator;
@@ -321,7 +321,7 @@ namespace egg::yolk {
   };
 
   class EggSyntaxNode_Parameter : public EggSyntaxNodeChildren1 {
-    EGG_NO_COPY(EggSyntaxNode_Parameter);
+    EGG_NO_COPY(EggSyntaxNode_Parameter)
   private:
     egg::ovum::String name;
     bool optional;
@@ -335,7 +335,7 @@ namespace egg::yolk {
   };
 
   class EggSyntaxNode_Return : public EggSyntaxNodeChildrenV {
-    EGG_NO_COPY(EggSyntaxNode_Return);
+    EGG_NO_COPY(EggSyntaxNode_Return)
   public:
     explicit EggSyntaxNode_Return(const EggSyntaxNodeLocation& location)
       : EggSyntaxNodeChildrenV(location) {
@@ -346,7 +346,7 @@ namespace egg::yolk {
   };
 
   class EggSyntaxNode_Switch : public EggSyntaxNodeChildrenN<2> {
-    EGG_NO_COPY(EggSyntaxNode_Switch);
+    EGG_NO_COPY(EggSyntaxNode_Switch)
   public:
     EggSyntaxNode_Switch(const EggSyntaxNodeLocation& location, std::unique_ptr<IEggSyntaxNode>&& expr, std::unique_ptr<IEggSyntaxNode>&& block)
       : EggSyntaxNodeChildrenN(location, std::move(expr), std::move(block)) {
@@ -357,7 +357,7 @@ namespace egg::yolk {
   };
 
   class EggSyntaxNode_Throw : public EggSyntaxNodeChildrenV {
-    EGG_NO_COPY(EggSyntaxNode_Throw);
+    EGG_NO_COPY(EggSyntaxNode_Throw)
   public:
     explicit EggSyntaxNode_Throw(const EggSyntaxNodeLocation& location)
       : EggSyntaxNodeChildrenV(location) {
@@ -368,7 +368,7 @@ namespace egg::yolk {
   };
 
   class EggSyntaxNode_Try : public EggSyntaxNodeChildrenV {
-    EGG_NO_COPY(EggSyntaxNode_Try);
+    EGG_NO_COPY(EggSyntaxNode_Try)
   public:
     EggSyntaxNode_Try(const EggSyntaxNodeLocation& location, std::unique_ptr<IEggSyntaxNode>&& block)
       : EggSyntaxNodeChildrenV(location) {
@@ -380,7 +380,7 @@ namespace egg::yolk {
   };
 
   class EggSyntaxNode_While : public EggSyntaxNodeChildrenN<2> {
-    EGG_NO_COPY(EggSyntaxNode_While);
+    EGG_NO_COPY(EggSyntaxNode_While)
   public:
     EggSyntaxNode_While(const EggSyntaxNodeLocation& location, std::unique_ptr<IEggSyntaxNode>&& cond, std::unique_ptr<IEggSyntaxNode>&& block)
       : EggSyntaxNodeChildrenN(location, std::move(cond), std::move(block)) {
@@ -391,7 +391,7 @@ namespace egg::yolk {
   };
 
   class EggSyntaxNode_Yield : public EggSyntaxNodeChildren1 {
-    EGG_NO_COPY(EggSyntaxNode_Yield);
+    EGG_NO_COPY(EggSyntaxNode_Yield)
   public:
     EggSyntaxNode_Yield(const EggSyntaxNodeLocation& location, std::unique_ptr<IEggSyntaxNode>&& expr)
       : EggSyntaxNodeChildren1(location, std::move(expr)) {
@@ -402,7 +402,7 @@ namespace egg::yolk {
   };
 
   class EggSyntaxNode_Dot : public EggSyntaxNodeChildren1 {
-    EGG_NO_COPY(EggSyntaxNode_Dot);
+    EGG_NO_COPY(EggSyntaxNode_Dot)
   private:
     egg::ovum::String property;
     bool query; // TODO
@@ -416,7 +416,7 @@ namespace egg::yolk {
   };
 
   class EggSyntaxNode_UnaryOperator : public EggSyntaxNodeChildren1 {
-    EGG_NO_COPY(EggSyntaxNode_UnaryOperator);
+    EGG_NO_COPY(EggSyntaxNode_UnaryOperator)
   private:
     EggTokenizerOperator op;
   public:
@@ -429,7 +429,7 @@ namespace egg::yolk {
   };
 
   class EggSyntaxNode_BinaryOperator : public EggSyntaxNodeChildrenN<2> {
-    EGG_NO_COPY(EggSyntaxNode_BinaryOperator);
+    EGG_NO_COPY(EggSyntaxNode_BinaryOperator)
   private:
     EggTokenizerOperator op;
   public:
@@ -442,7 +442,7 @@ namespace egg::yolk {
   };
 
   class EggSyntaxNode_TernaryOperator : public EggSyntaxNodeChildrenN<3> {
-    EGG_NO_COPY(EggSyntaxNode_TernaryOperator);
+    EGG_NO_COPY(EggSyntaxNode_TernaryOperator)
   public:
     EggSyntaxNode_TernaryOperator(const EggSyntaxNodeLocation& location, std::unique_ptr<IEggSyntaxNode>&& condition, std::unique_ptr<IEggSyntaxNode>&& whenTrue, std::unique_ptr<IEggSyntaxNode>&& whenFalse)
       : EggSyntaxNodeChildrenN(location) {
@@ -459,7 +459,7 @@ namespace egg::yolk {
   };
 
   class EggSyntaxNode_Array : public EggSyntaxNodeChildrenV {
-    EGG_NO_COPY(EggSyntaxNode_Array);
+    EGG_NO_COPY(EggSyntaxNode_Array)
   public:
     explicit EggSyntaxNode_Array(const EggSyntaxNodeLocation& location)
       : EggSyntaxNodeChildrenV(location) {
@@ -469,7 +469,7 @@ namespace egg::yolk {
   };
 
   class EggSyntaxNode_Object : public EggSyntaxNodeChildrenV {
-    EGG_NO_COPY(EggSyntaxNode_Object);
+    EGG_NO_COPY(EggSyntaxNode_Object)
   public:
     explicit EggSyntaxNode_Object(const EggSyntaxNodeLocation& location)
       : EggSyntaxNodeChildrenV(location) {
@@ -479,7 +479,7 @@ namespace egg::yolk {
   };
 
   class EggSyntaxNode_Call : public EggSyntaxNodeChildrenV {
-    EGG_NO_COPY(EggSyntaxNode_Call);
+    EGG_NO_COPY(EggSyntaxNode_Call)
   public:
     EggSyntaxNode_Call(const EggSyntaxNodeLocation& location, std::unique_ptr<IEggSyntaxNode>&& callee)
       : EggSyntaxNodeChildrenV(location) {
@@ -490,7 +490,7 @@ namespace egg::yolk {
   };
 
   class EggSyntaxNode_Named : public EggSyntaxNodeChildren1 {
-    EGG_NO_COPY(EggSyntaxNode_Named);
+    EGG_NO_COPY(EggSyntaxNode_Named)
   private:
     egg::ovum::String name;
   public:
@@ -503,7 +503,7 @@ namespace egg::yolk {
   };
 
   class EggSyntaxNode_Identifier : public EggSyntaxNodeBase {
-    EGG_NO_COPY(EggSyntaxNode_Identifier);
+    EGG_NO_COPY(EggSyntaxNode_Identifier)
   private:
     egg::ovum::String name;
   public:
@@ -516,7 +516,7 @@ namespace egg::yolk {
   };
 
   class EggSyntaxNode_Literal : public EggSyntaxNodeBase {
-    EGG_NO_COPY(EggSyntaxNode_Literal);
+    EGG_NO_COPY(EggSyntaxNode_Literal)
   private:
     EggTokenizerKind kind;
     EggTokenizerValue value;

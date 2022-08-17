@@ -9,7 +9,7 @@ using namespace egg::yolk;
 
 namespace {
   class TestExamples : public ::testing::TestWithParam<int> {
-    EGG_NO_COPY(TestExamples);
+    EGG_NO_COPY(TestExamples)
   public:
     TestExamples() {}
     void run() {

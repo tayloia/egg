@@ -23,7 +23,7 @@ namespace {
   }
 
   class EggEngineContext : public IEggEngineContext {
-    EGG_NO_COPY(EggEngineContext);
+    EGG_NO_COPY(EggEngineContext)
   private:
     egg::ovum::TypeFactory& factory;
     egg::ovum::IBasket& basket;
@@ -47,7 +47,7 @@ namespace {
   };
 
   class EggEngineParsed : public IEggEngine {
-    EGG_NO_COPY(EggEngineParsed);
+    EGG_NO_COPY(EggEngineParsed)
   private:
     EggProgram program;
     bool prepared;
@@ -76,7 +76,7 @@ namespace {
   };
 
   class EggEngineTextStream : public IEggEngine {
-    EGG_NO_COPY(EggEngineTextStream);
+    EGG_NO_COPY(EggEngineTextStream)
   private:
     TextStream* stream;
     std::unique_ptr<EggProgram> program;
