@@ -1,9 +1,13 @@
-#!/bin/bash
+#!/bin/bash -e
 if [[ $# -ne 1 ]]
 then
   echo usage: $0 test-executable
   exit 1
 fi
+trap 'case $? in
+        133) cat $1.log ; echo "FAILURE: Assertion failed in $1";;
+        139) cat $1.log ; echo "FAILURE: Segmentation fault in $1";;
+      esac' EXIT
 $1 >$1.log 2>&1
 RETVAL=$?
 if [[ $RETVAL -ne 0 ]]
