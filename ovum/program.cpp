@@ -185,7 +185,7 @@ namespace {
       return &retval->second;
     }
     void softVisit(const Visitor& visitor) const override {
-      // WIBBLE
+      // Visit all elements in this symbol table
       for (auto& each : this->table) {
         each.second.visit(visitor);
       }
@@ -807,7 +807,7 @@ namespace {
       auto ftype = this->type(node.getChild(0), fname);
       auto& fblock = node.getChild(1);
       if (fblock.getOpcode() != Opcode::BLOCK) {
-        return this->raise("Generators are not yet supported"); // WIBBLE
+        return this->raise("Generators are not yet supported"); // TODO
       }
       this->updateLocation(node);
       auto function = this->allocator.makeHard<UserFunction>(*this, this->location, ftype, fblock);
@@ -1537,13 +1537,15 @@ namespace {
             // An IEEE NaN does not compare with anything, even other NaNs
             return Value::False;
           }
-          bool result = (fa < fb) ^ invert; // need to force bool-ness
+          auto result = fa < fb;
+          result ^= invert;
           return ValueFactory::create(this->allocator, result);
         }
         Int ib;
         if (vb->getInt(ib)) {
           // Comparing float with int
-          bool result = (fa < Float(ib)) ^ invert; // need to force bool-ness
+          auto result = fa < Float(ib);
+          result ^= invert;
           return ValueFactory::create(this->allocator, result);
         }
         auto side = ((oper == Operator::GT) || (oper == Operator::LE)) ? "left" : "right";
@@ -1559,13 +1561,15 @@ namespace {
             // An IEEE NaN does not compare with anything
             return Value::False;
           }
-          bool result = (Float(ia) < fb) ^ invert; // need to force bool-ness
+          auto result = Float(ia) < fb;
+          result ^= invert;
           return ValueFactory::create(this->allocator, result);
         }
         Int ib;
         if (vb->getInt(ib)) {
           // Comparing int with int
-          bool result = (ia < ib) ^ invert; // need to force bool-ness
+          auto result = ia < ib;
+          result ^= invert;
           return ValueFactory::create(this->allocator, result);
         }
         auto side = ((oper == Operator::GT) || (oper == Operator::LE)) ? "left" : "right";
@@ -1580,9 +1584,9 @@ namespace {
       EGG_WARNING_SUPPRESS_SWITCH_BEGIN();
       switch (oper) {
       case Operator::BITAND:
-        return ValueFactory::createBool(lhs & rhs);
+        return ValueFactory::createBool(lhs && rhs);
       case Operator::BITOR:
-        return ValueFactory::createBool(lhs | rhs);
+        return ValueFactory::createBool(lhs || rhs);
       case Operator::BITXOR:
         return ValueFactory::createBool(lhs ^ rhs);
       }
@@ -1590,7 +1594,7 @@ namespace {
       return this->raiseNode(node, "Internal runtime error: Unexpected binary bool operator: '", OperatorProperties::str(oper), "'");
     }
     Value operatorBinaryInt(const INode& node, Operator oper, Int lhs, Int rhs) {
-      // WIBBLE handle div-by-zero etc more elegantly
+      // TODO: handle div-by-zero etc more elegantly
       EGG_WARNING_SUPPRESS_SWITCH_BEGIN();
       switch (oper) {
       case Operator::ADD:
@@ -1629,7 +1633,7 @@ namespace {
       return this->raiseNode(node, "Internal runtime error: Unexpected binary integer operator: '", OperatorProperties::str(oper), "'");
     }
     Value operatorBinaryFloat(const INode& node, Operator oper, Float lhs, Float rhs) {
-      // WIBBLE handle div-by-zero etc more elegantly
+      // TODO: handle div-by-zero etc more elegantly
       EGG_WARNING_SUPPRESS_SWITCH_BEGIN();
       switch (oper) {
       case Operator::ADD:
@@ -2060,7 +2064,7 @@ namespace {
         if (modifiability == Modifiability::None) {
           return this->raiseNode(node, type.describeValue(), " does not support the property '", target.identifier, "'");
         }
-        if (!Bits::hasAnySet(modifiability, Modifiability::Write)) { // WIBBLE Mutate?
+        if (!Bits::hasAnySet(modifiability, Modifiability::Write)) { // TODO: Mutate?
           return this->raiseNode(node, type.describeValue(), " does not support modification of the property '", target.identifier, "'");
         }
         target.type = dotable->getType(target.identifier);

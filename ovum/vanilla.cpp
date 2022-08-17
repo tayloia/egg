@@ -635,7 +635,7 @@ namespace {
     VanillaObject(const VanillaObject&) = delete;
     VanillaObject& operator=(const VanillaObject&) = delete;
   private:
-    SoftPtr<VanillaStringValueMap> map; // WIBBLE VanillaValueValueMap
+    SoftPtr<VanillaStringValueMap> map; // TODO: VanillaValueValueMap
   public:
     VanillaObject(IAllocator& allocator, IBasket& basket)
       : VanillaBase(allocator),
@@ -850,7 +850,7 @@ namespace {
       // There are no soft links to visit
     }
     virtual Type getRuntimeType() const override {
-      return Type::Object; // WIBBLE
+      return Type::Object; // TODO
     }
     virtual Value call(IExecution&, const IParameters& parameters) override {
       assert(parameters.getNamedCount() == 0);

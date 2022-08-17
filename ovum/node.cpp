@@ -474,7 +474,7 @@ namespace {
   }
 
   Node buildType(IAllocator& allocator, const NodeLocation& location, const IType& type) {
-    // WIBBLE shapes other than object
+    // TODO shapes other than object
     Nodes nodes;
     buildPrimitiveType(nodes, allocator, type.getPrimitiveFlags());
     auto oshapes = type.getObjectShapeCount();

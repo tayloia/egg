@@ -86,7 +86,7 @@ std::string egg::yolk::EggProgram::mutateToString(egg::yolk::EggProgramMutate op
 }
 
 egg::ovum::ILogger::Severity egg::yolk::EggProgram::execute(IEggEngineContext& context, const egg::ovum::Module& module) {
-  // WIBBLE rationalise
+  // TODO rationalise
   auto program = egg::ovum::ProgramFactory::createProgram(context.getAllocator(), context);
   auto severity = egg::ovum::ILogger::Severity::None;
   auto result = program->run(*module, &severity);
