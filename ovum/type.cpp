@@ -853,19 +853,29 @@ egg::ovum::Type egg::ovum::TypeFactory::addNull(const Type& type) {
   return type;
 }
 
-egg::ovum::Type egg::ovum::TypeFactory::stripFlags(const Type& type, ValueFlags flags) {
+egg::ovum::Type egg::ovum::TypeFactory::removeVoid(const Type& type) {
   // TODO optimize
   if (type != nullptr) {
-    const auto acceptable = ValueFlags::Void | ValueFlags::Null;
-    if (Bits::set(flags, acceptable) != acceptable) {
-      throw std::logic_error("Type::stripFlags() can only strip 'void' and 'null'");
-    }
-    auto uflags = type->getPrimitiveFlags();
-    if (uflags == flags) {
+    auto flags = type->getPrimitiveFlags();
+    if (flags == ValueFlags::Void) {
       return nullptr;
     }
-    if (Bits::hasAnySet(uflags, flags)) {
-      return this->allocator.makeHard<TypeStrip, Type>(type, flags);
+    if (Bits::hasAnySet(flags, ValueFlags::Void)) {
+      return this->allocator.makeHard<TypeStrip, Type>(type, ValueFlags::Void);
+    }
+  }
+  return type;
+}
+
+egg::ovum::Type egg::ovum::TypeFactory::removeNull(const Type& type) {
+  // TODO optimize
+  if (type != nullptr) {
+    auto flags = type->getPrimitiveFlags();
+    if (flags == ValueFlags::Null) {
+      return nullptr;
+    }
+    if (Bits::hasAnySet(flags, ValueFlags::Null)) {
+      return this->allocator.makeHard<TypeStrip, Type>(type, ValueFlags::Null);
     }
   }
   return type;

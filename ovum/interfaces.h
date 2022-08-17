@@ -260,6 +260,38 @@ namespace egg::ovum {
     virtual String describeValue() const = 0;
   };
 
+  class ITypeBuilder : public IHardAcquireRelease {
+  public:
+    virtual void addPositionalParameter(const Type& type, const String& name, IFunctionSignatureParameter::Flags flags) = 0;
+    virtual void addNamedParameter(const Type& type, const String& name, IFunctionSignatureParameter::Flags flags) = 0;
+    virtual void addProperty(const Type& type, const String& name, Modifiability modifiability) = 0;
+    virtual void defineDotable(const Type& unknownType, Modifiability unknownModifiability) = 0;
+    virtual void defineIndexable(const Type& resultType, const Type& indexType, Modifiability modifiability) = 0;
+    virtual void defineIterable(const Type& resultType) = 0;
+    virtual Type build() = 0;
+  };
+  using TypeBuilder = HardPtr<ITypeBuilder>;
+
+  class ITypeFactory {
+  public:
+    // Interface
+    virtual ~ITypeFactory() {}
+    virtual IAllocator& getAllocator() const = 0;
+
+    virtual Type createSimple(ValueFlags flags) = 0;
+    virtual Type createPointer(const Type& pointee, Modifiability modifiability) = 0;
+    virtual Type createUnion(const Type& a, const Type& b) = 0;
+
+    virtual Type addVoid(const Type& type) = 0;
+    virtual Type addNull(const Type& type) = 0;
+    virtual Type removeVoid(const Type& type) = 0;
+    virtual Type removeNull(const Type& type) = 0;
+
+    virtual TypeBuilder createTypeBuilder(const String& name, const String& description) = 0;
+    virtual TypeBuilder createFunctionBuilder(const Type& rettype, const String& name, const String& description) = 0;
+    virtual TypeBuilder createGeneratorBuilder(const Type& gentype, const String& name, const String& description) = 0;
+  };
+
   class IObject : public ICollectable {
   public:
     // Interface

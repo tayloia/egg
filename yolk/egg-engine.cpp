@@ -25,11 +25,11 @@ namespace {
   class EggEngineContext : public IEggEngineContext {
     EGG_NO_COPY(EggEngineContext)
   private:
-    egg::ovum::TypeFactory& factory;
+    egg::ovum::ITypeFactory& factory;
     egg::ovum::IBasket& basket;
     std::shared_ptr<egg::ovum::ILogger> logger;
   public:
-    EggEngineContext(egg::ovum::TypeFactory& factory, egg::ovum::IBasket& basket, const std::shared_ptr<egg::ovum::ILogger>& logger)
+    EggEngineContext(egg::ovum::ITypeFactory& factory, egg::ovum::IBasket& basket, const std::shared_ptr<egg::ovum::ILogger>& logger)
       : factory(factory),
         basket(basket),
         logger(logger) {
@@ -39,9 +39,9 @@ namespace {
       this->logger->log(source, severity, message);
     }
     virtual egg::ovum::IAllocator& getAllocator() override {
-      return this->factory.allocator;
+      return this->factory.getAllocator();
     }
-    virtual egg::ovum::TypeFactory& getTypeFactory() override {
+    virtual egg::ovum::ITypeFactory& getTypeFactory() override {
       return this->factory;
     }
   };
@@ -136,7 +136,7 @@ egg::ovum::ILogger::Severity egg::yolk::IEggEngine::run(IEggEngineContext& conte
   return preparation;
 }
 
-std::shared_ptr<IEggEngineContext> egg::yolk::EggEngineFactory::createContext(egg::ovum::TypeFactory& factory, egg::ovum::IBasket& basket, const std::shared_ptr<egg::ovum::ILogger>& logger) {
+std::shared_ptr<IEggEngineContext> egg::yolk::EggEngineFactory::createContext(egg::ovum::ITypeFactory& factory, egg::ovum::IBasket& basket, const std::shared_ptr<egg::ovum::ILogger>& logger) {
   return std::make_shared<EggEngineContext>(factory, basket, logger);
 }
 

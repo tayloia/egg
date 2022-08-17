@@ -33,7 +33,7 @@ namespace egg::ovum {
       auto* value = this->get();
       return (value == nullptr) ? empty : Value(*value);
     }
-    Value reference(TypeFactory& factory, IBasket& basket, const Type& pointee, Modifiability modifiability);
+    Value reference(ITypeFactory& factory, IBasket& basket, const Type& pointee, Modifiability modifiability);
     // Debugging
     bool validate(bool optional) const;
     virtual bool validate() const override {

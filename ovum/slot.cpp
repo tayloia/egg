@@ -95,10 +95,10 @@ egg::ovum::Type::Assignment egg::ovum::Slot::mutate(ISlot& slot, IAllocator& all
   }
 }
 
-egg::ovum::Value egg::ovum::Slot::reference(TypeFactory& factory, IBasket& trug, const Type& pointee, Modifiability modifiability) {
+egg::ovum::Value egg::ovum::Slot::reference(ITypeFactory& factory, IBasket& trug, const Type& pointee, Modifiability modifiability) {
   assert(this->validate(false));
   auto pointer = factory.createPointer(pointee, modifiability);
-  return ValueFactory::createObject(allocator, VanillaFactory::createPointer(factory.allocator, trug, *this, pointer));
+  return ValueFactory::createObject(allocator, VanillaFactory::createPointer(factory.getAllocator(), trug, *this, pointer));
 }
 
 bool egg::ovum::Slot::validate(bool optional) const {

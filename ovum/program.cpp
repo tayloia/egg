@@ -308,7 +308,7 @@ namespace {
       }
       return execution.raiseFormat("Function ", std::forward<ARGS>(args)...);
     }
-    static Type makeType(TypeFactory& factory, ProgramDefault& program, const String& name, const INode& callable);
+    static Type makeType(ITypeFactory& factory, ProgramDefault& program, const String& name, const INode& callable);
   private:
     void initialize(const Type& ftype);
     const IFunctionSignature* getFunctionSignature() const {
@@ -354,7 +354,7 @@ namespace {
         maxseverity(ILogger::Severity::None),
         factory(allocator),
         basket(egg::ovum::BasketFactory::createBasket(allocator)),
-        symtable(factory.allocator.makeHard<SymbolTable>(*basket, nullptr, nullptr)),
+        symtable(factory.getAllocator().makeHard<SymbolTable>(*basket, nullptr, nullptr)),
         location({}, 0, 0) {
     }
     virtual ~ProgramDefault() {
@@ -389,12 +389,12 @@ namespace {
       return result;
     }
     virtual IAllocator& getAllocator() const override {
-      return this->factory.allocator;
+      return this->factory.getAllocator();
     }
     virtual IBasket& getBasket() const override {
       return *this->basket;
     }
-    virtual TypeFactory& getTypeFactory() override {
+    virtual ITypeFactory& getTypeFactory() override {
       return this->factory;
     }
     virtual Value raise(const String& message) override {
@@ -2351,7 +2351,7 @@ egg::ovum::Value Block::guard(const LocationSource& source, const Type& type, co
   return Value::True;
 }
 
-egg::ovum::Type UserFunction::makeType(TypeFactory& factory, ProgramDefault& program, const String& name, const INode& callable) {
+egg::ovum::Type UserFunction::makeType(ITypeFactory& factory, ProgramDefault& program, const String& name, const INode& callable) {
   // Create a type appropriate for a standard "user" function
   assert(callable.getOpcode() == Opcode::CALLABLE);
   auto n = callable.getChildren();

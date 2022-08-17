@@ -14,7 +14,7 @@ void egg::yolk::EggProgramSymbol::setInferredType(const egg::ovum::Type& inferre
   this->type = inferred;
 }
 
-void egg::yolk::EggProgramSymbolTable::addBuiltins(egg::ovum::TypeFactory& factory, egg::ovum::IBasket& basket) {
+void egg::yolk::EggProgramSymbolTable::addBuiltins(egg::ovum::ITypeFactory& factory, egg::ovum::IBasket& basket) {
   // TODO add built-in symbol to symbol table here
   this->addBuiltin("string", egg::ovum::BuiltinFactory::createStringInstance(factory, basket));
   this->addBuiltin("type", egg::ovum::BuiltinFactory::createTypeInstance(factory, basket));
@@ -107,13 +107,13 @@ egg::ovum::ILogger::Severity egg::yolk::EggProgram::execute(IEggEngineContext& c
   return severity;
 }
 
-egg::ovum::HardPtr<egg::yolk::EggProgramContext> egg::yolk::EggProgram::createRootContext(egg::ovum::TypeFactory& factory, egg::ovum::ILogger& logger, EggProgramSymbolTable& symtable, egg::ovum::ILogger::Severity& maximumSeverity) {
+egg::ovum::HardPtr<egg::yolk::EggProgramContext> egg::yolk::EggProgram::createRootContext(egg::ovum::ITypeFactory& factory, egg::ovum::ILogger& logger, EggProgramSymbolTable& symtable, egg::ovum::ILogger::Severity& maximumSeverity) {
   egg::ovum::LocationRuntime location(this->root->location(), "<module>");
-  return egg::ovum::HardPtr<EggProgramContext>(factory.allocator.makeRaw<EggProgramContext>(factory, location, logger, symtable, maximumSeverity));
+  return egg::ovum::HardPtr<EggProgramContext>(factory.getAllocator().makeRaw<EggProgramContext>(factory, location, logger, symtable, maximumSeverity));
 }
 
 egg::ovum::HardPtr<egg::yolk::EggProgramContext> egg::yolk::EggProgramContext::createNestedContext(EggProgramSymbolTable& parent, ScopeFunction* prepareFunction) {
-  return egg::ovum::HardPtr<EggProgramContext>(factory.allocator.makeRaw<EggProgramContext>(*this, parent, prepareFunction));
+  return egg::ovum::HardPtr<EggProgramContext>(factory.getAllocator().makeRaw<EggProgramContext>(*this, parent, prepareFunction));
 }
 
 void egg::yolk::EggProgramContext::log(egg::ovum::ILogger::Source source, egg::ovum::ILogger::Severity severity, const std::string& message) {
@@ -127,7 +127,7 @@ bool egg::yolk::EggProgramContext::findDuplicateSymbols(const std::vector<std::s
   // Check for duplicate symbols
   bool error = false;
   egg::ovum::String name;
-  auto type = egg::ovum::Type::Void;
+  auto type{ egg::ovum::Type::Void };
   std::map<egg::ovum::String, egg::ovum::LocationSource> seen;
   for (auto& statement : statements) {
     if (statement->symbol(name, type)) {

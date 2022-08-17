@@ -73,7 +73,7 @@ namespace egg::yolk {
   class IEggParserContext {
   public:
     virtual ~IEggParserContext() {}
-    virtual egg::ovum::TypeFactory& getTypeFactory() const = 0;
+    virtual egg::ovum::ITypeFactory& getTypeFactory() const = 0;
     virtual egg::ovum::String getResourceName() const = 0;
     virtual bool isAllowed(EggParserAllowed allowed) const = 0;
     virtual EggParserAllowed inheritAllowed(EggParserAllowed allow, EggParserAllowed inherit) const = 0;
@@ -84,7 +84,7 @@ namespace egg::yolk {
   class IEggParser {
   public:
     virtual ~IEggParser() {}
-    virtual std::shared_ptr<IEggProgramNode> parse(egg::ovum::TypeFactory& factory, IEggTokenizer& tokenizer) = 0;
+    virtual std::shared_ptr<IEggProgramNode> parse(egg::ovum::ITypeFactory& factory, IEggTokenizer& tokenizer) = 0;
   };
 
   // Syntax parser (used internally and for testing)
@@ -97,12 +97,12 @@ namespace egg::yolk {
   class EggParserFactory {
   public:
     // Syntax parser factories (used internally and for testing)
-    static std::shared_ptr<IEggSyntaxParser> createModuleSyntaxParser(egg::ovum::TypeFactory& factory);
-    static std::shared_ptr<IEggSyntaxParser> createStatementSyntaxParser(egg::ovum::TypeFactory& factory);
-    static std::shared_ptr<IEggSyntaxParser> createExpressionSyntaxParser(egg::ovum::TypeFactory& factory);
+    static std::shared_ptr<IEggSyntaxParser> createModuleSyntaxParser(egg::ovum::ITypeFactory& factory);
+    static std::shared_ptr<IEggSyntaxParser> createStatementSyntaxParser(egg::ovum::ITypeFactory& factory);
+    static std::shared_ptr<IEggSyntaxParser> createExpressionSyntaxParser(egg::ovum::ITypeFactory& factory);
 
     // All-in-one parser (used mainly for testing)
-    static std::shared_ptr<IEggProgramNode> parseModule(egg::ovum::TypeFactory& factory, TextStream& stream);
+    static std::shared_ptr<IEggProgramNode> parseModule(egg::ovum::ITypeFactory& factory, TextStream& stream);
 
     // AST parsers
     static std::shared_ptr<IEggParser> createModuleParser();

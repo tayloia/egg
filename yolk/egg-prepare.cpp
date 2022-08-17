@@ -60,7 +60,7 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareScope(const 
 egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareStatements(const std::vector<std::shared_ptr<IEggProgramNode>>& statements) {
   // Prepare all the statements one after another
   egg::ovum::String name;
-  auto type = egg::ovum::Type::Void;
+  auto type{ egg::ovum::Type::Void };
   EggProgramNodeFlags retval = EggProgramNodeFlags::Fallthrough; // We fallthrough if there are no statements
   auto unreachable = false;
   for (auto& statement : statements) {
@@ -713,8 +713,10 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareWithType(IEg
 egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::typeCheck(const egg::ovum::LocationSource& where, egg::ovum::Type& ltype, const egg::ovum::Type& rtype, const egg::ovum::String& name, bool guard) {
   if (ltype == nullptr) {
     // We need to infer the type
-    auto strip = guard ? (egg::ovum::ValueFlags::Void | egg::ovum::ValueFlags::Null) : egg::ovum::ValueFlags::Void;
-    ltype = this->factory.stripFlags(rtype, strip);
+    ltype = this->factory.removeVoid(rtype);
+    if (guard) {
+      ltype = this->factory.removeNull(ltype);
+    }
     if (ltype == nullptr) {
       return this->compilerError(where, "Cannot infer type of '", name, "' based on a value of type '", rtype.toString(), "'"); // TODO useful?
     }

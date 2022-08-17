@@ -74,7 +74,7 @@ namespace egg::yolk {
         map(),
         parent(parent) {
     }
-    void addBuiltins(egg::ovum::TypeFactory& factory, egg::ovum::IBasket& basket);
+    void addBuiltins(egg::ovum::ITypeFactory& factory, egg::ovum::IBasket& basket);
     void addBuiltin(const std::string& name, const egg::ovum::Value& value);
     std::shared_ptr<EggProgramSymbol> addSymbol(EggProgramSymbol::Kind kind, const egg::ovum::String& name, const egg::ovum::Type& type);
     std::shared_ptr<EggProgramSymbol> findSymbol(const egg::ovum::String& name, bool includeParents = true) const;
@@ -98,7 +98,7 @@ namespace egg::yolk {
       (void)this->basket->collect();
       // The destructor for 'basket' will assert if this collection doesn't free up everything in the basket
     }
-    egg::ovum::HardPtr<EggProgramContext> createRootContext(egg::ovum::TypeFactory& factory, egg::ovum::ILogger& logger, EggProgramSymbolTable& symtable, egg::ovum::ILogger::Severity& maximumSeverity);
+    egg::ovum::HardPtr<EggProgramContext> createRootContext(egg::ovum::ITypeFactory& factory, egg::ovum::ILogger& logger, EggProgramSymbolTable& symtable, egg::ovum::ILogger::Severity& maximumSeverity);
     egg::ovum::ILogger::Severity prepare(IEggEngineContext& preparation);
     egg::ovum::ILogger::Severity compile(IEggEngineContext& compilation, egg::ovum::Module& out);
     egg::ovum::ILogger::Severity execute(IEggEngineContext& execution, const egg::ovum::Module& module);
@@ -133,7 +133,7 @@ namespace egg::yolk {
       bool generator;
     };
   private:
-    egg::ovum::TypeFactory& factory;
+    egg::ovum::ITypeFactory& factory;
     egg::ovum::LocationRuntime location;
     egg::ovum::ILogger* logger;
     egg::ovum::HardPtr<EggProgramSymbolTable> symtable;
@@ -141,8 +141,8 @@ namespace egg::yolk {
     const egg::ovum::IType* scopeDeclare; // Only used in prepare phase
     ScopeFunction* scopeFunction; // Only used in prepare phase
     const egg::ovum::Value* scopeValue; // Only used in execute phase
-    EggProgramContext(egg::ovum::TypeFactory& factory, const egg::ovum::LocationRuntime& location, egg::ovum::ILogger* logger, EggProgramSymbolTable& symtable, egg::ovum::ILogger::Severity* maximumSeverity, ScopeFunction* scopeFunction)
-      : HardReferenceCounted(factory.allocator, 0),
+    EggProgramContext(egg::ovum::ITypeFactory& factory, const egg::ovum::LocationRuntime& location, egg::ovum::ILogger* logger, EggProgramSymbolTable& symtable, egg::ovum::ILogger::Severity* maximumSeverity, ScopeFunction* scopeFunction)
+      : HardReferenceCounted(factory.getAllocator(), 0),
         factory(factory),
         location(location),
         logger(logger),
@@ -156,7 +156,7 @@ namespace egg::yolk {
     EggProgramContext(EggProgramContext& parent, EggProgramSymbolTable& symtable, ScopeFunction* scopeFunction)
       : EggProgramContext(parent.factory, parent.location, parent.logger, symtable, parent.maximumSeverity, scopeFunction) {
     }
-    EggProgramContext(egg::ovum::TypeFactory& factory, const egg::ovum::LocationRuntime& location, egg::ovum::ILogger& logger, EggProgramSymbolTable& symtable, egg::ovum::ILogger::Severity& maximumSeverity)
+    EggProgramContext(egg::ovum::ITypeFactory& factory, const egg::ovum::LocationRuntime& location, egg::ovum::ILogger& logger, EggProgramSymbolTable& symtable, egg::ovum::ILogger::Severity& maximumSeverity)
       : EggProgramContext(factory, location, &logger, symtable, &maximumSeverity, nullptr) {
     }
     egg::ovum::HardPtr<EggProgramContext> createNestedContext(EggProgramSymbolTable& symtable, ScopeFunction* prepareFunction = nullptr);

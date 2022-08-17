@@ -87,18 +87,6 @@ namespace egg::ovum {
     static const Type AnyQ;
   };
 
-  class ITypeBuilder : public IHardAcquireRelease {
-    public:
-      virtual void addPositionalParameter(const Type& type, const String& name, IFunctionSignatureParameter::Flags flags) = 0;
-      virtual void addNamedParameter(const Type& type, const String& name, IFunctionSignatureParameter::Flags flags) = 0;
-      virtual void addProperty(const Type& type, const String& name, Modifiability modifiability) = 0;
-      virtual void defineDotable(const Type& unknownType, Modifiability unknownModifiability) = 0;
-      virtual void defineIndexable(const Type& resultType, const Type& indexType, Modifiability modifiability) = 0;
-      virtual void defineIterable(const Type& resultType) = 0;
-      virtual Type build() = 0;
-  };
-  using TypeBuilder = HardPtr<ITypeBuilder>;
-
   class TypeBuilderParameter : public IFunctionSignatureParameter {
   private:
     Type type;
@@ -266,25 +254,28 @@ namespace egg::ovum {
     }
   };
 
-  class TypeFactory {
+  class TypeFactory : public ITypeFactory {
     TypeFactory(const TypeFactory&) = delete;
     TypeFactory& operator=(const TypeFactory&) = delete;
-  public:
+  private:
     IAllocator& allocator;
   public:
     explicit TypeFactory(IAllocator& allocator)
       : allocator(allocator) {
     }
-    Type createSimple(ValueFlags flags);
-    Type createPointer(const Type& pointee, Modifiability modifiability);
-    Type createUnion(const Type& a, const Type& b);
+    virtual IAllocator& getAllocator() const override { return this->allocator; }
 
-    Type addVoid(const Type& type);
-    Type addNull(const Type& type);
-    Type stripFlags(const Type& type, ValueFlags flags);
+    virtual Type createSimple(ValueFlags flags) override;
+    virtual Type createPointer(const Type& pointee, Modifiability modifiability) override;
+    virtual Type createUnion(const Type& a, const Type& b) override;
 
-    TypeBuilder createTypeBuilder(const String& name, const String& description);
-    TypeBuilder createFunctionBuilder(const Type& rettype, const String& name, const String& description);
-    TypeBuilder createGeneratorBuilder(const Type& gentype, const String& name, const String& description);
+    virtual Type addVoid(const Type& type) override;
+    virtual Type addNull(const Type& type) override;
+    virtual Type removeVoid(const Type& type) override;
+    virtual Type removeNull(const Type& type) override;
+
+    virtual TypeBuilder createTypeBuilder(const String& name, const String& description) override;
+    virtual TypeBuilder createFunctionBuilder(const Type& rettype, const String& name, const String& description) override;
+    virtual TypeBuilder createGeneratorBuilder(const Type& gentype, const String& name, const String& description) override;
   };
 }

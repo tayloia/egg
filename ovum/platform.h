@@ -21,6 +21,11 @@
 #include <string>
 #pragma warning(pop)
 
+// As of 2022-08-16, MSVC IntelliSense does not respect '/Zc:char8_t'
+#if defined(__INTELLISENSE__)
+#define char8_t uint8_t
+#endif
+
 // warning C4061 : enumerator '...' in switch of enum '...' is not explicitly handled by a case label
 // warning C4062 : enumerator '...' in switch of enum '...' is not handled
 // The do-while loop is purely to stop the MSVC editor from getting the smart indenting all wrong

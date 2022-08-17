@@ -47,15 +47,12 @@ namespace egg::test {
         basket(basket),
         logger(logger) {
     }
-    virtual egg::ovum::IAllocator& getAllocator() const override {
-      return this->allocator;
-    }
     virtual egg::ovum::IBasket& getBasket() const override {
       return this->basket;
     }
     virtual egg::ovum::Value raise(const egg::ovum::String& message) override {
-      auto value = egg::ovum::ValueFactory::create(this->allocator, message);
-      return egg::ovum::ValueFactory::createFlowControl(this->allocator, egg::ovum::ValueFlags::Throw, value);
+      auto value = egg::ovum::ValueFactory::create(this->IExecution::getAllocator(), message);
+      return egg::ovum::ValueFactory::createFlowControl(this->IExecution::getAllocator(), egg::ovum::ValueFlags::Throw, value);
     }
     virtual egg::ovum::Value assertion(const egg::ovum::Value& predicate) override {
       egg::ovum::Object object;

@@ -12,9 +12,9 @@ namespace {
   using namespace egg::ovum;
 
   template<typename T, typename... ARGS>
-  static Value createBuiltinValue(TypeFactory& factory, IBasket& basket, ARGS&&... args) {
-    Object object{ *factory.allocator.makeRaw<T>(factory, basket, std::forward<ARGS>(args)...) };
-    return ValueFactory::createObject(factory.allocator, object);
+  static Value createBuiltinValue(ITypeFactory& factory, IBasket& basket, ARGS&&... args) {
+    Object object{ *factory.getAllocator().makeRaw<T>(factory, basket, std::forward<ARGS>(args)...)};
+    return ValueFactory::createObject(factory.getAllocator(), object);
   }
 
   class ParametersNone : public IParameters {
@@ -129,8 +129,8 @@ namespace {
     StringProperty_Length& operator=(const StringProperty_Length&) = delete;
   public:
     StringProperty_Length() {}
-    virtual Value createInstance(TypeFactory& factory, IBasket&, const String& string) const override {
-      return ValueFactory::createInt(factory.allocator, Int(string.length()));
+    virtual Value createInstance(ITypeFactory& factory, IBasket&, const String& string) const override {
+      return ValueFactory::createInt(factory.getAllocator(), Int(string.length()));
     }
     virtual String getName() const override {
       return "length";
@@ -149,7 +149,7 @@ namespace {
     StringProperty_Member(const String& name, const Type& rettype)
       : ftype(name, rettype) {
     }
-    virtual Value createInstance(TypeFactory& factory, IBasket& basket, const String& string) const override;
+    virtual Value createInstance(ITypeFactory& factory, IBasket& basket, const String& string) const override;
     virtual String getName() const override {
       return this->ftype.getFunctionName();
     }
@@ -189,8 +189,8 @@ namespace {
     const StringProperty_Member& member;
     String string;
   public:
-    StringProperty_Instance(TypeFactory& factory, IBasket& basket, const StringProperty_Member& member, const String& string)
-      : SoftReferenceCounted(factory.allocator),
+    StringProperty_Instance(ITypeFactory& factory, IBasket& basket, const StringProperty_Member& member, const String& string)
+      : SoftReferenceCounted(factory.getAllocator()),
         member(member),
         string(string) {
       basket.take(*this);
@@ -256,7 +256,7 @@ namespace {
     }
   };
 
-  Value StringProperty_Member::createInstance(TypeFactory& factory, IBasket& basket, const String& string) const {
+  Value StringProperty_Member::createInstance(ITypeFactory& factory, IBasket& basket, const String& string) const {
     return createBuiltinValue<StringProperty_Instance>(factory, basket, *this, string);
   }
 
@@ -697,14 +697,14 @@ namespace {
     BuiltinBase(const BuiltinBase&) = delete;
     BuiltinBase& operator=(const BuiltinBase&) = delete;
   protected:
-    TypeFactory& factory;
+    ITypeFactory& factory;
     TypeBuilder builder;
     Type type;
     String name;
     SlotMap<String> properties;
   private:
-    BuiltinBase(TypeFactory& factory, IBasket& basket, const String& name, const egg::ovum::TypeBuilder& builder)
-      : SoftReferenceCounted(factory.allocator),
+    BuiltinBase(ITypeFactory& factory, IBasket& basket, const String& name, const egg::ovum::TypeBuilder& builder)
+      : SoftReferenceCounted(factory.getAllocator()),
         factory(factory),
         builder(builder),
         type(),
@@ -714,10 +714,10 @@ namespace {
       basket.take(*this);
     }
   public:
-    BuiltinBase(TypeFactory& factory, IBasket& basket, const String& name, const String& description)
+    BuiltinBase(ITypeFactory& factory, IBasket& basket, const String& name, const String& description)
       : BuiltinBase(factory, basket, name, factory.createTypeBuilder(name, description)) {
     }
-    BuiltinBase(TypeFactory& factory, IBasket& basket, const String& name, const String& description, const Type& rettype)
+    BuiltinBase(ITypeFactory& factory, IBasket& basket, const String& name, const String& description, const Type& rettype)
       : BuiltinBase(factory, basket, name, factory.createFunctionBuilder(rettype, name, description)) {
     }
     virtual void softVisit(const Visitor& visitor) const override {
@@ -819,7 +819,7 @@ namespace {
     Builtin_Assert(const Builtin_Assert&) = delete;
     Builtin_Assert& operator=(const Builtin_Assert&) = delete;
   public:
-    Builtin_Assert(TypeFactory& factory, IBasket& basket)
+    Builtin_Assert(ITypeFactory& factory, IBasket& basket)
       : BuiltinBase(factory, basket, "assert", "Built-in 'assert'", Type::Void) {
       this->builder->addPositionalParameter(Type::Any, "predicate", Bits::set(IFunctionSignatureParameter::Flags::Required, IFunctionSignatureParameter::Flags::Predicate));
       this->build();
@@ -839,7 +839,7 @@ namespace {
     Builtin_Print(const Builtin_Print&) = delete;
     Builtin_Print& operator=(const Builtin_Print&) = delete;
   public:
-    Builtin_Print(TypeFactory& factory, IBasket& basket)
+    Builtin_Print(ITypeFactory& factory, IBasket& basket)
       : BuiltinBase(factory, basket, "print", "Built-in 'print'", Type::Void) {
       this->builder->addPositionalParameter(Type::AnyQ, "values", IFunctionSignatureParameter::Flags::Variadic);
       this->build();
@@ -862,7 +862,7 @@ namespace {
     Builtin_StringFrom(const Builtin_StringFrom&) = delete;
     Builtin_StringFrom& operator=(const Builtin_StringFrom&) = delete;
   public:
-    Builtin_StringFrom(TypeFactory& factory, IBasket& basket)
+    Builtin_StringFrom(ITypeFactory& factory, IBasket& basket)
       : BuiltinBase(factory, basket, "string.from", "Built-in function 'string.from'", Type::String) {
       this->builder->addPositionalParameter(Type::AnyQ, "value", IFunctionSignatureParameter::Flags::Required);
       this->build();
@@ -886,7 +886,7 @@ namespace {
     Builtin_String(const Builtin_String&) = delete;
     Builtin_String& operator=(const Builtin_String&) = delete;
   public:
-    Builtin_String(TypeFactory& factory, IBasket& basket)
+    Builtin_String(ITypeFactory& factory, IBasket& basket)
       : BuiltinBase(factory, basket, "string", "Type 'string'", Type::String) {
       this->builder->addPositionalParameter(Type::AnyQ, "values", IFunctionSignatureParameter::Flags::Variadic);
       this->addMember<Builtin_StringFrom>("from");
@@ -909,7 +909,7 @@ namespace {
     Builtin_TypeOf(const Builtin_TypeOf&) = delete;
     Builtin_TypeOf& operator=(const Builtin_TypeOf&) = delete;
   public:
-    Builtin_TypeOf(TypeFactory& factory, IBasket& basket)
+    Builtin_TypeOf(ITypeFactory& factory, IBasket& basket)
       : BuiltinBase(factory, basket, "type.of", "Built-in function 'type.of'", Type::String) {
       this->builder->addPositionalParameter(Type::AnyQ, "value", IFunctionSignatureParameter::Flags::Required);
       this->build();
@@ -930,7 +930,7 @@ namespace {
     Builtin_Type(const Builtin_Type&) = delete;
     Builtin_Type& operator=(const Builtin_Type&) = delete;
   public:
-    Builtin_Type(TypeFactory& factory, IBasket& basket)
+    Builtin_Type(ITypeFactory& factory, IBasket& basket)
       : BuiltinBase(factory, basket, "type", "Type 'type'") {
       this->addMember<Builtin_TypeOf>("of");
       this->build();
@@ -976,18 +976,18 @@ size_t egg::ovum::BuiltinFactory::getStringPropertyCount() {
   return StringProperties::instance().size();
 }
 
-egg::ovum::Value egg::ovum::BuiltinFactory::createAssertInstance(TypeFactory& factory, IBasket& basket) {
+egg::ovum::Value egg::ovum::BuiltinFactory::createAssertInstance(ITypeFactory& factory, IBasket& basket) {
   return createBuiltinValue<Builtin_Assert>(factory, basket);
 }
 
-egg::ovum::Value egg::ovum::BuiltinFactory::createPrintInstance(TypeFactory& factory, IBasket& basket) {
+egg::ovum::Value egg::ovum::BuiltinFactory::createPrintInstance(ITypeFactory& factory, IBasket& basket) {
   return createBuiltinValue<Builtin_Print>(factory, basket);
 }
 
-egg::ovum::Value egg::ovum::BuiltinFactory::createStringInstance(TypeFactory& factory, IBasket& basket) {
+egg::ovum::Value egg::ovum::BuiltinFactory::createStringInstance(ITypeFactory& factory, IBasket& basket) {
   return createBuiltinValue<Builtin_String>(factory, basket);
 }
 
-egg::ovum::Value egg::ovum::BuiltinFactory::createTypeInstance(TypeFactory& factory, IBasket& basket) {
+egg::ovum::Value egg::ovum::BuiltinFactory::createTypeInstance(ITypeFactory& factory, IBasket& basket) {
   return createBuiltinValue<Builtin_Type>(factory, basket);
 }
