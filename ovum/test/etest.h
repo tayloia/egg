@@ -16,7 +16,7 @@ namespace egg::test {
       this->validate();
     }
     void validate() const {
-      egg::ovum::IAllocator::Statistics stats;
+      egg::ovum::IAllocator::Statistics stats{};
       ASSERT_TRUE(this->statistics(stats));
       ASSERT_EQ(stats.currentBlocksAllocated, 0u);
       ASSERT_EQ(stats.currentBytesAllocated, 0u);
@@ -141,6 +141,9 @@ namespace egg::test {
   inline void assertString(const char* expected, const egg::ovum::String& actual) {
     ASSERT_STREQ(expected, actual.toUTF8().c_str());
   }
+  inline void assertString(const char8_t* expected, const egg::ovum::String& actual) {
+    ASSERT_STREQ(reinterpret_cast<const char*>(expected), actual.toUTF8().c_str());
+  }
   inline void assertString(const egg::ovum::String& expected, const egg::ovum::String& actual) {
     ASSERT_STREQ(expected.toUTF8().c_str(), actual.toUTF8().c_str());
   }
@@ -152,19 +155,19 @@ namespace egg::test {
   }
   inline void assertValue(bool expected, const egg::ovum::Value& value) {
     ASSERT_EQ(egg::ovum::ValueFlags::Bool, value->getFlags());
-    bool actual;
+    bool actual = false;;
     ASSERT_TRUE(value->getBool(actual));
     ASSERT_EQ(expected, actual);
   }
   inline void assertValue(int expected, const egg::ovum::Value& value) {
     ASSERT_EQ(egg::ovum::ValueFlags::Int, value->getFlags());
-    egg::ovum::Int actual;
+    egg::ovum::Int actual = ~0;
     ASSERT_TRUE(value->getInt(actual));
     ASSERT_EQ(expected, actual);
   }
   inline void assertValue(double expected, const egg::ovum::Value& value) {
     ASSERT_EQ(egg::ovum::ValueFlags::Float, value->getFlags());
-    egg::ovum::Float actual;
+    egg::ovum::Float actual = std::nan("");
     ASSERT_TRUE(value->getFloat(actual));
     ASSERT_EQ(expected, actual);
   }

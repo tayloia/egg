@@ -40,9 +40,9 @@ namespace {
       break;
     default:
       if (codepoint == char32_t(quote)) {
-        stream << '\\' << codepoint;
+        stream << '\\' << quote;
       } else {
-        stream << codepoint;
+        stream << char(codepoint); // TODO proper unicode escapes
       }
     }
   }

@@ -3,7 +3,7 @@
 TEST(TestStrings, Empty) {
   egg::ovum::String s1;
   ASSERT_EQ(0u, s1.length());
-  auto s2 = s1;
+  auto s2{ s1 };
   ASSERT_EQ(0u, s2.length());
   s1 = egg::ovum::String::fromUTF8("nothing");
   ASSERT_EQ(7u, s1.length());
@@ -13,7 +13,7 @@ TEST(TestStrings, Empty) {
 TEST(TestStrings, UTF8) {
   auto s1 = egg::ovum::String::fromUTF8("hello world");
   ASSERT_EQ(11u, s1.length());
-  auto s2 = s1;
+  auto s2{ s1 };
   ASSERT_EQ(11u, s2.length());
   s1 = egg::ovum::String();
   ASSERT_EQ(0u, s1.length());

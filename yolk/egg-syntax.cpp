@@ -1687,7 +1687,7 @@ std::unique_ptr<IEggSyntaxNode> EggSyntaxParserContext::parseStatementReturn() {
     this->unexpected("Expected ';' at end of 'return' statement", px);
   }
   mark.accept(1);
-  return std::move(results);
+  return results;
 }
 
 std::unique_ptr<IEggSyntaxNode> EggSyntaxParserContext::parseStatementSwitch() {
@@ -1727,7 +1727,7 @@ std::unique_ptr<IEggSyntaxNode> EggSyntaxParserContext::parseStatementThrow() {
     this->unexpected("Expected expression or ';' after 'throw' keyword", mark.peek(0));
   }
   mark.accept(1);
-  return std::move(result);
+  return result;
 }
 
 std::unique_ptr<IEggSyntaxNode> EggSyntaxParserContext::parseStatementTry() {

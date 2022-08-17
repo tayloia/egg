@@ -34,7 +34,7 @@ TEST(TestString, ToUTF8) {
   auto input = egg::ovum::StringFactory::fromUTF8(allocator, u8"egg \U0001F95A");
   ASSERT_EQ(5u, input.length());
   auto output = input.toUTF8();
-  ASSERT_STREQ(u8"egg \U0001F95A", output.c_str());
+  ASSERT_STRING(u8"egg \U0001F95A", output);
 }
 
 TEST(TestString, Fallback) {

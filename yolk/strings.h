@@ -27,7 +27,7 @@ namespace egg::yolk {
     }
     static std::string replace(const std::string& src, const std::string& from, const std::string& to) {
       assert(!from.empty());
-      auto dst = src;
+      auto dst{ src };
       for (auto pos = dst.find(from); pos != std::string::npos; pos = dst.find(from, pos + to.length())) {
         dst.replace(pos, from.length(), to);
       }

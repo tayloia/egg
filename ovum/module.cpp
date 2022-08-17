@@ -201,9 +201,7 @@ namespace {
     }
     Float readFloat() const {
       // Read a single 64-bit floating-point value
-      MantissaExponent me;
-      me.mantissa = indexInt(this->readUnsigned());
-      me.exponent = indexInt(this->readUnsigned());
+      MantissaExponent me{ indexInt(this->readUnsigned()), indexInt(this->readUnsigned()) };
       return me.toFloat();
     }
     void readStrings() {

@@ -139,6 +139,8 @@
       <PrecompiledHeaderFile>ovum\test.h</PrecompiledHeaderFile>
       <PrecompiledHeaderOutputFile>$(IntDir)ovum-test.pch</PrecompiledHeaderOutputFile>
       <PrecompiledHeader>Use</PrecompiledHeader>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <AdditionalOptions>/Zc:char8_t %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -154,6 +156,8 @@
       <PrecompiledHeaderFile>ovum\test.h</PrecompiledHeaderFile>
       <PrecompiledHeaderOutputFile>$(IntDir)ovum-test.pch</PrecompiledHeaderOutputFile>
       <PrecompiledHeader>Use</PrecompiledHeader>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <AdditionalOptions>/Zc:char8_t %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -171,6 +175,8 @@
       <PrecompiledHeaderFile>ovum\test.h</PrecompiledHeaderFile>
       <PrecompiledHeaderOutputFile>$(IntDir)ovum-test.pch</PrecompiledHeaderOutputFile>
       <PrecompiledHeader>Use</PrecompiledHeader>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <AdditionalOptions>/Zc:char8_t %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -190,6 +196,8 @@
       <PrecompiledHeaderFile>ovum\test.h</PrecompiledHeaderFile>
       <PrecompiledHeaderOutputFile>$(IntDir)ovum-test.pch</PrecompiledHeaderOutputFile>
       <PrecompiledHeader>Use</PrecompiledHeader>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <AdditionalOptions>/Zc:char8_t %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>

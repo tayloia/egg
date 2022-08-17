@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio 15
-VisualStudioVersion = 15.0.27130.2036
+# Visual Studio Version 17
+VisualStudioVersion = 17.3.32811.315
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Repo Files", "Repo Files", "{3A001F0B-0CF3-4D26-A9EE-0172340BDD30}"
 	ProjectSection(SolutionItems) = preProject
@@ -78,7 +78,6 @@ Global
 		{D61691B1-272F-405E-86A2-C790973D6B90}.Debug|x86.ActiveCfg = Debug|Win32
 		{D61691B1-272F-405E-86A2-C790973D6B90}.Debug|x86.Build.0 = Debug|Win32
 		{D61691B1-272F-405E-86A2-C790973D6B90}.Release|x64.ActiveCfg = Release|x64
-		{D61691B1-272F-405E-86A2-C790973D6B90}.Release|x64.Build.0 = Release|x64
 		{D61691B1-272F-405E-86A2-C790973D6B90}.Release|x86.ActiveCfg = Release|Win32
 		{D61691B1-272F-405E-86A2-C790973D6B90}.Release|x86.Build.0 = Release|Win32
 		{F14E6F85-CA7D-4354-BF37-182DE71D4FBA}.Debug|x64.ActiveCfg = Debug|x64
