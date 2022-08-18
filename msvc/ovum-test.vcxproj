@@ -41,6 +41,7 @@
     <ClCompile Include="..\ovum\test\print.cpp" />
     <ClCompile Include="..\ovum\test\string.cpp" />
     <ClCompile Include="..\ovum\test\testing.cpp" />
+    <ClCompile Include="..\ovum\test\type.cpp" />
     <ClCompile Include="..\ovum\test\utility.cpp" />
     <ClCompile Include="..\ovum\test\value.cpp" />
     <ClCompile Include="ovum-test.pch.cpp">

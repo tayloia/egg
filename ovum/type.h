@@ -54,9 +54,13 @@ namespace egg::ovum {
     static std::string toString(const IType& type) {
       return type.toStringPrecedence().first;
     }
+
     // Helpers
+    bool isComplex() const {
+      return ((*this)->getObjectShapeCount() > 0) || ((*this)->getPointerShapeCount() > 0);
+    }
     bool hasPrimitiveFlag(ValueFlags flag) const {
-      return Bits::hasAnySet(this->get()->getPrimitiveFlags(), flag);
+      return Bits::hasAnySet((*this)->getPrimitiveFlags(), flag);
     }
     enum class Assignability { Never, Sometimes, Always };
     Assignability queryAssignable(const IType& from) const;
@@ -258,11 +262,20 @@ namespace egg::ovum {
     TypeFactory(const TypeFactory&) = delete;
     TypeFactory& operator=(const TypeFactory&) = delete;
   private:
+    class Shape {
+
+    };
+    class Complex {
+      Type simple;
+      std::vector<size_t> shapes;
+    };
     IAllocator& allocator;
+    ReadWriteMutex mutex;
+    std::map<ValueFlags, Type> simple;
+    std::vector<Complex> complex;
+    std::vector<Shape> shape;
   public:
-    explicit TypeFactory(IAllocator& allocator)
-      : allocator(allocator) {
-    }
+    explicit TypeFactory(IAllocator& allocator);
     virtual IAllocator& getAllocator() const override { return this->allocator; }
 
     virtual Type createSimple(ValueFlags flags) override;
@@ -277,5 +290,9 @@ namespace egg::ovum {
     virtual TypeBuilder createTypeBuilder(const String& name, const String& description) override;
     virtual TypeBuilder createFunctionBuilder(const Type& rettype, const String& name, const String& description) override;
     virtual TypeBuilder createGeneratorBuilder(const Type& gentype, const String& name, const String& description) override;
+  private:
+    Type addPrimitiveFlag(const Type& type, ValueFlags flag);
+    Type removePrimitiveFlag(const Type& type, ValueFlags flag);
+    void registerSimpleBasic(const IType& type);
   };
 }

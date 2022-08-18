@@ -132,6 +132,7 @@ namespace {
     }
   };
 
+  TypePrimitive<ValueFlags::None> typeNone{};
   TypePrimitive<ValueFlags::Void> typeVoid{};
   TypePrimitive<ValueFlags::Null> typeNull{};
   TypePrimitive<ValueFlags::Bool> typeBool{};
@@ -781,44 +782,37 @@ egg::ovum::String egg::ovum::Type::toString() const {
   return type->toStringPrecedence().first;
 }
 
+egg::ovum::TypeFactory::TypeFactory(IAllocator& allocator)
+  : allocator(allocator) {
+  registerSimpleBasic(typeNone);
+  registerSimpleBasic(typeVoid);
+  registerSimpleBasic(typeNull);
+  registerSimpleBasic(typeBool);
+  registerSimpleBasic(typeBoolInt);
+  registerSimpleBasic(typeInt);
+  registerSimpleBasic(typeIntQ);
+  registerSimpleBasic(typeFloat);
+  registerSimpleBasic(typeString);
+  registerSimpleBasic(typeArithmetic);
+  registerSimpleBasic(typeObject);
+  registerSimpleBasic(typeAny);
+  registerSimpleBasic(typeAnyQ);
+}
+
 egg::ovum::Type egg::ovum::TypeFactory::createSimple(ValueFlags flags) {
-  switch (flags) {
-  case ValueFlags::Void:
-    return Type::Void;
-  case ValueFlags::Null:
-    return Type::Null;
-  case ValueFlags::Bool:
-    return Type::Bool;
-  case ValueFlags::Int:
-    return Type::Int;
-  case ValueFlags::Float:
-    return Type::Float;
-  case ValueFlags::Arithmetic:
-    return Type::Arithmetic;
-  case ValueFlags::String:
-    return Type::String;
-  case ValueFlags::Object:
-    return Type::Object;
-  case ValueFlags::Any:
-    return Type::Any;
-  case ValueFlags::AnyQ:
-    return Type::AnyQ;
-  case ValueFlags::None:
-  case ValueFlags::Break:
-  case ValueFlags::Continue:
-  case ValueFlags::Return:
-  case ValueFlags::Yield:
-  case ValueFlags::Throw:
-  case ValueFlags::FlowControl:
-    break;
+  {
+    // First, try to fetch an existing entry
+    ReadLock lockR{ this->mutex };
+    auto found = this->simple.find(flags);
+    if (found != this->simple.end()) {
+      return found->second;
+    }
   }
-  if (flags == (ValueFlags::Bool | ValueFlags::Int)) {
-    return Type::BoolInt;
-  }
-  if (flags == (ValueFlags::Null | ValueFlags::Int)) {
-    return Type::IntQ;
-  }
-  return this->allocator.makeHard<TypeSimple, Type>(flags);
+
+  // We need to modify the map after releasing the read lock
+  WriteLock lockW{ this->mutex };
+  auto created = this->allocator.makeHard<TypeSimple, Type>(flags);
+  return this->simple.try_emplace(flags, created).first->second;
 }
 
 egg::ovum::Type egg::ovum::TypeFactory::createPointer(const Type& pointee, Modifiability modifiability) {
@@ -836,46 +830,48 @@ egg::ovum::Type egg::ovum::TypeFactory::createUnion(const Type& a, const Type& b
 }
 
 egg::ovum::Type egg::ovum::TypeFactory::addVoid(const Type& type) {
-  // TODO optimize
-  assert(type != nullptr);
-  if (!type.hasPrimitiveFlag(ValueFlags::Void)) {
-    return this->createUnion(type, Type::Void);
-  }
-  return type;
+  return this->addPrimitiveFlag(type, ValueFlags::Void);
 }
 
 egg::ovum::Type egg::ovum::TypeFactory::addNull(const Type& type) {
+  return this->addPrimitiveFlag(type, ValueFlags::Null);
+}
+
+egg::ovum::Type egg::ovum::TypeFactory::addPrimitiveFlag(const Type& type, ValueFlags flag) {
   // TODO optimize
   assert(type != nullptr);
-  if (!type.hasPrimitiveFlag(ValueFlags::Null)) {
-    return this->createUnion(type, Type::Null);
+  auto existingFlags = type->getPrimitiveFlags();
+  auto requiredFlags = Bits::set(type->getPrimitiveFlags(), flag);
+  if (existingFlags != requiredFlags) {
+    if (!type.isComplex()) {
+      return this->createSimple(requiredFlags);
+    }
+    return this->createUnion(type, this->createSimple(flag)); // WIBBLE
   }
   return type;
 }
 
 egg::ovum::Type egg::ovum::TypeFactory::removeVoid(const Type& type) {
-  // TODO optimize
-  if (type != nullptr) {
-    auto flags = type->getPrimitiveFlags();
-    if (flags == ValueFlags::Void) {
-      return nullptr;
-    }
-    if (Bits::hasAnySet(flags, ValueFlags::Void)) {
-      return this->allocator.makeHard<TypeStrip, Type>(type, ValueFlags::Void);
-    }
-  }
-  return type;
+  return removePrimitiveFlag(type, ValueFlags::Void);
 }
 
 egg::ovum::Type egg::ovum::TypeFactory::removeNull(const Type& type) {
+  return removePrimitiveFlag(type, ValueFlags::Null);
+}
+
+egg::ovum::Type egg::ovum::TypeFactory::removePrimitiveFlag(const Type& type, ValueFlags flag) {
   // TODO optimize
   if (type != nullptr) {
-    auto flags = type->getPrimitiveFlags();
-    if (flags == ValueFlags::Null) {
-      return nullptr;
-    }
-    if (Bits::hasAnySet(flags, ValueFlags::Null)) {
-      return this->allocator.makeHard<TypeStrip, Type>(type, ValueFlags::Null);
+    auto existingFlags = type->getPrimitiveFlags();
+    auto requiredFlags = Bits::clear(type->getPrimitiveFlags(), flag);
+    if (existingFlags != requiredFlags) {
+      if (!type.isComplex()) {
+        return this->createSimple(requiredFlags);
+      }
+      if (requiredFlags == ValueFlags::None) {
+        return nullptr;
+      }
+      return this->allocator.makeHard<TypeStrip, Type>(type, flag); // WIBBLE
     }
   }
   return type;
@@ -896,6 +892,10 @@ egg::ovum::TypeBuilder egg::ovum::TypeFactory::createGeneratorBuilder(const Type
   auto generator = this->createFunctionBuilder(rettype, name, description);
   generator->defineIterable(gentype);
   return this->allocator.makeHard<FunctionBuilder>(generator->build(), name, description);
+}
+
+void egg::ovum::TypeFactory::registerSimpleBasic(const IType& type) {
+  this->simple.emplace(type.getPrimitiveFlags(), Type(&type));
 }
 
 // Common types
