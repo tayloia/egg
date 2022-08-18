@@ -57,7 +57,7 @@ namespace egg::ovum {
 
     // Helpers
     bool isComplex() const {
-      return ((*this)->getObjectShapeCount() > 0) || ((*this)->getPointerShapeCount() > 0);
+      return (*this)->getObjectShapeCount() > 0;
     }
     bool hasPrimitiveFlag(ValueFlags flag) const {
       return Bits::hasAnySet((*this)->getPrimitiveFlags(), flag);
@@ -68,7 +68,7 @@ namespace egg::ovum {
     const IPropertySignature* queryDotable() const;
     const IIndexSignature* queryIndexable() const;
     const IIteratorSignature* queryIterable() const;
-    const PointerShape* queryPointable() const;
+    const IPointerSignature* queryPointable() const;
 
     enum class Assignment {
       Success, Uninitialized, Incompatible, BadIntToFloat
@@ -279,7 +279,7 @@ namespace egg::ovum {
     virtual IAllocator& getAllocator() const override { return this->allocator; }
 
     virtual Type createSimple(ValueFlags flags) override;
-    virtual Type createPointer(const Type& pointee, Modifiability modifiability) override;
+    virtual Type createPointer(const Type& pointee) override;
     virtual Type createUnion(const Type& a, const Type& b) override;
 
     virtual Type addVoid(const Type& type) override;

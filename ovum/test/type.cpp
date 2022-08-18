@@ -91,3 +91,16 @@ TEST(TestType, FactorySimpleNonBasicRemoveVoid) {
   auto any_ = factory.removeVoid(any);
   ASSERT_EQ(any.get(), any_.get());
 }
+
+TEST(TestType, FactoryPointer) {
+  egg::test::Allocator allocator{ egg::test::Allocator::Expectation::AtLeastOneAllocation };
+  TypeFactory factory{ allocator };
+  auto pointer1 = factory.createPointer(Type::Any);
+  ASSERT_EQ(ValueFlags::None, pointer1->getPrimitiveFlags());
+  ASSERT_EQ(1u, pointer1->getObjectShapeCount());
+  auto* shape = pointer1->getObjectShape(0);
+  ASSERT_NE(nullptr, shape->pointable);
+  ASSERT_EQ(Type::Any.get(), shape->pointable->getType().get());
+  auto pointer2 = factory.createPointer(Type::Any);
+  // WIBBLE ASSERT_EQ(pointer1.get(), pointer2.get());
+}

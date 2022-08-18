@@ -1873,15 +1873,14 @@ egg::ovum::Type EggParserNode_UnaryLogicalNot::getType() const {
 
 egg::ovum::Type EggParserNode_UnaryRef::getType() const {
   auto pointee = this->expr->getType();
-  auto modifiability = egg::ovum::Modifiability::Read | egg::ovum::Modifiability::Write | egg::ovum::Modifiability::Mutate; // TODO
-  return this->factory->createPointer(pointee, modifiability);
+  return this->factory->createPointer(pointee);
 }
 
 egg::ovum::Type EggParserNode_UnaryDeref::getType() const {
   auto pointer = this->expr->getType();
   auto* pointable = pointer.queryPointable();
   if (pointable != nullptr) {
-    return egg::ovum::Type(pointable->pointee);
+    return pointable->getType();
   }
   return nullptr;
 }

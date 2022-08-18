@@ -41,6 +41,6 @@ namespace egg::ovum {
     static Object createKeyValue(IAllocator& allocator, IBasket& basket, const String& key, const Value& value);
     static Object createError(IAllocator& allocator, IBasket& basket, const LocationSource& location, const String& message);
     static Object createPredicate(IAllocator& allocator, IBasket& basket, Vanilla::IPredicateCallback& callback, const INode& node);
-    static Object createPointer(IAllocator& allocator, IBasket& basket, ISlot& slot, const Type& pointer);
+    static Object createPointer(IAllocator& allocator, IBasket& basket, ISlot& slot, const Type& pointer, Modifiability modifiability);
   };
 }

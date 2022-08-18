@@ -619,7 +619,7 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareUnary(const 
     break;
   case EggProgramUnary::Deref:
     // Dereference '*' operation
-    if (type->getPointerShapeCount() == 0) {
+    if (type.queryPointable() == nullptr) {
       return this->compilerError(where, "Expected operand of dereference '*' operator to be a pointer, but got '", type.toString(), "' instead");
     }
     break;

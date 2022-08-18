@@ -109,7 +109,7 @@ namespace {
       assert(this->validate(true));
     }
     Type getType() const {
-      return Type(this->type.get());
+      return this->type;
     }
     Kind getKind() const {
       return this->kind;
@@ -252,7 +252,7 @@ namespace {
       printer << "<user-function>";
     }
     virtual Type getRuntimeType() const override {
-      return Type(this->type);
+      return this->type;
     }
     virtual Value call(IExecution& execution, const IParameters& parameters) override;
     virtual Value getProperty(IExecution& execution, const String& property) override {
@@ -1896,9 +1896,13 @@ namespace {
           return Type::Object;
         }
         if (children == 1) {
-          auto& callable = node.getChild(0);
-          if (callable.getOpcode() == Opcode::CALLABLE) {
-            return UserFunction::makeType(this->factory, *this, name, callable);
+          auto& child = node.getChild(0);
+          if (child.getOpcode() == Opcode::CALLABLE) {
+            return UserFunction::makeType(this->factory, *this, name, child);
+          }
+          if (child.getOpcode() == Opcode::POINTER) {
+            auto pointee = this->type(child.getChild(0));
+            return this->factory.createPointer(pointee);
           }
         }
         break;
@@ -1910,13 +1914,6 @@ namespace {
       case Opcode::ANYQ:
         if (children == 0) {
           return Type::AnyQ;
-        }
-        break;
-      case Opcode::POINTER:
-        if (children == 1) {
-          auto pointee = this->type(node.getChild(0));
-          auto modifiability = Modifiability::Read | Modifiability::Write | Modifiability::Mutate; // TODO
-          return this->factory.createPointer(pointee, modifiability);
         }
         break;
       case Opcode::UNION:
@@ -2112,7 +2109,7 @@ namespace {
       if (pointer->getObject(target.object)) {
         auto* pointable = target.object->getRuntimeType().queryPointable();
         if (pointable != nullptr) {
-          target.type.set(pointable->pointee);
+          target.type = pointable->getType();
           return Value::Void;
         }
       }

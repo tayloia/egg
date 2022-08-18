@@ -237,16 +237,19 @@ namespace egg::ovum {
     virtual bool isClosed() const = 0;
   };
 
+  class IPointerSignature {
+  public:
+    // Interface
+    virtual ~IPointerSignature() {}
+    virtual Type getType() const = 0;
+  };
+
   struct ObjectShape {
     const IFunctionSignature* callable;
     const IPropertySignature* dotable;
     const IIndexSignature* indexable;
     const IIteratorSignature* iterable;
-  };
-
-  struct PointerShape {
-    const IType* pointee;
-    Modifiability modifiability;
+    const IPointerSignature* pointable;
   };
 
   class IType : public IHardAcquireRelease {
@@ -254,8 +257,6 @@ namespace egg::ovum {
     virtual ValueFlags getPrimitiveFlags() const = 0;
     virtual const ObjectShape* getObjectShape(size_t index) const = 0;
     virtual size_t getObjectShapeCount() const = 0;
-    virtual const PointerShape* getPointerShape(size_t index) const = 0;
-    virtual size_t getPointerShapeCount() const = 0;
     virtual std::pair<std::string, int> toStringPrecedence() const = 0;
     virtual String describeValue() const = 0;
   };
@@ -279,7 +280,7 @@ namespace egg::ovum {
     virtual IAllocator& getAllocator() const = 0;
 
     virtual Type createSimple(ValueFlags flags) = 0;
-    virtual Type createPointer(const Type& pointee, Modifiability modifiability) = 0;
+    virtual Type createPointer(const Type& pointee) = 0;
     virtual Type createUnion(const Type& a, const Type& b) = 0;
 
     virtual Type addVoid(const Type& type) = 0;

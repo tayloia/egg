@@ -454,38 +454,32 @@ namespace {
     return NodeFactory::create(allocator, Opcode::CALLABLE, &children);
   }
 
+  Node buildPointable(IAllocator& allocator, const NodeLocation& location, const IPointerSignature& signature) {
+    Nodes children;
+    children.push_back(NodeFactory::createType(allocator, location, signature.getType()));
+    // ('pointer' pointee)
+    return NodeFactory::create(allocator, Opcode::POINTER, &children);
+  }
+
   Node buildObjectType(IAllocator& allocator, const NodeLocation& location, const ObjectShape& shape) {
     Nodes children;
     if (shape.callable != nullptr) {
       children.push_back(buildCallable(allocator, location, *shape.callable));
     }
+    if (shape.pointable != nullptr) {
+      children.push_back(buildPointable(allocator, location, *shape.pointable));
+    }
     return NodeFactory::create(allocator, location, Opcode::OBJECT, &children);
   }
 
-  // Forward declaration for recursion
-  Node buildType(IAllocator& allocator, const NodeLocation& location, const IType& type);
-
-  Node buildPointerType(IAllocator& allocator, const NodeLocation& location, const PointerShape& shape) {
-    assert(shape.pointee != nullptr);
-    Node child = buildType(allocator, location, *shape.pointee);
-    return NodeFactory::create(allocator, Opcode::POINTER, std::move(child));
-  }
-
   Node buildType(IAllocator& allocator, const NodeLocation& location, const IType& type) {
-    // TODO shapes other than object
     Nodes nodes;
     buildPrimitiveType(nodes, allocator, type.getPrimitiveFlags());
-    auto oshapes = type.getObjectShapeCount();
-    for (size_t oshape = 0; oshape < oshapes; ++oshape) {
-      auto* shape = type.getObjectShape(oshape);
+    auto shapes = type.getObjectShapeCount();
+    for (size_t index = 0; index < shapes; ++index) {
+      auto* shape = type.getObjectShape(index);
       assert(shape != nullptr);
       nodes.push_back(buildObjectType(allocator, location, *shape));
-    }
-    auto pshapes = type.getPointerShapeCount();
-    for (size_t pshape = 0; pshape < pshapes; ++pshape) {
-      auto* shape = type.getPointerShape(pshape);
-      assert(shape != nullptr);
-      nodes.push_back(buildPointerType(allocator, location, *shape));
     }
     assert(!nodes.empty());
     if (nodes.size() == 1) {

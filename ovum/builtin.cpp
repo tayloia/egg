@@ -88,12 +88,6 @@ namespace {
     virtual size_t getObjectShapeCount() const override {
       return 1;
     }
-    virtual const PointerShape* getPointerShape(size_t) const override {
-      return nullptr;
-    }
-    virtual size_t getPointerShapeCount() const override {
-      return 0;
-    }
     virtual std::pair<std::string, int> toStringPrecedence() const override {
       return FunctionSignature::toStringPrecedence(*this);
     }
@@ -946,7 +940,8 @@ const egg::ovum::ObjectShape& egg::ovum::BuiltinFactory::getStringShape() {
     nullptr,
     &stringShapeDotable,
     &stringShapeIndexable,
-    &stringShapeIterable
+    &stringShapeIterable,
+    nullptr
   };
   return instance;
 }
@@ -956,7 +951,8 @@ const egg::ovum::ObjectShape& egg::ovum::BuiltinFactory::getObjectShape() {
     &objectShapeCallable,
     &objectShapeDotable,
     &objectShapeIndexable,
-    &objectShapeIterable
+    &objectShapeIterable,
+    nullptr
   };
   return instance;
 }

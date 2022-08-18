@@ -22,8 +22,12 @@ namespace {
   private:
     ObjectShape shape;
   public:
-    Type_Base(const IFunctionSignature* callable, const IPropertySignature* dotable, const IIndexSignature* indexable, const IIteratorSignature* iterable)
-      : shape({ callable, dotable, indexable, iterable }) {
+    Type_Base(const IFunctionSignature* callable,
+              const IPropertySignature* dotable,
+              const IIndexSignature* indexable,
+              const IIteratorSignature* iterable,
+              const IPointerSignature* pointable)
+      : shape{ callable, dotable, indexable, iterable, pointable } {
     }
     virtual ValueFlags getPrimitiveFlags() const override {
       return ValueFlags::None;
@@ -35,14 +39,6 @@ namespace {
     virtual size_t getObjectShapeCount() const override {
       // We only have one object shape
       return 1;
-    }
-    virtual const PointerShape* getPointerShape(size_t) const override {
-      // We are not a pointer
-      return nullptr;
-    }
-    virtual size_t getPointerShapeCount() const override {
-      // We are not a pointer
-      return 0;
     }
     virtual String describeValue() const override {
       // TODO i18n
@@ -57,7 +53,7 @@ namespace {
     TypeBuilderCallable callable;
   public:
     explicit Type_Iterator(const Type& rettype)
-      : Type_Base(&callable, nullptr, nullptr, nullptr),
+      : Type_Base(&callable, nullptr, nullptr, nullptr, nullptr),
         callable(rettype, {}) {
       assert(rettype.hasPrimitiveFlag(ValueFlags::Void));
     }
@@ -81,7 +77,7 @@ namespace {
     TypeBuilderIterable iterable;
   public:
     Type_Array()
-      : Type_Base(nullptr, &dotable, &indexable, &iterable),
+      : Type_Base(nullptr, &dotable, &indexable, &iterable, nullptr),
         dotable(),
         indexable(Type::AnyQ, Type::Int, ReadWriteMutate),
         iterable(Type::AnyQ) {
@@ -111,7 +107,7 @@ namespace {
     KeyValueIterable iterable;
   public:
     Type_DictionaryBase(Modifiability modifiability, const Type& unknownType, Modifiability unknownModifiability)
-      : Type_Base(nullptr, &dotable, &indexable, &iterable),
+      : Type_Base(nullptr, &dotable, &indexable, &iterable, nullptr),
         dotable(unknownType, unknownModifiability),
         indexable(Type::AnyQ, Type::String, modifiability),
         iterable() {
@@ -746,11 +742,13 @@ namespace {
   private:
     SoftPtr<ISlot> slot;
     Type type;
+    Modifiability modifiability;
   public:
-    VanillaPointer(IAllocator& allocator, IBasket& basket, const ISlot& slot, const Type& type)
+    VanillaPointer(IAllocator& allocator, IBasket& basket, const ISlot& slot, const Type& type, Modifiability modifiability)
       : VanillaBase(allocator),
         slot(),
-        type(type) {
+        type(type),
+        modifiability(modifiability) {
       assert(type != nullptr);
       this->slot.set(basket, &slot);
       basket.take(*this);
@@ -759,10 +757,10 @@ namespace {
       this->slot.visit(visitor);
     }
     virtual Type getRuntimeType() const override {
-      return Type(this->type.get());
+      return this->type;
     }
     virtual Value getPointee(IExecution& execution) override {
-      if (this->hasModifiability(Modifiability::Read)) {
+      if (Bits::hasAllSet(this->modifiability, Modifiability::Read)) {
         auto* value = this->slot->get();
         if (value == nullptr) {
           return Value::Void;
@@ -772,14 +770,14 @@ namespace {
       return execution.raise(this->trailing("does not support reading via pointer operator '*'"));
     }
     virtual Value setPointee(IExecution& execution, const Value& value) override {
-      if (this->hasModifiability(Modifiability::Write)) {
+      if (Bits::hasAllSet(this->modifiability, Modifiability::Write)) {
         this->slot->set(value);
         return Value::Void;
       }
       return execution.raise(this->trailing("does not support writing via pointer operator '*'"));
     }
     virtual Value mutPointee(IExecution& execution, Mutation mutation, const Value& value) override {
-      if (this->hasModifiability(Modifiability::Mutate)) {
+      if (Bits::hasAllSet(this->modifiability, Modifiability::Mutate)) {
         Value before;
         switch (Slot::mutate(*this->slot, this->allocator, Type::AnyQ, mutation, value, before)) {
         case Type::Assignment::Success:
@@ -792,11 +790,6 @@ namespace {
         return before;
       }
       return execution.raise(this->trailing("does not support mutating via pointer operator '*'"));
-    }
-  private:
-    bool hasModifiability(Modifiability flags) {
-      auto modifiability = this->type->getPointerShape(0)->modifiability;
-      return Bits::hasAllSet(modifiability, flags);
     }
   };
 
@@ -892,6 +885,6 @@ egg::ovum::Object egg::ovum::VanillaFactory::createPredicate(IAllocator& allocat
   return createVanillaObject<VanillaPredicate>(allocator, basket, callback, node);
 }
 
-egg::ovum::Object egg::ovum::VanillaFactory::createPointer(IAllocator& allocator, IBasket& basket, ISlot& slot, const Type& pointer) {
-  return createVanillaObject<VanillaPointer>(allocator, basket, slot, pointer);
+egg::ovum::Object egg::ovum::VanillaFactory::createPointer(IAllocator& allocator, IBasket& basket, ISlot& slot, const Type& pointer, Modifiability modifiability) {
+  return createVanillaObject<VanillaPointer>(allocator, basket, slot, pointer, modifiability);
 }
