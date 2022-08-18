@@ -274,6 +274,7 @@ namespace egg::ovum {
     std::map<ValueFlags, Type> simple;
     std::vector<Complex> complex;
     std::vector<Shape> shape;
+    std::map<const IType*, Type> pointer;
   public:
     explicit TypeFactory(IAllocator& allocator);
     virtual IAllocator& getAllocator() const override { return this->allocator; }

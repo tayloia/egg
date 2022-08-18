@@ -102,5 +102,5 @@ TEST(TestType, FactoryPointer) {
   ASSERT_NE(nullptr, shape->pointable);
   ASSERT_EQ(Type::Any.get(), shape->pointable->getType().get());
   auto pointer2 = factory.createPointer(Type::Any);
-  // WIBBLE ASSERT_EQ(pointer1.get(), pointer2.get());
+  ASSERT_EQ(pointer1.get(), pointer2.get());
 }

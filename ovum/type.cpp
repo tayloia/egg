@@ -705,8 +705,22 @@ egg::ovum::Type egg::ovum::TypeFactory::createSimple(ValueFlags flags) {
 }
 
 egg::ovum::Type egg::ovum::TypeFactory::createPointer(const Type& pointee) {
-  assert(pointee != nullptr);
-  return this->allocator.makeHard<TypePointer, Type>(pointee);
+  auto* ptr = pointee.get();
+  assert(ptr != nullptr);
+
+  {
+    // First, try to fetch an existing entry
+    ReadLock lockR{ this->mutex };
+    auto found = this->pointer.find(ptr);
+    if (found != this->pointer.end()) {
+      return found->second;
+    }
+  }
+
+  // We need to modify the map after releasing the read lock
+  WriteLock lockW{ this->mutex };
+  auto created = this->allocator.makeHard<TypePointer, Type>(pointee);
+  return this->pointer.try_emplace(ptr, created).first->second;
 }
 
 egg::ovum::Type egg::ovum::TypeFactory::createUnion(const Type& a, const Type& b) {
