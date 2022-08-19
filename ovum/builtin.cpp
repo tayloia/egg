@@ -68,15 +68,17 @@ namespace {
     static const size_t MAX_PARAMETERS = 3;
     String name;
     Type rettype;
+    Type gentype;
     size_t parameters;
     Parameter parameter[MAX_PARAMETERS];
     ObjectShape shape;
   public:
-    StringProperty_FunctionType(const String& name, const Type& rettype)
+    StringProperty_FunctionType(const String& name, const Type& rettype, const Type& gentype)
       : name(name),
         rettype(rettype),
+        gentype(gentype),
         parameters(0),
-        shape({}) {
+        shape{} {
       this->shape.callable = this;
     }
     virtual ValueFlags getPrimitiveFlags() const override {
@@ -94,11 +96,14 @@ namespace {
     virtual String describeValue() const override {
       return StringBuilder::concat("Built-in 'string.", this->name, "'");
     }
-    virtual String getFunctionName() const override {
+    virtual String getName() const override {
       return this->name;
     }
     virtual Type getReturnType() const override {
       return this->rettype;
+    }
+    virtual Type getGeneratorType() const override {
+      return this->gentype;
     }
     virtual size_t getParameterCount() const override {
       return this->parameters;
@@ -141,11 +146,11 @@ namespace {
     StringProperty_FunctionType ftype;
   public:
     StringProperty_Member(const String& name, const Type& rettype)
-      : ftype(name, rettype) {
+      : ftype(name, rettype, nullptr) {
     }
     virtual Value createInstance(ITypeFactory& factory, IBasket& basket, const String& string) const override;
     virtual String getName() const override {
-      return this->ftype.getFunctionName();
+      return this->ftype.getName();
     }
     virtual Type getType() const override {
       return Type(&this->ftype);
@@ -630,11 +635,14 @@ namespace {
     };
     Parameter params;
   public:
-    virtual String getFunctionName() const override {
+    virtual String getName() const override {
       return String();
     }
     virtual Type getReturnType() const override {
       return Type::AnyQ;
+    }
+    virtual Type getGeneratorType() const override {
+      return nullptr;
     }
     virtual size_t getParameterCount() const override {
       return 1;

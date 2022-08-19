@@ -54,7 +54,7 @@ namespace {
   public:
     explicit Type_Iterator(const Type& rettype)
       : Type_Base(&callable, nullptr, nullptr, nullptr, nullptr),
-        callable(rettype, {}) {
+        callable(rettype, nullptr, {}) {
       assert(rettype.hasPrimitiveFlag(ValueFlags::Void));
     }
     virtual std::pair<std::string, int> toStringPrecedence() const override {

@@ -204,10 +204,11 @@ namespace egg::ovum {
   public:
     // Interface
     virtual ~IFunctionSignature() {}
-    virtual String getFunctionName() const = 0;
+    virtual String getName() const = 0;
     virtual Type getReturnType() const = 0;
     virtual size_t getParameterCount() const = 0;
     virtual const IFunctionSignatureParameter& getParameter(size_t index) const = 0;
+    virtual Type getGeneratorType() const = 0;
   };
 
   class IIndexSignature {

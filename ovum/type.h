@@ -146,20 +146,25 @@ namespace egg::ovum {
     TypeBuilderCallable& operator=(const TypeBuilderCallable&) = delete;
   private:
     Type rettype;
+    Type gentype;
     String name;
     std::vector<TypeBuilderParameter> positional;
     std::vector<TypeBuilderParameter> named;
   public:
-    TypeBuilderCallable(const Type& rettype, const String& name)
+    TypeBuilderCallable(const Type& rettype, const Type& gentype, const String& name)
       : rettype(rettype),
+        gentype(gentype),
         name(name) {
       assert(rettype != nullptr);
     }
-    virtual String getFunctionName() const override {
+    virtual String getName() const override {
       return this->name;
     }
     virtual Type getReturnType() const override {
       return this->rettype;
+    }
+    virtual Type getGeneratorType() const override {
+      return this->gentype;
     }
     virtual size_t getParameterCount() const override {
       return this->positional.size() + this->named.size();
@@ -314,8 +319,8 @@ namespace egg::ovum {
     virtual Type removeNull(const Type& type) override;
 
     virtual TypeBuilder createTypeBuilder(const String& name, const String& description) override;
-    virtual TypeBuilder createFunctionBuilder(const Type& rettype, const String& name, const String& description) override;
-    virtual TypeBuilder createGeneratorBuilder(const Type& gentype, const String& name, const String& description) override;
+    virtual TypeBuilder createFunctionBuilder(const Type& rettype, const String& name, const String& description = {}) override;
+    virtual TypeBuilder createGeneratorBuilder(const Type& gentype, const String& name, const String& description = {}) override;
   private:
     Type createComplex(Complex& complex);
     Type createModified(const Type& type, ValueFlags flags);

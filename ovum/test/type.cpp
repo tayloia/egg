@@ -161,3 +161,43 @@ TEST(TestType, FactoryUnionComplex2) {
   ASSERT_STRING("float*|int*", merged21.toString());
   ASSERT_EQ(merged12.get(), merged21.get());
 }
+
+TEST(TestType, FactoryFunctionBuilderTrivial) {
+  egg::test::Allocator allocator{ egg::test::Allocator::Expectation::AtLeastOneAllocation };
+  TypeFactory factory{ allocator };
+  auto builder = factory.createFunctionBuilder(Type::Int, "function");
+  auto built = builder->build();
+  ASSERT_STRING("int()", built.toString());
+  ASSERT_STRING("Function 'int function()'", built->describeValue());
+}
+
+TEST(TestType, FactoryFunctionBuilderSimple) {
+  egg::test::Allocator allocator{ egg::test::Allocator::Expectation::AtLeastOneAllocation };
+  TypeFactory factory{ allocator };
+  auto builder = factory.createFunctionBuilder(Type::Arithmetic, "function");
+  builder->addPositionalParameter(Type::Bool, "arg1", egg::ovum::IFunctionSignatureParameter::Flags::Required);
+  builder->addPositionalParameter(Type::String, "arg2", egg::ovum::IFunctionSignatureParameter::Flags::Required);
+  auto built = builder->build();
+  ASSERT_STRING("(int|float)(bool,string)", built.toString());
+  ASSERT_STRING("Function '(int|float) function(bool arg1, string arg2)'", built->describeValue());
+}
+
+TEST(TestType, FactoryGeneratorBuilderTrivial) {
+  egg::test::Allocator allocator{ egg::test::Allocator::Expectation::AtLeastOneAllocation };
+  TypeFactory factory{ allocator };
+  auto builder = factory.createGeneratorBuilder(Type::Int, "generator");
+  auto built = builder->build();
+  ASSERT_STRING("int...()", built.toString());
+  ASSERT_STRING("Generator 'int... generator()'", built->describeValue());
+}
+
+TEST(TestType, FactoryGeneratorBuilderSimple) {
+  egg::test::Allocator allocator{ egg::test::Allocator::Expectation::AtLeastOneAllocation };
+  TypeFactory factory{ allocator };
+  auto builder = factory.createGeneratorBuilder(Type::Arithmetic, "generator");
+  builder->addPositionalParameter(Type::Bool, "arg1", egg::ovum::IFunctionSignatureParameter::Flags::Required);
+  builder->addPositionalParameter(Type::String, "arg2", egg::ovum::IFunctionSignatureParameter::Flags::Required);
+  auto built = builder->build();
+  ASSERT_STRING("(int|float)...(bool,string)", built.toString());
+  ASSERT_STRING("Generator '(int|float)... generator(bool arg1, string arg2)'", built->describeValue());
+}

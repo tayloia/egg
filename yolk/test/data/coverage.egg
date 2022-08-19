@@ -264,19 +264,3 @@
   }
   assert(f(3) == 9);
 }
-/* DISABLED
-{
-  // Test generator definition
-  int... f(int p) {
-    while (p > 0) {
-      yield p;
-      --p;
-    }
-  }
-  int i = 0;
-  for (var j : f(10)) {
-    i += j;
-  }
-  assert(i == 55);
-}
-*/

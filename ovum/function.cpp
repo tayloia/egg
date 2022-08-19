@@ -18,17 +18,24 @@ namespace {
 
 void egg::ovum::FunctionSignature::print(Printer& printer, const IFunctionSignature& signature, Parts parts) {
   // TODO better formatting of named/variadic etc.
+  auto names = Bits::hasAnySet(parts, Parts::ParameterNames);
   if (Bits::hasAnySet(parts, Parts::ReturnType)) {
     // Use precedence to get any necessary parentheses
-    auto pair = signature.getReturnType()->toStringPrecedence();
+    auto rettype = signature.getReturnType();
+    auto gentype = signature.getGeneratorType();
+    auto generator = gentype != nullptr;
+    auto pair = generator ? gentype->toStringPrecedence() : rettype->toStringPrecedence();
     if (pair.second < 2) {
       printer << pair.first;
     } else {
       printer << '(' << pair.first << ')';
     }
+    if (generator) {
+      printer << '.' << '.' << '.';
+    }
   }
   if (Bits::hasAnySet(parts, Parts::FunctionName)) {
-    auto name = signature.getFunctionName();
+    auto name = signature.getName();
     if (!name.empty()) {
       printer << ' ' << name;
     }
@@ -38,7 +45,10 @@ void egg::ovum::FunctionSignature::print(Printer& printer, const IFunctionSignat
     auto n = signature.getParameterCount();
     for (size_t i = 0; i < n; ++i) {
       if (i > 0) {
-        printer << ", ";
+        printer << ',';
+        if (names) {
+          printer << ' ';
+        }
       }
       auto& parameter = signature.getParameter(i);
       assert(parameter.getPosition() != SIZE_MAX);
@@ -53,7 +63,7 @@ void egg::ovum::FunctionSignature::print(Printer& printer, const IFunctionSignat
           }
         }
         if (!Bits::hasAnySet(parameter.getFlags(), IFunctionSignatureParameter::Flags::Required)) {
-          printer << " = null";
+          printer << (names ? " = null" : "=null");
         }
       }
     }

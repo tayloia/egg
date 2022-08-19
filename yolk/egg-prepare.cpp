@@ -320,7 +320,7 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareFunctionDefi
   // TODO type check
   auto callable = type.queryCallable();
   assert(callable != nullptr);
-  assert(callable->getFunctionName() == name);
+  assert(callable->getName() == name);
   auto nested = this->allocator.makeHard<EggProgramSymbolTable>(this->symtable.get());
   auto n = callable->getParameterCount();
   for (size_t i = 0; i < n; ++i) {

@@ -301,7 +301,7 @@ namespace {
     Value raise(IExecution& execution, ARGS&&... args) {
       auto* signature = this->getFunctionSignature();
       if (signature != nullptr) {
-        auto name = signature->getFunctionName();
+        auto name = signature->getName();
         if (!name.empty()) {
           return execution.raiseFormat("Function '", name, "' ", std::forward<ARGS>(args)...);
         }

@@ -349,9 +349,9 @@ namespace {
   private:
     TypeBuilderCallable callable;
   public:
-    FunctionBuilder(IAllocator& allocator, const Type& rettype, const String& name, const String& description)
+    FunctionBuilder(IAllocator& allocator, const Type& rettype, const Type& gentype, const String& name, const String& description)
       : Builder(allocator, name, description),
-        callable(rettype, name) {
+        callable(rettype, gentype, name) {
       assert(rettype != nullptr);
     }
     virtual void addPositionalParameter(const Type& ptype, const String& pname, IFunctionSignatureParameter::Flags pflags) {
@@ -371,7 +371,22 @@ namespace {
         throw std::logic_error("FunctionBuilder::build() called more than once");
       }
       this->built = true;
+      if (this->description.empty()) {
+        this->description = this->describe();
+      }
       return this->allocator.makeHard<Built, Type>(*this, &this->callable);
+    }
+  private:
+    String describe() {
+      StringBuilder sb;
+      if (this->callable.getGeneratorType() == nullptr) {
+        sb.add("Function '");
+      } else {
+        sb.add("Generator '");
+      }
+      FunctionSignature::print(sb, this->callable);
+      sb.add("'");
+      return sb.str();
     }
   };
 
@@ -880,16 +895,16 @@ TypeBuilder TypeFactory::createTypeBuilder(const String& name, const String& des
 }
 
 TypeBuilder TypeFactory::createFunctionBuilder(const Type& rettype, const String& name, const String& description) {
-  return this->allocator.makeHard<FunctionBuilder>(rettype, name, description);
+  return this->allocator.makeHard<FunctionBuilder>(rettype, nullptr, name, description);
 }
 
 TypeBuilder TypeFactory::createGeneratorBuilder(const Type& gentype, const String& name, const String& description) {
   // Convert the return type (e.g. 'int') into a generator function 'int...' aka '(void|int)()'
   assert(!gentype.hasPrimitiveFlag(ValueFlags::Void));
   auto rettype = this->addVoid(gentype);
-  auto generator = this->createFunctionBuilder(rettype, name, description);
+  auto generator = this->allocator.makeHard<FunctionBuilder>(rettype, nullptr, name, description);
   generator->defineIterable(gentype);
-  return this->allocator.makeHard<FunctionBuilder>(generator->build(), name, description);
+  return this->allocator.makeHard<FunctionBuilder>(generator->build(), gentype, name, description);
 }
 
 void TypeFactory::Complex::merge(TypeFactory& factory, const IType& other) {
