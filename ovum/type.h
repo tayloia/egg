@@ -1,4 +1,5 @@
 #include <map>
+#include <set>
 
 namespace egg::ovum {
   class INode;
@@ -55,6 +56,29 @@ namespace egg::ovum {
       return type.toStringPrecedence().first;
     }
 
+    // Equivalence
+    bool isEquivalent(const Type& rhs) const {
+      return Type::areEquivalent(this->get(), rhs.get());
+    }
+    template<typename T>
+    static bool areEquivalent(const T* lhs, const T* rhs) {
+      if (lhs == rhs) {
+        return true;
+      }
+      if ((lhs == nullptr) || (rhs == nullptr)) {
+        return false;
+      }
+      return Type::areEquivalent(*lhs, *rhs);
+    }
+    static bool areEquivalent(const IType& lhs, const IType& rhs);
+    static bool areEquivalent(const IFunctionSignatureParameter& lhs, const IFunctionSignatureParameter& rhs);
+    static bool areEquivalent(const IFunctionSignature& lhs, const IFunctionSignature& rhs);
+    static bool areEquivalent(const IIndexSignature& lhs, const IIndexSignature& rhs);
+    static bool areEquivalent(const IIteratorSignature& lhs, const IIteratorSignature& rhs);
+    static bool areEquivalent(const IPropertySignature& lhs, const IPropertySignature& rhs);
+    static bool areEquivalent(const IPointerSignature& lhs, const IPointerSignature& rhs);
+    static bool areEquivalent(const ObjectShape& lhs, const ObjectShape& rhs);
+
     // Helpers
     bool isComplex() const {
       return (*this)->getObjectShapeCount() > 0;
@@ -69,7 +93,6 @@ namespace egg::ovum {
     const IIndexSignature* queryIndexable() const;
     const IIteratorSignature* queryIterable() const;
     const IPointerSignature* queryPointable() const;
-
     enum class Assignment {
       Success, Uninitialized, Incompatible, BadIntToFloat
     };
@@ -261,27 +284,29 @@ namespace egg::ovum {
   class TypeFactory : public ITypeFactory {
     TypeFactory(const TypeFactory&) = delete;
     TypeFactory& operator=(const TypeFactory&) = delete;
-  private:
-    class Shape {
-
-    };
+  public:
     class Complex {
-      Type simple;
-      std::vector<size_t> shapes;
+    public:
+      ValueFlags flags = ValueFlags::None;
+      std::set<size_t> shapeIndices;
+      Type type;
+      void merge(TypeFactory& factory, const IType& type);
+      static bool areEquivalent(const Complex& lhs, const Complex& rhs);
     };
+  private:
     IAllocator& allocator;
     ReadWriteMutex mutex;
-    std::map<ValueFlags, Type> simple;
-    std::vector<Complex> complex;
-    std::vector<Shape> shape;
-    std::map<const IType*, Type> pointer;
+    std::map<ValueFlags, Type> simples;
+    std::vector<Complex> complexes;
+    std::vector<ObjectShape> shapes;
+    std::map<const IType*, Type> pointers;
   public:
     explicit TypeFactory(IAllocator& allocator);
     virtual IAllocator& getAllocator() const override { return this->allocator; }
 
     virtual Type createSimple(ValueFlags flags) override;
-    virtual Type createPointer(const Type& pointee) override;
-    virtual Type createUnion(const Type& a, const Type& b) override;
+    virtual Type createPointer(const Type& pointee, Modifiability modifiability) override;
+    virtual Type createUnion(const std::vector<Type>& types) override;
 
     virtual Type addVoid(const Type& type) override;
     virtual Type addNull(const Type& type) override;
@@ -291,9 +316,5 @@ namespace egg::ovum {
     virtual TypeBuilder createTypeBuilder(const String& name, const String& description) override;
     virtual TypeBuilder createFunctionBuilder(const Type& rettype, const String& name, const String& description) override;
     virtual TypeBuilder createGeneratorBuilder(const Type& gentype, const String& name, const String& description) override;
-  private:
-    Type addPrimitiveFlag(const Type& type, ValueFlags flag);
-    Type removePrimitiveFlag(const Type& type, ValueFlags flag);
-    void registerSimpleBasic(const IType& type);
   };
 }

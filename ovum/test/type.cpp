@@ -95,12 +95,69 @@ TEST(TestType, FactorySimpleNonBasicRemoveVoid) {
 TEST(TestType, FactoryPointer) {
   egg::test::Allocator allocator{ egg::test::Allocator::Expectation::AtLeastOneAllocation };
   TypeFactory factory{ allocator };
-  auto pointer1 = factory.createPointer(Type::Any);
+  auto modifiability = Modifiability::Read | Modifiability::Write | Modifiability::Mutate;
+  auto pointer1 = factory.createPointer(Type::Any, modifiability);
   ASSERT_EQ(ValueFlags::None, pointer1->getPrimitiveFlags());
   ASSERT_EQ(1u, pointer1->getObjectShapeCount());
   auto* shape = pointer1->getObjectShape(0);
   ASSERT_NE(nullptr, shape->pointable);
   ASSERT_EQ(Type::Any.get(), shape->pointable->getType().get());
-  auto pointer2 = factory.createPointer(Type::Any);
+  ASSERT_EQ(modifiability, shape->pointable->getModifiability());
+  auto pointer2 = factory.createPointer(Type::Any, modifiability);
   ASSERT_EQ(pointer1.get(), pointer2.get());
+}
+
+TEST(TestType, FactoryUnion0) {
+  egg::test::Allocator allocator{ egg::test::Allocator::Expectation::NoAllocations };
+  TypeFactory factory{ allocator };
+  auto merged = factory.createUnion({});
+  ASSERT_EQ(nullptr, merged);
+}
+
+TEST(TestType, FactoryUnionBasic1) {
+  egg::test::Allocator allocator{ egg::test::Allocator::Expectation::NoAllocations };
+  TypeFactory factory{ allocator };
+  auto merged = factory.createUnion({ Type::Arithmetic});
+  ASSERT_EQ(Type::Arithmetic.get(), merged.get());
+}
+
+TEST(TestType, FactoryUnionBasic2) {
+  egg::test::Allocator allocator{ egg::test::Allocator::Expectation::NoAllocations };
+  TypeFactory factory{ allocator };
+  auto merged = factory.createUnion({ Type::Int, Type::Float });
+  ASSERT_EQ(Type::Arithmetic.get(), merged.get());
+  merged = factory.createUnion({ Type::Float, Type::Int });
+  ASSERT_EQ(Type::Arithmetic.get(), merged.get());
+  merged = factory.createUnion({ Type::Float, Type::Arithmetic });
+  ASSERT_EQ(Type::Arithmetic.get(), merged.get());
+}
+
+TEST(TestType, FactoryUnionComplex1) {
+  egg::test::Allocator allocator{ egg::test::Allocator::Expectation::AtLeastOneAllocation };
+  TypeFactory factory{ allocator };
+  auto modifiability = Modifiability::Read | Modifiability::Write | Modifiability::Mutate;
+  auto pointer = factory.createPointer(Type::Int, modifiability);
+  ASSERT_STRING("int*", pointer.toString());
+  auto merged = factory.createUnion({ pointer });
+  ASSERT_STRING("int*", merged.toString());
+  ASSERT_EQ(pointer.get(), merged.get());
+}
+
+TEST(TestType, FactoryUnionComplex2) {
+  egg::test::Allocator allocator{ egg::test::Allocator::Expectation::AtLeastOneAllocation };
+  TypeFactory factory{ allocator };
+  auto modifiability = Modifiability::Read | Modifiability::Write | Modifiability::Mutate;
+  auto pointer1 = factory.createPointer(Type::Int, modifiability);
+  ASSERT_STRING("int*", pointer1.toString());
+  auto merged11 = factory.createUnion({ pointer1, pointer1 });
+  ASSERT_STRING("int*", merged11.toString());
+  ASSERT_EQ(pointer1.get(), merged11.get());
+  auto pointer2 = factory.createPointer(Type::Float, modifiability);
+  ASSERT_STRING("float*", pointer2.toString());
+  auto merged12 = factory.createUnion({ pointer1, pointer2 });
+  ASSERT_STRING("float*|int*", merged12.toString());
+  ASSERT_NE(merged11.get(), merged12.get());
+  auto merged21 = factory.createUnion({ pointer2, pointer1 });
+  ASSERT_STRING("float*|int*", merged21.toString());
+  ASSERT_EQ(merged12.get(), merged21.get());
 }

@@ -1873,7 +1873,8 @@ egg::ovum::Type EggParserNode_UnaryLogicalNot::getType() const {
 
 egg::ovum::Type EggParserNode_UnaryRef::getType() const {
   auto pointee = this->expr->getType();
-  return this->factory->createPointer(pointee);
+  auto modifiability = egg::ovum::Modifiability::Read | egg::ovum::Modifiability::Write | egg::ovum::Modifiability::Mutate;
+  return this->factory->createPointer(pointee, modifiability);
 }
 
 egg::ovum::Type EggParserNode_UnaryDeref::getType() const {
@@ -1969,17 +1970,17 @@ egg::ovum::Type EggParserNode_BinaryShiftRightUnsigned::getType() const {
 
 egg::ovum::Type EggParserNode_BinaryNullCoalescing::getType() const {
   auto ltype = this->lhs->getType();
-  if (!ltype.hasPrimitiveFlag(egg::ovum::ValueFlags::Null)) {
+  auto lflags = ltype->getPrimitiveFlags();
+  if (!egg::ovum::Bits::hasAnySet(lflags, egg::ovum::ValueFlags::Null)) {
     // The left-hand-side cannot be null, so the right side is irrelevant
     return ltype;
   }
   auto rtype = this->rhs->getType();
-  if (ltype->getPrimitiveFlags() == egg::ovum::ValueFlags::Null) {
+  if (lflags == egg::ovum::ValueFlags::Null) {
     // The left-hand-side is only ever null, so only the right side is relevant
     return rtype;
   }
-  ltype = this->factory->removeNull(ltype);
-  return this->factory->createUnion(ltype, rtype);
+  return this->factory->createUnion({ this->factory->removeNull(ltype), rtype });
 }
 
 egg::ovum::Type EggParserNode_BinaryBitwiseXor::getType() const {
@@ -2014,9 +2015,7 @@ egg::ovum::Type EggParserNode_Ternary::getType() const {
     // The condition is not a bool, so the other values are irrelevant
     return egg::ovum::Type::Void;
   }
-  auto type2 = this->whenTrue->getType();
-  auto type3 = this->whenFalse->getType();
-  return this->factory->createUnion(type2, type3);
+  return this->factory->createUnion({ this->whenTrue->getType(), this->whenFalse->getType() });
 }
 
 std::shared_ptr<egg::yolk::IEggProgramNode> egg::yolk::EggParserFactory::parseModule(egg::ovum::ITypeFactory& factory, TextStream& stream) {

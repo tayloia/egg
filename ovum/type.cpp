@@ -5,7 +5,6 @@
 #include "ovum/function.h"
 
 #include <array>
-#include <map>
 #include <unordered_set>
 
 namespace {
@@ -41,17 +40,6 @@ namespace {
     return { primitiveToStringPrecedence(Bits::clear(flags, head)).first + '|' + component, 2 };
   }
 
-  void complexComponentAdd(std::pair<std::string, int>& out, const std::pair<std::string, int>& in) {
-    assert(!in.first.empty());
-    assert((in.second >= 0) && (in.second <= 2));
-    if (out.first.empty()) {
-      out = in;
-    } else {
-      out.first += '|' + in.first;
-      out.second = 2;
-    }
-  }
-
   std::pair<std::string, int> complexComponentObject(const ObjectShape* shape) {
     assert(shape != nullptr);
     if (shape->callable != nullptr) {
@@ -77,8 +65,25 @@ namespace {
     if (primitive != ValueFlags::None) {
       result = primitiveToStringPrecedence(primitive);
     }
+    std::set<std::string> parts;
     for (size_t index = 0; index < shapes; ++index) {
-      complexComponentAdd(result, complexComponentObject(complex.getObjectShape(index)));
+      auto next = complexComponentObject(complex.getObjectShape(index));
+      assert(!next.first.empty());
+      assert((next.second >= 0) && (next.second <= 2));
+      if ((index == 0) && result.first.empty()) {
+        result.second = next.second;
+      } else {
+        result.second = 2;
+      }
+      parts.insert(next.first);
+    }
+    for (auto& part : parts) {
+      // Lexigraphically ordered for stability
+      if (result.first.empty()) {
+        result.first = part;
+      } else {
+        result.first += '|' + part;
+      }
     }
     assert(!result.first.empty());
     return result;
@@ -165,11 +170,13 @@ namespace {
     TypePointer& operator=(const TypePointer&) = delete;
   private:
     Type pointee;
+    Modifiability modifiability;
     ObjectShape shape;
   public:
-    TypePointer(IAllocator& allocator, const Type& pointee)
+    TypePointer(IAllocator& allocator, const Type& pointee, Modifiability modifiability)
       : HardReferenceCounted(allocator, 0),
         pointee(pointee),
+        modifiability(modifiability),
         shape{} {
       assert(this->pointee != nullptr);
       this->shape.pointable = this;
@@ -191,7 +198,12 @@ namespace {
       return StringBuilder::concat("Pointer of type '", this->toStringPrecedence().first, "'");
     }
     virtual Type getType() const override {
+      // IPointerSignature
       return this->pointee;
+    }
+    virtual Modifiability getModifiability() const override {
+      // IPointerSignature
+      return this->modifiability;
     }
   };
 
@@ -275,6 +287,37 @@ namespace {
         }
       }
       return list;
+    }
+  };
+
+  class TypeComplex final : public HardReferenceCounted<IType> {
+    TypeComplex(const TypeComplex&) = delete;
+    TypeComplex& operator=(const TypeComplex&) = delete;
+  private:
+    ValueFlags flags;
+    std::vector<const ObjectShape*> objectShapes;
+  public:
+    TypeComplex(IAllocator& allocator, ValueFlags flags, std::vector<const ObjectShape*>&& objectShapes)
+      : HardReferenceCounted(allocator, 0),
+        flags(flags),
+        objectShapes(std::move(objectShapes)) {
+      assert(!this->objectShapes.empty());
+    }
+    virtual ValueFlags getPrimitiveFlags() const override {
+      return this->flags;
+    }
+    virtual const ObjectShape* getObjectShape(size_t index) const override {
+      return this->objectShapes.at(index);
+    }
+    virtual size_t getObjectShapeCount() const override {
+      return this->objectShapes.size();
+    }
+    virtual std::pair<std::string, int> toStringPrecedence() const override {
+      return complexToStringPrecedence(this->flags, *this);
+    }
+    virtual String describeValue() const override {
+      // TODO i18n
+      return StringBuilder::concat("Value of type '", this->toStringPrecedence().first, "'");
     }
   };
 
@@ -626,36 +669,127 @@ namespace {
     }
     return isAssignableInstanceObject(ltype, *rtype);
   }
+
+  size_t findObjectShapeIndex(const std::vector<ObjectShape>& shapes, const ObjectShape& shape, size_t start, size_t count) {
+    auto index = start;
+    while (index < count) {
+      if (Type::areEquivalent(shapes[index], shape)) {
+        break;
+      }
+      ++index;
+    }
+    return index;
+  }
+
+  size_t findComplexIndex(const std::vector<TypeFactory::Complex>& complexes, const TypeFactory::Complex& complex, size_t start, size_t count) {
+    auto index = start;
+    while (index < count) {
+      if (TypeFactory::Complex::areEquivalent(complexes[index], complex)) {
+        break;
+      }
+      ++index;
+    }
+    return index;
+  }
+
+  void registerSimpleBasic(std::map<ValueFlags, Type>& simples, const IType& type) {
+    simples.emplace(type.getPrimitiveFlags(), Type(&type));
+  }
+
+  size_t registerObjectShapeWithLock(ReadWriteMutex& mutex, std::vector<ObjectShape>& shapes, const ObjectShape& shape) {
+    // First, try to fetch an existing entry
+    ReadLock lockR{ mutex };
+    auto countR = shapes.size();
+    auto index = findObjectShapeIndex(shapes, shape, 0, countR);
+    if (index < countR) {
+      return index;
+    }
+    lockR.unlock();
+
+    // Obtain a write lock
+    WriteLock lockW{ mutex };
+    auto countW = shapes.size();
+    if (countW > countR) {
+      // Another thread has added entries we need to re-check
+      index = findObjectShapeIndex(shapes, shape, countR, countW);
+      if (index < countW) {
+        return index;
+      }
+    }
+    shapes.emplace_back(shape);
+    return countW;
+  }
+
+  size_t registerObjectShapeWithoutLock(std::vector<ObjectShape>& shapes, const ObjectShape& shape) {
+    auto count = shapes.size();
+    auto index = findObjectShapeIndex(shapes, shape, 0, count);
+    if (index < count) {
+      return index;
+    }
+    shapes.emplace_back(shape);
+    return count;
+  }
+
+  Type addPrimitiveFlag(TypeFactory& factory, const Type& type, ValueFlags flag) {
+    // TODO optimize
+    assert(type != nullptr);
+    auto existingFlags = type->getPrimitiveFlags();
+    auto requiredFlags = Bits::set(type->getPrimitiveFlags(), flag);
+    if (existingFlags != requiredFlags) {
+      if (!type.isComplex()) {
+        return factory.createSimple(requiredFlags);
+      }
+      return factory.createUnion({ type, factory.createSimple(flag) }); // WIBBLE
+    }
+    return type;
+  }
+
+  Type removePrimitiveFlag(TypeFactory& factory, const Type& type, ValueFlags flag) {
+    // TODO optimize
+    if (type != nullptr) {
+      auto existingFlags = type->getPrimitiveFlags();
+      auto requiredFlags = Bits::clear(type->getPrimitiveFlags(), flag);
+      if (existingFlags != requiredFlags) {
+        if (!type.isComplex()) {
+          return factory.createSimple(requiredFlags);
+        }
+        if (requiredFlags == ValueFlags::None) {
+          return nullptr;
+        }
+        return factory.getAllocator().makeHard<TypeStrip, Type>(type, flag); // WIBBLE
+      }
+    }
+    return type;
+  }
 }
 
-egg::ovum::Type::Assignability egg::ovum::Type::queryAssignable(const IType& from) const {
+Type::Assignability Type::queryAssignable(const IType& from) const {
   auto* to = this->get();
   assert(to != nullptr);
   return queryAssignableType(*to, from);
 }
 
-const egg::ovum::IFunctionSignature* egg::ovum::Type::queryCallable() const {
+const IFunctionSignature* Type::queryCallable() const {
   return queryObjectShape<IFunctionSignature>(this->get(), &ObjectShape::callable);
 }
 
-const egg::ovum::IPropertySignature* egg::ovum::Type::queryDotable() const {
+const IPropertySignature* Type::queryDotable() const {
   return queryObjectShape<IPropertySignature>(this->get(), &ObjectShape::dotable);
 }
 
-const egg::ovum::IIndexSignature* egg::ovum::Type::queryIndexable() const {
+const IIndexSignature* Type::queryIndexable() const {
   return queryObjectShape<IIndexSignature>(this->get(), &ObjectShape::indexable);
 }
 
-const egg::ovum::IIteratorSignature* egg::ovum::Type::queryIterable() const {
+const IIteratorSignature* Type::queryIterable() const {
   return queryObjectShape<IIteratorSignature>(this->get(), &ObjectShape::iterable);
 }
 
-const egg::ovum::IPointerSignature* egg::ovum::Type::queryPointable() const {
-  // WIBBLE
+const IPointerSignature* Type::queryPointable() const {
   return queryObjectShape<IPointerSignature>(this->get(), &ObjectShape::pointable);
 }
 
-egg::ovum::String egg::ovum::Type::describeValue() const {
+String Type::describeValue() const {
   auto* type = this->get();
   if (type == nullptr) {
     return "Value of unknown type";
@@ -663,7 +797,7 @@ egg::ovum::String egg::ovum::Type::describeValue() const {
   return type->describeValue();
 }
 
-egg::ovum::String egg::ovum::Type::toString() const {
+String Type::toString() const {
   auto* type = this->get();
   if (type == nullptr) {
     return "<unknown>";
@@ -671,124 +805,141 @@ egg::ovum::String egg::ovum::Type::toString() const {
   return type->toStringPrecedence().first;
 }
 
-egg::ovum::TypeFactory::TypeFactory(IAllocator& allocator)
+TypeFactory::TypeFactory(IAllocator& allocator)
   : allocator(allocator) {
-  registerSimpleBasic(typeNone);
-  registerSimpleBasic(typeVoid);
-  registerSimpleBasic(typeNull);
-  registerSimpleBasic(typeBool);
-  registerSimpleBasic(typeBoolInt);
-  registerSimpleBasic(typeInt);
-  registerSimpleBasic(typeIntQ);
-  registerSimpleBasic(typeFloat);
-  registerSimpleBasic(typeString);
-  registerSimpleBasic(typeArithmetic);
-  registerSimpleBasic(typeObject);
-  registerSimpleBasic(typeAny);
-  registerSimpleBasic(typeAnyQ);
+  registerSimpleBasic(this->simples, typeNone);
+  registerSimpleBasic(this->simples, typeVoid);
+  registerSimpleBasic(this->simples, typeNull);
+  registerSimpleBasic(this->simples, typeBool);
+  registerSimpleBasic(this->simples, typeBoolInt);
+  registerSimpleBasic(this->simples, typeInt);
+  registerSimpleBasic(this->simples, typeIntQ);
+  registerSimpleBasic(this->simples, typeFloat);
+  registerSimpleBasic(this->simples, typeString);
+  registerSimpleBasic(this->simples, typeArithmetic);
+  registerSimpleBasic(this->simples, typeObject);
+  registerSimpleBasic(this->simples, typeAny);
+  registerSimpleBasic(this->simples, typeAnyQ);
 }
 
-egg::ovum::Type egg::ovum::TypeFactory::createSimple(ValueFlags flags) {
-  {
-    // First, try to fetch an existing entry
-    ReadLock lockR{ this->mutex };
-    auto found = this->simple.find(flags);
-    if (found != this->simple.end()) {
-      return found->second;
-    }
+Type TypeFactory::createSimple(ValueFlags flags) {
+  // First, try to fetch an existing entry
+  ReadLock lockR{ this->mutex };
+  auto found = this->simples.find(flags);
+  if (found != this->simples.end()) {
+    return found->second;
   }
+  lockR.unlock();
 
   // We need to modify the map after releasing the read lock
-  WriteLock lockW{ this->mutex };
   auto created = this->allocator.makeHard<TypeSimple, Type>(flags);
-  return this->simple.try_emplace(flags, created).first->second;
+  WriteLock lockW{ this->mutex };
+  return this->simples.try_emplace(flags, created).first->second;
 }
 
-egg::ovum::Type egg::ovum::TypeFactory::createPointer(const Type& pointee) {
+Type TypeFactory::createPointer(const Type& pointee, Modifiability modifiability) {
   auto* ptr = pointee.get();
   assert(ptr != nullptr);
 
-  {
-    // First, try to fetch an existing entry
-    ReadLock lockR{ this->mutex };
-    auto found = this->pointer.find(ptr);
-    if (found != this->pointer.end()) {
-      return found->second;
-    }
+  // First, try to fetch an existing entry
+  ReadLock lockR{ this->mutex };
+  auto found = this->pointers.find(ptr);
+  if (found != this->pointers.end()) {
+    return found->second;
   }
+  lockR.unlock();
 
   // We need to modify the map after releasing the read lock
+  auto created = this->allocator.makeHard<TypePointer, Type>(pointee, modifiability);
   WriteLock lockW{ this->mutex };
-  auto created = this->allocator.makeHard<TypePointer, Type>(pointee);
-  return this->pointer.try_emplace(ptr, created).first->second;
-}
-
-egg::ovum::Type egg::ovum::TypeFactory::createUnion(const Type& a, const Type& b) {
-  assert(a != nullptr);
-  assert(b != nullptr);
-  if (a.get() == b.get()) {
-    return a;
+  auto emplaced = this->pointers.try_emplace(ptr, created);
+  if (emplaced.second) {
+    // We added 'created' so construct a complex entry for it too
+    assert(emplaced.first->second.get() == created.get());
+    auto shapePointer = created->getObjectShape(0);
+    assert(shapePointer != nullptr);
+    auto shapeIndex = registerObjectShapeWithoutLock(this->shapes, *shapePointer);
+    Complex complex;
+    complex.shapeIndices.insert(shapeIndex);
+    complex.type = created;
+    this->complexes.emplace_back(std::move(complex));
+    return created;
   }
-  return this->allocator.makeHard<TypeUnion, Type>(a, b);
+  return emplaced.first->second;
 }
 
-egg::ovum::Type egg::ovum::TypeFactory::addVoid(const Type& type) {
-  return this->addPrimitiveFlag(type, ValueFlags::Void);
-}
-
-egg::ovum::Type egg::ovum::TypeFactory::addNull(const Type& type) {
-  return this->addPrimitiveFlag(type, ValueFlags::Null);
-}
-
-egg::ovum::Type egg::ovum::TypeFactory::addPrimitiveFlag(const Type& type, ValueFlags flag) {
-  // TODO optimize
-  assert(type != nullptr);
-  auto existingFlags = type->getPrimitiveFlags();
-  auto requiredFlags = Bits::set(type->getPrimitiveFlags(), flag);
-  if (existingFlags != requiredFlags) {
-    if (!type.isComplex()) {
-      return this->createSimple(requiredFlags);
-    }
-    return this->createUnion(type, this->createSimple(flag)); // WIBBLE
+Type TypeFactory::createUnion(const std::vector<Type>& types) {
+  switch (types.size()) {
+  case 0:
+    return nullptr;
+  case 1:
+    return types[0];
   }
-  return type;
-}
-
-egg::ovum::Type egg::ovum::TypeFactory::removeVoid(const Type& type) {
-  return removePrimitiveFlag(type, ValueFlags::Void);
-}
-
-egg::ovum::Type egg::ovum::TypeFactory::removeNull(const Type& type) {
-  return removePrimitiveFlag(type, ValueFlags::Null);
-}
-
-egg::ovum::Type egg::ovum::TypeFactory::removePrimitiveFlag(const Type& type, ValueFlags flag) {
-  // TODO optimize
-  if (type != nullptr) {
-    auto existingFlags = type->getPrimitiveFlags();
-    auto requiredFlags = Bits::clear(type->getPrimitiveFlags(), flag);
-    if (existingFlags != requiredFlags) {
-      if (!type.isComplex()) {
-        return this->createSimple(requiredFlags);
-      }
-      if (requiredFlags == ValueFlags::None) {
-        return nullptr;
-      }
-      return this->allocator.makeHard<TypeStrip, Type>(type, flag); // WIBBLE
+  Complex merged;
+  for (auto& type : types) {
+    if (type != nullptr) {
+      merged.merge(*this, *type);
     }
   }
-  return type;
+  if (merged.shapeIndices.empty()) {
+    return this->createSimple(merged.flags);
+  }
+
+  // Add the merged union as a complex type
+  ReadLock lockR{ this->mutex };
+  auto countR = this->complexes.size();
+  auto index = findComplexIndex(this->complexes, merged, 0, countR);
+  if (index < countR) {
+    return this->complexes[index].type;
+  }
+  lockR.unlock();
+
+  // Probably need to insert a new complex type
+  std::vector<const ObjectShape*> objectShapes;
+  objectShapes.reserve(merged.shapeIndices.size());
+  for (auto shapeIndex : merged.shapeIndices) {
+    objectShapes.push_back(&this->shapes[shapeIndex]);
+  }
+  merged.type = this->allocator.makeHard<TypeComplex, Type>(merged.flags, std::move(objectShapes));
+
+  // Obtain a write lock before trying again
+  WriteLock lockW{ this->mutex };
+  auto countW = this->complexes.size();
+  if (countW > countR) {
+    // Another thread has added entries we need to re-check
+    index = findComplexIndex(this->complexes, merged, countR, countW);
+    if (index < countW) {
+      return this->complexes[index].type;
+    }
+  }
+  return this->complexes.emplace_back(std::move(merged)).type;
 }
 
-egg::ovum::TypeBuilder egg::ovum::TypeFactory::createTypeBuilder(const String& name, const String& description) {
+Type TypeFactory::addVoid(const Type& type) {
+  return addPrimitiveFlag(*this, type, ValueFlags::Void);
+}
+
+Type TypeFactory::addNull(const Type& type) {
+  return addPrimitiveFlag(*this, type, ValueFlags::Null);
+}
+
+Type TypeFactory::removeVoid(const Type& type) {
+  return removePrimitiveFlag(*this, type, ValueFlags::Void);
+}
+
+Type TypeFactory::removeNull(const Type& type) {
+  return removePrimitiveFlag(*this, type, ValueFlags::Null);
+}
+
+TypeBuilder TypeFactory::createTypeBuilder(const String& name, const String& description) {
   return this->allocator.makeHard<Builder>(name, description);
 }
 
-egg::ovum::TypeBuilder egg::ovum::TypeFactory::createFunctionBuilder(const Type& rettype, const String& name, const String& description) {
+TypeBuilder TypeFactory::createFunctionBuilder(const Type& rettype, const String& name, const String& description) {
   return this->allocator.makeHard<FunctionBuilder>(rettype, name, description);
 }
 
-egg::ovum::TypeBuilder egg::ovum::TypeFactory::createGeneratorBuilder(const Type& gentype, const String& name, const String& description) {
+TypeBuilder TypeFactory::createGeneratorBuilder(const Type& gentype, const String& name, const String& description) {
   // Convert the return type (e.g. 'int') into a generator function 'int...' aka '(void|int)()'
   assert(!gentype.hasPrimitiveFlag(ValueFlags::Void));
   auto rettype = this->addVoid(gentype);
@@ -797,25 +948,109 @@ egg::ovum::TypeBuilder egg::ovum::TypeFactory::createGeneratorBuilder(const Type
   return this->allocator.makeHard<FunctionBuilder>(generator->build(), name, description);
 }
 
-void egg::ovum::TypeFactory::registerSimpleBasic(const IType& type) {
-  this->simple.emplace(type.getPrimitiveFlags(), Type(&type));
+void TypeFactory::Complex::merge(TypeFactory& factory, const IType& other) {
+  this->flags = this->flags | other.getPrimitiveFlags();
+  auto count = other.getObjectShapeCount();
+  for (size_t index = 0; index < count; ++index) {
+    auto incoming = other.getObjectShape(index);
+    assert(incoming != nullptr);
+    this->shapeIndices.insert(registerObjectShapeWithLock(factory.mutex, factory.shapes, *incoming));
+  }
+}
+
+bool TypeFactory::Complex::areEquivalent(const Complex& lhs, const Complex& rhs) {
+  if (&lhs == &rhs) {
+    return true;
+  }
+  return (lhs.flags == rhs.flags) && (lhs.shapeIndices == rhs.shapeIndices);
+}
+
+bool Type::areEquivalent(const IType& lhs, const IType& rhs) {
+  return &lhs == &rhs;
+}
+
+bool Type::areEquivalent(const ObjectShape& lhs, const ObjectShape& rhs) {
+  if (&lhs == &rhs) {
+    return true;
+  }
+  return Type::areEquivalent(lhs.callable, rhs.callable) &&
+         Type::areEquivalent(lhs.dotable, rhs.dotable) &&
+         Type::areEquivalent(lhs.indexable, rhs.indexable) &&
+         Type::areEquivalent(lhs.iterable, rhs.iterable) &&
+         Type::areEquivalent(lhs.pointable, rhs.pointable);
+}
+
+bool Type::areEquivalent(const IFunctionSignature& lhs, const IFunctionSignature& rhs) {
+  if (&lhs == &rhs) {
+    return true;
+  }
+  auto parameters = lhs.getParameterCount();
+  if ((parameters != rhs.getParameterCount()) || !lhs.getReturnType().isEquivalent(rhs.getReturnType())) {
+    return false;
+  }
+  for (size_t parameter = 0; parameter < parameters; ++parameter) {
+    // TODO optional parameter relaxation?
+    if (!Type::areEquivalent(lhs.getParameter(parameter), rhs.getParameter(parameter))) {
+      return false;
+    }
+  }
+  return true;
+}
+
+bool Type::areEquivalent(const IFunctionSignatureParameter& lhs, const IFunctionSignatureParameter& rhs) {
+  // TODO variadic/optional/etc
+  if (&lhs == &rhs) {
+    return true;
+  }
+  return (lhs.getPosition() == rhs.getPosition()) && (lhs.getFlags() == rhs.getFlags()) && (lhs.getType().isEquivalent(rhs.getType()));
+}
+
+bool Type::areEquivalent(const IPropertySignature& lhs, const IPropertySignature& rhs) {
+  // TODO
+  if (&lhs == &rhs) {
+    return true;
+  }
+  return true;
+}
+
+bool Type::areEquivalent(const IIndexSignature& lhs, const IIndexSignature& rhs) {
+  // TODO modifiability
+  if (&lhs == &rhs) {
+    return true;
+  }
+  return lhs.getIndexType().isEquivalent(rhs.getIndexType()) && lhs.getResultType().isEquivalent(rhs.getResultType());
+}
+
+bool Type::areEquivalent(const IPointerSignature& lhs, const IPointerSignature& rhs) {
+  // TODO modifiability
+  if (&lhs == &rhs) {
+    return true;
+  }
+  return lhs.getType().isEquivalent(rhs.getType());
+}
+
+bool Type::areEquivalent(const IIteratorSignature& lhs, const IIteratorSignature& rhs) {
+  if (&lhs == &rhs) {
+    return true;
+  }
+  return lhs.getType().isEquivalent(rhs.getType());
 }
 
 // Common types
-const egg::ovum::Type egg::ovum::Type::Void{ &typeVoid };
-const egg::ovum::Type egg::ovum::Type::Null{ &typeNull };
-const egg::ovum::Type egg::ovum::Type::Bool{ &typeBool };
-const egg::ovum::Type egg::ovum::Type::BoolInt{ &typeBoolInt };
-const egg::ovum::Type egg::ovum::Type::Int{ &typeInt };
-const egg::ovum::Type egg::ovum::Type::IntQ{ &typeIntQ };
-const egg::ovum::Type egg::ovum::Type::Float{ &typeFloat };
-const egg::ovum::Type egg::ovum::Type::String{ &typeString };
-const egg::ovum::Type egg::ovum::Type::Arithmetic{ &typeArithmetic };
-const egg::ovum::Type egg::ovum::Type::Object{ &typeObject };
-const egg::ovum::Type egg::ovum::Type::Any{ &typeAny };
-const egg::ovum::Type egg::ovum::Type::AnyQ{ &typeAnyQ };
+const Type Type::Void{ &typeVoid };
+const Type Type::Null{ &typeNull };
+const Type Type::Bool{ &typeBool };
+const Type Type::BoolInt{ &typeBoolInt };
+const Type Type::Int{ &typeInt };
+const Type Type::IntQ{ &typeIntQ };
+const Type Type::Float{ &typeFloat };
+const Type Type::String{ &typeString };
+const Type Type::Arithmetic{ &typeArithmetic };
+const Type Type::Object{ &typeObject };
+const Type Type::Any{ &typeAny };
+const Type Type::AnyQ{ &typeAnyQ };
 
-egg::ovum::Type::Assignment egg::ovum::Type::promote(IAllocator& allocator, const Value& rhs, Value& out) const {
+Type::Assignment Type::promote(IAllocator& allocator, const Value& rhs, Value& out) const {
   // WOBBLE
   assert(rhs.validate());
   switch (rhs->getFlags()) {
@@ -1066,7 +1301,7 @@ namespace {
   }
 }
 
-egg::ovum::Type::Assignment egg::ovum::Type::mutate(IAllocator& allocator, const Value& lhs, const Value& rhs, Mutation mutation, Value& out) const {
+Type::Assignment Type::mutate(IAllocator& allocator, const Value& lhs, const Value& rhs, Mutation mutation, Value& out) const {
   assert(lhs.validate());
   assert(rhs.validate());
   switch (mutation) {

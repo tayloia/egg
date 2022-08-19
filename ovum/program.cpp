@@ -1902,7 +1902,8 @@ namespace {
           }
           if (child.getOpcode() == Opcode::POINTER) {
             auto pointee = this->type(child.getChild(0));
-            return this->factory.createPointer(pointee);
+            auto modifiability = Modifiability::Read | Modifiability::Write | Modifiability::Mutate;
+            return this->factory.createPointer(pointee, modifiability);
           }
         }
         break;
@@ -1918,11 +1919,13 @@ namespace {
         break;
       case Opcode::UNION:
         if (children >= 1) {
+          std::vector<Type> types;
+          types.reserve(children);
           auto result = this->type(node.getChild(0));
-          for (size_t i = 1; i < children; ++i) {
-            result = this->factory.createUnion(result, this->type(node.getChild(i)));
+          for (size_t i = 0; i < children; ++i) {
+            types.emplace_back(this->type(node.getChild(i)));
           }
-          return result;
+          return this->factory.createUnion(types);
         }
         return Type::Void;
       default:

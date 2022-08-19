@@ -242,6 +242,7 @@ namespace egg::ovum {
     // Interface
     virtual ~IPointerSignature() {}
     virtual Type getType() const = 0;
+    virtual Modifiability getModifiability() const = 0;
   };
 
   struct ObjectShape {
@@ -280,8 +281,8 @@ namespace egg::ovum {
     virtual IAllocator& getAllocator() const = 0;
 
     virtual Type createSimple(ValueFlags flags) = 0;
-    virtual Type createPointer(const Type& pointee) = 0;
-    virtual Type createUnion(const Type& a, const Type& b) = 0;
+    virtual Type createPointer(const Type& pointee, Modifiability modifiability) = 0;
+    virtual Type createUnion(const std::vector<Type>& types) = 0;
 
     virtual Type addVoid(const Type& type) = 0;
     virtual Type addNull(const Type& type) = 0;

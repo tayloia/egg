@@ -1917,15 +1917,19 @@ bool EggSyntaxParserContext::parseTypeExpression(egg::ovum::Type& type) {
   */
   if (this->parseTypePostfixExpression(type)) {
     EggSyntaxParserBacktrackMark mark(this->backtrack);
+    std::vector<egg::ovum::Type> types{ type };
     egg::ovum::Type other{ egg::ovum::Type::Void };
-    while (mark.peek(0).isOperator(EggTokenizerOperator::Bar)) {
+      while (mark.peek(0).isOperator(EggTokenizerOperator::Bar)) {
       mark.advance(1);
       if (!this->parseTypePostfixExpression(other)) {
         this->unexpected("Expected type to follow '|' in type expression", mark.peek(0));
       }
-      type = this->factory.createUnion(type, other);
+      types.emplace_back(other);
     }
     mark.accept(0);
+    if (types.size() > 1) {
+      type = this->factory.createUnion(types);
+    }
     return true;
   }
   return false;
@@ -1961,7 +1965,8 @@ bool EggSyntaxParserContext::parseTypePostfixExpression(egg::ovum::Type& type) {
       if (p0.isOperator(EggTokenizerOperator::Star)) {
         // Pointer reference to 'type'
         mark.advance(1);
-        type = this->factory.createPointer(type);
+        auto modifiability = egg::ovum::Modifiability::Read | egg::ovum::Modifiability::Write | egg::ovum::Modifiability::Mutate;
+        type = this->factory.createPointer(type, modifiability);
         continue;
       }
       if (p0.isOperator(EggTokenizerOperator::ParenthesisLeft)) {
