@@ -194,7 +194,7 @@ namespace egg::ovum {
     };
     // Interface
     virtual ~IFunctionSignatureParameter() {}
-    virtual String getName() const = 0; // May be empty
+    virtual String getName() const = 0; // May be empty if positional
     virtual Type getType() const = 0;
     virtual size_t getPosition() const = 0; // SIZE_MAX if not positional
     virtual Flags getFlags() const = 0;
@@ -280,16 +280,13 @@ namespace egg::ovum {
     // Interface
     virtual ~ITypeFactory() {}
     virtual IAllocator& getAllocator() const = 0;
-
     virtual Type createSimple(ValueFlags flags) = 0;
     virtual Type createPointer(const Type& pointee, Modifiability modifiability) = 0;
     virtual Type createUnion(const std::vector<Type>& types) = 0;
-
     virtual Type addVoid(const Type& type) = 0;
     virtual Type addNull(const Type& type) = 0;
     virtual Type removeVoid(const Type& type) = 0;
     virtual Type removeNull(const Type& type) = 0;
-
     virtual TypeBuilder createTypeBuilder(const String& name, const String& description) = 0;
     virtual TypeBuilder createFunctionBuilder(const Type& rettype, const String& name, const String& description) = 0;
     virtual TypeBuilder createGeneratorBuilder(const Type& gentype, const String& name, const String& description) = 0;

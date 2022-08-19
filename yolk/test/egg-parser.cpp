@@ -66,8 +66,8 @@ TEST(TestEggParser, ExpressionType) {
   ASSERT_PARSE_GOOD(typeFromExpression(allocator, "`bye`"), "string");
   ASSERT_PARSE_GOOD(typeFromExpression(allocator, "[]"), "any?[]");
   ASSERT_PARSE_GOOD(typeFromExpression(allocator, "[1,2,3]"), "any?[]");
-  ASSERT_PARSE_GOOD(typeFromExpression(allocator, "{}"), "any?{string}");
-  ASSERT_PARSE_GOOD(typeFromExpression(allocator, "{a:1,b:2,c:3}"), "any?{string}");
+  ASSERT_PARSE_GOOD(typeFromExpression(allocator, "{}"), "any?[string]");
+  ASSERT_PARSE_GOOD(typeFromExpression(allocator, "{a:1,b:2,c:3}"), "any?[string]");
   ASSERT_PARSE_GOOD(typeFromExpression(allocator, "&123"), "int*");
   ASSERT_PARSE_GOOD(typeFromExpression(allocator, "*123"), "<unknown>");
   ASSERT_PARSE_GOOD(typeFromExpression(allocator, "!true"), "bool");

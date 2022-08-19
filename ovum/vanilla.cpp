@@ -122,7 +122,7 @@ namespace {
       : Type_DictionaryBase(ReadWriteMutateDelete, Type::AnyQ, ReadWriteMutateDelete) {
     }
     virtual std::pair<std::string, int> toStringPrecedence() const override {
-      return { "any?{string}", 0 };
+      return { "any?[string]", 0 };
     }
     virtual String describeValue() const override {
       // TODO i18n

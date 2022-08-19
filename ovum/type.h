@@ -257,7 +257,6 @@ namespace egg::ovum {
         indexType(indexType),
         modifiability(modifiability) {
       assert(resultType != nullptr);
-      assert(indexType != nullptr);
       assert(modifiability != Modifiability::None);
     }
     virtual Type getResultType() const override {
@@ -318,7 +317,7 @@ namespace egg::ovum {
     virtual Type removeVoid(const Type& type) override;
     virtual Type removeNull(const Type& type) override;
 
-    virtual TypeBuilder createTypeBuilder(const String& name, const String& description) override;
+    virtual TypeBuilder createTypeBuilder(const String& name, const String& description = {}) override;
     virtual TypeBuilder createFunctionBuilder(const Type& rettype, const String& name, const String& description = {}) override;
     virtual TypeBuilder createGeneratorBuilder(const Type& gentype, const String& name, const String& description = {}) override;
   private:

@@ -201,3 +201,44 @@ TEST(TestType, FactoryGeneratorBuilderSimple) {
   ASSERT_STRING("(int|float)...(bool,string)", built.toString());
   ASSERT_STRING("Generator '(int|float)... generator(bool arg1, string arg2)'", built->describeValue());
 }
+
+TEST(TestType, FactoryTypeBuilderTrivial) {
+  egg::test::Allocator allocator{ egg::test::Allocator::Expectation::AtLeastOneAllocation };
+  TypeFactory factory{ allocator };
+  auto builder = factory.createTypeBuilder("CustomType");
+  auto built = builder->build();
+  ASSERT_STRING("CustomType", built.toString());
+  ASSERT_STRING("Value of type 'CustomType'", built->describeValue());
+}
+
+TEST(TestType, FactoryTypeBuilderDotable) {
+  egg::test::Allocator allocator{ egg::test::Allocator::Expectation::AtLeastOneAllocation };
+  TypeFactory factory{ allocator };
+  auto builder = factory.createTypeBuilder("CustomDotable");
+  builder->defineDotable(nullptr, egg::ovum::Modifiability::None);
+  builder->addProperty(Type::String, "name", egg::ovum::Modifiability::Read);
+  builder->addProperty(Type::Int, "age", egg::ovum::Modifiability::Read);
+  auto built = builder->build();
+  ASSERT_STRING("CustomDotable", built.toString());
+  ASSERT_STRING("Value of type 'CustomDotable'", built->describeValue());
+}
+
+TEST(TestType, FactoryTypeBuilderIndexable) {
+  egg::test::Allocator allocator{ egg::test::Allocator::Expectation::AtLeastOneAllocation };
+  TypeFactory factory{ allocator };
+  auto builder = factory.createTypeBuilder("CustomIndexable");
+  builder->defineIndexable(Type::Float, nullptr, egg::ovum::Modifiability::Read | egg::ovum::Modifiability::Write);
+  auto built = builder->build();
+  ASSERT_STRING("CustomIndexable", built.toString());
+  ASSERT_STRING("Value of type 'CustomIndexable'", built->describeValue());
+}
+
+TEST(TestType, FactoryTypeBuilderIterable) {
+  egg::test::Allocator allocator{ egg::test::Allocator::Expectation::AtLeastOneAllocation };
+  TypeFactory factory{ allocator };
+  auto builder = factory.createTypeBuilder("CustomIterable");
+  builder->defineIterable(Type::Any);
+  auto built = builder->build();
+  ASSERT_STRING("CustomIterable", built.toString());
+  ASSERT_STRING("Value of type 'CustomIterable'", built->describeValue());
+}

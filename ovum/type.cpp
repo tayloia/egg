@@ -272,7 +272,17 @@ namespace {
         throw std::logic_error("TypeBuilder::build() called more than once");
       }
       this->built = true;
+      if (this->description.empty()) {
+        this->description = this->describe();
+      }
       return this->allocator.makeHard<Built, Type>(*this, nullptr);
+    }
+  private:
+    String describe() {
+      if (this->name.empty()) {
+        return "Value";
+      }
+      return StringBuilder::concat("Value of type '", this->name, "'");
     }
   };
 
