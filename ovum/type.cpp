@@ -207,89 +207,6 @@ namespace {
     }
   };
 
-  class TypeStrip final : public HardReferenceCounted<IType> { // WIBBLE
-    TypeStrip(const TypeStrip&) = delete;
-    TypeStrip& operator=(const TypeStrip&) = delete;
-  private:
-    Type underlying;
-    ValueFlags strip;
-  public:
-    TypeStrip(IAllocator& allocator, const Type& underlying, ValueFlags strip)
-      : HardReferenceCounted(allocator, 0),
-        underlying(underlying),
-        strip(strip) {
-      assert(this->underlying != nullptr);
-      assert(!Bits::hasAnySet(this->strip, ValueFlags::FlowControl | ValueFlags::Object));
-    }
-    virtual ValueFlags getPrimitiveFlags() const override {
-      return Bits::clear(this->underlying->getPrimitiveFlags(), this->strip);
-    }
-    virtual const ObjectShape* getObjectShape(size_t index) const override {
-      return this->underlying->getObjectShape(index);
-    }
-    virtual size_t getObjectShapeCount() const override {
-      return this->underlying->getObjectShapeCount();
-    }
-    virtual std::pair<std::string, int> toStringPrecedence() const override {
-      return complexToStringPrecedence(this->getPrimitiveFlags(), *this->underlying);
-    }
-    virtual String describeValue() const override {
-      // TODO i18n
-      return StringBuilder::concat("Value of type '", this->toStringPrecedence().first, "'");
-    }
-  };
-
-  class TypeUnion final : public HardReferenceCounted<IType> { // WIBBLE
-    TypeUnion(const TypeUnion&) = delete;
-    TypeUnion& operator=(const TypeUnion&) = delete;
-  private:
-    Type a;
-    Type b;
-    ValueFlags flags;
-    std::vector<const ObjectShape*> objectShapes;
-  public:
-    TypeUnion(IAllocator& allocator, const Type& a, const Type& b)
-      : HardReferenceCounted(allocator, 0),
-      a(a),
-      b(b),
-      flags(a->getPrimitiveFlags() | b->getPrimitiveFlags()),
-      objectShapes(unionObjects({{ a.get(), b.get() }})) {
-      assert(this->a != nullptr);
-      assert(this->b != nullptr);
-    }
-    virtual ValueFlags getPrimitiveFlags() const override {
-      return this->flags;
-    }
-    virtual const ObjectShape* getObjectShape(size_t index) const override {
-      return this->objectShapes.at(index);
-    }
-    virtual size_t getObjectShapeCount() const override {
-      return this->objectShapes.size();
-    }
-    virtual std::pair<std::string, int> toStringPrecedence() const override {
-      return complexToStringPrecedence(this->flags, *this);
-    }
-    virtual String describeValue() const override {
-      // TODO i18n
-      return StringBuilder::concat("Value of type '", this->toStringPrecedence().first, "'");
-    }
-  private:
-    static std::vector<const ObjectShape*> unionObjects(const std::array<const IType*, 2>& types) {
-      std::unordered_set<const ObjectShape*> unique;
-      std::vector<const ObjectShape*> list;
-      for (auto type : types) {
-        auto count = type->getObjectShapeCount();
-        for (size_t index = 0; index < count; ++index) {
-          auto* shape = type->getObjectShape(index);
-          if ((shape != nullptr) && unique.insert(shape).second) {
-            list.push_back(shape);
-          }
-        }
-      }
-      return list;
-    }
-  };
-
   class TypeComplex final : public HardReferenceCounted<IType> {
     TypeComplex(const TypeComplex&) = delete;
     TypeComplex& operator=(const TypeComplex&) = delete;
@@ -682,12 +599,24 @@ namespace {
   }
 
   size_t findComplexIndex(const std::vector<TypeFactory::Complex>& complexes, const TypeFactory::Complex& complex, size_t start, size_t count) {
+    auto type = complex.type.get();
     auto index = start;
-    while (index < count) {
-      if (TypeFactory::Complex::areEquivalent(complexes[index], complex)) {
-        break;
+    if (type == nullptr) {
+      // Search by equivalence
+      while (index < count) {
+        if (TypeFactory::Complex::areEquivalent(complexes[index], complex)) {
+          break;
+        }
+        ++index;
       }
-      ++index;
+    } else {
+      // Search by existing type
+      while (index < count) {
+        if (complexes[index].type.get() == type) {
+          break;
+        }
+        ++index;
+      }
     }
     return index;
   }
@@ -728,38 +657,6 @@ namespace {
     }
     shapes.emplace_back(shape);
     return count;
-  }
-
-  Type addPrimitiveFlag(TypeFactory& factory, const Type& type, ValueFlags flag) {
-    // TODO optimize
-    assert(type != nullptr);
-    auto existingFlags = type->getPrimitiveFlags();
-    auto requiredFlags = Bits::set(type->getPrimitiveFlags(), flag);
-    if (existingFlags != requiredFlags) {
-      if (!type.isComplex()) {
-        return factory.createSimple(requiredFlags);
-      }
-      return factory.createUnion({ type, factory.createSimple(flag) }); // WIBBLE
-    }
-    return type;
-  }
-
-  Type removePrimitiveFlag(TypeFactory& factory, const Type& type, ValueFlags flag) {
-    // TODO optimize
-    if (type != nullptr) {
-      auto existingFlags = type->getPrimitiveFlags();
-      auto requiredFlags = Bits::clear(type->getPrimitiveFlags(), flag);
-      if (existingFlags != requiredFlags) {
-        if (!type.isComplex()) {
-          return factory.createSimple(requiredFlags);
-        }
-        if (requiredFlags == ValueFlags::None) {
-          return nullptr;
-        }
-        return factory.getAllocator().makeHard<TypeStrip, Type>(type, flag); // WIBBLE
-      }
-    }
-    return type;
   }
 }
 
@@ -884,51 +781,98 @@ Type TypeFactory::createUnion(const std::vector<Type>& types) {
   if (merged.shapeIndices.empty()) {
     return this->createSimple(merged.flags);
   }
+  return createComplex(merged);
+}
 
-  // Add the merged union as a complex type
+Type TypeFactory::createComplex(Complex& complex) {
   ReadLock lockR{ this->mutex };
   auto countR = this->complexes.size();
-  auto index = findComplexIndex(this->complexes, merged, 0, countR);
+  auto index = findComplexIndex(this->complexes, complex, 0, countR);
   if (index < countR) {
-    return this->complexes[index].type;
+    complex = this->complexes[index];
+    return complex.type;
   }
   lockR.unlock();
 
-  // Probably need to insert a new complex type
-  std::vector<const ObjectShape*> objectShapes;
-  objectShapes.reserve(merged.shapeIndices.size());
-  for (auto shapeIndex : merged.shapeIndices) {
-    objectShapes.push_back(&this->shapes[shapeIndex]);
+  // Not found the first time through
+  Type type = complex.type;
+  if (type == nullptr) {
+    // Probably need to insert a new complex type
+    std::vector<const ObjectShape*> objectShapes;
+    objectShapes.reserve(complex.shapeIndices.size());
+    for (auto shapeIndex : complex.shapeIndices) {
+      objectShapes.push_back(&this->shapes[shapeIndex]);
+    }
+    type = this->allocator.makeHard<TypeComplex, Type>(complex.flags, std::move(objectShapes));
+  } else {
+    // Fill the details in case we need to add this type
+    complex.merge(*this, *type);
   }
-  merged.type = this->allocator.makeHard<TypeComplex, Type>(merged.flags, std::move(objectShapes));
 
   // Obtain a write lock before trying again
   WriteLock lockW{ this->mutex };
   auto countW = this->complexes.size();
   if (countW > countR) {
     // Another thread has added entries we need to re-check
-    index = findComplexIndex(this->complexes, merged, countR, countW);
+    index = findComplexIndex(this->complexes, complex, countR, countW);
     if (index < countW) {
-      return this->complexes[index].type;
+      complex = this->complexes[index];
+      return complex.type;
     }
   }
-  return this->complexes.emplace_back(std::move(merged)).type;
+  complex.type = type;
+  this->complexes.emplace_back(complex);
+  return complex.type;
+}
+
+Type TypeFactory::createModified(const Type& type, ValueFlags flags) {
+  assert(type != nullptr);
+  if (type->getPrimitiveFlags() == flags) {
+    return type;
+  }
+  if (!type.isComplex()) {
+    return createSimple(flags);
+  }
+  Complex complex{};
+  complex.type = type;
+  createComplex(complex);
+  assert(complex.type.get() == type.get());
+  assert(complex.flags == type->getPrimitiveFlags());
+  complex.flags = flags;
+  complex.type = nullptr;
+  return createComplex(complex);
 }
 
 Type TypeFactory::addVoid(const Type& type) {
-  return addPrimitiveFlag(*this, type, ValueFlags::Void);
+  if (type == nullptr) {
+    return Type::Void;
+  }
+  auto flags = Bits::set(type->getPrimitiveFlags(), ValueFlags::Void);
+  return createModified(type, flags);
 }
 
 Type TypeFactory::addNull(const Type& type) {
-  return addPrimitiveFlag(*this, type, ValueFlags::Null);
+  if (type == nullptr) {
+    return Type::Null;
+  }
+  auto flags = Bits::set(type->getPrimitiveFlags(), ValueFlags::Null);
+  return createModified(type, flags);
 }
 
 Type TypeFactory::removeVoid(const Type& type) {
-  return removePrimitiveFlag(*this, type, ValueFlags::Void);
+  if (type == nullptr) {
+    return nullptr;
+  }
+  auto flags = Bits::clear(type->getPrimitiveFlags(), ValueFlags::Void);
+  return createModified(type, flags);
 }
 
 Type TypeFactory::removeNull(const Type& type) {
-  return removePrimitiveFlag(*this, type, ValueFlags::Null);
+  if (type == nullptr) {
+    return nullptr;
+  }
+  auto flags = Bits::clear(type->getPrimitiveFlags(), ValueFlags::Null);
+  return createModified(type, flags);
 }
 
 TypeBuilder TypeFactory::createTypeBuilder(const String& name, const String& description) {

@@ -316,5 +316,8 @@ namespace egg::ovum {
     virtual TypeBuilder createTypeBuilder(const String& name, const String& description) override;
     virtual TypeBuilder createFunctionBuilder(const Type& rettype, const String& name, const String& description) override;
     virtual TypeBuilder createGeneratorBuilder(const Type& gentype, const String& name, const String& description) override;
+  private:
+    Type createComplex(Complex& complex);
+    Type createModified(const Type& type, ValueFlags flags);
   };
 }
