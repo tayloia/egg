@@ -210,6 +210,9 @@ namespace {
       }
       return cloned;
     }
+    virtual void print(Printer& printer) const override {
+      printer.stream() << "WIBBLE" << std::endl;
+    }
   };
 
   struct Target {

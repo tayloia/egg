@@ -809,7 +809,7 @@ namespace {
         // We have members, but it's a closed set
         this->builder->defineDotable(Type::Void, Modifiability::None);
       }
-      this->builder->addProperty(value->getRuntimeType(), member, Modifiability::Read);
+      this->builder->addProperty(value->getRuntimeType(), member, Modifiability::Read, false);
       this->properties.add(this->allocator, *this->basket, member, value);
     }
     void build() {

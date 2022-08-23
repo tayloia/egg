@@ -163,7 +163,7 @@ TEST(TestType, FactoryUnionComplex2) {
 }
 
 TEST(TestType, FactoryFunctionBuilderTrivial) {
-  egg::test::Allocator allocator{ egg::test::Allocator::Expectation::AtLeastOneAllocation };
+  egg::test::Allocator allocator;
   TypeFactory factory{ allocator };
   auto builder = factory.createFunctionBuilder(Type::Int, "function");
   auto built = builder->build();
@@ -172,7 +172,7 @@ TEST(TestType, FactoryFunctionBuilderTrivial) {
 }
 
 TEST(TestType, FactoryFunctionBuilderSimple) {
-  egg::test::Allocator allocator{ egg::test::Allocator::Expectation::AtLeastOneAllocation };
+  egg::test::Allocator allocator;
   TypeFactory factory{ allocator };
   auto builder = factory.createFunctionBuilder(Type::Arithmetic, "function");
   builder->addPositionalParameter(Type::Bool, "arg1", egg::ovum::IFunctionSignatureParameter::Flags::Required);
@@ -183,7 +183,7 @@ TEST(TestType, FactoryFunctionBuilderSimple) {
 }
 
 TEST(TestType, FactoryGeneratorBuilderTrivial) {
-  egg::test::Allocator allocator{ egg::test::Allocator::Expectation::AtLeastOneAllocation };
+  egg::test::Allocator allocator;
   TypeFactory factory{ allocator };
   auto builder = factory.createGeneratorBuilder(Type::Int, "generator");
   auto built = builder->build();
@@ -192,7 +192,7 @@ TEST(TestType, FactoryGeneratorBuilderTrivial) {
 }
 
 TEST(TestType, FactoryGeneratorBuilderSimple) {
-  egg::test::Allocator allocator{ egg::test::Allocator::Expectation::AtLeastOneAllocation };
+  egg::test::Allocator allocator;
   TypeFactory factory{ allocator };
   auto builder = factory.createGeneratorBuilder(Type::Arithmetic, "generator");
   builder->addPositionalParameter(Type::Bool, "arg1", egg::ovum::IFunctionSignatureParameter::Flags::Required);
@@ -203,7 +203,7 @@ TEST(TestType, FactoryGeneratorBuilderSimple) {
 }
 
 TEST(TestType, FactoryTypeBuilderTrivial) {
-  egg::test::Allocator allocator{ egg::test::Allocator::Expectation::AtLeastOneAllocation };
+  egg::test::Allocator allocator;
   TypeFactory factory{ allocator };
   auto builder = factory.createTypeBuilder("CustomType");
   auto built = builder->build();
@@ -212,19 +212,19 @@ TEST(TestType, FactoryTypeBuilderTrivial) {
 }
 
 TEST(TestType, FactoryTypeBuilderDotable) {
-  egg::test::Allocator allocator{ egg::test::Allocator::Expectation::AtLeastOneAllocation };
+  egg::test::Allocator allocator;
   TypeFactory factory{ allocator };
   auto builder = factory.createTypeBuilder("CustomDotable");
   builder->defineDotable(nullptr, egg::ovum::Modifiability::None);
-  builder->addProperty(Type::String, "name", egg::ovum::Modifiability::Read);
-  builder->addProperty(Type::Int, "age", egg::ovum::Modifiability::Read);
+  builder->addProperty(Type::String, "name", egg::ovum::Modifiability::Read, false);
+  builder->addProperty(Type::Int, "age", egg::ovum::Modifiability::Read, true);
   auto built = builder->build();
   ASSERT_STRING("CustomDotable", built.toString());
   ASSERT_STRING("Value of type 'CustomDotable'", built->describeValue());
 }
 
 TEST(TestType, FactoryTypeBuilderIndexable) {
-  egg::test::Allocator allocator{ egg::test::Allocator::Expectation::AtLeastOneAllocation };
+  egg::test::Allocator allocator;
   TypeFactory factory{ allocator };
   auto builder = factory.createTypeBuilder("CustomIndexable");
   builder->defineIndexable(Type::Float, nullptr, egg::ovum::Modifiability::Read | egg::ovum::Modifiability::Write);
@@ -234,7 +234,7 @@ TEST(TestType, FactoryTypeBuilderIndexable) {
 }
 
 TEST(TestType, FactoryTypeBuilderIterable) {
-  egg::test::Allocator allocator{ egg::test::Allocator::Expectation::AtLeastOneAllocation };
+  egg::test::Allocator allocator;
   TypeFactory factory{ allocator };
   auto builder = factory.createTypeBuilder("CustomIterable");
   builder->defineIterable(Type::Any);

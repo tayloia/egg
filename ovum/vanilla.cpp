@@ -81,7 +81,7 @@ namespace {
         dotable(),
         indexable(Type::AnyQ, Type::Int, ReadWriteMutate),
         iterable(Type::AnyQ) {
-      this->dotable.add(Type::Int, "length", ReadWriteMutate);
+      this->dotable.add(Type::Int, "length", ReadWriteMutate, false);
     }
     virtual std::pair<std::string, int> toStringPrecedence() const override {
       return { "any?[]", 1 };
@@ -126,7 +126,7 @@ namespace {
     }
     virtual String describeValue() const override {
       // TODO i18n
-      return "Object";
+      return "Dictionary";
     }
   };
 
@@ -136,11 +136,54 @@ namespace {
   public:
     Type_KeyValue()
       : Type_DictionaryBase(Modifiability::Read, nullptr, Modifiability::None) {
-      this->dotable.add(Type::String, "key", Modifiability::Read);
-      this->dotable.add(Type::AnyQ, "value", Modifiability::Read);
+      this->dotable.add(Type::String, "key", Modifiability::Read, false);
+      this->dotable.add(Type::AnyQ, "value", Modifiability::Read, false);
     }
     virtual std::pair<std::string, int> toStringPrecedence() const override {
-      return { "keyvalue", 0 };
+      return { "object", 0 };
+    }
+    virtual String describeValue() const override {
+      // TODO i18n
+      return "Key-value pair";
+    }
+  };
+
+  class Type_Error final : public Type_DictionaryBase {
+    Type_Error(const Type_Error&) = delete;
+    Type_Error& operator=(const Type_Error&) = delete;
+  public:
+    Type_Error()
+      : Type_DictionaryBase(Modifiability::Read, Type::AnyQ, Modifiability::Read) {
+      this->dotable.add(Type::String, "message", Modifiability::Read, false);
+      this->dotable.add(Type::String, "file", Modifiability::Read, true);
+      this->dotable.add(Type::IntQ, "line", Modifiability::Read, true);
+      this->dotable.add(Type::IntQ, "column", Modifiability::Read, true);
+    }
+    virtual std::pair<std::string, int> toStringPrecedence() const override {
+      return { "object", 0 };
+    }
+    virtual String describeValue() const override {
+      // TODO i18n
+      return "Error";
+    }
+  };
+
+  class Type_Predicate final : public Type_Base {
+    Type_Predicate(const Type_Predicate&) = delete;
+    Type_Predicate& operator=(const Type_Predicate&) = delete;
+  private:
+    TypeBuilderCallable callable; // cannot make static because of order of initialization
+  public:
+    Type_Predicate()
+      : Type_Base(&callable, nullptr, nullptr, nullptr, nullptr),
+        callable(Type::Void, nullptr, {}) {
+    }
+    virtual std::pair<std::string, int> toStringPrecedence() const override {
+      return { "void()", 0 };
+    }
+    virtual String describeValue() const override {
+      // TODO i18n
+      return "Predicate";
     }
   };
 }
@@ -158,6 +201,16 @@ egg::ovum::Type egg::ovum::Vanilla::getDictionaryType() {
 
 egg::ovum::Type egg::ovum::Vanilla::getKeyValueType() {
   static const Type_KeyValue instance;
+  return Type(&instance);
+}
+
+egg::ovum::Type egg::ovum::Vanilla::getErrorType() {
+  static const Type_Error instance;
+  return Type(&instance);
+}
+
+egg::ovum::Type egg::ovum::Vanilla::getPredicateType() {
+  static const Type_Predicate instance;
   return Type(&instance);
 }
 
@@ -233,14 +286,24 @@ namespace {
       return true;
     }
     void print(Printer& printer, char& separator) const {
-      this->container.foreach([&](const Slot& slot) {
+      this->container.foreach([&](const Slot* slot) {
         printer << separator;
-        auto* value = slot.get();
-        if (value != nullptr) {
-          printer.write(Value(*value));
+        if (slot != nullptr) {
+          auto* value = slot->get();
+          if (value != nullptr) {
+            printer.write(Value(*value));
+          }
         }
         separator = ',';
       });
+    }
+    void print(Printer& printer) const override {
+      char separator = '[';
+      this->print(printer, separator);
+      if (separator == '[') {
+        printer << separator;
+      }
+      printer << ']';
     }
   };
 
@@ -309,6 +372,14 @@ namespace {
         }
         separator = ',';
       });
+    }
+    void print(Printer& printer) const override {
+      char separator = '{';
+      this->print(printer, separator);
+      if (separator == '{') {
+        printer << separator;
+      }
+      printer << '}';
     }
   };
 
@@ -606,7 +677,7 @@ namespace {
       auto length = Int(this->map->length());
       if (state.b != length) {
         state.a = -1;
-        return execution.raise("Dictionary iterator has detected that the underlying object has changed size");
+        return execution.raise("Object iterator has detected that the underlying object has changed size");
       }
       String key;
       Value value;
@@ -618,12 +689,7 @@ namespace {
       return execution.makeValue(VanillaFactory::createKeyValue(execution.getAllocator(), execution.getBasket(), key, value));
     }
     virtual void print(Printer& printer) const override {
-      char separator = '{';
-      this->map->print(printer, separator);
-      if (separator == '{') {
-        printer << separator;
-      }
-      printer << '}';
+      this->map->print(printer);
     }
   };
 
@@ -819,6 +885,9 @@ namespace {
       sb.add(message);
       this->readable = sb.toUTF8();
     }
+    virtual Type getRuntimeType() const override {
+      return Vanilla::getErrorType();
+    }
     virtual void print(Printer& printer) const override {
       // We print the raw value here
       printer << this->readable;
@@ -843,12 +912,12 @@ namespace {
       // There are no soft links to visit
     }
     virtual Type getRuntimeType() const override {
-      return Type::Object; // TODO
+      return Vanilla::getPredicateType();
     }
-    virtual Value call(IExecution&, const IParameters& parameters) override {
-      assert(parameters.getNamedCount() == 0);
-      assert(parameters.getPositionalCount() == 0);
-      (void)parameters; // ignore the parameters
+    virtual Value call(IExecution& execution, const IParameters& parameters) override {
+      if ((parameters.getNamedCount() > 0) || (parameters.getPositionalCount() > 0)) {
+        return execution.raise(this->trailing("does not support calling with parameters"));
+      }
       return this->callback.predicateCallback(*this->node);
     }
     virtual void print(Printer& printer) const override {
@@ -886,5 +955,6 @@ egg::ovum::Object egg::ovum::VanillaFactory::createPredicate(IAllocator& allocat
 }
 
 egg::ovum::Object egg::ovum::VanillaFactory::createPointer(IAllocator& allocator, IBasket& basket, ISlot& slot, const Type& pointer, Modifiability modifiability) {
+  assert(pointer.queryPointable() != nullptr);
   return createVanillaObject<VanillaPointer>(allocator, basket, slot, pointer, modifiability);
 }

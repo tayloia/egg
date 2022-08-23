@@ -41,8 +41,7 @@ namespace egg::ovum {
 
   class Type : public HardPtr<const IType> {
   public:
-    Type(std::nullptr_t = nullptr) : HardPtr() {
-      // Implicit
+    Type(std::nullptr_t = nullptr) : HardPtr() { // implicit
     }
     explicit Type(const IType* rhs) : HardPtr(rhs) {
     }
@@ -192,6 +191,7 @@ namespace egg::ovum {
       Type type;
       String name;
       Modifiability modifiability;
+      bool optional;
     };
     // TODO use Dictionary?
     std::map<String, Property> map;
@@ -232,9 +232,9 @@ namespace egg::ovum {
     virtual bool isClosed() const override {
       return this->unknownModifiability == Modifiability::None;
     }
-    bool add(const Type& type, const String& name, Modifiability modifiability) {
+    bool add(const Type& type, const String& name, Modifiability modifiability, bool optional) {
       // Careful with reference counting under exception conditions!
-      Property property{ type, name, modifiability };
+      Property property{ type, name, modifiability, optional };
       auto added = this->map.try_emplace(name, std::move(property));
       if (!added.second) {
         return false;

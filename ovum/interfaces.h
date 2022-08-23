@@ -146,6 +146,7 @@ namespace egg::ovum {
     virtual size_t collect() = 0;
     virtual size_t purge() = 0;
     virtual bool statistics(Statistics& out) const = 0;
+    virtual void print(Printer& printer) const = 0;
     // Helpers
     template<typename T>
     T* soften(const T* collectable) {
@@ -157,6 +158,7 @@ namespace egg::ovum {
       }
       return nullptr;
     }
+    bool verify(std::ostream& os, size_t minimum = 0, size_t maximum = SIZE_MAX);
   };
 
   class ICollectable : public IHardAcquireRelease {
@@ -169,6 +171,7 @@ namespace egg::ovum {
     virtual IBasket* softGetBasket() const = 0;
     virtual SetBasketResult softSetBasket(IBasket* desired) const = 0;
     virtual void softVisit(const Visitor& visitor) const = 0;
+    virtual void print(Printer& printer) const = 0;
   };
 
   class IParameters {
@@ -267,7 +270,7 @@ namespace egg::ovum {
   public:
     virtual void addPositionalParameter(const Type& type, const String& name, IFunctionSignatureParameter::Flags flags) = 0;
     virtual void addNamedParameter(const Type& type, const String& name, IFunctionSignatureParameter::Flags flags) = 0;
-    virtual void addProperty(const Type& type, const String& name, Modifiability modifiability) = 0;
+    virtual void addProperty(const Type& type, const String& name, Modifiability modifiability, bool optional) = 0;
     virtual void defineDotable(const Type& unknownType, Modifiability unknownModifiability) = 0;
     virtual void defineIndexable(const Type& resultType, const Type& indexType, Modifiability modifiability) = 0;
     virtual void defineIterable(const Type& resultType) = 0;

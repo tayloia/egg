@@ -10,21 +10,21 @@ TEST(TestValue, Uninitialized) {
 }
 
 TEST(TestValue, Void) {
-  auto value = egg::ovum::Value::Void;
+  auto value{ egg::ovum::Value::Void };
   ASSERT_EQ(Flags::Void, value->getFlags());
   ASSERT_TRUE(value->getVoid());
   ASSERT_VALUE(Flags::Void, value);
 }
 
 TEST(TestValue, Null) {
-  auto value = egg::ovum::Value::Null;
+  auto value{ egg::ovum::Value::Null };
   ASSERT_EQ(Flags::Null, value->getFlags());
   ASSERT_TRUE(value->getNull());
   ASSERT_VALUE(Flags::Null, value);
 }
 
 TEST(TestValue, Bool) {
-  auto value = egg::ovum::Value::False;
+  auto value{ egg::ovum::Value::False };
   ASSERT_EQ(Flags::Bool, value->getFlags());
   bool actual = true;
   ASSERT_TRUE(value->getBool(actual));
