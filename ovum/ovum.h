@@ -6,6 +6,8 @@
 #include <cstring>
 #include <functional>
 #include <list>
+#include <memory>
+#include <mutex>
 #include <shared_mutex>
 #include <string>
 #include <sstream>

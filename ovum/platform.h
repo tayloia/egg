@@ -37,11 +37,6 @@
 // GNU GCC
 #define EGG_PLATFORM EGG_PLATFORM_GCC
 
-// See https://stackoverflow.com/a/16472469
-#ifdef __STRICT_ANSI__
-#undef __STRICT_ANSI__
-#endif
-
 #define EGG_WARNING_SUPPRESS_SWITCH_BEGIN _Pragma("GCC diagnostic push") _Pragma("GCC diagnostic ignored \"-Wswitch\"")
 #define EGG_WARNING_SUPPRESS_SWITCH_END _Pragma("GCC diagnostic pop")
 

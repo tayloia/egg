@@ -4,7 +4,7 @@ namespace egg::ovum {
     template<typename TARGET>
     static void toUTF8(TARGET&& target, char32_t utf32) {
       // See https://en.wikipedia.org/wiki/UTF-8
-      assert((utf32 >= 0) && (utf32 <= 0x10FFFF));
+      assert(utf32 <= 0x10FFFF);
       if (utf32 < 0x80) {
         target = char(utf32);
       } else if (utf32 < 0x800) {
