@@ -423,7 +423,7 @@ namespace {
       return this->raise("Assertion is untrue");
     }
     virtual void print(const std::string& utf8) override {
-      this->log(ILogger::Source::User, ILogger::Severity::Information, utf8);
+      this->log(ILogger::Source::User, ILogger::Severity::None, utf8);
     }
     Value executeCall(const LocationSource& source, const IFunctionSignature& signature, const IParameters& runtime, const INode& block, SymbolTable& captured) {
       // We have to be careful to get the location correct

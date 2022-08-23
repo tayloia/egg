@@ -132,8 +132,8 @@ valgrind: $(TEST_EXE)
 # Pseudo-target to run test coverage
 test-coverage: $(TEST_EXE)
 	$(ECHO) Running test coverage $<
-	./coverage.sh $(TEST_EXE) $(OBJ_DIR) $(PLATFORM)/$(TOOLCHAIN)/html
-	cmd.exe /C start $(PLATFORM)/$(TOOLCHAIN)/html/index.html
+	$(SILENT)./coverage.sh $(TEST_EXE) $(OBJ_DIR) $(PLATFORM)/$(TOOLCHAIN)/html
+	$(SILENT)cmd.exe /C start $(PLATFORM)/$(TOOLCHAIN)/html/index.html
 
 # Pseudo-target to run gdb
 test-gdb: $(TEST_EXE)

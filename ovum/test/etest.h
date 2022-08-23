@@ -107,6 +107,9 @@ namespace egg::test {
       case Severity::Verbose:
         buffer += "<VERBOSE>";
         break;
+      case Severity::Information:
+        buffer += "<INFORMATION>";
+        break;
       case Severity::Warning:
         buffer += "<WARNING>";
         break;
@@ -114,7 +117,6 @@ namespace egg::test {
         buffer += "<ERROR>";
         break;
       case Severity::None:
-      case Severity::Information:
         break;
       }
       buffer += message;
@@ -197,13 +199,13 @@ inline void ::testing::internal::PrintTo(const egg::ovum::Value& value, std::ost
 
 template<>
 inline void ::testing::internal::PrintTo(const egg::ovum::ILogger::Severity& value, std::ostream* stream) {
-  // Pretty-print the value flags
+  // Pretty-print the logger severity
   egg::ovum::Print::write(*stream, value, egg::ovum::Print::Options::DEFAULT);
 }
 
 template<>
 inline void ::testing::internal::PrintTo(const egg::ovum::ILogger::Source& value, std::ostream* stream) {
-  // Pretty-print the value flags
+  // Pretty-print the logger source
   egg::ovum::Print::write(*stream, value, egg::ovum::Print::Options::DEFAULT);
 }
 
