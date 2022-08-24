@@ -127,7 +127,7 @@ test: $(TEST_EXE)
 # Pseudo-target to run valgrind
 valgrind: $(TEST_EXE)
 	$(ECHO) Grinding tests $<
-	valgrind -v --leak-check=full --show-leak-kinds=all --track-origins=yes --suppressions=./valgrind.supp $(TEST_EXE)
+	valgrind -v --leak-check=full --show-leak-kinds=all --track-origins=yes $(TEST_EXE)
 
 # Pseudo-target to run test coverage
 test-coverage: $(TEST_EXE)
