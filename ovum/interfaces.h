@@ -270,7 +270,7 @@ namespace egg::ovum {
   public:
     virtual void addPositionalParameter(const Type& type, const String& name, IFunctionSignatureParameter::Flags flags) = 0;
     virtual void addNamedParameter(const Type& type, const String& name, IFunctionSignatureParameter::Flags flags) = 0;
-    virtual void addProperty(const Type& type, const String& name, Modifiability modifiability, bool optional) = 0;
+    virtual void addProperty(const Type& type, const String& name, Modifiability modifiability) = 0;
     virtual void defineDotable(const Type& unknownType, Modifiability unknownModifiability) = 0;
     virtual void defineIndexable(const Type& resultType, const Type& indexType, Modifiability modifiability) = 0;
     virtual void defineIterable(const Type& resultType) = 0;

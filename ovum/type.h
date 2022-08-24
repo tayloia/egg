@@ -190,8 +190,7 @@ namespace egg::ovum {
     struct Property {
       Type type;
       String name;
-      Modifiability modifiability;
-      bool optional;
+      Modifiability modifiability; // property is optional if 'Delete' set
     };
     // TODO use Dictionary?
     std::map<String, Property> map;
@@ -232,9 +231,9 @@ namespace egg::ovum {
     virtual bool isClosed() const override {
       return this->unknownModifiability == Modifiability::None;
     }
-    bool add(const Type& type, const String& name, Modifiability modifiability, bool optional) {
+    bool add(const Type& type, const String& name, Modifiability modifiability) {
       // Careful with reference counting under exception conditions!
-      Property property{ type, name, modifiability, optional };
+      Property property{ type, name, modifiability };
       auto added = this->map.try_emplace(name, std::move(property));
       if (!added.second) {
         return false;

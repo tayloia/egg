@@ -81,7 +81,7 @@ namespace {
         dotable(),
         indexable(Type::AnyQ, Type::Int, ReadWriteMutate),
         iterable(Type::AnyQ) {
-      this->dotable.add(Type::Int, "length", ReadWriteMutate, false);
+      this->dotable.add(Type::Int, "length", ReadWriteMutate);
     }
     virtual std::pair<std::string, int> toStringPrecedence() const override {
       return { "any?[]", 1 };
@@ -136,8 +136,8 @@ namespace {
   public:
     Type_KeyValue()
       : Type_DictionaryBase(Modifiability::Read, nullptr, Modifiability::None) {
-      this->dotable.add(Type::String, "key", Modifiability::Read, false);
-      this->dotable.add(Type::AnyQ, "value", Modifiability::Read, false);
+      this->dotable.add(Type::String, "key", Modifiability::Read);
+      this->dotable.add(Type::AnyQ, "value", Modifiability::Read);
     }
     virtual std::pair<std::string, int> toStringPrecedence() const override {
       return { "object", 0 };
@@ -154,10 +154,10 @@ namespace {
   public:
     Type_Error()
       : Type_DictionaryBase(Modifiability::Read, Type::AnyQ, Modifiability::Read) {
-      this->dotable.add(Type::String, "message", Modifiability::Read, false);
-      this->dotable.add(Type::String, "file", Modifiability::Read, true);
-      this->dotable.add(Type::IntQ, "line", Modifiability::Read, true);
-      this->dotable.add(Type::IntQ, "column", Modifiability::Read, true);
+      this->dotable.add(Type::String, "message", Modifiability::Read);
+      this->dotable.add(Type::String, "file", Modifiability::Read | Modifiability::Delete);
+      this->dotable.add(Type::IntQ, "line", Modifiability::Read | Modifiability::Delete);
+      this->dotable.add(Type::IntQ, "column", Modifiability::Read | Modifiability::Delete);
     }
     virtual std::pair<std::string, int> toStringPrecedence() const override {
       return { "object", 0 };

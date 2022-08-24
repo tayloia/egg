@@ -216,8 +216,8 @@ TEST(TestType, FactoryTypeBuilderDotable) {
   TypeFactory factory{ allocator };
   auto builder = factory.createTypeBuilder("CustomDotable");
   builder->defineDotable(nullptr, egg::ovum::Modifiability::None);
-  builder->addProperty(Type::String, "name", egg::ovum::Modifiability::Read, false);
-  builder->addProperty(Type::Int, "age", egg::ovum::Modifiability::Read, true);
+  builder->addProperty(Type::String, "name", egg::ovum::Modifiability::Read);
+  builder->addProperty(Type::Int, "age", egg::ovum::Modifiability::Read | Modifiability::Delete);
   auto built = builder->build();
   ASSERT_STRING("CustomDotable", built.toString());
   ASSERT_STRING("Value of type 'CustomDotable'", built->describeValue());

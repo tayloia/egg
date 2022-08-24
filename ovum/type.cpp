@@ -263,7 +263,7 @@ namespace {
     virtual void addNamedParameter(const Type&, const String&, IFunctionSignatureParameter::Flags) override {
       throw std::logic_error("TypeBuilder::addNamedParameter() called for non-function type");
     }
-    virtual void addProperty(const Type& ptype, const String& pname, Modifiability modifiability, bool optional) override;
+    virtual void addProperty(const Type& ptype, const String& pname, Modifiability modifiability) override;
     virtual void defineDotable(const Type& unknownType, Modifiability unknownModifiability) override;
     virtual void defineIndexable(const Type& resultType, const Type& indexType, Modifiability modifiability) override;
     virtual void defineIterable(const Type& resultType) override;
@@ -323,11 +323,11 @@ namespace {
     }
   };
 
-  void Builder::addProperty(const Type& ptype, const String& pname, Modifiability modifiability, bool optional) {
+  void Builder::addProperty(const Type& ptype, const String& pname, Modifiability modifiability) {
     if (this->properties == nullptr) {
       throw std::logic_error("TypeBuilder::addProperty() called before TypeBuilder::defineDotable()");
     }
-    if (!this->properties->add(ptype, pname, modifiability, optional)) {
+    if (!this->properties->add(ptype, pname, modifiability)) {
       throw std::logic_error("TypeBuilder::addProperty() found duplicate property name: " + pname.toUTF8());
     }
   }
