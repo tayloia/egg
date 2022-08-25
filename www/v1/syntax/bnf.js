@@ -80,7 +80,8 @@ egg.bnf({
     ], inline: false},
     "definition-function": {sequence: ["function-signature", "statement-compound"], inline: false, left: 1, right: 1},
     "function-signature": {sequence: ["type-expression", "identifier-function", "function-parameter-list"]},
-    "function-parameter-list": {sequence: [{token: "("}, {zeroOrOne: {list: "function-parameter", separator: {token: ","}}}, {token: ")"}]},
+    "function-parameter-list": {sequence: [{token: "("}, {zeroOrOne: "function-parameters"}, {token: ")"}]},
+    "function-parameters": {list: "function-parameter", separator: {token: ","}},
     "function-parameter": {sequence: [{zeroOrMore: "attribute"}, "function-parameter-declaration"], inline: false, left: 1},
     "function-parameter-declaration": {choice: [
       {sequence: ["type-expression", "identifier-variable", {zeroOrOne: {sequence: [{token: "="}, {token: "null"}]}}]},
@@ -264,10 +265,7 @@ egg.bnf({
     "literal-sign": {tokens: ["+", "-"], railroad: false},
     "literal-digits": {oneOrMore: {terminal: "digit"}},
     "literal-float": {sequence: [{zeroOrOne: "literal-sign"}, "literal-digits", {token: "."}, "literal-digits", {zeroOrOne: {sequence: ["literal-exponent", {zeroOrOne: "literal-sign"}, "literal-digits"]}}], inline: false},
-    "literal-exponent": {choice: [
-      {token: "E"},
-      {token: "e"}
-    ], railroad: false},
+    "literal-exponent": {tokens: ["E", "e"], railroad: false},
     "literal-string": {sequence: [{token: "\""}, {zeroOrMore: "literal-string-character"}, {token: "\""}], inline: false, left: 1, right: 1},
     "literal-string-character": {choice: [
       {terminal: "any-character-except-backslash-and-double-quote"},
@@ -310,7 +308,8 @@ egg.bnf({
     ], railroad: false},
     "literal-type-iterate": {sequence: ["type-expression", {token: "..."}, {token: ";"}]},
     "literal-type-call": {sequence: ["type-expression", "function-parameter-list", {token: ";"}]},
-    "literal-type-property": {sequence: ["type-expression", {choice: ["identifier-property", {sequence: [{token: "["}, {zeroOrOne: "type-expression"}, {token: "]"}]}]}, "literal-type-access"]},
+    "literal-type-property": {sequence: ["type-expression", "literal-type-property-signature", "literal-type-access"]},
+    "literal-type-property-signature": {choice: ["identifier-property", {sequence: [{token: "["}, {zeroOrOne: "type-expression"}, {token: "]"}]}]},
     "literal-type-function": {sequence: ["function-signature", {token: ";"}]},
     "literal-type-static-property": {sequence: [{token: "static"}, {sequence: ["type-expression", "identifier-property", {token: "="}, "expression", {token: ";"}]}]},
     "literal-type-static-function": {sequence: [{token: "static"}, "definition-function"]},
@@ -318,10 +317,11 @@ egg.bnf({
     "literal-type-access": {choice: [
       {token: ";"},
       {sequence: [{token: "{"}, {oneOrMore: {sequence: [
-        {choice: [{token: "get"}, {token: "set"}, {token: "mut"}, {token: "del"}]},
+        "literal-type-delegate-name",
         {token: ";"}
       ]}}, {token: "}"}]}
     ], railroad: false},
+    "literal-type-delegate-name": {tokens: ["get", "set", "mut", "del"]},
     "type-instantiation": {sequence: [{ token: "{"}, {zeroOrMore: "type-instantiation-entry"}, {token: "}"}], inline: false, left: 1, right: 1},
     "type-instantiation-entry": {choice: [
       "type-instantiation-property",
@@ -337,12 +337,7 @@ egg.bnf({
       {sequence: [{token:"=>" }, "expression-lambda-body", {token: ";"}]},
       {sequence: [{token: "{"}, {oneOrMore: "type-instantiation-delegate"}, {token: "}"}]}
     ], railroad: false},
-    "type-instantiation-delegate": {sequence: ["type-expression", {choice: [
-      {token: "get"},
-      {token: "set"},
-      {token: "mut"},
-      {token: "del"}
-    ]}, "function-parameter-list", "statement-compound"], inline: false},
+    "type-instantiation-delegate": {sequence: ["type-expression", "literal-type-delegate-name", "function-parameter-list", "statement-compound"], inline: false},
     "type-instantiation-function": {sequence: ["type-expression", "identifier-property", "function-parameter-list", "statement-compound"], inline: false, left: 1, right: 1},
     "type-instantiation-function-body": {choice: [
       {sequence: [{token:"=>" }, "expression", {token: ";"}]},
