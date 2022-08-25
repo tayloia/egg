@@ -79,8 +79,8 @@ egg.bnf({
       {sequence: ["type-expression", "identifier-variable", {zeroOrOne: {sequence: [{token: "="}, "expression"]}}]}
     ], inline: false},
     "definition-function": {sequence: ["function-signature", "statement-compound"], inline: false, left: 1, right: 1},
-    "function-signature": {sequence: ["type-expression", "identifier-function", {token: "("}, {zeroOrOne: "function-parameter-list"}, {token: ")"}]},
-    "function-parameter-list": {list: "function-parameter", separator: {token: ","}},
+    "function-signature": {sequence: ["type-expression", "identifier-function", "function-parameter-list"]},
+    "function-parameter-list": {sequence: [{token: "("}, {zeroOrOne: {list: "function-parameter", separator: {token: ","}}}, {token: ")"}]},
     "function-parameter": {sequence: [{zeroOrMore: "attribute"}, "function-parameter-declaration"], inline: false, left: 1},
     "function-parameter-declaration": {choice: [
       {sequence: ["type-expression", "identifier-variable", {zeroOrOne: {sequence: [{token: "="}, {token: "null"}]}}]},
@@ -109,7 +109,7 @@ egg.bnf({
       {token: "!"},
       {token: "*"},
       {sequence: [{token: "["}, {zeroOrOne: "type-expression"}, {token: "]"}]},
-      {sequence: [{token: "("}, {zeroOrOne: "function-parameter-list"}, {token: ")"}]}
+      "function-parameter-list"
     ], railroad: false},
     "expression": {choice: ["expression-ternary"]},
     "expression-ternary": {choice: [
@@ -187,7 +187,7 @@ egg.bnf({
       {sequence: [{token: "."}, "identifier-property"]},
       {sequence: [{token: "("}, {zeroOrOne: "parameter-list"}, {token: ")"}]}
     ], railroad: false},
-    "expression-function": {sequence: ["type-expression", {token: "("}, {zeroOrOne: "function-parameter-list"}, {token: ")"}, "statement-compound"], inline: false, left: 1, right: 1},
+    "expression-function": {sequence: ["type-expression", "function-parameter-list", "statement-compound"], inline: false, left: 1, right: 1},
     "expression-lambda": {sequence: ["expression-lambda-parameters", {token: "=>"}, "expression-lambda-body"], inline: false},
     "expression-lambda-parameters": {choice: [
       "identifier-variable",
@@ -309,7 +309,7 @@ egg.bnf({
       "literal-type-type"
     ], railroad: false},
     "literal-type-iterate": {sequence: ["type-expression", {token: "..."}, {token: ";"}]},
-    "literal-type-call": {sequence: ["type-expression", {token: "("}, {zeroOrOne: "function-parameter-list"}, {token: ")"}, {token: ";"}]},
+    "literal-type-call": {sequence: ["type-expression", "function-parameter-list", {token: ";"}]},
     "literal-type-property": {sequence: ["type-expression", {choice: ["identifier-property", {sequence: [{token: "["}, {zeroOrOne: "type-expression"}, {token: "]"}]}]}, "literal-type-access"]},
     "literal-type-function": {sequence: ["function-signature", {token: ";"}]},
     "literal-type-static-property": {sequence: [{token: "static"}, {sequence: ["type-expression", "identifier-property", {token: "="}, "expression", {token: ";"}]}]},
@@ -324,20 +324,33 @@ egg.bnf({
     ], railroad: false},
     "type-instantiation": {sequence: [{ token: "{"}, {zeroOrMore: "type-instantiation-entry"}, {token: "}"}], inline: false, left: 1, right: 1},
     "type-instantiation-entry": {choice: [
-      "type-instantiation-unmodifiable",
-      "type-instantiation-modifiable",
+      "type-instantiation-property",
+      "type-instantiation-function",
+      "type-instantiation-iterable",
+      "type-instantiation-callable",
+      "type-instantiation-indexable",
       "definition-type"
     ], railroad: false},
-    "type-instantiation-unmodifiable": {sequence: ["type-expression", {choice: [
-      {sequence: [{token: "..."}]},
-      "type-instantiation-function"
-    ]}, "type-instantiation-unmodifiable-body"]},
-    "type-instantiation-unmodifiable-body": {choice: ["type-instantiation-lambda", "statement-compound"], railroad: false},
-    "type-instantiation-function": {sequence: ["type-expression", {zeroOrOne: "identifier-function"}, {token: "("}, {zeroOrOne: "function-parameter-list"}, {token: ")"}]},
-    "type-instantiation-modifiable": {sequence: ["type-expression", {choice: ["identifier-property", {sequence: [{token: "["}, {zeroOrOne: "type-expression"}, {token: "]"}]}]}, "type-instantiation-modifiable-body"]},
-    "type-instantiation-modifiable-body": {choice: ["type-instantiation-lambda", "type-instantiation-modifiable-access"], railroad: false},
-    "type-instantiation-modifiable-access": {sequence: [{token: "{"}, {oneOrMore: "definition-function"}, {token: "}"}]},
-    "type-instantiation-lambda": {sequence: [{token:"=>" }, "expression-lambda-body", {token: ";"}]}
+    "type-instantiation-property": {sequence: ["type-expression", "identifier-property", "type-instantiation-property-body"], inline: false, left: 1},
+    "type-instantiation-property-body": {choice: [
+      {sequence: [{token:"=" }, "expression", {token: ";"}]},
+      {sequence: [{token:"=>" }, "expression-lambda-body", {token: ";"}]},
+      {sequence: [{token: "{"}, {oneOrMore: "type-instantiation-delegate"}, {token: "}"}]}
+    ], railroad: false},
+    "type-instantiation-delegate": {sequence: ["type-expression", {choice: [
+      {token: "get"},
+      {token: "set"},
+      {token: "mut"},
+      {token: "del"}
+    ]}, "function-parameter-list", "statement-compound"], inline: false},
+    "type-instantiation-function": {sequence: ["type-expression", "identifier-property", "function-parameter-list", "statement-compound"], inline: false, left: 1, right: 1},
+    "type-instantiation-function-body": {choice: [
+      {sequence: [{token:"=>" }, "expression", {token: ";"}]},
+      "statement-compound"
+    ], railroad: false},
+    "type-instantiation-iterable": {sequence: ["type-expression", {token: "..."}, "statement-compound"], inline: false, left: 1, right: 1},
+    "type-instantiation-callable": {sequence: ["type-expression", "function-parameter-list", "statement-compound"], inline: false, left: 1, right: 1},
+    "type-instantiation-indexable": {sequence: ["type-expression", {token: "["}, {zeroOrOne: "type-expression"}, {token: "]"}, {token: "{"}, {oneOrMore: "type-instantiation-delegate"}, {token: "}"}], inline: false, left: 1, right: 1}
   },
   variations: {
     full: {

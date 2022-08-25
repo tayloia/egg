@@ -270,7 +270,7 @@
   That is
   <div class="railroad">statement</div>
   <h4>Simple Statement</h4>
-  A simple statement is an action, a type definition or a variable definition:
+  A simple statement is an action or a variable definition:
   <div class="railroad">statement-simple</div>
   <h4>Action Statement</h4>
   An action is an assignment, an increment/decrement or a function call statement:
@@ -1056,13 +1056,139 @@ dict.add(8, "eight");</pre>
   <h3>Type Instantiation</h3>
   A type instantiation defines an object instance based on a type definition as part of a type instantiation expression (<a>type-instantiation-expression</a>}.
   <div class="railroad">type-instantiation</div>
+  Object instances from instantiated types can have properties, function and types.
+  They may also be iterable, callable and/or indexable.
   For example:
-  <pre class="code">Pet createPet(string name, Date dob) {
+  <pre class="code">type Pet {
+  string name;
+  int legs;
+  void wag(int times);
+}
+
+Pet createDog(string name) {
   return Pet {
-    string name => name;
-    int age => Math.roundi((Date.now - dob).toYears());
-    void wag(int times) {
-      print(name, " wags their tail ", times, " time(s)");
+    string name = name;
+    int legs => 4;
+    void speak(int times) {
+      print(name, " barks ", times, " time(s)");
+    }
+  };
+}</pre>
+  <h4>Type Property Instantiation</h4>
+  TODO
+  <div class="railroad">type-instantiation-property</div>
+  For example:
+  <pre class="code">Pet createDog(string dogName) {
+  return Pet {
+    string name = dogName;
+    int legs => 4;
+    // ...
+  };
+}</pre>
+  This is the same as:
+  <pre class="code">Pet createDog(string dogName) {
+  var myName = dogName;
+  return Pet {
+    string name {
+      string get() { return myName; }
+      void set(string value) { myName = value; }
+      any? mut(any operation, any? value) { return object.mut(&myName, operation, value); }
+    }
+    int legs {
+      int get() { return 4; }
+    }
+    // ...
+  };
+}</pre>
+  <h4>Type Function Instantiation</h4>
+  TODO
+  <div class="railroad">type-instantiation-function</div>
+  For example:
+  <pre class="code">Pet createDog(string dogName) {
+  return Pet {
+    // ...
+    void speak(int times) {
+      print(name, " barks ", times, " time(s)");
+    }
+  };
+}</pre>
+  This is the same as:
+  <pre class="code">Pet createDog(string dogName) {
+  return Pet {
+    // ...
+    void(int) speak {
+      void(int) get() { return times => print(name, " barks ", times, " time(s)"); }
+    }
+  };
+}</pre>
+  <h4>Type Iterable Instantiation</h4>
+  TODO
+  <div class="railroad">type-instantiation-iterable</div>
+  For example:
+  <pre class="code">type StringSequence {
+  string...;
+}
+
+StringSequence createStringSequenceFromReversedArray(string[] array) {
+  return StringSequence {
+    string... {
+      for (var index = array.length - 1; index >= 0; --index) {
+        yield return array[index];
+      }
+    }
+  };
+}</pre>
+  <h4>Type Callable Instantiation</h4>
+  TODO
+  <div class="railroad">type-instantiation-callable</div>
+  For example:
+  <pre class="code">type Scaler {
+  double(double);
+}
+
+Scaler createScaler(double scale) {
+  return Scaler {
+    double(double value) {
+      return value * scale;
+    }
+  };
+}</pre>
+  <h4>Type Indexable Instantiation</h4>
+  TODO
+  <div class="railroad">type-instantiation-indexable</div>
+  For example:
+  <pre class="code">type StringList {
+  string[];
+  int length;
+}
+
+StringList createStringListFromArray(string[] array) {
+  return StringList {
+    string[] {
+      string get(int index) { return array[]; }
+    }
+    int length => array.length;
+  };
+}</pre>
+  Another example:
+  <pre class="code">type InventoryLookup {
+  int[string];
+}
+
+InventoryLookup createInventoryLookup() {
+  var inventory = object.Map&lt;string, int&gt;.new();
+  return InventoryLookup {
+    int[string] {
+      int get(string key) {
+        if (int value = try inventory[key]) {
+          return value;
+        }
+        return 0;
+      }
+      void set(string key, int value) {
+        inventory[key] = value;
+      }
+      return value * scale;
     }
   };
 }</pre>
