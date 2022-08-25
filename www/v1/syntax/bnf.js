@@ -1,13 +1,18 @@
 // EBNF of the Egg programming language in JSONP form
 egg.bnf({
   rules: {
-    "module": {oneOrMore: {sequence: [{zeroOrMore:"attribute"}, "statement"]}, inline: false, left: 1, right: 1},
-    "attribute": {sequence: [{token: "@"}, "attribute-name", {zeroOrOne: {sequence: [{token: "("}, "parameter-list", {token: ")"}]}}], inline: false, left: 1},
+    "module": {zeroOrMore: "module-entry", left: 1, right: 1},
+    "module-entry": {choice: [
+       {sequence: [{zeroOrMore:"attribute"}, "statement"]},
+       {sequence: [{token: "@"}, "attribute"]}
+     ], railroad: false},
+    "attribute": {sequence: [{token: "@"}, {sequence: ["attribute-name", {zeroOrOne: {sequence: [{token: "("}, "parameter-list", {token: ")"}]}}]}], inline: false, left: 1, right: 1},
     "attribute-name": {list: "identifier-attribute", separator: {token: "."}},
     "statement": {choice: [
       "statement-compound",
       {sequence: ["statement-simple", {token: ";"}]},
       "definition-function",
+      "definition-type",
       "statement-if",
       "statement-switch",
       "statement-while",
@@ -24,7 +29,6 @@ egg.bnf({
     ]},
     "statement-simple": {choice: [
       "statement-action",
-      "definition-type",
       "definition-variable"
     ]},
     "statement-action": {choice: [
@@ -63,25 +67,28 @@ egg.bnf({
     "statement-return": {sequence: [{token: "return"}, {zeroOrOne: "expression"}, {token: ";"}], inline: false, left: 1, right: 1},
     "statement-yield": {sequence: [{token: "yield"}, {zeroOrOne: {token: "..."}}, "expression", {token: ";"}], inline: false, left: 1, right: 1},
     "statement-throw": {sequence: [{token: "throw"}, {zeroOrOne: "expression"}, {token: ";"}], inline: false, left: 1, right: 1},
-    "definition-type": {sequence: [{token: "type"}, "identifier-type", {zeroOrOne: {sequence: [{token: "<"}, "definition-type-list", {token: ">"}]}}, {token: "="}, "definition-type-value"], inline: false, left: 1, right: 1},
-    "definition-type-list": {list: "identifier-type", separator: {token: ","}},
+    "definition-type": {sequence: [{token: "type"}, "identifier-type", {zeroOrOne: {sequence: [{token: "<"}, "definition-type-list", {token: ">"}]}}, {zeroOrMore: "type-constraint"}, "definition-type-value"], inline: false, left: 1, right: 1},
+    "definition-type-list": {list: "definition-type-entry", separator: {token: ","}},
+    "definition-type-entry": {sequence: ["identifier-type", {zeroOrMore: "type-constraint" }, {zeroOrOne: {sequence: [{token: "="}, "type-expression"]}}]},
     "definition-type-value": {choice: [
-      "type-expression",
+      {sequence: [{token: "="}, "type-expression", {token: ";"}]},
       "literal-type"
     ], railroad: false},
     "definition-variable": {choice: [
       {sequence: [{ token: "var" }, {zeroOrOne: {token: "?"}}, "identifier-variable", {token: "="}, "expression"]},
       {sequence: ["type-expression", "identifier-variable", {zeroOrOne: {sequence: [{token: "="}, "expression"]}}]}
     ], inline: false},
-    "definition-function": { sequence: ["type-expression", "identifier-variable", {token: "("}, {zeroOrOne: "definition-function-parameter-list"}, {token: ")"}, "statement-compound"], inline: false, left: 1, right: 1 },
-    "definition-function-parameter-list": {list: "definition-function-parameter", separator: {token: ","}},
-    "definition-function-parameter": {sequence: [{zeroOrMore: "attribute"}, "definition-function-parameter-declaration"], inline: false, left: 1},
-    "definition-function-parameter-declaration": {choice: [
+    "definition-function": {sequence: ["function-signature", "statement-compound"], inline: false, left: 1, right: 1},
+    "function-signature": {sequence: ["type-expression", "identifier-function", {token: "("}, {zeroOrOne: "function-parameter-list"}, {token: ")"}]},
+    "function-parameter-list": {list: "function-parameter", separator: {token: ","}},
+    "function-parameter": {sequence: [{zeroOrMore: "attribute"}, "function-parameter-declaration"], inline: false, left: 1},
+    "function-parameter-declaration": {choice: [
       {sequence: ["type-expression", "identifier-variable", {zeroOrOne: {sequence: [{token: "="}, {token: "null"}]}}]},
       {sequence: [{token: "..."}, "type-expression", "identifier-variable"]},
       {sequence: [{token: "..."}, "type-expression", {token: "["}, {token: "]"}, "identifier-variable"]}
     ], railroad: false},
     "type-list": {list: "type-expression", separator: {token: ","}},
+    "type-constraint": { sequence: [{token: ":"}, "type-expression"], inline: false },
     "type-expression": {list: "type-expression-postfix", separator: {token: "|" }, inline: false, left: 1, right: 1},
     "type-expression-postfix": {sequence: ["type-expression-primary", {zeroOrMore: "type-expression-suffix"}]},
     "type-expression-primary": {choice: [
@@ -94,7 +101,7 @@ egg.bnf({
       {token: "object"},
       {token: "any"},
       {sequence: [{ token: "type" }, {token: "null"}]},
-      {sequence: [{token: "type"}, "literal-type"]},
+      {sequence: [{token: "type"}, {zeroOrMore: "type-constraint"}, "literal-type"]},
       {sequence: [{token: "("}, "type-expression", {token: ")"}]}
     ]},
     "type-expression-suffix": {choice: [
@@ -102,7 +109,7 @@ egg.bnf({
       {token: "!"},
       {token: "*"},
       {sequence: [{token: "["}, {zeroOrOne: "type-expression"}, {token: "]"}]},
-      {sequence: [{token: "("}, {zeroOrOne: "definition-function-parameter-list"}, {token: ")"}]}
+      {sequence: [{token: "("}, {zeroOrOne: "function-parameter-list"}, {token: ")"}]}
     ], railroad: false},
     "expression": {choice: ["expression-ternary"]},
     "expression-ternary": {choice: [
@@ -172,6 +179,7 @@ egg.bnf({
       "literal",
       "expression-function",
       "expression-lambda",
+      "expression-type-instantiation",
       {sequence: [{token: "("}, "expression", {token: ")"}]}
     ], railroad: false},
     "expression-suffix": {choice: [
@@ -179,7 +187,7 @@ egg.bnf({
       {sequence: [{token: "."}, "identifier-property"]},
       {sequence: [{token: "("}, {zeroOrOne: "parameter-list"}, {token: ")"}]}
     ], railroad: false},
-    "expression-function": {sequence: ["type-expression", {token: "("}, {zeroOrOne: "definition-function-parameter-list"}, {token: ")"}, "statement-compound"], inline: false, left: 1, right: 1},
+    "expression-function": {sequence: ["type-expression", {token: "("}, {zeroOrOne: "function-parameter-list"}, {token: ")"}, "statement-compound"], inline: false, left: 1, right: 1},
     "expression-lambda": {sequence: ["expression-lambda-parameters", {token: "=>"}, "expression-lambda-body"], inline: false},
     "expression-lambda-parameters": {choice: [
       "identifier-variable",
@@ -190,6 +198,8 @@ egg.bnf({
       "expression",
       "statement-compound"
     ], railroad: false},
+    "expression-type-instantiation": {sequence: ["identifier-type", {zeroOrOne: {sequence: [{token: "<"}, "expression-type-instantiation-list", {token: ">"}]}}, {zeroOrMore: "type-constraint"}, "type-instantiation"], inline: false, left: 1, right: 1},
+    "expression-type-instantiation-list": {list: "type-expression", separator: {token: ","}},
     "operator-unary": {tokens: ["*", "-", "~", "!"], railroad: false},
     "operator-binary": {tokens: ["??", "||", "&&", "|", "^", "&", "==", "!=", "<", ">", "<=", ">=", "<<", ">>", ">>>", "+", "-", "*", "/", "%"], railroad: false},
     "operator-assignment": {tokens: ["=", "+=", "-=", "*=", "/=", "%=", "<<=", ">>=", ">>>=", "&=", "|=", "^=", "&&=", "||=", "??="], railroad: false},
@@ -226,6 +236,7 @@ egg.bnf({
     "parameter-named-list": {list: "parameter-named", separator: {token: ","}},
     "parameter-named": {sequence: ["identifier-variable", {token: ":"}, "expression"]},
     "identifier-attribute": {alias: "identifier"},
+    "identifier-function": { alias: "identifier" },
     "identifier-property": {alias: "identifier"},
     "identifier-type": {alias: "identifier"},
     "identifier-variable": {alias: "identifier"},
@@ -287,10 +298,46 @@ egg.bnf({
       "expression",
       {sequence: [{token: "..."}, "expression"]}
     ], railroad: false},
-    "literal-type": {sequence: [{token: "{"}, {zeroOrOne: "literal-type-list"}, {token: "}"}], inline: false, left: 1, right: 1},
-    "literal-type-list": {list: "literal-type-entry", separator: {token: ","}},
-    "literal-type-entry": {sequence: ["literal-object-key", {token: ":"}, "literal-type-value"], railroad: false},
-    "literal-type-value": {choice: ["expression", "type-expression", "literal-type"], railroad: false}
+    "literal-type": {sequence: [{token: "{"}, {zeroOrMore: "literal-type-entry"}, {token: "}"}], inline: false, left: 1, right: 1},
+    "literal-type-entry": {choice: [
+      "literal-type-iterate",
+      "literal-type-call",
+      "literal-type-property",
+      "literal-type-function",
+      "literal-type-static-property",
+      "literal-type-static-function",
+      "literal-type-type"
+    ], railroad: false},
+    "literal-type-iterate": {sequence: ["type-expression", {token: "..."}, {token: ";"}]},
+    "literal-type-call": {sequence: ["type-expression", {token: "("}, {zeroOrOne: "function-parameter-list"}, {token: ")"}, {token: ";"}]},
+    "literal-type-property": {sequence: ["type-expression", {choice: ["identifier-property", {sequence: [{token: "["}, {zeroOrOne: "type-expression"}, {token: "]"}]}]}, "literal-type-access"]},
+    "literal-type-function": {sequence: ["function-signature", {token: ";"}]},
+    "literal-type-static-property": {sequence: [{token: "static"}, {sequence: ["type-expression", "identifier-property", {token: "="}, "expression", {token: ";"}]}]},
+    "literal-type-static-function": {sequence: [{token: "static"}, "definition-function"]},
+    "literal-type-type": {sequence: [{token: "static"}, "definition-type"]},
+    "literal-type-access": {choice: [
+      {token: ";"},
+      {sequence: [{token: "{"}, {oneOrMore: {sequence: [
+        {choice: [{token: "get"}, {token: "set"}, {token: "mut"}, {token: "del"}]},
+        {token: ";"}
+      ]}}, {token: "}"}]}
+    ], railroad: false},
+    "type-instantiation": {sequence: [{ token: "{"}, {zeroOrMore: "type-instantiation-entry"}, {token: "}"}], inline: false, left: 1, right: 1},
+    "type-instantiation-entry": {choice: [
+      "type-instantiation-unmodifiable",
+      "type-instantiation-modifiable",
+      "definition-type"
+    ], railroad: false},
+    "type-instantiation-unmodifiable": {sequence: ["type-expression", {choice: [
+      {sequence: [{token: "..."}]},
+      "type-instantiation-function"
+    ]}, "type-instantiation-unmodifiable-body"]},
+    "type-instantiation-unmodifiable-body": {choice: ["type-instantiation-lambda", "statement-compound"], railroad: false},
+    "type-instantiation-function": {sequence: ["type-expression", {zeroOrOne: "identifier-function"}, {token: "("}, {zeroOrOne: "function-parameter-list"}, {token: ")"}]},
+    "type-instantiation-modifiable": {sequence: ["type-expression", {choice: ["identifier-property", {sequence: [{token: "["}, {zeroOrOne: "type-expression"}, {token: "]"}]}]}, "type-instantiation-modifiable-body"]},
+    "type-instantiation-modifiable-body": {choice: ["type-instantiation-lambda", "type-instantiation-modifiable-access"], railroad: false},
+    "type-instantiation-modifiable-access": {sequence: [{token: "{"}, {oneOrMore: "definition-function"}, {token: "}"}]},
+    "type-instantiation-lambda": {sequence: [{token:"=>" }, "expression-lambda-body", {token: ";"}]}
   },
   variations: {
     full: {
