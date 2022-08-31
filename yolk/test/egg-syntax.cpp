@@ -403,13 +403,45 @@ TEST(TestEggSyntaxParser, StatementTry) {
 
 TEST(TestEggSyntaxParser, StatementType) {
   // Good
-  ASSERT_PARSE_GOOD(parseStatementToString("type T {}"), "(typedef 'T')");
-  ASSERT_PARSE_GOOD(parseStatementToString("type T { int a; }"), "(typedef 'T' (declare 'a' (type 'int')))");
+  ASSERT_PARSE_GOOD(parseStatementToString("type T {}"),
+                                           "(typedef 'T')");
+  ASSERT_PARSE_GOOD(parseStatementToString("type T { int a; }"),
+                                           "(typedef 'T' (declare 'a' (type 'int')))");
+  ASSERT_PARSE_GOOD(parseStatementToString("type T { int a; string b; }"),
+                                           "(typedef 'T' (declare 'a' (type 'int')) (declare 'b' (type 'string')))");
+  ASSERT_PARSE_GOOD(parseStatementToString("type T { int a; string b; int c(); }"),
+                                           "(typedef 'T' (declare 'a' (type 'int')) (declare 'b' (type 'string')) (declare 'c' (type 'int()')))");
+  ASSERT_PARSE_GOOD(parseStatementToString("type T { string... g(int|float x, bool y = null); }"),
+                                           "(typedef 'T' (declare 'g' (type 'string...(int|float,bool=null)')))");
+  ASSERT_PARSE_GOOD(parseStatementToString("type T { string...; }"),
+                                           "(typedef 'T' (iterable (type 'string')))");
   // Bad
   ASSERT_PARSE_BAD(parseStatementToString("type T"), "(1, 7): Expected '{' or ':' after type name in 'type' definition, not end-of-file");
   ASSERT_PARSE_BAD(parseStatementToString("type T U"), "(1, 8): Expected '{' or ':' after type name in 'type' definition, not identifier: 'U'");
-  ASSERT_PARSE_BAD(parseStatementToString("type T { ; }"), "(1, 10): Malformed type definition clause in definition of type 'T'");
-  ASSERT_PARSE_BAD(parseStatementToString("type T {"), "(1, 9): Malformed type definition clause in definition of type 'T'");
+  ASSERT_PARSE_BAD(parseStatementToString("type T { ; }"), "(1, 10): Malformed type definition clause within definition of type 'T'");
+  ASSERT_PARSE_BAD(parseStatementToString("type T {"), "(1, 9): Malformed type definition clause within definition of type 'T'");
+  ASSERT_PARSE_BAD(parseStatementToString("type T { int... g() {} }"), "(1, 21): Expected ';' after generator declaration within definition of type 'T', not operator: '{'");
+  ASSERT_PARSE_BAD(parseStatementToString("type T { int... g = 0; }"), "(1, 19): Expected '(' after generator name 'g' within definition of type 'T', not operator: '='");
+  ASSERT_PARSE_BAD(parseStatementToString("type T { int... {} }"), "(1, 13): Malformed generator declaration within definition of type 'T'");
+}
+
+TEST(TestEggSyntaxParser, StatementTypeStatic) {
+  // Good
+  ASSERT_PARSE_GOOD(parseStatementToString("type T { static float PI = 3.14159; }"),
+                                           "(typedef 'T' (static (declare 'PI' (type 'float') (literal float 3.14159))))");
+  ASSERT_PARSE_GOOD(parseStatementToString("type T { static string GREETING = \"hello\"; }"),
+                                           "(typedef 'T' (static (declare 'GREETING' (type 'string') (literal string 'hello'))))");
+  ASSERT_PARSE_GOOD(parseStatementToString("type T { static string f(int a) {} }"),
+                                           "(typedef 'T' (static (function 'f' (type 'string') (parameter 'a' (type 'int')) (block))))");
+  ASSERT_PARSE_GOOD(parseStatementToString("type T { static string... g(int a) {} }"),
+                                           "(typedef 'T' (static (generator 'g' (type 'string') (parameter 'a' (type 'int')) (block))))");
+  // Bad
+  ASSERT_PARSE_BAD(parseStatementToString("type T { static }"), "(1, 17): Malformed type definition clause within definition of type 'T'");
+  ASSERT_PARSE_BAD(parseStatementToString("type T { static int i; }"), "(1, 22): Expected '=' or '(' after 'static' identifier 'i' within definition of type 'T', not operator: ';'");
+  ASSERT_PARSE_BAD(parseStatementToString("type T { static int...; }"), "(1, 20): Iterable type clauses cannot be marked 'static'");
+  ASSERT_PARSE_BAD(parseStatementToString("type T { static int...(); }"), "(1, 20): Malformed 'static' generator definition within definition of type 'T'");
+  ASSERT_PARSE_BAD(parseStatementToString("type T { static int... g{} }"), "(1, 25): Expected '(' after 'static' generator name 'g' within definition of type 'T', not operator: '{'");
+  ASSERT_PARSE_BAD(parseStatementToString("type T { static int... g(); }"), "(1, 27): Expected '{' after parameters in function definition, not operator: ';'");
 }
 
 TEST(TestEggSyntaxParser, StatementWhile) {

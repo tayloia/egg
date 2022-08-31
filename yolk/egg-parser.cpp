@@ -303,6 +303,43 @@ namespace {
     }
   };
 
+  class EggParserNode_Static : public EggParserNodeBase {
+  private:
+    std::shared_ptr<IEggProgramNode> child;
+  public:
+    EggParserNode_Static(egg::ovum::ITypeFactory&, const egg::ovum::LocationSource& locationSource, const std::shared_ptr<IEggProgramNode>& child)
+      : EggParserNodeBase(locationSource), child(child) {
+      assert(this->child != nullptr);
+    }
+    virtual EggProgramNodeFlags prepare(EggProgramContext& context) override {
+      return context.prepareStatic(this->locationSource, *this->child);
+    }
+    virtual void dump(std::ostream& os) const override {
+      ParserDump(os, "static").add(this->child);
+    }
+    virtual egg::ovum::Node compile(EggProgramCompiler& compiler) const override {
+      return compiler.statement(this->locationSource, egg::ovum::Opcode::STATIC, *this->child);
+    }
+  };
+
+  class EggParserNode_Iterable : public EggParserNodeBase {
+  private:
+    egg::ovum::Type type;
+  public:
+    EggParserNode_Iterable(egg::ovum::ITypeFactory&, const egg::ovum::LocationSource& locationSource, const egg::ovum::Type& type)
+      : EggParserNodeBase(locationSource), type(type) {
+    }
+    virtual EggProgramNodeFlags prepare(EggProgramContext& context) override {
+      return context.prepareIterable(this->locationSource, this->type);
+    }
+    virtual void dump(std::ostream& os) const override {
+      ParserDump(os, "iterable").add(this->type.toString());
+    }
+    virtual egg::ovum::Node compile(EggProgramCompiler& compiler) const override {
+      return compiler.statement(this->locationSource, egg::ovum::Opcode::ITERABLE, compiler.type(this->locationSource, this->type));
+    }
+  };
+
   class EggParserNode_Guard : public EggParserNodeBase {
   private:
     egg::ovum::String name;
@@ -1425,6 +1462,15 @@ std::shared_ptr<egg::yolk::IEggProgramNode> egg::yolk::EggSyntaxNode_Declare::pr
   }
   assert(this->child.size() == 2);
   return makeParserNode<EggParserNode_Declare>(context, *this, this->name, type, context.promote(*this->child[1]));
+}
+
+std::shared_ptr<egg::yolk::IEggProgramNode> egg::yolk::EggSyntaxNode_Static::promote(egg::yolk::IEggParserContext& context) const {
+  return makeParserNode<EggParserNode_Static>(context, *this, context.promote(*this->child));
+}
+
+std::shared_ptr<egg::yolk::IEggProgramNode> egg::yolk::EggSyntaxNode_Iterable::promote(egg::yolk::IEggParserContext& context) const {
+  auto type = context.promote(*this->child)->getType();
+  return makeParserNode<EggParserNode_Iterable>(context, *this, type);
 }
 
 std::shared_ptr<egg::yolk::IEggProgramNode> egg::yolk::EggSyntaxNode_Guard::promote(egg::yolk::IEggParserContext& context) const {

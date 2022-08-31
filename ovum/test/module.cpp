@@ -166,7 +166,7 @@ TEST(TestModule, OpcodeFromMachineByte) {
   ASSERT_EQ(Opcode::reserved, Module::opcodeFromMachineByte(88));
   ASSERT_EQ(Opcode::reserved, Module::opcodeFromMachineByte(89));
   ASSERT_EQ(Opcode::VOID, Module::opcodeFromMachineByte(90));
-  ASSERT_EQ(Opcode::reserved, Module::opcodeFromMachineByte(91));
+  ASSERT_EQ(Opcode::STATIC, Module::opcodeFromMachineByte(91));
   ASSERT_EQ(Opcode::DECLARE, Module::opcodeFromMachineByte(92));
   ASSERT_EQ(Opcode::DECLARE, Module::opcodeFromMachineByte(93));
   ASSERT_EQ(Opcode::reserved, Module::opcodeFromMachineByte(94));

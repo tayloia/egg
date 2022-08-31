@@ -95,6 +95,7 @@
   X(PROPERTYQ, 74, 2, 2, "propertyq") \
   X(REQUIRED, 145, 1, 2, "required") \
   X(RETURN, 108, 0, 1, "return") \
+  X(STATIC, 91, 1, 1, "static") \
   X(STRING, 240, 0, N, "string") \
   X(SVALUE, 18, 0, 0, "svalue") \
   X(SWITCH, 122, 2, N, "switch") \

@@ -144,6 +144,29 @@ namespace egg::yolk {
     virtual std::shared_ptr<IEggProgramNode> promote(IEggParserContext& context) const override;
   };
 
+  class EggSyntaxNode_Static : public EggSyntaxNodeChildren1 {
+    EGG_NO_COPY(EggSyntaxNode_Static)
+  public:
+    EggSyntaxNode_Static(const EggSyntaxNodeLocation& location, std::unique_ptr<IEggSyntaxNode>&& child)
+      : EggSyntaxNodeChildren1(location, std::move(child)) {
+      assert(this->child != nullptr);
+    }
+    virtual void dump(std::ostream& os) const override;
+    virtual std::shared_ptr<IEggProgramNode> promote(IEggParserContext& context) const override;
+  };
+
+  class EggSyntaxNode_Iterable : public EggSyntaxNodeChildren1 {
+    EGG_NO_COPY(EggSyntaxNode_Iterable)
+  public:
+    EggSyntaxNode_Iterable(const EggSyntaxNodeLocation& location, std::unique_ptr<IEggSyntaxNode>&& type)
+      : EggSyntaxNodeChildren1(location, std::move(type)) {
+      assert(this->child != nullptr);
+    }
+    virtual void dump(std::ostream& os) const override;
+    virtual egg::ovum::String token() const override;
+    virtual std::shared_ptr<IEggProgramNode> promote(IEggParserContext& context) const override;
+  };
+
   class EggSyntaxNode_Guard : public EggSyntaxNodeChildrenN<2> {
     EGG_NO_COPY(EggSyntaxNode_Guard)
   private:

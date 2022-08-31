@@ -304,16 +304,16 @@ egg.bnf({
       "literal-type-function",
       "literal-type-static-property",
       "literal-type-static-function",
-      "literal-type-type"
+      "literal-type-static-type"
     ], railroad: false},
     "literal-type-iterate": {sequence: ["type-expression", {token: "..."}, {token: ";"}]},
     "literal-type-call": {sequence: ["type-expression", "function-parameter-list", {token: ";"}]},
     "literal-type-property": {sequence: ["type-expression", "literal-type-property-signature", "literal-type-access"]},
-    "literal-type-property-signature": {choice: ["identifier-property", {sequence: [{token: "["}, {zeroOrOne: "type-expression"}, {token: "]"}]}]},
+    "literal-type-property-signature": {choice: ["identifier-property", {sequence: [{token: "["}, {zeroOrOne: "type-expression"}, {token: "]"}]}], railroad: false},
     "literal-type-function": {sequence: ["function-signature", {token: ";"}]},
     "literal-type-static-property": {sequence: [{token: "static"}, {sequence: ["type-expression", "identifier-property", {token: "="}, "expression", {token: ";"}]}]},
     "literal-type-static-function": {sequence: [{token: "static"}, "definition-function"]},
-    "literal-type-type": {sequence: [{token: "static"}, "definition-type"]},
+    "literal-type-static-type": {sequence: [{token: "static"}, "definition-type"]},
     "literal-type-access": {choice: [
       {token: ";"},
       {sequence: [{token: "{"}, {oneOrMore: {sequence: [

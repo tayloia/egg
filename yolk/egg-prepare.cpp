@@ -122,6 +122,17 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareDeclare(cons
   return EggProgramNodeFlags::Fallthrough;
 }
 
+egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareStatic(const egg::ovum::LocationSource&, IEggProgramNode& child) {
+  return child.prepare(*this);
+}
+
+egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareIterable(const egg::ovum::LocationSource& where, egg::ovum::Type& itype) {
+  if (itype == nullptr) {
+    return this->compilerError(where, "Cannot infer iterable type");
+  }
+  return EggProgramNodeFlags::Fallthrough;
+}
+
 egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareGuard(const egg::ovum::LocationSource& where, const egg::ovum::String& name, egg::ovum::Type& ltype, IEggProgramNode& rvalue) {
   if (abandoned(rvalue.prepare(*this))) {
     return EggProgramNodeFlags::Abandon;
