@@ -200,6 +200,7 @@ namespace egg::yolk {
     EggProgramNodeFlags prepareSwitch(IEggProgramNode& value, int64_t defaultIndex, const std::vector<std::shared_ptr<IEggProgramNode>>& cases);
     EggProgramNodeFlags prepareThrow(IEggProgramNode* exception);
     EggProgramNodeFlags prepareTry(IEggProgramNode& block, const std::vector<std::shared_ptr<IEggProgramNode>>& catches, IEggProgramNode* final);
+    EggProgramNodeFlags prepareTypedef(const egg::ovum::LocationSource& where, const egg::ovum::String& name, const std::vector<std::shared_ptr<IEggProgramNode>>& constraints, const std::vector<std::shared_ptr<IEggProgramNode>>& definitions);
     EggProgramNodeFlags prepareWhile(IEggProgramNode& cond, IEggProgramNode& block);
     EggProgramNodeFlags prepareYield(const egg::ovum::LocationSource& where, IEggProgramNode& value);
     EggProgramNodeFlags prepareArray(const std::vector<std::shared_ptr<IEggProgramNode>>& values);

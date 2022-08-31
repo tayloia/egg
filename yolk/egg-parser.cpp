@@ -739,6 +739,32 @@ namespace {
     }
   };
 
+  class EggParserNode_Typedef : public EggParserNodeBase {
+  private:
+    egg::ovum::String name;
+    std::vector<std::shared_ptr<IEggProgramNode>> constraints;
+    std::vector<std::shared_ptr<IEggProgramNode>> definitions;
+  public:
+    EggParserNode_Typedef(egg::ovum::ITypeFactory&, const egg::ovum::LocationSource& locationSource, const egg::ovum::String& name)
+      : EggParserNodeBase(locationSource), name(name) {
+    }
+    virtual EggProgramNodeFlags prepare(EggProgramContext& context) override {
+      return context.prepareTypedef(this->locationSource, this->name, this->constraints, this->definitions);
+    }
+    virtual void dump(std::ostream& os) const override {
+      ParserDump(os, "typedef").add(this->name).add(this->constraints).add(this->definitions);
+    }
+    virtual egg::ovum::Node compile(EggProgramCompiler& compiler) const override {
+      return compiler.statement(this->locationSource, egg::ovum::Opcode::TYPEDEF, compiler.identifier(this->locationSource, this->name), this->constraints, this->definitions);
+    }
+    void addConstraint(const std::shared_ptr<IEggProgramNode>& constraint) {
+      this->constraints.emplace_back(constraint);
+    }
+    void addDefinition(const std::shared_ptr<IEggProgramNode>& definition) {
+      this->definitions.emplace_back(definition);
+    }
+  };
+
   class EggParserNode_While : public EggParserNodeBase {
   private:
     std::shared_ptr<IEggProgramNode> condition;
@@ -1662,6 +1688,14 @@ std::shared_ptr<egg::yolk::IEggProgramNode> egg::yolk::EggSyntaxNode_Try::promot
       // We can only have one 'finally' clause; where we allow inherited rethrows only
       result->addFinally(nested1.promote(clause));
     }
+  }
+  return result;
+}
+
+std::shared_ptr<egg::yolk::IEggProgramNode> egg::yolk::EggSyntaxNode_Typedef::promote(egg::yolk::IEggParserContext& context) const {
+  auto result = makeParserNode<EggParserNode_Typedef>(context, *this, this->name);
+  for (auto& i : this->child) {
+    result->addDefinition(context.promote(*i)); // WIBBLE
   }
   return result;
 }

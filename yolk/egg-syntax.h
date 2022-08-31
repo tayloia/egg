@@ -114,7 +114,7 @@ namespace egg::yolk {
   private:
     egg::ovum::Type type;
   public:
-    explicit EggSyntaxNode_Type(const EggSyntaxNodeLocation& location, const egg::ovum::IType* type)
+    EggSyntaxNode_Type(const EggSyntaxNodeLocation& location, const egg::ovum::IType* type)
       : EggSyntaxNodeBase(location), type(type) {
     }
     virtual void dump(std::ostream& os) const override;
@@ -376,6 +376,32 @@ namespace egg::yolk {
     }
     virtual EggTokenizerKeyword keyword() const override;
     virtual void dump(std::ostream& os) const override;
+    virtual std::shared_ptr<IEggProgramNode> promote(IEggParserContext& context) const override;
+  };
+
+  class EggSyntaxNode_Typedef : public EggSyntaxNodeChildrenV {
+    EGG_NO_COPY(EggSyntaxNode_Typedef)
+  private:
+    egg::ovum::String name;
+  public:
+    EggSyntaxNode_Typedef(const EggSyntaxNodeLocation& location, const egg::ovum::String& name)
+      : EggSyntaxNodeChildrenV(location), name(name) {
+    }
+    virtual EggTokenizerKeyword keyword() const override;
+    virtual void dump(std::ostream& os) const override;
+    virtual std::shared_ptr<IEggProgramNode> promote(IEggParserContext& context) const override;
+  };
+
+  class EggSyntaxNode_TypeConstraint : public EggSyntaxNodeBase {
+    EGG_NO_COPY(EggSyntaxNode_TypeConstraint)
+  private:
+    egg::ovum::Type type;
+  public:
+    EggSyntaxNode_TypeConstraint(const EggSyntaxNodeLocation& location, const egg::ovum::IType* type)
+      : EggSyntaxNodeBase(location), type(type) {
+    }
+    virtual void dump(std::ostream& os) const override;
+    virtual egg::ovum::String token() const override;
     virtual std::shared_ptr<IEggProgramNode> promote(IEggParserContext& context) const override;
   };
 

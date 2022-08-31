@@ -401,6 +401,17 @@ TEST(TestEggSyntaxParser, StatementTry) {
   ASSERT_PARSE_BAD(parseStatementToString("try {} finally {} finally"), "(1, 19): Unexpected second 'finally' clause in 'try' statement");
 }
 
+TEST(TestEggSyntaxParser, StatementType) {
+  // Good
+  ASSERT_PARSE_GOOD(parseStatementToString("type T {}"), "(typedef 'T')");
+  ASSERT_PARSE_GOOD(parseStatementToString("type T { int a; }"), "(typedef 'T' (declare 'a' (type 'int')))");
+  // Bad
+  ASSERT_PARSE_BAD(parseStatementToString("type T"), "(1, 7): Expected '{' or ':' after type name in 'type' definition, not end-of-file");
+  ASSERT_PARSE_BAD(parseStatementToString("type T U"), "(1, 8): Expected '{' or ':' after type name in 'type' definition, not identifier: 'U'");
+  ASSERT_PARSE_BAD(parseStatementToString("type T { ; }"), "(1, 10): Malformed type definition clause in definition of type 'T'");
+  ASSERT_PARSE_BAD(parseStatementToString("type T {"), "(1, 9): Malformed type definition clause in definition of type 'T'");
+}
+
 TEST(TestEggSyntaxParser, StatementWhile) {
   // Good
   ASSERT_PARSE_GOOD(parseStatementToString("while (a) {}"), "(while (identifier 'a') (block))");

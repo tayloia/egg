@@ -123,6 +123,9 @@ namespace egg::yolk {
     EggTokenizerValue value;
     bool contiguous;
 
+    bool isIdentifier(const char* identifier = nullptr) const {
+      return (this->kind == EggTokenizerKind::Identifier) && ((identifier == nullptr) || this->value.s.equals(identifier));
+    }
     bool isKeyword(EggTokenizerKeyword keyword) const {
       return (this->kind == EggTokenizerKind::Keyword) && (this->value.k == keyword);
     }

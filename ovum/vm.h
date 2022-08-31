@@ -102,7 +102,7 @@
   X(THROW, 114, 0, 1, "throw") \
   X(TRUE, 84, 0, 0, "true") \
   X(TRY, 116, 2, N, "try") \
-  X(TVALUE, 24, 0, N, "tvalue") \
+  X(TYPEDEF, 19, 1, N, "typedef") \
   X(UNARY, 1, 1, 1, "unary") \
   X(UNION, 205, 1, N, "union") \
   X(VARARGS, 134, 2, N, "varargs") \

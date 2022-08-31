@@ -460,6 +460,13 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareTry(IEggProg
   return falls ? EggProgramNodeFlags::Fallthrough : EggProgramNodeFlags::None;
 }
 
+egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareTypedef(const egg::ovum::LocationSource& where, const egg::ovum::String& name, const std::vector<std::shared_ptr<IEggProgramNode>>& constraints, const std::vector<std::shared_ptr<IEggProgramNode>>& definitions) {
+  // TODO
+  (void)constraints; // WIBBLE
+  (void)definitions; // WIBBLE
+  return this->compilerError(where, "WIBBLE: Unimplemented 'type' statement for ", name);
+}
+
 egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareWhile(IEggProgramNode& cond, IEggProgramNode& block) {
   // TODO
   return this->prepareScope(&cond, [&](EggProgramContext& scope) {
