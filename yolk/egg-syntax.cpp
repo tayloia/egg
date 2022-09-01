@@ -676,13 +676,16 @@ namespace {
     EggSyntaxParserContext(egg::ovum::ITypeFactory& factory, IEggTokenizer& tokenizer)
       : factory(factory), backtrack(tokenizer) {
     }
+    EGG_NORETURN void exception(const std::string& message, const ExceptionLocation& location, const std::string& token = std::string()) {
+      throw SyntaxException(message, this->backtrack.resource().toUTF8(), location, token);
+    }
     EGG_NORETURN void unexpected(const std::string& message) {
       auto& item = this->backtrack.peek(0);
-      throw SyntaxException(message, this->backtrack.resource().toUTF8(), item);
+      this->exception(message, item);
     }
     EGG_NORETURN void unexpected(const std::string& expected, const EggTokenizerItem& item) {
       auto token = item.toString();
-      throw SyntaxException(expected + ", not " + token, this->backtrack.resource().toUTF8(), item, token);
+      this->exception(expected + ", not " + token, item, token);
     }
     void parseEndOfFile(const char* expected);
     std::unique_ptr<IEggSyntaxNode> parseCompoundStatement();
@@ -740,6 +743,7 @@ namespace {
     bool parseTypePostfixExpression(egg::ovum::Type& type);
     egg::ovum::Type parseTypePostfixFunction(const egg::ovum::Type& rettype, const egg::ovum::String& fname, bool generator);
     bool parseTypePrimaryExpression(egg::ovum::Type& type);
+    egg::ovum::Modifiability parseTypeDefinitionModifiability(const std::string& what);
   };
 
   class EggSyntaxParserBase : public IEggSyntaxParser {
@@ -1937,6 +1941,35 @@ std::unique_ptr<IEggSyntaxNode> EggSyntaxParserContext::parseStatementTypeConstr
   this->unexpected("Expected type constraint expression after ':' in definition of type '" + tname.toUTF8() + "'", p0);
 }
 
+egg::ovum::Modifiability EggSyntaxParserContext::parseTypeDefinitionModifiability(const std::string& what) {
+  /*
+      literal-type-access ::= ';'
+                            | '{' (<literal-type-delegate-name> ';')+ '}'
+      literal-type-delegate-name ::= 'get' | 'set' | 'mut' | 'del'
+  */
+  EggSyntaxParserBacktrackMark mark(this->backtrack);
+  auto modifiability = egg::ovum::Modifiability::None;
+  do {
+    auto& p0 = mark.peek(0);
+    auto bit = identifierToModifiability(p0);
+    if (bit == egg::ovum::Modifiability::None) {
+      this->unexpected("Expected 'get', 'set', 'mut' or 'del' in access clause for " + what, p0);
+    }
+    auto& p1 = mark.peek(1);
+    if (!p1.isOperator(EggTokenizerOperator::Semicolon)) {
+      this->unexpected("Expected ';' after '" + p0.value.s.toUTF8() + "' in access clause for " + what, p1);
+    }
+    auto after = modifiability | bit;
+    if (after == modifiability) {
+      this->exception("Repeated '" + p0.value.s.toUTF8() + "' in access clause for " + what, p0);
+    }
+    modifiability = after;
+    mark.advance(2);
+  } while (!mark.peek(0).isOperator(EggTokenizerOperator::CurlyRight));
+  mark.accept(1);
+  return modifiability;
+}
+
 std::unique_ptr<IEggSyntaxNode> EggSyntaxParserContext::parseStatementTypeDefinition(const egg::ovum::String& tname) {
   /*
       <literal-type-entry> ::= <literal-type-iterate>
@@ -1987,7 +2020,7 @@ std::unique_ptr<IEggSyntaxNode> EggSyntaxParserContext::parseStatementTypeDefini
       auto& p2 = mark.peek(1);
       if (p2.isOperator(EggTokenizerOperator::Semicolon)) {
         if (isStatic) {
-          this->unexpected("Iterable type clauses cannot be marked 'static'");
+          this->exception("Iterable type clauses cannot be marked 'static'", p0);
         }
         // Found <type> '...' ';'
         mark.accept(2);
@@ -2073,37 +2106,26 @@ std::unique_ptr<IEggSyntaxNode> EggSyntaxParserContext::parseStatementTypeDefini
       if (p2.isOperator(EggTokenizerOperator::CurlyLeft)) {
         // Presumably <type> <identifier> '{' (<get-set-mut-del> ';')+ '}'
         mark.advance(2);
-        auto modifiability = egg::ovum::Modifiability::None;
-        do {
-          auto& pp0 = mark.peek(0);
-          auto bit = identifierToModifiability(pp0);
-          if (bit == egg::ovum::Modifiability::None) {
-            this->unexpected("Expected 'get', 'set', 'mut' or 'del' in access clause for '" + p1.value.s.toUTF8() + "' within definition of type '" + tname.toUTF8() + "'", pp0);
-          }
-          auto& pp1 = mark.peek(1);
-          if (!pp1.isOperator(EggTokenizerOperator::Semicolon)) {
-            this->unexpected("Expected ';' after '" + pp0.value.s.toUTF8() + "' in access clause for '" + p1.value.s.toUTF8() + "' within definition of type '" + tname.toUTF8() + "'", pp1);
-          }
-          auto after = modifiability | bit;
-          if (after == modifiability) {
-            this->unexpected("Repeated '" + pp0.value.s.toUTF8() + "' in access clause for '" + p1.value.s.toUTF8() + "' within definition of type '" + tname.toUTF8() + "'", pp1);
-          }
-          modifiability = after;
-          mark.advance(2);
-        } while (!mark.peek(0).isOperator(EggTokenizerOperator::CurlyRight));
-        mark.accept(1);
         auto tnode = std::make_unique<EggSyntaxNode_Type>(location1, type.get());
+        auto modifiability = this->parseTypeDefinitionModifiability("'" + p1.value.s.toUTF8() + "' within definition of type '" + tname.toUTF8() + "'");
+        mark.accept(0);
         return std::make_unique<EggSyntaxNode_Member>(location1, p1.value.s, std::move(tnode), modifiability);
       }
     }
-    if (p1.isOperator(EggTokenizerOperator::Semicolon)) {
+    bool semicolon = p1.isOperator(EggTokenizerOperator::Semicolon);
+    if (semicolon || p1.isOperator(EggTokenizerOperator::CurlyLeft)) {
       // <type> '[' <type> ']' ';'
       // <type> '[' ']' ';'
       // <type> '(' <parameters> ')' ';'
+      // <type> '[' <type> ']' '{' (<get-set-mut-del> ';')+ '}'
+      // <type> '[' ']' '{' (<get-set-mut-del> ';')+ '}'
       auto* callable = type.queryCallable();
       if (callable != nullptr) {
         if (isStatic) {
-          this->unexpected("Callable type clauses cannot be marked 'static'");
+          this->exception("Callable type clauses cannot be marked 'static'", p0);
+        }
+        if (!semicolon) {
+          this->unexpected("Expected ';' after indexable type clause", p1);
         }
         mark.accept(1);
         return std::make_unique<EggSyntaxNode_Callable>(location0, *type);
@@ -2111,7 +2133,7 @@ std::unique_ptr<IEggSyntaxNode> EggSyntaxParserContext::parseStatementTypeDefini
       auto* indexable = type.queryIndexable();
       if (indexable != nullptr) {
         if (isStatic) {
-          this->unexpected("Indexable type clauses cannot be marked 'static'");
+          this->exception("Indexable type clauses cannot be marked 'static'", p0);
         }
         mark.accept(1);
         auto rtype = indexable->getResultType();
@@ -2123,7 +2145,14 @@ std::unique_ptr<IEggSyntaxNode> EggSyntaxParserContext::parseStatementTypeDefini
         } else {
           inode = std::make_unique<EggSyntaxNode_Type>(location1, itype.get());
         }
-        return std::make_unique<EggSyntaxNode_Indexable>(location0, std::move(rnode), std::move(inode), indexable->getModifiability());
+        egg::ovum::Modifiability modifiability;
+        if (semicolon) {
+          modifiability = indexable->getModifiability();
+        } else {
+          modifiability = this->parseTypeDefinitionModifiability("indexable within definition of type '" + tname.toUTF8() + "'");
+        }
+        mark.accept(0);
+        return std::make_unique<EggSyntaxNode_Indexable>(location0, std::move(rnode), std::move(inode), modifiability);
       }
     }
   }
