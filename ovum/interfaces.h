@@ -285,6 +285,8 @@ namespace egg::ovum {
     virtual IAllocator& getAllocator() const = 0;
     virtual Type createSimple(ValueFlags flags) = 0;
     virtual Type createPointer(const Type& pointee, Modifiability modifiability) = 0;
+    virtual Type createArray(const Type& result, Modifiability modifiability) = 0;
+    virtual Type createMap(const Type& result, const Type& index, Modifiability modifiability) = 0;
     virtual Type createUnion(const std::vector<Type>& types) = 0;
     virtual Type addVoid(const Type& type) = 0;
     virtual Type addNull(const Type& type) = 0;

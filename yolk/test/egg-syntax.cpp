@@ -422,7 +422,25 @@ TEST(TestEggSyntaxParser, StatementType) {
   ASSERT_PARSE_BAD(parseStatementToString("type T {"), "(1, 9): Malformed type definition clause within definition of type 'T'");
   ASSERT_PARSE_BAD(parseStatementToString("type T { int... g() {} }"), "(1, 21): Expected ';' after generator declaration within definition of type 'T', not operator: '{'");
   ASSERT_PARSE_BAD(parseStatementToString("type T { int... g = 0; }"), "(1, 19): Expected '(' after generator name 'g' within definition of type 'T', not operator: '='");
-  ASSERT_PARSE_BAD(parseStatementToString("type T { int... {} }"), "(1, 13): Malformed generator declaration within definition of type 'T'");
+}
+
+TEST(TestEggSyntaxParser, StatementTypeIterable) {
+  // Good
+  ASSERT_PARSE_GOOD(parseStatementToString("type T { string...; }"), "(typedef 'T' (iterable (type 'string')))");
+  // Bad
+  ASSERT_PARSE_BAD(parseStatementToString("type T { string... {} }"), "(1, 20): Expected generator name or ';' within definition of type 'T', not operator: '{'");
+  ASSERT_PARSE_BAD(parseStatementToString("type T { static string...; }"), "(1, 23): Iterable type clauses cannot be marked 'static'");
+}
+
+TEST(TestEggSyntaxParser, StatementTypeIndexable) {
+  // Good
+  ASSERT_PARSE_GOOD(parseStatementToString("type T { string[]; }"), "(typedef 'T' (indexable (type 'string') read write mutate))");
+  ASSERT_PARSE_GOOD(parseStatementToString("type T { int[string]; }"), "(typedef 'T' (indexable (type 'int') (type 'string') read write mutate))");
+  // Bad
+  ASSERT_PARSE_BAD(parseStatementToString("type T { string[]... {} }"), "(1, 22): Expected generator name or ';' within definition of type 'T', not operator: '{'");
+  ASSERT_PARSE_BAD(parseStatementToString("type T { static string...; }"), "(1, 23): Iterable type clauses cannot be marked 'static'");
+  ASSERT_PARSE_BAD(parseStatementToString("type T { string[10]; }"), "(1, 17): Expected index type after '['");
+  ASSERT_PARSE_BAD(parseStatementToString("type T { string[int 10]; }"), "(1, 21): Expected ']' after index type");
 }
 
 TEST(TestEggSyntaxParser, StatementTypeStatic) {
@@ -438,7 +456,6 @@ TEST(TestEggSyntaxParser, StatementTypeStatic) {
   // Bad
   ASSERT_PARSE_BAD(parseStatementToString("type T { static }"), "(1, 17): Malformed type definition clause within definition of type 'T'");
   ASSERT_PARSE_BAD(parseStatementToString("type T { static int i; }"), "(1, 22): Expected '=' or '(' after 'static' identifier 'i' within definition of type 'T', not operator: ';'");
-  ASSERT_PARSE_BAD(parseStatementToString("type T { static int...; }"), "(1, 20): Iterable type clauses cannot be marked 'static'");
   ASSERT_PARSE_BAD(parseStatementToString("type T { static int...(); }"), "(1, 20): Malformed 'static' generator definition within definition of type 'T'");
   ASSERT_PARSE_BAD(parseStatementToString("type T { static int... g{} }"), "(1, 25): Expected '(' after 'static' generator name 'g' within definition of type 'T', not operator: '{'");
   ASSERT_PARSE_BAD(parseStatementToString("type T { static int... g(); }"), "(1, 27): Expected '{' after parameters in function definition, not operator: ';'");

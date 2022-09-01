@@ -64,6 +64,9 @@ namespace {
     }
     void add() {
     }
+    void add(const char* text) {
+      this->os << ' ' << text;
+    }
     void add(const std::string& text) {
       this->os << ' ' << '\'' << text << '\'';
     }
@@ -72,6 +75,20 @@ namespace {
     }
     void add(EggTokenizerOperator op) {
       this->os << ' ' << '\'' << EggTokenizerValue::getOperatorString(op) << '\'';
+    }
+    void add(egg::ovum::Modifiability modifiability) {
+      if (egg::ovum::Bits::hasAnySet(modifiability, egg::ovum::Modifiability::Read)) {
+        this->os << " read";
+      }
+      if (egg::ovum::Bits::hasAnySet(modifiability, egg::ovum::Modifiability::Write)) {
+        this->os << " write";
+      }
+      if (egg::ovum::Bits::hasAnySet(modifiability, egg::ovum::Modifiability::Mutate)) {
+        this->os << " mutate";
+      }
+      if (egg::ovum::Bits::hasAnySet(modifiability, egg::ovum::Modifiability::Delete)) {
+        this->os << " delete";
+      }
     }
     void add(const std::unique_ptr<IEggSyntaxNode>& child) {
       this->os << ' ';
@@ -123,6 +140,14 @@ void egg::yolk::EggSyntaxNode_Declare::dump(std::ostream& os) const {
 
 void egg::yolk::EggSyntaxNode_Static::dump(std::ostream& os) const {
   ParserDump::dump(os, "static", this->child);
+}
+
+void egg::yolk::EggSyntaxNode_Indexable::dump(std::ostream& os) const {
+  if (this->child[1]->keyword() == EggTokenizerKeyword::Default) {
+    ParserDump::dump(os, "indexable", this->child[0], this->modifiability);
+  } else {
+    ParserDump::dump(os, "indexable", this->child, this->modifiability);
+  }
 }
 
 void egg::yolk::EggSyntaxNode_Iterable::dump(std::ostream& os) const {
@@ -379,10 +404,6 @@ egg::ovum::String egg::yolk::EggSyntaxNode_Type::token() const {
 
 egg::ovum::String egg::yolk::EggSyntaxNode_Declare::token() const {
   return this->name;
-}
-
-egg::ovum::String egg::yolk::EggSyntaxNode_Iterable::token() const {
-  return egg::ovum::String();
 }
 
 egg::ovum::String egg::yolk::EggSyntaxNode_Guard::token() const {
@@ -1967,7 +1988,7 @@ std::unique_ptr<IEggSyntaxNode> EggSyntaxParserContext::parseStatementTypeDefini
       if (isStatic) {
         this->unexpected("Malformed 'static' generator definition within definition of type '" + tname.toUTF8() + "'");
       }
-      this->unexpected("Malformed generator declaration within definition of type '" + tname.toUTF8() + "'");
+      this->unexpected("Expected generator name or ';' within definition of type '" + tname.toUTF8() + "'", p2);
     }
     if (p1.isIdentifier()) {
       auto& iname = p1.value.s;
@@ -2010,6 +2031,24 @@ std::unique_ptr<IEggSyntaxNode> EggSyntaxParserContext::parseStatementTypeDefini
         mark.accept(1);
         auto tnode = std::make_unique<EggSyntaxNode_Type>(location1, type.get());
         return std::make_unique<EggSyntaxNode_Declare>(location1, p1.value.s, std::move(tnode));
+      }
+    }
+    if (p1.isOperator(EggTokenizerOperator::Semicolon)) {
+      // <type> '[' <type> ']' ';'
+      // <type> '[' ']' ';'
+      auto* indexable = type.queryIndexable();
+      if (indexable != nullptr) {
+        mark.accept(1);
+        auto rtype = indexable->getResultType();
+        auto rnode = std::make_unique<EggSyntaxNode_Type>(location1, rtype.get());
+        auto itype = indexable->getIndexType();
+        std::unique_ptr<IEggSyntaxNode> inode;
+        if (itype == nullptr) {
+          inode = std::make_unique<EggSyntaxNode_Default>(location1);
+        } else {
+          inode = std::make_unique<EggSyntaxNode_Type>(location1, itype.get());
+        }
+        return std::make_unique<EggSyntaxNode_Indexable>(location0, std::move(rnode), std::move(inode), indexable->getModifiability());
       }
     }
   }
@@ -2170,6 +2209,7 @@ bool EggSyntaxParserContext::parseTypePostfixExpression(egg::ovum::Type& type) {
   */
   // TODO arrays, maps, etc.
   if (this->parseTypePrimaryExpression(type)) {
+    auto modifiability = egg::ovum::Modifiability::Read | egg::ovum::Modifiability::Write | egg::ovum::Modifiability::Mutate;
     auto nullabled = false;
     EggSyntaxParserBacktrackMark mark(this->backtrack);
     for (;;) {
@@ -2188,8 +2228,27 @@ bool EggSyntaxParserContext::parseTypePostfixExpression(egg::ovum::Type& type) {
       if (p0.isOperator(EggTokenizerOperator::Star)) {
         // Pointer reference to 'type'
         mark.advance(1);
-        auto modifiability = egg::ovum::Modifiability::Read | egg::ovum::Modifiability::Write | egg::ovum::Modifiability::Mutate;
         type = this->factory.createPointer(type, modifiability);
+        continue;
+      }
+      if (p0.isOperator(EggTokenizerOperator::BracketLeft)) {
+        // An array or map like 'type[]' or 'type[type]'
+        if (mark.peek(1).isOperator(EggTokenizerOperator::BracketRight)) {
+          // Array like 'type[]'
+          mark.advance(2);
+          type = this->factory.createArray(type, modifiability);
+        } else {
+          mark.advance(1);
+          egg::ovum::Type index{ egg::ovum::Type::Void };
+          if (!this->parseTypeExpression(index)) {
+            this->unexpected("Expected index type after '['");
+          }
+          if (!mark.peek(0).isOperator(EggTokenizerOperator::BracketRight)) {
+            this->unexpected("Expected ']' after index type");
+          }
+          mark.advance(1);
+          type = this->factory.createMap(type, index, modifiability);
+        }
         continue;
       }
       if (p0.isOperator(EggTokenizerOperator::ParenthesisLeft)) {

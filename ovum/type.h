@@ -309,6 +309,8 @@ namespace egg::ovum {
 
     virtual Type createSimple(ValueFlags flags) override;
     virtual Type createPointer(const Type& pointee, Modifiability modifiability) override;
+    virtual Type createArray(const Type& result, Modifiability modifiability) override;
+    virtual Type createMap(const Type& result, const Type& index, Modifiability modifiability) override;
     virtual Type createUnion(const std::vector<Type>& types) override;
 
     virtual Type addVoid(const Type& type) override;

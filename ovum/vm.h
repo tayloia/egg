@@ -54,6 +54,7 @@
   X(DECLARE, 92, 2, 3, "declare") \
   X(DECREMENT, 37, 1, 1, "decrement") \
   X(DEFAULT, 181, 1, N, "default") \
+  X(DEL, 204, 0, 0, "del") \
   X(DO, 44, 2, 2, "do") \
   X(ELLIPSIS, 43, 1, 1, "ellipsis") \
   X(END, 0, 0, 0, "end") \
@@ -66,12 +67,13 @@
   X(FUNCTION, 98, 2, 3, "function") \
   X(FVALUE, 12, 0, 0, "fvalue") \
   X(GENERATOR, 105, 3, 3, "generator") \
+  X(GET, 186, 0, 0, "get") \
   X(GUARD, 45, 3, 3, "guard") \
   X(IDENTIFIER, 49, 1, 1, "identifier") \
   X(IF, 110, 2, 3, "if") \
   X(INCREMENT, 55, 1, 1, "increment") \
   X(INDEX, 50, 2, 2, "index") \
-  X(INDEXABLE, 40, 4, 4, "indexable") \
+  X(INDEXABLE, 86, 2, N, "indexable") \
   X(INFERRED, 66, 0, 0, "inferred") \
   X(INT, 222, 0, N, "int") \
   X(ITERABLE, 61, 1, 1, "iterable") \
@@ -80,6 +82,7 @@
   X(LENGTH, 199, 1, N, "length") \
   X(META, 7, 1, 1, "meta") \
   X(MODULE, 253, 1, 3, "module") \
+  X(MUT, 198, 0, 0, "mut") \
   X(MUTATE, 14, 2, 2, "mutate") \
   X(NAMED, 62, 2, 2, "named") \
   X(NOOP, 72, 0, 0, "noop") \
@@ -95,6 +98,7 @@
   X(PROPERTYQ, 74, 2, 2, "propertyq") \
   X(REQUIRED, 145, 1, 2, "required") \
   X(RETURN, 108, 0, 1, "return") \
+  X(SET, 192, 0, 0, "set") \
   X(STATIC, 91, 1, 1, "static") \
   X(STRING, 240, 0, N, "string") \
   X(SVALUE, 18, 0, 0, "svalue") \

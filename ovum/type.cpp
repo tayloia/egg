@@ -165,6 +165,57 @@ namespace {
     }
   };
 
+  class TypeIndexable final : public HardReferenceCounted<IType>, IIndexSignature {
+    TypeIndexable(const TypeIndexable&) = delete;
+    TypeIndexable& operator=(const TypeIndexable&) = delete;
+  private:
+    Type result;
+    Type index;
+    Modifiability modifiability;
+    ObjectShape shape;
+  public:
+    TypeIndexable(IAllocator& allocator, const Type& result, const Type& index, Modifiability modifiability)
+      : HardReferenceCounted(allocator, 0),
+        result(result),
+        index(index),
+        modifiability(modifiability),
+        shape{} {
+      assert(this->result != nullptr);
+      this->shape.indexable = this;
+    }
+    virtual ValueFlags getPrimitiveFlags() const override {
+      return ValueFlags::None;
+    }
+    virtual const ObjectShape* getObjectShape(size_t idx) const override {
+      return (idx == 0) ? &this->shape : nullptr;
+    }
+    virtual size_t getObjectShapeCount() const override {
+      return 1;
+    }
+    virtual std::pair<std::string, int> toStringPrecedence() const override {
+      return complexToStringPrecedence(ValueFlags::None, *this);
+    }
+    virtual String describeValue() const override {
+      // TODO i18n
+      if (this->index == nullptr) {
+        return StringBuilder::concat("Array of type '", this->toStringPrecedence().first, "'");
+      }
+      return StringBuilder::concat("Map of type '", this->toStringPrecedence().first, "'");
+    }
+    virtual Type getResultType() const override {
+      // IIndexSignature
+      return this->result;
+    }
+    virtual Type getIndexType() const override {
+      // IIndexSignature
+      return this->index;
+    }
+    virtual Modifiability getModifiability() const override {
+      // IIndexSignature
+      return this->modifiability;
+    }
+  };
+
   class TypePointer final : public HardReferenceCounted<IType>, IPointerSignature {
     TypePointer(const TypePointer&) = delete;
     TypePointer& operator=(const TypePointer&) = delete;
@@ -175,9 +226,9 @@ namespace {
   public:
     TypePointer(IAllocator& allocator, const Type& pointee, Modifiability modifiability)
       : HardReferenceCounted(allocator, 0),
-        pointee(pointee),
-        modifiability(modifiability),
-        shape{} {
+      pointee(pointee),
+      modifiability(modifiability),
+      shape{} {
       assert(this->pointee != nullptr);
       this->shape.pointable = this;
     }
@@ -788,6 +839,19 @@ Type TypeFactory::createPointer(const Type& pointee, Modifiability modifiability
     return created;
   }
   return emplaced.first->second;
+}
+
+Type TypeFactory::createArray(const Type& result, Modifiability modifiability) {
+  // WIBBLE thread-safe cache
+  assert(result != nullptr);
+  return this->allocator.makeHard<TypeIndexable, Type>(result, nullptr, modifiability);
+}
+
+Type TypeFactory::createMap(const Type& result, const Type& index, Modifiability modifiability) {
+  // WIBBLE thread-safe cache
+  assert(result != nullptr);
+  assert(index != nullptr);
+  return this->allocator.makeHard<TypeIndexable, Type>(result, index, modifiability);
 }
 
 Type TypeFactory::createUnion(const std::vector<Type>& types) {
