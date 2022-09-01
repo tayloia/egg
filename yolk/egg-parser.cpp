@@ -303,6 +303,47 @@ namespace {
     }
   };
 
+  class EggParserNode_Member : public EggParserNodeBase {
+  private:
+    egg::ovum::String name;
+    egg::ovum::Type type;
+    egg::ovum::Modifiability modifiability;
+  public:
+    EggParserNode_Member(egg::ovum::ITypeFactory&, const egg::ovum::LocationSource& locationSource, const egg::ovum::String& name, const egg::ovum::Type& type, egg::ovum::Modifiability modifiability)
+      : EggParserNodeBase(locationSource), name(name), type(type), modifiability(modifiability) {
+      assert(this->type != nullptr);
+    }
+    virtual bool symbol(egg::ovum::String& nameOut, egg::ovum::Type& typeOut) const override {
+      // The symbol is obviously the variable being declared
+      nameOut = this->name;
+      typeOut = this->type;
+      return true;
+    }
+    virtual EggProgramNodeFlags prepare(EggProgramContext& context) override {
+      return context.prepareMember(this->locationSource, this->name, this->type, this->modifiability);
+    }
+    virtual void dump(std::ostream& os) const override {
+      ParserDump dump(os, "member");
+      dump.add(this->name).add(this->type.toString());
+      if (egg::ovum::Bits::hasAnySet(this->modifiability, egg::ovum::Modifiability::Read)) {
+        os << " get";
+      }
+      if (egg::ovum::Bits::hasAnySet(this->modifiability, egg::ovum::Modifiability::Write)) {
+        os << " set";
+      }
+      if (egg::ovum::Bits::hasAnySet(this->modifiability, egg::ovum::Modifiability::Mutate)) {
+        os << " mut";
+      }
+      if (egg::ovum::Bits::hasAnySet(this->modifiability, egg::ovum::Modifiability::Delete)) {
+        os << " del";
+      }
+    }
+    virtual egg::ovum::Node compile(EggProgramCompiler& compiler) const override {
+      // WIBBLE egg::ovum::Opcode::MEMBER
+      return compiler.statement(this->locationSource, egg::ovum::Opcode::DECLARE, compiler.type(this->locationSource, this->type), compiler.identifier(this->locationSource, this->name));
+    }
+  };
+
   class EggParserNode_Static : public EggParserNodeBase {
   private:
     std::shared_ptr<IEggProgramNode> child;
@@ -1462,6 +1503,11 @@ std::shared_ptr<egg::yolk::IEggProgramNode> egg::yolk::EggSyntaxNode_Declare::pr
   }
   assert(this->child.size() == 2);
   return makeParserNode<EggParserNode_Declare>(context, *this, this->name, type, context.promote(*this->child[1]));
+}
+
+std::shared_ptr<egg::yolk::IEggProgramNode> egg::yolk::EggSyntaxNode_Member::promote(egg::yolk::IEggParserContext& context) const {
+  auto type = context.promote(*this->child)->getType();
+  return makeParserNode<EggParserNode_Member>(context, *this, this->name, type, this->modifiability);
 }
 
 std::shared_ptr<egg::yolk::IEggProgramNode> egg::yolk::EggSyntaxNode_Static::promote(egg::yolk::IEggParserContext& context) const {

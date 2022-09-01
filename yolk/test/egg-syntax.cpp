@@ -406,13 +406,13 @@ TEST(TestEggSyntaxParser, StatementType) {
   ASSERT_PARSE_GOOD(parseStatementToString("type T {}"),
                                            "(typedef 'T')");
   ASSERT_PARSE_GOOD(parseStatementToString("type T { int a; }"),
-                                           "(typedef 'T' (declare 'a' (type 'int')))");
+                                           "(typedef 'T' (member 'a' (type 'int')))");
   ASSERT_PARSE_GOOD(parseStatementToString("type T { int a; string b; }"),
-                                           "(typedef 'T' (declare 'a' (type 'int')) (declare 'b' (type 'string')))");
+                                           "(typedef 'T' (member 'a' (type 'int')) (member 'b' (type 'string')))");
   ASSERT_PARSE_GOOD(parseStatementToString("type T { int a; string b; int c(); }"),
-                                           "(typedef 'T' (declare 'a' (type 'int')) (declare 'b' (type 'string')) (declare 'c' (type 'int()')))");
+                                           "(typedef 'T' (member 'a' (type 'int')) (member 'b' (type 'string')) (member 'c' (type 'int()')))");
   ASSERT_PARSE_GOOD(parseStatementToString("type T { string... g(int|float x, bool y = null); }"),
-                                           "(typedef 'T' (declare 'g' (type 'string...(int|float,bool=null)')))");
+                                           "(typedef 'T' (member 'g' (type 'string...(int|float,bool=null)')))");
   ASSERT_PARSE_GOOD(parseStatementToString("type T { string...; }"),
                                            "(typedef 'T' (iterable (type 'string')))");
   // Bad
@@ -422,6 +422,17 @@ TEST(TestEggSyntaxParser, StatementType) {
   ASSERT_PARSE_BAD(parseStatementToString("type T {"), "(1, 9): Malformed type definition clause within definition of type 'T'");
   ASSERT_PARSE_BAD(parseStatementToString("type T { int... g() {} }"), "(1, 21): Expected ';' after generator declaration within definition of type 'T', not operator: '{'");
   ASSERT_PARSE_BAD(parseStatementToString("type T { int... g = 0; }"), "(1, 19): Expected '(' after generator name 'g' within definition of type 'T', not operator: '='");
+}
+
+TEST(TestEggSyntaxParser, StatementTypeAccess) {
+  // Good
+  ASSERT_PARSE_GOOD(parseStatementToString("type T { int r { get; } float w { set; } string rw { get; set; } }"),
+                                           "(typedef 'T' (member 'r' (type 'int') read) (member 'w' (type 'float') write) (member 'rw' (type 'string') read write))");
+  // Bad
+  ASSERT_PARSE_BAD(parseStatementToString("type T { int x {} }"), "(1, 17): Expected 'get', 'set', 'mut' or 'del' in access clause for 'x' within definition of type 'T', not operator: '}'");
+  ASSERT_PARSE_BAD(parseStatementToString("type T { int x { get } }"), "(1, 22): Expected ';' after 'get' in access clause for 'x' within definition of type 'T', not operator: '}'");
+  ASSERT_PARSE_BAD(parseStatementToString("type T { int x { bad; } }"), "(1, 18): Expected 'get', 'set', 'mut' or 'del' in access clause for 'x' within definition of type 'T', not identifier: 'bad'");
+  ASSERT_PARSE_BAD(parseStatementToString("type T { int x { mut; mut; } }"), "(1, 26): Repeated 'mut' in access clause for 'x' within definition of type 'T', not operator: ';'");
 }
 
 TEST(TestEggSyntaxParser, StatementTypeCallable) {

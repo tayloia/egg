@@ -185,6 +185,7 @@ namespace egg::yolk {
     EggProgramNodeFlags prepareModule(const std::vector<std::shared_ptr<IEggProgramNode>>& statements);
     EggProgramNodeFlags prepareBlock(const std::vector<std::shared_ptr<IEggProgramNode>>& statements);
     EggProgramNodeFlags prepareDeclare(const egg::ovum::LocationSource& where, const egg::ovum::String& name, egg::ovum::Type& ltype, IEggProgramNode* rvalue);
+    EggProgramNodeFlags prepareMember(const egg::ovum::LocationSource& where, const egg::ovum::String& name, egg::ovum::Type& type, egg::ovum::Modifiability modifiability);
     EggProgramNodeFlags prepareStatic(const egg::ovum::LocationSource& where, IEggProgramNode& child);
     EggProgramNodeFlags prepareIterable(const egg::ovum::LocationSource& where, egg::ovum::Type& itype);
     EggProgramNodeFlags prepareGuard(const egg::ovum::LocationSource& where, const egg::ovum::String& name, egg::ovum::Type& ltype, IEggProgramNode& rvalue);

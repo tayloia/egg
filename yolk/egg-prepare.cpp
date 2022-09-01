@@ -122,6 +122,10 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareDeclare(cons
   return EggProgramNodeFlags::Fallthrough;
 }
 
+egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareMember(const egg::ovum::LocationSource& where, const egg::ovum::String& name, egg::ovum::Type&, egg::ovum::Modifiability) {
+  return this->compilerError(where, "WIBBLE: prepareMember not implemented for '", name, "'");
+}
+
 egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareStatic(const egg::ovum::LocationSource&, IEggProgramNode& child) {
   return child.prepare(*this);
 }
