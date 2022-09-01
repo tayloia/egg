@@ -1468,6 +1468,10 @@ std::shared_ptr<egg::yolk::IEggProgramNode> egg::yolk::EggSyntaxNode_Static::pro
   return makeParserNode<EggParserNode_Static>(context, *this, context.promote(*this->child));
 }
 
+std::shared_ptr<egg::yolk::IEggProgramNode> egg::yolk::EggSyntaxNode_Callable::promote(egg::yolk::IEggParserContext& context) const {
+  throw exceptionFromLocation(context, "The 'callable' clause not yet supported", *this);
+}
+
 std::shared_ptr<egg::yolk::IEggProgramNode> egg::yolk::EggSyntaxNode_Indexable::promote(egg::yolk::IEggParserContext& context) const {
   throw exceptionFromLocation(context, "The 'indexable' clause not yet supported", *this);
 }

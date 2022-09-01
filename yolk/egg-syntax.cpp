@@ -150,6 +150,10 @@ void egg::yolk::EggSyntaxNode_Indexable::dump(std::ostream& os) const {
   }
 }
 
+void egg::yolk::EggSyntaxNode_Callable::dump(std::ostream& os) const {
+  ParserDump::dump(os, "callable", this->callable.toString());
+}
+
 void egg::yolk::EggSyntaxNode_Iterable::dump(std::ostream& os) const {
   ParserDump::dump(os, "iterable", this->child);
 }
@@ -1986,7 +1990,7 @@ std::unique_ptr<IEggSyntaxNode> EggSyntaxParserContext::parseStatementTypeDefini
         this->unexpected("Expected '(' after generator name '" + fname.toUTF8() + "' within definition of type '" + tname.toUTF8() + "'", p3);
       }
       if (isStatic) {
-        this->unexpected("Malformed 'static' generator definition within definition of type '" + tname.toUTF8() + "'");
+        this->unexpected("Expected 'static' generator name within definition of type '" + tname.toUTF8() + "'", p2);
       }
       this->unexpected("Expected generator name or ';' within definition of type '" + tname.toUTF8() + "'", p2);
     }
@@ -2036,8 +2040,20 @@ std::unique_ptr<IEggSyntaxNode> EggSyntaxParserContext::parseStatementTypeDefini
     if (p1.isOperator(EggTokenizerOperator::Semicolon)) {
       // <type> '[' <type> ']' ';'
       // <type> '[' ']' ';'
+      // <type> '(' <parameters> ')' ';'
+      auto* callable = type.queryCallable();
+      if (callable != nullptr) {
+        if (isStatic) {
+          this->unexpected("Callable type clauses cannot be marked 'static'");
+        }
+        mark.accept(1);
+        return std::make_unique<EggSyntaxNode_Callable>(location0, *type);
+      }
       auto* indexable = type.queryIndexable();
       if (indexable != nullptr) {
+        if (isStatic) {
+          this->unexpected("Indexable type clauses cannot be marked 'static'");
+        }
         mark.accept(1);
         auto rtype = indexable->getResultType();
         auto rnode = std::make_unique<EggSyntaxNode_Type>(location1, rtype.get());
