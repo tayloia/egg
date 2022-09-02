@@ -195,7 +195,7 @@ namespace {
     virtual void empredicate(EggProgramContext&, std::shared_ptr<IEggProgramNode>&) override {
       // By default, nodes do not change when they're used as predicates in function call parameters
     }
-    virtual bool symbol(egg::ovum::String&, egg::ovum::Type&) const override {
+    virtual bool symbol(EggProgramSymbol&) const override {
       // By default, nodes do not declare symbols
       return false;
     }
@@ -281,10 +281,10 @@ namespace {
     EggParserNode_Declare(egg::ovum::ITypeFactory&, const egg::ovum::LocationSource& locationSource, const egg::ovum::String& name, const egg::ovum::Type& type, const std::shared_ptr<IEggProgramNode>& init = nullptr)
       : EggParserNodeBase(locationSource), name(name), type(type), init(init) {
     }
-    virtual bool symbol(egg::ovum::String& nameOut, egg::ovum::Type& typeOut) const override {
-      // The symbol is obviously the variable being declared
-      nameOut = this->name;
-      typeOut = this->type;
+    virtual bool symbol(EggProgramSymbol& out) const override {
+      out.kind = EggProgramSymbol::Kind::ReadWrite;
+      out.name = this->name;
+      out.type = this->type;
       return true;
     }
     virtual EggProgramNodeFlags prepare(EggProgramContext& context) override {
@@ -313,14 +313,15 @@ namespace {
       : EggParserNodeBase(locationSource), name(name), type(type), modifiability(modifiability) {
       assert(this->type != nullptr);
     }
-    virtual bool symbol(egg::ovum::String& nameOut, egg::ovum::Type& typeOut) const override {
-      // The symbol is obviously the variable being declared
-      nameOut = this->name;
-      typeOut = this->type;
+    virtual bool symbol(EggProgramSymbol& out) const override {
+      auto readonly = !egg::ovum::Bits::hasAnySet(this->modifiability, egg::ovum::Modifiability::Write | egg::ovum::Modifiability::Mutate);
+      out.kind = readonly ? EggProgramSymbol::Kind::Readonly : EggProgramSymbol::Kind::ReadWrite;
+      out.name = this->name;
+      out.type = this->type;
       return true;
     }
     virtual EggProgramNodeFlags prepare(EggProgramContext& context) override {
-      return context.prepareMember(this->locationSource, this->name, this->type, this->modifiability);
+      return context.prepareMember(this->locationSource, this->name, *this->type, this->modifiability);
     }
     virtual void dump(std::ostream& os) const override {
       ParserDump dump(os, "member");
@@ -390,10 +391,10 @@ namespace {
     EggParserNode_Guard(egg::ovum::ITypeFactory&, const egg::ovum::LocationSource& locationSource, const egg::ovum::String& name, const egg::ovum::Type& type, const std::shared_ptr<IEggProgramNode>& expr)
       : EggParserNodeBase(locationSource), name(name), type(type), expr(expr) {
     }
-    virtual bool symbol(egg::ovum::String& nameOut, egg::ovum::Type& typeOut) const override {
-      // The symbol is obviously the variable being declared
-      nameOut = this->name;
-      typeOut = this->type;
+    virtual bool symbol(EggProgramSymbol& out) const override {
+      out.kind = EggProgramSymbol::Kind::ReadWrite;
+      out.name = this->name;
+      out.type = this->type;
       return true;
     }
     virtual EggProgramNodeFlags prepare(EggProgramContext& context) override {
@@ -588,10 +589,10 @@ namespace {
       assert(type != nullptr);
       assert(block != nullptr);
     }
-    virtual bool symbol(egg::ovum::String& nameOut, egg::ovum::Type& typeOut) const override {
-      // The symbol is obviously the identifier being defined
-      nameOut = this->name;
-      typeOut = this->type;
+    virtual bool symbol(EggProgramSymbol& out) const override {
+      out.kind = EggProgramSymbol::Kind::Readonly;
+      out.name = this->name;
+      out.type = this->type;
       return true;
     }
     virtual EggProgramNodeFlags prepare(EggProgramContext& context) override {
@@ -617,10 +618,11 @@ namespace {
     EggParserNode_FunctionParameter(egg::ovum::ITypeFactory&, const egg::ovum::LocationSource& locationSource, const egg::ovum::String& name, const egg::ovum::Type& type, bool optional)
       : EggParserNodeBase(locationSource), name(name), type(type), optional(optional) {
     }
-    virtual bool symbol(egg::ovum::String& nameOut, egg::ovum::Type& typeOut) const override {
+    virtual bool symbol(EggProgramSymbol& out) const override {
       // Beware: the return value is the optionality flag!
-      nameOut = this->name;
-      typeOut = this->type;
+      out.kind = EggProgramSymbol::Kind::ReadWrite;
+      out.name = this->name;
+      out.type = this->type;
       return this->optional;
     }
     virtual EggProgramNodeFlags prepare(EggProgramContext& context) override {
@@ -826,6 +828,12 @@ namespace {
     EggParserNode_Typedef(egg::ovum::ITypeFactory&, const egg::ovum::LocationSource& locationSource, const egg::ovum::String& name)
       : EggParserNodeBase(locationSource), name(name) {
     }
+    virtual bool symbol(EggProgramSymbol& out) const override {
+      out.kind = EggProgramSymbol::Kind::Type;
+      out.name = this->name;
+      out.type = nullptr; // WIBBLE
+      return true;
+    }
     virtual EggProgramNodeFlags prepare(EggProgramContext& context) override {
       return context.prepareTypedef(this->locationSource, this->name, this->constraints, this->definitions);
     }
@@ -895,10 +903,10 @@ namespace {
       : EggParserNodeBase(locationSource), name(name), expr(expr) {
       assert(expr != nullptr);
     }
-    virtual bool symbol(egg::ovum::String& nameOut, egg::ovum::Type& typeOut) const override {
-      // Use the symbol to extract the parameter name
-      nameOut = this->name;
-      typeOut = this->expr->getType();
+    virtual bool symbol(EggProgramSymbol& out) const override {
+      out.kind = EggProgramSymbol::Kind::ReadWrite;
+      out.name = this->name;
+      out.type = this->expr->getType();
       return true;
     }
     virtual EggProgramNodeFlags prepare(EggProgramContext& context) override {
@@ -1715,14 +1723,13 @@ std::shared_ptr<egg::yolk::IEggProgramNode> egg::yolk::EggSyntaxNode_FunctionDef
     builder = context.getTypeFactory().createFunctionBuilder(rettype, this->name, description);
   }
   assert(builder != nullptr);
-  egg::ovum::String parameter_name;
-  auto parameter_type{ egg::ovum::Type::Void };
+  EggProgramSymbol parameter_symbol;
   for (size_t i = 1; i <= parameters; ++i) {
     // We promote the parameter, extract the name/type/optional information and then discard it
     auto parameter = context.promote(*this->child[i]);
-    auto parameter_optional = parameter->symbol(parameter_name, parameter_type);
+    auto parameter_optional = parameter->symbol(parameter_symbol);
     auto parameter_flags = parameter_optional ? egg::ovum::IFunctionSignatureParameter::Flags::None : egg::ovum::IFunctionSignatureParameter::Flags::Required;
-    builder->addPositionalParameter(parameter_type, parameter_name, parameter_flags);
+    builder->addPositionalParameter(parameter_symbol.type, parameter_symbol.name, parameter_flags);
   }
   auto type = builder->build();
   auto allowed = this->generator ? (EggParserAllowed::Return | EggParserAllowed::Yield) : EggParserAllowed::Return;

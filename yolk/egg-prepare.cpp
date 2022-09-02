@@ -44,12 +44,11 @@ namespace {
 }
 
 egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareScope(const IEggProgramNode* node, std::function<EggProgramNodeFlags(EggProgramContext&)> action) {
-  egg::ovum::String name;
-  egg::ovum::Type type{ egg::ovum::Type::Void };
-  if ((node != nullptr) && node->symbol(name, type)) {
+  EggProgramSymbol symbol;
+  if ((node != nullptr) && node->symbol(symbol)) {
     // Perform the action with a new scope containing our symbol
     auto nested = this->allocator.makeHard<EggProgramSymbolTable>(this->symtable.get());
-    nested->addSymbol(EggProgramSymbol::Kind::ReadWrite, name, type);
+    nested->addSymbol(EggProgramSymbol::Kind::ReadWrite, symbol.name, symbol.type);
     auto context = this->createNestedContext(*nested, this->scopeFunction);
     return action(*context);
   }
@@ -59,8 +58,7 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareScope(const 
 
 egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareStatements(const std::vector<std::shared_ptr<IEggProgramNode>>& statements) {
   // Prepare all the statements one after another
-  egg::ovum::String name;
-  auto type{ egg::ovum::Type::Void };
+  EggProgramSymbol symbol;
   EggProgramNodeFlags retval = EggProgramNodeFlags::Fallthrough; // We fallthrough if there are no statements
   auto unreachable = false;
   for (auto& statement : statements) {
@@ -68,9 +66,9 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareStatements(c
       this->compilerWarning(statement->location(), "Unreachable code");
       unreachable = true;
     }
-    if (statement->symbol(name, type)) {
+    if (statement->symbol(symbol)) {
       // We've checked for duplicate symbols already
-      this->symtable->addSymbol(EggProgramSymbol::Kind::ReadWrite, name, type);
+      this->symtable->addSymbol(symbol.kind, symbol.name, symbol.type);
     }
     retval = statement->prepare(*this);
     if (abandoned(retval)) {
@@ -122,8 +120,13 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareDeclare(cons
   return EggProgramNodeFlags::Fallthrough;
 }
 
-egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareMember(const egg::ovum::LocationSource& where, const egg::ovum::String& name, egg::ovum::Type&, egg::ovum::Modifiability) {
-  return this->compilerError(where, "WIBBLE: prepareMember not implemented for '", name, "'");
+egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareMember(const egg::ovum::LocationSource& where, const egg::ovum::String& name, const egg::ovum::IType& type, egg::ovum::Modifiability modifiability) {
+  assert(this->scopeTypedef != nullptr);
+  (void)where; // WIBBLE
+  (void)name; // WIBBLE
+  (void)type; // WIBBLE
+  (void)modifiability; // WIBBLE
+  return EggProgramNodeFlags::Fallthrough;
 }
 
 egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareStatic(const egg::ovum::LocationSource&, IEggProgramNode& child) {
@@ -475,11 +478,31 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareTry(IEggProg
   return falls ? EggProgramNodeFlags::Fallthrough : EggProgramNodeFlags::None;
 }
 
-egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareTypedef(const egg::ovum::LocationSource& where, const egg::ovum::String& name, const std::vector<std::shared_ptr<IEggProgramNode>>& constraints, const std::vector<std::shared_ptr<IEggProgramNode>>& definitions) {
-  // TODO
-  (void)constraints; // WIBBLE
-  (void)definitions; // WIBBLE
-  return this->compilerError(where, "WIBBLE: Unimplemented 'type' statement for ", name);
+egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareTypedef(const egg::ovum::LocationSource&, const egg::ovum::String& name, const std::vector<std::shared_ptr<IEggProgramNode>>& constraints, const std::vector<std::shared_ptr<IEggProgramNode>>& definitions) {
+  // Run a prepare call with a scope typedef set
+  assert(this->scopeTypedef == nullptr);
+  ScopeTypedef scope{ name };
+  try {
+    this->scopeTypedef = &scope;
+    for (auto& constraint : constraints) {
+      if (abandoned(constraint->prepare(*this))) {
+        this->scopeTypedef = nullptr;
+        return EggProgramNodeFlags::Abandon;
+      }
+    }
+    for (auto& definition : definitions) {
+      if (abandoned(definition->prepare(*this))) {
+        this->scopeTypedef = nullptr;
+        return EggProgramNodeFlags::Abandon;
+      }
+    }
+    this->scopeTypedef = nullptr;
+  }
+  catch (...) {
+    this->scopeTypedef = nullptr;
+    throw;
+  }
+  return EggProgramNodeFlags::Fallthrough;
 }
 
 egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareWhile(IEggProgramNode& cond, IEggProgramNode& block) {
@@ -574,7 +597,7 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareIdentifier(c
   if (symbol == nullptr) {
     return this->compilerError(where, "Unknown identifier: '", name, "'");
   }
-  type.set(&symbol->getType());
+  type.set(symbol->type.get());
   return EggProgramNodeFlags::None;
 }
 
@@ -744,7 +767,8 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::typeCheck(const egg
     }
     auto symbol = this->symtable->findSymbol(name, false);
     assert(symbol != nullptr);
-    symbol->setInferredType(ltype);
+    assert(symbol->type == nullptr);
+    symbol->type = ltype;
   }
   switch (ltype.queryAssignable(*rtype)) {
   case egg::ovum::Type::Assignability::Never:

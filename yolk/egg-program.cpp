@@ -8,12 +8,6 @@
 
 #include <cmath>
 
-void egg::yolk::EggProgramSymbol::setInferredType(const egg::ovum::Type& inferred) {
-  // We only allow inferred type updates
-  assert(this->type == nullptr);
-  this->type = inferred;
-}
-
 void egg::yolk::EggProgramSymbolTable::addBuiltins(egg::ovum::ITypeFactory& factory, egg::ovum::IBasket& basket) {
   // TODO add built-in symbol to symbol table here
   this->addBuiltin("string", egg::ovum::BuiltinFactory::createStringInstance(factory, basket));
@@ -126,21 +120,20 @@ void egg::yolk::EggProgramContext::log(egg::ovum::ILogger::Source source, egg::o
 bool egg::yolk::EggProgramContext::findDuplicateSymbols(const std::vector<std::shared_ptr<IEggProgramNode>>& statements) {
   // Check for duplicate symbols
   bool error = false;
-  egg::ovum::String name;
-  auto type{ egg::ovum::Type::Void };
+  EggProgramSymbol symbol;
   std::map<egg::ovum::String, egg::ovum::LocationSource> seen;
   for (auto& statement : statements) {
-    if (statement->symbol(name, type)) {
+    if (statement->symbol(symbol)) {
       auto here = statement->location();
-      auto already = seen.emplace(std::make_pair(name, here));
+      auto already = seen.emplace(std::make_pair(symbol.name, here));
       if (!already.second) {
         // Already seen at this level
-        this->compilerProblem(egg::ovum::ILogger::Severity::Error, here, "Duplicate symbol declared at module level: '", name, "'");
+        this->compilerProblem(egg::ovum::ILogger::Severity::Error, here, "Duplicate symbol declared at module level: '", symbol.name, "'");
         this->compilerProblem(egg::ovum::ILogger::Severity::Information, already.first->second, "Previous declaration was here");
         error = true;
-      } else if (this->symtable->findSymbol(name) != nullptr) {
+      } else if (this->symtable->findSymbol(symbol.name) != nullptr) {
         // Seen at an enclosing level
-        this->compilerWarning(statement->location(), "Symbol name hides previously declared symbol in enclosing level: '", name, "'");
+        this->compilerWarning(statement->location(), "Symbol name hides previously declared symbol in enclosing level: '", symbol.name, "'");
       }
     }
   }

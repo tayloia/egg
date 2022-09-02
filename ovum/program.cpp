@@ -80,8 +80,9 @@ namespace {
     bool empty() const {
       return this->declared.empty();
     }
-    Value declare(const LocationSource& source, const Type& type, const String& name, const Value* init = nullptr);
-    Value guard(const LocationSource& source, const Type& type, const String& name, const Value& init);
+    Value declareType(const LocationSource& source, const String& name, const Type& type);
+    Value declareVariable(const LocationSource& source, const Type& type, const String& name, const Value* init = nullptr);
+    Value guardVariable(const LocationSource& source, const Type& type, const String& name, const Value& init);
   };
 
   class Symbol {
@@ -91,6 +92,7 @@ namespace {
   public:
     enum class Kind {
       Builtin,
+      Type,
       Variable
     };
   private:
@@ -467,7 +469,7 @@ namespace {
           assert(position < numPositional);
           auto ptype = sigparam.getType();
           auto pvalue = runtime.getPositional(position);
-          auto guarded = scope.guard(source, ptype, pname, pvalue);
+          auto guarded = scope.guardVariable(source, ptype, pname, pvalue);
           Bool matched;
           if (!guarded->getBool(matched)) {
             return guarded;
@@ -614,6 +616,8 @@ namespace {
         return this->statementThrow(node);
       case Opcode::TRY:
         return this->statementTry(node);
+      case Opcode::TYPEDEF:
+        return this->statementTypedef(block, node);
       case Opcode::WHILE:
         return this->statementWhile(node);
       }
@@ -658,14 +662,14 @@ namespace {
       auto vtype = this->type(node.getChild(0), vname);
       if (node.getChildren() == 2) {
         // No initializer
-        return block.declare(this->location, vtype, vname);
+        return block.declareVariable(this->location, vtype, vname);
       }
       assert(node.getChildren() == 3);
       auto vinit = this->expression(node.getChild(2));
       if (vinit.hasFlowControl()) {
         return vinit;
       }
-      return block.declare(this->location, vtype, vname, &vinit);
+      return block.declareVariable(this->location, vtype, vname, &vinit);
     }
     Value statementDecrement(const INode& node) {
       assert(node.getOpcode() == Opcode::DECREMENT);
@@ -816,7 +820,7 @@ namespace {
       auto function = this->allocator.makeHard<UserFunction>(*this, this->location, ftype, fblock);
       // We have to be careful to ensure the function is declared before capturing symbols so that recursion works correctly
       auto fvalue = ValueFactory::createObject(this->allocator, Object(*function));
-      auto retval = block.declare(this->location, ftype, fname, &fvalue);
+      auto retval = block.declareVariable(this->location, ftype, fname, &fvalue);
       function->setCaptured(this->symtable->clone());
       return retval;
     }
@@ -1066,7 +1070,7 @@ namespace {
             this->updateLocation(clause);
             auto cname = this->identifier(clause.getChild(1));
             auto ctype = this->type(clause.getChild(0), cname);
-            auto retval = block.guard(this->location, ctype, cname, thrown);
+            auto retval = block.guardVariable(this->location, ctype, cname, thrown);
             if (retval.hasFlowControl()) {
               // Couldn't define the exception variable
               return this->statementTryFinally(node, retval);
@@ -1099,6 +1103,20 @@ namespace {
         return retval;
       }
       return this->statementBlock(clause);
+    }
+    Value statementTypedef(Block& block, const INode& node) {
+      assert(node.getOpcode() == Opcode::TYPEDEF);
+      auto children = node.getChildren();
+      assert(children >= 1);
+      this->updateLocation(node);
+      auto tname = this->identifier(node.getChild(0));
+      auto builder = this->getTypeFactory().createTypeBuilder(tname, "WIBBLE");
+      for (size_t index = 1; index < children; ++index) {
+        auto& child = node.getChild(index);
+        (void)child; // WIBBLE
+      }
+      block.declareType(this->location, tname, builder->build());
+      return Value::Void;
     }
     Value statementWhile(const INode& node) {
       assert(node.getOpcode() == Opcode::WHILE);
@@ -1330,7 +1348,7 @@ namespace {
         return vinit;
       }
       this->updateLocation(node);
-      return block->guard(this->location, vtype, vname, vinit);
+      return block->guardVariable(this->location, vtype, vname, vinit);
     }
     Value expressionIdentifier(const INode& node) {
       assert(node.getOpcode() == Opcode::IDENTIFIER);
@@ -1990,7 +2008,7 @@ namespace {
     Value tryInitialize(Symbol& symbol, const Value& value);
     Value tryAssign(Symbol& symbol, const Value& value);
     Value tryMutate(Symbol& symbol, Mutation mutation, const Value& value);
-    Symbol* blockDeclare(const LocationSource& source, const Type& type, const String& identifier);
+    Symbol* blockDeclare(const LocationSource& source, Symbol::Kind kind, const Type& type, const String& identifier);
     void blockUndeclare(const String& identifier);
     Value targetInit(Target& target, const INode& node, Block* block = nullptr) {
       EGG_WARNING_SUPPRESS_SWITCH_BEGIN
@@ -2024,7 +2042,7 @@ namespace {
       target.identifier = this->identifier(node.getChild(1));
       target.type = this->type(node.getChild(0), target.identifier);
       this->updateLocation(node);
-      return block.declare(this->location, target.type, target.identifier);
+      return block.declareVariable(this->location, target.type, target.identifier);
     }
     Value targetIdentifier(Target& target, const INode& node) {
       assert(node.getOpcode() == Opcode::IDENTIFIER);
@@ -2191,6 +2209,7 @@ namespace {
       auto modifiability = Modifiability::Read | Modifiability::Write | Modifiability::Mutate;
       switch (symbol.getKind()) {
       case Symbol::Kind::Builtin:
+      case Symbol::Kind::Type:
         modifiability = Modifiability::Read;
         break;
       case Symbol::Kind::Variable:
@@ -2276,6 +2295,8 @@ Value ProgramDefault::tryAssign(Symbol& symbol, const Value& value) {
   switch (symbol.getKind()) {
   case Symbol::Kind::Builtin:
     return this->raiseFormat("Cannot re-assign built-in value: '", symbol.getName(), "'");
+  case Symbol::Kind::Type:
+    return this->raiseFormat("Cannot re-assign type identifier: '", symbol.getName(), "'");
   case Symbol::Kind::Variable:
     break;
   }
@@ -2314,19 +2335,29 @@ Value ProgramDefault::tryMutate(Symbol& symbol, Mutation mutation, const Value& 
   return before;
 }
 
-Symbol* ProgramDefault::blockDeclare(const LocationSource& source, const Type& type, const String& identifier) {
-  return this->symtable->add(source, Symbol::Kind::Variable, type, identifier);
+Symbol* ProgramDefault::blockDeclare(const LocationSource& source, Symbol::Kind kind, const Type& type, const String& identifier) {
+  return this->symtable->add(source, kind, type, identifier);
 }
 
 void ProgramDefault::blockUndeclare(const String& identifier) {
   this->symtable->remove(identifier);
 }
 
-egg::ovum::Value Block::declare(const LocationSource& source, const Type& type, const String& name, const Value* init) {
+egg::ovum::Value Block::declareType(const LocationSource& source, const String& name, const Type& type) {
   // Keep track of names successfully declared in this block
-  auto* symbol = this->program.blockDeclare(source, type, name);
+  auto* symbol = this->program.blockDeclare(source, Symbol::Kind::Type, type, name);
   if (symbol == nullptr) {
-    return this->program.raiseLocation(source, "Duplicate name in declaration: '", name, "'");
+    return this->program.raiseLocation(source, "Duplicate name in type definition: '", name, "'");
+  }
+  this->declared.insert(name);
+  return Value::Void;
+}
+
+egg::ovum::Value Block::declareVariable(const LocationSource& source, const Type& type, const String& name, const Value* init) {
+  // Keep track of names successfully declared in this block
+  auto* symbol = this->program.blockDeclare(source, Symbol::Kind::Variable, type, name);
+  if (symbol == nullptr) {
+    return this->program.raiseLocation(source, "Duplicate name in variable declaration: '", name, "'");
   }
   if (init != nullptr) {
     auto retval = this->program.tryInitialize(*symbol, *init);
@@ -2339,11 +2370,11 @@ egg::ovum::Value Block::declare(const LocationSource& source, const Type& type, 
   return Value::Void;
 }
 
-egg::ovum::Value Block::guard(const LocationSource& source, const Type& type, const String& name, const Value& init) {
+egg::ovum::Value Block::guardVariable(const LocationSource& source, const Type& type, const String& name, const Value& init) {
   // Keep track of names successfully declared in this block
-  auto* symbol = this->program.blockDeclare(source, type, name);
+  auto* symbol = this->program.blockDeclare(source, Symbol::Kind::Variable, type, name);
   if (symbol == nullptr) {
-    return this->program.raiseLocation(source, "Duplicate name in declaration: '", name, "'");
+    return this->program.raiseLocation(source, "Duplicate name in variable declaration: '", name, "'");
   }
   auto retval = this->program.tryInitialize(*symbol, init);
   if (retval.hasFlowControl()) {

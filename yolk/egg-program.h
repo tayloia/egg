@@ -15,12 +15,19 @@ namespace egg::yolk {
     Abandon = 0x80
   };
 
+  struct EggProgramSymbol final {
+  public:
+    enum class Kind { Builtin, Readonly, ReadWrite, Type } kind;
+    egg::ovum::String name;
+    egg::ovum::Type type;
+  };
+
   class IEggProgramNode {
   public:
     virtual ~IEggProgramNode() {}
     virtual egg::ovum::Type getType() const = 0;
     virtual egg::ovum::LocationSource location() const = 0;
-    virtual bool symbol(egg::ovum::String& nameOut, egg::ovum::Type& typeOut) const = 0;
+    virtual bool symbol(EggProgramSymbol& out) const = 0;
     virtual void empredicate(EggProgramContext& context, std::shared_ptr<IEggProgramNode>& ptr) = 0;
     virtual EggProgramNodeFlags prepare(EggProgramContext& context) = 0;
     virtual void dump(std::ostream& os) const = 0;
@@ -45,22 +52,6 @@ namespace egg::yolk {
 
   enum class EggProgramMutate {
     EGG_PROGRAM_MUTATE_OPERATORS(EGG_PROGRAM_ASSIGN_OPERATOR_DECLARE)
-  };
-
-  class EggProgramSymbol final {
-  public:
-    enum class Kind { Builtin, Readonly, ReadWrite };
-  private:
-    Kind kind;
-    egg::ovum::String name;
-    egg::ovum::Type type;
-  public:
-    EggProgramSymbol(Kind kind, const egg::ovum::String& name, const egg::ovum::Type& type)
-      : kind(kind), name(name), type(type) {
-    }
-    const egg::ovum::String& getName() const { return this->name; }
-    const egg::ovum::IType& getType() const { return *this->type; }
-    void setInferredType(const egg::ovum::Type& inferred);
   };
 
   class EggProgramSymbolTable final : public egg::ovum::HardReferenceCounted<egg::ovum::IHardAcquireRelease> {
@@ -132,6 +123,9 @@ namespace egg::yolk {
       const egg::ovum::IType* rettype;
       bool generator;
     };
+    struct ScopeTypedef {
+      egg::ovum::String name;
+    };
   private:
     egg::ovum::ITypeFactory& factory;
     egg::ovum::LocationRuntime location;
@@ -140,6 +134,7 @@ namespace egg::yolk {
     egg::ovum::ILogger::Severity* maximumSeverity;
     const egg::ovum::IType* scopeDeclare; // Only used in prepare phase
     ScopeFunction* scopeFunction; // Only used in prepare phase
+    ScopeTypedef* scopeTypedef; // Only used in prepare phase
     const egg::ovum::Value* scopeValue; // Only used in execute phase
     EggProgramContext(egg::ovum::ITypeFactory& factory, const egg::ovum::LocationRuntime& location, egg::ovum::ILogger* logger, EggProgramSymbolTable& symtable, egg::ovum::ILogger::Severity* maximumSeverity, ScopeFunction* scopeFunction)
       : HardReferenceCounted(factory.getAllocator(), 0),
@@ -150,6 +145,7 @@ namespace egg::yolk {
         maximumSeverity(maximumSeverity),
         scopeDeclare(nullptr),
         scopeFunction(scopeFunction),
+        scopeTypedef(nullptr),
         scopeValue(nullptr) {
     }
   public:
@@ -185,7 +181,7 @@ namespace egg::yolk {
     EggProgramNodeFlags prepareModule(const std::vector<std::shared_ptr<IEggProgramNode>>& statements);
     EggProgramNodeFlags prepareBlock(const std::vector<std::shared_ptr<IEggProgramNode>>& statements);
     EggProgramNodeFlags prepareDeclare(const egg::ovum::LocationSource& where, const egg::ovum::String& name, egg::ovum::Type& ltype, IEggProgramNode* rvalue);
-    EggProgramNodeFlags prepareMember(const egg::ovum::LocationSource& where, const egg::ovum::String& name, egg::ovum::Type& type, egg::ovum::Modifiability modifiability);
+    EggProgramNodeFlags prepareMember(const egg::ovum::LocationSource& where, const egg::ovum::String& name, const egg::ovum::IType& type, egg::ovum::Modifiability modifiability);
     EggProgramNodeFlags prepareStatic(const egg::ovum::LocationSource& where, IEggProgramNode& child);
     EggProgramNodeFlags prepareIterable(const egg::ovum::LocationSource& where, egg::ovum::Type& itype);
     EggProgramNodeFlags prepareGuard(const egg::ovum::LocationSource& where, const egg::ovum::String& name, egg::ovum::Type& ltype, IEggProgramNode& rvalue);
