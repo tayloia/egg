@@ -27,25 +27,25 @@ namespace egg::ovum {
 
   class ModuleFactory {
   public:
-    static Module fromBinaryStream(IAllocator& allocator, const String& resource, std::istream& stream);
-    static Module fromMemory(IAllocator& allocator, const String& resource, const uint8_t* begin, const uint8_t* end);
-    static Module fromRootNode(IAllocator& allocator, const String& resource, INode& root);
+    static Module fromBinaryStream(ITypeFactory& factory, const String& resource, std::istream& stream);
+    static Module fromMemory(ITypeFactory& factory, const String& resource, const uint8_t* begin, const uint8_t* end);
+    static Module fromRootNode(ITypeFactory& factory, const String& resource, INode& root);
     static void toBinaryStream(const IModule& module, std::ostream& stream);
     static Memory toMemory(IAllocator& allocator, const IModule& module);
   };
 
   class ModuleBuilderBase {
   public:
-    IAllocator& allocator;
+    TypeFactory& factory;
     Nodes attributes;
   protected:
-    explicit ModuleBuilderBase(IAllocator& allocator);
+    explicit ModuleBuilderBase(TypeFactory& factory);
     ModuleBuilderBase(const ModuleBuilderBase&) = delete;
     ModuleBuilderBase& operator=(const ModuleBuilderBase&) = delete;
     ModuleBuilderBase(ModuleBuilderBase&&) = default;
     template<typename T>
     void addAttribute(const String& key, const T& value) {
-      this->addAttribute(key, NodeFactory::createValue(this->allocator, value));
+      this->addAttribute(key, NodeFactory::createValue(this->factory.getAllocator(), value));
     }
     void addAttribute(const String& key, const char* value) = delete;
     void addAttribute(const String& key, Node&& value);
@@ -54,6 +54,7 @@ namespace egg::ovum {
     Node createValueInt(Int value);
     Node createValueFloat(Float value);
     Node createValueString(const String& value);
+    Node createValueShape(const TypeShape& shape);
     Node createValueArray(const Nodes& elements);
     Node createValueObject(const Nodes& fields);
     Node createOperator(Opcode opcode, Operator oper, const Nodes& children);
@@ -72,7 +73,7 @@ namespace egg::ovum {
     ModuleBuilderWithAttribute& operator=(const ModuleBuilderWithAttribute&) = delete;
     friend class ModuleBuilder;
   private:
-    explicit ModuleBuilderWithAttribute(IAllocator& allocator) : ModuleBuilderBase(allocator) {
+    explicit ModuleBuilderWithAttribute(TypeFactory& factory) : ModuleBuilderBase(factory) {
     }
   public:
     ModuleBuilderWithAttribute(ModuleBuilderWithAttribute&&) = default;
@@ -87,11 +88,11 @@ namespace egg::ovum {
     ModuleBuilder(const ModuleBuilder&) = delete;
     ModuleBuilder& operator=(const ModuleBuilder&) = delete;
   public:
-    explicit ModuleBuilder(IAllocator& allocator) : ModuleBuilderBase(allocator) {
+    explicit ModuleBuilder(TypeFactory& factory) : ModuleBuilderBase(factory) {
     }
     template<typename T>
     ModuleBuilderWithAttribute withAttribute(const String& key, const T& value) const {
-      ModuleBuilderWithAttribute with(this->allocator);
+      ModuleBuilderWithAttribute with(this->factory);
       with.addAttribute(key, value);
       return with;
     }

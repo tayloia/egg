@@ -71,7 +71,7 @@ namespace {
     Type gentype;
     size_t parameters;
     Parameter parameter[MAX_PARAMETERS];
-    ObjectShape shape;
+    TypeShape shape;
   public:
     StringProperty_FunctionType(const String& name, const Type& rettype, const Type& gentype)
       : name(name),
@@ -84,7 +84,7 @@ namespace {
     virtual ValueFlags getPrimitiveFlags() const override {
       return ValueFlags::None;
     }
-    virtual const ObjectShape* getObjectShape(size_t index) const override {
+    virtual const TypeShape* getObjectShape(size_t index) const override {
       return (index == 0) ? &this->shape : nullptr;
     }
     virtual size_t getObjectShapeCount() const override {
@@ -943,8 +943,8 @@ namespace {
 const egg::ovum::IParameters& egg::ovum::Object::ParametersNone{ parametersNone };
 const egg::ovum::IFunctionSignature& egg::ovum::Object::OmniFunctionSignature{ objectShapeCallable };
 
-const egg::ovum::ObjectShape& egg::ovum::BuiltinFactory::getStringShape() {
-  static const ObjectShape instance{
+const egg::ovum::TypeShape& egg::ovum::BuiltinFactory::getStringShape() {
+  static const TypeShape instance{
     nullptr,
     &stringShapeDotable,
     &stringShapeIndexable,
@@ -954,8 +954,8 @@ const egg::ovum::ObjectShape& egg::ovum::BuiltinFactory::getStringShape() {
   return instance;
 }
 
-const egg::ovum::ObjectShape& egg::ovum::BuiltinFactory::getObjectShape() {
-  static const ObjectShape instance{
+const egg::ovum::TypeShape& egg::ovum::BuiltinFactory::getObjectShape() {
+  static const TypeShape instance{
     &objectShapeCallable,
     &objectShapeDotable,
     &objectShapeIndexable,

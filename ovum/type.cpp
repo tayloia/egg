@@ -40,7 +40,7 @@ namespace {
     return { primitiveToStringPrecedence(Bits::clear(flags, head)).first + '|' + component, 2 };
   }
 
-  std::pair<std::string, int> complexComponentObject(const ObjectShape* shape) {
+  std::pair<std::string, int> complexComponentObject(const TypeShape* shape) {
     assert(shape != nullptr);
     if (shape->callable != nullptr) {
       return FunctionSignature::toStringPrecedence(*shape->callable);
@@ -94,7 +94,7 @@ namespace {
     TypeBase& operator=(const TypeBase&) = delete;
   public:
     TypeBase() {}
-    virtual const ObjectShape* getObjectShape(size_t) const override {
+    virtual const TypeShape* getObjectShape(size_t) const override {
       // By default, we are not shaped like objects
       return nullptr;
     }
@@ -150,7 +150,7 @@ namespace {
     virtual ValueFlags getPrimitiveFlags() const override {
       return this->flags;
     }
-    virtual const ObjectShape* getObjectShape(size_t) const override {
+    virtual const TypeShape* getObjectShape(size_t) const override {
       return nullptr;
     }
     virtual size_t getObjectShapeCount() const override {
@@ -172,7 +172,7 @@ namespace {
     Type result;
     Type index;
     Modifiability modifiability;
-    ObjectShape shape;
+    TypeShape shape;
   public:
     TypeIndexable(IAllocator& allocator, const Type& result, const Type& index, Modifiability modifiability)
       : HardReferenceCounted(allocator, 0),
@@ -186,7 +186,7 @@ namespace {
     virtual ValueFlags getPrimitiveFlags() const override {
       return ValueFlags::None;
     }
-    virtual const ObjectShape* getObjectShape(size_t idx) const override {
+    virtual const TypeShape* getObjectShape(size_t idx) const override {
       return (idx == 0) ? &this->shape : nullptr;
     }
     virtual size_t getObjectShapeCount() const override {
@@ -222,7 +222,7 @@ namespace {
   private:
     Type pointee;
     Modifiability modifiability;
-    ObjectShape shape;
+    TypeShape shape;
   public:
     TypePointer(IAllocator& allocator, const Type& pointee, Modifiability modifiability)
       : HardReferenceCounted(allocator, 0),
@@ -235,7 +235,7 @@ namespace {
     virtual ValueFlags getPrimitiveFlags() const override {
       return ValueFlags::None;
     }
-    virtual const ObjectShape* getObjectShape(size_t index) const override {
+    virtual const TypeShape* getObjectShape(size_t index) const override {
       return (index == 0) ? &this->shape : nullptr;
     }
     virtual size_t getObjectShapeCount() const override {
@@ -263,9 +263,9 @@ namespace {
     TypeComplex& operator=(const TypeComplex&) = delete;
   private:
     ValueFlags flags;
-    std::vector<const ObjectShape*> objectShapes;
+    std::vector<const TypeShape*> objectShapes;
   public:
-    TypeComplex(IAllocator& allocator, ValueFlags flags, std::vector<const ObjectShape*>&& objectShapes)
+    TypeComplex(IAllocator& allocator, ValueFlags flags, std::vector<const TypeShape*>&& objectShapes)
       : HardReferenceCounted(allocator, 0),
         flags(flags),
         objectShapes(std::move(objectShapes)) {
@@ -274,7 +274,7 @@ namespace {
     virtual ValueFlags getPrimitiveFlags() const override {
       return this->flags;
     }
-    virtual const ObjectShape* getObjectShape(size_t index) const override {
+    virtual const TypeShape* getObjectShape(size_t index) const override {
       return this->objectShapes.at(index);
     }
     virtual size_t getObjectShapeCount() const override {
@@ -342,7 +342,7 @@ namespace {
     Built& operator=(const Built&) = delete;
   private:
     HardPtr<Builder> builder;
-    ObjectShape shape;
+    TypeShape shape;
   public:
     Built(IAllocator& allocator, Builder& builder, const IFunctionSignature* callable = nullptr)
       : HardReferenceCounted(allocator, 0),
@@ -356,7 +356,7 @@ namespace {
     virtual ValueFlags getPrimitiveFlags() const override {
       return ValueFlags::None;
     }
-    virtual const ObjectShape* getObjectShape(size_t index) const override {
+    virtual const TypeShape* getObjectShape(size_t index) const override {
       return (index == 0) ? &this->shape : nullptr;
     }
     virtual size_t getObjectShapeCount() const override {
@@ -628,7 +628,7 @@ namespace {
     return lpointable->getType().get() == rpointable->getType().get();
   }
 
-  bool isAssignableInstanceObjectShape(const ObjectShape* lshape, const ObjectShape* rshape) {
+  bool isAssignableInstanceObjectShape(const TypeShape* lshape, const TypeShape* rshape) {
     assert(lshape != nullptr);
     assert(rshape != nullptr);
     return isAssignableInstanceObjectShapeCallable(lshape->callable, rshape->callable) &&
@@ -663,7 +663,7 @@ namespace {
     return isAssignableInstanceObject(ltype, *rtype);
   }
 
-  size_t findObjectShapeIndex(const std::vector<ObjectShape>& shapes, const ObjectShape& shape, size_t start, size_t count) {
+  size_t findObjectShapeIndex(const std::vector<TypeShape>& shapes, const TypeShape& shape, size_t start, size_t count) {
     auto index = start;
     while (index < count) {
       if (Type::areEquivalent(shapes[index], shape)) {
@@ -701,7 +701,7 @@ namespace {
     simples.emplace(type.getPrimitiveFlags(), Type(&type));
   }
 
-  size_t registerObjectShapeWithLock(ReadWriteMutex& mutex, std::vector<ObjectShape>& shapes, const ObjectShape& shape) {
+  size_t registerObjectShapeWithLock(ReadWriteMutex& mutex, std::vector<TypeShape>& shapes, const TypeShape& shape) {
     // First, try to fetch an existing entry
     ReadLock lockR{ mutex };
     auto countR = shapes.size();
@@ -725,7 +725,7 @@ namespace {
     return countW;
   }
 
-  size_t registerObjectShapeWithoutLock(std::vector<ObjectShape>& shapes, const ObjectShape& shape) {
+  size_t registerObjectShapeWithoutLock(std::vector<TypeShape>& shapes, const TypeShape& shape) {
     auto count = shapes.size();
     auto index = findObjectShapeIndex(shapes, shape, 0, count);
     if (index < count) {
@@ -736,6 +736,12 @@ namespace {
   }
 }
 
+bool TypeShape::equals(const TypeShape& rhs) const {
+  auto result = Type::areEquivalent(*this, rhs);
+  assert(result == Type::areEquivalent(rhs, *this)); // sanity check
+  return result;
+}
+
 Type::Assignability Type::queryAssignable(const IType& from) const {
   auto* to = this->get();
   assert(to != nullptr);
@@ -743,23 +749,23 @@ Type::Assignability Type::queryAssignable(const IType& from) const {
 }
 
 const IFunctionSignature* Type::queryCallable() const {
-  return queryObjectShape<IFunctionSignature>(this->get(), &ObjectShape::callable);
+  return queryObjectShape<IFunctionSignature>(this->get(), &TypeShape::callable);
 }
 
 const IPropertySignature* Type::queryDotable() const {
-  return queryObjectShape<IPropertySignature>(this->get(), &ObjectShape::dotable);
+  return queryObjectShape<IPropertySignature>(this->get(), &TypeShape::dotable);
 }
 
 const IIndexSignature* Type::queryIndexable() const {
-  return queryObjectShape<IIndexSignature>(this->get(), &ObjectShape::indexable);
+  return queryObjectShape<IIndexSignature>(this->get(), &TypeShape::indexable);
 }
 
 const IIteratorSignature* Type::queryIterable() const {
-  return queryObjectShape<IIteratorSignature>(this->get(), &ObjectShape::iterable);
+  return queryObjectShape<IIteratorSignature>(this->get(), &TypeShape::iterable);
 }
 
 const IPointerSignature* Type::queryPointable() const {
-  return queryObjectShape<IPointerSignature>(this->get(), &ObjectShape::pointable);
+  return queryObjectShape<IPointerSignature>(this->get(), &TypeShape::pointable);
 }
 
 String Type::describeValue() const {
@@ -887,7 +893,7 @@ Type TypeFactory::createComplex(Complex& complex) {
   Type type = complex.type;
   if (type == nullptr) {
     // Probably need to insert a new complex type
-    std::vector<const ObjectShape*> objectShapes;
+    std::vector<const TypeShape*> objectShapes;
     objectShapes.reserve(complex.shapeIndices.size());
     for (auto shapeIndex : complex.shapeIndices) {
       objectShapes.push_back(&this->shapes[shapeIndex]);
@@ -1002,7 +1008,7 @@ bool Type::areEquivalent(const IType& lhs, const IType& rhs) {
   return &lhs == &rhs;
 }
 
-bool Type::areEquivalent(const ObjectShape& lhs, const ObjectShape& rhs) {
+bool Type::areEquivalent(const TypeShape& lhs, const TypeShape& rhs) {
   if (&lhs == &rhs) {
     return true;
   }

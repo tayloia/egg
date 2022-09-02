@@ -20,7 +20,7 @@ namespace {
     static const Modifiability ReadWriteMutate = Modifiability::Read | Modifiability::Write | Modifiability::Mutate;
     static const Modifiability ReadWriteMutateDelete = Modifiability::Read | Modifiability::Write | Modifiability::Mutate | Modifiability::Delete;
   private:
-    ObjectShape shape;
+    TypeShape shape;
   public:
     Type_Base(const IFunctionSignature* callable,
               const IPropertySignature* dotable,
@@ -32,7 +32,7 @@ namespace {
     virtual ValueFlags getPrimitiveFlags() const override {
       return ValueFlags::None;
     }
-    virtual const ObjectShape* getObjectShape(size_t index) const override {
+    virtual const TypeShape* getObjectShape(size_t index) const override {
       // We only have one object shape
       return (index == 0) ? &this->shape : nullptr;
     }

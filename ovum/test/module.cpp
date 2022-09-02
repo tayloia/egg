@@ -1,6 +1,7 @@
 #include "ovum/test.h"
 #include "ovum/node.h"
 #include "ovum/module.h"
+#include "ovum/vanilla.h"
 
 #define EGG_VM_MAGIC_BYTE(byte) byte,
 #define MAGIC EGG_VM_MAGIC(EGG_VM_MAGIC_BYTE)
@@ -10,7 +11,8 @@ using namespace egg::ovum;
 namespace {
   void expectFailureFromMemory(const uint8_t memory[], size_t bytes, const char* needle) {
     egg::test::Allocator allocator;
-    ASSERT_THROW_E(ModuleFactory::fromMemory(allocator, "<memory>", memory, memory + bytes), std::runtime_error, ASSERT_STARTSWITH(e.what(), needle));
+    egg::ovum::TypeFactory factory(allocator);
+    ASSERT_THROW_E(ModuleFactory::fromMemory(factory, "<memory>", memory, memory + bytes), std::runtime_error, ASSERT_STARTSWITH(e.what(), needle));
   }
   void toModuleArray(ModuleBuilder& builder, const Nodes& avalues, Module& out) {
     // Create a module that just constructs an array of values
@@ -20,7 +22,7 @@ namespace {
     ASSERT_NE(nullptr, block);
     auto module = builder.createModule(std::move(block));
     ASSERT_NE(nullptr, module);
-    out = ModuleFactory::fromRootNode(builder.allocator, "<resource>", *module);
+    out = ModuleFactory::fromRootNode(builder.factory, "<resource>", *module);
   }
   void toModuleMemoryArray(ModuleBuilder& builder, const Nodes& avalues, std::ostream& out) {
     // Create a module memory image that just constructs an array of values
@@ -40,11 +42,11 @@ namespace {
     avalue.set(&child->getChild(0));
     ASSERT_EQ(Opcode::AVALUE, avalue->getOpcode());
   }
-  void fromModuleMemoryArray(IAllocator& allocator, std::istream& in, Node& avalue) {
+  void fromModuleMemoryArray(TypeFactory& factory, std::istream& in, Node& avalue) {
     // Extract an array of values from a module memory image
     in.clear();
     ASSERT_TRUE(in.seekg(0).good());
-    auto module = ModuleFactory::fromBinaryStream(allocator, "<memory>", in);
+    auto module = ModuleFactory::fromBinaryStream(factory, "<memory>", in);
     fromModuleArray(module, avalue);
   }
   Node roundTripArray(ModuleBuilder& builder, const Nodes& avalues) {
@@ -52,7 +54,7 @@ namespace {
     std::stringstream ss;
     toModuleMemoryArray(builder, avalues, ss);
     Node avalue;
-    fromModuleMemoryArray(builder.allocator, ss, avalue);
+    fromModuleMemoryArray(builder.factory, ss, avalue);
     return avalue;
   }
 }
@@ -99,12 +101,12 @@ TEST(TestModule, OpcodeFromMachineByte) {
   ASSERT_EQ(Opcode::TYPEDEF, Module::opcodeFromMachineByte(21));
   ASSERT_EQ(Opcode::TYPEDEF, Module::opcodeFromMachineByte(22));
   ASSERT_EQ(Opcode::TYPEDEF, Module::opcodeFromMachineByte(23));
-  ASSERT_EQ(Opcode::reserved, Module::opcodeFromMachineByte(24));
-  ASSERT_EQ(Opcode::reserved, Module::opcodeFromMachineByte(25));
-  ASSERT_EQ(Opcode::reserved, Module::opcodeFromMachineByte(26));
-  ASSERT_EQ(Opcode::reserved, Module::opcodeFromMachineByte(27));
-  ASSERT_EQ(Opcode::reserved, Module::opcodeFromMachineByte(28));
-  ASSERT_EQ(Opcode::reserved, Module::opcodeFromMachineByte(29));
+  ASSERT_EQ(Opcode::TVALUE, Module::opcodeFromMachineByte(24));
+  ASSERT_EQ(Opcode::TVALUE, Module::opcodeFromMachineByte(25));
+  ASSERT_EQ(Opcode::TVALUE, Module::opcodeFromMachineByte(26));
+  ASSERT_EQ(Opcode::TVALUE, Module::opcodeFromMachineByte(27));
+  ASSERT_EQ(Opcode::TVALUE, Module::opcodeFromMachineByte(28));
+  ASSERT_EQ(Opcode::TVALUE, Module::opcodeFromMachineByte(29));
   ASSERT_EQ(Opcode::ANY, Module::opcodeFromMachineByte(30));
   ASSERT_EQ(Opcode::ASSERT, Module::opcodeFromMachineByte(31));
   ASSERT_EQ(Opcode::ASSIGN, Module::opcodeFromMachineByte(32));
@@ -432,8 +434,9 @@ TEST(TestModule, FromMemoryBad) {
 
 TEST(TestModule, FromMemoryMinimal) {
   egg::test::Allocator allocator;
+  egg::ovum::TypeFactory factory(allocator);
   const uint8_t minimal[] = { MAGIC SECTION_CODE, uint8_t(Opcode::MODULE), uint8_t(Opcode::BLOCK), uint8_t(Opcode::NOOP) };
-  auto module = ModuleFactory::fromMemory(allocator, "<memory>", std::begin(minimal), std::end(minimal));
+  auto module = ModuleFactory::fromMemory(factory, "<memory>", std::begin(minimal), std::end(minimal));
   ASSERT_NE(nullptr, module);
   Node root{ &module->getRootNode() };
   ASSERT_NE(nullptr, root);
@@ -449,8 +452,9 @@ TEST(TestModule, FromMemoryMinimal) {
 
 TEST(TestModule, ToBinaryStream) {
   egg::test::Allocator allocator;
+  egg::ovum::TypeFactory factory(allocator);
   const uint8_t minimal[] = { MAGIC SECTION_CODE, uint8_t(Opcode::MODULE), uint8_t(Opcode::BLOCK), uint8_t(Opcode::NOOP) };
-  auto module = ModuleFactory::fromMemory(allocator, "<memory>", std::begin(minimal), std::end(minimal));
+  auto module = ModuleFactory::fromMemory(factory, "<memory>", std::begin(minimal), std::end(minimal));
   ASSERT_NE(nullptr, module);
   std::ostringstream oss;
   ModuleFactory::toBinaryStream(*module, oss);
@@ -461,8 +465,9 @@ TEST(TestModule, ToBinaryStream) {
 
 TEST(TestModule, ToMemory) {
   egg::test::Allocator allocator;
+  egg::ovum::TypeFactory factory(allocator);
   const uint8_t minimal[] = { MAGIC SECTION_CODE, uint8_t(Opcode::MODULE), uint8_t(Opcode::BLOCK), uint8_t(Opcode::NOOP) };
-  auto module = ModuleFactory::fromMemory(allocator, "<memory>", std::begin(minimal), std::end(minimal));
+  auto module = ModuleFactory::fromMemory(factory, "<memory>", std::begin(minimal), std::end(minimal));
   ASSERT_NE(nullptr, module);
   auto memory = ModuleFactory::toMemory(allocator, *module);
   ASSERT_NE(nullptr, memory);
@@ -472,11 +477,12 @@ TEST(TestModule, ToMemory) {
 
 TEST(TestModule, ModuleBuilder) {
   egg::test::Allocator allocator;
-  ModuleBuilder builder(allocator);
+  egg::ovum::TypeFactory factory(allocator);
+  ModuleBuilder builder(factory);
   auto noop = builder.createNode(Opcode::NOOP);
   auto block = builder.createNode(Opcode::BLOCK, std::move(noop));
   auto original = builder.createModule(std::move(block));
-  auto module = ModuleFactory::fromRootNode(allocator, "<resource>", *original);
+  auto module = ModuleFactory::fromRootNode(builder.factory, "<resource>", *original);
   ASSERT_NE(nullptr, module);
   Node root{ &module->getRootNode() };
   ASSERT_EQ(original.get(), root.get());
@@ -492,7 +498,8 @@ TEST(TestModule, ModuleBuilder) {
 
 TEST(TestModule, BuildConstantInt) {
   egg::test::Allocator allocator;
-  ModuleBuilder builder(allocator);
+  egg::ovum::TypeFactory factory(allocator);
+  ModuleBuilder builder(factory);
   auto avalue = roundTripArray(builder, {
     builder.createValueInt(123456789),
     builder.createValueInt(-123456789)
@@ -501,17 +508,20 @@ TEST(TestModule, BuildConstantInt) {
   Node value;
   value.set(&avalue->getChild(0));
   ASSERT_EQ(Opcode::IVALUE, value->getOpcode());
+  ASSERT_EQ(INode::Operand::Int, value->getOperand());
   ASSERT_EQ(123456789, value->getInt());
   ASSERT_EQ(0u, value->getChildren());
   value.set(&avalue->getChild(1));
   ASSERT_EQ(Opcode::IVALUE, value->getOpcode());
+  ASSERT_EQ(INode::Operand::Int, value->getOperand());
   ASSERT_EQ(-123456789, value->getInt());
   ASSERT_EQ(0u, value->getChildren());
 }
 
 TEST(TestModule, BuildConstantFloat) {
   egg::test::Allocator allocator;
-  ModuleBuilder builder(allocator);
+  egg::ovum::TypeFactory factory(allocator);
+  ModuleBuilder builder(factory);
   auto avalue = roundTripArray(builder, {
     builder.createValueFloat(123456789),
     builder.createValueFloat(-123456789),
@@ -522,25 +532,30 @@ TEST(TestModule, BuildConstantFloat) {
   Node value;
   value.set(&avalue->getChild(0));
   ASSERT_EQ(Opcode::FVALUE, value->getOpcode());
+  ASSERT_EQ(INode::Operand::Float, value->getOperand());
   ASSERT_EQ(123456789.0, value->getFloat());
   ASSERT_EQ(0u, value->getChildren());
   value.set(&avalue->getChild(1));
   ASSERT_EQ(Opcode::FVALUE, value->getOpcode());
+  ASSERT_EQ(INode::Operand::Float, value->getOperand());
   ASSERT_EQ(-123456789.0, value->getFloat());
   ASSERT_EQ(0u, value->getChildren());
   value.set(&avalue->getChild(2));
   ASSERT_EQ(Opcode::FVALUE, value->getOpcode());
+  ASSERT_EQ(INode::Operand::Float, value->getOperand());
   ASSERT_EQ(-0.125, value->getFloat());
   ASSERT_EQ(0u, value->getChildren());
   value.set(&avalue->getChild(3));
   ASSERT_EQ(Opcode::FVALUE, value->getOpcode());
+  ASSERT_EQ(INode::Operand::Float, value->getOperand());
   ASSERT_TRUE(std::isnan(value->getFloat()));
   ASSERT_EQ(0u, value->getChildren());
 }
 
 TEST(TestModule, BuildConstantString) {
   egg::test::Allocator allocator;
-  ModuleBuilder builder(allocator);
+  egg::ovum::TypeFactory factory(allocator);
+  ModuleBuilder builder(factory);
   auto avalue = roundTripArray(builder, {
     builder.createValueString(""),
     builder.createValueString("hello")
@@ -549,17 +564,54 @@ TEST(TestModule, BuildConstantString) {
   Node value;
   value.set(&avalue->getChild(0));
   ASSERT_EQ(Opcode::SVALUE, value->getOpcode());
+  ASSERT_EQ(INode::Operand::String, value->getOperand());
   ASSERT_STRING("", value->getString());
   ASSERT_EQ(0u, value->getChildren());
   value.set(&avalue->getChild(1));
   ASSERT_EQ(Opcode::SVALUE, value->getOpcode());
+  ASSERT_EQ(INode::Operand::String, value->getOperand());
   ASSERT_STRING("hello", value->getString());
+  ASSERT_EQ(0u, value->getChildren());
+}
+
+TEST(TestModule, BuildTypeShapeEmpty) {
+  egg::test::Allocator allocator;
+  egg::ovum::TypeFactory factory(allocator);
+  ModuleBuilder builder(factory);
+  TypeShape shape{};
+  auto tvalue = roundTripArray(builder, {
+    builder.createValueShape(shape)
+    });
+  ASSERT_EQ(1u, tvalue->getChildren());
+  Node value;
+  value.set(&tvalue->getChild(0));
+  ASSERT_EQ(Opcode::TVALUE, value->getOpcode());
+  ASSERT_EQ(INode::Operand::TypeShape, value->getOperand());
+  ASSERT_TRUE(value->getTypeShape().equals(shape));
+  ASSERT_EQ(0u, value->getChildren());
+}
+
+TEST(TestModule, DISABLED_BuildTypeShape) {
+  egg::test::Allocator allocator;
+  egg::ovum::TypeFactory factory(allocator);
+  ModuleBuilder builder(factory);
+  const TypeShape* shape = Vanilla::getKeyValueType()->getObjectShape(0);
+  auto tvalue = roundTripArray(builder, {
+    builder.createValueShape(*shape)
+  });
+  ASSERT_EQ(1u, tvalue->getChildren());
+  Node value;
+  value.set(&tvalue->getChild(0));
+  ASSERT_EQ(Opcode::TVALUE, value->getOpcode());
+  ASSERT_EQ(INode::Operand::TypeShape, value->getOperand());
+  ASSERT_TRUE(value->getTypeShape().equals(*shape));
   ASSERT_EQ(0u, value->getChildren());
 }
 
 TEST(TestModule, BuildOperator) {
   egg::test::Allocator allocator;
-  ModuleBuilder builder(allocator);
+  egg::ovum::TypeFactory factory(allocator);
+  ModuleBuilder builder(factory);
   auto avalue = roundTripArray(builder, {
     builder.createOperator(Opcode::UNARY, Operator::REF, { builder.createNode(Opcode::NULL_) })
   });
@@ -576,7 +628,8 @@ TEST(TestModule, BuildOperator) {
 
 TEST(TestModule, BuildWithAttribute) {
   egg::test::Allocator allocator;
-  ModuleBuilder builder(allocator);
+  egg::ovum::TypeFactory factory(allocator);
+  ModuleBuilder builder(factory);
   auto avalue = roundTripArray(builder, {
     builder.withAttribute("a", String("alpha")).withAttribute("b", 123).createOperator(Opcode::UNARY, Operator::REF,{ builder.createNode(Opcode::NULL_) })
   });

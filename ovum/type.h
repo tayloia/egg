@@ -39,6 +39,16 @@ namespace egg::ovum {
     return Bits::set(lhs, rhs);
   }
 
+  struct TypeShape {
+    const IFunctionSignature* callable;
+    const IPropertySignature* dotable;
+    const IIndexSignature* indexable;
+    const IIteratorSignature* iterable;
+    const IPointerSignature* pointable;
+    bool equals(const TypeShape& rhs) const;
+    void print(Printer& printer) const;
+  };
+
   class Type : public HardPtr<const IType> {
   public:
     Type(std::nullptr_t = nullptr) : HardPtr() { // implicit
@@ -76,7 +86,7 @@ namespace egg::ovum {
     static bool areEquivalent(const IIteratorSignature& lhs, const IIteratorSignature& rhs);
     static bool areEquivalent(const IPropertySignature& lhs, const IPropertySignature& rhs);
     static bool areEquivalent(const IPointerSignature& lhs, const IPointerSignature& rhs);
-    static bool areEquivalent(const ObjectShape& lhs, const ObjectShape& rhs);
+    static bool areEquivalent(const TypeShape& lhs, const TypeShape& rhs);
 
     // Helpers
     bool isComplex() const {
@@ -301,7 +311,7 @@ namespace egg::ovum {
     ReadWriteMutex mutex;
     std::map<ValueFlags, Type> simples;
     std::vector<Complex> complexes;
-    std::vector<ObjectShape> shapes;
+    std::vector<TypeShape> shapes;
     std::map<const IType*, Type> pointers;
   public:
     explicit TypeFactory(IAllocator& allocator);

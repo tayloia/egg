@@ -8,6 +8,7 @@ namespace egg::ovum {
   template<typename T> class SoftPtr;
   enum class ValueFlags;
   struct LocationSource;
+  struct TypeShape;
   class Printer;
   class String;
   class StringBuilder;
@@ -249,18 +250,10 @@ namespace egg::ovum {
     virtual Modifiability getModifiability() const = 0;
   };
 
-  struct ObjectShape {
-    const IFunctionSignature* callable;
-    const IPropertySignature* dotable;
-    const IIndexSignature* indexable;
-    const IIteratorSignature* iterable;
-    const IPointerSignature* pointable;
-  };
-
   class IType : public IHardAcquireRelease {
   public:
     virtual ValueFlags getPrimitiveFlags() const = 0;
-    virtual const ObjectShape* getObjectShape(size_t index) const = 0;
+    virtual const TypeShape* getObjectShape(size_t index) const = 0;
     virtual size_t getObjectShapeCount() const = 0;
     virtual std::pair<std::string, int> toStringPrecedence() const = 0;
     virtual String describeValue() const = 0;

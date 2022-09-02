@@ -18,6 +18,7 @@
   X(SECTION_NEGINTS, 0x02) \
   X(SECTION_FLOATS, 0x03) \
   X(SECTION_STRINGS, 0x04) \
+  X(SECTION_SHAPES, 0x05) \
   X(SECTION_CODE, 0xFE) \
   X(SECTION_SOURCE, 0xFF)
 
@@ -107,6 +108,7 @@
   X(THROW, 114, 0, 1, "throw") \
   X(TRUE, 84, 0, 0, "true") \
   X(TRY, 116, 2, N, "try") \
+  X(TVALUE, 24, 0, N, "tvalue") \
   X(TYPEDEF, 19, 1, N, "typedef") \
   X(UNARY, 1, 1, 1, "unary") \
   X(UNION, 205, 1, N, "union") \

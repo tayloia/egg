@@ -44,6 +44,9 @@ namespace {
     virtual String getString() const override {
       return this->extra()->getString();
     }
+    virtual const TypeShape& getTypeShape() const override {
+      return this->extra()->getTypeShape();
+    }
     virtual Operator getOperator() const override {
       return this->extra()->getOperator();
     }
@@ -120,6 +123,9 @@ namespace {
     String getString() const {
       throw std::runtime_error("Attempt to read non-existent string value of AST node");
     }
+    const TypeShape& getTypeShape() const {
+      throw std::runtime_error("Attempt to read non-existent type shape value of AST node");
+    }
     Operator getOperator() const {
       throw std::runtime_error("Attempt to read non-existent operator value of AST node");
     }
@@ -140,6 +146,9 @@ namespace {
     }
     String getString() const {
       throw std::runtime_error("Attempt to read string value of AST node with integer value");
+    }
+    const TypeShape& getTypeShape() const {
+      throw std::runtime_error("Attempt to read type shape value of AST node with integer value");
     }
     Operator getOperator() const {
       throw std::runtime_error("Attempt to read operator value of AST node with integer value");
@@ -163,6 +172,9 @@ namespace {
     String getString() const {
       throw std::runtime_error("Attempt to read string value of AST node with floating-point value");
     }
+    const TypeShape& getTypeShape() const {
+      throw std::runtime_error("Attempt to read type shape value of AST node with floating-point value");
+    }
     Operator getOperator() const {
       throw std::runtime_error("Attempt to read operator value of AST node with floating-point value");
     }
@@ -185,10 +197,38 @@ namespace {
     String getString() const {
       return this->operand;
     }
+    const TypeShape& getTypeShape() const {
+      throw std::runtime_error("Attempt to read type shape value of AST node with string value");
+    }
     Operator getOperator() const {
       throw std::runtime_error("Attempt to read operator value of AST node with string value");
     }
     String operand;
+  };
+
+  struct NodeOperandTypeShape {
+    using Type = const TypeShape&;
+    explicit NodeOperandTypeShape(Type operand) : operand(operand) {
+    }
+    INode::Operand getOperand() const {
+      return INode::Operand::TypeShape;
+    }
+    Int getInt() const {
+      throw std::runtime_error("Attempt to read integer value of AST node with type shape value");
+    }
+    Float getFloat() const {
+      throw std::runtime_error("Attempt to read floating-point value of AST node with type shape value");
+    }
+    String getString() const {
+      throw std::runtime_error("Attempt to read string value of AST node with type shape value");
+    }
+    const TypeShape& getTypeShape() const {
+      return this->operand;
+    }
+    Operator getOperator() const {
+      throw std::runtime_error("Attempt to read operator value of AST node with type shape value");
+    }
+    TypeShape operand;
   };
 
   struct NodeOperandOperator {
@@ -206,6 +246,9 @@ namespace {
     }
     String getString() const {
       throw std::runtime_error("Attempt to read string value of AST node with operator value");
+    }
+    const TypeShape& getTypeShape() const {
+      throw std::runtime_error("Attempt to read type shape value of AST node with operator value");
     }
     Operator getOperator() const {
       return this->operand;
@@ -351,6 +394,10 @@ namespace {
         printer << ' ';
         Print::ascii(printer.stream(), node->getString().toUTF8(), '"');
         break;
+      case INode::Operand::TypeShape:
+        printer << ' ';
+        node->getTypeShape().print(printer);
+        break;
       case INode::Operand::Operator:
         printer << ' ' << OperatorProperties::str(node->getOperator());
         break;
@@ -461,7 +508,7 @@ namespace {
     return NodeFactory::create(allocator, Opcode::POINTER, &children);
   }
 
-  Node buildObjectType(IAllocator& allocator, const NodeLocation& location, const ObjectShape& shape) {
+  Node buildObjectType(IAllocator& allocator, const NodeLocation& location, const TypeShape& shape) {
     Nodes children;
     if (shape.callable != nullptr) {
       children.push_back(buildCallable(allocator, location, *shape.callable));
@@ -553,6 +600,11 @@ egg::ovum::Node egg::ovum::NodeFactory::create(IAllocator& allocator, Opcode opc
   return createNodeExtra<NodeOperandString, NodeLocationNone>(allocator, nullptr, opcode, children, attributes, value);
 }
 
+egg::ovum::Node egg::ovum::NodeFactory::create(IAllocator& allocator, Opcode opcode, const Nodes* children, const Nodes* attributes, const TypeShape& value) {
+  assert(validateOpcode(opcode, children, true));
+  return createNodeExtra<NodeOperandTypeShape, NodeLocationNone>(allocator, nullptr, opcode, children, attributes, value);
+}
+
 egg::ovum::Node egg::ovum::NodeFactory::create(IAllocator& allocator, Opcode opcode, const Nodes* children, const Nodes* attributes, Operator value) {
   assert(validateOpcode(opcode, children, true));
   return createNodeExtra<NodeOperandOperator, NodeLocationNone>(allocator, nullptr, opcode, children, attributes, value);
@@ -609,6 +661,10 @@ egg::ovum::Node egg::ovum::NodeFactory::createValue(IAllocator& allocator, doubl
 
 egg::ovum::Node egg::ovum::NodeFactory::createValue(IAllocator& allocator, const String& value) {
   return createNodeOperand<NodeOperandString>(allocator, Opcode::SVALUE, value);
+}
+
+egg::ovum::Node egg::ovum::NodeFactory::createValue(IAllocator& allocator, const TypeShape& value) {
+  return createNodeOperand<NodeOperandTypeShape>(allocator, Opcode::TVALUE, value);
 }
 
 egg::ovum::Node egg::ovum::NodeFactory::createType(IAllocator& allocator, const NodeLocation& location, const Type& type) {

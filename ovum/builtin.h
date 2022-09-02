@@ -1,8 +1,8 @@
 namespace egg::ovum {
   class BuiltinFactory {
   public:
-    static const ObjectShape& getStringShape();
-    static const ObjectShape& getObjectShape();
+    static const TypeShape& getStringShape();
+    static const TypeShape& getObjectShape();
 
     class StringProperty {
     public:
