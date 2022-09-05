@@ -10,10 +10,13 @@ namespace {
   using namespace egg::ovum;
 
   enum class TypeShapeSubsection : uint8_t {
-    Callable = 0x01,
-    Dotable = 0x02,
-    Indexable = 0x03,
-    Iterable = 0x04,
+    CallableFunction = 0x01,
+    CallableGenerator = 0x02,
+    DotableOpen = 0x03,
+    DotableClosed = 0x04,
+    IndexableArray = 0x05,
+    IndexableMap = 0x06,
+    Iterable = 0x07,
     // Pointable not permitted
     End = 0x00
   };
@@ -280,14 +283,23 @@ namespace {
       for (;;) {
         auto subsection = TypeShapeSubsection(this->readByte());
         switch (subsection) {
-        case TypeShapeSubsection::Callable:
-          this->readTypeShapeCallable(*builder);
+        case TypeShapeSubsection::CallableFunction:
+          this->readTypeShapeCallable(*builder, false);
           break;
-        case TypeShapeSubsection::Dotable:
-          this->readTypeShapeDotable(*builder);
+        case TypeShapeSubsection::CallableGenerator:
+          this->readTypeShapeCallable(*builder, true);
           break;
-        case TypeShapeSubsection::Indexable:
-          this->readTypeShapeIndexable(*builder);
+        case TypeShapeSubsection::DotableOpen:
+          this->readTypeShapeDotable(*builder, false);
+          break;
+        case TypeShapeSubsection::DotableClosed:
+          this->readTypeShapeDotable(*builder, true);
+          break;
+        case TypeShapeSubsection::IndexableArray:
+          this->readTypeShapeIndexable(*builder, false);
+          break;
+        case TypeShapeSubsection::IndexableMap:
+          this->readTypeShapeIndexable(*builder, true);
           break;
         case TypeShapeSubsection::Iterable:
           this->readTypeShapeIterable(*builder);
@@ -297,24 +309,56 @@ namespace {
         }
       }
     }
-    void readTypeShapeCallable(ITypeBuilder& builder) {
-      (void)builder;
+    void readTypeShapeCallable(ITypeBuilder& builder, bool generator) {
+      auto rettype = this->readType(builder);
+      if (generator) {
+        builder.defineCallable(rettype, this->readType(builder));
+      } else {
+        builder.defineCallable(rettype, nullptr);
+      }
+      auto params = size_t(this->readUnsigned());
+      for (size_t index = 0; index < params; ++index) {
+        auto ptype = this->readType(builder);
+        builder.addPositionalParameter(ptype, {}, IFunctionSignatureParameter::Flags::None);
+      }
     }
-    void readTypeShapeDotable(ITypeBuilder& builder) {
+    void readTypeShapeDotable(ITypeBuilder& builder, bool closed) {
+      if (closed) {
+        builder.defineDotable(Type::Void, Modifiability::None);
+      } else {
+        auto unknownModifiability = this->readModifiability();
+        auto unknownType = Type::Void;
+        if (unknownModifiability != Modifiability::None) {
+          unknownType = this->readType(builder);
+        }
+        builder.defineDotable(unknownType, unknownModifiability);
+      }
       auto count = size_t(this->readUnsigned());
       for (size_t index = 0; index < count; ++index) {
-        auto name = this->indexString(this->readUnsigned()); // may be empty for 'not closed'
-        auto modifiability = Modifiability(this->readUnsigned());
-        (void)name;
-        (void)modifiability;
+        auto known = this->indexString(this->readUnsigned());
+        auto modifiability = this->readModifiability();
+        builder.addProperty(Type::AnyQ, known, modifiability);
       }
-      (void)builder;
     }
-    void readTypeShapeIndexable(ITypeBuilder& builder) {
-      (void)builder;
+    void readTypeShapeIndexable(ITypeBuilder& builder, bool map) {
+      auto resultType = this->readType(builder);
+      Type indexType = nullptr;
+      if (map) {
+        this->readType(builder);
+      }
+      auto modifiability = this->readModifiability();
+      builder.defineIndexable(resultType, indexType, modifiability);
     }
     void readTypeShapeIterable(ITypeBuilder& builder) {
       (void)builder;
+    }
+    Type readType(ITypeBuilder& builder) {
+      (void)builder;
+      return Type::Void; // WIBBLE
+    }
+    Modifiability readModifiability() {
+      // WIBBLE flags in VM header
+      return Modifiability(this->readUnsigned());
     }
     Node readNode(bool insideAttribute) const {
       auto byte = this->readByte();
@@ -658,16 +702,31 @@ namespace {
     void writeTypeShape(TARGET& target, const TypeShape* shape) const {
       assert(shape != nullptr);
       if (shape->callable != nullptr) {
-        this->writeByte(target, uint8_t(TypeShapeSubsection::Callable));
-        writeTypeShapeCallable(target, *shape->callable);
+        if (shape->callable->getGeneratorType() == nullptr) {
+          this->writeByte(target, uint8_t(TypeShapeSubsection::CallableFunction));
+          writeTypeShapeCallable(target, *shape->callable, false);
+        } else {
+          this->writeByte(target, uint8_t(TypeShapeSubsection::CallableGenerator));
+          writeTypeShapeCallable(target, *shape->callable, true);
+        }
       }
       if (shape->dotable != nullptr) {
-        this->writeByte(target, uint8_t(TypeShapeSubsection::Dotable));
-        writeTypeShapeDotable(target, *shape->dotable);
+        if (shape->dotable->isClosed()) {
+          this->writeByte(target, uint8_t(TypeShapeSubsection::DotableClosed));
+          writeTypeShapeDotable(target, *shape->dotable, true);
+        } else {
+          this->writeByte(target, uint8_t(TypeShapeSubsection::DotableOpen));
+          writeTypeShapeDotable(target, *shape->dotable, false);
+        }
       }
       if (shape->indexable != nullptr) {
-        this->writeByte(target, uint8_t(TypeShapeSubsection::Indexable));
-        writeTypeShapeIndexable(target, *shape->indexable);
+        if (shape->indexable->getIndexType() == nullptr) {
+          this->writeByte(target, uint8_t(TypeShapeSubsection::IndexableArray));
+          writeTypeShapeIndexable(target, *shape->indexable, false);
+        } else {
+          this->writeByte(target, uint8_t(TypeShapeSubsection::IndexableMap));
+          writeTypeShapeIndexable(target, *shape->indexable, true);
+        }
       }
       if (shape->iterable != nullptr) {
         this->writeByte(target, uint8_t(TypeShapeSubsection::Iterable));
@@ -676,40 +735,61 @@ namespace {
       this->writeByte(target, uint8_t(TypeShapeSubsection::End));
     }
     template<typename TARGET>
-    void writeTypeShapeCallable(TARGET& target, const IFunctionSignature& callable) const {
-      (void)target;
-      (void)callable;
+    void writeTypeShapeCallable(TARGET& target, const IFunctionSignature& callable, bool generator) const {
+      this->writeType(target, callable.getReturnType());
+      if (generator) {
+        this->writeType(target, callable.getGeneratorType());
+      }
+      auto params = callable.getParameterCount();
+      this->writeUnsigned(target, params);
+      for (size_t index = 0; index < params; ++index) {
+        auto& param = callable.getParameter(index);
+        this->writeType(target, param.getType());
+        // TODO flags
+      }
     }
     template<typename TARGET>
-    void writeTypeShapeDotable(TARGET& target, const IPropertySignature& dotable) const {
-      auto names = dotable.getNameCount();
-      auto count = names;
-      if (!dotable.isClosed()) {
-        ++count;
+    void writeTypeShapeDotable(TARGET& target, const IPropertySignature& dotable, bool closed) const {
+      if (!closed) {
+        String unknown{};
+        auto modifiability = dotable.getModifiability(unknown);
+        this->writeModifiability(target, modifiability);
+        if (modifiability != Modifiability::None) {
+          this->writeType(target, dotable.getType(unknown));
+        }
       }
+      auto count = dotable.getNameCount();
       this->writeUnsigned(target, count);
-      for (size_t index = 0; index < names; ++index) {
-        this->writeTypeShapeDotableProperty(target, dotable, dotable.getName(index));
-      }
-      if (!dotable.isClosed()) {
-        this->writeTypeShapeDotableProperty(target, dotable, String());
+      for (size_t index = 0; index < count; ++index) {
+        auto known = dotable.getName(index);
+        this->writeUnsigned(target, this->svalues.at(known));
+        auto modifiability = dotable.getModifiability(known);
+        this->writeModifiability(target, modifiability);
+        this->writeType(target, dotable.getType(known));
       }
     }
     template<typename TARGET>
-    void writeTypeShapeDotableProperty(TARGET& target, const IPropertySignature& dotable, const String& property) const {
-      this->writeUnsigned(target, this->svalues.at(property));
-      this->writeUnsigned(target, uint64_t(dotable.getModifiability(property)));
-      // TODO type
-    }
-    template<typename TARGET>
-    void writeTypeShapeIndexable(TARGET& target, const IIndexSignature& indexable) const {
-      (void)target;
-      (void)indexable;
+    void writeTypeShapeIndexable(TARGET& target, const IIndexSignature& indexable, bool map) const {
+      this->writeType(target, indexable.getResultType());
+      if (map) {
+        this->writeType(target, indexable.getIndexType());
+      }
+      auto modifiability = indexable.getModifiability();
+      this->writeModifiability(target, modifiability);
     }
     template<typename TARGET>
     void writeTypeShapeIterable(TARGET& target, const IIteratorSignature& iterable) const {
       (void)target;
       (void)iterable;
+    }
+    template<typename TARGET>
+    void writeType(TARGET& target, const Type& type) const {
+      (void)target; // WIBBLE
+      (void)type; // WIBBLE
+    }
+    template<typename TARGET>
+    void writeModifiability(TARGET& target, Modifiability modifiability) const {
+      this->writeUnsigned(target, uint64_t(modifiability));
     }
     template<typename TARGET>
     void writeCode(TARGET& target, const INode& node) const {

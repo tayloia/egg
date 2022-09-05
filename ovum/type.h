@@ -79,6 +79,9 @@ namespace egg::ovum {
       }
       return Type::areEquivalent(*lhs, *rhs);
     }
+    static bool areEquivalent(const Type& lhs, const Type& rhs) {
+      return Type::areEquivalent(lhs.get(), rhs.get());
+    }
     static bool areEquivalent(const IType& lhs, const IType& rhs);
     static bool areEquivalent(const IFunctionSignatureParameter& lhs, const IFunctionSignatureParameter& rhs);
     static bool areEquivalent(const IFunctionSignature& lhs, const IFunctionSignature& rhs);

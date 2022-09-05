@@ -315,6 +315,7 @@ namespace {
       throw std::logic_error("TypeBuilder::addNamedParameter() called for non-function type");
     }
     virtual void addProperty(const Type& ptype, const String& pname, Modifiability modifiability) override;
+    virtual void defineCallable(const Type& rettype, const Type& gentype) override;
     virtual void defineDotable(const Type& unknownType, Modifiability unknownModifiability) override;
     virtual void defineIndexable(const Type& resultType, const Type& indexType, Modifiability modifiability) override;
     virtual void defineIterable(const Type& resultType) override;
@@ -381,6 +382,12 @@ namespace {
     if (!this->properties->add(ptype, pname, modifiability)) {
       throw std::logic_error("TypeBuilder::addProperty() found duplicate property name: " + pname.toUTF8());
     }
+  }
+
+  void Builder::defineCallable(const Type& rettype, const Type& gentype) {
+    (void)rettype;
+    (void)gentype;
+    throw std::logic_error("TypeBuilder::defineCallable() not yet implemented");
   }
 
   void Builder::defineDotable(const Type& unknownType, Modifiability unknownModifiability) {
@@ -1057,7 +1064,7 @@ bool Type::areEquivalent(const IIndexSignature& lhs, const IIndexSignature& rhs)
   if (&lhs == &rhs) {
     return true;
   }
-  return lhs.getIndexType().isEquivalent(rhs.getIndexType()) && lhs.getResultType().isEquivalent(rhs.getResultType());
+  return areEquivalent(lhs.getIndexType(), rhs.getIndexType()) && areEquivalent(lhs.getResultType(), rhs.getResultType());
 }
 
 bool Type::areEquivalent(const IPointerSignature& lhs, const IPointerSignature& rhs) {
