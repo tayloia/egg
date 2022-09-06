@@ -23,9 +23,39 @@ TEST(TestForge, FunctionSignatureParametersPositional) {
   egg::test::Allocator allocator;
   Forge forge{ allocator };
   std::vector<Forge::Parameter> parameters = {
-    { "a", Type::Int, false, Forge::Parameter::Kind::Positional },
-    { "b", Type::Float, false, Forge::Parameter::Kind::Positional },
-    { "c", Type::String, true, Forge::Parameter::Kind::Positional }
+    { "b", Type::Int, false, Forge::Parameter::Kind::Positional },
+    { "c", Type::Float, false, Forge::Parameter::Kind::Positional },
+    { "a", Type::String, true, Forge::Parameter::Kind::Positional }
+  };
+  auto* callable = forge.forgeFunctionSignature(*Type::Void, nullptr, "fname", parameters);
+  ASSERT_TYPE(Type::Void, callable->getReturnType());
+  ASSERT_TYPE(nullptr, callable->getGeneratorType());
+  ASSERT_STRING("fname", callable->getName());
+  ASSERT_EQ(3u, callable->getParameterCount());
+  auto& p0 = callable->getParameter(0);
+  ASSERT_STRING("b", p0.getName());
+  ASSERT_TYPE(Type::Int, p0.getType());
+  ASSERT_EQ(0u, p0.getPosition());
+  ASSERT_EQ(IFunctionSignatureParameter::Flags::Required, p0.getFlags());
+  auto& p1 = callable->getParameter(1);
+  ASSERT_STRING("c", p1.getName());
+  ASSERT_TYPE(Type::Float, p1.getType());
+  ASSERT_EQ(1u, p1.getPosition());
+  ASSERT_EQ(IFunctionSignatureParameter::Flags::Required, p1.getFlags());
+  auto& p2 = callable->getParameter(2);
+  ASSERT_STRING("a", p2.getName());
+  ASSERT_TYPE(Type::String, p2.getType());
+  ASSERT_EQ(2u, p2.getPosition());
+  ASSERT_EQ(IFunctionSignatureParameter::Flags::None, p2.getFlags());
+}
+
+TEST(TestForge, FunctionSignatureParametersNamed) {
+  egg::test::Allocator allocator;
+  Forge forge{ allocator };
+  std::vector<Forge::Parameter> parameters = {
+    { "b", Type::Int, false, Forge::Parameter::Kind::Named },
+    { "c", Type::Float, false, Forge::Parameter::Kind::Named },
+    { "a", Type::String, true, Forge::Parameter::Kind::Named}
   };
   auto* callable = forge.forgeFunctionSignature(*Type::Void, nullptr, "fname", parameters);
   ASSERT_TYPE(Type::Void, callable->getReturnType());
@@ -34,7 +64,67 @@ TEST(TestForge, FunctionSignatureParametersPositional) {
   ASSERT_EQ(3u, callable->getParameterCount());
   auto& p0 = callable->getParameter(0);
   ASSERT_STRING("a", p0.getName());
+  ASSERT_TYPE(Type::String, p0.getType());
+  ASSERT_EQ(SIZE_MAX, p0.getPosition());
+  ASSERT_EQ(IFunctionSignatureParameter::Flags::None, p0.getFlags());
+  auto& p1 = callable->getParameter(1);
+  ASSERT_STRING("b", p1.getName());
+  ASSERT_TYPE(Type::Int, p1.getType());
+  ASSERT_EQ(SIZE_MAX, p1.getPosition());
+  ASSERT_EQ(IFunctionSignatureParameter::Flags::Required, p1.getFlags());
+  auto& p2 = callable->getParameter(2);
+  ASSERT_STRING("c", p2.getName());
+  ASSERT_TYPE(Type::Float, p2.getType());
+  ASSERT_EQ(SIZE_MAX, p2.getPosition());
+  ASSERT_EQ(IFunctionSignatureParameter::Flags::Required, p2.getFlags());
+}
+
+TEST(TestForge, FunctionSignatureParametersMixed) {
+  egg::test::Allocator allocator;
+  Forge forge{ allocator };
+  std::vector<Forge::Parameter> parameters = {
+    { "b", Type::Int, true, Forge::Parameter::Kind::Named },
+    { "a", Type::Float, false, Forge::Parameter::Kind::Positional },
+  };
+  auto* callable = forge.forgeFunctionSignature(*Type::Void, nullptr, "fname", parameters);
+  ASSERT_TYPE(Type::Void, callable->getReturnType());
+  ASSERT_TYPE(nullptr, callable->getGeneratorType());
+  ASSERT_STRING("fname", callable->getName());
+  ASSERT_EQ(2u, callable->getParameterCount());
+  auto& p0 = callable->getParameter(0);
+  ASSERT_STRING("a", p0.getName());
+  ASSERT_TYPE(Type::Float, p0.getType());
+  ASSERT_EQ(0u, p0.getPosition());
+  ASSERT_EQ(IFunctionSignatureParameter::Flags::Required, p0.getFlags());
+  auto& p1 = callable->getParameter(1);
+  ASSERT_STRING("b", p1.getName());
+  ASSERT_TYPE(Type::Int, p1.getType());
+  ASSERT_EQ(SIZE_MAX, p1.getPosition());
+  ASSERT_EQ(IFunctionSignatureParameter::Flags::None, p1.getFlags());
+}
+
+TEST(TestForge, FunctionSignatureGenerator) {
+  egg::test::Allocator allocator;
+  Forge forge{ allocator };
+  std::vector<Forge::Parameter> parameters = {
+    { "a", Type::Int, false, Forge::Parameter::Kind::Positional },
+    { "b", Type::Float, true, Forge::Parameter::Kind::Positional },
+  };
+  auto* callable = forge.forgeFunctionSignature(*Type::Any, Type::String.get(), "gname", parameters);
+  ASSERT_TYPE(Type::Any, callable->getReturnType());
+  ASSERT_TYPE(Type::String, callable->getGeneratorType());
+  ASSERT_STRING("gname", callable->getName());
+  ASSERT_EQ(2u, callable->getParameterCount());
+  auto& p0 = callable->getParameter(0);
+  ASSERT_STRING("a", p0.getName());
   ASSERT_TYPE(Type::Int, p0.getType());
+  ASSERT_EQ(0u, p0.getPosition());
+  ASSERT_EQ(IFunctionSignatureParameter::Flags::Required, p0.getFlags());
+  auto& p1 = callable->getParameter(1);
+  ASSERT_STRING("b", p1.getName());
+  ASSERT_TYPE(Type::Float, p1.getType());
+  ASSERT_EQ(1u, p1.getPosition());
+  ASSERT_EQ(IFunctionSignatureParameter::Flags::None, p1.getFlags());
 }
 
 TEST(TestForge, IndexSignatureArray) {
