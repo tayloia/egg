@@ -101,7 +101,7 @@ TEST(TestType, FactoryPointer) {
   ASSERT_EQ(1u, pointer1->getObjectShapeCount());
   auto* shape = pointer1->getObjectShape(0);
   ASSERT_NE(nullptr, shape->pointable);
-  ASSERT_EQ(Type::Any.get(), shape->pointable->getType().get());
+  ASSERT_TYPE(Type::Any, shape->pointable->getType());
   ASSERT_EQ(modifiability, shape->pointable->getModifiability());
   auto pointer2 = factory.createPointer(Type::Any, modifiability);
   ASSERT_EQ(pointer1.get(), pointer2.get());

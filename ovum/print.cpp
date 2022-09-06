@@ -96,6 +96,14 @@ void egg::ovum::Print::write(std::ostream& stream, const String& value, const Op
   Print::write(stream, value.toUTF8(), options);
 }
 
+void egg::ovum::Print::write(std::ostream& stream, const Type& value, const Options&) {
+  if (value == nullptr) {
+    stream << "null";
+  } else {
+    stream << Type::toString(*value);
+  }
+}
+
 void egg::ovum::Print::write(std::ostream& stream, ValueFlags value, const Options&) {
   size_t found = 0;
 #define EGG_OVUM_VARIANT_PRINT(name, text) if (Bits::hasAnySet(value, ValueFlags::name)) { if (++found > 1) { stream << '|'; } stream << text; }

@@ -16,6 +16,10 @@ TEST(TestTesting, String) {
   ASSERT_STRING("Hello", greeting);
 }
 
+TEST(TestTesting, Type) {
+  ASSERT_TYPE(egg::ovum::Type::Int, egg::ovum::Type::Int);
+}
+
 TEST(TestTesting, Value) {
   egg::test::Allocator allocator;
   egg::ovum::Value greeting{ egg::ovum::ValueFactory::createASCIIZ(allocator, "Hello") };
