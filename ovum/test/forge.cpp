@@ -1,0 +1,107 @@
+#include "ovum/test.h"
+#include "ovum/forge.h"
+
+using namespace egg::ovum;
+
+TEST(TestForge, Empty) {
+  egg::test::Allocator allocator{ egg::test::Allocator::Expectation::NoAllocations };
+  Forge forge{ allocator };
+  ASSERT_NE(nullptr, &forge);
+}
+
+TEST(TestForge, FunctionSignatureEmpty) {
+  egg::test::Allocator allocator;
+  Forge forge{ allocator };
+  auto* callable = forge.forgeFunctionSignature(*Type::Void, nullptr, "fname", {});
+  ASSERT_TYPE(Type::Void, callable->getReturnType());
+  ASSERT_TYPE(nullptr, callable->getGeneratorType());
+  ASSERT_STRING("fname", callable->getName());
+  ASSERT_EQ(0u, callable->getParameterCount());
+}
+
+TEST(TestForge, FunctionSignatureParametersPositional) {
+  egg::test::Allocator allocator;
+  Forge forge{ allocator };
+  std::vector<Forge::Parameter> parameters = {
+    { "a", Type::Int, false, Forge::Parameter::Kind::Positional },
+    { "b", Type::Float, false, Forge::Parameter::Kind::Positional },
+    { "c", Type::String, true, Forge::Parameter::Kind::Positional }
+  };
+  auto* callable = forge.forgeFunctionSignature(*Type::Void, nullptr, "fname", parameters);
+  ASSERT_TYPE(Type::Void, callable->getReturnType());
+  ASSERT_TYPE(nullptr, callable->getGeneratorType());
+  ASSERT_STRING("fname", callable->getName());
+  ASSERT_EQ(3u, callable->getParameterCount());
+  auto& p0 = callable->getParameter(0);
+  ASSERT_STRING("a", p0.getName());
+  ASSERT_TYPE(Type::Int, p0.getType());
+}
+
+TEST(TestForge, IndexSignatureArray) {
+  egg::test::Allocator allocator;
+  Forge forge{ allocator };
+  auto* indexable = forge.forgeIndexSignature(*Type::String, nullptr, Modifiability::Read | Modifiability::Write);
+  ASSERT_TYPE(Type::String, indexable->getResultType());
+  ASSERT_TYPE(nullptr, indexable->getIndexType());
+  ASSERT_EQ(Modifiability::Read | Modifiability::Write, indexable->getModifiability());
+}
+
+TEST(TestForge, IndexSignatureMap) {
+  egg::test::Allocator allocator;
+  Forge forge{ allocator };
+  auto* indexable = forge.forgeIndexSignature(*Type::Float, Type::String.get(), Modifiability::Read);
+  ASSERT_TYPE(Type::Float, indexable->getResultType());
+  ASSERT_TYPE(Type::String, indexable->getIndexType());
+  ASSERT_EQ(Modifiability::Read, indexable->getModifiability());
+}
+
+TEST(TestForge, IteratorSignature) {
+  egg::test::Allocator allocator;
+  Forge forge{ allocator };
+  auto* iterable = forge.forgeIteratorSignature(*Type::Int);
+  ASSERT_TYPE(Type::Int, iterable->getType());
+}
+
+TEST(TestForge, PointerSignature) {
+  egg::test::Allocator allocator;
+  Forge forge{ allocator };
+  auto* pointable = forge.forgePointerSignature(*Type::String, Modifiability::Read);
+  ASSERT_TYPE(Type::String, pointable->getType());
+  ASSERT_EQ(Modifiability::Read, pointable->getModifiability());
+}
+
+TEST(TestForge, PropertySignatureClosed) {
+  egg::test::Allocator allocator;
+  Forge forge{ allocator };
+  std::vector<Forge::Property> properties = {
+    { "age", Type::Int, Modifiability::Read }
+  };
+  auto* dotable = forge.forgePropertySignature(properties, nullptr, Modifiability::None);
+  ASSERT_EQ(true, dotable->isClosed());
+  ASSERT_EQ(1u, dotable->getNameCount());
+  ASSERT_STRING("age", dotable->getName(0));
+  ASSERT_TYPE(Type::Int, dotable->getType("age"));
+  ASSERT_EQ(Modifiability::Read, dotable->getModifiability("age"));
+  ASSERT_TYPE(nullptr, dotable->getType("unknown"));
+  ASSERT_EQ(Modifiability::None, dotable->getModifiability("unknown"));
+}
+
+TEST(TestForge, PropertySignatureOpen) {
+  egg::test::Allocator allocator;
+  Forge forge{ allocator };
+  std::vector<Forge::Property> properties = {
+    { "name", Type::String, Modifiability::Read | Modifiability::Write },
+    { "cost", Type::Float, Modifiability::Read | Modifiability::Write | Modifiability::Mutate }
+  };
+  auto* dotable = forge.forgePropertySignature(properties, Type::Int.get(), Modifiability::Read);
+  ASSERT_EQ(false, dotable->isClosed());
+  ASSERT_EQ(2u, dotable->getNameCount());
+  ASSERT_STRING("cost", dotable->getName(0));
+  ASSERT_TYPE(Type::Float, dotable->getType("cost"));
+  ASSERT_EQ(Modifiability::Read | Modifiability::Write | Modifiability::Mutate, dotable->getModifiability("cost"));
+  ASSERT_STRING("name", dotable->getName(1));
+  ASSERT_TYPE(Type::String, dotable->getType("name"));
+  ASSERT_EQ(Modifiability::Read | Modifiability::Write, dotable->getModifiability("name"));
+  ASSERT_TYPE(Type::Int, dotable->getType("unknown"));
+  ASSERT_EQ(Modifiability::Read, dotable->getModifiability("unknown"));
+}
