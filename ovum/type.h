@@ -314,7 +314,6 @@ namespace egg::ovum {
   private:
     std::unique_ptr<Forge> forge;
     ReadWriteMutex mutex;
-    std::map<ValueFlags, Type> simples;
     std::vector<Complex> complexes;
     std::vector<TypeShape> shapes;
     std::map<const IType*, Type> pointers;

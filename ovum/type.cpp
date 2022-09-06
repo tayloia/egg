@@ -11,55 +11,6 @@
 namespace {
   using namespace egg::ovum;
 
-  std::pair<std::string, int> complexComponentObject(const TypeShape* shape) {
-    assert(shape != nullptr);
-    if (shape->callable != nullptr) {
-      return FunctionSignature::toStringPrecedence(*shape->callable);
-    }
-    if (shape->pointable != nullptr) {
-      auto pointee = shape->pointable->getType()->toStringPrecedence();
-      if (pointee.second > 1) {
-        return { '(' + pointee.first + ')' + '*', 1 };
-      }
-      return { pointee.first + '*', 1 };
-    }
-    return { "<complex>", 0 }; // TODO
-  }
-
-  std::pair<std::string, int> complexToStringPrecedence(ValueFlags primitive, const IType& complex) {
-    auto shapes = complex.getObjectShapeCount();
-    if (shapes == 0) {
-      // Primitive types only
-      return Forge::primitiveToStringPrecedence(primitive);
-    }
-    std::pair<std::string, int> result;
-    if (primitive != ValueFlags::None) {
-      result = Forge::primitiveToStringPrecedence(primitive);
-    }
-    std::set<std::string> parts;
-    for (size_t index = 0; index < shapes; ++index) {
-      auto next = complexComponentObject(complex.getObjectShape(index));
-      assert(!next.first.empty());
-      assert((next.second >= 0) && (next.second <= 2));
-      if ((index == 0) && result.first.empty()) {
-        result.second = next.second;
-      } else {
-        result.second = 2;
-      }
-      parts.insert(next.first);
-    }
-    for (auto& part : parts) {
-      // Lexigraphically ordered for stability
-      if (result.first.empty()) {
-        result.first = part;
-      } else {
-        result.first += '|' + part;
-      }
-    }
-    assert(!result.first.empty());
-    return result;
-  }
-
   class TypeBase : public NotHardReferenceCounted<IType> {
     TypeBase(const TypeBase&) = delete;
     TypeBase& operator=(const TypeBase&) = delete;
@@ -135,7 +86,7 @@ namespace {
       return 1;
     }
     virtual std::pair<std::string, int> toStringPrecedence() const override {
-      return complexToStringPrecedence(ValueFlags::None, *this);
+      return Forge::complexToStringPrecedence(ValueFlags::None, *this);
     }
     virtual String describeValue() const override {
       // TODO i18n
@@ -184,7 +135,7 @@ namespace {
       return 1;
     }
     virtual std::pair<std::string, int> toStringPrecedence() const override {
-      return complexToStringPrecedence(ValueFlags::None, *this);
+      return Forge::complexToStringPrecedence(ValueFlags::None, *this);
     }
     virtual String describeValue() const override {
       // TODO i18n
@@ -209,8 +160,8 @@ namespace {
   public:
     TypeComplex(IAllocator& allocator, ValueFlags flags, std::vector<const TypeShape*>&& objectShapes)
       : HardReferenceCounted(allocator, 0),
-        flags(flags),
-        objectShapes(std::move(objectShapes)) {
+      flags(flags),
+      objectShapes(std::move(objectShapes)) {
       assert(!this->objectShapes.empty());
     }
     virtual ValueFlags getPrimitiveFlags() const override {
@@ -223,14 +174,14 @@ namespace {
       return this->objectShapes.size();
     }
     virtual std::pair<std::string, int> toStringPrecedence() const override {
-      return complexToStringPrecedence(this->flags, *this);
+      return Forge::complexToStringPrecedence(this->flags, *this);
     }
     virtual String describeValue() const override {
       // TODO i18n
       return StringBuilder::concat("Value of type '", this->toStringPrecedence().first, "'");
     }
   };
-
+  
   class Builder : public HardReferenceCounted<ITypeBuilder> {
     Builder(const Builder&) = delete;
     Builder& operator=(const Builder&) = delete;
@@ -646,10 +597,6 @@ namespace {
     return index;
   }
 
-  void registerSimpleBasic(std::map<ValueFlags, Type>& simples, const IType& type) {
-    simples.emplace(type.getPrimitiveFlags(), Type(&type));
-  }
-
   size_t registerObjectShapeWithLock(ReadWriteMutex& mutex, std::vector<TypeShape>& shapes, const TypeShape& shape) {
     // First, try to fetch an existing entry
     ReadLock lockR{ mutex };
@@ -735,19 +682,6 @@ String Type::toString() const {
 
 TypeFactory::TypeFactory(IAllocator& allocator)
   : forge(std::make_unique<Forge>(allocator)) {
-  registerSimpleBasic(this->simples, typeNone);
-  registerSimpleBasic(this->simples, typeVoid);
-  registerSimpleBasic(this->simples, typeNull);
-  registerSimpleBasic(this->simples, typeBool);
-  registerSimpleBasic(this->simples, typeBoolInt);
-  registerSimpleBasic(this->simples, typeInt);
-  registerSimpleBasic(this->simples, typeIntQ);
-  registerSimpleBasic(this->simples, typeFloat);
-  registerSimpleBasic(this->simples, typeString);
-  registerSimpleBasic(this->simples, typeArithmetic);
-  registerSimpleBasic(this->simples, typeObject);
-  registerSimpleBasic(this->simples, typeAny);
-  registerSimpleBasic(this->simples, typeAnyQ);
 }
 
 TypeFactory::~TypeFactory() {

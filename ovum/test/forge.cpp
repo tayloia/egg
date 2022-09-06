@@ -243,3 +243,12 @@ TEST(TestForge, TypeSimple) {
   Type type2{ forge.forgeSimple(ValueFlags::Void | ValueFlags::AnyQ) };
   ASSERT_STRING("void|bool|int|float|string|object?", type2.toString());
 }
+
+TEST(TestForge, TypeComplex) {
+  egg::test::Allocator allocator;
+  Forge forge{ allocator };
+  auto* indexable = forge.forgeIndexSignature(*Type::Float, Type::String.get(), Modifiability::Read);
+  std::vector<const TypeShape*> shapes{ forge.forgeTypeShape(nullptr, nullptr, indexable, nullptr, nullptr) };
+  Type complex{ forge.forgeComplex(ValueFlags::Int | ValueFlags::String, shapes) };
+  ASSERT_STRING("int|string|float[string]", complex.toString());
+}

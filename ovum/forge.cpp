@@ -1,5 +1,6 @@
 #include "ovum/ovum.h"
 #include "ovum/forge.h"
+#include "ovum/function.h"
 
 namespace {
   using namespace egg::ovum;
@@ -17,6 +18,34 @@ namespace {
       }
     EGG_WARNING_SUPPRESS_SWITCH_END
       return nullptr;
+  }
+
+  std::pair<std::string, int> complexComponentObject(const TypeShape* shape) {
+    assert(shape != nullptr);
+    if (shape->callable != nullptr) {
+      return FunctionSignature::toStringPrecedence(*shape->callable);
+    }
+    if (shape->pointable != nullptr) {
+      auto pointee = shape->pointable->getType()->toStringPrecedence();
+      if (pointee.second > 1) {
+        return { '(' + pointee.first + ')' + '*', 1 };
+      }
+      return { pointee.first + '*', 1 };
+    }
+    if (shape->indexable != nullptr) {
+      auto resultType = shape->indexable->getResultType();
+      auto indexee = resultType->toStringPrecedence();
+      auto result = indexee.first;
+      if (indexee.second > 1) {
+        result = '(' + result + ')';
+      }
+      auto indexType = shape->indexable->getIndexType();
+      if (indexType == nullptr) {
+        return { result + '[' + ']', 1 };
+      }
+      return { result + '[' + indexType->toStringPrecedence().first + ']', 1 };
+    }
+    return { "<complex>", 0 }; // TODO
   }
 
   template<typename T>
@@ -142,9 +171,9 @@ namespace {
     }
   };
 
-  struct FunctionSignature : public IFunctionSignature {
-    FunctionSignature(const FunctionSignature&) = delete;
-    FunctionSignature& operator=(const FunctionSignature&) = delete;
+  struct CallableSignature : public IFunctionSignature {
+    CallableSignature(const CallableSignature&) = delete;
+    CallableSignature& operator=(const CallableSignature&) = delete;
   private:
     String fname;
     const IType& returnType;
@@ -153,7 +182,7 @@ namespace {
     std::map<String, Forge::Parameter> named;
     std::vector<ParameterSignature> signature;
   public:
-    FunctionSignature(const IType& returnType, const IType* generatorType, String name, const std::span<Forge::Parameter>& parameters)
+    CallableSignature(const IType& returnType, const IType* generatorType, String name, const std::span<Forge::Parameter>& parameters)
       : fname(name), returnType(returnType), generatorType(generatorType) {
       for (const auto& parameter : parameters) {
         if (parameter.kind == Forge::Parameter::Kind::Named) {
@@ -370,6 +399,42 @@ namespace {
       return StringBuilder::concat("Value of type '", this->toStringPrecedence().first, "'");
     }
   };
+
+  class TypeComplex final : public HardReferenceCounted<IType> {
+    TypeComplex(const TypeComplex&) = delete;
+    TypeComplex& operator=(const TypeComplex&) = delete;
+  private:
+    ValueFlags flags;
+    std::set<const TypeShape*> shapes;
+  public:
+    TypeComplex(IAllocator& allocator, ValueFlags flags, std::set<const TypeShape*>&& shapes)
+      : HardReferenceCounted(allocator, 0),
+      flags(flags),
+      shapes(std::move(shapes)) {
+      assert(!this->shapes.empty());
+    }
+    virtual ValueFlags getPrimitiveFlags() const override {
+      return this->flags;
+    }
+    virtual const TypeShape* getObjectShape(size_t index) const override {
+      auto iterator = std::begin(this->shapes);
+      std::advance(iterator, index);
+      return *iterator;
+    }
+    virtual size_t getObjectShapeCount() const override {
+      return this->shapes.size();
+    }
+    virtual std::pair<std::string, int> toStringPrecedence() const override {
+      return Forge::complexToStringPrecedence(this->flags, *this);
+    }
+    virtual String describeValue() const override {
+      // TODO i18n
+      return StringBuilder::concat("Value of type '", this->toStringPrecedence().first, "'");
+    }
+    bool equals(ValueFlags flags2, const std::set<const TypeShape*>& shapes2) const {
+      return this->flags == flags2 && this->shapes == shapes2;
+    }
+  };
 }
 
 std::pair<std::string, int> egg::ovum::Forge::primitiveToStringPrecedence(ValueFlags flags) {
@@ -387,6 +452,40 @@ std::pair<std::string, int> egg::ovum::Forge::primitiveToStringPrecedence(ValueF
   return { primitiveToStringPrecedence(Bits::clear(flags, head)).first + '|' + component, 2 };
 }
 
+std::pair<std::string, int> egg::ovum::Forge::complexToStringPrecedence(ValueFlags primitive, const IType& complex) {
+  auto shapes = complex.getObjectShapeCount();
+  if (shapes == 0) {
+    // Primitive types only
+    return Forge::primitiveToStringPrecedence(primitive);
+  }
+  std::pair<std::string, int> result;
+  if (primitive != ValueFlags::None) {
+    result = Forge::primitiveToStringPrecedence(primitive);
+  }
+  std::set<std::string> parts;
+  for (size_t index = 0; index < shapes; ++index) {
+    auto next = complexComponentObject(complex.getObjectShape(index));
+    assert(!next.first.empty());
+    assert((next.second >= 0) && (next.second <= 2));
+    if ((index == 0) && result.first.empty()) {
+      result.second = next.second;
+    } else {
+      result.second = 2;
+    }
+    parts.insert(next.first);
+  }
+  for (auto& part : parts) {
+    // Lexigraphically ordered for stability
+    if (result.first.empty()) {
+      result.first = part;
+    } else {
+      result.first += '|' + part;
+    }
+  }
+  assert(!result.first.empty());
+  return result;
+}
+
 class egg::ovum::Forge::Implementation {
   Implementation(const Implementation&) = delete;
   Implementation& operator=(const Implementation&) = delete;
@@ -395,12 +494,13 @@ private:
 public:
   IAllocator& allocator;
   ForgeList<TypeShape, TypeShape> shapes;
-  ForgeList<FunctionSignature, IFunctionSignature> functions;
+  ForgeList<CallableSignature, IFunctionSignature> functions;
   ForgeList<IndexSignature, IIndexSignature> indexes;
   ForgeList<IteratorSignature, IIteratorSignature> iterators;
   ForgeList<PointerSignature, IPointerSignature> pointers;
   ForgeList<PropertySignature, IPropertySignature> properties;
-  std::vector<Type> simples;
+  std::vector<HardPtr<const IType>> simples;
+  std::vector<HardPtr<const TypeComplex>> complexes;
 
   explicit Implementation(IAllocator& allocator) : allocator(allocator) {
     this->simples.resize(NSIMPLES);
@@ -450,11 +550,11 @@ IAllocator& egg::ovum::Forge::getAllocator() const {
 }
 
 const egg::ovum::IFunctionSignature* egg::ovum::Forge::forgeFunctionSignature(const IType& returnType, const IType* generatorType, String name, const std::span<Parameter>& parameters) {
-  auto equals = [&](const FunctionSignature& candidate) {
+  auto equals = [&](const CallableSignature& candidate) {
     return candidate.equals(returnType, generatorType, name, parameters);
   };
   auto create = [&]() {
-    return this->implementation->make<FunctionSignature>(returnType, generatorType, name, parameters);
+    return this->implementation->make<CallableSignature>(returnType, generatorType, name, parameters);
   };
   return this->implementation->functions.findOrAdd(equals, create);
 }
@@ -520,4 +620,21 @@ const egg::ovum::IType* egg::ovum::Forge::forgeSimple(egg::ovum::ValueFlags simp
     ref = this->implementation->allocator.makeHard<TypeSimple, Type>(simple);
   }
   return ref.get();
+}
+
+const egg::ovum::IType* egg::ovum::Forge::forgeComplex(egg::ovum::ValueFlags simple, const std::span<const TypeShape*>& complex) {
+  assert(complex.size() > 0);
+  // TODO lock
+  std::set<const TypeShape*> shapes;
+  for (const auto& shape : complex) {
+    shapes.insert(shape);
+  }
+  for (const auto& candidate : this->implementation->complexes) {
+    if (candidate->equals(simple, shapes)) {
+      return candidate.get();
+    }
+  }
+  auto created = this->implementation->allocator.makeHard<TypeComplex>(simple, std::move(shapes));
+  this->implementation->complexes.emplace_back(created.get());
+  return created.get();
 }
