@@ -7,6 +7,7 @@
 #include "ovum/builtin.h"
 #include "ovum/function.h"
 #include "ovum/vanilla.h"
+#include "ovum/forge.h"
 
 #include <map>
 #include <set>

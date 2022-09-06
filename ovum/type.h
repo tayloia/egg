@@ -2,6 +2,7 @@
 #include <set>
 
 namespace egg::ovum {
+  class Forge;
   class INode;
 
 #define EGG_OVUM_VALUE_FLAGS(X) \
@@ -112,6 +113,7 @@ namespace egg::ovum {
     Assignment mutate(IAllocator& allocator, const Value& lhs, const Value& rhs, Mutation mutation, Value& out) const;
 
     // Constants
+    static const Type None;
     static const Type Void;
     static const Type Null;
     static const Type Bool;
@@ -310,7 +312,7 @@ namespace egg::ovum {
       static bool areEquivalent(const Complex& lhs, const Complex& rhs);
     };
   private:
-    IAllocator& allocator;
+    std::unique_ptr<Forge> forge;
     ReadWriteMutex mutex;
     std::map<ValueFlags, Type> simples;
     std::vector<Complex> complexes;
@@ -318,7 +320,8 @@ namespace egg::ovum {
     std::map<const IType*, Type> pointers;
   public:
     explicit TypeFactory(IAllocator& allocator);
-    virtual IAllocator& getAllocator() const override { return this->allocator; }
+    ~TypeFactory();
+    virtual IAllocator& getAllocator() const override;
 
     virtual Type createSimple(ValueFlags flags) override;
     virtual Type createPointer(const Type& pointee, Modifiability modifiability) override;

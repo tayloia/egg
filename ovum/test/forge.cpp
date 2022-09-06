@@ -195,3 +195,51 @@ TEST(TestForge, PropertySignatureOpen) {
   ASSERT_TYPE(Type::Int, dotable->getType("unknown"));
   ASSERT_EQ(Modifiability::Read, dotable->getModifiability("unknown"));
 }
+
+TEST(TestForge, TypeShapeEmpty) {
+  egg::test::Allocator allocator;
+  Forge forge{ allocator };
+  auto* shape = forge.forgeTypeShape(nullptr, nullptr, nullptr, nullptr, nullptr);
+  ASSERT_EQ(nullptr, shape->callable);
+  ASSERT_EQ(nullptr, shape->dotable);
+  ASSERT_EQ(nullptr, shape->indexable);
+  ASSERT_EQ(nullptr, shape->iterable);
+  ASSERT_EQ(nullptr, shape->pointable);
+}
+
+TEST(TestForge, TypeShapeRepeated) {
+  egg::test::Allocator allocator;
+  Forge forge{ allocator };
+  auto* indexable = forge.forgeIndexSignature(*Type::Float, Type::String.get(), Modifiability::Read);
+  auto* shape1 = forge.forgeTypeShape(nullptr, nullptr, indexable, nullptr, nullptr);
+  ASSERT_EQ(nullptr, shape1->callable);
+  ASSERT_EQ(nullptr, shape1->dotable);
+  ASSERT_EQ(indexable, shape1->indexable);
+  ASSERT_EQ(nullptr, shape1->iterable);
+  ASSERT_EQ(nullptr, shape1->pointable);
+  auto* shape2 = forge.forgeTypeShape(nullptr, nullptr, indexable, nullptr, nullptr);
+  ASSERT_EQ(shape1, shape2);
+}
+
+TEST(TestForge, TypePrimitive) {
+  egg::test::Allocator allocator{ egg::test::Allocator::Expectation::NoAllocations };
+  Forge forge{ allocator };
+  Type none{ forge.forgeSimple(ValueFlags::None) };
+  ASSERT_TYPE(Type::None, none);
+  ASSERT_STRING("var", none.toString());
+  Type arithmetic{ forge.forgeSimple(ValueFlags::Arithmetic) };
+  ASSERT_TYPE(Type::Arithmetic, arithmetic);
+  ASSERT_STRING("int|float", arithmetic.toString());
+  Type anyq{ forge.forgeSimple(ValueFlags::AnyQ) };
+  ASSERT_TYPE(Type::AnyQ, anyq);
+  ASSERT_STRING("any?", anyq.toString());
+}
+
+TEST(TestForge, TypeSimple) {
+  egg::test::Allocator allocator;
+  Forge forge{ allocator };
+  Type type1{ forge.forgeSimple(ValueFlags::Int | ValueFlags::String) };
+  ASSERT_STRING("int|string", type1.toString());
+  Type type2{ forge.forgeSimple(ValueFlags::Void | ValueFlags::AnyQ) };
+  ASSERT_STRING("void|bool|int|float|string|object?", type2.toString());
+}

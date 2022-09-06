@@ -4,6 +4,21 @@
 namespace {
   using namespace egg::ovum;
 
+  const char* primitiveComponent(ValueFlags flags) {
+    EGG_WARNING_SUPPRESS_SWITCH_BEGIN
+      switch (flags) {
+      case ValueFlags::None:
+        return "var";
+#define EGG_OVUM_VALUE_FLAGS_COMPONENT(name, text) case ValueFlags::name: return text;
+        EGG_OVUM_VALUE_FLAGS(EGG_OVUM_VALUE_FLAGS_COMPONENT)
+#undef EGG_OVUM_VALUE_FLAGS_COMPONENT
+      case ValueFlags::Any:
+        return "any";
+      }
+    EGG_WARNING_SUPPRESS_SWITCH_END
+      return nullptr;
+  }
+
   template<typename T>
   class ForgeablePtr {
     ForgeablePtr(const ForgeablePtr&) = delete;
@@ -326,11 +341,57 @@ namespace {
       return found->second;
     }
   };
+
+  class TypeSimple final : public HardReferenceCounted<IType> {
+    TypeSimple(const TypeSimple&) = delete;
+    TypeSimple& operator=(const TypeSimple&) = delete;
+  private:
+    ValueFlags flags;
+  public:
+    TypeSimple(IAllocator& allocator, ValueFlags flags)
+      : HardReferenceCounted(allocator, 0),
+      flags(flags) {
+      assert(flags != ValueFlags::None);
+    }
+    virtual ValueFlags getPrimitiveFlags() const override {
+      return this->flags;
+    }
+    virtual const TypeShape* getObjectShape(size_t) const override {
+      return nullptr;
+    }
+    virtual size_t getObjectShapeCount() const override {
+      return 0;
+    }
+    virtual std::pair<std::string, int> toStringPrecedence() const override {
+      return Forge::primitiveToStringPrecedence(this->flags);
+    }
+    virtual String describeValue() const override {
+      // TODO i18n
+      return StringBuilder::concat("Value of type '", this->toStringPrecedence().first, "'");
+    }
+  };
+}
+
+std::pair<std::string, int> egg::ovum::Forge::primitiveToStringPrecedence(ValueFlags flags) {
+  auto* component = primitiveComponent(flags);
+  if (component != nullptr) {
+    return { component, 0 };
+  }
+  if (Bits::hasAnySet(flags, ValueFlags::Null)) {
+    return { primitiveToStringPrecedence(Bits::clear(flags, ValueFlags::Null)).first + "?", 1 };
+  }
+  auto head = Bits::topmost(flags);
+  assert(head != ValueFlags::None);
+  component = primitiveComponent(head);
+  assert(component != nullptr);
+  return { primitiveToStringPrecedence(Bits::clear(flags, head)).first + '|' + component, 2 };
 }
 
 class egg::ovum::Forge::Implementation {
   Implementation(const Implementation&) = delete;
   Implementation& operator=(const Implementation&) = delete;
+private:
+  const size_t NSIMPLES = size_t(ValueFlags::Object) << 1;
 public:
   IAllocator& allocator;
   ForgeList<TypeShape, TypeShape> shapes;
@@ -339,8 +400,10 @@ public:
   ForgeList<IteratorSignature, IIteratorSignature> iterators;
   ForgeList<PointerSignature, IPointerSignature> pointers;
   ForgeList<PropertySignature, IPropertySignature> properties;
+  std::vector<Type> simples;
 
   explicit Implementation(IAllocator& allocator) : allocator(allocator) {
+    this->simples.resize(NSIMPLES);
   }
   ~Implementation() {
     this->shapes.destroy(this->allocator);
@@ -350,6 +413,13 @@ public:
     this->pointers.destroy(this->allocator);
     this->properties.destroy(this->allocator);
   }
+  void addSimple(const IType& simple) {
+    // Used only during construction, so no need for locks
+    auto index = size_t(simple.getPrimitiveFlags());
+    assert(index < NSIMPLES);
+    assert(this->simples.at(index) == nullptr);
+    this->simples[index].set(&simple);
+  }
   template<typename T, typename... ARGS>
   ForgeablePtr<T> make(ARGS&&... args) {
     // Use perfect forwarding
@@ -358,10 +428,25 @@ public:
 };
 
 egg::ovum::Forge::Forge(IAllocator& allocator) : implementation(std::make_unique<Implementation>(allocator)) {
+  implementation->addSimple(*Type::None);
+  implementation->addSimple(*Type::Void);
+  implementation->addSimple(*Type::Null);
+  implementation->addSimple(*Type::Bool);
+  implementation->addSimple(*Type::Int);
+  implementation->addSimple(*Type::Float);
+  implementation->addSimple(*Type::Arithmetic);
+  implementation->addSimple(*Type::String);
+  implementation->addSimple(*Type::Object);
+  implementation->addSimple(*Type::Any);
+  implementation->addSimple(*Type::AnyQ);
 }
 
 egg::ovum::Forge::~Forge() {
   // Cannot be in the header file: https://en.cppreference.com/w/cpp/language/pimpl
+}
+
+IAllocator& egg::ovum::Forge::getAllocator() const {
+  return this->implementation->allocator;
 }
 
 const egg::ovum::IFunctionSignature* egg::ovum::Forge::forgeFunctionSignature(const IType& returnType, const IType* generatorType, String name, const std::span<Parameter>& parameters) {
@@ -412,4 +497,27 @@ const egg::ovum::IPropertySignature* egg::ovum::Forge::forgePropertySignature(co
     return this->implementation->make<PropertySignature>(properties, unknownType, unknownModifiability);
   };
   return this->implementation->properties.findOrAdd(equals, create);
+}
+
+const egg::ovum::TypeShape* egg::ovum::Forge::forgeTypeShape(const IFunctionSignature* callable, const IPropertySignature* dotable, const IIndexSignature* indexable, const IIteratorSignature* iterable, const IPointerSignature* pointable) {
+  auto equals = [&](const TypeShape& candidate) {
+    return candidate.callable == callable &&
+           candidate.dotable == dotable &&
+           candidate.indexable == indexable &&
+           candidate.iterable == iterable &&
+           candidate.pointable == pointable;
+  };
+  auto create = [&]() {
+    return this->implementation->make<TypeShape>(callable, dotable, indexable, iterable, pointable);
+  };
+  return this->implementation->shapes.findOrAdd(equals, create);
+}
+
+const egg::ovum::IType* egg::ovum::Forge::forgeSimple(egg::ovum::ValueFlags simple) {
+  auto& ref = this->implementation->simples.at(size_t(simple));
+  if (ref == nullptr) {
+    // TODO lock
+    ref = this->implementation->allocator.makeHard<TypeSimple, Type>(simple);
+  }
+  return ref.get();
 }

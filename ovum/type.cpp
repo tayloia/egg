@@ -3,42 +3,13 @@
 #include "ovum/node.h"
 #include "ovum/builtin.h"
 #include "ovum/function.h"
+#include "ovum/forge.h"
 
 #include <array>
 #include <unordered_set>
 
 namespace {
   using namespace egg::ovum;
-
-  const char* primitiveComponent(ValueFlags flags) {
-    EGG_WARNING_SUPPRESS_SWITCH_BEGIN
-      switch (flags) {
-      case ValueFlags::None:
-        return "var";
-#define EGG_OVUM_VALUE_FLAGS_COMPONENT(name, text) case ValueFlags::name: return text;
-        EGG_OVUM_VALUE_FLAGS(EGG_OVUM_VALUE_FLAGS_COMPONENT)
-#undef EGG_OVUM_VALUE_FLAGS_COMPONENT
-      case ValueFlags::Any:
-        return "any";
-      }
-    EGG_WARNING_SUPPRESS_SWITCH_END
-      return nullptr;
-  }
-
-  std::pair<std::string, int> primitiveToStringPrecedence(ValueFlags flags) {
-    auto* component = primitiveComponent(flags);
-    if (component != nullptr) {
-      return { component, 0 };
-    }
-    if (Bits::hasAnySet(flags, ValueFlags::Null)) {
-      return { primitiveToStringPrecedence(Bits::clear(flags, ValueFlags::Null)).first + "?", 1 };
-    }
-    auto head = Bits::topmost(flags);
-    assert(head != ValueFlags::None);
-    component = primitiveComponent(head);
-    assert(component != nullptr);
-    return { primitiveToStringPrecedence(Bits::clear(flags, head)).first + '|' + component, 2 };
-  }
 
   std::pair<std::string, int> complexComponentObject(const TypeShape* shape) {
     assert(shape != nullptr);
@@ -59,11 +30,11 @@ namespace {
     auto shapes = complex.getObjectShapeCount();
     if (shapes == 0) {
       // Primitive types only
-      return primitiveToStringPrecedence(primitive);
+      return Forge::primitiveToStringPrecedence(primitive);
     }
     std::pair<std::string, int> result;
     if (primitive != ValueFlags::None) {
-      result = primitiveToStringPrecedence(primitive);
+      result = Forge::primitiveToStringPrecedence(primitive);
     }
     std::set<std::string> parts;
     for (size_t index = 0; index < shapes; ++index) {
@@ -118,7 +89,7 @@ namespace {
       return FLAGS;
     }
     virtual std::pair<std::string, int> toStringPrecedence() const override {
-      return primitiveToStringPrecedence(FLAGS);
+      return Forge::primitiveToStringPrecedence(FLAGS);
     }
   };
 
@@ -135,35 +106,6 @@ namespace {
   TypePrimitive<ValueFlags::Object> typeObject{};
   TypePrimitive<ValueFlags::Any> typeAny{};
   TypePrimitive<ValueFlags::AnyQ> typeAnyQ{};
-
-  class TypeSimple final : public HardReferenceCounted<IType> {
-    TypeSimple(const TypeSimple&) = delete;
-    TypeSimple& operator=(const TypeSimple&) = delete;
-  private:
-    ValueFlags flags;
-  public:
-    TypeSimple(IAllocator& allocator, ValueFlags flags)
-      : HardReferenceCounted(allocator, 0),
-        flags(flags) {
-      assert(flags != ValueFlags::None);
-    }
-    virtual ValueFlags getPrimitiveFlags() const override {
-      return this->flags;
-    }
-    virtual const TypeShape* getObjectShape(size_t) const override {
-      return nullptr;
-    }
-    virtual size_t getObjectShapeCount() const override {
-      return 0;
-    }
-    virtual std::pair<std::string, int> toStringPrecedence() const override {
-      return primitiveToStringPrecedence(this->flags);
-    }
-    virtual String describeValue() const override {
-      // TODO i18n
-      return StringBuilder::concat("Value of type '", this->toStringPrecedence().first, "'");
-    }
-  };
 
   class TypeIndexable final : public HardReferenceCounted<IType>, IIndexSignature {
     TypeIndexable(const TypeIndexable&) = delete;
@@ -792,7 +734,7 @@ String Type::toString() const {
 }
 
 TypeFactory::TypeFactory(IAllocator& allocator)
-  : allocator(allocator) {
+  : forge(std::make_unique<Forge>(allocator)) {
   registerSimpleBasic(this->simples, typeNone);
   registerSimpleBasic(this->simples, typeVoid);
   registerSimpleBasic(this->simples, typeNull);
@@ -808,19 +750,16 @@ TypeFactory::TypeFactory(IAllocator& allocator)
   registerSimpleBasic(this->simples, typeAnyQ);
 }
 
-Type TypeFactory::createSimple(ValueFlags flags) {
-  // First, try to fetch an existing entry
-  ReadLock lockR{ this->mutex };
-  auto found = this->simples.find(flags);
-  if (found != this->simples.end()) {
-    return found->second;
-  }
-  lockR.unlock();
+TypeFactory::~TypeFactory() {
+  // Cannot be in the header file: https://en.cppreference.com/w/cpp/language/pimpl
+}
 
-  // We need to modify the map after releasing the read lock
-  auto created = this->allocator.makeHard<TypeSimple, Type>(flags);
-  WriteLock lockW{ this->mutex };
-  return this->simples.try_emplace(flags, created).first->second;
+Type TypeFactory::createSimple(ValueFlags flags) {
+  return Type(this->forge->forgeSimple(flags));
+}
+
+IAllocator& TypeFactory::getAllocator() const {
+  return this->forge->getAllocator();
 }
 
 Type TypeFactory::createPointer(const Type& pointee, Modifiability modifiability) {
@@ -836,7 +775,7 @@ Type TypeFactory::createPointer(const Type& pointee, Modifiability modifiability
   lockR.unlock();
 
   // We need to modify the map after releasing the read lock
-  auto created = this->allocator.makeHard<TypePointer, Type>(pointee, modifiability);
+  auto created = this->getAllocator().makeHard<TypePointer, Type>(pointee, modifiability);
   WriteLock lockW{ this->mutex };
   auto emplaced = this->pointers.try_emplace(ptr, created);
   if (emplaced.second) {
@@ -857,14 +796,14 @@ Type TypeFactory::createPointer(const Type& pointee, Modifiability modifiability
 Type TypeFactory::createArray(const Type& result, Modifiability modifiability) {
   // WIBBLE thread-safe cache
   assert(result != nullptr);
-  return this->allocator.makeHard<TypeIndexable, Type>(result, nullptr, modifiability);
+  return this->getAllocator().makeHard<TypeIndexable, Type>(result, nullptr, modifiability);
 }
 
 Type TypeFactory::createMap(const Type& result, const Type& index, Modifiability modifiability) {
   // WIBBLE thread-safe cache
   assert(result != nullptr);
   assert(index != nullptr);
-  return this->allocator.makeHard<TypeIndexable, Type>(result, index, modifiability);
+  return this->getAllocator().makeHard<TypeIndexable, Type>(result, index, modifiability);
 }
 
 Type TypeFactory::createUnion(const std::vector<Type>& types) {
@@ -905,7 +844,7 @@ Type TypeFactory::createComplex(Complex& complex) {
     for (auto shapeIndex : complex.shapeIndices) {
       objectShapes.push_back(&this->shapes[shapeIndex]);
     }
-    type = this->allocator.makeHard<TypeComplex, Type>(complex.flags, std::move(objectShapes));
+    type = this->getAllocator().makeHard<TypeComplex, Type>(complex.flags, std::move(objectShapes));
   } else {
     // Fill the details in case we need to add this type
     complex.merge(*this, *type);
@@ -978,20 +917,20 @@ Type TypeFactory::removeNull(const Type& type) {
 }
 
 TypeBuilder TypeFactory::createTypeBuilder(const String& name, const String& description) {
-  return this->allocator.makeHard<Builder>(name, description);
+  return this->getAllocator().makeHard<Builder>(name, description);
 }
 
 TypeBuilder TypeFactory::createFunctionBuilder(const Type& rettype, const String& name, const String& description) {
-  return this->allocator.makeHard<FunctionBuilder>(rettype, nullptr, name, description);
+  return this->getAllocator().makeHard<FunctionBuilder>(rettype, nullptr, name, description);
 }
 
 TypeBuilder TypeFactory::createGeneratorBuilder(const Type& gentype, const String& name, const String& description) {
   // Convert the return type (e.g. 'int') into a generator function 'int...' aka '(void|int)()'
   assert(!gentype.hasPrimitiveFlag(ValueFlags::Void));
   auto rettype = this->addVoid(gentype);
-  auto generator = this->allocator.makeHard<FunctionBuilder>(rettype, nullptr, name, description);
+  auto generator = this->getAllocator().makeHard<FunctionBuilder>(rettype, nullptr, name, description);
   generator->defineIterable(gentype);
-  return this->allocator.makeHard<FunctionBuilder>(generator->build(), gentype, name, description);
+  return this->getAllocator().makeHard<FunctionBuilder>(generator->build(), gentype, name, description);
 }
 
 void TypeFactory::Complex::merge(TypeFactory& factory, const IType& other) {
@@ -1083,6 +1022,7 @@ bool Type::areEquivalent(const IIteratorSignature& lhs, const IIteratorSignature
 }
 
 // Common types
+const Type Type::None{ &typeNone };
 const Type Type::Void{ &typeVoid };
 const Type Type::Null{ &typeNull };
 const Type Type::Bool{ &typeBool };
