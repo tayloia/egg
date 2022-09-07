@@ -79,7 +79,8 @@ namespace {
       return 1;
     }
     virtual std::pair<std::string, int> toStringPrecedence() const override {
-      return Forge::complexToStringPrecedence(ValueFlags::None, this->shape);
+      std::set<const TypeShape*> shapes{ &this->shape }; // WIBBLE
+      return Forge::complexToStringPrecedence(ValueFlags::None, shapes);
     }
     virtual String describeValue() const override {
       // TODO i18n
@@ -549,22 +550,30 @@ IAllocator& TypeFactory::getAllocator() const {
 }
 
 Type TypeFactory::createPointer(const Type& pointee, Modifiability modifiability) {
+  assert(pointee != nullptr);
   auto* pointable = this->forge->forgePointerSignature(*pointee, modifiability);
   std::set<const TypeShape*> shapes{ this->forge->forgeTypeShape(nullptr, nullptr, nullptr, nullptr, pointable) };
-  return Type(this->forge->forgeComplex(ValueFlags::None, std::move(shapes), "Pointer of type '$'"));
+  auto readable = "Pointer of type '" + Forge::complexToStringPrecedence(ValueFlags::None, shapes).first + "'";
+  return Type(this->forge->forgeComplex(ValueFlags::None, std::move(shapes), &readable));
 }
 
 Type TypeFactory::createArray(const Type& result, Modifiability modifiability) {
-  // WIBBLE thread-safe cache
   assert(result != nullptr);
-  return this->getAllocator().makeHard<TypeIndexable, Type>(result, nullptr, modifiability);
+  auto* indexable = this->forge->forgeIndexSignature(*result, nullptr, modifiability);
+  auto* iterable = this->forge->forgeIteratorSignature(*result);
+  std::set<const TypeShape*> shapes{ this->forge->forgeTypeShape(nullptr, nullptr, indexable, iterable, nullptr) };
+  auto readable = "Array of type '" + Forge::complexToStringPrecedence(ValueFlags::None, shapes).first + "'";
+  return Type(this->forge->forgeComplex(ValueFlags::None, std::move(shapes), &readable));
 }
 
 Type TypeFactory::createMap(const Type& result, const Type& index, Modifiability modifiability) {
-  // WIBBLE thread-safe cache
   assert(result != nullptr);
   assert(index != nullptr);
-  return this->getAllocator().makeHard<TypeIndexable, Type>(result, index, modifiability);
+  auto* indexable = this->forge->forgeIndexSignature(*result, index.get(), modifiability);
+  auto* iterable = this->forge->forgeIteratorSignature(*result);
+  std::set<const TypeShape*> shapes{ this->forge->forgeTypeShape(nullptr, nullptr, indexable, iterable, nullptr) };
+  auto readable = "Map of type '" + Forge::complexToStringPrecedence(ValueFlags::None, shapes).first + "'";
+  return Type(this->forge->forgeComplex(ValueFlags::None, std::move(shapes), &readable));
 }
 
 Type TypeFactory::createUnion(const std::vector<Type>& types) {
@@ -585,25 +594,12 @@ Type TypeFactory::createUnion(const std::vector<Type>& types) {
   return Type(this->forge->forgeComplex(flags, std::move(shapes)));
 }
 
-Type TypeFactory::createModified(const Type& type, ValueFlags flags) {
-  assert(type != nullptr);
-  if (type->getPrimitiveFlags() == flags) {
-    return type;
-  }
-  if (!type.isComplex()) {
-    return createSimple(flags);
-  }
-  std::set<const TypeShape*> shapes;
-  this->forge->mergeTypeShapes(shapes, *type);
-  return Type(this->forge->forgeComplex(flags, std::move(shapes)));
-}
-
 Type TypeFactory::addVoid(const Type& type) {
   if (type == nullptr) {
     return Type::Void;
   }
   auto flags = Bits::set(type->getPrimitiveFlags(), ValueFlags::Void);
-  return createModified(type, flags);
+  return Type(this->forge->forgeModified(*type, flags));
 }
 
 Type TypeFactory::addNull(const Type& type) {
@@ -611,7 +607,7 @@ Type TypeFactory::addNull(const Type& type) {
     return Type::Null;
   }
   auto flags = Bits::set(type->getPrimitiveFlags(), ValueFlags::Null);
-  return createModified(type, flags);
+  return Type(this->forge->forgeModified(*type, flags));
 }
 
 Type TypeFactory::removeVoid(const Type& type) {
@@ -619,7 +615,7 @@ Type TypeFactory::removeVoid(const Type& type) {
     return nullptr;
   }
   auto flags = Bits::clear(type->getPrimitiveFlags(), ValueFlags::Void);
-  return createModified(type, flags);
+  return Type(this->forge->forgeModified(*type, flags));
 }
 
 Type TypeFactory::removeNull(const Type& type) {
@@ -627,7 +623,7 @@ Type TypeFactory::removeNull(const Type& type) {
     return nullptr;
   }
   auto flags = Bits::clear(type->getPrimitiveFlags(), ValueFlags::Null);
-  return createModified(type, flags);
+  return Type(this->forge->forgeModified(*type, flags));
 }
 
 TypeBuilder TypeFactory::createTypeBuilder(const String& name, const String& description) {

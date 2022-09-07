@@ -3,7 +3,7 @@
 namespace egg::ovum {
   class IForgedType : public IType {
   public:
-    virtual const IType* forge(ValueFlags simple, std::set<const TypeShape*>&& complex, const char* description = nullptr) = 0;
+    virtual const IType* forge(ValueFlags simple, std::set<const TypeShape*>&& complex, const std::string* description = nullptr) = 0;
   };
 
   class Forge final {
@@ -31,7 +31,8 @@ namespace egg::ovum {
     IAllocator& getAllocator() const;
     IForgedType* reserveType();
     const IType* forgeSimple(ValueFlags simple);
-    const IType* forgeComplex(ValueFlags simple, std::set<const TypeShape*>&& complex, const char* description = nullptr);
+    const IType* forgeComplex(ValueFlags simple, std::set<const TypeShape*>&& complex, const std::string* description = nullptr);
+    const IType* forgeModified(const IType& original, ValueFlags flags, const std::string* description = nullptr);
     const TypeShape* forgeTypeShape(const IFunctionSignature* callable, const IPropertySignature* dotable, const IIndexSignature* indexable, const IIteratorSignature* iterable, const IPointerSignature* pointable);
     const IFunctionSignature* forgeFunctionSignature(const IType& returnType, const IType* generatorType, String name, const std::span<Parameter>& parameters);
     const IIndexSignature* forgeIndexSignature(const IType& resultType, const IType* indexType, Modifiability modifiability);
@@ -42,7 +43,6 @@ namespace egg::ovum {
     void mergeTypeShapes(std::set<const TypeShape*>& shapes, const IType& other);
 
     static std::pair<std::string, int> simpleToStringPrecedence(ValueFlags flags);
-    static std::pair<std::string, int> complexToStringPrecedence(ValueFlags flags, const TypeShape& shape);
     static std::pair<std::string, int> complexToStringPrecedence(ValueFlags flags, const std::set<const TypeShape*>& shapes);
   };
 }

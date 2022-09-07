@@ -241,7 +241,7 @@ TEST(TestForge, TypeSimple) {
   Type type1{ forge.forgeSimple(ValueFlags::Int | ValueFlags::String) };
   ASSERT_STRING("int|string", type1.toString());
   Type type2{ forge.forgeSimple(ValueFlags::Void | ValueFlags::AnyQ) };
-  ASSERT_STRING("void|bool|int|float|string|object?", type2.toString());
+  ASSERT_STRING("void|any?", type2.toString());
 }
 
 TEST(TestForge, TypeComplex) {
