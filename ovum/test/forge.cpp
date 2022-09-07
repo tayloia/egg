@@ -248,7 +248,7 @@ TEST(TestForge, TypeComplex) {
   egg::test::Allocator allocator;
   Forge forge{ allocator };
   auto* indexable = forge.forgeIndexSignature(*Type::Float, Type::String.get(), Modifiability::Read);
-  std::vector<const TypeShape*> shapes{ forge.forgeTypeShape(nullptr, nullptr, indexable, nullptr, nullptr) };
-  Type complex{ forge.forgeComplex(ValueFlags::Int | ValueFlags::String, shapes) };
+  std::set<const TypeShape*> shapes{ forge.forgeTypeShape(nullptr, nullptr, indexable, nullptr, nullptr) };
+  Type complex{ forge.forgeComplex(ValueFlags::Int | ValueFlags::String, std::move(shapes)) };
   ASSERT_STRING("int|string|float[string]", complex.toString());
 }

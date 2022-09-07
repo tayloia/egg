@@ -11,11 +11,15 @@
 namespace {
   using namespace egg::ovum;
 
-  class TypeBase : public NotHardReferenceCounted<IType> {
-    TypeBase(const TypeBase&) = delete;
-    TypeBase& operator=(const TypeBase&) = delete;
+  template<enum ValueFlags FLAGS>
+  class TypePrimitive final : public NotHardReferenceCounted<IType> {
+    TypePrimitive(const TypePrimitive&) = delete;
+    TypePrimitive& operator=(const TypePrimitive&) = delete;
   public:
-    TypeBase() {}
+    TypePrimitive() {}
+    virtual ValueFlags getPrimitiveFlags() const override {
+      return FLAGS;
+    }
     virtual const TypeShape* getObjectShape(size_t) const override {
       // By default, we are not shaped like objects
       return nullptr;
@@ -24,23 +28,12 @@ namespace {
       // By default, we are not shaped like objects
       return 0;
     }
+    virtual std::pair<std::string, int> toStringPrecedence() const override {
+      return Forge::simpleToStringPrecedence(FLAGS);
+    }
     virtual String describeValue() const override {
       // TODO i18n
       return StringBuilder::concat("Value of type '", this->toStringPrecedence().first, "'");
-    }
-  };
-
-  template<enum ValueFlags FLAGS>
-  class TypePrimitive final : public TypeBase {
-    TypePrimitive(const TypePrimitive&) = delete;
-    TypePrimitive& operator=(const TypePrimitive&) = delete;
-  public:
-    TypePrimitive() {}
-    virtual ValueFlags getPrimitiveFlags() const override {
-      return FLAGS;
-    }
-    virtual std::pair<std::string, int> toStringPrecedence() const override {
-      return Forge::primitiveToStringPrecedence(FLAGS);
     }
   };
 
@@ -86,7 +79,7 @@ namespace {
       return 1;
     }
     virtual std::pair<std::string, int> toStringPrecedence() const override {
-      return Forge::complexToStringPrecedence(ValueFlags::None, *this);
+      return Forge::complexToStringPrecedence(ValueFlags::None, this->shape);
     }
     virtual String describeValue() const override {
       // TODO i18n
@@ -109,79 +102,6 @@ namespace {
     }
   };
 
-  class TypePointer final : public HardReferenceCounted<IType>, IPointerSignature {
-    TypePointer(const TypePointer&) = delete;
-    TypePointer& operator=(const TypePointer&) = delete;
-  private:
-    Type pointee;
-    Modifiability modifiability;
-    TypeShape shape;
-  public:
-    TypePointer(IAllocator& allocator, const Type& pointee, Modifiability modifiability)
-      : HardReferenceCounted(allocator, 0),
-      pointee(pointee),
-      modifiability(modifiability),
-      shape{} {
-      assert(this->pointee != nullptr);
-      this->shape.pointable = this;
-    }
-    virtual ValueFlags getPrimitiveFlags() const override {
-      return ValueFlags::None;
-    }
-    virtual const TypeShape* getObjectShape(size_t index) const override {
-      return (index == 0) ? &this->shape : nullptr;
-    }
-    virtual size_t getObjectShapeCount() const override {
-      return 1;
-    }
-    virtual std::pair<std::string, int> toStringPrecedence() const override {
-      return Forge::complexToStringPrecedence(ValueFlags::None, *this);
-    }
-    virtual String describeValue() const override {
-      // TODO i18n
-      return StringBuilder::concat("Pointer of type '", this->toStringPrecedence().first, "'");
-    }
-    virtual Type getType() const override {
-      // IPointerSignature
-      return this->pointee;
-    }
-    virtual Modifiability getModifiability() const override {
-      // IPointerSignature
-      return this->modifiability;
-    }
-  };
-
-  class TypeComplex final : public HardReferenceCounted<IType> {
-    TypeComplex(const TypeComplex&) = delete;
-    TypeComplex& operator=(const TypeComplex&) = delete;
-  private:
-    ValueFlags flags;
-    std::vector<const TypeShape*> objectShapes;
-  public:
-    TypeComplex(IAllocator& allocator, ValueFlags flags, std::vector<const TypeShape*>&& objectShapes)
-      : HardReferenceCounted(allocator, 0),
-      flags(flags),
-      objectShapes(std::move(objectShapes)) {
-      assert(!this->objectShapes.empty());
-    }
-    virtual ValueFlags getPrimitiveFlags() const override {
-      return this->flags;
-    }
-    virtual const TypeShape* getObjectShape(size_t index) const override {
-      return this->objectShapes.at(index);
-    }
-    virtual size_t getObjectShapeCount() const override {
-      return this->objectShapes.size();
-    }
-    virtual std::pair<std::string, int> toStringPrecedence() const override {
-      return Forge::complexToStringPrecedence(this->flags, *this);
-    }
-    virtual String describeValue() const override {
-      // TODO i18n
-      return StringBuilder::concat("Value of type '", this->toStringPrecedence().first, "'");
-    }
-  };
-  
   class Builder : public HardReferenceCounted<ITypeBuilder> {
     Builder(const Builder&) = delete;
     Builder& operator=(const Builder&) = delete;
@@ -562,74 +482,6 @@ namespace {
     }
     return isAssignableInstanceObject(ltype, *rtype);
   }
-
-  size_t findObjectShapeIndex(const std::vector<TypeShape>& shapes, const TypeShape& shape, size_t start, size_t count) {
-    auto index = start;
-    while (index < count) {
-      if (Type::areEquivalent(shapes[index], shape)) {
-        break;
-      }
-      ++index;
-    }
-    return index;
-  }
-
-  size_t findComplexIndex(const std::vector<TypeFactory::Complex>& complexes, const TypeFactory::Complex& complex, size_t start, size_t count) {
-    auto type = complex.type.get();
-    auto index = start;
-    if (type == nullptr) {
-      // Search by equivalence
-      while (index < count) {
-        if (TypeFactory::Complex::areEquivalent(complexes[index], complex)) {
-          break;
-        }
-        ++index;
-      }
-    } else {
-      // Search by existing type
-      while (index < count) {
-        if (complexes[index].type.get() == type) {
-          break;
-        }
-        ++index;
-      }
-    }
-    return index;
-  }
-
-  size_t registerObjectShapeWithLock(ReadWriteMutex& mutex, std::vector<TypeShape>& shapes, const TypeShape& shape) {
-    // First, try to fetch an existing entry
-    ReadLock lockR{ mutex };
-    auto countR = shapes.size();
-    auto index = findObjectShapeIndex(shapes, shape, 0, countR);
-    if (index < countR) {
-      return index;
-    }
-    lockR.unlock();
-
-    // Obtain a write lock
-    WriteLock lockW{ mutex };
-    auto countW = shapes.size();
-    if (countW > countR) {
-      // Another thread has added entries we need to re-check
-      index = findObjectShapeIndex(shapes, shape, countR, countW);
-      if (index < countW) {
-        return index;
-      }
-    }
-    shapes.emplace_back(shape);
-    return countW;
-  }
-
-  size_t registerObjectShapeWithoutLock(std::vector<TypeShape>& shapes, const TypeShape& shape) {
-    auto count = shapes.size();
-    auto index = findObjectShapeIndex(shapes, shape, 0, count);
-    if (index < count) {
-      return index;
-    }
-    shapes.emplace_back(shape);
-    return count;
-  }
 }
 
 bool TypeShape::equals(const TypeShape& rhs) const {
@@ -697,34 +549,9 @@ IAllocator& TypeFactory::getAllocator() const {
 }
 
 Type TypeFactory::createPointer(const Type& pointee, Modifiability modifiability) {
-  auto* ptr = pointee.get();
-  assert(ptr != nullptr);
-
-  // First, try to fetch an existing entry
-  ReadLock lockR{ this->mutex };
-  auto found = this->pointers.find(ptr);
-  if (found != this->pointers.end()) {
-    return found->second;
-  }
-  lockR.unlock();
-
-  // We need to modify the map after releasing the read lock
-  auto created = this->getAllocator().makeHard<TypePointer, Type>(pointee, modifiability);
-  WriteLock lockW{ this->mutex };
-  auto emplaced = this->pointers.try_emplace(ptr, created);
-  if (emplaced.second) {
-    // We added 'created' so construct a complex entry for it too
-    assert(emplaced.first->second.get() == created.get());
-    auto shapePointer = created->getObjectShape(0);
-    assert(shapePointer != nullptr);
-    auto shapeIndex = registerObjectShapeWithoutLock(this->shapes, *shapePointer);
-    Complex complex;
-    complex.shapeIndices.insert(shapeIndex);
-    complex.type = created;
-    this->complexes.emplace_back(std::move(complex));
-    return created;
-  }
-  return emplaced.first->second;
+  auto* pointable = this->forge->forgePointerSignature(*pointee, modifiability);
+  std::set<const TypeShape*> shapes{ this->forge->forgeTypeShape(nullptr, nullptr, nullptr, nullptr, pointable) };
+  return Type(this->forge->forgeComplex(ValueFlags::None, std::move(shapes), "Pointer of type '$'"));
 }
 
 Type TypeFactory::createArray(const Type& result, Modifiability modifiability) {
@@ -747,57 +574,15 @@ Type TypeFactory::createUnion(const std::vector<Type>& types) {
   case 1:
     return types[0];
   }
-  Complex merged;
+  auto flags = ValueFlags::None;
+  std::set<const TypeShape*> shapes;
   for (auto& type : types) {
     if (type != nullptr) {
-      merged.merge(*this, *type);
+      flags = flags | type->getPrimitiveFlags();
+      this->forge->mergeTypeShapes(shapes, *type);
     }
   }
-  if (merged.shapeIndices.empty()) {
-    return this->createSimple(merged.flags);
-  }
-  return createComplex(merged);
-}
-
-Type TypeFactory::createComplex(Complex& complex) {
-  ReadLock lockR{ this->mutex };
-  auto countR = this->complexes.size();
-  auto index = findComplexIndex(this->complexes, complex, 0, countR);
-  if (index < countR) {
-    complex = this->complexes[index];
-    return complex.type;
-  }
-  lockR.unlock();
-
-  // Not found the first time through
-  Type type = complex.type;
-  if (type == nullptr) {
-    // Probably need to insert a new complex type
-    std::vector<const TypeShape*> objectShapes;
-    objectShapes.reserve(complex.shapeIndices.size());
-    for (auto shapeIndex : complex.shapeIndices) {
-      objectShapes.push_back(&this->shapes[shapeIndex]);
-    }
-    type = this->getAllocator().makeHard<TypeComplex, Type>(complex.flags, std::move(objectShapes));
-  } else {
-    // Fill the details in case we need to add this type
-    complex.merge(*this, *type);
-  }
-
-  // Obtain a write lock before trying again
-  WriteLock lockW{ this->mutex };
-  auto countW = this->complexes.size();
-  if (countW > countR) {
-    // Another thread has added entries we need to re-check
-    index = findComplexIndex(this->complexes, complex, countR, countW);
-    if (index < countW) {
-      complex = this->complexes[index];
-      return complex.type;
-    }
-  }
-  complex.type = type;
-  this->complexes.emplace_back(complex);
-  return complex.type;
+  return Type(this->forge->forgeComplex(flags, std::move(shapes)));
 }
 
 Type TypeFactory::createModified(const Type& type, ValueFlags flags) {
@@ -808,14 +593,9 @@ Type TypeFactory::createModified(const Type& type, ValueFlags flags) {
   if (!type.isComplex()) {
     return createSimple(flags);
   }
-  Complex complex{};
-  complex.type = type;
-  createComplex(complex);
-  assert(complex.type.get() == type.get());
-  assert(complex.flags == type->getPrimitiveFlags());
-  complex.flags = flags;
-  complex.type = nullptr;
-  return createComplex(complex);
+  std::set<const TypeShape*> shapes;
+  this->forge->mergeTypeShapes(shapes, *type);
+  return Type(this->forge->forgeComplex(flags, std::move(shapes)));
 }
 
 Type TypeFactory::addVoid(const Type& type) {
@@ -865,23 +645,6 @@ TypeBuilder TypeFactory::createGeneratorBuilder(const Type& gentype, const Strin
   auto generator = this->getAllocator().makeHard<FunctionBuilder>(rettype, nullptr, name, description);
   generator->defineIterable(gentype);
   return this->getAllocator().makeHard<FunctionBuilder>(generator->build(), gentype, name, description);
-}
-
-void TypeFactory::Complex::merge(TypeFactory& factory, const IType& other) {
-  this->flags = this->flags | other.getPrimitiveFlags();
-  auto count = other.getObjectShapeCount();
-  for (size_t index = 0; index < count; ++index) {
-    auto incoming = other.getObjectShape(index);
-    assert(incoming != nullptr);
-    this->shapeIndices.insert(registerObjectShapeWithLock(factory.mutex, factory.shapes, *incoming));
-  }
-}
-
-bool TypeFactory::Complex::areEquivalent(const Complex& lhs, const Complex& rhs) {
-  if (&lhs == &rhs) {
-    return true;
-  }
-  return (lhs.flags == rhs.flags) && (lhs.shapeIndices == rhs.shapeIndices);
 }
 
 bool Type::areEquivalent(const IType& lhs, const IType& rhs) {

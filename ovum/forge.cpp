@@ -5,7 +5,7 @@
 namespace {
   using namespace egg::ovum;
 
-  const char* primitiveComponent(ValueFlags flags) {
+  const char* simpleComponent(ValueFlags flags) {
     EGG_WARNING_SUPPRESS_SWITCH_BEGIN
       switch (flags) {
       case ValueFlags::None:
@@ -392,7 +392,7 @@ namespace {
       return 0;
     }
     virtual std::pair<std::string, int> toStringPrecedence() const override {
-      return Forge::primitiveToStringPrecedence(this->flags);
+      return Forge::simpleToStringPrecedence(this->flags);
     }
     virtual String describeValue() const override {
       // TODO i18n
@@ -406,11 +406,13 @@ namespace {
   private:
     ValueFlags flags;
     std::set<const TypeShape*> shapes;
+    const char* description;
   public:
-    TypeComplex(IAllocator& allocator, ValueFlags flags, std::set<const TypeShape*>&& shapes)
+    TypeComplex(IAllocator& allocator, ValueFlags flags, std::set<const TypeShape*>&& shapes, const char* description)
       : HardReferenceCounted(allocator, 0),
       flags(flags),
-      shapes(std::move(shapes)) {
+      shapes(std::move(shapes)),
+      description(description) {
       assert(!this->shapes.empty());
     }
     virtual ValueFlags getPrimitiveFlags() const override {
@@ -425,11 +427,19 @@ namespace {
       return this->shapes.size();
     }
     virtual std::pair<std::string, int> toStringPrecedence() const override {
-      return Forge::complexToStringPrecedence(this->flags, *this);
+      return Forge::complexToStringPrecedence(this->flags, this->shapes);
     }
     virtual String describeValue() const override {
       // TODO i18n
-      return StringBuilder::concat("Value of type '", this->toStringPrecedence().first, "'");
+      StringBuilder sb;
+      auto p = (this->description == nullptr) ? "Value of type '$'" : this->description;
+      auto q = std::strchr(p, '$');
+      if (q == nullptr) {
+        return String(p);
+      }
+      std::string prefix{ p, q };
+      std::string suffix{ q + 1 };
+      return StringBuilder::concat(prefix, this->toStringPrecedence().first, suffix);
     }
     bool equals(ValueFlags flags2, const std::set<const TypeShape*>& shapes2) const {
       return this->flags == flags2 && this->shapes == shapes2;
@@ -437,37 +447,53 @@ namespace {
   };
 }
 
-std::pair<std::string, int> egg::ovum::Forge::primitiveToStringPrecedence(ValueFlags flags) {
-  auto* component = primitiveComponent(flags);
+std::pair<std::string, int> egg::ovum::Forge::simpleToStringPrecedence(ValueFlags flags) {
+  auto* component = simpleComponent(flags);
   if (component != nullptr) {
     return { component, 0 };
   }
   if (Bits::hasAnySet(flags, ValueFlags::Null)) {
-    return { primitiveToStringPrecedence(Bits::clear(flags, ValueFlags::Null)).first + "?", 1 };
+    return { simpleToStringPrecedence(Bits::clear(flags, ValueFlags::Null)).first + "?", 1 };
   }
   auto head = Bits::topmost(flags);
   assert(head != ValueFlags::None);
-  component = primitiveComponent(head);
+  component = simpleComponent(head);
   assert(component != nullptr);
-  return { primitiveToStringPrecedence(Bits::clear(flags, head)).first + '|' + component, 2 };
+  return { simpleToStringPrecedence(Bits::clear(flags, head)).first + '|' + component, 2 };
 }
 
-std::pair<std::string, int> egg::ovum::Forge::complexToStringPrecedence(ValueFlags primitive, const IType& complex) {
-  auto shapes = complex.getObjectShapeCount();
-  if (shapes == 0) {
+std::pair<std::string, int> egg::ovum::Forge::complexToStringPrecedence(ValueFlags flags, const TypeShape& shape) {
+  std::pair<std::string, int> result;
+  if (flags != ValueFlags::None) {
+    result = Forge::simpleToStringPrecedence(flags);
+  }
+  auto last = complexComponentObject(&shape);
+  assert(!last.first.empty());
+  assert((last.second >= 0) && (last.second <= 2));
+  if (result.first.empty()) {
+    result = last;
+  } else {
+    result.first += '|' + last.first;
+    result.second = 2;
+  }
+  return result;
+}
+
+std::pair<std::string, int> egg::ovum::Forge::complexToStringPrecedence(ValueFlags flags, const std::set<const TypeShape*>& shapes) {
+  if (shapes.empty()) {
     // Primitive types only
-    return Forge::primitiveToStringPrecedence(primitive);
+    return Forge::simpleToStringPrecedence(flags);
   }
   std::pair<std::string, int> result;
-  if (primitive != ValueFlags::None) {
-    result = Forge::primitiveToStringPrecedence(primitive);
+  if (flags!= ValueFlags::None) {
+    result = Forge::simpleToStringPrecedence(flags);
   }
   std::set<std::string> parts;
-  for (size_t index = 0; index < shapes; ++index) {
-    auto next = complexComponentObject(complex.getObjectShape(index));
+  for (auto* shape : shapes) {
+    auto next = complexComponentObject(shape);
     assert(!next.first.empty());
     assert((next.second >= 0) && (next.second <= 2));
-    if ((index == 0) && result.first.empty()) {
+    if (parts.empty() && result.first.empty()) {
       result.second = next.second;
     } else {
       result.second = 2;
@@ -622,19 +648,27 @@ const egg::ovum::IType* egg::ovum::Forge::forgeSimple(egg::ovum::ValueFlags simp
   return ref.get();
 }
 
-const egg::ovum::IType* egg::ovum::Forge::forgeComplex(egg::ovum::ValueFlags simple, const std::span<const TypeShape*>& complex) {
-  assert(complex.size() > 0);
-  // TODO lock
-  std::set<const TypeShape*> shapes;
-  for (const auto& shape : complex) {
-    shapes.insert(shape);
+const egg::ovum::IType* egg::ovum::Forge::forgeComplex(ValueFlags simple, std::set<const TypeShape*>&& complex, const char* description) {
+  if (complex.empty()) {
+    return this->forgeSimple(simple);
   }
+  // TODO lock
   for (const auto& candidate : this->implementation->complexes) {
-    if (candidate->equals(simple, shapes)) {
+    if (candidate->equals(simple, complex)) {
       return candidate.get();
     }
   }
-  auto created = this->implementation->allocator.makeHard<TypeComplex>(simple, std::move(shapes));
+  auto created = this->implementation->allocator.makeHard<TypeComplex>(simple, std::move(complex), description);
   this->implementation->complexes.emplace_back(created.get());
   return created.get();
+}
+
+void egg::ovum::Forge::mergeTypeShapes(std::set<const TypeShape*>& shapes, const IType& other) {
+  auto count = other.getObjectShapeCount();
+  for (size_t index = 0; index < count; ++index) {
+    auto incoming = other.getObjectShape(index);
+    assert(incoming != nullptr);
+    auto* shape = this->forgeTypeShape(incoming->callable, incoming->dotable, incoming->indexable, incoming->iterable, incoming->pointable);
+    shapes.insert(shape);
+  }
 }

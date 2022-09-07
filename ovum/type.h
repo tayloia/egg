@@ -302,20 +302,8 @@ namespace egg::ovum {
   class TypeFactory : public ITypeFactory {
     TypeFactory(const TypeFactory&) = delete;
     TypeFactory& operator=(const TypeFactory&) = delete;
-  public:
-    class Complex {
-    public:
-      ValueFlags flags = ValueFlags::None;
-      std::set<size_t> shapeIndices;
-      Type type;
-      void merge(TypeFactory& factory, const IType& type);
-      static bool areEquivalent(const Complex& lhs, const Complex& rhs);
-    };
   private:
     std::unique_ptr<Forge> forge;
-    ReadWriteMutex mutex;
-    std::vector<Complex> complexes;
-    std::vector<TypeShape> shapes;
     std::map<const IType*, Type> pointers;
   public:
     explicit TypeFactory(IAllocator& allocator);
@@ -337,7 +325,6 @@ namespace egg::ovum {
     virtual TypeBuilder createFunctionBuilder(const Type& rettype, const String& name, const String& description = {}) override;
     virtual TypeBuilder createGeneratorBuilder(const Type& gentype, const String& name, const String& description = {}) override;
   private:
-    Type createComplex(Complex& complex);
     Type createModified(const Type& type, ValueFlags flags);
   };
 }
