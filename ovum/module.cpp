@@ -305,7 +305,7 @@ namespace {
           this->readTypeShapeIterable(*builder);
           break;
         case TypeShapeSubsection::End:
-          return *builder->build(this->factory)->getObjectShape(0);
+          return *builder->build()->getObjectShape(0);
         }
       }
     }

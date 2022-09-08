@@ -31,8 +31,8 @@ namespace egg::ovum {
     IAllocator& getAllocator() const;
     IForgedType* reserveType();
     const IType* forgeSimple(ValueFlags simple);
-    const IType* forgeComplex(ValueFlags simple, std::set<const TypeShape*>&& complex, const std::string* description = nullptr);
-    const IType* forgeModified(const IType& original, ValueFlags flags, const std::string* description = nullptr);
+    const IType* forgeComplex(ValueFlags simple, std::set<const TypeShape*>&& complex, const std::pair<std::string, int>* precedence = nullptr, const String* description = nullptr);
+    const IType* forgeModified(const IType& original, ValueFlags flags);
     const TypeShape* forgeTypeShape(const IFunctionSignature* callable, const IPropertySignature* dotable, const IIndexSignature* indexable, const IIteratorSignature* iterable, const IPointerSignature* pointable);
     const IFunctionSignature* forgeFunctionSignature(const IType& returnType, const IType* generatorType, String name, const std::span<Parameter>& parameters);
     const IIndexSignature* forgeIndexSignature(const IType& resultType, const IType* indexType, Modifiability modifiability);

@@ -343,7 +343,7 @@ namespace {
     }
   };
 
-  class ProgramDefault final : public HardReferenceCounted<IProgram>, public IExecution, public Vanilla::IPredicateCallback {
+  class ProgramDefault final : public HardReferenceCounted<IProgram>, public IExecution, public IVanillaPredicateCallback {
     ProgramDefault(const ProgramDefault&) = delete;
     ProgramDefault& operator=(const ProgramDefault&) = delete;
   private:
@@ -1116,7 +1116,7 @@ namespace {
         auto& child = node.getChild(index);
         (void)child; // WIBBLE
       }
-      block.declareType(this->location, tname, builder->build(this->factory));
+      block.declareType(this->location, tname, builder->build());
       return Value::Void;
     }
     Value statementWhile(const INode& node) {
@@ -2437,7 +2437,7 @@ egg::ovum::Type UserFunction::makeType(ITypeFactory& factory, ProgramDefault& pr
       builder->addPositionalParameter(ptype, pname, pflags);
     }
   }
-  return builder->build(factory);
+  return builder->build();
 }
 
 egg::ovum::Program egg::ovum::ProgramFactory::createProgram(IAllocator& allocator, ILogger& logger) {

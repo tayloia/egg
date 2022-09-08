@@ -6,7 +6,7 @@
 using namespace egg::ovum;
 
 namespace {
-  class TestPredicateCallback : public Vanilla::IPredicateCallback {
+  class TestPredicateCallback : public IVanillaPredicateCallback {
   public:
     virtual Value predicateCallback(const INode&) override {
       return Value::Void;

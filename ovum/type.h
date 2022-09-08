@@ -133,177 +133,6 @@ namespace egg::ovum {
     static const Type AnyQ;
   };
 
-  class TypeBuilderParameter : public IFunctionSignatureParameter {
-  private:
-    Type type;
-    String name;
-    size_t position; // SIZE_MAX for named
-    Flags flags;
-  public:
-    TypeBuilderParameter(const Type& type, const String& name, Flags flags, size_t position)
-      : type(type),
-        name(name),
-        position(position),
-        flags(flags) {
-    }
-    virtual String getName() const override {
-      return this->name;
-    }
-    virtual Type getType() const override {
-      return this->type;
-    }
-    virtual Flags getFlags() const override {
-      return this->flags;
-    }
-    virtual size_t getPosition() const override {
-      return this->position;
-    }
-  };
-
-  class TypeBuilderCallable : public IFunctionSignature {
-    TypeBuilderCallable(const TypeBuilderCallable&) = delete;
-    TypeBuilderCallable& operator=(const TypeBuilderCallable&) = delete;
-  private:
-    Type rettype;
-    Type gentype;
-    String name;
-    std::vector<TypeBuilderParameter> positional;
-    std::vector<TypeBuilderParameter> named;
-  public:
-    TypeBuilderCallable(const Type& rettype, const Type& gentype, const String& name)
-      : rettype(rettype),
-        gentype(gentype),
-        name(name) {
-      assert(rettype != nullptr);
-    }
-    virtual String getName() const override {
-      return this->name;
-    }
-    virtual Type getReturnType() const override {
-      return this->rettype;
-    }
-    virtual Type getGeneratorType() const override {
-      return this->gentype;
-    }
-    virtual size_t getParameterCount() const override {
-      return this->positional.size() + this->named.size();
-    }
-    virtual const IFunctionSignatureParameter& getParameter(size_t index) const override {
-      if (index < this->positional.size()) {
-        return this->positional[index];
-      }
-      return this->named.at(index - this->positional.size());
-    }
-    void addPositionalParameter(const Type& ptype, const String& pname, IFunctionSignatureParameter::Flags pflags) {
-      auto pindex = this->positional.size();
-      this->positional.emplace_back(ptype, pname, pflags, pindex);
-    }
-    void addNamedParameter(const Type& ptype, const String& pname, IFunctionSignatureParameter::Flags pflags) {
-      this->named.emplace_back(ptype, pname, pflags, SIZE_MAX);
-    }
-  };
-
-  class TypeBuilderProperties : public IPropertySignature {
-    TypeBuilderProperties(const TypeBuilderProperties&) = delete;
-    TypeBuilderProperties& operator=(const TypeBuilderProperties&) = delete;
-  private:
-    struct Property {
-      Type type;
-      String name;
-      Modifiability modifiability; // property is optional if 'Delete' set
-    };
-    // TODO use Dictionary?
-    std::map<String, Property> map;
-    std::vector<String> vec;
-    Type unknownType; // the type of unknown properties or null
-    Modifiability unknownModifiability; // the modifiability of unknown properties
-  public:
-    TypeBuilderProperties()
-      : unknownType(nullptr),
-        unknownModifiability(Modifiability::None) {
-      // Closed properties (i.e. unknown properties are not allowed)
-    }
-    TypeBuilderProperties(const Type& unknownType, Modifiability unknownModifiability)
-      : unknownType(unknownType),
-        unknownModifiability(unknownModifiability) {
-      // Open set of properties
-    }
-    virtual Type getType(const String& property) const override {
-      auto found = this->map.find(property);
-      if (found == this->map.end()) {
-        return Type(this->unknownType);
-      }
-      return Type(found->second.type);
-    }
-    virtual Modifiability getModifiability(const String& property) const override {
-      auto found = this->map.find(property);
-      if (found == this->map.end()) {
-        return this->unknownModifiability;
-      }
-      return found->second.modifiability;
-    }
-    virtual String getName(size_t index) const override {
-      return this->vec.at(index);
-    }
-    virtual size_t getNameCount() const override {
-      return this->vec.size();
-    }
-    virtual bool isClosed() const override {
-      return this->unknownModifiability == Modifiability::None;
-    }
-    bool add(const Type& type, const String& name, Modifiability modifiability) {
-      // Careful with reference counting under exception conditions!
-      Property property{ type, name, modifiability };
-      auto added = this->map.try_emplace(name, std::move(property));
-      if (!added.second) {
-        return false;
-      }
-      this->vec.emplace_back(name);
-      return true;
-    }
-  };
-
-  class TypeBuilderIndexable : public IIndexSignature {
-    TypeBuilderIndexable(const TypeBuilderIndexable&) = delete;
-    TypeBuilderIndexable& operator=(const TypeBuilderIndexable&) = delete;
-  private:
-    Type resultType;
-    Type indexType;
-    Modifiability modifiability;
-  public:
-    TypeBuilderIndexable(const Type& resultType, const Type& indexType, Modifiability modifiability)
-      : resultType(resultType),
-        indexType(indexType),
-        modifiability(modifiability) {
-      assert(resultType != nullptr);
-      assert(modifiability != Modifiability::None);
-    }
-    virtual Type getResultType() const override {
-      return this->resultType;
-    }
-    virtual Type getIndexType() const override {
-      return this->indexType;
-    }
-    virtual Modifiability getModifiability() const override {
-      return this->modifiability;
-    }
-  };
-
-  class TypeBuilderIterable : public IIteratorSignature {
-    TypeBuilderIterable(const TypeBuilderIterable&) = delete;
-    TypeBuilderIterable& operator=(const TypeBuilderIterable&) = delete;
-  private:
-    Type resultType;
-  public:
-    explicit TypeBuilderIterable(const Type& resultType)
-      : resultType(resultType) {
-      assert(resultType != nullptr);
-    }
-    virtual Type getType() const override {
-      return this->resultType;
-    }
-  };
-
   class TypeFactory : public ITypeFactory {
     TypeFactory(const TypeFactory&) = delete;
     TypeFactory& operator=(const TypeFactory&) = delete;
@@ -320,6 +149,7 @@ namespace egg::ovum {
     virtual Type createArray(const Type& result, Modifiability modifiability) override;
     virtual Type createMap(const Type& result, const Type& index, Modifiability modifiability) override;
     virtual Type createUnion(const std::vector<Type>& types) override;
+    virtual Type createIterator(const Type& element) override;
 
     virtual Type addVoid(const Type& type) override;
     virtual Type addNull(const Type& type) override;
@@ -331,10 +161,17 @@ namespace egg::ovum {
     virtual TypeBuilder createGeneratorBuilder(const Type& gentype, const String& name, const String& description = {}) override;
 
     // WIBBLE
+    virtual const TypeShape& forgeTypeShape(const IFunctionSignature* callable, const IPropertySignature* dotable, const IIndexSignature* indexable, const IIteratorSignature* iterable, const IPointerSignature* pointable) override;
     virtual const TypeShape& createTypeShape(const IFunctionSignature* callable, const IPropertySignature* dotable, const IIndexSignature* indexable, const IIteratorSignature* iterable, const IPointerSignature* pointable) override;
     virtual const IType& createBaked(const IType& unbaked) override;
 
     virtual const TypeShape& getObjectShape() override;
     virtual const TypeShape& getStringShape() override;
+
+    virtual Type getVanillaArray() override;
+    virtual Type getVanillaDictionary() override;
+    virtual Type getVanillaError() override;
+    virtual Type getVanillaKeyValue() override;
+    virtual Type getVanillaPredicate() override;
   };
 }

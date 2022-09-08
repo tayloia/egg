@@ -595,7 +595,7 @@ TEST(TestModule, DISABLED_BuildTypeShape) {
   egg::test::Allocator allocator;
   egg::ovum::TypeFactory factory(allocator);
   ModuleBuilder builder(factory);
-  const TypeShape* shape = Vanilla::getKeyValueType(factory)->getObjectShape(0);
+  const TypeShape* shape = factory.getVanillaKeyValue()->getObjectShape(0);
   auto tvalue = roundTripArray(builder, {
     builder.createValueShape(*shape)
   });

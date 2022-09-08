@@ -269,7 +269,7 @@ namespace egg::ovum {
     virtual void defineDotable(const Type& unknownType, Modifiability unknownModifiability) = 0;
     virtual void defineIndexable(const Type& resultType, const Type& indexType, Modifiability modifiability) = 0;
     virtual void defineIterable(const Type& resultType) = 0;
-    virtual Type build(ITypeFactory& factory) = 0;
+    virtual Type build() = 0;
   };
   using TypeBuilder = HardPtr<ITypeBuilder>;
 
@@ -283,6 +283,7 @@ namespace egg::ovum {
     virtual Type createArray(const Type& result, Modifiability modifiability) = 0;
     virtual Type createMap(const Type& result, const Type& index, Modifiability modifiability) = 0;
     virtual Type createUnion(const std::vector<Type>& types) = 0;
+    virtual Type createIterator(const Type& element) = 0;
     virtual Type addVoid(const Type& type) = 0;
     virtual Type addNull(const Type& type) = 0;
     virtual Type removeVoid(const Type& type) = 0;
@@ -292,11 +293,18 @@ namespace egg::ovum {
     virtual TypeBuilder createGeneratorBuilder(const Type& gentype, const String& name, const String& description) = 0;
 
     // WIBBLE
+    virtual const TypeShape& forgeTypeShape(const IFunctionSignature* callable, const IPropertySignature* dotable, const IIndexSignature* indexable, const IIteratorSignature* iterable, const IPointerSignature* pointable) = 0;
     virtual const TypeShape& createTypeShape(const IFunctionSignature* callable, const IPropertySignature* dotable, const IIndexSignature* indexable, const IIteratorSignature* iterable, const IPointerSignature* pointable) = 0;
     virtual const IType& createBaked(const IType& unbaked) = 0;
 
     virtual const TypeShape& getObjectShape() = 0;
     virtual const TypeShape& getStringShape() = 0;
+
+    virtual Type getVanillaArray() = 0;
+    virtual Type getVanillaDictionary() = 0;
+    virtual Type getVanillaError() = 0;
+    virtual Type getVanillaKeyValue() = 0;
+    virtual Type getVanillaPredicate() = 0;
 
     const IFunctionSignature* queryCallable(const Type& type);
     const IPropertySignature* queryDotable(const Type& type);

@@ -1,16 +1,7 @@
 namespace egg::ovum {
-  class Vanilla {
-  public:
-    struct IPredicateCallback {
-      virtual ~IPredicateCallback() {}
-      virtual Value predicateCallback(const INode& node) = 0;
-    };
-
-    static Type getArrayType(ITypeFactory& factory); // any?[] with well-known properties
-    static Type getDictionaryType(ITypeFactory& factory); // any?[string] with forwarded properties
-    static Type getKeyValueType(ITypeFactory& factory); // { string key; any? value; }
-    static Type getErrorType(ITypeFactory& factory); // { string message; string file?; int line?; int column?; }
-    static Type getPredicateType(ITypeFactory& factory); // {}
+  struct IVanillaPredicateCallback {
+    virtual ~IVanillaPredicateCallback() {}
+    virtual Value predicateCallback(const INode& node) = 0;
   };
 
   template<typename V>
@@ -42,7 +33,7 @@ namespace egg::ovum {
     static Object createObject(ITypeFactory& factory, IBasket& basket);
     static Object createKeyValue(ITypeFactory& factory, IBasket& basket, const String& key, const Value& value);
     static Object createError(ITypeFactory& factory, IBasket& basket, const LocationSource& location, const String& message);
-    static Object createPredicate(ITypeFactory& factory, IBasket& basket, Vanilla::IPredicateCallback& callback, const INode& node);
+    static Object createPredicate(ITypeFactory& factory, IBasket& basket, IVanillaPredicateCallback& callback, const INode& node);
     static Object createPointer(ITypeFactory& factory, IBasket& basket, ISlot& slot, const Type& pointer, Modifiability modifiability);
   };
 }

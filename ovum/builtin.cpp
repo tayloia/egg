@@ -813,7 +813,7 @@ namespace {
       this->properties.add(this->allocator, *this->basket, member, value);
     }
     void build() {
-      this->type = this->builder->build(this->factory);
+      this->type = this->builder->build();
     }
   };
 
