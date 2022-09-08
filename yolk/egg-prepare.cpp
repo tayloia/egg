@@ -323,7 +323,7 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareForeach(IEgg
       return EggProgramNodeFlags::Abandon;
     }
     auto type = rvalue.getType();
-    auto iterable = type.queryIterable();
+    auto iterable = this->factory.queryIterable(type);
     if (iterable == nullptr) {
       return scope.compilerError(rvalue.location(), type.describeValue(), " is not iterable");
     }
@@ -336,7 +336,7 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareForeach(IEgg
 
 egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareFunctionDefinition(const egg::ovum::String& name, const egg::ovum::Type& type, const std::shared_ptr<IEggProgramNode>& block) {
   // TODO type check
-  auto callable = type.queryCallable();
+  auto callable = this->factory.queryCallable(type);
   assert(callable != nullptr);
   assert(callable->getName() == name);
   auto nested = this->allocator.makeHard<EggProgramSymbolTable>(this->symtable.get());
@@ -555,13 +555,13 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareObject(const
   return EggProgramNodeFlags::None;
 }
 
-egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareCall(IEggProgramNode& callee, std::vector<std::shared_ptr<IEggProgramNode>>& parameters) {
+egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareCall(IEggProgramNode& callee, std::vector<std::shared_ptr<IEggProgramNode>>& parameters, egg::ovum::Type& rettype) {
   if (abandoned(callee.prepare(*this))) {
     return EggProgramNodeFlags::Abandon;
   }
   auto ctype = callee.getType();
   assert(ctype != nullptr);
-  auto* callable = ctype.queryCallable();
+  auto* callable = this->factory.queryCallable(ctype);
   if (callable == nullptr) {
     return this->compilerError(callee.location(), "Expected function-like expression to be callable, but got '", ctype.toString(), "' instead");
   }
@@ -587,6 +587,7 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareCall(IEggPro
       position++;
     }
   }
+  rettype = callable->getReturnType();
   return EggProgramNodeFlags::Fallthrough;
 }
 
@@ -606,7 +607,7 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareBrackets(con
     return EggProgramNodeFlags::Abandon;
   }
   auto ltype = instance.getType();
-  auto indexable = ltype.queryIndexable();
+  auto indexable = this->factory.queryIndexable(ltype);
   if (indexable == nullptr) {
     return this->compilerError(where, ltype.describeValue(), " does not support the indexing '[]' operator");
   }
@@ -614,13 +615,13 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareBrackets(con
   return EggProgramNodeFlags::None;
 }
 
-egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareDot(const egg::ovum::LocationSource& where, IEggProgramNode& instance, const egg::ovum::String& property) {
+egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareDot(const egg::ovum::LocationSource& where, IEggProgramNode& instance, const egg::ovum::String& property, egg::ovum::Type& restype) {
   // Left-hand side should be string/object
   if (abandoned(instance.prepare(*this))) {
     return EggProgramNodeFlags::Abandon;
   }
   auto ltype = instance.getType();
-  auto dotable = ltype.queryDotable();
+  auto dotable = this->factory.queryDotable(ltype);
   if (dotable == nullptr) {
     return this->compilerError(where, ltype.describeValue(), " does not support the property '.' operator");
   }
@@ -630,6 +631,7 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareDot(const eg
       return this->compilerError(where, ltype.describeValue(), " does not support the property '", property, "'");
     }
   }
+  restype = dotable->getType(property);
   return EggProgramNodeFlags::None;
 }
 
@@ -664,7 +666,7 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareUnary(const 
     break;
   case EggProgramUnary::Deref:
     // Dereference '*' operation
-    if (type.queryPointable() == nullptr) {
+    if (this->factory.queryPointable(type) == nullptr) {
       return this->compilerError(where, "Expected operand of dereference '*' operator to be a pointer, but got '", type.toString(), "' instead");
     }
     break;

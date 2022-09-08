@@ -71,21 +71,20 @@ namespace {
     Type gentype;
     size_t parameters;
     Parameter parameter[MAX_PARAMETERS];
-    TypeShape shape;
+    const TypeShape* shape;
   public:
-    StringProperty_FunctionType(const String& name, const Type& rettype, const Type& gentype)
+    StringProperty_FunctionType(ITypeFactory& factory, const String& name, const Type& rettype, const Type& gentype)
       : name(name),
         rettype(rettype),
         gentype(gentype),
-        parameters(0),
-        shape{} {
-      this->shape.callable = this;
+        parameters(0) {
+      this->shape = &factory.createTypeShape(this, nullptr, nullptr, nullptr, nullptr);
     }
     virtual ValueFlags getPrimitiveFlags() const override {
       return ValueFlags::None;
     }
     virtual const TypeShape* getObjectShape(size_t index) const override {
-      return (index == 0) ? &this->shape : nullptr;
+      return (index == 0) ? this->shape : nullptr;
     }
     virtual size_t getObjectShapeCount() const override {
       return 1;
@@ -127,7 +126,7 @@ namespace {
     StringProperty_Length(const StringProperty_Length&) = delete;
     StringProperty_Length& operator=(const StringProperty_Length&) = delete;
   public:
-    StringProperty_Length() {}
+    explicit StringProperty_Length(ITypeFactory&) {}
     virtual Value createInstance(ITypeFactory& factory, IBasket&, const String& string) const override {
       return ValueFactory::createInt(factory.getAllocator(), Int(string.length()));
     }
@@ -145,8 +144,8 @@ namespace {
   private:
     StringProperty_FunctionType ftype;
   public:
-    StringProperty_Member(const String& name, const Type& rettype)
-      : ftype(name, rettype, nullptr) {
+    StringProperty_Member(ITypeFactory& factory, const String& name, const Type& rettype)
+      : ftype(factory, name, rettype, nullptr) {
     }
     virtual Value createInstance(ITypeFactory& factory, IBasket& basket, const String& string) const override;
     virtual String getName() const override {
@@ -263,7 +262,7 @@ namespace {
     StringProperty_CompareTo(const StringProperty_CompareTo&) = delete;
     StringProperty_CompareTo& operator=(const StringProperty_CompareTo&) = delete;
   public:
-    StringProperty_CompareTo() : StringProperty_Member("compareTo", Type::Int) {
+    StringProperty_CompareTo(ITypeFactory& factory) : StringProperty_Member(factory, "compareTo", Type::Int) {
       this->addRequiredParameter("other", Type::String);
     }
     virtual Value invoke(IExecution& execution, const String& string, ParameterChecker& checker) const override {
@@ -280,7 +279,7 @@ namespace {
     StringProperty_Contains(const StringProperty_Contains&) = delete;
     StringProperty_Contains& operator=(const StringProperty_Contains&) = delete;
   public:
-    StringProperty_Contains() : StringProperty_Member("contains", Type::Bool) {
+    StringProperty_Contains(ITypeFactory& factory) : StringProperty_Member(factory, "contains", Type::Bool) {
       this->addRequiredParameter("needle", Type::String);
     }
     virtual Value invoke(IExecution& execution, const String& string, ParameterChecker& checker) const override {
@@ -297,7 +296,7 @@ namespace {
     StringProperty_EndsWith(const StringProperty_EndsWith&) = delete;
     StringProperty_EndsWith& operator=(const StringProperty_EndsWith&) = delete;
   public:
-    StringProperty_EndsWith() : StringProperty_Member("endsWith", Type::Bool) {
+    StringProperty_EndsWith(ITypeFactory& factory) : StringProperty_Member(factory, "endsWith", Type::Bool) {
       this->addRequiredParameter("needle", Type::String);
     }
     virtual Value invoke(IExecution& execution, const String& string, ParameterChecker& checker) const override {
@@ -314,7 +313,7 @@ namespace {
     StringProperty_Hash(const StringProperty_Hash&) = delete;
     StringProperty_Hash& operator=(const StringProperty_Hash&) = delete;
   public:
-    StringProperty_Hash() : StringProperty_Member("hash", Type::Int) {
+    StringProperty_Hash(ITypeFactory& factory) : StringProperty_Member(factory, "hash", Type::Int) {
     }
     virtual Value invoke(IExecution& execution, const String& string, ParameterChecker&) const override {
       auto result = string.hash();
@@ -326,7 +325,7 @@ namespace {
     StringProperty_IndexOf(const StringProperty_IndexOf&) = delete;
     StringProperty_IndexOf& operator=(const StringProperty_IndexOf&) = delete;
   public:
-    StringProperty_IndexOf() : StringProperty_Member("indexOf", Type::IntQ) {
+    StringProperty_IndexOf(ITypeFactory& factory) : StringProperty_Member(factory, "indexOf", Type::IntQ) {
       this->addRequiredParameter("needle", Type::String);
       this->addOptionalParameter("fromIndex", Type::Int);
     }
@@ -353,7 +352,7 @@ namespace {
     StringProperty_Join(const StringProperty_Join&) = delete;
     StringProperty_Join& operator=(const StringProperty_Join&) = delete;
   public:
-    StringProperty_Join() : StringProperty_Member("join", Type::String) {
+    StringProperty_Join(ITypeFactory& factory) : StringProperty_Member(factory, "join", Type::String) {
       this->addVariadicParameter("parts", Type::String);
     }
     virtual Value invoke(IExecution& execution, const String& string, ParameterChecker& checker) const override {
@@ -375,7 +374,7 @@ namespace {
     StringProperty_LastIndexOf(const StringProperty_LastIndexOf&) = delete;
     StringProperty_LastIndexOf& operator=(const StringProperty_LastIndexOf&) = delete;
   public:
-    StringProperty_LastIndexOf() : StringProperty_Member("lastIndexOf", Type::IntQ) {
+    StringProperty_LastIndexOf(ITypeFactory& factory) : StringProperty_Member(factory, "lastIndexOf", Type::IntQ) {
       this->addRequiredParameter("needle", Type::String);
       this->addOptionalParameter("fromIndex", Type::Int);
     }
@@ -402,7 +401,7 @@ namespace {
     StringProperty_PadLeft(const StringProperty_PadLeft&) = delete;
     StringProperty_PadLeft& operator=(const StringProperty_PadLeft&) = delete;
   public:
-    StringProperty_PadLeft() : StringProperty_Member("padLeft", Type::String) {
+    StringProperty_PadLeft(ITypeFactory& factory) : StringProperty_Member(factory, "padLeft", Type::String) {
       this->addRequiredParameter("target", Type::Int);
       this->addOptionalParameter("padding", Type::String);
     }
@@ -426,7 +425,7 @@ namespace {
     StringProperty_PadRight(const StringProperty_PadRight&) = delete;
     StringProperty_PadRight& operator=(const StringProperty_PadRight&) = delete;
   public:
-    StringProperty_PadRight() : StringProperty_Member("padRight", Type::String) {
+    StringProperty_PadRight(ITypeFactory& factory) : StringProperty_Member(factory, "padRight", Type::String) {
       this->addRequiredParameter("target", Type::Int);
       this->addOptionalParameter("padding", Type::String);
     }
@@ -450,7 +449,7 @@ namespace {
     StringProperty_Slice(const StringProperty_Slice&) = delete;
     StringProperty_Slice& operator=(const StringProperty_Slice&) = delete;
   public:
-    StringProperty_Slice() : StringProperty_Member("slice", Type::String) {
+    StringProperty_Slice(ITypeFactory& factory) : StringProperty_Member(factory, "slice", Type::String) {
       this->addRequiredParameter("begin", Type::Int);
       this->addOptionalParameter("end", Type::Int);
     }
@@ -469,7 +468,7 @@ namespace {
     StringProperty_Repeat(const StringProperty_Repeat&) = delete;
     StringProperty_Repeat& operator=(const StringProperty_Repeat&) = delete;
   public:
-    StringProperty_Repeat() : StringProperty_Member("repeat", Type::String) {
+    StringProperty_Repeat(ITypeFactory& factory) : StringProperty_Member(factory, "repeat", Type::String) {
       this->addRequiredParameter("count", Type::Int);
     }
     virtual Value invoke(IExecution& execution, const String& string, ParameterChecker& checker) const override {
@@ -489,7 +488,7 @@ namespace {
     StringProperty_Replace(const StringProperty_Replace&) = delete;
     StringProperty_Replace& operator=(const StringProperty_Replace&) = delete;
   public:
-    StringProperty_Replace() : StringProperty_Member("replace", Type::String) {
+    StringProperty_Replace(ITypeFactory& factory) : StringProperty_Member(factory, "replace", Type::String) {
       this->addRequiredParameter("needle", Type::String);
       this->addRequiredParameter("replacement", Type::String);
       this->addOptionalParameter("occurrences", Type::Int);
@@ -510,7 +509,7 @@ namespace {
     StringProperty_StartsWith(const StringProperty_StartsWith&) = delete;
     StringProperty_StartsWith& operator=(const StringProperty_StartsWith&) = delete;
   public:
-    StringProperty_StartsWith() : StringProperty_Member("startsWith", Type::Bool) {
+    StringProperty_StartsWith(ITypeFactory& factory) : StringProperty_Member(factory, "startsWith", Type::Bool) {
       this->addRequiredParameter("needle", Type::String);
     }
     virtual Value invoke(IExecution& execution, const String& string, ParameterChecker& checker) const override {
@@ -527,7 +526,7 @@ namespace {
     StringProperty_ToString(const StringProperty_ToString&) = delete;
     StringProperty_ToString& operator=(const StringProperty_ToString&) = delete;
   public:
-    StringProperty_ToString() : StringProperty_Member("toString", Type::String) {
+    StringProperty_ToString(ITypeFactory& factory) : StringProperty_Member(factory, "toString", Type::String) {
     }
     virtual Value invoke(IExecution& execution, const String& string, ParameterChecker&) const override {
       return execution.makeValue(string);
@@ -539,59 +538,60 @@ namespace {
     StringProperties& operator=(const StringProperties&) = delete;
     typedef Type (*MemberBuilder)();
   public:
-    StringProperties() {
-      this->addMember<StringProperty_Length>();
-      this->addMember<StringProperty_CompareTo>();
-      this->addMember<StringProperty_Contains>();
-      this->addMember<StringProperty_EndsWith>();
-      this->addMember<StringProperty_Hash>();
-      this->addMember<StringProperty_IndexOf>();
-      this->addMember<StringProperty_Join>();
-      this->addMember<StringProperty_LastIndexOf>();
-      this->addMember<StringProperty_PadLeft>();
-      this->addMember<StringProperty_PadRight>();
-      this->addMember<StringProperty_Repeat>();
-      this->addMember<StringProperty_Replace>();
-      this->addMember<StringProperty_Slice>();
-      this->addMember<StringProperty_StartsWith>();
-      this->addMember<StringProperty_ToString>();
+    explicit StringProperties(ITypeFactory& factory) {
+      this->addMember<StringProperty_Length>(factory);
+      this->addMember<StringProperty_CompareTo>(factory);
+      this->addMember<StringProperty_Contains>(factory);
+      this->addMember<StringProperty_EndsWith>(factory);
+      this->addMember<StringProperty_Hash>(factory);
+      this->addMember<StringProperty_IndexOf>(factory);
+      this->addMember<StringProperty_Join>(factory);
+      this->addMember<StringProperty_LastIndexOf>(factory);
+      this->addMember<StringProperty_PadLeft>(factory);
+      this->addMember<StringProperty_PadRight>(factory);
+      this->addMember<StringProperty_Repeat>(factory);
+      this->addMember<StringProperty_Replace>(factory);
+      this->addMember<StringProperty_Slice>(factory);
+      this->addMember<StringProperty_StartsWith>(factory);
+      this->addMember<StringProperty_ToString>(factory);
     };
-    static const StringProperties& instance() {
-      static const StringProperties result;
-      return result;
-    }
   private:
     template<typename T>
-    void addMember() {
-      auto property = std::make_unique<T>();
+    void addMember(ITypeFactory& factory) {
+      auto property = std::make_unique<T>(factory);
       auto name = property->getName();
       this->add(name, std::move(property));
     }
   };
 
   class StringShapeDotable : public IPropertySignature {
+    StringShapeDotable(const StringShapeDotable&) = delete;
+    StringShapeDotable& operator=(const StringShapeDotable&) = delete;
+  private:
+    StringProperties properties;
   public:
+    explicit StringShapeDotable(ITypeFactory& factory) : properties(factory) {
+    }
     virtual Type getType(const String& property) const override {
-      auto* found = StringProperties::instance().get(property);
+      auto* found = this->properties.get(property);
       return (found == nullptr) ? Type::Void : (*found)->getType();
     }
     virtual Modifiability getModifiability(const String& property) const override {
-      auto* found = StringProperties::instance().get(property);
+      auto* found = this->properties.get(property);
       return (found == nullptr) ? Modifiability::None : Modifiability::Read;
     }
     virtual String getName(size_t index) const override {
       String key;
-      auto* found = StringProperties::instance().get(index, key);
+      auto* found = this->properties.get(index, key);
       return (found == nullptr) ? String() : key;
     }
     virtual size_t getNameCount() const override {
-      return StringProperties::instance().size();
+      return this->properties.size();
     }
     virtual bool isClosed() const override {
       return true;
     }
   };
-  const StringShapeDotable stringShapeDotable{};
 
   class StringShapeIndexable : public IIndexSignature {
   public:
@@ -813,7 +813,7 @@ namespace {
       this->properties.add(this->allocator, *this->basket, member, value);
     }
     void build() {
-      this->type = this->builder->build();
+      this->type = this->builder->build(this->factory);
     }
   };
 
@@ -943,41 +943,49 @@ namespace {
 const egg::ovum::IParameters& egg::ovum::Object::ParametersNone{ parametersNone };
 const egg::ovum::IFunctionSignature& egg::ovum::Object::OmniFunctionSignature{ objectShapeCallable };
 
-const egg::ovum::TypeShape& egg::ovum::BuiltinFactory::getStringShape() {
-  static const TypeShape instance{
+const egg::ovum::TypeShape& TypeFactory::getObjectShape() {
+  ObjectShapeCallable callable;
+  ObjectShapeDotable dotable;
+  ObjectShapeIndexable indexable;
+  ObjectShapeIterable iterable;
+  return this->createTypeShape(
+    &callable,
+    &dotable,
+    &indexable,
+    &iterable,
+    nullptr
+  );
+}
+
+const egg::ovum::TypeShape& TypeFactory::getStringShape() {
+  StringShapeDotable dotable{ *this };
+  StringShapeIndexable indexable;
+  StringShapeIterable iterable;
+  return this->createTypeShape(
     nullptr,
-    &stringShapeDotable,
-    &stringShapeIndexable,
-    &stringShapeIterable,
+    &dotable,
+    &indexable,
+    &iterable,
     nullptr
-  };
-  return instance;
+  );
 }
 
-const egg::ovum::TypeShape& egg::ovum::BuiltinFactory::getObjectShape() {
-  static const TypeShape instance{
-    &objectShapeCallable,
-    &objectShapeDotable,
-    &objectShapeIndexable,
-    &objectShapeIterable,
-    nullptr
-  };
-  return instance;
-}
-
-const egg::ovum::BuiltinFactory::StringProperty* egg::ovum::BuiltinFactory::getStringPropertyByName(const String& property) {
-  auto* entry = StringProperties::instance().get(property);
+const egg::ovum::BuiltinFactory::StringProperty* egg::ovum::BuiltinFactory::getStringPropertyByName(ITypeFactory& factory, const String& property) {
+  StringProperties properties{ factory };
+  auto* entry = properties.get(property);
   return (entry == nullptr) ? nullptr : entry->get();
 }
 
-const egg::ovum::BuiltinFactory::StringProperty* egg::ovum::BuiltinFactory::getStringPropertyByIndex(size_t index) {
+const egg::ovum::BuiltinFactory::StringProperty* egg::ovum::BuiltinFactory::getStringPropertyByIndex(ITypeFactory& factory, size_t index) {
+  StringProperties properties{ factory };
   String key;
-  auto* entry = StringProperties::instance().get(index, key);
+  auto* entry = properties.get(index, key);
   return (entry == nullptr) ? nullptr : entry->get();
 }
 
-size_t egg::ovum::BuiltinFactory::getStringPropertyCount() {
-  return StringProperties::instance().size();
+size_t egg::ovum::BuiltinFactory::getStringPropertyCount(ITypeFactory& factory) {
+  StringProperties properties{ factory };
+  return properties.size();
 }
 
 egg::ovum::Value egg::ovum::BuiltinFactory::createAssertInstance(ITypeFactory& factory, IBasket& basket) {

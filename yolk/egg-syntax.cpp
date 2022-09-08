@@ -2119,7 +2119,7 @@ std::unique_ptr<IEggSyntaxNode> EggSyntaxParserContext::parseStatementTypeDefini
       // <type> '(' <parameters> ')' ';'
       // <type> '[' <type> ']' '{' (<get-set-mut-del> ';')+ '}'
       // <type> '[' ']' '{' (<get-set-mut-del> ';')+ '}'
-      auto* callable = type.queryCallable();
+      auto* callable = this->factory.queryCallable(type);
       if (callable != nullptr) {
         if (isStatic) {
           this->exception("Callable type clauses cannot be marked 'static'", p0);
@@ -2130,7 +2130,7 @@ std::unique_ptr<IEggSyntaxNode> EggSyntaxParserContext::parseStatementTypeDefini
         mark.accept(1);
         return std::make_unique<EggSyntaxNode_Callable>(location0, *type);
       }
-      auto* indexable = type.queryIndexable();
+      auto* indexable = this->factory.queryIndexable(type);
       if (indexable != nullptr) {
         if (isStatic) {
           this->exception("Indexable type clauses cannot be marked 'static'", p0);
@@ -2417,7 +2417,7 @@ egg::ovum::Type EggSyntaxParserContext::parseTypePostfixFunction(const egg::ovum
     }
   }
   mark.accept(1); // Skip ')'
-  return builder->build();
+  return builder->build(this->factory);
 }
 
 bool EggSyntaxParserContext::parseTypePrimaryExpression(egg::ovum::Type& type) {

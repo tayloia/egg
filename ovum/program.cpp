@@ -411,7 +411,7 @@ namespace {
       if (predicate->getObject(object)) {
         // Predicates can be functions that throw exceptions, as well as 'bool' values
         auto type = object->getRuntimeType();
-        if (type.queryCallable() != nullptr) {
+        if (this->factory.queryCallable(type) != nullptr) {
           // Call the predicate directly
           return object->call(*this, Object::ParametersNone);
         }
@@ -533,7 +533,7 @@ namespace {
       }
       auto str = OperatorProperties::str(node.getOperator());
       auto message = StringBuilder::concat("Assertion is untrue: ", lhs.readable(), ' ', str, ' ', rhs.readable());
-      auto object = VanillaFactory::createError(this->allocator, *this->basket, source, message);
+      auto object = VanillaFactory::createError(this->factory, *this->basket, source, message);
       (void)object->setProperty(*this, "left", lhs);
       (void)object->setProperty(*this, "operator", ValueFactory::createUTF8(this->allocator, str));
       (void)object->setProperty(*this, "right", rhs);
@@ -1116,7 +1116,7 @@ namespace {
         auto& child = node.getChild(index);
         (void)child; // WIBBLE
       }
-      block.declareType(this->location, tname, builder->build());
+      block.declareType(this->location, tname, builder->build(this->factory));
       return Value::Void;
     }
     Value statementWhile(const INode& node) {
@@ -1262,7 +1262,7 @@ namespace {
     Value expressionAvalue(const INode& node) {
       assert(node.getOpcode() == Opcode::AVALUE);
       auto n = node.getChildren();
-      auto array = VanillaFactory::createArray(this->allocator, *this->basket, n);
+      auto array = VanillaFactory::createArray(this->factory, *this->basket, n);
       for (size_t i = 0; i < n; ++i) {
         auto expr = this->expression(node.getChild(i));
         if (expr.hasFlowControl()) {
@@ -1287,7 +1287,7 @@ namespace {
     }
     Value expressionOvalue(const INode& node) {
       assert(node.getOpcode() == Opcode::OVALUE);
-      auto object = VanillaFactory::createDictionary(this->allocator, *this->basket);
+      auto object = VanillaFactory::createDictionary(this->factory, *this->basket);
       auto n = node.getChildren();
       for (size_t i = 0; i < n; ++i) {
         auto& named = node.getChild(i);
@@ -1395,7 +1395,7 @@ namespace {
         auto oper = child.getOperator();
         if (OperatorProperties::from(oper).opclass == Opclass::COMPARE) {
           // We only support predicates for comparisons
-          auto predicate = VanillaFactory::createPredicate(this->allocator, *this->basket, *this, child);
+          auto predicate = VanillaFactory::createPredicate(this->factory, *this->basket, *this, child);
           return ValueFactory::createObject(this->allocator, predicate);
         }
       }
@@ -1477,7 +1477,7 @@ namespace {
       return ValueFactory::createString(this->allocator, StringFactory::fromCodePoint(this->allocator, char32_t(c)));
     }
     Value stringProperty(const String& string, const String& property) {
-      auto* found = BuiltinFactory::getStringPropertyByName(property);
+      auto* found = BuiltinFactory::getStringPropertyByName(this->factory, property);
       if (found == nullptr) {
         return Value::Void;
       }
@@ -1940,12 +1940,11 @@ namespace {
         }
         break;
       case Opcode::UNION:
-        if (children >= 1) {
+        if (children > 0) {
           std::vector<Type> types;
-          types.reserve(children);
-          auto result = this->type(node.getChild(0));
+          types.resize(children);
           for (size_t i = 0; i < children; ++i) {
-            types.emplace_back(this->type(node.getChild(i)));
+            types[i] = this->type(node.getChild(i));
           }
           return this->factory.createUnion(types);
         }
@@ -2078,7 +2077,7 @@ namespace {
       }
       if (lhs->getObject(target.object)) {
         auto type = target.object->getRuntimeType();
-        auto dotable = type.queryDotable();
+        auto dotable = this->factory.queryDotable(type);
         if (dotable == nullptr) {
           return this->raiseNode(node, type.describeValue(), " does not support properties such as '", target.identifier, "'");
         }
@@ -2112,7 +2111,7 @@ namespace {
       }
       String string;
       if (lhs->getObject(target.object)) {
-        auto* indexable = target.object->getRuntimeType().queryIndexable();
+        auto* indexable = this->factory.queryIndexable(target.object->getRuntimeType());
         if (indexable != nullptr) {
           target.type = indexable->getResultType();
           return Value::Void;
@@ -2132,7 +2131,7 @@ namespace {
         return pointer;
       }
       if (pointer->getObject(target.object)) {
-        auto* pointable = target.object->getRuntimeType().queryPointable();
+        auto* pointable = this->factory.queryPointable(target.object->getRuntimeType());
         if (pointable != nullptr) {
           target.type = pointable->getType();
           return Value::Void;
@@ -2228,13 +2227,13 @@ namespace {
       }
       return RuntimeException(this->location, "Unexpected ", expected, " opcode: '", name, "'");
     }
-    Value raiseError(const LocationSource& where, const String& message) const {
-      auto object = VanillaFactory::createError(this->allocator, *this->basket, where, message);
+    Value raiseError(const LocationSource& where, const String& message) {
+      auto object = VanillaFactory::createError(this->factory, *this->basket, where, message);
       auto value = ValueFactory::createObject(this->allocator, object);
       return ValueFactory::createFlowControl(this->allocator, ValueFlags::Throw, value);
     }
     template<typename... ARGS>
-    Value raiseLocation(const LocationSource& where, ARGS&&... args) const {
+    Value raiseLocation(const LocationSource& where, ARGS&&... args) {
       auto message = StringBuilder::concat(std::forward<ARGS>(args)...);
       return this->raiseError(where, message);
     }
@@ -2438,7 +2437,7 @@ egg::ovum::Type UserFunction::makeType(ITypeFactory& factory, ProgramDefault& pr
       builder->addPositionalParameter(ptype, pname, pflags);
     }
   }
-  return builder->build();
+  return builder->build(factory);
 }
 
 egg::ovum::Program egg::ovum::ProgramFactory::createProgram(IAllocator& allocator, ILogger& logger) {

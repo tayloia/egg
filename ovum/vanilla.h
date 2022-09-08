@@ -6,11 +6,11 @@ namespace egg::ovum {
       virtual Value predicateCallback(const INode& node) = 0;
     };
 
-    static Type getArrayType(); // any?[] with well-known properties
-    static Type getDictionaryType(); // any?[string] with forwarded properties
-    static Type getKeyValueType(); // { string key; any? value; }
-    static Type getErrorType(); // { string message; string file?; int line?; int column?; }
-    static Type getPredicateType(); // {}
+    static Type getArrayType(ITypeFactory& factory); // any?[] with well-known properties
+    static Type getDictionaryType(ITypeFactory& factory); // any?[string] with forwarded properties
+    static Type getKeyValueType(ITypeFactory& factory); // { string key; any? value; }
+    static Type getErrorType(ITypeFactory& factory); // { string message; string file?; int line?; int column?; }
+    static Type getPredicateType(ITypeFactory& factory); // {}
   };
 
   template<typename V>
@@ -37,12 +37,12 @@ namespace egg::ovum {
 
   class VanillaFactory {
   public:
-    static Object createArray(IAllocator& allocator, IBasket& basket, size_t length);
-    static Object createDictionary(IAllocator& allocator, IBasket& basket);
-    static Object createObject(IAllocator& allocator, IBasket& basket);
-    static Object createKeyValue(IAllocator& allocator, IBasket& basket, const String& key, const Value& value);
-    static Object createError(IAllocator& allocator, IBasket& basket, const LocationSource& location, const String& message);
-    static Object createPredicate(IAllocator& allocator, IBasket& basket, Vanilla::IPredicateCallback& callback, const INode& node);
-    static Object createPointer(IAllocator& allocator, IBasket& basket, ISlot& slot, const Type& pointer, Modifiability modifiability);
+    static Object createArray(ITypeFactory& factory, IBasket& basket, size_t length);
+    static Object createDictionary(ITypeFactory& factory, IBasket& basket);
+    static Object createObject(ITypeFactory& factory, IBasket& basket);
+    static Object createKeyValue(ITypeFactory& factory, IBasket& basket, const String& key, const Value& value);
+    static Object createError(ITypeFactory& factory, IBasket& basket, const LocationSource& location, const String& message);
+    static Object createPredicate(ITypeFactory& factory, IBasket& basket, Vanilla::IPredicateCallback& callback, const INode& node);
+    static Object createPointer(ITypeFactory& factory, IBasket& basket, ISlot& slot, const Type& pointer, Modifiability modifiability);
   };
 }

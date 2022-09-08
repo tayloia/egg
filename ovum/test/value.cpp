@@ -1,4 +1,5 @@
 #include "ovum/test.h"
+#include "ovum/vanilla.h"
 
 using Flags = egg::ovum::ValueFlags;
 
@@ -99,9 +100,10 @@ TEST(TestValue, String) {
 
 TEST(TestValue, Object) {
   egg::test::Allocator allocator;
+  egg::test::TypeFactory factory{ allocator };
   auto basket = egg::ovum::BasketFactory::createBasket(allocator);
   {
-    auto object = egg::ovum::ObjectFactory::createEmpty(allocator, *basket);
+    auto object = egg::ovum::VanillaFactory::createObject(factory, *basket);
     auto value = egg::ovum::ValueFactory::createObject(allocator, object);
     ASSERT_EQ(Flags::Object, value->getFlags());
     egg::ovum::Object actual;

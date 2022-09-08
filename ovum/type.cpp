@@ -51,58 +51,6 @@ namespace {
   TypePrimitive<ValueFlags::Any> typeAny{};
   TypePrimitive<ValueFlags::AnyQ> typeAnyQ{};
 
-  class TypeIndexable final : public HardReferenceCounted<IType>, IIndexSignature {
-    TypeIndexable(const TypeIndexable&) = delete;
-    TypeIndexable& operator=(const TypeIndexable&) = delete;
-  private:
-    Type result;
-    Type index;
-    Modifiability modifiability;
-    TypeShape shape;
-  public:
-    TypeIndexable(IAllocator& allocator, const Type& result, const Type& index, Modifiability modifiability)
-      : HardReferenceCounted(allocator, 0),
-        result(result),
-        index(index),
-        modifiability(modifiability),
-        shape{} {
-      assert(this->result != nullptr);
-      this->shape.indexable = this;
-    }
-    virtual ValueFlags getPrimitiveFlags() const override {
-      return ValueFlags::None;
-    }
-    virtual const TypeShape* getObjectShape(size_t idx) const override {
-      return (idx == 0) ? &this->shape : nullptr;
-    }
-    virtual size_t getObjectShapeCount() const override {
-      return 1;
-    }
-    virtual std::pair<std::string, int> toStringPrecedence() const override {
-      std::set<const TypeShape*> shapes{ &this->shape }; // WIBBLE
-      return Forge::complexToStringPrecedence(ValueFlags::None, shapes);
-    }
-    virtual String describeValue() const override {
-      // TODO i18n
-      if (this->index == nullptr) {
-        return StringBuilder::concat("Array of type '", this->toStringPrecedence().first, "'");
-      }
-      return StringBuilder::concat("Map of type '", this->toStringPrecedence().first, "'");
-    }
-    virtual Type getResultType() const override {
-      // IIndexSignature
-      return this->result;
-    }
-    virtual Type getIndexType() const override {
-      // IIndexSignature
-      return this->index;
-    }
-    virtual Modifiability getModifiability() const override {
-      // IIndexSignature
-      return this->modifiability;
-    }
-  };
-
   class Builder : public HardReferenceCounted<ITypeBuilder> {
     Builder(const Builder&) = delete;
     Builder& operator=(const Builder&) = delete;
@@ -133,16 +81,7 @@ namespace {
     virtual void defineDotable(const Type& unknownType, Modifiability unknownModifiability) override;
     virtual void defineIndexable(const Type& resultType, const Type& indexType, Modifiability modifiability) override;
     virtual void defineIterable(const Type& resultType) override;
-    virtual Type build() override {
-      if (this->built) {
-        throw std::logic_error("TypeBuilder::build() called more than once");
-      }
-      this->built = true;
-      if (this->description.empty()) {
-        this->description = this->describe();
-      }
-      return this->allocator.makeHard<Built, Type>(*this, nullptr);
-    }
+    virtual Type build(ITypeFactory& factory) override;
   private:
     String describe() {
       if (this->name.empty()) {
@@ -157,30 +96,31 @@ namespace {
     Built& operator=(const Built&) = delete;
   private:
     HardPtr<Builder> builder;
-    TypeShape shape;
+    const TypeShape* shape;
   public:
-    Built(IAllocator& allocator, Builder& builder, const IFunctionSignature* callable = nullptr)
-      : HardReferenceCounted(allocator, 0),
-        builder(&builder),
-        shape{} {
-      this->shape.callable = callable;
-      this->shape.dotable = builder.properties.get();
-      this->shape.indexable = builder.indexable.get();
-      this->shape.iterable = builder.iterable.get();
+    Built(ITypeFactory& factory, Builder& builder, const IFunctionSignature* callable = nullptr)
+      : HardReferenceCounted(factory.getAllocator(), 0),
+        builder(&builder) {
+      this->shape = &factory.createTypeShape(
+        callable,
+        builder.properties.get(),
+        builder.indexable.get(),
+        builder.iterable.get(),
+        nullptr);
     }
     virtual ValueFlags getPrimitiveFlags() const override {
       return ValueFlags::None;
     }
     virtual const TypeShape* getObjectShape(size_t index) const override {
-      return (index == 0) ? &this->shape : nullptr;
+      return (index == 0) ? this->shape : nullptr;
     }
     virtual size_t getObjectShapeCount() const override {
       return 1;
     }
     virtual std::pair<std::string, int> toStringPrecedence() const override {
-      if (this->shape.callable != nullptr) {
+      if (this->shape->callable != nullptr) {
         // Use the type of the function signature
-        return FunctionSignature::toStringPrecedence(*this->shape.callable);
+        return FunctionSignature::toStringPrecedence(*this->shape->callable);
       }
       return { this->builder->name, 0 };
     }
@@ -225,6 +165,17 @@ namespace {
     this->iterable = std::make_unique<TypeBuilderIterable>(resultType);
   }
 
+  Type Builder::build(ITypeFactory& factory) {
+    if (this->built) {
+      throw std::logic_error("TypeBuilder::build() called more than once");
+    }
+    this->built = true;
+    if (this->description.empty()) {
+      this->description = this->describe();
+    }
+    return Type(this->allocator.makeRaw<Built>(factory, *this, nullptr));
+  }
+
   class FunctionBuilder : public Builder {
     FunctionBuilder(const FunctionBuilder&) = delete;
     FunctionBuilder& operator=(const FunctionBuilder&) = delete;
@@ -248,7 +199,7 @@ namespace {
       }
       this->callable.addNamedParameter(ptype, pname, pflags);
     }
-    virtual Type build() override {
+    virtual Type build(ITypeFactory& factory) override {
       if (this->built) {
         throw std::logic_error("FunctionBuilder::build() called more than once");
       }
@@ -256,7 +207,7 @@ namespace {
       if (this->description.empty()) {
         this->description = this->describe();
       }
-      return this->allocator.makeHard<Built, Type>(*this, &this->callable);
+      return Type(this->allocator.makeRaw<Built>(factory, *this, &this->callable));
     }
   private:
     String describe() {
@@ -273,7 +224,7 @@ namespace {
   };
 
   template<typename T, typename F>
-  const T* queryObjectShape(const IType* type, F field) {
+  const T* queryObjectShape(ITypeFactory& factory, const Type& type, F field) {
     assert(type != nullptr);
     auto count = type->getObjectShapeCount();
     assert(count <= 1);
@@ -288,13 +239,13 @@ namespace {
     }
     auto flags = type->getPrimitiveFlags();
     if (Bits::hasAnySet(flags, ValueFlags::Object)) {
-      auto* result = BuiltinFactory::getObjectShape().*field;
+      auto* result = factory.getObjectShape().*field;
       if (result != nullptr) {
         return result;
       }
     }
     if (Bits::hasAnySet(flags, ValueFlags::String)) {
-      return BuiltinFactory::getStringShape().*field;
+      return factory.getStringShape().*field;
     }
     return nullptr;
   }
@@ -497,26 +448,6 @@ Type::Assignability Type::queryAssignable(const IType& from) const {
   return queryAssignableType(*to, from);
 }
 
-const IFunctionSignature* Type::queryCallable() const {
-  return queryObjectShape<IFunctionSignature>(this->get(), &TypeShape::callable);
-}
-
-const IPropertySignature* Type::queryDotable() const {
-  return queryObjectShape<IPropertySignature>(this->get(), &TypeShape::dotable);
-}
-
-const IIndexSignature* Type::queryIndexable() const {
-  return queryObjectShape<IIndexSignature>(this->get(), &TypeShape::indexable);
-}
-
-const IIteratorSignature* Type::queryIterable() const {
-  return queryObjectShape<IIteratorSignature>(this->get(), &TypeShape::iterable);
-}
-
-const IPointerSignature* Type::queryPointable() const {
-  return queryObjectShape<IPointerSignature>(this->get(), &TypeShape::pointable);
-}
-
 String Type::describeValue() const {
   auto* type = this->get();
   if (type == nullptr) {
@@ -531,6 +462,26 @@ String Type::toString() const {
     return "<unknown>";
   }
   return type->toStringPrecedence().first;
+}
+
+const IFunctionSignature* ITypeFactory::queryCallable(const Type& type) {
+  return queryObjectShape<IFunctionSignature>(*this, type, &TypeShape::callable);
+}
+
+const IPropertySignature* ITypeFactory::queryDotable(const Type& type) {
+  return queryObjectShape<IPropertySignature>(*this, type, &TypeShape::dotable);
+}
+
+const IIndexSignature* ITypeFactory::queryIndexable(const Type& type) {
+  return queryObjectShape<IIndexSignature>(*this, type, &TypeShape::indexable);
+}
+
+const IIteratorSignature* ITypeFactory::queryIterable(const Type& type) {
+  return queryObjectShape<IIteratorSignature>(*this, type, &TypeShape::iterable);
+}
+
+const IPointerSignature* ITypeFactory::queryPointable(const Type& type) {
+  return queryObjectShape<IPointerSignature>(*this, type, &TypeShape::pointable);
 }
 
 TypeFactory::TypeFactory(IAllocator& allocator)
@@ -640,7 +591,49 @@ TypeBuilder TypeFactory::createGeneratorBuilder(const Type& gentype, const Strin
   auto rettype = this->addVoid(gentype);
   auto generator = this->getAllocator().makeHard<FunctionBuilder>(rettype, nullptr, name, description);
   generator->defineIterable(gentype);
-  return this->getAllocator().makeHard<FunctionBuilder>(generator->build(), gentype, name, description);
+  return this->getAllocator().makeHard<FunctionBuilder>(generator->build(*this), gentype, name, description);
+}
+
+const TypeShape& TypeFactory::createTypeShape(const IFunctionSignature* callable, const IPropertySignature* dotable, const IIndexSignature* indexable, const IIteratorSignature* iterable, const IPointerSignature* pointable) {
+  const IFunctionSignature* callable2 = nullptr;
+  const IPropertySignature* dotable2 = nullptr;
+  const IIndexSignature* indexable2 = nullptr;
+  const IIteratorSignature* iterable2 = nullptr;
+  const IPointerSignature* pointable2 = nullptr;
+  if (callable) {
+    callable2 = this->forge->forgeFunctionSignature(*callable->getReturnType(), callable->getGeneratorType().get(), callable->getName(), {});
+  }
+  if (dotable) {
+    auto unknownModifiability = dotable->getModifiability("");
+    if (unknownModifiability == Modifiability::None) {
+      dotable2 = this->forge->forgePropertySignature({}, nullptr, Modifiability::None);
+    } else {
+      dotable2 = this->forge->forgePropertySignature({}, dotable->getType("").get(), unknownModifiability);
+    }
+  }
+  if (indexable) {
+    indexable2 = this->forge->forgeIndexSignature(*indexable->getResultType(), indexable->getIndexType().get(), indexable->getModifiability());
+  }
+  if (iterable) {
+    iterable2 = this->forge->forgeIteratorSignature(*iterable->getType());
+  }
+  if (pointable) {
+    assert(0);
+    pointable2 = pointable;
+  }
+  return *this->forge->forgeTypeShape(callable2, dotable2, indexable2, iterable2, pointable2);
+}
+
+const IType& TypeFactory::createBaked(const IType& unbaked) {
+  auto flags = unbaked.getPrimitiveFlags();
+  std::set<const TypeShape*> before;
+  this->forge->mergeTypeShapes(before, unbaked);
+  std::set<const TypeShape*> after;
+  for (auto* shape : before) {
+    after.insert(&this->createTypeShape(shape->callable, shape->dotable, shape->indexable, shape->iterable, shape->pointable));
+  }
+  auto description = unbaked.describeValue().toUTF8();
+  return *this->forge->forgeComplex(flags, std::move(after), &description);
 }
 
 bool Type::areEquivalent(const IType& lhs, const IType& rhs) {

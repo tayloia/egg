@@ -107,7 +107,7 @@ egg::ovum::Value egg::ovum::Slot::value(const Value& empty) const {
 egg::ovum::Value egg::ovum::Slot::reference(ITypeFactory& factory, IBasket& trug, const Type& pointee, Modifiability modifiability) {
   assert(this->validate(false));
   auto pointer = factory.createPointer(pointee, modifiability);
-  return ValueFactory::createObject(allocator, VanillaFactory::createPointer(factory.getAllocator(), trug, *this, pointer, modifiability));
+  return ValueFactory::createObject(allocator, VanillaFactory::createPointer(factory, trug, *this, pointer, modifiability));
 }
 
 bool egg::ovum::Slot::validate(bool optional) const {

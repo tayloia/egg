@@ -923,12 +923,14 @@ namespace {
   class EggParserNode_Array : public EggParserNodeBase {
   private:
     std::vector<std::shared_ptr<IEggProgramNode>> child;
+    egg::ovum::Type runtimeType;
   public:
-    EggParserNode_Array(egg::ovum::ITypeFactory&, const egg::ovum::LocationSource& locationSource)
-      : EggParserNodeBase(locationSource) {
+    EggParserNode_Array(egg::ovum::ITypeFactory& factory, const egg::ovum::LocationSource& locationSource)
+      : EggParserNodeBase(locationSource),
+        runtimeType(egg::ovum::Vanilla::getArrayType(factory)) {
     }
     virtual egg::ovum::Type getType() const override {
-      return egg::ovum::Vanilla::getArrayType();
+      return this->runtimeType;
     }
     virtual EggProgramNodeFlags prepare(EggProgramContext& context) override {
       return context.prepareArray(this->child);
@@ -947,12 +949,14 @@ namespace {
   class EggParserNode_Object : public EggParserNodeBase {
   private:
     std::vector<std::shared_ptr<IEggProgramNode>> child; // All EggParserNode_Named instances in order
+    egg::ovum::Type runtimeType;
   public:
-    EggParserNode_Object(egg::ovum::ITypeFactory&, const egg::ovum::LocationSource& locationSource)
-      : EggParserNodeBase(locationSource) {
+    EggParserNode_Object(egg::ovum::ITypeFactory& factory, const egg::ovum::LocationSource& locationSource)
+      : EggParserNodeBase(locationSource),
+      runtimeType(egg::ovum::Vanilla::getArrayType(factory)) {
     }
     virtual egg::ovum::Type getType() const override {
-      return egg::ovum::Vanilla::getDictionaryType();
+      return this->runtimeType;
     }
     virtual EggProgramNodeFlags prepare(EggProgramContext& context) override {
       return context.prepareObject(this->child);
@@ -972,21 +976,17 @@ namespace {
   private:
     std::shared_ptr<IEggProgramNode> callee;
     std::vector<std::shared_ptr<IEggProgramNode>> child;
+    egg::ovum::Type rettype;
   public:
     EggParserNode_Call(egg::ovum::ITypeFactory&, const egg::ovum::LocationSource& locationSource, const std::shared_ptr<IEggProgramNode>& callee)
       : EggParserNodeBase(locationSource), callee(callee) {
       assert(callee != nullptr);
     }
     virtual egg::ovum::Type getType() const override {
-      // Get this from the function signature, if possible
-      auto* signature = this->callee->getType().queryCallable();
-      if (signature == nullptr) {
-        return egg::ovum::Type::Void;
-      }
-      return signature->getReturnType();
+      return this->rettype;
     }
     virtual EggProgramNodeFlags prepare(EggProgramContext& context) override {
-      return context.prepareCall(*this->callee, this->child);
+      return context.prepareCall(*this->callee, this->child, this->rettype);
     }
     virtual void dump(std::ostream& os) const override {
       ParserDump(os, "call").add(this->callee).add(this->child);
@@ -1150,15 +1150,18 @@ namespace {
   protected:
     std::shared_ptr<IEggProgramNode> lhs;
     egg::ovum::String rhs;
+    egg::ovum::Type restype;
   public:
     EggParserNode_Dot(egg::ovum::ITypeFactory&, const egg::ovum::LocationSource& locationSource, const std::shared_ptr<IEggProgramNode>& lhs, const egg::ovum::String& rhs)
       : EggParserNodeBase(locationSource), lhs(lhs), rhs(rhs) {
       assert(lhs != nullptr);
     }
     virtual EggProgramNodeFlags prepare(EggProgramContext& context) override {
-      return context.prepareDot(this->locationSource, *this->lhs, this->rhs);
+      return context.prepareDot(this->locationSource, *this->lhs, this->rhs, restype);
     }
-    virtual egg::ovum::Type getType() const override;
+    virtual egg::ovum::Type getType() const override {
+      return this->restype;
+    }
     virtual void dump(std::ostream& os) const override {
       ParserDump(os, "dot").add(this->lhs).add(this->rhs);
     }
@@ -1731,7 +1734,7 @@ std::shared_ptr<egg::yolk::IEggProgramNode> egg::yolk::EggSyntaxNode_FunctionDef
     auto parameter_flags = parameter_optional ? egg::ovum::IFunctionSignatureParameter::Flags::None : egg::ovum::IFunctionSignatureParameter::Flags::Required;
     builder->addPositionalParameter(parameter_symbol.type, parameter_symbol.name, parameter_flags);
   }
-  auto type = builder->build();
+  auto type = builder->build(context.getTypeFactory());
   auto allowed = this->generator ? (EggParserAllowed::Return | EggParserAllowed::Yield) : EggParserAllowed::Return;
   EggParserContextNested nested(context, allowed);
   auto block = nested.promote(*this->child[parameters + 1]);
@@ -2001,13 +2004,6 @@ egg::ovum::Type EggParserNode_Brackets::getType() const {
   return egg::ovum::Type::AnyQ; // TODO
 }
 
-egg::ovum::Type EggParserNode_Dot::getType() const {
-  auto ltype = this->lhs->getType();
-  auto dotable = ltype.queryDotable();
-  assert(dotable != nullptr);
-  return dotable->getType(this->rhs);
-}
-
 egg::ovum::Type EggParserNode_UnaryLogicalNot::getType() const {
   return egg::ovum::Type::Bool;
 }
@@ -2020,7 +2016,7 @@ egg::ovum::Type EggParserNode_UnaryRef::getType() const {
 
 egg::ovum::Type EggParserNode_UnaryDeref::getType() const {
   auto pointer = this->expr->getType();
-  auto* pointable = pointer.queryPointable();
+  auto* pointable = this->factory->queryPointable(pointer);
   if (pointable != nullptr) {
     return pointable->getType();
   }

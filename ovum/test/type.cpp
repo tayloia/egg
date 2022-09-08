@@ -197,7 +197,7 @@ TEST(TestType, FactoryFunctionBuilderTrivial) {
   egg::test::Allocator allocator;
   TypeFactory factory{ allocator };
   auto builder = factory.createFunctionBuilder(Type::Int, "function");
-  auto built = builder->build();
+  auto built = builder->build(factory);
   ASSERT_STRING("int()", built.toString());
   ASSERT_STRING("Function 'int function()'", built->describeValue());
 }
@@ -208,7 +208,7 @@ TEST(TestType, FactoryFunctionBuilderSimple) {
   auto builder = factory.createFunctionBuilder(Type::Arithmetic, "function");
   builder->addPositionalParameter(Type::Bool, "arg1", egg::ovum::IFunctionSignatureParameter::Flags::Required);
   builder->addPositionalParameter(Type::String, "arg2", egg::ovum::IFunctionSignatureParameter::Flags::Required);
-  auto built = builder->build();
+  auto built = builder->build(factory);
   ASSERT_STRING("(int|float)(bool,string)", built.toString());
   ASSERT_STRING("Function '(int|float) function(bool arg1, string arg2)'", built->describeValue());
 }
@@ -217,7 +217,7 @@ TEST(TestType, FactoryGeneratorBuilderTrivial) {
   egg::test::Allocator allocator;
   TypeFactory factory{ allocator };
   auto builder = factory.createGeneratorBuilder(Type::Int, "generator");
-  auto built = builder->build();
+  auto built = builder->build(factory);
   ASSERT_STRING("int...()", built.toString());
   ASSERT_STRING("Generator 'int... generator()'", built->describeValue());
 }
@@ -228,7 +228,7 @@ TEST(TestType, FactoryGeneratorBuilderSimple) {
   auto builder = factory.createGeneratorBuilder(Type::Arithmetic, "generator");
   builder->addPositionalParameter(Type::Bool, "arg1", egg::ovum::IFunctionSignatureParameter::Flags::Required);
   builder->addPositionalParameter(Type::String, "arg2", egg::ovum::IFunctionSignatureParameter::Flags::Required);
-  auto built = builder->build();
+  auto built = builder->build(factory);
   ASSERT_STRING("(int|float)...(bool,string)", built.toString());
   ASSERT_STRING("Generator '(int|float)... generator(bool arg1, string arg2)'", built->describeValue());
 }
@@ -237,7 +237,7 @@ TEST(TestType, FactoryTypeBuilderTrivial) {
   egg::test::Allocator allocator;
   TypeFactory factory{ allocator };
   auto builder = factory.createTypeBuilder("CustomType");
-  auto built = builder->build();
+  auto built = builder->build(factory);
   ASSERT_STRING("CustomType", built.toString());
   ASSERT_STRING("Value of type 'CustomType'", built->describeValue());
 }
@@ -249,7 +249,7 @@ TEST(TestType, FactoryTypeBuilderDotable) {
   builder->defineDotable(nullptr, egg::ovum::Modifiability::None);
   builder->addProperty(Type::String, "name", egg::ovum::Modifiability::Read);
   builder->addProperty(Type::Int, "age", egg::ovum::Modifiability::Read | Modifiability::Delete);
-  auto built = builder->build();
+  auto built = builder->build(factory);
   ASSERT_STRING("CustomDotable", built.toString());
   ASSERT_STRING("Value of type 'CustomDotable'", built->describeValue());
 }
@@ -259,7 +259,7 @@ TEST(TestType, FactoryTypeBuilderIndexable) {
   TypeFactory factory{ allocator };
   auto builder = factory.createTypeBuilder("CustomIndexable");
   builder->defineIndexable(Type::Float, nullptr, egg::ovum::Modifiability::Read | egg::ovum::Modifiability::Write);
-  auto built = builder->build();
+  auto built = builder->build(factory);
   ASSERT_STRING("CustomIndexable", built.toString());
   ASSERT_STRING("Value of type 'CustomIndexable'", built->describeValue());
 }
@@ -269,7 +269,7 @@ TEST(TestType, FactoryTypeBuilderIterable) {
   TypeFactory factory{ allocator };
   auto builder = factory.createTypeBuilder("CustomIterable");
   builder->defineIterable(Type::Any);
-  auto built = builder->build();
+  auto built = builder->build(factory);
   ASSERT_STRING("CustomIterable", built.toString());
   ASSERT_STRING("Value of type 'CustomIterable'", built->describeValue());
 }

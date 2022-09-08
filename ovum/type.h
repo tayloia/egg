@@ -41,6 +41,16 @@ namespace egg::ovum {
   }
 
   struct TypeShape {
+  private: // WIBBLE
+    friend class egg::ovum::IAllocator;
+    TypeShape(const IFunctionSignature* callable, const IPropertySignature* dotable, const IIndexSignature* indexable, const IIteratorSignature* iterable, const IPointerSignature* pointable)
+      : callable(callable),
+        dotable(dotable),
+        indexable(indexable),
+        iterable(iterable),
+        pointable(pointable) {
+    }
+  public:
     const IFunctionSignature* callable;
     const IPropertySignature* dotable;
     const IIndexSignature* indexable;
@@ -101,11 +111,6 @@ namespace egg::ovum {
     }
     enum class Assignability { Never, Sometimes, Always };
     Assignability queryAssignable(const IType& from) const;
-    const IFunctionSignature* queryCallable() const;
-    const IPropertySignature* queryDotable() const;
-    const IIndexSignature* queryIndexable() const;
-    const IIteratorSignature* queryIterable() const;
-    const IPointerSignature* queryPointable() const;
     enum class Assignment {
       Success, Uninitialized, Incompatible, BadIntToFloat
     };
@@ -324,5 +329,12 @@ namespace egg::ovum {
     virtual TypeBuilder createTypeBuilder(const String& name, const String& description = {}) override;
     virtual TypeBuilder createFunctionBuilder(const Type& rettype, const String& name, const String& description = {}) override;
     virtual TypeBuilder createGeneratorBuilder(const Type& gentype, const String& name, const String& description = {}) override;
+
+    // WIBBLE
+    virtual const TypeShape& createTypeShape(const IFunctionSignature* callable, const IPropertySignature* dotable, const IIndexSignature* indexable, const IIteratorSignature* iterable, const IPointerSignature* pointable) override;
+    virtual const IType& createBaked(const IType& unbaked) override;
+
+    virtual const TypeShape& getObjectShape() override;
+    virtual const TypeShape& getStringShape() override;
   };
 }

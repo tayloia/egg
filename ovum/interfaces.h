@@ -18,6 +18,7 @@ namespace egg::ovum {
   class IExecution;
   class ISlot;
   class IType;
+  class ITypeFactory;
   class IValue;
 
   enum class Mutation {
@@ -268,7 +269,7 @@ namespace egg::ovum {
     virtual void defineDotable(const Type& unknownType, Modifiability unknownModifiability) = 0;
     virtual void defineIndexable(const Type& resultType, const Type& indexType, Modifiability modifiability) = 0;
     virtual void defineIterable(const Type& resultType) = 0;
-    virtual Type build() = 0;
+    virtual Type build(ITypeFactory& factory) = 0;
   };
   using TypeBuilder = HardPtr<ITypeBuilder>;
 
@@ -289,6 +290,19 @@ namespace egg::ovum {
     virtual TypeBuilder createTypeBuilder(const String& name, const String& description) = 0;
     virtual TypeBuilder createFunctionBuilder(const Type& rettype, const String& name, const String& description) = 0;
     virtual TypeBuilder createGeneratorBuilder(const Type& gentype, const String& name, const String& description) = 0;
+
+    // WIBBLE
+    virtual const TypeShape& createTypeShape(const IFunctionSignature* callable, const IPropertySignature* dotable, const IIndexSignature* indexable, const IIteratorSignature* iterable, const IPointerSignature* pointable) = 0;
+    virtual const IType& createBaked(const IType& unbaked) = 0;
+
+    virtual const TypeShape& getObjectShape() = 0;
+    virtual const TypeShape& getStringShape() = 0;
+
+    const IFunctionSignature* queryCallable(const Type& type);
+    const IPropertySignature* queryDotable(const Type& type);
+    const IIndexSignature* queryIndexable(const Type& type);
+    const IIteratorSignature* queryIterable(const Type& type);
+    const IPointerSignature* queryPointable(const Type& type);
   };
 
   class IObject : public ICollectable {

@@ -13,11 +13,13 @@ namespace {
     }
   };
 }
+
 TEST(TestVanilla, CreateArray) {
   egg::test::Allocator allocator;
+  egg::test::TypeFactory factory{ allocator };
   auto basket = BasketFactory::createBasket(allocator);
   {
-    auto value = VanillaFactory::createArray(allocator, *basket, 10);
+    auto value = VanillaFactory::createArray(factory, *basket, 10);
     auto type = value->getRuntimeType();
     ASSERT_STRING("any?[]", type.toString());
     ASSERT_STRING("Array", type.describeValue());
@@ -27,9 +29,10 @@ TEST(TestVanilla, CreateArray) {
 
 TEST(TestVanilla, CreateDictionary) {
   egg::test::Allocator allocator;
+  egg::test::TypeFactory factory{ allocator };
   auto basket = BasketFactory::createBasket(allocator);
   {
-    auto value = VanillaFactory::createDictionary(allocator, *basket);
+    auto value = VanillaFactory::createDictionary(factory, *basket);
     auto type = value->getRuntimeType();
     ASSERT_STRING("any?[string]", type.toString());
     ASSERT_STRING("Dictionary", type.describeValue());
@@ -39,9 +42,10 @@ TEST(TestVanilla, CreateDictionary) {
 
 TEST(TestVanilla, CreateObject) {
   egg::test::Allocator allocator;
+  egg::test::TypeFactory factory{ allocator };
   auto basket = BasketFactory::createBasket(allocator);
   {
-    auto value = VanillaFactory::createObject(allocator, *basket);
+    auto value = VanillaFactory::createObject(factory, *basket);
     auto type = value->getRuntimeType();
     ASSERT_STRING("object", type.toString());
     ASSERT_STRING("Value of type 'object'", type.describeValue());
@@ -51,9 +55,10 @@ TEST(TestVanilla, CreateObject) {
 
 TEST(TestVanilla, CreateKeyValue) {
   egg::test::Allocator allocator;
+  egg::test::TypeFactory factory{ allocator };
   auto basket = BasketFactory::createBasket(allocator);
   {
-    auto value = VanillaFactory::createKeyValue(allocator, *basket, "Key", Value::True);
+    auto value = VanillaFactory::createKeyValue(factory, *basket, "Key", Value::True);
     auto type = value->getRuntimeType();
     ASSERT_STRING("object", type.toString());
     ASSERT_STRING("Key-value pair", type.describeValue());
@@ -63,10 +68,11 @@ TEST(TestVanilla, CreateKeyValue) {
 
 TEST(TestVanilla, CreateError) {
   egg::test::Allocator allocator;
+  egg::test::TypeFactory factory{ allocator };
   auto basket = BasketFactory::createBasket(allocator);
   {
     LocationSource location{ "bang.egg", 24u, 40u };
-    auto value = VanillaFactory::createError(allocator, *basket, location, "Bang!");
+    auto value = VanillaFactory::createError(factory, *basket, location, "Bang!");
     auto type = value->getRuntimeType();
     ASSERT_STRING("object", type.toString());
     ASSERT_STRING("Error", type.describeValue());
@@ -76,11 +82,12 @@ TEST(TestVanilla, CreateError) {
 
 TEST(TestVanilla, CreatePredicate) {
   egg::test::Allocator allocator;
+  egg::test::TypeFactory factory{ allocator };
   auto basket = BasketFactory::createBasket(allocator);
   {
     TestPredicateCallback callback;
     auto node = NodeFactory::createValue(allocator, nullptr);
-    auto value = VanillaFactory::createPredicate(allocator, *basket, callback, *node);
+    auto value = VanillaFactory::createPredicate(factory, *basket, callback, *node);
     auto type = value->getRuntimeType();
     ASSERT_STRING("void()", type.toString());
     ASSERT_STRING("Predicate", type.describeValue());
@@ -90,12 +97,12 @@ TEST(TestVanilla, CreatePredicate) {
 
 TEST(TestVanilla, CreatePointer) {
   egg::test::Allocator allocator;
+  egg::test::TypeFactory factory{ allocator };
   auto basket = BasketFactory::createBasket(allocator);
-  TypeFactory typeFactory{ allocator };
   {
     auto& slot = SlotFactory::createSlot(allocator, *basket, ValueFactory::createASCIIZ(allocator, "Sisters"));
-    auto ptype = typeFactory.createPointer(Type::String, Modifiability::Read);
-    auto value = VanillaFactory::createPointer(allocator, *basket, slot, ptype, Modifiability::Read);
+    auto ptype = factory.createPointer(Type::String, Modifiability::Read);
+    auto value = VanillaFactory::createPointer(factory, *basket, slot, ptype, Modifiability::Read);
     auto type = value->getRuntimeType();
     ASSERT_STRING("string*", type.toString());
     ASSERT_STRING("Pointer of type 'string*'", type.describeValue());
