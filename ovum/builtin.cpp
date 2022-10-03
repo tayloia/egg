@@ -588,9 +588,9 @@ namespace {
       auto value = createBuiltinValue<T>(this->factory, *this->basket);
       if (this->properties.empty()) {
         // We have members, but it's a closed set
-        this->builder->defineDotable(nullptr, Modifiability::None);
+        this->builder->defineDotable(nullptr, Modifiability::NONE);
       }
-      this->builder->addProperty(value->getRuntimeType(), member, Modifiability::Read);
+      this->builder->addProperty(value->getRuntimeType(), member, Modifiability::READ);
       this->properties.add(this->allocator, *this->basket, member, value);
     }
     void build() {
@@ -725,7 +725,7 @@ const egg::ovum::IParameters& egg::ovum::Object::ParametersNone{ parametersNone 
 
 const egg::ovum::TypeShape& TypeFactory::getObjectShape() {
   // TODO cache
-  const auto ReadWriteMutateDelete = Modifiability::Read | Modifiability::Write | Modifiability::Mutate | Modifiability::Delete;
+  const auto ReadWriteMutateDelete = Modifiability::ALL;
   std::array<Forge::Parameter, 1> parameters{
     { { "params", Type::AnyQ, true, Forge::Parameter::Kind::Variadic } }
   };
@@ -780,10 +780,10 @@ const egg::ovum::TypeShape& TypeFactory::getStringShape() {
   for (size_t index = 0; index < properties.size(); ++index) {
     String name;
     auto* property = properties.get(index, name);
-    members.emplace_back(name, (*property)->getType(), Modifiability::Read);
+    members.emplace_back(name, (*property)->getType(), Modifiability::READ);
   }
-  auto* dotable = this->forge->forgePropertySignature(members, nullptr, Modifiability::None);
-  auto* indexable = this->forge->forgeIndexSignature(*Type::String, nullptr, Modifiability::Read);
+  auto* dotable = this->forge->forgePropertySignature(members, nullptr, Modifiability::NONE);
+  auto* indexable = this->forge->forgeIndexSignature(*Type::String, nullptr, Modifiability::READ);
   auto* iterable = this->forge->forgeIteratorSignature(*Type::String);
   return *this->forge->forgeTypeShape(
     nullptr,

@@ -312,8 +312,8 @@ namespace {
       Modifiability modifiability;
       Detail(const IType* type, Modifiability modifiability)
         : type(type), modifiability(modifiability) {
-        assert((this->type != nullptr) || (this->modifiability == Modifiability::None));
-        assert((this->modifiability != Modifiability::None) || (this->type == nullptr));
+        assert((this->type != nullptr) || (this->modifiability == Modifiability::NONE));
+        assert((this->modifiability != Modifiability::NONE) || (this->type == nullptr));
       }
       bool equals(const IType* type2, Modifiability modifiability2) const {
         return Type::areEquivalent(this->type, type2) &&

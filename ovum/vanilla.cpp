@@ -630,7 +630,7 @@ namespace {
       return this->type;
     }
     virtual Value getPointee(IExecution& execution) override {
-      if (Bits::hasAllSet(this->modifiability, Modifiability::Read)) {
+      if (Bits::hasAllSet(this->modifiability, Modifiability::READ)) {
         auto* value = this->slot->get();
         if (value == nullptr) {
           return Value::Void;
@@ -640,14 +640,14 @@ namespace {
       return execution.raise(this->trailing("does not support reading via pointer operator '*'"));
     }
     virtual Value setPointee(IExecution& execution, const Value& value) override {
-      if (Bits::hasAllSet(this->modifiability, Modifiability::Write)) {
+      if (Bits::hasAllSet(this->modifiability, Modifiability::WRITE)) {
         this->slot->set(value);
         return Value::Void;
       }
       return execution.raise(this->trailing("does not support writing via pointer operator '*'"));
     }
     virtual Value mutPointee(IExecution& execution, Mutation mutation, const Value& value) override {
-      if (Bits::hasAllSet(this->modifiability, Modifiability::Mutate)) {
+      if (Bits::hasAllSet(this->modifiability, Modifiability::MUTATE)) {
         Value before;
         switch (Slot::mutate(*this->slot, this->allocator, Type::AnyQ, mutation, value, before)) {
         case Type::Assignment::Success:

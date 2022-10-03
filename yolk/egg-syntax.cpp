@@ -26,18 +26,18 @@ namespace {
     // Accept only: get set mut del
     // OPTIMIZE
     if (identifier.equals("get")) {
-      return egg::ovum::Modifiability::Read;
+      return egg::ovum::Modifiability::READ;
     }
     if (identifier.equals("set")) {
-      return egg::ovum::Modifiability::Write;
+      return egg::ovum::Modifiability::WRITE;
     }
     if (identifier.equals("mut")) {
-      return egg::ovum::Modifiability::Mutate;
+      return egg::ovum::Modifiability::MUTATE;
     }
     if (identifier.equals("del")) {
-      return egg::ovum::Modifiability::Delete;
+      return egg::ovum::Modifiability::DELETE;
     }
-    return egg::ovum::Modifiability::None;
+    return egg::ovum::Modifiability::NONE;
   }
 
   egg::ovum::Modifiability identifierToModifiability(const EggTokenizerItem& item) {
@@ -45,7 +45,7 @@ namespace {
     if (item.kind == EggTokenizerKind::Identifier) {
       return stringToModifiability(item.value.s);
     }
-    return egg::ovum::Modifiability::None;
+    return egg::ovum::Modifiability::NONE;
   }
 
   egg::ovum::ValueFlags keywordToFlags(const EggTokenizerItem& item) {
@@ -103,16 +103,16 @@ namespace {
       this->os << ' ' << '\'' << EggTokenizerValue::getOperatorString(op) << '\'';
     }
     void add(egg::ovum::Modifiability modifiability) {
-      if (egg::ovum::Bits::hasAnySet(modifiability, egg::ovum::Modifiability::Read)) {
+      if (egg::ovum::Bits::hasAnySet(modifiability, egg::ovum::Modifiability::READ)) {
         this->os << " read";
       }
-      if (egg::ovum::Bits::hasAnySet(modifiability, egg::ovum::Modifiability::Write)) {
+      if (egg::ovum::Bits::hasAnySet(modifiability, egg::ovum::Modifiability::WRITE)) {
         this->os << " write";
       }
-      if (egg::ovum::Bits::hasAnySet(modifiability, egg::ovum::Modifiability::Mutate)) {
+      if (egg::ovum::Bits::hasAnySet(modifiability, egg::ovum::Modifiability::MUTATE)) {
         this->os << " mutate";
       }
-      if (egg::ovum::Bits::hasAnySet(modifiability, egg::ovum::Modifiability::Delete)) {
+      if (egg::ovum::Bits::hasAnySet(modifiability, egg::ovum::Modifiability::DELETE)) {
         this->os << " delete";
       }
     }
@@ -1948,11 +1948,11 @@ egg::ovum::Modifiability EggSyntaxParserContext::parseTypeDefinitionModifiabilit
       literal-type-delegate-name ::= 'get' | 'set' | 'mut' | 'del'
   */
   EggSyntaxParserBacktrackMark mark(this->backtrack);
-  auto modifiability = egg::ovum::Modifiability::None;
+  auto modifiability = egg::ovum::Modifiability::NONE;
   do {
     auto& p0 = mark.peek(0);
     auto bit = identifierToModifiability(p0);
-    if (bit == egg::ovum::Modifiability::None) {
+    if (bit == egg::ovum::Modifiability::NONE) {
       this->unexpected("Expected 'get', 'set', 'mut' or 'del' in access clause for " + what, p0);
     }
     auto& p1 = mark.peek(1);
@@ -2052,7 +2052,7 @@ std::unique_ptr<IEggSyntaxNode> EggSyntaxParserContext::parseStatementTypeDefini
           }
           mark.accept(1);
           auto tnode = std::make_unique<EggSyntaxNode_Type>(location1, type.get());
-          return std::make_unique<EggSyntaxNode_Member>(location2, fname, std::move(tnode), egg::ovum::Modifiability::None);
+          return std::make_unique<EggSyntaxNode_Member>(location2, fname, std::move(tnode), egg::ovum::Modifiability::NONE);
         }
         this->unexpected("Expected '(' after generator name '" + fname.toUTF8() + "' within definition of type '" + tname.toUTF8() + "'", p3);
       }
@@ -2090,7 +2090,7 @@ std::unique_ptr<IEggSyntaxNode> EggSyntaxParserContext::parseStatementTypeDefini
         // Found <type> <identifier> ';'
         mark.accept(2);
         auto tnode = std::make_unique<EggSyntaxNode_Type>(location1, type.get());
-        return std::make_unique<EggSyntaxNode_Member>(location1, p1.value.s, std::move(tnode), egg::ovum::Modifiability::None);
+        return std::make_unique<EggSyntaxNode_Member>(location1, p1.value.s, std::move(tnode), egg::ovum::Modifiability::NONE);
       }
       if (p2.isOperator(EggTokenizerOperator::ParenthesisLeft)) {
         // Presumably <type> <identifier> '(' <parameters> ')' ';'
@@ -2101,7 +2101,7 @@ std::unique_ptr<IEggSyntaxNode> EggSyntaxParserContext::parseStatementTypeDefini
         }
         mark.accept(1);
         auto tnode = std::make_unique<EggSyntaxNode_Type>(location1, type.get());
-        return std::make_unique<EggSyntaxNode_Member>(location1, p1.value.s, std::move(tnode), egg::ovum::Modifiability::None);
+        return std::make_unique<EggSyntaxNode_Member>(location1, p1.value.s, std::move(tnode), egg::ovum::Modifiability::NONE);
       }
       if (p2.isOperator(EggTokenizerOperator::CurlyLeft)) {
         // Presumably <type> <identifier> '{' (<get-set-mut-del> ';')+ '}'
@@ -2313,7 +2313,7 @@ bool EggSyntaxParserContext::parseTypePostfixExpression(egg::ovum::Type& type) {
   */
   // TODO arrays, maps, etc.
   if (this->parseTypePrimaryExpression(type)) {
-    auto modifiability = egg::ovum::Modifiability::Read | egg::ovum::Modifiability::Write | egg::ovum::Modifiability::Mutate;
+    auto modifiability = egg::ovum::Modifiability::READ_WRITE_MUTATE;
     auto nullabled = false;
     EggSyntaxParserBacktrackMark mark(this->backtrack);
     for (;;) {

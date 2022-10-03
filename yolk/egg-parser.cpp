@@ -314,7 +314,7 @@ namespace {
       assert(this->type != nullptr);
     }
     virtual bool symbol(EggProgramSymbol& out) const override {
-      auto readonly = !egg::ovum::Bits::hasAnySet(this->modifiability, egg::ovum::Modifiability::Write | egg::ovum::Modifiability::Mutate);
+      auto readonly = !egg::ovum::Bits::hasAnySet(this->modifiability, egg::ovum::Modifiability::WRITE | egg::ovum::Modifiability::MUTATE);
       out.kind = readonly ? EggProgramSymbol::Kind::Readonly : EggProgramSymbol::Kind::ReadWrite;
       out.name = this->name;
       out.type = this->type;
@@ -326,16 +326,16 @@ namespace {
     virtual void dump(std::ostream& os) const override {
       ParserDump dump(os, "member");
       dump.add(this->name).add(this->type.toString());
-      if (egg::ovum::Bits::hasAnySet(this->modifiability, egg::ovum::Modifiability::Read)) {
+      if (egg::ovum::Bits::hasAnySet(this->modifiability, egg::ovum::Modifiability::READ)) {
         os << " get";
       }
-      if (egg::ovum::Bits::hasAnySet(this->modifiability, egg::ovum::Modifiability::Write)) {
+      if (egg::ovum::Bits::hasAnySet(this->modifiability, egg::ovum::Modifiability::WRITE)) {
         os << " set";
       }
-      if (egg::ovum::Bits::hasAnySet(this->modifiability, egg::ovum::Modifiability::Mutate)) {
+      if (egg::ovum::Bits::hasAnySet(this->modifiability, egg::ovum::Modifiability::MUTATE)) {
         os << " mut";
       }
-      if (egg::ovum::Bits::hasAnySet(this->modifiability, egg::ovum::Modifiability::Delete)) {
+      if (egg::ovum::Bits::hasAnySet(this->modifiability, egg::ovum::Modifiability::DELETE)) {
         os << " del";
       }
     }
@@ -2009,7 +2009,7 @@ egg::ovum::Type EggParserNode_UnaryLogicalNot::getType() const {
 
 egg::ovum::Type EggParserNode_UnaryRef::getType() const {
   auto pointee = this->expr->getType();
-  auto modifiability = egg::ovum::Modifiability::Read | egg::ovum::Modifiability::Write | egg::ovum::Modifiability::Mutate;
+  auto modifiability = egg::ovum::Modifiability::READ_WRITE_MUTATE;
   return this->factory->createPointer(pointee, modifiability);
 }
 

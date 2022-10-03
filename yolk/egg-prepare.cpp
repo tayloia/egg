@@ -626,7 +626,7 @@ egg::yolk::EggProgramNodeFlags egg::yolk::EggProgramContext::prepareDot(const eg
     return this->compilerError(where, ltype.describeValue(), " does not support the property '.' operator");
   }
   auto modifiability = dotable->getModifiability(property);
-  if (modifiability == egg::ovum::Modifiability::None) {
+  if (modifiability == egg::ovum::Modifiability::NONE) {
     if (dotable->isClosed()) {
       return this->compilerError(where, ltype.describeValue(), " does not support the property '", property, "'");
     }

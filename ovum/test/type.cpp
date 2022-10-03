@@ -113,7 +113,7 @@ TEST(TestType, FactorySimpleNonBasicRemoveVoid) {
 TEST(TestType, FactoryPointer) {
   egg::test::Allocator allocator{ egg::test::Allocator::Expectation::AtLeastOneAllocation };
   TypeFactory factory{ allocator };
-  auto modifiability = Modifiability::Read | Modifiability::Write | Modifiability::Mutate;
+  auto modifiability = Modifiability::READ_WRITE_MUTATE;
   auto pointer1 = factory.createPointer(Type::Any, modifiability);
   ASSERT_STRING("Pointer of type 'any*'", pointer1.describeValue());
   ASSERT_EQ(ValueFlags::None, pointer1->getPrimitiveFlags());
@@ -159,7 +159,7 @@ TEST(TestType, FactoryUnionBasic2) {
 TEST(TestType, FactoryUnionComplex1) {
   egg::test::Allocator allocator{ egg::test::Allocator::Expectation::AtLeastOneAllocation };
   TypeFactory factory{ allocator };
-  auto modifiability = Modifiability::Read | Modifiability::Write | Modifiability::Mutate;
+  auto modifiability = Modifiability::READ_WRITE_MUTATE;
   auto pointer = factory.createPointer(Type::Int, modifiability);
   ASSERT_STRING("Pointer of type 'int*'", pointer.describeValue());
   ASSERT_STRING("int*", pointer.toString());
@@ -172,7 +172,7 @@ TEST(TestType, FactoryUnionComplex1) {
 TEST(TestType, FactoryUnionComplex2) {
   egg::test::Allocator allocator{ egg::test::Allocator::Expectation::AtLeastOneAllocation };
   TypeFactory factory{ allocator };
-  auto modifiability = Modifiability::Read | Modifiability::Write | Modifiability::Mutate;
+  auto modifiability = Modifiability::READ_WRITE_MUTATE;
   auto pointer1 = factory.createPointer(Type::Int, modifiability);
   ASSERT_STRING("Pointer of type 'int*'", pointer1.describeValue());
   ASSERT_STRING("int*", pointer1.toString());
@@ -246,9 +246,9 @@ TEST(TestType, FactoryTypeBuilderDotable) {
   egg::test::Allocator allocator;
   TypeFactory factory{ allocator };
   auto builder = factory.createTypeBuilder("CustomDotable");
-  builder->defineDotable(nullptr, egg::ovum::Modifiability::None);
-  builder->addProperty(Type::String, "name", egg::ovum::Modifiability::Read);
-  builder->addProperty(Type::Int, "age", egg::ovum::Modifiability::Read | Modifiability::Delete);
+  builder->defineDotable(nullptr, egg::ovum::Modifiability::NONE);
+  builder->addProperty(Type::String, "name", egg::ovum::Modifiability::READ);
+  builder->addProperty(Type::Int, "age", egg::ovum::Modifiability::READ | egg::ovum::Modifiability::DELETE);
   auto built = builder->build();
   ASSERT_STRING("CustomDotable", built.toString());
   ASSERT_STRING("Value of type 'CustomDotable'", built->describeValue());
@@ -258,7 +258,7 @@ TEST(TestType, FactoryTypeBuilderIndexable) {
   egg::test::Allocator allocator;
   TypeFactory factory{ allocator };
   auto builder = factory.createTypeBuilder("CustomIndexable");
-  builder->defineIndexable(Type::Float, nullptr, egg::ovum::Modifiability::Read | egg::ovum::Modifiability::Write);
+  builder->defineIndexable(Type::Float, nullptr, egg::ovum::Modifiability::READ_WRITE);
   auto built = builder->build();
   ASSERT_STRING("CustomIndexable", built.toString());
   ASSERT_STRING("Value of type 'CustomIndexable'", built->describeValue());

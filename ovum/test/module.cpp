@@ -435,7 +435,7 @@ TEST(TestModule, FromMemoryBad) {
 TEST(TestModule, FromMemoryMinimal) {
   egg::test::Allocator allocator;
   egg::ovum::TypeFactory factory(allocator);
-  const uint8_t minimal[] = { MAGIC SECTION_CODE, uint8_t(Opcode::MODULE), uint8_t(Opcode::BLOCK), uint8_t(Opcode::NOOP) };
+  const uint8_t minimal[] = { MAGIC uint8_t(Section::CODE), uint8_t(Opcode::MODULE), uint8_t(Opcode::BLOCK), uint8_t(Opcode::NOOP) };
   auto module = ModuleFactory::fromMemory(factory, "<memory>", std::begin(minimal), std::end(minimal));
   ASSERT_NE(nullptr, module);
   Node root{ &module->getRootNode() };
@@ -453,7 +453,7 @@ TEST(TestModule, FromMemoryMinimal) {
 TEST(TestModule, ToBinaryStream) {
   egg::test::Allocator allocator;
   egg::ovum::TypeFactory factory(allocator);
-  const uint8_t minimal[] = { MAGIC SECTION_CODE, uint8_t(Opcode::MODULE), uint8_t(Opcode::BLOCK), uint8_t(Opcode::NOOP) };
+  const uint8_t minimal[] = { MAGIC uint8_t(Section::CODE), uint8_t(Opcode::MODULE), uint8_t(Opcode::BLOCK), uint8_t(Opcode::NOOP) };
   auto module = ModuleFactory::fromMemory(factory, "<memory>", std::begin(minimal), std::end(minimal));
   ASSERT_NE(nullptr, module);
   std::ostringstream oss;
@@ -466,7 +466,7 @@ TEST(TestModule, ToBinaryStream) {
 TEST(TestModule, ToMemory) {
   egg::test::Allocator allocator;
   egg::ovum::TypeFactory factory(allocator);
-  const uint8_t minimal[] = { MAGIC SECTION_CODE, uint8_t(Opcode::MODULE), uint8_t(Opcode::BLOCK), uint8_t(Opcode::NOOP) };
+  const uint8_t minimal[] = { MAGIC uint8_t(Section::CODE), uint8_t(Opcode::MODULE), uint8_t(Opcode::BLOCK), uint8_t(Opcode::NOOP) };
   auto module = ModuleFactory::fromMemory(factory, "<memory>", std::begin(minimal), std::end(minimal));
   ASSERT_NE(nullptr, module);
   auto memory = ModuleFactory::toMemory(allocator, *module);

@@ -13,14 +13,14 @@
 // Macro to define module sections: X(section, byte)
 // 0xA3 is "POUND SIGN" in Latin-1 and not valid UTF-8
 #define EGG_VM_SECTIONS(X) \
-  X(SECTION_MAGIC, 0xA3) \
-  X(SECTION_POSINTS, 0x01) \
-  X(SECTION_NEGINTS, 0x02) \
-  X(SECTION_FLOATS, 0x03) \
-  X(SECTION_STRINGS, 0x04) \
-  X(SECTION_SHAPES, 0x05) \
-  X(SECTION_CODE, 0xFE) \
-  X(SECTION_SOURCE, 0xFF)
+  X(MAGIC, 0xA3) \
+  X(POSINTS, 0x01) \
+  X(NEGINTS, 0x02) \
+  X(FLOATS, 0x03) \
+  X(STRINGS, 0x04) \
+  X(SHAPES, 0x05) \
+  X(CODE, 0xFE) \
+  X(SOURCE, 0xFF)
 
 // Macro to define initial magic section: X(byte)
 //  The first magic section is expected to be 0xA3,0x67,0x67,0x56,0x4D,0x00 like "EggVM\0" but with a GBP currency sign
@@ -152,3 +152,10 @@
   X(SHIFTU, BINARY, 12, ">>>") \
   X(SUB, BINARY, 13, "-") \
   X(TERNARY, TERNARY, 0, "?:")
+
+// Macro to define modifiability bitflags
+#define EGG_VM_MODIFIABILITY(X) \
+  X(READ, 0x01) \
+  X(WRITE, 0x02) \
+  X(MUTATE, 0x04) \
+  X(DELETE, 0x08)

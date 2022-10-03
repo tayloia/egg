@@ -11,10 +11,10 @@
 namespace {
   using namespace egg::ovum;
 
-  const auto OptionalRead = Modifiability::Read | Modifiability::Delete;
-  const auto ReadOnly = Modifiability::Read;
-  const auto ReadWriteMutate = Modifiability::Read | Modifiability::Write | Modifiability::Mutate;
-  const auto ReadWriteMutateDelete = Modifiability::Read | Modifiability::Write | Modifiability::Mutate | Modifiability::Delete;
+  const auto OptionalRead = Modifiability::READ | Modifiability::DELETE;
+  const auto ReadOnly = Modifiability::READ;
+  const auto ReadWriteMutate = Modifiability::READ_WRITE_MUTATE;
+  const auto ReadWriteMutateDelete = Modifiability::ALL;
 
   template<enum ValueFlags FLAGS>
   class TypePrimitive final : public NotHardReferenceCounted<IType> {
@@ -148,8 +148,8 @@ namespace {
   }
 
   void Builder::defineDotable(const Type& unknownType, Modifiability unknownModifiability) {
-    assert((unknownType == nullptr) || (unknownModifiability != Modifiability::None));
-    assert((unknownModifiability == Modifiability::None) || (unknownType != nullptr));
+    assert((unknownType == nullptr) || (unknownModifiability != Modifiability::NONE));
+    assert((unknownModifiability == Modifiability::NONE) || (unknownType != nullptr));
     if (this->dotable != nullptr) {
       throw std::logic_error("TypeBuilder::defineDotable() called more than once");
     }
@@ -609,7 +609,7 @@ TypeBuilder TypeFactory::createGeneratorBuilder(const Type& gentype, const Strin
 Type TypeFactory::getVanillaArray() {
   // TODO cache
   auto builder = this->createTypeBuilder("any?[]", "Array");
-  builder->defineDotable(nullptr, Modifiability::None);
+  builder->defineDotable(nullptr, Modifiability::NONE);
   builder->addProperty(Type::Int, "length", ReadWriteMutate);
   builder->defineIndexable(Type::AnyQ, nullptr, ReadWriteMutate);
   builder->defineIterable(Type::AnyQ);
@@ -641,7 +641,7 @@ Type TypeFactory::getVanillaError() {
 Type TypeFactory::getVanillaKeyValue() {
   // TODO cache
   auto builder = this->createTypeBuilder("object", "Key-value pair");
-  builder->defineDotable(nullptr, Modifiability::None);
+  builder->defineDotable(nullptr, Modifiability::NONE);
   builder->addProperty(Type::String, "key", ReadOnly);
   builder->addProperty(Type::AnyQ, "value", ReadOnly);
   builder->defineIndexable(Type::AnyQ, Type::String, ReadOnly);

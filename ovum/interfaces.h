@@ -6,6 +6,7 @@ namespace egg::ovum {
   // Forward declarations
   template<typename T> class HardPtr;
   template<typename T> class SoftPtr;
+  enum class Modifiability;
   enum class ValueFlags;
   struct LocationSource;
   struct TypeShape;
@@ -40,14 +41,6 @@ namespace egg::ovum {
     ShiftRight,
     ShiftRightUnsigned,
     Subtract
-  };
-
-  enum class Modifiability {
-    None = 0,
-    Read = 1 << 0,
-    Write = 1 << 1,
-    Mutate = 1 << 2,
-    Delete = 1 << 3
   };
 
   class ILogger {

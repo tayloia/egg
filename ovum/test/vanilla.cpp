@@ -101,8 +101,8 @@ TEST(TestVanilla, CreatePointer) {
   auto basket = BasketFactory::createBasket(allocator);
   {
     auto& slot = SlotFactory::createSlot(allocator, *basket, ValueFactory::createASCIIZ(allocator, "Sisters"));
-    auto ptype = factory.createPointer(Type::String, Modifiability::Read);
-    auto value = VanillaFactory::createPointer(factory, *basket, slot, ptype, Modifiability::Read);
+    auto ptype = factory.createPointer(Type::String, Modifiability::READ);
+    auto value = VanillaFactory::createPointer(factory, *basket, slot, ptype, Modifiability::READ);
     auto type = value->getRuntimeType();
     ASSERT_STRING("string*", type.toString());
     ASSERT_STRING("Pointer of type 'string*'", type.describeValue());

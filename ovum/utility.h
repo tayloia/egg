@@ -180,4 +180,14 @@ namespace egg::ovum {
       return this->vec.size();
     }
   };
+
+  enum class Modifiability {
+    NONE = 0x00,
+#define EGG_VM_MODIFIABILITY_ENUM(modifiability, value) modifiability = value,
+    EGG_VM_MODIFIABILITY(EGG_VM_MODIFIABILITY_ENUM)
+#undef EGG_VM_SECTIONS_ENUM
+    READ_WRITE = READ | WRITE,
+    READ_WRITE_MUTATE = READ | WRITE | MUTATE,
+    ALL = READ | WRITE | MUTATE | DELETE
+  };
 }

@@ -1,5 +1,5 @@
 namespace egg::ovum {
-  enum Section {
+  enum class Section {
 #define EGG_VM_SECTIONS_ENUM(section, value) section = value,
     EGG_VM_SECTIONS(EGG_VM_SECTIONS_ENUM)
 #undef EGG_VM_SECTIONS_ENUM

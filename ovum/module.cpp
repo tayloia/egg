@@ -145,35 +145,35 @@ namespace {
       char ch;
       while (this->stream.get(ch)) {
         switch (Section(uint8_t(ch))) {
-        case SECTION_MAGIC:
+        case Section::MAGIC:
           throw std::runtime_error("Duplicated magic section in binary module");
-        case SECTION_POSINTS:
+        case Section::POSINTS:
           this->readInts(false);
           break;
-        case SECTION_NEGINTS:
+        case Section::NEGINTS:
           this->readInts(true);
           break;
-        case SECTION_FLOATS:
+        case Section::FLOATS:
           this->readFloats();
           break;
-        case SECTION_STRINGS:
+        case Section::STRINGS:
           this->readStrings();
           break;
-        case SECTION_SHAPES:
+        case Section::SHAPES:
           this->readTypeShapes();
           break;
-        case SECTION_CODE:
+        case Section::CODE:
           // Read the abstract syntax tree
           root = this->readNode(false);
           if (!this->stream.get(ch)) {
             // No source section
             return root;
           }
-          if (Section(uint8_t(ch)) != SECTION_SOURCE) {
+          if (Section(uint8_t(ch)) != Section::SOURCE) {
             throw std::runtime_error("Only source sections can follow code sections in binary module");
           }
           return root;
-        case SECTION_SOURCE:
+        case Section::SOURCE:
           throw std::runtime_error("Source section without preceding code section in binary module");
         default:
           throw std::runtime_error("Unrecognized section in binary module");
@@ -324,11 +324,11 @@ namespace {
     }
     void readTypeShapeDotable(ITypeBuilder& builder, bool closed) {
       if (closed) {
-        builder.defineDotable(Type::Void, Modifiability::None);
+        builder.defineDotable(nullptr, Modifiability::NONE);
       } else {
         auto unknownModifiability = this->readModifiability();
         auto unknownType = Type::Void;
-        if (unknownModifiability != Modifiability::None) {
+        if (unknownModifiability != Modifiability::NONE) {
           unknownType = this->readType(builder);
         }
         builder.defineDotable(unknownType, unknownModifiability);
@@ -350,14 +350,14 @@ namespace {
       builder.defineIndexable(resultType, indexType, modifiability);
     }
     void readTypeShapeIterable(ITypeBuilder& builder) {
-      (void)builder;
+      auto resultType = this->readType(builder);
+      builder.defineIterable(resultType);
     }
     Type readType(ITypeBuilder& builder) {
       (void)builder;
       return Type::Void; // WIBBLE
     }
     Modifiability readModifiability() {
-      // WIBBLE flags in VM header
       return Modifiability(this->readUnsigned());
     }
     Node readNode(bool insideAttribute) const {
@@ -603,7 +603,7 @@ namespace {
         assert(i.second != SIZE_MAX);
         if (i.first >= 0) {
           if (index++ == 0) {
-            this->writeByte(target, SECTION_POSINTS);
+            this->writeSectionByte(target, Section::POSINTS);
             this->writeUnsigned(target, this->positives);
           }
           this->writeUnsigned(target, uint64_t(i.first));
@@ -614,7 +614,7 @@ namespace {
         if (i.first < 0) {
           assert(i.second != SIZE_MAX);
           if (index++ == this->positives) {
-            this->writeByte(target, SECTION_NEGINTS);
+            this->writeSectionByte(target, Section::NEGINTS);
             this->writeUnsigned(target, this->ivalues.size() - this->positives);
           }
           this->writeUnsigned(target, ~uint64_t(i.first));
@@ -636,7 +636,7 @@ namespace {
       for (auto& i : this->fvalues) {
         assert(i.second != SIZE_MAX);
         if (index++ == 0) {
-          this->writeByte(target, SECTION_FLOATS);
+          this->writeSectionByte(target, Section::FLOATS);
           this->writeUnsigned(target, this->fvalues.size());
         }
         this->writeUnsigned(target, this->ivalues.at(i.first.first)); // mantissa
@@ -672,7 +672,7 @@ namespace {
     template<typename TARGET>
     void writeStrings(TARGET& target) const {
       if (!this->svalues.empty()) {
-        this->writeByte(target, SECTION_STRINGS);
+        this->writeSectionByte(target, Section::STRINGS);
         this->writeUnsigned(target, this->svalues.size());
         for (auto& kv : this->svalues) {
           assert(kv.second != SIZE_MAX);
@@ -690,7 +690,7 @@ namespace {
     template<typename TARGET>
     void writeTypeShapes(TARGET& target) const {
       if (!this->tvalues.empty()) {
-        this->writeByte(target, SECTION_SHAPES);
+        this->writeSectionByte(target, Section::SHAPES);
         this->writeUnsigned(target, this->tvalues.size());
         for (auto& kv : this->tvalues) {
           assert(kv.second != SIZE_MAX);
@@ -754,7 +754,7 @@ namespace {
         String unknown{};
         auto modifiability = dotable.getModifiability(unknown);
         this->writeModifiability(target, modifiability);
-        if (modifiability != Modifiability::None) {
+        if (modifiability != Modifiability::NONE) {
           this->writeType(target, dotable.getType(unknown));
         }
       }
@@ -779,8 +779,7 @@ namespace {
     }
     template<typename TARGET>
     void writeTypeShapeIterable(TARGET& target, const IIteratorSignature& iterable) const {
-      (void)target;
-      (void)iterable;
+      this->writeType(target, iterable.getType());
     }
     template<typename TARGET>
     void writeType(TARGET& target, const Type& type) const {
@@ -792,8 +791,12 @@ namespace {
       this->writeUnsigned(target, uint64_t(modifiability));
     }
     template<typename TARGET>
+    void writeSectionByte(TARGET& target, Section section) const {
+      this->writeByte(target, uint8_t(section));
+    }
+    template<typename TARGET>
     void writeCode(TARGET& target, const INode& node) const {
-      this->writeByte(target, SECTION_CODE);
+      this->writeSectionByte(target, Section::CODE);
       this->writeNode(target, node);
     }
     template<typename TARGET>

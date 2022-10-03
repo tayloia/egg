@@ -1924,7 +1924,7 @@ namespace {
           }
           if (child.getOpcode() == Opcode::POINTER) {
             auto pointee = this->type(child.getChild(0));
-            auto modifiability = Modifiability::Read | Modifiability::Write | Modifiability::Mutate;
+            auto modifiability = Modifiability::READ_WRITE_MUTATE;
             return this->factory.createPointer(pointee, modifiability);
           }
         }
@@ -2082,10 +2082,10 @@ namespace {
           return this->raiseNode(node, type.describeValue(), " does not support properties such as '", target.identifier, "'");
         }
         auto modifiability = dotable->getModifiability(target.identifier);
-        if (modifiability == Modifiability::None) {
+        if (modifiability == Modifiability::NONE) {
           return this->raiseNode(node, type.describeValue(), " does not support the property '", target.identifier, "'");
         }
-        if (!Bits::hasAnySet(modifiability, Modifiability::Write)) { // TODO: Mutate?
+        if (!Bits::hasAnySet(modifiability, Modifiability::WRITE)) { // TODO: Mutate?
           return this->raiseNode(node, type.describeValue(), " does not support modification of the property '", target.identifier, "'");
         }
         target.type = dotable->getType(target.identifier);
@@ -2206,11 +2206,11 @@ namespace {
         return this->raiseNode(node, "Internal runtime error: Symbol table slot is empty: '", symbol.getName(), "'");
       }
       assert(slot->softGetBasket() == this->basket.get());
-      auto modifiability = Modifiability::Read | Modifiability::Write | Modifiability::Mutate;
+      auto modifiability = Modifiability::READ_WRITE_MUTATE;
       switch (symbol.getKind()) {
       case Symbol::Kind::Builtin:
       case Symbol::Kind::Type:
-        modifiability = Modifiability::Read;
+        modifiability = Modifiability::READ;
         break;
       case Symbol::Kind::Variable:
       default:
