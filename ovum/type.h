@@ -139,6 +139,7 @@ namespace egg::ovum {
   private:
     std::unique_ptr<Forge> forge;
     std::map<const IType*, Type> pointers;
+    StringProperties* stringProperties; // WIBBLE remove
   public:
     explicit TypeFactory(IAllocator& allocator);
     ~TypeFactory();
@@ -161,9 +162,7 @@ namespace egg::ovum {
     virtual TypeBuilder createGeneratorBuilder(const Type& gentype, const String& name, const String& description = {}) override;
 
     // WIBBLE
-    virtual const TypeShape& forgeTypeShape(const IFunctionSignature* callable, const IPropertySignature* dotable, const IIndexSignature* indexable, const IIteratorSignature* iterable, const IPointerSignature* pointable) override;
-    virtual const TypeShape& createTypeShape(const IFunctionSignature* callable, const IPropertySignature* dotable, const IIndexSignature* indexable, const IIteratorSignature* iterable, const IPointerSignature* pointable) override;
-    virtual const IType& createBaked(const IType& unbaked) override;
+    virtual const StringProperties& getStringProperties() override;
 
     virtual const TypeShape& getObjectShape() override;
     virtual const TypeShape& getStringShape() override;

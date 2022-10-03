@@ -319,7 +319,7 @@ namespace {
       auto params = size_t(this->readUnsigned());
       for (size_t index = 0; index < params; ++index) {
         auto ptype = this->readType(builder);
-        builder.addPositionalParameter(ptype, {}, IFunctionSignatureParameter::Flags::None);
+        builder.addPositionalParameter(ptype, {}, true);
       }
     }
     void readTypeShapeDotable(ITypeBuilder& builder, bool closed) {

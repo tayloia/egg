@@ -206,8 +206,8 @@ TEST(TestType, FactoryFunctionBuilderSimple) {
   egg::test::Allocator allocator;
   TypeFactory factory{ allocator };
   auto builder = factory.createFunctionBuilder(Type::Arithmetic, "function");
-  builder->addPositionalParameter(Type::Bool, "arg1", egg::ovum::IFunctionSignatureParameter::Flags::Required);
-  builder->addPositionalParameter(Type::String, "arg2", egg::ovum::IFunctionSignatureParameter::Flags::Required);
+  builder->addPositionalParameter(Type::Bool, "arg1", false);
+  builder->addPositionalParameter(Type::String, "arg2", false);
   auto built = builder->build();
   ASSERT_STRING("(int|float)(bool,string)", built.toString());
   ASSERT_STRING("Function '(int|float) function(bool arg1, string arg2)'", built->describeValue());
@@ -226,8 +226,8 @@ TEST(TestType, FactoryGeneratorBuilderSimple) {
   egg::test::Allocator allocator;
   TypeFactory factory{ allocator };
   auto builder = factory.createGeneratorBuilder(Type::Arithmetic, "generator");
-  builder->addPositionalParameter(Type::Bool, "arg1", egg::ovum::IFunctionSignatureParameter::Flags::Required);
-  builder->addPositionalParameter(Type::String, "arg2", egg::ovum::IFunctionSignatureParameter::Flags::Required);
+  builder->addPositionalParameter(Type::Bool, "arg1", false);
+  builder->addPositionalParameter(Type::String, "arg2", false);
   auto built = builder->build();
   ASSERT_STRING("(int|float)...(bool,string)", built.toString());
   ASSERT_STRING("Generator '(int|float)... generator(bool arg1, string arg2)'", built->describeValue());

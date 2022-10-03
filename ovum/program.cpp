@@ -2397,30 +2397,28 @@ egg::ovum::Type UserFunction::makeType(ITypeFactory& factory, ProgramDefault& pr
   for (size_t i = 1; i < n; ++i) {
     auto& parameter = callable.getChild(i);
     auto children = parameter.getChildren();
+    auto variadic = false;
     auto named = false;
-    IFunctionSignatureParameter::Flags pflags;
+    auto optional = false;
     EGG_WARNING_SUPPRESS_SWITCH_BEGIN
     switch (parameter.getOpcode()) {
     case Opcode::REQUIRED:
       assert((children == 1) || (children == 2));
-      pflags = IFunctionSignatureParameter::Flags::Required;
       break;
     case Opcode::OPTIONAL:
       assert((children == 1) || (children == 2));
-      pflags = IFunctionSignatureParameter::Flags::None;
+      optional = true;
       break;
     case Opcode::VARARGS:
       assert(children >= 2);
-      pflags = IFunctionSignatureParameter::Flags::Variadic;
-      if (children > 2) {
-        // TODO We assume the constraint is "length > 0" meaning required
-        pflags = Bits::set(pflags, IFunctionSignatureParameter::Flags::Required);
-      }
+      variadic = true;
+      // TODO We assume the constraint is "length > 0" meaning required
+      optional = (children <= 2);
       break;
     case Opcode::BYNAME:
       assert(children == 2);
       named = true;
-      pflags = IFunctionSignatureParameter::Flags::None;
+      optional = true;
       break;
     default:
       throw program.unexpectedOpcode("function type parameter", parameter);
@@ -2431,10 +2429,12 @@ egg::ovum::Type UserFunction::makeType(ITypeFactory& factory, ProgramDefault& pr
       pname = program.identifier(parameter.getChild(1));
     }
     auto ptype = program.type(parameter.getChild(0), pname);
-    if (named) {
-      builder->addNamedParameter(ptype, pname, pflags);
+    if (variadic) {
+      builder->addVariadicParameter(ptype, pname, optional);
+    } else if (named) {
+      builder->addNamedParameter(ptype, pname, optional);
     } else {
-      builder->addPositionalParameter(ptype, pname, pflags);
+      builder->addPositionalParameter(ptype, pname, optional);
     }
   }
   return builder->build();

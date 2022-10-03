@@ -90,50 +90,44 @@ namespace {
         iterable(nullptr),
         built(false) {
     }
-    virtual void addPositionalParameter(const Type& type, const String& name, IFunctionSignatureParameter::Flags flags) override;
-    virtual void addNamedParameter(const Type& type, const String& name, IFunctionSignatureParameter::Flags flags) override;
+    virtual void addPositionalParameter(const Type& type, const String& name, bool optional) override;
+    virtual void addNamedParameter(const Type& type, const String& name, bool optional) override;
+    virtual void addVariadicParameter(const Type& type, const String& name, bool optional) override;
+    virtual void addPredicateParameter(const Type& type, const String& name, bool optional) override;
     virtual void addProperty(const Type& ptype, const String& pname, Modifiability modifiability) override;
     virtual void defineCallable(const Type& rettype, const Type& gentype) override;
     virtual void defineDotable(const Type& unknownType, Modifiability unknownModifiability) override;
     virtual void defineIndexable(const Type& resultType, const Type& indexType, Modifiability modifiability) override;
     virtual void defineIterable(const Type& resultType) override;
     virtual Type build() override;
-  private:
-    String describe(const TypeShape& shape) const {
-      if (shape.callable == nullptr) {
-        if (this->name.empty()) {
-          return "Value";
-        }
-        return StringBuilder::concat("Value of type '", this->name, "'");
-      }
-      StringBuilder sb;
-      if (shape.callable->getGeneratorType() == nullptr) {
-        sb.add("Function '");
-      } else {
-        sb.add("Generator '");
-      }
-      FunctionSignature::print(sb, *shape.callable);
-      sb.add("'");
-      return sb.str();
-    }
   };
 
-  void Builder::addPositionalParameter(const Type& ptype, const String& pname, IFunctionSignatureParameter::Flags pflags) {
+  void Builder::addPositionalParameter(const Type& ptype, const String& pname, bool optional) {
     if (this->callable == nullptr) {
       throw std::logic_error("TypeBuilder::addPositionalParameter() called before TypeBuilder::defineCallable()");
     }
-    auto required = Bits::hasAnySet(pflags, IFunctionSignatureParameter::Flags::Required);
-    auto kind = Forge::Parameter::Kind::Positional; // TODO
-    this->callable->parameters.emplace_back(pname, ptype, !required, kind);
+    this->callable->parameters.emplace_back(pname, ptype, optional, Forge::Parameter::Kind::Positional);
   }
 
-  void Builder::addNamedParameter(const Type& ptype, const String& pname, IFunctionSignatureParameter::Flags pflags) {
+  void Builder::addNamedParameter(const Type& ptype, const String& pname, bool optional) {
     if (this->callable == nullptr) {
       throw std::logic_error("TypeBuilder::addNamedParameter() called before TypeBuilder::defineCallable()");
     }
-    auto required = Bits::hasAnySet(pflags, IFunctionSignatureParameter::Flags::Required);
-    auto kind = Forge::Parameter::Kind::Named; // TODO
-    this->callable->parameters.emplace_back(pname, ptype, !required, kind);
+    this->callable->parameters.emplace_back(pname, ptype, optional, Forge::Parameter::Kind::Named);
+  }
+
+  void Builder::addVariadicParameter(const Type& ptype, const String& pname, bool optional) {
+    if (this->callable == nullptr) {
+      throw std::logic_error("TypeBuilder::addVariadicParameter() called before TypeBuilder::defineCallable()");
+    }
+    this->callable->parameters.emplace_back(pname, ptype, optional, Forge::Parameter::Kind::Variadic);
+  }
+
+  void Builder::addPredicateParameter(const Type& ptype, const String& pname, bool optional) {
+    if (this->callable == nullptr) {
+      throw std::logic_error("TypeBuilder::addPredicateParameter() called before TypeBuilder::defineCallable()");
+    }
+    this->callable->parameters.emplace_back(pname, ptype, optional, Forge::Parameter::Kind::Predicate);
   }
 
   void Builder::addProperty(const Type& ptype, const String& pname, Modifiability modifiability) {
@@ -154,6 +148,8 @@ namespace {
   }
 
   void Builder::defineDotable(const Type& unknownType, Modifiability unknownModifiability) {
+    assert((unknownType == nullptr) || (unknownModifiability != Modifiability::None));
+    assert((unknownModifiability == Modifiability::None) || (unknownType != nullptr));
     if (this->dotable != nullptr) {
       throw std::logic_error("TypeBuilder::defineDotable() called more than once");
     }
@@ -181,20 +177,47 @@ namespace {
       throw std::logic_error("TypeBuilder::build() called more than once");
     }
     this->built = true;
-    const IFunctionSignature* callable2 = nullptr;
-    const IPropertySignature* dotable2 = nullptr;
-    const IIndexSignature* indexable2 = this->indexable;
-    const IIteratorSignature* iterable2 = this->iterable;
-    const IPointerSignature* pointable2 = nullptr;
-    if (this->dotable) {
-      dotable2 = this->forge.forgePropertySignature(this->dotable->properties, this->dotable->unknownType, this->dotable->unknownModifiability);
+    if (this->callable == nullptr) {
+      // Not a function or generator
+      auto* shape = this->forge.forgeTypeShape(
+        nullptr,
+        this->dotable ? this->forge.forgePropertySignature(this->dotable->properties, this->dotable->unknownType, this->dotable->unknownModifiability) : nullptr,
+        this->indexable,
+        this->iterable,
+        nullptr);
+      assert(shape != nullptr);
+      if (this->description.empty()) {
+        if (this->name.empty()) {
+          this->description = "Value";
+        } else {
+          this->description = StringBuilder::concat("Value of type '", this->name, "'");
+        }
+      }
+      if (this->name.empty()) {
+        return Type(this->forge.forgeComplex(ValueFlags::None, { shape }, nullptr, &this->description));
+      }
+      auto precedence = std::make_pair(this->name.toUTF8(), 0);
+      return Type(this->forge.forgeComplex(ValueFlags::None, { shape }, &precedence, &this->description));
     }
-    auto* shape = this->forge.forgeTypeShape(callable2, dotable2, indexable2, iterable2, pointable2);
+    auto* shape = this->forge.forgeTypeShape(
+      this->forge.forgeFunctionSignature(*this->callable->returnType, this->callable->generatorType, this->name, this->callable->parameters),
+      this->dotable ? this->forge.forgePropertySignature(this->dotable->properties, this->dotable->unknownType, this->dotable->unknownModifiability) : nullptr,
+      this->indexable,
+      this->iterable,
+      nullptr);
     assert(shape != nullptr);
     if (this->description.empty()) {
-      this->description = this->describe(*shape);
+      StringBuilder sb;
+      if (shape->callable->getGeneratorType() == nullptr) {
+        sb.add("Function '");
+      } else {
+        sb.add("Generator '");
+      }
+      FunctionSignature::print(sb, *shape->callable);
+      sb.add("'");
+      this->description = sb.str();
     }
-    auto precedence = std::make_pair(this->name.toUTF8(), 0);
+    auto precedence = FunctionSignature::toStringPrecedence(*shape->callable);
     return Type(this->forge.forgeComplex(ValueFlags::None, { shape }, &precedence, &this->description));
   }
 
@@ -460,11 +483,8 @@ const IPointerSignature* ITypeFactory::queryPointable(const Type& type) {
 }
 
 TypeFactory::TypeFactory(IAllocator& allocator)
-  : forge(std::make_unique<Forge>(allocator)) {
-}
-
-TypeFactory::~TypeFactory() {
-  // Cannot be in the header file: https://en.cppreference.com/w/cpp/language/pimpl
+  : forge(std::make_unique<Forge>(allocator)),
+    stringProperties(nullptr) {
 }
 
 Type TypeFactory::createSimple(ValueFlags flags) {
@@ -578,9 +598,12 @@ TypeBuilder TypeFactory::createGeneratorBuilder(const Type& gentype, const Strin
   // Convert the return type (e.g. 'int') into a generator function 'int...' aka '(void|int)()'
   assert(!gentype.hasPrimitiveFlag(ValueFlags::Void));
   auto rettype = this->addVoid(gentype);
-  auto generator = this->createFunctionBuilder(rettype, name, description);
-  generator->defineIterable(gentype);
-  return this->createFunctionBuilder(generator->build(), name, description);
+  auto inner = this->createTypeBuilder({});
+  inner->defineCallable(rettype, nullptr);
+  inner->defineIterable(gentype);
+  auto outer = this->createTypeBuilder(name, description);
+  outer->defineCallable(inner->build(), gentype);
+  return outer;
 }
 
 Type TypeFactory::getVanillaArray() {
@@ -630,52 +653,6 @@ Type TypeFactory::getVanillaPredicate() {
   // TODO cache
   auto builder = this->createFunctionBuilder(Type::Void, "void()", "Predicate");
   return builder->build();
-}
-
-const TypeShape& TypeFactory::forgeTypeShape(const IFunctionSignature* callable, const IPropertySignature* dotable, const IIndexSignature* indexable, const IIteratorSignature* iterable, const IPointerSignature* pointable) {
-  return *this->forge->forgeTypeShape(callable, dotable, indexable, iterable, pointable);
-}
-
-const TypeShape& TypeFactory::createTypeShape(const IFunctionSignature* callable, const IPropertySignature* dotable, const IIndexSignature* indexable, const IIteratorSignature* iterable, const IPointerSignature* pointable) {
-  const IFunctionSignature* callable2 = nullptr;
-  const IPropertySignature* dotable2 = nullptr;
-  const IIndexSignature* indexable2 = nullptr;
-  const IIteratorSignature* iterable2 = nullptr;
-  const IPointerSignature* pointable2 = nullptr;
-  if (callable) {
-    callable2 = this->forge->forgeFunctionSignature(*callable->getReturnType(), callable->getGeneratorType().get(), callable->getName(), {});
-  }
-  if (dotable) {
-    auto unknownModifiability = dotable->getModifiability("");
-    if (unknownModifiability == Modifiability::None) {
-      dotable2 = this->forge->forgePropertySignature({}, nullptr, Modifiability::None);
-    } else {
-      dotable2 = this->forge->forgePropertySignature({}, dotable->getType("").get(), unknownModifiability);
-    }
-  }
-  if (indexable) {
-    indexable2 = this->forge->forgeIndexSignature(*indexable->getResultType(), indexable->getIndexType().get(), indexable->getModifiability());
-  }
-  if (iterable) {
-    iterable2 = this->forge->forgeIteratorSignature(*iterable->getType());
-  }
-  if (pointable) {
-    assert(0);
-    pointable2 = pointable;
-  }
-  return *this->forge->forgeTypeShape(callable2, dotable2, indexable2, iterable2, pointable2);
-}
-
-const IType& TypeFactory::createBaked(const IType& unbaked) {
-  auto flags = unbaked.getPrimitiveFlags();
-  std::set<const TypeShape*> before;
-  this->forge->mergeTypeShapes(before, unbaked);
-  std::set<const TypeShape*> after;
-  for (auto* shape : before) {
-    after.insert(&this->createTypeShape(shape->callable, shape->dotable, shape->indexable, shape->iterable, shape->pointable));
-  }
-  auto description = unbaked.describeValue();
-  return *this->forge->forgeComplex(flags, std::move(after), nullptr, &description);
 }
 
 bool Type::areEquivalent(const IType& lhs, const IType& rhs) {

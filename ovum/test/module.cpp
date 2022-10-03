@@ -574,23 +574,6 @@ TEST(TestModule, BuildConstantString) {
   ASSERT_EQ(0u, value->getChildren());
 }
 
-TEST(TestModule, BuildTypeShapeEmpty) {
-  egg::test::Allocator allocator;
-  egg::ovum::TypeFactory factory(allocator);
-  ModuleBuilder builder(factory);
-  const TypeShape& shape = factory.createTypeShape(nullptr, nullptr, nullptr, nullptr, nullptr);
-  auto tvalue = roundTripArray(builder, {
-    builder.createValueShape(shape)
-    });
-  ASSERT_EQ(1u, tvalue->getChildren());
-  Node value;
-  value.set(&tvalue->getChild(0));
-  ASSERT_EQ(Opcode::TVALUE, value->getOpcode());
-  ASSERT_EQ(INode::Operand::TypeShape, value->getOperand());
-  ASSERT_TRUE(value->getTypeShape().equals(shape));
-  ASSERT_EQ(0u, value->getChildren());
-}
-
 TEST(TestModule, DISABLED_BuildTypeShape) {
   egg::test::Allocator allocator;
   egg::ovum::TypeFactory factory(allocator);

@@ -448,7 +448,8 @@ std::pair<std::string, int> egg::ovum::Forge::simpleToStringPrecedence(ValueFlag
     return { component, 0 };
   }
   if (Bits::hasAnySet(flags, ValueFlags::Null)) {
-    return { simpleToStringPrecedence(Bits::clear(flags, ValueFlags::Null)).first + "?", 1 };
+    auto nonnull = simpleToStringPrecedence(Bits::clear(flags, ValueFlags::Null));
+    return { nonnull.first + "?", std::max(nonnull.second, 1) };
   }
   if (Bits::hasAnySet(flags, ValueFlags::Void)) {
     return { "void|" + simpleToStringPrecedence(Bits::clear(flags, ValueFlags::Void)).first, 2};

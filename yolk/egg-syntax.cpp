@@ -2395,7 +2395,7 @@ egg::ovum::Type EggSyntaxParserContext::parseTypePostfixFunction(const egg::ovum
       pname = p1.value.s;
       mark.advance(1);
     }
-    auto flags = egg::ovum::IFunctionSignatureParameter::Flags::Required;
+    auto optional = false;
     if (mark.peek(0).isOperator(EggTokenizerOperator::Equal)) {
       auto& p2 = mark.peek(1);
       if (!p2.isKeyword(EggTokenizerKeyword::Null)) {
@@ -2406,9 +2406,9 @@ egg::ovum::Type EggSyntaxParserContext::parseTypePostfixFunction(const egg::ovum
         }
       }
       mark.advance(2);
-      flags = egg::ovum::IFunctionSignatureParameter::Flags::None;
+      optional = true;
     }
-    builder->addPositionalParameter(ptype, pname, flags);
+    builder->addPositionalParameter(ptype, pname, optional);
     auto& p3 = mark.peek(0);
     if (p3.isOperator(EggTokenizerOperator::Comma)) {
       mark.advance(1);

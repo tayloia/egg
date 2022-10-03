@@ -953,7 +953,7 @@ namespace {
   public:
     EggParserNode_Object(egg::ovum::ITypeFactory& factory, const egg::ovum::LocationSource& locationSource)
       : EggParserNodeBase(locationSource),
-      runtimeType(factory.getVanillaArray()) {
+      runtimeType(factory.getVanillaDictionary()) {
     }
     virtual egg::ovum::Type getType() const override {
       return this->runtimeType;
@@ -1731,8 +1731,7 @@ std::shared_ptr<egg::yolk::IEggProgramNode> egg::yolk::EggSyntaxNode_FunctionDef
     // We promote the parameter, extract the name/type/optional information and then discard it
     auto parameter = context.promote(*this->child[i]);
     auto parameter_optional = parameter->symbol(parameter_symbol);
-    auto parameter_flags = parameter_optional ? egg::ovum::IFunctionSignatureParameter::Flags::None : egg::ovum::IFunctionSignatureParameter::Flags::Required;
-    builder->addPositionalParameter(parameter_symbol.type, parameter_symbol.name, parameter_flags);
+    builder->addPositionalParameter(parameter_symbol.type, parameter_symbol.name, parameter_optional);
   }
   auto type = builder->build();
   auto allowed = this->generator ? (EggParserAllowed::Return | EggParserAllowed::Yield) : EggParserAllowed::Return;

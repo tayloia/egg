@@ -260,10 +260,14 @@ namespace egg::ovum {
     virtual String describeValue() const = 0;
   };
 
+  class StringProperties; // WIBBLE remove
+
   class ITypeBuilder : public IHardAcquireRelease {
   public:
-    virtual void addPositionalParameter(const Type& type, const String& name, IFunctionSignatureParameter::Flags flags) = 0;
-    virtual void addNamedParameter(const Type& type, const String& name, IFunctionSignatureParameter::Flags flags) = 0;
+    virtual void addPositionalParameter(const Type& type, const String& name, bool optional) = 0;
+    virtual void addNamedParameter(const Type& type, const String& name, bool optional) = 0;
+    virtual void addVariadicParameter(const Type& type, const String& name, bool optional) = 0;
+    virtual void addPredicateParameter(const Type& type, const String& name, bool optional) = 0;
     virtual void addProperty(const Type& type, const String& name, Modifiability modifiability) = 0;
     virtual void defineCallable(const Type& rettype, const Type& gentype) = 0;
     virtual void defineDotable(const Type& unknownType, Modifiability unknownModifiability) = 0;
@@ -293,9 +297,7 @@ namespace egg::ovum {
     virtual TypeBuilder createGeneratorBuilder(const Type& gentype, const String& name, const String& description) = 0;
 
     // WIBBLE
-    virtual const TypeShape& forgeTypeShape(const IFunctionSignature* callable, const IPropertySignature* dotable, const IIndexSignature* indexable, const IIteratorSignature* iterable, const IPointerSignature* pointable) = 0;
-    virtual const TypeShape& createTypeShape(const IFunctionSignature* callable, const IPropertySignature* dotable, const IIndexSignature* indexable, const IIteratorSignature* iterable, const IPointerSignature* pointable) = 0;
-    virtual const IType& createBaked(const IType& unbaked) = 0;
+    virtual const StringProperties& getStringProperties() = 0;
 
     virtual const TypeShape& getObjectShape() = 0;
     virtual const TypeShape& getStringShape() = 0;
