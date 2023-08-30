@@ -47,8 +47,8 @@ endif
 ECHO = @echo
 SUBMAKE = $(SILENT)+$(MAKE) --no-print-directory
 
-OBJ_ROOT = $(PLATFORM)/$(TOOLCHAIN)/obj
-BIN_ROOT = $(PLATFORM)/$(TOOLCHAIN)/bin
+OBJ_ROOT = obj/$(PLATFORM)/$(TOOLCHAIN)
+BIN_ROOT = bin/$(PLATFORM)/$(TOOLCHAIN)
 
 OBJ_DIR = $(OBJ_ROOT)/$(CONFIGURATION)
 BIN_DIR = $(BIN_ROOT)/$(CONFIGURATION)
@@ -132,8 +132,8 @@ valgrind: $(TEST_EXE)
 # Pseudo-target to run test coverage
 test-coverage: $(TEST_EXE)
 	$(ECHO) Running test coverage $<
-	$(SILENT)./coverage.sh $(TEST_EXE) $(OBJ_DIR) $(PLATFORM)/$(TOOLCHAIN)/html
-	$(SILENT)cmd.exe /C start $(PLATFORM)/$(TOOLCHAIN)/html/index.html
+	$(SILENT)./coverage.sh $(TEST_EXE) $(OBJ_DIR) $(OBJ_ROOT)/html
+	$(SILENT)cmd.exe /C start $(OBJ_ROOT)/html/index.html
 
 # Pseudo-target to run gdb
 test-gdb: $(TEST_EXE)

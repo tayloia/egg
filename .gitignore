@@ -1,18 +1,12 @@
-# Visual Studio 2015 cache/options directory
+# Visual Studio cache/options directory
 .vs/
-
-# CppCheck
-msvc/cppcheck/
 
 # gcov
 *.gcov
 
 # Output directories
-msvc/bin/
-msvc/obj/
-*/gcc/bin/
-*/gcc/obj/
-*/gcc/html/
+bin/
+obj/
 
 # Keep but don't store in the repo
 keep/

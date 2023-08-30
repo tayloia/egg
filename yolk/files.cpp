@@ -68,7 +68,7 @@ namespace {
   bool getDevelopmentEggRoot(std::string& directory) {
     // Check for if we're running inside a development directory (e.g. Google Test adapter)
     if (getExecutableDirectory(directory)) {
-      auto msvc = directory.rfind("/msvc/bin/");
+      auto msvc = directory.rfind("/bin/msvc/");
       if (msvc != std::string::npos) {
         directory.resize(msvc + 1);
         return true;

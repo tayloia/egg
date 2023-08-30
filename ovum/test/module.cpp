@@ -574,6 +574,7 @@ TEST(TestModule, BuildConstantString) {
   ASSERT_EQ(0u, value->getChildren());
 }
 
+/*
 TEST(TestModule, DISABLED_BuildTypeShape) {
   egg::test::Allocator allocator;
   egg::ovum::TypeFactory factory(allocator);
@@ -590,6 +591,7 @@ TEST(TestModule, DISABLED_BuildTypeShape) {
   ASSERT_TRUE(value->getTypeShape().equals(*shape));
   ASSERT_EQ(0u, value->getChildren());
 }
+*/
 
 TEST(TestModule, BuildOperator) {
   egg::test::Allocator allocator;

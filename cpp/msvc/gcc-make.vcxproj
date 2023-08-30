@@ -123,35 +123,35 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <CustomBuild Include="..\build.cmd">
+    <CustomBuild Include="$(EggRoot)\build.cmd">
       <FileType>Document</FileType>
       <Command Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">$(EggRoot)\build.cmd CONFIGURATION=debug test</Command>
       <Command Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(EggRoot)\build.cmd CONFIGURATION=debug test</Command>
       <Command Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">$(EggRoot)\build.cmd CONFIGURATION=release test</Command>
       <Command Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(EggRoot)\build.cmd CONFIGURATION=release test</Command>
-      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">$(EggRoot)\wsl\gcc\bin\debug\egg-testsuite.exe.log;%(Outputs)</Outputs>
-      <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">$(EggRoot)\wsl\gcc\bin\release\egg-testsuite.exe.log;%(Outputs)</Outputs>
-      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(EggRoot)\wsl\gcc\bin\debug\egg-testsuite.exe.log;%(Outputs)</Outputs>
-      <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(EggRoot)\wsl\gcc\bin\release\egg-testsuite.exe.log;%(Outputs)</Outputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">$(EggRoot)\bin\wsl\gcc\debug\egg-testsuite.exe.log;%(Outputs)</Outputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">$(EggRoot)\bin\wsl\gcc\release\egg-testsuite.exe.log;%(Outputs)</Outputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(EggRoot)\bin\wsl\gcc\debug\egg-testsuite.exe.log;%(Outputs)</Outputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(EggRoot)\bin\wsl\gcc\release\egg-testsuite.exe.log;%(Outputs)</Outputs>
       <Message Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Making with make/gcc...</Message>
       <Message Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Making with make/gcc...</Message>
       <Message Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Making with make/gcc...</Message>
       <Message Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Making with make/gcc...</Message>
     </CustomBuild>
-    <None Include="..\build.sh" />
-    <None Include="..\coverage.sh" />
-    <None Include="..\Makefile" />
-    <None Include="..\make\cygwin.mak" />
-    <None Include="..\make\gcc-common.mak" />
-    <None Include="..\make\gcc-coverage.mak" />
-    <None Include="..\make\gcc-debug.mak" />
-    <None Include="..\make\gcc-release.mak" />
-    <None Include="..\make\linux.mak" />
-    <None Include="..\make\mingw.mak" />
-    <None Include="..\make\wsl.mak" />
-    <None Include="..\runtest.cmd" />
-    <None Include="..\runtest.sh" />
-    <None Include="..\valgrind.sh" />
+    <None Include="$(EggRoot)\build.sh" />
+    <None Include="$(EggRoot)\coverage.sh" />
+    <None Include="$(EggRoot)\Makefile" />
+    <None Include="$(EggRoot)\make\cygwin.mak" />
+    <None Include="$(EggRoot)\make\gcc-common.mak" />
+    <None Include="$(EggRoot)\make\gcc-coverage.mak" />
+    <None Include="$(EggRoot)\make\gcc-debug.mak" />
+    <None Include="$(EggRoot)\make\gcc-release.mak" />
+    <None Include="$(EggRoot)\make\linux.mak" />
+    <None Include="$(EggRoot)\make\mingw.mak" />
+    <None Include="$(EggRoot)\make\wsl.mak" />
+    <None Include="$(EggRoot)\runtest.cmd" />
+    <None Include="$(EggRoot)\runtest.sh" />
+    <None Include="$(EggRoot)\valgrind.sh" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

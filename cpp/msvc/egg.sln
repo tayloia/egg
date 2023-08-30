@@ -5,10 +5,10 @@ VisualStudioVersion = 17.3.32811.315
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Repo Files", "Repo Files", "{3A001F0B-0CF3-4D26-A9EE-0172340BDD30}"
 	ProjectSection(SolutionItems) = preProject
-		..\.gitattributes = ..\.gitattributes
-		..\.gitignore = ..\.gitignore
-		..\LICENSE = ..\LICENSE
-		..\README.md = ..\README.md
+		..\..\.gitattributes = ..\..\.gitattributes
+		..\..\.gitignore = ..\..\.gitignore
+		..\..\LICENSE = ..\..\LICENSE
+		..\..\README.md = ..\..\README.md
 	EndProjectSection
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "yolk-test", "yolk-test.vcxproj", "{F6D77923-DA76-4356-9A6E-E0790A422FE7}"
@@ -16,12 +16,6 @@ EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "yolk", "yolk.vcxproj", "{05A72EA2-0B14-4E92-86F1-C98E7FDFFBBA}"
 	ProjectSection(ProjectDependencies) = postProject
 		{F14E6F85-CA7D-4354-BF37-182DE71D4FBA} = {F14E6F85-CA7D-4354-BF37-182DE71D4FBA}
-	EndProjectSection
-EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Auxiliary Files", "Auxiliary Files", "{3A0C1E75-6808-444E-AAF5-812F75DFEDA8}"
-	ProjectSection(SolutionItems) = preProject
-		..\auxiliary\egg.bnf.txt = ..\auxiliary\egg.bnf.txt
-		..\auxiliary\egg.vm.txt = ..\auxiliary\egg.vm.txt
 	EndProjectSection
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "gcc-make", "gcc-make.vcxproj", "{D61691B1-272F-405E-86A2-C790973D6B90}"

@@ -2,12 +2,12 @@
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ImportGroup Label="PropertySheets" />
   <PropertyGroup Label="UserMacros">
-    <EggRoot>$(SolutionDir)..</EggRoot>
+    <EggRoot>$(SolutionDir)..\..</EggRoot>
     <GoogleTest>$(EggRoot)\thirdparty\googletest</GoogleTest>
   </PropertyGroup>
   <PropertyGroup>
-    <OutDir>$(SolutionDir)bin\$(ProjectName).$(Configuration.ToLower()).$(PlatformTarget.ToLower())\</OutDir>
-    <IntDir>$(SolutionDir)obj\$(ProjectName).$(Configuration.ToLower()).$(PlatformTarget.ToLower())\</IntDir>
+    <OutDir>$(EggRoot)\bin\msvc\$(ProjectName).$(Configuration.ToLower()).$(PlatformTarget.ToLower())\</OutDir>
+    <IntDir>$(EggRoot)\obj\msvc\$(ProjectName).$(Configuration.ToLower()).$(PlatformTarget.ToLower())\</IntDir>
     <IncludePath>$(EggRoot);$(GoogleTest)\include;$(IncludePath)</IncludePath>
   </PropertyGroup>
   <PropertyGroup Label="Configuration">
