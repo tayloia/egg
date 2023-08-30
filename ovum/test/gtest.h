@@ -7,6 +7,11 @@
 #include "gtest/gtest-spi.h"
 #if EGG_PLATFORM == EGG_PLATFORM_MSVC
 #pragma warning(pop)
+// warning C4625 : copy constructor was implicitly defined as deleted
+// warning C4626 : assignment operator was implicitly defined as deleted
+// warning C5026 : move constructor was implicitly defined as deleted
+// warning C5027 : move assignment operator was implicitly defined as deleted
+#pragma warning(disable: 4625 4626 5026 5027)
 #endif
 
 namespace egg::test {
