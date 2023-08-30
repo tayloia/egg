@@ -1,8 +1,8 @@
 # Visual Studio cache/options directory
 .vs/
 
-# gcov
-*.gcov
+# cppcheck directory
+cpp/msvc/cppcheck/
 
 # Output directories
 bin/

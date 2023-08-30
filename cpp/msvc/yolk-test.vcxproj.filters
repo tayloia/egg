@@ -75,8 +75,5 @@
     <ClInclude Include="..\ovum\test\gtest.h">
       <Filter>Infrastructure Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\yolk\test\etest.h">
-      <Filter>Test Files</Filter>
-    </ClInclude>
   </ItemGroup>
 </Project>

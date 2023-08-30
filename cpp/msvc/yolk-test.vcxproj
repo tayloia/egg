@@ -63,7 +63,6 @@
   <ItemGroup>
     <ClInclude Include="..\ovum\test\etest.h" />
     <ClInclude Include="..\ovum\test\gtest.h" />
-    <ClInclude Include="..\yolk\test\etest.h" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>15.0</VCProjectVersion>
