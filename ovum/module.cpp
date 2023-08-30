@@ -9,6 +9,18 @@
 namespace {
   using namespace egg::ovum;
 
+  enum class TypeShapeSubsection : uint8_t {
+    CallableFunction = 0x01,
+    CallableGenerator = 0x02,
+    DotableOpen = 0x03,
+    DotableClosed = 0x04,
+    IndexableArray = 0x05,
+    IndexableMap = 0x06,
+    Iterable = 0x07,
+    // Pointable not permitted
+    End = 0x00
+  };
+
   struct OpcodeTable {
     static const OpcodeTable instance;
     Opcode opcode[256];
@@ -115,15 +127,15 @@ namespace {
     ModuleReader(const ModuleReader&) = delete;
     ModuleReader& operator=(const ModuleReader&) = delete;
   private:
-    IAllocator& allocator;
+    ITypeFactory& factory;
     std::istream& stream;
-    std::vector<Int> ivalue;
-    std::vector<Float> fvalue;
-    std::vector<String> svalue;
-    const OpcodeProperties& attributeProperties;
+    std::vector<Int> ivalues;
+    std::vector<Float> fvalues;
+    std::vector<String> svalues;
+    std::vector<TypeShape> tvalues;
   public:
-    ModuleReader(IAllocator& allocator, std::istream& stream)
-      : allocator(allocator), stream(stream), attributeProperties(OpcodeProperties::from(Opcode::ATTRIBUTE)) {
+    ModuleReader(ITypeFactory& factory, std::istream& stream)
+      : factory(factory), stream(stream) {
     }
     Node read() {
       Node root;
@@ -133,32 +145,35 @@ namespace {
       char ch;
       while (this->stream.get(ch)) {
         switch (Section(uint8_t(ch))) {
-        case SECTION_MAGIC:
+        case Section::MAGIC:
           throw std::runtime_error("Duplicated magic section in binary module");
-        case SECTION_POSINTS:
+        case Section::POSINTS:
           this->readInts(false);
           break;
-        case SECTION_NEGINTS:
+        case Section::NEGINTS:
           this->readInts(true);
           break;
-        case SECTION_FLOATS:
+        case Section::FLOATS:
           this->readFloats();
           break;
-        case SECTION_STRINGS:
+        case Section::STRINGS:
           this->readStrings();
           break;
-        case SECTION_CODE:
+        case Section::SHAPES:
+          this->readTypeShapes();
+          break;
+        case Section::CODE:
           // Read the abstract syntax tree
           root = this->readNode(false);
           if (!this->stream.get(ch)) {
             // No source section
             return root;
           }
-          if (Section(uint8_t(ch)) != SECTION_SOURCE) {
+          if (Section(uint8_t(ch)) != Section::SOURCE) {
             throw std::runtime_error("Only source sections can follow code sections in binary module");
           }
           return root;
-        case SECTION_SOURCE:
+        case Section::SOURCE:
           throw std::runtime_error("Source section without preceding code section in binary module");
         default:
           throw std::runtime_error("Unrecognized section in binary module");
@@ -176,9 +191,9 @@ namespace {
     void readInts(bool negative) {
       // Read a sequence of 64-bit signed values
       auto count = this->readUnsigned();
-      this->ivalue.reserve(this->ivalue.size() + size_t(count));
+      this->ivalues.reserve(this->ivalues.size() + size_t(count));
       while (count > 0) {
-        this->ivalue.push_back(this->readInt(negative));
+        this->ivalues.emplace_back(this->readInt(negative));
         count--;
       }
     }
@@ -193,25 +208,23 @@ namespace {
     void readFloats() {
       // Read a sequence of 64-bit floating-point values
       auto count = this->readUnsigned();
-      this->fvalue.reserve(this->fvalue.size() + size_t(count));
+      this->fvalues.reserve(this->fvalues.size() + size_t(count));
       while (count > 0) {
-        this->fvalue.push_back(this->readFloat());
+        this->fvalues.emplace_back(this->readFloat());
         count--;
       }
     }
     Float readFloat() const {
       // Read a single 64-bit floating-point value
-      MantissaExponent me;
-      me.mantissa = indexInt(this->readUnsigned());
-      me.exponent = indexInt(this->readUnsigned());
+      MantissaExponent me{ indexInt(this->readUnsigned()), indexInt(this->readUnsigned()) };
       return me.toFloat();
     }
     void readStrings() {
       // Read a sequence of string values
       auto count = this->readUnsigned();
-      this->svalue.reserve(this->svalue.size() + size_t(count));
+      this->svalues.reserve(this->svalues.size() + size_t(count));
       while (count > 0) {
-        this->svalue.push_back(this->readString());
+        this->svalues.emplace_back(this->readString());
         count--;
       }
     }
@@ -256,6 +269,97 @@ namespace {
       }
       return true;
     }
+    void readTypeShapes() {
+      // Read a sequence of type shapes
+      auto count = this->readUnsigned();
+      this->tvalues.reserve(this->tvalues.size() + size_t(count));
+      while (count > 0) {
+        this->tvalues.emplace_back(std::move(this->readTypeShape()));
+        count--;
+      }
+    }
+    TypeShape readTypeShape() {
+      auto builder = this->factory.createTypeBuilder("<WIBBLE:name>", "<WIBBLE:description>");
+      for (;;) {
+        auto subsection = TypeShapeSubsection(this->readByte());
+        switch (subsection) {
+        case TypeShapeSubsection::CallableFunction:
+          this->readTypeShapeCallable(*builder, false);
+          break;
+        case TypeShapeSubsection::CallableGenerator:
+          this->readTypeShapeCallable(*builder, true);
+          break;
+        case TypeShapeSubsection::DotableOpen:
+          this->readTypeShapeDotable(*builder, false);
+          break;
+        case TypeShapeSubsection::DotableClosed:
+          this->readTypeShapeDotable(*builder, true);
+          break;
+        case TypeShapeSubsection::IndexableArray:
+          this->readTypeShapeIndexable(*builder, false);
+          break;
+        case TypeShapeSubsection::IndexableMap:
+          this->readTypeShapeIndexable(*builder, true);
+          break;
+        case TypeShapeSubsection::Iterable:
+          this->readTypeShapeIterable(*builder);
+          break;
+        case TypeShapeSubsection::End:
+          return *builder->build()->getObjectShape(0);
+        }
+      }
+    }
+    void readTypeShapeCallable(ITypeBuilder& builder, bool generator) {
+      auto rettype = this->readType(builder);
+      if (generator) {
+        builder.defineCallable(rettype, this->readType(builder));
+      } else {
+        builder.defineCallable(rettype, nullptr);
+      }
+      auto params = size_t(this->readUnsigned());
+      for (size_t index = 0; index < params; ++index) {
+        auto ptype = this->readType(builder);
+        builder.addPositionalParameter(ptype, {}, true);
+      }
+    }
+    void readTypeShapeDotable(ITypeBuilder& builder, bool closed) {
+      if (closed) {
+        builder.defineDotable(nullptr, Modifiability::NONE);
+      } else {
+        auto unknownModifiability = this->readModifiability();
+        auto unknownType = Type::Void;
+        if (unknownModifiability != Modifiability::NONE) {
+          unknownType = this->readType(builder);
+        }
+        builder.defineDotable(unknownType, unknownModifiability);
+      }
+      auto count = size_t(this->readUnsigned());
+      for (size_t index = 0; index < count; ++index) {
+        auto known = this->indexString(this->readUnsigned());
+        auto modifiability = this->readModifiability();
+        builder.addProperty(Type::AnyQ, known, modifiability);
+      }
+    }
+    void readTypeShapeIndexable(ITypeBuilder& builder, bool map) {
+      auto resultType = this->readType(builder);
+      Type indexType = nullptr;
+      if (map) {
+        this->readType(builder);
+      }
+      auto modifiability = this->readModifiability();
+      builder.defineIndexable(resultType, indexType, modifiability);
+    }
+    void readTypeShapeIterable(ITypeBuilder& builder) {
+      auto resultType = this->readType(builder);
+      builder.defineIterable(resultType);
+    }
+    Type readType(ITypeBuilder& builder) {
+      (void)builder;
+      return Type::Void; // WIBBLE
+    }
+    Modifiability readModifiability() {
+      return Modifiability(this->readUnsigned());
+    }
     Node readNode(bool insideAttribute) const {
       auto byte = this->readByte();
       auto opcode = Module::opcodeFromMachineByte(byte);
@@ -271,7 +375,7 @@ namespace {
       if (!insideAttribute) {
         // Attributes cannot have attributes!
         while (this->isAttribute(this->stream.peek())) {
-          attributes.push_back(this->readNode(true));
+          attributes.emplace_back(this->readNode(true));
         }
       }
       std::vector<Node> children;
@@ -282,51 +386,60 @@ namespace {
       if (count == SIZE_MAX) {
         // This is a list terminated with an Opcode::END sentinel
         while (this->stream.peek() != int(Opcode::END)) {
-          children.push_back(this->readNode(insideAttribute));
+          children.emplace_back(this->readNode(insideAttribute));
         }
         this->stream.get(); // skip the sentinel
       } else {
         for (size_t child = 0; child < count; ++child) {
-          children.push_back(this->readNode(insideAttribute));
+          children.emplace_back(this->readNode(insideAttribute));
         }
       }
       if (!properties.operand) {
         // No operand
-        return NodeFactory::create(this->allocator, opcode, &children, &attributes);
+        return NodeFactory::create(this->factory.getAllocator(), opcode, &children, &attributes);
       }
-      EGG_WARNING_SUPPRESS_SWITCH_BEGIN();
+      EGG_WARNING_SUPPRESS_SWITCH_BEGIN
       switch (opcode) {
       case Opcode::IVALUE:
         // Operand is an index into the int table
-        return NodeFactory::create(this->allocator, opcode, &children, &attributes, this->indexInt(operand));
+        return NodeFactory::create(this->factory.getAllocator(), opcode, &children, &attributes, this->indexInt(operand));
       case Opcode::FVALUE:
         // Operand is an index into the float table
-        return NodeFactory::create(this->allocator, opcode, &children, &attributes, this->indexFloat(operand));
+        return NodeFactory::create(this->factory.getAllocator(), opcode, &children, &attributes, this->indexFloat(operand));
       case Opcode::SVALUE:
         // Operand is an index into the string table
-        return NodeFactory::create(this->allocator, opcode, &children, &attributes, this->indexString(operand));
+        return NodeFactory::create(this->factory.getAllocator(), opcode, &children, &attributes, this->indexString(operand));
+      case Opcode::TVALUE:
+        // Operand is an index into the type shape table
+        return NodeFactory::create(this->factory.getAllocator(), opcode, &children, &attributes, this->indexTypeShape(operand));
       }
-      EGG_WARNING_SUPPRESS_SWITCH_END();
+      EGG_WARNING_SUPPRESS_SWITCH_END
       // Operand is probably an operator index
-      return NodeFactory::create(this->allocator, opcode, &children, &attributes, Int(operand));
+      return NodeFactory::create(this->factory.getAllocator(), opcode, &children, &attributes, Int(operand));
     }
     Int indexInt(uint64_t index) const {
-      if (index >= this->ivalue.size()) {
+      if (index >= this->ivalues.size()) {
         throw std::runtime_error("Invalid integer constant index in binary module");
       }
-      return this->ivalue[size_t(index)];
+      return this->ivalues[size_t(index)];
     }
     Float indexFloat(uint64_t index) const {
-      if (index >= this->fvalue.size()) {
+      if (index >= this->fvalues.size()) {
         throw std::runtime_error("Invalid floating-point constant index in binary module");
       }
-      return this->fvalue[size_t(index)];
+      return this->fvalues[size_t(index)];
     }
     String indexString(uint64_t index) const {
-      if (index >= this->svalue.size()) {
+      if (index >= this->svalues.size()) {
         throw std::runtime_error("Invalid string constant index in binary module");
       }
-      return this->svalue[size_t(index)];
+      return this->svalues[size_t(index)];
+    }
+    const TypeShape& indexTypeShape(uint64_t index) const {
+      if (index >= this->tvalues.size()) {
+        throw std::runtime_error("Invalid type shape index in binary module");
+      }
+      return this->tvalues[size_t(index)];
     }
     uint64_t readUnsigned() const {
       // Read up to 63 bits as an unsigned integer
@@ -356,8 +469,9 @@ namespace {
       }
       return uint8_t(ch);
     }
-    bool isAttribute(int peek) const {
-      return (peek >= this->attributeProperties.minbyte) && (peek <= this->attributeProperties.maxbyte);
+    static bool isAttribute(int peek) {
+      static const OpcodeProperties& attributeProperties = OpcodeProperties::from(Opcode::ATTRIBUTE);
+      return (peek >= attributeProperties.minbyte) && (peek <= attributeProperties.maxbyte);
     }
   };
 
@@ -369,6 +483,7 @@ namespace {
     std::map<Int, size_t> ivalues;
     std::map<std::pair<Int, Int>, size_t> fvalues;
     std::map<String, size_t> svalues;
+    std::map<const TypeShape*, size_t> tvalues;
     size_t positives;
   public:
     explicit ModuleWriter(const INode& root)
@@ -377,6 +492,7 @@ namespace {
       this->prepareInts();
       this->prepareFloats();
       this->prepareStrings();
+      this->prepareTypeShapes();
     }
     template<typename TARGET>
     void write(TARGET& target) const {
@@ -384,6 +500,7 @@ namespace {
       this->writeInts(target);
       this->writeFloats(target);
       this->writeStrings(target);
+      this->writeTypeShapes(target);
       this->writeCode(target, this->root);
     }
   private:
@@ -400,6 +517,10 @@ namespace {
       case INode::Operand::String:
         // Keep track of the strings
         this->foundString(node.getString());
+        break;
+      case INode::Operand::TypeShape:
+        // Keep track of the type shapes
+        this->foundTypeShape(node.getTypeShape());
         break;
       case INode::Operand::Operator:
         // Keep track of the integer operators
@@ -435,6 +556,23 @@ namespace {
     void foundString(String value) {
       this->svalues.emplace(value, SIZE_MAX);
     }
+    void foundTypeShape(const TypeShape& value) {
+      this->tvalues.emplace(&value, SIZE_MAX);
+      if (value.callable != nullptr) {
+        // Find strings used in parameter names
+        auto parameters = value.callable->getParameterCount();
+        for (size_t parameter = 0; parameter < parameters; ++parameter) {
+          this->foundString(value.callable->getParameter(parameter).getName());
+        }
+      }
+      if (value.dotable != nullptr) {
+        // Find strings used in property names
+        auto names = value.dotable->getNameCount();
+        for (size_t name = 0; name < names; ++name) {
+          this->foundString(value.dotable->getName(name));
+        }
+      }
+    }
     template<typename TARGET>
     void writeMagic(TARGET& target) const {
 #define EGG_VM_MAGIC_BYTE(byte) this->writeByte(target, byte);
@@ -465,7 +603,7 @@ namespace {
         assert(i.second != SIZE_MAX);
         if (i.first >= 0) {
           if (index++ == 0) {
-            this->writeByte(target, SECTION_POSINTS);
+            this->writeSectionByte(target, Section::POSINTS);
             this->writeUnsigned(target, this->positives);
           }
           this->writeUnsigned(target, uint64_t(i.first));
@@ -476,7 +614,7 @@ namespace {
         if (i.first < 0) {
           assert(i.second != SIZE_MAX);
           if (index++ == this->positives) {
-            this->writeByte(target, SECTION_NEGINTS);
+            this->writeSectionByte(target, Section::NEGINTS);
             this->writeUnsigned(target, this->ivalues.size() - this->positives);
           }
           this->writeUnsigned(target, ~uint64_t(i.first));
@@ -498,7 +636,7 @@ namespace {
       for (auto& i : this->fvalues) {
         assert(i.second != SIZE_MAX);
         if (index++ == 0) {
-          this->writeByte(target, SECTION_FLOATS);
+          this->writeSectionByte(target, Section::FLOATS);
           this->writeUnsigned(target, this->fvalues.size());
         }
         this->writeUnsigned(target, this->ivalues.at(i.first.first)); // mantissa
@@ -514,18 +652,33 @@ namespace {
       }
       assert(index == this->svalues.size());
     }
+    void prepareTypeShapes() {
+      std::vector<const TypeShape*> known;
+      known.reserve(this->tvalues.size());
+      for (auto& kv : this->tvalues) {
+        assert(kv.second == SIZE_MAX);
+        kv.second = 0;
+        for (auto& candidate : known) {
+          if (candidate->equals(*kv.first)) {
+            break;
+          }
+          ++kv.second;
+        }
+        if (kv.second < known.size()) {
+          known.emplace_back(kv.first);
+        }
+      }
+    }
     template<typename TARGET>
     void writeStrings(TARGET& target) const {
-      size_t index = 0;
-      for (auto& i : this->svalues) {
-        assert(i.second != SIZE_MAX);
-        if (index++ == 0) {
-          this->writeByte(target, SECTION_STRINGS);
-          this->writeUnsigned(target, this->svalues.size());
+      if (!this->svalues.empty()) {
+        this->writeSectionByte(target, Section::STRINGS);
+        this->writeUnsigned(target, this->svalues.size());
+        for (auto& kv : this->svalues) {
+          assert(kv.second != SIZE_MAX);
+          this->writeString(target, kv.first);
         }
-        this->writeString(target, i.first);
       }
-      assert(index == this->svalues.size());
     }
     template<typename TARGET>
     void writeString(TARGET& target, const String& str) const {
@@ -535,8 +688,115 @@ namespace {
       this->writeByte(target, 0xFF);
     }
     template<typename TARGET>
+    void writeTypeShapes(TARGET& target) const {
+      if (!this->tvalues.empty()) {
+        this->writeSectionByte(target, Section::SHAPES);
+        this->writeUnsigned(target, this->tvalues.size());
+        for (auto& kv : this->tvalues) {
+          assert(kv.second != SIZE_MAX);
+          this->writeTypeShape(target, kv.first);
+        }
+      }
+    }
+    template<typename TARGET>
+    void writeTypeShape(TARGET& target, const TypeShape* shape) const {
+      assert(shape != nullptr);
+      if (shape->callable != nullptr) {
+        if (shape->callable->getGeneratorType() == nullptr) {
+          this->writeByte(target, uint8_t(TypeShapeSubsection::CallableFunction));
+          writeTypeShapeCallable(target, *shape->callable, false);
+        } else {
+          this->writeByte(target, uint8_t(TypeShapeSubsection::CallableGenerator));
+          writeTypeShapeCallable(target, *shape->callable, true);
+        }
+      }
+      if (shape->dotable != nullptr) {
+        if (shape->dotable->isClosed()) {
+          this->writeByte(target, uint8_t(TypeShapeSubsection::DotableClosed));
+          writeTypeShapeDotable(target, *shape->dotable, true);
+        } else {
+          this->writeByte(target, uint8_t(TypeShapeSubsection::DotableOpen));
+          writeTypeShapeDotable(target, *shape->dotable, false);
+        }
+      }
+      if (shape->indexable != nullptr) {
+        if (shape->indexable->getIndexType() == nullptr) {
+          this->writeByte(target, uint8_t(TypeShapeSubsection::IndexableArray));
+          writeTypeShapeIndexable(target, *shape->indexable, false);
+        } else {
+          this->writeByte(target, uint8_t(TypeShapeSubsection::IndexableMap));
+          writeTypeShapeIndexable(target, *shape->indexable, true);
+        }
+      }
+      if (shape->iterable != nullptr) {
+        this->writeByte(target, uint8_t(TypeShapeSubsection::Iterable));
+        writeTypeShapeIterable(target, *shape->iterable);
+      }
+      this->writeByte(target, uint8_t(TypeShapeSubsection::End));
+    }
+    template<typename TARGET>
+    void writeTypeShapeCallable(TARGET& target, const IFunctionSignature& callable, bool generator) const {
+      this->writeType(target, callable.getReturnType());
+      if (generator) {
+        this->writeType(target, callable.getGeneratorType());
+      }
+      auto params = callable.getParameterCount();
+      this->writeUnsigned(target, params);
+      for (size_t index = 0; index < params; ++index) {
+        auto& param = callable.getParameter(index);
+        this->writeType(target, param.getType());
+        // TODO flags
+      }
+    }
+    template<typename TARGET>
+    void writeTypeShapeDotable(TARGET& target, const IPropertySignature& dotable, bool closed) const {
+      if (!closed) {
+        String unknown{};
+        auto modifiability = dotable.getModifiability(unknown);
+        this->writeModifiability(target, modifiability);
+        if (modifiability != Modifiability::NONE) {
+          this->writeType(target, dotable.getType(unknown));
+        }
+      }
+      auto count = dotable.getNameCount();
+      this->writeUnsigned(target, count);
+      for (size_t index = 0; index < count; ++index) {
+        auto known = dotable.getName(index);
+        this->writeUnsigned(target, this->svalues.at(known));
+        auto modifiability = dotable.getModifiability(known);
+        this->writeModifiability(target, modifiability);
+        this->writeType(target, dotable.getType(known));
+      }
+    }
+    template<typename TARGET>
+    void writeTypeShapeIndexable(TARGET& target, const IIndexSignature& indexable, bool map) const {
+      this->writeType(target, indexable.getResultType());
+      if (map) {
+        this->writeType(target, indexable.getIndexType());
+      }
+      auto modifiability = indexable.getModifiability();
+      this->writeModifiability(target, modifiability);
+    }
+    template<typename TARGET>
+    void writeTypeShapeIterable(TARGET& target, const IIteratorSignature& iterable) const {
+      this->writeType(target, iterable.getType());
+    }
+    template<typename TARGET>
+    void writeType(TARGET& target, const Type& type) const {
+      (void)target; // WIBBLE
+      (void)type; // WIBBLE
+    }
+    template<typename TARGET>
+    void writeModifiability(TARGET& target, Modifiability modifiability) const {
+      this->writeUnsigned(target, uint64_t(modifiability));
+    }
+    template<typename TARGET>
+    void writeSectionByte(TARGET& target, Section section) const {
+      this->writeByte(target, uint8_t(section));
+    }
+    template<typename TARGET>
     void writeCode(TARGET& target, const INode& node) const {
-      this->writeByte(target, SECTION_CODE);
+      this->writeSectionByte(target, Section::CODE);
       this->writeNode(target, node);
     }
     template<typename TARGET>
@@ -551,7 +811,7 @@ namespace {
       assert(byte <= 0xFF);
       this->writeByte(target, uint8_t(byte));
       if (properties.operand) {
-        EGG_WARNING_SUPPRESS_SWITCH_BEGIN();
+        EGG_WARNING_SUPPRESS_SWITCH_BEGIN
         switch (opcode) {
         case Opcode::IVALUE:
           this->writeUnsigned(target, this->ivalues.at(node.getInt()));
@@ -564,6 +824,9 @@ namespace {
         case Opcode::SVALUE:
           this->writeUnsigned(target, this->svalues.at(node.getString()));
           break;
+        case Opcode::TVALUE:
+          this->writeUnsigned(target, this->tvalues.at(&node.getTypeShape()));
+          break;
         default:
           if (node.getOperand() == INode::Operand::Operator) {
             this->writeUnsigned(target, uint64_t(node.getOperator()));
@@ -572,7 +835,7 @@ namespace {
           }
           break;
         }
-        EGG_WARNING_SUPPRESS_SWITCH_END();
+        EGG_WARNING_SUPPRESS_SWITCH_END
       }
       auto a = node.getAttributes();
       for (size_t i = 0; i < a; ++i) {
@@ -631,11 +894,13 @@ namespace {
     ModuleDefault(const ModuleDefault&) = delete;
     ModuleDefault& operator=(const ModuleDefault&) = delete;
   private:
+    ITypeFactory& factory;
     String resource;
     Node root;
   public:
-    ModuleDefault(IAllocator& allocator, const String& resource, INode* root = nullptr)
-      : HardReferenceCounted(allocator, 0),
+    ModuleDefault(ITypeFactory& factory, const String& resource, INode* root = nullptr)
+      : HardReferenceCounted(factory.getAllocator(), 0),
+        factory(factory),
         resource(resource),
         root(root) {
     }
@@ -649,7 +914,7 @@ namespace {
     void readFromStream(std::istream& stream) {
       // Read the abstract syntax tree
       assert(this->root == nullptr);
-      ModuleReader reader(this->allocator, stream);
+      ModuleReader reader(this->factory, stream);
       this->root = reader.read();
       assert(this->root != nullptr);
     }
@@ -694,19 +959,19 @@ std::string egg::ovum::OperatorProperties::str(Operator oper) {
   return "<unknown:" + std::to_string(int(oper)) + ">";
 }
 
-egg::ovum::Module egg::ovum::ModuleFactory::fromBinaryStream(IAllocator& allocator, const String& resource, std::istream& stream) {
-  auto module = allocator.makeHard<ModuleDefault>(resource);
+egg::ovum::Module egg::ovum::ModuleFactory::fromBinaryStream(ITypeFactory& factory, const String& resource, std::istream& stream) {
+  HardPtr<ModuleDefault> module{ factory.getAllocator().makeRaw<ModuleDefault>(factory, resource) };
   module->readFromStream(stream);
   return Module(module.get());
 }
 
-egg::ovum::Module egg::ovum::ModuleFactory::fromMemory(IAllocator& allocator, const String& resource, const uint8_t* begin, const uint8_t* end) {
+egg::ovum::Module egg::ovum::ModuleFactory::fromMemory(ITypeFactory& factory, const String& resource, const uint8_t* begin, const uint8_t* end) {
   MemoryStream stream(begin, end);
-  return ModuleFactory::fromBinaryStream(allocator, resource, stream);
+  return ModuleFactory::fromBinaryStream(factory, resource, stream);
 }
 
-egg::ovum::Module egg::ovum::ModuleFactory::fromRootNode(IAllocator& allocator, const String& resource, INode& root) {
-  return allocator.makeHard<ModuleDefault, Module>(resource, &root);
+egg::ovum::Module egg::ovum::ModuleFactory::fromRootNode(ITypeFactory& factory, const String& resource, INode& root) {
+  return Module(factory.getAllocator().makeRaw<ModuleDefault>(factory, resource, &root));
 }
 
 void egg::ovum::ModuleFactory::toBinaryStream(const IModule& module, std::ostream& stream) {
@@ -727,14 +992,14 @@ egg::ovum::Memory egg::ovum::ModuleFactory::toMemory(IAllocator& allocator, cons
   return memory.build();
 }
 
-egg::ovum::ModuleBuilderBase::ModuleBuilderBase(IAllocator& allocator)
-  : allocator(allocator) {
+egg::ovum::ModuleBuilderBase::ModuleBuilderBase(TypeFactory& factory)
+  : factory(factory) {
 }
 
 void egg::ovum::ModuleBuilderBase::addAttribute(const String& key, Node&& value) {
   assert(value != nullptr);
-  auto name = NodeFactory::create(this->allocator, egg::ovum::Opcode::SVALUE, nullptr, nullptr, key);
-  auto attr = NodeFactory::create(this->allocator, egg::ovum::Opcode::ATTRIBUTE, std::move(name), std::move(value));
+  auto name = NodeFactory::create(this->factory.getAllocator(), egg::ovum::Opcode::SVALUE, nullptr, nullptr, key);
+  auto attr = NodeFactory::create(this->factory.getAllocator(), egg::ovum::Opcode::ATTRIBUTE, std::move(name), std::move(value));
   this->attributes.emplace_back(std::move(attr));
 }
 
@@ -745,19 +1010,25 @@ egg::ovum::Node egg::ovum::ModuleBuilderBase::createModule(Node&& block) {
 egg::ovum::Node egg::ovum::ModuleBuilderBase::createValueInt(Int value) {
   Nodes attrs;
   std::swap(this->attributes, attrs);
-  return NodeFactory::create(this->allocator, Opcode::IVALUE, nullptr, &attrs, value);
+  return NodeFactory::create(this->factory.getAllocator(), Opcode::IVALUE, nullptr, &attrs, value);
 }
 
 egg::ovum::Node egg::ovum::ModuleBuilderBase::createValueFloat(Float value) {
   Nodes attrs;
   std::swap(this->attributes, attrs);
-  return NodeFactory::create(this->allocator, Opcode::FVALUE, nullptr, &attrs, value);
+  return NodeFactory::create(this->factory.getAllocator(), Opcode::FVALUE, nullptr, &attrs, value);
 }
 
 egg::ovum::Node egg::ovum::ModuleBuilderBase::createValueString(const String& value) {
   Nodes attrs;
   std::swap(this->attributes, attrs);
-  return NodeFactory::create(this->allocator, Opcode::SVALUE, nullptr, &attrs, value);
+  return NodeFactory::create(this->factory.getAllocator(), Opcode::SVALUE, nullptr, &attrs, value);
+}
+
+egg::ovum::Node egg::ovum::ModuleBuilderBase::createValueShape(const TypeShape& shape) {
+  Nodes attrs;
+  std::swap(this->attributes, attrs);
+  return NodeFactory::create(this->factory.getAllocator(), Opcode::TVALUE, nullptr, &attrs, shape);
 }
 
 egg::ovum::Node egg::ovum::ModuleBuilderBase::createValueArray(const Nodes& elements) {
@@ -773,31 +1044,31 @@ egg::ovum::Node egg::ovum::ModuleBuilderBase::createOperator(Opcode opcode, Oper
   assert(OperatorProperties::from(oper).validate(children.size()));
   Nodes attrs;
   std::swap(this->attributes, attrs);
-  return NodeFactory::create(this->allocator, opcode, &children, &attrs, Int(oper));
+  return NodeFactory::create(this->factory.getAllocator(), opcode, &children, &attrs, Int(oper));
 }
 
 egg::ovum::Node egg::ovum::ModuleBuilderBase::createNode(Opcode opcode) {
   if (this->attributes.empty()) {
-    return NodeFactory::create(this->allocator, opcode);
+    return NodeFactory::create(this->factory.getAllocator(), opcode);
   }
   Nodes attrs;
   std::swap(this->attributes, attrs);
-  return NodeFactory::create(this->allocator, opcode, nullptr, &attrs);
+  return NodeFactory::create(this->factory.getAllocator(), opcode, nullptr, &attrs);
 }
 
 egg::ovum::Node egg::ovum::ModuleBuilderBase::createNode(Opcode opcode, Node&& child0) {
   if (this->attributes.empty()) {
-    return NodeFactory::create(this->allocator, opcode, std::move(child0));
+    return NodeFactory::create(this->factory.getAllocator(), opcode, std::move(child0));
   }
   Nodes nodes{ std::move(child0) };
   Nodes attrs;
   std::swap(this->attributes, attrs);
-  return NodeFactory::create(this->allocator, opcode, &nodes, &attrs);
+  return NodeFactory::create(this->factory.getAllocator(), opcode, &nodes, &attrs);
 }
 
 egg::ovum::Node egg::ovum::ModuleBuilderBase::createNode(Opcode opcode, Node&& child0, Node&& child1) {
   if (this->attributes.empty()) {
-    return NodeFactory::create(this->allocator, opcode, std::move(child0), std::move(child1));
+    return NodeFactory::create(this->factory.getAllocator(), opcode, std::move(child0), std::move(child1));
   }
   Nodes nodes{ std::move(child0), std::move(child1) };
   return ModuleBuilderBase::createNodeWithAttributes(opcode, &nodes);
@@ -805,7 +1076,7 @@ egg::ovum::Node egg::ovum::ModuleBuilderBase::createNode(Opcode opcode, Node&& c
 
 egg::ovum::Node egg::ovum::ModuleBuilderBase::createNode(Opcode opcode, Node&& child0, Node&& child1, Node&& child2) {
   if (this->attributes.empty()) {
-    return NodeFactory::create(this->allocator, opcode, std::move(child0), std::move(child1), std::move(child2));
+    return NodeFactory::create(this->factory.getAllocator(), opcode, std::move(child0), std::move(child1), std::move(child2));
   }
   Nodes nodes{ std::move(child0), std::move(child1), std::move(child2) };
   return ModuleBuilderBase::createNodeWithAttributes(opcode, &nodes);
@@ -813,7 +1084,7 @@ egg::ovum::Node egg::ovum::ModuleBuilderBase::createNode(Opcode opcode, Node&& c
 
 egg::ovum::Node egg::ovum::ModuleBuilderBase::createNode(Opcode opcode, Node&& child0, Node&& child1, Node&& child2, Node&& child3) {
   if (this->attributes.empty()) {
-    return NodeFactory::create(this->allocator, opcode, std::move(child0), std::move(child1), std::move(child2), std::move(child3));
+    return NodeFactory::create(this->factory.getAllocator(), opcode, std::move(child0), std::move(child1), std::move(child2), std::move(child3));
   }
   Nodes nodes{ std::move(child0), std::move(child1), std::move(child2), std::move(child3) };
   return ModuleBuilderBase::createNodeWithAttributes(opcode, &nodes);
@@ -821,7 +1092,7 @@ egg::ovum::Node egg::ovum::ModuleBuilderBase::createNode(Opcode opcode, Node&& c
 
 egg::ovum::Node egg::ovum::ModuleBuilderBase::createNode(Opcode opcode, const Nodes& children) {
   if (this->attributes.empty()) {
-    return NodeFactory::create(this->allocator, opcode, children);
+    return NodeFactory::create(this->factory.getAllocator(), opcode, children);
   }
   return ModuleBuilderBase::createNodeWithAttributes(opcode, &children);
 }
@@ -830,5 +1101,5 @@ egg::ovum::Node egg::ovum::ModuleBuilderBase::createNodeWithAttributes(Opcode op
   assert(!this->attributes.empty());
   Nodes attrs;
   std::swap(this->attributes, attrs);
-  return NodeFactory::create(this->allocator, opcode, children, &attrs);
+  return NodeFactory::create(this->factory.getAllocator(), opcode, children, &attrs);
 }

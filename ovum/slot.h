@@ -26,20 +26,16 @@ namespace egg::ovum {
     virtual void clear() override;
     // Helpers
     static Type::Assignment mutate(ISlot& slot, IAllocator& allocator, const Type& type, Mutation mutation, const Value& value, Value& before);
-    Type::Assignment mutate(const Type& type, Mutation mutation, const Value& value, Value& before) {
-      return Slot::mutate(*this, this->allocator, type, mutation, value, before);
-    }
-    Value value(const Value& empty) const {
-      auto* value = this->get();
-      return (value == nullptr) ? empty : Value(*value);
-    }
-    Value reference(TypeFactory& factory, IBasket& basket, const Type& pointee, Modifiability modifiability);
+    Type::Assignment mutate(const Type& type, Mutation mutation, const Value& value, Value& before);
+    Value value(const Value& empty) const;
+    Value reference(ITypeFactory& factory, IBasket& basket, const Type& pointee, Modifiability modifiability);
     // Debugging
     bool validate(bool optional) const;
     virtual bool validate() const override {
       return this->validate(true);
     }
     virtual void softVisit(const Visitor&) const override;
+    virtual void print(Printer& printer) const override;
   };
 
   class SlotArray {
@@ -48,53 +44,14 @@ namespace egg::ovum {
   private:
     std::vector<SoftPtr<Slot>> vec; // Address stable
   public:
-    explicit SlotArray(size_t size)
-      : vec(size) {
-    };
-    bool empty() const {
-      return this->vec.empty();
-    }
-    size_t length() const {
-      return this->vec.size();
-    }
-    Slot* get(size_t index) const {
-      // Returns the address of the slot or nullptr if not present
-      if (index < this->vec.size()) {
-        return this->vec[index].get();
-      }
-      return nullptr;
-    }
-    Slot* set(IAllocator& allocator, IBasket& basket, size_t index, const Value& value) {
-      // Updates a slot
-      if (index < this->vec.size()) {
-        auto& slot = this->vec[index];
-        if (slot != nullptr) {
-          slot->set(value);
-        } else {
-          slot.set(basket, allocator.makeRaw<Slot>(allocator, basket, value));
-        }
-        return slot.get();
-      }
-      return nullptr;
-    }
-    void resize(IAllocator& allocator, IBasket& basket, size_t size, const Value& fill) {
-      auto before = this->vec.size();
-      this->vec.resize(size);
-      while (before < size) {
-        this->vec[before++].set(basket, allocator.makeRaw<Slot>(allocator, basket, fill));
-      }
-    }
-    void foreach(std::function<void(const Slot& slot)> visitor) const {
-      // Iterate in order
-      for (auto& entry : this->vec) {
-        visitor(*entry);
-      }
-    }
-    void softVisit(const ICollectable::Visitor& visitor) const {
-      for (auto& entry : this->vec) {
-        entry.visit(visitor);
-      }
-    }
+    explicit SlotArray(size_t size);;
+    bool empty() const;
+    size_t length() const;
+    Slot* get(size_t index) const;
+    Slot* set(IAllocator& allocator, IBasket& basket, size_t index, const Value& value);
+    void resize(IAllocator& allocator, IBasket& basket, size_t size, const Value& fill);
+    void foreach(std::function<void(const Slot* slot)> visitor) const;
+    void softVisit(const ICollectable::Visitor& visitor) const;
   };
 
   template<typename K>
@@ -187,5 +144,11 @@ namespace egg::ovum {
         kv.second.visit(visitor);
       }
     }
+  };
+
+  class SlotFactory {
+  public:
+    static ISlot& createSlot(IAllocator& allocator, IBasket& basket);
+    static ISlot& createSlot(IAllocator& allocator, IBasket& basket, const Value& value);
   };
 }

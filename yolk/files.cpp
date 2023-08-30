@@ -102,7 +102,7 @@ std::string egg::yolk::File::getTildeDirectory() {
 
 std::string egg::yolk::File::resolvePath(const std::string& path) {
   // Resolve a file path in normalized form
-  auto resolved = path;
+  auto resolved{ path };
   if (String::startsWith(resolved, "~/")) {
     resolved = File::getTildeDirectory() + resolved.substr(2);
   }
@@ -119,7 +119,8 @@ std::vector<std::string> egg::yolk::File::readDirectory(const std::string& path)
 #if EGG_PLATFORM == EGG_PLATFORM_MSVC
   std::error_code error;
   for (auto& file : std::filesystem::directory_iterator(native, error)) {
-    filenames.push_back(File::normalizePath(file.path().filename().u8string()));
+    auto utf8 = file.path().filename().u8string();
+    filenames.push_back(File::normalizePath(std::string((const char*)utf8.data(), utf8.size())));
   }
 #elif EGG_PLATFORM == EGG_PLATFORM_GCC
   // GCC doesn't have "std::filesystem" at all, yet

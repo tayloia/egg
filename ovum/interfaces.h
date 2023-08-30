@@ -6,8 +6,10 @@ namespace egg::ovum {
   // Forward declarations
   template<typename T> class HardPtr;
   template<typename T> class SoftPtr;
+  enum class Modifiability;
   enum class ValueFlags;
   struct LocationSource;
+  struct TypeShape;
   class Printer;
   class String;
   class StringBuilder;
@@ -17,6 +19,7 @@ namespace egg::ovum {
   class IExecution;
   class ISlot;
   class IType;
+  class ITypeFactory;
   class IValue;
 
   enum class Mutation {
@@ -38,14 +41,6 @@ namespace egg::ovum {
     ShiftRight,
     ShiftRightUnsigned,
     Subtract
-  };
-
-  enum class Modifiability {
-    None = 0,
-    Read = 1 << 0,
-    Write = 1 << 1,
-    Mutate = 1 << 2,
-    Delete = 1 << 3
   };
 
   class ILogger {
@@ -146,6 +141,7 @@ namespace egg::ovum {
     virtual size_t collect() = 0;
     virtual size_t purge() = 0;
     virtual bool statistics(Statistics& out) const = 0;
+    virtual void print(Printer& printer) const = 0;
     // Helpers
     template<typename T>
     T* soften(const T* collectable) {
@@ -157,6 +153,7 @@ namespace egg::ovum {
       }
       return nullptr;
     }
+    bool verify(std::ostream& os, size_t minimum = 0, size_t maximum = SIZE_MAX);
   };
 
   class ICollectable : public IHardAcquireRelease {
@@ -169,6 +166,7 @@ namespace egg::ovum {
     virtual IBasket* softGetBasket() const = 0;
     virtual SetBasketResult softSetBasket(IBasket* desired) const = 0;
     virtual void softVisit(const Visitor& visitor) const = 0;
+    virtual void print(Printer& printer) const = 0;
   };
 
   class IParameters {
@@ -194,7 +192,7 @@ namespace egg::ovum {
     };
     // Interface
     virtual ~IFunctionSignatureParameter() {}
-    virtual String getName() const = 0; // May be empty
+    virtual String getName() const = 0; // May be empty if positional
     virtual Type getType() const = 0;
     virtual size_t getPosition() const = 0; // SIZE_MAX if not positional
     virtual Flags getFlags() const = 0;
@@ -204,10 +202,11 @@ namespace egg::ovum {
   public:
     // Interface
     virtual ~IFunctionSignature() {}
-    virtual String getFunctionName() const = 0;
+    virtual String getName() const = 0;
     virtual Type getReturnType() const = 0;
     virtual size_t getParameterCount() const = 0;
     virtual const IFunctionSignatureParameter& getParameter(size_t index) const = 0;
+    virtual Type getGeneratorType() const = 0;
   };
 
   class IIndexSignature {
@@ -237,27 +236,76 @@ namespace egg::ovum {
     virtual bool isClosed() const = 0;
   };
 
-  struct ObjectShape {
-    const IFunctionSignature* callable;
-    const IPropertySignature* dotable;
-    const IIndexSignature* indexable;
-    const IIteratorSignature* iterable;
-  };
-
-  struct PointerShape {
-    const IType* pointee;
-    Modifiability modifiability;
+  class IPointerSignature {
+  public:
+    // Interface
+    virtual ~IPointerSignature() {}
+    virtual Type getType() const = 0;
+    virtual Modifiability getModifiability() const = 0;
   };
 
   class IType : public IHardAcquireRelease {
   public:
     virtual ValueFlags getPrimitiveFlags() const = 0;
-    virtual const ObjectShape* getObjectShape(size_t index) const = 0;
+    virtual const TypeShape* getObjectShape(size_t index) const = 0;
     virtual size_t getObjectShapeCount() const = 0;
-    virtual const PointerShape* getPointerShape(size_t index) const = 0;
-    virtual size_t getPointerShapeCount() const = 0;
     virtual std::pair<std::string, int> toStringPrecedence() const = 0;
     virtual String describeValue() const = 0;
+  };
+
+  class StringProperties; // WIBBLE remove
+
+  class ITypeBuilder : public IHardAcquireRelease {
+  public:
+    virtual void addPositionalParameter(const Type& type, const String& name, bool optional) = 0;
+    virtual void addNamedParameter(const Type& type, const String& name, bool optional) = 0;
+    virtual void addVariadicParameter(const Type& type, const String& name, bool optional) = 0;
+    virtual void addPredicateParameter(const Type& type, const String& name, bool optional) = 0;
+    virtual void addProperty(const Type& type, const String& name, Modifiability modifiability) = 0;
+    virtual void defineCallable(const Type& rettype, const Type& gentype) = 0;
+    virtual void defineDotable(const Type& unknownType, Modifiability unknownModifiability) = 0;
+    virtual void defineIndexable(const Type& resultType, const Type& indexType, Modifiability modifiability) = 0;
+    virtual void defineIterable(const Type& resultType) = 0;
+    virtual Type build() = 0;
+  };
+  using TypeBuilder = HardPtr<ITypeBuilder>;
+
+  class ITypeFactory {
+  public:
+    // Interface
+    virtual ~ITypeFactory() {}
+    virtual IAllocator& getAllocator() const = 0;
+    virtual Type createSimple(ValueFlags flags) = 0;
+    virtual Type createPointer(const Type& pointee, Modifiability modifiability) = 0;
+    virtual Type createArray(const Type& result, Modifiability modifiability) = 0;
+    virtual Type createMap(const Type& result, const Type& index, Modifiability modifiability) = 0;
+    virtual Type createUnion(const std::vector<Type>& types) = 0;
+    virtual Type createIterator(const Type& element) = 0;
+    virtual Type addVoid(const Type& type) = 0;
+    virtual Type addNull(const Type& type) = 0;
+    virtual Type removeVoid(const Type& type) = 0;
+    virtual Type removeNull(const Type& type) = 0;
+    virtual TypeBuilder createTypeBuilder(const String& name, const String& description) = 0;
+    virtual TypeBuilder createFunctionBuilder(const Type& rettype, const String& name, const String& description) = 0;
+    virtual TypeBuilder createGeneratorBuilder(const Type& gentype, const String& name, const String& description) = 0;
+
+    // WIBBLE
+    virtual const StringProperties& getStringProperties() = 0;
+
+    virtual const TypeShape& getObjectShape() = 0;
+    virtual const TypeShape& getStringShape() = 0;
+
+    virtual Type getVanillaArray() = 0;
+    virtual Type getVanillaDictionary() = 0;
+    virtual Type getVanillaError() = 0;
+    virtual Type getVanillaKeyValue() = 0;
+    virtual Type getVanillaPredicate() = 0;
+
+    const IFunctionSignature* queryCallable(const Type& type);
+    const IPropertySignature* queryDotable(const Type& type);
+    const IIndexSignature* queryIndexable(const Type& type);
+    const IIteratorSignature* queryIterable(const Type& type);
+    const IPointerSignature* queryPointable(const Type& type);
   };
 
   class IObject : public ICollectable {

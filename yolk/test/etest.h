@@ -3,14 +3,14 @@ namespace egg::test {
     EggEngineContextFromFactory(const EggEngineContextFromFactory&) = delete;
     EggEngineContextFromFactory& operator=(const EggEngineContextFromFactory&) = delete;
   private:
-    egg::ovum::TypeFactory& factory;
+    egg::ovum::ITypeFactory& factory;
     Logger logger;
   public:
-    explicit EggEngineContextFromFactory(egg::ovum::TypeFactory& factory) : factory(factory), logger() {}
+    explicit EggEngineContextFromFactory(egg::ovum::ITypeFactory& factory) : factory(factory), logger() {}
     virtual egg::ovum::IAllocator& getAllocator() override {
-      return this->factory.allocator;
+      return this->factory.getAllocator();
     }
-    virtual egg::ovum::TypeFactory& getTypeFactory() override {
+    virtual egg::ovum::ITypeFactory& getTypeFactory() override {
       return this->factory;
     }
     virtual void log(Source source, Severity severity, const std::string& message) override {

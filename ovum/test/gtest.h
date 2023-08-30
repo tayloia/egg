@@ -4,6 +4,7 @@
 #pragma warning(disable: 26812 26495)
 #endif
 #include "gtest/gtest.h"
+#include "gtest/gtest-spi.h"
 #if EGG_PLATFORM == EGG_PLATFORM_MSVC
 #pragma warning(pop)
 #endif
@@ -49,7 +50,7 @@ namespace egg::test {
 #define ASSERT_CONTAINS(haystack, needle) ASSERT_PRED_FORMAT2(egg::test::assertContains, haystack, needle)
 #define ASSERT_NOTCONTAINS(haystack, needle) ASSERT_PRED_FORMAT2(egg::test::assertNotContains, haystack, needle)
 #define ASSERT_STARTSWITH(haystack, needle) ASSERT_PRED_FORMAT2(egg::test::assertStartsWith, haystack, needle)
-#define ASSERT_ENDSWITH(haystack, needle)   ASSERT_PRED_FORMAT2(egg::test::assertEndsWith, haystack, needle)
+#define ASSERT_ENDSWITH(haystack, needle) ASSERT_PRED_FORMAT2(egg::test::assertEndsWith, haystack, needle)
 
 // See https://stackoverflow.com/a/43569017
 #define ASSERT_THROW_E(statement, expected_exception, caught) \
@@ -66,3 +67,5 @@ namespace egg::test {
   { \
     FAIL() << "Expected: " #statement " throws an exception of type " #expected_exception ".\n  Actual: it throws a different type."; \
   }
+
+#define ASSERT_FAILS(statement) EXPECT_FATAL_FAILURE(statement, "")

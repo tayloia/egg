@@ -57,7 +57,7 @@ TEST(TestEggEngine, LogFromEngine) {
   egg::test::EggEngineContext context;
   StringTextStream stream("print(`hello`, 123);");
   auto engine = EggEngineFactory::createEngineFromTextStream(stream);
-  ASSERT_EQ(egg::ovum::ILogger::Severity::Information, engine->run(context));
+  ASSERT_EQ(egg::ovum::ILogger::Severity::None, engine->run(context));
   ASSERT_EQ("hello123\n", context.logged());
 }
 
@@ -67,7 +67,7 @@ TEST(TestEggEngine, DuplicateSymbols) {
   auto engine = EggEngineFactory::createEngineFromTextStream(stream);
   ASSERT_EQ(egg::ovum::ILogger::Severity::Error, engine->run(context));
   ASSERT_STARTSWITH(context.logged(), "<COMPILER><ERROR>(2,5): Duplicate symbol declared at module level: 'a'\n"
-                                      "<COMPILER>(1,5): Previous declaration was here\n");
+                                      "<COMPILER><INFORMATION>(1,5): Previous declaration was here\n");
 }
 
 TEST(TestEggEngine, WorkingFile) {
@@ -77,7 +77,7 @@ TEST(TestEggEngine, WorkingFile) {
   auto engine = EggEngineFactory::createEngineFromTextStream(stream);
   ASSERT_EQ(egg::ovum::ILogger::Severity::None, engine->prepare(context));
   ASSERT_EQ("", context.logged());
-  ASSERT_EQ(egg::ovum::ILogger::Severity::Information, engine->execute(context));
+  ASSERT_EQ(egg::ovum::ILogger::Severity::None, engine->execute(context));
   ASSERT_EQ("55\n4950\n", context.logged());
 }
 

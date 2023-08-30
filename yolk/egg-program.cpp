@@ -8,13 +8,7 @@
 
 #include <cmath>
 
-void egg::yolk::EggProgramSymbol::setInferredType(const egg::ovum::Type& inferred) {
-  // We only allow inferred type updates
-  assert(this->type == nullptr);
-  this->type = inferred;
-}
-
-void egg::yolk::EggProgramSymbolTable::addBuiltins(egg::ovum::TypeFactory& factory, egg::ovum::IBasket& basket) {
+void egg::yolk::EggProgramSymbolTable::addBuiltins(egg::ovum::ITypeFactory& factory, egg::ovum::IBasket& basket) {
   // TODO add built-in symbol to symbol table here
   this->addBuiltin("string", egg::ovum::BuiltinFactory::createStringInstance(factory, basket));
   this->addBuiltin("type", egg::ovum::BuiltinFactory::createTypeInstance(factory, basket));
@@ -107,13 +101,13 @@ egg::ovum::ILogger::Severity egg::yolk::EggProgram::execute(IEggEngineContext& c
   return severity;
 }
 
-egg::ovum::HardPtr<egg::yolk::EggProgramContext> egg::yolk::EggProgram::createRootContext(egg::ovum::TypeFactory& factory, egg::ovum::ILogger& logger, EggProgramSymbolTable& symtable, egg::ovum::ILogger::Severity& maximumSeverity) {
+egg::ovum::HardPtr<egg::yolk::EggProgramContext> egg::yolk::EggProgram::createRootContext(egg::ovum::ITypeFactory& factory, egg::ovum::ILogger& logger, EggProgramSymbolTable& symtable, egg::ovum::ILogger::Severity& maximumSeverity) {
   egg::ovum::LocationRuntime location(this->root->location(), "<module>");
-  return egg::ovum::HardPtr<EggProgramContext>(factory.allocator.makeRaw<EggProgramContext>(factory, location, logger, symtable, maximumSeverity));
+  return egg::ovum::HardPtr<EggProgramContext>(factory.getAllocator().makeRaw<EggProgramContext>(factory, location, logger, symtable, maximumSeverity));
 }
 
 egg::ovum::HardPtr<egg::yolk::EggProgramContext> egg::yolk::EggProgramContext::createNestedContext(EggProgramSymbolTable& parent, ScopeFunction* prepareFunction) {
-  return egg::ovum::HardPtr<EggProgramContext>(factory.allocator.makeRaw<EggProgramContext>(*this, parent, prepareFunction));
+  return egg::ovum::HardPtr<EggProgramContext>(factory.getAllocator().makeRaw<EggProgramContext>(*this, parent, prepareFunction));
 }
 
 void egg::yolk::EggProgramContext::log(egg::ovum::ILogger::Source source, egg::ovum::ILogger::Severity severity, const std::string& message) {
@@ -126,21 +120,20 @@ void egg::yolk::EggProgramContext::log(egg::ovum::ILogger::Source source, egg::o
 bool egg::yolk::EggProgramContext::findDuplicateSymbols(const std::vector<std::shared_ptr<IEggProgramNode>>& statements) {
   // Check for duplicate symbols
   bool error = false;
-  egg::ovum::String name;
-  auto type = egg::ovum::Type::Void;
+  EggProgramSymbol symbol;
   std::map<egg::ovum::String, egg::ovum::LocationSource> seen;
   for (auto& statement : statements) {
-    if (statement->symbol(name, type)) {
+    if (statement->symbol(symbol)) {
       auto here = statement->location();
-      auto already = seen.emplace(std::make_pair(name, here));
+      auto already = seen.emplace(std::make_pair(symbol.name, here));
       if (!already.second) {
         // Already seen at this level
-        this->compilerProblem(egg::ovum::ILogger::Severity::Error, here, "Duplicate symbol declared at module level: '", name, "'");
+        this->compilerProblem(egg::ovum::ILogger::Severity::Error, here, "Duplicate symbol declared at module level: '", symbol.name, "'");
         this->compilerProblem(egg::ovum::ILogger::Severity::Information, already.first->second, "Previous declaration was here");
         error = true;
-      } else if (this->symtable->findSymbol(name) != nullptr) {
+      } else if (this->symtable->findSymbol(symbol.name) != nullptr) {
         // Seen at an enclosing level
-        this->compilerWarning(statement->location(), "Symbol name hides previously declared symbol in enclosing level: '", name, "'");
+        this->compilerWarning(statement->location(), "Symbol name hides previously declared symbol in enclosing level: '", symbol.name, "'");
       }
     }
   }

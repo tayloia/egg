@@ -16,7 +16,7 @@ namespace egg::test {
       this->validate();
     }
     void validate() const {
-      egg::ovum::IAllocator::Statistics stats;
+      egg::ovum::IAllocator::Statistics stats{};
       ASSERT_TRUE(this->statistics(stats));
       ASSERT_EQ(stats.currentBlocksAllocated, 0u);
       ASSERT_EQ(stats.currentBytesAllocated, 0u);
@@ -35,49 +35,12 @@ namespace egg::test {
     }
   };
 
-  class Execution final : public egg::ovum::IExecution, public egg::ovum::TypeFactory {
-    Execution(const Execution&) = delete;
-    Execution& operator=(const Execution&) = delete;
-  private:
-    egg::ovum::IBasket& basket;
-    egg::ovum::ILogger& logger;
+  class TypeFactory final : public egg::ovum::TypeFactory {
+    TypeFactory(const TypeFactory&) = delete;
+    TypeFactory& operator=(const TypeFactory&) = delete;
   public:
-    Execution(egg::ovum::IAllocator& allocator, egg::ovum::IBasket& basket, egg::ovum::ILogger& logger)
-      : TypeFactory(allocator),
-        basket(basket),
-        logger(logger) {
-    }
-    virtual egg::ovum::IAllocator& getAllocator() const override {
-      return this->allocator;
-    }
-    virtual egg::ovum::IBasket& getBasket() const override {
-      return this->basket;
-    }
-    virtual egg::ovum::Value raise(const egg::ovum::String& message) override {
-      auto value = egg::ovum::ValueFactory::create(this->allocator, message);
-      return egg::ovum::ValueFactory::createFlowControl(this->allocator, egg::ovum::ValueFlags::Throw, value);
-    }
-    virtual egg::ovum::Value assertion(const egg::ovum::Value& predicate) override {
-      egg::ovum::Object object;
-      if (predicate->getObject(object)) {
-        // Predicates can be functions that throw exceptions, as well as 'bool' values
-        auto type = object->getRuntimeType();
-        if (type.queryCallable() != nullptr) {
-          // Call the predicate directly
-          return object->call(*this, egg::ovum::Object::ParametersNone);
-        }
-      }
-      egg::ovum::Bool value;
-      if (!predicate->getBool(value)) {
-        return this->raiseFormat("'assert()' expects its parameter to be a 'bool' or 'void()', but got '", predicate->getRuntimeType().toString(), "' instead");
-      }
-      if (value) {
-        return egg::ovum::Value::Void;
-      }
-      return this->raise("Assertion is untrue");
-    }
-    virtual void print(const std::string& utf8) override {
-      this->logger.log(egg::ovum::ILogger::Source::User, egg::ovum::ILogger::Severity::None, utf8);
+    explicit TypeFactory(Allocator& allocator)
+      : egg::ovum::TypeFactory(allocator) {
     }
   };
 
@@ -110,6 +73,9 @@ namespace egg::test {
       case Severity::Verbose:
         buffer += "<VERBOSE>";
         break;
+      case Severity::Information:
+        buffer += "<INFORMATION>";
+        break;
       case Severity::Warning:
         buffer += "<WARNING>";
         break;
@@ -117,7 +83,6 @@ namespace egg::test {
         buffer += "<ERROR>";
         break;
       case Severity::None:
-      case Severity::Information:
         break;
       }
       buffer += message;
@@ -132,6 +97,12 @@ namespace egg::test {
     }
   };
 
+  inline ::testing::AssertionResult assertTypeEQ(const char* lhs_expression, const char* rhs_expression, const egg::ovum::Type& lhs, const egg::ovum::Type& rhs) {
+    if (egg::ovum::Type::areEquivalent(lhs, rhs)) {
+      return ::testing::AssertionSuccess();
+    }
+    return ::testing::internal::CmpHelperEQFailure(lhs_expression, rhs_expression, lhs, rhs);
+  }
   inline ::testing::AssertionResult assertValueEQ(const char* lhs_expression, const char* rhs_expression, const egg::ovum::Value& lhs, const egg::ovum::Value& rhs) {
     if (lhs->equals(rhs.get(), egg::ovum::ValueCompare::Binary)) {
       return ::testing::AssertionSuccess();
@@ -141,8 +112,17 @@ namespace egg::test {
   inline void assertString(const char* expected, const egg::ovum::String& actual) {
     ASSERT_STREQ(expected, actual.toUTF8().c_str());
   }
+  inline void assertString(const char8_t* expected, const egg::ovum::String& actual) {
+    ASSERT_STREQ(reinterpret_cast<const char*>(expected), actual.toUTF8().c_str());
+  }
   inline void assertString(const egg::ovum::String& expected, const egg::ovum::String& actual) {
     ASSERT_STREQ(expected.toUTF8().c_str(), actual.toUTF8().c_str());
+  }
+  inline void assertType(const egg::ovum::Type& expected, const egg::ovum::Type& actual) {
+    ASSERT_PRED_FORMAT2(assertTypeEQ, expected, actual);
+  }
+  inline void assertType(std::nullptr_t, const egg::ovum::Type& actual) {
+    ASSERT_PRED_FORMAT2(assertTypeEQ, {}, actual);
   }
   inline void assertValue(egg::ovum::ValueFlags expected, const egg::ovum::Value& value) {
     ASSERT_EQ(expected, value->getFlags());
@@ -152,19 +132,19 @@ namespace egg::test {
   }
   inline void assertValue(bool expected, const egg::ovum::Value& value) {
     ASSERT_EQ(egg::ovum::ValueFlags::Bool, value->getFlags());
-    bool actual;
+    bool actual = false;;
     ASSERT_TRUE(value->getBool(actual));
     ASSERT_EQ(expected, actual);
   }
   inline void assertValue(int expected, const egg::ovum::Value& value) {
     ASSERT_EQ(egg::ovum::ValueFlags::Int, value->getFlags());
-    egg::ovum::Int actual;
+    egg::ovum::Int actual = ~0;
     ASSERT_TRUE(value->getInt(actual));
     ASSERT_EQ(expected, actual);
   }
   inline void assertValue(double expected, const egg::ovum::Value& value) {
     ASSERT_EQ(egg::ovum::ValueFlags::Float, value->getFlags());
-    egg::ovum::Float actual;
+    egg::ovum::Float actual = std::nan("");
     ASSERT_TRUE(value->getFloat(actual));
     ASSERT_EQ(expected, actual);
   }
@@ -184,6 +164,12 @@ namespace egg::test {
 }
 
 template<>
+inline void ::testing::internal::PrintTo(const egg::ovum::Type& value, std::ostream* stream) {
+  // Pretty-print the type
+  egg::ovum::Print::write(*stream, value, egg::ovum::Print::Options::DEFAULT);
+}
+
+template<>
 inline void ::testing::internal::PrintTo(const egg::ovum::ValueFlags& value, std::ostream* stream) {
   // Pretty-print the value flags
   egg::ovum::Print::write(*stream, value, egg::ovum::Print::Options::DEFAULT);
@@ -197,16 +183,17 @@ inline void ::testing::internal::PrintTo(const egg::ovum::Value& value, std::ost
 
 template<>
 inline void ::testing::internal::PrintTo(const egg::ovum::ILogger::Severity& value, std::ostream* stream) {
-  // Pretty-print the value flags
+  // Pretty-print the logger severity
   egg::ovum::Print::write(*stream, value, egg::ovum::Print::Options::DEFAULT);
 }
 
 template<>
 inline void ::testing::internal::PrintTo(const egg::ovum::ILogger::Source& value, std::ostream* stream) {
-  // Pretty-print the value flags
+  // Pretty-print the logger source
   egg::ovum::Print::write(*stream, value, egg::ovum::Print::Options::DEFAULT);
 }
 
 #define ASSERT_STRING(expected, string) egg::test::assertString(expected, string)
+#define ASSERT_TYPE(expected, string) egg::test::assertType(expected, string)
 #define ASSERT_VALUE(expected, value) egg::test::assertValue(expected, value)
 #define ASSERT_VARIANT(expected, variant) egg::test::assertValue(expected, variant)

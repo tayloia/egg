@@ -251,6 +251,7 @@ egg.syntax = function(syntax, div) {
   }
   function bottlecaps(rulebase) {
     var rules = Object.keys(rulebase);
+    var name = "<unknown>";
     function expand(rule, parentheses) {
       if (typeof rule === "string") {
         return rule;
@@ -276,7 +277,7 @@ egg.syntax = function(syntax, div) {
         case "tokens":
           return value.map(x => "'" + x + "'").join(" | ");
         default:
-          console.error("Invalid bottlecaps tag:", JSON.stringify(key));
+          console.error("Invalid bottlecaps tag in " + name + ":", JSON.stringify(key));
           return "[unknown]";
       }
       if (parentheses) {
@@ -286,6 +287,7 @@ egg.syntax = function(syntax, div) {
     }
     var text = [];
     for (var rule of rules) {
+      name = rule;
       var lines = "";
       var before = rule + " ::= ";
       if (rulebase[rule].choice) {

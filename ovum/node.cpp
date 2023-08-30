@@ -44,6 +44,9 @@ namespace {
     virtual String getString() const override {
       return this->extra()->getString();
     }
+    virtual const TypeShape& getTypeShape() const override {
+      return this->extra()->getTypeShape();
+    }
     virtual Operator getOperator() const override {
       return this->extra()->getOperator();
     }
@@ -120,6 +123,9 @@ namespace {
     String getString() const {
       throw std::runtime_error("Attempt to read non-existent string value of AST node");
     }
+    const TypeShape& getTypeShape() const {
+      throw std::runtime_error("Attempt to read non-existent type shape value of AST node");
+    }
     Operator getOperator() const {
       throw std::runtime_error("Attempt to read non-existent operator value of AST node");
     }
@@ -140,6 +146,9 @@ namespace {
     }
     String getString() const {
       throw std::runtime_error("Attempt to read string value of AST node with integer value");
+    }
+    const TypeShape& getTypeShape() const {
+      throw std::runtime_error("Attempt to read type shape value of AST node with integer value");
     }
     Operator getOperator() const {
       throw std::runtime_error("Attempt to read operator value of AST node with integer value");
@@ -163,6 +172,9 @@ namespace {
     String getString() const {
       throw std::runtime_error("Attempt to read string value of AST node with floating-point value");
     }
+    const TypeShape& getTypeShape() const {
+      throw std::runtime_error("Attempt to read type shape value of AST node with floating-point value");
+    }
     Operator getOperator() const {
       throw std::runtime_error("Attempt to read operator value of AST node with floating-point value");
     }
@@ -185,10 +197,38 @@ namespace {
     String getString() const {
       return this->operand;
     }
+    const TypeShape& getTypeShape() const {
+      throw std::runtime_error("Attempt to read type shape value of AST node with string value");
+    }
     Operator getOperator() const {
       throw std::runtime_error("Attempt to read operator value of AST node with string value");
     }
     String operand;
+  };
+
+  struct NodeOperandTypeShape {
+    using Type = const TypeShape&;
+    explicit NodeOperandTypeShape(Type operand) : operand(operand) {
+    }
+    INode::Operand getOperand() const {
+      return INode::Operand::TypeShape;
+    }
+    Int getInt() const {
+      throw std::runtime_error("Attempt to read integer value of AST node with type shape value");
+    }
+    Float getFloat() const {
+      throw std::runtime_error("Attempt to read floating-point value of AST node with type shape value");
+    }
+    String getString() const {
+      throw std::runtime_error("Attempt to read string value of AST node with type shape value");
+    }
+    const TypeShape& getTypeShape() const {
+      return this->operand;
+    }
+    Operator getOperator() const {
+      throw std::runtime_error("Attempt to read operator value of AST node with type shape value");
+    }
+    TypeShape operand;
   };
 
   struct NodeOperandOperator {
@@ -206,6 +246,9 @@ namespace {
     }
     String getString() const {
       throw std::runtime_error("Attempt to read string value of AST node with operator value");
+    }
+    const TypeShape& getTypeShape() const {
+      throw std::runtime_error("Attempt to read type shape value of AST node with operator value");
     }
     Operator getOperator() const {
       return this->operand;
@@ -244,7 +287,6 @@ namespace {
     size_t attributes;
   };
 
-  EGG_WARNING_SUPPRESS_INTELLISENSE_BEGIN();
   template<typename CHILDREN, typename ATTRIBUTES, typename OPERAND, typename LOCATION>
   struct NodeExtra final : public CHILDREN, public ATTRIBUTES, public OPERAND, public LOCATION {
     // cppcheck-suppress uninitMemberVar
@@ -258,7 +300,6 @@ namespace {
     }
     INode* base[1];
   };
-  EGG_WARNING_SUPPRESS_INTELLISENSE_END();
 
   template<typename CHILDREN, typename ATTRIBUTES, typename OPERAND, typename LOCATION>
   NodeContiguous<NodeExtra<CHILDREN, ATTRIBUTES, OPERAND, LOCATION>>* createNodeExtra(IAllocator& allocator, Opcode opcode, size_t slots, typename OPERAND::Type operand) {
@@ -353,6 +394,10 @@ namespace {
         printer << ' ';
         Print::ascii(printer.stream(), node->getString().toUTF8(), '"');
         break;
+      case INode::Operand::TypeShape:
+        printer << ' ';
+        node->getTypeShape().print(printer);
+        break;
       case INode::Operand::Operator:
         printer << ' ' << OperatorProperties::str(node->getOperator());
         break;
@@ -370,7 +415,7 @@ namespace {
   }
 
   Opcode simpleTypeToOpcode(ValueFlags flags) {
-    EGG_WARNING_SUPPRESS_SWITCH_BEGIN();
+    EGG_WARNING_SUPPRESS_SWITCH_BEGIN
     switch (flags) {
     case ValueFlags::Void:
       return Opcode::VOID;
@@ -391,7 +436,7 @@ namespace {
     case ValueFlags::AnyQ:
       return Opcode::ANYQ;
     }
-    EGG_WARNING_SUPPRESS_SWITCH_END();
+    EGG_WARNING_SUPPRESS_SWITCH_END
     return Opcode::END;
   }
 
@@ -456,38 +501,32 @@ namespace {
     return NodeFactory::create(allocator, Opcode::CALLABLE, &children);
   }
 
-  Node buildObjectType(IAllocator& allocator, const NodeLocation& location, const ObjectShape& shape) {
+  Node buildPointable(IAllocator& allocator, const NodeLocation& location, const IPointerSignature& signature) {
+    Nodes children;
+    children.push_back(NodeFactory::createType(allocator, location, signature.getType()));
+    // ('pointer' pointee)
+    return NodeFactory::create(allocator, Opcode::POINTER, &children);
+  }
+
+  Node buildObjectType(IAllocator& allocator, const NodeLocation& location, const TypeShape& shape) {
     Nodes children;
     if (shape.callable != nullptr) {
       children.push_back(buildCallable(allocator, location, *shape.callable));
     }
+    if (shape.pointable != nullptr) {
+      children.push_back(buildPointable(allocator, location, *shape.pointable));
+    }
     return NodeFactory::create(allocator, location, Opcode::OBJECT, &children);
   }
 
-  // Forward declaration for recursion
-  Node buildType(IAllocator& allocator, const NodeLocation& location, const IType& type);
-
-  Node buildPointerType(IAllocator& allocator, const NodeLocation& location, const PointerShape& shape) {
-    assert(shape.pointee != nullptr);
-    Node child = buildType(allocator, location, *shape.pointee);
-    return NodeFactory::create(allocator, Opcode::POINTER, std::move(child));
-  }
-
   Node buildType(IAllocator& allocator, const NodeLocation& location, const IType& type) {
-    // TODO shapes other than object
     Nodes nodes;
     buildPrimitiveType(nodes, allocator, type.getPrimitiveFlags());
-    auto oshapes = type.getObjectShapeCount();
-    for (size_t oshape = 0; oshape < oshapes; ++oshape) {
-      auto* shape = type.getObjectShape(oshape);
+    auto shapes = type.getObjectShapeCount();
+    for (size_t index = 0; index < shapes; ++index) {
+      auto* shape = type.getObjectShape(index);
       assert(shape != nullptr);
       nodes.push_back(buildObjectType(allocator, location, *shape));
-    }
-    auto pshapes = type.getPointerShapeCount();
-    for (size_t pshape = 0; pshape < pshapes; ++pshape) {
-      auto* shape = type.getPointerShape(pshape);
-      assert(shape != nullptr);
-      nodes.push_back(buildPointerType(allocator, location, *shape));
     }
     assert(!nodes.empty());
     if (nodes.size() == 1) {
@@ -561,6 +600,11 @@ egg::ovum::Node egg::ovum::NodeFactory::create(IAllocator& allocator, Opcode opc
   return createNodeExtra<NodeOperandString, NodeLocationNone>(allocator, nullptr, opcode, children, attributes, value);
 }
 
+egg::ovum::Node egg::ovum::NodeFactory::create(IAllocator& allocator, Opcode opcode, const Nodes* children, const Nodes* attributes, const TypeShape& value) {
+  assert(validateOpcode(opcode, children, true));
+  return createNodeExtra<NodeOperandTypeShape, NodeLocationNone>(allocator, nullptr, opcode, children, attributes, value);
+}
+
 egg::ovum::Node egg::ovum::NodeFactory::create(IAllocator& allocator, Opcode opcode, const Nodes* children, const Nodes* attributes, Operator value) {
   assert(validateOpcode(opcode, children, true));
   return createNodeExtra<NodeOperandOperator, NodeLocationNone>(allocator, nullptr, opcode, children, attributes, value);
@@ -617,6 +661,10 @@ egg::ovum::Node egg::ovum::NodeFactory::createValue(IAllocator& allocator, doubl
 
 egg::ovum::Node egg::ovum::NodeFactory::createValue(IAllocator& allocator, const String& value) {
   return createNodeOperand<NodeOperandString>(allocator, Opcode::SVALUE, value);
+}
+
+egg::ovum::Node egg::ovum::NodeFactory::createValue(IAllocator& allocator, const TypeShape& value) {
+  return createNodeOperand<NodeOperandTypeShape>(allocator, Opcode::TVALUE, value);
 }
 
 egg::ovum::Node egg::ovum::NodeFactory::createType(IAllocator& allocator, const NodeLocation& location, const Type& type) {

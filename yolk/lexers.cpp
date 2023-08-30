@@ -8,7 +8,7 @@ namespace {
   using namespace egg::yolk;
 
   class Lexer : public ILexer {
-    EGG_NO_COPY(Lexer);
+    EGG_NO_COPY(Lexer)
   private:
     TextStream& stream;
   public:
@@ -336,7 +336,7 @@ namespace {
   };
 
   class FileLexer : public Lexer {
-    EGG_NO_COPY(FileLexer);
+    EGG_NO_COPY(FileLexer)
   private:
     FileTextStream stream;
   public:
@@ -346,7 +346,7 @@ namespace {
   };
 
   class StringLexer : public Lexer {
-    EGG_NO_COPY(StringLexer);
+    EGG_NO_COPY(StringLexer)
   private:
     StringTextStream stream;
   public:

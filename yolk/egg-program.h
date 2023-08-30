@@ -15,12 +15,19 @@ namespace egg::yolk {
     Abandon = 0x80
   };
 
+  struct EggProgramSymbol final {
+  public:
+    enum class Kind { Builtin, Readonly, ReadWrite, Type } kind;
+    egg::ovum::String name;
+    egg::ovum::Type type;
+  };
+
   class IEggProgramNode {
   public:
     virtual ~IEggProgramNode() {}
     virtual egg::ovum::Type getType() const = 0;
     virtual egg::ovum::LocationSource location() const = 0;
-    virtual bool symbol(egg::ovum::String& nameOut, egg::ovum::Type& typeOut) const = 0;
+    virtual bool symbol(EggProgramSymbol& out) const = 0;
     virtual void empredicate(EggProgramContext& context, std::shared_ptr<IEggProgramNode>& ptr) = 0;
     virtual EggProgramNodeFlags prepare(EggProgramContext& context) = 0;
     virtual void dump(std::ostream& os) const = 0;
@@ -47,24 +54,8 @@ namespace egg::yolk {
     EGG_PROGRAM_MUTATE_OPERATORS(EGG_PROGRAM_ASSIGN_OPERATOR_DECLARE)
   };
 
-  class EggProgramSymbol final {
-  public:
-    enum class Kind { Builtin, Readonly, ReadWrite };
-  private:
-    Kind kind;
-    egg::ovum::String name;
-    egg::ovum::Type type;
-  public:
-    EggProgramSymbol(Kind kind, const egg::ovum::String& name, const egg::ovum::Type& type)
-      : kind(kind), name(name), type(type) {
-    }
-    const egg::ovum::String& getName() const { return this->name; }
-    const egg::ovum::IType& getType() const { return *this->type; }
-    void setInferredType(const egg::ovum::Type& inferred);
-  };
-
   class EggProgramSymbolTable final : public egg::ovum::HardReferenceCounted<egg::ovum::IHardAcquireRelease> {
-    EGG_NO_COPY(EggProgramSymbolTable);
+    EGG_NO_COPY(EggProgramSymbolTable)
   private:
     std::map<egg::ovum::String, std::shared_ptr<EggProgramSymbol>> map;
     egg::ovum::HardPtr<EggProgramSymbolTable> parent;
@@ -74,14 +65,14 @@ namespace egg::yolk {
         map(),
         parent(parent) {
     }
-    void addBuiltins(egg::ovum::TypeFactory& factory, egg::ovum::IBasket& basket);
+    void addBuiltins(egg::ovum::ITypeFactory& factory, egg::ovum::IBasket& basket);
     void addBuiltin(const std::string& name, const egg::ovum::Value& value);
     std::shared_ptr<EggProgramSymbol> addSymbol(EggProgramSymbol::Kind kind, const egg::ovum::String& name, const egg::ovum::Type& type);
     std::shared_ptr<EggProgramSymbol> findSymbol(const egg::ovum::String& name, bool includeParents = true) const;
   };
 
   class EggProgram final {
-    EGG_NO_COPY(EggProgram);
+    EGG_NO_COPY(EggProgram)
   private:
     egg::ovum::Basket basket;
     egg::ovum::String resource;
@@ -98,7 +89,7 @@ namespace egg::yolk {
       (void)this->basket->collect();
       // The destructor for 'basket' will assert if this collection doesn't free up everything in the basket
     }
-    egg::ovum::HardPtr<EggProgramContext> createRootContext(egg::ovum::TypeFactory& factory, egg::ovum::ILogger& logger, EggProgramSymbolTable& symtable, egg::ovum::ILogger::Severity& maximumSeverity);
+    egg::ovum::HardPtr<EggProgramContext> createRootContext(egg::ovum::ITypeFactory& factory, egg::ovum::ILogger& logger, EggProgramSymbolTable& symtable, egg::ovum::ILogger::Severity& maximumSeverity);
     egg::ovum::ILogger::Severity prepare(IEggEngineContext& preparation);
     egg::ovum::ILogger::Severity compile(IEggEngineContext& compilation, egg::ovum::Module& out);
     egg::ovum::ILogger::Severity execute(IEggEngineContext& execution, const egg::ovum::Module& module);
@@ -111,7 +102,7 @@ namespace egg::yolk {
     };
     static ArithmeticTypes arithmeticTypes(const egg::ovum::Type& type) {
       assert(type != nullptr);
-      EGG_WARNING_SUPPRESS_SWITCH_BEGIN();
+      EGG_WARNING_SUPPRESS_SWITCH_BEGIN
       switch (egg::ovum::Bits::mask(type->getPrimitiveFlags(), egg::ovum::ValueFlags::Arithmetic)) {
       case egg::ovum::ValueFlags::Int:
         return ArithmeticTypes::Int;
@@ -120,29 +111,33 @@ namespace egg::yolk {
       case egg::ovum::ValueFlags::Arithmetic:
         return ArithmeticTypes::Both;
       }
-      EGG_WARNING_SUPPRESS_SWITCH_END();
+      EGG_WARNING_SUPPRESS_SWITCH_END
       return ArithmeticTypes::None;
     }
   };
 
   class EggProgramContext final : public egg::ovum::HardReferenceCounted<egg::ovum::IHardAcquireRelease> {
-    EGG_NO_COPY(EggProgramContext);
+    EGG_NO_COPY(EggProgramContext)
   public:
     struct ScopeFunction {
       const egg::ovum::IType* rettype;
       bool generator;
     };
+    struct ScopeTypedef {
+      egg::ovum::String name;
+    };
   private:
-    egg::ovum::TypeFactory& factory;
+    egg::ovum::ITypeFactory& factory;
     egg::ovum::LocationRuntime location;
     egg::ovum::ILogger* logger;
     egg::ovum::HardPtr<EggProgramSymbolTable> symtable;
     egg::ovum::ILogger::Severity* maximumSeverity;
     const egg::ovum::IType* scopeDeclare; // Only used in prepare phase
     ScopeFunction* scopeFunction; // Only used in prepare phase
+    ScopeTypedef* scopeTypedef; // Only used in prepare phase
     const egg::ovum::Value* scopeValue; // Only used in execute phase
-    EggProgramContext(egg::ovum::TypeFactory& factory, const egg::ovum::LocationRuntime& location, egg::ovum::ILogger* logger, EggProgramSymbolTable& symtable, egg::ovum::ILogger::Severity* maximumSeverity, ScopeFunction* scopeFunction)
-      : HardReferenceCounted(factory.allocator, 0),
+    EggProgramContext(egg::ovum::ITypeFactory& factory, const egg::ovum::LocationRuntime& location, egg::ovum::ILogger* logger, EggProgramSymbolTable& symtable, egg::ovum::ILogger::Severity* maximumSeverity, ScopeFunction* scopeFunction)
+      : HardReferenceCounted(factory.getAllocator(), 0),
         factory(factory),
         location(location),
         logger(logger),
@@ -150,13 +145,14 @@ namespace egg::yolk {
         maximumSeverity(maximumSeverity),
         scopeDeclare(nullptr),
         scopeFunction(scopeFunction),
+        scopeTypedef(nullptr),
         scopeValue(nullptr) {
     }
   public:
     EggProgramContext(EggProgramContext& parent, EggProgramSymbolTable& symtable, ScopeFunction* scopeFunction)
       : EggProgramContext(parent.factory, parent.location, parent.logger, symtable, parent.maximumSeverity, scopeFunction) {
     }
-    EggProgramContext(egg::ovum::TypeFactory& factory, const egg::ovum::LocationRuntime& location, egg::ovum::ILogger& logger, EggProgramSymbolTable& symtable, egg::ovum::ILogger::Severity& maximumSeverity)
+    EggProgramContext(egg::ovum::ITypeFactory& factory, const egg::ovum::LocationRuntime& location, egg::ovum::ILogger& logger, EggProgramSymbolTable& symtable, egg::ovum::ILogger::Severity& maximumSeverity)
       : EggProgramContext(factory, location, &logger, symtable, &maximumSeverity, nullptr) {
     }
     egg::ovum::HardPtr<EggProgramContext> createNestedContext(EggProgramSymbolTable& symtable, ScopeFunction* prepareFunction = nullptr);
@@ -185,6 +181,9 @@ namespace egg::yolk {
     EggProgramNodeFlags prepareModule(const std::vector<std::shared_ptr<IEggProgramNode>>& statements);
     EggProgramNodeFlags prepareBlock(const std::vector<std::shared_ptr<IEggProgramNode>>& statements);
     EggProgramNodeFlags prepareDeclare(const egg::ovum::LocationSource& where, const egg::ovum::String& name, egg::ovum::Type& ltype, IEggProgramNode* rvalue);
+    EggProgramNodeFlags prepareMember(const egg::ovum::LocationSource& where, const egg::ovum::String& name, const egg::ovum::IType& type, egg::ovum::Modifiability modifiability);
+    EggProgramNodeFlags prepareStatic(const egg::ovum::LocationSource& where, IEggProgramNode& child);
+    EggProgramNodeFlags prepareIterable(const egg::ovum::LocationSource& where, egg::ovum::Type& itype);
     EggProgramNodeFlags prepareGuard(const egg::ovum::LocationSource& where, const egg::ovum::String& name, egg::ovum::Type& ltype, IEggProgramNode& rvalue);
     EggProgramNodeFlags prepareAssign(const egg::ovum::LocationSource& where, EggProgramAssign op, IEggProgramNode& lvalue, IEggProgramNode& rvalue);
     EggProgramNodeFlags prepareMutate(const egg::ovum::LocationSource& where, EggProgramMutate op, IEggProgramNode& lvalue);
@@ -200,14 +199,15 @@ namespace egg::yolk {
     EggProgramNodeFlags prepareSwitch(IEggProgramNode& value, int64_t defaultIndex, const std::vector<std::shared_ptr<IEggProgramNode>>& cases);
     EggProgramNodeFlags prepareThrow(IEggProgramNode* exception);
     EggProgramNodeFlags prepareTry(IEggProgramNode& block, const std::vector<std::shared_ptr<IEggProgramNode>>& catches, IEggProgramNode* final);
+    EggProgramNodeFlags prepareTypedef(const egg::ovum::LocationSource& where, const egg::ovum::String& name, const std::vector<std::shared_ptr<IEggProgramNode>>& constraints, const std::vector<std::shared_ptr<IEggProgramNode>>& definitions);
     EggProgramNodeFlags prepareWhile(IEggProgramNode& cond, IEggProgramNode& block);
     EggProgramNodeFlags prepareYield(const egg::ovum::LocationSource& where, IEggProgramNode& value);
     EggProgramNodeFlags prepareArray(const std::vector<std::shared_ptr<IEggProgramNode>>& values);
     EggProgramNodeFlags prepareObject(const std::vector<std::shared_ptr<IEggProgramNode>>& values);
-    EggProgramNodeFlags prepareCall(IEggProgramNode& callee, std::vector<std::shared_ptr<IEggProgramNode>>& parameters);
+    EggProgramNodeFlags prepareCall(IEggProgramNode& callee, std::vector<std::shared_ptr<IEggProgramNode>>& parameters, egg::ovum::Type& rettype);
     EggProgramNodeFlags prepareIdentifier(const egg::ovum::LocationSource& where, const egg::ovum::String& name, egg::ovum::Type& type);
     EggProgramNodeFlags prepareBrackets(const egg::ovum::LocationSource& where, IEggProgramNode& instance, IEggProgramNode& index);
-    EggProgramNodeFlags prepareDot(const egg::ovum::LocationSource& where, IEggProgramNode& instance, const egg::ovum::String& property);
+    EggProgramNodeFlags prepareDot(const egg::ovum::LocationSource& where, IEggProgramNode& instance, const egg::ovum::String& property, egg::ovum::Type& restype);
     EggProgramNodeFlags prepareUnary(const egg::ovum::LocationSource& where, EggProgramUnary op, IEggProgramNode& value);
     EggProgramNodeFlags prepareBinary(const egg::ovum::LocationSource& where, EggProgramBinary op, IEggProgramNode& lhs, IEggProgramNode& rhs);
     EggProgramNodeFlags prepareTernary(const egg::ovum::LocationSource& where, IEggProgramNode& cond, IEggProgramNode& whenTrue, IEggProgramNode& whenFalse);
@@ -249,7 +249,7 @@ namespace egg::yolk {
   };
 
   class EggProgramCompiler {
-    EGG_NO_COPY(EggProgramCompiler);
+    EGG_NO_COPY(EggProgramCompiler)
     friend class EggProgramCompilerNode;
   private:
     IEggEngineContext& context;

@@ -25,7 +25,7 @@ namespace egg::ovum {
 
   class INode : public IHardAcquireRelease {
   public:
-    enum class Operand { None, Int, Float, String, Operator };
+    enum class Operand { None, Int, Float, String, TypeShape, Operator };
     virtual Opcode getOpcode() const = 0;
     virtual Operand getOperand() const = 0;
     virtual size_t getChildren() const = 0;
@@ -33,6 +33,7 @@ namespace egg::ovum {
     virtual Int getInt() const = 0;
     virtual Float getFloat() const = 0;
     virtual String getString() const = 0;
+    virtual const TypeShape& getTypeShape() const = 0;
     virtual Operator getOperator() const = 0;
     virtual size_t getAttributes() const = 0;
     virtual INode& getAttribute(size_t index) const = 0;
@@ -55,12 +56,14 @@ namespace egg::ovum {
     static Node create(IAllocator& allocator, Opcode opcode, const Nodes* children, const Nodes* attributes, Int operand);
     static Node create(IAllocator& allocator, Opcode opcode, const Nodes* children, const Nodes* attributes, Float operand);
     static Node create(IAllocator& allocator, Opcode opcode, const Nodes* children, const Nodes* attributes, const String& operand);
+    static Node create(IAllocator& allocator, Opcode opcode, const Nodes* children, const Nodes* attributes, const TypeShape& operand);
     static Node create(IAllocator& allocator, Opcode opcode, const Nodes* children, const Nodes* attributes, Operator operand);
     // With location
     static Node create(IAllocator& allocator, const NodeLocation& location, Opcode opcode, const Nodes* children, const Nodes* attributes = nullptr);
     static Node create(IAllocator& allocator, const NodeLocation& location, Opcode opcode, const Nodes* children, const Nodes* attributes, Int operand);
     static Node create(IAllocator& allocator, const NodeLocation& location, Opcode opcode, const Nodes* children, const Nodes* attributes, Float operand);
     static Node create(IAllocator& allocator, const NodeLocation& location, Opcode opcode, const Nodes* children, const Nodes* attributes, const String& operand);
+    static Node create(IAllocator& allocator, const NodeLocation& location, Opcode opcode, const Nodes* children, const Nodes* attributes, const TypeShape& operand);
     static Node create(IAllocator& allocator, const NodeLocation& location, Opcode opcode, const Nodes* children, const Nodes* attributes, Operator operand);
     // Values
     static Node createValue(IAllocator& allocator, std::nullptr_t);
@@ -70,6 +73,7 @@ namespace egg::ovum {
     static Node createValue(IAllocator& allocator, float value);
     static Node createValue(IAllocator& allocator, double value);
     static Node createValue(IAllocator& allocator, const String& value);
+    static Node createValue(IAllocator& allocator, const TypeShape& value);
     // Types
     static Node createType(IAllocator& allocator, const NodeLocation& location, const Type& type);
   };

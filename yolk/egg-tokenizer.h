@@ -118,12 +118,14 @@ namespace egg::yolk {
     static bool tryParseOperator(const std::string& text, EggTokenizerOperator& value, size_t& length);
   };
 
-  EGG_WARNING_SUPPRESS_INTELLISENSE_BEGIN();
   struct EggTokenizerItem : public ExceptionLocation {
     EggTokenizerKind kind;
     EggTokenizerValue value;
     bool contiguous;
 
+    bool isIdentifier(const char* identifier = nullptr) const {
+      return (this->kind == EggTokenizerKind::Identifier) && ((identifier == nullptr) || this->value.s.equals(identifier));
+    }
     bool isKeyword(EggTokenizerKeyword keyword) const {
       return (this->kind == EggTokenizerKind::Keyword) && (this->value.k == keyword);
     }
@@ -133,7 +135,6 @@ namespace egg::yolk {
     size_t width() const;
     std::string toString() const;
   };
-  EGG_WARNING_SUPPRESS_INTELLISENSE_END();
 
   class IEggTokenizer {
   public:

@@ -1,4 +1,4 @@
-CXXFLAGS += -std=c++17 -Werror -Wall -Wextra -Wno-trigraphs -iquote .
+CXXFLAGS += -std=c++23 -Werror -Wall -Wextra -Wno-trigraphs -iquote . -fno-diagnostics-color
 AR = $(SILENT)ar
 CXX = $(SILENT)g++
 LD = $(SILENT)g++

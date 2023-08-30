@@ -1,4 +1,5 @@
 #include "ovum/test.h"
+#include "ovum/vanilla.h"
 
 using Flags = egg::ovum::ValueFlags;
 
@@ -10,21 +11,21 @@ TEST(TestValue, Uninitialized) {
 }
 
 TEST(TestValue, Void) {
-  auto value = egg::ovum::Value::Void;
+  auto value{ egg::ovum::Value::Void };
   ASSERT_EQ(Flags::Void, value->getFlags());
   ASSERT_TRUE(value->getVoid());
   ASSERT_VALUE(Flags::Void, value);
 }
 
 TEST(TestValue, Null) {
-  auto value = egg::ovum::Value::Null;
+  auto value{ egg::ovum::Value::Null };
   ASSERT_EQ(Flags::Null, value->getFlags());
   ASSERT_TRUE(value->getNull());
   ASSERT_VALUE(Flags::Null, value);
 }
 
 TEST(TestValue, Bool) {
-  auto value = egg::ovum::Value::False;
+  auto value{ egg::ovum::Value::False };
   ASSERT_EQ(Flags::Bool, value->getFlags());
   bool actual = true;
   ASSERT_TRUE(value->getBool(actual));
@@ -99,9 +100,10 @@ TEST(TestValue, String) {
 
 TEST(TestValue, Object) {
   egg::test::Allocator allocator;
+  egg::test::TypeFactory factory{ allocator };
   auto basket = egg::ovum::BasketFactory::createBasket(allocator);
   {
-    auto object = egg::ovum::ObjectFactory::createEmpty(allocator, *basket);
+    auto object = egg::ovum::VanillaFactory::createObject(factory, *basket);
     auto value = egg::ovum::ValueFactory::createObject(allocator, object);
     ASSERT_EQ(Flags::Object, value->getFlags());
     egg::ovum::Object actual;

@@ -7,6 +7,7 @@
 #include "ovum/builtin.h"
 #include "ovum/function.h"
 #include "ovum/vanilla.h"
+#include "ovum/forge.h"
 
 #include <map>
 #include <set>
@@ -80,8 +81,9 @@ namespace {
     bool empty() const {
       return this->declared.empty();
     }
-    Value declare(const LocationSource& source, const Type& type, const String& name, const Value* init = nullptr);
-    Value guard(const LocationSource& source, const Type& type, const String& name, const Value& init);
+    Value declareType(const LocationSource& source, const String& name, const Type& type);
+    Value declareVariable(const LocationSource& source, const Type& type, const String& name, const Value* init = nullptr);
+    Value guardVariable(const LocationSource& source, const Type& type, const String& name, const Value& init);
   };
 
   class Symbol {
@@ -91,6 +93,7 @@ namespace {
   public:
     enum class Kind {
       Builtin,
+      Type,
       Variable
     };
   private:
@@ -109,7 +112,7 @@ namespace {
       assert(this->validate(true));
     }
     Type getType() const {
-      return Type(this->type.get());
+      return this->type;
     }
     Kind getKind() const {
       return this->kind;
@@ -210,6 +213,9 @@ namespace {
       }
       return cloned;
     }
+    virtual void print(Printer& printer) const override {
+      printer.stream() << "WIBBLE" << std::endl;
+    }
   };
 
   struct Target {
@@ -252,7 +258,7 @@ namespace {
       printer << "<user-function>";
     }
     virtual Type getRuntimeType() const override {
-      return Type(this->type);
+      return this->type;
     }
     virtual Value call(IExecution& execution, const IParameters& parameters) override;
     virtual Value getProperty(IExecution& execution, const String& property) override {
@@ -301,14 +307,14 @@ namespace {
     Value raise(IExecution& execution, ARGS&&... args) {
       auto* signature = this->getFunctionSignature();
       if (signature != nullptr) {
-        auto name = signature->getFunctionName();
+        auto name = signature->getName();
         if (!name.empty()) {
           return execution.raiseFormat("Function '", name, "' ", std::forward<ARGS>(args)...);
         }
       }
       return execution.raiseFormat("Function ", std::forward<ARGS>(args)...);
     }
-    static Type makeType(TypeFactory& factory, ProgramDefault& program, const String& name, const INode& callable);
+    static Type makeType(ITypeFactory& factory, ProgramDefault& program, const String& name, const INode& callable);
   private:
     void initialize(const Type& ftype);
     const IFunctionSignature* getFunctionSignature() const {
@@ -337,7 +343,7 @@ namespace {
     }
   };
 
-  class ProgramDefault final : public HardReferenceCounted<IProgram>, public IExecution, public Vanilla::IPredicateCallback {
+  class ProgramDefault final : public HardReferenceCounted<IProgram>, public IExecution, public IVanillaPredicateCallback {
     ProgramDefault(const ProgramDefault&) = delete;
     ProgramDefault& operator=(const ProgramDefault&) = delete;
   private:
@@ -354,7 +360,7 @@ namespace {
         maxseverity(ILogger::Severity::None),
         factory(allocator),
         basket(egg::ovum::BasketFactory::createBasket(allocator)),
-        symtable(factory.allocator.makeHard<SymbolTable>(*basket, nullptr, nullptr)),
+        symtable(factory.getAllocator().makeHard<SymbolTable>(*basket, nullptr, nullptr)),
         location({}, 0, 0) {
     }
     virtual ~ProgramDefault() {
@@ -389,12 +395,12 @@ namespace {
       return result;
     }
     virtual IAllocator& getAllocator() const override {
-      return this->factory.allocator;
+      return this->factory.getAllocator();
     }
     virtual IBasket& getBasket() const override {
       return *this->basket;
     }
-    virtual TypeFactory& getTypeFactory() override {
+    virtual ITypeFactory& getTypeFactory() override {
       return this->factory;
     }
     virtual Value raise(const String& message) override {
@@ -405,7 +411,7 @@ namespace {
       if (predicate->getObject(object)) {
         // Predicates can be functions that throw exceptions, as well as 'bool' values
         auto type = object->getRuntimeType();
-        if (type.queryCallable() != nullptr) {
+        if (this->factory.queryCallable(type) != nullptr) {
           // Call the predicate directly
           return object->call(*this, Object::ParametersNone);
         }
@@ -420,7 +426,7 @@ namespace {
       return this->raise("Assertion is untrue");
     }
     virtual void print(const std::string& utf8) override {
-      this->log(ILogger::Source::User, ILogger::Severity::Information, utf8);
+      this->log(ILogger::Source::User, ILogger::Severity::None, utf8);
     }
     Value executeCall(const LocationSource& source, const IFunctionSignature& signature, const IParameters& runtime, const INode& block, SymbolTable& captured) {
       // We have to be careful to get the location correct
@@ -464,7 +470,7 @@ namespace {
           assert(position < numPositional);
           auto ptype = sigparam.getType();
           auto pvalue = runtime.getPositional(position);
-          auto guarded = scope.guard(source, ptype, pname, pvalue);
+          auto guarded = scope.guardVariable(source, ptype, pname, pvalue);
           Bool matched;
           if (!guarded->getBool(matched)) {
             return guarded;
@@ -527,7 +533,7 @@ namespace {
       }
       auto str = OperatorProperties::str(node.getOperator());
       auto message = StringBuilder::concat("Assertion is untrue: ", lhs.readable(), ' ', str, ' ', rhs.readable());
-      auto object = VanillaFactory::createError(this->allocator, *this->basket, source, message);
+      auto object = VanillaFactory::createError(this->factory, *this->basket, source, message);
       (void)object->setProperty(*this, "left", lhs);
       (void)object->setProperty(*this, "operator", ValueFactory::createUTF8(this->allocator, str));
       (void)object->setProperty(*this, "right", rhs);
@@ -571,7 +577,7 @@ namespace {
     Value statement(Block& block, const INode& node) {
       this->updateLocation(node);
       auto opcode = this->validateOpcode(node);
-      EGG_WARNING_SUPPRESS_SWITCH_BEGIN();
+      EGG_WARNING_SUPPRESS_SWITCH_BEGIN
       switch (opcode) {
       case Opcode::NOOP:
         return Value::Void;
@@ -611,10 +617,12 @@ namespace {
         return this->statementThrow(node);
       case Opcode::TRY:
         return this->statementTry(node);
+      case Opcode::TYPEDEF:
+        return this->statementTypedef(block, node);
       case Opcode::WHILE:
         return this->statementWhile(node);
       }
-      EGG_WARNING_SUPPRESS_SWITCH_END();
+      EGG_WARNING_SUPPRESS_SWITCH_END
       throw this->unexpectedOpcode("statement", node);
     }
     Value statementAssign(const INode& node) {
@@ -655,14 +663,14 @@ namespace {
       auto vtype = this->type(node.getChild(0), vname);
       if (node.getChildren() == 2) {
         // No initializer
-        return block.declare(this->location, vtype, vname);
+        return block.declareVariable(this->location, vtype, vname);
       }
       assert(node.getChildren() == 3);
       auto vinit = this->expression(node.getChild(2));
       if (vinit.hasFlowControl()) {
         return vinit;
       }
-      return block.declare(this->location, vtype, vname, &vinit);
+      return block.declareVariable(this->location, vtype, vname, &vinit);
     }
     Value statementDecrement(const INode& node) {
       assert(node.getOpcode() == Opcode::DECREMENT);
@@ -698,7 +706,7 @@ namespace {
       assert(node.getChildren() == 4);
       auto& pre = node.getChild(0);
       auto* cond = &node.getChild(1);
-      EGG_WARNING_SUPPRESS_SWITCH_BEGIN();
+      EGG_WARNING_SUPPRESS_SWITCH_BEGIN
       switch (cond->getOpcode()) {
       case Opcode::NOOP:
       case Opcode::TRUE:
@@ -706,7 +714,7 @@ namespace {
         cond = nullptr;
         break;
       }
-      EGG_WARNING_SUPPRESS_SWITCH_END();
+      EGG_WARNING_SUPPRESS_SWITCH_END
       auto& post = node.getChild(2);
       auto& loop = node.getChild(3);
       Block inner(*this);
@@ -813,7 +821,7 @@ namespace {
       auto function = this->allocator.makeHard<UserFunction>(*this, this->location, ftype, fblock);
       // We have to be careful to ensure the function is declared before capturing symbols so that recursion works correctly
       auto fvalue = ValueFactory::createObject(this->allocator, Object(*function));
-      auto retval = block.declare(this->location, ftype, fname, &fvalue);
+      auto retval = block.declareVariable(this->location, ftype, fname, &fvalue);
       function->setCaptured(this->symtable->clone());
       return retval;
     }
@@ -866,7 +874,7 @@ namespace {
       Mutation mutation;
       bool logical;
       auto op = node.getOperator();
-      EGG_WARNING_SUPPRESS_SWITCH_BEGIN();
+      EGG_WARNING_SUPPRESS_SWITCH_BEGIN
       switch (op) {
       case Operator::ADD:
         mutation = Mutation::Add;
@@ -942,7 +950,7 @@ namespace {
         return this->raiseNode(node, "Unexpected mutation operator: '", name, "'");
       }
       }
-      EGG_WARNING_SUPPRESS_SWITCH_END();
+      EGG_WARNING_SUPPRESS_SWITCH_END
       value = this->expression(node.getChild(1));
       if (value.hasFlowControl()) {
         return value;
@@ -1063,7 +1071,7 @@ namespace {
             this->updateLocation(clause);
             auto cname = this->identifier(clause.getChild(1));
             auto ctype = this->type(clause.getChild(0), cname);
-            auto retval = block.guard(this->location, ctype, cname, thrown);
+            auto retval = block.guardVariable(this->location, ctype, cname, thrown);
             if (retval.hasFlowControl()) {
               // Couldn't define the exception variable
               return this->statementTryFinally(node, retval);
@@ -1097,6 +1105,20 @@ namespace {
       }
       return this->statementBlock(clause);
     }
+    Value statementTypedef(Block& block, const INode& node) {
+      assert(node.getOpcode() == Opcode::TYPEDEF);
+      auto children = node.getChildren();
+      assert(children >= 1);
+      this->updateLocation(node);
+      auto tname = this->identifier(node.getChild(0));
+      auto builder = this->getTypeFactory().createTypeBuilder(tname, "WIBBLE");
+      for (size_t index = 1; index < children; ++index) {
+        auto& child = node.getChild(index);
+        (void)child; // WIBBLE
+      }
+      block.declareType(this->location, tname, builder->build());
+      return Value::Void;
+    }
     Value statementWhile(const INode& node) {
       assert(node.getOpcode() == Opcode::WHILE);
       assert(node.getChildren() == 2);
@@ -1122,7 +1144,7 @@ namespace {
     // Expressions
     Value expression(const INode& node, Block* block = nullptr) {
       auto opcode = this->validateOpcode(node);
-      EGG_WARNING_SUPPRESS_SWITCH_BEGIN();
+      EGG_WARNING_SUPPRESS_SWITCH_BEGIN
       switch (opcode) {
       case Opcode::NULL_:
         return Value::Null;
@@ -1161,7 +1183,7 @@ namespace {
       case Opcode::PROPERTY:
         return this->expressionProperty(node);
       }
-      EGG_WARNING_SUPPRESS_SWITCH_END();
+      EGG_WARNING_SUPPRESS_SWITCH_END
       throw this->unexpectedOpcode("expression", node);
     }
     Value expressionUnary(const INode& node) {
@@ -1169,7 +1191,7 @@ namespace {
       assert(node.getChildren() == 1);
       auto oper = node.getOperator();
       assert(OperatorProperties::from(oper).opclass == Opclass::UNARY);
-      EGG_WARNING_SUPPRESS_SWITCH_BEGIN();
+      EGG_WARNING_SUPPRESS_SWITCH_BEGIN
       switch (oper) {
       case Operator::NEG:
         return this->operatorNegate(node.getChild(0));
@@ -1182,7 +1204,7 @@ namespace {
       case Operator::REF:
         return this->operatorRef(node.getChild(0));
       }
-      EGG_WARNING_SUPPRESS_SWITCH_END();
+      EGG_WARNING_SUPPRESS_SWITCH_END
       return this->raiseNode(node, "Internal runtime error: Unsupported unary operator: '", OperatorProperties::str(oper), "'");
     }
     Value expressionBinary(const INode& node) {
@@ -1190,7 +1212,7 @@ namespace {
       assert(node.getChildren() == 2);
       auto oper = node.getOperator();
       assert(OperatorProperties::from(oper).opclass == Opclass::BINARY);
-      EGG_WARNING_SUPPRESS_SWITCH_BEGIN();
+      EGG_WARNING_SUPPRESS_SWITCH_BEGIN
       switch (oper) {
       case Operator::ADD:
       case Operator::SUB:
@@ -1211,7 +1233,7 @@ namespace {
       case Operator::SHIFTU:
         return this->operatorShift(node, oper, node.getChild(0), node.getChild(1));
       }
-      EGG_WARNING_SUPPRESS_SWITCH_END();
+      EGG_WARNING_SUPPRESS_SWITCH_END
       return this->raiseNode(node, "Internal runtime error: Unsupported binary operator: '", OperatorProperties::str(oper), "'");
     }
     Value expressionTernary(const INode& node) {
@@ -1219,12 +1241,12 @@ namespace {
       assert(node.getChildren() == 3);
       auto oper = node.getOperator();
       assert(OperatorProperties::from(oper).opclass == Opclass::TERNARY);
-      EGG_WARNING_SUPPRESS_SWITCH_BEGIN();
+      EGG_WARNING_SUPPRESS_SWITCH_BEGIN
       switch (oper) {
       case Operator::TERNARY:
         return this->operatorTernary(node.getChild(0), node.getChild(1), node.getChild(2));
       }
-      EGG_WARNING_SUPPRESS_SWITCH_END();
+      EGG_WARNING_SUPPRESS_SWITCH_END
       return this->raiseNode(node, "Internal runtime error: Unsupported ternary operator: '", OperatorProperties::str(oper), "'");
     }
     Value expressionCompare(const INode& node) {
@@ -1240,7 +1262,7 @@ namespace {
     Value expressionAvalue(const INode& node) {
       assert(node.getOpcode() == Opcode::AVALUE);
       auto n = node.getChildren();
-      auto array = VanillaFactory::createArray(this->allocator, *this->basket, n);
+      auto array = VanillaFactory::createArray(this->factory, *this->basket, n);
       for (size_t i = 0; i < n; ++i) {
         auto expr = this->expression(node.getChild(i));
         if (expr.hasFlowControl()) {
@@ -1265,7 +1287,7 @@ namespace {
     }
     Value expressionOvalue(const INode& node) {
       assert(node.getOpcode() == Opcode::OVALUE);
-      auto object = VanillaFactory::createDictionary(this->allocator, *this->basket);
+      auto object = VanillaFactory::createDictionary(this->factory, *this->basket);
       auto n = node.getChildren();
       for (size_t i = 0; i < n; ++i) {
         auto& named = node.getChild(i);
@@ -1327,7 +1349,7 @@ namespace {
         return vinit;
       }
       this->updateLocation(node);
-      return block->guard(this->location, vtype, vname, vinit);
+      return block->guardVariable(this->location, vtype, vname, vinit);
     }
     Value expressionIdentifier(const INode& node) {
       assert(node.getOpcode() == Opcode::IDENTIFIER);
@@ -1373,7 +1395,7 @@ namespace {
         auto oper = child.getOperator();
         if (OperatorProperties::from(oper).opclass == Opclass::COMPARE) {
           // We only support predicates for comparisons
-          auto predicate = VanillaFactory::createPredicate(this->allocator, *this->basket, *this, child);
+          auto predicate = VanillaFactory::createPredicate(this->factory, *this->basket, *this, child);
           return ValueFactory::createObject(this->allocator, predicate);
         }
       }
@@ -1455,7 +1477,7 @@ namespace {
       return ValueFactory::createString(this->allocator, StringFactory::fromCodePoint(this->allocator, char32_t(c)));
     }
     Value stringProperty(const String& string, const String& property) {
-      auto* found = BuiltinFactory::getStringPropertyByName(property);
+      auto* found = BuiltinFactory::getStringPropertyByName(this->factory, property);
       if (found == nullptr) {
         return Value::Void;
       }
@@ -1467,7 +1489,7 @@ namespace {
       assert(node.getOpcode() == Opcode::COMPARE);
       assert(node.getChildren() == 2);
       assert(OperatorProperties::from(oper).opclass == Opclass::COMPARE);
-      EGG_WARNING_SUPPRESS_SWITCH_BEGIN();
+      EGG_WARNING_SUPPRESS_SWITCH_BEGIN
       switch (oper) {
       case Operator::EQ:
         // (a == b) === (a == b)
@@ -1488,7 +1510,7 @@ namespace {
         // (a != b) === !(a == b)
         return this->operatorEquals(node.getChild(0), node.getChild(1), lhs, rhs, true);
       }
-      EGG_WARNING_SUPPRESS_SWITCH_END();
+      EGG_WARNING_SUPPRESS_SWITCH_END
       return Value::Break;
     }
     Value operatorEquals(const INode& a, const INode& b, Value& va, Value& vb, bool invert) {
@@ -1581,7 +1603,7 @@ namespace {
       return this->raiseNode(a, "Expected ", side, "-hand side of comparison '", sign, "' to be an 'int' or 'float', but got '", va->getRuntimeType().toString(), "' instead");
     }
     Value operatorBinaryBool(const INode& node, Operator oper, Bool lhs, Bool rhs) {
-      EGG_WARNING_SUPPRESS_SWITCH_BEGIN();
+      EGG_WARNING_SUPPRESS_SWITCH_BEGIN
       switch (oper) {
       case Operator::BITAND:
         return ValueFactory::createBool(lhs && rhs);
@@ -1590,12 +1612,12 @@ namespace {
       case Operator::BITXOR:
         return ValueFactory::createBool(lhs ^ rhs);
       }
-      EGG_WARNING_SUPPRESS_SWITCH_END();
+      EGG_WARNING_SUPPRESS_SWITCH_END
       return this->raiseNode(node, "Internal runtime error: Unexpected binary bool operator: '", OperatorProperties::str(oper), "'");
     }
     Value operatorBinaryInt(const INode& node, Operator oper, Int lhs, Int rhs) {
       // TODO: handle div-by-zero etc more elegantly
-      EGG_WARNING_SUPPRESS_SWITCH_BEGIN();
+      EGG_WARNING_SUPPRESS_SWITCH_BEGIN
       switch (oper) {
       case Operator::ADD:
         return ValueFactory::createInt(this->allocator, lhs + rhs);
@@ -1629,12 +1651,12 @@ namespace {
         }
         return ValueFactory::createInt(this->allocator, Int(uint64_t(lhs) >> rhs));
       }
-      EGG_WARNING_SUPPRESS_SWITCH_END();
+      EGG_WARNING_SUPPRESS_SWITCH_END
       return this->raiseNode(node, "Internal runtime error: Unexpected binary integer operator: '", OperatorProperties::str(oper), "'");
     }
     Value operatorBinaryFloat(const INode& node, Operator oper, Float lhs, Float rhs) {
       // TODO: handle div-by-zero etc more elegantly
-      EGG_WARNING_SUPPRESS_SWITCH_BEGIN();
+      EGG_WARNING_SUPPRESS_SWITCH_BEGIN
       switch (oper) {
       case Operator::ADD:
         return ValueFactory::createFloat(this->allocator, lhs + rhs);
@@ -1647,7 +1669,7 @@ namespace {
       case Operator::REM:
         return ValueFactory::createFloat(this->allocator, std::remainder(lhs, rhs));
       }
-      EGG_WARNING_SUPPRESS_SWITCH_END();
+      EGG_WARNING_SUPPRESS_SWITCH_END
       return this->raiseNode(node, "Internal runtime error: Unexpected binary float operator: '", OperatorProperties::str(oper), "'");
     }
     Value operatorArithmetic(const INode& node, Operator oper, const INode& a, const INode& b) {
@@ -1860,7 +1882,7 @@ namespace {
     }
     Type type(const INode& node, const String& name = String()) {
       auto children = node.getChildren();
-      EGG_WARNING_SUPPRESS_SWITCH_BEGIN();
+      EGG_WARNING_SUPPRESS_SWITCH_BEGIN
       switch (node.getOpcode()) {
       case Opcode::INFERRED:
         assert(children == 0);
@@ -1896,9 +1918,14 @@ namespace {
           return Type::Object;
         }
         if (children == 1) {
-          auto& callable = node.getChild(0);
-          if (callable.getOpcode() == Opcode::CALLABLE) {
-            return UserFunction::makeType(this->factory, *this, name, callable);
+          auto& child = node.getChild(0);
+          if (child.getOpcode() == Opcode::CALLABLE) {
+            return UserFunction::makeType(this->factory, *this, name, child);
+          }
+          if (child.getOpcode() == Opcode::POINTER) {
+            auto pointee = this->type(child.getChild(0));
+            auto modifiability = Modifiability::READ_WRITE_MUTATE;
+            return this->factory.createPointer(pointee, modifiability);
           }
         }
         break;
@@ -1912,26 +1939,20 @@ namespace {
           return Type::AnyQ;
         }
         break;
-      case Opcode::POINTER:
-        if (children == 1) {
-          auto pointee = this->type(node.getChild(0));
-          auto modifiability = Modifiability::Read | Modifiability::Write | Modifiability::Mutate; // TODO
-          return this->factory.createPointer(pointee, modifiability);
-        }
-        break;
       case Opcode::UNION:
-        if (children >= 1) {
-          auto result = this->type(node.getChild(0));
-          for (size_t i = 1; i < children; ++i) {
-            result = this->factory.createUnion(result, this->type(node.getChild(i)));
+        if (children > 0) {
+          std::vector<Type> types;
+          types.resize(children);
+          for (size_t i = 0; i < children; ++i) {
+            types[i] = this->type(node.getChild(i));
           }
-          return result;
+          return this->factory.createUnion(types);
         }
         return Type::Void;
       default:
         throw this->unexpectedOpcode("type", node);
       }
-      EGG_WARNING_SUPPRESS_SWITCH_END();
+      EGG_WARNING_SUPPRESS_SWITCH_END
       this->updateLocation(node);
       throw RuntimeException(this->location, "Type constraints not yet supported"); // TODO
     }
@@ -1987,10 +2008,10 @@ namespace {
     Value tryInitialize(Symbol& symbol, const Value& value);
     Value tryAssign(Symbol& symbol, const Value& value);
     Value tryMutate(Symbol& symbol, Mutation mutation, const Value& value);
-    Symbol* blockDeclare(const LocationSource& source, const Type& type, const String& identifier);
+    Symbol* blockDeclare(const LocationSource& source, Symbol::Kind kind, const Type& type, const String& identifier);
     void blockUndeclare(const String& identifier);
     Value targetInit(Target& target, const INode& node, Block* block = nullptr) {
-      EGG_WARNING_SUPPRESS_SWITCH_BEGIN();
+      EGG_WARNING_SUPPRESS_SWITCH_BEGIN
       switch (node.getOpcode()) {
       case Opcode::DECLARE:
         if (block != nullptr) {
@@ -2011,7 +2032,7 @@ namespace {
         }
         break;
       }
-      EGG_WARNING_SUPPRESS_SWITCH_END();
+      EGG_WARNING_SUPPRESS_SWITCH_END
       throw this->unexpectedOpcode("target", node);
     }
     Value targetDeclare(Target& target, const INode& node, Block& block) {
@@ -2021,7 +2042,7 @@ namespace {
       target.identifier = this->identifier(node.getChild(1));
       target.type = this->type(node.getChild(0), target.identifier);
       this->updateLocation(node);
-      return block.declare(this->location, target.type, target.identifier);
+      return block.declareVariable(this->location, target.type, target.identifier);
     }
     Value targetIdentifier(Target& target, const INode& node) {
       assert(node.getOpcode() == Opcode::IDENTIFIER);
@@ -2056,15 +2077,15 @@ namespace {
       }
       if (lhs->getObject(target.object)) {
         auto type = target.object->getRuntimeType();
-        auto dotable = type.queryDotable();
+        auto dotable = this->factory.queryDotable(type);
         if (dotable == nullptr) {
           return this->raiseNode(node, type.describeValue(), " does not support properties such as '", target.identifier, "'");
         }
         auto modifiability = dotable->getModifiability(target.identifier);
-        if (modifiability == Modifiability::None) {
+        if (modifiability == Modifiability::NONE) {
           return this->raiseNode(node, type.describeValue(), " does not support the property '", target.identifier, "'");
         }
-        if (!Bits::hasAnySet(modifiability, Modifiability::Write)) { // TODO: Mutate?
+        if (!Bits::hasAnySet(modifiability, Modifiability::WRITE)) { // TODO: Mutate?
           return this->raiseNode(node, type.describeValue(), " does not support modification of the property '", target.identifier, "'");
         }
         target.type = dotable->getType(target.identifier);
@@ -2090,7 +2111,7 @@ namespace {
       }
       String string;
       if (lhs->getObject(target.object)) {
-        auto* indexable = target.object->getRuntimeType().queryIndexable();
+        auto* indexable = this->factory.queryIndexable(target.object->getRuntimeType());
         if (indexable != nullptr) {
           target.type = indexable->getResultType();
           return Value::Void;
@@ -2110,9 +2131,9 @@ namespace {
         return pointer;
       }
       if (pointer->getObject(target.object)) {
-        auto* pointable = target.object->getRuntimeType().queryPointable();
+        auto* pointable = this->factory.queryPointable(target.object->getRuntimeType());
         if (pointable != nullptr) {
-          target.type.set(pointable->pointee);
+          target.type = pointable->getType();
           return Value::Void;
         }
       }
@@ -2185,10 +2206,11 @@ namespace {
         return this->raiseNode(node, "Internal runtime error: Symbol table slot is empty: '", symbol.getName(), "'");
       }
       assert(slot->softGetBasket() == this->basket.get());
-      auto modifiability = Modifiability::Read | Modifiability::Write | Modifiability::Mutate;
+      auto modifiability = Modifiability::READ_WRITE_MUTATE;
       switch (symbol.getKind()) {
       case Symbol::Kind::Builtin:
-        modifiability = Modifiability::Read;
+      case Symbol::Kind::Type:
+        modifiability = Modifiability::READ;
         break;
       case Symbol::Kind::Variable:
       default:
@@ -2205,13 +2227,13 @@ namespace {
       }
       return RuntimeException(this->location, "Unexpected ", expected, " opcode: '", name, "'");
     }
-    Value raiseError(const LocationSource& where, const String& message) const {
-      auto object = VanillaFactory::createError(this->allocator, *this->basket, where, message);
+    Value raiseError(const LocationSource& where, const String& message) {
+      auto object = VanillaFactory::createError(this->factory, *this->basket, where, message);
       auto value = ValueFactory::createObject(this->allocator, object);
       return ValueFactory::createFlowControl(this->allocator, ValueFlags::Throw, value);
     }
     template<typename... ARGS>
-    Value raiseLocation(const LocationSource& where, ARGS&&... args) const {
+    Value raiseLocation(const LocationSource& where, ARGS&&... args) {
       auto message = StringBuilder::concat(std::forward<ARGS>(args)...);
       return this->raiseError(where, message);
     }
@@ -2273,6 +2295,8 @@ Value ProgramDefault::tryAssign(Symbol& symbol, const Value& value) {
   switch (symbol.getKind()) {
   case Symbol::Kind::Builtin:
     return this->raiseFormat("Cannot re-assign built-in value: '", symbol.getName(), "'");
+  case Symbol::Kind::Type:
+    return this->raiseFormat("Cannot re-assign type identifier: '", symbol.getName(), "'");
   case Symbol::Kind::Variable:
     break;
   }
@@ -2311,19 +2335,29 @@ Value ProgramDefault::tryMutate(Symbol& symbol, Mutation mutation, const Value& 
   return before;
 }
 
-Symbol* ProgramDefault::blockDeclare(const LocationSource& source, const Type& type, const String& identifier) {
-  return this->symtable->add(source, Symbol::Kind::Variable, type, identifier);
+Symbol* ProgramDefault::blockDeclare(const LocationSource& source, Symbol::Kind kind, const Type& type, const String& identifier) {
+  return this->symtable->add(source, kind, type, identifier);
 }
 
 void ProgramDefault::blockUndeclare(const String& identifier) {
   this->symtable->remove(identifier);
 }
 
-egg::ovum::Value Block::declare(const LocationSource& source, const Type& type, const String& name, const Value* init) {
+egg::ovum::Value Block::declareType(const LocationSource& source, const String& name, const Type& type) {
   // Keep track of names successfully declared in this block
-  auto* symbol = this->program.blockDeclare(source, type, name);
+  auto* symbol = this->program.blockDeclare(source, Symbol::Kind::Type, type, name);
   if (symbol == nullptr) {
-    return this->program.raiseLocation(source, "Duplicate name in declaration: '", name, "'");
+    return this->program.raiseLocation(source, "Duplicate name in type definition: '", name, "'");
+  }
+  this->declared.insert(name);
+  return Value::Void;
+}
+
+egg::ovum::Value Block::declareVariable(const LocationSource& source, const Type& type, const String& name, const Value* init) {
+  // Keep track of names successfully declared in this block
+  auto* symbol = this->program.blockDeclare(source, Symbol::Kind::Variable, type, name);
+  if (symbol == nullptr) {
+    return this->program.raiseLocation(source, "Duplicate name in variable declaration: '", name, "'");
   }
   if (init != nullptr) {
     auto retval = this->program.tryInitialize(*symbol, *init);
@@ -2336,11 +2370,11 @@ egg::ovum::Value Block::declare(const LocationSource& source, const Type& type, 
   return Value::Void;
 }
 
-egg::ovum::Value Block::guard(const LocationSource& source, const Type& type, const String& name, const Value& init) {
+egg::ovum::Value Block::guardVariable(const LocationSource& source, const Type& type, const String& name, const Value& init) {
   // Keep track of names successfully declared in this block
-  auto* symbol = this->program.blockDeclare(source, type, name);
+  auto* symbol = this->program.blockDeclare(source, Symbol::Kind::Variable, type, name);
   if (symbol == nullptr) {
-    return this->program.raiseLocation(source, "Duplicate name in declaration: '", name, "'");
+    return this->program.raiseLocation(source, "Duplicate name in variable declaration: '", name, "'");
   }
   auto retval = this->program.tryInitialize(*symbol, init);
   if (retval.hasFlowControl()) {
@@ -2351,7 +2385,7 @@ egg::ovum::Value Block::guard(const LocationSource& source, const Type& type, co
   return Value::True;
 }
 
-egg::ovum::Type UserFunction::makeType(TypeFactory& factory, ProgramDefault& program, const String& name, const INode& callable) {
+egg::ovum::Type UserFunction::makeType(ITypeFactory& factory, ProgramDefault& program, const String& name, const INode& callable) {
   // Create a type appropriate for a standard "user" function
   assert(callable.getOpcode() == Opcode::CALLABLE);
   auto n = callable.getChildren();
@@ -2363,44 +2397,44 @@ egg::ovum::Type UserFunction::makeType(TypeFactory& factory, ProgramDefault& pro
   for (size_t i = 1; i < n; ++i) {
     auto& parameter = callable.getChild(i);
     auto children = parameter.getChildren();
+    auto variadic = false;
     auto named = false;
-    IFunctionSignatureParameter::Flags pflags;
-    EGG_WARNING_SUPPRESS_SWITCH_BEGIN();
+    auto optional = false;
+    EGG_WARNING_SUPPRESS_SWITCH_BEGIN
     switch (parameter.getOpcode()) {
     case Opcode::REQUIRED:
       assert((children == 1) || (children == 2));
-      pflags = IFunctionSignatureParameter::Flags::Required;
       break;
     case Opcode::OPTIONAL:
       assert((children == 1) || (children == 2));
-      pflags = IFunctionSignatureParameter::Flags::None;
+      optional = true;
       break;
     case Opcode::VARARGS:
       assert(children >= 2);
-      pflags = IFunctionSignatureParameter::Flags::Variadic;
-      if (children > 2) {
-        // TODO We assume the constraint is "length > 0" meaning required
-        pflags = Bits::set(pflags, IFunctionSignatureParameter::Flags::Required);
-      }
+      variadic = true;
+      // TODO We assume the constraint is "length > 0" meaning required
+      optional = (children <= 2);
       break;
     case Opcode::BYNAME:
       assert(children == 2);
       named = true;
-      pflags = IFunctionSignatureParameter::Flags::None;
+      optional = true;
       break;
     default:
       throw program.unexpectedOpcode("function type parameter", parameter);
     }
-    EGG_WARNING_SUPPRESS_SWITCH_END();
+    EGG_WARNING_SUPPRESS_SWITCH_END
     String pname;
     if (children > 1) {
       pname = program.identifier(parameter.getChild(1));
     }
     auto ptype = program.type(parameter.getChild(0), pname);
-    if (named) {
-      builder->addNamedParameter(ptype, pname, pflags);
+    if (variadic) {
+      builder->addVariadicParameter(ptype, pname, optional);
+    } else if (named) {
+      builder->addNamedParameter(ptype, pname, optional);
     } else {
-      builder->addPositionalParameter(ptype, pname, pflags);
+      builder->addPositionalParameter(ptype, pname, optional);
     }
   }
   return builder->build();

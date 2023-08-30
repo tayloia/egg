@@ -180,7 +180,7 @@ egg::ovum::ILogger::Severity egg::yolk::EggProgram::compile(IEggEngineContext& c
   EggProgramCompiler compiler(context);
   auto node = this->root->compile(compiler);
   if (node != nullptr) {
-    out = egg::ovum::ModuleFactory::fromRootNode(context.getAllocator(), this->resource, *node);
+    out = egg::ovum::ModuleFactory::fromRootNode(context.getTypeFactory(), this->resource, *node);
     return egg::ovum::ILogger::Severity::None;
   }
   return egg::ovum::ILogger::Severity::Error;

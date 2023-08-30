@@ -104,7 +104,40 @@ namespace {
       out.currentBytesOwned = this->bytes;
       return true;
     }
+    virtual void print(Printer& printer) const override {
+      size_t index = 0;
+      for (const auto* entry : this->owned) {
+        printer << "    [" << index++ << "] ";
+        entry->print(printer);
+        printer.stream() << std::endl;
+      }
+    }
   };
+}
+
+bool egg::ovum::IBasket::verify(std::ostream& os, size_t minimum, size_t maximum) {
+  Statistics stats;
+  auto collected = this->collect();
+  if (collected > 0) {
+    os << "$$$ Collected " << collected << " from basket" << std::endl;
+  }
+  if (this->statistics(stats)) {
+    if ((minimum == 0) && (maximum == SIZE_MAX)) {
+      // The default is to check for an empty basket
+      if (stats.currentBlocksOwned == 0) {
+        return true;
+      }
+    } else if ((stats.currentBlocksOwned >= minimum) && (stats.currentBlocksOwned <= maximum)) {
+      // Otherwise use the explicit bounds
+      return true;
+    }
+    os << "$$$ Basket still owns " << stats.currentBytesOwned << " bytes in " << stats.currentBlocksOwned << " blocks" << std::endl;
+  } else {
+    os << "$$$ Unable to determine number of remaining basket blocks" << std::endl;
+  }
+  Printer printer(os, Print::Options::DEFAULT);
+  this->print(printer);
+  return false;
 }
 
 egg::ovum::Basket egg::ovum::BasketFactory::createBasket(egg::ovum::IAllocator& allocator) {

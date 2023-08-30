@@ -40,9 +40,9 @@ namespace {
       break;
     default:
       if (codepoint == char32_t(quote)) {
-        stream << '\\' << codepoint;
+        stream << '\\' << quote;
       } else {
-        stream << codepoint;
+        stream << char(codepoint); // TODO proper unicode escapes
       }
     }
   }
@@ -94,6 +94,14 @@ void egg::ovum::Print::write(std::ostream& stream, const std::string& value, con
 
 void egg::ovum::Print::write(std::ostream& stream, const String& value, const Options& options) {
   Print::write(stream, value.toUTF8(), options);
+}
+
+void egg::ovum::Print::write(std::ostream& stream, const Type& value, const Options&) {
+  if (value == nullptr) {
+    stream << "null";
+  } else {
+    stream << Type::toString(*value);
+  }
 }
 
 void egg::ovum::Print::write(std::ostream& stream, ValueFlags value, const Options&) {

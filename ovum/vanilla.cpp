@@ -13,161 +13,6 @@ namespace {
     return Object(*allocator.makeRaw<T>(allocator, std::forward<ARGS>(args)...));
   }
 
-  class Type_Base : public NotHardReferenceCounted<IType> {
-    Type_Base(const Type_Base&) = delete;
-    Type_Base& operator=(const Type_Base&) = delete;
-  protected:
-    static const Modifiability ReadWriteMutate = Modifiability::Read | Modifiability::Write | Modifiability::Mutate;
-    static const Modifiability ReadWriteMutateDelete = Modifiability::Read | Modifiability::Write | Modifiability::Mutate | Modifiability::Delete;
-  private:
-    ObjectShape shape;
-  public:
-    Type_Base(const IFunctionSignature* callable, const IPropertySignature* dotable, const IIndexSignature* indexable, const IIteratorSignature* iterable)
-      : shape({ callable, dotable, indexable, iterable }) {
-    }
-    virtual ValueFlags getPrimitiveFlags() const override {
-      return ValueFlags::None;
-    }
-    virtual const ObjectShape* getObjectShape(size_t index) const override {
-      // We only have one object shape
-      return (index == 0) ? &this->shape : nullptr;
-    }
-    virtual size_t getObjectShapeCount() const override {
-      // We only have one object shape
-      return 1;
-    }
-    virtual const PointerShape* getPointerShape(size_t) const override {
-      // We are not a pointer
-      return nullptr;
-    }
-    virtual size_t getPointerShapeCount() const override {
-      // We are not a pointer
-      return 0;
-    }
-    virtual String describeValue() const override {
-      // TODO i18n
-      return StringBuilder::concat("Value of type '", this->toStringPrecedence().first, "'");
-    }
-  };
-
-  class Type_Iterator final : public Type_Base {
-    Type_Iterator(const Type_Iterator&) = delete;
-    Type_Iterator& operator=(const Type_Iterator&) = delete;
-  private:
-    TypeBuilderCallable callable;
-  public:
-    explicit Type_Iterator(const Type& rettype)
-      : Type_Base(&callable, nullptr, nullptr, nullptr),
-        callable(rettype, {}) {
-      assert(rettype.hasPrimitiveFlag(ValueFlags::Void));
-    }
-    virtual std::pair<std::string, int> toStringPrecedence() const override {
-      auto retval = this->callable.getReturnType()->toStringPrecedence();
-      assert(retval.second == 2);
-      return { '(' + retval.first + ')' + '(' + ')', 0 };
-    }
-    virtual String describeValue() const override {
-      // TODO i18n
-      return "Iterator";
-    }
-  };
-
-  class Type_Array final : public Type_Base {
-    Type_Array(const Type_Array&) = delete;
-    Type_Array& operator=(const Type_Array&) = delete;
-  private:
-    TypeBuilderProperties dotable;
-    TypeBuilderIndexable indexable;
-    TypeBuilderIterable iterable;
-  public:
-    Type_Array()
-      : Type_Base(nullptr, &dotable, &indexable, &iterable),
-        dotable(),
-        indexable(Type::AnyQ, Type::Int, ReadWriteMutate),
-        iterable(Type::AnyQ) {
-      this->dotable.add(Type::Int, "length", ReadWriteMutate);
-    }
-    virtual std::pair<std::string, int> toStringPrecedence() const override {
-      return { "any?[]", 1 };
-    }
-    virtual String describeValue() const override {
-      // TODO i18n
-      return "Array";
-    }
-  };
-
-  class Type_DictionaryBase : public Type_Base {
-    Type_DictionaryBase(const Type_DictionaryBase&) = delete;
-    Type_DictionaryBase& operator=(const Type_DictionaryBase&) = delete;
-  protected:
-    class KeyValueIterable : public IIteratorSignature {
-    public:
-      virtual Type getType() const override {
-        return Vanilla::getKeyValueType();
-      }
-    };
-    TypeBuilderProperties dotable;
-    TypeBuilderIndexable indexable;
-    KeyValueIterable iterable;
-  public:
-    Type_DictionaryBase(Modifiability modifiability, const Type& unknownType, Modifiability unknownModifiability)
-      : Type_Base(nullptr, &dotable, &indexable, &iterable),
-        dotable(unknownType, unknownModifiability),
-        indexable(Type::AnyQ, Type::String, modifiability),
-        iterable() {
-    }
-  };
-
-  class Type_Dictionary final : public Type_DictionaryBase {
-    Type_Dictionary(const Type_Dictionary&) = delete;
-    Type_Dictionary& operator=(const Type_Dictionary&) = delete;
-  public:
-    Type_Dictionary()
-      : Type_DictionaryBase(ReadWriteMutateDelete, Type::AnyQ, ReadWriteMutateDelete) {
-    }
-    virtual std::pair<std::string, int> toStringPrecedence() const override {
-      return { "any?{string}", 0 };
-    }
-    virtual String describeValue() const override {
-      // TODO i18n
-      return "Object";
-    }
-  };
-
-  class Type_KeyValue final : public Type_DictionaryBase {
-    Type_KeyValue(const Type_KeyValue&) = delete;
-    Type_KeyValue& operator=(const Type_KeyValue&) = delete;
-  public:
-    Type_KeyValue()
-      : Type_DictionaryBase(Modifiability::Read, nullptr, Modifiability::None) {
-      this->dotable.add(Type::String, "key", Modifiability::Read);
-      this->dotable.add(Type::AnyQ, "value", Modifiability::Read);
-    }
-    virtual std::pair<std::string, int> toStringPrecedence() const override {
-      return { "keyvalue", 0 };
-    }
-  };
-}
-
-// Vanilla types
-egg::ovum::Type egg::ovum::Vanilla::getArrayType() {
-  static const Type_Array instance;
-  return Type(&instance);
-}
-
-egg::ovum::Type egg::ovum::Vanilla::getDictionaryType() {
-  static const Type_Dictionary instance;
-  return Type(&instance);
-}
-
-egg::ovum::Type egg::ovum::Vanilla::getKeyValueType() {
-  static const Type_KeyValue instance;
-  return Type(&instance);
-}
-
-namespace {
-  using namespace egg::ovum;
-
   template<typename... ARGS>
   Value raiseString(IAllocator& allocator, ARGS&&... args) {
     // TODO possibly conflate to ValueFlags::Throw|ValueFlags::String
@@ -237,14 +82,24 @@ namespace {
       return true;
     }
     void print(Printer& printer, char& separator) const {
-      this->container.foreach([&](const Slot& slot) {
+      this->container.foreach([&](const Slot* slot) {
         printer << separator;
-        auto* value = slot.get();
-        if (value != nullptr) {
-          printer.write(Value(*value));
+        if (slot != nullptr) {
+          auto* value = slot->get();
+          if (value != nullptr) {
+            printer.write(Value(*value));
+          }
         }
         separator = ',';
       });
+    }
+    void print(Printer& printer) const override {
+      char separator = '[';
+      this->print(printer, separator);
+      if (separator == '[') {
+        printer << separator;
+      }
+      printer << ']';
     }
   };
 
@@ -313,6 +168,14 @@ namespace {
         }
         separator = ',';
       });
+    }
+    void print(Printer& printer) const override {
+      char separator = '{';
+      this->print(printer, separator);
+      if (separator == '{') {
+        printer << separator;
+      }
+      printer << '}';
     }
   };
 
@@ -397,14 +260,14 @@ namespace {
     VanillaIterator& operator=(const VanillaIterator&) = delete;
   private:
     SoftPtr<VanillaIterable> container;
-    Type_Iterator type;
     VanillaIterable::State state;
+    Type runtimeType;
   public:
-    VanillaIterator(IExecution& execution, VanillaIterable& container, const Type& rettype)
+    VanillaIterator(IExecution& execution, VanillaIterable& container, const Type& runtimeType)
       : VanillaBase(execution.getAllocator()),
         container(execution.getBasket(), &container),
-        type(rettype),
-        state(container.iterateStart(execution)) {
+        state(container.iterateStart(execution)),
+        runtimeType(runtimeType) {
       execution.getBasket().take(*this);
       assert(this->validate());
     }
@@ -412,7 +275,7 @@ namespace {
       this->container.visit(visitor);
     }
     virtual Type getRuntimeType() const override {
-      return Type(&this->type);
+      return this->runtimeType;
     }
     virtual Value call(IExecution& execution, const IParameters& parameters) override {
       if ((parameters.getPositionalCount() > 0) || (parameters.getNamedCount() > 0)) {
@@ -424,8 +287,8 @@ namespace {
 
   Value VanillaIterable::createIterator(IExecution& execution, const Type& elementType) {
     assert(elementType != nullptr);
-    auto rettype = execution.getTypeFactory().addVoid(elementType);
-    Object iterator(*allocator.create<VanillaIterator>(0, execution, *this, rettype));
+    auto runtimeType = execution.getTypeFactory().createIterator(elementType);
+    Object iterator(*allocator.create<VanillaIterator>(0, execution, *this, runtimeType));
     return ValueFactory::create(allocator, iterator);
   }
 
@@ -434,10 +297,12 @@ namespace {
     VanillaArray& operator=(const VanillaArray&) = delete;
   private:
     SoftPtr<VanillaValueArray> array;
+    Type runtimeType;
   public:
-    VanillaArray(IAllocator& allocator, IBasket& basket, size_t length)
+    VanillaArray(IAllocator& allocator, IBasket& basket, size_t length, const Type& runtimeType)
       : VanillaIterable(allocator),
-        array(basket, allocator.makeRaw<VanillaValueArray>(allocator, basket, length)) {
+        array(basket, allocator.makeRaw<VanillaValueArray>(allocator, basket, length)),
+        runtimeType(runtimeType) {
       basket.take(*this);
       assert(this->validate());
     }
@@ -445,7 +310,7 @@ namespace {
       this->array.visit(visitor);
     }
     virtual Type getRuntimeType() const override {
-      return Vanilla::getArrayType();
+      return this->runtimeType;
     }
     virtual Value getProperty(IExecution& execution, const String& property) override {
       Value value;
@@ -540,10 +405,14 @@ namespace {
     VanillaDictionary& operator=(const VanillaDictionary&) = delete;
   protected:
     SoftPtr<VanillaStringValueMap> map;
+    const IType& runtimeType;
+    const IType& keyValueType;
   public:
-    VanillaDictionary(IAllocator& allocator, IBasket& basket)
+    VanillaDictionary(IAllocator& allocator, IBasket& basket, const Type& runtimeType, const Type& keyValueType)
       : VanillaIterable(allocator),
-        map(basket, allocator.makeRaw<VanillaStringValueMap>(allocator, basket)) {
+        map(basket, allocator.makeRaw<VanillaStringValueMap>(allocator, basket)),
+        runtimeType(*runtimeType),
+        keyValueType(*keyValueType) {
       basket.take(*this);
       assert(this->validate());
     }
@@ -551,7 +420,7 @@ namespace {
       this->map.visit(visitor);
     }
     virtual Type getRuntimeType() const override {
-      return Vanilla::getDictionaryType();
+      return Type(&this->runtimeType);
     }
     virtual Value getProperty(IExecution& execution, const String& property) override {
       Value value;
@@ -594,7 +463,7 @@ namespace {
       return augment(execution, this->map->mut(property, mutation, value));
     }
     virtual Value iterate(IExecution& execution) override {
-      return this->createIterator(execution, Vanilla::getKeyValueType());
+      return this->createIterator(execution, Type(&this->keyValueType));
     }
     virtual State iterateStart(IExecution&) const override {
       // state.a is the next index into the key vector
@@ -610,7 +479,7 @@ namespace {
       auto length = Int(this->map->length());
       if (state.b != length) {
         state.a = -1;
-        return execution.raise("Dictionary iterator has detected that the underlying object has changed size");
+        return execution.raise("Object iterator has detected that the underlying object has changed size");
       }
       String key;
       Value value;
@@ -619,15 +488,10 @@ namespace {
         return Value::Void;
       }
       state.a++;
-      return execution.makeValue(VanillaFactory::createKeyValue(execution.getAllocator(), execution.getBasket(), key, value));
+      return execution.makeValue(VanillaFactory::createKeyValue(execution.getTypeFactory(), execution.getBasket(), key, value));
     }
     virtual void print(Printer& printer) const override {
-      char separator = '{';
-      this->map->print(printer, separator);
-      if (separator == '{') {
-        printer << separator;
-      }
-      printer << '}';
+      this->map->print(printer);
     }
   };
 
@@ -671,11 +535,13 @@ namespace {
   protected:
     String key;
     SoftPtr<Slot> value;
+    Type type;
   public:
-    explicit VanillaKeyValue(IAllocator& allocator, IBasket& basket, const String& key, const Value& value)
+    explicit VanillaKeyValue(IAllocator& allocator, IBasket& basket, const String& key, const Value& value, const Type& type)
       : VanillaIterable(allocator),
         key(key),
-        value(basket, allocator.makeRaw<Slot>(allocator, basket, value)) {
+        value(basket, allocator.makeRaw<Slot>(allocator, basket, value)),
+        type(type) {
       basket.take(*this); // WOBBLE place in base class throughout?
       assert(this->validate());
     }
@@ -683,7 +549,7 @@ namespace {
       this->value.visit(visitor);
     }
     virtual Type getRuntimeType() const override {
-      return Vanilla::getKeyValueType();
+      return this->type;
     }
     virtual Value getProperty(IExecution& execution, const String& property) override {
       if (property == "key") {
@@ -707,7 +573,7 @@ namespace {
       return execution.raiseFormat("Key-value object does not support property '", property, "'");
     }
     virtual Value iterate(IExecution& execution) override {
-      return this->createIterator(execution, Vanilla::getKeyValueType());
+      return this->createIterator(execution, this->type);
     }
     virtual State iterateStart(IExecution&) const override {
       // state.a is the next index into the key vector
@@ -718,10 +584,10 @@ namespace {
       switch (state.a) {
       case 0:
         state.a = 1;
-        return execution.makeValue(VanillaFactory::createKeyValue(execution.getAllocator(), execution.getBasket(), "key", execution.makeValue(this->key)));
+        return execution.makeValue(VanillaFactory::createKeyValue(execution.getTypeFactory(), execution.getBasket(), "key", execution.makeValue(this->key)));
       case 1:
         state.a = -1;
-        return execution.makeValue(VanillaFactory::createKeyValue(execution.getAllocator(), execution.getBasket(), "value", this->getValue()));
+        return execution.makeValue(VanillaFactory::createKeyValue(execution.getTypeFactory(), execution.getBasket(), "value", this->getValue()));
       }
       state.a = -1;
       return Value::Void;
@@ -746,11 +612,13 @@ namespace {
   private:
     SoftPtr<ISlot> slot;
     Type type;
+    Modifiability modifiability;
   public:
-    VanillaPointer(IAllocator& allocator, IBasket& basket, const ISlot& slot, const Type& type)
+    VanillaPointer(IAllocator& allocator, IBasket& basket, const ISlot& slot, const Type& type, Modifiability modifiability)
       : VanillaBase(allocator),
         slot(),
-        type(type) {
+        type(type),
+        modifiability(modifiability) {
       assert(type != nullptr);
       this->slot.set(basket, &slot);
       basket.take(*this);
@@ -759,10 +627,10 @@ namespace {
       this->slot.visit(visitor);
     }
     virtual Type getRuntimeType() const override {
-      return Type(this->type.get());
+      return this->type;
     }
     virtual Value getPointee(IExecution& execution) override {
-      if (this->hasModifiability(Modifiability::Read)) {
+      if (Bits::hasAllSet(this->modifiability, Modifiability::READ)) {
         auto* value = this->slot->get();
         if (value == nullptr) {
           return Value::Void;
@@ -772,14 +640,14 @@ namespace {
       return execution.raise(this->trailing("does not support reading via pointer operator '*'"));
     }
     virtual Value setPointee(IExecution& execution, const Value& value) override {
-      if (this->hasModifiability(Modifiability::Write)) {
+      if (Bits::hasAllSet(this->modifiability, Modifiability::WRITE)) {
         this->slot->set(value);
         return Value::Void;
       }
       return execution.raise(this->trailing("does not support writing via pointer operator '*'"));
     }
     virtual Value mutPointee(IExecution& execution, Mutation mutation, const Value& value) override {
-      if (this->hasModifiability(Modifiability::Mutate)) {
+      if (Bits::hasAllSet(this->modifiability, Modifiability::MUTATE)) {
         Value before;
         switch (Slot::mutate(*this->slot, this->allocator, Type::AnyQ, mutation, value, before)) {
         case Type::Assignment::Success:
@@ -793,11 +661,6 @@ namespace {
       }
       return execution.raise(this->trailing("does not support mutating via pointer operator '*'"));
     }
-  private:
-    bool hasModifiability(Modifiability flags) {
-      auto modifiability = this->type->getPointerShape(0)->modifiability;
-      return Bits::hasAllSet(modifiability, flags);
-    }
   };
 
   class VanillaError : public VanillaDictionary {
@@ -806,8 +669,8 @@ namespace {
   private:
     std::string readable;
   public:
-    VanillaError(IAllocator& allocator, IBasket& basket, const LocationSource& location, const String& message)
-      : VanillaDictionary(allocator, basket) {
+    VanillaError(IAllocator& allocator, IBasket& basket, const LocationSource& location, const String& message, const Type& runtimeType, const Type& keyValueType)
+      : VanillaDictionary(allocator, basket, runtimeType, keyValueType) {
       assert(this->validate());
       this->map->add("message", ValueFactory::create(allocator, message));
       if (!location.file.empty()) {
@@ -836,13 +699,15 @@ namespace {
     VanillaPredicate(const VanillaPredicate&) = delete;
     VanillaPredicate& operator=(const VanillaPredicate&) = delete;
   private:
-    Vanilla::IPredicateCallback& callback; // Guaranteed to be long-lived
+    IVanillaPredicateCallback& callback; // Guaranteed to be long-lived
     Node node;
+    Type runtimeType;
   public:
-    VanillaPredicate(IAllocator& allocator, IBasket& basket, Vanilla::IPredicateCallback& callback, const INode& node)
+    VanillaPredicate(IAllocator& allocator, IBasket& basket, IVanillaPredicateCallback& callback, const INode& node, const Type& runtimeType)
       : VanillaBase(allocator),
       callback(callback),
-      node(&node) {
+      node(&node),
+      runtimeType(runtimeType) {
       assert(this->node != nullptr);
       basket.take(*this);
     }
@@ -850,12 +715,12 @@ namespace {
       // There are no soft links to visit
     }
     virtual Type getRuntimeType() const override {
-      return Type::Object; // TODO
+      return this->runtimeType;
     }
-    virtual Value call(IExecution&, const IParameters& parameters) override {
-      assert(parameters.getNamedCount() == 0);
-      assert(parameters.getPositionalCount() == 0);
-      (void)parameters; // ignore the parameters
+    virtual Value call(IExecution& execution, const IParameters& parameters) override {
+      if ((parameters.getNamedCount() > 0) || (parameters.getPositionalCount() > 0)) {
+        return execution.raise(this->trailing("does not support calling with parameters"));
+      }
       return this->callback.predicateCallback(*this->node);
     }
     virtual void print(Printer& printer) const override {
@@ -868,30 +733,37 @@ namespace {
   };
 }
 
-egg::ovum::Object egg::ovum::VanillaFactory::createArray(IAllocator& allocator, IBasket& basket, size_t length) {
-  return createVanillaObject<VanillaArray>(allocator, basket, length);
+egg::ovum::Object egg::ovum::VanillaFactory::createArray(ITypeFactory& factory, IBasket& basket, size_t length) {
+  auto runtimeType = factory.getVanillaArray();
+  return createVanillaObject<VanillaArray>(factory.getAllocator(), basket, length, runtimeType);
 }
 
-egg::ovum::Object egg::ovum::VanillaFactory::createDictionary(IAllocator& allocator, IBasket& basket) {
-  return createVanillaObject<VanillaDictionary>(allocator, basket);
+egg::ovum::Object egg::ovum::VanillaFactory::createDictionary(ITypeFactory& factory, IBasket& basket) {
+  auto runtimeType = factory.getVanillaDictionary();
+  auto keyValueType = factory.getVanillaKeyValue();
+  return createVanillaObject<VanillaDictionary>(factory.getAllocator(), basket, runtimeType, keyValueType);
 }
 
-egg::ovum::Object egg::ovum::VanillaFactory::createObject(IAllocator& allocator, IBasket& basket) {
-  return createVanillaObject<VanillaObject>(allocator, basket);
+egg::ovum::Object egg::ovum::VanillaFactory::createObject(ITypeFactory& factory, IBasket& basket) {
+  return createVanillaObject<VanillaObject>(factory.getAllocator(), basket);
 }
 
-egg::ovum::Object egg::ovum::VanillaFactory::createKeyValue(IAllocator& allocator, IBasket& basket, const String& key, const Value& value) {
-  return createVanillaObject<VanillaKeyValue>(allocator, basket, key, value);
+egg::ovum::Object egg::ovum::VanillaFactory::createKeyValue(ITypeFactory& factory, IBasket& basket, const String& key, const Value& value) {
+  auto keyValueType = factory.getVanillaKeyValue();
+  return createVanillaObject<VanillaKeyValue>(factory.getAllocator(), basket, key, value, keyValueType);
 }
 
-egg::ovum::Object egg::ovum::VanillaFactory::createError(IAllocator& allocator, IBasket& basket, const LocationSource& location, const String& message) {
-  return createVanillaObject<VanillaError>(allocator, basket, location, message);
+egg::ovum::Object egg::ovum::VanillaFactory::createError(ITypeFactory& factory, IBasket& basket, const LocationSource& location, const String& message) {
+  auto runtimeType = factory.getVanillaError();
+  auto keyValueType = factory.getVanillaKeyValue();
+  return createVanillaObject<VanillaError>(factory.getAllocator(), basket, location, message, runtimeType, keyValueType);
 }
 
-egg::ovum::Object egg::ovum::VanillaFactory::createPredicate(IAllocator& allocator, IBasket& basket, Vanilla::IPredicateCallback& callback, const INode& node) {
-  return createVanillaObject<VanillaPredicate>(allocator, basket, callback, node);
+egg::ovum::Object egg::ovum::VanillaFactory::createPredicate(ITypeFactory& factory, IBasket& basket, IVanillaPredicateCallback& callback, const INode& node) {
+  auto runtimeType = factory.getVanillaPredicate();
+  return createVanillaObject<VanillaPredicate>(factory.getAllocator(), basket, callback, node, runtimeType);
 }
 
-egg::ovum::Object egg::ovum::VanillaFactory::createPointer(IAllocator& allocator, IBasket& basket, ISlot& slot, const Type& pointer) {
-  return createVanillaObject<VanillaPointer>(allocator, basket, slot, pointer);
+egg::ovum::Object egg::ovum::VanillaFactory::createPointer(ITypeFactory& factory, IBasket& basket, ISlot& slot, const Type& pointer, Modifiability modifiability) {
+  return createVanillaObject<VanillaPointer>(factory.getAllocator(), basket, slot, pointer, modifiability);
 }

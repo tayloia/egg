@@ -161,7 +161,7 @@ namespace egg::ovum {
       assert(this->map.size() == this->vec.size());
       values.clear();
       values.reserve(this->vec.size());
-      std::transform(this->vec.begin(), this->vec.end(), std::back_inserter(values), [=](const auto& k) {
+      std::transform(this->vec.begin(), this->vec.end(), std::back_inserter(values), [this](const auto& k) {
         return this->map.at(k);
       });
       assert(values.size() == this->vec.size());
@@ -172,7 +172,7 @@ namespace egg::ovum {
       assert(this->map.size() == this->vec.size());
       keyvalues.clear();
       keyvalues.reserve(this->vec.size());
-      std::transform(this->vec.begin(), this->vec.end(), std::back_inserter(keyvalues), [=](const auto& k) {
+      std::transform(this->vec.begin(), this->vec.end(), std::back_inserter(keyvalues), [this](const auto& k) {
         // Wow, this is quite ugly, isn't it?!
         return *this->map.find(k);
       });

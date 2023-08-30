@@ -256,6 +256,9 @@
   Modules contain one or more statements.
   Each statement may be preceded by one or more attributes (<a>attributes</a>).
   <div class="railroad">module</div>
+  Attributes may also be attached to the module as a whole, in which case, they begin with <i>two</i> '<code>@</code>' symbols.
+  For example:
+  <pre class="code">@@version("1.2.0")</pre>
   <h3>Statements</h3>
   A statement is one of the following:
   <ul>
@@ -267,7 +270,7 @@
   That is
   <div class="railroad">statement</div>
   <h4>Simple Statement</h4>
-  A simple statement is an action, a type definition or a variable definition:
+  A simple statement is an action or a variable definition:
   <div class="railroad">statement-simple</div>
   <h4>Action Statement</h4>
   An action is an assignment, an increment/decrement or a function call statement:
@@ -583,7 +586,7 @@ try {
 print(square.name, "\n"); // Prints 'square'
 print(square(9), "\n"); // Prints '81'</pre>
   The parameter list contains the types and names of the function parameters, if any, separated by commas:
-  <div class="railroad">definition-function-parameter</div>
+  <div class="railroad">function-parameter</div>
   The only permitted default value for optional parameters is <code>null</code>.
   For example:
   <pre class="code">float logarithm(float x, float? base = null) {
@@ -612,19 +615,22 @@ print(sum(3, 1, 4, 1, 5, 9), "\n"); // Prints '23'</pre>
   <h4>Generator Function Definition</h4>
   Generator function definitions look like function definitions except they have at least one <code>yield</code> statement within the statement block.
   <h4>Type Definition</h4>
-  Type definitions introduce new identifiers that are synonymous with an arbitrary type.
+  Type definitions introduce new identifiers that name an arbitrary type.
   <div class="railroad">definition-type</div>
-  For example:
+  For example, <i>type aliases</i>:
   <pre class="code">type Number = int|float;
 Number n; // Synonymous with 'int|float n'</pre>
+  Type definitions describe the shape of types:
+  <pre class="code">type Animal {
+  string name;
+  int legs;
+}</pre>
   <i>Generic type</i> definitions can be parametrized by one or more other types:
-  <pre class="code">type Dictionary&lt;K, V&gt; = {
-  properties: {
-    add: bool(K key, V value),
-    remove: bool(K key),
-    find: V?(K key)
-  }
-};</pre>
+  <pre class="code">type Dictionary&lt;K, V&gt; {
+  bool add(K key, V value);
+  bool remove(K key);
+  V? find(K key);
+}</pre>
   <h4>Variable Definition</h4>
   Variables can either be defined with a specific type, or can have their type inferred.
   <div class="railroad">definition-variable</div>
@@ -735,9 +741,21 @@ var b = [true, ...a, 3.14159]; // Equals [true, "hello", 123, [1, 2, 3], 3.14159
   <h4>Type Literal</h4>
   Type literals are used in type definitions (<a>type-definition</a>) and in type expressions (<a>type-expressions</a>) where they are preceded by the <code>type</code> keyword:
   <div class="railroad">literal-type</div>
-  They are similar to object literals, except that the property values may be types and the ellipsis <code>...</code> syntax is not supported.
-  Type literals make use of <i>well-known</i> properties names.
-  See <a href="types.html">Type Schema</a> for more information [TODO].
+  For example:
+  <pre class="code">type Named {
+  string name { get; } // immutable
+}
+
+type Pet : Named {
+  string name; // now mutable
+  int age { get; }
+  void wag(int times);
+
+  static int MAX_PETS = 101;
+  static Pet createPet(string name, Date dob) {
+    // see below
+  }
+}</pre>
   <h3>Value Expressions</h3>
   Value expressions (usually abbreviated to just "<i>expressions</i>") evaluate to values.
   Values have types; therefore expressions also have types.
@@ -842,6 +860,16 @@ var q = applyUnary(a => a * a, 2);
 print(q, "\n"); // Prints 4</pre>
   Note that lambda expressions may only be used when the parameter types can be <i>trivially</i> inferred.
   At other times, the full function expression syntax must be used.
+  <h4>Type Instantiation Expression</h4>
+  Type instantiation expressions create object instances based on existing type definitions:
+  <div class="railroad">expression-type-instantiation</div>
+  For example:
+  <pre class="code">var comedian = Comedian {
+  string forename => "Charlie";
+  string surname => "Chaplin";
+  int birthYear => 1889;
+};</pre>
+  See <a>type-instantiation</a>.
   <h3>Indexing</h3>
   An expression may be <i>indexed</i> using square brackets <code>[]</code>.
   The indexing expression may be of any type.
@@ -884,6 +912,7 @@ print(obj["year-of-birth"], "\n"); // Prints 1889. Cannot use "dot" notation</pr
   That is
   <div class="railroad">type-expression-primary</div>
   Note that <code>null</code> is a <i>value</i> whereas <code>type null</code> is a <i>type</i>.
+  <div class="railroad">type-constraint</div>
   <h4>Fundamental Type</h4>
   There are seven fundamental types:
   <table>
@@ -1024,6 +1053,145 @@ Dictionary&lt;int, string&gt; dict = createDictionary();
 dict.add(8, "eight");</pre>
   The example above defines a dictionary generic type which takes two type parameters: the type of the dictionary key <code>K</code> and the type of the dictionary value <code>V</code>.
   The variable <code>dict</code> is then introduced as a dictionary with the keys being integers and the values being strings.
+  <h3>Type Instantiation</h3>
+  A type instantiation defines an object instance based on a type definition as part of a type instantiation expression (<a>type-instantiation-expression</a>}.
+  <div class="railroad">type-instantiation</div>
+  Object instances from instantiated types can have properties, function and types.
+  They may also be iterable, callable and/or indexable.
+  For example:
+  <pre class="code">type Pet {
+  string name;
+  int legs;
+  void wag(int times);
+}
+
+Pet createDog(string name) {
+  return Pet {
+    string name = name;
+    int legs => 4;
+    void speak(int times) {
+      print(name, " barks ", times, " time(s)");
+    }
+  };
+}</pre>
+  <h4>Type Property Instantiation</h4>
+  TODO
+  <div class="railroad">type-instantiation-property</div>
+  For example:
+  <pre class="code">Pet createDog(string dogName) {
+  return Pet {
+    string name = dogName;
+    int legs => 4;
+    // ...
+  };
+}</pre>
+  This is the same as:
+  <pre class="code">Pet createDog(string dogName) {
+  var myName = dogName;
+  return Pet {
+    string name {
+      string get() { return myName; }
+      void set(string value) { myName = value; }
+      any? mut(any operation, any? value) { return object.mut(&myName, operation, value); }
+    }
+    int legs {
+      int get() { return 4; }
+    }
+    // ...
+  };
+}</pre>
+  <h4>Type Function Instantiation</h4>
+  TODO
+  <div class="railroad">type-instantiation-function</div>
+  For example:
+  <pre class="code">Pet createDog(string dogName) {
+  return Pet {
+    // ...
+    void speak(int times) {
+      print(name, " barks ", times, " time(s)");
+    }
+  };
+}</pre>
+  This is the same as:
+  <pre class="code">Pet createDog(string dogName) {
+  return Pet {
+    // ...
+    void(int) speak {
+      void(int) get() { return times => print(name, " barks ", times, " time(s)"); }
+    }
+  };
+}</pre>
+  <h4>Type Iterable Instantiation</h4>
+  TODO
+  <div class="railroad">type-instantiation-iterable</div>
+  For example:
+  <pre class="code">type StringSequence {
+  string...;
+}
+
+StringSequence createStringSequenceFromReversedArray(string[] array) {
+  return StringSequence {
+    string... {
+      for (var index = array.length - 1; index >= 0; --index) {
+        yield return array[index];
+      }
+    }
+  };
+}</pre>
+  <h4>Type Callable Instantiation</h4>
+  TODO
+  <div class="railroad">type-instantiation-callable</div>
+  For example:
+  <pre class="code">type Scaler {
+  double(double);
+}
+
+Scaler createScaler(double scale) {
+  return Scaler {
+    double(double value) {
+      return value * scale;
+    }
+  };
+}</pre>
+  <h4>Type Indexable Instantiation</h4>
+  TODO
+  <div class="railroad">type-instantiation-indexable</div>
+  For example:
+  <pre class="code">type StringList {
+  string[];
+  int length;
+}
+
+StringList createStringListFromArray(string[] array) {
+  return StringList {
+    string[] {
+      string get(int index) { return array[]; }
+    }
+    int length => array.length;
+  };
+}</pre>
+  Another example:
+  <pre class="code">type InventoryLookup {
+  int[string];
+}
+
+InventoryLookup createInventoryLookup() {
+  var inventory = object.Map&lt;string, int&gt;.new();
+  return InventoryLookup {
+    int[string] {
+      int get(string key) {
+        if (int value = try inventory[key]) {
+          return value;
+        }
+        return 0;
+      }
+      void set(string key, int value) {
+        inventory[key] = value;
+      }
+      return value * scale;
+    }
+  };
+}</pre>
   <h3>Conditions</h3>
   Conditions are used in flow control statements (<a>flow-control</a>).
   <div class="railroad">condition</div>

@@ -107,6 +107,10 @@ namespace egg::ovum {
     static String fromUTF8(IAllocator& allocator, const std::string& utf8) {
       return fromUTF8(allocator, utf8.data(), utf8.size());
     }
+    template<size_t N>
+    static String fromUTF8(IAllocator& allocator, const char8_t (&utf8)[N]) {
+      return fromUTF8(allocator, utf8, N - 1);
+    }
     static String fromASCIIZ(IAllocator& allocator, const char* asciiz);
   };
 }

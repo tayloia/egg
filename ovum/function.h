@@ -25,34 +25,8 @@ namespace egg::ovum {
     }
   };
 
-  class FunctionSignature : public IFunctionSignature {
-    FunctionSignature(const FunctionSignature&) = delete;
-    FunctionSignature& operator=(const FunctionSignature&) = delete;
-  private:
-    String name;
-    Type rettype;
-    std::vector<FunctionSignatureParameter> parameters;
+  class FunctionSignature {
   public:
-    FunctionSignature(const String& name, const Type& rettype)
-      : name(name), rettype(rettype) {
-    }
-    void addSignatureParameter(const String& parameterName, const Type& parameterType, size_t position, IFunctionSignatureParameter::Flags flags) {
-      this->parameters.emplace_back(parameterName, parameterType, position, flags);
-    }
-    virtual String getFunctionName() const override {
-      return this->name;
-    }
-    virtual Type getReturnType() const override {
-      return this->rettype;
-    }
-    virtual size_t getParameterCount() const override {
-      return this->parameters.size();
-    }
-    virtual const IFunctionSignatureParameter& getParameter(size_t index) const override {
-      assert(index < this->parameters.size());
-      return this->parameters[index];
-    }
-
     // Helpers
     enum class Parts {
       ReturnType = 0x01,

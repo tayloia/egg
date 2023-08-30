@@ -49,6 +49,15 @@
     <ClCompile Include="..\ovum\test\print.cpp">
       <Filter>Test Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\ovum\test\type.cpp">
+      <Filter>Test Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\ovum\test\vanilla.cpp">
+      <Filter>Test Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\ovum\test\forge.cpp">
+      <Filter>Test Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\ovum\test\gtest.h">
