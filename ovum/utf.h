@@ -80,6 +80,7 @@ namespace egg::ovum {
     const uint8_t* p;           // Points to the code unit immediately after of the current code point
     const uint8_t* const end;   // Points to the code unit after the last one of the string
   public:
+    UTF8(const UTF8&) = default;
     UTF8(const void* begin, const void* end, size_t offset)
       : begin(static_cast<const uint8_t*>(begin)), end(static_cast<const uint8_t*>(end)) {
       assert(this->begin != nullptr);

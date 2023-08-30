@@ -191,6 +191,8 @@ namespace egg::ovum {
       Predicate = 0x04 // Used in assertions
     };
     // Interface
+    IFunctionSignatureParameter() = default;
+    IFunctionSignatureParameter(const IFunctionSignatureParameter&) = default;
     virtual ~IFunctionSignatureParameter() {}
     virtual String getName() const = 0; // May be empty if positional
     virtual Type getType() const = 0;
