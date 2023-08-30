@@ -19,23 +19,23 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="$(EggRoot)\ovum\arithmetic.cpp" />
-    <ClCompile Include="$(EggRoot)\ovum\builtin.cpp" />
-    <ClCompile Include="$(EggRoot)\ovum\context.cpp" />
-    <ClCompile Include="$(EggRoot)\ovum\forge.cpp" />
-    <ClCompile Include="$(EggRoot)\ovum\function.cpp" />
-    <ClCompile Include="$(EggRoot)\ovum\node.cpp" />
-    <ClCompile Include="$(EggRoot)\ovum\basket.cpp" />
-    <ClCompile Include="$(EggRoot)\ovum\memory.cpp" />
-    <ClCompile Include="$(EggRoot)\ovum\module.cpp" />
-    <ClCompile Include="$(EggRoot)\ovum\object.cpp" />
-    <ClCompile Include="$(EggRoot)\ovum\print.cpp" />
-    <ClCompile Include="$(EggRoot)\ovum\program.cpp" />
-    <ClCompile Include="$(EggRoot)\ovum\slot.cpp" />
-    <ClCompile Include="$(EggRoot)\ovum\string.cpp" />
-    <ClCompile Include="$(EggRoot)\ovum\type.cpp" />
-    <ClCompile Include="$(EggRoot)\ovum\value.cpp" />
-    <ClCompile Include="$(EggRoot)\ovum\vanilla.cpp" />
+    <ClCompile Include="..\ovum\arithmetic.cpp" />
+    <ClCompile Include="..\ovum\basket.cpp" />
+    <ClCompile Include="..\ovum\builtin.cpp" />
+    <ClCompile Include="..\ovum\context.cpp" />
+    <ClCompile Include="..\ovum\forge.cpp" />
+    <ClCompile Include="..\ovum\function.cpp" />
+    <ClCompile Include="..\ovum\memory.cpp" />
+    <ClCompile Include="..\ovum\module.cpp" />
+    <ClCompile Include="..\ovum\node.cpp" />
+    <ClCompile Include="..\ovum\object.cpp" />
+    <ClCompile Include="..\ovum\print.cpp" />
+    <ClCompile Include="..\ovum\program.cpp" />
+    <ClCompile Include="..\ovum\slot.cpp" />
+    <ClCompile Include="..\ovum\string.cpp" />
+    <ClCompile Include="..\ovum\type.cpp" />
+    <ClCompile Include="..\ovum\value.cpp" />
+    <ClCompile Include="..\ovum\vanilla.cpp" />
     <ClCompile Include="ovum.pch.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Create</PrecompiledHeader>
@@ -44,33 +44,33 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="$(EggRoot)\ovum\arithmetic.h" />
-    <ClInclude Include="$(EggRoot)\ovum\builtin.h" />
-    <ClInclude Include="$(EggRoot)\ovum\context.h" />
-    <ClInclude Include="$(EggRoot)\ovum\dictionary.h" />
-    <ClInclude Include="$(EggRoot)\ovum\forge.h" />
-    <ClInclude Include="$(EggRoot)\ovum\function.h" />
-    <ClInclude Include="$(EggRoot)\ovum\hardptr.h" />
-    <ClInclude Include="$(EggRoot)\ovum\memory.h" />
-    <ClInclude Include="$(EggRoot)\ovum\module.h" />
-    <ClInclude Include="$(EggRoot)\ovum\basket.h" />
-    <ClInclude Include="$(EggRoot)\ovum\interfaces.h" />
-    <ClInclude Include="$(EggRoot)\ovum\node.h" />
-    <ClInclude Include="$(EggRoot)\ovum\object.h" />
-    <ClInclude Include="$(EggRoot)\ovum\ovum.h" />
-    <ClInclude Include="$(EggRoot)\ovum\platform.h" />
-    <ClInclude Include="$(EggRoot)\ovum\print.h" />
-    <ClInclude Include="$(EggRoot)\ovum\program.h" />
-    <ClInclude Include="$(EggRoot)\ovum\slot.h" />
-    <ClInclude Include="$(EggRoot)\ovum\softptr.h" />
-    <ClInclude Include="$(EggRoot)\ovum\string.h" />
-    <ClInclude Include="$(EggRoot)\ovum\test.h" />
-    <ClInclude Include="$(EggRoot)\ovum\type.h" />
-    <ClInclude Include="$(EggRoot)\ovum\utf.h" />
-    <ClInclude Include="$(EggRoot)\ovum\utility.h" />
-    <ClInclude Include="$(EggRoot)\ovum\value.h" />
-    <ClInclude Include="$(EggRoot)\ovum\vanilla.h" />
-    <ClInclude Include="$(EggRoot)\ovum\vm.h" />
+    <ClInclude Include="..\ovum\arithmetic.h" />
+    <ClInclude Include="..\ovum\basket.h" />
+    <ClInclude Include="..\ovum\builtin.h" />
+    <ClInclude Include="..\ovum\context.h" />
+    <ClInclude Include="..\ovum\dictionary.h" />
+    <ClInclude Include="..\ovum\forge.h" />
+    <ClInclude Include="..\ovum\function.h" />
+    <ClInclude Include="..\ovum\hardptr.h" />
+    <ClInclude Include="..\ovum\interfaces.h" />
+    <ClInclude Include="..\ovum\memory.h" />
+    <ClInclude Include="..\ovum\module.h" />
+    <ClInclude Include="..\ovum\node.h" />
+    <ClInclude Include="..\ovum\object.h" />
+    <ClInclude Include="..\ovum\ovum.h" />
+    <ClInclude Include="..\ovum\platform.h" />
+    <ClInclude Include="..\ovum\print.h" />
+    <ClInclude Include="..\ovum\program.h" />
+    <ClInclude Include="..\ovum\slot.h" />
+    <ClInclude Include="..\ovum\softptr.h" />
+    <ClInclude Include="..\ovum\string.h" />
+    <ClInclude Include="..\ovum\test.h" />
+    <ClInclude Include="..\ovum\type.h" />
+    <ClInclude Include="..\ovum\utf.h" />
+    <ClInclude Include="..\ovum\utility.h" />
+    <ClInclude Include="..\ovum\value.h" />
+    <ClInclude Include="..\ovum\vanilla.h" />
+    <ClInclude Include="..\ovum\vm.h" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>15.0</VCProjectVersion>

@@ -16,197 +16,28 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <None Include="..\examples\example-0001.egg">
-      <Filter>Example Files</Filter>
-    </None>
-    <None Include="..\examples\example-0002.egg">
-      <Filter>Example Files</Filter>
-    </None>
-    <None Include="..\examples\example-0003.egg">
-      <Filter>Example Files</Filter>
-    </None>
-    <None Include="..\examples\example-0004.egg">
-      <Filter>Example Files</Filter>
-    </None>
-    <None Include="..\examples\example-0005.egg">
-      <Filter>Example Files</Filter>
-    </None>
-    <None Include="..\examples\example-0006.egg">
-      <Filter>Example Files</Filter>
-    </None>
-    <None Include="..\examples\example-0007.egg">
-      <Filter>Example Files</Filter>
-    </None>
-    <None Include="..\examples\example-0008.egg">
-      <Filter>Example Files</Filter>
-    </None>
-    <None Include="..\examples\example-0009.egg">
-      <Filter>Example Files</Filter>
-    </None>
-    <None Include="..\examples\example-0010.egg">
-      <Filter>Example Files</Filter>
-    </None>
-    <None Include="..\examples\example-0011.egg">
-      <Filter>Example Files</Filter>
-    </None>
-    <None Include="..\examples\example-0012.egg">
-      <Filter>Example Files</Filter>
-    </None>
-    <None Include="..\examples\example-0013.egg">
-      <Filter>Example Files</Filter>
-    </None>
-    <None Include="..\examples\example-0014.egg">
-      <Filter>Example Files</Filter>
-    </None>
-    <None Include="..\examples\example-0015.egg">
-      <Filter>Example Files</Filter>
-    </None>
-    <None Include="..\examples\example-0016.egg">
-      <Filter>Example Files</Filter>
-    </None>
-    <None Include="..\examples\example-0017.egg">
-      <Filter>Example Files</Filter>
-    </None>
-    <None Include="..\examples\example-0018.egg">
-      <Filter>Example Files</Filter>
-    </None>
-    <None Include="..\examples\example-0019.egg">
-      <Filter>Example Files</Filter>
-    </None>
-    <None Include="..\examples\example-0020.egg">
-      <Filter>Example Files</Filter>
-    </None>
-    <None Include="..\examples\example-0021.egg">
-      <Filter>Example Files</Filter>
-    </None>
-    <None Include="..\examples\example-0022.egg">
-      <Filter>Example Files</Filter>
-    </None>
-    <None Include="..\examples\example-0023.egg">
-      <Filter>Example Files</Filter>
-    </None>
-    <None Include="..\examples\example-0024.egg">
-      <Filter>Example Files</Filter>
-    </None>
-    <None Include="..\examples\example-0025.egg">
-      <Filter>Example Files</Filter>
-    </None>
-    <None Include="..\examples\example-0026.egg">
-      <Filter>Example Files</Filter>
-    </None>
-    <None Include="..\examples\example-0027.egg">
-      <Filter>Example Files</Filter>
-    </None>
-    <None Include="..\examples\example-0028.egg">
-      <Filter>Example Files</Filter>
-    </None>
-    <None Include="..\examples\example-0029.egg">
-      <Filter>Example Files</Filter>
-    </None>
-    <None Include="..\examples\example-0030.egg">
-      <Filter>Example Files</Filter>
-    </None>
-    <None Include="..\examples\example-0031.egg">
-      <Filter>Example Files</Filter>
-    </None>
-    <None Include="..\examples\example-0032.egg">
-      <Filter>Example Files</Filter>
-    </None>
-    <None Include="..\examples\example-0033.egg">
-      <Filter>Example Files</Filter>
-    </None>
-    <None Include="..\examples\example-0034.egg">
-      <Filter>Example Files</Filter>
-    </None>
-    <None Include="..\examples\example-0035.egg">
-      <Filter>Example Files</Filter>
-    </None>
-    <None Include="..\examples\example-0036.egg">
-      <Filter>Example Files</Filter>
-    </None>
-    <None Include="..\examples\example-0037.egg">
-      <Filter>Example Files</Filter>
-    </None>
-    <None Include="..\examples\example-0038.egg">
-      <Filter>Example Files</Filter>
-    </None>
-    <None Include="..\examples\example-0039.egg">
-      <Filter>Example Files</Filter>
-    </None>
-    <None Include="..\examples\example-0040.egg">
-      <Filter>Example Files</Filter>
-    </None>
-    <None Include="..\examples\example-0041.egg">
-      <Filter>Example Files</Filter>
-    </None>
-    <None Include="..\examples\example-0042.egg">
-      <Filter>Example Files</Filter>
-    </None>
-    <None Include="..\examples\example-0043.egg">
-      <Filter>Example Files</Filter>
-    </None>
-    <None Include="..\examples\example-0044.egg">
-      <Filter>Example Files</Filter>
-    </None>
-    <None Include="..\examples\example-0045.egg">
-      <Filter>Example Files</Filter>
-    </None>
-    <None Include="..\examples\example-0046.egg">
-      <Filter>Example Files</Filter>
-    </None>
-    <None Include="..\examples\example-0047.egg">
-      <Filter>Example Files</Filter>
-    </None>
-    <None Include="..\examples\example-0048.egg">
-      <Filter>Example Files</Filter>
-    </None>
-    <None Include="..\examples\example-0049.egg">
-      <Filter>Example Files</Filter>
-    </None>
-    <None Include="..\examples\example-0050.egg">
-      <Filter>Example Files</Filter>
-    </None>
-    <None Include="..\examples\example-0051.egg">
-      <Filter>Example Files</Filter>
-    </None>
-    <None Include="..\yolk\test\data\coverage.egg">
-      <Filter>Data Files</Filter>
-    </None>
-    <None Include="..\yolk\test\data\example.egd">
-      <Filter>Data Files</Filter>
-    </None>
-    <None Include="..\yolk\test\data\example.egg">
-      <Filter>Data Files</Filter>
-    </None>
-    <None Include="..\yolk\test\data\example.json">
-      <Filter>Data Files</Filter>
-    </None>
-    <None Include="..\yolk\test\data\working.egg">
-      <Filter>Data Files</Filter>
-    </None>
-  </ItemGroup>
-  <ItemGroup>
-    <Text Include="..\yolk\test\data\utf-8-demo.bom.txt">
-      <Filter>Data Files</Filter>
-    </Text>
-    <Text Include="..\yolk\test\data\utf-8-demo.cr.txt">
-      <Filter>Data Files</Filter>
-    </Text>
-    <Text Include="..\yolk\test\data\utf-8-demo.lf.txt">
-      <Filter>Data Files</Filter>
-    </Text>
-    <Text Include="..\yolk\test\data\utf-8-demo.txt">
-      <Filter>Data Files</Filter>
-    </Text>
-  </ItemGroup>
-  <ItemGroup>
+    <ClCompile Include="yolk-test.pch.cpp">
+      <Filter>Infrastructure Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\ovum\test\gtest.cpp">
+      <Filter>Infrastructure Files</Filter>
+    </ClCompile>
     <ClCompile Include="..\yolk\test\egged-tokenizer.cpp">
+      <Filter>Test Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\yolk\test\egg-engine.cpp">
+      <Filter>Test Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\yolk\test\egg-parser.cpp">
       <Filter>Test Files</Filter>
     </ClCompile>
     <ClCompile Include="..\yolk\test\egg-syntax.cpp">
       <Filter>Test Files</Filter>
     </ClCompile>
     <ClCompile Include="..\yolk\test\egg-tokenizer.cpp">
+      <Filter>Test Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\yolk\test\examples.cpp">
       <Filter>Test Files</Filter>
     </ClCompile>
     <ClCompile Include="..\yolk\test\exceptions.cpp">
@@ -233,34 +64,19 @@
     <ClCompile Include="..\yolk\test\utf.cpp">
       <Filter>Test Files</Filter>
     </ClCompile>
-    <ClCompile Include="yolk-test.pch.cpp">
-      <Filter>Infrastructure Files</Filter>
-    </ClCompile>
-    <ClCompile Include="..\ovum\test\gtest.cpp">
-      <Filter>Infrastructure Files</Filter>
-    </ClCompile>
     <ClCompile Include="..\yolk\test\utility.cpp">
-      <Filter>Test Files</Filter>
-    </ClCompile>
-    <ClCompile Include="..\yolk\test\examples.cpp">
-      <Filter>Test Files</Filter>
-    </ClCompile>
-    <ClCompile Include="..\yolk\test\egg-engine.cpp">
-      <Filter>Test Files</Filter>
-    </ClCompile>
-    <ClCompile Include="..\yolk\test\egg-parser.cpp">
       <Filter>Test Files</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="..\ovum\test\etest.h">
+      <Filter>Infrastructure Files</Filter>
+    </ClInclude>
     <ClInclude Include="..\ovum\test\gtest.h">
       <Filter>Infrastructure Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\yolk\test.h">
-      <Filter>Infrastructure Files</Filter>
-    </ClInclude>
     <ClInclude Include="..\yolk\test\etest.h">
-      <Filter>Infrastructure Files</Filter>
+      <Filter>Test Files</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

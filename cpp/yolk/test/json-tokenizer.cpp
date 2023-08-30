@@ -211,7 +211,7 @@ TEST(TestJsonTokenizer, OperatorBad) {
 TEST(TestJsonTokenizer, ExampleFile) {
   // From https://en.wikipedia.org/wiki/JSON#JSON_sample
   JsonTokenizerItem item;
-  auto tokenizer = createFromPath("~/yolk/test/data/example.json");
+  auto tokenizer = createFromPath("~/cpp/yolk/test/data/example.json");
   size_t count = 0;
   while (tokenizer->next(item) != JsonTokenizerKind::EndOfFile) {
     count++;

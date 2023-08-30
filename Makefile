@@ -9,7 +9,7 @@ override CONFIGURATION ?= release
 include make/$(PLATFORM).mak
 
 # We exclude these source files
-EXCLUDE_SRCS = yolk/main.cpp
+EXCLUDE_SRCS = 
 
 SILENT = @
 
@@ -53,8 +53,8 @@ BIN_ROOT = bin/$(PLATFORM)/$(TOOLCHAIN)
 OBJ_DIR = $(OBJ_ROOT)/$(CONFIGURATION)
 BIN_DIR = $(BIN_ROOT)/$(CONFIGURATION)
 
-EGG_SRCS = $(call sources,ovum/*.cpp yolk/*.cpp)
-TEST_SRCS = $(call sources,ovum/test/*.cpp yolk/test/*.cpp)
+EGG_SRCS = $(call sources,cpp/ovum/*.cpp cpp/yolk/*.cpp)
+TEST_SRCS = $(call sources,cpp/ovum/test/*.cpp cpp/yolk/test/*.cpp)
 
 EGG_OBJS = $(call objects,$(EGG_SRCS))
 TEST_OBJS = $(call objects,$(TEST_SRCS))
@@ -101,8 +101,8 @@ $(OBJ_DIR)/%.o: %.cpp
 #############################################################################
 
 # These source files need additional include directories for Google Test
-$(OBJ_DIR)/ovum/test/% $(OBJ_DIR)/yolk/test/%: CXXFLAGS += -iquote ./thirdparty/googletest/include
-$(OBJ_DIR)/ovum/test/gtest.%: CXXFLAGS += -iquote ./thirdparty/googletest
+$(OBJ_DIR)/cpp/ovum/test/% $(OBJ_DIR)/cpp/yolk/test/%: CXXFLAGS += -iquote ./thirdparty/googletest/include
+$(OBJ_DIR)/cpp/ovum/test/gtest.%: CXXFLAGS += -iquote ./thirdparty/googletest
 
 # Re-generate the object files if this makefile changes
 # Make sure intermediate directories are created before generating object files

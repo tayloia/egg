@@ -1,5 +1,4 @@
 #include "ovum/test.h"
-#include "ovum/dictionary.h"
 
 namespace {
   inline constexpr double zero = 0.0;

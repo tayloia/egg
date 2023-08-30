@@ -113,7 +113,7 @@ TEST(TestEggParser, ExpressionType) {
 TEST(TestEggParser, ExampleFile) {
   egg::test::Allocator allocator{ egg::test::Allocator::Expectation::NoAllocations }; // TODO
   egg::ovum::TypeFactory factory{ allocator };
-  FileTextStream stream("~/yolk/test/data/example.egg");
+  FileTextStream stream("~/cpp/yolk/test/data/example.egg");
   auto root = EggParserFactory::parseModule(factory, stream);
   root->dump(std::cout);
   std::cout << std::endl;

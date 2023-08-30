@@ -13,7 +13,7 @@
 #pragma GCC diagnostic ignored "-Wmissing-field-initializers"
 #endif
 
-// For this source file only: make sure the following is in our search path, disable language extensions and turn off precompiled headers
+// For this source file only: make sure the following is in our search path, re-enable language extensions and turn off precompiled headers
 #include "src/gtest-all.cc"
 
 // Restore warning level after GCC GoogleTest issue 1521

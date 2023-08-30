@@ -1,7 +1,5 @@
 #include "ovum/test.h"
 
-#include <cstddef>
-
 namespace {
   struct Header {
     void* memory;

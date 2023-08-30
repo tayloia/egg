@@ -542,7 +542,7 @@ TEST(TestEggSyntaxParser, Vexatious) {
 TEST(TestEggSyntaxParser, ExampleFile) {
   egg::test::Allocator allocator{ egg::test::Allocator::Expectation::NoAllocations }; // TODO
   egg::ovum::TypeFactory factory{ allocator };
-  auto lexer = LexerFactory::createFromPath("~/yolk/test/data/example.egg");
+  auto lexer = LexerFactory::createFromPath("~/cpp/yolk/test/data/example.egg");
   auto tokenizer = EggTokenizerFactory::createFromLexer(lexer);
   auto parser = EggParserFactory::createModuleSyntaxParser(factory);
   auto root = parser->parse(*tokenizer);

@@ -228,7 +228,7 @@ TEST(TestEggTokenizer, Vexatious) {
 
 TEST(TestEggTokenizer, ExampleFile) {
   EggTokenizerItem item;
-  auto tokenizer = createFromPath("~/yolk/test/data/example.egg");
+  auto tokenizer = createFromPath("~/cpp/yolk/test/data/example.egg");
   size_t count = 0;
   while (tokenizer->next(item) != EggTokenizerKind::EndOfFile) {
     count++;

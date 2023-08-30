@@ -11,20 +11,20 @@ using namespace egg::yolk;
 TEST(TestEggEngine, CreateEngineFromParsed) {
   egg::test::Allocator allocator;
   egg::ovum::TypeFactory factory{ allocator };
-  FileTextStream stream("~/yolk/test/data/example.egg");
+  FileTextStream stream("~/cpp/yolk/test/data/example.egg");
   auto root = EggParserFactory::parseModule(factory, stream);
   auto engine = EggEngineFactory::createEngineFromParsed(allocator, "<parsed>", root);
   egg::test::EggEngineContextFromFactory context{ factory };
   ASSERT_EQ(egg::ovum::ILogger::Severity::Error, engine->prepare(context));
-  ASSERT_STARTSWITH(context.logged(), "<COMPILER><ERROR>~/yolk/test/data/example.egg(2,14): Unknown identifier: 'first'");
+  ASSERT_STARTSWITH(context.logged(), "<COMPILER><ERROR>~/cpp/yolk/test/data/example.egg(2,14): Unknown identifier: 'first'");
 }
 
 TEST(TestEggEngine, CreateEngineFromTextStream) {
   egg::test::EggEngineContext context;
-  FileTextStream stream("~/yolk/test/data/example.egg");
+  FileTextStream stream("~/cpp/yolk/test/data/example.egg");
   auto engine = EggEngineFactory::createEngineFromTextStream(stream);
   ASSERT_EQ(egg::ovum::ILogger::Severity::Error, engine->prepare(context));
-  ASSERT_STARTSWITH(context.logged(), "<COMPILER><ERROR>~/yolk/test/data/example.egg(2,14): Unknown identifier: 'first'");
+  ASSERT_STARTSWITH(context.logged(), "<COMPILER><ERROR>~/cpp/yolk/test/data/example.egg(2,14): Unknown identifier: 'first'");
 }
 
 TEST(TestEggEngine, CreateEngineFromGarbage) {
@@ -47,7 +47,7 @@ TEST(TestEggEngine, PrepareTwice) {
 
 TEST(TestEggEngine, ExecuteUnprepared) {
   egg::test::EggEngineContext context{ egg::test::Allocator::Expectation::NoAllocations };
-  FileTextStream stream("~/yolk/test/data/example.egg");
+  FileTextStream stream("~/cpp/yolk/test/data/example.egg");
   auto engine = EggEngineFactory::createEngineFromTextStream(stream);
   ASSERT_EQ(egg::ovum::ILogger::Severity::Error, engine->execute(context));
   ASSERT_EQ("<RUNTIME><ERROR>Program not prepared before compilation\n", context.logged());
@@ -73,7 +73,7 @@ TEST(TestEggEngine, DuplicateSymbols) {
 TEST(TestEggEngine, WorkingFile) {
   // TODO still needed?
   egg::test::EggEngineContext context;
-  FileTextStream stream("~/yolk/test/data/working.egg");
+  FileTextStream stream("~/cpp/yolk/test/data/working.egg");
   auto engine = EggEngineFactory::createEngineFromTextStream(stream);
   ASSERT_EQ(egg::ovum::ILogger::Severity::None, engine->prepare(context));
   ASSERT_EQ("", context.logged());
@@ -84,7 +84,7 @@ TEST(TestEggEngine, WorkingFile) {
 TEST(TestEggEngine, Coverage) {
   // This script is used to cover most language features
   egg::test::EggEngineContext context;
-  FileTextStream stream("~/yolk/test/data/coverage.egg");
+  FileTextStream stream("~/cpp/yolk/test/data/coverage.egg");
   auto engine = EggEngineFactory::createEngineFromTextStream(stream);
   ASSERT_EQ(egg::ovum::ILogger::Severity::None, engine->prepare(context));
   ASSERT_EQ("", context.logged());

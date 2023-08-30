@@ -8,7 +8,7 @@
   <PropertyGroup>
     <OutDir>$(EggRoot)\bin\msvc\$(ProjectName).$(Configuration.ToLower()).$(PlatformTarget.ToLower())\</OutDir>
     <IntDir>$(EggRoot)\obj\msvc\$(ProjectName).$(Configuration.ToLower()).$(PlatformTarget.ToLower())\</IntDir>
-    <IncludePath>$(EggRoot);$(GoogleTest)\include;$(IncludePath)</IncludePath>
+    <IncludePath>$(EggRoot)\cpp;$(GoogleTest)\include;$(IncludePath)</IncludePath>
   </PropertyGroup>
   <PropertyGroup Label="Configuration">
     <SpectreMitigation>Spectre</SpectreMitigation>

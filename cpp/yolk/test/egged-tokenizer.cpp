@@ -279,7 +279,7 @@ TEST(TestEggedTokenizer, Contiguous) {
 TEST(TestEggedTokenizer, ExampleFile) {
   egg::test::Allocator allocator;
   EggedTokenizerItem item;
-  auto tokenizer = createFromPath(allocator, "~/yolk/test/data/example.egd");
+  auto tokenizer = createFromPath(allocator, "~/cpp/yolk/test/data/example.egd");
   size_t count = 0;
   while (tokenizer->next(item) != EggedTokenizerKind::EndOfFile) {
     count++;
