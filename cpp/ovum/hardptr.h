@@ -100,7 +100,7 @@ namespace egg::ovum {
       return this->ptr;
     }
     void set(T* rhs) {
-      auto* old = this->ptr;
+      const auto* old = this->ptr;
       this->ptr = HardPtr::hardAcquire(rhs);
       if (old != nullptr) {
         old->hardRelease();

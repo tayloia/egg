@@ -120,7 +120,7 @@ std::vector<std::string> egg::yolk::File::readDirectory(const std::string& path)
   std::error_code error;
   for (auto& file : std::filesystem::directory_iterator(native, error)) {
     auto utf8 = file.path().filename().u8string();
-    filenames.push_back(File::normalizePath(std::string((const char*)utf8.data(), utf8.size())));
+    filenames.push_back(File::normalizePath(std::string(reinterpret_cast<char*>(utf8.data()), utf8.size())));
   }
 #elif EGG_PLATFORM == EGG_PLATFORM_GCC
   // GCC doesn't have "std::filesystem" at all, yet

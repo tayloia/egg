@@ -109,7 +109,7 @@ egg::ovum::Memory egg::ovum::MemoryBuilder::build() {
   }
   auto created = MemoryFactory::createMutable(this->allocator, this->bytes);
   auto* ptr = created.begin();
-  for (auto& chunk : this->chunks) {
+  for (const auto& chunk : this->chunks) {
     std::memcpy(ptr, chunk.base, chunk.bytes);
     ptr += chunk.bytes;
   }

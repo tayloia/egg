@@ -184,10 +184,10 @@ namespace {
     //  NEVER + NEVER = NEVER
     // which is:
     //  (a == b) ? a : SOMETIMES
-    auto lflags = ltype.getPrimitiveFlags();
     auto rflags = rtype.getPrimitiveFlags();
     if (Bits::hasAnySet(rflags, ValueFlags::Void | ValueFlags::AnyQ)) {
       // We have at least one primitive type and possibly object shapes
+      auto lflags = ltype.getPrimitiveFlags();
       auto assignability = queryAssignablePrimitives(ltype, rtype, lflags, rflags);
       if (assignability == Type::Assignability::Sometimes) {
         return Type::Assignability::Sometimes;

@@ -85,12 +85,11 @@ namespace egg::ovum {
     }
     // Equality
     static bool equals(const Value& lhs, const Value& rhs, ValueCompare compare) {
-      auto& p = lhs.get();
-      auto& q = rhs.get();
+      const auto& p = lhs.get();
+      const auto& q = rhs.get();
       return p.equals(q, compare);
     }
     // Debugging
-    std::string readable() const; // TODO remove
     bool validate() const;
     // Helpers
     bool hasAnyFlags(ValueFlags flags) const {
@@ -99,7 +98,6 @@ namespace egg::ovum {
     bool hasFlowControl() const {
       return this->hasAnyFlags(ValueFlags::FlowControl);
     }
-    static Value mutate(Mutation mutation, const Value& value);
     // Constants
     static const Value Void;
     static const Value Null;

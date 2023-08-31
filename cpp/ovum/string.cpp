@@ -565,12 +565,12 @@ egg::ovum::String egg::ovum::String::padLeft(size_t target) const {
 
 egg::ovum::String egg::ovum::String::padLeft(size_t target, const String& padding) const {
   // OPTIMIZE
-  auto length = this->length();
+  auto current = this->length();
   auto n = padding.length();
-  if ((n == 0) || (target <= length)) {
+  if ((n == 0) || (target <= current)) {
     return *this;
   }
-  auto extra = target - length;
+  auto extra = target - current;
   assert(extra > 0);
   std::string dst;
   auto utf8 = padding.toUTF8();
@@ -587,12 +587,12 @@ egg::ovum::String egg::ovum::String::padLeft(size_t target, const String& paddin
 
 egg::ovum::String egg::ovum::String::padRight(size_t target, const String& padding) const {
   // OPTIMIZE
-  auto length = this->length();
+  auto current = this->length();
   auto n = padding.length();
-  if ((n == 0) || (target <= length)) {
+  if ((n == 0) || (target <= current)) {
     return *this;
   }
-  auto extra = target - length;
+  auto extra = target - current;
   assert(extra > 0);
   auto dst = this->toUTF8();
   auto utf8 = padding.toUTF8();

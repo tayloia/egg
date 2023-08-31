@@ -333,6 +333,5 @@ namespace egg::ovum {
     virtual Value setPointee(IExecution& execution, const Value& value) = 0;
     virtual Value mutPointee(IExecution& execution, Mutation mutation, const Value& value) = 0;
     virtual Value iterate(IExecution& execution) = 0;
-    virtual void print(Printer& printer) const = 0;
   };
 }

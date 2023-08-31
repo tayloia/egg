@@ -364,20 +364,6 @@ egg::ovum::Value egg::ovum::ValueFactory::createString(IAllocator& allocator, co
   return makeValue<ValueString>(allocator, value);
 }
 
-egg::ovum::Value egg::ovum::ValueFactory::createFlowControl(IAllocator& allocator, ValueFlags flags, const Value& value) {
-  return makeValue<ValueFlowControl>(allocator, flags, value);
-}
-
-std::string egg::ovum::Value::readable() const {
-  auto p = this->ptr.get();
-  if (p != nullptr) {
-    std::stringstream oss;
-    Print::write(oss, *this, Print::Options::DEFAULT);
-    return oss.str();
-  }
-  return {};
-}
-
 bool egg::ovum::Value::validate() const {
   auto p = this->ptr.get();
   if (p == nullptr) {

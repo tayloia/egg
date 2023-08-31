@@ -15,5 +15,6 @@
     <suppressions>
         <suppression>purgedConfiguration</suppression>
         <suppression>missingIncludeSystem</suppression>
+        <suppression>missingInclude</suppression>
     </suppressions>
 </project>

@@ -57,7 +57,7 @@ TEST_P(TestUTF, UTF32toUTF8) {
 }
 
 TEST_P(TestUTF, UTF8toUTF32) {
-  auto& param = this->getTestCase();
+  const auto& param = this->getTestCase();
   if (param.utf32 >= 0) {
     auto codepoint = char32_t(param.utf32);
     auto utf32 = egg::ovum::UTF8::toUTF32(param.utf8);
