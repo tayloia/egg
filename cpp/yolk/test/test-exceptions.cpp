@@ -7,7 +7,7 @@ TEST(TestExceptions, Throw) {
 
 TEST(TestExceptions, Catch) {
   std::string expected_message = "Hello world";
-  std::string expected_file = "/exceptions.cpp";
+  std::string expected_file = "/test-exceptions.cpp";
   try {
     EGG_THROW(expected_message);
   } catch (const egg::yolk::Exception& exception) {

@@ -22,37 +22,37 @@
     <ClCompile Include="..\ovum\test\gtest.cpp">
       <Filter>Infrastructure Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\yolk\test\eon-tokenizer.cpp">
+    <ClCompile Include="..\yolk\test\test-eon-tokenizer.cpp">
       <Filter>Test Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\yolk\test\egg-tokenizer.cpp">
+    <ClCompile Include="..\yolk\test\test-egg-tokenizer.cpp">
       <Filter>Test Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\yolk\test\exceptions.cpp">
+    <ClCompile Include="..\yolk\test\test-exceptions.cpp">
       <Filter>Test Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\yolk\test\files.cpp">
+    <ClCompile Include="..\yolk\test\test-files.cpp">
       <Filter>Test Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\yolk\test\json-tokenizer.cpp">
+    <ClCompile Include="..\yolk\test\test-json-tokenizer.cpp">
       <Filter>Test Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\yolk\test\lang.cpp">
+    <ClCompile Include="..\yolk\test\test-lang.cpp">
       <Filter>Test Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\yolk\test\lexers.cpp">
+    <ClCompile Include="..\yolk\test\test-lexers.cpp">
       <Filter>Test Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\yolk\test\streams.cpp">
+    <ClCompile Include="..\yolk\test\test-streams.cpp">
       <Filter>Test Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\yolk\test\strings.cpp">
+    <ClCompile Include="..\yolk\test\test-strings.cpp">
       <Filter>Test Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\yolk\test\utf.cpp">
+    <ClCompile Include="..\yolk\test\test-utf.cpp">
       <Filter>Test Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\yolk\test\utility.cpp">
+    <ClCompile Include="..\yolk\test\test-utility.cpp">
       <Filter>Test Files</Filter>
     </ClCompile>
   </ItemGroup>
