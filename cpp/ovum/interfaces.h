@@ -8,7 +8,6 @@ namespace egg::ovum {
   template<typename T> class SoftPtr;
   enum class ValueFlags;
   struct LocationSource;
-  struct TypeShape;
   class Printer;
   class String;
   class Type;
@@ -256,13 +255,9 @@ namespace egg::ovum {
   class IType : public IHardAcquireRelease {
   public:
     virtual ValueFlags getPrimitiveFlags() const = 0;
-    virtual const TypeShape* getObjectShape(size_t index) const = 0;
-    virtual size_t getObjectShapeCount() const = 0;
     virtual std::pair<std::string, int> toStringPrecedence() const = 0;
     virtual String describeValue() const = 0;
   };
-
-  class StringProperties; // WIBBLE remove
 
   class ITypeBuilder : public IHardAcquireRelease {
   public:
@@ -297,9 +292,6 @@ namespace egg::ovum {
     virtual TypeBuilder createTypeBuilder(const String& name, const String& description) = 0;
     virtual TypeBuilder createFunctionBuilder(const Type& rettype, const String& name, const String& description) = 0;
     virtual TypeBuilder createGeneratorBuilder(const Type& gentype, const String& name, const String& description) = 0;
-
-    virtual const TypeShape& getObjectShape() = 0;
-    virtual const TypeShape& getStringShape() = 0;
 
     virtual Type getVanillaArray() = 0;
     virtual Type getVanillaDictionary() = 0;

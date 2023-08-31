@@ -40,26 +40,6 @@ namespace egg::ovum {
     return Bits::set(lhs, rhs);
   }
 
-  struct TypeShape {
-  private: // WIBBLE
-    friend class egg::ovum::IAllocator;
-    TypeShape(const IFunctionSignature* callable, const IPropertySignature* dotable, const IIndexSignature* indexable, const IIteratorSignature* iterable, const IPointerSignature* pointable)
-      : callable(callable),
-        dotable(dotable),
-        indexable(indexable),
-        iterable(iterable),
-        pointable(pointable) {
-    }
-  public:
-    const IFunctionSignature* callable;
-    const IPropertySignature* dotable;
-    const IIndexSignature* indexable;
-    const IIteratorSignature* iterable;
-    const IPointerSignature* pointable;
-    bool equals(const TypeShape& rhs) const;
-    void print(Printer& printer) const;
-  };
-
   class Type : public HardPtr<const IType> {
   public:
     Type(std::nullptr_t = nullptr) : HardPtr() { // implicit
@@ -100,22 +80,11 @@ namespace egg::ovum {
     static bool areEquivalent(const IIteratorSignature& lhs, const IIteratorSignature& rhs);
     static bool areEquivalent(const IPropertySignature& lhs, const IPropertySignature& rhs);
     static bool areEquivalent(const IPointerSignature& lhs, const IPointerSignature& rhs);
-    static bool areEquivalent(const TypeShape& lhs, const TypeShape& rhs);
 
     // Helpers
-    bool isComplex() const {
-      return (*this)->getObjectShapeCount() > 0;
-    }
     bool hasPrimitiveFlag(ValueFlags flag) const {
       return Bits::hasAnySet((*this)->getPrimitiveFlags(), flag);
     }
-    enum class Assignability { Never, Sometimes, Always };
-    Assignability queryAssignable(const IType& from) const;
-    enum class Assignment {
-      Success, Uninitialized, Incompatible, BadIntToFloat
-    };
-    Assignment promote(IAllocator& allocator, const Value& rhs, Value& out) const;
-    Assignment mutate(IAllocator& allocator, const Value& lhs, const Value& rhs, Mutation mutation, Value& out) const;
 
     // Constants
     static const Type None;
@@ -139,7 +108,6 @@ namespace egg::ovum {
   private:
     std::unique_ptr<Forge> forge;
     std::map<const IType*, Type> pointers;
-    StringProperties* stringProperties; // WIBBLE remove
   public:
     explicit TypeFactory(IAllocator& allocator);
     ~TypeFactory();
@@ -160,9 +128,6 @@ namespace egg::ovum {
     virtual TypeBuilder createTypeBuilder(const String& name, const String& description = {}) override;
     virtual TypeBuilder createFunctionBuilder(const Type& rettype, const String& name, const String& description = {}) override;
     virtual TypeBuilder createGeneratorBuilder(const Type& gentype, const String& name, const String& description = {}) override;
-
-    virtual const TypeShape& getObjectShape() override;
-    virtual const TypeShape& getStringShape() override;
 
     virtual Type getVanillaArray() override;
     virtual Type getVanillaDictionary() override;
