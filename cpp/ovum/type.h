@@ -49,42 +49,6 @@ namespace egg::ovum {
     template<typename T>
     explicit Type(const SoftPtr<T>& rhs) : HardPtr(rhs.get()) {
     }
-    // We need to qualify the return type because 'String' is a member further down!
-    egg::ovum::String describeValue() const;
-    egg::ovum::String toString() const;
-    static std::string toString(const IType& type) {
-      return type.toStringPrecedence().first;
-    }
-
-    // Equivalence
-    bool isEquivalent(const Type& rhs) const {
-      return Type::areEquivalent(this->get(), rhs.get());
-    }
-    template<typename T>
-    static bool areEquivalent(const T* lhs, const T* rhs) {
-      if (lhs == rhs) {
-        return true;
-      }
-      if ((lhs == nullptr) || (rhs == nullptr)) {
-        return false;
-      }
-      return Type::areEquivalent(*lhs, *rhs);
-    }
-    static bool areEquivalent(const Type& lhs, const Type& rhs) {
-      return Type::areEquivalent(lhs.get(), rhs.get());
-    }
-    static bool areEquivalent(const IType& lhs, const IType& rhs);
-    static bool areEquivalent(const IFunctionSignatureParameter& lhs, const IFunctionSignatureParameter& rhs);
-    static bool areEquivalent(const IFunctionSignature& lhs, const IFunctionSignature& rhs);
-    static bool areEquivalent(const IIndexSignature& lhs, const IIndexSignature& rhs);
-    static bool areEquivalent(const IIteratorSignature& lhs, const IIteratorSignature& rhs);
-    static bool areEquivalent(const IPropertySignature& lhs, const IPropertySignature& rhs);
-    static bool areEquivalent(const IPointerSignature& lhs, const IPointerSignature& rhs);
-
-    // Helpers
-    bool hasPrimitiveFlag(ValueFlags flag) const {
-      return Bits::hasAnySet((*this)->getPrimitiveFlags(), flag);
-    }
 
     // Constants
     static const Type None;
@@ -100,39 +64,5 @@ namespace egg::ovum {
     static const Type Object;
     static const Type Any;
     static const Type AnyQ;
-  };
-
-  class TypeFactory : public ITypeFactory {
-    TypeFactory(const TypeFactory&) = delete;
-    TypeFactory& operator=(const TypeFactory&) = delete;
-  private:
-    std::unique_ptr<Forge> forge;
-    std::map<const IType*, Type> pointers;
-  public:
-    explicit TypeFactory(IAllocator& allocator);
-    ~TypeFactory();
-    virtual IAllocator& getAllocator() const override;
-
-    virtual Type createSimple(ValueFlags flags) override;
-    virtual Type createPointer(const Type& pointee, Modifiability modifiability) override;
-    virtual Type createArray(const Type& result, Modifiability modifiability) override;
-    virtual Type createMap(const Type& result, const Type& index, Modifiability modifiability) override;
-    virtual Type createUnion(const std::vector<Type>& types) override;
-    virtual Type createIterator(const Type& element) override;
-
-    virtual Type addVoid(const Type& type) override;
-    virtual Type addNull(const Type& type) override;
-    virtual Type removeVoid(const Type& type) override;
-    virtual Type removeNull(const Type& type) override;
-
-    virtual TypeBuilder createTypeBuilder(const String& name, const String& description = {}) override;
-    virtual TypeBuilder createFunctionBuilder(const Type& rettype, const String& name, const String& description = {}) override;
-    virtual TypeBuilder createGeneratorBuilder(const Type& gentype, const String& name, const String& description = {}) override;
-
-    virtual Type getVanillaArray() override;
-    virtual Type getVanillaDictionary() override;
-    virtual Type getVanillaError() override;
-    virtual Type getVanillaKeyValue() override;
-    virtual Type getVanillaPredicate() override;
   };
 }

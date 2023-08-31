@@ -100,7 +100,7 @@ void egg::ovum::Print::write(std::ostream& stream, const Type& value, const Opti
   if (value == nullptr) {
     stream << "null";
   } else {
-    stream << Type::toString(*value);
+    stream << value->toStringPrecedence().first;
   }
 }
 
