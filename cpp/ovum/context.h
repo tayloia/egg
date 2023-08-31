@@ -24,26 +24,4 @@ namespace egg::ovum {
     }
     bool printRuntime(Printer& printer) const;
   };
-
-  class IExecution {
-  public:
-    virtual ~IExecution() {}
-    virtual IAllocator& getAllocator() const = 0;
-    virtual IBasket& getBasket() const = 0;
-    virtual ITypeFactory& getTypeFactory() = 0;
-    virtual Value raise(const String& message) = 0;
-    virtual Value assertion(const Value& predicate) = 0;
-    virtual void print(const std::string& utf8) = 0;
-
-    // Useful helpers
-    template<typename T>
-    Value makeValue(T&& value) {
-      return ValueFactory::create(this->getAllocator(), std::forward<T>(value));
-    }
-    template<typename... ARGS>
-    Value raiseFormat(ARGS&&... args) {
-      auto message = StringBuilder(this->getAllocator()).add(std::forward<ARGS>(args)...).build();
-      return this->raise(message);
-    }
-  };
 }

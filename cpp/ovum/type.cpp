@@ -49,10 +49,6 @@ namespace {
     virtual std::pair<std::string, int> toStringPrecedence() const override {
       return simpleToStringPrecedence(FLAGS);
     }
-    virtual String describeValue() const override {
-      // TODO i18n
-      return StringBuilder().add("Value of type '", this->toStringPrecedence().first, "'").build();
-    }
   };
 
   TypePrimitive<ValueFlags::None> typeNone{};

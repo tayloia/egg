@@ -13,7 +13,6 @@ namespace egg::ovum {
   class Type;
   class Value;
   class ICollectable;
-  class IExecution;
   class IType;
   class ITypeFactory;
 
@@ -256,6 +255,5 @@ namespace egg::ovum {
   public:
     virtual ValueFlags getPrimitiveFlags() const = 0;
     virtual std::pair<std::string, int> toStringPrecedence() const = 0;
-    virtual String describeValue() const = 0;
   };
 }
