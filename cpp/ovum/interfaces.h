@@ -116,6 +116,15 @@ namespace egg::ovum {
       // Use perfect forwarding
       return RETTYPE(this->makeRaw<T>(*this, std::forward<ARGS>(args)...));
     }
+    // String helpers
+    String fromCodePoint(char32_t codepoint);
+    String fromUTF8(const uint8_t* begin, const uint8_t* end, size_t codepoints = SIZE_MAX);
+    String fromUTF8(const void* utf8, size_t bytes, size_t codepoints = SIZE_MAX);
+    String fromUTF8(const std::string& utf8);
+    String fromUTF32(const uint32_t* begin, const uint32_t* end);
+    String fromUTF32(const void* utf8, size_t codepoints);
+    String fromUTF32(const std::u32string& utf32);
+    String fromASCIIZ(const char* asciiz);
   };
 
   class IMemory : public IHardAcquireRelease {
@@ -255,5 +264,11 @@ namespace egg::ovum {
   public:
     virtual ValueFlags getPrimitiveFlags() const = 0;
     virtual std::pair<std::string, int> toStringPrecedence() const = 0;
+  };
+
+  class IVM : public IHardAcquireRelease {
+  public:
+    virtual IAllocator& getAllocator() const = 0;
+    virtual IBasket& getBasket() const = 0;
   };
 }

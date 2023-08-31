@@ -147,13 +147,16 @@ namespace egg::ovum {
       return createObject(allocator, value);
     }
     static Value createUTF8(IAllocator& allocator, const std::string& value) {
-      return createString(allocator, StringFactory::fromUTF8(allocator, value));
+      return createString(allocator, allocator.fromUTF8(value));
+    }
+    static Value createUTF32(IAllocator& allocator, const std::u32string& value) {
+      return createString(allocator, allocator.fromUTF32(value));
     }
     static Value createASCIIZ(IAllocator& allocator, const char* value) {
       if (value == nullptr) {
         return Value::Null;
       }
-      return createString(allocator, StringFactory::fromASCIIZ(allocator, value));
+      return createString(allocator, allocator.fromASCIIZ(value));
     }
   };
 }

@@ -6,7 +6,7 @@ TEST(TestString, Empty) {
   ASSERT_EQ(nullptr, str);
   ASSERT_EQ(0u, str.length());
   uint8_t nul = 0;
-  str = egg::ovum::StringFactory::fromUTF8(allocator, &nul, &nul);
+  str = allocator.fromUTF8(&nul, &nul);
   ASSERT_EQ(nullptr, str);
   ASSERT_EQ(0u, str.length());
 }
@@ -15,7 +15,7 @@ TEST(TestString, FromBytes) {
   egg::test::Allocator allocator;
   const size_t bufsize = 11;
   auto* buffer = reinterpret_cast<const uint8_t*>("hello world");
-  auto str = egg::ovum::StringFactory::fromUTF8(allocator, buffer, buffer + bufsize);
+  auto str = allocator.fromUTF8(buffer, buffer + bufsize);
   ASSERT_NE(nullptr, str);
   ASSERT_EQ(bufsize, str.length());
   ASSERT_EQ(bufsize, str->bytes());
@@ -23,7 +23,7 @@ TEST(TestString, FromBytes) {
 
 TEST(TestString, FromUTF8) {
   egg::test::Allocator allocator;
-  auto str = egg::ovum::StringFactory::fromUTF8(allocator, u8"egg \U0001F95A");
+  auto str = egg::ovum::String::fromUTF8(&allocator, u8"egg \U0001F95A");
   ASSERT_NE(nullptr, str);
   ASSERT_EQ(5u, str.length());
   ASSERT_EQ(8u, str->bytes());
@@ -31,7 +31,7 @@ TEST(TestString, FromUTF8) {
 
 TEST(TestString, ToUTF8) {
   egg::test::Allocator allocator;
-  auto input = egg::ovum::StringFactory::fromUTF8(allocator, u8"egg \U0001F95A");
+  auto input = egg::ovum::String::fromUTF8(&allocator, u8"egg \U0001F95A");
   ASSERT_EQ(5u, input.length());
   auto output = input.toUTF8();
   ASSERT_STRING(u8"egg \U0001F95A", output);

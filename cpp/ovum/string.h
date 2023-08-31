@@ -2,13 +2,18 @@ namespace egg::ovum {
   class String : public Memory {
   public:
     String() = default; // implicit
-    explicit String(const char* utf8); // fallback to factory
-    template<size_t N>
-    String(const char (&utf8)[N]) : String(utf8) { // implicit; fallback to factory
-    }
     explicit String(const IMemory* rhs) : Memory(rhs) {
     }
-    String(const std::string& utf8, size_t codepoints = SIZE_MAX); // implicit; fallback to factory
+    explicit String(const char* utf8) // fallback to factory
+      : Memory(fromInternal(utf8)) {
+    }
+    template<size_t N>
+    String(const char(&utf8)[N]) // implicit; fallback to factory
+      : Memory(fromInternal(utf8, N - 1)) {
+    }
+    String(const std::string& utf8, size_t codepoints = SIZE_MAX) // implicit; fallback to factory
+      : Memory(fromInternal(utf8.data(), utf8.size(), codepoints)) {
+    }
     bool validate() const;
 
     // See http://chilliant.blogspot.co.uk/2018/05/egg-strings.html
@@ -49,10 +54,16 @@ namespace egg::ovum {
       return !this->equals(rhs);
     }
 
-    // These factories use the fallback string allocator; see StringFactory for others
-    static String fromCodePoint(char32_t codepoint); // fallback to factory
-    static String fromUTF8(const std::string& utf8, size_t codepoints = SIZE_MAX); // fallback to factory
-    static String fromUTF32(const std::u32string& utf32); // fallback to factory
+    // These factories can take null as their first argument to use the fallback string allocator
+    static String fromCodePoint(IAllocator* allocator, char32_t codepoint);
+    static String fromUTF8(IAllocator* allocator, const char8_t* utf8, size_t bytes, size_t codepoints = SIZE_MAX);
+    template<size_t N>
+    inline static String fromUTF8(IAllocator* allocator, const char8_t(&utf8)[N], size_t codepoints = SIZE_MAX) {
+      return String::fromUTF8(allocator, utf8, N - 1, codepoints);
+    }
+    static String fromUTF32(IAllocator* allocator, const char32_t* utf32, size_t codepoints);
+  private:
+    static const IMemory* fromInternal(const void* utf8, size_t bytes = SIZE_MAX, size_t codepoints = SIZE_MAX);
   };
 
   class StringBuilder : public Printer {
@@ -91,26 +102,6 @@ namespace egg::ovum {
       return this->ss.str();
     }
     String build() const;
-  };
-
-  class StringFactory {
-  public:
-    static String fromCodePoint(IAllocator& allocator, char32_t codepoint);
-    static String fromUTF8(IAllocator& allocator, const uint8_t* begin, const uint8_t* end, size_t codepoints = SIZE_MAX);
-    static String fromUTF8(IAllocator& allocator, const void* utf8, size_t bytes) {
-      auto begin = static_cast<const uint8_t*>(utf8);
-      assert(begin != nullptr);
-      return fromUTF8(allocator, begin, begin + bytes);
-    }
-    static String fromUTF8(IAllocator& allocator, const std::string& utf8) {
-      return fromUTF8(allocator, utf8.data(), utf8.size());
-    }
-    template<size_t N>
-    static String fromUTF8(IAllocator& allocator, const char8_t (&utf8)[N]) {
-      return fromUTF8(allocator, utf8, N - 1);
-    }
-    static String fromUTF32(IAllocator& allocator, const std::u32string& utf32);
-    static String fromASCIIZ(IAllocator& allocator, const char* asciiz);
   };
 }
 

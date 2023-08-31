@@ -155,7 +155,7 @@ namespace {
           item.kind = EggTokenizerKind::Float;
           break;
         case LexerKind::String:
-          item.value.s = egg::ovum::String::fromUTF32(this->upcoming.value.s);
+          item.value.s = egg::ovum::String::fromUTF32(nullptr, this->upcoming.value.s.data(), this->upcoming.value.s.size());
           item.kind = EggTokenizerKind::String;
           break;
         case LexerKind::Operator:

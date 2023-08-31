@@ -88,6 +88,16 @@ namespace egg::test {
     }
   };
 
+  class VM final {
+  public:
+    egg::test::Allocator allocator;
+    egg::ovum::VM vm;
+    VM()
+      : allocator(),
+        vm(egg::ovum::VMFactory::createTest(allocator).get()) {
+    }
+  };
+
   inline ::testing::AssertionResult assertValueEQ(const char* lhs_expression, const char* rhs_expression, const egg::ovum::Value& lhs, const egg::ovum::Value& rhs) {
     if (lhs->equals(rhs.get(), egg::ovum::ValueCompare::Binary)) {
       return ::testing::AssertionSuccess();

@@ -27,6 +27,16 @@ namespace egg::ovum {
       UTF32::toUTF8(target, utf32);
       return utf8;
     }
+    inline static std::string toUTF8(const char32_t* utf32, size_t codepoints) {
+      std::string utf8;
+      if (utf32 != nullptr) {
+        auto target = std::back_inserter(utf8);
+        for (size_t i = 0; i < codepoints; ++i) {
+          UTF32::toUTF8(target, utf32[i]);
+        }
+      }
+      return utf8;
+    }
     inline static std::string toUTF8(const std::u32string& utf32) {
       std::string utf8;
       auto target = std::back_inserter(utf8);
