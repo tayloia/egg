@@ -1,219 +1,219 @@
 #include "yolk/test.h"
 #include "yolk/lexers.h"
-#include "yolk/egged-tokenizer.h"
+#include "yolk/eon-tokenizer.h"
 
 using namespace egg::yolk;
 
 namespace {
-  std::shared_ptr<IEggedTokenizer> createFromString(egg::ovum::IAllocator& allocator, const std::string& text) {
+  std::shared_ptr<IEonTokenizer> createFromString(egg::ovum::IAllocator& allocator, const std::string& text) {
     auto lexer = LexerFactory::createFromString(text);
-    return EggedTokenizerFactory::createFromLexer(allocator, lexer);
+    return EonTokenizerFactory::createFromLexer(allocator, lexer);
   }
-  std::shared_ptr<IEggedTokenizer> createFromPath(egg::ovum::IAllocator& allocator, const std::string& path) {
+  std::shared_ptr<IEonTokenizer> createFromPath(egg::ovum::IAllocator& allocator, const std::string& path) {
     auto lexer = LexerFactory::createFromPath(path);
-    return EggedTokenizerFactory::createFromLexer(allocator, lexer);
+    return EonTokenizerFactory::createFromLexer(allocator, lexer);
   }
 }
 
-TEST(TestEggedTokenizer, EmptyFile) {
+TEST(TestEonTokenizer, EmptyFile) {
   egg::test::Allocator allocator(egg::test::Allocator::Expectation::NoAllocations);
-  EggedTokenizerItem item;
+  EonTokenizerItem item;
   auto tokenizer = createFromString(allocator, "");
-  ASSERT_EQ(EggedTokenizerKind::EndOfFile, tokenizer->next(item));
+  ASSERT_EQ(EonTokenizerKind::EndOfFile, tokenizer->next(item));
 }
 
-TEST(TestEggedTokenizer, Comment) {
+TEST(TestEonTokenizer, Comment) {
   egg::test::Allocator allocator(egg::test::Allocator::Expectation::NoAllocations);
-  EggedTokenizerItem item;
+  EonTokenizerItem item;
   auto tokenizer = createFromString(allocator, "// Comment\nnull");
-  ASSERT_EQ(EggedTokenizerKind::Null, tokenizer->next(item));
+  ASSERT_EQ(EonTokenizerKind::Null, tokenizer->next(item));
   tokenizer = createFromString(allocator, "/* Comment */null");
-  ASSERT_EQ(EggedTokenizerKind::Null, tokenizer->next(item));
+  ASSERT_EQ(EonTokenizerKind::Null, tokenizer->next(item));
 }
 
-TEST(TestEggedTokenizer, EmptyObject) {
+TEST(TestEonTokenizer, EmptyObject) {
   egg::test::Allocator allocator(egg::test::Allocator::Expectation::NoAllocations);
-  EggedTokenizerItem item;
+  EonTokenizerItem item;
   auto tokenizer = createFromString(allocator, "{}");
-  ASSERT_EQ(EggedTokenizerKind::ObjectStart, tokenizer->next(item));
-  ASSERT_EQ(EggedTokenizerKind::ObjectEnd, tokenizer->next(item));
-  ASSERT_EQ(EggedTokenizerKind::EndOfFile, tokenizer->next(item));
+  ASSERT_EQ(EonTokenizerKind::ObjectStart, tokenizer->next(item));
+  ASSERT_EQ(EonTokenizerKind::ObjectEnd, tokenizer->next(item));
+  ASSERT_EQ(EonTokenizerKind::EndOfFile, tokenizer->next(item));
 }
 
-TEST(TestEggedTokenizer, EmptyArray) {
+TEST(TestEonTokenizer, EmptyArray) {
   egg::test::Allocator allocator(egg::test::Allocator::Expectation::NoAllocations);
-  EggedTokenizerItem item;
+  EonTokenizerItem item;
   auto tokenizer = createFromString(allocator, "[]");
-  ASSERT_EQ(EggedTokenizerKind::ArrayStart, tokenizer->next(item));
-  ASSERT_EQ(EggedTokenizerKind::ArrayEnd, tokenizer->next(item));
+  ASSERT_EQ(EonTokenizerKind::ArrayStart, tokenizer->next(item));
+  ASSERT_EQ(EonTokenizerKind::ArrayEnd, tokenizer->next(item));
 }
 
-TEST(TestEggedTokenizer, Null) {
+TEST(TestEonTokenizer, Null) {
   egg::test::Allocator allocator;
-  EggedTokenizerItem item;
+  EonTokenizerItem item;
   auto tokenizer = createFromString(allocator, "{ \"null\": null }");
-  ASSERT_EQ(EggedTokenizerKind::ObjectStart, tokenizer->next(item));
-  ASSERT_EQ(EggedTokenizerKind::String, tokenizer->next(item));
+  ASSERT_EQ(EonTokenizerKind::ObjectStart, tokenizer->next(item));
+  ASSERT_EQ(EonTokenizerKind::String, tokenizer->next(item));
   egg::ovum::String string;
   ASSERT_TRUE(item.value->getString(string));
   ASSERT_STRING("null", string);
-  ASSERT_EQ(EggedTokenizerKind::Colon, tokenizer->next(item));
-  ASSERT_EQ(EggedTokenizerKind::Null, tokenizer->next(item));
-  ASSERT_EQ(EggedTokenizerKind::ObjectEnd, tokenizer->next(item));
-  ASSERT_EQ(EggedTokenizerKind::EndOfFile, tokenizer->next(item));
+  ASSERT_EQ(EonTokenizerKind::Colon, tokenizer->next(item));
+  ASSERT_EQ(EonTokenizerKind::Null, tokenizer->next(item));
+  ASSERT_EQ(EonTokenizerKind::ObjectEnd, tokenizer->next(item));
+  ASSERT_EQ(EonTokenizerKind::EndOfFile, tokenizer->next(item));
 }
 
-TEST(TestEggedTokenizer, BooleanFalse) {
+TEST(TestEonTokenizer, BooleanFalse) {
   egg::test::Allocator allocator;
-  EggedTokenizerItem item;
+  EonTokenizerItem item;
   auto tokenizer = createFromString(allocator, "{ \"no\": false }");
-  ASSERT_EQ(EggedTokenizerKind::ObjectStart, tokenizer->next(item));
-  ASSERT_EQ(EggedTokenizerKind::String, tokenizer->next(item));
+  ASSERT_EQ(EonTokenizerKind::ObjectStart, tokenizer->next(item));
+  ASSERT_EQ(EonTokenizerKind::String, tokenizer->next(item));
   egg::ovum::String string;
   ASSERT_TRUE(item.value->getString(string));
   ASSERT_STRING("no", string);
-  ASSERT_EQ(EggedTokenizerKind::Colon, tokenizer->next(item));
-  ASSERT_EQ(EggedTokenizerKind::Boolean, tokenizer->next(item));
+  ASSERT_EQ(EonTokenizerKind::Colon, tokenizer->next(item));
+  ASSERT_EQ(EonTokenizerKind::Boolean, tokenizer->next(item));
   egg::ovum::Bool flag;
   ASSERT_TRUE(item.value->getBool(flag));
   ASSERT_EQ(false, flag);
-  ASSERT_EQ(EggedTokenizerKind::ObjectEnd, tokenizer->next(item));
-  ASSERT_EQ(EggedTokenizerKind::EndOfFile, tokenizer->next(item));
+  ASSERT_EQ(EonTokenizerKind::ObjectEnd, tokenizer->next(item));
+  ASSERT_EQ(EonTokenizerKind::EndOfFile, tokenizer->next(item));
 }
 
-TEST(TestEggedTokenizer, BooleanTrue) {
+TEST(TestEonTokenizer, BooleanTrue) {
   egg::test::Allocator allocator;
-  EggedTokenizerItem item;
+  EonTokenizerItem item;
   auto tokenizer = createFromString(allocator, "{ \"yes\": true }");
-  ASSERT_EQ(EggedTokenizerKind::ObjectStart, tokenizer->next(item));
-  ASSERT_EQ(EggedTokenizerKind::String, tokenizer->next(item));
+  ASSERT_EQ(EonTokenizerKind::ObjectStart, tokenizer->next(item));
+  ASSERT_EQ(EonTokenizerKind::String, tokenizer->next(item));
   egg::ovum::String string;
   ASSERT_TRUE(item.value->getString(string));
   ASSERT_STRING("yes", string);
-  ASSERT_EQ(EggedTokenizerKind::Colon, tokenizer->next(item));
-  ASSERT_EQ(EggedTokenizerKind::Boolean, tokenizer->next(item));
+  ASSERT_EQ(EonTokenizerKind::Colon, tokenizer->next(item));
+  ASSERT_EQ(EonTokenizerKind::Boolean, tokenizer->next(item));
   egg::ovum::Bool flag;
   ASSERT_TRUE(item.value->getBool(flag));
   ASSERT_EQ(true, flag);
-  ASSERT_EQ(EggedTokenizerKind::ObjectEnd, tokenizer->next(item));
-  ASSERT_EQ(EggedTokenizerKind::EndOfFile, tokenizer->next(item));
+  ASSERT_EQ(EonTokenizerKind::ObjectEnd, tokenizer->next(item));
+  ASSERT_EQ(EonTokenizerKind::EndOfFile, tokenizer->next(item));
 }
 
-TEST(TestEggedTokenizer, Integer) {
+TEST(TestEonTokenizer, Integer) {
   egg::test::Allocator allocator;
-  EggedTokenizerItem item;
+  EonTokenizerItem item;
   auto tokenizer = createFromString(allocator, "{ \"positive\": 123 \"negative\": -123 }");
-  ASSERT_EQ(EggedTokenizerKind::ObjectStart, tokenizer->next(item));
-  ASSERT_EQ(EggedTokenizerKind::String, tokenizer->next(item));
+  ASSERT_EQ(EonTokenizerKind::ObjectStart, tokenizer->next(item));
+  ASSERT_EQ(EonTokenizerKind::String, tokenizer->next(item));
   egg::ovum::String string;
   ASSERT_TRUE(item.value->getString(string));
   ASSERT_STRING("positive", string);
-  ASSERT_EQ(EggedTokenizerKind::Colon, tokenizer->next(item));
-  ASSERT_EQ(EggedTokenizerKind::Integer, tokenizer->next(item));
+  ASSERT_EQ(EonTokenizerKind::Colon, tokenizer->next(item));
+  ASSERT_EQ(EonTokenizerKind::Integer, tokenizer->next(item));
   egg::ovum::Int value;
   ASSERT_TRUE(item.value->getInt(value));
   ASSERT_EQ(123, value);
-  ASSERT_EQ(EggedTokenizerKind::String, tokenizer->next(item));
+  ASSERT_EQ(EonTokenizerKind::String, tokenizer->next(item));
   ASSERT_TRUE(item.value->getString(string));
   ASSERT_STRING("negative", string);
-  ASSERT_EQ(EggedTokenizerKind::Colon, tokenizer->next(item));
-  ASSERT_EQ(EggedTokenizerKind::Integer, tokenizer->next(item));
+  ASSERT_EQ(EonTokenizerKind::Colon, tokenizer->next(item));
+  ASSERT_EQ(EonTokenizerKind::Integer, tokenizer->next(item));
   ASSERT_TRUE(item.value->getInt(value));
   ASSERT_EQ(-123, value);
-  ASSERT_EQ(EggedTokenizerKind::ObjectEnd, tokenizer->next(item));
-  ASSERT_EQ(EggedTokenizerKind::EndOfFile, tokenizer->next(item));
+  ASSERT_EQ(EonTokenizerKind::ObjectEnd, tokenizer->next(item));
+  ASSERT_EQ(EonTokenizerKind::EndOfFile, tokenizer->next(item));
 }
 
-TEST(TestEggedTokenizer, Float) {
+TEST(TestEonTokenizer, Float) {
   egg::test::Allocator allocator;
-  EggedTokenizerItem item;
+  EonTokenizerItem item;
   auto tokenizer = createFromString(allocator, "{ positive: 3.14159 negative: -3.14159 }");
-  ASSERT_EQ(EggedTokenizerKind::ObjectStart, tokenizer->next(item));
-  ASSERT_EQ(EggedTokenizerKind::Identifier, tokenizer->next(item));
+  ASSERT_EQ(EonTokenizerKind::ObjectStart, tokenizer->next(item));
+  ASSERT_EQ(EonTokenizerKind::Identifier, tokenizer->next(item));
   egg::ovum::String string;
   ASSERT_TRUE(item.value->getString(string));
   ASSERT_STRING("positive", string);
-  ASSERT_EQ(EggedTokenizerKind::Colon, tokenizer->next(item));
-  ASSERT_EQ(EggedTokenizerKind::Float, tokenizer->next(item));
+  ASSERT_EQ(EonTokenizerKind::Colon, tokenizer->next(item));
+  ASSERT_EQ(EonTokenizerKind::Float, tokenizer->next(item));
   egg::ovum::Float value;
   ASSERT_TRUE(item.value->getFloat(value));
   ASSERT_EQ(3.14159, value);
-  ASSERT_EQ(EggedTokenizerKind::Identifier, tokenizer->next(item));
+  ASSERT_EQ(EonTokenizerKind::Identifier, tokenizer->next(item));
   ASSERT_TRUE(item.value->getString(string));
   ASSERT_STRING("negative", string);
-  ASSERT_EQ(EggedTokenizerKind::Colon, tokenizer->next(item));
-  ASSERT_EQ(EggedTokenizerKind::Float, tokenizer->next(item));
+  ASSERT_EQ(EonTokenizerKind::Colon, tokenizer->next(item));
+  ASSERT_EQ(EonTokenizerKind::Float, tokenizer->next(item));
   ASSERT_TRUE(item.value->getFloat(value));
   ASSERT_EQ(-3.14159, value);
-  ASSERT_EQ(EggedTokenizerKind::ObjectEnd, tokenizer->next(item));
-  ASSERT_EQ(EggedTokenizerKind::EndOfFile, tokenizer->next(item));
+  ASSERT_EQ(EonTokenizerKind::ObjectEnd, tokenizer->next(item));
+  ASSERT_EQ(EonTokenizerKind::EndOfFile, tokenizer->next(item));
 }
 
-TEST(TestEggedTokenizer, String) {
+TEST(TestEonTokenizer, String) {
   egg::test::Allocator allocator;
-  EggedTokenizerItem item;
+  EonTokenizerItem item;
   auto tokenizer = createFromString(allocator, "{ \"greeting\": \"hello world\" }");
-  ASSERT_EQ(EggedTokenizerKind::ObjectStart, tokenizer->next(item));
-  ASSERT_EQ(EggedTokenizerKind::String, tokenizer->next(item));
+  ASSERT_EQ(EonTokenizerKind::ObjectStart, tokenizer->next(item));
+  ASSERT_EQ(EonTokenizerKind::String, tokenizer->next(item));
   egg::ovum::String string;
   ASSERT_TRUE(item.value->getString(string));
   ASSERT_STRING("greeting", string);
-  ASSERT_EQ(EggedTokenizerKind::Colon, tokenizer->next(item));
-  ASSERT_EQ(EggedTokenizerKind::String, tokenizer->next(item));
+  ASSERT_EQ(EonTokenizerKind::Colon, tokenizer->next(item));
+  ASSERT_EQ(EonTokenizerKind::String, tokenizer->next(item));
   ASSERT_TRUE(item.value->getString(string));
   ASSERT_STRING("hello world", string);
-  ASSERT_EQ(EggedTokenizerKind::ObjectEnd, tokenizer->next(item));
-  ASSERT_EQ(EggedTokenizerKind::EndOfFile, tokenizer->next(item));
+  ASSERT_EQ(EonTokenizerKind::ObjectEnd, tokenizer->next(item));
+  ASSERT_EQ(EonTokenizerKind::EndOfFile, tokenizer->next(item));
 
   tokenizer = createFromString(allocator, "{ `greeting`: `hello\nworld` }");
-  ASSERT_EQ(EggedTokenizerKind::ObjectStart, tokenizer->next(item));
-  ASSERT_EQ(EggedTokenizerKind::String, tokenizer->next(item));
+  ASSERT_EQ(EonTokenizerKind::ObjectStart, tokenizer->next(item));
+  ASSERT_EQ(EonTokenizerKind::String, tokenizer->next(item));
   ASSERT_TRUE(item.value->getString(string));
   ASSERT_STRING("greeting", string);
-  ASSERT_EQ(EggedTokenizerKind::Colon, tokenizer->next(item));
-  ASSERT_EQ(EggedTokenizerKind::String, tokenizer->next(item));
+  ASSERT_EQ(EonTokenizerKind::Colon, tokenizer->next(item));
+  ASSERT_EQ(EonTokenizerKind::String, tokenizer->next(item));
   ASSERT_TRUE(item.value->getString(string));
   ASSERT_STRING("hello\nworld", string);
-  ASSERT_EQ(EggedTokenizerKind::ObjectEnd, tokenizer->next(item));
-  ASSERT_EQ(EggedTokenizerKind::EndOfFile, tokenizer->next(item));
+  ASSERT_EQ(EonTokenizerKind::ObjectEnd, tokenizer->next(item));
+  ASSERT_EQ(EonTokenizerKind::EndOfFile, tokenizer->next(item));
 }
 
-TEST(TestEggedTokenizer, Identifier) {
+TEST(TestEonTokenizer, Identifier) {
   egg::test::Allocator allocator;
-  EggedTokenizerItem item;
+  EonTokenizerItem item;
   auto tokenizer = createFromString(allocator, "identifier");
-  ASSERT_EQ(EggedTokenizerKind::Identifier, tokenizer->next(item));
+  ASSERT_EQ(EonTokenizerKind::Identifier, tokenizer->next(item));
   egg::ovum::String string;
   ASSERT_TRUE(item.value->getString(string));
   ASSERT_STRING("identifier", string);
 }
 
-TEST(TestEggedTokenizer, SequentialOperators) {
+TEST(TestEonTokenizer, SequentialOperators) {
   egg::test::Allocator allocator;
-  EggedTokenizerItem item;
+  EonTokenizerItem item;
   auto tokenizer = createFromString(allocator, "{:-1}");
-  ASSERT_EQ(EggedTokenizerKind::ObjectStart, tokenizer->next(item));
-  ASSERT_EQ(EggedTokenizerKind::Colon, tokenizer->next(item));
-  ASSERT_EQ(EggedTokenizerKind::Integer, tokenizer->next(item));
+  ASSERT_EQ(EonTokenizerKind::ObjectStart, tokenizer->next(item));
+  ASSERT_EQ(EonTokenizerKind::Colon, tokenizer->next(item));
+  ASSERT_EQ(EonTokenizerKind::Integer, tokenizer->next(item));
   egg::ovum::Int value;
   ASSERT_TRUE(item.value->getInt(value));
   ASSERT_EQ(-1, value);
-  ASSERT_EQ(EggedTokenizerKind::ObjectEnd, tokenizer->next(item));
-  ASSERT_EQ(EggedTokenizerKind::EndOfFile, tokenizer->next(item));
+  ASSERT_EQ(EonTokenizerKind::ObjectEnd, tokenizer->next(item));
+  ASSERT_EQ(EonTokenizerKind::EndOfFile, tokenizer->next(item));
 }
 
-TEST(TestEggedTokenizer, CharacterBad) {
+TEST(TestEonTokenizer, CharacterBad) {
   egg::test::Allocator allocator(egg::test::Allocator::Expectation::NoAllocations);
-  EggedTokenizerItem item;
+  EonTokenizerItem item;
   auto tokenizer = createFromString(allocator, "\a");
   ASSERT_THROW_E(tokenizer->next(item), Exception, ASSERT_CONTAINS(e.what(), "Unexpected character: U+0007")); 
   tokenizer = createFromString(allocator, "$");
   ASSERT_THROW_E(tokenizer->next(item), Exception, ASSERT_CONTAINS(e.what(), "Unexpected character"));
 }
 
-TEST(TestEggedTokenizer, NumberBad) {
+TEST(TestEonTokenizer, NumberBad) {
   egg::test::Allocator allocator(egg::test::Allocator::Expectation::NoAllocations);
-  EggedTokenizerItem item;
+  EonTokenizerItem item;
   auto tokenizer = createFromString(allocator, "18446744073709551616");
   ASSERT_THROW_E(tokenizer->next(item), Exception, ASSERT_CONTAINS(e.what(), "Invalid integer constant"));
   tokenizer = createFromString(allocator, "-9223372036854775809");
@@ -232,9 +232,9 @@ TEST(TestEggedTokenizer, NumberBad) {
   ASSERT_THROW_E(tokenizer->next(item), Exception, ASSERT_CONTAINS(e.what(), "Expected number to follow minus sign"));
 }
 
-TEST(TestEggedTokenizer, StringBad) {
+TEST(TestEonTokenizer, StringBad) {
   egg::test::Allocator allocator(egg::test::Allocator::Expectation::NoAllocations);
-  EggedTokenizerItem item;
+  EonTokenizerItem item;
   auto tokenizer = createFromString(allocator, "\"");
   ASSERT_THROW_E(tokenizer->next(item), Exception, ASSERT_CONTAINS(e.what(), "Unexpected end of file found in quoted string"));
   tokenizer = createFromString(allocator, "\"\n\"");
@@ -243,45 +243,45 @@ TEST(TestEggedTokenizer, StringBad) {
   ASSERT_THROW_E(tokenizer->next(item), Exception, ASSERT_CONTAINS(e.what(), "Unexpected end of file found in backquoted string"));
 }
 
-TEST(TestEggedTokenizer, OperatorBad) {
+TEST(TestEonTokenizer, OperatorBad) {
   egg::test::Allocator allocator(egg::test::Allocator::Expectation::NoAllocations);
-  EggedTokenizerItem item;
+  EonTokenizerItem item;
   auto tokenizer = createFromString(allocator, "+1");
   ASSERT_THROW_E(tokenizer->next(item), Exception, ASSERT_CONTAINS(e.what(), "Unexpected character: '+'"));
 }
 
-TEST(TestEggedTokenizer, Contiguous) {
+TEST(TestEonTokenizer, Contiguous) {
   egg::test::Allocator allocator;
-  EggedTokenizerItem item;
+  EonTokenizerItem item;
   auto tokenizer = createFromString(allocator, "/*comment*/{}/*comment*/");
-  ASSERT_EQ(EggedTokenizerKind::ObjectStart, tokenizer->next(item));
+  ASSERT_EQ(EonTokenizerKind::ObjectStart, tokenizer->next(item));
   ASSERT_FALSE(item.contiguous);
-  ASSERT_EQ(EggedTokenizerKind::ObjectEnd, tokenizer->next(item));
+  ASSERT_EQ(EonTokenizerKind::ObjectEnd, tokenizer->next(item));
   ASSERT_TRUE(item.contiguous);
-  ASSERT_EQ(EggedTokenizerKind::EndOfFile, tokenizer->next(item));
+  ASSERT_EQ(EonTokenizerKind::EndOfFile, tokenizer->next(item));
   ASSERT_FALSE(item.contiguous);
   tokenizer = createFromString(allocator, "\"hello\"\"world\"");
-  ASSERT_EQ(EggedTokenizerKind::String, tokenizer->next(item));
+  ASSERT_EQ(EonTokenizerKind::String, tokenizer->next(item));
   ASSERT_TRUE(item.contiguous);
-  ASSERT_EQ(EggedTokenizerKind::String, tokenizer->next(item));
+  ASSERT_EQ(EonTokenizerKind::String, tokenizer->next(item));
   ASSERT_TRUE(item.contiguous);
-  ASSERT_EQ(EggedTokenizerKind::EndOfFile, tokenizer->next(item));
+  ASSERT_EQ(EonTokenizerKind::EndOfFile, tokenizer->next(item));
   ASSERT_TRUE(item.contiguous);
   tokenizer = createFromString(allocator, " \"hello\" \"world\" ");
-  ASSERT_EQ(EggedTokenizerKind::String, tokenizer->next(item));
+  ASSERT_EQ(EonTokenizerKind::String, tokenizer->next(item));
   ASSERT_FALSE(item.contiguous);
-  ASSERT_EQ(EggedTokenizerKind::String, tokenizer->next(item));
+  ASSERT_EQ(EonTokenizerKind::String, tokenizer->next(item));
   ASSERT_FALSE(item.contiguous);
-  ASSERT_EQ(EggedTokenizerKind::EndOfFile, tokenizer->next(item));
+  ASSERT_EQ(EonTokenizerKind::EndOfFile, tokenizer->next(item));
   ASSERT_FALSE(item.contiguous);
 }
 
-TEST(TestEggedTokenizer, ExampleFile) {
+TEST(TestEonTokenizer, ExampleFile) {
   egg::test::Allocator allocator;
-  EggedTokenizerItem item;
-  auto tokenizer = createFromPath(allocator, "~/cpp/yolk/test/data/example.egd");
+  EonTokenizerItem item;
+  auto tokenizer = createFromPath(allocator, "~/cpp/yolk/test/data/example.eon");
   size_t count = 0;
-  while (tokenizer->next(item) != EggedTokenizerKind::EndOfFile) {
+  while (tokenizer->next(item) != EonTokenizerKind::EndOfFile) {
     count++;
   }
   ASSERT_EQ(55u, count);

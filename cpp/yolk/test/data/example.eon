@@ -1,7 +1,7 @@
-// This is an "egged" version of a JSON file
+// Egg Object Notation (EON)
+// This is an "egged" version of a JSON file (Egg Object Notation)
 // In particular it:
 //  * Permits comments
-//  * Supports backquoted, multiline strings
 //  * Allows unquoted object property names
 //  * Makes commas optional
 {

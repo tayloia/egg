@@ -20,7 +20,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\yolk\egg-tokenizer.cpp" />
-    <ClCompile Include="..\yolk\egged-tokenizer.cpp" />
+    <ClCompile Include="..\yolk\eon-tokenizer.cpp" />
     <ClCompile Include="..\yolk\exceptions.cpp" />
     <ClCompile Include="..\yolk\files.cpp" />
     <ClCompile Include="..\yolk\json-tokenizer.cpp" />
@@ -41,7 +41,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\yolk\egg-tokenizer.h" />
-    <ClInclude Include="..\yolk\egged-tokenizer.h" />
+    <ClInclude Include="..\yolk\eon-tokenizer.h" />
     <ClInclude Include="..\yolk\exceptions.h" />
     <ClInclude Include="..\yolk\files.h" />
     <ClInclude Include="..\yolk\json-tokenizer.h" />

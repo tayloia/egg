@@ -22,7 +22,7 @@
     <ClCompile Include="..\ovum\test\gtest.cpp">
       <Filter>Infrastructure Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\yolk\test\egged-tokenizer.cpp">
+    <ClCompile Include="..\yolk\test\eon-tokenizer.cpp">
       <Filter>Test Files</Filter>
     </ClCompile>
     <ClCompile Include="..\yolk\test\egg-tokenizer.cpp">
@@ -63,5 +63,30 @@
     <ClInclude Include="..\ovum\test\gtest.h">
       <Filter>Infrastructure Files</Filter>
     </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\yolk\test\data\example.eon">
+      <Filter>Data Files</Filter>
+    </None>
+    <None Include="..\yolk\test\data\example.egg">
+      <Filter>Data Files</Filter>
+    </None>
+    <None Include="..\yolk\test\data\example.json">
+      <Filter>Data Files</Filter>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="..\yolk\test\data\utf-8-demo.bom.txt">
+      <Filter>Data Files</Filter>
+    </Text>
+    <Text Include="..\yolk\test\data\utf-8-demo.cr.txt">
+      <Filter>Data Files</Filter>
+    </Text>
+    <Text Include="..\yolk\test\data\utf-8-demo.lf.txt">
+      <Filter>Data Files</Filter>
+    </Text>
+    <Text Include="..\yolk\test\data\utf-8-demo.txt">
+      <Filter>Data Files</Filter>
+    </Text>
   </ItemGroup>
 </Project>
