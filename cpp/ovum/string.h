@@ -59,9 +59,12 @@ namespace egg::ovum {
     StringBuilder(const StringBuilder&) = delete;
     StringBuilder& operator=(const StringBuilder&) = delete;
   private:
+    IAllocator* allocator;
     std::stringstream ss;
   public:
-    StringBuilder() : Printer(ss, Print::Options::DEFAULT) {
+    explicit StringBuilder(IAllocator* allocator = nullptr)
+      : Printer(ss, Print::Options::DEFAULT),
+        allocator(allocator) {
     }
     template<typename T>
     StringBuilder& add(T value) {
@@ -87,12 +90,7 @@ namespace egg::ovum {
     std::string toUTF8() const {
       return this->ss.str();
     }
-    String str() const;
-
-    template<typename... ARGS>
-    static String concat(ARGS&&... args) {
-      return StringBuilder().add(std::forward<ARGS>(args)...).str();
-    }
+    String build() const;
   };
 
   class StringFactory {
@@ -111,6 +109,7 @@ namespace egg::ovum {
     static String fromUTF8(IAllocator& allocator, const char8_t (&utf8)[N]) {
       return fromUTF8(allocator, utf8, N - 1);
     }
+    static String fromUTF32(IAllocator& allocator, const std::u32string& utf32);
     static String fromASCIIZ(IAllocator& allocator, const char* asciiz);
   };
 }

@@ -51,7 +51,7 @@ namespace {
     }
     virtual String describeValue() const override {
       // TODO i18n
-      return StringBuilder::concat("Value of type '", this->toStringPrecedence().first, "'");
+      return StringBuilder().add("Value of type '", this->toStringPrecedence().first, "'").build();
     }
   };
 

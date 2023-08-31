@@ -42,7 +42,7 @@ namespace egg::ovum {
     }
     template<typename... ARGS>
     Value raiseFormat(ARGS&&... args) {
-      auto message = StringBuilder::concat(std::forward<ARGS>(args)...);
+      auto message = StringBuilder(this->getAllocator()).add(std::forward<ARGS>(args)...).build();
       return this->raise(message);
     }
   };

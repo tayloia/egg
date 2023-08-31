@@ -218,7 +218,7 @@ namespace {
         }
         sb.add('.', this->upcoming.verbatim);
       }
-      item.value.s = sb.str();
+      item.value.s = sb.build();
       item.kind = EggTokenizerKind::Attribute;
       return EggTokenizerKind::Attribute;
     }

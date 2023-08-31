@@ -497,7 +497,7 @@ egg::ovum::String egg::ovum::String::repeat(size_t count) const {
   do {
     sb.add(*this);
   } while (--count > 0);
-  return sb.str();
+  return sb.build();
 }
 
 bool egg::ovum::String::empty() const {
@@ -555,7 +555,7 @@ egg::ovum::String egg::ovum::String::join(const std::vector<String>& parts) cons
   for (size_t i = 1; i < n; ++i) {
     sb.add(between, parts[i]);
   }
-  return sb.str();
+  return sb.build();
 }
 
 egg::ovum::String egg::ovum::String::padLeft(size_t target) const {
@@ -635,9 +635,10 @@ egg::ovum::String egg::ovum::String::fromUTF32(const std::u32string& utf32) {
   return String(createContiguous(nullptr, utf8.data(), utf8.size(), utf32.size()));
 }
 
-egg::ovum::String egg::ovum::StringBuilder::str() const {
+egg::ovum::String egg::ovum::StringBuilder::build() const {
   // OPTIMIZE
-  return String(this->ss.str());
+  auto utf8 = this->ss.str();
+  return String(createContiguous(this->allocator, utf8.data(), utf8.size()));
 }
 
 egg::ovum::String egg::ovum::StringFactory::fromCodePoint(IAllocator& allocator, char32_t codepoint) {
@@ -652,6 +653,12 @@ egg::ovum::String egg::ovum::StringFactory::fromUTF8(IAllocator& allocator, cons
   assert(end >= begin);
   auto bytes = size_t(end - begin);
   return String(createContiguous(&allocator, begin, bytes, codepoints));
+}
+
+egg::ovum::String egg::ovum::StringFactory::fromUTF32(IAllocator& allocator, const std::u32string& utf32) {
+  // OPTIMIZE
+  auto utf8 = egg::ovum::UTF32::toUTF8(utf32);
+  return String(createContiguous(&allocator, utf8.data(), utf8.size(), utf32.size()));
 }
 
 egg::ovum::String egg::ovum::StringFactory::fromASCIIZ(IAllocator& allocator, const char* asciiz) {
