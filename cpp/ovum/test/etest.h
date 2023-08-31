@@ -35,15 +35,6 @@ namespace egg::test {
     }
   };
 
-  class TypeFactory final : public egg::ovum::TypeFactory {
-    TypeFactory(const TypeFactory&) = delete;
-    TypeFactory& operator=(const TypeFactory&) = delete;
-  public:
-    explicit TypeFactory(Allocator& allocator)
-      : egg::ovum::TypeFactory(allocator) {
-    }
-  };
-
   class Logger final : public egg::ovum::ILogger {
     Logger(const Logger&) = delete;
     Logger& operator=(const Logger&) = delete;

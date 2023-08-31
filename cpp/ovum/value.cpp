@@ -1,6 +1,4 @@
 #include "ovum/ovum.h"
-#include "ovum/slot.h"
-#include "ovum/vanilla.h"
 
 namespace {
   using namespace egg::ovum;
@@ -280,118 +278,6 @@ namespace {
     }
   };
 
-  class ValueObjectSoft final : public ValueMutable {
-    ValueObjectSoft(const ValueObjectSoft&) = delete;
-    ValueObjectSoft& operator=(const ValueObjectSoft&) = delete;
-  private:
-    IObject* object;
-  public:
-    ValueObjectSoft(IAllocator& allocator, const Object& object)
-      : ValueMutable(allocator, 1),
-      object(object.get()) {
-      assert(this->validate());
-    }
-    virtual IValue* hardAcquire() const override {
-      // Handle the case of an external reference being taken to the slot object pointer
-      // by increasing the reference count of the object pointer *and* the object itself
-      auto acquired = this->object->hardAcquire();
-      assert(acquired == this->object);
-      (void)acquired;
-      return this->ValueMutable::hardAcquire();
-    }
-    virtual void hardRelease() const override {
-      // Release both reference counts
-      this->object->hardRelease();
-      this->ValueMutable::hardRelease();
-    }
-    virtual IValue* softAcquire() const override {
-      // Only one reference count used for soft references
-      return this->ValueMutable::hardAcquire();
-    }
-    virtual void softRelease() const override {
-      // Only one reference count used for soft references
-      this->ValueMutable::hardRelease();
-    }
-    virtual void softVisit(const ICollectable::Visitor& visitor) const override {
-      assert(this->validate());
-      this->object->softVisit(visitor);
-    }
-    virtual ValueFlags getFlags() const override {
-      assert(this->validate());
-      return ValueFlags::Object;
-    }
-    virtual Type getRuntimeType() const override {
-      assert(this->validate());
-      return this->object->getRuntimeType();
-    }
-    virtual bool getObject(Object& result) const override {
-      assert(this->validate());
-      result.set(this->object);
-      return true;
-    }
-    virtual bool equals(const IValue& rhs, ValueCompare) const override {
-      assert(this->validate());
-      // TODO: Identity is not appropriate for pointers
-      Object other{ *this->object };
-      return rhs.getObject(other) && (this->object == other.get());
-    }
-    virtual bool validate() const override {
-      return ValueMutable::validate() && (this->object != nullptr) && this->object->validate();
-    }
-    virtual void print(Printer& printer) const override {
-      assert(this->validate());
-      this->object->print(printer);
-    }
-  };
-
-  class ValueObjectHard final : public ValueMutable {
-    ValueObjectHard(const ValueObjectHard&) = delete;
-    ValueObjectHard& operator=(const ValueObjectHard&) = delete;
-  private:
-    Object object; // never null
-  public:
-    ValueObjectHard(IAllocator& allocator, const Object& object)
-      : ValueMutable(allocator),
-        object(*object) {
-      assert(this->validate());
-    }
-    virtual IValue* softAcquire() const override {
-      return this->allocator.makeRaw<ValueObjectSoft>(this->allocator, this->object);
-    }
-    virtual void softRelease() const override {
-      throw std::logic_error("Hard object value erroneously softly released");
-    }
-    virtual void softVisit(const ICollectable::Visitor&) const override {
-      throw std::logic_error("Hard object value erroneously softly visited");
-    }
-    virtual ValueFlags getFlags() const override {
-      assert(this->validate());
-      return ValueFlags::Object;
-    }
-    virtual Type getRuntimeType() const override {
-      assert(this->validate());
-      return this->object->getRuntimeType();
-    }
-    virtual bool getObject(Object& result) const override {
-      assert(this->validate());
-      result.set(this->object.get());
-      return true;
-    }
-    virtual bool equals(const IValue& rhs, ValueCompare) const override {
-      assert(this->validate());
-      // TODO: Identity is not appropriate for pointers
-      Object other{ *this->object };
-      return rhs.getObject(other) && (this->object.get() == other.get());
-    }
-    virtual bool validate() const override {
-      return ValueMutable::validate() && (this->object != nullptr) && this->object->validate();
-    }
-    virtual void print(Printer& printer) const override {
-      assert(this->validate());
-      this->object->print(printer);
-    }
-  };
-
   class ValueFlowControl final : public ValueMutable {
     ValueFlowControl(const ValueFlowControl&) = delete;
     ValueFlowControl& operator=(const ValueFlowControl&) = delete;
@@ -476,10 +362,6 @@ egg::ovum::Value egg::ovum::ValueFactory::createFloat(IAllocator& allocator, Flo
 
 egg::ovum::Value egg::ovum::ValueFactory::createString(IAllocator& allocator, const String& value) {
   return makeValue<ValueString>(allocator, value);
-}
-
-egg::ovum::Value egg::ovum::ValueFactory::createObject(IAllocator& allocator, const Object& value) {
-  return makeValue<ValueObjectHard>(allocator, value);
 }
 
 egg::ovum::Value egg::ovum::ValueFactory::createFlowControl(IAllocator& allocator, ValueFlags flags, const Value& value) {

@@ -1,3 +1,0 @@
-int positive(int x) {
-}
-///<COMPILER><ERROR><RESOURCE>(1,21): Missing 'return' statement with a value of type 'int' at the end of the function definition: 'positive'

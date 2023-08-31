@@ -14,55 +14,28 @@
     <ClCompile Include="ovum.pch.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\ovum\vanilla.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="..\ovum\value.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="..\ovum\type.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="..\ovum\string.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\ovum\slot.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="..\ovum\program.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="..\ovum\print.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="..\ovum\object.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="..\ovum\node.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="..\ovum\module.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="..\ovum\memory.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\ovum\function.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="..\ovum\forge.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="..\ovum\context.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="..\ovum\builtin.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="..\ovum\basket.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="..\ovum\arithmetic.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\ovum\type.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -73,19 +46,10 @@
     <ClInclude Include="..\ovum\basket.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\ovum\builtin.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="..\ovum\context.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="..\ovum\dictionary.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="..\ovum\forge.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="..\ovum\function.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="..\ovum\hardptr.h">
@@ -97,15 +61,6 @@
     <ClInclude Include="..\ovum\memory.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\ovum\module.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="..\ovum\node.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="..\ovum\object.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="..\ovum\ovum.h">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -113,12 +68,6 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="..\ovum\print.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="..\ovum\program.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="..\ovum\slot.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="..\ovum\softptr.h">
@@ -130,9 +79,6 @@
     <ClInclude Include="..\ovum\test.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\ovum\type.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="..\ovum\utf.h">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -140,12 +86,6 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="..\ovum\value.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="..\ovum\vanilla.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="..\ovum\vm.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

@@ -1,5 +1,0 @@
-var s = "Hello, World!";
-print(s.length);
-///>13
-print("Goodbye".length);
-///>7

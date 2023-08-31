@@ -1,2 +1,0 @@
-print(string.unknown(123));
-///<COMPILER><ERROR><RESOURCE>(1,13): Type 'string' does not support the property 'unknown'

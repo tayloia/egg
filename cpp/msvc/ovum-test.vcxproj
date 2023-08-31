@@ -21,7 +21,6 @@
   <ItemGroup>
     <ClCompile Include="..\ovum\test\arithmetic.cpp" />
     <ClCompile Include="..\ovum\test\dictionary.cpp" />
-    <ClCompile Include="..\ovum\test\forge.cpp" />
     <ClCompile Include="..\ovum\test\gtest.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">NotUsing</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">NotUsing</PrecompiledHeader>
@@ -37,15 +36,11 @@
       <DisableLanguageExtensions Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</DisableLanguageExtensions>
     </ClCompile>
     <ClCompile Include="..\ovum\test\memory.cpp" />
-    <ClCompile Include="..\ovum\test\module.cpp" />
-    <ClCompile Include="..\ovum\test\node.cpp" />
     <ClCompile Include="..\ovum\test\print.cpp" />
     <ClCompile Include="..\ovum\test\string.cpp" />
     <ClCompile Include="..\ovum\test\testing.cpp" />
-    <ClCompile Include="..\ovum\test\type.cpp" />
     <ClCompile Include="..\ovum\test\utility.cpp" />
     <ClCompile Include="..\ovum\test\value.cpp" />
-    <ClCompile Include="..\ovum\test\vanilla.cpp" />
     <ClCompile Include="ovum-test.pch.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Create</PrecompiledHeader>

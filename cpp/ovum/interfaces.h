@@ -6,21 +6,28 @@ namespace egg::ovum {
   // Forward declarations
   template<typename T> class HardPtr;
   template<typename T> class SoftPtr;
-  enum class Modifiability;
   enum class ValueFlags;
   struct LocationSource;
   struct TypeShape;
   class Printer;
   class String;
-  class StringBuilder;
   class Type;
   class Value;
   class ICollectable;
   class IExecution;
-  class ISlot;
   class IType;
   class ITypeFactory;
-  class IValue;
+
+  enum class Modifiability {
+    None = 0x00,
+    Read = 0x1,
+    Write = 0x2,
+    Mutate = 0x4,
+    Delete = 0x8,
+    ReadWrite = Read | Write,
+    ReadWriteMutate = Read | Write | Mutate,
+    All = Read | Write | Mutate | Delete
+  };
 
   enum class Mutation {
     Assign,
@@ -290,9 +297,6 @@ namespace egg::ovum {
     virtual TypeBuilder createTypeBuilder(const String& name, const String& description) = 0;
     virtual TypeBuilder createFunctionBuilder(const Type& rettype, const String& name, const String& description) = 0;
     virtual TypeBuilder createGeneratorBuilder(const Type& gentype, const String& name, const String& description) = 0;
-
-    // WIBBLE
-    virtual const StringProperties& getStringProperties() = 0;
 
     virtual const TypeShape& getObjectShape() = 0;
     virtual const TypeShape& getStringShape() = 0;

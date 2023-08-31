@@ -14,25 +14,7 @@
     <ClCompile Include="yolk.pch.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\yolk\egg-compile.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="..\yolk\egged-tokenizer.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="..\yolk\egg-engine.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="..\yolk\egg-parser.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="..\yolk\egg-prepare.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="..\yolk\egg-program.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="..\yolk\egg-syntax.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="..\yolk\egg-tokenizer.cpp">
@@ -59,18 +41,6 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\yolk\egged-tokenizer.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="..\yolk\egg-engine.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="..\yolk\egg-parser.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="..\yolk\egg-program.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="..\yolk\egg-syntax.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="..\yolk\egg-tokenizer.h">

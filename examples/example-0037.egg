@@ -1,7 +1,0 @@
-any a = "text";
-if (int i = a) {
-  print("int: ", i);
-} else {
-  print("unknown: ", i);
-}
-///<COMPILER><ERROR><RESOURCE>(5,22): Unknown identifier: 'i'

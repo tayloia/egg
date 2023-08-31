@@ -1,9 +1,0 @@
-var a = [];
-print(a);
-///>[]
-a.length = 3;
-print(a);
-///>[null,null,null]
-a[1] = "hello";
-print(a);
-///>[null,"hello",null]

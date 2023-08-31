@@ -58,11 +58,8 @@ TEST(TestFiles, ResolvePath) {
 }
 
 TEST(TestFiles, ReadDirectory) {
-  auto filenames = egg::yolk::File::readDirectory("~/examples");
+  auto filenames = egg::yolk::File::readDirectory("~/data");
   ASSERT_FALSE(filenames.empty());
-  auto& filename = filenames.front();
-  ASSERT_STARTSWITH(filename, "example-");
-  ASSERT_ENDSWITH(filename, ".egg");
   filenames = egg::yolk::File::readDirectory("~/missing-in-action");
   ASSERT_TRUE(filenames.empty());
 }

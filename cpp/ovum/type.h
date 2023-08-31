@@ -161,9 +161,6 @@ namespace egg::ovum {
     virtual TypeBuilder createFunctionBuilder(const Type& rettype, const String& name, const String& description = {}) override;
     virtual TypeBuilder createGeneratorBuilder(const Type& gentype, const String& name, const String& description = {}) override;
 
-    // WIBBLE
-    virtual const StringProperties& getStringProperties() override;
-
     virtual const TypeShape& getObjectShape() override;
     virtual const TypeShape& getStringShape() override;
 

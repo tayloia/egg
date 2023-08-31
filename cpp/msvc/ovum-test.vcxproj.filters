@@ -22,16 +22,7 @@
     <ClCompile Include="..\ovum\test\dictionary.cpp">
       <Filter>Test Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\ovum\test\forge.cpp">
-      <Filter>Test Files</Filter>
-    </ClCompile>
     <ClCompile Include="..\ovum\test\memory.cpp">
-      <Filter>Test Files</Filter>
-    </ClCompile>
-    <ClCompile Include="..\ovum\test\module.cpp">
-      <Filter>Test Files</Filter>
-    </ClCompile>
-    <ClCompile Include="..\ovum\test\node.cpp">
       <Filter>Test Files</Filter>
     </ClCompile>
     <ClCompile Include="..\ovum\test\print.cpp">
@@ -43,16 +34,10 @@
     <ClCompile Include="..\ovum\test\testing.cpp">
       <Filter>Test Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\ovum\test\type.cpp">
-      <Filter>Test Files</Filter>
-    </ClCompile>
     <ClCompile Include="..\ovum\test\utility.cpp">
       <Filter>Test Files</Filter>
     </ClCompile>
     <ClCompile Include="..\ovum\test\value.cpp">
-      <Filter>Test Files</Filter>
-    </ClCompile>
-    <ClCompile Include="..\ovum\test\vanilla.cpp">
       <Filter>Test Files</Filter>
     </ClCompile>
     <ClCompile Include="..\ovum\test\gtest.cpp">

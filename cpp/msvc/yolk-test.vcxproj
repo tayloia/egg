@@ -38,12 +38,8 @@
       <DisableLanguageExtensions Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">false</DisableLanguageExtensions>
       <DisableLanguageExtensions Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</DisableLanguageExtensions>
     </ClCompile>
-    <ClCompile Include="..\yolk\test\egg-engine.cpp" />
-    <ClCompile Include="..\yolk\test\egg-parser.cpp" />
-    <ClCompile Include="..\yolk\test\egg-syntax.cpp" />
     <ClCompile Include="..\yolk\test\egg-tokenizer.cpp" />
     <ClCompile Include="..\yolk\test\egged-tokenizer.cpp" />
-    <ClCompile Include="..\yolk\test\examples.cpp" />
     <ClCompile Include="..\yolk\test\exceptions.cpp" />
     <ClCompile Include="..\yolk\test\files.cpp" />
     <ClCompile Include="..\yolk\test\json-tokenizer.cpp" />
