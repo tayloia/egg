@@ -23,3 +23,10 @@ TEST(TestVM, CreateUTF32) {
   auto s = vm->createUTF32(U"hello");
   ASSERT_STRING("hello", s);
 }
+
+TEST(TestVM, CreateProgram) {
+  egg::test::VM vm;
+  auto pb = vm->createProgramBuilder();
+  auto program = pb->build();
+  ASSERT_NE(nullptr, program);
+}

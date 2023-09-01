@@ -91,7 +91,7 @@ namespace egg::test {
   class VM final {
   public:
     egg::test::Allocator allocator;
-    egg::ovum::VM vm;
+    egg::ovum::HardPtr<egg::ovum::IVM> vm;
     VM()
       : allocator(),
         vm(egg::ovum::VMFactory::createTest(allocator).get()) {

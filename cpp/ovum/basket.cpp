@@ -140,6 +140,6 @@ bool egg::ovum::IBasket::verify(std::ostream& os, size_t minimum, size_t maximum
   return false;
 }
 
-egg::ovum::Basket egg::ovum::BasketFactory::createBasket(egg::ovum::IAllocator& allocator) {
+egg::ovum::HardPtr<IBasket> egg::ovum::BasketFactory::createBasket(egg::ovum::IAllocator& allocator) {
   return allocator.makeHard<BasketDefault>();
 }

@@ -266,13 +266,4 @@ namespace egg::ovum {
     virtual ValueFlags getPrimitiveFlags() const = 0;
     virtual std::pair<std::string, int> toStringPrecedence() const = 0;
   };
-
-  class IVM : public IHardAcquireRelease {
-  public:
-    virtual IAllocator& getAllocator() const = 0;
-    virtual IBasket& getBasket() const = 0;
-
-    virtual String createUTF8(const std::u8string& utf8, size_t codepoints = SIZE_MAX) = 0;
-    virtual String createUTF32(const std::u32string& utf32) = 0;
-  };
 }

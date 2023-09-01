@@ -1,9 +1,7 @@
 namespace egg::ovum {
-  using Basket = HardPtr<IBasket>;
-
   class BasketFactory {
   public:
-    static Basket createBasket(IAllocator& allocator);
+    static HardPtr<IBasket> createBasket(IAllocator& allocator);
   };
 
   struct AllocatorDefaultPolicy {
