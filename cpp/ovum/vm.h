@@ -5,11 +5,11 @@ namespace egg::ovum {
     virtual IAllocator& getAllocator() const = 0;
     virtual IBasket& getBasket() const = 0;
     // String factory helpers
-    inline String createUTF8(const std::u8string& utf8, size_t codepoints = SIZE_MAX) {
-      return this->getAllocator().fromUTF8(utf8, codepoints);
+    inline String createStringUTF8(const void* utf8, size_t bytes = SIZE_MAX, size_t codepoints = SIZE_MAX) {
+      return String::fromUTF8(&this->getAllocator(), utf8, bytes, codepoints);
     }
-    inline String createUTF32(const std::u32string& utf32) {
-      return this->getAllocator().fromUTF32(utf32);
+    inline String createStringUTF32(const void* utf32, size_t codepoints = SIZE_MAX) {
+      return String::fromUTF32(&this->getAllocator(), utf32, codepoints);
     }
   };
 
@@ -26,7 +26,14 @@ namespace egg::ovum {
   public:
     virtual IAllocator& getAllocator() const = 0;
     virtual IBasket& getBasket() const = 0;
-    // Build factories
+    // Value factories
+    virtual HardPtr<IValue> createValueVoid() = 0;
+    virtual HardPtr<IValue> createValueNull() = 0;
+    virtual HardPtr<IValue> createValueBool(Bool value) = 0;
+    virtual HardPtr<IValue> createValueInt(Int value) = 0;
+    virtual HardPtr<IValue> createValueFloat(Float value) = 0;
+    virtual HardPtr<IValue> createValueString(const String& value) = 0;
+    // Builder factories
     virtual HardPtr<IVMProgramBuilder> createProgramBuilder() = 0;
   };
 

@@ -4,9 +4,14 @@ namespace {
   using namespace egg::ovum;
 
   template<typename T, typename... ARGS>
-  static HardPtr<T> makeHardVMImpl(IVM& vm, ARGS&&... args) {
+  HardPtr<T> makeHardVMImpl(IVM& vm, ARGS&&... args) {
     // Use perfect forwarding
     return HardPtr<T>(vm.getAllocator().makeRaw<T>(vm, std::forward<ARGS>(args)...));
+  }
+
+  HardPtr<IValue> makeHardValue(const Value& value) {
+    assert(value.validate());
+    return HardPtr<IValue>(&value.get());
   }
 
   template<typename T>
@@ -88,6 +93,24 @@ namespace {
     }
     virtual HardPtr<IVMProgramBuilder> createProgramBuilder() override {
       return makeHardVMImpl<VMProgramBuilder>(*this);
+    }
+    virtual HardPtr<IValue> createValueVoid() override {
+      return makeHardValue(Value::Void);
+    }
+    virtual HardPtr<IValue> createValueNull() override {
+      return makeHardValue(Value::Null);
+    }
+    virtual HardPtr<IValue> createValueBool(Bool value) override {
+      return makeHardValue(value ? Value::True : Value::False);
+    }
+    virtual HardPtr<IValue> createValueInt(Int value) override {
+      return makeHardValue(ValueFactory::createInt(this->allocator, value));
+    }
+    virtual HardPtr<IValue> createValueFloat(Float value) override {
+      return makeHardValue(ValueFactory::createFloat(this->allocator, value));
+    }
+    virtual HardPtr<IValue> createValueString(const String& value) override {
+      return makeHardValue(ValueFactory::createString(this->allocator, value));
     }
   };
 }

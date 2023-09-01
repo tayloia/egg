@@ -52,7 +52,7 @@ namespace {
           item.kind = EonTokenizerKind::Float;
           break;
         case LexerKind::String:
-          item.value = egg::ovum::ValueFactory::createUTF32(this->allocator, this->upcoming.value.s);
+          item.value = egg::ovum::ValueFactory::createStringUTF32(this->allocator, this->upcoming.value.s);
           item.kind = EonTokenizerKind::String;
           break;
         case LexerKind::Operator:

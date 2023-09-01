@@ -364,6 +364,25 @@ egg::ovum::Value egg::ovum::ValueFactory::createString(IAllocator& allocator, co
   return makeValue<ValueString>(allocator, value);
 }
 
+egg::ovum::Value egg::ovum::ValueFactory::createStringASCIIZ(IAllocator& allocator, const char* value, size_t codepoints) {
+  // TODO check 7-bit only
+  if (value == nullptr) {
+    return Value::Void;
+  }
+  if (codepoints == SIZE_MAX) {
+    codepoints = std::strlen(value);
+  }
+  return makeValue<ValueString>(allocator, String::fromUTF8(&allocator, value, codepoints, codepoints));
+}
+
+egg::ovum::Value egg::ovum::ValueFactory::createStringUTF8(IAllocator& allocator, const std::u8string& value, size_t codepoints) {
+  return makeValue<ValueString>(allocator, String::fromUTF8(&allocator, value.data(), value.size(), codepoints));
+}
+
+egg::ovum::Value egg::ovum::ValueFactory::createStringUTF32(IAllocator& allocator, const std::u32string& value) {
+  return makeValue<ValueString>(allocator, String::fromUTF32(&allocator, value.data(), value.size()));
+}
+
 bool egg::ovum::Value::validate() const {
   auto p = this->ptr.get();
   if (p == nullptr) {

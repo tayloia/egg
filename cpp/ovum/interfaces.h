@@ -13,6 +13,7 @@ namespace egg::ovum {
   class Type;
   class Value;
   class ICollectable;
+  class IMemory;
   class IType;
   class ITypeFactory;
 
@@ -116,16 +117,6 @@ namespace egg::ovum {
       // Use perfect forwarding
       return RETTYPE(this->makeRaw<T>(*this, std::forward<ARGS>(args)...));
     }
-    // String helpers
-    String fromCodePoint(char32_t codepoint);
-    String fromUTF8(const char8_t* begin, const char8_t* end, size_t codepoints = SIZE_MAX);
-    String fromUTF8(const void* utf8, size_t bytes = SIZE_MAX, size_t codepoints = SIZE_MAX);
-    String fromUTF8(const std::u8string& utf8, size_t codepoints = SIZE_MAX);
-    String fromUTF8(const std::string& utf8, size_t codepoints = SIZE_MAX);
-    String fromUTF32(const char32_t* begin, const char32_t* end);
-    String fromUTF32(const void* utf32, size_t codepoints);
-    String fromUTF32(const std::u32string& utf32);
-    String fromASCIIZ(const char* asciiz, size_t codepoints = SIZE_MAX);
   };
 
   class IMemory : public IHardAcquireRelease {

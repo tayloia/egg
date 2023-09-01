@@ -119,6 +119,11 @@ namespace egg::ovum {
     static Value createObject(IAllocator& allocator, const Object& value);
     static Value createFlowControl(IAllocator& allocator, ValueFlags flags, const Value& value);
 
+    // Helpers
+    static Value createStringASCIIZ(IAllocator& allocator, const char* value, size_t codepoints = SIZE_MAX);
+    static Value createStringUTF8(IAllocator& allocator, const std::u8string& value, size_t codepoints = SIZE_MAX);
+    static Value createStringUTF32(IAllocator& allocator, const std::u32string& value);
+
     // Overloaded without implicit promotion
     template<typename T>
     static Value create(IAllocator& allocator, T value) = delete;
@@ -145,18 +150,6 @@ namespace egg::ovum {
     }
     static Value create(IAllocator& allocator, const Object& value) {
       return createObject(allocator, value);
-    }
-    static Value createUTF8(IAllocator& allocator, const std::string& value) {
-      return createString(allocator, allocator.fromUTF8(value));
-    }
-    static Value createUTF32(IAllocator& allocator, const std::u32string& value) {
-      return createString(allocator, allocator.fromUTF32(value));
-    }
-    static Value createASCIIZ(IAllocator& allocator, const char* value) {
-      if (value == nullptr) {
-        return Value::Null;
-      }
-      return createString(allocator, allocator.fromASCIIZ(value));
     }
   };
 }

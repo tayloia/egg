@@ -12,16 +12,69 @@ TEST(TestVM, CreateTestInstance) {
   ASSERT_NE(nullptr, vm);
 }
 
-TEST(TestVM, CreateUTF8) {
+TEST(TestVM, CreateStringUTF8) {
   egg::test::VM vm;
-  auto s = vm->createUTF8(u8"hello");
+  auto s = vm->createStringUTF8(u8"hello");
   ASSERT_STRING("hello", s);
 }
 
-TEST(TestVM, CreateUTF32) {
+TEST(TestVM, CreateStringUTF32) {
   egg::test::VM vm;
-  auto s = vm->createUTF32(U"hello");
+  auto s = vm->createStringUTF32(U"hello");
   ASSERT_STRING("hello", s);
+}
+
+TEST(TestVM, CreateValueVoid) {
+  egg::test::VM vm;
+  auto value = vm->createValueVoid();
+  ASSERT_TRUE(value->getVoid());
+}
+
+TEST(TestVM, CreateValueNull) {
+  egg::test::VM vm;
+  auto value = vm->createValueNull();
+  ASSERT_TRUE(value->getNull());
+}
+
+TEST(TestVM, CreateValueBool) {
+  egg::test::VM vm;
+  egg::ovum::Bool actual = true;
+  auto value = vm->createValueBool(false);
+  ASSERT_TRUE(value->getBool(actual));
+  ASSERT_FALSE(actual);
+  value = vm->createValueBool(true);
+  ASSERT_TRUE(value->getBool(actual));
+  ASSERT_TRUE(actual);
+}
+
+TEST(TestVM, CreateValueInt) {
+  egg::test::VM vm;
+  egg::ovum::Int actual = 0;
+  auto value = vm->createValueInt(12345);
+  ASSERT_TRUE(value->getInt(actual));
+  ASSERT_EQ(12345, actual);
+  value = vm->createValueInt(-12345);
+  ASSERT_TRUE(value->getInt(actual));
+  ASSERT_EQ(-12345, actual);
+}
+
+TEST(TestVM, CreateValueFloat) {
+  egg::test::VM vm;
+  egg::ovum::Float actual = 0;
+  auto value = vm->createValueFloat(1234.5);
+  ASSERT_TRUE(value->getFloat(actual));
+  ASSERT_EQ(1234.5, actual);
+  value = vm->createValueFloat(-1234.5);
+  ASSERT_TRUE(value->getFloat(actual));
+  ASSERT_EQ(-1234.5, actual);
+}
+
+TEST(TestVM, CreateValueString) {
+  egg::test::VM vm;
+  egg::ovum::String actual;
+  auto value = vm->createValueString("hello");
+  ASSERT_TRUE(value->getString(actual));
+  ASSERT_STRING("hello", actual);
 }
 
 TEST(TestVM, CreateProgram) {

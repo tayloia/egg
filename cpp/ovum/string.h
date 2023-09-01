@@ -5,14 +5,14 @@ namespace egg::ovum {
     explicit String(const IMemory* rhs) : Memory(rhs) {
     }
     explicit String(const char* utf8) // fallback to factory
-      : Memory(fromInternal(utf8)) {
+      : String(String::fromUTF8(nullptr, utf8)) {
     }
     template<size_t N>
     String(const char(&utf8)[N]) // implicit; fallback to factory
-      : Memory(fromInternal(utf8, N - 1)) {
+      : String(String::fromUTF8(nullptr, utf8, N - 1, N - 1)) {
     }
     String(const std::string& utf8, size_t codepoints = SIZE_MAX) // implicit; fallback to factory
-      : Memory(fromInternal(utf8.data(), utf8.size(), codepoints)) {
+      : String(String::fromUTF8(nullptr, utf8.data(), utf8.size(), codepoints)) {
     }
     bool validate() const;
 
@@ -55,15 +55,8 @@ namespace egg::ovum {
     }
 
     // These factories can take null as their first argument to use the fallback string allocator
-    static String fromCodePoint(IAllocator* allocator, char32_t codepoint);
-    static String fromUTF8(IAllocator* allocator, const char8_t* utf8, size_t bytes, size_t codepoints = SIZE_MAX);
-    template<size_t N>
-    inline static String fromUTF8(IAllocator* allocator, const char8_t(&utf8)[N], size_t codepoints = SIZE_MAX) {
-      return String::fromUTF8(allocator, utf8, N - 1, codepoints);
-    }
-    static String fromUTF32(IAllocator* allocator, const char32_t* utf32, size_t codepoints);
-  private:
-    static const IMemory* fromInternal(const void* utf8, size_t bytes = SIZE_MAX, size_t codepoints = SIZE_MAX);
+    static String fromUTF8(IAllocator* allocator, const void* utf8, size_t bytes = SIZE_MAX, size_t codepoints = SIZE_MAX);
+    static String fromUTF32(IAllocator* allocator, const void* utf32, size_t codepoints = SIZE_MAX);
   };
 
   class StringBuilder : public Printer {

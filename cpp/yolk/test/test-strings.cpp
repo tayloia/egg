@@ -3,11 +3,11 @@
 namespace {
   egg::ovum::String stringFromCodePoint(char32_t codepoint) {
     // Use the fallback allocator
-    return egg::ovum::String::fromCodePoint(nullptr, codepoint);
+    return egg::ovum::String::fromUTF32(nullptr, &codepoint, 1);
   }
   egg::ovum::String stringFromUTF8(const std::string& utf8) {
     // Use the fallback allocator
-    return egg::ovum::String::fromUTF8(nullptr, reinterpret_cast<const char8_t*>(utf8.data()), utf8.size());
+    return egg::ovum::String::fromUTF8(nullptr, utf8.data(), utf8.size());
   }
 }
 TEST(TestStrings, Empty) {

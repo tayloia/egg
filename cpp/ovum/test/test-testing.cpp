@@ -18,7 +18,7 @@ TEST(TestTesting, String) {
 
 TEST(TestTesting, Value) {
   egg::test::Allocator allocator;
-  egg::ovum::Value greeting{ egg::ovum::ValueFactory::createASCIIZ(allocator, "Hello") };
+  egg::ovum::Value greeting{ egg::ovum::ValueFactory::createStringASCIIZ(allocator, "Hello") };
   ASSERT_VALUE("Hello", greeting);
 }
 

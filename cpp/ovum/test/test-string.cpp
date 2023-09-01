@@ -5,20 +5,17 @@ TEST(TestString, Empty) {
   egg::ovum::String str;
   ASSERT_EQ(nullptr, str);
   ASSERT_EQ(0u, str.length());
-  char8_t nul = 0;
-  str = allocator.fromUTF8(&nul, &nul);
+  str = egg::ovum::String::fromUTF8(&allocator, nullptr);
   ASSERT_EQ(nullptr, str);
   ASSERT_EQ(0u, str.length());
 }
 
 TEST(TestString, FromBytes) {
   egg::test::Allocator allocator;
-  auto* buffer = reinterpret_cast<const char8_t*>("hello world");
-  const size_t bufsize = 11;
-  auto str = allocator.fromUTF8(buffer, buffer + bufsize);
+  auto str = egg::ovum::String::fromUTF8(&allocator, "hello world");
   ASSERT_NE(nullptr, str);
-  ASSERT_EQ(bufsize, str.length());
-  ASSERT_EQ(bufsize, str->bytes());
+  ASSERT_EQ(11u, str.length());
+  ASSERT_EQ(11u, str->bytes());
 }
 
 TEST(TestString, FromUTF8) {

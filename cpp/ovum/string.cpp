@@ -145,7 +145,7 @@ namespace {
         if (cp < 0) {
           return; // Don't add a trailing empty string
         }
-        dst.push_back(String::fromCodePoint(nullptr, char32_t(cp)));
+        dst.push_back(String::fromUTF32(nullptr, &cp, 1));
       } while (++begin < limit);
     } else {
       // Split by string
@@ -178,7 +178,7 @@ namespace {
           std::reverse(dst.begin(), dst.end());
           return; // Don't add a trailing empty string
         }
-        dst.push_back(String::fromCodePoint(nullptr, char32_t(cp)));
+        dst.push_back(String::fromUTF32(nullptr, &cp, 1));
       } while (--limit > 0);
     } else {
       // Split by string
@@ -240,28 +240,6 @@ namespace {
       return false;
     }
   };
-
-  const IMemory* createContiguous(IAllocator* allocator, const void* buffer, size_t bytes, size_t codepoints = SIZE_MAX) {
-    // TODO detect malformed/overlong/etc
-    if ((buffer == nullptr) || (bytes == 0)) {
-      return nullptr;
-    }
-    auto* utf8 = static_cast<const uint8_t*>(buffer);
-    if (codepoints == SIZE_MAX) {
-      codepoints = UTF8::measure(utf8, utf8 + bytes);
-    }
-    if (codepoints > bytes) {
-      throw std::invalid_argument("String: Invalid UTF-8 input data");
-    }
-    if (allocator == nullptr) {
-      static StringFallbackAllocator fallback;
-      allocator = &fallback;
-    }
-    auto* memory = allocator->create<MemoryContiguous>(bytes, *allocator, bytes, IMemory::Tag{ codepoints });
-    assert(memory != nullptr);
-    std::memcpy(memory->base(), utf8, bytes);
-    return memory;
-  }
 }
 
 bool egg::ovum::String::validate() const {
@@ -466,7 +444,7 @@ egg::ovum::String egg::ovum::String::substring(size_t begin, size_t end) const {
     throw std::runtime_error("Malformed UTF-8 string");
   }
   auto bytes = size_t(q.get() - p.get());
-  return String(createContiguous(nullptr, p.get(), bytes, codepoints));
+  return String::fromUTF8(nullptr, p.get(), bytes, codepoints);
 }
 
 egg::ovum::String egg::ovum::String::repeat(size_t count) const {
@@ -546,7 +524,8 @@ egg::ovum::String egg::ovum::String::join(const std::vector<String>& parts) cons
 
 egg::ovum::String egg::ovum::String::padLeft(size_t target) const {
   // OPTIMIZE
-  return this->padLeft(target, String::fromCodePoint(nullptr, ' '));
+  const char space = ' ';
+  return this->padLeft(target, String::fromUTF8(nullptr, &space, 1, 1));
 }
 
 egg::ovum::String egg::ovum::String::padLeft(size_t target, const String& padding) const {
@@ -594,7 +573,8 @@ egg::ovum::String egg::ovum::String::padRight(size_t target, const String& paddi
 
 egg::ovum::String egg::ovum::String::padRight(size_t target) const {
   // OPTIMIZE
-  return this->padRight(target, String::fromCodePoint(nullptr, ' '));
+  const char space = ' ';
+  return this->padRight(target, String::fromUTF8(nullptr, &space, 1, 1));
 }
 
 std::string egg::ovum::String::toUTF8() const {
@@ -605,91 +585,40 @@ std::string egg::ovum::String::toUTF8() const {
   return std::string(memory->begin(), memory->end());
 }
 
-egg::ovum::String egg::ovum::String::fromCodePoint(IAllocator* allocator, char32_t codepoint) {
-  // OPTIMIZE
-  assert(codepoint <= 0x10FFFF);
-  auto utf8 = egg::ovum::UTF32::toUTF8(codepoint);
-  return String(createContiguous(allocator, utf8.data(), utf8.size(), 1));
-}
-
-egg::ovum::String egg::ovum::String::fromUTF8(IAllocator* allocator, const char8_t* utf8, size_t bytes, size_t codepoints) {
-  return String(createContiguous(allocator, utf8, bytes, codepoints));
-}
-
-egg::ovum::String egg::ovum::String::fromUTF32(IAllocator* allocator, const char32_t* utf32, size_t codepoints) {
-  auto utf8 = egg::ovum::UTF32::toUTF8(utf32);
-  return String(createContiguous(allocator, utf8.data(), utf8.size(), codepoints));
-}
-
-const egg::ovum::IMemory* egg::ovum::String::fromInternal(const void* utf8, size_t bytes, size_t codepoints) {
+egg::ovum::String egg::ovum::String::fromUTF8(IAllocator* allocator, const void* utf8, size_t bytes, size_t codepoints) {
+  // TODO detect malformed/overlong/etc
   if ((utf8 != nullptr) && (bytes == SIZE_MAX)) {
     bytes = std::strlen(static_cast<const char*>(utf8));
   }
-  return createContiguous(nullptr, utf8, bytes, codepoints);
+  if ((utf8 == nullptr) || (bytes == 0)) {
+    return String();
+  }
+  auto* data = static_cast<const uint8_t*>(utf8);
+  if (codepoints == SIZE_MAX) {
+    codepoints = UTF8::measure(data, data + bytes);
+  }
+  if (codepoints > bytes) {
+    throw std::invalid_argument("String: Invalid UTF-8 input data");
+  }
+  if (allocator == nullptr) {
+    static StringFallbackAllocator fallback;
+    allocator = &fallback;
+  }
+  auto* memory = allocator->create<MemoryContiguous>(bytes, *allocator, bytes, IMemory::Tag{ codepoints });
+  assert(memory != nullptr);
+  std::memcpy(memory->base(), data, bytes);
+  return String(memory);
+}
+
+egg::ovum::String egg::ovum::String::fromUTF32(IAllocator* allocator, const void* utf32, size_t codepoints) {
+  auto utf8 = egg::ovum::UTF32::toUTF8(static_cast<const char32_t*>(utf32), codepoints);
+  return String::fromUTF8(allocator, utf8.data(), utf8.size(), codepoints);
 }
 
 egg::ovum::String egg::ovum::StringBuilder::build() const {
   // OPTIMIZE
   auto utf8 = this->ss.str();
-  return String(createContiguous(this->allocator, utf8.data(), utf8.size()));
-}
-
-egg::ovum::String egg::ovum::IAllocator::fromCodePoint(char32_t codepoint) {
-  // OPTIMIZE
-  assert(codepoint <= 0x10FFFF);
-  auto utf8 = egg::ovum::UTF32::toUTF8(codepoint);
-  return String(createContiguous(this, utf8.data(), utf8.size(), 1));
-}
-
-egg::ovum::String egg::ovum::IAllocator::fromUTF8(const char8_t* begin, const char8_t* end, size_t codepoints) {
-  assert(begin != nullptr);
-  assert(end >= begin);
-  auto bytes = size_t(end - begin);
-  return String(createContiguous(this, begin, bytes, codepoints));
-}
-
-egg::ovum::String egg::ovum::IAllocator::fromUTF8(const void* utf8, size_t bytes, size_t codepoints) {
-  assert(utf8 != nullptr);
-  if (bytes == SIZE_MAX) {
-    bytes = std::strlen(static_cast<const char*>(utf8));
-  }
-  return String(createContiguous(this, utf8, bytes, codepoints));
-}
-
-egg::ovum::String egg::ovum::IAllocator::fromUTF8(const std::u8string& utf8, size_t codepoints) {
-  return String(createContiguous(this, utf8.data(), utf8.size(), codepoints));
-}
-
-egg::ovum::String egg::ovum::IAllocator::fromUTF8(const std::string& utf8, size_t codepoints) {
-  return String(createContiguous(this, utf8.data(), utf8.size(), codepoints));
-}
-
-egg::ovum::String egg::ovum::IAllocator::fromUTF32(const char32_t* begin, const char32_t* end) {
-  assert(begin != nullptr);
-  assert(end >= begin);
-  auto codepoints = size_t(end - begin);
-  auto utf8 = egg::ovum::UTF32::toUTF8(begin, codepoints);
-  return String(createContiguous(this, utf8.data(), utf8.size(), codepoints));
-}
-
-egg::ovum::String egg::ovum::IAllocator::fromUTF32(const void* utf32, size_t codepoints) {
-  assert(utf32 != nullptr);
-  auto utf8 = egg::ovum::UTF32::toUTF8(static_cast<const char32_t*>(utf32), codepoints);
-  return String(createContiguous(this, utf8.data(), utf8.size(), codepoints));
-}
-
-egg::ovum::String egg::ovum::IAllocator::fromUTF32(const std::u32string& utf32) {
-  // OPTIMIZE
-  auto utf8 = egg::ovum::UTF32::toUTF8(utf32);
-  return String(createContiguous(this, utf8.data(), utf8.size(), utf32.size()));
-}
-
-egg::ovum::String egg::ovum::IAllocator::fromASCIIZ(const char* asciiz, size_t codepoints) {
-  assert(asciiz != nullptr);
-  if (codepoints == SIZE_MAX) {
-    codepoints = std::strlen(asciiz);
-  }
-  return String(createContiguous(this, asciiz, codepoints, codepoints));
+  return String::fromUTF8(this->allocator, utf8.data(), utf8.size());
 }
 
 std::ostream& operator<<(std::ostream& os, const egg::ovum::String& text) {
