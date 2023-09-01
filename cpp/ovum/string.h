@@ -7,10 +7,6 @@ namespace egg::ovum {
     explicit String(const char* utf8) // fallback to factory
       : String(String::fromUTF8(nullptr, utf8)) {
     }
-    template<size_t N>
-    String(const char(&utf8)[N]) // implicit; fallback to factory
-      : String(String::fromUTF8(nullptr, utf8, N - 1, N - 1)) {
-    }
     String(const std::string& utf8, size_t codepoints = SIZE_MAX) // implicit; fallback to factory
       : String(String::fromUTF8(nullptr, utf8.data(), utf8.size(), codepoints)) {
     }

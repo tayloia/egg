@@ -79,18 +79,18 @@ TEST(TestValue, Float) {
 
 TEST(TestValue, String) {
   egg::test::Allocator allocator;
-  auto value = egg::ovum::ValueFactory::createString(allocator, "hello world");
+  auto value = egg::ovum::ValueFactory::createStringLiteral(allocator, "hello world");
   ASSERT_EQ(Flags::String, value->getFlags());
   egg::ovum::String actual;
   ASSERT_TRUE(value->getString(actual));
   ASSERT_STRING("hello world", actual);
   ASSERT_VALUE("hello world", value);
-  value = egg::ovum::ValueFactory::createString(allocator, "");
+  value = egg::ovum::ValueFactory::createStringLiteral(allocator, "");
   ASSERT_EQ(Flags::String, value->getFlags());
   ASSERT_TRUE(value->getString(actual));
   ASSERT_STRING("", actual);
   ASSERT_VALUE("", value);
-  value = egg::ovum::ValueFactory::createString(allocator, "goodbye");
+  value = egg::ovum::ValueFactory::createStringLiteral(allocator, "goodbye");
   ASSERT_EQ(Flags::String, value->getFlags());
   ASSERT_TRUE(value->getString(actual));
   ASSERT_STRING("goodbye", actual);
@@ -99,9 +99,9 @@ TEST(TestValue, String) {
 
 TEST(TestValue, Value) {
   egg::test::Allocator allocator;
-  auto a = egg::ovum::ValueFactory::createString(allocator, "hello world");
+  auto a = egg::ovum::ValueFactory::createStringLiteral(allocator, "hello world");
   ASSERT_VALUE("hello world", a);
-  auto b = egg::ovum::ValueFactory::createString(allocator, "goodbye");
+  auto b = egg::ovum::ValueFactory::createStringLiteral(allocator, "goodbye");
   ASSERT_VALUE("goodbye", b);
   a = b;
   ASSERT_VALUE("goodbye", a);

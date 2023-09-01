@@ -75,6 +75,12 @@ TEST(TestVM, CreateValueString) {
   auto value = vm->createValueString("hello");
   ASSERT_TRUE(value->getString(actual));
   ASSERT_STRING("hello", actual);
+  value = vm->createValueString(u8"egg \U0001F95A");
+  ASSERT_TRUE(value->getString(actual));
+  ASSERT_STRING(u8"egg \U0001F95A", actual);
+  value = vm->createValueString(U"goodbye");
+  ASSERT_TRUE(value->getString(actual));
+  ASSERT_STRING("goodbye", actual);
 }
 
 TEST(TestVM, CreateProgram) {

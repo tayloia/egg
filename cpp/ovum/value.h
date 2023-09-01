@@ -120,7 +120,11 @@ namespace egg::ovum {
     static Value createFlowControl(IAllocator& allocator, ValueFlags flags, const Value& value);
 
     // Helpers
-    static Value createStringASCIIZ(IAllocator& allocator, const char* value, size_t codepoints = SIZE_MAX);
+    template<size_t N>
+    static Value createStringLiteral(IAllocator& allocator, const char(&value)[N]) {
+      return createStringASCII(allocator, value, N - 1);
+    }
+    static Value createStringASCII(IAllocator& allocator, const char* value, size_t codepoints = SIZE_MAX);
     static Value createStringUTF8(IAllocator& allocator, const std::u8string& value, size_t codepoints = SIZE_MAX);
     static Value createStringUTF32(IAllocator& allocator, const std::u32string& value);
 

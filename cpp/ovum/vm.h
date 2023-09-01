@@ -35,6 +35,16 @@ namespace egg::ovum {
     virtual HardPtr<IValue> createValueString(const String& value) = 0;
     // Builder factories
     virtual HardPtr<IVMProgramBuilder> createProgramBuilder() = 0;
+    // Helpers
+    inline HardPtr<IValue> createValueString(const std::string& value) {
+      return this->createValueString(this->createStringUTF8(value.data(), value.size()));
+    }
+    inline HardPtr<IValue> createValueString(const std::u8string& value) {
+      return this->createValueString(this->createStringUTF8(value.data(), value.size()));
+    }
+    inline HardPtr<IValue> createValueString(const std::u32string& value) {
+      return this->createValueString(this->createStringUTF32(value.data(), value.size()));
+    }
   };
 
   class VMFactory {
