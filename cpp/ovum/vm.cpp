@@ -13,13 +13,23 @@ namespace {
       : HardReferenceCounted(allocator, 0),
         basket(BasketFactory::createBasket(allocator)) {
     }
-    IAllocator& getAllocator() const override {
+    virtual IAllocator& getAllocator() const override {
       return this->allocator;
     }
-    IBasket& getBasket() const override {
+    virtual IBasket& getBasket() const override {
       return *this->basket;
     }
+    virtual String createUTF8(const std::u8string& utf8, size_t codepoints = SIZE_MAX) override {
+      return this->allocator.fromUTF8(utf8, codepoints);
+    }
+    virtual String createUTF32(const std::u32string& utf32) override {
+      return this->allocator.fromUTF32(utf32);
+    }
   };
+}
+
+egg::ovum::VM egg::ovum::VMFactory::createDefault(IAllocator& allocator) {
+  return allocator.makeHard<VMDefault>();
 }
 
 egg::ovum::VM egg::ovum::VMFactory::createTest(IAllocator& allocator) {

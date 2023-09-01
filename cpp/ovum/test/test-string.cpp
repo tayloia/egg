@@ -5,7 +5,7 @@ TEST(TestString, Empty) {
   egg::ovum::String str;
   ASSERT_EQ(nullptr, str);
   ASSERT_EQ(0u, str.length());
-  uint8_t nul = 0;
+  char8_t nul = 0;
   str = allocator.fromUTF8(&nul, &nul);
   ASSERT_EQ(nullptr, str);
   ASSERT_EQ(0u, str.length());
@@ -13,8 +13,8 @@ TEST(TestString, Empty) {
 
 TEST(TestString, FromBytes) {
   egg::test::Allocator allocator;
+  auto* buffer = reinterpret_cast<const char8_t*>("hello world");
   const size_t bufsize = 11;
-  auto* buffer = reinterpret_cast<const uint8_t*>("hello world");
   auto str = allocator.fromUTF8(buffer, buffer + bufsize);
   ASSERT_NE(nullptr, str);
   ASSERT_EQ(bufsize, str.length());

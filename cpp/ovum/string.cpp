@@ -641,11 +641,41 @@ egg::ovum::String egg::ovum::IAllocator::fromCodePoint(char32_t codepoint) {
   return String(createContiguous(this, utf8.data(), utf8.size(), 1));
 }
 
-egg::ovum::String egg::ovum::IAllocator::fromUTF8(const uint8_t* begin, const uint8_t* end, size_t codepoints) {
+egg::ovum::String egg::ovum::IAllocator::fromUTF8(const char8_t* begin, const char8_t* end, size_t codepoints) {
   assert(begin != nullptr);
   assert(end >= begin);
   auto bytes = size_t(end - begin);
   return String(createContiguous(this, begin, bytes, codepoints));
+}
+
+egg::ovum::String egg::ovum::IAllocator::fromUTF8(const void* utf8, size_t bytes, size_t codepoints) {
+  assert(utf8 != nullptr);
+  if (bytes == SIZE_MAX) {
+    bytes = std::strlen(static_cast<const char*>(utf8));
+  }
+  return String(createContiguous(this, utf8, bytes, codepoints));
+}
+
+egg::ovum::String egg::ovum::IAllocator::fromUTF8(const std::u8string& utf8, size_t codepoints) {
+  return String(createContiguous(this, utf8.data(), utf8.size(), codepoints));
+}
+
+egg::ovum::String egg::ovum::IAllocator::fromUTF8(const std::string& utf8, size_t codepoints) {
+  return String(createContiguous(this, utf8.data(), utf8.size(), codepoints));
+}
+
+egg::ovum::String egg::ovum::IAllocator::fromUTF32(const char32_t* begin, const char32_t* end) {
+  assert(begin != nullptr);
+  assert(end >= begin);
+  auto codepoints = size_t(end - begin);
+  auto utf8 = egg::ovum::UTF32::toUTF8(begin, codepoints);
+  return String(createContiguous(this, utf8.data(), utf8.size(), codepoints));
+}
+
+egg::ovum::String egg::ovum::IAllocator::fromUTF32(const void* utf32, size_t codepoints) {
+  assert(utf32 != nullptr);
+  auto utf8 = egg::ovum::UTF32::toUTF8(static_cast<const char32_t*>(utf32), codepoints);
+  return String(createContiguous(this, utf8.data(), utf8.size(), codepoints));
 }
 
 egg::ovum::String egg::ovum::IAllocator::fromUTF32(const std::u32string& utf32) {
@@ -654,10 +684,12 @@ egg::ovum::String egg::ovum::IAllocator::fromUTF32(const std::u32string& utf32) 
   return String(createContiguous(this, utf8.data(), utf8.size(), utf32.size()));
 }
 
-egg::ovum::String egg::ovum::IAllocator::fromASCIIZ(const char* asciiz) {
+egg::ovum::String egg::ovum::IAllocator::fromASCIIZ(const char* asciiz, size_t codepoints) {
   assert(asciiz != nullptr);
-  auto bytes = std::strlen(asciiz);
-  return String(createContiguous(this, asciiz, bytes, bytes));
+  if (codepoints == SIZE_MAX) {
+    codepoints = std::strlen(asciiz);
+  }
+  return String(createContiguous(this, asciiz, codepoints, codepoints));
 }
 
 std::ostream& operator<<(std::ostream& os, const egg::ovum::String& text) {

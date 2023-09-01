@@ -96,6 +96,9 @@ namespace egg::test {
       : allocator(),
         vm(egg::ovum::VMFactory::createTest(allocator).get()) {
     }
+    egg::ovum::IVM* operator->() {
+      return this->vm.get();
+    }
   };
 
   inline ::testing::AssertionResult assertValueEQ(const char* lhs_expression, const char* rhs_expression, const egg::ovum::Value& lhs, const egg::ovum::Value& rhs) {
