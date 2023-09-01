@@ -71,7 +71,7 @@ TEST_EXE = $(BIN_DIR)/egg-testsuite.exe
 # This is the thing that is built when you just type 'make'
 default: all
 
-.PHONY: default bin test clean nuke release debug all rebuild coverage valgrind gdb test-coverage test-gdb version
+.PHONY: default bin test clean nuke release debug all rebuild coverage fresh valgrind gdb test-coverage test-gdb version
 
 # We need to create certain directories or our toolchain fails
 %/.:
@@ -167,6 +167,10 @@ debug:
 # Pseudo-target to build and run coverage
 coverage:
 	$(SUBMAKE) CONFIGURATION=coverage test-coverage
+
+# Pseudo-target to build and run coverage
+fresh: clean
+	$(SUBMAKE) test
 
 # Pseudo-target to build and run gdb
 gdb:
