@@ -1,5 +1,16 @@
 #include "ovum/test.h"
 
+namespace {
+  egg::ovum::HardPtr<egg::ovum::IVMProgram> createHelloWorld(egg::test::VM& vm) {
+    auto pb = vm.vm->createProgramBuilder();
+    pb->add(
+      pb->stmtFunctionCall(pb->exprVariable(pb->createStringUTF8("print"))),
+      pb->exprLiteralString(pb->createStringUTF8("hello world"))
+    );
+    return pb->build();
+  }
+}
+
 TEST(TestVM, CreateDefaultInstance) {
   egg::test::Allocator allocator;
   auto vm = egg::ovum::VMFactory::createDefault(allocator);
@@ -85,7 +96,6 @@ TEST(TestVM, CreateValueString) {
 
 TEST(TestVM, CreateProgram) {
   egg::test::VM vm;
-  auto pb = vm->createProgramBuilder();
-  auto program = pb->build();
+  auto program = createHelloWorld(vm);
   ASSERT_NE(nullptr, program);
 }

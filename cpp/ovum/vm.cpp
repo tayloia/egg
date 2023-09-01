@@ -3,15 +3,12 @@
 namespace {
   using namespace egg::ovum;
 
+  class VMProgramRunner;
+
   template<typename T, typename... ARGS>
   HardPtr<T> makeHardVMImpl(IVM& vm, ARGS&&... args) {
     // Use perfect forwarding
     return HardPtr<T>(vm.getAllocator().makeRaw<T>(vm, std::forward<ARGS>(args)...));
-  }
-
-  HardPtr<IValue> makeHardValue(const Value& value) {
-    assert(value.validate());
-    return HardPtr<IValue>(&value.get());
   }
 
   template<typename T>
@@ -60,18 +57,89 @@ namespace {
     VMProgram(const VMProgram&) = delete;
     VMProgram& operator=(const VMProgram&) = delete;
   public:
-    explicit VMProgram(IVM& vm) : VMImpl(vm) {
+    explicit VMProgram(IVM& vm)
+      : VMImpl(vm) {
+    }
+    virtual HardPtr<IVMProgramRunner> createRunner() override {
+      return this->makeHardVM<VMProgramRunner>(*this);
+    }
+  };
+
+  class VMProgramNode : public VMImpl<IVMProgramNode> {
+    VMProgramNode(const VMProgramNode&) = delete;
+    VMProgramNode& operator=(const VMProgramNode&) = delete;
+  public:
+    enum class Kind {
+      ExprVariable,
+      ExprLiteralString,
+      StmtFunctionCall,
+    };
+    Kind kind;
+    Value value;
+    std::vector<HardPtr<IVMProgramNode>> children;
+    VMProgramNode(IVM& vm, Kind kind)
+      : VMImpl(vm), kind(kind) {
+    }
+    virtual void addChild(const HardPtr<IVMProgramNode>& child) override {
+      this->children.push_back(child);
+    }
+    virtual HardPtr<IVMProgramNode> build() override {
+      // Do nothing WIBBLE
+      return HardPtr<IVMProgramNode>(this);
     }
   };
 
   class VMProgramBuilder : public VMImpl<IVMProgramBuilder> {
     VMProgramBuilder(const VMProgramBuilder&) = delete;
     VMProgramBuilder& operator=(const VMProgramBuilder&) = delete;
+  private:
+    std::vector<HardPtr<IVMProgramNode>> statements;
   public:
-    explicit VMProgramBuilder(IVM& vm) : VMImpl(vm) {
+    explicit VMProgramBuilder(IVM& vm)
+      : VMImpl(vm) {
+    }
+    virtual void addStatement(const HardPtr<IVMProgramNode>& statement) override {
+      this->statements.push_back(statement);
     }
     virtual HardPtr<IVMProgram> build() override {
       return this->makeHardVM<VMProgram>();
+    }
+    virtual HardPtr<IVMProgramNode> exprVariable(const String& name) override {
+      auto node = this->makeNode(VMProgramNode::Kind::ExprVariable);
+      node->value = this->vm.createValueString(name);
+      return node;
+    }
+    virtual HardPtr<IVMProgramNode> exprLiteralString(const String& literal) override {
+      auto node = this->makeNode(VMProgramNode::Kind::ExprLiteralString);
+      node->value = this->vm.createValueString(literal);
+      return node;
+    }
+    virtual HardPtr<IVMProgramNode> stmtFunctionCall(const HardPtr<IVMProgramNode>& function) override {
+      auto node = this->makeNode(VMProgramNode::Kind::StmtFunctionCall);
+      node->addChild(function);
+      return node;
+    }
+  private:
+    HardPtr<VMProgramNode> makeNode(VMProgramNode::Kind kind) {
+      return this->makeHardVM<VMProgramNode>(kind);
+    }
+  };
+
+  class VMProgramRunner : public VMImpl<IVMProgramRunner> {
+    VMProgramRunner(const VMProgramRunner&) = delete;
+    VMProgramRunner& operator=(const VMProgramRunner&) = delete;
+  private:
+    HardPtr<VMProgram> program;
+  public:
+    VMProgramRunner(IVM& vm, VMProgram& program)
+      : VMImpl(vm),
+        program(&program) {
+    }
+    virtual Value step() override {
+      return Value::Rethrow;
+    }
+    virtual Value run() override {
+      return Value::Rethrow;
     }
   };
 
@@ -94,23 +162,23 @@ namespace {
     virtual HardPtr<IVMProgramBuilder> createProgramBuilder() override {
       return makeHardVMImpl<VMProgramBuilder>(*this);
     }
-    virtual HardPtr<IValue> createValueVoid() override {
-      return makeHardValue(Value::Void);
+    virtual Value createValueVoid() override {
+      return Value::Void;
     }
-    virtual HardPtr<IValue> createValueNull() override {
-      return makeHardValue(Value::Null);
+    virtual Value createValueNull() override {
+      return Value::Null;
     }
-    virtual HardPtr<IValue> createValueBool(Bool value) override {
-      return makeHardValue(value ? Value::True : Value::False);
+    virtual Value createValueBool(Bool value) override {
+      return value ? Value::True : Value::False;
     }
-    virtual HardPtr<IValue> createValueInt(Int value) override {
-      return makeHardValue(ValueFactory::createInt(this->allocator, value));
+    virtual Value createValueInt(Int value) override {
+      return ValueFactory::createInt(this->allocator, value);
     }
-    virtual HardPtr<IValue> createValueFloat(Float value) override {
-      return makeHardValue(ValueFactory::createFloat(this->allocator, value));
+    virtual Value createValueFloat(Float value) override {
+      return ValueFactory::createFloat(this->allocator, value);
     }
-    virtual HardPtr<IValue> createValueString(const String& value) override {
-      return makeHardValue(ValueFactory::createString(this->allocator, value));
+    virtual Value createValueString(const String& value) override {
+      return ValueFactory::createString(this->allocator, value);
     }
   };
 }
