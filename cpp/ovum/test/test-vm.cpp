@@ -3,7 +3,7 @@
 namespace {
   egg::ovum::HardPtr<egg::ovum::IVMProgram> createHelloWorld(egg::test::VM& vm) {
     auto pb = vm.vm->createProgramBuilder();
-    pb->add(
+    pb->addStatement(
       pb->stmtFunctionCall(pb->exprVariable(pb->createStringUTF8("print"))),
       pb->exprLiteralString(pb->createStringUTF8("hello world"))
     );

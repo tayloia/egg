@@ -41,6 +41,15 @@ namespace {
     virtual IBasket& getBasket() const override {
       return this->vm.getBasket();
     }
+    template<typename... ARGS>
+    String createStringConcat(ARGS&&... args) {
+      StringBuilder sb(&this->getAllocator());
+      return sb.add(std::forward<ARGS>(args)...).build();
+    }
+    template<typename... ARGS>
+    Value createValue(ARGS&&... args) {
+      return ValueFactory::create(this->getAllocator(), std::forward<ARGS>(args)...);
+    }
   };
 
   class VMProgram : public VMImpl<IVMProgram> {
@@ -91,9 +100,9 @@ public:
   void addChild(Node& child) {
     this->children.push_back(&child);
   }
-  HardPtr<Node> build() {
+  Node& build() {
     // Do nothing WIBBLE
-    return HardPtr<Node>(this);
+    return *this;
   }
 };
 
@@ -112,7 +121,7 @@ namespace {
     }
     virtual void addStatement(IVMProgram::Node& statement) override {
       assert(this->root != nullptr);
-      this->root->addChild(statement);
+      this->root->addChild(statement.build());
     }
     virtual HardPtr<IVMProgram> build() override {
       assert(this->root != nullptr);
@@ -162,27 +171,40 @@ namespace {
       this->push(program.getRunnableRoot());
     }
     virtual RunOutcome run(Value& retval, RunFlags flags) override {
-      assert(flags == RunFlags::None);
-      (void)flags;
+      if (flags != RunFlags::None) {
+        return this->createFault(retval, "TODO: Run flags not yet supported in program runner");
+      }
       for (;;) {
         auto& top = this->stack.top();
+        assert(top.index <= top.node->children.size());
         switch (top.node->kind) {
         case IVMProgram::Node::Kind::Root:
-          if (top.index >= top.node->children.size()) {
+          if (top.index < top.node->children.size()) {
+            this->push(*top.node->children[top.index++]);
+          } else {
             // Reached the end of the list of statements in the program
             retval = Value::Void;
             return RunOutcome::Completed;
           }
-          this->push(*top.node->children[top.index++]);
           break;
         case IVMProgram::Node::Kind::StmtFunctionCall:
-          this->pop(Value::Void); // WIBBLE
+          if (top.index < top.node->children.size()) {
+            this->push(*top.node->children[top.index++]);
+          } else {
+            this->pop(Value::Void); // WIBBLE
+          }
           break;
         case IVMProgram::Node::Kind::ExprVariable:
+          assert(top.node->children.empty());
+          this->pop(top.node->value); // WIBBLE
+          break;
         case IVMProgram::Node::Kind::ExprLiteralString:
-          throw std::logic_error("WIBBLE: Unexpected expression kind");
+          assert(top.node->children.empty());
+          assert(top.node->value->getFlags() == ValueFlags::String);
+          this->pop(top.node->value);
+          break;
         default:
-          throw std::logic_error("WIBBLE: Bad kind");
+          return this->createFault(retval, "Invalid program node kind in program runner");
         }
       }
     }
@@ -192,6 +214,15 @@ namespace {
     }
     void pop(const Value&) {
       this->stack.pop();
+    }
+    Value createThrow(const Value& value) {
+      return ValueFactory::createFlowControl(this->getAllocator(), ValueFlags::Throw, value);
+    }
+    template<typename... ARGS>
+    RunOutcome createFault(Value& retval, ARGS&&... args) {
+      auto reason = this->createStringConcat(std::forward<ARGS>(args)...);
+      retval = this->createThrow(this->createValue(reason));
+      return RunOutcome::Fault;
     }
   };
 

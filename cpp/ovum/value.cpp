@@ -364,6 +364,10 @@ egg::ovum::Value egg::ovum::ValueFactory::createString(IAllocator& allocator, co
   return makeValue<ValueString>(allocator, value);
 }
 
+egg::ovum::Value egg::ovum::ValueFactory::createFlowControl(IAllocator& allocator, ValueFlags flags, const Value& value) {
+  return makeValue<ValueFlowControl>(allocator, flags, value);
+}
+
 egg::ovum::Value egg::ovum::ValueFactory::createStringASCII(IAllocator& allocator, const char* value, size_t codepoints) {
   // TODO check 7-bit only
   if (value == nullptr) {

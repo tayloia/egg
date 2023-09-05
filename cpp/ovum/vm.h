@@ -21,7 +21,8 @@ namespace egg::ovum {
     };
     enum class RunOutcome {
       Stepped = 1,
-      Completed = 2
+      Completed = 2,
+      Fault = 3
     };
     virtual RunOutcome run(Value& retval, RunFlags flags = RunFlags::Default) = 0;
   };
@@ -43,20 +44,11 @@ namespace egg::ovum {
     virtual IVMProgram::Node& stmtFunctionCall(IVMProgram::Node& function) = 0;
     // Helpers
     template<typename... ARGS>
-    IVMProgramBuilder* add(IVMProgram::Node& head, ARGS&&... tail) {
-      this->addChildren(head, std::forward<ARGS>(tail)...);
-      this->addStatement(head);
-      return this;
+    void addStatement(IVMProgram::Node& statement, IVMProgram::Node& head, ARGS&&... tail) {
+      this->appendChild(statement, head);
+      this->addStatement(statement, std::forward<ARGS>(tail)...);
     }
   private:
-    void addChildren(IVMProgram::Node&) {
-      // Do nothing
-    }
-    template<typename... ARGS>
-    void addChildren(IVMProgram::Node& parent, ARGS&&... args, IVMProgram::Node& tail) {
-      this->add(parent, std::forward<ARGS>(args)...);
-      this->appendChild(parent, tail);
-    }
     virtual void appendChild(IVMProgram::Node& parent, IVMProgram::Node& child) = 0;
   };
 
