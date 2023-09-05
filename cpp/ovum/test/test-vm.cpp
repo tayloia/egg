@@ -1,13 +1,19 @@
 #include "ovum/test.h"
 
 namespace {
-  egg::ovum::HardPtr<egg::ovum::IVMProgram> createHelloWorld(egg::test::VM& vm) {
-    auto pb = vm.vm->createProgramBuilder();
-    pb->addStatement(
-      pb->stmtFunctionCall(pb->exprVariable(pb->createStringUTF8("print"))),
-      pb->exprLiteralString(pb->createStringUTF8("hello world"))
+  egg::ovum::HardPtr<egg::ovum::IVMProgram> createHelloWorldProgram(egg::test::VM& vm) {
+    auto builder = vm.vm->createProgramBuilder();
+    builder->addStatement(
+      builder->stmtFunctionCall(builder->exprVariable(vm->createString("print"))),
+      builder->exprLiteral(vm->createValue("hello world"))
     );
-    return pb->build();
+    return builder->build();
+  }
+  egg::ovum::HardPtr<egg::ovum::IVMProgramRunner> createHelloWorldRunnerWithPrint(egg::test::VM& vm) {
+    auto program = createHelloWorldProgram(vm);
+    auto runner = program->createRunner();
+    runner->builtin(program->createString("print"), vm.vm->createValue("[Object PRINT]"));
+    return runner;
   }
 }
 
@@ -27,6 +33,16 @@ TEST(TestVM, CreateStringUTF8) {
   egg::test::VM vm;
   auto s = vm->createStringUTF8(u8"hello");
   ASSERT_STRING("hello", s);
+}
+
+TEST(TestVM, CreateString) {
+  egg::test::VM vm;
+  auto s = vm->createString("ASCII");
+  ASSERT_STRING("ASCII", s);
+  s = vm->createString(u8"UTF8");
+  ASSERT_STRING("UTF8", s);
+  s = vm->createString(U"UTF32");
+  ASSERT_STRING("UTF32", s);
 }
 
 TEST(TestVM, CreateStringUTF32) {
@@ -103,30 +119,47 @@ TEST(TestVM, CreateValueFloat) {
 TEST(TestVM, CreateValueString) {
   egg::test::VM vm;
   egg::ovum::String actual;
-  auto value = vm->createValueString("hello");
+  auto expected = vm->createString("hello");
+  auto value = vm->createValueString(expected);
   ASSERT_TRUE(value->getString(actual));
   ASSERT_STRING("hello", actual);
   ASSERT_TRUE(value.isString());
   ASSERT_TRUE(value.isString("hello"));
   ASSERT_FALSE(value.isString("goodbye"));
-  value = vm->createValueString(u8"egg \U0001F95A");
+  value = vm->createValueString(vm->createString(u8"egg \U0001F95A"));
   ASSERT_TRUE(value->getString(actual));
   ASSERT_STRING(u8"egg \U0001F95A", actual);
-  value = vm->createValueString(U"goodbye");
+  value = vm->createValueString(vm->createString(U"goodbye"));
+  ASSERT_TRUE(value->getString(actual));
+  ASSERT_STRING("goodbye", actual);
+}
+
+TEST(TestVM, CreateValue) {
+  egg::test::VM vm;
+  egg::ovum::String actual;
+  auto value = vm->createValue("hello");
+  ASSERT_TRUE(value->getString(actual));
+  ASSERT_STRING("hello", actual);
+  ASSERT_TRUE(value.isString());
+  ASSERT_TRUE(value.isString("hello"));
+  ASSERT_FALSE(value.isString("goodbye"));
+  value = vm->createValue(u8"egg \U0001F95A");
+  ASSERT_TRUE(value->getString(actual));
+  ASSERT_STRING(u8"egg \U0001F95A", actual);
+  value = vm->createValue(U"goodbye");
   ASSERT_TRUE(value->getString(actual));
   ASSERT_STRING("goodbye", actual);
 }
 
 TEST(TestVM, CreateProgram) {
   egg::test::VM vm;
-  auto program = createHelloWorld(vm);
+  auto program = createHelloWorldProgram(vm);
   ASSERT_NE(nullptr, program);
 }
 
 TEST(TestVM, RunProgram) {
   egg::test::VM vm;
-  auto program = createHelloWorld(vm);
-  auto runner = program->createRunner();
+  auto runner = createHelloWorldRunnerWithPrint(vm);
   egg::ovum::Value retval;
   auto outcome = runner->run(retval);
   ASSERT_EQ(egg::ovum::IVMProgramRunner::RunOutcome::Completed, outcome);
@@ -135,8 +168,7 @@ TEST(TestVM, RunProgram) {
 
 TEST(TestVM, StepProgram) {
   egg::test::VM vm;
-  auto program = createHelloWorld(vm);
-  auto runner = program->createRunner();
+  auto runner = createHelloWorldRunnerWithPrint(vm);
   egg::ovum::Value retval;
   auto outcome = runner->run(retval, egg::ovum::IVMProgramRunner::RunFlags::Step);
   ASSERT_EQ(egg::ovum::IVMProgramRunner::RunOutcome::Stepped, outcome);

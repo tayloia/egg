@@ -46,10 +46,6 @@ namespace {
       StringBuilder sb(&this->getAllocator());
       return sb.add(std::forward<ARGS>(args)...).build();
     }
-    template<typename... ARGS>
-    Value createValue(ARGS&&... args) {
-      return ValueFactory::create(this->getAllocator(), std::forward<ARGS>(args)...);
-    }
   };
 
   class VMProgram : public VMImpl<IVMProgram> {
@@ -134,9 +130,9 @@ namespace {
       node.value = this->vm.createValueString(name);
       return node;
     }
-    virtual IVMProgram::Node& exprLiteralString(const String& literal) override {
+    virtual IVMProgram::Node& exprLiteral(const Value& literal) override {
       auto& node = this->makeNode(IVMProgram::Node::Kind::ExprLiteral);
-      node.value = this->vm.createValueString(literal);
+      node.value = literal;
       return node;
     }
     virtual IVMProgram::Node& stmtFunctionCall(IVMProgram::Node& function) override {
@@ -164,12 +160,47 @@ namespace {
       size_t index;
       std::deque<Value> deque;
     };
+    enum class SymbolKind {
+      Unknown,
+      Builtin,
+      Variable
+    };
+    class SymbolTable {
+      SymbolTable(const SymbolTable&) = delete;
+      SymbolTable& operator=(const SymbolTable&) = delete;
+    private:
+      struct Entry {
+        SymbolKind kind;
+        Value value;
+      };
+      std::map<String, Entry> entries;
+    public:
+      SymbolTable() = default;
+      void add(SymbolKind kind, const String& name, const Value& value) {
+        assert(kind != SymbolKind::Unknown);
+        auto result = this->entries.emplace(name, Entry(kind, value));
+        (void)result;
+        assert(result.second);
+      }
+      SymbolKind lookup(const String& name, Value& value) {
+        auto result = this->entries.find(name);
+        if (result == this->entries.end()) {
+          return SymbolKind::Unknown;
+        }
+        value = result->second.value;
+        return result->second.kind;
+      }
+    };
     HardPtr<VMProgram> program;
     std::stack<NodeStack> stack;
+    SymbolTable symtable;
   public:
     VMProgramRunner(IVM& vm, VMProgram& program)
       : VMImpl(vm), program(&program) {
       this->push(program.getRunnableRoot());
+    }
+    virtual void builtin(const String& name, const Value& value) override {
+      this->symtable.add(SymbolKind::Builtin, name, value);
     }
     virtual RunOutcome run(Value& retval, RunFlags flags) override {
       if (flags == RunFlags::Step) {
@@ -202,7 +233,7 @@ namespace {
     template<typename... ARGS>
     RunOutcome createFault(Value& retval, ARGS&&... args) {
       auto reason = this->createStringConcat(std::forward<ARGS>(args)...);
-      retval = this->createThrow(this->createValue(reason));
+      retval = this->createThrow(ValueFactory::createString(this->getAllocator(), reason));
       return RunOutcome::Faulted;
     }
   };
@@ -268,14 +299,24 @@ egg::ovum::IVMProgramRunner::RunOutcome VMProgramRunner::step(Value& retval) {
     } else {
       // Perform the function call WIBBLE
       assert(top.deque.size() == 2);
-      assert(top.deque[0].isString("print"));
+      assert(top.deque[0].isString("[Object PRINT]"));
       assert(top.deque[1].isString("hello world"));
       this->pop(Value::Void); // WIBBLE
     }
     break;
   case IVMProgram::Node::Kind::ExprVariable:
     assert(top.node->children.empty());
-    this->pop(top.node->value); // WIBBLE
+    {
+      String symbol;
+      if (!top.node->value->getString(symbol)) {
+        return this->createFault(retval, "Invalid program node value for variable symbol");
+      }
+      Value value;
+      if (this->symtable.lookup(symbol, value) == SymbolKind::Unknown) {
+        return this->createFault(retval, "Unknown variable symbol: '", symbol, "'");
+      }
+      this->pop(value);
+    }
     break;
   case IVMProgram::Node::Kind::ExprLiteral:
     assert(top.node->children.empty());

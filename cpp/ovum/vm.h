@@ -10,6 +10,21 @@ namespace egg::ovum {
     inline String createStringUTF32(const void* utf32, size_t codepoints = SIZE_MAX) {
       return String::fromUTF32(&this->getAllocator(), utf32, codepoints);
     }
+    inline String createString(const std::u8string& utf8) {
+      return this->createStringUTF8(utf8.data(), utf8.size());
+    }
+    inline String createString(const std::u32string& utf32) {
+      return this->createStringUTF32(utf32.data(), utf32.size());
+    }
+    inline String createString(const char* utf8, size_t bytes = SIZE_MAX, size_t codepoints = SIZE_MAX) {
+      return this->createStringUTF8(utf8, bytes, codepoints);
+    }
+    inline String createString(const char8_t* utf8, size_t bytes = SIZE_MAX, size_t codepoints = SIZE_MAX) {
+      return this->createStringUTF8(utf8, bytes, codepoints);
+    }
+    inline String createString(const char32_t* utf32, size_t codepoints = SIZE_MAX) {
+      return this->createStringUTF32(utf32, codepoints);
+    }
   };
 
   class IVMProgramRunner : public IVMBase {
@@ -24,6 +39,7 @@ namespace egg::ovum {
       Completed = 2,
       Faulted = 3
     };
+    virtual void builtin(const String& name, const Value& value) = 0;
     virtual RunOutcome run(Value& retval, RunFlags flags = RunFlags::Default) = 0;
   };
 
@@ -39,7 +55,7 @@ namespace egg::ovum {
     virtual HardPtr<IVMProgram> build() = 0;
     // Expression factories
     virtual IVMProgram::Node& exprVariable(const String& name) = 0;
-    virtual IVMProgram::Node& exprLiteralString(const String& literal) = 0;
+    virtual IVMProgram::Node& exprLiteral(const Value& literal) = 0;
     // Statement factories
     virtual IVMProgram::Node& stmtFunctionCall(IVMProgram::Node& function) = 0;
     // Helpers
@@ -54,8 +70,6 @@ namespace egg::ovum {
 
   class IVM : public IVMBase {
   public:
-    virtual IAllocator& getAllocator() const = 0;
-    virtual IBasket& getBasket() const = 0;
     // Value factories
     virtual Value createValueVoid() = 0;
     virtual Value createValueNull() = 0;
@@ -66,14 +80,35 @@ namespace egg::ovum {
     // Builder factories
     virtual HardPtr<IVMProgramBuilder> createProgramBuilder() = 0;
     // Helpers
-    inline Value createValueString(const std::string& value) {
-      return this->createValueString(this->createStringUTF8(value.data(), value.size()));
+    inline Value createValue(std::nullptr_t) {
+      return this->createValueNull();
     }
-    inline Value createValueString(const std::u8string& value) {
-      return this->createValueString(this->createStringUTF8(value.data(), value.size()));
+    inline Value createValue(Bool value) {
+      return this->createValueBool(value);
     }
-    inline Value createValueString(const std::u32string& value) {
-      return this->createValueString(this->createStringUTF32(value.data(), value.size()));
+    inline Value createValue(Int value) {
+      return this->createValueInt(value);
+    }
+    inline Value createValue(Float value) {
+      return this->createValueFloat(value);
+    }
+    inline Value createValue(const char* value) {
+      return value ? this->createValueString(this->createString(value)) : this->createValueNull();
+    }
+    inline Value createValue(const char8_t* value) {
+      return value ? this->createValueString(this->createString(value)) : this->createValueNull();
+    }
+    inline Value createValue(const char32_t* value) {
+      return value ? this->createValueString(this->createString(value)) : this->createValueNull();
+    }
+    inline Value createValue(const std::u8string& value) {
+      return this->createValueString(this->createString(value));
+    }
+    inline Value createValue(const std::u32string& value) {
+      return this->createValueString(this->createString(value));
+    }
+    inline Value createValue(const String& value) {
+      return this->createValueString(value);
     }
   };
 
