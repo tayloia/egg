@@ -303,13 +303,14 @@ egg::ovum::IVMProgramRunner::RunOutcome VMProgramRunner::step(Value& retval) {
       this->push(*top.node->children[top.index++]);
     } else {
       // Perform the function call WIBBLE
-      assert(top.deque.size() == 2);
-      assert(top.deque[0].isString("[Object PRINT]"));
-      String message;
-      if (!top.deque[1]->getString(message)) {
-        return this->createFault(retval, "Invalid program node value for print message");
+      assert(top.deque.size() >= 2);
+      assert(top.deque.front().isString("[Object PRINT]"));
+      top.deque.pop_front();
+      StringBuilder sb{ &this->getAllocator() };
+      for (auto& arg : top.deque) {
+        sb.add(arg);
       }
-      this->vm.getLogger().log(ILogger::Source::User, ILogger::Severity::None, message);
+      this->vm.getLogger().log(ILogger::Source::User, ILogger::Severity::None, sb.build());
       this->pop(Value::Void);
     }
     break;

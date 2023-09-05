@@ -158,7 +158,7 @@ void egg::ovum::Print::write(std::ostream& stream, ILogger::Severity value, cons
 }
 
 void egg::ovum::Print::write(std::ostream& stream, const Value& value, const Options& options) {
-  if (options.quote != '\0') {
+  if (options.quote == '\0') {
     Printer printer(stream, options);
     value->print(printer);
   } else {
