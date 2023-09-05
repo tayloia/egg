@@ -1,6 +1,4 @@
 namespace egg::ovum {
-  class IVMProgramRunner;
-
   class IVMBase : public IHardAcquireRelease {
   public:
     virtual IAllocator& getAllocator() const = 0;
@@ -14,51 +12,52 @@ namespace egg::ovum {
     }
   };
 
-  class IVMProgramNode : public IVMBase {
-  public:
-    virtual void addChild(const HardPtr<IVMProgramNode>& child) = 0;
-    virtual HardPtr<IVMProgramNode> build() = 0;
-  };
-
   class IVMProgramRunner : public IVMBase {
   public:
-    virtual Value step() = 0;
-    virtual Value run() = 0;
+    enum class RunFlags {
+      None = 0x0000,
+      Step = 0x0001,
+      Default = None
+    };
+    enum class RunOutcome {
+      Stepped = 1,
+      Completed = 2
+    };
+    virtual RunOutcome run(Value& retval, RunFlags flags = RunFlags::Default) = 0;
   };
 
   class IVMProgram : public IVMBase {
   public:
+    class Node;
     virtual HardPtr<IVMProgramRunner> createRunner() = 0;
   };
 
   class IVMProgramBuilder : public IVMBase {
   public:
-    virtual void addStatement(const HardPtr<IVMProgramNode>& statement) = 0;
+    virtual void addStatement(IVMProgram::Node& statement) = 0;
     virtual HardPtr<IVMProgram> build() = 0;
     // Expression factories
-    virtual HardPtr<IVMProgramNode> exprVariable(const String& name) = 0;
-    virtual HardPtr<IVMProgramNode> exprLiteralString(const String& literal) = 0;
+    virtual IVMProgram::Node& exprVariable(const String& name) = 0;
+    virtual IVMProgram::Node& exprLiteralString(const String& literal) = 0;
     // Statement factories
-    virtual HardPtr<IVMProgramNode> stmtFunctionCall(const HardPtr<IVMProgramNode>& function) = 0;
+    virtual IVMProgram::Node& stmtFunctionCall(IVMProgram::Node& function) = 0;
     // Helpers
     template<typename... ARGS>
-    IVMProgramBuilder* add(const HardPtr<IVMProgramNode>& head, ARGS&&... tail) {
-      assert(head != nullptr);
+    IVMProgramBuilder* add(IVMProgram::Node& head, ARGS&&... tail) {
       this->addChildren(head, std::forward<ARGS>(tail)...);
-      this->addStatement(head->build());
+      this->addStatement(head);
       return this;
     }
   private:
-    void addChildren(const HardPtr<IVMProgramNode>&) {
+    void addChildren(IVMProgram::Node&) {
       // Do nothing
     }
     template<typename... ARGS>
-    void addChildren(const HardPtr<IVMProgramNode>& head, ARGS&&... args, const HardPtr<IVMProgramNode>& tail) {
-      assert(head != nullptr);
-      assert(tail != nullptr);
-      this->add(head, std::forward<ARGS>(args)...);
-      head->addChild(tail);
+    void addChildren(IVMProgram::Node& parent, ARGS&&... args, IVMProgram::Node& tail) {
+      this->add(parent, std::forward<ARGS>(args)...);
+      this->appendChild(parent, tail);
     }
+    virtual void appendChild(IVMProgram::Node& parent, IVMProgram::Node& child) = 0;
   };
 
   class IVM : public IVMBase {

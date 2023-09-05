@@ -188,4 +188,3 @@ inline void ::testing::internal::PrintTo(const egg::ovum::ILogger::Source& value
 #define ASSERT_STRING(expected, string) egg::test::assertString(expected, string)
 #define ASSERT_TYPE(expected, string) egg::test::assertType(expected, string)
 #define ASSERT_VALUE(expected, value) egg::test::assertValue(expected, value)
-#define ASSERT_VARIANT(expected, variant) egg::test::assertValue(expected, variant)

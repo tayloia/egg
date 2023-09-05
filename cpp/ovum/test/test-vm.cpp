@@ -99,3 +99,13 @@ TEST(TestVM, CreateProgram) {
   auto program = createHelloWorld(vm);
   ASSERT_NE(nullptr, program);
 }
+
+TEST(TestVM, RunProgram) {
+  egg::test::VM vm;
+  auto program = createHelloWorld(vm);
+  auto runner = program->createRunner();
+  egg::ovum::Value retval;
+  auto outcome = runner->run(retval);
+  ASSERT_EQ(egg::ovum::IVMProgramRunner::RunOutcome::Completed, outcome);
+  ASSERT_VALUE(egg::ovum::Value::Void, retval);
+}
