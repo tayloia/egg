@@ -90,16 +90,14 @@ namespace {
       os.put('.');
       if (sigfigs < 2) {
         os.put('0');
-      }
-      else {
+      } else {
         this->writeMantissa(os, 1, sigfigs);
       }
       int e = this->exponent - 1;
       if (e < 0) {
         os.write("e-", 2);
         e = -e;
-      }
-      else {
+      } else {
         os.write("e+", 2);
       }
       assert((e >= 0) && (e <= 999));
@@ -152,29 +150,25 @@ namespace {
       auto before = size_t(parts.exponent);
       if (before > max_before) {
         parts.writeScientific(os, sigfigs);
-      }
-      else if (before >= sigfigs) {
+      } else if (before >= sigfigs) {
         // We've got something like "mmmmm0.0" or "mmmmm.0"
         parts.writeMantissa(os, 0, sigfigs);
         parts.writeZeroes(os, before - sigfigs);
         os.write(".0", 2);
-      }
-      else {
+      } else {
         // We've got something like "mmm.mm"
         parts.writeMantissa(os, 0, before);
         os.put('.');
         parts.writeMantissa(os, before, sigfigs);
       }
-    }
-    else {
+    } else {
       // There is nothing before the decimal point
       // We've got something like "0.00mmmmm" or "0.mmmmm"
       auto zeroes = size_t(-parts.exponent);
       auto after = zeroes + sigfigs;
       if (after > max_after) {
         parts.writeScientific(os, sigfigs);
-      }
-      else {
+      } else {
         os.write("0.", 2);
         parts.writeZeroes(os, zeroes);
         parts.writeMantissa(os, 0, sigfigs);

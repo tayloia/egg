@@ -84,7 +84,7 @@ public:
   enum class Kind {
     Root,
     ExprVariable,
-    ExprLiteralString,
+    ExprLiteral,
     StmtFunctionCall,
   };
   Kind kind;
@@ -135,7 +135,7 @@ namespace {
       return node;
     }
     virtual IVMProgram::Node& exprLiteralString(const String& literal) override {
-      auto& node = this->makeNode(IVMProgram::Node::Kind::ExprLiteralString);
+      auto& node = this->makeNode(IVMProgram::Node::Kind::ExprLiteral);
       node.value = this->vm.createValueString(literal);
       return node;
     }
@@ -159,61 +159,42 @@ namespace {
     VMProgramRunner(const VMProgramRunner&) = delete;
     VMProgramRunner& operator=(const VMProgramRunner&) = delete;
   private:
-    struct Stack {
+    struct NodeStack {
       const IVMProgram::Node* node;
       size_t index;
+      std::deque<Value> deque;
     };
     HardPtr<VMProgram> program;
-    std::stack<Stack> stack;
+    std::stack<NodeStack> stack;
   public:
     VMProgramRunner(IVM& vm, VMProgram& program)
       : VMImpl(vm), program(&program) {
       this->push(program.getRunnableRoot());
     }
     virtual RunOutcome run(Value& retval, RunFlags flags) override {
+      if (flags == RunFlags::Step) {
+        return this->step(retval);
+      }
       if (flags != RunFlags::None) {
         return this->createFault(retval, "TODO: Run flags not yet supported in program runner");
       }
       for (;;) {
-        auto& top = this->stack.top();
-        assert(top.index <= top.node->children.size());
-        switch (top.node->kind) {
-        case IVMProgram::Node::Kind::Root:
-          if (top.index < top.node->children.size()) {
-            this->push(*top.node->children[top.index++]);
-          } else {
-            // Reached the end of the list of statements in the program
-            retval = Value::Void;
-            return RunOutcome::Completed;
-          }
-          break;
-        case IVMProgram::Node::Kind::StmtFunctionCall:
-          if (top.index < top.node->children.size()) {
-            this->push(*top.node->children[top.index++]);
-          } else {
-            this->pop(Value::Void); // WIBBLE
-          }
-          break;
-        case IVMProgram::Node::Kind::ExprVariable:
-          assert(top.node->children.empty());
-          this->pop(top.node->value); // WIBBLE
-          break;
-        case IVMProgram::Node::Kind::ExprLiteralString:
-          assert(top.node->children.empty());
-          assert(top.node->value->getFlags() == ValueFlags::String);
-          this->pop(top.node->value);
-          break;
-        default:
-          return this->createFault(retval, "Invalid program node kind in program runner");
+        auto outcome = this->step(retval);
+        if (outcome != RunOutcome::Stepped) {
+          return outcome;
         }
       }
     }
   private:
+    RunOutcome step(Value& retval);
     void push(const IVMProgram::Node& node, size_t index = 0) {
       this->stack.emplace(&node, index);
     }
-    void pop(const Value&) {
+    void pop(const Value& value) {
+      assert(!this->stack.empty());
       this->stack.pop();
+      assert(!this->stack.empty());
+      this->stack.top().deque.push_back(value);
     }
     Value createThrow(const Value& value) {
       return ValueFactory::createFlowControl(this->getAllocator(), ValueFlags::Throw, value);
@@ -222,7 +203,7 @@ namespace {
     RunOutcome createFault(Value& retval, ARGS&&... args) {
       auto reason = this->createStringConcat(std::forward<ARGS>(args)...);
       retval = this->createThrow(this->createValue(reason));
-      return RunOutcome::Fault;
+      return RunOutcome::Faulted;
     }
   };
 
@@ -264,6 +245,46 @@ namespace {
       return ValueFactory::createString(this->allocator, value);
     }
   };
+}
+
+egg::ovum::IVMProgramRunner::RunOutcome VMProgramRunner::step(Value& retval) {
+  auto& top = this->stack.top();
+  assert(top.index <= top.node->children.size());
+  switch (top.node->kind) {
+  case IVMProgram::Node::Kind::Root:
+    if (top.index < top.node->children.size()) {
+      // Execute all the statements
+      this->push(*top.node->children[top.index++]);
+    } else {
+      // Reached the end of the list of statements in the program
+      retval = Value::Void;
+      return RunOutcome::Completed;
+    }
+    break;
+  case IVMProgram::Node::Kind::StmtFunctionCall:
+    if (top.index < top.node->children.size()) {
+      // Assemble the arguments
+      this->push(*top.node->children[top.index++]);
+    } else {
+      // Perform the function call WIBBLE
+      assert(top.deque.size() == 2);
+      assert(top.deque[0].isString("print"));
+      assert(top.deque[1].isString("hello world"));
+      this->pop(Value::Void); // WIBBLE
+    }
+    break;
+  case IVMProgram::Node::Kind::ExprVariable:
+    assert(top.node->children.empty());
+    this->pop(top.node->value); // WIBBLE
+    break;
+  case IVMProgram::Node::Kind::ExprLiteral:
+    assert(top.node->children.empty());
+    this->pop(top.node->value);
+    break;
+  default:
+    return this->createFault(retval, "Invalid program node kind in program runner");
+  }
+  return RunOutcome::Stepped;
 }
 
 egg::ovum::HardPtr<IVM> egg::ovum::VMFactory::createDefault(IAllocator& allocator) {

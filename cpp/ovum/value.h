@@ -98,6 +98,48 @@ namespace egg::ovum {
     bool hasFlowControl() const {
       return this->hasAnyFlags(ValueFlags::FlowControl);
     }
+    bool isVoid() const {
+      return this->get().getVoid();
+    }
+    bool isNull() const {
+      return this->get().getNull();
+    }
+    bool isBool() const {
+      Bool actual;
+      return this->get().getBool(actual);
+    }
+    bool isBool(Bool expected) const {
+      Bool actual;
+      return this->get().getBool(actual) && (actual == expected);
+    }
+    bool isInt() const {
+      Int actual;
+      return this->get().getInt(actual);
+    }
+    bool isInt(Int expected) const {
+      Int actual;
+      return this->get().getInt(actual) && (actual == expected);
+    }
+    bool isFloat() const {
+      Float actual;
+      return this->get().getFloat(actual);
+    }
+    bool isFloat(Float expected, bool ieee = false) const {
+      Float actual;
+      return this->get().getFloat(actual) && Arithmetic::equal(actual, expected, ieee);
+    }
+    bool isString() const {
+      String actual;
+      return this->get().getString(actual);
+    }
+    bool isString(const String& expected) const {
+      String actual;
+      return this->get().getString(actual) && actual.equals(expected);
+    }
+    bool isString(const char* expected) const {
+      String actual;
+      return this->get().getString(actual) && actual.equals(expected);
+    }
     // Constants
     static const Value Void;
     static const Value Null;

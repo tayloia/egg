@@ -22,7 +22,7 @@ namespace egg::ovum {
     enum class RunOutcome {
       Stepped = 1,
       Completed = 2,
-      Fault = 3
+      Faulted = 3
     };
     virtual RunOutcome run(Value& retval, RunFlags flags = RunFlags::Default) = 0;
   };
