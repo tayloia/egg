@@ -70,6 +70,10 @@ namespace egg::ovum {
 
   class IVM : public IVMBase {
   public:
+    // Service access
+    virtual ILogger& getLogger() const = 0;
+    // Builder factories
+    virtual HardPtr<IVMProgramBuilder> createProgramBuilder() = 0;
     // Value factories
     virtual Value createValueVoid() = 0;
     virtual Value createValueNull() = 0;
@@ -77,8 +81,6 @@ namespace egg::ovum {
     virtual Value createValueInt(Int value) = 0;
     virtual Value createValueFloat(Float value) = 0;
     virtual Value createValueString(const String& value) = 0;
-    // Builder factories
-    virtual HardPtr<IVMProgramBuilder> createProgramBuilder() = 0;
     // Helpers
     inline Value createValue(std::nullptr_t) {
       return this->createValueNull();
@@ -114,7 +116,7 @@ namespace egg::ovum {
 
   class VMFactory {
   public:
-    static HardPtr<IVM> createDefault(IAllocator& allocator);
-    static HardPtr<IVM> createTest(IAllocator& allocator);
+    static HardPtr<IVM> createDefault(IAllocator& allocator, ILogger& logger);
+    static HardPtr<IVM> createTest(IAllocator& allocator, ILogger& logger);
   };
 }

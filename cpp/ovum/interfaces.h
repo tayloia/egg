@@ -66,7 +66,7 @@ namespace egg::ovum {
     };
     // Interface
     virtual ~ILogger() {}
-    virtual void log(Source source, Severity severity, const std::string& message) = 0;
+    virtual void log(Source source, Severity severity, const String& message) = 0;
   };
 
   class IHardAcquireRelease {

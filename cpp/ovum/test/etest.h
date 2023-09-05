@@ -15,6 +15,11 @@ namespace egg::test {
     ~Allocator() {
       this->validate();
     }
+    template<typename... ARGS>
+    egg::ovum::String concat(ARGS&&... args) {
+      egg::ovum::StringBuilder sb{ this };
+      return sb.add(std::forward<ARGS>(args)...).build();
+    }
     void validate() const {
       egg::ovum::IAllocator::Statistics stats{};
       ASSERT_TRUE(this->statistics(stats));
@@ -45,7 +50,7 @@ namespace egg::test {
     explicit Logger(const std::string& resource = std::string())
       : resource(resource) {
     }
-    virtual void log(Source source, Severity severity, const std::string& message) override {
+    virtual void log(Source source, Severity severity, const egg::ovum::String& message) override {
       std::string buffer;
       switch (source) {
       case Source::Compiler:
@@ -58,6 +63,8 @@ namespace egg::test {
         break;
       }
       switch (severity) {
+      case Severity::None:
+        break;
       case Severity::Debug:
         buffer += "<DEBUG>";
         break;
@@ -73,10 +80,8 @@ namespace egg::test {
       case Severity::Error:
         buffer += "<ERROR>";
         break;
-      case Severity::None:
-        break;
       }
-      buffer += message;
+      buffer += message.toUTF8();
       std::cout << buffer << std::endl;
       if (!this->resource.empty()) {
         std::string to = "<RESOURCE>";
@@ -91,10 +96,11 @@ namespace egg::test {
   class VM final {
   public:
     egg::test::Allocator allocator;
+    egg::test::Logger logger;
     egg::ovum::HardPtr<egg::ovum::IVM> vm;
     VM()
       : allocator(),
-        vm(egg::ovum::VMFactory::createTest(allocator).get()) {
+        vm(egg::ovum::VMFactory::createTest(allocator, logger).get()) {
     }
     egg::ovum::IVM* operator->() {
       return this->vm.get();

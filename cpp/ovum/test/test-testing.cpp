@@ -70,12 +70,13 @@ TEST(TestTesting, Throws) {
 TEST(TestTesting, Logger) {
   using Source = egg::ovum::ILogger::Source;
   using Severity = egg::ovum::ILogger::Severity;
+  egg::test::Allocator allocator;
   egg::test::Logger logger;
-  logger.log(Source::Compiler, Severity::Debug, "alpha");
-  logger.log(Source::Runtime, Severity::Verbose, "beta");
-  logger.log(Source::User, Severity::Information, "gamma");
-  logger.log(Source::Compiler, Severity::Warning, "delta");
-  logger.log(Source::Runtime, Severity::Error, "epsilon");
-  logger.log(Source::User, Severity::None, "zeta");
+  logger.log(Source::Compiler, Severity::Debug, allocator.concat("alpha"));
+  logger.log(Source::Runtime, Severity::Verbose, allocator.concat("beta"));
+  logger.log(Source::User, Severity::Information, allocator.concat("gamma"));
+  logger.log(Source::Compiler, Severity::Warning, allocator.concat("delta"));
+  logger.log(Source::Runtime, Severity::Error, allocator.concat("epsilon"));
+  logger.log(Source::User, Severity::None, allocator.concat("zeta"));
   ASSERT_STRING("<COMPILER><DEBUG>alpha\n<RUNTIME><VERBOSE>beta\n<INFORMATION>gamma\n<COMPILER><WARNING>delta\n<RUNTIME><ERROR>epsilon\nzeta\n", logger.logged.str());
 }

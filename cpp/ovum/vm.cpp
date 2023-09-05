@@ -243,16 +243,21 @@ namespace {
     VMDefault& operator=(const VMDefault&) = delete;
   private:
     HardPtr<IBasket> basket;
+    ILogger& logger;
   public:
-    explicit VMDefault(IAllocator& allocator)
+    VMDefault(IAllocator& allocator, ILogger& logger)
       : HardReferenceCounted(allocator, 0),
-        basket(BasketFactory::createBasket(allocator)) {
+        basket(BasketFactory::createBasket(allocator)),
+        logger(logger) {
     }
     virtual IAllocator& getAllocator() const override {
       return this->allocator;
     }
     virtual IBasket& getBasket() const override {
       return *this->basket;
+    }
+    virtual ILogger& getLogger() const override {
+      return this->logger;
     }
     virtual HardPtr<IVMProgramBuilder> createProgramBuilder() override {
       return HardPtr<IVMProgramBuilder>(this->allocator.makeRaw<VMProgramBuilder>(*this));
@@ -300,8 +305,12 @@ egg::ovum::IVMProgramRunner::RunOutcome VMProgramRunner::step(Value& retval) {
       // Perform the function call WIBBLE
       assert(top.deque.size() == 2);
       assert(top.deque[0].isString("[Object PRINT]"));
-      assert(top.deque[1].isString("hello world"));
-      this->pop(Value::Void); // WIBBLE
+      String message;
+      if (!top.deque[1]->getString(message)) {
+        return this->createFault(retval, "Invalid program node value for print message");
+      }
+      this->vm.getLogger().log(ILogger::Source::User, ILogger::Severity::None, message);
+      this->pop(Value::Void);
     }
     break;
   case IVMProgram::Node::Kind::ExprVariable:
@@ -328,10 +337,10 @@ egg::ovum::IVMProgramRunner::RunOutcome VMProgramRunner::step(Value& retval) {
   return RunOutcome::Stepped;
 }
 
-egg::ovum::HardPtr<IVM> egg::ovum::VMFactory::createDefault(IAllocator& allocator) {
-  return allocator.makeHard<VMDefault>();
+egg::ovum::HardPtr<IVM> egg::ovum::VMFactory::createDefault(IAllocator& allocator, ILogger& logger) {
+  return allocator.makeHard<VMDefault>(logger);
 }
 
-egg::ovum::HardPtr<IVM> egg::ovum::VMFactory::createTest(IAllocator& allocator) {
-  return allocator.makeHard<VMDefault>();
+egg::ovum::HardPtr<IVM> egg::ovum::VMFactory::createTest(IAllocator& allocator, ILogger& logger) {
+  return allocator.makeHard<VMDefault>(logger);
 }

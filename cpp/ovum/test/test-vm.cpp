@@ -19,13 +19,15 @@ namespace {
 
 TEST(TestVM, CreateDefaultInstance) {
   egg::test::Allocator allocator;
-  auto vm = egg::ovum::VMFactory::createDefault(allocator);
+  egg::test::Logger logger;
+  auto vm = egg::ovum::VMFactory::createDefault(allocator, logger);
   ASSERT_NE(nullptr, vm);
 }
 
 TEST(TestVM, CreateTestInstance) {
   egg::test::Allocator allocator;
-  auto vm = egg::ovum::VMFactory::createTest(allocator);
+  egg::test::Logger logger;
+  auto vm = egg::ovum::VMFactory::createTest(allocator, logger);
   ASSERT_NE(nullptr, vm);
 }
 
@@ -164,6 +166,7 @@ TEST(TestVM, RunProgram) {
   auto outcome = runner->run(retval);
   ASSERT_EQ(egg::ovum::IVMProgramRunner::RunOutcome::Completed, outcome);
   ASSERT_VALUE(egg::ovum::Value::Void, retval);
+  ASSERT_EQ("hello world\n", vm.logger.logged.str());
 }
 
 TEST(TestVM, StepProgram) {
@@ -173,4 +176,5 @@ TEST(TestVM, StepProgram) {
   auto outcome = runner->run(retval, egg::ovum::IVMProgramRunner::RunFlags::Step);
   ASSERT_EQ(egg::ovum::IVMProgramRunner::RunOutcome::Stepped, outcome);
   ASSERT_VALUE(egg::ovum::Value::Void, retval);
+  ASSERT_EQ("", vm.logger.logged.str());
 }
