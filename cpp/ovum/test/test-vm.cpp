@@ -272,13 +272,33 @@ TEST(TestVM, VariableDeclareAndSet) {
     builder->stmtVariableSet(builder->createString("i")),
     builder->exprLiteral(builder->createValueInt(12345))
   );
-  // print(n);
+  // print(i);
   builder->addStatement(
     builder->stmtFunctionCall(builder->exprVariable(builder->createString("print"))),
     builder->exprVariable(builder->createString("i"))
   );
   buildAndRunSuccess(vm, *builder);
   ASSERT_EQ("12345\n", vm.logger.logged.str());
+}
+
+TEST(TestVM, VariableUndeclare) {
+  egg::test::VM vm;
+  auto builder = vm->createProgramBuilder();
+  // var i;
+  builder->addStatement(
+    builder->stmtVariableDeclare(builder->createString("i"))
+  );
+  // ~i
+  builder->addStatement(
+    builder->stmtVariableUndeclare(builder->createString("i"))
+  );
+  // print(i);
+  builder->addStatement(
+    builder->stmtFunctionCall(builder->exprVariable(builder->createString("print"))),
+    builder->exprVariable(builder->createString("i"))
+  );
+  buildAndRunFault(vm, *builder);
+  ASSERT_EQ("<ERROR>throw Unknown variable symbol: 'i'\n", vm.logger.logged.str());
 }
 
 TEST(TestVM, VariableDefineNull) {
