@@ -106,7 +106,10 @@ namespace egg::ovum {
     virtual Node& exprVariable(const String& name) = 0;
     virtual Node& exprLiteral(const Value& literal) = 0;
     // Statement factories
-    virtual Node& stmtVariableInit(const String& name) = 0;
+    virtual Node& stmtVariableDeclare(const String& name) = 0;
+    virtual Node& stmtVariableDefine(const String& name) = 0;
+    virtual Node& stmtVariableSet(const String& name) = 0;
+    virtual Node& stmtVariableUndeclare(const String& name) = 0;
     virtual Node& stmtFunctionCall(Node& function) = 0;
     // Helpers
     template<typename... ARGS>

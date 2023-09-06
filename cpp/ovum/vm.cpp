@@ -114,7 +114,10 @@ public:
     Root,
     ExprVariable,
     ExprLiteral,
-    StmtVariableInit,
+    StmtVariableDeclare,
+    StmtVariableDefine,
+    StmtVariableSet,
+    StmtVariableUndeclare,
     StmtFunctionCall,
   };
   Kind kind;
@@ -169,8 +172,23 @@ namespace {
       node.value = literal;
       return node;
     }
-    virtual Node& stmtVariableInit(const String& name) override {
-      auto& node = this->makeNode(Node::Kind::StmtVariableInit);
+    virtual Node& stmtVariableDeclare(const String& name) override {
+      auto& node = this->makeNode(Node::Kind::StmtVariableDeclare);
+      node.value = this->createValueString(name);
+      return node;
+    }
+    virtual Node& stmtVariableDefine(const String& name) override {
+      auto& node = this->makeNode(Node::Kind::StmtVariableDefine);
+      node.value = this->createValueString(name);
+      return node;
+    }
+    virtual Node& stmtVariableSet(const String& name) override {
+      auto& node = this->makeNode(Node::Kind::StmtVariableSet);
+      node.value = this->createValueString(name);
+      return node;
+    }
+    virtual Node& stmtVariableUndeclare(const String& name) override {
+      auto& node = this->makeNode(Node::Kind::StmtVariableUndeclare);
       node.value = this->createValueString(name);
       return node;
     }
@@ -202,6 +220,7 @@ namespace {
     enum class SymbolKind {
       Unknown,
       Builtin,
+      Unset,
       Variable
     };
     class SymbolTable {
@@ -215,12 +234,51 @@ namespace {
       std::map<String, Entry> entries;
     public:
       SymbolTable() = default;
-      bool add(SymbolKind kind, const String& name, const Value& value) {
+      SymbolKind add(SymbolKind kind, const String& name, const Value& value) {
+        // Returns the old kind before this request
         assert(kind != SymbolKind::Unknown);
         auto result = this->entries.emplace(name, Entry(kind, value));
-        return result.second;
+        if (result.second) {
+          return SymbolKind::Unknown;
+        }
+        assert(result.first->second.kind != SymbolKind::Unknown);
+        return result.first->second.kind;
+      }
+      SymbolKind set(const String& name, const Value& value) {
+        // Returns the new kind but only updates if a variable (or unset)
+        auto result = this->entries.find(name);
+        if (result == this->entries.end()) {
+          return SymbolKind::Unknown;
+        }
+        switch (result->second.kind) {
+        case SymbolKind::Unknown:
+          return SymbolKind::Unknown;
+        case SymbolKind::Builtin:
+          // Can reset a builtin
+          return SymbolKind::Builtin;
+        case SymbolKind::Unset:
+          result->second.kind = SymbolKind::Variable;
+          break;
+        case SymbolKind::Variable:
+          break;
+        }
+        result->second.value = value;
+        return SymbolKind::Variable;
+      }
+      SymbolKind remove(const String& name) {
+        // Returns the old kind but only removes if variable or unset
+        auto result = this->entries.find(name);
+        if (result == this->entries.end()) {
+          return SymbolKind::Unknown;
+        }
+        auto kind = result->second.kind;
+        if (kind != SymbolKind::Builtin) {
+          this->entries.erase(result);
+        }
+        return kind;
       }
       SymbolKind lookup(const String& name) {
+        // Returns the current kind
         auto result = this->entries.find(name);
         if (result == this->entries.end()) {
           return SymbolKind::Unknown;
@@ -228,6 +286,7 @@ namespace {
         return result->second.kind;
       }
       SymbolKind lookup(const String& name, Value& value) {
+        // Returns the current kind and current value
         auto result = this->entries.find(name);
         if (result == this->entries.end()) {
           return SymbolKind::Unknown;
@@ -249,7 +308,7 @@ namespace {
     }
     virtual void addBuiltin(const String& name, const Value& value) override {
       auto added = this->symtable.add(SymbolKind::Builtin, name, value);
-      assert(added);
+      assert(added == SymbolKind::Unknown);
       (void)added;
     }
     virtual RunOutcome run(Value& retval, RunFlags flags) override {
@@ -362,7 +421,27 @@ egg::ovum::IVMProgramRunner::RunOutcome VMProgramRunner::step(Value& retval) {
       return RunOutcome::Completed;
     }
     break;
-  case IVMProgram::Node::Kind::StmtVariableInit:
+  case IVMProgram::Node::Kind::StmtVariableDeclare:
+    assert(top.node->children.empty());
+    assert(top.deque.empty());
+    {
+      String symbol;
+      if (!top.node->value->getString(symbol)) {
+        return this->createFault(retval, "Invalid program node value for variable symbol");
+      }
+      switch (this->symtable.add(SymbolKind::Unset, symbol, Value::Void)) {
+      case SymbolKind::Unknown:
+        break;
+      case SymbolKind::Builtin:
+        return this->createFault(retval, "Variable symbol already declared as a builtin: '", symbol, "'");
+      case SymbolKind::Unset:
+      case SymbolKind::Variable:
+        return this->createFault(retval, "Variable symbol already declared: '", symbol, "'");
+      }
+      this->pop(Value::Void);
+    }
+    break;
+  case IVMProgram::Node::Kind::StmtVariableDefine:
     assert(top.node->children.size() == 1);
     if (top.index == 0) {
       // Evaluate the expression
@@ -373,8 +452,57 @@ egg::ovum::IVMProgramRunner::RunOutcome VMProgramRunner::step(Value& retval) {
       if (!top.node->value->getString(symbol)) {
         return this->createFault(retval, "Invalid program node value for variable symbol");
       }
-      if (!this->symtable.add(SymbolKind::Variable, symbol, top.deque.front())) {
-        return this->createFault(retval, "Variable symbol already defined: '", symbol, "'");
+      switch (this->symtable.add(SymbolKind::Variable, symbol, top.deque.front())) {
+      case SymbolKind::Unknown:
+        break;
+      case SymbolKind::Builtin:
+        return this->createFault(retval, "Variable symbol already declared as a builtin: '", symbol, "'");
+      case SymbolKind::Unset:
+      case SymbolKind::Variable:
+        return this->createFault(retval, "Variable symbol already declared: '", symbol, "'");
+      }
+      this->pop(Value::Void);
+    }
+    break;
+  case IVMProgram::Node::Kind::StmtVariableSet:
+    assert(top.node->children.size() == 1);
+    if (top.index == 0) {
+      // Evaluate the expression
+      this->push(*top.node->children[top.index++]);
+    } else {
+      assert(top.deque.size() == 1);
+      String symbol;
+      if (!top.node->value->getString(symbol)) {
+        return this->createFault(retval, "Invalid program node value for variable symbol");
+      }
+      switch (this->symtable.set(symbol, top.deque.front())) {
+      case SymbolKind::Unknown:
+        return this->createFault(retval, "Unknown variable symbol: '", symbol, "'");
+      case SymbolKind::Builtin:
+        return this->createFault(retval, "Cannot modify builtin symbol: '", symbol, "'");
+      case SymbolKind::Variable:
+      case SymbolKind::Unset:
+        break;
+      }
+      this->pop(Value::Void);
+    }
+    break;
+  case IVMProgram::Node::Kind::StmtVariableUndeclare:
+    assert(top.node->children.empty());
+    assert(top.deque.empty());
+    {
+      String symbol;
+      if (!top.node->value->getString(symbol)) {
+        return this->createFault(retval, "Invalid program node value for variable symbol");
+      }
+      switch (this->symtable.remove(symbol)) {
+      case SymbolKind::Unknown:
+        return this->createFault(retval, "Unknown variable symbol: '", symbol, "'");
+      case SymbolKind::Builtin:
+        return this->createFault(retval, "Cannot undeclare builtin symbol: '", symbol, "'");
+      case SymbolKind::Unset:
+      case SymbolKind::Variable:
+        break;
       }
       this->pop(Value::Void);
     }
@@ -408,8 +536,14 @@ egg::ovum::IVMProgramRunner::RunOutcome VMProgramRunner::step(Value& retval) {
         return this->createFault(retval, "Invalid program node value for variable symbol");
       }
       Value value;
-      if (this->symtable.lookup(symbol, value) == SymbolKind::Unknown) {
+      switch (this->symtable.lookup(symbol, value)) {
+      case SymbolKind::Unknown:
         return this->createFault(retval, "Unknown variable symbol: '", symbol, "'");
+      case SymbolKind::Unset:
+        return this->createFault(retval, "Variable uninitialized: '", symbol, "'");
+      case SymbolKind::Builtin:
+      case SymbolKind::Variable:
+        break;
       }
       this->pop(value);
     }

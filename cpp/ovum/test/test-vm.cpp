@@ -33,6 +33,12 @@ namespace {
     ASSERT_EQ(egg::ovum::IVMProgramRunner::RunOutcome::Completed, outcome);
     ASSERT_VALUE(egg::ovum::Value::Void, retval);
   }
+  void buildAndRunFault(egg::test::VM& vm, IVMProgramBuilder& builder, IVMProgramRunner::RunFlags flags = IVMProgramRunner::RunFlags::Default) {
+    Value retval;
+    auto outcome = buildAndRun(vm, builder, retval, flags);
+    ASSERT_EQ(egg::ovum::IVMProgramRunner::RunOutcome::Faulted, outcome);
+    ASSERT_EQ(egg::ovum::ValueFlags::Throw|egg::ovum::ValueFlags::String, retval->getFlags());
+  }
 }
 
 TEST(TestVM, CreateDefaultInstance) {
@@ -219,19 +225,68 @@ TEST(TestVM, PrintUnknown) {
     builder->stmtFunctionCall(builder->exprVariable(builder->createString("print"))),
     builder->exprVariable(builder->createString("unknown"))
   );
-  egg::ovum::Value retval;
-  auto outcome = buildAndRun(vm, *builder, retval);
-  ASSERT_EQ(egg::ovum::IVMProgramRunner::RunOutcome::Faulted, outcome);
-  ASSERT_EQ(egg::ovum::ValueFlags::Throw|egg::ovum::ValueFlags::String, retval->getFlags());
+  buildAndRunFault(vm, *builder);
   ASSERT_EQ("<ERROR>throw Unknown variable symbol: 'unknown'\n", vm.logger.logged.str());
 }
 
-TEST(TestVM, AssignNull) {
+TEST(TestVM, VariableDeclare) {
+  egg::test::VM vm;
+  auto builder = vm->createProgramBuilder();
+  // var v;
+  builder->addStatement(
+    builder->stmtVariableDeclare(builder->createString("v"))
+  );
+  // print(v);
+  builder->addStatement(
+    builder->stmtFunctionCall(builder->exprVariable(builder->createString("print"))),
+    builder->exprVariable(builder->createString("v"))
+  );
+  buildAndRunFault(vm, *builder);
+  ASSERT_EQ("<ERROR>throw Variable uninitialized: 'v'\n", vm.logger.logged.str());
+}
+
+TEST(TestVM, VariableDeclareTwice) {
+  egg::test::VM vm;
+  auto builder = vm->createProgramBuilder();
+  // var v;
+  builder->addStatement(
+    builder->stmtVariableDeclare(builder->createString("v"))
+  );
+  // var v;
+  builder->addStatement(
+    builder->stmtVariableDeclare(builder->createString("v"))
+  );
+  buildAndRunFault(vm, *builder);
+  ASSERT_EQ("<ERROR>throw Variable symbol already declared: 'v'\n", vm.logger.logged.str());
+}
+
+TEST(TestVM, VariableDeclareAndSet) {
+  egg::test::VM vm;
+  auto builder = vm->createProgramBuilder();
+  // var i;
+  builder->addStatement(
+    builder->stmtVariableDeclare(builder->createString("i"))
+  );
+  // i = 12345;
+  builder->addStatement(
+    builder->stmtVariableSet(builder->createString("i")),
+    builder->exprLiteral(builder->createValueInt(12345))
+  );
+  // print(n);
+  builder->addStatement(
+    builder->stmtFunctionCall(builder->exprVariable(builder->createString("print"))),
+    builder->exprVariable(builder->createString("i"))
+  );
+  buildAndRunSuccess(vm, *builder);
+  ASSERT_EQ("12345\n", vm.logger.logged.str());
+}
+
+TEST(TestVM, VariableDefineNull) {
   egg::test::VM vm;
   auto builder = vm->createProgramBuilder();
   // var n = null;
   builder->addStatement(
-    builder->stmtVariableInit(builder->createString("n")),
+    builder->stmtVariableDefine(builder->createString("n")),
     builder->exprLiteral(builder->createValueNull())
   );
   // print(n);
@@ -243,12 +298,12 @@ TEST(TestVM, AssignNull) {
   ASSERT_EQ("null\n", vm.logger.logged.str());
 }
 
-TEST(TestVM, AssignBool) {
+TEST(TestVM, VariableDefineBool) {
   egg::test::VM vm;
   auto builder = vm->createProgramBuilder();
   // var b = true;
   builder->addStatement(
-    builder->stmtVariableInit(builder->createString("b")),
+    builder->stmtVariableDefine(builder->createString("b")),
     builder->exprLiteral(builder->createValueBool(true))
   );
   // print(b);
@@ -260,12 +315,12 @@ TEST(TestVM, AssignBool) {
   ASSERT_EQ("true\n", vm.logger.logged.str());
 }
 
-TEST(TestVM, AssignInt) {
+TEST(TestVM, VariableDefineInt) {
   egg::test::VM vm;
   auto builder = vm->createProgramBuilder();
   // var i = 12345;
   builder->addStatement(
-    builder->stmtVariableInit(builder->createString("i")),
+    builder->stmtVariableDefine(builder->createString("i")),
     builder->exprLiteral(builder->createValueInt(12345))
   );
   // print(i);
@@ -277,12 +332,12 @@ TEST(TestVM, AssignInt) {
   ASSERT_EQ("12345\n", vm.logger.logged.str());
 }
 
-TEST(TestVM, AssignFloat) {
+TEST(TestVM, VariableDefineFloat) {
   egg::test::VM vm;
   auto builder = vm->createProgramBuilder();
   // var f = 1234.5;
   builder->addStatement(
-    builder->stmtVariableInit(builder->createString("f")),
+    builder->stmtVariableDefine(builder->createString("f")),
     builder->exprLiteral(builder->createValueFloat(1234.5))
   );
   // print(f);
@@ -294,12 +349,12 @@ TEST(TestVM, AssignFloat) {
   ASSERT_EQ("1234.5\n", vm.logger.logged.str());
 }
 
-TEST(TestVM, AssignString) {
+TEST(TestVM, VariableDefineString) {
   egg::test::VM vm;
   auto builder = vm->createProgramBuilder();
   // var s = "hello world";
   builder->addStatement(
-    builder->stmtVariableInit(builder->createString("s")),
+    builder->stmtVariableDefine(builder->createString("s")),
     builder->exprLiteral(builder->createValue("hello world"))
   );
   // print(s);
@@ -311,12 +366,12 @@ TEST(TestVM, AssignString) {
   ASSERT_EQ("hello world\n", vm.logger.logged.str());
 }
 
-TEST(TestVM, AssignObject) {
+TEST(TestVM, VariableDefineObject) {
   egg::test::VM vm;
   auto builder = vm->createProgramBuilder();
   // var o = print;
   builder->addStatement(
-    builder->stmtVariableInit(builder->createString("o")),
+    builder->stmtVariableDefine(builder->createString("o")),
     builder->exprVariable(builder->createString("print"))
   );
   // print(o);
@@ -326,4 +381,89 @@ TEST(TestVM, AssignObject) {
   );
   buildAndRunSuccess(vm, *builder);
   ASSERT_EQ("[builtin print]\n", vm.logger.logged.str());
+}
+
+TEST(TestVM, VariableDefineTwice) {
+  egg::test::VM vm;
+  auto builder = vm->createProgramBuilder();
+  // var i = 12345;
+  builder->addStatement(
+    builder->stmtVariableDefine(builder->createString("i")),
+    builder->exprLiteral(builder->createValueInt(12345))
+  );
+  // var i = 54321;
+  builder->addStatement(
+    builder->stmtVariableDefine(builder->createString("i")),
+    builder->exprLiteral(builder->createValueInt(54321))
+  );
+  buildAndRunFault(vm, *builder);
+  ASSERT_EQ("<ERROR>throw Variable symbol already declared: 'i'\n", vm.logger.logged.str());
+}
+
+TEST(TestVM, VariableDefineAndSet) {
+  egg::test::VM vm;
+  auto builder = vm->createProgramBuilder();
+  // var i = 12345;
+  builder->addStatement(
+    builder->stmtVariableDefine(builder->createString("i")),
+    builder->exprLiteral(builder->createValueInt(12345))
+  );
+  // i = 54321;
+  builder->addStatement(
+    builder->stmtVariableSet(builder->createString("i")),
+    builder->exprLiteral(builder->createValueInt(54321))
+  );
+  // print(i);
+  builder->addStatement(
+    builder->stmtFunctionCall(builder->exprVariable(builder->createString("print"))),
+    builder->exprVariable(builder->createString("i"))
+  );
+  buildAndRunSuccess(vm, *builder);
+  ASSERT_EQ("54321\n", vm.logger.logged.str());
+}
+
+TEST(TestVM, BuiltinDeclare) {
+  egg::test::VM vm;
+  auto builder = vm->createProgramBuilder();
+  // var print;
+  builder->addStatement(
+    builder->stmtVariableDeclare(builder->createString("print"))
+  );
+  buildAndRunFault(vm, *builder);
+  ASSERT_EQ("<ERROR>throw Variable symbol already declared as a builtin: 'print'\n", vm.logger.logged.str());
+}
+
+TEST(TestVM, BuiltinDefine) {
+  egg::test::VM vm;
+  auto builder = vm->createProgramBuilder();
+  // var print = 12345;
+  builder->addStatement(
+    builder->stmtVariableDefine(builder->createString("print")),
+    builder->exprLiteral(builder->createValueInt(12345))
+  );
+  buildAndRunFault(vm, *builder);
+  ASSERT_EQ("<ERROR>throw Variable symbol already declared as a builtin: 'print'\n", vm.logger.logged.str());
+}
+
+TEST(TestVM, BuiltinSet) {
+  egg::test::VM vm;
+  auto builder = vm->createProgramBuilder();
+  // print = 12345;
+  builder->addStatement(
+    builder->stmtVariableSet(builder->createString("print")),
+    builder->exprLiteral(builder->createValueInt(12345))
+  );
+  buildAndRunFault(vm, *builder);
+  ASSERT_EQ("<ERROR>throw Cannot modify builtin symbol: 'print'\n", vm.logger.logged.str());
+}
+
+TEST(TestVM, BuiltinUndeclare) {
+  egg::test::VM vm;
+  auto builder = vm->createProgramBuilder();
+  // ~print
+  builder->addStatement(
+    builder->stmtVariableUndeclare(builder->createString("print"))
+  );
+  buildAndRunFault(vm, *builder);
+  ASSERT_EQ("<ERROR>throw Cannot undeclare builtin symbol: 'print'\n", vm.logger.logged.str());
 }
