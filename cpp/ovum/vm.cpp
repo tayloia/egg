@@ -114,6 +114,7 @@ public:
     Root,
     ExprVariable,
     ExprLiteral,
+    StmtVariableInit,
     StmtFunctionCall,
   };
   Kind kind;
@@ -142,13 +143,13 @@ namespace {
     VMProgramBuilder(const VMProgramBuilder&) = delete;
     VMProgramBuilder& operator=(const VMProgramBuilder&) = delete;
   private:
-    HardPtr<IVMProgram::Node> root;
+    HardPtr<Node> root;
   public:
     explicit VMProgramBuilder(IVM& vm)
       : VMImpl(vm) {
-      this->root = VMProgram::makeHardVM<IVMProgram::Node>(this->vm, nullptr, IVMProgram::Node::Kind::Root);
+      this->root = VMProgram::makeHardVM<Node>(this->vm, nullptr, Node::Kind::Root);
     }
-    virtual void addStatement(IVMProgram::Node& statement) override {
+    virtual void addStatement(Node& statement) override {
       assert(this->root != nullptr);
       this->root->addChild(statement.build());
     }
@@ -158,28 +159,33 @@ namespace {
       this->root = nullptr;
       return program;
     }
-    virtual IVMProgram::Node& exprVariable(const String& name) override {
-      auto& node = this->makeNode(IVMProgram::Node::Kind::ExprVariable);
-      node.value = this->vm.createValueString(name);
+    virtual Node& exprVariable(const String& name) override {
+      auto& node = this->makeNode(Node::Kind::ExprVariable);
+      node.value = this->createValueString(name);
       return node;
     }
-    virtual IVMProgram::Node& exprLiteral(const Value& literal) override {
-      auto& node = this->makeNode(IVMProgram::Node::Kind::ExprLiteral);
+    virtual Node& exprLiteral(const Value& literal) override {
+      auto& node = this->makeNode(Node::Kind::ExprLiteral);
       node.value = literal;
       return node;
     }
-    virtual IVMProgram::Node& stmtFunctionCall(IVMProgram::Node& function) override {
-      auto& node = this->makeNode(IVMProgram::Node::Kind::StmtFunctionCall);
+    virtual Node& stmtVariableInit(const String& name) override {
+      auto& node = this->makeNode(Node::Kind::StmtVariableInit);
+      node.value = this->createValueString(name);
+      return node;
+    }
+    virtual Node& stmtFunctionCall(Node& function) override {
+      auto& node = this->makeNode(Node::Kind::StmtFunctionCall);
       node.addChild(function);
       return node;
     }
   private:
-    virtual void appendChild(IVMProgram::Node& parent, IVMProgram::Node& child) override {
+    virtual void appendChild(Node& parent, Node& child) override {
       parent.addChild(child);
     }
-    IVMProgram::Node& makeNode(IVMProgram::Node::Kind kind) {
+    Node& makeNode(Node::Kind kind) {
       assert(this->root != nullptr);
-      auto node = VMProgram::makeHardVM<IVMProgram::Node>(this->vm, this->root.get(), kind);
+      auto node = VMProgram::makeHardVM<Node>(this->vm, this->root.get(), kind);
       return *node;
     }
   };
@@ -209,11 +215,17 @@ namespace {
       std::map<String, Entry> entries;
     public:
       SymbolTable() = default;
-      void add(SymbolKind kind, const String& name, const Value& value) {
+      bool add(SymbolKind kind, const String& name, const Value& value) {
         assert(kind != SymbolKind::Unknown);
         auto result = this->entries.emplace(name, Entry(kind, value));
-        (void)result;
-        assert(result.second);
+        return result.second;
+      }
+      SymbolKind lookup(const String& name) {
+        auto result = this->entries.find(name);
+        if (result == this->entries.end()) {
+          return SymbolKind::Unknown;
+        }
+        return result->second.kind;
       }
       SymbolKind lookup(const String& name, Value& value) {
         auto result = this->entries.find(name);
@@ -236,7 +248,9 @@ namespace {
       this->push(program.getRunnableRoot());
     }
     virtual void addBuiltin(const String& name, const Value& value) override {
-      this->symtable.add(SymbolKind::Builtin, name, value);
+      auto added = this->symtable.add(SymbolKind::Builtin, name, value);
+      assert(added);
+      (void)added;
     }
     virtual RunOutcome run(Value& retval, RunFlags flags) override {
       if (flags == RunFlags::Step) {
@@ -338,6 +352,7 @@ egg::ovum::IVMProgramRunner::RunOutcome VMProgramRunner::step(Value& retval) {
   assert(top.index <= top.node->children.size());
   switch (top.node->kind) {
   case IVMProgram::Node::Kind::Root:
+    assert(top.node->value.isVoid());
     if (top.index < top.node->children.size()) {
       // Execute all the statements
       this->push(*top.node->children[top.index++]);
@@ -347,7 +362,25 @@ egg::ovum::IVMProgramRunner::RunOutcome VMProgramRunner::step(Value& retval) {
       return RunOutcome::Completed;
     }
     break;
+  case IVMProgram::Node::Kind::StmtVariableInit:
+    assert(top.node->children.size() == 1);
+    if (top.index == 0) {
+      // Evaluate the expression
+      this->push(*top.node->children[top.index++]);
+    } else {
+      assert(top.deque.size() == 1);
+      String symbol;
+      if (!top.node->value->getString(symbol)) {
+        return this->createFault(retval, "Invalid program node value for variable symbol");
+      }
+      if (!this->symtable.add(SymbolKind::Variable, symbol, top.deque.front())) {
+        return this->createFault(retval, "Variable symbol already defined: '", symbol, "'");
+      }
+      this->pop(Value::Void);
+    }
+    break;
   case IVMProgram::Node::Kind::StmtFunctionCall:
+    assert(top.node->value.isVoid());
     if (top.index < top.node->children.size()) {
       // Assemble the arguments
       this->push(*top.node->children[top.index++]);

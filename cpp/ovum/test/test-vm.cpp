@@ -1,20 +1,37 @@
 #include "ovum/test.h"
 
 namespace {
-  egg::ovum::HardPtr<egg::ovum::IVMProgram> createHelloWorldProgram(egg::test::VM& vm) {
-    auto builder = vm.vm->createProgramBuilder();
+  using namespace egg::ovum;
+
+  HardPtr<IVMProgram> createHelloWorldProgram(egg::test::VM& vm) {
+    auto builder = vm->createProgramBuilder();
+    // print("hello world);
     builder->addStatement(
-      builder->stmtFunctionCall(builder->exprVariable(vm->createString("print"))),
-      builder->exprLiteral(vm->createValue("hello world"))
+      builder->stmtFunctionCall(builder->exprVariable(builder->createString("print"))),
+      builder->exprLiteral(builder->createValue("hello world"))
     );
     return builder->build();
   }
-  egg::ovum::HardPtr<egg::ovum::IVMProgramRunner> createHelloWorldRunnerWithPrint(egg::test::VM& vm) {
-    auto program = createHelloWorldProgram(vm);
-    auto runner = program->createRunner();
-    auto print = vm->createBuiltinPrint();
-    runner->addBuiltin(program->createString("print"), vm.vm->createValueObject(print));
+  HardPtr<IVMProgramRunner> createRunnerWithPrint(egg::test::VM& vm, IVMProgram& program) {
+    auto runner = program.createRunner();
+    vm.addBuiltinPrint(*runner);
     return runner;
+  }
+  IVMProgramRunner::RunOutcome buildAndRun(egg::test::VM& vm, IVMProgramBuilder& builder, Value& retval, IVMProgramRunner::RunFlags flags = IVMProgramRunner::RunFlags::Default) {
+    auto runner = builder.build()->createRunner();
+    auto print = vm->createBuiltinPrint();
+    vm.addBuiltins(*runner);
+    auto outcome = runner->run(retval, flags);
+    if (outcome == IVMProgramRunner::RunOutcome::Faulted) {
+      vm.logger.log(ILogger::Source::User, ILogger::Severity::Error, vm.allocator.concat(retval));
+    }
+    return outcome;
+  }
+  void buildAndRunSuccess(egg::test::VM& vm, IVMProgramBuilder& builder, IVMProgramRunner::RunFlags flags = IVMProgramRunner::RunFlags::Default) {
+    Value retval;
+    auto outcome = buildAndRun(vm, builder, retval, flags);
+    ASSERT_EQ(egg::ovum::IVMProgramRunner::RunOutcome::Completed, outcome);
+    ASSERT_VALUE(egg::ovum::Value::Void, retval);
   }
 }
 
@@ -162,7 +179,8 @@ TEST(TestVM, CreateProgram) {
 
 TEST(TestVM, RunProgram) {
   egg::test::VM vm;
-  auto runner = createHelloWorldRunnerWithPrint(vm);
+  auto program = createHelloWorldProgram(vm);
+  auto runner = createRunnerWithPrint(vm, *program);
   egg::ovum::Value retval;
   auto outcome = runner->run(retval);
   ASSERT_EQ(egg::ovum::IVMProgramRunner::RunOutcome::Completed, outcome);
@@ -172,10 +190,140 @@ TEST(TestVM, RunProgram) {
 
 TEST(TestVM, StepProgram) {
   egg::test::VM vm;
-  auto runner = createHelloWorldRunnerWithPrint(vm);
+  auto program = createHelloWorldProgram(vm);
+  auto runner = createRunnerWithPrint(vm, *program);
   egg::ovum::Value retval;
   auto outcome = runner->run(retval, egg::ovum::IVMProgramRunner::RunFlags::Step);
   ASSERT_EQ(egg::ovum::IVMProgramRunner::RunOutcome::Stepped, outcome);
   ASSERT_VALUE(egg::ovum::Value::Void, retval);
   ASSERT_EQ("", vm.logger.logged.str());
+}
+
+TEST(TestVM, PrintPrint) {
+  egg::test::VM vm;
+  auto builder = vm->createProgramBuilder();
+  // print(print);
+  builder->addStatement(
+    builder->stmtFunctionCall(builder->exprVariable(builder->createString("print"))),
+    builder->exprVariable(builder->createString("print"))
+  );
+  buildAndRunSuccess(vm, *builder);
+  ASSERT_EQ("[builtin print]\n", vm.logger.logged.str());
+}
+
+TEST(TestVM, PrintUnknown) {
+  egg::test::VM vm;
+  auto builder = vm->createProgramBuilder();
+  // print(unknown);
+  builder->addStatement(
+    builder->stmtFunctionCall(builder->exprVariable(builder->createString("print"))),
+    builder->exprVariable(builder->createString("unknown"))
+  );
+  egg::ovum::Value retval;
+  auto outcome = buildAndRun(vm, *builder, retval);
+  ASSERT_EQ(egg::ovum::IVMProgramRunner::RunOutcome::Faulted, outcome);
+  ASSERT_EQ(egg::ovum::ValueFlags::Throw|egg::ovum::ValueFlags::String, retval->getFlags());
+  ASSERT_EQ("<ERROR>throw Unknown variable symbol: 'unknown'\n", vm.logger.logged.str());
+}
+
+TEST(TestVM, AssignNull) {
+  egg::test::VM vm;
+  auto builder = vm->createProgramBuilder();
+  // var n = null;
+  builder->addStatement(
+    builder->stmtVariableInit(builder->createString("n")),
+    builder->exprLiteral(builder->createValueNull())
+  );
+  // print(n);
+  builder->addStatement(
+    builder->stmtFunctionCall(builder->exprVariable(builder->createString("print"))),
+    builder->exprVariable(builder->createString("n"))
+  );
+  buildAndRunSuccess(vm, *builder);
+  ASSERT_EQ("null\n", vm.logger.logged.str());
+}
+
+TEST(TestVM, AssignBool) {
+  egg::test::VM vm;
+  auto builder = vm->createProgramBuilder();
+  // var b = true;
+  builder->addStatement(
+    builder->stmtVariableInit(builder->createString("b")),
+    builder->exprLiteral(builder->createValueBool(true))
+  );
+  // print(b);
+  builder->addStatement(
+    builder->stmtFunctionCall(builder->exprVariable(builder->createString("print"))),
+    builder->exprVariable(builder->createString("b"))
+  );
+  buildAndRunSuccess(vm, *builder);
+  ASSERT_EQ("true\n", vm.logger.logged.str());
+}
+
+TEST(TestVM, AssignInt) {
+  egg::test::VM vm;
+  auto builder = vm->createProgramBuilder();
+  // var i = 12345;
+  builder->addStatement(
+    builder->stmtVariableInit(builder->createString("i")),
+    builder->exprLiteral(builder->createValueInt(12345))
+  );
+  // print(i);
+  builder->addStatement(
+    builder->stmtFunctionCall(builder->exprVariable(builder->createString("print"))),
+    builder->exprVariable(builder->createString("i"))
+  );
+  buildAndRunSuccess(vm, *builder);
+  ASSERT_EQ("12345\n", vm.logger.logged.str());
+}
+
+TEST(TestVM, AssignFloat) {
+  egg::test::VM vm;
+  auto builder = vm->createProgramBuilder();
+  // var f = 1234.5;
+  builder->addStatement(
+    builder->stmtVariableInit(builder->createString("f")),
+    builder->exprLiteral(builder->createValueFloat(1234.5))
+  );
+  // print(f);
+  builder->addStatement(
+    builder->stmtFunctionCall(builder->exprVariable(builder->createString("print"))),
+    builder->exprVariable(builder->createString("f"))
+  );
+  buildAndRunSuccess(vm, *builder);
+  ASSERT_EQ("1234.5\n", vm.logger.logged.str());
+}
+
+TEST(TestVM, AssignString) {
+  egg::test::VM vm;
+  auto builder = vm->createProgramBuilder();
+  // var s = "hello world";
+  builder->addStatement(
+    builder->stmtVariableInit(builder->createString("s")),
+    builder->exprLiteral(builder->createValue("hello world"))
+  );
+  // print(s);
+  builder->addStatement(
+    builder->stmtFunctionCall(builder->exprVariable(builder->createString("print"))),
+    builder->exprVariable(builder->createString("s"))
+  );
+  buildAndRunSuccess(vm, *builder);
+  ASSERT_EQ("hello world\n", vm.logger.logged.str());
+}
+
+TEST(TestVM, AssignObject) {
+  egg::test::VM vm;
+  auto builder = vm->createProgramBuilder();
+  // var o = print;
+  builder->addStatement(
+    builder->stmtVariableInit(builder->createString("o")),
+    builder->exprVariable(builder->createString("print"))
+  );
+  // print(o);
+  builder->addStatement(
+    builder->stmtFunctionCall(builder->exprVariable(builder->createString("print"))),
+    builder->exprVariable(builder->createString("o"))
+  );
+  buildAndRunSuccess(vm, *builder);
+  ASSERT_EQ("[builtin print]\n", vm.logger.logged.str());
 }

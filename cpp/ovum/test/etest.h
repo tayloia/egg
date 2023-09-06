@@ -105,6 +105,12 @@ namespace egg::test {
     egg::ovum::IVM* operator->() {
       return this->vm.get();
     }
+    void addBuiltinPrint(egg::ovum::IVMProgramRunner& runner) {
+      runner.addBuiltin(vm->createString("print"), vm->createValueObject(vm->createBuiltinPrint()));
+    }
+    void addBuiltins(egg::ovum::IVMProgramRunner& runner) {
+      this->addBuiltinPrint(runner);
+    }
   };
 
   inline ::testing::AssertionResult assertValueEQ(const char* lhs_expression, const char* rhs_expression, const egg::ovum::Value& lhs, const egg::ovum::Value& rhs) {

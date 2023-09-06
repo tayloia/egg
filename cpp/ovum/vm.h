@@ -99,21 +99,23 @@ namespace egg::ovum {
 
   class IVMProgramBuilder : public IVMBase {
   public:
-    virtual void addStatement(IVMProgram::Node& statement) = 0;
+    using Node = IVMProgram::Node;
+    virtual void addStatement(Node& statement) = 0;
     virtual HardPtr<IVMProgram> build() = 0;
     // Expression factories
-    virtual IVMProgram::Node& exprVariable(const String& name) = 0;
-    virtual IVMProgram::Node& exprLiteral(const Value& literal) = 0;
+    virtual Node& exprVariable(const String& name) = 0;
+    virtual Node& exprLiteral(const Value& literal) = 0;
     // Statement factories
-    virtual IVMProgram::Node& stmtFunctionCall(IVMProgram::Node& function) = 0;
+    virtual Node& stmtVariableInit(const String& name) = 0;
+    virtual Node& stmtFunctionCall(Node& function) = 0;
     // Helpers
     template<typename... ARGS>
-    void addStatement(IVMProgram::Node& statement, IVMProgram::Node& head, ARGS&&... tail) {
+    void addStatement(Node& statement, Node& head, ARGS&&... tail) {
       this->appendChild(statement, head);
       this->addStatement(statement, std::forward<ARGS>(tail)...);
     }
   private:
-    virtual void appendChild(IVMProgram::Node& parent, IVMProgram::Node& child) = 0;
+    virtual void appendChild(Node& parent, Node& child) = 0;
   };
 
   class IVM : public IVMBase {
