@@ -6,7 +6,7 @@
 namespace {
   using namespace egg::ovum;
 
-  class BasketDefault : public HardReferenceCounted<IBasket> {
+  class BasketDefault : public HardReferenceCountedAllocator<IBasket> {
     BasketDefault(const BasketDefault&) = delete;
     BasketDefault& operator=(const BasketDefault&) = delete;
   private:
@@ -14,7 +14,7 @@ namespace {
     uint64_t bytes;
   public:
     explicit BasketDefault(IAllocator& allocator)
-      : HardReferenceCounted(allocator, 0),
+      : HardReferenceCountedAllocator<IBasket>(allocator),
         bytes(0) {
     }
     virtual ~BasketDefault() {

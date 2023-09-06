@@ -38,7 +38,7 @@ namespace {
   }
 
   template<enum ValueFlags FLAGS>
-  class TypePrimitive final : public NotHardReferenceCounted<IType> {
+  class TypePrimitive final : public HardReferenceCountedNone<IType> {
     TypePrimitive(const TypePrimitive&) = delete;
     TypePrimitive& operator=(const TypePrimitive&) = delete;
   public:

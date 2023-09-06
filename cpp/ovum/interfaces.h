@@ -8,6 +8,7 @@ namespace egg::ovum {
   template<typename T> class SoftPtr;
   enum class ValueFlags;
   struct LocationSource;
+  class Object;
   class Printer;
   class String;
   class Type;
@@ -16,6 +17,7 @@ namespace egg::ovum {
   class IMemory;
   class IType;
   class ITypeFactory;
+  class IVMExecution;
 
   enum class Modifiability {
     None = 0x00,
@@ -173,6 +175,20 @@ namespace egg::ovum {
     virtual SetBasketResult softSetBasket(IBasket* desired) const = 0;
     virtual void softVisit(const Visitor& visitor) const = 0;
     virtual void print(Printer& printer) const = 0;
+  };
+
+  class ICallArguments {
+  public:
+    // Interface
+    virtual ~ICallArguments() {}
+    virtual size_t getArgumentCount() const = 0;
+    virtual bool getArgument(size_t index, String& name, Value& value) const = 0;
+  };
+
+  class IObject : public ICollectable {
+  public:
+    // Interface
+    virtual Value call(IVMExecution& execution, const ICallArguments& arguments) = 0;
   };
 
   class IParameters {

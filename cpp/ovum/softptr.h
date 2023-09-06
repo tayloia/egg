@@ -6,8 +6,8 @@ namespace egg::ovum {
   protected:
     mutable IBasket* basket;
   public:
-    explicit SoftReferenceCounted(IAllocator& allocator)
-      : HardReferenceCounted<T>(allocator, 0),
+    SoftReferenceCounted()
+      : HardReferenceCounted<T>(),
         basket(nullptr) {
     }
     virtual ~SoftReferenceCounted() override {

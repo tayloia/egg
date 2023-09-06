@@ -96,6 +96,15 @@ void egg::ovum::Print::write(std::ostream& stream, const String& value, const Op
   Print::write(stream, value.toUTF8(), options);
 }
 
+void egg::ovum::Print::write(std::ostream& stream, const Object& value, const Options& options) {
+  if (value == nullptr) {
+    stream << "null";
+  } else {
+    Printer printer{ stream, options };
+    value->print(printer);
+  }
+}
+
 void egg::ovum::Print::write(std::ostream& stream, const Type& value, const Options&) {
   if (value == nullptr) {
     stream << "null";

@@ -19,6 +19,7 @@ namespace egg::ovum {
     static void write(std::ostream& stream, double value, const Options& options);
     static void write(std::ostream& stream, const std::string& value, const Options& options);
     static void write(std::ostream& stream, const String& value, const Options& options);
+    static void write(std::ostream& stream, const Object& value, const Options& options);
     static void write(std::ostream& stream, const Type& value, const Options& options);
     static void write(std::ostream& stream, const Value& value, const Options& options);
     static void write(std::ostream& stream, ValueFlags value, const Options& options);

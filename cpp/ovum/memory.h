@@ -8,7 +8,7 @@ namespace egg::ovum {
     bool validate() const;
   };
 
-  class MemoryContiguous : public HardReferenceCounted<IMemory> {
+  class MemoryContiguous : public HardReferenceCountedAllocator<IMemory> {
     MemoryContiguous(const MemoryContiguous&) = delete;
     MemoryContiguous& operator=(const MemoryContiguous&) = delete;
   private:
@@ -16,7 +16,7 @@ namespace egg::ovum {
     IMemory::Tag usertag;
   public:
     MemoryContiguous(IAllocator& allocator, size_t size, IMemory::Tag usertag)
-      : HardReferenceCounted(allocator, 0), size(size), usertag(usertag) {
+      : HardReferenceCountedAllocator<IMemory>(allocator), size(size), usertag(usertag) {
     }
     virtual const uint8_t* begin() const override {
       return this->base();

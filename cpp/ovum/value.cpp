@@ -9,7 +9,7 @@ namespace {
   }
 
   template<ValueFlags FLAGS>
-  class ValueImmutable : public NotHardReferenceCounted<IValue> {
+  class ValueImmutable : public HardReferenceCountedNone<IValue> {
     ValueImmutable(const ValueImmutable&) = delete;
     ValueImmutable& operator=(const ValueImmutable&) = delete;
   public:
@@ -125,11 +125,12 @@ namespace {
   const ValueBool<false> theFalse;
   const ValueBool<true> theTrue;
 
-  class ValueMutable : public HardReferenceCounted<IValue> {
+  class ValueMutable : public HardReferenceCountedAllocator<IValue> {
     ValueMutable(const ValueMutable&) = delete;
     ValueMutable& operator=(const ValueMutable&) = delete;
   public:
-    explicit ValueMutable(IAllocator& allocator, decltype(atomic)::Underlying atomic = 0) : HardReferenceCounted(allocator, atomic) {
+    explicit ValueMutable(IAllocator& allocator)
+      : HardReferenceCountedAllocator<IValue>(allocator) {
     }
     virtual IValue* softAcquire() const override {
       // By default, values are hard reference-counted and not within a GC basket
@@ -278,6 +279,37 @@ namespace {
     }
   };
 
+  class ValueObject final : public ValueMutable {
+    ValueObject(const ValueObject&) = delete;
+    ValueObject& operator=(const ValueObject&) = delete;
+  private:
+    Object value;
+  public:
+    ValueObject(IAllocator& allocator, const Object& value) : ValueMutable(allocator), value(value) {
+      assert(this->validate());
+    }
+    virtual ValueFlags getFlags() const override {
+      return ValueFlags::Object;
+    }
+    virtual Type getRuntimeType() const override {
+      return Type::Object;
+    }
+    virtual bool getObject(Object& result) const override {
+      result = this->value;
+      return true;
+    }
+    virtual bool equals(const IValue& rhs, ValueCompare) const override {
+      Object other;
+      return rhs.getObject(other) && this->value.equals(other);
+    }
+    virtual bool validate() const override {
+      return ValueMutable::validate() && this->value.validate();
+    }
+    virtual void print(Printer& printer) const override {
+      printer.write(this->value);
+    }
+  };
+
   class ValueFlowControl final : public ValueMutable {
     ValueFlowControl(const ValueFlowControl&) = delete;
     ValueFlowControl& operator=(const ValueFlowControl&) = delete;
@@ -362,6 +394,10 @@ egg::ovum::Value egg::ovum::ValueFactory::createFloat(IAllocator& allocator, Flo
 
 egg::ovum::Value egg::ovum::ValueFactory::createString(IAllocator& allocator, const String& value) {
   return makeValue<ValueString>(allocator, value);
+}
+
+egg::ovum::Value egg::ovum::ValueFactory::createObject(IAllocator& allocator, const Object& value) {
+  return makeValue<ValueObject>(allocator, value);
 }
 
 egg::ovum::Value egg::ovum::ValueFactory::createFlowControl(IAllocator& allocator, ValueFlags flags, const Value& value) {

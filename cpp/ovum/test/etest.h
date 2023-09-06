@@ -100,7 +100,7 @@ namespace egg::test {
     egg::ovum::HardPtr<egg::ovum::IVM> vm;
     VM()
       : allocator(),
-        vm(egg::ovum::VMFactory::createTest(allocator, logger).get()) {
+        vm(egg::ovum::VMFactory::createTest(allocator, logger)) {
     }
     egg::ovum::IVM* operator->() {
       return this->vm.get();

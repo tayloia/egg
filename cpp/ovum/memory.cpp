@@ -1,7 +1,7 @@
 #include "ovum/ovum.h"
 
 namespace {
-  class MemoryEmpty : public egg::ovum::NotHardReferenceCounted<egg::ovum::IMemory> {
+  class MemoryEmpty : public egg::ovum::HardReferenceCountedNone<egg::ovum::IMemory> {
     MemoryEmpty(const MemoryEmpty&) = delete;
     MemoryEmpty& operator=(const MemoryEmpty&) = delete;
   private:

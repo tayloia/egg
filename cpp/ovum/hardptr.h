@@ -4,13 +4,12 @@ namespace egg::ovum {
     HardReferenceCounted(const HardReferenceCounted&) = delete;
     HardReferenceCounted& operator=(const HardReferenceCounted&) = delete;
   protected:
-    IAllocator& allocator;
     mutable Atomic<int64_t> atomic; // signed so we can detect underflows
   public:
     template<typename... ARGS>
-    HardReferenceCounted(IAllocator& allocator, int64_t atomic, ARGS&&... args)
-      : T(std::forward<ARGS>(args)...), allocator(allocator), atomic(atomic) {
-      assert(this->atomic.get() >= 0);
+    explicit HardReferenceCounted(ARGS&&... args)
+      : T(std::forward<ARGS>(args)...), atomic(0) {
+      assert(this->atomic.get() == 0);
     }
     virtual ~HardReferenceCounted() {
       // Make sure our reference count reached zero
@@ -26,18 +25,38 @@ namespace egg::ovum {
       auto count = this->atomic.decrement();
       assert(count >= 0);
       if (count == 0) {
-        this->allocator.destroy(this);
+        this->hardDestroy();
       }
+    }
+  protected:
+    virtual void hardDestroy() const = 0;
+  };
+
+  template<typename T>
+  class HardReferenceCountedAllocator : public HardReferenceCounted<T> {
+    HardReferenceCountedAllocator(const HardReferenceCountedAllocator&) = delete;
+    HardReferenceCountedAllocator& operator=(const HardReferenceCountedAllocator&) = delete;
+  protected:
+    IAllocator& allocator;
+  public:
+    template<typename... ARGS>
+    explicit HardReferenceCountedAllocator(IAllocator& allocator, ARGS&&... args)
+      : HardReferenceCounted<T>(std::forward<ARGS>(args)...), allocator(allocator) {
+    }
+  protected:
+    virtual void hardDestroy() const override {
+      assert(this->atomic.get() == 0);
+      this->allocator.destroy(this);
     }
   };
 
   template<typename T>
-  class NotHardReferenceCounted : public T {
-    NotHardReferenceCounted(const NotHardReferenceCounted&) = delete;
-    NotHardReferenceCounted& operator=(const NotHardReferenceCounted&) = delete;
+  class HardReferenceCountedNone : public T {
+    HardReferenceCountedNone(const HardReferenceCountedNone&) = delete;
+    HardReferenceCountedNone& operator=(const HardReferenceCountedNone&) = delete;
   public:
     template<typename... ARGS>
-    NotHardReferenceCounted(ARGS&&... args)
+    HardReferenceCountedNone(ARGS&&... args)
       : T(std::forward<ARGS>(args)...) {
     }
     virtual T* hardAcquire() const override {

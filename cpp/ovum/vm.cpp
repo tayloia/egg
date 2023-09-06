@@ -8,14 +8,55 @@ namespace {
   class VMProgramRunner;
 
   template<typename T>
-  class VMImpl : public T {
+  class VMCommon : public T {
+    VMCommon(const VMCommon&) = delete;
+    VMCommon& operator=(const VMCommon&) = delete;
+  protected:
+    IVM& vm;
+  public:
+    explicit VMCommon(IVM& vm)
+      : vm(vm) {
+    }
+    virtual void log(ILogger::Source source, ILogger::Severity severity, const String& message) {
+      this->vm.getLogger().log(source, severity, message);
+    }
+    virtual String createStringUTF8(const void* utf8, size_t bytes, size_t codepoints) override {
+      return this->vm.createStringUTF8(utf8, bytes, codepoints);
+    }
+    virtual String createStringUTF32(const void* utf32, size_t codepoints) override {
+      return this->vm.createStringUTF32(utf32, codepoints);
+    }
+    virtual Value createValueVoid() override {
+      return this->vm.createValueVoid();
+    }
+    virtual Value createValueNull() override {
+      return this->vm.createValueNull();
+    }
+    virtual Value createValueBool(Bool value) override {
+      return this->vm.createValueBool(value);
+    }
+    virtual Value createValueInt(Int value) override {
+      return this->vm.createValueInt(value);
+    }
+    virtual Value createValueFloat(Float value) override {
+      return this->vm.createValueFloat(value);
+    }
+    virtual Value createValueString(const String& value) override {
+      return this->vm.createValueString(value);
+    }
+    virtual Value createValueObject(const Object& value) override {
+      return this->vm.createValueObject(value);
+    }
+  };
+
+  template<typename T>
+  class VMImpl : public VMCommon<T> {
     VMImpl(const VMImpl&) = delete;
     VMImpl& operator=(const VMImpl&) = delete;
   protected:
-    IVM& vm;
     mutable Atomic<int64_t> atomic; // signed so we can detect underflows
     explicit VMImpl(IVM& vm)
-      : vm(vm), atomic(0) {
+      : VMCommon<T>(vm), atomic(0) {
     }
   public:
     virtual ~VMImpl() override {
@@ -37,14 +78,6 @@ namespace {
     }
     virtual IAllocator& getAllocator() const override {
       return this->vm.getAllocator();
-    }
-    virtual IBasket& getBasket() const override {
-      return this->vm.getBasket();
-    }
-    template<typename... ARGS>
-    String createStringConcat(ARGS&&... args) {
-      StringBuilder sb(&this->getAllocator());
-      return sb.add(std::forward<ARGS>(args)...).build();
     }
   };
 
@@ -97,7 +130,7 @@ public:
     this->children.push_back(&child);
   }
   Node& build() {
-    // Do nothing WIBBLE
+    // TODO
     return *this;
   }
 };
@@ -194,12 +227,15 @@ namespace {
     HardPtr<VMProgram> program;
     std::stack<NodeStack> stack;
     SymbolTable symtable;
+    VMCommon<IVMExecution> execution;
   public:
     VMProgramRunner(IVM& vm, VMProgram& program)
-      : VMImpl(vm), program(&program) {
+      : VMImpl(vm),
+        program(&program),
+        execution(vm) {
       this->push(program.getRunnableRoot());
     }
-    virtual void builtin(const String& name, const Value& value) override {
+    virtual void addBuiltin(const String& name, const Value& value) override {
       this->symtable.add(SymbolKind::Builtin, name, value);
     }
     virtual RunOutcome run(Value& retval, RunFlags flags) override {
@@ -236,9 +272,14 @@ namespace {
       retval = this->createThrow(ValueFactory::createString(this->getAllocator(), reason));
       return RunOutcome::Faulted;
     }
+    template<typename... ARGS>
+    String createStringConcat(ARGS&&... args) {
+      StringBuilder sb(&this->getAllocator());
+      return sb.add(std::forward<ARGS>(args)...).build();
+    }
   };
 
-  class VMDefault : public HardReferenceCounted<IVM> {
+  class VMDefault : public HardReferenceCountedAllocator<IVM> {
     VMDefault(const VMDefault&) = delete;
     VMDefault& operator=(const VMDefault&) = delete;
   private:
@@ -246,18 +287,21 @@ namespace {
     ILogger& logger;
   public:
     VMDefault(IAllocator& allocator, ILogger& logger)
-      : HardReferenceCounted(allocator, 0),
+      : HardReferenceCountedAllocator<IVM>(allocator),
         basket(BasketFactory::createBasket(allocator)),
         logger(logger) {
     }
     virtual IAllocator& getAllocator() const override {
       return this->allocator;
     }
-    virtual IBasket& getBasket() const override {
-      return *this->basket;
-    }
     virtual ILogger& getLogger() const override {
       return this->logger;
+    }
+    virtual String createStringUTF8(const void* utf8, size_t bytes, size_t codepoints) override {
+      return String::fromUTF8(&this->allocator, utf8, bytes, codepoints);
+    }
+    virtual String createStringUTF32(const void* utf32, size_t codepoints) override {
+      return String::fromUTF32(&this->allocator, utf32, codepoints);
     }
     virtual HardPtr<IVMProgramBuilder> createProgramBuilder() override {
       return HardPtr<IVMProgramBuilder>(this->allocator.makeRaw<VMProgramBuilder>(*this));
@@ -279,6 +323,12 @@ namespace {
     }
     virtual Value createValueString(const String& value) override {
       return ValueFactory::createString(this->allocator, value);
+    }
+    virtual Value createValueObject(const Object& value) override {
+      return ValueFactory::createObject(this->allocator, value);
+    }
+    virtual Object createBuiltinPrint() override {
+      return ObjectFactory::createBuiltinPrint(*this);
     }
   };
 }
@@ -302,16 +352,19 @@ egg::ovum::IVMProgramRunner::RunOutcome VMProgramRunner::step(Value& retval) {
       // Assemble the arguments
       this->push(*top.node->children[top.index++]);
     } else {
-      // Perform the function call WIBBLE
-      assert(top.deque.size() >= 2);
-      assert(top.deque.front().isString("[Object PRINT]"));
-      top.deque.pop_front();
-      StringBuilder sb{ &this->getAllocator() };
-      for (auto& arg : top.deque) {
-        sb.add(arg);
+      // Perform the function call
+      assert(top.deque.size() >= 1);
+      Object function;
+      if (!top.deque.front()->getObject(function)) {
+        return this->createFault(retval, "Invalid initial program node value for function call");
       }
-      this->vm.getLogger().log(ILogger::Source::User, ILogger::Severity::None, sb.build());
-      this->pop(Value::Void);
+      top.deque.pop_front();
+      CallArguments arguments;
+      for (auto& argument : top.deque) {
+        // TODO support named arguments
+        arguments.addUnnamed(argument);
+      }
+      this->pop(function->call(this->execution, arguments));
     }
     break;
   case IVMProgram::Node::Kind::ExprVariable:

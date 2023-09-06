@@ -12,7 +12,8 @@ namespace {
   egg::ovum::HardPtr<egg::ovum::IVMProgramRunner> createHelloWorldRunnerWithPrint(egg::test::VM& vm) {
     auto program = createHelloWorldProgram(vm);
     auto runner = program->createRunner();
-    runner->builtin(program->createString("print"), vm.vm->createValue("[Object PRINT]"));
+    auto print = vm->createBuiltinPrint();
+    runner->addBuiltin(program->createString("print"), vm.vm->createValueObject(print));
     return runner;
   }
 }
