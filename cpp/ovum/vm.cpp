@@ -455,6 +455,14 @@ namespace {
     virtual HardObject createBuiltinCollector() override {
       return ObjectFactory::createBuiltinCollector(*this);
     }
+    virtual void softAcquire(ICollectable*& target, const ICollectable* value) {
+      // TODO: thread safety
+      if (value != nullptr) {
+        target = this->basket->take(*value);
+      } else {
+        target = nullptr;
+      }
+    }
   };
 }
 

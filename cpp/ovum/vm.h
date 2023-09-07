@@ -140,6 +140,16 @@ namespace egg::ovum {
     virtual HardObject createBuiltinPrint() = 0;
     virtual HardObject createBuiltinExpando() = 0; // TODO deprecate
     virtual HardObject createBuiltinCollector() = 0; // TODO testing only
+    // Helpers
+    virtual void softAcquire(ICollectable*& target, const ICollectable* value) = 0;
+    template<typename T>
+    inline void setSoftPtr(SoftPtr<T>& target, const T* value) {
+      this->softAcquire(target.ptr, value);
+    }
+    template<typename T>
+    inline void setSoftPtr(SoftPtr<T>& target, const HardPtr<T>& value) {
+      this->softAcquire(target.ptr, value.get());
+    }
   };
 
   class VMFactory {

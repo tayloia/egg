@@ -326,7 +326,7 @@ namespace {
       assert(this->validate());
     }
     virtual void softVisit(ICollectable::IVisitor&) const override {
-      // WIBBLE this->inner->visit(visitor);
+      // Our inner value is a hard reference as we only expect to exist for a short time
     }
     virtual ValueFlags getFlags() const override {
       return this->flags | this->inner->getFlags();

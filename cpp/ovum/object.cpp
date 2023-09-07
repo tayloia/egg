@@ -116,7 +116,7 @@ namespace {
       if (!value->getHardObject(pvalue)) {
         return execution.raise("TODO: Expando objects only support object property values");
       }
-      this->x.set(this->vm->getBasket(), pvalue.get());
+      this->vm->setSoftPtr(this->x, pvalue);
       return HardValue::Void;
     }
   };

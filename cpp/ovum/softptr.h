@@ -78,23 +78,16 @@ namespace egg::ovum {
 
   template<typename T>
   class SoftPtr {
+    friend class IVM;
     SoftPtr(const SoftPtr&) = delete;
     SoftPtr& operator=(const SoftPtr&) = delete;
-  private:
-    T* ptr;
+  protected:
+    ICollectable* ptr;
   public:
-    SoftPtr(std::nullptr_t = nullptr) : ptr(nullptr) { // implicit
-    }
-    SoftPtr(IBasket& basket, const T* target) : ptr(SoftPtr::softAcquire(basket, target)) {
-    }
-    SoftPtr(SoftPtr&& rhs) noexcept : ptr(rhs.ptr) {
-      rhs.ptr = nullptr;
+    SoftPtr() : ptr(nullptr) {
     }
     T* get() const {
-      return this->ptr;
-    }
-    void set(IBasket& basket, const T* target) {
-      this->ptr = SoftPtr::softAcquire(basket, target);
+      return static_cast<T*>(this->ptr);
     }
     void visit(ICollectable::IVisitor& visitor) const {
       if (this->ptr != nullptr) {
@@ -103,30 +96,17 @@ namespace egg::ovum {
     }
     T& operator*() const {
       assert(this->ptr != nullptr);
-      return *this->ptr;
+      return *static_cast<T*>(this->ptr);
     }
     T* operator->() const {
       assert(this->ptr != nullptr);
-      return this->ptr;
+      return static_cast<T*>(this->ptr);
     }
     bool operator==(std::nullptr_t) const {
       return this->ptr == nullptr;
     }
     bool operator!=(std::nullptr_t) const {
       return this->ptr != nullptr;
-    }
-    static T* hardAcquire(const T* target) {
-      if (target != nullptr) {
-        // See https://stackoverflow.com/a/15572442
-        return target->template hardAcquire<T>();
-      }
-      return nullptr;
-    }
-    static T* softAcquire(IBasket& basket, const ICollectable* target) {
-      if (target != nullptr) {
-        return static_cast<T*>(basket.take(*target));
-      }
-      return nullptr;
     }
   };
   template<typename T>
