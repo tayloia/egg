@@ -71,7 +71,7 @@ namespace egg::ovum {
       // We cannot be added to a basket
       return ICollectable::SetBasketResult::Exempt;
     }
-    virtual void softVisit(const ICollectable::Visitor&) const override {
+    virtual void softVisit(ICollectable::IVisitor&) const override {
       // Nothing to do
     }
   };
@@ -96,9 +96,9 @@ namespace egg::ovum {
     void set(IBasket& basket, const T* target) {
       this->ptr = SoftPtr::softAcquire(basket, target);
     }
-    void visit(const ICollectable::Visitor& visitor) const {
+    void visit(ICollectable::IVisitor& visitor) const {
       if (this->ptr != nullptr) {
-        this->ptr->softVisit(visitor);
+        visitor.visit(*this->ptr);
       }
     }
     T& operator*() const {

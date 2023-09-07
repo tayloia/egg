@@ -6,6 +6,47 @@
 namespace {
   using namespace egg::ovum;
 
+  class BasketCollector : public ICollectable::IVisitor {
+    BasketCollector(const BasketCollector&) = delete;
+    BasketCollector& operator=(const BasketCollector&) = delete;
+  public:
+    BasketCollector(IBasket& basket, const std::set<const ICollectable*>& owned)
+      : basket(basket),
+        owned(owned) {
+    }
+    IBasket& basket;
+    const std::set<const ICollectable*>& owned;
+    std::stack<const ICollectable*> pending;
+    std::set<const ICollectable*> unreachable;
+    void collect() {
+      // TODO thread safety
+      for (auto* collectable : this->owned) {
+        assert(collectable->softGetBasket() == &basket);
+        if (collectable->softIsRoot()) {
+          // Construct a list of roots to start the search from
+          this->pending.push(collectable);
+        } else {
+          // Assume all non-roots are unreachable
+          this->unreachable.insert(collectable);
+        }
+      }
+      while (!this->pending.empty()) {
+        auto* collectable = pending.top();
+        this->pending.pop();
+        assert(this->unreachable.count(collectable) == 0);
+        collectable->softVisit(*this);
+      }
+    }
+    virtual void visit(const ICollectable& target) override {
+      assert(target.softGetBasket() == &this->basket);
+      assert(this->owned.find(&target) != this->owned.end());
+      if (this->unreachable.erase(&target) > 0) {
+        // It's a node that has just been deemed reachable
+        this->pending.push(&target);
+      }
+    }
+  };
+
   class BasketDefault : public HardReferenceCountedAllocator<IBasket> {
     BasketDefault(const BasketDefault&) = delete;
     BasketDefault& operator=(const BasketDefault&) = delete;
@@ -59,35 +100,12 @@ namespace {
     }
     virtual size_t collect() override {
       // TODO thread safety
-      std::stack<const ICollectable*> pending;
-      std::set<const ICollectable*> unreachable;
-      for (auto* collectable : this->owned) {
-        assert(collectable->softGetBasket() == this);
-        if (collectable->softIsRoot()) {
-          // Construct a list of roots to start the search from
-          pending.push(collectable);
-        } else {
-          // Assume all non-roots are unreachable
-          unreachable.insert(collectable);
-        }
-      }
-      while (!pending.empty()) {
-        auto* collectable = pending.top();
-        pending.pop();
-        assert(unreachable.count(collectable) == 0);
-        collectable->softVisit([&](const ICollectable& target) {
-          assert(target.softGetBasket() == this);
-          assert(this->owned.find(&target) != this->owned.end());
-          if (unreachable.erase(&target) > 0) {
-            // It's a node that has just been deemed reachable
-            pending.push(&target);
-          }
-          });
-      }
-      for (auto collectable : unreachable) {
+      BasketCollector collector(*this, this->owned);
+      collector.collect();
+      for (auto collectable : collector.unreachable) {
         this->drop(*collectable);
       }
-      return unreachable.size();
+      return collector.unreachable.size();
     }
     virtual size_t purge() override {
       size_t purged = 0;

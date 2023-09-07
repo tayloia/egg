@@ -120,10 +120,14 @@ namespace egg::test {
     void addBuiltinExpando(egg::ovum::IVMProgramRunner& runner) {
       this->addBuiltin(runner, u8"expando", vm->createBuiltinExpando());
     }
+    void addBuiltinCollector(egg::ovum::IVMProgramRunner& runner) {
+      this->addBuiltin(runner, u8"collector", vm->createBuiltinCollector());
+    }
     void addBuiltins(egg::ovum::IVMProgramRunner& runner) {
       this->addBuiltinAssert(runner);
       this->addBuiltinPrint(runner);
       this->addBuiltinExpando(runner);
+      this->addBuiltinCollector(runner);
     }
   };
 

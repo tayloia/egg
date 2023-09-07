@@ -75,7 +75,7 @@ namespace {
     VMProgram(IVM& vm, Node& root)
       : VMCollectable(vm), root(&root) {
     }
-    virtual void softVisit(const ICollectable::Visitor&) const override {
+    virtual void softVisit(ICollectable::IVisitor&) const override {
       // TODO any soft links?
     }
     virtual void print(Printer& printer) const override {
@@ -247,7 +247,7 @@ namespace {
       : VMCollectable<IVMProgramBuilder>(vm) {
       this->root = VMProgram::makeHardVM<Node>(this->vm, nullptr, Node::Kind::Root);
     }
-    virtual void softVisit(const ICollectable::Visitor&) const override {
+    virtual void softVisit(ICollectable::IVisitor&) const override {
       // TODO any soft links?
     }
     virtual void print(Printer& printer) const override {
@@ -340,7 +340,7 @@ namespace {
         execution(vm) {
       this->push(program.getRunnableRoot());
     }
-    virtual void softVisit(const ICollectable::Visitor&) const override {
+    virtual void softVisit(ICollectable::IVisitor&) const override {
       // TODO any soft links?
     }
     virtual void print(Printer& printer) const override {
@@ -451,6 +451,9 @@ namespace {
     }
     virtual HardObject createBuiltinExpando() override {
       return ObjectFactory::createBuiltinExpando(*this);
+    }
+    virtual HardObject createBuiltinCollector() override {
+      return ObjectFactory::createBuiltinCollector(*this);
     }
   };
 }

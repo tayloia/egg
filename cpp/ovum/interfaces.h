@@ -165,14 +165,18 @@ namespace egg::ovum {
 
   class ICollectable : public IHardAcquireRelease {
   public:
+    class IVisitor {
+    public:
+      virtual ~IVisitor() {}
+      virtual void visit(const ICollectable& target) = 0;
+    };
     enum class SetBasketResult { Exempt, Unaltered, Altered, Failed };
-    using Visitor = std::function<void(const ICollectable& target)>;
     // Interface
     virtual bool validate() const = 0;
     virtual bool softIsRoot() const = 0;
     virtual IBasket* softGetBasket() const = 0;
     virtual SetBasketResult softSetBasket(IBasket* desired) const = 0;
-    virtual void softVisit(const Visitor& visitor) const = 0;
+    virtual void softVisit(IVisitor& visitor) const = 0;
     virtual void print(Printer& printer) const = 0;
   };
 

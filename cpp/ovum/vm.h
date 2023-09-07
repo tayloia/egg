@@ -139,6 +139,7 @@ namespace egg::ovum {
     virtual HardObject createBuiltinAssert() = 0;
     virtual HardObject createBuiltinPrint() = 0;
     virtual HardObject createBuiltinExpando() = 0; // TODO deprecate
+    virtual HardObject createBuiltinCollector() = 0; // TODO testing only
   };
 
   class VMFactory {

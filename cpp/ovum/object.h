@@ -23,5 +23,6 @@ namespace egg::ovum {
     static HardObject createBuiltinAssert(IVM& vm);
     static HardObject createBuiltinPrint(IVM& vm);
     static HardObject createBuiltinExpando(IVM& vm); // TODO deprecate
+    static HardObject createBuiltinCollector(IVM& vm); // TODO testing only
   };
 }

@@ -538,3 +538,55 @@ TEST(TestVM, ExpandoCycle) {
   buildAndRunSuccess(vm, *builder);
   ASSERT_EQ("[expando][expando]\n", vm.logger.logged.str());
 }
+
+TEST(TestVM, ExpandoCollector) {
+  egg::test::VM vm;
+  auto builder = vm->createProgramBuilder();
+  // var a = expando();
+  builder->addStatement(
+    builder->stmtVariableDefine(builder->createString("a")),
+    builder->exprFunctionCall(builder->exprVariable(builder->createString("expando")))
+  );
+  // var b = expando();
+  builder->addStatement(
+    builder->stmtVariableDefine(builder->createString("b")),
+    builder->exprFunctionCall(builder->exprVariable(builder->createString("expando")))
+  );
+  // a.x = b;
+  builder->addStatement(
+    builder->stmtPropertySet(builder->exprVariable(builder->createString("a")), builder->createValue("x")),
+    builder->exprVariable(builder->createString("b"))
+  );
+  // b.x = a;
+  builder->addStatement(
+    builder->stmtPropertySet(builder->exprVariable(builder->createString("b")), builder->createValue("x")),
+    builder->exprVariable(builder->createString("a"))
+  );
+  // print(collector()); -- should print '0'
+  builder->addStatement(
+    builder->stmtFunctionCall(builder->exprVariable(builder->createString("print"))),
+    builder->exprFunctionCall(builder->exprVariable(builder->createString("collector")))
+  );
+  // a = null;
+  builder->addStatement(
+    builder->stmtVariableSet(builder->createString("a")),
+    builder->exprLiteral(builder->createValue(nullptr))
+  );
+  // print(collector()); -- should print '0'
+  builder->addStatement(
+    builder->stmtFunctionCall(builder->exprVariable(builder->createString("print"))),
+    builder->exprFunctionCall(builder->exprVariable(builder->createString("collector")))
+  );
+  // b = null;
+  builder->addStatement(
+    builder->stmtVariableSet(builder->createString("b")),
+    builder->exprLiteral(builder->createValue(nullptr))
+  );
+  // print(collector()); -- should print '2'
+  builder->addStatement(
+    builder->stmtFunctionCall(builder->exprVariable(builder->createString("print"))),
+    builder->exprFunctionCall(builder->exprVariable(builder->createString("collector")))
+  );
+  buildAndRunSuccess(vm, *builder);
+  ASSERT_EQ("0\n0\n2\n", vm.logger.logged.str());
+}

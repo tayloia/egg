@@ -8,7 +8,7 @@ namespace egg::ovum {
   public:
     virtual IValue* softAcquire() const = 0;
     virtual void softRelease() const = 0;
-    virtual void softVisit(const ICollectable::Visitor& visitor) const = 0;
+    virtual void softVisit(ICollectable::IVisitor& visitor) const = 0;
     virtual bool getVoid() const = 0;
     virtual bool getNull() const = 0;
     virtual bool getBool(Bool& value) const = 0;

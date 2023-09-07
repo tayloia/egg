@@ -20,7 +20,7 @@ namespace {
     virtual void softRelease() const override {
       // Do nothing (no dynamic memory to reclaim)
     }
-    virtual void softVisit(const ICollectable::Visitor&) const override {
+    virtual void softVisit(ICollectable::IVisitor&) const override {
       // Nothing to visit
     }
     virtual bool getVoid() const override {
@@ -140,7 +140,7 @@ namespace {
       // By default, values are hard reference-counted and not within a GC basket
       this->hardRelease();
     }
-    virtual void softVisit(const ICollectable::Visitor&) const override {
+    virtual void softVisit(ICollectable::IVisitor&) const override {
       // By default, nothing to visit
     }
     virtual bool getVoid() const override {
@@ -325,8 +325,8 @@ namespace {
       : ValueMutable(allocator), flags(flags), inner(inner) {
       assert(this->validate());
     }
-    virtual void softVisit(const ICollectable::Visitor& visitor) const override {
-      this->inner->softVisit(visitor);
+    virtual void softVisit(ICollectable::IVisitor&) const override {
+      // WIBBLE this->inner->visit(visitor);
     }
     virtual ValueFlags getFlags() const override {
       return this->flags | this->inner->getFlags();

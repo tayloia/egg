@@ -32,7 +32,7 @@ namespace {
     explicit VMObjectBuiltinAssert(IVM& vm)
       : VMObjectBase(vm) {
     }
-    virtual void softVisit(const Visitor&) const override {
+    virtual void softVisit(ICollectable::IVisitor&) const override {
       // No soft links
     }
     virtual void print(Printer& printer) const override {
@@ -64,7 +64,7 @@ namespace {
     explicit VMObjectBuiltinPrint(IVM& vm)
       : VMObjectBase(vm) {
     }
-    virtual void softVisit(const Visitor&) const override {
+    virtual void softVisit(ICollectable::IVisitor&) const override {
       // No soft links
     }
     virtual void print(Printer& printer) const override {
@@ -98,8 +98,8 @@ namespace {
     explicit VMObjectExpando(IVM& vm)
       : VMObjectBase(vm) {
     }
-    virtual void softVisit(const Visitor&) const override {
-      // WIBBLE
+    virtual void softVisit(ICollectable::IVisitor& visitor) const override {
+      this->x.visit(visitor);
     }
     virtual void print(Printer& printer) const override {
       printer << "[expando]";
@@ -128,7 +128,7 @@ namespace {
     explicit VMObjectBuiltinExpando(IVM& vm)
       : VMObjectBase(vm) {
     }
-    virtual void softVisit(const Visitor&) const override {
+    virtual void softVisit(ICollectable::IVisitor&) const override {
       // No soft links
     }
     virtual void print(Printer& printer) const override {
@@ -145,6 +145,31 @@ namespace {
       return execution.raise("Builtin 'expando()' does not support properties");
     }
   };
+
+  class VMObjectBuiltinCollector : public VMObjectBase {
+    VMObjectBuiltinCollector(const VMObjectBuiltinCollector&) = delete;
+    VMObjectBuiltinCollector& operator=(const VMObjectBuiltinCollector&) = delete;
+  public:
+    explicit VMObjectBuiltinCollector(IVM& vm)
+      : VMObjectBase(vm) {
+    }
+    virtual void softVisit(ICollectable::IVisitor&) const override {
+      // No soft links
+    }
+    virtual void print(Printer& printer) const override {
+      printer << "[builtin collector]";
+    }
+    virtual HardValue vmCall(IVMExecution& execution, const ICallArguments& arguments) override {
+      if (arguments.getArgumentCount() != 0) {
+        return execution.raise("Builtin 'collector()' expects no arguments");
+      }
+      auto collected = this->vm->getBasket().collect();
+      return execution.createValue(Int(collected));
+    }
+    virtual HardValue vmPropertySet(IVMExecution& execution, const HardValue&, const HardValue&) override {
+      return execution.raise("Builtin 'collector()' does not support properties");
+    }
+  };
 }
 
 egg::ovum::HardObject egg::ovum::ObjectFactory::createBuiltinAssert(IVM& vm) {
@@ -157,4 +182,8 @@ egg::ovum::HardObject egg::ovum::ObjectFactory::createBuiltinPrint(IVM& vm) {
 
 egg::ovum::HardObject egg::ovum::ObjectFactory::createBuiltinExpando(IVM& vm) {
   return makeObject<VMObjectBuiltinExpando>(vm);
+}
+
+egg::ovum::HardObject egg::ovum::ObjectFactory::createBuiltinCollector(IVM& vm) {
+  return makeObject<VMObjectBuiltinCollector>(vm);
 }
