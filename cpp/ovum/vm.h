@@ -66,13 +66,21 @@ namespace egg::ovum {
     }
   };
 
+  class IVMExecution : public ILogger, public IVMCommon {
+  public:
+    virtual Value raiseException(const String& message) = 0;
+    template<typename... ARGS>
+    inline Value raise(ARGS&&... args) {
+      // TODO deprecate StringBuilder at the public interface
+      egg::ovum::StringBuilder sb{ nullptr };
+      auto message = sb.add(std::forward<ARGS>(args)...).toUTF8();
+      return this->raiseException(this->createString(message.data(), message.size()));
+    }
+  };
+
   class IVMBase : public IHardAcquireRelease, public IVMCommon {
   public:
     virtual IAllocator& getAllocator() const = 0;
-  };
-
-  class IVMExecution : public ILogger, public IVMCommon {
-  public:
   };
 
   class IVMProgramRunner : public IVMBase {
@@ -128,6 +136,7 @@ namespace egg::ovum {
     // Builder factories
     virtual HardPtr<IVMProgramBuilder> createProgramBuilder() = 0;
     // Builtin factories
+    virtual Object createBuiltinAssert() = 0;
     virtual Object createBuiltinPrint() = 0;
   };
 

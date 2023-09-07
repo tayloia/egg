@@ -105,10 +105,14 @@ namespace egg::test {
     egg::ovum::IVM* operator->() {
       return this->vm.get();
     }
+    void addBuiltinAssert(egg::ovum::IVMProgramRunner& runner) {
+      runner.addBuiltin(vm->createString("assert"), vm->createValueObject(vm->createBuiltinAssert()));
+    }
     void addBuiltinPrint(egg::ovum::IVMProgramRunner& runner) {
       runner.addBuiltin(vm->createString("print"), vm->createValueObject(vm->createBuiltinPrint()));
     }
     void addBuiltins(egg::ovum::IVMProgramRunner& runner) {
+      this->addBuiltinAssert(runner);
       this->addBuiltinPrint(runner);
     }
   };

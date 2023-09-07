@@ -20,6 +20,7 @@ namespace egg::ovum {
   class ObjectFactory {
   public:
     // Builtin factories
+    static Object createBuiltinAssert(IVM& vm);
     static Object createBuiltinPrint(IVM& vm);
   };
 }

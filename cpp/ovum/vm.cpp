@@ -142,6 +142,21 @@ public:
 namespace {
   using namespace egg::ovum;
 
+  class VMExecution : public VMCommon<IVMExecution> {
+    VMExecution(const VMExecution&) = delete;
+    VMExecution& operator=(const VMExecution&) = delete;
+  public:
+    explicit VMExecution(IVM& vm)
+      : VMCommon<IVMExecution>(vm) {
+    }
+    virtual Value raiseException(const String& message) override {
+      // TODO augment with runtime metadata
+      auto& allocator = this->vm.getAllocator();
+      auto inner = ValueFactory::createString(allocator, message);
+      return ValueFactory::createFlowControl(allocator, ValueFlags::Throw, inner);
+    }
+  };
+
   class VMProgramBuilder : public VMImpl<IVMProgramBuilder> {
     VMProgramBuilder(const VMProgramBuilder&) = delete;
     VMProgramBuilder& operator=(const VMProgramBuilder&) = delete;
@@ -298,7 +313,7 @@ namespace {
     HardPtr<VMProgram> program;
     std::stack<NodeStack> stack;
     SymbolTable symtable;
-    VMCommon<IVMExecution> execution;
+    VMExecution execution;
   public:
     VMProgramRunner(IVM& vm, VMProgram& program)
       : VMImpl(vm),
@@ -400,6 +415,9 @@ namespace {
     virtual Value createValueObject(const Object& value) override {
       return ValueFactory::createObject(this->allocator, value);
     }
+    virtual Object createBuiltinAssert() override {
+      return ObjectFactory::createBuiltinAssert(*this);
+    }
     virtual Object createBuiltinPrint() override {
       return ObjectFactory::createBuiltinPrint(*this);
     }
@@ -412,6 +430,25 @@ egg::ovum::IVMProgramRunner::RunOutcome VMProgramRunner::step(Value& retval) {
   switch (top.node->kind) {
   case IVMProgram::Node::Kind::Root:
     assert(top.node->value.isVoid());
+    if (top.index > 0) {
+      // Check the result of the previous child statement
+      assert(top.deque.size() == 1);
+      auto& result = top.deque.back();
+      if (result.hasFlowControl()) {
+        retval = result;
+        if (result.hasAnyFlags(ValueFlags::Return)) {
+          // Premature 'return' statement
+          return RunOutcome::Completed;
+        }
+        // Probably an exception thrown
+        return RunOutcome::Faulted;
+      }
+      if (result->getFlags() != ValueFlags::Void) {
+        this->log(ILogger::Source::Runtime, ILogger::Severity::Warning, this->createString("Discarded value in module root statement"));
+      }
+      top.deque.pop_back();
+    }
+    assert(top.deque.empty());
     if (top.index < top.node->children.size()) {
       // Execute all the statements
       this->push(*top.node->children[top.index++]);

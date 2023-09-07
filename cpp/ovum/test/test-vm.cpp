@@ -487,3 +487,27 @@ TEST(TestVM, BuiltinUndeclare) {
   buildAndRunFault(vm, *builder);
   ASSERT_EQ("<ERROR>throw Cannot undeclare builtin symbol: 'print'\n", vm.logger.logged.str());
 }
+
+TEST(TestVM, AssertTrue) {
+  egg::test::VM vm;
+  auto builder = vm->createProgramBuilder();
+  // assert(true);
+  builder->addStatement(
+    builder->stmtFunctionCall(builder->exprVariable(builder->createString("assert"))),
+    builder->exprLiteral(builder->createValueBool(true))
+  );
+  buildAndRunSuccess(vm, *builder);
+  ASSERT_EQ("", vm.logger.logged.str());
+}
+
+TEST(TestVM, AssertFalse) {
+  egg::test::VM vm;
+  auto builder = vm->createProgramBuilder();
+  // assert(false);
+  builder->addStatement(
+    builder->stmtFunctionCall(builder->exprVariable(builder->createString("assert"))),
+    builder->exprLiteral(builder->createValueBool(false))
+  );
+  buildAndRunFault(vm, *builder);
+  ASSERT_EQ("<ERROR>throw Assertion failure\n", vm.logger.logged.str());
+}

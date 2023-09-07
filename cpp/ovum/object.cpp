@@ -19,6 +19,38 @@ namespace {
     }
   };
 
+  class VMObjectBuiltinAssert : public VMObjectBase {
+    VMObjectBuiltinAssert(const VMObjectBuiltinAssert&) = delete;
+    VMObjectBuiltinAssert& operator=(const VMObjectBuiltinAssert&) = delete;
+  public:
+    explicit VMObjectBuiltinAssert(IVM& vm)
+      : VMObjectBase(vm) {
+    }
+    virtual void softVisit(const Visitor&) const override {
+      // WIBBLE
+    }
+    virtual void print(Printer& printer) const override {
+      printer << "[builtin assert]";
+    }
+    virtual Value call(IVMExecution& execution, const ICallArguments& arguments) override {
+      assert(arguments.getArgumentCount() == 1); // WIBBLE
+      String name;
+      Value value;
+      auto fetched = arguments.getArgument(0, name, value);
+      assert(fetched);
+      assert(name.empty());
+      assert(value.isBool());
+      Bool success = false;
+      fetched = value->getBool(success);
+      assert(fetched);
+      if (!success) {
+        return execution.raise("Assertion failure");
+      }
+      (void)fetched;
+      return Value::Void;
+    }
+  };
+
   class VMObjectBuiltinPrint : public VMObjectBase {
     VMObjectBuiltinPrint(const VMObjectBuiltinPrint&) = delete;
     VMObjectBuiltinPrint& operator=(const VMObjectBuiltinPrint&) = delete;
@@ -39,7 +71,7 @@ namespace {
       Value value;
       for (size_t i = 0; i < n; ++i) {
         auto fetched = arguments.getArgument(i, name, value);
-        assert(fetched == true);
+        assert(fetched);
         (void)fetched;
         assert(name.empty());
         sb.add(value);
@@ -54,6 +86,10 @@ namespace {
     // Use perfect forwarding
     return RETTYPE(vm.getAllocator().makeRaw<T>(vm, std::forward<ARGS>(args)...));
   }
+}
+
+egg::ovum::Object egg::ovum::ObjectFactory::createBuiltinAssert(IVM& vm) {
+  return makeObject<VMObjectBuiltinAssert>(vm);
 }
 
 egg::ovum::Object egg::ovum::ObjectFactory::createBuiltinPrint(IVM& vm) {
