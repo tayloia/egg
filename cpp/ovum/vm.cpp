@@ -76,7 +76,7 @@ namespace {
       : VMCollectable(vm), root(&root) {
     }
     virtual void softVisit(const ICollectable::Visitor&) const override {
-      // WIBBLE
+      // TODO any soft links?
     }
     virtual void print(Printer& printer) const override {
       printer << "[VMProgram]";
@@ -91,6 +91,100 @@ namespace {
     static HardPtr<TYPE> makeHardVM(IVM& vm, ARGS&&... args) {
       // Use perfect forwarding
       return HardPtr<TYPE>(vm.getAllocator().makeRaw<TYPE>(vm, std::forward<ARGS>(args)...));
+    }
+  };
+
+  // Only instantiated by composition within 'VMProgramRunner' etc.
+  struct VMSymbolTable {
+  public:
+    enum class Kind {
+      Unknown,
+      Builtin,
+      Unset,
+      Variable
+    };
+  private:
+    struct Entry {
+      Kind kind;
+      HardValue value;
+    };
+    std::map<String, Entry> entries;
+  public:
+    Kind add(Kind kind, const String& name, const HardValue& value) {
+      // Returns the old kind before this request
+      assert(kind != Kind::Unknown);
+      auto result = this->entries.emplace(name, Entry(kind, value));
+      if (result.second) {
+        return Kind::Unknown;
+      }
+      assert(result.first->second.kind != Kind::Unknown);
+      return result.first->second.kind;
+    }
+    Kind set(const String& name, const HardValue& value) {
+      // Returns the new kind but only updates if a variable (or unset)
+      auto result = this->entries.find(name);
+      if (result == this->entries.end()) {
+        return Kind::Unknown;
+      }
+      switch (result->second.kind) {
+      case Kind::Unknown:
+        return Kind::Unknown;
+      case Kind::Builtin:
+        // Can reset a builtin
+        return Kind::Builtin;
+      case Kind::Unset:
+        result->second.kind = Kind::Variable;
+        break;
+      case Kind::Variable:
+        break;
+      }
+      result->second.value = value;
+      return Kind::Variable;
+    }
+    Kind remove(const String& name) {
+      // Returns the old kind but only removes if variable or unset
+      auto result = this->entries.find(name);
+      if (result == this->entries.end()) {
+        return Kind::Unknown;
+      }
+      auto kind = result->second.kind;
+      if (kind != Kind::Builtin) {
+        this->entries.erase(result);
+      }
+      return kind;
+    }
+    Kind lookup(const String& name) {
+      // Returns the current kind
+      auto result = this->entries.find(name);
+      if (result == this->entries.end()) {
+        return Kind::Unknown;
+      }
+      return result->second.kind;
+    }
+    Kind lookup(const String& name, HardValue& value) {
+      // Returns the current kind and current value
+      auto result = this->entries.find(name);
+      if (result == this->entries.end()) {
+        return Kind::Unknown;
+      }
+      value = result->second.value;
+      return result->second.kind;
+    }
+  };
+
+  // Only instantiated by composition within 'VMProgramRunner' etc.
+  class VMExecution : public VMCommon<IVMExecution> {
+    VMExecution(const VMExecution&) = delete;
+    VMExecution& operator=(const VMExecution&) = delete;
+  public:
+    explicit VMExecution(IVM& vm)
+      : VMCommon<IVMExecution>(vm) {
+    }
+    virtual HardValue raiseException(const String& message) override {
+      // TODO augment with runtime metadata
+      auto& allocator = this->vm.getAllocator();
+      auto inner = ValueFactory::createString(allocator, message);
+      return ValueFactory::createHardFlowControl(allocator, ValueFlags::Throw, inner);
     }
   };
 }
@@ -116,7 +210,7 @@ public:
   };
   Kind kind;
   HardValue literal; // Only stores simple literals
-  std::vector<Node*> children; // Hard pointers stored in the chain
+  std::vector<Node*> children; // Reference-counting hard pointers are stored in the chain
   Node(IVM& vm, Node* parent, Kind kind)
     : HardReferenceCounted<IHardAcquireRelease>(),
       vm(vm),
@@ -143,21 +237,6 @@ protected:
 namespace {
   using namespace egg::ovum;
 
-  class VMExecution : public VMCommon<IVMExecution> {
-    VMExecution(const VMExecution&) = delete;
-    VMExecution& operator=(const VMExecution&) = delete;
-  public:
-    explicit VMExecution(IVM& vm)
-      : VMCommon<IVMExecution>(vm) {
-    }
-    virtual HardValue raiseException(const String& message) override {
-      // TODO augment with runtime metadata
-      auto& allocator = this->vm.getAllocator();
-      auto inner = ValueFactory::createString(allocator, message);
-      return ValueFactory::createHardFlowControl(allocator, ValueFlags::Throw, inner);
-    }
-  };
-
   class VMProgramBuilder : public VMCollectable<IVMProgramBuilder> {
     VMProgramBuilder(const VMProgramBuilder&) = delete;
     VMProgramBuilder& operator=(const VMProgramBuilder&) = delete;
@@ -169,7 +248,7 @@ namespace {
       this->root = VMProgram::makeHardVM<Node>(this->vm, nullptr, Node::Kind::Root);
     }
     virtual void softVisit(const ICollectable::Visitor&) const override {
-      // WIBBLE
+      // TODO any soft links?
     }
     virtual void print(Printer& printer) const override {
       printer << "[VMProgramBuilder]";
@@ -241,86 +320,6 @@ namespace {
     }
   };
 
-  class VMSymbolTable {
-    VMSymbolTable(const VMSymbolTable&) = delete;
-    VMSymbolTable& operator=(const VMSymbolTable&) = delete;
-  public:
-    enum class Kind {
-      Unknown,
-      Builtin,
-      Unset,
-      Variable
-    };
-  private:
-    struct Entry {
-      Kind kind;
-      HardValue value; // WIBBLE
-    };
-    std::map<String, Entry> entries;
-  public:
-    VMSymbolTable() = default;
-    Kind add(Kind kind, const String& name, const HardValue& value) {
-      // Returns the old kind before this request
-      assert(kind != Kind::Unknown);
-      auto result = this->entries.emplace(name, Entry(kind, value));
-      if (result.second) {
-        return Kind::Unknown;
-      }
-      assert(result.first->second.kind != Kind::Unknown);
-      return result.first->second.kind;
-    }
-    Kind set(const String& name, const HardValue& value) {
-      // Returns the new kind but only updates if a variable (or unset)
-      auto result = this->entries.find(name);
-      if (result == this->entries.end()) {
-        return Kind::Unknown;
-      }
-      switch (result->second.kind) {
-      case Kind::Unknown:
-        return Kind::Unknown;
-      case Kind::Builtin:
-        // Can reset a builtin
-        return Kind::Builtin;
-      case Kind::Unset:
-        result->second.kind = Kind::Variable;
-        break;
-      case Kind::Variable:
-        break;
-      }
-      result->second.value = value;
-      return Kind::Variable;
-    }
-    Kind remove(const String& name) {
-      // Returns the old kind but only removes if variable or unset
-      auto result = this->entries.find(name);
-      if (result == this->entries.end()) {
-        return Kind::Unknown;
-      }
-      auto kind = result->second.kind;
-      if (kind != Kind::Builtin) {
-        this->entries.erase(result);
-      }
-      return kind;
-    }
-    Kind lookup(const String& name) {
-      // Returns the current kind
-      auto result = this->entries.find(name);
-      if (result == this->entries.end()) {
-        return Kind::Unknown;
-      }
-      return result->second.kind;
-    }
-    Kind lookup(const String& name, HardValue& value) {
-      // Returns the current kind and current value
-      auto result = this->entries.find(name);
-      if (result == this->entries.end()) {
-        return Kind::Unknown;
-      }
-      value = result->second.value;
-      return result->second.kind;
-    }
-  };
-
   class VMProgramRunner : public VMCollectable<IVMProgramRunner> {
     VMProgramRunner(const VMProgramRunner&) = delete;
     VMProgramRunner& operator=(const VMProgramRunner&) = delete;
@@ -328,7 +327,7 @@ namespace {
     struct NodeStack {
       const IVMProgram::Node* node;
       size_t index;
-      std::deque<HardValue> deque; // WIBBLE
+      std::deque<HardValue> deque;
     };
     HardPtr<VMProgram> program;
     std::stack<NodeStack> stack;
@@ -342,7 +341,7 @@ namespace {
       this->push(program.getRunnableRoot());
     }
     virtual void softVisit(const ICollectable::Visitor&) const override {
-      // WIBBLE
+      // TODO any soft links?
     }
     virtual void print(Printer& printer) const override {
       printer << "[VMProgramRunner]";
@@ -396,7 +395,7 @@ namespace {
   class VMDefault : public HardReferenceCountedAllocator<IVM> {
     VMDefault(const VMDefault&) = delete;
     VMDefault& operator=(const VMDefault&) = delete;
-  private:
+  protected:
     HardPtr<IBasket> basket;
     ILogger& logger;
   public:
@@ -645,9 +644,5 @@ egg::ovum::IVMProgramRunner::RunOutcome VMProgramRunner::step(HardValue& retval)
 }
 
 egg::ovum::HardPtr<IVM> egg::ovum::VMFactory::createDefault(IAllocator& allocator, ILogger& logger) {
-  return allocator.makeHard<VMDefault>(logger);
-}
-
-egg::ovum::HardPtr<IVM> egg::ovum::VMFactory::createTest(IAllocator& allocator, ILogger& logger) {
   return allocator.makeHard<VMDefault>(logger);
 }

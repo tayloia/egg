@@ -11,11 +11,9 @@ namespace {
     BasketDefault& operator=(const BasketDefault&) = delete;
   private:
     std::set<const ICollectable*> owned; // TODO unordered_set?
-    uint64_t bytes;
   public:
     explicit BasketDefault(IAllocator& allocator)
-      : HardReferenceCountedAllocator<IBasket>(allocator),
-        bytes(0) {
+      : HardReferenceCountedAllocator<IBasket>(allocator) {
     }
     virtual ~BasketDefault() {
       // Make sure we no longer own any collectables
@@ -100,8 +98,8 @@ namespace {
       return purged;
     }
     virtual bool statistics(Statistics& out) const override {
+      (void)this->allocator.statistics(out);
       out.currentBlocksOwned = this->owned.size();
-      out.currentBytesOwned = this->bytes;
       return true;
     }
     virtual void print(Printer& printer) const override {
@@ -131,7 +129,7 @@ bool egg::ovum::IBasket::verify(std::ostream& os, size_t minimum, size_t maximum
       // Otherwise use the explicit bounds
       return true;
     }
-    os << "$$$ Basket still owns " << stats.currentBytesOwned << " bytes in " << stats.currentBlocksOwned << " blocks" << std::endl;
+    os << "$$$ Basket still owns " << stats.currentBytesAllocated << " bytes in " << stats.currentBlocksOwned << " blocks" << std::endl;
   } else {
     os << "$$$ Unable to determine number of remaining basket blocks" << std::endl;
   }

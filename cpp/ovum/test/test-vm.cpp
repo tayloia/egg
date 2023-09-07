@@ -47,13 +47,6 @@ TEST(TestVM, CreateDefaultInstance) {
   ASSERT_NE(nullptr, vm);
 }
 
-TEST(TestVM, CreateTestInstance) {
-  egg::test::Allocator allocator;
-  egg::test::Logger logger;
-  auto vm = egg::ovum::VMFactory::createTest(allocator, logger);
-  ASSERT_NE(nullptr, vm);
-}
-
 TEST(TestVM, CreateStringUTF8) {
   egg::test::VM vm;
   auto s = vm->createStringUTF8(u8"hello");
@@ -499,12 +492,43 @@ TEST(TestVM, ExpandoPair) {
     builder->exprFunctionCall(builder->exprVariable(builder->createString("expando")))
   );
   // a.x = b;
-  /*
   builder->addStatement(
     builder->stmtPropertySet(builder->exprVariable(builder->createString("a")), builder->createValue("x")),
+    builder->exprVariable(builder->createString("b"))
+  );
+  // print(a,b);
+  builder->addStatement(
+    builder->stmtFunctionCall(builder->exprVariable(builder->createString("print"))),
+    builder->exprVariable(builder->createString("a")),
+    builder->exprVariable(builder->createString("b"))
+  );
+  buildAndRunSuccess(vm, *builder);
+  ASSERT_EQ("[expando][expando]\n", vm.logger.logged.str());
+}
+
+TEST(TestVM, ExpandoCycle) {
+  egg::test::VM vm;
+  auto builder = vm->createProgramBuilder();
+  // var a = expando();
+  builder->addStatement(
+    builder->stmtVariableDefine(builder->createString("a")),
     builder->exprFunctionCall(builder->exprVariable(builder->createString("expando")))
   );
-  */
+  // var b = expando();
+  builder->addStatement(
+    builder->stmtVariableDefine(builder->createString("b")),
+    builder->exprFunctionCall(builder->exprVariable(builder->createString("expando")))
+  );
+  // a.x = b;
+  builder->addStatement(
+    builder->stmtPropertySet(builder->exprVariable(builder->createString("a")), builder->createValue("x")),
+    builder->exprVariable(builder->createString("b"))
+  );
+  // b.x = a;
+  builder->addStatement(
+    builder->stmtPropertySet(builder->exprVariable(builder->createString("b")), builder->createValue("x")),
+    builder->exprVariable(builder->createString("a"))
+  );
   // print(a,b);
   builder->addStatement(
     builder->stmtFunctionCall(builder->exprVariable(builder->createString("print"))),

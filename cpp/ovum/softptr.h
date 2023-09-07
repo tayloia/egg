@@ -41,6 +41,42 @@ namespace egg::ovum {
   };
 
   template<typename T>
+  class SoftReferenceCountedNot : public T {
+    SoftReferenceCountedNot(const SoftReferenceCountedNot&) = delete;
+    SoftReferenceCountedNot& operator=(const SoftReferenceCountedNot&) = delete;
+  public:
+    template<typename... ARGS>
+    SoftReferenceCountedNot(ARGS&&... args)
+      : T(std::forward<ARGS>(args)...) {
+    }
+    virtual T* hardAcquire() const override {
+      return const_cast<T*>(static_cast<const T*>(this));
+    }
+    virtual void hardRelease() const override {
+      // Do nothing
+    }
+    virtual bool validate() const override {
+      // Nothing to validate
+      return true;
+    }
+    virtual bool softIsRoot() const override {
+      // We cannot be destroyed so we must be a root
+      return true;
+    }
+    virtual IBasket* softGetBasket() const override {
+      // We belong to no basket
+      return nullptr;
+    }
+    virtual ICollectable::SetBasketResult softSetBasket(IBasket*) const override {
+      // We cannot be added to a basket
+      return ICollectable::SetBasketResult::Exempt;
+    }
+    virtual void softVisit(const ICollectable::Visitor&) const override {
+      // Nothing to do
+    }
+  };
+
+  template<typename T>
   class SoftPtr {
     SoftPtr(const SoftPtr&) = delete;
     SoftPtr& operator=(const SoftPtr&) = delete;

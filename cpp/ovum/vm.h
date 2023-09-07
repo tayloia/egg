@@ -145,6 +145,5 @@ namespace egg::ovum {
   public:
     // VM factories
     static HardPtr<IVM> createDefault(IAllocator& allocator, ILogger& logger);
-    static HardPtr<IVM> createTest(IAllocator& allocator, ILogger& logger);
   };
 }

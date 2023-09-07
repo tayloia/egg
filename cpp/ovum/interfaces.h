@@ -139,9 +139,8 @@ namespace egg::ovum {
 
   class IBasket : public IHardAcquireRelease {
   public:
-    struct Statistics {
+    struct Statistics : public IAllocator::Statistics {
       uint64_t currentBlocksOwned;
-      uint64_t currentBytesOwned;
     };
     // Interface
     virtual ICollectable* take(const ICollectable& collectable) = 0;

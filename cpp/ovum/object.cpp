@@ -33,7 +33,7 @@ namespace {
       : VMObjectBase(vm) {
     }
     virtual void softVisit(const Visitor&) const override {
-      // WIBBLE
+      // No soft links
     }
     virtual void print(Printer& printer) const override {
       printer << "[builtin assert]";
@@ -65,7 +65,7 @@ namespace {
       : VMObjectBase(vm) {
     }
     virtual void softVisit(const Visitor&) const override {
-      // WIBBLE
+      // No soft links
     }
     virtual void print(Printer& printer) const override {
       printer << "[builtin print]";
@@ -107,12 +107,17 @@ namespace {
     virtual HardValue vmCall(IVMExecution& execution, const ICallArguments&) override {
       return execution.raise("TODO: Expando objects do not yet support function call semantics");
     }
-    virtual HardValue vmPropertySet(IVMExecution& execution, const HardValue& property, const HardValue&) override {
+    virtual HardValue vmPropertySet(IVMExecution& execution, const HardValue& property, const HardValue& value) override {
       String pname;
       if (!property->getString(pname) || !pname.equals("x")) {
         return execution.raise("TODO: Expando objects only support property 'x'");
       }
-      return execution.raise("WIBBLE");
+      HardObject pvalue;
+      if (!value->getHardObject(pvalue)) {
+        return execution.raise("TODO: Expando objects only support object property values");
+      }
+      this->x.set(this->vm->getBasket(), pvalue.get());
+      return HardValue::Void;
     }
   };
 
@@ -124,7 +129,7 @@ namespace {
       : VMObjectBase(vm) {
     }
     virtual void softVisit(const Visitor&) const override {
-      // WIBBLE
+      // No soft links
     }
     virtual void print(Printer& printer) const override {
       printer << "[builtin expando]";
