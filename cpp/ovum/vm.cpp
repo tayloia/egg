@@ -26,26 +26,26 @@ namespace {
     virtual String createStringUTF32(const void* utf32, size_t codepoints) override {
       return this->vm.createStringUTF32(utf32, codepoints);
     }
-    virtual Value createValueVoid() override {
+    virtual HardValue createValueVoid() override {
       return this->vm.createValueVoid();
     }
-    virtual Value createValueNull() override {
+    virtual HardValue createValueNull() override {
       return this->vm.createValueNull();
     }
-    virtual Value createValueBool(Bool value) override {
+    virtual HardValue createValueBool(Bool value) override {
       return this->vm.createValueBool(value);
     }
-    virtual Value createValueInt(Int value) override {
+    virtual HardValue createValueInt(Int value) override {
       return this->vm.createValueInt(value);
     }
-    virtual Value createValueFloat(Float value) override {
+    virtual HardValue createValueFloat(Float value) override {
       return this->vm.createValueFloat(value);
     }
-    virtual Value createValueString(const String& value) override {
+    virtual HardValue createValueString(const String& value) override {
       return this->vm.createValueString(value);
     }
-    virtual Value createValueObject(const Object& value) override {
-      return this->vm.createValueObject(value);
+    virtual HardValue createValueObjectHard(const HardObject& value) override {
+      return this->vm.createValueObjectHard(value);
     }
   };
 
@@ -123,7 +123,7 @@ public:
     StmtFunctionCall
   };
   Kind kind;
-  Value value;
+  HardValue literal; // Only stores simple literals
   std::vector<Node*> children;
   Node(IVM& vm, Node* parent, Kind kind)
     : VMImpl(vm), chain(nullptr), kind(kind) {
@@ -151,11 +151,11 @@ namespace {
     explicit VMExecution(IVM& vm)
       : VMCommon<IVMExecution>(vm) {
     }
-    virtual Value raiseException(const String& message) override {
+    virtual HardValue raiseException(const String& message) override {
       // TODO augment with runtime metadata
       auto& allocator = this->vm.getAllocator();
       auto inner = ValueFactory::createString(allocator, message);
-      return ValueFactory::createFlowControl(allocator, ValueFlags::Throw, inner);
+      return ValueFactory::createHardFlowControl(allocator, ValueFlags::Throw, inner);
     }
   };
 
@@ -181,12 +181,12 @@ namespace {
     }
     virtual Node& exprVariable(const String& name) override {
       auto& node = this->makeNode(Node::Kind::ExprVariable);
-      node.value = this->createValueString(name);
+      node.literal = this->createValueString(name);
       return node;
     }
-    virtual Node& exprLiteral(const Value& literal) override {
+    virtual Node& exprLiteral(const HardValue& literal) override {
       auto& node = this->makeNode(Node::Kind::ExprLiteral);
-      node.value = literal;
+      node.literal = literal;
       return node;
     }
     virtual Node& exprFunctionCall(Node& function) override {
@@ -196,27 +196,27 @@ namespace {
     }
     virtual Node& stmtVariableDeclare(const String& name) override {
       auto& node = this->makeNode(Node::Kind::StmtVariableDeclare);
-      node.value = this->createValueString(name);
+      node.literal = this->createValueString(name);
       return node;
     }
     virtual Node& stmtVariableDefine(const String& name) override {
       auto& node = this->makeNode(Node::Kind::StmtVariableDefine);
-      node.value = this->createValueString(name);
+      node.literal = this->createValueString(name);
       return node;
     }
     virtual Node& stmtVariableSet(const String& name) override {
       auto& node = this->makeNode(Node::Kind::StmtVariableSet);
-      node.value = this->createValueString(name);
+      node.literal = this->createValueString(name);
       return node;
     }
     virtual Node& stmtVariableUndeclare(const String& name) override {
       auto& node = this->makeNode(Node::Kind::StmtVariableUndeclare);
-      node.value = this->createValueString(name);
+      node.literal = this->createValueString(name);
       return node;
     }
-    virtual Node& stmtPropertySet(Node& instance, const Value& property) override {
+    virtual Node& stmtPropertySet(Node& instance, const HardValue& property) override {
       auto& node = this->makeNode(Node::Kind::StmtPropertySet);
-      node.value = property;
+      node.literal = property;
       node.addChild(instance);
       return node;
     }
@@ -243,7 +243,7 @@ namespace {
     struct NodeStack {
       const IVMProgram::Node* node;
       size_t index;
-      std::deque<Value> deque;
+      std::deque<HardValue> deque; // WIBBLE
     };
     enum class SymbolKind {
       Unknown,
@@ -257,12 +257,12 @@ namespace {
     private:
       struct Entry {
         SymbolKind kind;
-        Value value;
+        HardValue value; // WIBBLE
       };
       std::map<String, Entry> entries;
     public:
       SymbolTable() = default;
-      SymbolKind add(SymbolKind kind, const String& name, const Value& value) {
+      SymbolKind add(SymbolKind kind, const String& name, const HardValue& value) {
         // Returns the old kind before this request
         assert(kind != SymbolKind::Unknown);
         auto result = this->entries.emplace(name, Entry(kind, value));
@@ -272,7 +272,7 @@ namespace {
         assert(result.first->second.kind != SymbolKind::Unknown);
         return result.first->second.kind;
       }
-      SymbolKind set(const String& name, const Value& value) {
+      SymbolKind set(const String& name, const HardValue& value) {
         // Returns the new kind but only updates if a variable (or unset)
         auto result = this->entries.find(name);
         if (result == this->entries.end()) {
@@ -313,7 +313,7 @@ namespace {
         }
         return result->second.kind;
       }
-      SymbolKind lookup(const String& name, Value& value) {
+      SymbolKind lookup(const String& name, HardValue& value) {
         // Returns the current kind and current value
         auto result = this->entries.find(name);
         if (result == this->entries.end()) {
@@ -334,12 +334,12 @@ namespace {
         execution(vm) {
       this->push(program.getRunnableRoot());
     }
-    virtual void addBuiltin(const String& name, const Value& value) override {
+    virtual void addBuiltin(const String& name, const HardValue& value) override {
       auto added = this->symtable.add(SymbolKind::Builtin, name, value);
       assert(added == SymbolKind::Unknown);
       (void)added;
     }
-    virtual RunOutcome run(Value& retval, RunFlags flags) override {
+    virtual RunOutcome run(HardValue& retval, RunFlags flags) override {
       if (flags == RunFlags::Step) {
         return this->step(retval);
       }
@@ -354,21 +354,21 @@ namespace {
       }
     }
   private:
-    RunOutcome step(Value& retval);
+    RunOutcome step(HardValue& retval);
     void push(const IVMProgram::Node& node, size_t index = 0) {
       this->stack.emplace(&node, index);
     }
-    void pop(const Value& value) {
+    void pop(const HardValue& value) {
       assert(!this->stack.empty());
       this->stack.pop();
       assert(!this->stack.empty());
       this->stack.top().deque.push_back(value);
     }
-    Value createThrow(const Value& value) {
-      return ValueFactory::createFlowControl(this->getAllocator(), ValueFlags::Throw, value);
+    HardValue createThrow(const HardValue& value) {
+      return ValueFactory::createHardFlowControl(this->getAllocator(), ValueFlags::Throw, value);
     }
     template<typename... ARGS>
-    RunOutcome createFault(Value& retval, ARGS&&... args) {
+    RunOutcome createFault(HardValue& retval, ARGS&&... args) {
       auto reason = this->createStringConcat(std::forward<ARGS>(args)...);
       retval = this->createThrow(ValueFactory::createString(this->getAllocator(), reason));
       return RunOutcome::Faulted;
@@ -407,45 +407,45 @@ namespace {
     virtual HardPtr<IVMProgramBuilder> createProgramBuilder() override {
       return HardPtr<IVMProgramBuilder>(this->allocator.makeRaw<VMProgramBuilder>(*this));
     }
-    virtual Value createValueVoid() override {
-      return Value::Void;
+    virtual HardValue createValueVoid() override {
+      return HardValue::Void;
     }
-    virtual Value createValueNull() override {
-      return Value::Null;
+    virtual HardValue createValueNull() override {
+      return HardValue::Null;
     }
-    virtual Value createValueBool(Bool value) override {
-      return value ? Value::True : Value::False;
+    virtual HardValue createValueBool(Bool value) override {
+      return value ? HardValue::True : HardValue::False;
     }
-    virtual Value createValueInt(Int value) override {
+    virtual HardValue createValueInt(Int value) override {
       return ValueFactory::createInt(this->allocator, value);
     }
-    virtual Value createValueFloat(Float value) override {
+    virtual HardValue createValueFloat(Float value) override {
       return ValueFactory::createFloat(this->allocator, value);
     }
-    virtual Value createValueString(const String& value) override {
+    virtual HardValue createValueString(const String& value) override {
       return ValueFactory::createString(this->allocator, value);
     }
-    virtual Value createValueObject(const Object& value) override {
-      return ValueFactory::createObject(this->allocator, value);
+    virtual HardValue createValueObjectHard(const HardObject& value) override {
+      return ValueFactory::createHardObject(this->allocator, value);
     }
-    virtual Object createBuiltinAssert() override {
+    virtual HardObject createBuiltinAssert() override {
       return ObjectFactory::createBuiltinAssert(*this);
     }
-    virtual Object createBuiltinPrint() override {
+    virtual HardObject createBuiltinPrint() override {
       return ObjectFactory::createBuiltinPrint(*this);
     }
-    virtual Object createBuiltinExpando() override {
+    virtual HardObject createBuiltinExpando() override {
       return ObjectFactory::createBuiltinExpando(*this);
     }
   };
 }
 
-egg::ovum::IVMProgramRunner::RunOutcome VMProgramRunner::step(Value& retval) {
+egg::ovum::IVMProgramRunner::RunOutcome VMProgramRunner::step(HardValue& retval) {
   auto& top = this->stack.top();
   assert(top.index <= top.node->children.size());
   switch (top.node->kind) {
   case IVMProgram::Node::Kind::Root:
-    assert(top.node->value.isVoid());
+    assert(top.node->literal->getVoid());
     if (top.index > 0) {
       // Check the result of the previous child statement
       assert(top.deque.size() == 1);
@@ -470,7 +470,7 @@ egg::ovum::IVMProgramRunner::RunOutcome VMProgramRunner::step(Value& retval) {
       this->push(*top.node->children[top.index++]);
     } else {
       // Reached the end of the list of statements in the program
-      retval = Value::Void;
+      retval = HardValue::Void;
       return RunOutcome::Completed;
     }
     break;
@@ -479,10 +479,10 @@ egg::ovum::IVMProgramRunner::RunOutcome VMProgramRunner::step(Value& retval) {
     assert(top.deque.empty());
     {
       String symbol;
-      if (!top.node->value->getString(symbol)) {
-        return this->createFault(retval, "Invalid program node value for variable symbol");
+      if (!top.node->literal->getString(symbol)) {
+        return this->createFault(retval, "Invalid program node literal for variable symbol");
       }
-      switch (this->symtable.add(SymbolKind::Unset, symbol, Value::Void)) {
+      switch (this->symtable.add(SymbolKind::Unset, symbol, HardValue::Void)) {
       case SymbolKind::Unknown:
         break;
       case SymbolKind::Builtin:
@@ -491,7 +491,7 @@ egg::ovum::IVMProgramRunner::RunOutcome VMProgramRunner::step(Value& retval) {
       case SymbolKind::Variable:
         return this->createFault(retval, "Variable symbol already declared: '", symbol, "'");
       }
-      this->pop(Value::Void);
+      this->pop(HardValue::Void);
     }
     break;
   case IVMProgram::Node::Kind::StmtVariableDefine:
@@ -502,8 +502,8 @@ egg::ovum::IVMProgramRunner::RunOutcome VMProgramRunner::step(Value& retval) {
     } else {
       assert(top.deque.size() == 1);
       String symbol;
-      if (!top.node->value->getString(symbol)) {
-        return this->createFault(retval, "Invalid program node value for variable symbol");
+      if (!top.node->literal->getString(symbol)) {
+        return this->createFault(retval, "Invalid program node literal for variable symbol");
       }
       switch (this->symtable.add(SymbolKind::Variable, symbol, top.deque.front())) {
       case SymbolKind::Unknown:
@@ -514,7 +514,7 @@ egg::ovum::IVMProgramRunner::RunOutcome VMProgramRunner::step(Value& retval) {
       case SymbolKind::Variable:
         return this->createFault(retval, "Variable symbol already declared: '", symbol, "'");
       }
-      this->pop(Value::Void);
+      this->pop(HardValue::Void);
     }
     break;
   case IVMProgram::Node::Kind::StmtVariableSet:
@@ -525,8 +525,8 @@ egg::ovum::IVMProgramRunner::RunOutcome VMProgramRunner::step(Value& retval) {
     } else {
       assert(top.deque.size() == 1);
       String symbol;
-      if (!top.node->value->getString(symbol)) {
-        return this->createFault(retval, "Invalid program node value for variable symbol");
+      if (!top.node->literal->getString(symbol)) {
+        return this->createFault(retval, "Invalid program node literal for variable symbol");
       }
       switch (this->symtable.set(symbol, top.deque.front())) {
       case SymbolKind::Unknown:
@@ -537,7 +537,7 @@ egg::ovum::IVMProgramRunner::RunOutcome VMProgramRunner::step(Value& retval) {
       case SymbolKind::Unset:
         break;
       }
-      this->pop(Value::Void);
+      this->pop(HardValue::Void);
     }
     break;
   case IVMProgram::Node::Kind::StmtVariableUndeclare:
@@ -545,8 +545,8 @@ egg::ovum::IVMProgramRunner::RunOutcome VMProgramRunner::step(Value& retval) {
     assert(top.deque.empty());
     {
       String symbol;
-      if (!top.node->value->getString(symbol)) {
-        return this->createFault(retval, "Invalid program node value for variable symbol");
+      if (!top.node->literal->getString(symbol)) {
+        return this->createFault(retval, "Invalid program node literal for variable symbol");
       }
       switch (this->symtable.remove(symbol)) {
       case SymbolKind::Unknown:
@@ -557,7 +557,7 @@ egg::ovum::IVMProgramRunner::RunOutcome VMProgramRunner::step(Value& retval) {
       case SymbolKind::Variable:
         break;
       }
-      this->pop(Value::Void);
+      this->pop(HardValue::Void);
     }
     break;
   case IVMProgram::Node::Kind::StmtPropertySet:
@@ -567,26 +567,26 @@ egg::ovum::IVMProgramRunner::RunOutcome VMProgramRunner::step(Value& retval) {
       this->push(*top.node->children[top.index++]);
     } else {
       assert(top.deque.size() == 2);
-      Object instance;
-      if (!top.deque.front()->getObject(instance)) {
+      HardObject instance;
+      if (!top.deque.front()->getHardObject(instance)) {
         return this->createFault(retval, "Invalid left hand side for '.' operator");
       }
-      auto& property = top.node->value;
+      auto& property = top.node->literal;
       auto& value = top.deque.back();
       this->pop(instance->vmPropertySet(this->execution, property, value));
     }
     break;
   case IVMProgram::Node::Kind::StmtFunctionCall:
   case IVMProgram::Node::Kind::ExprFunctionCall:
-    assert(top.node->value.isVoid());
+    assert(top.node->literal->getVoid());
     if (top.index < top.node->children.size()) {
       // Assemble the arguments
       this->push(*top.node->children[top.index++]);
     } else {
       // Perform the function call
       assert(top.deque.size() >= 1);
-      Object function;
-      if (!top.deque.front()->getObject(function)) {
+      HardObject function;
+      if (!top.deque.front()->getHardObject(function)) {
         return this->createFault(retval, "Invalid initial program node value for function call");
       }
       top.deque.pop_front();
@@ -602,10 +602,10 @@ egg::ovum::IVMProgramRunner::RunOutcome VMProgramRunner::step(Value& retval) {
     assert(top.node->children.empty());
     {
       String symbol;
-      if (!top.node->value->getString(symbol)) {
-        return this->createFault(retval, "Invalid program node value for variable symbol");
+      if (!top.node->literal->getString(symbol)) {
+        return this->createFault(retval, "Invalid program node literal for variable symbol");
       }
-      Value value;
+      HardValue value;
       switch (this->symtable.lookup(symbol, value)) {
       case SymbolKind::Unknown:
         return this->createFault(retval, "Unknown variable symbol: '", symbol, "'");
@@ -620,7 +620,7 @@ egg::ovum::IVMProgramRunner::RunOutcome VMProgramRunner::step(Value& retval) {
     break;
   case IVMProgram::Node::Kind::ExprLiteral:
     assert(top.node->children.empty());
-    this->pop(top.node->value);
+    this->pop(top.node->literal);
     break;
   default:
     return this->createFault(retval, "Invalid program node kind in program runner");

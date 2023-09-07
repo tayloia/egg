@@ -24,7 +24,7 @@ namespace {
       }
       item.line = this->upcoming.line;
       item.column = this->upcoming.column;
-      item.value = egg::ovum::Value::Void;
+      item.value = egg::ovum::HardValue::Void;
       item.contiguous = true;
       bool skip;
       egg::ovum::Int i64;
@@ -110,13 +110,13 @@ namespace {
         case LexerKind::Identifier:
           if (this->upcoming.verbatim == "null") {
             item.kind = EonTokenizerKind::Null;
-            item.value = egg::ovum::Value::Null;
+            item.value = egg::ovum::HardValue::Null;
           } else if (this->upcoming.verbatim == "false") {
             item.kind = EonTokenizerKind::Boolean;
-            item.value = egg::ovum::Value::False;
+            item.value = egg::ovum::HardValue::False;
           } else if (this->upcoming.verbatim == "true") {
             item.kind = EonTokenizerKind::Boolean;
-            item.value = egg::ovum::Value::True;
+            item.value = egg::ovum::HardValue::True;
           } else {
             item.kind = EonTokenizerKind::Identifier;
             item.value = egg::ovum::ValueFactory::createString(this->allocator, egg::ovum::String(this->upcoming.verbatim));

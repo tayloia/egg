@@ -105,14 +105,17 @@ namespace egg::test {
     egg::ovum::IVM* operator->() {
       return this->vm.get();
     }
+    void addBuiltin(egg::ovum::IVMProgramRunner& runner, const std::u8string& name, const egg::ovum::HardObject& instance) {
+      runner.addBuiltin(runner.createString(name), runner.createValueObjectHard(instance));
+    }
     void addBuiltinAssert(egg::ovum::IVMProgramRunner& runner) {
-      runner.addBuiltin(vm->createString("assert"), vm->createValueObject(vm->createBuiltinAssert()));
+      this->addBuiltin(runner, u8"assert", vm->createBuiltinAssert());
     }
     void addBuiltinPrint(egg::ovum::IVMProgramRunner& runner) {
-      runner.addBuiltin(vm->createString("print"), vm->createValueObject(vm->createBuiltinPrint()));
+      this->addBuiltin(runner, u8"print", vm->createBuiltinPrint());
     }
     void addBuiltinExpando(egg::ovum::IVMProgramRunner& runner) {
-      runner.addBuiltin(vm->createString("expando"), vm->createValueObject(vm->createBuiltinExpando()));
+      this->addBuiltin(runner, u8"expando", vm->createBuiltinExpando());
     }
     void addBuiltins(egg::ovum::IVMProgramRunner& runner) {
       this->addBuiltinAssert(runner);
@@ -121,7 +124,7 @@ namespace egg::test {
     }
   };
 
-  inline ::testing::AssertionResult assertValueEQ(const char* lhs_expression, const char* rhs_expression, const egg::ovum::Value& lhs, const egg::ovum::Value& rhs) {
+  inline ::testing::AssertionResult assertValueEQ(const char* lhs_expression, const char* rhs_expression, const egg::ovum::HardValue& lhs, const egg::ovum::HardValue& rhs) {
     if (lhs->equals(rhs.get(), egg::ovum::ValueCompare::Binary)) {
       return ::testing::AssertionSuccess();
     }
@@ -136,31 +139,31 @@ namespace egg::test {
   inline void assertString(const egg::ovum::String& expected, const egg::ovum::String& actual) {
     ASSERT_STREQ(expected.toUTF8().c_str(), actual.toUTF8().c_str());
   }
-  inline void assertValue(egg::ovum::ValueFlags expected, const egg::ovum::Value& value) {
+  inline void assertValue(egg::ovum::ValueFlags expected, const egg::ovum::HardValue& value) {
     ASSERT_EQ(expected, value->getFlags());
   }
-  inline void assertValue(std::nullptr_t, const egg::ovum::Value& value) {
+  inline void assertValue(std::nullptr_t, const egg::ovum::HardValue& value) {
     ASSERT_EQ(egg::ovum::ValueFlags::Null, value->getFlags());
   }
-  inline void assertValue(bool expected, const egg::ovum::Value& value) {
+  inline void assertValue(bool expected, const egg::ovum::HardValue& value) {
     ASSERT_EQ(egg::ovum::ValueFlags::Bool, value->getFlags());
     bool actual = false;;
     ASSERT_TRUE(value->getBool(actual));
     ASSERT_EQ(expected, actual);
   }
-  inline void assertValue(int expected, const egg::ovum::Value& value) {
+  inline void assertValue(int expected, const egg::ovum::HardValue& value) {
     ASSERT_EQ(egg::ovum::ValueFlags::Int, value->getFlags());
     egg::ovum::Int actual = ~0;
     ASSERT_TRUE(value->getInt(actual));
     ASSERT_EQ(expected, actual);
   }
-  inline void assertValue(double expected, const egg::ovum::Value& value) {
+  inline void assertValue(double expected, const egg::ovum::HardValue& value) {
     ASSERT_EQ(egg::ovum::ValueFlags::Float, value->getFlags());
     egg::ovum::Float actual = std::nan("");
     ASSERT_TRUE(value->getFloat(actual));
     ASSERT_EQ(expected, actual);
   }
-  inline void assertValue(const char* expected, const egg::ovum::Value& value) {
+  inline void assertValue(const char* expected, const egg::ovum::HardValue& value) {
     if (expected == nullptr) {
       ASSERT_EQ(egg::ovum::ValueFlags::Null, value->getFlags());
     } else {
@@ -170,7 +173,7 @@ namespace egg::test {
       ASSERT_STREQ(expected, actual.toUTF8().c_str());
     }
   }
-  inline void assertValue(const egg::ovum::Value& expected, const egg::ovum::Value& actual) {
+  inline void assertValue(const egg::ovum::HardValue& expected, const egg::ovum::HardValue& actual) {
     ASSERT_PRED_FORMAT2(assertValueEQ, expected, actual);
   }
 }
@@ -188,7 +191,7 @@ inline void ::testing::internal::PrintTo(const egg::ovum::ValueFlags& value, std
 }
 
 template<>
-inline void ::testing::internal::PrintTo(const egg::ovum::Value& value, std::ostream* stream) {
+inline void ::testing::internal::PrintTo(const egg::ovum::HardValue& value, std::ostream* stream) {
   // Pretty-print the value
   egg::ovum::Print::write(*stream, value, egg::ovum::Print::Options::DEFAULT);
 }

@@ -40,7 +40,7 @@ namespace egg::ovum {
     return Bits::set(lhs, rhs);
   }
 
-  class Type : public HardPtr<const IType> {
+  class Type : public HardPtr<const IType> { // WIBBLE
   public:
     Type(std::nullptr_t = nullptr) : HardPtr() { // implicit
     }

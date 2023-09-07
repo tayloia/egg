@@ -10,10 +10,6 @@
 //  * Neither values nor slots are immutable.
 
 namespace egg::ovum {
-  class Object;
-  class Type;
-  class Value;
-
   enum class ValueCompare {
     Binary = 0x00,
     PromoteInts = 0x01
@@ -30,8 +26,8 @@ namespace egg::ovum {
     virtual bool getInt(Int& value) const = 0;
     virtual bool getFloat(Float& value) const = 0;
     virtual bool getString(String& value) const = 0;
-    virtual bool getObject(Object& value) const = 0;
-    virtual bool getInner(Value& inner) const = 0;
+    virtual bool getHardObject(HardObject& value) const = 0;
+    virtual bool getInner(HardValue& inner) const = 0;
     virtual ValueFlags getFlags() const = 0;
     virtual Type getRuntimeType() const = 0;
     virtual bool equals(const IValue& rhs, ValueCompare compare) const = 0;
@@ -39,33 +35,33 @@ namespace egg::ovum {
     virtual void print(Printer& printer) const = 0;
   };
 
-  class Value {
+  class HardValue {
     friend class ValueFactory;
     // Stop type promotion for implicit constructors
-    template<typename T> Value(T rhs) = delete;
+    template<typename T> HardValue(T rhs) = delete;
   private:
     HardPtr<IValue> ptr;
   public:
     // Construction/destruction
-    Value();
-    Value(const Value& rhs) : ptr(rhs.ptr) {
+    HardValue();
+    HardValue(const HardValue& rhs) : ptr(rhs.ptr) {
       assert(this->validate());
     }
-    Value(Value&& rhs) noexcept : ptr(std::move(rhs.ptr)) {
+    HardValue(HardValue&& rhs) noexcept : ptr(std::move(rhs.ptr)) {
       assert(this->validate());
     }
-    explicit Value(IValue& rhs) : ptr(&rhs) {
+    explicit HardValue(IValue& rhs) : ptr(&rhs) {
       assert(this->validate());
     }
     // Atomic assignment
-    Value& operator=(const Value& rhs) {
+    HardValue& operator=(const HardValue& rhs) {
       assert(this->validate());
       assert(rhs.validate());
       this->ptr = rhs.ptr;
       assert(this->validate());
       return *this;
     }
-    Value& operator=(Value&& rhs) noexcept {
+    HardValue& operator=(HardValue&& rhs) noexcept {
       assert(this != &rhs);
       assert(this->validate());
       assert(rhs.validate());
@@ -84,7 +80,7 @@ namespace egg::ovum {
       return &this->get();
     }
     // Equality
-    static bool equals(const Value& lhs, const Value& rhs, ValueCompare compare) {
+    static bool equals(const HardValue& lhs, const HardValue& rhs, ValueCompare compare) {
       const auto& p = lhs.get();
       const auto& q = rhs.get();
       return p.equals(q, compare);
@@ -98,104 +94,59 @@ namespace egg::ovum {
     bool hasFlowControl() const {
       return this->hasAnyFlags(ValueFlags::FlowControl);
     }
-    bool isVoid() const {
-      return this->get().getVoid();
-    }
-    bool isNull() const {
-      return this->get().getNull();
-    }
-    bool isBool() const {
-      Bool actual;
-      return this->get().getBool(actual);
-    }
-    bool isBool(Bool expected) const {
-      Bool actual;
-      return this->get().getBool(actual) && (actual == expected);
-    }
-    bool isInt() const {
-      Int actual;
-      return this->get().getInt(actual);
-    }
-    bool isInt(Int expected) const {
-      Int actual;
-      return this->get().getInt(actual) && (actual == expected);
-    }
-    bool isFloat() const {
-      Float actual;
-      return this->get().getFloat(actual);
-    }
-    bool isFloat(Float expected, bool ieee = false) const {
-      Float actual;
-      return this->get().getFloat(actual) && Arithmetic::equal(actual, expected, ieee);
-    }
-    bool isString() const {
-      String actual;
-      return this->get().getString(actual);
-    }
-    bool isString(const String& expected) const {
-      String actual;
-      return this->get().getString(actual) && actual.equals(expected);
-    }
-    bool isString(const char* expected) const {
-      String actual;
-      return this->get().getString(actual) && actual.equals(expected);
-    }
     // Constants
-    static const Value Void;
-    static const Value Null;
-    static const Value False;
-    static const Value True;
-    static const Value Break;
-    static const Value Continue;
-    static const Value Rethrow;
+    static const HardValue Void;
+    static const HardValue Null;
+    static const HardValue False;
+    static const HardValue True;
+    static const HardValue Break;
+    static const HardValue Continue;
+    static const HardValue Rethrow;
   };
 
   class ValueFactory {
   public:
-    static const Value& createBool(bool value) {
-      return value ? Value::True : Value::False;
+    static const HardValue& createBool(bool value) {
+      return value ? HardValue::True : HardValue::False;
     }
-    static Value createInt(IAllocator& allocator, Int value);
-    static Value createFloat(IAllocator& allocator, Float value);
-    static Value createString(IAllocator& allocator, const String& value);
-    static Value createObject(IAllocator& allocator, const Object& value);
-    static Value createFlowControl(IAllocator& allocator, ValueFlags flags, const Value& value);
+    static HardValue createInt(IAllocator& allocator, Int value);
+    static HardValue createFloat(IAllocator& allocator, Float value);
+    static HardValue createString(IAllocator& allocator, const String& value);
+    static HardValue createHardObject(IAllocator& allocator, const HardObject& value);
+    static HardValue createHardFlowControl(IAllocator& allocator, ValueFlags flags, const HardValue& value);
 
     // Helpers
     template<size_t N>
-    static Value createStringLiteral(IAllocator& allocator, const char(&value)[N]) {
+    static HardValue createStringLiteral(IAllocator& allocator, const char(&value)[N]) {
       return createStringASCII(allocator, value, N - 1);
     }
-    static Value createStringASCII(IAllocator& allocator, const char* value, size_t codepoints = SIZE_MAX);
-    static Value createStringUTF8(IAllocator& allocator, const std::u8string& value, size_t codepoints = SIZE_MAX);
-    static Value createStringUTF32(IAllocator& allocator, const std::u32string& value);
+    static HardValue createStringASCII(IAllocator& allocator, const char* value, size_t codepoints = SIZE_MAX);
+    static HardValue createStringUTF8(IAllocator& allocator, const std::u8string& value, size_t codepoints = SIZE_MAX);
+    static HardValue createStringUTF32(IAllocator& allocator, const std::u32string& value);
 
     // Overloaded without implicit promotion
     template<typename T>
-    static Value create(IAllocator& allocator, T value) = delete;
-    static Value create(IAllocator&, std::nullptr_t) {
-      return Value::Null;
+    static HardValue create(IAllocator& allocator, T value) = delete;
+    static HardValue create(IAllocator&, std::nullptr_t) {
+      return HardValue::Null;
     }
-    static Value create(IAllocator&, bool value) {
+    static HardValue create(IAllocator&, bool value) {
       return createBool(value);
     }
-    static Value create(IAllocator& allocator, int32_t value) {
+    static HardValue create(IAllocator& allocator, int32_t value) {
       return createInt(allocator, value);
     }
-    static Value create(IAllocator& allocator, int64_t value) {
+    static HardValue create(IAllocator& allocator, int64_t value) {
       return createInt(allocator, value);
     }
-    static Value create(IAllocator& allocator, float value) {
+    static HardValue create(IAllocator& allocator, float value) {
       return createFloat(allocator, value);
     }
-    static Value create(IAllocator& allocator, double value) {
+    static HardValue create(IAllocator& allocator, double value) {
       return createFloat(allocator, value);
     }
-    static Value create(IAllocator& allocator, const String& value) {
+    static HardValue create(IAllocator& allocator, const String& value) {
       return createString(allocator, value);
-    }
-    static Value create(IAllocator& allocator, const Object& value) {
-      return createObject(allocator, value);
     }
   };
 }

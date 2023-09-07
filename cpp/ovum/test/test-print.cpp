@@ -62,11 +62,11 @@ TEST(TestPrint, String) {
 }
 
 TEST(TestPrint, ValueConstants) {
-  CHECK(egg::ovum::Value::Void, "void");
-  CHECK(egg::ovum::Value::Null, "null");
-  CHECK(egg::ovum::Value::False, "false");
-  CHECK(egg::ovum::Value::True, "true");
-  CHECK(egg::ovum::Value::Break, "break");
-  CHECK(egg::ovum::Value::Continue, "continue");
-  CHECK(egg::ovum::Value::Rethrow, "throw");
+  CHECK(egg::ovum::HardValue::Void, "void");
+  CHECK(egg::ovum::HardValue::Null, "null");
+  CHECK(egg::ovum::HardValue::False, "false");
+  CHECK(egg::ovum::HardValue::True, "true");
+  CHECK(egg::ovum::HardValue::Break, "break");
+  CHECK(egg::ovum::HardValue::Continue, "continue");
+  CHECK(egg::ovum::HardValue::Rethrow, "throw");
 }

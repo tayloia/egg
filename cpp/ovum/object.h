@@ -1,9 +1,9 @@
 namespace egg::ovum {
   class IVM;
 
-  class Object : public HardPtr<IObject> {
+  class HardObject : public HardPtr<IObject> {
   public:
-    explicit Object(IObject* object = nullptr)
+    explicit HardObject(IObject* object = nullptr)
       : HardPtr<IObject>(object) {
       assert((object == nullptr) || object->validate());
     }
@@ -11,7 +11,7 @@ namespace egg::ovum {
       auto* object = this->get();
       return (object != nullptr) && object->validate();
     }
-    bool equals(const Object& other) const {
+    bool equals(const HardObject& other) const {
       // Equality is identity for objects
       return this->get() == other.get();
     }
@@ -20,8 +20,8 @@ namespace egg::ovum {
   class ObjectFactory {
   public:
     // Builtin factories
-    static Object createBuiltinAssert(IVM& vm);
-    static Object createBuiltinPrint(IVM& vm);
-    static Object createBuiltinExpando(IVM& vm); // TODO deprecate
+    static HardObject createBuiltinAssert(IVM& vm);
+    static HardObject createBuiltinPrint(IVM& vm);
+    static HardObject createBuiltinExpando(IVM& vm); // TODO deprecate
   };
 }

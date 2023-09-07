@@ -23,54 +23,50 @@ namespace egg::ovum {
       return this->createStringUTF32(utf32, codepoints);
     }
     // Value factories
-    virtual Value createValueVoid() = 0;
-    virtual Value createValueNull() = 0;
-    virtual Value createValueBool(Bool value) = 0;
-    virtual Value createValueInt(Int value) = 0;
-    virtual Value createValueFloat(Float value) = 0;
-    virtual Value createValueString(const String& value) = 0;
-    virtual Value createValueObject(const Object& value) = 0;
-    // Value factory helpers
-    inline Value createValue(std::nullptr_t) {
+    virtual HardValue createValueVoid() = 0;
+    virtual HardValue createValueNull() = 0;
+    virtual HardValue createValueBool(Bool value) = 0;
+    virtual HardValue createValueInt(Int value) = 0;
+    virtual HardValue createValueFloat(Float value) = 0;
+    virtual HardValue createValueString(const String& value) = 0;
+    virtual HardValue createValueObjectHard(const HardObject& value) = 0;
+    inline HardValue createValue(std::nullptr_t) {
       return this->createValueNull();
     }
-    inline Value createValue(Bool value) {
+    inline HardValue createValue(Bool value) {
       return this->createValueBool(value);
     }
-    inline Value createValue(Int value) {
+    inline HardValue createValue(Int value) {
       return this->createValueInt(value);
     }
-    inline Value createValue(Float value) {
+    inline HardValue createValue(Float value) {
       return this->createValueFloat(value);
     }
-    inline Value createValue(const char* value) {
+    inline HardValue createValue(const char* value) {
       return value ? this->createValueString(this->createString(value)) : this->createValueNull();
     }
-    inline Value createValue(const char8_t* value) {
+    inline HardValue createValue(const char8_t* value) {
       return value ? this->createValueString(this->createString(value)) : this->createValueNull();
     }
-    inline Value createValue(const char32_t* value) {
+    inline HardValue createValue(const char32_t* value) {
       return value ? this->createValueString(this->createString(value)) : this->createValueNull();
     }
-    inline Value createValue(const std::u8string& value) {
+    inline HardValue createValue(const std::u8string& value) {
       return this->createValueString(this->createString(value));
     }
-    inline Value createValue(const std::u32string& value) {
+    inline HardValue createValue(const std::u32string& value) {
       return this->createValueString(this->createString(value));
     }
-    inline Value createValue(const String& value) {
+    inline HardValue createValue(const String& value) {
       return this->createValueString(value);
-    }
-    inline Value createValue(const Object& value) {
-      return this->createValueObject(value);
     }
   };
 
   class IVMExecution : public ILogger, public IVMCommon {
   public:
-    virtual Value raiseException(const String& message) = 0;
+    virtual HardValue raiseException(const String& message) = 0;
     template<typename... ARGS>
-    inline Value raise(ARGS&&... args) {
+    inline HardValue raise(ARGS&&... args) {
       // TODO deprecate StringBuilder at the public interface
       egg::ovum::StringBuilder sb{ nullptr };
       auto message = sb.add(std::forward<ARGS>(args)...).toUTF8();
@@ -95,8 +91,8 @@ namespace egg::ovum {
       Completed = 2,
       Faulted = 3
     };
-    virtual void addBuiltin(const String& name, const Value& value) = 0;
-    virtual RunOutcome run(Value& retval, RunFlags flags = RunFlags::Default) = 0;
+    virtual void addBuiltin(const String& name, const HardValue& value) = 0;
+    virtual RunOutcome run(HardValue& retval, RunFlags flags = RunFlags::Default) = 0;
   };
 
   class IVMProgram : public IVMBase {
@@ -112,14 +108,14 @@ namespace egg::ovum {
     virtual HardPtr<IVMProgram> build() = 0;
     // Expression factories
     virtual Node& exprVariable(const String& name) = 0;
-    virtual Node& exprLiteral(const Value& literal) = 0;
+    virtual Node& exprLiteral(const HardValue& literal) = 0;
     virtual Node& exprFunctionCall(Node& function) = 0;
     // Statement factories
     virtual Node& stmtVariableDeclare(const String& name) = 0;
     virtual Node& stmtVariableDefine(const String& name) = 0;
     virtual Node& stmtVariableSet(const String& name) = 0;
     virtual Node& stmtVariableUndeclare(const String& name) = 0;
-    virtual Node& stmtPropertySet(Node& instance, const Value& property) = 0;
+    virtual Node& stmtPropertySet(Node& instance, const HardValue& property) = 0;
     virtual Node& stmtFunctionCall(Node& function) = 0;
     // Helpers
     template<typename... ARGS>
@@ -138,9 +134,9 @@ namespace egg::ovum {
     // Builder factories
     virtual HardPtr<IVMProgramBuilder> createProgramBuilder() = 0;
     // Builtin factories
-    virtual Object createBuiltinAssert() = 0;
-    virtual Object createBuiltinPrint() = 0;
-    virtual Object createBuiltinExpando() = 0; // TODO deprecate
+    virtual HardObject createBuiltinAssert() = 0;
+    virtual HardObject createBuiltinPrint() = 0;
+    virtual HardObject createBuiltinExpando() = 0; // TODO deprecate
   };
 
   class VMFactory {

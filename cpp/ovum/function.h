@@ -5,7 +5,7 @@ namespace egg::ovum {
   private:
     struct Argument {
       String name;
-      Value value;
+      HardValue value;
     };
     std::vector<Argument> arguments;
   public:
@@ -13,7 +13,7 @@ namespace egg::ovum {
     virtual size_t getArgumentCount() const {
       return this->arguments.size();
     }
-    virtual bool getArgumentByIndex(size_t index, Value& value, String* name) const {
+    virtual bool getArgumentByIndex(size_t index, HardValue& value, String* name) const {
       if (index < this->arguments.size()) {
         if (name != nullptr) {
           *name = this->arguments[index].name;
@@ -23,7 +23,7 @@ namespace egg::ovum {
       }
       return false;
     }
-    void addUnnamed(const Value& value) {
+    void addUnnamed(const HardValue& value) {
       this->arguments.emplace_back(String(), value);
     }
   };

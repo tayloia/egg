@@ -1,4 +1,6 @@
 namespace egg::ovum {
+  class HardObject;
+
   class Print {
   public:
     struct Options {
@@ -19,9 +21,9 @@ namespace egg::ovum {
     static void write(std::ostream& stream, double value, const Options& options);
     static void write(std::ostream& stream, const std::string& value, const Options& options);
     static void write(std::ostream& stream, const String& value, const Options& options);
-    static void write(std::ostream& stream, const Object& value, const Options& options);
+    static void write(std::ostream& stream, const HardObject& value, const Options& options);
     static void write(std::ostream& stream, const Type& value, const Options& options);
-    static void write(std::ostream& stream, const Value& value, const Options& options);
+    static void write(std::ostream& stream, const HardValue& value, const Options& options);
     static void write(std::ostream& stream, ValueFlags value, const Options& options);
     static void write(std::ostream& stream, ILogger::Severity value, const Options& options);
     static void write(std::ostream& stream, ILogger::Source value, const Options& options);

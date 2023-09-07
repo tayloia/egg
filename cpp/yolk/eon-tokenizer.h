@@ -17,7 +17,7 @@ namespace egg::yolk {
 
   struct EonTokenizerItem {
     EonTokenizerKind kind;
-    egg::ovum::Value value;
+    egg::ovum::HardValue value;
     size_t line;
     size_t column;
     bool contiguous;

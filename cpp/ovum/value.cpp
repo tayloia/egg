@@ -4,8 +4,8 @@ namespace {
   using namespace egg::ovum;
 
   template<typename T, typename... ARGS>
-  Value makeValue(IAllocator& allocator, ARGS&&... args) {
-    return Value(*static_cast<IValue*>(allocator.makeRaw<T>(allocator, std::forward<ARGS>(args)...)));
+  HardValue makeHardValue(IAllocator& allocator, ARGS&&... args) {
+    return HardValue(*static_cast<IValue*>(allocator.makeRaw<T>(allocator, std::forward<ARGS>(args)...)));
   }
 
   template<ValueFlags FLAGS>
@@ -41,10 +41,10 @@ namespace {
     virtual bool getString(String&) const override {
       return false;
     }
-    virtual bool getObject(Object&) const override {
+    virtual bool getHardObject(HardObject&) const override {
       return false;
     }
-    virtual bool getInner(Value&) const override {
+    virtual bool getInner(HardValue&) const override {
       return false;
     }
     virtual ValueFlags getFlags() const override {
@@ -161,10 +161,10 @@ namespace {
     virtual bool getString(String&) const override {
       return false;
     }
-    virtual bool getObject(Object&) const override {
+    virtual bool getHardObject(HardObject&) const override {
       return false;
     }
-    virtual bool getInner(Value&) const override {
+    virtual bool getInner(HardValue&) const override {
       return false;
     }
     virtual bool validate() const override {
@@ -179,7 +179,8 @@ namespace {
   private:
     Int value;
   public:
-    ValueInt(IAllocator& allocator, Int value) : ValueMutable(allocator), value(value) {
+    ValueInt(IAllocator& allocator, Int value)
+      : ValueMutable(allocator), value(value) {
       assert(this->validate());
     }
     virtual ValueFlags getFlags() const override {
@@ -216,7 +217,8 @@ namespace {
   private:
     Float value;
   public:
-    ValueFloat(IAllocator& allocator, Float value) : ValueMutable(allocator), value(value) {
+    ValueFloat(IAllocator& allocator, Float value)
+      : ValueMutable(allocator), value(value) {
       assert(this->validate());
     }
     virtual ValueFlags getFlags() const override {
@@ -254,7 +256,8 @@ namespace {
   private:
     String value;
   public:
-    ValueString(IAllocator& allocator, const String& value) : ValueMutable(allocator), value(value) {
+    ValueString(IAllocator& allocator, const String& value)
+      : ValueMutable(allocator), value(value) {
       assert(this->validate());
     }
     virtual ValueFlags getFlags() const override {
@@ -279,13 +282,14 @@ namespace {
     }
   };
 
-  class ValueObject final : public ValueMutable {
-    ValueObject(const ValueObject&) = delete;
-    ValueObject& operator=(const ValueObject&) = delete;
+  class ValueHardObject final : public ValueMutable {
+    ValueHardObject(const ValueHardObject&) = delete;
+    ValueHardObject& operator=(const ValueHardObject&) = delete;
   private:
-    Object value;
+    HardObject value;
   public:
-    ValueObject(IAllocator& allocator, const Object& value) : ValueMutable(allocator), value(value) {
+    ValueHardObject(IAllocator& allocator, const HardObject& value)
+      : ValueMutable(allocator), value(value) {
       assert(this->validate());
     }
     virtual ValueFlags getFlags() const override {
@@ -294,13 +298,13 @@ namespace {
     virtual Type getRuntimeType() const override {
       return Type::Object;
     }
-    virtual bool getObject(Object& result) const override {
+    virtual bool getHardObject(HardObject& result) const override {
       result = this->value;
       return true;
     }
     virtual bool equals(const IValue& rhs, ValueCompare) const override {
-      Object other;
-      return rhs.getObject(other) && this->value.equals(other);
+      HardObject other;
+      return rhs.getHardObject(other) && this->value.equals(other);
     }
     virtual bool validate() const override {
       return ValueMutable::validate() && this->value.validate();
@@ -310,14 +314,15 @@ namespace {
     }
   };
 
-  class ValueFlowControl final : public ValueMutable {
-    ValueFlowControl(const ValueFlowControl&) = delete;
-    ValueFlowControl& operator=(const ValueFlowControl&) = delete;
+  class ValueHardFlowControl final : public ValueMutable {
+    ValueHardFlowControl(const ValueHardFlowControl&) = delete;
+    ValueHardFlowControl& operator=(const ValueHardFlowControl&) = delete;
   private:
     ValueFlags flags;
-    Value inner;
+    HardValue inner;
   public:
-    ValueFlowControl(IAllocator& allocator, ValueFlags flags, const Value& child) : ValueMutable(allocator), flags(flags), inner(child) {
+    ValueHardFlowControl(IAllocator& allocator, ValueFlags flags, const HardValue& inner)
+      : ValueMutable(allocator), flags(flags), inner(inner) {
       assert(this->validate());
     }
     virtual void softVisit(const ICollectable::Visitor& visitor) const override {
@@ -331,12 +336,12 @@ namespace {
       assert(false);
       return Type::Void;
     }
-    virtual bool getInner(Value& value) const override {
+    virtual bool getInner(HardValue& value) const override {
       value = this->inner;
       return true;
     }
     virtual bool equals(const IValue& rhs, ValueCompare compare) const override {
-      Value other;
+      HardValue other;
       return (rhs.getFlags() == this->flags) && rhs.getInner(other) && this->inner->equals(other.get(), compare);
     }
     virtual bool validate() const override {
@@ -372,58 +377,58 @@ namespace {
   }
 }
 
-const egg::ovum::Value egg::ovum::Value::Void{ theVoid.instance() };
-const egg::ovum::Value egg::ovum::Value::Null{ theNull.instance() };
-const egg::ovum::Value egg::ovum::Value::False{ theFalse.instance() };
-const egg::ovum::Value egg::ovum::Value::True{ theTrue.instance() };
-const egg::ovum::Value egg::ovum::Value::Break{ theBreak.instance() };
-const egg::ovum::Value egg::ovum::Value::Continue{ theContinue.instance() };
-const egg::ovum::Value egg::ovum::Value::Rethrow{ theRethrow.instance() };
+const egg::ovum::HardValue egg::ovum::HardValue::Void{ theVoid.instance() };
+const egg::ovum::HardValue egg::ovum::HardValue::Null{ theNull.instance() };
+const egg::ovum::HardValue egg::ovum::HardValue::False{ theFalse.instance() };
+const egg::ovum::HardValue egg::ovum::HardValue::True{ theTrue.instance() };
+const egg::ovum::HardValue egg::ovum::HardValue::Break{ theBreak.instance() };
+const egg::ovum::HardValue egg::ovum::HardValue::Continue{ theContinue.instance() };
+const egg::ovum::HardValue egg::ovum::HardValue::Rethrow{ theRethrow.instance() };
 
-egg::ovum::Value::Value() : ptr(&theVoid) {
+egg::ovum::HardValue::HardValue() : ptr(&theVoid) {
   assert(this->validate());
 }
 
-egg::ovum::Value egg::ovum::ValueFactory::createInt(IAllocator& allocator, Int value) {
-  return makeValue<ValueInt>(allocator, value);
+egg::ovum::HardValue egg::ovum::ValueFactory::createInt(IAllocator& allocator, Int value) {
+  return makeHardValue<ValueInt>(allocator, value);
 }
 
-egg::ovum::Value egg::ovum::ValueFactory::createFloat(IAllocator& allocator, Float value) {
-  return makeValue<ValueFloat>(allocator, value);
+egg::ovum::HardValue egg::ovum::ValueFactory::createFloat(IAllocator& allocator, Float value) {
+  return makeHardValue<ValueFloat>(allocator, value);
 }
 
-egg::ovum::Value egg::ovum::ValueFactory::createString(IAllocator& allocator, const String& value) {
-  return makeValue<ValueString>(allocator, value);
+egg::ovum::HardValue egg::ovum::ValueFactory::createString(IAllocator& allocator, const String& value) {
+  return makeHardValue<ValueString>(allocator, value);
 }
 
-egg::ovum::Value egg::ovum::ValueFactory::createObject(IAllocator& allocator, const Object& value) {
-  return makeValue<ValueObject>(allocator, value);
+egg::ovum::HardValue egg::ovum::ValueFactory::createHardObject(IAllocator& allocator, const HardObject& value) {
+  return makeHardValue<ValueHardObject>(allocator, value);
 }
 
-egg::ovum::Value egg::ovum::ValueFactory::createFlowControl(IAllocator& allocator, ValueFlags flags, const Value& value) {
-  return makeValue<ValueFlowControl>(allocator, flags, value);
+egg::ovum::HardValue egg::ovum::ValueFactory::createHardFlowControl(IAllocator& allocator, ValueFlags flags, const HardValue& value) {
+  return makeHardValue<ValueHardFlowControl>(allocator, flags, value);
 }
 
-egg::ovum::Value egg::ovum::ValueFactory::createStringASCII(IAllocator& allocator, const char* value, size_t codepoints) {
+egg::ovum::HardValue egg::ovum::ValueFactory::createStringASCII(IAllocator& allocator, const char* value, size_t codepoints) {
   // TODO check 7-bit only
   if (value == nullptr) {
-    return Value::Void;
+    return HardValue::Void;
   }
   if (codepoints == SIZE_MAX) {
     codepoints = std::strlen(value);
   }
-  return makeValue<ValueString>(allocator, String::fromUTF8(&allocator, value, codepoints, codepoints));
+  return makeHardValue<ValueString>(allocator, String::fromUTF8(&allocator, value, codepoints, codepoints));
 }
 
-egg::ovum::Value egg::ovum::ValueFactory::createStringUTF8(IAllocator& allocator, const std::u8string& value, size_t codepoints) {
-  return makeValue<ValueString>(allocator, String::fromUTF8(&allocator, value.data(), value.size(), codepoints));
+egg::ovum::HardValue egg::ovum::ValueFactory::createStringUTF8(IAllocator& allocator, const std::u8string& value, size_t codepoints) {
+  return makeHardValue<ValueString>(allocator, String::fromUTF8(&allocator, value.data(), value.size(), codepoints));
 }
 
-egg::ovum::Value egg::ovum::ValueFactory::createStringUTF32(IAllocator& allocator, const std::u32string& value) {
-  return makeValue<ValueString>(allocator, String::fromUTF32(&allocator, value.data(), value.size()));
+egg::ovum::HardValue egg::ovum::ValueFactory::createStringUTF32(IAllocator& allocator, const std::u32string& value) {
+  return makeHardValue<ValueString>(allocator, String::fromUTF32(&allocator, value.data(), value.size()));
 }
 
-bool egg::ovum::Value::validate() const {
+bool egg::ovum::HardValue::validate() const {
   auto p = this->ptr.get();
   if (p == nullptr) {
     return false;

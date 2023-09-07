@@ -3,7 +3,7 @@
 namespace {
   using namespace egg::ovum;
 
-  template<typename T, typename RETTYPE = Object, typename... ARGS>
+  template<typename T, typename RETTYPE = HardObject, typename... ARGS>
   RETTYPE makeObject(IVM& vm, ARGS&&... args) {
     // Use perfect forwarding
     return RETTYPE(vm.getAllocator().makeRaw<T>(vm, std::forward<ARGS>(args)...));
@@ -38,11 +38,11 @@ namespace {
     virtual void print(Printer& printer) const override {
       printer << "[builtin assert]";
     }
-    virtual Value vmCall(IVMExecution& execution, const ICallArguments& arguments) override {
+    virtual HardValue vmCall(IVMExecution& execution, const ICallArguments& arguments) override {
       if (arguments.getArgumentCount() != 1) {
         return execution.raise("Builtin 'assert()' expects exactly one argument");
       }
-      Value value;
+      HardValue value;
       Bool success = false;
       if (!arguments.getArgumentByIndex(0, value) || !value->getBool(success)) {
         return execution.raise("Builtin 'assert()' expects a 'bool' argument");
@@ -50,9 +50,9 @@ namespace {
       if (!success) {
         return execution.raise("Assertion failure");
       }
-      return Value::Void;
+      return HardValue::Void;
     }
-    virtual Value vmPropertySet(IVMExecution& execution, const Value&, const Value&) override {
+    virtual HardValue vmPropertySet(IVMExecution& execution, const HardValue&, const HardValue&) override {
       return execution.raise("Builtin 'assert()' does not support properties");
     }
   };
@@ -70,11 +70,11 @@ namespace {
     virtual void print(Printer& printer) const override {
       printer << "[builtin print]";
     }
-    virtual Value vmCall(IVMExecution& execution, const ICallArguments& arguments) override {
+    virtual HardValue vmCall(IVMExecution& execution, const ICallArguments& arguments) override {
       StringBuilder sb(&this->vm->getAllocator());
       size_t n = arguments.getArgumentCount();
       String name;
-      Value value;
+      HardValue value;
       for (size_t i = 0; i < n; ++i) {
         if (!arguments.getArgumentByIndex(i, value, &name) || !name.empty()) {
           return execution.raise("Builtin 'print()' expects unnamed arguments");
@@ -82,9 +82,9 @@ namespace {
         sb.add(value);
       }
       execution.log(ILogger::Source::User, ILogger::Severity::None, sb.build());
-      return Value::Void;
+      return HardValue::Void;
     }
-    virtual Value vmPropertySet(IVMExecution& execution, const Value&, const Value&) override {
+    virtual HardValue vmPropertySet(IVMExecution& execution, const HardValue&, const HardValue&) override {
       return execution.raise("Builtin 'print()' does not support properties");
     }
   };
@@ -93,7 +93,7 @@ namespace {
     VMObjectExpando(const VMObjectExpando&) = delete;
     VMObjectExpando& operator=(const VMObjectExpando&) = delete;
   private:
-    SoftPtr<IObject> x;
+    SoftPtr<IObject> x; // WIBBLE
   public:
     explicit VMObjectExpando(IVM& vm)
       : VMObjectBase(vm) {
@@ -104,11 +104,12 @@ namespace {
     virtual void print(Printer& printer) const override {
       printer << "[expando]";
     }
-    virtual Value vmCall(IVMExecution& execution, const ICallArguments&) override {
+    virtual HardValue vmCall(IVMExecution& execution, const ICallArguments&) override {
       return execution.raise("TODO: Expando objects do not yet support function call semantics");
     }
-    virtual Value vmPropertySet(IVMExecution& execution, const Value& property, const Value&) override {
-      if (!property.isString("x")) {
+    virtual HardValue vmPropertySet(IVMExecution& execution, const HardValue& property, const HardValue&) override {
+      String pname;
+      if (!property->getString(pname) || !pname.equals("x")) {
         return execution.raise("TODO: Expando objects only support property 'x'");
       }
       return execution.raise("WIBBLE");
@@ -128,27 +129,27 @@ namespace {
     virtual void print(Printer& printer) const override {
       printer << "[builtin expando]";
     }
-    virtual Value vmCall(IVMExecution& execution, const ICallArguments& arguments) override {
+    virtual HardValue vmCall(IVMExecution& execution, const ICallArguments& arguments) override {
       if (arguments.getArgumentCount() != 0) {
         return execution.raise("Builtin 'expando()' expects no arguments");
       }
       auto instance = makeObject<VMObjectExpando>(*this->vm);
-      return execution.createValueObject(instance);
+      return execution.createValueObjectHard(instance);
     }
-    virtual Value vmPropertySet(IVMExecution& execution, const Value&, const Value&) override {
+    virtual HardValue vmPropertySet(IVMExecution& execution, const HardValue&, const HardValue&) override {
       return execution.raise("Builtin 'expando()' does not support properties");
     }
   };
 }
 
-egg::ovum::Object egg::ovum::ObjectFactory::createBuiltinAssert(IVM& vm) {
+egg::ovum::HardObject egg::ovum::ObjectFactory::createBuiltinAssert(IVM& vm) {
   return makeObject<VMObjectBuiltinAssert>(vm);
 }
 
-egg::ovum::Object egg::ovum::ObjectFactory::createBuiltinPrint(IVM& vm) {
+egg::ovum::HardObject egg::ovum::ObjectFactory::createBuiltinPrint(IVM& vm) {
   return makeObject<VMObjectBuiltinPrint>(vm);
 }
 
-egg::ovum::Object egg::ovum::ObjectFactory::createBuiltinExpando(IVM& vm) {
+egg::ovum::HardObject egg::ovum::ObjectFactory::createBuiltinExpando(IVM& vm) {
   return makeObject<VMObjectBuiltinExpando>(vm);
 }

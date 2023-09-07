@@ -8,13 +8,13 @@ namespace egg::ovum {
   template<typename T> class SoftPtr;
   enum class ValueFlags;
   struct LocationSource;
-  class Object;
   class Printer;
   class String;
   class Type;
-  class Value;
+  class HardValue;
   class ICollectable;
   class IMemory;
+  class IValue;
   class IType;
   class ITypeFactory;
   class IVMExecution;
@@ -182,14 +182,14 @@ namespace egg::ovum {
     // Interface
     virtual ~ICallArguments() {}
     virtual size_t getArgumentCount() const = 0;
-    virtual bool getArgumentByIndex(size_t index, Value& value, String* name = nullptr) const = 0;
+    virtual bool getArgumentByIndex(size_t index, HardValue& value, String* name = nullptr) const = 0;
   };
 
   class IObject : public ICollectable {
   public:
     // Interface
-    virtual Value vmCall(IVMExecution& execution, const ICallArguments& arguments) = 0;
-    virtual Value vmPropertySet(IVMExecution& execution, const Value& property, const Value& value) = 0;
+    virtual HardValue vmCall(IVMExecution& execution, const ICallArguments& arguments) = 0;
+    virtual HardValue vmPropertySet(IVMExecution& execution, const HardValue& property, const HardValue& value) = 0;
   };
 
   class IParameters {
@@ -197,11 +197,11 @@ namespace egg::ovum {
     // Interface
     virtual ~IParameters() {}
     virtual size_t getPositionalCount() const = 0;
-    virtual Value getPositional(size_t index) const = 0;
+    virtual HardValue getPositional(size_t index) const = 0;
     virtual const LocationSource* getPositionalLocation(size_t index) const = 0; // May return null
     virtual size_t getNamedCount() const = 0;
     virtual String getName(size_t index) const = 0;
-    virtual Value getNamed(const String& name) const = 0;
+    virtual HardValue getNamed(const String& name) const = 0;
     virtual const LocationSource* getNamedLocation(const String& name) const = 0; // May return null
   };
 

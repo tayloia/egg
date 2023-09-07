@@ -18,7 +18,7 @@ TEST(TestTesting, String) {
 
 TEST(TestTesting, Value) {
   egg::test::Allocator allocator;
-  egg::ovum::Value greeting{ egg::ovum::ValueFactory::createStringLiteral(allocator, "Hello") };
+  egg::ovum::HardValue greeting{ egg::ovum::ValueFactory::createStringLiteral(allocator, "Hello") };
   ASSERT_VALUE("Hello", greeting);
 }
 

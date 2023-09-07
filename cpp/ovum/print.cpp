@@ -96,7 +96,7 @@ void egg::ovum::Print::write(std::ostream& stream, const String& value, const Op
   Print::write(stream, value.toUTF8(), options);
 }
 
-void egg::ovum::Print::write(std::ostream& stream, const Object& value, const Options& options) {
+void egg::ovum::Print::write(std::ostream& stream, const HardObject& value, const Options& options) {
   if (value == nullptr) {
     stream << "null";
   } else {
@@ -166,7 +166,7 @@ void egg::ovum::Print::write(std::ostream& stream, ILogger::Severity value, cons
   }
 }
 
-void egg::ovum::Print::write(std::ostream& stream, const Value& value, const Options& options) {
+void egg::ovum::Print::write(std::ostream& stream, const HardValue& value, const Options& options) {
   if (options.quote == '\0') {
     Printer printer(stream, options);
     value->print(printer);

@@ -3,34 +3,34 @@
 using Flags = egg::ovum::ValueFlags;
 
 TEST(TestValue, Uninitialized) {
-  egg::ovum::Value value;
+  egg::ovum::HardValue value;
   ASSERT_EQ(Flags::Void, value->getFlags());
   ASSERT_TRUE(value->getVoid());
   ASSERT_VALUE(Flags::Void, value);
 }
 
 TEST(TestValue, Void) {
-  auto value{ egg::ovum::Value::Void };
+  auto value{ egg::ovum::HardValue::Void };
   ASSERT_EQ(Flags::Void, value->getFlags());
   ASSERT_TRUE(value->getVoid());
   ASSERT_VALUE(Flags::Void, value);
 }
 
 TEST(TestValue, Null) {
-  auto value{ egg::ovum::Value::Null };
+  auto value{ egg::ovum::HardValue::Null };
   ASSERT_EQ(Flags::Null, value->getFlags());
   ASSERT_TRUE(value->getNull());
   ASSERT_VALUE(Flags::Null, value);
 }
 
 TEST(TestValue, Bool) {
-  auto value{ egg::ovum::Value::False };
+  auto value{ egg::ovum::HardValue::False };
   ASSERT_EQ(Flags::Bool, value->getFlags());
   bool actual = true;
   ASSERT_TRUE(value->getBool(actual));
   ASSERT_FALSE(actual);
   ASSERT_VALUE(false, value);
-  value = egg::ovum::Value::True;
+  value = egg::ovum::HardValue::True;
   ASSERT_EQ(Flags::Bool, value->getFlags());
   ASSERT_TRUE(value->getBool(actual));
   ASSERT_TRUE(actual);
