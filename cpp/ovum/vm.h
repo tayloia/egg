@@ -113,6 +113,7 @@ namespace egg::ovum {
     // Expression factories
     virtual Node& exprVariable(const String& name) = 0;
     virtual Node& exprLiteral(const Value& literal) = 0;
+    virtual Node& exprFunctionCall(Node& function) = 0;
     // Statement factories
     virtual Node& stmtVariableDeclare(const String& name) = 0;
     virtual Node& stmtVariableDefine(const String& name) = 0;
@@ -138,6 +139,7 @@ namespace egg::ovum {
     // Builtin factories
     virtual Object createBuiltinAssert() = 0;
     virtual Object createBuiltinPrint() = 0;
+    virtual Object createBuiltinExpando() = 0; // TODO deprecate
   };
 
   class VMFactory {

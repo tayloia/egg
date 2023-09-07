@@ -114,6 +114,7 @@ public:
     Root,
     ExprVariable,
     ExprLiteral,
+    ExprFunctionCall,
     StmtVariableDeclare,
     StmtVariableDefine,
     StmtVariableSet,
@@ -185,6 +186,11 @@ namespace {
     virtual Node& exprLiteral(const Value& literal) override {
       auto& node = this->makeNode(Node::Kind::ExprLiteral);
       node.value = literal;
+      return node;
+    }
+    virtual Node& exprFunctionCall(Node& function) override {
+      auto& node = this->makeNode(Node::Kind::ExprFunctionCall);
+      node.addChild(function);
       return node;
     }
     virtual Node& stmtVariableDeclare(const String& name) override {
@@ -421,6 +427,9 @@ namespace {
     virtual Object createBuiltinPrint() override {
       return ObjectFactory::createBuiltinPrint(*this);
     }
+    virtual Object createBuiltinExpando() override {
+      return ObjectFactory::createBuiltinExpando(*this);
+    }
   };
 }
 
@@ -545,6 +554,7 @@ egg::ovum::IVMProgramRunner::RunOutcome VMProgramRunner::step(Value& retval) {
     }
     break;
   case IVMProgram::Node::Kind::StmtFunctionCall:
+  case IVMProgram::Node::Kind::ExprFunctionCall:
     assert(top.node->value.isVoid());
     if (top.index < top.node->children.size()) {
       // Assemble the arguments

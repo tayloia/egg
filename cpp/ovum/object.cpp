@@ -3,6 +3,12 @@
 namespace {
   using namespace egg::ovum;
 
+  template<typename T, typename RETTYPE = Object, typename... ARGS>
+  RETTYPE makeObject(IVM& vm, ARGS&&... args) {
+    // Use perfect forwarding
+    return RETTYPE(vm.getAllocator().makeRaw<T>(vm, std::forward<ARGS>(args)...));
+  }
+
   class VMObjectBase : public SoftReferenceCounted<IObject> {
     VMObjectBase(const VMObjectBase&) = delete;
     VMObjectBase& operator=(const VMObjectBase&) = delete;
@@ -77,11 +83,45 @@ namespace {
     }
   };
 
-  template<typename T, typename RETTYPE = Object, typename... ARGS>
-  inline RETTYPE makeObject(IVM& vm, ARGS&&... args) {
-    // Use perfect forwarding
-    return RETTYPE(vm.getAllocator().makeRaw<T>(vm, std::forward<ARGS>(args)...));
-  }
+  class VMObjectExpando : public VMObjectBase {
+    VMObjectExpando(const VMObjectExpando&) = delete;
+    VMObjectExpando& operator=(const VMObjectExpando&) = delete;
+  public:
+    explicit VMObjectExpando(IVM& vm)
+      : VMObjectBase(vm) {
+    }
+    virtual void softVisit(const Visitor&) const override {
+      // WIBBLE
+    }
+    virtual void print(Printer& printer) const override {
+      printer << "[expando]";
+    }
+    virtual Value call(IVMExecution& execution, const ICallArguments&) override {
+      return execution.raise("TODO: Expando objects do not yet support function call semantics");
+    }
+  };
+
+  class VMObjectBuiltinExpando : public VMObjectBase {
+    VMObjectBuiltinExpando(const VMObjectBuiltinExpando&) = delete;
+    VMObjectBuiltinExpando& operator=(const VMObjectBuiltinExpando&) = delete;
+  public:
+    explicit VMObjectBuiltinExpando(IVM& vm)
+      : VMObjectBase(vm) {
+    }
+    virtual void softVisit(const Visitor&) const override {
+      // WIBBLE
+    }
+    virtual void print(Printer& printer) const override {
+      printer << "[builtin expando]";
+    }
+    virtual Value call(IVMExecution& execution, const ICallArguments& arguments) override {
+      if (arguments.getArgumentCount() != 0) {
+        return execution.raise("Builtin 'expando()' expects no arguments");
+      }
+      auto instance = makeObject<VMObjectExpando>(*this->vm);
+      return execution.createValueObject(instance);
+    }
+  };
 }
 
 egg::ovum::Object egg::ovum::ObjectFactory::createBuiltinAssert(IVM& vm) {
@@ -90,4 +130,8 @@ egg::ovum::Object egg::ovum::ObjectFactory::createBuiltinAssert(IVM& vm) {
 
 egg::ovum::Object egg::ovum::ObjectFactory::createBuiltinPrint(IVM& vm) {
   return makeObject<VMObjectBuiltinPrint>(vm);
+}
+
+egg::ovum::Object egg::ovum::ObjectFactory::createBuiltinExpando(IVM& vm) {
+  return makeObject<VMObjectBuiltinExpando>(vm);
 }

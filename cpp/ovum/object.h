@@ -22,5 +22,6 @@ namespace egg::ovum {
     // Builtin factories
     static Object createBuiltinAssert(IVM& vm);
     static Object createBuiltinPrint(IVM& vm);
+    static Object createBuiltinExpando(IVM& vm); // TODO deprecate
   };
 }

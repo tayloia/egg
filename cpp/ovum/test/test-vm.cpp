@@ -19,7 +19,6 @@ namespace {
   }
   IVMProgramRunner::RunOutcome buildAndRun(egg::test::VM& vm, IVMProgramBuilder& builder, Value& retval, IVMProgramRunner::RunFlags flags = IVMProgramRunner::RunFlags::Default) {
     auto runner = builder.build()->createRunner();
-    auto print = vm->createBuiltinPrint();
     vm.addBuiltins(*runner);
     auto outcome = runner->run(retval, flags);
     if (outcome == IVMProgramRunner::RunOutcome::Faulted) {
@@ -510,4 +509,27 @@ TEST(TestVM, AssertFalse) {
   );
   buildAndRunFault(vm, *builder);
   ASSERT_EQ("<ERROR>throw Assertion failure\n", vm.logger.logged.str());
+}
+
+TEST(TestVM, ExpandoPair) {
+  egg::test::VM vm;
+  auto builder = vm->createProgramBuilder();
+  // var a = expando();
+  builder->addStatement(
+    builder->stmtVariableDefine(builder->createString("a")),
+    builder->exprFunctionCall(builder->exprVariable(builder->createString("expando")))
+  );
+  // var b = expando();
+  builder->addStatement(
+    builder->stmtVariableDefine(builder->createString("b")),
+    builder->exprFunctionCall(builder->exprVariable(builder->createString("expando")))
+  );
+  // print(a,b);
+  builder->addStatement(
+    builder->stmtFunctionCall(builder->exprVariable(builder->createString("print"))),
+    builder->exprVariable(builder->createString("a")),
+    builder->exprVariable(builder->createString("b"))
+  );
+  buildAndRunSuccess(vm, *builder);
+  ASSERT_EQ("[expando][expando]\n", vm.logger.logged.str());
 }

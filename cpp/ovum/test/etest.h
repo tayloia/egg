@@ -111,9 +111,13 @@ namespace egg::test {
     void addBuiltinPrint(egg::ovum::IVMProgramRunner& runner) {
       runner.addBuiltin(vm->createString("print"), vm->createValueObject(vm->createBuiltinPrint()));
     }
+    void addBuiltinExpando(egg::ovum::IVMProgramRunner& runner) {
+      runner.addBuiltin(vm->createString("expando"), vm->createValueObject(vm->createBuiltinExpando()));
+    }
     void addBuiltins(egg::ovum::IVMProgramRunner& runner) {
       this->addBuiltinAssert(runner);
       this->addBuiltinPrint(runner);
+      this->addBuiltinExpando(runner);
     }
   };
 
