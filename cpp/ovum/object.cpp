@@ -33,20 +33,17 @@ namespace {
       printer << "[builtin assert]";
     }
     virtual Value call(IVMExecution& execution, const ICallArguments& arguments) override {
-      assert(arguments.getArgumentCount() == 1); // WIBBLE
-      String name;
+      if (arguments.getArgumentCount() != 1) {
+        return execution.raise("Builtin 'assert()' expects exactly one argument");
+      }
       Value value;
-      auto fetched = arguments.getArgument(0, name, value);
-      assert(fetched);
-      assert(name.empty());
-      assert(value.isBool());
       Bool success = false;
-      fetched = value->getBool(success);
-      assert(fetched);
+      if (!arguments.getArgumentByIndex(0, value) || !value->getBool(success)) {
+        return execution.raise("Builtin 'assert()' expects a 'bool' argument");
+      }
       if (!success) {
         return execution.raise("Assertion failure");
       }
-      (void)fetched;
       return Value::Void;
     }
   };
@@ -70,10 +67,9 @@ namespace {
       String name;
       Value value;
       for (size_t i = 0; i < n; ++i) {
-        auto fetched = arguments.getArgument(i, name, value);
-        assert(fetched);
-        (void)fetched;
-        assert(name.empty());
+        if (!arguments.getArgumentByIndex(i, value, &name) || !name.empty()) {
+          return execution.raise("Builtin 'print()' expects unnamed arguments");
+        }
         sb.add(value);
       }
       execution.log(ILogger::Source::User, ILogger::Severity::None, sb.build());

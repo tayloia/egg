@@ -182,7 +182,7 @@ namespace egg::ovum {
     // Interface
     virtual ~ICallArguments() {}
     virtual size_t getArgumentCount() const = 0;
-    virtual bool getArgument(size_t index, String& name, Value& value) const = 0;
+    virtual bool getArgumentByIndex(size_t index, Value& value, String* name = nullptr) const = 0;
   };
 
   class IObject : public ICollectable {
