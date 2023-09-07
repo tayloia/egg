@@ -153,7 +153,7 @@ TEST(TestVM, CreateValue) {
 TEST(TestVM, CreateProgram) {
   egg::test::VM vm;
   auto program = createHelloWorldProgram(vm);
-  ASSERT_NE(nullptr, program);
+  ASSERT_STRING("[VMProgram]", vm.allocator.concat(program));
 }
 
 TEST(TestVM, RunProgram) {

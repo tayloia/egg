@@ -96,10 +96,11 @@ void egg::ovum::Print::write(std::ostream& stream, const String& value, const Op
   Print::write(stream, value.toUTF8(), options);
 }
 
-void egg::ovum::Print::write(std::ostream& stream, const HardObject& value, const Options& options) {
+void egg::ovum::Print::write(std::ostream& stream, const ICollectable* value, const Options& options) {
   if (value == nullptr) {
     stream << "null";
   } else {
+    // TODO change options?
     Printer printer{ stream, options };
     value->print(printer);
   }
@@ -164,6 +165,10 @@ void egg::ovum::Print::write(std::ostream& stream, ILogger::Severity value, cons
     stream << "<UNKNOWN:" << int(value) << ">";
     break;
   }
+}
+
+void egg::ovum::Print::write(std::ostream& stream, const HardObject& value, const Options& options) {
+  Print::write(stream, static_cast<const ICollectable*>(value.get()), options);
 }
 
 void egg::ovum::Print::write(std::ostream& stream, const HardValue& value, const Options& options) {

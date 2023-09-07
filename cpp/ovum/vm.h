@@ -74,12 +74,12 @@ namespace egg::ovum {
     }
   };
 
-  class IVMBase : public IHardAcquireRelease, public IVMCommon {
+  class IVMCollectable : public ICollectable, public IVMCommon {
   public:
     virtual IAllocator& getAllocator() const = 0;
   };
 
-  class IVMProgramRunner : public IVMBase {
+  class IVMProgramRunner : public IVMCollectable {
   public:
     enum class RunFlags {
       None = 0x0000,
@@ -95,13 +95,13 @@ namespace egg::ovum {
     virtual RunOutcome run(HardValue& retval, RunFlags flags = RunFlags::Default) = 0;
   };
 
-  class IVMProgram : public IVMBase {
+  class IVMProgram : public IVMCollectable {
   public:
     class Node;
     virtual HardPtr<IVMProgramRunner> createRunner() = 0;
   };
 
-  class IVMProgramBuilder : public IVMBase {
+  class IVMProgramBuilder : public IVMCollectable {
   public:
     using Node = IVMProgram::Node;
     virtual void addStatement(Node& statement) = 0;
@@ -127,9 +127,11 @@ namespace egg::ovum {
     virtual void appendChild(Node& parent, Node& child) = 0;
   };
 
-  class IVM : public IVMBase {
+  class IVM : public IHardAcquireRelease, public IVMCommon {
   public:
     // Service access
+    virtual IAllocator& getAllocator() const = 0;
+    virtual IBasket& getBasket() const = 0;
     virtual ILogger& getLogger() const = 0;
     // Builder factories
     virtual HardPtr<IVMProgramBuilder> createProgramBuilder() = 0;

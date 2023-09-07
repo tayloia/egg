@@ -21,12 +21,17 @@ namespace egg::ovum {
     static void write(std::ostream& stream, double value, const Options& options);
     static void write(std::ostream& stream, const std::string& value, const Options& options);
     static void write(std::ostream& stream, const String& value, const Options& options);
-    static void write(std::ostream& stream, const HardObject& value, const Options& options);
+    static void write(std::ostream& stream, const ICollectable* value, const Options& options);
     static void write(std::ostream& stream, const Type& value, const Options& options);
+    static void write(std::ostream& stream, const HardObject& value, const Options& options);
     static void write(std::ostream& stream, const HardValue& value, const Options& options);
     static void write(std::ostream& stream, ValueFlags value, const Options& options);
     static void write(std::ostream& stream, ILogger::Severity value, const Options& options);
     static void write(std::ostream& stream, ILogger::Source value, const Options& options);
+    template<typename T>
+    static void write(std::ostream& stream, const HardPtr<T>& value, const Options& options) {
+      write(stream, static_cast<const ICollectable*>(value.get()), options);
+    }
 
     // Print string to stream
     static void ascii(std::ostream& stream, const std::string& value, char quote);

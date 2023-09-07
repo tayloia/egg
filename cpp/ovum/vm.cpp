@@ -50,45 +50,36 @@ namespace {
   };
 
   template<typename T>
-  class VMImpl : public VMCommon<T> {
-    VMImpl(const VMImpl&) = delete;
-    VMImpl& operator=(const VMImpl&) = delete;
+  class VMCollectable : public VMCommon<SoftReferenceCounted<T>> {
+    VMCollectable(const VMCollectable&) = delete;
+    VMCollectable& operator=(const VMCollectable&) = delete;
   protected:
-    mutable Atomic<int64_t> atomic; // signed so we can detect underflows
-    explicit VMImpl(IVM& vm)
-      : VMCommon<T>(vm), atomic(0) {
+    explicit VMCollectable(IVM& vm)
+      : VMCommon<SoftReferenceCounted<T>>(vm) {
+    }
+    virtual void hardDestroy() const override {
+      this->vm.getAllocator().destroy(this);
     }
   public:
-    virtual ~VMImpl() override {
-      // Make sure our reference count reached zero
-      assert(this->atomic.get() == 0);
-    }
-    virtual T* hardAcquire() const override {
-      auto count = this->atomic.increment();
-      assert(count > 0);
-      (void)count;
-      return const_cast<T*>(static_cast<const T*>(this));
-    }
-    virtual void hardRelease() const override {
-      auto count = this->atomic.decrement();
-      assert(count >= 0);
-      if (count == 0) {
-        this->vm.getAllocator().destroy(this);
-      }
-    }
     virtual IAllocator& getAllocator() const override {
       return this->vm.getAllocator();
     }
   };
 
-  class VMProgram : public VMImpl<IVMProgram> {
+  class VMProgram : public VMCollectable<IVMProgram> {
     VMProgram(const VMProgram&) = delete;
     VMProgram& operator=(const VMProgram&) = delete;
   private:
     HardPtr<Node> root;
   public:
     VMProgram(IVM& vm, Node& root)
-      : VMImpl(vm), root(&root) {
+      : VMCollectable(vm), root(&root) {
+    }
+    virtual void softVisit(const ICollectable::Visitor&) const override {
+      // WIBBLE
+    }
+    virtual void print(Printer& printer) const override {
+      printer << "[VMProgram]";
     }
     virtual HardPtr<IVMProgramRunner> createRunner() override {
       return VMProgram::makeHardVM<VMProgramRunner>(this->vm, *this);
@@ -104,10 +95,11 @@ namespace {
   };
 }
 
-class egg::ovum::IVMProgram::Node : public VMImpl<IVMBase> {
+class egg::ovum::IVMProgram::Node : public HardReferenceCounted<IHardAcquireRelease> {
   Node(const Node&) = delete;
   Node& operator=(const Node&) = delete;
 private:
+  IVM& vm;
   HardPtr<Node> chain; // A linked list of all known nodes in this program
 public:
   enum class Kind {
@@ -124,9 +116,12 @@ public:
   };
   Kind kind;
   HardValue literal; // Only stores simple literals
-  std::vector<Node*> children;
+  std::vector<Node*> children; // Hard pointers stored in the chain
   Node(IVM& vm, Node* parent, Kind kind)
-    : VMImpl(vm), chain(nullptr), kind(kind) {
+    : HardReferenceCounted<IHardAcquireRelease>(),
+      vm(vm),
+      chain(nullptr),
+      kind(kind) {
     if (parent != nullptr) {
       this->chain = parent->chain;
       parent->chain.set(this);
@@ -138,6 +133,10 @@ public:
   Node& build() {
     // TODO
     return *this;
+  }
+protected:
+  virtual void hardDestroy() const override {
+    this->vm.getAllocator().destroy(this);
   }
 };
 
@@ -159,15 +158,21 @@ namespace {
     }
   };
 
-  class VMProgramBuilder : public VMImpl<IVMProgramBuilder> {
+  class VMProgramBuilder : public VMCollectable<IVMProgramBuilder> {
     VMProgramBuilder(const VMProgramBuilder&) = delete;
     VMProgramBuilder& operator=(const VMProgramBuilder&) = delete;
   private:
     HardPtr<Node> root;
   public:
     explicit VMProgramBuilder(IVM& vm)
-      : VMImpl(vm) {
+      : VMCollectable<IVMProgramBuilder>(vm) {
       this->root = VMProgram::makeHardVM<Node>(this->vm, nullptr, Node::Kind::Root);
+    }
+    virtual void softVisit(const ICollectable::Visitor&) const override {
+      // WIBBLE
+    }
+    virtual void print(Printer& printer) const override {
+      printer << "[VMProgramBuilder]";
     }
     virtual void addStatement(Node& statement) override {
       assert(this->root != nullptr);
@@ -236,7 +241,87 @@ namespace {
     }
   };
 
-  class VMProgramRunner : public VMImpl<IVMProgramRunner> {
+  class VMSymbolTable {
+    VMSymbolTable(const VMSymbolTable&) = delete;
+    VMSymbolTable& operator=(const VMSymbolTable&) = delete;
+  public:
+    enum class Kind {
+      Unknown,
+      Builtin,
+      Unset,
+      Variable
+    };
+  private:
+    struct Entry {
+      Kind kind;
+      HardValue value; // WIBBLE
+    };
+    std::map<String, Entry> entries;
+  public:
+    VMSymbolTable() = default;
+    Kind add(Kind kind, const String& name, const HardValue& value) {
+      // Returns the old kind before this request
+      assert(kind != Kind::Unknown);
+      auto result = this->entries.emplace(name, Entry(kind, value));
+      if (result.second) {
+        return Kind::Unknown;
+      }
+      assert(result.first->second.kind != Kind::Unknown);
+      return result.first->second.kind;
+    }
+    Kind set(const String& name, const HardValue& value) {
+      // Returns the new kind but only updates if a variable (or unset)
+      auto result = this->entries.find(name);
+      if (result == this->entries.end()) {
+        return Kind::Unknown;
+      }
+      switch (result->second.kind) {
+      case Kind::Unknown:
+        return Kind::Unknown;
+      case Kind::Builtin:
+        // Can reset a builtin
+        return Kind::Builtin;
+      case Kind::Unset:
+        result->second.kind = Kind::Variable;
+        break;
+      case Kind::Variable:
+        break;
+      }
+      result->second.value = value;
+      return Kind::Variable;
+    }
+    Kind remove(const String& name) {
+      // Returns the old kind but only removes if variable or unset
+      auto result = this->entries.find(name);
+      if (result == this->entries.end()) {
+        return Kind::Unknown;
+      }
+      auto kind = result->second.kind;
+      if (kind != Kind::Builtin) {
+        this->entries.erase(result);
+      }
+      return kind;
+    }
+    Kind lookup(const String& name) {
+      // Returns the current kind
+      auto result = this->entries.find(name);
+      if (result == this->entries.end()) {
+        return Kind::Unknown;
+      }
+      return result->second.kind;
+    }
+    Kind lookup(const String& name, HardValue& value) {
+      // Returns the current kind and current value
+      auto result = this->entries.find(name);
+      if (result == this->entries.end()) {
+        return Kind::Unknown;
+      }
+      value = result->second.value;
+      return result->second.kind;
+    }
+  };
+
+  class VMProgramRunner : public VMCollectable<IVMProgramRunner> {
     VMProgramRunner(const VMProgramRunner&) = delete;
     VMProgramRunner& operator=(const VMProgramRunner&) = delete;
   private:
@@ -245,98 +330,26 @@ namespace {
       size_t index;
       std::deque<HardValue> deque; // WIBBLE
     };
-    enum class SymbolKind {
-      Unknown,
-      Builtin,
-      Unset,
-      Variable
-    };
-    class SymbolTable {
-      SymbolTable(const SymbolTable&) = delete;
-      SymbolTable& operator=(const SymbolTable&) = delete;
-    private:
-      struct Entry {
-        SymbolKind kind;
-        HardValue value; // WIBBLE
-      };
-      std::map<String, Entry> entries;
-    public:
-      SymbolTable() = default;
-      SymbolKind add(SymbolKind kind, const String& name, const HardValue& value) {
-        // Returns the old kind before this request
-        assert(kind != SymbolKind::Unknown);
-        auto result = this->entries.emplace(name, Entry(kind, value));
-        if (result.second) {
-          return SymbolKind::Unknown;
-        }
-        assert(result.first->second.kind != SymbolKind::Unknown);
-        return result.first->second.kind;
-      }
-      SymbolKind set(const String& name, const HardValue& value) {
-        // Returns the new kind but only updates if a variable (or unset)
-        auto result = this->entries.find(name);
-        if (result == this->entries.end()) {
-          return SymbolKind::Unknown;
-        }
-        switch (result->second.kind) {
-        case SymbolKind::Unknown:
-          return SymbolKind::Unknown;
-        case SymbolKind::Builtin:
-          // Can reset a builtin
-          return SymbolKind::Builtin;
-        case SymbolKind::Unset:
-          result->second.kind = SymbolKind::Variable;
-          break;
-        case SymbolKind::Variable:
-          break;
-        }
-        result->second.value = value;
-        return SymbolKind::Variable;
-      }
-      SymbolKind remove(const String& name) {
-        // Returns the old kind but only removes if variable or unset
-        auto result = this->entries.find(name);
-        if (result == this->entries.end()) {
-          return SymbolKind::Unknown;
-        }
-        auto kind = result->second.kind;
-        if (kind != SymbolKind::Builtin) {
-          this->entries.erase(result);
-        }
-        return kind;
-      }
-      SymbolKind lookup(const String& name) {
-        // Returns the current kind
-        auto result = this->entries.find(name);
-        if (result == this->entries.end()) {
-          return SymbolKind::Unknown;
-        }
-        return result->second.kind;
-      }
-      SymbolKind lookup(const String& name, HardValue& value) {
-        // Returns the current kind and current value
-        auto result = this->entries.find(name);
-        if (result == this->entries.end()) {
-          return SymbolKind::Unknown;
-        }
-        value = result->second.value;
-        return result->second.kind;
-      }
-    };
     HardPtr<VMProgram> program;
     std::stack<NodeStack> stack;
-    SymbolTable symtable;
+    VMSymbolTable symtable;
     VMExecution execution;
   public:
     VMProgramRunner(IVM& vm, VMProgram& program)
-      : VMImpl(vm),
+      : VMCollectable<IVMProgramRunner>(vm),
         program(&program),
         execution(vm) {
       this->push(program.getRunnableRoot());
     }
+    virtual void softVisit(const ICollectable::Visitor&) const override {
+      // WIBBLE
+    }
+    virtual void print(Printer& printer) const override {
+      printer << "[VMProgramRunner]";
+    }
     virtual void addBuiltin(const String& name, const HardValue& value) override {
-      auto added = this->symtable.add(SymbolKind::Builtin, name, value);
-      assert(added == SymbolKind::Unknown);
+      auto added = this->symtable.add(VMSymbolTable::Kind::Builtin, name, value);
+      assert(added == VMSymbolTable::Kind::Unknown);
       (void)added;
     }
     virtual RunOutcome run(HardValue& retval, RunFlags flags) override {
@@ -394,6 +407,9 @@ namespace {
     }
     virtual IAllocator& getAllocator() const override {
       return this->allocator;
+    }
+    virtual IBasket& getBasket() const override {
+      return *this->basket;
     }
     virtual ILogger& getLogger() const override {
       return this->logger;
@@ -482,13 +498,13 @@ egg::ovum::IVMProgramRunner::RunOutcome VMProgramRunner::step(HardValue& retval)
       if (!top.node->literal->getString(symbol)) {
         return this->createFault(retval, "Invalid program node literal for variable symbol");
       }
-      switch (this->symtable.add(SymbolKind::Unset, symbol, HardValue::Void)) {
-      case SymbolKind::Unknown:
+      switch (this->symtable.add(VMSymbolTable::Kind::Unset, symbol, HardValue::Void)) {
+      case VMSymbolTable::Kind::Unknown:
         break;
-      case SymbolKind::Builtin:
+      case VMSymbolTable::Kind::Builtin:
         return this->createFault(retval, "Variable symbol already declared as a builtin: '", symbol, "'");
-      case SymbolKind::Unset:
-      case SymbolKind::Variable:
+      case VMSymbolTable::Kind::Unset:
+      case VMSymbolTable::Kind::Variable:
         return this->createFault(retval, "Variable symbol already declared: '", symbol, "'");
       }
       this->pop(HardValue::Void);
@@ -505,13 +521,13 @@ egg::ovum::IVMProgramRunner::RunOutcome VMProgramRunner::step(HardValue& retval)
       if (!top.node->literal->getString(symbol)) {
         return this->createFault(retval, "Invalid program node literal for variable symbol");
       }
-      switch (this->symtable.add(SymbolKind::Variable, symbol, top.deque.front())) {
-      case SymbolKind::Unknown:
+      switch (this->symtable.add(VMSymbolTable::Kind::Variable, symbol, top.deque.front())) {
+      case VMSymbolTable::Kind::Unknown:
         break;
-      case SymbolKind::Builtin:
+      case VMSymbolTable::Kind::Builtin:
         return this->createFault(retval, "Variable symbol already declared as a builtin: '", symbol, "'");
-      case SymbolKind::Unset:
-      case SymbolKind::Variable:
+      case VMSymbolTable::Kind::Unset:
+      case VMSymbolTable::Kind::Variable:
         return this->createFault(retval, "Variable symbol already declared: '", symbol, "'");
       }
       this->pop(HardValue::Void);
@@ -529,12 +545,12 @@ egg::ovum::IVMProgramRunner::RunOutcome VMProgramRunner::step(HardValue& retval)
         return this->createFault(retval, "Invalid program node literal for variable symbol");
       }
       switch (this->symtable.set(symbol, top.deque.front())) {
-      case SymbolKind::Unknown:
+      case VMSymbolTable::Kind::Unknown:
         return this->createFault(retval, "Unknown variable symbol: '", symbol, "'");
-      case SymbolKind::Builtin:
+      case VMSymbolTable::Kind::Builtin:
         return this->createFault(retval, "Cannot modify builtin symbol: '", symbol, "'");
-      case SymbolKind::Variable:
-      case SymbolKind::Unset:
+      case VMSymbolTable::Kind::Variable:
+      case VMSymbolTable::Kind::Unset:
         break;
       }
       this->pop(HardValue::Void);
@@ -549,12 +565,12 @@ egg::ovum::IVMProgramRunner::RunOutcome VMProgramRunner::step(HardValue& retval)
         return this->createFault(retval, "Invalid program node literal for variable symbol");
       }
       switch (this->symtable.remove(symbol)) {
-      case SymbolKind::Unknown:
+      case VMSymbolTable::Kind::Unknown:
         return this->createFault(retval, "Unknown variable symbol: '", symbol, "'");
-      case SymbolKind::Builtin:
+      case VMSymbolTable::Kind::Builtin:
         return this->createFault(retval, "Cannot undeclare builtin symbol: '", symbol, "'");
-      case SymbolKind::Unset:
-      case SymbolKind::Variable:
+      case VMSymbolTable::Kind::Unset:
+      case VMSymbolTable::Kind::Variable:
         break;
       }
       this->pop(HardValue::Void);
@@ -607,12 +623,12 @@ egg::ovum::IVMProgramRunner::RunOutcome VMProgramRunner::step(HardValue& retval)
       }
       HardValue value;
       switch (this->symtable.lookup(symbol, value)) {
-      case SymbolKind::Unknown:
+      case VMSymbolTable::Kind::Unknown:
         return this->createFault(retval, "Unknown variable symbol: '", symbol, "'");
-      case SymbolKind::Unset:
+      case VMSymbolTable::Kind::Unset:
         return this->createFault(retval, "Variable uninitialized: '", symbol, "'");
-      case SymbolKind::Builtin:
-      case SymbolKind::Variable:
+      case VMSymbolTable::Kind::Builtin:
+      case VMSymbolTable::Kind::Variable:
         break;
       }
       this->pop(value);

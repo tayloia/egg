@@ -1,14 +1,3 @@
-// At first glance, it looks like this has far too many levels of indirection.
-// However, the old 'Variant' mechanism before egg-2020 had serious flaws.
-// It conflated VALUEs with SLOTs.
-// VALUEs hold bools, ints, floats, pointers, etc.
-// SLOTs are stable (in terms of location in memory).
-// The competing features that we need to support are:
-//  * Slots may have soft/weak links to them
-//  * Slot modifications must be atomic.
-//  * Value mutations may be atomic.
-//  * Neither values nor slots are immutable.
-
 namespace egg::ovum {
   enum class ValueCompare {
     Binary = 0x00,
