@@ -3,6 +3,8 @@ namespace egg::ovum {
 
   class HardObject : public HardPtr<IObject> {
   public:
+    HardObject(const HardObject&) = default;
+    HardObject& operator=(const HardObject&) = default;
     explicit HardObject(IObject* object = nullptr)
       : HardPtr<IObject>(object) {
       assert((object == nullptr) || object->validate());
@@ -12,6 +14,23 @@ namespace egg::ovum {
       return (object != nullptr) && object->validate();
     }
     bool equals(const HardObject& other) const {
+      // Equality is identity for objects
+      return this->get() == other.get();
+    }
+  };
+
+  class SoftObject : public SoftPtr<IObject> {
+    SoftObject(const SoftObject&) = delete;
+    SoftObject& operator=(const SoftObject&) = delete;
+  public:
+    SoftObject()
+      : SoftPtr<IObject>() {
+    }
+    bool validate() const {
+      auto* object = this->get();
+      return (object != nullptr) && object->validate();
+    }
+    bool equals(const SoftObject& other) const {
       // Equality is identity for objects
       return this->get() == other.get();
     }

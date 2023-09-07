@@ -93,7 +93,7 @@ namespace {
     VMObjectExpando(const VMObjectExpando&) = delete;
     VMObjectExpando& operator=(const VMObjectExpando&) = delete;
   private:
-    SoftPtr<IObject> x; // WIBBLE
+    SoftObject x; // WIBBLE
   public:
     explicit VMObjectExpando(IVM& vm)
       : VMObjectBase(vm) {

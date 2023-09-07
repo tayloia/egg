@@ -25,9 +25,6 @@ namespace egg::ovum {
   };
 
   class HardValue {
-    friend class ValueFactory;
-    // Stop type promotion for implicit constructors
-    template<typename T> HardValue(T rhs) = delete;
   private:
     HardPtr<IValue> ptr;
   public:
