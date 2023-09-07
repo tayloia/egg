@@ -524,6 +524,13 @@ TEST(TestVM, ExpandoPair) {
     builder->stmtVariableDefine(builder->createString("b")),
     builder->exprFunctionCall(builder->exprVariable(builder->createString("expando")))
   );
+  // a.x = b;
+  /*
+  builder->addStatement(
+    builder->stmtPropertySet(builder->exprVariable(builder->createString("a")), builder->createValue("x")),
+    builder->exprFunctionCall(builder->exprVariable(builder->createString("expando")))
+  );
+  */
   // print(a,b);
   builder->addStatement(
     builder->stmtFunctionCall(builder->exprVariable(builder->createString("print"))),

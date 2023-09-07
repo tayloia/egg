@@ -188,7 +188,8 @@ namespace egg::ovum {
   class IObject : public ICollectable {
   public:
     // Interface
-    virtual Value call(IVMExecution& execution, const ICallArguments& arguments) = 0;
+    virtual Value vmCall(IVMExecution& execution, const ICallArguments& arguments) = 0;
+    virtual Value vmPropertySet(IVMExecution& execution, const Value& property, const Value& value) = 0;
   };
 
   class IParameters {

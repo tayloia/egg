@@ -119,6 +119,7 @@ namespace egg::ovum {
     virtual Node& stmtVariableDefine(const String& name) = 0;
     virtual Node& stmtVariableSet(const String& name) = 0;
     virtual Node& stmtVariableUndeclare(const String& name) = 0;
+    virtual Node& stmtPropertySet(Node& instance, const Value& property) = 0;
     virtual Node& stmtFunctionCall(Node& function) = 0;
     // Helpers
     template<typename... ARGS>

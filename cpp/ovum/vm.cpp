@@ -119,7 +119,8 @@ public:
     StmtVariableDefine,
     StmtVariableSet,
     StmtVariableUndeclare,
-    StmtFunctionCall,
+    StmtPropertySet,
+    StmtFunctionCall
   };
   Kind kind;
   Value value;
@@ -211,6 +212,12 @@ namespace {
     virtual Node& stmtVariableUndeclare(const String& name) override {
       auto& node = this->makeNode(Node::Kind::StmtVariableUndeclare);
       node.value = this->createValueString(name);
+      return node;
+    }
+    virtual Node& stmtPropertySet(Node& instance, const Value& property) override {
+      auto& node = this->makeNode(Node::Kind::StmtPropertySet);
+      node.value = property;
+      node.addChild(instance);
       return node;
     }
     virtual Node& stmtFunctionCall(Node& function) override {
@@ -553,6 +560,22 @@ egg::ovum::IVMProgramRunner::RunOutcome VMProgramRunner::step(Value& retval) {
       this->pop(Value::Void);
     }
     break;
+  case IVMProgram::Node::Kind::StmtPropertySet:
+    assert(top.node->children.size() == 2);
+    if (top.index < 2) {
+      // Evaluate the expressions
+      this->push(*top.node->children[top.index++]);
+    } else {
+      assert(top.deque.size() == 2);
+      Object instance;
+      if (!top.deque.front()->getObject(instance)) {
+        return this->createFault(retval, "Invalid left hand side for '.' operator");
+      }
+      auto& property = top.node->value;
+      auto& value = top.deque.back();
+      this->pop(instance->vmPropertySet(this->execution, property, value));
+    }
+    break;
   case IVMProgram::Node::Kind::StmtFunctionCall:
   case IVMProgram::Node::Kind::ExprFunctionCall:
     assert(top.node->value.isVoid());
@@ -572,7 +595,7 @@ egg::ovum::IVMProgramRunner::RunOutcome VMProgramRunner::step(Value& retval) {
         // TODO support named arguments
         arguments.addUnnamed(argument);
       }
-      this->pop(function->call(this->execution, arguments));
+      this->pop(function->vmCall(this->execution, arguments));
     }
     break;
   case IVMProgram::Node::Kind::ExprVariable:

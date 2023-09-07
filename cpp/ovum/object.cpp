@@ -38,7 +38,7 @@ namespace {
     virtual void print(Printer& printer) const override {
       printer << "[builtin assert]";
     }
-    virtual Value call(IVMExecution& execution, const ICallArguments& arguments) override {
+    virtual Value vmCall(IVMExecution& execution, const ICallArguments& arguments) override {
       if (arguments.getArgumentCount() != 1) {
         return execution.raise("Builtin 'assert()' expects exactly one argument");
       }
@@ -51,6 +51,9 @@ namespace {
         return execution.raise("Assertion failure");
       }
       return Value::Void;
+    }
+    virtual Value vmPropertySet(IVMExecution& execution, const Value&, const Value&) override {
+      return execution.raise("Builtin 'assert()' does not support properties");
     }
   };
 
@@ -67,7 +70,7 @@ namespace {
     virtual void print(Printer& printer) const override {
       printer << "[builtin print]";
     }
-    virtual Value call(IVMExecution& execution, const ICallArguments& arguments) override {
+    virtual Value vmCall(IVMExecution& execution, const ICallArguments& arguments) override {
       StringBuilder sb(&this->vm->getAllocator());
       size_t n = arguments.getArgumentCount();
       String name;
@@ -81,11 +84,16 @@ namespace {
       execution.log(ILogger::Source::User, ILogger::Severity::None, sb.build());
       return Value::Void;
     }
+    virtual Value vmPropertySet(IVMExecution& execution, const Value&, const Value&) override {
+      return execution.raise("Builtin 'print()' does not support properties");
+    }
   };
 
   class VMObjectExpando : public VMObjectBase {
     VMObjectExpando(const VMObjectExpando&) = delete;
     VMObjectExpando& operator=(const VMObjectExpando&) = delete;
+  private:
+    SoftPtr<IObject> x;
   public:
     explicit VMObjectExpando(IVM& vm)
       : VMObjectBase(vm) {
@@ -96,8 +104,14 @@ namespace {
     virtual void print(Printer& printer) const override {
       printer << "[expando]";
     }
-    virtual Value call(IVMExecution& execution, const ICallArguments&) override {
+    virtual Value vmCall(IVMExecution& execution, const ICallArguments&) override {
       return execution.raise("TODO: Expando objects do not yet support function call semantics");
+    }
+    virtual Value vmPropertySet(IVMExecution& execution, const Value& property, const Value&) override {
+      if (!property.isString("x")) {
+        return execution.raise("TODO: Expando objects only support property 'x'");
+      }
+      return execution.raise("WIBBLE");
     }
   };
 
@@ -114,12 +128,15 @@ namespace {
     virtual void print(Printer& printer) const override {
       printer << "[builtin expando]";
     }
-    virtual Value call(IVMExecution& execution, const ICallArguments& arguments) override {
+    virtual Value vmCall(IVMExecution& execution, const ICallArguments& arguments) override {
       if (arguments.getArgumentCount() != 0) {
         return execution.raise("Builtin 'expando()' expects no arguments");
       }
       auto instance = makeObject<VMObjectExpando>(*this->vm);
       return execution.createValueObject(instance);
+    }
+    virtual Value vmPropertySet(IVMExecution& execution, const Value&, const Value&) override {
+      return execution.raise("Builtin 'expando()' does not support properties");
     }
   };
 }
