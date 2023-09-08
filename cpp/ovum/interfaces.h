@@ -272,9 +272,9 @@ namespace egg::ovum {
     virtual Modifiability getModifiability() const = 0;
   };
 
-  class IType : public IHardAcquireRelease {
+  class IType : public ICollectable {
   public:
     virtual ValueFlags getPrimitiveFlags() const = 0;
-    virtual std::pair<std::string, int> toStringPrecedence() const = 0;
+    virtual std::pair<std::string, int> toStringPrecedence() const = 0; // TODO remove?
   };
 }

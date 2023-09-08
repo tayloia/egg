@@ -18,27 +18,33 @@ namespace {
       return nullptr;
   }
 
-  std::pair<std::string, int> simpleToStringPrecedence(ValueFlags flags) {
+  int simpleToStringPrecedence(std::ostream& os, ValueFlags flags) {
     auto* component = simpleComponent(flags);
     if (component != nullptr) {
-      return { component, 0 };
+      os << component;
+      return 0;
     }
     if (Bits::hasAnySet(flags, ValueFlags::Null)) {
-      auto nonnull = simpleToStringPrecedence(Bits::clear(flags, ValueFlags::Null));
-      return { nonnull.first + "?", std::max(nonnull.second, 1) };
+      auto nonnull = simpleToStringPrecedence(os, Bits::clear(flags, ValueFlags::Null));
+      os << '?';
+      return std::max(nonnull, 1);
     }
     if (Bits::hasAnySet(flags, ValueFlags::Void)) {
-      return { "void|" + simpleToStringPrecedence(Bits::clear(flags, ValueFlags::Void)).first, 2 };
+      os << "void|";
+      (void)simpleToStringPrecedence(os, Bits::clear(flags, ValueFlags::Void));
+      return 2;
     }
     auto head = Bits::topmost(flags);
     assert(head != ValueFlags::None);
     component = simpleComponent(head);
     assert(component != nullptr);
-    return { simpleToStringPrecedence(Bits::clear(flags, head)).first + '|' + component, 2 };
+    os << component << '|';
+    (void)simpleToStringPrecedence(os, Bits::clear(flags, head));
+    return 2;
   }
 
   template<enum ValueFlags FLAGS>
-  class TypePrimitive final : public HardReferenceCountedNone<IType> {
+  class TypePrimitive final : public SoftReferenceCountedNone<IType> {
     TypePrimitive(const TypePrimitive&) = delete;
     TypePrimitive& operator=(const TypePrimitive&) = delete;
   public:
@@ -47,7 +53,12 @@ namespace {
       return FLAGS;
     }
     virtual std::pair<std::string, int> toStringPrecedence() const override {
-      return simpleToStringPrecedence(FLAGS);
+      std::stringstream ss;
+      auto precedence = simpleToStringPrecedence(ss, FLAGS);
+      return std::make_pair(ss.str(), precedence);
+    }
+    virtual void print(Printer& printer) const override {
+      (void)simpleToStringPrecedence(printer.stream(), FLAGS);
     }
   };
 
