@@ -64,12 +64,6 @@ namespace egg::ovum {
     IValue* operator->() const {
       return &this->get();
     }
-    // Equality
-    static bool equals(const HardValue& lhs, const HardValue& rhs, ValueCompare compare) {
-      const auto& p = lhs.get();
-      const auto& q = rhs.get();
-      return p.equals(q, compare);
-    }
     // Debugging
     bool validate() const;
     // Helpers
@@ -111,21 +105,8 @@ namespace egg::ovum {
     void visit(ICollectable::IVisitor& visitor) const {
       this->ptr.visit(visitor);
     }
-    // Equality
-    static bool equals(const SoftValue& lhs, const SoftValue& rhs, ValueCompare compare) {
-      const auto& p = lhs.get();
-      const auto& q = rhs.get();
-      return p.equals(q, compare);
-    }
     // Debugging
     bool validate() const;
-    // Helpers
-    bool hasAnyFlags(ValueFlags flags) const {
-      return Bits::hasAnySet(this->get().getFlags(), flags);
-    }
-    bool hasFlowControl() const {
-      return this->hasAnyFlags(ValueFlags::FlowControl);
-    }
     // Factory
     static IValue* createPoly(IAllocator& allocator);
   };

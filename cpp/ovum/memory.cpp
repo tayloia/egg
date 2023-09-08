@@ -34,7 +34,7 @@ bool egg::ovum::Memory::validate() const {
 
 }
 
-bool egg::ovum::Memory::equals(const IMemory* lhs, const IMemory* rhs) {
+bool egg::ovum::Memory::equal(const IMemory* lhs, const IMemory* rhs) {
   // Don't look at the tag
   if (lhs == rhs) {
     return true;

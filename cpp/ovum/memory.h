@@ -4,7 +4,7 @@ namespace egg::ovum {
     Memory() = default;
     explicit Memory(const IMemory* rhs) : HardPtr(rhs) {
     }
-    static bool equals(const IMemory* lhs, const IMemory* rhs);
+    static bool equal(const IMemory* lhs, const IMemory* rhs);
     bool validate() const;
   };
 

@@ -289,7 +289,7 @@ bool egg::ovum::String::equals(const char* utf8) const {
 
 bool egg::ovum::String::equals(const String& other) const {
   // Ordinal comparison
-  return Memory::equals(this->get(), other.get());
+  return Memory::equal(this->get(), other.get());
 }
 
 int64_t egg::ovum::String::hash() const {
