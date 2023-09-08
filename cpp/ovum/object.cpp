@@ -93,14 +93,15 @@ namespace {
     VMObjectExpando(const VMObjectExpando&) = delete;
     VMObjectExpando& operator=(const VMObjectExpando&) = delete;
   private:
-    SoftValue x; // WIBBLE
+    std::map<String, SoftValue> properties;
   public:
     explicit VMObjectExpando(IVM& vm)
-      : VMObjectBase(vm),
-        x(vm) {
+      : VMObjectBase(vm) {
     }
     virtual void softVisit(ICollectable::IVisitor& visitor) const override {
-      this->x.visit(visitor);
+      for (const auto& property : this->properties) {
+        property.second.visit(visitor);
+      }
     }
     virtual void print(Printer& printer) const override {
       printer << "[expando]";
@@ -110,11 +111,15 @@ namespace {
     }
     virtual HardValue vmPropertySet(IVMExecution& execution, const HardValue& property, const HardValue& value) override {
       String pname;
-      if (!property->getString(pname) || !pname.equals("x")) {
-        return execution.raise("TODO: Expando objects only support property 'x'");
+      if (!property->getString(pname)) {
+        return execution.raise("TODO: Expando objects expect their properties to be strings");
       }
-      if (!this->vm->setSoftValue(this->x, value)) {
-        return execution.raise("TODO: Cannot modify property 'x'");
+      auto pfound = this->properties.find(pname);
+      if (pfound == this->properties.end()) {
+        pfound = this->properties.emplace_hint(pfound, std::piecewise_construct, std::forward_as_tuple(pname), std::forward_as_tuple(*this->vm));
+      }
+      if (!this->vm->setSoftValue(pfound->second, value)) {
+        return execution.raise("TODO: Cannot modify property '", pname, "'");
       }
       return HardValue::Void;
     }
