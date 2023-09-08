@@ -9,7 +9,7 @@ namespace {
   }
 
   template<ValueFlags FLAGS>
-  class ValueImmutable : public HardReferenceCountedNone<IValue> {
+  class ValueImmutable : public SoftReferenceCountedNone<IValue> {
     ValueImmutable(const ValueImmutable&) = delete;
     ValueImmutable& operator=(const ValueImmutable&) = delete;
   public:
@@ -125,12 +125,12 @@ namespace {
   const ValueBool<false> theFalse;
   const ValueBool<true> theTrue;
 
-  class ValueMutable : public HardReferenceCountedAllocator<IValue> {
+  class ValueMutable : public SoftReferenceCountedAllocator<IValue> {
     ValueMutable(const ValueMutable&) = delete;
     ValueMutable& operator=(const ValueMutable&) = delete;
   public:
     explicit ValueMutable(IAllocator& allocator)
-      : HardReferenceCountedAllocator<IValue>(allocator) {
+      : SoftReferenceCountedAllocator<IValue>(allocator) {
     }
     virtual IValue* softAcquire() const override {
       // By default, values are hard reference-counted and not within a GC basket

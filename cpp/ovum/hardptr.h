@@ -8,7 +8,8 @@ namespace egg::ovum {
   public:
     template<typename... ARGS>
     explicit HardReferenceCounted(ARGS&&... args)
-      : T(std::forward<ARGS>(args)...), atomic(0) {
+      : T(std::forward<ARGS>(args)...),
+        atomic(0) {
       assert(this->atomic.get() == 0);
     }
     virtual ~HardReferenceCounted() {

@@ -4,7 +4,7 @@ namespace egg::ovum {
     PromoteInts = 0x01
   };
 
-  class IValue : public IHardAcquireRelease {
+  class IValue : public ICollectable {
   public:
     virtual IValue* softAcquire() const = 0;
     virtual void softRelease() const = 0;

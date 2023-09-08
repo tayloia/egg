@@ -6,8 +6,9 @@ namespace egg::ovum {
   protected:
     mutable IBasket* basket;
   public:
-    SoftReferenceCounted()
-      : HardReferenceCounted<T>(),
+    template<typename... ARGS>
+    explicit SoftReferenceCounted(ARGS&&... args)
+      : HardReferenceCounted<T>(std::forward<ARGS>(args)...),
         basket(nullptr) {
     }
     virtual ~SoftReferenceCounted() override {
@@ -41,12 +42,31 @@ namespace egg::ovum {
   };
 
   template<typename T>
-  class SoftReferenceCountedNot : public T {
-    SoftReferenceCountedNot(const SoftReferenceCountedNot&) = delete;
-    SoftReferenceCountedNot& operator=(const SoftReferenceCountedNot&) = delete;
+  class SoftReferenceCountedAllocator : public SoftReferenceCounted<T> {
+    SoftReferenceCountedAllocator(const SoftReferenceCountedAllocator&) = delete;
+    SoftReferenceCountedAllocator& operator=(const SoftReferenceCountedAllocator&) = delete;
+  protected:
+    IAllocator& allocator;
   public:
     template<typename... ARGS>
-    SoftReferenceCountedNot(ARGS&&... args)
+    explicit SoftReferenceCountedAllocator(IAllocator& allocator, ARGS&&... args)
+      : SoftReferenceCounted<T>(std::forward<ARGS>(args)...),
+        allocator(allocator) {
+    }
+  protected:
+    virtual void hardDestroy() const override {
+      assert(this->atomic.get() == 0);
+      this->allocator.destroy(this);
+    }
+  };
+
+  template<typename T>
+  class SoftReferenceCountedNone : public T {
+    SoftReferenceCountedNone(const SoftReferenceCountedNone&) = delete;
+    SoftReferenceCountedNone& operator=(const SoftReferenceCountedNone&) = delete;
+  public:
+    template<typename... ARGS>
+    SoftReferenceCountedNone(ARGS&&... args)
       : T(std::forward<ARGS>(args)...) {
     }
     virtual T* hardAcquire() const override {
