@@ -6,8 +6,6 @@ namespace egg::ovum {
 
   class IValue : public ICollectable {
   public:
-    virtual IValue* softAcquire() const = 0;
-    virtual void softRelease() const = 0;
     virtual void softVisit(ICollectable::IVisitor& visitor) const = 0;
     virtual bool getVoid() const = 0;
     virtual bool getNull() const = 0;
@@ -22,6 +20,7 @@ namespace egg::ovum {
     virtual bool equals(const IValue& rhs, ValueCompare compare) const = 0;
     virtual bool validate() const = 0;
     virtual void print(Printer& printer) const = 0;
+    virtual bool set(const IValue& value) = 0;
   };
 
   class HardValue {
@@ -88,6 +87,47 @@ namespace egg::ovum {
     static const HardValue Break;
     static const HardValue Continue;
     static const HardValue Rethrow;
+  };
+
+  class SoftValue {
+    friend class IVM;
+    SoftValue(const SoftValue&) = delete;
+    SoftValue& operator=(const SoftValue&) = delete;
+  private:
+    SoftPtr<IValue, IValue> ptr;
+  public:
+    // Construction
+    explicit SoftValue(IVM& vm);
+    // Atomic access
+    IValue& get() const {
+      auto p = this->ptr.get();
+      assert(p != nullptr);
+      assert(p->validate());
+      return *p;
+    }
+    IValue* operator->() const {
+      return &this->get();
+    }
+    void visit(ICollectable::IVisitor& visitor) const {
+      this->ptr.visit(visitor);
+    }
+    // Equality
+    static bool equals(const SoftValue& lhs, const SoftValue& rhs, ValueCompare compare) {
+      const auto& p = lhs.get();
+      const auto& q = rhs.get();
+      return p.equals(q, compare);
+    }
+    // Debugging
+    bool validate() const;
+    // Helpers
+    bool hasAnyFlags(ValueFlags flags) const {
+      return Bits::hasAnySet(this->get().getFlags(), flags);
+    }
+    bool hasFlowControl() const {
+      return this->hasAnyFlags(ValueFlags::FlowControl);
+    }
+    // Factory
+    static IValue* createPoly(IAllocator& allocator);
   };
 
   class ValueFactory {

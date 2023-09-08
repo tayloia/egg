@@ -4,7 +4,7 @@ namespace {
   using namespace egg::ovum;
 
   template<typename T, typename RETTYPE = HardObject, typename... ARGS>
-  RETTYPE makeObject(IVM& vm, ARGS&&... args) {
+  RETTYPE makeHardObject(IVM& vm, ARGS&&... args) {
     // Use perfect forwarding
     return RETTYPE(vm.getAllocator().makeRaw<T>(vm, std::forward<ARGS>(args)...));
   }
@@ -93,10 +93,11 @@ namespace {
     VMObjectExpando(const VMObjectExpando&) = delete;
     VMObjectExpando& operator=(const VMObjectExpando&) = delete;
   private:
-    SoftObject x; // WIBBLE
+    SoftValue x; // WIBBLE
   public:
     explicit VMObjectExpando(IVM& vm)
-      : VMObjectBase(vm) {
+      : VMObjectBase(vm),
+        x(vm) {
     }
     virtual void softVisit(ICollectable::IVisitor& visitor) const override {
       this->x.visit(visitor);
@@ -112,11 +113,9 @@ namespace {
       if (!property->getString(pname) || !pname.equals("x")) {
         return execution.raise("TODO: Expando objects only support property 'x'");
       }
-      HardObject pvalue;
-      if (!value->getHardObject(pvalue)) {
-        return execution.raise("TODO: Expando objects only support object property values");
+      if (!this->vm->setSoftValue(this->x, value)) {
+        return execution.raise("TODO: Cannot modify property 'x'");
       }
-      this->vm->setSoftPtr(this->x, pvalue);
       return HardValue::Void;
     }
   };
@@ -138,7 +137,7 @@ namespace {
       if (arguments.getArgumentCount() != 0) {
         return execution.raise("Builtin 'expando()' expects no arguments");
       }
-      auto instance = makeObject<VMObjectExpando>(*this->vm);
+      auto instance = makeHardObject<VMObjectExpando>(*this->vm);
       return execution.createValueObjectHard(instance);
     }
     virtual HardValue vmPropertySet(IVMExecution& execution, const HardValue&, const HardValue&) override {
@@ -173,17 +172,17 @@ namespace {
 }
 
 egg::ovum::HardObject egg::ovum::ObjectFactory::createBuiltinAssert(IVM& vm) {
-  return makeObject<VMObjectBuiltinAssert>(vm);
+  return makeHardObject<VMObjectBuiltinAssert>(vm);
 }
 
 egg::ovum::HardObject egg::ovum::ObjectFactory::createBuiltinPrint(IVM& vm) {
-  return makeObject<VMObjectBuiltinPrint>(vm);
+  return makeHardObject<VMObjectBuiltinPrint>(vm);
 }
 
 egg::ovum::HardObject egg::ovum::ObjectFactory::createBuiltinExpando(IVM& vm) {
-  return makeObject<VMObjectBuiltinExpando>(vm);
+  return makeHardObject<VMObjectBuiltinExpando>(vm);
 }
 
 egg::ovum::HardObject egg::ovum::ObjectFactory::createBuiltinCollector(IVM& vm) {
-  return makeObject<VMObjectBuiltinCollector>(vm);
+  return makeHardObject<VMObjectBuiltinCollector>(vm);
 }

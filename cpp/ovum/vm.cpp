@@ -457,11 +457,26 @@ namespace {
     }
     virtual void softAcquire(ICollectable*& target, const ICollectable* value) {
       // TODO: thread safety
+      assert(target == nullptr);
       if (value != nullptr) {
         target = this->basket->take(*value);
       } else {
         target = nullptr;
       }
+    }
+    virtual IValue* softCreateValue() {
+      // TODO: thread safety
+      auto* created = SoftValue::createPoly(this->allocator);
+      assert(created != nullptr);
+      auto* taken = this->basket->take(*created);
+      assert(taken == created);
+      return static_cast<IValue*>(taken);
+    }
+    virtual bool softSetValue(IValue*& target, const IValue& value) {
+      // TODO: thread safety
+      // Note we do not currently update the target pointer but may do later for optimization reasons
+      assert(target != nullptr);
+      return target->set(value);
     }
   };
 }

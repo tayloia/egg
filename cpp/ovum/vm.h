@@ -142,6 +142,8 @@ namespace egg::ovum {
     virtual HardObject createBuiltinCollector() = 0; // TODO testing only
     // Helpers
     virtual void softAcquire(ICollectable*& target, const ICollectable* value) = 0;
+    virtual IValue* softCreateValue() = 0;
+    virtual bool softSetValue(IValue*& target, const IValue& value) = 0;
     template<typename T>
     inline void setSoftPtr(SoftPtr<T>& target, const T* value) {
       this->softAcquire(target.ptr, value);
@@ -149,6 +151,9 @@ namespace egg::ovum {
     template<typename T>
     inline void setSoftPtr(SoftPtr<T>& target, const HardPtr<T>& value) {
       this->softAcquire(target.ptr, value.get());
+    }
+    bool setSoftValue(SoftValue& target, const HardValue& value) {
+      return this->softSetValue(target.ptr.ptr, value.get());
     }
   };
 

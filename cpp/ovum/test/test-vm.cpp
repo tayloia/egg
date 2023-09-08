@@ -588,5 +588,5 @@ TEST(TestVM, ExpandoCollector) {
     builder->exprFunctionCall(builder->exprVariable(builder->createString("collector")))
   );
   buildAndRunSuccess(vm, *builder);
-  ASSERT_EQ("0\n0\n2\n", vm.logger.logged.str());
+  ASSERT_EQ("0\n0\n4\n", vm.logger.logged.str());
 }

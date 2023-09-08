@@ -96,15 +96,21 @@ namespace egg::ovum {
     }
   };
 
-  template<typename T>
+  template<typename T, typename U = ICollectable>
   class SoftPtr {
     friend class IVM;
+    friend class SoftValue;
     SoftPtr(const SoftPtr&) = delete;
     SoftPtr& operator=(const SoftPtr&) = delete;
   protected:
-    ICollectable* ptr;
+    U* ptr;
+    explicit SoftPtr(IValue* created)
+      : ptr(created) {
+      // Used by SoftValue construction
+    }
   public:
-    SoftPtr() : ptr(nullptr) {
+    SoftPtr()
+      : ptr(nullptr) {
     }
     T* get() const {
       return static_cast<T*>(this->ptr);

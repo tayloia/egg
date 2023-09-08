@@ -5,7 +5,6 @@ namespace egg::ovum {
 
   // Forward declarations
   template<typename T> class HardPtr;
-  template<typename T> class SoftPtr;
   enum class ValueFlags;
   struct LocationSource;
   class Printer;
@@ -150,16 +149,6 @@ namespace egg::ovum {
     virtual bool statistics(Statistics& out) const = 0;
     virtual void print(Printer& printer) const = 0;
     // Helpers
-    template<typename T>
-    T* soften(const T* collectable) {
-      if (collectable != nullptr) {
-        auto* taken = this->take(*collectable);
-        assert(taken != nullptr);
-        taken->hardRelease();
-        return static_cast<T*>(taken);
-      }
-      return nullptr;
-    }
     bool verify(std::ostream& os, size_t minimum = 0, size_t maximum = SIZE_MAX);
   };
 

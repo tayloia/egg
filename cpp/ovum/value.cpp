@@ -14,12 +14,6 @@ namespace {
     ValueImmutable& operator=(const ValueImmutable&) = delete;
   public:
     ValueImmutable() {}
-    virtual IValue* softAcquire() const override {
-      return const_cast<ValueImmutable*>(this);
-    }
-    virtual void softRelease() const override {
-      // Do nothing (no dynamic memory to reclaim)
-    }
     virtual void softVisit(ICollectable::IVisitor&) const override {
       // Nothing to visit
     }
@@ -64,6 +58,10 @@ namespace {
     }
     virtual bool validate() const override {
       return true;
+    }
+    virtual bool set(const IValue&) override {
+      // Cannot set an immutable instance
+      return false;
     }
     constexpr IValue& instance() const {
       return *const_cast<ValueImmutable*>(this);
@@ -132,14 +130,6 @@ namespace {
     explicit ValueMutable(IAllocator& allocator)
       : SoftReferenceCountedAllocator<IValue>(allocator) {
     }
-    virtual IValue* softAcquire() const override {
-      // By default, values are hard reference-counted and not within a GC basket
-      return this->hardAcquire();
-    }
-    virtual void softRelease() const override {
-      // By default, values are hard reference-counted and not within a GC basket
-      this->hardRelease();
-    }
     virtual void softVisit(ICollectable::IVisitor&) const override {
       // By default, nothing to visit
     }
@@ -170,6 +160,10 @@ namespace {
     virtual bool validate() const override {
       // Assume all values are valid
       return this->atomic.get() >= 0;
+    }
+    virtual bool set(const IValue&) override {
+      // TODO
+      return false;
     }
   };
 
@@ -354,6 +348,182 @@ namespace {
     }
   };
 
+  class ValuePoly final : public SoftReferenceCountedAllocator<IValue> {
+    ValuePoly(const ValuePoly&) = delete;
+    ValuePoly& operator=(const ValuePoly&) = delete;
+  private:
+    ValueFlags flags;
+    union {
+      Bool bvalue;
+      Int ivalue;
+      Float fvalue;
+      const IMemory* svalue;
+      IObject* ovalue;
+    };
+  public:
+    ValuePoly(IAllocator& allocator)
+      : SoftReferenceCountedAllocator<IValue>(allocator),
+        flags(ValueFlags::Void) {
+        assert(this->validate());
+    }
+    virtual ~ValuePoly() {
+      this->destroy();
+    }
+    virtual void softVisit(ICollectable::IVisitor& visitor) const override {
+      if (this->flags == ValueFlags::Object) {
+        auto* object = this->ovalue;
+        assert(object != nullptr);
+        visitor.visit(*object);
+      }
+    }
+    virtual bool getVoid() const override {
+      // TODO
+      return false;
+    }
+    virtual bool getNull() const override {
+      // TODO
+      return false;
+    }
+    virtual bool getBool(Bool&) const override {
+      // TODO
+      return false;
+    }
+    virtual bool getInt(Int&) const override {
+      // TODO
+      return false;
+    }
+    virtual bool getFloat(Float&) const override {
+      // TODO
+      return false;
+    }
+    virtual bool getString(String&) const override {
+      // TODO
+      return false;
+    }
+    virtual bool getHardObject(HardObject&) const override {
+      // TODO
+      return false;
+    }
+    virtual bool getInner(HardValue&) const override {
+      // TODO
+      return false;
+    }
+    virtual ValueFlags getFlags() const override {
+      return this->flags;
+    }
+    virtual Type getRuntimeType() const override {
+      // We should NOT really be asked for type information here
+      assert(false);
+      return Type::Void;
+    }
+    virtual bool equals(const IValue& rhs, ValueCompare) const override {
+      // TODO
+      return this == &rhs;
+    }
+    virtual void print(Printer& printer) const override {
+      // TODO
+      printer.write(this->flags);
+    }
+    bool validate() const {
+      // TODO
+      if (this->flags == ValueFlags::Object) {
+        auto* object = this->ovalue;
+        return (object != nullptr) && (this->basket != nullptr) && (object->softGetBasket() == this->basket);
+      }
+      return true;
+    }
+    virtual bool set(const IValue& value) override {
+      // TODO atomic
+      assert(this->validate());
+      EGG_WARNING_SUPPRESS_SWITCH_BEGIN
+      switch (value.getFlags()) {
+      case ValueFlags::Void:
+        this->destroy();
+        this->flags = ValueFlags::Void;
+        assert(this->validate());
+        return true;
+      case ValueFlags::Null:
+        this->destroy();
+        this->flags = ValueFlags::Null;
+        assert(this->validate());
+        return true;
+      case ValueFlags::Bool:
+      {
+        Bool b;
+        if (value.getBool(b)) {
+          this->destroy();
+          this->flags = ValueFlags::Bool;
+          this->bvalue = b;
+          assert(this->validate());
+          return true;
+        }
+        break;
+      }
+      case ValueFlags::Int:
+      {
+        Int i;
+        if (value.getInt(i)) {
+          this->destroy();
+          this->flags = ValueFlags::Int;
+          this->ivalue = i;
+          assert(this->validate());
+          return true;
+        }
+        break;
+      }
+      case ValueFlags::Float:
+      {
+        Float f;
+        if (value.getFloat(f)) {
+          this->destroy();
+          this->flags = ValueFlags::Float;
+          this->fvalue = f;
+          assert(this->validate());
+          return true;
+        }
+        break;
+      }
+      case ValueFlags::String:
+      {
+        String s;
+        if (value.getString(s)) {
+          this->destroy();
+          this->flags = ValueFlags::String;
+          this->svalue = s.get();
+          assert(this->validate());
+          return true;
+        }
+        break;
+      }
+      case ValueFlags::Object:
+      {
+        HardObject o;
+        assert(this->basket != nullptr);
+        if (value.getHardObject(o)) {
+          auto* instance = o.get();
+          assert(instance != nullptr);
+          auto* taken = this->basket->take(*instance);
+          assert(taken == instance);
+          this->destroy();
+          this->flags = ValueFlags::Object;
+          this->ovalue = static_cast<IObject*>(taken);
+          assert(this->validate());
+          return true;
+        }
+        break;
+      }
+      }
+      EGG_WARNING_SUPPRESS_SWITCH_END
+      return false;
+    }
+  private:
+    void destroy() {
+      if (this->flags == ValueFlags::String) {
+        this->svalue->hardRelease();
+      }
+    }
+  };
+
   bool validateFlags(ValueFlags flags) {
     auto upper = Bits::mask(flags, ValueFlags::FlowControl);
     auto lower = Bits::clear(flags, ValueFlags::FlowControl);
@@ -437,4 +607,23 @@ bool egg::ovum::HardValue::validate() const {
     return false;
   }
   return p->validate();
+}
+
+egg::ovum::SoftValue::SoftValue(IVM& vm) : ptr(vm.softCreateValue()) {
+  assert(this->validate());
+}
+
+bool egg::ovum::SoftValue::validate() const {
+  auto p = this->ptr.get();
+  if (p == nullptr) {
+    return false;
+  }
+  if (!validateFlags(p->getFlags())) {
+    return false;
+  }
+  return p->validate();
+}
+
+egg::ovum::IValue* egg::ovum::SoftValue::createPoly(IAllocator& allocator) {
+  return allocator.makeRaw<ValuePoly>(allocator);
 }
