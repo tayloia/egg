@@ -26,26 +26,26 @@ namespace {
     virtual String createStringUTF32(const void* utf32, size_t codepoints) override {
       return this->vm.createStringUTF32(utf32, codepoints);
     }
-    virtual HardValue createValueVoid() override {
-      return this->vm.createValueVoid();
+    virtual HardValue createHardValueVoid() override {
+      return this->vm.createHardValueVoid();
     }
-    virtual HardValue createValueNull() override {
-      return this->vm.createValueNull();
+    virtual HardValue createHardValueNull() override {
+      return this->vm.createHardValueNull();
     }
-    virtual HardValue createValueBool(Bool value) override {
-      return this->vm.createValueBool(value);
+    virtual HardValue createHardValueBool(Bool value) override {
+      return this->vm.createHardValueBool(value);
     }
-    virtual HardValue createValueInt(Int value) override {
-      return this->vm.createValueInt(value);
+    virtual HardValue createHardValueInt(Int value) override {
+      return this->vm.createHardValueInt(value);
     }
-    virtual HardValue createValueFloat(Float value) override {
-      return this->vm.createValueFloat(value);
+    virtual HardValue createHardValueFloat(Float value) override {
+      return this->vm.createHardValueFloat(value);
     }
-    virtual HardValue createValueString(const String& value) override {
-      return this->vm.createValueString(value);
+    virtual HardValue createHardValueString(const String& value) override {
+      return this->vm.createHardValueString(value);
     }
-    virtual HardValue createValueObjectHard(const HardObject& value) override {
-      return this->vm.createValueObjectHard(value);
+    virtual HardValue createHardValueObject(const HardObject& value) override {
+      return this->vm.createHardValueObject(value);
     }
   };
 
@@ -265,7 +265,7 @@ namespace {
     }
     virtual Node& exprVariable(const String& name) override {
       auto& node = this->makeNode(Node::Kind::ExprVariable);
-      node.literal = this->createValueString(name);
+      node.literal = this->createHardValueString(name);
       return node;
     }
     virtual Node& exprLiteral(const HardValue& literal) override {
@@ -280,22 +280,22 @@ namespace {
     }
     virtual Node& stmtVariableDeclare(const String& name) override {
       auto& node = this->makeNode(Node::Kind::StmtVariableDeclare);
-      node.literal = this->createValueString(name);
+      node.literal = this->createHardValueString(name);
       return node;
     }
     virtual Node& stmtVariableDefine(const String& name) override {
       auto& node = this->makeNode(Node::Kind::StmtVariableDefine);
-      node.literal = this->createValueString(name);
+      node.literal = this->createHardValueString(name);
       return node;
     }
     virtual Node& stmtVariableSet(const String& name) override {
       auto& node = this->makeNode(Node::Kind::StmtVariableSet);
-      node.literal = this->createValueString(name);
+      node.literal = this->createHardValueString(name);
       return node;
     }
     virtual Node& stmtVariableUndeclare(const String& name) override {
       auto& node = this->makeNode(Node::Kind::StmtVariableUndeclare);
-      node.literal = this->createValueString(name);
+      node.literal = this->createHardValueString(name);
       return node;
     }
     virtual Node& stmtPropertySet(Node& instance, const HardValue& property) override {
@@ -422,25 +422,25 @@ namespace {
     virtual HardPtr<IVMProgramBuilder> createProgramBuilder() override {
       return HardPtr<IVMProgramBuilder>(this->allocator.makeRaw<VMProgramBuilder>(*this));
     }
-    virtual HardValue createValueVoid() override {
+    virtual HardValue createHardValueVoid() override {
       return HardValue::Void;
     }
-    virtual HardValue createValueNull() override {
+    virtual HardValue createHardValueNull() override {
       return HardValue::Null;
     }
-    virtual HardValue createValueBool(Bool value) override {
+    virtual HardValue createHardValueBool(Bool value) override {
       return value ? HardValue::True : HardValue::False;
     }
-    virtual HardValue createValueInt(Int value) override {
+    virtual HardValue createHardValueInt(Int value) override {
       return ValueFactory::createInt(this->allocator, value);
     }
-    virtual HardValue createValueFloat(Float value) override {
+    virtual HardValue createHardValueFloat(Float value) override {
       return ValueFactory::createFloat(this->allocator, value);
     }
-    virtual HardValue createValueString(const String& value) override {
+    virtual HardValue createHardValueString(const String& value) override {
       return ValueFactory::createString(this->allocator, value);
     }
-    virtual HardValue createValueObjectHard(const HardObject& value) override {
+    virtual HardValue createHardValueObject(const HardObject& value) override {
       return ValueFactory::createHardObject(this->allocator, value);
     }
     virtual HardObject createBuiltinAssert() override {

@@ -23,42 +23,42 @@ namespace egg::ovum {
       return this->createStringUTF32(utf32, codepoints);
     }
     // Value factories
-    virtual HardValue createValueVoid() = 0;
-    virtual HardValue createValueNull() = 0;
-    virtual HardValue createValueBool(Bool value) = 0;
-    virtual HardValue createValueInt(Int value) = 0;
-    virtual HardValue createValueFloat(Float value) = 0;
-    virtual HardValue createValueString(const String& value) = 0;
-    virtual HardValue createValueObjectHard(const HardObject& value) = 0;
-    inline HardValue createValue(std::nullptr_t) {
-      return this->createValueNull();
+    virtual HardValue createHardValueVoid() = 0;
+    virtual HardValue createHardValueNull() = 0;
+    virtual HardValue createHardValueBool(Bool value) = 0;
+    virtual HardValue createHardValueInt(Int value) = 0;
+    virtual HardValue createHardValueFloat(Float value) = 0;
+    virtual HardValue createHardValueString(const String& value) = 0;
+    virtual HardValue createHardValueObject(const HardObject& value) = 0;
+    inline HardValue createHardValue(std::nullptr_t) {
+      return this->createHardValueNull();
     }
-    inline HardValue createValue(Bool value) {
-      return this->createValueBool(value);
+    inline HardValue createHardValue(Bool value) {
+      return this->createHardValueBool(value);
     }
-    inline HardValue createValue(Int value) {
-      return this->createValueInt(value);
+    inline HardValue createHardValue(Int value) {
+      return this->createHardValueInt(value);
     }
-    inline HardValue createValue(Float value) {
-      return this->createValueFloat(value);
+    inline HardValue createHardValue(Float value) {
+      return this->createHardValueFloat(value);
     }
-    inline HardValue createValue(const char* value) {
-      return value ? this->createValueString(this->createString(value)) : this->createValueNull();
+    inline HardValue createHardValue(const char* value) {
+      return value ? this->createHardValueString(this->createString(value)) : this->createHardValueNull();
     }
-    inline HardValue createValue(const char8_t* value) {
-      return value ? this->createValueString(this->createString(value)) : this->createValueNull();
+    inline HardValue createHardValue(const char8_t* value) {
+      return value ? this->createHardValueString(this->createString(value)) : this->createHardValueNull();
     }
-    inline HardValue createValue(const char32_t* value) {
-      return value ? this->createValueString(this->createString(value)) : this->createValueNull();
+    inline HardValue createHardValue(const char32_t* value) {
+      return value ? this->createHardValueString(this->createString(value)) : this->createHardValueNull();
     }
-    inline HardValue createValue(const std::u8string& value) {
-      return this->createValueString(this->createString(value));
+    inline HardValue createHardValue(const std::u8string& value) {
+      return this->createHardValueString(this->createString(value));
     }
-    inline HardValue createValue(const std::u32string& value) {
-      return this->createValueString(this->createString(value));
+    inline HardValue createHardValue(const std::u32string& value) {
+      return this->createHardValueString(this->createString(value));
     }
-    inline HardValue createValue(const String& value) {
-      return this->createValueString(value);
+    inline HardValue createHardValue(const String& value) {
+      return this->createHardValueString(value);
     }
   };
 
@@ -140,10 +140,13 @@ namespace egg::ovum {
     virtual HardObject createBuiltinPrint() = 0;
     virtual HardObject createBuiltinExpando() = 0; // TODO deprecate
     virtual HardObject createBuiltinCollector() = 0; // TODO testing only
-    // Helpers
-    virtual void softAcquire(ICollectable*& target, const ICollectable* value) = 0;
-    virtual IValue* softCreateValue() = 0;
-    virtual bool softSetValue(IValue*& target, const IValue& value) = 0;
+    // Collectable helpers
+    inline IValue* createSoftValue() {
+      return this->softCreateValue();
+    }
+    bool setSoftValue(SoftValue& target, const HardValue& value) {
+      return this->softSetValue(target.ptr.ptr, value.get());
+    }
     template<typename T>
     inline void setSoftPtr(SoftPtr<T>& target, const T* value) {
       this->softAcquire(target.ptr, value);
@@ -152,9 +155,10 @@ namespace egg::ovum {
     inline void setSoftPtr(SoftPtr<T>& target, const HardPtr<T>& value) {
       this->softAcquire(target.ptr, value.get());
     }
-    bool setSoftValue(SoftValue& target, const HardValue& value) {
-      return this->softSetValue(target.ptr.ptr, value.get());
-    }
+  private:
+    virtual void softAcquire(ICollectable*& target, const ICollectable* value) = 0;
+    virtual IValue* softCreateValue() = 0;
+    virtual bool softSetValue(IValue*& target, const IValue& value) = 0;
   };
 
   class VMFactory {

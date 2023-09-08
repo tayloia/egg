@@ -377,42 +377,63 @@ namespace {
       }
     }
     virtual bool getVoid() const override {
-      // TODO
-      return false;
+      assert(this->validate());
+      return this->flags == ValueFlags::Void;
     }
     virtual bool getNull() const override {
-      // TODO
+      assert(this->validate());
+      return this->flags == ValueFlags::Null;
+    }
+    virtual bool getBool(Bool& value) const override {
+      assert(this->validate());
+      if (this->flags == ValueFlags::Bool) {
+        value = this->bvalue;
+        return true;
+      }
       return false;
     }
-    virtual bool getBool(Bool&) const override {
-      // TODO
+    virtual bool getInt(Int& value) const override {
+      assert(this->validate());
+      if (this->flags == ValueFlags::Int) {
+        value = this->ivalue;
+        return true;
+      }
       return false;
     }
-    virtual bool getInt(Int&) const override {
-      // TODO
+    virtual bool getFloat(Float& value) const override {
+      assert(this->validate());
+      if (this->flags == ValueFlags::Float) {
+        value = this->fvalue;
+        return true;
+      }
       return false;
     }
-    virtual bool getFloat(Float&) const override {
-      // TODO
+    virtual bool getString(String& value) const override {
+      assert(this->validate());
+      if (this->flags == ValueFlags::String) {
+        value.set(this->svalue);
+        return true;
+      }
       return false;
     }
-    virtual bool getString(String&) const override {
-      // TODO
-      return false;
-    }
-    virtual bool getHardObject(HardObject&) const override {
-      // TODO
+    virtual bool getHardObject(HardObject& value) const override {
+      assert(this->validate());
+      if (this->flags == ValueFlags::Object) {
+        value.set(this->ovalue);
+        return true;
+      }
       return false;
     }
     virtual bool getInner(HardValue&) const override {
-      // TODO
+      // We never have inner values
       return false;
     }
     virtual ValueFlags getFlags() const override {
+      assert(this->validate());
       return this->flags;
     }
     virtual Type getRuntimeType() const override {
-      // We should NOT really be asked for type information here
+      // TODO
       assert(false);
       return Type::Void;
     }
@@ -489,7 +510,7 @@ namespace {
         if (value.getString(s)) {
           this->destroy();
           this->flags = ValueFlags::String;
-          this->svalue = s.get();
+          this->svalue = static_cast<const IMemory*>(s->hardAcquire());
           assert(this->validate());
           return true;
         }
@@ -609,7 +630,7 @@ bool egg::ovum::HardValue::validate() const {
   return p->validate();
 }
 
-egg::ovum::SoftValue::SoftValue(IVM& vm) : ptr(vm.softCreateValue()) {
+egg::ovum::SoftValue::SoftValue(IVM& vm) : ptr(vm.createSoftValue()) {
   assert(this->validate());
 }
 

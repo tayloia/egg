@@ -138,7 +138,7 @@ namespace {
         return execution.raise("Builtin 'expando()' expects no arguments");
       }
       auto instance = makeHardObject<VMObjectExpando>(*this->vm);
-      return execution.createValueObjectHard(instance);
+      return execution.createHardValueObject(instance);
     }
     virtual HardValue vmPropertySet(IVMExecution& execution, const HardValue&, const HardValue&) override {
       return execution.raise("Builtin 'expando()' does not support properties");
@@ -163,7 +163,7 @@ namespace {
         return execution.raise("Builtin 'collector()' expects no arguments");
       }
       auto collected = this->vm->getBasket().collect();
-      return execution.createValue(Int(collected));
+      return execution.createHardValue(Int(collected));
     }
     virtual HardValue vmPropertySet(IVMExecution& execution, const HardValue&, const HardValue&) override {
       return execution.raise("Builtin 'collector()' does not support properties");

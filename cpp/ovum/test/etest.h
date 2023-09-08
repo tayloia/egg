@@ -105,11 +105,14 @@ namespace egg::test {
     ~VM() {
       this->vm->getBasket().verify(std::cout);
     }
+    egg::ovum::IVM& operator*() {
+      return *this->vm;
+    }
     egg::ovum::IVM* operator->() {
       return this->vm.get();
     }
     void addBuiltin(egg::ovum::IVMProgramRunner& runner, const std::u8string& name, const egg::ovum::HardObject& instance) {
-      runner.addBuiltin(runner.createString(name), runner.createValueObjectHard(instance));
+      runner.addBuiltin(runner.createString(name), runner.createHardValueObject(instance));
     }
     void addBuiltinAssert(egg::ovum::IVMProgramRunner& runner) {
       this->addBuiltin(runner, u8"assert", vm->createBuiltinAssert());
