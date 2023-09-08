@@ -1,5 +1,9 @@
 namespace egg::ovum {
   class HardObject;
+  class HardValue;
+  class SoftObject;
+  class SoftKey;
+  class SoftValue;
 
   class Print {
   public:
@@ -22,9 +26,14 @@ namespace egg::ovum {
     static void write(std::ostream& stream, const std::string& value, const Options& options);
     static void write(std::ostream& stream, const String& value, const Options& options);
     static void write(std::ostream& stream, const ICollectable* value, const Options& options);
+    static void write(std::ostream& stream, const IObject* value, const Options& options);
+    static void write(std::ostream& stream, const IValue* value, const Options& options);
     static void write(std::ostream& stream, const Type& value, const Options& options);
     static void write(std::ostream& stream, const HardObject& value, const Options& options);
     static void write(std::ostream& stream, const HardValue& value, const Options& options);
+    static void write(std::ostream& stream, const SoftObject& value, const Options& options);
+    static void write(std::ostream& stream, const SoftKey& value, const Options& options);
+    static void write(std::ostream& stream, const SoftValue& value, const Options& options);
     static void write(std::ostream& stream, ValueFlags value, const Options& options);
     static void write(std::ostream& stream, ILogger::Severity value, const Options& options);
     static void write(std::ostream& stream, ILogger::Source value, const Options& options);
@@ -56,7 +65,7 @@ namespace egg::ovum {
     }
     Printer& operator<<(const String& value);
     template<typename T>
-    void write(T value) {
+    void write(const T& value) {
       Print::write(this->os, value, this->options);
     }
     std::ostream& stream() const {

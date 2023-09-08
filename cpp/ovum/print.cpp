@@ -106,6 +106,24 @@ void egg::ovum::Print::write(std::ostream& stream, const ICollectable* value, co
   }
 }
 
+void egg::ovum::Print::write(std::ostream& stream, const IObject* value, const Options& options) {
+  Print::write(stream, static_cast<const ICollectable*>(value), options);
+}
+
+void egg::ovum::Print::write(std::ostream& stream, const IValue* value, const Options& options) {
+  if (value == nullptr) {
+    stream << "null";
+  } else if (options.quote == '\0') {
+    Printer printer(stream, options);
+    value->print(printer);
+  } else {
+    Options pretty{ options };
+    pretty.quote = '"';
+    Printer printer(stream, pretty);
+    value->print(printer);
+  }
+}
+
 void egg::ovum::Print::write(std::ostream& stream, const Type& value, const Options&) {
   if (value == nullptr) {
     stream << "null";
@@ -168,19 +186,23 @@ void egg::ovum::Print::write(std::ostream& stream, ILogger::Severity value, cons
 }
 
 void egg::ovum::Print::write(std::ostream& stream, const HardObject& value, const Options& options) {
-  Print::write(stream, static_cast<const ICollectable*>(value.get()), options);
+  Print::write(stream, const_cast<const IObject*>(value.get()), options);
 }
 
 void egg::ovum::Print::write(std::ostream& stream, const HardValue& value, const Options& options) {
-  if (options.quote == '\0') {
-    Printer printer(stream, options);
-    value->print(printer);
-  } else {
-    Options pretty{ options };
-    pretty.quote = '"';
-    Printer printer(stream, pretty);
-    value->print(printer);
-  }
+  Print::write(stream, const_cast<const IValue*>(&value.get()), options);
+}
+
+void egg::ovum::Print::write(std::ostream& stream, const SoftObject& value, const Options& options) {
+  Print::write(stream, const_cast<const IObject*>(value.get()), options);
+}
+
+void egg::ovum::Print::write(std::ostream& stream, const SoftKey& value, const Options& options) {
+  Print::write(stream, const_cast<const IValue*>(&value.get()), options);
+}
+
+void egg::ovum::Print::write(std::ostream& stream, const SoftValue& value, const Options& options) {
+  Print::write(stream, const_cast<const IValue*>(&value.get()), options);
 }
 
 void egg::ovum::Print::ascii(std::ostream& stream, const std::string& value, char quote) {

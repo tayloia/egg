@@ -144,6 +144,9 @@ namespace egg::ovum {
     inline IValue* createSoftValue() {
       return this->softCreateValue();
     }
+    inline IValue* createSoftAlias(const IValue& value) {
+      return this->softCreateAlias(value);
+    }
     bool setSoftValue(SoftValue& target, const HardValue& value) {
       return this->softSetValue(target.ptr.ptr, value.get());
     }
@@ -156,8 +159,9 @@ namespace egg::ovum {
       this->softAcquire(target.ptr, value.get());
     }
   private:
-    virtual void softAcquire(ICollectable*& target, const ICollectable* value) = 0;
     virtual IValue* softCreateValue() = 0;
+    virtual IValue* softCreateAlias(const IValue& value) = 0;
+    virtual void softAcquire(ICollectable*& target, const ICollectable* value) = 0;
     virtual bool softSetValue(IValue*& target, const IValue& value) = 0;
   };
 

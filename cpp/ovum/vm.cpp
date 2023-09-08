@@ -472,6 +472,12 @@ namespace {
       assert(taken == created);
       return static_cast<IValue*>(taken);
     }
+    virtual IValue* softCreateAlias(const IValue& value) {
+      // TODO: thread safety
+      auto* taken = this->basket->take(value);
+      assert(taken == &value);
+      return static_cast<IValue*>(taken);
+    }
     virtual bool softSetValue(IValue*& target, const IValue& value) {
       // TODO: thread safety
       // Note we do not currently update the target pointer but may do later for optimization reasons

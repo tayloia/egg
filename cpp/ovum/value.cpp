@@ -630,6 +630,29 @@ bool egg::ovum::HardValue::validate() const {
   return p->validate();
 }
 
+egg::ovum::SoftKey::SoftKey(const SoftKey& value) : ptr(&value.get()) {
+  assert(this->validate());
+}
+
+egg::ovum::SoftKey::SoftKey(IVM& vm, const IValue& value) : ptr(vm.createSoftAlias(value)) {
+  assert(this->validate());
+}
+
+bool egg::ovum::SoftKey::validate() const {
+  auto p = this->ptr;
+  if (p == nullptr) {
+    return false;
+  }
+  if (!validateFlags(p->getFlags())) {
+    return false;
+  }
+  return p->validate();
+}
+
+bool egg::ovum::SoftKey::operator<(const SoftKey& rhs) const {
+  return &this->ptr < &rhs.ptr; // WIBBLE
+}
+
 egg::ovum::SoftValue::SoftValue(IVM& vm) : ptr(vm.createSoftValue()) {
   assert(this->validate());
 }

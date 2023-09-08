@@ -67,7 +67,7 @@ namespace egg::ovum {
         allocator(allocator) {
     }
     template<typename T>
-    StringBuilder& add(T value) {
+    StringBuilder& add(const T& value) {
       this->write(value);
       return *this;
     }
@@ -81,7 +81,7 @@ namespace egg::ovum {
       return *this;
     }
     template<typename T, typename... ARGS>
-    StringBuilder& add(T value, ARGS&&... args) {
+    StringBuilder& add(const T& value, ARGS&&... args) {
       return this->add(value).add(std::forward<ARGS>(args)...);
     }
     bool empty() const {

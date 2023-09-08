@@ -83,6 +83,33 @@ namespace egg::ovum {
     static const HardValue Rethrow;
   };
 
+  class SoftKey {
+    SoftKey& operator=(const SoftKey&) = delete;
+  private:
+    const IValue* ptr;
+  public:
+    // Construction
+    explicit SoftKey(const SoftKey& value);
+    SoftKey(IVM& vm, const IValue& value);
+    // Atomic access
+    const IValue& get() const {
+      auto* p = this->ptr;
+      assert(p != nullptr);
+      assert(p->validate());
+      return *p;
+    }
+    const IValue* operator->() const {
+      return &this->get();
+    }
+    void visit(ICollectable::IVisitor& visitor) const {
+      visitor.visit(*this->ptr);
+    }
+    // Comparison for containers
+    bool operator<(const SoftKey& rhs) const;
+    // Debugging
+    bool validate() const;
+  };
+
   class SoftValue {
     friend class IVM;
     SoftValue(const SoftValue&) = delete;

@@ -93,13 +93,14 @@ namespace {
     VMObjectExpando(const VMObjectExpando&) = delete;
     VMObjectExpando& operator=(const VMObjectExpando&) = delete;
   private:
-    std::map<String, SoftValue> properties;
+    std::map<SoftKey, SoftValue> properties;
   public:
     explicit VMObjectExpando(IVM& vm)
       : VMObjectBase(vm) {
     }
     virtual void softVisit(ICollectable::IVisitor& visitor) const override {
       for (const auto& property : this->properties) {
+        property.first.visit(visitor);
         property.second.visit(visitor);
       }
     }
@@ -110,10 +111,7 @@ namespace {
       return execution.raise("TODO: Expando objects do not yet support function call semantics");
     }
     virtual HardValue vmPropertySet(IVMExecution& execution, const HardValue& property, const HardValue& value) override {
-      String pname;
-      if (!property->getString(pname)) {
-        return execution.raise("TODO: Expando objects expect their properties to be strings");
-      }
+      SoftKey pname(*this->vm, property.get());
       auto pfound = this->properties.find(pname);
       if (pfound == this->properties.end()) {
         pfound = this->properties.emplace_hint(pfound, std::piecewise_construct, std::forward_as_tuple(pname), std::forward_as_tuple(*this->vm));
