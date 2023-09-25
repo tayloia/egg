@@ -200,6 +200,7 @@ public:
     Root,
     ExprVariable,
     ExprLiteral,
+    ExprPropertyGet,
     ExprFunctionCall,
     StmtVariableDeclare,
     StmtVariableDefine,
@@ -273,6 +274,12 @@ namespace {
       node.literal = literal;
       return node;
     }
+    virtual Node& exprPropertyGet(Node& instance, Node& property) override {
+      auto& node = this->makeNode(Node::Kind::ExprPropertyGet);
+      node.addChild(instance);
+      node.addChild(property);
+      return node;
+    }
     virtual Node& exprFunctionCall(Node& function) override {
       auto& node = this->makeNode(Node::Kind::ExprFunctionCall);
       node.addChild(function);
@@ -298,10 +305,11 @@ namespace {
       node.literal = this->createHardValueString(name);
       return node;
     }
-    virtual Node& stmtPropertySet(Node& instance, const HardValue& property) override {
+    virtual Node& stmtPropertySet(Node& instance, Node& property, Node& value) override {
       auto& node = this->makeNode(Node::Kind::StmtPropertySet);
-      node.literal = property;
       node.addChild(instance);
+      node.addChild(property);
+      node.addChild(value);
       return node;
     }
     virtual Node& stmtFunctionCall(Node& function) override {
@@ -455,7 +463,7 @@ namespace {
     virtual HardObject createBuiltinCollector() override {
       return ObjectFactory::createBuiltinCollector(*this);
     }
-    virtual void softAcquire(ICollectable*& target, const ICollectable* value) {
+    virtual void softAcquire(ICollectable*& target, const ICollectable* value) override {
       // TODO: thread safety
       assert(target == nullptr);
       if (value != nullptr) {
@@ -464,7 +472,11 @@ namespace {
         target = nullptr;
       }
     }
-    virtual IValue* softCreateValue() {
+    virtual IValue* softHarden(const IValue* soft) override {
+      // WIBBLE
+      return const_cast<IValue*>(soft);
+    }
+    virtual IValue* softCreateValue() override {
       // TODO: thread safety
       auto* created = SoftValue::createPoly(this->allocator);
       assert(created != nullptr);
@@ -472,13 +484,13 @@ namespace {
       assert(taken == created);
       return static_cast<IValue*>(taken);
     }
-    virtual IValue* softCreateAlias(const IValue& value) {
+    virtual IValue* softCreateAlias(const IValue& value) override {
       // TODO: thread safety
       auto* taken = this->basket->take(value);
       assert(taken == &value);
       return static_cast<IValue*>(taken);
     }
-    virtual bool softSetValue(IValue*& target, const IValue& value) {
+    virtual bool softSetValue(IValue*& target, const IValue& value) override {
       // TODO: thread safety
       // Note we do not currently update the target pointer but may do later for optimization reasons
       assert(target != nullptr);
@@ -567,7 +579,7 @@ egg::ovum::IVMProgramRunner::RunOutcome VMProgramRunner::step(HardValue& retval)
   case IVMProgram::Node::Kind::StmtVariableSet:
     assert(top.node->children.size() == 1);
     if (top.index == 0) {
-      // Evaluate the expression
+      // Evaluate the instance and property WIBBLE
       this->push(*top.node->children[top.index++]);
     } else {
       assert(top.deque.size() == 1);
@@ -608,17 +620,18 @@ egg::ovum::IVMProgramRunner::RunOutcome VMProgramRunner::step(HardValue& retval)
     }
     break;
   case IVMProgram::Node::Kind::StmtPropertySet:
-    assert(top.node->children.size() == 2);
-    if (top.index < 2) {
+    assert(top.node->literal->getVoid());
+    assert(top.node->children.size() == 3);
+    if (top.index < 3) {
       // Evaluate the expressions
       this->push(*top.node->children[top.index++]);
     } else {
-      assert(top.deque.size() == 2);
+      assert(top.deque.size() == 3);
       HardObject instance;
       if (!top.deque.front()->getHardObject(instance)) {
         return this->createFault(retval, "Invalid left hand side for '.' operator");
       }
-      auto& property = top.node->literal;
+      auto& property = top.deque[1];
       auto& value = top.deque.back();
       this->pop(instance->vmPropertySet(this->execution, property, value));
     }
@@ -668,6 +681,23 @@ egg::ovum::IVMProgramRunner::RunOutcome VMProgramRunner::step(HardValue& retval)
   case IVMProgram::Node::Kind::ExprLiteral:
     assert(top.node->children.empty());
     this->pop(top.node->literal);
+    break;
+  case IVMProgram::Node::Kind::ExprPropertyGet:
+    assert(top.node->literal->getVoid());
+    assert(top.node->children.size() == 2);
+    if (top.index < 2) {
+      // Assemble the arguments
+      this->push(*top.node->children[top.index++]);
+    } else {
+      // Perform the property fetch
+      assert(top.deque.size() == 2);
+      HardObject instance;
+      if (!top.deque.front()->getHardObject(instance)) {
+        return this->createFault(retval, "Invalid left hand side for '.' operator");
+      }
+      auto& property = top.deque.back();
+      this->pop(instance->vmPropertyGet(this->execution, property));
+    }
     break;
   default:
     return this->createFault(retval, "Invalid program node kind in program runner");

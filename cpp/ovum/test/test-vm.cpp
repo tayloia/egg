@@ -493,8 +493,9 @@ TEST(TestVM, ExpandoPair) {
   );
   // a.x = b;
   builder->addStatement(
-    builder->stmtPropertySet(builder->exprVariable(builder->createString("a")), builder->createHardValue("x")),
-    builder->exprVariable(builder->createString("b"))
+    builder->stmtPropertySet(builder->exprVariable(builder->createString("a")),
+                             builder->exprLiteral(builder->createHardValue("x")),
+                             builder->exprVariable(builder->createString("b")))
   );
   // print(a,b);
   builder->addStatement(
@@ -521,13 +522,15 @@ TEST(TestVM, ExpandoCycle) {
   );
   // a.x = b;
   builder->addStatement(
-    builder->stmtPropertySet(builder->exprVariable(builder->createString("a")), builder->createHardValue("x")),
-    builder->exprVariable(builder->createString("b"))
+    builder->stmtPropertySet(builder->exprVariable(builder->createString("a")),
+                             builder->exprLiteral(builder->createHardValue("x")),
+                             builder->exprVariable(builder->createString("b")))
   );
   // b.x = a;
   builder->addStatement(
-    builder->stmtPropertySet(builder->exprVariable(builder->createString("b")), builder->createHardValue("x")),
-    builder->exprVariable(builder->createString("a"))
+    builder->stmtPropertySet(builder->exprVariable(builder->createString("b")),
+                             builder->exprLiteral(builder->createHardValue("x")),
+                             builder->exprVariable(builder->createString("a")))
   );
   // print(a,b);
   builder->addStatement(
@@ -554,13 +557,15 @@ TEST(TestVM, ExpandoCollector) {
   );
   // a.x = b;
   builder->addStatement(
-    builder->stmtPropertySet(builder->exprVariable(builder->createString("a")), builder->createHardValue("x")),
-    builder->exprVariable(builder->createString("b"))
+    builder->stmtPropertySet(builder->exprVariable(builder->createString("a")),
+                             builder->exprLiteral(builder->createHardValue("x")),
+                             builder->exprVariable(builder->createString("b")))
   );
   // b.x = a;
   builder->addStatement(
-    builder->stmtPropertySet(builder->exprVariable(builder->createString("b")), builder->createHardValue("x")),
-    builder->exprVariable(builder->createString("a"))
+    builder->stmtPropertySet(builder->exprVariable(builder->createString("b")),
+                             builder->exprLiteral(builder->createHardValue("x")),
+                             builder->exprVariable(builder->createString("a")))
   );
   // print(collector()); -- should print '0'
   builder->addStatement(
@@ -582,11 +587,95 @@ TEST(TestVM, ExpandoCollector) {
     builder->stmtVariableSet(builder->createString("b")),
     builder->exprLiteral(builder->createHardValue(nullptr))
   );
-  // print(collector()); -- should print '2'
+  // print(collector()); -- should print '4'
   builder->addStatement(
     builder->stmtFunctionCall(builder->exprVariable(builder->createString("print"))),
     builder->exprFunctionCall(builder->exprVariable(builder->createString("collector")))
   );
   buildAndRunSuccess(vm, *builder);
   ASSERT_EQ("0\n0\n4\n", vm.logger.logged.str());
+}
+
+TEST(TestVM, ExpandoKeyOrdering) {
+  egg::test::VM vm;
+  auto builder = vm->createProgramBuilder();
+  // var x = expando();
+  builder->addStatement(
+    builder->stmtVariableDefine(builder->createString("x")),
+    builder->exprFunctionCall(builder->exprVariable(builder->createString("expando")))
+  );
+  // x.n = null;
+  builder->addStatement(
+    builder->stmtPropertySet(builder->exprVariable(builder->createString("x")),
+                             builder->exprLiteral(builder->createHardValue("n")),
+                             builder->exprLiteral(builder->createHardValueNull()))
+  );
+  // x.b = true;
+  builder->addStatement(
+    builder->stmtPropertySet(builder->exprVariable(builder->createString("x")),
+                             builder->exprLiteral(builder->createHardValue("b")),
+                             builder->exprLiteral(builder->createHardValueBool(true)))
+  );
+  // x.i = 12345;
+  builder->addStatement(
+    builder->stmtPropertySet(builder->exprVariable(builder->createString("x")),
+                             builder->exprLiteral(builder->createHardValue("i")),
+                             builder->exprLiteral(builder->createHardValueInt(12345)))
+  );
+  // x.f = 1234.5;
+  builder->addStatement(
+    builder->stmtPropertySet(builder->exprVariable(builder->createString("x")),
+                             builder->exprLiteral(builder->createHardValue("f")),
+                             builder->exprLiteral(builder->createHardValueFloat(1234.5)))
+  );
+  // x.s = "hello world";
+  builder->addStatement(
+    builder->stmtPropertySet(builder->exprVariable(builder->createString("x")),
+                             builder->exprLiteral(builder->createHardValue("s")),
+                             builder->exprLiteral(builder->createHardValue("hello world")))
+  );
+  // x.o = x;
+  builder->addStatement(
+    builder->stmtPropertySet(builder->exprVariable(builder->createString("x")),
+                             builder->exprLiteral(builder->createHardValue("o")),
+                             builder->exprVariable(builder->createString("x")))
+  );
+  // print(x.b); -- should print 'true'
+  builder->addStatement(
+    builder->stmtFunctionCall(builder->exprVariable(builder->createString("print"))),
+    builder->exprPropertyGet(builder->exprVariable(builder->createString("x")),
+                             builder->exprLiteral(builder->createHardValue("b")))
+  );
+  // print(x.f); -- should print '1234.5'
+  builder->addStatement(
+    builder->stmtFunctionCall(builder->exprVariable(builder->createString("print"))),
+    builder->exprPropertyGet(builder->exprVariable(builder->createString("x")),
+                             builder->exprLiteral(builder->createHardValue("f")))
+  );
+  // print(x.i); -- should print '12345'
+  builder->addStatement(
+    builder->stmtFunctionCall(builder->exprVariable(builder->createString("print"))),
+    builder->exprPropertyGet(builder->exprVariable(builder->createString("x")),
+                             builder->exprLiteral(builder->createHardValue("i")))
+  );
+  // print(x.n); -- should print 'null'
+  builder->addStatement(
+    builder->stmtFunctionCall(builder->exprVariable(builder->createString("print"))),
+    builder->exprPropertyGet(builder->exprVariable(builder->createString("x")),
+                             builder->exprLiteral(builder->createHardValue("n")))
+  );
+  // print(x.o); -- should print '[expando]'
+  builder->addStatement(
+    builder->stmtFunctionCall(builder->exprVariable(builder->createString("print"))),
+    builder->exprPropertyGet(builder->exprVariable(builder->createString("x")),
+                             builder->exprLiteral(builder->createHardValue("o")))
+  );
+  // print(x.s); -- should print 'hello world'
+  builder->addStatement(
+    builder->stmtFunctionCall(builder->exprVariable(builder->createString("print"))),
+    builder->exprPropertyGet(builder->exprVariable(builder->createString("x")),
+                             builder->exprLiteral(builder->createHardValue("s")))
+  );
+  buildAndRunSuccess(vm, *builder);
+  ASSERT_EQ("true\n1234.5\n12345\nnull\n[expando]\nhello world\n", vm.logger.logged.str());
 }

@@ -109,13 +109,14 @@ namespace egg::ovum {
     // Expression factories
     virtual Node& exprVariable(const String& name) = 0;
     virtual Node& exprLiteral(const HardValue& literal) = 0;
+    virtual Node& exprPropertyGet(Node& instance, Node& property) = 0;
     virtual Node& exprFunctionCall(Node& function) = 0;
     // Statement factories
     virtual Node& stmtVariableDeclare(const String& name) = 0;
     virtual Node& stmtVariableDefine(const String& name) = 0;
     virtual Node& stmtVariableSet(const String& name) = 0;
     virtual Node& stmtVariableUndeclare(const String& name) = 0;
-    virtual Node& stmtPropertySet(Node& instance, const HardValue& property) = 0;
+    virtual Node& stmtPropertySet(Node& instance, Node& property, Node& value) = 0;
     virtual Node& stmtFunctionCall(Node& function) = 0;
     // Helpers
     template<typename... ARGS>
@@ -147,22 +148,20 @@ namespace egg::ovum {
     inline IValue* createSoftAlias(const IValue& value) {
       return this->softCreateAlias(value);
     }
-    bool setSoftValue(SoftValue& target, const HardValue& value) {
-      return this->softSetValue(target.ptr.ptr, value.get());
+    HardValue getSoftValue(SoftValue& instance) {
+      auto* hard = this->softHarden(instance.ptr.ptr);
+      assert(hard != nullptr);
+      return HardValue(*hard);
     }
-    template<typename T>
-    inline void setSoftPtr(SoftPtr<T>& target, const T* value) {
-      this->softAcquire(target.ptr, value);
-    }
-    template<typename T>
-    inline void setSoftPtr(SoftPtr<T>& target, const HardPtr<T>& value) {
-      this->softAcquire(target.ptr, value.get());
+    bool setSoftValue(SoftValue& instance, const HardValue& value) {
+      return this->softSetValue(instance.ptr.ptr, value.get());
     }
   private:
     virtual IValue* softCreateValue() = 0;
     virtual IValue* softCreateAlias(const IValue& value) = 0;
     virtual void softAcquire(ICollectable*& target, const ICollectable* value) = 0;
-    virtual bool softSetValue(IValue*& target, const IValue& value) = 0;
+    virtual IValue* softHarden(const IValue* soft) = 0;
+    virtual bool softSetValue(IValue*& soft, const IValue& value) = 0;
   };
 
   class VMFactory {

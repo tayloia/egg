@@ -442,8 +442,30 @@ namespace {
       return this == &rhs;
     }
     virtual void print(Printer& printer) const override {
-      // TODO
-      printer.write(this->flags);
+      assert(this->validate());
+      EGG_WARNING_SUPPRESS_SWITCH_BEGIN
+      switch (this->flags) {
+      case ValueFlags::Bool:
+        printer.write(this->bvalue);
+        break;
+      case ValueFlags::Int:
+        printer.write(this->ivalue);
+        break;
+      case ValueFlags::Float:
+        printer.write(this->fvalue);
+        break;
+      case ValueFlags::String:
+        printer.write(String(this->svalue));
+        break;
+      case ValueFlags::Object:
+        assert(this->ovalue != nullptr);
+        this->ovalue->print(printer);
+        break;
+      default:
+        printer.write(this->flags);
+        break;
+      }
+      EGG_WARNING_SUPPRESS_SWITCH_END
     }
     bool validate() const {
       // TODO
@@ -566,6 +588,37 @@ namespace {
     EGG_WARNING_SUPPRESS_SWITCH_END
     return false;
   }
+
+  int compareBool(Bool lhs, Bool rhs) {
+    return (lhs == rhs) ? 0 : (lhs == false) ? -1 : +1;
+  }
+
+  int compareInt(Int lhs, Int rhs) {
+    return (lhs == rhs) ? 0 : (lhs < rhs) ? -1 : +1;
+  }
+
+  int compareFloat(Float lhs, Float rhs) {
+    // Place NaNs before all other values
+    if (std::isnan(lhs)) {
+      return std::isnan(rhs) ? 0 : -1;
+    }
+    if (std::isnan(rhs)) {
+      return +1;
+    }
+    return (lhs == rhs) ? 0 : (lhs < rhs) ? -1 : +1;
+  }
+
+  int compareString(const String& lhs, const String& rhs) {
+    // Codepoint ordering
+    return int(lhs.compareTo(rhs));
+  }
+
+  int compareObject(const HardObject lhs, const HardObject& rhs) {
+    // TODO: More complex/stable ordering?
+    auto* lptr = lhs.get();
+    auto* rptr = rhs.get();
+    return (lptr == rptr) ? 0 : (lptr < rptr) ? -1 : +1;
+  }
 }
 
 const egg::ovum::HardValue egg::ovum::HardValue::Void{ theVoid.instance() };
@@ -649,8 +702,64 @@ bool egg::ovum::SoftKey::validate() const {
   return p->validate();
 }
 
-bool egg::ovum::SoftKey::operator<(const SoftKey& rhs) const {
-  return &this->ptr < &rhs.ptr; // WIBBLE
+int egg::ovum::SoftKey::compare(const IValue& lhs, const IValue& rhs) {
+  auto lflags = lhs.getFlags();
+  auto rflags = rhs.getFlags();
+  if (lflags != rflags) {
+    return compareInt(Int(lflags), Int(rflags));
+  }
+  EGG_WARNING_SUPPRESS_SWITCH_BEGIN
+  switch (lhs.getFlags()) {
+  case ValueFlags::Void:
+  case ValueFlags::Null:
+    // Must be equal
+    return 0;
+  case ValueFlags::Bool:
+  {
+    Bool lvalue, rvalue;
+    if (lhs.getBool(lvalue) && rhs.getBool(rvalue)) {
+      return compareBool(lvalue, rvalue);
+    }
+    break;
+  }
+  case ValueFlags::Int:
+  {
+    Int lvalue, rvalue;
+    if (lhs.getInt(lvalue) && rhs.getInt(rvalue)) {
+      return compareInt(lvalue, rvalue);
+    }
+    break;
+  }
+  case ValueFlags::Float:
+  {
+    Float lvalue, rvalue;
+    if (lhs.getFloat(lvalue) && rhs.getFloat(rvalue)) {
+      return compareFloat(lvalue, rvalue);
+    }
+    break;
+  }
+  case ValueFlags::String:
+  {
+    String lvalue, rvalue;
+    if (lhs.getString(lvalue) && rhs.getString(rvalue)) {
+      return compareString(lvalue, rvalue);
+    }
+    break;
+  }
+  case ValueFlags::Object:
+  {
+    // TODO: More complex/stable ordering?
+    HardObject lvalue, rvalue;
+    if (lhs.getHardObject(lvalue) && rhs.getHardObject(rvalue)) {
+      return compareObject(lvalue, rvalue);
+    }
+    break;
+  }
+  }
+  EGG_WARNING_SUPPRESS_SWITCH_END
+  // Not comparable
+  assert(false);
+  return 0;
 }
 
 egg::ovum::SoftValue::SoftValue(IVM& vm) : ptr(vm.createSoftValue()) {

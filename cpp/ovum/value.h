@@ -105,7 +105,12 @@ namespace egg::ovum {
       visitor.visit(*this->ptr);
     }
     // Comparison for containers
-    bool operator<(const SoftKey& rhs) const;
+    bool operator<(const SoftKey& rhs) const {
+      assert(this->validate());
+      assert(rhs.validate());
+      return SoftKey::compare(*this->ptr, *rhs.ptr) < 0;
+    }
+    static int compare(const IValue& lhs, const IValue& rhs);
     // Debugging
     bool validate() const;
   };

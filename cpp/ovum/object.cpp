@@ -52,6 +52,9 @@ namespace {
       }
       return HardValue::Void;
     }
+    virtual HardValue vmPropertyGet(IVMExecution& execution, const HardValue&) override {
+      return execution.raise("Builtin 'assert()' does not support properties");
+    }
     virtual HardValue vmPropertySet(IVMExecution& execution, const HardValue&, const HardValue&) override {
       return execution.raise("Builtin 'assert()' does not support properties");
     }
@@ -84,6 +87,9 @@ namespace {
       execution.log(ILogger::Source::User, ILogger::Severity::None, sb.build());
       return HardValue::Void;
     }
+    virtual HardValue vmPropertyGet(IVMExecution& execution, const HardValue&) override {
+      return execution.raise("Builtin 'print()' does not support properties");
+    }
     virtual HardValue vmPropertySet(IVMExecution& execution, const HardValue&, const HardValue&) override {
       return execution.raise("Builtin 'print()' does not support properties");
     }
@@ -109,6 +115,14 @@ namespace {
     }
     virtual HardValue vmCall(IVMExecution& execution, const ICallArguments&) override {
       return execution.raise("TODO: Expando objects do not yet support function call semantics");
+    }
+    virtual HardValue vmPropertyGet(IVMExecution& execution, const HardValue& property) override {
+      SoftKey pname(*this->vm, property.get());
+      auto pfound = this->properties.find(pname);
+      if (pfound == this->properties.end()) {
+        return execution.raise("TODO: Cannot find property '", pname, "' in expando object");
+      }
+      return this->vm->getSoftValue(pfound->second);
     }
     virtual HardValue vmPropertySet(IVMExecution& execution, const HardValue& property, const HardValue& value) override {
       SoftKey pname(*this->vm, property.get());
@@ -143,6 +157,9 @@ namespace {
       auto instance = makeHardObject<VMObjectExpando>(*this->vm);
       return execution.createHardValueObject(instance);
     }
+    virtual HardValue vmPropertyGet(IVMExecution& execution, const HardValue&) override {
+      return execution.raise("Builtin 'expando()' does not support properties");
+    }
     virtual HardValue vmPropertySet(IVMExecution& execution, const HardValue&, const HardValue&) override {
       return execution.raise("Builtin 'expando()' does not support properties");
     }
@@ -167,6 +184,9 @@ namespace {
       }
       auto collected = this->vm->getBasket().collect();
       return execution.createHardValue(Int(collected));
+    }
+    virtual HardValue vmPropertyGet(IVMExecution& execution, const HardValue&) override {
+      return execution.raise("Builtin 'collector()' does not support properties");
     }
     virtual HardValue vmPropertySet(IVMExecution& execution, const HardValue&, const HardValue&) override {
       return execution.raise("Builtin 'collector()' does not support properties");

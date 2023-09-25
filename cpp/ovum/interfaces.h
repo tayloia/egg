@@ -181,6 +181,7 @@ namespace egg::ovum {
   public:
     // Interface
     virtual HardValue vmCall(IVMExecution& execution, const ICallArguments& arguments) = 0;
+    virtual HardValue vmPropertyGet(IVMExecution& execution, const HardValue& property) = 0;
     virtual HardValue vmPropertySet(IVMExecution& execution, const HardValue& property, const HardValue& value) = 0;
   };
 
