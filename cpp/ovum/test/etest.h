@@ -135,7 +135,7 @@ namespace egg::test {
   };
 
   inline ::testing::AssertionResult assertValueEQ(const char* lhs_expression, const char* rhs_expression, const egg::ovum::HardValue& lhs, const egg::ovum::HardValue& rhs) {
-    if (lhs->equals(rhs.get(), egg::ovum::ValueCompare::Binary)) {
+    if (egg::ovum::SoftKey::compare(lhs.get(), rhs.get()) == 0) {
       return ::testing::AssertionSuccess();
     }
     return ::testing::internal::CmpHelperEQFailure(lhs_expression, rhs_expression, lhs, rhs);

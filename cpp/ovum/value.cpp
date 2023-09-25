@@ -49,10 +49,6 @@ namespace {
       assert(false);
       return Type::Void;
     }
-    virtual bool equals(const IValue& rhs, ValueCompare) const override {
-      // Default equality for constants is when the types are the same
-      return rhs.getFlags() == FLAGS;
-    }
     virtual void print(Printer& printer) const override {
       printer.write(FLAGS);
     }
@@ -111,10 +107,6 @@ namespace {
     }
     virtual Type getRuntimeType() const override {
       return Type::Bool;
-    }
-    virtual bool equals(const IValue& rhs, ValueCompare) const override {
-      Bool value;
-      return rhs.getBool(value) && (value == VALUE);
     }
     virtual void print(Printer& printer) const override {
       printer.write(VALUE);
@@ -187,19 +179,6 @@ namespace {
       result = this->value;
       return true;
     }
-    virtual bool equals(const IValue& rhs, ValueCompare compare) const override {
-      Int i;
-      if (rhs.getInt(i)) {
-        return this->value == i;
-      }
-      if (Bits::hasAnySet(compare, ValueCompare::PromoteInts)) {
-        Float f;
-        if (rhs.getFloat(f)) {
-          return Arithmetic::equal(f, this->value);
-        }
-      }
-      return false;
-    }
     virtual void print(Printer& printer) const override {
       printer.write(this->value);
     }
@@ -224,19 +203,6 @@ namespace {
     virtual bool getFloat(Float& result) const override {
       result = this->value;
       return true;
-    }
-    virtual bool equals(const IValue& rhs, ValueCompare compare) const override {
-      Float f;
-      if (rhs.getFloat(f)) {
-        return Arithmetic::equal(this->value, f, false);
-      }
-      if (Bits::hasAnySet(compare, ValueCompare::PromoteInts)) {
-        Int i;
-        if (rhs.getInt(i)) {
-          return Arithmetic::equal(this->value, i);
-        }
-      }
-      return false;
     }
     virtual void print(Printer& printer) const override {
       printer.write(this->value);
@@ -263,10 +229,6 @@ namespace {
     virtual bool getString(String& result) const override {
       result = this->value;
       return true;
-    }
-    virtual bool equals(const IValue& rhs, ValueCompare) const override {
-      String other;
-      return rhs.getString(other) && this->value.equals(other);
     }
     virtual bool validate() const override {
       return ValueMutable::validate() && this->value.validate();
@@ -295,10 +257,6 @@ namespace {
     virtual bool getHardObject(HardObject& result) const override {
       result = this->value;
       return true;
-    }
-    virtual bool equals(const IValue& rhs, ValueCompare) const override {
-      HardObject other;
-      return rhs.getHardObject(other) && this->value.equals(other);
     }
     virtual bool validate() const override {
       return ValueMutable::validate() && this->value.validate();
@@ -333,10 +291,6 @@ namespace {
     virtual bool getInner(HardValue& value) const override {
       value = this->inner;
       return true;
-    }
-    virtual bool equals(const IValue& rhs, ValueCompare compare) const override {
-      HardValue other;
-      return (rhs.getFlags() == this->flags) && rhs.getInner(other) && this->inner->equals(other.get(), compare);
     }
     virtual bool validate() const override {
       return ValueMutable::validate() && Bits::hasAnySet(this->flags, ValueFlags::FlowControl) && this->inner.validate();
@@ -436,10 +390,6 @@ namespace {
       // TODO
       assert(false);
       return Type::Void;
-    }
-    virtual bool equals(const IValue& rhs, ValueCompare) const override {
-      // TODO
-      return this == &rhs;
     }
     virtual void print(Printer& printer) const override {
       assert(this->validate());

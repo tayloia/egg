@@ -1,9 +1,4 @@
 namespace egg::ovum {
-  enum class ValueCompare {
-    Binary = 0x00,
-    PromoteInts = 0x01
-  };
-
   class IValue : public ICollectable {
   public:
     virtual void softVisit(ICollectable::IVisitor& visitor) const = 0;
@@ -17,7 +12,6 @@ namespace egg::ovum {
     virtual bool getInner(HardValue& inner) const = 0;
     virtual ValueFlags getFlags() const = 0;
     virtual Type getRuntimeType() const = 0;
-    virtual bool equals(const IValue& rhs, ValueCompare compare) const = 0;
     virtual bool validate() const = 0;
     virtual void print(Printer& printer) const = 0;
     virtual bool set(const IValue& value) = 0;
