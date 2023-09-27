@@ -1,7 +1,7 @@
 #include "ovum/test.h"
 
-// GCC uses C++2x's __VA_OPT__ but MSVC doesn't need it
-#if EGG_PLATFORM == EGG_PLATFORM_GCC
+// C++2x (post C++17) introduces __VA_OPT__
+#if defined(__cplusplus) && __cplusplus > 201703L
 #define COMMA(...) __VA_OPT__(,) __VA_ARGS__
 #else
 #define COMMA(...) , __VA_ARGS__
