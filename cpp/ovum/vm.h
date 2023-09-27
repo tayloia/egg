@@ -67,6 +67,7 @@ namespace egg::ovum {
 
   class IVMExecution : public ILogger, public IVMCommon {
   public:
+    // Exceptions
     virtual HardValue raiseException(const String& message) = 0;
     template<typename... ARGS>
     inline HardValue raise(ARGS&&... args) {
@@ -75,6 +76,14 @@ namespace egg::ovum {
       auto message = sb.add(std::forward<ARGS>(args)...).toUTF8();
       return this->raiseException(this->createString(message.data(), message.size()));
     }
+    // Binary operations
+    enum class BinaryOp {
+      Add,
+      Sub,
+      Mul,
+      Div
+    };
+    virtual HardValue evaluateBinaryOp(BinaryOp op, const HardValue& lhs, const HardValue& rhs) = 0;
   };
 
   class IVMCollectable : public ICollectable, public IVMCommon {
@@ -110,6 +119,7 @@ namespace egg::ovum {
     virtual void addStatement(Node& statement) = 0;
     virtual HardPtr<IVMProgram> build() = 0;
     // Expression factories
+    virtual Node& exprBinaryOp(IVMExecution::BinaryOp op, Node& lhs, Node& rhs) = 0;
     virtual Node& exprVariable(const String& name) = 0;
     virtual Node& exprLiteral(const HardValue& literal) = 0;
     virtual Node& exprPropertyGet(Node& instance, Node& property) = 0;

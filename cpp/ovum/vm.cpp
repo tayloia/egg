@@ -186,6 +186,105 @@ namespace {
       auto inner = ValueFactory::createString(allocator, message);
       return ValueFactory::createHardFlowControl(allocator, ValueFlags::Throw, inner);
     }
+    virtual HardValue evaluateBinaryOp(BinaryOp op, const HardValue& lhs, const HardValue& rhs) override {
+      BinaryValues binaryValues;
+      switch (op) {
+      case BinaryOp::Add:
+        switch (promoteBinary(binaryValues, lhs, rhs)) {
+        case BinaryResult::Ints:
+          return this->createHardValueInt(binaryValues.i[0] + binaryValues.i[1]);
+        case BinaryResult::Floats:
+          return this->createHardValueFloat(binaryValues.f[0] + binaryValues.f[1]);
+        case BinaryResult::BadLeft:
+          return this->raise("TODO: Invalid left-hand value for '+' addition binary operator");
+        case BinaryResult::BadRight:
+          return this->raise("TODO: Invalid right-hand value in '+' addition binary operator");
+        }
+        break;
+      case BinaryOp::Sub:
+        switch (promoteBinary(binaryValues, lhs, rhs)) {
+        case BinaryResult::Ints:
+          return this->createHardValueInt(binaryValues.i[0] - binaryValues.i[1]);
+        case BinaryResult::Floats:
+          return this->createHardValueFloat(binaryValues.f[0] - binaryValues.f[1]);
+        case BinaryResult::BadLeft:
+          return this->raise("TODO: Invalid left-hand value for '-' subtraction binary operator");
+        case BinaryResult::BadRight:
+          return this->raise("TODO: Invalid right-hand value in '-' subtraction binary operator");
+        }
+        break;
+      case BinaryOp::Mul:
+        switch (promoteBinary(binaryValues, lhs, rhs)) {
+        case BinaryResult::Ints:
+          return this->createHardValueInt(binaryValues.i[0] * binaryValues.i[1]);
+        case BinaryResult::Floats:
+          return this->createHardValueFloat(binaryValues.f[0] * binaryValues.f[1]);
+        case BinaryResult::BadLeft:
+          return this->raise("TODO: Invalid left-hand value for '*' multiplication binary operator");
+        case BinaryResult::BadRight:
+          return this->raise("TODO: Invalid right-hand value in '*' multiplication binary operator");
+        }
+        break;
+      case BinaryOp::Div:
+        switch (promoteBinary(binaryValues, lhs, rhs)) {
+        case BinaryResult::Ints:
+          if (binaryValues.i[1] == 0) {
+            return this->raise("TODO: Integer division by zero in '/' division binary operator");
+          }
+          return this->createHardValueInt(binaryValues.i[0] / binaryValues.i[1]);
+        case BinaryResult::Floats:
+          return this->createHardValueFloat(binaryValues.f[0] / binaryValues.f[1]);
+        case BinaryResult::BadLeft:
+          return this->raise("TODO: Invalid left-hand value for '/' division binary operator");
+        case BinaryResult::BadRight:
+          return this->raise("TODO: Invalid right-hand value in '/' division binary operator");
+        }
+        break;
+      }
+      return this->raise("TODO: Unknown binary operator");
+    }
+  private:
+    union BinaryValues {
+      Int i[2];
+      Float f[2];
+    };
+    enum class BinaryResult {
+      Ints,
+      Floats,
+      BadLeft,
+      BadRight
+    };
+    static BinaryResult promoteBinary(BinaryValues& values, const HardValue& lhs, const HardValue& rhs) {
+      Int i;
+      if (lhs->getFloat(values.f[0])) {
+        // Need to promote rhs to float
+        if (rhs->getFloat(values.f[1])) {
+          // Both values are already floats
+          return BinaryResult::Floats;
+        }
+        if (rhs->getInt(i)) {
+          // Left is float, right is int
+          values.f[1] = Float(i);
+          return BinaryResult::Floats;
+        }
+        return BinaryResult::BadRight;
+      }
+      if (lhs->getInt(i)) {
+        // May need to promote lhs to float
+        if (rhs->getFloat(values.f[1])) {
+          // Left is int, right is float
+          values.f[0] = Float(i);
+          return BinaryResult::Floats;
+        }
+        if (rhs->getInt(values.i[1])) {
+          // Both values are already ints
+          values.i[0] = i;
+          return BinaryResult::Ints;
+        }
+        return BinaryResult::BadRight;
+      }
+      return BinaryResult::BadLeft;
+    }
   };
 }
 
@@ -198,6 +297,7 @@ private:
 public:
   enum class Kind {
     Root,
+    ExprBinaryOp,
     ExprVariable,
     ExprLiteral,
     ExprPropertyGet,
@@ -265,6 +365,13 @@ namespace {
       auto program = VMProgram::makeHardVM<VMProgram>(this->vm, *this->root);
       this->root = nullptr;
       return program;
+    }
+    virtual Node& exprBinaryOp(IVMExecution::BinaryOp op, Node& lhs, Node& rhs) override {
+      auto& node = this->makeNode(Node::Kind::ExprBinaryOp);
+      node.literal = this->createHardValueInt(Int(op));
+      node.addChild(lhs);
+      node.addChild(rhs);
+      return node;
     }
     virtual Node& exprVariable(const String& name) override {
       auto& node = this->makeNode(Node::Kind::ExprVariable);
@@ -553,6 +660,14 @@ egg::ovum::IVMProgramRunner::RunOutcome VMProgramRunner::step(HardValue& retval)
     break;
   case IVMProgram::Node::Kind::StmtVariableSet:
     assert(top.node->children.size() == 1);
+    if (!top.deque.empty()) {
+      // Check the last evaluation
+      auto& latest = top.deque.back();
+      if (latest.hasFlowControl()) {
+        retval = latest;
+        return RunOutcome::Faulted;
+      }
+    }
     if (top.index == 0) {
       // Evaluate the value
       this->push(*top.node->children[top.index++]);
@@ -577,6 +692,14 @@ egg::ovum::IVMProgramRunner::RunOutcome VMProgramRunner::step(HardValue& retval)
   case IVMProgram::Node::Kind::StmtPropertySet:
     assert(top.node->literal->getVoid());
     assert(top.node->children.size() == 3);
+    if (!top.deque.empty()) {
+      // Check the last evaluation
+      auto& latest = top.deque.back();
+      if (latest.hasFlowControl()) {
+        retval = latest;
+        return RunOutcome::Faulted;
+      }
+    }
     if (top.index < 3) {
       // Evaluate the expressions
       this->push(*top.node->children[top.index++]);
@@ -594,6 +717,14 @@ egg::ovum::IVMProgramRunner::RunOutcome VMProgramRunner::step(HardValue& retval)
   case IVMProgram::Node::Kind::StmtFunctionCall:
   case IVMProgram::Node::Kind::ExprFunctionCall:
     assert(top.node->literal->getVoid());
+    if (!top.deque.empty()) {
+      // Check the last evaluation
+      auto& latest = top.deque.back();
+      if (latest.hasFlowControl()) {
+        retval = latest;
+        return RunOutcome::Faulted;
+      }
+    }
     if (top.index < top.node->children.size()) {
       // Assemble the arguments
       this->push(*top.node->children[top.index++]);
@@ -613,8 +744,33 @@ egg::ovum::IVMProgramRunner::RunOutcome VMProgramRunner::step(HardValue& retval)
       this->pop(function->vmCall(this->execution, arguments));
     }
     break;
+  case IVMProgram::Node::Kind::ExprBinaryOp:
+    assert(top.node->children.size() == 2);
+    if (!top.deque.empty()) {
+      // Check the last evaluation
+      auto& latest = top.deque.back();
+      if (latest.hasFlowControl()) {
+        retval = latest;
+        return RunOutcome::Faulted;
+      }
+    }
+    if (top.index < 2) {
+      // Assemble the arguments
+      this->push(*top.node->children[top.index++]);
+    } else {
+      assert(top.deque.size() == 2);
+      Int literal;
+      if (!top.node->literal->getInt(literal)) {
+        return this->createFault(retval, "Invalid program node literal for binary operation");
+      }
+      auto op = IVMExecution::BinaryOp(literal);
+      auto result = this->execution.evaluateBinaryOp(op, top.deque.front(), top.deque.back());
+      this->pop(result);
+    }
+    break;
   case IVMProgram::Node::Kind::ExprVariable:
     assert(top.node->children.empty());
+    assert(top.deque.empty());
     {
       String symbol;
       if (!top.node->literal->getString(symbol)) {
@@ -635,11 +791,20 @@ egg::ovum::IVMProgramRunner::RunOutcome VMProgramRunner::step(HardValue& retval)
     break;
   case IVMProgram::Node::Kind::ExprLiteral:
     assert(top.node->children.empty());
+    assert(top.deque.empty());
     this->pop(top.node->literal);
     break;
   case IVMProgram::Node::Kind::ExprPropertyGet:
     assert(top.node->literal->getVoid());
     assert(top.node->children.size() == 2);
+    if (!top.deque.empty()) {
+      // Check the last evaluation
+      auto& latest = top.deque.back();
+      if (latest.hasFlowControl()) {
+        retval = latest;
+        return RunOutcome::Faulted;
+      }
+    }
     if (top.index < 2) {
       // Assemble the arguments
       this->push(*top.node->children[top.index++]);

@@ -7,6 +7,7 @@
 #define COMMA(...) , __VA_ARGS__
 #endif
 
+#define EXPR_BINARY(op, lhs, rhs) builder->exprBinaryOp(IVMExecution::BinaryOp::op, lhs, rhs)
 #define EXPR_CALL(func, ...) builder->glue(builder->exprFunctionCall(func) COMMA(__VA_ARGS__))
 #define EXPR_LITERAL(value) builder->exprLiteral(builder->createHardValue(value))
 #define EXPR_PROP_GET(instance, property) builder->exprPropertyGet(instance, property)
@@ -508,4 +509,119 @@ TEST(TestVM, ExpandoKeys) {
   );
   buildAndRunSuccess(vm, *builder);
   ASSERT_EQ("true\n1234.5\n12345\nnull\n[expando]\nhello world\n", vm.logger.logged.str());
+}
+
+TEST(TestVM, BinaryAdd) {
+  egg::test::VM vm;
+  auto builder = vm->createProgramBuilder();
+  builder->addStatement(
+    // print(123 + 456);
+    STMT_PRINT(EXPR_BINARY(Add, EXPR_LITERAL(123), EXPR_LITERAL(456)))
+  );
+  builder->addStatement(
+    // print(123.5 + 456);
+    STMT_PRINT(EXPR_BINARY(Add, EXPR_LITERAL(123.25), EXPR_LITERAL(456)))
+  );
+  builder->addStatement(
+    // print(123 + 456.5);
+    STMT_PRINT(EXPR_BINARY(Add, EXPR_LITERAL(123), EXPR_LITERAL(456.5)))
+  );
+  builder->addStatement(
+    // print(123.25 + 456.5);
+    STMT_PRINT(EXPR_BINARY(Add, EXPR_LITERAL(123.25), EXPR_LITERAL(456.5)))
+  );
+  buildAndRunSuccess(vm, *builder);
+  ASSERT_EQ("579\n579.25\n579.5\n579.75\n", vm.logger.logged.str());
+}
+
+TEST(TestVM, BinarySub) {
+  egg::test::VM vm;
+  auto builder = vm->createProgramBuilder();
+  builder->addStatement(
+    // print(123 - 456);
+    STMT_PRINT(EXPR_BINARY(Sub, EXPR_LITERAL(123), EXPR_LITERAL(456)))
+  );
+  builder->addStatement(
+    // print(123.5 - 456);
+    STMT_PRINT(EXPR_BINARY(Sub, EXPR_LITERAL(123.25), EXPR_LITERAL(456)))
+  );
+  builder->addStatement(
+    // print(123 - 456.5);
+    STMT_PRINT(EXPR_BINARY(Sub, EXPR_LITERAL(123), EXPR_LITERAL(456.5)))
+  );
+  builder->addStatement(
+    // print(123.25 - 456.5);
+    STMT_PRINT(EXPR_BINARY(Sub, EXPR_LITERAL(123.25), EXPR_LITERAL(456.5)))
+  );
+  buildAndRunSuccess(vm, *builder);
+  ASSERT_EQ("-333\n-332.75\n-333.5\n-333.25\n", vm.logger.logged.str());
+}
+
+TEST(TestVM, BinaryMul) {
+  egg::test::VM vm;
+  auto builder = vm->createProgramBuilder();
+  builder->addStatement(
+    // print(123 * 456);
+    STMT_PRINT(EXPR_BINARY(Mul, EXPR_LITERAL(123), EXPR_LITERAL(456)))
+  );
+  builder->addStatement(
+    // print(123.5 * 456);
+    STMT_PRINT(EXPR_BINARY(Mul, EXPR_LITERAL(123.25), EXPR_LITERAL(456)))
+  );
+  builder->addStatement(
+    // print(123 * 456.5);
+    STMT_PRINT(EXPR_BINARY(Mul, EXPR_LITERAL(123), EXPR_LITERAL(456.5)))
+  );
+  builder->addStatement(
+    // print(123.25 * 456.5);
+    STMT_PRINT(EXPR_BINARY(Mul, EXPR_LITERAL(123.25), EXPR_LITERAL(456.5)))
+  );
+  buildAndRunSuccess(vm, *builder);
+  ASSERT_EQ("56088\n56202.0\n56149.5\n56263.625\n", vm.logger.logged.str());
+}
+
+TEST(TestVM, BinaryDiv) {
+  egg::test::VM vm;
+  auto builder = vm->createProgramBuilder();
+  builder->addStatement(
+    // print(123 / 456);
+    STMT_PRINT(EXPR_BINARY(Div, EXPR_LITERAL(123), EXPR_LITERAL(456)))
+  );
+  builder->addStatement(
+    // print(123.5 / 456);
+    STMT_PRINT(EXPR_BINARY(Div, EXPR_LITERAL(123.25), EXPR_LITERAL(456)))
+  );
+  builder->addStatement(
+    // print(123 / 456.5);
+    STMT_PRINT(EXPR_BINARY(Div, EXPR_LITERAL(123), EXPR_LITERAL(456.5)))
+  );
+  builder->addStatement(
+    // print(123.25 / 456.5);
+    STMT_PRINT(EXPR_BINARY(Div, EXPR_LITERAL(123.25), EXPR_LITERAL(456.5)))
+  );
+  buildAndRunSuccess(vm, *builder);
+  ASSERT_EQ("0\n0.270285087719\n0.269441401972\n0.269989047097\n", vm.logger.logged.str());
+}
+
+TEST(TestVM, BinaryDivZero) {
+  egg::test::VM vm;
+  auto builder = vm->createProgramBuilder();
+  builder->addStatement(
+    // print(123.5 / 0);
+    STMT_PRINT(EXPR_BINARY(Div, EXPR_LITERAL(123.25), EXPR_LITERAL(0)))
+  );
+  builder->addStatement(
+    // print(123 / 0.0);
+    STMT_PRINT(EXPR_BINARY(Div, EXPR_LITERAL(123), EXPR_LITERAL(0.0)))
+  );
+  builder->addStatement(
+    // print(123.25 / 0.0);
+    STMT_PRINT(EXPR_BINARY(Div, EXPR_LITERAL(123.25), EXPR_LITERAL(0.0)))
+  );
+  builder->addStatement(
+    // print(123 / 0);
+    STMT_PRINT(EXPR_BINARY(Div, EXPR_LITERAL(123), EXPR_LITERAL(0)))
+  );
+  buildAndRunFault(vm, *builder);
+  ASSERT_EQ("#+INF\n#+INF\n#+INF\n<ERROR>throw TODO: Integer division by zero in '/' division binary operator\n", vm.logger.logged.str());
 }
