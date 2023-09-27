@@ -242,7 +242,7 @@ TEST(TestVM, VariableDefine) {
   auto builder = vm->createProgramBuilder();
   builder->addStatement(
     // var i = 12345;
-    STMT_VAR_DEFINE("i", EXPR_LITERAL(Int(12345)),
+    STMT_VAR_DEFINE("i", EXPR_LITERAL(12345),
      // print(i);
       STMT_PRINT(EXPR_VAR("i"))
     )
@@ -299,7 +299,7 @@ TEST(TestVM, VariableDefineInt) {
   auto builder = vm->createProgramBuilder();
   builder->addStatement(
     // var i = 12345;
-    STMT_VAR_DEFINE("i", EXPR_LITERAL(Int(12345)),
+    STMT_VAR_DEFINE("i", EXPR_LITERAL(12345),
         // print(i);
       STMT_PRINT(EXPR_VAR("i"))
     )
@@ -377,7 +377,7 @@ TEST(TestVM, BuiltinSet) {
   auto builder = vm->createProgramBuilder();
   // print = 12345;
   builder->addStatement(
-    STMT_VAR_SET("print", EXPR_LITERAL(Int(12345)))
+    STMT_VAR_SET("print", EXPR_LITERAL(12345))
   );
   buildAndRunFault(vm, *builder);
   ASSERT_EQ("<ERROR>throw Cannot modify builtin symbol: 'print'\n", vm.logger.logged.str());
@@ -474,7 +474,7 @@ TEST(TestVM, ExpandoCollector) {
   ASSERT_EQ("0\n0\n4\n", vm.logger.logged.str());
 }
 
-TEST(TestVM, ExpandoKeyOrdering) {
+TEST(TestVM, ExpandoKeys) {
   egg::test::VM vm;
   auto builder = vm->createProgramBuilder();
   builder->addStatement(
@@ -485,7 +485,7 @@ TEST(TestVM, ExpandoKeyOrdering) {
       // x.b = true;
       STMT_PROP_SET(EXPR_VAR("x"), EXPR_LITERAL("b"), EXPR_LITERAL(true)),
       // x.i = 12345;
-      STMT_PROP_SET(EXPR_VAR("x"), EXPR_LITERAL("i"), EXPR_LITERAL(Int(12345))),
+      STMT_PROP_SET(EXPR_VAR("x"), EXPR_LITERAL("i"), EXPR_LITERAL(12345)),
       // x.f = 1234.5;
       STMT_PROP_SET(EXPR_VAR("x"), EXPR_LITERAL("f"), EXPR_LITERAL(1234.5)),
       // x.s = "hello world";

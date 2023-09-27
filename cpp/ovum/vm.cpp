@@ -473,7 +473,7 @@ namespace {
       }
     }
     virtual IValue* softHarden(const IValue* soft) override {
-      // WIBBLE
+      // TODO: thread safety
       return const_cast<IValue*>(soft);
     }
     virtual IValue* softCreateValue() override {
@@ -554,7 +554,7 @@ egg::ovum::IVMProgramRunner::RunOutcome VMProgramRunner::step(HardValue& retval)
   case IVMProgram::Node::Kind::StmtVariableSet:
     assert(top.node->children.size() == 1);
     if (top.index == 0) {
-      // Evaluate the instance and property WIBBLE
+      // Evaluate the value
       this->push(*top.node->children[top.index++]);
     } else {
       assert(top.deque.size() == 1);

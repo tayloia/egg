@@ -33,13 +33,16 @@ namespace egg::ovum {
     inline HardValue createHardValue(std::nullptr_t) {
       return this->createHardValueNull();
     }
-    inline HardValue createHardValue(Bool value) {
+    inline HardValue createHardValue(bool value) {
       return this->createHardValueBool(value);
     }
-    inline HardValue createHardValue(Int value) {
+    inline HardValue createHardValue(int value) {
       return this->createHardValueInt(value);
     }
-    inline HardValue createHardValue(Float value) {
+    inline HardValue createHardValue(float value) {
+      return this->createHardValueFloat(value);
+    }
+    inline HardValue createHardValue(double value) {
       return this->createHardValueFloat(value);
     }
     inline HardValue createHardValue(const char* value) {

@@ -183,7 +183,7 @@ namespace {
         return execution.raise("Builtin 'collector()' expects no arguments");
       }
       auto collected = this->vm->getBasket().collect();
-      return execution.createHardValue(Int(collected));
+      return execution.createHardValueInt(Int(collected));
     }
     virtual HardValue vmPropertyGet(IVMExecution& execution, const HardValue&) override {
       return execution.raise("Builtin 'collector()' does not support properties");
