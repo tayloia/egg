@@ -240,6 +240,21 @@ namespace {
           return this->raise("TODO: Invalid right-hand value in '/' division binary operator");
         }
         break;
+      case BinaryOp::Rem:
+        switch (promoteBinary(binaryValues, lhs, rhs)) {
+        case BinaryResult::Ints:
+          if (binaryValues.i[1] == 0) {
+            return this->raise("TODO: Integer division by zero in '%' remainder binary operator");
+          }
+          return this->createHardValueInt(binaryValues.i[0] % binaryValues.i[1]);
+        case BinaryResult::Floats:
+          return this->createHardValueFloat(std::fmod(binaryValues.f[0], binaryValues.f[1]));
+        case BinaryResult::BadLeft:
+          return this->raise("TODO: Invalid left-hand value for '%' remainder binary operator");
+        case BinaryResult::BadRight:
+          return this->raise("TODO: Invalid right-hand value in '%' remainder binary operator");
+        }
+        break;
       }
       return this->raise("TODO: Unknown binary operator");
     }

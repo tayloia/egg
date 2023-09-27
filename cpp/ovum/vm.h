@@ -81,7 +81,8 @@ namespace egg::ovum {
       Add,
       Sub,
       Mul,
-      Div
+      Div,
+      Rem
     };
     virtual HardValue evaluateBinaryOp(BinaryOp op, const HardValue& lhs, const HardValue& rhs) = 0;
   };

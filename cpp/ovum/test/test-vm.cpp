@@ -619,9 +619,71 @@ TEST(TestVM, BinaryDivZero) {
     STMT_PRINT(EXPR_BINARY(Div, EXPR_LITERAL(123.25), EXPR_LITERAL(0.0)))
   );
   builder->addStatement(
+    // print(0 / 0.0);
+    STMT_PRINT(EXPR_BINARY(Div, EXPR_LITERAL(0), EXPR_LITERAL(0.0)))
+  );
+  builder->addStatement(
+    // print(0.0 / 0.0);
+    STMT_PRINT(EXPR_BINARY(Div, EXPR_LITERAL(0.0), EXPR_LITERAL(0.0)))
+  );
+  builder->addStatement(
     // print(123 / 0);
     STMT_PRINT(EXPR_BINARY(Div, EXPR_LITERAL(123), EXPR_LITERAL(0)))
   );
   buildAndRunFault(vm, *builder);
-  ASSERT_EQ("#+INF\n#+INF\n#+INF\n<ERROR>throw TODO: Integer division by zero in '/' division binary operator\n", vm.logger.logged.str());
+  ASSERT_EQ("#+INF\n#+INF\n#+INF\n#NAN\n#NAN\n<ERROR>throw TODO: Integer division by zero in '/' division binary operator\n", vm.logger.logged.str());
+}
+
+TEST(TestVM, BinaryRem) {
+  egg::test::VM vm;
+  auto builder = vm->createProgramBuilder();
+  builder->addStatement(
+    // print(123 % 34);
+    STMT_PRINT(EXPR_BINARY(Rem, EXPR_LITERAL(123), EXPR_LITERAL(34)))
+  );
+  builder->addStatement(
+    // print(123.5 % 34);
+    STMT_PRINT(EXPR_BINARY(Rem, EXPR_LITERAL(123.25), EXPR_LITERAL(34)))
+  );
+  builder->addStatement(
+    // print(123 % 34.5);
+    STMT_PRINT(EXPR_BINARY(Rem, EXPR_LITERAL(123), EXPR_LITERAL(34.5)))
+  );
+  builder->addStatement(
+    // print(123.25 % 34.5);
+    STMT_PRINT(EXPR_BINARY(Rem, EXPR_LITERAL(123.25), EXPR_LITERAL(34.5)))
+  );
+  buildAndRunSuccess(vm, *builder);
+  ASSERT_EQ("21\n21.25\n19.5\n19.75\n", vm.logger.logged.str());
+}
+
+TEST(TestVM, BinaryRemZero) {
+  egg::test::VM vm;
+  auto builder = vm->createProgramBuilder();
+  builder->addStatement(
+    // print(123.5 % 34);
+    STMT_PRINT(EXPR_BINARY(Rem, EXPR_LITERAL(123.25), EXPR_LITERAL(0)))
+  );
+  builder->addStatement(
+    // print(123 % 34.5);
+    STMT_PRINT(EXPR_BINARY(Rem, EXPR_LITERAL(123), EXPR_LITERAL(0.0)))
+  );
+  builder->addStatement(
+    // print(123.25 % 34.5);
+    STMT_PRINT(EXPR_BINARY(Rem, EXPR_LITERAL(123.25), EXPR_LITERAL(0.0)))
+  );
+  builder->addStatement(
+    // print(0 % 0.0);
+    STMT_PRINT(EXPR_BINARY(Rem, EXPR_LITERAL(0), EXPR_LITERAL(0.0)))
+  );
+  builder->addStatement(
+    // print(0.0 % 0.0);
+    STMT_PRINT(EXPR_BINARY(Rem, EXPR_LITERAL(0.0), EXPR_LITERAL(0.0)))
+  );
+  builder->addStatement(
+    // print(123 % 0);
+    STMT_PRINT(EXPR_BINARY(Rem, EXPR_LITERAL(123), EXPR_LITERAL(0)))
+  );
+  buildAndRunFault(vm, *builder);
+  ASSERT_EQ("#NAN\n#NAN\n#NAN\n#NAN\n#NAN\n<ERROR>throw TODO: Integer division by zero in '%' remainder binary operator\n", vm.logger.logged.str());
 }
