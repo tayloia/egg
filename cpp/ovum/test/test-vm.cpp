@@ -7,8 +7,10 @@ namespace {
     auto builder = vm->createProgramBuilder();
     // print("hello world);
     builder->addStatement(
-      builder->stmtFunctionCall(builder->exprVariable(builder->createString("print"))),
-      builder->exprLiteral(builder->createHardValue("hello world"))
+      builder->glue(
+        builder->stmtFunctionCall(builder->exprVariable(builder->createString("print"))),
+        builder->exprLiteral(builder->createHardValue("hello world"))
+      )
     );
     return builder->build();
   }
@@ -174,10 +176,12 @@ TEST(TestVM, StepProgram) {
 TEST(TestVM, PrintPrint) {
   egg::test::VM vm;
   auto builder = vm->createProgramBuilder();
-  // print(print);
   builder->addStatement(
-    builder->stmtFunctionCall(builder->exprVariable(builder->createString("print"))),
-    builder->exprVariable(builder->createString("print"))
+    builder->glue(
+      // print(print);
+      builder->stmtFunctionCall(builder->exprVariable(builder->createString("print"))),
+      builder->exprVariable(builder->createString("print"))
+    )
   );
   buildAndRunSuccess(vm, *builder);
   ASSERT_EQ("[builtin print]\n", vm.logger.logged.str());
@@ -186,10 +190,12 @@ TEST(TestVM, PrintPrint) {
 TEST(TestVM, PrintUnknown) {
   egg::test::VM vm;
   auto builder = vm->createProgramBuilder();
-  // print(unknown);
   builder->addStatement(
-    builder->stmtFunctionCall(builder->exprVariable(builder->createString("print"))),
-    builder->exprVariable(builder->createString("unknown"))
+    builder->glue(
+      // print(unknown);
+      builder->stmtFunctionCall(builder->exprVariable(builder->createString("print"))),
+      builder->exprVariable(builder->createString("unknown"))
+    )
   );
   buildAndRunFault(vm, *builder);
   ASSERT_EQ("<ERROR>throw Unknown variable symbol: 'unknown'\n", vm.logger.logged.str());
@@ -198,14 +204,16 @@ TEST(TestVM, PrintUnknown) {
 TEST(TestVM, VariableDeclare) {
   egg::test::VM vm;
   auto builder = vm->createProgramBuilder();
-  // var v;
   builder->addStatement(
-    builder->stmtVariableDeclare(builder->createString("v"))
-  );
-  // print(v);
-  builder->addStatement(
-    builder->stmtFunctionCall(builder->exprVariable(builder->createString("print"))),
-    builder->exprVariable(builder->createString("v"))
+    builder->glue(
+      // var v;
+      builder->stmtVariableDeclare(builder->createString("v")),
+      // print(v);
+      builder->glue(
+        builder->stmtFunctionCall(builder->exprVariable(builder->createString("print"))),
+        builder->exprVariable(builder->createString("v"))
+      )
+    )
   );
   buildAndRunFault(vm, *builder);
   ASSERT_EQ("<ERROR>throw Variable uninitialized: 'v'\n", vm.logger.logged.str());
@@ -214,34 +222,31 @@ TEST(TestVM, VariableDeclare) {
 TEST(TestVM, VariableDeclareTwice) {
   egg::test::VM vm;
   auto builder = vm->createProgramBuilder();
-  // var v;
   builder->addStatement(
-    builder->stmtVariableDeclare(builder->createString("v"))
-  );
-  // var v;
-  builder->addStatement(
-    builder->stmtVariableDeclare(builder->createString("v"))
+    builder->glue(
+      // var v;
+      builder->stmtVariableDeclare(builder->createString("v")),
+      // var v;
+      builder->stmtVariableDeclare(builder->createString("v"))
+    )
   );
   buildAndRunFault(vm, *builder);
   ASSERT_EQ("<ERROR>throw Variable symbol already declared: 'v'\n", vm.logger.logged.str());
 }
 
-TEST(TestVM, VariableDeclareAndSet) {
+TEST(TestVM, VariableDefine) {
   egg::test::VM vm;
   auto builder = vm->createProgramBuilder();
-  // var i;
   builder->addStatement(
-    builder->stmtVariableDeclare(builder->createString("i"))
-  );
-  // i = 12345;
-  builder->addStatement(
-    builder->stmtVariableSet(builder->createString("i")),
-    builder->exprLiteral(builder->createHardValueInt(12345))
-  );
-  // print(i);
-  builder->addStatement(
-    builder->stmtFunctionCall(builder->exprVariable(builder->createString("print"))),
-    builder->exprVariable(builder->createString("i"))
+    builder->glue(
+      // var i;
+      builder->stmtVariableDefine(builder->createString("i"), builder->exprLiteral(builder->createHardValueInt(12345))),
+      // print(i);
+      builder->glue(
+        builder->stmtFunctionCall(builder->exprVariable(builder->createString("print"))),
+        builder->exprVariable(builder->createString("i"))
+      )
+    )
   );
   buildAndRunSuccess(vm, *builder);
   ASSERT_EQ("12345\n", vm.logger.logged.str());
@@ -250,18 +255,16 @@ TEST(TestVM, VariableDeclareAndSet) {
 TEST(TestVM, VariableUndeclare) {
   egg::test::VM vm;
   auto builder = vm->createProgramBuilder();
-  // var i;
   builder->addStatement(
+    // var i;
     builder->stmtVariableDeclare(builder->createString("i"))
   );
-  // ~i
   builder->addStatement(
-    builder->stmtVariableUndeclare(builder->createString("i"))
-  );
-  // print(i);
-  builder->addStatement(
-    builder->stmtFunctionCall(builder->exprVariable(builder->createString("print"))),
-    builder->exprVariable(builder->createString("i"))
+    // print(i);
+    builder->glue(
+      builder->stmtFunctionCall(builder->exprVariable(builder->createString("print"))),
+      builder->exprVariable(builder->createString("i"))
+    )
   );
   buildAndRunFault(vm, *builder);
   ASSERT_EQ("<ERROR>throw Unknown variable symbol: 'i'\n", vm.logger.logged.str());
@@ -270,15 +273,16 @@ TEST(TestVM, VariableUndeclare) {
 TEST(TestVM, VariableDefineNull) {
   egg::test::VM vm;
   auto builder = vm->createProgramBuilder();
-  // var n = null;
   builder->addStatement(
-    builder->stmtVariableDefine(builder->createString("n")),
-    builder->exprLiteral(builder->createHardValueNull())
-  );
-  // print(n);
-  builder->addStatement(
-    builder->stmtFunctionCall(builder->exprVariable(builder->createString("print"))),
-    builder->exprVariable(builder->createString("n"))
+    builder->glue(
+      // var n = null;
+      builder->stmtVariableDefine(builder->createString("n"), builder->exprLiteral(builder->createHardValueNull())),
+      // print(n);
+      builder->glue(
+        builder->stmtFunctionCall(builder->exprVariable(builder->createString("print"))),
+        builder->exprVariable(builder->createString("n"))
+      )
+    )
   );
   buildAndRunSuccess(vm, *builder);
   ASSERT_EQ("null\n", vm.logger.logged.str());
@@ -287,15 +291,16 @@ TEST(TestVM, VariableDefineNull) {
 TEST(TestVM, VariableDefineBool) {
   egg::test::VM vm;
   auto builder = vm->createProgramBuilder();
-  // var b = true;
   builder->addStatement(
-    builder->stmtVariableDefine(builder->createString("b")),
-    builder->exprLiteral(builder->createHardValueBool(true))
-  );
-  // print(b);
-  builder->addStatement(
-    builder->stmtFunctionCall(builder->exprVariable(builder->createString("print"))),
-    builder->exprVariable(builder->createString("b"))
+    builder->glue(
+      // var b = true;
+      builder->stmtVariableDefine(builder->createString("b"), builder->exprLiteral(builder->createHardValueBool(true))),
+      // print(b);
+      builder->glue(
+        builder->stmtFunctionCall(builder->exprVariable(builder->createString("print"))),
+        builder->exprVariable(builder->createString("b"))
+      )
+    )
   );
   buildAndRunSuccess(vm, *builder);
   ASSERT_EQ("true\n", vm.logger.logged.str());
@@ -304,15 +309,16 @@ TEST(TestVM, VariableDefineBool) {
 TEST(TestVM, VariableDefineInt) {
   egg::test::VM vm;
   auto builder = vm->createProgramBuilder();
-  // var i = 12345;
   builder->addStatement(
-    builder->stmtVariableDefine(builder->createString("i")),
-    builder->exprLiteral(builder->createHardValueInt(12345))
-  );
-  // print(i);
-  builder->addStatement(
-    builder->stmtFunctionCall(builder->exprVariable(builder->createString("print"))),
-    builder->exprVariable(builder->createString("i"))
+    builder->glue(
+      // var i = 12345;
+      builder->stmtVariableDefine(builder->createString("i"), builder->exprLiteral(builder->createHardValueInt(12345))),
+      // print(i);
+      builder->glue(
+        builder->stmtFunctionCall(builder->exprVariable(builder->createString("print"))),
+        builder->exprVariable(builder->createString("i"))
+      )
+    )
   );
   buildAndRunSuccess(vm, *builder);
   ASSERT_EQ("12345\n", vm.logger.logged.str());
@@ -321,15 +327,16 @@ TEST(TestVM, VariableDefineInt) {
 TEST(TestVM, VariableDefineFloat) {
   egg::test::VM vm;
   auto builder = vm->createProgramBuilder();
-  // var f = 1234.5;
   builder->addStatement(
-    builder->stmtVariableDefine(builder->createString("f")),
-    builder->exprLiteral(builder->createHardValueFloat(1234.5))
-  );
-  // print(f);
-  builder->addStatement(
-    builder->stmtFunctionCall(builder->exprVariable(builder->createString("print"))),
-    builder->exprVariable(builder->createString("f"))
+    builder->glue(
+      // var f = 1234.5;
+      builder->stmtVariableDefine(builder->createString("f"), builder->exprLiteral(builder->createHardValueFloat(1234.5))),
+      // print(f);
+      builder->glue(
+        builder->stmtFunctionCall(builder->exprVariable(builder->createString("print"))),
+        builder->exprVariable(builder->createString("f"))
+      )
+    )
   );
   buildAndRunSuccess(vm, *builder);
   ASSERT_EQ("1234.5\n", vm.logger.logged.str());
@@ -338,15 +345,16 @@ TEST(TestVM, VariableDefineFloat) {
 TEST(TestVM, VariableDefineString) {
   egg::test::VM vm;
   auto builder = vm->createProgramBuilder();
-  // var s = "hello world";
   builder->addStatement(
-    builder->stmtVariableDefine(builder->createString("s")),
-    builder->exprLiteral(builder->createHardValue("hello world"))
-  );
-  // print(s);
-  builder->addStatement(
-    builder->stmtFunctionCall(builder->exprVariable(builder->createString("print"))),
-    builder->exprVariable(builder->createString("s"))
+    builder->glue(
+      // var s = "hello world";
+      builder->stmtVariableDefine(builder->createString("s"), builder->exprLiteral(builder->createHardValue("hello world"))),
+      // print(s);
+      builder->glue(
+        builder->stmtFunctionCall(builder->exprVariable(builder->createString("print"))),
+        builder->exprVariable(builder->createString("s"))
+      )
+    )
   );
   buildAndRunSuccess(vm, *builder);
   ASSERT_EQ("hello world\n", vm.logger.logged.str());
@@ -357,55 +365,18 @@ TEST(TestVM, VariableDefineObject) {
   auto builder = vm->createProgramBuilder();
   // var o = print;
   builder->addStatement(
-    builder->stmtVariableDefine(builder->createString("o")),
-    builder->exprVariable(builder->createString("print"))
-  );
-  // print(o);
-  builder->addStatement(
-    builder->stmtFunctionCall(builder->exprVariable(builder->createString("print"))),
-    builder->exprVariable(builder->createString("o"))
+    builder->glue(
+      // var o = print;
+      builder->stmtVariableDefine(builder->createString("o"), builder->exprVariable(builder->createString("print"))),
+      // print(o);
+      builder->glue(
+        builder->stmtFunctionCall(builder->exprVariable(builder->createString("print"))),
+        builder->exprVariable(builder->createString("o"))
+      )
+    )
   );
   buildAndRunSuccess(vm, *builder);
   ASSERT_EQ("[builtin print]\n", vm.logger.logged.str());
-}
-
-TEST(TestVM, VariableDefineTwice) {
-  egg::test::VM vm;
-  auto builder = vm->createProgramBuilder();
-  // var i = 12345;
-  builder->addStatement(
-    builder->stmtVariableDefine(builder->createString("i")),
-    builder->exprLiteral(builder->createHardValueInt(12345))
-  );
-  // var i = 54321;
-  builder->addStatement(
-    builder->stmtVariableDefine(builder->createString("i")),
-    builder->exprLiteral(builder->createHardValueInt(54321))
-  );
-  buildAndRunFault(vm, *builder);
-  ASSERT_EQ("<ERROR>throw Variable symbol already declared: 'i'\n", vm.logger.logged.str());
-}
-
-TEST(TestVM, VariableDefineAndSet) {
-  egg::test::VM vm;
-  auto builder = vm->createProgramBuilder();
-  // var i = 12345;
-  builder->addStatement(
-    builder->stmtVariableDefine(builder->createString("i")),
-    builder->exprLiteral(builder->createHardValueInt(12345))
-  );
-  // i = 54321;
-  builder->addStatement(
-    builder->stmtVariableSet(builder->createString("i")),
-    builder->exprLiteral(builder->createHardValueInt(54321))
-  );
-  // print(i);
-  builder->addStatement(
-    builder->stmtFunctionCall(builder->exprVariable(builder->createString("print"))),
-    builder->exprVariable(builder->createString("i"))
-  );
-  buildAndRunSuccess(vm, *builder);
-  ASSERT_EQ("54321\n", vm.logger.logged.str());
 }
 
 TEST(TestVM, BuiltinDeclare) {
@@ -422,10 +393,9 @@ TEST(TestVM, BuiltinDeclare) {
 TEST(TestVM, BuiltinDefine) {
   egg::test::VM vm;
   auto builder = vm->createProgramBuilder();
-  // var print = 12345;
+  // var print;
   builder->addStatement(
-    builder->stmtVariableDefine(builder->createString("print")),
-    builder->exprLiteral(builder->createHardValueInt(12345))
+    builder->stmtVariableDefine(builder->createString("print"), builder->exprLiteral(builder->createHardValueNull()))
   );
   buildAndRunFault(vm, *builder);
   ASSERT_EQ("<ERROR>throw Variable symbol already declared as a builtin: 'print'\n", vm.logger.logged.str());
@@ -436,22 +406,10 @@ TEST(TestVM, BuiltinSet) {
   auto builder = vm->createProgramBuilder();
   // print = 12345;
   builder->addStatement(
-    builder->stmtVariableSet(builder->createString("print")),
-    builder->exprLiteral(builder->createHardValueInt(12345))
+    builder->stmtVariableSet(builder->createString("print"), builder->exprLiteral(builder->createHardValueInt(12345)))
   );
   buildAndRunFault(vm, *builder);
   ASSERT_EQ("<ERROR>throw Cannot modify builtin symbol: 'print'\n", vm.logger.logged.str());
-}
-
-TEST(TestVM, BuiltinUndeclare) {
-  egg::test::VM vm;
-  auto builder = vm->createProgramBuilder();
-  // ~print
-  builder->addStatement(
-    builder->stmtVariableUndeclare(builder->createString("print"))
-  );
-  buildAndRunFault(vm, *builder);
-  ASSERT_EQ("<ERROR>throw Cannot undeclare builtin symbol: 'print'\n", vm.logger.logged.str());
 }
 
 TEST(TestVM, AssertTrue) {
@@ -459,8 +417,10 @@ TEST(TestVM, AssertTrue) {
   auto builder = vm->createProgramBuilder();
   // assert(true);
   builder->addStatement(
-    builder->stmtFunctionCall(builder->exprVariable(builder->createString("assert"))),
-    builder->exprLiteral(builder->createHardValueBool(true))
+    builder->glue(
+      builder->stmtFunctionCall(builder->exprVariable(builder->createString("assert"))),
+      builder->exprLiteral(builder->createHardValueBool(true))
+    )
   );
   buildAndRunSuccess(vm, *builder);
   ASSERT_EQ("", vm.logger.logged.str());
@@ -471,8 +431,10 @@ TEST(TestVM, AssertFalse) {
   auto builder = vm->createProgramBuilder();
   // assert(false);
   builder->addStatement(
-    builder->stmtFunctionCall(builder->exprVariable(builder->createString("assert"))),
-    builder->exprLiteral(builder->createHardValueBool(false))
+    builder->glue(
+      builder->stmtFunctionCall(builder->exprVariable(builder->createString("assert"))),
+      builder->exprLiteral(builder->createHardValueBool(false))
+    )
   );
   buildAndRunFault(vm, *builder);
   ASSERT_EQ("<ERROR>throw Assertion failure\n", vm.logger.logged.str());
@@ -481,27 +443,25 @@ TEST(TestVM, AssertFalse) {
 TEST(TestVM, ExpandoPair) {
   egg::test::VM vm;
   auto builder = vm->createProgramBuilder();
-  // var a = expando();
   builder->addStatement(
-    builder->stmtVariableDefine(builder->createString("a")),
-    builder->exprFunctionCall(builder->exprVariable(builder->createString("expando")))
-  );
-  // var b = expando();
-  builder->addStatement(
-    builder->stmtVariableDefine(builder->createString("b")),
-    builder->exprFunctionCall(builder->exprVariable(builder->createString("expando")))
-  );
-  // a.x = b;
-  builder->addStatement(
-    builder->stmtPropertySet(builder->exprVariable(builder->createString("a")),
-                             builder->exprLiteral(builder->createHardValue("x")),
-                             builder->exprVariable(builder->createString("b")))
-  );
-  // print(a,b);
-  builder->addStatement(
-    builder->stmtFunctionCall(builder->exprVariable(builder->createString("print"))),
-    builder->exprVariable(builder->createString("a")),
-    builder->exprVariable(builder->createString("b"))
+    builder->glue(
+      // var a = expando();
+      builder->stmtVariableDefine(builder->createString("a"), builder->exprFunctionCall(builder->exprVariable(builder->createString("expando")))),
+      builder->glue(
+        // var b = expando();
+        builder->stmtVariableDefine(builder->createString("b"), builder->exprFunctionCall(builder->exprVariable(builder->createString("expando")))),
+        // a.x = b;
+        builder->stmtPropertySet(builder->exprVariable(builder->createString("a")),
+                                 builder->exprLiteral(builder->createHardValue("x")),
+                                 builder->exprVariable(builder->createString("b"))),
+        // print(a,b);
+        builder->glue(
+          builder->stmtFunctionCall(builder->exprVariable(builder->createString("print"))),
+          builder->exprVariable(builder->createString("a")),
+          builder->exprVariable(builder->createString("b"))
+        )
+      )
+    )
   );
   buildAndRunSuccess(vm, *builder);
   ASSERT_EQ("[expando][expando]\n", vm.logger.logged.str());
@@ -510,33 +470,29 @@ TEST(TestVM, ExpandoPair) {
 TEST(TestVM, ExpandoCycle) {
   egg::test::VM vm;
   auto builder = vm->createProgramBuilder();
-  // var a = expando();
   builder->addStatement(
-    builder->stmtVariableDefine(builder->createString("a")),
-    builder->exprFunctionCall(builder->exprVariable(builder->createString("expando")))
-  );
-  // var b = expando();
-  builder->addStatement(
-    builder->stmtVariableDefine(builder->createString("b")),
-    builder->exprFunctionCall(builder->exprVariable(builder->createString("expando")))
-  );
-  // a.x = b;
-  builder->addStatement(
-    builder->stmtPropertySet(builder->exprVariable(builder->createString("a")),
-                             builder->exprLiteral(builder->createHardValue("x")),
-                             builder->exprVariable(builder->createString("b")))
-  );
-  // b.x = a;
-  builder->addStatement(
-    builder->stmtPropertySet(builder->exprVariable(builder->createString("b")),
-                             builder->exprLiteral(builder->createHardValue("x")),
-                             builder->exprVariable(builder->createString("a")))
-  );
-  // print(a,b);
-  builder->addStatement(
-    builder->stmtFunctionCall(builder->exprVariable(builder->createString("print"))),
-    builder->exprVariable(builder->createString("a")),
-    builder->exprVariable(builder->createString("b"))
+    builder->glue(
+      // var a = expando();
+      builder->stmtVariableDefine(builder->createString("a"), builder->exprFunctionCall(builder->exprVariable(builder->createString("expando")))),
+      builder->glue(
+        // var b = expando();
+        builder->stmtVariableDefine(builder->createString("b"), builder->exprFunctionCall(builder->exprVariable(builder->createString("expando")))),
+        // a.x = b;
+        builder->stmtPropertySet(builder->exprVariable(builder->createString("a")),
+                                 builder->exprLiteral(builder->createHardValue("x")),
+                                 builder->exprVariable(builder->createString("b"))),
+        // b.x = a;
+        builder->stmtPropertySet(builder->exprVariable(builder->createString("b")),
+                                 builder->exprLiteral(builder->createHardValue("x")),
+                                 builder->exprVariable(builder->createString("a"))),
+        // print(a,b);
+        builder->glue(
+          builder->stmtFunctionCall(builder->exprVariable(builder->createString("print"))),
+          builder->exprVariable(builder->createString("a")),
+          builder->exprVariable(builder->createString("b"))
+        )
+      )
+    )
   );
   buildAndRunSuccess(vm, *builder);
   ASSERT_EQ("[expando][expando]\n", vm.logger.logged.str());
@@ -545,52 +501,42 @@ TEST(TestVM, ExpandoCycle) {
 TEST(TestVM, ExpandoCollector) {
   egg::test::VM vm;
   auto builder = vm->createProgramBuilder();
-  // var a = expando();
   builder->addStatement(
-    builder->stmtVariableDefine(builder->createString("a")),
-    builder->exprFunctionCall(builder->exprVariable(builder->createString("expando")))
-  );
-  // var b = expando();
-  builder->addStatement(
-    builder->stmtVariableDefine(builder->createString("b")),
-    builder->exprFunctionCall(builder->exprVariable(builder->createString("expando")))
-  );
-  // a.x = b;
-  builder->addStatement(
-    builder->stmtPropertySet(builder->exprVariable(builder->createString("a")),
-                             builder->exprLiteral(builder->createHardValue("x")),
-                             builder->exprVariable(builder->createString("b")))
-  );
-  // b.x = a;
-  builder->addStatement(
-    builder->stmtPropertySet(builder->exprVariable(builder->createString("b")),
-                             builder->exprLiteral(builder->createHardValue("x")),
-                             builder->exprVariable(builder->createString("a")))
-  );
-  // print(collector()); -- should print '0'
-  builder->addStatement(
-    builder->stmtFunctionCall(builder->exprVariable(builder->createString("print"))),
-    builder->exprFunctionCall(builder->exprVariable(builder->createString("collector")))
-  );
-  // a = null;
-  builder->addStatement(
-    builder->stmtVariableSet(builder->createString("a")),
-    builder->exprLiteral(builder->createHardValue(nullptr))
-  );
-  // print(collector()); -- should print '0'
-  builder->addStatement(
-    builder->stmtFunctionCall(builder->exprVariable(builder->createString("print"))),
-    builder->exprFunctionCall(builder->exprVariable(builder->createString("collector")))
-  );
-  // b = null;
-  builder->addStatement(
-    builder->stmtVariableSet(builder->createString("b")),
-    builder->exprLiteral(builder->createHardValue(nullptr))
-  );
-  // print(collector()); -- should print '4'
-  builder->addStatement(
-    builder->stmtFunctionCall(builder->exprVariable(builder->createString("print"))),
-    builder->exprFunctionCall(builder->exprVariable(builder->createString("collector")))
+    builder->glue(
+      // var a = expando();
+      builder->stmtVariableDefine(builder->createString("a"), builder->exprFunctionCall(builder->exprVariable(builder->createString("expando")))),
+      builder->glue(
+        // var b = expando();
+        builder->stmtVariableDefine(builder->createString("b"), builder->exprFunctionCall(builder->exprVariable(builder->createString("expando")))),
+        // a.x = b;
+        builder->stmtPropertySet(builder->exprVariable(builder->createString("a")),
+                                 builder->exprLiteral(builder->createHardValue("x")),
+                                 builder->exprVariable(builder->createString("b"))),
+        // b.x = a;
+        builder->stmtPropertySet(builder->exprVariable(builder->createString("b")),
+                                  builder->exprLiteral(builder->createHardValue("x")),
+                                  builder->exprVariable(builder->createString("a"))),
+        // print(collector()); -- should print '0'
+        builder->glue(
+          builder->stmtFunctionCall(builder->exprVariable(builder->createString("print"))),
+          builder->exprFunctionCall(builder->exprVariable(builder->createString("collector")))
+        ),
+        // a =   null;
+        builder->stmtVariableSet(builder->createString("a"), builder->exprLiteral(builder->createHardValue(nullptr))),
+        // print(collector()); -- should print '0'
+        builder->glue(
+          builder->stmtFunctionCall(builder->exprVariable(builder->createString("print"))),
+          builder->exprFunctionCall(builder->exprVariable(builder->createString("collector")))
+        ),
+        // b = null;
+        builder->stmtVariableSet(builder->createString("b"), builder->exprLiteral(builder->createHardValue(nullptr))),
+        // print(collector()); -- should print '4'
+        builder->glue(
+          builder->stmtFunctionCall(builder->exprVariable(builder->createString("print"))),
+          builder->exprFunctionCall(builder->exprVariable(builder->createString("collector")))
+        )
+      )
+    )
   );
   buildAndRunSuccess(vm, *builder);
   ASSERT_EQ("0\n0\n4\n", vm.logger.logged.str());
@@ -599,82 +545,71 @@ TEST(TestVM, ExpandoCollector) {
 TEST(TestVM, ExpandoKeyOrdering) {
   egg::test::VM vm;
   auto builder = vm->createProgramBuilder();
-  // var x = expando();
   builder->addStatement(
-    builder->stmtVariableDefine(builder->createString("x")),
-    builder->exprFunctionCall(builder->exprVariable(builder->createString("expando")))
-  );
-  // x.n = null;
-  builder->addStatement(
-    builder->stmtPropertySet(builder->exprVariable(builder->createString("x")),
-                             builder->exprLiteral(builder->createHardValue("n")),
-                             builder->exprLiteral(builder->createHardValueNull()))
-  );
-  // x.b = true;
-  builder->addStatement(
-    builder->stmtPropertySet(builder->exprVariable(builder->createString("x")),
-                             builder->exprLiteral(builder->createHardValue("b")),
-                             builder->exprLiteral(builder->createHardValueBool(true)))
-  );
-  // x.i = 12345;
-  builder->addStatement(
-    builder->stmtPropertySet(builder->exprVariable(builder->createString("x")),
-                             builder->exprLiteral(builder->createHardValue("i")),
-                             builder->exprLiteral(builder->createHardValueInt(12345)))
-  );
-  // x.f = 1234.5;
-  builder->addStatement(
-    builder->stmtPropertySet(builder->exprVariable(builder->createString("x")),
-                             builder->exprLiteral(builder->createHardValue("f")),
-                             builder->exprLiteral(builder->createHardValueFloat(1234.5)))
-  );
-  // x.s = "hello world";
-  builder->addStatement(
-    builder->stmtPropertySet(builder->exprVariable(builder->createString("x")),
-                             builder->exprLiteral(builder->createHardValue("s")),
-                             builder->exprLiteral(builder->createHardValue("hello world")))
-  );
-  // x.o = x;
-  builder->addStatement(
-    builder->stmtPropertySet(builder->exprVariable(builder->createString("x")),
-                             builder->exprLiteral(builder->createHardValue("o")),
-                             builder->exprVariable(builder->createString("x")))
-  );
-  // print(x.b); -- should print 'true'
-  builder->addStatement(
-    builder->stmtFunctionCall(builder->exprVariable(builder->createString("print"))),
-    builder->exprPropertyGet(builder->exprVariable(builder->createString("x")),
-                             builder->exprLiteral(builder->createHardValue("b")))
-  );
-  // print(x.f); -- should print '1234.5'
-  builder->addStatement(
-    builder->stmtFunctionCall(builder->exprVariable(builder->createString("print"))),
-    builder->exprPropertyGet(builder->exprVariable(builder->createString("x")),
-                             builder->exprLiteral(builder->createHardValue("f")))
-  );
-  // print(x.i); -- should print '12345'
-  builder->addStatement(
-    builder->stmtFunctionCall(builder->exprVariable(builder->createString("print"))),
-    builder->exprPropertyGet(builder->exprVariable(builder->createString("x")),
-                             builder->exprLiteral(builder->createHardValue("i")))
-  );
-  // print(x.n); -- should print 'null'
-  builder->addStatement(
-    builder->stmtFunctionCall(builder->exprVariable(builder->createString("print"))),
-    builder->exprPropertyGet(builder->exprVariable(builder->createString("x")),
-                             builder->exprLiteral(builder->createHardValue("n")))
-  );
-  // print(x.o); -- should print '[expando]'
-  builder->addStatement(
-    builder->stmtFunctionCall(builder->exprVariable(builder->createString("print"))),
-    builder->exprPropertyGet(builder->exprVariable(builder->createString("x")),
-                             builder->exprLiteral(builder->createHardValue("o")))
-  );
-  // print(x.s); -- should print 'hello world'
-  builder->addStatement(
-    builder->stmtFunctionCall(builder->exprVariable(builder->createString("print"))),
-    builder->exprPropertyGet(builder->exprVariable(builder->createString("x")),
-                             builder->exprLiteral(builder->createHardValue("s")))
+    builder->glue(
+      // var x = expando();
+      builder->stmtVariableDefine(builder->createString("x"), builder->exprFunctionCall(builder->exprVariable(builder->createString("expando")))),
+      // x.n = null;
+      builder->stmtPropertySet(builder->exprVariable(builder->createString("x")),
+                               builder->exprLiteral(builder->createHardValue("n")),
+                               builder->exprLiteral(builder->createHardValueNull())),
+      // x.b = true;
+      builder->stmtPropertySet(builder->exprVariable(builder->createString("x")),
+                               builder->exprLiteral(builder->createHardValue("b")),
+                               builder->exprLiteral(builder->createHardValueBool(true))),
+      // x.i = 12345;
+      builder->stmtPropertySet(builder->exprVariable(builder->createString("x")),
+                               builder->exprLiteral(builder->createHardValue("i")),
+                               builder->exprLiteral(builder->createHardValueInt(12345))),
+      // x.f = 1234.5;
+      builder->stmtPropertySet(builder->exprVariable(builder->createString("x")),
+                               builder->exprLiteral(builder->createHardValue("f")),
+                               builder->exprLiteral(builder->createHardValueFloat(1234.5))),
+      // x.s = "hello world";
+      builder->stmtPropertySet(builder->exprVariable(builder->createString("x")),
+                               builder->exprLiteral(builder->createHardValue("s")),
+                               builder->exprLiteral(builder->createHardValue("hello world"))),
+      // x.o = x;
+      builder->stmtPropertySet(builder->exprVariable(builder->createString("x")),
+                               builder->exprLiteral(builder->createHardValue("o")),
+                               builder->exprVariable(builder->createString("x"))),
+      // print(x.b); -- should print 'true'
+      builder->glue(
+        builder->stmtFunctionCall(builder->exprVariable(builder->createString("print"))),
+        builder->exprPropertyGet(builder->exprVariable(builder->createString("x")),
+                                 builder->exprLiteral(builder->createHardValue("b")))
+      ),
+      // print(x.f); -- should print '1234.5'
+      builder->glue(
+        builder->stmtFunctionCall(builder->exprVariable(builder->createString("print"))),
+        builder->exprPropertyGet(builder->exprVariable(builder->createString("x")),
+                                 builder->exprLiteral(builder->createHardValue("f")))
+      ),
+      // print(x.i); -- should print '12345'
+      builder->glue(
+        builder->stmtFunctionCall(builder->exprVariable(builder->createString("print"))),
+        builder->exprPropertyGet(builder->exprVariable(builder->createString("x")),
+                                 builder->exprLiteral(builder->createHardValue("i")))
+      ),
+      // print(x.n); -- should print 'null'
+      builder->glue(
+        builder->stmtFunctionCall(builder->exprVariable(builder->createString("print"))),
+        builder->exprPropertyGet(builder->exprVariable(builder->createString("x")),
+                                 builder->exprLiteral(builder->createHardValue("n")))
+      ),
+      // print(x.o); -- should print '[expando]'
+      builder->glue(
+        builder->stmtFunctionCall(builder->exprVariable(builder->createString("print"))),
+        builder->exprPropertyGet(builder->exprVariable(builder->createString("x")),
+                                 builder->exprLiteral(builder->createHardValue("o")))
+      ),
+      // print(x.s); -- should print 'hello world'
+      builder->glue(
+        builder->stmtFunctionCall(builder->exprVariable(builder->createString("print"))),
+        builder->exprPropertyGet(builder->exprVariable(builder->createString("x")),
+                                 builder->exprLiteral(builder->createHardValue("s")))
+      )
+    )
   );
   buildAndRunSuccess(vm, *builder);
   ASSERT_EQ("true\n1234.5\n12345\nnull\n[expando]\nhello world\n", vm.logger.logged.str());

@@ -113,16 +113,18 @@ namespace egg::ovum {
     virtual Node& exprFunctionCall(Node& function) = 0;
     // Statement factories
     virtual Node& stmtVariableDeclare(const String& name) = 0;
-    virtual Node& stmtVariableDefine(const String& name) = 0;
-    virtual Node& stmtVariableSet(const String& name) = 0;
-    virtual Node& stmtVariableUndeclare(const String& name) = 0;
+    virtual Node& stmtVariableDefine(const String& name, Node& value) = 0;
+    virtual Node& stmtVariableSet(const String& name, Node& value) = 0;
     virtual Node& stmtPropertySet(Node& instance, Node& property, Node& value) = 0;
     virtual Node& stmtFunctionCall(Node& function) = 0;
     // Helpers
+    Node& glue(Node& parent) {
+      return parent;
+    }
     template<typename... ARGS>
-    void addStatement(Node& statement, Node& head, ARGS&&... tail) {
-      this->appendChild(statement, head);
-      this->addStatement(statement, std::forward<ARGS>(tail)...);
+    Node& glue(Node& parent, Node& head, ARGS&&... tail) {
+      this->appendChild(parent, head);
+      return this->glue(parent, std::forward<ARGS>(tail)...);
     }
   private:
     virtual void appendChild(Node& parent, Node& child) = 0;

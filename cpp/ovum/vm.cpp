@@ -203,9 +203,7 @@ public:
     ExprPropertyGet,
     ExprFunctionCall,
     StmtVariableDeclare,
-    StmtVariableDefine,
     StmtVariableSet,
-    StmtVariableUndeclare,
     StmtPropertySet,
     StmtFunctionCall
   };
@@ -225,9 +223,13 @@ public:
   void addChild(Node& child) {
     this->children.push_back(&child);
   }
-  Node& build() {
-    // TODO
-    return *this;
+  void addChildren() {
+    // Do nothing
+  }
+  template<typename... ARGS>
+  void addChildren(Node& head, ARGS&&... tail) {
+    this->addChild(head);
+    this->addChildren(std::forward<ARGS>(tail)...);
   }
 protected:
   virtual void hardDestroy() const override {
@@ -256,7 +258,7 @@ namespace {
     }
     virtual void addStatement(Node& statement) override {
       assert(this->root != nullptr);
-      this->root->addChild(statement.build());
+      this->root->addChild(statement);
     }
     virtual HardPtr<IVMProgram> build() override {
       assert(this->root != nullptr);
@@ -290,19 +292,16 @@ namespace {
       node.literal = this->createHardValueString(name);
       return node;
     }
-    virtual Node& stmtVariableDefine(const String& name) override {
-      auto& node = this->makeNode(Node::Kind::StmtVariableDefine);
+    virtual Node& stmtVariableDefine(const String& name, Node& value) override {
+      auto& node = this->makeNode(Node::Kind::StmtVariableDeclare);
       node.literal = this->createHardValueString(name);
+      node.addChild(this->stmtVariableSet(name, value));
       return node;
     }
-    virtual Node& stmtVariableSet(const String& name) override {
+    virtual Node& stmtVariableSet(const String& name, Node& value) override {
       auto& node = this->makeNode(Node::Kind::StmtVariableSet);
       node.literal = this->createHardValueString(name);
-      return node;
-    }
-    virtual Node& stmtVariableUndeclare(const String& name) override {
-      auto& node = this->makeNode(Node::Kind::StmtVariableUndeclare);
-      node.literal = this->createHardValueString(name);
+      node.addChild(value);
       return node;
     }
     virtual Node& stmtPropertySet(Node& instance, Node& property, Node& value) override {
@@ -375,6 +374,7 @@ namespace {
     }
   private:
     RunOutcome step(HardValue& retval);
+    bool stepBlock(HardValue& retval);
     void push(const IVMProgram::Node& node, size_t index = 0) {
       this->stack.emplace(&node, index);
     }
@@ -505,38 +505,21 @@ egg::ovum::IVMProgramRunner::RunOutcome VMProgramRunner::step(HardValue& retval)
   switch (top.node->kind) {
   case IVMProgram::Node::Kind::Root:
     assert(top.node->literal->getVoid());
-    if (top.index > 0) {
-      // Check the result of the previous child statement
-      assert(top.deque.size() == 1);
-      auto& result = top.deque.back();
-      if (result.hasFlowControl()) {
-        retval = result;
-        if (result.hasAnyFlags(ValueFlags::Return)) {
-          // Premature 'return' statement
-          return RunOutcome::Completed;
-        }
-        // Probably an exception thrown
-        return RunOutcome::Faulted;
+    if (!this->stepBlock(retval)) {
+      if (retval->getFlags() == ValueFlags::Void) {
+        // Fell off the end of the list of statements
+        return RunOutcome::Completed;
       }
-      if (result->getFlags() != ValueFlags::Void) {
-        this->log(ILogger::Source::Runtime, ILogger::Severity::Warning, this->createString("Discarded value in module root statement"));
+      if (retval.hasAnyFlags(ValueFlags::Return)) {
+        // Premature 'return' statement
+        return RunOutcome::Completed;
       }
-      top.deque.pop_back();
-    }
-    assert(top.deque.empty());
-    if (top.index < top.node->children.size()) {
-      // Execute all the statements
-      this->push(*top.node->children[top.index++]);
-    } else {
-      // Reached the end of the list of statements in the program
-      retval = HardValue::Void;
-      return RunOutcome::Completed;
+      // Probably an exception thrown
+      return RunOutcome::Faulted;
     }
     break;
   case IVMProgram::Node::Kind::StmtVariableDeclare:
-    assert(top.node->children.empty());
-    assert(top.deque.empty());
-    {
+    if (top.index == 0) {
       String symbol;
       if (!top.node->literal->getString(symbol)) {
         return this->createFault(retval, "Invalid program node literal for variable symbol");
@@ -550,30 +533,22 @@ egg::ovum::IVMProgramRunner::RunOutcome VMProgramRunner::step(HardValue& retval)
       case VMSymbolTable::Kind::Variable:
         return this->createFault(retval, "Variable symbol already declared: '", symbol, "'");
       }
-      this->pop(HardValue::Void);
     }
-    break;
-  case IVMProgram::Node::Kind::StmtVariableDefine:
-    assert(top.node->children.size() == 1);
-    if (top.index == 0) {
-      // Evaluate the expression
-      this->push(*top.node->children[top.index++]);
-    } else {
-      assert(top.deque.size() == 1);
+    if (!this->stepBlock(retval)) {
       String symbol;
       if (!top.node->literal->getString(symbol)) {
         return this->createFault(retval, "Invalid program node literal for variable symbol");
       }
-      switch (this->symtable.add(VMSymbolTable::Kind::Variable, symbol, top.deque.front())) {
+      switch (this->symtable.remove(symbol)) {
       case VMSymbolTable::Kind::Unknown:
-        break;
+        return this->createFault(retval, "Unknown variable symbol: '", symbol, "'");
       case VMSymbolTable::Kind::Builtin:
-        return this->createFault(retval, "Variable symbol already declared as a builtin: '", symbol, "'");
+        return this->createFault(retval, "Cannot undeclare builtin symbol: '", symbol, "'");
       case VMSymbolTable::Kind::Unset:
       case VMSymbolTable::Kind::Variable:
-        return this->createFault(retval, "Variable symbol already declared: '", symbol, "'");
+        break;
       }
-      this->pop(HardValue::Void);
+      this->pop(retval);
     }
     break;
   case IVMProgram::Node::Kind::StmtVariableSet:
@@ -594,26 +569,6 @@ egg::ovum::IVMProgramRunner::RunOutcome VMProgramRunner::step(HardValue& retval)
         return this->createFault(retval, "Cannot modify builtin symbol: '", symbol, "'");
       case VMSymbolTable::Kind::Variable:
       case VMSymbolTable::Kind::Unset:
-        break;
-      }
-      this->pop(HardValue::Void);
-    }
-    break;
-  case IVMProgram::Node::Kind::StmtVariableUndeclare:
-    assert(top.node->children.empty());
-    assert(top.deque.empty());
-    {
-      String symbol;
-      if (!top.node->literal->getString(symbol)) {
-        return this->createFault(retval, "Invalid program node literal for variable symbol");
-      }
-      switch (this->symtable.remove(symbol)) {
-      case VMSymbolTable::Kind::Unknown:
-        return this->createFault(retval, "Unknown variable symbol: '", symbol, "'");
-      case VMSymbolTable::Kind::Builtin:
-        return this->createFault(retval, "Cannot undeclare builtin symbol: '", symbol, "'");
-      case VMSymbolTable::Kind::Unset:
-      case VMSymbolTable::Kind::Variable:
         break;
       }
       this->pop(HardValue::Void);
@@ -703,6 +658,34 @@ egg::ovum::IVMProgramRunner::RunOutcome VMProgramRunner::step(HardValue& retval)
     return this->createFault(retval, "Invalid program node kind in program runner");
   }
   return RunOutcome::Stepped;
+}
+
+bool VMProgramRunner::stepBlock(HardValue& retval) {
+  auto& top = this->stack.top();
+  assert(top.index <= top.node->children.size());
+  if (top.index > 0) {
+    // Check the result of the previous child statement
+    assert(top.deque.size() == 1);
+    auto& result = top.deque.back();
+    if (result.hasFlowControl()) {
+      retval = result;
+      return false;
+    }
+    if (result->getFlags() != ValueFlags::Void) {
+      this->log(ILogger::Source::Runtime, ILogger::Severity::Warning, this->createString("Discarded value in statement"));
+    }
+    top.deque.pop_back();
+  }
+  assert(top.deque.empty());
+  if (top.index < top.node->children.size()) {
+    // Execute all the statements
+    this->push(*top.node->children[top.index++]);
+  } else {
+    // Reached the end of the list of statements
+    retval = HardValue::Void;
+    return false;
+  }
+  return true;
 }
 
 egg::ovum::HardPtr<IVM> egg::ovum::VMFactory::createDefault(IAllocator& allocator, ILogger& logger) {
