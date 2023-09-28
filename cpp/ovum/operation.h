@@ -56,6 +56,9 @@ namespace egg::ovum {
       bool compareFloats(Arithmetic::Compare compare, bool ieee) const {
         return Arithmetic::compare(compare, this->f[0], this->f[1], ieee);
       }
+      int64_t shiftInts(Arithmetic::Shift shift) const {
+        return Arithmetic::shift(shift, this->i[0], this->i[1]);
+      }
     };
   };
 }

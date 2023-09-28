@@ -737,3 +737,58 @@ TEST(TestVM, BinaryBitwise) {
   buildAndRunSuccess(vm, *builder);
   ASSERT_EQ("2\n11\n9\n", vm.logger.logged.str());
 }
+
+TEST(TestVM, BinaryShift) {
+  egg::test::VM vm;
+  auto builder = vm->createProgramBuilder();
+  builder->addStatement(
+    // print(7 << 2);
+    STMT_PRINT(EXPR_BINARY(ShiftL, EXPR_LITERAL(7), EXPR_LITERAL(2)))
+  );
+  builder->addStatement(
+    // print(7 << -2);
+    STMT_PRINT(EXPR_BINARY(ShiftL, EXPR_LITERAL(7), EXPR_LITERAL(-2)))
+  );
+  builder->addStatement(
+    // print(-7 << 2);
+    STMT_PRINT(EXPR_BINARY(ShiftL, EXPR_LITERAL(-7), EXPR_LITERAL(2)))
+  );
+  builder->addStatement(
+    // print(-7 << -2);
+    STMT_PRINT(EXPR_BINARY(ShiftL, EXPR_LITERAL(-7), EXPR_LITERAL(-2)))
+  );
+  builder->addStatement(
+    // print(7 >> 2);
+    STMT_PRINT(EXPR_BINARY(ShiftR, EXPR_LITERAL(7), EXPR_LITERAL(2)))
+  );
+  builder->addStatement(
+    // print(7 >> -2);
+    STMT_PRINT(EXPR_BINARY(ShiftR, EXPR_LITERAL(7), EXPR_LITERAL(-2)))
+  );
+  builder->addStatement(
+    // print(-7 >> 2);
+    STMT_PRINT(EXPR_BINARY(ShiftR, EXPR_LITERAL(-7), EXPR_LITERAL(2)))
+  );
+  builder->addStatement(
+    // print(-7 >> -2);
+    STMT_PRINT(EXPR_BINARY(ShiftR, EXPR_LITERAL(-7), EXPR_LITERAL(-2)))
+  );
+  builder->addStatement(
+    // print(7 >>> 2);
+    STMT_PRINT(EXPR_BINARY(ShiftU, EXPR_LITERAL(7), EXPR_LITERAL(2)))
+  );
+  builder->addStatement(
+    // print(7 >>> -2);
+    STMT_PRINT(EXPR_BINARY(ShiftU, EXPR_LITERAL(7), EXPR_LITERAL(-2)))
+  );
+  builder->addStatement(
+    // print(-7 >>> 2);
+    STMT_PRINT(EXPR_BINARY(ShiftU, EXPR_LITERAL(-7), EXPR_LITERAL(2)))
+  );
+  builder->addStatement(
+    // print(-7 >>> -2);
+    STMT_PRINT(EXPR_BINARY(ShiftU, EXPR_LITERAL(-7), EXPR_LITERAL(-2)))
+  );
+  buildAndRunSuccess(vm, *builder);
+  ASSERT_EQ("28\n1\n-28\n-2\n1\n28\n-2\n-28\n1\n28\n4611686018427387902\n-28\n", vm.logger.logged.str());
+}

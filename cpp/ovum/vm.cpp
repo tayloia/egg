@@ -366,6 +366,42 @@ namespace {
           return this->raise("TODO: Invalid right-hand value in '^' bitwise-xor operator");
         }
         break;
+      case BinaryOp::ShiftL:
+        switch (binaryValues.ints(lhs, rhs)) {
+        case Operation::BinaryResult::Ints:
+          return this->createHardValueInt(binaryValues.shiftInts(Arithmetic::Shift::ShiftL));
+        case Operation::BinaryResult::Floats:
+          return this->raise("TODO: Invalid values for '<<' left-shift operator");
+        case Operation::BinaryResult::BadLeft:
+          return this->raise("TODO: Invalid left-hand value for '<<' left-shift operator");
+        case Operation::BinaryResult::BadRight:
+          return this->raise("TODO: Invalid right-hand value in '<<' left-shift operator");
+        }
+        break;
+      case BinaryOp::ShiftR:
+        switch (binaryValues.ints(lhs, rhs)) {
+        case Operation::BinaryResult::Ints:
+          return this->createHardValueInt(binaryValues.shiftInts(Arithmetic::Shift::ShiftR));
+        case Operation::BinaryResult::Floats:
+          return this->raise("TODO: Invalid values for '>>' right-shift operator");
+        case Operation::BinaryResult::BadLeft:
+          return this->raise("TODO: Invalid left-hand value for '>>' right-shift operator");
+        case Operation::BinaryResult::BadRight:
+          return this->raise("TODO: Invalid right-hand value in '>>' right-shift operator");
+        }
+        break;
+      case BinaryOp::ShiftU:
+        switch (binaryValues.ints(lhs, rhs)) {
+        case Operation::BinaryResult::Ints:
+          return this->createHardValueInt(binaryValues.shiftInts(Arithmetic::Shift::ShiftU));
+        case Operation::BinaryResult::Floats:
+          return this->raise("TODO: Invalid values for '<<<' unsigned-shift operator");
+        case Operation::BinaryResult::BadLeft:
+          return this->raise("TODO: Invalid left-hand value for '<<<' unsigned-shift operator");
+        case Operation::BinaryResult::BadRight:
+          return this->raise("TODO: Invalid right-hand value in '<<<' unsigned-shift operator");
+        }
+        break;
       }
       return this->raise("TODO: Unknown binary operator");
     }
