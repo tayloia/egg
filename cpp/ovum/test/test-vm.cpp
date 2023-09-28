@@ -7,6 +7,7 @@
 #define COMMA(...) , __VA_ARGS__
 #endif
 
+#define EXPR_UNARY(op, arg) builder->exprUnaryOp(IVMExecution::UnaryOp::op, arg)
 #define EXPR_BINARY(op, lhs, rhs) builder->exprBinaryOp(IVMExecution::BinaryOp::op, lhs, rhs)
 #define EXPR_CALL(func, ...) builder->glue(builder->exprFunctionCall(func) COMMA(__VA_ARGS__))
 #define EXPR_LITERAL(value) builder->exprLiteral(builder->createHardValue(value))
@@ -509,6 +510,59 @@ TEST(TestVM, ExpandoKeys) {
   );
   buildAndRunSuccess(vm, *builder);
   ASSERT_EQ("true\n1234.5\n12345\nnull\n[expando]\nhello world\n", vm.logger.logged.str());
+}
+
+TEST(TestVM, UnaryNegate) {
+  egg::test::VM vm;
+  auto builder = vm->createProgramBuilder();
+  builder->addStatement(
+    // print(-(123));
+    STMT_PRINT(EXPR_UNARY(Neg, EXPR_LITERAL(123)))
+  );
+  builder->addStatement(
+    // print(-(-123));
+    STMT_PRINT(EXPR_UNARY(Neg, EXPR_LITERAL(-123)))
+  );
+  builder->addStatement(
+    // print(-(123.5));
+    STMT_PRINT(EXPR_UNARY(Neg, EXPR_LITERAL(123.5)))
+  );
+  builder->addStatement(
+    // print(-(-123.5));
+    STMT_PRINT(EXPR_UNARY(Neg, EXPR_LITERAL(-123.5)))
+  );
+  buildAndRunSuccess(vm, *builder);
+  ASSERT_EQ("-123\n123\n-123.5\n123.5\n", vm.logger.logged.str());
+}
+
+TEST(TestVM, UnaryBitwiseNot) {
+  egg::test::VM vm;
+  auto builder = vm->createProgramBuilder();
+  builder->addStatement(
+    // print(~5);
+    STMT_PRINT(EXPR_UNARY(BNot, EXPR_LITERAL(5)))
+  );
+  builder->addStatement(
+    // print(~-5);
+    STMT_PRINT(EXPR_UNARY(BNot, EXPR_LITERAL(-5)))
+  );
+  buildAndRunSuccess(vm, *builder);
+  ASSERT_EQ("-6\n4\n", vm.logger.logged.str());
+}
+
+TEST(TestVM, UnaryLogicalNot) {
+  egg::test::VM vm;
+  auto builder = vm->createProgramBuilder();
+  builder->addStatement(
+    // print(!false);
+    STMT_PRINT(EXPR_UNARY(LNot, EXPR_LITERAL(false)))
+  );
+  builder->addStatement(
+    // print(!true);
+    STMT_PRINT(EXPR_UNARY(LNot, EXPR_LITERAL(true)))
+  );
+  buildAndRunSuccess(vm, *builder);
+  ASSERT_EQ("true\nfalse\n", vm.logger.logged.str());
 }
 
 TEST(TestVM, BinaryAdd) {

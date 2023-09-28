@@ -76,6 +76,13 @@ namespace egg::ovum {
       auto message = sb.add(std::forward<ARGS>(args)...).toUTF8();
       return this->raiseException(this->createString(message.data(), message.size()));
     }
+    // Unary operations
+    enum class UnaryOp {
+      Neg,
+      BNot,
+      LNot
+    };
+    virtual HardValue evaluateUnaryOp(UnaryOp op, const HardValue& arg) = 0;
     // Binary operations
     enum class BinaryOp {
       Add,
@@ -135,6 +142,7 @@ namespace egg::ovum {
     virtual void addStatement(Node& statement) = 0;
     virtual HardPtr<IVMProgram> build() = 0;
     // Expression factories
+    virtual Node& exprUnaryOp(IVMExecution::UnaryOp op, Node& arg) = 0;
     virtual Node& exprBinaryOp(IVMExecution::BinaryOp op, Node& lhs, Node& rhs) = 0;
     virtual Node& exprVariable(const String& name) = 0;
     virtual Node& exprLiteral(const HardValue& literal) = 0;

@@ -1,6 +1,41 @@
 namespace egg::ovum {
   class Operation {
   public:
+    union UnaryValue {
+      Bool b;
+      Int i;
+      Float f;
+      enum class ExtractResult {
+        Match,
+        Mismatch
+      };
+      ExtractResult extractBool(const HardValue& arg) {
+        if (arg->getBool(this->b)) {
+          return ExtractResult::Match;
+        }
+        return ExtractResult::Mismatch;
+      }
+      ExtractResult extractInt(const HardValue& arg) {
+        if (arg->getInt(this->i)) {
+          return ExtractResult::Match;
+        }
+        return ExtractResult::Mismatch;
+      }
+      enum class ArithmeticResult {
+        Int,
+        Float,
+        Mismatch
+      };
+      ArithmeticResult extractArithmetic(const HardValue& arg) {
+        if (arg->getInt(this->i)) {
+          return ArithmeticResult::Int;
+        }
+        if (arg->getFloat(this->f)) {
+          return ArithmeticResult::Float;
+        }
+        return ArithmeticResult::Mismatch;
+      }
+    };
     union BinaryValues {
       Bool b[2];
       Int i[2];

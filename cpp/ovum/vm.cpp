@@ -187,6 +187,38 @@ namespace {
       auto inner = ValueFactory::createString(allocator, message);
       return ValueFactory::createHardFlowControl(allocator, ValueFlags::Throw, inner);
     }
+    virtual HardValue evaluateUnaryOp(UnaryOp op, const HardValue& arg) override {
+      Operation::UnaryValue unaryValue;
+      switch (op) {
+      case UnaryOp::Neg:
+        switch (unaryValue.extractArithmetic(arg)) {
+        case Operation::UnaryValue::ArithmeticResult::Int:
+          return this->createHardValueInt(-unaryValue.i);
+        case Operation::UnaryValue::ArithmeticResult::Float:
+          return this->createHardValueFloat(-unaryValue.f);
+        case Operation::UnaryValue::ArithmeticResult::Mismatch:
+          return this->raise("TODO: Invalid value for '-' negation operator");
+        }
+        break;
+      case UnaryOp::BNot:
+        switch (unaryValue.extractInt(arg)) {
+        case Operation::UnaryValue::ExtractResult::Match:
+          return this->createHardValueInt(~unaryValue.i);
+        case Operation::UnaryValue::ExtractResult::Mismatch:
+          return this->raise("TODO: Invalid value for '~' bitwise-not operator");
+        }
+        break;
+      case UnaryOp::LNot:
+        switch (unaryValue.extractBool(arg)) {
+        case Operation::UnaryValue::ExtractResult::Match:
+          return this->createHardValueBool(!unaryValue.b);
+        case Operation::UnaryValue::ExtractResult::Mismatch:
+          return this->raise("TODO: Invalid value for '!' logical-not operator");
+        }
+        break;
+      }
+      return this->raise("TODO: Unknown unary operator");
+    }
     virtual HardValue evaluateBinaryOp(BinaryOp op, const HardValue& lhs, const HardValue& rhs) override {
       Operation::BinaryValues binaryValues;
       switch (op) {
@@ -442,6 +474,7 @@ private:
 public:
   enum class Kind {
     Root,
+    ExprUnaryOp,
     ExprBinaryOp,
     ExprVariable,
     ExprLiteral,
@@ -510,6 +543,12 @@ namespace {
       auto program = VMProgram::makeHardVM<VMProgram>(this->vm, *this->root);
       this->root = nullptr;
       return program;
+    }
+    virtual Node& exprUnaryOp(IVMExecution::UnaryOp op, Node& arg) override {
+      auto& node = this->makeNode(Node::Kind::ExprUnaryOp);
+      node.literal = this->createHardValueInt(Int(op));
+      node.addChild(arg);
+      return node;
     }
     virtual Node& exprBinaryOp(IVMExecution::BinaryOp op, Node& lhs, Node& rhs) override {
       auto& node = this->makeNode(Node::Kind::ExprBinaryOp);
@@ -892,6 +931,28 @@ egg::ovum::IVMProgramRunner::RunOutcome VMProgramRunner::step(HardValue& retval)
         arguments.addUnnamed(argument);
       }
       this->pop(function->vmCall(this->execution, arguments));
+    }
+    break;
+  case IVMProgram::Node::Kind::ExprUnaryOp:
+    assert(top.node->children.size() == 1);
+    if (top.index < 1) {
+      // Evaluate the operand
+      this->push(*top.node->children[top.index++]);
+    } else {
+      // Check the operand
+      auto& latest = top.deque.back();
+      if (latest.hasFlowControl()) {
+        retval = latest;
+        return this->faulted(retval);
+      }
+      Int literal;
+      if (!top.node->literal->getInt(literal)) {
+        return this->createFault(retval, "Invalid program node literal for binary operation");
+      }
+      auto op = IVMExecution::UnaryOp(literal);
+      assert(top.deque.size() == 1);
+      auto result = this->execution.evaluateUnaryOp(op, top.deque.front());
+      this->pop(result);
     }
     break;
   case IVMProgram::Node::Kind::ExprBinaryOp:
