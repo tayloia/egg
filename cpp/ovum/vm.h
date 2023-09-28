@@ -94,7 +94,10 @@ namespace egg::ovum {
       BXor,
       ShiftL,
       ShiftR,
-      ShiftU
+      ShiftU,
+      LAnd,
+      LOr,
+      LNull
     };
     virtual HardValue evaluateBinaryOp(BinaryOp op, const HardValue& lhs, const HardValue& rhs) = 0;
   };

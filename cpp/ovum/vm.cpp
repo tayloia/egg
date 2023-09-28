@@ -192,216 +192,241 @@ namespace {
       switch (op) {
       case BinaryOp::Add:
         switch (binaryValues.promote(lhs, rhs)) {
-        case Operation::BinaryResult::Ints:
+        case Operation::BinaryValues::PromotionResult::Ints:
           return this->createHardValueInt(binaryValues.i[0] + binaryValues.i[1]);
-        case Operation::BinaryResult::Floats:
+        case Operation::BinaryValues::PromotionResult::Floats:
           return this->createHardValueFloat(binaryValues.f[0] + binaryValues.f[1]);
-        case Operation::BinaryResult::BadLeft:
+        case Operation::BinaryValues::PromotionResult::BadLeft:
           return this->raise("TODO: Invalid left-hand value for '+' addition operator");
-        case Operation::BinaryResult::BadRight:
-          return this->raise("TODO: Invalid right-hand value in '+' addition operator");
+        case Operation::BinaryValues::PromotionResult::BadRight:
+          return this->raise("TODO: Invalid right-hand value for '+' addition operator");
         }
         break;
       case BinaryOp::Sub:
         switch (binaryValues.promote(lhs, rhs)) {
-        case Operation::BinaryResult::Ints:
+        case Operation::BinaryValues::PromotionResult::Ints:
           return this->createHardValueInt(binaryValues.i[0] - binaryValues.i[1]);
-        case Operation::BinaryResult::Floats:
+        case Operation::BinaryValues::PromotionResult::Floats:
           return this->createHardValueFloat(binaryValues.f[0] - binaryValues.f[1]);
-        case Operation::BinaryResult::BadLeft:
+        case Operation::BinaryValues::PromotionResult::BadLeft:
           return this->raise("TODO: Invalid left-hand value for '-' subtraction operator");
-        case Operation::BinaryResult::BadRight:
-          return this->raise("TODO: Invalid right-hand value in '-' subtraction operator");
+        case Operation::BinaryValues::PromotionResult::BadRight:
+          return this->raise("TODO: Invalid right-hand value for '-' subtraction operator");
         }
         break;
       case BinaryOp::Mul:
         switch (binaryValues.promote(lhs, rhs)) {
-        case Operation::BinaryResult::Ints:
+        case Operation::BinaryValues::PromotionResult::Ints:
           return this->createHardValueInt(binaryValues.i[0] * binaryValues.i[1]);
-        case Operation::BinaryResult::Floats:
+        case Operation::BinaryValues::PromotionResult::Floats:
           return this->createHardValueFloat(binaryValues.f[0] * binaryValues.f[1]);
-        case Operation::BinaryResult::BadLeft:
+        case Operation::BinaryValues::PromotionResult::BadLeft:
           return this->raise("TODO: Invalid left-hand value for '*' multiplication operator");
-        case Operation::BinaryResult::BadRight:
-          return this->raise("TODO: Invalid right-hand value in '*' multiplication operator");
+        case Operation::BinaryValues::PromotionResult::BadRight:
+          return this->raise("TODO: Invalid right-hand value for '*' multiplication operator");
         }
         break;
       case BinaryOp::Div:
         switch (binaryValues.promote(lhs, rhs)) {
-        case Operation::BinaryResult::Ints:
+        case Operation::BinaryValues::PromotionResult::Ints:
           if (binaryValues.i[1] == 0) {
             return this->raise("TODO: Integer division by zero in '/' division operator");
           }
           return this->createHardValueInt(binaryValues.i[0] / binaryValues.i[1]);
-        case Operation::BinaryResult::Floats:
+        case Operation::BinaryValues::PromotionResult::Floats:
           return this->createHardValueFloat(binaryValues.f[0] / binaryValues.f[1]);
-        case Operation::BinaryResult::BadLeft:
+        case Operation::BinaryValues::PromotionResult::BadLeft:
           return this->raise("TODO: Invalid left-hand value for '/' division operator");
-        case Operation::BinaryResult::BadRight:
-          return this->raise("TODO: Invalid right-hand value in '/' division operator");
+        case Operation::BinaryValues::PromotionResult::BadRight:
+          return this->raise("TODO: Invalid right-hand value for '/' division operator");
         }
         break;
       case BinaryOp::Rem:
         switch (binaryValues.promote(lhs, rhs)) {
-        case Operation::BinaryResult::Ints:
+        case Operation::BinaryValues::PromotionResult::Ints:
           if (binaryValues.i[1] == 0) {
             return this->raise("TODO: Integer division by zero in '%' remainder operator");
           }
           return this->createHardValueInt(binaryValues.i[0] % binaryValues.i[1]);
-        case Operation::BinaryResult::Floats:
+        case Operation::BinaryValues::PromotionResult::Floats:
           return this->createHardValueFloat(std::fmod(binaryValues.f[0], binaryValues.f[1]));
-        case Operation::BinaryResult::BadLeft:
+        case Operation::BinaryValues::PromotionResult::BadLeft:
           return this->raise("TODO: Invalid left-hand value for '%' remainder operator");
-        case Operation::BinaryResult::BadRight:
-          return this->raise("TODO: Invalid right-hand value in '%' remainder operator");
+        case Operation::BinaryValues::PromotionResult::BadRight:
+          return this->raise("TODO: Invalid right-hand value for '%' remainder operator");
         }
         break;
       case BinaryOp::LT:
         switch (binaryValues.promote(lhs, rhs)) {
-        case Operation::BinaryResult::Ints:
+        case Operation::BinaryValues::PromotionResult::Ints:
           return this->createHardValueBool(binaryValues.compareInts(Arithmetic::Compare::LT));
-        case Operation::BinaryResult::Floats:
+        case Operation::BinaryValues::PromotionResult::Floats:
           return this->createHardValueBool(binaryValues.compareFloats(Arithmetic::Compare::LT, false));
-        case Operation::BinaryResult::BadLeft:
+        case Operation::BinaryValues::PromotionResult::BadLeft:
           return this->raise("TODO: Invalid left-hand value for '<' comparison operator");
-        case Operation::BinaryResult::BadRight:
-          return this->raise("TODO: Invalid right-hand value in '<' comparison operator");
+        case Operation::BinaryValues::PromotionResult::BadRight:
+          return this->raise("TODO: Invalid right-hand value for '<' comparison operator");
         }
         break;
       case BinaryOp::LE:
         switch (binaryValues.promote(lhs, rhs)) {
-        case Operation::BinaryResult::Ints:
+        case Operation::BinaryValues::PromotionResult::Ints:
           return this->createHardValueBool(binaryValues.compareInts(Arithmetic::Compare::LE));
-        case Operation::BinaryResult::Floats:
+        case Operation::BinaryValues::PromotionResult::Floats:
           return this->createHardValueBool(binaryValues.compareFloats(Arithmetic::Compare::LE, false));
-        case Operation::BinaryResult::BadLeft:
+        case Operation::BinaryValues::PromotionResult::BadLeft:
           return this->raise("TODO: Invalid left-hand value for '<=' comparison operator");
-        case Operation::BinaryResult::BadRight:
-          return this->raise("TODO: Invalid right-hand value in '<=' comparison operator");
+        case Operation::BinaryValues::PromotionResult::BadRight:
+          return this->raise("TODO: Invalid right-hand value for '<=' comparison operator");
         }
         break;
       case BinaryOp::EQ:
         // WIBBLE non-arithmetic?
         switch (binaryValues.promote(lhs, rhs)) {
-        case Operation::BinaryResult::Ints:
+        case Operation::BinaryValues::PromotionResult::Ints:
           return this->createHardValueBool(binaryValues.compareInts(Arithmetic::Compare::EQ));
-        case Operation::BinaryResult::Floats:
+        case Operation::BinaryValues::PromotionResult::Floats:
           return this->createHardValueBool(binaryValues.compareFloats(Arithmetic::Compare::EQ, false));
-        case Operation::BinaryResult::BadLeft:
+        case Operation::BinaryValues::PromotionResult::BadLeft:
           return this->raise("TODO: Invalid left-hand value for '==' equality operator");
-        case Operation::BinaryResult::BadRight:
-          return this->raise("TODO: Invalid right-hand value in '==' equality operator");
+        case Operation::BinaryValues::PromotionResult::BadRight:
+          return this->raise("TODO: Invalid right-hand value for '==' equality operator");
         }
         break;
       case BinaryOp::NE:
         // WIBBLE non-arithmetic?
         switch (binaryValues.promote(lhs, rhs)) {
-        case Operation::BinaryResult::Ints:
+        case Operation::BinaryValues::PromotionResult::Ints:
           return this->createHardValueBool(binaryValues.compareInts(Arithmetic::Compare::NE));
-        case Operation::BinaryResult::Floats:
+        case Operation::BinaryValues::PromotionResult::Floats:
           return this->createHardValueBool(binaryValues.compareFloats(Arithmetic::Compare::NE, false));
-        case Operation::BinaryResult::BadLeft:
+        case Operation::BinaryValues::PromotionResult::BadLeft:
           return this->raise("TODO: Invalid left-hand value for '!=' inequality operator");
-        case Operation::BinaryResult::BadRight:
-          return this->raise("TODO: Invalid right-hand value in '!=' inequality operator");
+        case Operation::BinaryValues::PromotionResult::BadRight:
+          return this->raise("TODO: Invalid right-hand value for '!=' inequality operator");
         }
         break;
       case BinaryOp::GE:
         switch (binaryValues.promote(lhs, rhs)) {
-        case Operation::BinaryResult::Ints:
+        case Operation::BinaryValues::PromotionResult::Ints:
           return this->createHardValueBool(binaryValues.compareInts(Arithmetic::Compare::GE));
-        case Operation::BinaryResult::Floats:
+        case Operation::BinaryValues::PromotionResult::Floats:
           return this->createHardValueBool(binaryValues.compareFloats(Arithmetic::Compare::GE, false));
-        case Operation::BinaryResult::BadLeft:
+        case Operation::BinaryValues::PromotionResult::BadLeft:
           return this->raise("TODO: Invalid left-hand value for '>=' comparison operator");
-        case Operation::BinaryResult::BadRight:
-          return this->raise("TODO: Invalid right-hand value in '>=' comparison operator");
+        case Operation::BinaryValues::PromotionResult::BadRight:
+          return this->raise("TODO: Invalid right-hand value for '>=' comparison operator");
         }
         break;
       case BinaryOp::GT:
         switch (binaryValues.promote(lhs, rhs)) {
-        case Operation::BinaryResult::Ints:
+        case Operation::BinaryValues::PromotionResult::Ints:
           return this->createHardValueBool(binaryValues.compareInts(Arithmetic::Compare::GT));
-        case Operation::BinaryResult::Floats:
+        case Operation::BinaryValues::PromotionResult::Floats:
           return this->createHardValueBool(binaryValues.compareFloats(Arithmetic::Compare::GT, false));
-        case Operation::BinaryResult::BadLeft:
+        case Operation::BinaryValues::PromotionResult::BadLeft:
           return this->raise("TODO: Invalid left-hand value for '>' comparison operator");
-        case Operation::BinaryResult::BadRight:
-          return this->raise("TODO: Invalid right-hand value in '>' comparison operator");
+        case Operation::BinaryValues::PromotionResult::BadRight:
+          return this->raise("TODO: Invalid right-hand value for '>' comparison operator");
         }
         break;
       case BinaryOp::BAnd:
-        switch (binaryValues.ints(lhs, rhs)) {
-        case Operation::BinaryResult::Ints:
+        switch (binaryValues.extractBitwise(lhs, rhs)) {
+        case Operation::BinaryValues::BitwiseResult::Bools:
+          return this->createHardValueBool(bool(binaryValues.b[0] & binaryValues.b[1]));
+        case Operation::BinaryValues::BitwiseResult::Ints:
           return this->createHardValueInt(binaryValues.i[0] & binaryValues.i[1]);
-        case Operation::BinaryResult::Floats:
-          return this->raise("TODO: Invalid values for '&' bitwise-and operator");
-        case Operation::BinaryResult::BadLeft:
+        case Operation::BinaryValues::BitwiseResult::BadLeft:
           return this->raise("TODO: Invalid left-hand value for '&' bitwise-and operator");
-        case Operation::BinaryResult::BadRight:
-          return this->raise("TODO: Invalid right-hand value in '&' bitwise-and operator");
+        case Operation::BinaryValues::BitwiseResult::BadRight:
+          return this->raise("TODO: Invalid right-hand value for '&' bitwise-and operator");
+        case Operation::BinaryValues::BitwiseResult::Mismatch:
+          return this->raise("TODO: Type mismatch in values for '&' bitwise-and operator");
         }
         break;
       case BinaryOp::BOr:
-        switch (binaryValues.ints(lhs, rhs)) {
-        case Operation::BinaryResult::Ints:
+        switch (binaryValues.extractBitwise(lhs, rhs)) {
+        case Operation::BinaryValues::BitwiseResult::Bools:
+          return this->createHardValueBool(bool(binaryValues.b[0] | binaryValues.b[1]));
+        case Operation::BinaryValues::BitwiseResult::Ints:
           return this->createHardValueInt(binaryValues.i[0] | binaryValues.i[1]);
-        case Operation::BinaryResult::Floats:
-          return this->raise("TODO: Invalid values for '|' bitwise-or operator");
-        case Operation::BinaryResult::BadLeft:
+        case Operation::BinaryValues::BitwiseResult::BadLeft:
           return this->raise("TODO: Invalid left-hand value for '|' bitwise-or operator");
-        case Operation::BinaryResult::BadRight:
-          return this->raise("TODO: Invalid right-hand value in '|' bitwise-or operator");
+        case Operation::BinaryValues::BitwiseResult::BadRight:
+          return this->raise("TODO: Invalid right-hand value for '|' bitwise-or operator");
+        case Operation::BinaryValues::BitwiseResult::Mismatch:
+          return this->raise("TODO: Type mismatch in values for '|' bitwise-or operator");
         }
         break;
       case BinaryOp::BXor:
-        switch (binaryValues.ints(lhs, rhs)) {
-        case Operation::BinaryResult::Ints:
+        switch (binaryValues.extractBitwise(lhs, rhs)) {
+        case Operation::BinaryValues::BitwiseResult::Bools:
+          return this->createHardValueBool(bool(binaryValues.b[0] ^ binaryValues.b[1]));
+        case Operation::BinaryValues::BitwiseResult::Ints:
           return this->createHardValueInt(binaryValues.i[0] ^ binaryValues.i[1]);
-        case Operation::BinaryResult::Floats:
-          return this->raise("TODO: Invalid values for '^' bitwise-xor operator");
-        case Operation::BinaryResult::BadLeft:
+        case Operation::BinaryValues::BitwiseResult::BadLeft:
           return this->raise("TODO: Invalid left-hand value for '^' bitwise-xor operator");
-        case Operation::BinaryResult::BadRight:
-          return this->raise("TODO: Invalid right-hand value in '^' bitwise-xor operator");
+        case Operation::BinaryValues::BitwiseResult::BadRight:
+          return this->raise("TODO: Invalid right-hand value for '^' bitwise-xor operator");
+        case Operation::BinaryValues::BitwiseResult::Mismatch:
+          return this->raise("TODO: Type mismatch in values for '^' bitwise-xor operator");
         }
         break;
       case BinaryOp::ShiftL:
-        switch (binaryValues.ints(lhs, rhs)) {
-        case Operation::BinaryResult::Ints:
+        switch (binaryValues.extractInts(lhs, rhs)) {
+        case Operation::BinaryValues::ExtractResult::Match:
           return this->createHardValueInt(binaryValues.shiftInts(Arithmetic::Shift::ShiftL));
-        case Operation::BinaryResult::Floats:
-          return this->raise("TODO: Invalid values for '<<' left-shift operator");
-        case Operation::BinaryResult::BadLeft:
+        case Operation::BinaryValues::ExtractResult::BadLeft:
           return this->raise("TODO: Invalid left-hand value for '<<' left-shift operator");
-        case Operation::BinaryResult::BadRight:
-          return this->raise("TODO: Invalid right-hand value in '<<' left-shift operator");
+        case Operation::BinaryValues::ExtractResult::BadRight:
+          return this->raise("TODO: Invalid right-hand value for '<<' left-shift operator");
         }
         break;
       case BinaryOp::ShiftR:
-        switch (binaryValues.ints(lhs, rhs)) {
-        case Operation::BinaryResult::Ints:
+        switch (binaryValues.extractInts(lhs, rhs)) {
+        case Operation::BinaryValues::ExtractResult::Match:
           return this->createHardValueInt(binaryValues.shiftInts(Arithmetic::Shift::ShiftR));
-        case Operation::BinaryResult::Floats:
-          return this->raise("TODO: Invalid values for '>>' right-shift operator");
-        case Operation::BinaryResult::BadLeft:
+        case Operation::BinaryValues::ExtractResult::BadLeft:
           return this->raise("TODO: Invalid left-hand value for '>>' right-shift operator");
-        case Operation::BinaryResult::BadRight:
-          return this->raise("TODO: Invalid right-hand value in '>>' right-shift operator");
+        case Operation::BinaryValues::ExtractResult::BadRight:
+          return this->raise("TODO: Invalid right-hand value for '>>' right-shift operator");
         }
         break;
       case BinaryOp::ShiftU:
-        switch (binaryValues.ints(lhs, rhs)) {
-        case Operation::BinaryResult::Ints:
+        switch (binaryValues.extractInts(lhs, rhs)) {
+        case Operation::BinaryValues::ExtractResult::Match:
           return this->createHardValueInt(binaryValues.shiftInts(Arithmetic::Shift::ShiftU));
-        case Operation::BinaryResult::Floats:
-          return this->raise("TODO: Invalid values for '<<<' unsigned-shift operator");
-        case Operation::BinaryResult::BadLeft:
+        case Operation::BinaryValues::ExtractResult::BadLeft:
           return this->raise("TODO: Invalid left-hand value for '<<<' unsigned-shift operator");
-        case Operation::BinaryResult::BadRight:
-          return this->raise("TODO: Invalid right-hand value in '<<<' unsigned-shift operator");
+        case Operation::BinaryValues::ExtractResult::BadRight:
+          return this->raise("TODO: Invalid right-hand value for '<<<' unsigned-shift operator");
         }
         break;
+      case BinaryOp::LAnd:
+        // Too late to truly short-circuit here
+        switch (binaryValues.extractBools(lhs, rhs)) {
+        case Operation::BinaryValues::ExtractResult::Match:
+          return this->createHardValueBool(binaryValues.b[0] && binaryValues.b[1]);
+        case Operation::BinaryValues::ExtractResult::BadLeft:
+          return this->raise("TODO: Invalid left-hand value for '&&' logical-and operator");
+        case Operation::BinaryValues::ExtractResult::BadRight:
+          return this->raise("TODO: Invalid right-hand value for '&&' logical-and operator");
+        }
+        break;
+      case BinaryOp::LOr:
+        // Too late to truly short-circuit here
+        switch (binaryValues.extractBools(lhs, rhs)) {
+        case Operation::BinaryValues::ExtractResult::Match:
+          return this->createHardValueBool(binaryValues.b[0] || binaryValues.b[1]);
+        case Operation::BinaryValues::ExtractResult::BadLeft:
+          return this->raise("TODO: Invalid left-hand value for '||' logical-or operator");
+        case Operation::BinaryValues::ExtractResult::BadRight:
+          return this->raise("TODO: Invalid right-hand value for '||' logical-or operator");
+        }
+        break;
+      case BinaryOp::LNull:
+        // Too late to truly short-circuit here
+        return lhs->getNull() ? rhs : lhs;
       }
       return this->raise("TODO: Unknown binary operator");
     }

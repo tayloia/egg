@@ -719,7 +719,65 @@ TEST(TestVM, BinaryCompare) {
   ASSERT_EQ("true\ntrue\nfalse\ntrue\nfalse\nfalse\n", vm.logger.logged.str());
 }
 
-TEST(TestVM, BinaryBitwise) {
+TEST(TestVM, BinaryBitwiseBool) {
+  egg::test::VM vm;
+  auto builder = vm->createProgramBuilder();
+  builder->addStatement(
+    // print(false & false);
+    STMT_PRINT(EXPR_BINARY(BAnd, EXPR_LITERAL(false), EXPR_LITERAL(false)))
+  );
+  builder->addStatement(
+    // print(false & true);
+    STMT_PRINT(EXPR_BINARY(BAnd, EXPR_LITERAL(false), EXPR_LITERAL(true)))
+  );
+  builder->addStatement(
+    // print(true & false);
+    STMT_PRINT(EXPR_BINARY(BAnd, EXPR_LITERAL(true), EXPR_LITERAL(false)))
+  );
+  builder->addStatement(
+    // print(true & true);
+    STMT_PRINT(EXPR_BINARY(BAnd, EXPR_LITERAL(true), EXPR_LITERAL(true)))
+  );
+  builder->addStatement(
+    // print(false | false);
+    STMT_PRINT(EXPR_BINARY(BOr, EXPR_LITERAL(false), EXPR_LITERAL(false)))
+  );
+  builder->addStatement(
+    // print(false | true);
+    STMT_PRINT(EXPR_BINARY(BOr, EXPR_LITERAL(false), EXPR_LITERAL(true)))
+  );
+  builder->addStatement(
+    // print(true | false);
+    STMT_PRINT(EXPR_BINARY(BOr, EXPR_LITERAL(true), EXPR_LITERAL(false)))
+  );
+  builder->addStatement(
+    // print(true | true);
+    STMT_PRINT(EXPR_BINARY(BOr, EXPR_LITERAL(true), EXPR_LITERAL(true)))
+  );
+  builder->addStatement(
+    // print(false ^ false);
+    STMT_PRINT(EXPR_BINARY(BXor, EXPR_LITERAL(false), EXPR_LITERAL(false)))
+  );
+  builder->addStatement(
+    // print(false ^ true);
+    STMT_PRINT(EXPR_BINARY(BXor, EXPR_LITERAL(false), EXPR_LITERAL(true)))
+  );
+  builder->addStatement(
+    // print(true ^ false);
+    STMT_PRINT(EXPR_BINARY(BXor, EXPR_LITERAL(true), EXPR_LITERAL(false)))
+  );
+  builder->addStatement(
+    // print(true ^ true);
+    STMT_PRINT(EXPR_BINARY(BXor, EXPR_LITERAL(true), EXPR_LITERAL(true)))
+  );
+  buildAndRunSuccess(vm, *builder);
+  ASSERT_EQ("false\nfalse\nfalse\ntrue\n"
+            "false\ntrue\ntrue\ntrue\n"
+            "false\ntrue\ntrue\nfalse\n",
+            vm.logger.logged.str());
+}
+
+TEST(TestVM, BinaryBitwiseInt) {
   egg::test::VM vm;
   auto builder = vm->createProgramBuilder();
   builder->addStatement(
@@ -791,4 +849,62 @@ TEST(TestVM, BinaryShift) {
   );
   buildAndRunSuccess(vm, *builder);
   ASSERT_EQ("28\n1\n-28\n-2\n1\n28\n-2\n-28\n1\n28\n4611686018427387902\n-28\n", vm.logger.logged.str());
+}
+
+TEST(TestVM, BinaryLogical) {
+  egg::test::VM vm;
+  auto builder = vm->createProgramBuilder();
+  builder->addStatement(
+    // print(false && false);
+    STMT_PRINT(EXPR_BINARY(LAnd, EXPR_LITERAL(false), EXPR_LITERAL(false)))
+  );
+  builder->addStatement(
+    // print(false && true);
+    STMT_PRINT(EXPR_BINARY(LAnd, EXPR_LITERAL(false), EXPR_LITERAL(true)))
+  );
+  builder->addStatement(
+    // print(true && false);
+    STMT_PRINT(EXPR_BINARY(LAnd, EXPR_LITERAL(true), EXPR_LITERAL(false)))
+  );
+  builder->addStatement(
+    // print(true && true);
+    STMT_PRINT(EXPR_BINARY(LAnd, EXPR_LITERAL(true), EXPR_LITERAL(true)))
+  );
+  builder->addStatement(
+    // print(false || false);
+    STMT_PRINT(EXPR_BINARY(LOr, EXPR_LITERAL(false), EXPR_LITERAL(false)))
+  );
+  builder->addStatement(
+    // print(false || true);
+    STMT_PRINT(EXPR_BINARY(LOr, EXPR_LITERAL(false), EXPR_LITERAL(true)))
+  );
+  builder->addStatement(
+    // print(true || false);
+    STMT_PRINT(EXPR_BINARY(LOr, EXPR_LITERAL(true), EXPR_LITERAL(false)))
+  );
+  builder->addStatement(
+    // print(true || true);
+    STMT_PRINT(EXPR_BINARY(LOr, EXPR_LITERAL(true), EXPR_LITERAL(true)))
+  );
+  builder->addStatement(
+    // print(null ?? null);
+    STMT_PRINT(EXPR_BINARY(LNull, EXPR_LITERAL(nullptr), EXPR_LITERAL(nullptr)))
+  );
+  builder->addStatement(
+    // print(null ?? 456);
+    STMT_PRINT(EXPR_BINARY(LNull, EXPR_LITERAL(nullptr), EXPR_LITERAL(456)))
+  );
+  builder->addStatement(
+    // print(123 ?? null);
+    STMT_PRINT(EXPR_BINARY(LNull, EXPR_LITERAL(123), EXPR_LITERAL(nullptr)))
+  );
+  builder->addStatement(
+    // print(123 ?? 456);
+    STMT_PRINT(EXPR_BINARY(LNull, EXPR_LITERAL(123), EXPR_LITERAL(456)))
+  );
+  buildAndRunSuccess(vm, *builder);
+  ASSERT_EQ("false\nfalse\nfalse\ntrue\n"
+    "false\ntrue\ntrue\ntrue\n"
+    "null\n456\n123\n123\n",
+    vm.logger.logged.str());
 }
