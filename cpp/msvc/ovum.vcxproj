@@ -46,6 +46,7 @@
     <ClInclude Include="..\ovum\interfaces.h" />
     <ClInclude Include="..\ovum\memory.h" />
     <ClInclude Include="..\ovum\object.h" />
+    <ClInclude Include="..\ovum\operation.h" />
     <ClInclude Include="..\ovum\ovum.h" />
     <ClInclude Include="..\ovum\platform.h" />
     <ClInclude Include="..\ovum\print.h" />

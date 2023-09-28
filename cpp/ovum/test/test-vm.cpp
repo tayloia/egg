@@ -687,3 +687,34 @@ TEST(TestVM, BinaryRemZero) {
   buildAndRunFault(vm, *builder);
   ASSERT_EQ("#NAN\n#NAN\n#NAN\n#NAN\n#NAN\n<ERROR>throw TODO: Integer division by zero in '%' remainder binary operator\n", vm.logger.logged.str());
 }
+
+TEST(TestVM, BinaryCompare) {
+  egg::test::VM vm;
+  auto builder = vm->createProgramBuilder();
+  builder->addStatement(
+    // print(123 < 234);
+    STMT_PRINT(EXPR_BINARY(LT, EXPR_LITERAL(123), EXPR_LITERAL(234)))
+  );
+  builder->addStatement(
+    // print(123 <= 234);
+    STMT_PRINT(EXPR_BINARY(LE, EXPR_LITERAL(123), EXPR_LITERAL(234)))
+  );
+  builder->addStatement(
+    // print(123 == 234);
+    STMT_PRINT(EXPR_BINARY(EQ, EXPR_LITERAL(123), EXPR_LITERAL(234)))
+  );
+  builder->addStatement(
+    // print(123 != 234);
+    STMT_PRINT(EXPR_BINARY(NE, EXPR_LITERAL(123), EXPR_LITERAL(234)))
+  );
+  builder->addStatement(
+    // print(123 >= 234);
+    STMT_PRINT(EXPR_BINARY(GE, EXPR_LITERAL(123), EXPR_LITERAL(234)))
+  );
+  builder->addStatement(
+    // print(123 > 234);
+    STMT_PRINT(EXPR_BINARY(GT, EXPR_LITERAL(123), EXPR_LITERAL(234)))
+  );
+  buildAndRunSuccess(vm, *builder);
+  ASSERT_EQ("true\ntrue\nfalse\ntrue\nfalse\nfalse\n", vm.logger.logged.str());
+}

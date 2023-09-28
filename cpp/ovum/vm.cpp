@@ -190,7 +190,7 @@ namespace {
       BinaryValues binaryValues;
       switch (op) {
       case BinaryOp::Add:
-        switch (promoteBinary(binaryValues, lhs, rhs)) {
+        switch (binaryPromote(binaryValues, lhs, rhs)) {
         case BinaryResult::Ints:
           return this->createHardValueInt(binaryValues.i[0] + binaryValues.i[1]);
         case BinaryResult::Floats:
@@ -202,7 +202,7 @@ namespace {
         }
         break;
       case BinaryOp::Sub:
-        switch (promoteBinary(binaryValues, lhs, rhs)) {
+        switch (binaryPromote(binaryValues, lhs, rhs)) {
         case BinaryResult::Ints:
           return this->createHardValueInt(binaryValues.i[0] - binaryValues.i[1]);
         case BinaryResult::Floats:
@@ -214,7 +214,7 @@ namespace {
         }
         break;
       case BinaryOp::Mul:
-        switch (promoteBinary(binaryValues, lhs, rhs)) {
+        switch (binaryPromote(binaryValues, lhs, rhs)) {
         case BinaryResult::Ints:
           return this->createHardValueInt(binaryValues.i[0] * binaryValues.i[1]);
         case BinaryResult::Floats:
@@ -226,7 +226,7 @@ namespace {
         }
         break;
       case BinaryOp::Div:
-        switch (promoteBinary(binaryValues, lhs, rhs)) {
+        switch (binaryPromote(binaryValues, lhs, rhs)) {
         case BinaryResult::Ints:
           if (binaryValues.i[1] == 0) {
             return this->raise("TODO: Integer division by zero in '/' division binary operator");
@@ -241,7 +241,7 @@ namespace {
         }
         break;
       case BinaryOp::Rem:
-        switch (promoteBinary(binaryValues, lhs, rhs)) {
+        switch (binaryPromote(binaryValues, lhs, rhs)) {
         case BinaryResult::Ints:
           if (binaryValues.i[1] == 0) {
             return this->raise("TODO: Integer division by zero in '%' remainder binary operator");
@@ -255,6 +255,80 @@ namespace {
           return this->raise("TODO: Invalid right-hand value in '%' remainder binary operator");
         }
         break;
+      case BinaryOp::LT:
+        switch (binaryPromote(binaryValues, lhs, rhs)) {
+        case BinaryResult::Ints:
+          return this->createHardValueBool(binaryValues.compareInts(Arithmetic::Compare::LT));
+        case BinaryResult::Floats:
+          return this->createHardValueBool(binaryValues.compareFloats(Arithmetic::Compare::LT, false));
+        case BinaryResult::BadLeft:
+          return this->raise("TODO: Invalid left-hand value for '<' comparison operator");
+        case BinaryResult::BadRight:
+          return this->raise("TODO: Invalid right-hand value in '<' comparison operator");
+        }
+        break;
+      case BinaryOp::LE:
+        switch (binaryPromote(binaryValues, lhs, rhs)) {
+        case BinaryResult::Ints:
+          return this->createHardValueBool(binaryValues.compareInts(Arithmetic::Compare::LE));
+        case BinaryResult::Floats:
+          return this->createHardValueBool(binaryValues.compareFloats(Arithmetic::Compare::LE, false));
+        case BinaryResult::BadLeft:
+          return this->raise("TODO: Invalid left-hand value for '<=' comparison operator");
+        case BinaryResult::BadRight:
+          return this->raise("TODO: Invalid right-hand value in '<=' comparison operator");
+        }
+        break;
+      case BinaryOp::EQ:
+        // WIBBLE non-arithmetic?
+        switch (binaryPromote(binaryValues, lhs, rhs)) {
+        case BinaryResult::Ints:
+          return this->createHardValueBool(binaryValues.compareInts(Arithmetic::Compare::EQ));
+        case BinaryResult::Floats:
+          return this->createHardValueBool(binaryValues.compareFloats(Arithmetic::Compare::EQ, false));
+        case BinaryResult::BadLeft:
+          return this->raise("TODO: Invalid left-hand value for '==' equality operator");
+        case BinaryResult::BadRight:
+          return this->raise("TODO: Invalid right-hand value in '==' equality operator");
+        }
+        break;
+      case BinaryOp::NE:
+        // WIBBLE non-arithmetic?
+        switch (binaryPromote(binaryValues, lhs, rhs)) {
+        case BinaryResult::Ints:
+          return this->createHardValueBool(binaryValues.compareInts(Arithmetic::Compare::NE));
+        case BinaryResult::Floats:
+          return this->createHardValueBool(binaryValues.compareFloats(Arithmetic::Compare::NE, false));
+        case BinaryResult::BadLeft:
+          return this->raise("TODO: Invalid left-hand value for '!=' inequality operator");
+        case BinaryResult::BadRight:
+          return this->raise("TODO: Invalid right-hand value in '!=' inequality operator");
+        }
+        break;
+      case BinaryOp::GE:
+        switch (binaryPromote(binaryValues, lhs, rhs)) {
+        case BinaryResult::Ints:
+          return this->createHardValueBool(binaryValues.compareInts(Arithmetic::Compare::GE));
+        case BinaryResult::Floats:
+          return this->createHardValueBool(binaryValues.compareFloats(Arithmetic::Compare::GE, false));
+        case BinaryResult::BadLeft:
+          return this->raise("TODO: Invalid left-hand value for '>=' comparison operator");
+        case BinaryResult::BadRight:
+          return this->raise("TODO: Invalid right-hand value in '>=' comparison operator");
+        }
+        break;
+      case BinaryOp::GT:
+        switch (binaryPromote(binaryValues, lhs, rhs)) {
+        case BinaryResult::Ints:
+          return this->createHardValueBool(binaryValues.compareInts(Arithmetic::Compare::GT));
+        case BinaryResult::Floats:
+          return this->createHardValueBool(binaryValues.compareFloats(Arithmetic::Compare::GT, false));
+        case BinaryResult::BadLeft:
+          return this->raise("TODO: Invalid left-hand value for '>' comparison operator");
+        case BinaryResult::BadRight:
+          return this->raise("TODO: Invalid right-hand value in '>' comparison operator");
+        }
+        break;
       }
       return this->raise("TODO: Unknown binary operator");
     }
@@ -262,6 +336,12 @@ namespace {
     union BinaryValues {
       Int i[2];
       Float f[2];
+      bool compareInts(Arithmetic::Compare compare) const {
+        return Arithmetic::compare(compare, this->i[0], this->i[1]);
+      }
+      bool compareFloats(Arithmetic::Compare compare, bool ieee) const {
+        return Arithmetic::compare(compare, this->f[0], this->f[1], ieee);
+      }
     };
     enum class BinaryResult {
       Ints,
@@ -269,7 +349,7 @@ namespace {
       BadLeft,
       BadRight
     };
-    static BinaryResult promoteBinary(BinaryValues& values, const HardValue& lhs, const HardValue& rhs) {
+    static BinaryResult binaryPromote(BinaryValues& values, const HardValue& lhs, const HardValue& rhs) {
       Int i;
       if (lhs->getFloat(values.f[0])) {
         // Need to promote rhs to float
