@@ -313,31 +313,11 @@ namespace {
         }
         break;
       case BinaryOp::EQ:
-        // WIBBLE non-arithmetic?
-        switch (binaryValues.promote(lhs, rhs)) {
-        case Operation::BinaryValues::PromotionResult::Ints:
-          return this->createHardValueBool(binaryValues.compareInts(Arithmetic::Compare::EQ));
-        case Operation::BinaryValues::PromotionResult::Floats:
-          return this->createHardValueBool(binaryValues.compareFloats(Arithmetic::Compare::EQ, false));
-        case Operation::BinaryValues::PromotionResult::BadLeft:
-          return this->raise("TODO: Invalid left-hand value for '==' equality operator");
-        case Operation::BinaryValues::PromotionResult::BadRight:
-          return this->raise("TODO: Invalid right-hand value for '==' equality operator");
-        }
-        break;
+        // Promote ints to floats but ignore IEEE NaN semantics
+        return this->createHardValueBool(Operation::areEqual(lhs, rhs, true, false));
       case BinaryOp::NE:
-        // WIBBLE non-arithmetic?
-        switch (binaryValues.promote(lhs, rhs)) {
-        case Operation::BinaryValues::PromotionResult::Ints:
-          return this->createHardValueBool(binaryValues.compareInts(Arithmetic::Compare::NE));
-        case Operation::BinaryValues::PromotionResult::Floats:
-          return this->createHardValueBool(binaryValues.compareFloats(Arithmetic::Compare::NE, false));
-        case Operation::BinaryValues::PromotionResult::BadLeft:
-          return this->raise("TODO: Invalid left-hand value for '!=' inequality operator");
-        case Operation::BinaryValues::PromotionResult::BadRight:
-          return this->raise("TODO: Invalid right-hand value for '!=' inequality operator");
-        }
-        break;
+        // Promote ints to floats but ignore IEEE NaN semantics
+        return this->createHardValueBool(!Operation::areEqual(lhs, rhs, true, false));
       case BinaryOp::GE:
         switch (binaryValues.promote(lhs, rhs)) {
         case Operation::BinaryValues::PromotionResult::Ints:

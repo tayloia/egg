@@ -36,6 +36,7 @@ namespace egg::ovum {
         return ArithmeticResult::Mismatch;
       }
     };
+
     union BinaryValues {
       Bool b[2];
       Int i[2];
@@ -140,5 +141,81 @@ namespace egg::ovum {
         return Arithmetic::shift(shift, this->i[0], this->i[1]);
       }
     };
+
+    inline static bool areEqual(const HardValue& lhs, const HardValue& rhs, bool promote, bool ieee) {
+      EGG_WARNING_SUPPRESS_SWITCH_BEGIN
+      switch (lhs->getFlags()) {
+      case ValueFlags::Null:
+        return rhs->getNull();
+      case ValueFlags::Bool:
+      {
+        Bool blhs, brhs;
+        return lhs->getBool(blhs) && rhs->getBool(brhs) && (blhs == brhs);
+      }
+      case ValueFlags::Int:
+      {
+        Int ilhs;
+        if (lhs->getInt(ilhs)) {
+          Int irhs;
+          if (rhs->getInt(irhs)) {
+            return ilhs == irhs;
+          }
+          if (promote) {
+            Float frhs;
+            if (rhs->getFloat(frhs)) {
+              // Equality after promotion (exact)
+              return Arithmetic::equal(frhs, ilhs);
+            }
+          }
+        }
+        break;
+      }
+      case ValueFlags::Float:
+      {
+        Float flhs;
+        if (lhs->getFloat(flhs)) {
+          Float frhs;
+          if (rhs->getFloat(frhs)) {
+            // Equality without promotion
+            return Arithmetic::equal(flhs, frhs, ieee);
+          }
+          if (promote) {
+            Int irhs;
+            if (rhs->getInt(irhs)) {
+              // Equality after promotion (exact)
+              return Arithmetic::equal(flhs, irhs);
+            }
+          }
+        }
+        break;
+      }
+      case ValueFlags::String:
+      {
+        String slhs;
+        if (lhs->getString(slhs)) {
+          String srhs;
+          if (rhs->getString(srhs)) {
+            return slhs.equals(srhs);
+          }
+        }
+        break;
+      }
+      case ValueFlags::Object:
+      {
+        HardObject olhs;
+        if (lhs->getHardObject(olhs)) {
+          HardObject orhs;
+          if (rhs->getHardObject(orhs)) {
+            return olhs.equals(orhs);
+          }
+        }
+        break;
+      }
+      default:
+        assert(false);
+      }
+      EGG_WARNING_SUPPRESS_SWITCH_END
+      return false;
+    }
   };
 }
