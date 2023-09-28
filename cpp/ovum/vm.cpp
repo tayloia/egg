@@ -636,6 +636,11 @@ namespace {
       assert(!this->stack.empty());
       this->stack.top().deque.push_back(value);
     }
+    RunOutcome faulted(const HardValue& value) {
+      assert(value.hasFlowControl());
+      this->pop(value);
+      return RunOutcome::Faulted;
+    }
     HardValue createThrow(const HardValue& value) {
       return ValueFactory::createHardFlowControl(this->getAllocator(), ValueFlags::Throw, value);
     }
@@ -759,7 +764,7 @@ egg::ovum::IVMProgramRunner::RunOutcome VMProgramRunner::step(HardValue& retval)
     assert(top.node->literal->getVoid());
     if (!this->stepBlock(retval)) {
       if (retval->getFlags() == ValueFlags::Void) {
-        // Fell off the end of the list of statements
+        // Fell off the end of the list of statements in the module
         return RunOutcome::Completed;
       }
       if (retval.hasAnyFlags(ValueFlags::Return)) {
@@ -810,7 +815,7 @@ egg::ovum::IVMProgramRunner::RunOutcome VMProgramRunner::step(HardValue& retval)
       auto& latest = top.deque.back();
       if (latest.hasFlowControl()) {
         retval = latest;
-        return RunOutcome::Faulted;
+        return this->faulted(retval);
       }
     }
     if (top.index == 0) {
@@ -842,7 +847,7 @@ egg::ovum::IVMProgramRunner::RunOutcome VMProgramRunner::step(HardValue& retval)
       auto& latest = top.deque.back();
       if (latest.hasFlowControl()) {
         retval = latest;
-        return RunOutcome::Faulted;
+        return this->faulted(retval);
       }
     }
     if (top.index < 3) {
@@ -867,7 +872,7 @@ egg::ovum::IVMProgramRunner::RunOutcome VMProgramRunner::step(HardValue& retval)
       auto& latest = top.deque.back();
       if (latest.hasFlowControl()) {
         retval = latest;
-        return RunOutcome::Faulted;
+        return this->faulted(retval);
       }
     }
     if (top.index < top.node->children.size()) {
@@ -891,26 +896,54 @@ egg::ovum::IVMProgramRunner::RunOutcome VMProgramRunner::step(HardValue& retval)
     break;
   case IVMProgram::Node::Kind::ExprBinaryOp:
     assert(top.node->children.size() == 2);
-    if (!top.deque.empty()) {
+    if (top.index == 0) {
+      // Evaluate the left-hand-side
+      this->push(*top.node->children[top.index++]);
+    } else {
       // Check the last evaluation
       auto& latest = top.deque.back();
       if (latest.hasFlowControl()) {
         retval = latest;
-        return RunOutcome::Faulted;
+        return this->faulted(retval);
       }
-    }
-    if (top.index < 2) {
-      // Assemble the arguments
-      this->push(*top.node->children[top.index++]);
-    } else {
-      assert(top.deque.size() == 2);
       Int literal;
       if (!top.node->literal->getInt(literal)) {
         return this->createFault(retval, "Invalid program node literal for binary operation");
       }
       auto op = IVMExecution::BinaryOp(literal);
-      auto result = this->execution.evaluateBinaryOp(op, top.deque.front(), top.deque.back());
-      this->pop(result);
+      if (top.index == 1) {
+        assert(top.deque.size() == 1);
+        if (op == IVMExecution::BinaryOp::LAnd) {
+          // Short-circuit '&&'
+          Bool lhs;
+          if (latest->getBool(lhs) && !lhs) {
+            // lhs is false; no need to evaluate rhs
+            this->pop(HardValue::False);
+            break;
+          }
+        } else if (op == IVMExecution::BinaryOp::LOr) {
+          // Short-circuit '||'
+          Bool lhs;
+          if (latest->getBool(lhs) && lhs) {
+            // lhs is true; no need to evaluate rhs
+            this->pop(HardValue::True);
+            break;
+          }
+        } else if (op == IVMExecution::BinaryOp::LNull) {
+          // Short-circuit '??'
+          if (!latest->getNull()) {
+            // lhs is not null; no need to evaluate rhs
+            HardValue result{ latest }; // sic copy
+            this->pop(result);
+            break;
+          }
+        }
+        this->push(*top.node->children[top.index++]);
+      } else {
+        assert(top.deque.size() == 2);
+        auto result = this->execution.evaluateBinaryOp(op, top.deque.front(), top.deque.back());
+        this->pop(result);
+      }
     }
     break;
   case IVMProgram::Node::Kind::ExprVariable:
@@ -947,7 +980,7 @@ egg::ovum::IVMProgramRunner::RunOutcome VMProgramRunner::step(HardValue& retval)
       auto& latest = top.deque.back();
       if (latest.hasFlowControl()) {
         retval = latest;
-        return RunOutcome::Faulted;
+        return this->faulted(retval);
       }
     }
     if (top.index < 2) {
