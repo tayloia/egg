@@ -51,25 +51,33 @@ namespace egg::ovum {
 
     template<typename T>
     inline static bool compare(Compare op, T a, T b) {
-      if (a < b) {
-        return (op == Compare::LT) || (op == Compare::LE) || (op == Compare::NE);
+      switch (op) {
+      case Compare::LT:
+        return a < b;
+      case Compare::LE:
+        return a <= b;
+      case Compare::EQ:
+        return a == b;
+      case Compare::NE:
+        return a != b;
+      case Compare::GE:
+        return a >= b;
+      case Compare::GT:
+        return a > b;
+      default:
+        assert(false);
       }
-      if (b < a) {
-        return (op == Compare::GT) || (op == Compare::GE) || (op == Compare::NE);
-      }
-      return (op == Compare::LE) || (op == Compare::EQ) || (op == Compare::GE);
+      return false;
     }
 
     inline static bool compare(Compare op, double a, double b, bool ieee) {
+      // See https://en.wikipedia.org/wiki/NaN#Comparison_with_NaN
       if (std::isnan(a)) {
-        if (std::isnan(b)) {
-          if (ieee) {
-            return op == Compare::NE;
-          }
-          return (op == Compare::LE) || (op == Compare::EQ) || (op == Compare::GE);
-        }
         if (ieee) {
           return op == Compare::NE;
+        }
+        if (std::isnan(b)) {
+          return (op == Compare::LE) || (op == Compare::EQ) || (op == Compare::GE);
         }
         return (op == Compare::LT) || (op == Compare::LE) || (op == Compare::NE);
       }
@@ -79,13 +87,7 @@ namespace egg::ovum {
         }
         return (op == Compare::GT) || (op == Compare::GE) || (op == Compare::NE);
       }
-      if (a < b) {
-        return (op == Compare::LT) || (op == Compare::LE) || (op == Compare::NE);
-      }
-      if (a > b) {
-        return (op == Compare::GT) || (op == Compare::GE) || (op == Compare::NE);
-      }
-      return (op == Compare::LE) || (op == Compare::EQ) || (op == Compare::GE);
+      return Arithmetic::compare(op, a, b);
     }
   };
 
