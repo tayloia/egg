@@ -631,7 +631,7 @@ TEST(TestVM, BinaryDivZero) {
     STMT_PRINT(EXPR_BINARY(Div, EXPR_LITERAL(123), EXPR_LITERAL(0)))
   );
   buildAndRunFault(vm, *builder);
-  ASSERT_EQ("#+INF\n#+INF\n#+INF\n#NAN\n#NAN\n<ERROR>throw TODO: Integer division by zero in '/' division binary operator\n", vm.logger.logged.str());
+  ASSERT_EQ("#+INF\n#+INF\n#+INF\n#NAN\n#NAN\n<ERROR>throw TODO: Integer division by zero in '/' division operator\n", vm.logger.logged.str());
 }
 
 TEST(TestVM, BinaryRem) {
@@ -685,7 +685,7 @@ TEST(TestVM, BinaryRemZero) {
     STMT_PRINT(EXPR_BINARY(Rem, EXPR_LITERAL(123), EXPR_LITERAL(0)))
   );
   buildAndRunFault(vm, *builder);
-  ASSERT_EQ("#NAN\n#NAN\n#NAN\n#NAN\n#NAN\n<ERROR>throw TODO: Integer division by zero in '%' remainder binary operator\n", vm.logger.logged.str());
+  ASSERT_EQ("#NAN\n#NAN\n#NAN\n#NAN\n#NAN\n<ERROR>throw TODO: Integer division by zero in '%' remainder operator\n", vm.logger.logged.str());
 }
 
 TEST(TestVM, BinaryCompare) {
@@ -717,4 +717,23 @@ TEST(TestVM, BinaryCompare) {
   );
   buildAndRunSuccess(vm, *builder);
   ASSERT_EQ("true\ntrue\nfalse\ntrue\nfalse\nfalse\n", vm.logger.logged.str());
+}
+
+TEST(TestVM, BinaryBitwise) {
+  egg::test::VM vm;
+  auto builder = vm->createProgramBuilder();
+  builder->addStatement(
+    // print(10 & 3);
+    STMT_PRINT(EXPR_BINARY(BAnd, EXPR_LITERAL(10), EXPR_LITERAL(3)))
+  );
+  builder->addStatement(
+    // print(10 | 3);
+    STMT_PRINT(EXPR_BINARY(BOr, EXPR_LITERAL(10), EXPR_LITERAL(3)))
+  );
+  builder->addStatement(
+    // print(10 ^ 3);
+    STMT_PRINT(EXPR_BINARY(BXor, EXPR_LITERAL(10), EXPR_LITERAL(3)))
+  );
+  buildAndRunSuccess(vm, *builder);
+  ASSERT_EQ("2\n11\n9\n", vm.logger.logged.str());
 }

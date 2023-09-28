@@ -10,6 +10,15 @@ namespace egg::ovum {
     union BinaryValues {
       Int i[2];
       Float f[2];
+      BinaryResult ints(const HardValue& lhs, const HardValue& rhs) {
+        if (!lhs->getInt(this->i[0])) {
+          return BinaryResult::BadLeft;
+        }
+        if (!rhs->getInt(this->i[1])) {
+          return BinaryResult::BadRight;
+        }
+        return BinaryResult::Ints;
+      }
       BinaryResult promote(const HardValue& lhs, const HardValue& rhs) {
         Int t;
         if (lhs->getFloat(this->f[0])) {
