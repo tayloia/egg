@@ -223,40 +223,71 @@ namespace {
         }
         return this->createException("TODO: Invalid right-hand value for mutation subtraction from integer");
       case Mutation::Multiply:
-        return this->createException("TODO: Mutation '*' not supported for integers"); // WIBBLE
+        if (rhs.getInt(rvalue)) {
+          return this->atomic([rvalue](Int lvalue) { return lvalue * rvalue; });
+        }
+        return this->createException("TODO: Invalid right-hand value for mutation multiply by integer");
       case Mutation::Divide:
-        return this->createException("TODO: Mutation '/' not supported for integers"); // WIBBLE
+        if (rhs.getInt(rvalue)) {
+          if (rvalue == 0) {
+            return this->createException("TODO: Division by zero in mutation divide");
+          }
+          return this->atomic([rvalue](Int lvalue) { return lvalue / rvalue; });
+        }
+        return this->createException("TODO: Invalid right-hand value for mutation divide by integer");
       case Mutation::Remainder:
-        return this->createException("TODO: Mutation '%' not supported for integers"); // WIBBLE
+        if (rhs.getInt(rvalue)) {
+          if (rvalue == 0) {
+            return this->createException("TODO: Division by zero in mutation remainder");
+          }
+          return this->atomic([rvalue](Int lvalue) { return lvalue % rvalue; });
+        }
+        return this->createException("TODO: Invalid right-hand value for mutation remainder for integer");
       case Mutation::BitwiseAnd:
         if (rhs.getInt(rvalue)) {
           return this->createBefore(this->value.bitwiseAnd(rvalue));
         }
-        return this->createException("TODO: Invalid right-hand value for mutation bitwise-and from integer");
+        return this->createException("TODO: Invalid right-hand value for mutation bitwise-and of integer");
       case Mutation::BitwiseOr:
         if (rhs.getInt(rvalue)) {
           return this->createBefore(this->value.bitwiseOr(rvalue));
         }
-        return this->createException("TODO: Invalid right-hand value for mutation bitwise-or from integer");
+        return this->createException("TODO: Invalid right-hand value for mutation bitwise-or of integer");
       case Mutation::BitwiseXor:
         if (rhs.getInt(rvalue)) {
           return this->createBefore(this->value.bitwiseXor(rvalue));
         }
-        return this->createException("TODO: Invalid right-hand value for mutation bitwise-xor from integer");
+        return this->createException("TODO: Invalid right-hand value for mutation bitwise-xor of integer");
       case Mutation::ShiftLeft:
-        return this->createException("TODO: Mutation '<<' not supported for integers"); // WIBBLE
+        if (rhs.getInt(rvalue)) {
+          return this->atomic([rvalue](Int lvalue) { return Arithmetic::shift(Arithmetic::Shift::ShiftLeft, lvalue, rvalue); });
+        }
+        return this->createException("TODO: Invalid right-hand value for mutation shift left of integer");
       case Mutation::ShiftRight:
-        return this->createException("TODO: Mutation '>>' not supported for integers"); // WIBBLE
+        if (rhs.getInt(rvalue)) {
+          return this->atomic([rvalue](Int lvalue) { return Arithmetic::shift(Arithmetic::Shift::ShiftRight, lvalue, rvalue); });
+        }
+        return this->createException("TODO: Invalid right-hand value for mutation shift right of integer");
       case Mutation::ShiftRightUnsigned:
-        return this->createException("TODO: Mutation '>>>' not supported for integers"); // WIBBLE
+        if (rhs.getInt(rvalue)) {
+          return this->atomic([rvalue](Int lvalue) { return Arithmetic::shift(Arithmetic::Shift::ShiftRightUnsigned, lvalue, rvalue); });
+        }
+        return this->createException("TODO: Invalid right-hand value for mutation unsigned shift right of integer");
       case Mutation::Noop:
         assert(rhs.getFlags() == ValueFlags::Void);
         return this->createBefore(this->value.get());
       }
-      // TODO
-      return this->createException("TODO: Mutation operator unknown"); // WIBBLE
+      return this->createException("TODO: Unknown integer mutation operation");
     }
   private:
+    HardValue atomic(std::function<Int(Int)> eval) {
+      Int before, after;
+      do {
+        before = this->value.get();
+        after = eval(before);
+      } while (this->value.update(before, after) != before);
+      return ValueFactory::createInt(this->allocator, before);
+    }
     HardValue createBefore(Int before) {
       return ValueFactory::createInt(this->allocator, before);
     }

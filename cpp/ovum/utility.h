@@ -41,7 +41,7 @@ namespace egg::ovum {
     }
     Underlying bitwiseXor(Underlying value) {
       // Return the value BEFORE the operation
-      return std::atomic_fetch_or(&this->atomic, value);
+      return std::atomic_fetch_xor(&this->atomic, value);
     }
     Underlying increment() {
       // The result should be strictly positive

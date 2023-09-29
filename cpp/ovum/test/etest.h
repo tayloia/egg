@@ -186,6 +186,16 @@ namespace egg::test {
   inline void assertValue(const egg::ovum::HardValue& expected, const egg::ovum::HardValue& actual) {
     ASSERT_PRED_FORMAT2(assertValueEQ, expected, actual);
   }
+  inline void assertThrown(const char* expected, const egg::ovum::HardValue& actual) {
+    ASSERT_TRUE(actual.hasAnyFlags(egg::ovum::ValueFlags::Throw));
+    if (expected != nullptr) {
+      egg::ovum::HardValue inner;
+      ASSERT_TRUE(actual->getInner(inner));
+      egg::ovum::String message;
+      ASSERT_TRUE(inner->getString(message));
+      ASSERT_STREQ(expected, message.toUTF8().c_str());
+    }
+  }
 }
 
 template<>
@@ -221,3 +231,4 @@ inline void ::testing::internal::PrintTo(const egg::ovum::ILogger::Source& value
 #define ASSERT_STRING(expected, string) egg::test::assertString(expected, string)
 #define ASSERT_TYPE(expected, string) egg::test::assertType(expected, string)
 #define ASSERT_VALUE(expected, value) egg::test::assertValue(expected, value)
+#define ASSERT_THROWN(expected, value) egg::test::assertThrown(expected, value)

@@ -968,6 +968,24 @@ TEST(TestVM, BinaryLogical) {
             vm.logger.logged.str());
 }
 
+TEST(TestVM, MutateDecrement) {
+  egg::test::VM vm;
+  auto builder = vm->createProgramBuilder();
+  builder->addStatement(
+    // var i = 12345;
+    STMT_VAR_DEFINE("i", EXPR_LITERAL(12345),
+      // print(i);
+      STMT_PRINT(EXPR_VAR("i")),
+      // --i;
+      STMT_VAR_MUTATE("i", Decrement, EXPR_VOID()),
+      // print(i);
+      STMT_PRINT(EXPR_VAR("i"))
+    )
+  );
+  buildAndRunSuccess(vm, *builder);
+  ASSERT_EQ("12345\n12344\n", vm.logger.logged.str());
+}
+
 TEST(TestVM, MutateIncrement) {
   egg::test::VM vm;
   auto builder = vm->createProgramBuilder();
@@ -985,3 +1003,23 @@ TEST(TestVM, MutateIncrement) {
   buildAndRunSuccess(vm, *builder);
   ASSERT_EQ("12345\n12346\n", vm.logger.logged.str());
 }
+
+/* WIBBLE
+TEST(TestVM, MutateAdd) {
+  egg::test::VM vm;
+  auto builder = vm->createProgramBuilder();
+  builder->addStatement(
+    // var i = 12345;
+    STMT_VAR_DEFINE("i", EXPR_LITERAL(12345),
+      // print(i);
+      STMT_PRINT(EXPR_VAR("i")),
+      // --i;
+      STMT_VAR_MUTATE("i", Add, EXPR_LITERAL(10)),
+      // print(i);
+      STMT_PRINT(EXPR_VAR("i"))
+    )
+  );
+  buildAndRunSuccess(vm, *builder);
+  ASSERT_EQ("12345\n12355\n", vm.logger.logged.str());
+}
+*/
