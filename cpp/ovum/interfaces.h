@@ -31,23 +31,23 @@ namespace egg::ovum {
 
   enum class Mutation {
     Assign,
-    Noop,
     Decrement,
     Increment,
     Add,
+    Subtract,
+    Multiply,
+    Divide,
+    Remainder,
     BitwiseAnd,
     BitwiseOr,
     BitwiseXor,
-    Divide,
-    IfNull,
-    LogicalAnd,
-    LogicalOr,
-    Multiply,
-    Remainder,
     ShiftLeft,
     ShiftRight,
     ShiftRightUnsigned,
-    Subtract
+    IfNull,
+    IfFalse,
+    IfTrue,
+    Noop
   };
 
   class ILogger {

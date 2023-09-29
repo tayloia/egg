@@ -3,17 +3,17 @@ namespace egg::ovum {
   public:
     static const size_t DEFAULT_SIGFIGS = 12;
     enum class Compare {
-      LT,
-      LE,
-      EQ,
-      NE,
-      GE,
-      GT
+      LessThan,
+      LessThanOrEqual,
+      Equal,
+      NotEqual,
+      GreaterThanOrEqual,
+      GreaterThan
     };
     enum class Shift {
-      ShiftL,
-      ShiftR,
-      ShiftU,
+      ShiftLeft,
+      ShiftRight,
+      ShiftRightUnsigned,
       RotateL,
       RotateR
     };
@@ -59,17 +59,17 @@ namespace egg::ovum {
     template<typename T>
     inline static bool compare(Compare op, T a, T b) {
       switch (op) {
-      case Compare::LT:
+      case Compare::LessThan:
         return a < b;
-      case Compare::LE:
+      case Compare::LessThanOrEqual:
         return a <= b;
-      case Compare::EQ:
+      case Compare::Equal:
         return a == b;
-      case Compare::NE:
+      case Compare::NotEqual:
         return a != b;
-      case Compare::GE:
+      case Compare::GreaterThanOrEqual:
         return a >= b;
-      case Compare::GT:
+      case Compare::GreaterThan:
         return a > b;
       default:
         assert(false);
@@ -81,25 +81,25 @@ namespace egg::ovum {
       // See https://en.wikipedia.org/wiki/NaN#Comparison_with_NaN
       if (std::isnan(a)) {
         if (ieee) {
-          return op == Compare::NE;
+          return op == Compare::NotEqual;
         }
         if (std::isnan(b)) {
-          return (op == Compare::LE) || (op == Compare::EQ) || (op == Compare::GE);
+          return (op == Compare::LessThanOrEqual) || (op == Compare::Equal) || (op == Compare::GreaterThanOrEqual);
         }
-        return (op == Compare::LT) || (op == Compare::LE) || (op == Compare::NE);
+        return (op == Compare::LessThan) || (op == Compare::LessThanOrEqual) || (op == Compare::NotEqual);
       }
       if (std::isnan(b)) {
         if (ieee) {
-          return op == Compare::NE;
+          return op == Compare::NotEqual;
         }
-        return (op == Compare::GT) || (op == Compare::GE) || (op == Compare::NE);
+        return (op == Compare::GreaterThan) || (op == Compare::GreaterThanOrEqual) || (op == Compare::NotEqual);
       }
       return Arithmetic::compare(op, a, b);
     }
 
     inline static int64_t shift(Shift op, int64_t a, int64_t b) {
       switch (op) {
-      case Shift::ShiftL:
+      case Shift::ShiftLeft:
         if ((b >= 0) && (b <= 63)) {
           return Arithmetic::shiftL(a, size_t(b));
         }
@@ -107,7 +107,7 @@ namespace egg::ovum {
           return Arithmetic::shiftR(a, size_t(-b));
         }
         break;
-      case Shift::ShiftR:
+      case Shift::ShiftRight:
         if ((b >= 0) && (b <= 63)) {
           return Arithmetic::shiftR(a, size_t(b));
         }
@@ -115,7 +115,7 @@ namespace egg::ovum {
           return Arithmetic::shiftL(a, size_t(-b));
         }
         break;
-      case Shift::ShiftU:
+      case Shift::ShiftRightUnsigned:
         if ((b >= 0) && (b <= 63)) {
           return Arithmetic::shiftU(a, size_t(b));
         }

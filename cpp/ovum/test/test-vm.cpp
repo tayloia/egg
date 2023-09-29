@@ -13,12 +13,14 @@
 #define EXPR_LITERAL(value) builder->exprLiteral(builder->createHardValue(value))
 #define EXPR_PROP_GET(instance, property) builder->exprPropertyGet(instance, property)
 #define EXPR_VAR(name) builder->exprVariable(builder->createString(name))
+#define EXPR_VOID() builder->exprLiteral(builder->createHardValueVoid())
 #define STMT_CALL(func, ...) builder->glue(builder->stmtFunctionCall(func) COMMA(__VA_ARGS__))
 #define STMT_PRINT(...) builder->glue(builder->stmtFunctionCall(EXPR_VAR("print")) COMMA(__VA_ARGS__))
 #define STMT_PROP_SET(instance, property, value) builder->stmtPropertySet(instance, property, value)
 #define STMT_VAR_DECLARE(name, ...) builder->glue(builder->stmtVariableDeclare(builder->createString(name)) COMMA(__VA_ARGS__))
 #define STMT_VAR_DEFINE(name, value, ...) builder->glue(builder->stmtVariableDefine(builder->createString(name), value) COMMA(__VA_ARGS__))
 #define STMT_VAR_SET(name, value) builder->stmtVariableSet(builder->createString(name), value)
+#define STMT_VAR_MUTATE(name, op, value) builder->stmtVariableMutate(builder->createString(name), IVMExecution::MutationOp::op, value)
 
 namespace {
   using namespace egg::ovum;
@@ -517,19 +519,19 @@ TEST(TestVM, UnaryNegate) {
   auto builder = vm->createProgramBuilder();
   builder->addStatement(
     // print(-(123));
-    STMT_PRINT(EXPR_UNARY(Neg, EXPR_LITERAL(123)))
+    STMT_PRINT(EXPR_UNARY(Negate, EXPR_LITERAL(123)))
   );
   builder->addStatement(
     // print(-(-123));
-    STMT_PRINT(EXPR_UNARY(Neg, EXPR_LITERAL(-123)))
+    STMT_PRINT(EXPR_UNARY(Negate, EXPR_LITERAL(-123)))
   );
   builder->addStatement(
     // print(-(123.5));
-    STMT_PRINT(EXPR_UNARY(Neg, EXPR_LITERAL(123.5)))
+    STMT_PRINT(EXPR_UNARY(Negate, EXPR_LITERAL(123.5)))
   );
   builder->addStatement(
     // print(-(-123.5));
-    STMT_PRINT(EXPR_UNARY(Neg, EXPR_LITERAL(-123.5)))
+    STMT_PRINT(EXPR_UNARY(Negate, EXPR_LITERAL(-123.5)))
   );
   buildAndRunSuccess(vm, *builder);
   ASSERT_EQ("-123\n123\n-123.5\n123.5\n", vm.logger.logged.str());
@@ -540,11 +542,11 @@ TEST(TestVM, UnaryBitwiseNot) {
   auto builder = vm->createProgramBuilder();
   builder->addStatement(
     // print(~5);
-    STMT_PRINT(EXPR_UNARY(BNot, EXPR_LITERAL(5)))
+    STMT_PRINT(EXPR_UNARY(BitwiseNot, EXPR_LITERAL(5)))
   );
   builder->addStatement(
     // print(~-5);
-    STMT_PRINT(EXPR_UNARY(BNot, EXPR_LITERAL(-5)))
+    STMT_PRINT(EXPR_UNARY(BitwiseNot, EXPR_LITERAL(-5)))
   );
   buildAndRunSuccess(vm, *builder);
   ASSERT_EQ("-6\n4\n", vm.logger.logged.str());
@@ -555,11 +557,11 @@ TEST(TestVM, UnaryLogicalNot) {
   auto builder = vm->createProgramBuilder();
   builder->addStatement(
     // print(!false);
-    STMT_PRINT(EXPR_UNARY(LNot, EXPR_LITERAL(false)))
+    STMT_PRINT(EXPR_UNARY(LogicalNot, EXPR_LITERAL(false)))
   );
   builder->addStatement(
     // print(!true);
-    STMT_PRINT(EXPR_UNARY(LNot, EXPR_LITERAL(true)))
+    STMT_PRINT(EXPR_UNARY(LogicalNot, EXPR_LITERAL(true)))
   );
   buildAndRunSuccess(vm, *builder);
   ASSERT_EQ("true\nfalse\n", vm.logger.logged.str());
@@ -588,155 +590,155 @@ TEST(TestVM, BinaryAdd) {
   ASSERT_EQ("579\n579.25\n579.5\n579.75\n", vm.logger.logged.str());
 }
 
-TEST(TestVM, BinarySub) {
+TEST(TestVM, BinarySubtract) {
   egg::test::VM vm;
   auto builder = vm->createProgramBuilder();
   builder->addStatement(
     // print(123 - 456);
-    STMT_PRINT(EXPR_BINARY(Sub, EXPR_LITERAL(123), EXPR_LITERAL(456)))
+    STMT_PRINT(EXPR_BINARY(Subtract, EXPR_LITERAL(123), EXPR_LITERAL(456)))
   );
   builder->addStatement(
     // print(123.5 - 456);
-    STMT_PRINT(EXPR_BINARY(Sub, EXPR_LITERAL(123.25), EXPR_LITERAL(456)))
+    STMT_PRINT(EXPR_BINARY(Subtract, EXPR_LITERAL(123.25), EXPR_LITERAL(456)))
   );
   builder->addStatement(
     // print(123 - 456.5);
-    STMT_PRINT(EXPR_BINARY(Sub, EXPR_LITERAL(123), EXPR_LITERAL(456.5)))
+    STMT_PRINT(EXPR_BINARY(Subtract, EXPR_LITERAL(123), EXPR_LITERAL(456.5)))
   );
   builder->addStatement(
     // print(123.25 - 456.5);
-    STMT_PRINT(EXPR_BINARY(Sub, EXPR_LITERAL(123.25), EXPR_LITERAL(456.5)))
+    STMT_PRINT(EXPR_BINARY(Subtract, EXPR_LITERAL(123.25), EXPR_LITERAL(456.5)))
   );
   buildAndRunSuccess(vm, *builder);
   ASSERT_EQ("-333\n-332.75\n-333.5\n-333.25\n", vm.logger.logged.str());
 }
 
-TEST(TestVM, BinaryMul) {
+TEST(TestVM, BinaryMultiply) {
   egg::test::VM vm;
   auto builder = vm->createProgramBuilder();
   builder->addStatement(
     // print(123 * 456);
-    STMT_PRINT(EXPR_BINARY(Mul, EXPR_LITERAL(123), EXPR_LITERAL(456)))
+    STMT_PRINT(EXPR_BINARY(Multiply, EXPR_LITERAL(123), EXPR_LITERAL(456)))
   );
   builder->addStatement(
     // print(123.5 * 456);
-    STMT_PRINT(EXPR_BINARY(Mul, EXPR_LITERAL(123.25), EXPR_LITERAL(456)))
+    STMT_PRINT(EXPR_BINARY(Multiply, EXPR_LITERAL(123.25), EXPR_LITERAL(456)))
   );
   builder->addStatement(
     // print(123 * 456.5);
-    STMT_PRINT(EXPR_BINARY(Mul, EXPR_LITERAL(123), EXPR_LITERAL(456.5)))
+    STMT_PRINT(EXPR_BINARY(Multiply, EXPR_LITERAL(123), EXPR_LITERAL(456.5)))
   );
   builder->addStatement(
     // print(123.25 * 456.5);
-    STMT_PRINT(EXPR_BINARY(Mul, EXPR_LITERAL(123.25), EXPR_LITERAL(456.5)))
+    STMT_PRINT(EXPR_BINARY(Multiply, EXPR_LITERAL(123.25), EXPR_LITERAL(456.5)))
   );
   buildAndRunSuccess(vm, *builder);
   ASSERT_EQ("56088\n56202.0\n56149.5\n56263.625\n", vm.logger.logged.str());
 }
 
-TEST(TestVM, BinaryDiv) {
+TEST(TestVM, BinaryDivide) {
   egg::test::VM vm;
   auto builder = vm->createProgramBuilder();
   builder->addStatement(
     // print(123 / 456);
-    STMT_PRINT(EXPR_BINARY(Div, EXPR_LITERAL(123), EXPR_LITERAL(456)))
+    STMT_PRINT(EXPR_BINARY(Divide, EXPR_LITERAL(123), EXPR_LITERAL(456)))
   );
   builder->addStatement(
     // print(123.5 / 456);
-    STMT_PRINT(EXPR_BINARY(Div, EXPR_LITERAL(123.25), EXPR_LITERAL(456)))
+    STMT_PRINT(EXPR_BINARY(Divide, EXPR_LITERAL(123.25), EXPR_LITERAL(456)))
   );
   builder->addStatement(
     // print(123 / 456.5);
-    STMT_PRINT(EXPR_BINARY(Div, EXPR_LITERAL(123), EXPR_LITERAL(456.5)))
+    STMT_PRINT(EXPR_BINARY(Divide, EXPR_LITERAL(123), EXPR_LITERAL(456.5)))
   );
   builder->addStatement(
     // print(123.25 / 456.5);
-    STMT_PRINT(EXPR_BINARY(Div, EXPR_LITERAL(123.25), EXPR_LITERAL(456.5)))
+    STMT_PRINT(EXPR_BINARY(Divide, EXPR_LITERAL(123.25), EXPR_LITERAL(456.5)))
   );
   buildAndRunSuccess(vm, *builder);
   ASSERT_EQ("0\n0.270285087719\n0.269441401972\n0.269989047097\n", vm.logger.logged.str());
 }
 
-TEST(TestVM, BinaryDivZero) {
+TEST(TestVM, BinaryDivideZero) {
   egg::test::VM vm;
   auto builder = vm->createProgramBuilder();
   builder->addStatement(
     // print(123.5 / 0);
-    STMT_PRINT(EXPR_BINARY(Div, EXPR_LITERAL(123.25), EXPR_LITERAL(0)))
+    STMT_PRINT(EXPR_BINARY(Divide, EXPR_LITERAL(123.25), EXPR_LITERAL(0)))
   );
   builder->addStatement(
     // print(123 / 0.0);
-    STMT_PRINT(EXPR_BINARY(Div, EXPR_LITERAL(123), EXPR_LITERAL(0.0)))
+    STMT_PRINT(EXPR_BINARY(Divide, EXPR_LITERAL(123), EXPR_LITERAL(0.0)))
   );
   builder->addStatement(
     // print(123.25 / 0.0);
-    STMT_PRINT(EXPR_BINARY(Div, EXPR_LITERAL(123.25), EXPR_LITERAL(0.0)))
+    STMT_PRINT(EXPR_BINARY(Divide, EXPR_LITERAL(123.25), EXPR_LITERAL(0.0)))
   );
   builder->addStatement(
     // print(0 / 0.0);
-    STMT_PRINT(EXPR_BINARY(Div, EXPR_LITERAL(0), EXPR_LITERAL(0.0)))
+    STMT_PRINT(EXPR_BINARY(Divide, EXPR_LITERAL(0), EXPR_LITERAL(0.0)))
   );
   builder->addStatement(
     // print(0.0 / 0.0);
-    STMT_PRINT(EXPR_BINARY(Div, EXPR_LITERAL(0.0), EXPR_LITERAL(0.0)))
+    STMT_PRINT(EXPR_BINARY(Divide, EXPR_LITERAL(0.0), EXPR_LITERAL(0.0)))
   );
   builder->addStatement(
     // print(123 / 0);
-    STMT_PRINT(EXPR_BINARY(Div, EXPR_LITERAL(123), EXPR_LITERAL(0)))
+    STMT_PRINT(EXPR_BINARY(Divide, EXPR_LITERAL(123), EXPR_LITERAL(0)))
   );
   buildAndRunFault(vm, *builder);
   ASSERT_EQ("#+INF\n#+INF\n#+INF\n#NAN\n#NAN\n<ERROR>throw TODO: Integer division by zero in '/' division operator\n", vm.logger.logged.str());
 }
 
-TEST(TestVM, BinaryRem) {
+TEST(TestVM, BinaryRemainder) {
   egg::test::VM vm;
   auto builder = vm->createProgramBuilder();
   builder->addStatement(
     // print(123 % 34);
-    STMT_PRINT(EXPR_BINARY(Rem, EXPR_LITERAL(123), EXPR_LITERAL(34)))
+    STMT_PRINT(EXPR_BINARY(Remainder, EXPR_LITERAL(123), EXPR_LITERAL(34)))
   );
   builder->addStatement(
     // print(123.5 % 34);
-    STMT_PRINT(EXPR_BINARY(Rem, EXPR_LITERAL(123.25), EXPR_LITERAL(34)))
+    STMT_PRINT(EXPR_BINARY(Remainder, EXPR_LITERAL(123.25), EXPR_LITERAL(34)))
   );
   builder->addStatement(
     // print(123 % 34.5);
-    STMT_PRINT(EXPR_BINARY(Rem, EXPR_LITERAL(123), EXPR_LITERAL(34.5)))
+    STMT_PRINT(EXPR_BINARY(Remainder, EXPR_LITERAL(123), EXPR_LITERAL(34.5)))
   );
   builder->addStatement(
     // print(123.25 % 34.5);
-    STMT_PRINT(EXPR_BINARY(Rem, EXPR_LITERAL(123.25), EXPR_LITERAL(34.5)))
+    STMT_PRINT(EXPR_BINARY(Remainder, EXPR_LITERAL(123.25), EXPR_LITERAL(34.5)))
   );
   buildAndRunSuccess(vm, *builder);
   ASSERT_EQ("21\n21.25\n19.5\n19.75\n", vm.logger.logged.str());
 }
 
-TEST(TestVM, BinaryRemZero) {
+TEST(TestVM, BinaryRemainderZero) {
   egg::test::VM vm;
   auto builder = vm->createProgramBuilder();
   builder->addStatement(
     // print(123.5 % 34);
-    STMT_PRINT(EXPR_BINARY(Rem, EXPR_LITERAL(123.25), EXPR_LITERAL(0)))
+    STMT_PRINT(EXPR_BINARY(Remainder, EXPR_LITERAL(123.25), EXPR_LITERAL(0)))
   );
   builder->addStatement(
     // print(123 % 34.5);
-    STMT_PRINT(EXPR_BINARY(Rem, EXPR_LITERAL(123), EXPR_LITERAL(0.0)))
+    STMT_PRINT(EXPR_BINARY(Remainder, EXPR_LITERAL(123), EXPR_LITERAL(0.0)))
   );
   builder->addStatement(
     // print(123.25 % 34.5);
-    STMT_PRINT(EXPR_BINARY(Rem, EXPR_LITERAL(123.25), EXPR_LITERAL(0.0)))
+    STMT_PRINT(EXPR_BINARY(Remainder, EXPR_LITERAL(123.25), EXPR_LITERAL(0.0)))
   );
   builder->addStatement(
     // print(0 % 0.0);
-    STMT_PRINT(EXPR_BINARY(Rem, EXPR_LITERAL(0), EXPR_LITERAL(0.0)))
+    STMT_PRINT(EXPR_BINARY(Remainder, EXPR_LITERAL(0), EXPR_LITERAL(0.0)))
   );
   builder->addStatement(
     // print(0.0 % 0.0);
-    STMT_PRINT(EXPR_BINARY(Rem, EXPR_LITERAL(0.0), EXPR_LITERAL(0.0)))
+    STMT_PRINT(EXPR_BINARY(Remainder, EXPR_LITERAL(0.0), EXPR_LITERAL(0.0)))
   );
   builder->addStatement(
     // print(123 % 0);
-    STMT_PRINT(EXPR_BINARY(Rem, EXPR_LITERAL(123), EXPR_LITERAL(0)))
+    STMT_PRINT(EXPR_BINARY(Remainder, EXPR_LITERAL(123), EXPR_LITERAL(0)))
   );
   buildAndRunFault(vm, *builder);
   ASSERT_EQ("#NAN\n#NAN\n#NAN\n#NAN\n#NAN\n<ERROR>throw TODO: Integer division by zero in '%' remainder operator\n", vm.logger.logged.str());
@@ -747,27 +749,27 @@ TEST(TestVM, BinaryCompare) {
   auto builder = vm->createProgramBuilder();
   builder->addStatement(
     // print(123 < 234);
-    STMT_PRINT(EXPR_BINARY(LT, EXPR_LITERAL(123), EXPR_LITERAL(234)))
+    STMT_PRINT(EXPR_BINARY(LessThan, EXPR_LITERAL(123), EXPR_LITERAL(234)))
   );
   builder->addStatement(
     // print(123 <= 234);
-    STMT_PRINT(EXPR_BINARY(LE, EXPR_LITERAL(123), EXPR_LITERAL(234)))
+    STMT_PRINT(EXPR_BINARY(LessThanOrEqual, EXPR_LITERAL(123), EXPR_LITERAL(234)))
   );
   builder->addStatement(
     // print(123 == 234);
-    STMT_PRINT(EXPR_BINARY(EQ, EXPR_LITERAL(123), EXPR_LITERAL(234)))
+    STMT_PRINT(EXPR_BINARY(Equal, EXPR_LITERAL(123), EXPR_LITERAL(234)))
   );
   builder->addStatement(
     // print(123 != 234);
-    STMT_PRINT(EXPR_BINARY(NE, EXPR_LITERAL(123), EXPR_LITERAL(234)))
+    STMT_PRINT(EXPR_BINARY(NotEqual, EXPR_LITERAL(123), EXPR_LITERAL(234)))
   );
   builder->addStatement(
     // print(123 >= 234);
-    STMT_PRINT(EXPR_BINARY(GE, EXPR_LITERAL(123), EXPR_LITERAL(234)))
+    STMT_PRINT(EXPR_BINARY(GreaterThanOrEqual, EXPR_LITERAL(123), EXPR_LITERAL(234)))
   );
   builder->addStatement(
     // print(123 > 234);
-    STMT_PRINT(EXPR_BINARY(GT, EXPR_LITERAL(123), EXPR_LITERAL(234)))
+    STMT_PRINT(EXPR_BINARY(GreaterThan, EXPR_LITERAL(123), EXPR_LITERAL(234)))
   );
   buildAndRunSuccess(vm, *builder);
   ASSERT_EQ("true\ntrue\nfalse\ntrue\nfalse\nfalse\n", vm.logger.logged.str());
@@ -778,51 +780,51 @@ TEST(TestVM, BinaryBitwiseBool) {
   auto builder = vm->createProgramBuilder();
   builder->addStatement(
     // print(false & false);
-    STMT_PRINT(EXPR_BINARY(BAnd, EXPR_LITERAL(false), EXPR_LITERAL(false)))
+    STMT_PRINT(EXPR_BINARY(BitwiseAnd, EXPR_LITERAL(false), EXPR_LITERAL(false)))
   );
   builder->addStatement(
     // print(false & true);
-    STMT_PRINT(EXPR_BINARY(BAnd, EXPR_LITERAL(false), EXPR_LITERAL(true)))
+    STMT_PRINT(EXPR_BINARY(BitwiseAnd, EXPR_LITERAL(false), EXPR_LITERAL(true)))
   );
   builder->addStatement(
     // print(true & false);
-    STMT_PRINT(EXPR_BINARY(BAnd, EXPR_LITERAL(true), EXPR_LITERAL(false)))
+    STMT_PRINT(EXPR_BINARY(BitwiseAnd, EXPR_LITERAL(true), EXPR_LITERAL(false)))
   );
   builder->addStatement(
     // print(true & true);
-    STMT_PRINT(EXPR_BINARY(BAnd, EXPR_LITERAL(true), EXPR_LITERAL(true)))
+    STMT_PRINT(EXPR_BINARY(BitwiseAnd, EXPR_LITERAL(true), EXPR_LITERAL(true)))
   );
   builder->addStatement(
     // print(false | false);
-    STMT_PRINT(EXPR_BINARY(BOr, EXPR_LITERAL(false), EXPR_LITERAL(false)))
+    STMT_PRINT(EXPR_BINARY(BitwiseOr, EXPR_LITERAL(false), EXPR_LITERAL(false)))
   );
   builder->addStatement(
     // print(false | true);
-    STMT_PRINT(EXPR_BINARY(BOr, EXPR_LITERAL(false), EXPR_LITERAL(true)))
+    STMT_PRINT(EXPR_BINARY(BitwiseOr, EXPR_LITERAL(false), EXPR_LITERAL(true)))
   );
   builder->addStatement(
     // print(true | false);
-    STMT_PRINT(EXPR_BINARY(BOr, EXPR_LITERAL(true), EXPR_LITERAL(false)))
+    STMT_PRINT(EXPR_BINARY(BitwiseOr, EXPR_LITERAL(true), EXPR_LITERAL(false)))
   );
   builder->addStatement(
     // print(true | true);
-    STMT_PRINT(EXPR_BINARY(BOr, EXPR_LITERAL(true), EXPR_LITERAL(true)))
+    STMT_PRINT(EXPR_BINARY(BitwiseOr, EXPR_LITERAL(true), EXPR_LITERAL(true)))
   );
   builder->addStatement(
     // print(false ^ false);
-    STMT_PRINT(EXPR_BINARY(BXor, EXPR_LITERAL(false), EXPR_LITERAL(false)))
+    STMT_PRINT(EXPR_BINARY(BitwiseXor, EXPR_LITERAL(false), EXPR_LITERAL(false)))
   );
   builder->addStatement(
     // print(false ^ true);
-    STMT_PRINT(EXPR_BINARY(BXor, EXPR_LITERAL(false), EXPR_LITERAL(true)))
+    STMT_PRINT(EXPR_BINARY(BitwiseXor, EXPR_LITERAL(false), EXPR_LITERAL(true)))
   );
   builder->addStatement(
     // print(true ^ false);
-    STMT_PRINT(EXPR_BINARY(BXor, EXPR_LITERAL(true), EXPR_LITERAL(false)))
+    STMT_PRINT(EXPR_BINARY(BitwiseXor, EXPR_LITERAL(true), EXPR_LITERAL(false)))
   );
   builder->addStatement(
     // print(true ^ true);
-    STMT_PRINT(EXPR_BINARY(BXor, EXPR_LITERAL(true), EXPR_LITERAL(true)))
+    STMT_PRINT(EXPR_BINARY(BitwiseXor, EXPR_LITERAL(true), EXPR_LITERAL(true)))
   );
   buildAndRunSuccess(vm, *builder);
   ASSERT_EQ("false\nfalse\nfalse\ntrue\n"
@@ -836,15 +838,15 @@ TEST(TestVM, BinaryBitwiseInt) {
   auto builder = vm->createProgramBuilder();
   builder->addStatement(
     // print(10 & 3);
-    STMT_PRINT(EXPR_BINARY(BAnd, EXPR_LITERAL(10), EXPR_LITERAL(3)))
+    STMT_PRINT(EXPR_BINARY(BitwiseAnd, EXPR_LITERAL(10), EXPR_LITERAL(3)))
   );
   builder->addStatement(
     // print(10 | 3);
-    STMT_PRINT(EXPR_BINARY(BOr, EXPR_LITERAL(10), EXPR_LITERAL(3)))
+    STMT_PRINT(EXPR_BINARY(BitwiseOr, EXPR_LITERAL(10), EXPR_LITERAL(3)))
   );
   builder->addStatement(
     // print(10 ^ 3);
-    STMT_PRINT(EXPR_BINARY(BXor, EXPR_LITERAL(10), EXPR_LITERAL(3)))
+    STMT_PRINT(EXPR_BINARY(BitwiseXor, EXPR_LITERAL(10), EXPR_LITERAL(3)))
   );
   buildAndRunSuccess(vm, *builder);
   ASSERT_EQ("2\n11\n9\n", vm.logger.logged.str());
@@ -855,54 +857,57 @@ TEST(TestVM, BinaryShift) {
   auto builder = vm->createProgramBuilder();
   builder->addStatement(
     // print(7 << 2);
-    STMT_PRINT(EXPR_BINARY(ShiftL, EXPR_LITERAL(7), EXPR_LITERAL(2)))
+    STMT_PRINT(EXPR_BINARY(ShiftLeft, EXPR_LITERAL(7), EXPR_LITERAL(2)))
   );
   builder->addStatement(
     // print(7 << -2);
-    STMT_PRINT(EXPR_BINARY(ShiftL, EXPR_LITERAL(7), EXPR_LITERAL(-2)))
+    STMT_PRINT(EXPR_BINARY(ShiftLeft, EXPR_LITERAL(7), EXPR_LITERAL(-2)))
   );
   builder->addStatement(
     // print(-7 << 2);
-    STMT_PRINT(EXPR_BINARY(ShiftL, EXPR_LITERAL(-7), EXPR_LITERAL(2)))
+    STMT_PRINT(EXPR_BINARY(ShiftLeft, EXPR_LITERAL(-7), EXPR_LITERAL(2)))
   );
   builder->addStatement(
     // print(-7 << -2);
-    STMT_PRINT(EXPR_BINARY(ShiftL, EXPR_LITERAL(-7), EXPR_LITERAL(-2)))
+    STMT_PRINT(EXPR_BINARY(ShiftLeft, EXPR_LITERAL(-7), EXPR_LITERAL(-2)))
   );
   builder->addStatement(
     // print(7 >> 2);
-    STMT_PRINT(EXPR_BINARY(ShiftR, EXPR_LITERAL(7), EXPR_LITERAL(2)))
+    STMT_PRINT(EXPR_BINARY(ShiftRight, EXPR_LITERAL(7), EXPR_LITERAL(2)))
   );
   builder->addStatement(
     // print(7 >> -2);
-    STMT_PRINT(EXPR_BINARY(ShiftR, EXPR_LITERAL(7), EXPR_LITERAL(-2)))
+    STMT_PRINT(EXPR_BINARY(ShiftRight, EXPR_LITERAL(7), EXPR_LITERAL(-2)))
   );
   builder->addStatement(
     // print(-7 >> 2);
-    STMT_PRINT(EXPR_BINARY(ShiftR, EXPR_LITERAL(-7), EXPR_LITERAL(2)))
+    STMT_PRINT(EXPR_BINARY(ShiftRight, EXPR_LITERAL(-7), EXPR_LITERAL(2)))
   );
   builder->addStatement(
     // print(-7 >> -2);
-    STMT_PRINT(EXPR_BINARY(ShiftR, EXPR_LITERAL(-7), EXPR_LITERAL(-2)))
+    STMT_PRINT(EXPR_BINARY(ShiftRight, EXPR_LITERAL(-7), EXPR_LITERAL(-2)))
   );
   builder->addStatement(
     // print(7 >>> 2);
-    STMT_PRINT(EXPR_BINARY(ShiftU, EXPR_LITERAL(7), EXPR_LITERAL(2)))
+    STMT_PRINT(EXPR_BINARY(ShiftRightUnsigned, EXPR_LITERAL(7), EXPR_LITERAL(2)))
   );
   builder->addStatement(
     // print(7 >>> -2);
-    STMT_PRINT(EXPR_BINARY(ShiftU, EXPR_LITERAL(7), EXPR_LITERAL(-2)))
+    STMT_PRINT(EXPR_BINARY(ShiftRightUnsigned, EXPR_LITERAL(7), EXPR_LITERAL(-2)))
   );
   builder->addStatement(
     // print(-7 >>> 2);
-    STMT_PRINT(EXPR_BINARY(ShiftU, EXPR_LITERAL(-7), EXPR_LITERAL(2)))
+    STMT_PRINT(EXPR_BINARY(ShiftRightUnsigned, EXPR_LITERAL(-7), EXPR_LITERAL(2)))
   );
   builder->addStatement(
     // print(-7 >>> -2);
-    STMT_PRINT(EXPR_BINARY(ShiftU, EXPR_LITERAL(-7), EXPR_LITERAL(-2)))
+    STMT_PRINT(EXPR_BINARY(ShiftRightUnsigned, EXPR_LITERAL(-7), EXPR_LITERAL(-2)))
   );
   buildAndRunSuccess(vm, *builder);
-  ASSERT_EQ("28\n1\n-28\n-2\n1\n28\n-2\n-28\n1\n28\n4611686018427387902\n-28\n", vm.logger.logged.str());
+  ASSERT_EQ("28\n1\n-28\n-2\n"
+            "1\n28\n-2\n-28\n"
+            "1\n28\n4611686018427387902\n-28\n",
+            vm.logger.logged.str());
 }
 
 TEST(TestVM, BinaryLogical) {
@@ -910,55 +915,73 @@ TEST(TestVM, BinaryLogical) {
   auto builder = vm->createProgramBuilder();
   builder->addStatement(
     // print(false && false);
-    STMT_PRINT(EXPR_BINARY(LAnd, EXPR_LITERAL(false), EXPR_LITERAL(false)))
+    STMT_PRINT(EXPR_BINARY(IfTrue, EXPR_LITERAL(false), EXPR_LITERAL(false)))
   );
   builder->addStatement(
     // print(false && true);
-    STMT_PRINT(EXPR_BINARY(LAnd, EXPR_LITERAL(false), EXPR_LITERAL(true)))
+    STMT_PRINT(EXPR_BINARY(IfTrue, EXPR_LITERAL(false), EXPR_LITERAL(true)))
   );
   builder->addStatement(
     // print(true && false);
-    STMT_PRINT(EXPR_BINARY(LAnd, EXPR_LITERAL(true), EXPR_LITERAL(false)))
+    STMT_PRINT(EXPR_BINARY(IfTrue, EXPR_LITERAL(true), EXPR_LITERAL(false)))
   );
   builder->addStatement(
     // print(true && true);
-    STMT_PRINT(EXPR_BINARY(LAnd, EXPR_LITERAL(true), EXPR_LITERAL(true)))
+    STMT_PRINT(EXPR_BINARY(IfTrue, EXPR_LITERAL(true), EXPR_LITERAL(true)))
   );
   builder->addStatement(
     // print(false || false);
-    STMT_PRINT(EXPR_BINARY(LOr, EXPR_LITERAL(false), EXPR_LITERAL(false)))
+    STMT_PRINT(EXPR_BINARY(IfFalse, EXPR_LITERAL(false), EXPR_LITERAL(false)))
   );
   builder->addStatement(
     // print(false || true);
-    STMT_PRINT(EXPR_BINARY(LOr, EXPR_LITERAL(false), EXPR_LITERAL(true)))
+    STMT_PRINT(EXPR_BINARY(IfFalse, EXPR_LITERAL(false), EXPR_LITERAL(true)))
   );
   builder->addStatement(
     // print(true || false);
-    STMT_PRINT(EXPR_BINARY(LOr, EXPR_LITERAL(true), EXPR_LITERAL(false)))
+    STMT_PRINT(EXPR_BINARY(IfFalse, EXPR_LITERAL(true), EXPR_LITERAL(false)))
   );
   builder->addStatement(
     // print(true || true);
-    STMT_PRINT(EXPR_BINARY(LOr, EXPR_LITERAL(true), EXPR_LITERAL(true)))
+    STMT_PRINT(EXPR_BINARY(IfFalse, EXPR_LITERAL(true), EXPR_LITERAL(true)))
   );
   builder->addStatement(
     // print(null ?? null);
-    STMT_PRINT(EXPR_BINARY(LNull, EXPR_LITERAL(nullptr), EXPR_LITERAL(nullptr)))
+    STMT_PRINT(EXPR_BINARY(IfNull, EXPR_LITERAL(nullptr), EXPR_LITERAL(nullptr)))
   );
   builder->addStatement(
     // print(null ?? 456);
-    STMT_PRINT(EXPR_BINARY(LNull, EXPR_LITERAL(nullptr), EXPR_LITERAL(456)))
+    STMT_PRINT(EXPR_BINARY(IfNull, EXPR_LITERAL(nullptr), EXPR_LITERAL(456)))
   );
   builder->addStatement(
     // print(123 ?? null);
-    STMT_PRINT(EXPR_BINARY(LNull, EXPR_LITERAL(123), EXPR_LITERAL(nullptr)))
+    STMT_PRINT(EXPR_BINARY(IfNull, EXPR_LITERAL(123), EXPR_LITERAL(nullptr)))
   );
   builder->addStatement(
     // print(123 ?? 456);
-    STMT_PRINT(EXPR_BINARY(LNull, EXPR_LITERAL(123), EXPR_LITERAL(456)))
+    STMT_PRINT(EXPR_BINARY(IfNull, EXPR_LITERAL(123), EXPR_LITERAL(456)))
   );
   buildAndRunSuccess(vm, *builder);
   ASSERT_EQ("false\nfalse\nfalse\ntrue\n"
-    "false\ntrue\ntrue\ntrue\n"
-    "null\n456\n123\n123\n",
-    vm.logger.logged.str());
+            "false\ntrue\ntrue\ntrue\n"
+            "null\n456\n123\n123\n",
+            vm.logger.logged.str());
+}
+
+TEST(TestVM, MutateIncrement) {
+  egg::test::VM vm;
+  auto builder = vm->createProgramBuilder();
+  builder->addStatement(
+    // var i = 12345;
+    STMT_VAR_DEFINE("i", EXPR_LITERAL(12345),
+      // print(i);
+      STMT_PRINT(EXPR_VAR("i")),
+      // ++i;
+      STMT_VAR_MUTATE("i", Increment, EXPR_VOID()),
+      // print(i);
+      STMT_PRINT(EXPR_VAR("i"))
+    )
+  );
+  buildAndRunSuccess(vm, *builder);
+  ASSERT_EQ("12345\n12346\n", vm.logger.logged.str());
 }

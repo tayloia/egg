@@ -59,6 +59,10 @@ namespace {
       // Cannot set an immutable instance
       return false;
     }
+    virtual bool mutate(Mutation, const IValue&) override {
+      // Cannot mutate an immutable instance
+      return false;
+    }
     constexpr IValue& instance() const {
       return *const_cast<ValueImmutable*>(this);
     }
@@ -153,17 +157,13 @@ namespace {
       // Assume all values are valid
       return this->atomic.get() >= 0;
     }
-    virtual bool set(const IValue&) override {
-      // TODO
-      return false;
-    }
   };
 
   class ValueInt final : public ValueMutable {
     ValueInt(const ValueInt&) = delete;
     ValueInt& operator=(const ValueInt&) = delete;
   private:
-    Int value;
+    Atomic<Int> value;
   public:
     ValueInt(IAllocator& allocator, Int value)
       : ValueMutable(allocator), value(value) {
@@ -176,11 +176,66 @@ namespace {
       return Type::Int;
     }
     virtual bool getInt(Int& result) const override {
-      result = this->value;
+      result = this->value.get();
       return true;
     }
     virtual void print(Printer& printer) const override {
-      printer.write(this->value);
+      printer.write(this->value.get());
+    }
+    virtual bool set(const IValue& rhs) override {
+      Int rvalue;
+      if (rhs.getInt(rvalue)) {
+        this->value.exchange(rvalue);
+        return true;
+      }
+      return false;
+    }
+    virtual bool mutate(Mutation op, const IValue& rhs) override {
+      switch (op) {
+      case Mutation::Assign:
+        return this->set(rhs);
+      case Mutation::Decrement:
+        assert(rhs.getFlags() == ValueFlags::Void);
+        this->value.decrement();
+        return true;
+      case Mutation::Increment:
+        assert(rhs.getFlags() == ValueFlags::Void);
+        this->value.increment();
+        return true;
+      case Mutation::Add:
+        return false; // WIBBLE
+      case Mutation::Subtract:
+        return false; // WIBBLE
+      case Mutation::Multiply:
+        return false; // WIBBLE
+      case Mutation::Divide:
+        return false; // WIBBLE
+      case Mutation::Remainder:
+        return false; // WIBBLE
+      case Mutation::BitwiseAnd:
+        return false; // WIBBLE
+      case Mutation::BitwiseOr:
+        return false; // WIBBLE
+      case Mutation::BitwiseXor:
+        return false; // WIBBLE
+      case Mutation::ShiftLeft:
+        return false; // WIBBLE
+      case Mutation::ShiftRight:
+        return false; // WIBBLE
+      case Mutation::ShiftRightUnsigned:
+        return false; // WIBBLE
+      case Mutation::IfNull:
+        return false; // WIBBLE
+      case Mutation::IfFalse:
+        return false; // WIBBLE
+      case Mutation::IfTrue:
+        return false; // WIBBLE
+      case Mutation::Noop:
+        assert(rhs.getFlags() == ValueFlags::Void);
+        return true;
+      }
+      // TODO
+      return false;
     }
   };
 
@@ -188,7 +243,7 @@ namespace {
     ValueFloat(const ValueFloat&) = delete;
     ValueFloat& operator=(const ValueFloat&) = delete;
   private:
-    Float value;
+    Atomic<Float> value;
   public:
     ValueFloat(IAllocator& allocator, Float value)
       : ValueMutable(allocator), value(value) {
@@ -201,11 +256,66 @@ namespace {
       return Type::Float;
     }
     virtual bool getFloat(Float& result) const override {
-      result = this->value;
+      result = this->value.get();
       return true;
     }
     virtual void print(Printer& printer) const override {
-      printer.write(this->value);
+      printer.write(this->value.get());
+    }
+    virtual bool set(const IValue& rhs) override {
+      Float rvalue;
+      if (rhs.getFloat(rvalue)) {
+        this->value.exchange(rvalue);
+        return true;
+      }
+      return false;
+    }
+    virtual bool mutate(Mutation op, const IValue& rhs) override {
+      switch (op) {
+      case Mutation::Assign:
+        return this->set(rhs);
+      case Mutation::Decrement:
+        assert(rhs.getFlags() == ValueFlags::Void);
+        this->value.decrement();
+        return true;
+      case Mutation::Increment:
+        assert(rhs.getFlags() == ValueFlags::Void);
+        this->value.increment();
+        return true;
+      case Mutation::Add:
+        return false; // WIBBLE
+      case Mutation::Subtract:
+        return false; // WIBBLE
+      case Mutation::Multiply:
+        return false; // WIBBLE
+      case Mutation::Divide:
+        return false; // WIBBLE
+      case Mutation::Remainder:
+        return false; // WIBBLE
+      case Mutation::BitwiseAnd:
+        return false; // WIBBLE
+      case Mutation::BitwiseOr:
+        return false; // WIBBLE
+      case Mutation::BitwiseXor:
+        return false; // WIBBLE
+      case Mutation::ShiftLeft:
+        return false; // WIBBLE
+      case Mutation::ShiftRight:
+        return false; // WIBBLE
+      case Mutation::ShiftRightUnsigned:
+        return false; // WIBBLE
+      case Mutation::IfNull:
+        return false; // WIBBLE
+      case Mutation::IfFalse:
+        return false; // WIBBLE
+      case Mutation::IfTrue:
+        return false; // WIBBLE
+      case Mutation::Noop:
+        assert(rhs.getFlags() == ValueFlags::Void);
+        return true;
+      }
+      // TODO
+      return false;
     }
   };
 
@@ -236,6 +346,16 @@ namespace {
     virtual void print(Printer& printer) const override {
       printer.write(this->value);
     }
+    virtual bool set(const IValue& rhs) override {
+      return rhs.getString(this->value);
+    }
+    virtual bool mutate(Mutation op, const IValue& rhs) override {
+      // There are few mutation operations on strings
+      if (op == Mutation::Assign) {
+        return rhs.getString(this->value);
+      }
+      return op == Mutation::Noop;
+    }
   };
 
   class ValueHardObject final : public ValueMutable {
@@ -263,6 +383,16 @@ namespace {
     }
     virtual void print(Printer& printer) const override {
       printer.write(this->value);
+    }
+    virtual bool set(const IValue& rhs) override {
+      return rhs.getHardObject(this->value);
+    }
+    virtual bool mutate(Mutation op, const IValue& rhs) override {
+      // There are few mutation operations on objects
+      if (op == Mutation::Assign) {
+        return rhs.getHardObject(this->value);
+      }
+      return op == Mutation::Noop;
     }
   };
 
@@ -299,6 +429,14 @@ namespace {
       printer.write(this->flags);
       printer << ' ';
       printer.write(this->inner);
+    }
+    virtual bool set(const IValue&) override {
+      // Flow controls are effectively immutable
+      return false;
+    }
+    virtual bool mutate(Mutation op, const IValue&) override {
+      // Flow controls are effectively immutable
+      return op == Mutation::Noop;
     }
   };
 
@@ -507,6 +645,10 @@ namespace {
       }
       }
       EGG_WARNING_SUPPRESS_SWITCH_END
+      return false;
+    }
+    virtual bool mutate(Mutation, const IValue&) override {
+      // WIBBLE mutate!
       return false;
     }
   private:

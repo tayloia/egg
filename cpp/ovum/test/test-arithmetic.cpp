@@ -313,243 +313,243 @@ TEST(TestArithmetic, OrderFloat) {
 
 TEST(TestArithmetic, CompareInt) {
   // Less than
-  ASSERT_FALSE(egg::ovum::Arithmetic::compare(egg::ovum::Arithmetic::Compare::LT, -123, -123));
-  ASSERT_TRUE(egg::ovum::Arithmetic::compare(egg::ovum::Arithmetic::Compare::LT, -123, 0));
-  ASSERT_TRUE(egg::ovum::Arithmetic::compare(egg::ovum::Arithmetic::Compare::LT, -123, 123));
-  ASSERT_FALSE(egg::ovum::Arithmetic::compare(egg::ovum::Arithmetic::Compare::LT, 0, -123));
-  ASSERT_FALSE(egg::ovum::Arithmetic::compare(egg::ovum::Arithmetic::Compare::LT, 0, 0));
-  ASSERT_TRUE(egg::ovum::Arithmetic::compare(egg::ovum::Arithmetic::Compare::LT, 0, 123));
-  ASSERT_FALSE(egg::ovum::Arithmetic::compare(egg::ovum::Arithmetic::Compare::LT, 123, -123));
-  ASSERT_FALSE(egg::ovum::Arithmetic::compare(egg::ovum::Arithmetic::Compare::LT, 123, 0));
-  ASSERT_FALSE(egg::ovum::Arithmetic::compare(egg::ovum::Arithmetic::Compare::LT, 123, 123));
+  ASSERT_FALSE(egg::ovum::Arithmetic::compare(egg::ovum::Arithmetic::Compare::LessThan, -123, -123));
+  ASSERT_TRUE(egg::ovum::Arithmetic::compare(egg::ovum::Arithmetic::Compare::LessThan, -123, 0));
+  ASSERT_TRUE(egg::ovum::Arithmetic::compare(egg::ovum::Arithmetic::Compare::LessThan, -123, 123));
+  ASSERT_FALSE(egg::ovum::Arithmetic::compare(egg::ovum::Arithmetic::Compare::LessThan, 0, -123));
+  ASSERT_FALSE(egg::ovum::Arithmetic::compare(egg::ovum::Arithmetic::Compare::LessThan, 0, 0));
+  ASSERT_TRUE(egg::ovum::Arithmetic::compare(egg::ovum::Arithmetic::Compare::LessThan, 0, 123));
+  ASSERT_FALSE(egg::ovum::Arithmetic::compare(egg::ovum::Arithmetic::Compare::LessThan, 123, -123));
+  ASSERT_FALSE(egg::ovum::Arithmetic::compare(egg::ovum::Arithmetic::Compare::LessThan, 123, 0));
+  ASSERT_FALSE(egg::ovum::Arithmetic::compare(egg::ovum::Arithmetic::Compare::LessThan, 123, 123));
   // Less than or equal
-  ASSERT_TRUE(egg::ovum::Arithmetic::compare(egg::ovum::Arithmetic::Compare::LE, -123, -123));
-  ASSERT_TRUE(egg::ovum::Arithmetic::compare(egg::ovum::Arithmetic::Compare::LE, -123, 0));
-  ASSERT_TRUE(egg::ovum::Arithmetic::compare(egg::ovum::Arithmetic::Compare::LE, -123, 123));
-  ASSERT_FALSE(egg::ovum::Arithmetic::compare(egg::ovum::Arithmetic::Compare::LE, 0, -123));
-  ASSERT_TRUE(egg::ovum::Arithmetic::compare(egg::ovum::Arithmetic::Compare::LE, 0, 0));
-  ASSERT_TRUE(egg::ovum::Arithmetic::compare(egg::ovum::Arithmetic::Compare::LE, 0, 123));
-  ASSERT_FALSE(egg::ovum::Arithmetic::compare(egg::ovum::Arithmetic::Compare::LE, 123, -123));
-  ASSERT_FALSE(egg::ovum::Arithmetic::compare(egg::ovum::Arithmetic::Compare::LE, 123, 0));
-  ASSERT_TRUE(egg::ovum::Arithmetic::compare(egg::ovum::Arithmetic::Compare::LE, 123, 123));
+  ASSERT_TRUE(egg::ovum::Arithmetic::compare(egg::ovum::Arithmetic::Compare::LessThanOrEqual, -123, -123));
+  ASSERT_TRUE(egg::ovum::Arithmetic::compare(egg::ovum::Arithmetic::Compare::LessThanOrEqual, -123, 0));
+  ASSERT_TRUE(egg::ovum::Arithmetic::compare(egg::ovum::Arithmetic::Compare::LessThanOrEqual, -123, 123));
+  ASSERT_FALSE(egg::ovum::Arithmetic::compare(egg::ovum::Arithmetic::Compare::LessThanOrEqual, 0, -123));
+  ASSERT_TRUE(egg::ovum::Arithmetic::compare(egg::ovum::Arithmetic::Compare::LessThanOrEqual, 0, 0));
+  ASSERT_TRUE(egg::ovum::Arithmetic::compare(egg::ovum::Arithmetic::Compare::LessThanOrEqual, 0, 123));
+  ASSERT_FALSE(egg::ovum::Arithmetic::compare(egg::ovum::Arithmetic::Compare::LessThanOrEqual, 123, -123));
+  ASSERT_FALSE(egg::ovum::Arithmetic::compare(egg::ovum::Arithmetic::Compare::LessThanOrEqual, 123, 0));
+  ASSERT_TRUE(egg::ovum::Arithmetic::compare(egg::ovum::Arithmetic::Compare::LessThanOrEqual, 123, 123));
   // Equality
-  ASSERT_TRUE(egg::ovum::Arithmetic::compare(egg::ovum::Arithmetic::Compare::EQ, -123, -123));
-  ASSERT_FALSE(egg::ovum::Arithmetic::compare(egg::ovum::Arithmetic::Compare::EQ, -123, 0));
-  ASSERT_FALSE(egg::ovum::Arithmetic::compare(egg::ovum::Arithmetic::Compare::EQ, -123, 123));
-  ASSERT_FALSE(egg::ovum::Arithmetic::compare(egg::ovum::Arithmetic::Compare::EQ, 0, -123));
-  ASSERT_TRUE(egg::ovum::Arithmetic::compare(egg::ovum::Arithmetic::Compare::EQ, 0, 0));
-  ASSERT_FALSE(egg::ovum::Arithmetic::compare(egg::ovum::Arithmetic::Compare::EQ, 0, 123));
-  ASSERT_FALSE(egg::ovum::Arithmetic::compare(egg::ovum::Arithmetic::Compare::EQ, 123, -123));
-  ASSERT_FALSE(egg::ovum::Arithmetic::compare(egg::ovum::Arithmetic::Compare::EQ, 123, 0));
-  ASSERT_TRUE(egg::ovum::Arithmetic::compare(egg::ovum::Arithmetic::Compare::EQ, 123, 123));
+  ASSERT_TRUE(egg::ovum::Arithmetic::compare(egg::ovum::Arithmetic::Compare::Equal, -123, -123));
+  ASSERT_FALSE(egg::ovum::Arithmetic::compare(egg::ovum::Arithmetic::Compare::Equal, -123, 0));
+  ASSERT_FALSE(egg::ovum::Arithmetic::compare(egg::ovum::Arithmetic::Compare::Equal, -123, 123));
+  ASSERT_FALSE(egg::ovum::Arithmetic::compare(egg::ovum::Arithmetic::Compare::Equal, 0, -123));
+  ASSERT_TRUE(egg::ovum::Arithmetic::compare(egg::ovum::Arithmetic::Compare::Equal, 0, 0));
+  ASSERT_FALSE(egg::ovum::Arithmetic::compare(egg::ovum::Arithmetic::Compare::Equal, 0, 123));
+  ASSERT_FALSE(egg::ovum::Arithmetic::compare(egg::ovum::Arithmetic::Compare::Equal, 123, -123));
+  ASSERT_FALSE(egg::ovum::Arithmetic::compare(egg::ovum::Arithmetic::Compare::Equal, 123, 0));
+  ASSERT_TRUE(egg::ovum::Arithmetic::compare(egg::ovum::Arithmetic::Compare::Equal, 123, 123));
   // Inequality
-  ASSERT_FALSE(egg::ovum::Arithmetic::compare(egg::ovum::Arithmetic::Compare::NE, -123, -123));
-  ASSERT_TRUE(egg::ovum::Arithmetic::compare(egg::ovum::Arithmetic::Compare::NE, -123, 0));
-  ASSERT_TRUE(egg::ovum::Arithmetic::compare(egg::ovum::Arithmetic::Compare::NE, -123, 123));
-  ASSERT_TRUE(egg::ovum::Arithmetic::compare(egg::ovum::Arithmetic::Compare::NE, 0, -123));
-  ASSERT_FALSE(egg::ovum::Arithmetic::compare(egg::ovum::Arithmetic::Compare::NE, 0, 0));
-  ASSERT_TRUE(egg::ovum::Arithmetic::compare(egg::ovum::Arithmetic::Compare::NE, 0, 123));
-  ASSERT_TRUE(egg::ovum::Arithmetic::compare(egg::ovum::Arithmetic::Compare::NE, 123, -123));
-  ASSERT_TRUE(egg::ovum::Arithmetic::compare(egg::ovum::Arithmetic::Compare::NE, 123, 0));
-  ASSERT_FALSE(egg::ovum::Arithmetic::compare(egg::ovum::Arithmetic::Compare::NE, 123, 123));
+  ASSERT_FALSE(egg::ovum::Arithmetic::compare(egg::ovum::Arithmetic::Compare::NotEqual, -123, -123));
+  ASSERT_TRUE(egg::ovum::Arithmetic::compare(egg::ovum::Arithmetic::Compare::NotEqual, -123, 0));
+  ASSERT_TRUE(egg::ovum::Arithmetic::compare(egg::ovum::Arithmetic::Compare::NotEqual, -123, 123));
+  ASSERT_TRUE(egg::ovum::Arithmetic::compare(egg::ovum::Arithmetic::Compare::NotEqual, 0, -123));
+  ASSERT_FALSE(egg::ovum::Arithmetic::compare(egg::ovum::Arithmetic::Compare::NotEqual, 0, 0));
+  ASSERT_TRUE(egg::ovum::Arithmetic::compare(egg::ovum::Arithmetic::Compare::NotEqual, 0, 123));
+  ASSERT_TRUE(egg::ovum::Arithmetic::compare(egg::ovum::Arithmetic::Compare::NotEqual, 123, -123));
+  ASSERT_TRUE(egg::ovum::Arithmetic::compare(egg::ovum::Arithmetic::Compare::NotEqual, 123, 0));
+  ASSERT_FALSE(egg::ovum::Arithmetic::compare(egg::ovum::Arithmetic::Compare::NotEqual, 123, 123));
   // Greater than or equal
-  ASSERT_TRUE(egg::ovum::Arithmetic::compare(egg::ovum::Arithmetic::Compare::GE, -123, -123));
-  ASSERT_FALSE(egg::ovum::Arithmetic::compare(egg::ovum::Arithmetic::Compare::GE, -123, 0));
-  ASSERT_FALSE(egg::ovum::Arithmetic::compare(egg::ovum::Arithmetic::Compare::GE, -123, 123));
-  ASSERT_TRUE(egg::ovum::Arithmetic::compare(egg::ovum::Arithmetic::Compare::GE, 0, -123));
-  ASSERT_TRUE(egg::ovum::Arithmetic::compare(egg::ovum::Arithmetic::Compare::GE, 0, 0));
-  ASSERT_FALSE(egg::ovum::Arithmetic::compare(egg::ovum::Arithmetic::Compare::GE, 0, 123));
-  ASSERT_TRUE(egg::ovum::Arithmetic::compare(egg::ovum::Arithmetic::Compare::GE, 123, -123));
-  ASSERT_TRUE(egg::ovum::Arithmetic::compare(egg::ovum::Arithmetic::Compare::GE, 123, 0));
-  ASSERT_TRUE(egg::ovum::Arithmetic::compare(egg::ovum::Arithmetic::Compare::GE, 123, 123));
+  ASSERT_TRUE(egg::ovum::Arithmetic::compare(egg::ovum::Arithmetic::Compare::GreaterThanOrEqual, -123, -123));
+  ASSERT_FALSE(egg::ovum::Arithmetic::compare(egg::ovum::Arithmetic::Compare::GreaterThanOrEqual, -123, 0));
+  ASSERT_FALSE(egg::ovum::Arithmetic::compare(egg::ovum::Arithmetic::Compare::GreaterThanOrEqual, -123, 123));
+  ASSERT_TRUE(egg::ovum::Arithmetic::compare(egg::ovum::Arithmetic::Compare::GreaterThanOrEqual, 0, -123));
+  ASSERT_TRUE(egg::ovum::Arithmetic::compare(egg::ovum::Arithmetic::Compare::GreaterThanOrEqual, 0, 0));
+  ASSERT_FALSE(egg::ovum::Arithmetic::compare(egg::ovum::Arithmetic::Compare::GreaterThanOrEqual, 0, 123));
+  ASSERT_TRUE(egg::ovum::Arithmetic::compare(egg::ovum::Arithmetic::Compare::GreaterThanOrEqual, 123, -123));
+  ASSERT_TRUE(egg::ovum::Arithmetic::compare(egg::ovum::Arithmetic::Compare::GreaterThanOrEqual, 123, 0));
+  ASSERT_TRUE(egg::ovum::Arithmetic::compare(egg::ovum::Arithmetic::Compare::GreaterThanOrEqual, 123, 123));
   // Greater than
-  ASSERT_FALSE(egg::ovum::Arithmetic::compare(egg::ovum::Arithmetic::Compare::GT, -123, -123));
-  ASSERT_FALSE(egg::ovum::Arithmetic::compare(egg::ovum::Arithmetic::Compare::GT, -123, 0));
-  ASSERT_FALSE(egg::ovum::Arithmetic::compare(egg::ovum::Arithmetic::Compare::GT, -123, 123));
-  ASSERT_TRUE(egg::ovum::Arithmetic::compare(egg::ovum::Arithmetic::Compare::GT, 0, -123));
-  ASSERT_FALSE(egg::ovum::Arithmetic::compare(egg::ovum::Arithmetic::Compare::GT, 0, 0));
-  ASSERT_FALSE(egg::ovum::Arithmetic::compare(egg::ovum::Arithmetic::Compare::GT, 0, 123));
-  ASSERT_TRUE(egg::ovum::Arithmetic::compare(egg::ovum::Arithmetic::Compare::GT, 123, -123));
-  ASSERT_TRUE(egg::ovum::Arithmetic::compare(egg::ovum::Arithmetic::Compare::GT, 123, 0));
-  ASSERT_FALSE(egg::ovum::Arithmetic::compare(egg::ovum::Arithmetic::Compare::GT, 123, 123));
+  ASSERT_FALSE(egg::ovum::Arithmetic::compare(egg::ovum::Arithmetic::Compare::GreaterThan, -123, -123));
+  ASSERT_FALSE(egg::ovum::Arithmetic::compare(egg::ovum::Arithmetic::Compare::GreaterThan, -123, 0));
+  ASSERT_FALSE(egg::ovum::Arithmetic::compare(egg::ovum::Arithmetic::Compare::GreaterThan, -123, 123));
+  ASSERT_TRUE(egg::ovum::Arithmetic::compare(egg::ovum::Arithmetic::Compare::GreaterThan, 0, -123));
+  ASSERT_FALSE(egg::ovum::Arithmetic::compare(egg::ovum::Arithmetic::Compare::GreaterThan, 0, 0));
+  ASSERT_FALSE(egg::ovum::Arithmetic::compare(egg::ovum::Arithmetic::Compare::GreaterThan, 0, 123));
+  ASSERT_TRUE(egg::ovum::Arithmetic::compare(egg::ovum::Arithmetic::Compare::GreaterThan, 123, -123));
+  ASSERT_TRUE(egg::ovum::Arithmetic::compare(egg::ovum::Arithmetic::Compare::GreaterThan, 123, 0));
+  ASSERT_FALSE(egg::ovum::Arithmetic::compare(egg::ovum::Arithmetic::Compare::GreaterThan, 123, 123));
 }
 
 TEST(TestArithmetic, CompareLT) {
   // Finites
-  ASSERT_COMPARE(LT, -123.0, -123.0, false, false);
-  ASSERT_COMPARE(LT, -123.0, 0.0, true, true);
-  ASSERT_COMPARE(LT, -123.0, 123.0, true, true);
-  ASSERT_COMPARE(LT, 0.0, -123.0, false, false);
-  ASSERT_COMPARE(LT, 0.0, 0.0, false, false);
-  ASSERT_COMPARE(LT, 0.0, 123.0, true, true);
-  ASSERT_COMPARE(LT, 123.0, -123.0, false, false);
-  ASSERT_COMPARE(LT, 123.0, 0.0, false, false);
-  ASSERT_COMPARE(LT, 123.0, 123.0, false, false);
+  ASSERT_COMPARE(LessThan, -123.0, -123.0, false, false);
+  ASSERT_COMPARE(LessThan, -123.0, 0.0, true, true);
+  ASSERT_COMPARE(LessThan, -123.0, 123.0, true, true);
+  ASSERT_COMPARE(LessThan, 0.0, -123.0, false, false);
+  ASSERT_COMPARE(LessThan, 0.0, 0.0, false, false);
+  ASSERT_COMPARE(LessThan, 0.0, 123.0, true, true);
+  ASSERT_COMPARE(LessThan, 123.0, -123.0, false, false);
+  ASSERT_COMPARE(LessThan, 123.0, 0.0, false, false);
+  ASSERT_COMPARE(LessThan, 123.0, 123.0, false, false);
   // Infinites
-  ASSERT_COMPARE(LT, ninf, ninf, false, false);
-  ASSERT_COMPARE(LT, ninf, zero, true, true);
-  ASSERT_COMPARE(LT, ninf, pinf, true, true);
-  ASSERT_COMPARE(LT, zero, ninf, false, false);
-  ASSERT_COMPARE(LT, zero, pinf, true, true);
-  ASSERT_COMPARE(LT, pinf, ninf, false, false);
-  ASSERT_COMPARE(LT, pinf, zero, false, false);
-  ASSERT_COMPARE(LT, pinf, pinf, false, false);
+  ASSERT_COMPARE(LessThan, ninf, ninf, false, false);
+  ASSERT_COMPARE(LessThan, ninf, zero, true, true);
+  ASSERT_COMPARE(LessThan, ninf, pinf, true, true);
+  ASSERT_COMPARE(LessThan, zero, ninf, false, false);
+  ASSERT_COMPARE(LessThan, zero, pinf, true, true);
+  ASSERT_COMPARE(LessThan, pinf, ninf, false, false);
+  ASSERT_COMPARE(LessThan, pinf, zero, false, false);
+  ASSERT_COMPARE(LessThan, pinf, pinf, false, false);
   // NaNs
-  ASSERT_COMPARE(LT, qnan, qnan, false, false);
-  ASSERT_COMPARE(LT, qnan, ninf, true, false);
-  ASSERT_COMPARE(LT, qnan, zero, true, false);
-  ASSERT_COMPARE(LT, qnan, pinf, true, false);
-  ASSERT_COMPARE(LT, ninf, qnan, false, false);
-  ASSERT_COMPARE(LT, zero, qnan, false, false);
-  ASSERT_COMPARE(LT, pinf, qnan, false, false);
+  ASSERT_COMPARE(LessThan, qnan, qnan, false, false);
+  ASSERT_COMPARE(LessThan, qnan, ninf, true, false);
+  ASSERT_COMPARE(LessThan, qnan, zero, true, false);
+  ASSERT_COMPARE(LessThan, qnan, pinf, true, false);
+  ASSERT_COMPARE(LessThan, ninf, qnan, false, false);
+  ASSERT_COMPARE(LessThan, zero, qnan, false, false);
+  ASSERT_COMPARE(LessThan, pinf, qnan, false, false);
 }
 
 TEST(TestArithmetic, CompareLE) {
   // Finites
-  ASSERT_COMPARE(LE, -123.0, -123.0, true, true);
-  ASSERT_COMPARE(LE, -123.0, 0.0, true, true);
-  ASSERT_COMPARE(LE, -123.0, 123.0, true, true);
-  ASSERT_COMPARE(LE, 0.0, -123.0, false, false);
-  ASSERT_COMPARE(LE, 0.0, 0.0, true, true);
-  ASSERT_COMPARE(LE, 0.0, 123.0, true, true);
-  ASSERT_COMPARE(LE, 123.0, -123.0, false, false);
-  ASSERT_COMPARE(LE, 123.0, 0.0, false, false);
-  ASSERT_COMPARE(LE, 123.0, 123.0, true, true);
+  ASSERT_COMPARE(LessThanOrEqual, -123.0, -123.0, true, true);
+  ASSERT_COMPARE(LessThanOrEqual, -123.0, 0.0, true, true);
+  ASSERT_COMPARE(LessThanOrEqual, -123.0, 123.0, true, true);
+  ASSERT_COMPARE(LessThanOrEqual, 0.0, -123.0, false, false);
+  ASSERT_COMPARE(LessThanOrEqual, 0.0, 0.0, true, true);
+  ASSERT_COMPARE(LessThanOrEqual, 0.0, 123.0, true, true);
+  ASSERT_COMPARE(LessThanOrEqual, 123.0, -123.0, false, false);
+  ASSERT_COMPARE(LessThanOrEqual, 123.0, 0.0, false, false);
+  ASSERT_COMPARE(LessThanOrEqual, 123.0, 123.0, true, true);
   // Infinites
-  ASSERT_COMPARE(LE, ninf, ninf, true, true);
-  ASSERT_COMPARE(LE, ninf, zero, true, true);
-  ASSERT_COMPARE(LE, ninf, pinf, true, true);
-  ASSERT_COMPARE(LE, zero, ninf, false, false);
-  ASSERT_COMPARE(LE, zero, pinf, true, true);
-  ASSERT_COMPARE(LE, pinf, ninf, false, false);
-  ASSERT_COMPARE(LE, pinf, zero, false, false);
-  ASSERT_COMPARE(LE, pinf, pinf, true, true);
+  ASSERT_COMPARE(LessThanOrEqual, ninf, ninf, true, true);
+  ASSERT_COMPARE(LessThanOrEqual, ninf, zero, true, true);
+  ASSERT_COMPARE(LessThanOrEqual, ninf, pinf, true, true);
+  ASSERT_COMPARE(LessThanOrEqual, zero, ninf, false, false);
+  ASSERT_COMPARE(LessThanOrEqual, zero, pinf, true, true);
+  ASSERT_COMPARE(LessThanOrEqual, pinf, ninf, false, false);
+  ASSERT_COMPARE(LessThanOrEqual, pinf, zero, false, false);
+  ASSERT_COMPARE(LessThanOrEqual, pinf, pinf, true, true);
   // NaNs
-  ASSERT_COMPARE(LE, qnan, qnan, true, false);
-  ASSERT_COMPARE(LE, qnan, ninf, true, false);
-  ASSERT_COMPARE(LE, qnan, zero, true, false);
-  ASSERT_COMPARE(LE, qnan, pinf, true, false);
-  ASSERT_COMPARE(LE, ninf, qnan, false, false);
-  ASSERT_COMPARE(LE, zero, qnan, false, false);
-  ASSERT_COMPARE(LE, pinf, qnan, false, false);
+  ASSERT_COMPARE(LessThanOrEqual, qnan, qnan, true, false);
+  ASSERT_COMPARE(LessThanOrEqual, qnan, ninf, true, false);
+  ASSERT_COMPARE(LessThanOrEqual, qnan, zero, true, false);
+  ASSERT_COMPARE(LessThanOrEqual, qnan, pinf, true, false);
+  ASSERT_COMPARE(LessThanOrEqual, ninf, qnan, false, false);
+  ASSERT_COMPARE(LessThanOrEqual, zero, qnan, false, false);
+  ASSERT_COMPARE(LessThanOrEqual, pinf, qnan, false, false);
 }
 
 TEST(TestArithmetic, CompareEQ) {
   // Finites
-  ASSERT_COMPARE(EQ, -123.0, -123.0, true, true);
-  ASSERT_COMPARE(EQ, -123.0, 0.0, false, false);
-  ASSERT_COMPARE(EQ, -123.0, 123.0, false, false);
-  ASSERT_COMPARE(EQ, 0.0, -123.0, false, false);
-  ASSERT_COMPARE(EQ, 0.0, 0.0, true, true);
-  ASSERT_COMPARE(EQ, 0.0, 123.0, false, false);
-  ASSERT_COMPARE(EQ, 123.0, -123.0, false, false);
-  ASSERT_COMPARE(EQ, 123.0, 0.0, false, false);
-  ASSERT_COMPARE(EQ, 123.0, 123.0, true, true);
+  ASSERT_COMPARE(Equal, -123.0, -123.0, true, true);
+  ASSERT_COMPARE(Equal, -123.0, 0.0, false, false);
+  ASSERT_COMPARE(Equal, -123.0, 123.0, false, false);
+  ASSERT_COMPARE(Equal, 0.0, -123.0, false, false);
+  ASSERT_COMPARE(Equal, 0.0, 0.0, true, true);
+  ASSERT_COMPARE(Equal, 0.0, 123.0, false, false);
+  ASSERT_COMPARE(Equal, 123.0, -123.0, false, false);
+  ASSERT_COMPARE(Equal, 123.0, 0.0, false, false);
+  ASSERT_COMPARE(Equal, 123.0, 123.0, true, true);
   // Infinites
-  ASSERT_COMPARE(EQ, ninf, ninf, true, true);
-  ASSERT_COMPARE(EQ, ninf, zero, false, false);
-  ASSERT_COMPARE(EQ, ninf, pinf, false, false);
-  ASSERT_COMPARE(EQ, zero, ninf, false, false);
-  ASSERT_COMPARE(EQ, zero, pinf, false, false);
-  ASSERT_COMPARE(EQ, pinf, ninf, false, false);
-  ASSERT_COMPARE(EQ, pinf, zero, false, false);
-  ASSERT_COMPARE(EQ, pinf, pinf, true, true);
+  ASSERT_COMPARE(Equal, ninf, ninf, true, true);
+  ASSERT_COMPARE(Equal, ninf, zero, false, false);
+  ASSERT_COMPARE(Equal, ninf, pinf, false, false);
+  ASSERT_COMPARE(Equal, zero, ninf, false, false);
+  ASSERT_COMPARE(Equal, zero, pinf, false, false);
+  ASSERT_COMPARE(Equal, pinf, ninf, false, false);
+  ASSERT_COMPARE(Equal, pinf, zero, false, false);
+  ASSERT_COMPARE(Equal, pinf, pinf, true, true);
   // NaNs
-  ASSERT_COMPARE(EQ, qnan, qnan, true, false);
-  ASSERT_COMPARE(EQ, qnan, ninf, false, false);
-  ASSERT_COMPARE(EQ, qnan, zero, false, false);
-  ASSERT_COMPARE(EQ, qnan, pinf, false, false);
-  ASSERT_COMPARE(EQ, ninf, qnan, false, false);
-  ASSERT_COMPARE(EQ, zero, qnan, false, false);
-  ASSERT_COMPARE(EQ, pinf, qnan, false, false);
+  ASSERT_COMPARE(Equal, qnan, qnan, true, false);
+  ASSERT_COMPARE(Equal, qnan, ninf, false, false);
+  ASSERT_COMPARE(Equal, qnan, zero, false, false);
+  ASSERT_COMPARE(Equal, qnan, pinf, false, false);
+  ASSERT_COMPARE(Equal, ninf, qnan, false, false);
+  ASSERT_COMPARE(Equal, zero, qnan, false, false);
+  ASSERT_COMPARE(Equal, pinf, qnan, false, false);
 }
 
 TEST(TestArithmetic, CompareNE) {
   // Finites
-  ASSERT_COMPARE(NE, -123.0, -123.0, false, false);
-  ASSERT_COMPARE(NE, -123.0, 0.0, true, true);
-  ASSERT_COMPARE(NE, -123.0, 123.0, true, true);
-  ASSERT_COMPARE(NE, 0.0, -123.0, true, true);
-  ASSERT_COMPARE(NE, 0.0, 0.0, false, false);
-  ASSERT_COMPARE(NE, 0.0, 123.0, true, true);
-  ASSERT_COMPARE(NE, 123.0, -123.0, true, true);
-  ASSERT_COMPARE(NE, 123.0, 0.0, true, true);
-  ASSERT_COMPARE(NE, 123.0, 123.0, false, false);
+  ASSERT_COMPARE(NotEqual, -123.0, -123.0, false, false);
+  ASSERT_COMPARE(NotEqual, -123.0, 0.0, true, true);
+  ASSERT_COMPARE(NotEqual, -123.0, 123.0, true, true);
+  ASSERT_COMPARE(NotEqual, 0.0, -123.0, true, true);
+  ASSERT_COMPARE(NotEqual, 0.0, 0.0, false, false);
+  ASSERT_COMPARE(NotEqual, 0.0, 123.0, true, true);
+  ASSERT_COMPARE(NotEqual, 123.0, -123.0, true, true);
+  ASSERT_COMPARE(NotEqual, 123.0, 0.0, true, true);
+  ASSERT_COMPARE(NotEqual, 123.0, 123.0, false, false);
   // Infinites
-  ASSERT_COMPARE(NE, ninf, ninf, false, false);
-  ASSERT_COMPARE(NE, ninf, zero, true, true);
-  ASSERT_COMPARE(NE, ninf, pinf, true, true);
-  ASSERT_COMPARE(NE, zero, ninf, true, true);
-  ASSERT_COMPARE(NE, zero, pinf, true, true);
-  ASSERT_COMPARE(NE, pinf, ninf, true, true);
-  ASSERT_COMPARE(NE, pinf, zero, true, true);
-  ASSERT_COMPARE(NE, pinf, pinf, false, false);
+  ASSERT_COMPARE(NotEqual, ninf, ninf, false, false);
+  ASSERT_COMPARE(NotEqual, ninf, zero, true, true);
+  ASSERT_COMPARE(NotEqual, ninf, pinf, true, true);
+  ASSERT_COMPARE(NotEqual, zero, ninf, true, true);
+  ASSERT_COMPARE(NotEqual, zero, pinf, true, true);
+  ASSERT_COMPARE(NotEqual, pinf, ninf, true, true);
+  ASSERT_COMPARE(NotEqual, pinf, zero, true, true);
+  ASSERT_COMPARE(NotEqual, pinf, pinf, false, false);
   // NaNs
-  ASSERT_COMPARE(NE, qnan, qnan, false, true);
-  ASSERT_COMPARE(NE, qnan, ninf, true, true);
-  ASSERT_COMPARE(NE, qnan, zero, true, true);
-  ASSERT_COMPARE(NE, qnan, pinf, true, true);
-  ASSERT_COMPARE(NE, ninf, qnan, true, true);
-  ASSERT_COMPARE(NE, zero, qnan, true, true);
-  ASSERT_COMPARE(NE, pinf, qnan, true, true);
+  ASSERT_COMPARE(NotEqual, qnan, qnan, false, true);
+  ASSERT_COMPARE(NotEqual, qnan, ninf, true, true);
+  ASSERT_COMPARE(NotEqual, qnan, zero, true, true);
+  ASSERT_COMPARE(NotEqual, qnan, pinf, true, true);
+  ASSERT_COMPARE(NotEqual, ninf, qnan, true, true);
+  ASSERT_COMPARE(NotEqual, zero, qnan, true, true);
+  ASSERT_COMPARE(NotEqual, pinf, qnan, true, true);
 }
 
 TEST(TestArithmetic, CompareGE) {
   // Finites
-  ASSERT_COMPARE(GE, -123.0, -123.0, true, true);
-  ASSERT_COMPARE(GE, -123.0, 0.0, false, false);
-  ASSERT_COMPARE(GE, -123.0, 123.0, false, false);
-  ASSERT_COMPARE(GE, 0.0, -123.0, true, true);
-  ASSERT_COMPARE(GE, 0.0, 0.0, true, true);
-  ASSERT_COMPARE(GE, 0.0, 123.0, false, false);
-  ASSERT_COMPARE(GE, 123.0, -123.0, true, true);
-  ASSERT_COMPARE(GE, 123.0, 0.0, true, true);
-  ASSERT_COMPARE(GE, 123.0, 123.0, true, true);
+  ASSERT_COMPARE(GreaterThanOrEqual, -123.0, -123.0, true, true);
+  ASSERT_COMPARE(GreaterThanOrEqual, -123.0, 0.0, false, false);
+  ASSERT_COMPARE(GreaterThanOrEqual, -123.0, 123.0, false, false);
+  ASSERT_COMPARE(GreaterThanOrEqual, 0.0, -123.0, true, true);
+  ASSERT_COMPARE(GreaterThanOrEqual, 0.0, 0.0, true, true);
+  ASSERT_COMPARE(GreaterThanOrEqual, 0.0, 123.0, false, false);
+  ASSERT_COMPARE(GreaterThanOrEqual, 123.0, -123.0, true, true);
+  ASSERT_COMPARE(GreaterThanOrEqual, 123.0, 0.0, true, true);
+  ASSERT_COMPARE(GreaterThanOrEqual, 123.0, 123.0, true, true);
   // Infinites
-  ASSERT_COMPARE(GE, ninf, ninf, true, true);
-  ASSERT_COMPARE(GE, ninf, zero, false, false);
-  ASSERT_COMPARE(GE, ninf, pinf, false, false);
-  ASSERT_COMPARE(GE, zero, ninf, true, true);
-  ASSERT_COMPARE(GE, zero, pinf, false, false);
-  ASSERT_COMPARE(GE, pinf, ninf, true, true);
-  ASSERT_COMPARE(GE, pinf, zero, true, true);
-  ASSERT_COMPARE(GE, pinf, pinf, true, true);
+  ASSERT_COMPARE(GreaterThanOrEqual, ninf, ninf, true, true);
+  ASSERT_COMPARE(GreaterThanOrEqual, ninf, zero, false, false);
+  ASSERT_COMPARE(GreaterThanOrEqual, ninf, pinf, false, false);
+  ASSERT_COMPARE(GreaterThanOrEqual, zero, ninf, true, true);
+  ASSERT_COMPARE(GreaterThanOrEqual, zero, pinf, false, false);
+  ASSERT_COMPARE(GreaterThanOrEqual, pinf, ninf, true, true);
+  ASSERT_COMPARE(GreaterThanOrEqual, pinf, zero, true, true);
+  ASSERT_COMPARE(GreaterThanOrEqual, pinf, pinf, true, true);
   // NaNs
-  ASSERT_COMPARE(GE, qnan, qnan, true, false);
-  ASSERT_COMPARE(GE, qnan, ninf, false, false);
-  ASSERT_COMPARE(GE, qnan, zero, false, false);
-  ASSERT_COMPARE(GE, qnan, pinf, false, false);
-  ASSERT_COMPARE(GE, ninf, qnan, true, false);
-  ASSERT_COMPARE(GE, zero, qnan, true, false);
-  ASSERT_COMPARE(GE, pinf, qnan, true, false);
+  ASSERT_COMPARE(GreaterThanOrEqual, qnan, qnan, true, false);
+  ASSERT_COMPARE(GreaterThanOrEqual, qnan, ninf, false, false);
+  ASSERT_COMPARE(GreaterThanOrEqual, qnan, zero, false, false);
+  ASSERT_COMPARE(GreaterThanOrEqual, qnan, pinf, false, false);
+  ASSERT_COMPARE(GreaterThanOrEqual, ninf, qnan, true, false);
+  ASSERT_COMPARE(GreaterThanOrEqual, zero, qnan, true, false);
+  ASSERT_COMPARE(GreaterThanOrEqual, pinf, qnan, true, false);
 }
 
 TEST(TestArithmetic, CompareGT) {
   // Finites
-  ASSERT_COMPARE(GT, -123.0, -123.0, false, false);
-  ASSERT_COMPARE(GT, -123.0, 0.0, false, false);
-  ASSERT_COMPARE(GT, -123.0, 123.0, false, false);
-  ASSERT_COMPARE(GT, 0.0, -123.0, true, true);
-  ASSERT_COMPARE(GT, 0.0, 0.0, false, false);
-  ASSERT_COMPARE(GT, 0.0, 123.0, false, false);
-  ASSERT_COMPARE(GT, 123.0, -123.0, true, true);
-  ASSERT_COMPARE(GT, 123.0, 0.0, true, true);
-  ASSERT_COMPARE(GT, 123.0, 123.0, false, false);
+  ASSERT_COMPARE(GreaterThan, -123.0, -123.0, false, false);
+  ASSERT_COMPARE(GreaterThan, -123.0, 0.0, false, false);
+  ASSERT_COMPARE(GreaterThan, -123.0, 123.0, false, false);
+  ASSERT_COMPARE(GreaterThan, 0.0, -123.0, true, true);
+  ASSERT_COMPARE(GreaterThan, 0.0, 0.0, false, false);
+  ASSERT_COMPARE(GreaterThan, 0.0, 123.0, false, false);
+  ASSERT_COMPARE(GreaterThan, 123.0, -123.0, true, true);
+  ASSERT_COMPARE(GreaterThan, 123.0, 0.0, true, true);
+  ASSERT_COMPARE(GreaterThan, 123.0, 123.0, false, false);
   // Infinites
-  ASSERT_COMPARE(GT, ninf, ninf, false, false);
-  ASSERT_COMPARE(GT, ninf, zero, false, false);
-  ASSERT_COMPARE(GT, ninf, pinf, false, false);
-  ASSERT_COMPARE(GT, zero, ninf, true, true);
-  ASSERT_COMPARE(GT, zero, pinf, false, false);
-  ASSERT_COMPARE(GT, pinf, ninf, true, true);
-  ASSERT_COMPARE(GT, pinf, zero, true, true);
-  ASSERT_COMPARE(GT, pinf, pinf, false, false);
+  ASSERT_COMPARE(GreaterThan, ninf, ninf, false, false);
+  ASSERT_COMPARE(GreaterThan, ninf, zero, false, false);
+  ASSERT_COMPARE(GreaterThan, ninf, pinf, false, false);
+  ASSERT_COMPARE(GreaterThan, zero, ninf, true, true);
+  ASSERT_COMPARE(GreaterThan, zero, pinf, false, false);
+  ASSERT_COMPARE(GreaterThan, pinf, ninf, true, true);
+  ASSERT_COMPARE(GreaterThan, pinf, zero, true, true);
+  ASSERT_COMPARE(GreaterThan, pinf, pinf, false, false);
   // NaNs
-  ASSERT_COMPARE(GT, qnan, qnan, false, false);
-  ASSERT_COMPARE(GT, qnan, ninf, false, false);
-  ASSERT_COMPARE(GT, qnan, zero, false, false);
-  ASSERT_COMPARE(GT, qnan, pinf, false, false);
-  ASSERT_COMPARE(GT, ninf, qnan, true, false);
-  ASSERT_COMPARE(GT, zero, qnan, true, false);
-  ASSERT_COMPARE(GT, pinf, qnan, true, false);
+  ASSERT_COMPARE(GreaterThan, qnan, qnan, false, false);
+  ASSERT_COMPARE(GreaterThan, qnan, ninf, false, false);
+  ASSERT_COMPARE(GreaterThan, qnan, zero, false, false);
+  ASSERT_COMPARE(GreaterThan, qnan, pinf, false, false);
+  ASSERT_COMPARE(GreaterThan, ninf, qnan, true, false);
+  ASSERT_COMPARE(GreaterThan, zero, qnan, true, false);
+  ASSERT_COMPARE(GreaterThan, pinf, qnan, true, false);
 }

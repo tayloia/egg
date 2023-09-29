@@ -78,35 +78,39 @@ namespace egg::ovum {
     }
     // Unary operations
     enum class UnaryOp {
-      Neg,
-      BNot,
-      LNot
+      Negate,
+      BitwiseNot,
+      LogicalNot
     };
     virtual HardValue evaluateUnaryOp(UnaryOp op, const HardValue& arg) = 0;
     // Binary operations
     enum class BinaryOp {
-      Add,
-      Sub,
-      Mul,
-      Div,
-      Rem,
-      LT,
-      LE,
-      EQ,
-      NE,
-      GE,
-      GT,
-      BAnd,
-      BOr,
-      BXor,
-      ShiftL,
-      ShiftR,
-      ShiftU,
-      LAnd,
-      LOr,
-      LNull
+      Add,                // a + b
+      Subtract,           // a - b
+      Multiply,           // a * b
+      Divide,             // a / b
+      Remainder,          // a % b
+      LessThan,           // a < b
+      LessThanOrEqual,    // a <= b
+      Equal,              // a == b
+      NotEqual,           // a != b
+      GreaterThanOrEqual, // a >= b
+      GreaterThan,        // a > b
+      BitwiseAnd,         // a & b
+      BitwiseOr,          // a | b
+      BitwiseXor,         // a ^ b
+      ShiftLeft,          // a << b
+      ShiftRight,         // a >> b
+      ShiftRightUnsigned, // a >>> b
+      IfNull,             // a ?? b
+      IfFalse,            // a && b
+      IfTrue              // a || b
     };
     virtual HardValue evaluateBinaryOp(BinaryOp op, const HardValue& lhs, const HardValue& rhs) = 0;
+    // Mutation operations
+    using MutationOp = Mutation;
+    virtual HardValue evaluateMutationOp1(MutationOp op, HardValue& lhs, ValueFlags rhs) = 0;
+    virtual HardValue evaluateMutationOp2(MutationOp op, HardValue& lhs, const HardValue& rhs) = 0;
   };
 
   class IVMCollectable : public ICollectable, public IVMCommon {
@@ -152,6 +156,7 @@ namespace egg::ovum {
     virtual Node& stmtVariableDeclare(const String& name) = 0;
     virtual Node& stmtVariableDefine(const String& name, Node& value) = 0;
     virtual Node& stmtVariableSet(const String& name, Node& value) = 0;
+    virtual Node& stmtVariableMutate(const String& name, IVMExecution::MutationOp op, Node& value) = 0;
     virtual Node& stmtPropertySet(Node& instance, Node& property, Node& value) = 0;
     virtual Node& stmtFunctionCall(Node& function) = 0;
     // Helpers
