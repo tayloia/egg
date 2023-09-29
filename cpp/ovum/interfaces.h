@@ -44,7 +44,7 @@ namespace egg::ovum {
     ShiftLeft,
     ShiftRight,
     ShiftRightUnsigned,
-    Noop
+    Noop // TODO: Split into Clone/Cancel?
   };
 
   class ILogger {

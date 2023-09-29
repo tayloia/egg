@@ -205,7 +205,7 @@ namespace {
         if (rhs.getInt(rvalue)) {
           return this->createBefore(this->value.exchange(rvalue));
         }
-        return this->createException("TODO: Invalid right-hand value for mutation assignment to integer"); // WIBBLE
+        return this->createException("TODO: Invalid right-hand value for mutation assignment to integer");
       case Mutation::Decrement:
         assert(rhs.getFlags() == ValueFlags::Void);
         return this->createBefore(this->value.decrement() + 1);
@@ -213,9 +213,15 @@ namespace {
         assert(rhs.getFlags() == ValueFlags::Void);
         return this->createBefore(this->value.increment() - 1);
       case Mutation::Add:
-        return this->createException("TODO: Mutation '+' not supported for integers"); // WIBBLE
+        if (rhs.getInt(rvalue)) {
+          return this->createBefore(this->value.add(rvalue));
+        }
+        return this->createException("TODO: Invalid right-hand value for mutation addition to integer");
       case Mutation::Subtract:
-        return this->createException("TODO: Mutation '-' not supported for integers"); // WIBBLE
+        if (rhs.getInt(rvalue)) {
+          return this->createBefore(this->value.sub(rvalue));
+        }
+        return this->createException("TODO: Invalid right-hand value for mutation subtraction from integer");
       case Mutation::Multiply:
         return this->createException("TODO: Mutation '*' not supported for integers"); // WIBBLE
       case Mutation::Divide:
@@ -223,11 +229,20 @@ namespace {
       case Mutation::Remainder:
         return this->createException("TODO: Mutation '%' not supported for integers"); // WIBBLE
       case Mutation::BitwiseAnd:
-        return this->createException("TODO: Mutation '&' not supported for integers"); // WIBBLE
+        if (rhs.getInt(rvalue)) {
+          return this->createBefore(this->value.bitwiseAnd(rvalue));
+        }
+        return this->createException("TODO: Invalid right-hand value for mutation bitwise-and from integer");
       case Mutation::BitwiseOr:
-        return this->createException("TODO: Mutation '|' not supported for integers"); // WIBBLE
+        if (rhs.getInt(rvalue)) {
+          return this->createBefore(this->value.bitwiseOr(rvalue));
+        }
+        return this->createException("TODO: Invalid right-hand value for mutation bitwise-or from integer");
       case Mutation::BitwiseXor:
-        return this->createException("TODO: Mutation '^' not supported for integers"); // WIBBLE
+        if (rhs.getInt(rvalue)) {
+          return this->createBefore(this->value.bitwiseXor(rvalue));
+        }
+        return this->createException("TODO: Invalid right-hand value for mutation bitwise-xor from integer");
       case Mutation::ShiftLeft:
         return this->createException("TODO: Mutation '<<' not supported for integers"); // WIBBLE
       case Mutation::ShiftRight:
@@ -236,7 +251,7 @@ namespace {
         return this->createException("TODO: Mutation '>>>' not supported for integers"); // WIBBLE
       case Mutation::Noop:
         assert(rhs.getFlags() == ValueFlags::Void);
-        return HardValue(*this);
+        return this->createBefore(this->value.get());
       }
       // TODO
       return this->createException("TODO: Mutation operator unknown"); // WIBBLE
@@ -316,7 +331,7 @@ namespace {
         return this->createException("TODO: Mutation '>>>' not supported for floats"); // WIBBLE
       case Mutation::Noop:
         assert(rhs.getFlags() == ValueFlags::Void);
-        return HardValue(*this);
+        return this->createBefore(this->value.get());
       }
       // TODO
       return this->createException("TODO: Mutation operator unknown"); // WIBBLE
@@ -475,9 +490,9 @@ namespace {
   private:
     ValueFlags flags;
     union {
-      Bool bvalue;
-      Int ivalue;
-      Float fvalue;
+      Atomic<Bool> bvalue;
+      Atomic<Int> ivalue;
+      Atomic<Float> fvalue;
       const IMemory* svalue;
       IObject* ovalue;
     };
@@ -508,7 +523,7 @@ namespace {
     virtual bool getBool(Bool& value) const override {
       assert(this->validate());
       if (this->flags == ValueFlags::Bool) {
-        value = this->bvalue;
+        value = this->bvalue.get();
         return true;
       }
       return false;
@@ -516,7 +531,7 @@ namespace {
     virtual bool getInt(Int& value) const override {
       assert(this->validate());
       if (this->flags == ValueFlags::Int) {
-        value = this->ivalue;
+        value = this->ivalue.get();
         return true;
       }
       return false;
@@ -524,7 +539,7 @@ namespace {
     virtual bool getFloat(Float& value) const override {
       assert(this->validate());
       if (this->flags == ValueFlags::Float) {
-        value = this->fvalue;
+        value = this->fvalue.get();
         return true;
       }
       return false;
@@ -563,13 +578,13 @@ namespace {
       EGG_WARNING_SUPPRESS_SWITCH_BEGIN
       switch (this->flags) {
       case ValueFlags::Bool:
-        printer.write(this->bvalue);
+        printer.write(this->bvalue.get());
         break;
       case ValueFlags::Int:
-        printer.write(this->ivalue);
+        printer.write(this->ivalue.get());
         break;
       case ValueFlags::Float:
-        printer.write(this->fvalue);
+        printer.write(this->fvalue.get());
         break;
       case ValueFlags::String:
         printer.write(String(this->svalue));
@@ -592,6 +607,31 @@ namespace {
       }
       return true;
     }
+    HardValue hardClone() const {
+      // TODO atomic
+      assert(this->validate());
+      EGG_WARNING_SUPPRESS_SWITCH_BEGIN
+      switch (this->flags) {
+      case ValueFlags::Void:
+        return HardValue::Void;
+      case ValueFlags::Null:
+        return HardValue::Null;
+      case ValueFlags::Bool:
+        return ValueFactory::createBool(this->bvalue.get());
+      case ValueFlags::Int:
+        return ValueFactory::createInt(this->allocator, this->ivalue.get());
+      case ValueFlags::Float:
+        return ValueFactory::createFloat(this->allocator, this->fvalue.get());
+      case ValueFlags::String:
+        return ValueFactory::createString(this->allocator, String(this->svalue));
+      case ValueFlags::Object:
+        return ValueFactory::createHardObject(this->allocator, HardObject(this->ovalue));
+      default:
+        assert(false);
+      }
+      EGG_WARNING_SUPPRESS_SWITCH_END
+      return HardValue::Rethrow;
+    }
     virtual bool set(const IValue& value) override {
       // TODO atomic
       assert(this->validate());
@@ -613,7 +653,7 @@ namespace {
         if (value.getBool(b)) {
           this->destroy();
           this->flags = ValueFlags::Bool;
-          this->bvalue = b;
+          this->bvalue.exchange(b);
           assert(this->validate());
           return true;
         }
@@ -625,7 +665,7 @@ namespace {
         if (value.getInt(i)) {
           this->destroy();
           this->flags = ValueFlags::Int;
-          this->ivalue = i;
+          this->ivalue.exchange(i);
           assert(this->validate());
           return true;
         }
@@ -637,7 +677,7 @@ namespace {
         if (value.getFloat(f)) {
           this->destroy();
           this->flags = ValueFlags::Float;
-          this->fvalue = f;
+          this->fvalue.exchange(f);
           assert(this->validate());
           return true;
         }
@@ -677,14 +717,27 @@ namespace {
       return false;
     }
     virtual HardValue mutate(Mutation op, const IValue& rhs) override {
-      (void)rhs; // WIBBLE
       switch (op) {
       case Mutation::Assign:
-        return this->createException("TODO: Mutation '=' not supported for poly"); // WIBBLE
+      {
+        auto before = this->hardClone();
+        if (this->set(rhs)) {
+          return before;
+        }
+        return this->createException("TODO: Invalid right-hand value for mutation assignment");
+      }
       case Mutation::Decrement:
-        return this->createException("TODO: Mutation '--' not supported for poly"); // WIBBLE
+        assert(rhs.getFlags() == ValueFlags::Void);
+        if (this->flags == ValueFlags::Int) {
+          return this->createBeforeInt(this->ivalue.decrement() - 1);
+        }
+        return this->createException("TODO: Mutation '--' only supported for integers");
       case Mutation::Increment:
-        return this->createException("TODO: Mutation '++' not supported for poly"); // WIBBLE
+        assert(rhs.getFlags() == ValueFlags::Void);
+        if (this->flags == ValueFlags::Int) {
+          return this->createBeforeInt(this->ivalue.increment() + 1);
+        }
+        return this->createException("TODO: Mutation '++' only supported for integers");
       case Mutation::Add:
         return this->createException("TODO: Mutation '+' not supported for poly"); // WIBBLE
       case Mutation::Subtract:
@@ -709,12 +762,15 @@ namespace {
         return this->createException("TODO: Mutation '>>>' not supported for poly"); // WIBBLE
       case Mutation::Noop:
         assert(rhs.getFlags() == ValueFlags::Void);
-        return HardValue(*this);
+        return this->hardClone();
       }
       // TODO
       return this->createException("TODO: Mutation operator unknown"); // WIBBLE
     }
   private:
+    HardValue createBeforeInt(Int before) {
+      return ValueFactory::createInt(this->allocator, before);
+    }
     HardValue createException(const char* message) const {
       auto inner = ValueFactory::createStringASCII(this->allocator, message);
       return ValueFactory::createHardFlowControl(this->allocator, ValueFlags::Throw, inner);

@@ -165,22 +165,22 @@ namespace egg::ovum {
       return HardValue::Null;
     }
     static HardValue create(IAllocator&, bool value) {
-      return createBool(value);
+      return ValueFactory::createBool(value);
     }
     static HardValue create(IAllocator& allocator, int32_t value) {
-      return createInt(allocator, value);
+      return ValueFactory::createInt(allocator, value);
     }
     static HardValue create(IAllocator& allocator, int64_t value) {
-      return createInt(allocator, value);
+      return ValueFactory::createInt(allocator, value);
     }
     static HardValue create(IAllocator& allocator, float value) {
-      return createFloat(allocator, value);
+      return ValueFactory::createFloat(allocator, value);
     }
     static HardValue create(IAllocator& allocator, double value) {
-      return createFloat(allocator, value);
+      return ValueFactory::createFloat(allocator, value);
     }
     static HardValue create(IAllocator& allocator, const String& value) {
-      return createString(allocator, value);
+      return ValueFactory::createString(allocator, value);
     }
   };
 }

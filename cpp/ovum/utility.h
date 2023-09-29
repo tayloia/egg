@@ -27,6 +27,22 @@ namespace egg::ovum {
       // Return the value BEFORE the addition
       return std::atomic_fetch_add(&this->atomic, value);
     }
+    Underlying sub(Underlying value) {
+      // Return the value BEFORE the subtraction
+      return std::atomic_fetch_sub(&this->atomic, value);
+    }
+    Underlying bitwiseAnd(Underlying value) {
+      // Return the value BEFORE the operation
+      return std::atomic_fetch_and(&this->atomic, value);
+    }
+    Underlying bitwiseOr(Underlying value) {
+      // Return the value BEFORE the operation
+      return std::atomic_fetch_or(&this->atomic, value);
+    }
+    Underlying bitwiseXor(Underlying value) {
+      // Return the value BEFORE the operation
+      return std::atomic_fetch_or(&this->atomic, value);
+    }
     Underlying increment() {
       // The result should be strictly positive
       auto result = this->add(1) + 1;

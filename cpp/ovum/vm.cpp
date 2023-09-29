@@ -100,8 +100,8 @@ namespace {
   public:
     enum class Kind {
       Unknown,
-      Builtin,
       Unset,
+      Builtin,
       Variable
     };
   private:
@@ -111,6 +111,12 @@ namespace {
     };
     std::map<String, Entry> entries;
   public:
+    void builtin(const String& name, const HardValue& value) {
+      auto result = this->entries.emplace(name, Entry(Kind::Builtin, value));
+      assert(result.second);
+      assert(result.first->second.kind != Kind::Unknown);
+      (void)result;
+    }
     Kind add(Kind kind, const String& name, const HardValue& value) {
       // Returns the old kind before this request
       assert(kind != Kind::Unknown);
@@ -127,19 +133,24 @@ namespace {
       if (result == this->entries.end()) {
         return Kind::Unknown;
       }
-      switch (result->second.kind) {
+      auto kind = result->second.kind;
+      switch (kind) {
       case Kind::Unknown:
       case Kind::Builtin:
         break;
       case Kind::Unset:
-        result->second.kind = Kind::Variable;
-        result->second.value = value;
+        if (result->second.value->set(value.get())) {
+          result->second.kind = Kind::Variable;
+          return Kind::Variable;
+        }
         break;
       case Kind::Variable:
-        result->second.value = value;
+        if (!result->second.value->set(value.get())) {
+          return Kind::Unset;
+        }
         break;
       }
-      return result->second.kind;
+      return kind;
     }
     Kind remove(const String& name) {
       // Returns the old kind but only removes if variable or unset
@@ -152,14 +163,6 @@ namespace {
         this->entries.erase(result);
       }
       return kind;
-    }
-    Kind lookup(const String& name) {
-      // Returns the current kind
-      auto result = this->entries.find(name);
-      if (result == this->entries.end()) {
-        return Kind::Unknown;
-      }
-      return result->second.kind;
     }
     Kind lookup(const String& name, HardValue& value) {
       // Returns the current kind and current value
@@ -742,9 +745,7 @@ namespace {
       printer << "[VMProgramRunner]";
     }
     virtual void addBuiltin(const String& name, const HardValue& value) override {
-      auto added = this->symtable.add(VMSymbolTable::Kind::Builtin, name, value);
-      assert(added == VMSymbolTable::Kind::Unknown);
-      (void)added;
+      this->symtable.builtin(name, value);
     }
     virtual RunOutcome run(HardValue& retval, RunFlags flags) override {
       if (flags == RunFlags::Step) {
@@ -917,14 +918,15 @@ egg::ovum::IVMProgramRunner::RunOutcome VMProgramRunner::step(HardValue& retval)
       if (!top.node->literal->getString(symbol)) {
         return this->createFault(retval, "Invalid program node literal for variable symbol");
       }
-      switch (this->symtable.add(VMSymbolTable::Kind::Unset, symbol, HardValue::Void)) {
+      HardValue poly{ *this->vm.createSoftValue() };
+      switch (this->symtable.add(VMSymbolTable::Kind::Unset, symbol, poly)) {
       case VMSymbolTable::Kind::Unknown:
         break;
-      case VMSymbolTable::Kind::Builtin:
-        return this->createFault(retval, "Variable symbol already declared as a builtin: '", symbol, "'");
       case VMSymbolTable::Kind::Unset:
       case VMSymbolTable::Kind::Variable:
         return this->createFault(retval, "Variable symbol already declared: '", symbol, "'");
+      case VMSymbolTable::Kind::Builtin:
+        return this->createFault(retval, "Variable symbol already declared as a builtin: '", symbol, "'");
       }
     }
     if (!this->stepBlock(retval)) {
@@ -935,11 +937,11 @@ egg::ovum::IVMProgramRunner::RunOutcome VMProgramRunner::step(HardValue& retval)
       switch (this->symtable.remove(symbol)) {
       case VMSymbolTable::Kind::Unknown:
         return this->createFault(retval, "Unknown variable symbol: '", symbol, "'");
-      case VMSymbolTable::Kind::Builtin:
-        return this->createFault(retval, "Cannot undeclare builtin symbol: '", symbol, "'");
       case VMSymbolTable::Kind::Unset:
       case VMSymbolTable::Kind::Variable:
         break;
+      case VMSymbolTable::Kind::Builtin:
+        return this->createFault(retval, "Cannot undeclare builtin symbol: '", symbol, "'");
       }
       this->pop(retval);
     }
@@ -964,10 +966,11 @@ egg::ovum::IVMProgramRunner::RunOutcome VMProgramRunner::step(HardValue& retval)
       switch (this->symtable.set(symbol, value)) {
       case VMSymbolTable::Kind::Unknown:
         return this->createFault(retval, "Unknown variable symbol: '", symbol, "'");
+      case VMSymbolTable::Kind::Unset:
+        return this->createFault(retval, "Cannot set variable: '", symbol, "'"); // WIBBLE
       case VMSymbolTable::Kind::Builtin:
         return this->createFault(retval, "Cannot modify builtin symbol: '", symbol, "'");
       case VMSymbolTable::Kind::Variable:
-      case VMSymbolTable::Kind::Unset:
         break;
       }
       this->pop(HardValue::Void);
@@ -985,12 +988,11 @@ egg::ovum::IVMProgramRunner::RunOutcome VMProgramRunner::step(HardValue& retval)
       switch (this->symtable.lookup(symbol, lhs)) {
       case VMSymbolTable::Kind::Unknown:
         return this->createFault(retval, "Unknown variable symbol: '", symbol, "'");
-      case VMSymbolTable::Kind::Builtin:
-        return this->createFault(retval, "Cannot modify builtin symbol: '", symbol, "'");
+      case VMSymbolTable::Kind::Unset:
       case VMSymbolTable::Kind::Variable:
         break;
-      case VMSymbolTable::Kind::Unset:
-        return this->createFault(retval, "Variable uninitialized: '", symbol, "'");
+      case VMSymbolTable::Kind::Builtin:
+        return this->createFault(retval, "Cannot modify builtin symbol: '", symbol, "'");
       }
       if (top.index == 0) {
         assert(top.deque.size() == 0);
