@@ -171,7 +171,7 @@ namespace egg::test {
     ASSERT_EQ(egg::ovum::ValueFlags::Float, value->getFlags());
     egg::ovum::Float actual = std::nan("");
     ASSERT_TRUE(value->getFloat(actual));
-    ASSERT_EQ(expected, actual);
+    ASSERT_TRUE(egg::ovum::Arithmetic::equal(expected, actual, false));
   }
   inline void assertValue(const char* expected, const egg::ovum::HardValue& value) {
     if (expected == nullptr) {

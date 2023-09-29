@@ -237,3 +237,126 @@ TEST(TestValue, MutateIntShiftRightUnsigned) {
   ASSERT_VALUE(12345, a->mutate(egg::ovum::Mutation::ShiftRightUnsigned, b.get()));
   ASSERT_VALUE(12, a);
 }
+
+TEST(TestValue, MutateIntNoop) {
+  egg::test::Allocator allocator;
+  auto a = egg::ovum::ValueFactory::createInt(allocator, 12345);
+  ASSERT_VALUE(12345, a->mutate(egg::ovum::Mutation::Noop, egg::ovum::HardValue::Void.get()));
+  ASSERT_VALUE(12345, a);
+}
+
+TEST(TestValue, MutateFloatAssign) {
+  egg::test::Allocator allocator;
+  auto a = egg::ovum::ValueFactory::createFloat(allocator, 123.5);
+  auto b = egg::ovum::ValueFactory::createFloat(allocator, 1.25);
+  ASSERT_VALUE(123.5, a->mutate(egg::ovum::Mutation::Assign, b.get()));
+  ASSERT_VALUE(1.25, a);
+  ASSERT_THROWN("TODO: Invalid right-hand value for mutation assignment to float", a->mutate(egg::ovum::Mutation::Assign, egg::ovum::HardValue::True.get()));
+}
+
+TEST(TestValue, MutateFloatDecrement) {
+  egg::test::Allocator allocator;
+  auto a = egg::ovum::ValueFactory::createFloat(allocator, 123.5);
+  ASSERT_THROWN(nullptr, a->mutate(egg::ovum::Mutation::Decrement, egg::ovum::HardValue::Void.get()));
+}
+
+TEST(TestValue, MutateFloatIncrement) {
+  egg::test::Allocator allocator;
+  auto a = egg::ovum::ValueFactory::createFloat(allocator, 123.5);
+  ASSERT_THROWN(nullptr, a->mutate(egg::ovum::Mutation::Increment, egg::ovum::HardValue::Void.get()));
+}
+
+TEST(TestValue, MutateFloatAdd) {
+  egg::test::Allocator allocator;
+  auto a = egg::ovum::ValueFactory::createFloat(allocator, 123.5);
+  auto b = egg::ovum::ValueFactory::createFloat(allocator, 1.25);
+  ASSERT_VALUE(123.5, a->mutate(egg::ovum::Mutation::Add, b.get()));
+  ASSERT_VALUE(124.75, a);
+}
+
+TEST(TestValue, MutateFloatSubtract) {
+  egg::test::Allocator allocator;
+  auto a = egg::ovum::ValueFactory::createFloat(allocator, 123.5);
+  auto b = egg::ovum::ValueFactory::createFloat(allocator, 1.25);
+  ASSERT_VALUE(123.5, a->mutate(egg::ovum::Mutation::Subtract, b.get()));
+  ASSERT_VALUE(122.25, a);
+}
+
+TEST(TestValue, MutateFloatMultiply) {
+  egg::test::Allocator allocator;
+  auto a = egg::ovum::ValueFactory::createFloat(allocator, 123.5);
+  auto b = egg::ovum::ValueFactory::createFloat(allocator, 1.25);
+  ASSERT_VALUE(123.5, a->mutate(egg::ovum::Mutation::Multiply, b.get()));
+  ASSERT_VALUE(154.375, a);
+}
+
+TEST(TestValue, MutateFloatDivide) {
+  egg::test::Allocator allocator;
+  auto a = egg::ovum::ValueFactory::createFloat(allocator, 123.5);
+  auto b = egg::ovum::ValueFactory::createFloat(allocator, 1.25);
+  ASSERT_VALUE(123.5, a->mutate(egg::ovum::Mutation::Divide, b.get()));
+  ASSERT_VALUE(98.8, a);
+  b = egg::ovum::ValueFactory::createFloat(allocator, 0);
+  ASSERT_VALUE(98.8, a->mutate(egg::ovum::Mutation::Divide, b.get()));
+  ASSERT_VALUE(std::numeric_limits<double>::infinity(), a);
+}
+
+TEST(TestValue, MutateFloatRemainder) {
+  egg::test::Allocator allocator;
+  auto a = egg::ovum::ValueFactory::createFloat(allocator, 123.5);
+  auto b = egg::ovum::ValueFactory::createFloat(allocator, 1.25);
+  ASSERT_VALUE(123.5, a->mutate(egg::ovum::Mutation::Remainder, b.get()));
+  ASSERT_VALUE(1.0, a);
+  b = egg::ovum::ValueFactory::createFloat(allocator, 0);
+  ASSERT_VALUE(1.0, a->mutate(egg::ovum::Mutation::Remainder, b.get()));
+  ASSERT_VALUE(std::numeric_limits<double>::quiet_NaN(), a);
+}
+
+TEST(TestValue, MutateFloatBitwiseAnd) {
+  egg::test::Allocator allocator;
+  auto a = egg::ovum::ValueFactory::createFloat(allocator, 123.5);
+  auto b = egg::ovum::ValueFactory::createFloat(allocator, 1.25);
+  ASSERT_THROWN(nullptr, a->mutate(egg::ovum::Mutation::BitwiseAnd, b.get()));
+}
+
+TEST(TestValue, MutateFloatBitwiseOr) {
+  egg::test::Allocator allocator;
+  auto a = egg::ovum::ValueFactory::createFloat(allocator, 123.5);
+  auto b = egg::ovum::ValueFactory::createFloat(allocator, 1.25);
+  ASSERT_THROWN(nullptr, a->mutate(egg::ovum::Mutation::BitwiseOr, b.get()));
+}
+
+TEST(TestValue, MutateFloatBitwiseXor) {
+  egg::test::Allocator allocator;
+  auto a = egg::ovum::ValueFactory::createFloat(allocator, 123.5);
+  auto b = egg::ovum::ValueFactory::createFloat(allocator, 1.25);
+  ASSERT_THROWN(nullptr, a->mutate(egg::ovum::Mutation::BitwiseXor, b.get()));
+}
+
+TEST(TestValue, MutateFloatShiftLeft) {
+  egg::test::Allocator allocator;
+  auto a = egg::ovum::ValueFactory::createFloat(allocator, 123.5);
+  auto b = egg::ovum::ValueFactory::createInt(allocator, 10);
+  ASSERT_THROWN(nullptr, a->mutate(egg::ovum::Mutation::ShiftLeft, b.get()));
+}
+
+TEST(TestValue, MutateFloatShiftRight) {
+  egg::test::Allocator allocator;
+  auto a = egg::ovum::ValueFactory::createFloat(allocator, 123.5);
+  auto b = egg::ovum::ValueFactory::createInt(allocator, 10);
+  ASSERT_THROWN(nullptr, a->mutate(egg::ovum::Mutation::ShiftRight, b.get()));
+}
+
+TEST(TestValue, MutateFloatShiftRightUnsigned) {
+  egg::test::Allocator allocator;
+  auto a = egg::ovum::ValueFactory::createFloat(allocator, 123.5);
+  auto b = egg::ovum::ValueFactory::createInt(allocator, 10);
+  ASSERT_THROWN(nullptr, a->mutate(egg::ovum::Mutation::ShiftRightUnsigned, b.get()));
+}
+
+TEST(TestValue, MutateFloatNoop) {
+  egg::test::Allocator allocator;
+  auto a = egg::ovum::ValueFactory::createFloat(allocator, 123.5);
+  ASSERT_VALUE(123.5, a->mutate(egg::ovum::Mutation::Noop, egg::ovum::HardValue::Void.get()));
+  ASSERT_VALUE(123.5, a);
+}

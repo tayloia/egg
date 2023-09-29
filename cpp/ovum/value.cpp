@@ -224,7 +224,7 @@ namespace {
         return this->createException("TODO: Invalid right-hand value for mutation subtraction from integer");
       case Mutation::Multiply:
         if (rhs.getInt(rvalue)) {
-          return this->atomic([rvalue](Int lvalue) { return lvalue * rvalue; });
+          return this->createAtomic([rvalue](Int lvalue) { return lvalue * rvalue; });
         }
         return this->createException("TODO: Invalid right-hand value for mutation multiply by integer");
       case Mutation::Divide:
@@ -232,7 +232,7 @@ namespace {
           if (rvalue == 0) {
             return this->createException("TODO: Division by zero in mutation divide");
           }
-          return this->atomic([rvalue](Int lvalue) { return lvalue / rvalue; });
+          return this->createAtomic([rvalue](Int lvalue) { return lvalue / rvalue; });
         }
         return this->createException("TODO: Invalid right-hand value for mutation divide by integer");
       case Mutation::Remainder:
@@ -240,7 +240,7 @@ namespace {
           if (rvalue == 0) {
             return this->createException("TODO: Division by zero in mutation remainder");
           }
-          return this->atomic([rvalue](Int lvalue) { return lvalue % rvalue; });
+          return this->createAtomic([rvalue](Int lvalue) { return lvalue % rvalue; });
         }
         return this->createException("TODO: Invalid right-hand value for mutation remainder for integer");
       case Mutation::BitwiseAnd:
@@ -260,17 +260,17 @@ namespace {
         return this->createException("TODO: Invalid right-hand value for mutation bitwise-xor of integer");
       case Mutation::ShiftLeft:
         if (rhs.getInt(rvalue)) {
-          return this->atomic([rvalue](Int lvalue) { return Arithmetic::shift(Arithmetic::Shift::ShiftLeft, lvalue, rvalue); });
+          return this->createAtomic([rvalue](Int lvalue) { return Arithmetic::shift(Arithmetic::Shift::ShiftLeft, lvalue, rvalue); });
         }
         return this->createException("TODO: Invalid right-hand value for mutation shift left of integer");
       case Mutation::ShiftRight:
         if (rhs.getInt(rvalue)) {
-          return this->atomic([rvalue](Int lvalue) { return Arithmetic::shift(Arithmetic::Shift::ShiftRight, lvalue, rvalue); });
+          return this->createAtomic([rvalue](Int lvalue) { return Arithmetic::shift(Arithmetic::Shift::ShiftRight, lvalue, rvalue); });
         }
         return this->createException("TODO: Invalid right-hand value for mutation shift right of integer");
       case Mutation::ShiftRightUnsigned:
         if (rhs.getInt(rvalue)) {
-          return this->atomic([rvalue](Int lvalue) { return Arithmetic::shift(Arithmetic::Shift::ShiftRightUnsigned, lvalue, rvalue); });
+          return this->createAtomic([rvalue](Int lvalue) { return Arithmetic::shift(Arithmetic::Shift::ShiftRightUnsigned, lvalue, rvalue); });
         }
         return this->createException("TODO: Invalid right-hand value for mutation unsigned shift right of integer");
       case Mutation::Noop:
@@ -280,7 +280,7 @@ namespace {
       return this->createException("TODO: Unknown integer mutation operation");
     }
   private:
-    HardValue atomic(std::function<Int(Int)> eval) {
+    HardValue createAtomic(std::function<Int(Int)> eval) {
       Int before, after;
       do {
         before = this->value.get();
@@ -331,43 +331,64 @@ namespace {
         if (rhs.getFloat(rvalue)) {
           return this->createBefore(this->value.exchange(rvalue));
         }
-        return this->createException("TODO: Invalid right-hand value for mutation assignment to float"); // WIBBLE
+        return this->createException("TODO: Invalid right-hand value for mutation assignment to float");
       case Mutation::Decrement:
-        assert(rhs.getFlags() == ValueFlags::Void);
-        return this->createBefore(this->value.decrement() + 1);
+        return this->createException("TODO: Mutation decrement is unsupported for floats");
       case Mutation::Increment:
-        assert(rhs.getFlags() == ValueFlags::Void);
-        return this->createBefore(this->value.increment() - 1);
+        return this->createException("TODO: Mutation increment is unsupported for floats");
       case Mutation::Add:
-        return this->createException("TODO: Mutation '+' not supported for floats"); // WIBBLE
+        if (rhs.getFloat(rvalue)) {
+          return this->createBefore(this->value.add(rvalue));
+        }
+        return this->createException("TODO: Invalid right-hand value for mutation addition to integer");
       case Mutation::Subtract:
-        return this->createException("TODO: Mutation '-' not supported for floats"); // WIBBLE
+        if (rhs.getFloat(rvalue)) {
+          return this->createBefore(this->value.sub(rvalue));
+        }
+        return this->createException("TODO: Invalid right-hand value for mutation subtraction from integer");
       case Mutation::Multiply:
-        return this->createException("TODO: Mutation '*' not supported for floats"); // WIBBLE
+        if (rhs.getFloat(rvalue)) {
+          return this->createAtomic([rvalue](Float lvalue) { return lvalue * rvalue; });
+        }
+        return this->createException("TODO: Invalid right-hand value for mutation multiply by integer");
       case Mutation::Divide:
-        return this->createException("TODO: Mutation '/' not supported for floats"); // WIBBLE
+        if (rhs.getFloat(rvalue)) {
+          return this->createAtomic([rvalue](Float lvalue) { return lvalue / rvalue; });
+        }
+        return this->createException("TODO: Invalid right-hand value for mutation divide by integer");
       case Mutation::Remainder:
-        return this->createException("TODO: Mutation '%' not supported for floats"); // WIBBLE
+        if (rhs.getFloat(rvalue)) {
+          return this->createAtomic([rvalue](Float lvalue) { return std::fmod(lvalue, rvalue); });
+        }
+        return this->createException("TODO: Invalid right-hand value for mutation remainder for integer");
       case Mutation::BitwiseAnd:
-        return this->createException("TODO: Mutation '&' not supported for floats"); // WIBBLE
+        return this->createException("TODO: Mutation bitwise-and is unsupported for floats");
       case Mutation::BitwiseOr:
-        return this->createException("TODO: Mutation '|' not supported for floats"); // WIBBLE
+        return this->createException("TODO: Mutation bitwise-or is unsupported for floats");
       case Mutation::BitwiseXor:
-        return this->createException("TODO: Mutation '^' not supported for floats"); // WIBBLE
+        return this->createException("TODO: Mutation bitwise-xor is unsupported for floats");
       case Mutation::ShiftLeft:
-        return this->createException("TODO: Mutation '<<' not supported for floats"); // WIBBLE
+        return this->createException("TODO: Mutation shift left is unsupported for floats");
       case Mutation::ShiftRight:
-        return this->createException("TODO: Mutation '>>' not supported for floats"); // WIBBLE
+        return this->createException("TODO: Mutation shift right is unsupported for floats");
       case Mutation::ShiftRightUnsigned:
-        return this->createException("TODO: Mutation '>>>' not supported for floats"); // WIBBLE
+        return this->createException("TODO: Mutation unsigned shift right is unsupported for floats");
       case Mutation::Noop:
         assert(rhs.getFlags() == ValueFlags::Void);
         return this->createBefore(this->value.get());
       }
-      // TODO
-      return this->createException("TODO: Mutation operator unknown"); // WIBBLE
+      return this->createException("TODO: Unknown float mutation operation");
     }
   private:
+    HardValue createAtomic(std::function<Float(Float)> eval) {
+      // Don't use IEEE equality to detect updates
+      Float before, after;
+      do {
+        before = this->value.get();
+        after = eval(before);
+      } while (!Arithmetic::equal(this->value.update(before, after), before, false));
+      return ValueFactory::createFloat(this->allocator, before);
+    }
     HardValue createBefore(Float before) {
       return ValueFactory::createFloat(this->allocator, before);
     }
