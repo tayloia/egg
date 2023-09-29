@@ -59,9 +59,12 @@ namespace {
       // Cannot set an immutable instance
       return false;
     }
-    virtual bool mutate(Mutation, const IValue&) override {
-      // Cannot mutate an immutable instance
-      return false;
+    virtual HardValue mutate(Mutation op, const IValue&) override {
+      // There are very few valid mutation operations on immutables!
+      if (op == Mutation::Noop) {
+        return HardValue(*this);
+      }
+      return HardValue::Rethrow; // No allocator available
     }
     constexpr IValue& instance() const {
       return *const_cast<ValueImmutable*>(this);
@@ -157,6 +160,11 @@ namespace {
       // Assume all values are valid
       return this->atomic.get() >= 0;
     }
+  protected:
+    HardValue createException(const char* message) const {
+      auto inner = ValueFactory::createStringASCII(this->allocator, message);
+      return ValueFactory::createHardFlowControl(this->allocator, ValueFlags::Throw, inner);
+    }
   };
 
   class ValueInt final : public ValueMutable {
@@ -190,52 +198,52 @@ namespace {
       }
       return false;
     }
-    virtual bool mutate(Mutation op, const IValue& rhs) override {
+    virtual HardValue mutate(Mutation op, const IValue& rhs) override {
+      Int rvalue;
       switch (op) {
       case Mutation::Assign:
-        return this->set(rhs);
+        if (rhs.getInt(rvalue)) {
+          return this->createBefore(this->value.exchange(rvalue));
+        }
+        return this->createException("TODO: Invalid right-hand value for mutation assignment to integer"); // WIBBLE
       case Mutation::Decrement:
         assert(rhs.getFlags() == ValueFlags::Void);
-        this->value.decrement();
-        return true;
+        return this->createBefore(this->value.decrement() + 1);
       case Mutation::Increment:
         assert(rhs.getFlags() == ValueFlags::Void);
-        this->value.increment();
-        return true;
+        return this->createBefore(this->value.increment() - 1);
       case Mutation::Add:
-        return false; // WIBBLE
+        return this->createException("TODO: Mutation '+' not supported for integers"); // WIBBLE
       case Mutation::Subtract:
-        return false; // WIBBLE
+        return this->createException("TODO: Mutation '-' not supported for integers"); // WIBBLE
       case Mutation::Multiply:
-        return false; // WIBBLE
+        return this->createException("TODO: Mutation '*' not supported for integers"); // WIBBLE
       case Mutation::Divide:
-        return false; // WIBBLE
+        return this->createException("TODO: Mutation '/' not supported for integers"); // WIBBLE
       case Mutation::Remainder:
-        return false; // WIBBLE
+        return this->createException("TODO: Mutation '%' not supported for integers"); // WIBBLE
       case Mutation::BitwiseAnd:
-        return false; // WIBBLE
+        return this->createException("TODO: Mutation '&' not supported for integers"); // WIBBLE
       case Mutation::BitwiseOr:
-        return false; // WIBBLE
+        return this->createException("TODO: Mutation '|' not supported for integers"); // WIBBLE
       case Mutation::BitwiseXor:
-        return false; // WIBBLE
+        return this->createException("TODO: Mutation '^' not supported for integers"); // WIBBLE
       case Mutation::ShiftLeft:
-        return false; // WIBBLE
+        return this->createException("TODO: Mutation '<<' not supported for integers"); // WIBBLE
       case Mutation::ShiftRight:
-        return false; // WIBBLE
+        return this->createException("TODO: Mutation '>>' not supported for integers"); // WIBBLE
       case Mutation::ShiftRightUnsigned:
-        return false; // WIBBLE
-      case Mutation::IfNull:
-        return false; // WIBBLE
-      case Mutation::IfFalse:
-        return false; // WIBBLE
-      case Mutation::IfTrue:
-        return false; // WIBBLE
+        return this->createException("TODO: Mutation '>>>' not supported for integers"); // WIBBLE
       case Mutation::Noop:
         assert(rhs.getFlags() == ValueFlags::Void);
-        return true;
+        return HardValue(*this);
       }
       // TODO
-      return false;
+      return this->createException("TODO: Mutation operator unknown"); // WIBBLE
+    }
+  private:
+    HardValue createBefore(Int before) {
+      return ValueFactory::createInt(this->allocator, before);
     }
   };
 
@@ -270,52 +278,52 @@ namespace {
       }
       return false;
     }
-    virtual bool mutate(Mutation op, const IValue& rhs) override {
+    virtual HardValue mutate(Mutation op, const IValue& rhs) override {
+      Float rvalue;
       switch (op) {
       case Mutation::Assign:
-        return this->set(rhs);
+        if (rhs.getFloat(rvalue)) {
+          return this->createBefore(this->value.exchange(rvalue));
+        }
+        return this->createException("TODO: Invalid right-hand value for mutation assignment to float"); // WIBBLE
       case Mutation::Decrement:
         assert(rhs.getFlags() == ValueFlags::Void);
-        this->value.decrement();
-        return true;
+        return this->createBefore(this->value.decrement() + 1);
       case Mutation::Increment:
         assert(rhs.getFlags() == ValueFlags::Void);
-        this->value.increment();
-        return true;
+        return this->createBefore(this->value.increment() - 1);
       case Mutation::Add:
-        return false; // WIBBLE
+        return this->createException("TODO: Mutation '+' not supported for floats"); // WIBBLE
       case Mutation::Subtract:
-        return false; // WIBBLE
+        return this->createException("TODO: Mutation '-' not supported for floats"); // WIBBLE
       case Mutation::Multiply:
-        return false; // WIBBLE
+        return this->createException("TODO: Mutation '*' not supported for floats"); // WIBBLE
       case Mutation::Divide:
-        return false; // WIBBLE
+        return this->createException("TODO: Mutation '/' not supported for floats"); // WIBBLE
       case Mutation::Remainder:
-        return false; // WIBBLE
+        return this->createException("TODO: Mutation '%' not supported for floats"); // WIBBLE
       case Mutation::BitwiseAnd:
-        return false; // WIBBLE
+        return this->createException("TODO: Mutation '&' not supported for floats"); // WIBBLE
       case Mutation::BitwiseOr:
-        return false; // WIBBLE
+        return this->createException("TODO: Mutation '|' not supported for floats"); // WIBBLE
       case Mutation::BitwiseXor:
-        return false; // WIBBLE
+        return this->createException("TODO: Mutation '^' not supported for floats"); // WIBBLE
       case Mutation::ShiftLeft:
-        return false; // WIBBLE
+        return this->createException("TODO: Mutation '<<' not supported for floats"); // WIBBLE
       case Mutation::ShiftRight:
-        return false; // WIBBLE
+        return this->createException("TODO: Mutation '>>' not supported for floats"); // WIBBLE
       case Mutation::ShiftRightUnsigned:
-        return false; // WIBBLE
-      case Mutation::IfNull:
-        return false; // WIBBLE
-      case Mutation::IfFalse:
-        return false; // WIBBLE
-      case Mutation::IfTrue:
-        return false; // WIBBLE
+        return this->createException("TODO: Mutation '>>>' not supported for floats"); // WIBBLE
       case Mutation::Noop:
         assert(rhs.getFlags() == ValueFlags::Void);
-        return true;
+        return HardValue(*this);
       }
       // TODO
-      return false;
+      return this->createException("TODO: Mutation operator unknown"); // WIBBLE
+    }
+  private:
+    HardValue createBefore(Float before) {
+      return ValueFactory::createFloat(this->allocator, before);
     }
   };
 
@@ -349,12 +357,21 @@ namespace {
     virtual bool set(const IValue& rhs) override {
       return rhs.getString(this->value);
     }
-    virtual bool mutate(Mutation op, const IValue& rhs) override {
-      // There are few mutation operations on strings
+    virtual HardValue mutate(Mutation op, const IValue& rhs) override {
+      // There are few valid mutation operations on strings
       if (op == Mutation::Assign) {
-        return rhs.getString(this->value);
+        String rvalue;
+        if (rhs.getString(rvalue)) {
+          String before{ this->value.exchange(rvalue.get()) };
+          return ValueFactory::createString(this->allocator, before);
+        }
+        return this->createException("TODO: Invalid right-hand value for mutation assignment to string"); // WIBBLE
       }
-      return op == Mutation::Noop;
+      if (op == Mutation::Noop) {
+        assert(rhs.getFlags() == ValueFlags::Void);
+        return HardValue(*this);
+      }
+      return this->createException("TODO: Mutation not supported for strings"); // WIBBLE
     }
   };
 
@@ -387,12 +404,21 @@ namespace {
     virtual bool set(const IValue& rhs) override {
       return rhs.getHardObject(this->value);
     }
-    virtual bool mutate(Mutation op, const IValue& rhs) override {
-      // There are few mutation operations on objects
+    virtual HardValue mutate(Mutation op, const IValue& rhs) override {
+      // There are few valid mutation operations on objects
       if (op == Mutation::Assign) {
-        return rhs.getHardObject(this->value);
+        HardObject rvalue;
+        if (rhs.getHardObject(rvalue)) {
+          HardObject before{ this->value.exchange(rvalue.get()) };
+          return ValueFactory::createHardObject(this->allocator, before);
+        }
+        return this->createException("TODO: Invalid right-hand value for mutation assignment to object"); // WIBBLE
       }
-      return op == Mutation::Noop;
+      if (op == Mutation::Noop) {
+        assert(rhs.getFlags() == ValueFlags::Void);
+        return HardValue(*this);
+      }
+      return this->createException("TODO: Mutation not supported for objects"); // WIBBLE
     }
   };
 
@@ -434,9 +460,12 @@ namespace {
       // Flow controls are effectively immutable
       return false;
     }
-    virtual bool mutate(Mutation op, const IValue&) override {
-      // Flow controls are effectively immutable
-      return op == Mutation::Noop;
+    virtual HardValue mutate(Mutation op, const IValue&) override {
+      // There are few valid mutation operations on objects
+      if (op == Mutation::Noop) {
+        return HardValue(*this);
+      }
+      return this->createException("TODO: Mutation not supported for objects"); // WIBBLE
     }
   };
 
@@ -647,11 +676,49 @@ namespace {
       EGG_WARNING_SUPPRESS_SWITCH_END
       return false;
     }
-    virtual bool mutate(Mutation, const IValue&) override {
-      // WIBBLE mutate!
-      return false;
+    virtual HardValue mutate(Mutation op, const IValue& rhs) override {
+      (void)rhs; // WIBBLE
+      switch (op) {
+      case Mutation::Assign:
+        return this->createException("TODO: Mutation '=' not supported for poly"); // WIBBLE
+      case Mutation::Decrement:
+        return this->createException("TODO: Mutation '--' not supported for poly"); // WIBBLE
+      case Mutation::Increment:
+        return this->createException("TODO: Mutation '++' not supported for poly"); // WIBBLE
+      case Mutation::Add:
+        return this->createException("TODO: Mutation '+' not supported for poly"); // WIBBLE
+      case Mutation::Subtract:
+        return this->createException("TODO: Mutation '-' not supported for poly"); // WIBBLE
+      case Mutation::Multiply:
+        return this->createException("TODO: Mutation '*' not supported for poly"); // WIBBLE
+      case Mutation::Divide:
+        return this->createException("TODO: Mutation '/' not supported for poly"); // WIBBLE
+      case Mutation::Remainder:
+        return this->createException("TODO: Mutation '%' not supported for poly"); // WIBBLE
+      case Mutation::BitwiseAnd:
+        return this->createException("TODO: Mutation '&' not supported for poly"); // WIBBLE
+      case Mutation::BitwiseOr:
+        return this->createException("TODO: Mutation '|' not supported for poly"); // WIBBLE
+      case Mutation::BitwiseXor:
+        return this->createException("TODO: Mutation '^' not supported for poly"); // WIBBLE
+      case Mutation::ShiftLeft:
+        return this->createException("TODO: Mutation '<<' not supported for poly"); // WIBBLE
+      case Mutation::ShiftRight:
+        return this->createException("TODO: Mutation '>>' not supported for poly"); // WIBBLE
+      case Mutation::ShiftRightUnsigned:
+        return this->createException("TODO: Mutation '>>>' not supported for poly"); // WIBBLE
+      case Mutation::Noop:
+        assert(rhs.getFlags() == ValueFlags::Void);
+        return HardValue(*this);
+      }
+      // TODO
+      return this->createException("TODO: Mutation operator unknown"); // WIBBLE
     }
   private:
+    HardValue createException(const char* message) const {
+      auto inner = ValueFactory::createStringASCII(this->allocator, message);
+      return ValueFactory::createHardFlowControl(this->allocator, ValueFlags::Throw, inner);
+    }
     void destroy() {
       if (this->flags == ValueFlags::String) {
         this->svalue->hardRelease();

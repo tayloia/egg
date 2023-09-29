@@ -44,9 +44,6 @@ namespace egg::ovum {
     ShiftLeft,
     ShiftRight,
     ShiftRightUnsigned,
-    IfNull,
-    IfFalse,
-    IfTrue,
     Noop
   };
 

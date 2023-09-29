@@ -71,7 +71,7 @@ namespace egg::ovum {
   template<typename T>
   class HardPtr {
   private:
-    T* ptr;
+    Atomic<T*> ptr;
   public:
     HardPtr(std::nullptr_t = nullptr) : ptr(nullptr) {
     }
@@ -79,15 +79,13 @@ namespace egg::ovum {
     }
     HardPtr(const HardPtr& rhs) : ptr(rhs.hardAcquire()) {
     }
-    HardPtr(HardPtr&& rhs) noexcept : ptr(rhs.get()) {
-      rhs.ptr = nullptr;
+    HardPtr(HardPtr&& rhs) noexcept : ptr(rhs.exchange(nullptr)) {
     }
     template<typename U>
     HardPtr(const HardPtr<U>& rhs) : ptr(rhs.hardAcquire()) {
     }
     HardPtr& operator=(std::nullptr_t) {
-      this->ptr->hardRelease();
-      this->ptr = nullptr;
+      HardPtr::hardRelease(this->ptr.exchange(nullptr));
       return *this;
     }
     HardPtr& operator=(const HardPtr& rhs) {
@@ -95,12 +93,7 @@ namespace egg::ovum {
       return *this;
     }
     HardPtr& operator=(HardPtr&& rhs) noexcept {
-      assert(this != &rhs);
-      if (this->ptr != nullptr) {
-        this->ptr->hardRelease();
-      }
-      this->ptr = rhs.get();
-      rhs.ptr = nullptr;
+      HardPtr::hardRelease(this->ptr.exchange(rhs.exchange(nullptr)));
       return *this;
     }
     template<typename U>
@@ -109,42 +102,46 @@ namespace egg::ovum {
       return *this;
     }
     ~HardPtr() {
-      if (this->ptr != nullptr) {
-        this->ptr->hardRelease();
-      }
+      HardPtr::hardRelease(this->ptr.get());
     }
     T* hardAcquire() const {
-      return HardPtr::hardAcquire(this->ptr);
+      return HardPtr::hardAcquire(this->ptr.get());
     }
     T* get() const {
-      return this->ptr;
+      return this->ptr.get();
+    }
+    T* exchange(T* rhs) {
+      return this->ptr.exchange(rhs);
     }
     void set(T* rhs) {
-      const auto* old = this->ptr;
-      this->ptr = HardPtr::hardAcquire(rhs);
-      if (old != nullptr) {
-        old->hardRelease();
-      }
+      HardPtr::hardRelease(this->ptr.exchange(HardPtr::hardAcquire(rhs)));
     }
     T& operator*() const {
-      assert(this->ptr != nullptr);
-      return *this->ptr;
+      auto* p = this->ptr.get();
+      assert(p != nullptr);
+      return *p;
     }
     T* operator->() const {
-      assert(this->ptr != nullptr);
-      return this->ptr;
+      auto* p = this->ptr.get();
+      assert(p != nullptr);
+      return p;
     }
     bool operator==(std::nullptr_t) const {
-      return this->ptr == nullptr;
+      return this->ptr.get() == nullptr;
     }
     bool operator!=(std::nullptr_t) const {
-      return this->ptr != nullptr;
+      return this->ptr.get() != nullptr;
     }
     static T* hardAcquire(const T* ptr) {
       if (ptr != nullptr) {
         return static_cast<T*>(ptr->hardAcquire());
       }
       return nullptr;
+    }
+    static void hardRelease(const T* ptr) {
+      if (ptr != nullptr) {
+        ptr->hardRelease();
+      }
     }
   };
   template<typename T>

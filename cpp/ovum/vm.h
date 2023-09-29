@@ -108,9 +108,28 @@ namespace egg::ovum {
     };
     virtual HardValue evaluateBinaryOp(BinaryOp op, const HardValue& lhs, const HardValue& rhs) = 0;
     // Mutation operations
-    using MutationOp = Mutation;
-    virtual HardValue evaluateMutationOp1(MutationOp op, HardValue& lhs, ValueFlags rhs) = 0;
-    virtual HardValue evaluateMutationOp2(MutationOp op, HardValue& lhs, const HardValue& rhs) = 0;
+    enum class MutationOp {
+      Assign,
+      Decrement,
+      Increment,
+      Add,
+      Subtract,
+      Multiply,
+      Divide,
+      Remainder,
+      BitwiseAnd,
+      BitwiseOr,
+      BitwiseXor,
+      ShiftLeft,
+      ShiftRight,
+      ShiftRightUnsigned,
+      IfNull,
+      IfFalse,
+      IfTrue,
+      Noop // TODO cancels any pending prechecks on this thread
+    };
+    virtual HardValue precheckMutationOp(MutationOp op, HardValue& lhs, ValueFlags rhs) = 0;
+    virtual HardValue evaluateMutationOp(MutationOp op, HardValue& lhs, const HardValue& rhs) = 0;
   };
 
   class IVMCollectable : public ICollectable, public IVMCommon {

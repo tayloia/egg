@@ -441,7 +441,7 @@ namespace {
       }
       return this->raise("TODO: Unknown binary operator");
     }
-    virtual HardValue evaluateMutationOp1(MutationOp op, HardValue& lhs, ValueFlags rhs) override {
+    virtual HardValue precheckMutationOp(MutationOp op, HardValue& lhs, ValueFlags rhs) override {
       // Handle short-circuits (returns 'Continue' if rhs should be evaluated)
       Bool bvalue;
       EGG_WARNING_SUPPRESS_SWITCH_BEGIN
@@ -492,9 +492,57 @@ namespace {
       EGG_WARNING_SUPPRESS_SWITCH_END
       return HardValue::Continue;
     }
-    virtual HardValue evaluateMutationOp2(MutationOp op, HardValue& lhs, const HardValue& rhs) override {
-      if (!lhs->mutate(op, rhs.get())) {
-        return this->raise("WIBBLE: evaluateMutationOp2 failed");
+    virtual HardValue evaluateMutationOp(MutationOp op, HardValue& lhs, const HardValue& rhs) override {
+      // Return the value before the mutation
+      HardValue before;
+      Bool bvalue; (void)bvalue; // WIBBLE
+      switch (op) {
+      case MutationOp::Assign:
+        return lhs->mutate(Mutation::Assign, rhs.get());
+      case MutationOp::Decrement:
+        assert(rhs->getFlags() == ValueFlags::Void);
+        return lhs->mutate(Mutation::Decrement, rhs.get());
+      case MutationOp::Increment:
+        assert(rhs->getFlags() == ValueFlags::Void);
+        return lhs->mutate(Mutation::Increment, rhs.get());
+      case MutationOp::Add:
+        return lhs->mutate(Mutation::Add, rhs.get());
+      case MutationOp::Subtract:
+        return lhs->mutate(Mutation::Subtract, rhs.get());
+      case MutationOp::Multiply:
+        return lhs->mutate(Mutation::Multiply, rhs.get());
+      case MutationOp::Divide:
+        return lhs->mutate(Mutation::Divide, rhs.get());
+        break;
+      case MutationOp::Remainder:
+        return lhs->mutate(Mutation::Remainder, rhs.get());
+      case MutationOp::BitwiseAnd:
+        return lhs->mutate(Mutation::BitwiseAnd, rhs.get());
+      case MutationOp::BitwiseOr:
+        return lhs->mutate(Mutation::BitwiseOr, rhs.get());
+      case MutationOp::BitwiseXor:
+        return lhs->mutate(Mutation::BitwiseXor, rhs.get());
+      case MutationOp::ShiftLeft:
+        return lhs->mutate(Mutation::ShiftLeft, rhs.get());
+      case MutationOp::ShiftRight:
+        return lhs->mutate(Mutation::ShiftRight, rhs.get());
+      case MutationOp::ShiftRightUnsigned:
+        return lhs->mutate(Mutation::ShiftRightUnsigned, rhs.get());
+      case MutationOp::IfNull:
+        // The condition was already tested in 'precheckMutationOp()'
+        assert(lhs->getNull()); // TODO remove because of thread safety
+        return rhs;
+      case MutationOp::IfFalse:
+        // The condition was already tested in 'precheckMutationOp()'
+        assert(lhs->getBool(bvalue) && !bvalue); // TODO remove because of thread safety
+        return rhs;
+      case MutationOp::IfTrue:
+        // The condition was already tested in 'precheckMutationOp()'
+        assert(lhs->getBool(bvalue) && bvalue); // TODO remove because of thread safety
+        return rhs;
+      case MutationOp::Noop:
+        assert(rhs->getFlags() == ValueFlags::Void);
+        return lhs->mutate(Mutation::Noop, rhs.get());
       }
       return lhs;
     }
@@ -947,7 +995,7 @@ egg::ovum::IVMProgramRunner::RunOutcome VMProgramRunner::step(HardValue& retval)
       if (top.index == 0) {
         assert(top.deque.size() == 0);
         // TODO: Get correct rhs static type
-        auto result = this->execution.evaluateMutationOp1(top.node->mutationOp, lhs, ValueFlags::AnyQ);
+        auto result = this->execution.precheckMutationOp(top.node->mutationOp, lhs, ValueFlags::AnyQ);
         if (!result.hasFlowControl()) {
           // Short-circuit
           this->pop(HardValue::Void);
@@ -966,9 +1014,9 @@ egg::ovum::IVMProgramRunner::RunOutcome VMProgramRunner::step(HardValue& retval)
           retval = rhs;
           return this->faulted(retval);
         }
-        auto result = this->execution.evaluateMutationOp2(top.node->mutationOp, lhs, rhs);
-        if (result.hasFlowControl()) {
-          retval = result;
+        auto before = this->execution.evaluateMutationOp(top.node->mutationOp, lhs, rhs);
+        if (before.hasFlowControl()) {
+          retval = before;
           return this->faulted(retval);
         }
         this->pop(HardValue::Void);
