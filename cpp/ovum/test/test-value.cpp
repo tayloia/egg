@@ -252,6 +252,9 @@ TEST(TestValue, MutateFloatAssign) {
   ASSERT_VALUE(123.5, a->mutate(egg::ovum::Mutation::Assign, b.get()));
   ASSERT_VALUE(1.25, a);
   ASSERT_THROWN("TODO: Invalid right-hand value for mutation assignment to float", a->mutate(egg::ovum::Mutation::Assign, egg::ovum::HardValue::True.get()));
+  auto i = egg::ovum::ValueFactory::createInt(allocator, 10);
+  ASSERT_VALUE(1.25, a->mutate(egg::ovum::Mutation::Assign, i.get()));
+  ASSERT_VALUE(10.0, a);
 }
 
 TEST(TestValue, MutateFloatDecrement) {
@@ -272,6 +275,9 @@ TEST(TestValue, MutateFloatAdd) {
   auto b = egg::ovum::ValueFactory::createFloat(allocator, 1.25);
   ASSERT_VALUE(123.5, a->mutate(egg::ovum::Mutation::Add, b.get()));
   ASSERT_VALUE(124.75, a);
+  auto i = egg::ovum::ValueFactory::createInt(allocator, 10);
+  ASSERT_VALUE(124.75, a->mutate(egg::ovum::Mutation::Add, i.get()));
+  ASSERT_VALUE(134.75, a);
 }
 
 TEST(TestValue, MutateFloatSubtract) {
@@ -280,6 +286,9 @@ TEST(TestValue, MutateFloatSubtract) {
   auto b = egg::ovum::ValueFactory::createFloat(allocator, 1.25);
   ASSERT_VALUE(123.5, a->mutate(egg::ovum::Mutation::Subtract, b.get()));
   ASSERT_VALUE(122.25, a);
+  auto i = egg::ovum::ValueFactory::createInt(allocator, 10);
+  ASSERT_VALUE(122.25, a->mutate(egg::ovum::Mutation::Subtract, i.get()));
+  ASSERT_VALUE(112.25, a);
 }
 
 TEST(TestValue, MutateFloatMultiply) {
@@ -288,6 +297,9 @@ TEST(TestValue, MutateFloatMultiply) {
   auto b = egg::ovum::ValueFactory::createFloat(allocator, 1.25);
   ASSERT_VALUE(123.5, a->mutate(egg::ovum::Mutation::Multiply, b.get()));
   ASSERT_VALUE(154.375, a);
+  auto i = egg::ovum::ValueFactory::createInt(allocator, 10);
+  ASSERT_VALUE(154.375, a->mutate(egg::ovum::Mutation::Multiply, i.get()));
+  ASSERT_VALUE(1543.75, a);
 }
 
 TEST(TestValue, MutateFloatDivide) {
@@ -296,8 +308,11 @@ TEST(TestValue, MutateFloatDivide) {
   auto b = egg::ovum::ValueFactory::createFloat(allocator, 1.25);
   ASSERT_VALUE(123.5, a->mutate(egg::ovum::Mutation::Divide, b.get()));
   ASSERT_VALUE(98.8, a);
+  auto i = egg::ovum::ValueFactory::createInt(allocator, 10);
+  ASSERT_VALUE(98.8, a->mutate(egg::ovum::Mutation::Divide, i.get()));
+  ASSERT_VALUE(9.88, a);
   b = egg::ovum::ValueFactory::createFloat(allocator, 0);
-  ASSERT_VALUE(98.8, a->mutate(egg::ovum::Mutation::Divide, b.get()));
+  ASSERT_VALUE(9.88, a->mutate(egg::ovum::Mutation::Divide, b.get()));
   ASSERT_VALUE(std::numeric_limits<double>::infinity(), a);
 }
 
