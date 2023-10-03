@@ -2,6 +2,7 @@ namespace egg::ovum {
   class Arithmetic {
   public:
     static const size_t DEFAULT_SIGFIGS = 12;
+
     enum class Compare {
       LessThan,
       LessThanOrEqual,
@@ -10,6 +11,7 @@ namespace egg::ovum {
       GreaterThanOrEqual,
       GreaterThan
     };
+
     enum class Shift {
       ShiftLeft,
       ShiftRight,

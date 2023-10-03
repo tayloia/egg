@@ -808,13 +808,13 @@ namespace {
         if (this->flags == ValueFlags::Int) {
           return this->createBeforeInt(this->ivalue.add(-1));
         }
-        return this->createException("TODO: Mutation decrement is only supported for integers");
+        return this->createException("TODO: Mutation decrement is only supported for values of type 'int'");
       case Mutation::Increment:
         assert(rhs.getFlags() == ValueFlags::Void);
         if (this->flags == ValueFlags::Int) {
           return this->createBeforeInt(this->ivalue.add(+1));
         }
-        return this->createException("TODO: Mutation increment is only supported for integers");
+        return this->createException("TODO: Mutation increment is only supported for values of type 'int'");
       case Mutation::Add:
         return this->createArithmetic(rhs,
                                       [this](Int rvalue) { return this->ivalue.add(rvalue); },
@@ -875,8 +875,7 @@ namespace {
         assert(rhs.getFlags() == ValueFlags::Void);
         return this->hardClone();
       }
-      // TODO
-      return this->createException("TODO: Mutation operator unknown"); // WIBBLE
+      return this->createException("TODO: Unknown mutation");
     }
   private:
     HardValue createBeforeInt(Int before) {

@@ -498,7 +498,6 @@ namespace {
     virtual HardValue evaluateMutationOp(MutationOp op, HardValue& lhs, const HardValue& rhs) override {
       // Return the value before the mutation
       HardValue before;
-      Bool bvalue; (void)bvalue; // WIBBLE
       switch (op) {
       case MutationOp::Assign:
         return lhs->mutate(Mutation::Assign, rhs.get());
@@ -516,7 +515,6 @@ namespace {
         return lhs->mutate(Mutation::Multiply, rhs.get());
       case MutationOp::Divide:
         return lhs->mutate(Mutation::Divide, rhs.get());
-        break;
       case MutationOp::Remainder:
         return lhs->mutate(Mutation::Remainder, rhs.get());
       case MutationOp::BitwiseAnd:
@@ -532,16 +530,9 @@ namespace {
       case MutationOp::ShiftRightUnsigned:
         return lhs->mutate(Mutation::ShiftRightUnsigned, rhs.get());
       case MutationOp::IfNull:
-        // The condition was already tested in 'precheckMutationOp()'
-        assert(lhs->getNull()); // TODO remove because of thread safety
-        return rhs;
       case MutationOp::IfFalse:
-        // The condition was already tested in 'precheckMutationOp()'
-        assert(lhs->getBool(bvalue) && !bvalue); // TODO remove because of thread safety
-        return rhs;
       case MutationOp::IfTrue:
         // The condition was already tested in 'precheckMutationOp()'
-        assert(lhs->getBool(bvalue) && bvalue); // TODO remove because of thread safety
         return rhs;
       case MutationOp::Noop:
         assert(rhs->getFlags() == ValueFlags::Void);
@@ -967,7 +958,7 @@ egg::ovum::IVMProgramRunner::RunOutcome VMProgramRunner::step(HardValue& retval)
       case VMSymbolTable::Kind::Unknown:
         return this->createFault(retval, "Unknown variable symbol: '", symbol, "'");
       case VMSymbolTable::Kind::Unset:
-        return this->createFault(retval, "Cannot set variable: '", symbol, "'"); // WIBBLE
+        return this->createFault(retval, "Cannot set variable: '", symbol, "'");
       case VMSymbolTable::Kind::Builtin:
         return this->createFault(retval, "Cannot modify builtin symbol: '", symbol, "'");
       case VMSymbolTable::Kind::Variable:
@@ -999,7 +990,7 @@ egg::ovum::IVMProgramRunner::RunOutcome VMProgramRunner::step(HardValue& retval)
         // TODO: Get correct rhs static type
         auto result = this->execution.precheckMutationOp(top.node->mutationOp, lhs, ValueFlags::AnyQ);
         if (!result.hasFlowControl()) {
-          // Short-circuit
+          // Short-circuit (discard result)
           this->pop(HardValue::Void);
         } else if (result->getFlags() == ValueFlags::Continue) {
           // Continue with evaluation of rhs
