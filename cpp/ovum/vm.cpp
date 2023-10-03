@@ -566,7 +566,8 @@ public:
     StmtFunctionCall,
     StmtIf,
     StmtWhile,
-    StmtDo
+    StmtDo,
+    StmtFor
   };
   Kind kind;
   HardValue literal; // Only stores simple literals
@@ -675,14 +676,25 @@ namespace {
       node.addChild(condition);
       return node;
     }
-    virtual Node& stmtWhile(Node& condition) override {
+    virtual Node& stmtWhile(Node& condition, Node& block) override {
       auto& node = this->makeNode(Node::Kind::StmtWhile);
+      node.addChild(condition);
+      node.addChild(block);
+      return node;
+    }
+    virtual Node& stmtDo(Node& block, Node& condition) override {
+      auto& node = this->makeNode(Node::Kind::StmtDo);
+      node.addChild(block);
       node.addChild(condition);
       return node;
     }
-    virtual Node& stmtDo(Node& condition) override {
-      auto& node = this->makeNode(Node::Kind::StmtDo);
+    virtual Node& stmtFor(Node& initial, Node& condition, Node& advance, Node& block) override {
+      // Note the change in order to be execution-based (initial/condition/block/advance)
+      auto& node = this->makeNode(Node::Kind::StmtFor);
+      node.addChild(initial);
       node.addChild(condition);
+      node.addChild(block);
+      node.addChild(advance);
       return node;
     }
     virtual Node& stmtVariableDeclare(const String& name) override {
@@ -1104,7 +1116,6 @@ egg::ovum::IVMProgramRunner::RunOutcome VMProgramRunner::stepNode(HardValue& ret
     }
     break;
   case IVMProgram::Node::Kind::StmtIf:
-    assert(top.node->literal->getVoid());
     assert((top.node->children.size() == 2) || (top.node->children.size() == 3));
     assert(top.index <= top.node->children.size());
     if (top.index == 0) {
@@ -1156,19 +1167,17 @@ egg::ovum::IVMProgramRunner::RunOutcome VMProgramRunner::stepNode(HardValue& ret
     }
     break;
   case IVMProgram::Node::Kind::StmtWhile:
-    assert(top.node->literal->getVoid());
     assert(top.node->children.size() == 2);
     assert(top.index <= 2);
     if (top.index == 0) {
-      // Scope any declare variable
+      // Scope any declared variable
       if (!this->variableScopeBegin(retval, top)) {
         // TODO: while (var v = a) {}
         return RunOutcome::Faulted;
       }
       // Evaluate the condition
       assert(top.deque.empty());
-      this->push(*top.node->children[0]);
-      top.index = 1;
+      this->push(*top.node->children[top.index++]);
     } else {
       assert(top.deque.size() == 1);
       auto& latest = top.deque.back();
@@ -1211,8 +1220,7 @@ egg::ovum::IVMProgramRunner::RunOutcome VMProgramRunner::stepNode(HardValue& ret
     assert(top.scope.empty());
     if (top.index == 0) {
       // Perform the controlled block
-      this->push(*top.node->children[1]);
-      top.index = 1;
+      this->push(*top.node->children[top.index++]);
     } else {
       assert(top.deque.size() == 1);
       auto& latest = top.deque.back();
@@ -1226,8 +1234,7 @@ egg::ovum::IVMProgramRunner::RunOutcome VMProgramRunner::stepNode(HardValue& ret
         assert(latest->getVoid());
         top.deque.clear();
         // Evaluate the condition
-        this->push(*top.node->children[0]);
-        top.index = 2;
+        this->push(*top.node->children[top.index++]);
       } else {
         // Test the condition
         Bool condition;
@@ -1237,12 +1244,68 @@ egg::ovum::IVMProgramRunner::RunOutcome VMProgramRunner::stepNode(HardValue& ret
         top.deque.clear();
         if (condition) {
           // Perform the controlled block again
-          this->push(*top.node->children[1]);
+          this->push(*top.node->children[0]);
           top.index = 1;
         } else {
           // The condition failed
           this->pop(HardValue::Void);
         }
+      }
+    }
+    break;
+  case IVMProgram::Node::Kind::StmtFor:
+    assert(top.node->children.size() == 4);
+    assert(top.index <= 4);
+    if (top.index == 0) {
+      // Scope any declared variable
+      if (!this->variableScopeBegin(retval, top)) {
+        // TODO: for (var v = a; ...) {}
+        return RunOutcome::Faulted;
+      }
+      // Perform 'initial'
+      assert(top.deque.empty());
+      this->push(*top.node->children[top.index++]);
+    } else {
+      assert(top.deque.size() == 1);
+      auto& latest = top.deque.back();
+      if (latest.hasFlowControl()) {
+        // TODO break and continue
+        retval = latest;
+        return this->faulted(retval);
+      }
+      if (top.index == 1) {
+        // Evaluate the condition
+        assert(latest->getVoid());
+        top.deque.clear();
+        this->push(*top.node->children[top.index++]);
+      } else if (top.index == 2) {
+        // Test the condition
+        Bool condition;
+        if (!latest->getBool(condition)) {
+          return this->createFault(retval, "Statement 'for' condition expected to be a value of type 'bool'");
+        }
+        top.deque.clear();
+        if (condition) {
+          // Perform the controlled block
+          this->push(*top.node->children[top.index++]);
+        } else {
+          // The condition failed
+          if (!this->variableScopeEnd(retval, top.scope)) {
+            return RunOutcome::Faulted;
+          }
+          this->pop(HardValue::Void);
+        }
+      } else if (top.index == 3) {
+        // The controlled block has completed so perform 'advance'
+        assert(latest->getVoid());
+        top.deque.clear();
+        this->push(*top.node->children[top.index++]);
+      } else {
+        // The third clause has completed so re-evaluate the condition
+        assert(latest->getVoid());
+        top.deque.clear();
+        this->push(*top.node->children[1]);
+        top.index = 2;
       }
     }
     break;

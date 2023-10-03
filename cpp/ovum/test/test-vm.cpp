@@ -14,9 +14,10 @@
 #define EXPR_PROP_GET(instance, property) builder->exprPropertyGet(instance, property)
 #define EXPR_VAR(name) builder->exprVariable(builder->createString(name))
 #define STMT_BLOCK(...) builder->glue(builder->stmtBlock() COMMA(__VA_ARGS__))
-#define STMT_IF(expr, ...) builder->glue(builder->stmtIf(expr) COMMA(__VA_ARGS__))
-#define STMT_WHILE(expr, ...) builder->glue(builder->stmtWhile(expr) COMMA(__VA_ARGS__))
-#define STMT_DO(expr, ...) builder->glue(builder->stmtDo(expr) COMMA(__VA_ARGS__))
+#define STMT_IF(cond, ...) builder->glue(builder->stmtIf(cond) COMMA(__VA_ARGS__))
+#define STMT_WHILE(cond, block) builder->stmtWhile(cond, block)
+#define STMT_DO(block, cond) builder->stmtDo(block, cond)
+#define STMT_FOR(init, cond, advance, block) builder->stmtFor(init, cond, advance, block)
 #define STMT_CALL(func, ...) builder->glue(builder->stmtFunctionCall(func) COMMA(__VA_ARGS__))
 #define STMT_PRINT(...) builder->glue(builder->stmtFunctionCall(EXPR_VAR("print")) COMMA(__VA_ARGS__))
 #define STMT_PROP_SET(instance, property, value) builder->stmtPropertySet(instance, property, value)
@@ -1324,13 +1325,38 @@ TEST(TestVM, Do) {
     // var i = 1;
     STMT_VAR_DEFINE("i", EXPR_LITERAL(1),
       // do ... while (i < 10)
-      STMT_DO(EXPR_BINARY(LessThan, EXPR_VAR("i"), EXPR_LITERAL(10)),
+      STMT_DO(
         STMT_BLOCK(
           // print(i);
           STMT_PRINT(EXPR_VAR("i")),
           // ++i;
           STMT_VAR_MUTATE("i", Increment, EXPR_LITERAL(VOID))
-        )
+        ),
+        EXPR_BINARY(LessThan, EXPR_VAR("i"), EXPR_LITERAL(10))
+      )
+    )
+  );
+  buildAndRunSuccess(vm, *builder);
+  ASSERT_EQ("1\n2\n3\n4\n5\n6\n7\n8\n9\n", vm.logger.logged.str());
+}
+
+
+TEST(TestVM, For) {
+  egg::test::VM vm;
+  auto builder = vm->createProgramBuilder();
+  builder->addStatement(
+    // var i;
+    STMT_VAR_DECLARE("i",
+      // for (...)
+      STMT_FOR(
+        // i = 1;
+        STMT_VAR_SET("i", EXPR_LITERAL(1)),
+        // i < 10;
+        EXPR_BINARY(LessThan, EXPR_VAR("i"), EXPR_LITERAL(10)),
+        // ++i;
+        STMT_VAR_MUTATE("i", Increment, EXPR_LITERAL(VOID)),
+        // print(i);
+        STMT_PRINT(EXPR_VAR("i"))
       )
     )
   );

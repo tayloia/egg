@@ -174,8 +174,10 @@ namespace egg::ovum {
     // Statement factories
     virtual Node& stmtBlock() = 0;
     virtual Node& stmtIf(Node& condition) = 0;
-    virtual Node& stmtWhile(Node& condition) = 0;
-    virtual Node& stmtDo(Node& condition) = 0;
+    virtual Node& stmtWhile(Node& condition, Node& block) = 0;
+    virtual Node& stmtDo(Node& block, Node& condition) = 0;
+    virtual Node& stmtFor(Node& initial, Node& condition, Node& advance, Node& block) = 0;
+    // WIBBLE virtual Node& stmtFor(Node& initial , Node& condition, Node& advance) = 0;
     virtual Node& stmtVariableDeclare(const String& name) = 0;
     virtual Node& stmtVariableDefine(const String& name, Node& value) = 0;
     virtual Node& stmtVariableSet(const String& name, Node& value) = 0;
