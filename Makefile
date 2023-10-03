@@ -80,11 +80,15 @@ default: all
 
 # We create dependency files (*.d) at the same time as compiling the source
 $(OBJ_DIR)/%.o: %.cpp
+$(OBJ_DIR)/%.o: %.cpp $(OBJ_DIR)/%.d
 	$(ECHO) Compiling $(PLATFORM) $(TOOLCHAIN) $(CONFIGURATION) $<
 	$(call compile,$<,$(OBJ_DIR)/$*.o,$(OBJ_DIR)/$*.d)
 
+# See https://make.mad-scientist.net/papers/advanced-auto-dependency-generation
+$(ALL_OBJS:.o=.d):
+
 # Include the generated dependencies
--include $(ALL_OBJS:.o=.d)
+include $(ALL_OBJS:.o=.d)
 
 # Rule for creating libraries from object files
 %.a:
