@@ -1034,7 +1034,7 @@ TEST(TestVM, MutateAdd) {
   ADD_STATEMENT_MUTATE(Add, 123, "bad");
   buildAndRunFault(vm, *builder);
   ASSERT_EQ("12345\n12345.0\n12468\n12468.5\n12468.5\n136.75\n"
-            "<ERROR>throw TODO: Mutation addition is only supported for arithmetic types\n",
+            "<ERROR>throw TODO: Mutation addition is only supported for values of type 'int' or 'float'\n",
             vm.logger.logged.str());
 }
 
@@ -1050,7 +1050,7 @@ TEST(TestVM, MutateSubtract) {
   ADD_STATEMENT_MUTATE(Subtract, 123, "bad");
   buildAndRunFault(vm, *builder);
   ASSERT_EQ("12345\n12345.0\n12222\n12221.5\n-12221.5\n110.25\n"
-            "<ERROR>throw TODO: Mutation subtract is only supported for arithmetic types\n",
+            "<ERROR>throw TODO: Mutation subtract is only supported for values of type 'int' or 'float'\n",
             vm.logger.logged.str());
 }
 
@@ -1066,7 +1066,7 @@ TEST(TestVM, MutateMultiply) {
   ADD_STATEMENT_MUTATE(Multiply, 123, "bad");
   buildAndRunFault(vm, *builder);
   ASSERT_EQ("0\n0.0\n1518435\n1524607.5\n1524607.5\n1636.375\n"
-            "<ERROR>throw TODO: Mutation multiply is only supported for arithmetic types\n",
+            "<ERROR>throw TODO: Mutation multiply is only supported for values of type 'int' or 'float'\n",
             vm.logger.logged.str());
 }
 
@@ -1078,7 +1078,7 @@ TEST(TestVM, MutateDivide) {
   ADD_STATEMENT_MUTATE(Divide, 12345, 2.5); // 4938.0
   ADD_STATEMENT_MUTATE(Divide, 123.5, 2); // 61.75
   ADD_STATEMENT_MUTATE(Divide, 123.5, 2.5); // 49.4
-  ADD_STATEMENT_MUTATE(Divide, 12345, 0); // fault
+  ADD_STATEMENT_MUTATE(Divide, 12345, 0);
   buildAndRunFault(vm, *builder);
   ASSERT_EQ("#+INF\n4938.0\n4938.0\n61.75\n49.4\n"
             "<ERROR>throw TODO: Division by zero in mutation divide\n",
@@ -1093,9 +1093,96 @@ TEST(TestVM, MutateRemainder) {
   ADD_STATEMENT_MUTATE(Remainder, 12345, 3.5); // 0.5
   ADD_STATEMENT_MUTATE(Remainder, 123.5, 2); // 1.5
   ADD_STATEMENT_MUTATE(Remainder, 123.5, 1.5); // 0.5
-  ADD_STATEMENT_MUTATE(Remainder, 12345, 0); // fault
+  ADD_STATEMENT_MUTATE(Remainder, 12345, 0);
   buildAndRunFault(vm, *builder);
   ASSERT_EQ("#NAN\n0.5\n0.5\n1.5\n0.5\n"
             "<ERROR>throw TODO: Division by zero in mutation remainder\n",
+            vm.logger.logged.str());
+}
+
+TEST(TestVM, MutateBitwiseAnd) {
+  egg::test::VM vm;
+  auto builder = vm->createProgramBuilder();
+  ADD_STATEMENT_MUTATE(BitwiseAnd, false, false); // false
+  ADD_STATEMENT_MUTATE(BitwiseAnd, false, true); // false
+  ADD_STATEMENT_MUTATE(BitwiseAnd, true, false); // false
+  ADD_STATEMENT_MUTATE(BitwiseAnd, true, true); // true
+  ADD_STATEMENT_MUTATE(BitwiseAnd, 12345, 10); // 8
+  ADD_STATEMENT_MUTATE(BitwiseAnd, 12345, false);
+  buildAndRunFault(vm, *builder);
+  ASSERT_EQ("false\nfalse\nfalse\ntrue\n8\n"
+            "<ERROR>throw TODO: Mutation bitwise-and is only supported for values of type 'bool' or 'int'\n",
+            vm.logger.logged.str());
+}
+
+TEST(TestVM, MutateBitwiseOr) {
+  egg::test::VM vm;
+  auto builder = vm->createProgramBuilder();
+  ADD_STATEMENT_MUTATE(BitwiseOr, false, false); // false
+  ADD_STATEMENT_MUTATE(BitwiseOr, false, true); // true
+  ADD_STATEMENT_MUTATE(BitwiseOr, true, false); // true
+  ADD_STATEMENT_MUTATE(BitwiseOr, true, true); // true
+  ADD_STATEMENT_MUTATE(BitwiseOr, 12345, 10); // 12347
+  ADD_STATEMENT_MUTATE(BitwiseOr, 12345, false);
+  buildAndRunFault(vm, *builder);
+  ASSERT_EQ("false\ntrue\ntrue\ntrue\n12347\n"
+            "<ERROR>throw TODO: Mutation bitwise-or is only supported for values of type 'bool' or 'int'\n",
+            vm.logger.logged.str());
+}
+
+TEST(TestVM, MutateBitwiseXor) {
+  egg::test::VM vm;
+  auto builder = vm->createProgramBuilder();
+  ADD_STATEMENT_MUTATE(BitwiseXor, false, false); // false
+  ADD_STATEMENT_MUTATE(BitwiseXor, false, true); // true
+  ADD_STATEMENT_MUTATE(BitwiseXor, true, false); // true
+  ADD_STATEMENT_MUTATE(BitwiseXor, true, true); // false
+  ADD_STATEMENT_MUTATE(BitwiseXor, 12345, 10); // 12339
+  ADD_STATEMENT_MUTATE(BitwiseXor, 12345, false);
+  buildAndRunFault(vm, *builder);
+  ASSERT_EQ("false\ntrue\ntrue\nfalse\n12339\n"
+            "<ERROR>throw TODO: Mutation bitwise-xor is only supported for values of type 'bool' or 'int'\n",
+            vm.logger.logged.str());
+}
+
+TEST(TestVM, MutateShiftLeft) {
+  egg::test::VM vm;
+  auto builder = vm->createProgramBuilder();
+  ADD_STATEMENT_MUTATE(ShiftLeft, 12345, 10); // 12641280
+  ADD_STATEMENT_MUTATE(ShiftLeft, 12345, -10); // 12
+  ADD_STATEMENT_MUTATE(ShiftLeft, -12345, 10); // -12641280
+  ADD_STATEMENT_MUTATE(ShiftLeft, -12345, -10); // -13
+  ADD_STATEMENT_MUTATE(ShiftLeft, 12345, false);
+  buildAndRunFault(vm, *builder);
+  ASSERT_EQ("12641280\n12\n-12641280\n-13\n"
+            "<ERROR>throw TODO: Mutation shift left is only supported for values of type 'int'\n",
+            vm.logger.logged.str());
+}
+
+TEST(TestVM, MutateShiftRight) {
+  egg::test::VM vm;
+  auto builder = vm->createProgramBuilder();
+  ADD_STATEMENT_MUTATE(ShiftRight, 12345, 10); // 12
+  ADD_STATEMENT_MUTATE(ShiftRight, 12345, -10); // 12641280
+  ADD_STATEMENT_MUTATE(ShiftRight, -12345, 10); // -13
+  ADD_STATEMENT_MUTATE(ShiftRight, -12345, -10); // -12641280
+  ADD_STATEMENT_MUTATE(ShiftRight, 12345, false);
+  buildAndRunFault(vm, *builder);
+  ASSERT_EQ("12\n12641280\n-13\n-12641280\n"
+            "<ERROR>throw TODO: Mutation shift right is only supported for values of type 'int'\n",
+            vm.logger.logged.str());
+}
+
+TEST(TestVM, MutateShiftRightUnsigned) {
+  egg::test::VM vm;
+  auto builder = vm->createProgramBuilder();
+  ADD_STATEMENT_MUTATE(ShiftRightUnsigned, 12345, 10); // 12
+  ADD_STATEMENT_MUTATE(ShiftRightUnsigned, 12345, -10); // 12641280
+  ADD_STATEMENT_MUTATE(ShiftRightUnsigned, -12345, 10); // 18014398509481971
+  ADD_STATEMENT_MUTATE(ShiftRightUnsigned, -12345, -10); // -12641280
+  ADD_STATEMENT_MUTATE(ShiftRightUnsigned, 12345, false);
+  buildAndRunFault(vm, *builder);
+  ASSERT_EQ("12\n12641280\n18014398509481971\n-12641280\n"
+            "<ERROR>throw TODO: Mutation unsigned shift right is only supported for values of type 'int'\n",
             vm.logger.logged.str());
 }

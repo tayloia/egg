@@ -208,10 +208,10 @@ namespace {
         return this->createException("TODO: Invalid right-hand value for mutation assignment to integer");
       case Mutation::Decrement:
         assert(rhs.getFlags() == ValueFlags::Void);
-        return this->createBefore(this->value.decrement() + 1);
+        return this->createBefore(this->value.add(-1));
       case Mutation::Increment:
         assert(rhs.getFlags() == ValueFlags::Void);
-        return this->createBefore(this->value.increment() - 1);
+        return this->createBefore(this->value.add(+1));
       case Mutation::Add:
         if (rhs.getInt(rvalue)) {
           return this->createBefore(this->value.add(rvalue));
@@ -564,8 +564,7 @@ namespace {
   private:
     ValueFlags flags;
     union {
-      Atomic<Bool> bvalue;
-      Atomic<Int> ivalue;
+      Atomic<Int> ivalue; // 0/1 for Bool
       Atomic<Float> fvalue;
       const IMemory* svalue;
       IObject* ovalue;
@@ -597,7 +596,7 @@ namespace {
     virtual bool getBool(Bool& value) const override {
       assert(this->validate());
       if (this->flags == ValueFlags::Bool) {
-        value = this->bvalue.get();
+        value = this->ivalue.get() != 0;
         return true;
       }
       return false;
@@ -652,7 +651,7 @@ namespace {
       EGG_WARNING_SUPPRESS_SWITCH_BEGIN
       switch (this->flags) {
       case ValueFlags::Bool:
-        printer.write(this->bvalue.get());
+        printer.write(this->ivalue.get() != 0);
         break;
       case ValueFlags::Int:
         printer.write(this->ivalue.get());
@@ -675,6 +674,10 @@ namespace {
     }
     bool validate() const {
       // TODO
+      if (this->flags == ValueFlags::Bool) {
+        // Only allow 0 and 1 as explicit values so the bitwise operations work without modifications
+        return (this->ivalue.get() | 1) == 1;
+      }
       if (this->flags == ValueFlags::Object) {
         auto* object = this->ovalue;
         return (object != nullptr) && (this->basket != nullptr) && (object->softGetBasket() == this->basket);
@@ -691,7 +694,7 @@ namespace {
       case ValueFlags::Null:
         return HardValue::Null;
       case ValueFlags::Bool:
-        return ValueFactory::createBool(this->bvalue.get());
+        return ValueFactory::createBool(this->ivalue.get() != 0);
       case ValueFlags::Int:
         return ValueFactory::createInt(this->allocator, this->ivalue.get());
       case ValueFlags::Float:
@@ -727,7 +730,7 @@ namespace {
         if (value.getBool(b)) {
           this->destroy();
           this->flags = ValueFlags::Bool;
-          this->bvalue.exchange(b);
+          this->ivalue.exchange(b ? 1 : 0);
           assert(this->validate());
           return true;
         }
@@ -803,13 +806,13 @@ namespace {
       case Mutation::Decrement:
         assert(rhs.getFlags() == ValueFlags::Void);
         if (this->flags == ValueFlags::Int) {
-          return this->createBeforeInt(this->ivalue.decrement() - 1);
+          return this->createBeforeInt(this->ivalue.add(-1));
         }
         return this->createException("TODO: Mutation decrement is only supported for integers");
       case Mutation::Increment:
         assert(rhs.getFlags() == ValueFlags::Void);
         if (this->flags == ValueFlags::Int) {
-          return this->createBeforeInt(this->ivalue.increment() + 1);
+          return this->createBeforeInt(this->ivalue.add(+1));
         }
         return this->createException("TODO: Mutation increment is only supported for integers");
       case Mutation::Add:
@@ -817,45 +820,57 @@ namespace {
                                       [this](Int rvalue) { return this->ivalue.add(rvalue); },
                                       nullptr,
                                       [](Float lvalue, Float rvalue) { return lvalue + rvalue; },
-                                      "TODO: Mutation addition is only supported for arithmetic types");
+                                      "TODO: Mutation addition is only supported for values of type 'int' or 'float'");
       case Mutation::Subtract:
         return this->createArithmetic(rhs,
                                       [this](Int rvalue) { return this->ivalue.sub(rvalue); },
                                       nullptr,
                                       [](Float lvalue, Float rvalue) { return lvalue - rvalue; },
-                                      "TODO: Mutation subtract is only supported for arithmetic types");
+                                      "TODO: Mutation subtract is only supported for values of type 'int' or 'float'");
       case Mutation::Multiply:
         return this->createArithmetic(rhs,
                                       nullptr,
                                       [](Int lvalue, Int rvalue) { return lvalue * rvalue; },
                                       [](Float lvalue, Float rvalue) { return lvalue * rvalue; },
-                                      "TODO: Mutation multiply is only supported for arithmetic types");
+                                      "TODO: Mutation multiply is only supported for values of type 'int' or 'float'");
       case Mutation::Divide:
         return this->createArithmetic(rhs,
                                       nullptr,
                                       [](Int lvalue, Int rvalue) { return lvalue / rvalue; },
                                       [](Float lvalue, Float rvalue) { return lvalue / rvalue; },
-                                      "TODO: Mutation divide is only supported for arithmetic types",
+                                      "TODO: Mutation divide is only supported for values of type 'int' or 'float'",
                                       "TODO: Division by zero in mutation divide");
       case Mutation::Remainder:
         return this->createArithmetic(rhs,
                                       nullptr,
                                       [](Int lvalue, Int rvalue) { return lvalue % rvalue; },
                                       [](Float lvalue, Float rvalue) { return std::fmod(lvalue, rvalue); },
-                                      "TODO: Mutation remainder is only supported for arithmetic types",
+                                      "TODO: Mutation remainder is only supported for values of type 'int' or 'float'",
                                       "TODO: Division by zero in mutation remainder");
       case Mutation::BitwiseAnd:
-        return this->createException("TODO: Mutation '&' not supported for poly"); // WIBBLE
+        return this->createBitwise(rhs,
+                                   [this](Int rvalue) { return this->ivalue.bitwiseAnd(rvalue); },
+                                   "TODO: Mutation bitwise-and is only supported for values of type 'bool' or 'int'");
       case Mutation::BitwiseOr:
-        return this->createException("TODO: Mutation '|' not supported for poly"); // WIBBLE
+        return this->createBitwise(rhs,
+                                   [this](Int rvalue) { return this->ivalue.bitwiseOr(rvalue); },
+                                   "TODO: Mutation bitwise-or is only supported for values of type 'bool' or 'int'");
       case Mutation::BitwiseXor:
-        return this->createException("TODO: Mutation '^' not supported for poly"); // WIBBLE
+        return this->createBitwise(rhs,
+                                   [this](Int rvalue) { return this->ivalue.bitwiseXor(rvalue); },
+                                   "TODO: Mutation bitwise-xor is only supported for values of type 'bool' or 'int'");
       case Mutation::ShiftLeft:
-        return this->createException("TODO: Mutation '<<' not supported for poly"); // WIBBLE
+        return this->createShift(rhs,
+                                 Arithmetic::Shift::ShiftLeft,
+                                 "TODO: Mutation shift left is only supported for values of type 'int'");
       case Mutation::ShiftRight:
-        return this->createException("TODO: Mutation '>>' not supported for poly"); // WIBBLE
+        return this->createShift(rhs,
+                                 Arithmetic::Shift::ShiftRight,
+                                 "TODO: Mutation shift right is only supported for values of type 'int'");
       case Mutation::ShiftRightUnsigned:
-        return this->createException("TODO: Mutation '>>>' not supported for poly"); // WIBBLE
+        return this->createShift(rhs,
+                                 Arithmetic::Shift::ShiftRightUnsigned,
+                                 "TODO: Mutation unsigned shift right is only supported for values of type 'int'");
       case Mutation::Noop:
         assert(rhs.getFlags() == ValueFlags::Void);
         return this->hardClone();
@@ -878,7 +893,6 @@ namespace {
                                const char* zeroMessage = nullptr) {
       assert((atomicInt != nullptr) || (evalInt != nullptr));
       assert(evalFloat != nullptr);
-      Float frhs;
       if (this->flags == ValueFlags::Int) {
         Int irhs;
         if (rhs.getInt(irhs)) {
@@ -891,6 +905,7 @@ namespace {
           }
           return this->createEvalInt(evalInt, irhs);
         }
+        Float frhs;
         if (rhs.getFloat(frhs)) {
           // Need to promote the lhs target
           // TODO thread safety
@@ -902,6 +917,7 @@ namespace {
         return this->createException(mismatchMessage);
       }
       if (this->flags == ValueFlags::Float) {
+        Float frhs;
         if (!rhs.getFloat(frhs)) {
           Int irhs;
           if (!rhs.getInt(irhs)) {
@@ -910,6 +926,34 @@ namespace {
           frhs = Float(irhs);
         }
         return this->createEvalFloat(evalFloat, frhs);
+      }
+      return this->createException(mismatchMessage);
+    }
+    HardValue createBitwise(const IValue& rhs,
+                            std::function<Int(Int)> atomicInt,
+                            const char* mismatchMessage) {
+      if (this->flags == ValueFlags::Bool) {
+        Bool brhs;
+        if (rhs.getBool(brhs)) {
+          auto before = atomicInt(brhs ? 1 : 0);
+          return ValueFactory::createBool(before != 0);
+        }
+      } else if (this->flags == ValueFlags::Int) {
+        Int irhs;
+        if (rhs.getInt(irhs)) {
+          return this->createBeforeInt(atomicInt(irhs));
+        }
+      }
+      return this->createException(mismatchMessage);
+    }
+    HardValue createShift(const IValue& rhs,
+                          Arithmetic::Shift op,
+                          const char* mismatchMessage) {
+      if (this->flags == ValueFlags::Int) {
+        Int irhs;
+        if (rhs.getInt(irhs)) {
+          return this->createEvalInt([op](Int lvalue, Int rvalue) { return Arithmetic::shift(op, lvalue, rvalue); }, irhs);
+        }
       }
       return this->createException(mismatchMessage);
     }
