@@ -221,7 +221,7 @@ namespace {
         if (rhs.getInt(rvalue)) {
           return this->createBefore(this->value.sub(rvalue));
         }
-        return this->createException("TODO: Invalid right-hand value for mutation subtraction from integer");
+        return this->createException("TODO: Invalid right-hand value for mutation subtract from integer");
       case Mutation::Multiply:
         if (rhs.getInt(rvalue)) {
           return this->createAtomic([rvalue](Int lvalue) { return lvalue * rvalue; });
@@ -355,7 +355,7 @@ namespace {
         if (rhs.getInt(ivalue)) {
           return this->createBefore(this->value.sub(Float(ivalue)));
         }
-        return this->createException("TODO: Invalid right-hand value for mutation subtraction from float");
+        return this->createException("TODO: Invalid right-hand value for mutation subtract from float");
       case Mutation::Multiply:
         if (rhs.getFloat(fvalue)) {
           return this->createAtomic([fvalue](Float lvalue) { return lvalue * fvalue; });
@@ -805,23 +805,45 @@ namespace {
         if (this->flags == ValueFlags::Int) {
           return this->createBeforeInt(this->ivalue.decrement() - 1);
         }
-        return this->createException("TODO: Mutation '--' only supported for integers");
+        return this->createException("TODO: Mutation decrement is only supported for integers");
       case Mutation::Increment:
         assert(rhs.getFlags() == ValueFlags::Void);
         if (this->flags == ValueFlags::Int) {
           return this->createBeforeInt(this->ivalue.increment() + 1);
         }
-        return this->createException("TODO: Mutation '++' only supported for integers");
+        return this->createException("TODO: Mutation increment is only supported for integers");
       case Mutation::Add:
-        return this->createException("TODO: Mutation '+' not supported for poly"); // WIBBLE
+        return this->createArithmetic(rhs,
+                                      [this](Int rvalue) { return this->ivalue.add(rvalue); },
+                                      nullptr,
+                                      [](Float lvalue, Float rvalue) { return lvalue + rvalue; },
+                                      "TODO: Mutation addition is only supported for arithmetic types");
       case Mutation::Subtract:
-        return this->createException("TODO: Mutation '-' not supported for poly"); // WIBBLE
+        return this->createArithmetic(rhs,
+                                      [this](Int rvalue) { return this->ivalue.sub(rvalue); },
+                                      nullptr,
+                                      [](Float lvalue, Float rvalue) { return lvalue - rvalue; },
+                                      "TODO: Mutation subtract is only supported for arithmetic types");
       case Mutation::Multiply:
-        return this->createException("TODO: Mutation '*' not supported for poly"); // WIBBLE
+        return this->createArithmetic(rhs,
+                                      nullptr,
+                                      [](Int lvalue, Int rvalue) { return lvalue * rvalue; },
+                                      [](Float lvalue, Float rvalue) { return lvalue * rvalue; },
+                                      "TODO: Mutation multiply is only supported for arithmetic types");
       case Mutation::Divide:
-        return this->createException("TODO: Mutation '/' not supported for poly"); // WIBBLE
+        return this->createArithmetic(rhs,
+                                      nullptr,
+                                      [](Int lvalue, Int rvalue) { return lvalue / rvalue; },
+                                      [](Float lvalue, Float rvalue) { return lvalue / rvalue; },
+                                      "TODO: Mutation divide is only supported for arithmetic types",
+                                      "TODO: Division by zero in mutation divide");
       case Mutation::Remainder:
-        return this->createException("TODO: Mutation '%' not supported for poly"); // WIBBLE
+        return this->createArithmetic(rhs,
+                                      nullptr,
+                                      [](Int lvalue, Int rvalue) { return lvalue % rvalue; },
+                                      [](Float lvalue, Float rvalue) { return std::fmod(lvalue, rvalue); },
+                                      "TODO: Mutation remainder is only supported for arithmetic types",
+                                      "TODO: Division by zero in mutation remainder");
       case Mutation::BitwiseAnd:
         return this->createException("TODO: Mutation '&' not supported for poly"); // WIBBLE
       case Mutation::BitwiseOr:
@@ -844,6 +866,68 @@ namespace {
   private:
     HardValue createBeforeInt(Int before) {
       return ValueFactory::createInt(this->allocator, before);
+    }
+    HardValue createBeforeFloat(Float before) {
+      return ValueFactory::createFloat(this->allocator, before);
+    }
+    HardValue createArithmetic(const IValue& rhs,
+                               std::function<Int(Int)> atomicInt,
+                               std::function<Int(Int, Int)> evalInt,
+                               std::function<Float(Float, Float)> evalFloat,
+                               const char* mismatchMessage,
+                               const char* zeroMessage = nullptr) {
+      assert((atomicInt != nullptr) || (evalInt != nullptr));
+      assert(evalFloat != nullptr);
+      Float frhs;
+      if (this->flags == ValueFlags::Int) {
+        Int irhs;
+        if (rhs.getInt(irhs)) {
+          // No need to promote
+          if ((zeroMessage != nullptr) && (irhs == 0)) {
+            return this->createException(zeroMessage);
+          }
+          if (atomicInt != nullptr) {
+            return this->createBeforeInt(atomicInt(irhs));
+          }
+          return this->createEvalInt(evalInt, irhs);
+        }
+        if (rhs.getFloat(frhs)) {
+          // Need to promote the lhs target
+          // TODO thread safety
+          auto flhs = Float(this->ivalue.get());
+          this->flags = ValueFlags::Float;
+          this->fvalue.exchange(flhs);
+          return this->createEvalFloat(evalFloat, frhs);
+        }
+        return this->createException(mismatchMessage);
+      }
+      if (this->flags == ValueFlags::Float) {
+        if (!rhs.getFloat(frhs)) {
+          Int irhs;
+          if (!rhs.getInt(irhs)) {
+            return this->createException(mismatchMessage);
+          }
+          frhs = Float(irhs);
+        }
+        return this->createEvalFloat(evalFloat, frhs);
+      }
+      return this->createException(mismatchMessage);
+    }
+    HardValue createEvalInt(std::function<Int(Int, Int)> eval, Int rhs) {
+      Int before, after;
+      do {
+        before = this->ivalue.get();
+        after = eval(before, rhs);
+      } while (this->ivalue.update(before, after) != before);
+      return ValueFactory::createInt(this->allocator, before);
+    }
+    HardValue createEvalFloat(std::function<Float(Float, Float)> eval, Float rhs) {
+      Float before, after;
+      do {
+        before = this->fvalue.get();
+        after = eval(before, rhs);
+      } while (this->fvalue.update(before, after) != before);
+      return ValueFactory::createFloat(this->allocator, before);
     }
     HardValue createException(const char* message) const {
       auto inner = ValueFactory::createStringASCII(this->allocator, message);

@@ -10,10 +10,9 @@
 #define EXPR_UNARY(op, arg) builder->exprUnaryOp(IVMExecution::UnaryOp::op, arg)
 #define EXPR_BINARY(op, lhs, rhs) builder->exprBinaryOp(IVMExecution::BinaryOp::op, lhs, rhs)
 #define EXPR_CALL(func, ...) builder->glue(builder->exprFunctionCall(func) COMMA(__VA_ARGS__))
-#define EXPR_LITERAL(value) builder->exprLiteral(builder->createHardValue(value))
+#define EXPR_LITERAL(value) createLiteral(*builder, value)
 #define EXPR_PROP_GET(instance, property) builder->exprPropertyGet(instance, property)
 #define EXPR_VAR(name) builder->exprVariable(builder->createString(name))
-#define EXPR_VOID() builder->exprLiteral(builder->createHardValueVoid())
 #define STMT_CALL(func, ...) builder->glue(builder->stmtFunctionCall(func) COMMA(__VA_ARGS__))
 #define STMT_PRINT(...) builder->glue(builder->stmtFunctionCall(EXPR_VAR("print")) COMMA(__VA_ARGS__))
 #define STMT_PROP_SET(instance, property, value) builder->stmtPropertySet(instance, property, value)
@@ -22,8 +21,27 @@
 #define STMT_VAR_SET(name, value) builder->stmtVariableSet(builder->createString(name), value)
 #define STMT_VAR_MUTATE(name, op, value) builder->stmtVariableMutate(builder->createString(name), IVMExecution::MutationOp::op, value)
 
+#define VOID VoidTag{}
+
+#define ADD_STATEMENT_MUTATE(op, lhs, rhs) \
+  builder->addStatement( \
+    STMT_VAR_DEFINE("x", EXPR_LITERAL(lhs), \
+      STMT_VAR_MUTATE("x", op, EXPR_LITERAL(rhs)), \
+      STMT_PRINT(EXPR_VAR("x"))))
+
 namespace {
   using namespace egg::ovum;
+
+  struct VoidTag {};
+
+  IVMProgramBuilder::Node& createLiteral(IVMProgramBuilder& builder, const VoidTag&) {
+    return builder.exprLiteral(builder.createHardValueVoid());
+  }
+
+  template<typename T>
+  IVMProgramBuilder::Node& createLiteral(IVMProgramBuilder& builder, T value) {
+    return builder.exprLiteral(builder.createHardValue(value));
+  }
 
   HardPtr<IVMProgram> createHelloWorldProgram(egg::test::VM& vm) {
     auto builder = vm->createProgramBuilder();
@@ -977,7 +995,7 @@ TEST(TestVM, MutateDecrement) {
       // print(i);
       STMT_PRINT(EXPR_VAR("i")),
       // --i;
-      STMT_VAR_MUTATE("i", Decrement, EXPR_VOID()),
+      STMT_VAR_MUTATE("i", Decrement, EXPR_LITERAL(VOID)),
       // print(i);
       STMT_PRINT(EXPR_VAR("i"))
     )
@@ -995,7 +1013,7 @@ TEST(TestVM, MutateIncrement) {
       // print(i);
       STMT_PRINT(EXPR_VAR("i")),
       // ++i;
-      STMT_VAR_MUTATE("i", Increment, EXPR_VOID()),
+      STMT_VAR_MUTATE("i", Increment, EXPR_LITERAL(VOID)),
       // print(i);
       STMT_PRINT(EXPR_VAR("i"))
     )
@@ -1004,22 +1022,80 @@ TEST(TestVM, MutateIncrement) {
   ASSERT_EQ("12345\n12346\n", vm.logger.logged.str());
 }
 
-/* WIBBLE
 TEST(TestVM, MutateAdd) {
   egg::test::VM vm;
   auto builder = vm->createProgramBuilder();
-  builder->addStatement(
-    // var i = 12345;
-    STMT_VAR_DEFINE("i", EXPR_LITERAL(12345),
-      // print(i);
-      STMT_PRINT(EXPR_VAR("i")),
-      // --i;
-      STMT_VAR_MUTATE("i", Add, EXPR_LITERAL(10)),
-      // print(i);
-      STMT_PRINT(EXPR_VAR("i"))
-    )
-  );
-  buildAndRunSuccess(vm, *builder);
-  ASSERT_EQ("12345\n12355\n", vm.logger.logged.str());
+  ADD_STATEMENT_MUTATE(Add, 12345, 0); // 12345
+  ADD_STATEMENT_MUTATE(Add, 12345.0, 0); // 12345
+  ADD_STATEMENT_MUTATE(Add, 12345, 123); // 12468
+  ADD_STATEMENT_MUTATE(Add, 12345, 123.5); // 12468.5
+  ADD_STATEMENT_MUTATE(Add, 123.5, 12345); // 12468.5
+  ADD_STATEMENT_MUTATE(Add, 123.5, 13.25); // 136.75
+  ADD_STATEMENT_MUTATE(Add, 123, "bad");
+  buildAndRunFault(vm, *builder);
+  ASSERT_EQ("12345\n12345.0\n12468\n12468.5\n12468.5\n136.75\n"
+            "<ERROR>throw TODO: Mutation addition is only supported for arithmetic types\n",
+            vm.logger.logged.str());
 }
-*/
+
+TEST(TestVM, MutateSubtract) {
+  egg::test::VM vm;
+  auto builder = vm->createProgramBuilder();
+  ADD_STATEMENT_MUTATE(Subtract, 12345, 0); // 12345
+  ADD_STATEMENT_MUTATE(Subtract, 12345.0, 0); // 12345.0
+  ADD_STATEMENT_MUTATE(Subtract, 12345, 123); // 12222
+  ADD_STATEMENT_MUTATE(Subtract, 12345, 123.5); // 12221.5
+  ADD_STATEMENT_MUTATE(Subtract, 123.5, 12345); // -12221.5
+  ADD_STATEMENT_MUTATE(Subtract, 123.5, 13.25); // 110.25
+  ADD_STATEMENT_MUTATE(Subtract, 123, "bad");
+  buildAndRunFault(vm, *builder);
+  ASSERT_EQ("12345\n12345.0\n12222\n12221.5\n-12221.5\n110.25\n"
+            "<ERROR>throw TODO: Mutation subtract is only supported for arithmetic types\n",
+            vm.logger.logged.str());
+}
+
+TEST(TestVM, MutateMultiply) {
+  egg::test::VM vm;
+  auto builder = vm->createProgramBuilder();
+  ADD_STATEMENT_MUTATE(Multiply, 12345, 0); // 0
+  ADD_STATEMENT_MUTATE(Multiply, 12345.0, 0); // 0.0
+  ADD_STATEMENT_MUTATE(Multiply, 12345, 123); // 1518435
+  ADD_STATEMENT_MUTATE(Multiply, 12345, 123.5); // 1524607.5
+  ADD_STATEMENT_MUTATE(Multiply, 123.5, 12345); // 1524607.5
+  ADD_STATEMENT_MUTATE(Multiply, 123.5, 13.25); // 1636.375
+  ADD_STATEMENT_MUTATE(Multiply, 123, "bad");
+  buildAndRunFault(vm, *builder);
+  ASSERT_EQ("0\n0.0\n1518435\n1524607.5\n1524607.5\n1636.375\n"
+            "<ERROR>throw TODO: Mutation multiply is only supported for arithmetic types\n",
+            vm.logger.logged.str());
+}
+
+TEST(TestVM, MutateDivide) {
+  egg::test::VM vm;
+  auto builder = vm->createProgramBuilder();
+  ADD_STATEMENT_MUTATE(Divide, 12345.0, 0); // #+INF
+  ADD_STATEMENT_MUTATE(Divide, 12345, 2.5); // 4938.0
+  ADD_STATEMENT_MUTATE(Divide, 12345, 2.5); // 4938.0
+  ADD_STATEMENT_MUTATE(Divide, 123.5, 2); // 61.75
+  ADD_STATEMENT_MUTATE(Divide, 123.5, 2.5); // 49.4
+  ADD_STATEMENT_MUTATE(Divide, 12345, 0); // fault
+  buildAndRunFault(vm, *builder);
+  ASSERT_EQ("#+INF\n4938.0\n4938.0\n61.75\n49.4\n"
+            "<ERROR>throw TODO: Division by zero in mutation divide\n",
+            vm.logger.logged.str());
+}
+
+TEST(TestVM, MutateRemainder) {
+  egg::test::VM vm;
+  auto builder = vm->createProgramBuilder();
+  ADD_STATEMENT_MUTATE(Remainder, 12345.0, 0); // #NAN
+  ADD_STATEMENT_MUTATE(Remainder, 12345, 3.5); // 0.5
+  ADD_STATEMENT_MUTATE(Remainder, 12345, 3.5); // 0.5
+  ADD_STATEMENT_MUTATE(Remainder, 123.5, 2); // 1.5
+  ADD_STATEMENT_MUTATE(Remainder, 123.5, 1.5); // 0.5
+  ADD_STATEMENT_MUTATE(Remainder, 12345, 0); // fault
+  buildAndRunFault(vm, *builder);
+  ASSERT_EQ("#NAN\n0.5\n0.5\n1.5\n0.5\n"
+            "<ERROR>throw TODO: Division by zero in mutation remainder\n",
+            vm.logger.logged.str());
+}
