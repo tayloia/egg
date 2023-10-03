@@ -1060,7 +1060,7 @@ egg::ovum::IVMProgramRunner::RunOutcome VMProgramRunner::step(HardValue& retval)
     break;
   case IVMProgram::Node::Kind::StmtIf:
     assert(top.node->literal->getVoid());
-    assert(top.node->children.size() == 2);
+    assert((top.node->children.size() == 2) || (top.node->children.size() == 3));
     if (top.index == 0) {
       // Evaluate the condition
       assert(top.deque.size() == 0);
@@ -1080,10 +1080,14 @@ egg::ovum::IVMProgramRunner::RunOutcome VMProgramRunner::step(HardValue& retval)
         }
         top.deque.clear();
         if (condition) {
-          // Perform the block
+          // Perform the compulsory "when true" block
+          this->push(*top.node->children[top.index++]);
+        } else if (top.node->children.size() > 2) {
+          // Perform the optional "when false" block
+          top.index++;
           this->push(*top.node->children[top.index++]);
         } else {
-          // Skip the block
+          // Skip both blocks
           this->pop(HardValue::Void);
         }
       } else {

@@ -14,6 +14,7 @@
 #define EXPR_PROP_GET(instance, property) builder->exprPropertyGet(instance, property)
 #define EXPR_VAR(name) builder->exprVariable(builder->createString(name))
 #define STMT_BLOCK(...) builder->glue(builder->stmtBlock() COMMA(__VA_ARGS__))
+#define STMT_IF(expr, ...) builder->glue(builder->stmtIf(expr) COMMA(__VA_ARGS__))
 #define STMT_CALL(func, ...) builder->glue(builder->stmtFunctionCall(func) COMMA(__VA_ARGS__))
 #define STMT_PRINT(...) builder->glue(builder->stmtFunctionCall(EXPR_VAR("print")) COMMA(__VA_ARGS__))
 #define STMT_PROP_SET(instance, property, value) builder->stmtPropertySet(instance, property, value)
@@ -21,7 +22,6 @@
 #define STMT_VAR_DEFINE(name, value, ...) builder->glue(builder->stmtVariableDefine(builder->createString(name), value) COMMA(__VA_ARGS__))
 #define STMT_VAR_SET(name, value) builder->stmtVariableSet(builder->createString(name), value)
 #define STMT_VAR_MUTATE(name, op, value) builder->stmtVariableMutate(builder->createString(name), IVMExecution::MutationOp::op, value)
-#define STMT_IF(expr, whenTrue) builder->glue(builder->stmtIf(expr), whenTrue)
 
 #define VOID VoidTag{}
 
@@ -1243,4 +1243,53 @@ TEST(TestVM, If) {
   );
   buildAndRunSuccess(vm, *builder);
   ASSERT_EQ("X2\n12\n", vm.logger.logged.str());
+}
+
+TEST(TestVM, IfElse) {
+  egg::test::VM vm;
+  auto builder = vm->createProgramBuilder();
+  builder->addStatement(
+    // var a = 1;
+    STMT_VAR_DEFINE("a", EXPR_LITERAL(1),
+      // var b = 2;
+      STMT_VAR_DEFINE("b", EXPR_LITERAL(2),
+        // if (a < b) { a = "X"; } else { b = "X" }
+        STMT_IF(EXPR_BINARY(LessThan, EXPR_VAR("a"), EXPR_VAR("b")),
+          STMT_BLOCK(
+            // a = "X";
+            STMT_VAR_SET("a", EXPR_LITERAL("X"))
+          ),
+          STMT_BLOCK(
+            // b = "Y";
+            STMT_VAR_SET("b", EXPR_LITERAL("Y"))
+          )
+        ),
+        // print(a, b);
+        STMT_PRINT(EXPR_VAR("a"), EXPR_VAR("b"))
+      )
+    )
+  );
+  builder->addStatement(
+    // var a = 1;
+    STMT_VAR_DEFINE("a", EXPR_LITERAL(1),
+      // var b = 2;
+      STMT_VAR_DEFINE("b", EXPR_LITERAL(2),
+        // if (a > b) { a = "X"; } else { b = "X" }
+        STMT_IF(EXPR_BINARY(GreaterThan, EXPR_VAR("a"), EXPR_VAR("b")),
+          STMT_BLOCK(
+            // a = "X";
+            STMT_VAR_SET("a", EXPR_LITERAL("X"))
+          ),
+          STMT_BLOCK(
+            // b = "Y";
+            STMT_VAR_SET("b", EXPR_LITERAL("Y"))
+          )
+        ),
+        // print(a, b);
+        STMT_PRINT(EXPR_VAR("a"), EXPR_VAR("b"))
+      )
+    )
+  );
+  buildAndRunSuccess(vm, *builder);
+  ASSERT_EQ("X2\n1Y\n", vm.logger.logged.str());
 }
