@@ -16,6 +16,7 @@
 #define STMT_BLOCK(...) builder->glue(builder->stmtBlock() COMMA(__VA_ARGS__))
 #define STMT_IF(expr, ...) builder->glue(builder->stmtIf(expr) COMMA(__VA_ARGS__))
 #define STMT_WHILE(expr, ...) builder->glue(builder->stmtWhile(expr) COMMA(__VA_ARGS__))
+#define STMT_DO(expr, ...) builder->glue(builder->stmtDo(expr) COMMA(__VA_ARGS__))
 #define STMT_CALL(func, ...) builder->glue(builder->stmtFunctionCall(func) COMMA(__VA_ARGS__))
 #define STMT_PRINT(...) builder->glue(builder->stmtFunctionCall(EXPR_VAR("print")) COMMA(__VA_ARGS__))
 #define STMT_PROP_SET(instance, property, value) builder->stmtPropertySet(instance, property, value)
@@ -1303,6 +1304,27 @@ TEST(TestVM, While) {
     STMT_VAR_DEFINE("i", EXPR_LITERAL(1),
       // while (i < 10)
       STMT_WHILE(EXPR_BINARY(LessThan, EXPR_VAR("i"), EXPR_LITERAL(10)),
+        STMT_BLOCK(
+          // print(i);
+          STMT_PRINT(EXPR_VAR("i")),
+          // ++i;
+          STMT_VAR_MUTATE("i", Increment, EXPR_LITERAL(VOID))
+        )
+      )
+    )
+  );
+  buildAndRunSuccess(vm, *builder);
+  ASSERT_EQ("1\n2\n3\n4\n5\n6\n7\n8\n9\n", vm.logger.logged.str());
+}
+
+TEST(TestVM, Do) {
+  egg::test::VM vm;
+  auto builder = vm->createProgramBuilder();
+  builder->addStatement(
+    // var i = 1;
+    STMT_VAR_DEFINE("i", EXPR_LITERAL(1),
+      // do ... while (i < 10)
+      STMT_DO(EXPR_BINARY(LessThan, EXPR_VAR("i"), EXPR_LITERAL(10)),
         STMT_BLOCK(
           // print(i);
           STMT_PRINT(EXPR_VAR("i")),

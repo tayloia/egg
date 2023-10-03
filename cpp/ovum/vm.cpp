@@ -565,7 +565,8 @@ public:
     StmtPropertySet,
     StmtFunctionCall,
     StmtIf,
-    StmtWhile
+    StmtWhile,
+    StmtDo
   };
   Kind kind;
   HardValue literal; // Only stores simple literals
@@ -676,6 +677,11 @@ namespace {
     }
     virtual Node& stmtWhile(Node& condition) override {
       auto& node = this->makeNode(Node::Kind::StmtWhile);
+      node.addChild(condition);
+      return node;
+    }
+    virtual Node& stmtDo(Node& condition) override {
+      auto& node = this->makeNode(Node::Kind::StmtDo);
       node.addChild(condition);
       return node;
     }
@@ -1041,7 +1047,7 @@ egg::ovum::IVMProgramRunner::RunOutcome VMProgramRunner::stepNode(HardValue& ret
         return this->createFault(retval, "Cannot modify builtin symbol: '", symbol, "'");
       }
       if (top.index == 0) {
-        assert(top.deque.size() == 0);
+        assert(top.deque.empty());
         // TODO: Get correct rhs static type
         auto result = this->execution.precheckMutationOp(top.node->mutationOp, lhs, ValueFlags::AnyQ);
         if (!result.hasFlowControl()) {
@@ -1107,7 +1113,7 @@ egg::ovum::IVMProgramRunner::RunOutcome VMProgramRunner::stepNode(HardValue& ret
         // TODO: if (var v = a) {}
         return RunOutcome::Faulted;
       }
-      assert(top.deque.size() == 0);
+      assert(top.deque.empty());
       this->push(*top.node->children[top.index++]);
     } else {
       assert(top.deque.size() == 1);
@@ -1160,8 +1166,9 @@ egg::ovum::IVMProgramRunner::RunOutcome VMProgramRunner::stepNode(HardValue& ret
         return RunOutcome::Faulted;
       }
       // Evaluate the condition
-      assert(top.deque.size() == 0);
-      this->push(*top.node->children[top.index++]);
+      assert(top.deque.empty());
+      this->push(*top.node->children[0]);
+      top.index = 1;
     } else {
       assert(top.deque.size() == 1);
       auto& latest = top.deque.back();
@@ -1194,6 +1201,48 @@ egg::ovum::IVMProgramRunner::RunOutcome VMProgramRunner::stepNode(HardValue& ret
         // Evaluate the condition
         this->push(*top.node->children[0]);
         top.index = 1;
+      }
+    }
+    break;
+  case IVMProgram::Node::Kind::StmtDo:
+    assert(top.node->literal->getVoid());
+    assert(top.node->children.size() == 2);
+    assert(top.index <= 2);
+    assert(top.scope.empty());
+    if (top.index == 0) {
+      // Perform the controlled block
+      this->push(*top.node->children[1]);
+      top.index = 1;
+    } else {
+      assert(top.deque.size() == 1);
+      auto& latest = top.deque.back();
+      if (latest.hasFlowControl()) {
+        // TODO break and continue
+        retval = latest;
+        return this->faulted(retval);
+      }
+      if (top.index == 1) {
+        // The controlled block has completed so evaluate the condition
+        assert(latest->getVoid());
+        top.deque.clear();
+        // Evaluate the condition
+        this->push(*top.node->children[0]);
+        top.index = 2;
+      } else {
+        // Test the condition
+        Bool condition;
+        if (!latest->getBool(condition)) {
+          return this->createFault(retval, "Statement 'do' condition expected to be a value of type 'bool'");
+        }
+        top.deque.clear();
+        if (condition) {
+          // Perform the controlled block again
+          this->push(*top.node->children[1]);
+          top.index = 1;
+        } else {
+          // The condition failed
+          this->pop(HardValue::Void);
+        }
       }
     }
     break;
