@@ -564,7 +564,8 @@ public:
     StmtVariableMutate,
     StmtPropertySet,
     StmtFunctionCall,
-    StmtIf
+    StmtIf,
+    StmtWhile
   };
   Kind kind;
   HardValue literal; // Only stores simple literals
@@ -673,6 +674,11 @@ namespace {
       node.addChild(condition);
       return node;
     }
+    virtual Node& stmtWhile(Node& condition) override {
+      auto& node = this->makeNode(Node::Kind::StmtWhile);
+      node.addChild(condition);
+      return node;
+    }
     virtual Node& stmtVariableDeclare(const String& name) override {
       auto& node = this->makeNode(Node::Kind::StmtVariableDeclare);
       node.literal = this->createHardValueString(name);
@@ -726,6 +732,7 @@ namespace {
   private:
     struct NodeStack {
       const IVMProgram::Node* node;
+      String scope;
       size_t index;
       std::deque<HardValue> deque;
     };
@@ -751,23 +758,23 @@ namespace {
     }
     virtual RunOutcome run(HardValue& retval, RunFlags flags) override {
       if (flags == RunFlags::Step) {
-        return this->step(retval);
+        return this->stepNode(retval);
       }
       if (flags != RunFlags::None) {
         return this->createFault(retval, "TODO: Run flags not yet supported in program runner");
       }
       for (;;) {
-        auto outcome = this->step(retval);
+        auto outcome = this->stepNode(retval);
         if (outcome != RunOutcome::Stepped) {
           return outcome;
         }
       }
     }
   private:
-    RunOutcome step(HardValue& retval);
+    RunOutcome stepNode(HardValue& retval);
     bool stepBlock(HardValue& retval);
-    void push(const IVMProgram::Node& node, size_t index = 0) {
-      this->stack.emplace(&node, index);
+    void push(const IVMProgram::Node& node, const String& scope = {}, size_t index = 0) {
+      this->stack.emplace(&node, scope, index);
     }
     void pop(HardValue value) { // sic byval
       assert(!this->stack.empty());
@@ -778,21 +785,69 @@ namespace {
     RunOutcome faulted(const HardValue& value) {
       assert(value.hasFlowControl());
       this->pop(value);
+      const auto& symbol = this->stack.top().scope;
+      if (!symbol.empty()) {
+        (void)this->symtable.remove(symbol);
+      }
       return RunOutcome::Faulted;
     }
-    HardValue createThrow(const HardValue& value) {
-      return ValueFactory::createHardFlowControl(this->getAllocator(), ValueFlags::Throw, value);
+    template<typename... ARGS>
+    HardValue createThrow(ARGS&&... args) {
+      auto reason = ValueFactory::createString(this->getAllocator(), this->createStringConcat(std::forward<ARGS>(args)...));
+      return ValueFactory::createHardFlowControl(this->getAllocator(), ValueFlags::Throw, reason);
     }
     template<typename... ARGS>
     RunOutcome createFault(HardValue& retval, ARGS&&... args) {
-      auto reason = this->createStringConcat(std::forward<ARGS>(args)...);
-      retval = this->createThrow(ValueFactory::createString(this->getAllocator(), reason));
-      return RunOutcome::Faulted;
+      retval = this->createThrow(std::forward<ARGS>(args)...);
+      return this->faulted(retval);
     }
     template<typename... ARGS>
     String createStringConcat(ARGS&&... args) {
       StringBuilder sb(&this->getAllocator());
       return sb.add(std::forward<ARGS>(args)...).build();
+    }
+    bool variableScopeBegin(HardValue& retval, NodeStack& top) {
+      assert(top.scope.empty());
+      if (!top.node->literal->getString(top.scope)) {
+        // No symbol declared
+        return true;
+      }
+      assert(!top.scope.empty());
+      HardValue poly{ *this->vm.createSoftValue() };
+      switch (this->symtable.add(VMSymbolTable::Kind::Unset, top.scope, poly)) {
+      case VMSymbolTable::Kind::Unknown:
+        break;
+      case VMSymbolTable::Kind::Unset:
+      case VMSymbolTable::Kind::Variable:
+        retval = this->createThrow("Variable symbol already declared: '", top.scope, "'");
+        return false;
+      case VMSymbolTable::Kind::Builtin:
+        retval = this->createThrow("Variable symbol already declared as a builtin: '", top.scope, "'");
+        return false;
+      }
+      return true;
+    }
+    void variableScopeDrop(String& symbol) {
+      if (!symbol.empty()) {
+        (void)this->symtable.remove(symbol);
+        symbol = {};
+      }
+    }
+    bool variableScopeEnd(HardValue& retval, const String& symbol) {
+      if (!symbol.empty()) {
+        switch (this->symtable.remove(symbol)) {
+        case VMSymbolTable::Kind::Unknown:
+          retval = this->createThrow("Unknown variable symbol: '", symbol, "'");
+          return false;
+        case VMSymbolTable::Kind::Unset:
+        case VMSymbolTable::Kind::Variable:
+          break;
+        case VMSymbolTable::Kind::Builtin:
+          retval = this->createThrow(retval, "Cannot undeclare builtin symbol: '", symbol, "'");
+          return false;
+        }
+      }
+      return true;
     }
   };
 
@@ -895,12 +950,12 @@ namespace {
   };
 }
 
-egg::ovum::IVMProgramRunner::RunOutcome VMProgramRunner::step(HardValue& retval) {
+egg::ovum::IVMProgramRunner::RunOutcome VMProgramRunner::stepNode(HardValue& retval) {
   auto& top = this->stack.top();
-  assert(top.index <= top.node->children.size());
   switch (top.node->kind) {
   case IVMProgram::Node::Kind::Root:
     assert(top.node->literal->getVoid());
+    assert(top.index <= top.node->children.size());
     if (!this->stepBlock(retval)) {
       if (retval->getFlags() == ValueFlags::Void) {
         // Fell off the end of the list of statements in the module
@@ -916,46 +971,28 @@ egg::ovum::IVMProgramRunner::RunOutcome VMProgramRunner::step(HardValue& retval)
     break;
   case IVMProgram::Node::Kind::StmtBlock:
     assert(top.node->literal->getVoid());
+    assert(top.index <= top.node->children.size());
     if (!this->stepBlock(retval)) {
       this->pop(retval);
     }
     break;
   case IVMProgram::Node::Kind::StmtVariableDeclare:
+    assert(top.index <= top.node->children.size());
     if (top.index == 0) {
-      String symbol;
-      if (!top.node->literal->getString(symbol)) {
-        return this->createFault(retval, "Invalid program node literal for variable symbol");
-      }
-      HardValue poly{ *this->vm.createSoftValue() };
-      switch (this->symtable.add(VMSymbolTable::Kind::Unset, symbol, poly)) {
-      case VMSymbolTable::Kind::Unknown:
-        break;
-      case VMSymbolTable::Kind::Unset:
-      case VMSymbolTable::Kind::Variable:
-        return this->createFault(retval, "Variable symbol already declared: '", symbol, "'");
-      case VMSymbolTable::Kind::Builtin:
-        return this->createFault(retval, "Variable symbol already declared as a builtin: '", symbol, "'");
+      if (!this->variableScopeBegin(retval, top)) {
+        return RunOutcome::Faulted;
       }
     }
     if (!this->stepBlock(retval)) {
-      String symbol;
-      if (!top.node->literal->getString(symbol)) {
-        return this->createFault(retval, "Invalid program node literal for variable symbol");
-      }
-      switch (this->symtable.remove(symbol)) {
-      case VMSymbolTable::Kind::Unknown:
-        return this->createFault(retval, "Unknown variable symbol: '", symbol, "'");
-      case VMSymbolTable::Kind::Unset:
-      case VMSymbolTable::Kind::Variable:
-        break;
-      case VMSymbolTable::Kind::Builtin:
-        return this->createFault(retval, "Cannot undeclare builtin symbol: '", symbol, "'");
+      if (!this->variableScopeEnd(retval, top.scope)) {
+        return RunOutcome::Faulted;
       }
       this->pop(retval);
     }
     break;
   case IVMProgram::Node::Kind::StmtVariableSet:
     assert(top.node->children.size() == 1);
+    assert(top.index <= top.node->children.size());
     if (top.index == 0) {
       // Evaluate the value
       this->push(*top.node->children[top.index++]);
@@ -986,6 +1023,7 @@ egg::ovum::IVMProgramRunner::RunOutcome VMProgramRunner::step(HardValue& retval)
     break;
   case IVMProgram::Node::Kind::StmtVariableMutate:
     assert(top.node->children.size() == 1);
+    assert(top.index <= 1);
     {
       // TODO: thread safety
       String symbol;
@@ -1036,6 +1074,7 @@ egg::ovum::IVMProgramRunner::RunOutcome VMProgramRunner::step(HardValue& retval)
   case IVMProgram::Node::Kind::StmtPropertySet:
     assert(top.node->literal->getVoid());
     assert(top.node->children.size() == 3);
+    assert(top.index <= 3);
     if (!top.deque.empty()) {
       // Check the last evaluation
       auto& latest = top.deque.back();
@@ -1061,8 +1100,13 @@ egg::ovum::IVMProgramRunner::RunOutcome VMProgramRunner::step(HardValue& retval)
   case IVMProgram::Node::Kind::StmtIf:
     assert(top.node->literal->getVoid());
     assert((top.node->children.size() == 2) || (top.node->children.size() == 3));
+    assert(top.index <= top.node->children.size());
     if (top.index == 0) {
       // Evaluate the condition
+      if (!this->variableScopeBegin(retval, top)) {
+        // TODO: if (var v = a) {}
+        return RunOutcome::Faulted;
+      }
       assert(top.deque.size() == 0);
       this->push(*top.node->children[top.index++]);
     } else {
@@ -1084,21 +1128,79 @@ egg::ovum::IVMProgramRunner::RunOutcome VMProgramRunner::step(HardValue& retval)
           this->push(*top.node->children[top.index++]);
         } else if (top.node->children.size() > 2) {
           // Perform the optional "when false" block
+          this->variableScopeDrop(top.scope);
           top.index++;
           this->push(*top.node->children[top.index++]);
         } else {
           // Skip both blocks
+          if (!this->variableScopeEnd(retval, top.scope)) {
+            return RunOutcome::Faulted;
+          }
           this->pop(HardValue::Void);
         }
       } else {
-        // The block has finished
-        this->pop(latest);
+        // The controlled block has completed
+        assert(latest->getVoid());
+        retval = latest;
+        if (!this->variableScopeEnd(retval, top.scope)) {
+          return RunOutcome::Faulted;
+        }
+        this->pop(retval);
+      }
+    }
+    break;
+  case IVMProgram::Node::Kind::StmtWhile:
+    assert(top.node->literal->getVoid());
+    assert(top.node->children.size() == 2);
+    assert(top.index <= 2);
+    if (top.index == 0) {
+      // Scope any declare variable
+      if (!this->variableScopeBegin(retval, top)) {
+        // TODO: while (var v = a) {}
+        return RunOutcome::Faulted;
+      }
+      // Evaluate the condition
+      assert(top.deque.size() == 0);
+      this->push(*top.node->children[top.index++]);
+    } else {
+      assert(top.deque.size() == 1);
+      auto& latest = top.deque.back();
+      if (latest.hasFlowControl()) {
+        // TODO break and continue
+        retval = latest;
+        return this->faulted(retval);
+      }
+      if (top.index == 1) {
+        // Test the condition
+        Bool condition;
+        if (!latest->getBool(condition)) {
+          return this->createFault(retval, "Statement 'while' condition expected to be a value of type 'bool'");
+        }
+        top.deque.clear();
+        if (condition) {
+          // Perform the controlled block
+          this->push(*top.node->children[top.index++]);
+        } else {
+          // The condition failed
+          if (!this->variableScopeEnd(retval, top.scope)) {
+            return RunOutcome::Faulted;
+          }
+          this->pop(HardValue::Void);
+        }
+      } else {
+        // The controlled block has completed so re-evaluate the condition
+        assert(latest->getVoid());
+        top.deque.clear();
+        // Evaluate the condition
+        this->push(*top.node->children[0]);
+        top.index = 1;
       }
     }
     break;
   case IVMProgram::Node::Kind::StmtFunctionCall:
   case IVMProgram::Node::Kind::ExprFunctionCall:
     assert(top.node->literal->getVoid());
+    assert(top.index <= top.node->children.size());
     if (!top.deque.empty()) {
       // Check the last evaluation
       auto& latest = top.deque.back();
@@ -1128,6 +1230,7 @@ egg::ovum::IVMProgramRunner::RunOutcome VMProgramRunner::step(HardValue& retval)
     break;
   case IVMProgram::Node::Kind::ExprUnaryOp:
     assert(top.node->children.size() == 1);
+    assert(top.index <= 1);
     if (top.index < 1) {
       // Evaluate the operand
       this->push(*top.node->children[top.index++]);
@@ -1145,6 +1248,7 @@ egg::ovum::IVMProgramRunner::RunOutcome VMProgramRunner::step(HardValue& retval)
     break;
   case IVMProgram::Node::Kind::ExprBinaryOp:
     assert(top.node->children.size() == 2);
+    assert(top.index <= 2);
     if (top.index == 0) {
       // Evaluate the left-hand-side
       this->push(*top.node->children[top.index++]);
@@ -1191,6 +1295,7 @@ egg::ovum::IVMProgramRunner::RunOutcome VMProgramRunner::step(HardValue& retval)
     break;
   case IVMProgram::Node::Kind::ExprVariable:
     assert(top.node->children.empty());
+    assert(top.index == 0);
     assert(top.deque.empty());
     {
       String symbol;
@@ -1212,6 +1317,7 @@ egg::ovum::IVMProgramRunner::RunOutcome VMProgramRunner::step(HardValue& retval)
     break;
   case IVMProgram::Node::Kind::ExprLiteral:
     assert(top.node->children.empty());
+    assert(top.index == 0);
     assert(top.deque.empty());
     this->pop(top.node->literal);
     break;
