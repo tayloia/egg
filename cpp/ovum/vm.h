@@ -172,6 +172,8 @@ namespace egg::ovum {
     virtual Node& exprPropertyGet(Node& instance, Node& property) = 0;
     virtual Node& exprFunctionCall(Node& function) = 0;
     // Statement factories
+    virtual Node& stmtBlock() = 0;
+    virtual Node& stmtIf(Node& condition) = 0;
     virtual Node& stmtVariableDeclare(const String& name) = 0;
     virtual Node& stmtVariableDefine(const String& name, Node& value) = 0;
     virtual Node& stmtVariableSet(const String& name, Node& value) = 0;

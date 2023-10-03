@@ -558,11 +558,13 @@ public:
     ExprLiteral,
     ExprPropertyGet,
     ExprFunctionCall,
+    StmtBlock,
     StmtVariableDeclare,
     StmtVariableSet,
     StmtVariableMutate,
     StmtPropertySet,
-    StmtFunctionCall
+    StmtFunctionCall,
+    StmtIf
   };
   Kind kind;
   HardValue literal; // Only stores simple literals
@@ -662,6 +664,15 @@ namespace {
       node.addChild(function);
       return node;
     }
+    virtual Node& stmtBlock() override {
+      auto& node = this->makeNode(Node::Kind::StmtBlock);
+      return node;
+    }
+    virtual Node& stmtIf(Node& condition) override {
+      auto& node = this->makeNode(Node::Kind::StmtIf);
+      node.addChild(condition);
+      return node;
+    }
     virtual Node& stmtVariableDeclare(const String& name) override {
       auto& node = this->makeNode(Node::Kind::StmtVariableDeclare);
       node.literal = this->createHardValueString(name);
@@ -758,11 +769,11 @@ namespace {
     void push(const IVMProgram::Node& node, size_t index = 0) {
       this->stack.emplace(&node, index);
     }
-    void pop(const HardValue& value) {
+    void pop(HardValue value) { // sic byval
       assert(!this->stack.empty());
       this->stack.pop();
       assert(!this->stack.empty());
-      this->stack.top().deque.push_back(value);
+      this->stack.top().deque.emplace_back(std::move(value));
     }
     RunOutcome faulted(const HardValue& value) {
       assert(value.hasFlowControl());
@@ -903,6 +914,12 @@ egg::ovum::IVMProgramRunner::RunOutcome VMProgramRunner::step(HardValue& retval)
       return RunOutcome::Faulted;
     }
     break;
+  case IVMProgram::Node::Kind::StmtBlock:
+    assert(top.node->literal->getVoid());
+    if (!this->stepBlock(retval)) {
+      this->pop(retval);
+    }
+    break;
   case IVMProgram::Node::Kind::StmtVariableDeclare:
     if (top.index == 0) {
       String symbol;
@@ -1041,6 +1058,40 @@ egg::ovum::IVMProgramRunner::RunOutcome VMProgramRunner::step(HardValue& retval)
       this->pop(instance->vmPropertySet(this->execution, property, value));
     }
     break;
+  case IVMProgram::Node::Kind::StmtIf:
+    assert(top.node->literal->getVoid());
+    assert(top.node->children.size() == 2);
+    if (top.index == 0) {
+      // Evaluate the condition
+      assert(top.deque.size() == 0);
+      this->push(*top.node->children[top.index++]);
+    } else {
+      assert(top.deque.size() == 1);
+      auto& latest = top.deque.back();
+      if (latest.hasFlowControl()) {
+        retval = latest;
+        return this->faulted(retval);
+      }
+      if (top.index == 1) {
+        // Test the condition
+        Bool condition;
+        if (!latest->getBool(condition)) {
+          return this->createFault(retval, "Statement 'if' condition expected to be a value of type 'bool'");
+        }
+        top.deque.clear();
+        if (condition) {
+          // Perform the block
+          this->push(*top.node->children[top.index++]);
+        } else {
+          // Skip the block
+          this->pop(HardValue::Void);
+        }
+      } else {
+        // The block has finished
+        this->pop(latest);
+      }
+    }
+    break;
   case IVMProgram::Node::Kind::StmtFunctionCall:
   case IVMProgram::Node::Kind::ExprFunctionCall:
     assert(top.node->literal->getVoid());
@@ -1106,8 +1157,7 @@ egg::ovum::IVMProgramRunner::RunOutcome VMProgramRunner::step(HardValue& retval)
           // Short-circuit '??'
           if (!latest->getNull()) {
             // lhs is not null; no need to evaluate rhs
-            HardValue result{ latest }; // sic copy
-            this->pop(result);
+            this->pop(latest);
             break;
           }
         } else if (top.node->binaryOp == IVMExecution::BinaryOp::IfFalse) {

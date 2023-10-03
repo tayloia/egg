@@ -13,6 +13,7 @@
 #define EXPR_LITERAL(value) createLiteral(*builder, value)
 #define EXPR_PROP_GET(instance, property) builder->exprPropertyGet(instance, property)
 #define EXPR_VAR(name) builder->exprVariable(builder->createString(name))
+#define STMT_BLOCK(...) builder->glue(builder->stmtBlock() COMMA(__VA_ARGS__))
 #define STMT_CALL(func, ...) builder->glue(builder->stmtFunctionCall(func) COMMA(__VA_ARGS__))
 #define STMT_PRINT(...) builder->glue(builder->stmtFunctionCall(EXPR_VAR("print")) COMMA(__VA_ARGS__))
 #define STMT_PROP_SET(instance, property, value) builder->stmtPropertySet(instance, property, value)
@@ -20,6 +21,7 @@
 #define STMT_VAR_DEFINE(name, value, ...) builder->glue(builder->stmtVariableDefine(builder->createString(name), value) COMMA(__VA_ARGS__))
 #define STMT_VAR_SET(name, value) builder->stmtVariableSet(builder->createString(name), value)
 #define STMT_VAR_MUTATE(name, op, value) builder->stmtVariableMutate(builder->createString(name), IVMExecution::MutationOp::op, value)
+#define STMT_IF(expr, whenTrue) builder->glue(builder->stmtIf(expr), whenTrue)
 
 #define VOID VoidTag{}
 
@@ -1185,4 +1187,60 @@ TEST(TestVM, MutateShiftRightUnsigned) {
   ASSERT_EQ("12\n12641280\n18014398509481971\n-12641280\n"
             "<ERROR>throw TODO: Mutation unsigned shift right is only supported for values of type 'int'\n",
             vm.logger.logged.str());
+}
+
+TEST(TestVM, Block) {
+  egg::test::VM vm;
+  auto builder = vm->createProgramBuilder();
+  builder->addStatement(
+    STMT_BLOCK(
+      // print("a");
+      STMT_PRINT(EXPR_LITERAL("a")),
+      // print("b");
+      STMT_PRINT(EXPR_LITERAL("b"))
+    )
+  );
+  buildAndRunSuccess(vm, *builder);
+  ASSERT_EQ("a\nb\n", vm.logger.logged.str());
+}
+
+TEST(TestVM, If) {
+  egg::test::VM vm;
+  auto builder = vm->createProgramBuilder();
+  builder->addStatement(
+    // var a = 1;
+    STMT_VAR_DEFINE("a", EXPR_LITERAL(1),
+      // var b = 2;
+      STMT_VAR_DEFINE("b", EXPR_LITERAL(2),
+        // if (a < b) { a = "X"; }
+        STMT_IF(EXPR_BINARY(LessThan, EXPR_VAR("a"), EXPR_VAR("b")),
+          STMT_BLOCK(
+            // a = "X";
+            STMT_VAR_SET("a", EXPR_LITERAL("X"))
+          )
+        ),
+        // print(a, b);
+        STMT_PRINT(EXPR_VAR("a"), EXPR_VAR("b"))
+      )
+    )
+  );
+  builder->addStatement(
+    // var a = 1;
+    STMT_VAR_DEFINE("a", EXPR_LITERAL(1),
+      // var b = 2;
+      STMT_VAR_DEFINE("b", EXPR_LITERAL(2),
+        // if (a > b) { a = "X"; }
+        STMT_IF(EXPR_BINARY(GreaterThan, EXPR_VAR("a"), EXPR_VAR("b")),
+          STMT_BLOCK(
+            // a = "X";
+            STMT_VAR_SET("a", EXPR_LITERAL("X"))
+          )
+        ),
+        // print(a, b);
+        STMT_PRINT(EXPR_VAR("a"), EXPR_VAR("b"))
+      )
+    )
+  );
+  buildAndRunSuccess(vm, *builder);
+  ASSERT_EQ("X2\n12\n", vm.logger.logged.str());
 }
