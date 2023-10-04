@@ -1367,7 +1367,7 @@ TEST(TestVM, For) {
   ASSERT_EQ("1\n2\n3\n4\n5\n6\n7\n8\n9\n", vm.logger.logged.str());
 }
 
-TEST(TestVM, Switch) {
+TEST(TestVM, SwitchCaseBreak) {
   egg::test::VM vm;
   auto builder = vm->createProgramBuilder();
   builder->addStatement(
@@ -1394,4 +1394,37 @@ TEST(TestVM, Switch) {
   );
   buildAndRunSuccess(vm, *builder);
   ASSERT_EQ("one\ntwo\nthree\nfour\nfive\n", vm.logger.logged.str());
+}
+
+TEST(TestVM, SwitchCaseContinue) {
+  egg::test::VM vm;
+  auto builder = vm->createProgramBuilder();
+  builder->addStatement(
+    // var i;
+    STMT_VAR_DECLARE("i",
+      // for (...)
+      STMT_FOR(
+        // i = 1;
+        STMT_VAR_SET("i", EXPR_LITERAL(1)),
+        // i < 10;
+        EXPR_BINARY(LessThan, EXPR_VAR("i"), EXPR_LITERAL(10)),
+        // ++i;
+        STMT_VAR_MUTATE("i", Increment, EXPR_LITERAL(VOID)),
+        // switch 
+        STMT_SWITCH(EXPR_VAR("i"), 0,
+          STMT_CASE(STMT_BLOCK(STMT_PRINT(EXPR_LITERAL("one")), STMT_CONTINUE()), EXPR_LITERAL(1)),
+          STMT_CASE(STMT_BLOCK(STMT_PRINT(EXPR_LITERAL("two")), STMT_BREAK()), EXPR_LITERAL(2)),
+          STMT_CASE(STMT_BLOCK(STMT_PRINT(EXPR_LITERAL("three")), STMT_CONTINUE()), EXPR_LITERAL(3)),
+          STMT_CASE(STMT_BLOCK(STMT_PRINT(EXPR_LITERAL("four")), STMT_BREAK()), EXPR_LITERAL(4)),
+          STMT_CASE(STMT_BLOCK(STMT_PRINT(EXPR_LITERAL("five")), STMT_CONTINUE()), EXPR_LITERAL(5))
+        )
+      )
+    )
+  );
+  buildAndRunSuccess(vm, *builder);
+  ASSERT_EQ("one\ntwo\n"
+            "two\n"
+            "three\nfour\n"
+            "four\n"
+            "five\none\ntwo\n", vm.logger.logged.str());
 }

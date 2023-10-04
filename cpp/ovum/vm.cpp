@@ -1360,60 +1360,91 @@ egg::ovum::IVMProgramRunner::RunOutcome VMProgramRunner::stepNode(HardValue& ret
         assert(added.node->kind == IVMProgram::Node::Kind::StmtCase);
         added.deque.push_back(latest);
       }
-    } else {
-      assert(!top.deque.empty());
+    } else if (top.deque.size() == 1) {
+      // Just run an unconditional block
       auto& latest = top.deque.back();
-      switch (top.deque.size()) {
-      case 2:
-        // Just matched a case/default clause
-        EGG_WARNING_SUPPRESS_SWITCH_BEGIN
-        switch (latest->getFlags()) {
-        case ValueFlags::Bool:
-          // The switch expression does not match this case/default clause
-          if (++top.index < top.node->children.size()) {
-            // Match the next case/default statement
-            top.deque.pop_back();
-            assert(top.deque.size() == 1);
-            auto& added = this->push(*top.node->children[top.index]);
-            assert(added.node->kind == IVMProgram::Node::Kind::StmtCase);
-            added.deque.push_back(top.deque.front());
-          } else {
-            // That was the last clause; we need to use the default clause, if any
-            if (top.node->defaultIndex == 0) {
-              // No default clause
-              this->pop(HardValue::Void);
-            } else {
-              top.deque.clear();
-              top.index = top.node->defaultIndex;
-            }
-          }
-          break;
-        case ValueFlags::Break:
-          // Matched; break out of the switch statement
-          if (!this->variableScopeEnd(retval, top.scope)) {
-            return RunOutcome::Faulted;
-          }
-          this->pop(HardValue::Void);
-          break;
-        case ValueFlags::Continue:
-          // Matched; continue to next block without re-testing the expression
-          top.deque.clear();
-          if (++top.index >= top.node->children.size()) {
-            top.index = 1;
-          }
-          break;
-        default:
-          if (latest.hasFlowControl()) {
-            retval = latest;
-            return this->faulted(retval);
-          }
-          return this->createFault(retval, "Invalid switch statement case/default result");
+      IVMProgram::Node* child;
+      EGG_WARNING_SUPPRESS_SWITCH_BEGIN
+      switch (latest->getFlags()) {
+      case ValueFlags::Break:
+        // Matched; break out of the switch statement
+        if (!this->variableScopeEnd(retval, top.scope)) {
+          return RunOutcome::Faulted;
         }
-        EGG_WARNING_SUPPRESS_SWITCH_END
+        this->pop(HardValue::Void);
+        break;
+      case ValueFlags::Continue:
+        // Matched; continue to next block without re-testing the expression
+        top.deque.clear();
+        if (++top.index >= top.node->children.size()) {
+          top.index = 1;
+        }
+        child = top.node->children[top.index];
+        assert(child->kind == IVMProgram::Node::Kind::StmtCase);
+        assert(!child->children.empty());
+        this->push(*child->children.front());
         break;
       default:
-        return this->createFault(retval, "WIBBLE: Bad deque size in switch");
+        assert(latest.hasFlowControl());
+        retval = latest;
+        return this->faulted(retval);
       }
+      EGG_WARNING_SUPPRESS_SWITCH_END
+    } else {
+      // Just matched a case/default clause
+      auto& latest = top.deque.back();
+      IVMProgram::Node* child;
+      EGG_WARNING_SUPPRESS_SWITCH_BEGIN
+      switch (latest->getFlags()) {
+      case ValueFlags::Bool:
+        // The switch expression does not match this case/default clause
+        if (++top.index < top.node->children.size()) {
+          // Match the next case/default statement
+          top.deque.pop_back();
+          assert(top.deque.size() == 1);
+          auto& added = this->push(*top.node->children[top.index]);
+          assert(added.node->kind == IVMProgram::Node::Kind::StmtCase);
+          added.deque.push_back(top.deque.front());
+        } else {
+          // That was the last clause; we need to use the default clause, if any
+          if (top.node->defaultIndex == 0) {
+            // No default clause
+            this->pop(HardValue::Void);
+          } else {
+            // Prepare to run the block associated with the default clause
+            top.deque.clear();
+            top.index = top.node->defaultIndex;
+            child = top.node->children[top.index];
+            assert(child->kind == IVMProgram::Node::Kind::StmtCase);
+            assert(!child->children.empty());
+            this->push(*child->children.front());
+          }
+        }
+        break;
+      case ValueFlags::Break:
+        // Matched; break out of the switch statement
+        if (!this->variableScopeEnd(retval, top.scope)) {
+          return RunOutcome::Faulted;
+        }
+        this->pop(HardValue::Void);
+        break;
+      case ValueFlags::Continue:
+        // Matched; continue to next block without re-testing the expression
+        top.deque.clear();
+        if (++top.index >= top.node->children.size()) {
+          top.index = 1;
+        }
+        child = top.node->children[top.index];
+        assert(child->kind == IVMProgram::Node::Kind::StmtCase);
+        assert(!child->children.empty());
+        this->push(*child->children.front());
+        break;
+      default:
+        assert(latest.hasFlowControl());
+        retval = latest;
+        return this->faulted(retval);
+      }
+      EGG_WARNING_SUPPRESS_SWITCH_END
     }
     break;
   case IVMProgram::Node::Kind::StmtCase:
