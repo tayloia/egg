@@ -1454,7 +1454,7 @@ egg::ovum::IVMProgramRunner::RunOutcome VMProgramRunner::stepNode(HardValue& ret
       assert(top.deque.size() == 1);
       if (top.node->children.size() == 1) {
         // This is a 'default' clause ('case' with no expressions)
-        top.index = 1;
+        this->pop(HardValue::False);
       } else {
         // Evaluate the first expression
         this->push(*top.node->children[1]);

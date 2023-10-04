@@ -1428,3 +1428,72 @@ TEST(TestVM, SwitchCaseContinue) {
             "four\n"
             "five\none\ntwo\n", vm.logger.logged.str());
 }
+
+TEST(TestVM, SwitchDefaultBreak) {
+  egg::test::VM vm;
+  auto builder = vm->createProgramBuilder();
+  builder->addStatement(
+    // var i;
+    STMT_VAR_DECLARE("i",
+      // for (...)
+      STMT_FOR(
+        // i = 1;
+        STMT_VAR_SET("i", EXPR_LITERAL(1)),
+        // i < 10;
+        EXPR_BINARY(LessThan, EXPR_VAR("i"), EXPR_LITERAL(10)),
+        // ++i;
+        STMT_VAR_MUTATE("i", Increment, EXPR_LITERAL(VOID)),
+        // switch 
+        STMT_SWITCH(EXPR_VAR("i"), 6,
+          STMT_CASE(STMT_BLOCK(STMT_PRINT(EXPR_LITERAL("one")), STMT_BREAK()), EXPR_LITERAL(1)),
+          STMT_CASE(STMT_BLOCK(STMT_PRINT(EXPR_LITERAL("two")), STMT_BREAK()), EXPR_LITERAL(2)),
+          STMT_CASE(STMT_BLOCK(STMT_PRINT(EXPR_LITERAL("three")), STMT_BREAK()), EXPR_LITERAL(3)),
+          STMT_CASE(STMT_BLOCK(STMT_PRINT(EXPR_LITERAL("four")), STMT_BREAK()), EXPR_LITERAL(4)),
+          STMT_CASE(STMT_BLOCK(STMT_PRINT(EXPR_LITERAL("five")), STMT_BREAK()), EXPR_LITERAL(5)),
+          STMT_CASE(STMT_BLOCK(STMT_PRINT(EXPR_LITERAL("other")), STMT_BREAK()))
+        )
+      )
+    )
+  );
+  buildAndRunSuccess(vm, *builder);
+  ASSERT_EQ("one\ntwo\nthree\nfour\nfive\nother\nother\nother\nother\n", vm.logger.logged.str());
+}
+
+TEST(TestVM, SwitchDefaultContinue) {
+  egg::test::VM vm;
+  auto builder = vm->createProgramBuilder();
+  builder->addStatement(
+    // var i;
+    STMT_VAR_DECLARE("i",
+      // for (...)
+      STMT_FOR(
+        // i = 1;
+        STMT_VAR_SET("i", EXPR_LITERAL(1)),
+        // i < 10;
+        EXPR_BINARY(LessThan, EXPR_VAR("i"), EXPR_LITERAL(10)),
+        // ++i;
+        STMT_VAR_MUTATE("i", Increment, EXPR_LITERAL(VOID)),
+        // switch 
+        STMT_SWITCH(EXPR_VAR("i"), 1,
+          STMT_CASE(STMT_BLOCK(STMT_PRINT(EXPR_LITERAL("other")), STMT_CONTINUE())),
+          STMT_CASE(STMT_BLOCK(STMT_PRINT(EXPR_LITERAL("one")), STMT_BREAK()), EXPR_LITERAL(1)),
+          STMT_CASE(STMT_BLOCK(STMT_PRINT(EXPR_LITERAL("two")), STMT_CONTINUE()), EXPR_LITERAL(2)),
+          STMT_CASE(STMT_BLOCK(STMT_PRINT(EXPR_LITERAL("three")), STMT_BREAK()), EXPR_LITERAL(3)),
+          STMT_CASE(STMT_BLOCK(STMT_PRINT(EXPR_LITERAL("four")), STMT_BREAK()), EXPR_LITERAL(4)),
+          STMT_CASE(STMT_BLOCK(STMT_PRINT(EXPR_LITERAL("five")), STMT_CONTINUE()), EXPR_LITERAL(5))
+        )
+      )
+    )
+  );
+  buildAndRunSuccess(vm, *builder);
+  ASSERT_EQ("one\n"
+            "two\nthree\n"
+            "three\n"
+            "four\n"
+            "five\nother\none\n"
+            "other\none\n"
+            "other\none\n"
+            "other\none\n"
+            "other\none\n",
+            vm.logger.logged.str());
+}
