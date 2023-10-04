@@ -177,7 +177,10 @@ namespace egg::ovum {
     virtual Node& stmtWhile(Node& condition, Node& block) = 0;
     virtual Node& stmtDo(Node& block, Node& condition) = 0;
     virtual Node& stmtFor(Node& initial, Node& condition, Node& advance, Node& block) = 0;
-    // WIBBLE virtual Node& stmtFor(Node& initial , Node& condition, Node& advance) = 0;
+    virtual Node& stmtSwitch(Node& expression, size_t defaultIndex) = 0;
+    virtual Node& stmtCase(Node& block) = 0;
+    virtual Node& stmtBreak() = 0;
+    virtual Node& stmtContinue() = 0;
     virtual Node& stmtVariableDeclare(const String& name) = 0;
     virtual Node& stmtVariableDefine(const String& name, Node& value) = 0;
     virtual Node& stmtVariableSet(const String& name, Node& value) = 0;

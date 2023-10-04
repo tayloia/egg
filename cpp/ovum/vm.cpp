@@ -567,7 +567,11 @@ public:
     StmtIf,
     StmtWhile,
     StmtDo,
-    StmtFor
+    StmtFor,
+    StmtSwitch,
+    StmtCase,
+    StmtBreak,
+    StmtContinue
   };
   Kind kind;
   HardValue literal; // Only stores simple literals
@@ -575,6 +579,7 @@ public:
     IVMExecution::UnaryOp unaryOp;
     IVMExecution::BinaryOp binaryOp;
     IVMExecution::MutationOp mutationOp;
+    size_t defaultIndex;
   };
   std::vector<Node*> children; // Reference-counting hard pointers are stored in the chain
   Node(IVM& vm, Node* parent, Kind kind)
@@ -697,6 +702,25 @@ namespace {
       node.addChild(advance);
       return node;
     }
+    virtual Node& stmtSwitch(Node& expression, size_t defaultIndex) override {
+      auto& node = this->makeNode(Node::Kind::StmtSwitch);
+      node.addChild(expression);
+      node.defaultIndex = defaultIndex;
+      return node;
+    }
+    virtual Node& stmtCase(Node& block) override {
+      auto& node = this->makeNode(Node::Kind::StmtCase);
+      node.addChild(block);
+      return node;
+    }
+    virtual Node& stmtBreak() override {
+      auto& node = this->makeNode(Node::Kind::StmtBreak);
+      return node;
+    }
+    virtual Node& stmtContinue() override {
+      auto& node = this->makeNode(Node::Kind::StmtContinue);
+      return node;
+    }
     virtual Node& stmtVariableDeclare(const String& name) override {
       auto& node = this->makeNode(Node::Kind::StmtVariableDeclare);
       node.literal = this->createHardValueString(name);
@@ -791,8 +815,8 @@ namespace {
   private:
     RunOutcome stepNode(HardValue& retval);
     bool stepBlock(HardValue& retval);
-    void push(const IVMProgram::Node& node, const String& scope = {}, size_t index = 0) {
-      this->stack.emplace(&node, scope, index);
+    NodeStack& push(const IVMProgram::Node& node, const String& scope = {}, size_t index = 0) {
+      return this->stack.emplace(&node, scope, index);
     }
     void pop(HardValue value) { // sic byval
       assert(!this->stack.empty());
@@ -1308,6 +1332,166 @@ egg::ovum::IVMProgramRunner::RunOutcome VMProgramRunner::stepNode(HardValue& ret
         top.index = 2;
       }
     }
+    break;
+  case IVMProgram::Node::Kind::StmtSwitch:
+    assert(top.node->literal->getVoid());
+    assert(top.node->children.size() > 1);
+    if (top.index == 0) {
+      if (top.deque.empty()) {
+        // Scope any declared variable
+        if (!this->variableScopeBegin(retval, top)) {
+          // TODO: switch (var v = a) {}
+          return RunOutcome::Faulted;
+        }
+        // Evaluate the switch expression
+        this->push(*top.node->children[0]);
+        assert(top.index == 0);
+      } else {
+        // Test the switch expression evaluation
+        assert(top.deque.size() == 1);
+        auto& latest = top.deque.back();
+        if (latest.hasFlowControl()) {
+          retval = latest;
+          return this->faulted(retval);
+        }
+        // Match the first case/default statement
+        top.index = 1;
+        auto& added = this->push(*top.node->children[1]);
+        assert(added.node->kind == IVMProgram::Node::Kind::StmtCase);
+        added.deque.push_back(latest);
+      }
+    } else {
+      assert(!top.deque.empty());
+      auto& latest = top.deque.back();
+      switch (top.deque.size()) {
+      case 2:
+        // Just matched a case/default clause
+        EGG_WARNING_SUPPRESS_SWITCH_BEGIN
+        switch (latest->getFlags()) {
+        case ValueFlags::Bool:
+          // The switch expression does not match this case/default clause
+          if (++top.index < top.node->children.size()) {
+            // Match the next case/default statement
+            top.deque.pop_back();
+            assert(top.deque.size() == 1);
+            auto& added = this->push(*top.node->children[top.index]);
+            assert(added.node->kind == IVMProgram::Node::Kind::StmtCase);
+            added.deque.push_back(top.deque.front());
+          } else {
+            // That was the last clause; we need to use the default clause, if any
+            if (top.node->defaultIndex == 0) {
+              // No default clause
+              this->pop(HardValue::Void);
+            } else {
+              top.deque.clear();
+              top.index = top.node->defaultIndex;
+            }
+          }
+          break;
+        case ValueFlags::Break:
+          // Matched; break out of the switch statement
+          if (!this->variableScopeEnd(retval, top.scope)) {
+            return RunOutcome::Faulted;
+          }
+          this->pop(HardValue::Void);
+          break;
+        case ValueFlags::Continue:
+          // Matched; continue to next block without re-testing the expression
+          top.deque.clear();
+          if (++top.index >= top.node->children.size()) {
+            top.index = 1;
+          }
+          break;
+        default:
+          if (latest.hasFlowControl()) {
+            retval = latest;
+            return this->faulted(retval);
+          }
+          return this->createFault(retval, "Invalid switch statement case/default result");
+        }
+        EGG_WARNING_SUPPRESS_SWITCH_END
+        break;
+      default:
+        return this->createFault(retval, "WIBBLE: Bad deque size in switch");
+      }
+    }
+    break;
+  case IVMProgram::Node::Kind::StmtCase:
+    assert(top.node->literal->getVoid());
+    assert(!top.node->children.empty());
+    if (top.index == 0) {
+      assert(top.deque.size() == 1);
+      if (top.node->children.size() == 1) {
+        // This is a 'default' clause ('case' with no expressions)
+        top.index = 1;
+      } else {
+        // Evaluate the first expression
+        this->push(*top.node->children[1]);
+        top.index = 1;
+      }
+    } else if (top.index < top.node->children.size()) {
+      // Test the evaluation
+      assert(top.deque.size() == 2);
+      auto& latest = top.deque.back();
+      if (latest.hasFlowControl()) {
+        retval = latest;
+        return this->faulted(retval);
+      }
+      if (Operation::areEqual(top.deque.front(), latest, true, false)) { // TODO: promote?
+        // Got a match, so execute the block
+        top.deque.clear();
+        this->push(*top.node->children[0]);
+        top.index = top.node->children.size();
+      } else {
+        // Step to the next case expression
+        if (++top.index < top.node->children.size()) {
+          // Evaluate the next expression
+          this->push(*top.node->children[top.index]);
+        } else {
+          // No expressions matched
+          this->pop(HardValue::False);
+        }
+      }
+    } else {
+      // Test the block execution
+      assert(top.deque.size() == 1);
+      auto& latest = top.deque.back();
+      EGG_WARNING_SUPPRESS_SWITCH_BEGIN
+      switch (latest->getFlags()) {
+      case ValueFlags::Void:
+        this->log(ILogger::Source::Runtime, ILogger::Severity::Warning, this->createString("Fell off the end of the case/default clause"));
+        this->pop(HardValue::Continue);
+        break;
+      case ValueFlags::Break:
+        // Explicit 'break'
+        this->pop(HardValue::Break);
+        break;
+      case ValueFlags::Continue:
+        // Explicit 'continue'
+        this->pop(HardValue::Continue);
+        break;
+      default:
+        // Probably an exception
+        if (latest.hasFlowControl()) {
+          retval = latest;
+          return this->faulted(retval);
+        }
+        this->log(ILogger::Source::Runtime, ILogger::Severity::Warning, this->createString("Discarded value in switch case/default clause"));
+        this->pop(HardValue::Void);
+        break;
+      }
+      EGG_WARNING_SUPPRESS_SWITCH_END
+    }
+    break;
+  case IVMProgram::Node::Kind::StmtBreak:
+    assert(top.node->literal->getVoid());
+    assert(top.node->children.size() == 0);
+    this->pop(HardValue::Break);
+    break;
+  case IVMProgram::Node::Kind::StmtContinue:
+    assert(top.node->literal->getVoid());
+    assert(top.node->children.size() == 0);
+    this->pop(HardValue::Continue);
     break;
   case IVMProgram::Node::Kind::StmtFunctionCall:
   case IVMProgram::Node::Kind::ExprFunctionCall:
