@@ -1381,7 +1381,7 @@ TEST(TestVM, SwitchCaseBreak) {
         EXPR_BINARY(LessThan, EXPR_VAR("i"), EXPR_LITERAL(10)),
         // ++i;
         STMT_VAR_MUTATE("i", Increment, EXPR_LITERAL(VOID)),
-        // switch 
+        // switch (i) without default
         STMT_SWITCH(EXPR_VAR("i"), 0,
           STMT_CASE(STMT_BLOCK(STMT_PRINT(EXPR_LITERAL("one")), STMT_BREAK()), EXPR_LITERAL(1)),
           STMT_CASE(STMT_BLOCK(STMT_PRINT(EXPR_LITERAL("two")), STMT_BREAK()), EXPR_LITERAL(2)),
@@ -1410,7 +1410,7 @@ TEST(TestVM, SwitchCaseContinue) {
         EXPR_BINARY(LessThan, EXPR_VAR("i"), EXPR_LITERAL(10)),
         // ++i;
         STMT_VAR_MUTATE("i", Increment, EXPR_LITERAL(VOID)),
-        // switch 
+        // switch (i) without default
         STMT_SWITCH(EXPR_VAR("i"), 0,
           STMT_CASE(STMT_BLOCK(STMT_PRINT(EXPR_LITERAL("one")), STMT_CONTINUE()), EXPR_LITERAL(1)),
           STMT_CASE(STMT_BLOCK(STMT_PRINT(EXPR_LITERAL("two")), STMT_BREAK()), EXPR_LITERAL(2)),
@@ -1443,7 +1443,7 @@ TEST(TestVM, SwitchDefaultBreak) {
         EXPR_BINARY(LessThan, EXPR_VAR("i"), EXPR_LITERAL(10)),
         // ++i;
         STMT_VAR_MUTATE("i", Increment, EXPR_LITERAL(VOID)),
-        // switch 
+        // switch (i) with default
         STMT_SWITCH(EXPR_VAR("i"), 6,
           STMT_CASE(STMT_BLOCK(STMT_PRINT(EXPR_LITERAL("one")), STMT_BREAK()), EXPR_LITERAL(1)),
           STMT_CASE(STMT_BLOCK(STMT_PRINT(EXPR_LITERAL("two")), STMT_BREAK()), EXPR_LITERAL(2)),
@@ -1473,7 +1473,7 @@ TEST(TestVM, SwitchDefaultContinue) {
         EXPR_BINARY(LessThan, EXPR_VAR("i"), EXPR_LITERAL(10)),
         // ++i;
         STMT_VAR_MUTATE("i", Increment, EXPR_LITERAL(VOID)),
-        // switch 
+        // switch (i) with default
         STMT_SWITCH(EXPR_VAR("i"), 1,
           STMT_CASE(STMT_BLOCK(STMT_PRINT(EXPR_LITERAL("other")), STMT_CONTINUE())),
           STMT_CASE(STMT_BLOCK(STMT_PRINT(EXPR_LITERAL("one")), STMT_BREAK()), EXPR_LITERAL(1)),
@@ -1496,4 +1496,30 @@ TEST(TestVM, SwitchDefaultContinue) {
             "other\none\n"
             "other\none\n",
             vm.logger.logged.str());
+}
+
+TEST(TestVM, SwitchCaseMultiple) {
+  egg::test::VM vm;
+  auto builder = vm->createProgramBuilder();
+  builder->addStatement(
+    // var i;
+    STMT_VAR_DECLARE("i",
+      // for (...)
+      STMT_FOR(
+        // i = 1;
+        STMT_VAR_SET("i", EXPR_LITERAL(1)),
+        // i < 10;
+        EXPR_BINARY(LessThan, EXPR_VAR("i"), EXPR_LITERAL(10)),
+        // ++i;
+        STMT_VAR_MUTATE("i", Increment, EXPR_LITERAL(VOID)),
+        // switch (i) with default
+        STMT_SWITCH(EXPR_VAR("i"), 2,
+          STMT_CASE(STMT_BLOCK(STMT_PRINT(EXPR_LITERAL("odd")), STMT_BREAK()), EXPR_LITERAL(1), EXPR_LITERAL(3), EXPR_LITERAL(5), EXPR_LITERAL(7), EXPR_LITERAL(9)),
+          STMT_CASE(STMT_BLOCK(STMT_PRINT(EXPR_LITERAL("even")), STMT_BREAK()))
+        )
+      )
+    )
+  );
+  buildAndRunSuccess(vm, *builder);
+  ASSERT_EQ("odd\neven\nodd\neven\nodd\neven\nodd\neven\nodd\n", vm.logger.logged.str());
 }

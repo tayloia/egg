@@ -1477,6 +1477,7 @@ egg::ovum::IVMProgramRunner::RunOutcome VMProgramRunner::stepNode(HardValue& ret
         // Step to the next case expression
         if (++top.index < top.node->children.size()) {
           // Evaluate the next expression
+          top.deque.pop_back();
           this->push(*top.node->children[top.index]);
         } else {
           // No expressions matched
