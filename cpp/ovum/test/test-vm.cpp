@@ -72,22 +72,22 @@ namespace {
     auto runner = builder.build()->createRunner();
     vm.addBuiltins(*runner);
     auto outcome = runner->run(retval, flags);
-    if (outcome == IVMProgramRunner::RunOutcome::Faulted) {
+    if (retval.hasFlowControl()) {
       vm.logger.log(ILogger::Source::User, ILogger::Severity::Error, vm.allocator.concat(retval));
     }
     return outcome;
   }
-  void buildAndRunSuccess(egg::test::VM& vm, IVMProgramBuilder& builder, IVMProgramRunner::RunFlags flags = IVMProgramRunner::RunFlags::Default) {
+  void buildAndRunSucceeded(egg::test::VM& vm, IVMProgramBuilder& builder, IVMProgramRunner::RunFlags flags = IVMProgramRunner::RunFlags::Default) {
     HardValue retval;
     auto outcome = buildAndRun(vm, builder, retval, flags);
-    ASSERT_EQ(egg::ovum::IVMProgramRunner::RunOutcome::Completed, outcome);
+    ASSERT_EQ(egg::ovum::IVMProgramRunner::RunOutcome::Succeeded, outcome);
     ASSERT_VALUE(egg::ovum::HardValue::Void, retval);
   }
-  void buildAndRunFault(egg::test::VM& vm, IVMProgramBuilder& builder, IVMProgramRunner::RunFlags flags = IVMProgramRunner::RunFlags::Default) {
+  void buildAndRunFailed(egg::test::VM& vm, IVMProgramBuilder& builder, IVMProgramRunner::RunFlags flags = IVMProgramRunner::RunFlags::Default) {
     HardValue retval;
     auto outcome = buildAndRun(vm, builder, retval, flags);
-    ASSERT_EQ(egg::ovum::IVMProgramRunner::RunOutcome::Faulted, outcome);
-    ASSERT_EQ(egg::ovum::ValueFlags::Throw|egg::ovum::ValueFlags::String, retval->getFlags());
+    ASSERT_EQ(egg::ovum::IVMProgramRunner::RunOutcome::Failed, outcome);
+    ASSERT_EQ(egg::ovum::ValueFlags::Throw | egg::ovum::ValueFlags::String, retval->getFlags());
   }
 }
 
@@ -206,7 +206,7 @@ TEST(TestVM, RunProgram) {
   auto runner = createRunnerWithPrint(vm, *program);
   egg::ovum::HardValue retval;
   auto outcome = runner->run(retval);
-  ASSERT_EQ(egg::ovum::IVMProgramRunner::RunOutcome::Completed, outcome);
+  ASSERT_EQ(egg::ovum::IVMProgramRunner::RunOutcome::Succeeded, outcome);
   ASSERT_VALUE(egg::ovum::HardValue::Void, retval);
   ASSERT_EQ("hello world\n", vm.logger.logged.str());
 }
@@ -227,7 +227,7 @@ TEST(TestVM, PrintPrint) {
   auto builder = vm->createProgramBuilder();
   // print(print);
   builder->addStatement(STMT_PRINT(EXPR_VAR("print")));
-  buildAndRunSuccess(vm, *builder);
+  buildAndRunSucceeded(vm, *builder);
   ASSERT_EQ("[builtin print]\n", vm.logger.logged.str());
 }
 
@@ -236,7 +236,7 @@ TEST(TestVM, PrintUnknown) {
   auto builder = vm->createProgramBuilder();
   // print(unknown);
   builder->addStatement(STMT_PRINT(EXPR_VAR("unknown")));
-  buildAndRunFault(vm, *builder);
+  buildAndRunFailed(vm, *builder);
   ASSERT_EQ("<ERROR>throw Unknown variable symbol: 'unknown'\n", vm.logger.logged.str());
 }
 
@@ -250,7 +250,7 @@ TEST(TestVM, VariableDeclare) {
       STMT_PRINT(EXPR_VAR("v"))
     )
   );
-  buildAndRunFault(vm, *builder);
+  buildAndRunFailed(vm, *builder);
   ASSERT_EQ("<ERROR>throw Variable uninitialized: 'v'\n", vm.logger.logged.str());
 }
 
@@ -264,7 +264,7 @@ TEST(TestVM, VariableDeclareTwice) {
       STMT_VAR_DECLARE("v")
     )
   );
-  buildAndRunFault(vm, *builder);
+  buildAndRunFailed(vm, *builder);
   ASSERT_EQ("<ERROR>throw Variable symbol already declared: 'v'\n", vm.logger.logged.str());
 }
 
@@ -278,7 +278,7 @@ TEST(TestVM, VariableDefine) {
       STMT_PRINT(EXPR_VAR("i"))
     )
   );
-  buildAndRunSuccess(vm, *builder);
+  buildAndRunSucceeded(vm, *builder);
   ASSERT_EQ("12345\n", vm.logger.logged.str());
 }
 
@@ -293,7 +293,7 @@ TEST(TestVM, VariableUndeclare) {
     // print(i);
     STMT_PRINT(EXPR_VAR("i"))
   );
-  buildAndRunFault(vm, *builder);
+  buildAndRunFailed(vm, *builder);
   ASSERT_EQ("<ERROR>throw Unknown variable symbol: 'i'\n", vm.logger.logged.str());
 }
 
@@ -307,7 +307,7 @@ TEST(TestVM, VariableDefineNull) {
       STMT_PRINT(EXPR_VAR("n"))
     )
   );
-  buildAndRunSuccess(vm, *builder);
+  buildAndRunSucceeded(vm, *builder);
   ASSERT_EQ("null\n", vm.logger.logged.str());
 }
 
@@ -321,7 +321,7 @@ TEST(TestVM, VariableDefineBool) {
       STMT_PRINT(EXPR_VAR("b"))
     )
   );
-  buildAndRunSuccess(vm, *builder);
+  buildAndRunSucceeded(vm, *builder);
   ASSERT_EQ("true\n", vm.logger.logged.str());
 }
 
@@ -335,7 +335,7 @@ TEST(TestVM, VariableDefineInt) {
       STMT_PRINT(EXPR_VAR("i"))
     )
   );
-  buildAndRunSuccess(vm, *builder);
+  buildAndRunSucceeded(vm, *builder);
   ASSERT_EQ("12345\n", vm.logger.logged.str());
 }
 
@@ -349,7 +349,7 @@ TEST(TestVM, VariableDefineFloat) {
       STMT_PRINT(EXPR_VAR("f"))
     )
   );
-  buildAndRunSuccess(vm, *builder);
+  buildAndRunSucceeded(vm, *builder);
   ASSERT_EQ("1234.5\n", vm.logger.logged.str());
 }
 
@@ -363,7 +363,7 @@ TEST(TestVM, VariableDefineString) {
       STMT_PRINT(EXPR_VAR("s"))
     )
   );
-  buildAndRunSuccess(vm, *builder);
+  buildAndRunSucceeded(vm, *builder);
   ASSERT_EQ("hello world\n", vm.logger.logged.str());
 }
 
@@ -377,7 +377,7 @@ TEST(TestVM, VariableDefineObject) {
       STMT_PRINT(EXPR_VAR("o"))
     )
   );
-  buildAndRunSuccess(vm, *builder);
+  buildAndRunSucceeded(vm, *builder);
   ASSERT_EQ("[builtin print]\n", vm.logger.logged.str());
 }
 
@@ -388,7 +388,7 @@ TEST(TestVM, BuiltinDeclare) {
     // var print;
     STMT_VAR_DECLARE("print")
   );
-  buildAndRunFault(vm, *builder);
+  buildAndRunFailed(vm, *builder);
   ASSERT_EQ("<ERROR>throw Variable symbol already declared as a builtin: 'print'\n", vm.logger.logged.str());
 }
 
@@ -399,7 +399,7 @@ TEST(TestVM, BuiltinDefine) {
     // var print = null;
     STMT_VAR_DEFINE("print", EXPR_LITERAL(nullptr))
   );
-  buildAndRunFault(vm, *builder);
+  buildAndRunFailed(vm, *builder);
   ASSERT_EQ("<ERROR>throw Variable symbol already declared as a builtin: 'print'\n", vm.logger.logged.str());
 }
 
@@ -410,7 +410,7 @@ TEST(TestVM, BuiltinSet) {
   builder->addStatement(
     STMT_VAR_SET("print", EXPR_LITERAL(12345))
   );
-  buildAndRunFault(vm, *builder);
+  buildAndRunFailed(vm, *builder);
   ASSERT_EQ("<ERROR>throw Cannot modify builtin symbol: 'print'\n", vm.logger.logged.str());
 }
 
@@ -421,7 +421,7 @@ TEST(TestVM, AssertTrue) {
   builder->addStatement(
     STMT_CALL(EXPR_VAR("assert"), EXPR_LITERAL(true))
   );
-  buildAndRunSuccess(vm, *builder);
+  buildAndRunSucceeded(vm, *builder);
   ASSERT_EQ("", vm.logger.logged.str());
 }
 
@@ -432,7 +432,7 @@ TEST(TestVM, AssertFalse) {
   builder->addStatement(
     STMT_CALL(EXPR_VAR("assert"), EXPR_LITERAL(false))
   );
-  buildAndRunFault(vm, *builder);
+  buildAndRunFailed(vm, *builder);
   ASSERT_EQ("<ERROR>throw Assertion failure\n", vm.logger.logged.str());
 }
 
@@ -451,7 +451,7 @@ TEST(TestVM, ExpandoPair) {
       )
     )
   );
-  buildAndRunSuccess(vm, *builder);
+  buildAndRunSucceeded(vm, *builder);
   ASSERT_EQ("[expando][expando]\n", vm.logger.logged.str());
 }
 
@@ -472,7 +472,7 @@ TEST(TestVM, ExpandoCycle) {
       )
     )
   );
-  buildAndRunSuccess(vm, *builder);
+  buildAndRunSucceeded(vm, *builder);
   ASSERT_EQ("[expando][expando]\n", vm.logger.logged.str());
 }
 
@@ -501,7 +501,7 @@ TEST(TestVM, ExpandoCollector) {
       )
     )
   );
-  buildAndRunSuccess(vm, *builder);
+  buildAndRunSucceeded(vm, *builder);
   ASSERT_EQ("0\n0\n4\n", vm.logger.logged.str());
 }
 
@@ -537,7 +537,7 @@ TEST(TestVM, ExpandoKeys) {
       STMT_PRINT(EXPR_PROP_GET(EXPR_VAR("x"), EXPR_LITERAL("s")))
     )
   );
-  buildAndRunSuccess(vm, *builder);
+  buildAndRunSucceeded(vm, *builder);
   ASSERT_EQ("true\n1234.5\n12345\nnull\n[expando]\nhello world\n", vm.logger.logged.str());
 }
 
@@ -560,7 +560,7 @@ TEST(TestVM, UnaryNegate) {
     // print(-(-123.5));
     STMT_PRINT(EXPR_UNARY(Negate, EXPR_LITERAL(-123.5)))
   );
-  buildAndRunSuccess(vm, *builder);
+  buildAndRunSucceeded(vm, *builder);
   ASSERT_EQ("-123\n123\n-123.5\n123.5\n", vm.logger.logged.str());
 }
 
@@ -575,7 +575,7 @@ TEST(TestVM, UnaryBitwiseNot) {
     // print(~-5);
     STMT_PRINT(EXPR_UNARY(BitwiseNot, EXPR_LITERAL(-5)))
   );
-  buildAndRunSuccess(vm, *builder);
+  buildAndRunSucceeded(vm, *builder);
   ASSERT_EQ("-6\n4\n", vm.logger.logged.str());
 }
 
@@ -590,7 +590,7 @@ TEST(TestVM, UnaryLogicalNot) {
     // print(!true);
     STMT_PRINT(EXPR_UNARY(LogicalNot, EXPR_LITERAL(true)))
   );
-  buildAndRunSuccess(vm, *builder);
+  buildAndRunSucceeded(vm, *builder);
   ASSERT_EQ("true\nfalse\n", vm.logger.logged.str());
 }
 
@@ -613,7 +613,7 @@ TEST(TestVM, BinaryAdd) {
     // print(123.25 + 456.5);
     STMT_PRINT(EXPR_BINARY(Add, EXPR_LITERAL(123.25), EXPR_LITERAL(456.5)))
   );
-  buildAndRunSuccess(vm, *builder);
+  buildAndRunSucceeded(vm, *builder);
   ASSERT_EQ("579\n579.25\n579.5\n579.75\n", vm.logger.logged.str());
 }
 
@@ -636,7 +636,7 @@ TEST(TestVM, BinarySubtract) {
     // print(123.25 - 456.5);
     STMT_PRINT(EXPR_BINARY(Subtract, EXPR_LITERAL(123.25), EXPR_LITERAL(456.5)))
   );
-  buildAndRunSuccess(vm, *builder);
+  buildAndRunSucceeded(vm, *builder);
   ASSERT_EQ("-333\n-332.75\n-333.5\n-333.25\n", vm.logger.logged.str());
 }
 
@@ -659,7 +659,7 @@ TEST(TestVM, BinaryMultiply) {
     // print(123.25 * 456.5);
     STMT_PRINT(EXPR_BINARY(Multiply, EXPR_LITERAL(123.25), EXPR_LITERAL(456.5)))
   );
-  buildAndRunSuccess(vm, *builder);
+  buildAndRunSucceeded(vm, *builder);
   ASSERT_EQ("56088\n56202.0\n56149.5\n56263.625\n", vm.logger.logged.str());
 }
 
@@ -682,7 +682,7 @@ TEST(TestVM, BinaryDivide) {
     // print(123.25 / 456.5);
     STMT_PRINT(EXPR_BINARY(Divide, EXPR_LITERAL(123.25), EXPR_LITERAL(456.5)))
   );
-  buildAndRunSuccess(vm, *builder);
+  buildAndRunSucceeded(vm, *builder);
   ASSERT_EQ("0\n0.270285087719\n0.269441401972\n0.269989047097\n", vm.logger.logged.str());
 }
 
@@ -713,7 +713,7 @@ TEST(TestVM, BinaryDivideZero) {
     // print(123 / 0);
     STMT_PRINT(EXPR_BINARY(Divide, EXPR_LITERAL(123), EXPR_LITERAL(0)))
   );
-  buildAndRunFault(vm, *builder);
+  buildAndRunFailed(vm, *builder);
   ASSERT_EQ("#+INF\n#+INF\n#+INF\n#NAN\n#NAN\n<ERROR>throw TODO: Integer division by zero in '/' division operator\n", vm.logger.logged.str());
 }
 
@@ -736,7 +736,7 @@ TEST(TestVM, BinaryRemainder) {
     // print(123.25 % 34.5);
     STMT_PRINT(EXPR_BINARY(Remainder, EXPR_LITERAL(123.25), EXPR_LITERAL(34.5)))
   );
-  buildAndRunSuccess(vm, *builder);
+  buildAndRunSucceeded(vm, *builder);
   ASSERT_EQ("21\n21.25\n19.5\n19.75\n", vm.logger.logged.str());
 }
 
@@ -767,7 +767,7 @@ TEST(TestVM, BinaryRemainderZero) {
     // print(123 % 0);
     STMT_PRINT(EXPR_BINARY(Remainder, EXPR_LITERAL(123), EXPR_LITERAL(0)))
   );
-  buildAndRunFault(vm, *builder);
+  buildAndRunFailed(vm, *builder);
   ASSERT_EQ("#NAN\n#NAN\n#NAN\n#NAN\n#NAN\n<ERROR>throw TODO: Integer division by zero in '%' remainder operator\n", vm.logger.logged.str());
 }
 
@@ -798,7 +798,7 @@ TEST(TestVM, BinaryCompare) {
     // print(123 > 234);
     STMT_PRINT(EXPR_BINARY(GreaterThan, EXPR_LITERAL(123), EXPR_LITERAL(234)))
   );
-  buildAndRunSuccess(vm, *builder);
+  buildAndRunSucceeded(vm, *builder);
   ASSERT_EQ("true\ntrue\nfalse\ntrue\nfalse\nfalse\n", vm.logger.logged.str());
 }
 
@@ -853,7 +853,7 @@ TEST(TestVM, BinaryBitwiseBool) {
     // print(true ^ true);
     STMT_PRINT(EXPR_BINARY(BitwiseXor, EXPR_LITERAL(true), EXPR_LITERAL(true)))
   );
-  buildAndRunSuccess(vm, *builder);
+  buildAndRunSucceeded(vm, *builder);
   ASSERT_EQ("false\nfalse\nfalse\ntrue\n"
             "false\ntrue\ntrue\ntrue\n"
             "false\ntrue\ntrue\nfalse\n",
@@ -875,7 +875,7 @@ TEST(TestVM, BinaryBitwiseInt) {
     // print(10 ^ 3);
     STMT_PRINT(EXPR_BINARY(BitwiseXor, EXPR_LITERAL(10), EXPR_LITERAL(3)))
   );
-  buildAndRunSuccess(vm, *builder);
+  buildAndRunSucceeded(vm, *builder);
   ASSERT_EQ("2\n11\n9\n", vm.logger.logged.str());
 }
 
@@ -930,7 +930,7 @@ TEST(TestVM, BinaryShift) {
     // print(-7 >>> -2);
     STMT_PRINT(EXPR_BINARY(ShiftRightUnsigned, EXPR_LITERAL(-7), EXPR_LITERAL(-2)))
   );
-  buildAndRunSuccess(vm, *builder);
+  buildAndRunSucceeded(vm, *builder);
   ASSERT_EQ("28\n1\n-28\n-2\n"
             "1\n28\n-2\n-28\n"
             "1\n28\n4611686018427387902\n-28\n",
@@ -988,7 +988,7 @@ TEST(TestVM, BinaryLogical) {
     // print(123 ?? 456);
     STMT_PRINT(EXPR_BINARY(IfNull, EXPR_LITERAL(123), EXPR_LITERAL(456)))
   );
-  buildAndRunSuccess(vm, *builder);
+  buildAndRunSucceeded(vm, *builder);
   ASSERT_EQ("false\nfalse\nfalse\ntrue\n"
             "false\ntrue\ntrue\ntrue\n"
             "null\n456\n123\n123\n",
@@ -1009,7 +1009,7 @@ TEST(TestVM, MutateDecrement) {
       STMT_PRINT(EXPR_VAR("i"))
     )
   );
-  buildAndRunSuccess(vm, *builder);
+  buildAndRunSucceeded(vm, *builder);
   ASSERT_EQ("12345\n12344\n", vm.logger.logged.str());
 }
 
@@ -1027,7 +1027,7 @@ TEST(TestVM, MutateIncrement) {
       STMT_PRINT(EXPR_VAR("i"))
     )
   );
-  buildAndRunSuccess(vm, *builder);
+  buildAndRunSucceeded(vm, *builder);
   ASSERT_EQ("12345\n12346\n", vm.logger.logged.str());
 }
 
@@ -1041,7 +1041,7 @@ TEST(TestVM, MutateAdd) {
   ADD_STATEMENT_MUTATE(Add, 123.5, 12345); // 12468.5
   ADD_STATEMENT_MUTATE(Add, 123.5, 13.25); // 136.75
   ADD_STATEMENT_MUTATE(Add, 123, "bad");
-  buildAndRunFault(vm, *builder);
+  buildAndRunFailed(vm, *builder);
   ASSERT_EQ("12345\n12345.0\n12468\n12468.5\n12468.5\n136.75\n"
             "<ERROR>throw TODO: Mutation addition is only supported for values of type 'int' or 'float'\n",
             vm.logger.logged.str());
@@ -1057,7 +1057,7 @@ TEST(TestVM, MutateSubtract) {
   ADD_STATEMENT_MUTATE(Subtract, 123.5, 12345); // -12221.5
   ADD_STATEMENT_MUTATE(Subtract, 123.5, 13.25); // 110.25
   ADD_STATEMENT_MUTATE(Subtract, 123, "bad");
-  buildAndRunFault(vm, *builder);
+  buildAndRunFailed(vm, *builder);
   ASSERT_EQ("12345\n12345.0\n12222\n12221.5\n-12221.5\n110.25\n"
             "<ERROR>throw TODO: Mutation subtract is only supported for values of type 'int' or 'float'\n",
             vm.logger.logged.str());
@@ -1073,7 +1073,7 @@ TEST(TestVM, MutateMultiply) {
   ADD_STATEMENT_MUTATE(Multiply, 123.5, 12345); // 1524607.5
   ADD_STATEMENT_MUTATE(Multiply, 123.5, 13.25); // 1636.375
   ADD_STATEMENT_MUTATE(Multiply, 123, "bad");
-  buildAndRunFault(vm, *builder);
+  buildAndRunFailed(vm, *builder);
   ASSERT_EQ("0\n0.0\n1518435\n1524607.5\n1524607.5\n1636.375\n"
             "<ERROR>throw TODO: Mutation multiply is only supported for values of type 'int' or 'float'\n",
             vm.logger.logged.str());
@@ -1088,7 +1088,7 @@ TEST(TestVM, MutateDivide) {
   ADD_STATEMENT_MUTATE(Divide, 123.5, 2); // 61.75
   ADD_STATEMENT_MUTATE(Divide, 123.5, 2.5); // 49.4
   ADD_STATEMENT_MUTATE(Divide, 12345, 0);
-  buildAndRunFault(vm, *builder);
+  buildAndRunFailed(vm, *builder);
   ASSERT_EQ("#+INF\n4938.0\n4938.0\n61.75\n49.4\n"
             "<ERROR>throw TODO: Division by zero in mutation divide\n",
             vm.logger.logged.str());
@@ -1103,7 +1103,7 @@ TEST(TestVM, MutateRemainder) {
   ADD_STATEMENT_MUTATE(Remainder, 123.5, 2); // 1.5
   ADD_STATEMENT_MUTATE(Remainder, 123.5, 1.5); // 0.5
   ADD_STATEMENT_MUTATE(Remainder, 12345, 0);
-  buildAndRunFault(vm, *builder);
+  buildAndRunFailed(vm, *builder);
   ASSERT_EQ("#NAN\n0.5\n0.5\n1.5\n0.5\n"
             "<ERROR>throw TODO: Division by zero in mutation remainder\n",
             vm.logger.logged.str());
@@ -1118,7 +1118,7 @@ TEST(TestVM, MutateBitwiseAnd) {
   ADD_STATEMENT_MUTATE(BitwiseAnd, true, true); // true
   ADD_STATEMENT_MUTATE(BitwiseAnd, 12345, 10); // 8
   ADD_STATEMENT_MUTATE(BitwiseAnd, 12345, false);
-  buildAndRunFault(vm, *builder);
+  buildAndRunFailed(vm, *builder);
   ASSERT_EQ("false\nfalse\nfalse\ntrue\n8\n"
             "<ERROR>throw TODO: Mutation bitwise-and is only supported for values of type 'bool' or 'int'\n",
             vm.logger.logged.str());
@@ -1133,7 +1133,7 @@ TEST(TestVM, MutateBitwiseOr) {
   ADD_STATEMENT_MUTATE(BitwiseOr, true, true); // true
   ADD_STATEMENT_MUTATE(BitwiseOr, 12345, 10); // 12347
   ADD_STATEMENT_MUTATE(BitwiseOr, 12345, false);
-  buildAndRunFault(vm, *builder);
+  buildAndRunFailed(vm, *builder);
   ASSERT_EQ("false\ntrue\ntrue\ntrue\n12347\n"
             "<ERROR>throw TODO: Mutation bitwise-or is only supported for values of type 'bool' or 'int'\n",
             vm.logger.logged.str());
@@ -1148,7 +1148,7 @@ TEST(TestVM, MutateBitwiseXor) {
   ADD_STATEMENT_MUTATE(BitwiseXor, true, true); // false
   ADD_STATEMENT_MUTATE(BitwiseXor, 12345, 10); // 12339
   ADD_STATEMENT_MUTATE(BitwiseXor, 12345, false);
-  buildAndRunFault(vm, *builder);
+  buildAndRunFailed(vm, *builder);
   ASSERT_EQ("false\ntrue\ntrue\nfalse\n12339\n"
             "<ERROR>throw TODO: Mutation bitwise-xor is only supported for values of type 'bool' or 'int'\n",
             vm.logger.logged.str());
@@ -1162,7 +1162,7 @@ TEST(TestVM, MutateShiftLeft) {
   ADD_STATEMENT_MUTATE(ShiftLeft, -12345, 10); // -12641280
   ADD_STATEMENT_MUTATE(ShiftLeft, -12345, -10); // -13
   ADD_STATEMENT_MUTATE(ShiftLeft, 12345, false);
-  buildAndRunFault(vm, *builder);
+  buildAndRunFailed(vm, *builder);
   ASSERT_EQ("12641280\n12\n-12641280\n-13\n"
             "<ERROR>throw TODO: Mutation shift left is only supported for values of type 'int'\n",
             vm.logger.logged.str());
@@ -1176,7 +1176,7 @@ TEST(TestVM, MutateShiftRight) {
   ADD_STATEMENT_MUTATE(ShiftRight, -12345, 10); // -13
   ADD_STATEMENT_MUTATE(ShiftRight, -12345, -10); // -12641280
   ADD_STATEMENT_MUTATE(ShiftRight, 12345, false);
-  buildAndRunFault(vm, *builder);
+  buildAndRunFailed(vm, *builder);
   ASSERT_EQ("12\n12641280\n-13\n-12641280\n"
             "<ERROR>throw TODO: Mutation shift right is only supported for values of type 'int'\n",
             vm.logger.logged.str());
@@ -1190,7 +1190,7 @@ TEST(TestVM, MutateShiftRightUnsigned) {
   ADD_STATEMENT_MUTATE(ShiftRightUnsigned, -12345, 10); // 18014398509481971
   ADD_STATEMENT_MUTATE(ShiftRightUnsigned, -12345, -10); // -12641280
   ADD_STATEMENT_MUTATE(ShiftRightUnsigned, 12345, false);
-  buildAndRunFault(vm, *builder);
+  buildAndRunFailed(vm, *builder);
   ASSERT_EQ("12\n12641280\n18014398509481971\n-12641280\n"
             "<ERROR>throw TODO: Mutation unsigned shift right is only supported for values of type 'int'\n",
             vm.logger.logged.str());
@@ -1207,7 +1207,7 @@ TEST(TestVM, Block) {
       STMT_PRINT(EXPR_LITERAL("b"))
     )
   );
-  buildAndRunSuccess(vm, *builder);
+  buildAndRunSucceeded(vm, *builder);
   ASSERT_EQ("a\nb\n", vm.logger.logged.str());
 }
 
@@ -1248,7 +1248,7 @@ TEST(TestVM, If) {
       )
     )
   );
-  buildAndRunSuccess(vm, *builder);
+  buildAndRunSucceeded(vm, *builder);
   ASSERT_EQ("X2\n12\n", vm.logger.logged.str());
 }
 
@@ -1297,7 +1297,7 @@ TEST(TestVM, IfElse) {
       )
     )
   );
-  buildAndRunSuccess(vm, *builder);
+  buildAndRunSucceeded(vm, *builder);
   ASSERT_EQ("X2\n1Y\n", vm.logger.logged.str());
 }
 
@@ -1318,7 +1318,7 @@ TEST(TestVM, While) {
       )
     )
   );
-  buildAndRunSuccess(vm, *builder);
+  buildAndRunSucceeded(vm, *builder);
   ASSERT_EQ("1\n2\n3\n4\n5\n6\n7\n8\n9\n", vm.logger.logged.str());
 }
 
@@ -1340,7 +1340,7 @@ TEST(TestVM, Do) {
       )
     )
   );
-  buildAndRunSuccess(vm, *builder);
+  buildAndRunSucceeded(vm, *builder);
   ASSERT_EQ("1\n2\n3\n4\n5\n6\n7\n8\n9\n", vm.logger.logged.str());
 }
 
@@ -1363,7 +1363,7 @@ TEST(TestVM, For) {
       )
     )
   );
-  buildAndRunSuccess(vm, *builder);
+  buildAndRunSucceeded(vm, *builder);
   ASSERT_EQ("1\n2\n3\n4\n5\n6\n7\n8\n9\n", vm.logger.logged.str());
 }
 
@@ -1392,7 +1392,7 @@ TEST(TestVM, SwitchCaseBreak) {
       )
     )
   );
-  buildAndRunSuccess(vm, *builder);
+  buildAndRunSucceeded(vm, *builder);
   ASSERT_EQ("one\ntwo\nthree\nfour\nfive\n", vm.logger.logged.str());
 }
 
@@ -1421,7 +1421,7 @@ TEST(TestVM, SwitchCaseContinue) {
       )
     )
   );
-  buildAndRunSuccess(vm, *builder);
+  buildAndRunSucceeded(vm, *builder);
   ASSERT_EQ("one\ntwo\n"
             "two\n"
             "three\nfour\n"
@@ -1455,7 +1455,7 @@ TEST(TestVM, SwitchDefaultBreak) {
       )
     )
   );
-  buildAndRunSuccess(vm, *builder);
+  buildAndRunSucceeded(vm, *builder);
   ASSERT_EQ("one\ntwo\nthree\nfour\nfive\nother\nother\nother\nother\n", vm.logger.logged.str());
 }
 
@@ -1485,7 +1485,7 @@ TEST(TestVM, SwitchDefaultContinue) {
       )
     )
   );
-  buildAndRunSuccess(vm, *builder);
+  buildAndRunSucceeded(vm, *builder);
   ASSERT_EQ("one\n"
             "two\nthree\n"
             "three\n"
@@ -1520,6 +1520,6 @@ TEST(TestVM, SwitchCaseMultiple) {
       )
     )
   );
-  buildAndRunSuccess(vm, *builder);
+  buildAndRunSucceeded(vm, *builder);
   ASSERT_EQ("odd\neven\nodd\neven\nodd\neven\nodd\neven\nodd\n", vm.logger.logged.str());
 }

@@ -146,8 +146,8 @@ namespace egg::ovum {
     };
     enum class RunOutcome {
       Stepped = 1,
-      Completed = 2,
-      Faulted = 3
+      Succeeded = 2,
+      Failed = 3
     };
     virtual void addBuiltin(const String& name, const HardValue& value) = 0;
     virtual RunOutcome run(HardValue& retval, RunFlags flags = RunFlags::Default) = 0;
