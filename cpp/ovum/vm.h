@@ -68,14 +68,7 @@ namespace egg::ovum {
   class IVMExecution : public ILogger, public IVMCommon {
   public:
     // Exceptions
-    virtual HardValue raiseException(const String& message) = 0;
-    template<typename... ARGS>
-    inline HardValue raise(ARGS&&... args) {
-      // TODO deprecate StringBuilder at the public interface
-      egg::ovum::StringBuilder sb{ nullptr };
-      auto message = sb.add(std::forward<ARGS>(args)...).toUTF8();
-      return this->raiseException(this->createString(message.data(), message.size()));
-    }
+    virtual HardValue raiseException(const HardValue& expression) = 0;
     // Unary operations
     enum class UnaryOp {
       Negate,
@@ -149,7 +142,7 @@ namespace egg::ovum {
       Succeeded = 2,
       Failed = 3
     };
-    virtual void addBuiltin(const String& name, const HardValue& value) = 0;
+    virtual void addBuiltin(const String& symbol, const HardValue& value) = 0;
     virtual RunOutcome run(HardValue& retval, RunFlags flags = RunFlags::Default) = 0;
   };
 
@@ -167,7 +160,7 @@ namespace egg::ovum {
     // Expression factories
     virtual Node& exprUnaryOp(IVMExecution::UnaryOp op, Node& arg) = 0;
     virtual Node& exprBinaryOp(IVMExecution::BinaryOp op, Node& lhs, Node& rhs) = 0;
-    virtual Node& exprVariable(const String& name) = 0;
+    virtual Node& exprVariable(const String& symbol) = 0;
     virtual Node& exprLiteral(const HardValue& literal) = 0;
     virtual Node& exprPropertyGet(Node& instance, Node& property) = 0;
     virtual Node& exprFunctionCall(Node& function) = 0;
@@ -181,12 +174,15 @@ namespace egg::ovum {
     virtual Node& stmtCase(Node& block) = 0;
     virtual Node& stmtBreak() = 0;
     virtual Node& stmtContinue() = 0;
-    virtual Node& stmtVariableDeclare(const String& name) = 0;
-    virtual Node& stmtVariableDefine(const String& name, Node& value) = 0;
-    virtual Node& stmtVariableSet(const String& name, Node& value) = 0;
-    virtual Node& stmtVariableMutate(const String& name, IVMExecution::MutationOp op, Node& value) = 0;
+    virtual Node& stmtVariableDeclare(const String& symbol) = 0;
+    virtual Node& stmtVariableDefine(const String& symbol, Node& value) = 0;
+    virtual Node& stmtVariableSet(const String& symbol, Node& value) = 0;
+    virtual Node& stmtVariableMutate(const String& symbol, IVMExecution::MutationOp op, Node& value) = 0;
     virtual Node& stmtPropertySet(Node& instance, Node& property, Node& value) = 0;
     virtual Node& stmtFunctionCall(Node& function) = 0;
+    virtual Node& stmtThrow(Node& exception) = 0;
+    virtual Node& stmtTry(Node& block) = 0;
+    virtual Node& stmtCatch(const String& symbol) = 0;
     // Helpers
     Node& glue(Node& parent) {
       return parent;

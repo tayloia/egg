@@ -183,11 +183,10 @@ namespace {
     explicit VMExecution(IVM& vm)
       : VMCommon<IVMExecution>(vm) {
     }
-    virtual HardValue raiseException(const String& message) override {
+    virtual HardValue raiseException(const HardValue& expression) override {
       // TODO augment with runtime metadata
       auto& allocator = this->vm.getAllocator();
-      auto inner = ValueFactory::createString(allocator, message);
-      return ValueFactory::createHardFlowControl(allocator, ValueFlags::Throw, inner);
+      return ValueFactory::createHardFlowControl(allocator, ValueFlags::Throw, expression);
     }
     virtual HardValue evaluateUnaryOp(UnaryOp op, const HardValue& arg) override {
       Operation::UnaryValue unaryValue;
@@ -540,6 +539,16 @@ namespace {
       }
       return lhs;
     }
+  private:
+    template<typename... ARGS>
+    inline HardValue raise(ARGS&&... args) {
+      // TODO: Non-string exception?
+      auto& allocator = this->vm.getAllocator();
+      egg::ovum::StringBuilder sb{ &allocator };
+      auto message = sb.add(std::forward<ARGS>(args)...).build();
+      auto exception = this->createHardValueString(message);
+      return this->raiseException(exception);
+    }
   };
 }
 
@@ -571,7 +580,10 @@ public:
     StmtSwitch,
     StmtCase,
     StmtBreak,
-    StmtContinue
+    StmtContinue,
+    StmtThrow,
+    StmtTry,
+    StmtCatch
   };
   Kind kind;
   HardValue literal; // Only stores simple literals
@@ -651,9 +663,9 @@ namespace {
       node.addChild(rhs);
       return node;
     }
-    virtual Node& exprVariable(const String& name) override {
+    virtual Node& exprVariable(const String& symbol) override {
       auto& node = this->makeNode(Node::Kind::ExprVariable);
-      node.literal = this->createHardValueString(name);
+      node.literal = this->createHardValueString(symbol);
       return node;
     }
     virtual Node& exprLiteral(const HardValue& literal) override {
@@ -721,26 +733,26 @@ namespace {
       auto& node = this->makeNode(Node::Kind::StmtContinue);
       return node;
     }
-    virtual Node& stmtVariableDeclare(const String& name) override {
+    virtual Node& stmtVariableDeclare(const String& symbol) override {
       auto& node = this->makeNode(Node::Kind::StmtVariableDeclare);
-      node.literal = this->createHardValueString(name);
+      node.literal = this->createHardValueString(symbol);
       return node;
     }
-    virtual Node& stmtVariableDefine(const String& name, Node& value) override {
+    virtual Node& stmtVariableDefine(const String& symbol, Node& value) override {
       auto& node = this->makeNode(Node::Kind::StmtVariableDeclare);
-      node.literal = this->createHardValueString(name);
-      node.addChild(this->stmtVariableSet(name, value));
+      node.literal = this->createHardValueString(symbol);
+      node.addChild(this->stmtVariableSet(symbol, value));
       return node;
     }
-    virtual Node& stmtVariableSet(const String& name, Node& value) override {
+    virtual Node& stmtVariableSet(const String& symbol, Node& value) override {
       auto& node = this->makeNode(Node::Kind::StmtVariableSet);
-      node.literal = this->createHardValueString(name);
+      node.literal = this->createHardValueString(symbol);
       node.addChild(value);
       return node;
     }
-    virtual Node& stmtVariableMutate(const String& name, IVMExecution::MutationOp op, Node& value) override {
+    virtual Node& stmtVariableMutate(const String& symbol, IVMExecution::MutationOp op, Node& value) override {
       auto& node = this->makeNode(Node::Kind::StmtVariableMutate);
-      node.literal = this->createHardValueString(name);
+      node.literal = this->createHardValueString(symbol);
       node.mutationOp = op;
       node.addChild(value);
       return node;
@@ -755,6 +767,21 @@ namespace {
     virtual Node& stmtFunctionCall(Node& function) override {
       auto& node = this->makeNode(Node::Kind::StmtFunctionCall);
       node.addChild(function);
+      return node;
+    }
+    virtual Node& stmtThrow(Node& exception) override {
+      auto& node = this->makeNode(Node::Kind::StmtThrow);
+      node.addChild(exception);
+      return node;
+    }
+    virtual Node& stmtTry(Node& block) override {
+      auto& node = this->makeNode(Node::Kind::StmtTry);
+      node.addChild(block);
+      return node;
+    }
+    virtual Node& stmtCatch(const String& symbol) override {
+      auto& node = this->makeNode(Node::Kind::StmtCatch);
+      node.literal = this->createHardValueString(symbol);
       return node;
     }
   private:
@@ -795,8 +822,8 @@ namespace {
     virtual void print(Printer& printer) const override {
       printer << "[VMProgramRunner]";
     }
-    virtual void addBuiltin(const String& name, const HardValue& value) override {
-      this->symtable.builtin(name, value);
+    virtual void addBuiltin(const String& symbol, const HardValue& value) override {
+      this->symtable.builtin(symbol, value);
     }
     virtual RunOutcome run(HardValue& retval, RunFlags flags) override {
       if (flags == RunFlags::Step) {
@@ -873,6 +900,35 @@ namespace {
         (void)this->symtable.remove(top.scope);
         top.scope = {};
       }
+    }
+    bool symbolSet(const HardValue& symbol, const HardValue& value) {
+      String name;
+      if (!symbol->getString(name)) {
+        this->raise("Invalid program node literal for variable symbol");
+        return false;
+      }
+      if (value.hasFlowControl()) {
+        this->pop(value);
+        return false;
+      }
+      if (value->getFlags() == ValueFlags::Void) {
+        this->raise("Cannot set variable '", name, "' to an uninitialized value");
+        return false;
+      }
+      switch (this->symtable.set(name, value)) {
+      case VMSymbolTable::Kind::Unknown:
+        this->raise("Unknown variable symbol: '", name, "'");
+        return false;
+      case VMSymbolTable::Kind::Unset:
+        this->raise("Cannot set variable: '", name, "'");
+        return false;
+      case VMSymbolTable::Kind::Builtin:
+        this->raise("Cannot modify builtin symbol: '", name, "'");
+        return false;
+      case VMSymbolTable::Kind::Variable:
+        break;
+      }
+      return true;
     }
   };
 
@@ -1009,24 +1065,8 @@ bool VMProgramRunner::stepNode(HardValue& retval) {
       this->push(*top.node->children[top.index++]);
     } else {
       assert(top.deque.size() == 1);
-      String symbol;
-      if (!top.node->literal->getString(symbol)) {
-        return this->raise("Invalid program node literal for variable symbol");
-      }
-      // Check the value
-      auto& value = top.deque.front();
-      if (value.hasFlowControl()) {
-        return this->pop(value);
-      }
-      switch (this->symtable.set(symbol, value)) {
-      case VMSymbolTable::Kind::Unknown:
-        return this->raise("Unknown variable symbol: '", symbol, "'");
-      case VMSymbolTable::Kind::Unset:
-        return this->raise("Cannot set variable: '", symbol, "'");
-      case VMSymbolTable::Kind::Builtin:
-        return this->raise("Cannot modify builtin symbol: '", symbol, "'");
-      case VMSymbolTable::Kind::Variable:
-        break;
+      if (!this->symbolSet(top.node->literal, top.deque.front())) {
+        return true;
       }
       return this->pop(HardValue::Void);
     }
@@ -1453,6 +1493,103 @@ bool VMProgramRunner::stepNode(HardValue& retval) {
     assert(top.node->literal->getVoid());
     assert(top.node->children.size() == 0);
     return this->pop(HardValue::Continue);
+  case IVMProgram::Node::Kind::StmtThrow:
+    assert(top.node->literal->getVoid());
+    assert(top.node->children.size() == 1);
+    assert(top.index <= 1);
+    if (top.index == 0) {
+      // Evaluate the exception
+      assert(top.deque.empty());
+      this->push(*top.node->children[top.index++]);
+    } else {
+      // Check the exception
+      assert(top.deque.size() == 1);
+      auto& value = top.deque.front();
+      if (value.hasFlowControl()) {
+        return this->pop(value);
+      }
+      auto result = this->execution.raiseException(value);
+      return this->pop(result);
+    }
+    break;
+  case IVMProgram::Node::Kind::StmtTry:
+    assert(top.node->literal->getVoid());
+    assert(top.node->children.size() > 1);
+    if (top.index == 0) {
+      // Execute the try block
+      assert(top.deque.empty());
+      this->push(*top.node->children[top.index++]);
+    } else {
+      // Check any exception
+      assert(!top.deque.empty());
+      auto& exception = top.deque.front();
+      if (top.index == 1) {
+        // Just executed the try block
+        assert(top.deque.size() == 1);
+        if (exception->getFlags() == ValueFlags::Throw) {
+          // Erroneous rethrow within try block
+          return this->raise("Unexpected exception rethrow within 'try' block");
+        }
+      } else {
+        // Just executed a catch/finally block
+        assert(top.deque.size() == 2);
+        auto& latest = top.deque.back();
+        if (latest->getFlags() == ValueFlags::Throw) {
+          // Rethrow the original exception
+          if (!exception.hasAnyFlags(ValueFlags::Throw)) {
+            return this->raise("Unexpected exception rethrow within 'finally' block");
+          }
+          return this->pop(exception);
+        }
+        if (latest.hasFlowControl()) {
+          return this->pop(latest);
+        }
+        auto* previous = top.node->children[top.index - 1];
+        if (previous->kind == IVMProgram::Node::Kind::StmtCatch) {
+          // We've successfully handled the exception
+          exception = HardValue::Void;
+        }
+        assert(latest->getFlags() == ValueFlags::Void);
+        top.deque.pop_back();
+      }
+      assert(top.deque.size() == 1);
+      while (top.index < top.node->children.size()) {
+        // Check the next clause
+        auto* child = top.node->children[top.index++];
+        if (child->kind != IVMProgram::Node::Kind::StmtCatch) {
+          // Always run finally clauses
+          this->push(*child);
+          return true;
+        } else if (exception.hasAnyFlags(ValueFlags::Throw)) {
+          // Only run a catch clause if an exception was thrown
+          auto& added = this->push(*child);
+          added.deque.push_back(exception);
+          return true;
+        }
+      }
+      this->pop(exception);
+    }
+    break;
+  case IVMProgram::Node::Kind::StmtCatch:
+    assert(top.index <= top.node->children.size());
+    assert(top.deque.size() == 1);
+    if (top.index == 0) {
+      if (!this->variableScopeBegin(top)) {
+        return true;
+      }
+      HardValue inner;
+      if (!top.deque.front()->getInner(inner)) {
+        return this->raise("Invalid 'catch' clause expression");
+      }
+      if (!this->symbolSet(top.node->literal, inner)) {
+        return true;
+      }
+      top.deque.clear();
+    }
+    if (!this->stepBlock(retval)) {
+      return this->pop(retval);
+    }
+    break;
   case IVMProgram::Node::Kind::StmtFunctionCall:
   case IVMProgram::Node::Kind::ExprFunctionCall:
     assert(top.node->literal->getVoid());
@@ -1486,16 +1623,17 @@ bool VMProgramRunner::stepNode(HardValue& retval) {
   case IVMProgram::Node::Kind::ExprUnaryOp:
     assert(top.node->children.size() == 1);
     assert(top.index <= 1);
-    if (top.index < 1) {
+    if (top.index == 0) {
       // Evaluate the operand
+      assert(top.deque.empty());
       this->push(*top.node->children[top.index++]);
     } else {
       // Check the operand
+      assert(top.deque.size() == 1);
       auto& latest = top.deque.back();
       if (latest.hasFlowControl()) {
         return this->pop(latest);
       }
-      assert(top.deque.size() == 1);
       auto result = this->execution.evaluateUnaryOp(top.node->unaryOp, top.deque.front());
       return this->pop(result);
     }

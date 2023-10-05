@@ -14,6 +14,14 @@ namespace {
     VMObjectBase& operator=(const VMObjectBase&) = delete;
   protected:
     HardPtr<IVM> vm;
+    template<typename... ARGS>
+    inline HardValue raise(IVMExecution& execution, ARGS&&... args) {
+      // TODO: Non-string exception?
+      auto& allocator = this->vm->getAllocator();
+      egg::ovum::StringBuilder sb{ &allocator };
+      auto message = sb.add(std::forward<ARGS>(args)...).build();
+      return execution.raiseException(execution.createHardValueString(message));
+    }
   public:
     explicit VMObjectBase(IVM& vm)
       : SoftReferenceCounted<IObject>(),
@@ -40,23 +48,23 @@ namespace {
     }
     virtual HardValue vmCall(IVMExecution& execution, const ICallArguments& arguments) override {
       if (arguments.getArgumentCount() != 1) {
-        return execution.raise("Builtin 'assert()' expects exactly one argument");
+        return this->raise(execution, "Builtin 'assert()' expects exactly one argument");
       }
       HardValue value;
       Bool success = false;
       if (!arguments.getArgumentByIndex(0, value) || !value->getBool(success)) {
-        return execution.raise("Builtin 'assert()' expects a 'bool' argument");
+        return this->raise(execution, "Builtin 'assert()' expects a 'bool' argument");
       }
       if (!success) {
-        return execution.raise("Assertion failure");
+        return this->raise(execution, "Assertion failure");
       }
       return HardValue::Void;
     }
     virtual HardValue vmPropertyGet(IVMExecution& execution, const HardValue&) override {
-      return execution.raise("Builtin 'assert()' does not support properties");
+      return this->raise(execution, "Builtin 'assert()' does not support properties");
     }
     virtual HardValue vmPropertySet(IVMExecution& execution, const HardValue&, const HardValue&) override {
-      return execution.raise("Builtin 'assert()' does not support properties");
+      return this->raise(execution, "Builtin 'assert()' does not support properties");
     }
   };
 
@@ -80,7 +88,7 @@ namespace {
       HardValue value;
       for (size_t i = 0; i < n; ++i) {
         if (!arguments.getArgumentByIndex(i, value, &name) || !name.empty()) {
-          return execution.raise("Builtin 'print()' expects unnamed arguments");
+          return this->raise(execution, "Builtin 'print()' expects unnamed arguments");
         }
         sb.add(value);
       }
@@ -88,10 +96,10 @@ namespace {
       return HardValue::Void;
     }
     virtual HardValue vmPropertyGet(IVMExecution& execution, const HardValue&) override {
-      return execution.raise("Builtin 'print()' does not support properties");
+      return this->raise(execution, "Builtin 'print()' does not support properties");
     }
     virtual HardValue vmPropertySet(IVMExecution& execution, const HardValue&, const HardValue&) override {
-      return execution.raise("Builtin 'print()' does not support properties");
+      return this->raise(execution, "Builtin 'print()' does not support properties");
     }
   };
 
@@ -114,13 +122,13 @@ namespace {
       printer << "[expando]";
     }
     virtual HardValue vmCall(IVMExecution& execution, const ICallArguments&) override {
-      return execution.raise("TODO: Expando objects do not yet support function call semantics");
+      return this->raise(execution, "TODO: Expando objects do not yet support function call semantics");
     }
     virtual HardValue vmPropertyGet(IVMExecution& execution, const HardValue& property) override {
       SoftKey pname(*this->vm, property.get());
       auto pfound = this->properties.find(pname);
       if (pfound == this->properties.end()) {
-        return execution.raise("TODO: Cannot find property '", pname, "' in expando object");
+        return this->raise(execution, "TODO: Cannot find property '", pname, "' in expando object");
       }
       return this->vm->getSoftValue(pfound->second);
     }
@@ -131,7 +139,7 @@ namespace {
         pfound = this->properties.emplace_hint(pfound, std::piecewise_construct, std::forward_as_tuple(pname), std::forward_as_tuple(*this->vm));
       }
       if (!this->vm->setSoftValue(pfound->second, value)) {
-        return execution.raise("TODO: Cannot modify property '", pname, "'");
+        return this->raise(execution, "TODO: Cannot modify property '", pname, "'");
       }
       return HardValue::Void;
     }
@@ -152,16 +160,16 @@ namespace {
     }
     virtual HardValue vmCall(IVMExecution& execution, const ICallArguments& arguments) override {
       if (arguments.getArgumentCount() != 0) {
-        return execution.raise("Builtin 'expando()' expects no arguments");
+        return this->raise(execution, "Builtin 'expando()' expects no arguments");
       }
       auto instance = makeHardObject<VMObjectExpando>(*this->vm);
       return execution.createHardValueObject(instance);
     }
     virtual HardValue vmPropertyGet(IVMExecution& execution, const HardValue&) override {
-      return execution.raise("Builtin 'expando()' does not support properties");
+      return this->raise(execution, "Builtin 'expando()' does not support properties");
     }
     virtual HardValue vmPropertySet(IVMExecution& execution, const HardValue&, const HardValue&) override {
-      return execution.raise("Builtin 'expando()' does not support properties");
+      return this->raise(execution, "Builtin 'expando()' does not support properties");
     }
   };
 
@@ -180,16 +188,16 @@ namespace {
     }
     virtual HardValue vmCall(IVMExecution& execution, const ICallArguments& arguments) override {
       if (arguments.getArgumentCount() != 0) {
-        return execution.raise("Builtin 'collector()' expects no arguments");
+        return this->raise(execution, "Builtin 'collector()' expects no arguments");
       }
       auto collected = this->vm->getBasket().collect();
       return execution.createHardValueInt(Int(collected));
     }
     virtual HardValue vmPropertyGet(IVMExecution& execution, const HardValue&) override {
-      return execution.raise("Builtin 'collector()' does not support properties");
+      return this->raise(execution, "Builtin 'collector()' does not support properties");
     }
     virtual HardValue vmPropertySet(IVMExecution& execution, const HardValue&, const HardValue&) override {
-      return execution.raise("Builtin 'collector()' does not support properties");
+      return this->raise(execution, "Builtin 'collector()' does not support properties");
     }
   };
 }

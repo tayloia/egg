@@ -12,7 +12,7 @@
 #define EXPR_CALL(func, ...) builder->glue(builder->exprFunctionCall(func) COMMA(__VA_ARGS__))
 #define EXPR_LITERAL(value) createLiteral(*builder, value)
 #define EXPR_PROP_GET(instance, property) builder->exprPropertyGet(instance, property)
-#define EXPR_VAR(name) builder->exprVariable(builder->createString(name))
+#define EXPR_VAR(symbol) builder->exprVariable(builder->createString(symbol))
 #define STMT_BLOCK(...) builder->glue(builder->stmtBlock() COMMA(__VA_ARGS__))
 #define STMT_IF(cond, ...) builder->glue(builder->stmtIf(cond) COMMA(__VA_ARGS__))
 #define STMT_WHILE(cond, block) builder->stmtWhile(cond, block)
@@ -25,10 +25,13 @@
 #define STMT_CALL(func, ...) builder->glue(builder->stmtFunctionCall(func) COMMA(__VA_ARGS__))
 #define STMT_PRINT(...) builder->glue(builder->stmtFunctionCall(EXPR_VAR("print")) COMMA(__VA_ARGS__))
 #define STMT_PROP_SET(instance, property, value) builder->stmtPropertySet(instance, property, value)
-#define STMT_VAR_DECLARE(name, ...) builder->glue(builder->stmtVariableDeclare(builder->createString(name)) COMMA(__VA_ARGS__))
-#define STMT_VAR_DEFINE(name, value, ...) builder->glue(builder->stmtVariableDefine(builder->createString(name), value) COMMA(__VA_ARGS__))
-#define STMT_VAR_SET(name, value) builder->stmtVariableSet(builder->createString(name), value)
-#define STMT_VAR_MUTATE(name, op, value) builder->stmtVariableMutate(builder->createString(name), IVMExecution::MutationOp::op, value)
+#define STMT_VAR_DECLARE(symbol, ...) builder->glue(builder->stmtVariableDeclare(builder->createString(symbol)) COMMA(__VA_ARGS__))
+#define STMT_VAR_DEFINE(symbol, value, ...) builder->glue(builder->stmtVariableDefine(builder->createString(symbol), value) COMMA(__VA_ARGS__))
+#define STMT_VAR_SET(symbol, value) builder->stmtVariableSet(builder->createString(symbol), value)
+#define STMT_VAR_MUTATE(symbol, op, value) builder->stmtVariableMutate(builder->createString(symbol), IVMExecution::MutationOp::op, value)
+#define STMT_THROW(exception) builder->stmtThrow(exception)
+#define STMT_TRY(block, ...) builder->glue(builder->stmtTry(block) COMMA(__VA_ARGS__))
+#define STMT_CATCH(symbol, ...) builder->glue(builder->stmtCatch(builder->createString(symbol)) COMMA(__VA_ARGS__))
 
 #define VOID VoidTag{}
 
@@ -1522,4 +1525,59 @@ TEST(TestVM, SwitchCaseMultiple) {
   );
   buildAndRunSucceeded(vm, *builder);
   ASSERT_EQ("odd\neven\nodd\neven\nodd\neven\nodd\neven\nodd\n", vm.logger.logged.str());
+}
+
+TEST(TestVM, Throw) {
+  egg::test::VM vm;
+  auto builder = vm->createProgramBuilder();
+  builder->addStatement(
+    // throw "exception";
+    STMT_THROW(EXPR_LITERAL("exception"))
+  );
+  buildAndRunFailed(vm, *builder);
+  ASSERT_EQ("<ERROR>throw exception\n", vm.logger.logged.str());
+}
+
+TEST(TestVM, TryCatchNoThrow) {
+  egg::test::VM vm;
+  auto builder = vm->createProgramBuilder();
+  builder->addStatement(
+    // try
+    STMT_TRY(
+      // print("try");
+      STMT_PRINT(EXPR_LITERAL("try")),
+      // catch (var e)
+      STMT_CATCH("e",
+        // print("catch:", e);
+        STMT_PRINT(EXPR_LITERAL("catch:"), EXPR_VAR("e"))
+      )
+    )
+  );
+  buildAndRunSucceeded(vm, *builder);
+  ASSERT_EQ("try\n", vm.logger.logged.str());
+}
+
+TEST(TestVM, TryCatchThrow) {
+  egg::test::VM vm;
+  auto builder = vm->createProgramBuilder();
+  builder->addStatement(
+    // try
+    STMT_TRY(
+      STMT_BLOCK(
+        // print("try");
+        STMT_PRINT(EXPR_LITERAL("try")),
+        // throw "after";
+        STMT_THROW(EXPR_LITERAL("exception")),
+        // print("after");
+        STMT_PRINT(EXPR_LITERAL("after"))
+      ),
+      // catch (var e)
+      STMT_CATCH("e",
+        // print("catch:", e);
+        STMT_PRINT(EXPR_LITERAL("catch:"), EXPR_VAR("e"))
+      )
+    )
+  );
+  buildAndRunSucceeded(vm, *builder);
+  ASSERT_EQ("try\ncatch:exception\n", vm.logger.logged.str());
 }
