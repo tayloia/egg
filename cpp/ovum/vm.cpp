@@ -800,25 +800,29 @@ namespace {
     }
     virtual RunOutcome run(HardValue& retval, RunFlags flags) override {
       if (flags == RunFlags::Step) {
-        return this->stepNode(retval);
-      }
-      if (flags != RunFlags::None) {
-        return this->createException(retval, "TODO: Run flags not yet supported in program runner");
-      }
-      for (;;) {
-        auto outcome = this->stepNode(retval);
-        if (outcome != RunOutcome::Stepped) {
-          return outcome;
+        if (this->stepNode(retval)) {
+          return RunOutcome::Stepped;
+        }
+      } else  if (flags != RunFlags::None) {
+        retval = this->createThrow("TODO: Run flags not yet supported in program runner");
+        return RunOutcome::Failed;
+      } else {
+        while (this->stepNode(retval)) {
+          // Step
         }
       }
+      if (retval.hasAnyFlags(ValueFlags::Break | ValueFlags::Continue | ValueFlags::Throw)) {
+        return RunOutcome::Failed;
+      }
+      return RunOutcome::Succeeded;
     }
   private:
-    RunOutcome stepNode(HardValue& retval);
-    RunOutcome stepBlock(HardValue& retval);
+    bool stepNode(HardValue& retval);
+    bool stepBlock(HardValue& retval);
     NodeStack& push(const IVMProgram::Node& node, const String& scope = {}, size_t index = 0) {
       return this->stack.emplace(&node, scope, index);
     }
-    RunOutcome bubble(const HardValue& value) {
+    bool pop(HardValue value) { // sic byval
       assert(!this->stack.empty());
       const auto& symbol = this->stack.top().scope;
       if (!symbol.empty()) {
@@ -826,21 +830,12 @@ namespace {
       }
       this->stack.pop();
       assert(!this->stack.empty());
-      this->stack.top().deque.push_back(value);
-      return RunOutcome::Stepped;
+      this->stack.top().deque.emplace_back(std::move(value));
+      return true;
     }
-    RunOutcome failed(HardValue& retval, const HardValue& value) {
-      assert(value.hasFlowControl());
-      retval = value;
-      assert(!this->stack.empty());
-      const auto& symbol = this->stack.top().scope;
-      if (!symbol.empty()) {
-        (void)this->symtable.remove(symbol);
-      }
-      this->stack.pop();
-      assert(!this->stack.empty());
-      this->stack.top().deque.push_back(retval);
-      return RunOutcome::Failed;
+    template<typename... ARGS>
+    bool raise(ARGS&&... args) {
+      return this->pop(this->createThrow(std::forward<ARGS>(args)...));
     }
     template<typename... ARGS>
     HardValue createThrow(ARGS&&... args) {
@@ -848,15 +843,11 @@ namespace {
       return ValueFactory::createHardFlowControl(this->getAllocator(), ValueFlags::Throw, reason);
     }
     template<typename... ARGS>
-    RunOutcome createException(HardValue& retval, ARGS&&... args) {
-      return this->failed(retval, this->createThrow(std::forward<ARGS>(args)...));
-    }
-    template<typename... ARGS>
     String createStringConcat(ARGS&&... args) {
       StringBuilder sb(&this->getAllocator());
       return sb.add(std::forward<ARGS>(args)...).build();
     }
-    bool variableScopeBegin(HardValue& retval, NodeStack& top) {
+    bool variableScopeBegin(NodeStack& top) {
       assert(top.scope.empty());
       if (!top.node->literal->getString(top.scope)) {
         // No symbol declared
@@ -869,10 +860,10 @@ namespace {
         break;
       case VMSymbolTable::Kind::Unset:
       case VMSymbolTable::Kind::Variable:
-        retval = this->createThrow("Variable symbol already declared: '", top.scope, "'");
+        this->raise("Variable symbol already declared: '", top.scope, "'");
         return false;
       case VMSymbolTable::Kind::Builtin:
-        retval = this->createThrow("Variable symbol already declared as a builtin: '", top.scope, "'");
+        this->raise("Variable symbol already declared as a builtin: '", top.scope, "'");
         return false;
       }
       return true;
@@ -984,36 +975,30 @@ namespace {
   };
 }
 
-egg::ovum::IVMProgramRunner::RunOutcome VMProgramRunner::stepNode(HardValue& retval) {
+bool VMProgramRunner::stepNode(HardValue& retval) {
+  // Return true iff 'retval' has been set and the block has finished
   auto& top = this->stack.top();
-  RunOutcome outcome;
   switch (top.node->kind) {
   case IVMProgram::Node::Kind::Root:
     assert(top.node->literal->getVoid());
     assert(top.index <= top.node->children.size());
-    outcome = this->stepBlock(retval);
-    if (outcome != RunOutcome::Stepped) {
-      return outcome;
-    }
-    break;
+    return this->stepBlock(retval);
   case IVMProgram::Node::Kind::StmtBlock:
     assert(top.node->literal->getVoid());
     assert(top.index <= top.node->children.size());
-    outcome = this->stepBlock(retval);
-    if (outcome != RunOutcome::Stepped) {
-      return this->bubble(retval);
+    if (!this->stepBlock(retval)) {
+      return this->pop(retval);
     }
     break;
   case IVMProgram::Node::Kind::StmtVariableDeclare:
     assert(top.index <= top.node->children.size());
     if (top.index == 0) {
-      if (!this->variableScopeBegin(retval, top)) {
-        return RunOutcome::Failed;
+      if (!this->variableScopeBegin(top)) {
+        return true;
       }
     }
-    outcome = this->stepBlock(retval);
-    if (outcome != RunOutcome::Stepped) {
-      return this->bubble(retval);
+    if (!this->stepBlock(retval)) {
+      return this->pop(retval);
     }
     break;
   case IVMProgram::Node::Kind::StmtVariableSet:
@@ -1026,24 +1011,24 @@ egg::ovum::IVMProgramRunner::RunOutcome VMProgramRunner::stepNode(HardValue& ret
       assert(top.deque.size() == 1);
       String symbol;
       if (!top.node->literal->getString(symbol)) {
-        return this->createException(retval, "Invalid program node literal for variable symbol");
+        return this->raise("Invalid program node literal for variable symbol");
       }
       // Check the value
       auto& value = top.deque.front();
       if (value.hasFlowControl()) {
-        return this->failed(retval, value);
+        return this->pop(value);
       }
       switch (this->symtable.set(symbol, value)) {
       case VMSymbolTable::Kind::Unknown:
-        return this->createException(retval, "Unknown variable symbol: '", symbol, "'");
+        return this->raise("Unknown variable symbol: '", symbol, "'");
       case VMSymbolTable::Kind::Unset:
-        return this->createException(retval, "Cannot set variable: '", symbol, "'");
+        return this->raise("Cannot set variable: '", symbol, "'");
       case VMSymbolTable::Kind::Builtin:
-        return this->createException(retval, "Cannot modify builtin symbol: '", symbol, "'");
+        return this->raise("Cannot modify builtin symbol: '", symbol, "'");
       case VMSymbolTable::Kind::Variable:
         break;
       }
-      return this->bubble(HardValue::Void);
+      return this->pop(HardValue::Void);
     }
     break;
   case IVMProgram::Node::Kind::StmtVariableMutate:
@@ -1053,17 +1038,17 @@ egg::ovum::IVMProgramRunner::RunOutcome VMProgramRunner::stepNode(HardValue& ret
       // TODO: thread safety
       String symbol;
       if (!top.node->literal->getString(symbol)) {
-        return this->createException(retval, "Invalid program node literal for variable symbol");
+        return this->raise("Invalid program node literal for variable symbol");
       }
       HardValue lhs;
       switch (this->symtable.lookup(symbol, lhs)) {
       case VMSymbolTable::Kind::Unknown:
-        return this->createException(retval, "Unknown variable symbol: '", symbol, "'");
+        return this->raise("Unknown variable symbol: '", symbol, "'");
       case VMSymbolTable::Kind::Unset:
       case VMSymbolTable::Kind::Variable:
         break;
       case VMSymbolTable::Kind::Builtin:
-        return this->createException(retval, "Cannot modify builtin symbol: '", symbol, "'");
+        return this->raise("Cannot modify builtin symbol: '", symbol, "'");
       }
       if (top.index == 0) {
         assert(top.deque.empty());
@@ -1071,25 +1056,25 @@ egg::ovum::IVMProgramRunner::RunOutcome VMProgramRunner::stepNode(HardValue& ret
         auto result = this->execution.precheckMutationOp(top.node->mutationOp, lhs, ValueFlags::AnyQ);
         if (!result.hasFlowControl()) {
           // Short-circuit (discard result)
-          return this->bubble(HardValue::Void);
+          return this->pop(HardValue::Void);
         } else if (result->getFlags() == ValueFlags::Continue) {
           // Continue with evaluation of rhs
           this->push(*top.node->children[top.index++]);
         } else {
-          return this->failed(retval, result);
+          return this->pop(result);
         }
       } else {
         assert(top.deque.size() == 1);
         // Check the rhs
         auto& rhs = top.deque.front();
         if (rhs.hasFlowControl()) {
-          return this->failed(retval, rhs);
+          return this->pop(rhs);
         }
         auto before = this->execution.evaluateMutationOp(top.node->mutationOp, lhs, rhs);
         if (before.hasFlowControl()) {
-          return this->failed(retval, before);
+          return this->pop(before);
         }
-        return this->bubble(HardValue::Void);
+        return this->pop(HardValue::Void);
       }
     }
     break;
@@ -1101,7 +1086,7 @@ egg::ovum::IVMProgramRunner::RunOutcome VMProgramRunner::stepNode(HardValue& ret
       // Check the last evaluation
       auto& latest = top.deque.back();
       if (latest.hasFlowControl()) {
-        return this->failed(retval, latest);
+        return this->pop(latest);
       }
     }
     if (top.index < 3) {
@@ -1111,11 +1096,11 @@ egg::ovum::IVMProgramRunner::RunOutcome VMProgramRunner::stepNode(HardValue& ret
       assert(top.deque.size() == 3);
       HardObject instance;
       if (!top.deque.front()->getHardObject(instance)) {
-        return this->createException(retval, "Invalid left hand side for '.' operator");
+        return this->raise("Invalid left hand side for '.' operator");
       }
       auto& property = top.deque[1];
       auto& value = top.deque.back();
-      return this->bubble(instance->vmPropertySet(this->execution, property, value));
+      return this->pop(instance->vmPropertySet(this->execution, property, value));
     }
     break;
   case IVMProgram::Node::Kind::StmtIf:
@@ -1123,9 +1108,9 @@ egg::ovum::IVMProgramRunner::RunOutcome VMProgramRunner::stepNode(HardValue& ret
     assert(top.index <= top.node->children.size());
     if (top.index == 0) {
       // Evaluate the condition
-      if (!this->variableScopeBegin(retval, top)) {
+      if (!this->variableScopeBegin(top)) {
         // TODO: if (var v = a) {}
-        return RunOutcome::Failed;
+        return true;
       }
       assert(top.deque.empty());
       this->push(*top.node->children[top.index++]);
@@ -1133,13 +1118,13 @@ egg::ovum::IVMProgramRunner::RunOutcome VMProgramRunner::stepNode(HardValue& ret
       assert(top.deque.size() == 1);
       auto& latest = top.deque.back();
       if (latest.hasFlowControl()) {
-        return this->failed(retval, latest);
+        return this->pop(latest);
       }
       if (top.index == 1) {
         // Test the condition
         Bool condition;
         if (!latest->getBool(condition)) {
-          return this->createException(retval, "Statement 'if' condition expected to be a value of type 'bool'");
+          return this->raise("Statement 'if' condition expected to be a value of type 'bool'");
         }
         top.deque.clear();
         if (condition) {
@@ -1152,13 +1137,12 @@ egg::ovum::IVMProgramRunner::RunOutcome VMProgramRunner::stepNode(HardValue& ret
           this->push(*top.node->children[top.index++]);
         } else {
           // Skip both blocks
-          return this->bubble(HardValue::Void);
+          return this->pop(HardValue::Void);
         }
       } else {
         // The controlled block has completed
         assert(latest->getVoid());
-        retval = latest;
-        return this->bubble(HardValue(latest)); // make a shallow copy
+        return this->pop(latest);
       }
     }
     break;
@@ -1167,9 +1151,9 @@ egg::ovum::IVMProgramRunner::RunOutcome VMProgramRunner::stepNode(HardValue& ret
     assert(top.index <= 2);
     if (top.index == 0) {
       // Scope any declared variable
-      if (!this->variableScopeBegin(retval, top)) {
+      if (!this->variableScopeBegin(top)) {
         // TODO: while (var v = a) {}
-        return RunOutcome::Failed;
+        return true;
       }
       // Evaluate the condition
       assert(top.deque.empty());
@@ -1179,13 +1163,13 @@ egg::ovum::IVMProgramRunner::RunOutcome VMProgramRunner::stepNode(HardValue& ret
       auto& latest = top.deque.back();
       if (latest.hasFlowControl()) {
         // TODO break and continue
-        return this->failed(retval, latest);
+        return this->pop(latest);
       }
       if (top.index == 1) {
         // Test the condition
         Bool condition;
         if (!latest->getBool(condition)) {
-          return this->createException(retval, "Statement 'while' condition expected to be a value of type 'bool'");
+          return this->raise("Statement 'while' condition expected to be a value of type 'bool'");
         }
         top.deque.clear();
         if (condition) {
@@ -1193,7 +1177,7 @@ egg::ovum::IVMProgramRunner::RunOutcome VMProgramRunner::stepNode(HardValue& ret
           this->push(*top.node->children[top.index++]);
         } else {
           // The condition failed
-          return this->bubble(HardValue::Void);
+          return this->pop(HardValue::Void);
         }
       } else {
         // The controlled block has completed so re-evaluate the condition
@@ -1218,7 +1202,7 @@ egg::ovum::IVMProgramRunner::RunOutcome VMProgramRunner::stepNode(HardValue& ret
       auto& latest = top.deque.back();
       if (latest.hasFlowControl()) {
         // TODO break and continue
-        return this->failed(retval, latest);
+        return this->pop(latest);
       }
       if (top.index == 1) {
         // The controlled block has completed so evaluate the condition
@@ -1230,7 +1214,7 @@ egg::ovum::IVMProgramRunner::RunOutcome VMProgramRunner::stepNode(HardValue& ret
         // Test the condition
         Bool condition;
         if (!latest->getBool(condition)) {
-          return this->createException(retval, "Statement 'do' condition expected to be a value of type 'bool'");
+          return this->raise("Statement 'do' condition expected to be a value of type 'bool'");
         }
         top.deque.clear();
         if (condition) {
@@ -1239,7 +1223,7 @@ egg::ovum::IVMProgramRunner::RunOutcome VMProgramRunner::stepNode(HardValue& ret
           top.index = 1;
         } else {
           // The condition failed
-          return this->bubble(HardValue::Void);
+          return this->pop(HardValue::Void);
         }
       }
     }
@@ -1249,9 +1233,9 @@ egg::ovum::IVMProgramRunner::RunOutcome VMProgramRunner::stepNode(HardValue& ret
     assert(top.index <= 4);
     if (top.index == 0) {
       // Scope any declared variable
-      if (!this->variableScopeBegin(retval, top)) {
+      if (!this->variableScopeBegin(top)) {
         // TODO: for (var v = a; ...) {}
-        return RunOutcome::Failed;
+        return true;
       }
       // Perform 'initial'
       assert(top.deque.empty());
@@ -1261,7 +1245,7 @@ egg::ovum::IVMProgramRunner::RunOutcome VMProgramRunner::stepNode(HardValue& ret
       auto& latest = top.deque.back();
       if (latest.hasFlowControl()) {
         // TODO break and continue
-        return this->failed(retval, latest);
+        return this->pop(latest);
       }
       if (top.index == 1) {
         // Evaluate the condition
@@ -1272,7 +1256,7 @@ egg::ovum::IVMProgramRunner::RunOutcome VMProgramRunner::stepNode(HardValue& ret
         // Test the condition
         Bool condition;
         if (!latest->getBool(condition)) {
-          return this->createException(retval, "Statement 'for' condition expected to be a value of type 'bool'");
+          return this->raise("Statement 'for' condition expected to be a value of type 'bool'");
         }
         top.deque.clear();
         if (condition) {
@@ -1280,7 +1264,7 @@ egg::ovum::IVMProgramRunner::RunOutcome VMProgramRunner::stepNode(HardValue& ret
           this->push(*top.node->children[top.index++]);
         } else {
           // The condition failed
-          return this->bubble(HardValue::Void);
+          return this->pop(HardValue::Void);
         }
       } else if (top.index == 3) {
         // The controlled block has completed so perform 'advance'
@@ -1302,9 +1286,9 @@ egg::ovum::IVMProgramRunner::RunOutcome VMProgramRunner::stepNode(HardValue& ret
     if (top.index == 0) {
       if (top.deque.empty()) {
         // Scope any declared variable
-        if (!this->variableScopeBegin(retval, top)) {
+        if (!this->variableScopeBegin(top)) {
           // TODO: switch (var v = a) {}
-          return RunOutcome::Failed;
+          return true;
         }
         // Evaluate the switch expression
         this->push(*top.node->children[0]);
@@ -1314,7 +1298,7 @@ egg::ovum::IVMProgramRunner::RunOutcome VMProgramRunner::stepNode(HardValue& ret
         assert(top.deque.size() == 1);
         auto& latest = top.deque.back();
         if (latest.hasFlowControl()) {
-          return this->failed(retval, latest);
+          return this->pop(latest);
         }
         // Match the first case/default statement
         top.index = 1;
@@ -1330,7 +1314,7 @@ egg::ovum::IVMProgramRunner::RunOutcome VMProgramRunner::stepNode(HardValue& ret
       switch (latest->getFlags()) {
       case ValueFlags::Break:
         // Matched; break out of the switch statement
-        return this->bubble(HardValue::Void);
+        return this->pop(HardValue::Void);
       case ValueFlags::Continue:
         // Matched; continue to next block without re-testing the expression
         top.deque.clear();
@@ -1344,7 +1328,7 @@ egg::ovum::IVMProgramRunner::RunOutcome VMProgramRunner::stepNode(HardValue& ret
         break;
       default:
         assert(latest.hasFlowControl());
-        return this->failed(retval, latest);
+        return this->pop(latest);
       }
       EGG_WARNING_SUPPRESS_SWITCH_END
     } else {
@@ -1366,7 +1350,7 @@ egg::ovum::IVMProgramRunner::RunOutcome VMProgramRunner::stepNode(HardValue& ret
           // That was the last clause; we need to use the default clause, if any
           if (top.node->defaultIndex == 0) {
             // No default clause
-            return this->bubble(HardValue::Void);
+            return this->pop(HardValue::Void);
           } else {
             // Prepare to run the block associated with the default clause
             top.deque.clear();
@@ -1380,7 +1364,7 @@ egg::ovum::IVMProgramRunner::RunOutcome VMProgramRunner::stepNode(HardValue& ret
         break;
       case ValueFlags::Break:
         // Matched; break out of the switch statement
-        return this->bubble(HardValue::Void);
+        return this->pop(HardValue::Void);
       case ValueFlags::Continue:
         // Matched; continue to next block without re-testing the expression
         top.deque.clear();
@@ -1394,7 +1378,7 @@ egg::ovum::IVMProgramRunner::RunOutcome VMProgramRunner::stepNode(HardValue& ret
         break;
       default:
         assert(latest.hasFlowControl());
-        return this->failed(retval, latest);
+        return this->pop(latest);
       }
       EGG_WARNING_SUPPRESS_SWITCH_END
     }
@@ -1406,7 +1390,7 @@ egg::ovum::IVMProgramRunner::RunOutcome VMProgramRunner::stepNode(HardValue& ret
       assert(top.deque.size() == 1);
       if (top.node->children.size() == 1) {
         // This is a 'default' clause ('case' with no expressions)
-        return this->bubble(HardValue::False);
+        return this->pop(HardValue::False);
       } else {
         // Evaluate the first expression
         this->push(*top.node->children[1]);
@@ -1417,7 +1401,7 @@ egg::ovum::IVMProgramRunner::RunOutcome VMProgramRunner::stepNode(HardValue& ret
       assert(top.deque.size() == 2);
       auto& latest = top.deque.back();
       if (latest.hasFlowControl()) {
-        return this->failed(retval, latest);
+        return this->pop(latest);
       }
       if (Operation::areEqual(top.deque.front(), latest, true, false)) { // TODO: promote?
         // Got a match, so execute the block
@@ -1432,7 +1416,7 @@ egg::ovum::IVMProgramRunner::RunOutcome VMProgramRunner::stepNode(HardValue& ret
           this->push(*top.node->children[top.index]);
         } else {
           // No expressions matched
-          return this->bubble(HardValue::False);
+          return this->pop(HardValue::False);
         }
       }
     } else {
@@ -1443,20 +1427,20 @@ egg::ovum::IVMProgramRunner::RunOutcome VMProgramRunner::stepNode(HardValue& ret
       switch (latest->getFlags()) {
       case ValueFlags::Void:
         this->log(ILogger::Source::Runtime, ILogger::Severity::Warning, this->createString("Fell off the end of the case/default clause"));
-        return this->bubble(HardValue::Continue);
+        return this->pop(HardValue::Continue);
       case ValueFlags::Break:
         // Explicit 'break'
-        return this->bubble(HardValue::Break);
+        return this->pop(HardValue::Break);
       case ValueFlags::Continue:
         // Explicit 'continue'
-        return this->bubble(HardValue::Continue);
+        return this->pop(HardValue::Continue);
       default:
         // Probably an exception
         if (latest.hasFlowControl()) {
-          return this->failed(retval, latest);
+          return this->pop(latest);
         }
         this->log(ILogger::Source::Runtime, ILogger::Severity::Warning, this->createString("Discarded value in switch case/default clause"));
-        return this->bubble(HardValue::Void);
+        return this->pop(HardValue::Void);
       }
       EGG_WARNING_SUPPRESS_SWITCH_END
     }
@@ -1464,11 +1448,11 @@ egg::ovum::IVMProgramRunner::RunOutcome VMProgramRunner::stepNode(HardValue& ret
   case IVMProgram::Node::Kind::StmtBreak:
     assert(top.node->literal->getVoid());
     assert(top.node->children.size() == 0);
-    return this->bubble(HardValue::Break);
+    return this->pop(HardValue::Break);
   case IVMProgram::Node::Kind::StmtContinue:
     assert(top.node->literal->getVoid());
     assert(top.node->children.size() == 0);
-    return this->bubble(HardValue::Continue);
+    return this->pop(HardValue::Continue);
   case IVMProgram::Node::Kind::StmtFunctionCall:
   case IVMProgram::Node::Kind::ExprFunctionCall:
     assert(top.node->literal->getVoid());
@@ -1477,7 +1461,7 @@ egg::ovum::IVMProgramRunner::RunOutcome VMProgramRunner::stepNode(HardValue& ret
       // Check the last evaluation
       auto& latest = top.deque.back();
       if (latest.hasFlowControl()) {
-        return this->failed(retval, latest);
+        return this->pop(latest);
       }
     }
     if (top.index < top.node->children.size()) {
@@ -1488,7 +1472,7 @@ egg::ovum::IVMProgramRunner::RunOutcome VMProgramRunner::stepNode(HardValue& ret
       assert(top.deque.size() >= 1);
       HardObject function;
       if (!top.deque.front()->getHardObject(function)) {
-        return this->createException(retval, "Invalid initial program node value for function call");
+        return this->raise("Invalid initial program node value for function call");
       }
       top.deque.pop_front();
       CallArguments arguments;
@@ -1496,7 +1480,7 @@ egg::ovum::IVMProgramRunner::RunOutcome VMProgramRunner::stepNode(HardValue& ret
         // TODO support named arguments
         arguments.addUnnamed(argument);
       }
-      return this->bubble(function->vmCall(this->execution, arguments));
+      return this->pop(function->vmCall(this->execution, arguments));
     }
     break;
   case IVMProgram::Node::Kind::ExprUnaryOp:
@@ -1509,11 +1493,11 @@ egg::ovum::IVMProgramRunner::RunOutcome VMProgramRunner::stepNode(HardValue& ret
       // Check the operand
       auto& latest = top.deque.back();
       if (latest.hasFlowControl()) {
-        return this->failed(retval, latest);
+        return this->pop(latest);
       }
       assert(top.deque.size() == 1);
       auto result = this->execution.evaluateUnaryOp(top.node->unaryOp, top.deque.front());
-      return this->bubble(result);
+      return this->pop(result);
     }
     break;
   case IVMProgram::Node::Kind::ExprBinaryOp:
@@ -1526,7 +1510,7 @@ egg::ovum::IVMProgramRunner::RunOutcome VMProgramRunner::stepNode(HardValue& ret
       // Check the last evaluation
       auto& latest = top.deque.back();
       if (latest.hasFlowControl()) {
-        return this->failed(retval, latest);
+        return this->pop(latest);
       }
       if (top.index == 1) {
         assert(top.deque.size() == 1);
@@ -1534,28 +1518,28 @@ egg::ovum::IVMProgramRunner::RunOutcome VMProgramRunner::stepNode(HardValue& ret
           // Short-circuit '??'
           if (!latest->getNull()) {
             // lhs is not null; no need to evaluate rhs
-            return this->bubble(HardValue(latest)); // make a shallow copy
+            return this->pop(latest);
           }
         } else if (top.node->binaryOp == IVMExecution::BinaryOp::IfFalse) {
           // Short-circuit '||'
           Bool lhs;
           if (latest->getBool(lhs) && lhs) {
             // lhs is true; no need to evaluate rhs
-            return this->bubble(HardValue::True);
+            return this->pop(HardValue::True);
           }
         } else if (top.node->binaryOp == IVMExecution::BinaryOp::IfTrue) {
           // Short-circuit '&&'
           Bool lhs;
           if (latest->getBool(lhs) && !lhs) {
             // lhs is false; no need to evaluate rhs
-            return this->bubble(HardValue::False);
+            return this->pop(HardValue::False);
           }
         }
         this->push(*top.node->children[top.index++]);
       } else {
         assert(top.deque.size() == 2);
         auto result = this->execution.evaluateBinaryOp(top.node->binaryOp, top.deque.front(), top.deque.back());
-        return this->bubble(result);
+        return this->pop(result);
       }
     }
     break;
@@ -1566,26 +1550,26 @@ egg::ovum::IVMProgramRunner::RunOutcome VMProgramRunner::stepNode(HardValue& ret
     {
       String symbol;
       if (!top.node->literal->getString(symbol)) {
-        return this->createException(retval, "Invalid program node literal for variable symbol");
+        return this->raise("Invalid program node literal for variable symbol");
       }
       HardValue value;
       switch (this->symtable.lookup(symbol, value)) {
       case VMSymbolTable::Kind::Unknown:
-        return this->createException(retval, "Unknown variable symbol: '", symbol, "'");
+        return this->raise("Unknown variable symbol: '", symbol, "'");
       case VMSymbolTable::Kind::Unset:
-        return this->createException(retval, "Variable uninitialized: '", symbol, "'");
+        return this->raise("Variable uninitialized: '", symbol, "'");
       case VMSymbolTable::Kind::Builtin:
       case VMSymbolTable::Kind::Variable:
         break;
       }
-      return this->bubble(value);
+      return this->pop(value);
     }
     break;
   case IVMProgram::Node::Kind::ExprLiteral:
     assert(top.node->children.empty());
     assert(top.index == 0);
     assert(top.deque.empty());
-    return this->bubble(top.node->literal);
+    return this->pop(top.node->literal);
   case IVMProgram::Node::Kind::ExprPropertyGet:
     assert(top.node->literal->getVoid());
     assert(top.node->children.size() == 2);
@@ -1593,7 +1577,7 @@ egg::ovum::IVMProgramRunner::RunOutcome VMProgramRunner::stepNode(HardValue& ret
       // Check the last evaluation
       auto& latest = top.deque.back();
       if (latest.hasFlowControl()) {
-        return this->failed(retval, latest);
+        return this->pop(latest);
       }
     }
     if (top.index < 2) {
@@ -1604,19 +1588,20 @@ egg::ovum::IVMProgramRunner::RunOutcome VMProgramRunner::stepNode(HardValue& ret
       assert(top.deque.size() == 2);
       HardObject instance;
       if (!top.deque.front()->getHardObject(instance)) {
-        return this->createException(retval, "Invalid left hand side for '.' operator");
+        return this->raise("Invalid left hand side for '.' operator");
       }
       auto& property = top.deque.back();
-      return this->bubble(instance->vmPropertyGet(this->execution, property));
+      return this->pop(instance->vmPropertyGet(this->execution, property));
     }
     break;
   default:
-    return this->createException(retval, "Invalid program node kind in program runner");
+    return this->raise("Invalid program node kind in program runner");
   }
-  return RunOutcome::Stepped;
+  return true;
 }
 
-egg::ovum::IVMProgramRunner::RunOutcome VMProgramRunner::stepBlock(HardValue& retval) {
+bool VMProgramRunner::stepBlock(HardValue& retval) {
+  // Return true iff 'retval' has been set and the block has finished
   auto& top = this->stack.top();
   assert(top.index <= top.node->children.size());
   if (top.index > 0) {
@@ -1624,9 +1609,8 @@ egg::ovum::IVMProgramRunner::RunOutcome VMProgramRunner::stepBlock(HardValue& re
     assert(top.deque.size() == 1);
     auto& result = top.deque.back();
     if (result.hasFlowControl()) {
-      // TODO: return/yield is actually success
       retval = result;
-      return RunOutcome::Failed;
+      return false;
     }
     if (result->getFlags() != ValueFlags::Void) {
       this->log(ILogger::Source::Runtime, ILogger::Severity::Warning, this->createString("Discarded value in statement"));
@@ -1640,9 +1624,9 @@ egg::ovum::IVMProgramRunner::RunOutcome VMProgramRunner::stepBlock(HardValue& re
   } else {
     // Reached the end of the list of statements
     retval = HardValue::Void;
-    return RunOutcome::Succeeded;
+    return false;
   }
-  return RunOutcome::Stepped;
+  return true;
 }
 
 egg::ovum::HardPtr<IVM> egg::ovum::VMFactory::createDefault(IAllocator& allocator, ILogger& logger) {
