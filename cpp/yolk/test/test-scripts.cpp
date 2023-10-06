@@ -9,7 +9,6 @@ namespace {
   private:
     static const std::string directory;
   public:
-    TestScripts() {}
     void run() {
       // Actually perform the testing
       std::string script = this->GetParam();
@@ -41,15 +40,23 @@ namespace {
       return name;
     }
   private:
-    static std::string execute(TextStream&) {
-      return "Hello, World!\n"; // WIBBLE
+    static std::string execute(TextStream& stream) {
+      std::string logged;
+      std::string line;
+      while (stream.readline(line)) {
+        // Test output lines always begin with '///'
+        if (!line.starts_with("///")) {
+          logged += line + "\n";
+        }
+      }
+      return logged;
     }
     static std::string expectation(TextStream& stream) {
       std::string expected;
       std::string line;
       while (stream.readline(line)) {
-        // Example output lines always begin with '///'
-        if ((line.length() > 3) && (line[0] == '/') && (line[1] == '/') && (line[2] == '/')) {
+        // Test output lines always begin with '///'
+        if (line.starts_with("///")) {
           switch (line[3]) {
           case '>':
             // '///>message' for normal USER/INFO output, e.g. print()
