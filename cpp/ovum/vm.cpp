@@ -543,9 +543,7 @@ namespace {
     template<typename... ARGS>
     inline HardValue raise(ARGS&&... args) {
       // TODO: Non-string exception?
-      auto& allocator = this->vm.getAllocator();
-      egg::ovum::StringBuilder sb{ &allocator };
-      auto message = sb.add(std::forward<ARGS>(args)...).build();
+      auto message = StringBuilder::concat(this->vm.getAllocator(), std::forward<ARGS>(args)...);
       auto exception = this->createHardValueString(message);
       return this->raiseException(exception);
     }
@@ -872,13 +870,10 @@ namespace {
     }
     template<typename... ARGS>
     HardValue createThrow(ARGS&&... args) {
-      auto reason = ValueFactory::createString(this->getAllocator(), this->createStringConcat(std::forward<ARGS>(args)...));
-      return ValueFactory::createHardFlowControl(this->getAllocator(), ValueFlags::Throw, reason);
-    }
-    template<typename... ARGS>
-    String createStringConcat(ARGS&&... args) {
-      StringBuilder sb(&this->getAllocator());
-      return sb.add(std::forward<ARGS>(args)...).build();
+      auto& allocator = this->getAllocator();
+      auto message = StringBuilder::concat(allocator, std::forward<ARGS>(args)...);
+      auto reason = ValueFactory::createString(allocator, message);
+      return ValueFactory::createHardFlowControl(allocator, ValueFlags::Throw, reason);
     }
     bool variableScopeBegin(NodeStack& top) {
       assert(top.scope.empty());
@@ -960,10 +955,10 @@ namespace {
       return this->logger;
     }
     virtual String createStringUTF8(const void* utf8, size_t bytes, size_t codepoints) override {
-      return String::fromUTF8(&this->allocator, utf8, bytes, codepoints);
+      return String::fromUTF8(this->allocator, utf8, bytes, codepoints);
     }
     virtual String createStringUTF32(const void* utf32, size_t codepoints) override {
-      return String::fromUTF32(&this->allocator, utf32, codepoints);
+      return String::fromUTF32(this->allocator, utf32, codepoints);
     }
     virtual HardPtr<IVMProgramBuilder> createProgramBuilder() override {
       return HardPtr<IVMProgramBuilder>(this->allocator.makeRaw<VMProgramBuilder>(*this));

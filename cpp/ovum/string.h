@@ -4,12 +4,6 @@ namespace egg::ovum {
     String() = default; // implicit
     explicit String(const IMemory* rhs) : Memory(rhs) {
     }
-    explicit String(const char* utf8) // fallback to factory
-      : String(String::fromUTF8(nullptr, utf8)) {
-    }
-    String(const std::string& utf8, size_t codepoints = SIZE_MAX) // implicit; fallback to factory
-      : String(String::fromUTF8(nullptr, utf8.data(), utf8.size(), codepoints)) {
-    }
     bool validate() const;
 
     // See http://chilliant.blogspot.co.uk/2018/05/egg-strings.html
@@ -25,20 +19,20 @@ namespace egg::ovum {
     int64_t indexOfString(const String& needle, size_t fromIndex = 0) const;
     int64_t lastIndexOfCodePoint(char32_t codepoint, size_t fromIndex = SIZE_MAX) const;
     int64_t lastIndexOfString(const String& needle, size_t fromIndex = SIZE_MAX) const;
-    String replace(const String& needle, const String& replacement, int64_t occurrences = INT64_MAX) const;
-    String substring(size_t begin, size_t end = SIZE_MAX) const;
-    String repeat(size_t count) const;
+    String replace(IAllocator& allocator, const String& needle, const String& replacement, int64_t occurrences = INT64_MAX) const;
+    String substring(IAllocator& allocator, size_t begin, size_t end = SIZE_MAX) const;
+    String repeat(IAllocator& allocator, size_t count) const;
 
     // Convenience helpers
     bool empty() const;
     bool lessThan(const String& other) const;
-    String slice(int64_t begin, int64_t end = INT64_MAX) const;
-    std::vector<String> split(const String& separator, int64_t limit = INT64_MAX) const;
-    String join(const std::vector<String>& parts) const;
-    String padLeft(size_t target) const;
-    String padLeft(size_t target, const String& padding) const;
-    String padRight(size_t target) const;
-    String padRight(size_t target, const String& padding) const;
+    String slice(IAllocator& allocator, int64_t begin, int64_t end = INT64_MAX) const;
+    std::vector<String> split(IAllocator& allocator, const String& separator, int64_t limit = INT64_MAX) const;
+    String join(IAllocator& allocator, const std::vector<String>& parts) const;
+    String padLeft(IAllocator& allocator, size_t target) const;
+    String padLeft(IAllocator& allocator, size_t target, const String& padding) const;
+    String padRight(IAllocator& allocator, size_t target) const;
+    String padRight(IAllocator& allocator, size_t target, const String& padding) const;
     std::string toUTF8() const;
 
     // Equality operators
@@ -50,21 +44,20 @@ namespace egg::ovum {
       return !this->equals(rhs);
     }
 
-    // These factories can take null as their first argument to use the fallback string allocator
-    static String fromUTF8(IAllocator* allocator, const void* utf8, size_t bytes = SIZE_MAX, size_t codepoints = SIZE_MAX);
-    static String fromUTF32(IAllocator* allocator, const void* utf32, size_t codepoints = SIZE_MAX);
+    // Factories
+    static String fromUTF8(IAllocator& allocator, const std::string& utf8);
+    static String fromUTF8(IAllocator& allocator, const void* utf8, size_t bytes = SIZE_MAX, size_t codepoints = SIZE_MAX);
+    static String fromUTF32(IAllocator& allocator, const void* utf32, size_t codepoints = SIZE_MAX);
   };
 
   class StringBuilder : public Printer {
     StringBuilder(const StringBuilder&) = delete;
     StringBuilder& operator=(const StringBuilder&) = delete;
   private:
-    IAllocator* allocator;
     std::stringstream ss;
   public:
-    explicit StringBuilder(IAllocator* allocator = nullptr)
-      : Printer(ss, Print::Options::DEFAULT),
-        allocator(allocator) {
+    explicit StringBuilder()
+      : Printer(ss, Print::Options::DEFAULT) {
     }
     template<typename T>
     StringBuilder& add(const T& value) {
@@ -90,7 +83,12 @@ namespace egg::ovum {
     std::string toUTF8() const {
       return this->ss.str();
     }
-    String build() const;
+    String build(IAllocator& allocator) const;
+    template<typename... ARGS>
+    static String concat(IAllocator& allocator, ARGS&&... args) {
+      StringBuilder sb;
+      return sb.add(std::forward<ARGS>(args)...).build(allocator);
+    }
   };
 }
 

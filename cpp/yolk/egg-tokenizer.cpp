@@ -111,13 +111,16 @@ namespace {
   using namespace egg::yolk;
 
   class EggTokenizer : public IEggTokenizer {
+    EggTokenizer(EggTokenizer&) = delete;
+    EggTokenizer& operator=(EggTokenizer&) = delete;
   private:
+    egg::ovum::IAllocator& allocator;
     std::shared_ptr<ILexer> lexer;
     LexerItem upcoming;
-    egg::ovum::String resource_name;
   public:
-    explicit EggTokenizer(const std::shared_ptr<ILexer>& lexer)
-      : lexer(lexer), resource_name(lexer->getResourceName()) {
+    EggTokenizer(egg::ovum::IAllocator& allocator, const std::shared_ptr<ILexer>& lexer)
+      : allocator(allocator),
+        lexer(lexer) {
       this->upcoming.line = 0;
     }
     virtual EggTokenizerKind next(EggTokenizerItem& item) override {
@@ -145,17 +148,17 @@ namespace {
           if (item.value.i < 0) {
             this->unexpected("Invalid integer constant");
           }
-          item.value.s = this->upcoming.verbatim;
+          item.value.s = egg::ovum::String::fromUTF8(this->allocator, this->upcoming.verbatim.data(), this->upcoming.verbatim.size());
           item.kind = EggTokenizerKind::Integer;
           break;
         case LexerKind::Float:
           // This is a float excluding any preceding sign
           item.value.f = this->upcoming.value.f;
-          item.value.s = this->upcoming.verbatim;
+          item.value.s = egg::ovum::String::fromUTF8(this->allocator, this->upcoming.verbatim.data(), this->upcoming.verbatim.size());
           item.kind = EggTokenizerKind::Float;
           break;
         case LexerKind::String:
-          item.value.s = egg::ovum::String::fromUTF32(nullptr, this->upcoming.value.s.data(), this->upcoming.value.s.size());
+          item.value.s = egg::ovum::String::fromUTF32(this->allocator, this->upcoming.value.s.data(), this->upcoming.value.s.size());
           item.kind = EggTokenizerKind::String;
           break;
         case LexerKind::Operator:
@@ -164,7 +167,7 @@ namespace {
           }
           return this->nextOperator(item);
         case LexerKind::Identifier:
-          item.value.s = this->upcoming.verbatim;
+          item.value.s = egg::ovum::String::fromUTF8(this->allocator, this->upcoming.verbatim.data(), this->upcoming.verbatim.size());
           if (EggTokenizerValue::tryParseKeyword(this->upcoming.verbatim, item.value.k)) {
             item.kind = EggTokenizerKind::Keyword;
           } else {
@@ -183,7 +186,8 @@ namespace {
       return item.kind;
     }
     virtual egg::ovum::String resource() const override {
-      return this->resource_name;
+      auto utf8 = this->lexer->getResourceName();
+      return egg::ovum::String::fromUTF8(this->allocator, utf8.data(), utf8.size());
     }
   private:
     EggTokenizerKind nextOperator(EggTokenizerItem& item) {
@@ -218,7 +222,7 @@ namespace {
         }
         sb.add('.', this->upcoming.verbatim);
       }
-      item.value.s = sb.build();
+      item.value.s = sb.build(this->allocator);
       item.kind = EggTokenizerKind::Attribute;
       return EggTokenizerKind::Attribute;
     }
@@ -243,6 +247,6 @@ namespace {
   };
 }
 
-std::shared_ptr<egg::yolk::IEggTokenizer> egg::yolk::EggTokenizerFactory::createFromLexer(const std::shared_ptr<ILexer>& lexer) {
-  return std::make_shared<EggTokenizer>(lexer);
+std::shared_ptr<egg::yolk::IEggTokenizer> egg::yolk::EggTokenizerFactory::createFromLexer(egg::ovum::IAllocator& allocator, const std::shared_ptr<ILexer>& lexer) {
+  return std::make_shared<EggTokenizer>(allocator, lexer);
 }

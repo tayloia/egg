@@ -1077,15 +1077,22 @@ egg::ovum::HardValue egg::ovum::ValueFactory::createStringASCII(IAllocator& allo
   if (codepoints == SIZE_MAX) {
     codepoints = std::strlen(value);
   }
-  return makeHardValue<ValueString>(allocator, String::fromUTF8(&allocator, value, codepoints, codepoints));
+  return makeHardValue<ValueString>(allocator, String::fromUTF8(allocator, value, codepoints, codepoints));
+}
+
+egg::ovum::HardValue egg::ovum::ValueFactory::createStringUTF8(IAllocator& allocator, const void* value, size_t bytes, size_t codepoints) {
+  if (value == nullptr) {
+    return HardValue::Void;
+  }
+  return makeHardValue<ValueString>(allocator, String::fromUTF8(allocator, value, bytes, codepoints));
 }
 
 egg::ovum::HardValue egg::ovum::ValueFactory::createStringUTF8(IAllocator& allocator, const std::u8string& value, size_t codepoints) {
-  return makeHardValue<ValueString>(allocator, String::fromUTF8(&allocator, value.data(), value.size(), codepoints));
+  return makeHardValue<ValueString>(allocator, String::fromUTF8(allocator, value.data(), value.size(), codepoints));
 }
 
 egg::ovum::HardValue egg::ovum::ValueFactory::createStringUTF32(IAllocator& allocator, const std::u32string& value) {
-  return makeHardValue<ValueString>(allocator, String::fromUTF32(&allocator, value.data(), value.size()));
+  return makeHardValue<ValueString>(allocator, String::fromUTF32(allocator, value.data(), value.size()));
 }
 
 bool egg::ovum::HardValue::validate() const {

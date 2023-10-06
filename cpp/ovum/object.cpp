@@ -17,9 +17,7 @@ namespace {
     template<typename... ARGS>
     inline HardValue raise(IVMExecution& execution, ARGS&&... args) {
       // TODO: Non-string exception?
-      auto& allocator = this->vm->getAllocator();
-      egg::ovum::StringBuilder sb{ &allocator };
-      auto message = sb.add(std::forward<ARGS>(args)...).build();
+      auto message = StringBuilder::concat(this->vm->getAllocator(), std::forward<ARGS>(args)...);
       return execution.raiseException(execution.createHardValueString(message));
     }
   public:
@@ -82,7 +80,7 @@ namespace {
       printer << "[builtin print]";
     }
     virtual HardValue vmCall(IVMExecution& execution, const ICallArguments& arguments) override {
-      StringBuilder sb(&this->vm->getAllocator());
+      StringBuilder sb;
       size_t n = arguments.getArgumentCount();
       String name;
       HardValue value;
@@ -92,7 +90,7 @@ namespace {
         }
         sb.add(value);
       }
-      execution.log(ILogger::Source::User, ILogger::Severity::None, sb.build());
+      execution.log(ILogger::Source::User, ILogger::Severity::None, sb.build(this->vm->getAllocator()));
       return HardValue::Void;
     }
     virtual HardValue vmPropertyGet(IVMExecution& execution, const HardValue&) override {

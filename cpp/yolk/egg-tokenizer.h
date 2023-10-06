@@ -145,6 +145,6 @@ namespace egg::yolk {
 
   class EggTokenizerFactory {
   public:
-    static std::shared_ptr<IEggTokenizer> createFromLexer(const std::shared_ptr<ILexer>& lexer);
+    static std::shared_ptr<IEggTokenizer> createFromLexer(egg::ovum::IAllocator& allocator, const std::shared_ptr<ILexer>& lexer);
   };
 }

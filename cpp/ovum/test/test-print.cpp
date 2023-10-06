@@ -55,10 +55,11 @@ TEST(TestPrint, Double) {
 }
 
 TEST(TestPrint, String) {
+  egg::test::Allocator allocator;
   CHECK(std::string(), "");
   CHECK(std::string("hello"), "hello");
   CHECK(egg::ovum::String(), "");
-  CHECK(egg::ovum::String("hello"), "hello");
+  CHECK(allocator.concat("hello"), "hello");
 }
 
 TEST(TestPrint, ValueConstants) {

@@ -155,6 +155,7 @@ namespace egg::ovum {
       return createStringASCII(allocator, value, N - 1);
     }
     static HardValue createStringASCII(IAllocator& allocator, const char* value, size_t codepoints = SIZE_MAX);
+    static HardValue createStringUTF8(IAllocator& allocator, const void* value, size_t bytes = SIZE_MAX, size_t codepoints = SIZE_MAX);
     static HardValue createStringUTF8(IAllocator& allocator, const std::u8string& value, size_t codepoints = SIZE_MAX);
     static HardValue createStringUTF32(IAllocator& allocator, const std::u32string& value);
 

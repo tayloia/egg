@@ -92,14 +92,15 @@ TEST(TestLang, BitsInvert) {
 }
 
 TEST(TestLang, StringBuilder) {
+  egg::test::Allocator allocator;
   egg::ovum::StringBuilder sb;
   ASSERT_TRUE(sb.empty());
   sb.add("Hello", ' ', "World");
-  ASSERT_EQ("Hello World", sb.build().toUTF8());
+  ASSERT_EQ("Hello World", sb.build(allocator).toUTF8());
   ASSERT_EQ("Hello World", sb.toUTF8());
   ASSERT_FALSE(sb.empty());
   sb.add('!');
-  ASSERT_EQ("Hello World!", sb.build().toUTF8());
+  ASSERT_EQ("Hello World!", sb.build(allocator).toUTF8());
   ASSERT_EQ("Hello World!", sb.toUTF8());
   ASSERT_FALSE(sb.empty());
 }

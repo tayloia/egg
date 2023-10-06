@@ -119,7 +119,7 @@ namespace {
             item.value = egg::ovum::HardValue::True;
           } else {
             item.kind = EonTokenizerKind::Identifier;
-            item.value = egg::ovum::ValueFactory::createString(this->allocator, egg::ovum::String(this->upcoming.verbatim));
+            item.value = egg::ovum::ValueFactory::createStringUTF8(this->allocator, this->upcoming.verbatim.data(), this->upcoming.verbatim.size());
           }
           break;
         case LexerKind::EndOfFile:

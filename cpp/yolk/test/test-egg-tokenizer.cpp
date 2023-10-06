@@ -5,13 +5,13 @@
 using namespace egg::yolk;
 
 namespace {
-  std::shared_ptr<IEggTokenizer> createFromString(const std::string& text) {
+  std::shared_ptr<IEggTokenizer> createFromString(egg::ovum::IAllocator& allocator, const std::string& text) {
     auto lexer = LexerFactory::createFromString(text);
-    return EggTokenizerFactory::createFromLexer(lexer);
+    return EggTokenizerFactory::createFromLexer(allocator, lexer);
   }
-  std::shared_ptr<IEggTokenizer> createFromPath(const std::string& path) {
+  std::shared_ptr<IEggTokenizer> createFromPath(egg::ovum::IAllocator& allocator, const std::string& path) {
     auto lexer = LexerFactory::createFromPath(path);
-    return EggTokenizerFactory::createFromLexer(lexer);
+    return EggTokenizerFactory::createFromLexer(allocator, lexer);
   }
 }
 
@@ -55,22 +55,25 @@ TEST(TestEggTokenizer, TryParseOperator) {
 }
 
 TEST(TestEggTokenizer, EmptyFile) {
+  egg::test::Allocator allocator{ egg::test::Allocator::Expectation::NoAllocations };
+  auto tokenizer = createFromString(allocator, "");
   EggTokenizerItem item;
-  auto tokenizer = createFromString("");
   ASSERT_EQ(EggTokenizerKind::EndOfFile, tokenizer->next(item));
 }
 
 TEST(TestEggTokenizer, Comment) {
+  egg::test::Allocator allocator;
+  auto tokenizer = createFromString(allocator, "// Comment\n0");
   EggTokenizerItem item;
-  auto tokenizer = createFromString("// Comment\n0");
   ASSERT_EQ(EggTokenizerKind::Integer, tokenizer->next(item));
-  tokenizer = createFromString("/* Comment */0");
+  tokenizer = createFromString(allocator, "/* Comment */0");
   ASSERT_EQ(EggTokenizerKind::Integer, tokenizer->next(item));
 }
 
 TEST(TestEggTokenizer, Integer) {
+  egg::test::Allocator allocator;
+  auto tokenizer = createFromString(allocator, "12345 -12345");
   EggTokenizerItem item;
-  auto tokenizer = createFromString("12345 -12345");
   ASSERT_EQ(EggTokenizerKind::Integer, tokenizer->next(item));
   ASSERT_EQ(12345, item.value.i);
   ASSERT_EQ(EggTokenizerKind::Operator, tokenizer->next(item));
@@ -80,8 +83,9 @@ TEST(TestEggTokenizer, Integer) {
 }
 
 TEST(TestEggTokenizer, Float) {
+  egg::test::Allocator allocator;
+  auto tokenizer = createFromString(allocator, "3.14159 -3.14159");
   EggTokenizerItem item;
-  auto tokenizer = createFromString("3.14159 -3.14159");
   ASSERT_EQ(EggTokenizerKind::Float, tokenizer->next(item));
   ASSERT_EQ(3.14159, item.value.f);
   ASSERT_EQ(EggTokenizerKind::Operator, tokenizer->next(item));
@@ -91,8 +95,9 @@ TEST(TestEggTokenizer, Float) {
 }
 
 TEST(TestEggTokenizer, String) {
+  egg::test::Allocator allocator;
+  auto tokenizer = createFromString(allocator, "\"hello\" `world`");
   EggTokenizerItem item;
-  auto tokenizer = createFromString("\"hello\" `world`");
   ASSERT_EQ(EggTokenizerKind::String, tokenizer->next(item));
   ASSERT_EQ("hello", item.value.s.toUTF8());
   ASSERT_EQ(EggTokenizerKind::String, tokenizer->next(item));
@@ -100,8 +105,9 @@ TEST(TestEggTokenizer, String) {
 }
 
 TEST(TestEggTokenizer, Keyword) {
+  egg::test::Allocator allocator;
+  auto tokenizer = createFromString(allocator, "null false true any bool int float string object yield");
   EggTokenizerItem item;
-  auto tokenizer = createFromString("null false true any bool int float string object yield");
   ASSERT_EQ(EggTokenizerKind::Keyword, tokenizer->next(item));
   ASSERT_EQ(EggTokenizerKeyword::Null, item.value.k);
   ASSERT_EQ(EggTokenizerKind::Keyword, tokenizer->next(item));
@@ -126,8 +132,9 @@ TEST(TestEggTokenizer, Keyword) {
 }
 
 TEST(TestEggTokenizer, Operator) {
+  egg::test::Allocator allocator{ egg::test::Allocator::Expectation::NoAllocations };
+  auto tokenizer = createFromString(allocator, "!??.->>>>=~ $");
   EggTokenizerItem item;
-  auto tokenizer = createFromString("!??.->>>>=~ $");
   ASSERT_EQ(EggTokenizerKind::Operator, tokenizer->next(item));
   ASSERT_EQ(EggTokenizerOperator::Bang, item.value.o);
   ASSERT_EQ(EggTokenizerKind::Operator, tokenizer->next(item));
@@ -144,8 +151,9 @@ TEST(TestEggTokenizer, Operator) {
 }
 
 TEST(TestEggTokenizer, Identifier) {
+  egg::test::Allocator allocator;
+  auto tokenizer = createFromString(allocator, "unknown _");
   EggTokenizerItem item;
-  auto tokenizer = createFromString("unknown _");
   ASSERT_EQ(EggTokenizerKind::Identifier, tokenizer->next(item));
   ASSERT_EQ("unknown", item.value.s.toUTF8());
   ASSERT_EQ(EggTokenizerKind::Identifier, tokenizer->next(item));
@@ -154,8 +162,9 @@ TEST(TestEggTokenizer, Identifier) {
 }
 
 TEST(TestEggTokenizer, Attribute) {
+  egg::test::Allocator allocator;
+  auto tokenizer = createFromString(allocator, "@test @and.this .@@twice(2)");
   EggTokenizerItem item;
-  auto tokenizer = createFromString("@test @and.this .@@twice(2)");
   ASSERT_EQ(EggTokenizerKind::Attribute, tokenizer->next(item));
   ASSERT_EQ("@test", item.value.s.toUTF8());
   ASSERT_EQ(EggTokenizerKind::Attribute, tokenizer->next(item));
@@ -167,8 +176,9 @@ TEST(TestEggTokenizer, Attribute) {
 }
 
 TEST(TestEggTokenizer, Line) {
+  egg::test::Allocator allocator;
+  auto tokenizer = createFromString(allocator, "1 2.3\r\n\r\n`hello\nworld` foo");
   EggTokenizerItem item;
-  auto tokenizer = createFromString("1 2.3\r\n\r\n`hello\nworld` foo");
   ASSERT_EQ(EggTokenizerKind::Integer, tokenizer->next(item));
   ASSERT_EQ(1u, item.line);
   ASSERT_EQ(EggTokenizerKind::Float, tokenizer->next(item));
@@ -182,8 +192,9 @@ TEST(TestEggTokenizer, Line) {
 }
 
 TEST(TestEggTokenizer, Column) {
+  egg::test::Allocator allocator;
+  auto tokenizer = createFromString(allocator, "1 2.3 \"hello\" foo");
   EggTokenizerItem item;
-  auto tokenizer = createFromString("1 2.3 \"hello\" foo");
   ASSERT_EQ(EggTokenizerKind::Integer, tokenizer->next(item));
   ASSERT_EQ(1u, item.column);
   ASSERT_EQ(EggTokenizerKind::Float, tokenizer->next(item));
@@ -197,18 +208,17 @@ TEST(TestEggTokenizer, Column) {
 }
 
 TEST(TestEggTokenizer, Vexatious) {
+  egg::test::Allocator allocator;
   EggTokenizerItem item;
-
   // Parsed as "--|x"
-  auto tokenizer = createFromString("--x");
+  auto tokenizer = createFromString(allocator, "--x");
   ASSERT_EQ(EggTokenizerKind::Operator, tokenizer->next(item));
   ASSERT_EQ(EggTokenizerOperator::MinusMinus, item.value.o);
   ASSERT_EQ(EggTokenizerKind::Identifier, tokenizer->next(item));
   ASSERT_EQ("x", item.value.s.toUTF8());
   ASSERT_EQ(EggTokenizerKind::EndOfFile, tokenizer->next(item));
-
   // Parsed as "x|--|1"
-  tokenizer = createFromString("x--1");
+  tokenizer = createFromString(allocator, "x--1");
   ASSERT_EQ(EggTokenizerKind::Identifier, tokenizer->next(item));
   ASSERT_EQ("x", item.value.s.toUTF8());
   ASSERT_EQ(EggTokenizerKind::Operator, tokenizer->next(item));
@@ -216,9 +226,8 @@ TEST(TestEggTokenizer, Vexatious) {
   ASSERT_EQ(EggTokenizerKind::Integer, tokenizer->next(item));
   ASSERT_EQ(1, item.value.i);
   ASSERT_EQ(EggTokenizerKind::EndOfFile, tokenizer->next(item));
-
   // Parsed as "-|1"
-  tokenizer = createFromString("-1");
+  tokenizer = createFromString(allocator, "-1");
   ASSERT_EQ(EggTokenizerKind::Operator, tokenizer->next(item));
   ASSERT_EQ(EggTokenizerOperator::Minus, item.value.o);
   ASSERT_EQ(EggTokenizerKind::Integer, tokenizer->next(item));
@@ -227,9 +236,10 @@ TEST(TestEggTokenizer, Vexatious) {
 }
 
 TEST(TestEggTokenizer, ExampleFile) {
-  EggTokenizerItem item;
-  auto tokenizer = createFromPath("~/cpp/yolk/test/data/example.egg");
+  egg::test::Allocator allocator;
+  auto tokenizer = createFromPath(allocator, "~/cpp/yolk/test/data/example.egg");
   size_t count = 0;
+  EggTokenizerItem item;
   while (tokenizer->next(item) != EggTokenizerKind::EndOfFile) {
     count++;
   }

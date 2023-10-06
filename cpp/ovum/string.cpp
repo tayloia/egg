@@ -132,7 +132,7 @@ namespace {
     return -1; // Not found
   }
 
-  void splitPositive(std::vector<String>& dst, const String& src, const String& separator, size_t limit) {
+  void splitPositive(IAllocator& allocator, std::vector<String>& dst, const String& src, const String& separator, size_t limit) {
     // Unlike the original parameter, 'limit' is the maximum number of SPLITS to perform
     // OPTIMIZE
     assert(dst.size() == 0);
@@ -145,14 +145,14 @@ namespace {
         if (cp < 0) {
           return; // Don't add a trailing empty string
         }
-        dst.push_back(String::fromUTF32(nullptr, &cp, 1));
+        dst.push_back(String::fromUTF32(allocator, &cp, 1));
       } while (++begin < limit);
     } else {
       // Split by string
       assert(separator.length() > 0);
       auto index = src.indexOfString(separator, 0);
       while (index >= 0) {
-        dst.emplace_back(src.substring(begin, size_t(index)));
+        dst.emplace_back(src.substring(allocator, begin, size_t(index)));
         begin = size_t(index) + separator.length();
         if (--limit == 0) {
           break;
@@ -160,10 +160,10 @@ namespace {
         index = src.indexOfString(separator, begin);
       }
     }
-    dst.emplace_back(src.substring(begin, SIZE_MAX));
+    dst.emplace_back(src.substring(allocator, begin, SIZE_MAX));
   }
 
-  void splitNegative(std::vector<String>& dst, const String& src, const String& separator, size_t limit) {
+  void splitNegative(IAllocator& allocator, std::vector<String>& dst, const String& src, const String& separator, size_t limit) {
     // Unlike the original parameter, 'limit' is the maximum number of SPLITS to perform
     // OPTIMIZE
     assert(dst.size() == 0);
@@ -178,13 +178,13 @@ namespace {
           std::reverse(dst.begin(), dst.end());
           return; // Don't add a trailing empty string
         }
-        dst.push_back(String::fromUTF32(nullptr, &cp, 1));
+        dst.push_back(String::fromUTF32(allocator, &cp, 1));
       } while (--limit > 0);
     } else {
       // Split by string
       auto index = src.lastIndexOfString(separator, SIZE_MAX);
       while (index >= 0) {
-        dst.emplace_back(src.substring(size_t(index) + length, end));
+        dst.emplace_back(src.substring(allocator, size_t(index) + length, end));
         end = size_t(index);
         if ((end < length) || (--limit == 0)) {
           break;
@@ -192,54 +192,28 @@ namespace {
         index = src.lastIndexOfString(separator, end - length);
       }
     }
-    dst.emplace_back(src.substring(0, end));
+    dst.emplace_back(src.substring(allocator, 0, end));
     std::reverse(dst.begin(), dst.end());
   }
 
-  void splitString(std::vector<String>& result, const String& haystack, const String& needle, int64_t limit) {
+  void splitString(IAllocator& allocator, std::vector<String>& result, const String& haystack, const String& needle, int64_t limit) {
     assert(limit != 0);
     if (limit > 0) {
       // Split from the beginning
       if (uint64_t(limit) < uint64_t(SIZE_MAX)) {
-        splitPositive(result, haystack, needle, size_t(limit - 1));
+        splitPositive(allocator, result, haystack, needle, size_t(limit - 1));
       } else {
-        splitPositive(result, haystack, needle, SIZE_MAX);
+        splitPositive(allocator, result, haystack, needle, SIZE_MAX);
       }
     } else {
       // Split from the end
       if (uint64_t(-limit) < uint64_t(SIZE_MAX)) {
-        splitNegative(result, haystack, needle, size_t(-1 - limit));
+        splitNegative(allocator, result, haystack, needle, size_t(-1 - limit));
       } else {
-        splitNegative(result, haystack, needle, SIZE_MAX);
+        splitNegative(allocator, result, haystack, needle, SIZE_MAX);
       }
     }
   }
-
-  class StringFallbackAllocator final : public IAllocator {
-    StringFallbackAllocator(const StringFallbackAllocator&) = delete;
-    StringFallbackAllocator& operator=(const StringFallbackAllocator&) = delete;
-  private:
-    Atomic<int64_t> atomic;
-  public:
-    StringFallbackAllocator() : atomic(0) {
-    }
-    ~StringFallbackAllocator() {
-      // Make sure all our strings have been destroyed when the process exits
-      assert(this->atomic.get() == 0);
-    }
-    virtual void* allocate(size_t bytes, size_t alignment) override {
-      this->atomic.increment();
-      return AllocatorDefaultPolicy::memalloc(bytes, alignment);
-    }
-    virtual void deallocate(void* allocated, size_t alignment) override {
-      assert(allocated != nullptr);
-      this->atomic.decrement();
-      AllocatorDefaultPolicy::memfree(allocated, alignment);
-    }
-    virtual bool statistics(Statistics&) const override {
-      return false;
-    }
-  };
 }
 
 bool egg::ovum::String::validate() const {
@@ -394,7 +368,7 @@ int64_t egg::ovum::String::lastIndexOfString(const String& needle, size_t fromIn
   return lastIndexOfStringByIteration(*this, needle, fromIndex);
 }
 
-egg::ovum::String egg::ovum::String::replace(const String& needle, const String& replacement, int64_t occurrences) const {
+egg::ovum::String egg::ovum::String::replace(IAllocator& allocator, const String& needle, const String& replacement, int64_t occurrences) const {
   // One replacement requires splitting into two parts, and so on
   if (occurrences > 0) {
     if (occurrences < INT64_MAX) {
@@ -414,7 +388,7 @@ egg::ovum::String egg::ovum::String::replace(const String& needle, const String&
   }
   std::vector<String> part;
   if (!this->empty()) {
-    splitString(part, *this, needle, occurrences);
+    splitString(allocator, part, *this, needle, occurrences);
     auto parts = part.size();
     assert(parts > 0);
     if (parts == 1) {
@@ -423,10 +397,10 @@ egg::ovum::String egg::ovum::String::replace(const String& needle, const String&
       return *this;
     }
   }
-  return replacement.join(part);
+  return replacement.join(allocator, part);
 }
 
-egg::ovum::String egg::ovum::String::substring(size_t begin, size_t end) const {
+egg::ovum::String egg::ovum::String::substring(IAllocator& allocator, size_t begin, size_t end) const {
   end = std::min(end, this->length());
   if (begin >= end) {
     // Empty string
@@ -444,10 +418,10 @@ egg::ovum::String egg::ovum::String::substring(size_t begin, size_t end) const {
     throw std::runtime_error("Malformed UTF-8 string");
   }
   auto bytes = size_t(q.get() - p.get());
-  return String::fromUTF8(nullptr, p.get(), bytes, codepoints);
+  return String::fromUTF8(allocator, p.get(), bytes, codepoints);
 }
 
-egg::ovum::String egg::ovum::String::repeat(size_t count) const {
+egg::ovum::String egg::ovum::String::repeat(IAllocator& allocator, size_t count) const {
   if (this->length() == 0) {
     return *this;
   }
@@ -461,7 +435,7 @@ egg::ovum::String egg::ovum::String::repeat(size_t count) const {
   do {
     sb.add(*this);
   } while (--count > 0);
-  return sb.build();
+  return sb.build(allocator);
 }
 
 bool egg::ovum::String::empty() const {
@@ -486,26 +460,26 @@ bool egg::ovum::String::lessThan(const String& other) const {
   return std::memcmp(lhs->begin(), rhs->begin(), rsize) < 0;
 }
 
-String egg::ovum::String::slice(int64_t begin, int64_t end) const {
+String egg::ovum::String::slice(IAllocator& allocator, int64_t begin, int64_t end) const {
   auto n = int64_t(this->length());
   auto a = (begin < 0) ? std::max(n + begin, int64_t(0)) : begin;
   auto b = (end < 0) ? std::max(n + end, int64_t(0)) : end;
   assert(a >= 0);
   assert(b >= 0);
-  return this->substring(size_t(a), size_t(b));
+  return this->substring(allocator, size_t(a), size_t(b));
 }
 
-std::vector<egg::ovum::String> egg::ovum::String::split(const String& separator, int64_t limit) const {
+std::vector<egg::ovum::String> egg::ovum::String::split(IAllocator& allocator, const String& separator, int64_t limit) const {
   // See https://docs.oracle.com/javase/8/docs/api/java/lang/String.html#split-java.lang.String-int-
   // However, if limit == 0 we return an empty vector
   std::vector<String> result;
   if (limit != 0) {
-    splitString(result, *this, separator, limit);
+    splitString(allocator, result, *this, separator, limit);
   }
   return result;
 }
 
-egg::ovum::String egg::ovum::String::join(const std::vector<String>& parts) const {
+egg::ovum::String egg::ovum::String::join(IAllocator& allocator, const std::vector<String>& parts) const {
   auto n = parts.size();
   switch (n) {
   case 0:
@@ -519,16 +493,16 @@ egg::ovum::String egg::ovum::String::join(const std::vector<String>& parts) cons
   for (size_t i = 1; i < n; ++i) {
     sb.add(between, parts[i]);
   }
-  return sb.build();
+  return sb.build(allocator);
 }
 
-egg::ovum::String egg::ovum::String::padLeft(size_t target) const {
+egg::ovum::String egg::ovum::String::padLeft(IAllocator& allocator, size_t target) const {
   // OPTIMIZE
   const char space = ' ';
-  return this->padLeft(target, String::fromUTF8(nullptr, &space, 1, 1));
+  return this->padLeft(allocator, target, String::fromUTF8(allocator, &space, 1, 1));
 }
 
-egg::ovum::String egg::ovum::String::padLeft(size_t target, const String& padding) const {
+egg::ovum::String egg::ovum::String::padLeft(IAllocator& allocator, size_t target, const String& padding) const {
   // OPTIMIZE
   auto current = this->length();
   auto n = padding.length();
@@ -547,10 +521,10 @@ egg::ovum::String egg::ovum::String::padLeft(size_t target, const String& paddin
     dst.append(utf8);
   }
   dst.append(this->toUTF8());
-  return String(dst, target);
+  return String::fromUTF8(allocator, dst.data(), dst.size(), target);
 }
 
-egg::ovum::String egg::ovum::String::padRight(size_t target, const String& padding) const {
+egg::ovum::String egg::ovum::String::padRight(IAllocator& allocator, size_t target, const String& padding) const {
   // OPTIMIZE
   auto current = this->length();
   auto n = padding.length();
@@ -568,13 +542,13 @@ egg::ovum::String egg::ovum::String::padRight(size_t target, const String& paddi
   if (partial > 0) {
     dst.append(utf8.cbegin(), egg::ovum::UTF8::offsetOfCodePoint(utf8, partial));
   }
-  return String(dst, target);
+  return String::fromUTF8(allocator, dst.data(), dst.size(), target);
 }
 
-egg::ovum::String egg::ovum::String::padRight(size_t target) const {
+egg::ovum::String egg::ovum::String::padRight(IAllocator& allocator, size_t target) const {
   // OPTIMIZE
   const char space = ' ';
-  return this->padRight(target, String::fromUTF8(nullptr, &space, 1, 1));
+  return this->padRight(allocator, target, String::fromUTF8(allocator, &space, 1, 1));
 }
 
 std::string egg::ovum::String::toUTF8() const {
@@ -585,7 +559,7 @@ std::string egg::ovum::String::toUTF8() const {
   return std::string(memory->begin(), memory->end());
 }
 
-egg::ovum::String egg::ovum::String::fromUTF8(IAllocator* allocator, const void* utf8, size_t bytes, size_t codepoints) {
+egg::ovum::String egg::ovum::String::fromUTF8(IAllocator& allocator, const void* utf8, size_t bytes, size_t codepoints) {
   // TODO detect malformed/overlong/etc
   if ((utf8 != nullptr) && (bytes == SIZE_MAX)) {
     bytes = std::strlen(static_cast<const char*>(utf8));
@@ -600,25 +574,21 @@ egg::ovum::String egg::ovum::String::fromUTF8(IAllocator* allocator, const void*
   if (codepoints > bytes) {
     throw std::invalid_argument("String: Invalid UTF-8 input data");
   }
-  if (allocator == nullptr) {
-    static StringFallbackAllocator fallback;
-    allocator = &fallback;
-  }
-  auto* memory = allocator->create<MemoryContiguous>(bytes, *allocator, bytes, IMemory::Tag{ codepoints });
+  auto* memory = allocator.create<MemoryContiguous>(bytes, allocator, bytes, IMemory::Tag{ codepoints });
   assert(memory != nullptr);
   std::memcpy(memory->base(), data, bytes);
   return String(memory);
 }
 
-egg::ovum::String egg::ovum::String::fromUTF32(IAllocator* allocator, const void* utf32, size_t codepoints) {
+egg::ovum::String egg::ovum::String::fromUTF32(IAllocator& allocator, const void* utf32, size_t codepoints) {
   auto utf8 = egg::ovum::UTF32::toUTF8(static_cast<const char32_t*>(utf32), codepoints);
   return String::fromUTF8(allocator, utf8.data(), utf8.size(), codepoints);
 }
 
-egg::ovum::String egg::ovum::StringBuilder::build() const {
+egg::ovum::String egg::ovum::StringBuilder::build(IAllocator& allocator) const {
   // OPTIMIZE
   auto utf8 = this->ss.str();
-  return String::fromUTF8(this->allocator, utf8.data(), utf8.size());
+  return String::fromUTF8(allocator, utf8.data(), utf8.size());
 }
 
 std::ostream& operator<<(std::ostream& os, const egg::ovum::String& text) {

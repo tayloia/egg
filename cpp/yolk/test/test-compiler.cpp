@@ -7,8 +7,8 @@ TEST(TestCompiler, ExampleFile) {
   egg::test::VM vm;
   std::string path = "~/cpp/yolk/test/data/example.egg";
   auto lexer = egg::yolk::LexerFactory::createFromPath(path);
-  auto tokenizer = egg::yolk::EggTokenizerFactory::createFromLexer(lexer);
+  auto tokenizer = egg::yolk::EggTokenizerFactory::createFromLexer(vm->getAllocator(), lexer);
   auto compiler = egg::yolk::EggCompilerFactory::createFromTokenizer(*vm, tokenizer);
   ASSERT_TRUE(compiler->compile());
-  ASSERT_STRING(path, compiler->resource());
+  ASSERT_STRING(path.c_str(), compiler->resource());
 }

@@ -17,8 +17,7 @@ namespace egg::test {
     }
     template<typename... ARGS>
     egg::ovum::String concat(ARGS&&... args) {
-      egg::ovum::StringBuilder sb{ this };
-      return sb.add(std::forward<ARGS>(args)...).build();
+      return egg::ovum::StringBuilder::concat(*this, std::forward<ARGS>(args)...);
     }
     void validate() const {
       egg::ovum::IAllocator::Statistics stats{};

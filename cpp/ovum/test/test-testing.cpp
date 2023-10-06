@@ -12,7 +12,8 @@ TEST(TestTesting, Fails) {
 }
 
 TEST(TestTesting, String) {
-  egg::ovum::String greeting{ "Hello" };
+  egg::test::Allocator allocator;
+  auto greeting = allocator.concat("Hello");
   ASSERT_STRING("Hello", greeting);
 }
 
@@ -78,5 +79,5 @@ TEST(TestTesting, Logger) {
   logger.log(Source::Compiler, Severity::Warning, allocator.concat("delta"));
   logger.log(Source::Runtime, Severity::Error, allocator.concat("epsilon"));
   logger.log(Source::User, Severity::None, allocator.concat("zeta"));
-  ASSERT_STRING("<COMPILER><DEBUG>alpha\n<RUNTIME><VERBOSE>beta\n<INFORMATION>gamma\n<COMPILER><WARNING>delta\n<RUNTIME><ERROR>epsilon\nzeta\n", logger.logged.str());
+  ASSERT_STREQ("<COMPILER><DEBUG>alpha\n<RUNTIME><VERBOSE>beta\n<INFORMATION>gamma\n<COMPILER><WARNING>delta\n<RUNTIME><ERROR>epsilon\nzeta\n", logger.logged.str().data());
 }
