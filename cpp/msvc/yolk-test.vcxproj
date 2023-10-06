@@ -38,6 +38,7 @@
       <DisableLanguageExtensions Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">false</DisableLanguageExtensions>
       <DisableLanguageExtensions Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</DisableLanguageExtensions>
     </ClCompile>
+    <ClCompile Include="..\yolk\test\test-compiler.cpp" />
     <ClCompile Include="..\yolk\test\test-egg-tokenizer.cpp" />
     <ClCompile Include="..\yolk\test\test-eon-tokenizer.cpp" />
     <ClCompile Include="..\yolk\test\test-exceptions.cpp" />
