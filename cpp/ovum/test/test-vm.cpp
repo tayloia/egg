@@ -32,6 +32,7 @@
 #define STMT_THROW(exception) builder->stmtThrow(exception)
 #define STMT_TRY(block, ...) builder->glue(builder->stmtTry(block) COMMA(__VA_ARGS__))
 #define STMT_CATCH(symbol, ...) builder->glue(builder->stmtCatch(builder->createString(symbol)) COMMA(__VA_ARGS__))
+#define STMT_RETHROW() builder->stmtRethrow()
 
 #define VOID VoidTag{}
 
@@ -1566,7 +1567,7 @@ TEST(TestVM, TryCatchThrow) {
       STMT_BLOCK(
         // print("try");
         STMT_PRINT(EXPR_LITERAL("try")),
-        // throw "after";
+        // throw "exception";
         STMT_THROW(EXPR_LITERAL("exception")),
         // print("after");
         STMT_PRINT(EXPR_LITERAL("after"))
@@ -1580,4 +1581,233 @@ TEST(TestVM, TryCatchThrow) {
   );
   buildAndRunSucceeded(vm, *builder);
   ASSERT_EQ("try\ncatch:exception\n", vm.logger.logged.str());
+}
+
+TEST(TestVM, TryFinallyNoThrow) {
+  egg::test::VM vm;
+  auto builder = vm->createProgramBuilder();
+  builder->addStatement(
+    // try
+    STMT_TRY(
+      // print("try");
+      STMT_PRINT(EXPR_LITERAL("try")),
+      // finally
+      STMT_BLOCK(
+        // print("finally");
+        STMT_PRINT(EXPR_LITERAL("finally"))
+      )
+    )
+  );
+  buildAndRunSucceeded(vm, *builder);
+  ASSERT_EQ("try\nfinally\n", vm.logger.logged.str());
+}
+
+TEST(TestVM, TryFinallyThrow) {
+  egg::test::VM vm;
+  auto builder = vm->createProgramBuilder();
+  builder->addStatement(
+    // try
+    STMT_TRY(
+      STMT_BLOCK(
+        // print("try");
+        STMT_PRINT(EXPR_LITERAL("try")),
+        // throw "exception";
+        STMT_THROW(EXPR_LITERAL("exception")),
+        // print("after");
+        STMT_PRINT(EXPR_LITERAL("after"))
+      ),
+      // finally
+      STMT_BLOCK(
+        // print("finally");
+        STMT_PRINT(EXPR_LITERAL("finally"))
+      )
+    )
+  );
+  buildAndRunFailed(vm, *builder);
+  ASSERT_EQ("try\nfinally\n<ERROR>throw exception\n", vm.logger.logged.str());
+}
+
+TEST(TestVM, TryCatchFinallyNoThrow) {
+  egg::test::VM vm;
+  auto builder = vm->createProgramBuilder();
+  builder->addStatement(
+    // try
+    STMT_TRY(
+      // print("try");
+      STMT_PRINT(EXPR_LITERAL("try")),
+      // catch (var e)
+      STMT_CATCH("e",
+        // print("catch:", e);
+        STMT_PRINT(EXPR_LITERAL("catch:"), EXPR_VAR("e"))
+      ),
+      // finally
+      STMT_BLOCK(
+        // print("finally");
+        STMT_PRINT(EXPR_LITERAL("finally"))
+      )
+    )
+  );
+  buildAndRunSucceeded(vm, *builder);
+  ASSERT_EQ("try\nfinally\n", vm.logger.logged.str());
+}
+
+TEST(TestVM, TryCatchFinallyThrow) {
+  egg::test::VM vm;
+  auto builder = vm->createProgramBuilder();
+  builder->addStatement(
+    // try
+    STMT_TRY(
+      STMT_BLOCK(
+        // print("try");
+        STMT_PRINT(EXPR_LITERAL("try")),
+        // throw "exception";
+        STMT_THROW(EXPR_LITERAL("exception")),
+        // print("after");
+        STMT_PRINT(EXPR_LITERAL("after"))
+      ),
+      // catch (var e)
+      STMT_CATCH("e",
+        // print("catch:", e);
+        STMT_PRINT(EXPR_LITERAL("catch:"), EXPR_VAR("e"))
+      ),
+      // finally
+      STMT_BLOCK(
+        // print("finally");
+        STMT_PRINT(EXPR_LITERAL("finally"))
+      )
+    )
+  );
+  buildAndRunSucceeded(vm, *builder);
+  ASSERT_EQ("try\ncatch:exception\nfinally\n", vm.logger.logged.str());
+}
+
+TEST(TestVM, TryCatchFinallyThrowAnotherCatch) {
+  egg::test::VM vm;
+  auto builder = vm->createProgramBuilder();
+  builder->addStatement(
+    // try
+    STMT_TRY(
+      STMT_BLOCK(
+        // print("try");
+        STMT_PRINT(EXPR_LITERAL("try")),
+        // throw "exception1";
+        STMT_THROW(EXPR_LITERAL("exception1")),
+        // print("after1");
+        STMT_PRINT(EXPR_LITERAL("after1"))
+      ),
+      // catch (var e)
+      STMT_CATCH("e",
+        // print("catch:", e);
+        STMT_PRINT(EXPR_LITERAL("catch:"), EXPR_VAR("e")),
+        // throw;
+        STMT_THROW(EXPR_LITERAL("exception2")),
+        // print("after2");
+        STMT_PRINT(EXPR_LITERAL("after2"))
+      ),
+      // finally
+      STMT_BLOCK(
+        // print("finally");
+        STMT_PRINT(EXPR_LITERAL("finally"))
+      )
+    )
+  );
+  buildAndRunFailed(vm, *builder);
+  ASSERT_EQ("try\ncatch:exception1\nfinally\n<ERROR>throw exception2\n", vm.logger.logged.str());
+}
+
+TEST(TestVM, TryCatchFinallyThrowAnotherFinally) {
+  egg::test::VM vm;
+  auto builder = vm->createProgramBuilder();
+  builder->addStatement(
+    // try
+    STMT_TRY(
+      STMT_BLOCK(
+        // print("try");
+        STMT_PRINT(EXPR_LITERAL("try")),
+        // throw "exception1";
+        STMT_THROW(EXPR_LITERAL("exception1")),
+        // print("after1");
+        STMT_PRINT(EXPR_LITERAL("after1"))
+      ),
+      // catch (var e)
+      STMT_CATCH("e",
+        // print("catch:", e);
+        STMT_PRINT(EXPR_LITERAL("catch:"), EXPR_VAR("e"))
+      ),
+      // finally
+      STMT_BLOCK(
+        // print("finally");
+        STMT_PRINT(EXPR_LITERAL("finally")),
+        // throw "exception3";
+        STMT_THROW(EXPR_LITERAL("exception3")),
+        // print("after3");
+        STMT_PRINT(EXPR_LITERAL("after3"))
+      )
+    )
+  );
+  buildAndRunFailed(vm, *builder);
+  ASSERT_EQ("try\ncatch:exception1\nfinally\n<ERROR>throw exception3\n", vm.logger.logged.str());
+}
+
+TEST(TestVM, TryCatchRethrow) {
+  egg::test::VM vm;
+  auto builder = vm->createProgramBuilder();
+  builder->addStatement(
+    // try
+    STMT_TRY(
+      STMT_BLOCK(
+        // print("try");
+        STMT_PRINT(EXPR_LITERAL("try")),
+        // throw "exception";
+        STMT_THROW(EXPR_LITERAL("exception")),
+        // print("after1");
+        STMT_PRINT(EXPR_LITERAL("after1"))
+      ),
+      // catch (var e)
+      STMT_CATCH("e",
+        // print("catch:", e);
+        STMT_PRINT(EXPR_LITERAL("catch:"), EXPR_VAR("e")),
+        // throw;
+        STMT_RETHROW(),
+        // print("after2");
+        STMT_PRINT(EXPR_LITERAL("after2"))
+      )
+    )
+  );
+  buildAndRunFailed(vm, *builder);
+  ASSERT_EQ("try\ncatch:exception\n<ERROR>throw exception\n", vm.logger.logged.str());
+}
+
+TEST(TestVM, TryCatchFinallyRethrow) {
+  egg::test::VM vm;
+  auto builder = vm->createProgramBuilder();
+  builder->addStatement(
+    // try
+    STMT_TRY(
+      STMT_BLOCK(
+        // print("try");
+        STMT_PRINT(EXPR_LITERAL("try")),
+        // throw "exception";
+        STMT_THROW(EXPR_LITERAL("exception")),
+        // print("after1");
+        STMT_PRINT(EXPR_LITERAL("after1"))
+      ),
+      // catch (var e)
+      STMT_CATCH("e",
+        // print("catch:", e);
+        STMT_PRINT(EXPR_LITERAL("catch:"), EXPR_VAR("e")),
+        // throw;
+        STMT_RETHROW(),
+        // print("after2");
+        STMT_PRINT(EXPR_LITERAL("after2"))
+      ),
+      // finally
+      STMT_BLOCK(
+        // print("finally");
+        STMT_PRINT(EXPR_LITERAL("finally"))
+      )
+    )
+  );
+  buildAndRunFailed(vm, *builder);
+  ASSERT_EQ("try\ncatch:exception\nfinally\n<ERROR>throw exception\n", vm.logger.logged.str());
 }

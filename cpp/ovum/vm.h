@@ -183,6 +183,7 @@ namespace egg::ovum {
     virtual Node& stmtThrow(Node& exception) = 0;
     virtual Node& stmtTry(Node& block) = 0;
     virtual Node& stmtCatch(const String& symbol) = 0;
+    virtual Node& stmtRethrow() = 0;
     // Helpers
     Node& glue(Node& parent) {
       return parent;

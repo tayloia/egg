@@ -583,7 +583,8 @@ public:
     StmtContinue,
     StmtThrow,
     StmtTry,
-    StmtCatch
+    StmtCatch,
+    StmtRethrow
   };
   Kind kind;
   HardValue literal; // Only stores simple literals
@@ -784,6 +785,10 @@ namespace {
       node.literal = this->createHardValueString(symbol);
       return node;
     }
+    virtual Node& stmtRethrow() override {
+      auto& node = this->makeNode(Node::Kind::StmtRethrow);
+      return node;
+    }
   private:
     virtual void appendChild(Node& parent, Node& child) override {
       parent.addChild(child);
@@ -804,6 +809,7 @@ namespace {
       String scope;
       size_t index;
       std::deque<HardValue> deque;
+      HardValue value;
     };
     HardPtr<VMProgram> program;
     std::stack<NodeStack> stack;
@@ -1344,7 +1350,7 @@ bool VMProgramRunner::stepNode(HardValue& retval) {
         top.index = 1;
         auto& added = this->push(*top.node->children[1]);
         assert(added.node->kind == IVMProgram::Node::Kind::StmtCase);
-        added.deque.push_back(latest);
+        added.value = latest;
       }
     } else if (top.deque.size() == 1) {
       // Just run an unconditional block
@@ -1385,7 +1391,7 @@ bool VMProgramRunner::stepNode(HardValue& retval) {
           assert(top.deque.size() == 1);
           auto& added = this->push(*top.node->children[top.index]);
           assert(added.node->kind == IVMProgram::Node::Kind::StmtCase);
-          added.deque.push_back(top.deque.front());
+          added.value = top.deque.front();
         } else {
           // That was the last clause; we need to use the default clause, if any
           if (top.node->defaultIndex == 0) {
@@ -1427,23 +1433,22 @@ bool VMProgramRunner::stepNode(HardValue& retval) {
     assert(top.node->literal->getVoid());
     assert(!top.node->children.empty());
     if (top.index == 0) {
-      assert(top.deque.size() == 1);
+      assert(top.deque.empty());
       if (top.node->children.size() == 1) {
         // This is a 'default' clause ('case' with no expressions)
         return this->pop(HardValue::False);
-      } else {
-        // Evaluate the first expression
-        this->push(*top.node->children[1]);
-        top.index = 1;
       }
+      // Evaluate the first expression
+      this->push(*top.node->children[1]);
+      top.index = 1;
     } else if (top.index < top.node->children.size()) {
       // Test the evaluation
-      assert(top.deque.size() == 2);
+      assert(top.deque.size() == 1);
       auto& latest = top.deque.back();
       if (latest.hasFlowControl()) {
         return this->pop(latest);
       }
-      if (Operation::areEqual(top.deque.front(), latest, true, false)) { // TODO: promote?
+      if (Operation::areEqual(top.value, latest, true, false)) { // TODO: promote?
         // Got a match, so execute the block
         top.deque.clear();
         this->push(*top.node->children[0]);
@@ -1452,7 +1457,7 @@ bool VMProgramRunner::stepNode(HardValue& retval) {
         // Step to the next case expression
         if (++top.index < top.node->children.size()) {
           // Evaluate the next expression
-          top.deque.pop_back();
+          top.deque.clear();
           this->push(*top.node->children[top.index]);
         } else {
           // No expressions matched
@@ -1530,26 +1535,30 @@ bool VMProgramRunner::stepNode(HardValue& retval) {
           // Erroneous rethrow within try block
           return this->raise("Unexpected exception rethrow within 'try' block");
         }
+        top.value = exception;
       } else {
         // Just executed a catch/finally block
         assert(top.deque.size() == 2);
+        auto* previous = top.node->children[top.index - 1];
         auto& latest = top.deque.back();
         if (latest->getFlags() == ValueFlags::Throw) {
           // Rethrow the original exception
-          if (!exception.hasAnyFlags(ValueFlags::Throw)) {
+          if (previous->kind != IVMProgram::Node::Kind::StmtCatch) {
             return this->raise("Unexpected exception rethrow within 'finally' block");
           }
-          return this->pop(exception);
-        }
-        if (latest.hasFlowControl()) {
-          return this->pop(latest);
-        }
-        auto* previous = top.node->children[top.index - 1];
-        if (previous->kind == IVMProgram::Node::Kind::StmtCatch) {
-          // We've successfully handled the exception
+          assert(exception.hasAnyFlags(ValueFlags::Throw));
+        } else if (latest.hasFlowControl()) {
+          // The catch/finally block raised a different exception
+          top.value = latest;
           exception = HardValue::Void;
+        } else if (previous->kind == IVMProgram::Node::Kind::StmtCatch) {
+          // We've successfully handled the exception
+          top.value = HardValue::Void;
+          exception = HardValue::Void;
+        } else {
+          // We've completed a finally block
+          assert(latest->getFlags() == ValueFlags::Void);
         }
-        assert(latest->getFlags() == ValueFlags::Void);
         top.deque.pop_back();
       }
       assert(top.deque.size() == 1);
@@ -1561,35 +1570,38 @@ bool VMProgramRunner::stepNode(HardValue& retval) {
           this->push(*child);
           return true;
         } else if (exception.hasAnyFlags(ValueFlags::Throw)) {
-          // Only run a catch clause if an exception was thrown
+          // Only run a catch clause if an exception is still outstanding
           auto& added = this->push(*child);
-          added.deque.push_back(exception);
+          added.value = exception;
           return true;
         }
       }
-      this->pop(exception);
+      return this->pop(top.value);
     }
     break;
   case IVMProgram::Node::Kind::StmtCatch:
     assert(top.index <= top.node->children.size());
-    assert(top.deque.size() == 1);
     if (top.index == 0) {
+      assert(top.deque.empty());
       if (!this->variableScopeBegin(top)) {
         return true;
       }
       HardValue inner;
-      if (!top.deque.front()->getInner(inner)) {
+      if (!top.value->getInner(inner)) {
         return this->raise("Invalid 'catch' clause expression");
       }
       if (!this->symbolSet(top.node->literal, inner)) {
         return true;
       }
-      top.deque.clear();
     }
     if (!this->stepBlock(retval)) {
       return this->pop(retval);
     }
     break;
+  case IVMProgram::Node::Kind::StmtRethrow:
+    assert(top.node->literal->getVoid());
+    assert(top.node->children.size() == 0);
+    return this->pop(HardValue::Rethrow);
   case IVMProgram::Node::Kind::StmtFunctionCall:
   case IVMProgram::Node::Kind::ExprFunctionCall:
     assert(top.node->literal->getVoid());
