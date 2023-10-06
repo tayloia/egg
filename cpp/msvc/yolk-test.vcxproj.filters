@@ -5,14 +5,14 @@
       <UniqueIdentifier>{f8183c1a-ec54-45fd-ba1d-9f1205a078b1}</UniqueIdentifier>
       <Extensions>.cpp</Extensions>
     </Filter>
-    <Filter Include="Example Files">
-      <UniqueIdentifier>{5a94480c-c1c0-4f87-ae70-ece0f8ebcf01}</UniqueIdentifier>
-    </Filter>
     <Filter Include="Data Files">
       <UniqueIdentifier>{62480aea-55fa-4339-b09f-0f4edfb4dfae}</UniqueIdentifier>
     </Filter>
     <Filter Include="Infrastructure Files">
       <UniqueIdentifier>{f0a684c1-52a5-44a3-b1ff-08cb43a7d0e9}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Test Scripts">
+      <UniqueIdentifier>{5a94480c-c1c0-4f87-ae70-ece0f8ebcf01}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
@@ -55,6 +55,9 @@
     <ClCompile Include="..\yolk\test\test-utility.cpp">
       <Filter>Test Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\yolk\test\test-scripts.cpp">
+      <Filter>Test Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\ovum\test\etest.h">
@@ -73,6 +76,9 @@
     </None>
     <None Include="..\yolk\test\data\example.json">
       <Filter>Data Files</Filter>
+    </None>
+    <None Include="..\yolk\test\scripts\test-0001.egg">
+      <Filter>Test Scripts</Filter>
     </None>
   </ItemGroup>
   <ItemGroup>

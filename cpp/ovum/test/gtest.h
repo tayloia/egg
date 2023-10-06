@@ -37,10 +37,10 @@ namespace egg::test {
 
   // Used by EGG_INSTANTIATE_TEST_CASE_P
   template<typename T>
-  int registerTestCase(const char* name, const char* file, int line) {
-    // See https://github.com/google/googletest/blob/master/googletest/docs/AdvancedGuide.md#how-to-write-value-parameterized-tests
+  auto registerTestCase(const char* name, const char* file, int line) {
+    // See https://github.com/google/googletest/blob/main/docs/advanced.md#how-to-write-value-parameterized-tests
     auto& registry = ::testing::UnitTest::GetInstance()->parameterized_test_registry();
-    auto* holder = registry.GetTestCasePatternHolder<T>(name, ::testing::internal::CodeLocation(file, line));
+    auto* holder = registry.GetTestCasePatternHolder<T>(name, ::testing::internal::CodeLocation("C:\\Project\\egg\\build.sh", 7));
     return holder->AddTestSuiteInstantiation("", &T::generator, &T::name, file, line);
   }
 }

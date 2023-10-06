@@ -45,6 +45,7 @@
     <ClCompile Include="..\yolk\test\test-json-tokenizer.cpp" />
     <ClCompile Include="..\yolk\test\test-lang.cpp" />
     <ClCompile Include="..\yolk\test\test-lexers.cpp" />
+    <ClCompile Include="..\yolk\test\test-scripts.cpp" />
     <ClCompile Include="..\yolk\test\test-streams.cpp" />
     <ClCompile Include="..\yolk\test\test-strings.cpp" />
     <ClCompile Include="..\yolk\test\test-utf.cpp" />
@@ -64,6 +65,7 @@
     <None Include="..\yolk\test\data\example.eon" />
     <None Include="..\yolk\test\data\example.egg" />
     <None Include="..\yolk\test\data\example.json" />
+    <None Include="..\yolk\test\scripts\test-0001.egg" />
   </ItemGroup>
   <ItemGroup>
     <Text Include="..\yolk\test\data\utf-8-demo.bom.txt" />
