@@ -121,8 +121,7 @@ namespace egg::yolk {
     bool rewind();
     int peek(size_t index = 0) {
       if (this->ensure(index + 1)) {
-        // Microsoft's std::deque indexer is borked
-        return *(this->upcoming.begin() + std::ptrdiff_t(index));
+        return this->upcoming[index];
       }
       return -1;
     }

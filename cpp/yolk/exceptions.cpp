@@ -28,7 +28,7 @@ egg::yolk::SyntaxException::SyntaxException(const std::string& reason, const std
   : Exception(reason, formatWhere(resource, location)),
     token_value(token),
     resource_value(resource),
-    location_value({ location, {} }) {
+    location_value({ location, location }) {
 }
 
 egg::yolk::SyntaxException::SyntaxException(const std::string& reason, const std::string& resource, const ExceptionLocationRange& range, const std::string& token)

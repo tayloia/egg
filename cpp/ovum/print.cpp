@@ -113,13 +113,8 @@ void egg::ovum::Print::write(std::ostream& stream, const IObject* value, const O
 void egg::ovum::Print::write(std::ostream& stream, const IValue* value, const Options& options) {
   if (value == nullptr) {
     stream << "null";
-  } else if (options.quote == '\0') {
-    Printer printer(stream, options);
-    value->print(printer);
   } else {
-    Options pretty{ options };
-    pretty.quote = '"';
-    Printer printer(stream, pretty);
+    Printer printer(stream, options);
     value->print(printer);
   }
 }

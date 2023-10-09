@@ -105,8 +105,8 @@ namespace egg::yolk {
 
   struct EggTokenizerValue {
     union {
-      int64_t i;
-      double f;
+      egg::ovum::Int i;
+      egg::ovum::Float f;
       EggTokenizerKeyword k;
       EggTokenizerOperator o;
     };
@@ -123,9 +123,6 @@ namespace egg::yolk {
     EggTokenizerValue value;
     bool contiguous;
 
-    bool isIdentifier(const char* identifier = nullptr) const {
-      return (this->kind == EggTokenizerKind::Identifier) && ((identifier == nullptr) || this->value.s.equals(identifier));
-    }
     bool isKeyword(EggTokenizerKeyword keyword) const {
       return (this->kind == EggTokenizerKind::Keyword) && (this->value.k == keyword);
     }

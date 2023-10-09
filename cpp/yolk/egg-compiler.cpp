@@ -19,11 +19,11 @@ namespace {
         parser(parser) {
       assert(this->parser != nullptr);
     }
-    bool compile() override {
+    virtual bool compile() override {
       // WIBBLE
       return true;
     }
-    egg::ovum::String resource() const override {
+    virtual egg::ovum::String resource() const override {
       return this->parser->resource();
     }
   };

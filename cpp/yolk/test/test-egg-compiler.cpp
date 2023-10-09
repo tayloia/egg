@@ -4,9 +4,9 @@
 #include "yolk/egg-parser.h"
 #include "yolk/egg-compiler.h"
 
-TEST(TestEggCompiler, ExampleFile) {
+TEST(TestEggCompiler, Test0001) {
   egg::test::VM vm;
-  std::string path = "~/cpp/yolk/test/data/example.egg";
+  std::string path = "~/cpp/yolk/test/scripts/test-0001.egg";
   auto lexer = egg::yolk::LexerFactory::createFromPath(path);
   auto tokenizer = egg::yolk::EggTokenizerFactory::createFromLexer(vm->getAllocator(), lexer);
   auto parser = egg::yolk::EggParserFactory::createFromTokenizer(vm->getAllocator(), tokenizer);

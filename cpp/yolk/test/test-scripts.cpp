@@ -46,7 +46,7 @@ namespace {
       while (stream.readline(line)) {
         // Test output lines always begin with '///'
         if (!line.starts_with("///")) {
-          logged += line + "\n";
+          logged += line.substr(7, 13) + "\n"; // WIBBLE
         }
       }
       return logged;

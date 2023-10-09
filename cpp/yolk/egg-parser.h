@@ -7,44 +7,29 @@ namespace egg::yolk {
       size_t line = 0;
       size_t column = 0;
     };
-    struct Token {
-      enum class Kind {
-        None,
-        Integer,
-        Float,
-        String,
-        Keyword,
-        Operator,
-        Identifier,
-        Attribute,
-        EndOfFile
-      };
-      Kind kind = Kind::None;
-      union {
-        int64_t ivalue;
-        double fvalue;
-      };
-      egg::ovum::String svalue; // verbatim for integers and floats
-      Location begin;
-      Location end;
-      bool contiguous = false; // true iff no whitespace/comments before previous
-    };
     struct Issue {
-      enum class Kind {
+      enum class Severity {
         Error,
         Warning,
         Information
       };
+      Severity severity;
       egg::ovum::String message;
       Location begin;
       Location end;
     };
     struct Node {
       enum class Kind {
-        ModuleRoot
-      } kind;
-      std::vector<Node> children;
-      Token token;
+        ModuleRoot,
+        StmtCall,
+        ExprVar,
+        Literal
+      };
+      Kind kind;
+      std::vector<std::unique_ptr<Node>> children;
+      egg::ovum::HardValue value;
+      Location begin;
+      Location end;
     };
     struct Result {
       std::shared_ptr<Node> root;

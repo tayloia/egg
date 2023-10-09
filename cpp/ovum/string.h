@@ -45,7 +45,6 @@ namespace egg::ovum {
     }
 
     // Factories
-    static String fromUTF8(IAllocator& allocator, const std::string& utf8);
     static String fromUTF8(IAllocator& allocator, const void* utf8, size_t bytes = SIZE_MAX, size_t codepoints = SIZE_MAX);
     static String fromUTF32(IAllocator& allocator, const void* utf32, size_t codepoints = SIZE_MAX);
   };
