@@ -1,5 +1,5 @@
 namespace egg::yolk {
-  class IEggTokenizer;
+  class IEggParser;
 
   class IEggCompiler {
   public:
@@ -10,6 +10,6 @@ namespace egg::yolk {
 
   class EggCompilerFactory {
   public:
-    static std::shared_ptr<IEggCompiler> createFromTokenizer(egg::ovum::IVM& vm, const std::shared_ptr<IEggTokenizer>& tokenizer);
+    static std::shared_ptr<IEggCompiler> createFromParser(egg::ovum::IVM& vm, const std::shared_ptr<IEggParser>& parser);
   };
 }

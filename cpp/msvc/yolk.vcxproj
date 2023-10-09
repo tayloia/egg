@@ -20,6 +20,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\yolk\egg-compiler.cpp" />
+    <ClCompile Include="..\yolk\egg-parser.cpp" />
     <ClCompile Include="..\yolk\egg-tokenizer.cpp" />
     <ClCompile Include="..\yolk\eon-tokenizer.cpp" />
     <ClCompile Include="..\yolk\exceptions.cpp" />
@@ -42,6 +43,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\yolk\egg-compiler.h" />
+    <ClInclude Include="..\yolk\egg-parser.h" />
     <ClInclude Include="..\yolk\egg-tokenizer.h" />
     <ClInclude Include="..\yolk\eon-tokenizer.h" />
     <ClInclude Include="..\yolk\exceptions.h" />
