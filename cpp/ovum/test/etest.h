@@ -110,22 +110,22 @@ namespace egg::test {
     egg::ovum::IVM* operator->() {
       return this->vm.get();
     }
-    void addBuiltin(egg::ovum::IVMProgramRunner& runner, const std::u8string& name, const egg::ovum::HardObject& instance) {
+    void addBuiltin(egg::ovum::IVMRunner& runner, const std::u8string& name, const egg::ovum::HardObject& instance) {
       runner.addBuiltin(runner.createString(name), runner.createHardValueObject(instance));
     }
-    void addBuiltinAssert(egg::ovum::IVMProgramRunner& runner) {
+    void addBuiltinAssert(egg::ovum::IVMRunner& runner) {
       this->addBuiltin(runner, u8"assert", vm->createBuiltinAssert());
     }
-    void addBuiltinPrint(egg::ovum::IVMProgramRunner& runner) {
+    void addBuiltinPrint(egg::ovum::IVMRunner& runner) {
       this->addBuiltin(runner, u8"print", vm->createBuiltinPrint());
     }
-    void addBuiltinExpando(egg::ovum::IVMProgramRunner& runner) {
+    void addBuiltinExpando(egg::ovum::IVMRunner& runner) {
       this->addBuiltin(runner, u8"expando", vm->createBuiltinExpando());
     }
-    void addBuiltinCollector(egg::ovum::IVMProgramRunner& runner) {
+    void addBuiltinCollector(egg::ovum::IVMRunner& runner) {
       this->addBuiltin(runner, u8"collector", vm->createBuiltinCollector());
     }
-    void addBuiltins(egg::ovum::IVMProgramRunner& runner) {
+    void addBuiltins(egg::ovum::IVMRunner& runner) {
       this->addBuiltinAssert(runner);
       this->addBuiltinPrint(runner);
       this->addBuiltinExpando(runner);

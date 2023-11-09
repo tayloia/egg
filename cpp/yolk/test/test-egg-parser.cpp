@@ -36,6 +36,8 @@ namespace {
     case Node::Kind::ExprVar:
       assert(node.children.empty());
       return printValue(os << "(expr-var ", node.value) << ')';
+    case Node::Kind::ExprCall:
+      return printNodeChildren(os, "expr-call", node);
     case Node::Kind::Literal:
       assert(node.children.empty());
       return printValue(os, node.value, '"');
@@ -126,6 +128,6 @@ TEST(TestEggParser, HelloWorld) {
   std::string actual = outputFromLines({
     "print(\"Hello, World!\");"
   });
-  std::string expected = "(stmt-call (expr-var 'print') \"Hello, World!\")\n";
+  std::string expected = "(stmt-call (expr-call (expr-var 'print') \"Hello, World!\"))\n";
   ASSERT_EQ(expected, actual);
 }

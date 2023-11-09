@@ -23,6 +23,7 @@ namespace egg::yolk {
         ModuleRoot,
         StmtCall,
         ExprVar,
+        ExprCall,
         Literal
       };
       Kind kind;

@@ -1,10 +1,11 @@
 namespace egg::yolk {
   class IEggParser;
+  class IEggModule;
 
   class IEggCompiler {
   public:
     virtual ~IEggCompiler() {}
-    virtual bool compile() = 0;
+    virtual std::shared_ptr<IEggModule> compile() = 0;
     virtual egg::ovum::String resource() const = 0;
   };
 

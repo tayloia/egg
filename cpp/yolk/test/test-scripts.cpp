@@ -1,6 +1,9 @@
 #include "yolk/test.h"
 #include "yolk/lexers.h"
 #include "yolk/egg-tokenizer.h"
+#include "yolk/egg-parser.h"
+#include "yolk/egg-compiler.h"
+#include "yolk/egg-module.h"
 
 using namespace egg::yolk;
 
@@ -42,14 +45,14 @@ namespace {
   private:
     static std::string execute(TextStream& stream) {
       std::string logged;
-      std::string line;
-      while (stream.readline(line)) {
-        // Test output lines always begin with '///'
-        if (!line.starts_with("///")) {
-          logged += line.substr(7, 13) + "\n"; // WIBBLE
-        }
-      }
-      return logged;
+      egg::test::VM vm;
+      auto lexer = LexerFactory::createFromTextStream(stream);
+      auto tokenizer = EggTokenizerFactory::createFromLexer(vm->getAllocator(), lexer);
+      auto parser = EggParserFactory::createFromTokenizer(vm->getAllocator(), tokenizer);
+      auto compiler = EggCompilerFactory::createFromParser(*vm, parser);
+      auto module = compiler->compile();
+      module->execute(); // WIBBLE
+      return vm.logger.logged.str();
     }
     static std::string expectation(TextStream& stream) {
       std::string expected;

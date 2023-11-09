@@ -130,7 +130,12 @@ namespace egg::ovum {
     virtual IAllocator& getAllocator() const = 0;
   };
 
-  class IVMProgramRunner : public IVMCollectable {
+  class IVMUncollectable : public IHardAcquireRelease, public IVMCommon {
+  public:
+    virtual IAllocator& getAllocator() const = 0;
+  };
+
+  class IVMRunner : public IVMCollectable {
   public:
     enum class RunFlags {
       None = 0x0000,
@@ -146,17 +151,22 @@ namespace egg::ovum {
     virtual RunOutcome run(HardValue& retval, RunFlags flags = RunFlags::Default) = 0;
   };
 
-  class IVMProgram : public IVMCollectable {
+  class IVMModule : public IVMUncollectable {
   public:
-    class Node;
-    virtual HardPtr<IVMProgramRunner> createRunner() = 0;
+    virtual HardPtr<IVMRunner> createRunner() const = 0;
   };
 
-  class IVMProgramBuilder : public IVMCollectable {
+  class IVMProgram : public IVMUncollectable {
+  public:
+    class Node;
+    virtual HardPtr<IVMRunner> createRunner() const = 0;
+  };
+
+  class IVMModuleBuilder : public IVMUncollectable {
   public:
     using Node = IVMProgram::Node;
     virtual void addStatement(Node& statement) = 0;
-    virtual HardPtr<IVMProgram> build() = 0;
+    virtual HardPtr<IVMModule> build() = 0;
     // Expression factories
     virtual Node& exprUnaryOp(IVMExecution::UnaryOp op, Node& arg) = 0;
     virtual Node& exprBinaryOp(IVMExecution::BinaryOp op, Node& lhs, Node& rhs) = 0;
@@ -197,7 +207,13 @@ namespace egg::ovum {
     virtual void appendChild(Node& parent, Node& child) = 0;
   };
 
-  class IVM : public IHardAcquireRelease, public IVMCommon {
+  class IVMProgramBuilder : public IVMUncollectable {
+  public:
+    virtual HardPtr<IVMModuleBuilder> createModuleBuilder() = 0;
+    virtual HardPtr<IVMProgram> build() = 0;
+  };
+
+  class IVM : public IVMUncollectable {
   public:
     // Service access
     virtual IAllocator& getAllocator() const = 0;
@@ -211,10 +227,10 @@ namespace egg::ovum {
     virtual HardObject createBuiltinExpando() = 0; // TODO deprecate
     virtual HardObject createBuiltinCollector() = 0; // TODO testing only
     // Collectable helpers
-    inline IValue* createSoftValue() {
+    IValue* createSoftValue() {
       return this->softCreateValue();
     }
-    inline IValue* createSoftAlias(const IValue& value) {
+    IValue* createSoftAlias(const IValue& value) {
       return this->softCreateAlias(value);
     }
     HardValue getSoftValue(SoftValue& instance) {
