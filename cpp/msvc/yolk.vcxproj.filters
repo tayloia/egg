@@ -85,8 +85,5 @@
     <ClInclude Include="..\yolk\egg-parser.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\yolk\egg-module.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
   </ItemGroup>
 </Project>

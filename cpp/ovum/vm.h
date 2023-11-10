@@ -151,15 +151,19 @@ namespace egg::ovum {
     virtual RunOutcome run(HardValue& retval, RunFlags flags = RunFlags::Default) = 0;
   };
 
+  class IVMProgram;
+
   class IVMModule : public IVMUncollectable {
   public:
-    virtual HardPtr<IVMRunner> createRunner() const = 0;
+    virtual HardPtr<IVMRunner> createRunner(IVMProgram& program) = 0;
   };
 
   class IVMProgram : public IVMUncollectable {
   public:
     class Node;
-    virtual HardPtr<IVMRunner> createRunner() const = 0;
+    virtual size_t getModuleCount() const = 0;
+    virtual HardPtr<IVMModule> getModule(size_t index) const = 0;
+    virtual HardPtr<IVMRunner> createRunner() = 0;
   };
 
   class IVMModuleBuilder : public IVMUncollectable {

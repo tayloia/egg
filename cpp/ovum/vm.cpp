@@ -160,7 +160,16 @@ namespace {
     explicit VMProgram(IVM& vm)
       : VMUncollectable(vm) {
     }
-    virtual HardPtr<IVMRunner> createRunner() const override;
+    virtual HardPtr<IVMRunner> createRunner() override;
+    virtual size_t getModuleCount() const override {
+      return this->modules.size();
+    }
+    virtual HardPtr<IVMModule> getModule(size_t index) const override {
+      if (index < this->modules.size()) {
+        return this->modules[index];
+      }
+      return nullptr;
+    }
     Node& createNode(Node::Kind kind);
     HardPtr<VMModule> createModule(Node& root);
   };
@@ -169,16 +178,14 @@ namespace {
     VMModule(const VMModule&) = delete;
     VMModule& operator=(const VMModule&) = delete;
   private:
-    VMProgram& program;
     IVMProgram::Node& root; // owned by the containing VMProgram
   public:
-    VMModule(IVM& vm, VMProgram& program, IVMProgram::Node& root)
+    VMModule(IVM& vm, IVMProgram::Node& root)
       : VMUncollectable(vm),
-        program(program),
         root(root) {
     }
-    virtual HardPtr<IVMRunner> createRunner() const override {
-      return makeHardVM<VMRunner>(this->vm, this->program, this->root);
+    virtual HardPtr<IVMRunner> createRunner(IVMProgram& program) override {
+      return makeHardVM<VMRunner>(this->vm, program, this->root);
     }
   };
 
@@ -841,14 +848,14 @@ namespace {
       std::deque<HardValue> deque;
       HardValue value;
     };
-    VMProgram& program; // TODO needed?
+    HardPtr<IVMProgram> program;
     std::stack<NodeStack> stack;
     VMSymbolTable symtable;
     VMExecution execution;
   public:
-    VMRunner(IVM& vm, VMProgram& program, const IVMProgram::Node& root)
+    VMRunner(IVM& vm, IVMProgram& program, const IVMProgram::Node& root)
       : VMCollectable<IVMRunner>(vm),
-        program(program),
+        program(&program),
         execution(vm) {
       this->push(root);
     }
@@ -1806,11 +1813,11 @@ bool VMRunner::stepBlock(HardValue& retval) {
   return true;
 }
 
-HardPtr<IVMRunner> VMProgram::createRunner() const {
+HardPtr<IVMRunner> VMProgram::createRunner() {
   if (this->modules.empty()) {
     return nullptr;
   }
-  return this->modules.front()->createRunner();
+  return this->modules.front()->createRunner(*this);
 }
 
 IVMProgram::Node& VMProgram::createNode(Node::Kind kind) {
@@ -1822,7 +1829,7 @@ IVMProgram::Node& VMProgram::createNode(Node::Kind kind) {
 }
 
 HardPtr<VMModule> VMProgram::createModule(Node& root) {
-  auto module = makeHardVM<VMModule>(this->vm, *this, root);
+  auto module = makeHardVM<VMModule>(this->vm, root);
   assert(module != nullptr);
   this->modules.push_back(module);
   return module;

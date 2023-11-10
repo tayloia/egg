@@ -43,7 +43,6 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\yolk\egg-compiler.h" />
-    <ClInclude Include="..\yolk\egg-module.h" />
     <ClInclude Include="..\yolk\egg-parser.h" />
     <ClInclude Include="..\yolk\egg-tokenizer.h" />
     <ClInclude Include="..\yolk\eon-tokenizer.h" />

@@ -1,5 +1,5 @@
 #include "yolk/test.h"
-#include "yolk/egg-module.h"
+#include "yolk/egg-compiler.h"
 
 using namespace egg::yolk;
 
@@ -41,8 +41,11 @@ namespace {
   private:
     static std::string execute(TextStream& stream) {
       egg::test::VM vm;
-      auto module = EggModuleFactory::createFromStream(*vm, stream);
-      module->execute();
+      auto program = EggCompilerFactory::compileFromStream(*vm, stream);
+      auto runner = program->createRunner();
+      vm.addBuiltins(*runner);
+      egg::ovum::HardValue retval;
+      runner->run(retval);
       return vm.logger.logged.str();
     }
     static std::string expectation(TextStream& stream) {

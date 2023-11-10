@@ -3,7 +3,6 @@
 #include "yolk/egg-tokenizer.h"
 #include "yolk/egg-parser.h"
 #include "yolk/egg-compiler.h"
-#include "yolk/egg-module.h"
 
 using namespace egg::yolk;
 
@@ -38,24 +37,6 @@ namespace {
     sb.add(issue.message);
     return sb.build(allocator);
   }
-
-  class EggModule : public IEggModule {
-    EggModule(const EggModule&) = delete;
-    EggModule& operator=(const EggModule&) = delete;
-  private:
-    egg::ovum::IVM& vm;
-    egg::ovum::HardPtr<egg::ovum::IVMModule> module;
-  public:
-    EggModule(egg::ovum::IVM& vm, const egg::ovum::HardPtr<egg::ovum::IVMModule>& module)
-      : vm(vm),
-        module(module) {
-    }
-    virtual void execute() const override {
-      // WIBBLE
-      auto message = this->vm.createString("Hello, World!");
-      this->vm.getLogger().log(egg::ovum::ILogger::Source::User, egg::ovum::ILogger::Severity::None, message);
-    }
-  };
 
   class ModuleCompiler final {
     ModuleCompiler(const ModuleCompiler&) = delete;
@@ -100,7 +81,7 @@ namespace {
     explicit EggCompiler(const egg::ovum::HardPtr<egg::ovum::IVMProgramBuilder>& pbuilder)
       : pbuilder(pbuilder) {
     }
-    virtual std::shared_ptr<IEggModule> compile(IEggParser& parser) override {
+    virtual egg::ovum::HardPtr<egg::ovum::IVMModule> compile(IEggParser& parser) override {
       // TODO warnings as errors?
       auto resource = parser.resource();
       auto parsed = parser.parse();
@@ -110,10 +91,7 @@ namespace {
         auto mbuilder = this->pbuilder->createModuleBuilder();
         assert(mbuilder != nullptr);
         ModuleCompiler mcompiler(vm, resource, *mbuilder);
-        auto module = mcompiler.compile(*parsed.root);
-        if (module != nullptr) {
-          return std::make_shared<EggModule>(vm, module);
-        }
+        return mcompiler.compile(*parsed.root);
       }
       return nullptr;
     }
@@ -171,18 +149,22 @@ bool ModuleCompiler::compileRootStatement(const IEggParser::Node& node) {
   return true;
 }
 
-std::shared_ptr<egg::yolk::IEggModule> egg::yolk::EggModuleFactory::createFromStream(egg::ovum::IVM& vm, egg::yolk::TextStream& stream) {
+egg::ovum::HardPtr<egg::ovum::IVMProgram> egg::yolk::EggCompilerFactory::compileFromPath(egg::ovum::IVM& vm, const std::string& path, bool swallowBOM) {
+  FileTextStream stream{ path, swallowBOM };
+  return EggCompilerFactory::compileFromStream(vm, stream);
+}
+
+egg::ovum::HardPtr<egg::ovum::IVMProgram> egg::yolk::EggCompilerFactory::compileFromStream(egg::ovum::IVM& vm, egg::yolk::TextStream& stream) {
   auto lexer = LexerFactory::createFromTextStream(stream);
   auto tokenizer = EggTokenizerFactory::createFromLexer(vm.getAllocator(), lexer);
   auto parser = EggParserFactory::createFromTokenizer(vm.getAllocator(), tokenizer);
   auto pbuilder = vm.createProgramBuilder();
   auto compiler = EggCompilerFactory::createFromProgramBuilder(pbuilder);
-  return compiler->compile(*parser);
-}
-
-std::shared_ptr<egg::yolk::IEggModule> egg::yolk::EggModuleFactory::createFromPath(egg::ovum::IVM& vm, const std::string& path, bool swallowBOM) {
-  FileTextStream stream{ path, swallowBOM };
-  return EggModuleFactory::createFromStream(vm, stream);
+  auto module = compiler->compile(*parser);
+  if (module != nullptr) {
+    return pbuilder->build();
+  }
+  return nullptr;
 }
 
 std::shared_ptr<IEggCompiler> EggCompilerFactory::createFromProgramBuilder(const egg::ovum::HardPtr<egg::ovum::IVMProgramBuilder>& builder) {
