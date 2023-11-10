@@ -806,7 +806,6 @@ namespace {
       auto& node = this->program->createNode(Node::Kind::StmtRethrow);
       return node;
     }
-  private:
     virtual void appendChild(Node& parent, Node& child) override {
       parent.addChild(child);
     }

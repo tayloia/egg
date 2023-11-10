@@ -4,9 +4,16 @@
 #include "yolk/egg-parser.h"
 #include "yolk/egg-compiler.h"
 
+// TODO remove and replace with better messages
+#define EXPECT(node, condition) \
+  if (condition) {} else return this->error(node, "Expection failure in egg-compiler line ", __LINE__, ": " #condition);
+
 using namespace egg::yolk;
 
 namespace {
+  using ModuleNode = egg::ovum::IVMProgram::Node;
+  using ParserNode = IEggParser::Node;
+
   void printIssueRange(egg::ovum::StringBuilder& sb, const egg::ovum::String& resource, const IEggParser::Location& begin, const IEggParser::Location& end) {
     // See https://learn.microsoft.com/en-us/visualstudio/msbuild/msbuild-diagnostic-format-for-tasks
     sb.add(resource);
@@ -51,9 +58,17 @@ namespace {
         resource(resource),
         mbuilder(mbuilder) {
     }
-    egg::ovum::HardPtr<egg::ovum::IVMModule> compile(const IEggParser::Node& root);
+    egg::ovum::HardPtr<egg::ovum::IVMModule> compile(ParserNode& root);
   private:
-    bool compileRootStatement(const IEggParser::Node& node);
+    struct StmtContext {
+      bool root : 1 = false;
+    };
+    ModuleNode* compileStmt(ParserNode& pnode, const StmtContext& context);
+    ModuleNode* compileStmtCall(const std::vector<std::unique_ptr<ParserNode>>& pnodes);
+    ModuleNode* compileExpr(ParserNode& pnode);
+    ModuleNode* compileExprVar(ParserNode& pnode);
+    ModuleNode* compileExprCall(const std::vector<std::unique_ptr<ParserNode>>& pnodes);
+    ModuleNode* compileLiteral(ParserNode& pnode);
     void log(egg::ovum::ILogger::Source source, egg::ovum::ILogger::Severity severity, const egg::ovum::String& message) const {
       this->vm.getLogger().log(source, severity, message);
     }
@@ -62,14 +77,18 @@ namespace {
       return egg::ovum::StringBuilder::concat(this->vm.getAllocator(), std::forward<ARGS>(args)...);
     }
     template<typename... ARGS>
-    bool error(const IEggParser::Node& node, ARGS&&... args) const {
+    ModuleNode* error(ParserNode& pnode, ARGS&&... args) const {
       egg::ovum::StringBuilder sb;
-      printIssueRange(sb, this->resource, node.begin, node.end);
+      printIssueRange(sb, this->resource, pnode.begin, pnode.end);
       sb.add(std::forward<ARGS>(args)...);
       auto message = sb.build(this->vm.getAllocator());
       this->log(egg::ovum::ILogger::Source::Compiler, egg::ovum::ILogger::Severity::Error, message);
-      return false;
+      return nullptr;
     }
+    ModuleNode* unexpected(ParserNode& pnode, const char* expected) const {
+      return this->error(pnode, "Expected ", expected, ", but instead got ", ModuleCompiler::toString(pnode));
+    }
+    static std::string toString(const ParserNode& pnode);
   };
 
   class EggCompiler : public IEggCompiler {
@@ -131,22 +150,122 @@ namespace {
   };
 }
 
-egg::ovum::HardPtr<egg::ovum::IVMModule> ModuleCompiler::compile(const IEggParser::Node& root) {
-  if (root.kind != IEggParser::Node::Kind::ModuleRoot) {
-    this->error(root, "Expected module root node");
+egg::ovum::HardPtr<egg::ovum::IVMModule> ModuleCompiler::compile(ParserNode& root) {
+  if (root.kind != ParserNode::Kind::ModuleRoot) {
+    this->unexpected(root, "module root node");
     return nullptr;
   }
+  StmtContext context;
+  context.root = true;
   for (const auto& child : root.children) {
-    if (!this->compileRootStatement(*child)) {
+    auto* stmt = this->compileStmt(*child, context);
+    if (stmt == nullptr) {
       return nullptr;
     }
+    this->mbuilder.addStatement(*stmt);
   }
   return this->mbuilder.build();
 }
 
-bool ModuleCompiler::compileRootStatement(const IEggParser::Node& node) {
-  (void)node; // WIBBLE
-  return true;
+ModuleNode* ModuleCompiler::compileStmt(ParserNode& pnode, const StmtContext& context) {
+  switch (pnode.kind) {
+  case ParserNode::Kind::StmtCall:
+    EXPECT(pnode, pnode.children.size() > 0);
+    return this->compileStmtCall(pnode.children);
+  case ParserNode::Kind::ModuleRoot:
+  case ParserNode::Kind::ExprVar:
+  case ParserNode::Kind::ExprCall:
+  case ParserNode::Kind::Literal:
+  default:
+    break;
+  }
+  if (context.root) {
+    return this->unexpected(pnode, "statement root child");
+  }
+  return this->unexpected(pnode, "statement");
+}
+
+ModuleNode* ModuleCompiler::compileStmtCall(const std::vector<std::unique_ptr<ParserNode>>& pnodes) {
+  auto pnode = pnodes.begin();
+  assert(pnode != pnodes.end());
+  ModuleNode* stmt = nullptr;
+  auto* expr = this->compileExpr(**pnode);
+  if (expr != nullptr) {
+    stmt = &this->mbuilder.stmtFunctionCall(*expr);
+  }
+  while (++pnode != pnodes.end()) {
+    expr = this->compileExpr(**pnode);
+    if (expr == nullptr) {
+      stmt = nullptr;
+    } else if (stmt != nullptr) {
+      this->mbuilder.appendChild(*stmt, *expr);
+    }
+  }
+  return stmt;
+}
+
+ModuleNode* ModuleCompiler::compileExpr(ParserNode& pnode) {
+  switch (pnode.kind) {
+  case ParserNode::Kind::ExprVar:
+    return this->compileExprVar(pnode);
+  case ParserNode::Kind::ExprCall:
+    EXPECT(pnode, pnode.children.size() > 0);
+    return this->compileExprCall(pnode.children);
+  case ParserNode::Kind::Literal:
+    return this->compileLiteral(pnode);
+  case ParserNode::Kind::ModuleRoot:
+  case ParserNode::Kind::StmtCall:
+  default:
+    break;
+  }
+  return this->unexpected(pnode, "expression");
+}
+
+ModuleNode* ModuleCompiler::compileExprVar(ParserNode& pnode) {
+  EXPECT(pnode, pnode.children.size() == 0);
+  egg::ovum::String symbol;
+  EXPECT(pnode, pnode.value->getString(symbol));
+  return &this->mbuilder.exprVariable(symbol);
+}
+
+ModuleNode* ModuleCompiler::compileExprCall(const std::vector<std::unique_ptr<ParserNode>>& pnodes) {
+  auto pnode = pnodes.begin();
+  assert(pnode != pnodes.end());
+  ModuleNode* call = nullptr;
+  auto* expr = this->compileExpr(**pnode);
+  if (expr != nullptr) {
+    call = &this->mbuilder.exprFunctionCall(*expr);
+  }
+  while (++pnode != pnodes.end()) {
+    expr = this->compileExpr(**pnode);
+    if (expr == nullptr) {
+      call = nullptr;
+    } else if (call != nullptr) {
+      this->mbuilder.appendChild(*call, *expr);
+    }
+  }
+  return call;
+}
+
+ModuleNode* ModuleCompiler::compileLiteral(ParserNode& pnode) {
+  EXPECT(pnode, pnode.children.size() == 0);
+  return &this->mbuilder.exprLiteral(pnode.value);
+}
+
+std::string ModuleCompiler::toString(const ParserNode& pnode) {
+  switch (pnode.kind) {
+  case ParserNode::Kind::ModuleRoot:
+    return "call statement";
+  case ParserNode::Kind::StmtCall:
+    return "module route";
+  case ParserNode::Kind::ExprVar:
+    return "variable expression";
+  case ParserNode::Kind::ExprCall:
+    return "call expression";
+  case ParserNode::Kind::Literal:
+    return "literal";
+  }
+  return "unknown node kind";
 }
 
 egg::ovum::HardPtr<egg::ovum::IVMProgram> egg::yolk::EggCompilerFactory::compileFromPath(egg::ovum::IVM& vm, const std::string& path, bool swallowBOM) {

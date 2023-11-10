@@ -198,6 +198,7 @@ namespace egg::ovum {
     virtual Node& stmtTry(Node& block) = 0;
     virtual Node& stmtCatch(const String& symbol) = 0;
     virtual Node& stmtRethrow() = 0;
+    virtual void appendChild(Node& parent, Node& child) = 0;
     // Helpers
     Node& glue(Node& parent) {
       return parent;
@@ -207,8 +208,6 @@ namespace egg::ovum {
       this->appendChild(parent, head);
       return this->glue(parent, std::forward<ARGS>(tail)...);
     }
-  private:
-    virtual void appendChild(Node& parent, Node& child) = 0;
   };
 
   class IVMProgramBuilder : public IVMUncollectable {
