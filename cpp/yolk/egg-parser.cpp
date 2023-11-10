@@ -62,7 +62,7 @@ namespace {
     EggParser(const EggParser&) = delete;
     EggParser& operator=(const EggParser&) = delete;
   private:
-    egg::ovum::IAllocator& allocator; // WIBBLE shared with tokens?
+    egg::ovum::IAllocator& allocator;
     EggParserTokens tokens;
     std::vector<Issue> issues;
   public:

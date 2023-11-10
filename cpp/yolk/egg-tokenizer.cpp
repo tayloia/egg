@@ -83,30 +83,6 @@ size_t egg::yolk::EggTokenizerItem::width() const {
   }
 }
 
-std::string egg::yolk::EggTokenizerItem::toString() const {
-  // This is only used for creating error messages
-  switch (this->kind) {
-  case EggTokenizerKind::Integer:
-    return "integer";
-  case EggTokenizerKind::Float:
-    return "float";
-  case EggTokenizerKind::String:
-    return "string";
-  case EggTokenizerKind::Keyword:
-    return "keyword: '" + EggTokenizerValue::getKeywordString(this->value.k) + "'";
-  case EggTokenizerKind::Operator:
-    return "operator: '" + EggTokenizerValue::getOperatorString(this->value.o) + "'";
-  case EggTokenizerKind::Identifier:
-    return "identifier: '" + this->value.s.toUTF8() + "'";
-  case EggTokenizerKind::Attribute:
-    return "attribute: '" + this->value.s.toUTF8() + "'";
-  case EggTokenizerKind::EndOfFile:
-    return "end-of-file";
-  default:
-    return "unknown EggTokenizerItem";
-  }
-}
-
 namespace {
   using namespace egg::yolk;
 

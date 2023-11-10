@@ -44,14 +44,13 @@ namespace {
     }
   private:
     static std::string execute(TextStream& stream) {
-      std::string logged;
       egg::test::VM vm;
       auto lexer = LexerFactory::createFromTextStream(stream);
       auto tokenizer = EggTokenizerFactory::createFromLexer(vm->getAllocator(), lexer);
       auto parser = EggParserFactory::createFromTokenizer(vm->getAllocator(), tokenizer);
       auto compiler = EggCompilerFactory::createFromParser(*vm, parser);
       auto module = compiler->compile();
-      module->execute(); // WIBBLE
+      module->execute();
       return vm.logger.logged.str();
     }
     static std::string expectation(TextStream& stream) {

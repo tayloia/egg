@@ -42,7 +42,7 @@ namespace {
     virtual std::shared_ptr<IEggModule> compile() override {
       IEggParser::Result result;
       auto severity = this->parse(result);
-      (void)severity; // WIBBLE
+      (void)severity; // TODO
       return std::make_shared<EggModule>(this->vm, result.root);
     }
     virtual egg::ovum::String resource() const override {
