@@ -40,6 +40,7 @@
     </ClCompile>
     <ClCompile Include="..\yolk\test\test-egg-compiler.cpp" />
     <ClCompile Include="..\yolk\test\test-egg-parser.cpp" />
+    <ClCompile Include="..\yolk\test\test-egg-runner.cpp" />
     <ClCompile Include="..\yolk\test\test-egg-tokenizer.cpp" />
     <ClCompile Include="..\yolk\test\test-eon-tokenizer.cpp" />
     <ClCompile Include="..\yolk\test\test-exceptions.cpp" />

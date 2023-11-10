@@ -44,8 +44,7 @@ namespace {
       auto program = EggCompilerFactory::compileFromStream(*vm, stream);
       auto runner = program->createRunner();
       vm.addBuiltins(*runner);
-      egg::ovum::HardValue retval;
-      runner->run(retval);
+      vm.run(*runner);
       return vm.logger.logged.str();
     }
     static std::string expectation(TextStream& stream) {

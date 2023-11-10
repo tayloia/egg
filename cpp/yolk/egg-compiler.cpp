@@ -13,6 +13,7 @@ using namespace egg::yolk;
 namespace {
   using ModuleNode = egg::ovum::IVMProgram::Node;
   using ParserNode = IEggParser::Node;
+  using ParserNodes = std::vector<std::unique_ptr<ParserNode>>;
 
   void printIssueRange(egg::ovum::StringBuilder& sb, const egg::ovum::String& resource, const IEggParser::Location& begin, const IEggParser::Location& end) {
     // See https://learn.microsoft.com/en-us/visualstudio/msbuild/msbuild-diagnostic-format-for-tasks
@@ -64,10 +65,10 @@ namespace {
       bool root : 1 = false;
     };
     ModuleNode* compileStmt(ParserNode& pnode, const StmtContext& context);
-    ModuleNode* compileStmtCall(const std::vector<std::unique_ptr<ParserNode>>& pnodes);
+    ModuleNode* compileStmtCall(ParserNode& pnode);
     ModuleNode* compileExpr(ParserNode& pnode);
     ModuleNode* compileExprVar(ParserNode& pnode);
-    ModuleNode* compileExprCall(const std::vector<std::unique_ptr<ParserNode>>& pnodes);
+    ModuleNode* compileExprCall(ParserNodes& pnodes);
     ModuleNode* compileLiteral(ParserNode& pnode);
     void log(egg::ovum::ILogger::Source source, egg::ovum::ILogger::Severity severity, const egg::ovum::String& message) const {
       this->vm.getLogger().log(source, severity, message);
@@ -170,8 +171,8 @@ egg::ovum::HardPtr<egg::ovum::IVMModule> ModuleCompiler::compile(ParserNode& roo
 ModuleNode* ModuleCompiler::compileStmt(ParserNode& pnode, const StmtContext& context) {
   switch (pnode.kind) {
   case ParserNode::Kind::StmtCall:
-    EXPECT(pnode, pnode.children.size() > 0);
-    return this->compileStmtCall(pnode.children);
+    EXPECT(pnode, pnode.children.size() == 1);
+    return this->compileStmtCall(*pnode.children.front());
   case ParserNode::Kind::ModuleRoot:
   case ParserNode::Kind::ExprVar:
   case ParserNode::Kind::ExprCall:
@@ -185,16 +186,16 @@ ModuleNode* ModuleCompiler::compileStmt(ParserNode& pnode, const StmtContext& co
   return this->unexpected(pnode, "statement");
 }
 
-ModuleNode* ModuleCompiler::compileStmtCall(const std::vector<std::unique_ptr<ParserNode>>& pnodes) {
-  auto pnode = pnodes.begin();
-  assert(pnode != pnodes.end());
+ModuleNode* ModuleCompiler::compileStmtCall(ParserNode& pnode) {
+  EXPECT(pnode, pnode.kind == ParserNode::Kind::ExprCall);
   ModuleNode* stmt = nullptr;
-  auto* expr = this->compileExpr(**pnode);
+  auto pchild = pnode.children.begin();
+  auto* expr = this->compileExpr(**pchild);
   if (expr != nullptr) {
     stmt = &this->mbuilder.stmtFunctionCall(*expr);
   }
-  while (++pnode != pnodes.end()) {
-    expr = this->compileExpr(**pnode);
+  while (++pchild != pnode.children.end()) {
+    expr = this->compileExpr(**pchild);
     if (expr == nullptr) {
       stmt = nullptr;
     } else if (stmt != nullptr) {
@@ -228,7 +229,7 @@ ModuleNode* ModuleCompiler::compileExprVar(ParserNode& pnode) {
   return &this->mbuilder.exprVariable(symbol);
 }
 
-ModuleNode* ModuleCompiler::compileExprCall(const std::vector<std::unique_ptr<ParserNode>>& pnodes) {
+ModuleNode* ModuleCompiler::compileExprCall(ParserNodes& pnodes) {
   auto pnode = pnodes.begin();
   assert(pnode != pnodes.end());
   ModuleNode* call = nullptr;
@@ -268,11 +269,6 @@ std::string ModuleCompiler::toString(const ParserNode& pnode) {
   return "unknown node kind";
 }
 
-egg::ovum::HardPtr<egg::ovum::IVMProgram> egg::yolk::EggCompilerFactory::compileFromPath(egg::ovum::IVM& vm, const std::string& path, bool swallowBOM) {
-  FileTextStream stream{ path, swallowBOM };
-  return EggCompilerFactory::compileFromStream(vm, stream);
-}
-
 egg::ovum::HardPtr<egg::ovum::IVMProgram> egg::yolk::EggCompilerFactory::compileFromStream(egg::ovum::IVM& vm, egg::yolk::TextStream& stream) {
   auto lexer = LexerFactory::createFromTextStream(stream);
   auto tokenizer = EggTokenizerFactory::createFromLexer(vm.getAllocator(), lexer);
@@ -284,6 +280,16 @@ egg::ovum::HardPtr<egg::ovum::IVMProgram> egg::yolk::EggCompilerFactory::compile
     return pbuilder->build();
   }
   return nullptr;
+}
+
+egg::ovum::HardPtr<egg::ovum::IVMProgram> egg::yolk::EggCompilerFactory::compileFromPath(egg::ovum::IVM& vm, const std::string& path, bool swallowBOM) {
+  FileTextStream stream{ path, swallowBOM };
+  return EggCompilerFactory::compileFromStream(vm, stream);
+}
+
+egg::ovum::HardPtr<egg::ovum::IVMProgram> egg::yolk::EggCompilerFactory::compileFromText(egg::ovum::IVM& vm, const std::string& path) {
+  StringTextStream stream{ path };
+  return EggCompilerFactory::compileFromStream(vm, stream);
 }
 
 std::shared_ptr<IEggCompiler> EggCompilerFactory::createFromProgramBuilder(const egg::ovum::HardPtr<egg::ovum::IVMProgramBuilder>& builder) {

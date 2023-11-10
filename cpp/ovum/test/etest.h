@@ -131,6 +131,19 @@ namespace egg::test {
       this->addBuiltinExpando(runner);
       this->addBuiltinCollector(runner);
     }
+    bool run(egg::ovum::IVMRunner& runner) {
+      egg::ovum::HardValue retval;
+      auto outcome = runner.run(retval);
+      if (retval.hasAnyFlags(egg::ovum::ValueFlags::Throw)) {
+        // TODO better location information in the error message
+        this->logger.log(egg::ovum::ILogger::Source::Runtime, egg::ovum::ILogger::Severity::Error, this->allocator.concat(retval));
+        return false;
+      }
+      if (!retval->getVoid()) {
+        this->logger.log(egg::ovum::ILogger::Source::Runtime, egg::ovum::ILogger::Severity::Information, this->allocator.concat(retval));
+      }
+      return outcome == egg::ovum::IVMRunner::RunOutcome::Succeeded;
+    }
   };
 
   inline ::testing::AssertionResult assertValueEQ(const char* lhs_expression, const char* rhs_expression, const egg::ovum::HardValue& lhs, const egg::ovum::HardValue& rhs) {
