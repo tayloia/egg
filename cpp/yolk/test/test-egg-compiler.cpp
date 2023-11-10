@@ -3,14 +3,21 @@
 #include "yolk/egg-tokenizer.h"
 #include "yolk/egg-parser.h"
 #include "yolk/egg-compiler.h"
+#include "yolk/egg-module.h"
 
-TEST(TestEggCompiler, Test0001) {
+TEST(TestEggCompiler, ExplicitSteps) {
   egg::test::VM vm;
-  std::string path = "~/cpp/yolk/test/scripts/test-0001.egg";
-  auto lexer = egg::yolk::LexerFactory::createFromPath(path);
+  auto lexer = egg::yolk::LexerFactory::createFromPath("~/cpp/yolk/test/scripts/test-0001.egg");
   auto tokenizer = egg::yolk::EggTokenizerFactory::createFromLexer(vm->getAllocator(), lexer);
   auto parser = egg::yolk::EggParserFactory::createFromTokenizer(vm->getAllocator(), tokenizer);
-  auto compiler = egg::yolk::EggCompilerFactory::createFromParser(*vm, parser);
-  ASSERT_TRUE(compiler->compile());
-  ASSERT_STRING(path.c_str(), compiler->resource());
+  auto pbuilder = vm->createProgramBuilder();
+  auto compiler = egg::yolk::EggCompilerFactory::createFromProgramBuilder(pbuilder);
+  auto module = compiler->compile(*parser);
+  ASSERT_TRUE(module != nullptr);
+}
+
+TEST(TestEggCompiler, Helper) {
+  egg::test::VM vm;
+  auto module = egg::yolk::EggModuleFactory::createFromPath(*vm, "~/cpp/yolk/test/scripts/test-0001.egg");
+  ASSERT_TRUE(module != nullptr);
 }

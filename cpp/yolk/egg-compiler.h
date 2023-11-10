@@ -5,12 +5,11 @@ namespace egg::yolk {
   class IEggCompiler {
   public:
     virtual ~IEggCompiler() {}
-    virtual std::shared_ptr<IEggModule> compile() = 0;
-    virtual egg::ovum::String resource() const = 0;
+    virtual std::shared_ptr<IEggModule> compile(IEggParser& parser) = 0;
   };
 
   class EggCompilerFactory {
   public:
-    static std::shared_ptr<IEggCompiler> createFromParser(egg::ovum::IVM& vm, const std::shared_ptr<IEggParser>& parser);
+    static std::shared_ptr<IEggCompiler> createFromProgramBuilder(const egg::ovum::HardPtr<egg::ovum::IVMProgramBuilder>& builder);
   };
 }

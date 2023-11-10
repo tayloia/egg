@@ -209,6 +209,7 @@ namespace egg::ovum {
 
   class IVMProgramBuilder : public IVMUncollectable {
   public:
+    virtual IVM& getVM() const = 0;
     virtual HardPtr<IVMModuleBuilder> createModuleBuilder() = 0;
     virtual HardPtr<IVMProgram> build() = 0;
   };

@@ -816,6 +816,9 @@ namespace {
         program(makeHardVM<VMProgram>(vm)) {
       assert(this->program != nullptr);
     }
+    virtual IVM& getVM() const override {
+      return this->vm;
+    }
     virtual HardPtr<IVMModuleBuilder> createModuleBuilder() override {
       assert(this->program != nullptr);
       return makeHardVM<VMModuleBuilder>(this->vm, *this->program);

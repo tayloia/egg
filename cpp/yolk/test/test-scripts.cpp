@@ -1,8 +1,4 @@
 #include "yolk/test.h"
-#include "yolk/lexers.h"
-#include "yolk/egg-tokenizer.h"
-#include "yolk/egg-parser.h"
-#include "yolk/egg-compiler.h"
 #include "yolk/egg-module.h"
 
 using namespace egg::yolk;
@@ -45,11 +41,7 @@ namespace {
   private:
     static std::string execute(TextStream& stream) {
       egg::test::VM vm;
-      auto lexer = LexerFactory::createFromTextStream(stream);
-      auto tokenizer = EggTokenizerFactory::createFromLexer(vm->getAllocator(), lexer);
-      auto parser = EggParserFactory::createFromTokenizer(vm->getAllocator(), tokenizer);
-      auto compiler = EggCompilerFactory::createFromParser(*vm, parser);
-      auto module = compiler->compile();
+      auto module = EggModuleFactory::createFromStream(*vm, stream);
       module->execute();
       return vm.logger.logged.str();
     }
