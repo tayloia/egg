@@ -11,8 +11,8 @@
 using namespace egg::yolk;
 
 namespace {
-  using ModuleNode = egg::ovum::IVMProgram::Node;
-  using ParserNode = IEggParser::Node;
+  using ModuleNode = egg::ovum::IVMModule::Node;
+  using ParserNode = egg::yolk::IEggParser::Node;
   using ParserNodes = std::vector<std::unique_ptr<ParserNode>>;
 
   void printIssueRange(egg::ovum::StringBuilder& sb, const egg::ovum::String& resource, const IEggParser::Location& begin, const IEggParser::Location& end) {
@@ -108,7 +108,7 @@ namespace {
       this->logIssues(resource, parsed.issues);
       if (parsed.root != nullptr) {
         auto& vm = this->pbuilder->getVM();
-        auto mbuilder = this->pbuilder->createModuleBuilder();
+        auto mbuilder = this->pbuilder->createModuleBuilder(parser.resource());
         assert(mbuilder != nullptr);
         ModuleCompiler mcompiler(vm, resource, *mbuilder);
         return mcompiler.compile(*parsed.root);
@@ -192,7 +192,7 @@ ModuleNode* ModuleCompiler::compileStmtCall(ParserNode& pnode) {
   auto pchild = pnode.children.begin();
   auto* expr = this->compileExpr(**pchild);
   if (expr != nullptr) {
-    stmt = &this->mbuilder.stmtFunctionCall(*expr);
+    stmt = &this->mbuilder.stmtFunctionCall(*expr, pnode.begin.line, pnode.begin.column);
   }
   while (++pchild != pnode.children.end()) {
     expr = this->compileExpr(**pchild);
@@ -226,7 +226,7 @@ ModuleNode* ModuleCompiler::compileExprVar(ParserNode& pnode) {
   EXPECT(pnode, pnode.children.size() == 0);
   egg::ovum::String symbol;
   EXPECT(pnode, pnode.value->getString(symbol));
-  return &this->mbuilder.exprVariable(symbol);
+  return &this->mbuilder.exprVariable(symbol, pnode.begin.line, pnode.begin.column);
 }
 
 ModuleNode* ModuleCompiler::compileExprCall(ParserNodes& pnodes) {
@@ -235,7 +235,7 @@ ModuleNode* ModuleCompiler::compileExprCall(ParserNodes& pnodes) {
   ModuleNode* call = nullptr;
   auto* expr = this->compileExpr(**pnode);
   if (expr != nullptr) {
-    call = &this->mbuilder.exprFunctionCall(*expr);
+    call = &this->mbuilder.exprFunctionCall(*expr, (*pnode)->begin.line, (*pnode)->begin.column);
   }
   while (++pnode != pnodes.end()) {
     expr = this->compileExpr(**pnode);
@@ -250,7 +250,7 @@ ModuleNode* ModuleCompiler::compileExprCall(ParserNodes& pnodes) {
 
 ModuleNode* ModuleCompiler::compileLiteral(ParserNode& pnode) {
   EXPECT(pnode, pnode.children.size() == 0);
-  return &this->mbuilder.exprLiteral(pnode.value);
+  return &this->mbuilder.exprLiteral(pnode.value, pnode.begin.line, pnode.begin.column);
 }
 
 std::string ModuleCompiler::toString(const ParserNode& pnode) {
@@ -287,8 +287,8 @@ egg::ovum::HardPtr<egg::ovum::IVMProgram> egg::yolk::EggCompilerFactory::compile
   return EggCompilerFactory::compileFromStream(vm, stream);
 }
 
-egg::ovum::HardPtr<egg::ovum::IVMProgram> egg::yolk::EggCompilerFactory::compileFromText(egg::ovum::IVM& vm, const std::string& path) {
-  StringTextStream stream{ path };
+egg::ovum::HardPtr<egg::ovum::IVMProgram> egg::yolk::EggCompilerFactory::compileFromText(egg::ovum::IVM& vm, const std::string& text, const std::string& resource) {
+  StringTextStream stream{ text, resource };
   return EggCompilerFactory::compileFromStream(vm, stream);
 }
 

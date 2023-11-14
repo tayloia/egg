@@ -1,5 +1,6 @@
 namespace egg::ovum {
   class IVM;
+  class IVMCallStack;
 
   class HardObject : public HardPtr<IObject> {
   public:
@@ -43,5 +44,7 @@ namespace egg::ovum {
     static HardObject createBuiltinPrint(IVM& vm);
     static HardObject createBuiltinExpando(IVM& vm); // TODO deprecate
     static HardObject createBuiltinCollector(IVM& vm); // TODO testing only
+    // Error factories
+    static HardObject createRuntimeError(IVM& vm, const String& message, const HardPtr<IVMCallStack>& callstack = nullptr);
   };
 }

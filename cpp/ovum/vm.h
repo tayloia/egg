@@ -65,10 +65,16 @@ namespace egg::ovum {
     }
   };
 
+  class egg::ovum::IVMCallStack : public IHardAcquireRelease {
+  public:
+    virtual void print(Printer& printer) const = 0;
+  };
+
   class IVMExecution : public ILogger, public IVMCommon {
   public:
     // Exceptions
-    virtual HardValue raiseException(const HardValue& expression) = 0;
+    virtual HardValue raiseException(const HardValue& inner) = 0;
+    virtual HardValue raiseRuntimeError(const String& message) = 0;
     // Unary operations
     enum class UnaryOp {
       Negate,
@@ -155,12 +161,12 @@ namespace egg::ovum {
 
   class IVMModule : public IVMUncollectable {
   public:
+    class Node;
     virtual HardPtr<IVMRunner> createRunner(IVMProgram& program) = 0;
   };
 
   class IVMProgram : public IVMUncollectable {
   public:
-    class Node;
     virtual size_t getModuleCount() const = 0;
     virtual HardPtr<IVMModule> getModule(size_t index) const = 0;
     virtual HardPtr<IVMRunner> createRunner() = 0;
@@ -168,36 +174,37 @@ namespace egg::ovum {
 
   class IVMModuleBuilder : public IVMUncollectable {
   public:
-    using Node = IVMProgram::Node;
+    using Node = IVMModule::Node;
     virtual void addStatement(Node& statement) = 0;
     virtual HardPtr<IVMModule> build() = 0;
     // Expression factories
-    virtual Node& exprUnaryOp(IVMExecution::UnaryOp op, Node& arg) = 0;
-    virtual Node& exprBinaryOp(IVMExecution::BinaryOp op, Node& lhs, Node& rhs) = 0;
-    virtual Node& exprVariable(const String& symbol) = 0;
-    virtual Node& exprLiteral(const HardValue& literal) = 0;
-    virtual Node& exprPropertyGet(Node& instance, Node& property) = 0;
-    virtual Node& exprFunctionCall(Node& function) = 0;
+    virtual Node& exprUnaryOp(IVMExecution::UnaryOp op, Node& arg, size_t line, size_t column) = 0;
+    virtual Node& exprBinaryOp(IVMExecution::BinaryOp op, Node& lhs, Node& rhs, size_t line, size_t column) = 0;
+    virtual Node& exprVariable(const String& symbol, size_t line, size_t column) = 0;
+    virtual Node& exprLiteral(const HardValue& literal, size_t line, size_t column) = 0;
+    virtual Node& exprPropertyGet(Node& instance, Node& property, size_t line, size_t column) = 0;
+    virtual Node& exprFunctionCall(Node& function, size_t line, size_t column) = 0;
     // Statement factories
-    virtual Node& stmtBlock() = 0;
-    virtual Node& stmtIf(Node& condition) = 0;
-    virtual Node& stmtWhile(Node& condition, Node& block) = 0;
-    virtual Node& stmtDo(Node& block, Node& condition) = 0;
-    virtual Node& stmtFor(Node& initial, Node& condition, Node& advance, Node& block) = 0;
-    virtual Node& stmtSwitch(Node& expression, size_t defaultIndex) = 0;
-    virtual Node& stmtCase(Node& block) = 0;
-    virtual Node& stmtBreak() = 0;
-    virtual Node& stmtContinue() = 0;
-    virtual Node& stmtVariableDeclare(const String& symbol) = 0;
-    virtual Node& stmtVariableDefine(const String& symbol, Node& value) = 0;
-    virtual Node& stmtVariableSet(const String& symbol, Node& value) = 0;
-    virtual Node& stmtVariableMutate(const String& symbol, IVMExecution::MutationOp op, Node& value) = 0;
-    virtual Node& stmtPropertySet(Node& instance, Node& property, Node& value) = 0;
-    virtual Node& stmtFunctionCall(Node& function) = 0;
-    virtual Node& stmtThrow(Node& exception) = 0;
-    virtual Node& stmtTry(Node& block) = 0;
-    virtual Node& stmtCatch(const String& symbol) = 0;
-    virtual Node& stmtRethrow() = 0;
+    virtual Node& stmtBlock(size_t line, size_t column) = 0;
+    virtual Node& stmtIf(Node& condition, size_t line, size_t column) = 0;
+    virtual Node& stmtWhile(Node& condition, Node& block, size_t line, size_t column) = 0;
+    virtual Node& stmtDo(Node& block, Node& condition, size_t line, size_t column) = 0;
+    virtual Node& stmtFor(Node& initial, Node& condition, Node& advance, Node& block, size_t line, size_t column) = 0;
+    virtual Node& stmtSwitch(Node& expression, size_t defaultIndex, size_t line, size_t column) = 0;
+    virtual Node& stmtCase(Node& block, size_t line, size_t column) = 0;
+    virtual Node& stmtBreak(size_t line, size_t column) = 0;
+    virtual Node& stmtContinue(size_t line, size_t column) = 0;
+    virtual Node& stmtVariableDeclare(const String& symbol, size_t line, size_t column) = 0;
+    virtual Node& stmtVariableDefine(const String& symbol, Node& value, size_t line, size_t column) = 0;
+    virtual Node& stmtVariableSet(const String& symbol, Node& value, size_t line, size_t column) = 0;
+    virtual Node& stmtVariableMutate(const String& symbol, IVMExecution::MutationOp op, Node& value, size_t line, size_t column) = 0;
+    virtual Node& stmtPropertySet(Node& instance, Node& property, Node& value, size_t line, size_t column) = 0;
+    virtual Node& stmtFunctionCall(Node& function, size_t line, size_t column) = 0;
+    virtual Node& stmtThrow(Node& exception, size_t line, size_t column) = 0;
+    virtual Node& stmtTry(Node& block, size_t line, size_t column) = 0;
+    virtual Node& stmtCatch(const String& symbol, size_t line, size_t column) = 0;
+    virtual Node& stmtRethrow(size_t line, size_t column) = 0;
+    // Modifiers
     virtual void appendChild(Node& parent, Node& child) = 0;
     // Helpers
     Node& glue(Node& parent) {
@@ -213,7 +220,7 @@ namespace egg::ovum {
   class IVMProgramBuilder : public IVMUncollectable {
   public:
     virtual IVM& getVM() const = 0;
-    virtual HardPtr<IVMModuleBuilder> createModuleBuilder() = 0;
+    virtual HardPtr<IVMModuleBuilder> createModuleBuilder(const String& resource) = 0;
     virtual HardPtr<IVMProgram> build() = 0;
   };
 

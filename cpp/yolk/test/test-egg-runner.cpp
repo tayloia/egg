@@ -6,7 +6,7 @@
 
 TEST(TestEggRunner, Succeeded) {
   egg::test::VM vm;
-  auto program = egg::yolk::EggCompilerFactory::compileFromPath(*vm, "~/cpp/yolk/test/scripts/test-0001.egg");
+  auto program = egg::yolk::EggCompilerFactory::compileFromText(*vm, "print(\"Hello, World!\");");
   ASSERT_TRUE(program != nullptr);
   auto runner = program->createRunner();
   ASSERT_TRUE(runner != nullptr);
@@ -17,11 +17,11 @@ TEST(TestEggRunner, Succeeded) {
 
 TEST(TestEggRunner, Failed) {
   egg::test::VM vm;
-  auto program = egg::yolk::EggCompilerFactory::compileFromPath(*vm, "~/cpp/yolk/test/scripts/test-0001.egg");
+  auto program = egg::yolk::EggCompilerFactory::compileFromText(*vm, "// comment\n  print(\"Hello, World!\");", "greeting.egg");
   ASSERT_TRUE(program != nullptr);
   auto runner = program->createRunner();
   ASSERT_TRUE(runner != nullptr);
   // Deliberately fail to call vm.addBuiltins(*runner);
   ASSERT_FALSE(vm.run(*runner));
-  ASSERT_EQ("<RUNTIME><ERROR>throw Unknown variable symbol: 'print'\n", vm.logger.logged.str());
+  ASSERT_EQ("<RUNTIME><ERROR>greeting.egg(2,3) : Unknown variable symbol: 'print'\n", vm.logger.logged.str());
 }

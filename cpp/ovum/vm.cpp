@@ -3,12 +3,15 @@
 
 #include <stack>
 
-class egg::ovum::IVMProgram::Node : public HardReferenceCounted<IHardAcquireRelease> {
+namespace {
+  class VMModule;
+}
+
+class egg::ovum::IVMModule::Node : public HardReferenceCounted<IHardAcquireRelease> {
   Node(const Node&) = delete;
   Node& operator=(const Node&) = delete;
 private:
-  IVM& vm;
-  HardPtr<Node> chain; // Internal linked list of all known nodes in this program
+  HardPtr<Node> chain; // Internal linked list of all known nodes in this module
 public:
   enum class Kind {
     Root,
@@ -37,7 +40,10 @@ public:
     StmtCatch,
     StmtRethrow
   };
+  VMModule& module;
   Kind kind;
+  size_t line; // May be zero
+  size_t column; // May be zero
   HardValue literal; // Only stores simple literals
   union {
     IVMExecution::UnaryOp unaryOp;
@@ -46,19 +52,20 @@ public:
     size_t defaultIndex;
   };
   std::vector<Node*> children; // Reference-counting hard pointers are stored in the chain
-  Node(IVM& vm, Kind kind, Node* chain)
+  Node(VMModule& module, Kind kind, size_t line = 0, size_t column = 0, Node* chain = nullptr)
     : HardReferenceCounted<IHardAcquireRelease>(),
-      vm(vm),
       chain(chain),
-      kind(kind) {
+      module(module),
+      kind(kind),
+      line(line),
+      column(column) {
   }
   void addChild(Node& child) {
     this->children.push_back(&child);
   }
+  void printLocation(Printer& printer) const;
 protected:
-  virtual void hardDestroy() const override {
-    this->vm.getAllocator().destroy(this);
-  }
+  virtual void hardDestroy() const override;
 };
 
 namespace {
@@ -66,11 +73,43 @@ namespace {
 
   class VMRunner;
 
-  template<typename TYPE, typename... ARGS>
-  HardPtr<TYPE> makeHardVM(IVM& vm, ARGS&&... args) {
+  template<typename TYPE, typename HEAD, typename... ARGS>
+  HardPtr<TYPE> makeHardVM(HEAD& head, ARGS&&... args) {
     // Use perfect forwarding
-    return HardPtr<TYPE>(vm.getAllocator().makeRaw<TYPE>(vm, std::forward<ARGS>(args)...));
+    return HardPtr<TYPE>(head.getAllocator().makeRaw<TYPE>(head, std::forward<ARGS>(args)...));
   }
+
+  class VMCallStack : public HardReferenceCountedAllocator<IVMCallStack> {
+    VMCallStack(const VMCallStack&) = delete;
+    VMCallStack& operator=(const VMCallStack&) = delete;
+  public:
+    String resource;
+    size_t line;
+    size_t column;
+    String function;
+  public:
+    explicit VMCallStack(IAllocator& allocator)
+      : HardReferenceCountedAllocator<IVMCallStack>(allocator),
+        line(0),
+        column(0) {
+    }
+    virtual void print(Printer& printer) const override {
+      if (!this->resource.empty() || (this->line > 0) || (this->column > 0)) {
+        printer << this->resource;
+        if ((this->line > 0) || (this->column > 0)) {
+          printer << '(' << this->line;
+          if (this->column > 0) {
+            printer << ',' << this->column;
+          }
+          printer << ')';
+        }
+        printer << " : ";
+      }
+      if (!this->function.empty()) {
+        printer << this->function << " : ";
+      }
+    }
+  };
 
   template<typename T>
   class VMCommon : public T {
@@ -155,7 +194,6 @@ namespace {
     VMProgram& operator=(const VMProgram&) = delete;
   private:
     std::vector<HardPtr<VMModule>> modules;
-    HardPtr<Node> chain; // Head of the linked list of all known nodes in this program
   public:
     explicit VMProgram(IVM& vm)
       : VMUncollectable(vm) {
@@ -170,22 +208,40 @@ namespace {
       }
       return nullptr;
     }
-    Node& createNode(Node::Kind kind);
-    HardPtr<VMModule> createModule(Node& root);
+    void addModule(VMModule& module) {
+      this->modules.emplace_back(&module);
+    }
   };
 
   class VMModule : public VMUncollectable<IVMModule> {
     VMModule(const VMModule&) = delete;
     VMModule& operator=(const VMModule&) = delete;
   private:
-    IVMProgram::Node& root; // owned by the containing VMProgram
+    String resource;
+    HardPtr<Node> chain; // Head of the linked list of all known nodes in this module
+    Node* root;
   public:
-    VMModule(IVM& vm, IVMProgram::Node& root)
+    VMModule(IVM& vm, const String& resource)
       : VMUncollectable(vm),
-        root(root) {
+        resource(resource) {
+      this->chain = makeHardVM<Node>(*this, Node::Kind::Root);
+      this->root = this->chain.get();
     }
     virtual HardPtr<IVMRunner> createRunner(IVMProgram& program) override {
-      return makeHardVM<VMRunner>(this->vm, program, this->root);
+      return makeHardVM<VMRunner>(this->vm, program, *this->root);
+    }
+    const String& getResource() const {
+      return this->resource;
+    }
+    Node& getRoot() const {
+      return *this->root;
+    }
+    Node& createNode(Node::Kind kind, size_t line, size_t column) {
+      // Make sure we add the node to the internal linked list
+      auto node = makeHardVM<Node>(*this, kind, line, column, this->chain.get());
+      assert(node != nullptr);
+      this->chain = node;
+      return *node;
     }
   };
 
@@ -270,19 +326,57 @@ namespace {
   };
 
   // Only instantiated by composition within 'VMRunner' etc.
-  class VMExecution : public VMCommon<IVMExecution> {
+  class VMExecution final : public VMCommon<IVMExecution> {
     VMExecution(const VMExecution&) = delete;
     VMExecution& operator=(const VMExecution&) = delete;
   public:
+    VMRunner* runner;
+  public:
     explicit VMExecution(IVM& vm)
-      : VMCommon<IVMExecution>(vm) {
+      : VMCommon<IVMExecution>(vm),
+        runner(nullptr) {
     }
-    virtual HardValue raiseException(const HardValue& expression) override {
-      // TODO augment with runtime metadata
+    virtual HardValue raiseException(const HardValue& inner) override {
       auto& allocator = this->vm.getAllocator();
-      return ValueFactory::createHardFlowControl(allocator, ValueFlags::Throw, expression);
+      return ValueFactory::createHardThrow(allocator, inner);
     }
+    virtual HardValue raiseRuntimeError(const String& message) override;
     virtual HardValue evaluateUnaryOp(UnaryOp op, const HardValue& arg) override {
+      return this->augment(this->unary(op, arg));
+    }
+    virtual HardValue evaluateBinaryOp(BinaryOp op, const HardValue& lhs, const HardValue& rhs) override {
+      return this->augment(this->binary(op, lhs, rhs));
+    }
+    virtual HardValue precheckMutationOp(MutationOp op, HardValue& lhs, ValueFlags rhs) override {
+      // Handle short-circuits (returns 'Continue' if rhs should be evaluated)
+      return this->augment(this->precheck(op, lhs, rhs));
+    }
+    virtual HardValue evaluateMutationOp(MutationOp op, HardValue& lhs, const HardValue& rhs) override {
+      // Return the value before the mutation
+      return this->augment(this->mutate(op, lhs, rhs));
+    }
+  private:
+    template<typename... ARGS>
+    HardValue raise(ARGS&&... args) {
+      // TODO: Non-string exception?
+      auto message = StringBuilder::concat(this->vm.getAllocator(), std::forward<ARGS>(args)...);
+      auto exception = this->createHardValueString(message);
+      return this->raiseException(exception);
+    }
+    HardValue augment(const HardValue& value) {
+      // TODO what if the user program throws a raw string within an expression?
+      if (value->getFlags() == (ValueFlags::Throw | ValueFlags::String)) {
+        HardValue inner;
+        if (value->getInner(inner)) {
+          String message;
+          if (inner->getString(message)) {
+            return this->raiseRuntimeError(message);
+          }
+        }
+      }
+      return value;
+    }
+    HardValue unary(UnaryOp op, const HardValue& arg) {
       Operation::UnaryValue unaryValue;
       switch (op) {
       case UnaryOp::Negate:
@@ -314,7 +408,7 @@ namespace {
       }
       return this->raise("TODO: Unknown unary operator");
     }
-    virtual HardValue evaluateBinaryOp(BinaryOp op, const HardValue& lhs, const HardValue& rhs) override {
+    HardValue binary(BinaryOp op, const HardValue& lhs, const HardValue& rhs) {
       Operation::BinaryValues binaryValues;
       switch (op) {
       case BinaryOp::Add:
@@ -537,7 +631,7 @@ namespace {
       }
       return this->raise("TODO: Unknown binary operator");
     }
-    virtual HardValue precheckMutationOp(MutationOp op, HardValue& lhs, ValueFlags rhs) override {
+    HardValue precheck(MutationOp op, HardValue& lhs, ValueFlags rhs) {
       // Handle short-circuits (returns 'Continue' if rhs should be evaluated)
       Bool bvalue;
       EGG_WARNING_SUPPRESS_SWITCH_BEGIN
@@ -588,9 +682,8 @@ namespace {
       EGG_WARNING_SUPPRESS_SWITCH_END
       return HardValue::Continue;
     }
-    virtual HardValue evaluateMutationOp(MutationOp op, HardValue& lhs, const HardValue& rhs) override {
+    HardValue mutate(MutationOp op, HardValue& lhs, const HardValue& rhs) {
       // Return the value before the mutation
-      HardValue before;
       switch (op) {
       case MutationOp::Assign:
         return lhs->mutate(Mutation::Assign, rhs.get());
@@ -633,14 +726,6 @@ namespace {
       }
       return lhs;
     }
-  private:
-    template<typename... ARGS>
-    inline HardValue raise(ARGS&&... args) {
-      // TODO: Non-string exception?
-      auto message = StringBuilder::concat(this->vm.getAllocator(), std::forward<ARGS>(args)...);
-      auto exception = this->createHardValueString(message);
-      return this->raiseException(exception);
-    }
   };
 
   class VMModuleBuilder : public VMUncollectable<IVMModuleBuilder> {
@@ -648,162 +733,162 @@ namespace {
     VMModuleBuilder& operator=(const VMModuleBuilder&) = delete;
   private:
     HardPtr<VMProgram> program;
-    Node* root; // becomes null once built
+    HardPtr<VMModule> module; // becomes null once built
   public:
-    VMModuleBuilder(IVM& vm, VMProgram& program)
+    VMModuleBuilder(IVM& vm, VMProgram& program, const String& resource)
       : VMUncollectable<IVMModuleBuilder>(vm),
         program(&program),
-        root(&program.createNode(Node::Kind::Root)) {
-      assert(this->root != nullptr);
+        module(makeHardVM<VMModule>(vm, resource)) {
+      assert(this->module != nullptr);
     }
-    virtual void addStatement(Node& module) override {
-      assert(this->root != nullptr);
-      this->root->addChild(module);
+    virtual void addStatement(Node& statement) override {
+      assert(this->module != nullptr);
+      this->module->getRoot().addChild(statement);
     }
     virtual HardPtr<IVMModule> build() override {
-      assert(this->root != nullptr);
-      auto module = this->program->createModule(*this->root);
-      if (module != nullptr) {
-        this->root = nullptr;
+      HardPtr<VMModule> built = this->module;
+      if (built != nullptr) {
+        this->module = nullptr;
+        this->program->addModule(*built);
       }
-      return module;
+      return built;
     }
-    virtual Node& exprUnaryOp(IVMExecution::UnaryOp op, Node& arg) override {
-      auto& node = this->program->createNode(Node::Kind::ExprUnaryOp);
+    virtual Node& exprUnaryOp(IVMExecution::UnaryOp op, Node& arg, size_t line, size_t column) override {
+      auto& node = this->module->createNode(Node::Kind::ExprUnaryOp, line, column);
       node.unaryOp = op;
       node.addChild(arg);
       return node;
     }
-    virtual Node& exprBinaryOp(IVMExecution::BinaryOp op, Node& lhs, Node& rhs) override {
-      auto& node = this->program->createNode(Node::Kind::ExprBinaryOp);
+    virtual Node& exprBinaryOp(IVMExecution::BinaryOp op, Node& lhs, Node& rhs, size_t line, size_t column) override {
+      auto& node = this->module->createNode(Node::Kind::ExprBinaryOp, line, column);
       node.binaryOp = op;
       node.addChild(lhs);
       node.addChild(rhs);
       return node;
     }
-    virtual Node& exprVariable(const String& symbol) override {
-      auto& node = this->program->createNode(Node::Kind::ExprVariable);
+    virtual Node& exprVariable(const String& symbol, size_t line, size_t column) override {
+      auto& node = this->module->createNode(Node::Kind::ExprVariable, line, column);
       node.literal = this->createHardValueString(symbol);
       return node;
     }
-    virtual Node& exprLiteral(const HardValue& literal) override {
-      auto& node = this->program->createNode(Node::Kind::ExprLiteral);
+    virtual Node& exprLiteral(const HardValue& literal, size_t line, size_t column) override {
+      auto& node = this->module->createNode(Node::Kind::ExprLiteral, line, column);
       node.literal = literal;
       return node;
     }
-    virtual Node& exprPropertyGet(Node& instance, Node& property) override {
-      auto& node = this->program->createNode(Node::Kind::ExprPropertyGet);
+    virtual Node& exprPropertyGet(Node& instance, Node& property, size_t line, size_t column) override {
+      auto& node = this->module->createNode(Node::Kind::ExprPropertyGet, line, column);
       node.addChild(instance);
       node.addChild(property);
       return node;
     }
-    virtual Node& exprFunctionCall(Node& function) override {
-      auto& node = this->program->createNode(Node::Kind::ExprFunctionCall);
+    virtual Node& exprFunctionCall(Node& function, size_t line, size_t column) override {
+      auto& node = this->module->createNode(Node::Kind::ExprFunctionCall, line, column);
       node.addChild(function);
       return node;
     }
-    virtual Node& stmtBlock() override {
-      auto& node = this->program->createNode(Node::Kind::StmtBlock);
+    virtual Node& stmtBlock(size_t line, size_t column) override {
+      auto& node = this->module->createNode(Node::Kind::StmtBlock, line, column);
       return node;
     }
-    virtual Node& stmtIf(Node& condition) override {
-      auto& node = this->program->createNode(Node::Kind::StmtIf);
+    virtual Node& stmtIf(Node& condition, size_t line, size_t column) override {
+      auto& node = this->module->createNode(Node::Kind::StmtIf, line, column);
       node.addChild(condition);
       return node;
     }
-    virtual Node& stmtWhile(Node& condition, Node& block) override {
-      auto& node = this->program->createNode(Node::Kind::StmtWhile);
+    virtual Node& stmtWhile(Node& condition, Node& block, size_t line, size_t column) override {
+      auto& node = this->module->createNode(Node::Kind::StmtWhile, line, column);
       node.addChild(condition);
       node.addChild(block);
       return node;
     }
-    virtual Node& stmtDo(Node& block, Node& condition) override {
-      auto& node = this->program->createNode(Node::Kind::StmtDo);
+    virtual Node& stmtDo(Node& block, Node& condition, size_t line, size_t column) override {
+      auto& node = this->module->createNode(Node::Kind::StmtDo, line, column);
       node.addChild(block);
       node.addChild(condition);
       return node;
     }
-    virtual Node& stmtFor(Node& initial, Node& condition, Node& advance, Node& block) override {
+    virtual Node& stmtFor(Node& initial, Node& condition, Node& advance, Node& block, size_t line, size_t column) override {
       // Note the change in order to be execution-based (initial/condition/block/advance)
-      auto& node = this->program->createNode(Node::Kind::StmtFor);
+      auto& node = this->module->createNode(Node::Kind::StmtFor, line, column);
       node.addChild(initial);
       node.addChild(condition);
       node.addChild(block);
       node.addChild(advance);
       return node;
     }
-    virtual Node& stmtSwitch(Node& expression, size_t defaultIndex) override {
-      auto& node = this->program->createNode(Node::Kind::StmtSwitch);
+    virtual Node& stmtSwitch(Node& expression, size_t defaultIndex, size_t line, size_t column) override {
+      auto& node = this->module->createNode(Node::Kind::StmtSwitch, line, column);
       node.addChild(expression);
       node.defaultIndex = defaultIndex;
       return node;
     }
-    virtual Node& stmtCase(Node& block) override {
-      auto& node = this->program->createNode(Node::Kind::StmtCase);
+    virtual Node& stmtCase(Node& block, size_t line, size_t column) override {
+      auto& node = this->module->createNode(Node::Kind::StmtCase, line, column);
       node.addChild(block);
       return node;
     }
-    virtual Node& stmtBreak() override {
-      auto& node = this->program->createNode(Node::Kind::StmtBreak);
+    virtual Node& stmtBreak(size_t line, size_t column) override {
+      auto& node = this->module->createNode(Node::Kind::StmtBreak, line, column);
       return node;
     }
-    virtual Node& stmtContinue() override {
-      auto& node = this->program->createNode(Node::Kind::StmtContinue);
+    virtual Node& stmtContinue(size_t line, size_t column) override {
+      auto& node = this->module->createNode(Node::Kind::StmtContinue, line, column);
       return node;
     }
-    virtual Node& stmtVariableDeclare(const String& symbol) override {
-      auto& node = this->program->createNode(Node::Kind::StmtVariableDeclare);
+    virtual Node& stmtVariableDeclare(const String& symbol, size_t line, size_t column) override {
+      auto& node = this->module->createNode(Node::Kind::StmtVariableDeclare, line, column);
       node.literal = this->createHardValueString(symbol);
       return node;
     }
-    virtual Node& stmtVariableDefine(const String& symbol, Node& value) override {
-      auto& node = this->program->createNode(Node::Kind::StmtVariableDeclare);
+    virtual Node& stmtVariableDefine(const String& symbol, Node& value, size_t line, size_t column) override {
+      auto& node = this->module->createNode(Node::Kind::StmtVariableDeclare, line, column);
       node.literal = this->createHardValueString(symbol);
-      node.addChild(this->stmtVariableSet(symbol, value));
+      node.addChild(this->stmtVariableSet(symbol, value, line, column));
       return node;
     }
-    virtual Node& stmtVariableSet(const String& symbol, Node& value) override {
-      auto& node = this->program->createNode(Node::Kind::StmtVariableSet);
+    virtual Node& stmtVariableSet(const String& symbol, Node& value, size_t line, size_t column) override {
+      auto& node = this->module->createNode(Node::Kind::StmtVariableSet, line, column);
       node.literal = this->createHardValueString(symbol);
       node.addChild(value);
       return node;
     }
-    virtual Node& stmtVariableMutate(const String& symbol, IVMExecution::MutationOp op, Node& value) override {
-      auto& node = this->program->createNode(Node::Kind::StmtVariableMutate);
+    virtual Node& stmtVariableMutate(const String& symbol, IVMExecution::MutationOp op, Node& value, size_t line, size_t column) override {
+      auto& node = this->module->createNode(Node::Kind::StmtVariableMutate, line, column);
       node.literal = this->createHardValueString(symbol);
       node.mutationOp = op;
       node.addChild(value);
       return node;
     }
-    virtual Node& stmtPropertySet(Node& instance, Node& property, Node& value) override {
-      auto& node = this->program->createNode(Node::Kind::StmtPropertySet);
+    virtual Node& stmtPropertySet(Node& instance, Node& property, Node& value, size_t line, size_t column) override {
+      auto& node = this->module->createNode(Node::Kind::StmtPropertySet, line, column);
       node.addChild(instance);
       node.addChild(property);
       node.addChild(value);
       return node;
     }
-    virtual Node& stmtFunctionCall(Node& function) override {
-      auto& node = this->program->createNode(Node::Kind::StmtFunctionCall);
+    virtual Node& stmtFunctionCall(Node& function, size_t line, size_t column) override {
+      auto& node = this->module->createNode(Node::Kind::StmtFunctionCall, line, column);
       node.addChild(function);
       return node;
     }
-    virtual Node& stmtThrow(Node& exception) override {
-      auto& node = this->program->createNode(Node::Kind::StmtThrow);
+    virtual Node& stmtThrow(Node& exception, size_t line, size_t column) override {
+      auto& node = this->module->createNode(Node::Kind::StmtThrow, line, column);
       node.addChild(exception);
       return node;
     }
-    virtual Node& stmtTry(Node& block) override {
-      auto& node = this->program->createNode(Node::Kind::StmtTry);
+    virtual Node& stmtTry(Node& block, size_t line, size_t column) override {
+      auto& node = this->module->createNode(Node::Kind::StmtTry, line, column);
       node.addChild(block);
       return node;
     }
-    virtual Node& stmtCatch(const String& symbol) override {
-      auto& node = this->program->createNode(Node::Kind::StmtCatch);
+    virtual Node& stmtCatch(const String& symbol, size_t line, size_t column) override {
+      auto& node = this->module->createNode(Node::Kind::StmtCatch, line, column);
       node.literal = this->createHardValueString(symbol);
       return node;
     }
-    virtual Node& stmtRethrow() override {
-      auto& node = this->program->createNode(Node::Kind::StmtRethrow);
+    virtual Node& stmtRethrow(size_t line, size_t column) override {
+      auto& node = this->module->createNode(Node::Kind::StmtRethrow, line, column);
       return node;
     }
     virtual void appendChild(Node& parent, Node& child) override {
@@ -825,14 +910,16 @@ namespace {
     virtual IVM& getVM() const override {
       return this->vm;
     }
-    virtual HardPtr<IVMModuleBuilder> createModuleBuilder() override {
+    virtual HardPtr<IVMModuleBuilder> createModuleBuilder(const String& resource) override {
       assert(this->program != nullptr);
-      return makeHardVM<VMModuleBuilder>(this->vm, *this->program);
+      return makeHardVM<VMModuleBuilder>(this->vm, *this->program, resource);
     }
     virtual HardPtr<IVMProgram> build() override {
-      HardPtr<VMProgram> result{ this->program };
-      this->program = nullptr;
-      return result;
+      HardPtr<VMProgram> built = this->program;
+      if (built != nullptr) {
+        this->program = nullptr;
+      }
+      return built;
     }
   };
 
@@ -841,10 +928,10 @@ namespace {
     VMRunner& operator=(const VMRunner&) = delete;
   private:
     struct NodeStack {
-      const IVMProgram::Node* node;
-      String scope;
-      size_t index;
-      std::deque<HardValue> deque;
+      const IVMModule::Node* node;
+      String scope; // Name of variable declared here
+      size_t index; // Node-specific state variable
+      std::deque<HardValue> deque; // Results of child nodes computation
       HardValue value;
     };
     HardPtr<IVMProgram> program;
@@ -852,10 +939,11 @@ namespace {
     VMSymbolTable symtable;
     VMExecution execution;
   public:
-    VMRunner(IVM& vm, IVMProgram& program, const IVMProgram::Node& root)
+    VMRunner(IVM& vm, IVMProgram& program, const IVMModule::Node& root)
       : VMCollectable<IVMRunner>(vm),
         program(&program),
         execution(vm) {
+      this->execution.runner = this;
       this->push(root);
     }
     virtual void softVisit(ICollectable::IVisitor&) const override {
@@ -873,7 +961,7 @@ namespace {
           return RunOutcome::Stepped;
         }
       } else  if (flags != RunFlags::None) {
-        retval = this->createThrow("TODO: Run flags not yet supported in runner");
+        retval = this->createRuntimeError(this->createString("TODO: Run flags not yet supported in runner"));
         return RunOutcome::Failed;
       } else {
         while (this->stepNode(retval)) {
@@ -885,10 +973,29 @@ namespace {
       }
       return RunOutcome::Succeeded;
     }
+    HardPtr<IVMCallStack> getCallStack() const {
+      // TODO full stack chain
+      HardPtr<VMCallStack> callstack{ this->vm.getAllocator().makeHard<VMCallStack>() };
+      assert(!this->stack.empty());
+      const auto* top = this->stack.top().node;
+      assert(top != nullptr);
+      callstack->resource = top->module.getResource();
+      callstack->line = top->line;
+      callstack->column = top->column;
+      // TODO callstack->function
+      return callstack;
+    }
+    HardValue createRuntimeError(const String& message) {
+      auto callstack = this->getCallStack();
+      auto exception = ObjectFactory::createRuntimeError(this->vm, message, callstack);
+      auto& allocator = this->vm.getAllocator();
+      auto inner = ValueFactory::createHardObject(allocator, exception);
+      return ValueFactory::createHardThrow(allocator, inner);
+    }
   private:
     bool stepNode(HardValue& retval);
     bool stepBlock(HardValue& retval);
-    NodeStack& push(const IVMProgram::Node& node, const String& scope = {}, size_t index = 0) {
+    NodeStack& push(const IVMModule::Node& node, const String& scope = {}, size_t index = 0) {
       return this->stack.emplace(&node, scope, index);
     }
     bool pop(HardValue value) { // sic byval
@@ -904,14 +1011,8 @@ namespace {
     }
     template<typename... ARGS>
     bool raise(ARGS&&... args) {
-      return this->pop(this->createThrow(std::forward<ARGS>(args)...));
-    }
-    template<typename... ARGS>
-    HardValue createThrow(ARGS&&... args) {
-      auto& allocator = this->getAllocator();
-      auto message = StringBuilder::concat(allocator, std::forward<ARGS>(args)...);
-      auto reason = ValueFactory::createString(allocator, message);
-      return ValueFactory::createHardFlowControl(allocator, ValueFlags::Throw, reason);
+      auto error = this->createRuntimeError(StringBuilder::concat(this->getAllocator(), std::forward<ARGS>(args)...));
+      return this->pop(error);
     }
     bool variableScopeBegin(NodeStack& top) {
       assert(top.scope.empty());
@@ -1070,22 +1171,38 @@ namespace {
   };
 }
 
+void egg::ovum::IVMModule::Node::printLocation(Printer& printer) const {
+  printer << this->module.getResource();
+  if ((this->line > 0) || (this->column > 0)) {
+    printer << '(' << this->line;
+    if (this->column > 0) {
+      printer << ',' << this->column;
+    }
+    printer << ')';
+  }
+  printer << " : ";
+}
+
+void egg::ovum::IVMModule::Node::hardDestroy() const {
+  this->module.getAllocator().destroy(this);
+}
+
 bool VMRunner::stepNode(HardValue& retval) {
   // Return true iff 'retval' has been set and the block has finished
   auto& top = this->stack.top();
   switch (top.node->kind) {
-  case IVMProgram::Node::Kind::Root:
+  case IVMModule::Node::Kind::Root:
     assert(top.node->literal->getVoid());
     assert(top.index <= top.node->children.size());
     return this->stepBlock(retval);
-  case IVMProgram::Node::Kind::StmtBlock:
+  case IVMModule::Node::Kind::StmtBlock:
     assert(top.node->literal->getVoid());
     assert(top.index <= top.node->children.size());
     if (!this->stepBlock(retval)) {
       return this->pop(retval);
     }
     break;
-  case IVMProgram::Node::Kind::StmtVariableDeclare:
+  case IVMModule::Node::Kind::StmtVariableDeclare:
     assert(top.index <= top.node->children.size());
     if (top.index == 0) {
       if (!this->variableScopeBegin(top)) {
@@ -1096,7 +1213,7 @@ bool VMRunner::stepNode(HardValue& retval) {
       return this->pop(retval);
     }
     break;
-  case IVMProgram::Node::Kind::StmtVariableSet:
+  case IVMModule::Node::Kind::StmtVariableSet:
     assert(top.node->children.size() == 1);
     assert(top.index <= top.node->children.size());
     if (top.index == 0) {
@@ -1110,7 +1227,7 @@ bool VMRunner::stepNode(HardValue& retval) {
       return this->pop(HardValue::Void);
     }
     break;
-  case IVMProgram::Node::Kind::StmtVariableMutate:
+  case IVMModule::Node::Kind::StmtVariableMutate:
     assert(top.node->children.size() == 1);
     assert(top.index <= 1);
     {
@@ -1157,7 +1274,7 @@ bool VMRunner::stepNode(HardValue& retval) {
       }
     }
     break;
-  case IVMProgram::Node::Kind::StmtPropertySet:
+  case IVMModule::Node::Kind::StmtPropertySet:
     assert(top.node->literal->getVoid());
     assert(top.node->children.size() == 3);
     assert(top.index <= 3);
@@ -1182,7 +1299,7 @@ bool VMRunner::stepNode(HardValue& retval) {
       return this->pop(instance->vmPropertySet(this->execution, property, value));
     }
     break;
-  case IVMProgram::Node::Kind::StmtIf:
+  case IVMModule::Node::Kind::StmtIf:
     assert((top.node->children.size() == 2) || (top.node->children.size() == 3));
     assert(top.index <= top.node->children.size());
     if (top.index == 0) {
@@ -1225,7 +1342,7 @@ bool VMRunner::stepNode(HardValue& retval) {
       }
     }
     break;
-  case IVMProgram::Node::Kind::StmtWhile:
+  case IVMModule::Node::Kind::StmtWhile:
     assert(top.node->children.size() == 2);
     assert(top.index <= 2);
     if (top.index == 0) {
@@ -1268,7 +1385,7 @@ bool VMRunner::stepNode(HardValue& retval) {
       }
     }
     break;
-  case IVMProgram::Node::Kind::StmtDo:
+  case IVMModule::Node::Kind::StmtDo:
     assert(top.node->literal->getVoid());
     assert(top.node->children.size() == 2);
     assert(top.index <= 2);
@@ -1307,7 +1424,7 @@ bool VMRunner::stepNode(HardValue& retval) {
       }
     }
     break;
-  case IVMProgram::Node::Kind::StmtFor:
+  case IVMModule::Node::Kind::StmtFor:
     assert(top.node->children.size() == 4);
     assert(top.index <= 4);
     if (top.index == 0) {
@@ -1359,7 +1476,7 @@ bool VMRunner::stepNode(HardValue& retval) {
       }
     }
     break;
-  case IVMProgram::Node::Kind::StmtSwitch:
+  case IVMModule::Node::Kind::StmtSwitch:
     assert(top.node->literal->getVoid());
     assert(top.node->children.size() > 1);
     if (top.index == 0) {
@@ -1382,13 +1499,13 @@ bool VMRunner::stepNode(HardValue& retval) {
         // Match the first case/default statement
         top.index = 1;
         auto& added = this->push(*top.node->children[1]);
-        assert(added.node->kind == IVMProgram::Node::Kind::StmtCase);
+        assert(added.node->kind == IVMModule::Node::Kind::StmtCase);
         added.value = latest;
       }
     } else if (top.deque.size() == 1) {
       // Just run an unconditional block
       auto& latest = top.deque.back();
-      IVMProgram::Node* child;
+      IVMModule::Node* child;
       EGG_WARNING_SUPPRESS_SWITCH_BEGIN
       switch (latest->getFlags()) {
       case ValueFlags::Break:
@@ -1401,7 +1518,7 @@ bool VMRunner::stepNode(HardValue& retval) {
           top.index = 1;
         }
         child = top.node->children[top.index];
-        assert(child->kind == IVMProgram::Node::Kind::StmtCase);
+        assert(child->kind == IVMModule::Node::Kind::StmtCase);
         assert(!child->children.empty());
         this->push(*child->children.front());
         break;
@@ -1413,7 +1530,7 @@ bool VMRunner::stepNode(HardValue& retval) {
     } else {
       // Just matched a case/default clause
       auto& latest = top.deque.back();
-      IVMProgram::Node* child;
+      IVMModule::Node* child;
       EGG_WARNING_SUPPRESS_SWITCH_BEGIN
       switch (latest->getFlags()) {
       case ValueFlags::Bool:
@@ -1423,7 +1540,7 @@ bool VMRunner::stepNode(HardValue& retval) {
           top.deque.pop_back();
           assert(top.deque.size() == 1);
           auto& added = this->push(*top.node->children[top.index]);
-          assert(added.node->kind == IVMProgram::Node::Kind::StmtCase);
+          assert(added.node->kind == IVMModule::Node::Kind::StmtCase);
           added.value = top.deque.front();
         } else {
           // That was the last clause; we need to use the default clause, if any
@@ -1435,7 +1552,7 @@ bool VMRunner::stepNode(HardValue& retval) {
             top.deque.clear();
             top.index = top.node->defaultIndex;
             child = top.node->children[top.index];
-            assert(child->kind == IVMProgram::Node::Kind::StmtCase);
+            assert(child->kind == IVMModule::Node::Kind::StmtCase);
             assert(!child->children.empty());
             this->push(*child->children.front());
           }
@@ -1451,7 +1568,7 @@ bool VMRunner::stepNode(HardValue& retval) {
           top.index = 1;
         }
         child = top.node->children[top.index];
-        assert(child->kind == IVMProgram::Node::Kind::StmtCase);
+        assert(child->kind == IVMModule::Node::Kind::StmtCase);
         assert(!child->children.empty());
         this->push(*child->children.front());
         break;
@@ -1462,7 +1579,7 @@ bool VMRunner::stepNode(HardValue& retval) {
       EGG_WARNING_SUPPRESS_SWITCH_END
     }
     break;
-  case IVMProgram::Node::Kind::StmtCase:
+  case IVMModule::Node::Kind::StmtCase:
     assert(top.node->literal->getVoid());
     assert(!top.node->children.empty());
     if (top.index == 0) {
@@ -1523,15 +1640,15 @@ bool VMRunner::stepNode(HardValue& retval) {
       EGG_WARNING_SUPPRESS_SWITCH_END
     }
     break;
-  case IVMProgram::Node::Kind::StmtBreak:
+  case IVMModule::Node::Kind::StmtBreak:
     assert(top.node->literal->getVoid());
     assert(top.node->children.size() == 0);
     return this->pop(HardValue::Break);
-  case IVMProgram::Node::Kind::StmtContinue:
+  case IVMModule::Node::Kind::StmtContinue:
     assert(top.node->literal->getVoid());
     assert(top.node->children.size() == 0);
     return this->pop(HardValue::Continue);
-  case IVMProgram::Node::Kind::StmtThrow:
+  case IVMModule::Node::Kind::StmtThrow:
     assert(top.node->literal->getVoid());
     assert(top.node->children.size() == 1);
     assert(top.index <= 1);
@@ -1550,7 +1667,7 @@ bool VMRunner::stepNode(HardValue& retval) {
       return this->pop(result);
     }
     break;
-  case IVMProgram::Node::Kind::StmtTry:
+  case IVMModule::Node::Kind::StmtTry:
     assert(top.node->literal->getVoid());
     assert(top.node->children.size() > 1);
     if (top.index == 0) {
@@ -1576,7 +1693,7 @@ bool VMRunner::stepNode(HardValue& retval) {
         auto& latest = top.deque.back();
         if (latest->getFlags() == ValueFlags::Throw) {
           // Rethrow the original exception
-          if (previous->kind != IVMProgram::Node::Kind::StmtCatch) {
+          if (previous->kind != IVMModule::Node::Kind::StmtCatch) {
             return this->raise("Unexpected exception rethrow within 'finally' block");
           }
           assert(exception.hasAnyFlags(ValueFlags::Throw));
@@ -1584,7 +1701,7 @@ bool VMRunner::stepNode(HardValue& retval) {
           // The catch/finally block raised a different exception
           top.value = latest;
           exception = HardValue::Void;
-        } else if (previous->kind == IVMProgram::Node::Kind::StmtCatch) {
+        } else if (previous->kind == IVMModule::Node::Kind::StmtCatch) {
           // We've successfully handled the exception
           top.value = HardValue::Void;
           exception = HardValue::Void;
@@ -1598,7 +1715,7 @@ bool VMRunner::stepNode(HardValue& retval) {
       while (top.index < top.node->children.size()) {
         // Check the next clause
         auto* child = top.node->children[top.index++];
-        if (child->kind != IVMProgram::Node::Kind::StmtCatch) {
+        if (child->kind != IVMModule::Node::Kind::StmtCatch) {
           // Always run finally clauses
           this->push(*child);
           return true;
@@ -1612,7 +1729,7 @@ bool VMRunner::stepNode(HardValue& retval) {
       return this->pop(top.value);
     }
     break;
-  case IVMProgram::Node::Kind::StmtCatch:
+  case IVMModule::Node::Kind::StmtCatch:
     assert(top.index <= top.node->children.size());
     if (top.index == 0) {
       assert(top.deque.empty());
@@ -1631,12 +1748,12 @@ bool VMRunner::stepNode(HardValue& retval) {
       return this->pop(retval);
     }
     break;
-  case IVMProgram::Node::Kind::StmtRethrow:
+  case IVMModule::Node::Kind::StmtRethrow:
     assert(top.node->literal->getVoid());
     assert(top.node->children.size() == 0);
     return this->pop(HardValue::Rethrow);
-  case IVMProgram::Node::Kind::StmtFunctionCall:
-  case IVMProgram::Node::Kind::ExprFunctionCall:
+  case IVMModule::Node::Kind::StmtFunctionCall:
+  case IVMModule::Node::Kind::ExprFunctionCall:
     assert(top.node->literal->getVoid());
     assert(top.index <= top.node->children.size());
     if (!top.deque.empty()) {
@@ -1665,7 +1782,7 @@ bool VMRunner::stepNode(HardValue& retval) {
       return this->pop(function->vmCall(this->execution, arguments));
     }
     break;
-  case IVMProgram::Node::Kind::ExprUnaryOp:
+  case IVMModule::Node::Kind::ExprUnaryOp:
     assert(top.node->children.size() == 1);
     assert(top.index <= 1);
     if (top.index == 0) {
@@ -1683,7 +1800,7 @@ bool VMRunner::stepNode(HardValue& retval) {
       return this->pop(result);
     }
     break;
-  case IVMProgram::Node::Kind::ExprBinaryOp:
+  case IVMModule::Node::Kind::ExprBinaryOp:
     assert(top.node->children.size() == 2);
     assert(top.index <= 2);
     if (top.index == 0) {
@@ -1726,7 +1843,7 @@ bool VMRunner::stepNode(HardValue& retval) {
       }
     }
     break;
-  case IVMProgram::Node::Kind::ExprVariable:
+  case IVMModule::Node::Kind::ExprVariable:
     assert(top.node->children.empty());
     assert(top.index == 0);
     assert(top.deque.empty());
@@ -1748,12 +1865,12 @@ bool VMRunner::stepNode(HardValue& retval) {
       return this->pop(value);
     }
     break;
-  case IVMProgram::Node::Kind::ExprLiteral:
+  case IVMModule::Node::Kind::ExprLiteral:
     assert(top.node->children.empty());
     assert(top.index == 0);
     assert(top.deque.empty());
     return this->pop(top.node->literal);
-  case IVMProgram::Node::Kind::ExprPropertyGet:
+  case IVMModule::Node::Kind::ExprPropertyGet:
     assert(top.node->literal->getVoid());
     assert(top.node->children.size() == 2);
     if (!top.deque.empty()) {
@@ -1819,19 +1936,9 @@ HardPtr<IVMRunner> VMProgram::createRunner() {
   return this->modules.front()->createRunner(*this);
 }
 
-IVMProgram::Node& VMProgram::createNode(Node::Kind kind) {
-  // Make sure we add the node to the internal linked list
-  auto node = makeHardVM<Node>(this->vm, kind, this->chain.get());
-  assert(node != nullptr);
-  this->chain = node;
-  return *node;
-}
-
-HardPtr<VMModule> VMProgram::createModule(Node& root) {
-  auto module = makeHardVM<VMModule>(this->vm, root);
-  assert(module != nullptr);
-  this->modules.push_back(module);
-  return module;
+HardValue VMExecution::raiseRuntimeError(const String& message) {
+  assert(this->runner != nullptr);
+  return this->runner->createRuntimeError(message);
 }
 
 egg::ovum::HardPtr<IVM> egg::ovum::VMFactory::createDefault(IAllocator& allocator, ILogger& logger) {

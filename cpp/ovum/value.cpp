@@ -161,9 +161,9 @@ namespace {
       return this->atomic.get() >= 0;
     }
   protected:
-    HardValue createException(const char* message) const {
-      auto inner = ValueFactory::createStringASCII(this->allocator, message);
-      return ValueFactory::createHardFlowControl(this->allocator, ValueFlags::Throw, inner);
+    HardValue createRuntimeError(const char* ascii) const {
+      auto message = ValueFactory::createStringASCII(this->allocator, ascii);
+      return ValueFactory::createHardThrow(this->allocator, message);
     }
   };
 
@@ -205,7 +205,7 @@ namespace {
         if (rhs.getInt(rvalue)) {
           return this->createBefore(this->value.exchange(rvalue));
         }
-        return this->createException("TODO: Invalid right-hand value for mutation assignment to integer");
+        return this->createRuntimeError("TODO: Invalid right-hand value for mutation assignment to integer");
       case Mutation::Decrement:
         assert(rhs.getFlags() == ValueFlags::Void);
         return this->createBefore(this->value.add(-1));
@@ -216,68 +216,68 @@ namespace {
         if (rhs.getInt(rvalue)) {
           return this->createBefore(this->value.add(rvalue));
         }
-        return this->createException("TODO: Invalid right-hand value for mutation addition to integer");
+        return this->createRuntimeError("TODO: Invalid right-hand value for mutation addition to integer");
       case Mutation::Subtract:
         if (rhs.getInt(rvalue)) {
           return this->createBefore(this->value.sub(rvalue));
         }
-        return this->createException("TODO: Invalid right-hand value for mutation subtract from integer");
+        return this->createRuntimeError("TODO: Invalid right-hand value for mutation subtract from integer");
       case Mutation::Multiply:
         if (rhs.getInt(rvalue)) {
           return this->createAtomic([rvalue](Int lvalue) { return lvalue * rvalue; });
         }
-        return this->createException("TODO: Invalid right-hand value for mutation multiply by integer");
+        return this->createRuntimeError("TODO: Invalid right-hand value for mutation multiply by integer");
       case Mutation::Divide:
         if (rhs.getInt(rvalue)) {
           if (rvalue == 0) {
-            return this->createException("TODO: Division by zero in mutation divide");
+            return this->createRuntimeError("TODO: Division by zero in mutation divide");
           }
           return this->createAtomic([rvalue](Int lvalue) { return lvalue / rvalue; });
         }
-        return this->createException("TODO: Invalid right-hand value for mutation divide by integer");
+        return this->createRuntimeError("TODO: Invalid right-hand value for mutation divide by integer");
       case Mutation::Remainder:
         if (rhs.getInt(rvalue)) {
           if (rvalue == 0) {
-            return this->createException("TODO: Division by zero in mutation remainder");
+            return this->createRuntimeError("TODO: Division by zero in mutation remainder");
           }
           return this->createAtomic([rvalue](Int lvalue) { return lvalue % rvalue; });
         }
-        return this->createException("TODO: Invalid right-hand value for mutation remainder for integer");
+        return this->createRuntimeError("TODO: Invalid right-hand value for mutation remainder for integer");
       case Mutation::BitwiseAnd:
         if (rhs.getInt(rvalue)) {
           return this->createBefore(this->value.bitwiseAnd(rvalue));
         }
-        return this->createException("TODO: Invalid right-hand value for mutation bitwise-and of integer");
+        return this->createRuntimeError("TODO: Invalid right-hand value for mutation bitwise-and of integer");
       case Mutation::BitwiseOr:
         if (rhs.getInt(rvalue)) {
           return this->createBefore(this->value.bitwiseOr(rvalue));
         }
-        return this->createException("TODO: Invalid right-hand value for mutation bitwise-or of integer");
+        return this->createRuntimeError("TODO: Invalid right-hand value for mutation bitwise-or of integer");
       case Mutation::BitwiseXor:
         if (rhs.getInt(rvalue)) {
           return this->createBefore(this->value.bitwiseXor(rvalue));
         }
-        return this->createException("TODO: Invalid right-hand value for mutation bitwise-xor of integer");
+        return this->createRuntimeError("TODO: Invalid right-hand value for mutation bitwise-xor of integer");
       case Mutation::ShiftLeft:
         if (rhs.getInt(rvalue)) {
           return this->createAtomic([rvalue](Int lvalue) { return Arithmetic::shift(Arithmetic::Shift::ShiftLeft, lvalue, rvalue); });
         }
-        return this->createException("TODO: Invalid right-hand value for mutation shift left of integer");
+        return this->createRuntimeError("TODO: Invalid right-hand value for mutation shift left of integer");
       case Mutation::ShiftRight:
         if (rhs.getInt(rvalue)) {
           return this->createAtomic([rvalue](Int lvalue) { return Arithmetic::shift(Arithmetic::Shift::ShiftRight, lvalue, rvalue); });
         }
-        return this->createException("TODO: Invalid right-hand value for mutation shift right of integer");
+        return this->createRuntimeError("TODO: Invalid right-hand value for mutation shift right of integer");
       case Mutation::ShiftRightUnsigned:
         if (rhs.getInt(rvalue)) {
           return this->createAtomic([rvalue](Int lvalue) { return Arithmetic::shift(Arithmetic::Shift::ShiftRightUnsigned, lvalue, rvalue); });
         }
-        return this->createException("TODO: Invalid right-hand value for mutation unsigned shift right of integer");
+        return this->createRuntimeError("TODO: Invalid right-hand value for mutation unsigned shift right of integer");
       case Mutation::Noop:
         assert(rhs.getFlags() == ValueFlags::Void);
         return this->createBefore(this->value.get());
       }
-      return this->createException("TODO: Unknown integer mutation operation");
+      return this->createRuntimeError("TODO: Unknown integer mutation operation");
     }
   private:
     HardValue createAtomic(std::function<Int(Int)> eval) {
@@ -335,11 +335,11 @@ namespace {
         if (rhs.getInt(ivalue)) {
           return this->createBefore(this->value.exchange(Float(ivalue)));
         }
-        return this->createException("TODO: Invalid right-hand value for mutation assignment to float");
+        return this->createRuntimeError("TODO: Invalid right-hand value for mutation assignment to float");
       case Mutation::Decrement:
-        return this->createException("TODO: Mutation decrement is unsupported for floats");
+        return this->createRuntimeError("TODO: Mutation decrement is unsupported for floats");
       case Mutation::Increment:
-        return this->createException("TODO: Mutation increment is unsupported for floats");
+        return this->createRuntimeError("TODO: Mutation increment is unsupported for floats");
       case Mutation::Add:
         if (rhs.getFloat(fvalue)) {
           return this->createBefore(this->value.add(fvalue));
@@ -347,7 +347,7 @@ namespace {
         if (rhs.getInt(ivalue)) {
           return this->createBefore(this->value.add(Float(ivalue)));
         }
-        return this->createException("TODO: Invalid right-hand value for mutation addition to float");
+        return this->createRuntimeError("TODO: Invalid right-hand value for mutation addition to float");
       case Mutation::Subtract:
         if (rhs.getFloat(fvalue)) {
           return this->createBefore(this->value.sub(fvalue));
@@ -355,7 +355,7 @@ namespace {
         if (rhs.getInt(ivalue)) {
           return this->createBefore(this->value.sub(Float(ivalue)));
         }
-        return this->createException("TODO: Invalid right-hand value for mutation subtract from float");
+        return this->createRuntimeError("TODO: Invalid right-hand value for mutation subtract from float");
       case Mutation::Multiply:
         if (rhs.getFloat(fvalue)) {
           return this->createAtomic([fvalue](Float lvalue) { return lvalue * fvalue; });
@@ -364,7 +364,7 @@ namespace {
           fvalue = Float(ivalue);
           return this->createAtomic([ivalue](Float lvalue) { return lvalue * Float(ivalue); });
         }
-        return this->createException("TODO: Invalid right-hand value for mutation multiply by float");
+        return this->createRuntimeError("TODO: Invalid right-hand value for mutation multiply by float");
       case Mutation::Divide:
         if (rhs.getFloat(fvalue)) {
           return this->createAtomic([fvalue](Float lvalue) { return lvalue / fvalue; });
@@ -373,7 +373,7 @@ namespace {
           // Promote explicitly to guarantee division by zero success
           return this->createAtomic([ivalue](Float lvalue) { return lvalue / Float(ivalue); });
         }
-        return this->createException("TODO: Invalid right-hand value for mutation divide by float");
+        return this->createRuntimeError("TODO: Invalid right-hand value for mutation divide by float");
       case Mutation::Remainder:
         if (rhs.getFloat(fvalue)) {
           return this->createAtomic([fvalue](Float lvalue) { return std::fmod(lvalue, fvalue); });
@@ -382,24 +382,24 @@ namespace {
           // Promote explicitly to guarantee division by zero success
           return this->createAtomic([ivalue](Float lvalue) { return std::fmod(lvalue, Float(ivalue)); });
         }
-        return this->createException("TODO: Invalid right-hand value for mutation remainder for float");
+        return this->createRuntimeError("TODO: Invalid right-hand value for mutation remainder for float");
       case Mutation::BitwiseAnd:
-        return this->createException("TODO: Mutation bitwise-and is unsupported for floats");
+        return this->createRuntimeError("TODO: Mutation bitwise-and is unsupported for floats");
       case Mutation::BitwiseOr:
-        return this->createException("TODO: Mutation bitwise-or is unsupported for floats");
+        return this->createRuntimeError("TODO: Mutation bitwise-or is unsupported for floats");
       case Mutation::BitwiseXor:
-        return this->createException("TODO: Mutation bitwise-xor is unsupported for floats");
+        return this->createRuntimeError("TODO: Mutation bitwise-xor is unsupported for floats");
       case Mutation::ShiftLeft:
-        return this->createException("TODO: Mutation shift left is unsupported for floats");
+        return this->createRuntimeError("TODO: Mutation shift left is unsupported for floats");
       case Mutation::ShiftRight:
-        return this->createException("TODO: Mutation shift right is unsupported for floats");
+        return this->createRuntimeError("TODO: Mutation shift right is unsupported for floats");
       case Mutation::ShiftRightUnsigned:
-        return this->createException("TODO: Mutation unsigned shift right is unsupported for floats");
+        return this->createRuntimeError("TODO: Mutation unsigned shift right is unsupported for floats");
       case Mutation::Noop:
         assert(rhs.getFlags() == ValueFlags::Void);
         return this->createBefore(this->value.get());
       }
-      return this->createException("TODO: Unknown float mutation operation");
+      return this->createRuntimeError("TODO: Unknown float mutation operation");
     }
   private:
     HardValue createAtomic(std::function<Float(Float)> eval) {
@@ -454,13 +454,13 @@ namespace {
           String before{ this->value.exchange(rvalue.get()) };
           return ValueFactory::createString(this->allocator, before);
         }
-        return this->createException("TODO: Invalid right-hand value for mutation assignment to string");
+        return this->createRuntimeError("TODO: Invalid right-hand value for mutation assignment to string");
       }
       if (op == Mutation::Noop) {
         assert(rhs.getFlags() == ValueFlags::Void);
         return HardValue(*this);
       }
-      return this->createException("TODO: Mutation not supported for strings");
+      return this->createRuntimeError("TODO: Mutation not supported for strings");
     }
   };
 
@@ -501,32 +501,31 @@ namespace {
           HardObject before{ this->value.exchange(rvalue.get()) };
           return ValueFactory::createHardObject(this->allocator, before);
         }
-        return this->createException("TODO: Invalid right-hand value for mutation assignment to object");
+        return this->createRuntimeError("TODO: Invalid right-hand value for mutation assignment to object");
       }
       if (op == Mutation::Noop) {
         assert(rhs.getFlags() == ValueFlags::Void);
         return HardValue(*this);
       }
-      return this->createException("TODO: Mutation not supported for objects");
+      return this->createRuntimeError("TODO: Mutation not supported for objects");
     }
   };
 
-  class ValueHardFlowControl final : public ValueMutable {
-    ValueHardFlowControl(const ValueHardFlowControl&) = delete;
-    ValueHardFlowControl& operator=(const ValueHardFlowControl&) = delete;
+  class ValueHardThrow final : public ValueMutable {
+    ValueHardThrow(const ValueHardThrow&) = delete;
+    ValueHardThrow& operator=(const ValueHardThrow&) = delete;
   private:
-    ValueFlags flags;
     HardValue inner;
   public:
-    ValueHardFlowControl(IAllocator& allocator, ValueFlags flags, const HardValue& inner)
-      : ValueMutable(allocator), flags(flags), inner(inner) {
+    ValueHardThrow(IAllocator& allocator, const HardValue& inner)
+      : ValueMutable(allocator), inner(inner) {
       assert(this->validate());
     }
     virtual void softVisit(ICollectable::IVisitor&) const override {
       // Our inner value is a hard reference as we only expect to exist for a short time
     }
     virtual ValueFlags getFlags() const override {
-      return this->flags | this->inner->getFlags();
+      return ValueFlags::Throw | this->inner->getFlags();
     }
     virtual Type getRuntimeType() const override {
       // We should NOT really be asked for type information here
@@ -538,11 +537,9 @@ namespace {
       return true;
     }
     virtual bool validate() const override {
-      return ValueMutable::validate() && Bits::hasAnySet(this->flags, ValueFlags::FlowControl) && this->inner.validate();
+      return ValueMutable::validate() && this->inner.validate();
     }
     virtual void print(Printer& printer) const override {
-      printer.write(this->flags);
-      printer << ' ';
       printer.write(this->inner);
     }
     virtual bool set(const IValue&) override {
@@ -554,7 +551,7 @@ namespace {
       if (op == Mutation::Noop) {
         return HardValue(*this);
       }
-      return this->createException("TODO: Mutation not supported for flow control instances");
+      return this->createRuntimeError("TODO: Mutation not supported for throw instances");
     }
   };
 
@@ -801,20 +798,20 @@ namespace {
         if (this->set(rhs)) {
           return before;
         }
-        return this->createException("TODO: Invalid right-hand value for mutation assignment");
+        return this->createRuntimeError("TODO: Invalid right-hand value for mutation assignment");
       }
       case Mutation::Decrement:
         assert(rhs.getFlags() == ValueFlags::Void);
         if (this->flags == ValueFlags::Int) {
           return this->createBeforeInt(this->ivalue.add(-1));
         }
-        return this->createException("TODO: Mutation decrement is only supported for values of type 'int'");
+        return this->createRuntimeError("TODO: Mutation decrement is only supported for values of type 'int'");
       case Mutation::Increment:
         assert(rhs.getFlags() == ValueFlags::Void);
         if (this->flags == ValueFlags::Int) {
           return this->createBeforeInt(this->ivalue.add(+1));
         }
-        return this->createException("TODO: Mutation increment is only supported for values of type 'int'");
+        return this->createRuntimeError("TODO: Mutation increment is only supported for values of type 'int'");
       case Mutation::Add:
         return this->createArithmetic(rhs,
                                       [this](Int rvalue) { return this->ivalue.add(rvalue); },
@@ -875,7 +872,7 @@ namespace {
         assert(rhs.getFlags() == ValueFlags::Void);
         return this->hardClone();
       }
-      return this->createException("TODO: Unknown mutation");
+      return this->createRuntimeError("TODO: Unknown mutation");
     }
   private:
     HardValue createBeforeInt(Int before) {
@@ -897,7 +894,7 @@ namespace {
         if (rhs.getInt(irhs)) {
           // No need to promote
           if ((zeroMessage != nullptr) && (irhs == 0)) {
-            return this->createException(zeroMessage);
+            return this->createRuntimeError(zeroMessage);
           }
           if (atomicInt != nullptr) {
             return this->createBeforeInt(atomicInt(irhs));
@@ -913,20 +910,20 @@ namespace {
           this->fvalue.exchange(flhs);
           return this->createEvalFloat(evalFloat, frhs);
         }
-        return this->createException(mismatchMessage);
+        return this->createRuntimeError(mismatchMessage);
       }
       if (this->flags == ValueFlags::Float) {
         Float frhs;
         if (!rhs.getFloat(frhs)) {
           Int irhs;
           if (!rhs.getInt(irhs)) {
-            return this->createException(mismatchMessage);
+            return this->createRuntimeError(mismatchMessage);
           }
           frhs = Float(irhs);
         }
         return this->createEvalFloat(evalFloat, frhs);
       }
-      return this->createException(mismatchMessage);
+      return this->createRuntimeError(mismatchMessage);
     }
     HardValue createBitwise(const IValue& rhs,
                             std::function<Int(Int)> atomicInt,
@@ -943,7 +940,7 @@ namespace {
           return this->createBeforeInt(atomicInt(irhs));
         }
       }
-      return this->createException(mismatchMessage);
+      return this->createRuntimeError(mismatchMessage);
     }
     HardValue createShift(const IValue& rhs,
                           Arithmetic::Shift op,
@@ -954,7 +951,7 @@ namespace {
           return this->createEvalInt([op](Int lvalue, Int rvalue) { return Arithmetic::shift(op, lvalue, rvalue); }, irhs);
         }
       }
-      return this->createException(mismatchMessage);
+      return this->createRuntimeError(mismatchMessage);
     }
     HardValue createEvalInt(std::function<Int(Int, Int)> eval, Int rhs) {
       Int before, after;
@@ -972,9 +969,9 @@ namespace {
       } while (this->fvalue.update(before, after) != before);
       return ValueFactory::createFloat(this->allocator, before);
     }
-    HardValue createException(const char* message) const {
-      auto inner = ValueFactory::createStringASCII(this->allocator, message);
-      return ValueFactory::createHardFlowControl(this->allocator, ValueFlags::Throw, inner);
+    HardValue createRuntimeError(const char* ascii) const {
+      auto message = ValueFactory::createStringASCII(this->allocator, ascii);
+      return ValueFactory::createHardThrow(this->allocator, message);
     }
     void destroy() {
       if (this->flags == ValueFlags::String) {
@@ -1065,8 +1062,8 @@ egg::ovum::HardValue egg::ovum::ValueFactory::createHardObject(IAllocator& alloc
   return makeHardValue<ValueHardObject>(allocator, value);
 }
 
-egg::ovum::HardValue egg::ovum::ValueFactory::createHardFlowControl(IAllocator& allocator, ValueFlags flags, const HardValue& value) {
-  return makeHardValue<ValueHardFlowControl>(allocator, flags, value);
+egg::ovum::HardValue egg::ovum::ValueFactory::createHardThrow(IAllocator& allocator, const HardValue& value) {
+  return makeHardValue<ValueHardThrow>(allocator, value);
 }
 
 egg::ovum::HardValue egg::ovum::ValueFactory::createStringASCII(IAllocator& allocator, const char* value, size_t codepoints) {

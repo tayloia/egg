@@ -147,7 +147,7 @@ namespace egg::ovum {
     static HardValue createFloat(IAllocator& allocator, Float value);
     static HardValue createString(IAllocator& allocator, const String& value);
     static HardValue createHardObject(IAllocator& allocator, const HardObject& value);
-    static HardValue createHardFlowControl(IAllocator& allocator, ValueFlags flags, const HardValue& value);
+    static HardValue createHardThrow(IAllocator& allocator, const HardValue& inner);
 
     // Helpers
     template<size_t N>

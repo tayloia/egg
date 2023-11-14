@@ -77,7 +77,7 @@ namespace {
       size_t tokidx = 0;
       try {
         while (this->tokens.getAbsolute(tokidx).kind != EggTokenizerKind::EndOfFile) {
-          auto partial = parseModule(tokidx);
+          auto partial = this->parseModule(tokidx);
           if (!partial.succeeded()) {
             return { nullptr, std::move(this->issues) };
           }
@@ -139,7 +139,7 @@ namespace {
       }
       void wrap(Node::Kind kind) {
         assert(this->node != nullptr);
-        auto wrapper = this->parser.makeNode(kind);
+        auto wrapper = this->parser.makeNode(kind, this->node->begin, this->node->end);
         wrapper->children.emplace_back(std::move(this->node));
         assert(this->node == nullptr);
         this->node = std::move(wrapper);
@@ -228,20 +228,20 @@ namespace {
       Context context(*this, tokidx);
       switch (context[0].kind) {
       case EggTokenizerKind::Integer:
-        child = this->makeNodeInt(Node::Kind::Literal, context[0].value.i);
+        child = this->makeNodeInt(Node::Kind::Literal, context[0]);
         return context.success(std::move(child), tokidx + 1);
       case EggTokenizerKind::Float:
-        child = this->makeNodeFloat(Node::Kind::Literal, context[0].value.f);
+        child = this->makeNodeFloat(Node::Kind::Literal, context[0]);
         return context.success(std::move(child), tokidx + 1);
       case EggTokenizerKind::String:
         // TODO: join contiguous strings
-        child = this->makeNodeString(Node::Kind::Literal, context[0].value.s);
+        child = this->makeNodeString(Node::Kind::Literal, context[0]);
         return context.success(std::move(child), tokidx + 1);
       case EggTokenizerKind::Identifier:
-        child = this->makeNodeString(Node::Kind::ExprVar, context[0].value.s);
+        child = this->makeNodeString(Node::Kind::ExprVar, context[0]);
         return context.success(std::move(child), tokidx + 1);
       case EggTokenizerKind::Keyword:
-        child = this->makeNodeString(Node::Kind::ExprVar, context[0].value.s);
+        child = this->makeNodeString(Node::Kind::ExprVar, context[0]);
         return context.success(std::move(child), tokidx + 1);
       case EggTokenizerKind::Attribute:
         return PARSE_TODO(tokidx, "bad expression attribute");
@@ -270,25 +270,43 @@ namespace {
       return false;
     }
 
-    std::unique_ptr<Node> makeNode(Node::Kind kind) {
-      return std::make_unique<Node>(kind);
-    }
-
-    std::unique_ptr<Node> makeNodeInt(Node::Kind kind, egg::ovum::Int ivalue) {
-      auto node = this->makeNode(kind);
-      node->value = egg::ovum::ValueFactory::createInt(this->allocator, ivalue);
+    std::unique_ptr<Node> makeNode(Node::Kind kind, const Location& begin, const Location& end) {
+      auto node = std::make_unique<Node>(kind);
+      node->begin = begin;
+      node->end = end;
       return node;
     }
 
-    std::unique_ptr<Node> makeNodeFloat(Node::Kind kind, egg::ovum::Float fvalue) {
-      auto node = this->makeNode(kind);
-      node->value = egg::ovum::ValueFactory::createFloat(this->allocator, fvalue);
+    std::unique_ptr<Node> makeNode(Node::Kind kind, const EggTokenizerItem& item) {
+      auto node = std::make_unique<Node>(kind);
+      node->begin.line = item.line;
+      node->begin.column = item.column;
+      auto width = item.width();
+      if (width > 0) {
+        node->end.line = item.line;
+        node->end.column = item.column + width;
+      } else {
+        node->end.line = 0;
+        node->end.column = 0;
+      }
       return node;
     }
 
-    std::unique_ptr<Node> makeNodeString(Node::Kind kind, const egg::ovum::String& svalue) {
-      auto node = this->makeNode(kind);
-      node->value = egg::ovum::ValueFactory::createString(this->allocator, svalue);
+    std::unique_ptr<Node> makeNodeInt(Node::Kind kind, const EggTokenizerItem& item) {
+      auto node = this->makeNode(kind, item);
+      node->value = egg::ovum::ValueFactory::createInt(this->allocator, item.value.i);
+      return node;
+    }
+
+    std::unique_ptr<Node> makeNodeFloat(Node::Kind kind, const EggTokenizerItem& item) {
+      auto node = this->makeNode(kind, item);
+      node->value = egg::ovum::ValueFactory::createFloat(this->allocator, item.value.f);
+      return node;
+    }
+
+    std::unique_ptr<Node> makeNodeString(Node::Kind kind, const EggTokenizerItem& item) {
+      auto node = this->makeNode(kind, item);
+      node->value = egg::ovum::ValueFactory::createString(this->allocator, item.value.s);
       return node;
     }
   };
