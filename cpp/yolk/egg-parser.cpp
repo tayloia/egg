@@ -467,20 +467,32 @@ namespace {
       assert(partial.succeeded());
       auto& next = partial.after(0);
       if (next.isOperator(EggTokenizerOperator::ParenthesisLeft)) {
-        // TODO: Multiple arguments
-        auto argument = this->parseValueExpression(partial.tokensAfter + 1);
-        if (!argument.succeeded()) {
-          partial.fail(argument);
-          return false;
-        }
-        if (argument.after(0).isOperator(EggTokenizerOperator::ParenthesisRight)) {
-          partial.wrap(Node::Kind::ExprCall);
-          partial.tokensAfter = argument.tokensAfter + 1;
-          partial.node->children.emplace_back(std::move(argument.node));
+        // Function call
+        partial.wrap(Node::Kind::ExprCall);
+        partial.tokensAfter++;
+        if (partial.after(0).isOperator(EggTokenizerOperator::ParenthesisRight)) {
+          // No arguments
+          partial.tokensAfter++;
           return true;
         }
-        partial.fail("TODO: Expected ')' after function call arguments, but got ", argument.after(0).toString());
-        return false;
+        for (;;) {
+          // Parse the arguments
+          auto argument = this->parseValueExpression(partial.tokensAfter);
+          if (!argument.succeeded()) {
+            partial.fail(argument);
+            return false;
+          }
+          auto& separator = argument.after(0);
+          partial.node->children.emplace_back(std::move(argument.node));
+          partial.tokensAfter = argument.tokensAfter + 1;
+          if (separator.isOperator(EggTokenizerOperator::ParenthesisRight)) {
+            return true;
+          }
+          if (!separator.isOperator(EggTokenizerOperator::Comma)) {
+            partial.fail("TODO: Expected ',' between function call arguments, but got ", separator.toString());
+            return false;
+          }
+        }
       }
       if (next.isOperator(EggTokenizerOperator::Dot)) {
         partial.fail("TODO: '.' expression suffix not yet implemented");
