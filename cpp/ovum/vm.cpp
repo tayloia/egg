@@ -52,7 +52,7 @@ public:
     size_t defaultIndex;
   };
   std::vector<Node*> children; // Reference-counting hard pointers are stored in the chain
-  Node(VMModule& module, Kind kind, size_t line = 0, size_t column = 0, Node* chain = nullptr)
+  Node(VMModule& module, Kind kind, size_t line, size_t column, Node* chain)
     : HardReferenceCounted<IHardAcquireRelease>(),
       chain(chain),
       module(module),
@@ -72,12 +72,6 @@ namespace {
   using namespace egg::ovum;
 
   class VMRunner;
-
-  template<typename TYPE, typename HEAD, typename... ARGS>
-  HardPtr<TYPE> makeHardVM(HEAD& head, ARGS&&... args) {
-    // Use perfect forwarding
-    return HardPtr<TYPE>(head.getAllocator().makeRaw<TYPE>(head, std::forward<ARGS>(args)...));
-  }
 
   class VMCallStack : public HardReferenceCountedAllocator<IVMCallStack> {
     VMCallStack(const VMCallStack&) = delete;
@@ -224,11 +218,11 @@ namespace {
     VMModule(IVM& vm, const String& resource)
       : VMUncollectable(vm),
         resource(resource) {
-      this->chain = makeHardVM<Node>(*this, Node::Kind::Root);
-      this->root = this->chain.get();
+      this->root = this->getAllocator().makeRaw<Node>(*this, Node::Kind::Root, 0u, 0u, nullptr);
+      this->chain.set(this->root);
     }
     virtual HardPtr<IVMRunner> createRunner(IVMProgram& program) override {
-      return makeHardVM<VMRunner>(this->vm, program, *this->root);
+      return HardPtr<VMRunner>(this->getAllocator().makeRaw<VMRunner>(this->vm, program, *this->root));
     }
     const String& getResource() const {
       return this->resource;
@@ -238,9 +232,9 @@ namespace {
     }
     Node& createNode(Node::Kind kind, size_t line, size_t column) {
       // Make sure we add the node to the internal linked list
-      auto node = makeHardVM<Node>(*this, kind, line, column, this->chain.get());
+      auto* node = this->getAllocator().makeRaw<Node>(*this, kind, line, column, this->chain.get());
       assert(node != nullptr);
-      this->chain = node;
+      this->chain.set(node);
       return *node;
     }
   };
@@ -738,7 +732,7 @@ namespace {
     VMModuleBuilder(IVM& vm, VMProgram& program, const String& resource)
       : VMUncollectable<IVMModuleBuilder>(vm),
         program(&program),
-        module(makeHardVM<VMModule>(vm, resource)) {
+        module(vm.getAllocator().makeRaw<VMModule>(vm, resource)) {
       assert(this->module != nullptr);
     }
     virtual void addStatement(Node& statement) override {
@@ -904,7 +898,7 @@ namespace {
   public:
     explicit VMProgramBuilder(IVM& vm)
       : VMUncollectable<IVMProgramBuilder>(vm),
-        program(makeHardVM<VMProgram>(vm)) {
+        program(vm.getAllocator().makeRaw<VMProgram>(vm)) {
       assert(this->program != nullptr);
     }
     virtual IVM& getVM() const override {
@@ -912,7 +906,7 @@ namespace {
     }
     virtual HardPtr<IVMModuleBuilder> createModuleBuilder(const String& resource) override {
       assert(this->program != nullptr);
-      return makeHardVM<VMModuleBuilder>(this->vm, *this->program, resource);
+      return HardPtr<IVMModuleBuilder>(this->getAllocator().makeRaw<VMModuleBuilder>(this->vm, *this->program, resource));
     }
     virtual HardPtr<IVMProgram> build() override {
       HardPtr<VMProgram> built = this->program;
@@ -1100,7 +1094,7 @@ namespace {
       return String::fromUTF32(this->allocator, utf32, codepoints);
     }
     virtual HardPtr<IVMProgramBuilder> createProgramBuilder() override {
-      return makeHardVM<VMProgramBuilder>(*this);
+      return HardPtr<VMProgramBuilder>(this->getAllocator().makeRaw<VMProgramBuilder>(*this));
     }
     virtual HardValue createHardValueVoid() override {
       return HardValue::Void;

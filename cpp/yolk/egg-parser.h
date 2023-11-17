@@ -23,12 +23,19 @@ namespace egg::yolk {
         ModuleRoot,
         StmtCall,
         ExprVar,
+        ExprUnary,
+        ExprBinary,
         ExprCall,
         Literal
       };
       Kind kind;
       std::vector<std::unique_ptr<Node>> children;
       egg::ovum::HardValue value;
+      union {
+        egg::ovum::IVMExecution::UnaryOp unary;
+        egg::ovum::IVMExecution::BinaryOp binary;
+        egg::ovum::IVMExecution::MutationOp mutation;
+      } op;
       Location begin;
       Location end;
     };

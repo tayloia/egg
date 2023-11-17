@@ -130,6 +130,7 @@ namespace egg::yolk {
       return (this->kind == EggTokenizerKind::Operator) && (this->value.o == op);
     }
     size_t width() const;
+    std::string toString() const;
   };
 
   class IEggTokenizer {

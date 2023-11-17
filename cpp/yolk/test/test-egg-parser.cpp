@@ -36,6 +36,12 @@ namespace {
     case Node::Kind::ExprVar:
       assert(node.children.empty());
       return printValue(os << "(expr-var ", node.value) << ')';
+    case Node::Kind::ExprUnary:
+      assert(node.children.size() == 1);
+      return printNodeChildren(os, "expr-unary", node);
+    case Node::Kind::ExprBinary:
+      assert(node.children.size() == 2);
+      return printNodeChildren(os, "expr-binary", node);
     case Node::Kind::ExprCall:
       return printNodeChildren(os, "expr-call", node);
     case Node::Kind::Literal:

@@ -65,7 +65,7 @@ namespace egg::ovum {
     }
   };
 
-  class egg::ovum::IVMCallStack : public IHardAcquireRelease {
+  class IVMCallStack : public IHardAcquireRelease {
   public:
     virtual void print(Printer& printer) const = 0;
   };
@@ -77,9 +77,9 @@ namespace egg::ovum {
     virtual HardValue raiseRuntimeError(const String& message) = 0;
     // Unary operations
     enum class UnaryOp {
-      Negate,
-      BitwiseNot,
-      LogicalNot
+      Negate,             // -a
+      BitwiseNot,         // ~a
+      LogicalNot          // !a
     };
     virtual HardValue evaluateUnaryOp(UnaryOp op, const HardValue& arg) = 0;
     // Binary operations
@@ -108,23 +108,23 @@ namespace egg::ovum {
     virtual HardValue evaluateBinaryOp(BinaryOp op, const HardValue& lhs, const HardValue& rhs) = 0;
     // Mutation operations
     enum class MutationOp {
-      Assign,
-      Decrement,
-      Increment,
-      Add,
-      Subtract,
-      Multiply,
-      Divide,
-      Remainder,
-      BitwiseAnd,
-      BitwiseOr,
-      BitwiseXor,
-      ShiftLeft,
-      ShiftRight,
-      ShiftRightUnsigned,
-      IfNull,
-      IfFalse,
-      IfTrue,
+      Assign,             // a = b
+      Decrement,          // --a
+      Increment,          // ++a
+      Add,                // a += b
+      Subtract,           // a -= b
+      Multiply,           // a *= b
+      Divide,             // a /= b
+      Remainder,          // a %= b
+      BitwiseAnd,         // a &= b
+      BitwiseOr,          // a |= b
+      BitwiseXor,         // a ^= b
+      ShiftLeft,          // a <<= b
+      ShiftRight,         // a >>= b
+      ShiftRightUnsigned, // a >>>= b
+      IfNull,             // a ??= b
+      IfFalse,            // a &&= b
+      IfTrue,             // a ||= b
       Noop // TODO cancels any pending prechecks on this thread
     };
     virtual HardValue precheckMutationOp(MutationOp op, HardValue& lhs, ValueFlags rhs) = 0;

@@ -83,6 +83,25 @@ size_t egg::yolk::EggTokenizerItem::width() const {
   }
 }
 
+std::string egg::yolk::EggTokenizerItem::toString() const {
+  switch (this->kind) {
+  case EggTokenizerKind::Keyword:
+    return "keyword '" + EggTokenizerValue::getKeywordString(this->value.k) + '\'';
+  case EggTokenizerKind::Operator:
+    return "operator '" + EggTokenizerValue::getOperatorString(this->value.o) + '\'';
+  case EggTokenizerKind::String:
+    return '"' + this->value.s.toUTF8() + '"';
+  case EggTokenizerKind::Integer:
+  case EggTokenizerKind::Float:
+  case EggTokenizerKind::Identifier:
+  case EggTokenizerKind::Attribute:
+    return '\'' + this->value.s.toUTF8() + '\'';
+  case EggTokenizerKind::EndOfFile:
+    return "<end-of-file>";
+  }
+  return "<unknown>";
+}
+
 namespace {
   using namespace egg::yolk;
 

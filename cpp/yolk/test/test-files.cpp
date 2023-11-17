@@ -63,3 +63,15 @@ TEST(TestFiles, ReadDirectory) {
   filenames = egg::yolk::File::readDirectory("~/missing-in-action");
   ASSERT_TRUE(filenames.empty());
 }
+
+TEST(TestFiles, KindUnknown) {
+  ASSERT_EQ(egg::yolk::File::Kind::Unknown, egg::yolk::File::getKind("~/missing-in-action"));
+}
+
+TEST(TestFiles, KindDirectory) {
+  ASSERT_EQ(egg::yolk::File::Kind::Directory, egg::yolk::File::getKind("~/data"));
+}
+
+TEST(TestFiles, KindFile) {
+  ASSERT_EQ(egg::yolk::File::Kind::File, egg::yolk::File::getKind("~/data/egg.png"));
+}

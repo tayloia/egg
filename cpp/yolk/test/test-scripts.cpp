@@ -42,9 +42,11 @@ namespace {
     static std::string execute(TextStream& stream) {
       egg::test::VM vm;
       auto program = EggCompilerFactory::compileFromStream(*vm, stream);
-      auto runner = program->createRunner();
-      vm.addBuiltins(*runner);
-      vm.run(*runner);
+      if (program != nullptr) {
+        auto runner = program->createRunner();
+        vm.addBuiltins(*runner);
+        vm.run(*runner);
+      }
       return vm.logger.logged.str();
     }
     static std::string expectation(TextStream& stream) {
@@ -70,6 +72,10 @@ namespace {
     static std::vector<std::string> find() {
       // Find all the scripts
       auto results = File::readDirectory(TestScripts::directory);
+      auto predicate = [](const std::string& path) {
+        return File::getKind(TestScripts::directory + "/" + path) != File::Kind::File;
+      };
+      results.erase(std::remove_if(results.begin(), results.end(), predicate), results.end());
       if (results.empty()) {
         // Push a dummy entry so that problems with script discovery don't just skip all the tests
         results.push_back("missing");

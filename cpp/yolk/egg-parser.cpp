@@ -66,6 +66,9 @@ namespace {
     EggParserTokens tokens;
     std::vector<Issue> issues;
   public:
+    using UnaryOp = egg::ovum::IVMExecution::UnaryOp;
+    using BinaryOp = egg::ovum::IVMExecution::BinaryOp;
+    using MutationOp = egg::ovum::IVMExecution::MutationOp;
     EggParser(egg::ovum::IAllocator& allocator, const std::shared_ptr<IEggTokenizer>& tokenizer)
       : allocator(allocator),
         tokens(tokenizer) {
@@ -137,6 +140,12 @@ namespace {
         assert(this->node != nullptr);
         return this->parser.getAbsolute(this->tokensAfter + offset);
       }
+      template<typename... ARGS>
+      void fail(ARGS&&... args) {
+        auto issue = this->parser.createIssue(this->tokensBefore, this->tokensAfter, std::forward<ARGS>(args)...);
+        this->parser.issues.push_back(issue);
+        this->node.reset();
+      }
       void wrap(Node::Kind kind) {
         assert(this->node != nullptr);
         auto wrapper = this->parser.makeNode(kind, this->node->begin, this->node->end);
@@ -175,55 +184,53 @@ namespace {
         return this->failed();
       }
       template<typename... ARGS>
-      Partial failed(size_t tokidx, ARGS&&... args) const {
-        return this->failed(parser.createIssue(*this, tokidx, std::forward<ARGS>(args)...));
+      Partial failed(size_t tokensAfter, ARGS&&... args) const {
+        return this->failed(parser.createIssue(this->tokensBefore, tokensAfter, std::forward<ARGS>(args)...));
       }
     };
-
     template<typename... ARGS>
-    Issue createIssue(const Context& context, size_t tokidx, ARGS&&... args) {
-      assert(context.tokensBefore <= tokidx);
+    Issue createIssue(size_t tokensBefore, size_t tokensAfter, ARGS&&... args) {
+      assert(tokensBefore <= tokensAfter);
       egg::ovum::StringBuilder sb;
       auto message = sb.add(std::forward<ARGS>(args)...).build(this->allocator);
-      auto& item0 = this->tokens.getAbsolute(context.tokensBefore);
+      auto& item0 = this->tokens.getAbsolute(tokensBefore);
       Location location0{ item0.line, item0.column };
-      auto& item1 = this->tokens.getAbsolute(tokidx);
+      auto& item1 = this->tokens.getAbsolute(tokensAfter);
       Location location1{ item1.line, item1.column + item1.width() };
       return { Issue::Severity::Error, message, location0, location1 };
     }
-
     Partial parseModule(size_t tokidx) {
       Context context(*this, tokidx);
-      auto partial = this->parseExpression(tokidx);
-      if (partial.succeeded() && partial.after(0).isOperator(EggTokenizerOperator::Semicolon)) {
-        // The whole statement is actually an expression
-        if (partial.node->kind == Node::Kind::ExprCall) {
-          // Wrap in a statement and swallow the semicolon
-          partial.wrap(Node::Kind::StmtCall);
-          partial.tokensAfter++;
-          return partial;
+      auto partial = this->parseValueExpressionPrimary(tokidx);
+      if (partial.succeeded()) {
+        if (partial.after(0).isOperator(EggTokenizerOperator::Semicolon)) {
+          // The whole statement is actually an expression
+          if (partial.node->kind == Node::Kind::ExprCall) {
+            // Wrap in a statement and swallow the semicolon
+            partial.wrap(Node::Kind::StmtCall);
+            partial.tokensAfter++;
+            return partial;
+          }
+          return PARSE_TODO(tokidx, "non-function expression statement");
         }
-        return PARSE_TODO(tokidx, "non-function expression statement");
+        return PARSE_TODO(partial.tokensAfter, "unexpected token after module-level expression: '", partial.after(0).toString(), "'");
       }
-      return PARSE_TODO(tokidx, "bad module-level statement");
+      return partial;
     }
-
-    Partial parseExpression(size_t tokidx) {
-      return this->parseExpressionPrimary(tokidx);
+    Partial parseValueExpression(size_t tokidx) {
+      return this->parseValueExpressionPrimary(tokidx);
     }
-
-    Partial parseExpressionPrimary(size_t tokidx) {
+    Partial parseValueExpressionPrimary(size_t tokidx) {
       Context context(*this, tokidx);
-      auto expr = this->parseExpressionPrimaryPrefix(tokidx);
-      if (expr.succeeded()) {
-        while (this->parseExpressionPrimarySuffix(expr)) {
-          // 'expr' has been updated
+      auto partial = this->parseValueExpressionPrimaryPrefix(tokidx);
+      if (partial.succeeded()) {
+        while (this->parseValueExpressionPrimarySuffix(partial)) {
+          // 'partial' has been updated
         }
       }
-      return expr;
+      return partial;
     }
-
-    Partial parseExpressionPrimaryPrefix(size_t tokidx) {
+    Partial parseValueExpressionPrimaryPrefix(size_t tokidx) {
       std::unique_ptr<Node> child;
       Context context(*this, tokidx);
       switch (context[0].kind) {
@@ -252,31 +259,52 @@ namespace {
       }
       return PARSE_TODO(tokidx, "bad expression primary prefix");
     }
-
-    bool parseExpressionPrimarySuffix(Partial& prefix) {
-      auto& next = prefix.after(0);
+    bool parseValueExpressionPrimarySuffix(Partial& partial) {
+      auto& next = partial.after(0);
       if (next.isOperator(EggTokenizerOperator::ParenthesisLeft)) {
         // TODO: Multiple arguments
-        auto argument = this->parseExpression(prefix.tokensAfter + 1);
+        auto argument = this->parseValueExpression(partial.tokensAfter + 1);
         if (argument.succeeded()) {
           if (argument.after(0).isOperator(EggTokenizerOperator::ParenthesisRight)) {
-            prefix.wrap(Node::Kind::ExprCall);
-            prefix.tokensAfter = argument.tokensAfter + 1;
-            prefix.node->children.emplace_back(std::move(argument.node));
+            partial.wrap(Node::Kind::ExprCall);
+            partial.tokensAfter = argument.tokensAfter + 1;
+            partial.node->children.emplace_back(std::move(argument.node));
             return true;
           }
+          partial.fail("TODO: Expected ')' after function call arguments, but got ", argument.after(0).toString());
+          return false;
         }
+        partial.fail("TODO: Syntax error after '(' in function call suffix");
+        return false;
+      }
+      if (next.isOperator(EggTokenizerOperator::Dot)) {
+        partial.fail("TODO: '.' expression suffix not yet implemented");
+        return false;
+      }
+      if (next.isOperator(EggTokenizerOperator::BracketLeft)) {
+        partial.fail("TODO: '[' expression suffix not yet implemented");
+        return false;
       }
       return false;
     }
-
+    bool parseBinaryOp(Partial& prefix, BinaryOp op) {
+      // WIBBLE precedence
+      auto rhs = this->parseValueExpression(prefix.tokensAfter + 1);
+      if (rhs.succeeded()) {
+        prefix.wrap(Node::Kind::ExprBinary);
+        prefix.tokensAfter = rhs.tokensAfter;
+        prefix.node->children.emplace_back(std::move(rhs.node));
+        prefix.node->op.binary = op;
+        return true;
+      }
+      return false;
+    }
     std::unique_ptr<Node> makeNode(Node::Kind kind, const Location& begin, const Location& end) {
       auto node = std::make_unique<Node>(kind);
       node->begin = begin;
       node->end = end;
       return node;
     }
-
     std::unique_ptr<Node> makeNode(Node::Kind kind, const EggTokenizerItem& item) {
       auto node = std::make_unique<Node>(kind);
       node->begin.line = item.line;
@@ -291,19 +319,16 @@ namespace {
       }
       return node;
     }
-
     std::unique_ptr<Node> makeNodeInt(Node::Kind kind, const EggTokenizerItem& item) {
       auto node = this->makeNode(kind, item);
       node->value = egg::ovum::ValueFactory::createInt(this->allocator, item.value.i);
       return node;
     }
-
     std::unique_ptr<Node> makeNodeFloat(Node::Kind kind, const EggTokenizerItem& item) {
       auto node = this->makeNode(kind, item);
       node->value = egg::ovum::ValueFactory::createFloat(this->allocator, item.value.f);
       return node;
     }
-
     std::unique_ptr<Node> makeNodeString(Node::Kind kind, const EggTokenizerItem& item) {
       auto node = this->makeNode(kind, item);
       node->value = egg::ovum::ValueFactory::createString(this->allocator, item.value.s);

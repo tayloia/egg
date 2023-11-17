@@ -1,13 +1,6 @@
 #include "yolk/yolk.h"
 
-#if EGG_PLATFORM == EGG_PLATFORM_MSVC
-#include <direct.h>
 #include <filesystem>
-#define getcwd _getcwd
-#else
-#include <unistd.h>
-#include <dirent.h>
-#endif
 
 std::string egg::yolk::File::normalizePath(const std::string& path, bool trailingSlash) {
 #if EGG_PLATFORM == EGG_PLATFORM_MSVC
@@ -81,11 +74,8 @@ namespace {
 
 std::string egg::yolk::File::getCurrentDirectory() {
   // Gets the current working directory in normalized form with a trailing slash
-  char buffer[2048];
-  if (getcwd(buffer, sizeof(buffer)) == nullptr) {
-    return "./";
-  }
-  return File::normalizePath(buffer, true);
+  auto path = std::filesystem::current_path().string();
+  return File::normalizePath(path, true);
 }
 
 std::string egg::yolk::File::getTildeDirectory() {
@@ -116,29 +106,24 @@ std::vector<std::string> egg::yolk::File::readDirectory(const std::string& path)
   // Read the directory entries
   auto native = File::denormalizePath(File::resolvePath(path), false);
   std::vector<std::string> filenames;
-#if EGG_PLATFORM == EGG_PLATFORM_MSVC
   std::error_code error;
   for (auto& file : std::filesystem::directory_iterator(native, error)) {
     auto utf8 = file.path().filename().u8string();
     filenames.push_back(File::normalizePath(std::string(reinterpret_cast<char*>(utf8.data()), utf8.size())));
   }
-#elif EGG_PLATFORM == EGG_PLATFORM_GCC
-  // GCC doesn't have "std::filesystem" at all, yet
-  DIR* dir = opendir(native.c_str());
-  if (dir != nullptr) {
-    for (auto* entry = readdir(dir); entry != nullptr; entry = readdir(dir)) {
-      if (entry->d_name[0] == '.') {
-        // Ignore "." and ".." entries
-        if ((entry->d_name[1] == '\0') || ((entry->d_name[1] == '.') && (entry->d_name[2] == '\0'))) {
-          continue;
-        }
-      }
-      filenames.push_back(File::normalizePath(entry->d_name));
-    }
-    closedir(dir);
-  }
-#else
-#error "Unsupported platform for egg::yolk::File::readDirectory"
-#endif
   return filenames;
+}
+
+egg::yolk::File::Kind egg::yolk::File::getKind(const std::string& path) {
+  // Read the directory entries
+  auto native = File::denormalizePath(File::resolvePath(path), false);
+  auto status = std::filesystem::status(native);
+  auto type = status.type();
+  if (type == std::filesystem::file_type::directory) {
+    return Kind::Directory;
+  }
+  if (type == std::filesystem::file_type::regular) {
+    return Kind::File;
+  }
+  return Kind::Unknown;
 }
