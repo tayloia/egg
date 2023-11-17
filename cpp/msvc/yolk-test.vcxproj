@@ -69,6 +69,7 @@
     <None Include="..\yolk\test\data\example.egg" />
     <None Include="..\yolk\test\data\example.json" />
     <None Include="..\yolk\test\scripts\test-0001.egg" />
+    <None Include="..\yolk\test\scripts\test-0002.egg" />
   </ItemGroup>
   <ItemGroup>
     <Text Include="..\yolk\test\data\utf-8-demo.bom.txt" />

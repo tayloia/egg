@@ -1,4 +1,56 @@
 namespace egg::ovum {
+  enum class UnaryOp {
+    Negate,             // -a
+    BitwiseNot,         // ~a
+    LogicalNot          // !a
+  };
+  enum class BinaryOp {
+    Add,                // a + b
+    Subtract,           // a - b
+    Multiply,           // a * b
+    Divide,             // a / b
+    Remainder,          // a % b
+    LessThan,           // a < b
+    LessThanOrEqual,    // a <= b
+    Equal,              // a == b
+    NotEqual,           // a != b
+    GreaterThanOrEqual, // a >= b
+    GreaterThan,        // a > b
+    BitwiseAnd,         // a & b
+    BitwiseOr,          // a | b
+    BitwiseXor,         // a ^ b
+    ShiftLeft,          // a << b
+    ShiftRight,         // a >> b
+    ShiftRightUnsigned, // a >>> b
+    IfNull,             // a ?? b
+    IfFalse,            // a && b
+    IfTrue              // a || b
+  };
+  enum class TernaryOp {
+    IfThenElse          // a ? b : c
+  };
+  enum class MutationOp {
+    Assign,             // a = b
+    Decrement,          // --a
+    Increment,          // ++a
+    Add,                // a += b
+    Subtract,           // a -= b
+    Multiply,           // a *= b
+    Divide,             // a /= b
+    Remainder,          // a %= b
+    BitwiseAnd,         // a &= b
+    BitwiseOr,          // a |= b
+    BitwiseXor,         // a ^= b
+    ShiftLeft,          // a <<= b
+    ShiftRight,         // a >>= b
+    ShiftRightUnsigned, // a >>>= b
+    IfNull,             // a ??= b
+    IfFalse,            // a &&= b
+    IfTrue,             // a ||= b
+    Noop // TODO cancels any pending prechecks on this thread
+  };
+
+
   class IVMCommon {
   public:
     // Interface
@@ -75,58 +127,10 @@ namespace egg::ovum {
     // Exceptions
     virtual HardValue raiseException(const HardValue& inner) = 0;
     virtual HardValue raiseRuntimeError(const String& message) = 0;
-    // Unary operations
-    enum class UnaryOp {
-      Negate,             // -a
-      BitwiseNot,         // ~a
-      LogicalNot          // !a
-    };
+    // Operations
     virtual HardValue evaluateUnaryOp(UnaryOp op, const HardValue& arg) = 0;
-    // Binary operations
-    enum class BinaryOp {
-      Add,                // a + b
-      Subtract,           // a - b
-      Multiply,           // a * b
-      Divide,             // a / b
-      Remainder,          // a % b
-      LessThan,           // a < b
-      LessThanOrEqual,    // a <= b
-      Equal,              // a == b
-      NotEqual,           // a != b
-      GreaterThanOrEqual, // a >= b
-      GreaterThan,        // a > b
-      BitwiseAnd,         // a & b
-      BitwiseOr,          // a | b
-      BitwiseXor,         // a ^ b
-      ShiftLeft,          // a << b
-      ShiftRight,         // a >> b
-      ShiftRightUnsigned, // a >>> b
-      IfNull,             // a ?? b
-      IfFalse,            // a && b
-      IfTrue              // a || b
-    };
     virtual HardValue evaluateBinaryOp(BinaryOp op, const HardValue& lhs, const HardValue& rhs) = 0;
-    // Mutation operations
-    enum class MutationOp {
-      Assign,             // a = b
-      Decrement,          // --a
-      Increment,          // ++a
-      Add,                // a += b
-      Subtract,           // a -= b
-      Multiply,           // a *= b
-      Divide,             // a /= b
-      Remainder,          // a %= b
-      BitwiseAnd,         // a &= b
-      BitwiseOr,          // a |= b
-      BitwiseXor,         // a ^= b
-      ShiftLeft,          // a <<= b
-      ShiftRight,         // a >>= b
-      ShiftRightUnsigned, // a >>>= b
-      IfNull,             // a ??= b
-      IfFalse,            // a &&= b
-      IfTrue,             // a ||= b
-      Noop // TODO cancels any pending prechecks on this thread
-    };
+    virtual HardValue evaluateTernaryOp(TernaryOp op, const HardValue& lhs, const HardValue& mid, const HardValue& rhs) = 0;
     virtual HardValue precheckMutationOp(MutationOp op, HardValue& lhs, ValueFlags rhs) = 0;
     virtual HardValue evaluateMutationOp(MutationOp op, HardValue& lhs, const HardValue& rhs) = 0;
   };
@@ -178,8 +182,9 @@ namespace egg::ovum {
     virtual void addStatement(Node& statement) = 0;
     virtual HardPtr<IVMModule> build() = 0;
     // Expression factories
-    virtual Node& exprUnaryOp(IVMExecution::UnaryOp op, Node& arg, size_t line, size_t column) = 0;
-    virtual Node& exprBinaryOp(IVMExecution::BinaryOp op, Node& lhs, Node& rhs, size_t line, size_t column) = 0;
+    virtual Node& exprUnaryOp(UnaryOp op, Node& arg, size_t line, size_t column) = 0;
+    virtual Node& exprBinaryOp(BinaryOp op, Node& lhs, Node& rhs, size_t line, size_t column) = 0;
+    virtual Node& exprTernaryOp(TernaryOp op, Node& lhs, Node& mid, Node& rhs, size_t line, size_t column) = 0;
     virtual Node& exprVariable(const String& symbol, size_t line, size_t column) = 0;
     virtual Node& exprLiteral(const HardValue& literal, size_t line, size_t column) = 0;
     virtual Node& exprPropertyGet(Node& instance, Node& property, size_t line, size_t column) = 0;
@@ -197,7 +202,7 @@ namespace egg::ovum {
     virtual Node& stmtVariableDeclare(const String& symbol, size_t line, size_t column) = 0;
     virtual Node& stmtVariableDefine(const String& symbol, Node& value, size_t line, size_t column) = 0;
     virtual Node& stmtVariableSet(const String& symbol, Node& value, size_t line, size_t column) = 0;
-    virtual Node& stmtVariableMutate(const String& symbol, IVMExecution::MutationOp op, Node& value, size_t line, size_t column) = 0;
+    virtual Node& stmtVariableMutate(const String& symbol, MutationOp op, Node& value, size_t line, size_t column) = 0;
     virtual Node& stmtPropertySet(Node& instance, Node& property, Node& value, size_t line, size_t column) = 0;
     virtual Node& stmtFunctionCall(Node& function, size_t line, size_t column) = 0;
     virtual Node& stmtThrow(Node& exception, size_t line, size_t column) = 0;

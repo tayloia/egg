@@ -25,6 +25,7 @@ namespace egg::yolk {
         ExprVar,
         ExprUnary,
         ExprBinary,
+        ExprTernary,
         ExprCall,
         Literal
       };
@@ -32,9 +33,10 @@ namespace egg::yolk {
       std::vector<std::unique_ptr<Node>> children;
       egg::ovum::HardValue value;
       union {
-        egg::ovum::IVMExecution::UnaryOp unary;
-        egg::ovum::IVMExecution::BinaryOp binary;
-        egg::ovum::IVMExecution::MutationOp mutation;
+        egg::ovum::UnaryOp unary;
+        egg::ovum::BinaryOp binary;
+        egg::ovum::TernaryOp ternary;
+        egg::ovum::MutationOp mutation;
       } op;
       Location begin;
       Location end;

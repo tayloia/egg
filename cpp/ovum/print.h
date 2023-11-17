@@ -4,6 +4,10 @@ namespace egg::ovum {
   class SoftObject;
   class SoftKey;
   class SoftValue;
+  enum class UnaryOp;
+  enum class BinaryOp;
+  enum class TernaryOp;
+  enum class MutationOp;
 
   class Print {
   public:
@@ -37,6 +41,10 @@ namespace egg::ovum {
     static void write(std::ostream& stream, ValueFlags value, const Options& options);
     static void write(std::ostream& stream, ILogger::Severity value, const Options& options);
     static void write(std::ostream& stream, ILogger::Source value, const Options& options);
+    static void write(std::ostream& stream, UnaryOp value, const Options& options);
+    static void write(std::ostream& stream, BinaryOp value, const Options& options);
+    static void write(std::ostream& stream, TernaryOp value, const Options& options);
+    static void write(std::ostream& stream, MutationOp value, const Options& options);
     template<typename T>
     static void write(std::ostream& stream, const HardPtr<T>& value, const Options& options) {
       write(stream, static_cast<const ICollectable*>(value.get()), options);

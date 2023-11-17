@@ -154,6 +154,164 @@ void egg::ovum::Print::write(std::ostream& stream, ILogger::Source value, const 
   }
 }
 
+void egg::ovum::Print::write(std::ostream& stream, UnaryOp value, const Options&) {
+  switch (value) {
+  case UnaryOp::Negate:
+    stream << "-";
+    break;
+  case UnaryOp::BitwiseNot:
+    stream << "~";
+    break;
+  case UnaryOp::LogicalNot:
+    stream << "!";
+    break;
+  default:
+    stream << "<UNKNOWN:" << int(value) << ">";
+    break;
+  }
+}
+
+void egg::ovum::Print::write(std::ostream& stream, BinaryOp value, const Options&) {
+  switch (value) {
+  case BinaryOp::Add:
+    stream << "+";
+    break;
+  case BinaryOp::Subtract:
+    stream << "-";
+    break;
+  case BinaryOp::Multiply:
+    stream << "*";
+    break;
+  case BinaryOp::Divide:
+    stream << "/";
+    break;
+  case BinaryOp::Remainder:
+    stream << "%";
+    break;
+  case BinaryOp::LessThan:
+    stream << "<";
+    break;
+  case BinaryOp::LessThanOrEqual:
+    stream << "<=";
+    break;
+  case BinaryOp::Equal:
+    stream << "==";
+    break;
+  case BinaryOp::NotEqual:
+    stream << "!=";
+    break;
+  case BinaryOp::GreaterThanOrEqual:
+    stream << ">=";
+    break;
+  case BinaryOp::GreaterThan:
+    stream << ">";
+    break;
+  case BinaryOp::BitwiseAnd:
+    stream << "&";
+    break;
+  case BinaryOp::BitwiseOr:
+    stream << "|";
+    break;
+  case BinaryOp::BitwiseXor:
+    stream << "^";
+    break;
+  case BinaryOp::ShiftLeft:
+    stream << "<<";
+    break;
+  case BinaryOp::ShiftRight:
+    stream << ">>";
+    break;
+  case BinaryOp::ShiftRightUnsigned:
+    stream << ">>>";
+    break;
+  case BinaryOp::IfNull:
+    stream << "??";
+    break;
+  case BinaryOp::IfFalse:
+    stream << "&&";
+    break;
+  case BinaryOp::IfTrue:
+    stream << "||";
+    break;
+  default:
+    stream << "<UNKNOWN:" << int(value) << ">";
+    break;
+  }
+}
+
+void egg::ovum::Print::write(std::ostream& stream, TernaryOp value, const Options&) {
+  switch (value) {
+  case TernaryOp::IfThenElse:
+    stream << "?:";
+    break;
+  default:
+    stream << "<UNKNOWN:" << int(value) << ">";
+    break;
+  }
+}
+
+void egg::ovum::Print::write(std::ostream& stream, MutationOp value, const Options&) {
+  switch (value) {
+  case MutationOp::Assign:
+    stream << "=";
+    break;
+  case MutationOp::Decrement:
+    stream << "--";
+    break;
+  case MutationOp::Increment:
+    stream << "++";
+    break;
+  case MutationOp::Add:
+    stream << "+=";
+    break;
+  case MutationOp::Subtract:
+    stream << "-=";
+    break;
+  case MutationOp::Multiply:
+    stream << "*=";
+    break;
+  case MutationOp::Divide:
+    stream << "/=";
+    break;
+  case MutationOp::Remainder:
+    stream << "%=";
+    break;
+  case MutationOp::BitwiseAnd:
+    stream << "&=";
+    break;
+  case MutationOp::BitwiseOr:
+    stream << "|=";
+    break;
+  case MutationOp::BitwiseXor:
+    stream << "^=";
+    break;
+  case MutationOp::ShiftLeft:
+    stream << "<<=";
+    break;
+  case MutationOp::ShiftRight:
+    stream << ">>=";
+    break;
+  case MutationOp::ShiftRightUnsigned:
+    stream << ">>>=";
+    break;
+  case MutationOp::IfNull:
+    stream << "??=";
+    break;
+  case MutationOp::IfFalse:
+    stream << "&&=";
+    break;
+  case MutationOp::IfTrue:
+    stream << "||=";
+    break;
+  case MutationOp::Noop:
+    stream << "<NOOP>";
+    break;
+  default:
+    stream << "<UNKNOWN:" << int(value) << ">";
+    break;
+  }
+}
+
 void egg::ovum::Print::write(std::ostream& stream, ILogger::Severity value, const Options&) {
   switch (value) {
   case ILogger::Severity::None:

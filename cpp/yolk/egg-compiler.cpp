@@ -70,6 +70,7 @@ namespace {
     ModuleNode* compileExprVar(ParserNode& pnode);
     ModuleNode* compileExprUnary(ParserNode& op, ParserNode& rhs);
     ModuleNode* compileExprBinary(ParserNode& op, ParserNode& lhs, ParserNode& rhs);
+    ModuleNode* compileExprTernary(ParserNode& op, ParserNode& lhs, ParserNode& mid, ParserNode& rhs);
     ModuleNode* compileExprCall(ParserNodes& pnodes);
     ModuleNode* compileLiteral(ParserNode& pnode);
     void log(egg::ovum::ILogger::Source source, egg::ovum::ILogger::Severity severity, const egg::ovum::String& message) const {
@@ -179,6 +180,7 @@ ModuleNode* ModuleCompiler::compileStmt(ParserNode& pnode, const StmtContext& co
   case ParserNode::Kind::ExprVar:
   case ParserNode::Kind::ExprUnary:
   case ParserNode::Kind::ExprBinary:
+  case ParserNode::Kind::ExprTernary:
   case ParserNode::Kind::ExprCall:
   case ParserNode::Kind::Literal:
   default:
@@ -222,6 +224,12 @@ ModuleNode* ModuleCompiler::compileExpr(ParserNode& pnode) {
     EXPECT(pnode, pnode.children[0] != nullptr);
     EXPECT(pnode, pnode.children[1] != nullptr);
     return this->compileExprBinary(pnode, *pnode.children[0], *pnode.children[1]);
+  case ParserNode::Kind::ExprTernary:
+    EXPECT(pnode, pnode.children.size() == 3);
+    EXPECT(pnode, pnode.children[0] != nullptr);
+    EXPECT(pnode, pnode.children[1] != nullptr);
+    EXPECT(pnode, pnode.children[2] != nullptr);
+    return this->compileExprTernary(pnode, *pnode.children[0], *pnode.children[1], *pnode.children[2]);
   case ParserNode::Kind::ExprCall:
     EXPECT(pnode, pnode.children.size() > 0);
     return this->compileExprCall(pnode.children);
@@ -256,6 +264,20 @@ ModuleNode* ModuleCompiler::compileExprBinary(ParserNode& op, ParserNode& lhs, P
     auto* rexpr = this->compileExpr(rhs);
     if (rexpr != nullptr) {
       return &this->mbuilder.exprBinaryOp(op.op.binary, *lexpr, *rexpr, op.begin.line, op.begin.column);
+    }
+  }
+  return nullptr;
+}
+
+ModuleNode* ModuleCompiler::compileExprTernary(ParserNode& op, ParserNode& lhs, ParserNode& mid, ParserNode& rhs) {
+  auto* lexpr = this->compileExpr(lhs);
+  if (lexpr != nullptr) {
+    auto* mexpr = this->compileExpr(mid);
+    if (mexpr != nullptr) {
+      auto* rexpr = this->compileExpr(rhs);
+      if (rexpr != nullptr) {
+        return &this->mbuilder.exprTernaryOp(op.op.ternary, *lexpr, *mexpr, *rexpr, op.begin.line, op.begin.column);
+      }
     }
   }
   return nullptr;
@@ -297,6 +319,8 @@ std::string ModuleCompiler::toString(const ParserNode& pnode) {
     return "unary operator";
   case ParserNode::Kind::ExprBinary:
     return "binary operator";
+  case ParserNode::Kind::ExprTernary:
+    return "ternary operator";
   case ParserNode::Kind::ExprCall:
     return "call expression";
   case ParserNode::Kind::Literal:

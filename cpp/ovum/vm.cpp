@@ -17,6 +17,7 @@ public:
     Root,
     ExprUnaryOp,
     ExprBinaryOp,
+    ExprTernaryOp,
     ExprVariable,
     ExprLiteral,
     ExprPropertyGet,
@@ -46,9 +47,10 @@ public:
   size_t column; // May be zero
   HardValue literal; // Only stores simple literals
   union {
-    IVMExecution::UnaryOp unaryOp;
-    IVMExecution::BinaryOp binaryOp;
-    IVMExecution::MutationOp mutationOp;
+    UnaryOp unaryOp;
+    BinaryOp binaryOp;
+    TernaryOp ternaryOp;
+    MutationOp mutationOp;
     size_t defaultIndex;
   };
   std::vector<Node*> children; // Reference-counting hard pointers are stored in the chain
@@ -341,6 +343,9 @@ namespace {
     virtual HardValue evaluateBinaryOp(BinaryOp op, const HardValue& lhs, const HardValue& rhs) override {
       return this->augment(this->binary(op, lhs, rhs));
     }
+    virtual HardValue evaluateTernaryOp(TernaryOp op, const HardValue& lhs, const HardValue& mid, const HardValue& rhs) override {
+      return this->augment(this->ternary(op, lhs, mid, rhs));
+    }
     virtual HardValue precheckMutationOp(MutationOp op, HardValue& lhs, ValueFlags rhs) override {
       // Handle short-circuits (returns 'Continue' if rhs should be evaluated)
       return this->augment(this->precheck(op, lhs, rhs));
@@ -625,6 +630,17 @@ namespace {
       }
       return this->raise("TODO: Unknown binary operator");
     }
+    HardValue ternary(TernaryOp op, const HardValue& lhs, const HardValue& mid, const HardValue& rhs) {
+      Bool condition;
+      switch (op) {
+      case TernaryOp::IfThenElse:
+        if (lhs->getBool(condition)) {
+          return condition ? mid : rhs;
+        }
+        return this->raise("TODO: Invalid condition value for '?:' ternary operator");
+      }
+      return this->raise("TODO: Unknown ternary operator");
+    }
     HardValue precheck(MutationOp op, HardValue& lhs, ValueFlags rhs) {
       // Handle short-circuits (returns 'Continue' if rhs should be evaluated)
       Bool bvalue;
@@ -747,16 +763,24 @@ namespace {
       }
       return built;
     }
-    virtual Node& exprUnaryOp(IVMExecution::UnaryOp op, Node& arg, size_t line, size_t column) override {
+    virtual Node& exprUnaryOp(UnaryOp op, Node& arg, size_t line, size_t column) override {
       auto& node = this->module->createNode(Node::Kind::ExprUnaryOp, line, column);
       node.unaryOp = op;
       node.addChild(arg);
       return node;
     }
-    virtual Node& exprBinaryOp(IVMExecution::BinaryOp op, Node& lhs, Node& rhs, size_t line, size_t column) override {
+    virtual Node& exprBinaryOp(BinaryOp op, Node& lhs, Node& rhs, size_t line, size_t column) override {
       auto& node = this->module->createNode(Node::Kind::ExprBinaryOp, line, column);
       node.binaryOp = op;
       node.addChild(lhs);
+      node.addChild(rhs);
+      return node;
+    }
+    virtual Node& exprTernaryOp(TernaryOp op, Node& lhs, Node& mid, Node& rhs, size_t line, size_t column) override {
+      auto& node = this->module->createNode(Node::Kind::ExprTernaryOp, line, column);
+      node.ternaryOp = op;
+      node.addChild(lhs);
+      node.addChild(mid);
       node.addChild(rhs);
       return node;
     }
@@ -847,7 +871,7 @@ namespace {
       node.addChild(value);
       return node;
     }
-    virtual Node& stmtVariableMutate(const String& symbol, IVMExecution::MutationOp op, Node& value, size_t line, size_t column) override {
+    virtual Node& stmtVariableMutate(const String& symbol, MutationOp op, Node& value, size_t line, size_t column) override {
       auto& node = this->module->createNode(Node::Kind::StmtVariableMutate, line, column);
       node.literal = this->createHardValueString(symbol);
       node.mutationOp = op;
@@ -1808,20 +1832,20 @@ bool VMRunner::stepNode(HardValue& retval) {
       }
       if (top.index == 1) {
         assert(top.deque.size() == 1);
-        if (top.node->binaryOp == IVMExecution::BinaryOp::IfNull) {
+        if (top.node->binaryOp == BinaryOp::IfNull) {
           // Short-circuit '??'
           if (!latest->getNull()) {
             // lhs is not null; no need to evaluate rhs
             return this->pop(latest);
           }
-        } else if (top.node->binaryOp == IVMExecution::BinaryOp::IfFalse) {
+        } else if (top.node->binaryOp == BinaryOp::IfFalse) {
           // Short-circuit '||'
           Bool lhs;
           if (latest->getBool(lhs) && lhs) {
             // lhs is true; no need to evaluate rhs
             return this->pop(HardValue::True);
           }
-        } else if (top.node->binaryOp == IVMExecution::BinaryOp::IfTrue) {
+        } else if (top.node->binaryOp == BinaryOp::IfTrue) {
           // Short-circuit '&&'
           Bool lhs;
           if (latest->getBool(lhs) && !lhs) {
@@ -1834,6 +1858,35 @@ bool VMRunner::stepNode(HardValue& retval) {
         assert(top.deque.size() == 2);
         auto result = this->execution.evaluateBinaryOp(top.node->binaryOp, top.deque.front(), top.deque.back());
         return this->pop(result);
+      }
+    }
+    break;
+  case IVMModule::Node::Kind::ExprTernaryOp:
+    assert(top.node->ternaryOp == TernaryOp::IfThenElse);
+    assert(top.node->children.size() == 3);
+    assert(top.index <= 3);
+    if (top.index == 0) {
+      // Evaluate the condition
+      this->push(*top.node->children[top.index++]);
+    } else {
+      // Check the last evaluation
+      auto& latest = top.deque.back();
+      if (latest.hasFlowControl()) {
+        return this->pop(latest);
+      }
+      if (top.index == 1) {
+        // Short-circuit '?:'
+        assert(top.deque.size() == 1);
+        Bool condition;
+        if (!latest->getBool(condition)) {
+          // The second and third operands are irrelevant; we just want the error message
+          auto fail = this->execution.evaluateTernaryOp(top.node->ternaryOp, latest, HardValue::Void, HardValue::Void);
+          return this->pop(fail);
+        }
+        this->push(*top.node->children[condition ? 1u : 2u]);
+        top.index++;
+      } else {
+        return this->pop(latest);
       }
     }
     break;

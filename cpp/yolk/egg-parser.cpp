@@ -66,9 +66,6 @@ namespace {
     EggParserTokens tokens;
     std::vector<Issue> issues;
   public:
-    using UnaryOp = egg::ovum::IVMExecution::UnaryOp;
-    using BinaryOp = egg::ovum::IVMExecution::BinaryOp;
-    using MutationOp = egg::ovum::IVMExecution::MutationOp;
     EggParser(egg::ovum::IAllocator& allocator, const std::shared_ptr<IEggTokenizer>& tokenizer)
       : allocator(allocator),
         tokens(tokenizer) {
@@ -146,6 +143,17 @@ namespace {
         this->parser.issues.push_back(issue);
         this->node.reset();
       }
+      void fail(Partial& failed) {
+        assert(&failed.parser == &this->parser);
+        assert(failed.node == nullptr);
+        assert(failed.tokensBefore >= this->tokensBefore);
+        assert(failed.tokensAfter >= failed.tokensBefore);
+        assert(failed.issuesBefore >= this->issuesBefore);
+        assert(failed.issuesAfter >= failed.issuesBefore);
+        this->node.reset();
+        this->tokensAfter = failed.tokensAfter; 
+        this->issuesAfter = failed.issuesAfter;
+      }
       void wrap(Node::Kind kind) {
         assert(this->node != nullptr);
         auto wrapper = this->parser.makeNode(kind, this->node->begin, this->node->end);
@@ -218,14 +226,210 @@ namespace {
       return partial;
     }
     Partial parseValueExpression(size_t tokidx) {
+      Context context(*this, tokidx);
+      auto lhs = this->parseValueExpressionBinary(tokidx);
+      if (lhs.succeeded()) {
+        if (lhs.after(0).isOperator(EggTokenizerOperator::Query)) {
+          auto mid = this->parseValueExpression(lhs.tokensAfter + 1);
+          if (!mid.succeeded()) {
+            return mid;
+          }
+          if (mid.after(0).isOperator(EggTokenizerOperator::Colon)) {
+            auto rhs = this->parseValueExpression(mid.tokensAfter + 1);
+            if (!rhs.succeeded()) {
+              return rhs;
+            }
+            lhs.wrap(Node::Kind::ExprTernary);
+            lhs.tokensAfter = rhs.tokensAfter;
+            lhs.node->children.emplace_back(std::move(mid.node));
+            lhs.node->children.emplace_back(std::move(rhs.node));
+            lhs.node->op.ternary = egg::ovum::TernaryOp::IfThenElse;
+          }
+        }
+      }
+      return lhs;
+    }
+    Partial parseValueExpressionBinary(size_t tokidx) {
+      Context context(*this, tokidx);
+      auto lhs = this->parseValueExpressionUnary(tokidx);
+      if (!lhs.succeeded()) {
+        return lhs;
+      }
+      const auto& op = lhs.after(0);
+      if (op.kind == EggTokenizerKind::Operator) {
+        switch (op.value.o) {
+        case EggTokenizerOperator::Percent: // "%"
+          break;
+        case EggTokenizerOperator::Ampersand: // "&"
+          break;
+        case EggTokenizerOperator::AmpersandAmpersand: // "&&"
+          break;
+        case EggTokenizerOperator::Star: // "*"
+          return this->parseValueExpressionBinaryOperator(lhs, egg::ovum::BinaryOp::Multiply);
+        case EggTokenizerOperator::Plus: // "+"
+          return this->parseValueExpressionBinaryOperator(lhs, egg::ovum::BinaryOp::Add);
+        case EggTokenizerOperator::Slash: // "/"
+          break;
+        case EggTokenizerOperator::Minus: // "-"
+          break;
+        case EggTokenizerOperator::Less: // "<"
+          break;
+        case EggTokenizerOperator::ShiftLeft: // "<<"
+          break;
+        case EggTokenizerOperator::EqualEqual: // "=="
+          break;
+        case EggTokenizerOperator::Greater: // ">"
+          break;
+        case EggTokenizerOperator::GreaterEqual: // ">="
+          break;
+        case EggTokenizerOperator::ShiftRight: // ">>"
+          break;
+        case EggTokenizerOperator::ShiftRightUnsigned: // ">>>"
+          break;
+        case EggTokenizerOperator::QueryQuery: // "??"
+          break;
+        case EggTokenizerOperator::Caret: // "^"
+          break;
+        case EggTokenizerOperator::Bar: // "|"
+          break;
+        case EggTokenizerOperator::BarBar: // "||"
+          break;
+        case EggTokenizerOperator::Bang: // "!"
+        case EggTokenizerOperator::BangEqual: // "!="
+        case EggTokenizerOperator::PercentEqual: // "%="
+        case EggTokenizerOperator::AmpersandAmpersandEqual: // "&&="
+        case EggTokenizerOperator::AmpersandEqual: // "&="
+        case EggTokenizerOperator::ParenthesisLeft: // "("
+        case EggTokenizerOperator::ParenthesisRight: // ")"
+        case EggTokenizerOperator::StarEqual: // "*="
+        case EggTokenizerOperator::PlusPlus: // "++"
+        case EggTokenizerOperator::PlusEqual: // "+="
+        case EggTokenizerOperator::Comma: // ","
+        case EggTokenizerOperator::MinusMinus: // "--"
+        case EggTokenizerOperator::MinusEqual: // "-="
+        case EggTokenizerOperator::Lambda: // "->"
+        case EggTokenizerOperator::Dot: // "."
+        case EggTokenizerOperator::Ellipsis: // "..."
+        case EggTokenizerOperator::SlashEqual: // "/="
+        case EggTokenizerOperator::Colon: // ":"
+        case EggTokenizerOperator::Semicolon: // ";"
+        case EggTokenizerOperator::ShiftLeftEqual: // "<<="
+        case EggTokenizerOperator::LessEqual: // "<="
+        case EggTokenizerOperator::Equal: // "="
+        case EggTokenizerOperator::ShiftRightEqual: // ">>="
+        case EggTokenizerOperator::ShiftRightUnsignedEqual: // ">>>="
+        case EggTokenizerOperator::Query: // "?"
+        case EggTokenizerOperator::QueryQueryEqual: // "??="
+        case EggTokenizerOperator::BracketLeft: // "["
+        case EggTokenizerOperator::BracketRight: // "]"
+        case EggTokenizerOperator::CaretEqual: // "^="
+        case EggTokenizerOperator::CurlyLeft: // "{"
+        case EggTokenizerOperator::BarEqual: // "|="
+        case EggTokenizerOperator::BarBarEqual: // "||="
+        case EggTokenizerOperator::CurlyRight: // "}"
+        case EggTokenizerOperator::Tilde: // "~"
+          return lhs;
+        default:
+          break;
+        }
+        return PARSE_TODO(tokidx, "bad binary expression operator: ", op.toString());
+      }
+      return lhs;
+    }
+    Partial parseValueExpressionBinaryOperator(Partial& lhs, egg::ovum::BinaryOp op) {
+      // WIBBLE precedence
+      auto rhs = this->parseValueExpression(lhs.tokensAfter + 1);
+      if (rhs.succeeded()) {
+        lhs.wrap(Node::Kind::ExprBinary);
+        lhs.tokensAfter = rhs.tokensAfter;
+        lhs.node->children.emplace_back(std::move(rhs.node));
+        lhs.node->op.binary = op;
+        return std::move(lhs);
+      }
+      return rhs;
+    }
+    Partial parseValueExpressionUnary(size_t tokidx) {
+      Context context(*this, tokidx);
+      const auto& op = context[0];
+      if (op.kind == EggTokenizerKind::Operator) {
+        switch (op.value.o) {
+        case EggTokenizerOperator::Bang: // "!"
+          return this->parseValueExpressionUnaryOperator(tokidx + 1, egg::ovum::UnaryOp::LogicalNot);
+        case EggTokenizerOperator::Minus: // "-"
+          return this->parseValueExpressionUnaryOperator(tokidx + 1, egg::ovum::UnaryOp::Negate);
+        case EggTokenizerOperator::Tilde: // "~"
+          return this->parseValueExpressionUnaryOperator(tokidx + 1, egg::ovum::UnaryOp::BitwiseNot);
+        case EggTokenizerOperator::BangEqual: // "!="
+        case EggTokenizerOperator::Percent: // "%"
+        case EggTokenizerOperator::PercentEqual: // "%="
+        case EggTokenizerOperator::Ampersand: // "&"
+        case EggTokenizerOperator::AmpersandAmpersand: // "&&"
+        case EggTokenizerOperator::AmpersandAmpersandEqual: // "&&="
+        case EggTokenizerOperator::AmpersandEqual: // "&="
+        case EggTokenizerOperator::ParenthesisLeft: // "("
+        case EggTokenizerOperator::ParenthesisRight: // ")"
+        case EggTokenizerOperator::Star: // "*"
+        case EggTokenizerOperator::StarEqual: // "*="
+        case EggTokenizerOperator::Plus: // "+"
+        case EggTokenizerOperator::PlusPlus: // "++"
+        case EggTokenizerOperator::PlusEqual: // "+="
+        case EggTokenizerOperator::Comma: // ","
+        case EggTokenizerOperator::MinusMinus: // "--"
+        case EggTokenizerOperator::MinusEqual: // "-="
+        case EggTokenizerOperator::Lambda: // "->"
+        case EggTokenizerOperator::Dot: // "."
+        case EggTokenizerOperator::Ellipsis: // "..."
+        case EggTokenizerOperator::Slash: // "/"
+        case EggTokenizerOperator::SlashEqual: // "/="
+        case EggTokenizerOperator::Colon: // ":"
+        case EggTokenizerOperator::Semicolon: // ";"
+        case EggTokenizerOperator::Less: // "<"
+        case EggTokenizerOperator::ShiftLeft: // "<<"
+        case EggTokenizerOperator::ShiftLeftEqual: // "<<="
+        case EggTokenizerOperator::LessEqual: // "<="
+        case EggTokenizerOperator::Equal: // "="
+        case EggTokenizerOperator::EqualEqual: // "=="
+        case EggTokenizerOperator::Greater: // ">"
+        case EggTokenizerOperator::GreaterEqual: // ">="
+        case EggTokenizerOperator::ShiftRight: // ">>"
+        case EggTokenizerOperator::ShiftRightEqual: // ">>="
+        case EggTokenizerOperator::ShiftRightUnsigned: // ">>>"
+        case EggTokenizerOperator::ShiftRightUnsignedEqual: // ">>>="
+        case EggTokenizerOperator::Query: // "?"
+        case EggTokenizerOperator::QueryQuery: // "??"
+        case EggTokenizerOperator::QueryQueryEqual: // "??="
+        case EggTokenizerOperator::BracketLeft: // "["
+        case EggTokenizerOperator::BracketRight: // "]"
+        case EggTokenizerOperator::Caret: // "^"
+        case EggTokenizerOperator::CaretEqual: // "^="
+        case EggTokenizerOperator::CurlyLeft: // "{"
+        case EggTokenizerOperator::Bar: // "|"
+        case EggTokenizerOperator::BarEqual: // "|="
+        case EggTokenizerOperator::BarBar: // "||"
+        case EggTokenizerOperator::BarBarEqual: // "||="
+        case EggTokenizerOperator::CurlyRight: // "}"
+          return context.failed(tokidx, "bad unary expression operator: ", op.toString());
+        default:
+          break;
+        }
+        return PARSE_TODO(tokidx, "invalid unary expression operator: ", op.toString());
+      }
       return this->parseValueExpressionPrimary(tokidx);
+    }
+    Partial parseValueExpressionUnaryOperator(size_t tokidx, egg::ovum::UnaryOp op) {
+      auto rhs = this->parseValueExpression(tokidx);
+      if (rhs.succeeded()) {
+        rhs.wrap(Node::Kind::ExprUnary);
+        rhs.node->op.unary = op;
+      }
+      return rhs;
     }
     Partial parseValueExpressionPrimary(size_t tokidx) {
       Context context(*this, tokidx);
       auto partial = this->parseValueExpressionPrimaryPrefix(tokidx);
-      if (partial.succeeded()) {
-        while (this->parseValueExpressionPrimarySuffix(partial)) {
-          // 'partial' has been updated
+      while (partial.succeeded()) {
+        if (!this->parseValueExpressionPrimarySuffix(partial)) {
+          break;
         }
       }
       return partial;
@@ -260,21 +464,22 @@ namespace {
       return PARSE_TODO(tokidx, "bad expression primary prefix");
     }
     bool parseValueExpressionPrimarySuffix(Partial& partial) {
+      assert(partial.succeeded());
       auto& next = partial.after(0);
       if (next.isOperator(EggTokenizerOperator::ParenthesisLeft)) {
         // TODO: Multiple arguments
         auto argument = this->parseValueExpression(partial.tokensAfter + 1);
-        if (argument.succeeded()) {
-          if (argument.after(0).isOperator(EggTokenizerOperator::ParenthesisRight)) {
-            partial.wrap(Node::Kind::ExprCall);
-            partial.tokensAfter = argument.tokensAfter + 1;
-            partial.node->children.emplace_back(std::move(argument.node));
-            return true;
-          }
-          partial.fail("TODO: Expected ')' after function call arguments, but got ", argument.after(0).toString());
+        if (!argument.succeeded()) {
+          partial.fail(argument);
           return false;
         }
-        partial.fail("TODO: Syntax error after '(' in function call suffix");
+        if (argument.after(0).isOperator(EggTokenizerOperator::ParenthesisRight)) {
+          partial.wrap(Node::Kind::ExprCall);
+          partial.tokensAfter = argument.tokensAfter + 1;
+          partial.node->children.emplace_back(std::move(argument.node));
+          return true;
+        }
+        partial.fail("TODO: Expected ')' after function call arguments, but got ", argument.after(0).toString());
         return false;
       }
       if (next.isOperator(EggTokenizerOperator::Dot)) {
@@ -284,18 +489,6 @@ namespace {
       if (next.isOperator(EggTokenizerOperator::BracketLeft)) {
         partial.fail("TODO: '[' expression suffix not yet implemented");
         return false;
-      }
-      return false;
-    }
-    bool parseBinaryOp(Partial& prefix, BinaryOp op) {
-      // WIBBLE precedence
-      auto rhs = this->parseValueExpression(prefix.tokensAfter + 1);
-      if (rhs.succeeded()) {
-        prefix.wrap(Node::Kind::ExprBinary);
-        prefix.tokensAfter = rhs.tokensAfter;
-        prefix.node->children.emplace_back(std::move(rhs.node));
-        prefix.node->op.binary = op;
-        return true;
       }
       return false;
     }

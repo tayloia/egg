@@ -7,8 +7,9 @@
 #define COMMA(...) , __VA_ARGS__
 #endif
 
-#define EXPR_UNARY(op, arg) mbuilder->exprUnaryOp(IVMExecution::UnaryOp::op, arg, 0, 0)
-#define EXPR_BINARY(op, lhs, rhs) mbuilder->exprBinaryOp(IVMExecution::BinaryOp::op, lhs, rhs, 0, 0)
+#define EXPR_UNARY(op, arg) mbuilder->exprUnaryOp(UnaryOp::op, arg, 0, 0)
+#define EXPR_BINARY(op, lhs, rhs) mbuilder->exprBinaryOp(BinaryOp::op, lhs, rhs, 0, 0)
+#define EXPR_TERNARY(op, lhs, mid, rhs) mbuilder->exprTernaryOp(TernaryOp::op, lhs, mid, rhs, 0, 0)
 #define EXPR_CALL(func, ...) mbuilder->glue(mbuilder->exprFunctionCall(func, 0, 0) COMMA(__VA_ARGS__))
 #define EXPR_LITERAL(value) mbuilder->exprLiteral(mbuilder->createHardValue(value), 0, 0)
 #define EXPR_LITERAL_VOID() mbuilder->exprLiteral(mbuilder->createHardValueVoid(), 0, 0)
@@ -29,7 +30,7 @@
 #define STMT_VAR_DECLARE(symbol, ...) mbuilder->glue(mbuilder->stmtVariableDeclare(mbuilder->createString(symbol), 0, 0) COMMA(__VA_ARGS__))
 #define STMT_VAR_DEFINE(symbol, value, ...) mbuilder->glue(mbuilder->stmtVariableDefine(mbuilder->createString(symbol), value, 0, 0) COMMA(__VA_ARGS__))
 #define STMT_VAR_SET(symbol, value) mbuilder->stmtVariableSet(mbuilder->createString(symbol), value, 0, 0)
-#define STMT_VAR_MUTATE(symbol, op, value) mbuilder->stmtVariableMutate(mbuilder->createString(symbol), IVMExecution::MutationOp::op, value, 0, 0)
+#define STMT_VAR_MUTATE(symbol, op, value) mbuilder->stmtVariableMutate(mbuilder->createString(symbol), MutationOp::op, value, 0, 0)
 #define STMT_THROW(exception) mbuilder->stmtThrow(exception, 0, 0)
 #define STMT_TRY(block, ...) mbuilder->glue(mbuilder->stmtTry(block, 0, 0) COMMA(__VA_ARGS__))
 #define STMT_CATCH(symbol, ...) mbuilder->glue(mbuilder->stmtCatch(mbuilder->createString(symbol), 0, 0) COMMA(__VA_ARGS__))
@@ -1029,6 +1030,22 @@ TEST(TestVM, BinaryLogical) {
             "false\ntrue\ntrue\ntrue\n"
             "null\n456\n123\n123\n",
             vm.logger.logged.str());
+}
+
+TEST(TestVM, Ternary) {
+  egg::test::VM vm;
+  auto pbuilder = vm->createProgramBuilder();
+  auto mbuilder = pbuilder->createModuleBuilder(pbuilder->createString("test"));
+  mbuilder->addStatement(
+    // print(false ? 1 : 2);
+    STMT_PRINT(EXPR_TERNARY(IfThenElse, EXPR_LITERAL(false), EXPR_LITERAL(1), EXPR_LITERAL(2)))
+  );
+  mbuilder->addStatement(
+    // print(true ? 1 : 2);
+    STMT_PRINT(EXPR_TERNARY(IfThenElse, EXPR_LITERAL(true), EXPR_LITERAL(1), EXPR_LITERAL(2)))
+  );
+  buildAndRunSucceeded(vm, *pbuilder, *mbuilder);
+  ASSERT_EQ("2\n1\n", vm.logger.logged.str());
 }
 
 TEST(TestVM, MutateDecrement) {

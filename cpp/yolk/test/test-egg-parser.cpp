@@ -10,6 +10,17 @@ using Result = egg::yolk::IEggParser::Result;
 namespace {
   std::ostream& operator<<(std::ostream& os, const Node& node);
 
+  template<typename T>
+  std::ostream& printNodeOperator(std::ostream& os, const char* prefix, T op, const Node& node) {
+    os << '(' << prefix << ' ' << '\'';
+    egg::ovum::Print::write(os, op, egg::ovum::Print::Options::DEFAULT);
+    os << '\'';
+    for (auto& child : node.children) {
+      os << ' ' << *child;
+    }
+    return os << ')';
+  }
+
   std::ostream& printNodeChildren(std::ostream& os, const char* prefix, const Node& node) {
     os << '(' << prefix;
     for (auto& child : node.children) {
@@ -38,10 +49,13 @@ namespace {
       return printValue(os << "(expr-var ", node.value) << ')';
     case Node::Kind::ExprUnary:
       assert(node.children.size() == 1);
-      return printNodeChildren(os, "expr-unary", node);
+      return printNodeOperator(os, "expr-unary", node.op.unary, node);
     case Node::Kind::ExprBinary:
       assert(node.children.size() == 2);
-      return printNodeChildren(os, "expr-binary", node);
+      return printNodeOperator(os, "expr-binary", node.op.binary, node);
+    case Node::Kind::ExprTernary:
+      assert(node.children.size() == 3);
+      return printNodeOperator(os, "expr-ternary", node.op.ternary, node);
     case Node::Kind::ExprCall:
       return printNodeChildren(os, "expr-call", node);
     case Node::Kind::Literal:
@@ -135,5 +149,29 @@ TEST(TestEggParser, HelloWorld) {
     "print(\"Hello, World!\");"
   });
   std::string expected = "(stmt-call (expr-call (expr-var 'print') \"Hello, World!\"))\n";
+  ASSERT_EQ(expected, actual);
+}
+
+TEST(TestEggParser, ExpressionUnary) {
+  std::string actual = outputFromLines({
+    "print(-a);"
+    });
+  std::string expected = "(stmt-call (expr-call (expr-var 'print') (expr-unary '-' (expr-var 'a'))))\n";
+  ASSERT_EQ(expected, actual);
+}
+
+TEST(TestEggParser, ExpressionBinary) {
+  std::string actual = outputFromLines({
+    "print(a + b);"
+    });
+  std::string expected = "(stmt-call (expr-call (expr-var 'print') (expr-binary '+' (expr-var 'a') (expr-var 'b'))))\n";
+  ASSERT_EQ(expected, actual);
+}
+
+TEST(TestEggParser, ExpressionTernary) {
+  std::string actual = outputFromLines({
+    "print(a ? b : c);"
+    });
+  std::string expected = "(stmt-call (expr-call (expr-var 'print') (expr-ternary '?:' (expr-var 'a') (expr-var 'b') (expr-var 'c'))))\n";
   ASSERT_EQ(expected, actual);
 }
