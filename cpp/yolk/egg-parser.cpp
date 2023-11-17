@@ -269,31 +269,31 @@ namespace {
         case EggTokenizerOperator::Plus: // "+"
           return this->parseValueExpressionBinaryOperator(lhs, egg::ovum::BinaryOp::Add);
         case EggTokenizerOperator::Slash: // "/"
-          break;
+          return this->parseValueExpressionBinaryOperator(lhs, egg::ovum::BinaryOp::Divide);
         case EggTokenizerOperator::Minus: // "-"
-          break;
+          return this->parseValueExpressionBinaryOperator(lhs, egg::ovum::BinaryOp::Subtract);
         case EggTokenizerOperator::Less: // "<"
-          break;
+          return this->parseValueExpressionBinaryOperator(lhs, egg::ovum::BinaryOp::LessThan);
         case EggTokenizerOperator::ShiftLeft: // "<<"
-          break;
+          return this->parseValueExpressionBinaryOperator(lhs, egg::ovum::BinaryOp::ShiftLeft);
         case EggTokenizerOperator::EqualEqual: // "=="
-          break;
+          return this->parseValueExpressionBinaryOperator(lhs, egg::ovum::BinaryOp::Equal);
         case EggTokenizerOperator::Greater: // ">"
-          break;
+          return this->parseValueExpressionBinaryOperator(lhs, egg::ovum::BinaryOp::GreaterThan);
         case EggTokenizerOperator::GreaterEqual: // ">="
-          break;
+          return this->parseValueExpressionBinaryOperator(lhs, egg::ovum::BinaryOp::GreaterThanOrEqual);
         case EggTokenizerOperator::ShiftRight: // ">>"
-          break;
+          return this->parseValueExpressionBinaryOperator(lhs, egg::ovum::BinaryOp::ShiftRight);
         case EggTokenizerOperator::ShiftRightUnsigned: // ">>>"
-          break;
+          return this->parseValueExpressionBinaryOperator(lhs, egg::ovum::BinaryOp::ShiftRightUnsigned);
         case EggTokenizerOperator::QueryQuery: // "??"
-          break;
+          return this->parseValueExpressionBinaryOperator(lhs, egg::ovum::BinaryOp::IfNull);
         case EggTokenizerOperator::Caret: // "^"
-          break;
+          return this->parseValueExpressionBinaryOperator(lhs, egg::ovum::BinaryOp::BitwiseXor);
         case EggTokenizerOperator::Bar: // "|"
-          break;
+          return this->parseValueExpressionBinaryOperator(lhs, egg::ovum::BinaryOp::BitwiseOr);
         case EggTokenizerOperator::BarBar: // "||"
-          break;
+          return this->parseValueExpressionBinaryOperator(lhs, egg::ovum::BinaryOp::IfTrue);
         case EggTokenizerOperator::Bang: // "!"
         case EggTokenizerOperator::BangEqual: // "!="
         case EggTokenizerOperator::PercentEqual: // "%="
