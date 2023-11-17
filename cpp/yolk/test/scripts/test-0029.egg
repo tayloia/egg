@@ -1,0 +1,5 @@
+var p = print;
+p("Hello");
+///>Hello
+print = p;
+///<RUNTIME><ERROR><RESOURCE>(4,7): Cannot re-assign built-in value: 'print'

@@ -1,0 +1,7 @@
+var a = [ 1, 2.0, "three" ];
+for (var i : a) {
+  print(i);
+}
+///>1
+///>2.0
+///>three

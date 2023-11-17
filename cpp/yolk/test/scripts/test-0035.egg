@@ -1,0 +1,15 @@
+void answer(bool? b) {
+  if (b == true) {
+    print("yes");
+  } else if (b == false) {
+    print("no");
+  } else {
+    print("maybe");
+  }
+}
+answer(true);
+///>yes
+answer(false);
+///>no
+answer(null);
+///>maybe

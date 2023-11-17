@@ -1,0 +1,74 @@
+print("egg".hash() != "beggar".hash()); // Highly improbable
+///>true
+
+print("egg".toString());
+///>egg
+
+print("beggar".contains("egg"));
+///>true
+print("egg".contains("beggar"));
+///>false
+
+print("egg".compareTo("egg"));
+///>0
+print("beggar".compareTo("egg"));
+///>-1
+print("egg".compareTo("beggar"));
+///>1
+
+print("egg".startsWith("e"));
+///>true
+print("egg".startsWith("ee"));
+///>false
+
+print("beggar".endsWith("r"));
+///>true
+print("beggar".endsWith("egg"));
+///>false
+
+print("beggar".indexOf("egg"));
+///>1
+print("beggar".indexOf("spoon"));
+///>null
+
+print("beggar".lastIndexOf("g"));
+///>3
+print("beggar".lastIndexOf("egg"));
+///>1
+
+print("a".join("b", "n", "n", ""));
+///>banana
+print("<>".join(123, "hello", 3.14159));
+///>123<>hello<>3.14159
+print("|".join());
+///>
+print("|".join(1));
+///>1
+print("|".join(1, 2));
+///>1|2
+
+print("beggar".slice(1, -2));
+///>egg
+print("spoon".slice(-2));
+///>on
+
+print("egg".repeat(0));
+///>
+print("egg".repeat(1));
+///>egg
+print("egg".repeat(10));
+///>eggeggeggeggeggeggeggeggeggegg
+
+print("banana".replace("a", "o"));
+///>bonono
+print("banana".replace("a", "o", 2));
+///>bonona
+print("banana".replace("a", "o", -2));
+///>banono
+print("banana".replace("", "-"));
+///>b-a-n-a-n-a
+
+print("egg".padLeft(8));
+///>     egg
+print("egg".padRight(8, "[]"));
+///>egg[][][

@@ -1,0 +1,3 @@
+int f = 42.0;
+print(f);
+///<COMPILER><ERROR><RESOURCE>(1,9): Cannot initialize 'f' of type 'int' with a value of type 'float'

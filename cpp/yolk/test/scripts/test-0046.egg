@@ -1,0 +1,23 @@
+int?() countdown() {
+  int counter = 5;
+  int? next() {
+    if (counter > 0) {
+      --counter;
+      return counter + 1;
+    }
+    return null;
+  }
+  return next;
+}
+assert(type.of(countdown) == "int?()()");
+var f = countdown();
+assert(type.of(f) == "int?()");
+while (var i = f()) {
+  assert(type.of(i) == "int");
+  print(i);
+}
+///>5
+///>4
+///>3
+///>2
+///>1

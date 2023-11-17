@@ -1,0 +1,13 @@
+for (var i : "") {
+  print(i);
+}
+for (var i : []) {
+  print(i);
+}
+for (var i : {}) {
+  print(i);
+}
+for (var i : 123) {
+  print(i);
+}
+///<COMPILER><ERROR><RESOURCE>(10,14): Value of type 'int' is not iterable

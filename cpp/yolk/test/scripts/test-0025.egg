@@ -1,0 +1,19 @@
+int fibonacci(int n) {
+  assert(n >= 0);
+  if (n < 2) {
+    return n;
+  }
+  return fibonacci(n - 1) + fibonacci(n - 2);
+}
+try {
+  print(fibonacci(10));
+} catch (any exception) {
+  print("CAUGHT:", exception);
+}
+///>55
+try {
+  print(fibonacci(-1));
+} catch (any exception) {
+  print("CAUGHT:", exception);
+}
+///>CAUGHT:<RESOURCE>(2,12): Assertion is untrue: -1 >= 0

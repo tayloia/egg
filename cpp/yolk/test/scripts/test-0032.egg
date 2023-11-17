@@ -1,0 +1,2 @@
+print("hello" + 123);
+///<COMPILER><ERROR><RESOURCE>(1,15): Expected left-hand side of '+' operator to be 'int' or 'float', but got 'string' instead

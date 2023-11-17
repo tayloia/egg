@@ -7,6 +7,8 @@ namespace {
   class TestScripts : public ::testing::TestWithParam<std::string> {
   private:
     static const std::string directory;
+    static const size_t lbound = 1;
+    static const size_t ubound = 6; // Set to zero to directory search
   public:
     void run() {
       // Actually perform the testing
@@ -20,7 +22,7 @@ namespace {
     }
     static ::testing::internal::ParamGenerator<std::string> generator() {
       // Generate value parameterizations for all the scripts
-      return ::testing::ValuesIn(TestScripts::find());
+      return ::testing::ValuesIn((TestScripts::lbound <= TestScripts::ubound) ? TestScripts::list() : TestScripts::find());
     }
     static std::string name(const ::testing::TestParamInfo<std::string>& info) {
       // Format the test case name parameterization nicely
@@ -74,11 +76,21 @@ namespace {
       auto results = File::readDirectory(TestScripts::directory);
       auto predicate = [](const std::string& path) {
         return File::getKind(TestScripts::directory + "/" + path) != File::Kind::File;
-      };
+        };
       results.erase(std::remove_if(results.begin(), results.end(), predicate), results.end());
       if (results.empty()) {
         // Push a dummy entry so that problems with script discovery don't just skip all the tests
         results.push_back("missing");
+      }
+      return results;
+    }
+    static std::vector<std::string> list() {
+      // List all the scripts
+      std::vector<std::string> results;
+      for (size_t index = TestScripts::lbound; index <= TestScripts::ubound; ++index) {
+        char buffer[32];
+        std::snprintf(buffer, sizeof(buffer), "test-%04zu.egg", index);
+        results.emplace_back(buffer);
       }
       return results;
     }

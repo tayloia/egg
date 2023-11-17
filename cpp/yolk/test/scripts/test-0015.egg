@@ -1,0 +1,7 @@
+var s = "Hello, World!";
+print(s[0]);
+///>H
+print(s[12]);
+///>!
+print(s[13]);
+///<RUNTIME><ERROR><RESOURCE>(6,9): String index 13 is out of range for a string of length 13
