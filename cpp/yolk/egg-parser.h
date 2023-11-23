@@ -21,22 +21,27 @@ namespace egg::yolk {
     struct Node {
       enum class Kind {
         ModuleRoot,
+        StmtDeclareVar,
+        StmtDefineVar,
         StmtCall,
         ExprVar,
         ExprUnary,
         ExprBinary,
         ExprTernary,
         ExprCall,
+        ExprTypePrimitive,
         Literal
       };
       Kind kind;
       std::vector<std::unique_ptr<Node>> children;
       egg::ovum::HardValue value;
       union {
-        egg::ovum::UnaryOp unary;
-        egg::ovum::BinaryOp binary;
-        egg::ovum::TernaryOp ternary;
-        egg::ovum::MutationOp mutation;
+        egg::ovum::ValueUnaryOp unary;
+        egg::ovum::ValueBinaryOp binary;
+        egg::ovum::ValueTernaryOp ternary;
+        egg::ovum::ValueMutationOp mutation;
+        egg::ovum::TypeBinaryOp tbinary;
+        egg::ovum::ValueFlags primitive;
       } op;
       Location begin;
       Location end;

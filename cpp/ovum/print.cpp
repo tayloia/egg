@@ -154,15 +154,15 @@ void egg::ovum::Print::write(std::ostream& stream, ILogger::Source value, const 
   }
 }
 
-void egg::ovum::Print::write(std::ostream& stream, UnaryOp value, const Options&) {
+void egg::ovum::Print::write(std::ostream& stream, ValueUnaryOp value, const Options&) {
   switch (value) {
-  case UnaryOp::Negate:
+  case ValueUnaryOp::Negate:
     stream << "-";
     break;
-  case UnaryOp::BitwiseNot:
+  case ValueUnaryOp::BitwiseNot:
     stream << "~";
     break;
-  case UnaryOp::LogicalNot:
+  case ValueUnaryOp::LogicalNot:
     stream << "!";
     break;
   default:
@@ -171,66 +171,66 @@ void egg::ovum::Print::write(std::ostream& stream, UnaryOp value, const Options&
   }
 }
 
-void egg::ovum::Print::write(std::ostream& stream, BinaryOp value, const Options&) {
+void egg::ovum::Print::write(std::ostream& stream, ValueBinaryOp value, const Options&) {
   switch (value) {
-  case BinaryOp::Add:
+  case ValueBinaryOp::Add:
     stream << "+";
     break;
-  case BinaryOp::Subtract:
+  case ValueBinaryOp::Subtract:
     stream << "-";
     break;
-  case BinaryOp::Multiply:
+  case ValueBinaryOp::Multiply:
     stream << "*";
     break;
-  case BinaryOp::Divide:
+  case ValueBinaryOp::Divide:
     stream << "/";
     break;
-  case BinaryOp::Remainder:
+  case ValueBinaryOp::Remainder:
     stream << "%";
     break;
-  case BinaryOp::LessThan:
+  case ValueBinaryOp::LessThan:
     stream << "<";
     break;
-  case BinaryOp::LessThanOrEqual:
+  case ValueBinaryOp::LessThanOrEqual:
     stream << "<=";
     break;
-  case BinaryOp::Equal:
+  case ValueBinaryOp::Equal:
     stream << "==";
     break;
-  case BinaryOp::NotEqual:
+  case ValueBinaryOp::NotEqual:
     stream << "!=";
     break;
-  case BinaryOp::GreaterThanOrEqual:
+  case ValueBinaryOp::GreaterThanOrEqual:
     stream << ">=";
     break;
-  case BinaryOp::GreaterThan:
+  case ValueBinaryOp::GreaterThan:
     stream << ">";
     break;
-  case BinaryOp::BitwiseAnd:
+  case ValueBinaryOp::BitwiseAnd:
     stream << "&";
     break;
-  case BinaryOp::BitwiseOr:
+  case ValueBinaryOp::BitwiseOr:
     stream << "|";
     break;
-  case BinaryOp::BitwiseXor:
+  case ValueBinaryOp::BitwiseXor:
     stream << "^";
     break;
-  case BinaryOp::ShiftLeft:
+  case ValueBinaryOp::ShiftLeft:
     stream << "<<";
     break;
-  case BinaryOp::ShiftRight:
+  case ValueBinaryOp::ShiftRight:
     stream << ">>";
     break;
-  case BinaryOp::ShiftRightUnsigned:
+  case ValueBinaryOp::ShiftRightUnsigned:
     stream << ">>>";
     break;
-  case BinaryOp::IfNull:
+  case ValueBinaryOp::IfNull:
     stream << "??";
     break;
-  case BinaryOp::IfFalse:
+  case ValueBinaryOp::IfFalse:
     stream << "&&";
     break;
-  case BinaryOp::IfTrue:
+  case ValueBinaryOp::IfTrue:
     stream << "||";
     break;
   default:
@@ -239,9 +239,9 @@ void egg::ovum::Print::write(std::ostream& stream, BinaryOp value, const Options
   }
 }
 
-void egg::ovum::Print::write(std::ostream& stream, TernaryOp value, const Options&) {
+void egg::ovum::Print::write(std::ostream& stream, ValueTernaryOp value, const Options&) {
   switch (value) {
-  case TernaryOp::IfThenElse:
+  case ValueTernaryOp::IfThenElse:
     stream << "?:";
     break;
   default:
@@ -250,60 +250,60 @@ void egg::ovum::Print::write(std::ostream& stream, TernaryOp value, const Option
   }
 }
 
-void egg::ovum::Print::write(std::ostream& stream, MutationOp value, const Options&) {
+void egg::ovum::Print::write(std::ostream& stream, ValueMutationOp value, const Options&) {
   switch (value) {
-  case MutationOp::Assign:
+  case ValueMutationOp::Assign:
     stream << "=";
     break;
-  case MutationOp::Decrement:
+  case ValueMutationOp::Decrement:
     stream << "--";
     break;
-  case MutationOp::Increment:
+  case ValueMutationOp::Increment:
     stream << "++";
     break;
-  case MutationOp::Add:
+  case ValueMutationOp::Add:
     stream << "+=";
     break;
-  case MutationOp::Subtract:
+  case ValueMutationOp::Subtract:
     stream << "-=";
     break;
-  case MutationOp::Multiply:
+  case ValueMutationOp::Multiply:
     stream << "*=";
     break;
-  case MutationOp::Divide:
+  case ValueMutationOp::Divide:
     stream << "/=";
     break;
-  case MutationOp::Remainder:
+  case ValueMutationOp::Remainder:
     stream << "%=";
     break;
-  case MutationOp::BitwiseAnd:
+  case ValueMutationOp::BitwiseAnd:
     stream << "&=";
     break;
-  case MutationOp::BitwiseOr:
+  case ValueMutationOp::BitwiseOr:
     stream << "|=";
     break;
-  case MutationOp::BitwiseXor:
+  case ValueMutationOp::BitwiseXor:
     stream << "^=";
     break;
-  case MutationOp::ShiftLeft:
+  case ValueMutationOp::ShiftLeft:
     stream << "<<=";
     break;
-  case MutationOp::ShiftRight:
+  case ValueMutationOp::ShiftRight:
     stream << ">>=";
     break;
-  case MutationOp::ShiftRightUnsigned:
+  case ValueMutationOp::ShiftRightUnsigned:
     stream << ">>>=";
     break;
-  case MutationOp::IfNull:
+  case ValueMutationOp::IfNull:
     stream << "??=";
     break;
-  case MutationOp::IfFalse:
+  case ValueMutationOp::IfFalse:
     stream << "&&=";
     break;
-  case MutationOp::IfTrue:
+  case ValueMutationOp::IfTrue:
     stream << "||=";
     break;
-  case MutationOp::Noop:
+  case ValueMutationOp::Noop:
     stream << "<NOOP>";
     break;
   default:

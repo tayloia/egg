@@ -22,8 +22,10 @@ public:
     ExprLiteral,
     ExprPropertyGet,
     ExprFunctionCall,
+    TypePrimitive,
     StmtBlock,
     StmtVariableDeclare,
+    StmtVariableDefine,
     StmtVariableSet,
     StmtVariableMutate,
     StmtPropertySet,
@@ -47,10 +49,11 @@ public:
   size_t column; // May be zero
   HardValue literal; // Only stores simple literals
   union {
-    UnaryOp unaryOp;
-    BinaryOp binaryOp;
-    TernaryOp ternaryOp;
-    MutationOp mutationOp;
+    ValueUnaryOp unaryOp;
+    ValueBinaryOp binaryOp;
+    ValueTernaryOp ternaryOp;
+    ValueMutationOp mutationOp;
+    ValueFlags valueFlags;
     size_t defaultIndex;
   };
   std::vector<Node*> children; // Reference-counting hard pointers are stored in the chain
@@ -337,20 +340,20 @@ namespace {
       return ValueFactory::createHardThrow(allocator, inner);
     }
     virtual HardValue raiseRuntimeError(const String& message) override;
-    virtual HardValue evaluateUnaryOp(UnaryOp op, const HardValue& arg) override {
+    virtual HardValue evaluateValueUnaryOp(ValueUnaryOp op, const HardValue& arg) override {
       return this->augment(this->unary(op, arg));
     }
-    virtual HardValue evaluateBinaryOp(BinaryOp op, const HardValue& lhs, const HardValue& rhs) override {
+    virtual HardValue evaluateValueBinaryOp(ValueBinaryOp op, const HardValue& lhs, const HardValue& rhs) override {
       return this->augment(this->binary(op, lhs, rhs));
     }
-    virtual HardValue evaluateTernaryOp(TernaryOp op, const HardValue& lhs, const HardValue& mid, const HardValue& rhs) override {
+    virtual HardValue evaluateValueTernaryOp(ValueTernaryOp op, const HardValue& lhs, const HardValue& mid, const HardValue& rhs) override {
       return this->augment(this->ternary(op, lhs, mid, rhs));
     }
-    virtual HardValue precheckMutationOp(MutationOp op, HardValue& lhs, ValueFlags rhs) override {
+    virtual HardValue precheckValueMutationOp(ValueMutationOp op, HardValue& lhs, ValueFlags rhs) override {
       // Handle short-circuits (returns 'Continue' if rhs should be evaluated)
       return this->augment(this->precheck(op, lhs, rhs));
     }
-    virtual HardValue evaluateMutationOp(MutationOp op, HardValue& lhs, const HardValue& rhs) override {
+    virtual HardValue evaluateValueMutationOp(ValueMutationOp op, HardValue& lhs, const HardValue& rhs) override {
       // Return the value before the mutation
       return this->augment(this->mutate(op, lhs, rhs));
     }
@@ -375,10 +378,10 @@ namespace {
       }
       return value;
     }
-    HardValue unary(UnaryOp op, const HardValue& arg) {
+    HardValue unary(ValueUnaryOp op, const HardValue& arg) {
       Operation::UnaryValue unaryValue;
       switch (op) {
-      case UnaryOp::Negate:
+      case ValueUnaryOp::Negate:
         switch (unaryValue.extractArithmetic(arg)) {
         case Operation::UnaryValue::ArithmeticResult::Int:
           return this->createHardValueInt(-unaryValue.i);
@@ -388,7 +391,7 @@ namespace {
           return this->raise("TODO: Invalid value for '-' negation operator");
         }
         break;
-      case UnaryOp::BitwiseNot:
+      case ValueUnaryOp::BitwiseNot:
         switch (unaryValue.extractInt(arg)) {
         case Operation::UnaryValue::ExtractResult::Match:
           return this->createHardValueInt(~unaryValue.i);
@@ -396,7 +399,7 @@ namespace {
           return this->raise("TODO: Invalid value for '~' bitwise-not operator");
         }
         break;
-      case UnaryOp::LogicalNot:
+      case ValueUnaryOp::LogicalNot:
         switch (unaryValue.extractBool(arg)) {
         case Operation::UnaryValue::ExtractResult::Match:
           return this->createHardValueBool(!unaryValue.b);
@@ -407,10 +410,10 @@ namespace {
       }
       return this->raise("TODO: Unknown unary operator");
     }
-    HardValue binary(BinaryOp op, const HardValue& lhs, const HardValue& rhs) {
+    HardValue binary(ValueBinaryOp op, const HardValue& lhs, const HardValue& rhs) {
       Operation::BinaryValues binaryValues;
       switch (op) {
-      case BinaryOp::Add:
+      case ValueBinaryOp::Add:
         switch (binaryValues.promote(lhs, rhs)) {
         case Operation::BinaryValues::PromotionResult::Ints:
           return this->createHardValueInt(binaryValues.i[0] + binaryValues.i[1]);
@@ -422,7 +425,7 @@ namespace {
           return this->raise("TODO: Invalid right-hand value for '+' addition operator");
         }
         break;
-      case BinaryOp::Subtract:
+      case ValueBinaryOp::Subtract:
         switch (binaryValues.promote(lhs, rhs)) {
         case Operation::BinaryValues::PromotionResult::Ints:
           return this->createHardValueInt(binaryValues.i[0] - binaryValues.i[1]);
@@ -434,7 +437,7 @@ namespace {
           return this->raise("TODO: Invalid right-hand value for '-' subtraction operator");
         }
         break;
-      case BinaryOp::Multiply:
+      case ValueBinaryOp::Multiply:
         switch (binaryValues.promote(lhs, rhs)) {
         case Operation::BinaryValues::PromotionResult::Ints:
           return this->createHardValueInt(binaryValues.i[0] * binaryValues.i[1]);
@@ -446,7 +449,7 @@ namespace {
           return this->raise("TODO: Invalid right-hand value for '*' multiplication operator");
         }
         break;
-      case BinaryOp::Divide:
+      case ValueBinaryOp::Divide:
         switch (binaryValues.promote(lhs, rhs)) {
         case Operation::BinaryValues::PromotionResult::Ints:
           if (binaryValues.i[1] == 0) {
@@ -461,7 +464,7 @@ namespace {
           return this->raise("TODO: Invalid right-hand value for '/' division operator");
         }
         break;
-      case BinaryOp::Remainder:
+      case ValueBinaryOp::Remainder:
         switch (binaryValues.promote(lhs, rhs)) {
         case Operation::BinaryValues::PromotionResult::Ints:
           if (binaryValues.i[1] == 0) {
@@ -476,7 +479,7 @@ namespace {
           return this->raise("TODO: Invalid right-hand value for '%' remainder operator");
         }
         break;
-      case BinaryOp::LessThan:
+      case ValueBinaryOp::LessThan:
         switch (binaryValues.promote(lhs, rhs)) {
         case Operation::BinaryValues::PromotionResult::Ints:
           return this->createHardValueBool(binaryValues.compareInts(Arithmetic::Compare::LessThan));
@@ -488,7 +491,7 @@ namespace {
           return this->raise("TODO: Invalid right-hand value for '<' comparison operator");
         }
         break;
-      case BinaryOp::LessThanOrEqual:
+      case ValueBinaryOp::LessThanOrEqual:
         switch (binaryValues.promote(lhs, rhs)) {
         case Operation::BinaryValues::PromotionResult::Ints:
           return this->createHardValueBool(binaryValues.compareInts(Arithmetic::Compare::LessThanOrEqual));
@@ -500,13 +503,13 @@ namespace {
           return this->raise("TODO: Invalid right-hand value for '<=' comparison operator");
         }
         break;
-      case BinaryOp::Equal:
+      case ValueBinaryOp::Equal:
         // Promote ints to floats but ignore IEEE NaN semantics
         return this->createHardValueBool(Operation::areEqual(lhs, rhs, true, false));
-      case BinaryOp::NotEqual:
+      case ValueBinaryOp::NotEqual:
         // Promote ints to floats but ignore IEEE NaN semantics
         return this->createHardValueBool(!Operation::areEqual(lhs, rhs, true, false));
-      case BinaryOp::GreaterThanOrEqual:
+      case ValueBinaryOp::GreaterThanOrEqual:
         switch (binaryValues.promote(lhs, rhs)) {
         case Operation::BinaryValues::PromotionResult::Ints:
           return this->createHardValueBool(binaryValues.compareInts(Arithmetic::Compare::GreaterThanOrEqual));
@@ -518,7 +521,7 @@ namespace {
           return this->raise("TODO: Invalid right-hand value for '>=' comparison operator");
         }
         break;
-      case BinaryOp::GreaterThan:
+      case ValueBinaryOp::GreaterThan:
         switch (binaryValues.promote(lhs, rhs)) {
         case Operation::BinaryValues::PromotionResult::Ints:
           return this->createHardValueBool(binaryValues.compareInts(Arithmetic::Compare::GreaterThan));
@@ -530,7 +533,7 @@ namespace {
           return this->raise("TODO: Invalid right-hand value for '>' comparison operator");
         }
         break;
-      case BinaryOp::BitwiseAnd:
+      case ValueBinaryOp::BitwiseAnd:
         switch (binaryValues.extractBitwise(lhs, rhs)) {
         case Operation::BinaryValues::BitwiseResult::Bools:
           return this->createHardValueBool(bool(binaryValues.b[0] & binaryValues.b[1]));
@@ -544,7 +547,7 @@ namespace {
           return this->raise("TODO: Type mismatch in values for '&' bitwise-and operator");
         }
         break;
-      case BinaryOp::BitwiseOr:
+      case ValueBinaryOp::BitwiseOr:
         switch (binaryValues.extractBitwise(lhs, rhs)) {
         case Operation::BinaryValues::BitwiseResult::Bools:
           return this->createHardValueBool(bool(binaryValues.b[0] | binaryValues.b[1]));
@@ -558,7 +561,7 @@ namespace {
           return this->raise("TODO: Type mismatch in values for '|' bitwise-or operator");
         }
         break;
-      case BinaryOp::BitwiseXor:
+      case ValueBinaryOp::BitwiseXor:
         switch (binaryValues.extractBitwise(lhs, rhs)) {
         case Operation::BinaryValues::BitwiseResult::Bools:
           return this->createHardValueBool(bool(binaryValues.b[0] ^ binaryValues.b[1]));
@@ -572,7 +575,7 @@ namespace {
           return this->raise("TODO: Type mismatch in values for '^' bitwise-xor operator");
         }
         break;
-      case BinaryOp::ShiftLeft:
+      case ValueBinaryOp::ShiftLeft:
         switch (binaryValues.extractInts(lhs, rhs)) {
         case Operation::BinaryValues::ExtractResult::Match:
           return this->createHardValueInt(binaryValues.shiftInts(Arithmetic::Shift::ShiftLeft));
@@ -582,7 +585,7 @@ namespace {
           return this->raise("TODO: Invalid right-hand value for '<<' left-shift operator");
         }
         break;
-      case BinaryOp::ShiftRight:
+      case ValueBinaryOp::ShiftRight:
         switch (binaryValues.extractInts(lhs, rhs)) {
         case Operation::BinaryValues::ExtractResult::Match:
           return this->createHardValueInt(binaryValues.shiftInts(Arithmetic::Shift::ShiftRight));
@@ -592,7 +595,7 @@ namespace {
           return this->raise("TODO: Invalid right-hand value for '>>' right-shift operator");
         }
         break;
-      case BinaryOp::ShiftRightUnsigned:
+      case ValueBinaryOp::ShiftRightUnsigned:
         switch (binaryValues.extractInts(lhs, rhs)) {
         case Operation::BinaryValues::ExtractResult::Match:
           return this->createHardValueInt(binaryValues.shiftInts(Arithmetic::Shift::ShiftRightUnsigned));
@@ -602,10 +605,10 @@ namespace {
           return this->raise("TODO: Invalid right-hand value for '<<<' unsigned-shift operator");
         }
         break;
-      case BinaryOp::IfNull:
+      case ValueBinaryOp::IfNull:
         // Too late to truly short-circuit here
         return lhs->getNull() ? rhs : lhs;
-      case BinaryOp::IfFalse:
+      case ValueBinaryOp::IfFalse:
         // Too late to truly short-circuit here
         switch (binaryValues.extractBools(lhs, rhs)) {
         case Operation::BinaryValues::ExtractResult::Match:
@@ -616,7 +619,7 @@ namespace {
           return this->raise("TODO: Invalid right-hand value for '||' logical-or operator");
         }
         break;
-      case BinaryOp::IfTrue:
+      case ValueBinaryOp::IfTrue:
         // Too late to truly short-circuit here
         switch (binaryValues.extractBools(lhs, rhs)) {
         case Operation::BinaryValues::ExtractResult::Match:
@@ -630,10 +633,10 @@ namespace {
       }
       return this->raise("TODO: Unknown binary operator");
     }
-    HardValue ternary(TernaryOp op, const HardValue& lhs, const HardValue& mid, const HardValue& rhs) {
+    HardValue ternary(ValueTernaryOp op, const HardValue& lhs, const HardValue& mid, const HardValue& rhs) {
       Bool condition;
       switch (op) {
-      case TernaryOp::IfThenElse:
+      case ValueTernaryOp::IfThenElse:
         if (lhs->getBool(condition)) {
           return condition ? mid : rhs;
         }
@@ -641,12 +644,12 @@ namespace {
       }
       return this->raise("TODO: Unknown ternary operator");
     }
-    HardValue precheck(MutationOp op, HardValue& lhs, ValueFlags rhs) {
+    HardValue precheck(ValueMutationOp op, HardValue& lhs, ValueFlags rhs) {
       // Handle short-circuits (returns 'Continue' if rhs should be evaluated)
       Bool bvalue;
       EGG_WARNING_SUPPRESS_SWITCH_BEGIN
       switch (op) {
-      case MutationOp::IfNull:
+      case ValueMutationOp::IfNull:
         // a ??= b
         // If lhs is null, we need to evaluation the rhs
         if (lhs->getFlags() == ValueFlags::Null) {
@@ -654,7 +657,7 @@ namespace {
           return HardValue::Continue;
         }
         return lhs;
-      case MutationOp::IfFalse:
+      case ValueMutationOp::IfFalse:
         // a ||= b
         // Iff lhs is false, we need to evaluation the rhs
         if ((lhs->getFlags() != ValueFlags::Bool) || lhs->getBool(bvalue)) {
@@ -669,7 +672,7 @@ namespace {
           return HardValue::Continue;
         }
         return HardValue::True;
-      case MutationOp::IfTrue:
+      case ValueMutationOp::IfTrue:
         // a &&= b
         // If lhs is NOT true, we need to evaluation the rhs
         if ((lhs->getFlags() != ValueFlags::Bool) || lhs->getBool(bvalue)) {
@@ -684,7 +687,7 @@ namespace {
           return HardValue::Continue;
         }
         return HardValue::False;
-      case MutationOp::Noop:
+      case ValueMutationOp::Noop:
         // Just return the lhs
         assert(rhs == ValueFlags::Void);
         return lhs;
@@ -692,45 +695,45 @@ namespace {
       EGG_WARNING_SUPPRESS_SWITCH_END
       return HardValue::Continue;
     }
-    HardValue mutate(MutationOp op, HardValue& lhs, const HardValue& rhs) {
+    HardValue mutate(ValueMutationOp op, HardValue& lhs, const HardValue& rhs) {
       // Return the value before the mutation
       switch (op) {
-      case MutationOp::Assign:
+      case ValueMutationOp::Assign:
         return lhs->mutate(Mutation::Assign, rhs.get());
-      case MutationOp::Decrement:
+      case ValueMutationOp::Decrement:
         assert(rhs->getFlags() == ValueFlags::Void);
         return lhs->mutate(Mutation::Decrement, rhs.get());
-      case MutationOp::Increment:
+      case ValueMutationOp::Increment:
         assert(rhs->getFlags() == ValueFlags::Void);
         return lhs->mutate(Mutation::Increment, rhs.get());
-      case MutationOp::Add:
+      case ValueMutationOp::Add:
         return lhs->mutate(Mutation::Add, rhs.get());
-      case MutationOp::Subtract:
+      case ValueMutationOp::Subtract:
         return lhs->mutate(Mutation::Subtract, rhs.get());
-      case MutationOp::Multiply:
+      case ValueMutationOp::Multiply:
         return lhs->mutate(Mutation::Multiply, rhs.get());
-      case MutationOp::Divide:
+      case ValueMutationOp::Divide:
         return lhs->mutate(Mutation::Divide, rhs.get());
-      case MutationOp::Remainder:
+      case ValueMutationOp::Remainder:
         return lhs->mutate(Mutation::Remainder, rhs.get());
-      case MutationOp::BitwiseAnd:
+      case ValueMutationOp::BitwiseAnd:
         return lhs->mutate(Mutation::BitwiseAnd, rhs.get());
-      case MutationOp::BitwiseOr:
+      case ValueMutationOp::BitwiseOr:
         return lhs->mutate(Mutation::BitwiseOr, rhs.get());
-      case MutationOp::BitwiseXor:
+      case ValueMutationOp::BitwiseXor:
         return lhs->mutate(Mutation::BitwiseXor, rhs.get());
-      case MutationOp::ShiftLeft:
+      case ValueMutationOp::ShiftLeft:
         return lhs->mutate(Mutation::ShiftLeft, rhs.get());
-      case MutationOp::ShiftRight:
+      case ValueMutationOp::ShiftRight:
         return lhs->mutate(Mutation::ShiftRight, rhs.get());
-      case MutationOp::ShiftRightUnsigned:
+      case ValueMutationOp::ShiftRightUnsigned:
         return lhs->mutate(Mutation::ShiftRightUnsigned, rhs.get());
-      case MutationOp::IfNull:
-      case MutationOp::IfFalse:
-      case MutationOp::IfTrue:
+      case ValueMutationOp::IfNull:
+      case ValueMutationOp::IfFalse:
+      case ValueMutationOp::IfTrue:
         // The condition was already tested in 'precheckMutationOp()'
         return rhs;
-      case MutationOp::Noop:
+      case ValueMutationOp::Noop:
         assert(rhs->getFlags() == ValueFlags::Void);
         return lhs->mutate(Mutation::Noop, rhs.get());
       }
@@ -751,9 +754,9 @@ namespace {
         module(vm.getAllocator().makeRaw<VMModule>(vm, resource)) {
       assert(this->module != nullptr);
     }
-    virtual void addStatement(Node& statement) override {
+    virtual Node& getRoot() override {
       assert(this->module != nullptr);
-      this->module->getRoot().addChild(statement);
+      return this->module->getRoot();
     }
     virtual HardPtr<IVMModule> build() override {
       HardPtr<VMModule> built = this->module;
@@ -763,20 +766,20 @@ namespace {
       }
       return built;
     }
-    virtual Node& exprUnaryOp(UnaryOp op, Node& arg, size_t line, size_t column) override {
+    virtual Node& exprValueUnaryOp(ValueUnaryOp op, Node& arg, size_t line, size_t column) override {
       auto& node = this->module->createNode(Node::Kind::ExprUnaryOp, line, column);
       node.unaryOp = op;
       node.addChild(arg);
       return node;
     }
-    virtual Node& exprBinaryOp(BinaryOp op, Node& lhs, Node& rhs, size_t line, size_t column) override {
+    virtual Node& exprValueBinaryOp(ValueBinaryOp op, Node& lhs, Node& rhs, size_t line, size_t column) override {
       auto& node = this->module->createNode(Node::Kind::ExprBinaryOp, line, column);
       node.binaryOp = op;
       node.addChild(lhs);
       node.addChild(rhs);
       return node;
     }
-    virtual Node& exprTernaryOp(TernaryOp op, Node& lhs, Node& mid, Node& rhs, size_t line, size_t column) override {
+    virtual Node& exprValueTernaryOp(ValueTernaryOp op, Node& lhs, Node& mid, Node& rhs, size_t line, size_t column) override {
       auto& node = this->module->createNode(Node::Kind::ExprTernaryOp, line, column);
       node.ternaryOp = op;
       node.addChild(lhs);
@@ -803,6 +806,11 @@ namespace {
     virtual Node& exprFunctionCall(Node& function, size_t line, size_t column) override {
       auto& node = this->module->createNode(Node::Kind::ExprFunctionCall, line, column);
       node.addChild(function);
+      return node;
+    }
+    virtual Node& typePrimitive(ValueFlags primitive, size_t line, size_t column) override {
+      auto& node = this->module->createNode(Node::Kind::TypePrimitive, line, column);
+      node.valueFlags = primitive;
       return node;
     }
     virtual Node& stmtBlock(size_t line, size_t column) override {
@@ -854,15 +862,17 @@ namespace {
       auto& node = this->module->createNode(Node::Kind::StmtContinue, line, column);
       return node;
     }
-    virtual Node& stmtVariableDeclare(const String& symbol, size_t line, size_t column) override {
+    virtual Node& stmtVariableDeclare(const String& symbol, Node& type, size_t line, size_t column) override {
       auto& node = this->module->createNode(Node::Kind::StmtVariableDeclare, line, column);
       node.literal = this->createHardValueString(symbol);
+      node.addChild(type);
       return node;
     }
-    virtual Node& stmtVariableDefine(const String& symbol, Node& value, size_t line, size_t column) override {
-      auto& node = this->module->createNode(Node::Kind::StmtVariableDeclare, line, column);
+    virtual Node& stmtVariableDefine(const String& symbol, Node& type, Node& value, size_t line, size_t column) override {
+      auto& node = this->module->createNode(Node::Kind::StmtVariableDefine, line, column);
       node.literal = this->createHardValueString(symbol);
-      node.addChild(this->stmtVariableSet(symbol, value, line, column));
+      node.addChild(type);
+      node.addChild(value);
       return node;
     }
     virtual Node& stmtVariableSet(const String& symbol, Node& value, size_t line, size_t column) override {
@@ -871,7 +881,7 @@ namespace {
       node.addChild(value);
       return node;
     }
-    virtual Node& stmtVariableMutate(const String& symbol, MutationOp op, Node& value, size_t line, size_t column) override {
+    virtual Node& stmtVariableMutate(const String& symbol, ValueMutationOp op, Node& value, size_t line, size_t column) override {
       auto& node = this->module->createNode(Node::Kind::StmtVariableMutate, line, column);
       node.literal = this->createHardValueString(symbol);
       node.mutationOp = op;
@@ -900,9 +910,10 @@ namespace {
       node.addChild(block);
       return node;
     }
-    virtual Node& stmtCatch(const String& symbol, size_t line, size_t column) override {
+    virtual Node& stmtCatch(const String& symbol, Node& type, size_t line, size_t column) override {
       auto& node = this->module->createNode(Node::Kind::StmtCatch, line, column);
       node.literal = this->createHardValueString(symbol);
+      node.addChild(type);
       return node;
     }
     virtual Node& stmtRethrow(size_t line, size_t column) override {
@@ -1012,7 +1023,7 @@ namespace {
     }
   private:
     bool stepNode(HardValue& retval);
-    bool stepBlock(HardValue& retval);
+    bool stepBlock(HardValue& retval, size_t first = 0);
     NodeStack& push(const IVMModule::Node& node, const String& scope = {}, size_t index = 0) {
       return this->stack.emplace(&node, scope, index);
     }
@@ -1221,14 +1232,40 @@ bool VMRunner::stepNode(HardValue& retval) {
     }
     break;
   case IVMModule::Node::Kind::StmtVariableDeclare:
+    assert(top.node->children.size() >= 1);
     assert(top.index <= top.node->children.size());
     if (top.index == 0) {
+      // WIBBLE process the type
+      auto* ptype = top.node->children[top.index++];
+      assert(ptype != nullptr);
       if (!this->variableScopeBegin(top)) {
         return true;
       }
-    }
-    if (!this->stepBlock(retval)) {
+    } else if (!this->stepBlock(retval, 1)) {
       return this->pop(retval);
+    }
+    break;
+  case IVMModule::Node::Kind::StmtVariableDefine:
+    assert(top.node->children.size() >= 2);
+    assert(top.index <= top.node->children.size());
+    if (top.index == 0) {
+      // WIBBLE process the type
+      auto* ptype = top.node->children[top.index++];
+      assert(ptype != nullptr);
+      if (!this->variableScopeBegin(top)) {
+        return true;
+      }
+      this->push(*top.node->children[top.index++]);
+    } else {
+      if (top.index == 2) {
+        if (!this->symbolSet(top.node->literal, top.deque.front())) {
+          return true;
+        }
+        top.deque.clear();
+      }
+      if (!this->stepBlock(retval, 2)) {
+        return this->pop(retval);
+      }
     }
     break;
   case IVMModule::Node::Kind::StmtVariableSet:
@@ -1267,7 +1304,7 @@ bool VMRunner::stepNode(HardValue& retval) {
       if (top.index == 0) {
         assert(top.deque.empty());
         // TODO: Get correct rhs static type
-        auto result = this->execution.precheckMutationOp(top.node->mutationOp, lhs, ValueFlags::AnyQ);
+        auto result = this->execution.precheckValueMutationOp(top.node->mutationOp, lhs, ValueFlags::AnyQ);
         if (!result.hasFlowControl()) {
           // Short-circuit (discard result)
           return this->pop(HardValue::Void);
@@ -1284,7 +1321,7 @@ bool VMRunner::stepNode(HardValue& retval) {
         if (rhs.hasFlowControl()) {
           return this->pop(rhs);
         }
-        auto before = this->execution.evaluateMutationOp(top.node->mutationOp, lhs, rhs);
+        auto before = this->execution.evaluateValueMutationOp(top.node->mutationOp, lhs, rhs);
         if (before.hasFlowControl()) {
           return this->pop(before);
         }
@@ -1750,7 +1787,9 @@ bool VMRunner::stepNode(HardValue& retval) {
   case IVMModule::Node::Kind::StmtCatch:
     assert(top.index <= top.node->children.size());
     if (top.index == 0) {
-      assert(top.deque.empty());
+      // WIBBLE process the type
+      auto* ptype = top.node->children[top.index++];
+      assert(ptype != nullptr);
       if (!this->variableScopeBegin(top)) {
         return true;
       }
@@ -1761,8 +1800,9 @@ bool VMRunner::stepNode(HardValue& retval) {
       if (!this->symbolSet(top.node->literal, inner)) {
         return true;
       }
+      assert(top.deque.empty());
     }
-    if (!this->stepBlock(retval)) {
+    if (!this->stepBlock(retval, 1)) {
       return this->pop(retval);
     }
     break;
@@ -1814,7 +1854,7 @@ bool VMRunner::stepNode(HardValue& retval) {
       if (latest.hasFlowControl()) {
         return this->pop(latest);
       }
-      auto result = this->execution.evaluateUnaryOp(top.node->unaryOp, top.deque.front());
+      auto result = this->execution.evaluateValueUnaryOp(top.node->unaryOp, top.deque.front());
       return this->pop(result);
     }
     break;
@@ -1832,20 +1872,20 @@ bool VMRunner::stepNode(HardValue& retval) {
       }
       if (top.index == 1) {
         assert(top.deque.size() == 1);
-        if (top.node->binaryOp == BinaryOp::IfNull) {
+        if (top.node->binaryOp == ValueBinaryOp::IfNull) {
           // Short-circuit '??'
           if (!latest->getNull()) {
             // lhs is not null; no need to evaluate rhs
             return this->pop(latest);
           }
-        } else if (top.node->binaryOp == BinaryOp::IfFalse) {
+        } else if (top.node->binaryOp == ValueBinaryOp::IfFalse) {
           // Short-circuit '||'
           Bool lhs;
           if (latest->getBool(lhs) && lhs) {
             // lhs is true; no need to evaluate rhs
             return this->pop(HardValue::True);
           }
-        } else if (top.node->binaryOp == BinaryOp::IfTrue) {
+        } else if (top.node->binaryOp == ValueBinaryOp::IfTrue) {
           // Short-circuit '&&'
           Bool lhs;
           if (latest->getBool(lhs) && !lhs) {
@@ -1856,13 +1896,13 @@ bool VMRunner::stepNode(HardValue& retval) {
         this->push(*top.node->children[top.index++]);
       } else {
         assert(top.deque.size() == 2);
-        auto result = this->execution.evaluateBinaryOp(top.node->binaryOp, top.deque.front(), top.deque.back());
+        auto result = this->execution.evaluateValueBinaryOp(top.node->binaryOp, top.deque.front(), top.deque.back());
         return this->pop(result);
       }
     }
     break;
   case IVMModule::Node::Kind::ExprTernaryOp:
-    assert(top.node->ternaryOp == TernaryOp::IfThenElse);
+    assert(top.node->ternaryOp == ValueTernaryOp::IfThenElse);
     assert(top.node->children.size() == 3);
     assert(top.index <= 3);
     if (top.index == 0) {
@@ -1880,7 +1920,7 @@ bool VMRunner::stepNode(HardValue& retval) {
         Bool condition;
         if (!latest->getBool(condition)) {
           // The second and third operands are irrelevant; we just want the error message
-          auto fail = this->execution.evaluateTernaryOp(top.node->ternaryOp, latest, HardValue::Void, HardValue::Void);
+          auto fail = this->execution.evaluateValueTernaryOp(top.node->ternaryOp, latest, HardValue::Void, HardValue::Void);
           return this->pop(fail);
         }
         this->push(*top.node->children[condition ? 1u : 2u]);
@@ -1941,17 +1981,23 @@ bool VMRunner::stepNode(HardValue& retval) {
       return this->pop(instance->vmPropertyGet(this->execution, property));
     }
     break;
+  case IVMModule::Node::Kind::TypePrimitive:
+    assert(top.node->children.empty());
+    assert(top.index == 0);
+    assert(top.deque.empty());
+    return this->pop(top.node->literal);
   default:
     return this->raise("Invalid program node kind in program runner");
   }
   return true;
 }
 
-bool VMRunner::stepBlock(HardValue& retval) {
+bool VMRunner::stepBlock(HardValue& retval, size_t first) {
   // Return true iff 'retval' has been set and the block has finished
   auto& top = this->stack.top();
+  assert(top.index >= first);
   assert(top.index <= top.node->children.size());
-  if (top.index > 0) {
+  if (top.index > first) {
     // Check the result of the previous child statement
     assert(top.deque.size() == 1);
     auto& result = top.deque.back();

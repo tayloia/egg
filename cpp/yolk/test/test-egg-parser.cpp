@@ -11,9 +11,9 @@ namespace {
   std::ostream& operator<<(std::ostream& os, const Node& node);
 
   template<typename T>
-  std::ostream& printNodeOperator(std::ostream& os, const char* prefix, T op, const Node& node) {
+  std::ostream& printNodeExtra(std::ostream& os, const char* prefix, T extra, const Node& node) {
     os << '(' << prefix << ' ' << '\'';
-    egg::ovum::Print::write(os, op, egg::ovum::Print::Options::DEFAULT);
+    egg::ovum::Print::write(os, extra, egg::ovum::Print::Options::DEFAULT);
     os << '\'';
     for (auto& child : node.children) {
       os << ' ' << *child;
@@ -42,6 +42,10 @@ namespace {
         os << *child << std::endl;
       }
       break;
+    case Node::Kind::StmtDeclareVar:
+      return printNodeChildren(os, "stmt-declare-var", node);
+    case Node::Kind::StmtDefineVar:
+      return printNodeChildren(os, "stmt-define-var", node);
     case Node::Kind::StmtCall:
       return printNodeChildren(os, "stmt-call", node);
     case Node::Kind::ExprVar:
@@ -49,15 +53,17 @@ namespace {
       return printValue(os << "(expr-var ", node.value) << ')';
     case Node::Kind::ExprUnary:
       assert(node.children.size() == 1);
-      return printNodeOperator(os, "expr-unary", node.op.unary, node);
+      return printNodeExtra(os, "expr-unary", node.op.unary, node);
     case Node::Kind::ExprBinary:
       assert(node.children.size() == 2);
-      return printNodeOperator(os, "expr-binary", node.op.binary, node);
+      return printNodeExtra(os, "expr-binary", node.op.binary, node);
     case Node::Kind::ExprTernary:
       assert(node.children.size() == 3);
-      return printNodeOperator(os, "expr-ternary", node.op.ternary, node);
+      return printNodeExtra(os, "expr-ternary", node.op.ternary, node);
     case Node::Kind::ExprCall:
       return printNodeChildren(os, "expr-call", node);
+    case Node::Kind::ExprTypePrimitive:
+      return printNodeExtra(os, "type-primitive", node.op.primitive, node);
     case Node::Kind::Literal:
       assert(node.children.empty());
       return printValue(os, node.value, '"');

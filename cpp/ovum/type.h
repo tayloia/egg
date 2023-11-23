@@ -40,14 +40,37 @@ namespace egg::ovum {
     return Bits::set(lhs, rhs);
   }
 
-  class Type : public HardPtr<const IType> { // TODO
+  class Type {
+  private:
+    const IType* ptr;
   public:
-    Type(std::nullptr_t = nullptr) : HardPtr() { // implicit
+    Type(const Type& rhs) : ptr(rhs.ptr) {
     }
-    explicit Type(const IType* rhs) : HardPtr(rhs) {
+    Type(const IType* rhs = nullptr) : ptr(rhs) { // implicit
     }
-    template<typename T>
-    explicit Type(const SoftPtr<T>& rhs) : HardPtr(rhs.get()) {
+    bool operator==(std::nullptr_t) const {
+      return this->ptr == nullptr;
+    }
+    bool operator!=(std::nullptr_t) const {
+      return this->ptr != nullptr;
+    }
+    const IType& operator*() const {
+      auto* p = this->ptr;
+      assert(p != nullptr);
+      return *p;
+    }
+    const IType* operator->() const {
+      auto* p = this->ptr;
+      assert(p != nullptr);
+      return p;
+    }
+    Type& operator=(std::nullptr_t) {
+      this->ptr = nullptr;
+      return *this;
+    }
+    Type& operator=(const Type& rhs) {
+      this->ptr = rhs.ptr;
+      return *this;
     }
 
     // Constants

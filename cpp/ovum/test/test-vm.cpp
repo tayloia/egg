@@ -7,16 +7,21 @@
 #define COMMA(...) , __VA_ARGS__
 #endif
 
-#define EXPR_UNARY(op, arg) mbuilder->exprUnaryOp(UnaryOp::op, arg, 0, 0)
-#define EXPR_BINARY(op, lhs, rhs) mbuilder->exprBinaryOp(BinaryOp::op, lhs, rhs, 0, 0)
-#define EXPR_TERNARY(op, lhs, mid, rhs) mbuilder->exprTernaryOp(TernaryOp::op, lhs, mid, rhs, 0, 0)
+#define EXPR_UNARY(op, arg) mbuilder->exprValueUnaryOp(ValueUnaryOp::op, arg, 0, 0)
+#define EXPR_BINARY(op, lhs, rhs) mbuilder->exprValueBinaryOp(ValueBinaryOp::op, lhs, rhs, 0, 0)
+#define EXPR_TERNARY(op, lhs, mid, rhs) mbuilder->exprValueTernaryOp(ValueTernaryOp::op, lhs, mid, rhs, 0, 0)
 #define EXPR_CALL(func, ...) mbuilder->glue(mbuilder->exprFunctionCall(func, 0, 0) COMMA(__VA_ARGS__))
 #define EXPR_LITERAL(value) mbuilder->exprLiteral(mbuilder->createHardValue(value), 0, 0)
 #define EXPR_LITERAL_VOID() mbuilder->exprLiteral(mbuilder->createHardValueVoid(), 0, 0)
 #define EXPR_PROP_GET(instance, property) mbuilder->exprPropertyGet(instance, property, 0, 0)
 #define EXPR_VAR(symbol) mbuilder->exprVariable(mbuilder->createString(symbol), 0, 0)
+#define TYPE_PRIMITIVE(primitive) mbuilder->typePrimitive(primitive, 0, 0)
+#define TYPE_VAR() TYPE_PRIMITIVE(ValueFlags::None)
+#define TYPE_VARQ() TYPE_PRIMITIVE(ValueFlags::Null)
+#define STMT_ROOT(statement) mbuilder->appendChild(mbuilder->getRoot(), statement)
 #define STMT_BLOCK(...) mbuilder->glue(mbuilder->stmtBlock(0, 0) COMMA(__VA_ARGS__))
 #define STMT_IF(cond, ...) mbuilder->glue(mbuilder->stmtIf(cond, 0, 0) COMMA(__VA_ARGS__))
+#define STMT_IF_ELSE(cond, truthy, falsy) mbuilder->stmtIfElse(cond, truthy, falsy, 0, 0)
 #define STMT_WHILE(cond, block) mbuilder->stmtWhile(cond, block, 0, 0)
 #define STMT_DO(block, cond) mbuilder->stmtDo(block, cond, 0, 0)
 #define STMT_FOR(init, cond, advance, block) mbuilder->stmtFor(init, cond, advance, block, 0, 0)
@@ -27,18 +32,18 @@
 #define STMT_CALL(func, ...) mbuilder->glue(mbuilder->stmtFunctionCall(func, 0, 0) COMMA(__VA_ARGS__))
 #define STMT_PRINT(...) mbuilder->glue(mbuilder->stmtFunctionCall(EXPR_VAR("print"), 0, 0) COMMA(__VA_ARGS__))
 #define STMT_PROP_SET(instance, property, value) mbuilder->stmtPropertySet(instance, property, value, 0, 0)
-#define STMT_VAR_DECLARE(symbol, ...) mbuilder->glue(mbuilder->stmtVariableDeclare(mbuilder->createString(symbol), 0, 0) COMMA(__VA_ARGS__))
-#define STMT_VAR_DEFINE(symbol, value, ...) mbuilder->glue(mbuilder->stmtVariableDefine(mbuilder->createString(symbol), value, 0, 0) COMMA(__VA_ARGS__))
+#define STMT_VAR_DECLARE(symbol, type, ...) mbuilder->glue(mbuilder->stmtVariableDeclare(mbuilder->createString(symbol), type, 0, 0) COMMA(__VA_ARGS__))
+#define STMT_VAR_DEFINE(symbol, type, init, ...) mbuilder->glue(mbuilder->stmtVariableDefine(mbuilder->createString(symbol), type, init, 0, 0) COMMA(__VA_ARGS__))
 #define STMT_VAR_SET(symbol, value) mbuilder->stmtVariableSet(mbuilder->createString(symbol), value, 0, 0)
-#define STMT_VAR_MUTATE(symbol, op, value) mbuilder->stmtVariableMutate(mbuilder->createString(symbol), MutationOp::op, value, 0, 0)
+#define STMT_VAR_MUTATE(symbol, op, value) mbuilder->stmtVariableMutate(mbuilder->createString(symbol), ValueMutationOp::op, value, 0, 0)
 #define STMT_THROW(exception) mbuilder->stmtThrow(exception, 0, 0)
 #define STMT_TRY(block, ...) mbuilder->glue(mbuilder->stmtTry(block, 0, 0) COMMA(__VA_ARGS__))
-#define STMT_CATCH(symbol, ...) mbuilder->glue(mbuilder->stmtCatch(mbuilder->createString(symbol), 0, 0) COMMA(__VA_ARGS__))
+#define STMT_CATCH(symbol, type, ...) mbuilder->glue(mbuilder->stmtCatch(mbuilder->createString(symbol), type, 0, 0) COMMA(__VA_ARGS__))
 #define STMT_RETHROW() mbuilder->stmtRethrow(0, 0)
 
 #define ADD_STATEMENT_MUTATE(op, lhs, rhs) \
-  mbuilder->addStatement( \
-    STMT_VAR_DEFINE("x", EXPR_LITERAL(lhs), \
+  STMT_ROOT( \
+    STMT_VAR_DEFINE("x", TYPE_VARQ(), EXPR_LITERAL(lhs), \
       STMT_VAR_MUTATE("x", op, EXPR_LITERAL(rhs)), \
       STMT_PRINT(EXPR_VAR("x"))))
 
@@ -49,7 +54,7 @@ namespace {
     auto pbuilder = vm->createProgramBuilder();
     auto mbuilder = pbuilder->createModuleBuilder(pbuilder->createString("greeting.egg"));
     // print("hello world);
-    mbuilder->addStatement(
+    STMT_ROOT(
       mbuilder->glue(
         mbuilder->stmtFunctionCall(mbuilder->exprVariable(mbuilder->createString("print"), 0, 0), 0, 0),
         mbuilder->exprLiteral(mbuilder->createHardValue("hello world"), 0, 0)
@@ -228,7 +233,7 @@ TEST(TestVM, PrintPrint) {
   auto pbuilder = vm->createProgramBuilder();
   auto mbuilder = pbuilder->createModuleBuilder(pbuilder->createString("test"));
   // print(print);
-  mbuilder->addStatement(STMT_PRINT(EXPR_VAR("print")));
+  STMT_ROOT(STMT_PRINT(EXPR_VAR("print")));
   buildAndRunSucceeded(vm, *pbuilder, *mbuilder);
   ASSERT_EQ("[builtin print]\n", vm.logger.logged.str());
 }
@@ -238,7 +243,7 @@ TEST(TestVM, PrintUnknown) {
   auto pbuilder = vm->createProgramBuilder();
   auto mbuilder = pbuilder->createModuleBuilder(pbuilder->createString("test"));
   // print(unknown);
-  mbuilder->addStatement(STMT_PRINT(EXPR_VAR("unknown")));
+  STMT_ROOT(STMT_PRINT(EXPR_VAR("unknown")));
   buildAndRunFailed(vm, *pbuilder, *mbuilder);
   ASSERT_EQ("<ERROR>test : Unknown variable symbol: 'unknown'\n", vm.logger.logged.str());
 }
@@ -247,9 +252,9 @@ TEST(TestVM, VariableDeclare) {
   egg::test::VM vm;
   auto pbuilder = vm->createProgramBuilder();
   auto mbuilder = pbuilder->createModuleBuilder(pbuilder->createString("test"));
-  mbuilder->addStatement(
+  STMT_ROOT(
     // var v;
-    STMT_VAR_DECLARE("v",
+    STMT_VAR_DECLARE("v", TYPE_VAR(),
       // print(v);
       STMT_PRINT(EXPR_VAR("v"))
     )
@@ -262,11 +267,11 @@ TEST(TestVM, VariableDeclareTwice) {
   egg::test::VM vm;
   auto pbuilder = vm->createProgramBuilder();
   auto mbuilder = pbuilder->createModuleBuilder(pbuilder->createString("test"));
-  mbuilder->addStatement(
+  STMT_ROOT(
     // var v;
-    STMT_VAR_DECLARE("v",
+    STMT_VAR_DECLARE("v", TYPE_VAR(),
       // var v;
-      STMT_VAR_DECLARE("v")
+      STMT_VAR_DECLARE("v", TYPE_VAR())
     )
   );
   buildAndRunFailed(vm, *pbuilder, *mbuilder);
@@ -277,9 +282,9 @@ TEST(TestVM, VariableDefine) {
   egg::test::VM vm;
   auto pbuilder = vm->createProgramBuilder();
   auto mbuilder = pbuilder->createModuleBuilder(pbuilder->createString("test"));
-  mbuilder->addStatement(
+  STMT_ROOT(
     // var i = 12345;
-    STMT_VAR_DEFINE("i", EXPR_LITERAL(12345),
+    STMT_VAR_DEFINE("i", TYPE_VAR(), EXPR_LITERAL(12345),
      // print(i);
       STMT_PRINT(EXPR_VAR("i"))
     )
@@ -292,11 +297,11 @@ TEST(TestVM, VariableUndeclare) {
   egg::test::VM vm;
   auto pbuilder = vm->createProgramBuilder();
   auto mbuilder = pbuilder->createModuleBuilder(pbuilder->createString("test"));
-  mbuilder->addStatement(
+  STMT_ROOT(
     // var i;
-    STMT_VAR_DECLARE("i")
+    STMT_VAR_DECLARE("i", TYPE_VAR())
   );
-  mbuilder->addStatement(
+  STMT_ROOT(
     // print(i);
     STMT_PRINT(EXPR_VAR("i"))
   );
@@ -308,9 +313,9 @@ TEST(TestVM, VariableDefineNull) {
   egg::test::VM vm;
   auto pbuilder = vm->createProgramBuilder();
   auto mbuilder = pbuilder->createModuleBuilder(pbuilder->createString("test"));
-  mbuilder->addStatement(
-    // var n = null;
-    STMT_VAR_DEFINE("n", EXPR_LITERAL(nullptr),
+  STMT_ROOT(
+    // var? n = null;
+    STMT_VAR_DEFINE("n", TYPE_VARQ(), EXPR_LITERAL(nullptr),
       // print(n);
       STMT_PRINT(EXPR_VAR("n"))
     )
@@ -323,9 +328,9 @@ TEST(TestVM, VariableDefineBool) {
   egg::test::VM vm;
   auto pbuilder = vm->createProgramBuilder();
   auto mbuilder = pbuilder->createModuleBuilder(pbuilder->createString("test"));
-  mbuilder->addStatement(
+  STMT_ROOT(
     // var b = true;
-    STMT_VAR_DEFINE("b", EXPR_LITERAL(true),
+    STMT_VAR_DEFINE("b", TYPE_VAR(), EXPR_LITERAL(true),
       // print(b);
       STMT_PRINT(EXPR_VAR("b"))
     )
@@ -338,9 +343,9 @@ TEST(TestVM, VariableDefineInt) {
   egg::test::VM vm;
   auto pbuilder = vm->createProgramBuilder();
   auto mbuilder = pbuilder->createModuleBuilder(pbuilder->createString("test"));
-  mbuilder->addStatement(
+  STMT_ROOT(
     // var i = 12345;
-    STMT_VAR_DEFINE("i", EXPR_LITERAL(12345),
+    STMT_VAR_DEFINE("i", TYPE_VAR(), EXPR_LITERAL(12345),
         // print(i);
       STMT_PRINT(EXPR_VAR("i"))
     )
@@ -353,9 +358,9 @@ TEST(TestVM, VariableDefineFloat) {
   egg::test::VM vm;
   auto pbuilder = vm->createProgramBuilder();
   auto mbuilder = pbuilder->createModuleBuilder(pbuilder->createString("test"));
-  mbuilder->addStatement(
+  STMT_ROOT(
     // var f = 1234.5;
-    STMT_VAR_DEFINE("f", EXPR_LITERAL(1234.5),
+    STMT_VAR_DEFINE("f", TYPE_VAR(), EXPR_LITERAL(1234.5),
         // print(f);
       STMT_PRINT(EXPR_VAR("f"))
     )
@@ -368,9 +373,9 @@ TEST(TestVM, VariableDefineString) {
   egg::test::VM vm;
   auto pbuilder = vm->createProgramBuilder();
   auto mbuilder = pbuilder->createModuleBuilder(pbuilder->createString("test"));
-  mbuilder->addStatement(
+  STMT_ROOT(
     // var s = "hello world";
-    STMT_VAR_DEFINE("s", EXPR_LITERAL("hello world"),
+    STMT_VAR_DEFINE("s", TYPE_VAR(), EXPR_LITERAL("hello world"),
       // print(s);
       STMT_PRINT(EXPR_VAR("s"))
     )
@@ -383,9 +388,9 @@ TEST(TestVM, VariableDefineObject) {
   egg::test::VM vm;
   auto pbuilder = vm->createProgramBuilder();
   auto mbuilder = pbuilder->createModuleBuilder(pbuilder->createString("test"));
-  mbuilder->addStatement(
+  STMT_ROOT(
     // var o = print;
-    STMT_VAR_DEFINE("o", EXPR_VAR("print"),
+    STMT_VAR_DEFINE("o", TYPE_VAR(), EXPR_VAR("print"),
       // print(o);
       STMT_PRINT(EXPR_VAR("o"))
     )
@@ -398,9 +403,9 @@ TEST(TestVM, BuiltinDeclare) {
   egg::test::VM vm;
   auto pbuilder = vm->createProgramBuilder();
   auto mbuilder = pbuilder->createModuleBuilder(pbuilder->createString("test"));
-  mbuilder->addStatement(
+  STMT_ROOT(
     // var print;
-    STMT_VAR_DECLARE("print")
+    STMT_VAR_DECLARE("print", TYPE_VAR())
   );
   buildAndRunFailed(vm, *pbuilder, *mbuilder);
   ASSERT_EQ("<ERROR>test : Variable symbol already declared as a builtin: 'print'\n", vm.logger.logged.str());
@@ -410,9 +415,9 @@ TEST(TestVM, BuiltinDefine) {
   egg::test::VM vm;
   auto pbuilder = vm->createProgramBuilder();
   auto mbuilder = pbuilder->createModuleBuilder(pbuilder->createString("test"));
-  mbuilder->addStatement(
-    // var print = null;
-    STMT_VAR_DEFINE("print", EXPR_LITERAL(nullptr))
+  STMT_ROOT(
+    // var? print = null;
+    STMT_VAR_DEFINE("print", TYPE_VARQ(), EXPR_LITERAL(nullptr))
   );
   buildAndRunFailed(vm, *pbuilder, *mbuilder);
   ASSERT_EQ("<ERROR>test : Variable symbol already declared as a builtin: 'print'\n", vm.logger.logged.str());
@@ -423,7 +428,7 @@ TEST(TestVM, BuiltinSet) {
   auto pbuilder = vm->createProgramBuilder();
   auto mbuilder = pbuilder->createModuleBuilder(pbuilder->createString("test"));
   // print = 12345;
-  mbuilder->addStatement(
+  STMT_ROOT(
     STMT_VAR_SET("print", EXPR_LITERAL(12345))
   );
   buildAndRunFailed(vm, *pbuilder, *mbuilder);
@@ -435,7 +440,7 @@ TEST(TestVM, AssertTrue) {
   auto pbuilder = vm->createProgramBuilder();
   auto mbuilder = pbuilder->createModuleBuilder(pbuilder->createString("test"));
   // assert(true);
-  mbuilder->addStatement(
+  STMT_ROOT(
     STMT_CALL(EXPR_VAR("assert"), EXPR_LITERAL(true))
   );
   buildAndRunSucceeded(vm, *pbuilder, *mbuilder);
@@ -447,7 +452,7 @@ TEST(TestVM, AssertFalse) {
   auto pbuilder = vm->createProgramBuilder();
   auto mbuilder = pbuilder->createModuleBuilder(pbuilder->createString("test"));
   // assert(false);
-  mbuilder->addStatement(
+  STMT_ROOT(
     STMT_CALL(EXPR_VAR("assert"), EXPR_LITERAL(false))
   );
   buildAndRunFailed(vm, *pbuilder, *mbuilder);
@@ -458,11 +463,11 @@ TEST(TestVM, ExpandoPair) {
   egg::test::VM vm;
   auto pbuilder = vm->createProgramBuilder();
   auto mbuilder = pbuilder->createModuleBuilder(pbuilder->createString("test"));
-  mbuilder->addStatement(
+  STMT_ROOT(
     // var a = expando();
-    STMT_VAR_DEFINE("a", EXPR_CALL(EXPR_VAR("expando")),
+    STMT_VAR_DEFINE("a", TYPE_VAR(), EXPR_CALL(EXPR_VAR("expando")),
       // var b = expando();
-      STMT_VAR_DEFINE("b", EXPR_CALL(EXPR_VAR("expando")),
+      STMT_VAR_DEFINE("b", TYPE_VAR(), EXPR_CALL(EXPR_VAR("expando")),
         // a.x = b;
         STMT_PROP_SET(EXPR_VAR("a"), EXPR_LITERAL("x"), EXPR_VAR("b")),
         // print(a,b);
@@ -478,11 +483,11 @@ TEST(TestVM, ExpandoCycle) {
   egg::test::VM vm;
   auto pbuilder = vm->createProgramBuilder();
   auto mbuilder = pbuilder->createModuleBuilder(pbuilder->createString("test"));
-  mbuilder->addStatement(
+  STMT_ROOT(
     // var a = expando();
-    STMT_VAR_DEFINE("a", EXPR_CALL(EXPR_VAR("expando")),
+    STMT_VAR_DEFINE("a", TYPE_VAR(), EXPR_CALL(EXPR_VAR("expando")),
       // var b = expando();
-      STMT_VAR_DEFINE("b", EXPR_CALL(EXPR_VAR("expando")),
+      STMT_VAR_DEFINE("b", TYPE_VAR(), EXPR_CALL(EXPR_VAR("expando")),
         // a.x = b;
         STMT_PROP_SET(EXPR_VAR("a"), EXPR_LITERAL("x"), EXPR_VAR("b")),
         // b.x = a;
@@ -500,11 +505,11 @@ TEST(TestVM, ExpandoCollector) {
   egg::test::VM vm;
   auto pbuilder = vm->createProgramBuilder();
   auto mbuilder = pbuilder->createModuleBuilder(pbuilder->createString("test"));
-  mbuilder->addStatement(
+  STMT_ROOT(
     // var a = expando();
-    STMT_VAR_DEFINE("a", EXPR_CALL(EXPR_VAR("expando")),
+    STMT_VAR_DEFINE("a", TYPE_VAR(), EXPR_CALL(EXPR_VAR("expando")),
       // var b = expando();
-      STMT_VAR_DEFINE("b", EXPR_CALL(EXPR_VAR("expando")),
+      STMT_VAR_DEFINE("b", TYPE_VAR(), EXPR_CALL(EXPR_VAR("expando")),
         // a.x = b;
         STMT_PROP_SET(EXPR_VAR("a"), EXPR_LITERAL("x"), EXPR_VAR("b")),
         // b.x = a;
@@ -530,9 +535,9 @@ TEST(TestVM, ExpandoKeys) {
   egg::test::VM vm;
   auto pbuilder = vm->createProgramBuilder();
   auto mbuilder = pbuilder->createModuleBuilder(pbuilder->createString("test"));
-  mbuilder->addStatement(
+  STMT_ROOT(
     // var x = expando();
-    STMT_VAR_DEFINE("x", EXPR_CALL(EXPR_VAR("expando")),
+    STMT_VAR_DEFINE("x", TYPE_VAR(), EXPR_CALL(EXPR_VAR("expando")),
       // x.n = null;
       STMT_PROP_SET(EXPR_VAR("x"), EXPR_LITERAL("n"), EXPR_LITERAL(nullptr)),
       // x.b = true;
@@ -567,19 +572,19 @@ TEST(TestVM, UnaryNegate) {
   egg::test::VM vm;
   auto pbuilder = vm->createProgramBuilder();
   auto mbuilder = pbuilder->createModuleBuilder(pbuilder->createString("test"));
-  mbuilder->addStatement(
+  STMT_ROOT(
     // print(-(123));
     STMT_PRINT(EXPR_UNARY(Negate, EXPR_LITERAL(123)))
   );
-  mbuilder->addStatement(
+  STMT_ROOT(
     // print(-(-123));
     STMT_PRINT(EXPR_UNARY(Negate, EXPR_LITERAL(-123)))
   );
-  mbuilder->addStatement(
+  STMT_ROOT(
     // print(-(123.5));
     STMT_PRINT(EXPR_UNARY(Negate, EXPR_LITERAL(123.5)))
   );
-  mbuilder->addStatement(
+  STMT_ROOT(
     // print(-(-123.5));
     STMT_PRINT(EXPR_UNARY(Negate, EXPR_LITERAL(-123.5)))
   );
@@ -591,11 +596,11 @@ TEST(TestVM, UnaryBitwiseNot) {
   egg::test::VM vm;
   auto pbuilder = vm->createProgramBuilder();
   auto mbuilder = pbuilder->createModuleBuilder(pbuilder->createString("test"));
-  mbuilder->addStatement(
+  STMT_ROOT(
     // print(~5);
     STMT_PRINT(EXPR_UNARY(BitwiseNot, EXPR_LITERAL(5)))
   );
-  mbuilder->addStatement(
+  STMT_ROOT(
     // print(~-5);
     STMT_PRINT(EXPR_UNARY(BitwiseNot, EXPR_LITERAL(-5)))
   );
@@ -607,11 +612,11 @@ TEST(TestVM, UnaryLogicalNot) {
   egg::test::VM vm;
   auto pbuilder = vm->createProgramBuilder();
   auto mbuilder = pbuilder->createModuleBuilder(pbuilder->createString("test"));
-  mbuilder->addStatement(
+  STMT_ROOT(
     // print(!false);
     STMT_PRINT(EXPR_UNARY(LogicalNot, EXPR_LITERAL(false)))
   );
-  mbuilder->addStatement(
+  STMT_ROOT(
     // print(!true);
     STMT_PRINT(EXPR_UNARY(LogicalNot, EXPR_LITERAL(true)))
   );
@@ -623,19 +628,19 @@ TEST(TestVM, BinaryAdd) {
   egg::test::VM vm;
   auto pbuilder = vm->createProgramBuilder();
   auto mbuilder = pbuilder->createModuleBuilder(pbuilder->createString("test"));
-  mbuilder->addStatement(
+  STMT_ROOT(
     // print(123 + 456);
     STMT_PRINT(EXPR_BINARY(Add, EXPR_LITERAL(123), EXPR_LITERAL(456)))
   );
-  mbuilder->addStatement(
+  STMT_ROOT(
     // print(123.5 + 456);
     STMT_PRINT(EXPR_BINARY(Add, EXPR_LITERAL(123.25), EXPR_LITERAL(456)))
   );
-  mbuilder->addStatement(
+  STMT_ROOT(
     // print(123 + 456.5);
     STMT_PRINT(EXPR_BINARY(Add, EXPR_LITERAL(123), EXPR_LITERAL(456.5)))
   );
-  mbuilder->addStatement(
+  STMT_ROOT(
     // print(123.25 + 456.5);
     STMT_PRINT(EXPR_BINARY(Add, EXPR_LITERAL(123.25), EXPR_LITERAL(456.5)))
   );
@@ -647,19 +652,19 @@ TEST(TestVM, BinarySubtract) {
   egg::test::VM vm;
   auto pbuilder = vm->createProgramBuilder();
   auto mbuilder = pbuilder->createModuleBuilder(pbuilder->createString("test"));
-  mbuilder->addStatement(
+  STMT_ROOT(
     // print(123 - 456);
     STMT_PRINT(EXPR_BINARY(Subtract, EXPR_LITERAL(123), EXPR_LITERAL(456)))
   );
-  mbuilder->addStatement(
+  STMT_ROOT(
     // print(123.5 - 456);
     STMT_PRINT(EXPR_BINARY(Subtract, EXPR_LITERAL(123.25), EXPR_LITERAL(456)))
   );
-  mbuilder->addStatement(
+  STMT_ROOT(
     // print(123 - 456.5);
     STMT_PRINT(EXPR_BINARY(Subtract, EXPR_LITERAL(123), EXPR_LITERAL(456.5)))
   );
-  mbuilder->addStatement(
+  STMT_ROOT(
     // print(123.25 - 456.5);
     STMT_PRINT(EXPR_BINARY(Subtract, EXPR_LITERAL(123.25), EXPR_LITERAL(456.5)))
   );
@@ -671,19 +676,19 @@ TEST(TestVM, BinaryMultiply) {
   egg::test::VM vm;
   auto pbuilder = vm->createProgramBuilder();
   auto mbuilder = pbuilder->createModuleBuilder(pbuilder->createString("test"));
-  mbuilder->addStatement(
+  STMT_ROOT(
     // print(123 * 456);
     STMT_PRINT(EXPR_BINARY(Multiply, EXPR_LITERAL(123), EXPR_LITERAL(456)))
   );
-  mbuilder->addStatement(
+  STMT_ROOT(
     // print(123.5 * 456);
     STMT_PRINT(EXPR_BINARY(Multiply, EXPR_LITERAL(123.25), EXPR_LITERAL(456)))
   );
-  mbuilder->addStatement(
+  STMT_ROOT(
     // print(123 * 456.5);
     STMT_PRINT(EXPR_BINARY(Multiply, EXPR_LITERAL(123), EXPR_LITERAL(456.5)))
   );
-  mbuilder->addStatement(
+  STMT_ROOT(
     // print(123.25 * 456.5);
     STMT_PRINT(EXPR_BINARY(Multiply, EXPR_LITERAL(123.25), EXPR_LITERAL(456.5)))
   );
@@ -695,19 +700,19 @@ TEST(TestVM, BinaryDivide) {
   egg::test::VM vm;
   auto pbuilder = vm->createProgramBuilder();
   auto mbuilder = pbuilder->createModuleBuilder(pbuilder->createString("test"));
-  mbuilder->addStatement(
+  STMT_ROOT(
     // print(123 / 456);
     STMT_PRINT(EXPR_BINARY(Divide, EXPR_LITERAL(123), EXPR_LITERAL(456)))
   );
-  mbuilder->addStatement(
+  STMT_ROOT(
     // print(123.5 / 456);
     STMT_PRINT(EXPR_BINARY(Divide, EXPR_LITERAL(123.25), EXPR_LITERAL(456)))
   );
-  mbuilder->addStatement(
+  STMT_ROOT(
     // print(123 / 456.5);
     STMT_PRINT(EXPR_BINARY(Divide, EXPR_LITERAL(123), EXPR_LITERAL(456.5)))
   );
-  mbuilder->addStatement(
+  STMT_ROOT(
     // print(123.25 / 456.5);
     STMT_PRINT(EXPR_BINARY(Divide, EXPR_LITERAL(123.25), EXPR_LITERAL(456.5)))
   );
@@ -719,27 +724,27 @@ TEST(TestVM, BinaryDivideZero) {
   egg::test::VM vm;
   auto pbuilder = vm->createProgramBuilder();
   auto mbuilder = pbuilder->createModuleBuilder(pbuilder->createString("test"));
-  mbuilder->addStatement(
+  STMT_ROOT(
     // print(123.5 / 0);
     STMT_PRINT(EXPR_BINARY(Divide, EXPR_LITERAL(123.25), EXPR_LITERAL(0)))
   );
-  mbuilder->addStatement(
+  STMT_ROOT(
     // print(123 / 0.0);
     STMT_PRINT(EXPR_BINARY(Divide, EXPR_LITERAL(123), EXPR_LITERAL(0.0)))
   );
-  mbuilder->addStatement(
+  STMT_ROOT(
     // print(123.25 / 0.0);
     STMT_PRINT(EXPR_BINARY(Divide, EXPR_LITERAL(123.25), EXPR_LITERAL(0.0)))
   );
-  mbuilder->addStatement(
+  STMT_ROOT(
     // print(0 / 0.0);
     STMT_PRINT(EXPR_BINARY(Divide, EXPR_LITERAL(0), EXPR_LITERAL(0.0)))
   );
-  mbuilder->addStatement(
+  STMT_ROOT(
     // print(0.0 / 0.0);
     STMT_PRINT(EXPR_BINARY(Divide, EXPR_LITERAL(0.0), EXPR_LITERAL(0.0)))
   );
-  mbuilder->addStatement(
+  STMT_ROOT(
     // print(123 / 0);
     STMT_PRINT(EXPR_BINARY(Divide, EXPR_LITERAL(123), EXPR_LITERAL(0)))
   );
@@ -751,19 +756,19 @@ TEST(TestVM, BinaryRemainder) {
   egg::test::VM vm;
   auto pbuilder = vm->createProgramBuilder();
   auto mbuilder = pbuilder->createModuleBuilder(pbuilder->createString("test"));
-  mbuilder->addStatement(
+  STMT_ROOT(
     // print(123 % 34);
     STMT_PRINT(EXPR_BINARY(Remainder, EXPR_LITERAL(123), EXPR_LITERAL(34)))
   );
-  mbuilder->addStatement(
+  STMT_ROOT(
     // print(123.5 % 34);
     STMT_PRINT(EXPR_BINARY(Remainder, EXPR_LITERAL(123.25), EXPR_LITERAL(34)))
   );
-  mbuilder->addStatement(
+  STMT_ROOT(
     // print(123 % 34.5);
     STMT_PRINT(EXPR_BINARY(Remainder, EXPR_LITERAL(123), EXPR_LITERAL(34.5)))
   );
-  mbuilder->addStatement(
+  STMT_ROOT(
     // print(123.25 % 34.5);
     STMT_PRINT(EXPR_BINARY(Remainder, EXPR_LITERAL(123.25), EXPR_LITERAL(34.5)))
   );
@@ -775,27 +780,27 @@ TEST(TestVM, BinaryRemainderZero) {
   egg::test::VM vm;
   auto pbuilder = vm->createProgramBuilder();
   auto mbuilder = pbuilder->createModuleBuilder(pbuilder->createString("test"));
-  mbuilder->addStatement(
+  STMT_ROOT(
     // print(123.5 % 34);
     STMT_PRINT(EXPR_BINARY(Remainder, EXPR_LITERAL(123.25), EXPR_LITERAL(0)))
   );
-  mbuilder->addStatement(
+  STMT_ROOT(
     // print(123 % 34.5);
     STMT_PRINT(EXPR_BINARY(Remainder, EXPR_LITERAL(123), EXPR_LITERAL(0.0)))
   );
-  mbuilder->addStatement(
+  STMT_ROOT(
     // print(123.25 % 34.5);
     STMT_PRINT(EXPR_BINARY(Remainder, EXPR_LITERAL(123.25), EXPR_LITERAL(0.0)))
   );
-  mbuilder->addStatement(
+  STMT_ROOT(
     // print(0 % 0.0);
     STMT_PRINT(EXPR_BINARY(Remainder, EXPR_LITERAL(0), EXPR_LITERAL(0.0)))
   );
-  mbuilder->addStatement(
+  STMT_ROOT(
     // print(0.0 % 0.0);
     STMT_PRINT(EXPR_BINARY(Remainder, EXPR_LITERAL(0.0), EXPR_LITERAL(0.0)))
   );
-  mbuilder->addStatement(
+  STMT_ROOT(
     // print(123 % 0);
     STMT_PRINT(EXPR_BINARY(Remainder, EXPR_LITERAL(123), EXPR_LITERAL(0)))
   );
@@ -807,27 +812,27 @@ TEST(TestVM, BinaryCompare) {
   egg::test::VM vm;
   auto pbuilder = vm->createProgramBuilder();
   auto mbuilder = pbuilder->createModuleBuilder(pbuilder->createString("test"));
-  mbuilder->addStatement(
+  STMT_ROOT(
     // print(123 < 234);
     STMT_PRINT(EXPR_BINARY(LessThan, EXPR_LITERAL(123), EXPR_LITERAL(234)))
   );
-  mbuilder->addStatement(
+  STMT_ROOT(
     // print(123 <= 234);
     STMT_PRINT(EXPR_BINARY(LessThanOrEqual, EXPR_LITERAL(123), EXPR_LITERAL(234)))
   );
-  mbuilder->addStatement(
+  STMT_ROOT(
     // print(123 == 234);
     STMT_PRINT(EXPR_BINARY(Equal, EXPR_LITERAL(123), EXPR_LITERAL(234)))
   );
-  mbuilder->addStatement(
+  STMT_ROOT(
     // print(123 != 234);
     STMT_PRINT(EXPR_BINARY(NotEqual, EXPR_LITERAL(123), EXPR_LITERAL(234)))
   );
-  mbuilder->addStatement(
+  STMT_ROOT(
     // print(123 >= 234);
     STMT_PRINT(EXPR_BINARY(GreaterThanOrEqual, EXPR_LITERAL(123), EXPR_LITERAL(234)))
   );
-  mbuilder->addStatement(
+  STMT_ROOT(
     // print(123 > 234);
     STMT_PRINT(EXPR_BINARY(GreaterThan, EXPR_LITERAL(123), EXPR_LITERAL(234)))
   );
@@ -839,51 +844,51 @@ TEST(TestVM, BinaryBitwiseBool) {
   egg::test::VM vm;
   auto pbuilder = vm->createProgramBuilder();
   auto mbuilder = pbuilder->createModuleBuilder(pbuilder->createString("test"));
-  mbuilder->addStatement(
+  STMT_ROOT(
     // print(false & false);
     STMT_PRINT(EXPR_BINARY(BitwiseAnd, EXPR_LITERAL(false), EXPR_LITERAL(false)))
   );
-  mbuilder->addStatement(
+  STMT_ROOT(
     // print(false & true);
     STMT_PRINT(EXPR_BINARY(BitwiseAnd, EXPR_LITERAL(false), EXPR_LITERAL(true)))
   );
-  mbuilder->addStatement(
+  STMT_ROOT(
     // print(true & false);
     STMT_PRINT(EXPR_BINARY(BitwiseAnd, EXPR_LITERAL(true), EXPR_LITERAL(false)))
   );
-  mbuilder->addStatement(
+  STMT_ROOT(
     // print(true & true);
     STMT_PRINT(EXPR_BINARY(BitwiseAnd, EXPR_LITERAL(true), EXPR_LITERAL(true)))
   );
-  mbuilder->addStatement(
+  STMT_ROOT(
     // print(false | false);
     STMT_PRINT(EXPR_BINARY(BitwiseOr, EXPR_LITERAL(false), EXPR_LITERAL(false)))
   );
-  mbuilder->addStatement(
+  STMT_ROOT(
     // print(false | true);
     STMT_PRINT(EXPR_BINARY(BitwiseOr, EXPR_LITERAL(false), EXPR_LITERAL(true)))
   );
-  mbuilder->addStatement(
+  STMT_ROOT(
     // print(true | false);
     STMT_PRINT(EXPR_BINARY(BitwiseOr, EXPR_LITERAL(true), EXPR_LITERAL(false)))
   );
-  mbuilder->addStatement(
+  STMT_ROOT(
     // print(true | true);
     STMT_PRINT(EXPR_BINARY(BitwiseOr, EXPR_LITERAL(true), EXPR_LITERAL(true)))
   );
-  mbuilder->addStatement(
+  STMT_ROOT(
     // print(false ^ false);
     STMT_PRINT(EXPR_BINARY(BitwiseXor, EXPR_LITERAL(false), EXPR_LITERAL(false)))
   );
-  mbuilder->addStatement(
+  STMT_ROOT(
     // print(false ^ true);
     STMT_PRINT(EXPR_BINARY(BitwiseXor, EXPR_LITERAL(false), EXPR_LITERAL(true)))
   );
-  mbuilder->addStatement(
+  STMT_ROOT(
     // print(true ^ false);
     STMT_PRINT(EXPR_BINARY(BitwiseXor, EXPR_LITERAL(true), EXPR_LITERAL(false)))
   );
-  mbuilder->addStatement(
+  STMT_ROOT(
     // print(true ^ true);
     STMT_PRINT(EXPR_BINARY(BitwiseXor, EXPR_LITERAL(true), EXPR_LITERAL(true)))
   );
@@ -898,15 +903,15 @@ TEST(TestVM, BinaryBitwiseInt) {
   egg::test::VM vm;
   auto pbuilder = vm->createProgramBuilder();
   auto mbuilder = pbuilder->createModuleBuilder(pbuilder->createString("test"));
-  mbuilder->addStatement(
+  STMT_ROOT(
     // print(10 & 3);
     STMT_PRINT(EXPR_BINARY(BitwiseAnd, EXPR_LITERAL(10), EXPR_LITERAL(3)))
   );
-  mbuilder->addStatement(
+  STMT_ROOT(
     // print(10 | 3);
     STMT_PRINT(EXPR_BINARY(BitwiseOr, EXPR_LITERAL(10), EXPR_LITERAL(3)))
   );
-  mbuilder->addStatement(
+  STMT_ROOT(
     // print(10 ^ 3);
     STMT_PRINT(EXPR_BINARY(BitwiseXor, EXPR_LITERAL(10), EXPR_LITERAL(3)))
   );
@@ -918,51 +923,51 @@ TEST(TestVM, BinaryShift) {
   egg::test::VM vm;
   auto pbuilder = vm->createProgramBuilder();
   auto mbuilder = pbuilder->createModuleBuilder(pbuilder->createString("test"));
-  mbuilder->addStatement(
+  STMT_ROOT(
     // print(7 << 2);
     STMT_PRINT(EXPR_BINARY(ShiftLeft, EXPR_LITERAL(7), EXPR_LITERAL(2)))
   );
-  mbuilder->addStatement(
+  STMT_ROOT(
     // print(7 << -2);
     STMT_PRINT(EXPR_BINARY(ShiftLeft, EXPR_LITERAL(7), EXPR_LITERAL(-2)))
   );
-  mbuilder->addStatement(
+  STMT_ROOT(
     // print(-7 << 2);
     STMT_PRINT(EXPR_BINARY(ShiftLeft, EXPR_LITERAL(-7), EXPR_LITERAL(2)))
   );
-  mbuilder->addStatement(
+  STMT_ROOT(
     // print(-7 << -2);
     STMT_PRINT(EXPR_BINARY(ShiftLeft, EXPR_LITERAL(-7), EXPR_LITERAL(-2)))
   );
-  mbuilder->addStatement(
+  STMT_ROOT(
     // print(7 >> 2);
     STMT_PRINT(EXPR_BINARY(ShiftRight, EXPR_LITERAL(7), EXPR_LITERAL(2)))
   );
-  mbuilder->addStatement(
+  STMT_ROOT(
     // print(7 >> -2);
     STMT_PRINT(EXPR_BINARY(ShiftRight, EXPR_LITERAL(7), EXPR_LITERAL(-2)))
   );
-  mbuilder->addStatement(
+  STMT_ROOT(
     // print(-7 >> 2);
     STMT_PRINT(EXPR_BINARY(ShiftRight, EXPR_LITERAL(-7), EXPR_LITERAL(2)))
   );
-  mbuilder->addStatement(
+  STMT_ROOT(
     // print(-7 >> -2);
     STMT_PRINT(EXPR_BINARY(ShiftRight, EXPR_LITERAL(-7), EXPR_LITERAL(-2)))
   );
-  mbuilder->addStatement(
+  STMT_ROOT(
     // print(7 >>> 2);
     STMT_PRINT(EXPR_BINARY(ShiftRightUnsigned, EXPR_LITERAL(7), EXPR_LITERAL(2)))
   );
-  mbuilder->addStatement(
+  STMT_ROOT(
     // print(7 >>> -2);
     STMT_PRINT(EXPR_BINARY(ShiftRightUnsigned, EXPR_LITERAL(7), EXPR_LITERAL(-2)))
   );
-  mbuilder->addStatement(
+  STMT_ROOT(
     // print(-7 >>> 2);
     STMT_PRINT(EXPR_BINARY(ShiftRightUnsigned, EXPR_LITERAL(-7), EXPR_LITERAL(2)))
   );
-  mbuilder->addStatement(
+  STMT_ROOT(
     // print(-7 >>> -2);
     STMT_PRINT(EXPR_BINARY(ShiftRightUnsigned, EXPR_LITERAL(-7), EXPR_LITERAL(-2)))
   );
@@ -977,51 +982,51 @@ TEST(TestVM, BinaryLogical) {
   egg::test::VM vm;
   auto pbuilder = vm->createProgramBuilder();
   auto mbuilder = pbuilder->createModuleBuilder(pbuilder->createString("test"));
-  mbuilder->addStatement(
+  STMT_ROOT(
     // print(false && false);
     STMT_PRINT(EXPR_BINARY(IfTrue, EXPR_LITERAL(false), EXPR_LITERAL(false)))
   );
-  mbuilder->addStatement(
+  STMT_ROOT(
     // print(false && true);
     STMT_PRINT(EXPR_BINARY(IfTrue, EXPR_LITERAL(false), EXPR_LITERAL(true)))
   );
-  mbuilder->addStatement(
+  STMT_ROOT(
     // print(true && false);
     STMT_PRINT(EXPR_BINARY(IfTrue, EXPR_LITERAL(true), EXPR_LITERAL(false)))
   );
-  mbuilder->addStatement(
+  STMT_ROOT(
     // print(true && true);
     STMT_PRINT(EXPR_BINARY(IfTrue, EXPR_LITERAL(true), EXPR_LITERAL(true)))
   );
-  mbuilder->addStatement(
+  STMT_ROOT(
     // print(false || false);
     STMT_PRINT(EXPR_BINARY(IfFalse, EXPR_LITERAL(false), EXPR_LITERAL(false)))
   );
-  mbuilder->addStatement(
+  STMT_ROOT(
     // print(false || true);
     STMT_PRINT(EXPR_BINARY(IfFalse, EXPR_LITERAL(false), EXPR_LITERAL(true)))
   );
-  mbuilder->addStatement(
+  STMT_ROOT(
     // print(true || false);
     STMT_PRINT(EXPR_BINARY(IfFalse, EXPR_LITERAL(true), EXPR_LITERAL(false)))
   );
-  mbuilder->addStatement(
+  STMT_ROOT(
     // print(true || true);
     STMT_PRINT(EXPR_BINARY(IfFalse, EXPR_LITERAL(true), EXPR_LITERAL(true)))
   );
-  mbuilder->addStatement(
+  STMT_ROOT(
     // print(null ?? null);
     STMT_PRINT(EXPR_BINARY(IfNull, EXPR_LITERAL(nullptr), EXPR_LITERAL(nullptr)))
   );
-  mbuilder->addStatement(
+  STMT_ROOT(
     // print(null ?? 456);
     STMT_PRINT(EXPR_BINARY(IfNull, EXPR_LITERAL(nullptr), EXPR_LITERAL(456)))
   );
-  mbuilder->addStatement(
+  STMT_ROOT(
     // print(123 ?? null);
     STMT_PRINT(EXPR_BINARY(IfNull, EXPR_LITERAL(123), EXPR_LITERAL(nullptr)))
   );
-  mbuilder->addStatement(
+  STMT_ROOT(
     // print(123 ?? 456);
     STMT_PRINT(EXPR_BINARY(IfNull, EXPR_LITERAL(123), EXPR_LITERAL(456)))
   );
@@ -1036,11 +1041,11 @@ TEST(TestVM, Ternary) {
   egg::test::VM vm;
   auto pbuilder = vm->createProgramBuilder();
   auto mbuilder = pbuilder->createModuleBuilder(pbuilder->createString("test"));
-  mbuilder->addStatement(
+  STMT_ROOT(
     // print(false ? 1 : 2);
     STMT_PRINT(EXPR_TERNARY(IfThenElse, EXPR_LITERAL(false), EXPR_LITERAL(1), EXPR_LITERAL(2)))
   );
-  mbuilder->addStatement(
+  STMT_ROOT(
     // print(true ? 1 : 2);
     STMT_PRINT(EXPR_TERNARY(IfThenElse, EXPR_LITERAL(true), EXPR_LITERAL(1), EXPR_LITERAL(2)))
   );
@@ -1052,9 +1057,9 @@ TEST(TestVM, MutateDecrement) {
   egg::test::VM vm;
   auto pbuilder = vm->createProgramBuilder();
   auto mbuilder = pbuilder->createModuleBuilder(pbuilder->createString("test"));
-  mbuilder->addStatement(
+  STMT_ROOT(
     // var i = 12345;
-    STMT_VAR_DEFINE("i", EXPR_LITERAL(12345),
+    STMT_VAR_DEFINE("i", TYPE_VAR(), EXPR_LITERAL(12345),
       // print(i);
       STMT_PRINT(EXPR_VAR("i")),
       // --i;
@@ -1071,9 +1076,9 @@ TEST(TestVM, MutateIncrement) {
   egg::test::VM vm;
   auto pbuilder = vm->createProgramBuilder();
   auto mbuilder = pbuilder->createModuleBuilder(pbuilder->createString("test"));
-  mbuilder->addStatement(
+  STMT_ROOT(
     // var i = 12345;
-    STMT_VAR_DEFINE("i", EXPR_LITERAL(12345),
+    STMT_VAR_DEFINE("i", TYPE_VAR(), EXPR_LITERAL(12345),
       // print(i);
       STMT_PRINT(EXPR_VAR("i")),
       // ++i;
@@ -1266,7 +1271,7 @@ TEST(TestVM, Block) {
   egg::test::VM vm;
   auto pbuilder = vm->createProgramBuilder();
   auto mbuilder = pbuilder->createModuleBuilder(pbuilder->createString("test"));
-  mbuilder->addStatement(
+  STMT_ROOT(
     STMT_BLOCK(
       // print("a");
       STMT_PRINT(EXPR_LITERAL("a")),
@@ -1282,11 +1287,11 @@ TEST(TestVM, If) {
   egg::test::VM vm;
   auto pbuilder = vm->createProgramBuilder();
   auto mbuilder = pbuilder->createModuleBuilder(pbuilder->createString("test"));
-  mbuilder->addStatement(
+  STMT_ROOT(
     // var a = 1;
-    STMT_VAR_DEFINE("a", EXPR_LITERAL(1),
+    STMT_VAR_DEFINE("a", TYPE_VAR(), EXPR_LITERAL(1),
       // var b = 2;
-      STMT_VAR_DEFINE("b", EXPR_LITERAL(2),
+      STMT_VAR_DEFINE("b", TYPE_VAR(), EXPR_LITERAL(2),
         // if (a < b) { a = "X"; }
         STMT_IF(EXPR_BINARY(LessThan, EXPR_VAR("a"), EXPR_VAR("b")),
           STMT_BLOCK(
@@ -1299,11 +1304,11 @@ TEST(TestVM, If) {
       )
     )
   );
-  mbuilder->addStatement(
+  STMT_ROOT(
     // var a = 1;
-    STMT_VAR_DEFINE("a", EXPR_LITERAL(1),
+    STMT_VAR_DEFINE("a", TYPE_VAR(), EXPR_LITERAL(1),
       // var b = 2;
-      STMT_VAR_DEFINE("b", EXPR_LITERAL(2),
+      STMT_VAR_DEFINE("b", TYPE_VAR(), EXPR_LITERAL(2),
         // if (a > b) { a = "X"; }
         STMT_IF(EXPR_BINARY(GreaterThan, EXPR_VAR("a"), EXPR_VAR("b")),
           STMT_BLOCK(
@@ -1324,11 +1329,11 @@ TEST(TestVM, IfElse) {
   egg::test::VM vm;
   auto pbuilder = vm->createProgramBuilder();
   auto mbuilder = pbuilder->createModuleBuilder(pbuilder->createString("test"));
-  mbuilder->addStatement(
+  STMT_ROOT(
     // var a = 1;
-    STMT_VAR_DEFINE("a", EXPR_LITERAL(1),
+    STMT_VAR_DEFINE("a", TYPE_VAR(), EXPR_LITERAL(1),
       // var b = 2;
-      STMT_VAR_DEFINE("b", EXPR_LITERAL(2),
+      STMT_VAR_DEFINE("b", TYPE_VAR(), EXPR_LITERAL(2),
         // if (a < b) { a = "X"; } else { b = "X" }
         STMT_IF(EXPR_BINARY(LessThan, EXPR_VAR("a"), EXPR_VAR("b")),
           STMT_BLOCK(
@@ -1345,11 +1350,11 @@ TEST(TestVM, IfElse) {
       )
     )
   );
-  mbuilder->addStatement(
+  STMT_ROOT(
     // var a = 1;
-    STMT_VAR_DEFINE("a", EXPR_LITERAL(1),
+    STMT_VAR_DEFINE("a", TYPE_VAR(), EXPR_LITERAL(1),
       // var b = 2;
-      STMT_VAR_DEFINE("b", EXPR_LITERAL(2),
+      STMT_VAR_DEFINE("b", TYPE_VAR(), EXPR_LITERAL(2),
         // if (a > b) { a = "X"; } else { b = "X" }
         STMT_IF(EXPR_BINARY(GreaterThan, EXPR_VAR("a"), EXPR_VAR("b")),
           STMT_BLOCK(
@@ -1374,9 +1379,9 @@ TEST(TestVM, While) {
   egg::test::VM vm;
   auto pbuilder = vm->createProgramBuilder();
   auto mbuilder = pbuilder->createModuleBuilder(pbuilder->createString("test"));
-  mbuilder->addStatement(
+  STMT_ROOT(
     // var i = 1;
-    STMT_VAR_DEFINE("i", EXPR_LITERAL(1),
+    STMT_VAR_DEFINE("i", TYPE_VAR(), EXPR_LITERAL(1),
       // while (i < 10)
       STMT_WHILE(EXPR_BINARY(LessThan, EXPR_VAR("i"), EXPR_LITERAL(10)),
         STMT_BLOCK(
@@ -1396,9 +1401,9 @@ TEST(TestVM, Do) {
   egg::test::VM vm;
   auto pbuilder = vm->createProgramBuilder();
   auto mbuilder = pbuilder->createModuleBuilder(pbuilder->createString("test"));
-  mbuilder->addStatement(
+  STMT_ROOT(
     // var i = 1;
-    STMT_VAR_DEFINE("i", EXPR_LITERAL(1),
+    STMT_VAR_DEFINE("i", TYPE_VAR(), EXPR_LITERAL(1),
       // do ... while (i < 10)
       STMT_DO(
         STMT_BLOCK(
@@ -1419,9 +1424,9 @@ TEST(TestVM, For) {
   egg::test::VM vm;
   auto pbuilder = vm->createProgramBuilder();
   auto mbuilder = pbuilder->createModuleBuilder(pbuilder->createString("test"));
-  mbuilder->addStatement(
+  STMT_ROOT(
     // var i;
-    STMT_VAR_DECLARE("i",
+    STMT_VAR_DECLARE("i", TYPE_VAR(),
       // for (...)
       STMT_FOR(
         // i = 1;
@@ -1443,9 +1448,9 @@ TEST(TestVM, SwitchCaseBreak) {
   egg::test::VM vm;
   auto pbuilder = vm->createProgramBuilder();
   auto mbuilder = pbuilder->createModuleBuilder(pbuilder->createString("test"));
-  mbuilder->addStatement(
+  STMT_ROOT(
     // var i;
-    STMT_VAR_DECLARE("i",
+    STMT_VAR_DECLARE("i", TYPE_VAR(),
       // for (...)
       STMT_FOR(
         // i = 1;
@@ -1473,9 +1478,9 @@ TEST(TestVM, SwitchCaseContinue) {
   egg::test::VM vm;
   auto pbuilder = vm->createProgramBuilder();
   auto mbuilder = pbuilder->createModuleBuilder(pbuilder->createString("test"));
-  mbuilder->addStatement(
+  STMT_ROOT(
     // var i;
-    STMT_VAR_DECLARE("i",
+    STMT_VAR_DECLARE("i", TYPE_VAR(),
       // for (...)
       STMT_FOR(
         // i = 1;
@@ -1507,9 +1512,9 @@ TEST(TestVM, SwitchDefaultBreak) {
   egg::test::VM vm;
   auto pbuilder = vm->createProgramBuilder();
   auto mbuilder = pbuilder->createModuleBuilder(pbuilder->createString("test"));
-  mbuilder->addStatement(
+  STMT_ROOT(
     // var i;
-    STMT_VAR_DECLARE("i",
+    STMT_VAR_DECLARE("i", TYPE_VAR(),
       // for (...)
       STMT_FOR(
         // i = 1;
@@ -1538,9 +1543,9 @@ TEST(TestVM, SwitchDefaultContinue) {
   egg::test::VM vm;
   auto pbuilder = vm->createProgramBuilder();
   auto mbuilder = pbuilder->createModuleBuilder(pbuilder->createString("test"));
-  mbuilder->addStatement(
+  STMT_ROOT(
     // var i;
-    STMT_VAR_DECLARE("i",
+    STMT_VAR_DECLARE("i", TYPE_VAR(),
       // for (...)
       STMT_FOR(
         // i = 1;
@@ -1578,9 +1583,9 @@ TEST(TestVM, SwitchCaseMultiple) {
   egg::test::VM vm;
   auto pbuilder = vm->createProgramBuilder();
   auto mbuilder = pbuilder->createModuleBuilder(pbuilder->createString("test"));
-  mbuilder->addStatement(
+  STMT_ROOT(
     // var i;
-    STMT_VAR_DECLARE("i",
+    STMT_VAR_DECLARE("i", TYPE_VAR(),
       // for (...)
       STMT_FOR(
         // i = 1;
@@ -1605,7 +1610,7 @@ TEST(TestVM, Throw) {
   egg::test::VM vm;
   auto pbuilder = vm->createProgramBuilder();
   auto mbuilder = pbuilder->createModuleBuilder(pbuilder->createString("test"));
-  mbuilder->addStatement(
+  STMT_ROOT(
     // throw "exception";
     STMT_THROW(EXPR_LITERAL("exception"))
   );
@@ -1618,13 +1623,13 @@ TEST(TestVM, TryCatchNoThrow) {
   egg::test::VM vm;
   auto pbuilder = vm->createProgramBuilder();
   auto mbuilder = pbuilder->createModuleBuilder(pbuilder->createString("test"));
-  mbuilder->addStatement(
+  STMT_ROOT(
     // try
     STMT_TRY(
       // print("try");
       STMT_PRINT(EXPR_LITERAL("try")),
       // catch (var e)
-      STMT_CATCH("e",
+      STMT_CATCH("e", TYPE_VAR(),
         // print("catch:", e);
         STMT_PRINT(EXPR_LITERAL("catch:"), EXPR_VAR("e"))
       )
@@ -1638,7 +1643,7 @@ TEST(TestVM, TryCatchThrow) {
   egg::test::VM vm;
   auto pbuilder = vm->createProgramBuilder();
   auto mbuilder = pbuilder->createModuleBuilder(pbuilder->createString("test"));
-  mbuilder->addStatement(
+  STMT_ROOT(
     // try
     STMT_TRY(
       STMT_BLOCK(
@@ -1650,7 +1655,7 @@ TEST(TestVM, TryCatchThrow) {
         STMT_PRINT(EXPR_LITERAL("after"))
       ),
       // catch (var e)
-      STMT_CATCH("e",
+      STMT_CATCH("e", TYPE_VAR(),
         // print("catch:", e);
         STMT_PRINT(EXPR_LITERAL("catch:"), EXPR_VAR("e"))
       )
@@ -1664,7 +1669,7 @@ TEST(TestVM, TryFinallyNoThrow) {
   egg::test::VM vm;
   auto pbuilder = vm->createProgramBuilder();
   auto mbuilder = pbuilder->createModuleBuilder(pbuilder->createString("test"));
-  mbuilder->addStatement(
+  STMT_ROOT(
     // try
     STMT_TRY(
       // print("try");
@@ -1684,7 +1689,7 @@ TEST(TestVM, TryFinallyThrow) {
   egg::test::VM vm;
   auto pbuilder = vm->createProgramBuilder();
   auto mbuilder = pbuilder->createModuleBuilder(pbuilder->createString("test"));
-  mbuilder->addStatement(
+  STMT_ROOT(
     // try
     STMT_TRY(
       STMT_BLOCK(
@@ -1711,13 +1716,13 @@ TEST(TestVM, TryCatchFinallyNoThrow) {
   egg::test::VM vm;
   auto pbuilder = vm->createProgramBuilder();
   auto mbuilder = pbuilder->createModuleBuilder(pbuilder->createString("test"));
-  mbuilder->addStatement(
+  STMT_ROOT(
     // try
     STMT_TRY(
       // print("try");
       STMT_PRINT(EXPR_LITERAL("try")),
       // catch (var e)
-      STMT_CATCH("e",
+      STMT_CATCH("e", TYPE_VAR(),
         // print("catch:", e);
         STMT_PRINT(EXPR_LITERAL("catch:"), EXPR_VAR("e"))
       ),
@@ -1736,7 +1741,7 @@ TEST(TestVM, TryCatchFinallyThrow) {
   egg::test::VM vm;
   auto pbuilder = vm->createProgramBuilder();
   auto mbuilder = pbuilder->createModuleBuilder(pbuilder->createString("test"));
-  mbuilder->addStatement(
+  STMT_ROOT(
     // try
     STMT_TRY(
       STMT_BLOCK(
@@ -1748,7 +1753,7 @@ TEST(TestVM, TryCatchFinallyThrow) {
         STMT_PRINT(EXPR_LITERAL("after"))
       ),
       // catch (var e)
-      STMT_CATCH("e",
+      STMT_CATCH("e", TYPE_VAR(),
         // print("catch:", e);
         STMT_PRINT(EXPR_LITERAL("catch:"), EXPR_VAR("e"))
       ),
@@ -1767,7 +1772,7 @@ TEST(TestVM, TryCatchFinallyThrowAnotherCatch) {
   egg::test::VM vm;
   auto pbuilder = vm->createProgramBuilder();
   auto mbuilder = pbuilder->createModuleBuilder(pbuilder->createString("test"));
-  mbuilder->addStatement(
+  STMT_ROOT(
     // try
     STMT_TRY(
       STMT_BLOCK(
@@ -1779,7 +1784,7 @@ TEST(TestVM, TryCatchFinallyThrowAnotherCatch) {
         STMT_PRINT(EXPR_LITERAL("after1"))
       ),
       // catch (var e)
-      STMT_CATCH("e",
+      STMT_CATCH("e", TYPE_VAR(),
         // print("catch:", e);
         STMT_PRINT(EXPR_LITERAL("catch:"), EXPR_VAR("e")),
         // throw;
@@ -1803,7 +1808,7 @@ TEST(TestVM, TryCatchFinallyThrowAnotherFinally) {
   egg::test::VM vm;
   auto pbuilder = vm->createProgramBuilder();
   auto mbuilder = pbuilder->createModuleBuilder(pbuilder->createString("test"));
-  mbuilder->addStatement(
+  STMT_ROOT(
     // try
     STMT_TRY(
       STMT_BLOCK(
@@ -1815,7 +1820,7 @@ TEST(TestVM, TryCatchFinallyThrowAnotherFinally) {
         STMT_PRINT(EXPR_LITERAL("after1"))
       ),
       // catch (var e)
-      STMT_CATCH("e",
+      STMT_CATCH("e", TYPE_VAR(),
         // print("catch:", e);
         STMT_PRINT(EXPR_LITERAL("catch:"), EXPR_VAR("e"))
       ),
@@ -1839,7 +1844,7 @@ TEST(TestVM, TryCatchRethrow) {
   egg::test::VM vm;
   auto pbuilder = vm->createProgramBuilder();
   auto mbuilder = pbuilder->createModuleBuilder(pbuilder->createString("test"));
-  mbuilder->addStatement(
+  STMT_ROOT(
     // try
     STMT_TRY(
       STMT_BLOCK(
@@ -1851,7 +1856,7 @@ TEST(TestVM, TryCatchRethrow) {
         STMT_PRINT(EXPR_LITERAL("after1"))
       ),
       // catch (var e)
-      STMT_CATCH("e",
+      STMT_CATCH("e", TYPE_VAR(),
         // print("catch:", e);
         STMT_PRINT(EXPR_LITERAL("catch:"), EXPR_VAR("e")),
         // throw;
@@ -1870,7 +1875,7 @@ TEST(TestVM, TryCatchFinallyRethrow) {
   egg::test::VM vm;
   auto pbuilder = vm->createProgramBuilder();
   auto mbuilder = pbuilder->createModuleBuilder(pbuilder->createString("test"));
-  mbuilder->addStatement(
+  STMT_ROOT(
     // try
     STMT_TRY(
       STMT_BLOCK(
@@ -1882,7 +1887,7 @@ TEST(TestVM, TryCatchFinallyRethrow) {
         STMT_PRINT(EXPR_LITERAL("after1"))
       ),
       // catch (var e)
-      STMT_CATCH("e",
+      STMT_CATCH("e", TYPE_VAR(),
         // print("catch:", e);
         STMT_PRINT(EXPR_LITERAL("catch:"), EXPR_VAR("e")),
         // throw;

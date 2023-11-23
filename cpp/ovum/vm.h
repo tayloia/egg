@@ -1,10 +1,11 @@
 namespace egg::ovum {
-  enum class UnaryOp {
+  // Value operators
+  enum class ValueUnaryOp {
     Negate,             // -a
     BitwiseNot,         // ~a
     LogicalNot          // !a
   };
-  enum class BinaryOp {
+  enum class ValueBinaryOp {
     Add,                // a + b
     Subtract,           // a - b
     Multiply,           // a * b
@@ -26,10 +27,10 @@ namespace egg::ovum {
     IfFalse,            // a && b
     IfTrue              // a || b
   };
-  enum class TernaryOp {
+  enum class ValueTernaryOp {
     IfThenElse          // a ? b : c
   };
-  enum class MutationOp {
+  enum class ValueMutationOp {
     Assign,             // a = b
     Decrement,          // --a
     Increment,          // ++a
@@ -50,6 +51,10 @@ namespace egg::ovum {
     Noop // TODO cancels any pending prechecks on this thread
   };
 
+  // Type operators
+  enum class TypeBinaryOp {
+    Union               // a | b
+  };
 
   class IVMCommon {
   public:
@@ -128,11 +133,11 @@ namespace egg::ovum {
     virtual HardValue raiseException(const HardValue& inner) = 0;
     virtual HardValue raiseRuntimeError(const String& message) = 0;
     // Operations
-    virtual HardValue evaluateUnaryOp(UnaryOp op, const HardValue& arg) = 0;
-    virtual HardValue evaluateBinaryOp(BinaryOp op, const HardValue& lhs, const HardValue& rhs) = 0;
-    virtual HardValue evaluateTernaryOp(TernaryOp op, const HardValue& lhs, const HardValue& mid, const HardValue& rhs) = 0;
-    virtual HardValue precheckMutationOp(MutationOp op, HardValue& lhs, ValueFlags rhs) = 0;
-    virtual HardValue evaluateMutationOp(MutationOp op, HardValue& lhs, const HardValue& rhs) = 0;
+    virtual HardValue evaluateValueUnaryOp(ValueUnaryOp op, const HardValue& arg) = 0;
+    virtual HardValue evaluateValueBinaryOp(ValueBinaryOp op, const HardValue& lhs, const HardValue& rhs) = 0;
+    virtual HardValue evaluateValueTernaryOp(ValueTernaryOp op, const HardValue& lhs, const HardValue& mid, const HardValue& rhs) = 0;
+    virtual HardValue precheckValueMutationOp(ValueMutationOp op, HardValue& lhs, ValueFlags rhs) = 0;
+    virtual HardValue evaluateValueMutationOp(ValueMutationOp op, HardValue& lhs, const HardValue& rhs) = 0;
   };
 
   class IVMCollectable : public ICollectable, public IVMCommon {
@@ -179,16 +184,18 @@ namespace egg::ovum {
   class IVMModuleBuilder : public IVMUncollectable {
   public:
     using Node = IVMModule::Node;
-    virtual void addStatement(Node& statement) = 0;
+    virtual Node& getRoot() = 0;
     virtual HardPtr<IVMModule> build() = 0;
-    // Expression factories
-    virtual Node& exprUnaryOp(UnaryOp op, Node& arg, size_t line, size_t column) = 0;
-    virtual Node& exprBinaryOp(BinaryOp op, Node& lhs, Node& rhs, size_t line, size_t column) = 0;
-    virtual Node& exprTernaryOp(TernaryOp op, Node& lhs, Node& mid, Node& rhs, size_t line, size_t column) = 0;
+    // Value expression factories
+    virtual Node& exprValueUnaryOp(ValueUnaryOp op, Node& arg, size_t line, size_t column) = 0;
+    virtual Node& exprValueBinaryOp(ValueBinaryOp op, Node& lhs, Node& rhs, size_t line, size_t column) = 0;
+    virtual Node& exprValueTernaryOp(ValueTernaryOp op, Node& lhs, Node& mid, Node& rhs, size_t line, size_t column) = 0;
     virtual Node& exprVariable(const String& symbol, size_t line, size_t column) = 0;
     virtual Node& exprLiteral(const HardValue& literal, size_t line, size_t column) = 0;
     virtual Node& exprPropertyGet(Node& instance, Node& property, size_t line, size_t column) = 0;
     virtual Node& exprFunctionCall(Node& function, size_t line, size_t column) = 0;
+    // Type expression factories
+    virtual Node& typePrimitive(ValueFlags primitive, size_t line, size_t column) = 0;
     // Statement factories
     virtual Node& stmtBlock(size_t line, size_t column) = 0;
     virtual Node& stmtIf(Node& condition, size_t line, size_t column) = 0;
@@ -199,15 +206,15 @@ namespace egg::ovum {
     virtual Node& stmtCase(Node& block, size_t line, size_t column) = 0;
     virtual Node& stmtBreak(size_t line, size_t column) = 0;
     virtual Node& stmtContinue(size_t line, size_t column) = 0;
-    virtual Node& stmtVariableDeclare(const String& symbol, size_t line, size_t column) = 0;
-    virtual Node& stmtVariableDefine(const String& symbol, Node& value, size_t line, size_t column) = 0;
+    virtual Node& stmtVariableDeclare(const String& symbol, Node& type, size_t line, size_t column) = 0;
+    virtual Node& stmtVariableDefine(const String& symbol, Node& type, Node& value, size_t line, size_t column) = 0;
     virtual Node& stmtVariableSet(const String& symbol, Node& value, size_t line, size_t column) = 0;
-    virtual Node& stmtVariableMutate(const String& symbol, MutationOp op, Node& value, size_t line, size_t column) = 0;
+    virtual Node& stmtVariableMutate(const String& symbol, ValueMutationOp op, Node& value, size_t line, size_t column) = 0;
     virtual Node& stmtPropertySet(Node& instance, Node& property, Node& value, size_t line, size_t column) = 0;
     virtual Node& stmtFunctionCall(Node& function, size_t line, size_t column) = 0;
     virtual Node& stmtThrow(Node& exception, size_t line, size_t column) = 0;
     virtual Node& stmtTry(Node& block, size_t line, size_t column) = 0;
-    virtual Node& stmtCatch(const String& symbol, size_t line, size_t column) = 0;
+    virtual Node& stmtCatch(const String& symbol, Node& type, size_t line, size_t column) = 0;
     virtual Node& stmtRethrow(size_t line, size_t column) = 0;
     // Modifiers
     virtual void appendChild(Node& parent, Node& child) = 0;
