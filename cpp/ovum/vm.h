@@ -52,8 +52,15 @@ namespace egg::ovum {
   };
 
   // Type operators
+  enum class TypeUnaryOp {
+    Pointer,            // t*
+    Iterator,           // t!
+    Array,              // t[]
+    Nullable            // t?
+  };
   enum class TypeBinaryOp {
-    Union               // a | b
+    Map,                // t[u]
+    Union               // t | u
   };
 
   class IVMCommon {

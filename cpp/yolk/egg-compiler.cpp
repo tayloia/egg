@@ -204,8 +204,8 @@ ModuleNode* ModuleCompiler::compileStmt(ParserNode& pnode, const StmtContext& co
   case ParserNode::Kind::ExprBinary:
   case ParserNode::Kind::ExprTernary:
   case ParserNode::Kind::ExprCall:
-  case ParserNode::Kind::TypeVar:
-  case ParserNode::Kind::TypeVarQ:
+  case ParserNode::Kind::TypeInfer:
+  case ParserNode::Kind::TypeInferQ:
   case ParserNode::Kind::TypeVoid:
   case ParserNode::Kind::TypeBool:
   case ParserNode::Kind::TypeInt:
@@ -213,8 +213,8 @@ ModuleNode* ModuleCompiler::compileStmt(ParserNode& pnode, const StmtContext& co
   case ParserNode::Kind::TypeString:
   case ParserNode::Kind::TypeObject:
   case ParserNode::Kind::TypeAny:
-  case ParserNode::Kind::TypeNullable:
-  case ParserNode::Kind::TypeUnion:
+  case ParserNode::Kind::TypeUnary:
+  case ParserNode::Kind::TypeBinary:
   case ParserNode::Kind::Literal:
   default:
     break;
@@ -304,8 +304,8 @@ ModuleNode* ModuleCompiler::compileValueExpr(ParserNode& pnode) {
   case ParserNode::Kind::Literal:
     return this->compileLiteral(pnode);
   case ParserNode::Kind::ModuleRoot:
-  case ParserNode::Kind::TypeVar:
-  case ParserNode::Kind::TypeVarQ:
+  case ParserNode::Kind::TypeInfer:
+  case ParserNode::Kind::TypeInferQ:
   case ParserNode::Kind::TypeVoid:
   case ParserNode::Kind::TypeBool:
   case ParserNode::Kind::TypeInt:
@@ -313,8 +313,8 @@ ModuleNode* ModuleCompiler::compileValueExpr(ParserNode& pnode) {
   case ParserNode::Kind::TypeString:
   case ParserNode::Kind::TypeObject:
   case ParserNode::Kind::TypeAny:
-  case ParserNode::Kind::TypeNullable:
-  case ParserNode::Kind::TypeUnion:
+  case ParserNode::Kind::TypeUnary:
+  case ParserNode::Kind::TypeBinary:
   case ParserNode::Kind::StmtCall:
   case ParserNode::Kind::StmtDeclareVar:
   case ParserNode::Kind::StmtDefineVar:
@@ -334,7 +334,7 @@ ModuleNode* ModuleCompiler::compileValueExprVar(ParserNode& pnode) {
 ModuleNode* ModuleCompiler::compileValueExprUnary(ParserNode& op, ParserNode& rhs) {
   auto* expr = this->compileValueExpr(rhs);
   if (expr != nullptr) {
-    return &this->mbuilder.exprValueUnaryOp(op.op.unary, *expr, op.begin.line, op.begin.column);
+    return &this->mbuilder.exprValueUnaryOp(op.op.valueUnaryOp, *expr, op.begin.line, op.begin.column);
   }
   return nullptr;
 }
@@ -344,7 +344,7 @@ ModuleNode* ModuleCompiler::compileValueExprBinary(ParserNode& op, ParserNode& l
   if (lexpr != nullptr) {
     auto* rexpr = this->compileValueExpr(rhs);
     if (rexpr != nullptr) {
-      return &this->mbuilder.exprValueBinaryOp(op.op.binary, *lexpr, *rexpr, op.begin.line, op.begin.column);
+      return &this->mbuilder.exprValueBinaryOp(op.op.valueBinaryOp, *lexpr, *rexpr, op.begin.line, op.begin.column);
     }
   }
   return nullptr;
@@ -357,7 +357,7 @@ ModuleNode* ModuleCompiler::compileValueExprTernary(ParserNode& op, ParserNode& 
     if (mexpr != nullptr) {
       auto* rexpr = this->compileValueExpr(rhs);
       if (rexpr != nullptr) {
-        return &this->mbuilder.exprValueTernaryOp(op.op.ternary, *lexpr, *mexpr, *rexpr, op.begin.line, op.begin.column);
+        return &this->mbuilder.exprValueTernaryOp(op.op.valueTernaryOp, *lexpr, *mexpr, *rexpr, op.begin.line, op.begin.column);
       }
     }
   }
@@ -385,11 +385,11 @@ ModuleNode* ModuleCompiler::compileValueExprCall(ParserNodes& pnodes) {
 
 ModuleNode* ModuleCompiler::compileTypeExpr(ParserNode& pnode) {
   switch (pnode.kind) {
-  case ParserNode::Kind::TypeVar:
+  case ParserNode::Kind::TypeInfer:
     // WIBBLE true inferrence
     EXPECT(pnode, pnode.children.size() == 0);
     return &this->mbuilder.typeLiteral(egg::ovum::Type::Any, pnode.begin.line, pnode.end.column);
-  case ParserNode::Kind::TypeVarQ:
+  case ParserNode::Kind::TypeInferQ:
     // WIBBLE true inferrence
     EXPECT(pnode, pnode.children.size() == 0);
     return &this->mbuilder.typeLiteral(egg::ovum::Type::AnyQ, pnode.begin.line, pnode.end.column);
@@ -414,8 +414,8 @@ ModuleNode* ModuleCompiler::compileTypeExpr(ParserNode& pnode) {
   case ParserNode::Kind::TypeAny:
     EXPECT(pnode, pnode.children.size() == 0);
     return &this->mbuilder.typeLiteral(egg::ovum::Type::Any, pnode.begin.line, pnode.end.column);
-  case ParserNode::Kind::TypeNullable:
-  case ParserNode::Kind::TypeUnion:
+  case ParserNode::Kind::TypeUnary:
+  case ParserNode::Kind::TypeBinary:
     // WIBBLE
     break;
   case ParserNode::Kind::ModuleRoot:
@@ -459,10 +459,10 @@ std::string ModuleCompiler::toString(const ParserNode& pnode) {
     return "ternary operator";
   case ParserNode::Kind::ExprCall:
     return "call expression";
-  case ParserNode::Kind::TypeVar:
-    return "type var";
-  case ParserNode::Kind::TypeVarQ:
-    return "type var?";
+  case ParserNode::Kind::TypeInfer:
+    return "type infer";
+  case ParserNode::Kind::TypeInferQ:
+    return "type infer?";
   case ParserNode::Kind::TypeBool:
     return "type bool";
   case ParserNode::Kind::TypeVoid:
@@ -477,10 +477,10 @@ std::string ModuleCompiler::toString(const ParserNode& pnode) {
     return "type object";
   case ParserNode::Kind::TypeAny:
     return "type any";
-  case ParserNode::Kind::TypeNullable:
-    return "type nullable";
-  case ParserNode::Kind::TypeUnion:
-    return "type union";
+  case ParserNode::Kind::TypeUnary:
+    return "type unary operator";
+  case ParserNode::Kind::TypeBinary:
+    return "type binary operator";
   case ParserNode::Kind::Literal:
     return "literal";
   }

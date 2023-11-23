@@ -53,21 +53,21 @@ namespace {
       return printValue(os << "(expr-var ", node.value) << ')';
     case Node::Kind::ExprUnary:
       assert(node.children.size() == 1);
-      return printNodeExtra(os, "expr-unary", node.op.unary, node);
+      return printNodeExtra(os, "expr-unary", node.op.valueUnaryOp, node);
     case Node::Kind::ExprBinary:
       assert(node.children.size() == 2);
-      return printNodeExtra(os, "expr-binary", node.op.binary, node);
+      return printNodeExtra(os, "expr-binary", node.op.valueBinaryOp, node);
     case Node::Kind::ExprTernary:
       assert(node.children.size() == 3);
-      return printNodeExtra(os, "expr-ternary", node.op.ternary, node);
+      return printNodeExtra(os, "expr-ternary", node.op.valueTernaryOp, node);
     case Node::Kind::ExprCall:
       return printNodeChildren(os, "expr-call", node);
-    case Node::Kind::TypeVar:
+    case Node::Kind::TypeInfer:
       assert(node.children.empty());
-      return os << "(type-var)";
-    case Node::Kind::TypeVarQ:
+      return os << "(type-infer)";
+    case Node::Kind::TypeInferQ:
       assert(node.children.empty());
-      return os << "(type-varq)";
+      return os << "(type-infer-q)";
     case Node::Kind::TypeVoid:
       assert(node.children.empty());
       return os << "(type-void)";
@@ -89,11 +89,11 @@ namespace {
     case Node::Kind::TypeAny:
       assert(node.children.empty());
       return os << "(type-any)";
-    case Node::Kind::TypeNullable:
+    case Node::Kind::TypeUnary:
       assert(node.children.size() == 1);
-      return printNodeChildren(os, "type-nullable", node);
-    case Node::Kind::TypeUnion:
-      return printNodeChildren(os, "type-union", node);
+      return printNodeExtra(os, "expr-unary", node.op.typeUnaryOp, node);
+    case Node::Kind::TypeBinary:
+      return printNodeExtra(os, "type-binary", node.op.typeBinaryOp, node);
     case Node::Kind::Literal:
       assert(node.children.empty());
       return printValue(os, node.value, '"');

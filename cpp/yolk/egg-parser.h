@@ -29,8 +29,8 @@ namespace egg::yolk {
         ExprBinary,
         ExprTernary,
         ExprCall,
-        TypeVar,
-        TypeVarQ,
+        TypeInfer,
+        TypeInferQ,
         TypeVoid,
         TypeBool,
         TypeInt,
@@ -38,19 +38,20 @@ namespace egg::yolk {
         TypeString,
         TypeObject,
         TypeAny,
-        TypeNullable,
-        TypeUnion,
+        TypeUnary,
+        TypeBinary,
         Literal
       };
       Kind kind;
       std::vector<std::unique_ptr<Node>> children;
       egg::ovum::HardValue value;
       union {
-        egg::ovum::ValueUnaryOp unary;
-        egg::ovum::ValueBinaryOp binary;
-        egg::ovum::ValueTernaryOp ternary;
-        egg::ovum::ValueMutationOp mutation;
-        // WIBBLE egg::ovum::TypeBinaryOp tbinary;
+        egg::ovum::ValueUnaryOp valueUnaryOp;
+        egg::ovum::ValueBinaryOp valueBinaryOp;
+        egg::ovum::ValueTernaryOp valueTernaryOp;
+        egg::ovum::ValueMutationOp valueMutationOp;
+        egg::ovum::TypeUnaryOp typeUnaryOp;
+        egg::ovum::TypeBinaryOp typeBinaryOp;
       } op;
       Location begin;
       Location end;

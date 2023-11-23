@@ -8,6 +8,8 @@ namespace egg::ovum {
   enum class ValueBinaryOp;
   enum class ValueTernaryOp;
   enum class ValueMutationOp;
+  enum class TypeUnaryOp;
+  enum class TypeBinaryOp;
 
   class Print {
   public:
@@ -45,6 +47,8 @@ namespace egg::ovum {
     static void write(std::ostream& stream, ValueBinaryOp value, const Options& options);
     static void write(std::ostream& stream, ValueTernaryOp value, const Options& options);
     static void write(std::ostream& stream, ValueMutationOp value, const Options& options);
+    static void write(std::ostream& stream, TypeUnaryOp value, const Options& options);
+    static void write(std::ostream& stream, TypeBinaryOp value, const Options& options);
     template<typename T>
     static void write(std::ostream& stream, const HardPtr<T>& value, const Options& options) {
       write(stream, static_cast<const ICollectable*>(value.get()), options);

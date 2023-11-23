@@ -312,6 +312,40 @@ void egg::ovum::Print::write(std::ostream& stream, ValueMutationOp value, const 
   }
 }
 
+void egg::ovum::Print::write(std::ostream& stream, TypeUnaryOp value, const Options&) {
+  switch (value) {
+  case TypeUnaryOp::Pointer:
+    stream << "*";
+    break;
+  case TypeUnaryOp::Iterator:
+    stream << "!";
+    break;
+  case TypeUnaryOp::Array:
+    stream << "[]";
+    break;
+  case TypeUnaryOp::Nullable:
+    stream << "?";
+    break;
+  default:
+    stream << "<UNKNOWN:" << int(value) << ">";
+    break;
+  }
+}
+
+void egg::ovum::Print::write(std::ostream& stream, TypeBinaryOp value, const Options&) {
+  switch (value) {
+  case TypeBinaryOp::Map:
+    stream << "[_]";
+    break;
+  case TypeBinaryOp::Union:
+    stream << "|";
+    break;
+  default:
+    stream << "<UNKNOWN:" << int(value) << ">";
+    break;
+  }
+}
+
 void egg::ovum::Print::write(std::ostream& stream, ILogger::Severity value, const Options&) {
   switch (value) {
   case ILogger::Severity::None:

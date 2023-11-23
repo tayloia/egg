@@ -353,9 +353,10 @@ namespace {
       if (lhs.after(0).isOperator(EggTokenizerOperator::Bar)) {
         auto rhs = this->parseTypeExpression(lhs.tokensAfter + 1);
         if (rhs.succeeded()) {
-          lhs.wrap(Node::Kind::TypeUnion);
+          lhs.wrap(Node::Kind::TypeBinary);
           lhs.tokensAfter = rhs.tokensAfter;
           lhs.node->children.emplace_back(std::move(rhs.node));
+          lhs.node->op.typeBinaryOp = egg::ovum::TypeBinaryOp::Union;
           return lhs;
         }
         return rhs;
@@ -378,29 +379,21 @@ namespace {
       Context context(*this, tokidx);
       auto& next = context[0];
       if (next.kind == EggTokenizerKind::Keyword) {
-        auto kind = Node::Kind::TypeNullable;
         switch (next.value.k) {
         case EggTokenizerKeyword::Any:
-          kind = Node::Kind::TypeAny;
-          break;
+          return this->parseTypeExpressionPrimaryKeyword(context, Node::Kind::TypeAny);
         case EggTokenizerKeyword::Void:
-          kind = Node::Kind::TypeVoid;
-          break;
+          return this->parseTypeExpressionPrimaryKeyword(context, Node::Kind::TypeVoid);
         case EggTokenizerKeyword::Bool:
-          kind = Node::Kind::TypeBool;
-          break;
+          return this->parseTypeExpressionPrimaryKeyword(context, Node::Kind::TypeBool);
         case EggTokenizerKeyword::Float:
-          kind = Node::Kind::TypeFloat;
-          break;
+          return this->parseTypeExpressionPrimaryKeyword(context, Node::Kind::TypeFloat);
         case EggTokenizerKeyword::Int:
-          kind = Node::Kind::TypeInt;
-          break;
+          return this->parseTypeExpressionPrimaryKeyword(context, Node::Kind::TypeInt);
         case EggTokenizerKeyword::String:
-          kind = Node::Kind::TypeString;
-          break;
+          return this->parseTypeExpressionPrimaryKeyword(context, Node::Kind::TypeString);
         case EggTokenizerKeyword::Object:
-          kind = Node::Kind::TypeObject;
-          break;
+          return this->parseTypeExpressionPrimaryKeyword(context, Node::Kind::TypeObject);
         case EggTokenizerKeyword::Type:
           return PARSE_TODO(tokidx, "type expression 'type' keyword");
         case EggTokenizerKeyword::Var:
@@ -424,13 +417,15 @@ namespace {
         case EggTokenizerKeyword::Try:
         case EggTokenizerKeyword::While:
         case EggTokenizerKeyword::Yield:
-          return PARSE_TODO(tokidx, "type expression primary keyword: ", next.toString());
+          break;
         }
-        assert(kind != Node::Kind::TypeNullable);
-        auto node = this->makeNode(kind, next);
-        return context.success(std::move(node), tokidx + 1);
+        return PARSE_TODO(tokidx, "type expression primary keyword: ", next.toString());
       }
       return PARSE_TODO(tokidx, "bad type expression primary");
+    }
+    Partial parseTypeExpressionPrimaryKeyword(Context& context, Node::Kind kind) {
+      auto node = this->makeNode(kind, context[0]);
+      return context.success(std::move(node), context.tokensBefore + 1);
     }
     Partial parseValueExpression(size_t tokidx) {
       return this->parseValueExpressionTernary(tokidx);
@@ -453,7 +448,7 @@ namespace {
             lhs.tokensAfter = rhs.tokensAfter;
             lhs.node->children.emplace_back(std::move(mid.node));
             lhs.node->children.emplace_back(std::move(rhs.node));
-            lhs.node->op.ternary = egg::ovum::ValueTernaryOp::IfThenElse;
+            lhs.node->op.valueTernaryOp = egg::ovum::ValueTernaryOp::IfThenElse;
           }
         }
       }
@@ -553,7 +548,7 @@ namespace {
         lhs.wrap(Node::Kind::ExprBinary);
         lhs.tokensAfter = rhs.tokensAfter;
         lhs.node->children.emplace_back(std::move(rhs.node));
-        lhs.node->op.binary = op;
+        lhs.node->op.valueBinaryOp = op;
         return std::move(lhs);
       }
       return rhs;
@@ -630,7 +625,7 @@ namespace {
       auto rhs = this->parseValueExpression(tokidx);
       if (rhs.succeeded()) {
         rhs.wrap(Node::Kind::ExprUnary);
-        rhs.node->op.unary = op;
+        rhs.node->op.valueUnaryOp = op;
       }
       return rhs;
     }
