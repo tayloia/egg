@@ -1,5 +1,5 @@
 namespace egg::test {
-  class EggEngineContextFromFactory : public egg::yolk::IEggEngineContext {
+  WIBBLE class EggEngineContextFromFactory : public egg::yolk::IEggEngineContext {
     EggEngineContextFromFactory(const EggEngineContextFromFactory&) = delete;
     EggEngineContextFromFactory& operator=(const EggEngineContextFromFactory&) = delete;
   private:

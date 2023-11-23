@@ -62,8 +62,38 @@ namespace {
       return printNodeExtra(os, "expr-ternary", node.op.ternary, node);
     case Node::Kind::ExprCall:
       return printNodeChildren(os, "expr-call", node);
-    case Node::Kind::ExprTypePrimitive:
-      return printNodeExtra(os, "type-primitive", node.op.primitive, node);
+    case Node::Kind::TypeVar:
+      assert(node.children.empty());
+      return os << "(type-var)";
+    case Node::Kind::TypeVarQ:
+      assert(node.children.empty());
+      return os << "(type-varq)";
+    case Node::Kind::TypeVoid:
+      assert(node.children.empty());
+      return os << "(type-void)";
+    case Node::Kind::TypeBool:
+      assert(node.children.empty());
+      return os << "(type-bool)";
+    case Node::Kind::TypeInt:
+      assert(node.children.empty());
+      return os << "(type-int)";
+    case Node::Kind::TypeFloat:
+      assert(node.children.empty());
+      return os << "(type-float)";
+    case Node::Kind::TypeString:
+      assert(node.children.empty());
+      return os << "(type-string)";
+    case Node::Kind::TypeObject:
+      assert(node.children.empty());
+      return os << "(type-object)";
+    case Node::Kind::TypeAny:
+      assert(node.children.empty());
+      return os << "(type-any)";
+    case Node::Kind::TypeNullable:
+      assert(node.children.size() == 1);
+      return printNodeChildren(os, "type-nullable", node);
+    case Node::Kind::TypeUnion:
+      return printNodeChildren(os, "type-union", node);
     case Node::Kind::Literal:
       assert(node.children.empty());
       return printValue(os, node.value, '"');

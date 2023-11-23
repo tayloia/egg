@@ -29,7 +29,17 @@ namespace egg::yolk {
         ExprBinary,
         ExprTernary,
         ExprCall,
-        ExprTypePrimitive,
+        TypeVar,
+        TypeVarQ,
+        TypeVoid,
+        TypeBool,
+        TypeInt,
+        TypeFloat,
+        TypeString,
+        TypeObject,
+        TypeAny,
+        TypeNullable,
+        TypeUnion,
         Literal
       };
       Kind kind;
@@ -40,8 +50,7 @@ namespace egg::yolk {
         egg::ovum::ValueBinaryOp binary;
         egg::ovum::ValueTernaryOp ternary;
         egg::ovum::ValueMutationOp mutation;
-        egg::ovum::TypeBinaryOp tbinary;
-        egg::ovum::ValueFlags primitive;
+        // WIBBLE egg::ovum::TypeBinaryOp tbinary;
       } op;
       Location begin;
       Location end;

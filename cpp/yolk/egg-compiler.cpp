@@ -204,7 +204,17 @@ ModuleNode* ModuleCompiler::compileStmt(ParserNode& pnode, const StmtContext& co
   case ParserNode::Kind::ExprBinary:
   case ParserNode::Kind::ExprTernary:
   case ParserNode::Kind::ExprCall:
-  case ParserNode::Kind::ExprTypePrimitive:
+  case ParserNode::Kind::TypeVar:
+  case ParserNode::Kind::TypeVarQ:
+  case ParserNode::Kind::TypeVoid:
+  case ParserNode::Kind::TypeBool:
+  case ParserNode::Kind::TypeInt:
+  case ParserNode::Kind::TypeFloat:
+  case ParserNode::Kind::TypeString:
+  case ParserNode::Kind::TypeObject:
+  case ParserNode::Kind::TypeAny:
+  case ParserNode::Kind::TypeNullable:
+  case ParserNode::Kind::TypeUnion:
   case ParserNode::Kind::Literal:
   default:
     break;
@@ -294,7 +304,17 @@ ModuleNode* ModuleCompiler::compileValueExpr(ParserNode& pnode) {
   case ParserNode::Kind::Literal:
     return this->compileLiteral(pnode);
   case ParserNode::Kind::ModuleRoot:
-  case ParserNode::Kind::ExprTypePrimitive:
+  case ParserNode::Kind::TypeVar:
+  case ParserNode::Kind::TypeVarQ:
+  case ParserNode::Kind::TypeVoid:
+  case ParserNode::Kind::TypeBool:
+  case ParserNode::Kind::TypeInt:
+  case ParserNode::Kind::TypeFloat:
+  case ParserNode::Kind::TypeString:
+  case ParserNode::Kind::TypeObject:
+  case ParserNode::Kind::TypeAny:
+  case ParserNode::Kind::TypeNullable:
+  case ParserNode::Kind::TypeUnion:
   case ParserNode::Kind::StmtCall:
   case ParserNode::Kind::StmtDeclareVar:
   case ParserNode::Kind::StmtDefineVar:
@@ -365,9 +385,39 @@ ModuleNode* ModuleCompiler::compileValueExprCall(ParserNodes& pnodes) {
 
 ModuleNode* ModuleCompiler::compileTypeExpr(ParserNode& pnode) {
   switch (pnode.kind) {
-  case ParserNode::Kind::ExprTypePrimitive:
+  case ParserNode::Kind::TypeVar:
+    // WIBBLE true inferrence
     EXPECT(pnode, pnode.children.size() == 0);
-    return &this->mbuilder.typePrimitive(pnode.op.primitive, pnode.begin.line, pnode.end.column);
+    return &this->mbuilder.typeLiteral(egg::ovum::Type::Any, pnode.begin.line, pnode.end.column);
+  case ParserNode::Kind::TypeVarQ:
+    // WIBBLE true inferrence
+    EXPECT(pnode, pnode.children.size() == 0);
+    return &this->mbuilder.typeLiteral(egg::ovum::Type::AnyQ, pnode.begin.line, pnode.end.column);
+  case ParserNode::Kind::TypeVoid:
+    EXPECT(pnode, pnode.children.size() == 0);
+    return &this->mbuilder.typeLiteral(egg::ovum::Type::Void, pnode.begin.line, pnode.end.column);
+  case ParserNode::Kind::TypeBool:
+    EXPECT(pnode, pnode.children.size() == 0);
+    return &this->mbuilder.typeLiteral(egg::ovum::Type::Bool, pnode.begin.line, pnode.end.column);
+  case ParserNode::Kind::TypeInt:
+    EXPECT(pnode, pnode.children.size() == 0);
+    return &this->mbuilder.typeLiteral(egg::ovum::Type::Int, pnode.begin.line, pnode.end.column);
+  case ParserNode::Kind::TypeFloat:
+    EXPECT(pnode, pnode.children.size() == 0);
+    return &this->mbuilder.typeLiteral(egg::ovum::Type::Float, pnode.begin.line, pnode.end.column);
+  case ParserNode::Kind::TypeString:
+    EXPECT(pnode, pnode.children.size() == 0);
+    return &this->mbuilder.typeLiteral(egg::ovum::Type::String, pnode.begin.line, pnode.end.column);
+  case ParserNode::Kind::TypeObject:
+    EXPECT(pnode, pnode.children.size() == 0);
+    return &this->mbuilder.typeLiteral(egg::ovum::Type::Object, pnode.begin.line, pnode.end.column);
+  case ParserNode::Kind::TypeAny:
+    EXPECT(pnode, pnode.children.size() == 0);
+    return &this->mbuilder.typeLiteral(egg::ovum::Type::Any, pnode.begin.line, pnode.end.column);
+  case ParserNode::Kind::TypeNullable:
+  case ParserNode::Kind::TypeUnion:
+    // WIBBLE
+    break;
   case ParserNode::Kind::ModuleRoot:
   case ParserNode::Kind::StmtDeclareVar:
   case ParserNode::Kind::StmtDefineVar:
@@ -409,8 +459,28 @@ std::string ModuleCompiler::toString(const ParserNode& pnode) {
     return "ternary operator";
   case ParserNode::Kind::ExprCall:
     return "call expression";
-  case ParserNode::Kind::ExprTypePrimitive:
-    return "type primitive";
+  case ParserNode::Kind::TypeVar:
+    return "type var";
+  case ParserNode::Kind::TypeVarQ:
+    return "type var?";
+  case ParserNode::Kind::TypeBool:
+    return "type bool";
+  case ParserNode::Kind::TypeVoid:
+    return "type void";
+  case ParserNode::Kind::TypeInt:
+    return "type int";
+  case ParserNode::Kind::TypeFloat:
+    return "type float";
+  case ParserNode::Kind::TypeString:
+    return "type string";
+  case ParserNode::Kind::TypeObject:
+    return "type object";
+  case ParserNode::Kind::TypeAny:
+    return "type any";
+  case ParserNode::Kind::TypeNullable:
+    return "type nullable";
+  case ParserNode::Kind::TypeUnion:
+    return "type union";
   case ParserNode::Kind::Literal:
     return "literal";
   }

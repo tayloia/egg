@@ -87,6 +87,7 @@ namespace egg::ovum {
     virtual HardValue createHardValueFloat(Float value) = 0;
     virtual HardValue createHardValueString(const String& value) = 0;
     virtual HardValue createHardValueObject(const HardObject& value) = 0;
+    virtual HardValue createHardValueType(const Type& value) = 0;
     inline HardValue createHardValue(std::nullptr_t) {
       return this->createHardValueNull();
     }
@@ -120,6 +121,9 @@ namespace egg::ovum {
     inline HardValue createHardValue(const String& value) {
       return this->createHardValueString(value);
     }
+    inline HardValue createHardValue(const Type& value) {
+      return this->createHardValueType(value);
+    }
   };
 
   class IVMCallStack : public IHardAcquireRelease {
@@ -132,6 +136,8 @@ namespace egg::ovum {
     // Exceptions
     virtual HardValue raiseException(const HardValue& inner) = 0;
     virtual HardValue raiseRuntimeError(const String& message) = 0;
+    // Assignment
+    virtual bool assignValue(HardValue& dst, const Type& type, const HardValue& src) = 0;
     // Operations
     virtual HardValue evaluateValueUnaryOp(ValueUnaryOp op, const HardValue& arg) = 0;
     virtual HardValue evaluateValueBinaryOp(ValueBinaryOp op, const HardValue& lhs, const HardValue& rhs) = 0;
@@ -195,7 +201,7 @@ namespace egg::ovum {
     virtual Node& exprPropertyGet(Node& instance, Node& property, size_t line, size_t column) = 0;
     virtual Node& exprFunctionCall(Node& function, size_t line, size_t column) = 0;
     // Type expression factories
-    virtual Node& typePrimitive(ValueFlags primitive, size_t line, size_t column) = 0;
+    virtual Node& typeLiteral(const Type& type, size_t line, size_t column) = 0;
     // Statement factories
     virtual Node& stmtBlock(size_t line, size_t column) = 0;
     virtual Node& stmtIf(Node& condition, size_t line, size_t column) = 0;

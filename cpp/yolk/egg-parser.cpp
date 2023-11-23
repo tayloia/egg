@@ -353,9 +353,8 @@ namespace {
       if (lhs.after(0).isOperator(EggTokenizerOperator::Bar)) {
         auto rhs = this->parseTypeExpression(lhs.tokensAfter + 1);
         if (rhs.succeeded()) {
-          lhs.wrap(Node::Kind::ExprBinary);
+          lhs.wrap(Node::Kind::TypeUnion);
           lhs.tokensAfter = rhs.tokensAfter;
-          lhs.node->op.tbinary = egg::ovum::TypeBinaryOp::Union;
           lhs.node->children.emplace_back(std::move(rhs.node));
           return lhs;
         }
@@ -379,28 +378,28 @@ namespace {
       Context context(*this, tokidx);
       auto& next = context[0];
       if (next.kind == EggTokenizerKind::Keyword) {
-        auto primitive = egg::ovum::ValueFlags::None;
+        auto kind = Node::Kind::TypeNullable;
         switch (next.value.k) {
         case EggTokenizerKeyword::Any:
-          primitive = egg::ovum::ValueFlags::Any;
-          break;
-        case EggTokenizerKeyword::Bool:
-          primitive = egg::ovum::ValueFlags::Bool;
-          break;
-        case EggTokenizerKeyword::Float:
-          primitive = egg::ovum::ValueFlags::Float;
-          break;
-        case EggTokenizerKeyword::Int:
-          primitive = egg::ovum::ValueFlags::Int;
-          break;
-        case EggTokenizerKeyword::String:
-          primitive = egg::ovum::ValueFlags::String;
-          break;
-        case EggTokenizerKeyword::Object:
-          primitive = egg::ovum::ValueFlags::Object;
+          kind = Node::Kind::TypeAny;
           break;
         case EggTokenizerKeyword::Void:
-          primitive = egg::ovum::ValueFlags::Void;
+          kind = Node::Kind::TypeVoid;
+          break;
+        case EggTokenizerKeyword::Bool:
+          kind = Node::Kind::TypeBool;
+          break;
+        case EggTokenizerKeyword::Float:
+          kind = Node::Kind::TypeFloat;
+          break;
+        case EggTokenizerKeyword::Int:
+          kind = Node::Kind::TypeInt;
+          break;
+        case EggTokenizerKeyword::String:
+          kind = Node::Kind::TypeString;
+          break;
+        case EggTokenizerKeyword::Object:
+          kind = Node::Kind::TypeObject;
           break;
         case EggTokenizerKeyword::Type:
           return PARSE_TODO(tokidx, "type expression 'type' keyword");
@@ -427,9 +426,8 @@ namespace {
         case EggTokenizerKeyword::Yield:
           return PARSE_TODO(tokidx, "type expression primary keyword: ", next.toString());
         }
-        assert(primitive != egg::ovum::ValueFlags::None);
-        auto node = this->makeNode(Node::Kind::ExprTypePrimitive, next);
-        node->op.primitive = primitive;
+        assert(kind != Node::Kind::TypeNullable);
+        auto node = this->makeNode(kind, next);
         return context.success(std::move(node), tokidx + 1);
       }
       return PARSE_TODO(tokidx, "bad type expression primary");

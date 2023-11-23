@@ -44,11 +44,6 @@ namespace {
     virtual ValueFlags getFlags() const override {
       return FLAGS;
     }
-    virtual Type getRuntimeType() const override {
-      // We should NOT really be asked for type information here
-      assert(false);
-      return Type::Void;
-    }
     virtual void print(Printer& printer) const override {
       printer.write(FLAGS);
     }
@@ -70,9 +65,39 @@ namespace {
       return *const_cast<ValueImmutable*>(this);
     }
   };
-  const ValueImmutable<ValueFlags::Break> theBreak;
-  const ValueImmutable<ValueFlags::Continue> theContinue;
-  const ValueImmutable<ValueFlags::Throw> theRethrow;
+
+  class ValueBreak : public ValueImmutable<ValueFlags::Break> {
+    ValueBreak(const ValueBreak&) = delete;
+    ValueBreak& operator=(const ValueBreak&) = delete;
+  public:
+    ValueBreak() {}
+    virtual Type getType() const override {
+      return Type::None;
+    }
+  };
+  const ValueBreak theBreak;
+
+  class ValueContinue : public ValueImmutable<ValueFlags::Continue> {
+    ValueContinue(const ValueContinue&) = delete;
+    ValueContinue& operator=(const ValueContinue&) = delete;
+  public:
+    ValueContinue() {}
+    virtual Type getType() const override {
+      return Type::None;
+    }
+  };
+  const ValueContinue theContinue;
+
+  class ValueRethrow : public ValueImmutable<ValueFlags::Throw> {
+    ValueRethrow(const ValueRethrow&) = delete;
+    ValueRethrow& operator=(const ValueRethrow&) = delete;
+  public:
+    ValueRethrow() {}
+    virtual Type getType() const override {
+      return Type::None;
+    }
+  };
+  const ValueRethrow theRethrow;
 
   class ValueVoid : public ValueImmutable<ValueFlags::Void> {
     ValueVoid(const ValueVoid&) = delete;
@@ -82,7 +107,7 @@ namespace {
     virtual bool getVoid() const override {
       return true;
     }
-    virtual Type getRuntimeType() const override {
+    virtual Type getType() const override {
       return Type::Void;
     }
   };
@@ -96,7 +121,7 @@ namespace {
     virtual bool getNull() const override {
       return true;
     }
-    virtual Type getRuntimeType() const override {
+    virtual Type getType() const override {
       return Type::Null;
     }
   };
@@ -112,7 +137,7 @@ namespace {
       value = VALUE;
       return true;
     }
-    virtual Type getRuntimeType() const override {
+    virtual Type getType() const override {
       return Type::Bool;
     }
     virtual void print(Printer& printer) const override {
@@ -177,11 +202,11 @@ namespace {
       : ValueMutable(allocator), value(value) {
       assert(this->validate());
     }
+    virtual Type getType() const override {
+      return Type::Int;
+    }
     virtual ValueFlags getFlags() const override {
       return ValueFlags::Int;
-    }
-    virtual Type getRuntimeType() const override {
-      return Type::Int;
     }
     virtual bool getInt(Int& result) const override {
       result = this->value.get();
@@ -303,11 +328,11 @@ namespace {
       : ValueMutable(allocator), value(value) {
       assert(this->validate());
     }
+    virtual Type getType() const override {
+      return Type::Float;
+    }
     virtual ValueFlags getFlags() const override {
       return ValueFlags::Float;
-    }
-    virtual Type getRuntimeType() const override {
-      return Type::Float;
     }
     virtual bool getFloat(Float& result) const override {
       result = this->value.get();
@@ -427,11 +452,11 @@ namespace {
       : ValueMutable(allocator), value(value) {
       assert(this->validate());
     }
+    virtual Type getType() const override {
+      return Type::String;
+    }
     virtual ValueFlags getFlags() const override {
       return ValueFlags::String;
-    }
-    virtual Type getRuntimeType() const override {
-      return Type::String;
     }
     virtual bool getString(String& result) const override {
       result = this->value;
@@ -474,11 +499,11 @@ namespace {
       : ValueMutable(allocator), value(value) {
       assert(this->validate());
     }
+    virtual Type getType() const override {
+      return Type::Object;
+    }
     virtual ValueFlags getFlags() const override {
       return ValueFlags::Object;
-    }
-    virtual Type getRuntimeType() const override {
-      return Type::Object;
     }
     virtual bool getHardObject(HardObject& result) const override {
       result = this->value;
@@ -524,13 +549,13 @@ namespace {
     virtual void softVisit(ICollectable::IVisitor&) const override {
       // Our inner value is a hard reference as we only expect to exist for a short time
     }
+    virtual Type getType() const override {
+      // TODO: We should NOT really be asked for type information here
+      assert(false);
+      return Type::None;
+    }
     virtual ValueFlags getFlags() const override {
       return ValueFlags::Throw | this->inner->getFlags();
-    }
-    virtual Type getRuntimeType() const override {
-      // We should NOT really be asked for type information here
-      assert(false);
-      return Type::Void;
     }
     virtual bool getInner(HardValue& value) const override {
       value = this->inner;
@@ -552,6 +577,45 @@ namespace {
         return HardValue(*this);
       }
       return this->createRuntimeError("TODO: Mutation not supported for throw instances");
+    }
+  };
+
+  class ValueType : public ValueMutable {
+    ValueType(const ValueType&) = delete;
+    ValueType& operator=(const ValueType&) = delete;
+  private:
+    Type type;
+  public:
+    ValueType(IAllocator& allocator, const Type& type)
+      : ValueMutable(allocator),
+        type(type) {
+      assert(type != nullptr);
+    }
+    virtual void softVisit(ICollectable::IVisitor& visitor) const override {
+      this->type->softVisit(visitor);
+    }
+    virtual Type getType() const override {
+      return this->type;
+    }
+    virtual ValueFlags getFlags() const override {
+      return ValueFlags::Type;
+    }
+    virtual bool validate() const override {
+      return ValueMutable::validate() && (this->type != nullptr) && this->type->validate();
+    }
+    virtual void print(Printer& printer) const override {
+      printer.write(this->type);
+    }
+    virtual bool set(const IValue&) override {
+      // Types are effectively immutable
+      return false;
+    }
+    virtual HardValue mutate(Mutation op, const IValue&) override {
+      // There are few valid mutation operations on types
+      if (op == Mutation::Noop) {
+        return HardValue(*this);
+      }
+      return this->createRuntimeError("TODO: Mutation not supported for type values");
     }
   };
 
@@ -634,14 +698,29 @@ namespace {
       // We never have inner values
       return false;
     }
+    virtual Type getType() const override {
+      // TODO
+      assert(this->validate());
+      EGG_WARNING_SUPPRESS_SWITCH_BEGIN
+      switch (this->flags) {
+      case ValueFlags::Bool:
+        return Type::Bool;
+      case ValueFlags::Int:
+        return Type::Int;
+      case ValueFlags::Float:
+        return Type::Float;
+      case ValueFlags::String:
+        return Type::String;
+      case ValueFlags::Object:
+        assert(this->ovalue != nullptr);
+        return this->ovalue->vmRuntimeType();
+      }
+      EGG_WARNING_SUPPRESS_SWITCH_END
+      return Type::None;
+    }
     virtual ValueFlags getFlags() const override {
       assert(this->validate());
       return this->flags;
-    }
-    virtual Type getRuntimeType() const override {
-      // TODO
-      assert(false);
-      return Type::Void;
     }
     virtual void print(Printer& printer) const override {
       assert(this->validate());
@@ -1064,6 +1143,10 @@ egg::ovum::HardValue egg::ovum::ValueFactory::createHardObject(IAllocator& alloc
 
 egg::ovum::HardValue egg::ovum::ValueFactory::createHardThrow(IAllocator& allocator, const HardValue& value) {
   return makeHardValue<ValueHardThrow>(allocator, value);
+}
+
+egg::ovum::HardValue egg::ovum::ValueFactory::createType(IAllocator& allocator, const Type& value) {
+  return makeHardValue<ValueType>(allocator, value);
 }
 
 egg::ovum::HardValue egg::ovum::ValueFactory::createStringASCII(IAllocator& allocator, const char* value, size_t codepoints) {

@@ -15,9 +15,9 @@
 #define EXPR_LITERAL_VOID() mbuilder->exprLiteral(mbuilder->createHardValueVoid(), 0, 0)
 #define EXPR_PROP_GET(instance, property) mbuilder->exprPropertyGet(instance, property, 0, 0)
 #define EXPR_VAR(symbol) mbuilder->exprVariable(mbuilder->createString(symbol), 0, 0)
-#define TYPE_PRIMITIVE(primitive) mbuilder->typePrimitive(primitive, 0, 0)
-#define TYPE_VAR() TYPE_PRIMITIVE(ValueFlags::None)
-#define TYPE_VARQ() TYPE_PRIMITIVE(ValueFlags::Null)
+#define TYPE_LITERAL(primitive) mbuilder->typeLiteral(Type::primitive, 0, 0)
+#define TYPE_VAR() mbuilder->typeLiteral(Type::Any, 0, 0)
+#define TYPE_VARQ() mbuilder->typeLiteral(Type::AnyQ, 0, 0)
 #define STMT_ROOT(statement) mbuilder->appendChild(mbuilder->getRoot(), statement)
 #define STMT_BLOCK(...) mbuilder->glue(mbuilder->stmtBlock(0, 0) COMMA(__VA_ARGS__))
 #define STMT_IF(cond, ...) mbuilder->glue(mbuilder->stmtIf(cond, 0, 0) COMMA(__VA_ARGS__))
@@ -507,16 +507,16 @@ TEST(TestVM, ExpandoCollector) {
   auto mbuilder = pbuilder->createModuleBuilder(pbuilder->createString("test"));
   STMT_ROOT(
     // var a = expando();
-    STMT_VAR_DEFINE("a", TYPE_VAR(), EXPR_CALL(EXPR_VAR("expando")),
+    STMT_VAR_DEFINE("a", TYPE_VARQ(), EXPR_CALL(EXPR_VAR("expando")),
       // var b = expando();
-      STMT_VAR_DEFINE("b", TYPE_VAR(), EXPR_CALL(EXPR_VAR("expando")),
+      STMT_VAR_DEFINE("b", TYPE_VARQ(), EXPR_CALL(EXPR_VAR("expando")),
         // a.x = b;
         STMT_PROP_SET(EXPR_VAR("a"), EXPR_LITERAL("x"), EXPR_VAR("b")),
         // b.x = a;
         STMT_PROP_SET(EXPR_VAR("b"), EXPR_LITERAL("x"), EXPR_VAR("a")),
         // print(collector()); -- should print '0'
         STMT_PRINT(EXPR_CALL(EXPR_VAR("collector"))),
-        // a =   null;
+        // a = null;
         STMT_VAR_SET("a", EXPR_LITERAL(nullptr)),
         // print(collector()); -- should print '0'
         STMT_PRINT(EXPR_CALL(EXPR_VAR("collector"))),

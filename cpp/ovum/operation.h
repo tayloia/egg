@@ -142,7 +142,7 @@ namespace egg::ovum {
       }
     };
 
-    inline static bool areEqual(const HardValue& lhs, const HardValue& rhs, bool promote, bool ieee) {
+    static bool areEqual(const HardValue& lhs, const HardValue& rhs, bool promote, bool ieee) {
       EGG_WARNING_SUPPRESS_SWITCH_BEGIN
       switch (lhs->getFlags()) {
       case ValueFlags::Null:
@@ -215,6 +215,40 @@ namespace egg::ovum {
         assert(false);
       }
       EGG_WARNING_SUPPRESS_SWITCH_END
+      return false;
+    }
+
+    static bool assign(IAllocator& allocator, HardValue& lhs, const Type& ltype, const HardValue& rhs, bool promote) {
+      auto lflags = ltype->getPrimitiveFlags();
+      auto rflags = rhs->getFlags();
+      EGG_WARNING_SUPPRESS_SWITCH_BEGIN
+      switch (rflags) {
+      case ValueFlags::Void:
+      case ValueFlags::Null:
+      case ValueFlags::Bool:
+      case ValueFlags::Float:
+      case ValueFlags::String:
+      case ValueFlags::Object:
+        if (Bits::hasAnySet(lflags, rflags)) {
+          return lhs->set(rhs.get());
+        }
+        return false;
+      case ValueFlags::Int:
+        break;
+      default:
+        return false;
+      }
+      EGG_WARNING_SUPPRESS_SWITCH_END
+      assert(rflags == ValueFlags::Int);
+      if (Bits::hasAnySet(lflags, ValueFlags::Int)) {
+        return lhs->set(rhs.get());
+      }
+      Int ivalue;
+      if (promote && Bits::hasAnySet(lflags, ValueFlags::Float) && rhs->getInt(ivalue)) {
+        auto fvalue = Arithmetic::promote(ivalue);
+        auto hvalue = ValueFactory::createFloat(allocator, fvalue);
+        return lhs->set(hvalue.get());
+      }
       return false;
     }
   };

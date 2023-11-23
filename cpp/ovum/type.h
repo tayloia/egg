@@ -17,7 +17,8 @@ namespace egg::ovum {
   X(Continue, "continue") \
   X(Return, "return") \
   X(Yield, "yield") \
-  X(Throw, "throw")
+  X(Throw, "throw") \
+  X(Type, "type") \
 
   enum class ValueFlagsShift {
     _ = -1 // We want the next element to start at zero

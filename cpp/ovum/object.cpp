@@ -44,6 +44,10 @@ namespace {
     virtual void print(Printer& printer) const override {
       printer << "[builtin assert]";
     }
+    virtual Type vmRuntimeType() override {
+      // TODO
+      return Type::Object;
+    }
     virtual HardValue vmCall(IVMExecution& execution, const ICallArguments& arguments) override {
       if (arguments.getArgumentCount() != 1) {
         return this->raiseRuntimeError(execution, "Builtin 'assert()' expects exactly one argument");
@@ -78,6 +82,10 @@ namespace {
     }
     virtual void print(Printer& printer) const override {
       printer << "[builtin print]";
+    }
+    virtual Type vmRuntimeType() override {
+      // TODO
+      return Type::Object;
     }
     virtual HardValue vmCall(IVMExecution& execution, const ICallArguments& arguments) override {
       StringBuilder sb;
@@ -119,6 +127,10 @@ namespace {
     virtual void print(Printer& printer) const override {
       printer << "[expando]";
     }
+    virtual Type vmRuntimeType() override {
+      // TODO
+      return Type::Object;
+    }
     virtual HardValue vmCall(IVMExecution& execution, const ICallArguments&) override {
       return this->raiseRuntimeError(execution, "TODO: Expando objects do not yet support function call semantics");
     }
@@ -156,6 +168,10 @@ namespace {
     virtual void print(Printer& printer) const override {
       printer << "[builtin expando]";
     }
+    virtual Type vmRuntimeType() override {
+      // TODO
+      return Type::Object;
+    }
     virtual HardValue vmCall(IVMExecution& execution, const ICallArguments& arguments) override {
       if (arguments.getArgumentCount() != 0) {
         return this->raiseRuntimeError(execution, "Builtin 'expando()' expects no arguments");
@@ -183,6 +199,10 @@ namespace {
     }
     virtual void print(Printer& printer) const override {
       printer << "[builtin collector]";
+    }
+    virtual Type vmRuntimeType() override {
+      // TODO
+      return Type::Object;
     }
     virtual HardValue vmCall(IVMExecution& execution, const ICallArguments& arguments) override {
       if (arguments.getArgumentCount() != 0) {
@@ -223,6 +243,10 @@ namespace {
         this->callstack->print(printer);
       }
       printer << this->message;
+    }
+    virtual Type vmRuntimeType() override {
+      // TODO
+      return Type::Object;
     }
     virtual HardValue vmCall(IVMExecution& execution, const ICallArguments&) override {
       return this->raiseRuntimeError(execution, "Runtime error objects do not support function call semantics");

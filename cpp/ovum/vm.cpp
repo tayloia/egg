@@ -22,7 +22,8 @@ public:
     ExprLiteral,
     ExprPropertyGet,
     ExprFunctionCall,
-    TypePrimitive,
+    TypeInfer,
+    TypeLiteral,
     StmtBlock,
     StmtVariableDeclare,
     StmtVariableDefine,
@@ -53,7 +54,6 @@ public:
     ValueBinaryOp binaryOp;
     ValueTernaryOp ternaryOp;
     ValueMutationOp mutationOp;
-    ValueFlags valueFlags;
     size_t defaultIndex;
   };
   std::vector<Node*> children; // Reference-counting hard pointers are stored in the chain
@@ -149,6 +149,9 @@ namespace {
     }
     virtual HardValue createHardValueObject(const HardObject& value) override {
       return this->vm.createHardValueObject(value);
+    }
+    virtual HardValue createHardValueType(const Type& value) override {
+      return this->vm.createHardValueType(value);
     }
   };
 
@@ -253,65 +256,79 @@ namespace {
       Builtin,
       Variable
     };
+    enum class SetResult {
+      Unknown,
+      Builtin,
+      Mismatch,
+      Success
+    };
+    enum class RemoveResult {
+      Unknown,
+      Builtin,
+      Success
+    };
   private:
     struct Entry {
       Kind kind;
+      Type type;
       HardValue value;
     };
     std::map<String, Entry> entries;
   public:
-    void builtin(const String& name, const HardValue& value) {
-      auto result = this->entries.emplace(name, Entry(Kind::Builtin, value));
+    void builtin(const String& name, const Type& type, const HardValue& value) {
+      auto result = this->entries.emplace(name, Entry{ Kind::Builtin, type, value });
       assert(result.second);
       assert(result.first->second.kind != Kind::Unknown);
       (void)result;
     }
-    Kind add(Kind kind, const String& name, const HardValue& value) {
+    Kind add(Kind kind, const String& name, const Type& type, const HardValue& value) {
       // Returns the old kind before this request
       assert(kind != Kind::Unknown);
-      auto result = this->entries.emplace(name, Entry(kind, value));
+      auto result = this->entries.emplace(name, Entry{ kind, type, value });
       if (result.second) {
         return Kind::Unknown;
       }
       assert(result.first->second.kind != Kind::Unknown);
       return result.first->second.kind;
     }
-    Kind set(const String& name, const HardValue& value) {
-      // Returns the new kind but only updates if a variable (or unset)
+    SetResult set(IVMExecution& execution, const String& name, const HardValue& value) {
+      // Returns the result (only updates with 'Success')
       auto result = this->entries.find(name);
       if (result == this->entries.end()) {
-        return Kind::Unknown;
+        return SetResult::Unknown;
       }
       auto kind = result->second.kind;
       switch (kind) {
       case Kind::Unknown:
+        return SetResult::Unknown;
       case Kind::Builtin:
-        break;
+        return SetResult::Builtin;
       case Kind::Unset:
-        if (result->second.value->set(value.get())) {
+        if (execution.assignValue(result->second.value, result->second.type, value)) {
           result->second.kind = Kind::Variable;
-          return Kind::Variable;
+          return SetResult::Success;
         }
         break;
       case Kind::Variable:
-        if (!result->second.value->set(value.get())) {
-          return Kind::Unset;
+        if (execution.assignValue(result->second.value, result->second.type, value)) {
+          return SetResult::Success;
         }
         break;
       }
-      return kind;
+      return SetResult::Mismatch;
     }
-    Kind remove(const String& name) {
-      // Returns the old kind but only removes if variable or unset
+    RemoveResult remove(const String& name) {
+      // Returns the result (only removes with 'Success')
       auto result = this->entries.find(name);
       if (result == this->entries.end()) {
-        return Kind::Unknown;
+        return RemoveResult::Unknown;
       }
       auto kind = result->second.kind;
-      if (kind != Kind::Builtin) {
-        this->entries.erase(result);
+      if (kind == Kind::Builtin) {
+        return RemoveResult::Builtin;
       }
-      return kind;
+      this->entries.erase(result);
+      return RemoveResult::Success;
     }
     Kind lookup(const String& name, HardValue& value) {
       // Returns the current kind and current value
@@ -321,6 +338,9 @@ namespace {
       }
       value = result->second.value;
       return result->second.kind;
+    }
+    Type type(const String& name) {
+      return this->entries[name].type;
     }
   };
 
@@ -340,6 +360,10 @@ namespace {
       return ValueFactory::createHardThrow(allocator, inner);
     }
     virtual HardValue raiseRuntimeError(const String& message) override;
+    virtual bool assignValue(HardValue& dst, const Type& type, const HardValue& src) override {
+      // Assign with int-to-float promotion
+      return Operation::assign(this->vm.getAllocator(), dst, type, src, true);
+    }
     virtual HardValue evaluateValueUnaryOp(ValueUnaryOp op, const HardValue& arg) override {
       return this->augment(this->unary(op, arg));
     }
@@ -648,52 +672,52 @@ namespace {
       // Handle short-circuits (returns 'Continue' if rhs should be evaluated)
       Bool bvalue;
       EGG_WARNING_SUPPRESS_SWITCH_BEGIN
-      switch (op) {
-      case ValueMutationOp::IfNull:
-        // a ??= b
-        // If lhs is null, we need to evaluation the rhs
-        if (lhs->getFlags() == ValueFlags::Null) {
-          // TODO: thread safety by setting lhs to some mutex
-          return HardValue::Continue;
+        switch (op) {
+        case ValueMutationOp::IfNull:
+          // a ??= b
+          // If lhs is null, we need to evaluation the rhs
+          if (lhs->getFlags() == ValueFlags::Null) {
+            // TODO: thread safety by setting lhs to some mutex
+            return HardValue::Continue;
+          }
+          return lhs;
+        case ValueMutationOp::IfFalse:
+          // a ||= b
+          // Iff lhs is false, we need to evaluation the rhs
+          if ((lhs->getFlags() != ValueFlags::Bool) || lhs->getBool(bvalue)) {
+            return this->raise("TODO: Invalid left-hand target for '||=' operator");
+          }
+          if (!Bits::hasAnySet(rhs, ValueFlags::Bool)) {
+            return this->raise("TODO: Invalid right-hand type for '||=' operator");
+          }
+          if (!bvalue) {
+            // Inform the caller we need to evaluate the rhs
+            // TODO: thread safety by setting lhs to some mutex
+            return HardValue::Continue;
+          }
+          return HardValue::True;
+        case ValueMutationOp::IfTrue:
+          // a &&= b
+          // If lhs is NOT true, we need to evaluation the rhs
+          if ((lhs->getFlags() != ValueFlags::Bool) || lhs->getBool(bvalue)) {
+            return this->raise("TODO: Invalid left-hand target for '&&=' operator");
+          }
+          if (!Bits::hasAnySet(rhs, ValueFlags::Bool)) {
+            return this->raise("TODO: Invalid right-hand type for '&&=' operator");
+          }
+          if (bvalue) {
+            // Inform the caller we need to evaluate the rhs
+            // TODO: thread safety by setting lhs to some mutex
+            return HardValue::Continue;
+          }
+          return HardValue::False;
+        case ValueMutationOp::Noop:
+          // Just return the lhs
+          assert(rhs == ValueFlags::Void);
+          return lhs;
         }
-        return lhs;
-      case ValueMutationOp::IfFalse:
-        // a ||= b
-        // Iff lhs is false, we need to evaluation the rhs
-        if ((lhs->getFlags() != ValueFlags::Bool) || lhs->getBool(bvalue)) {
-          return this->raise("TODO: Invalid left-hand target for '||=' operator");
-        }
-        if (!Bits::hasAnySet(rhs, ValueFlags::Bool)) {
-          return this->raise("TODO: Invalid right-hand type for '||=' operator");
-        }
-        if (!bvalue) {
-          // Inform the caller we need to evaluate the rhs
-          // TODO: thread safety by setting lhs to some mutex
-          return HardValue::Continue;
-        }
-        return HardValue::True;
-      case ValueMutationOp::IfTrue:
-        // a &&= b
-        // If lhs is NOT true, we need to evaluation the rhs
-        if ((lhs->getFlags() != ValueFlags::Bool) || lhs->getBool(bvalue)) {
-          return this->raise("TODO: Invalid left-hand target for '&&=' operator");
-        }
-        if (!Bits::hasAnySet(rhs, ValueFlags::Bool)) {
-          return this->raise("TODO: Invalid right-hand type for '&&=' operator");
-        }
-        if (bvalue) {
-          // Inform the caller we need to evaluate the rhs
-          // TODO: thread safety by setting lhs to some mutex
-          return HardValue::Continue;
-        }
-        return HardValue::False;
-      case ValueMutationOp::Noop:
-        // Just return the lhs
-        assert(rhs == ValueFlags::Void);
-        return lhs;
-      }
       EGG_WARNING_SUPPRESS_SWITCH_END
-      return HardValue::Continue;
+        return HardValue::Continue;
     }
     HardValue mutate(ValueMutationOp op, HardValue& lhs, const HardValue& rhs) {
       // Return the value before the mutation
@@ -808,9 +832,9 @@ namespace {
       node.addChild(function);
       return node;
     }
-    virtual Node& typePrimitive(ValueFlags primitive, size_t line, size_t column) override {
-      auto& node = this->module->createNode(Node::Kind::TypePrimitive, line, column);
-      node.valueFlags = primitive;
+    virtual Node& typeLiteral(const Type& type, size_t line, size_t column) override {
+      auto& node = this->module->createNode(Node::Kind::TypeLiteral, line, column);
+      node.literal = this->createHardValueType(type);
       return node;
     }
     virtual Node& stmtBlock(size_t line, size_t column) override {
@@ -982,7 +1006,7 @@ namespace {
       printer << "[VMRunner]";
     }
     virtual void addBuiltin(const String& symbol, const HardValue& value) override {
-      this->symtable.builtin(symbol, value);
+      this->symtable.builtin(symbol, value->getType(), value);
     }
     virtual RunOutcome run(HardValue& retval, RunFlags flags) override {
       if (flags == RunFlags::Step) {
@@ -1043,7 +1067,7 @@ namespace {
       auto error = this->createRuntimeError(StringBuilder::concat(this->getAllocator(), std::forward<ARGS>(args)...));
       return this->pop(error);
     }
-    bool variableScopeBegin(NodeStack& top) {
+    bool variableScopeBegin(NodeStack& top, const Type& type) {
       assert(top.scope.empty());
       if (!top.node->literal->getString(top.scope)) {
         // No symbol declared
@@ -1051,7 +1075,7 @@ namespace {
       }
       assert(!top.scope.empty());
       HardValue poly{ *this->vm.createSoftValue() };
-      switch (this->symtable.add(VMSymbolTable::Kind::Unset, top.scope, poly)) {
+      switch (this->symtable.add(VMSymbolTable::Kind::Unset, top.scope, type, poly)) {
       case VMSymbolTable::Kind::Unknown:
         break;
       case VMSymbolTable::Kind::Unset:
@@ -1084,17 +1108,17 @@ namespace {
         this->raise("Cannot set variable '", name, "' to an uninitialized value");
         return false;
       }
-      switch (this->symtable.set(name, value)) {
-      case VMSymbolTable::Kind::Unknown:
+      switch (this->symtable.set(this->execution, name, value)) {
+      case VMSymbolTable::SetResult::Unknown:
         this->raise("Unknown variable symbol: '", name, "'");
         return false;
-      case VMSymbolTable::Kind::Unset:
-        this->raise("Cannot set variable: '", name, "'");
-        return false;
-      case VMSymbolTable::Kind::Builtin:
+      case VMSymbolTable::SetResult::Builtin:
         this->raise("Cannot modify builtin symbol: '", name, "'");
         return false;
-      case VMSymbolTable::Kind::Variable:
+      case VMSymbolTable::SetResult::Mismatch:
+        this->raise("Type mismatch setting variable '", name, "': expected '", this->symtable.type(name), "' but got '", value->getType(), "'");
+        return false;
+      case VMSymbolTable::SetResult::Success:
         break;
       }
       return true;
@@ -1151,6 +1175,9 @@ namespace {
     }
     virtual HardValue createHardValueObject(const HardObject& value) override {
       return ValueFactory::createHardObject(this->allocator, value);
+    }
+    virtual HardValue createHardValueType(const Type& value) override {
+      return ValueFactory::createType(this->allocator, value);
     }
     virtual HardObject createBuiltinAssert() override {
       return ObjectFactory::createBuiltinAssert(*this);
@@ -1235,29 +1262,50 @@ bool VMRunner::stepNode(HardValue& retval) {
     assert(top.node->children.size() >= 1);
     assert(top.index <= top.node->children.size());
     if (top.index == 0) {
-      // WIBBLE process the type
-      auto* ptype = top.node->children[top.index++];
-      assert(ptype != nullptr);
-      if (!this->variableScopeBegin(top)) {
-        return true;
+      // Evaluate the type
+      this->push(*top.node->children[top.index++]);
+    } else {
+      if (top.index == 1) {
+        assert(top.deque.size() == 1);
+        auto& vtype = top.deque.front();
+        if (vtype.hasFlowControl()) {
+          return this->pop(vtype);
+        }
+        auto type = vtype->getType();
+        assert(type != nullptr);
+        if (!this->variableScopeBegin(top, type)) {
+          return true;
+        }
+        top.deque.clear();
       }
-    } else if (!this->stepBlock(retval, 1)) {
-      return this->pop(retval);
+      if (!this->stepBlock(retval, 1)) {
+        return this->pop(retval);
+      }
     }
     break;
   case IVMModule::Node::Kind::StmtVariableDefine:
     assert(top.node->children.size() >= 2);
     assert(top.index <= top.node->children.size());
     if (top.index == 0) {
-      // WIBBLE process the type
-      auto* ptype = top.node->children[top.index++];
-      assert(ptype != nullptr);
-      if (!this->variableScopeBegin(top)) {
+      // Evaluate the type
+      this->push(*top.node->children[top.index++]);
+    } else if (top.index == 1) {
+      // Evaluate the initial value
+      assert(top.deque.size() == 1);
+      auto& vtype = top.deque.front();
+      if (vtype.hasFlowControl()) {
+        return this->pop(vtype);
+      }
+      auto type = vtype->getType();
+      assert(type != nullptr);
+      if (!this->variableScopeBegin(top, type)) {
         return true;
       }
+      top.deque.clear();
       this->push(*top.node->children[top.index++]);
     } else {
       if (top.index == 2) {
+        assert(top.deque.size() == 1);
         if (!this->symbolSet(top.node->literal, top.deque.front())) {
           return true;
         }
@@ -1359,7 +1407,7 @@ bool VMRunner::stepNode(HardValue& retval) {
     assert(top.index <= top.node->children.size());
     if (top.index == 0) {
       // Evaluate the condition
-      if (!this->variableScopeBegin(top)) {
+      if (!this->variableScopeBegin(top, nullptr)) {
         // TODO: if (var v = a) {}
         return true;
       }
@@ -1402,7 +1450,7 @@ bool VMRunner::stepNode(HardValue& retval) {
     assert(top.index <= 2);
     if (top.index == 0) {
       // Scope any declared variable
-      if (!this->variableScopeBegin(top)) {
+      if (!this->variableScopeBegin(top, nullptr)) {
         // TODO: while (var v = a) {}
         return true;
       }
@@ -1484,7 +1532,7 @@ bool VMRunner::stepNode(HardValue& retval) {
     assert(top.index <= 4);
     if (top.index == 0) {
       // Scope any declared variable
-      if (!this->variableScopeBegin(top)) {
+      if (!this->variableScopeBegin(top, nullptr)) {
         // TODO: for (var v = a; ...) {}
         return true;
       }
@@ -1537,7 +1585,7 @@ bool VMRunner::stepNode(HardValue& retval) {
     if (top.index == 0) {
       if (top.deque.empty()) {
         // Scope any declared variable
-        if (!this->variableScopeBegin(top)) {
+        if (!this->variableScopeBegin(top, nullptr)) {
           // TODO: switch (var v = a) {}
           return true;
         }
@@ -1787,23 +1835,33 @@ bool VMRunner::stepNode(HardValue& retval) {
   case IVMModule::Node::Kind::StmtCatch:
     assert(top.index <= top.node->children.size());
     if (top.index == 0) {
-      // WIBBLE process the type
-      auto* ptype = top.node->children[top.index++];
-      assert(ptype != nullptr);
-      if (!this->variableScopeBegin(top)) {
-        return true;
+      // Evaluate the type
+      this->push(*top.node->children[top.index++]);
+    } else {
+      if (top.index == 1) {
+        // Evaluate the initial value
+        assert(top.deque.size() == 1);
+        auto& vtype = top.deque.front();
+        if (vtype.hasFlowControl()) {
+          return this->pop(vtype);
+        }
+        auto type = vtype->getType();
+        assert(type != nullptr);
+        if (!this->variableScopeBegin(top, type)) {
+          return true;
+        }
+        HardValue inner;
+        if (!top.value->getInner(inner)) {
+          return this->raise("Invalid 'catch' clause expression");
+        }
+        if (!this->symbolSet(top.node->literal, inner)) {
+          return true;
+        }
+        top.deque.clear();
       }
-      HardValue inner;
-      if (!top.value->getInner(inner)) {
-        return this->raise("Invalid 'catch' clause expression");
+      if (!this->stepBlock(retval, 1)) {
+        return this->pop(retval);
       }
-      if (!this->symbolSet(top.node->literal, inner)) {
-        return true;
-      }
-      assert(top.deque.empty());
-    }
-    if (!this->stepBlock(retval, 1)) {
-      return this->pop(retval);
     }
     break;
   case IVMModule::Node::Kind::StmtRethrow:
@@ -1981,7 +2039,12 @@ bool VMRunner::stepNode(HardValue& retval) {
       return this->pop(instance->vmPropertyGet(this->execution, property));
     }
     break;
-  case IVMModule::Node::Kind::TypePrimitive:
+  case IVMModule::Node::Kind::TypeInfer:
+    assert(top.node->children.empty());
+    assert(top.index == 0);
+    assert(top.deque.empty());
+    return this->raise("TODO: Type inferrence not yet implemented");
+  case IVMModule::Node::Kind::TypeLiteral:
     assert(top.node->children.empty());
     assert(top.index == 0);
     assert(top.deque.empty());
