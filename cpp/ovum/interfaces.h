@@ -259,6 +259,7 @@ namespace egg::ovum {
 
   class IType : public ICollectable {
   public:
+    // Interface
     virtual ValueFlags getPrimitiveFlags() const = 0;
     virtual std::pair<std::string, int> toStringPrecedence() const = 0; // TODO remove?
   };
@@ -267,6 +268,8 @@ namespace egg::ovum {
   public:
     enum class Assignability { Never, Sometimes, Always };
     // Interface
-    virtual Assignability isAssignable(const IType& dst, const IType& src) const = 0;
+    virtual Assignability isAssignable(const IType& dst, const IType& src) = 0;
+    virtual const IType& getPrimitive(ValueFlags flags) = 0;
+    virtual const IType& setNullability(const IType& type, bool nullable) = 0;
   };
 }

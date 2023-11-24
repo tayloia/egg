@@ -72,7 +72,7 @@ namespace {
       : HardReferenceCountedAllocator(allocator),
         basket(&basket) {
     }
-    virtual Assignability isAssignable(const IType& dst, const IType& src) const override {
+    virtual Assignability isAssignable(const IType& dst, const IType& src) override {
       // WIBBLE
       if (&dst == &src) {
         return Assignability::Always;
@@ -81,6 +81,25 @@ namespace {
         return Assignability::Always;
       }
       return Assignability::Never;
+    }
+    virtual const IType& getPrimitive(ValueFlags flags) override {
+      // WIBBLE
+      assert(0);
+      (void)flags;
+      return *Type::AnyQ;
+    }
+    virtual const IType& setNullability(const IType& type, bool nullable) override {
+      auto before = type.getPrimitiveFlags();
+      if (nullable) {
+        if (!Bits::hasAnySet(before, ValueFlags::Null)) {
+          return this->getPrimitive(Bits::set(before, ValueFlags::Null));
+        }
+      } else {
+        if (Bits::hasAnySet(before, ValueFlags::Null)) {
+          return this->getPrimitive(Bits::clear(before, ValueFlags::Null));
+        }
+      }
+      return type;
     }
   };
 

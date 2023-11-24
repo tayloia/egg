@@ -207,6 +207,7 @@ namespace egg::ovum {
     virtual Node& exprLiteral(const HardValue& literal, size_t line, size_t column) = 0;
     virtual Node& exprPropertyGet(Node& instance, Node& property, size_t line, size_t column) = 0;
     virtual Node& exprFunctionCall(Node& function, size_t line, size_t column) = 0;
+    virtual Node& exprStringCall(size_t line, size_t column) = 0;
     // Type expression factories
     virtual Node& typeLiteral(const Type& type, size_t line, size_t column) = 0;
     // Statement factories

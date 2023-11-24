@@ -62,8 +62,8 @@ namespace egg::ovum {
       assert(p != nullptr);
       return p;
     }
-    Type& operator=(std::nullptr_t) {
-      this->ptr = nullptr;
+    Type& operator=(const IType* rhs) {
+      this->ptr = rhs;
       return *this;
     }
     Type& operator=(const Type& rhs) {

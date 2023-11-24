@@ -82,6 +82,9 @@ namespace {
     egg::ovum::Type deduceType(ModuleNode& mnode) {
       return this->mbuilder.deduceType(mnode);
     }
+    void setNullability(egg::ovum::Type& type, bool nullable) {
+      type = &this->vm.getTypeForge().setNullability(*type, nullable);
+    }
     egg::ovum::ITypeForge::Assignability isAssignable(const egg::ovum::Type& dst, const egg::ovum::Type& src) {
       assert(dst != nullptr);
       assert(src != nullptr);
@@ -253,22 +256,44 @@ ModuleNode* ModuleCompiler::compileStmtDefineVariable(ParserNode& pnode) {
   egg::ovum::String symbol;
   EXPECT(pnode, pnode.value->getString(symbol));
   assert(pnode.children.size() == 2);
-  auto* lnode = this->compileTypeExpr(*pnode.children.front());
-  if (lnode == nullptr) {
-    return nullptr;
+  auto& lchild = *pnode.children.front();
+  auto& rchild = *pnode.children.back();
+  ModuleNode* lnode;
+  ModuleNode* rnode;
+  if (lchild.kind == ParserNode::Kind::TypeInfer) {
+    rnode = this->compileValueExpr(rchild);
+    if (rnode == nullptr) {
+      return nullptr;
+    }
+    auto ltype = this->deduceType(*rnode);
+    assert(ltype != nullptr);
+    this->setNullability(ltype, false);
+    assert(ltype != nullptr);
+    rnode = this->compileValueExpr(rchild);
+    if (rnode == nullptr) {
+      return nullptr;
+    }
+    lnode = &this->mbuilder.typeLiteral(ltype, lchild.begin.line, lchild.begin.column);
+  } else {
+    lnode = this->compileTypeExpr(lchild);
+    if (lnode == nullptr) {
+      return nullptr;
+    }
+    auto ltype = this->deduceType(*lnode);
+    assert(ltype != nullptr);
+    rnode = this->compileValueExpr(rchild);
+    if (rnode == nullptr) {
+      return nullptr;
+    }
+    auto rtype = this->deduceType(*rnode);
+    assert(rtype != nullptr);
+    auto assignable = this->isAssignable(ltype, rtype);
+    if (assignable == egg::ovum::ITypeForge::Assignability::Never) {
+      return this->error(*pnode.children.back(), "Cannot initialize '", symbol, "' of type '", ltype, "' with a value of type '", rtype, "'");
+    }
   }
-  auto ltype = this->deduceType(*lnode);
-  assert(ltype != nullptr);
-  auto* rnode = this->compileValueExpr(*pnode.children.back());
-  if (rnode == nullptr) {
-    return nullptr;
-  }
-  auto rtype = this->deduceType(*rnode);
-  assert(rtype != nullptr);
-  auto assignable = this->isAssignable(ltype, rtype);
-  if (assignable == egg::ovum::ITypeForge::Assignability::Never) {
-    return this->error(*pnode.children.back(), "Cannot initialize '", symbol, "' of type '", ltype, "' with a value of type '", rtype, "'");
-  }
+  assert(lnode != nullptr);
+  assert(rnode != nullptr);
   auto& stmt = this->mbuilder.stmtVariableDefine(symbol, *lnode, *rnode, pnode.begin.line, pnode.begin.column);
   this->targets.top() = &stmt;
   return &stmt;
@@ -317,16 +342,19 @@ ModuleNode* ModuleCompiler::compileValueExpr(ParserNode& pnode) {
     return this->compileValueExprCall(pnode.children);
   case ParserNode::Kind::Literal:
     return this->compileLiteral(pnode);
-  case ParserNode::Kind::ModuleRoot:
-  case ParserNode::Kind::TypeInfer:
-  case ParserNode::Kind::TypeInferQ:
+  case ParserNode::Kind::TypeString:
+    EXPECT(pnode, pnode.children.size() == 0);
+    return &this->mbuilder.exprStringCall(pnode.begin.line, pnode.begin.column);
   case ParserNode::Kind::TypeVoid:
   case ParserNode::Kind::TypeBool:
   case ParserNode::Kind::TypeInt:
   case ParserNode::Kind::TypeFloat:
-  case ParserNode::Kind::TypeString:
   case ParserNode::Kind::TypeObject:
   case ParserNode::Kind::TypeAny:
+    // TODO constructors above
+  case ParserNode::Kind::ModuleRoot:
+  case ParserNode::Kind::TypeInfer:
+  case ParserNode::Kind::TypeInferQ:
   case ParserNode::Kind::TypeUnary:
   case ParserNode::Kind::TypeBinary:
   case ParserNode::Kind::StmtCall:
@@ -379,9 +407,9 @@ ModuleNode* ModuleCompiler::compileValueExprTernary(ParserNode& op, ParserNode& 
 }
 
 ModuleNode* ModuleCompiler::compileValueExprCall(ParserNodes& pnodes) {
+  ModuleNode* call = nullptr;
   auto pnode = pnodes.begin();
   assert(pnode != pnodes.end());
-  ModuleNode* call = nullptr;
   auto* expr = this->compileValueExpr(**pnode);
   if (expr != nullptr) {
     call = &this->mbuilder.exprFunctionCall(*expr, (*pnode)->begin.line, (*pnode)->begin.column);

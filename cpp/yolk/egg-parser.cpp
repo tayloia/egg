@@ -701,25 +701,24 @@ namespace {
       return partial;
     }
     Partial parseValueExpressionPrimaryPrefix(size_t tokidx) {
-      std::unique_ptr<Node> child;
+      std::unique_ptr<Node> node;
       Context context(*this, tokidx);
       switch (context[0].kind) {
       case EggTokenizerKind::Integer:
-        child = this->makeNodeInt(Node::Kind::Literal, context[0]);
-        return context.success(std::move(child), tokidx + 1);
+        node = this->makeNodeInt(Node::Kind::Literal, context[0]);
+        return context.success(std::move(node), tokidx + 1);
       case EggTokenizerKind::Float:
-        child = this->makeNodeFloat(Node::Kind::Literal, context[0]);
-        return context.success(std::move(child), tokidx + 1);
+        node = this->makeNodeFloat(Node::Kind::Literal, context[0]);
+        return context.success(std::move(node), tokidx + 1);
       case EggTokenizerKind::String:
-        // TODO: join contiguous strings
-        child = this->makeNodeString(Node::Kind::Literal, context[0]);
-        return context.success(std::move(child), tokidx + 1);
+        // TODO: join contiguous strings?
+        node = this->makeNodeString(Node::Kind::Literal, context[0]);
+        return context.success(std::move(node), tokidx + 1);
       case EggTokenizerKind::Identifier:
-        child = this->makeNodeString(Node::Kind::ExprVariable, context[0]);
-        return context.success(std::move(child), tokidx + 1);
+        node = this->makeNodeString(Node::Kind::ExprVariable, context[0]);
+        return context.success(std::move(node), tokidx + 1);
       case EggTokenizerKind::Keyword:
-        child = this->makeNodeString(Node::Kind::ExprVariable, context[0]);
-        return context.success(std::move(child), tokidx + 1);
+        return this->parseValueExpressionPrimaryPrefixKeyword(tokidx);
       case EggTokenizerKind::Attribute:
         return PARSE_TODO(tokidx, "bad expression attribute");
       case EggTokenizerKind::Operator:
@@ -728,6 +727,62 @@ namespace {
         return context.failed(tokidx, "Expected expression, but got end-of-file");
       }
       return PARSE_TODO(tokidx, "bad expression primary prefix");
+    }
+    Partial parseValueExpressionPrimaryPrefixKeyword(size_t tokidx) {
+      Context context(*this, tokidx);
+      assert(context[0].kind == EggTokenizerKind::Keyword);
+      switch (context[0].value.k) {
+      case EggTokenizerKeyword::Any:
+        return this->parseValueExpressionPrimaryPrefixKeywordConstructor(context, Node::Kind::TypeAny);
+      case EggTokenizerKeyword::Bool:
+        return this->parseValueExpressionPrimaryPrefixKeywordConstructor(context, Node::Kind::TypeBool);
+      case EggTokenizerKeyword::Float:
+        return this->parseValueExpressionPrimaryPrefixKeywordConstructor(context, Node::Kind::TypeFloat);
+      case EggTokenizerKeyword::Int:
+        return this->parseValueExpressionPrimaryPrefixKeywordConstructor(context, Node::Kind::TypeInt);
+      case EggTokenizerKeyword::Object:
+        return this->parseValueExpressionPrimaryPrefixKeywordConstructor(context, Node::Kind::TypeObject);
+      case EggTokenizerKeyword::String:
+        return this->parseValueExpressionPrimaryPrefixKeywordConstructor(context, Node::Kind::TypeString);
+      case EggTokenizerKeyword::Void:
+        return this->parseValueExpressionPrimaryPrefixKeywordConstructor(context, Node::Kind::TypeVoid);
+      case EggTokenizerKeyword::False:
+        return this->parseValueExpressionPrimaryPrefixKeywordLiteral(context, egg::ovum::HardValue::False);
+      case EggTokenizerKeyword::Null:
+        return this->parseValueExpressionPrimaryPrefixKeywordLiteral(context, egg::ovum::HardValue::Null);
+      case EggTokenizerKeyword::True:
+        return this->parseValueExpressionPrimaryPrefixKeywordLiteral(context, egg::ovum::HardValue::True);
+      case EggTokenizerKeyword::Break:
+      case EggTokenizerKeyword::Case:
+      case EggTokenizerKeyword::Catch:
+      case EggTokenizerKeyword::Continue:
+      case EggTokenizerKeyword::Default:
+      case EggTokenizerKeyword::Do:
+      case EggTokenizerKeyword::Else:
+      case EggTokenizerKeyword::Finally:
+      case EggTokenizerKeyword::For:
+      case EggTokenizerKeyword::If:
+      case EggTokenizerKeyword::Return:
+      case EggTokenizerKeyword::Switch:
+      case EggTokenizerKeyword::Throw:
+      case EggTokenizerKeyword::Try:
+      case EggTokenizerKeyword::Type:
+      case EggTokenizerKeyword::Var:
+      case EggTokenizerKeyword::While:
+      case EggTokenizerKeyword::Yield:
+        break;
+      }
+      return PARSE_TODO(tokidx, "bad expression primary prefix keyword: '", context[0].value.s, "'");
+    }
+    Partial parseValueExpressionPrimaryPrefixKeywordConstructor(Context& context, Node::Kind kind) {
+      assert(context[0].kind == EggTokenizerKind::Keyword);
+      auto node = this->makeNode(kind, context[0]);
+      return context.success(std::move(node), context.tokensBefore + 1);
+    }
+    Partial parseValueExpressionPrimaryPrefixKeywordLiteral(Context& context, const egg::ovum::HardValue& value) {
+      assert(context[0].kind == EggTokenizerKind::Keyword);
+      auto node = this->makeNodeValue(Node::Kind::Literal, context[0], value);
+      return context.success(std::move(node), context.tokensBefore + 1);
     }
     bool parseValueExpressionPrimarySuffix(Partial& partial) {
       assert(partial.succeeded());
@@ -790,20 +845,19 @@ namespace {
       }
       return node;
     }
-    std::unique_ptr<Node> makeNodeInt(Node::Kind kind, const EggTokenizerItem& item) {
+    std::unique_ptr<Node> makeNodeValue(Node::Kind kind, const EggTokenizerItem& item, const egg::ovum::HardValue& value) {
       auto node = this->makeNode(kind, item);
-      node->value = egg::ovum::ValueFactory::createInt(this->allocator, item.value.i);
+      node->value = value;
       return node;
+    }
+    std::unique_ptr<Node> makeNodeInt(Node::Kind kind, const EggTokenizerItem& item) {
+      return this->makeNodeValue(kind, item, egg::ovum::ValueFactory::createInt(this->allocator, item.value.i));
     }
     std::unique_ptr<Node> makeNodeFloat(Node::Kind kind, const EggTokenizerItem& item) {
-      auto node = this->makeNode(kind, item);
-      node->value = egg::ovum::ValueFactory::createFloat(this->allocator, item.value.f);
-      return node;
+      return this->makeNodeValue(kind, item, egg::ovum::ValueFactory::createFloat(this->allocator, item.value.f));
     }
     std::unique_ptr<Node> makeNodeString(Node::Kind kind, const EggTokenizerItem& item) {
-      auto node = this->makeNode(kind, item);
-      node->value = egg::ovum::ValueFactory::createString(this->allocator, item.value.s);
-      return node;
+      return this->makeNodeValue(kind, item, egg::ovum::ValueFactory::createString(this->allocator, item.value.s));
     }
   };
 

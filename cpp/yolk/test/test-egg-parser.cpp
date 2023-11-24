@@ -359,3 +359,11 @@ TEST(TestEggParser, TypeBinaryMapRepeated) {
   std::string expected = "(stmt-declare-variable 'a' (type-binary '[]' (type-binary '[]' (type-int) (type-string)) (type-float)))\n";
   ASSERT_EQ(expected, actual);
 }
+
+TEST(TestEggParser, ConstructString) {
+  std::string actual = outputFromLines({
+    "var s = string(\"Hello, \", \"World!\");"
+    });
+  std::string expected = "(stmt-define-variable 's' (type-infer) (expr-call (type-string) \"Hello, \" \"World!\"))\n";
+  ASSERT_EQ(expected, actual);
+}

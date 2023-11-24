@@ -21,6 +21,7 @@ public:
     ExprVariable,
     ExprLiteral,
     ExprPropertyGet,
+    ExprStringCall,
     ExprFunctionCall,
     TypeInfer,
     TypeLiteral,
@@ -816,6 +817,10 @@ namespace {
       node.literal = this->createHardValueString(symbol);
       return node;
     }
+    virtual Node& exprStringCall(size_t line, size_t column) override {
+      auto& node = this->module->createNode(Node::Kind::ExprStringCall, line, column);
+      return node;
+    }
     virtual Node& exprLiteral(const HardValue& literal, size_t line, size_t column) override {
       auto& node = this->module->createNode(Node::Kind::ExprLiteral, line, column);
       node.literal = literal;
@@ -828,6 +833,10 @@ namespace {
       return node;
     }
     virtual Node& exprFunctionCall(Node& function, size_t line, size_t column) override {
+      if (function.kind == Node::Kind::ExprStringCall) {
+        // Hoist the call
+        return function;
+      }
       auto& node = this->module->createNode(Node::Kind::ExprFunctionCall, line, column);
       node.addChild(function);
       return node;
@@ -950,6 +959,8 @@ namespace {
         return node.literal->getType();
       case Node::Kind::TypeLiteral:
         return node.literal->getType();
+      case Node::Kind::ExprStringCall:
+        return Type::String;
       case Node::Kind::Root:
       case Node::Kind::ExprUnaryOp:
       case Node::Kind::ExprBinaryOp:
@@ -2080,6 +2091,29 @@ bool VMRunner::stepNode(HardValue& retval) {
       }
       auto& property = top.deque.back();
       return this->pop(instance->vmPropertyGet(this->execution, property));
+    }
+    break;
+  case IVMModule::Node::Kind::ExprStringCall:
+    assert(top.node->literal->getVoid());
+    assert(top.index <= top.node->children.size());
+    if (!top.deque.empty()) {
+      // Check the last evaluation
+      auto& latest = top.deque.back();
+      if (latest.hasFlowControl()) {
+        return this->pop(latest);
+      }
+    }
+    if (top.index < top.node->children.size()) {
+      // Assemble the arguments
+      this->push(*top.node->children[top.index++]);
+    } else {
+      // Perform the concatenation
+      StringBuilder sb;
+      for (auto& argument : top.deque) {
+        sb.add(argument);
+      }
+      auto result = sb.build(this->getAllocator());
+      return this->pop(this->createHardValueString(result));
     }
     break;
   case IVMModule::Node::Kind::TypeInfer:
