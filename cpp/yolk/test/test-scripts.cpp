@@ -43,6 +43,7 @@ namespace {
   private:
     static std::string execute(TextStream& stream) {
       egg::test::VM vm;
+      vm.logger.resource = stream.getResourceName();
       auto program = EggCompilerFactory::compileFromStream(*vm, stream);
       if (program != nullptr) {
         auto runner = program->createRunner();

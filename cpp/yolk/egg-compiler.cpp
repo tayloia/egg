@@ -68,11 +68,11 @@ namespace {
       bool root : 1 = false;
     };
     ModuleNode* compileStmt(ParserNode& pnode, const StmtContext& context);
-    ModuleNode* compileStmtDeclareVar(ParserNode& pnode);
-    ModuleNode* compileStmtDefineVar(ParserNode& pnode);
+    ModuleNode* compileStmtDeclareVariable(ParserNode& pnode);
+    ModuleNode* compileStmtDefineVariable(ParserNode& pnode);
     ModuleNode* compileStmtCall(ParserNode& pnode);
     ModuleNode* compileValueExpr(ParserNode& pnode);
-    ModuleNode* compileValueExprVar(ParserNode& pnode);
+    ModuleNode* compileValueExprVariable(ParserNode& pnode);
     ModuleNode* compileValueExprUnary(ParserNode& op, ParserNode& rhs);
     ModuleNode* compileValueExprBinary(ParserNode& op, ParserNode& lhs, ParserNode& rhs);
     ModuleNode* compileValueExprTernary(ParserNode& op, ParserNode& lhs, ParserNode& mid, ParserNode& rhs);
@@ -189,17 +189,17 @@ egg::ovum::HardPtr<egg::ovum::IVMModule> ModuleCompiler::compile(ParserNode& roo
 
 ModuleNode* ModuleCompiler::compileStmt(ParserNode& pnode, const StmtContext& context) {
   switch (pnode.kind) {
-  case ParserNode::Kind::StmtDeclareVar:
+  case ParserNode::Kind::StmtDeclareVariable:
     EXPECT(pnode, pnode.children.size() == 1);
-    return this->compileStmtDeclareVar(pnode);
-  case ParserNode::Kind::StmtDefineVar:
+    return this->compileStmtDeclareVariable(pnode);
+  case ParserNode::Kind::StmtDefineVariable:
     EXPECT(pnode, pnode.children.size() == 2);
-    return this->compileStmtDefineVar(pnode);
+    return this->compileStmtDefineVariable(pnode);
   case ParserNode::Kind::StmtCall:
     EXPECT(pnode, pnode.children.size() == 1);
     return this->compileStmtCall(*pnode.children.front());
   case ParserNode::Kind::ModuleRoot:
-  case ParserNode::Kind::ExprVar:
+  case ParserNode::Kind::ExprVariable:
   case ParserNode::Kind::ExprUnary:
   case ParserNode::Kind::ExprBinary:
   case ParserNode::Kind::ExprTernary:
@@ -225,8 +225,8 @@ ModuleNode* ModuleCompiler::compileStmt(ParserNode& pnode, const StmtContext& co
   return this->unexpected(pnode, "statement");
 }
 
-ModuleNode* ModuleCompiler::compileStmtDeclareVar(ParserNode& pnode) {
-  assert(pnode.kind == ParserNode::Kind::StmtDeclareVar);
+ModuleNode* ModuleCompiler::compileStmtDeclareVariable(ParserNode& pnode) {
+  assert(pnode.kind == ParserNode::Kind::StmtDeclareVariable);
   egg::ovum::String symbol;
   EXPECT(pnode, pnode.value->getString(symbol));
   assert(pnode.children.size() == 1);
@@ -240,8 +240,8 @@ ModuleNode* ModuleCompiler::compileStmtDeclareVar(ParserNode& pnode) {
   return &stmt;
 }
 
-ModuleNode* ModuleCompiler::compileStmtDefineVar(ParserNode& pnode) {
-  assert(pnode.kind == ParserNode::Kind::StmtDefineVar);
+ModuleNode* ModuleCompiler::compileStmtDefineVariable(ParserNode& pnode) {
+  assert(pnode.kind == ParserNode::Kind::StmtDefineVariable);
   egg::ovum::String symbol;
   EXPECT(pnode, pnode.value->getString(symbol));
   assert(pnode.children.size() == 2);
@@ -281,8 +281,8 @@ ModuleNode* ModuleCompiler::compileStmtCall(ParserNode& pnode) {
 
 ModuleNode* ModuleCompiler::compileValueExpr(ParserNode& pnode) {
   switch (pnode.kind) {
-  case ParserNode::Kind::ExprVar:
-    return this->compileValueExprVar(pnode);
+  case ParserNode::Kind::ExprVariable:
+    return this->compileValueExprVariable(pnode);
   case ParserNode::Kind::ExprUnary:
     EXPECT(pnode, pnode.children.size() == 1);
     EXPECT(pnode, pnode.children[0] != nullptr);
@@ -316,15 +316,15 @@ ModuleNode* ModuleCompiler::compileValueExpr(ParserNode& pnode) {
   case ParserNode::Kind::TypeUnary:
   case ParserNode::Kind::TypeBinary:
   case ParserNode::Kind::StmtCall:
-  case ParserNode::Kind::StmtDeclareVar:
-  case ParserNode::Kind::StmtDefineVar:
+  case ParserNode::Kind::StmtDeclareVariable:
+  case ParserNode::Kind::StmtDefineVariable:
   default:
     break;
   }
   return this->unexpected(pnode, "value expression");
 }
 
-ModuleNode* ModuleCompiler::compileValueExprVar(ParserNode& pnode) {
+ModuleNode* ModuleCompiler::compileValueExprVariable(ParserNode& pnode) {
   EXPECT(pnode, pnode.children.size() == 0);
   egg::ovum::String symbol;
   EXPECT(pnode, pnode.value->getString(symbol));
@@ -419,10 +419,10 @@ ModuleNode* ModuleCompiler::compileTypeExpr(ParserNode& pnode) {
     // WIBBLE
     break;
   case ParserNode::Kind::ModuleRoot:
-  case ParserNode::Kind::StmtDeclareVar:
-  case ParserNode::Kind::StmtDefineVar:
+  case ParserNode::Kind::StmtDeclareVariable:
+  case ParserNode::Kind::StmtDefineVariable:
   case ParserNode::Kind::StmtCall:
-  case ParserNode::Kind::ExprVar:
+  case ParserNode::Kind::ExprVariable:
   case ParserNode::Kind::ExprUnary:
   case ParserNode::Kind::ExprBinary:
   case ParserNode::Kind::ExprTernary:
@@ -443,13 +443,13 @@ std::string ModuleCompiler::toString(const ParserNode& pnode) {
   switch (pnode.kind) {
   case ParserNode::Kind::ModuleRoot:
     return "module root";
-  case ParserNode::Kind::StmtDeclareVar:
+  case ParserNode::Kind::StmtDeclareVariable:
     return "variable declaration statement";
-  case ParserNode::Kind::StmtDefineVar:
+  case ParserNode::Kind::StmtDefineVariable:
     return "variable definition statement";
   case ParserNode::Kind::StmtCall:
     return "call statement";
-  case ParserNode::Kind::ExprVar:
+  case ParserNode::Kind::ExprVariable:
     return "variable expression";
   case ParserNode::Kind::ExprUnary:
     return "unary operator";

@@ -42,13 +42,10 @@ namespace egg::test {
   class Logger final : public egg::ovum::ILogger {
     Logger(const Logger&) = delete;
     Logger& operator=(const Logger&) = delete;
-  private:
-    std::string resource;
   public:
+    std::string resource;
     std::ostringstream logged;
-    explicit Logger(const std::string& resource = std::string())
-      : resource(resource) {
-    }
+    Logger() = default;
     virtual void log(Source source, Severity severity, const egg::ovum::String& message) override {
       std::string buffer;
       switch (source) {

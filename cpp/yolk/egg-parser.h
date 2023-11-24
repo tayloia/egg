@@ -21,10 +21,10 @@ namespace egg::yolk {
     struct Node {
       enum class Kind {
         ModuleRoot,
-        StmtDeclareVar,
-        StmtDefineVar,
+        StmtDeclareVariable,
+        StmtDefineVariable,
         StmtCall,
-        ExprVar,
+        ExprVariable,
         ExprUnary,
         ExprBinary,
         ExprTernary,

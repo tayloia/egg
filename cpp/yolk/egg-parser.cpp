@@ -329,7 +329,7 @@ namespace {
         // <type> <identifier> = <expr>
         auto expr = parseValueExpression(tokidx + 2);
         if (expr.succeeded()) {
-          auto stmt = this->makeNodeString(Node::Kind::StmtDefineVar, context[0]);
+          auto stmt = this->makeNodeString(Node::Kind::StmtDefineVariable, context[0]);
           stmt->children.emplace_back(std::move(ptype));
           stmt->children.emplace_back(std::move(expr.node));
           return context.success(std::move(stmt), expr.tokensAfter);
@@ -337,7 +337,7 @@ namespace {
         return expr;
       }
       // <type> <identifier>
-      auto stmt = this->makeNodeString(Node::Kind::StmtDeclareVar, context[0]);
+      auto stmt = this->makeNodeString(Node::Kind::StmtDeclareVariable, context[0]);
       stmt->children.emplace_back(std::move(ptype));
       return context.success(std::move(stmt), tokidx + 1);
     }
@@ -654,10 +654,10 @@ namespace {
         child = this->makeNodeString(Node::Kind::Literal, context[0]);
         return context.success(std::move(child), tokidx + 1);
       case EggTokenizerKind::Identifier:
-        child = this->makeNodeString(Node::Kind::ExprVar, context[0]);
+        child = this->makeNodeString(Node::Kind::ExprVariable, context[0]);
         return context.success(std::move(child), tokidx + 1);
       case EggTokenizerKind::Keyword:
-        child = this->makeNodeString(Node::Kind::ExprVar, context[0]);
+        child = this->makeNodeString(Node::Kind::ExprVariable, context[0]);
         return context.success(std::move(child), tokidx + 1);
       case EggTokenizerKind::Attribute:
         return PARSE_TODO(tokidx, "bad expression attribute");

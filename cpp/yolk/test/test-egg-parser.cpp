@@ -42,15 +42,15 @@ namespace {
         os << *child << std::endl;
       }
       break;
-    case Node::Kind::StmtDeclareVar:
-      return printNodeChildren(os, "stmt-declare-var", node);
-    case Node::Kind::StmtDefineVar:
-      return printNodeChildren(os, "stmt-define-var", node);
+    case Node::Kind::StmtDeclareVariable:
+      return printNodeChildren(os, "stmt-declare-variable", node);
+    case Node::Kind::StmtDefineVariable:
+      return printNodeChildren(os, "stmt-define-variable", node);
     case Node::Kind::StmtCall:
       return printNodeChildren(os, "stmt-call", node);
-    case Node::Kind::ExprVar:
+    case Node::Kind::ExprVariable:
       assert(node.children.empty());
-      return printValue(os << "(expr-var ", node.value) << ')';
+      return printValue(os << "(expr-variable ", node.value) << ')';
     case Node::Kind::ExprUnary:
       assert(node.children.size() == 1);
       return printNodeExtra(os, "expr-unary", node.op.valueUnaryOp, node);
@@ -184,7 +184,7 @@ TEST(TestEggParser, HelloWorld) {
   std::string actual = outputFromLines({
     "print(\"Hello, World!\");"
   });
-  std::string expected = "(stmt-call (expr-call (expr-var 'print') \"Hello, World!\"))\n";
+  std::string expected = "(stmt-call (expr-call (expr-variable 'print') \"Hello, World!\"))\n";
   ASSERT_EQ(expected, actual);
 }
 
@@ -192,7 +192,7 @@ TEST(TestEggParser, ExpressionUnary) {
   std::string actual = outputFromLines({
     "print(-a);"
     });
-  std::string expected = "(stmt-call (expr-call (expr-var 'print') (expr-unary '-' (expr-var 'a'))))\n";
+  std::string expected = "(stmt-call (expr-call (expr-variable 'print') (expr-unary '-' (expr-variable 'a'))))\n";
   ASSERT_EQ(expected, actual);
 }
 
@@ -200,7 +200,7 @@ TEST(TestEggParser, ExpressionBinary) {
   std::string actual = outputFromLines({
     "print(a + b);"
     });
-  std::string expected = "(stmt-call (expr-call (expr-var 'print') (expr-binary '+' (expr-var 'a') (expr-var 'b'))))\n";
+  std::string expected = "(stmt-call (expr-call (expr-variable 'print') (expr-binary '+' (expr-variable 'a') (expr-variable 'b'))))\n";
   ASSERT_EQ(expected, actual);
 }
 
@@ -208,6 +208,6 @@ TEST(TestEggParser, ExpressionTernary) {
   std::string actual = outputFromLines({
     "print(a ? b : c);"
     });
-  std::string expected = "(stmt-call (expr-call (expr-var 'print') (expr-ternary '?:' (expr-var 'a') (expr-var 'b') (expr-var 'c'))))\n";
+  std::string expected = "(stmt-call (expr-call (expr-variable 'print') (expr-ternary '?:' (expr-variable 'a') (expr-variable 'b') (expr-variable 'c'))))\n";
   ASSERT_EQ(expected, actual);
 }
