@@ -32,5 +32,5 @@ TEST(TestEggCompiler, Failure) {
   egg::test::VM vm;
   auto program = egg::yolk::EggCompilerFactory::compileFromText(*vm, "print($$$);");
   ASSERT_TRUE(program == nullptr);
-  ASSERT_EQ("<COMPILER><ERROR>(1,7) : Unexpected character: '$'\n", vm.logger.logged.str());
+  ASSERT_EQ("<COMPILER><ERROR>(1,7): Unexpected character: '$'\n", vm.logger.logged.str());
 }

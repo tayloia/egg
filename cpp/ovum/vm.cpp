@@ -102,10 +102,10 @@ namespace {
           }
           printer << ')';
         }
-        printer << " : ";
+        printer << ": ";
       }
       if (!this->function.empty()) {
-        printer << this->function << " : ";
+        printer << this->function << ": ";
       }
     }
   };
@@ -944,6 +944,44 @@ namespace {
       auto& node = this->module->createNode(Node::Kind::StmtRethrow, line, column);
       return node;
     }
+    virtual Type deduceType(Node& node) override {
+      switch (node.kind) {
+      case Node::Kind::ExprLiteral:
+        return node.literal->getType();
+      case Node::Kind::TypeLiteral:
+        return node.literal->getType();
+      case Node::Kind::Root:
+      case Node::Kind::ExprUnaryOp:
+      case Node::Kind::ExprBinaryOp:
+      case Node::Kind::ExprTernaryOp:
+      case Node::Kind::ExprVariable:
+      case Node::Kind::ExprPropertyGet:
+      case Node::Kind::ExprFunctionCall:
+      case Node::Kind::TypeInfer:
+      case Node::Kind::StmtBlock:
+      case Node::Kind::StmtVariableDeclare:
+      case Node::Kind::StmtVariableDefine:
+      case Node::Kind::StmtVariableSet:
+      case Node::Kind::StmtVariableMutate:
+      case Node::Kind::StmtPropertySet:
+      case Node::Kind::StmtFunctionCall:
+      case Node::Kind::StmtIf:
+      case Node::Kind::StmtWhile:
+      case Node::Kind::StmtDo:
+      case Node::Kind::StmtFor:
+      case Node::Kind::StmtSwitch:
+      case Node::Kind::StmtCase:
+      case Node::Kind::StmtBreak:
+      case Node::Kind::StmtContinue:
+      case Node::Kind::StmtThrow:
+      case Node::Kind::StmtTry:
+      case Node::Kind::StmtCatch:
+      case Node::Kind::StmtRethrow:
+        break;
+      }
+      assert(false);
+      return nullptr;
+    }
     virtual void appendChild(Node& parent, Node& child) override {
       parent.addChild(child);
     }
@@ -1131,11 +1169,13 @@ namespace {
   protected:
     HardPtr<IBasket> basket;
     ILogger& logger;
+    HardPtr<ITypeForge> forge;
   public:
     VMDefault(IAllocator& allocator, ILogger& logger)
       : HardReferenceCountedAllocator<IVM>(allocator),
         basket(BasketFactory::createBasket(allocator)),
         logger(logger) {
+      this->forge = TypeForgeFactory::createTypeForge(allocator, *this->basket);
     }
     virtual IAllocator& getAllocator() const override {
       return this->allocator;
@@ -1145,6 +1185,9 @@ namespace {
     }
     virtual ILogger& getLogger() const override {
       return this->logger;
+    }
+    virtual ITypeForge& getTypeForge() const override {
+      return *this->forge;
     }
     virtual String createStringUTF8(const void* utf8, size_t bytes, size_t codepoints) override {
       return String::fromUTF8(this->allocator, utf8, bytes, codepoints);
@@ -1236,7 +1279,7 @@ void egg::ovum::IVMModule::Node::printLocation(Printer& printer) const {
     }
     printer << ')';
   }
-  printer << " : ";
+  printer << ": ";
 }
 
 void egg::ovum::IVMModule::Node::hardDestroy() const {

@@ -38,7 +38,7 @@ namespace {
       }
       sb.add(')');
     }
-    sb.add(" : ");
+    sb.add(": ");
   }
 
   egg::ovum::String formatIssue(egg::ovum::IAllocator& allocator, const egg::ovum::String& resource, const IEggParser::Issue& issue) {
@@ -79,6 +79,14 @@ namespace {
     ModuleNode* compileValueExprCall(ParserNodes& pnodes);
     ModuleNode* compileTypeExpr(ParserNode& pnode);
     ModuleNode* compileLiteral(ParserNode& pnode);
+    egg::ovum::Type deduceType(ModuleNode& mnode) {
+      return this->mbuilder.deduceType(mnode);
+    }
+    egg::ovum::ITypeForge::Assignability isAssignable(const egg::ovum::Type& dst, const egg::ovum::Type& src) {
+      assert(dst != nullptr);
+      assert(src != nullptr);
+      return this->vm.getTypeForge().isAssignable(*dst, *src);
+    }
     void log(egg::ovum::ILogger::Source source, egg::ovum::ILogger::Severity severity, const egg::ovum::String& message) const {
       this->vm.getLogger().log(source, severity, message);
     }
@@ -245,17 +253,23 @@ ModuleNode* ModuleCompiler::compileStmtDefineVariable(ParserNode& pnode) {
   egg::ovum::String symbol;
   EXPECT(pnode, pnode.value->getString(symbol));
   assert(pnode.children.size() == 2);
-  auto& ptype = *pnode.children.front();
-  auto* type = this->compileTypeExpr(ptype);
-  if (type == nullptr) {
+  auto* lnode = this->compileTypeExpr(*pnode.children.front());
+  if (lnode == nullptr) {
     return nullptr;
   }
-  auto& pinit = *pnode.children.back();
-  auto* init = this->compileValueExpr(pinit);
-  if (init == nullptr) {
+  auto ltype = this->deduceType(*lnode);
+  assert(ltype != nullptr);
+  auto* rnode = this->compileValueExpr(*pnode.children.back());
+  if (rnode == nullptr) {
     return nullptr;
   }
-  auto& stmt = this->mbuilder.stmtVariableDefine(symbol, *type, *init, pnode.begin.line, pnode.begin.column);
+  auto rtype = this->deduceType(*rnode);
+  assert(rtype != nullptr);
+  auto assignable = this->isAssignable(ltype, rtype);
+  if (assignable == egg::ovum::ITypeForge::Assignability::Never) {
+    return this->error(*pnode.children.back(), "Cannot initialize '", symbol, "' of type '", ltype, "' with a value of type '", rtype, "'");
+  }
+  auto& stmt = this->mbuilder.stmtVariableDefine(symbol, *lnode, *rnode, pnode.begin.line, pnode.begin.column);
   this->targets.top() = &stmt;
   return &stmt;
 }

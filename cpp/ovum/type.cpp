@@ -62,6 +62,28 @@ namespace {
     }
   };
 
+  class TypeForgeDefault : public HardReferenceCountedAllocator<ITypeForge> {
+    TypeForgeDefault(const TypeForgeDefault&) = delete;
+    TypeForgeDefault& operator=(const TypeForgeDefault&) = delete;
+  private:
+    HardPtr<IBasket> basket;
+  public:
+    explicit TypeForgeDefault(IAllocator& allocator, IBasket& basket)
+      : HardReferenceCountedAllocator(allocator),
+        basket(&basket) {
+    }
+    virtual Assignability isAssignable(const IType& dst, const IType& src) const override {
+      // WIBBLE
+      if (&dst == &src) {
+        return Assignability::Always;
+      }
+      if ((&dst == &*Type::Float) && (&src == &*Type::Int)) {
+        return Assignability::Always;
+      }
+      return Assignability::Never;
+    }
+  };
+
   TypePrimitive<ValueFlags::None> typeNone{};
   TypePrimitive<ValueFlags::Void> typeVoid{};
   TypePrimitive<ValueFlags::Null> typeNull{};
@@ -91,3 +113,8 @@ const Type Type::Arithmetic{ &typeArithmetic };
 const Type Type::Object{ &typeObject };
 const Type Type::Any{ &typeAny };
 const Type Type::AnyQ{ &typeAnyQ };
+
+egg::ovum::HardPtr<egg::ovum::ITypeForge> egg::ovum::TypeForgeFactory::createTypeForge(IAllocator& allocator, IBasket& basket) {
+  return allocator.makeHard<TypeForgeDefault>(basket);
+
+}

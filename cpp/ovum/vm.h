@@ -229,6 +229,8 @@ namespace egg::ovum {
     virtual Node& stmtTry(Node& block, size_t line, size_t column) = 0;
     virtual Node& stmtCatch(const String& symbol, Node& type, size_t line, size_t column) = 0;
     virtual Node& stmtRethrow(size_t line, size_t column) = 0;
+    // Type operations
+    virtual Type deduceType(Node& node) = 0;
     // Modifiers
     virtual void appendChild(Node& parent, Node& child) = 0;
     // Helpers
@@ -255,6 +257,7 @@ namespace egg::ovum {
     virtual IAllocator& getAllocator() const = 0;
     virtual IBasket& getBasket() const = 0;
     virtual ILogger& getLogger() const = 0;
+    virtual ITypeForge& getTypeForge() const = 0;
     // Builder factories
     virtual HardPtr<IVMProgramBuilder> createProgramBuilder() = 0;
     // Builtin factories

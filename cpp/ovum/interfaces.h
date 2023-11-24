@@ -12,10 +12,7 @@ namespace egg::ovum {
   class Type;
   class HardValue;
   class ICollectable;
-  class IMemory;
   class IValue;
-  class IType;
-  class ITypeFactory;
   class IVMExecution;
 
   enum class Modifiability {
@@ -264,5 +261,12 @@ namespace egg::ovum {
   public:
     virtual ValueFlags getPrimitiveFlags() const = 0;
     virtual std::pair<std::string, int> toStringPrecedence() const = 0; // TODO remove?
+  };
+
+  class ITypeForge : public IHardAcquireRelease {
+  public:
+    enum class Assignability { Never, Sometimes, Always };
+    // Interface
+    virtual Assignability isAssignable(const IType& dst, const IType& src) const = 0;
   };
 }

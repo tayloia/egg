@@ -2,9 +2,6 @@
 #include <set>
 
 namespace egg::ovum {
-  class Forge;
-  class INode;
-
 #define EGG_OVUM_VALUE_FLAGS(X) \
   X(Void, "void") \
   X(Null, "null") \
@@ -88,5 +85,10 @@ namespace egg::ovum {
     static const Type Object;
     static const Type Any;
     static const Type AnyQ;
+  };
+
+  class TypeForgeFactory {
+  public:
+    static HardPtr<ITypeForge> createTypeForge(IAllocator& allocator, IBasket& basket);
   };
 }
