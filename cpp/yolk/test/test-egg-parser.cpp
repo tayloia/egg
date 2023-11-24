@@ -21,6 +21,10 @@ namespace {
     return os << ')';
   }
 
+  std::ostream& printNodeValue(std::ostream& os, const char* prefix, const Node& node) {
+    return printNodeExtra(os, prefix, node.value, node);
+  }
+
   std::ostream& printNodeChildren(std::ostream& os, const char* prefix, const Node& node) {
     os << '(' << prefix;
     for (auto& child : node.children) {
@@ -43,9 +47,9 @@ namespace {
       }
       break;
     case Node::Kind::StmtDeclareVariable:
-      return printNodeChildren(os, "stmt-declare-variable", node);
+      return printNodeValue(os, "stmt-declare-variable", node);
     case Node::Kind::StmtDefineVariable:
-      return printNodeChildren(os, "stmt-define-variable", node);
+      return printNodeValue(os, "stmt-define-variable", node);
     case Node::Kind::StmtCall:
       return printNodeChildren(os, "stmt-call", node);
     case Node::Kind::ExprVariable:
@@ -91,7 +95,7 @@ namespace {
       return os << "(type-any)";
     case Node::Kind::TypeUnary:
       assert(node.children.size() == 1);
-      return printNodeExtra(os, "expr-unary", node.op.typeUnaryOp, node);
+      return printNodeExtra(os, "type-unary", node.op.typeUnaryOp, node);
     case Node::Kind::TypeBinary:
       return printNodeExtra(os, "type-binary", node.op.typeBinaryOp, node);
     case Node::Kind::Literal:
@@ -137,12 +141,11 @@ namespace {
     egg::test::Allocator allocator;
     auto result = parseFromLines(allocator, lines);
     std::ostringstream ss;
+    for (auto& issue : result.issues) {
+      ss << issue << std::endl;
+    }
     if (result.root != nullptr) {
       ss << *result.root;
-    } else {
-      for (auto& issue : result.issues) {
-        ss << issue << std::endl;
-      }
     }
     return ss.str();
   }
@@ -216,7 +219,7 @@ TEST(TestEggParser, VariableDeclareExplicit) {
   std::string actual = outputFromLines({
     "int a;"
     });
-  std::string expected = "(stmt-declare-variable (type-int))\n";
+  std::string expected = "(stmt-declare-variable 'a' (type-int))\n";
   ASSERT_EQ(expected, actual);
 }
 
@@ -240,7 +243,7 @@ TEST(TestEggParser, VariableDefineExplicit) {
   std::string actual = outputFromLines({
     "int a = 123;"
     });
-  std::string expected = "(stmt-define-variable (type-int) 123)\n";
+  std::string expected = "(stmt-define-variable 'a' (type-int) 123)\n";
   ASSERT_EQ(expected, actual);
 }
 
@@ -248,7 +251,7 @@ TEST(TestEggParser, VariableDefineInfer) {
   std::string actual = outputFromLines({
     "var a = 123;"
     });
-  std::string expected = "(stmt-define-variable (type-infer) 123)\n";
+  std::string expected = "(stmt-define-variable 'a' (type-infer) 123)\n";
   ASSERT_EQ(expected, actual);
 }
 
@@ -256,6 +259,103 @@ TEST(TestEggParser, VariableDefineInferNullable) {
   std::string actual = outputFromLines({
     "var? a = 123;"
     });
-  std::string expected = "(stmt-define-variable (type-infer-q) 123)\n";
+  std::string expected = "(stmt-define-variable 'a' (type-infer-q) 123)\n";
+  ASSERT_EQ(expected, actual);
+}
+
+TEST(TestEggParser, TypeUnaryNullable) {
+  std::string actual = outputFromLines({
+    "int? a;"
+    });
+  std::string expected = "(stmt-declare-variable 'a' (type-unary '?' (type-int)))\n";
+  ASSERT_EQ(expected, actual);
+}
+
+TEST(TestEggParser, TypeUnaryNullableRepeated) {
+  std::string actual = outputFromLines({
+    "int? ? a;"
+    });
+  std::string expected = "<WARNING>: (1,6) : Redundant repetition of type suffix '?'\n"
+                         "(stmt-declare-variable 'a' (type-unary '?' (type-int)))\n";
+  ASSERT_EQ(expected, actual);
+}
+
+TEST(TestEggParser, TypeUnaryPointer) {
+  std::string actual = outputFromLines({
+    "int* a;"
+    });
+  std::string expected = "(stmt-declare-variable 'a' (type-unary '*' (type-int)))\n";
+  ASSERT_EQ(expected, actual);
+}
+
+TEST(TestEggParser, TypeUnaryPointerRepeated) {
+  std::string actual = outputFromLines({
+    "int** a;"
+    });
+  std::string expected = "(stmt-declare-variable 'a' (type-unary '*' (type-unary '*' (type-int))))\n";
+  ASSERT_EQ(expected, actual);
+}
+
+TEST(TestEggParser, TypeUnaryIterator) {
+  std::string actual = outputFromLines({
+    "int! a;"
+    });
+  std::string expected = "(stmt-declare-variable 'a' (type-unary '!' (type-int)))\n";
+  ASSERT_EQ(expected, actual);
+}
+
+TEST(TestEggParser, TypeUnaryIteratorRepeated) {
+  std::string actual = outputFromLines({
+    "int!! a;"
+    });
+  std::string expected = "(stmt-declare-variable 'a' (type-unary '!' (type-unary '!' (type-int))))\n";
+  ASSERT_EQ(expected, actual);
+}
+
+TEST(TestEggParser, TypeUnaryArray) {
+  std::string actual = outputFromLines({
+    "int[] a;"
+    });
+  std::string expected = "(stmt-declare-variable 'a' (type-unary '[]' (type-int)))\n";
+  ASSERT_EQ(expected, actual);
+}
+
+TEST(TestEggParser, TypeUnaryArrayRepeated) {
+  std::string actual = outputFromLines({
+    "int[][] a;"
+    });
+  std::string expected = "(stmt-declare-variable 'a' (type-unary '[]' (type-unary '[]' (type-int))))\n";
+  ASSERT_EQ(expected, actual);
+}
+
+TEST(TestEggParser, TypeBinaryUnion) {
+  std::string actual = outputFromLines({
+    "int|float a;"
+    });
+  std::string expected = "(stmt-declare-variable 'a' (type-binary '|' (type-int) (type-float)))\n";
+  ASSERT_EQ(expected, actual);
+}
+
+TEST(TestEggParser, TypeBinaryUnionRepeated) {
+  std::string actual = outputFromLines({
+    "int|float|string a;"
+    });
+  std::string expected = "(stmt-declare-variable 'a' (type-binary '|' (type-int) (type-binary '|' (type-float) (type-string))))\n";
+  ASSERT_EQ(expected, actual);
+}
+
+TEST(TestEggParser, TypeBinaryMap) {
+  std::string actual = outputFromLines({
+    "int[string] a;"
+    });
+  std::string expected = "(stmt-declare-variable 'a' (type-binary '[]' (type-int) (type-string)))\n";
+  ASSERT_EQ(expected, actual);
+}
+
+TEST(TestEggParser, TypeBinaryMapRepeated) {
+  std::string actual = outputFromLines({
+    "int[string][float] a;"
+    });
+  std::string expected = "(stmt-declare-variable 'a' (type-binary '[]' (type-binary '[]' (type-int) (type-string)) (type-float)))\n";
   ASSERT_EQ(expected, actual);
 }

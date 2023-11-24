@@ -385,14 +385,6 @@ ModuleNode* ModuleCompiler::compileValueExprCall(ParserNodes& pnodes) {
 
 ModuleNode* ModuleCompiler::compileTypeExpr(ParserNode& pnode) {
   switch (pnode.kind) {
-  case ParserNode::Kind::TypeInfer:
-    // WIBBLE true inferrence
-    EXPECT(pnode, pnode.children.size() == 0);
-    return &this->mbuilder.typeLiteral(egg::ovum::Type::Any, pnode.begin.line, pnode.end.column);
-  case ParserNode::Kind::TypeInferQ:
-    // WIBBLE true inferrence
-    EXPECT(pnode, pnode.children.size() == 0);
-    return &this->mbuilder.typeLiteral(egg::ovum::Type::AnyQ, pnode.begin.line, pnode.end.column);
   case ParserNode::Kind::TypeVoid:
     EXPECT(pnode, pnode.children.size() == 0);
     return &this->mbuilder.typeLiteral(egg::ovum::Type::Void, pnode.begin.line, pnode.end.column);
@@ -427,6 +419,8 @@ ModuleNode* ModuleCompiler::compileTypeExpr(ParserNode& pnode) {
   case ParserNode::Kind::ExprBinary:
   case ParserNode::Kind::ExprTernary:
   case ParserNode::Kind::ExprCall:
+  case ParserNode::Kind::TypeInfer:
+  case ParserNode::Kind::TypeInferQ:
   case ParserNode::Kind::Literal:
   default:
     break;

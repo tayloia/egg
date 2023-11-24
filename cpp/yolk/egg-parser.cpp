@@ -138,7 +138,7 @@ namespace {
       }
       template<typename... ARGS>
       void fail(ARGS&&... args) {
-        auto issue = this->parser.createIssue(this->tokensBefore, this->tokensAfter, std::forward<ARGS>(args)...);
+        auto issue = this->parser.createIssue(Issue::Severity::Error, this->tokensBefore, this->tokensAfter, std::forward<ARGS>(args)...);
         this->parser.issues.push_back(issue);
         this->node.reset();
       }
@@ -182,6 +182,10 @@ namespace {
         this->parser.issues.resize(this->issuesBefore);
         return Partial(*this, nullptr, this->tokensBefore, this->issuesBefore);
       }
+      template<typename... ARGS>
+      void warning(size_t tokensBefore, size_t tokensAfter, ARGS&&... args) const {
+        this->parser.issues.push_back(this->parser.createIssue(Issue::Severity::Warning, tokensBefore, tokensAfter, std::forward<ARGS>(args)...));
+      }
       Partial failed() const {
         assert(!this->parser.issues.empty());
         return Partial(*this, nullptr, this->tokensBefore, this->parser.issues.size());
@@ -196,25 +200,25 @@ namespace {
       }
       template<typename... ARGS>
       Partial failed(size_t tokensAfter, ARGS&&... args) const {
-        return this->failed(parser.createIssue(this->tokensBefore, tokensAfter, std::forward<ARGS>(args)...));
+        return this->failed(this->parser.createIssue(Issue::Severity::Error, this->tokensBefore, tokensAfter, std::forward<ARGS>(args)...));
       }
       template<typename... ARGS>
       Partial todo(size_t tokensAfter, const char* file, size_t line, ARGS&&... args) const {
         // TODO: remove
         egg::ovum::StringBuilder sb;
         std::cout << file << '(' << line << "): PARSE_TODO: " << sb.add(std::forward<ARGS>(args)...).toUTF8() << std::endl;
-        return this->failed(parser.createIssue(this->tokensBefore, tokensAfter, "PARSE_TODO: ", std::forward<ARGS>(args)...));
+        return this->failed(tokensAfter, "PARSE_TODO: ", std::forward<ARGS>(args)...);
       }
     };
     template<typename... ARGS>
-    Issue createIssue(size_t tokensBefore, size_t tokensAfter, ARGS&&... args) {
+    Issue createIssue(Issue::Severity severity, size_t tokensBefore, size_t tokensAfter, ARGS&&... args) {
       assert(tokensBefore <= tokensAfter);
       auto message = egg::ovum::StringBuilder::concat(this->allocator, std::forward<ARGS>(args)...);
       auto& item0 = this->getAbsolute(tokensBefore);
       Location location0{ item0.line, item0.column };
       auto& item1 = this->getAbsolute(tokensAfter);
       Location location1{ item1.line, item1.column + item1.width() };
-      return { Issue::Severity::Error, message, location0, location1 };
+      return { severity, message, location0, location1 };
     }
     bool parseModule(Node& root) {
       assert(this->issues.empty());
@@ -382,11 +386,50 @@ namespace {
       return lhs;
     }
     Partial parseTypeExpressionUnary(size_t tokidx) {
+      // Also handles map syntax: type[indextype]
       Context context(*this, tokidx);
       auto partial = this->parseTypeExpressionPrimary(tokidx);
       while (partial.succeeded()) {
-        if (partial.after(0).isOperator(EggTokenizerOperator::Query)) {
-          return PARSE_TODO(tokidx, "WIBBLE query");
+        auto& next = partial.after(0);
+        if (next.isOperator(EggTokenizerOperator::Query)) {
+          // type?
+          if ((partial.node->kind == Node::Kind::TypeUnary) && (partial.node->op.typeUnaryOp == egg::ovum::TypeUnaryOp::Nullable)) {
+            context.warning(partial.tokensAfter, partial.tokensAfter + 1, "Redundant repetition of type suffix '?'");
+          } else {
+            partial.wrap(Node::Kind::TypeUnary);
+            partial.node->op.typeUnaryOp = egg::ovum::TypeUnaryOp::Nullable;
+          }
+          partial.tokensAfter++;
+        } else if (next.isOperator(EggTokenizerOperator::Star)) {
+          // type*
+          partial.wrap(Node::Kind::TypeUnary);
+          partial.node->op.typeUnaryOp = egg::ovum::TypeUnaryOp::Pointer;
+          partial.tokensAfter++;
+        } else if (next.isOperator(EggTokenizerOperator::Bang)) {
+          // type!
+          partial.wrap(Node::Kind::TypeUnary);
+          partial.node->op.typeUnaryOp = egg::ovum::TypeUnaryOp::Iterator;
+          partial.tokensAfter++;
+        } else if (next.isOperator(EggTokenizerOperator::BracketLeft)) {
+          if (partial.after(1).isOperator(EggTokenizerOperator::BracketRight)) {
+            // type[]
+            partial.wrap(Node::Kind::TypeUnary);
+            partial.node->op.typeUnaryOp = egg::ovum::TypeUnaryOp::Array;
+            partial.tokensAfter += 2;
+          } else {
+            // type[indextype]
+            auto index = this->parseTypeExpression(partial.tokensAfter + 1);
+            if (!index.succeeded()) {
+              return index;
+            }
+            if (!index.after(0).isOperator(EggTokenizerOperator::BracketRight)) {
+              return context.failed(index.tokensAfter, "Expected ']' after index type in map type, but got ", index.after(0).toString());
+            }
+            partial.wrap(Node::Kind::TypeBinary);
+            partial.node->children.emplace_back(std::move(index.node));
+            partial.node->op.typeBinaryOp = egg::ovum::TypeBinaryOp::Map;
+            partial.tokensAfter = index.tokensAfter + 1;
+          }
         } else {
           break;
         }

@@ -335,7 +335,7 @@ void egg::ovum::Print::write(std::ostream& stream, TypeUnaryOp value, const Opti
 void egg::ovum::Print::write(std::ostream& stream, TypeBinaryOp value, const Options&) {
   switch (value) {
   case TypeBinaryOp::Map:
-    stream << "[_]";
+    stream << "[]";
     break;
   case TypeBinaryOp::Union:
     stream << "|";
