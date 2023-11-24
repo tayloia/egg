@@ -116,7 +116,7 @@ namespace {
     if ((issue.begin.line > issue.end.line) || (issue.begin.column > issue.end.column)) {
       os << ',' << issue.end.line << ',' << issue.end.column;
     }
-    return os << ')' << ':' << ' ' << issue.message.toUTF8();
+    return os << ") : " << issue.message.toUTF8();
   }
 
   Result parseFromLines(egg::test::Allocator& allocator, std::initializer_list<std::string> lines) {
@@ -209,5 +209,53 @@ TEST(TestEggParser, ExpressionTernary) {
     "print(a ? b : c);"
     });
   std::string expected = "(stmt-call (expr-call (expr-variable 'print') (expr-ternary '?:' (expr-variable 'a') (expr-variable 'b') (expr-variable 'c'))))\n";
+  ASSERT_EQ(expected, actual);
+}
+
+TEST(TestEggParser, VariableDeclareExplicit) {
+  std::string actual = outputFromLines({
+    "int a;"
+    });
+  std::string expected = "(stmt-declare-variable (type-int))\n";
+  ASSERT_EQ(expected, actual);
+}
+
+TEST(TestEggParser, VariableDeclareBad) {
+  std::string actual = outputFromLines({
+    "var a;"
+    });
+  std::string expected = "<ERROR>: (1,5) : Cannot declare variable 'a' using 'var' without an initial value\n";
+  ASSERT_EQ(expected, actual);
+}
+
+TEST(TestEggParser, VariableDeclareBadNullable) {
+  std::string actual = outputFromLines({
+    "var? a;"
+    });
+  std::string expected = "<ERROR>: (1,6) : Cannot declare variable 'a' using 'var?' without an initial value\n";
+  ASSERT_EQ(expected, actual);
+}
+
+TEST(TestEggParser, VariableDefineExplicit) {
+  std::string actual = outputFromLines({
+    "int a = 123;"
+    });
+  std::string expected = "(stmt-define-variable (type-int) 123)\n";
+  ASSERT_EQ(expected, actual);
+}
+
+TEST(TestEggParser, VariableDefineInfer) {
+  std::string actual = outputFromLines({
+    "var a = 123;"
+    });
+  std::string expected = "(stmt-define-variable (type-infer) 123)\n";
+  ASSERT_EQ(expected, actual);
+}
+
+TEST(TestEggParser, VariableDefineInferNullable) {
+  std::string actual = outputFromLines({
+    "var? a = 123;"
+    });
+  std::string expected = "(stmt-define-variable (type-infer-q) 123)\n";
   ASSERT_EQ(expected, actual);
 }

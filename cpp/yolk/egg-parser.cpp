@@ -112,6 +112,9 @@ namespace {
       bool succeeded() const {
         return this->node != nullptr;
       }
+      bool skipped() const {
+        return (this->node == nullptr) && (this->issuesBefore == this->issuesAfter);
+      }
       size_t accept() {
         assert(this->node != nullptr);
         return this->tokensAfter;
@@ -175,6 +178,10 @@ namespace {
       Partial success(std::unique_ptr<Node>&& node, size_t tokidx) const {
         return Partial(*this, std::move(node), tokidx, this->parser.issues.size());
       }
+      Partial skip() const {
+        this->parser.issues.resize(this->issuesBefore);
+        return Partial(*this, nullptr, this->tokensBefore, this->issuesBefore);
+      }
       Partial failed() const {
         assert(!this->parser.issues.empty());
         return Partial(*this, nullptr, this->tokensBefore, this->parser.issues.size());
@@ -197,9 +204,6 @@ namespace {
         egg::ovum::StringBuilder sb;
         std::cout << file << '(' << line << "): PARSE_TODO: " << sb.add(std::forward<ARGS>(args)...).toUTF8() << std::endl;
         return this->failed(parser.createIssue(this->tokensBefore, tokensAfter, "PARSE_TODO: ", std::forward<ARGS>(args)...));
-      }
-      void rollback() {
-        this->parser.issues.resize(this->issuesBefore);
       }
     };
     template<typename... ARGS>
@@ -283,10 +287,9 @@ namespace {
     Partial parseStatementSimple(size_t tokidx) {
       Context context(*this, tokidx);
       auto defn = this->parseDefinitionVariable(tokidx);
-      if (defn.succeeded()) {
+      if (!defn.skipped()) {
         return defn;
       }
-      context.rollback();
       auto expr = this->parseValueExpressionPrimary(tokidx);
       if (expr.succeeded()) {
         // The whole statement is actually an expression
@@ -305,9 +308,9 @@ namespace {
       if (context[0].isKeyword(EggTokenizerKeyword::Var)) {
         // Inferred type
         if (context[1].isOperator(EggTokenizerOperator::Query)) {
-          return this->parseDefinitionVariableInferred(tokidx + 2, true);
+          return this->parseDefinitionVariableInferred(tokidx + 2, context[0], true);
         }
-        return this->parseDefinitionVariableInferred(tokidx + 1, false);
+        return this->parseDefinitionVariableInferred(tokidx + 1, context[0], false);
       }
       auto partial = this->parseTypeExpression(tokidx);
       if (partial.succeeded()) {
@@ -315,19 +318,34 @@ namespace {
       }
       return partial;
     }
-    Partial parseDefinitionVariableInferred(size_t tokidx, bool nullable) {
+    Partial parseDefinitionVariableInferred(size_t tokidx, const EggTokenizerItem& var, bool nullable) {
       Context context(*this, tokidx);
-      return PARSE_TODO(tokidx, "definition variable inferred: nullable=", nullable);
+      if (context[0].kind != EggTokenizerKind::Identifier) {
+        return context.failed(tokidx, "Expected identifier after '", nullable ? "var?" : "var", "' in variable definition, but got ", context[0].toString());
+      }
+      if (!context[1].isOperator(EggTokenizerOperator::Equal)) {
+        return context.failed(tokidx, "Cannot declare variable '", context[0].value.s, "' using '", nullable ? "var?" : "var", "' without an initial value");
+      }
+      // var? <identifier> = <expr>
+      auto expr = this->parseValueExpression(tokidx + 2);
+      if (expr.succeeded()) {
+        auto type = this->makeNode(nullable ? Node::Kind::TypeInferQ : Node::Kind::TypeInfer, var);
+        auto stmt = this->makeNodeString(Node::Kind::StmtDefineVariable, context[0]);
+        stmt->children.emplace_back(std::move(type));
+        stmt->children.emplace_back(std::move(expr.node));
+        return context.success(std::move(stmt), expr.tokensAfter);
+      }
+      return expr;
     }
     Partial parseDefinitionVariableExplicit(size_t tokidx, std::unique_ptr<Node>& ptype) {
       assert(ptype != nullptr);
       Context context(*this, tokidx);
       if (context[0].kind != EggTokenizerKind::Identifier) {
-        return context.failed(tokidx, "expected identifier after type in variable definition, but got ", context[0].toString());
+        return context.failed(tokidx, "Expected identifier after type in variable definition, but got ", context[0].toString());
       }
       if (context[1].isOperator(EggTokenizerOperator::Equal)) {
         // <type> <identifier> = <expr>
-        auto expr = parseValueExpression(tokidx + 2);
+        auto expr = this->parseValueExpression(tokidx + 2);
         if (expr.succeeded()) {
           auto stmt = this->makeNodeString(Node::Kind::StmtDefineVariable, context[0]);
           stmt->children.emplace_back(std::move(ptype));
@@ -421,7 +439,7 @@ namespace {
         }
         return PARSE_TODO(tokidx, "type expression primary keyword: ", next.toString());
       }
-      return PARSE_TODO(tokidx, "bad type expression primary");
+      return context.skip();
     }
     Partial parseTypeExpressionPrimaryKeyword(Context& context, Node::Kind kind) {
       auto node = this->makeNode(kind, context[0]);
