@@ -176,6 +176,8 @@ namespace egg::ovum {
     // Interface
     virtual Type vmRuntimeType() = 0;
     virtual HardValue vmCall(IVMExecution& execution, const ICallArguments& arguments) = 0;
+    virtual HardValue vmIndexGet(IVMExecution& execution, const HardValue& index) = 0;
+    virtual HardValue vmIndexSet(IVMExecution& execution, const HardValue& index, const HardValue& value) = 0;
     virtual HardValue vmPropertyGet(IVMExecution& execution, const HardValue& property) = 0;
     virtual HardValue vmPropertySet(IVMExecution& execution, const HardValue& property, const HardValue& value) = 0;
   };

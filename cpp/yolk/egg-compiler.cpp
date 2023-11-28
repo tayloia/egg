@@ -78,7 +78,8 @@ namespace {
     ModuleNode* compileValueExprBinary(ParserNode& op, ParserNode& lhs, ParserNode& rhs);
     ModuleNode* compileValueExprTernary(ParserNode& op, ParserNode& lhs, ParserNode& mid, ParserNode& rhs);
     ModuleNode* compileValueExprCall(ParserNodes& pnodes);
-    ModuleNode* compileValueExprDot(ParserNode& dot, ParserNode& lhs, ParserNode& rhs);
+    ModuleNode* compileValueExprIndex(ParserNode& bracket, ParserNode& lhs, ParserNode& rhs);
+    ModuleNode* compileValueExprProperty(ParserNode& dot, ParserNode& lhs, ParserNode& rhs);
     ModuleNode* compileTypeExpr(ParserNode& pnode);
     ModuleNode* compileLiteral(ParserNode& pnode);
     egg::ovum::Type deduceType(ModuleNode& mnode) {
@@ -217,7 +218,8 @@ ModuleNode* ModuleCompiler::compileStmt(ParserNode& pnode, const StmtContext& co
   case ParserNode::Kind::ExprBinary:
   case ParserNode::Kind::ExprTernary:
   case ParserNode::Kind::ExprCall:
-  case ParserNode::Kind::ExprDot:
+  case ParserNode::Kind::ExprIndex:
+  case ParserNode::Kind::ExprProperty:
   case ParserNode::Kind::TypeInfer:
   case ParserNode::Kind::TypeInferQ:
   case ParserNode::Kind::TypeVoid:
@@ -343,11 +345,16 @@ ModuleNode* ModuleCompiler::compileValueExpr(ParserNode& pnode) {
   case ParserNode::Kind::ExprCall:
     EXPECT(pnode, pnode.children.size() > 0);
     return this->compileValueExprCall(pnode.children);
-  case ParserNode::Kind::ExprDot:
+  case ParserNode::Kind::ExprIndex:
     EXPECT(pnode, pnode.children.size() == 2);
     EXPECT(pnode, pnode.children[0] != nullptr);
     EXPECT(pnode, pnode.children[1] != nullptr);
-    return this->compileValueExprDot(pnode, *pnode.children[0], *pnode.children[1]);
+    return this->compileValueExprIndex(pnode, *pnode.children[0], *pnode.children[1]);
+  case ParserNode::Kind::ExprProperty:
+    EXPECT(pnode, pnode.children.size() == 2);
+    EXPECT(pnode, pnode.children[0] != nullptr);
+    EXPECT(pnode, pnode.children[1] != nullptr);
+    return this->compileValueExprProperty(pnode, *pnode.children[0], *pnode.children[1]);
   case ParserNode::Kind::Literal:
     return this->compileLiteral(pnode);
   case ParserNode::Kind::TypeString:
@@ -433,7 +440,18 @@ ModuleNode* ModuleCompiler::compileValueExprCall(ParserNodes& pnodes) {
   return call;
 }
 
-ModuleNode* ModuleCompiler::compileValueExprDot(ParserNode& dot, ParserNode& lhs, ParserNode& rhs) {
+ModuleNode* ModuleCompiler::compileValueExprIndex(ParserNode& bracket, ParserNode& lhs, ParserNode& rhs) {
+  auto* lexpr = this->compileValueExpr(lhs);
+  if (lexpr != nullptr) {
+    auto* rexpr = this->compileValueExpr(rhs);
+    if (rexpr != nullptr) {
+      return &this->mbuilder.exprIndexGet(*lexpr, *rexpr, bracket.begin.line, bracket.begin.column);
+    }
+  }
+  return nullptr;
+}
+
+ModuleNode* ModuleCompiler::compileValueExprProperty(ParserNode& dot, ParserNode& lhs, ParserNode& rhs) {
   auto* lexpr = this->compileValueExpr(lhs);
   if (lexpr != nullptr) {
     auto* rexpr = this->compileValueExpr(rhs);
@@ -480,7 +498,8 @@ ModuleNode* ModuleCompiler::compileTypeExpr(ParserNode& pnode) {
   case ParserNode::Kind::ExprBinary:
   case ParserNode::Kind::ExprTernary:
   case ParserNode::Kind::ExprCall:
-  case ParserNode::Kind::ExprDot:
+  case ParserNode::Kind::ExprIndex:
+  case ParserNode::Kind::ExprProperty:
   case ParserNode::Kind::TypeInfer:
   case ParserNode::Kind::TypeInferQ:
   case ParserNode::Kind::Literal:
@@ -515,8 +534,10 @@ std::string ModuleCompiler::toString(const ParserNode& pnode) {
     return "ternary operator";
   case ParserNode::Kind::ExprCall:
     return "call expression";
-  case ParserNode::Kind::ExprDot:
-    return "dot operator";
+  case ParserNode::Kind::ExprIndex:
+    return "index access";
+  case ParserNode::Kind::ExprProperty:
+    return "property access";
   case ParserNode::Kind::TypeInfer:
     return "type infer";
   case ParserNode::Kind::TypeInferQ:

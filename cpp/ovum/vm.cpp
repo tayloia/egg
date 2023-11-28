@@ -23,6 +23,7 @@ public:
     ExprPropertyGet,
     ExprStringCall,
     ExprFunctionCall,
+    ExprIndexGet,
     TypeInfer,
     TypeLiteral,
     StmtBlock,
@@ -821,6 +822,12 @@ namespace {
       auto& node = this->module->createNode(Node::Kind::ExprStringCall, line, column);
       return node;
     }
+    virtual Node& exprIndexGet(Node& instance, Node& index, size_t line, size_t column) override {
+      auto& node = this->module->createNode(Node::Kind::ExprIndexGet, line, column);
+      node.addChild(instance);
+      node.addChild(index);
+      return node;
+    }
     virtual Node& exprLiteral(const HardValue& literal, size_t line, size_t column) override {
       auto& node = this->module->createNode(Node::Kind::ExprLiteral, line, column);
       node.literal = literal;
@@ -968,6 +975,7 @@ namespace {
       case Node::Kind::ExprVariable:
       case Node::Kind::ExprPropertyGet:
       case Node::Kind::ExprFunctionCall:
+      case Node::Kind::ExprIndexGet:
       case Node::Kind::TypeInfer:
       case Node::Kind::StmtBlock:
       case Node::Kind::StmtVariableDeclare:
@@ -1173,6 +1181,17 @@ namespace {
         break;
       }
       return true;
+    }
+    HardValue stringIndexGet(const String& string, const HardValue& index) {
+      Int ivalue;
+      if (!index->getInt(ivalue)) {
+        return this->createRuntimeError("Invalid right hand side for string '[]' operator");
+      }
+      auto cp = string.codePointAt(size_t(ivalue));
+      if (cp < 0) {
+        return this->createRuntimeError("String index ", ivalue, " is out of range for a string of length ", string.length());
+      }
+      return this->createHardValueString(String::fromUTF32(this->getAllocator(), &cp, 1));
     }
     HardValue stringPropertyGet(const String& string, const HardValue& property) {
       String pname;
@@ -2133,6 +2152,35 @@ bool VMRunner::stepNode(HardValue& retval) {
       }
       auto result = sb.build(this->getAllocator());
       return this->pop(this->createHardValueString(result));
+    }
+    break;
+  case IVMModule::Node::Kind::ExprIndexGet:
+    assert(top.node->literal->getVoid());
+    assert(top.node->children.size() == 2);
+    if (!top.deque.empty()) {
+      // Check the last evaluation
+      auto& latest = top.deque.back();
+      if (latest.hasFlowControl()) {
+        return this->pop(latest);
+      }
+    }
+    if (top.index < 2) {
+      // Assemble the arguments
+      this->push(*top.node->children[top.index++]);
+    } else {
+      // Perform the index fetch
+      assert(top.deque.size() == 2);
+      auto& lhs = top.deque.front();
+      auto& rhs = top.deque.back();
+      HardObject object;
+      if (lhs->getHardObject(object)) {
+        return this->pop(object->vmIndexGet(this->execution, rhs));
+      }
+      String string;
+      if (lhs->getString(string)) {
+        return this->pop(this->stringIndexGet(string, rhs));
+      }
+      return this->raise("Invalid left hand side for '[]' operator");
     }
     break;
   case IVMModule::Node::Kind::TypeInfer:

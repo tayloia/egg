@@ -833,14 +833,26 @@ namespace {
           return false;
         }
         auto rhs = this->makeNodeString(Node::Kind::Literal, property);
-        partial.wrap(Node::Kind::ExprDot);
+        partial.wrap(Node::Kind::ExprProperty);
         partial.node->children.emplace_back(std::move(rhs)); 
         partial.tokensAfter += 2;
         return true;
       }
       if (next.isOperator(EggTokenizerOperator::BracketLeft)) {
-        partial.fail("TODO: '[' expression suffix not yet implemented");
-        return false;
+        // Indexing
+        auto index = this->parseValueExpression(partial.tokensAfter + 1);
+        if (!index.succeeded()) {
+          partial.fail(index);
+          return false;
+        }
+        if (index.after(0).isOperator(EggTokenizerOperator::ParenthesisRight)) {
+          partial.fail("TODO: Expected ']' after index, but got ", index.after(0).toString());
+          return false;
+        }
+        partial.wrap(Node::Kind::ExprIndex);
+        partial.node->children.emplace_back(std::move(index.node));
+        partial.tokensAfter = index.tokensAfter + 1;
+        return true;
       }
       return false;
     }

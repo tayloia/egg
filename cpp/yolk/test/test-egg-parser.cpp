@@ -66,8 +66,12 @@ namespace {
       return printNodeExtra(os, "expr-ternary", node.op.valueTernaryOp, node);
     case Node::Kind::ExprCall:
       return printNodeChildren(os, "expr-call", node);
-    case Node::Kind::ExprDot:
-      return printNodeChildren(os, "expr-dot", node);
+    case Node::Kind::ExprIndex:
+      assert(node.children.size() == 2);
+      return printNodeChildren(os, "expr-index", node);
+    case Node::Kind::ExprProperty:
+      assert(node.children.size() == 2);
+      return printNodeChildren(os, "expr-property", node);
     case Node::Kind::TypeInfer:
       assert(node.children.empty());
       return os << "(type-infer)";
@@ -370,10 +374,26 @@ TEST(TestEggParser, ConstructString) {
   ASSERT_EQ(expected, actual);
 }
 
-TEST(TestEggParser, ValueDot) {
+TEST(TestEggParser, ValueCall) {
   std::string actual = outputFromLines({
-    "var s = print.property;"
+    "var x = assert(false);"
     });
-  std::string expected = "(stmt-define-variable 's' (type-infer) (expr-dot (expr-variable 'print') \"property\"))\n";
+  std::string expected = "(stmt-define-variable 'x' (type-infer) (expr-call (expr-variable 'assert') false))\n";
+  ASSERT_EQ(expected, actual);
+}
+
+TEST(TestEggParser, ValueIndex) {
+  std::string actual = outputFromLines({
+    "var x = assert[0];"
+    });
+  std::string expected = "(stmt-define-variable 'x' (type-infer) (expr-index (expr-variable 'assert') 0))\n";
+  ASSERT_EQ(expected, actual);
+}
+
+TEST(TestEggParser, ValueProperty) {
+  std::string actual = outputFromLines({
+    "var x = assert.that;"
+    });
+  std::string expected = "(stmt-define-variable 'x' (type-infer) (expr-property (expr-variable 'assert') \"that\"))\n";
   ASSERT_EQ(expected, actual);
 }

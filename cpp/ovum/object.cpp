@@ -62,6 +62,12 @@ namespace {
       }
       return HardValue::Void;
     }
+    virtual HardValue vmIndexGet(IVMExecution& execution, const HardValue&) override {
+      return this->raiseRuntimeError(execution, "Builtin 'assert()' does not support indexing");
+    }
+    virtual HardValue vmIndexSet(IVMExecution& execution, const HardValue&, const HardValue&) override {
+      return this->raiseRuntimeError(execution, "Builtin 'assert()' does not support indexing");
+    }
     virtual HardValue vmPropertyGet(IVMExecution& execution, const HardValue&) override {
       return this->raiseRuntimeError(execution, "Builtin 'assert()' does not support properties");
     }
@@ -101,6 +107,12 @@ namespace {
       execution.log(ILogger::Source::User, ILogger::Severity::None, sb.build(this->vm->getAllocator()));
       return HardValue::Void;
     }
+    virtual HardValue vmIndexGet(IVMExecution& execution, const HardValue&) override {
+      return this->raiseRuntimeError(execution, "Builtin 'print()' does not support indexing");
+    }
+    virtual HardValue vmIndexSet(IVMExecution& execution, const HardValue&, const HardValue&) override {
+      return this->raiseRuntimeError(execution, "Builtin 'print()' does not support indexing");
+    }
     virtual HardValue vmPropertyGet(IVMExecution& execution, const HardValue&) override {
       return this->raiseRuntimeError(execution, "Builtin 'print()' does not support properties");
     }
@@ -133,6 +145,25 @@ namespace {
     }
     virtual HardValue vmCall(IVMExecution& execution, const ICallArguments&) override {
       return this->raiseRuntimeError(execution, "TODO: Expando objects do not yet support function call semantics");
+    }
+    virtual HardValue vmIndexGet(IVMExecution& execution, const HardValue& index) override {
+      SoftKey key(*this->vm, index.get());
+      auto pfound = this->properties.find(key);
+      if (pfound == this->properties.end()) {
+        return this->raiseRuntimeError(execution, "TODO: Cannot find index '", key, "' in expando object");
+      }
+      return this->vm->getSoftValue(pfound->second);
+    }
+    virtual HardValue vmIndexSet(IVMExecution& execution, const HardValue& index, const HardValue& value) override {
+      SoftKey key(*this->vm, index.get());
+      auto pfound = this->properties.find(key);
+      if (pfound == this->properties.end()) {
+        pfound = this->properties.emplace_hint(pfound, std::piecewise_construct, std::forward_as_tuple(key), std::forward_as_tuple(*this->vm));
+      }
+      if (!this->vm->setSoftValue(pfound->second, value)) {
+        return this->raiseRuntimeError(execution, "TODO: Cannot modify index '", key, "'");
+      }
+      return HardValue::Void;
     }
     virtual HardValue vmPropertyGet(IVMExecution& execution, const HardValue& property) override {
       SoftKey pname(*this->vm, property.get());
@@ -179,6 +210,12 @@ namespace {
       auto instance = makeHardObject<VMObjectExpando>(*this->vm);
       return execution.createHardValueObject(instance);
     }
+    virtual HardValue vmIndexGet(IVMExecution& execution, const HardValue&) override {
+      return this->raiseRuntimeError(execution, "Builtin 'expando()' does not support indexing");
+    }
+    virtual HardValue vmIndexSet(IVMExecution& execution, const HardValue&, const HardValue&) override {
+      return this->raiseRuntimeError(execution, "Builtin 'expando()' does not support indexing");
+    }
     virtual HardValue vmPropertyGet(IVMExecution& execution, const HardValue&) override {
       return this->raiseRuntimeError(execution, "Builtin 'expando()' does not support properties");
     }
@@ -210,6 +247,12 @@ namespace {
       }
       auto collected = this->vm->getBasket().collect();
       return execution.createHardValueInt(Int(collected));
+    }
+    virtual HardValue vmIndexGet(IVMExecution& execution, const HardValue&) override {
+      return this->raiseRuntimeError(execution, "Builtin 'collector()' does not support indexing");
+    }
+    virtual HardValue vmIndexSet(IVMExecution& execution, const HardValue&, const HardValue&) override {
+      return this->raiseRuntimeError(execution, "Builtin 'collector()' does not support indexing");
     }
     virtual HardValue vmPropertyGet(IVMExecution& execution, const HardValue&) override {
       return this->raiseRuntimeError(execution, "Builtin 'collector()' does not support properties");
@@ -250,6 +293,12 @@ namespace {
     }
     virtual HardValue vmCall(IVMExecution& execution, const ICallArguments&) override {
       return this->raiseRuntimeError(execution, "Runtime error objects do not support function call semantics");
+    }
+    virtual HardValue vmIndexGet(IVMExecution& execution, const HardValue&) override {
+      return this->raiseRuntimeError(execution, "Runtime error objects do not support indexing");
+    }
+    virtual HardValue vmIndexSet(IVMExecution& execution, const HardValue&, const HardValue&) override {
+      return this->raiseRuntimeError(execution, "Runtime error objects do not support indexing");
     }
     virtual HardValue vmPropertyGet(IVMExecution& execution, const HardValue& property) override {
       // TODO access 'callstack' and 'message'
