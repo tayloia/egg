@@ -29,6 +29,7 @@ namespace egg::yolk {
         ExprBinary,
         ExprTernary,
         ExprCall,
+        ExprDot,
         TypeInfer,
         TypeInferQ,
         TypeVoid,

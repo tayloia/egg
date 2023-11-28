@@ -1087,10 +1087,12 @@ namespace {
       // TODO callstack->function
       return callstack;
     }
-    HardValue createRuntimeError(const String& message) {
+    template<typename... ARGS>
+    HardValue createRuntimeError(ARGS&&... args) {
+      auto& allocator = this->vm.getAllocator();
+      auto message = StringBuilder::concat(allocator, std::forward<ARGS>(args)...);
       auto callstack = this->getCallStack();
       auto exception = ObjectFactory::createRuntimeError(this->vm, message, callstack);
-      auto& allocator = this->vm.getAllocator();
       auto inner = ValueFactory::createHardObject(allocator, exception);
       return ValueFactory::createHardThrow(allocator, inner);
     }
@@ -1113,7 +1115,7 @@ namespace {
     }
     template<typename... ARGS>
     bool raise(ARGS&&... args) {
-      auto error = this->createRuntimeError(StringBuilder::concat(this->getAllocator(), std::forward<ARGS>(args)...));
+      auto error = this->createRuntimeError(std::forward<ARGS>(args)...);
       return this->pop(error);
     }
     bool variableScopeBegin(NodeStack& top, const Type& type) {
@@ -1171,6 +1173,17 @@ namespace {
         break;
       }
       return true;
+    }
+    HardValue stringPropertyGet(const String& string, const HardValue& property) {
+      String pname;
+      if (!property->getString(pname)) {
+        return this->createRuntimeError("Invalid right hand side for string '.' operator");
+      }
+      if (pname.equals("length")) {
+        return this->createHardValueInt(Int(string.length()));
+      }
+      auto message = this->createString("Invalid right hand side for string '.' operator");
+      return this->createRuntimeError("Unknown string property name: '", pname, "'");
     }
   };
 
@@ -1446,14 +1459,15 @@ bool VMRunner::stepNode(HardValue& retval) {
       // Evaluate the expressions
       this->push(*top.node->children[top.index++]);
     } else {
+      // Perform the property fetch (object targets only, not strings)
       assert(top.deque.size() == 3);
-      HardObject instance;
-      if (!top.deque.front()->getHardObject(instance)) {
+      HardObject object;
+      if (!top.deque.front()->getHardObject(object)) {
         return this->raise("Invalid left hand side for '.' operator");
       }
       auto& property = top.deque[1];
       auto& value = top.deque.back();
-      return this->pop(instance->vmPropertySet(this->execution, property, value));
+      return this->pop(object->vmPropertySet(this->execution, property, value));
     }
     break;
   case IVMModule::Node::Kind::StmtIf:
@@ -2085,12 +2099,17 @@ bool VMRunner::stepNode(HardValue& retval) {
     } else {
       // Perform the property fetch
       assert(top.deque.size() == 2);
-      HardObject instance;
-      if (!top.deque.front()->getHardObject(instance)) {
-        return this->raise("Invalid left hand side for '.' operator");
+      auto& lhs = top.deque.front();
+      auto& rhs = top.deque.back();
+      HardObject object;
+      if (lhs->getHardObject(object)) {
+        return this->pop(object->vmPropertyGet(this->execution, rhs));
       }
-      auto& property = top.deque.back();
-      return this->pop(instance->vmPropertyGet(this->execution, property));
+      String string;
+      if (lhs->getString(string)) {
+        return this->pop(this->stringPropertyGet(string, rhs));
+      }
+      return this->raise("Invalid left hand side for '.' operator");
     }
     break;
   case IVMModule::Node::Kind::ExprStringCall:

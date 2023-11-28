@@ -807,17 +807,36 @@ namespace {
           partial.node->children.emplace_back(std::move(argument.node));
           partial.tokensAfter = argument.tokensAfter + 1;
           if (separator.isOperator(EggTokenizerOperator::ParenthesisRight)) {
-            return true;
+            break;
           }
           if (!separator.isOperator(EggTokenizerOperator::Comma)) {
             partial.fail("TODO: Expected ',' between function call arguments, but got ", separator.toString());
             return false;
           }
         }
+        return true;
       }
       if (next.isOperator(EggTokenizerOperator::Dot)) {
-        partial.fail("TODO: '.' expression suffix not yet implemented");
-        return false;
+        // Property access
+        auto& property = partial.after(1);
+        switch (property.kind) {
+        case EggTokenizerKind::Identifier:
+        case EggTokenizerKind::Keyword:
+          break;
+        case EggTokenizerKind::Integer:
+        case EggTokenizerKind::Float:
+        case EggTokenizerKind::String:
+        case EggTokenizerKind::Operator:
+        case EggTokenizerKind::Attribute:
+        case EggTokenizerKind::EndOfFile:
+          partial.fail("TODO: Expected property name after '.', but got ", property.toString());
+          return false;
+        }
+        auto rhs = this->makeNodeString(Node::Kind::Literal, property);
+        partial.wrap(Node::Kind::ExprDot);
+        partial.node->children.emplace_back(std::move(rhs)); 
+        partial.tokensAfter += 2;
+        return true;
       }
       if (next.isOperator(EggTokenizerOperator::BracketLeft)) {
         partial.fail("TODO: '[' expression suffix not yet implemented");

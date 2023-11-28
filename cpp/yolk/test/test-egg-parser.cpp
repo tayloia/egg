@@ -54,7 +54,7 @@ namespace {
       return printNodeChildren(os, "stmt-call", node);
     case Node::Kind::ExprVariable:
       assert(node.children.empty());
-      return printValue(os << "(expr-variable ", node.value) << ')';
+      return printNodeExtra(os, "expr-variable", node.value, node);
     case Node::Kind::ExprUnary:
       assert(node.children.size() == 1);
       return printNodeExtra(os, "expr-unary", node.op.valueUnaryOp, node);
@@ -66,6 +66,8 @@ namespace {
       return printNodeExtra(os, "expr-ternary", node.op.valueTernaryOp, node);
     case Node::Kind::ExprCall:
       return printNodeChildren(os, "expr-call", node);
+    case Node::Kind::ExprDot:
+      return printNodeChildren(os, "expr-dot", node);
     case Node::Kind::TypeInfer:
       assert(node.children.empty());
       return os << "(type-infer)";
@@ -365,5 +367,13 @@ TEST(TestEggParser, ConstructString) {
     "var s = string(\"Hello, \", \"World!\");"
     });
   std::string expected = "(stmt-define-variable 's' (type-infer) (expr-call (type-string) \"Hello, \" \"World!\"))\n";
+  ASSERT_EQ(expected, actual);
+}
+
+TEST(TestEggParser, ValueDot) {
+  std::string actual = outputFromLines({
+    "var s = print.property;"
+    });
+  std::string expected = "(stmt-define-variable 's' (type-infer) (expr-dot (expr-variable 'print') \"property\"))\n";
   ASSERT_EQ(expected, actual);
 }
