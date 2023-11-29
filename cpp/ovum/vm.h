@@ -216,7 +216,8 @@ namespace egg::ovum {
     virtual Node& stmtIf(Node& condition, size_t line, size_t column) = 0;
     virtual Node& stmtWhile(Node& condition, Node& block, size_t line, size_t column) = 0;
     virtual Node& stmtDo(Node& block, Node& condition, size_t line, size_t column) = 0;
-    virtual Node& stmtFor(Node& initial, Node& condition, Node& advance, Node& block, size_t line, size_t column) = 0;
+    virtual Node& stmtForEach(const String& symbol, Node& type, Node& iteration, Node& block, size_t line, size_t column) = 0;
+    virtual Node& stmtForLoop(Node& initial, Node& condition, Node& advance, Node& block, size_t line, size_t column) = 0;
     virtual Node& stmtSwitch(Node& expression, size_t defaultIndex, size_t line, size_t column) = 0;
     virtual Node& stmtCase(Node& block, size_t line, size_t column) = 0;
     virtual Node& stmtBreak(size_t line, size_t column) = 0;

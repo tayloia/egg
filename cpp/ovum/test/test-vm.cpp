@@ -24,7 +24,7 @@
 #define STMT_IF_ELSE(cond, truthy, falsy) mbuilder->stmtIfElse(cond, truthy, falsy, 0, 0)
 #define STMT_WHILE(cond, block) mbuilder->stmtWhile(cond, block, 0, 0)
 #define STMT_DO(block, cond) mbuilder->stmtDo(block, cond, 0, 0)
-#define STMT_FOR(init, cond, advance, block) mbuilder->stmtFor(init, cond, advance, block, 0, 0)
+#define STMT_FOR_LOOP(initial, condition, advance, block) mbuilder->stmtForLoop(initial, condition, advance, block, 0, 0)
 #define STMT_SWITCH(expr, defidx, ...) mbuilder->glue(mbuilder->stmtSwitch(expr, defidx, 0, 0) COMMA(__VA_ARGS__))
 #define STMT_CASE(block, ...) mbuilder->glue(mbuilder->stmtCase(block, 0, 0) COMMA(__VA_ARGS__))
 #define STMT_BREAK() mbuilder->stmtBreak(0, 0)
@@ -1428,7 +1428,7 @@ TEST(TestVM, For) {
     // var i;
     STMT_VAR_DECLARE("i", TYPE_VAR(),
       // for (...)
-      STMT_FOR(
+      STMT_FOR_LOOP(
         // i = 1;
         STMT_VAR_SET("i", EXPR_LITERAL(1)),
         // i < 10;
@@ -1452,7 +1452,7 @@ TEST(TestVM, SwitchCaseBreak) {
     // var i;
     STMT_VAR_DECLARE("i", TYPE_VAR(),
       // for (...)
-      STMT_FOR(
+      STMT_FOR_LOOP(
         // i = 1;
         STMT_VAR_SET("i", EXPR_LITERAL(1)),
         // i < 10;
@@ -1482,7 +1482,7 @@ TEST(TestVM, SwitchCaseContinue) {
     // var i;
     STMT_VAR_DECLARE("i", TYPE_VAR(),
       // for (...)
-      STMT_FOR(
+      STMT_FOR_LOOP(
         // i = 1;
         STMT_VAR_SET("i", EXPR_LITERAL(1)),
         // i < 10;
@@ -1516,7 +1516,7 @@ TEST(TestVM, SwitchDefaultBreak) {
     // var i;
     STMT_VAR_DECLARE("i", TYPE_VAR(),
       // for (...)
-      STMT_FOR(
+      STMT_FOR_LOOP(
         // i = 1;
         STMT_VAR_SET("i", EXPR_LITERAL(1)),
         // i < 10;
@@ -1547,7 +1547,7 @@ TEST(TestVM, SwitchDefaultContinue) {
     // var i;
     STMT_VAR_DECLARE("i", TYPE_VAR(),
       // for (...)
-      STMT_FOR(
+      STMT_FOR_LOOP(
         // i = 1;
         STMT_VAR_SET("i", EXPR_LITERAL(1)),
         // i < 10;
@@ -1587,7 +1587,7 @@ TEST(TestVM, SwitchCaseMultiple) {
     // var i;
     STMT_VAR_DECLARE("i", TYPE_VAR(),
       // for (...)
-      STMT_FOR(
+      STMT_FOR_LOOP(
         // i = 1;
         STMT_VAR_SET("i", EXPR_LITERAL(1)),
         // i < 10;

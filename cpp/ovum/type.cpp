@@ -84,7 +84,7 @@ namespace {
     }
     virtual const IType& getPrimitive(ValueFlags flags) override {
       // WIBBLE
-      assert(0);
+      //assert(0);
       (void)flags;
       return *Type::AnyQ;
     }

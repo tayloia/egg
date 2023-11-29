@@ -46,12 +46,22 @@ namespace {
         os << *child << std::endl;
       }
       break;
+    case Node::Kind::StmtBlock:
+      return printNodeChildren(os, "stmt-block", node);
     case Node::Kind::StmtDeclareVariable:
       return printNodeValue(os, "stmt-declare-variable", node);
     case Node::Kind::StmtDefineVariable:
       return printNodeValue(os, "stmt-define-variable", node);
     case Node::Kind::StmtCall:
       return printNodeChildren(os, "stmt-call", node);
+    case Node::Kind::StmtForLoop:
+      assert(node.children.size() == 4);
+      return printNodeChildren(os, "stmt-for-loop", node);
+    case Node::Kind::StmtForEach:
+      assert(node.children.size() == 3);
+      return printNodeChildren(os, "stmt-for-each", node);
+    case Node::Kind::StmtMutate:
+      return printNodeExtra(os, "stmt-mutate", node.op.valueMutationOp, node);
     case Node::Kind::ExprVariable:
       assert(node.children.empty());
       return printNodeExtra(os, "expr-variable", node.value, node);
@@ -126,7 +136,7 @@ namespace {
     if ((issue.begin.line > issue.end.line) || (issue.begin.column > issue.end.column)) {
       os << ',' << issue.end.line << ',' << issue.end.column;
     }
-    return os << ") : " << issue.message.toUTF8();
+    return os << "): " << issue.message.toUTF8();
   }
 
   Result parseFromLines(egg::test::Allocator& allocator, std::initializer_list<std::string> lines) {
@@ -233,7 +243,7 @@ TEST(TestEggParser, VariableDeclareBad) {
   std::string actual = outputFromLines({
     "var a;"
     });
-  std::string expected = "<ERROR>: (1,5) : Cannot declare variable 'a' using 'var' without an initial value\n";
+  std::string expected = "<ERROR>: (1,5): Cannot declare variable 'a' using 'var' without an initial value\n";
   ASSERT_EQ(expected, actual);
 }
 
@@ -241,7 +251,7 @@ TEST(TestEggParser, VariableDeclareBadNullable) {
   std::string actual = outputFromLines({
     "var? a;"
     });
-  std::string expected = "<ERROR>: (1,6) : Cannot declare variable 'a' using 'var?' without an initial value\n";
+  std::string expected = "<ERROR>: (1,6): Cannot declare variable 'a' using 'var?' without an initial value\n";
   ASSERT_EQ(expected, actual);
 }
 
@@ -281,7 +291,7 @@ TEST(TestEggParser, TypeUnaryNullableRepeated) {
   std::string actual = outputFromLines({
     "int? ? a;"
     });
-  std::string expected = "<WARNING>: (1,6) : Redundant repetition of type suffix '?'\n"
+  std::string expected = "<WARNING>: (1,6): Redundant repetition of type suffix '?'\n"
                          "(stmt-declare-variable 'a' (type-unary '?' (type-int)))\n";
   ASSERT_EQ(expected, actual);
 }
@@ -395,5 +405,33 @@ TEST(TestEggParser, ValueProperty) {
     "var x = assert.that;"
     });
   std::string expected = "(stmt-define-variable 'x' (type-infer) (expr-property (expr-variable 'assert') \"that\"))\n";
+  ASSERT_EQ(expected, actual);
+}
+
+TEST(TestEggParser, ValueNudge) {
+  std::string actual = outputFromLines({
+    "var x = 0;",
+    "++x;",
+    "--x;"
+    });
+  std::string expected = "(stmt-define-variable 'x' (type-infer) 0)\n"
+                         "(stmt-mutate '++' (expr-variable 'x'))\n"
+                         "(stmt-mutate '--' (expr-variable 'x'))\n";
+  ASSERT_EQ(expected, actual);
+}
+
+TEST(TestEggParser, StatementForLoop) {
+  std::string actual = outputFromLines({
+    "for (var i = 0; i < 10; ++i) {}"
+    });
+  std::string expected = "(stmt-for-loop (stmt-define-variable 'i' (type-infer) 0) (expr-binary '<' (expr-variable 'i') 10) (stmt-mutate '++' (expr-variable 'i')) (stmt-block))\n";
+  ASSERT_EQ(expected, actual);
+}
+
+TEST(TestEggParser, StatementForEach) {
+  std::string actual = outputFromLines({
+    "for (var i : \"hello\") { }"
+    });
+  std::string expected = "(stmt-for-each (type-infer) \"hello\" (stmt-block))\n";
   ASSERT_EQ(expected, actual);
 }

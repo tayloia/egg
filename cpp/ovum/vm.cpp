@@ -36,7 +36,8 @@ public:
     StmtIf,
     StmtWhile,
     StmtDo,
-    StmtFor,
+    StmtForEach,
+    StmtForLoop,
     StmtSwitch,
     StmtCase,
     StmtBreak,
@@ -874,9 +875,17 @@ namespace {
       node.addChild(condition);
       return node;
     }
-    virtual Node& stmtFor(Node& initial, Node& condition, Node& advance, Node& block, size_t line, size_t column) override {
+    virtual Node& stmtForEach(const String& symbol, Node& type, Node& iteration, Node& block, size_t line, size_t column) override {
+      auto& node = this->module->createNode(Node::Kind::StmtForEach, line, column);
+      node.literal = this->createHardValueString(symbol);
+      node.addChild(type);
+      node.addChild(iteration);
+      node.addChild(block);
+      return node;
+    }
+    virtual Node& stmtForLoop(Node& initial, Node& condition, Node& advance, Node& block, size_t line, size_t column) override {
       // Note the change in order to be execution-based (initial/condition/block/advance)
-      auto& node = this->module->createNode(Node::Kind::StmtFor, line, column);
+      auto& node = this->module->createNode(Node::Kind::StmtForLoop, line, column);
       node.addChild(initial);
       node.addChild(condition);
       node.addChild(block);
@@ -972,7 +981,9 @@ namespace {
       case Node::Kind::ExprUnaryOp:
       case Node::Kind::ExprBinaryOp:
       case Node::Kind::ExprTernaryOp:
+        break;
       case Node::Kind::ExprVariable:
+        return Type::AnyQ; // WIBBLE
       case Node::Kind::ExprPropertyGet:
       case Node::Kind::ExprFunctionCall:
       case Node::Kind::ExprIndexGet:
@@ -987,7 +998,8 @@ namespace {
       case Node::Kind::StmtIf:
       case Node::Kind::StmtWhile:
       case Node::Kind::StmtDo:
-      case Node::Kind::StmtFor:
+      case Node::Kind::StmtForEach:
+      case Node::Kind::StmtForLoop:
       case Node::Kind::StmtSwitch:
       case Node::Kind::StmtCase:
       case Node::Kind::StmtBreak:
@@ -1614,7 +1626,10 @@ bool VMRunner::stepNode(HardValue& retval) {
       }
     }
     break;
-  case IVMModule::Node::Kind::StmtFor:
+  case IVMModule::Node::Kind::StmtForEach:
+    assert(top.node->children.size() == 3);
+    return this->raise("WIBBLE: Statement 'for each' not yet implemented");
+  case IVMModule::Node::Kind::StmtForLoop:
     assert(top.node->children.size() == 4);
     assert(top.index <= 4);
     if (top.index == 0) {

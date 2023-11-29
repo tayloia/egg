@@ -203,6 +203,11 @@ namespace {
         return this->failed(this->parser.createIssue(Issue::Severity::Error, this->tokensBefore, tokensAfter, std::forward<ARGS>(args)...));
       }
       template<typename... ARGS>
+      Partial expected(size_t tokensAfter, ARGS&&... args) const {
+        auto actual = this->parser.getAbsolute(tokensAfter).toString();
+        return this->failed(tokensAfter, "Expected ", std::forward<ARGS>(args)..., ", but got ", actual);
+      }
+      template<typename... ARGS>
       Partial todo(size_t tokensAfter, const char* file, size_t line, ARGS&&... args) const {
         // TODO: remove
         egg::ovum::StringBuilder sb;
@@ -259,22 +264,37 @@ namespace {
             // Probably an error, but let the simple statement code generate the message
             break;
           case EggTokenizerKeyword::Break:
+            return this->parseStatementBreak(tokidx);
           case EggTokenizerKeyword::Case:
+            return this->parseStatementCase(tokidx);
           case EggTokenizerKeyword::Catch:
+            return this->parseStatementCatch(tokidx);
           case EggTokenizerKeyword::Continue:
+            return this->parseStatementContinue(tokidx);
           case EggTokenizerKeyword::Default:
+            return this->parseStatementDefault(tokidx);
           case EggTokenizerKeyword::Do:
+            return this->parseStatementDo(tokidx);
           case EggTokenizerKeyword::Else:
+            return this->parseStatementElse(tokidx);
           case EggTokenizerKeyword::Finally:
+            return this->parseStatementFinally(tokidx);
           case EggTokenizerKeyword::For:
+            return this->parseStatementFor(tokidx);
           case EggTokenizerKeyword::If:
+            return this->parseStatementIf(tokidx);
           case EggTokenizerKeyword::Return:
+            return this->parseStatementReturn(tokidx);
           case EggTokenizerKeyword::Switch:
+            return this->parseStatementSwitch(tokidx);
           case EggTokenizerKeyword::Throw:
+            return this->parseStatementThrow(tokidx);
           case EggTokenizerKeyword::Try:
+            return this->parseStatementTry(tokidx);
           case EggTokenizerKeyword::While:
+            return this->parseStatementWhile(tokidx);
           case EggTokenizerKeyword::Yield:
-            return PARSE_TODO(tokidx, "statement keyword: ", next.toString());
+            return this->parseStatementYield(tokidx);
         }
       }
       auto partial = this->parseStatementSimple(tokidx);
@@ -288,11 +308,221 @@ namespace {
       }
       return partial;
     }
+    Partial parseStatementBlock(size_t tokidx) {
+      Context context(*this, tokidx);
+      const auto* head = &this->getAbsolute(tokidx);
+      assert(head->isOperator(EggTokenizerOperator::CurlyLeft));
+      auto block = this->makeNode(Node::Kind::StmtBlock, *head);
+      head = &this->getAbsolute(++tokidx);
+      while (!head->isOperator(EggTokenizerOperator::CurlyRight)) {
+        auto stmt = this->parseStatement(tokidx);
+        if (!stmt.succeeded()) {
+          return stmt;
+        }
+        block->children.emplace_back(std::move(stmt.node));
+        tokidx = stmt.tokensAfter;
+        head = &this->getAbsolute(tokidx);
+      }
+      return context.success(std::move(block), tokidx + 1);
+    }
+    Partial parseStatementBreak(size_t tokidx) {
+      Context context(*this, tokidx);
+      assert(context[0].isKeyword(EggTokenizerKeyword::Break));
+      return PARSE_TODO(tokidx, "statement keyword: ", context[0].toString());
+    }
+    Partial parseStatementCase(size_t tokidx) {
+      Context context(*this, tokidx);
+      assert(context[0].isKeyword(EggTokenizerKeyword::Case));
+      return PARSE_TODO(tokidx, "statement keyword: ", context[0].toString());
+    }
+    Partial parseStatementCatch(size_t tokidx) {
+      Context context(*this, tokidx);
+      assert(context[0].isKeyword(EggTokenizerKeyword::Catch));
+      return PARSE_TODO(tokidx, "statement keyword: ", context[0].toString());
+    }
+    Partial parseStatementContinue(size_t tokidx) {
+      Context context(*this, tokidx);
+      assert(context[0].isKeyword(EggTokenizerKeyword::Continue));
+      return PARSE_TODO(tokidx, "statement keyword: ", context[0].toString());
+    }
+    Partial parseStatementDefault(size_t tokidx) {
+      Context context(*this, tokidx);
+      assert(context[0].isKeyword(EggTokenizerKeyword::Default));
+      return PARSE_TODO(tokidx, "statement keyword: ", context[0].toString());
+    }
+    Partial parseStatementDo(size_t tokidx) {
+      Context context(*this, tokidx);
+      assert(context[0].isKeyword(EggTokenizerKeyword::Do));
+      return PARSE_TODO(tokidx, "statement keyword: ", context[0].toString());
+    }
+    Partial parseStatementElse(size_t tokidx) {
+      Context context(*this, tokidx);
+      assert(context[0].isKeyword(EggTokenizerKeyword::Else));
+      return PARSE_TODO(tokidx, "statement keyword: ", context[0].toString());
+    }
+    Partial parseStatementFinally(size_t tokidx) {
+      Context context(*this, tokidx);
+      assert(context[0].isKeyword(EggTokenizerKeyword::Finally));
+      return PARSE_TODO(tokidx, "statement keyword: ", context[0].toString());
+    }
+    Partial parseStatementFor(size_t tokidx) {
+      Context context(*this, tokidx);
+      assert(context[0].isKeyword(EggTokenizerKeyword::For));
+      auto& next = this->getAbsolute(tokidx + 1);
+      if (!next.isOperator(EggTokenizerOperator::ParenthesisLeft)) {
+        return context.failed(tokidx + 1, "'(' after keyword 'for'");
+      }
+      auto each = this->parseStatementForEach(tokidx);
+      if (!each.skipped()) {
+        return each;
+      }
+      return this->parseStatementForLoop(tokidx);
+    }
+    Partial parseStatementForEach(size_t tokidx) {
+      Context context(*this, tokidx);
+      assert(context[0].isKeyword(EggTokenizerKeyword::For));
+      assert(context[1].isOperator(EggTokenizerOperator::ParenthesisLeft));
+      if (!context[2].isKeyword(EggTokenizerKeyword::Var)) {
+        // for ( <target> : <expr> ) { <bloc> }
+        auto type = this->parseTypeExpression(tokidx + 2);
+        if (!type.succeeded()) {
+          return context.skip();
+        }
+        if (type.after(0).kind != EggTokenizerKind::Identifier) {
+          return context.expected(type.tokensAfter, "identifier after type in 'for' statement");
+        }
+        return this->parseStatementForEachIdentifier(type);
+      } else if (!context[3].isOperator(EggTokenizerOperator::Query)) {
+        // for ( var <identifier> : <expr> ) { <bloc> }
+        if (context[3].kind != EggTokenizerKind::Identifier) {
+          return context.expected(tokidx + 3, "identifier after 'var' in 'for' statement");
+        }
+        auto node = this->makeNodeString(Node::Kind::TypeInfer, context[0]);
+        auto type = context.success(std::move(node), tokidx + 3);
+        return this->parseStatementForEachIdentifier(type);
+      } else {
+        // for ( var ? <identifier> : <expr> ) { <bloc> }
+        if (context[4].kind != EggTokenizerKind::Identifier) {
+          return context.expected(tokidx + 4, "identifier after 'var?' in 'for' statement");
+        }
+        auto node = this->makeNodeString(Node::Kind::TypeInferQ, context[0]);
+        auto type = context.success(std::move(node), tokidx + 4);
+        return this->parseStatementForEachIdentifier(type);
+      }
+    }
+    Partial parseStatementForEachIdentifier(Partial& type) {
+      // <identifier> : <expr> ) { <bloc> }
+      assert(type.succeeded());
+      Context context(*this, type.tokensAfter);
+      assert(context[0].kind == EggTokenizerKind::Identifier);
+      if (!context[1].isOperator(EggTokenizerOperator::Colon)) {
+        // It's probably a for-loop statement
+        return context.skip();
+      }
+      auto expr = this->parseValueExpression(type.tokensAfter + 2);
+      if (!expr.succeeded()) {
+        return expr;
+      }
+      if (!expr.after(0).isOperator(EggTokenizerOperator::ParenthesisRight)) {
+        return context.expected(expr.tokensAfter, "')' in 'for' each statement");
+      }
+      if (!expr.after(1).isOperator(EggTokenizerOperator::CurlyLeft)) {
+        return context.expected(expr.tokensAfter + 1, "'{' after ')' in 'for' loop statement");
+      }
+      auto bloc = this->parseStatementBlock(expr.tokensAfter + 1);
+      if (!bloc.succeeded()) {
+        return bloc;
+      }
+      auto stmt = this->makeNodeString(Node::Kind::StmtForEach, context[0]);
+      stmt->children.emplace_back(std::move(type.node));
+      stmt->children.emplace_back(std::move(expr.node));
+      stmt->children.emplace_back(std::move(bloc.node));
+      return context.success(std::move(stmt), bloc.tokensAfter);
+    }
+    Partial parseStatementForLoop(size_t tokidx) {
+      // for ( <init> ; <cond> ; <adva> ) { <bloc> }
+      Context context(*this, tokidx);
+      assert(context[0].isKeyword(EggTokenizerKeyword::For));
+      assert(context[1].isOperator(EggTokenizerOperator::ParenthesisLeft));
+      auto init = this->parseStatementSimple(tokidx + 2);
+      if (!init.succeeded()) {
+        return init;
+      }
+      if (!init.after(0).isOperator(EggTokenizerOperator::Semicolon)) {
+        return context.expected(init.tokensAfter, "';' after first clause of 'for' loop statement");
+      }
+      auto cond = this->parseValueCondition(init.tokensAfter + 1);
+      if (!cond.succeeded()) {
+        return cond;
+      }
+      if (!cond.after(0).isOperator(EggTokenizerOperator::Semicolon)) {
+        return context.expected(cond.tokensAfter, "';' after condition clause of 'for' loop statement");
+      }
+      auto adva = this->parseStatementSimple(cond.tokensAfter + 1);
+      if (!adva.succeeded()) {
+        return adva;
+      }
+      if (!adva.after(0).isOperator(EggTokenizerOperator::ParenthesisRight)) {
+        return context.expected(adva.tokensAfter, "')' after third clause of 'for' loop statement");
+      }
+      if (!adva.after(1).isOperator(EggTokenizerOperator::CurlyLeft)) {
+        return context.expected(adva.tokensAfter + 1, "'{' after ')' in 'for' loop statement");
+      }
+      auto bloc = this->parseStatementBlock(adva.tokensAfter + 1);
+      if (!bloc.succeeded()) {
+        return bloc;
+      }
+      auto stmt = this->makeNode(Node::Kind::StmtForLoop, context[0]);
+      stmt->children.emplace_back(std::move(init.node));
+      stmt->children.emplace_back(std::move(cond.node));
+      stmt->children.emplace_back(std::move(adva.node));
+      stmt->children.emplace_back(std::move(bloc.node));
+      return context.success(std::move(stmt), bloc.tokensAfter);
+    }
+    Partial parseStatementIf(size_t tokidx) {
+      Context context(*this, tokidx);
+      assert(context[0].isKeyword(EggTokenizerKeyword::If));
+      return PARSE_TODO(tokidx, "statement keyword: ", context[0].toString());
+    }
+    Partial parseStatementReturn(size_t tokidx) {
+      Context context(*this, tokidx);
+      assert(context[0].isKeyword(EggTokenizerKeyword::Return));
+      return PARSE_TODO(tokidx, "statement keyword: ", context[0].toString());
+    }
+    Partial parseStatementSwitch(size_t tokidx) {
+      Context context(*this, tokidx);
+      assert(context[0].isKeyword(EggTokenizerKeyword::Switch));
+      return PARSE_TODO(tokidx, "statement keyword: ", context[0].toString());
+    }
+    Partial parseStatementThrow(size_t tokidx) {
+      Context context(*this, tokidx);
+      assert(context[0].isKeyword(EggTokenizerKeyword::Throw));
+      return PARSE_TODO(tokidx, "statement keyword: ", context[0].toString());
+    }
+    Partial parseStatementTry(size_t tokidx) {
+      Context context(*this, tokidx);
+      assert(context[0].isKeyword(EggTokenizerKeyword::Try));
+      return PARSE_TODO(tokidx, "statement keyword: ", context[0].toString());
+    }
+    Partial parseStatementWhile(size_t tokidx) {
+      Context context(*this, tokidx);
+      assert(context[0].isKeyword(EggTokenizerKeyword::While));
+      return PARSE_TODO(tokidx, "statement keyword: ", context[0].toString());
+    }
+    Partial parseStatementYield(size_t tokidx) {
+      Context context(*this, tokidx);
+      assert(context[0].isKeyword(EggTokenizerKeyword::Yield));
+      return PARSE_TODO(tokidx, "statement keyword: ", context[0].toString());
+    }
     Partial parseStatementSimple(size_t tokidx) {
       Context context(*this, tokidx);
       auto defn = this->parseDefinitionVariable(tokidx);
       if (!defn.skipped()) {
         return defn;
+      }
+      auto nudge = this->parseStatementNudge(tokidx);
+      if (!nudge.skipped()) {
+        return nudge;
       }
       auto expr = this->parseValueExpressionPrimary(tokidx);
       if (expr.succeeded()) {
@@ -325,7 +555,7 @@ namespace {
     Partial parseDefinitionVariableInferred(size_t tokidx, const EggTokenizerItem& var, bool nullable) {
       Context context(*this, tokidx);
       if (context[0].kind != EggTokenizerKind::Identifier) {
-        return context.failed(tokidx, "Expected identifier after '", nullable ? "var?" : "var", "' in variable definition, but got ", context[0].toString());
+        return context.expected(tokidx, "identifier after '", nullable ? "var?" : "var", "' in variable definition");
       }
       if (!context[1].isOperator(EggTokenizerOperator::Equal)) {
         return context.failed(tokidx, "Cannot declare variable '", context[0].value.s, "' using '", nullable ? "var?" : "var", "' without an initial value");
@@ -345,7 +575,7 @@ namespace {
       assert(ptype != nullptr);
       Context context(*this, tokidx);
       if (context[0].kind != EggTokenizerKind::Identifier) {
-        return context.failed(tokidx, "Expected identifier after type in variable definition, but got ", context[0].toString());
+        return context.expected(tokidx, "identifier after type in variable definition");
       }
       if (context[1].isOperator(EggTokenizerOperator::Equal)) {
         // <type> <identifier> = <expr>
@@ -362,6 +592,31 @@ namespace {
       auto stmt = this->makeNodeString(Node::Kind::StmtDeclareVariable, context[0]);
       stmt->children.emplace_back(std::move(ptype));
       return context.success(std::move(stmt), tokidx + 1);
+    }
+    Partial parseStatementNudge(size_t tokidx) {
+      Context context(*this, tokidx);
+      if (context[0].isOperator(EggTokenizerOperator::PlusPlus)) {
+        // ++<target>
+        auto target = this->parseTarget(tokidx + 1);
+        if (target.succeeded()) {
+          target.wrap(Node::Kind::StmtMutate);
+          target.node->op.valueMutationOp = egg::ovum::ValueMutationOp::Increment;
+        }
+        return target;
+      } else if (context[0].isOperator(EggTokenizerOperator::MinusMinus)) {
+        // --<target>
+        auto target = this->parseTarget(tokidx + 1);
+        if (target.succeeded()) {
+          target.wrap(Node::Kind::StmtMutate);
+          target.node->op.valueMutationOp = egg::ovum::ValueMutationOp::Decrement;
+        }
+        return target;
+      }
+      return context.skip();
+    }
+    Partial parseTarget(size_t tokidx) {
+      // TODO
+      return this->parseValueExpression(tokidx);
     }
     Partial parseTypeExpression(size_t tokidx) {
       return this->parseTypeExpressionBinary(tokidx);
@@ -423,7 +678,7 @@ namespace {
               return index;
             }
             if (!index.after(0).isOperator(EggTokenizerOperator::BracketRight)) {
-              return context.failed(index.tokensAfter, "Expected ']' after index type in map type, but got ", index.after(0).toString());
+              return context.expected(index.tokensAfter, "']' after index type in map type");
             }
             partial.wrap(Node::Kind::TypeBinary);
             partial.node->children.emplace_back(std::move(index.node));
@@ -625,6 +880,10 @@ namespace {
           return this->parseValueExpressionUnaryOperator(tokidx + 1, egg::ovum::ValueUnaryOp::Negate);
         case EggTokenizerOperator::Tilde: // "~"
           return this->parseValueExpressionUnaryOperator(tokidx + 1, egg::ovum::ValueUnaryOp::BitwiseNot);
+        case EggTokenizerOperator::PlusPlus: // "++"
+          return context.failed(tokidx, "'++' operator cannot be used in expressions");
+        case EggTokenizerOperator::MinusMinus: // "--"
+          return context.failed(tokidx, "'--' operator cannot be used in expressions");
         case EggTokenizerOperator::BangEqual: // "!="
         case EggTokenizerOperator::Percent: // "%"
         case EggTokenizerOperator::PercentEqual: // "%="
@@ -637,10 +896,8 @@ namespace {
         case EggTokenizerOperator::Star: // "*"
         case EggTokenizerOperator::StarEqual: // "*="
         case EggTokenizerOperator::Plus: // "+"
-        case EggTokenizerOperator::PlusPlus: // "++"
         case EggTokenizerOperator::PlusEqual: // "+="
         case EggTokenizerOperator::Comma: // ","
-        case EggTokenizerOperator::MinusMinus: // "--"
         case EggTokenizerOperator::MinusEqual: // "-="
         case EggTokenizerOperator::Lambda: // "->"
         case EggTokenizerOperator::Dot: // "."
@@ -724,7 +981,7 @@ namespace {
       case EggTokenizerKind::Operator:
         return PARSE_TODO(tokidx, "bad expression operator");
       case EggTokenizerKind::EndOfFile:
-        return context.failed(tokidx, "Expected expression, but got end-of-file");
+        return context.expected(tokidx, "expression");
       }
       return PARSE_TODO(tokidx, "bad expression primary prefix");
     }
@@ -855,6 +1112,10 @@ namespace {
         return true;
       }
       return false;
+    }
+    Partial parseValueCondition(size_t tokidx) {
+      // WIBBLE
+      return this->parseValueExpression(tokidx);
     }
     std::unique_ptr<Node> makeNode(Node::Kind kind, const Location& begin, const Location& end) {
       auto node = std::make_unique<Node>(kind);

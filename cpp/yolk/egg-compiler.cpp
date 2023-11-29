@@ -66,12 +66,17 @@ namespace {
     egg::ovum::HardPtr<egg::ovum::IVMModule> compile(ParserNode& root);
   private:
     struct StmtContext {
-      bool root : 1 = false;
+      bool inRoot : 1 = false;
+      bool inFor : 1 = false;
     };
     ModuleNode* compileStmt(ParserNode& pnode, const StmtContext& context);
+    ModuleNode* compileStmtBlock(ParserNodes& pnodes, const StmtContext& context, const IEggParser::Location& location);
     ModuleNode* compileStmtDeclareVariable(ParserNode& pnode);
     ModuleNode* compileStmtDefineVariable(ParserNode& pnode);
+    ModuleNode* compileStmtMutate(ParserNode& pnode);
     ModuleNode* compileStmtCall(ParserNode& pnode);
+    ModuleNode* compileStmtForEach(ParserNode& pnode, const StmtContext& context);
+    ModuleNode* compileStmtForLoop(ParserNode& pnode, const StmtContext& context);
     ModuleNode* compileValueExpr(ParserNode& pnode);
     ModuleNode* compileValueExprVariable(ParserNode& pnode);
     ModuleNode* compileValueExprUnary(ParserNode& op, ParserNode& rhs);
@@ -81,6 +86,7 @@ namespace {
     ModuleNode* compileValueExprIndex(ParserNode& bracket, ParserNode& lhs, ParserNode& rhs);
     ModuleNode* compileValueExprProperty(ParserNode& dot, ParserNode& lhs, ParserNode& rhs);
     ModuleNode* compileTypeExpr(ParserNode& pnode);
+    ModuleNode* compileTypeInfer(ParserNode& ptype, ParserNode& pexpr, ModuleNode*& mexpr);
     ModuleNode* compileLiteral(ParserNode& pnode);
     egg::ovum::Type deduceType(ModuleNode& mnode) {
       return this->mbuilder.deduceType(mnode);
@@ -182,7 +188,7 @@ egg::ovum::HardPtr<egg::ovum::IVMModule> ModuleCompiler::compile(ParserNode& roo
   }
   this->targets.push(&this->mbuilder.getRoot());
   StmtContext context;
-  context.root = true;
+  context.inRoot = true;
   for (const auto& child : root.children) {
     // Make sure we append to the target as it is now
     assert(this->targets.size() == 1);
@@ -202,7 +208,11 @@ egg::ovum::HardPtr<egg::ovum::IVMModule> ModuleCompiler::compile(ParserNode& roo
 }
 
 ModuleNode* ModuleCompiler::compileStmt(ParserNode& pnode, const StmtContext& context) {
+  StmtContext inner = context;
+  inner.inRoot = false;
   switch (pnode.kind) {
+  case ParserNode::Kind::StmtBlock:
+    return this->compileStmtBlock(pnode.children, context, pnode.begin);
   case ParserNode::Kind::StmtDeclareVariable:
     EXPECT(pnode, pnode.children.size() == 1);
     return this->compileStmtDeclareVariable(pnode);
@@ -212,6 +222,14 @@ ModuleNode* ModuleCompiler::compileStmt(ParserNode& pnode, const StmtContext& co
   case ParserNode::Kind::StmtCall:
     EXPECT(pnode, pnode.children.size() == 1);
     return this->compileStmtCall(*pnode.children.front());
+  case ParserNode::Kind::StmtForEach:
+    EXPECT(pnode, pnode.children.size() == 3);
+    return this->compileStmtForEach(pnode, context);
+  case ParserNode::Kind::StmtForLoop:
+    EXPECT(pnode, pnode.children.size() == 4);
+    return this->compileStmtForLoop(pnode, context);
+  case ParserNode::Kind::StmtMutate:
+    return this->compileStmtMutate(pnode);
   case ParserNode::Kind::ModuleRoot:
   case ParserNode::Kind::ExprVariable:
   case ParserNode::Kind::ExprUnary:
@@ -235,10 +253,22 @@ ModuleNode* ModuleCompiler::compileStmt(ParserNode& pnode, const StmtContext& co
   default:
     break;
   }
-  if (context.root) {
+  if (context.inRoot) {
     return this->unexpected(pnode, "statement root child");
   }
   return this->unexpected(pnode, "statement");
+}
+
+ModuleNode* ModuleCompiler::compileStmtBlock(ParserNodes& pnodes, const StmtContext& context, const IEggParser::Location& location) {
+  auto& block = this->mbuilder.stmtBlock(location.line, location.column);
+  for (const auto& pnode : pnodes) {
+    auto* mnode = this->compileStmt(*pnode, context);
+    if (mnode == nullptr) {
+      return nullptr;
+    }
+    this->mbuilder.appendChild(block, *mnode);
+  }
+  return &block;
 }
 
 ModuleNode* ModuleCompiler::compileStmtDeclareVariable(ParserNode& pnode) {
@@ -258,54 +288,54 @@ ModuleNode* ModuleCompiler::compileStmtDeclareVariable(ParserNode& pnode) {
 
 ModuleNode* ModuleCompiler::compileStmtDefineVariable(ParserNode& pnode) {
   assert(pnode.kind == ParserNode::Kind::StmtDefineVariable);
+  assert(pnode.children.size() == 2);
   egg::ovum::String symbol;
   EXPECT(pnode, pnode.value->getString(symbol));
-  assert(pnode.children.size() == 2);
-  auto& lchild = *pnode.children.front();
-  auto& rchild = *pnode.children.back();
-  ModuleNode* lnode;
   ModuleNode* rnode;
-  if (lchild.kind == ParserNode::Kind::TypeInfer) {
-    rnode = this->compileValueExpr(rchild);
-    if (rnode == nullptr) {
-      return nullptr;
-    }
-    auto ltype = this->deduceType(*rnode);
-    assert(ltype != nullptr);
-    this->setNullability(ltype, false);
-    assert(ltype != nullptr);
-    rnode = this->compileValueExpr(rchild);
-    if (rnode == nullptr) {
-      return nullptr;
-    }
-    lnode = &this->mbuilder.typeLiteral(ltype, lchild.begin.line, lchild.begin.column);
-  } else {
-    lnode = this->compileTypeExpr(lchild);
-    if (lnode == nullptr) {
-      return nullptr;
-    }
-    auto ltype = this->deduceType(*lnode);
-    assert(ltype != nullptr);
-    rnode = this->compileValueExpr(rchild);
-    if (rnode == nullptr) {
-      return nullptr;
-    }
-    auto rtype = this->deduceType(*rnode);
-    assert(rtype != nullptr);
-    auto assignable = this->isAssignable(ltype, rtype);
-    if (assignable == egg::ovum::ITypeForge::Assignability::Never) {
-      return this->error(*pnode.children.back(), "Cannot initialize '", symbol, "' of type '", ltype, "' with a value of type '", rtype, "'");
-    }
+  auto lnode = this->compileTypeInfer(*pnode.children.front(), *pnode.children.back(), rnode);
+  if (lnode == nullptr) {
+    return nullptr;
   }
-  assert(lnode != nullptr);
   assert(rnode != nullptr);
+  auto ltype = this->deduceType(*lnode);
+  assert(ltype != nullptr);
+  auto rtype = this->deduceType(*rnode);
+  assert(rtype != nullptr);
+  auto assignable = this->isAssignable(ltype, rtype);
+  if (assignable == egg::ovum::ITypeForge::Assignability::Never) {
+    return this->error(*pnode.children.back(), "Cannot initialize '", symbol, "' of type '", ltype, "' with a value of type '", rtype, "'");
+  }
   auto& stmt = this->mbuilder.stmtVariableDefine(symbol, *lnode, *rnode, pnode.begin.line, pnode.begin.column);
   this->targets.top() = &stmt;
   return &stmt;
 }
 
+ModuleNode* ModuleCompiler::compileStmtMutate(ParserNode& pnode) {
+  assert(pnode.kind == ParserNode::Kind::StmtMutate);
+  auto nudge = (pnode.op.valueMutationOp == egg::ovum::ValueMutationOp::Decrement) || (pnode.op.valueMutationOp == egg::ovum::ValueMutationOp::Increment);
+  if (nudge) {
+    EXPECT(pnode, pnode.children.size() == 1);
+  } else {
+    EXPECT(pnode, pnode.children.size() == 2);
+  }
+  auto& plhs = *pnode.children.front();
+  if (plhs.kind == ParserNode::Kind::ExprVariable) {
+    EXPECT(plhs, plhs.children.size() == 0);
+    egg::ovum::String symbol;
+    EXPECT(plhs, plhs.value->getString(symbol));
+    ModuleNode* rhs;
+    if (nudge) {
+      rhs = &this->mbuilder.exprLiteral(egg::ovum::HardValue::Void, pnode.begin.line, pnode.begin.column);
+    } else {
+      rhs = this->compileValueExpr(*pnode.children.back());
+    }
+    return &this->mbuilder.stmtVariableMutate(symbol, pnode.op.valueMutationOp, *rhs, pnode.begin.line, pnode.begin.column);
+  }
+  return this->unexpected(plhs, "variable in mutation statement");
+}
+
 ModuleNode* ModuleCompiler::compileStmtCall(ParserNode& pnode) {
-  EXPECT(pnode, pnode.kind == ParserNode::Kind::ExprCall);
+  assert(pnode.kind == ParserNode::Kind::ExprCall);
   ModuleNode* stmt = nullptr;
   auto pchild = pnode.children.begin();
   auto* expr = this->compileValueExpr(**pchild);
@@ -321,6 +351,50 @@ ModuleNode* ModuleCompiler::compileStmtCall(ParserNode& pnode) {
     }
   }
   return stmt;
+}
+
+ModuleNode* ModuleCompiler::compileStmtForEach(ParserNode& pnode, const StmtContext& context) {
+  assert(pnode.kind == ParserNode::Kind::StmtForEach);
+  assert(pnode.children.size() == 3);
+  egg::ovum::String symbol;
+  EXPECT(pnode, pnode.value->getString(symbol));
+  ModuleNode* iter;
+  auto type = this->compileTypeInfer(*pnode.children[0], *pnode.children[1], iter);
+  if (type == nullptr) {
+    return nullptr;
+  }
+  assert(iter != nullptr);
+  StmtContext inner = context;
+  inner.inFor = true;
+  auto* bloc = this->compileStmt(*pnode.children[2], inner);
+  if (bloc == nullptr) {
+    return nullptr;
+  }
+  return &this->mbuilder.stmtForEach(symbol, *type, *iter, *bloc, pnode.begin.line, pnode.begin.column);
+}
+
+ModuleNode* ModuleCompiler::compileStmtForLoop(ParserNode& pnode, const StmtContext& context) {
+  assert(pnode.kind == ParserNode::Kind::StmtForLoop);
+  assert(pnode.children.size() == 4);
+  StmtContext inner = context;
+  inner.inFor = true;
+  auto* init = this->compileStmt(*pnode.children[0], inner);
+  if (init == nullptr) {
+    return nullptr;
+  }
+  auto* cond = this->compileValueExpr(*pnode.children[1]);
+  if (cond == nullptr) {
+    return nullptr;
+  }
+  auto* adva = this->compileStmt(*pnode.children[2], inner);
+  if (adva == nullptr) {
+    return nullptr;
+  }
+  auto* bloc = this->compileStmt(*pnode.children[3], inner);
+  if (bloc == nullptr) {
+    return nullptr;
+  }
+  return &this->mbuilder.stmtForLoop(*init, *cond, *adva, *bloc, pnode.begin.line, pnode.begin.column);
 }
 
 ModuleNode* ModuleCompiler::compileValueExpr(ParserNode& pnode) {
@@ -372,9 +446,13 @@ ModuleNode* ModuleCompiler::compileValueExpr(ParserNode& pnode) {
   case ParserNode::Kind::TypeInferQ:
   case ParserNode::Kind::TypeUnary:
   case ParserNode::Kind::TypeBinary:
+  case ParserNode::Kind::StmtBlock:
   case ParserNode::Kind::StmtCall:
   case ParserNode::Kind::StmtDeclareVariable:
   case ParserNode::Kind::StmtDefineVariable:
+  case ParserNode::Kind::StmtForEach:
+  case ParserNode::Kind::StmtForLoop:
+  case ParserNode::Kind::StmtMutate:
   default:
     break;
   }
@@ -490,9 +568,13 @@ ModuleNode* ModuleCompiler::compileTypeExpr(ParserNode& pnode) {
     // WIBBLE
     break;
   case ParserNode::Kind::ModuleRoot:
+  case ParserNode::Kind::StmtBlock:
   case ParserNode::Kind::StmtDeclareVariable:
   case ParserNode::Kind::StmtDefineVariable:
   case ParserNode::Kind::StmtCall:
+  case ParserNode::Kind::StmtForEach:
+  case ParserNode::Kind::StmtForLoop:
+  case ParserNode::Kind::StmtMutate:
   case ParserNode::Kind::ExprVariable:
   case ParserNode::Kind::ExprUnary:
   case ParserNode::Kind::ExprBinary:
@@ -509,6 +591,40 @@ ModuleNode* ModuleCompiler::compileTypeExpr(ParserNode& pnode) {
   return this->unexpected(pnode, "type expression");
 }
 
+ModuleNode* ModuleCompiler::compileTypeInfer(ParserNode& ptype, ParserNode& pexpr, ModuleNode*& mexpr) {
+  if (ptype.kind == ParserNode::Kind::TypeInfer) {
+    mexpr = this->compileValueExpr(pexpr);
+    if (mexpr == nullptr) {
+      return nullptr;
+    }
+    auto type = this->deduceType(*mexpr);
+    assert(type != nullptr);
+    this->setNullability(type, false);
+    assert(type != nullptr);
+    return &this->mbuilder.typeLiteral(type, ptype.begin.line, ptype.begin.column);
+  }
+  if (ptype.kind == ParserNode::Kind::TypeInferQ) {
+    mexpr = this->compileValueExpr(pexpr);
+    if (mexpr == nullptr) {
+      return nullptr;
+    }
+    auto type = this->deduceType(*mexpr);
+    assert(type != nullptr);
+    this->setNullability(type, true);
+    assert(type != nullptr);
+    return &this->mbuilder.typeLiteral(type, ptype.begin.line, ptype.begin.column);
+  }
+  auto* mtype = this->compileTypeExpr(ptype);
+  if (mtype == nullptr) {
+    return nullptr;
+  }
+  mexpr = this->compileValueExpr(pexpr);
+  if (mexpr == nullptr) {
+    return nullptr;
+  }
+  return mtype;
+}
+
 ModuleNode* ModuleCompiler::compileLiteral(ParserNode& pnode) {
   EXPECT(pnode, pnode.children.size() == 0);
   return &this->mbuilder.exprLiteral(pnode.value, pnode.begin.line, pnode.begin.column);
@@ -518,12 +634,20 @@ std::string ModuleCompiler::toString(const ParserNode& pnode) {
   switch (pnode.kind) {
   case ParserNode::Kind::ModuleRoot:
     return "module root";
+  case ParserNode::Kind::StmtBlock:
+    return "statement block";
   case ParserNode::Kind::StmtDeclareVariable:
     return "variable declaration statement";
   case ParserNode::Kind::StmtDefineVariable:
     return "variable definition statement";
   case ParserNode::Kind::StmtCall:
     return "call statement";
+  case ParserNode::Kind::StmtForEach:
+    return "for each statement";
+  case ParserNode::Kind::StmtForLoop:
+    return "for loop statement";
+  case ParserNode::Kind::StmtMutate:
+    return "mutate statement";
   case ParserNode::Kind::ExprVariable:
     return "variable expression";
   case ParserNode::Kind::ExprUnary:
