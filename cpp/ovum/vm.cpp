@@ -1628,7 +1628,58 @@ bool VMRunner::stepNode(HardValue& retval) {
     break;
   case IVMModule::Node::Kind::StmtForEach:
     assert(top.node->children.size() == 3);
-    return this->raise("WIBBLE: Statement 'for each' not yet implemented");
+    if (top.index == 0) {
+      // Evaluate the type
+      this->push(*top.node->children[top.index++]);
+    } else if (top.index == 1) {
+      // Evaluate the iterator value
+      assert(top.deque.size() == 1);
+      auto& vtype = top.deque.front();
+      if (vtype.hasFlowControl()) {
+        return this->pop(vtype);
+      }
+      auto type = vtype->getType();
+      assert(type != nullptr);
+      if (!this->variableScopeBegin(top, type)) {
+        return true;
+      }
+      top.deque.clear();
+      this->push(*top.node->children[top.index++]);
+    } else {
+      assert(top.deque.size() >= 1);
+      auto& iterator = top.deque.front();
+      if (top.index == 2) {
+        if (iterator.hasFlowControl()) {
+          return this->pop(iterator);
+        }
+        assert(top.deque.size() == 1);
+      } else {
+        assert(top.deque.size() == 2);
+        auto& latest = top.deque.back();
+        if (latest.hasFlowControl()) {
+          // TODO: handle break and continue
+          return this->pop(iterator);
+        }
+      }
+      // Fetch the next iterated value
+      String string;
+      if (!iterator->getString(string)) {
+        return this->raise("TODO: Only string iteration is currently supported in 'for each' statements");
+      }
+      auto cp = string.codePointAt(top.index++ - 2);
+      if (cp < 0) {
+        // Completed
+        return this->pop(HardValue::Void);
+      }
+      auto value = this->createHardValueString(String::fromUTF32(this->getAllocator(), &cp, 1));
+      if (!this->symbolSet(top.node->literal, value)) {
+        return true;
+      }
+      // Execute the controlled block
+      top.deque.resize(1);
+      this->push(*top.node->children[2]);
+    }
+    break;
   case IVMModule::Node::Kind::StmtForLoop:
     assert(top.node->children.size() == 4);
     assert(top.index <= 4);

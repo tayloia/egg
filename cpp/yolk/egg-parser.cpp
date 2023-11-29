@@ -451,7 +451,7 @@ namespace {
       if (!init.after(0).isOperator(EggTokenizerOperator::Semicolon)) {
         return context.expected(init.tokensAfter, "';' after first clause of 'for' loop statement");
       }
-      auto cond = this->parseValueCondition(init.tokensAfter + 1);
+      auto cond = this->parseValueExpression(init.tokensAfter + 1);
       if (!cond.succeeded()) {
         return cond;
       }
@@ -1112,10 +1112,6 @@ namespace {
         return true;
       }
       return false;
-    }
-    Partial parseValueCondition(size_t tokidx) {
-      // WIBBLE
-      return this->parseValueExpression(tokidx);
     }
     std::unique_ptr<Node> makeNode(Node::Kind kind, const Location& begin, const Location& end) {
       auto node = std::make_unique<Node>(kind);

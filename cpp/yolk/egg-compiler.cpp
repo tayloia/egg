@@ -70,9 +70,12 @@ namespace {
       bool inFor : 1 = false;
     };
     ModuleNode* compileStmt(ParserNode& pnode, const StmtContext& context);
+    ModuleNode* compileStmtVoid(ParserNode& pnode);
     ModuleNode* compileStmtBlock(ParserNodes& pnodes, const StmtContext& context, const IEggParser::Location& location);
     ModuleNode* compileStmtDeclareVariable(ParserNode& pnode);
+    ModuleNode* compileStmtDeclareVariableScope(ParserNode& pnode);
     ModuleNode* compileStmtDefineVariable(ParserNode& pnode);
+    ModuleNode* compileStmtDefineVariableScope(ParserNode& pnode);
     ModuleNode* compileStmtMutate(ParserNode& pnode);
     ModuleNode* compileStmtCall(ParserNode& pnode);
     ModuleNode* compileStmtForEach(ParserNode& pnode, const StmtContext& context);
@@ -212,22 +215,22 @@ ModuleNode* ModuleCompiler::compileStmt(ParserNode& pnode, const StmtContext& co
   inner.inRoot = false;
   switch (pnode.kind) {
   case ParserNode::Kind::StmtBlock:
-    return this->compileStmtBlock(pnode.children, context, pnode.begin);
+    return this->compileStmtBlock(pnode.children, inner, pnode.begin);
   case ParserNode::Kind::StmtDeclareVariable:
     EXPECT(pnode, pnode.children.size() == 1);
-    return this->compileStmtDeclareVariable(pnode);
+    return this->compileStmtDeclareVariableScope(pnode);
   case ParserNode::Kind::StmtDefineVariable:
     EXPECT(pnode, pnode.children.size() == 2);
-    return this->compileStmtDefineVariable(pnode);
+    return this->compileStmtDefineVariableScope(pnode);
   case ParserNode::Kind::StmtCall:
     EXPECT(pnode, pnode.children.size() == 1);
     return this->compileStmtCall(*pnode.children.front());
   case ParserNode::Kind::StmtForEach:
     EXPECT(pnode, pnode.children.size() == 3);
-    return this->compileStmtForEach(pnode, context);
+    return this->compileStmtForEach(pnode, inner);
   case ParserNode::Kind::StmtForLoop:
     EXPECT(pnode, pnode.children.size() == 4);
-    return this->compileStmtForLoop(pnode, context);
+    return this->compileStmtForLoop(pnode, inner);
   case ParserNode::Kind::StmtMutate:
     return this->compileStmtMutate(pnode);
   case ParserNode::Kind::ModuleRoot:
@@ -259,6 +262,10 @@ ModuleNode* ModuleCompiler::compileStmt(ParserNode& pnode, const StmtContext& co
   return this->unexpected(pnode, "statement");
 }
 
+ModuleNode* ModuleCompiler::compileStmtVoid(ParserNode& pnode) {
+  return &this->mbuilder.exprLiteral(egg::ovum::HardValue::Void, pnode.begin.line, pnode.begin.column);
+}
+
 ModuleNode* ModuleCompiler::compileStmtBlock(ParserNodes& pnodes, const StmtContext& context, const IEggParser::Location& location) {
   auto& block = this->mbuilder.stmtBlock(location.line, location.column);
   for (const auto& pnode : pnodes) {
@@ -281,9 +288,13 @@ ModuleNode* ModuleCompiler::compileStmtDeclareVariable(ParserNode& pnode) {
   if (type == nullptr) {
     return nullptr;
   }
-  auto& stmt = this->mbuilder.stmtVariableDeclare(symbol, *type, pnode.begin.line, pnode.begin.column);
-  this->targets.top() = &stmt;
-  return &stmt;
+  return &this->mbuilder.stmtVariableDeclare(symbol, *type, pnode.begin.line, pnode.begin.column);
+}
+
+ModuleNode* ModuleCompiler::compileStmtDeclareVariableScope(ParserNode& pnode) {
+  auto* stmt = this->compileStmtDeclareVariable(pnode);
+  this->targets.top() = stmt;
+  return stmt;
 }
 
 ModuleNode* ModuleCompiler::compileStmtDefineVariable(ParserNode& pnode) {
@@ -305,9 +316,13 @@ ModuleNode* ModuleCompiler::compileStmtDefineVariable(ParserNode& pnode) {
   if (assignable == egg::ovum::ITypeForge::Assignability::Never) {
     return this->error(*pnode.children.back(), "Cannot initialize '", symbol, "' of type '", ltype, "' with a value of type '", rtype, "'");
   }
-  auto& stmt = this->mbuilder.stmtVariableDefine(symbol, *lnode, *rnode, pnode.begin.line, pnode.begin.column);
-  this->targets.top() = &stmt;
-  return &stmt;
+  return &this->mbuilder.stmtVariableDefine(symbol, *lnode, *rnode, pnode.begin.line, pnode.begin.column);
+}
+
+ModuleNode* ModuleCompiler::compileStmtDefineVariableScope(ParserNode& pnode) {
+  auto* stmt = this->compileStmtDefineVariable(pnode);
+  this->targets.top() = stmt;
+  return stmt;
 }
 
 ModuleNode* ModuleCompiler::compileStmtMutate(ParserNode& pnode) {
@@ -325,7 +340,7 @@ ModuleNode* ModuleCompiler::compileStmtMutate(ParserNode& pnode) {
     EXPECT(plhs, plhs.value->getString(symbol));
     ModuleNode* rhs;
     if (nudge) {
-      rhs = &this->mbuilder.exprLiteral(egg::ovum::HardValue::Void, pnode.begin.line, pnode.begin.column);
+      rhs = this->compileStmtVoid(pnode);
     } else {
       rhs = this->compileValueExpr(*pnode.children.back());
     }
@@ -376,12 +391,34 @@ ModuleNode* ModuleCompiler::compileStmtForEach(ParserNode& pnode, const StmtCont
 ModuleNode* ModuleCompiler::compileStmtForLoop(ParserNode& pnode, const StmtContext& context) {
   assert(pnode.kind == ParserNode::Kind::StmtForLoop);
   assert(pnode.children.size() == 4);
+  ModuleNode* scope;
+  ModuleNode* init;
   StmtContext inner = context;
   inner.inFor = true;
-  auto* init = this->compileStmt(*pnode.children[0], inner);
-  if (init == nullptr) {
-    return nullptr;
+  auto& phead = *pnode.children.front();
+  if (phead.kind == ParserNode::Kind::StmtDeclareVariable) {
+    // Hoist the declaration
+    scope = this->compileStmtDeclareVariable(phead);
+    if (scope == nullptr) {
+      return nullptr;
+    }
+    init = this->compileStmtVoid(phead);
+  } else if (phead.kind == ParserNode::Kind::StmtDefineVariable) {
+    // Hoist the definition
+    scope = this->compileStmtDefineVariable(phead);
+    if (scope == nullptr) {
+      return nullptr;
+    }
+    init = this->compileStmtVoid(phead);
+  } else {
+    // No outer scope
+    scope = nullptr;
+    init = this->compileStmt(phead, inner);
+    if (init == nullptr) {
+      return nullptr;
+    }
   }
+  assert(init != nullptr);
   auto* cond = this->compileValueExpr(*pnode.children[1]);
   if (cond == nullptr) {
     return nullptr;
@@ -394,7 +431,12 @@ ModuleNode* ModuleCompiler::compileStmtForLoop(ParserNode& pnode, const StmtCont
   if (bloc == nullptr) {
     return nullptr;
   }
-  return &this->mbuilder.stmtForLoop(*init, *cond, *adva, *bloc, pnode.begin.line, pnode.begin.column);
+  auto* loop = &this->mbuilder.stmtForLoop(*init, *cond, *adva, *bloc, pnode.begin.line, pnode.begin.column);
+  if (scope == nullptr) {
+    return loop;
+  }
+  this->mbuilder.appendChild(*scope, *loop);
+  return scope;
 }
 
 ModuleNode* ModuleCompiler::compileValueExpr(ParserNode& pnode) {
