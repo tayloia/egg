@@ -270,10 +270,10 @@ void egg::ovum::Print::write(std::ostream& stream, ValueBinaryOp value, const Op
     stream << "??";
     break;
   case ValueBinaryOp::IfFalse:
-    stream << "&&";
+    stream << "||";
     break;
   case ValueBinaryOp::IfTrue:
-    stream << "||";
+    stream << "&&";
     break;
   default:
     stream << "<UNKNOWN:" << int(value) << ">";

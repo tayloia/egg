@@ -24,8 +24,8 @@ namespace egg::ovum {
     ShiftRight,         // a >> b
     ShiftRightUnsigned, // a >>> b
     IfNull,             // a ?? b
-    IfFalse,            // a && b
-    IfTrue              // a || b
+    IfFalse,            // a || b
+    IfTrue              // a && b
   };
   enum class ValueTernaryOp {
     IfThenElse          // a ? b : c
@@ -46,8 +46,8 @@ namespace egg::ovum {
     ShiftRight,         // a >>= b
     ShiftRightUnsigned, // a >>>= b
     IfNull,             // a ??= b
-    IfFalse,            // a &&= b
-    IfTrue,             // a ||= b
+    IfFalse,            // a ||= b
+    IfTrue,             // a &&= b
     Noop // TODO cancels any pending prechecks on this thread
   };
 

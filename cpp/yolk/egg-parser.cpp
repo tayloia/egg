@@ -9,6 +9,44 @@
 using namespace egg::yolk;
 
 namespace {
+  int precedence(egg::ovum::ValueBinaryOp op) {
+    // See egg/www/v1/syntax/syntax.html#binary-operator
+    // OPTIMIZE
+    switch (op) {
+    case egg::ovum::ValueBinaryOp::IfNull:
+      return 1;
+    case egg::ovum::ValueBinaryOp::IfFalse:
+      return 2;
+    case egg::ovum::ValueBinaryOp::IfTrue:
+      return 3;
+    case egg::ovum::ValueBinaryOp::BitwiseOr:
+      return 4;
+    case egg::ovum::ValueBinaryOp::BitwiseXor:
+      return 5;
+    case egg::ovum::ValueBinaryOp::BitwiseAnd:
+      return 6;
+    case egg::ovum::ValueBinaryOp::Equal:
+    case egg::ovum::ValueBinaryOp::NotEqual:
+      return 7;
+    case egg::ovum::ValueBinaryOp::LessThan:
+    case egg::ovum::ValueBinaryOp::LessThanOrEqual:
+    case egg::ovum::ValueBinaryOp::GreaterThanOrEqual:
+    case egg::ovum::ValueBinaryOp::GreaterThan:
+      return 8;
+    case egg::ovum::ValueBinaryOp::ShiftLeft:
+    case egg::ovum::ValueBinaryOp::ShiftRight:
+    case egg::ovum::ValueBinaryOp::ShiftRightUnsigned:
+      return 9;
+    case egg::ovum::ValueBinaryOp::Add:
+    case egg::ovum::ValueBinaryOp::Subtract:
+      return 10;
+    case egg::ovum::ValueBinaryOp::Multiply:
+    case egg::ovum::ValueBinaryOp::Divide:
+    case egg::ovum::ValueBinaryOp::Remainder:
+      return 11;
+    }
+    return 0;
+  }
   class EggParserTokens {
     EggParserTokens(const EggParserTokens&) = delete;
     EggParserTokens& operator=(const EggParserTokens&) = delete;
@@ -858,16 +896,33 @@ namespace {
       return lhs;
     }
     Partial parseValueExpressionBinaryOperator(Partial& lhs, egg::ovum::ValueBinaryOp op) {
-      // WIBBLE precedence
+      assert(lhs.succeeded());
       auto rhs = this->parseValueExpression(lhs.tokensAfter + 1);
-      if (rhs.succeeded()) {
-        lhs.wrap(Node::Kind::ExprBinary);
-        lhs.tokensAfter = rhs.tokensAfter;
-        lhs.node->children.emplace_back(std::move(rhs.node));
-        lhs.node->op.valueBinaryOp = op;
-        return std::move(lhs);
+      if (!rhs.succeeded()) {
+        return rhs;
       }
-      return rhs;
+      if (rhs.node->kind == Node::Kind::ExprBinary) {
+        // Need to worry about operator precedence
+        auto precedence1 = precedence(op);
+        assert(precedence1 > 0);
+        auto precedence2 = precedence(rhs.node->op.valueBinaryOp);
+        assert(precedence2 > 0);
+        if (precedence1 > precedence2) {
+          // e.g. 'a*b+c' needs to parse to '[[a*b]+c]' not '[a*[b+c]]'
+          auto b = std::move(rhs.node->children[0]);
+          auto mid = this->makeNode(Node::Kind::ExprBinary, lhs.node->begin, b->end);
+          mid->children.emplace_back(std::move(lhs.node));
+          mid->children.emplace_back(std::move(b));
+          rhs.node->children[0] = std::move(mid);
+          return rhs;
+        }
+      }
+      lhs.wrap(Node::Kind::ExprBinary);
+      lhs.tokensAfter = rhs.tokensAfter;
+      lhs.node->end = rhs.node->end;
+      lhs.node->children.emplace_back(std::move(rhs.node));
+      lhs.node->op.valueBinaryOp = op;
+      return std::move(lhs);
     }
     Partial parseValueExpressionUnary(size_t tokidx) {
       Context context(*this, tokidx);
