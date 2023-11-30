@@ -13,7 +13,7 @@ namespace egg::ovum {
     virtual size_t getArgumentCount() const {
       return this->arguments.size();
     }
-    virtual bool getArgumentByIndex(size_t index, HardValue& value, String* name) const {
+    virtual bool getArgumentByIndex(size_t index, HardValue& value, String* name = nullptr) const {
       if (index < this->arguments.size()) {
         if (name != nullptr) {
           *name = this->arguments[index].name;

@@ -684,7 +684,7 @@ namespace {
         if (lhs->getBool(condition)) {
           return condition ? mid : rhs;
         }
-        return this->raise("Expected condition value for ternary operator '?:' to be a 'bool', but instead got ", describe(lhs));
+        return this->raise("Expected condition of ternary operator '?:' to be a 'bool', but instead got ", describe(lhs));
       }
       return this->panic("Unknown ternary operator: ", op);
     }
@@ -1223,15 +1223,35 @@ namespace {
       return this->createHardValueString(String::fromUTF32(this->getAllocator(), &cp, 1));
     }
     HardValue stringPropertyGet(const String& string, const HardValue& property) {
-      String pname;
-      if (!property->getString(pname)) {
-        return this->createRuntimeError("Invalid right-hand side for string operator '.'");
+      String name;
+      if (!property->getString(name)) {
+        return this->createRuntimeError("Expected right-hand side of string operator '.', but instead got ", describe(property));
       }
-      if (pname.equals("length")) {
+      if (name.equals("length")) {
         return this->createHardValueInt(Int(string.length()));
       }
-      auto message = this->createString("Invalid right-hand side for string operator '.'");
-      return this->createRuntimeError("Unknown string property name: '", pname, "'");
+      using Factory = std::function<HardObject(IVM&, const String&)>;
+      static const std::map<std::string, Factory> map = {
+        { "compareTo", ObjectFactory::createStringProxyCompareTo },
+        { "contains", ObjectFactory::createStringProxyContains },
+        { "endsWith", ObjectFactory::createStringProxyEndsWith },
+        { "hash", ObjectFactory::createStringProxyHash },
+        { "indexOf", ObjectFactory::createStringProxyIndexOf },
+        { "join", ObjectFactory::createStringProxyJoin },
+        { "lastIndexOf", ObjectFactory::createStringProxyLastIndexOf },
+        { "padLeft", ObjectFactory::createStringProxyPadLeft },
+        { "padRight", ObjectFactory::createStringProxyPadRight },
+        { "repeat", ObjectFactory::createStringProxyRepeat },
+        { "replace", ObjectFactory::createStringProxyReplace },
+        { "slice", ObjectFactory::createStringProxySlice },
+        { "startsWith", ObjectFactory::createStringProxyStartsWith },
+        { "toString", ObjectFactory::createStringProxyToString }
+      };
+      auto found = map.find(name.toUTF8());
+      if (found == map.end()) {
+        return this->createRuntimeError("Unknown string property name: '", name, "'");
+      }
+      return this->createHardValueObject(found->second(this->vm, string));
     }
   };
 

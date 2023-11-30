@@ -44,6 +44,21 @@ namespace egg::ovum {
     static HardObject createBuiltinPrint(IVM& vm);
     static HardObject createBuiltinExpando(IVM& vm); // TODO deprecate
     static HardObject createBuiltinCollector(IVM& vm); // TODO testing only
+    // String proxy factories
+    static HardObject createStringProxyCompareTo(IVM& vm, const String& instance);
+    static HardObject createStringProxyContains(IVM& vm, const String& instance);
+    static HardObject createStringProxyEndsWith(IVM& vm, const String& instance);
+    static HardObject createStringProxyHash(IVM& vm, const String& instance);
+    static HardObject createStringProxyIndexOf(IVM& vm, const String& instance);
+    static HardObject createStringProxyJoin(IVM& vm, const String& instance);
+    static HardObject createStringProxyLastIndexOf(IVM& vm, const String& instance);
+    static HardObject createStringProxyPadLeft(IVM& vm, const String& instance);
+    static HardObject createStringProxyPadRight(IVM& vm, const String& instance);
+    static HardObject createStringProxyRepeat(IVM& vm, const String& instance);
+    static HardObject createStringProxyReplace(IVM& vm, const String& instance);
+    static HardObject createStringProxySlice(IVM& vm, const String& instance);
+    static HardObject createStringProxyStartsWith(IVM& vm, const String& instance);
+    static HardObject createStringProxyToString(IVM& vm, const String& instance);
     // Error factories
     static HardObject createRuntimeError(IVM& vm, const String& message, const HardPtr<IVMCallStack>& callstack = nullptr);
   };
