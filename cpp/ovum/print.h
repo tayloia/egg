@@ -34,6 +34,7 @@ namespace egg::ovum {
     static void write(std::ostream& stream, const ICollectable* value, const Options& options);
     static void write(std::ostream& stream, const IObject* value, const Options& options);
     static void write(std::ostream& stream, const IValue* value, const Options& options);
+    static void write(std::ostream& stream, const IType* value, const Options& options);
     static void write(std::ostream& stream, const Type& value, const Options& options);
     static void write(std::ostream& stream, const HardObject& value, const Options& options);
     static void write(std::ostream& stream, const HardValue& value, const Options& options);
@@ -53,6 +54,11 @@ namespace egg::ovum {
     static void write(std::ostream& stream, const HardPtr<T>& value, const Options& options) {
       write(stream, static_cast<const ICollectable*>(value.get()), options);
     }
+
+    // Descriptions
+    static int describe(std::ostream& stream, ValueFlags value, const Options& options); // returns precedence
+    static void describe(std::ostream& stream, const IType& value, const Options& options);
+    static void describe(std::ostream& stream, const IValue& value, const Options& options);
 
     // Print string to stream
     static void ascii(std::ostream& stream, const std::string& value, char quote);
@@ -79,6 +85,10 @@ namespace egg::ovum {
     template<typename T>
     void write(const T& value) {
       Print::write(this->os, value, this->options);
+    }
+    template<typename T>
+    void describe(const T& value) {
+      Print::describe(this->os, value, this->options);
     }
     std::ostream& stream() const {
       return this->os;

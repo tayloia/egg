@@ -3,46 +3,6 @@
 namespace {
   using namespace egg::ovum;
 
-  const char* simpleComponent(ValueFlags flags) {
-    EGG_WARNING_SUPPRESS_SWITCH_BEGIN
-      switch (flags) {
-      case ValueFlags::None:
-        return "var";
-#define EGG_OVUM_VALUE_FLAGS_COMPONENT(name, text) case ValueFlags::name: return text;
-        EGG_OVUM_VALUE_FLAGS(EGG_OVUM_VALUE_FLAGS_COMPONENT)
-#undef EGG_OVUM_VALUE_FLAGS_COMPONENT
-      case ValueFlags::Any:
-        return "any";
-      }
-    EGG_WARNING_SUPPRESS_SWITCH_END
-      return nullptr;
-  }
-
-  int simpleToStringPrecedence(std::ostream& os, ValueFlags flags) {
-    auto* component = simpleComponent(flags);
-    if (component != nullptr) {
-      os << component;
-      return 0;
-    }
-    if (Bits::hasAnySet(flags, ValueFlags::Null)) {
-      auto nonnull = simpleToStringPrecedence(os, Bits::clear(flags, ValueFlags::Null));
-      os << '?';
-      return std::max(nonnull, 1);
-    }
-    if (Bits::hasAnySet(flags, ValueFlags::Void)) {
-      os << "void|";
-      (void)simpleToStringPrecedence(os, Bits::clear(flags, ValueFlags::Void));
-      return 2;
-    }
-    auto head = Bits::topmost(flags);
-    assert(head != ValueFlags::None);
-    component = simpleComponent(head);
-    assert(component != nullptr);
-    os << component << '|';
-    (void)simpleToStringPrecedence(os, Bits::clear(flags, head));
-    return 2;
-  }
-
   template<enum ValueFlags FLAGS>
   class TypePrimitive final : public SoftReferenceCountedNone<IType> {
     TypePrimitive(const TypePrimitive&) = delete;
@@ -54,11 +14,11 @@ namespace {
     }
     virtual std::pair<std::string, int> toStringPrecedence() const override {
       std::stringstream ss;
-      auto precedence = simpleToStringPrecedence(ss, FLAGS);
+      auto precedence = Print::describe(ss, FLAGS, Print::Options::DEFAULT);
       return std::make_pair(ss.str(), precedence);
     }
     virtual void print(Printer& printer) const override {
-      (void)simpleToStringPrecedence(printer.stream(), FLAGS);
+      (void)Print::describe(printer.stream(), FLAGS, Print::Options::DEFAULT);
     }
   };
 
@@ -73,12 +33,21 @@ namespace {
         basket(&basket) {
     }
     virtual Assignability isAssignable(const IType& dst, const IType& src) override {
-      // WIBBLE
-      if (&dst == &src) {
+      // TODO complex types
+      auto dstFlags = dst.getPrimitiveFlags();
+      auto srcFlags = src.getPrimitiveFlags();
+      if (Bits::hasAllSet(dstFlags, srcFlags)) {
         return Assignability::Always;
       }
-      if ((&dst == &*Type::Float) && (&src == &*Type::Int)) {
-        return Assignability::Always;
+      if (Bits::hasAnySet(srcFlags, ValueFlags::Int) && Bits::hasAnySet(dstFlags, ValueFlags::Float)) {
+        // Promote integers to floats
+        srcFlags = Bits::set(Bits::clear(srcFlags, ValueFlags::Int), ValueFlags::Float);
+        if (Bits::hasAllSet(dstFlags, srcFlags)) {
+          return Assignability::Always;
+        }
+      }
+      if (Bits::hasAnySet(dstFlags, srcFlags)) {
+        return Assignability::Sometimes;
       }
       return Assignability::Never;
     }

@@ -205,7 +205,7 @@ namespace {
       template<typename... ARGS>
       Partial expected(size_t tokensAfter, ARGS&&... args) const {
         auto actual = this->parser.getAbsolute(tokensAfter).toString();
-        return this->failed(tokensAfter, "Expected ", std::forward<ARGS>(args)..., ", but got ", actual);
+        return this->failed(tokensAfter, "Expected ", std::forward<ARGS>(args)..., ", but instead got ", actual);
       }
       template<typename... ARGS>
       Partial todo(size_t tokensAfter, const char* file, size_t line, ARGS&&... args) const {
@@ -304,7 +304,7 @@ namespace {
           partial.tokensAfter++;
           return partial;
         }
-        return PARSE_TODO(partial.tokensAfter, "expected ';' after simple statement, but got ", partial.after(0).toString());
+        return PARSE_TODO(partial.tokensAfter, "expected ';' after simple statement, but instead got ", partial.after(0).toString());
       }
       return partial;
     }
@@ -535,7 +535,6 @@ namespace {
         return PARSE_TODO(tokidx, "non-function statement simple");
       }
       return PARSE_TODO(tokidx, "statement simple");
-
     }
     Partial parseDefinitionVariable(size_t tokidx) {
       Context context(*this, tokidx);
@@ -785,6 +784,8 @@ namespace {
           break;
         case EggTokenizerOperator::AmpersandAmpersand: // "&&"
           break;
+        case EggTokenizerOperator::BangEqual: // "!="
+          return this->parseValueExpressionBinaryOperator(lhs, egg::ovum::ValueBinaryOp::NotEqual);
         case EggTokenizerOperator::Star: // "*"
           return this->parseValueExpressionBinaryOperator(lhs, egg::ovum::ValueBinaryOp::Multiply);
         case EggTokenizerOperator::Plus: // "+"
@@ -816,7 +817,6 @@ namespace {
         case EggTokenizerOperator::BarBar: // "||"
           return this->parseValueExpressionBinaryOperator(lhs, egg::ovum::ValueBinaryOp::IfTrue);
         case EggTokenizerOperator::Bang: // "!"
-        case EggTokenizerOperator::BangEqual: // "!="
         case EggTokenizerOperator::PercentEqual: // "%="
         case EggTokenizerOperator::AmpersandAmpersandEqual: // "&&="
         case EggTokenizerOperator::AmpersandEqual: // "&="
@@ -1067,7 +1067,7 @@ namespace {
             break;
           }
           if (!separator.isOperator(EggTokenizerOperator::Comma)) {
-            partial.fail("TODO: Expected ',' between function call arguments, but got ", separator.toString());
+            partial.fail("TODO: Expected ',' between function call arguments, but instead got ", separator.toString());
             return false;
           }
         }
@@ -1086,7 +1086,7 @@ namespace {
         case EggTokenizerKind::Operator:
         case EggTokenizerKind::Attribute:
         case EggTokenizerKind::EndOfFile:
-          partial.fail("TODO: Expected property name after '.', but got ", property.toString());
+          partial.fail("TODO: Expected property name after '.', but instead got ", property.toString());
           return false;
         }
         auto rhs = this->makeNodeString(Node::Kind::Literal, property);
@@ -1103,7 +1103,7 @@ namespace {
           return false;
         }
         if (index.after(0).isOperator(EggTokenizerOperator::ParenthesisRight)) {
-          partial.fail("TODO: Expected ']' after index, but got ", index.after(0).toString());
+          partial.fail("TODO: Expected ']' after index, but instead got ", index.after(0).toString());
           return false;
         }
         partial.wrap(Node::Kind::ExprIndex);

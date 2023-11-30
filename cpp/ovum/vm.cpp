@@ -79,6 +79,17 @@ protected:
 namespace {
   using namespace egg::ovum;
 
+  template<typename T>
+  std::string describe(const T& value) {
+    std::stringstream ss;
+    Print::describe(ss, value, Print::Options::DEFAULT);
+    return ss.str();
+  }
+
+  std::string describe(const HardValue& value) {
+    return describe(value.get());
+  }
+
   class VMRunner;
 
   class VMCallStack : public HardReferenceCountedAllocator<IVMCallStack> {
@@ -386,6 +397,12 @@ namespace {
     }
   private:
     template<typename... ARGS>
+    HardValue panic(ARGS&&... args) {
+      auto message = StringBuilder::concat(this->vm.getAllocator(), std::forward<ARGS>(args)...);
+      auto exception = this->createHardValueString(message);
+      return this->raiseException(exception);
+    }
+    template<typename... ARGS>
     HardValue raise(ARGS&&... args) {
       // TODO: Non-string exception?
       auto message = StringBuilder::concat(this->vm.getAllocator(), std::forward<ARGS>(args)...);
@@ -415,7 +432,7 @@ namespace {
         case Operation::UnaryValue::ArithmeticResult::Float:
           return this->createHardValueFloat(-unaryValue.f);
         case Operation::UnaryValue::ArithmeticResult::Mismatch:
-          return this->raise("TODO: Invalid value for '-' negation operator");
+          return this->raise("Expected operand of negation operator '-' to be an 'int' or 'float', but instead got ", describe(arg));
         }
         break;
       case ValueUnaryOp::BitwiseNot:
@@ -423,7 +440,7 @@ namespace {
         case Operation::UnaryValue::ExtractResult::Match:
           return this->createHardValueInt(~unaryValue.i);
         case Operation::UnaryValue::ExtractResult::Mismatch:
-          return this->raise("TODO: Invalid value for '~' bitwise-not operator");
+          return this->raise("Expected operand of bitwise-not operator '~' to be an 'int', but instead got ", describe(arg));
         }
         break;
       case ValueUnaryOp::LogicalNot:
@@ -431,11 +448,11 @@ namespace {
         case Operation::UnaryValue::ExtractResult::Match:
           return this->createHardValueBool(!unaryValue.b);
         case Operation::UnaryValue::ExtractResult::Mismatch:
-          return this->raise("TODO: Invalid value for '!' logical-not operator");
+          return this->raise("Expected operand of logical-not operator '!' to be a 'bool', but instead got ", describe(arg));
         }
         break;
       }
-      return this->raise("TODO: Unknown unary operator");
+      return this->panic("Unknown unary operator: ", op);
     }
     HardValue binary(ValueBinaryOp op, const HardValue& lhs, const HardValue& rhs) {
       Operation::BinaryValues binaryValues;
@@ -447,9 +464,9 @@ namespace {
         case Operation::BinaryValues::PromotionResult::Floats:
           return this->createHardValueFloat(binaryValues.f[0] + binaryValues.f[1]);
         case Operation::BinaryValues::PromotionResult::BadLeft:
-          return this->raise("TODO: Invalid left-hand value for '+' addition operator");
+          return this->raise("Expected left-hand operand of addition operator '+' to be an 'int' or 'float', but instead got ", describe(lhs));
         case Operation::BinaryValues::PromotionResult::BadRight:
-          return this->raise("TODO: Invalid right-hand value for '+' addition operator");
+          return this->raise("Expected right-hand operand of addition operator '+' to be an 'int' or 'float', but instead got ", describe(rhs));
         }
         break;
       case ValueBinaryOp::Subtract:
@@ -459,9 +476,9 @@ namespace {
         case Operation::BinaryValues::PromotionResult::Floats:
           return this->createHardValueFloat(binaryValues.f[0] - binaryValues.f[1]);
         case Operation::BinaryValues::PromotionResult::BadLeft:
-          return this->raise("TODO: Invalid left-hand value for '-' subtraction operator");
+          return this->raise("Expected left-hand operand of subtraction operator '-' to be an 'int' or 'float', but instead got ", describe(lhs));
         case Operation::BinaryValues::PromotionResult::BadRight:
-          return this->raise("TODO: Invalid right-hand value for '-' subtraction operator");
+          return this->raise("Expected right-hand operand of subtraction operator '-' to be an 'int' or 'float', but instead got ", describe(rhs));
         }
         break;
       case ValueBinaryOp::Multiply:
@@ -471,39 +488,39 @@ namespace {
         case Operation::BinaryValues::PromotionResult::Floats:
           return this->createHardValueFloat(binaryValues.f[0] * binaryValues.f[1]);
         case Operation::BinaryValues::PromotionResult::BadLeft:
-          return this->raise("TODO: Invalid left-hand value for '*' multiplication operator");
+          return this->raise("Expected left-hand operand of multiplication operator '*' to be an 'int' or 'float', but instead got ", describe(lhs));
         case Operation::BinaryValues::PromotionResult::BadRight:
-          return this->raise("TODO: Invalid right-hand value for '*' multiplication operator");
+          return this->raise("Expected right-hand operand of multiplication operator '*' to be an 'int' or 'float', but instead got ", describe(rhs));
         }
         break;
       case ValueBinaryOp::Divide:
         switch (binaryValues.promote(lhs, rhs)) {
         case Operation::BinaryValues::PromotionResult::Ints:
           if (binaryValues.i[1] == 0) {
-            return this->raise("TODO: Integer division by zero in '/' division operator");
+            return this->raise("Integer division by zero in division operator '/'");
           }
           return this->createHardValueInt(binaryValues.i[0] / binaryValues.i[1]);
         case Operation::BinaryValues::PromotionResult::Floats:
           return this->createHardValueFloat(binaryValues.f[0] / binaryValues.f[1]);
         case Operation::BinaryValues::PromotionResult::BadLeft:
-          return this->raise("TODO: Invalid left-hand value for '/' division operator");
+          return this->raise("Expected left-hand operand of division operator '/' to be an 'int' or 'float', but instead got ", describe(lhs));
         case Operation::BinaryValues::PromotionResult::BadRight:
-          return this->raise("TODO: Invalid right-hand value for '/' division operator");
+          return this->raise("Expected right-hand operand of division operator '/' to be an 'int' or 'float', but instead got ", describe(rhs));
         }
         break;
       case ValueBinaryOp::Remainder:
         switch (binaryValues.promote(lhs, rhs)) {
         case Operation::BinaryValues::PromotionResult::Ints:
           if (binaryValues.i[1] == 0) {
-            return this->raise("TODO: Integer division by zero in '%' remainder operator");
+            return this->raise("Integer division by zero in remainder operator '%'");
           }
           return this->createHardValueInt(binaryValues.i[0] % binaryValues.i[1]);
         case Operation::BinaryValues::PromotionResult::Floats:
           return this->createHardValueFloat(std::fmod(binaryValues.f[0], binaryValues.f[1]));
         case Operation::BinaryValues::PromotionResult::BadLeft:
-          return this->raise("TODO: Invalid left-hand value for '%' remainder operator");
+          return this->raise("Expected left-hand operand of remainder operator '%' to be an 'int' or 'float', but instead got ", describe(lhs));
         case Operation::BinaryValues::PromotionResult::BadRight:
-          return this->raise("TODO: Invalid right-hand value for '%' remainder operator");
+          return this->raise("Expected right-hand operand of remainder operator '%' to be an 'int' or 'float', but instead got ", describe(rhs));
         }
         break;
       case ValueBinaryOp::LessThan:
@@ -513,9 +530,9 @@ namespace {
         case Operation::BinaryValues::PromotionResult::Floats:
           return this->createHardValueBool(binaryValues.compareFloats(Arithmetic::Compare::LessThan, false));
         case Operation::BinaryValues::PromotionResult::BadLeft:
-          return this->raise("TODO: Invalid left-hand value for '<' comparison operator");
+          return this->raise("Expected left-hand side of comparison operator '<' to be an 'int' or 'float', but instead got ", describe(lhs));
         case Operation::BinaryValues::PromotionResult::BadRight:
-          return this->raise("TODO: Invalid right-hand value for '<' comparison operator");
+          return this->raise("Expected right-hand side of comparison operator '<' to be an 'int' or 'float', but instead got ", describe(rhs));
         }
         break;
       case ValueBinaryOp::LessThanOrEqual:
@@ -525,9 +542,9 @@ namespace {
         case Operation::BinaryValues::PromotionResult::Floats:
           return this->createHardValueBool(binaryValues.compareFloats(Arithmetic::Compare::LessThanOrEqual, false));
         case Operation::BinaryValues::PromotionResult::BadLeft:
-          return this->raise("TODO: Invalid left-hand value for '<=' comparison operator");
+          return this->raise("Expected left-hand operand of comparison operator '<=' to be an 'int' or 'float', but instead got ", describe(lhs));
         case Operation::BinaryValues::PromotionResult::BadRight:
-          return this->raise("TODO: Invalid right-hand value for '<=' comparison operator");
+          return this->raise("Expected right-hand operand of comparison operator '<=' to be an 'int' or 'float', but instead got ", describe(rhs));
         }
         break;
       case ValueBinaryOp::Equal:
@@ -543,9 +560,9 @@ namespace {
         case Operation::BinaryValues::PromotionResult::Floats:
           return this->createHardValueBool(binaryValues.compareFloats(Arithmetic::Compare::GreaterThanOrEqual, false));
         case Operation::BinaryValues::PromotionResult::BadLeft:
-          return this->raise("TODO: Invalid left-hand value for '>=' comparison operator");
+          return this->raise("Expected left-hand operand of comparison operator '>=' to be an 'int' or 'float', but instead got ", describe(lhs));
         case Operation::BinaryValues::PromotionResult::BadRight:
-          return this->raise("TODO: Invalid right-hand value for '>=' comparison operator");
+          return this->raise("Expected right-hand operand of comparison operator '>=' to be an 'int' or 'float', but instead got ", describe(rhs));
         }
         break;
       case ValueBinaryOp::GreaterThan:
@@ -555,9 +572,9 @@ namespace {
         case Operation::BinaryValues::PromotionResult::Floats:
           return this->createHardValueBool(binaryValues.compareFloats(Arithmetic::Compare::GreaterThan, false));
         case Operation::BinaryValues::PromotionResult::BadLeft:
-          return this->raise("TODO: Invalid left-hand value for '>' comparison operator");
+          return this->raise("Expected left-hand operand of comparison operator '>' to be an 'int' or 'float', but instead got ", describe(lhs));
         case Operation::BinaryValues::PromotionResult::BadRight:
-          return this->raise("TODO: Invalid right-hand value for '>' comparison operator");
+          return this->raise("Expected right-hand operand of comparison operator '>' to be an 'int' or 'float', but instead got ", describe(rhs));
         }
         break;
       case ValueBinaryOp::BitwiseAnd:
@@ -567,11 +584,11 @@ namespace {
         case Operation::BinaryValues::BitwiseResult::Ints:
           return this->createHardValueInt(binaryValues.i[0] & binaryValues.i[1]);
         case Operation::BinaryValues::BitwiseResult::BadLeft:
-          return this->raise("TODO: Invalid left-hand value for '&' bitwise-and operator");
+          return this->raise("Expected left-hand operand of bitwise-and operator '&' to be a 'bool' or 'int', but instead got ", describe(lhs));
         case Operation::BinaryValues::BitwiseResult::BadRight:
-          return this->raise("TODO: Invalid right-hand value for '&' bitwise-and operator");
+          return this->raise("Expected right-hand operand of bitwise-and operator '&' to be a 'bool' or 'int', but instead got ", describe(rhs));
         case Operation::BinaryValues::BitwiseResult::Mismatch:
-          return this->raise("TODO: Type mismatch in values for '&' bitwise-and operator");
+          return this->raise("Type mismatch in bitwise-and operator '&': left-hand side is ", describe(lhs), ", but right-hand side is ", describe(rhs));
         }
         break;
       case ValueBinaryOp::BitwiseOr:
@@ -581,11 +598,11 @@ namespace {
         case Operation::BinaryValues::BitwiseResult::Ints:
           return this->createHardValueInt(binaryValues.i[0] | binaryValues.i[1]);
         case Operation::BinaryValues::BitwiseResult::BadLeft:
-          return this->raise("TODO: Invalid left-hand value for '|' bitwise-or operator");
+          return this->raise("Expected left-hand operand of bitwise-or operator '|' to be a 'bool' or 'int', but instead got ", describe(lhs));
         case Operation::BinaryValues::BitwiseResult::BadRight:
-          return this->raise("TODO: Invalid right-hand value for '|' bitwise-or operator");
+          return this->raise("Expected right-hand operand of bitwise-or operator '|' to be a 'bool' or 'int', but instead got ", describe(rhs));
         case Operation::BinaryValues::BitwiseResult::Mismatch:
-          return this->raise("TODO: Type mismatch in values for '|' bitwise-or operator");
+          return this->raise("Type mismatch in bitwise-or operator '|': left-hand side is ", describe(lhs), ", but right-hand side is ", describe(rhs));
         }
         break;
       case ValueBinaryOp::BitwiseXor:
@@ -595,11 +612,11 @@ namespace {
         case Operation::BinaryValues::BitwiseResult::Ints:
           return this->createHardValueInt(binaryValues.i[0] ^ binaryValues.i[1]);
         case Operation::BinaryValues::BitwiseResult::BadLeft:
-          return this->raise("TODO: Invalid left-hand value for '^' bitwise-xor operator");
+          return this->raise("Expected left-hand operand of bitwise-xor operator '^' to be a 'bool' or 'int', but instead got ", describe(lhs));
         case Operation::BinaryValues::BitwiseResult::BadRight:
-          return this->raise("TODO: Invalid right-hand value for '^' bitwise-xor operator");
+          return this->raise("Expected right-hand operand of bitwise-xor operator '^' to be a 'bool' or 'int', but instead got ", describe(rhs));
         case Operation::BinaryValues::BitwiseResult::Mismatch:
-          return this->raise("TODO: Type mismatch in values for '^' bitwise-xor operator");
+          return this->raise("Type mismatch in bitwise-xor operator '^': left-hand side is ", describe(lhs), ", but right-hand side is ", describe(rhs));
         }
         break;
       case ValueBinaryOp::ShiftLeft:
@@ -607,9 +624,9 @@ namespace {
         case Operation::BinaryValues::ExtractResult::Match:
           return this->createHardValueInt(binaryValues.shiftInts(Arithmetic::Shift::ShiftLeft));
         case Operation::BinaryValues::ExtractResult::BadLeft:
-          return this->raise("TODO: Invalid left-hand value for '<<' left-shift operator");
+          return this->raise("Expected left-hand operand of left-shift operator '<<' to be an 'int', but instead got ", describe(lhs));
         case Operation::BinaryValues::ExtractResult::BadRight:
-          return this->raise("TODO: Invalid right-hand value for '<<' left-shift operator");
+          return this->raise("Expected right-hand operand of left-shift operator '<<' to be an 'int', but instead got ", describe(rhs));
         }
         break;
       case ValueBinaryOp::ShiftRight:
@@ -617,9 +634,9 @@ namespace {
         case Operation::BinaryValues::ExtractResult::Match:
           return this->createHardValueInt(binaryValues.shiftInts(Arithmetic::Shift::ShiftRight));
         case Operation::BinaryValues::ExtractResult::BadLeft:
-          return this->raise("TODO: Invalid left-hand value for '>>' right-shift operator");
+          return this->raise("Expected left-hand operand of right-shift operator '>>' to be an 'int', but instead got ", describe(lhs));
         case Operation::BinaryValues::ExtractResult::BadRight:
-          return this->raise("TODO: Invalid right-hand value for '>>' right-shift operator");
+          return this->raise("Expected right-hand operand of right-shift operator '>>' to be an 'int', but instead got ", describe(rhs));
         }
         break;
       case ValueBinaryOp::ShiftRightUnsigned:
@@ -627,9 +644,9 @@ namespace {
         case Operation::BinaryValues::ExtractResult::Match:
           return this->createHardValueInt(binaryValues.shiftInts(Arithmetic::Shift::ShiftRightUnsigned));
         case Operation::BinaryValues::ExtractResult::BadLeft:
-          return this->raise("TODO: Invalid left-hand value for '<<<' unsigned-shift operator");
+          return this->raise("Expected left-hand operand of unsigned-shift operator '>>>' to be an 'int', but instead got ", describe(lhs));
         case Operation::BinaryValues::ExtractResult::BadRight:
-          return this->raise("TODO: Invalid right-hand value for '<<<' unsigned-shift operator");
+          return this->raise("Expected right-hand operand of unsigned-shift operator '>>>' to be an 'int', but instead got ", describe(rhs));
         }
         break;
       case ValueBinaryOp::IfNull:
@@ -641,9 +658,9 @@ namespace {
         case Operation::BinaryValues::ExtractResult::Match:
           return this->createHardValueBool(binaryValues.b[0] || binaryValues.b[1]);
         case Operation::BinaryValues::ExtractResult::BadLeft:
-          return this->raise("TODO: Invalid left-hand value for '||' logical-or operator");
+          return this->raise("Expected left-hand operand of logical-or operator '||' to be a 'bool', but instead got ", describe(lhs));
         case Operation::BinaryValues::ExtractResult::BadRight:
-          return this->raise("TODO: Invalid right-hand value for '||' logical-or operator");
+          return this->raise("Expected right-hand operand of logical-or operator '||' to be a 'bool', but instead got ", describe(rhs));
         }
         break;
       case ValueBinaryOp::IfTrue:
@@ -652,13 +669,13 @@ namespace {
         case Operation::BinaryValues::ExtractResult::Match:
           return this->createHardValueBool(binaryValues.b[0] && binaryValues.b[1]);
         case Operation::BinaryValues::ExtractResult::BadLeft:
-          return this->raise("TODO: Invalid left-hand value for '&&' logical-and operator");
+          return this->raise("Expected left-hand operand of logical-and operator '&&' to be a 'bool', but instead got ", describe(lhs));
         case Operation::BinaryValues::ExtractResult::BadRight:
-          return this->raise("TODO: Invalid right-hand value for '&&' logical-and operator");
+          return this->raise("Expected right-hand operand of logical-and operator '&&' to be a 'bool', but instead got ", describe(rhs));
         }
         break;
       }
-      return this->raise("TODO: Unknown binary operator");
+      return this->panic("Unknown binary operator: ", op);
     }
     HardValue ternary(ValueTernaryOp op, const HardValue& lhs, const HardValue& mid, const HardValue& rhs) {
       Bool condition;
@@ -667,9 +684,9 @@ namespace {
         if (lhs->getBool(condition)) {
           return condition ? mid : rhs;
         }
-        return this->raise("TODO: Invalid condition value for '?:' ternary operator");
+        return this->raise("Expected condition value for ternary operator '?:' to be a 'bool', but instead got ", describe(lhs));
       }
-      return this->raise("TODO: Unknown ternary operator");
+      return this->panic("Unknown ternary operator: ", op);
     }
     HardValue precheck(ValueMutationOp op, HardValue& lhs, ValueFlags rhs) {
       // Handle short-circuits (returns 'Continue' if rhs should be evaluated)
@@ -688,10 +705,10 @@ namespace {
           // a ||= b
           // Iff lhs is false, we need to evaluation the rhs
           if ((lhs->getFlags() != ValueFlags::Bool) || lhs->getBool(bvalue)) {
-            return this->raise("TODO: Invalid left-hand target for '||=' operator");
+            return this->raise("Expected left-hand target of '||=' to be a 'bool', but instead got ", describe(lhs));
           }
           if (!Bits::hasAnySet(rhs, ValueFlags::Bool)) {
-            return this->raise("TODO: Invalid right-hand type for '||=' operator");
+            return this->raise("Expected right-hand value of '||=' to be a 'bool', but instead got ", describe(rhs));
           }
           if (!bvalue) {
             // Inform the caller we need to evaluate the rhs
@@ -703,10 +720,10 @@ namespace {
           // a &&= b
           // If lhs is NOT true, we need to evaluation the rhs
           if ((lhs->getFlags() != ValueFlags::Bool) || lhs->getBool(bvalue)) {
-            return this->raise("TODO: Invalid left-hand target for '&&=' operator");
+            return this->raise("Expected left-hand target of '&&=' to be a 'bool', but instead got ", describe(lhs));
           }
           if (!Bits::hasAnySet(rhs, ValueFlags::Bool)) {
-            return this->raise("TODO: Invalid right-hand type for '&&=' operator");
+            return this->raise("Expected right-hand value of '&&=' to be a 'bool', but instead got ", describe(rhs));
           }
           if (bvalue) {
             // Inform the caller we need to evaluate the rhs
@@ -1187,7 +1204,7 @@ namespace {
         this->raise("Cannot modify builtin symbol: '", name, "'");
         return false;
       case VMSymbolTable::SetResult::Mismatch:
-        this->raise("Type mismatch setting variable '", name, "': expected '", this->symtable.type(name), "' but got '", value->getType(), "'");
+        this->raise("Type mismatch setting variable '", name, "': expected '", this->symtable.type(name), "' but instead got '", value->getType(), "'");
         return false;
       case VMSymbolTable::SetResult::Success:
         break;
@@ -1197,7 +1214,7 @@ namespace {
     HardValue stringIndexGet(const String& string, const HardValue& index) {
       Int ivalue;
       if (!index->getInt(ivalue)) {
-        return this->createRuntimeError("Invalid right hand side for string '[]' operator");
+        return this->createRuntimeError("Expected index in string operator '[]' to be an 'int', but instead got ", describe(index));
       }
       auto cp = string.codePointAt(size_t(ivalue));
       if (cp < 0) {
@@ -1208,12 +1225,12 @@ namespace {
     HardValue stringPropertyGet(const String& string, const HardValue& property) {
       String pname;
       if (!property->getString(pname)) {
-        return this->createRuntimeError("Invalid right hand side for string '.' operator");
+        return this->createRuntimeError("Invalid right-hand side for string operator '.'");
       }
       if (pname.equals("length")) {
         return this->createHardValueInt(Int(string.length()));
       }
-      auto message = this->createString("Invalid right hand side for string '.' operator");
+      auto message = this->createString("Invalid right-hand side for string operator '.'");
       return this->createRuntimeError("Unknown string property name: '", pname, "'");
     }
   };
@@ -1492,9 +1509,10 @@ bool VMRunner::stepNode(HardValue& retval) {
     } else {
       // Perform the property fetch (object targets only, not strings)
       assert(top.deque.size() == 3);
+      auto& instance = top.deque.front();
       HardObject object;
-      if (!top.deque.front()->getHardObject(object)) {
-        return this->raise("Invalid left hand side for '.' operator");
+      if (!instance->getHardObject(object)) {
+        return this->raise("Expected left-hand side of operator '.' to be an object, but instead got ", describe(instance));
       }
       auto& property = top.deque[1];
       auto& value = top.deque.back();
@@ -1522,7 +1540,7 @@ bool VMRunner::stepNode(HardValue& retval) {
         // Test the condition
         Bool condition;
         if (!latest->getBool(condition)) {
-          return this->raise("Statement 'if' condition expected to be a value of type 'bool'");
+          return this->raise("Expected 'if' condition to be a 'bool', but instead got ", describe(latest));
         }
         top.deque.clear();
         if (condition) {
@@ -1567,7 +1585,7 @@ bool VMRunner::stepNode(HardValue& retval) {
         // Test the condition
         Bool condition;
         if (!latest->getBool(condition)) {
-          return this->raise("Statement 'while' condition expected to be a value of type 'bool'");
+          return this->raise("Expected 'while' condition to be a 'bool', but instead got ", describe(latest));
         }
         top.deque.clear();
         if (condition) {
@@ -1612,7 +1630,7 @@ bool VMRunner::stepNode(HardValue& retval) {
         // Test the condition
         Bool condition;
         if (!latest->getBool(condition)) {
-          return this->raise("Statement 'do' condition expected to be a value of type 'bool'");
+          return this->raise("Expected 'do' condition to be a 'bool', but instead got ", describe(latest));
         }
         top.deque.clear();
         if (condition) {
@@ -1708,7 +1726,7 @@ bool VMRunner::stepNode(HardValue& retval) {
         // Test the condition
         Bool condition;
         if (!latest->getBool(condition)) {
-          return this->raise("Statement 'for' condition expected to be a value of type 'bool'");
+          return this->raise("Expected 'for' condition to be a 'bool', but instead got ", describe(latest));
         }
         top.deque.clear();
         if (condition) {
@@ -2194,7 +2212,7 @@ bool VMRunner::stepNode(HardValue& retval) {
       if (lhs->getString(string)) {
         return this->pop(this->stringPropertyGet(string, rhs));
       }
-      return this->raise("Invalid left hand side for '.' operator");
+      return this->raise("Expected left-hand side of operator '.' to be a 'string', but instead got ", describe(lhs));
     }
     break;
   case IVMModule::Node::Kind::ExprStringCall:
@@ -2246,7 +2264,7 @@ bool VMRunner::stepNode(HardValue& retval) {
       if (lhs->getString(string)) {
         return this->pop(this->stringIndexGet(string, rhs));
       }
-      return this->raise("Invalid left hand side for '[]' operator");
+      return this->raise("Expected left-hand side of operator '[]' to be a 'string', but instead got ", describe(lhs));
     }
     break;
   case IVMModule::Node::Kind::TypeInfer:

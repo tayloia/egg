@@ -749,7 +749,7 @@ TEST(TestVM, BinaryDivideZero) {
     STMT_PRINT(EXPR_BINARY(Divide, EXPR_LITERAL(123), EXPR_LITERAL(0)))
   );
   buildAndRunFailed(vm, *pbuilder, *mbuilder);
-  ASSERT_EQ("#+INF\n#+INF\n#+INF\n#NAN\n#NAN\n<ERROR>test: TODO: Integer division by zero in '/' division operator\n", vm.logger.logged.str());
+  ASSERT_EQ("#+INF\n#+INF\n#+INF\n#NAN\n#NAN\n<ERROR>test: Integer division by zero in division operator '/'\n", vm.logger.logged.str());
 }
 
 TEST(TestVM, BinaryRemainder) {
@@ -805,7 +805,7 @@ TEST(TestVM, BinaryRemainderZero) {
     STMT_PRINT(EXPR_BINARY(Remainder, EXPR_LITERAL(123), EXPR_LITERAL(0)))
   );
   buildAndRunFailed(vm, *pbuilder, *mbuilder);
-  ASSERT_EQ("#NAN\n#NAN\n#NAN\n#NAN\n#NAN\n<ERROR>test: TODO: Integer division by zero in '%' remainder operator\n", vm.logger.logged.str());
+  ASSERT_EQ("#NAN\n#NAN\n#NAN\n#NAN\n#NAN\n<ERROR>test: Integer division by zero in remainder operator '%'\n", vm.logger.logged.str());
 }
 
 TEST(TestVM, BinaryCompare) {

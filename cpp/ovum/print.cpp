@@ -46,6 +46,44 @@ namespace {
       }
     }
   }
+
+  const char* valueFlagsComponent(ValueFlags flags) {
+    EGG_WARNING_SUPPRESS_SWITCH_BEGIN
+    switch (flags) {
+#define EGG_OVUM_VALUE_FLAGS_COMPONENT(name, text) case ValueFlags::name: return text;
+      EGG_OVUM_VALUE_FLAGS(EGG_OVUM_VALUE_FLAGS_COMPONENT)
+#undef EGG_OVUM_VALUE_FLAGS_COMPONENT
+    case ValueFlags::Any:
+      return "any";
+    }
+  EGG_WARNING_SUPPRESS_SWITCH_END
+    return nullptr;
+  }
+
+  int valueFlagsWrite(std::ostream& os, ValueFlags flags) {
+    auto* component = valueFlagsComponent(flags);
+    if (component != nullptr) {
+      os << component;
+      return 0;
+    }
+    if (Bits::hasAnySet(flags, ValueFlags::Null)) {
+      auto nonnull = valueFlagsWrite(os, Bits::clear(flags, ValueFlags::Null));
+      os << '?';
+      return std::max(nonnull, 1);
+    }
+    if (Bits::hasAnySet(flags, ValueFlags::Void)) {
+      os << "void|";
+      (void)valueFlagsWrite(os, Bits::clear(flags, ValueFlags::Void));
+      return 2;
+    }
+    auto head = Bits::topmost(flags);
+    assert(head != ValueFlags::None);
+    component = valueFlagsComponent(head);
+    assert(component != nullptr);
+    os << component << '|';
+    (void)valueFlagsWrite(os, Bits::clear(flags, head));
+    return 2;
+  }
 }
 
 const egg::ovum::Print::Options egg::ovum::Print::Options::DEFAULT = constructDefault();
@@ -119,12 +157,16 @@ void egg::ovum::Print::write(std::ostream& stream, const IValue* value, const Op
   }
 }
 
-void egg::ovum::Print::write(std::ostream& stream, const Type& value, const Options&) {
+void egg::ovum::Print::write(std::ostream& stream, const IType* value, const Options&) {
   if (value == nullptr) {
     stream << "null";
   } else {
     stream << value->toStringPrecedence().first;
   }
+}
+
+void egg::ovum::Print::write(std::ostream& stream, const Type& value, const Options& options) {
+  Print::write(stream, &*value, options);
 }
 
 void egg::ovum::Print::write(std::ostream& stream, ValueFlags value, const Options&) {
@@ -409,6 +451,52 @@ void egg::ovum::Print::escape(std::ostream& stream, const std::string& value, ch
       escapeCodepoint(stream, quote, char32_t(codeunit));
     }
   }
+}
+
+int egg::ovum::Print::describe(std::ostream& stream, ValueFlags value, const Options& options) {
+  if (options.quote != '\0') {
+    stream << options.quote;
+  }
+  auto precedence = valueFlagsWrite(stream, value);
+  if (options.quote != '\0') {
+    stream << options.quote;
+  }
+  return precedence;
+}
+
+void egg::ovum::Print::describe(std::ostream& stream, const IType& value, const Options& options) {
+  // TODO complex types
+  (void)Print::describe(stream, value.getPrimitiveFlags(), options);
+}
+
+void egg::ovum::Print::describe(std::ostream& stream, const IValue& value, const Options& options) {
+  // TODO complex types
+  Options quoted = options;
+  if (quoted.quote == '\0') {
+    quoted.quote = '\'';
+  }
+  Bool bvalue;
+  EGG_WARNING_SUPPRESS_SWITCH_BEGIN
+  switch (value.getFlags()) {
+  case ValueFlags::None:
+    stream << "nothing";
+    return;
+  case ValueFlags::Void:
+    stream << quoted.quote << "void" << quoted.quote;
+    return;
+  case ValueFlags::Null:
+    stream << quoted.quote << "null" << quoted.quote;
+    return;
+  case ValueFlags::Bool:
+    if (value.getBool(bvalue)) {
+      stream << quoted.quote << (bvalue ? "true" : "false") << quoted.quote;
+      return;
+    }
+    break;
+  }
+  EGG_WARNING_SUPPRESS_SWITCH_END
+  stream << "a value of type ";
+  Print::describe(stream, *value.getType(), quoted);
 }
 
 egg::ovum::Printer& egg::ovum::Printer::operator<<(const String& value) {
