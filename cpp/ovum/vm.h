@@ -51,6 +51,18 @@ namespace egg::ovum {
     Noop // TODO cancels any pending prechecks on this thread
   };
 
+  // Predicate operators
+  enum class ValuePredicateOp {
+    LogicalNot,         // !a
+    LessThan,           // a < b
+    LessThanOrEqual,    // a <= b
+    Equal,              // a == b
+    NotEqual,           // a != b
+    GreaterThanOrEqual, // a >= b
+    GreaterThan,        // a > b
+    None                // a
+  };
+
   // Type operators
   enum class TypeUnaryOp {
     Pointer,            // t*
@@ -151,6 +163,7 @@ namespace egg::ovum {
     virtual HardValue evaluateValueTernaryOp(ValueTernaryOp op, const HardValue& lhs, const HardValue& mid, const HardValue& rhs) = 0;
     virtual HardValue precheckValueMutationOp(ValueMutationOp op, HardValue& lhs, ValueFlags rhs) = 0;
     virtual HardValue evaluateValueMutationOp(ValueMutationOp op, HardValue& lhs, const HardValue& rhs) = 0;
+    virtual HardValue evaluateValuePredicateOp(ValuePredicateOp op, const HardValue& lhs, const HardValue& rhs) = 0;
   };
 
   class IVMCollectable : public ICollectable, public IVMCommon {
@@ -200,38 +213,39 @@ namespace egg::ovum {
     virtual Node& getRoot() = 0;
     virtual HardPtr<IVMModule> build() = 0;
     // Value expression factories
-    virtual Node& exprValueUnaryOp(ValueUnaryOp op, Node& arg, size_t line, size_t column) = 0;
-    virtual Node& exprValueBinaryOp(ValueBinaryOp op, Node& lhs, Node& rhs, size_t line, size_t column) = 0;
-    virtual Node& exprValueTernaryOp(ValueTernaryOp op, Node& lhs, Node& mid, Node& rhs, size_t line, size_t column) = 0;
-    virtual Node& exprVariable(const String& symbol, size_t line, size_t column) = 0;
-    virtual Node& exprLiteral(const HardValue& literal, size_t line, size_t column) = 0;
-    virtual Node& exprPropertyGet(Node& instance, Node& property, size_t line, size_t column) = 0;
-    virtual Node& exprFunctionCall(Node& function, size_t line, size_t column) = 0;
-    virtual Node& exprStringCall(size_t line, size_t column) = 0;
-    virtual Node& exprIndexGet(Node& instance, Node& index, size_t line, size_t column) = 0;
+    virtual Node& exprValueUnaryOp(ValueUnaryOp op, Node& arg, const SourceRange& range) = 0;
+    virtual Node& exprValueBinaryOp(ValueBinaryOp op, Node& lhs, Node& rhs, const SourceRange& range) = 0;
+    virtual Node& exprValueTernaryOp(ValueTernaryOp op, Node& lhs, Node& mid, Node& rhs, const SourceRange& range) = 0;
+    virtual Node& exprValuePredicateOp(ValuePredicateOp op, const SourceRange& range) = 0;
+    virtual Node& exprVariable(const String& symbol, const SourceRange& range) = 0;
+    virtual Node& exprLiteral(const HardValue& literal, const SourceRange& range) = 0;
+    virtual Node& exprPropertyGet(Node& instance, Node& property, const SourceRange& range) = 0;
+    virtual Node& exprFunctionCall(Node& function, const SourceRange& range) = 0;
+    virtual Node& exprStringCall(const SourceRange& range) = 0;
+    virtual Node& exprIndexGet(Node& instance, Node& index, const SourceRange& range) = 0;
     // Type expression factories
-    virtual Node& typeLiteral(const Type& type, size_t line, size_t column) = 0;
+    virtual Node& typeLiteral(const Type& type, const SourceRange& range) = 0;
     // Statement factories
-    virtual Node& stmtBlock(size_t line, size_t column) = 0;
-    virtual Node& stmtIf(Node& condition, size_t line, size_t column) = 0;
-    virtual Node& stmtWhile(Node& condition, Node& block, size_t line, size_t column) = 0;
-    virtual Node& stmtDo(Node& block, Node& condition, size_t line, size_t column) = 0;
-    virtual Node& stmtForEach(const String& symbol, Node& type, Node& iteration, Node& block, size_t line, size_t column) = 0;
-    virtual Node& stmtForLoop(Node& initial, Node& condition, Node& advance, Node& block, size_t line, size_t column) = 0;
-    virtual Node& stmtSwitch(Node& expression, size_t defaultIndex, size_t line, size_t column) = 0;
-    virtual Node& stmtCase(Node& block, size_t line, size_t column) = 0;
-    virtual Node& stmtBreak(size_t line, size_t column) = 0;
-    virtual Node& stmtContinue(size_t line, size_t column) = 0;
-    virtual Node& stmtVariableDeclare(const String& symbol, Node& type, size_t line, size_t column) = 0;
-    virtual Node& stmtVariableDefine(const String& symbol, Node& type, Node& value, size_t line, size_t column) = 0;
-    virtual Node& stmtVariableSet(const String& symbol, Node& value, size_t line, size_t column) = 0;
-    virtual Node& stmtVariableMutate(const String& symbol, ValueMutationOp op, Node& value, size_t line, size_t column) = 0;
-    virtual Node& stmtPropertySet(Node& instance, Node& property, Node& value, size_t line, size_t column) = 0;
-    virtual Node& stmtFunctionCall(Node& function, size_t line, size_t column) = 0;
-    virtual Node& stmtThrow(Node& exception, size_t line, size_t column) = 0;
-    virtual Node& stmtTry(Node& block, size_t line, size_t column) = 0;
-    virtual Node& stmtCatch(const String& symbol, Node& type, size_t line, size_t column) = 0;
-    virtual Node& stmtRethrow(size_t line, size_t column) = 0;
+    virtual Node& stmtBlock(const SourceRange& range) = 0;
+    virtual Node& stmtIf(Node& condition, const SourceRange& range) = 0;
+    virtual Node& stmtWhile(Node& condition, Node& block, const SourceRange& range) = 0;
+    virtual Node& stmtDo(Node& block, Node& condition, const SourceRange& range) = 0;
+    virtual Node& stmtForEach(const String& symbol, Node& type, Node& iteration, Node& block, const SourceRange& range) = 0;
+    virtual Node& stmtForLoop(Node& initial, Node& condition, Node& advance, Node& block, const SourceRange& range) = 0;
+    virtual Node& stmtSwitch(Node& expression, size_t defaultIndex, const SourceRange& range) = 0;
+    virtual Node& stmtCase(Node& block, const SourceRange& range) = 0;
+    virtual Node& stmtBreak(const SourceRange& range) = 0;
+    virtual Node& stmtContinue(const SourceRange& range) = 0;
+    virtual Node& stmtVariableDeclare(const String& symbol, Node& type, const SourceRange& range) = 0;
+    virtual Node& stmtVariableDefine(const String& symbol, Node& type, Node& value, const SourceRange& range) = 0;
+    virtual Node& stmtVariableSet(const String& symbol, Node& value, const SourceRange& range) = 0;
+    virtual Node& stmtVariableMutate(const String& symbol, ValueMutationOp op, Node& value, const SourceRange& range) = 0;
+    virtual Node& stmtPropertySet(Node& instance, Node& property, Node& value, const SourceRange& range) = 0;
+    virtual Node& stmtFunctionCall(Node& function, const SourceRange& range) = 0;
+    virtual Node& stmtThrow(Node& exception, const SourceRange& range) = 0;
+    virtual Node& stmtTry(Node& block, const SourceRange& range) = 0;
+    virtual Node& stmtCatch(const String& symbol, Node& type, const SourceRange& range) = 0;
+    virtual Node& stmtRethrow(const SourceRange& range) = 0;
     // Type operations
     virtual Type deduceType(Node& node) = 0;
     // Modifiers

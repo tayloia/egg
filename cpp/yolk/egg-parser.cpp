@@ -123,7 +123,8 @@ namespace {
         auto message = egg::ovum::String::fromUTF8(this->allocator, reason.data(), reason.size());
         const auto& begin = exception.location().begin;
         const auto& end = exception.location().end;
-        this->issues.emplace_back(Issue::Severity::Error, message, Location{ begin.line, begin.column }, Location{ end.line, end.column });
+        egg::ovum::SourceRange range{ { begin.line, begin.column }, { end.line, end.column } };
+        this->issues.emplace_back(Issue::Severity::Error, message, range);
         root = nullptr;
       }
       return { root, std::move(this->issues) };
@@ -193,7 +194,7 @@ namespace {
       }
       void wrap(Node::Kind kind) {
         assert(this->node != nullptr);
-        auto wrapper = this->parser.makeNode(kind, this->node->begin, this->node->end);
+        auto wrapper = this->parser.makeNode(kind, this->node->range);
         wrapper->children.emplace_back(std::move(this->node));
         assert(this->node == nullptr);
         this->node = std::move(wrapper);
@@ -232,8 +233,8 @@ namespace {
         this->parser.issues.push_back(issue);
         return this->failed();
       }
-      Partial failed(Issue::Severity severity, egg::ovum::String message, const Location& begin, const Location& end) const {
-        this->parser.issues.emplace_back(severity, message, begin, end);
+      Partial failed(Issue::Severity severity, egg::ovum::String message, const egg::ovum::SourceRange& range) const {
+        this->parser.issues.emplace_back(severity, message, range);
         return this->failed();
       }
       template<typename... ARGS>
@@ -258,10 +259,10 @@ namespace {
       assert(tokensBefore <= tokensAfter);
       auto message = egg::ovum::StringBuilder::concat(this->allocator, std::forward<ARGS>(args)...);
       auto& item0 = this->getAbsolute(tokensBefore);
-      Location location0{ item0.line, item0.column };
+      egg::ovum::SourceLocation location0{ item0.line, item0.column };
       auto& item1 = this->getAbsolute(tokensAfter);
-      Location location1{ item1.line, item1.column + item1.width() };
-      return { severity, message, location0, location1 };
+      egg::ovum::SourceLocation location1{ item1.line, item1.column + item1.width() };
+      return { severity, message, { location0, location1 } };
     }
     bool parseModule(Node& root) {
       assert(this->issues.empty());
@@ -337,12 +338,14 @@ namespace {
       }
       auto partial = this->parseStatementSimple(tokidx);
       if (partial.succeeded()) {
-        if (partial.after(0).isOperator(EggTokenizerOperator::Semicolon)) {
+        auto& terminal = partial.after(0);
+        if (terminal.isOperator(EggTokenizerOperator::Semicolon)) {
           // Swallow the semicolon
+          partial.node->range.end = { terminal.line, terminal.column + 1 };
           partial.tokensAfter++;
           return partial;
         }
-        return PARSE_TODO(partial.tokensAfter, "expected ';' after simple statement, but instead got ", partial.after(0).toString());
+        return PARSE_TODO(partial.tokensAfter, "expected ';' after simple statement, but instead got ", terminal.toString());
       }
       return partial;
     }
@@ -637,6 +640,7 @@ namespace {
         auto target = this->parseTarget(tokidx + 1);
         if (target.succeeded()) {
           target.wrap(Node::Kind::StmtMutate);
+          target.node->range.begin = { context[0].line, context[0].column };
           target.node->op.valueMutationOp = egg::ovum::ValueMutationOp::Increment;
         }
         return target;
@@ -645,6 +649,7 @@ namespace {
         auto target = this->parseTarget(tokidx + 1);
         if (target.succeeded()) {
           target.wrap(Node::Kind::StmtMutate);
+          target.node->range.begin = { context[0].line, context[0].column };
           target.node->op.valueMutationOp = egg::ovum::ValueMutationOp::Decrement;
         }
         return target;
@@ -668,9 +673,10 @@ namespace {
         auto rhs = this->parseTypeExpression(lhs.tokensAfter + 1);
         if (rhs.succeeded()) {
           lhs.wrap(Node::Kind::TypeBinary);
-          lhs.tokensAfter = rhs.tokensAfter;
+          lhs.node->range.end = rhs.node->range.end;
           lhs.node->children.emplace_back(std::move(rhs.node));
           lhs.node->op.typeBinaryOp = egg::ovum::TypeBinaryOp::Union;
+          lhs.tokensAfter = rhs.tokensAfter;
           return lhs;
         }
         return rhs;
@@ -689,23 +695,28 @@ namespace {
             context.warning(partial.tokensAfter, partial.tokensAfter + 1, "Redundant repetition of type suffix '?'");
           } else {
             partial.wrap(Node::Kind::TypeUnary);
+            partial.node->range.end = { next.line, next.column + 1 };
             partial.node->op.typeUnaryOp = egg::ovum::TypeUnaryOp::Nullable;
           }
           partial.tokensAfter++;
         } else if (next.isOperator(EggTokenizerOperator::Star)) {
           // type*
           partial.wrap(Node::Kind::TypeUnary);
+          partial.node->range.end = { next.line, next.column + 1 };
           partial.node->op.typeUnaryOp = egg::ovum::TypeUnaryOp::Pointer;
           partial.tokensAfter++;
         } else if (next.isOperator(EggTokenizerOperator::Bang)) {
           // type!
           partial.wrap(Node::Kind::TypeUnary);
+          partial.node->range.end = { next.line, next.column + 1 };
           partial.node->op.typeUnaryOp = egg::ovum::TypeUnaryOp::Iterator;
           partial.tokensAfter++;
         } else if (next.isOperator(EggTokenizerOperator::BracketLeft)) {
-          if (partial.after(1).isOperator(EggTokenizerOperator::BracketRight)) {
+          auto& last = partial.after(1);
+          if (last.isOperator(EggTokenizerOperator::BracketRight)) {
             // type[]
             partial.wrap(Node::Kind::TypeUnary);
+            partial.node->range.end = { last.line, last.column + 1 };
             partial.node->op.typeUnaryOp = egg::ovum::TypeUnaryOp::Array;
             partial.tokensAfter += 2;
           } else {
@@ -714,10 +725,12 @@ namespace {
             if (!index.succeeded()) {
               return index;
             }
-            if (!index.after(0).isOperator(EggTokenizerOperator::BracketRight)) {
+            auto& terminal = index.after(0);
+            if (!terminal.isOperator(EggTokenizerOperator::BracketRight)) {
               return context.expected(index.tokensAfter, "']' after index type in map type");
             }
             partial.wrap(Node::Kind::TypeBinary);
+            partial.node->range.end = { terminal.line, terminal.column };
             partial.node->children.emplace_back(std::move(index.node));
             partial.node->op.typeBinaryOp = egg::ovum::TypeBinaryOp::Map;
             partial.tokensAfter = index.tokensAfter + 1;
@@ -798,10 +811,11 @@ namespace {
               return rhs;
             }
             lhs.wrap(Node::Kind::ExprTernary);
-            lhs.tokensAfter = rhs.tokensAfter;
+            lhs.node->range.end = rhs.node->range.end;
             lhs.node->children.emplace_back(std::move(mid.node));
             lhs.node->children.emplace_back(std::move(rhs.node));
             lhs.node->op.valueTernaryOp = egg::ovum::ValueTernaryOp::IfThenElse;
+            lhs.tokensAfter = rhs.tokensAfter;
           }
         }
       }
@@ -908,20 +922,23 @@ namespace {
         auto precedence2 = precedence(rhs.node->op.valueBinaryOp);
         assert(precedence2 > 0);
         if (precedence1 > precedence2) {
+          // OPTIMIZE
           // e.g. 'a*b+c' needs to parse to '[[a*b]+c]' not '[a*[b+c]]'
+          rhs.node->range.begin = lhs.node->range.begin;
           auto b = std::move(rhs.node->children[0]);
-          auto mid = this->makeNode(Node::Kind::ExprBinary, lhs.node->begin, b->end);
+          auto mid = this->makeNode(Node::Kind::ExprBinary, { lhs.node->range.begin, b->range.end });
           mid->children.emplace_back(std::move(lhs.node));
           mid->children.emplace_back(std::move(b));
+          mid->op.valueBinaryOp = op;
           rhs.node->children[0] = std::move(mid);
           return rhs;
         }
       }
       lhs.wrap(Node::Kind::ExprBinary);
-      lhs.tokensAfter = rhs.tokensAfter;
-      lhs.node->end = rhs.node->end;
+      lhs.node->range.end = rhs.node->range.end;
       lhs.node->children.emplace_back(std::move(rhs.node));
       lhs.node->op.valueBinaryOp = op;
+      lhs.tokensAfter = rhs.tokensAfter;
       return std::move(lhs);
     }
     Partial parseValueExpressionUnary(size_t tokidx) {
@@ -930,11 +947,11 @@ namespace {
       if (op.kind == EggTokenizerKind::Operator) {
         switch (op.value.o) {
         case EggTokenizerOperator::Bang: // "!"
-          return this->parseValueExpressionUnaryOperator(tokidx + 1, egg::ovum::ValueUnaryOp::LogicalNot);
+          return this->parseValueExpressionUnaryOperator(tokidx, egg::ovum::ValueUnaryOp::LogicalNot);
         case EggTokenizerOperator::Minus: // "-"
-          return this->parseValueExpressionUnaryOperator(tokidx + 1, egg::ovum::ValueUnaryOp::Negate);
+          return this->parseValueExpressionUnaryOperator(tokidx, egg::ovum::ValueUnaryOp::Negate);
         case EggTokenizerOperator::Tilde: // "~"
-          return this->parseValueExpressionUnaryOperator(tokidx + 1, egg::ovum::ValueUnaryOp::BitwiseNot);
+          return this->parseValueExpressionUnaryOperator(tokidx, egg::ovum::ValueUnaryOp::BitwiseNot);
         case EggTokenizerOperator::PlusPlus: // "++"
           return context.failed(tokidx, "'++' operator cannot be used in expressions");
         case EggTokenizerOperator::MinusMinus: // "--"
@@ -995,9 +1012,11 @@ namespace {
       return this->parseValueExpressionPrimary(tokidx);
     }
     Partial parseValueExpressionUnaryOperator(size_t tokidx, egg::ovum::ValueUnaryOp op) {
-      auto rhs = this->parseValueExpression(tokidx);
+      auto rhs = this->parseValueExpressionPrimary(tokidx + 1);
       if (rhs.succeeded()) {
+        auto& prefix = this->getAbsolute(tokidx);
         rhs.wrap(Node::Kind::ExprUnary);
+        rhs.node->range.begin = { prefix.line, prefix.column };
         rhs.node->op.valueUnaryOp = op;
       }
       return rhs;
@@ -1098,13 +1117,15 @@ namespace {
     }
     bool parseValueExpressionPrimarySuffix(Partial& partial) {
       assert(partial.succeeded());
-      auto& next = partial.after(0);
-      if (next.isOperator(EggTokenizerOperator::ParenthesisLeft)) {
+      auto* next = &partial.after(0);
+      if (next->isOperator(EggTokenizerOperator::ParenthesisLeft)) {
         // Function call
         partial.wrap(Node::Kind::ExprCall);
         partial.tokensAfter++;
-        if (partial.after(0).isOperator(EggTokenizerOperator::ParenthesisRight)) {
+        next = &partial.after(0);
+        if (next->isOperator(EggTokenizerOperator::ParenthesisRight)) {
           // No arguments
+          partial.node->range.end = { next->line, next->column + 1 };
           partial.tokensAfter++;
           return true;
         }
@@ -1115,20 +1136,21 @@ namespace {
             partial.fail(argument);
             return false;
           }
-          auto& separator = argument.after(0);
+          next = &argument.after(0);
           partial.node->children.emplace_back(std::move(argument.node));
           partial.tokensAfter = argument.tokensAfter + 1;
-          if (separator.isOperator(EggTokenizerOperator::ParenthesisRight)) {
+          if (next->isOperator(EggTokenizerOperator::ParenthesisRight)) {
             break;
           }
-          if (!separator.isOperator(EggTokenizerOperator::Comma)) {
-            partial.fail("TODO: Expected ',' between function call arguments, but instead got ", separator.toString());
+          if (!next->isOperator(EggTokenizerOperator::Comma)) {
+            partial.fail("TODO: Expected ',' between function call arguments, but instead got ", next->toString());
             return false;
           }
         }
+        partial.node->range.end = { next->line, next->column + 1 };
         return true;
       }
-      if (next.isOperator(EggTokenizerOperator::Dot)) {
+      if (next->isOperator(EggTokenizerOperator::Dot)) {
         // Property access
         auto& property = partial.after(1);
         switch (property.kind) {
@@ -1147,44 +1169,46 @@ namespace {
         auto rhs = this->makeNodeString(Node::Kind::Literal, property);
         partial.wrap(Node::Kind::ExprProperty);
         partial.node->children.emplace_back(std::move(rhs)); 
+        partial.node->range.end = { property.line, property.column + property.width() };
         partial.tokensAfter += 2;
         return true;
       }
-      if (next.isOperator(EggTokenizerOperator::BracketLeft)) {
+      if (next->isOperator(EggTokenizerOperator::BracketLeft)) {
         // Indexing
         auto index = this->parseValueExpression(partial.tokensAfter + 1);
         if (!index.succeeded()) {
           partial.fail(index);
           return false;
         }
-        if (index.after(0).isOperator(EggTokenizerOperator::ParenthesisRight)) {
+        next = &index.after(0);
+        if (next->isOperator(EggTokenizerOperator::ParenthesisRight)) {
           partial.fail("TODO: Expected ']' after index, but instead got ", index.after(0).toString());
           return false;
         }
         partial.wrap(Node::Kind::ExprIndex);
+        partial.node->range.end = { next->line, next->column + 1 };
         partial.node->children.emplace_back(std::move(index.node));
         partial.tokensAfter = index.tokensAfter + 1;
         return true;
       }
       return false;
     }
-    std::unique_ptr<Node> makeNode(Node::Kind kind, const Location& begin, const Location& end) {
+    std::unique_ptr<Node> makeNode(Node::Kind kind, const egg::ovum::SourceRange& range) {
       auto node = std::make_unique<Node>(kind);
-      node->begin = begin;
-      node->end = end;
+      node->range = range;
       return node;
     }
     std::unique_ptr<Node> makeNode(Node::Kind kind, const EggTokenizerItem& item) {
       auto node = std::make_unique<Node>(kind);
-      node->begin.line = item.line;
-      node->begin.column = item.column;
+      node->range.begin.line = item.line;
+      node->range.begin.column = item.column;
       auto width = item.width();
       if (width > 0) {
-        node->end.line = item.line;
-        node->end.column = item.column + width;
+        node->range.end.line = item.line;
+        node->range.end.column = item.column + width;
       } else {
-        node->end.line = 0;
-        node->end.column = 0;
+        node->range.end.line = 0;
+        node->range.end.column = 0;
       }
       return node;
     }

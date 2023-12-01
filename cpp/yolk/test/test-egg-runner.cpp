@@ -23,5 +23,5 @@ TEST(TestEggRunner, Failed) {
   ASSERT_TRUE(runner != nullptr);
   // Deliberately fail to call vm.addBuiltins(*runner);
   ASSERT_FALSE(vm.run(*runner));
-  ASSERT_EQ("<RUNTIME><ERROR>greeting.egg(2,3): Unknown variable symbol: 'print'\n", vm.logger.logged.str());
+  ASSERT_EQ("<RUNTIME><ERROR>greeting.egg(2,3-7): Unknown variable symbol: 'print'\n", vm.logger.logged.str());
 }

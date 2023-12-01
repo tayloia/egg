@@ -1,4 +1,20 @@
 namespace egg::ovum {
+  struct SourceLocation {
+    size_t line = 0;
+    size_t column = 0;
+    bool empty() const {
+      return (this->line == 0) && (this->column == 0);
+    }
+  };
+
+  struct SourceRange {
+    SourceLocation begin;
+    SourceLocation end;
+    bool empty() const {
+      return this->begin.empty();
+    }
+  };
+
   template<typename T>
   class Atomic {
     Atomic(Atomic&) = delete;

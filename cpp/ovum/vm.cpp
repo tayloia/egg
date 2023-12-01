@@ -1,6 +1,7 @@
 #include "ovum/ovum.h"
 #include "ovum/operation.h"
 
+#include <span>
 #include <stack>
 
 namespace {
@@ -18,6 +19,7 @@ public:
     ExprUnaryOp,
     ExprBinaryOp,
     ExprTernaryOp,
+    ExprPredicateOp,
     ExprVariable,
     ExprLiteral,
     ExprPropertyGet,
@@ -49,24 +51,23 @@ public:
   };
   VMModule& module;
   Kind kind;
-  size_t line; // May be zero
-  size_t column; // May be zero
+  SourceRange range; // May be zero
   HardValue literal; // Only stores simple literals
   union {
     ValueUnaryOp unaryOp;
     ValueBinaryOp binaryOp;
     ValueTernaryOp ternaryOp;
     ValueMutationOp mutationOp;
+    ValuePredicateOp predicateOp;
     size_t defaultIndex;
   };
   std::vector<Node*> children; // Reference-counting hard pointers are stored in the chain
-  Node(VMModule& module, Kind kind, size_t line, size_t column, Node* chain)
+  Node(VMModule& module, Kind kind, const SourceRange& range, Node* chain)
     : HardReferenceCounted<IHardAcquireRelease>(),
       chain(chain),
       module(module),
       kind(kind),
-      line(line),
-      column(column) {
+      range(range) {
   }
   void addChild(Node& child) {
     this->children.push_back(&child);
@@ -97,26 +98,15 @@ namespace {
     VMCallStack& operator=(const VMCallStack&) = delete;
   public:
     String resource;
-    size_t line;
-    size_t column;
+    SourceRange range;
     String function;
   public:
     explicit VMCallStack(IAllocator& allocator)
-      : HardReferenceCountedAllocator<IVMCallStack>(allocator),
-        line(0),
-        column(0) {
+      : HardReferenceCountedAllocator<IVMCallStack>(allocator) {
     }
     virtual void print(Printer& printer) const override {
-      if (!this->resource.empty() || (this->line > 0) || (this->column > 0)) {
-        printer << this->resource;
-        if ((this->line > 0) || (this->column > 0)) {
-          printer << '(' << this->line;
-          if (this->column > 0) {
-            printer << ',' << this->column;
-          }
-          printer << ')';
-        }
-        printer << ": ";
+      if (!this->resource.empty() || !this->range.empty()) {
+        printer << this->resource << this->range << ": ";
       }
       if (!this->function.empty()) {
         printer << this->function << ": ";
@@ -240,7 +230,7 @@ namespace {
     VMModule(IVM& vm, const String& resource)
       : VMUncollectable(vm),
         resource(resource) {
-      this->root = this->getAllocator().makeRaw<Node>(*this, Node::Kind::Root, 0u, 0u, nullptr);
+      this->root = this->getAllocator().makeRaw<Node>(*this, Node::Kind::Root, SourceRange{}, nullptr);
       this->chain.set(this->root);
     }
     virtual HardPtr<IVMRunner> createRunner(IVMProgram& program) override {
@@ -252,9 +242,9 @@ namespace {
     Node& getRoot() const {
       return *this->root;
     }
-    Node& createNode(Node::Kind kind, size_t line, size_t column) {
+    Node& createNode(Node::Kind kind, const SourceRange& range) {
       // Make sure we add the node to the internal linked list
-      auto* node = this->getAllocator().makeRaw<Node>(*this, kind, line, column, this->chain.get());
+      auto* node = this->getAllocator().makeRaw<Node>(*this, kind, range, this->chain.get());
       assert(node != nullptr);
       this->chain.set(node);
       return *node;
@@ -394,6 +384,9 @@ namespace {
     virtual HardValue evaluateValueMutationOp(ValueMutationOp op, HardValue& lhs, const HardValue& rhs) override {
       // Return the value before the mutation
       return this->augment(this->mutate(op, lhs, rhs));
+    }
+    virtual HardValue evaluateValuePredicateOp(ValuePredicateOp op, const HardValue& lhs, const HardValue& rhs) override {
+      return this->augment(this->predicate(op, lhs, rhs));
     }
   private:
     template<typename... ARGS>
@@ -783,6 +776,60 @@ namespace {
       }
       return lhs;
     }
+    HardValue predicate(ValuePredicateOp op, const HardValue& lhs, const HardValue& rhs) {
+      // TODO: Turn this into a first-class object with 'void()' semantics
+      const char* comparison = nullptr;
+      HardValue result;
+      switch (op) {
+      case ValuePredicateOp::LogicalNot:
+        assert(rhs->getVoid());
+        result = this->unary(ValueUnaryOp::LogicalNot, lhs);
+        break;
+      case ValuePredicateOp::LessThan:
+        comparison = " < ";
+        result = this->binary(ValueBinaryOp::LessThan, lhs, rhs);
+        break;
+      case ValuePredicateOp::LessThanOrEqual:
+        comparison = " <= ";
+        result = this->binary(ValueBinaryOp::LessThanOrEqual, lhs, rhs);
+        break;
+      case ValuePredicateOp::Equal:
+        comparison = " == ";
+        result = this->binary(ValueBinaryOp::Equal, lhs, rhs);
+        break;
+      case ValuePredicateOp::NotEqual:
+        comparison = " != ";
+        result = this->binary(ValueBinaryOp::NotEqual, lhs, rhs);
+        break;
+      case ValuePredicateOp::GreaterThanOrEqual:
+        comparison = " >= ";
+        result = this->binary(ValueBinaryOp::GreaterThanOrEqual, lhs, rhs);
+        break;
+      case ValuePredicateOp::GreaterThan:
+        comparison = " > ";
+        result = this->binary(ValueBinaryOp::GreaterThan, lhs, rhs);
+        break;
+      case ValuePredicateOp::None:
+      default:
+        assert(rhs->getVoid());
+        result = lhs;
+        break;
+      }
+      if (result.hasFlowControl()) {
+        return result;
+      }
+      Bool pass;
+      if (!result->getBool(pass)) {
+        return this->raise("Expected predicate value to be a 'bool', but instead got ", describe(result));
+      }
+      if (pass) {
+        return HardValue::True;
+      }
+      if (comparison != nullptr) {
+        return this->raise("Assertion is untrue: ", lhs, comparison, rhs);
+      }
+      return this->raise("Assertion is untrue");
+    }
   };
 
   class VMModuleBuilder : public VMUncollectable<IVMModuleBuilder> {
@@ -810,180 +857,185 @@ namespace {
       }
       return built;
     }
-    virtual Node& exprValueUnaryOp(ValueUnaryOp op, Node& arg, size_t line, size_t column) override {
-      auto& node = this->module->createNode(Node::Kind::ExprUnaryOp, line, column);
+    virtual Node& exprValueUnaryOp(ValueUnaryOp op, Node& arg, const SourceRange& range) override {
+      auto& node = this->module->createNode(Node::Kind::ExprUnaryOp, range);
       node.unaryOp = op;
       node.addChild(arg);
       return node;
     }
-    virtual Node& exprValueBinaryOp(ValueBinaryOp op, Node& lhs, Node& rhs, size_t line, size_t column) override {
-      auto& node = this->module->createNode(Node::Kind::ExprBinaryOp, line, column);
+    virtual Node& exprValueBinaryOp(ValueBinaryOp op, Node& lhs, Node& rhs, const SourceRange& range) override {
+      auto& node = this->module->createNode(Node::Kind::ExprBinaryOp, range);
       node.binaryOp = op;
       node.addChild(lhs);
       node.addChild(rhs);
       return node;
     }
-    virtual Node& exprValueTernaryOp(ValueTernaryOp op, Node& lhs, Node& mid, Node& rhs, size_t line, size_t column) override {
-      auto& node = this->module->createNode(Node::Kind::ExprTernaryOp, line, column);
+    virtual Node& exprValueTernaryOp(ValueTernaryOp op, Node& lhs, Node& mid, Node& rhs, const SourceRange& range) override {
+      auto& node = this->module->createNode(Node::Kind::ExprTernaryOp, range);
       node.ternaryOp = op;
       node.addChild(lhs);
       node.addChild(mid);
       node.addChild(rhs);
       return node;
     }
-    virtual Node& exprVariable(const String& symbol, size_t line, size_t column) override {
-      auto& node = this->module->createNode(Node::Kind::ExprVariable, line, column);
+    virtual Node& exprValuePredicateOp(ValuePredicateOp op, const SourceRange& range) override {
+      auto& node = this->module->createNode(Node::Kind::ExprPredicateOp, range);
+      node.predicateOp = op;
+      return node;
+    }
+    virtual Node& exprVariable(const String& symbol, const SourceRange& range) override {
+      auto& node = this->module->createNode(Node::Kind::ExprVariable, range);
       node.literal = this->createHardValueString(symbol);
       return node;
     }
-    virtual Node& exprStringCall(size_t line, size_t column) override {
-      auto& node = this->module->createNode(Node::Kind::ExprStringCall, line, column);
+    virtual Node& exprStringCall(const SourceRange& range) override {
+      auto& node = this->module->createNode(Node::Kind::ExprStringCall, range);
       return node;
     }
-    virtual Node& exprIndexGet(Node& instance, Node& index, size_t line, size_t column) override {
-      auto& node = this->module->createNode(Node::Kind::ExprIndexGet, line, column);
+    virtual Node& exprIndexGet(Node& instance, Node& index, const SourceRange& range) override {
+      auto& node = this->module->createNode(Node::Kind::ExprIndexGet, range);
       node.addChild(instance);
       node.addChild(index);
       return node;
     }
-    virtual Node& exprLiteral(const HardValue& literal, size_t line, size_t column) override {
-      auto& node = this->module->createNode(Node::Kind::ExprLiteral, line, column);
+    virtual Node& exprLiteral(const HardValue& literal, const SourceRange& range) override {
+      auto& node = this->module->createNode(Node::Kind::ExprLiteral, range);
       node.literal = literal;
       return node;
     }
-    virtual Node& exprPropertyGet(Node& instance, Node& property, size_t line, size_t column) override {
-      auto& node = this->module->createNode(Node::Kind::ExprPropertyGet, line, column);
+    virtual Node& exprPropertyGet(Node& instance, Node& property, const SourceRange& range) override {
+      auto& node = this->module->createNode(Node::Kind::ExprPropertyGet, range);
       node.addChild(instance);
       node.addChild(property);
       return node;
     }
-    virtual Node& exprFunctionCall(Node& function, size_t line, size_t column) override {
+    virtual Node& exprFunctionCall(Node& function, const SourceRange& range) override {
       if (function.kind == Node::Kind::ExprStringCall) {
         // Hoist the call
         return function;
       }
-      auto& node = this->module->createNode(Node::Kind::ExprFunctionCall, line, column);
+      auto& node = this->module->createNode(Node::Kind::ExprFunctionCall, range);
       node.addChild(function);
       return node;
     }
-    virtual Node& typeLiteral(const Type& type, size_t line, size_t column) override {
-      auto& node = this->module->createNode(Node::Kind::TypeLiteral, line, column);
+    virtual Node& typeLiteral(const Type& type, const SourceRange& range) override {
+      auto& node = this->module->createNode(Node::Kind::TypeLiteral, range);
       node.literal = this->createHardValueType(type);
       return node;
     }
-    virtual Node& stmtBlock(size_t line, size_t column) override {
-      auto& node = this->module->createNode(Node::Kind::StmtBlock, line, column);
+    virtual Node& stmtBlock(const SourceRange& range) override {
+      auto& node = this->module->createNode(Node::Kind::StmtBlock, range);
       return node;
     }
-    virtual Node& stmtIf(Node& condition, size_t line, size_t column) override {
-      auto& node = this->module->createNode(Node::Kind::StmtIf, line, column);
+    virtual Node& stmtIf(Node& condition, const SourceRange& range) override {
+      auto& node = this->module->createNode(Node::Kind::StmtIf, range);
       node.addChild(condition);
       return node;
     }
-    virtual Node& stmtWhile(Node& condition, Node& block, size_t line, size_t column) override {
-      auto& node = this->module->createNode(Node::Kind::StmtWhile, line, column);
+    virtual Node& stmtWhile(Node& condition, Node& block, const SourceRange& range) override {
+      auto& node = this->module->createNode(Node::Kind::StmtWhile, range);
       node.addChild(condition);
       node.addChild(block);
       return node;
     }
-    virtual Node& stmtDo(Node& block, Node& condition, size_t line, size_t column) override {
-      auto& node = this->module->createNode(Node::Kind::StmtDo, line, column);
+    virtual Node& stmtDo(Node& block, Node& condition, const SourceRange& range) override {
+      auto& node = this->module->createNode(Node::Kind::StmtDo, range);
       node.addChild(block);
       node.addChild(condition);
       return node;
     }
-    virtual Node& stmtForEach(const String& symbol, Node& type, Node& iteration, Node& block, size_t line, size_t column) override {
-      auto& node = this->module->createNode(Node::Kind::StmtForEach, line, column);
+    virtual Node& stmtForEach(const String& symbol, Node& type, Node& iteration, Node& block, const SourceRange& range) override {
+      auto& node = this->module->createNode(Node::Kind::StmtForEach, range);
       node.literal = this->createHardValueString(symbol);
       node.addChild(type);
       node.addChild(iteration);
       node.addChild(block);
       return node;
     }
-    virtual Node& stmtForLoop(Node& initial, Node& condition, Node& advance, Node& block, size_t line, size_t column) override {
+    virtual Node& stmtForLoop(Node& initial, Node& condition, Node& advance, Node& block, const SourceRange& range) override {
       // Note the change in order to be execution-based (initial/condition/block/advance)
-      auto& node = this->module->createNode(Node::Kind::StmtForLoop, line, column);
+      auto& node = this->module->createNode(Node::Kind::StmtForLoop, range);
       node.addChild(initial);
       node.addChild(condition);
       node.addChild(block);
       node.addChild(advance);
       return node;
     }
-    virtual Node& stmtSwitch(Node& expression, size_t defaultIndex, size_t line, size_t column) override {
-      auto& node = this->module->createNode(Node::Kind::StmtSwitch, line, column);
+    virtual Node& stmtSwitch(Node& expression, size_t defaultIndex, const SourceRange& range) override {
+      auto& node = this->module->createNode(Node::Kind::StmtSwitch, range);
       node.addChild(expression);
       node.defaultIndex = defaultIndex;
       return node;
     }
-    virtual Node& stmtCase(Node& block, size_t line, size_t column) override {
-      auto& node = this->module->createNode(Node::Kind::StmtCase, line, column);
+    virtual Node& stmtCase(Node& block, const SourceRange& range) override {
+      auto& node = this->module->createNode(Node::Kind::StmtCase, range);
       node.addChild(block);
       return node;
     }
-    virtual Node& stmtBreak(size_t line, size_t column) override {
-      auto& node = this->module->createNode(Node::Kind::StmtBreak, line, column);
+    virtual Node& stmtBreak(const SourceRange& range) override {
+      auto& node = this->module->createNode(Node::Kind::StmtBreak, range);
       return node;
     }
-    virtual Node& stmtContinue(size_t line, size_t column) override {
-      auto& node = this->module->createNode(Node::Kind::StmtContinue, line, column);
+    virtual Node& stmtContinue(const SourceRange& range) override {
+      auto& node = this->module->createNode(Node::Kind::StmtContinue, range);
       return node;
     }
-    virtual Node& stmtVariableDeclare(const String& symbol, Node& type, size_t line, size_t column) override {
-      auto& node = this->module->createNode(Node::Kind::StmtVariableDeclare, line, column);
+    virtual Node& stmtVariableDeclare(const String& symbol, Node& type, const SourceRange& range) override {
+      auto& node = this->module->createNode(Node::Kind::StmtVariableDeclare, range);
       node.literal = this->createHardValueString(symbol);
       node.addChild(type);
       return node;
     }
-    virtual Node& stmtVariableDefine(const String& symbol, Node& type, Node& value, size_t line, size_t column) override {
-      auto& node = this->module->createNode(Node::Kind::StmtVariableDefine, line, column);
+    virtual Node& stmtVariableDefine(const String& symbol, Node& type, Node& value, const SourceRange& range) override {
+      auto& node = this->module->createNode(Node::Kind::StmtVariableDefine, range);
       node.literal = this->createHardValueString(symbol);
       node.addChild(type);
       node.addChild(value);
       return node;
     }
-    virtual Node& stmtVariableSet(const String& symbol, Node& value, size_t line, size_t column) override {
-      auto& node = this->module->createNode(Node::Kind::StmtVariableSet, line, column);
+    virtual Node& stmtVariableSet(const String& symbol, Node& value, const SourceRange& range) override {
+      auto& node = this->module->createNode(Node::Kind::StmtVariableSet, range);
       node.literal = this->createHardValueString(symbol);
       node.addChild(value);
       return node;
     }
-    virtual Node& stmtVariableMutate(const String& symbol, ValueMutationOp op, Node& value, size_t line, size_t column) override {
-      auto& node = this->module->createNode(Node::Kind::StmtVariableMutate, line, column);
+    virtual Node& stmtVariableMutate(const String& symbol, ValueMutationOp op, Node& value, const SourceRange& range) override {
+      auto& node = this->module->createNode(Node::Kind::StmtVariableMutate, range);
       node.literal = this->createHardValueString(symbol);
       node.mutationOp = op;
       node.addChild(value);
       return node;
     }
-    virtual Node& stmtPropertySet(Node& instance, Node& property, Node& value, size_t line, size_t column) override {
-      auto& node = this->module->createNode(Node::Kind::StmtPropertySet, line, column);
+    virtual Node& stmtPropertySet(Node& instance, Node& property, Node& value, const SourceRange& range) override {
+      auto& node = this->module->createNode(Node::Kind::StmtPropertySet, range);
       node.addChild(instance);
       node.addChild(property);
       node.addChild(value);
       return node;
     }
-    virtual Node& stmtFunctionCall(Node& function, size_t line, size_t column) override {
-      auto& node = this->module->createNode(Node::Kind::StmtFunctionCall, line, column);
+    virtual Node& stmtFunctionCall(Node& function, const SourceRange& range) override {
+      auto& node = this->module->createNode(Node::Kind::StmtFunctionCall, range);
       node.addChild(function);
       return node;
     }
-    virtual Node& stmtThrow(Node& exception, size_t line, size_t column) override {
-      auto& node = this->module->createNode(Node::Kind::StmtThrow, line, column);
+    virtual Node& stmtThrow(Node& exception, const SourceRange& range) override {
+      auto& node = this->module->createNode(Node::Kind::StmtThrow, range);
       node.addChild(exception);
       return node;
     }
-    virtual Node& stmtTry(Node& block, size_t line, size_t column) override {
-      auto& node = this->module->createNode(Node::Kind::StmtTry, line, column);
+    virtual Node& stmtTry(Node& block, const SourceRange& range) override {
+      auto& node = this->module->createNode(Node::Kind::StmtTry, range);
       node.addChild(block);
       return node;
     }
-    virtual Node& stmtCatch(const String& symbol, Node& type, size_t line, size_t column) override {
-      auto& node = this->module->createNode(Node::Kind::StmtCatch, line, column);
+    virtual Node& stmtCatch(const String& symbol, Node& type, const SourceRange& range) override {
+      auto& node = this->module->createNode(Node::Kind::StmtCatch, range);
       node.literal = this->createHardValueString(symbol);
       node.addChild(type);
       return node;
     }
-    virtual Node& stmtRethrow(size_t line, size_t column) override {
-      auto& node = this->module->createNode(Node::Kind::StmtRethrow, line, column);
+    virtual Node& stmtRethrow(const SourceRange& range) override {
+      auto& node = this->module->createNode(Node::Kind::StmtRethrow, range);
       return node;
     }
     virtual Type deduceType(Node& node) override {
@@ -998,6 +1050,7 @@ namespace {
       case Node::Kind::ExprUnaryOp:
       case Node::Kind::ExprBinaryOp:
       case Node::Kind::ExprTernaryOp:
+      case Node::Kind::ExprPredicateOp:
         break;
       case Node::Kind::ExprVariable:
         return Type::AnyQ; // WIBBLE
@@ -1114,13 +1167,12 @@ namespace {
     }
     HardPtr<IVMCallStack> getCallStack() const {
       // TODO full stack chain
-      HardPtr<VMCallStack> callstack{ this->vm.getAllocator().makeHard<VMCallStack>() };
       assert(!this->stack.empty());
       const auto* top = this->stack.top().node;
       assert(top != nullptr);
+      auto callstack{ this->vm.getAllocator().makeHard<VMCallStack>() };
       callstack->resource = top->module.getResource();
-      callstack->line = top->line;
-      callstack->column = top->column;
+      callstack->range = top->range;
       // TODO callstack->function
       return callstack;
     }
@@ -1363,15 +1415,7 @@ namespace {
 }
 
 void egg::ovum::IVMModule::Node::printLocation(Printer& printer) const {
-  printer << this->module.getResource();
-  if ((this->line > 0) || (this->column > 0)) {
-    printer << '(' << this->line;
-    if (this->column > 0) {
-      printer << ',' << this->column;
-    }
-    printer << ')';
-  }
-  printer << ": ";
+  printer << this->module.getResource() << this->range << ": ";
 }
 
 void egg::ovum::IVMModule::Node::hardDestroy() const {
@@ -2177,6 +2221,30 @@ bool VMRunner::stepNode(HardValue& retval) {
       } else {
         return this->pop(latest);
       }
+    }
+    break;
+  case IVMModule::Node::Kind::ExprPredicateOp:
+    assert(!top.node->children.empty());
+    assert(top.index <= top.node->children.size());
+    if (!top.deque.empty()) {
+      // Check the last evaluation
+      auto& latest = top.deque.back();
+      if (latest.hasFlowControl()) {
+        return this->pop(latest);
+      }
+    }
+    if (top.index < top.node->children.size()) {
+      // Assemble the operands
+      this->push(*top.node->children[top.index++]);
+    } else {
+      // Execute the predicate
+      switch (top.deque.size()) {
+      case 1:
+        return this->pop(this->execution.evaluateValuePredicateOp(top.node->predicateOp, top.deque.front(), HardValue::Void));
+      case 2:
+        return this->pop(this->execution.evaluateValuePredicateOp(top.node->predicateOp, top.deque.front(), top.deque.back()));
+      }
+      return this->raise("Invalid predicate values");
     }
     break;
   case IVMModule::Node::Kind::ExprVariable:

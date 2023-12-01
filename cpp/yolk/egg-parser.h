@@ -3,10 +3,6 @@ namespace egg::yolk {
 
   class IEggParser {
   public:
-    struct Location {
-      size_t line = 0;
-      size_t column = 0;
-    };
     struct Issue {
       enum class Severity {
         Error,
@@ -15,8 +11,7 @@ namespace egg::yolk {
       };
       Severity severity;
       egg::ovum::String message;
-      Location begin;
-      Location end;
+      egg::ovum::SourceRange range;
     };
     struct Node {
       enum class Kind {
@@ -59,8 +54,7 @@ namespace egg::yolk {
         egg::ovum::TypeUnaryOp typeUnaryOp;
         egg::ovum::TypeBinaryOp typeBinaryOp;
       } op;
-      Location begin;
-      Location end;
+      egg::ovum::SourceRange range;
     };
     struct Result {
       std::shared_ptr<Node> root;

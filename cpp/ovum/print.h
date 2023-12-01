@@ -44,6 +44,7 @@ namespace egg::ovum {
     static void write(std::ostream& stream, ValueFlags value, const Options& options);
     static void write(std::ostream& stream, ILogger::Severity value, const Options& options);
     static void write(std::ostream& stream, ILogger::Source value, const Options& options);
+    static void write(std::ostream& stream, const SourceRange& value, const Options& options);
     static void write(std::ostream& stream, ValueUnaryOp value, const Options& options);
     static void write(std::ostream& stream, ValueBinaryOp value, const Options& options);
     static void write(std::ostream& stream, ValueTernaryOp value, const Options& options);
@@ -78,10 +79,17 @@ namespace egg::ovum {
     }
     template<typename T>
     Printer& operator<<(const T& value) {
+      Print::write(this->os, value, this->options);
+      return *this;
+    }
+    Printer& operator<<(const char* value) {
       this->os << value;
       return *this;
     }
-    Printer& operator<<(const String& value);
+    Printer& operator<<(char value) {
+      this->os << value;
+      return *this;
+    }
     template<typename T>
     void write(const T& value) {
       Print::write(this->os, value, this->options);

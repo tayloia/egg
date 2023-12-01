@@ -17,38 +17,6 @@ namespace {
   using ParserNode = egg::yolk::IEggParser::Node;
   using ParserNodes = std::vector<std::unique_ptr<ParserNode>>;
 
-  void printIssueRange(egg::ovum::StringBuilder& sb, const egg::ovum::String& resource, const IEggParser::Location& begin, const IEggParser::Location& end) {
-    // See https://learn.microsoft.com/en-us/visualstudio/msbuild/msbuild-diagnostic-format-for-tasks
-    // Also https://sarifweb.azurewebsites.net/
-    sb.add(resource);
-    if (begin.line > 0) {
-      // resource(line
-      sb.add('(', begin.line);
-      if (begin.column > 0) {
-        // resource(line,column
-        sb.add(',', begin.column);
-        if ((end.line > 0) && (end.column > 0)) {
-          if (end.line > begin.line) {
-            // resource(line,column,line,column
-            sb.add(',', end.line, ',', end.column);
-          } else if (end.column > begin.column) {
-            // resource(line,column-column
-            sb.add('-', end.column);
-          }
-        }
-      }
-      sb.add(')');
-    }
-    sb.add(": ");
-  }
-
-  egg::ovum::String formatIssue(egg::ovum::IAllocator& allocator, const egg::ovum::String& resource, const IEggParser::Issue& issue) {
-    egg::ovum::StringBuilder sb;
-    printIssueRange(sb, resource, issue.begin, issue.end);
-    sb.add(issue.message);
-    return sb.build(allocator);
-  }
-
   class ModuleCompiler final {
     ModuleCompiler(const ModuleCompiler&) = delete;
     ModuleCompiler& operator=(const ModuleCompiler&) = delete;
@@ -71,12 +39,13 @@ namespace {
     };
     ModuleNode* compileStmt(ParserNode& pnode, const StmtContext& context);
     ModuleNode* compileStmtVoid(ParserNode& pnode);
-    ModuleNode* compileStmtBlock(ParserNodes& pnodes, const StmtContext& context, const IEggParser::Location& location);
+    ModuleNode* compileStmtBlock(ParserNode& pnodes, const StmtContext& context);
     ModuleNode* compileStmtDeclareVariable(ParserNode& pnode);
     ModuleNode* compileStmtDeclareVariableScope(ParserNode& pnode);
     ModuleNode* compileStmtDefineVariable(ParserNode& pnode);
     ModuleNode* compileStmtDefineVariableScope(ParserNode& pnode);
     ModuleNode* compileStmtMutate(ParserNode& pnode);
+    ModuleNode* compileStmtAssert(ParserNode& function, ParserNode& predicate);
     ModuleNode* compileStmtCall(ParserNode& pnode);
     ModuleNode* compileStmtForEach(ParserNode& pnode, const StmtContext& context);
     ModuleNode* compileStmtForLoop(ParserNode& pnode, const StmtContext& context);
@@ -85,6 +54,7 @@ namespace {
     ModuleNode* compileValueExprUnary(ParserNode& op, ParserNode& rhs);
     ModuleNode* compileValueExprBinary(ParserNode& op, ParserNode& lhs, ParserNode& rhs);
     ModuleNode* compileValueExprTernary(ParserNode& op, ParserNode& lhs, ParserNode& mid, ParserNode& rhs);
+    ModuleNode* compileValueExprPredicate(ParserNode& pnode);
     ModuleNode* compileValueExprCall(ParserNodes& pnodes);
     ModuleNode* compileValueExprIndex(ParserNode& bracket, ParserNode& lhs, ParserNode& rhs);
     ModuleNode* compileValueExprProperty(ParserNode& dot, ParserNode& lhs, ParserNode& rhs);
@@ -111,10 +81,7 @@ namespace {
     }
     template<typename... ARGS>
     ModuleNode* error(ParserNode& pnode, ARGS&&... args) const {
-      egg::ovum::StringBuilder sb;
-      printIssueRange(sb, this->resource, pnode.begin, pnode.end);
-      sb.add(std::forward<ARGS>(args)...);
-      auto message = sb.build(this->vm.getAllocator());
+      auto message = this->concat(this->resource, pnode.range, ": ", std::forward<ARGS>(args)...);
       this->log(egg::ovum::ILogger::Source::Compiler, egg::ovum::ILogger::Severity::Error, message);
       return nullptr;
     }
@@ -155,7 +122,6 @@ namespace {
     egg::ovum::ILogger::Severity logIssues(const egg::ovum::String& resource, const std::vector<IEggParser::Issue>& issues) {
       auto& logger = this->pbuilder->getVM().getLogger();
       auto worst = egg::ovum::ILogger::Severity::None;
-      egg::ovum::String message;
       for (const auto& issue : issues) {
         egg::ovum::ILogger::Severity severity = egg::ovum::ILogger::Severity::Error;
         switch (issue.severity) {
@@ -176,7 +142,8 @@ namespace {
           worst = egg::ovum::ILogger::Severity::Error;
           break;
         }
-        logger.log(egg::ovum::ILogger::Source::Compiler, severity, formatIssue(this->pbuilder->getAllocator(), resource, issue));
+        auto message = egg::ovum::StringBuilder::concat(this->pbuilder->getAllocator(), resource, issue.range, ": ", issue.message);
+        logger.log(egg::ovum::ILogger::Source::Compiler, severity, message);
       }
       return worst;
     }
@@ -215,7 +182,7 @@ ModuleNode* ModuleCompiler::compileStmt(ParserNode& pnode, const StmtContext& co
   inner.inRoot = false;
   switch (pnode.kind) {
   case ParserNode::Kind::StmtBlock:
-    return this->compileStmtBlock(pnode.children, inner, pnode.begin);
+    return this->compileStmtBlock(pnode, inner);
   case ParserNode::Kind::StmtDeclareVariable:
     EXPECT(pnode, pnode.children.size() == 1);
     return this->compileStmtDeclareVariableScope(pnode);
@@ -263,17 +230,17 @@ ModuleNode* ModuleCompiler::compileStmt(ParserNode& pnode, const StmtContext& co
 }
 
 ModuleNode* ModuleCompiler::compileStmtVoid(ParserNode& pnode) {
-  return &this->mbuilder.exprLiteral(egg::ovum::HardValue::Void, pnode.begin.line, pnode.begin.column);
+  return &this->mbuilder.exprLiteral(egg::ovum::HardValue::Void, pnode.range);
 }
 
-ModuleNode* ModuleCompiler::compileStmtBlock(ParserNodes& pnodes, const StmtContext& context, const IEggParser::Location& location) {
-  auto& block = this->mbuilder.stmtBlock(location.line, location.column);
-  for (const auto& pnode : pnodes) {
-    auto* mnode = this->compileStmt(*pnode, context);
-    if (mnode == nullptr) {
+ModuleNode* ModuleCompiler::compileStmtBlock(ParserNode& pnode, const StmtContext& context) {
+  auto& block = this->mbuilder.stmtBlock(pnode.range);
+  for (const auto& child : pnode.children) {
+    auto* stmt = this->compileStmt(*child, context);
+    if (stmt == nullptr) {
       return nullptr;
     }
-    this->mbuilder.appendChild(block, *mnode);
+    this->mbuilder.appendChild(block, *stmt);
   }
   return &block;
 }
@@ -288,7 +255,7 @@ ModuleNode* ModuleCompiler::compileStmtDeclareVariable(ParserNode& pnode) {
   if (type == nullptr) {
     return nullptr;
   }
-  return &this->mbuilder.stmtVariableDeclare(symbol, *type, pnode.begin.line, pnode.begin.column);
+  return &this->mbuilder.stmtVariableDeclare(symbol, *type, pnode.range);
 }
 
 ModuleNode* ModuleCompiler::compileStmtDeclareVariableScope(ParserNode& pnode) {
@@ -316,7 +283,7 @@ ModuleNode* ModuleCompiler::compileStmtDefineVariable(ParserNode& pnode) {
   if (assignable == egg::ovum::ITypeForge::Assignability::Never) {
     return this->error(*pnode.children.back(), "Cannot initialize '", symbol, "' of type '", ltype, "' with a value of type '", rtype, "'");
   }
-  return &this->mbuilder.stmtVariableDefine(symbol, *lnode, *rnode, pnode.begin.line, pnode.begin.column);
+  return &this->mbuilder.stmtVariableDefine(symbol, *lnode, *rnode, pnode.range);
 }
 
 ModuleNode* ModuleCompiler::compileStmtDefineVariableScope(ParserNode& pnode) {
@@ -344,18 +311,45 @@ ModuleNode* ModuleCompiler::compileStmtMutate(ParserNode& pnode) {
     } else {
       rhs = this->compileValueExpr(*pnode.children.back());
     }
-    return &this->mbuilder.stmtVariableMutate(symbol, pnode.op.valueMutationOp, *rhs, pnode.begin.line, pnode.begin.column);
+    return &this->mbuilder.stmtVariableMutate(symbol, pnode.op.valueMutationOp, *rhs, pnode.range);
   }
   return this->unexpected(plhs, "variable in mutation statement");
 }
 
+ModuleNode* ModuleCompiler::compileStmtAssert(ParserNode& function, ParserNode& predicate) {
+  // Specialization for 'assert(predicate)'
+  auto* expr = this->compileValueExpr(function);
+  if (expr == nullptr) {
+    return nullptr;
+  }
+  auto& stmt = this->mbuilder.stmtFunctionCall(*expr, function.range);
+  expr = this->compileValueExprPredicate(predicate);
+  if (expr == nullptr) {
+    return nullptr;
+  }
+  this->mbuilder.appendChild(stmt, *expr);
+  return &stmt;
+}
+
 ModuleNode* ModuleCompiler::compileStmtCall(ParserNode& pnode) {
   assert(pnode.kind == ParserNode::Kind::ExprCall);
+  if (pnode.children.size() == 2) {
+    // Possible special case for 'assert(predicate)'
+    // TODO: Replace with predicate argument hint
+    auto& function = *pnode.children.front();
+    if (function.kind == ParserNode::Kind::ExprVariable)  {
+      egg::ovum::String symbol;
+      if (function.value->getString(symbol) && symbol.equals("assert")) {
+        auto& predicate = *pnode.children.back();
+        return this->compileStmtAssert(function, predicate);
+      }
+    }
+  }
   ModuleNode* stmt = nullptr;
   auto pchild = pnode.children.begin();
   auto* expr = this->compileValueExpr(**pchild);
   if (expr != nullptr) {
-    stmt = &this->mbuilder.stmtFunctionCall(*expr, pnode.begin.line, pnode.begin.column);
+    stmt = &this->mbuilder.stmtFunctionCall(*expr, pnode.range);
   }
   while (++pchild != pnode.children.end()) {
     expr = this->compileValueExpr(**pchild);
@@ -385,7 +379,7 @@ ModuleNode* ModuleCompiler::compileStmtForEach(ParserNode& pnode, const StmtCont
   if (bloc == nullptr) {
     return nullptr;
   }
-  return &this->mbuilder.stmtForEach(symbol, *type, *iter, *bloc, pnode.begin.line, pnode.begin.column);
+  return &this->mbuilder.stmtForEach(symbol, *type, *iter, *bloc, pnode.range);
 }
 
 ModuleNode* ModuleCompiler::compileStmtForLoop(ParserNode& pnode, const StmtContext& context) {
@@ -431,7 +425,7 @@ ModuleNode* ModuleCompiler::compileStmtForLoop(ParserNode& pnode, const StmtCont
   if (bloc == nullptr) {
     return nullptr;
   }
-  auto* loop = &this->mbuilder.stmtForLoop(*init, *cond, *adva, *bloc, pnode.begin.line, pnode.begin.column);
+  auto* loop = &this->mbuilder.stmtForLoop(*init, *cond, *adva, *bloc, pnode.range);
   if (scope == nullptr) {
     return loop;
   }
@@ -475,7 +469,7 @@ ModuleNode* ModuleCompiler::compileValueExpr(ParserNode& pnode) {
     return this->compileLiteral(pnode);
   case ParserNode::Kind::TypeString:
     EXPECT(pnode, pnode.children.size() == 0);
-    return &this->mbuilder.exprStringCall(pnode.begin.line, pnode.begin.column);
+    return &this->mbuilder.exprStringCall(pnode.range);
   case ParserNode::Kind::TypeVoid:
   case ParserNode::Kind::TypeBool:
   case ParserNode::Kind::TypeInt:
@@ -505,13 +499,13 @@ ModuleNode* ModuleCompiler::compileValueExprVariable(ParserNode& pnode) {
   EXPECT(pnode, pnode.children.size() == 0);
   egg::ovum::String symbol;
   EXPECT(pnode, pnode.value->getString(symbol));
-  return &this->mbuilder.exprVariable(symbol, pnode.begin.line, pnode.begin.column);
+  return &this->mbuilder.exprVariable(symbol, pnode.range);
 }
 
 ModuleNode* ModuleCompiler::compileValueExprUnary(ParserNode& op, ParserNode& rhs) {
   auto* expr = this->compileValueExpr(rhs);
   if (expr != nullptr) {
-    return &this->mbuilder.exprValueUnaryOp(op.op.valueUnaryOp, *expr, op.begin.line, op.begin.column);
+    return &this->mbuilder.exprValueUnaryOp(op.op.valueUnaryOp, *expr, op.range);
   }
   return nullptr;
 }
@@ -521,7 +515,7 @@ ModuleNode* ModuleCompiler::compileValueExprBinary(ParserNode& op, ParserNode& l
   if (lexpr != nullptr) {
     auto* rexpr = this->compileValueExpr(rhs);
     if (rexpr != nullptr) {
-      return &this->mbuilder.exprValueBinaryOp(op.op.valueBinaryOp, *lexpr, *rexpr, op.begin.line, op.begin.column);
+      return &this->mbuilder.exprValueBinaryOp(op.op.valueBinaryOp, *lexpr, *rexpr, op.range);
     }
   }
   return nullptr;
@@ -534,11 +528,92 @@ ModuleNode* ModuleCompiler::compileValueExprTernary(ParserNode& op, ParserNode& 
     if (mexpr != nullptr) {
       auto* rexpr = this->compileValueExpr(rhs);
       if (rexpr != nullptr) {
-        return &this->mbuilder.exprValueTernaryOp(op.op.valueTernaryOp, *lexpr, *mexpr, *rexpr, op.begin.line, op.begin.column);
+        return &this->mbuilder.exprValueTernaryOp(op.op.valueTernaryOp, *lexpr, *mexpr, *rexpr, op.range);
       }
     }
   }
   return nullptr;
+}
+
+ModuleNode* ModuleCompiler::compileValueExprPredicate(ParserNode& pnode) {
+  auto op = egg::ovum::ValuePredicateOp::None;
+  ModuleNode* first;
+  ModuleNode* second;
+  if ((pnode.kind == ParserNode::Kind::ExprUnary) && (pnode.children.size() == 1)) {
+    switch (pnode.op.valueUnaryOp) {
+    case egg::ovum::ValueUnaryOp::LogicalNot:
+      op = egg::ovum::ValuePredicateOp::LogicalNot;
+      break;
+    case egg::ovum::ValueUnaryOp::Negate:
+    case egg::ovum::ValueUnaryOp::BitwiseNot:
+      break;
+    }
+    if (op == egg::ovum::ValuePredicateOp::None) {
+      first = this->compileValueExpr(pnode);
+    } else {
+      first = this->compileValueExpr(*pnode.children.front());
+    }
+    second = nullptr;
+  } else if ((pnode.kind == ParserNode::Kind::ExprBinary) && (pnode.children.size() == 2)) {
+    switch (pnode.op.valueBinaryOp) {
+    case egg::ovum::ValueBinaryOp::LessThan:
+      op = egg::ovum::ValuePredicateOp::LessThan;
+      break;
+    case egg::ovum::ValueBinaryOp::LessThanOrEqual:
+      op = egg::ovum::ValuePredicateOp::LessThanOrEqual;
+      break;
+    case egg::ovum::ValueBinaryOp::Equal:
+      op = egg::ovum::ValuePredicateOp::Equal;
+      break;
+    case egg::ovum::ValueBinaryOp::NotEqual:
+      op = egg::ovum::ValuePredicateOp::NotEqual;
+      break;
+    case egg::ovum::ValueBinaryOp::GreaterThanOrEqual:
+      op = egg::ovum::ValuePredicateOp::GreaterThanOrEqual;
+      break;
+    case egg::ovum::ValueBinaryOp::GreaterThan:
+      op = egg::ovum::ValuePredicateOp::GreaterThan;
+      break;
+    case egg::ovum::ValueBinaryOp::Add:
+    case egg::ovum::ValueBinaryOp::Subtract:
+    case egg::ovum::ValueBinaryOp::Multiply:
+    case egg::ovum::ValueBinaryOp::Divide:
+    case egg::ovum::ValueBinaryOp::Remainder:
+    case egg::ovum::ValueBinaryOp::BitwiseAnd:
+    case egg::ovum::ValueBinaryOp::BitwiseOr:
+    case egg::ovum::ValueBinaryOp::BitwiseXor:
+    case egg::ovum::ValueBinaryOp::ShiftLeft:
+    case egg::ovum::ValueBinaryOp::ShiftRight:
+    case egg::ovum::ValueBinaryOp::ShiftRightUnsigned:
+    case egg::ovum::ValueBinaryOp::IfNull:
+    case egg::ovum::ValueBinaryOp::IfFalse:
+    case egg::ovum::ValueBinaryOp::IfTrue:
+    default:
+      break;
+    }
+    if (op == egg::ovum::ValuePredicateOp::None) {
+      first = this->compileValueExpr(pnode);
+      second = nullptr;
+    } else {
+      first = this->compileValueExpr(*pnode.children.front());
+      second = this->compileValueExpr(*pnode.children.back());
+      if (second == nullptr) {
+        return nullptr;
+      }
+    }
+  } else {
+    first = this->compileValueExpr(pnode);
+    second = nullptr;
+  }
+  if (first == nullptr) {
+    return nullptr;
+  }
+  auto& expr = this->mbuilder.exprValuePredicateOp(op, pnode.range);
+  this->mbuilder.appendChild(expr, *first);
+  if (second != nullptr) {
+    this->mbuilder.appendChild(expr, *second);
+  }
+  return &expr;
 }
 
 ModuleNode* ModuleCompiler::compileValueExprCall(ParserNodes& pnodes) {
@@ -547,7 +622,7 @@ ModuleNode* ModuleCompiler::compileValueExprCall(ParserNodes& pnodes) {
   assert(pnode != pnodes.end());
   auto* expr = this->compileValueExpr(**pnode);
   if (expr != nullptr) {
-    call = &this->mbuilder.exprFunctionCall(*expr, (*pnode)->begin.line, (*pnode)->begin.column);
+    call = &this->mbuilder.exprFunctionCall(*expr, (*pnode)->range);
   }
   while (++pnode != pnodes.end()) {
     expr = this->compileValueExpr(**pnode);
@@ -565,7 +640,7 @@ ModuleNode* ModuleCompiler::compileValueExprIndex(ParserNode& bracket, ParserNod
   if (lexpr != nullptr) {
     auto* rexpr = this->compileValueExpr(rhs);
     if (rexpr != nullptr) {
-      return &this->mbuilder.exprIndexGet(*lexpr, *rexpr, bracket.begin.line, bracket.begin.column);
+      return &this->mbuilder.exprIndexGet(*lexpr, *rexpr, bracket.range);
     }
   }
   return nullptr;
@@ -576,7 +651,7 @@ ModuleNode* ModuleCompiler::compileValueExprProperty(ParserNode& dot, ParserNode
   if (lexpr != nullptr) {
     auto* rexpr = this->compileValueExpr(rhs);
     if (rexpr != nullptr) {
-      return &this->mbuilder.exprPropertyGet(*lexpr, *rexpr, dot.begin.line, dot.begin.column);
+      return &this->mbuilder.exprPropertyGet(*lexpr, *rexpr, dot.range);
     }
   }
   return nullptr;
@@ -586,25 +661,25 @@ ModuleNode* ModuleCompiler::compileTypeExpr(ParserNode& pnode) {
   switch (pnode.kind) {
   case ParserNode::Kind::TypeVoid:
     EXPECT(pnode, pnode.children.size() == 0);
-    return &this->mbuilder.typeLiteral(egg::ovum::Type::Void, pnode.begin.line, pnode.end.column);
+    return &this->mbuilder.typeLiteral(egg::ovum::Type::Void, pnode.range);
   case ParserNode::Kind::TypeBool:
     EXPECT(pnode, pnode.children.size() == 0);
-    return &this->mbuilder.typeLiteral(egg::ovum::Type::Bool, pnode.begin.line, pnode.end.column);
+    return &this->mbuilder.typeLiteral(egg::ovum::Type::Bool, pnode.range);
   case ParserNode::Kind::TypeInt:
     EXPECT(pnode, pnode.children.size() == 0);
-    return &this->mbuilder.typeLiteral(egg::ovum::Type::Int, pnode.begin.line, pnode.end.column);
+    return &this->mbuilder.typeLiteral(egg::ovum::Type::Int, pnode.range);
   case ParserNode::Kind::TypeFloat:
     EXPECT(pnode, pnode.children.size() == 0);
-    return &this->mbuilder.typeLiteral(egg::ovum::Type::Float, pnode.begin.line, pnode.end.column);
+    return &this->mbuilder.typeLiteral(egg::ovum::Type::Float, pnode.range);
   case ParserNode::Kind::TypeString:
     EXPECT(pnode, pnode.children.size() == 0);
-    return &this->mbuilder.typeLiteral(egg::ovum::Type::String, pnode.begin.line, pnode.end.column);
+    return &this->mbuilder.typeLiteral(egg::ovum::Type::String, pnode.range);
   case ParserNode::Kind::TypeObject:
     EXPECT(pnode, pnode.children.size() == 0);
-    return &this->mbuilder.typeLiteral(egg::ovum::Type::Object, pnode.begin.line, pnode.end.column);
+    return &this->mbuilder.typeLiteral(egg::ovum::Type::Object, pnode.range);
   case ParserNode::Kind::TypeAny:
     EXPECT(pnode, pnode.children.size() == 0);
-    return &this->mbuilder.typeLiteral(egg::ovum::Type::Any, pnode.begin.line, pnode.end.column);
+    return &this->mbuilder.typeLiteral(egg::ovum::Type::Any, pnode.range);
   case ParserNode::Kind::TypeUnary:
   case ParserNode::Kind::TypeBinary:
     // WIBBLE
@@ -643,7 +718,7 @@ ModuleNode* ModuleCompiler::compileTypeInfer(ParserNode& ptype, ParserNode& pexp
     assert(type != nullptr);
     this->setNullability(type, false);
     assert(type != nullptr);
-    return &this->mbuilder.typeLiteral(type, ptype.begin.line, ptype.begin.column);
+    return &this->mbuilder.typeLiteral(type, ptype.range);
   }
   if (ptype.kind == ParserNode::Kind::TypeInferQ) {
     mexpr = this->compileValueExpr(pexpr);
@@ -654,7 +729,7 @@ ModuleNode* ModuleCompiler::compileTypeInfer(ParserNode& ptype, ParserNode& pexp
     assert(type != nullptr);
     this->setNullability(type, true);
     assert(type != nullptr);
-    return &this->mbuilder.typeLiteral(type, ptype.begin.line, ptype.begin.column);
+    return &this->mbuilder.typeLiteral(type, ptype.range);
   }
   auto* mtype = this->compileTypeExpr(ptype);
   if (mtype == nullptr) {
@@ -669,7 +744,7 @@ ModuleNode* ModuleCompiler::compileTypeInfer(ParserNode& ptype, ParserNode& pexp
 
 ModuleNode* ModuleCompiler::compileLiteral(ParserNode& pnode) {
   EXPECT(pnode, pnode.children.size() == 0);
-  return &this->mbuilder.exprLiteral(pnode.value, pnode.begin.line, pnode.begin.column);
+  return &this->mbuilder.exprLiteral(pnode.value, pnode.range);
 }
 
 std::string ModuleCompiler::toString(const ParserNode& pnode) {

@@ -196,6 +196,29 @@ void egg::ovum::Print::write(std::ostream& stream, ILogger::Source value, const 
   }
 }
 
+void egg::ovum::Print::write(std::ostream& stream, const SourceRange& value, const Options&) {
+  // See https://learn.microsoft.com/en-us/visualstudio/msbuild/msbuild-diagnostic-format-for-tasks
+  // Also https://sarifweb.azurewebsites.net/
+  if (!value.empty()) {
+    // (line
+    stream << '(' << value.begin.line;
+    if (value.begin.column > 0) {
+      // (line,column
+      stream << ',' << value.begin.column;
+      if ((value.end.line > 0) && (value.end.column > 0)) {
+        if (value.end.line > value.begin.line) {
+          // (line,column,line,column
+          stream << ',' << value.end.line << ',' << value.end.column;
+        } else if (value.end.column > (value.begin.column + 1)) {
+          // (line,column-column
+          stream << '-' << (value.end.column - 1);
+        }
+      }
+    }
+    stream << ')';
+  }
+}
+
 void egg::ovum::Print::write(std::ostream& stream, ValueUnaryOp value, const Options&) {
   switch (value) {
   case ValueUnaryOp::Negate:
@@ -497,9 +520,4 @@ void egg::ovum::Print::describe(std::ostream& stream, const IValue& value, const
   EGG_WARNING_SUPPRESS_SWITCH_END
   stream << "a value of type ";
   Print::describe(stream, *value.getType(), quoted);
-}
-
-egg::ovum::Printer& egg::ovum::Printer::operator<<(const String& value) {
-  this->os << value.toUTF8();
-  return *this;
 }

@@ -8,112 +8,124 @@ using Node = egg::yolk::IEggParser::Node;
 using Result = egg::yolk::IEggParser::Result;
 
 namespace {
-  std::ostream& operator<<(std::ostream& os, const Node& node);
+  std::ostream& printNode(std::ostream& os, const Node& node, bool ranges);
 
-  template<typename T>
-  std::ostream& printNodeExtra(std::ostream& os, const char* prefix, T extra, const Node& node) {
-    os << '(' << prefix << ' ' << '\'';
-    egg::ovum::Print::write(os, extra, egg::ovum::Print::Options::DEFAULT);
-    os << '\'';
-    for (auto& child : node.children) {
-      os << ' ' << *child;
-    }
-    return os << ')';
-  }
-
-  std::ostream& printNodeValue(std::ostream& os, const char* prefix, const Node& node) {
-    return printNodeExtra(os, prefix, node.value, node);
-  }
-
-  std::ostream& printNodeChildren(std::ostream& os, const char* prefix, const Node& node) {
-    os << '(' << prefix;
-    for (auto& child : node.children) {
-      os << ' ' << *child;
-    }
-    return os << ')';
-  }
-
-  std::ostream& printValue(std::ostream& os, const egg::ovum::HardValue& value, char quote = '\'') {
-    const egg::ovum::Print::Options options{ quote };
+  std::ostream& printValue(std::ostream& os, const egg::ovum::HardValue& value, char quote) {
+    egg::ovum::Print::Options options{};
+    options.quote = quote;
     egg::ovum::Print::write(os, value, options);
     return os;
   }
 
-  std::ostream& operator<<(std::ostream& os, const Node& node) {
+  std::ostream& printRange(std::ostream& os, const egg::ovum::SourceRange& value) {
+    os << '@';
+    egg::ovum::Print::write(os, value, egg::ovum::Print::Options::DEFAULT);
+    return os;
+  }
+
+  template<typename T>
+  std::ostream& printNodeExtra(std::ostream& os, const char* prefix, T extra, const Node& node, bool ranges) {
+    os << '(' << prefix;
+    if (ranges) {
+      printRange(os, node.range);
+    }
+    os << ' ' << '\'';
+    egg::ovum::Print::write(os, extra, egg::ovum::Print::Options::DEFAULT);
+    os << '\'';
+    for (auto& child : node.children) {
+      os << ' ';
+      printNode(os, *child, ranges);
+    }
+    return os << ')';
+  }
+
+  std::ostream& printNodeChildren(std::ostream& os, const char* prefix, const Node& node, bool ranges) {
+    os << '(' << prefix;
+    if (ranges) {
+      printRange(os, node.range);
+    }
+    for (auto& child : node.children) {
+      os << ' ';
+      printNode(os, *child, ranges);
+    }
+    return os << ')';
+  }
+
+  std::ostream& printNode(std::ostream& os, const Node& node, bool ranges) {
     switch (node.kind) {
     case Node::Kind::ModuleRoot:
       for (auto& child : node.children) {
-        os << *child << std::endl;
+        printNode(os, *child, ranges) << std::endl;
       }
       break;
     case Node::Kind::StmtBlock:
-      return printNodeChildren(os, "stmt-block", node);
+      return printNodeChildren(os, "stmt-block", node, ranges);
     case Node::Kind::StmtDeclareVariable:
-      return printNodeValue(os, "stmt-declare-variable", node);
+      return printNodeExtra(os, "stmt-declare-variable", node.value, node, ranges);
     case Node::Kind::StmtDefineVariable:
-      return printNodeValue(os, "stmt-define-variable", node);
+      return printNodeExtra(os, "stmt-define-variable", node.value, node, ranges);
     case Node::Kind::StmtCall:
-      return printNodeChildren(os, "stmt-call", node);
+      return printNodeChildren(os, "stmt-call", node, ranges);
     case Node::Kind::StmtForLoop:
       assert(node.children.size() == 4);
-      return printNodeChildren(os, "stmt-for-loop", node);
+      return printNodeChildren(os, "stmt-for-loop", node, ranges);
     case Node::Kind::StmtForEach:
       assert(node.children.size() == 3);
-      return printNodeChildren(os, "stmt-for-each", node);
+      return printNodeChildren(os, "stmt-for-each", node, ranges);
     case Node::Kind::StmtMutate:
-      return printNodeExtra(os, "stmt-mutate", node.op.valueMutationOp, node);
+      return printNodeExtra(os, "stmt-mutate", node.op.valueMutationOp, node, ranges);
     case Node::Kind::ExprVariable:
       assert(node.children.empty());
-      return printNodeExtra(os, "expr-variable", node.value, node);
+      return printNodeExtra(os, "expr-variable", node.value, node, ranges);
     case Node::Kind::ExprUnary:
       assert(node.children.size() == 1);
-      return printNodeExtra(os, "expr-unary", node.op.valueUnaryOp, node);
+      return printNodeExtra(os, "expr-unary", node.op.valueUnaryOp, node, ranges);
     case Node::Kind::ExprBinary:
       assert(node.children.size() == 2);
-      return printNodeExtra(os, "expr-binary", node.op.valueBinaryOp, node);
+      return printNodeExtra(os, "expr-binary", node.op.valueBinaryOp, node, ranges);
     case Node::Kind::ExprTernary:
       assert(node.children.size() == 3);
-      return printNodeExtra(os, "expr-ternary", node.op.valueTernaryOp, node);
+      return printNodeExtra(os, "expr-ternary", node.op.valueTernaryOp, node, ranges);
     case Node::Kind::ExprCall:
-      return printNodeChildren(os, "expr-call", node);
+      return printNodeChildren(os, "expr-call", node, ranges);
     case Node::Kind::ExprIndex:
       assert(node.children.size() == 2);
-      return printNodeChildren(os, "expr-index", node);
+      return printNodeChildren(os, "expr-index", node, ranges);
     case Node::Kind::ExprProperty:
       assert(node.children.size() == 2);
-      return printNodeChildren(os, "expr-property", node);
+      return printNodeChildren(os, "expr-property", node, ranges);
     case Node::Kind::TypeInfer:
       assert(node.children.empty());
-      return os << "(type-infer)";
+      return printNodeChildren(os, "type-infer", node, ranges);
     case Node::Kind::TypeInferQ:
       assert(node.children.empty());
-      return os << "(type-infer-q)";
+      return printNodeChildren(os, "type-infer-q", node, ranges);
     case Node::Kind::TypeVoid:
       assert(node.children.empty());
-      return os << "(type-void)";
+      return printNodeChildren(os, "type-void", node, ranges);
     case Node::Kind::TypeBool:
       assert(node.children.empty());
-      return os << "(type-bool)";
+      return printNodeChildren(os, "type-bool", node, ranges);
     case Node::Kind::TypeInt:
       assert(node.children.empty());
-      return os << "(type-int)";
+      return printNodeChildren(os, "type-int", node, ranges);
     case Node::Kind::TypeFloat:
       assert(node.children.empty());
-      return os << "(type-float)";
+      return printNodeChildren(os, "type-float", node, ranges);
     case Node::Kind::TypeString:
       assert(node.children.empty());
-      return os << "(type-string)";
+      return printNodeChildren(os, "type-string", node, ranges);
     case Node::Kind::TypeObject:
       assert(node.children.empty());
-      return os << "(type-object)";
+      return printNodeChildren(os, "type-object", node, ranges);
     case Node::Kind::TypeAny:
       assert(node.children.empty());
-      return os << "(type-any)";
+      return printNodeChildren(os, "type-any", node, ranges);
     case Node::Kind::TypeUnary:
       assert(node.children.size() == 1);
-      return printNodeExtra(os, "type-unary", node.op.typeUnaryOp, node);
+      return printNodeExtra(os, "type-unary", node.op.typeUnaryOp, node, ranges);
     case Node::Kind::TypeBinary:
-      return printNodeExtra(os, "type-binary", node.op.typeBinaryOp, node);
+      return printNodeExtra(os, "type-binary", node.op.typeBinaryOp, node, ranges);
     case Node::Kind::Literal:
       assert(node.children.empty());
       return printValue(os, node.value, '"');
@@ -132,11 +144,8 @@ namespace {
     case Issue::Severity::Information:
       break;
     }
-    os << '(' << issue.begin.line << ',' << issue.begin.column;
-    if ((issue.begin.line > issue.end.line) || (issue.begin.column > issue.end.column)) {
-      os << ',' << issue.end.line << ',' << issue.end.column;
-    }
-    return os << "): " << issue.message.toUTF8();
+    egg::ovum::Print::write(os, issue.range, egg::ovum::Print::Options::DEFAULT);
+    return os << ": " << issue.message.toUTF8();
   }
 
   Result parseFromLines(egg::test::Allocator& allocator, std::initializer_list<std::string> lines) {
@@ -153,7 +162,7 @@ namespace {
     return result;
   }
 
-  std::string outputFromLines(std::initializer_list<std::string> lines) {
+  std::string outputFromLines(std::initializer_list<std::string> lines, bool ranges = false) {
     egg::test::Allocator allocator;
     auto result = parseFromLines(allocator, lines);
     std::ostringstream ss;
@@ -161,7 +170,7 @@ namespace {
       ss << issue << std::endl;
     }
     if (result.root != nullptr) {
-      ss << *result.root;
+      printNode(ss, *result.root, ranges);
     }
     return ss.str();
   }
@@ -193,10 +202,10 @@ TEST(TestEggParser, BadSyntax) {
   auto& actual = result.issues[0];
   ASSERT_EQ(Issue::Severity::Error, actual.severity);
   ASSERT_STRING("Unexpected character: '$'", actual.message);
-  ASSERT_EQ(2u, actual.begin.line);
-  ASSERT_EQ(3u, actual.begin.column);
-  ASSERT_EQ(2u, actual.end.line);
-  ASSERT_EQ(3u, actual.end.column);
+  ASSERT_EQ(2u, actual.range.begin.line);
+  ASSERT_EQ(3u, actual.range.begin.column);
+  ASSERT_EQ(2u, actual.range.end.line);
+  ASSERT_EQ(3u, actual.range.end.column);
 }
 
 TEST(TestEggParser, HelloWorld) {
@@ -291,7 +300,7 @@ TEST(TestEggParser, TypeUnaryNullableRepeated) {
   std::string actual = outputFromLines({
     "int? ? a;"
     });
-  std::string expected = "<WARNING>: (1,6): Redundant repetition of type suffix '?'\n"
+  std::string expected = "<WARNING>: (1,6-8): Redundant repetition of type suffix '?'\n"
                          "(stmt-declare-variable 'a' (type-unary '?' (type-int)))\n";
   ASSERT_EQ(expected, actual);
 }
@@ -433,5 +442,15 @@ TEST(TestEggParser, StatementForEach) {
     "for (var i : \"hello\") { }"
     });
   std::string expected = "(stmt-for-each (type-infer) \"hello\" (stmt-block))\n";
+  ASSERT_EQ(expected, actual);
+}
+
+TEST(TestEggParser, Ranges) {
+  std::string actual = outputFromLines({
+  //          1         2         3
+  // 123456789012345678901234567890123456789
+    "assert(alpha * -beta >= gamma[delta]);"
+  }, true);
+  std::string expected = "(stmt-call@(1,1-38) (expr-call@(1,1-37) (expr-variable@(1,1-6) 'assert') (expr-binary@(1,8-36) '>=' (expr-binary@(1,8-20) '*' (expr-variable@(1,8-12) 'alpha') (expr-unary@(1,16-20) '-' (expr-variable@(1,17-20) 'beta'))) (expr-index@(1,25-36) (expr-variable@(1,25-29) 'gamma') (expr-variable@(1,31-35) 'delta')))))\n";
   ASSERT_EQ(expected, actual);
 }
