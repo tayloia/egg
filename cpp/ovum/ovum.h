@@ -26,5 +26,4 @@
 #include "ovum/value.h"
 #include "ovum/function.h"
 #include "ovum/basket.h"
-#include "ovum/context.h"
 #include "ovum/vm.h"

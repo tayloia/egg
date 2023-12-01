@@ -6,7 +6,7 @@ namespace egg::ovum {
   // Forward declarations
   template<typename T> class HardPtr;
   enum class ValueFlags;
-  struct LocationSource;
+  struct SourceLocation;
   class Printer;
   class String;
   class Type;
@@ -188,11 +188,11 @@ namespace egg::ovum {
     virtual ~IParameters() {}
     virtual size_t getPositionalCount() const = 0;
     virtual HardValue getPositional(size_t index) const = 0;
-    virtual const LocationSource* getPositionalLocation(size_t index) const = 0; // May return null
+    virtual const SourceLocation* getPositionalLocation(size_t index) const = 0; // May return null
     virtual size_t getNamedCount() const = 0;
     virtual String getName(size_t index) const = 0;
     virtual HardValue getNamed(const String& name) const = 0;
-    virtual const LocationSource* getNamedLocation(const String& name) const = 0; // May return null
+    virtual const SourceLocation* getNamedLocation(const String& name) const = 0; // May return null
   };
 
   class IFunctionSignatureParameter {

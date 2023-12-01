@@ -21,7 +21,6 @@
   <ItemGroup>
     <ClCompile Include="..\ovum\arithmetic.cpp" />
     <ClCompile Include="..\ovum\basket.cpp" />
-    <ClCompile Include="..\ovum\context.cpp" />
     <ClCompile Include="..\ovum\memory.cpp" />
     <ClCompile Include="..\ovum\object.cpp" />
     <ClCompile Include="..\ovum\print.cpp" />
@@ -39,7 +38,6 @@
   <ItemGroup>
     <ClInclude Include="..\ovum\arithmetic.h" />
     <ClInclude Include="..\ovum\basket.h" />
-    <ClInclude Include="..\ovum\context.h" />
     <ClInclude Include="..\ovum\dictionary.h" />
     <ClInclude Include="..\ovum\function.h" />
     <ClInclude Include="..\ovum\hardptr.h" />

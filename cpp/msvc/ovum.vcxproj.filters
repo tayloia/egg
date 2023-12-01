@@ -26,9 +26,6 @@
     <ClCompile Include="..\ovum\memory.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\ovum\context.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="..\ovum\basket.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -50,9 +47,6 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="..\ovum\basket.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="..\ovum\context.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="..\ovum\dictionary.h">
