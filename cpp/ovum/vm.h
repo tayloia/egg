@@ -223,6 +223,7 @@ namespace egg::ovum {
     virtual Node& exprFunctionCall(Node& function, const SourceRange& range) = 0;
     virtual Node& exprStringCall(const SourceRange& range) = 0;
     virtual Node& exprIndexGet(Node& instance, Node& index, const SourceRange& range) = 0;
+    virtual Node& exprArray(const SourceRange& range) = 0;
     // Type expression factories
     virtual Node& typeLiteral(const Type& type, const SourceRange& range) = 0;
     // Statement factories

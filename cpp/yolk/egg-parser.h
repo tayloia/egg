@@ -30,6 +30,7 @@ namespace egg::yolk {
         ExprCall,
         ExprIndex,
         ExprProperty,
+        ExprArray,
         TypeInfer,
         TypeInferQ,
         TypeVoid,

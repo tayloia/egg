@@ -26,6 +26,7 @@ public:
     ExprStringCall,
     ExprFunctionCall,
     ExprIndexGet,
+    ExprArray,
     TypeInfer,
     TypeLiteral,
     StmtBlock,
@@ -918,6 +919,10 @@ namespace {
       node.addChild(function);
       return node;
     }
+    virtual Node& exprArray(const SourceRange& range) override {
+      auto& node = this->module->createNode(Node::Kind::ExprArray, range);
+      return node;
+    }
     virtual Node& typeLiteral(const Type& type, const SourceRange& range) override {
       auto& node = this->module->createNode(Node::Kind::TypeLiteral, range);
       node.literal = this->createHardValueType(type);
@@ -1053,6 +1058,7 @@ namespace {
       case Node::Kind::ExprPredicateOp:
         break;
       case Node::Kind::ExprVariable:
+      case Node::Kind::ExprArray:
         return Type::AnyQ; // WIBBLE
       case Node::Kind::ExprPropertyGet:
       case Node::Kind::ExprFunctionCall:
@@ -1262,6 +1268,27 @@ namespace {
         break;
       }
       return true;
+    }
+    HardValue arrayConstruct(const std::deque<HardValue>& elements) {
+      auto array = ObjectFactory::createVanillaArray(this->vm);
+      assert(array != nullptr);
+      if (!elements.empty()) {
+        auto push = array->vmPropertyGet(this->execution, this->createHardValue("push"));
+        HardObject pusher;
+        if (!push->getHardObject(pusher)) {
+          return this->createRuntimeError("Vanilla array does not have 'push()' property");
+        }
+        for (const auto& element : elements) {
+          // OPTIMIZE
+          CallArguments arguments;
+          arguments.addUnnamed(element);
+          auto retval = pusher->vmCall(this->execution, arguments);
+          if (retval.hasFlowControl()) {
+            return retval;
+          }
+        }
+      }
+      return this->createHardValueObject(array);
     }
     HardValue stringIndexGet(const String& string, const HardValue& index) {
       Int ivalue;
@@ -1576,7 +1603,7 @@ bool VMRunner::stepNode(HardValue& retval) {
       auto& instance = top.deque.front();
       HardObject object;
       if (!instance->getHardObject(object)) {
-        return this->raise("Expected left-hand side of operator '.' to be an object, but instead got ", describe(instance));
+        return this->raise("Expected left-hand side of property operator '.' to be an object, but instead got ", describe(instance));
       }
       auto& property = top.deque[1];
       auto& value = top.deque.back();
@@ -2300,7 +2327,7 @@ bool VMRunner::stepNode(HardValue& retval) {
       if (lhs->getString(string)) {
         return this->pop(this->stringPropertyGet(string, rhs));
       }
-      return this->raise("Expected left-hand side of operator '.' to be a 'string', but instead got ", describe(lhs));
+      return this->raise("Expected left-hand side of property operator '.' to be a 'string', but instead got ", describe(lhs));
     }
     break;
   case IVMModule::Node::Kind::ExprStringCall:
@@ -2352,7 +2379,24 @@ bool VMRunner::stepNode(HardValue& retval) {
       if (lhs->getString(string)) {
         return this->pop(this->stringIndexGet(string, rhs));
       }
-      return this->raise("Expected left-hand side of operator '[]' to be a 'string', but instead got ", describe(lhs));
+      return this->raise("Expected left-hand side of index operator '[]' to be a 'string', but instead got ", describe(lhs));
+    }
+    break;
+  case IVMModule::Node::Kind::ExprArray:
+    assert(top.node->literal->getVoid());
+    if (!top.deque.empty()) {
+      // Check the last evaluation
+      auto& latest = top.deque.back();
+      if (latest.hasFlowControl()) {
+        return this->pop(latest);
+      }
+    }
+    if (top.index < top.node->children.size()) {
+      // Assemble the elements
+      this->push(*top.node->children[top.index++]);
+    } else {
+      // Construct the array
+      return this->pop(this->arrayConstruct(top.deque));
     }
     break;
   case IVMModule::Node::Kind::TypeInfer:

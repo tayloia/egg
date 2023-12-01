@@ -411,7 +411,7 @@ namespace {
       assert(context[0].isKeyword(EggTokenizerKeyword::For));
       auto& next = this->getAbsolute(tokidx + 1);
       if (!next.isOperator(EggTokenizerOperator::ParenthesisLeft)) {
-        return context.failed(tokidx + 1, "'(' after keyword 'for'");
+        return context.expected(tokidx + 1, "'(' after keyword 'for'");
       }
       auto each = this->parseStatementForEach(tokidx);
       if (!each.skipped()) {
@@ -561,9 +561,9 @@ namespace {
       if (!defn.skipped()) {
         return defn;
       }
-      auto nudge = this->parseStatementNudge(tokidx);
-      if (!nudge.skipped()) {
-        return nudge;
+      auto mutate = this->parseStatementMutate(tokidx);
+      if (!mutate.skipped()) {
+        return mutate;
       }
       auto expr = this->parseValueExpressionPrimary(tokidx);
       if (expr.succeeded()) {
@@ -633,7 +633,7 @@ namespace {
       stmt->children.emplace_back(std::move(ptype));
       return context.success(std::move(stmt), tokidx + 1);
     }
-    Partial parseStatementNudge(size_t tokidx) {
+    Partial parseStatementMutate(size_t tokidx) {
       Context context(*this, tokidx);
       if (context[0].isOperator(EggTokenizerOperator::PlusPlus)) {
         // ++<target>
@@ -653,8 +653,99 @@ namespace {
           target.node->op.valueMutationOp = egg::ovum::ValueMutationOp::Decrement;
         }
         return target;
+      } else {
+        auto target = this->parseTarget(tokidx);
+        if (target.succeeded()) {
+          auto& next = target.after(0);
+          if (next.kind == EggTokenizerKind::Operator) {
+            switch (next.value.o) {
+            case EggTokenizerOperator::Equal: // '='
+              return this->parseStatementMutateOperator(target, egg::ovum::ValueMutationOp::Assign);
+            case EggTokenizerOperator::PercentEqual: // '%='
+              return this->parseStatementMutateOperator(target, egg::ovum::ValueMutationOp::Remainder);
+            case EggTokenizerOperator::AmpersandAmpersandEqual: // '&&='
+              return this->parseStatementMutateOperator(target, egg::ovum::ValueMutationOp::IfTrue);
+            case EggTokenizerOperator::AmpersandEqual: // '&='
+              return this->parseStatementMutateOperator(target, egg::ovum::ValueMutationOp::BitwiseAnd);
+            case EggTokenizerOperator::StarEqual: // '*='
+              return this->parseStatementMutateOperator(target, egg::ovum::ValueMutationOp::Multiply);
+            case EggTokenizerOperator::PlusEqual: // '+='
+              return this->parseStatementMutateOperator(target, egg::ovum::ValueMutationOp::Add);
+            case EggTokenizerOperator::MinusEqual: // '-='
+              return this->parseStatementMutateOperator(target, egg::ovum::ValueMutationOp::Subtract);
+            case EggTokenizerOperator::SlashEqual: // '/='
+              return this->parseStatementMutateOperator(target, egg::ovum::ValueMutationOp::Divide);
+            case EggTokenizerOperator::ShiftLeftEqual: // '<<='
+              return this->parseStatementMutateOperator(target, egg::ovum::ValueMutationOp::ShiftLeft);
+            case EggTokenizerOperator::ShiftRightEqual: // '>>='
+              return this->parseStatementMutateOperator(target, egg::ovum::ValueMutationOp::ShiftRight);
+            case EggTokenizerOperator::ShiftRightUnsignedEqual: // '>>>='
+              return this->parseStatementMutateOperator(target, egg::ovum::ValueMutationOp::ShiftRightUnsigned);
+            case EggTokenizerOperator::QueryQueryEqual: // '??='
+              return this->parseStatementMutateOperator(target, egg::ovum::ValueMutationOp::IfNull);
+            case EggTokenizerOperator::CaretEqual: // '^='
+              return this->parseStatementMutateOperator(target, egg::ovum::ValueMutationOp::BitwiseXor);
+            case EggTokenizerOperator::BarEqual: // '|='
+              return this->parseStatementMutateOperator(target, egg::ovum::ValueMutationOp::BitwiseOr);
+            case EggTokenizerOperator::BarBarEqual: // '||='
+              return this->parseStatementMutateOperator(target, egg::ovum::ValueMutationOp::IfFalse);
+            case EggTokenizerOperator::Bang: // '!'
+            case EggTokenizerOperator::BangEqual: // '!='
+            case EggTokenizerOperator::Percent: // '%'
+            case EggTokenizerOperator::Ampersand: // '&'
+            case EggTokenizerOperator::AmpersandAmpersand: // '&&'
+            case EggTokenizerOperator::ParenthesisLeft: // '('
+            case EggTokenizerOperator::ParenthesisRight: // ')'
+            case EggTokenizerOperator::Star: // '*'
+            case EggTokenizerOperator::Plus: // '+'
+            case EggTokenizerOperator::PlusPlus: // '++'
+            case EggTokenizerOperator::Comma: // ','
+            case EggTokenizerOperator::Minus: // '-'
+            case EggTokenizerOperator::MinusMinus: // '--'
+            case EggTokenizerOperator::Lambda: // '->'
+            case EggTokenizerOperator::Dot: // '.'
+            case EggTokenizerOperator::Ellipsis: // '...'
+            case EggTokenizerOperator::Slash: // '/'
+            case EggTokenizerOperator::Colon: // ':'
+            case EggTokenizerOperator::Semicolon: // ';'
+            case EggTokenizerOperator::Less: // '<'
+            case EggTokenizerOperator::ShiftLeft: // '<<'
+            case EggTokenizerOperator::LessEqual: // '<='
+            case EggTokenizerOperator::EqualEqual: // '=='
+            case EggTokenizerOperator::Greater: // '>'
+            case EggTokenizerOperator::GreaterEqual: // '>='
+            case EggTokenizerOperator::ShiftRight: // '>>'
+            case EggTokenizerOperator::ShiftRightUnsigned: // '>>>'
+            case EggTokenizerOperator::Query: // '?'
+            case EggTokenizerOperator::QueryQuery: // '??'
+            case EggTokenizerOperator::BracketLeft: // '['
+            case EggTokenizerOperator::BracketRight: // ']'
+            case EggTokenizerOperator::Caret: // '^'
+            case EggTokenizerOperator::CurlyLeft: // '{'
+            case EggTokenizerOperator::Bar: // '|'
+            case EggTokenizerOperator::BarBar: // '||'
+            case EggTokenizerOperator::CurlyRight: // '}'
+            case EggTokenizerOperator::Tilde: // '~'
+            default:
+              break;
+          }
+          }
+        }
       }
       return context.skip();
+    }
+    Partial parseStatementMutateOperator(Partial& lhs, egg::ovum::ValueMutationOp op) {
+      assert(lhs.succeeded());
+      auto rhs = this->parseValueExpression(lhs.tokensAfter + 1);
+      if (!rhs.succeeded()) {
+        return rhs;
+      }
+      lhs.wrap(Node::Kind::StmtMutate);
+      lhs.node->range.end = rhs.node->range.end;
+      lhs.node->children.emplace_back(std::move(rhs.node));
+      lhs.node->op.valueMutationOp = op;
+      lhs.tokensAfter = rhs.tokensAfter;
+      return std::move(lhs);
     }
     Partial parseTarget(size_t tokidx) {
       // TODO
@@ -953,9 +1044,12 @@ namespace {
         case EggTokenizerOperator::Tilde: // "~"
           return this->parseValueExpressionUnaryOperator(tokidx, egg::ovum::ValueUnaryOp::BitwiseNot);
         case EggTokenizerOperator::PlusPlus: // "++"
-          return context.failed(tokidx, "'++' operator cannot be used in expressions");
+          return context.failed(tokidx, "Increment operator '++' cannot be used in expressions");
         case EggTokenizerOperator::MinusMinus: // "--"
-          return context.failed(tokidx, "'--' operator cannot be used in expressions");
+          return context.failed(tokidx, "Decrement operator '--' cannot be used in expressions");
+        case EggTokenizerOperator::ParenthesisLeft: // "("
+        case EggTokenizerOperator::BracketLeft: // "["
+          return this->parseValueExpressionPrimary(tokidx);
         case EggTokenizerOperator::BangEqual: // "!="
         case EggTokenizerOperator::Percent: // "%"
         case EggTokenizerOperator::PercentEqual: // "%="
@@ -963,7 +1057,6 @@ namespace {
         case EggTokenizerOperator::AmpersandAmpersand: // "&&"
         case EggTokenizerOperator::AmpersandAmpersandEqual: // "&&="
         case EggTokenizerOperator::AmpersandEqual: // "&="
-        case EggTokenizerOperator::ParenthesisLeft: // "("
         case EggTokenizerOperator::ParenthesisRight: // ")"
         case EggTokenizerOperator::Star: // "*"
         case EggTokenizerOperator::StarEqual: // "*="
@@ -993,7 +1086,6 @@ namespace {
         case EggTokenizerOperator::Query: // "?"
         case EggTokenizerOperator::QueryQuery: // "??"
         case EggTokenizerOperator::QueryQueryEqual: // "??="
-        case EggTokenizerOperator::BracketLeft: // "["
         case EggTokenizerOperator::BracketRight: // "]"
         case EggTokenizerOperator::Caret: // "^"
         case EggTokenizerOperator::CaretEqual: // "^="
@@ -1022,7 +1114,6 @@ namespace {
       return rhs;
     }
     Partial parseValueExpressionPrimary(size_t tokidx) {
-      Context context(*this, tokidx);
       auto partial = this->parseValueExpressionPrimaryPrefix(tokidx);
       while (partial.succeeded()) {
         if (!this->parseValueExpressionPrimarySuffix(partial)) {
@@ -1034,30 +1125,33 @@ namespace {
     Partial parseValueExpressionPrimaryPrefix(size_t tokidx) {
       std::unique_ptr<Node> node;
       Context context(*this, tokidx);
-      switch (context[0].kind) {
+      auto& next = context[0];
+      switch (next.kind) {
       case EggTokenizerKind::Integer:
-        node = this->makeNodeInt(Node::Kind::Literal, context[0]);
+        node = this->makeNodeInt(Node::Kind::Literal, next);
         return context.success(std::move(node), tokidx + 1);
       case EggTokenizerKind::Float:
-        node = this->makeNodeFloat(Node::Kind::Literal, context[0]);
+        node = this->makeNodeFloat(Node::Kind::Literal, next);
         return context.success(std::move(node), tokidx + 1);
       case EggTokenizerKind::String:
-        // TODO: join contiguous strings?
-        node = this->makeNodeString(Node::Kind::Literal, context[0]);
+        node = this->makeNodeString(Node::Kind::Literal, next);
         return context.success(std::move(node), tokidx + 1);
       case EggTokenizerKind::Identifier:
-        node = this->makeNodeString(Node::Kind::ExprVariable, context[0]);
+        node = this->makeNodeString(Node::Kind::ExprVariable, next);
         return context.success(std::move(node), tokidx + 1);
       case EggTokenizerKind::Keyword:
         return this->parseValueExpressionPrimaryPrefixKeyword(tokidx);
       case EggTokenizerKind::Attribute:
         return PARSE_TODO(tokidx, "bad expression attribute");
       case EggTokenizerKind::Operator:
-        return PARSE_TODO(tokidx, "bad expression operator");
+        if (next.isOperator(EggTokenizerOperator::BracketLeft)) {
+          return this->parseValueExpressionArray(tokidx);
+        }
+        break;
       case EggTokenizerKind::EndOfFile:
-        return context.expected(tokidx, "expression");
+        break;
       }
-      return PARSE_TODO(tokidx, "bad expression primary prefix");
+      return context.expected(tokidx, "expression");
     }
     Partial parseValueExpressionPrimaryPrefixKeyword(size_t tokidx) {
       Context context(*this, tokidx);
@@ -1192,6 +1286,43 @@ namespace {
         return true;
       }
       return false;
+    }
+    Partial parseValueExpressionArray(size_t tokidx) {
+      // Array literal: [a, ...b, c]
+      Context context(*this, tokidx);
+      auto& bracket = context[0];
+      assert(bracket.isOperator(EggTokenizerOperator::BracketLeft));
+      auto array = this->makeNode(Node::Kind::ExprArray, bracket);
+      auto partial = context.success(std::move(array), tokidx + 1);
+      size_t index = 0;
+      while (this->parseValueExpressionArrayElement(partial, index)) {
+        ++index;
+      }
+      return partial;
+    }
+    bool parseValueExpressionArrayElement(Partial& partial, size_t index) {
+      assert(partial.succeeded());
+      auto* next = &partial.after(0);
+      if (next->isOperator(EggTokenizerOperator::BracketRight)) {
+        partial.node->range.end = { next->line, next->column + 1 };
+        partial.tokensAfter++;
+        return false;
+      }
+      if (index > 0) {
+        if (!next->isOperator(EggTokenizerOperator::Comma)) {
+          partial.fail("TODO: Expected ',' between array elements, but instead got ", next->toString());
+          return false;
+        }
+        partial.tokensAfter++;
+      }
+      auto expr = this->parseValueExpression(partial.tokensAfter);
+      if (!expr.succeeded()) {
+        partial.fail(expr);
+        return false;
+      }
+      partial.node->children.emplace_back(std::move(expr.node));
+      partial.tokensAfter = expr.tokensAfter;
+      return true;
     }
     std::unique_ptr<Node> makeNode(Node::Kind kind, const egg::ovum::SourceRange& range) {
       auto node = std::make_unique<Node>(kind);

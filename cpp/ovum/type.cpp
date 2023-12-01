@@ -18,7 +18,7 @@ namespace {
       return std::make_pair(ss.str(), precedence);
     }
     virtual void print(Printer& printer) const override {
-      (void)Print::describe(printer.stream(), FLAGS, Print::Options::DEFAULT);
+      (void)Print::describe(printer.stream, FLAGS, Print::Options::DEFAULT);
     }
   };
 

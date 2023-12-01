@@ -1,5 +1,7 @@
 #include "ovum/ovum.h"
 
+#include <deque>
+
 namespace {
   using namespace egg::ovum;
 
@@ -31,7 +33,7 @@ namespace {
     explicit VMObjectBase(IVM& vm)
       : SoftReferenceCounted<IObject>(),
         vm(&vm) {
-      // Initially not adopted by the any basket
+      // Initially not adopted by any basket
     }
     virtual void hardDestroy() const override {
       this->vm->getAllocator().destroy(this);
@@ -157,7 +159,7 @@ namespace {
       SoftKey key(*this->vm, index.get());
       auto pfound = this->properties.find(key);
       if (pfound == this->properties.end()) {
-        return this->raiseRuntimeError(execution, "TODO: Cannot find index '", key, "' in expando object");
+        return this->raiseRuntimeError(execution, "TODO: Cannot find index '", key.get(), "' in expando object");
       }
       return this->vm->getSoftValue(pfound->second);
     }
@@ -168,7 +170,7 @@ namespace {
         pfound = this->properties.emplace_hint(pfound, std::piecewise_construct, std::forward_as_tuple(key), std::forward_as_tuple(*this->vm));
       }
       if (!this->vm->setSoftValue(pfound->second, value)) {
-        return this->raiseRuntimeError(execution, "TODO: Cannot modify index '", key, "'");
+        return this->raiseRuntimeError(execution, "TODO: Cannot modify index '", key.get(), "'");
       }
       return HardValue::Void;
     }
@@ -176,7 +178,7 @@ namespace {
       SoftKey pname(*this->vm, property.get());
       auto pfound = this->properties.find(pname);
       if (pfound == this->properties.end()) {
-        return this->raiseRuntimeError(execution, "TODO: Cannot find property '", pname, "' in expando object");
+        return this->raiseRuntimeError(execution, "TODO: Cannot find property '", pname.get(), "' in expando object");
       }
       return this->vm->getSoftValue(pfound->second);
     }
@@ -187,7 +189,7 @@ namespace {
         pfound = this->properties.emplace_hint(pfound, std::piecewise_construct, std::forward_as_tuple(pname), std::forward_as_tuple(*this->vm));
       }
       if (!this->vm->setSoftValue(pfound->second, value)) {
-        return this->raiseRuntimeError(execution, "TODO: Cannot modify property '", pname, "'");
+        return this->raiseRuntimeError(execution, "TODO: Cannot modify property '", pname.get(), "'");
       }
       return HardValue::Void;
     }
@@ -266,6 +268,146 @@ namespace {
     }
     virtual HardValue vmPropertySet(IVMExecution& execution, const HardValue&, const HardValue&) override {
       return this->raiseRuntimeError(execution, "Builtin 'collector()' does not support properties");
+    }
+  };
+
+  template<typename T>
+  class VMObjectMemberHandler : public VMObjectBase {
+    VMObjectMemberHandler(const VMObjectMemberHandler&) = delete;
+    VMObjectMemberHandler& operator=(const VMObjectMemberHandler&) = delete;
+  public:
+    typedef HardValue(T::*Handler)(IVMExecution& execution, const ICallArguments& arguments);
+  private:
+    T* instance;
+    Handler handler;
+  public:
+    VMObjectMemberHandler(IVM& vm, T& instance, Handler handler)
+      : VMObjectBase(vm),
+        instance(&instance),
+        handler(handler) {
+      this->vm->getBasket().take(*this->instance);
+      assert(this->instance != nullptr);
+      assert(this->handler != nullptr);
+    }
+    virtual void softVisit(ICollectable::IVisitor& visitor) const override {
+      assert(this->instance != nullptr);
+      visitor.visit(*this->instance);
+    }
+    virtual void print(Printer& printer) const override {
+      printer << "[member handler]";
+    }
+    virtual Type vmRuntimeType() override {
+      // TODO
+      return Type::Object;
+    }
+    virtual HardValue vmCall(IVMExecution& execution, const ICallArguments& arguments) override {
+      assert(this->instance != nullptr);
+      assert(this->handler != nullptr);
+      return (this->instance->*(this->handler))(execution, arguments);
+    }
+    virtual HardValue vmIndexGet(IVMExecution& execution, const HardValue&) override {
+      return this->raiseRuntimeError(execution, "Member handlers do not support indexing");
+    }
+    virtual HardValue vmIndexSet(IVMExecution& execution, const HardValue&, const HardValue&) override {
+      return this->raiseRuntimeError(execution, "Member handlers do not support indexing");
+    }
+    virtual HardValue vmPropertyGet(IVMExecution& execution, const HardValue&) override {
+      return this->raiseRuntimeError(execution, "Member handlers do not support properties");
+    }
+    virtual HardValue vmPropertySet(IVMExecution& execution, const HardValue&, const HardValue&) override {
+      return this->raiseRuntimeError(execution, "Member handlers do not support properties");
+    }
+  };
+
+  template<typename T>
+  class VMObjectVanilla : public VMObjectBase {
+    VMObjectVanilla(const VMObjectVanilla&) = delete;
+    VMObjectVanilla& operator=(const VMObjectVanilla&) = delete;
+  public:
+    typedef HardValue(T::*MemberHandler)(IVMExecution& execution, const ICallArguments& arguments);
+  protected:
+    explicit VMObjectVanilla(IVM& vm)
+      : VMObjectBase(vm) {
+    }
+    HardValue createSoftMemberHandler(MemberHandler handler) {
+      T& self = *static_cast<T*>(this);
+      auto instance = makeHardObject<VMObjectMemberHandler<T>>(*this->vm, self, handler);
+      return this->vm->createHardValueObject(instance);
+    }
+  };
+
+  class VMObjectVanillaArray : public VMObjectVanilla<VMObjectVanillaArray> {
+    VMObjectVanillaArray(const VMObjectVanillaArray&) = delete;
+    VMObjectVanillaArray& operator=(const VMObjectVanillaArray&) = delete;
+  private:
+    std::deque<SoftValue> elements;
+  public:
+    explicit VMObjectVanillaArray(IVM& vm)
+      : VMObjectVanilla(vm) {
+    }
+    virtual void softVisit(ICollectable::IVisitor& visitor) const override {
+      for (const auto& element : this->elements) {
+        element.visit(visitor);
+      }
+    }
+    virtual void print(Printer& printer) const override {
+      Print::Options options = printer.options;
+      options.quote = '"';
+      char separator = '[';
+      for (const auto& element : this->elements) {
+        printer.stream << separator;
+        Print::write(printer.stream, element.get(), options);
+        separator = ',';
+      }
+      if (separator == '[') {
+        printer.stream << '[';
+      }
+      printer.stream << ']';
+    }
+    virtual Type vmRuntimeType() override {
+      // TODO
+      return Type::Object;
+    }
+    virtual HardValue vmCall(IVMExecution& execution, const ICallArguments&) override {
+      return this->raiseRuntimeError(execution, "Vanilla arrays do not support call semantics");
+    }
+    virtual HardValue vmIndexGet(IVMExecution& execution, const HardValue& index) override {
+      Int ivalue;
+      if (!index->getInt(ivalue)) {
+        return this->raiseRuntimeError(execution, "Expected index value to be an 'int', but instead got ", describe(index.get()));
+      }
+      auto uvalue = size_t(ivalue);
+      if (uvalue > this->elements.size()) {
+        return this->raiseRuntimeError(execution, "Array index ", ivalue, " is out of range for an array of length ", this->elements.size());
+      }
+      return this->vm->getSoftValue(this->elements[uvalue]);
+    }
+    virtual HardValue vmIndexSet(IVMExecution& execution, const HardValue&, const HardValue&) override {
+      return this->raiseRuntimeError(execution, "WIBBLE: Vanilla arrays do not support indexing");
+    }
+    virtual HardValue vmPropertyGet(IVMExecution& execution, const HardValue& property) override {
+      String pname;
+      if (property->getString(pname)) {
+        if (pname.equals("length")) {
+          return execution.createHardValueInt(Int(this->elements.size()));
+        }
+        if (pname.equals("push")) {
+          return this->createSoftMemberHandler(&VMObjectVanillaArray::vmCallPush);
+        }
+        return this->raiseRuntimeError(execution, "Unknown vanilla array property name: '", pname, "'");
+      }
+      return this->raiseRuntimeError(execution, "Expected vanilla property name to be a 'string', but instead got ", describe(property.get()));
+    }
+    virtual HardValue vmPropertySet(IVMExecution& execution, const HardValue&, const HardValue&) override {
+      return this->raiseRuntimeError(execution, "WIBBLE: Vanilla arrays do not support properties");
+    }
+    HardValue vmCallPush(IVMExecution&, const ICallArguments& arguments) {
+      HardValue argument;
+      for (size_t index = 0; arguments.getArgumentByIndex(index, argument); ++index) {
+        auto& added = this->elements.emplace_back(*this->vm);
+        added->mutate(Mutation::Assign, argument.get());
+      }
+      return HardValue::Void;
     }
   };
 
@@ -754,7 +896,7 @@ namespace {
       SoftKey pname(*this->vm, property.get());
       auto pfound = this->properties.find(pname);
       if (pfound == this->properties.end()) {
-        return this->raiseRuntimeError(execution, "Cannot find property '", pname, "' in runtime error object");
+        return this->raiseRuntimeError(execution, "Cannot find property '", pname.get(), "' in runtime error object");
       }
       return this->vm->getSoftValue(pfound->second);
     }
@@ -765,7 +907,7 @@ namespace {
         pfound = this->properties.emplace_hint(pfound, std::piecewise_construct, std::forward_as_tuple(pname), std::forward_as_tuple(*this->vm));
       }
       if (!this->vm->setSoftValue(pfound->second, value)) {
-        return this->raiseRuntimeError(execution, "Cannot modify property '", pname, "'");
+        return this->raiseRuntimeError(execution, "Cannot modify property '", pname.get(), "'");
       }
       return HardValue::Void;
     }
@@ -786,6 +928,10 @@ egg::ovum::HardObject egg::ovum::ObjectFactory::createBuiltinExpando(IVM& vm) {
 
 egg::ovum::HardObject egg::ovum::ObjectFactory::createBuiltinCollector(IVM& vm) {
   return makeHardObject<VMObjectBuiltinCollector>(vm);
+}
+
+egg::ovum::HardObject egg::ovum::ObjectFactory::createVanillaArray(IVM& vm) {
+  return makeHardObject<VMObjectVanillaArray>(vm);
 }
 
 egg::ovum::HardObject egg::ovum::ObjectFactory::createStringProxyCompareTo(IVM& vm, const String& instance) {

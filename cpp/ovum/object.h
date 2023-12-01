@@ -44,6 +44,8 @@ namespace egg::ovum {
     static HardObject createBuiltinPrint(IVM& vm);
     static HardObject createBuiltinExpando(IVM& vm); // TODO deprecate
     static HardObject createBuiltinCollector(IVM& vm); // TODO testing only
+    // Vanilla factories
+    static HardObject createVanillaArray(IVM& vm);
     // String proxy factories
     static HardObject createStringProxyCompareTo(IVM& vm, const String& instance);
     static HardObject createStringProxyContains(IVM& vm, const String& instance);

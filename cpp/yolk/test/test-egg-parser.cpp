@@ -94,6 +94,8 @@ namespace {
     case Node::Kind::ExprProperty:
       assert(node.children.size() == 2);
       return printNodeChildren(os, "expr-property", node, ranges);
+    case Node::Kind::ExprArray:
+      return printNodeChildren(os, "expr-array", node, ranges);
     case Node::Kind::TypeInfer:
       assert(node.children.empty());
       return printNodeChildren(os, "type-infer", node, ranges);

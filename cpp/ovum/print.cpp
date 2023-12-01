@@ -6,12 +6,6 @@
 namespace {
   using namespace egg::ovum;
 
-  constexpr Print::Options constructDefault() {
-    Print::Options options{};
-    options.quote = '\0';
-    return options;
-  }
-
   void escapeCodepoint(std::ostream& stream, char quote, char32_t codepoint) {
     switch (codepoint) {
     case '\0':
@@ -86,7 +80,7 @@ namespace {
   }
 }
 
-const egg::ovum::Print::Options egg::ovum::Print::Options::DEFAULT = constructDefault();
+const egg::ovum::Print::Options egg::ovum::Print::Options::DEFAULT = {};
 
 void egg::ovum::Print::write(std::ostream& stream, std::nullptr_t, const Options&) {
   stream << "null";
@@ -134,35 +128,23 @@ void egg::ovum::Print::write(std::ostream& stream, const String& value, const Op
   Print::write(stream, value.toUTF8(), options);
 }
 
-void egg::ovum::Print::write(std::ostream& stream, const ICollectable* value, const Options& options) {
-  if (value == nullptr) {
-    stream << "null";
-  } else {
-    // TODO change options?
-    Printer printer{ stream, options };
-    value->print(printer);
-  }
+void egg::ovum::Print::write(std::ostream& stream, const ICollectable& value, const Options& options) {
+  Printer printer{ stream, options };
+  value.print(printer);
 }
 
-void egg::ovum::Print::write(std::ostream& stream, const IObject* value, const Options& options) {
-  Print::write(stream, static_cast<const ICollectable*>(value), options);
+void egg::ovum::Print::write(std::ostream& stream, const IObject& value, const Options& options) {
+  Printer printer{ stream, options };
+  value.print(printer);
 }
 
-void egg::ovum::Print::write(std::ostream& stream, const IValue* value, const Options& options) {
-  if (value == nullptr) {
-    stream << "null";
-  } else {
-    Printer printer(stream, options);
-    value->print(printer);
-  }
+void egg::ovum::Print::write(std::ostream& stream, const IValue& value, const Options& options) {
+  Printer printer{ stream, options };
+  value.print(printer);
 }
 
-void egg::ovum::Print::write(std::ostream& stream, const IType* value, const Options&) {
-  if (value == nullptr) {
-    stream << "null";
-  } else {
-    stream << value->toStringPrecedence().first;
-  }
+void egg::ovum::Print::write(std::ostream& stream, const IType& value, const Options&) {
+  stream << value.toStringPrecedence().first;
 }
 
 void egg::ovum::Print::write(std::ostream& stream, const Type& value, const Options& options) {
@@ -442,18 +424,6 @@ void egg::ovum::Print::write(std::ostream& stream, const HardObject& value, cons
 }
 
 void egg::ovum::Print::write(std::ostream& stream, const HardValue& value, const Options& options) {
-  Print::write(stream, const_cast<const IValue*>(&value.get()), options);
-}
-
-void egg::ovum::Print::write(std::ostream& stream, const SoftObject& value, const Options& options) {
-  Print::write(stream, const_cast<const IObject*>(value.get()), options);
-}
-
-void egg::ovum::Print::write(std::ostream& stream, const SoftKey& value, const Options& options) {
-  Print::write(stream, const_cast<const IValue*>(&value.get()), options);
-}
-
-void egg::ovum::Print::write(std::ostream& stream, const SoftValue& value, const Options& options) {
   Print::write(stream, const_cast<const IValue*>(&value.get()), options);
 }
 

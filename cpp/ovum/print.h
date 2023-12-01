@@ -1,9 +1,6 @@
 namespace egg::ovum {
   class HardObject;
   class HardValue;
-  class SoftObject;
-  class SoftKey;
-  class SoftValue;
   enum class ValueUnaryOp;
   enum class ValueBinaryOp;
   enum class ValueTernaryOp;
@@ -14,7 +11,7 @@ namespace egg::ovum {
   class Print {
   public:
     struct Options {
-      char quote;
+      char quote = '\0';
       static const Options DEFAULT;
     };
 
@@ -31,16 +28,13 @@ namespace egg::ovum {
     static void write(std::ostream& stream, double value, const Options& options);
     static void write(std::ostream& stream, const std::string& value, const Options& options);
     static void write(std::ostream& stream, const String& value, const Options& options);
-    static void write(std::ostream& stream, const ICollectable* value, const Options& options);
-    static void write(std::ostream& stream, const IObject* value, const Options& options);
-    static void write(std::ostream& stream, const IValue* value, const Options& options);
-    static void write(std::ostream& stream, const IType* value, const Options& options);
+    static void write(std::ostream& stream, const ICollectable& value, const Options& options);
+    static void write(std::ostream& stream, const IObject& value, const Options& options);
+    static void write(std::ostream& stream, const IValue& value, const Options& options);
+    static void write(std::ostream& stream, const IType& value, const Options& options);
     static void write(std::ostream& stream, const Type& value, const Options& options);
     static void write(std::ostream& stream, const HardObject& value, const Options& options);
     static void write(std::ostream& stream, const HardValue& value, const Options& options);
-    static void write(std::ostream& stream, const SoftObject& value, const Options& options);
-    static void write(std::ostream& stream, const SoftKey& value, const Options& options);
-    static void write(std::ostream& stream, const SoftValue& value, const Options& options);
     static void write(std::ostream& stream, ValueFlags value, const Options& options);
     static void write(std::ostream& stream, ILogger::Severity value, const Options& options);
     static void write(std::ostream& stream, ILogger::Source value, const Options& options);
@@ -53,7 +47,15 @@ namespace egg::ovum {
     static void write(std::ostream& stream, TypeBinaryOp value, const Options& options);
     template<typename T>
     static void write(std::ostream& stream, const HardPtr<T>& value, const Options& options) {
-      write(stream, static_cast<const ICollectable*>(value.get()), options);
+      Print::write(stream, static_cast<const ICollectable*>(value.get()), options);
+    }
+    template<typename T>
+    static void write(std::ostream& stream, const T* value, const Options& options) {
+      if (value == nullptr) {
+        stream << "null";
+      } else {
+        Print::write(stream, *value, options);
+      }
     }
 
     // Descriptions
@@ -69,37 +71,33 @@ namespace egg::ovum {
   class Printer {
     Printer(const Printer&) = delete;
     Printer& operator=(const Printer&) = delete;
-  private:
-    std::ostream& os;
-    const Print::Options& options;
   public:
-    Printer(std::ostream& os, const Print::Options& options)
-      : os(os),
+    std::ostream& stream;
+    const Print::Options& options;
+    Printer(std::ostream& stream, const Print::Options& options)
+      : stream(stream),
         options(options) {
     }
     template<typename T>
     Printer& operator<<(const T& value) {
-      Print::write(this->os, value, this->options);
+      Print::write(this->stream, value, this->options);
       return *this;
     }
     Printer& operator<<(const char* value) {
-      this->os << value;
+      this->stream << value;
       return *this;
     }
     Printer& operator<<(char value) {
-      this->os << value;
+      this->stream << value;
       return *this;
     }
     template<typename T>
     void write(const T& value) {
-      Print::write(this->os, value, this->options);
+      Print::write(this->stream, value, this->options);
     }
     template<typename T>
     void describe(const T& value) {
-      Print::describe(this->os, value, this->options);
-    }
-    std::ostream& stream() const {
-      return this->os;
+      Print::describe(this->stream, value, this->options);
     }
   };
 }

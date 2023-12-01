@@ -122,9 +122,9 @@ namespace {
     }
     virtual void print(Printer& printer) const override {
       for (const auto* entry : this->owned) {
-        printer << "    [" << entry << "] " << typeid(*entry).name() << " ";
+        printer.stream << "    [" << entry << "] " << typeid(*entry).name() << " ";
         entry->print(printer);
-        printer.stream() << std::endl;
+        printer.stream << std::endl;
       }
     }
   };
