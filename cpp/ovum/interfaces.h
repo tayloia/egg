@@ -26,22 +26,80 @@ namespace egg::ovum {
     All = Read | Write | Mutate | Delete
   };
 
-  enum class Mutation {
-    Assign,
-    Decrement,
-    Increment,
-    Add,
-    Subtract,
-    Multiply,
-    Divide,
-    Remainder,
-    BitwiseAnd,
-    BitwiseOr,
-    BitwiseXor,
-    ShiftLeft,
-    ShiftRight,
-    ShiftRightUnsigned,
-    Noop // TODO: Split into Clone/Cancel?
+  // Value operators
+  enum class ValueUnaryOp {
+    Negate,             // -a
+    BitwiseNot,         // ~a
+    LogicalNot          // !a
+  };
+  enum class ValueBinaryOp {
+    Add,                // a + b
+    Subtract,           // a - b
+    Multiply,           // a * b
+    Divide,             // a / b
+    Remainder,          // a % b
+    LessThan,           // a < b
+    LessThanOrEqual,    // a <= b
+    Equal,              // a == b
+    NotEqual,           // a != b
+    GreaterThanOrEqual, // a >= b
+    GreaterThan,        // a > b
+    BitwiseAnd,         // a & b
+    BitwiseOr,          // a | b
+    BitwiseXor,         // a ^ b
+    ShiftLeft,          // a << b
+    ShiftRight,         // a >> b
+    ShiftRightUnsigned, // a >>> b
+    IfNull,             // a ?? b
+    IfFalse,            // a || b
+    IfTrue              // a && b
+  };
+  enum class ValueTernaryOp {
+    IfThenElse          // a ? b : c
+  };
+  enum class ValueMutationOp {
+    Assign,             // a = b
+    Decrement,          // --a
+    Increment,          // ++a
+    Add,                // a += b
+    Subtract,           // a -= b
+    Multiply,           // a *= b
+    Divide,             // a /= b
+    Remainder,          // a %= b
+    BitwiseAnd,         // a &= b
+    BitwiseOr,          // a |= b
+    BitwiseXor,         // a ^= b
+    ShiftLeft,          // a <<= b
+    ShiftRight,         // a >>= b
+    ShiftRightUnsigned, // a >>>= b
+    IfNull,             // a ??= b
+    IfFalse,            // a ||= b
+    IfTrue,             // a &&= b
+    Noop // TODO cancels any pending prechecks on this thread
+  };
+
+  // Predicate operators
+  enum class ValuePredicateOp {
+    LogicalNot,         // !a
+    LessThan,           // a < b
+    LessThanOrEqual,    // a <= b
+    Equal,              // a == b
+    NotEqual,           // a != b
+    GreaterThanOrEqual, // a >= b
+    GreaterThan,        // a > b
+    None                // a
+  };
+
+  // Type operators
+  enum class TypeUnaryOp {
+    Pointer,            // t*
+    Iterator,           // t!
+    Array,              // t[]
+    Nullable            // t?
+  };
+  enum class TypeBinaryOp {
+    Map,                // t[u]
+    Union               // t | u
   };
 
   class ILogger {
@@ -178,8 +236,10 @@ namespace egg::ovum {
     virtual HardValue vmCall(IVMExecution& execution, const ICallArguments& arguments) = 0;
     virtual HardValue vmIndexGet(IVMExecution& execution, const HardValue& index) = 0;
     virtual HardValue vmIndexSet(IVMExecution& execution, const HardValue& index, const HardValue& value) = 0;
+    virtual HardValue vmIndexMut(IVMExecution& execution, const HardValue& index, ValueMutationOp mutation, const HardValue& value) = 0;
     virtual HardValue vmPropertyGet(IVMExecution& execution, const HardValue& property) = 0;
     virtual HardValue vmPropertySet(IVMExecution& execution, const HardValue& property, const HardValue& value) = 0;
+    virtual HardValue vmPropertyMut(IVMExecution& execution, const HardValue& property, ValueMutationOp mutation, const HardValue& value) = 0;
   };
 
   class IParameters {

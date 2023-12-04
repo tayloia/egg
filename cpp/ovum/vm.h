@@ -1,80 +1,4 @@
 namespace egg::ovum {
-  // Value operators
-  enum class ValueUnaryOp {
-    Negate,             // -a
-    BitwiseNot,         // ~a
-    LogicalNot          // !a
-  };
-  enum class ValueBinaryOp {
-    Add,                // a + b
-    Subtract,           // a - b
-    Multiply,           // a * b
-    Divide,             // a / b
-    Remainder,          // a % b
-    LessThan,           // a < b
-    LessThanOrEqual,    // a <= b
-    Equal,              // a == b
-    NotEqual,           // a != b
-    GreaterThanOrEqual, // a >= b
-    GreaterThan,        // a > b
-    BitwiseAnd,         // a & b
-    BitwiseOr,          // a | b
-    BitwiseXor,         // a ^ b
-    ShiftLeft,          // a << b
-    ShiftRight,         // a >> b
-    ShiftRightUnsigned, // a >>> b
-    IfNull,             // a ?? b
-    IfFalse,            // a || b
-    IfTrue              // a && b
-  };
-  enum class ValueTernaryOp {
-    IfThenElse          // a ? b : c
-  };
-  enum class ValueMutationOp {
-    Assign,             // a = b
-    Decrement,          // --a
-    Increment,          // ++a
-    Add,                // a += b
-    Subtract,           // a -= b
-    Multiply,           // a *= b
-    Divide,             // a /= b
-    Remainder,          // a %= b
-    BitwiseAnd,         // a &= b
-    BitwiseOr,          // a |= b
-    BitwiseXor,         // a ^= b
-    ShiftLeft,          // a <<= b
-    ShiftRight,         // a >>= b
-    ShiftRightUnsigned, // a >>>= b
-    IfNull,             // a ??= b
-    IfFalse,            // a ||= b
-    IfTrue,             // a &&= b
-    Noop // TODO cancels any pending prechecks on this thread
-  };
-
-  // Predicate operators
-  enum class ValuePredicateOp {
-    LogicalNot,         // !a
-    LessThan,           // a < b
-    LessThanOrEqual,    // a <= b
-    Equal,              // a == b
-    NotEqual,           // a != b
-    GreaterThanOrEqual, // a >= b
-    GreaterThan,        // a > b
-    None                // a
-  };
-
-  // Type operators
-  enum class TypeUnaryOp {
-    Pointer,            // t*
-    Iterator,           // t!
-    Array,              // t[]
-    Nullable            // t?
-  };
-  enum class TypeBinaryOp {
-    Map,                // t[u]
-    Union               // t | u
-  };
-
   class IVMCommon {
   public:
     // Interface
@@ -157,6 +81,10 @@ namespace egg::ovum {
     virtual HardValue raiseRuntimeError(const String& message) = 0;
     // Assignment
     virtual bool assignValue(HardValue& dst, const Type& type, const HardValue& src) = 0;
+    // Soft values
+    virtual HardValue getSoftValue(const SoftValue& soft) = 0;
+    virtual bool setSoftValue(SoftValue& lhs, const HardValue& rhs) = 0;
+    virtual HardValue mutateSoftValue(SoftValue& lhs, ValueMutationOp mutation, const HardValue& rhs) = 0;
     // Operations
     virtual HardValue evaluateValueUnaryOp(ValueUnaryOp op, const HardValue& arg) = 0;
     virtual HardValue evaluateValueBinaryOp(ValueBinaryOp op, const HardValue& lhs, const HardValue& rhs) = 0;
@@ -242,6 +170,8 @@ namespace egg::ovum {
     virtual Node& stmtVariableSet(const String& symbol, Node& value, const SourceRange& range) = 0;
     virtual Node& stmtVariableMutate(const String& symbol, ValueMutationOp op, Node& value, const SourceRange& range) = 0;
     virtual Node& stmtPropertySet(Node& instance, Node& property, Node& value, const SourceRange& range) = 0;
+    virtual Node& stmtPropertyMutate(Node& instance, Node& property, ValueMutationOp op, Node& value, const SourceRange& range) = 0;
+    virtual Node& stmtIndexMutate(Node& instance, Node& index, ValueMutationOp op, Node& value, const SourceRange& range) = 0;
     virtual Node& stmtFunctionCall(Node& function, const SourceRange& range) = 0;
     virtual Node& stmtThrow(Node& exception, const SourceRange& range) = 0;
     virtual Node& stmtTry(Node& block, const SourceRange& range) = 0;
@@ -290,7 +220,7 @@ namespace egg::ovum {
     IValue* createSoftAlias(const IValue& value) {
       return this->softCreateAlias(value);
     }
-    HardValue getSoftValue(SoftValue& instance) {
+    HardValue getSoftValue(const SoftValue& instance) {
       auto* hard = this->softHarden(instance.ptr.ptr);
       assert(hard != nullptr);
       return HardValue(*hard);

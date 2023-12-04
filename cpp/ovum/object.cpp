@@ -1,4 +1,5 @@
 #include "ovum/ovum.h"
+#include "ovum/operation.h"
 
 #include <deque>
 
@@ -77,10 +78,16 @@ namespace {
     virtual HardValue vmIndexSet(IVMExecution& execution, const HardValue&, const HardValue&) override {
       return this->raiseRuntimeError(execution, "Builtin 'assert()' does not support indexing");
     }
+    virtual HardValue vmIndexMut(IVMExecution& execution, const HardValue&, ValueMutationOp, const HardValue&) override {
+      return this->raiseRuntimeError(execution, "Builtin 'assert()' does not support indexing");
+    }
     virtual HardValue vmPropertyGet(IVMExecution& execution, const HardValue&) override {
       return this->raiseRuntimeError(execution, "Builtin 'assert()' does not support properties");
     }
     virtual HardValue vmPropertySet(IVMExecution& execution, const HardValue&, const HardValue&) override {
+      return this->raiseRuntimeError(execution, "Builtin 'assert()' does not support properties");
+    }
+    virtual HardValue vmPropertyMut(IVMExecution& execution, const HardValue&, ValueMutationOp, const HardValue&) override {
       return this->raiseRuntimeError(execution, "Builtin 'assert()' does not support properties");
     }
   };
@@ -122,10 +129,16 @@ namespace {
     virtual HardValue vmIndexSet(IVMExecution& execution, const HardValue&, const HardValue&) override {
       return this->raiseRuntimeError(execution, "Builtin 'print()' does not support indexing");
     }
+    virtual HardValue vmIndexMut(IVMExecution& execution, const HardValue&, ValueMutationOp, const HardValue&) override {
+      return this->raiseRuntimeError(execution, "Builtin 'print()' does not support indexing");
+    }
     virtual HardValue vmPropertyGet(IVMExecution& execution, const HardValue&) override {
       return this->raiseRuntimeError(execution, "Builtin 'print()' does not support properties");
     }
     virtual HardValue vmPropertySet(IVMExecution& execution, const HardValue&, const HardValue&) override {
+      return this->raiseRuntimeError(execution, "Builtin 'print()' does not support properties");
+    }
+    virtual HardValue vmPropertyMut(IVMExecution& execution, const HardValue&, ValueMutationOp, const HardValue&) override {
       return this->raiseRuntimeError(execution, "Builtin 'print()' does not support properties");
     }
   };
@@ -161,7 +174,7 @@ namespace {
       if (pfound == this->properties.end()) {
         return this->raiseRuntimeError(execution, "TODO: Cannot find index '", key.get(), "' in expando object");
       }
-      return this->vm->getSoftValue(pfound->second);
+      return execution.getSoftValue(pfound->second);
     }
     virtual HardValue vmIndexSet(IVMExecution& execution, const HardValue& index, const HardValue& value) override {
       SoftKey key(*this->vm, index.get());
@@ -169,10 +182,13 @@ namespace {
       if (pfound == this->properties.end()) {
         pfound = this->properties.emplace_hint(pfound, std::piecewise_construct, std::forward_as_tuple(key), std::forward_as_tuple(*this->vm));
       }
-      if (!this->vm->setSoftValue(pfound->second, value)) {
+      if (!execution.setSoftValue(pfound->second, value)) {
         return this->raiseRuntimeError(execution, "TODO: Cannot modify index '", key.get(), "'");
       }
       return HardValue::Void;
+    }
+    virtual HardValue vmIndexMut(IVMExecution& execution, const HardValue&, ValueMutationOp, const HardValue&) override {
+      return this->raiseRuntimeError(execution, "TODO: Expando objects do not yet support index mutation");
     }
     virtual HardValue vmPropertyGet(IVMExecution& execution, const HardValue& property) override {
       SoftKey pname(*this->vm, property.get());
@@ -180,7 +196,7 @@ namespace {
       if (pfound == this->properties.end()) {
         return this->raiseRuntimeError(execution, "TODO: Cannot find property '", pname.get(), "' in expando object");
       }
-      return this->vm->getSoftValue(pfound->second);
+      return execution.getSoftValue(pfound->second);
     }
     virtual HardValue vmPropertySet(IVMExecution& execution, const HardValue& property, const HardValue& value) override {
       SoftKey pname(*this->vm, property.get());
@@ -188,10 +204,13 @@ namespace {
       if (pfound == this->properties.end()) {
         pfound = this->properties.emplace_hint(pfound, std::piecewise_construct, std::forward_as_tuple(pname), std::forward_as_tuple(*this->vm));
       }
-      if (!this->vm->setSoftValue(pfound->second, value)) {
+      if (!execution.setSoftValue(pfound->second, value)) {
         return this->raiseRuntimeError(execution, "TODO: Cannot modify property '", pname.get(), "'");
       }
       return HardValue::Void;
+    }
+    virtual HardValue vmPropertyMut(IVMExecution& execution, const HardValue&, ValueMutationOp, const HardValue&) override {
+      return this->raiseRuntimeError(execution, "TODO: Expando objects do not yet support property mutation");
     }
   };
 
@@ -225,10 +244,16 @@ namespace {
     virtual HardValue vmIndexSet(IVMExecution& execution, const HardValue&, const HardValue&) override {
       return this->raiseRuntimeError(execution, "Builtin 'expando()' does not support indexing");
     }
+    virtual HardValue vmIndexMut(IVMExecution& execution, const HardValue&, ValueMutationOp, const HardValue&) override {
+      return this->raiseRuntimeError(execution, "Builtin 'expando()' does not support indexing");
+    }
     virtual HardValue vmPropertyGet(IVMExecution& execution, const HardValue&) override {
       return this->raiseRuntimeError(execution, "Builtin 'expando()' does not support properties");
     }
     virtual HardValue vmPropertySet(IVMExecution& execution, const HardValue&, const HardValue&) override {
+      return this->raiseRuntimeError(execution, "Builtin 'expando()' does not support properties");
+    }
+    virtual HardValue vmPropertyMut(IVMExecution& execution, const HardValue&, ValueMutationOp, const HardValue&) override {
       return this->raiseRuntimeError(execution, "Builtin 'expando()' does not support properties");
     }
   };
@@ -263,10 +288,16 @@ namespace {
     virtual HardValue vmIndexSet(IVMExecution& execution, const HardValue&, const HardValue&) override {
       return this->raiseRuntimeError(execution, "Builtin 'collector()' does not support indexing");
     }
+    virtual HardValue vmIndexMut(IVMExecution& execution, const HardValue&, ValueMutationOp, const HardValue&) override {
+      return this->raiseRuntimeError(execution, "Builtin 'collector()' does not support properties");
+    }
     virtual HardValue vmPropertyGet(IVMExecution& execution, const HardValue&) override {
       return this->raiseRuntimeError(execution, "Builtin 'collector()' does not support properties");
     }
     virtual HardValue vmPropertySet(IVMExecution& execution, const HardValue&, const HardValue&) override {
+      return this->raiseRuntimeError(execution, "Builtin 'collector()' does not support properties");
+    }
+    virtual HardValue vmPropertyMut(IVMExecution& execution, const HardValue&, ValueMutationOp, const HardValue&) override {
       return this->raiseRuntimeError(execution, "Builtin 'collector()' does not support properties");
     }
   };
@@ -311,10 +342,16 @@ namespace {
     virtual HardValue vmIndexSet(IVMExecution& execution, const HardValue&, const HardValue&) override {
       return this->raiseRuntimeError(execution, "Member handlers do not support indexing");
     }
+    virtual HardValue vmIndexMut(IVMExecution& execution, const HardValue&, ValueMutationOp, const HardValue&) override {
+      return this->raiseRuntimeError(execution, "Member handlers do not support indexing");
+    }
     virtual HardValue vmPropertyGet(IVMExecution& execution, const HardValue&) override {
       return this->raiseRuntimeError(execution, "Member handlers do not support properties");
     }
     virtual HardValue vmPropertySet(IVMExecution& execution, const HardValue&, const HardValue&) override {
+      return this->raiseRuntimeError(execution, "Member handlers do not support properties");
+    }
+    virtual HardValue vmPropertyMut(IVMExecution& execution, const HardValue&, ValueMutationOp, const HardValue&) override {
       return this->raiseRuntimeError(execution, "Member handlers do not support properties");
     }
   };
@@ -374,16 +411,38 @@ namespace {
     virtual HardValue vmIndexGet(IVMExecution& execution, const HardValue& index) override {
       Int ivalue;
       if (!index->getInt(ivalue)) {
-        return this->raiseRuntimeError(execution, "Expected index value to be an 'int', but instead got ", describe(index.get()));
+        return this->raiseRuntimeError(execution, "Expected array index value to be an 'int', but instead got ", describe(index.get()));
       }
       auto uvalue = size_t(ivalue);
       if (uvalue > this->elements.size()) {
         return this->raiseRuntimeError(execution, "Array index ", ivalue, " is out of range for an array of length ", this->elements.size());
       }
-      return this->vm->getSoftValue(this->elements[uvalue]);
+      return execution.getSoftValue(this->elements[uvalue]);
     }
-    virtual HardValue vmIndexSet(IVMExecution& execution, const HardValue&, const HardValue&) override {
-      return this->raiseRuntimeError(execution, "WIBBLE: Vanilla arrays do not support indexing");
+    virtual HardValue vmIndexSet(IVMExecution& execution, const HardValue& index, const HardValue& value) override {
+      Int ivalue;
+      if (!index->getInt(ivalue)) {
+        return this->raiseRuntimeError(execution, "Expected array index value to be an 'int', but instead got ", describe(index.get()));
+      }
+      auto uvalue = size_t(ivalue);
+      if (uvalue > this->elements.size()) {
+        return this->raiseRuntimeError(execution, "Array index ", ivalue, " is out of range for an array of length ", this->elements.size());
+      }
+      if (!execution.setSoftValue(this->elements[uvalue], value)) {
+        return this->raiseRuntimeError(execution, "Unable to set value at array index ", ivalue);
+      }
+      return HardValue::Void;
+    }
+    virtual HardValue vmIndexMut(IVMExecution& execution, const HardValue& index, ValueMutationOp mutation, const HardValue& value) override {
+      Int ivalue;
+      if (!index->getInt(ivalue)) {
+        return this->raiseRuntimeError(execution, "Expected array index value to be an 'int', but instead got ", describe(index.get()));
+      }
+      auto uvalue = size_t(ivalue);
+      if (uvalue > this->elements.size()) {
+        return this->raiseRuntimeError(execution, "Array index ", ivalue, " is out of range for an array of length ", this->elements.size());
+      }
+      return execution.mutateSoftValue(this->elements[uvalue], mutation, value);
     }
     virtual HardValue vmPropertyGet(IVMExecution& execution, const HardValue& property) override {
       String pname;
@@ -396,16 +455,60 @@ namespace {
         }
         return this->raiseRuntimeError(execution, "Unknown vanilla array property name: '", pname, "'");
       }
-      return this->raiseRuntimeError(execution, "Expected vanilla property name to be a 'string', but instead got ", describe(property.get()));
+      return this->raiseRuntimeError(execution, "Expected vanilla array property name to be a 'string', but instead got ", describe(property.get()));
     }
-    virtual HardValue vmPropertySet(IVMExecution& execution, const HardValue&, const HardValue&) override {
-      return this->raiseRuntimeError(execution, "WIBBLE: Vanilla arrays do not support properties");
+    virtual HardValue vmPropertySet(IVMExecution& execution, const HardValue& property, const HardValue& value) override {
+      return this->vmPropertyMut(execution, property, ValueMutationOp::Assign, value);
     }
-    HardValue vmCallPush(IVMExecution&, const ICallArguments& arguments) {
+    virtual HardValue vmPropertyMut(IVMExecution& execution, const HardValue& property, ValueMutationOp mutation, const HardValue& value) override {
+      String pname;
+      if (property->getString(pname)) {
+        if (pname.equals("length")) {
+          return this->lengthMut(execution, mutation, value);
+        }
+        return this->raiseRuntimeError(execution, "Only the 'length' property of an array may be modified, not '", pname, "'");
+      }
+      return this->raiseRuntimeError(execution, "Expected vanilla array property name to be a 'string', but instead got ", describe(property.get()));
+    }
+  private:
+    HardValue lengthMut(IVMExecution& execution, ValueMutationOp mutation, const HardValue& rhs) {
+      auto value = ValueFactory::createInt(this->vm->getAllocator(), Int(this->elements.size()));
+      auto before = value->mutate(mutation, rhs.get());
+      if (before.hasFlowControl()) {
+        return before;
+      }
+      return this->lengthSet(execution, value, HardValue::Void);
+    }
+    HardValue lengthSet(IVMExecution& execution, const HardValue& length, const HardValue& success) {
+      Int ivalue;
+      if (!length->getInt(ivalue)) {
+        return this->raiseRuntimeError(execution, "Array 'length' property must be an 'int', but instead got ", describe(length.get()));
+      }
+      if (ivalue < 0) {
+        return this->raiseRuntimeError(execution, "Array 'length' property must be an non-negative integer, but instead got ", ivalue);
+      }
+      if (ivalue > 0xFFFFFFFF) {
+        return this->raiseRuntimeError(execution, "Array 'length' property too large: ", ivalue);
+      }
+      // OPTIMIZE
+      auto diff = ivalue - Int(this->elements.size());
+      while (diff > 0) {
+        this->elements.emplace_back(*this->vm)->set(HardValue::Null.get());
+        diff--;
+      }
+      while (diff < 0) {
+        this->elements.pop_back();
+        diff++;
+      }
+      return success;
+    }
+    HardValue vmCallPush(IVMExecution& execution, const ICallArguments& arguments) {
       HardValue argument;
       for (size_t index = 0; arguments.getArgumentByIndex(index, argument); ++index) {
         auto& added = this->elements.emplace_back(*this->vm);
-        added->mutate(Mutation::Assign, argument.get());
+        if (!added->set(argument.get())) {
+          return this->raiseRuntimeError(execution, "Cannot push value to the end of the array");
+        }
       }
       return HardValue::Void;
     }
@@ -436,10 +539,16 @@ namespace {
     virtual HardValue vmIndexSet(IVMExecution& execution, const HardValue&, const HardValue&) override {
       return this->raiseProxyError(execution, "does not support indexing");
     }
+    virtual HardValue vmIndexMut(IVMExecution& execution, const HardValue&, ValueMutationOp, const HardValue&) override {
+      return this->raiseProxyError(execution, "does not support indexing");
+    }
     virtual HardValue vmPropertyGet(IVMExecution& execution, const HardValue&) override {
       return this->raiseProxyError(execution, "does not support properties");
     }
     virtual HardValue vmPropertySet(IVMExecution& execution, const HardValue&, const HardValue&) override {
+      return this->raiseProxyError(execution, "does not support properties");
+    }
+    virtual HardValue vmPropertyMut(IVMExecution& execution, const HardValue&, ValueMutationOp, const HardValue&) override {
       return this->raiseProxyError(execution, "does not support properties");
     }
   protected:
@@ -891,6 +1000,9 @@ namespace {
     virtual HardValue vmIndexSet(IVMExecution& execution, const HardValue&, const HardValue&) override {
       return this->raiseRuntimeError(execution, "Runtime error objects do not support indexing");
     }
+    virtual HardValue vmIndexMut(IVMExecution& execution, const HardValue&, ValueMutationOp, const HardValue&) override {
+      return this->raiseRuntimeError(execution, "Runtime error objects do not support indexing");
+    }
     virtual HardValue vmPropertyGet(IVMExecution& execution, const HardValue& property) override {
       // TODO access 'callstack' and 'message'
       SoftKey pname(*this->vm, property.get());
@@ -910,6 +1022,9 @@ namespace {
         return this->raiseRuntimeError(execution, "Cannot modify property '", pname.get(), "'");
       }
       return HardValue::Void;
+    }
+    virtual HardValue vmPropertyMut(IVMExecution& execution, const HardValue&, ValueMutationOp, const HardValue&) override {
+      return this->raiseRuntimeError(execution, "Runtime error objects do not support mutating properties");
     }
   };
 }

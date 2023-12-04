@@ -86,7 +86,7 @@ namespace {
       this->log(egg::ovum::ILogger::Source::Compiler, egg::ovum::ILogger::Severity::Error, message);
       return nullptr;
     }
-    ModuleNode* unexpected(ParserNode& pnode, const char* expected) const {
+    ModuleNode* expected(ParserNode& pnode, const char* expected) const {
       return this->error(pnode, "Expected ", expected, ", but instead got ", ModuleCompiler::toString(pnode));
     }
     static std::string toString(const ParserNode& pnode);
@@ -154,7 +154,7 @@ namespace {
 egg::ovum::HardPtr<egg::ovum::IVMModule> ModuleCompiler::compile(ParserNode& root) {
   assert(this->targets.empty());
   if (root.kind != ParserNode::Kind::ModuleRoot) {
-    this->unexpected(root, "module root node");
+    this->expected(root, "module root node");
     return nullptr;
   }
   this->targets.push(&this->mbuilder.getRoot());
@@ -226,9 +226,9 @@ ModuleNode* ModuleCompiler::compileStmt(ParserNode& pnode, const StmtContext& co
     break;
   }
   if (context.inRoot) {
-    return this->unexpected(pnode, "statement root child");
+    return this->expected(pnode, "statement root child");
   }
-  return this->unexpected(pnode, "statement");
+  return this->expected(pnode, "statement");
 }
 
 ModuleNode* ModuleCompiler::compileStmtVoid(ParserNode& pnode) {
@@ -315,7 +315,43 @@ ModuleNode* ModuleCompiler::compileStmtMutate(ParserNode& pnode) {
     }
     return &this->mbuilder.stmtVariableMutate(symbol, pnode.op.valueMutationOp, *rhs, pnode.range);
   }
-  return this->unexpected(plhs, "variable in mutation statement");
+  if (plhs.kind == ParserNode::Kind::ExprProperty) {
+    EXPECT(plhs, plhs.children.size() == 2);
+    auto* instance = this->compileValueExpr(*plhs.children.front());
+    if (instance == nullptr) {
+      return nullptr;
+    }
+    auto* property = this->compileValueExpr(*plhs.children.back());
+    if (property == nullptr) {
+      return nullptr;
+    }
+    ModuleNode* rhs;
+    if (nudge) {
+      rhs = this->compileStmtVoid(pnode);
+    } else {
+      rhs = this->compileValueExpr(*pnode.children.back());
+    }
+    return &this->mbuilder.stmtPropertyMutate(*instance, *property, pnode.op.valueMutationOp, *rhs, pnode.range);
+  }
+  if (plhs.kind == ParserNode::Kind::ExprIndex) {
+    EXPECT(plhs, plhs.children.size() == 2);
+    auto* instance = this->compileValueExpr(*plhs.children.front());
+    if (instance == nullptr) {
+      return nullptr;
+    }
+    auto* property = this->compileValueExpr(*plhs.children.back());
+    if (property == nullptr) {
+      return nullptr;
+    }
+    ModuleNode* rhs;
+    if (nudge) {
+      rhs = this->compileStmtVoid(pnode);
+    } else {
+      rhs = this->compileValueExpr(*pnode.children.back());
+    }
+    return &this->mbuilder.stmtIndexMutate(*instance, *property, pnode.op.valueMutationOp, *rhs, pnode.range);
+  }
+  return this->expected(plhs, "variable in mutation statement");
 }
 
 ModuleNode* ModuleCompiler::compileStmtAssert(ParserNode& function, ParserNode& predicate) {
@@ -496,7 +532,7 @@ ModuleNode* ModuleCompiler::compileValueExpr(ParserNode& pnode) {
   default:
     break;
   }
-  return this->unexpected(pnode, "value expression");
+  return this->expected(pnode, "value expression");
 }
 
 ModuleNode* ModuleCompiler::compileValueExprVariable(ParserNode& pnode) {
@@ -723,7 +759,7 @@ ModuleNode* ModuleCompiler::compileTypeExpr(ParserNode& pnode) {
   default:
     break;
   }
-  return this->unexpected(pnode, "type expression");
+  return this->expected(pnode, "type expression");
 }
 
 ModuleNode* ModuleCompiler::compileTypeInfer(ParserNode& ptype, ParserNode& pexpr, ModuleNode*& mexpr) {

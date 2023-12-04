@@ -35,6 +35,8 @@ public:
     StmtVariableSet,
     StmtVariableMutate,
     StmtPropertySet,
+    StmtPropertyMutate,
+    StmtIndexMutate,
     StmtFunctionCall,
     StmtIf,
     StmtWhile,
@@ -368,6 +370,17 @@ namespace {
     virtual bool assignValue(HardValue& dst, const Type& type, const HardValue& src) override {
       // Assign with int-to-float promotion
       return Operation::assign(this->vm.getAllocator(), dst, type, src, true);
+    }
+    virtual HardValue getSoftValue(const SoftValue& soft) override {
+      return this->vm.getSoftValue(soft);
+    }
+    virtual bool setSoftValue(SoftValue& lhs, const HardValue& rhs) override {
+      return this->vm.setSoftValue(lhs, rhs);
+    }
+    virtual HardValue mutateSoftValue(SoftValue& lhs, ValueMutationOp mutation, const HardValue& rhs) override {
+      (void)mutation; // WIBBLE
+      this->vm.setSoftValue(lhs, rhs); // WIBBLE
+      return rhs;
     }
     virtual HardValue evaluateValueUnaryOp(ValueUnaryOp op, const HardValue& arg) override {
       return this->augment(this->unary(op, arg));
@@ -736,44 +749,29 @@ namespace {
     HardValue mutate(ValueMutationOp op, HardValue& lhs, const HardValue& rhs) {
       // Return the value before the mutation
       switch (op) {
-      case ValueMutationOp::Assign:
-        return lhs->mutate(Mutation::Assign, rhs.get());
       case ValueMutationOp::Decrement:
-        assert(rhs->getFlags() == ValueFlags::Void);
-        return lhs->mutate(Mutation::Decrement, rhs.get());
       case ValueMutationOp::Increment:
+      case ValueMutationOp::Noop:
         assert(rhs->getFlags() == ValueFlags::Void);
-        return lhs->mutate(Mutation::Increment, rhs.get());
-      case ValueMutationOp::Add:
-        return lhs->mutate(Mutation::Add, rhs.get());
-      case ValueMutationOp::Subtract:
-        return lhs->mutate(Mutation::Subtract, rhs.get());
-      case ValueMutationOp::Multiply:
-        return lhs->mutate(Mutation::Multiply, rhs.get());
-      case ValueMutationOp::Divide:
-        return lhs->mutate(Mutation::Divide, rhs.get());
-      case ValueMutationOp::Remainder:
-        return lhs->mutate(Mutation::Remainder, rhs.get());
-      case ValueMutationOp::BitwiseAnd:
-        return lhs->mutate(Mutation::BitwiseAnd, rhs.get());
-      case ValueMutationOp::BitwiseOr:
-        return lhs->mutate(Mutation::BitwiseOr, rhs.get());
-      case ValueMutationOp::BitwiseXor:
-        return lhs->mutate(Mutation::BitwiseXor, rhs.get());
-      case ValueMutationOp::ShiftLeft:
-        return lhs->mutate(Mutation::ShiftLeft, rhs.get());
-      case ValueMutationOp::ShiftRight:
-        return lhs->mutate(Mutation::ShiftRight, rhs.get());
-      case ValueMutationOp::ShiftRightUnsigned:
-        return lhs->mutate(Mutation::ShiftRightUnsigned, rhs.get());
+        return lhs->mutate(op, rhs.get());
       case ValueMutationOp::IfNull:
       case ValueMutationOp::IfFalse:
       case ValueMutationOp::IfTrue:
         // The condition was already tested in 'precheckMutationOp()'
         return rhs;
-      case ValueMutationOp::Noop:
-        assert(rhs->getFlags() == ValueFlags::Void);
-        return lhs->mutate(Mutation::Noop, rhs.get());
+      case ValueMutationOp::Assign:
+      case ValueMutationOp::Add:
+      case ValueMutationOp::Subtract:
+      case ValueMutationOp::Multiply:
+      case ValueMutationOp::Divide:
+      case ValueMutationOp::Remainder:
+      case ValueMutationOp::BitwiseAnd:
+      case ValueMutationOp::BitwiseOr:
+      case ValueMutationOp::BitwiseXor:
+      case ValueMutationOp::ShiftLeft:
+      case ValueMutationOp::ShiftRight:
+      case ValueMutationOp::ShiftRightUnsigned:
+        return lhs->mutate(op, rhs.get());
       }
       return lhs;
     }
@@ -1018,6 +1016,22 @@ namespace {
       node.addChild(value);
       return node;
     }
+    virtual Node& stmtPropertyMutate(Node& instance, Node& property, ValueMutationOp op, Node& value, const SourceRange& range) override {
+      auto& node = this->module->createNode(Node::Kind::StmtPropertyMutate, range);
+      node.mutationOp = op;
+      node.addChild(instance);
+      node.addChild(property);
+      node.addChild(value);
+      return node;
+    }
+    virtual Node& stmtIndexMutate(Node& instance, Node& index, ValueMutationOp op, Node& value, const SourceRange& range) override {
+      auto& node = this->module->createNode(Node::Kind::StmtIndexMutate, range);
+      node.mutationOp = op;
+      node.addChild(instance);
+      node.addChild(index);
+      node.addChild(value);
+      return node;
+    }
     virtual Node& stmtFunctionCall(Node& function, const SourceRange& range) override {
       auto& node = this->module->createNode(Node::Kind::StmtFunctionCall, range);
       node.addChild(function);
@@ -1070,6 +1084,8 @@ namespace {
       case Node::Kind::StmtVariableSet:
       case Node::Kind::StmtVariableMutate:
       case Node::Kind::StmtPropertySet:
+      case Node::Kind::StmtPropertyMutate:
+      case Node::Kind::StmtIndexMutate:
       case Node::Kind::StmtFunctionCall:
       case Node::Kind::StmtIf:
       case Node::Kind::StmtWhile:
@@ -1608,6 +1624,62 @@ bool VMRunner::stepNode(HardValue& retval) {
       auto& property = top.deque[1];
       auto& value = top.deque.back();
       return this->pop(object->vmPropertySet(this->execution, property, value));
+    }
+    break;
+  case IVMModule::Node::Kind::StmtPropertyMutate:
+    assert(top.node->literal->getVoid());
+    assert(top.node->children.size() == 3);
+    assert(top.index <= 3);
+    if (!top.deque.empty()) {
+      // Check the last evaluation
+      auto& latest = top.deque.back();
+      if (latest.hasFlowControl()) {
+        return this->pop(latest);
+      }
+    }
+    if (top.index < 3) {
+      // Evaluate the expressions
+      this->push(*top.node->children[top.index++]);
+    } else {
+      // Perform the property mutation (object targets only, not strings)
+      assert(top.deque.size() == 3);
+      auto& instance = top.deque.front();
+      HardObject object;
+      if (!instance->getHardObject(object)) {
+        return this->raise("Expected left-hand side of property operator '.' to be an object, but instead got ", describe(instance));
+      }
+      auto& property = top.deque[1];
+      auto& value = top.deque.back();
+      auto result = object->vmPropertyMut(this->execution, property, top.node->mutationOp, value);
+      return this->pop(result.hasFlowControl() ? result : HardValue::Void);
+    }
+    break;
+  case IVMModule::Node::Kind::StmtIndexMutate:
+    assert(top.node->literal->getVoid());
+    assert(top.node->children.size() == 3);
+    assert(top.index <= 3);
+    if (!top.deque.empty()) {
+      // Check the last evaluation
+      auto& latest = top.deque.back();
+      if (latest.hasFlowControl()) {
+        return this->pop(latest);
+      }
+    }
+    if (top.index < 3) {
+      // Evaluate the expressions
+      this->push(*top.node->children[top.index++]);
+    } else {
+      // Perform the index mutation (object targets only, not strings)
+      assert(top.deque.size() == 3);
+      auto& instance = top.deque.front();
+      HardObject object;
+      if (!instance->getHardObject(object)) {
+        return this->raise("Expected left-hand side of index operator '[]' to be an object, but instead got ", describe(instance));
+      }
+      auto& index = top.deque[1];
+      auto& value = top.deque.back();
+      auto result = object->vmIndexMut(this->execution, index, top.node->mutationOp, value);
+      return this->pop(result.hasFlowControl() ? result : HardValue::Void);
     }
     break;
   case IVMModule::Node::Kind::StmtIf:

@@ -15,7 +15,7 @@ namespace egg::ovum {
     virtual bool validate() const = 0;
     virtual void print(Printer& printer) const = 0;
     virtual bool set(const IValue& rhs) = 0;
-    virtual HardValue mutate(Mutation op, const IValue& value) = 0;
+    virtual HardValue mutate(ValueMutationOp op, const IValue& value) = 0;
   };
 
   class HardValue {
