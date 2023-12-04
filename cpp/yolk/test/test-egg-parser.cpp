@@ -96,6 +96,10 @@ namespace {
       return printNodeChildren(os, "expr-property", node, ranges);
     case Node::Kind::ExprArray:
       return printNodeChildren(os, "expr-array", node, ranges);
+    case Node::Kind::ExprObject:
+      return printNodeChildren(os, "expr-object", node, ranges);
+    case Node::Kind::ExprKeyValue:
+      return printNodeChildren(os, "expr-key-value", node, ranges);
     case Node::Kind::TypeInfer:
       assert(node.children.empty());
       return printNodeChildren(os, "type-infer", node, ranges);
@@ -131,6 +135,9 @@ namespace {
     case Node::Kind::Literal:
       assert(node.children.empty());
       return printValue(os, node.value, '"');
+    case Node::Kind::Name:
+      assert(node.children.empty());
+      return printValue(os, node.value, '\'');
     }
     return os;
   }
@@ -419,7 +426,23 @@ TEST(TestEggParser, ValueProperty) {
   ASSERT_EQ(expected, actual);
 }
 
-TEST(TestEggParser, ValueNudge) {
+TEST(TestEggParser, ValueArray) {
+  std::string actual = outputFromLines({
+    "var x = [1,\"hello\",3.14159];"
+    });
+  std::string expected = "(stmt-define-variable 'x' (type-infer) (expr-array 1 \"hello\" 3.14159))\n";
+  ASSERT_EQ(expected, actual);
+}
+
+TEST(TestEggParser, ValueObject) {
+  std::string actual = outputFromLines({
+    "var x = {a:1,b:\"hello\",c:3.14159};"
+    });
+  std::string expected = "(stmt-define-variable 'x' (type-infer) (expr-object (expr-key-value 'a' 1) (expr-key-value 'b' \"hello\") (expr-key-value 'c' 3.14159)))\n";
+  ASSERT_EQ(expected, actual);
+}
+
+TEST(TestEggParser, StatementNudge) {
   std::string actual = outputFromLines({
     "var x = 0;",
     "++x;",

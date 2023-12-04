@@ -514,6 +514,101 @@ namespace {
     }
   };
 
+  class VMObjectVanillaObject : public VMObjectVanilla<VMObjectVanillaObject> {
+    VMObjectVanillaObject(const VMObjectVanillaObject&) = delete;
+    VMObjectVanillaObject& operator=(const VMObjectVanillaObject&) = delete;
+  private:
+    std::map<SoftKey, SoftValue> properties;
+    std::vector<SoftKey> keys;
+  public:
+    explicit VMObjectVanillaObject(IVM& vm)
+      : VMObjectVanilla(vm) {
+    }
+    virtual void softVisit(ICollectable::IVisitor& visitor) const override {
+      for (const auto& property : this->properties) {
+        property.first.visit(visitor);
+        property.second.visit(visitor);
+      }
+    }
+    virtual void print(Printer& printer) const override {
+      Print::Options options = printer.options;
+      options.quote = '"';
+      char separator = '{';
+      for (const auto& key : this->keys) {
+        printer.stream << separator;
+        key->print(printer);
+        printer.stream << ':';
+        Print::write(printer.stream, this->properties.find(key)->second.get(), options);
+        separator = ',';
+      }
+      if (separator == '{') {
+        printer.stream << '{';
+      }
+      printer.stream << '}';
+    }
+    virtual Type vmRuntimeType() override {
+      // TODO
+      return Type::Object;
+    }
+    virtual HardValue vmCall(IVMExecution& execution, const ICallArguments&) override {
+      return this->raiseRuntimeError(execution, "Vanilla objects do not support call semantics");
+    }
+    virtual HardValue vmIndexGet(IVMExecution& execution, const HardValue& index) override {
+      return this->propertyGet(execution, index);
+    }
+    virtual HardValue vmIndexSet(IVMExecution& execution, const HardValue& index, const HardValue& value) override {
+      return this->propertySet(execution, index, value);
+    }
+    virtual HardValue vmIndexMut(IVMExecution& execution, const HardValue& index, ValueMutationOp mutation, const HardValue& value) override {
+      return this->propertyMut(execution, index, mutation, value);
+    }
+    virtual HardValue vmPropertyGet(IVMExecution& execution, const HardValue& property) override {
+      return this->propertyGet(execution, property);
+    }
+    virtual HardValue vmPropertySet(IVMExecution& execution, const HardValue& property, const HardValue& value) override {
+      return this->propertySet(execution, property, value);
+    }
+    virtual HardValue vmPropertyMut(IVMExecution& execution, const HardValue& property, ValueMutationOp mutation, const HardValue& value) override {
+      return this->propertyMut(execution, property, mutation, value);
+    }
+  private:
+    HardValue propertyGet(IVMExecution& execution, const HardValue& property) {
+      SoftKey key(*this->vm, property.get());
+      auto pfound = this->properties.find(key);
+      if (pfound == this->properties.end()) {
+        return this->raiseRuntimeError(execution, "TODO: Cannot find property '", key.get(), "' in vanilla object");
+      }
+      return execution.getSoftValue(pfound->second);
+    }
+    HardValue propertySet(IVMExecution& execution, const HardValue& property, const HardValue& value) {
+      SoftKey key(*this->vm, property.get());
+      auto pfound = this->properties.find(key);
+      if (pfound == this->properties.end()) {
+        propertyCreate(pfound, key);
+      }
+      if (!execution.setSoftValue(pfound->second, value)) {
+        return this->raiseRuntimeError(execution, "TODO: Cannot modify property '", key.get(), "' in vanilla object");
+      }
+      return HardValue::Void;
+    }
+    HardValue propertyMut(IVMExecution& execution, const HardValue& property, ValueMutationOp mutation, const HardValue& value) {
+      SoftKey key(*this->vm, property.get());
+      auto pfound = this->properties.find(key);
+      if (pfound == this->properties.end()) {
+        if (mutation != ValueMutationOp::Assign) {
+          return this->raiseRuntimeError(execution, "TODO: Cannot find property '", key.get(), "' in vanilla object");
+        }
+        propertyCreate(pfound, key);
+      }
+      return execution.mutateSoftValue(pfound->second, mutation, value);
+    }
+    void propertyCreate(std::map<SoftKey, SoftValue>::iterator& where, SoftKey& key) {
+      where = this->properties.emplace_hint(where, std::piecewise_construct, std::forward_as_tuple(key), std::forward_as_tuple(*this->vm));
+      assert(where != this->properties.end());
+      this->keys.emplace_back(key);
+    }
+  };
+
   class VMStringProxyBase : public VMObjectBase {
     VMStringProxyBase(const VMStringProxyBase&) = delete;
     VMStringProxyBase& operator=(const VMStringProxyBase&) = delete;
@@ -1047,6 +1142,10 @@ egg::ovum::HardObject egg::ovum::ObjectFactory::createBuiltinCollector(IVM& vm) 
 
 egg::ovum::HardObject egg::ovum::ObjectFactory::createVanillaArray(IVM& vm) {
   return makeHardObject<VMObjectVanillaArray>(vm);
+}
+
+egg::ovum::HardObject egg::ovum::ObjectFactory::createVanillaObject(IVM& vm) {
+  return makeHardObject<VMObjectVanillaObject>(vm);
 }
 
 egg::ovum::HardObject egg::ovum::ObjectFactory::createStringProxyCompareTo(IVM& vm, const String& instance) {

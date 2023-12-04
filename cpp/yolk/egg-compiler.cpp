@@ -59,6 +59,10 @@ namespace {
     ModuleNode* compileValueExprIndex(ParserNode& bracket, ParserNode& lhs, ParserNode& rhs);
     ModuleNode* compileValueExprProperty(ParserNode& dot, ParserNode& lhs, ParserNode& rhs);
     ModuleNode* compileValueExprArray(ParserNode& pnode);
+    ModuleNode* compileValueExprArrayElement(ParserNode& pnode);
+    ModuleNode* compileValueExprObject(ParserNode& pnode);
+    ModuleNode* compileValueExprObjectElement(ParserNode& pnode);
+    ModuleNode* compileValueExprKeyValue(ParserNode& pnode);
     ModuleNode* compileTypeExpr(ParserNode& pnode);
     ModuleNode* compileTypeInfer(ParserNode& ptype, ParserNode& pexpr, ModuleNode*& mexpr);
     ModuleNode* compileLiteral(ParserNode& pnode);
@@ -210,6 +214,8 @@ ModuleNode* ModuleCompiler::compileStmt(ParserNode& pnode, const StmtContext& co
   case ParserNode::Kind::ExprIndex:
   case ParserNode::Kind::ExprProperty:
   case ParserNode::Kind::ExprArray:
+  case ParserNode::Kind::ExprObject:
+  case ParserNode::Kind::ExprKeyValue:
   case ParserNode::Kind::TypeInfer:
   case ParserNode::Kind::TypeInferQ:
   case ParserNode::Kind::TypeVoid:
@@ -222,6 +228,7 @@ ModuleNode* ModuleCompiler::compileStmt(ParserNode& pnode, const StmtContext& co
   case ParserNode::Kind::TypeUnary:
   case ParserNode::Kind::TypeBinary:
   case ParserNode::Kind::Literal:
+  case ParserNode::Kind::Name:
   default:
     break;
   }
@@ -505,7 +512,12 @@ ModuleNode* ModuleCompiler::compileValueExpr(ParserNode& pnode) {
     return this->compileValueExprProperty(pnode, *pnode.children[0], *pnode.children[1]);
   case ParserNode::Kind::ExprArray:
     return this->compileValueExprArray(pnode);
+  case ParserNode::Kind::ExprObject:
+    return this->compileValueExprObject(pnode);
+  case ParserNode::Kind::ExprKeyValue:
+    return this->compileValueExprKeyValue(pnode);
   case ParserNode::Kind::Literal:
+  case ParserNode::Kind::Name:
     return this->compileLiteral(pnode);
   case ParserNode::Kind::TypeString:
     EXPECT(pnode, pnode.children.size() == 0);
@@ -700,14 +712,42 @@ ModuleNode* ModuleCompiler::compileValueExprProperty(ParserNode& dot, ParserNode
 ModuleNode* ModuleCompiler::compileValueExprArray(ParserNode& pnode) {
   auto* array = &this->mbuilder.exprArray(pnode.range);
   for (auto& child : pnode.children) {
-    auto* expr = this->compileValueExpr(*child);
-    if (expr == nullptr) {
+    auto* element = this->compileValueExprArrayElement(*child);
+    if (element == nullptr) {
       array = nullptr;
     } else if (array != nullptr) {
-      this->mbuilder.appendChild(*array, *expr);
+      this->mbuilder.appendChild(*array, *element);
     }
   }
   return array;
+}
+
+ModuleNode* ModuleCompiler::compileValueExprArrayElement(ParserNode& pnode) {
+  // TODO: handle ellipsis '...'
+  return this->compileValueExpr(pnode);
+}
+
+ModuleNode* ModuleCompiler::compileValueExprObject(ParserNode& pnode) {
+  auto* object = &this->mbuilder.exprObject(pnode.range);
+  for (auto& child : pnode.children) {
+    auto* element = this->compileValueExprObjectElement(*child);
+    if (element == nullptr) {
+      object = nullptr;
+    } else if (object != nullptr) {
+      this->mbuilder.appendChild(*object, *element);
+    }
+  }
+  return object;
+}
+
+ModuleNode* ModuleCompiler::compileValueExprObjectElement(ParserNode& pnode) {
+  // TODO: handle ellipsis '...'
+  return this->compileValueExpr(pnode);
+}
+
+ModuleNode* ModuleCompiler::compileValueExprKeyValue(ParserNode& pnode) {
+  EXPECT(pnode, pnode.children.size() == 0);
+  return &this->mbuilder.exprLiteral(pnode.value, pnode.range);
 }
 
 ModuleNode* ModuleCompiler::compileTypeExpr(ParserNode& pnode) {
@@ -753,9 +793,12 @@ ModuleNode* ModuleCompiler::compileTypeExpr(ParserNode& pnode) {
   case ParserNode::Kind::ExprIndex:
   case ParserNode::Kind::ExprProperty:
   case ParserNode::Kind::ExprArray:
+  case ParserNode::Kind::ExprObject:
+  case ParserNode::Kind::ExprKeyValue:
   case ParserNode::Kind::TypeInfer:
   case ParserNode::Kind::TypeInferQ:
   case ParserNode::Kind::Literal:
+  case ParserNode::Kind::Name:
   default:
     break;
   }
@@ -835,6 +878,10 @@ std::string ModuleCompiler::toString(const ParserNode& pnode) {
     return "property access";
   case ParserNode::Kind::ExprArray:
     return "array expression";
+  case ParserNode::Kind::ExprObject:
+    return "object expression";
+  case ParserNode::Kind::ExprKeyValue:
+    return "named expression";
   case ParserNode::Kind::TypeInfer:
     return "type infer";
   case ParserNode::Kind::TypeInferQ:
@@ -859,6 +906,8 @@ std::string ModuleCompiler::toString(const ParserNode& pnode) {
     return "type binary operator";
   case ParserNode::Kind::Literal:
     return "literal";
+  case ParserNode::Kind::Name:
+    return "name";
   }
   return "unknown node kind";
 }

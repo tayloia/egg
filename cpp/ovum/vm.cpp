@@ -27,6 +27,7 @@ public:
     ExprFunctionCall,
     ExprIndexGet,
     ExprArray,
+    ExprObject,
     TypeInfer,
     TypeLiteral,
     StmtBlock,
@@ -921,6 +922,10 @@ namespace {
       auto& node = this->module->createNode(Node::Kind::ExprArray, range);
       return node;
     }
+    virtual Node& exprObject(const SourceRange& range) override {
+      auto& node = this->module->createNode(Node::Kind::ExprObject, range);
+      return node;
+    }
     virtual Node& typeLiteral(const Type& type, const SourceRange& range) override {
       auto& node = this->module->createNode(Node::Kind::TypeLiteral, range);
       node.literal = this->createHardValueType(type);
@@ -1073,6 +1078,7 @@ namespace {
         break;
       case Node::Kind::ExprVariable:
       case Node::Kind::ExprArray:
+      case Node::Kind::ExprObject:
         return Type::AnyQ; // WIBBLE
       case Node::Kind::ExprPropertyGet:
       case Node::Kind::ExprFunctionCall:
@@ -1296,6 +1302,7 @@ namespace {
       return true;
     }
     HardValue arrayConstruct(const std::deque<HardValue>& elements) {
+      // TODO: support '...' inclusion
       auto array = ObjectFactory::createVanillaArray(this->vm);
       assert(array != nullptr);
       if (!elements.empty()) {
@@ -1315,6 +1322,22 @@ namespace {
         }
       }
       return this->createHardValueObject(array);
+    }
+    HardValue objectConstruct(const std::deque<HardValue>& elements) {
+      // TODO: support '...' inclusion
+      assert((elements.size() % 2) == 0);
+      auto object = ObjectFactory::createVanillaObject(this->vm);
+      assert(object != nullptr);
+      auto element = elements.cbegin();
+      while (element != elements.cend()) {
+        auto& property = *element++;
+        auto& value = *element++;
+        auto retval = object->vmPropertySet(this->execution, property, value);
+        if (retval.hasFlowControl()) {
+          return retval;
+        }
+      }
+      return this->createHardValueObject(object);
     }
     HardValue stringIndexGet(const String& string, const HardValue& index) {
       Int ivalue;
@@ -2479,6 +2502,23 @@ bool VMRunner::stepNode(HardValue& retval) {
     } else {
       // Construct the array
       return this->pop(this->arrayConstruct(top.deque));
+    }
+    break;
+  case IVMModule::Node::Kind::ExprObject:
+    assert(top.node->literal->getVoid());
+    if (!top.deque.empty()) {
+      // Check the last evaluation
+      auto& latest = top.deque.back();
+      if (latest.hasFlowControl()) {
+        return this->pop(latest);
+      }
+    }
+    if (top.index < top.node->children.size()) {
+      // Assemble the elements
+      this->push(*top.node->children[top.index++]);
+    } else {
+      // Construct the array
+      return this->pop(this->objectConstruct(top.deque));
     }
     break;
   case IVMModule::Node::Kind::TypeInfer:

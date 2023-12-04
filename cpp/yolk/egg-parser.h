@@ -31,6 +31,8 @@ namespace egg::yolk {
         ExprIndex,
         ExprProperty,
         ExprArray,
+        ExprObject,
+        ExprKeyValue,
         TypeInfer,
         TypeInferQ,
         TypeVoid,
@@ -42,7 +44,8 @@ namespace egg::yolk {
         TypeAny,
         TypeUnary,
         TypeBinary,
-        Literal
+        Literal,
+        Name
       };
       Kind kind;
       std::vector<std::unique_ptr<Node>> children;

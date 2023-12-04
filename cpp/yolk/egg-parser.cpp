@@ -180,6 +180,7 @@ namespace {
         auto issue = this->parser.createIssue(Issue::Severity::Error, this->tokensBefore, this->tokensAfter, std::forward<ARGS>(args)...);
         this->parser.issues.push_back(issue);
         this->node.reset();
+        this->issuesAfter = this->parser.issues.size();
       }
       void fail(Partial& failed) {
         assert(&failed.parser == &this->parser);
@@ -1049,6 +1050,7 @@ namespace {
           return context.failed(tokidx, "Decrement operator '--' cannot be used in expressions");
         case EggTokenizerOperator::ParenthesisLeft: // "("
         case EggTokenizerOperator::BracketLeft: // "["
+        case EggTokenizerOperator::CurlyLeft: // "{"
           return this->parseValueExpressionPrimary(tokidx);
         case EggTokenizerOperator::BangEqual: // "!="
         case EggTokenizerOperator::Percent: // "%"
@@ -1089,7 +1091,6 @@ namespace {
         case EggTokenizerOperator::BracketRight: // "]"
         case EggTokenizerOperator::Caret: // "^"
         case EggTokenizerOperator::CaretEqual: // "^="
-        case EggTokenizerOperator::CurlyLeft: // "{"
         case EggTokenizerOperator::Bar: // "|"
         case EggTokenizerOperator::BarEqual: // "|="
         case EggTokenizerOperator::BarBar: // "||"
@@ -1146,6 +1147,9 @@ namespace {
       case EggTokenizerKind::Operator:
         if (next.isOperator(EggTokenizerOperator::BracketLeft)) {
           return this->parseValueExpressionArray(tokidx);
+        }
+        if (next.isOperator(EggTokenizerOperator::CurlyLeft)) {
+          return this->parseValueExpressionObject(tokidx);
         }
         break;
       case EggTokenizerKind::EndOfFile:
@@ -1237,7 +1241,7 @@ namespace {
             break;
           }
           if (!next->isOperator(EggTokenizerOperator::Comma)) {
-            partial.fail("TODO: Expected ',' between function call arguments, but instead got ", next->toString());
+            partial.fail("Expected ',' between function call arguments, but instead got ", next->toString());
             return false;
           }
         }
@@ -1257,7 +1261,7 @@ namespace {
         case EggTokenizerKind::Operator:
         case EggTokenizerKind::Attribute:
         case EggTokenizerKind::EndOfFile:
-          partial.fail("TODO: Expected property name after '.', but instead got ", property.toString());
+          partial.fail("Expected property name after '.', but instead got ", property.toString());
           return false;
         }
         auto rhs = this->makeNodeString(Node::Kind::Literal, property);
@@ -1276,7 +1280,7 @@ namespace {
         }
         next = &index.after(0);
         if (next->isOperator(EggTokenizerOperator::ParenthesisRight)) {
-          partial.fail("TODO: Expected ']' after index, but instead got ", index.after(0).toString());
+          partial.fail("Expected ']' after index, but instead got ", index.after(0).toString());
           return false;
         }
         partial.wrap(Node::Kind::ExprIndex);
@@ -1310,7 +1314,7 @@ namespace {
       }
       if (index > 0) {
         if (!next->isOperator(EggTokenizerOperator::Comma)) {
-          partial.fail("TODO: Expected ',' between array elements, but instead got ", next->toString());
+          partial.fail("Expected ',' between array elements, but instead got ", next->toString());
           return false;
         }
         partial.tokensAfter++;
@@ -1321,6 +1325,70 @@ namespace {
         return false;
       }
       partial.node->children.emplace_back(std::move(expr.node));
+      partial.tokensAfter = expr.tokensAfter;
+      return true;
+    }
+    Partial parseValueExpressionObject(size_t tokidx) {
+      // Object literal: [a:x, ...b, c:y]
+      Context context(*this, tokidx);
+      auto& curly = context[0];
+      assert(curly.isOperator(EggTokenizerOperator::CurlyLeft));
+      auto array = this->makeNode(Node::Kind::ExprObject, curly);
+      auto partial = context.success(std::move(array), tokidx + 1);
+      size_t index = 0;
+      while (this->parseValueExpressionObjectElement(partial, index)) {
+        ++index;
+      }
+      return partial;
+    }
+    bool parseValueExpressionObjectElement(Partial& partial, size_t index) {
+      assert(partial.succeeded());
+      auto* next = &partial.after(0);
+      if (next->isOperator(EggTokenizerOperator::CurlyRight)) {
+        partial.node->range.end = { next->line, next->column + 1 };
+        partial.tokensAfter++;
+        return false;
+      }
+      if (index > 0) {
+        if (!next->isOperator(EggTokenizerOperator::Comma)) {
+          partial.fail("Expected ',' between object elements, but instead got ", next->toString());
+          return false;
+        }
+        partial.tokensAfter++;
+      }
+      next = &partial.after(0);
+      std::unique_ptr<Node> key;
+      switch (next->kind) {
+      case EggTokenizerKind::String:
+        key = this->makeNodeString(Node::Kind::Literal, *next);
+        break;
+      case EggTokenizerKind::Identifier:
+      case EggTokenizerKind::Keyword:
+        key = this->makeNodeString(Node::Kind::Name, *next);
+        break;
+      case EggTokenizerKind::Integer:
+      case EggTokenizerKind::Float:
+      case EggTokenizerKind::Attribute:
+      case EggTokenizerKind::Operator:
+      case EggTokenizerKind::EndOfFile:
+        partial.fail("Expected object element name, but instead got ", next->toString());
+        return false;
+      }
+      partial.tokensAfter++;
+      next = &partial.after(0);
+      if (!next->isOperator(EggTokenizerOperator::Colon)) {
+        partial.fail("Expected ':' after object element name, but instead got ", next->toString());
+        return false;
+      }
+      auto expr = this->parseValueExpression(partial.tokensAfter + 1);
+      if (!expr.succeeded()) {
+        partial.fail(expr);
+        return false;
+      }
+      auto keyvalue = this->makeNode(Node::Kind::ExprKeyValue, { key->range.begin, expr.node->range.end });
+      keyvalue->children.emplace_back(std::move(key));
+      keyvalue->children.emplace_back(std::move(expr.node));
+      partial.node->children.emplace_back(std::move(keyvalue));
       partial.tokensAfter = expr.tokensAfter;
       return true;
     }
