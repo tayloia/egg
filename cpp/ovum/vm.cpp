@@ -1229,6 +1229,16 @@ namespace {
       auto error = this->createRuntimeError(std::forward<ARGS>(args)...);
       return this->pop(error);
     }
+    bool raiseBadPropertyModification(const HardValue& instance, const HardValue& property) {
+      if (instance->getFlags() == ValueFlags::String) {
+        String pname;
+        if (property->getString(pname)) {
+          return this->raise("Strings do not support modification of properties such as '", pname, "'");
+        }
+        return this->raise("Strings do not support modification of properties");
+      }
+      return this->raise("Expected left-hand side of property operator '.' to be an object, but instead got ", describe(instance));
+    }
     bool variableScopeBegin(NodeStack& top, const Type& type) {
       assert(top.scope.empty());
       if (!top.node->literal->getString(top.scope)) {
@@ -1617,11 +1627,11 @@ bool VMRunner::stepNode(HardValue& retval) {
       // Perform the property fetch (object targets only, not strings)
       assert(top.deque.size() == 3);
       auto& instance = top.deque.front();
+      auto& property = top.deque[1];
       HardObject object;
       if (!instance->getHardObject(object)) {
-        return this->raise("Expected left-hand side of property operator '.' to be an object, but instead got ", describe(instance));
+        return this->raiseBadPropertyModification(instance, property);
       }
-      auto& property = top.deque[1];
       auto& value = top.deque.back();
       return this->pop(object->vmPropertySet(this->execution, property, value));
     }
@@ -1644,11 +1654,11 @@ bool VMRunner::stepNode(HardValue& retval) {
       // Perform the property mutation (object targets only, not strings)
       assert(top.deque.size() == 3);
       auto& instance = top.deque.front();
+      auto& property = top.deque[1];
       HardObject object;
       if (!instance->getHardObject(object)) {
-        return this->raise("Expected left-hand side of property operator '.' to be an object, but instead got ", describe(instance));
+        return this->raiseBadPropertyModification(instance, property);
       }
-      auto& property = top.deque[1];
       auto& value = top.deque.back();
       auto result = object->vmPropertyMut(this->execution, property, top.node->mutationOp, value);
       return this->pop(result.hasFlowControl() ? result : HardValue::Void);
