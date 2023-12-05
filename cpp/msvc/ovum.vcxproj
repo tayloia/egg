@@ -51,6 +51,7 @@
     <ClInclude Include="..\ovum\softptr.h" />
     <ClInclude Include="..\ovum\string.h" />
     <ClInclude Include="..\ovum\test.h" />
+    <ClInclude Include="..\ovum\type.h" />
     <ClInclude Include="..\ovum\utf.h" />
     <ClInclude Include="..\ovum\utility.h" />
     <ClInclude Include="..\ovum\value.h" />

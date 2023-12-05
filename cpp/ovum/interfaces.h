@@ -264,8 +264,6 @@ namespace egg::ovum {
       Predicate = 0x04 // Used in assertions
     };
     // Interface
-    IFunctionSignatureParameter() = default;
-    IFunctionSignatureParameter(const IFunctionSignatureParameter&) = default;
     virtual ~IFunctionSignatureParameter() {}
     virtual String getName() const = 0; // May be empty if positional
     virtual Type getType() const = 0;
@@ -322,6 +320,7 @@ namespace egg::ovum {
   class IType : public ICollectable {
   public:
     // Interface
+    virtual bool isPrimitive() const = 0;
     virtual ValueFlags getPrimitiveFlags() const = 0;
     virtual std::pair<std::string, int> toStringPrecedence() const = 0; // TODO remove?
   };
@@ -330,8 +329,8 @@ namespace egg::ovum {
   public:
     enum class Assignability { Never, Sometimes, Always };
     // Interface
-    virtual Assignability isAssignable(const IType& dst, const IType& src) = 0;
-    virtual const IType& getPrimitive(ValueFlags flags) = 0;
-    virtual const IType& setNullability(const IType& type, bool nullable) = 0;
+    virtual Type forgePrimitiveType(ValueFlags flags) = 0;
+    virtual Type forgeNullableType(const Type& type, bool nullable) = 0;
+    virtual Assignability isTypeAssignable(const Type& dst, const Type& src) = 0;
   };
 }

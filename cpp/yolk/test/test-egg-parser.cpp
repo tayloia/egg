@@ -470,6 +470,14 @@ TEST(TestEggParser, StatementForEach) {
   ASSERT_EQ(expected, actual);
 }
 
+TEST(TestEggParser, DISABLED_StatementDefineFunction) {
+  std::string actual = outputFromLines({
+    "int f() { }"
+    });
+  std::string expected = "(stmt-define-function 'f' (type-signature (type-int)) (stmt-block))\n";
+  ASSERT_EQ(expected, actual);
+}
+
 TEST(TestEggParser, Ranges) {
   std::string actual = outputFromLines({
   //          1         2         3

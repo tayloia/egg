@@ -18,10 +18,11 @@ namespace egg::ovum {
   X(Type, "type") \
 
   enum class ValueFlagsShift {
-    _ = -1 // We want the next element to start at zero
-#define EGG_OVUM_VALUE_FLAGS_SHIFT(name, text) , name
+    LBound = -1, // We want the next element to start at zero
+#define EGG_OVUM_VALUE_FLAGS_SHIFT(name, text) name,
     EGG_OVUM_VALUE_FLAGS(EGG_OVUM_VALUE_FLAGS_SHIFT)
 #undef EGG_OVUM_VALUE_FLAGS_SHIFT
+    UBound
   };
 
   enum class ValueFlags {
@@ -42,15 +43,16 @@ namespace egg::ovum {
   private:
     const IType* ptr;
   public:
-    Type(const Type& rhs) : ptr(rhs.ptr) {
-    }
     Type(const IType* rhs = nullptr) : ptr(rhs) { // implicit
     }
-    bool operator==(std::nullptr_t) const {
-      return this->ptr == nullptr;
+    operator const IType* () const {
+      return this->ptr;
     }
-    bool operator!=(std::nullptr_t) const {
-      return this->ptr != nullptr;
+    bool operator==(const IType* rhs) const {
+      return this->ptr == rhs;
+    }
+    bool operator!=(const IType* rhs) const {
+      return this->ptr != rhs;
     }
     const IType& operator*() const {
       auto* p = this->ptr;
@@ -66,19 +68,13 @@ namespace egg::ovum {
       this->ptr = rhs;
       return *this;
     }
-    Type& operator=(const Type& rhs) {
-      this->ptr = rhs.ptr;
-      return *this;
-    }
 
     // Constants
     static const Type None;
     static const Type Void;
     static const Type Null;
     static const Type Bool;
-    static const Type BoolInt;
     static const Type Int;
-    static const Type IntQ;
     static const Type Float;
     static const Type String;
     static const Type Arithmetic;

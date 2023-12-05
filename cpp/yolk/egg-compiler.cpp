@@ -70,12 +70,12 @@ namespace {
       return this->mbuilder.deduceType(mnode);
     }
     void setNullability(egg::ovum::Type& type, bool nullable) {
-      type = &this->vm.getTypeForge().setNullability(*type, nullable);
+      type = this->vm.getTypeForge().forgeNullableType(type, nullable);
     }
     egg::ovum::ITypeForge::Assignability isAssignable(const egg::ovum::Type& dst, const egg::ovum::Type& src) {
       assert(dst != nullptr);
       assert(src != nullptr);
-      return this->vm.getTypeForge().isAssignable(*dst, *src);
+      return this->vm.getTypeForge().isTypeAssignable(dst, src);
     }
     void log(egg::ovum::ILogger::Source source, egg::ovum::ILogger::Severity severity, const egg::ovum::String& message) const {
       this->vm.getLogger().log(source, severity, message);

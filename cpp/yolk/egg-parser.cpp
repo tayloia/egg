@@ -283,6 +283,10 @@ namespace {
       return this->parseStatement(tokidx);
     }
     Partial parseStatement(size_t tokidx) {
+      auto function = this->parseStatementFunction(tokidx);
+      if (!function.skipped()) {
+        return function;
+      }
       Context context(*this, tokidx);
       auto& next = context[0];
       if (next.kind == EggTokenizerKind::Keyword) {
@@ -521,6 +525,21 @@ namespace {
       stmt->children.emplace_back(std::move(bloc.node));
       return context.success(std::move(stmt), bloc.tokensAfter);
     }
+    Partial parseStatementFunction(size_t tokidx) {
+      Context context(*this, tokidx);
+      auto type = this->parseTypeExpression(tokidx);
+      if (!type.succeeded()) {
+        return context.skip();
+      }
+      if (type.after(0).kind != EggTokenizerKind::Identifier) {
+        return context.skip();
+      }
+      if (!type.after(1).isOperator(EggTokenizerOperator::ParenthesisLeft)) {
+        return context.skip();
+      }
+      // <type> <identifier> (
+      return PARSE_TODO(tokidx, "statement function definition: ", type.after(0).toString());
+    }
     Partial parseStatementIf(size_t tokidx) {
       Context context(*this, tokidx);
       assert(context[0].isKeyword(EggTokenizerKeyword::If));
@@ -616,7 +635,11 @@ namespace {
       assert(ptype != nullptr);
       Context context(*this, tokidx);
       if (context[0].kind != EggTokenizerKind::Identifier) {
-        return context.expected(tokidx, "identifier after type in variable definition");
+        return context.expected(tokidx, "identifier after type in definition");
+      }
+      if (context[1].isOperator(EggTokenizerOperator::ParenthesisLeft)) {
+        // <type> <identifier> (
+        return context.skip();
       }
       if (context[1].isOperator(EggTokenizerOperator::Equal)) {
         // <type> <identifier> = <expr>
