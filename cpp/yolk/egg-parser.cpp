@@ -319,8 +319,6 @@ namespace {
             return this->parseStatementDefault(tokidx);
           case EggTokenizerKeyword::Do:
             return this->parseStatementDo(tokidx);
-          case EggTokenizerKeyword::Else:
-            return this->parseStatementElse(tokidx);
           case EggTokenizerKeyword::Finally:
             return this->parseStatementFinally(tokidx);
           case EggTokenizerKeyword::For:
@@ -339,6 +337,8 @@ namespace {
             return this->parseStatementWhile(tokidx);
           case EggTokenizerKeyword::Yield:
             return this->parseStatementYield(tokidx);
+          case EggTokenizerKeyword::Else:
+            return context.expected(tokidx, "statement");
         }
       }
       auto partial = this->parseStatementSimple(tokidx);
@@ -558,7 +558,44 @@ namespace {
     Partial parseStatementIf(size_t tokidx) {
       Context context(*this, tokidx);
       assert(context[0].isKeyword(EggTokenizerKeyword::If));
-      return PARSE_TODO(tokidx, "statement keyword: ", context[0].toString());
+      if (!context[1].isOperator(EggTokenizerOperator::ParenthesisLeft)) {
+        return context.expected(tokidx + 1, "'(' after keyword 'for'");
+      }
+      auto condition = this->parseValueExpression(tokidx + 2);
+      if (!condition.succeeded()) {
+        return condition;
+      }
+      if (!condition.after(0).isOperator(EggTokenizerOperator::ParenthesisRight)) {
+        return context.expected(condition.tokensAfter, "')' after condition in 'if' statement");
+      }
+      if (!condition.after(1).isOperator(EggTokenizerOperator::CurlyLeft)) {
+        return context.expected(condition.tokensAfter + 1, "'{' after ')' in 'if' statement");
+      }
+      auto truthy = this->parseStatementBlock(condition.tokensAfter + 1);
+      if (!truthy.succeeded()) {
+        return truthy;
+      }
+      if (truthy.after(0).isKeyword(EggTokenizerKeyword::Else)) {
+        // There is an 'else' clause
+        if (!truthy.after(1).isOperator(EggTokenizerOperator::CurlyLeft)) {
+          return context.expected(truthy.tokensAfter + 1, "'{' after 'else' in 'if' statement");
+        }
+        auto falsy = this->parseStatementBlock(truthy.tokensAfter + 1);
+        if (!falsy.succeeded()) {
+          return falsy;
+        }
+        auto stmt = this->makeNodeString(Node::Kind::StmtIf, context[0]);
+        stmt->children.emplace_back(std::move(condition.node));
+        stmt->children.emplace_back(std::move(truthy.node));
+        stmt->children.emplace_back(std::move(falsy.node));
+        return context.success(std::move(stmt), falsy.tokensAfter);
+      } else {
+        // There is no 'else' clause
+        auto stmt = this->makeNodeString(Node::Kind::StmtIf, context[0]);
+        stmt->children.emplace_back(std::move(condition.node));
+        stmt->children.emplace_back(std::move(truthy.node));
+        return context.success(std::move(stmt), truthy.tokensAfter);
+      }
     }
     Partial parseStatementReturn(size_t tokidx) {
       Context context(*this, tokidx);
@@ -915,7 +952,6 @@ namespace {
         case EggTokenizerKeyword::Yield:
           break;
         }
-        return PARSE_TODO(tokidx, "type expression primary keyword: ", next.toString());
       }
       return context.skip();
     }

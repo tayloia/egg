@@ -51,6 +51,7 @@ namespace {
     ModuleNode* compileStmtCall(ParserNode& pnode);
     ModuleNode* compileStmtForEach(ParserNode& pnode, const StmtContext& context);
     ModuleNode* compileStmtForLoop(ParserNode& pnode, const StmtContext& context);
+    ModuleNode* compileStmtIf(ParserNode& pnode, const StmtContext& context);
     ModuleNode* compileValueExpr(ParserNode& pnode);
     ModuleNode* compileValueExprVariable(ParserNode& pnode);
     ModuleNode* compileValueExprUnary(ParserNode& op, ParserNode& rhs);
@@ -208,6 +209,9 @@ ModuleNode* ModuleCompiler::compileStmt(ParserNode& pnode, const StmtContext& co
   case ParserNode::Kind::StmtForLoop:
     EXPECT(pnode, pnode.children.size() == 4);
     return this->compileStmtForLoop(pnode, inner);
+  case ParserNode::Kind::StmtIf:
+    EXPECT(pnode, (pnode.children.size() == 2) || (pnode.children.size() == 3));
+    return this->compileStmtIf(pnode, inner);
   case ParserNode::Kind::StmtMutate:
     return this->compileStmtMutate(pnode);
   case ParserNode::Kind::ModuleRoot:
@@ -515,6 +519,35 @@ ModuleNode* ModuleCompiler::compileStmtForLoop(ParserNode& pnode, const StmtCont
   return scope;
 }
 
+ModuleNode* ModuleCompiler::compileStmtIf(ParserNode& pnode, const StmtContext& context) {
+  assert(pnode.kind == ParserNode::Kind::StmtIf);
+  assert((pnode.children.size() == 2) || (pnode.children.size() == 3));
+  ModuleNode* stmt;
+  auto* condition = this->compileValueExpr(*pnode.children.front());
+  if (condition == nullptr) {
+    return nullptr;
+  }
+  auto* truthy = this->compileStmt(*pnode.children[1], context);
+  if (truthy == nullptr) {
+    return nullptr;
+  }
+  if (pnode.children.size() == 3) {
+    // There is an 'else' clause
+    auto* falsy = this->compileStmt(*pnode.children.back(), context);
+    if (falsy == nullptr) {
+      return nullptr;
+    }
+    stmt = &this->mbuilder.stmtIf(*condition, pnode.range);
+    this->mbuilder.appendChild(*stmt, *truthy);
+    this->mbuilder.appendChild(*stmt, *falsy);
+  } else {
+    // There is no 'else' clause
+    stmt = &this->mbuilder.stmtIf(*condition, pnode.range);
+    this->mbuilder.appendChild(*stmt, *truthy);
+  }
+  return stmt;
+}
+
 ModuleNode* ModuleCompiler::compileValueExpr(ParserNode& pnode) {
   switch (pnode.kind) {
   case ParserNode::Kind::ExprVariable:
@@ -580,6 +613,7 @@ ModuleNode* ModuleCompiler::compileValueExpr(ParserNode& pnode) {
   case ParserNode::Kind::StmtDefineFunction:
   case ParserNode::Kind::StmtForEach:
   case ParserNode::Kind::StmtForLoop:
+  case ParserNode::Kind::StmtIf:
   case ParserNode::Kind::StmtMutate:
   default:
     break;
@@ -827,6 +861,7 @@ ModuleNode* ModuleCompiler::compileTypeExpr(ParserNode& pnode) {
   case ParserNode::Kind::StmtCall:
   case ParserNode::Kind::StmtForEach:
   case ParserNode::Kind::StmtForLoop:
+  case ParserNode::Kind::StmtIf:
   case ParserNode::Kind::StmtMutate:
   case ParserNode::Kind::ExprVariable:
   case ParserNode::Kind::ExprUnary:
@@ -905,6 +940,8 @@ std::string ModuleCompiler::toString(const ParserNode& pnode) {
     return "for each statement";
   case ParserNode::Kind::StmtForLoop:
     return "for loop statement";
+  case ParserNode::Kind::StmtIf:
+    return "if statement";
   case ParserNode::Kind::StmtMutate:
     return "mutate statement";
   case ParserNode::Kind::ExprVariable:

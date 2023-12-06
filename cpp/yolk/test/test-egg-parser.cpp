@@ -74,6 +74,9 @@ namespace {
     case Node::Kind::StmtForEach:
       assert(node.children.size() == 3);
       return printNodeChildren(os, "stmt-for-each", node, ranges);
+    case Node::Kind::StmtIf:
+      assert((node.children.size() == 2) || (node.children.size() == 3));
+      return printNodeChildren(os, "stmt-if", node, ranges);
     case Node::Kind::StmtMutate:
       return printNodeExtra(os, "stmt-mutate", node.op.valueMutationOp, node, ranges);
     case Node::Kind::ExprVariable:
@@ -478,7 +481,7 @@ TEST(TestEggParser, StatementForLoop) {
 
 TEST(TestEggParser, StatementForEach) {
   std::string actual = outputFromLines({
-    "for (var i : \"hello\") { }"
+    "for (var i : \"hello\") {}"
     });
   std::string expected = "(stmt-for-each (type-infer) \"hello\" (stmt-block))\n";
   ASSERT_EQ(expected, actual);
@@ -486,11 +489,27 @@ TEST(TestEggParser, StatementForEach) {
 
 TEST(TestEggParser, StatementDefineFunction) {
   std::string actual = outputFromLines({
-    "int f(string a, float? b = null) { }"
+    "int f(string a, float? b = null) {}"
     });
   std::string expected = "(stmt-define-function 'f' (type-signature 'f' (type-int) "
                          "(type-parameter 'required' 'a' (type-string)) "
                          "(type-parameter 'optional' 'b' (type-unary '?' (type-float)))) (stmt-block))\n";
+  ASSERT_EQ(expected, actual);
+}
+
+TEST(TestEggParser, StatementIf) {
+  std::string actual = outputFromLines({
+    "if (true) {}"
+    });
+  std::string expected = "(stmt-if true (stmt-block))\n";
+  ASSERT_EQ(expected, actual);
+}
+
+TEST(TestEggParser, StatementIfElse) {
+  std::string actual = outputFromLines({
+    "if (false) {} else {}"
+    });
+  std::string expected = "(stmt-if false (stmt-block) (stmt-block))\n";
   ASSERT_EQ(expected, actual);
 }
 
