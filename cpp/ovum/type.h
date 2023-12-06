@@ -45,7 +45,7 @@ namespace egg::ovum {
   public:
     Type(const IType* rhs = nullptr) : ptr(rhs) { // implicit
     }
-    operator const IType* () const {
+    operator const IType*() const {
       return this->ptr;
     }
     bool operator==(const IType* rhs) const {
@@ -68,6 +68,13 @@ namespace egg::ovum {
       this->ptr = rhs;
       return *this;
     }
+    const IType* get() const {
+      return this->ptr;
+    }
+    size_t hash() const {
+      return Hash::hash(this->ptr);
+    }
+    void print(Printer& printer) const;
 
     // Constants
     static const Type None;
@@ -81,6 +88,10 @@ namespace egg::ovum {
     static const Type Object;
     static const Type Any;
     static const Type AnyQ;
+
+    // Helpers
+    static void print(Printer& printer, const IType& type);
+    static void print(Printer& printer, const IFunctionSignature& signature);
   };
 
   class TypeForgeFactory {

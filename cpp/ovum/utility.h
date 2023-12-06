@@ -121,6 +121,18 @@ namespace egg::ovum {
       return (c & (c - 1)) == 0;
     }
     template<typename T>
+    static constexpr bool hasNoneSet(T value) {
+      auto a = Bits::underlying(value);
+      return a == 0;
+    }
+    template<typename T>
+    static constexpr bool hasNoneSet(T value, T bits) {
+      auto a = Bits::underlying(value);
+      auto b = Bits::underlying(bits);
+      auto c = a & b;
+      return c == 0;
+    }
+    template<typename T>
     static constexpr T mask(T value, T bits) {
       auto a = Bits::underlying(value);
       auto b = Bits::underlying(bits);
@@ -211,5 +223,54 @@ namespace egg::ovum {
       // Fetch the number of entries
       return this->vec.size();
     }
+  };
+
+  class Hash {
+    Hash(const Hash&) = delete;
+    Hash& operator=(const Hash&) = delete;
+  private:
+    size_t seed;
+  public:
+    explicit Hash(size_t seed = 0)
+      : seed(seed) {
+    }
+    operator size_t() const {
+      return this->seed;
+    }
+    void combine(uint32_t& dst, uint32_t src) {
+      // See https://www.boost.org/doc/libs/1_83_0/libs/container_hash/doc/html/hash.html#notes
+      dst ^= src + 0x9E3779B9 + (seed << 6) + (seed >> 2);
+    }
+    void combine(uint64_t& dst, uint64_t src) {
+      // See https://stackoverflow.com/a/4948967
+      dst ^= src + 0x9E3779B97F4A7C15 + (seed << 6) + (seed >> 2);
+    }
+    Hash& add(size_t value) {
+      Hash::combine(this->seed, value + 0x9E3779B9 + (seed << 6) + (seed >> 2));
+      return *this;
+    }
+    template<typename T>
+    Hash& add(const T& value) {
+      return this->add(Hash::hash(value));
+    }
+    template<typename T>
+    Hash& add(T begin, T end) {
+      while (begin != end) {
+        this->add(*begin++);
+      }
+      return *this;
+    }
+    template<typename T>
+    static size_t hash(const T* value) {
+      // Note that pointers are hashed directly (identity)
+      return reinterpret_cast<size_t>(value);
+    }
+    template<typename T>
+    static std::enable_if_t<std::is_enum_v<T>, size_t> hash(T value) {
+      // Enums are hashed according to numeric value
+      return size_t(value);
+    }
+    static size_t hash(const Type& value);
+    static size_t hash(const String& value);
   };
 }

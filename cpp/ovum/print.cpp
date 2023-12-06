@@ -148,7 +148,7 @@ void egg::ovum::Print::write(std::ostream& stream, const IType& value, const Opt
 }
 
 void egg::ovum::Print::write(std::ostream& stream, const Type& value, const Options& options) {
-  Print::write(stream, &*value, options);
+  Print::write(stream, value.get(), options);
 }
 
 void egg::ovum::Print::write(std::ostream& stream, ValueFlags value, const Options&) {

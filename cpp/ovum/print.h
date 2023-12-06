@@ -12,6 +12,8 @@ namespace egg::ovum {
   public:
     struct Options {
       char quote = '\0';
+      bool concise = false;
+      bool names = true;
       static const Options DEFAULT;
     };
 

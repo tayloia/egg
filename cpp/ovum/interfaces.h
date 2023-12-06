@@ -159,14 +159,14 @@ namespace egg::ovum {
       this->deallocate(const_cast<T*>(allocated), alignof(T));
     }
     template<typename T, typename... ARGS>
-    inline T* makeRaw(ARGS&&... args) {
+    T* makeRaw(ARGS&&... args) {
       // Use perfect forwarding to in-place new
       void* allocated = this->allocate(sizeof(T), alignof(T));
       assert(allocated != nullptr);
       return new(allocated) T(std::forward<ARGS>(args)...);
     }
     template<typename T, typename RETTYPE = HardPtr<T>, typename... ARGS>
-    inline RETTYPE makeHard(ARGS&&... args) {
+    RETTYPE makeHard(ARGS&&... args) {
       // Use perfect forwarding
       return RETTYPE(this->makeRaw<T>(*this, std::forward<ARGS>(args)...));
     }
@@ -325,12 +325,25 @@ namespace egg::ovum {
     virtual std::pair<std::string, int> toStringPrecedence() const = 0; // TODO remove?
   };
 
+  class ITypeForgeFunctionBuilder : public IHardAcquireRelease {
+  public:
+    virtual void setFunctionName(const String& name) = 0;
+    virtual void setReturnType(const Type& type) = 0;
+    virtual void addRequiredParameter(const Type& type, const String& name) = 0;
+    virtual void addOptionalParameter(const Type& type, const String& name) = 0;
+    virtual const IFunctionSignature& build() = 0;
+  };
+
   class ITypeForge : public IHardAcquireRelease {
   public:
     enum class Assignability { Never, Sometimes, Always };
     // Interface
     virtual Type forgePrimitiveType(ValueFlags flags) = 0;
+    virtual Type forgeUnionType(const Type& lhs, const Type& rhs) = 0;
     virtual Type forgeNullableType(const Type& type, bool nullable) = 0;
+    virtual Type forgeVoidableType(const Type& type, bool voidable) = 0;
     virtual Assignability isTypeAssignable(const Type& dst, const Type& src) = 0;
+    virtual Assignability isFunctionSignatureAssignable(const IFunctionSignature& dst, const IFunctionSignature& src) = 0;
+    virtual HardPtr<ITypeForgeFunctionBuilder> createFunctionBuilder() = 0;
   };
 }
