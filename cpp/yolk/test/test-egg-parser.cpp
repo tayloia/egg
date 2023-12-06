@@ -137,7 +137,15 @@ namespace {
     case Node::Kind::TypeFunctionSignature:
       return printNodeExtra(os, "type-signature", node.value, node, ranges);
     case Node::Kind::TypeFunctionSignatureParameter:
-      return printNodeExtra(os, "type-parameter", node.value, node, ranges);
+      switch (node.op.parameterOp) {
+      case Node::ParameterOp::Required:
+        return printNodeExtra(os, "type-parameter 'required'", node.value, node, ranges);
+      case Node::ParameterOp::Optional:
+        return printNodeExtra(os, "type-parameter 'optional'", node.value, node, ranges);
+      default:
+        return printNodeExtra(os, "type-parameter <unknown>", node.value, node, ranges);
+      }
+      break;
     case Node::Kind::Literal:
       assert(node.children.empty());
       return printValue(os, node.value, '"');
@@ -478,9 +486,11 @@ TEST(TestEggParser, StatementForEach) {
 
 TEST(TestEggParser, StatementDefineFunction) {
   std::string actual = outputFromLines({
-    "int f() { }"
+    "int f(string a, float? b = null) { }"
     });
-  std::string expected = "(stmt-define-function 'f' (type-signature 'f' (type-int)) (stmt-block))\n";
+  std::string expected = "(stmt-define-function 'f' (type-signature 'f' (type-int) "
+                         "(type-parameter 'required' 'a' (type-string)) "
+                         "(type-parameter 'optional' 'b' (type-unary '?' (type-float)))) (stmt-block))\n";
   ASSERT_EQ(expected, actual);
 }
 

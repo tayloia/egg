@@ -50,6 +50,10 @@ namespace egg::yolk {
         Literal,
         Name
       };
+      enum class ParameterOp {
+        Required,
+        Optional
+      };
       Kind kind;
       std::vector<std::unique_ptr<Node>> children;
       egg::ovum::HardValue value;
@@ -60,6 +64,7 @@ namespace egg::yolk {
         egg::ovum::ValueMutationOp valueMutationOp;
         egg::ovum::TypeUnaryOp typeUnaryOp;
         egg::ovum::TypeBinaryOp typeBinaryOp;
+        ParameterOp parameterOp;
       } op;
       egg::ovum::SourceRange range;
     };
