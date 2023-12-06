@@ -77,6 +77,9 @@ namespace {
     case Node::Kind::StmtIf:
       assert((node.children.size() == 2) || (node.children.size() == 3));
       return printNodeChildren(os, "stmt-if", node, ranges);
+    case Node::Kind::StmtReturn:
+      assert(node.children.size() <= 1);
+      return printNodeChildren(os, "stmt-return", node, ranges);
     case Node::Kind::StmtMutate:
       return printNodeExtra(os, "stmt-mutate", node.op.valueMutationOp, node, ranges);
     case Node::Kind::ExprVariable:
@@ -510,6 +513,22 @@ TEST(TestEggParser, StatementIfElse) {
     "if (false) {} else {}"
     });
   std::string expected = "(stmt-if false (stmt-block) (stmt-block))\n";
+  ASSERT_EQ(expected, actual);
+}
+
+TEST(TestEggParser, StatementReturn) {
+  std::string actual = outputFromLines({
+    "return;"
+    });
+  std::string expected = "(stmt-return)\n";
+  ASSERT_EQ(expected, actual);
+}
+
+TEST(TestEggParser, StatementReturnValue) {
+  std::string actual = outputFromLines({
+    "return 123;"
+    });
+  std::string expected = "(stmt-return 123)\n";
   ASSERT_EQ(expected, actual);
 }
 

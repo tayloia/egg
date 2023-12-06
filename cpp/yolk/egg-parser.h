@@ -24,6 +24,7 @@ namespace egg::yolk {
         StmtForEach,
         StmtForLoop,
         StmtIf,
+        StmtReturn,
         StmtMutate,
         ExprVariable,
         ExprUnary,

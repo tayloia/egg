@@ -600,7 +600,22 @@ namespace {
     Partial parseStatementReturn(size_t tokidx) {
       Context context(*this, tokidx);
       assert(context[0].isKeyword(EggTokenizerKeyword::Return));
-      return PARSE_TODO(tokidx, "statement keyword: ", context[0].toString());
+      if (context[1].isOperator(EggTokenizerOperator::Semicolon)) {
+        // return ;
+        auto stmt = this->makeNodeString(Node::Kind::StmtReturn, context[0]);
+        return context.success(std::move(stmt), tokidx + 2);
+      }
+      auto expr = this->parseValueExpression(tokidx + 1);
+      if (expr.succeeded()) {
+        // return <expr> ;
+        if (!expr.after(0).isOperator(EggTokenizerOperator::Semicolon)) {
+          return context.expected(expr.tokensAfter, "';' after 'return' statement");
+        }
+        auto stmt = this->makeNodeString(Node::Kind::StmtReturn, context[0]);
+        stmt->children.emplace_back(std::move(expr.node));
+        return context.success(std::move(stmt), expr.tokensAfter + 1);
+      }
+      return expr;
     }
     Partial parseStatementSwitch(size_t tokidx) {
       Context context(*this, tokidx);

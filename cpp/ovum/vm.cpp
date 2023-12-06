@@ -51,7 +51,8 @@ public:
     StmtThrow,
     StmtTry,
     StmtCatch,
-    StmtRethrow
+    StmtRethrow,
+    StmtReturn
   };
   VMModule& module;
   Kind kind;
@@ -1062,6 +1063,10 @@ namespace {
       auto& node = this->module->createNode(Node::Kind::StmtRethrow, range);
       return node;
     }
+    virtual Node& stmtReturn(const SourceRange& range) override {
+      auto& node = this->module->createNode(Node::Kind::StmtReturn, range);
+      return node;
+    }
     virtual Type deduceType(Node& node) override {
       switch (node.kind) {
       case Node::Kind::ExprLiteral:
@@ -1106,6 +1111,7 @@ namespace {
       case Node::Kind::StmtTry:
       case Node::Kind::StmtCatch:
       case Node::Kind::StmtRethrow:
+      case Node::Kind::StmtReturn:
         break;
       }
       assert(false);
@@ -2112,11 +2118,11 @@ bool VMRunner::stepNode(HardValue& retval) {
     break;
   case IVMModule::Node::Kind::StmtBreak:
     assert(top.node->literal->getVoid());
-    assert(top.node->children.size() == 0);
+    assert(top.node->children.empty());
     return this->pop(HardValue::Break);
   case IVMModule::Node::Kind::StmtContinue:
     assert(top.node->literal->getVoid());
-    assert(top.node->children.size() == 0);
+    assert(top.node->children.empty());
     return this->pop(HardValue::Continue);
   case IVMModule::Node::Kind::StmtThrow:
     assert(top.node->literal->getVoid());
@@ -2233,8 +2239,25 @@ bool VMRunner::stepNode(HardValue& retval) {
     break;
   case IVMModule::Node::Kind::StmtRethrow:
     assert(top.node->literal->getVoid());
-    assert(top.node->children.size() == 0);
+    assert(top.node->children.empty());
     return this->pop(HardValue::Rethrow);
+  case IVMModule::Node::Kind::StmtReturn:
+    assert(top.node->literal->getVoid());
+    assert(top.node->children.size() <= 1);
+    if (top.node->children.empty()) {
+      // No value expression
+      return this->pop(HardValue::Void);
+    }
+    if (top.index == 0) {
+      // Evaluate the expression
+      this->push(*top.node->children[top.index++]);
+    } else {
+      // Return the value
+      assert(top.index == 1);
+      assert(top.deque.size() == 1);
+      return this->pop(top.deque.back());
+    }
+    break;
   case IVMModule::Node::Kind::StmtFunctionCall:
   case IVMModule::Node::Kind::ExprFunctionCall:
     assert(top.node->literal->getVoid());

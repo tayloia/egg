@@ -178,6 +178,7 @@ namespace egg::ovum {
     virtual Node& stmtTry(Node& block, const SourceRange& range) = 0;
     virtual Node& stmtCatch(const String& symbol, Node& type, const SourceRange& range) = 0;
     virtual Node& stmtRethrow(const SourceRange& range) = 0;
+    virtual Node& stmtReturn(const SourceRange& range) = 0;
     // Type operations
     virtual Type deduceType(Node& node) = 0;
     // Modifiers
