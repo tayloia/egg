@@ -53,6 +53,7 @@ namespace {
     ModuleNode* compileStmtForLoop(ParserNode& pnode, const StmtContext& context);
     ModuleNode* compileStmtIf(ParserNode& pnode, const StmtContext& context);
     ModuleNode* compileStmtReturn(ParserNode& pnode, const StmtContext& context);
+    ModuleNode* compileStmtTry(ParserNode& pnode, const StmtContext& context);
     ModuleNode* compileValueExpr(ParserNode& pnode);
     ModuleNode* compileValueExprVariable(ParserNode& pnode);
     ModuleNode* compileValueExprUnary(ParserNode& op, ParserNode& rhs);
@@ -216,9 +217,14 @@ ModuleNode* ModuleCompiler::compileStmt(ParserNode& pnode, const StmtContext& co
   case ParserNode::Kind::StmtReturn:
     EXPECT(pnode, pnode.children.size() <= 2);
     return this->compileStmtReturn(pnode, inner);
+  case ParserNode::Kind::StmtTry:
+    EXPECT(pnode, pnode.children.size() >= 2);
+    return this->compileStmtTry(pnode, inner);
   case ParserNode::Kind::StmtMutate:
     return this->compileStmtMutate(pnode);
   case ParserNode::Kind::ModuleRoot:
+  case ParserNode::Kind::StmtCatch:
+  case ParserNode::Kind::StmtFinally:
   case ParserNode::Kind::ExprVariable:
   case ParserNode::Kind::ExprUnary:
   case ParserNode::Kind::ExprBinary:
@@ -566,6 +572,19 @@ ModuleNode* ModuleCompiler::compileStmtReturn(ParserNode& pnode, const StmtConte
   return stmt;
 }
 
+ModuleNode* ModuleCompiler::compileStmtTry(ParserNode& pnode, const StmtContext& context) {
+  assert(pnode.kind == ParserNode::Kind::StmtTry);
+  assert(pnode.children.size() >= 2);
+  // TODO context
+  auto* block = this->compileStmt(*pnode.children.front(), context);
+  if (block == nullptr) {
+    return nullptr;
+  }
+  auto* stmt = &this->mbuilder.stmtTry(*block, pnode.range);
+  // WIBBLE catch/finally
+  return stmt;
+}
+
 ModuleNode* ModuleCompiler::compileValueExpr(ParserNode& pnode) {
   switch (pnode.kind) {
   case ParserNode::Kind::ExprVariable:
@@ -633,6 +652,9 @@ ModuleNode* ModuleCompiler::compileValueExpr(ParserNode& pnode) {
   case ParserNode::Kind::StmtForLoop:
   case ParserNode::Kind::StmtIf:
   case ParserNode::Kind::StmtReturn:
+  case ParserNode::Kind::StmtTry:
+  case ParserNode::Kind::StmtCatch:
+  case ParserNode::Kind::StmtFinally:
   case ParserNode::Kind::StmtMutate:
   default:
     break;
@@ -882,6 +904,9 @@ ModuleNode* ModuleCompiler::compileTypeExpr(ParserNode& pnode) {
   case ParserNode::Kind::StmtForLoop:
   case ParserNode::Kind::StmtIf:
   case ParserNode::Kind::StmtReturn:
+  case ParserNode::Kind::StmtTry:
+  case ParserNode::Kind::StmtCatch:
+  case ParserNode::Kind::StmtFinally:
   case ParserNode::Kind::StmtMutate:
   case ParserNode::Kind::ExprVariable:
   case ParserNode::Kind::ExprUnary:
@@ -964,6 +989,12 @@ std::string ModuleCompiler::toString(const ParserNode& pnode) {
     return "if statement";
   case ParserNode::Kind::StmtReturn:
     return "return statement";
+  case ParserNode::Kind::StmtTry:
+    return "try statement";
+  case ParserNode::Kind::StmtCatch:
+    return "catch statement";
+  case ParserNode::Kind::StmtFinally:
+    return "finally statement";
   case ParserNode::Kind::StmtMutate:
     return "mutate statement";
   case ParserNode::Kind::ExprVariable:

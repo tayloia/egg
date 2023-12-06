@@ -80,6 +80,15 @@ namespace {
     case Node::Kind::StmtReturn:
       assert(node.children.size() <= 1);
       return printNodeChildren(os, "stmt-return", node, ranges);
+    case Node::Kind::StmtTry:
+      assert(node.children.size() >= 2);
+      return printNodeChildren(os, "stmt-try", node, ranges);
+    case Node::Kind::StmtCatch:
+      assert(node.children.size() == 2);
+      return printNodeExtra(os, "stmt-catch", node.value, node, ranges);
+    case Node::Kind::StmtFinally:
+      assert(node.children.size() == 1);
+      return printNodeChildren(os, "stmt-finally", node, ranges);
     case Node::Kind::StmtMutate:
       return printNodeExtra(os, "stmt-mutate", node.op.valueMutationOp, node, ranges);
     case Node::Kind::ExprVariable:
@@ -529,6 +538,46 @@ TEST(TestEggParser, StatementReturnValue) {
     "return 123;"
     });
   std::string expected = "(stmt-return 123)\n";
+  ASSERT_EQ(expected, actual);
+}
+
+TEST(TestEggParser, StatementTryCatch) {
+  std::string actual = outputFromLines({
+    "try {} catch (any e) {}"
+    });
+  std::string expected = "(stmt-try (stmt-block) (stmt-catch 'e' (type-any) (stmt-block)))\n";
+  ASSERT_EQ(expected, actual);
+}
+
+TEST(TestEggParser, StatementTryCatchCatch) {
+  std::string actual = outputFromLines({
+    "try {} catch (int i) {} catch (any a) {}"
+    });
+  std::string expected = "(stmt-try (stmt-block) (stmt-catch 'i' (type-int) (stmt-block)) (stmt-catch 'a' (type-any) (stmt-block)))\n";
+  ASSERT_EQ(expected, actual);
+}
+
+TEST(TestEggParser, StatementTryCatchCatchFinally) {
+  std::string actual = outputFromLines({
+    "try {} catch (int i) {} catch (any a) {} finally {}"
+    });
+  std::string expected = "(stmt-try (stmt-block) (stmt-catch 'i' (type-int) (stmt-block)) (stmt-catch 'a' (type-any) (stmt-block)) (stmt-finally (stmt-block)))\n";
+  ASSERT_EQ(expected, actual);
+}
+
+TEST(TestEggParser, StatementTryCatchFinally) {
+  std::string actual = outputFromLines({
+    "try {} catch (any e) {} finally {}"
+    });
+  std::string expected = "(stmt-try (stmt-block) (stmt-catch 'e' (type-any) (stmt-block)) (stmt-finally (stmt-block)))\n";
+  ASSERT_EQ(expected, actual);
+}
+
+TEST(TestEggParser, StatementTryFinally) {
+  std::string actual = outputFromLines({
+    "try {} finally {}"
+    });
+  std::string expected = "(stmt-try (stmt-block) (stmt-finally (stmt-block)))\n";
   ASSERT_EQ(expected, actual);
 }
 

@@ -630,7 +630,68 @@ namespace {
     Partial parseStatementTry(size_t tokidx) {
       Context context(*this, tokidx);
       assert(context[0].isKeyword(EggTokenizerKeyword::Try));
-      return PARSE_TODO(tokidx, "statement keyword: ", context[0].toString());
+      if (!context[1].isOperator(EggTokenizerOperator::CurlyLeft)) {
+        return context.expected(tokidx + 1, "'{' after keyword 'try'");
+      }
+      auto tried = this->parseStatementBlock(tokidx + 1);
+      if (!tried.succeeded()) {
+        return tried;
+      }
+      auto stmt = this->makeNode(Node::Kind::StmtTry, context[0]);
+      stmt->children.emplace_back(std::move(tried.node));
+      auto partial = context.success(std::move(stmt), tried.tokensAfter);
+      while (partial.after(0).isKeyword(EggTokenizerKeyword::Catch)) {
+        if (!partial.after(1).isOperator(EggTokenizerOperator::ParenthesisLeft)) {
+          return context.expected(partial.tokensAfter + 1, "'(' after 'catch' in 'try' statement");
+        }
+        auto type = this->parseTypeExpression(partial.tokensAfter + 2);
+        if (!type.succeeded()) {
+          return type;
+        }
+        auto& name = type.after(0);
+        if (name.kind != EggTokenizerKind::Identifier) {
+          // Note we don't allow keywords
+          return context.expected(type.tokensAfter, "identifier after type 'catch' statement");
+        }
+        if (!type.after(1).isOperator(EggTokenizerOperator::ParenthesisRight)) {
+          return context.expected(type.tokensAfter + 1, "')' after identifier in 'catch' statement");
+        }
+        if (!type.after(2).isOperator(EggTokenizerOperator::CurlyLeft)) {
+          return context.expected(type.tokensAfter + 2, "'{' after ')' in 'catch' statement");
+        }
+        auto block = this->parseStatementBlock(type.tokensAfter + 2);
+        if (!block.succeeded()) {
+          return block;
+        }
+        auto caught = this->makeNodeString(Node::Kind::StmtCatch, name);
+        caught->children.emplace_back(std::move(type.node));
+        caught->children.emplace_back(std::move(block.node));
+        partial.node->children.emplace_back(std::move(caught));
+        partial.tokensAfter = block.tokensAfter;
+      }
+      if (partial.after(0).isKeyword(EggTokenizerKeyword::Finally)) {
+        if (!partial.after(1).isOperator(EggTokenizerOperator::CurlyLeft)) {
+          return context.expected(partial.tokensAfter + 1, "'{' after 'finally' in 'try' statement");
+        }
+        auto block = this->parseStatementBlock(partial.tokensAfter + 1);
+        if (!block.succeeded()) {
+          return block;
+        }
+        if (block.after(0).isKeyword(EggTokenizerKeyword::Catch)) {
+          return context.failed(block.tokensAfter, "Unexpected 'catch' after 'finally' block in 'try' statement");
+        }
+        if (block.after(0).isKeyword(EggTokenizerKeyword::Finally)) {
+          return context.failed(block.tokensAfter, "Unexpected second 'finally' in 'try' statement");
+        }
+        auto final = this->makeNode(Node::Kind::StmtFinally, partial.after(0));
+        final->children.emplace_back(std::move(block.node));
+        partial.node->children.emplace_back(std::move(final));
+        partial.tokensAfter = block.tokensAfter;
+      }
+      if (partial.node->children.size() < 2) {
+        return context.expected(partial.tokensAfter, "'catch' or 'finally' after 'try' block");
+      }
+      return partial;
     }
     Partial parseStatementWhile(size_t tokidx) {
       Context context(*this, tokidx);
@@ -1012,16 +1073,8 @@ namespace {
         return type;
       }
       auto& pname = type.after(0);
-      switch (pname.kind) {
-      case EggTokenizerKind::Identifier:
-      case EggTokenizerKind::Keyword:
-        break;
-      case EggTokenizerKind::Operator:
-      case EggTokenizerKind::Integer:
-      case EggTokenizerKind::Float:
-      case EggTokenizerKind::String:
-      case EggTokenizerKind::Attribute:
-      case EggTokenizerKind::EndOfFile:
+      if (pname.kind != EggTokenizerKind::Identifier) {
+        // Note we don't allow keywords
         return context.expected(type.tokensAfter, "parameter name");
       }
       if (type.after(1).isOperator(EggTokenizerOperator::Equal)) {
@@ -1409,6 +1462,7 @@ namespace {
         switch (property.kind) {
         case EggTokenizerKind::Identifier:
         case EggTokenizerKind::Keyword:
+          // Note we allow identifiers and keywords
           break;
         case EggTokenizerKind::Integer:
         case EggTokenizerKind::Float:
@@ -1434,8 +1488,8 @@ namespace {
           return false;
         }
         next = &index.after(0);
-        if (next->isOperator(EggTokenizerOperator::ParenthesisRight)) {
-          partial.fail("Expected ']' after index, but instead got ", index.after(0).toString());
+        if (!next->isOperator(EggTokenizerOperator::BracketRight)) {
+          partial.fail("Expected ']' after index, but instead got ", next->toString());
           return false;
         }
         partial.wrap(Node::Kind::ExprIndex);
@@ -1519,6 +1573,7 @@ namespace {
         break;
       case EggTokenizerKind::Identifier:
       case EggTokenizerKind::Keyword:
+        // Note we allow identifiers and keywords
         key = this->makeNodeString(Node::Kind::Name, *next);
         break;
       case EggTokenizerKind::Integer:
