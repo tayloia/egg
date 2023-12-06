@@ -64,6 +64,8 @@ namespace {
       return printNodeExtra(os, "stmt-declare-variable", node.value, node, ranges);
     case Node::Kind::StmtDefineVariable:
       return printNodeExtra(os, "stmt-define-variable", node.value, node, ranges);
+    case Node::Kind::StmtDefineFunction:
+      return printNodeExtra(os, "stmt-define-function", node.value, node, ranges);
     case Node::Kind::StmtCall:
       return printNodeChildren(os, "stmt-call", node, ranges);
     case Node::Kind::StmtForLoop:
@@ -132,6 +134,10 @@ namespace {
       return printNodeExtra(os, "type-unary", node.op.typeUnaryOp, node, ranges);
     case Node::Kind::TypeBinary:
       return printNodeExtra(os, "type-binary", node.op.typeBinaryOp, node, ranges);
+    case Node::Kind::TypeFunctionSignature:
+      return printNodeExtra(os, "type-signature", node.value, node, ranges);
+    case Node::Kind::TypeFunctionSignatureParameter:
+      return printNodeExtra(os, "type-parameter", node.value, node, ranges);
     case Node::Kind::Literal:
       assert(node.children.empty());
       return printValue(os, node.value, '"');
@@ -470,11 +476,11 @@ TEST(TestEggParser, StatementForEach) {
   ASSERT_EQ(expected, actual);
 }
 
-TEST(TestEggParser, DISABLED_StatementDefineFunction) {
+TEST(TestEggParser, StatementDefineFunction) {
   std::string actual = outputFromLines({
     "int f() { }"
     });
-  std::string expected = "(stmt-define-function 'f' (type-signature (type-int)) (stmt-block))\n";
+  std::string expected = "(stmt-define-function 'f' (type-signature 'f' (type-int)) (stmt-block))\n";
   ASSERT_EQ(expected, actual);
 }
 

@@ -531,14 +531,29 @@ namespace {
       if (!type.succeeded()) {
         return context.skip();
       }
-      if (type.after(0).kind != EggTokenizerKind::Identifier) {
+      auto& fname = type.after(0);
+      if (fname.kind != EggTokenizerKind::Identifier) {
         return context.skip();
       }
       if (!type.after(1).isOperator(EggTokenizerOperator::ParenthesisLeft)) {
         return context.skip();
       }
-      // <type> <identifier> (
-      return PARSE_TODO(tokidx, "statement function definition: ", type.after(0).toString());
+      // <type> <identifier> ( <parameters> ) { <block> }
+      auto signature = this->parseTypeFunctionSignature(type, fname, type.tokensAfter + 1);
+      if (!signature.succeeded()) {
+        return signature;
+      }
+      if (!signature.after(0).isOperator(EggTokenizerOperator::CurlyLeft)) {
+        return context.expected(signature.tokensAfter, "'{' after ')' in definition of function '", fname.value.s, "'");
+      }
+      auto block = this->parseStatementBlock(signature.tokensAfter);
+      if (!block.succeeded()) {
+        return block;
+      }
+      auto stmt = this->makeNodeString(Node::Kind::StmtDefineFunction, fname);
+      stmt->children.emplace_back(std::move(signature.node));
+      stmt->children.emplace_back(std::move(block.node));
+      return context.success(std::move(stmt), block.tokensAfter);
     }
     Partial parseStatementIf(size_t tokidx) {
       Context context(*this, tokidx);
@@ -907,6 +922,16 @@ namespace {
     Partial parseTypeExpressionPrimaryKeyword(Context& context, Node::Kind kind) {
       auto node = this->makeNode(kind, context[0]);
       return context.success(std::move(node), context.tokensBefore + 1);
+    }
+    Partial parseTypeFunctionSignature(Partial& rtype, const EggTokenizerItem& fname, size_t tokidx) {
+      assert(rtype.succeeded());
+      Context context(*this, tokidx);
+      assert(context[0].isOperator(EggTokenizerOperator::ParenthesisLeft));
+      auto signature = this->makeNodeString(Node::Kind::TypeFunctionSignature, fname);
+      signature->range.begin = rtype.node->range.begin;
+      signature->children.emplace_back(std::move(rtype.node));
+      assert(context[1].isOperator(EggTokenizerOperator::ParenthesisRight)); // WIBBLE
+      return context.success(std::move(signature), tokidx + 2);
     }
     Partial parseValueExpression(size_t tokidx) {
       return this->parseValueExpressionTernary(tokidx);

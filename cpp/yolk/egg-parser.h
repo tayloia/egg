@@ -19,6 +19,7 @@ namespace egg::yolk {
         StmtBlock,
         StmtDeclareVariable,
         StmtDefineVariable,
+        StmtDefineFunction,
         StmtCall,
         StmtForEach,
         StmtForLoop,
@@ -44,6 +45,8 @@ namespace egg::yolk {
         TypeAny,
         TypeUnary,
         TypeBinary,
+        TypeFunctionSignature,
+        TypeFunctionSignatureParameter,
         Literal,
         Name
       };

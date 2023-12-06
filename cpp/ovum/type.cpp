@@ -88,7 +88,7 @@ namespace {
         flags(flags) {
     }
     TypeForgeFunctionSignatureParameter(TypeForgeFunctionSignatureParameter&& rhs) noexcept
-      : position(std::move(position)),
+      : position(std::move(rhs.position)),
         type(std::move(rhs.type)),
         name(std::move(rhs.name)),
         flags(std::move(rhs.flags)) {
@@ -126,7 +126,8 @@ namespace {
     std::vector<const IFunctionSignatureParameter*> parameters;
     TypeForgeFunctionSignature(Type type, String name)
       : type(type),
-        name(name) {
+        name(name),
+        parameters() {
     }
     TypeForgeFunctionSignature(TypeForgeFunctionSignature&& rhs) noexcept
       : type(std::move(rhs.type)),

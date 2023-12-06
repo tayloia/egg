@@ -44,6 +44,8 @@ namespace {
     ModuleNode* compileStmtDeclareVariableScope(ParserNode& pnode);
     ModuleNode* compileStmtDefineVariable(ParserNode& pnode);
     ModuleNode* compileStmtDefineVariableScope(ParserNode& pnode);
+    ModuleNode* compileStmtDefineFunction(ParserNode& pnode);
+    ModuleNode* compileStmtDefineFunctionScope(ParserNode& pnode);
     ModuleNode* compileStmtMutate(ParserNode& pnode);
     ModuleNode* compileStmtAssert(ParserNode& function, ParserNode& predicate);
     ModuleNode* compileStmtCall(ParserNode& pnode);
@@ -194,6 +196,9 @@ ModuleNode* ModuleCompiler::compileStmt(ParserNode& pnode, const StmtContext& co
   case ParserNode::Kind::StmtDefineVariable:
     EXPECT(pnode, pnode.children.size() == 2);
     return this->compileStmtDefineVariableScope(pnode);
+  case ParserNode::Kind::StmtDefineFunction:
+    EXPECT(pnode, pnode.children.size() == 2);
+    return this->compileStmtDefineFunctionScope(pnode);
   case ParserNode::Kind::StmtCall:
     EXPECT(pnode, pnode.children.size() == 1);
     return this->compileStmtCall(*pnode.children.front());
@@ -227,6 +232,8 @@ ModuleNode* ModuleCompiler::compileStmt(ParserNode& pnode, const StmtContext& co
   case ParserNode::Kind::TypeAny:
   case ParserNode::Kind::TypeUnary:
   case ParserNode::Kind::TypeBinary:
+  case ParserNode::Kind::TypeFunctionSignature:
+  case ParserNode::Kind::TypeFunctionSignatureParameter:
   case ParserNode::Kind::Literal:
   case ParserNode::Kind::Name:
   default:
@@ -297,6 +304,36 @@ ModuleNode* ModuleCompiler::compileStmtDefineVariable(ParserNode& pnode) {
 
 ModuleNode* ModuleCompiler::compileStmtDefineVariableScope(ParserNode& pnode) {
   auto* stmt = this->compileStmtDefineVariable(pnode);
+  this->targets.top() = stmt;
+  return stmt;
+}
+
+ModuleNode* ModuleCompiler::compileStmtDefineFunction(ParserNode& pnode) {
+  assert(pnode.kind == ParserNode::Kind::StmtDefineFunction);
+  assert(pnode.children.size() == 2);
+  egg::ovum::String symbol;
+  EXPECT(pnode, pnode.value->getString(symbol));
+  auto rtype = this->compileTypeExpr(*pnode.children.front());
+  if (rtype == nullptr) {
+    return nullptr;
+  }
+  /*
+  assert(rnode != nullptr);
+  auto ltype = this->deduceType(*lnode);
+  assert(ltype != nullptr);
+  auto rtype = this->deduceType(*rnode);
+  assert(rtype != nullptr);
+  auto assignable = this->isAssignable(ltype, rtype);
+  if (assignable == egg::ovum::ITypeForge::Assignability::Never) {
+    return this->error(*pnode.children.back(), "Cannot initialize '", symbol, "' of type '", ltype, "' with a value of type '", rtype, "'");
+  }
+  return &this->mbuilder.stmtVariableDefine(symbol, *lnode, *rnode, pnode.range);
+  WIBBLE */
+  return this->error(pnode, "WIBBLE: Cannot compile function definition '", symbol, "'");
+}
+
+ModuleNode* ModuleCompiler::compileStmtDefineFunctionScope(ParserNode& pnode) {
+  auto* stmt = this->compileStmtDefineFunction(pnode);
   this->targets.top() = stmt;
   return stmt;
 }
@@ -534,10 +571,13 @@ ModuleNode* ModuleCompiler::compileValueExpr(ParserNode& pnode) {
   case ParserNode::Kind::TypeInferQ:
   case ParserNode::Kind::TypeUnary:
   case ParserNode::Kind::TypeBinary:
+  case ParserNode::Kind::TypeFunctionSignature:
+  case ParserNode::Kind::TypeFunctionSignatureParameter:
   case ParserNode::Kind::StmtBlock:
   case ParserNode::Kind::StmtCall:
   case ParserNode::Kind::StmtDeclareVariable:
   case ParserNode::Kind::StmtDefineVariable:
+  case ParserNode::Kind::StmtDefineFunction:
   case ParserNode::Kind::StmtForEach:
   case ParserNode::Kind::StmtForLoop:
   case ParserNode::Kind::StmtMutate:
@@ -775,12 +815,15 @@ ModuleNode* ModuleCompiler::compileTypeExpr(ParserNode& pnode) {
     return &this->mbuilder.typeLiteral(egg::ovum::Type::Any, pnode.range);
   case ParserNode::Kind::TypeUnary:
   case ParserNode::Kind::TypeBinary:
+  case ParserNode::Kind::TypeFunctionSignature:
+  case ParserNode::Kind::TypeFunctionSignatureParameter:
     // WIBBLE
     break;
   case ParserNode::Kind::ModuleRoot:
   case ParserNode::Kind::StmtBlock:
   case ParserNode::Kind::StmtDeclareVariable:
   case ParserNode::Kind::StmtDefineVariable:
+  case ParserNode::Kind::StmtDefineFunction:
   case ParserNode::Kind::StmtCall:
   case ParserNode::Kind::StmtForEach:
   case ParserNode::Kind::StmtForLoop:
@@ -854,6 +897,8 @@ std::string ModuleCompiler::toString(const ParserNode& pnode) {
     return "variable declaration statement";
   case ParserNode::Kind::StmtDefineVariable:
     return "variable definition statement";
+  case ParserNode::Kind::StmtDefineFunction:
+    return "function definition statement";
   case ParserNode::Kind::StmtCall:
     return "call statement";
   case ParserNode::Kind::StmtForEach:
@@ -904,6 +949,10 @@ std::string ModuleCompiler::toString(const ParserNode& pnode) {
     return "type unary operator";
   case ParserNode::Kind::TypeBinary:
     return "type binary operator";
+  case ParserNode::Kind::TypeFunctionSignature:
+    return "type function signature";
+  case ParserNode::Kind::TypeFunctionSignatureParameter:
+    return "type function signature parameter";
   case ParserNode::Kind::Literal:
     return "literal";
   case ParserNode::Kind::Name:
