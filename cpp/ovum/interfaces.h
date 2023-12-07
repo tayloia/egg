@@ -15,6 +15,12 @@ namespace egg::ovum {
   class IValue;
   class IVMExecution;
 
+  enum class Assignability {
+    Never,
+    Sometimes,
+    Always
+  };
+
   enum class Modifiability {
     None = 0x00,
     Read = 0x1,
@@ -336,12 +342,12 @@ namespace egg::ovum {
 
   class ITypeForge : public IHardAcquireRelease {
   public:
-    enum class Assignability { Never, Sometimes, Always };
     // Interface
     virtual Type forgePrimitiveType(ValueFlags flags) = 0;
     virtual Type forgeUnionType(const Type& lhs, const Type& rhs) = 0;
     virtual Type forgeNullableType(const Type& type, bool nullable) = 0;
     virtual Type forgeVoidableType(const Type& type, bool voidable) = 0;
+    virtual Type forgeFunctionType(const IFunctionSignature& signature) = 0;
     virtual Assignability isTypeAssignable(const Type& dst, const Type& src) = 0;
     virtual Assignability isFunctionSignatureAssignable(const IFunctionSignature& dst, const IFunctionSignature& src) = 0;
     virtual HardPtr<ITypeForgeFunctionBuilder> createFunctionBuilder() = 0;

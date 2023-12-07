@@ -91,8 +91,8 @@ TEST(TestType, ForgeFunctionSignatureAssignableAlways) {
   auto& built2 = fb->build();
   ASSERT_STRING("void f(int b)", forge.toString(built2));
   ASSERT_NE(&built1, &built2);
-  ASSERT_EQ(egg::ovum::ITypeForge::Assignability::Always, forge->isFunctionSignatureAssignable(built1, built2));
-  ASSERT_EQ(egg::ovum::ITypeForge::Assignability::Always, forge->isFunctionSignatureAssignable(built2, built1));
+  ASSERT_EQ(egg::ovum::Assignability::Always, forge->isFunctionSignatureAssignable(built1, built2));
+  ASSERT_EQ(egg::ovum::Assignability::Always, forge->isFunctionSignatureAssignable(built2, built1));
 }
 
 TEST(TestType, ForgeFunctionSignatureAssignableSometimes) {
@@ -110,8 +110,8 @@ TEST(TestType, ForgeFunctionSignatureAssignableSometimes) {
   auto& built2 = fb->build();
   ASSERT_STRING("void f(float|int b)", forge.toString(built2));
   ASSERT_NE(&built1, &built2);
-  ASSERT_EQ(egg::ovum::ITypeForge::Assignability::Sometimes, forge->isFunctionSignatureAssignable(built1, built2));
-  ASSERT_EQ(egg::ovum::ITypeForge::Assignability::Always, forge->isFunctionSignatureAssignable(built2, built1));
+  ASSERT_EQ(egg::ovum::Assignability::Sometimes, forge->isFunctionSignatureAssignable(built1, built2));
+  ASSERT_EQ(egg::ovum::Assignability::Always, forge->isFunctionSignatureAssignable(built2, built1));
 }
 
 TEST(TestType, ForgeFunctionSignatureAssignableNever) {
@@ -129,8 +129,8 @@ TEST(TestType, ForgeFunctionSignatureAssignableNever) {
   auto& built2 = fb->build();
   ASSERT_STRING("void f(string b)", forge.toString(built2));
   ASSERT_NE(&built1, &built2);
-  ASSERT_EQ(egg::ovum::ITypeForge::Assignability::Never, forge->isFunctionSignatureAssignable(built1, built2));
-  ASSERT_EQ(egg::ovum::ITypeForge::Assignability::Never, forge->isFunctionSignatureAssignable(built2, built1));
+  ASSERT_EQ(egg::ovum::Assignability::Never, forge->isFunctionSignatureAssignable(built1, built2));
+  ASSERT_EQ(egg::ovum::Assignability::Never, forge->isFunctionSignatureAssignable(built2, built1));
 }
 
 TEST(TestType, ForgeFunction) {

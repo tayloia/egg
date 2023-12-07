@@ -9,7 +9,8 @@ namespace {
   template<typename T>
   std::string describe(const T& value) {
     std::stringstream ss;
-    Print::describe(ss, value, Print::Options::DEFAULT);
+    Printer printer(ss, Print::Options::DEFAULT);
+    printer.describe(value);
     return ss.str();
   }
 
@@ -609,6 +610,52 @@ namespace {
     }
   };
 
+  class VMObjectVanillaFunction : public VMObjectVanilla<VMObjectVanillaFunction> {
+    VMObjectVanillaFunction(const VMObjectVanillaFunction&) = delete;
+    VMObjectVanillaFunction& operator=(const VMObjectVanillaFunction&) = delete;
+  private:
+    Type ftype;
+    HardPtr<IVMCallHandler> handler;
+  public:
+    VMObjectVanillaFunction(IVM& vm, const Type& ftype, IVMCallHandler& handler)
+      : VMObjectVanilla(vm),
+        ftype(ftype),
+        handler(&handler) {
+      assert(this->ftype != nullptr);
+      assert(this->handler != nullptr);
+    }
+    virtual void softVisit(ICollectable::IVisitor&) const override {
+      // Nothing to do
+    }
+    virtual void print(Printer& printer) const override {
+      printer.describe(*this->ftype);
+    }
+    virtual Type vmRuntimeType() override {
+      return this->ftype;
+    }
+    virtual HardValue vmCall(IVMExecution& execution, const ICallArguments& arguments) override {
+      return this->handler->call(execution, arguments);
+    }
+    virtual HardValue vmIndexGet(IVMExecution& execution, const HardValue&) override {
+      return this->raiseRuntimeError(execution, "Vanilla functions do not support indexing");
+    }
+    virtual HardValue vmIndexSet(IVMExecution& execution, const HardValue&, const HardValue&) override {
+      return this->raiseRuntimeError(execution, "Vanilla functions do not support indexing");
+    }
+    virtual HardValue vmIndexMut(IVMExecution& execution, const HardValue&, ValueMutationOp, const HardValue&) override {
+      return this->raiseRuntimeError(execution, "Vanilla functions do not support indexing");
+    }
+    virtual HardValue vmPropertyGet(IVMExecution& execution, const HardValue&) override {
+      return this->raiseRuntimeError(execution, "Vanilla functions do not support properties");
+    }
+    virtual HardValue vmPropertySet(IVMExecution& execution, const HardValue&, const HardValue&) override {
+      return this->raiseRuntimeError(execution, "Vanilla functions do not support properties");
+    }
+    virtual HardValue vmPropertyMut(IVMExecution& execution, const HardValue&, ValueMutationOp, const HardValue&) override {
+      return this->raiseRuntimeError(execution, "Vanilla functions do not support properties");
+    }
+  };
+
   class VMStringProxyBase : public VMObjectBase {
     VMStringProxyBase(const VMStringProxyBase&) = delete;
     VMStringProxyBase& operator=(const VMStringProxyBase&) = delete;
@@ -1146,6 +1193,10 @@ egg::ovum::HardObject egg::ovum::ObjectFactory::createVanillaArray(IVM& vm) {
 
 egg::ovum::HardObject egg::ovum::ObjectFactory::createVanillaObject(IVM& vm) {
   return makeHardObject<VMObjectVanillaObject>(vm);
+}
+
+egg::ovum::HardObject egg::ovum::ObjectFactory::createVanillaFunction(IVM& vm, const Type& ftype, IVMCallHandler& handler) {
+  return makeHardObject<VMObjectVanillaFunction>(vm, ftype, handler);
 }
 
 egg::ovum::HardObject egg::ovum::ObjectFactory::createStringProxyCompareTo(IVM& vm, const String& instance) {

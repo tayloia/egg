@@ -55,11 +55,12 @@ namespace {
     }
     virtual std::pair<std::string, int> toStringPrecedence() const override {
       std::stringstream ss;
-      auto precedence = Print::describe(ss, this->flags.get(), Print::Options::DEFAULT);
+      Printer printer{ ss, Print::Options::DEFAULT };
+      auto precedence = printer.describe(this->flags.get());
       return std::make_pair(ss.str(), precedence);
     }
     virtual void print(Printer& printer) const override {
-      (void)Print::describe(printer.stream, this->flags.get(), Print::Options::DEFAULT);
+      (void)printer.describe(this->flags.get());
     }
     static const IType* forge(ValueFlags flags) {
       auto index = size_t(flags);
@@ -72,6 +73,39 @@ namespace {
     }
   };
   TypePrimitive TypePrimitive::trivial[] = {};
+
+  class TypeVanillaFunction final : public SoftReferenceCountedAllocator<IType> {
+    TypeVanillaFunction(const TypeVanillaFunction&) = delete;
+    TypeVanillaFunction& operator=(const TypeVanillaFunction&) = delete;
+  private:
+    const IFunctionSignature& signature;
+  public:
+    TypeVanillaFunction(IAllocator& allocator, IBasket&, const IFunctionSignature& signature)
+      : SoftReferenceCountedAllocator(allocator),
+        signature(signature) {
+    }
+    virtual void softVisit(ICollectable::IVisitor&) const override {
+      // Nothing to do
+    }
+    virtual bool isPrimitive() const override {
+      return false;
+    }
+    virtual ValueFlags getPrimitiveFlags() const override {
+      return ValueFlags::None;
+    }
+    virtual std::pair<std::string, int> toStringPrecedence() const override {
+      // TODO
+      std::ostringstream stream;
+      auto options = Print::Options::DEFAULT;
+      options.names = false;
+      Printer printer{ stream, options };
+      Type::print(printer, this->signature);
+      return std::make_pair(stream.str(), 0);
+    }
+    virtual void print(Printer& printer) const override {
+      Type::print(printer, this->signature);
+    }
+  };
 
   class TypeForgeFunctionSignatureParameter : public IFunctionSignatureParameter {
     TypeForgeFunctionSignatureParameter(const TypeForgeFunctionSignatureParameter&) = delete;
@@ -241,6 +275,9 @@ namespace {
       }
       return type;
     }
+    virtual Type forgeFunctionType(const IFunctionSignature& signature) override {
+      return this->create<TypeVanillaFunction>(this->allocator, *this->basket, signature);
+    }
     virtual Assignability isTypeAssignable(const Type& dst, const Type& src) override {
       return this->computeTypeAssignability(dst, src);
     }
@@ -248,7 +285,7 @@ namespace {
       return this->computeFunctionSignatureAssignability(&dst, &src);
     }
     virtual HardPtr<ITypeForgeFunctionBuilder> createFunctionBuilder() override {
-      return this->create<TypeForgeFunctionBuilder>(*this);
+      return HardPtr(this->create<TypeForgeFunctionBuilder>(*this));
     }
     const IFunctionSignatureParameter& forgeFunctionSignatureParameter(TypeForgeFunctionSignatureParameter&& parameter) {
       return this->cacheFunctionSignatureParameter.fetch(std::move(parameter));
@@ -257,8 +294,8 @@ namespace {
       return this->cacheFunctionSignature.fetch(std::move(signature));
     }
     template<typename T, typename... ARGS>
-    HardPtr<T> create(ARGS&&... args) {
-      return HardPtr(this->allocator.makeRaw<T>(std::forward<ARGS>(args)...));
+    T* create(ARGS&&... args) {
+      return this->allocator.makeRaw<T>(std::forward<ARGS>(args)...);
     }
     template<typename T>
     void destroy(T* instance) {
@@ -328,7 +365,9 @@ namespace {
     }
   };
   const IFunctionSignature& TypeForgeFunctionBuilder::build() {
+    assert(this->rtype != nullptr);
     TypeForgeFunctionSignature signature(this->rtype, this->fname);
+    this->rtype = nullptr;
     for (auto& parameter : this->parameters) {
       auto& forged = this->forge.forgeFunctionSignatureParameter(std::move(parameter));
       signature.parameters.emplace_back(&forged);
@@ -366,7 +405,7 @@ void egg::ovum::Type::print(Printer& printer) const {
 
 void egg::ovum::Type::print(Printer& printer, const IType& type) {
   if (type.isPrimitive()) {
-    (void)Print::describe(printer.stream, type.getPrimitiveFlags(), printer.options);
+    (void)printer.describe(type.getPrimitiveFlags());
   } else {
     printer << "<complex>";
   }

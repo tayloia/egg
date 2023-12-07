@@ -69,6 +69,11 @@ namespace egg::ovum {
     }
   };
 
+  class IVMCallHandler : public IHardAcquireRelease {
+  public:
+    virtual HardValue call(IVMExecution& execution, const ICallArguments& arguments) = 0;
+  };
+
   class IVMCallStack : public IHardAcquireRelease {
   public:
     virtual void print(Printer& printer) const = 0;
@@ -166,6 +171,7 @@ namespace egg::ovum {
     virtual Node& stmtCase(Node& block, const SourceRange& range) = 0;
     virtual Node& stmtBreak(const SourceRange& range) = 0;
     virtual Node& stmtContinue(const SourceRange& range) = 0;
+    virtual Node& stmtFunctionDefine(const String& symbol, Node& type, Node& block, const SourceRange& range) = 0;
     virtual Node& stmtVariableDeclare(const String& symbol, Node& type, const SourceRange& range) = 0;
     virtual Node& stmtVariableDefine(const String& symbol, Node& type, Node& value, const SourceRange& range) = 0;
     virtual Node& stmtVariableSet(const String& symbol, Node& value, const SourceRange& range) = 0;
@@ -180,6 +186,7 @@ namespace egg::ovum {
     virtual Node& stmtRethrow(const SourceRange& range) = 0;
     virtual Node& stmtReturn(const SourceRange& range) = 0;
     // Type operations
+    virtual ITypeForge& getTypeForge() const = 0;
     virtual Type deduceType(Node& node) = 0;
     // Modifiers
     virtual void appendChild(Node& parent, Node& child) = 0;

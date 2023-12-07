@@ -60,11 +60,6 @@ namespace egg::ovum {
       }
     }
 
-    // Descriptions
-    static int describe(std::ostream& stream, ValueFlags value, const Options& options); // returns precedence
-    static void describe(std::ostream& stream, const IType& value, const Options& options);
-    static void describe(std::ostream& stream, const IValue& value, const Options& options);
-
     // Print string to stream
     static void ascii(std::ostream& stream, const std::string& value, char quote);
     static void escape(std::ostream& stream, const std::string& value, char quote);
@@ -97,9 +92,8 @@ namespace egg::ovum {
     void write(const T& value) {
       Print::write(this->stream, value, this->options);
     }
-    template<typename T>
-    void describe(const T& value) {
-      Print::describe(this->stream, value, this->options);
-    }
+    int describe(ValueFlags value); // returns precedence
+    void describe(const IType& value);
+    void describe(const IValue& value);
   };
 }

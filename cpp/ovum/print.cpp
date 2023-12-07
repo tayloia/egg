@@ -55,6 +55,11 @@ namespace {
   }
 
   int valueFlagsWrite(std::ostream& os, ValueFlags flags) {
+    // Returns precedence:
+    //  0: Simple keyword, e.g. 'int'
+    //  1: Simple suffix, e.g. 'int?'
+    //  2: Type union, e.g. 'float|int'
+    assert(flags != ValueFlags::None);
     auto* component = valueFlagsComponent(flags);
     if (component != nullptr) {
       os << component;
@@ -446,25 +451,28 @@ void egg::ovum::Print::escape(std::ostream& stream, const std::string& value, ch
   }
 }
 
-int egg::ovum::Print::describe(std::ostream& stream, ValueFlags value, const Options& options) {
+int egg::ovum::Printer::describe(ValueFlags value) {
+  if (value == ValueFlags::None) {
+    this->stream << "<none>";
+    return 0;
+  }
   if (options.quote != '\0') {
-    stream << options.quote;
+    this->stream << options.quote;
   }
   auto precedence = valueFlagsWrite(stream, value);
   if (options.quote != '\0') {
-    stream << options.quote;
+    this->stream << options.quote;
   }
   return precedence;
 }
 
-void egg::ovum::Print::describe(std::ostream& stream, const IType& value, const Options& options) {
-  // TODO complex types
-  (void)Print::describe(stream, value.getPrimitiveFlags(), options);
+void egg::ovum::Printer::describe(const IType& value) {
+  value.print(*this);
 }
 
-void egg::ovum::Print::describe(std::ostream& stream, const IValue& value, const Options& options) {
+void egg::ovum::Printer::describe(const IValue& value) {
   // TODO complex types
-  Options quoted = options;
+  auto quoted = this->options;
   if (quoted.quote == '\0') {
     quoted.quote = '\'';
   }
@@ -472,22 +480,23 @@ void egg::ovum::Print::describe(std::ostream& stream, const IValue& value, const
   EGG_WARNING_SUPPRESS_SWITCH_BEGIN
   switch (value.getFlags()) {
   case ValueFlags::None:
-    stream << "nothing";
+    this->stream << "nothing";
     return;
   case ValueFlags::Void:
-    stream << quoted.quote << "void" << quoted.quote;
+    this->stream << quoted.quote << "void" << quoted.quote;
     return;
   case ValueFlags::Null:
-    stream << quoted.quote << "null" << quoted.quote;
+    this->stream << quoted.quote << "null" << quoted.quote;
     return;
   case ValueFlags::Bool:
     if (value.getBool(bvalue)) {
-      stream << quoted.quote << (bvalue ? "true" : "false") << quoted.quote;
+      this->stream << quoted.quote << (bvalue ? "true" : "false") << quoted.quote;
       return;
     }
     break;
   }
   EGG_WARNING_SUPPRESS_SWITCH_END
   stream << "a value of type ";
-  Print::describe(stream, *value.getType(), quoted);
+  Printer printer{ this->stream, quoted };
+  printer.describe(*value.getType());
 }

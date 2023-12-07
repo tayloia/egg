@@ -31,6 +31,7 @@ public:
     TypeInfer,
     TypeLiteral,
     StmtBlock,
+    StmtFunctionDefine,
     StmtVariableDeclare,
     StmtVariableDefine,
     StmtVariableSet,
@@ -88,7 +89,8 @@ namespace {
   template<typename T>
   std::string describe(const T& value) {
     std::stringstream ss;
-    Print::describe(ss, value, Print::Options::DEFAULT);
+    Printer printer{ ss, Print::Options::DEFAULT };
+    printer.describe(value);
     return ss.str();
   }
 
@@ -371,7 +373,42 @@ namespace {
     virtual HardValue raiseRuntimeError(const String& message) override;
     virtual bool assignValue(HardValue& dst, const Type& type, const HardValue& src) override {
       // Assign with int-to-float promotion
-      return Operation::assign(this->vm.getAllocator(), dst, type, src, true);
+      // WIBBLE
+      auto& lhs = dst;
+      auto& ltype = type;
+      auto& rhs = src;
+      auto promote = true;
+      auto lflags = ltype->getPrimitiveFlags();
+      auto rflags = rhs->getFlags();
+      EGG_WARNING_SUPPRESS_SWITCH_BEGIN
+      switch (rflags) {
+      case ValueFlags::Void:
+      case ValueFlags::Null:
+      case ValueFlags::Bool:
+      case ValueFlags::Float:
+      case ValueFlags::String:
+      case ValueFlags::Object:
+        if (Bits::hasAnySet(lflags, rflags)) {
+          return lhs->set(rhs.get());
+        }
+        return false;
+      case ValueFlags::Int:
+        break;
+      default:
+        return false;
+      }
+      EGG_WARNING_SUPPRESS_SWITCH_END
+      assert(rflags == ValueFlags::Int);
+      if (Bits::hasAnySet(lflags, ValueFlags::Int)) {
+        return lhs->set(rhs.get());
+      }
+      Int ivalue;
+      if (promote && Bits::hasAnySet(lflags, ValueFlags::Float) && rhs->getInt(ivalue)) {
+        auto fvalue = Arithmetic::promote(ivalue);
+        auto hvalue = this->vm.createHardValueFloat(fvalue);
+        return lhs->set(hvalue.get());
+      }
+      return false;
     }
     virtual HardValue getSoftValue(const SoftValue& soft) override {
       return this->vm.getSoftValue(soft);
@@ -841,7 +878,7 @@ namespace {
     HardPtr<VMModule> module; // becomes null once built
   public:
     VMModuleBuilder(IVM& vm, VMProgram& program, const String& resource)
-      : VMUncollectable<IVMModuleBuilder>(vm),
+      : VMUncollectable(vm),
         program(&program),
         module(vm.getAllocator().makeRaw<VMModule>(vm, resource)) {
       assert(this->module != nullptr);
@@ -989,6 +1026,13 @@ namespace {
       auto& node = this->module->createNode(Node::Kind::StmtContinue, range);
       return node;
     }
+    virtual Node& stmtFunctionDefine(const String& symbol, Node& type, Node& block, const SourceRange& range) override {
+      auto& node = this->module->createNode(Node::Kind::StmtFunctionDefine, range);
+      node.literal = this->createHardValueString(symbol);
+      node.addChild(type);
+      node.addChild(block);
+      return node;
+    }
     virtual Node& stmtVariableDeclare(const String& symbol, Node& type, const SourceRange& range) override {
       auto& node = this->module->createNode(Node::Kind::StmtVariableDeclare, range);
       node.literal = this->createHardValueString(symbol);
@@ -1067,6 +1111,9 @@ namespace {
       auto& node = this->module->createNode(Node::Kind::StmtReturn, range);
       return node;
     }
+    virtual ITypeForge& getTypeForge() const override {
+      return this->vm.getTypeForge();
+    }
     virtual Type deduceType(Node& node) override {
       switch (node.kind) {
       case Node::Kind::ExprLiteral:
@@ -1090,6 +1137,7 @@ namespace {
       case Node::Kind::ExprIndexGet:
       case Node::Kind::TypeInfer:
       case Node::Kind::StmtBlock:
+      case Node::Kind::StmtFunctionDefine:
       case Node::Kind::StmtVariableDeclare:
       case Node::Kind::StmtVariableDefine:
       case Node::Kind::StmtVariableSet:
@@ -1129,7 +1177,7 @@ namespace {
     HardPtr<VMProgram> program; // becomes null once built
   public:
     explicit VMProgramBuilder(IVM& vm)
-      : VMUncollectable<IVMProgramBuilder>(vm),
+      : VMUncollectable(vm),
         program(vm.getAllocator().makeRaw<VMProgram>(vm)) {
       assert(this->program != nullptr);
     }
@@ -1146,6 +1194,27 @@ namespace {
         this->program = nullptr;
       }
       return built;
+    }
+  };
+
+  class VMCallHandler : public HardReferenceCounted<IVMCallHandler> {
+    VMCallHandler(const VMCallHandler&) = delete;
+    VMCallHandler& operator=(const VMCallHandler&) = delete;
+  private:
+    IVM& vm;
+    Type ftype;
+    const IVMModule::Node& block;
+  public:
+    VMCallHandler(IVM& vm, const Type& ftype, const IVMModule::Node& block)
+      : vm(vm),
+        ftype(ftype),
+        block(block) {
+    }
+    virtual HardValue call(IVMExecution& execution, const ICallArguments&) override {
+      return execution.raiseRuntimeError(this->vm.createString("WIBBLE: VMCallHandler::call not implemented"));
+    }
+    virtual void hardDestroy() const override {
+      this->vm.getAllocator().destroy(this);
     }
   };
 
@@ -1166,7 +1235,7 @@ namespace {
     VMExecution execution;
   public:
     VMRunner(IVM& vm, IVMProgram& program, const IVMModule::Node& root)
-      : VMCollectable<IVMRunner>(vm),
+      : VMCollectable(vm),
         program(&program),
         execution(vm) {
       this->execution.runner = this;
@@ -1345,6 +1414,14 @@ namespace {
       }
       return this->createHardValueObject(object);
     }
+    HardValue functionConstruct(const Type& ftype, const IVMModule::Node& block) {
+      assert(ftype != nullptr);
+      auto handler = HardPtr<VMCallHandler>(this->getAllocator().makeRaw<VMCallHandler>(this->vm, ftype, block));
+      assert(handler != nullptr);
+      auto object = ObjectFactory::createVanillaFunction(this->vm, ftype, *handler);
+      assert(object != nullptr);
+      return this->createHardValueObject(object);
+    }
     HardValue stringIndexGet(const String& string, const HardValue& index) {
       Int ivalue;
       if (!index->getInt(ivalue)) {
@@ -1516,6 +1593,33 @@ bool VMRunner::stepNode(HardValue& retval) {
     assert(top.node->literal->getVoid());
     assert(top.index <= top.node->children.size());
     if (!this->stepBlock(retval)) {
+      return this->pop(retval);
+    }
+    break;
+  case IVMModule::Node::Kind::StmtFunctionDefine:
+    assert(top.node->children.size() >= 2);
+    assert(top.index <= top.node->children.size());
+    if (top.index == 0) {
+      // Evaluate the type
+      this->push(*top.node->children[top.index++]);
+    } else if (top.index == 1) {
+      // Set the symbol
+      assert(top.deque.size() == 1);
+      auto& ftype = top.deque.front();
+      if (ftype.hasFlowControl()) {
+        return this->pop(ftype);
+      }
+      auto type = ftype->getType();
+      assert(type != nullptr);
+      if (!this->variableScopeBegin(top, type)) {
+        return true;
+      }
+      top.deque.clear();
+      auto* block = top.node->children[top.index++];
+      if (!this->symbolSet(top.node->literal, this->functionConstruct(type, *block))) {
+        return true;
+      }
+    } else if (!this->stepBlock(retval, 2)) {
       return this->pop(retval);
     }
     break;
