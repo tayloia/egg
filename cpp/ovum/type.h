@@ -78,6 +78,15 @@ namespace egg::ovum {
     size_t hash() const {
       return Hash::hash(this->ptr);
     }
+    const IType::Shape* getOnlyShape() const {
+      auto* p = this->ptr;
+      assert((p != nullptr) && p->validate());
+      return (p->getShapeCount() == 1) ? p->getShape(0) : nullptr;
+    }
+    const IFunctionSignature* getOnlyFunctionSignature() const {
+      auto* shape = this->getOnlyShape();
+      return (shape != nullptr) ? shape->callable : nullptr;
+    }
     void print(Printer& printer) const;
 
     // Constants

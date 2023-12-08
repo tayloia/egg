@@ -16,4 +16,4 @@ try {
 } catch (any exception) {
   print("CAUGHT:", exception);
 }
-///>CAUGHT:<RESOURCE>(2,12): Assertion is untrue: -1 >= 0
+///>CAUGHT:<RESOURCE>(2,10-15): Assertion is untrue: -1 >= 0

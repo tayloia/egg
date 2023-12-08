@@ -53,6 +53,12 @@ namespace {
     virtual ValueFlags getPrimitiveFlags() const override {
       return this->flags.get();
     }
+    virtual size_t getShapeCount() const override {
+      return 0;
+    }
+    virtual const Shape* getShape(size_t) const {
+      return nullptr;
+    }
     virtual std::pair<std::string, int> toStringPrecedence() const override {
       std::stringstream ss;
       Printer printer{ ss, Print::Options::DEFAULT };
@@ -78,11 +84,11 @@ namespace {
     TypeVanillaFunction(const TypeVanillaFunction&) = delete;
     TypeVanillaFunction& operator=(const TypeVanillaFunction&) = delete;
   private:
-    const IFunctionSignature& signature;
+    IType::Shape shape;
   public:
     TypeVanillaFunction(IAllocator& allocator, IBasket&, const IFunctionSignature& signature)
-      : SoftReferenceCountedAllocator(allocator),
-        signature(signature) {
+      : SoftReferenceCountedAllocator(allocator) {
+      this->shape.callable = &signature;
     }
     virtual void softVisit(ICollectable::IVisitor&) const override {
       // Nothing to do
@@ -93,17 +99,23 @@ namespace {
     virtual ValueFlags getPrimitiveFlags() const override {
       return ValueFlags::None;
     }
+    virtual size_t getShapeCount() const override {
+      return 1;
+    }
+    virtual const Shape* getShape(size_t index) const {
+      return (index == 0) ? &this->shape : nullptr;
+    }
     virtual std::pair<std::string, int> toStringPrecedence() const override {
       // TODO
       std::ostringstream stream;
       auto options = Print::Options::DEFAULT;
       options.names = false;
       Printer printer{ stream, options };
-      Type::print(printer, this->signature);
+      Type::print(printer, *this->shape.callable);
       return std::make_pair(stream.str(), 3);
     }
     virtual void print(Printer& printer) const override {
-      Type::print(printer, this->signature);
+      Type::print(printer, *this->shape.callable);
     }
   };
 

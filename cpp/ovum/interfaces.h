@@ -325,9 +325,18 @@ namespace egg::ovum {
 
   class IType : public ICollectable {
   public:
+    struct Shape {
+      const IFunctionSignature* callable = nullptr;
+      const IPropertySignature* dotable = nullptr;
+      const IIndexSignature* indexable = nullptr;
+      const IIteratorSignature* iterable = nullptr;
+      const IPointerSignature* pointable = nullptr;
+    };
     // Interface
     virtual bool isPrimitive() const = 0;
     virtual ValueFlags getPrimitiveFlags() const = 0;
+    virtual size_t getShapeCount() const = 0;
+    virtual const Shape* getShape(size_t index) const = 0;
     virtual std::pair<std::string, int> toStringPrecedence() const = 0; // TODO remove?
   };
 

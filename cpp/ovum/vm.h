@@ -1,4 +1,7 @@
 namespace egg::ovum {
+  class IVMProgram;
+  class IVMRunner;
+
   class IVMCommon {
   public:
     // Interface
@@ -69,6 +72,16 @@ namespace egg::ovum {
     }
   };
 
+  class IVMCollectable : public ICollectable, public IVMCommon {
+  public:
+    virtual IAllocator& getAllocator() const = 0;
+  };
+
+  class IVMUncollectable : public IHardAcquireRelease, public IVMCommon {
+  public:
+    virtual IAllocator& getAllocator() const = 0;
+  };
+
   class IVMCallHandler : public IHardAcquireRelease {
   public:
     virtual HardValue call(IVMExecution& execution, const ICallArguments& arguments) = 0;
@@ -79,6 +92,12 @@ namespace egg::ovum {
     virtual void print(Printer& printer) const = 0;
   };
 
+  class IVMModule : public IVMUncollectable {
+  public:
+    class Node;
+    virtual HardPtr<IVMRunner> createRunner(IVMProgram& program) = 0;
+  };
+
   class IVMExecution : public ILogger, public IVMCommon {
   public:
     // Exceptions
@@ -86,6 +105,8 @@ namespace egg::ovum {
     virtual HardValue raiseRuntimeError(const String& message) = 0;
     // Assignment
     virtual bool assignValue(HardValue& lhs, const Type& ltype, const HardValue& rhs) = 0;
+    // Function calls
+    virtual HardValue initiateTailCall(const IFunctionSignature& signature, const ICallArguments& arguments, const IVMModule::Node& block) = 0;
     // Soft values
     virtual HardValue getSoftValue(const SoftValue& soft) = 0;
     virtual bool setSoftValue(SoftValue& lhs, const HardValue& rhs) = 0;
@@ -97,16 +118,6 @@ namespace egg::ovum {
     virtual HardValue precheckValueMutationOp(ValueMutationOp op, HardValue& lhs, ValueFlags rhs) = 0;
     virtual HardValue evaluateValueMutationOp(ValueMutationOp op, HardValue& lhs, const HardValue& rhs) = 0;
     virtual HardValue evaluateValuePredicateOp(ValuePredicateOp op, const HardValue& lhs, const HardValue& rhs) = 0;
-  };
-
-  class IVMCollectable : public ICollectable, public IVMCommon {
-  public:
-    virtual IAllocator& getAllocator() const = 0;
-  };
-
-  class IVMUncollectable : public IHardAcquireRelease, public IVMCommon {
-  public:
-    virtual IAllocator& getAllocator() const = 0;
   };
 
   class IVMRunner : public IVMCollectable {
@@ -123,14 +134,6 @@ namespace egg::ovum {
     };
     virtual void addBuiltin(const String& symbol, const HardValue& value) = 0;
     virtual RunOutcome run(HardValue& retval, RunFlags flags = RunFlags::Default) = 0;
-  };
-
-  class IVMProgram;
-
-  class IVMModule : public IVMUncollectable {
-  public:
-    class Node;
-    virtual HardPtr<IVMRunner> createRunner(IVMProgram& program) = 0;
   };
 
   class IVMProgram : public IVMUncollectable {
@@ -171,7 +174,9 @@ namespace egg::ovum {
     virtual Node& stmtCase(Node& block, const SourceRange& range) = 0;
     virtual Node& stmtBreak(const SourceRange& range) = 0;
     virtual Node& stmtContinue(const SourceRange& range) = 0;
-    virtual Node& stmtFunctionDefine(const String& symbol, Node& type, Node& block, const SourceRange& range) = 0;
+    virtual Node& stmtFunctionDefine(const String& symbol, Node& type, const SourceRange& range) = 0;
+    virtual Node& stmtFunctionCall(Node& function, const SourceRange& range) = 0;
+    virtual Node& stmtFunctionInvoke(const SourceRange& range) = 0;
     virtual Node& stmtVariableDeclare(const String& symbol, Node& type, const SourceRange& range) = 0;
     virtual Node& stmtVariableDefine(const String& symbol, Node& type, Node& value, const SourceRange& range) = 0;
     virtual Node& stmtVariableSet(const String& symbol, Node& value, const SourceRange& range) = 0;
@@ -179,7 +184,6 @@ namespace egg::ovum {
     virtual Node& stmtPropertySet(Node& instance, Node& property, Node& value, const SourceRange& range) = 0;
     virtual Node& stmtPropertyMutate(Node& instance, Node& property, ValueMutationOp op, Node& value, const SourceRange& range) = 0;
     virtual Node& stmtIndexMutate(Node& instance, Node& index, ValueMutationOp op, Node& value, const SourceRange& range) = 0;
-    virtual Node& stmtFunctionCall(Node& function, const SourceRange& range) = 0;
     virtual Node& stmtThrow(Node& exception, const SourceRange& range) = 0;
     virtual Node& stmtTry(Node& block, const SourceRange& range) = 0;
     virtual Node& stmtCatch(const String& symbol, Node& type, const SourceRange& range) = 0;

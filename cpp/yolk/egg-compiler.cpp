@@ -57,12 +57,13 @@ namespace {
     ModuleNode* compileStmt(ParserNode& pnode, const StmtContext& context);
     ModuleNode* compileStmtVoid(ParserNode& pnode);
     ModuleNode* compileStmtBlock(ParserNode& pnodes, const StmtContext& context);
+    ModuleNode* compileStmtBlockInto(ParserNode& pnodes, const StmtContext& context, ModuleNode& parent);
     ModuleNode* compileStmtDeclareVariable(ParserNode& pnode);
     ModuleNode* compileStmtDeclareVariableScope(ParserNode& pnode);
     ModuleNode* compileStmtDefineVariable(ParserNode& pnode);
     ModuleNode* compileStmtDefineVariableScope(ParserNode& pnode);
-    ModuleNode* compileStmtDefineFunction(ParserNode& pnode, const StmtContext& context);
-    ModuleNode* compileStmtDefineFunctionScope(ParserNode& pnode, const StmtContext& context);
+    ModuleNode* compileStmtDefineFunction(ParserNode& pnode);
+    ModuleNode* compileStmtDefineFunctionScope(ParserNode& pnode);
     ModuleNode* compileStmtMutate(ParserNode& pnode);
     ModuleNode* compileStmtAssert(ParserNode& function, ParserNode& predicate);
     ModuleNode* compileStmtCall(ParserNode& pnode);
@@ -207,7 +208,7 @@ egg::ovum::HardPtr<egg::ovum::IVMModule> ModuleCompiler::compile(ParserNode& roo
 }
 
 ModuleNode* ModuleCompiler::compileStmt(ParserNode& pnode, const StmtContext& context) {
-  StmtContext inner = context;
+  StmtContext inner{ context };
   inner.moduleRoot = false;
   switch (pnode.kind) {
   case ParserNode::Kind::StmtBlock:
@@ -220,7 +221,7 @@ ModuleNode* ModuleCompiler::compileStmt(ParserNode& pnode, const StmtContext& co
     return this->compileStmtDefineVariableScope(pnode);
   case ParserNode::Kind::StmtDefineFunction:
     EXPECT(pnode, pnode.children.size() == 2);
-    return this->compileStmtDefineFunctionScope(pnode, inner);
+    return this->compileStmtDefineFunctionScope(pnode);
   case ParserNode::Kind::StmtCall:
     EXPECT(pnode, pnode.children.size() == 1);
     return this->compileStmtCall(*pnode.children.front());
@@ -283,15 +284,20 @@ ModuleNode* ModuleCompiler::compileStmtVoid(ParserNode& pnode) {
 }
 
 ModuleNode* ModuleCompiler::compileStmtBlock(ParserNode& pnode, const StmtContext& context) {
-  auto& block = this->mbuilder.stmtBlock(pnode.range);
+  return this->compileStmtBlockInto(pnode, context, this->mbuilder.stmtBlock(pnode.range));
+}
+
+ModuleNode* ModuleCompiler::compileStmtBlockInto(ParserNode& pnode, const StmtContext& context, ModuleNode& parent) {
+  auto* block = &parent;
   for (const auto& child : pnode.children) {
     auto* stmt = this->compileStmt(*child, context);
     if (stmt == nullptr) {
-      return nullptr;
+      block = nullptr;
+    } else if (block != nullptr) {
+      this->mbuilder.appendChild(*block, *stmt);
     }
-    this->mbuilder.appendChild(block, *stmt);
   }
-  return &block;
+  return block;
 }
 
 ModuleNode* ModuleCompiler::compileStmtDeclareVariable(ParserNode& pnode) {
@@ -341,30 +347,31 @@ ModuleNode* ModuleCompiler::compileStmtDefineVariableScope(ParserNode& pnode) {
   return stmt;
 }
 
-ModuleNode* ModuleCompiler::compileStmtDefineFunction(ParserNode& pnode, const StmtContext& context) {
+ModuleNode* ModuleCompiler::compileStmtDefineFunction(ParserNode& pnode) {
   assert(pnode.kind == ParserNode::Kind::StmtDefineFunction);
   assert(pnode.children.size() == 2);
   egg::ovum::String symbol;
   EXPECT(pnode, pnode.value->getString(symbol));
-  auto& signature = *pnode.children.front();
-  if (signature.kind != ParserNode::Kind::TypeFunctionSignature) {
-    return this->expected(signature, "function signature in function definition");
+  auto& phead = *pnode.children.front();
+  if (phead.kind != ParserNode::Kind::TypeFunctionSignature) {
+    return this->expected(phead, "function signature in function definition");
   }
-  auto type = this->compileTypeFunctionSignature(signature);
-  if (type == nullptr) {
+  auto mtype = this->compileTypeFunctionSignature(phead);
+  if (mtype == nullptr) {
     return nullptr;
   }
-  auto inner = context;
-  inner.canReturn = true;
-  auto block = this->compileStmtBlock(*pnode.children.back(), inner);
+  auto& ptail = *pnode.children.back();
+  auto block = this->compileStmtBlockInto(ptail, StmtContext::function(), this->mbuilder.stmtFunctionInvoke(pnode.range));
   if (block == nullptr) {
     return nullptr;
   }
-  return &this->mbuilder.stmtFunctionDefine(symbol, *type, *block, pnode.range);
+  auto& stmt = this->mbuilder.stmtFunctionDefine(symbol, *mtype, pnode.range);
+  this->mbuilder.appendChild(stmt, *block);
+  return &stmt;
 }
 
-ModuleNode* ModuleCompiler::compileStmtDefineFunctionScope(ParserNode& pnode, const StmtContext& context) {
-  auto* stmt = this->compileStmtDefineFunction(pnode, context);
+ModuleNode* ModuleCompiler::compileStmtDefineFunctionScope(ParserNode& pnode) {
+  auto* stmt = this->compileStmtDefineFunction(pnode);
   this->targets.top() = stmt;
   return stmt;
 }
@@ -486,7 +493,7 @@ ModuleNode* ModuleCompiler::compileStmtForEach(ParserNode& pnode, const StmtCont
     return nullptr;
   }
   assert(iter != nullptr);
-  StmtContext inner = context;
+  StmtContext inner{ context };
   inner.canBreak = true;
   inner.canContinue = true;
   auto* bloc = this->compileStmt(*pnode.children[2], inner);
@@ -501,7 +508,7 @@ ModuleNode* ModuleCompiler::compileStmtForLoop(ParserNode& pnode, const StmtCont
   assert(pnode.children.size() == 4);
   ModuleNode* scope;
   ModuleNode* init;
-  StmtContext inner = context;
+  StmtContext inner{ context };
   inner.canBreak = true;
   inner.canContinue = true;
   auto& phead = *pnode.children.front();
@@ -597,7 +604,7 @@ ModuleNode* ModuleCompiler::compileStmtReturn(ParserNode& pnode, const StmtConte
 ModuleNode* ModuleCompiler::compileStmtTry(ParserNode& pnode, const StmtContext& context) {
   assert(pnode.kind == ParserNode::Kind::StmtTry);
   assert(pnode.children.size() >= 2);
-  auto inner = context;
+  StmtContext inner{ context };
   ModuleNode* stmt = nullptr;
   size_t index = 0;
   auto seenFinally = false;
@@ -1022,8 +1029,8 @@ ModuleNode* ModuleCompiler::compileTypeFunctionSignature(ParserNode& pnode) {
       break;
     }
   }
-  auto type = forge.forgeFunctionType(fb->build());
-  return &this->mbuilder.typeLiteral(type, pnode.range);
+  auto ftype = forge.forgeFunctionType(fb->build());
+  return &this->mbuilder.typeLiteral(ftype, pnode.range);
 }
 
 ModuleNode* ModuleCompiler::compileLiteral(ParserNode& pnode) {

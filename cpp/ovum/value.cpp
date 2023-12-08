@@ -548,14 +548,17 @@ namespace {
     }
   };
 
-  class ValueHardThrow final : public ValueMutable {
-    ValueHardThrow(const ValueHardThrow&) = delete;
-    ValueHardThrow& operator=(const ValueHardThrow&) = delete;
+  class ValueHardInner final : public ValueMutable {
+    ValueHardInner(const ValueHardInner&) = delete;
+    ValueHardInner& operator=(const ValueHardInner&) = delete;
   private:
+    ValueFlags flags;
     HardValue inner;
   public:
-    ValueHardThrow(IAllocator& allocator, const HardValue& inner)
-      : ValueMutable(allocator), inner(inner) {
+    ValueHardInner(IAllocator& allocator, ValueFlags flags, const HardValue& inner)
+      : ValueMutable(allocator),
+        flags(flags),
+        inner(inner) {
       assert(this->validate());
     }
     virtual void softVisit(ICollectable::IVisitor&) const override {
@@ -567,7 +570,7 @@ namespace {
       return Type::None;
     }
     virtual ValueFlags getFlags() const override {
-      return ValueFlags::Throw | this->inner->getFlags();
+      return this->flags | this->inner->getFlags();
     }
     virtual bool getInner(HardValue& value) const override {
       value = this->inner;
@@ -588,7 +591,7 @@ namespace {
       if (op == ValueMutationOp::Noop) {
         return HardValue(*this);
       }
-      return this->createRuntimeError("TODO: Mutation not supported for throw instances");
+      return this->createRuntimeError("TODO: Mutation not supported for flow control instances");
     }
   };
 
@@ -1158,7 +1161,11 @@ egg::ovum::HardValue egg::ovum::ValueFactory::createHardObject(IAllocator& alloc
 }
 
 egg::ovum::HardValue egg::ovum::ValueFactory::createHardThrow(IAllocator& allocator, const HardValue& value) {
-  return makeHardValue<ValueHardThrow>(allocator, value);
+  return makeHardValue<ValueHardInner>(allocator, ValueFlags::Throw, value);
+}
+
+egg::ovum::HardValue egg::ovum::ValueFactory::createHardReturn(IAllocator& allocator, const HardValue& value) {
+  return makeHardValue<ValueHardInner>(allocator, ValueFlags::Return, value);
 }
 
 egg::ovum::HardValue egg::ovum::ValueFactory::createType(IAllocator& allocator, const Type& value) {
