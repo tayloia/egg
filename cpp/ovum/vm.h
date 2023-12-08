@@ -85,7 +85,7 @@ namespace egg::ovum {
     virtual HardValue raiseException(const HardValue& inner) = 0;
     virtual HardValue raiseRuntimeError(const String& message) = 0;
     // Assignment
-    virtual bool assignValue(HardValue& dst, const Type& type, const HardValue& src) = 0;
+    virtual bool assignValue(HardValue& lhs, const Type& ltype, const HardValue& rhs) = 0;
     // Soft values
     virtual HardValue getSoftValue(const SoftValue& soft) = 0;
     virtual bool setSoftValue(SoftValue& lhs, const HardValue& rhs) = 0;

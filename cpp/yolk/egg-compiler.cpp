@@ -42,6 +42,7 @@ namespace {
       bool canContinue : 1 = false;
       bool canReturn : 1 = false;
       bool canYield : 1 = false;
+      bool canRethrow : 1 = false;
       static StmtContext root() {
         StmtContext context;
         context.moduleRoot = true;
@@ -70,6 +71,7 @@ namespace {
     ModuleNode* compileStmtIf(ParserNode& pnode, const StmtContext& context);
     ModuleNode* compileStmtReturn(ParserNode& pnode, const StmtContext& context);
     ModuleNode* compileStmtTry(ParserNode& pnode, const StmtContext& context);
+    ModuleNode* compileStmtCatch(ParserNode& pnode, const StmtContext& context);
     ModuleNode* compileValueExpr(ParserNode& pnode);
     ModuleNode* compileValueExprVariable(ParserNode& pnode);
     ModuleNode* compileValueExprUnary(ParserNode& op, ParserNode& rhs);
@@ -595,13 +597,73 @@ ModuleNode* ModuleCompiler::compileStmtReturn(ParserNode& pnode, const StmtConte
 ModuleNode* ModuleCompiler::compileStmtTry(ParserNode& pnode, const StmtContext& context) {
   assert(pnode.kind == ParserNode::Kind::StmtTry);
   assert(pnode.children.size() >= 2);
-  // TODO context
-  auto* block = this->compileStmt(*pnode.children.front(), context);
-  if (block == nullptr) {
-    return nullptr;
+  auto inner = context;
+  ModuleNode* stmt = nullptr;
+  size_t index = 0;
+  auto seenFinally = false;
+  for (const auto& pchild : pnode.children) {
+    ModuleNode* child;
+    if (index == 0) {
+      // The initial try block
+      inner.canRethrow = false;
+      child = this->compileStmt(*pchild, inner);
+    } else if (pchild->kind == ParserNode::Kind::StmtCatch) {
+      // A catch clause
+      if (seenFinally) {
+        return this->error(pnode, "Unexpected 'catch' clause after 'finally' clause in 'try' statement");
+      }
+      inner.canRethrow = true;
+      child = this->compileStmtCatch(*pchild, inner);
+    } else if (pchild->kind == ParserNode::Kind::StmtFinally) {
+      // The finally clause
+      if (seenFinally) {
+        return this->error(pnode, "Unexpected second 'finally' clause in 'try' statement");
+      }
+      seenFinally = true;
+      inner.canRethrow = false;
+      child = this->compileStmt(*pchild, inner);
+    } else {
+      return this->expected(pnode, "'catch' or 'finally' after 'try'");
+    }
+    if (child == nullptr) {
+      stmt = nullptr;
+    } else if (index == 0) {
+      assert(stmt == nullptr);
+      stmt = &this->mbuilder.stmtTry(*child, pnode.range);
+    } else if (stmt != nullptr) {
+      this->mbuilder.appendChild(*stmt, *child);
+    }
+    index++;
   }
-  auto* stmt = &this->mbuilder.stmtTry(*block, pnode.range);
-  // WIBBLE catch/finally
+  return stmt;
+}
+
+ModuleNode* ModuleCompiler::compileStmtCatch(ParserNode& pnode, const StmtContext& context) {
+  assert(pnode.kind == ParserNode::Kind::StmtCatch);
+  assert(pnode.children.size() >= 1);
+  assert(context.canRethrow);
+  egg::ovum::String symbol;
+  EXPECT(pnode, pnode.value->getString(symbol));
+  ModuleNode* stmt = nullptr;
+  size_t index = 0;
+  for (const auto& pchild : pnode.children) {
+    if (index == 0) {
+      // The catch type
+      auto type = this->compileTypeExpr(*pchild);
+      if (type != nullptr) {
+        stmt = &this->mbuilder.stmtCatch(symbol, *type, pnode.range);
+      }
+    } else {
+      // Statements in the catch block
+      auto child = this->compileStmt(*pchild, context);
+      if (child == nullptr) {
+        stmt = nullptr;
+      } if (stmt != nullptr) {
+        this->mbuilder.appendChild(*stmt, *child);
+      }
+    }
+    index++;
+  }
   return stmt;
 }
 

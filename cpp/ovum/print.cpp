@@ -59,6 +59,7 @@ namespace {
     //  0: Simple keyword, e.g. 'int'
     //  1: Simple suffix, e.g. 'int?'
     //  2: Type union, e.g. 'float|int'
+    //  3: Function signature, e.g. 'int(float)'
     assert(flags != ValueFlags::None);
     auto* component = valueFlagsComponent(flags);
     if (component != nullptr) {

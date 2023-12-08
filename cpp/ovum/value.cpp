@@ -512,7 +512,7 @@ namespace {
       assert(this->validate());
     }
     virtual Type getType() const override {
-      return Type::Object;
+      return this->value->vmRuntimeType();
     }
     virtual ValueFlags getFlags() const override {
       return ValueFlags::Object;

@@ -100,7 +100,7 @@ namespace {
       options.names = false;
       Printer printer{ stream, options };
       Type::print(printer, this->signature);
-      return std::make_pair(stream.str(), 0);
+      return std::make_pair(stream.str(), 3);
     }
     virtual void print(Printer& printer) const override {
       Type::print(printer, this->signature);
@@ -232,10 +232,16 @@ namespace {
     HardPtr<IBasket> basket;
     TypeForgeCache<TypeForgeFunctionSignatureParameter> cacheFunctionSignatureParameter;
     TypeForgeCache<TypeForgeFunctionSignature> cacheFunctionSignature;
+    std::set<const IType*> pool;
   public:
     TypeForgeDefault(IAllocator& allocator, IBasket& basket)
       : HardReferenceCountedAllocator(allocator),
       basket(&basket) {
+    }
+    virtual ~TypeForgeDefault() override {
+      for (auto* element : this->pool) {
+        this->allocator.destroy(element);
+      }
     }
     virtual Type forgePrimitiveType(ValueFlags flags) override {
       auto trivial = TypePrimitive::forge(flags);
@@ -276,7 +282,10 @@ namespace {
       return type;
     }
     virtual Type forgeFunctionType(const IFunctionSignature& signature) override {
-      return this->create<TypeVanillaFunction>(this->allocator, *this->basket, signature);
+      // TODO cache this type properly
+      auto* type = this->create<TypeVanillaFunction>(this->allocator, *this->basket, signature);
+      this->pool.insert(type); // WIBBLE
+      return type;
     }
     virtual Assignability isTypeAssignable(const Type& dst, const Type& src) override {
       return this->computeTypeAssignability(dst, src);
@@ -302,14 +311,25 @@ namespace {
       this->allocator.destroy(instance);
     }
   private:
-    Assignability computeTypeAssignability(const IType* dst, const IType* src) {
-      // TODO complex types
-      assert(dst != nullptr);
-      assert(src != nullptr);
-      assert(dst->isPrimitive());
-      assert(src->isPrimitive());
+    Assignability computeTypeAssignability(const Type& dst, const Type& src) {
+      assert(dst.validate());
+      assert(src.validate());
+      if (dst == src) {
+        return Assignability::Always;
+      }
       auto fdst = dst->getPrimitiveFlags();
       auto fsrc = src->getPrimitiveFlags();
+      if (!src->isPrimitive()) {
+        fsrc = fsrc | ValueFlags::Object;
+      }
+      auto result = this->computeTypeAssignabilityFlags(fdst, fsrc);
+      if (src->isPrimitive()) {
+        return result;
+      }
+      // TODO complex assignability
+      return Assignability::Never;
+    }
+    Assignability computeTypeAssignabilityFlags(ValueFlags fdst, ValueFlags fsrc) {
       if (Bits::hasAllSet(fdst, fsrc)) {
         return Assignability::Always;
       }

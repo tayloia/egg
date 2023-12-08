@@ -71,6 +71,10 @@ namespace egg::ovum {
     const IType* get() const {
       return this->ptr;
     }
+    bool validate() const {
+      auto* p = this->ptr;
+      return (p != nullptr) && p->validate();
+    }
     size_t hash() const {
       return Hash::hash(this->ptr);
     }

@@ -371,43 +371,30 @@ namespace {
       return ValueFactory::createHardThrow(allocator, inner);
     }
     virtual HardValue raiseRuntimeError(const String& message) override;
-    virtual bool assignValue(HardValue& dst, const Type& type, const HardValue& src) override {
+    virtual bool assignValue(HardValue& lhs, const Type& ltype, const HardValue& rhs) override {
       // Assign with int-to-float promotion
-      // WIBBLE
-      auto& lhs = dst;
-      auto& ltype = type;
-      auto& rhs = src;
-      auto promote = true;
-      auto lflags = ltype->getPrimitiveFlags();
-      auto rflags = rhs->getFlags();
-      EGG_WARNING_SUPPRESS_SWITCH_BEGIN
-      switch (rflags) {
-      case ValueFlags::Void:
-      case ValueFlags::Null:
-      case ValueFlags::Bool:
-      case ValueFlags::Float:
-      case ValueFlags::String:
-      case ValueFlags::Object:
-        if (Bits::hasAnySet(lflags, rflags)) {
-          return lhs->set(rhs.get());
+      assert(ltype != nullptr);
+      auto rtype = rhs->getType();
+      assert(rtype != nullptr);
+      if (ltype->isPrimitive()) {
+        if (rtype->isPrimitive()) {
+          // Assigning a primitive value
+          assert(rtype->getPrimitiveFlags() == rhs->getFlags());
+          return this->assign(lhs, ltype->getPrimitiveFlags(), rhs, rhs->getFlags());
         }
+        return this->assign(lhs, ltype->getPrimitiveFlags(), rhs, ValueFlags::Object);
+      }
+      switch (this->vm.getTypeForge().isTypeAssignable(ltype, rtype)) {
+      case Assignability::Never:
         return false;
-      case ValueFlags::Int:
+      case Assignability::Always:
+        lhs = rhs;
+        return true;
+      case Assignability::Sometimes:
         break;
-      default:
-        return false;
       }
-      EGG_WARNING_SUPPRESS_SWITCH_END
-      assert(rflags == ValueFlags::Int);
-      if (Bits::hasAnySet(lflags, ValueFlags::Int)) {
-        return lhs->set(rhs.get());
-      }
-      Int ivalue;
-      if (promote && Bits::hasAnySet(lflags, ValueFlags::Float) && rhs->getInt(ivalue)) {
-        auto fvalue = Arithmetic::promote(ivalue);
-        auto hvalue = this->vm.createHardValueFloat(fvalue);
-        return lhs->set(hvalue.get());
-      }
+      // TODO
+      assert(false);
       return false;
     }
     virtual HardValue getSoftValue(const SoftValue& soft) override {
@@ -867,6 +854,36 @@ namespace {
         return this->raise("Assertion is untrue: ", lhs, comparison, rhs);
       }
       return this->raise("Assertion is untrue");
+    }
+    bool assign(HardValue& lhs, ValueFlags lflags, const HardValue& rhs, ValueFlags rflags, bool promote = true) {
+      // Assign with possible int-to-float promotion
+      EGG_WARNING_SUPPRESS_SWITCH_BEGIN
+      switch (rflags) {
+      case ValueFlags::Null:
+      case ValueFlags::Bool:
+      case ValueFlags::Float:
+      case ValueFlags::String:
+      case ValueFlags::Object:
+        if (Bits::hasAnySet(lflags, rflags)) {
+          return lhs->set(rhs.get());
+        }
+        break;
+      case ValueFlags::Int:
+        if (Bits::hasAnySet(lflags, ValueFlags::Int)) {
+          return lhs->set(rhs.get());
+        }
+        if (promote && Bits::hasAnySet(lflags, ValueFlags::Float)) {
+          Int ivalue;
+          if (rhs->getInt(ivalue)) {
+            auto fvalue = Arithmetic::promote(ivalue);
+            auto hvalue = this->vm.createHardValueFloat(fvalue);
+            return lhs->set(hvalue.get());
+          }
+        }
+        break;
+      }
+      EGG_WARNING_SUPPRESS_SWITCH_END
+      return false;
     }
   };
 
