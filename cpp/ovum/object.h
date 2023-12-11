@@ -25,9 +25,7 @@ namespace egg::ovum {
     SoftObject(const SoftObject&) = delete;
     SoftObject& operator=(const SoftObject&) = delete;
   public:
-    SoftObject()
-      : SoftPtr<IObject>() {
-    }
+    SoftObject(IVM& vm, const HardObject& instance);
     bool validate() const {
       auto* object = this->get();
       return (object != nullptr) && object->validate();

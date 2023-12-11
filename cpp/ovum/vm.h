@@ -241,6 +241,17 @@ namespace egg::ovum {
     bool setSoftValue(SoftValue& instance, const HardValue& value) {
       return this->softSetValue(instance.ptr.ptr, value.get());
     }
+    IObject* acquireSoftObject(const HardObject& object) {
+      // TODO simplify?
+      auto* hard = object.get();
+      if (hard == nullptr) {
+        return nullptr;
+      }
+      ICollectable* soft = nullptr;
+      this->softAcquire(soft, hard);
+      assert(soft != nullptr);
+      return static_cast<IObject*>(soft);
+    }
   private:
     virtual IValue* softCreateValue() = 0;
     virtual IValue* softCreateAlias(const IValue& value) = 0;

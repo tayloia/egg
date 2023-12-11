@@ -2060,12 +2060,22 @@ bool VMRunner::stepNode(HardValue& retval) {
     } else {
       assert(top.deque.size() >= 1);
       auto& iterator = top.deque.front();
+      HardObject object;
       if (top.index == 2) {
+        // Check the iterator
         if (iterator.hasFlowControl()) {
           return this->pop(iterator);
         }
+        if (iterator->getHardObject(object)) {
+          // Make sure this object is iterable
+          iterator = object->vmIterate(execution);
+          if (iterator.hasFlowControl()) {
+            return this->pop(iterator);
+          }
+        }
         assert(top.deque.size() == 1);
       } else {
+        // We're executing the controlled block
         assert(top.deque.size() == 2);
         auto& latest = top.deque.back();
         if (latest.hasFlowControl()) {
@@ -2074,16 +2084,32 @@ bool VMRunner::stepNode(HardValue& retval) {
         }
       }
       // Fetch the next iterated value
-      String string;
-      if (!iterator->getString(string)) {
-        return this->raise("TODO: Only string iteration is currently supported in 'for each' statements");
+      HardValue value;
+      if (iterator->getHardObject(object)) {
+        // Iterate over the values returned from a "<type>()" function
+        CallArguments empty{};
+        value = object->vmCall(execution, empty);
+        if (value.hasFlowControl() || value->getVoid()) {
+          // Failed or completed
+          return this->pop(value);
+        }
+        top.index++;
+      } else {
+        String string;
+        if (iterator->getString(string)) {
+          // Iterate over the codepoints in the string
+          auto cp = string.codePointAt(top.index++ - 2);
+          if (cp < 0) {
+            // Completed
+            return this->pop(HardValue::Void);
+          }
+          value = this->createHardValueString(String::fromUTF32(this->getAllocator(), &cp, 1));
+        } else {
+          // Object iteration
+          return this->raise("Iteration by 'for' each statement is not supported by ", describe(iterator));
+        }
       }
-      auto cp = string.codePointAt(top.index++ - 2);
-      if (cp < 0) {
-        // Completed
-        return this->pop(HardValue::Void);
-      }
-      auto value = this->createHardValueString(String::fromUTF32(this->getAllocator(), &cp, 1));
+      // Assign to the control variable
       if (!this->symbolSet(top.node->literal, value)) {
         return true;
       }

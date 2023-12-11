@@ -104,7 +104,7 @@ namespace egg::ovum {
     SoftPtr& operator=(const SoftPtr&) = delete;
   protected:
     U* ptr;
-    explicit SoftPtr(IValue* created)
+    explicit SoftPtr(T* created)
       : ptr(created) {
       // Used by SoftValue construction
     }

@@ -73,6 +73,9 @@ namespace {
       }
       return HardValue::Void;
     }
+    virtual HardValue vmIterate(IVMExecution& execution) override {
+      return this->raiseRuntimeError(execution, "Builtin 'assert()' does not support iteration");
+    }
     virtual HardValue vmIndexGet(IVMExecution& execution, const HardValue&) override {
       return this->raiseRuntimeError(execution, "Builtin 'assert()' does not support indexing");
     }
@@ -124,6 +127,9 @@ namespace {
       execution.log(ILogger::Source::User, ILogger::Severity::None, sb.build(this->vm->getAllocator()));
       return HardValue::Void;
     }
+    virtual HardValue vmIterate(IVMExecution& execution) override {
+      return this->raiseRuntimeError(execution, "Builtin 'print()' does not support iteration");
+    }
     virtual HardValue vmIndexGet(IVMExecution& execution, const HardValue&) override {
       return this->raiseRuntimeError(execution, "Builtin 'print()' does not support indexing");
     }
@@ -168,6 +174,9 @@ namespace {
     }
     virtual HardValue vmCall(IVMExecution& execution, const ICallArguments&) override {
       return this->raiseRuntimeError(execution, "TODO: Expando objects do not yet support function call semantics");
+    }
+    virtual HardValue vmIterate(IVMExecution& execution) override {
+      return this->raiseRuntimeError(execution, "TODO: Expando objects do not yet support iteration");
     }
     virtual HardValue vmIndexGet(IVMExecution& execution, const HardValue& index) override {
       SoftKey key(*this->vm, index.get());
@@ -239,6 +248,9 @@ namespace {
       auto instance = makeHardObject<VMObjectExpando>(*this->vm);
       return execution.createHardValueObject(instance);
     }
+    virtual HardValue vmIterate(IVMExecution& execution) override {
+      return this->raiseRuntimeError(execution, "Builtin 'expando()' does not support iteration");
+    }
     virtual HardValue vmIndexGet(IVMExecution& execution, const HardValue&) override {
       return this->raiseRuntimeError(execution, "Builtin 'expando()' does not support indexing");
     }
@@ -282,6 +294,9 @@ namespace {
       }
       auto collected = this->vm->getBasket().collect();
       return execution.createHardValueInt(Int(collected));
+    }
+    virtual HardValue vmIterate(IVMExecution& execution) override {
+      return this->raiseRuntimeError(execution, "Builtin 'collector()' does not support iteration");
     }
     virtual HardValue vmIndexGet(IVMExecution& execution, const HardValue&) override {
       return this->raiseRuntimeError(execution, "Builtin 'collector()' does not support indexing");
@@ -337,6 +352,9 @@ namespace {
       assert(this->handler != nullptr);
       return (this->instance->*(this->handler))(execution, arguments);
     }
+    virtual HardValue vmIterate(IVMExecution& execution) override {
+      return this->raiseRuntimeError(execution, "Member handlers do not support iteration");
+    }
     virtual HardValue vmIndexGet(IVMExecution& execution, const HardValue&) override {
       return this->raiseRuntimeError(execution, "Member handlers do not support indexing");
     }
@@ -371,6 +389,63 @@ namespace {
       T& self = *static_cast<T*>(this);
       auto instance = makeHardObject<VMObjectMemberHandler<T>>(*this->vm, self, handler);
       return this->vm->createHardValueObject(instance);
+    }
+  };
+
+  class VMObjectVanillaArrayIterator : public VMObjectVanilla<VMObjectVanillaArrayIterator> {
+    VMObjectVanillaArrayIterator(const VMObjectVanillaArrayIterator&) = delete;
+    VMObjectVanillaArrayIterator& operator=(const VMObjectVanillaArrayIterator&) = delete;
+  private:
+    SoftObject array;
+    Atomic<size_t> index;
+  public:
+    VMObjectVanillaArrayIterator(IVM& vm, const HardObject& array)
+      : VMObjectVanilla(vm),
+      array(vm, array),
+      index(0) {
+    }
+    virtual void softVisit(ICollectable::IVisitor& visitor) const override {
+      this->array.visit(visitor);
+    }
+    virtual void print(Printer& printer) const override {
+      printer.stream << "[vanilla array iterator]";
+    }
+    virtual Type vmRuntimeType() override {
+      // TODO
+      return Type::Object;
+    }
+    virtual HardValue vmCall(IVMExecution& execution, const ICallArguments& arguments) override {
+      if (arguments.getArgumentCount() != 0) {
+        return this->raiseRuntimeError(execution, "Vanilla array iterators do not support function call arguments");
+      }
+      auto before = index.add(1);
+      auto argument = execution.createHardValueInt(Int(before));
+      auto result = this->array->vmIndexGet(execution, argument);
+      if (result.hasFlowControl()) {
+        return HardValue::Void;
+      }
+      return result;
+    }
+    virtual HardValue vmIterate(IVMExecution& execution) override {
+      return this->raiseRuntimeError(execution, "TODO: Vanilla array iterators do not yet support iteration");
+    }
+    virtual HardValue vmIndexGet(IVMExecution& execution, const HardValue&) override {
+      return this->raiseRuntimeError(execution, "Vanilla array iterators do not support indexing");
+    }
+    virtual HardValue vmIndexSet(IVMExecution& execution, const HardValue&, const HardValue&) override {
+      return this->raiseRuntimeError(execution, "Vanilla array iterators do not support indexing");
+    }
+    virtual HardValue vmIndexMut(IVMExecution& execution, const HardValue&, ValueMutationOp, const HardValue&) override {
+      return this->raiseRuntimeError(execution, "Vanilla array iterators do not support indexing");
+    }
+    virtual HardValue vmPropertyGet(IVMExecution& execution, const HardValue&) override {
+      return this->raiseRuntimeError(execution, "Vanilla array iterators do not support properties");
+    }
+    virtual HardValue vmPropertySet(IVMExecution& execution, const HardValue&, const HardValue&) override {
+      return this->raiseRuntimeError(execution, "Vanilla array iterators do not support properties");
+    }
+    virtual HardValue vmPropertyMut(IVMExecution& execution, const HardValue&, ValueMutationOp, const HardValue&) override {
+      return this->raiseRuntimeError(execution, "Vanilla array iterators do not support properties");
     }
   };
 
@@ -409,13 +484,18 @@ namespace {
     virtual HardValue vmCall(IVMExecution& execution, const ICallArguments&) override {
       return this->raiseRuntimeError(execution, "Vanilla arrays do not support call semantics");
     }
+    virtual HardValue vmIterate(IVMExecution& execution) override {
+      HardObject array{ this };
+      auto iterator = makeHardObject<VMObjectVanillaArrayIterator>(*this->vm, array);
+      return execution.createHardValueObject(iterator);
+    }
     virtual HardValue vmIndexGet(IVMExecution& execution, const HardValue& index) override {
       Int ivalue;
       if (!index->getInt(ivalue)) {
         return this->raiseRuntimeError(execution, "Expected array index value to be an 'int', but instead got ", describe(index.get()));
       }
       auto uvalue = size_t(ivalue);
-      if (uvalue > this->elements.size()) {
+      if (uvalue >= this->elements.size()) {
         return this->raiseRuntimeError(execution, "Array index ", ivalue, " is out of range for an array of length ", this->elements.size());
       }
       return execution.getSoftValue(this->elements[uvalue]);
@@ -554,6 +634,9 @@ namespace {
     virtual HardValue vmCall(IVMExecution& execution, const ICallArguments&) override {
       return this->raiseRuntimeError(execution, "Vanilla objects do not support call semantics");
     }
+    virtual HardValue vmIterate(IVMExecution& execution) override {
+      return this->raiseRuntimeError(execution, "TODO: Vanilla objects do not yet support iteration");
+    }
     virtual HardValue vmIndexGet(IVMExecution& execution, const HardValue& index) override {
       return this->propertyGet(execution, index);
     }
@@ -636,6 +719,9 @@ namespace {
     virtual HardValue vmCall(IVMExecution& execution, const ICallArguments& arguments) override {
       return this->handler->call(execution, arguments);
     }
+    virtual HardValue vmIterate(IVMExecution& execution) override {
+      return this->raiseRuntimeError(execution, "Vanilla functions not support iteration");
+    }
     virtual HardValue vmIndexGet(IVMExecution& execution, const HardValue&) override {
       return this->raiseRuntimeError(execution, "Vanilla functions do not support indexing");
     }
@@ -674,6 +760,9 @@ namespace {
     }
     virtual void print(Printer& printer) const override {
       printer << "[string." << this->proxy << "]"; // TODO
+    }
+    virtual HardValue vmIterate(IVMExecution& execution) override {
+      return this->raiseProxyError(execution, "does not support iteration");
     }
     virtual HardValue vmIndexGet(IVMExecution& execution, const HardValue&) override {
       return this->raiseProxyError(execution, "does not support indexing");
@@ -1136,6 +1225,9 @@ namespace {
     virtual HardValue vmCall(IVMExecution& execution, const ICallArguments&) override {
       return this->raiseRuntimeError(execution, "Runtime error objects do not support function call semantics");
     }
+    virtual HardValue vmIterate(IVMExecution& execution) override {
+      return this->raiseRuntimeError(execution, "Runtime error objects do not support iteration");
+    }
     virtual HardValue vmIndexGet(IVMExecution& execution, const HardValue&) override {
       return this->raiseRuntimeError(execution, "Runtime error objects do not support indexing");
     }
@@ -1169,6 +1261,10 @@ namespace {
       return this->raiseRuntimeError(execution, "Runtime error objects do not support mutating properties");
     }
   };
+}
+
+egg::ovum::SoftObject::SoftObject(IVM& vm, const HardObject& instance)
+  : SoftPtr(vm.acquireSoftObject(instance)) {
 }
 
 egg::ovum::HardObject egg::ovum::ObjectFactory::createBuiltinAssert(IVM& vm) {
