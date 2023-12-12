@@ -38,7 +38,6 @@ namespace egg::yolk {
         ExprProperty,
         ExprArray,
         ExprObject,
-        ExprKeyValue,
         TypeInfer,
         TypeInferQ,
         TypeVoid,
@@ -53,7 +52,7 @@ namespace egg::yolk {
         TypeFunctionSignature,
         TypeFunctionSignatureParameter,
         Literal,
-        Name
+        Named
       };
       enum class ParameterOp {
         Required,

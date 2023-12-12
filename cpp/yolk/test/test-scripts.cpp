@@ -8,7 +8,7 @@ namespace {
   private:
     static const std::string directory;
     static const size_t lbound = 1;
-    static const size_t ubound = 26; // Set to zero to directory search
+    static const size_t ubound = 27; // Set to zero to directory search
   public:
     void run() {
       // Actually perform the testing

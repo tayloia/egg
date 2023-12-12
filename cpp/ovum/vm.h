@@ -161,6 +161,7 @@ namespace egg::ovum {
     virtual Node& exprIndexGet(Node& instance, Node& index, const SourceRange& range) = 0;
     virtual Node& exprArray(const SourceRange& range) = 0;
     virtual Node& exprObject(const SourceRange& range) = 0;
+    virtual Node& exprNamed(const HardValue& name, Node& value, const SourceRange& range) = 0;
     // Type expression factories
     virtual Node& typeLiteral(const Type& type, const SourceRange& range) = 0;
     // Statement factories
@@ -233,24 +234,29 @@ namespace egg::ovum {
     IValue* createSoftAlias(const IValue& value) {
       return this->softCreateAlias(value);
     }
-    HardValue getSoftValue(const SoftValue& instance) {
-      auto* hard = this->softHarden(instance.ptr.ptr);
+    HardValue getSoftKey(const SoftKey& key) {
+      auto* hard = this->softHarden(key.ptr);
+      assert(hard != nullptr);
+      return HardValue(*hard);
+    }
+    HardValue getSoftValue(const SoftValue& value) {
+      auto* hard = this->softHarden(value.ptr.ptr);
       assert(hard != nullptr);
       return HardValue(*hard);
     }
     bool setSoftValue(SoftValue& instance, const HardValue& value) {
       return this->softSetValue(instance.ptr.ptr, value.get());
     }
-    IObject* acquireSoftObject(const HardObject& object) {
+    template<typename T>
+    T* acquireSoftObject(const T* hard) {
       // TODO simplify?
-      auto* hard = object.get();
       if (hard == nullptr) {
         return nullptr;
       }
       ICollectable* soft = nullptr;
       this->softAcquire(soft, hard);
       assert(soft != nullptr);
-      return static_cast<IObject*>(soft);
+      return static_cast<T*>(soft);
     }
   private:
     virtual IValue* softCreateValue() = 0;

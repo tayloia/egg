@@ -28,6 +28,7 @@ public:
     ExprIndexGet,
     ExprArray,
     ExprObject,
+    ExprNamed,
     TypeInfer,
     TypeLiteral,
     StmtBlock,
@@ -312,34 +313,6 @@ namespace {
       assert(!this->stack.empty());
       return this->stack.front().insert(kind, name, type, value);
     }
-    /* WIBBLE
-    SetResult set(IVMExecution& execution, const String& name, const HardValue& value) {
-      // Returns the result (only updates with 'Success')
-      auto result = this->entries.find(name);
-      if (result == this->entries.end()) {
-        return SetResult::Unknown;
-      }
-      auto kind = result->second.kind;
-      switch (kind) {
-      case Kind::Unknown:
-        return SetResult::Unknown;
-      case Kind::Builtin:
-        return SetResult::Builtin;
-      case Kind::Unset:
-        if (execution.assignValue(result->second.value, result->second.type, value)) {
-          result->second.kind = Kind::Variable;
-          return SetResult::Success;
-        }
-        break;
-      case Kind::Variable:
-        if (execution.assignValue(result->second.value, result->second.type, value)) {
-          return SetResult::Success;
-        }
-        break;
-      }
-      return SetResult::Mismatch;
-    }
-    */
     bool remove(const String& name) {
       // Only removes from the head of the chain
       assert(!this->stack.empty());
@@ -984,6 +957,12 @@ namespace {
       auto& node = this->module->createNode(Node::Kind::ExprObject, range);
       return node;
     }
+    virtual Node& exprNamed(const HardValue& name, Node& value, const SourceRange& range) override {
+      auto& node = this->module->createNode(Node::Kind::ExprNamed, range);
+      node.literal = name;
+      node.addChild(value);
+      return node;
+    }
     virtual Node& typeLiteral(const Type& type, const SourceRange& range) override {
       auto& node = this->module->createNode(Node::Kind::TypeLiteral, range);
       node.literal = this->createHardValueType(type);
@@ -1158,6 +1137,7 @@ namespace {
       case Node::Kind::ExprPropertyGet:
       case Node::Kind::ExprFunctionCall:
       case Node::Kind::ExprIndexGet:
+      case Node::Kind::ExprNamed:
       case Node::Kind::TypeInfer:
       case Node::Kind::StmtBlock:
       case Node::Kind::StmtFunctionDefine:
@@ -1900,7 +1880,7 @@ bool VMRunner::stepNode(HardValue& retval) {
       // Evaluate the expressions
       this->push(*top.node->children[top.index++]);
     } else {
-      // Perform the index mutation (object targets only, not strings)
+      // Perform the current mutation (object targets only, not strings)
       assert(top.deque.size() == 3);
       auto& instance = top.deque.front();
       HardObject object;
@@ -2719,7 +2699,7 @@ bool VMRunner::stepNode(HardValue& retval) {
       // Assemble the arguments
       this->push(*top.node->children[top.index++]);
     } else {
-      // Perform the index fetch
+      // Perform the current fetch
       assert(top.deque.size() == 2);
       auto& lhs = top.deque.front();
       auto& rhs = top.deque.back();
@@ -2752,7 +2732,6 @@ bool VMRunner::stepNode(HardValue& retval) {
     }
     break;
   case IVMModule::Node::Kind::ExprObject:
-    assert(top.node->literal->getVoid());
     if (!top.deque.empty()) {
       // Check the last evaluation
       auto& latest = top.deque.back();
@@ -2762,12 +2741,18 @@ bool VMRunner::stepNode(HardValue& retval) {
     }
     if (top.index < top.node->children.size()) {
       // Assemble the elements
-      this->push(*top.node->children[top.index++]);
+      auto& child = *top.node->children[top.index++];
+      assert(child.kind == IVMModule::Node::Kind::ExprNamed);
+      assert(child.children.size() == 1);
+      top.deque.push_back(child.literal);
+      this->push(*child.children.front());
     } else {
-      // Construct the array
+      // Construct the object
       return this->pop(this->objectConstruct(top.deque));
     }
     break;
+  case IVMModule::Node::Kind::ExprNamed:
+    return this->raise("TODO: Named expression unexpected at this time");
   case IVMModule::Node::Kind::TypeInfer:
     assert(top.node->children.empty());
     assert(top.index == 0);

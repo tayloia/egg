@@ -8,7 +8,7 @@
 
 // TODO remove and replace with better messages
 #define EXPECT(node, condition) \
-  if (condition) {} else return this->error(node, "Expection failure in egg-compiler line ", __LINE__, ": " #condition);
+  if (condition) {} else return this->error(node, "Expection failure in egg-compiler.cpp line ", __LINE__, ": " #condition);
 
 using namespace egg::yolk;
 
@@ -86,7 +86,6 @@ namespace {
     ModuleNode* compileValueExprArrayElement(ParserNode& pnode);
     ModuleNode* compileValueExprObject(ParserNode& pnode);
     ModuleNode* compileValueExprObjectElement(ParserNode& pnode);
-    ModuleNode* compileValueExprKeyValue(ParserNode& pnode);
     ModuleNode* compileTypeExpr(ParserNode& pnode);
     ModuleNode* compileTypeInfer(ParserNode& ptype, ParserNode& pexpr, ModuleNode*& mexpr);
     ModuleNode* compileTypeFunctionSignature(ParserNode& pnode);
@@ -254,7 +253,6 @@ ModuleNode* ModuleCompiler::compileStmt(ParserNode& pnode, const StmtContext& co
   case ParserNode::Kind::ExprProperty:
   case ParserNode::Kind::ExprArray:
   case ParserNode::Kind::ExprObject:
-  case ParserNode::Kind::ExprKeyValue:
   case ParserNode::Kind::TypeInfer:
   case ParserNode::Kind::TypeInferQ:
   case ParserNode::Kind::TypeVoid:
@@ -269,7 +267,7 @@ ModuleNode* ModuleCompiler::compileStmt(ParserNode& pnode, const StmtContext& co
   case ParserNode::Kind::TypeFunctionSignature:
   case ParserNode::Kind::TypeFunctionSignatureParameter:
   case ParserNode::Kind::Literal:
-  case ParserNode::Kind::Name:
+  case ParserNode::Kind::Named:
   default:
     break;
   }
@@ -710,10 +708,7 @@ ModuleNode* ModuleCompiler::compileValueExpr(ParserNode& pnode) {
     return this->compileValueExprArray(pnode);
   case ParserNode::Kind::ExprObject:
     return this->compileValueExprObject(pnode);
-  case ParserNode::Kind::ExprKeyValue:
-    return this->compileValueExprKeyValue(pnode);
   case ParserNode::Kind::Literal:
-  case ParserNode::Kind::Name:
     return this->compileLiteral(pnode);
   case ParserNode::Kind::TypeString:
     EXPECT(pnode, pnode.children.size() == 0);
@@ -745,6 +740,7 @@ ModuleNode* ModuleCompiler::compileValueExpr(ParserNode& pnode) {
   case ParserNode::Kind::StmtCatch:
   case ParserNode::Kind::StmtFinally:
   case ParserNode::Kind::StmtMutate:
+  case ParserNode::Kind::Named:
   default:
     break;
   }
@@ -946,12 +942,15 @@ ModuleNode* ModuleCompiler::compileValueExprObject(ParserNode& pnode) {
 
 ModuleNode* ModuleCompiler::compileValueExprObjectElement(ParserNode& pnode) {
   // TODO: handle ellipsis '...'
-  return this->compileValueExpr(pnode);
-}
-
-ModuleNode* ModuleCompiler::compileValueExprKeyValue(ParserNode& pnode) {
-  EXPECT(pnode, pnode.children.size() == 0);
-  return &this->mbuilder.exprLiteral(pnode.value, pnode.range);
+  if (pnode.kind == ParserNode::Kind::Named) {
+    EXPECT(pnode, pnode.children.size() == 1);
+    auto* value = this->compileValueExpr(*pnode.children.front());
+    if (value == nullptr) {
+      return nullptr;
+    }
+    return &this->mbuilder.exprNamed(pnode.value, *value, pnode.range);
+  }
+  return this->expected(pnode, "object expression element");
 }
 
 ModuleNode* ModuleCompiler::compileTypeExpr(ParserNode& pnode) {
@@ -1090,11 +1089,10 @@ egg::ovum::Type ModuleCompiler::forgeType(ParserNode& pnode) {
   case ParserNode::Kind::ExprProperty:
   case ParserNode::Kind::ExprArray:
   case ParserNode::Kind::ExprObject:
-  case ParserNode::Kind::ExprKeyValue:
   case ParserNode::Kind::TypeInfer:
   case ParserNode::Kind::TypeInferQ:
   case ParserNode::Kind::Literal:
-  case ParserNode::Kind::Name:
+  case ParserNode::Kind::Named:
   default:
     break;
   }
@@ -1149,8 +1147,6 @@ std::string ModuleCompiler::toString(const ParserNode& pnode) {
     return "array expression";
   case ParserNode::Kind::ExprObject:
     return "object expression";
-  case ParserNode::Kind::ExprKeyValue:
-    return "named expression";
   case ParserNode::Kind::TypeInfer:
     return "type infer";
   case ParserNode::Kind::TypeInferQ:
@@ -1179,8 +1175,8 @@ std::string ModuleCompiler::toString(const ParserNode& pnode) {
     return "type function signature parameter";
   case ParserNode::Kind::Literal:
     return "literal";
-  case ParserNode::Kind::Name:
-    return "name";
+  case ParserNode::Kind::Named:
+    return "named expression";
   }
   return "unknown node kind";
 }

@@ -1006,7 +1006,7 @@ namespace {
         case EggTokenizerKeyword::Type:
           return PARSE_TODO(tokidx, "type expression 'type' keyword");
         case EggTokenizerKeyword::Var:
-          return PARSE_TODO(tokidx, "type expression 'var' keyword");
+          return context.skip();
         case EggTokenizerKeyword::Break:
         case EggTokenizerKeyword::Case:
         case EggTokenizerKeyword::Catch:
@@ -1566,15 +1566,16 @@ namespace {
         partial.tokensAfter++;
       }
       next = &partial.after(0);
-      std::unique_ptr<Node> key;
+      const EggTokenizerItem* name = nullptr;
       switch (next->kind) {
       case EggTokenizerKind::String:
-        key = this->makeNodeString(Node::Kind::Literal, *next);
+        // Allow quoted property names
+        name = next;
         break;
       case EggTokenizerKind::Identifier:
       case EggTokenizerKind::Keyword:
         // Note we allow identifiers and keywords
-        key = this->makeNodeString(Node::Kind::Name, *next);
+        name = next;
         break;
       case EggTokenizerKind::Integer:
       case EggTokenizerKind::Float:
@@ -1595,10 +1596,10 @@ namespace {
         partial.fail(expr);
         return false;
       }
-      auto keyvalue = this->makeNode(Node::Kind::ExprKeyValue, { key->range.begin, expr.node->range.end });
-      keyvalue->children.emplace_back(std::move(key));
-      keyvalue->children.emplace_back(std::move(expr.node));
-      partial.node->children.emplace_back(std::move(keyvalue));
+      partial.node->range.end = expr.node->range.end;
+      auto named = this->makeNodeString(Node::Kind::Named, *name);
+      named->children.emplace_back(std::move(expr.node));
+      partial.node->children.emplace_back(std::move(named));
       partial.tokensAfter = expr.tokensAfter;
       return true;
     }

@@ -392,78 +392,147 @@ namespace {
     }
   };
 
-  class VMObjectVanillaArrayIterator : public VMObjectVanilla<VMObjectVanillaArrayIterator> {
-    VMObjectVanillaArrayIterator(const VMObjectVanillaArrayIterator&) = delete;
-    VMObjectVanillaArrayIterator& operator=(const VMObjectVanillaArrayIterator&) = delete;
-  private:
-    SoftObject array;
-    Atomic<size_t> index;
+  class VMObjectVanillaMutex {
+    VMObjectVanillaMutex(const VMObjectVanillaMutex&) = delete;
+    VMObjectVanillaMutex& operator=(const VMObjectVanillaMutex&) = delete;
   public:
-    VMObjectVanillaArrayIterator(IVM& vm, const HardObject& array)
-      : VMObjectVanilla(vm),
-      array(vm, array),
-      index(0) {
-    }
-    virtual void softVisit(ICollectable::IVisitor& visitor) const override {
-      this->array.visit(visitor);
-    }
-    virtual void print(Printer& printer) const override {
-      printer.stream << "[vanilla array iterator]";
-    }
-    virtual Type vmRuntimeType() override {
-      // TODO
-      return Type::Object;
-    }
-    virtual HardValue vmCall(IVMExecution& execution, const ICallArguments& arguments) override {
-      if (arguments.getArgumentCount() != 0) {
-        return this->raiseRuntimeError(execution, "Vanilla array iterators do not support function call arguments");
-      }
-      auto before = index.add(1);
-      auto argument = execution.createHardValueInt(Int(before));
-      auto result = this->array->vmIndexGet(execution, argument);
-      if (result.hasFlowControl()) {
-        return HardValue::Void;
-      }
-      return result;
-    }
-    virtual HardValue vmIterate(IVMExecution& execution) override {
-      return this->raiseRuntimeError(execution, "TODO: Vanilla array iterators do not yet support iteration");
-    }
-    virtual HardValue vmIndexGet(IVMExecution& execution, const HardValue&) override {
-      return this->raiseRuntimeError(execution, "Vanilla array iterators do not support indexing");
-    }
-    virtual HardValue vmIndexSet(IVMExecution& execution, const HardValue&, const HardValue&) override {
-      return this->raiseRuntimeError(execution, "Vanilla array iterators do not support indexing");
-    }
-    virtual HardValue vmIndexMut(IVMExecution& execution, const HardValue&, ValueMutationOp, const HardValue&) override {
-      return this->raiseRuntimeError(execution, "Vanilla array iterators do not support indexing");
-    }
-    virtual HardValue vmPropertyGet(IVMExecution& execution, const HardValue&) override {
-      return this->raiseRuntimeError(execution, "Vanilla array iterators do not support properties");
-    }
-    virtual HardValue vmPropertySet(IVMExecution& execution, const HardValue&, const HardValue&) override {
-      return this->raiseRuntimeError(execution, "Vanilla array iterators do not support properties");
-    }
-    virtual HardValue vmPropertyMut(IVMExecution& execution, const HardValue&, ValueMutationOp, const HardValue&) override {
-      return this->raiseRuntimeError(execution, "Vanilla array iterators do not support properties");
+    class ReadLock final {
+      ReadLock(const ReadLock&) = delete;
+      ReadLock& operator=(const ReadLock&) = delete;
+    private:
+      egg::ovum::ReadLock lock;
+    public:
+      const uint64_t modifications;
+      explicit ReadLock(VMObjectVanillaMutex& mutex);
+    };
+    class WriteLock final {
+      WriteLock(const WriteLock&) = delete;
+      WriteLock& operator=(const WriteLock&) = delete;
+    private:
+      VMObjectVanillaMutex& mutex;
+      egg::ovum::WriteLock lock;
+    public:
+      bool modified;
+      explicit WriteLock(VMObjectVanillaMutex& mutex);
+      ~WriteLock();
+    };
+    friend class ReadLock;
+    friend class WriteLock;
+  private:
+    ReadWriteMutex mutex;
+    uint64_t modifications;
+  public:
+    VMObjectVanillaMutex()
+      : modifications(0) {
     }
   };
 
-  class VMObjectVanillaArray : public VMObjectVanilla<VMObjectVanillaArray> {
+  template<typename T>
+  class VMObjectVanillaContainer : public VMObjectVanilla<T> {
+    VMObjectVanillaContainer(const VMObjectVanillaContainer&) = delete;
+    VMObjectVanillaContainer& operator=(const VMObjectVanillaContainer&) = delete;
+  protected:
+    mutable VMObjectVanillaMutex mutex;
+    const char* name;
+    VMObjectVanillaContainer(IVM& vm, const char* name)
+      : VMObjectVanilla<T>(vm),
+        name(name) {
+      assert(this->name != nullptr);
+    }
+  public:
+    template<typename... ARGS>
+    HardValue raiseContainerError(IVMExecution& execution, ARGS&&... args) {
+      return this->raiseRuntimeError(execution, this->name, " ", std::forward<ARGS>(args)...);
+    }
+  };
+
+  template<typename CONTAINER, typename STATE>
+  class VMObjectVanillaIterator : public VMObjectBase {
+    VMObjectVanillaIterator(const VMObjectVanillaIterator&) = delete;
+    VMObjectVanillaIterator& operator=(const VMObjectVanillaIterator&) = delete;
+  protected:
+    using Container = CONTAINER;
+    using State = STATE;
+    Container& container;
+    SoftObject soft; // maintains the reference to the container
+    State state;
+    VMObjectVanillaIterator(IVM& vm, Container& container, VMObjectVanillaMutex::ReadLock& lock)
+      : VMObjectBase(vm),
+        container(container),
+        soft(vm, HardObject(&container)),
+        state() {
+      assert(this->soft != nullptr);
+      state.modifications = lock.modifications;
+    }
+  public:
+    virtual void softVisit(ICollectable::IVisitor& visitor) const override {
+      this->soft.visit(visitor);
+    }
+    virtual HardValue vmCall(IVMExecution& execution, const ICallArguments& arguments) override {
+      if (arguments.getArgumentCount() != 0) {
+        return this->raiseIteratorError(execution, "does not support function call arguments");
+      }
+      return this->container.iteratorNext(execution, this->state);
+    }
+    virtual HardValue vmIterate(IVMExecution& execution) override {
+      return this->raiseIteratorError(execution, "does not yet support re-iteration");
+    }
+    virtual HardValue vmIndexGet(IVMExecution& execution, const HardValue&) override {
+      return this->raiseIteratorError(execution, "does not support indexing");
+    }
+    virtual HardValue vmIndexSet(IVMExecution& execution, const HardValue&, const HardValue&) override {
+      return this->raiseIteratorError(execution, "does not support indexing");
+    }
+    virtual HardValue vmIndexMut(IVMExecution& execution, const HardValue&, ValueMutationOp, const HardValue&) override {
+      return this->raiseIteratorError(execution, "does not support indexing");
+    }
+    virtual HardValue vmPropertyGet(IVMExecution& execution, const HardValue&) override {
+      return this->raiseIteratorError(execution, "does not support properties");
+    }
+    virtual HardValue vmPropertySet(IVMExecution& execution, const HardValue&, const HardValue&) override {
+      return this->raiseIteratorError(execution, "does not support properties");
+    }
+    virtual HardValue vmPropertyMut(IVMExecution& execution, const HardValue&, ValueMutationOp, const HardValue&) override {
+      return this->raiseIteratorError(execution, "does not support properties");
+    }
+    template<typename... ARGS>
+    HardValue raiseIteratorError(IVMExecution& execution, ARGS&&... args) {
+      return this->container.raiseContainerError(execution, "iterator ", std::forward<ARGS>(args)...);
+    }
+  };
+
+  class VMObjectVanillaArray : public VMObjectVanillaContainer<VMObjectVanillaArray>{
     VMObjectVanillaArray(const VMObjectVanillaArray&) = delete;
     VMObjectVanillaArray& operator=(const VMObjectVanillaArray&) = delete;
+  public:
+    struct IteratorState {
+      size_t index;
+      uint64_t modifications;
+    };
   private:
     std::deque<SoftValue> elements;
   public:
     explicit VMObjectVanillaArray(IVM& vm)
-      : VMObjectVanilla(vm) {
+      : VMObjectVanillaContainer(vm, "Vanilla array") {
+    }
+    HardValue iteratorNext(IVMExecution& execution, IteratorState& state) {
+      VMObjectVanillaMutex::ReadLock lock{ this->mutex };
+      if (lock.modifications != state.modifications) {
+        return this->raiseContainerError(execution, "has been modified during iteration");
+      }
+      if (state.index >= this->elements.size()) {
+        return HardValue::Void;
+      }
+      return execution.getSoftValue(this->elements[state.index++]);
     }
     virtual void softVisit(ICollectable::IVisitor& visitor) const override {
+      VMObjectVanillaMutex::ReadLock lock{ this->mutex };
       for (const auto& element : this->elements) {
         element.visit(visitor);
       }
     }
     virtual void print(Printer& printer) const override {
+      VMObjectVanillaMutex::ReadLock lock{ this->mutex };
       Print::Options options = printer.options;
       options.quote = '"';
       char separator = '[';
@@ -482,14 +551,11 @@ namespace {
       return Type::Object;
     }
     virtual HardValue vmCall(IVMExecution& execution, const ICallArguments&) override {
-      return this->raiseRuntimeError(execution, "Vanilla arrays do not support call semantics");
+      return this->raiseContainerError(execution, "does not support call semantics");
     }
-    virtual HardValue vmIterate(IVMExecution& execution) override {
-      HardObject array{ this };
-      auto iterator = makeHardObject<VMObjectVanillaArrayIterator>(*this->vm, array);
-      return execution.createHardValueObject(iterator);
-    }
+    virtual HardValue vmIterate(IVMExecution& execution) override;
     virtual HardValue vmIndexGet(IVMExecution& execution, const HardValue& index) override {
+      VMObjectVanillaMutex::ReadLock lock{ this->mutex };
       Int ivalue;
       if (!index->getInt(ivalue)) {
         return this->raiseRuntimeError(execution, "Expected array index value to be an 'int', but instead got ", describe(index.get()));
@@ -501,6 +567,7 @@ namespace {
       return execution.getSoftValue(this->elements[uvalue]);
     }
     virtual HardValue vmIndexSet(IVMExecution& execution, const HardValue& index, const HardValue& value) override {
+      VMObjectVanillaMutex::WriteLock lock{ this->mutex };
       Int ivalue;
       if (!index->getInt(ivalue)) {
         return this->raiseRuntimeError(execution, "Expected array index value to be an 'int', but instead got ", describe(index.get()));
@@ -515,6 +582,7 @@ namespace {
       return HardValue::Void;
     }
     virtual HardValue vmIndexMut(IVMExecution& execution, const HardValue& index, ValueMutationOp mutation, const HardValue& value) override {
+      VMObjectVanillaMutex::WriteLock lock{ this->mutex };
       Int ivalue;
       if (!index->getInt(ivalue)) {
         return this->raiseRuntimeError(execution, "Expected array index value to be an 'int', but instead got ", describe(index.get()));
@@ -526,6 +594,7 @@ namespace {
       return execution.mutateSoftValue(this->elements[uvalue], mutation, value);
     }
     virtual HardValue vmPropertyGet(IVMExecution& execution, const HardValue& property) override {
+      VMObjectVanillaMutex::ReadLock lock{ this->mutex };
       String pname;
       if (property->getString(pname)) {
         if (pname.equals("length")) {
@@ -534,33 +603,34 @@ namespace {
         if (pname.equals("push")) {
           return this->createSoftMemberHandler(&VMObjectVanillaArray::vmCallPush);
         }
-        return this->raiseRuntimeError(execution, "Unknown vanilla array property name: '", pname, "'");
+        return this->raiseRuntimeError(execution, "Unknown array property name: '", pname, "'");
       }
-      return this->raiseRuntimeError(execution, "Expected vanilla array property name to be a 'string', but instead got ", describe(property.get()));
+      return this->raiseRuntimeError(execution, "Expected array property name to be a 'string', but instead got ", describe(property.get()));
     }
     virtual HardValue vmPropertySet(IVMExecution& execution, const HardValue& property, const HardValue& value) override {
       return this->vmPropertyMut(execution, property, ValueMutationOp::Assign, value);
     }
     virtual HardValue vmPropertyMut(IVMExecution& execution, const HardValue& property, ValueMutationOp mutation, const HardValue& value) override {
+      VMObjectVanillaMutex::WriteLock lock{ this->mutex };
       String pname;
       if (property->getString(pname)) {
         if (pname.equals("length")) {
-          return this->lengthMut(execution, mutation, value);
+          return this->lengthMut(execution, lock, mutation, value);
         }
         return this->raiseRuntimeError(execution, "Only the 'length' property of an array may be modified, not '", pname, "'");
       }
-      return this->raiseRuntimeError(execution, "Expected vanilla array property name to be a 'string', but instead got ", describe(property.get()));
+      return this->raiseRuntimeError(execution, "Expected array property name to be a 'string', but instead got ", describe(property.get()));
     }
   private:
-    HardValue lengthMut(IVMExecution& execution, ValueMutationOp mutation, const HardValue& rhs) {
+    HardValue lengthMut(IVMExecution& execution, VMObjectVanillaMutex::WriteLock& lock, ValueMutationOp mutation, const HardValue& rhs) {
       auto value = ValueFactory::createInt(this->vm->getAllocator(), Int(this->elements.size()));
       auto before = value->mutate(mutation, rhs.get());
       if (before.hasFlowControl()) {
         return before;
       }
-      return this->lengthSet(execution, value, HardValue::Void);
+      return this->lengthSet(execution, lock, value, HardValue::Void);
     }
-    HardValue lengthSet(IVMExecution& execution, const HardValue& length, const HardValue& success) {
+    HardValue lengthSet(IVMExecution& execution, VMObjectVanillaMutex::WriteLock& lock, const HardValue& length, const HardValue& success) {
       Int ivalue;
       if (!length->getInt(ivalue)) {
         return this->raiseRuntimeError(execution, "Array 'length' property must be an 'int', but instead got ", describe(length.get()));
@@ -571,6 +641,7 @@ namespace {
       if (ivalue > 0xFFFFFFFF) {
         return this->raiseRuntimeError(execution, "Array 'length' property too large: ", ivalue);
       }
+      lock.modified = true;
       // OPTIMIZE
       auto diff = ivalue - Int(this->elements.size());
       while (diff > 0) {
@@ -584,26 +655,68 @@ namespace {
       return success;
     }
     HardValue vmCallPush(IVMExecution& execution, const ICallArguments& arguments) {
+      VMObjectVanillaMutex::WriteLock lock{ this->mutex };
       HardValue argument;
       for (size_t index = 0; arguments.getArgumentByIndex(index, argument); ++index) {
         auto& added = this->elements.emplace_back(*this->vm);
         if (!added->set(argument.get())) {
           return this->raiseRuntimeError(execution, "Cannot push value to the end of the array");
         }
+        lock.modified = true;
       }
       return HardValue::Void;
     }
   };
 
-  class VMObjectVanillaObject : public VMObjectVanilla<VMObjectVanillaObject> {
+  class VMObjectVanillaArrayIterator : public VMObjectVanillaIterator<VMObjectVanillaArray, VMObjectVanillaArray::IteratorState> {
+    VMObjectVanillaArrayIterator(const VMObjectVanillaArrayIterator&) = delete;
+    VMObjectVanillaArrayIterator& operator=(const VMObjectVanillaArrayIterator&) = delete;
+  public:
+    VMObjectVanillaArrayIterator(IVM& vm, Container& array, VMObjectVanillaMutex::ReadLock& lock)
+      : VMObjectVanillaIterator(vm, array, lock) {
+    }
+    virtual void print(Printer& printer) const override {
+      printer.stream << "[vanilla array iterator]";
+    }
+    virtual Type vmRuntimeType() override {
+      // TODO
+      return Type::Object;
+    }
+  };
+
+  class VMObjectVanillaObject : public VMObjectVanillaContainer<VMObjectVanillaObject> {
     VMObjectVanillaObject(const VMObjectVanillaObject&) = delete;
     VMObjectVanillaObject& operator=(const VMObjectVanillaObject&) = delete;
+  public:
+    struct IteratorState {
+      size_t index;
+      uint64_t modifications;
+    };
   private:
     std::map<SoftKey, SoftValue> properties;
     std::vector<SoftKey> keys;
   public:
-    explicit VMObjectVanillaObject(IVM& vm)
-      : VMObjectVanilla(vm) {
+    explicit VMObjectVanillaObject(IVM& vm, const char* name = "Vanilla object")
+      : VMObjectVanillaContainer(vm, name) {
+    }
+    HardValue iteratorNext(IVMExecution& execution, IteratorState& state) {
+      VMObjectVanillaMutex::ReadLock lock{ this->mutex };
+      if (lock.modifications != state.modifications) {
+        return this->raiseContainerError(execution, "has been modified during iteration");
+      }
+      if (state.index >= this->keys.size()) {
+        return HardValue::Void;
+      }
+      const auto& softkey = this->keys[state.index++];
+      auto key = this->vm->getSoftKey(softkey);
+      auto found = this->properties.find(softkey);
+      if (found == this->properties.end()) {
+        return this->raiseContainerError(execution, "is missing property '", key.get(), "' during iteration");
+      }
+      const auto& softvalue = found->second;
+      auto value = this->vm->getSoftValue(softvalue);
+      auto object = ObjectFactory::createVanillaKeyValue(*this->vm, key, value);
+      return execution.createHardValueObject(object);
     }
     virtual void softVisit(ICollectable::IVisitor& visitor) const override {
       for (const auto& property : this->properties) {
@@ -632,11 +745,10 @@ namespace {
       return Type::Object;
     }
     virtual HardValue vmCall(IVMExecution& execution, const ICallArguments&) override {
-      return this->raiseRuntimeError(execution, "Vanilla objects do not support call semantics");
+      // TODO
+      return this->raiseContainerError(execution, "does not support call semantics");
     }
-    virtual HardValue vmIterate(IVMExecution& execution) override {
-      return this->raiseRuntimeError(execution, "TODO: Vanilla objects do not yet support iteration");
-    }
+    virtual HardValue vmIterate(IVMExecution& execution) override;
     virtual HardValue vmIndexGet(IVMExecution& execution, const HardValue& index) override {
       return this->propertyGet(execution, index);
     }
@@ -660,7 +772,7 @@ namespace {
       SoftKey key(*this->vm, property.get());
       auto pfound = this->properties.find(key);
       if (pfound == this->properties.end()) {
-        return this->raiseRuntimeError(execution, "TODO: Cannot find property '", key.get(), "' in vanilla object");
+        return this->raiseContainerError(execution, "does not contain property '", key.get(), "'");
       }
       return execution.getSoftValue(pfound->second);
     }
@@ -671,7 +783,7 @@ namespace {
         propertyCreate(pfound, key);
       }
       if (!execution.setSoftValue(pfound->second, value)) {
-        return this->raiseRuntimeError(execution, "TODO: Cannot modify property '", key.get(), "' in vanilla object");
+        return this->raiseContainerError(execution, "cannot modify property '", key.get(), "'");
       }
       return HardValue::Void;
     }
@@ -680,7 +792,7 @@ namespace {
       auto pfound = this->properties.find(key);
       if (pfound == this->properties.end()) {
         if (mutation != ValueMutationOp::Assign) {
-          return this->raiseRuntimeError(execution, "TODO: Cannot find property '", key.get(), "' in vanilla object");
+          return this->raiseContainerError(execution, "does not contain property '", key.get(), "'");
         }
         propertyCreate(pfound, key);
       }
@@ -690,6 +802,47 @@ namespace {
       where = this->properties.emplace_hint(where, std::piecewise_construct, std::forward_as_tuple(key), std::forward_as_tuple(*this->vm));
       assert(where != this->properties.end());
       this->keys.emplace_back(key);
+    }
+  protected:
+    void propertyAdd(const HardValue& property, const HardValue& value) {
+      SoftKey key(*this->vm, property.get());
+      auto where = this->properties.emplace(std::piecewise_construct, std::forward_as_tuple(key), std::forward_as_tuple(*this->vm));
+      assert(where.second);
+      auto success = this->vm->setSoftValue(where.first->second, value);
+      assert(success);
+      if (success) {
+        this->keys.emplace_back(key);
+      } else {
+        this->properties.erase(where.first);
+      }
+    }
+  };
+
+  class VMObjectVanillaObjectIterator : public VMObjectVanillaIterator<VMObjectVanillaObject, VMObjectVanillaObject::IteratorState> {
+    VMObjectVanillaObjectIterator(const VMObjectVanillaObjectIterator&) = delete;
+    VMObjectVanillaObjectIterator& operator=(const VMObjectVanillaObjectIterator&) = delete;
+  private:
+  public:
+    VMObjectVanillaObjectIterator(IVM& vm, Container& object, VMObjectVanillaMutex::ReadLock& lock)
+      : VMObjectVanillaIterator(vm, object, lock) {
+    }
+    virtual void print(Printer& printer) const override {
+      printer.stream << "[vanilla object iterator]";
+    }
+    virtual Type vmRuntimeType() override {
+      // TODO
+      return Type::Object;
+    }
+  };
+
+  class VMObjectVanillaKeyValue : public VMObjectVanillaObject {
+    VMObjectVanillaKeyValue(const VMObjectVanillaKeyValue&) = delete;
+    VMObjectVanillaKeyValue& operator=(const VMObjectVanillaKeyValue&) = delete;
+  public:
+    VMObjectVanillaKeyValue(IVM& vm, const HardValue& key, const HardValue& value)
+      : VMObjectVanillaObject(vm, "Vanilla key-value pair") {
+      this->propertyAdd(this->vm->createHardValueString(this->vm->createString("key")), key);
+      this->propertyAdd(this->vm->createHardValueString(this->vm->createString("value")), value);
     }
   };
 
@@ -720,25 +873,25 @@ namespace {
       return this->handler->call(execution, arguments);
     }
     virtual HardValue vmIterate(IVMExecution& execution) override {
-      return this->raiseRuntimeError(execution, "Vanilla functions not support iteration");
+      return this->raiseRuntimeError(execution, "Vanilla function does not support iteration");
     }
     virtual HardValue vmIndexGet(IVMExecution& execution, const HardValue&) override {
-      return this->raiseRuntimeError(execution, "Vanilla functions do not support indexing");
+      return this->raiseRuntimeError(execution, "Vanilla function does not support indexing");
     }
     virtual HardValue vmIndexSet(IVMExecution& execution, const HardValue&, const HardValue&) override {
-      return this->raiseRuntimeError(execution, "Vanilla functions do not support indexing");
+      return this->raiseRuntimeError(execution, "Vanilla function does not support indexing");
     }
     virtual HardValue vmIndexMut(IVMExecution& execution, const HardValue&, ValueMutationOp, const HardValue&) override {
-      return this->raiseRuntimeError(execution, "Vanilla functions do not support indexing");
+      return this->raiseRuntimeError(execution, "Vanilla function does not support indexing");
     }
     virtual HardValue vmPropertyGet(IVMExecution& execution, const HardValue&) override {
-      return this->raiseRuntimeError(execution, "Vanilla functions do not support properties");
+      return this->raiseRuntimeError(execution, "Vanilla function does not support properties");
     }
     virtual HardValue vmPropertySet(IVMExecution& execution, const HardValue&, const HardValue&) override {
-      return this->raiseRuntimeError(execution, "Vanilla functions do not support properties");
+      return this->raiseRuntimeError(execution, "Vanilla function does not support properties");
     }
     virtual HardValue vmPropertyMut(IVMExecution& execution, const HardValue&, ValueMutationOp, const HardValue&) override {
-      return this->raiseRuntimeError(execution, "Vanilla functions do not support properties");
+      return this->raiseRuntimeError(execution, "Vanilla function does not support properties");
     }
   };
 
@@ -759,7 +912,7 @@ namespace {
       // No soft links
     }
     virtual void print(Printer& printer) const override {
-      printer << "[string." << this->proxy << "]"; // TODO
+      printer << "[string proxy " << this->proxy << "]"; // TODO
     }
     virtual HardValue vmIterate(IVMExecution& execution) override {
       return this->raiseProxyError(execution, "does not support iteration");
@@ -1263,8 +1416,37 @@ namespace {
   };
 }
 
+VMObjectVanillaMutex::ReadLock::ReadLock(VMObjectVanillaMutex& mutex)
+  : lock(mutex.mutex),
+    modifications(mutex.modifications) {
+}
+
+VMObjectVanillaMutex::WriteLock::WriteLock(VMObjectVanillaMutex& mutex)
+  : mutex(mutex),
+    lock(mutex.mutex),
+    modified(false) {
+}
+
+VMObjectVanillaMutex::WriteLock::~WriteLock() {
+  if (this->modified) {
+    this->mutex.modifications++;
+  }
+}
+
+egg::ovum::HardValue VMObjectVanillaArray::vmIterate(IVMExecution& execution) {
+  VMObjectVanillaMutex::ReadLock lock{ this->mutex };
+  auto iterator = makeHardObject<VMObjectVanillaArrayIterator>(*this->vm, *this, lock);
+  return execution.createHardValueObject(iterator);
+}
+
+egg::ovum::HardValue VMObjectVanillaObject::vmIterate(IVMExecution& execution) {
+  VMObjectVanillaMutex::ReadLock lock{ this->mutex };
+  auto iterator = makeHardObject<VMObjectVanillaObjectIterator>(*this->vm, *this, lock);
+  return execution.createHardValueObject(iterator);
+}
+
 egg::ovum::SoftObject::SoftObject(IVM& vm, const HardObject& instance)
-  : SoftPtr(vm.acquireSoftObject(instance)) {
+  : SoftPtr(vm.acquireSoftObject(instance.get())) {
 }
 
 egg::ovum::HardObject egg::ovum::ObjectFactory::createBuiltinAssert(IVM& vm) {
@@ -1289,6 +1471,10 @@ egg::ovum::HardObject egg::ovum::ObjectFactory::createVanillaArray(IVM& vm) {
 
 egg::ovum::HardObject egg::ovum::ObjectFactory::createVanillaObject(IVM& vm) {
   return makeHardObject<VMObjectVanillaObject>(vm);
+}
+
+egg::ovum::HardObject egg::ovum::ObjectFactory::createVanillaKeyValue(IVM& vm, const HardValue& key, const HardValue& value) {
+  return makeHardObject<VMObjectVanillaKeyValue>(vm, key, value);
 }
 
 egg::ovum::HardObject egg::ovum::ObjectFactory::createVanillaFunction(IVM& vm, const Type& ftype, IVMCallHandler& handler) {

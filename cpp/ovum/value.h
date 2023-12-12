@@ -79,6 +79,7 @@ namespace egg::ovum {
   };
 
   class SoftKey {
+    friend class IVM;
     SoftKey& operator=(const SoftKey&) = delete;
   private:
     const IValue* ptr;

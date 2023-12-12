@@ -115,8 +115,6 @@ namespace {
       return printNodeChildren(os, "expr-array", node, ranges);
     case Node::Kind::ExprObject:
       return printNodeChildren(os, "expr-object", node, ranges);
-    case Node::Kind::ExprKeyValue:
-      return printNodeChildren(os, "expr-key-value", node, ranges);
     case Node::Kind::TypeInfer:
       assert(node.children.empty());
       return printNodeChildren(os, "type-infer", node, ranges);
@@ -164,9 +162,9 @@ namespace {
     case Node::Kind::Literal:
       assert(node.children.empty());
       return printValue(os, node.value, '"');
-    case Node::Kind::Name:
-      assert(node.children.empty());
-      return printValue(os, node.value, '\'');
+    case Node::Kind::Named:
+      assert(node.children.size() == 1);
+      return printNodeExtra(os, "named", node.value, node, ranges);
     }
     return os;
   }
@@ -467,7 +465,7 @@ TEST(TestEggParser, ValueObject) {
   std::string actual = outputFromLines({
     "var x = {a:1,b:\"hello\",c:3.14159};"
     });
-  std::string expected = "(stmt-define-variable 'x' (type-infer) (expr-object (expr-key-value 'a' 1) (expr-key-value 'b' \"hello\") (expr-key-value 'c' 3.14159)))\n";
+  std::string expected = "(stmt-define-variable 'x' (type-infer) (expr-object (named 'a' 1) (named 'b' \"hello\") (named 'c' 3.14159)))\n";
   ASSERT_EQ(expected, actual);
 }
 

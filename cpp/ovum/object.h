@@ -46,6 +46,7 @@ namespace egg::ovum {
     // Vanilla factories
     static HardObject createVanillaArray(IVM& vm);
     static HardObject createVanillaObject(IVM& vm);
+    static HardObject createVanillaKeyValue(IVM& vm, const HardValue& key, const HardValue& value);
     static HardObject createVanillaFunction(IVM& vm, const Type& ftype, IVMCallHandler& handler);
     // String proxy factories
     static HardObject createStringProxyCompareTo(IVM& vm, const String& instance);
