@@ -89,6 +89,10 @@ namespace egg::ovum {
 
   class IVMCallStack : public IHardAcquireRelease {
   public:
+    virtual const IVMCallStack* getCaller() const = 0;
+    virtual String getResource() const = 0;
+    virtual const SourceRange* getSourceRange() const = 0;
+    virtual String getFunction() const = 0;
     virtual void print(Printer& printer) const = 0;
   };
 

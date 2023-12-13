@@ -6,11 +6,11 @@ try {
     print(kv);
   }
 }
-///><RESOURCE>(2,16): Assertion is untrue: 2 == 3
-///>{key:message,value:"Assertion is untrue: 2 == 3"}
-///>{key:file,value:"<RESOURCE>"}
-///>{key:line,value:2}
-///>{key:column,value:16}
-///>{key:left,value:2}
-///>{key:operator,value:"=="}
-///>{key:right,value:3}
+///><RESOURCE>(2,10-19): Assertion is untrue: 2 == 3
+///>{key:"message",value:"Assertion is untrue: 2 == 3"}
+///>{key:"resource",value:"<RESOURCE>"}
+///>{key:"line",value:2}
+///>{key:"column",value:10}
+///>{key:"left",value:2}
+///>{key:"operator",value:"=="}
+///>{key:"right",value:3}

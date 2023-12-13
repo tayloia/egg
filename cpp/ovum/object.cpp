@@ -66,7 +66,7 @@ namespace {
       HardValue value;
       Bool success = false;
       if (!arguments.getArgumentByIndex(0, value) || !value->getBool(success)) {
-        return this->raiseRuntimeError(execution, "Builtin 'assert()' expects a 'bool' argument");
+        return this->raiseRuntimeError(execution, "Builtin 'assert()' expects a 'bool' argument, but instead got ", describe(value.get()));
       }
       if (!success) {
         return this->raiseRuntimeError(execution, "Assertion failure");
@@ -375,23 +375,6 @@ namespace {
     }
   };
 
-  template<typename T>
-  class VMObjectVanilla : public VMObjectBase {
-    VMObjectVanilla(const VMObjectVanilla&) = delete;
-    VMObjectVanilla& operator=(const VMObjectVanilla&) = delete;
-  public:
-    typedef HardValue(T::*MemberHandler)(IVMExecution& execution, const ICallArguments& arguments);
-  protected:
-    explicit VMObjectVanilla(IVM& vm)
-      : VMObjectBase(vm) {
-    }
-    HardValue createSoftMemberHandler(MemberHandler handler) {
-      T& self = *static_cast<T*>(this);
-      auto instance = makeHardObject<VMObjectMemberHandler<T>>(*this->vm, self, handler);
-      return this->vm->createHardValueObject(instance);
-    }
-  };
-
   class VMObjectVanillaMutex {
     VMObjectVanillaMutex(const VMObjectVanillaMutex&) = delete;
     VMObjectVanillaMutex& operator=(const VMObjectVanillaMutex&) = delete;
@@ -427,15 +410,14 @@ namespace {
     }
   };
 
-  template<typename T>
-  class VMObjectVanillaContainer : public VMObjectVanilla<T> {
+  class VMObjectVanillaContainer : public VMObjectBase {
     VMObjectVanillaContainer(const VMObjectVanillaContainer&) = delete;
     VMObjectVanillaContainer& operator=(const VMObjectVanillaContainer&) = delete;
   protected:
     mutable VMObjectVanillaMutex mutex;
     const char* name;
     VMObjectVanillaContainer(IVM& vm, const char* name)
-      : VMObjectVanilla<T>(vm),
+      : VMObjectBase(vm),
         name(name) {
       assert(this->name != nullptr);
     }
@@ -501,7 +483,7 @@ namespace {
     }
   };
 
-  class VMObjectVanillaArray : public VMObjectVanillaContainer<VMObjectVanillaArray>{
+  class VMObjectVanillaArray : public VMObjectVanillaContainer {
     VMObjectVanillaArray(const VMObjectVanillaArray&) = delete;
     VMObjectVanillaArray& operator=(const VMObjectVanillaArray&) = delete;
   public:
@@ -622,6 +604,11 @@ namespace {
       return this->raiseRuntimeError(execution, "Expected array property name to be a 'string', but instead got ", describe(property.get()));
     }
   private:
+    typedef HardValue(VMObjectVanillaArray::*MemberHandler)(IVMExecution& execution, const ICallArguments& arguments);
+    HardValue createSoftMemberHandler(MemberHandler handler) {
+      auto instance = makeHardObject<VMObjectMemberHandler<VMObjectVanillaArray>>(*this->vm, *this, handler);
+      return this->vm->createHardValueObject(instance);
+    }
     HardValue lengthMut(IVMExecution& execution, VMObjectVanillaMutex::WriteLock& lock, ValueMutationOp mutation, const HardValue& rhs) {
       auto value = ValueFactory::createInt(this->vm->getAllocator(), Int(this->elements.size()));
       auto before = value->mutate(mutation, rhs.get());
@@ -684,7 +671,7 @@ namespace {
     }
   };
 
-  class VMObjectVanillaObject : public VMObjectVanillaContainer<VMObjectVanillaObject> {
+  class VMObjectVanillaObject : public VMObjectVanillaContainer {
     VMObjectVanillaObject(const VMObjectVanillaObject&) = delete;
     VMObjectVanillaObject& operator=(const VMObjectVanillaObject&) = delete;
   public:
@@ -719,6 +706,7 @@ namespace {
       return execution.createHardValueObject(object);
     }
     virtual void softVisit(ICollectable::IVisitor& visitor) const override {
+      // We only need to iterate around the property member elements as the key vectors are simply duplicates
       for (const auto& property : this->properties) {
         property.first.visit(visitor);
         property.second.visit(visitor);
@@ -780,7 +768,7 @@ namespace {
       SoftKey key(*this->vm, property.get());
       auto pfound = this->properties.find(key);
       if (pfound == this->properties.end()) {
-        propertyCreate(pfound, key);
+        this->propertyCreate(pfound, key);
       }
       if (!execution.setSoftValue(pfound->second, value)) {
         return this->raiseContainerError(execution, "cannot modify property '", key.get(), "'");
@@ -794,7 +782,7 @@ namespace {
         if (mutation != ValueMutationOp::Assign) {
           return this->raiseContainerError(execution, "does not contain property '", key.get(), "'");
         }
-        propertyCreate(pfound, key);
+        this->propertyCreate(pfound, key);
       }
       return execution.mutateSoftValue(pfound->second, mutation, value);
     }
@@ -804,6 +792,14 @@ namespace {
       this->keys.emplace_back(key);
     }
   protected:
+    HardValue propertyFind(IVMExecution& execution, const HardValue& property) {
+      SoftKey key(*this->vm, property.get());
+      auto pfound = this->properties.find(key);
+      if (pfound == this->properties.end()) {
+        return HardValue::Void;
+      }
+      return execution.getSoftValue(pfound->second);
+    }
     void propertyAdd(const HardValue& property, const HardValue& value) {
       SoftKey key(*this->vm, property.get());
       auto where = this->properties.emplace(std::piecewise_construct, std::forward_as_tuple(key), std::forward_as_tuple(*this->vm));
@@ -815,6 +811,14 @@ namespace {
       } else {
         this->properties.erase(where.first);
       }
+    }
+    template<typename K>
+    void propertyAdd(K property, const HardValue& value) {
+      return this->propertyAdd(this->vm->createHardValue(property), value);
+    }
+    template<typename K, typename V>
+    void propertyAdd(K property, V value) {
+      return this->propertyAdd(this->vm->createHardValue(property), this->vm->createHardValue(value));
     }
   };
 
@@ -841,12 +845,12 @@ namespace {
   public:
     VMObjectVanillaKeyValue(IVM& vm, const HardValue& key, const HardValue& value)
       : VMObjectVanillaObject(vm, "Vanilla key-value pair") {
-      this->propertyAdd(this->vm->createHardValueString(this->vm->createString("key")), key);
-      this->propertyAdd(this->vm->createHardValueString(this->vm->createString("value")), value);
+      this->propertyAdd("key", key);
+      this->propertyAdd("value", value);
     }
   };
 
-  class VMObjectVanillaFunction : public VMObjectVanilla<VMObjectVanillaFunction> {
+  class VMObjectVanillaFunction : public VMObjectBase {
     VMObjectVanillaFunction(const VMObjectVanillaFunction&) = delete;
     VMObjectVanillaFunction& operator=(const VMObjectVanillaFunction&) = delete;
   private:
@@ -854,7 +858,7 @@ namespace {
     HardPtr<IVMCallHandler> handler;
   public:
     VMObjectVanillaFunction(IVM& vm, const Type& ftype, IVMCallHandler& handler)
-      : VMObjectVanilla(vm),
+      : VMObjectBase(vm),
         ftype(ftype),
         handler(&handler) {
       assert(this->ftype != nullptr);
@@ -1346,24 +1350,32 @@ namespace {
     }
   };
 
-  class VMObjectRuntimeError : public VMObjectBase {
-    VMObjectRuntimeError(const VMObjectRuntimeError&) = delete;
-    VMObjectRuntimeError& operator=(const VMObjectRuntimeError&) = delete;
+  class ObjectBuilderInstance : public VMObjectVanillaObject {
+    ObjectBuilderInstance(const ObjectBuilderInstance&) = delete;
+    ObjectBuilderInstance& operator=(const ObjectBuilderInstance&) = delete;
+  public:
+    ObjectBuilderInstance(IVM& vm, const char* name)
+      : VMObjectVanillaObject(vm, name) {
+    }
+    virtual void withProperty(const HardValue& property, const HardValue& value, bool readonly) = 0;
+  };
+
+  class ObjectBuilderRuntimeError : public ObjectBuilderInstance {
+    ObjectBuilderRuntimeError(const ObjectBuilderRuntimeError&) = delete;
+    ObjectBuilderRuntimeError& operator=(const ObjectBuilderRuntimeError&) = delete;
   private:
-    std::map<SoftKey, SoftValue> properties;
     String message;
     HardPtr<IVMCallStack> callstack;
   public:
-    VMObjectRuntimeError(IVM& vm, const String& message, const HardPtr<IVMCallStack>& callstack)
-      : VMObjectBase(vm),
+    ObjectBuilderRuntimeError(IVM& vm, const String& message, const HardPtr<IVMCallStack>& callstack)
+      : ObjectBuilderInstance(vm, "Runtime error"),
         message(message),
         callstack(callstack) {
     }
-    virtual void softVisit(ICollectable::IVisitor& visitor) const override {
-      for (const auto& property : this->properties) {
-        property.first.visit(visitor);
-        property.second.visit(visitor);
-      }
+    virtual void withProperty(const HardValue& property, const HardValue& value, bool readonly) override {
+      // TODO
+      (void)readonly;
+      this->propertyAdd(property, value);
     }
     virtual void print(Printer& printer) const override {
       if (this->callstack != nullptr) {
@@ -1371,47 +1383,47 @@ namespace {
       }
       printer << this->message;
     }
-    virtual Type vmRuntimeType() override {
-      // TODO
-      return Type::Object;
+    template<typename T>
+    void withProperty(const char* property, T value) {
+      // TODO still needed?
+      this->withProperty(this->vm->createHardValue(property), this->vm->createHardValue(value), false);
     }
-    virtual HardValue vmCall(IVMExecution& execution, const ICallArguments&) override {
-      return this->raiseRuntimeError(execution, "Runtime error objects do not support function call semantics");
-    }
-    virtual HardValue vmIterate(IVMExecution& execution) override {
-      return this->raiseRuntimeError(execution, "Runtime error objects do not support iteration");
-    }
-    virtual HardValue vmIndexGet(IVMExecution& execution, const HardValue&) override {
-      return this->raiseRuntimeError(execution, "Runtime error objects do not support indexing");
-    }
-    virtual HardValue vmIndexSet(IVMExecution& execution, const HardValue&, const HardValue&) override {
-      return this->raiseRuntimeError(execution, "Runtime error objects do not support indexing");
-    }
-    virtual HardValue vmIndexMut(IVMExecution& execution, const HardValue&, ValueMutationOp, const HardValue&) override {
-      return this->raiseRuntimeError(execution, "Runtime error objects do not support indexing");
-    }
-    virtual HardValue vmPropertyGet(IVMExecution& execution, const HardValue& property) override {
-      // TODO access 'callstack' and 'message'
-      SoftKey pname(*this->vm, property.get());
-      auto pfound = this->properties.find(pname);
-      if (pfound == this->properties.end()) {
-        return this->raiseRuntimeError(execution, "Cannot find property '", pname.get(), "' in runtime error object");
+    void withPropertyOptional(const char* property, const String& value) {
+      // TODO still needed?
+      if (!value.empty()) {
+        this->withProperty(property, value);
       }
-      return this->vm->getSoftValue(pfound->second);
     }
-    virtual HardValue vmPropertySet(IVMExecution& execution, const HardValue& property, const HardValue& value) override {
-      SoftKey pname(*this->vm, property.get());
-      auto pfound = this->properties.find(pname);
-      if (pfound == this->properties.end()) {
-        pfound = this->properties.emplace_hint(pfound, std::piecewise_construct, std::forward_as_tuple(pname), std::forward_as_tuple(*this->vm));
-      }
-      if (!this->vm->setSoftValue(pfound->second, value)) {
-        return this->raiseRuntimeError(execution, "Cannot modify property '", pname.get(), "'");
-      }
-      return HardValue::Void;
+  };
+
+  class ObjectBuilder : public HardReferenceCounted<IObjectBuilder> {
+    ObjectBuilder(const ObjectBuilder&) = delete;
+    ObjectBuilder& operator=(const ObjectBuilder&) = delete;
+  protected:
+    IVM& vm;
+    HardPtr<ObjectBuilderInstance> instance;
+  public:
+    ObjectBuilder(IVM& vm, HardPtr<ObjectBuilderInstance>&& instance)
+      : vm(vm),
+        instance(std::move(instance)) {
     }
-    virtual HardValue vmPropertyMut(IVMExecution& execution, const HardValue&, ValueMutationOp, const HardValue&) override {
-      return this->raiseRuntimeError(execution, "Runtime error objects do not support mutating properties");
+    virtual void addReadWriteProperty(const HardValue& property, const HardValue& value) override {
+      assert(this->instance != nullptr);
+      this->instance->withProperty(property, value, false);
+    }
+    virtual void addReadOnlyProperty(const HardValue& property, const HardValue& value) override {
+      assert(this->instance != nullptr);
+      this->instance->withProperty(property, value, true);
+    }
+    virtual HardObject build() override {
+      assert(this->instance != nullptr);
+      HardObject result{ this->instance.get() };
+      this->instance = nullptr;
+      return result;
+    }
+  protected:
+    virtual void hardDestroy() const override {
+      this->vm.getAllocator().destroy(this);
     }
   };
 }
@@ -1537,6 +1549,22 @@ egg::ovum::HardObject egg::ovum::ObjectFactory::createStringProxyToString(IVM& v
   return makeHardObject<VMStringProxyToString>(vm, instance);
 }
 
-egg::ovum::HardObject egg::ovum::ObjectFactory::createRuntimeError(IVM& vm, const String& message, const HardPtr<IVMCallStack>& callstack) {
-  return makeHardObject<VMObjectRuntimeError>(vm, message, callstack);
+egg::ovum::HardPtr<egg::ovum::IObjectBuilder> egg::ovum::ObjectFactory::createRuntimeErrorBuilder(IVM& vm, const String& message, const HardPtr<IVMCallStack>& callstack) {
+  auto& allocator = vm.getAllocator();
+  HardPtr instance{ allocator.makeRaw<ObjectBuilderRuntimeError>(vm, message, callstack) };
+  instance->withProperty("message", message);
+  if (callstack != nullptr) {
+    instance->withPropertyOptional("resource", callstack->getResource());
+    auto* range = callstack->getSourceRange();
+    if (range != nullptr) {
+      if ((range->begin.line != 0) || (range->begin.column != 0)) {
+        instance->withProperty("line", int(range->begin.line));
+        if (range->begin.column != 0) {
+          instance->withProperty("column", int(range->begin.column));
+        }
+      }
+    }
+    instance->withPropertyOptional("function", callstack->getFunction());
+  }
+  return HardPtr{ allocator.makeRaw<ObjectBuilder>(vm, std::move(instance)) };
 }

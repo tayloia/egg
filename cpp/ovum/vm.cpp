@@ -113,6 +113,19 @@ namespace {
     explicit VMCallStack(IAllocator& allocator)
       : HardReferenceCountedAllocator<IVMCallStack>(allocator) {
     }
+    virtual const IVMCallStack* getCaller() const override {
+      // TODO
+      return nullptr;
+    }
+    virtual String getResource() const override {
+      return this->resource;
+    }
+    virtual const SourceRange* getSourceRange() const override {
+      return &this->range;
+    }
+    virtual String getFunction() const override {
+      return this->function;
+    }
     virtual void print(Printer& printer) const override {
       if (!this->resource.empty() || !this->range.empty()) {
         printer << this->resource << this->range << ": ";
@@ -404,18 +417,20 @@ namespace {
     virtual HardValue evaluateValuePredicateOp(ValuePredicateOp op, const HardValue& lhs, const HardValue& rhs) override {
       return this->augment(this->predicate(op, lhs, rhs));
     }
+    template<typename... ARGS>
+    String concat(ARGS&&... args) {
+      return StringBuilder::concat(this->vm.getAllocator(), std::forward<ARGS>(args)...);
+    }
   private:
     template<typename... ARGS>
     HardValue panic(ARGS&&... args) {
-      auto message = StringBuilder::concat(this->vm.getAllocator(), std::forward<ARGS>(args)...);
-      auto exception = this->createHardValueString(message);
+      auto exception = this->createHardValueString(this->concat(std::forward<ARGS>(args)...));
       return this->raiseException(exception);
     }
     template<typename... ARGS>
     HardValue raise(ARGS&&... args) {
       // TODO: Non-string exception?
-      auto message = StringBuilder::concat(this->vm.getAllocator(), std::forward<ARGS>(args)...);
-      auto exception = this->createHardValueString(message);
+      auto exception = this->createHardValueString(this->concat(std::forward<ARGS>(args)...));
       return this->raiseException(exception);
     }
     HardValue augment(const HardValue& value) {
@@ -787,27 +802,27 @@ namespace {
         result = this->unary(ValueUnaryOp::LogicalNot, lhs);
         break;
       case ValuePredicateOp::LessThan:
-        comparison = " < ";
+        comparison = "<";
         result = this->binary(ValueBinaryOp::LessThan, lhs, rhs);
         break;
       case ValuePredicateOp::LessThanOrEqual:
-        comparison = " <= ";
+        comparison = "<=";
         result = this->binary(ValueBinaryOp::LessThanOrEqual, lhs, rhs);
         break;
       case ValuePredicateOp::Equal:
-        comparison = " == ";
+        comparison = "==";
         result = this->binary(ValueBinaryOp::Equal, lhs, rhs);
         break;
       case ValuePredicateOp::NotEqual:
-        comparison = " != ";
+        comparison = "!=";
         result = this->binary(ValueBinaryOp::NotEqual, lhs, rhs);
         break;
       case ValuePredicateOp::GreaterThanOrEqual:
-        comparison = " >= ";
+        comparison = ">=";
         result = this->binary(ValueBinaryOp::GreaterThanOrEqual, lhs, rhs);
         break;
       case ValuePredicateOp::GreaterThan:
-        comparison = " > ";
+        comparison = ">";
         result = this->binary(ValueBinaryOp::GreaterThan, lhs, rhs);
         break;
       case ValuePredicateOp::None:
@@ -826,10 +841,24 @@ namespace {
       if (pass) {
         return HardValue::True;
       }
+      String message;
       if (comparison != nullptr) {
-        return this->raise("Assertion is untrue: ", lhs, comparison, rhs);
+        message = this->concat("Assertion is untrue: ", lhs, ' ', comparison, ' ', rhs);
+      } else {
+        message = this->createString("Assertion is untrue");
       }
-      return this->raise("Assertion is untrue");
+      auto ob = this->createRuntimeErrorBuilder(message);
+      if (comparison != nullptr) {
+        if (!lhs->getVoid()) {
+          ob->addReadOnlyProperty(this->createHardValue("left"), lhs);
+        }
+        ob->addReadOnlyProperty(this->createHardValue("operator"), this->createHardValue(comparison));
+        if (!rhs->getVoid()) {
+          ob->addReadOnlyProperty(this->createHardValue("right"), rhs);
+        }
+      }
+      auto error = this->createHardValueObject(ob->build());
+      return this->raiseException(error);
     }
     bool assign(HardValue& lhs, ValueFlags lflags, const HardValue& rhs, ValueFlags rflags, bool promote = true) {
       // Assign with possible int-to-float promotion
@@ -861,6 +890,7 @@ namespace {
       EGG_WARNING_SUPPRESS_SWITCH_END
       return false;
     }
+    HardPtr<IObjectBuilder> createRuntimeErrorBuilder(const String& message);
   };
 
   class VMModuleBuilder : public VMUncollectable<IVMModuleBuilder> {
@@ -1270,7 +1300,7 @@ namespace {
           return RunOutcome::Stepped;
         }
       } else  if (flags != RunFlags::None) {
-        retval = this->createRuntimeError(this->createString("TODO: Run flags not yet supported in runner"));
+        retval = this->raiseRuntimeError(this->createString("TODO: Run flags not yet supported in runner"));
         return RunOutcome::Failed;
       } else {
         while (this->stepNode(retval)) {
@@ -1294,13 +1324,9 @@ namespace {
       return callstack;
     }
     template<typename... ARGS>
-    HardValue createRuntimeError(ARGS&&... args) {
-      auto& allocator = this->vm.getAllocator();
-      auto message = StringBuilder::concat(allocator, std::forward<ARGS>(args)...);
-      auto callstack = this->getCallStack();
-      auto exception = ObjectFactory::createRuntimeError(this->vm, message, callstack);
-      auto inner = ValueFactory::createHardObject(allocator, exception);
-      return ValueFactory::createHardThrow(allocator, inner);
+    HardValue raiseRuntimeError(ARGS&&... args) {
+      auto message = this->execution.concat(std::forward<ARGS>(args)...);
+      return this->execution.raiseRuntimeError(message);
     }
     HardValue initiateTailCall(const IFunctionSignature& signature, const ICallArguments& arguments, const IVMModule::Node& invoke) {
       // We need to set the argument symbols and initiate the execution of the block
@@ -1313,23 +1339,23 @@ namespace {
         // TODO optional/variadic arguments
         HardValue value;
         if (!arguments.getArgumentByIndex(index, value)) {
-          return this->createRuntimeError("Argument count mismatch"); // TODO
+          return this->raiseRuntimeError("Argument count mismatch"); // TODO
         }
         auto& parameter = signature.getParameter(index);
         auto pname = parameter.getName();
         auto ptype = parameter.getType();
         HardValue poly{ *this->vm.createSoftValue() };
         if (!this->execution.assignValue(poly, ptype, value)) {
-          return this->createRuntimeError("Type mismatch in argument '", pname, "': expected '", ptype, "' but instead got '", value->getType(), "'");
+          return this->raiseRuntimeError("Type mismatch in argument '", pname, "': expected '", ptype, "' but instead got '", value->getType(), "'");
         }
         auto* extant = this->symtable.add(VMSymbolTable::Kind::Variable, pname, ptype, poly);
         if (extant != nullptr) {
           switch (extant->kind) {
           case VMSymbolTable::Kind::Unset:
           case VMSymbolTable::Kind::Variable:
-            return this->createRuntimeError("Argument symbol already declared: '", pname, "'");
+            return this->raiseRuntimeError("Argument symbol already declared: '", pname, "'");
           case VMSymbolTable::Kind::Builtin:
-            return this->createRuntimeError("Argument symbol already declared as a builtin: '", pname, "'");
+            return this->raiseRuntimeError("Argument symbol already declared as a builtin: '", pname, "'");
           }
         }
       }
@@ -1355,7 +1381,7 @@ namespace {
     }
     template<typename... ARGS>
     bool raise(ARGS&&... args) {
-      auto error = this->createRuntimeError(std::forward<ARGS>(args)...);
+      auto error = this->raiseRuntimeError(std::forward<ARGS>(args)...);
       return this->pop(error);
     }
     bool raiseBadPropertyModification(const HardValue& instance, const HardValue& property) {
@@ -1439,7 +1465,7 @@ namespace {
         auto push = array->vmPropertyGet(this->execution, this->createHardValue("push"));
         HardObject pusher;
         if (!push->getHardObject(pusher)) {
-          return this->createRuntimeError("Vanilla array does not have 'push()' property");
+          return this->raiseRuntimeError("Vanilla array does not have 'push()' property");
         }
         for (const auto& element : elements) {
           // OPTIMIZE
@@ -1480,18 +1506,18 @@ namespace {
     HardValue stringIndexGet(const String& string, const HardValue& index) {
       Int ivalue;
       if (!index->getInt(ivalue)) {
-        return this->createRuntimeError("Expected index in string operator '[]' to be an 'int', but instead got ", describe(index));
+        return this->raiseRuntimeError("Expected index in string operator '[]' to be an 'int', but instead got ", describe(index));
       }
       auto cp = string.codePointAt(size_t(ivalue));
       if (cp < 0) {
-        return this->createRuntimeError("String index ", ivalue, " is out of range for a string of length ", string.length());
+        return this->raiseRuntimeError("String index ", ivalue, " is out of range for a string of length ", string.length());
       }
       return this->createHardValueString(String::fromUTF32(this->getAllocator(), &cp, 1));
     }
     HardValue stringPropertyGet(const String& string, const HardValue& property) {
       String name;
       if (!property->getString(name)) {
-        return this->createRuntimeError("Expected right-hand side of string operator '.', but instead got ", describe(property));
+        return this->raiseRuntimeError("Expected right-hand side of string operator '.', but instead got ", describe(property));
       }
       if (name.equals("length")) {
         return this->createHardValueInt(Int(string.length()));
@@ -1515,7 +1541,7 @@ namespace {
       };
       auto found = map.find(name.toUTF8());
       if (found == map.end()) {
-        return this->createRuntimeError("Unknown string property name: '", name, "'");
+        return this->raiseRuntimeError("Unknown string property name: '", name, "'");
       }
       return this->createHardValueObject(found->second(this->vm, string));
     }
@@ -2806,9 +2832,15 @@ HardPtr<IVMRunner> VMProgram::createRunner() {
   return this->modules.front()->createRunner(*this);
 }
 
-HardValue VMExecution::raiseRuntimeError(const String& message) {
+HardPtr<IObjectBuilder> VMExecution::createRuntimeErrorBuilder(const String& message) {
   assert(this->runner != nullptr);
-  return this->runner->createRuntimeError(message);
+  return ObjectFactory::createRuntimeErrorBuilder(this->vm, message, this->runner->getCallStack());
+}
+
+HardValue VMExecution::raiseRuntimeError(const String& message) {
+  auto builder = this->createRuntimeErrorBuilder(message);
+  assert(builder != nullptr);
+  return this->raiseException(this->createHardValueObject(builder->build()));
 }
 
 HardValue VMExecution::initiateTailCall(const IFunctionSignature& signature, const ICallArguments& arguments, const IVMModule::Node& block) {
