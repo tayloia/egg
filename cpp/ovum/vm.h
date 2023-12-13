@@ -251,6 +251,9 @@ namespace egg::ovum {
     bool setSoftValue(SoftValue& instance, const HardValue& value) {
       return this->softSetValue(instance.ptr.ptr, value.get());
     }
+    HardValue mutateSoftValue(SoftValue& instance, ValueMutationOp mutation, const HardValue& value) {
+      return this->softMutateValue(instance.ptr.ptr, mutation, value.get());
+    }
     template<typename T>
     T* acquireSoftObject(const T* hard) {
       // TODO simplify?
@@ -268,6 +271,7 @@ namespace egg::ovum {
     virtual void softAcquire(ICollectable*& target, const ICollectable* value) = 0;
     virtual IValue* softHarden(const IValue* soft) = 0;
     virtual bool softSetValue(IValue*& soft, const IValue& value) = 0;
+    virtual HardValue softMutateValue(IValue*& soft, ValueMutationOp mutation, const IValue& value) = 0;
   };
 
   class VMFactory {

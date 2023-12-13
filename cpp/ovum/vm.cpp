@@ -393,9 +393,7 @@ namespace {
       return this->vm.setSoftValue(lhs, rhs);
     }
     virtual HardValue mutateSoftValue(SoftValue& lhs, ValueMutationOp mutation, const HardValue& rhs) override {
-      (void)mutation; // WIBBLE
-      this->vm.setSoftValue(lhs, rhs); // WIBBLE
-      return rhs;
+      return this->vm.mutateSoftValue(lhs, mutation, rhs);
     }
     virtual HardValue evaluateValueUnaryOp(ValueUnaryOp op, const HardValue& arg) override {
       return this->augment(this->unary(op, arg));
@@ -1618,6 +1616,7 @@ namespace {
     virtual HardObject createBuiltinCollector() override {
       return ObjectFactory::createBuiltinCollector(*this);
     }
+  private:
     virtual void softAcquire(ICollectable*& target, const ICollectable* value) override {
       // TODO: thread safety
       assert(target == nullptr);
@@ -1650,6 +1649,12 @@ namespace {
       // Note we do not currently update the target pointer but may do later for optimization reasons
       assert(target != nullptr);
       return target->set(value);
+    }
+    virtual HardValue softMutateValue(IValue*& target, ValueMutationOp mutation, const IValue& value) override {
+      // TODO: thread safety
+      // Note we do not currently update the target pointer but may do later for optimization reasons
+      assert(target != nullptr);
+      return target->mutate(mutation, value);
     }
   };
 }
