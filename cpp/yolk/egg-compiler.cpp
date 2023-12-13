@@ -90,6 +90,11 @@ namespace {
     ModuleNode* compileTypeInfer(ParserNode& pnode, ParserNode& ptype, ParserNode& pexpr, ModuleNode*& mexpr);
     ModuleNode* compileTypeFunctionSignature(ParserNode& pnode);
     ModuleNode* compileLiteral(ParserNode& pnode);
+    bool checkValueExprOperand(const char* expected, ModuleNode& mnode, ParserNode& pnode, egg::ovum::ValueFlags required);
+    bool checkValueExprOperand2(const char* expected, ModuleNode& lhs, ModuleNode& rhs, ParserNode& pnode, egg::ovum::ValueFlags required);
+    bool checkValueExprUnary(egg::ovum::ValueUnaryOp op, ModuleNode& rhs, ParserNode& pnode);
+    bool checkValueExprBinary(egg::ovum::ValueBinaryOp op, ModuleNode& lhs, ModuleNode& rhs, ParserNode& pnode);
+    bool checkValueExprTernary(egg::ovum::ValueTernaryOp op, ModuleNode& lhs, ModuleNode& mid, ModuleNode& rhs, ParserNode& pnode);
     egg::ovum::Type forgeType(ParserNode& pnode);
     egg::ovum::Type deduceType(ModuleNode& mnode) {
       return this->mbuilder.deduceType(mnode);
@@ -767,6 +772,9 @@ ModuleNode* ModuleCompiler::compileValueExprVariable(ParserNode& pnode) {
 ModuleNode* ModuleCompiler::compileValueExprUnary(ParserNode& op, ParserNode& rhs) {
   auto* expr = this->compileValueExpr(rhs);
   if (expr != nullptr) {
+    if (!this->checkValueExprUnary(op.op.valueUnaryOp, *expr, op)) {
+      return nullptr;
+    }
     return &this->mbuilder.exprValueUnaryOp(op.op.valueUnaryOp, *expr, op.range);
   }
   return nullptr;
@@ -777,6 +785,9 @@ ModuleNode* ModuleCompiler::compileValueExprBinary(ParserNode& op, ParserNode& l
   if (lexpr != nullptr) {
     auto* rexpr = this->compileValueExpr(rhs);
     if (rexpr != nullptr) {
+      if (!this->checkValueExprBinary(op.op.valueBinaryOp, *lexpr, *rexpr, op)) {
+        return nullptr;
+      }
       return &this->mbuilder.exprValueBinaryOp(op.op.valueBinaryOp, *lexpr, *rexpr, op.range);
     }
   }
@@ -790,6 +801,9 @@ ModuleNode* ModuleCompiler::compileValueExprTernary(ParserNode& op, ParserNode& 
     if (mexpr != nullptr) {
       auto* rexpr = this->compileValueExpr(rhs);
       if (rexpr != nullptr) {
+        if (!this->checkValueExprTernary(op.op.valueTernaryOp, *lexpr, *mexpr, *rexpr, op)) {
+          return nullptr;
+        }
         return &this->mbuilder.exprValueTernaryOp(op.op.valueTernaryOp, *lexpr, *mexpr, *rexpr, op.range);
       }
     }
@@ -1068,6 +1082,111 @@ ModuleNode* ModuleCompiler::compileTypeFunctionSignature(ParserNode& pnode) {
 ModuleNode* ModuleCompiler::compileLiteral(ParserNode& pnode) {
   EXPECT(pnode, pnode.children.size() == 0);
   return &this->mbuilder.exprLiteral(pnode.value, pnode.range);
+}
+
+bool ModuleCompiler::checkValueExprOperand(const char* expected, ModuleNode& mnode, ParserNode& pnode, egg::ovum::ValueFlags required) {
+  auto type = this->deduceType(mnode);
+  assert(type != nullptr);
+  if (!egg::ovum::Bits::hasAnySet(type->getPrimitiveFlags(), required)) {
+    this->error(pnode, "Expected ", expected, ", but instead got a value of type '", *type, "'");
+    return false;
+  }
+  return true;
+}
+
+bool ModuleCompiler::checkValueExprOperand2(const char* expected, ModuleNode& lhs, ModuleNode& rhs, ParserNode& pnode, egg::ovum::ValueFlags required) {
+  auto type = this->deduceType(lhs);
+  assert(type != nullptr);
+  if (!egg::ovum::Bits::hasAnySet(type->getPrimitiveFlags(), required)) {
+    this->error(pnode, "Expected left-hand side of ", expected, ", but instead got a value of type '", *type, "'");
+    return false;
+  }
+  type = this->deduceType(rhs);
+  assert(type != nullptr);
+  if (!egg::ovum::Bits::hasAnySet(type->getPrimitiveFlags(), required)) {
+    this->error(pnode, "Expected right-hand side of ", expected, ", but instead got a value of type '", *type, "'");
+    return false;
+  }
+  return true;
+}
+
+bool ModuleCompiler::checkValueExprUnary(egg::ovum::ValueUnaryOp op, ModuleNode& rhs, ParserNode& pnode) {
+  switch (op) {
+  case egg::ovum::ValueUnaryOp::Negate: // -a
+    return this->checkValueExprOperand("expression after negation operator '-' to be an 'int' or 'float'", rhs, pnode, egg::ovum::ValueFlags::Arithmetic);
+  case egg::ovum::ValueUnaryOp::BitwiseNot: // ~a
+    return this->checkValueExprOperand("expression after bitwise-not operator '~' to be an 'int'", rhs, pnode, egg::ovum::ValueFlags::Int);
+  case egg::ovum::ValueUnaryOp::LogicalNot: // !a
+    return this->checkValueExprOperand("expression after logical-not operator '!' to be an 'int'", rhs, pnode, egg::ovum::ValueFlags::Bool);
+  }
+  return false;
+}
+
+bool ModuleCompiler::checkValueExprBinary(egg::ovum::ValueBinaryOp op, ModuleNode& lhs, ModuleNode& rhs, ParserNode& pnode) {
+  const auto arithmetic = egg::ovum::ValueFlags::Arithmetic;
+  const auto bitwise = egg::ovum::ValueFlags::Bool | egg::ovum::ValueFlags::Int;
+  const auto integer = egg::ovum::ValueFlags::Bool | egg::ovum::ValueFlags::Int;
+  switch (op) {
+    case egg::ovum::ValueBinaryOp::Add: // a + b
+      return this->checkValueExprOperand2("addition operator '+' to be an 'int' or 'float'", lhs, rhs, pnode, arithmetic);
+    case egg::ovum::ValueBinaryOp::Subtract: // a - b
+      return this->checkValueExprOperand2("subtraction operator '-' to be an 'int' or 'float'", lhs, rhs, pnode, arithmetic);
+    case egg::ovum::ValueBinaryOp::Multiply: // a * b
+      return this->checkValueExprOperand2("multiplication operator '*' to be an 'int' or 'float'", lhs, rhs, pnode, arithmetic);
+    case egg::ovum::ValueBinaryOp::Divide: // a / b
+      return this->checkValueExprOperand2("division operator '/' to be an 'int' or 'float'", lhs, rhs, pnode, arithmetic);
+    case egg::ovum::ValueBinaryOp::Remainder: // a % b
+      return this->checkValueExprOperand2("remainder operator '%' to be an 'int' or 'float'", lhs, rhs, pnode, arithmetic);
+    case egg::ovum::ValueBinaryOp::LessThan: // a < b
+      return this->checkValueExprOperand2("comparison operator '<' to be an 'int' or 'float'", lhs, rhs, pnode, arithmetic);
+    case egg::ovum::ValueBinaryOp::LessThanOrEqual: // a <= b
+      return this->checkValueExprOperand2("comparison operator '<=' to be an 'int' or 'float'", lhs, rhs, pnode, arithmetic);
+    case egg::ovum::ValueBinaryOp::Equal: // a == b
+      // TODO
+      break;
+    case egg::ovum::ValueBinaryOp::NotEqual: // a != b
+      // TODO
+      break;
+    case egg::ovum::ValueBinaryOp::GreaterThanOrEqual: // a >= b
+      return this->checkValueExprOperand2("comparison operator '>=' to be an 'int' or 'float'", lhs, rhs, pnode, arithmetic);
+    case egg::ovum::ValueBinaryOp::GreaterThan: // a > b
+      return this->checkValueExprOperand2("comparison operator '>' to be an 'int' or 'float'", lhs, rhs, pnode, arithmetic);
+    case egg::ovum::ValueBinaryOp::BitwiseAnd: // a & b
+      return this->checkValueExprOperand2("bitwise-and operator '&' to be a 'bool' or 'int'", lhs, rhs, pnode, bitwise);
+    case egg::ovum::ValueBinaryOp::BitwiseOr: // a | b
+      return this->checkValueExprOperand2("bitwise-or operator '|' to be a 'bool' or 'int'", lhs, rhs, pnode, bitwise);
+    case egg::ovum::ValueBinaryOp::BitwiseXor: // a ^ b
+      return this->checkValueExprOperand2("bitwise-xor operator '^' to be a 'bool' or 'int'", lhs, rhs, pnode, bitwise);
+    case egg::ovum::ValueBinaryOp::ShiftLeft: // a << b
+      return this->checkValueExprOperand2("left-shift operator '<<' to be an 'int'", lhs, rhs, pnode, integer);
+    case egg::ovum::ValueBinaryOp::ShiftRight: // a >> b
+      return this->checkValueExprOperand2("right-shift operator '>>' to be an 'int'", lhs, rhs, pnode, integer);
+    case egg::ovum::ValueBinaryOp::ShiftRightUnsigned: // a >>> b
+      return this->checkValueExprOperand2("unsigned-shift operator '>>>' to be an 'int'", lhs, rhs, pnode, integer);
+    case egg::ovum::ValueBinaryOp::IfNull: // a ?? b
+      // TODO
+      break;
+    case egg::ovum::ValueBinaryOp::IfFalse: // a || b
+      // TODO
+      break;
+    case egg::ovum::ValueBinaryOp::IfTrue: // a && b
+      // TODO
+      break;
+  }
+  return true;
+}
+
+bool ModuleCompiler::checkValueExprTernary(egg::ovum::ValueTernaryOp, ModuleNode& lhs, ModuleNode& mid, ModuleNode& rhs, ParserNode& pnode) {
+  if (!this->checkValueExprOperand("first operand of ternary '?:' to be a 'bool'", lhs, pnode, egg::ovum::ValueFlags::Bool)) {
+    return false;
+  }
+  if (this->deduceType(mid) == nullptr) {
+    return false;
+  }
+  if (this->deduceType(rhs) == nullptr) {
+    return false;
+  }
+  return true;
 }
 
 egg::ovum::Type ModuleCompiler::forgeType(ParserNode& pnode) {
