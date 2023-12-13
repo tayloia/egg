@@ -801,7 +801,7 @@ ModuleNode* ModuleCompiler::compileValueExprTernary(ParserNode& op, ParserNode& 
     if (mexpr != nullptr) {
       auto* rexpr = this->compileValueExpr(rhs);
       if (rexpr != nullptr) {
-        if (!this->checkValueExprTernary(op.op.valueTernaryOp, *lexpr, *mexpr, *rexpr, op)) {
+        if (!this->checkValueExprTernary(op.op.valueTernaryOp, *lexpr, *mexpr, *rexpr, lhs)) {
           return nullptr;
         }
         return &this->mbuilder.exprValueTernaryOp(op.op.valueTernaryOp, *lexpr, *mexpr, *rexpr, op.range);
@@ -1177,7 +1177,7 @@ bool ModuleCompiler::checkValueExprBinary(egg::ovum::ValueBinaryOp op, ModuleNod
 }
 
 bool ModuleCompiler::checkValueExprTernary(egg::ovum::ValueTernaryOp, ModuleNode& lhs, ModuleNode& mid, ModuleNode& rhs, ParserNode& pnode) {
-  if (!this->checkValueExprOperand("first operand of ternary '?:' to be a 'bool'", lhs, pnode, egg::ovum::ValueFlags::Bool)) {
+  if (!this->checkValueExprOperand("condition of ternary operator '?:' to be a 'bool'", lhs, pnode, egg::ovum::ValueFlags::Bool)) {
     return false;
   }
   if (this->deduceType(mid) == nullptr) {
