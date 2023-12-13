@@ -1,2 +1,2 @@
 string a = 123;
-///<COMPILER><ERROR><RESOURCE>(1,12): Cannot initialize 'a' of type 'string' with a value of type 'int'
+///<COMPILER><ERROR><RESOURCE>(1,12-14): Cannot initialize 'a' of type 'string' with a value of type 'int'
