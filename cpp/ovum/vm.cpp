@@ -1439,12 +1439,12 @@ namespace {
       }
       auto extant = this->symtable.find(name);
       if (extant == nullptr) {
-        this->raise("Unknown variable symbol: '", name, "'");
+        this->raise("Unknown variable: '", name, "'");
         return false;
       }
       switch (extant->kind) {
       case VMSymbolTable::Kind::Builtin:
-        this->raise("Cannot modify builtin symbol: '", name, "'");
+        this->raise("Cannot re-assign built-in value: '", name, "'");
         return false;
       case VMSymbolTable::Kind::Unset:
       case VMSymbolTable::Kind::Variable:
@@ -1805,7 +1805,10 @@ bool VMRunner::stepNode(HardValue& retval) {
       case VMSymbolTable::Kind::Variable:
         break;
       case VMSymbolTable::Kind::Builtin:
-        return this->raise("Cannot modify builtin symbol: '", symbol, "'");
+        if (top.node->mutationOp == ValueMutationOp::Assign) {
+          return this->raise("Cannot re-assign built-in value: '", symbol, "'");
+        }
+        return this->raise("Cannot modify built-in value: '", symbol, "'");
       }
       auto& lhs = extant->value;
       if (top.index == 0) {

@@ -432,7 +432,7 @@ TEST(TestVM, BuiltinSet) {
     STMT_VAR_SET("print", EXPR_LITERAL(12345))
   );
   buildAndRunFailed(vm, *pbuilder, *mbuilder);
-  ASSERT_EQ("<ERROR>test: Cannot modify builtin symbol: 'print'\n", vm.logger.logged.str());
+  ASSERT_EQ("<ERROR>test: Cannot re-assign built-in value: 'print'\n", vm.logger.logged.str());
 }
 
 TEST(TestVM, AssertTrue) {
