@@ -293,10 +293,21 @@ namespace {
       }
       return type;
     }
+    virtual Type forgeIterationType(const Type& type) override {
+      assert(type->isPrimitive()); // TODO
+      auto flags = type->getPrimitiveFlags();
+      if (Bits::hasAnySet(flags, ValueFlags::Object)) {
+        return Type::AnyQ;
+      }
+      if (Bits::hasAnySet(flags, ValueFlags::String)) {
+        return Type::String;
+      }
+      return nullptr;
+    }
     virtual Type forgeFunctionType(const IFunctionSignature& signature) override {
       // TODO cache this type properly
       auto* type = this->create<TypeVanillaFunction>(this->allocator, *this->basket, signature);
-      this->pool.insert(type); // WIBBLE
+      this->pool.insert(type);
       return type;
     }
     virtual Assignability isTypeAssignable(const Type& dst, const Type& src) override {

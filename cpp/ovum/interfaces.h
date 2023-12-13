@@ -357,6 +357,7 @@ namespace egg::ovum {
     virtual Type forgeUnionType(const Type& lhs, const Type& rhs) = 0;
     virtual Type forgeNullableType(const Type& type, bool nullable) = 0;
     virtual Type forgeVoidableType(const Type& type, bool voidable) = 0;
+    virtual Type forgeIterationType(const Type& type) = 0;
     virtual Type forgeFunctionType(const IFunctionSignature& signature) = 0;
     virtual Assignability isTypeAssignable(const Type& dst, const Type& src) = 0;
     virtual Assignability isFunctionSignatureAssignable(const IFunctionSignature& dst, const IFunctionSignature& src) = 0;

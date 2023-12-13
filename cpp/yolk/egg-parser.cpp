@@ -480,6 +480,7 @@ namespace {
         return bloc;
       }
       auto stmt = this->makeNodeString(Node::Kind::StmtForEach, context[0]);
+      stmt->range.end = expr.node->range.end;
       stmt->children.emplace_back(std::move(type.node));
       stmt->children.emplace_back(std::move(expr.node));
       stmt->children.emplace_back(std::move(bloc.node));

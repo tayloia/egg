@@ -1163,7 +1163,7 @@ namespace {
       case Node::Kind::ExprVariable:
       case Node::Kind::ExprArray:
       case Node::Kind::ExprObject:
-        return Type::AnyQ; // WIBBLE
+        return Type::AnyQ; // TODO
       case Node::Kind::ExprPropertyGet:
       case Node::Kind::ExprFunctionCall:
       case Node::Kind::ExprIndexGet:

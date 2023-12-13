@@ -87,15 +87,25 @@ namespace {
     ModuleNode* compileValueExprObject(ParserNode& pnode);
     ModuleNode* compileValueExprObjectElement(ParserNode& pnode);
     ModuleNode* compileTypeExpr(ParserNode& pnode);
-    ModuleNode* compileTypeInfer(ParserNode& ptype, ParserNode& pexpr, ModuleNode*& mexpr);
+    ModuleNode* compileTypeInfer(ParserNode& pnode, ParserNode& ptype, ParserNode& pexpr, ModuleNode*& mexpr);
     ModuleNode* compileTypeFunctionSignature(ParserNode& pnode);
     ModuleNode* compileLiteral(ParserNode& pnode);
     egg::ovum::Type forgeType(ParserNode& pnode);
     egg::ovum::Type deduceType(ModuleNode& mnode) {
       return this->mbuilder.deduceType(mnode);
     }
+    bool deduceIterationType(egg::ovum::Type& type) {
+      auto itype = this->vm.getTypeForge().forgeIterationType(type);
+      if (itype == nullptr) {
+        return false;
+      }
+      type = itype;
+      return true;
+    }
     void forgeNullability(egg::ovum::Type& type, bool nullable) {
+      assert(type != nullptr);
       type = this->vm.getTypeForge().forgeNullableType(type, nullable);
+      assert(type != nullptr);
     }
     egg::ovum::Assignability isAssignable(const egg::ovum::Type& dst, const egg::ovum::Type& src) {
       assert(dst != nullptr);
@@ -323,7 +333,7 @@ ModuleNode* ModuleCompiler::compileStmtDefineVariable(ParserNode& pnode) {
   egg::ovum::String symbol;
   EXPECT(pnode, pnode.value->getString(symbol));
   ModuleNode* rnode;
-  auto lnode = this->compileTypeInfer(*pnode.children.front(), *pnode.children.back(), rnode);
+  auto lnode = this->compileTypeInfer(pnode, *pnode.children.front(), *pnode.children.back(), rnode);
   if (lnode == nullptr) {
     return nullptr;
   }
@@ -486,7 +496,7 @@ ModuleNode* ModuleCompiler::compileStmtForEach(ParserNode& pnode, const StmtCont
   egg::ovum::String symbol;
   EXPECT(pnode, pnode.value->getString(symbol));
   ModuleNode* iter;
-  auto type = this->compileTypeInfer(*pnode.children[0], *pnode.children[1], iter);
+  auto type = this->compileTypeInfer(pnode, *pnode.children[0], *pnode.children[1], iter);
   if (type == nullptr) {
     return nullptr;
   }
@@ -961,7 +971,8 @@ ModuleNode* ModuleCompiler::compileTypeExpr(ParserNode& pnode) {
   return &this->mbuilder.typeLiteral(type, pnode.range);
 }
 
-ModuleNode* ModuleCompiler::compileTypeInfer(ParserNode& ptype, ParserNode& pexpr, ModuleNode*& mexpr) {
+ModuleNode* ModuleCompiler::compileTypeInfer(ParserNode& pnode, ParserNode& ptype, ParserNode& pexpr, ModuleNode*& mexpr) {
+  assert((pnode.kind == ParserNode::Kind::StmtDefineVariable) || (pnode.kind == ParserNode::Kind::StmtForEach));
   if (ptype.kind == ParserNode::Kind::TypeInfer) {
     mexpr = this->compileValueExpr(pexpr);
     if (mexpr == nullptr) {
@@ -969,6 +980,13 @@ ModuleNode* ModuleCompiler::compileTypeInfer(ParserNode& ptype, ParserNode& pexp
     }
     auto type = this->deduceType(*mexpr);
     assert(type != nullptr);
+    if (pnode.kind == ParserNode::Kind::StmtForEach) {
+      // We now have the type of 'iterable' in 'for (var <iterator> : <iterable>)'
+      if (!this->deduceIterationType(type)) {
+        return this->error(pexpr, "Value of type '", *type, "' is not iterable");
+      }
+      assert(type != nullptr);
+    }
     this->forgeNullability(type, false);
     assert(type != nullptr);
     return &this->mbuilder.typeLiteral(type, ptype.range);
@@ -980,6 +998,13 @@ ModuleNode* ModuleCompiler::compileTypeInfer(ParserNode& ptype, ParserNode& pexp
     }
     auto type = this->deduceType(*mexpr);
     assert(type != nullptr);
+    if (pnode.kind == ParserNode::Kind::StmtForEach) {
+      // We now have the type of 'iterable' in 'for (var <iterator> : <iterable>)'
+      if (!this->deduceIterationType(type)) {
+        return this->error(pexpr, "Value of type '", *type, "' is not iterable");
+      }
+      assert(type != nullptr);
+    }
     this->forgeNullability(type, true);
     assert(type != nullptr);
     return &this->mbuilder.typeLiteral(type, ptype.range);
@@ -991,6 +1016,14 @@ ModuleNode* ModuleCompiler::compileTypeInfer(ParserNode& ptype, ParserNode& pexp
   mexpr = this->compileValueExpr(pexpr);
   if (mexpr == nullptr) {
     return nullptr;
+  }
+  if (pnode.kind == ParserNode::Kind::StmtForEach) {
+    // We need to check the validity of 'for (<type> <iterator> : <iterable>)'
+    auto type = this->deduceType(*mexpr);
+    assert(type != nullptr);
+    if (!this->deduceIterationType(type)) {
+      return this->error(pexpr, "Value of type '", *type, "' is not iterable");
+    }
   }
   return mtype;
 }
@@ -1064,7 +1097,7 @@ egg::ovum::Type ModuleCompiler::forgeType(ParserNode& pnode) {
   case ParserNode::Kind::TypeBinary:
   case ParserNode::Kind::TypeFunctionSignature:
   case ParserNode::Kind::TypeFunctionSignatureParameter:
-    // WIBBLE
+    // TODO
     break;
   case ParserNode::Kind::ModuleRoot:
   case ParserNode::Kind::StmtBlock:
