@@ -37,6 +37,7 @@ namespace egg::yolk {
         ExprProperty,
         ExprArray,
         ExprObject,
+        ExprGuard,
         TypeInfer,
         TypeInferQ,
         TypeVoid,

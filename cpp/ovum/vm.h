@@ -169,6 +169,7 @@ namespace egg::ovum {
     virtual Node& exprIndexGet(Node& instance, Node& index, const SourceRange& range) = 0;
     virtual Node& exprArray(const SourceRange& range) = 0;
     virtual Node& exprObject(const SourceRange& range) = 0;
+    virtual Node& exprGuard(const String& symbol, Node& value, const SourceRange& range) = 0;
     virtual Node& exprNamed(const HardValue& name, Node& value, const SourceRange& range) = 0;
     // Type expression factories
     virtual Node& typeLiteral(const Type& type, const SourceRange& range) = 0;
@@ -189,6 +190,7 @@ namespace egg::ovum {
     virtual Node& stmtVariableDefine(const String& symbol, Node& type, Node& value, const SourceRange& range) = 0;
     virtual Node& stmtVariableSet(const String& symbol, Node& value, const SourceRange& range) = 0;
     virtual Node& stmtVariableMutate(const String& symbol, ValueMutationOp op, Node& value, const SourceRange& range) = 0;
+    virtual Node& stmtVariableUndeclare(const String& symbol, const SourceRange& range) = 0;
     virtual Node& stmtPropertySet(Node& instance, Node& property, Node& value, const SourceRange& range) = 0;
     virtual Node& stmtPropertyMutate(Node& instance, Node& property, ValueMutationOp op, Node& value, const SourceRange& range) = 0;
     virtual Node& stmtIndexMutate(Node& instance, Node& index, ValueMutationOp op, Node& value, const SourceRange& range) = 0;

@@ -562,7 +562,7 @@ namespace {
       if (!context[1].isOperator(EggTokenizerOperator::ParenthesisLeft)) {
         return context.expected(tokidx + 1, "'(' after keyword 'for'");
       }
-      auto condition = this->parseValueExpression(tokidx + 2);
+      auto condition = this->parseGuardExpression(tokidx + 2);
       if (!condition.succeeded()) {
         return condition;
       }
@@ -1122,6 +1122,42 @@ namespace {
       required->op.parameterOp = Node::ParameterOp::Required;
       required->children.emplace_back(std::move(type.node));
       return context.success(std::move(required), type.tokensAfter + 1);
+    }
+    Partial parseGuardExpression(size_t tokidx) {
+      Context context(*this, tokidx);
+      if (context[0].isKeyword(EggTokenizerKeyword::Var)) {
+        // Inferred type
+        if (context[1].isOperator(EggTokenizerOperator::Query)) {
+          auto varq = this->makeNode(Node::Kind::TypeInferQ, context[0]);
+          return this->parseGuardExpressionIdentifier(tokidx + 2, varq, "'var?'");
+        }
+        auto var = this->makeNode(Node::Kind::TypeInfer, context[0]);
+        return this->parseGuardExpressionIdentifier(tokidx + 1, var, "'var'");
+      }
+      auto partial = this->parseTypeExpression(tokidx);
+      if (partial.succeeded()) {
+        return this->parseGuardExpressionIdentifier(partial.tokensAfter, partial.node, "type");
+      }
+      return this->parseValueExpression(tokidx);
+    }
+    Partial parseGuardExpressionIdentifier(size_t tokidx, std::unique_ptr<Node>& ptype, const char* what) {
+      assert(ptype != nullptr);
+      Context context(*this, tokidx);
+      if (context[0].kind != EggTokenizerKind::Identifier) {
+        return context.expected(tokidx, "identifier after ", what, " in guard expression");
+      }
+      if (!context[1].isOperator(EggTokenizerOperator::Equal)) {
+        return context.expected(tokidx, "'=' after '", context[0].value.s, "' in guard expression");
+      }
+      // <type> <identifier> = <expr>
+      auto expr = this->parseValueExpression(tokidx + 2);
+      if (expr.succeeded()) {
+        auto stmt = this->makeNodeString(Node::Kind::ExprGuard, context[0]);
+        stmt->children.emplace_back(std::move(ptype));
+        stmt->children.emplace_back(std::move(expr.node));
+        return context.success(std::move(stmt), expr.tokensAfter);
+      }
+      return expr;
     }
     Partial parseValueExpression(size_t tokidx) {
       return this->parseValueExpressionTernary(tokidx);

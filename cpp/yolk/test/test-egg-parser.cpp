@@ -113,6 +113,9 @@ namespace {
       return printNodeChildren(os, "expr-array", node, ranges);
     case Node::Kind::ExprObject:
       return printNodeChildren(os, "expr-object", node, ranges);
+    case Node::Kind::ExprGuard:
+      assert(node.children.size() == 2);
+      return printNodeChildren(os, "expr-guard", node, ranges);
     case Node::Kind::TypeInfer:
       assert(node.children.empty());
       return printNodeChildren(os, "type-infer", node, ranges);
@@ -513,11 +516,67 @@ TEST(TestEggParser, StatementIf) {
   ASSERT_EQ(expected, actual);
 }
 
+TEST(TestEggParser, StatementIfGuardExplicit) {
+  std::string actual = outputFromLines({
+    "if (int a = 123) {}"
+    });
+  std::string expected = "(stmt-if (expr-guard (type-int) 123) (stmt-block))\n";
+  ASSERT_EQ(expected, actual);
+}
+
+TEST(TestEggParser, StatementIfGuardInfer) {
+  std::string actual = outputFromLines({
+    "if (var a = 123) {}"
+    });
+  std::string expected = "(stmt-if (expr-guard (type-infer) 123) (stmt-block))\n";
+  ASSERT_EQ(expected, actual);
+}
+
+TEST(TestEggParser, StatementIfGuardInferNullable) {
+  std::string actual = outputFromLines({
+    "if (var? a = 123) {}"
+    });
+  std::string expected = "(stmt-if (expr-guard (type-infer-q) 123) (stmt-block))\n";
+  ASSERT_EQ(expected, actual);
+}
+
 TEST(TestEggParser, StatementIfElse) {
   std::string actual = outputFromLines({
     "if (false) {} else {}"
     });
   std::string expected = "(stmt-if false (stmt-block) (stmt-block))\n";
+  ASSERT_EQ(expected, actual);
+}
+
+TEST(TestEggParser, StatementIfElseGuardExplicit) {
+  std::string actual = outputFromLines({
+    "if (int a = 123) {} else {}"
+    });
+  std::string expected = "(stmt-if (expr-guard (type-int) 123) (stmt-block) (stmt-block))\n";
+  ASSERT_EQ(expected, actual);
+}
+
+TEST(TestEggParser, StatementIfElseGuardInfer) {
+  std::string actual = outputFromLines({
+    "if (var a = 123) {} else {}"
+    });
+  std::string expected = "(stmt-if (expr-guard (type-infer) 123) (stmt-block) (stmt-block))\n";
+  ASSERT_EQ(expected, actual);
+}
+
+TEST(TestEggParser, StatementIfElseGuardInferNullable) {
+  std::string actual = outputFromLines({
+    "if (var? a = 123) {} else {}"
+    });
+  std::string expected = "(stmt-if (expr-guard (type-infer-q) 123) (stmt-block) (stmt-block))\n";
+  ASSERT_EQ(expected, actual);
+}
+
+TEST(TestEggParser, StatementIfElseIf) {
+  std::string actual = outputFromLines({
+    "if (true) {} else if (false) {}"
+    });
+  std::string expected = "(stmt-if true (stmt-block) (stmt-if false (stmt-block)))\n";
   ASSERT_EQ(expected, actual);
 }
 
@@ -584,7 +643,6 @@ TEST(TestEggParser, StatementDiscard) {
   std::string expected = "(expr-call (type-void) 123)\n";
   ASSERT_EQ(expected, actual);
 }
-
 
 TEST(TestEggParser, Ranges) {
   std::string actual = outputFromLines({

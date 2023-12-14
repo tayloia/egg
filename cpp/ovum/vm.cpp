@@ -36,6 +36,7 @@ public:
     ExprIndexGet,
     ExprArray,
     ExprObject,
+    ExprGuard,
     ExprNamed,
     TypeInfer,
     TypeLiteral,
@@ -46,6 +47,7 @@ public:
     StmtVariableDefine,
     StmtVariableSet,
     StmtVariableMutate,
+    StmtVariableUndeclare,
     StmtPropertySet,
     StmtPropertyMutate,
     StmtIndexMutate,
@@ -932,6 +934,7 @@ namespace {
       case Node::Kind::ExprObject:
       case Node::Kind::ExprFunctionCall:
       case Node::Kind::ExprIndexGet:
+      case Node::Kind::ExprGuard:
       case Node::Kind::ExprNamed:
         return Type::AnyQ; // TODO
       case Node::Kind::Root:
@@ -943,6 +946,7 @@ namespace {
       case Node::Kind::StmtVariableDefine:
       case Node::Kind::StmtVariableSet:
       case Node::Kind::StmtVariableMutate:
+      case Node::Kind::StmtVariableUndeclare:
       case Node::Kind::StmtPropertySet:
       case Node::Kind::StmtPropertyMutate:
       case Node::Kind::StmtIndexMutate:
@@ -1069,6 +1073,12 @@ namespace {
       auto& node = this->module->createNode(Node::Kind::ExprObject, range);
       return node;
     }
+    virtual Node& exprGuard(const String& symbol, Node& value, const SourceRange& range) override {
+      auto& node = this->module->createNode(Node::Kind::ExprGuard, range);
+      node.literal = this->createHardValueString(symbol);
+      node.addChild(value);
+      return node;
+    }
     virtual Node& exprNamed(const HardValue& name, Node& value, const SourceRange& range) override {
       auto& node = this->module->createNode(Node::Kind::ExprNamed, range);
       node.literal = name;
@@ -1171,6 +1181,11 @@ namespace {
       node.literal = this->createHardValueString(symbol);
       node.mutationOp = op;
       node.addChild(value);
+      return node;
+    }
+    virtual Node& stmtVariableUndeclare(const String& symbol, const SourceRange& range) override {
+      auto& node = this->module->createNode(Node::Kind::StmtVariableUndeclare, range);
+      node.literal = this->createHardValueString(symbol);
       return node;
     }
     virtual Node& stmtPropertySet(Node& instance, Node& property, Node& value, const SourceRange& range) override {
@@ -1424,6 +1439,7 @@ namespace {
     }
     bool variableScopeBegin(NodeStack& top, const Type& type) {
       assert(top.scope.empty());
+      assert(type != nullptr);
       if (!top.node->literal->getString(top.scope)) {
         // No symbol declared
         return true;
@@ -1484,6 +1500,34 @@ namespace {
       }
       extant->kind = VMSymbolTable::Kind::Variable;
       return true;
+    }
+    HardValue symbolGuard(const HardValue& symbol, const HardValue& value) {
+      String name;
+      if (!symbol->getString(name)) {
+        return this->raiseRuntimeError("Invalid program node literal for variable symbol");
+      }
+      if (value.hasFlowControl()) {
+        return value;
+      }
+      if (value->getPrimitiveFlag() == ValueFlags::Void) {
+        return HardValue::False;
+      }
+      auto extant = this->symtable.find(name);
+      if (extant == nullptr) {
+        return this->raiseRuntimeError("Unknown variable: '", name, "'");
+      }
+      switch (extant->kind) {
+      case VMSymbolTable::Kind::Builtin:
+        return this->raiseRuntimeError("Cannot re-assign built-in value: '", name, "'");
+      case VMSymbolTable::Kind::Unset:
+      case VMSymbolTable::Kind::Variable:
+        break;
+      }
+      if (!this->execution.assignValue(extant->value, extant->type, value)) {
+        return HardValue::False;
+      }
+      extant->kind = VMSymbolTable::Kind::Variable;
+      return HardValue::True;
     }
     HardValue arrayConstruct(const std::deque<HardValue>& elements) {
       // TODO: support '...' inclusion
@@ -1889,6 +1933,14 @@ bool VMRunner::stepNode(HardValue& retval) {
       }
     }
     break;
+  case IVMModule::Node::Kind::StmtVariableUndeclare:
+    assert(top.node->children.empty());
+    assert(top.index == 0);
+    assert(top.deque.empty());
+    if (top.node->literal->getString(top.scope)) {
+      this->variableScopeEnd(top);
+    }
+    return this->pop(HardValue::Void);
   case IVMModule::Node::Kind::StmtPropertySet:
     assert(top.node->literal->getVoid());
     assert(top.node->children.size() == 3);
@@ -1977,10 +2029,6 @@ bool VMRunner::stepNode(HardValue& retval) {
     assert(top.index <= top.node->children.size());
     if (top.index == 0) {
       // Evaluate the condition
-      if (!this->variableScopeBegin(top, nullptr)) {
-        // TODO: if (var v = a) {}
-        return true;
-      }
       assert(top.deque.empty());
       this->push(*top.node->children[top.index++]);
     } else {
@@ -2001,7 +2049,6 @@ bool VMRunner::stepNode(HardValue& retval) {
           this->push(*top.node->children[top.index++]);
         } else if (top.node->children.size() > 2) {
           // Perform the optional "when false" block
-          this->variableScopeEnd(top);
           top.index++;
           this->push(*top.node->children[top.index++]);
         } else {
@@ -2019,11 +2066,6 @@ bool VMRunner::stepNode(HardValue& retval) {
     assert(top.node->children.size() == 2);
     assert(top.index <= 2);
     if (top.index == 0) {
-      // Scope any declared variable
-      if (!this->variableScopeBegin(top, nullptr)) {
-        // TODO: while (var v = a) {}
-        return true;
-      }
       // Evaluate the condition
       assert(top.deque.empty());
       this->push(*top.node->children[top.index++]);
@@ -2183,11 +2225,6 @@ bool VMRunner::stepNode(HardValue& retval) {
     assert(top.node->children.size() == 4);
     assert(top.index <= 4);
     if (top.index == 0) {
-      // Scope any declared variable
-      if (!this->variableScopeBegin(top, nullptr)) {
-        // TODO: for (var v = a; ...) {}
-        return true;
-      }
       // Perform 'initial'
       assert(top.deque.empty());
       this->push(*top.node->children[top.index++]);
@@ -2236,11 +2273,6 @@ bool VMRunner::stepNode(HardValue& retval) {
     assert(top.node->children.size() > 1);
     if (top.index == 0) {
       if (top.deque.empty()) {
-        // Scope any declared variable
-        if (!this->variableScopeBegin(top, nullptr)) {
-          // TODO: switch (var v = a) {}
-          return true;
-        }
         // Evaluate the switch expression
         this->push(*top.node->children[0]);
         assert(top.index == 0);
@@ -2834,6 +2866,21 @@ bool VMRunner::stepNode(HardValue& retval) {
     } else {
       // Construct the object
       return this->pop(this->objectConstruct(top.deque));
+    }
+    break;
+  case IVMModule::Node::Kind::ExprGuard:
+    assert(top.node->children.size() == 1);
+    if (top.index == 0) {
+      // Evaluate the expression
+      this->push(*top.node->children[top.index++]);
+    } else {
+      // Check the last evaluation
+      assert(top.deque.size() == 1);
+      auto& expr = top.deque.front();
+      if (expr.hasFlowControl()) {
+        return this->pop(expr);
+      }
+      return this->pop(this->symbolGuard(top.node->literal, expr));
     }
     break;
   case IVMModule::Node::Kind::ExprNamed:
