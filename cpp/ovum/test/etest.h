@@ -137,7 +137,7 @@ namespace egg::test {
         return false;
       }
       if (!retval->getVoid()) {
-        this->logger.log(egg::ovum::ILogger::Source::Runtime, egg::ovum::ILogger::Severity::Information, this->allocator.concat(retval->getFlags(), ":", retval));
+        this->logger.log(egg::ovum::ILogger::Source::Runtime, egg::ovum::ILogger::Severity::Information, this->allocator.concat(retval->getPrimitiveFlag(), ":", retval));
       }
       return outcome == egg::ovum::IVMRunner::RunOutcome::Succeeded;
     }
@@ -159,25 +159,25 @@ namespace egg::test {
     ASSERT_STREQ(expected.toUTF8().c_str(), actual.toUTF8().c_str());
   }
   inline void assertValue(egg::ovum::ValueFlags expected, const egg::ovum::HardValue& value) {
-    ASSERT_EQ(expected, value->getFlags());
+    ASSERT_EQ(expected, value->getPrimitiveFlag());
   }
   inline void assertValue(std::nullptr_t, const egg::ovum::HardValue& value) {
-    ASSERT_EQ(egg::ovum::ValueFlags::Null, value->getFlags());
+    ASSERT_EQ(egg::ovum::ValueFlags::Null, value->getPrimitiveFlag());
   }
   inline void assertValue(bool expected, const egg::ovum::HardValue& value) {
-    ASSERT_EQ(egg::ovum::ValueFlags::Bool, value->getFlags());
+    ASSERT_EQ(egg::ovum::ValueFlags::Bool, value->getPrimitiveFlag());
     bool actual = false;;
     ASSERT_TRUE(value->getBool(actual));
     ASSERT_EQ(expected, actual);
   }
   inline void assertValue(int expected, const egg::ovum::HardValue& value) {
-    ASSERT_EQ(egg::ovum::ValueFlags::Int, value->getFlags());
+    ASSERT_EQ(egg::ovum::ValueFlags::Int, value->getPrimitiveFlag());
     egg::ovum::Int actual = ~0;
     ASSERT_TRUE(value->getInt(actual));
     ASSERT_EQ(expected, actual);
   }
   inline void assertValue(double expected, const egg::ovum::HardValue& value) {
-    ASSERT_EQ(egg::ovum::ValueFlags::Float, value->getFlags());
+    ASSERT_EQ(egg::ovum::ValueFlags::Float, value->getPrimitiveFlag());
     egg::ovum::Float actual = std::nan("");
     ASSERT_TRUE(value->getFloat(actual));
     if (std::isnan(expected)) {
@@ -188,9 +188,9 @@ namespace egg::test {
   }
   inline void assertValue(const char* expected, const egg::ovum::HardValue& value) {
     if (expected == nullptr) {
-      ASSERT_EQ(egg::ovum::ValueFlags::Null, value->getFlags());
+      ASSERT_EQ(egg::ovum::ValueFlags::Null, value->getPrimitiveFlag());
     } else {
-      ASSERT_EQ(egg::ovum::ValueFlags::String, value->getFlags());
+      ASSERT_EQ(egg::ovum::ValueFlags::String, value->getPrimitiveFlag());
       egg::ovum::String actual;
       ASSERT_TRUE(value->getString(actual));
       ASSERT_STREQ(expected, actual.toUTF8().c_str());

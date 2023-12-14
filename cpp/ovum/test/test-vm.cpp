@@ -93,7 +93,7 @@ namespace {
     HardValue retval;
     auto outcome = buildAndRun(vm, pbuilder, mbuilder, retval);
     ASSERT_EQ(egg::ovum::IVMRunner::RunOutcome::Failed, outcome);
-    ASSERT_EQ(expected, retval->getFlags());
+    ASSERT_EQ(expected, retval->getPrimitiveFlag());
   }
 }
 

@@ -479,7 +479,7 @@ void egg::ovum::Printer::describe(const IValue& value) {
   }
   Bool bvalue;
   EGG_WARNING_SUPPRESS_SWITCH_BEGIN
-  switch (value.getFlags()) {
+  switch (value.getPrimitiveFlag()) {
   case ValueFlags::None:
     this->stream << "nothing";
     return;
@@ -497,11 +497,11 @@ void egg::ovum::Printer::describe(const IValue& value) {
     break;
   }
   EGG_WARNING_SUPPRESS_SWITCH_END
-  if (value.getFlags() == ValueFlags::Type) {
+  if (value.getPrimitiveFlag() == ValueFlags::Type) {
     this->stream << "type ";
   } else {
     this->stream << "a value of type ";
   }
   Printer printer{ this->stream, quoted };
-  printer.describe(*value.getType());
+  printer.describe(*value.getRuntimeType());
 }

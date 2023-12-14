@@ -38,10 +38,14 @@ namespace {
     virtual bool getHardObject(HardObject&) const override {
       return false;
     }
+    virtual bool getHardType(Type&) const override {
+      return false;
+    }
     virtual bool getInner(HardValue&) const override {
       return false;
     }
-    virtual ValueFlags getFlags() const override {
+    virtual ValueFlags getPrimitiveFlag() const override {
+      static_assert(Bits::hasOneSet(FLAGS), "Exactly one primitive flag bit should be set");
       return FLAGS;
     }
     virtual void print(Printer& printer) const override {
@@ -71,7 +75,7 @@ namespace {
     ValueBreak& operator=(const ValueBreak&) = delete;
   public:
     ValueBreak() {}
-    virtual Type getType() const override {
+    virtual Type getRuntimeType() const override {
       return Type::None;
     }
   };
@@ -82,7 +86,7 @@ namespace {
     ValueContinue& operator=(const ValueContinue&) = delete;
   public:
     ValueContinue() {}
-    virtual Type getType() const override {
+    virtual Type getRuntimeType() const override {
       return Type::None;
     }
   };
@@ -93,7 +97,7 @@ namespace {
     ValueRethrow& operator=(const ValueRethrow&) = delete;
   public:
     ValueRethrow() {}
-    virtual Type getType() const override {
+    virtual Type getRuntimeType() const override {
       return Type::None;
     }
   };
@@ -107,7 +111,7 @@ namespace {
     virtual bool getVoid() const override {
       return true;
     }
-    virtual Type getType() const override {
+    virtual Type getRuntimeType() const override {
       return Type::Void;
     }
   };
@@ -121,7 +125,7 @@ namespace {
     virtual bool getNull() const override {
       return true;
     }
-    virtual Type getType() const override {
+    virtual Type getRuntimeType() const override {
       return Type::Null;
     }
   };
@@ -137,7 +141,7 @@ namespace {
       value = VALUE;
       return true;
     }
-    virtual Type getType() const override {
+    virtual Type getRuntimeType() const override {
       return Type::Bool;
     }
     virtual void print(Printer& printer) const override {
@@ -178,6 +182,9 @@ namespace {
     virtual bool getHardObject(HardObject&) const override {
       return false;
     }
+    virtual bool getHardType(Type&) const override {
+      return false;
+    }
     virtual bool getInner(HardValue&) const override {
       return false;
     }
@@ -202,10 +209,10 @@ namespace {
       : ValueMutable(allocator), value(value) {
       assert(this->validate());
     }
-    virtual Type getType() const override {
+    virtual Type getRuntimeType() const override {
       return Type::Int;
     }
-    virtual ValueFlags getFlags() const override {
+    virtual ValueFlags getPrimitiveFlag() const override {
       return ValueFlags::Int;
     }
     virtual bool getInt(Int& result) const override {
@@ -232,10 +239,10 @@ namespace {
         }
         return this->createRuntimeError("TODO: Invalid right-hand value for mutation assignment to integer");
       case ValueMutationOp::Decrement:
-        assert(rhs.getFlags() == ValueFlags::Void);
+        assert(rhs.getPrimitiveFlag() == ValueFlags::Void);
         return this->createBefore(this->value.add(-1));
       case ValueMutationOp::Increment:
-        assert(rhs.getFlags() == ValueFlags::Void);
+        assert(rhs.getPrimitiveFlag() == ValueFlags::Void);
         return this->createBefore(this->value.add(+1));
       case ValueMutationOp::Add:
         if (rhs.getInt(rvalue)) {
@@ -305,7 +312,7 @@ namespace {
       case ValueMutationOp::IfTrue:
         return this->createRuntimeError("TODO: Mutation operator '&&=' is unsupported for integers");
       case ValueMutationOp::Noop:
-        assert(rhs.getFlags() == ValueFlags::Void);
+        assert(rhs.getPrimitiveFlag() == ValueFlags::Void);
         return this->createBefore(this->value.get());
       }
       return this->createRuntimeError("TODO: Unknown integer mutation operation");
@@ -334,10 +341,10 @@ namespace {
       : ValueMutable(allocator), value(value) {
       assert(this->validate());
     }
-    virtual Type getType() const override {
+    virtual Type getRuntimeType() const override {
       return Type::Float;
     }
-    virtual ValueFlags getFlags() const override {
+    virtual ValueFlags getPrimitiveFlag() const override {
       return ValueFlags::Float;
     }
     virtual bool getFloat(Float& result) const override {
@@ -433,7 +440,7 @@ namespace {
       case ValueMutationOp::IfTrue:
         return this->createRuntimeError("TODO: Mutation operator '&&=' is unsupported for floats");
       case ValueMutationOp::Noop:
-        assert(rhs.getFlags() == ValueFlags::Void);
+        assert(rhs.getPrimitiveFlag() == ValueFlags::Void);
         return this->createBefore(this->value.get());
       }
       return this->createRuntimeError("TODO: Unknown float mutation operation");
@@ -464,10 +471,10 @@ namespace {
       : ValueMutable(allocator), value(value) {
       assert(this->validate());
     }
-    virtual Type getType() const override {
+    virtual Type getRuntimeType() const override {
       return Type::String;
     }
-    virtual ValueFlags getFlags() const override {
+    virtual ValueFlags getPrimitiveFlag() const override {
       return ValueFlags::String;
     }
     virtual bool getString(String& result) const override {
@@ -494,7 +501,7 @@ namespace {
         return this->createRuntimeError("TODO: Invalid right-hand value for mutation assignment to string");
       }
       if (op == ValueMutationOp::Noop) {
-        assert(rhs.getFlags() == ValueFlags::Void);
+        assert(rhs.getPrimitiveFlag() == ValueFlags::Void);
         return HardValue(*this);
       }
       return this->createRuntimeError("TODO: Mutation not supported for strings");
@@ -511,10 +518,10 @@ namespace {
       : ValueMutable(allocator), value(value) {
       assert(this->validate());
     }
-    virtual Type getType() const override {
+    virtual Type getRuntimeType() const override {
       return this->value->vmRuntimeType();
     }
-    virtual ValueFlags getFlags() const override {
+    virtual ValueFlags getPrimitiveFlag() const override {
       return ValueFlags::Object;
     }
     virtual bool getHardObject(HardObject& result) const override {
@@ -541,7 +548,7 @@ namespace {
         return this->createRuntimeError("TODO: Invalid right-hand value for mutation assignment to object");
       }
       if (op == ValueMutationOp::Noop) {
-        assert(rhs.getFlags() == ValueFlags::Void);
+        assert(rhs.getPrimitiveFlag() == ValueFlags::Void);
         return HardValue(*this);
       }
       return this->createRuntimeError("TODO: Mutation not supported for objects");
@@ -564,13 +571,11 @@ namespace {
     virtual void softVisit(ICollectable::IVisitor&) const override {
       // Our inner value is a hard reference as we only expect to exist for a short time
     }
-    virtual Type getType() const override {
-      // TODO: We should NOT really be asked for type information here
-      assert(false);
+    virtual Type getRuntimeType() const override {
       return Type::None;
     }
-    virtual ValueFlags getFlags() const override {
-      return this->flags | this->inner->getFlags();
+    virtual ValueFlags getPrimitiveFlag() const override {
+      return this->flags | this->inner->getPrimitiveFlag();
     }
     virtual bool getInner(HardValue& value) const override {
       value = this->inner;
@@ -609,10 +614,14 @@ namespace {
     virtual void softVisit(ICollectable::IVisitor& visitor) const override {
       this->type->softVisit(visitor);
     }
-    virtual Type getType() const override {
-      return this->type;
+    virtual bool getHardType(Type& value) const override {
+      value = this->type;
+      return true;
     }
-    virtual ValueFlags getFlags() const override {
+    virtual Type getRuntimeType() const override {
+      return Type::None;
+    }
+    virtual ValueFlags getPrimitiveFlag() const override {
       return ValueFlags::Type;
     }
     virtual bool validate() const override {
@@ -709,15 +718,22 @@ namespace {
       }
       return false;
     }
+    virtual bool getHardType(Type&) const override {
+      // We never store types
+      return false;
+    }
     virtual bool getInner(HardValue&) const override {
       // We never have inner values
       return false;
     }
-    virtual Type getType() const override {
-      // TODO
+    virtual Type getRuntimeType() const override {
       assert(this->validate());
       EGG_WARNING_SUPPRESS_SWITCH_BEGIN
       switch (this->flags) {
+      case ValueFlags::Void:
+        return Type::Void;
+      case ValueFlags::Null:
+        return Type::Null;
       case ValueFlags::Bool:
         return Type::Bool;
       case ValueFlags::Int:
@@ -733,7 +749,7 @@ namespace {
       EGG_WARNING_SUPPRESS_SWITCH_END
       return Type::None;
     }
-    virtual ValueFlags getFlags() const override {
+    virtual ValueFlags getPrimitiveFlag() const override {
       assert(this->validate());
       return this->flags;
     }
@@ -804,7 +820,7 @@ namespace {
       // TODO atomic
       assert(this->validate());
       EGG_WARNING_SUPPRESS_SWITCH_BEGIN
-      switch (value.getFlags()) {
+      switch (value.getPrimitiveFlag()) {
       case ValueFlags::Void:
         this->destroy();
         this->flags = ValueFlags::Void;
@@ -895,13 +911,13 @@ namespace {
         return this->createRuntimeError("TODO: Invalid right-hand value for mutation assignment");
       }
       case ValueMutationOp::Decrement:
-        assert(rhs.getFlags() == ValueFlags::Void);
+        assert(rhs.getPrimitiveFlag() == ValueFlags::Void);
         if (this->flags == ValueFlags::Int) {
           return this->createBeforeInt(this->ivalue.add(-1));
         }
         return this->createRuntimeError("TODO: Mutation decrement is only supported for values of type 'int'");
       case ValueMutationOp::Increment:
-        assert(rhs.getFlags() == ValueFlags::Void);
+        assert(rhs.getPrimitiveFlag() == ValueFlags::Void);
         if (this->flags == ValueFlags::Int) {
           return this->createBeforeInt(this->ivalue.add(+1));
         }
@@ -967,7 +983,7 @@ namespace {
       case ValueMutationOp::IfTrue:
         return this->createRuntimeError("TODO: Short-circuit mutations");
       case ValueMutationOp::Noop:
-        assert(rhs.getFlags() == ValueFlags::Void);
+        assert(rhs.getPrimitiveFlag() == ValueFlags::Void);
         return this->hardClone();
       }
       return this->createRuntimeError("TODO: Unknown mutation");
@@ -1203,7 +1219,7 @@ bool egg::ovum::HardValue::validate() const {
   if (p == nullptr) {
     return false;
   }
-  if (!validateFlags(p->getFlags())) {
+  if (!validateFlags(p->getPrimitiveFlag())) {
     return false;
   }
   return p->validate();
@@ -1222,20 +1238,20 @@ bool egg::ovum::SoftKey::validate() const {
   if (p == nullptr) {
     return false;
   }
-  if (!validateFlags(p->getFlags())) {
+  if (!validateFlags(p->getPrimitiveFlag())) {
     return false;
   }
   return p->validate();
 }
 
 int egg::ovum::SoftKey::compare(const IValue& lhs, const IValue& rhs) {
-  auto lflags = lhs.getFlags();
-  auto rflags = rhs.getFlags();
+  auto lflags = lhs.getPrimitiveFlag();
+  auto rflags = rhs.getPrimitiveFlag();
   if (lflags != rflags) {
     return compareInt(Int(lflags), Int(rflags));
   }
   EGG_WARNING_SUPPRESS_SWITCH_BEGIN
-  switch (lhs.getFlags()) {
+  switch (lflags) {
   case ValueFlags::Void:
   case ValueFlags::Null:
     // Must be equal
@@ -1297,7 +1313,7 @@ bool egg::ovum::SoftValue::validate() const {
   if (p == nullptr) {
     return false;
   }
-  if (!validateFlags(p->getFlags())) {
+  if (!validateFlags(p->getPrimitiveFlag())) {
     return false;
   }
   return p->validate();

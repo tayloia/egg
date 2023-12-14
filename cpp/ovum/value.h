@@ -9,9 +9,10 @@ namespace egg::ovum {
     virtual bool getFloat(Float& value) const = 0;
     virtual bool getString(String& value) const = 0;
     virtual bool getHardObject(HardObject& value) const = 0;
+    virtual bool getHardType(Type& value) const = 0;
     virtual bool getInner(HardValue& inner) const = 0;
-    virtual Type getType() const = 0;
-    virtual ValueFlags getFlags() const = 0;
+    virtual Type getRuntimeType() const = 0;
+    virtual ValueFlags getPrimitiveFlag() const = 0;
     virtual bool validate() const = 0;
     virtual void print(Printer& printer) const = 0;
     virtual bool set(const IValue& rhs) = 0;
@@ -63,7 +64,7 @@ namespace egg::ovum {
     bool validate() const;
     // Helpers
     bool hasAnyFlags(ValueFlags flags) const {
-      return Bits::hasAnySet(this->get().getFlags(), flags);
+      return Bits::hasAnySet(this->get().getPrimitiveFlag(), flags);
     }
     bool hasFlowControl() const {
       return this->hasAnyFlags(ValueFlags::FlowControl);

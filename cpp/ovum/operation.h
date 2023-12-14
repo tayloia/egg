@@ -144,7 +144,7 @@ namespace egg::ovum {
 
     static bool areEqual(const HardValue& lhs, const HardValue& rhs, bool promote, bool ieee) {
       EGG_WARNING_SUPPRESS_SWITCH_BEGIN
-      switch (lhs->getFlags()) {
+      switch (lhs->getPrimitiveFlag()) {
       case ValueFlags::Null:
         return rhs->getNull();
       case ValueFlags::Bool:

@@ -361,13 +361,13 @@ namespace {
     virtual bool assignValue(HardValue& lhs, const Type& ltype, const HardValue& rhs) override {
       // Assign with int-to-float promotion
       assert(ltype != nullptr);
-      auto rtype = rhs->getType();
+      auto rtype = rhs->getRuntimeType();
       assert(rtype != nullptr);
       if (ltype->isPrimitive()) {
         if (rtype->isPrimitive()) {
           // Assigning a primitive value
-          assert(rtype->getPrimitiveFlags() == rhs->getFlags());
-          return this->assign(lhs, ltype->getPrimitiveFlags(), rhs, rhs->getFlags());
+          assert(rtype->getPrimitiveFlags() == rhs->getPrimitiveFlag());
+          return this->assign(lhs, ltype->getPrimitiveFlags(), rhs, rhs->getPrimitiveFlag());
         }
         return this->assign(lhs, ltype->getPrimitiveFlags(), rhs, ValueFlags::Object);
       }
@@ -431,7 +431,7 @@ namespace {
     }
     HardValue augment(const HardValue& value) {
       // TODO what if the user program throws a raw string within an expression?
-      if (value->getFlags() == (ValueFlags::Throw | ValueFlags::String)) {
+      if (value->getPrimitiveFlag() == (ValueFlags::Throw | ValueFlags::String)) {
         HardValue inner;
         if (value->getInner(inner)) {
           String message;
@@ -716,7 +716,7 @@ namespace {
         case ValueMutationOp::IfNull:
           // a ??= b
           // If lhs is null, we need to evaluation the rhs
-          if (lhs->getFlags() == ValueFlags::Null) {
+          if (lhs->getPrimitiveFlag() == ValueFlags::Null) {
             // TODO: thread safety by setting lhs to some mutex
             return HardValue::Continue;
           }
@@ -724,7 +724,7 @@ namespace {
         case ValueMutationOp::IfFalse:
           // a ||= b
           // Iff lhs is false, we need to evaluation the rhs
-          if ((lhs->getFlags() != ValueFlags::Bool) || lhs->getBool(bvalue)) {
+          if (!lhs->getBool(bvalue)) {
             return this->raise("Expected left-hand target of '||=' to be a 'bool', but instead got ", describe(lhs));
           }
           if (!Bits::hasAnySet(rhs, ValueFlags::Bool)) {
@@ -739,7 +739,7 @@ namespace {
         case ValueMutationOp::IfTrue:
           // a &&= b
           // If lhs is NOT true, we need to evaluation the rhs
-          if ((lhs->getFlags() != ValueFlags::Bool) || lhs->getBool(bvalue)) {
+          if (!lhs->getBool(bvalue)) {
             return this->raise("Expected left-hand target of '&&=' to be a 'bool', but instead got ", describe(lhs));
           }
           if (!Bits::hasAnySet(rhs, ValueFlags::Bool)) {
@@ -765,7 +765,7 @@ namespace {
       case ValueMutationOp::Decrement:
       case ValueMutationOp::Increment:
       case ValueMutationOp::Noop:
-        assert(rhs->getFlags() == ValueFlags::Void);
+        assert(rhs->getPrimitiveFlag() == ValueFlags::Void);
         return lhs->mutate(op, rhs.get());
       case ValueMutationOp::IfNull:
       case ValueMutationOp::IfFalse:
@@ -1132,9 +1132,15 @@ namespace {
     virtual Type deduce(Node& node, Reporter* reporter) override {
       switch (node.kind) {
       case Node::Kind::ExprLiteral:
-        return node.literal->getType();
+        return node.literal->getRuntimeType();
       case Node::Kind::TypeLiteral:
-        return node.literal->getType();
+      {
+        Type type;
+        if (!node.literal->getHardType(type)) {
+          return this->deduceFail(reporter, node.range, "Invalid type literal module node");
+        }
+        return type;
+      }
       case Node::Kind::ExprPropertyGet:
         assert(node.literal->getVoid());
         assert(node.children.size() == 2);
@@ -1187,7 +1193,10 @@ namespace {
     Type deducePropertyGet(Node& instance, Node& property, Reporter* reporter, const SourceRange& range) {
       // TODO
       if (instance.kind == Node::Kind::TypeLiteral) {
-        auto type = instance.literal->getType();
+        Type type;
+        if (!instance.literal->getHardType(type)) {
+          return this->deduceFail(reporter, instance.range, "Invalid type literal");
+        }
         return this->deduceFail(reporter, range, "Type '", *type, "' does not support the property '", property.literal.get(), "'");
       }
       return Type::AnyQ;
@@ -1290,7 +1299,7 @@ namespace {
       printer << "[VMRunner]";
     }
     virtual void addBuiltin(const String& symbol, const HardValue& value) override {
-      this->symtable.builtin(symbol, value->getType(), value);
+      this->symtable.builtin(symbol, value->getRuntimeType(), value);
     }
     virtual RunOutcome run(HardValue& retval, RunFlags flags) override {
       if (flags == RunFlags::Step) {
@@ -1344,7 +1353,7 @@ namespace {
         auto ptype = parameter.getType();
         HardValue poly{ *this->vm.createSoftValue() };
         if (!this->execution.assignValue(poly, ptype, value)) {
-          return this->raiseRuntimeError("Type mismatch in argument '", pname, "': expected '", ptype, "' but instead got '", value->getType(), "'");
+          return this->raiseRuntimeError("Type mismatch in argument '", pname, "': expected '", ptype, "' but instead got ", describe(value));
         }
         auto* extant = this->symtable.add(VMSymbolTable::Kind::Variable, pname, ptype, poly);
         if (extant != nullptr) {
@@ -1383,7 +1392,7 @@ namespace {
       return this->pop(error);
     }
     bool raiseBadPropertyModification(const HardValue& instance, const HardValue& property) {
-      if (instance->getFlags() == ValueFlags::String) {
+      if (instance->getPrimitiveFlag() == ValueFlags::String) {
         String pname;
         if (property->getString(pname)) {
           return this->raise("Strings do not support modification of properties such as '", pname, "'");
@@ -1431,7 +1440,7 @@ namespace {
         this->pop(value);
         return false;
       }
-      if (value->getFlags() == ValueFlags::Void) {
+      if (value->getPrimitiveFlag() == ValueFlags::Void) {
         this->raise("Cannot set variable '", name, "' to an uninitialized value");
         return false;
       }
@@ -1449,7 +1458,7 @@ namespace {
         break;
       }
       if (!this->execution.assignValue(extant->value, extant->type, value)) {
-        this->raise("Type mismatch setting variable '", name, "': expected '", extant->type, "' but instead got '", value->getType(), "'");
+        this->raise("Type mismatch setting variable '", name, "': expected '", extant->type, "' but instead got ", describe(value));
         return false;
       }
       extant->kind = VMSymbolTable::Kind::Variable;
@@ -1704,8 +1713,10 @@ bool VMRunner::stepNode(HardValue& retval) {
       if (ftype.hasFlowControl()) {
         return this->pop(ftype);
       }
-      auto type = ftype->getType();
-      assert(type != nullptr);
+      Type type;
+      if (!ftype->getHardType(type) || (type == nullptr)) {
+        return this->raise("Invalid type literal module node for function definition");
+      }
       if (!this->variableScopeBegin(top, type)) {
         return true;
       }
@@ -1742,8 +1753,10 @@ bool VMRunner::stepNode(HardValue& retval) {
         if (vtype.hasFlowControl()) {
           return this->pop(vtype);
         }
-        auto type = vtype->getType();
-        assert(type != nullptr);
+        Type type;
+        if (!vtype->getHardType(type) || (type == nullptr)) {
+          return this->raise("Invalid type literal module node for variable declaration");
+        }
         if (!this->variableScopeBegin(top, type)) {
           return true;
         }
@@ -1767,8 +1780,10 @@ bool VMRunner::stepNode(HardValue& retval) {
       if (vtype.hasFlowControl()) {
         return this->pop(vtype);
       }
-      auto type = vtype->getType();
-      assert(type != nullptr);
+      Type type;
+      if (!vtype->getHardType(type) || (type == nullptr)) {
+        return this->raise("Invalid type literal module node for variable definition");
+      }
       if (!this->variableScopeBegin(top, type)) {
         return true;
       }
@@ -1832,7 +1847,7 @@ bool VMRunner::stepNode(HardValue& retval) {
         if (!result.hasFlowControl()) {
           // Short-circuit (discard result)
           return this->pop(HardValue::Void);
-        } else if (result->getFlags() == ValueFlags::Continue) {
+        } else if (result->getPrimitiveFlag() == ValueFlags::Continue) {
           // Continue with evaluation of rhs
           this->push(*top.node->children[top.index++]);
         } else {
@@ -2073,8 +2088,10 @@ bool VMRunner::stepNode(HardValue& retval) {
       if (vtype.hasFlowControl()) {
         return this->pop(vtype);
       }
-      auto type = vtype->getType();
-      assert(type != nullptr);
+      Type type;
+      if (!vtype->getHardType(type) || (type == nullptr)) {
+        return this->raise("Invalid type literal module node for 'for' each variable");
+      }
       if (!this->variableScopeBegin(top, type)) {
         return true;
       }
@@ -2224,7 +2241,7 @@ bool VMRunner::stepNode(HardValue& retval) {
       auto& latest = top.deque.back();
       IVMModule::Node* child;
       EGG_WARNING_SUPPRESS_SWITCH_BEGIN
-      switch (latest->getFlags()) {
+      switch (latest->getPrimitiveFlag()) {
       case ValueFlags::Break:
         // Matched; break out of the switch statement
         return this->pop(HardValue::Void);
@@ -2249,7 +2266,7 @@ bool VMRunner::stepNode(HardValue& retval) {
       auto& latest = top.deque.back();
       IVMModule::Node* child;
       EGG_WARNING_SUPPRESS_SWITCH_BEGIN
-      switch (latest->getFlags()) {
+      switch (latest->getPrimitiveFlag()) {
       case ValueFlags::Bool:
         // The switch expression does not match this case/default clause
         if (++top.index < top.node->children.size()) {
@@ -2336,7 +2353,7 @@ bool VMRunner::stepNode(HardValue& retval) {
       assert(top.deque.size() == 1);
       auto& latest = top.deque.back();
       EGG_WARNING_SUPPRESS_SWITCH_BEGIN
-      switch (latest->getFlags()) {
+      switch (latest->getPrimitiveFlag()) {
       case ValueFlags::Void:
         this->log(ILogger::Source::Runtime, ILogger::Severity::Warning, this->createString("Fell off the end of the case/default clause")); // TODO
         return this->pop(HardValue::Continue);
@@ -2398,7 +2415,7 @@ bool VMRunner::stepNode(HardValue& retval) {
       if (top.index == 1) {
         // Just executed the try block
         assert(top.deque.size() == 1);
-        if (exception->getFlags() == ValueFlags::Throw) {
+        if (exception->getPrimitiveFlag() == ValueFlags::Throw) {
           // Erroneous rethrow within try block
           return this->raise("Unexpected exception rethrow within 'try' block");
         }
@@ -2408,7 +2425,7 @@ bool VMRunner::stepNode(HardValue& retval) {
         assert(top.deque.size() == 2);
         auto* previous = top.node->children[top.index - 1];
         auto& latest = top.deque.back();
-        if (latest->getFlags() == ValueFlags::Throw) {
+        if (latest->getPrimitiveFlag() == ValueFlags::Throw) {
           // Rethrow the original exception
           if (previous->kind != IVMModule::Node::Kind::StmtCatch) {
             return this->raise("Unexpected exception rethrow within 'finally' block");
@@ -2424,7 +2441,7 @@ bool VMRunner::stepNode(HardValue& retval) {
           exception = HardValue::Void;
         } else {
           // We've completed a finally block
-          assert(latest->getFlags() == ValueFlags::Void);
+          assert(latest->getPrimitiveFlag() == ValueFlags::Void);
         }
         top.deque.pop_back();
       }
@@ -2455,12 +2472,14 @@ bool VMRunner::stepNode(HardValue& retval) {
       if (top.index == 1) {
         // Evaluate the initial value
         assert(top.deque.size() == 1);
-        auto& vtype = top.deque.front();
-        if (vtype.hasFlowControl()) {
-          return this->pop(vtype);
+        auto& ctype = top.deque.front();
+        if (ctype.hasFlowControl()) {
+          return this->pop(ctype);
         }
-        auto type = vtype->getType();
-        assert(type != nullptr);
+        Type type;
+        if (!ctype->getHardType(type) || (type == nullptr)) {
+          return this->raise("Invalid type literal module node for 'catch' clause");
+        }
         if (!this->variableScopeBegin(top, type)) {
           return true;
         }
@@ -2517,22 +2536,25 @@ bool VMRunner::stepNode(HardValue& retval) {
       assert(top.deque.size() >= 1);
       HardObject function;
       auto& head = top.deque.front();
-      if (head->getFlags() == ValueFlags::Type) {
+      if (head->getPrimitiveFlag() == ValueFlags::Type) {
         // Constructor calls
-        auto flags = head->getType()->getPrimitiveFlags();
-        if (flags == ValueFlags::String) {
-          // 'string(...)' just concatenates the value(s)
-          top.deque.pop_front();
-          StringBuilder sb;
-          for (auto& argument : top.deque) {
-            sb.add(argument);
+        Type type;
+        if (head->getHardType(type) && (type != nullptr)) {
+          auto flags = type->getPrimitiveFlags();
+          if (flags == ValueFlags::String) {
+            // 'string(...)' just concatenates the value(s)
+            top.deque.pop_front();
+            StringBuilder sb;
+            for (auto& argument : top.deque) {
+              sb.add(argument);
+            }
+            auto result = sb.build(this->getAllocator());
+            return this->pop(this->createHardValueString(result));
           }
-          auto result = sb.build(this->getAllocator());
-          return this->pop(this->createHardValueString(result));
-        }
-        if (flags == ValueFlags::Void) {
-          // 'void(...)' just discards the value(s)
-          return this->pop(HardValue::Void);
+          if (flags == ValueFlags::Void) {
+            // 'void(...)' just discards the value(s)
+            return this->pop(HardValue::Void);
+          }
         }
       }
       if (!head->getHardObject(function)) {
@@ -2545,7 +2567,7 @@ bool VMRunner::stepNode(HardValue& retval) {
         arguments.addUnnamed(argument);
       }
       auto result = function->vmCall(this->execution, arguments);
-      if (result->getFlags() == ValueFlags::Continue) {
+      if (result->getPrimitiveFlag() == ValueFlags::Continue) {
         // The invocation resulted in a tail call
         return true;
       }
@@ -2720,8 +2742,9 @@ bool VMRunner::stepNode(HardValue& retval) {
       if (lhs->getString(string)) {
         return this->pop(this->stringPropertyGet(string, rhs));
       }
-      if (lhs->getFlags() == ValueFlags::Type) {
-        return this->pop(this->typePropertyGet(lhs->getType(), rhs));
+      Type type;
+      if (lhs->getHardType(type)) {
+        return this->pop(this->typePropertyGet(type, rhs));
       }
       return this->raise("Expected left-hand side of property operator '.' to support properties, but instead got ", describe(lhs));
     }
@@ -2823,7 +2846,7 @@ bool VMRunner::stepBlock(HardValue& retval, size_t first) {
       retval = result;
       return false;
     }
-    if (result->getFlags() != ValueFlags::Void) {
+    if (result->getPrimitiveFlag() != ValueFlags::Void) {
       this->log(ILogger::Source::Runtime, ILogger::Severity::Warning, this->createString("Discarded value in statement")); // TODO
     }
     top.deque.pop_back();
