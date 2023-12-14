@@ -6,6 +6,15 @@
 
 namespace {
   class VMModule;
+
+  egg::ovum::Type getHardTypeOrNone(const egg::ovum::HardValue& value) {
+    egg::ovum::Type type;
+    if (value->getHardType(type)) {
+      return type;
+    }
+    assert(false);
+    return egg::ovum::Type::None;
+  }
 }
 
 class egg::ovum::IVMModule::Node : public HardReferenceCounted<IHardAcquireRelease> {
@@ -889,6 +898,91 @@ namespace {
     HardPtr<IObjectBuilder> createRuntimeErrorBuilder(const String& message);
   };
 
+  class VMTypeDeducer {
+    VMTypeDeducer(const VMTypeDeducer&) = delete;
+    VMTypeDeducer& operator=(const VMTypeDeducer&) = delete;
+  private:
+    using Reporter = IVMModuleBuilder::Reporter;
+    using Node = IVMModuleBuilder::Node;
+    IAllocator& allocator;
+    ITypeForge& forge;
+    Reporter* reporter;
+  public:
+    VMTypeDeducer(IAllocator& allocator, ITypeForge& forge, Reporter* reporter)
+      : allocator(allocator),
+        forge(forge),
+        reporter(reporter) {
+    }
+    Type deduce(Node& node) {
+      switch (node.kind) {
+      case Node::Kind::ExprLiteral:
+        return node.literal->getRuntimeType();
+      case Node::Kind::TypeLiteral:
+        return getHardTypeOrNone(node.literal);
+      case Node::Kind::ExprPropertyGet:
+        assert(node.literal->getVoid());
+        assert(node.children.size() == 2);
+        return this->deducePropertyGet(*node.children.front(), *node.children.back(), node.range);
+      case Node::Kind::ExprUnaryOp:
+      case Node::Kind::ExprBinaryOp:
+      case Node::Kind::ExprTernaryOp:
+      case Node::Kind::ExprPredicateOp:
+      case Node::Kind::ExprVariable:
+      case Node::Kind::ExprArray:
+      case Node::Kind::ExprObject:
+      case Node::Kind::ExprFunctionCall:
+      case Node::Kind::ExprIndexGet:
+      case Node::Kind::ExprNamed:
+        return Type::AnyQ; // TODO
+      case Node::Kind::Root:
+      case Node::Kind::TypeInfer:
+      case Node::Kind::StmtBlock:
+      case Node::Kind::StmtFunctionDefine:
+      case Node::Kind::StmtFunctionInvoke:
+      case Node::Kind::StmtVariableDeclare:
+      case Node::Kind::StmtVariableDefine:
+      case Node::Kind::StmtVariableSet:
+      case Node::Kind::StmtVariableMutate:
+      case Node::Kind::StmtPropertySet:
+      case Node::Kind::StmtPropertyMutate:
+      case Node::Kind::StmtIndexMutate:
+      case Node::Kind::StmtIf:
+      case Node::Kind::StmtWhile:
+      case Node::Kind::StmtDo:
+      case Node::Kind::StmtForEach:
+      case Node::Kind::StmtForLoop:
+      case Node::Kind::StmtSwitch:
+      case Node::Kind::StmtCase:
+      case Node::Kind::StmtBreak:
+      case Node::Kind::StmtContinue:
+      case Node::Kind::StmtThrow:
+      case Node::Kind::StmtTry:
+      case Node::Kind::StmtCatch:
+      case Node::Kind::StmtRethrow:
+      case Node::Kind::StmtReturn:
+        break;
+      }
+      return this->fail(node.range, "TODO: Cannot deduce type for unexpected module node kind");
+    }
+  private:
+    Type deducePropertyGet(Node& instance, Node& property, const SourceRange& range) {
+      // TODO
+      if (instance.kind == Node::Kind::TypeLiteral) {
+        auto type = getHardTypeOrNone(instance.literal);
+        return this->fail(range, "Type '", *type, "' does not support the property '", property.literal.get(), "'");
+      }
+      return Type::AnyQ;
+    }
+    template<typename... ARGS>
+    Type fail(const SourceRange& range, ARGS&&... args) {
+      if (this->reporter != nullptr) {
+        auto problem = StringBuilder::concat(this->allocator, std::forward<ARGS>(args)...);
+        this->reporter->report(range, problem);
+      }
+      return nullptr;
+    }
+  };
+
   class VMModuleBuilder : public VMUncollectable<IVMModuleBuilder> {
     VMModuleBuilder(const VMModuleBuilder&) = delete;
     VMModuleBuilder& operator=(const VMModuleBuilder&) = delete;
@@ -1130,84 +1224,11 @@ namespace {
       return this->vm.getTypeForge();
     }
     virtual Type deduce(Node& node, Reporter* reporter) override {
-      switch (node.kind) {
-      case Node::Kind::ExprLiteral:
-        return node.literal->getRuntimeType();
-      case Node::Kind::TypeLiteral:
-      {
-        Type type;
-        if (!node.literal->getHardType(type)) {
-          return this->deduceFail(reporter, node.range, "Invalid type literal module node");
-        }
-        return type;
-      }
-      case Node::Kind::ExprPropertyGet:
-        assert(node.literal->getVoid());
-        assert(node.children.size() == 2);
-        return this->deducePropertyGet(*node.children.front(), *node.children.back(), reporter, node.range);
-      case Node::Kind::ExprUnaryOp:
-      case Node::Kind::ExprBinaryOp:
-      case Node::Kind::ExprTernaryOp:
-      case Node::Kind::ExprPredicateOp:
-      case Node::Kind::ExprVariable:
-      case Node::Kind::ExprArray:
-      case Node::Kind::ExprObject:
-      case Node::Kind::ExprFunctionCall:
-      case Node::Kind::ExprIndexGet:
-      case Node::Kind::ExprNamed:
-        return Type::AnyQ; // TODO
-      case Node::Kind::Root:
-      case Node::Kind::TypeInfer:
-      case Node::Kind::StmtBlock:
-      case Node::Kind::StmtFunctionDefine:
-      case Node::Kind::StmtFunctionInvoke:
-      case Node::Kind::StmtVariableDeclare:
-      case Node::Kind::StmtVariableDefine:
-      case Node::Kind::StmtVariableSet:
-      case Node::Kind::StmtVariableMutate:
-      case Node::Kind::StmtPropertySet:
-      case Node::Kind::StmtPropertyMutate:
-      case Node::Kind::StmtIndexMutate:
-      case Node::Kind::StmtIf:
-      case Node::Kind::StmtWhile:
-      case Node::Kind::StmtDo:
-      case Node::Kind::StmtForEach:
-      case Node::Kind::StmtForLoop:
-      case Node::Kind::StmtSwitch:
-      case Node::Kind::StmtCase:
-      case Node::Kind::StmtBreak:
-      case Node::Kind::StmtContinue:
-      case Node::Kind::StmtThrow:
-      case Node::Kind::StmtTry:
-      case Node::Kind::StmtCatch:
-      case Node::Kind::StmtRethrow:
-      case Node::Kind::StmtReturn:
-        break;
-      }
-      return this->deduceFail(reporter, node.range, "TODO: Cannot deduce type for unexpected module node kind");
+      VMTypeDeducer deducer{ this->getAllocator(), this->getTypeForge(), reporter };
+      return deducer.deduce(node);
     }
     virtual void appendChild(Node& parent, Node& child) override {
       parent.addChild(child);
-    }
-  private:
-    Type deducePropertyGet(Node& instance, Node& property, Reporter* reporter, const SourceRange& range) {
-      // TODO
-      if (instance.kind == Node::Kind::TypeLiteral) {
-        Type type;
-        if (!instance.literal->getHardType(type)) {
-          return this->deduceFail(reporter, instance.range, "Invalid type literal");
-        }
-        return this->deduceFail(reporter, range, "Type '", *type, "' does not support the property '", property.literal.get(), "'");
-      }
-      return Type::AnyQ;
-    }
-    template<typename... ARGS>
-    Type deduceFail(Reporter* reporter, const SourceRange& range, ARGS&&... args) {
-      if (reporter != nullptr) {
-        auto problem = StringBuilder::concat(this->getAllocator(), std::forward<ARGS>(args)...);
-        reporter->report(range, problem);
-      }
-      return nullptr;
     }
   };
 
