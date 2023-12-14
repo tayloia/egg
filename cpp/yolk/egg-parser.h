@@ -20,7 +20,6 @@ namespace egg::yolk {
         StmtDeclareVariable,
         StmtDefineVariable,
         StmtDefineFunction,
-        StmtCall,
         StmtForEach,
         StmtForLoop,
         StmtIf,

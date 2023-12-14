@@ -29,8 +29,8 @@
 #define STMT_CASE(block, ...) mbuilder->glue(mbuilder->stmtCase(block, {}) COMMA(__VA_ARGS__))
 #define STMT_BREAK() mbuilder->stmtBreak({})
 #define STMT_CONTINUE() mbuilder->stmtContinue({})
-#define STMT_CALL(func, ...) mbuilder->glue(mbuilder->stmtFunctionCall(func, {}) COMMA(__VA_ARGS__))
-#define STMT_PRINT(...) mbuilder->glue(mbuilder->stmtFunctionCall(EXPR_VAR("print"), {}) COMMA(__VA_ARGS__))
+#define STMT_CALL(func, ...) mbuilder->glue(mbuilder->exprFunctionCall(func, {}) COMMA(__VA_ARGS__))
+#define STMT_PRINT(...) mbuilder->glue(mbuilder->exprFunctionCall(EXPR_VAR("print"), {}) COMMA(__VA_ARGS__))
 #define STMT_PROP_SET(instance, property, value) mbuilder->stmtPropertySet(instance, property, value, {})
 #define STMT_VAR_DECLARE(symbol, type, ...) mbuilder->glue(mbuilder->stmtVariableDeclare(mbuilder->createString(symbol), type, {}) COMMA(__VA_ARGS__))
 #define STMT_VAR_DEFINE(symbol, type, init, ...) mbuilder->glue(mbuilder->stmtVariableDefine(mbuilder->createString(symbol), type, init, {}) COMMA(__VA_ARGS__))
@@ -56,7 +56,7 @@ namespace {
     // print("hello world);
     STMT_ROOT(
       mbuilder->glue(
-        mbuilder->stmtFunctionCall(mbuilder->exprVariable(mbuilder->createString("print"), {}), {}),
+        mbuilder->exprFunctionCall(mbuilder->exprVariable(mbuilder->createString("print"), {}), {}),
         mbuilder->exprLiteral(mbuilder->createHardValue("hello world"), {})
       )
     );

@@ -149,6 +149,11 @@ namespace egg::ovum {
 
   class IVMModuleBuilder : public IVMUncollectable {
   public:
+    class Reporter {
+    public:
+      virtual ~Reporter() {}
+      virtual void report(const SourceRange& range, const String& problem) = 0;
+    };
     using Node = IVMModule::Node;
     virtual Node& getRoot() = 0;
     virtual HardPtr<IVMModule> build() = 0;
@@ -161,7 +166,6 @@ namespace egg::ovum {
     virtual Node& exprLiteral(const HardValue& literal, const SourceRange& range) = 0;
     virtual Node& exprPropertyGet(Node& instance, Node& property, const SourceRange& range) = 0;
     virtual Node& exprFunctionCall(Node& function, const SourceRange& range) = 0;
-    virtual Node& exprStringCall(const SourceRange& range) = 0;
     virtual Node& exprIndexGet(Node& instance, Node& index, const SourceRange& range) = 0;
     virtual Node& exprArray(const SourceRange& range) = 0;
     virtual Node& exprObject(const SourceRange& range) = 0;
@@ -180,7 +184,6 @@ namespace egg::ovum {
     virtual Node& stmtBreak(const SourceRange& range) = 0;
     virtual Node& stmtContinue(const SourceRange& range) = 0;
     virtual Node& stmtFunctionDefine(const String& symbol, Node& type, const SourceRange& range) = 0;
-    virtual Node& stmtFunctionCall(Node& function, const SourceRange& range) = 0;
     virtual Node& stmtFunctionInvoke(const SourceRange& range) = 0;
     virtual Node& stmtVariableDeclare(const String& symbol, Node& type, const SourceRange& range) = 0;
     virtual Node& stmtVariableDefine(const String& symbol, Node& type, Node& value, const SourceRange& range) = 0;
@@ -196,7 +199,7 @@ namespace egg::ovum {
     virtual Node& stmtReturn(const SourceRange& range) = 0;
     // Type operations
     virtual ITypeForge& getTypeForge() const = 0;
-    virtual Type deduceType(Node& node) = 0;
+    virtual Type deduce(Node& node, Reporter* reporter) = 0;
     // Modifiers
     virtual void appendChild(Node& parent, Node& child) = 0;
     // Helpers

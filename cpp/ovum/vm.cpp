@@ -23,7 +23,6 @@ public:
     ExprVariable,
     ExprLiteral,
     ExprPropertyGet,
-    ExprStringCall,
     ExprFunctionCall,
     ExprIndexGet,
     ExprArray,
@@ -33,7 +32,6 @@ public:
     TypeLiteral,
     StmtBlock,
     StmtFunctionDefine,
-    StmtFunctionCall,
     StmtFunctionInvoke,
     StmtVariableDeclare,
     StmtVariableDefine,
@@ -947,10 +945,6 @@ namespace {
       node.literal = this->createHardValueString(symbol);
       return node;
     }
-    virtual Node& exprStringCall(const SourceRange& range) override {
-      auto& node = this->module->createNode(Node::Kind::ExprStringCall, range);
-      return node;
-    }
     virtual Node& exprIndexGet(Node& instance, Node& index, const SourceRange& range) override {
       auto& node = this->module->createNode(Node::Kind::ExprIndexGet, range);
       node.addChild(instance);
@@ -969,10 +963,6 @@ namespace {
       return node;
     }
     virtual Node& exprFunctionCall(Node& function, const SourceRange& range) override {
-      if (function.kind == Node::Kind::ExprStringCall) {
-        // Hoist the call
-        return function;
-      }
       auto& node = this->module->createNode(Node::Kind::ExprFunctionCall, range);
       node.addChild(function);
       return node;
@@ -1059,11 +1049,6 @@ namespace {
       node.addChild(type);
       return node;
     }
-    virtual Node& stmtFunctionCall(Node& function, const SourceRange& range) override {
-      auto& node = this->module->createNode(Node::Kind::StmtFunctionCall, range);
-      node.addChild(function);
-      return node;
-    }
     virtual Node& stmtFunctionInvoke(const SourceRange& range) override {
       auto& node = this->module->createNode(Node::Kind::StmtFunctionInvoke, range);
       return node;
@@ -1144,14 +1129,16 @@ namespace {
     virtual ITypeForge& getTypeForge() const override {
       return this->vm.getTypeForge();
     }
-    virtual Type deduceType(Node& node) override {
+    virtual Type deduce(Node& node, Reporter* reporter) override {
       switch (node.kind) {
       case Node::Kind::ExprLiteral:
         return node.literal->getType();
       case Node::Kind::TypeLiteral:
         return node.literal->getType();
-      case Node::Kind::ExprStringCall:
-        return Type::String;
+      case Node::Kind::ExprPropertyGet:
+        assert(node.literal->getVoid());
+        assert(node.children.size() == 2);
+        return this->deducePropertyGet(*node.children.front(), *node.children.back(), reporter, node.range);
       case Node::Kind::ExprUnaryOp:
       case Node::Kind::ExprBinaryOp:
       case Node::Kind::ExprTernaryOp:
@@ -1159,7 +1146,6 @@ namespace {
       case Node::Kind::ExprVariable:
       case Node::Kind::ExprArray:
       case Node::Kind::ExprObject:
-      case Node::Kind::ExprPropertyGet:
       case Node::Kind::ExprFunctionCall:
       case Node::Kind::ExprIndexGet:
       case Node::Kind::ExprNamed:
@@ -1168,7 +1154,6 @@ namespace {
       case Node::Kind::TypeInfer:
       case Node::Kind::StmtBlock:
       case Node::Kind::StmtFunctionDefine:
-      case Node::Kind::StmtFunctionCall:
       case Node::Kind::StmtFunctionInvoke:
       case Node::Kind::StmtVariableDeclare:
       case Node::Kind::StmtVariableDefine:
@@ -1193,11 +1178,27 @@ namespace {
       case Node::Kind::StmtReturn:
         break;
       }
-      assert(false);
-      return Type::None;
+      return this->deduceFail(reporter, node.range, "TODO: Cannot deduce type for unexpected module node kind");
     }
     virtual void appendChild(Node& parent, Node& child) override {
       parent.addChild(child);
+    }
+  private:
+    Type deducePropertyGet(Node& instance, Node& property, Reporter* reporter, const SourceRange& range) {
+      // TODO
+      if (instance.kind == Node::Kind::TypeLiteral) {
+        auto type = instance.literal->getType();
+        return this->deduceFail(reporter, range, "Type '", *type, "' does not support the property '", property.literal.get(), "'");
+      }
+      return Type::AnyQ;
+    }
+    template<typename... ARGS>
+    Type deduceFail(Reporter* reporter, const SourceRange& range, ARGS&&... args) {
+      if (reporter != nullptr) {
+        auto problem = StringBuilder::concat(this->getAllocator(), std::forward<ARGS>(args)...);
+        reporter->report(range, problem);
+      }
+      return nullptr;
     }
   };
 
@@ -1328,7 +1329,7 @@ namespace {
     HardValue initiateTailCall(const IFunctionSignature& signature, const ICallArguments& arguments, const IVMModule::Node& invoke) {
       // We need to set the argument symbols and initiate the execution of the block
       assert(!this->stack.empty());
-      assert((this->stack.top().node->kind == IVMModule::Node::Kind::ExprFunctionCall) || (this->stack.top().node->kind == IVMModule::Node::Kind::StmtFunctionCall));
+      assert(this->stack.top().node->kind == IVMModule::Node::Kind::ExprFunctionCall);
       assert(this->stack.top().scope.empty());
       this->stack.pop();
       this->symtable.push();
@@ -1514,7 +1515,7 @@ namespace {
     HardValue stringPropertyGet(const String& string, const HardValue& property) {
       String name;
       if (!property->getString(name)) {
-        return this->raiseRuntimeError("Expected right-hand side of string operator '.', but instead got ", describe(property));
+        return this->raiseRuntimeError("Expected right-hand side of string operator '.' to be a 'string', but instead got ", describe(property));
       }
       if (name.equals("length")) {
         return this->createHardValueInt(Int(string.length()));
@@ -1541,6 +1542,15 @@ namespace {
         return this->raiseRuntimeError("Unknown string property name: '", name, "'");
       }
       return this->createHardValueObject(found->second(this->vm, string));
+    }
+    HardValue typePropertyGet(const Type& type, const HardValue& property) {
+      // TODO
+      assert(type != nullptr);
+      String name;
+      if (!property->getString(name)) {
+        return this->raiseRuntimeError("Expected right-hand side of type operator '.', but instead got ", describe(property));
+      }
+      return this->raiseRuntimeError("Type '", *type, "' does not support the property '", name, "'");
     }
   };
 
@@ -2489,7 +2499,6 @@ bool VMRunner::stepNode(HardValue& retval) {
       return this->pop(ValueFactory::createHardReturn(this->getAllocator(), top.deque.back()));
     }
     break;
-  case IVMModule::Node::Kind::StmtFunctionCall:
   case IVMModule::Node::Kind::ExprFunctionCall:
     assert(top.node->literal->getVoid());
     assert(top.index <= top.node->children.size());
@@ -2507,8 +2516,27 @@ bool VMRunner::stepNode(HardValue& retval) {
       // Perform the function call
       assert(top.deque.size() >= 1);
       HardObject function;
-      if (!top.deque.front()->getHardObject(function)) {
-        return this->raise("Invalid initial program node value for function call");
+      auto& head = top.deque.front();
+      if (head->getFlags() == ValueFlags::Type) {
+        // Constructor calls
+        auto flags = head->getType()->getPrimitiveFlags();
+        if (flags == ValueFlags::String) {
+          // 'string(...)' just concatenates the value(s)
+          top.deque.pop_front();
+          StringBuilder sb;
+          for (auto& argument : top.deque) {
+            sb.add(argument);
+          }
+          auto result = sb.build(this->getAllocator());
+          return this->pop(this->createHardValueString(result));
+        }
+        if (flags == ValueFlags::Void) {
+          // 'void(...)' just discards the value(s)
+          return this->pop(HardValue::Void);
+        }
+      }
+      if (!head->getHardObject(function)) {
+        return this->raise("Function calls are not supported by ", describe(head));
       }
       top.deque.pop_front();
       CallArguments arguments;
@@ -2692,30 +2720,10 @@ bool VMRunner::stepNode(HardValue& retval) {
       if (lhs->getString(string)) {
         return this->pop(this->stringPropertyGet(string, rhs));
       }
-      return this->raise("Expected left-hand side of property operator '.' to be a 'string', but instead got ", describe(lhs));
-    }
-    break;
-  case IVMModule::Node::Kind::ExprStringCall:
-    assert(top.node->literal->getVoid());
-    assert(top.index <= top.node->children.size());
-    if (!top.deque.empty()) {
-      // Check the last evaluation
-      auto& latest = top.deque.back();
-      if (latest.hasFlowControl()) {
-        return this->pop(latest);
+      if (lhs->getFlags() == ValueFlags::Type) {
+        return this->pop(this->typePropertyGet(lhs->getType(), rhs));
       }
-    }
-    if (top.index < top.node->children.size()) {
-      // Assemble the arguments
-      this->push(*top.node->children[top.index++]);
-    } else {
-      // Perform the concatenation
-      StringBuilder sb;
-      for (auto& argument : top.deque) {
-        sb.add(argument);
-      }
-      auto result = sb.build(this->getAllocator());
-      return this->pop(this->createHardValueString(result));
+      return this->raise("Expected left-hand side of property operator '.' to support properties, but instead got ", describe(lhs));
     }
     break;
   case IVMModule::Node::Kind::ExprIndexGet:

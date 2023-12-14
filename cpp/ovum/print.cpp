@@ -497,7 +497,11 @@ void egg::ovum::Printer::describe(const IValue& value) {
     break;
   }
   EGG_WARNING_SUPPRESS_SWITCH_END
-  stream << "a value of type ";
+  if (value.getFlags() == ValueFlags::Type) {
+    this->stream << "type ";
+  } else {
+    this->stream << "a value of type ";
+  }
   Printer printer{ this->stream, quoted };
   printer.describe(*value.getType());
 }

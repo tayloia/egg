@@ -17,7 +17,7 @@ namespace {
   using ParserNode = egg::yolk::IEggParser::Node;
   using ParserNodes = std::vector<std::unique_ptr<ParserNode>>;
 
-  class ModuleCompiler final {
+  class ModuleCompiler final : public egg::ovum::IVMModuleBuilder::Reporter {
     ModuleCompiler(const ModuleCompiler&) = delete;
     ModuleCompiler& operator=(const ModuleCompiler&) = delete;
   private:
@@ -54,6 +54,10 @@ namespace {
         return context;
       }
     };
+    virtual void report(const egg::ovum::SourceRange& range, const egg::ovum::String& problem) override {
+      auto message = this->concat(this->resource, range, ": ", problem);
+      this->log(egg::ovum::ILogger::Source::Compiler, egg::ovum::ILogger::Severity::Error, message);
+    }
     ModuleNode* compileStmt(ParserNode& pnode, const StmtContext& context);
     ModuleNode* compileStmtVoid(ParserNode& pnode);
     ModuleNode* compileStmtBlock(ParserNode& pnodes, const StmtContext& context);
@@ -65,8 +69,6 @@ namespace {
     ModuleNode* compileStmtDefineFunction(ParserNode& pnode);
     ModuleNode* compileStmtDefineFunctionScope(ParserNode& pnode);
     ModuleNode* compileStmtMutate(ParserNode& pnode);
-    ModuleNode* compileStmtAssert(ParserNode& function, ParserNode& predicate);
-    ModuleNode* compileStmtCall(ParserNode& pnode);
     ModuleNode* compileStmtForEach(ParserNode& pnode, const StmtContext& context);
     ModuleNode* compileStmtForLoop(ParserNode& pnode, const StmtContext& context);
     ModuleNode* compileStmtIf(ParserNode& pnode, const StmtContext& context);
@@ -80,6 +82,7 @@ namespace {
     ModuleNode* compileValueExprTernary(ParserNode& op, ParserNode& lhs, ParserNode& mid, ParserNode& rhs);
     ModuleNode* compileValueExprPredicate(ParserNode& pnode);
     ModuleNode* compileValueExprCall(ParserNodes& pnodes);
+    ModuleNode* compileValueExprCallAssert(ParserNode& function, ParserNode& predicate);
     ModuleNode* compileValueExprIndex(ParserNode& bracket, ParserNode& lhs, ParserNode& rhs);
     ModuleNode* compileValueExprProperty(ParserNode& dot, ParserNode& lhs, ParserNode& rhs);
     ModuleNode* compileValueExprArray(ParserNode& pnode);
@@ -90,14 +93,16 @@ namespace {
     ModuleNode* compileTypeInfer(ParserNode& pnode, ParserNode& ptype, ParserNode& pexpr, ModuleNode*& mexpr);
     ModuleNode* compileTypeFunctionSignature(ParserNode& pnode);
     ModuleNode* compileLiteral(ParserNode& pnode);
+    ModuleNode* checkCompilation(ModuleNode& mnode);
     bool checkValueExprOperand(const char* expected, ModuleNode& mnode, ParserNode& pnode, egg::ovum::ValueFlags required);
     bool checkValueExprOperand2(const char* expected, ModuleNode& lhs, ModuleNode& rhs, ParserNode& pnode, egg::ovum::ValueFlags required);
     bool checkValueExprUnary(egg::ovum::ValueUnaryOp op, ModuleNode& rhs, ParserNode& pnode);
     bool checkValueExprBinary(egg::ovum::ValueBinaryOp op, ModuleNode& lhs, ModuleNode& rhs, ParserNode& pnode);
     bool checkValueExprTernary(egg::ovum::ValueTernaryOp op, ModuleNode& lhs, ModuleNode& mid, ModuleNode& rhs, ParserNode& pnode);
+    egg::ovum::Type literalType(ParserNode& pnode);
     egg::ovum::Type forgeType(ParserNode& pnode);
     egg::ovum::Type deduceType(ModuleNode& mnode) {
-      return this->mbuilder.deduceType(mnode);
+      return this->mbuilder.deduce(mnode, this);
     }
     bool deduceIterationType(egg::ovum::Type& type) {
       auto itype = this->vm.getTypeForge().forgeIterationType(type);
@@ -134,6 +139,17 @@ namespace {
       return this->error(pnode, "Expected ", expected, ", but instead got ", ModuleCompiler::toString(pnode));
     }
     static std::string toString(const ParserNode& pnode);
+  };
+
+  class ModuleCompilerReporter final : public ModuleCompiler::Reporter {
+    ModuleCompilerReporter(const ModuleCompilerReporter&) = delete;
+    ModuleCompilerReporter& operator=(const ModuleCompilerReporter&) = delete;
+  private:
+    ModuleCompiler& compiler;
+  public:
+    explicit ModuleCompilerReporter(ModuleCompiler& compiler)
+      : compiler(compiler) {
+    }
   };
 
   class EggCompiler : public IEggCompiler {
@@ -236,9 +252,6 @@ ModuleNode* ModuleCompiler::compileStmt(ParserNode& pnode, const StmtContext& co
   case ParserNode::Kind::StmtDefineFunction:
     EXPECT(pnode, pnode.children.size() == 2);
     return this->compileStmtDefineFunctionScope(pnode);
-  case ParserNode::Kind::StmtCall:
-    EXPECT(pnode, pnode.children.size() == 1);
-    return this->compileStmtCall(*pnode.children.front());
   case ParserNode::Kind::StmtForEach:
     EXPECT(pnode, pnode.children.size() == 3);
     return this->compileStmtForEach(pnode, inner);
@@ -256,6 +269,9 @@ ModuleNode* ModuleCompiler::compileStmt(ParserNode& pnode, const StmtContext& co
     return this->compileStmtTry(pnode, inner);
   case ParserNode::Kind::StmtMutate:
     return this->compileStmtMutate(pnode);
+  case ParserNode::Kind::ExprCall:
+    EXPECT(pnode, !pnode.children.empty());
+    return this->compileValueExprCall(pnode.children);
   case ParserNode::Kind::ModuleRoot:
   case ParserNode::Kind::StmtCatch:
   case ParserNode::Kind::StmtFinally:
@@ -263,7 +279,6 @@ ModuleNode* ModuleCompiler::compileStmt(ParserNode& pnode, const StmtContext& co
   case ParserNode::Kind::ExprUnary:
   case ParserNode::Kind::ExprBinary:
   case ParserNode::Kind::ExprTernary:
-  case ParserNode::Kind::ExprCall:
   case ParserNode::Kind::ExprIndex:
   case ParserNode::Kind::ExprProperty:
   case ParserNode::Kind::ExprArray:
@@ -447,52 +462,6 @@ ModuleNode* ModuleCompiler::compileStmtMutate(ParserNode& pnode) {
     return &this->mbuilder.stmtIndexMutate(*instance, *property, pnode.op.valueMutationOp, *rhs, pnode.range);
   }
   return this->expected(plhs, "variable in mutation statement");
-}
-
-ModuleNode* ModuleCompiler::compileStmtAssert(ParserNode& function, ParserNode& predicate) {
-  // Specialization for 'assert(predicate)'
-  auto* expr = this->compileValueExpr(function);
-  if (expr == nullptr) {
-    return nullptr;
-  }
-  auto& stmt = this->mbuilder.stmtFunctionCall(*expr, function.range);
-  expr = this->compileValueExprPredicate(predicate);
-  if (expr == nullptr) {
-    return nullptr;
-  }
-  this->mbuilder.appendChild(stmt, *expr);
-  return &stmt;
-}
-
-ModuleNode* ModuleCompiler::compileStmtCall(ParserNode& pnode) {
-  assert(pnode.kind == ParserNode::Kind::ExprCall);
-  if (pnode.children.size() == 2) {
-    // Possible special case for 'assert(predicate)'
-    // TODO: Replace with predicate argument hint
-    auto& function = *pnode.children.front();
-    if (function.kind == ParserNode::Kind::ExprVariable)  {
-      egg::ovum::String symbol;
-      if (function.value->getString(symbol) && symbol.equals("assert")) {
-        auto& predicate = *pnode.children.back();
-        return this->compileStmtAssert(function, predicate);
-      }
-    }
-  }
-  ModuleNode* stmt = nullptr;
-  auto pchild = pnode.children.begin();
-  auto* expr = this->compileValueExpr(**pchild);
-  if (expr != nullptr) {
-    stmt = &this->mbuilder.stmtFunctionCall(*expr, pnode.range);
-  }
-  while (++pchild != pnode.children.end()) {
-    expr = this->compileValueExpr(**pchild);
-    if (expr == nullptr) {
-      stmt = nullptr;
-    } else if (stmt != nullptr) {
-      this->mbuilder.appendChild(*stmt, *expr);
-    }
-  }
-  return stmt;
 }
 
 ModuleNode* ModuleCompiler::compileStmtForEach(ParserNode& pnode, const StmtContext& context) {
@@ -725,17 +694,14 @@ ModuleNode* ModuleCompiler::compileValueExpr(ParserNode& pnode) {
     return this->compileValueExprObject(pnode);
   case ParserNode::Kind::Literal:
     return this->compileLiteral(pnode);
-  case ParserNode::Kind::TypeString:
-    EXPECT(pnode, pnode.children.size() == 0);
-    return &this->mbuilder.exprStringCall(pnode.range);
+  case ParserNode::Kind::ModuleRoot:
   case ParserNode::Kind::TypeVoid:
   case ParserNode::Kind::TypeBool:
   case ParserNode::Kind::TypeInt:
   case ParserNode::Kind::TypeFloat:
+  case ParserNode::Kind::TypeString:
   case ParserNode::Kind::TypeObject:
   case ParserNode::Kind::TypeAny:
-    // TODO constructors above
-  case ParserNode::Kind::ModuleRoot:
   case ParserNode::Kind::TypeInfer:
   case ParserNode::Kind::TypeInferQ:
   case ParserNode::Kind::TypeUnary:
@@ -743,7 +709,6 @@ ModuleNode* ModuleCompiler::compileValueExpr(ParserNode& pnode) {
   case ParserNode::Kind::TypeFunctionSignature:
   case ParserNode::Kind::TypeFunctionSignatureParameter:
   case ParserNode::Kind::StmtBlock:
-  case ParserNode::Kind::StmtCall:
   case ParserNode::Kind::StmtDeclareVariable:
   case ParserNode::Kind::StmtDefineVariable:
   case ParserNode::Kind::StmtDefineFunction:
@@ -893,15 +858,29 @@ ModuleNode* ModuleCompiler::compileValueExprPredicate(ParserNode& pnode) {
 }
 
 ModuleNode* ModuleCompiler::compileValueExprCall(ParserNodes& pnodes) {
-  ModuleNode* call = nullptr;
   auto pnode = pnodes.begin();
   assert(pnode != pnodes.end());
-  auto* expr = this->compileValueExpr(**pnode);
-  if (expr != nullptr) {
-    call = &this->mbuilder.exprFunctionCall(*expr, (*pnode)->range);
+  if (pnodes.size() == 2) {
+    // Possible special case for 'assert(predicate)'
+    // TODO: Replace with predicate argument hint
+    egg::ovum::String symbol;
+    if ((*pnode)->value->getString(symbol) && symbol.equals("assert")) {
+      auto& predicate = *pnodes.back();
+      return this->compileValueExprCallAssert(**pnode, predicate);
+    }
+  }
+  ModuleNode* call = nullptr;
+  auto type = this->literalType(**pnode);
+  if (type != nullptr) {
+    call = &this->mbuilder.typeLiteral(type, (*pnode)->range);
+  } else {
+    call = this->compileValueExpr(**pnode);
+  }
+  if (call != nullptr) {
+    call = &this->mbuilder.exprFunctionCall(*call, (*pnode)->range);
   }
   while (++pnode != pnodes.end()) {
-    expr = this->compileValueExpr(**pnode);
+    auto* expr = this->compileValueExpr(**pnode);
     if (expr == nullptr) {
       call = nullptr;
     } else if (call != nullptr) {
@@ -909,6 +888,21 @@ ModuleNode* ModuleCompiler::compileValueExprCall(ParserNodes& pnodes) {
     }
   }
   return call;
+}
+
+ModuleNode* ModuleCompiler::compileValueExprCallAssert(ParserNode& function, ParserNode& predicate) {
+  // Specialization for 'assert(predicate)'
+  auto* expr = this->compileValueExpr(function);
+  if (expr == nullptr) {
+    return nullptr;
+  }
+  auto& stmt = this->mbuilder.exprFunctionCall(*expr, function.range);
+  expr = this->compileValueExprPredicate(predicate);
+  if (expr == nullptr) {
+    return nullptr;
+  }
+  this->mbuilder.appendChild(stmt, *expr);
+  return &stmt;
 }
 
 ModuleNode* ModuleCompiler::compileValueExprIndex(ParserNode& bracket, ParserNode& lhs, ParserNode& rhs) {
@@ -923,11 +917,18 @@ ModuleNode* ModuleCompiler::compileValueExprIndex(ParserNode& bracket, ParserNod
 }
 
 ModuleNode* ModuleCompiler::compileValueExprProperty(ParserNode& dot, ParserNode& lhs, ParserNode& rhs) {
-  auto* lexpr = this->compileValueExpr(lhs);
+  ModuleNode* lexpr;
+  auto type = this->literalType(lhs);
+  if (type != nullptr) {
+    // Something like 'string.from'
+    lexpr = &this->mbuilder.typeLiteral(type, lhs.range);
+  } else {
+    lexpr = this->compileValueExpr(lhs);
+  }
   if (lexpr != nullptr) {
     auto* rexpr = this->compileValueExpr(rhs);
     if (rexpr != nullptr) {
-      return &this->mbuilder.exprPropertyGet(*lexpr, *rexpr, dot.range);
+      return this->checkCompilation(this->mbuilder.exprPropertyGet(*lexpr, *rexpr, dot.range));
     }
   }
   return nullptr;
@@ -1084,6 +1085,37 @@ ModuleNode* ModuleCompiler::compileLiteral(ParserNode& pnode) {
   return &this->mbuilder.exprLiteral(pnode.value, pnode.range);
 }
 
+egg::ovum::Type ModuleCompiler::literalType(ParserNode& pnode) {
+  // Note that 'null' is not included on purpose
+  EGG_WARNING_SUPPRESS_SWITCH_BEGIN
+  switch (pnode.kind) {
+  case ParserNode::Kind::TypeVoid:
+    return egg::ovum::Type::Void;
+  case ParserNode::Kind::TypeBool:
+    return egg::ovum::Type::Bool;
+  case ParserNode::Kind::TypeInt:
+    return egg::ovum::Type::Int;
+  case ParserNode::Kind::TypeFloat:
+    return egg::ovum::Type::Float;
+  case ParserNode::Kind::TypeString:
+    return egg::ovum::Type::String;
+  case ParserNode::Kind::TypeObject:
+    return egg::ovum::Type::Object;
+  case ParserNode::Kind::TypeAny:
+    return egg::ovum::Type::Any;
+  }
+  EGG_WARNING_SUPPRESS_SWITCH_END
+  return nullptr;
+}
+
+ModuleNode* ModuleCompiler::checkCompilation(ModuleNode& mnode) {
+  auto type = this->mbuilder.deduce(mnode, this);
+  if (type == nullptr) {
+    return nullptr;
+  }
+  return &mnode;
+}
+
 bool ModuleCompiler::checkValueExprOperand(const char* expected, ModuleNode& mnode, ParserNode& pnode, egg::ovum::ValueFlags required) {
   auto type = this->deduceType(mnode);
   assert(type != nullptr);
@@ -1180,74 +1212,21 @@ bool ModuleCompiler::checkValueExprTernary(egg::ovum::ValueTernaryOp, ModuleNode
   if (!this->checkValueExprOperand("condition of ternary operator '?:' to be a 'bool'", lhs, pnode, egg::ovum::ValueFlags::Bool)) {
     return false;
   }
-  if (this->deduceType(mid) == nullptr) {
+  if (this->checkCompilation(mid) == nullptr) {
     return false;
   }
-  if (this->deduceType(rhs) == nullptr) {
+  if (this->checkCompilation(rhs) == nullptr) {
     return false;
   }
   return true;
 }
 
 egg::ovum::Type ModuleCompiler::forgeType(ParserNode& pnode) {
-  switch (pnode.kind) {
-  case ParserNode::Kind::TypeVoid:
-    assert(pnode.children.size() == 0);
-    return egg::ovum::Type::Void;
-  case ParserNode::Kind::TypeBool:
-    assert(pnode.children.size() == 0);
-    return egg::ovum::Type::Bool;
-  case ParserNode::Kind::TypeInt:
-    assert(pnode.children.size() == 0);
-    return egg::ovum::Type::Int;
-  case ParserNode::Kind::TypeFloat:
-    assert(pnode.children.size() == 0);
-    return egg::ovum::Type::Float;
-  case ParserNode::Kind::TypeString:
-    assert(pnode.children.size() == 0);
-    return egg::ovum::Type::String;
-  case ParserNode::Kind::TypeObject:
-    assert(pnode.children.size() == 0);
-    return egg::ovum::Type::Object;
-  case ParserNode::Kind::TypeAny:
-    assert(pnode.children.size() == 0);
-    return egg::ovum::Type::Any;
-  case ParserNode::Kind::TypeUnary:
-  case ParserNode::Kind::TypeBinary:
-  case ParserNode::Kind::TypeFunctionSignature:
-  case ParserNode::Kind::TypeFunctionSignatureParameter:
-    // TODO
-    break;
-  case ParserNode::Kind::ModuleRoot:
-  case ParserNode::Kind::StmtBlock:
-  case ParserNode::Kind::StmtDeclareVariable:
-  case ParserNode::Kind::StmtDefineVariable:
-  case ParserNode::Kind::StmtDefineFunction:
-  case ParserNode::Kind::StmtCall:
-  case ParserNode::Kind::StmtForEach:
-  case ParserNode::Kind::StmtForLoop:
-  case ParserNode::Kind::StmtIf:
-  case ParserNode::Kind::StmtReturn:
-  case ParserNode::Kind::StmtTry:
-  case ParserNode::Kind::StmtCatch:
-  case ParserNode::Kind::StmtFinally:
-  case ParserNode::Kind::StmtMutate:
-  case ParserNode::Kind::ExprVariable:
-  case ParserNode::Kind::ExprUnary:
-  case ParserNode::Kind::ExprBinary:
-  case ParserNode::Kind::ExprTernary:
-  case ParserNode::Kind::ExprCall:
-  case ParserNode::Kind::ExprIndex:
-  case ParserNode::Kind::ExprProperty:
-  case ParserNode::Kind::ExprArray:
-  case ParserNode::Kind::ExprObject:
-  case ParserNode::Kind::TypeInfer:
-  case ParserNode::Kind::TypeInferQ:
-  case ParserNode::Kind::Literal:
-  case ParserNode::Kind::Named:
-  default:
-    break;
+  auto type = this->literalType(pnode);
+  if (type != nullptr) {
+    return type;
   }
+  // TODO
   return nullptr;
 }
 
@@ -1263,8 +1242,6 @@ std::string ModuleCompiler::toString(const ParserNode& pnode) {
     return "variable definition statement";
   case ParserNode::Kind::StmtDefineFunction:
     return "function definition statement";
-  case ParserNode::Kind::StmtCall:
-    return "call statement";
   case ParserNode::Kind::StmtForEach:
     return "for each statement";
   case ParserNode::Kind::StmtForLoop:

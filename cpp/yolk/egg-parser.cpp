@@ -706,9 +706,13 @@ namespace {
     }
     Partial parseStatementSimple(size_t tokidx) {
       Context context(*this, tokidx);
-      auto defn = this->parseDefinitionVariable(tokidx);
-      if (!defn.skipped()) {
-        return defn;
+      auto discard = this->parseStatementDiscard(tokidx);
+      if (!discard.skipped()) {
+        return discard;
+      }
+      auto define = this->parseDefinitionVariable(tokidx);
+      if (!define.skipped()) {
+        return define;
       }
       auto mutate = this->parseStatementMutate(tokidx);
       if (!mutate.skipped()) {
@@ -718,13 +722,26 @@ namespace {
       if (expr.succeeded()) {
         // The whole statement is actually an expression
         if (expr.node->kind == Node::Kind::ExprCall) {
-          // Wrap in a statement
-          expr.wrap(Node::Kind::StmtCall);
           return expr;
         }
         return PARSE_TODO(tokidx, "non-function statement simple");
       }
       return PARSE_TODO(tokidx, "statement simple");
+    }
+    Partial parseStatementDiscard(size_t tokidx) {
+      // void ( <expr> )
+      Context context(*this, tokidx);
+      if (context[0].isKeyword(EggTokenizerKeyword::Void) && context[1].isOperator(EggTokenizerOperator::ParenthesisLeft)) {
+        auto expr = this->parseValueExpression(tokidx + 2);
+        if (expr.succeeded() && expr.after(0).isOperator(EggTokenizerOperator::ParenthesisRight)) {
+          auto call = this->makeNodeString(Node::Kind::ExprCall, context[0]);
+          auto vtype = this->makeNode(Node::Kind::TypeVoid, context[0]);
+          call->children.emplace_back(std::move(vtype));
+          call->children.emplace_back(std::move(expr.node));
+          return context.success(std::move(call), expr.tokensAfter + 1);
+        }
+      }
+      return context.skip();
     }
     Partial parseDefinitionVariable(size_t tokidx) {
       Context context(*this, tokidx);
