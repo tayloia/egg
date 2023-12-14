@@ -1226,7 +1226,24 @@ egg::ovum::Type ModuleCompiler::forgeType(ParserNode& pnode) {
   if (type != nullptr) {
     return type;
   }
+  if (pnode.kind == ParserNode::Kind::TypeUnary) {
+    assert(pnode.children.size() == 1);
+    auto inner = this->forgeType(*pnode.children.front());
+    if (inner == nullptr) {
+      return nullptr;
+    }
+    switch (pnode.op.typeUnaryOp) {
+    case egg::ovum::TypeUnaryOp::Pointer:
+    case egg::ovum::TypeUnaryOp::Iterator:
+    case egg::ovum::TypeUnaryOp::Array:
+      // TODO
+      break;
+    case egg::ovum::TypeUnaryOp::Nullable:
+      return this->vm.getTypeForge().forgeNullableType(inner, true);
+    }
+  }
   // TODO
+  assert(false);
   return nullptr;
 }
 

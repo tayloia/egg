@@ -578,6 +578,18 @@ namespace {
       }
       if (truthy.after(0).isKeyword(EggTokenizerKeyword::Else)) {
         // There is an 'else' clause
+        if (truthy.after(1).isKeyword(EggTokenizerKeyword::If)) {
+          // It's a chained 'if () {} else if ...'
+          auto chain = this->parseStatementIf(truthy.tokensAfter + 1);
+          if (!chain.succeeded()) {
+            return chain;
+          }
+          auto stmt = this->makeNodeString(Node::Kind::StmtIf, context[0]);
+          stmt->children.emplace_back(std::move(condition.node));
+          stmt->children.emplace_back(std::move(truthy.node));
+          stmt->children.emplace_back(std::move(chain.node));
+          return context.success(std::move(stmt), chain.tokensAfter);
+        }
         if (!truthy.after(1).isOperator(EggTokenizerOperator::CurlyLeft)) {
           return context.expected(truthy.tokensAfter + 1, "'{' after 'else' in 'if' statement");
         }
