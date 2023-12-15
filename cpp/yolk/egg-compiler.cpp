@@ -72,9 +72,9 @@ namespace {
     struct StmtContextData {
       bool canBreak : 1 = false;
       bool canContinue : 1 = false;
-      bool canReturn : 1 = false;
       bool canYield : 1 = false;
       bool canRethrow : 1 = false;
+      egg::ovum::Type canReturn = nullptr;
       ModuleNode* target = nullptr;
     };
     class StmtContext : public ExprContext, public StmtContextData {
@@ -482,7 +482,8 @@ ModuleNode* ModuleCompiler::compileStmtDefineFunction(ParserNode& pnode, StmtCon
   assert(type != nullptr);
   auto okay = this->addSymbol(context, phead, StmtContext::Entry::Kind::Function, symbol, type);
   StmtContext inner{ &context };
-  inner.canReturn = true;
+  inner.canReturn = signature->getReturnType();
+  assert(inner.canReturn != nullptr);
   assert(signature != nullptr);
   size_t pcount = signature->getParameterCount();
   for (size_t pindex = 0; pindex < pcount; ++pindex) {
@@ -730,14 +731,30 @@ ModuleNode* ModuleCompiler::compileStmtIfUnguarded(ParserNode& pnode, StmtContex
 ModuleNode* ModuleCompiler::compileStmtReturn(ParserNode& pnode, StmtContext& context) {
   assert(pnode.kind == ParserNode::Kind::StmtReturn);
   assert(pnode.children.size() <= 1);
-  if (!context.canReturn) {
+  if (context.canReturn == nullptr) {
     return this->error(pnode, "'return' statements are only valid within function definitions");
   }
   auto* stmt = &this->mbuilder.stmtReturn(pnode.range);
-  if (!pnode.children.empty()) {
-    auto* expr = this->compileValueExpr(*pnode.children.back(), context);
+  if (pnode.children.empty()) {
+    // return ;
+    if (context.canReturn != egg::ovum::Type::Void) {
+      return this->error(pnode, "Expected 'return' statement with a value of type '", *context.canReturn, "'");
+    }
+  } else {
+    // return <expr> ;
+    auto& pchild = *pnode.children.back();
+    if (context.canReturn == egg::ovum::Type::Void) {
+      return this->error(pchild, "Expected 'return' statement with no value");
+    }
+    auto* expr = this->compileValueExpr(pchild, context);
     if (expr == nullptr) {
       return nullptr;
+    }
+    auto type = this->deduceType(*expr);
+    assert(type != nullptr);
+    auto assignable = this->isAssignable(context.canReturn, type);
+    if (assignable == egg::ovum::Assignability::Never) {
+      return this->error(pchild, "Expected 'return' statement with a value of type '", *context.canReturn, "', but instead got a value of type '", *type, "'");
     }
     this->mbuilder.appendChild(*stmt, *expr);
   }

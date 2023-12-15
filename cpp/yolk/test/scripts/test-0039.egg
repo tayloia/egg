@@ -1,3 +1,4 @@
 int positive(int x) {
+  return;
 }
-///<COMPILER><ERROR><RESOURCE>(1,21): Missing 'return' statement with a value of type 'int' at the end of the function definition: 'positive'
+///<COMPILER><ERROR><RESOURCE>(2,3-8): Expected 'return' statement with a value of type 'int'
