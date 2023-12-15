@@ -244,6 +244,7 @@ namespace {
     HardPtr<IBasket> basket;
     TypeForgeCache<TypeForgeFunctionSignatureParameter> cacheFunctionSignatureParameter;
     TypeForgeCache<TypeForgeFunctionSignature> cacheFunctionSignature;
+    std::map<ValueFlags, HardObject> manifestations;
     std::set<const IType*> pool;
   public:
     TypeForgeDefault(IAllocator& allocator, IBasket& basket)
@@ -251,6 +252,7 @@ namespace {
       basket(&basket) {
     }
     virtual ~TypeForgeDefault() override {
+      this->manifestations.clear();
       for (auto* element : this->pool) {
         this->allocator.destroy(element);
       }

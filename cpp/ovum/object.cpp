@@ -415,16 +415,14 @@ namespace {
     VMObjectVanillaContainer& operator=(const VMObjectVanillaContainer&) = delete;
   protected:
     mutable VMObjectVanillaMutex mutex;
-    const char* name;
-    VMObjectVanillaContainer(IVM& vm, const char* name)
-      : VMObjectBase(vm),
-        name(name) {
-      assert(this->name != nullptr);
+    explicit VMObjectVanillaContainer(IVM& vm)
+      : VMObjectBase(vm) {
     }
   public:
+    virtual const char* getName() const = 0;
     template<typename... ARGS>
     HardValue raiseContainerError(IVMExecution& execution, ARGS&&... args) {
-      return this->raiseRuntimeError(execution, this->name, " ", std::forward<ARGS>(args)...);
+      return this->raiseRuntimeError(execution, this->getName(), " ", std::forward<ARGS>(args)...);
     }
   };
 
@@ -495,7 +493,10 @@ namespace {
     std::deque<SoftValue> elements;
   public:
     explicit VMObjectVanillaArray(IVM& vm)
-      : VMObjectVanillaContainer(vm, "Vanilla array") {
+      : VMObjectVanillaContainer(vm) {
+    }
+    virtual const char* getName() const override {
+      return "Vanilla array";
     }
     HardValue iteratorNext(IVMExecution& execution, IteratorState& state) {
       VMObjectVanillaMutex::ReadLock lock{ this->mutex };
@@ -683,8 +684,11 @@ namespace {
     std::map<SoftKey, SoftValue> properties;
     std::vector<SoftKey> keys;
   public:
-    explicit VMObjectVanillaObject(IVM& vm, const char* name = "Vanilla object")
-      : VMObjectVanillaContainer(vm, name) {
+    explicit VMObjectVanillaObject(IVM& vm)
+      : VMObjectVanillaContainer(vm) {
+    }
+    virtual const char* getName() const override {
+      return "Vanilla object";
     }
     HardValue iteratorNext(IVMExecution& execution, IteratorState& state) {
       VMObjectVanillaMutex::ReadLock lock{ this->mutex };
@@ -844,9 +848,12 @@ namespace {
     VMObjectVanillaKeyValue& operator=(const VMObjectVanillaKeyValue&) = delete;
   public:
     VMObjectVanillaKeyValue(IVM& vm, const HardValue& key, const HardValue& value)
-      : VMObjectVanillaObject(vm, "Vanilla key-value pair") {
+      : VMObjectVanillaObject(vm) {
       this->propertyAdd("key", key);
       this->propertyAdd("value", value);
+    }
+    virtual const char* getName() const override {
+      return "Vanilla key-value pair";
     }
   };
 
@@ -1350,12 +1357,182 @@ namespace {
     }
   };
 
+
+  class VMManifestionBase : public SoftReferenceCountedAllocator<IObject> {
+    VMManifestionBase(const VMManifestionBase&) = delete;
+    VMManifestionBase& operator=(const VMManifestionBase&) = delete;
+  protected:
+    Type type;
+  public:
+    explicit VMManifestionBase(IVM& vm)
+      : SoftReferenceCountedAllocator<IObject>(vm.getAllocator()) {
+    }
+    virtual void softVisit(ICollectable::IVisitor&) const override {
+      // No soft links
+    }
+    virtual void print(Printer& printer) const override {
+      printer << "[manifestation " << this->getName() <<"]";
+    }
+    virtual Type vmRuntimeType() override {
+      return this->type;
+    }
+    virtual HardValue vmCall(IVMExecution& execution, const ICallArguments&) override {
+      return this->raiseManifestationError(execution, "does not support call semantics");
+    }
+    virtual HardValue vmIterate(IVMExecution& execution) override {
+      return this->raiseManifestationError(execution, "does not support iteration");
+    }
+    virtual HardValue vmIndexGet(IVMExecution& execution, const HardValue&) override {
+      return this->raiseManifestationError(execution, "does not support indexing");
+    }
+    virtual HardValue vmIndexSet(IVMExecution& execution, const HardValue&, const HardValue&) override {
+      return this->raiseManifestationError(execution, "does not support indexing");
+    }
+    virtual HardValue vmIndexMut(IVMExecution& execution, const HardValue&, ValueMutationOp, const HardValue&) override {
+      return this->raiseManifestationError(execution, "does not support properties");
+    }
+    virtual HardValue vmPropertyGet(IVMExecution& execution, const HardValue&) override {
+      return this->raiseManifestationError(execution, "does not support properties");
+    }
+    virtual HardValue vmPropertySet(IVMExecution& execution, const HardValue&, const HardValue&) override {
+      return this->raiseManifestationError(execution, "does not support properties");
+    }
+    virtual HardValue vmPropertyMut(IVMExecution& execution, const HardValue&, ValueMutationOp, const HardValue&) override {
+      return this->raiseManifestationError(execution, "does not support properties");
+    }
+  protected:
+    template<typename... ARGS>
+    HardValue raiseRuntimeError(IVMExecution& execution, ARGS&&... args) {
+      // TODO: Non-string exception?
+      auto message = StringBuilder::concat(this->allocator, std::forward<ARGS>(args)...);
+      return execution.raiseRuntimeError(message);
+    }
+    template<typename... ARGS>
+    HardValue raiseManifestationError(IVMExecution& execution, ARGS&&... args) {
+      auto message = StringBuilder::concat(this->allocator, "'", this->getName(), "' ", std::forward<ARGS>(args)...);
+      return execution.raiseRuntimeError(message);
+    }
+    virtual const char* getName() const = 0;
+  };
+
+  class VMManifestionType : public VMManifestionBase {
+    VMManifestionType(const VMManifestionType&) = delete;
+    VMManifestionType& operator=(const VMManifestionType&) = delete;
+  public:
+    explicit VMManifestionType(IVM& vm)
+      : VMManifestionBase(vm) {
+      this->type = Type::Object; // WIBBLE
+    }
+  protected:
+    virtual const char* getName() const override {
+      return "type";
+    }
+  };
+
+  class VMManifestionVoid : public VMManifestionBase {
+    VMManifestionVoid(const VMManifestionVoid&) = delete;
+    VMManifestionVoid& operator=(const VMManifestionVoid&) = delete;
+  public:
+    explicit VMManifestionVoid(IVM& vm)
+      : VMManifestionBase(vm) {
+      this->type = Type::Object; // WIBBLE
+    }
+  protected:
+    virtual const char* getName() const override {
+      return "void";
+    }
+  };
+
+  class VMManifestionBool : public VMManifestionBase {
+    VMManifestionBool(const VMManifestionBool&) = delete;
+    VMManifestionBool& operator=(const VMManifestionBool&) = delete;
+  public:
+    explicit VMManifestionBool(IVM& vm)
+      : VMManifestionBase(vm) {
+      this->type = Type::Object; // WIBBLE
+    }
+  protected:
+    virtual const char* getName() const override {
+      return "bool";
+    }
+  };
+
+  class VMManifestionInt : public VMManifestionBase {
+    VMManifestionInt(const VMManifestionInt&) = delete;
+    VMManifestionInt& operator=(const VMManifestionInt&) = delete;
+  public:
+    explicit VMManifestionInt(IVM& vm)
+      : VMManifestionBase(vm) {
+      this->type = Type::Object; // WIBBLE
+    }
+  protected:
+    virtual const char* getName() const override {
+      return "int";
+    }
+  };
+
+  class VMManifestionFloat : public VMManifestionBase {
+    VMManifestionFloat(const VMManifestionFloat&) = delete;
+    VMManifestionFloat& operator=(const VMManifestionFloat&) = delete;
+  public:
+    explicit VMManifestionFloat(IVM& vm)
+      : VMManifestionBase(vm) {
+      this->type = Type::Object; // WIBBLE
+    }
+  protected:
+    virtual const char* getName() const override {
+      return "float";
+    }
+  };
+
+  class VMManifestionString : public VMManifestionBase {
+    VMManifestionString(const VMManifestionString&) = delete;
+    VMManifestionString& operator=(const VMManifestionString&) = delete;
+  public:
+    explicit VMManifestionString(IVM& vm)
+      : VMManifestionBase(vm) {
+      this->type = Type::Object; // WIBBLE
+    }
+  protected:
+    virtual const char* getName() const override {
+      return "string";
+    }
+  };
+
+  class VMManifestionObject : public VMManifestionBase {
+    VMManifestionObject(const VMManifestionObject&) = delete;
+    VMManifestionObject& operator=(const VMManifestionObject&) = delete;
+  public:
+    explicit VMManifestionObject(IVM& vm)
+      : VMManifestionBase(vm) {
+      this->type = Type::Object; // WIBBLE
+    }
+  protected:
+    virtual const char* getName() const override {
+      return "object";
+    }
+  };
+
+  class VMManifestionAny : public VMManifestionBase {
+    VMManifestionAny(const VMManifestionAny&) = delete;
+    VMManifestionAny& operator=(const VMManifestionAny&) = delete;
+  public:
+    explicit VMManifestionAny(IVM& vm)
+      : VMManifestionBase(vm) {
+      this->type = Type::Object; // WIBBLE
+    }
+  protected:
+    virtual const char* getName() const override {
+      return "any";
+    }
+  };
+
   class ObjectBuilderInstance : public VMObjectVanillaObject {
     ObjectBuilderInstance(const ObjectBuilderInstance&) = delete;
     ObjectBuilderInstance& operator=(const ObjectBuilderInstance&) = delete;
   public:
-    ObjectBuilderInstance(IVM& vm, const char* name)
-      : VMObjectVanillaObject(vm, name) {
+    explicit ObjectBuilderInstance(IVM& vm)
+      : VMObjectVanillaObject(vm) {
     }
     virtual void withProperty(const HardValue& property, const HardValue& value, bool readonly) = 0;
   };
@@ -1368,9 +1545,12 @@ namespace {
     HardPtr<IVMCallStack> callstack;
   public:
     ObjectBuilderRuntimeError(IVM& vm, const String& message, const HardPtr<IVMCallStack>& callstack)
-      : ObjectBuilderInstance(vm, "Runtime error"),
+      : ObjectBuilderInstance(vm),
         message(message),
         callstack(callstack) {
+    }
+    virtual const char* getName() const override {
+      return "Runtime error";
     }
     virtual void withProperty(const HardValue& property, const HardValue& value, bool readonly) override {
       // TODO
@@ -1547,6 +1727,38 @@ egg::ovum::HardObject egg::ovum::ObjectFactory::createStringProxyStartsWith(IVM&
 
 egg::ovum::HardObject egg::ovum::ObjectFactory::createStringProxyToString(IVM& vm, const String& instance) {
   return makeHardObject<VMStringProxyToString>(vm, instance);
+}
+
+egg::ovum::HardObject egg::ovum::ObjectFactory::createManifestationType(IVM& vm) {
+  return makeHardObject<VMManifestionType>(vm);
+}
+
+egg::ovum::HardObject egg::ovum::ObjectFactory::createManifestationVoid(IVM& vm) {
+  return makeHardObject<VMManifestionVoid>(vm);
+}
+
+egg::ovum::HardObject egg::ovum::ObjectFactory::createManifestationBool(IVM& vm) {
+  return makeHardObject<VMManifestionBool>(vm);
+}
+
+egg::ovum::HardObject egg::ovum::ObjectFactory::createManifestationInt(IVM& vm) {
+  return makeHardObject<VMManifestionInt>(vm);
+}
+
+egg::ovum::HardObject egg::ovum::ObjectFactory::createManifestationFloat(IVM& vm) {
+  return makeHardObject<VMManifestionFloat>(vm);
+}
+
+egg::ovum::HardObject egg::ovum::ObjectFactory::createManifestationString(IVM& vm) {
+  return makeHardObject<VMManifestionString>(vm);
+}
+
+egg::ovum::HardObject egg::ovum::ObjectFactory::createManifestationObject(IVM& vm) {
+  return makeHardObject<VMManifestionObject>(vm);
+}
+
+egg::ovum::HardObject egg::ovum::ObjectFactory::createManifestationAny(IVM& vm) {
+  return makeHardObject<VMManifestionAny>(vm);
 }
 
 egg::ovum::HardPtr<egg::ovum::IObjectBuilder> egg::ovum::ObjectFactory::createRuntimeErrorBuilder(IVM& vm, const String& message, const HardPtr<IVMCallStack>& callstack) {

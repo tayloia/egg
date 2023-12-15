@@ -200,6 +200,16 @@ TEST(TestVM, CreateHardValue) {
   ASSERT_STRING("goodbye", actual);
 }
 
+TEST(TestVM, GetManifestion) {
+  egg::test::VM vm;
+  auto manifestation = vm->getManifestation(ValueFlags::None);
+  ASSERT_EQ(nullptr, manifestation);
+  manifestation = vm->getManifestation(ValueFlags::String);
+  ASSERT_NE(nullptr, manifestation);
+  auto type = manifestation->vmRuntimeType();
+  ASSERT_NE(nullptr, type);
+}
+
 TEST(TestVM, CreateProgram) {
   egg::test::VM vm;
   auto program = createHelloWorldProgram(vm);

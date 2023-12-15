@@ -1652,12 +1652,21 @@ namespace {
     HardPtr<IBasket> basket;
     ILogger& logger;
     HardPtr<ITypeForge> forge;
+    std::map<ValueFlags, HardObject> manifestations;
   public:
     VMDefault(IAllocator& allocator, ILogger& logger)
       : HardReferenceCountedAllocator<IVM>(allocator),
         basket(BasketFactory::createBasket(allocator)),
         logger(logger) {
       this->forge = TypeForgeFactory::createTypeForge(allocator, *this->basket);
+      this->manifestations.emplace(ValueFlags::Type, ObjectFactory::createManifestationType(*this));
+      this->manifestations.emplace(ValueFlags::Void, ObjectFactory::createManifestationVoid(*this));
+      this->manifestations.emplace(ValueFlags::Bool, ObjectFactory::createManifestationBool(*this));
+      this->manifestations.emplace(ValueFlags::Int, ObjectFactory::createManifestationInt(*this));
+      this->manifestations.emplace(ValueFlags::Float, ObjectFactory::createManifestationFloat(*this));
+      this->manifestations.emplace(ValueFlags::String, ObjectFactory::createManifestationString(*this));
+      this->manifestations.emplace(ValueFlags::Object, ObjectFactory::createManifestationObject(*this));
+      this->manifestations.emplace(ValueFlags::Any, ObjectFactory::createManifestationAny(*this));
     }
     virtual IAllocator& getAllocator() const override {
       return this->allocator;
@@ -1670,6 +1679,13 @@ namespace {
     }
     virtual ITypeForge& getTypeForge() const override {
       return *this->forge;
+    }
+    virtual HardObject getManifestation(ValueFlags flags) override {
+      auto found = this->manifestations.find(flags);
+      if (found != this->manifestations.end()) {
+        return found->second;
+      }
+      return HardObject();
     }
     virtual String createStringUTF8(const void* utf8, size_t bytes, size_t codepoints) override {
       return String::fromUTF8(this->allocator, utf8, bytes, codepoints);

@@ -51,6 +51,15 @@ namespace egg::ovum {
     static HardObject createBuiltinPrint(IVM& vm);
     static HardObject createBuiltinExpando(IVM& vm); // TODO deprecate
     static HardObject createBuiltinCollector(IVM& vm); // TODO testing only
+    // Manifestation factories
+    static HardObject createManifestationType(IVM& vm);
+    static HardObject createManifestationVoid(IVM& vm);
+    static HardObject createManifestationBool(IVM& vm);
+    static HardObject createManifestationInt(IVM& vm);
+    static HardObject createManifestationFloat(IVM& vm);
+    static HardObject createManifestationString(IVM& vm);
+    static HardObject createManifestationObject(IVM& vm);
+    static HardObject createManifestationAny(IVM& vm);
     // Vanilla factories
     static HardObject createVanillaArray(IVM& vm);
     static HardObject createVanillaObject(IVM& vm);

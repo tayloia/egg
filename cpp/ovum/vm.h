@@ -231,6 +231,8 @@ namespace egg::ovum {
     virtual IBasket& getBasket() const = 0;
     virtual ILogger& getLogger() const = 0;
     virtual ITypeForge& getTypeForge() const = 0;
+    // Manifestation cache
+    virtual HardObject getManifestation(ValueFlags flags) = 0;
     // Builder factories
     virtual HardPtr<IVMProgramBuilder> createProgramBuilder() = 0;
     // Builtin factories
