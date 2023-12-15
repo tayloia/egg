@@ -245,7 +245,7 @@ TEST(TestVM, PrintUnknown) {
   // print(unknown);
   STMT_ROOT(STMT_PRINT(EXPR_VAR("unknown")));
   buildAndRunFailed(vm, *pbuilder, *mbuilder);
-  ASSERT_EQ("<ERROR>test: Unknown variable symbol: 'unknown'\n", vm.logger.logged.str());
+  ASSERT_EQ("<ERROR>test: Unknown identifier: 'unknown'\n", vm.logger.logged.str());
 }
 
 TEST(TestVM, VariableDeclare) {
@@ -306,7 +306,7 @@ TEST(TestVM, VariableUndeclare) {
     STMT_PRINT(EXPR_VAR("i"))
   );
   buildAndRunFailed(vm, *pbuilder, *mbuilder);
-  ASSERT_EQ("<ERROR>test: Unknown variable symbol: 'i'\n", vm.logger.logged.str());
+  ASSERT_EQ("<ERROR>test: Unknown identifier: 'i'\n", vm.logger.logged.str());
 }
 
 TEST(TestVM, VariableDefineNull) {

@@ -231,6 +231,7 @@ namespace {
     VMProgram& operator=(const VMProgram&) = delete;
   private:
     std::vector<HardPtr<VMModule>> modules;
+    std::map<String, Type> builtins;
   public:
     explicit VMProgram(IVM& vm)
       : VMUncollectable(vm) {
@@ -247,6 +248,12 @@ namespace {
     }
     void addModule(VMModule& module) {
       this->modules.emplace_back(&module);
+    }
+    bool addBuiltin(const String& symbol, const Type& type) {
+      return this->builtins.emplace(symbol, type).second;
+    }
+    const std::map<String, Type>& getBuiltins() const {
+      return this->builtins;
     }
   };
 
@@ -1261,6 +1268,16 @@ namespace {
     virtual IVM& getVM() const override {
       return this->vm;
     }
+    virtual bool addBuiltin(const String& symbol, const Type& type) override {
+      assert(this->program != nullptr);
+      return this->program->addBuiltin(symbol, type);
+    }
+    virtual void visitBuiltins(const std::function<void(const String& symbol, const Type& type)>& visitor) const override {
+      assert(this->program != nullptr);
+      for (const auto& builtin : this->program->getBuiltins()) {
+        visitor(builtin.first, builtin.second);
+      }
+    }
     virtual HardPtr<IVMModuleBuilder> createModuleBuilder(const String& resource) override {
       assert(this->program != nullptr);
       return HardPtr<IVMModuleBuilder>(this->getAllocator().makeRaw<VMModuleBuilder>(this->vm, *this->program, resource));
@@ -1470,7 +1487,7 @@ namespace {
     bool symbolSet(const HardValue& symbol, const HardValue& value) {
       String name;
       if (!symbol->getString(name)) {
-        this->raise("Invalid program node literal for variable symbol");
+        this->raise("Invalid program node literal for variable identifier");
         return false;
       }
       if (value.hasFlowControl()) {
@@ -1504,7 +1521,7 @@ namespace {
     HardValue symbolGuard(const HardValue& symbol, const HardValue& value) {
       String name;
       if (!symbol->getString(name)) {
-        return this->raiseRuntimeError("Invalid program node literal for variable symbol");
+        return this->raiseRuntimeError("Invalid program node literal for variable identifier");
       }
       if (value.hasFlowControl()) {
         return value;
@@ -1888,11 +1905,11 @@ bool VMRunner::stepNode(HardValue& retval) {
       // TODO: thread safety
       String symbol;
       if (!top.node->literal->getString(symbol)) {
-        return this->raise("Invalid program node literal for variable symbol");
+        return this->raise("Invalid program node literal for variable identifier");
       }
       auto extant = this->symtable.find(symbol);
       if (extant == nullptr) {
-        return this->raise("Unknown variable symbol: '", symbol, "'");
+        return this->raise("Unknown identifier: '", symbol, "'");
       }
       switch (extant->kind) {
       case VMSymbolTable::Kind::Unset:
@@ -2748,11 +2765,11 @@ bool VMRunner::stepNode(HardValue& retval) {
     {
       String symbol;
       if (!top.node->literal->getString(symbol)) {
-        return this->raise("Invalid program node literal for variable symbol");
+        return this->raise("Invalid program node literal for identifier");
       }
       auto extant = this->symtable.find(symbol);
       if (extant == nullptr) {
-        return this->raise("Unknown variable symbol: '", symbol, "'");
+        return this->raise("Unknown identifier: '", symbol, "'");
       }
       switch (extant->kind) {
       case VMSymbolTable::Kind::Unset:

@@ -10,6 +10,7 @@ TEST(TestEggCompiler, ExplicitSteps) {
   auto tokenizer = egg::yolk::EggTokenizerFactory::createFromLexer(vm->getAllocator(), lexer);
   auto parser = egg::yolk::EggParserFactory::createFromTokenizer(vm->getAllocator(), tokenizer);
   auto pbuilder = vm->createProgramBuilder();
+  pbuilder->addBuiltin(vm->createString("print"), egg::ovum::Type::Object); // TODO
   auto compiler = egg::yolk::EggCompilerFactory::createFromProgramBuilder(pbuilder);
   auto module = compiler->compile(*parser);
   ASSERT_TRUE(module != nullptr);
