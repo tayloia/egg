@@ -208,6 +208,7 @@ TEST(TestVM, GetManifestion) {
   ASSERT_NE(nullptr, manifestation);
   auto type = manifestation->vmRuntimeType();
   ASSERT_NE(nullptr, type);
+  ASSERT_FALSE(type->isPrimitive());
 }
 
 TEST(TestVM, CreateProgram) {

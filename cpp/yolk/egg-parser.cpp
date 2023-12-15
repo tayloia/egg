@@ -346,7 +346,6 @@ namespace {
         auto& terminal = partial.after(0);
         if (terminal.isOperator(EggTokenizerOperator::Semicolon)) {
           // Swallow the semicolon
-          partial.node->range.end = { terminal.line, terminal.column + 1 };
           partial.tokensAfter++;
           return partial;
         }
@@ -783,6 +782,7 @@ namespace {
       if (expr.succeeded()) {
         auto type = this->makeNode(nullable ? Node::Kind::TypeInferQ : Node::Kind::TypeInfer, var);
         auto stmt = this->makeNodeString(Node::Kind::StmtDefineVariable, context[0]);
+        stmt->range.end = expr.node->range.end;
         stmt->children.emplace_back(std::move(type));
         stmt->children.emplace_back(std::move(expr.node));
         return context.success(std::move(stmt), expr.tokensAfter);
@@ -804,6 +804,7 @@ namespace {
         auto expr = this->parseValueExpression(tokidx + 2);
         if (expr.succeeded()) {
           auto stmt = this->makeNodeString(Node::Kind::StmtDefineVariable, context[0]);
+          stmt->range.end = expr.node->range.end;
           stmt->children.emplace_back(std::move(ptype));
           stmt->children.emplace_back(std::move(expr.node));
           return context.success(std::move(stmt), expr.tokensAfter);
@@ -1034,7 +1035,7 @@ namespace {
         case EggTokenizerKeyword::Object:
           return this->parseTypeExpressionPrimaryKeyword(context, Node::Kind::TypeObject);
         case EggTokenizerKeyword::Type:
-          return PARSE_TODO(tokidx, "type expression 'type' keyword");
+          return this->parseTypeExpressionPrimaryKeyword(context, Node::Kind::TypeType);
         case EggTokenizerKeyword::Var:
           return context.skip();
         case EggTokenizerKeyword::Break:
@@ -1436,19 +1437,21 @@ namespace {
       assert(context[0].kind == EggTokenizerKind::Keyword);
       switch (context[0].value.k) {
       case EggTokenizerKeyword::Any:
-        return this->parseValueExpressionPrimaryPrefixKeywordConstructor(context, Node::Kind::TypeAny);
+        return this->parseValueExpressionPrimaryPrefixKeywordManifestation(context, Node::Kind::TypeAny);
       case EggTokenizerKeyword::Bool:
-        return this->parseValueExpressionPrimaryPrefixKeywordConstructor(context, Node::Kind::TypeBool);
+        return this->parseValueExpressionPrimaryPrefixKeywordManifestation(context, Node::Kind::TypeBool);
       case EggTokenizerKeyword::Float:
-        return this->parseValueExpressionPrimaryPrefixKeywordConstructor(context, Node::Kind::TypeFloat);
+        return this->parseValueExpressionPrimaryPrefixKeywordManifestation(context, Node::Kind::TypeFloat);
       case EggTokenizerKeyword::Int:
-        return this->parseValueExpressionPrimaryPrefixKeywordConstructor(context, Node::Kind::TypeInt);
+        return this->parseValueExpressionPrimaryPrefixKeywordManifestation(context, Node::Kind::TypeInt);
       case EggTokenizerKeyword::Object:
-        return this->parseValueExpressionPrimaryPrefixKeywordConstructor(context, Node::Kind::TypeObject);
+        return this->parseValueExpressionPrimaryPrefixKeywordManifestation(context, Node::Kind::TypeObject);
       case EggTokenizerKeyword::String:
-        return this->parseValueExpressionPrimaryPrefixKeywordConstructor(context, Node::Kind::TypeString);
+        return this->parseValueExpressionPrimaryPrefixKeywordManifestation(context, Node::Kind::TypeString);
       case EggTokenizerKeyword::Void:
-        return this->parseValueExpressionPrimaryPrefixKeywordConstructor(context, Node::Kind::TypeVoid);
+        return this->parseValueExpressionPrimaryPrefixKeywordManifestation(context, Node::Kind::TypeVoid);
+      case EggTokenizerKeyword::Type:
+        return this->parseValueExpressionPrimaryPrefixKeywordManifestation(context, Node::Kind::TypeType);
       case EggTokenizerKeyword::False:
         return this->parseValueExpressionPrimaryPrefixKeywordLiteral(context, egg::ovum::HardValue::False);
       case EggTokenizerKeyword::Null:
@@ -1469,7 +1472,6 @@ namespace {
       case EggTokenizerKeyword::Switch:
       case EggTokenizerKeyword::Throw:
       case EggTokenizerKeyword::Try:
-      case EggTokenizerKeyword::Type:
       case EggTokenizerKeyword::Var:
       case EggTokenizerKeyword::While:
       case EggTokenizerKeyword::Yield:
@@ -1477,7 +1479,7 @@ namespace {
       }
       return PARSE_TODO(tokidx, "bad expression primary prefix keyword: '", context[0].value.s, "'");
     }
-    Partial parseValueExpressionPrimaryPrefixKeywordConstructor(Context& context, Node::Kind kind) {
+    Partial parseValueExpressionPrimaryPrefixKeywordManifestation(Context& context, Node::Kind kind) {
       assert(context[0].kind == EggTokenizerKind::Keyword);
       auto node = this->makeNode(kind, context[0]);
       return context.success(std::move(node), context.tokensBefore + 1);

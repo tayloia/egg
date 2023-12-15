@@ -2,4 +2,4 @@ var p = print;
 p("Hello");
 ///>Hello
 print = p;
-///<RUNTIME><ERROR><RESOURCE>(4,1-10): Cannot re-assign built-in value: 'print'
+///<RUNTIME><ERROR><RESOURCE>(4,1-9): Cannot re-assign built-in value: 'print'

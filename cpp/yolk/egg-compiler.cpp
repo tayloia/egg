@@ -141,6 +141,7 @@ namespace {
     ModuleNode* compileValueExprObject(ParserNode& pnode, const ExprContext& context);
     ModuleNode* compileValueExprObjectElement(ParserNode& pnode, const ExprContext& context);
     ModuleNode* compileValueExprGuard(ParserNode& pnode, ParserNode& ptype, ParserNode& pexpr, const ExprContext& context);
+    ModuleNode* compileValueExprManifestation(ParserNode& pnode, egg::ovum::ValueFlags flags);
     ModuleNode* compileTypeExpr(ParserNode& pnode, const ExprContext& context, egg::ovum::Type& type);
     ModuleNode* compileTypeInfer(ParserNode& pnode, ParserNode& ptype, ParserNode& pexpr, const ExprContext& context, egg::ovum::Type& type, ModuleNode*& mexpr);
     ModuleNode* compileTypeFunctionSignature(ParserNode& pnode, const egg::ovum::IFunctionSignature*& signature, egg::ovum::Type& type);
@@ -369,6 +370,7 @@ ModuleNode* ModuleCompiler::compileStmt(ParserNode& pnode, StmtContext& context)
   case ParserNode::Kind::TypeString:
   case ParserNode::Kind::TypeObject:
   case ParserNode::Kind::TypeAny:
+  case ParserNode::Kind::TypeType:
   case ParserNode::Kind::TypeUnary:
   case ParserNode::Kind::TypeBinary:
   case ParserNode::Kind::TypeFunctionSignature:
@@ -880,14 +882,31 @@ ModuleNode* ModuleCompiler::compileValueExpr(ParserNode& pnode, const ExprContex
     return this->compileValueExprGuard(pnode, *pnode.children[0], *pnode.children[1], context);
   case ParserNode::Kind::Literal:
     return this->compileLiteral(pnode);
-  case ParserNode::Kind::ModuleRoot:
   case ParserNode::Kind::TypeVoid:
+    EXPECT(pnode, pnode.children.empty());
+    return this->compileValueExprManifestation(pnode, egg::ovum::ValueFlags::Void);
   case ParserNode::Kind::TypeBool:
+    EXPECT(pnode, pnode.children.empty());
+    return this->compileValueExprManifestation(pnode, egg::ovum::ValueFlags::Bool);
   case ParserNode::Kind::TypeInt:
+    EXPECT(pnode, pnode.children.empty());
+    return this->compileValueExprManifestation(pnode, egg::ovum::ValueFlags::Int);
   case ParserNode::Kind::TypeFloat:
+    EXPECT(pnode, pnode.children.empty());
+    return this->compileValueExprManifestation(pnode, egg::ovum::ValueFlags::Float);
   case ParserNode::Kind::TypeString:
+    EXPECT(pnode, pnode.children.empty());
+    return this->compileValueExprManifestation(pnode, egg::ovum::ValueFlags::String);
   case ParserNode::Kind::TypeObject:
+    EXPECT(pnode, pnode.children.empty());
+    return this->compileValueExprManifestation(pnode, egg::ovum::ValueFlags::Object);
   case ParserNode::Kind::TypeAny:
+    EXPECT(pnode, pnode.children.empty());
+    return this->compileValueExprManifestation(pnode, egg::ovum::ValueFlags::Any);
+  case ParserNode::Kind::TypeType:
+    EXPECT(pnode, pnode.children.empty());
+    return this->compileValueExprManifestation(pnode, egg::ovum::ValueFlags::Type);
+  case ParserNode::Kind::ModuleRoot:
   case ParserNode::Kind::TypeInfer:
   case ParserNode::Kind::TypeInferQ:
   case ParserNode::Kind::TypeUnary:
@@ -1176,6 +1195,10 @@ ModuleNode* ModuleCompiler::compileValueExprGuard(ParserNode& pnode, ParserNode&
     return &this->mbuilder.exprGuard(symbol, *mexpr, pnode.range);
   }
   return nullptr;
+}
+
+ModuleNode* ModuleCompiler::compileValueExprManifestation(ParserNode& pnode, egg::ovum::ValueFlags flags) {
+  return &this->mbuilder.typeManifestation(flags, pnode.range);
 }
 
 ModuleNode* ModuleCompiler::compileTypeExpr(ParserNode& pnode, const ExprContext&, egg::ovum::Type& type) {
@@ -1515,6 +1538,8 @@ std::string ModuleCompiler::toString(const ParserNode& pnode) {
     return "type object";
   case ParserNode::Kind::TypeAny:
     return "type any";
+  case ParserNode::Kind::TypeType:
+    return "type type";
   case ParserNode::Kind::TypeUnary:
     return "type unary operator";
   case ParserNode::Kind::TypeBinary:

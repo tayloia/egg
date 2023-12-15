@@ -173,6 +173,7 @@ namespace egg::ovum {
     virtual Node& exprNamed(const HardValue& name, Node& value, const SourceRange& range) = 0;
     // Type expression factories
     virtual Node& typeLiteral(const Type& type, const SourceRange& range) = 0;
+    virtual Node& typeManifestation(ValueFlags flags, const SourceRange& range) = 0;
     // Statement factories
     virtual Node& stmtBlock(const SourceRange& range) = 0;
     virtual Node& stmtIf(Node& condition, const SourceRange& range) = 0;

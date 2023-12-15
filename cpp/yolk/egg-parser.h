@@ -47,6 +47,7 @@ namespace egg::yolk {
         TypeString,
         TypeObject,
         TypeAny,
+        TypeType,
         TypeUnary,
         TypeBinary,
         TypeFunctionSignature,

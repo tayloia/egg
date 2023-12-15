@@ -359,6 +359,7 @@ namespace egg::ovum {
     virtual Type forgeVoidableType(const Type& type, bool voidable) = 0;
     virtual Type forgeIterationType(const Type& type) = 0;
     virtual Type forgeFunctionType(const IFunctionSignature& signature) = 0;
+    virtual Type forgeShapeType(const IType::Shape& shape) = 0;
     virtual Assignability isTypeAssignable(const Type& dst, const Type& src) = 0;
     virtual Assignability isFunctionSignatureAssignable(const IFunctionSignature& dst, const IFunctionSignature& src) = 0;
     virtual HardPtr<ITypeForgeFunctionBuilder> createFunctionBuilder() = 0;

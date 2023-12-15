@@ -305,7 +305,7 @@ namespace {
       return this->raiseRuntimeError(execution, "Builtin 'collector()' does not support indexing");
     }
     virtual HardValue vmIndexMut(IVMExecution& execution, const HardValue&, ValueMutationOp, const HardValue&) override {
-      return this->raiseRuntimeError(execution, "Builtin 'collector()' does not support properties");
+      return this->raiseRuntimeError(execution, "Builtin 'collector()' does not support indexing");
     }
     virtual HardValue vmPropertyGet(IVMExecution& execution, const HardValue&) override {
       return this->raiseRuntimeError(execution, "Builtin 'collector()' does not support properties");
@@ -1357,15 +1357,69 @@ namespace {
     }
   };
 
+  template<typename T>
+  class VMManifestationMemberHandler : public VMObjectBase {
+    VMManifestationMemberHandler(const VMManifestationMemberHandler&) = delete;
+    VMManifestationMemberHandler& operator=(const VMManifestationMemberHandler&) = delete;
+  public:
+    typedef HardValue(T::*Handler)(IVMExecution& execution, const ICallArguments& arguments);
+  private:
+    T& manifestation; // manifestation lifetime is directly controlled by the VM instance
+    Handler handler;
+  public:
+    VMManifestationMemberHandler(IVM& vm, T& manifestation, Handler handler)
+      : VMObjectBase(vm),
+        manifestation(manifestation),
+        handler(handler) {
+      assert(this->handler != nullptr);
+    }
+    virtual void softVisit(ICollectable::IVisitor&) const override {
+      // Nothing to visit
+    }
+    virtual void print(Printer& printer) const override {
+      printer << "[manifestation member handler]";
+    }
+    virtual Type vmRuntimeType() override {
+      // TODO
+      return Type::Object;
+    }
+    virtual HardValue vmCall(IVMExecution& execution, const ICallArguments& arguments) override {
+      assert(this->handler != nullptr);
+      return (this->manifestation.*(this->handler))(execution, arguments);
+    }
+    virtual HardValue vmIterate(IVMExecution& execution) override {
+      return this->raiseRuntimeError(execution, "Manifestation member handlers do not support iteration");
+    }
+    virtual HardValue vmIndexGet(IVMExecution& execution, const HardValue&) override {
+      return this->raiseRuntimeError(execution, "Manifestation member handlers do not support indexing");
+    }
+    virtual HardValue vmIndexSet(IVMExecution& execution, const HardValue&, const HardValue&) override {
+      return this->raiseRuntimeError(execution, "Manifestation member handlers do not support indexing");
+    }
+    virtual HardValue vmIndexMut(IVMExecution& execution, const HardValue&, ValueMutationOp, const HardValue&) override {
+      return this->raiseRuntimeError(execution, "Manifestation member handlers do not support indexing");
+    }
+    virtual HardValue vmPropertyGet(IVMExecution& execution, const HardValue&) override {
+      return this->raiseRuntimeError(execution, "Manifestation member handlers do not support properties");
+    }
+    virtual HardValue vmPropertySet(IVMExecution& execution, const HardValue&, const HardValue&) override {
+      return this->raiseRuntimeError(execution, "Manifestation member handlers do not support properties");
+    }
+    virtual HardValue vmPropertyMut(IVMExecution& execution, const HardValue&, ValueMutationOp, const HardValue&) override {
+      return this->raiseRuntimeError(execution, "Manifestation member handlers do not support properties");
+    }
+  };
 
-  class VMManifestionBase : public SoftReferenceCountedAllocator<IObject> {
+  class VMManifestionBase : public SoftReferenceCounted<IObject> {
     VMManifestionBase(const VMManifestionBase&) = delete;
     VMManifestionBase& operator=(const VMManifestionBase&) = delete;
   protected:
+    IVM& vm; // manifestation lifetime is directly controlled by the VM instance
     Type type;
   public:
     explicit VMManifestionBase(IVM& vm)
-      : SoftReferenceCountedAllocator<IObject>(vm.getAllocator()) {
+      : SoftReferenceCounted<IObject>(),
+        vm(vm) {
     }
     virtual void softVisit(ICollectable::IVisitor&) const override {
       // No soft links
@@ -1389,7 +1443,7 @@ namespace {
       return this->raiseManifestationError(execution, "does not support indexing");
     }
     virtual HardValue vmIndexMut(IVMExecution& execution, const HardValue&, ValueMutationOp, const HardValue&) override {
-      return this->raiseManifestationError(execution, "does not support properties");
+      return this->raiseManifestationError(execution, "does not support indexing");
     }
     virtual HardValue vmPropertyGet(IVMExecution& execution, const HardValue&) override {
       return this->raiseManifestationError(execution, "does not support properties");
@@ -1401,27 +1455,77 @@ namespace {
       return this->raiseManifestationError(execution, "does not support properties");
     }
   protected:
+    virtual void hardDestroy() const override {
+      this->vm.getAllocator().destroy(this);
+    }
     template<typename... ARGS>
     HardValue raiseRuntimeError(IVMExecution& execution, ARGS&&... args) {
       // TODO: Non-string exception?
-      auto message = StringBuilder::concat(this->allocator, std::forward<ARGS>(args)...);
+      auto message = StringBuilder::concat(this->vm.getAllocator(), std::forward<ARGS>(args)...);
       return execution.raiseRuntimeError(message);
     }
     template<typename... ARGS>
     HardValue raiseManifestationError(IVMExecution& execution, ARGS&&... args) {
-      auto message = StringBuilder::concat(this->allocator, "'", this->getName(), "' ", std::forward<ARGS>(args)...);
+      auto message = StringBuilder::concat(this->vm.getAllocator(), "'", this->getName(), "' ", std::forward<ARGS>(args)...);
       return execution.raiseRuntimeError(message);
     }
     virtual const char* getName() const = 0;
   };
 
-  class VMManifestionType : public VMManifestionBase {
+  template<typename T>
+  class VMManifestionWithProperties : public VMManifestionBase {
+    VMManifestionWithProperties(const VMManifestionWithProperties&) = delete;
+    VMManifestionWithProperties& operator=(const VMManifestionWithProperties&) = delete;
+  protected:
+    typedef HardValue(T::*MemberHandler)(IVMExecution& execution, const ICallArguments& arguments);
+    std::map<String, MemberHandler> handlers;
+  public:
+    explicit VMManifestionWithProperties(IVM& vm)
+      : VMManifestionBase(vm) {
+    }
+    virtual HardValue vmPropertyGet(IVMExecution& execution, const HardValue& property) override {
+      String name;
+      if (!property->getString(name)) {
+        return this->raiseRuntimeError(execution, "Expected '", this->getName(), "' property name to be a 'string', but instead got ", describe(property.get()));
+      }
+      auto found = this->handlers.find(name);
+      if (found == this->handlers.end()) {
+        return this->raiseRuntimeError(execution, "Unknown property: '", this->getName(), ".", name, "'");
+      }
+      auto instance = makeHardObject<VMManifestationMemberHandler<T>>(this->vm, *static_cast<T*>(this), found->second);
+      return this->vm.createHardValueObject(instance);
+    }
+    virtual HardValue vmPropertySet(IVMExecution& execution, const HardValue&, const HardValue&) override {
+      return this->raiseManifestationError(execution, "does not support property modification");
+    }
+    virtual HardValue vmPropertyMut(IVMExecution& execution, const HardValue&, ValueMutationOp, const HardValue&) override {
+      return this->raiseManifestationError(execution, "does not support property modification");
+    }
+  protected:
+    void addMemberHandler(const char* name, MemberHandler handler) {
+      this->handlers.emplace(this->vm.createString(name), handler);
+    }
+  };
+
+  class VMManifestionType : public VMManifestionWithProperties<VMManifestionType> {
     VMManifestionType(const VMManifestionType&) = delete;
     VMManifestionType& operator=(const VMManifestionType&) = delete;
   public:
     explicit VMManifestionType(IVM& vm)
-      : VMManifestionBase(vm) {
-      this->type = Type::Object; // WIBBLE
+      : VMManifestionWithProperties(vm) {
+      this->type = Type::Object; // TODO
+      this->addMemberHandler("of", &VMManifestionType::vmCallTypeOf);
+    }
+    HardValue vmCallTypeOf(IVMExecution& execution, const ICallArguments& arguments) {
+      if (arguments.getArgumentCount() != 1) {
+        return this->raiseRuntimeError(execution, "'type.of()' expects exactly one argument");
+      }
+      StringBuilder sb;
+      HardValue value;
+      if (arguments.getArgumentByIndex(0, value)) {
+        return this->vm.createHardValue(value->getRuntimeType()->toStringPrecedence().first.c_str());
+      }
+      return this->vm.createHardValue("unknown");
     }
   protected:
     virtual const char* getName() const override {
@@ -1435,7 +1539,7 @@ namespace {
   public:
     explicit VMManifestionVoid(IVM& vm)
       : VMManifestionBase(vm) {
-      this->type = Type::Object; // WIBBLE
+      this->type = Type::Object; // TODO
     }
   protected:
     virtual const char* getName() const override {
@@ -1449,7 +1553,7 @@ namespace {
   public:
     explicit VMManifestionBool(IVM& vm)
       : VMManifestionBase(vm) {
-      this->type = Type::Object; // WIBBLE
+      this->type = Type::Object; // TODO
     }
   protected:
     virtual const char* getName() const override {
@@ -1463,7 +1567,7 @@ namespace {
   public:
     explicit VMManifestionInt(IVM& vm)
       : VMManifestionBase(vm) {
-      this->type = Type::Object; // WIBBLE
+      this->type = Type::Object; // TODO
     }
   protected:
     virtual const char* getName() const override {
@@ -1477,7 +1581,7 @@ namespace {
   public:
     explicit VMManifestionFloat(IVM& vm)
       : VMManifestionBase(vm) {
-      this->type = Type::Object; // WIBBLE
+      this->type = Type::Object; // TODO
     }
   protected:
     virtual const char* getName() const override {
@@ -1491,7 +1595,8 @@ namespace {
   public:
     explicit VMManifestionString(IVM& vm)
       : VMManifestionBase(vm) {
-      this->type = Type::Object; // WIBBLE
+      IType::Shape shape;
+      this->type = vm.getTypeForge().forgeShapeType(shape);
     }
   protected:
     virtual const char* getName() const override {
@@ -1505,7 +1610,7 @@ namespace {
   public:
     explicit VMManifestionObject(IVM& vm)
       : VMManifestionBase(vm) {
-      this->type = Type::Object; // WIBBLE
+      this->type = Type::Object; // TODO
     }
   protected:
     virtual const char* getName() const override {
@@ -1519,7 +1624,7 @@ namespace {
   public:
     explicit VMManifestionAny(IVM& vm)
       : VMManifestionBase(vm) {
-      this->type = Type::Object; // WIBBLE
+      this->type = Type::Object; // TODO
     }
   protected:
     virtual const char* getName() const override {

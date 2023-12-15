@@ -119,6 +119,40 @@ namespace {
     }
   };
 
+  class TypeVanillaShape final : public SoftReferenceCountedAllocator<IType> {
+    TypeVanillaShape(const TypeVanillaShape&) = delete;
+    TypeVanillaShape& operator=(const TypeVanillaShape&) = delete;
+  private:
+    IType::Shape shape;
+  public:
+    TypeVanillaShape(IAllocator& allocator, IBasket&, const IType::Shape& shape)
+      : SoftReferenceCountedAllocator(allocator),
+        shape(shape) {
+    }
+    virtual void softVisit(ICollectable::IVisitor&) const override {
+      // Nothing to do
+    }
+    virtual bool isPrimitive() const override {
+      return false;
+    }
+    virtual ValueFlags getPrimitiveFlags() const override {
+      return ValueFlags::None;
+    }
+    virtual size_t getShapeCount() const override {
+      return 1;
+    }
+    virtual const Shape* getShape(size_t index) const {
+      return (index == 0) ? &this->shape : nullptr;
+    }
+    virtual std::pair<std::string, int> toStringPrecedence() const override {
+      // TODO
+      return std::make_pair("<TODO:toStringPrecedence>", 9);
+    }
+    virtual void print(Printer& printer) const override {
+      printer << "<TODO:print>";
+    }
+  };
+
   class TypeForgeFunctionSignatureParameter : public IFunctionSignatureParameter {
     TypeForgeFunctionSignatureParameter(const TypeForgeFunctionSignatureParameter&) = delete;
     TypeForgeFunctionSignatureParameter& operator=(const TypeForgeFunctionSignatureParameter&) = delete;
@@ -312,6 +346,12 @@ namespace {
       this->pool.insert(type);
       return type;
     }
+    virtual Type forgeShapeType(const IType::Shape& shape) override {
+      // TODO cache this type properly
+      auto* type = this->create<TypeVanillaShape>(this->allocator, *this->basket, shape);
+      this->pool.insert(type);
+      return type;
+    }
     virtual Assignability isTypeAssignable(const Type& dst, const Type& src) override {
       return this->computeTypeAssignability(dst, src);
     }
@@ -449,6 +489,7 @@ void egg::ovum::Type::print(Printer& printer) const {
 }
 
 void egg::ovum::Type::print(Printer& printer, const IType& type) {
+  // WIBBLE retire?
   if (type.isPrimitive()) {
     (void)printer.describe(type.getPrimitiveFlags());
   } else {

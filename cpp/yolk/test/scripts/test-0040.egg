@@ -12,4 +12,4 @@ print(type.of(a));
 print(a);
 ///>123
 int b = positive(-123);
-///<RUNTIME><ERROR><RESOURCE>(14,5): Cannot initialize 'b' of type 'int' with a value of type 'null'
+///<RUNTIME><ERROR><RESOURCE>(14,5-22): Type mismatch setting variable 'b': expected 'int' but instead got 'null'

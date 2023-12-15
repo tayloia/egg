@@ -40,6 +40,7 @@ public:
     ExprNamed,
     TypeInfer,
     TypeLiteral,
+    TypeManifestation,
     StmtBlock,
     StmtFunctionDefine,
     StmtFunctionInvoke,
@@ -946,6 +947,7 @@ namespace {
         return Type::AnyQ; // TODO
       case Node::Kind::Root:
       case Node::Kind::TypeInfer:
+      case Node::Kind::TypeManifestation:
       case Node::Kind::StmtBlock:
       case Node::Kind::StmtFunctionDefine:
       case Node::Kind::StmtFunctionInvoke:
@@ -1095,6 +1097,11 @@ namespace {
     virtual Node& typeLiteral(const Type& type, const SourceRange& range) override {
       auto& node = this->module->createNode(Node::Kind::TypeLiteral, range);
       node.literal = this->createHardValueType(type);
+      return node;
+    }
+    virtual Node& typeManifestation(ValueFlags flags, const SourceRange& range) override {
+      auto& node = this->module->createNode(Node::Kind::TypeManifestation, range);
+      node.literal = this->createHardValueInt(Int(flags));
       return node;
     }
     virtual Node& stmtBlock(const SourceRange& range) override {
@@ -2928,6 +2935,18 @@ bool VMRunner::stepNode(HardValue& retval) {
     assert(top.index == 0);
     assert(top.deque.empty());
     return this->pop(top.node->literal);
+  case IVMModule::Node::Kind::TypeManifestation:
+    assert(top.node->children.empty());
+    assert(top.index == 0);
+    assert(top.deque.empty());
+    {
+      Int flags;
+      if (!top.node->literal->getInt(flags)) {
+        return this->raise("Invalid program node literal for type manifestation");
+      }
+      auto manifestation = this->vm.getManifestation(ValueFlags(flags));
+      return this->pop(this->createHardValueObject(manifestation));
+    }
   default:
     return this->raise("Invalid program node kind in program runner");
   }

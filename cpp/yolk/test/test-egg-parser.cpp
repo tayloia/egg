@@ -143,6 +143,9 @@ namespace {
     case Node::Kind::TypeAny:
       assert(node.children.empty());
       return printNodeChildren(os, "type-any", node, ranges);
+    case Node::Kind::TypeType:
+      assert(node.children.empty());
+      return printNodeChildren(os, "type-type", node, ranges);
     case Node::Kind::TypeUnary:
       assert(node.children.size() == 1);
       return printNodeExtra(os, "type-unary", node.op.typeUnaryOp, node, ranges);
@@ -650,6 +653,6 @@ TEST(TestEggParser, Ranges) {
   // 123456789012345678901234567890123456789
     "assert(alpha * -beta >= gamma[delta]);"
   }, true);
-  std::string expected = "(expr-call@(1,1-38) (expr-variable@(1,1-6) 'assert') (expr-binary@(1,8-36) '>=' (expr-binary@(1,8-20) '*' (expr-variable@(1,8-12) 'alpha') (expr-unary@(1,16-20) '-' (expr-variable@(1,17-20) 'beta'))) (expr-index@(1,25-36) (expr-variable@(1,25-29) 'gamma') (expr-variable@(1,31-35) 'delta'))))\n";
+  std::string expected = "(expr-call@(1,1-37) (expr-variable@(1,1-6) 'assert') (expr-binary@(1,8-36) '>=' (expr-binary@(1,8-20) '*' (expr-variable@(1,8-12) 'alpha') (expr-unary@(1,16-20) '-' (expr-variable@(1,17-20) 'beta'))) (expr-index@(1,25-36) (expr-variable@(1,25-29) 'gamma') (expr-variable@(1,31-35) 'delta'))))\n";
   ASSERT_EQ(expected, actual);
 }
