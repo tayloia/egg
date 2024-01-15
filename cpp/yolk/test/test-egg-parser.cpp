@@ -87,6 +87,9 @@ namespace {
     case Node::Kind::StmtFinally:
       assert(node.children.size() == 1);
       return printNodeChildren(os, "stmt-finally", node, ranges);
+    case Node::Kind::StmtWhile:
+      assert(node.children.size() == 2);
+      return printNodeChildren(os, "stmt-while", node, ranges);
     case Node::Kind::StmtMutate:
       return printNodeExtra(os, "stmt-mutate", node.op.valueMutationOp, node, ranges);
     case Node::Kind::ExprVariable:
@@ -636,6 +639,14 @@ TEST(TestEggParser, StatementTryFinally) {
     "try {} finally {}"
     });
   std::string expected = "(stmt-try (stmt-block) (stmt-finally (stmt-block)))\n";
+  ASSERT_EQ(expected, actual);
+}
+
+TEST(TestEggParser, StatementWhileLoop) {
+  std::string actual = outputFromLines({
+    "while (i < 10) {}"
+    });
+  std::string expected = "(stmt-while (expr-binary '<' (expr-variable 'i') 10) (stmt-block))\n";
   ASSERT_EQ(expected, actual);
 }
 

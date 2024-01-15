@@ -559,7 +559,7 @@ namespace {
       Context context(*this, tokidx);
       assert(context[0].isKeyword(EggTokenizerKeyword::If));
       if (!context[1].isOperator(EggTokenizerOperator::ParenthesisLeft)) {
-        return context.expected(tokidx + 1, "'(' after keyword 'for'");
+        return context.expected(tokidx + 1, "'(' after keyword 'if'");
       }
       auto condition = this->parseGuardExpression(tokidx + 2);
       if (!condition.succeeded()) {
@@ -708,7 +708,27 @@ namespace {
     Partial parseStatementWhile(size_t tokidx) {
       Context context(*this, tokidx);
       assert(context[0].isKeyword(EggTokenizerKeyword::While));
-      return PARSE_TODO(tokidx, "statement keyword: ", context[0].toString());
+      if (!context[1].isOperator(EggTokenizerOperator::ParenthesisLeft)) {
+        return context.expected(tokidx + 1, "'(' after keyword 'while'");
+      }
+      auto condition = this->parseGuardExpression(tokidx + 2);
+      if (!condition.succeeded()) {
+        return condition;
+      }
+      if (!condition.after(0).isOperator(EggTokenizerOperator::ParenthesisRight)) {
+        return context.expected(condition.tokensAfter, "')' after condition in 'while' statement");
+      }
+      if (!condition.after(1).isOperator(EggTokenizerOperator::CurlyLeft)) {
+        return context.expected(condition.tokensAfter + 1, "'{' after ')' in 'while' statement");
+      }
+      auto block = this->parseStatementBlock(condition.tokensAfter + 1);
+      if (!block.succeeded()) {
+        return block;
+      }
+      auto stmt = this->makeNodeString(Node::Kind::StmtWhile, context[0]);
+      stmt->children.emplace_back(std::move(condition.node));
+      stmt->children.emplace_back(std::move(block.node));
+      return context.success(std::move(stmt), block.tokensAfter);
     }
     Partial parseStatementYield(size_t tokidx) {
       Context context(*this, tokidx);

@@ -126,6 +126,9 @@ namespace {
     ModuleNode* compileStmtReturn(ParserNode& pnode, StmtContext& context);
     ModuleNode* compileStmtTry(ParserNode& pnode, StmtContext& context);
     ModuleNode* compileStmtCatch(ParserNode& pnode, StmtContext& context);
+    ModuleNode* compileStmtWhile(ParserNode& pnode, StmtContext& context);
+    ModuleNode* compileStmtWhileGuarded(ParserNode& pnode, StmtContext& context);
+    ModuleNode* compileStmtWhileUnguarded(ParserNode& pnode, StmtContext& context);
     ModuleNode* compileValueExpr(ParserNode& pnode, const ExprContext& context);
     ModuleNode* compileValueExprVariable(ParserNode& pnode, const ExprContext& context);
     ModuleNode* compileValueExprUnary(ParserNode& op, ParserNode& rhs, const ExprContext& context);
@@ -143,6 +146,7 @@ namespace {
     ModuleNode* compileValueExprGuard(ParserNode& pnode, ParserNode& ptype, ParserNode& pexpr, const ExprContext& context);
     ModuleNode* compileValueExprManifestation(ParserNode& pnode, egg::ovum::ValueFlags flags);
     ModuleNode* compileTypeExpr(ParserNode& pnode, const ExprContext& context, egg::ovum::Type& type);
+    ModuleNode* compileTypeGuard(ParserNode& pnode, const ExprContext& context, egg::ovum::Type& type, ModuleNode*& mcond);
     ModuleNode* compileTypeInfer(ParserNode& pnode, ParserNode& ptype, ParserNode& pexpr, const ExprContext& context, egg::ovum::Type& type, ModuleNode*& mexpr);
     ModuleNode* compileTypeFunctionSignature(ParserNode& pnode, const egg::ovum::IFunctionSignature*& signature, egg::ovum::Type& type);
     ModuleNode* compileLiteral(ParserNode& pnode);
@@ -344,6 +348,9 @@ ModuleNode* ModuleCompiler::compileStmt(ParserNode& pnode, StmtContext& context)
   case ParserNode::Kind::StmtTry:
     EXPECT(pnode, pnode.children.size() >= 2);
     return this->compileStmtTry(pnode, context);
+  case ParserNode::Kind::StmtWhile:
+    EXPECT(pnode, pnode.children.size() == 2);
+    return this->compileStmtWhile(pnode, context);
   case ParserNode::Kind::StmtMutate:
     return this->compileStmtMutate(pnode, context);
   case ParserNode::Kind::ExprCall:
@@ -666,14 +673,12 @@ ModuleNode* ModuleCompiler::compileStmtIfGuarded(ParserNode& pnode, StmtContext&
   egg::ovum::String symbol;
   EXPECT(pguard, pguard.value->getString(symbol));
   egg::ovum::Type type;
-  auto* mtype = this->compileTypeExpr(*pguard.children.front(), context, type);
+  ModuleNode* mcond;
+  auto* mtype = this->compileTypeGuard(pguard, context, type, mcond);
   if (mtype == nullptr) {
     return nullptr;
   }
-  auto* condition = this->compileValueExpr(*pnode.children.front(), context);
-  if (condition == nullptr) {
-    return nullptr;
-  }
+  assert(mcond != nullptr);
   StmtContext inner{ &context };
   if (!this->addSymbol(inner, pguard, StmtContext::Entry::Kind::Variable, symbol, type)) {
     return nullptr;
@@ -693,7 +698,7 @@ ModuleNode* ModuleCompiler::compileStmtIfGuarded(ParserNode& pnode, StmtContext&
       return nullptr;
     }
   }
-  auto& stmt = this->mbuilder.stmtIf(*condition, pnode.range);
+  auto& stmt = this->mbuilder.stmtIf(*mcond, pnode.range);
   this->mbuilder.appendChild(stmt, *truthy);
   if (falsy != nullptr) {
     this->mbuilder.appendChild(stmt, *falsy);
@@ -839,6 +844,59 @@ ModuleNode* ModuleCompiler::compileStmtCatch(ParserNode& pnode, StmtContext& con
   return stmt;
 }
 
+ModuleNode* ModuleCompiler::compileStmtWhile(ParserNode& pnode, StmtContext& context) {
+  assert(pnode.kind == ParserNode::Kind::StmtWhile);
+  assert(pnode.children.size() == 2);
+  if (pnode.children.front()->kind == ParserNode::Kind::ExprGuard) {
+    return this->compileStmtWhileGuarded(pnode, context);
+  }
+  return this->compileStmtWhileUnguarded(pnode, context);
+}
+
+ModuleNode* ModuleCompiler::compileStmtWhileGuarded(ParserNode& pnode, StmtContext& context) {
+  assert(pnode.kind == ParserNode::Kind::StmtWhile);
+  assert(pnode.children.size() == 2);
+  auto& pguard = *pnode.children.front();
+  assert(pguard.kind == ParserNode::Kind::ExprGuard);
+  assert(pguard.children.size() == 2);
+  egg::ovum::String symbol;
+  EXPECT(pguard, pguard.value->getString(symbol));
+  egg::ovum::Type type;
+  ModuleNode* mcond;
+  auto* mtype = this->compileTypeGuard(pguard, context, type, mcond);
+  if (mtype == nullptr) {
+    return nullptr;
+  }
+  assert(mcond != nullptr);
+  StmtContext inner{ &context };
+  if (!this->addSymbol(inner, pguard, StmtContext::Entry::Kind::Variable, symbol, type)) {
+    return nullptr;
+  }
+  auto* block = this->compileStmt(*pnode.children.back(), inner);
+  if (block == nullptr) {
+    return nullptr;
+  }
+  auto& stmt = this->mbuilder.stmtWhile(*mcond, *block, pnode.range);
+  auto& guarded = this->mbuilder.stmtVariableDeclare(symbol, *mtype, pguard.range);
+  this->mbuilder.appendChild(guarded, stmt);
+  return &guarded;
+}
+
+ModuleNode* ModuleCompiler::compileStmtWhileUnguarded(ParserNode& pnode, StmtContext& context) {
+  assert(pnode.kind == ParserNode::Kind::StmtWhile);
+  assert(pnode.children.size() == 2);
+  auto* condition = this->compileValueExpr(*pnode.children.front(), context);
+  if (condition == nullptr) {
+    return nullptr;
+  }
+  auto* block = this->compileStmt(*pnode.children.back(), context);
+  if (block == nullptr) {
+    return nullptr;
+  }
+  auto* stmt = &this->mbuilder.stmtWhile(*condition, *block, pnode.range);
+  return stmt;
+}
+
 ModuleNode* ModuleCompiler::compileValueExpr(ParserNode& pnode, const ExprContext& context) {
   switch (pnode.kind) {
   case ParserNode::Kind::ExprVariable:
@@ -924,6 +982,7 @@ ModuleNode* ModuleCompiler::compileValueExpr(ParserNode& pnode, const ExprContex
   case ParserNode::Kind::StmtTry:
   case ParserNode::Kind::StmtCatch:
   case ParserNode::Kind::StmtFinally:
+  case ParserNode::Kind::StmtWhile:
   case ParserNode::Kind::StmtMutate:
   case ParserNode::Kind::Named:
   default:
@@ -1209,8 +1268,20 @@ ModuleNode* ModuleCompiler::compileTypeExpr(ParserNode& pnode, const ExprContext
   return &this->mbuilder.typeLiteral(type, pnode.range);
 }
 
+ModuleNode* ModuleCompiler::compileTypeGuard(ParserNode& pnode, const ExprContext& context, egg::ovum::Type& type, ModuleNode*& mcond) {
+  assert(pnode.kind == ParserNode::Kind::ExprGuard);
+  assert(pnode.children.size() == 2);
+  auto* mtype = this->compileTypeInfer(pnode, *pnode.children.front(), *pnode.children.back(), context, type, mcond);
+  if (mcond != nullptr) {
+    egg::ovum::String symbol;
+    EXPECT(pnode, pnode.value->getString(symbol));
+    mcond = &this->mbuilder.exprGuard(symbol, *mcond, pnode.range);
+  }
+  return mtype;
+}
+
 ModuleNode* ModuleCompiler::compileTypeInfer(ParserNode& pnode, ParserNode& ptype, ParserNode& pexpr, const ExprContext& context, egg::ovum::Type& type, ModuleNode*& mexpr) {
-  assert((pnode.kind == ParserNode::Kind::StmtDefineVariable) || (pnode.kind == ParserNode::Kind::StmtForEach));
+  assert((pnode.kind == ParserNode::Kind::StmtDefineVariable) || (pnode.kind == ParserNode::Kind::StmtForEach) || (pnode.kind == ParserNode::Kind::ExprGuard));
   if (ptype.kind == ParserNode::Kind::TypeInfer) {
     mexpr = this->compileValueExpr(pexpr, context);
     if (mexpr == nullptr) {
@@ -1498,6 +1569,8 @@ std::string ModuleCompiler::toString(const ParserNode& pnode) {
     return "catch statement";
   case ParserNode::Kind::StmtFinally:
     return "finally statement";
+  case ParserNode::Kind::StmtWhile:
+    return "while statement";
   case ParserNode::Kind::StmtMutate:
     return "mutate statement";
   case ParserNode::Kind::ExprVariable:
