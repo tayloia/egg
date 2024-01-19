@@ -5,6 +5,9 @@ namespace egg::ovum {
     explicit String(const IMemory* rhs) : Memory(rhs) {
     }
     bool validate() const;
+    void swap(String& that) {
+      String::hardSwap(*this, that);
+    }
 
     // See http://chilliant.blogspot.co.uk/2018/05/egg-strings.html
     size_t length() const;

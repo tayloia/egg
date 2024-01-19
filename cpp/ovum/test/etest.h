@@ -149,6 +149,12 @@ namespace egg::test {
     }
     return ::testing::internal::CmpHelperEQFailure(lhs_expression, rhs_expression, lhs, rhs);
   }
+  inline ::testing::AssertionResult assertTypeEQ(const char* lhs_expression, const char* rhs_expression, const egg::ovum::Type& lhs, const egg::ovum::Type& rhs) {
+    if (lhs == rhs) {
+      return ::testing::AssertionSuccess();
+    }
+    return ::testing::internal::CmpHelperEQFailure(lhs_expression, rhs_expression, lhs, rhs);
+  }
   inline void assertString(const char* expected, const egg::ovum::String& actual) {
     ASSERT_STREQ(expected, actual.toUTF8().c_str());
   }
@@ -157,6 +163,9 @@ namespace egg::test {
   }
   inline void assertString(const egg::ovum::String& expected, const egg::ovum::String& actual) {
     ASSERT_STREQ(expected.toUTF8().c_str(), actual.toUTF8().c_str());
+  }
+  inline void assertType(const egg::ovum::Type& expected, const egg::ovum::Type& actual) {
+    ASSERT_PRED_FORMAT2(assertTypeEQ, expected, actual);
   }
   inline void assertValue(egg::ovum::ValueFlags expected, const egg::ovum::HardValue& value) {
     ASSERT_EQ(expected, value->getPrimitiveFlag());

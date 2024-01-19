@@ -39,6 +39,53 @@ namespace egg::ovum {
     return Bits::set(lhs, rhs);
   }
 
+  class TypeShape {
+  private:
+    const IType::Shape* ptr;
+  public:
+    explicit TypeShape(const IType::Shape& rhs) : ptr(&rhs) {
+    }
+    bool operator==(const IType::Shape& rhs) const {
+      return this->ptr == &rhs;
+    }
+    bool operator!=(const IType::Shape& rhs) const {
+      return this->ptr != &rhs;
+    }
+    const IType::Shape* operator->() const {
+      auto* p = this->ptr;
+      assert(p != nullptr);
+      return p;
+    }
+    const IType::Shape& get() const {
+      auto* p = this->ptr;
+      assert(p != nullptr);
+      return *p;
+    }
+    bool validate() const {
+      return this->ptr != nullptr;
+    }
+    size_t hash() const {
+      return Hash::hash(this->ptr);
+    }
+    struct Less {
+      // Used by TypeShapeSet
+      bool operator()(const TypeShape& lhs, const TypeShape& rhs) const {
+        return &lhs.get() < &rhs.get();
+      }
+    };
+  };
+
+  class TypeShapeSet : public std::set<TypeShape, TypeShape::Less> {
+    using Container = std::set<TypeShape, TypeShape::Less>;
+  public:
+    bool add(const TypeShape& shape) {
+      return this->emplace(shape).second;
+    }
+    bool remove(const TypeShape& shape) {
+      return this->erase(shape) > 0;
+    }
+  };
+
   class Type {
   private:
     const IType* ptr;
@@ -78,6 +125,21 @@ namespace egg::ovum {
     size_t hash() const {
       return Hash::hash(this->ptr);
     }
+    void unionShapeSet(TypeShapeSet& shapeset) const {
+      auto* p = this->ptr;
+      assert((p != nullptr) && p->validate());
+      size_t count = p->getShapeCount();
+      for (size_t index = 0; index < count; ++index) {
+        auto* s = p->getShape(index);
+        assert(s != nullptr);
+        shapeset.emplace(*s);
+      }
+    }
+    TypeShapeSet getShapeSet() const {
+      TypeShapeSet shapeset;
+      this->unionShapeSet(shapeset);
+      return shapeset;
+    }
     const IType::Shape* getOnlyShape() const {
       auto* p = this->ptr;
       assert((p != nullptr) && p->validate());
@@ -102,7 +164,9 @@ namespace egg::ovum {
     static const Type Any;
     static const Type AnyQ;
 
-    // Helpers
+    // Helpers WIBBLE retire
+    static int print(Printer& printer, ValueFlags primitive); // returns precedence
+    static int print(Printer& printer, const IType::Shape& shape); // returns precedence
     static void print(Printer& printer, const IType& type);
     static void print(Printer& printer, const IFunctionSignature& signature);
   };

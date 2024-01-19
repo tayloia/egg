@@ -10,6 +10,8 @@ namespace egg::ovum {
   class Printer;
   class String;
   class Type;
+  class TypeShape;
+  class TypeShapeSet;
   class HardValue;
   class ICollectable;
   class IValue;
@@ -289,6 +291,17 @@ namespace egg::ovum {
     virtual Type getGeneratorType() const = 0;
   };
 
+  class IPropertySignature {
+  public:
+    // Interface
+    virtual ~IPropertySignature() {}
+    virtual Type getType(const String& property) const = 0;
+    virtual Modifiability getModifiability(const String& property) const = 0;
+    virtual String getName(size_t index) const = 0;
+    virtual size_t getNameCount() const = 0;
+    virtual bool isClosed() const = 0;
+  };
+
   class IIndexSignature {
   public:
     // Interface
@@ -302,18 +315,7 @@ namespace egg::ovum {
   public:
     // Interface
     virtual ~IIteratorSignature() {}
-    virtual Type getType() const = 0;
-  };
-
-  class IPropertySignature {
-  public:
-    // Interface
-    virtual ~IPropertySignature() {}
-    virtual Type getType(const String& property) const = 0;
-    virtual Modifiability getModifiability(const String& property) const = 0;
-    virtual String getName(size_t index) const = 0;
-    virtual size_t getNameCount() const = 0;
-    virtual bool isClosed() const = 0;
+    virtual Type getIterationType() const = 0;
   };
 
   class IPointerSignature {
@@ -338,7 +340,6 @@ namespace egg::ovum {
     virtual ValueFlags getPrimitiveFlags() const = 0;
     virtual size_t getShapeCount() const = 0;
     virtual const Shape* getShape(size_t index) const = 0;
-    virtual std::pair<std::string, int> toStringPrecedence() const = 0; // TODO remove?
   };
 
   class ITypeForgeFunctionBuilder : public IHardAcquireRelease {
@@ -350,18 +351,63 @@ namespace egg::ovum {
     virtual const IFunctionSignature& build() = 0;
   };
 
+  class ITypeForgePropertyBuilder : public IHardAcquireRelease {
+  public:
+    virtual void setUnknownProperty(const Type& type, Modifiability modifiability) = 0;
+    virtual void addProperty(const String& name, const Type& type, Modifiability modifiability) = 0;
+    virtual const IPropertySignature& build() = 0;
+  };
+
+  class ITypeForgeIndexBuilder : public IHardAcquireRelease {
+  public:
+    virtual void setResultType(const Type& type) = 0;
+    virtual void setIndexType(const Type& type) = 0;
+    virtual void setModifiability(Modifiability modifiability) = 0;
+    virtual const IIndexSignature& build() = 0;
+  };
+
+  class ITypeForgeIteratorBuilder : public IHardAcquireRelease {
+  public:
+    virtual void setIterationType(const Type& type) = 0;
+    virtual const IIteratorSignature& build() = 0;
+  };
+
+  class ITypeForgePointerBuilder : public IHardAcquireRelease {
+  public:
+    virtual const IPointerSignature& build() = 0;
+  };
+
+  class ITypeForgeComplexBuilder : public IHardAcquireRelease {
+  public:
+    virtual bool addFlags(ValueFlags bits) = 0;
+    virtual bool removeFlags(ValueFlags bits) = 0;
+    virtual bool addShape(const TypeShape& shape) = 0;
+    virtual bool removeShape(const TypeShape& shape) = 0;
+    virtual bool addType(const Type& type) = 0;
+    virtual Type build() = 0;
+  };
+
   class ITypeForge : public IHardAcquireRelease {
   public:
     // Interface
+    virtual TypeShape forgeArrayShape(const Type& element) = 0;
+    virtual TypeShape forgeStringShape() = 0;
     virtual Type forgePrimitiveType(ValueFlags flags) = 0;
+    virtual Type forgeComplexType(ValueFlags flags, const TypeShapeSet& shapes) = 0;
     virtual Type forgeUnionType(const Type& lhs, const Type& rhs) = 0;
     virtual Type forgeNullableType(const Type& type, bool nullable) = 0;
     virtual Type forgeVoidableType(const Type& type, bool voidable) = 0;
+    virtual Type forgeArrayType(const Type& element) = 0;
     virtual Type forgeIterationType(const Type& type) = 0;
     virtual Type forgeFunctionType(const IFunctionSignature& signature) = 0;
-    virtual Type forgeShapeType(const IType::Shape& shape) = 0;
+    virtual Type forgeShapeType(const TypeShape& shape) = 0;
     virtual Assignability isTypeAssignable(const Type& dst, const Type& src) = 0;
     virtual Assignability isFunctionSignatureAssignable(const IFunctionSignature& dst, const IFunctionSignature& src) = 0;
     virtual HardPtr<ITypeForgeFunctionBuilder> createFunctionBuilder() = 0;
+    virtual HardPtr<ITypeForgePropertyBuilder> createPropertyBuilder() = 0;
+    virtual HardPtr<ITypeForgeIndexBuilder> createIndexBuilder() = 0;
+    virtual HardPtr<ITypeForgeIteratorBuilder> createIteratorBuilder() = 0;
+    virtual HardPtr<ITypeForgePointerBuilder> createPointerBuilder() = 0;
+    virtual HardPtr<ITypeForgeComplexBuilder> createComplexBuilder() = 0;
   };
 }

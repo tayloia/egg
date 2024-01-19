@@ -225,7 +225,7 @@ namespace {
     virtual bool set(const IValue& rhs) override {
       Int rvalue;
       if (rhs.getInt(rvalue)) {
-        this->value.exchange(rvalue);
+        this->value.set(rvalue);
         return true;
       }
       return false;
@@ -357,7 +357,7 @@ namespace {
     virtual bool set(const IValue& rhs) override {
       Float rvalue;
       if (rhs.getFloat(rvalue)) {
-        this->value.exchange(rvalue);
+        this->value.set(rvalue);
         return true;
       }
       return false;
@@ -495,8 +495,8 @@ namespace {
       if (op == ValueMutationOp::Assign) {
         String rvalue;
         if (rhs.getString(rvalue)) {
-          String before{ this->value.exchange(rvalue.get()) };
-          return ValueFactory::createString(this->allocator, before);
+          this->value.swap(rvalue);
+          return ValueFactory::createString(this->allocator, rvalue);
         }
         return this->createRuntimeError("TODO: Invalid right-hand value for mutation assignment to string");
       }
@@ -542,8 +542,8 @@ namespace {
       if (op == ValueMutationOp::Assign) {
         HardObject rvalue;
         if (rhs.getHardObject(rvalue)) {
-          HardObject before{ this->value.exchange(rvalue.get()) };
-          return ValueFactory::createHardObject(this->allocator, before);
+          this->value.swap(rvalue);
+          return ValueFactory::createHardObject(this->allocator, rvalue);
         }
         return this->createRuntimeError("TODO: Invalid right-hand value for mutation assignment to object");
       }
@@ -837,7 +837,7 @@ namespace {
         if (value.getBool(b)) {
           this->destroy();
           this->flags = ValueFlags::Bool;
-          this->ivalue.exchange(b ? 1 : 0);
+          this->ivalue.set(b ? 1 : 0);
           assert(this->validate());
           return true;
         }
@@ -849,7 +849,7 @@ namespace {
         if (value.getInt(i)) {
           this->destroy();
           this->flags = ValueFlags::Int;
-          this->ivalue.exchange(i);
+          this->ivalue.set(i);
           assert(this->validate());
           return true;
         }
@@ -861,7 +861,7 @@ namespace {
         if (value.getFloat(f)) {
           this->destroy();
           this->flags = ValueFlags::Float;
-          this->fvalue.exchange(f);
+          this->fvalue.set(f);
           assert(this->validate());
           return true;
         }
@@ -1021,7 +1021,7 @@ namespace {
           // TODO thread safety
           auto flhs = Float(this->ivalue.get());
           this->flags = ValueFlags::Float;
-          this->fvalue.exchange(flhs);
+          this->fvalue.set(flhs);
           return this->createEvalFloat(evalFloat, frhs);
         }
         return this->createRuntimeError(mismatchMessage);

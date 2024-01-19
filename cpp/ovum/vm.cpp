@@ -912,15 +912,18 @@ namespace {
     VMTypeDeducer(const VMTypeDeducer&) = delete;
     VMTypeDeducer& operator=(const VMTypeDeducer&) = delete;
   private:
+    using TypeLookup = IVMModuleBuilder::TypeLookup;
     using Reporter = IVMModuleBuilder::Reporter;
     using Node = IVMModuleBuilder::Node;
     IAllocator& allocator;
     ITypeForge& forge;
+    const TypeLookup& lookup;
     Reporter* reporter;
   public:
-    VMTypeDeducer(IAllocator& allocator, ITypeForge& forge, Reporter* reporter)
+    VMTypeDeducer(IAllocator& allocator, ITypeForge& forge, const TypeLookup& lookup, Reporter* reporter)
       : allocator(allocator),
         forge(forge),
+        lookup(lookup),
         reporter(reporter) {
     }
     Type deduce(Node& node) {
@@ -934,20 +937,34 @@ namespace {
         assert(node.children.size() == 2);
         return this->deducePropertyGet(*node.children.front(), *node.children.back(), node.range);
       case Node::Kind::ExprUnaryOp:
+        assert(node.literal->getVoid());
+        assert(node.children.size() == 1);
+        return this->deduceUnaryOp(node.unaryOp, *node.children.front(), node.range);
       case Node::Kind::ExprBinaryOp:
+        assert(node.literal->getVoid());
+        assert(node.children.size() == 2);
+        return this->deduceBinaryOp(node.binaryOp, *node.children.front(), *node.children.back(), node.range);
       case Node::Kind::ExprTernaryOp:
+        assert(node.literal->getVoid());
+        assert(node.children.size() == 3);
+        return this->deduceTernaryOp(node.ternaryOp, *node.children[0], *node.children[1], *node.children[2], node.range);
       case Node::Kind::ExprPredicateOp:
+        return Type::Bool;
       case Node::Kind::ExprVariable:
+        assert(node.children.empty());
+        return this->deduceVariable(node.literal, node.range);
       case Node::Kind::ExprArray:
+        return this->forge.forgeArrayType(Type::AnyQ);
       case Node::Kind::ExprObject:
+        return Type::Object;
       case Node::Kind::ExprFunctionCall:
+        assert(node.literal->getVoid());
+        assert(node.children.size() >= 1);
+        return this->deduceFunctionCall(*node.children.front(), node.range);
       case Node::Kind::ExprIndexGet:
       case Node::Kind::ExprGuard:
       case Node::Kind::ExprNamed:
-        return Type::AnyQ; // TODO
-      case Node::Kind::Root:
-      case Node::Kind::TypeInfer:
-      case Node::Kind::TypeManifestation:
+        break; // WIBBLE
       case Node::Kind::StmtBlock:
       case Node::Kind::StmtFunctionDefine:
       case Node::Kind::StmtFunctionInvoke:
@@ -973,11 +990,27 @@ namespace {
       case Node::Kind::StmtCatch:
       case Node::Kind::StmtRethrow:
       case Node::Kind::StmtReturn:
+        return Type::Void;
+      case Node::Kind::Root:
+      case Node::Kind::TypeInfer:
+      case Node::Kind::TypeManifestation:
+        // Should not be deduced directly
         break;
       }
       return this->fail(node.range, "TODO: Cannot deduce type for unexpected module node kind");
     }
   private:
+    Type deduceVariable(const HardValue& literal, const SourceRange& range) {
+      String symbol;
+      if (!literal->getString(symbol)) {
+        return this->fail(range, "Invalid variable literal: ", literal);
+      }
+      auto type = this->lookup.typeLookup(symbol);
+      if (type == nullptr) {
+        return this->fail(range, "Cannot deduce type for unknown variable: '", symbol, "'");
+      }
+      return type;
+    }
     Type deducePropertyGet(Node& instance, Node& property, const SourceRange& range) {
       // TODO
       if (instance.kind == Node::Kind::TypeLiteral) {
@@ -985,6 +1018,109 @@ namespace {
         return this->fail(range, "Type '", *type, "' does not support the property '", property.literal.get(), "'");
       }
       return Type::AnyQ;
+    }
+    Type deduceUnaryOp(ValueUnaryOp op, Node& rhs, const SourceRange& range) {
+      switch (op) {
+      case ValueUnaryOp::Negate:
+        return this->deduce(rhs);
+      case ValueUnaryOp::BitwiseNot:
+        return Type::Int;
+      case ValueUnaryOp::LogicalNot:
+        return Type::Bool;
+      }
+      return this->fail(range, "TODO: Cannot deduce type for unary operator");
+    }
+    Type deduceBinaryOp(ValueBinaryOp op, Node& lhs, Node& rhs, const SourceRange& range) {
+      switch (op) {
+      case ValueBinaryOp::Add: // a + b
+      case ValueBinaryOp::Subtract: // a - b
+      case ValueBinaryOp::Multiply: // a * b
+      case ValueBinaryOp::Divide: // a / b
+      case ValueBinaryOp::Remainder: // a % b
+        if (this->isDeducedAsFloat(lhs) || this->isDeducedAsFloat(rhs)) {
+          return Type::Float;
+        }
+        return Type::Int;
+      case ValueBinaryOp::LessThan: // a < b
+        break;
+      case ValueBinaryOp::LessThanOrEqual: // a <= b
+        break;
+      case ValueBinaryOp::Equal: // a == b
+        break;
+      case ValueBinaryOp::NotEqual: // a != b
+        break;
+      case ValueBinaryOp::GreaterThanOrEqual: // a >= b
+        break;
+      case ValueBinaryOp::GreaterThan: // a > b
+        break;
+      case ValueBinaryOp::BitwiseAnd: // a & b
+        break;
+      case ValueBinaryOp::BitwiseOr: // a | b
+        break;
+      case ValueBinaryOp::BitwiseXor: // a ^ b
+        break;
+      case ValueBinaryOp::ShiftLeft: // a << b
+        break;
+      case ValueBinaryOp::ShiftRight: // a >> b
+        break;
+      case ValueBinaryOp::ShiftRightUnsigned: // a >>> b
+        break;
+      case ValueBinaryOp::IfNull: // a ?? b
+        break;
+      case ValueBinaryOp::IfFalse: // a || b
+        break;
+      case ValueBinaryOp::IfTrue: // a && b
+        break;
+      }
+      return this->fail(range, "TODO: Cannot deduce type for binary operator");
+    }
+    Type deduceTernaryOp(ValueTernaryOp op, Node&, Node& lhs, Node& rhs, const SourceRange& range) {
+      if (op != ValueTernaryOp::IfThenElse) {
+        return this->fail(range, "TODO: Cannot deduce type for ternary operator");
+      }
+      auto ltype = this->deduce(lhs);
+      if (ltype == nullptr) {
+        return nullptr;
+      }
+      auto rtype = this->deduce(rhs);
+      if (rtype == nullptr) {
+        return nullptr;
+      }
+      return this->forge.forgeUnionType(ltype, rtype);
+    }
+    Type deduceFunctionCall(Node& function, const SourceRange& range) {
+      if (function.kind == Node::Kind::TypeManifestation) {
+        Int flags;
+        if (function.literal->getInt(flags)) {
+          return this->forge.forgePrimitiveType(ValueFlags(flags));
+        }
+      }
+      auto ftype = this->deduce(function);
+      if (ftype == nullptr) {
+        return nullptr;
+      }
+      Type rtype = nullptr;
+      auto count = ftype->getShapeCount();
+      for (size_t index = 0; index < count; ++index) {
+        auto* shape = ftype->getShape(index);
+        if ((shape != nullptr) && (shape->callable != nullptr)) {
+          // TODO: Match arity of call (number of arguments)
+          auto type = shape->callable->getReturnType();
+          if (rtype == nullptr) {
+            rtype = type;
+          } else {
+            rtype = this->forge.forgeUnionType(rtype, type);
+          }
+        }
+      }
+      if (rtype == nullptr) {
+        return this->fail(range, "Values of type '", *ftype,"' do not support function call semantics");
+      }
+      return rtype;
+    }
+    bool isDeducedAsFloat(Node& node) {
+      auto type = this->deduce(node);
+      return (type != nullptr) && Bits::hasAnySet(type->getPrimitiveFlags(), ValueFlags::Float);
     }
     template<typename... ARGS>
     Type fail(const SourceRange& range, ARGS&&... args) {
@@ -1252,8 +1388,8 @@ namespace {
     virtual ITypeForge& getTypeForge() const override {
       return this->vm.getTypeForge();
     }
-    virtual Type deduce(Node& node, Reporter* reporter) override {
-      VMTypeDeducer deducer{ this->getAllocator(), this->getTypeForge(), reporter };
+    virtual Type deduce(Node& node, const TypeLookup& lookup, Reporter* reporter) override {
+      VMTypeDeducer deducer{ this->getAllocator(), this->getTypeForge(), lookup, reporter };
       return deducer.deduce(node);
     }
     virtual void appendChild(Node& parent, Node& child) override {
@@ -2629,27 +2765,6 @@ bool VMRunner::stepNode(HardValue& retval) {
       assert(top.deque.size() >= 1);
       HardObject function;
       auto& head = top.deque.front();
-      if (head->getPrimitiveFlag() == ValueFlags::Type) {
-        // Constructor calls
-        Type type;
-        if (head->getHardType(type) && (type != nullptr)) {
-          auto flags = type->getPrimitiveFlags();
-          if (flags == ValueFlags::String) {
-            // 'string(...)' just concatenates the value(s)
-            top.deque.pop_front();
-            StringBuilder sb;
-            for (auto& argument : top.deque) {
-              sb.add(argument);
-            }
-            auto result = sb.build(this->getAllocator());
-            return this->pop(this->createHardValueString(result));
-          }
-          if (flags == ValueFlags::Void) {
-            // 'void(...)' just discards the value(s)
-            return this->pop(HardValue::Void);
-          }
-        }
-      }
       if (!head->getHardObject(function)) {
         return this->raise("Function calls are not supported by ", describe(head));
       }

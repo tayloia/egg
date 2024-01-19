@@ -95,5 +95,10 @@ namespace egg::ovum {
     int describe(ValueFlags value); // returns precedence
     void describe(const IType& value);
     void describe(const IValue& value);
+    void quote() {
+      if (this->options.quote != '\0') {
+        this->stream.put(this->options.quote);
+      }
+    }
   };
 }

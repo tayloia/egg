@@ -149,6 +149,11 @@ namespace egg::ovum {
 
   class IVMModuleBuilder : public IVMUncollectable {
   public:
+    class TypeLookup {
+    public:
+      virtual ~TypeLookup() {}
+      virtual Type typeLookup(const String& symbol) const = 0;
+    };
     class Reporter {
     public:
       virtual ~Reporter() {}
@@ -202,7 +207,7 @@ namespace egg::ovum {
     virtual Node& stmtReturn(const SourceRange& range) = 0;
     // Type operations
     virtual ITypeForge& getTypeForge() const = 0;
-    virtual Type deduce(Node& node, Reporter* reporter) = 0;
+    virtual Type deduce(Node& node, const TypeLookup& lookup, Reporter* reporter) = 0;
     // Modifiers
     virtual void appendChild(Node& parent, Node& child) = 0;
     // Helpers

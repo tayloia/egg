@@ -3,10 +3,6 @@
 
 #include <algorithm>
 
-size_t egg::ovum::Hash::hash(const String& value) {
-  return size_t(value.hash());
-}
-
 namespace {
   using namespace egg::ovum;
 

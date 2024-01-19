@@ -79,7 +79,7 @@ namespace egg::ovum {
     }
     HardPtr(const HardPtr& rhs) : ptr(rhs.hardAcquire()) {
     }
-    HardPtr(HardPtr&& rhs) noexcept : ptr(rhs.exchange(nullptr)) {
+    HardPtr(HardPtr&& rhs) noexcept : ptr(rhs.ptr.exchange(nullptr)) {
     }
     template<typename U>
     HardPtr(const HardPtr<U>& rhs) : ptr(rhs.hardAcquire()) {
@@ -93,7 +93,7 @@ namespace egg::ovum {
       return *this;
     }
     HardPtr& operator=(HardPtr&& rhs) noexcept {
-      HardPtr::hardRelease(this->ptr.exchange(rhs.exchange(nullptr)));
+      HardPtr::hardRelease(this->ptr.exchange(rhs.ptr.exchange(nullptr)));
       return *this;
     }
     template<typename U>
@@ -109,9 +109,6 @@ namespace egg::ovum {
     }
     T* get() const {
       return this->ptr.get();
-    }
-    T* exchange(T* rhs) {
-      return this->ptr.exchange(rhs);
     }
     void set(T* rhs) {
       HardPtr::hardRelease(this->ptr.exchange(HardPtr::hardAcquire(rhs)));
@@ -142,6 +139,10 @@ namespace egg::ovum {
       if (ptr != nullptr) {
         ptr->hardRelease();
       }
+    }
+    static void hardSwap(HardPtr& lhs, HardPtr& rhs) {
+      // TODO truly atomic?
+      lhs.ptr.set(rhs.ptr.exchange(lhs.ptr.get()));
     }
   };
   template<typename T>

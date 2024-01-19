@@ -19,6 +19,9 @@ namespace egg::ovum {
       // Equality is identity for objects
       return this->get() == other.get();
     }
+    void swap(HardObject& that) {
+      HardObject::hardSwap(*this, that);
+    }
   };
 
   class SoftObject : public SoftPtr<IObject> {

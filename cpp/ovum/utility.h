@@ -30,6 +30,10 @@ namespace egg::ovum {
       // Get the current value
       return std::atomic_load(&this->atomic);
     }
+    void set(Underlying desired) {
+      // Atomically set the value
+      std::atomic_store(&this->atomic, desired);
+    }
     Underlying exchange(Underlying desired) {
       // Atomically swap the values returning the value BEFORE
       return std::atomic_exchange(&this->atomic, desired);
@@ -237,16 +241,16 @@ namespace egg::ovum {
     operator size_t() const {
       return this->seed;
     }
-    void combine(uint32_t& dst, uint32_t src) {
+    static void combine(uint32_t& dst, uint32_t src) {
       // See https://www.boost.org/doc/libs/1_83_0/libs/container_hash/doc/html/hash.html#notes
-      dst ^= src + 0x9E3779B9 + (seed << 6) + (seed >> 2);
+      dst ^= src + 0x9E3779B9 + (dst << 6) + (dst >> 2);
     }
-    void combine(uint64_t& dst, uint64_t src) {
+    static void combine(uint64_t& dst, uint64_t src) {
       // See https://stackoverflow.com/a/4948967
-      dst ^= src + 0x9E3779B97F4A7C15 + (seed << 6) + (seed >> 2);
+      dst ^= src + 0x9E3779B97F4A7C15 + (dst << 6) + (dst >> 2);
     }
     Hash& add(size_t value) {
-      Hash::combine(this->seed, value + 0x9E3779B9 + (seed << 6) + (seed >> 2));
+      Hash::combine(this->seed, value);
       return *this;
     }
     template<typename T>
@@ -268,9 +272,12 @@ namespace egg::ovum {
     template<typename T>
     static std::enable_if_t<std::is_enum_v<T>, size_t> hash(T value) {
       // Enums are hashed according to numeric value
-      return size_t(value);
+      return static_cast<size_t>(value);
     }
-    static size_t hash(const Type& value);
-    static size_t hash(const String& value);
+    template<typename T>
+    static std::enable_if_t<std::is_member_function_pointer_v<decltype(&T::hash)>, size_t> hash(const T& value) {
+      // Use member T::hash() if available
+      return static_cast<size_t>(value.hash());
+    }
   };
 }

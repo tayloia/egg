@@ -24,21 +24,22 @@ namespace {
     VMObjectBase(const VMObjectBase&) = delete;
     VMObjectBase& operator=(const VMObjectBase&) = delete;
   protected:
-    HardPtr<IVM> vm;
+    IVM& vm;
     template<typename... ARGS>
     HardValue raiseRuntimeError(IVMExecution& execution, ARGS&&... args) {
       // TODO: Non-string exception?
-      auto message = StringBuilder::concat(this->vm->getAllocator(), std::forward<ARGS>(args)...);
+      auto message = StringBuilder::concat(this->vm.getAllocator(), std::forward<ARGS>(args)...);
       return execution.raiseRuntimeError(message);
     }
   public:
     explicit VMObjectBase(IVM& vm)
       : SoftReferenceCounted<IObject>(),
-        vm(&vm) {
+        vm(vm) {
       // Initially not adopted by any basket
+      assert(this->basket == nullptr);
     }
     virtual void hardDestroy() const override {
-      this->vm->getAllocator().destroy(this);
+      this->vm.getAllocator().destroy(this);
     }
   };
 
@@ -124,7 +125,7 @@ namespace {
         }
         sb.add(value);
       }
-      execution.log(ILogger::Source::User, ILogger::Severity::None, sb.build(this->vm->getAllocator()));
+      execution.log(ILogger::Source::User, ILogger::Severity::None, sb.build(this->vm.getAllocator()));
       return HardValue::Void;
     }
     virtual HardValue vmIterate(IVMExecution& execution) override {
@@ -179,7 +180,7 @@ namespace {
       return this->raiseRuntimeError(execution, "TODO: Expando objects do not yet support iteration");
     }
     virtual HardValue vmIndexGet(IVMExecution& execution, const HardValue& index) override {
-      SoftKey key(*this->vm, index.get());
+      SoftKey key(this->vm, index.get());
       auto pfound = this->properties.find(key);
       if (pfound == this->properties.end()) {
         return this->raiseRuntimeError(execution, "TODO: Cannot find index '", key.get(), "' in expando object");
@@ -187,10 +188,10 @@ namespace {
       return execution.getSoftValue(pfound->second);
     }
     virtual HardValue vmIndexSet(IVMExecution& execution, const HardValue& index, const HardValue& value) override {
-      SoftKey key(*this->vm, index.get());
+      SoftKey key(this->vm, index.get());
       auto pfound = this->properties.find(key);
       if (pfound == this->properties.end()) {
-        pfound = this->properties.emplace_hint(pfound, std::piecewise_construct, std::forward_as_tuple(key), std::forward_as_tuple(*this->vm));
+        pfound = this->properties.emplace_hint(pfound, std::piecewise_construct, std::forward_as_tuple(key), std::forward_as_tuple(this->vm));
       }
       if (!execution.setSoftValue(pfound->second, value)) {
         return this->raiseRuntimeError(execution, "TODO: Cannot modify index '", key.get(), "'");
@@ -201,7 +202,7 @@ namespace {
       return this->raiseRuntimeError(execution, "TODO: Expando objects do not yet support index mutation");
     }
     virtual HardValue vmPropertyGet(IVMExecution& execution, const HardValue& property) override {
-      SoftKey pname(*this->vm, property.get());
+      SoftKey pname(this->vm, property.get());
       auto pfound = this->properties.find(pname);
       if (pfound == this->properties.end()) {
         return this->raiseRuntimeError(execution, "TODO: Cannot find property '", pname.get(), "' in expando object");
@@ -209,10 +210,10 @@ namespace {
       return execution.getSoftValue(pfound->second);
     }
     virtual HardValue vmPropertySet(IVMExecution& execution, const HardValue& property, const HardValue& value) override {
-      SoftKey pname(*this->vm, property.get());
+      SoftKey pname(this->vm, property.get());
       auto pfound = this->properties.find(pname);
       if (pfound == this->properties.end()) {
-        pfound = this->properties.emplace_hint(pfound, std::piecewise_construct, std::forward_as_tuple(pname), std::forward_as_tuple(*this->vm));
+        pfound = this->properties.emplace_hint(pfound, std::piecewise_construct, std::forward_as_tuple(pname), std::forward_as_tuple(this->vm));
       }
       if (!execution.setSoftValue(pfound->second, value)) {
         return this->raiseRuntimeError(execution, "TODO: Cannot modify property '", pname.get(), "'");
@@ -245,7 +246,7 @@ namespace {
       if (arguments.getArgumentCount() != 0) {
         return this->raiseRuntimeError(execution, "Builtin 'expando()' expects no arguments");
       }
-      auto instance = makeHardObject<VMObjectExpando>(*this->vm);
+      auto instance = makeHardObject<VMObjectExpando>(this->vm);
       return execution.createHardValueObject(instance);
     }
     virtual HardValue vmIterate(IVMExecution& execution) override {
@@ -292,7 +293,7 @@ namespace {
       if (arguments.getArgumentCount() != 0) {
         return this->raiseRuntimeError(execution, "Builtin 'collector()' expects no arguments");
       }
-      auto collected = this->vm->getBasket().collect();
+      auto collected = this->vm.getBasket().collect();
       return execution.createHardValueInt(Int(collected));
     }
     virtual HardValue vmIterate(IVMExecution& execution) override {
@@ -332,7 +333,7 @@ namespace {
       : VMObjectBase(vm),
         instance(&instance),
         handler(handler) {
-      this->vm->getBasket().take(*this->instance);
+      this->vm.getBasket().take(*this->instance);
       assert(this->instance != nullptr);
       assert(this->handler != nullptr);
     }
@@ -491,9 +492,26 @@ namespace {
     };
   private:
     std::deque<SoftValue> elements;
+    Type runtimeType;
   public:
-    explicit VMObjectVanillaArray(IVM& vm)
-      : VMObjectVanillaContainer(vm) {
+    VMObjectVanillaArray(IVM& vm, const Type& runtimeType)
+      : VMObjectVanillaContainer(vm),
+        elements(),
+        runtimeType(runtimeType) {
+    }
+    virtual void hardDestroy() const override {
+      assert(this->basket == nullptr); // WIBBLE WOBBLE
+      this->VMObjectVanillaContainer::hardDestroy();
+    }
+    virtual IObject* hardAcquire() const override {
+      return this->VMObjectVanillaContainer::hardAcquire();
+    }
+    virtual void hardRelease() const override {
+      this->VMObjectVanillaContainer::hardRelease();
+    }
+    virtual ICollectable::SetBasketResult softSetBasket(IBasket* desired) const override {
+      // WIBBLE
+      return this->VMObjectVanillaContainer::softSetBasket(desired);
     }
     virtual const char* getName() const override {
       return "Vanilla array";
@@ -530,8 +548,7 @@ namespace {
       printer.stream << ']';
     }
     virtual Type vmRuntimeType() override {
-      // TODO
-      return Type::Object;
+      return this->runtimeType;
     }
     virtual HardValue vmCall(IVMExecution& execution, const ICallArguments&) override {
       return this->raiseContainerError(execution, "does not support call semantics");
@@ -607,11 +624,11 @@ namespace {
   private:
     typedef HardValue(VMObjectVanillaArray::*MemberHandler)(IVMExecution& execution, const ICallArguments& arguments);
     HardValue createSoftMemberHandler(MemberHandler handler) {
-      auto instance = makeHardObject<VMObjectMemberHandler<VMObjectVanillaArray>>(*this->vm, *this, handler);
-      return this->vm->createHardValueObject(instance);
+      auto instance = makeHardObject<VMObjectMemberHandler<VMObjectVanillaArray>>(this->vm, *this, handler);
+      return this->vm.createHardValueObject(instance);
     }
     HardValue lengthMut(IVMExecution& execution, VMObjectVanillaMutex::WriteLock& lock, ValueMutationOp mutation, const HardValue& rhs) {
-      auto value = ValueFactory::createInt(this->vm->getAllocator(), Int(this->elements.size()));
+      auto value = ValueFactory::createInt(this->vm.getAllocator(), Int(this->elements.size()));
       auto before = value->mutate(mutation, rhs.get());
       if (before.hasFlowControl()) {
         return before;
@@ -633,7 +650,7 @@ namespace {
       // OPTIMIZE
       auto diff = ivalue - Int(this->elements.size());
       while (diff > 0) {
-        this->elements.emplace_back(*this->vm)->set(HardValue::Null.get());
+        this->elements.emplace_back(this->vm)->set(HardValue::Null.get());
         diff--;
       }
       while (diff < 0) {
@@ -646,7 +663,7 @@ namespace {
       VMObjectVanillaMutex::WriteLock lock{ this->mutex };
       HardValue argument;
       for (size_t index = 0; arguments.getArgumentByIndex(index, argument); ++index) {
-        auto& added = this->elements.emplace_back(*this->vm);
+        auto& added = this->elements.emplace_back(this->vm);
         if (!added->set(argument.get())) {
           return this->raiseRuntimeError(execution, "Cannot push value to the end of the array");
         }
@@ -699,14 +716,14 @@ namespace {
         return HardValue::Void;
       }
       const auto& softkey = this->keys[state.index++];
-      auto key = this->vm->getSoftKey(softkey);
+      auto key = this->vm.getSoftKey(softkey);
       auto found = this->properties.find(softkey);
       if (found == this->properties.end()) {
         return this->raiseContainerError(execution, "is missing property '", key.get(), "' during iteration");
       }
       const auto& softvalue = found->second;
-      auto value = this->vm->getSoftValue(softvalue);
-      auto object = ObjectFactory::createVanillaKeyValue(*this->vm, key, value);
+      auto value = this->vm.getSoftValue(softvalue);
+      auto object = ObjectFactory::createVanillaKeyValue(this->vm, key, value);
       return execution.createHardValueObject(object);
     }
     virtual void softVisit(ICollectable::IVisitor& visitor) const override {
@@ -733,7 +750,6 @@ namespace {
       printer.stream << '}';
     }
     virtual Type vmRuntimeType() override {
-      // TODO
       return Type::Object;
     }
     virtual HardValue vmCall(IVMExecution& execution, const ICallArguments&) override {
@@ -761,7 +777,7 @@ namespace {
     }
   private:
     HardValue propertyGet(IVMExecution& execution, const HardValue& property) {
-      SoftKey key(*this->vm, property.get());
+      SoftKey key(this->vm, property.get());
       auto pfound = this->properties.find(key);
       if (pfound == this->properties.end()) {
         return this->raiseContainerError(execution, "does not contain property '", key.get(), "'");
@@ -769,7 +785,7 @@ namespace {
       return execution.getSoftValue(pfound->second);
     }
     HardValue propertySet(IVMExecution& execution, const HardValue& property, const HardValue& value) {
-      SoftKey key(*this->vm, property.get());
+      SoftKey key(this->vm, property.get());
       auto pfound = this->properties.find(key);
       if (pfound == this->properties.end()) {
         this->propertyCreate(pfound, key);
@@ -780,7 +796,7 @@ namespace {
       return HardValue::Void;
     }
     HardValue propertyMut(IVMExecution& execution, const HardValue& property, ValueMutationOp mutation, const HardValue& value) {
-      SoftKey key(*this->vm, property.get());
+      SoftKey key(this->vm, property.get());
       auto pfound = this->properties.find(key);
       if (pfound == this->properties.end()) {
         if (mutation != ValueMutationOp::Assign) {
@@ -791,13 +807,13 @@ namespace {
       return execution.mutateSoftValue(pfound->second, mutation, value);
     }
     void propertyCreate(std::map<SoftKey, SoftValue>::iterator& where, SoftKey& key) {
-      where = this->properties.emplace_hint(where, std::piecewise_construct, std::forward_as_tuple(key), std::forward_as_tuple(*this->vm));
+      where = this->properties.emplace_hint(where, std::piecewise_construct, std::forward_as_tuple(key), std::forward_as_tuple(this->vm));
       assert(where != this->properties.end());
       this->keys.emplace_back(key);
     }
   protected:
     HardValue propertyFind(IVMExecution& execution, const HardValue& property) {
-      SoftKey key(*this->vm, property.get());
+      SoftKey key(this->vm, property.get());
       auto pfound = this->properties.find(key);
       if (pfound == this->properties.end()) {
         return HardValue::Void;
@@ -805,10 +821,10 @@ namespace {
       return execution.getSoftValue(pfound->second);
     }
     void propertyAdd(const HardValue& property, const HardValue& value) {
-      SoftKey key(*this->vm, property.get());
-      auto where = this->properties.emplace(std::piecewise_construct, std::forward_as_tuple(key), std::forward_as_tuple(*this->vm));
+      SoftKey key(this->vm, property.get());
+      auto where = this->properties.emplace(std::piecewise_construct, std::forward_as_tuple(key), std::forward_as_tuple(this->vm));
       assert(where.second);
-      auto success = this->vm->setSoftValue(where.first->second, value);
+      auto success = this->vm.setSoftValue(where.first->second, value);
       assert(success);
       if (success) {
         this->keys.emplace_back(key);
@@ -818,11 +834,11 @@ namespace {
     }
     template<typename K>
     void propertyAdd(K property, const HardValue& value) {
-      return this->propertyAdd(this->vm->createHardValue(property), value);
+      return this->propertyAdd(this->vm.createHardValue(property), value);
     }
     template<typename K, typename V>
     void propertyAdd(K property, V value) {
-      return this->propertyAdd(this->vm->createHardValue(property), this->vm->createHardValue(value));
+      return this->propertyAdd(this->vm.createHardValue(property), this->vm.createHardValue(value));
     }
   };
 
@@ -1106,7 +1122,7 @@ namespace {
         }
         sb.add(argument);
       }
-      return execution.createHardValueString(sb.build(this->vm->getAllocator()));
+      return execution.createHardValueString(sb.build(this->vm.getAllocator()));
     }
   };
 
@@ -1180,9 +1196,9 @@ namespace {
         if (!argument->getString(padding)) {
           return this->raiseProxyError(execution, "expects its optional second argument to be a 'string', but instead got ", describe(argument.get()));
         }
-        return execution.createHardValueString(this->instance.padLeft(this->vm->getAllocator(), size_t(target), padding));
+        return execution.createHardValueString(this->instance.padLeft(this->vm.getAllocator(), size_t(target), padding));
       }
-      return execution.createHardValueString(this->instance.padLeft(this->vm->getAllocator(), size_t(target)));
+      return execution.createHardValueString(this->instance.padLeft(this->vm.getAllocator(), size_t(target)));
     }
   };
 
@@ -1215,9 +1231,9 @@ namespace {
         if (!argument->getString(padding)) {
           return this->raiseProxyError(execution, "expects its optional second argument to be a 'string', but instead got ", describe(argument.get()));
         }
-        return execution.createHardValueString(this->instance.padRight(this->vm->getAllocator(), size_t(target), padding));
+        return execution.createHardValueString(this->instance.padRight(this->vm.getAllocator(), size_t(target), padding));
       }
-      return execution.createHardValueString(this->instance.padRight(this->vm->getAllocator(), size_t(target)));
+      return execution.createHardValueString(this->instance.padRight(this->vm.getAllocator(), size_t(target)));
     }
   };
 
@@ -1244,7 +1260,7 @@ namespace {
       if (count < 0) {
         return this->raiseProxyError(execution, "expects its argument to be a non-negative integer, but instead got ", count);
       }
-      return execution.createHardValueString(this->instance.repeat(this->vm->getAllocator(), size_t(count)));
+      return execution.createHardValueString(this->instance.repeat(this->vm.getAllocator(), size_t(count)));
     }
   };
 
@@ -1279,7 +1295,7 @@ namespace {
           return this->raiseProxyError(execution, "expects its optional third argument to be an 'int', but instead got ", describe(argument.get()));
         }
       }
-      return execution.createHardValueString(this->instance.replace(this->vm->getAllocator(), needle, replacement, occurrences));
+      return execution.createHardValueString(this->instance.replace(this->vm.getAllocator(), needle, replacement, occurrences));
     }
   };
 
@@ -1310,7 +1326,7 @@ namespace {
           return this->raiseProxyError(execution, "expects its optional second argument to be an 'int', but instead got ", describe(argument.get()));
         }
       }
-      return execution.createHardValueString(this->instance.slice(this->vm->getAllocator(), begin, end));
+      return execution.createHardValueString(this->instance.slice(this->vm.getAllocator(), begin, end));
     }
   };
 
@@ -1520,10 +1536,15 @@ namespace {
       if (arguments.getArgumentCount() != 1) {
         return this->raiseRuntimeError(execution, "'type.of()' expects exactly one argument");
       }
-      StringBuilder sb;
       HardValue value;
       if (arguments.getArgumentByIndex(0, value)) {
-        return this->vm.createHardValue(value->getRuntimeType()->toStringPrecedence().first.c_str());
+        // TODO better option allocation
+        StringBuilder sb;
+        Print::Options options;
+        options.names = false;
+        Printer printer{ sb.stream, options };
+        value->getRuntimeType()->print(printer);
+        return this->vm.createHardValueString(sb.build(this->vm.getAllocator()));
       }
       return this->vm.createHardValue("unknown");
     }
@@ -1540,6 +1561,10 @@ namespace {
     explicit VMManifestionVoid(IVM& vm)
       : VMManifestionBase(vm) {
       this->type = Type::Object; // TODO
+    }
+    virtual HardValue vmCall(IVMExecution&, const ICallArguments&) override {
+      // Just discard the values
+      return HardValue::Void;
     }
   protected:
     virtual const char* getName() const override {
@@ -1595,8 +1620,20 @@ namespace {
   public:
     explicit VMManifestionString(IVM& vm)
       : VMManifestionBase(vm) {
-      IType::Shape shape;
-      this->type = vm.getTypeForge().forgeShapeType(shape);
+      auto& forge = vm.getTypeForge();
+      this->type = forge.forgeShapeType(forge.forgeStringShape());
+    }
+    virtual HardValue vmCall(IVMExecution& execution, const ICallArguments& arguments) override {
+      // Constructor calls
+      StringBuilder sb;
+      size_t count = arguments.getArgumentCount();
+      for (size_t index = 0; index < count; ++index) {
+        HardValue value;
+        if (arguments.getArgumentByIndex(index, value)) {
+          sb.add(value);
+        }
+      }
+      return execution.createHardValueString(sb.build(this->vm.getAllocator()));
     }
   protected:
     virtual const char* getName() const override {
@@ -1671,7 +1708,7 @@ namespace {
     template<typename T>
     void withProperty(const char* property, T value) {
       // TODO still needed?
-      this->withProperty(this->vm->createHardValue(property), this->vm->createHardValue(value), false);
+      this->withProperty(this->vm.createHardValue(property), this->vm.createHardValue(value), false);
     }
     void withPropertyOptional(const char* property, const String& value) {
       // TODO still needed?
@@ -1732,13 +1769,13 @@ VMObjectVanillaMutex::WriteLock::~WriteLock() {
 
 egg::ovum::HardValue VMObjectVanillaArray::vmIterate(IVMExecution& execution) {
   VMObjectVanillaMutex::ReadLock lock{ this->mutex };
-  auto iterator = makeHardObject<VMObjectVanillaArrayIterator>(*this->vm, *this, lock);
+  auto iterator = makeHardObject<VMObjectVanillaArrayIterator>(this->vm, *this, lock);
   return execution.createHardValueObject(iterator);
 }
 
 egg::ovum::HardValue VMObjectVanillaObject::vmIterate(IVMExecution& execution) {
   VMObjectVanillaMutex::ReadLock lock{ this->mutex };
-  auto iterator = makeHardObject<VMObjectVanillaObjectIterator>(*this->vm, *this, lock);
+  auto iterator = makeHardObject<VMObjectVanillaObjectIterator>(this->vm, *this, lock);
   return execution.createHardValueObject(iterator);
 }
 
@@ -1763,7 +1800,8 @@ egg::ovum::HardObject egg::ovum::ObjectFactory::createBuiltinCollector(IVM& vm) 
 }
 
 egg::ovum::HardObject egg::ovum::ObjectFactory::createVanillaArray(IVM& vm) {
-  return makeHardObject<VMObjectVanillaArray>(vm);
+  auto containerType = vm.getTypeForge().forgeArrayType(Type::AnyQ);
+  return makeHardObject<VMObjectVanillaArray>(vm, containerType);
 }
 
 egg::ovum::HardObject egg::ovum::ObjectFactory::createVanillaObject(IVM& vm) {

@@ -40,50 +40,6 @@ namespace {
       }
     }
   }
-
-  const char* valueFlagsComponent(ValueFlags flags) {
-    EGG_WARNING_SUPPRESS_SWITCH_BEGIN
-    switch (flags) {
-#define EGG_OVUM_VALUE_FLAGS_COMPONENT(name, text) case ValueFlags::name: return text;
-      EGG_OVUM_VALUE_FLAGS(EGG_OVUM_VALUE_FLAGS_COMPONENT)
-#undef EGG_OVUM_VALUE_FLAGS_COMPONENT
-    case ValueFlags::Any:
-      return "any";
-    }
-  EGG_WARNING_SUPPRESS_SWITCH_END
-    return nullptr;
-  }
-
-  int valueFlagsWrite(std::ostream& os, ValueFlags flags) {
-    // Returns precedence:
-    //  0: Simple keyword, e.g. 'int'
-    //  1: Simple suffix, e.g. 'int?'
-    //  2: Type union, e.g. 'float|int'
-    //  3: Function signature, e.g. 'int(float)'
-    assert(flags != ValueFlags::None);
-    auto* component = valueFlagsComponent(flags);
-    if (component != nullptr) {
-      os << component;
-      return 0;
-    }
-    if (Bits::hasAnySet(flags, ValueFlags::Null)) {
-      auto nonnull = valueFlagsWrite(os, Bits::clear(flags, ValueFlags::Null));
-      os << '?';
-      return std::max(nonnull, 1);
-    }
-    if (Bits::hasAnySet(flags, ValueFlags::Void)) {
-      os << "void|";
-      (void)valueFlagsWrite(os, Bits::clear(flags, ValueFlags::Void));
-      return 2;
-    }
-    auto head = Bits::topmost(flags);
-    assert(head != ValueFlags::None);
-    component = valueFlagsComponent(head);
-    assert(component != nullptr);
-    os << component << '|';
-    (void)valueFlagsWrite(os, Bits::clear(flags, head));
-    return 2;
-  }
 }
 
 const egg::ovum::Print::Options egg::ovum::Print::Options::DEFAULT = {};
@@ -149,8 +105,9 @@ void egg::ovum::Print::write(std::ostream& stream, const IValue& value, const Op
   value.print(printer);
 }
 
-void egg::ovum::Print::write(std::ostream& stream, const IType& value, const Options&) {
-  stream << value.toStringPrecedence().first;
+void egg::ovum::Print::write(std::ostream& stream, const IType& value, const Options& options) {
+  Printer printer{ stream, options };
+  value.print(printer);
 }
 
 void egg::ovum::Print::write(std::ostream& stream, const Type& value, const Options& options) {
@@ -457,18 +414,16 @@ int egg::ovum::Printer::describe(ValueFlags value) {
     this->stream << "<none>";
     return 0;
   }
-  if (options.quote != '\0') {
-    this->stream << options.quote;
-  }
-  auto precedence = valueFlagsWrite(stream, value);
-  if (options.quote != '\0') {
-    this->stream << options.quote;
-  }
+  this->quote();
+  auto precedence = Type::print(*this, value);
+  this->quote();
   return precedence;
 }
 
 void egg::ovum::Printer::describe(const IType& value) {
+  this->quote();
   value.print(*this);
+  this->quote();
 }
 
 void egg::ovum::Printer::describe(const IValue& value) {
