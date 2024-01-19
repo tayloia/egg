@@ -62,16 +62,16 @@ namespace {
     }
   };
 
-  class TypePrimitive final : public SoftReferenceCountedNone<IType> { // WIBBLE rename
-    TypePrimitive(const TypePrimitive&) = delete;
-    TypePrimitive& operator=(const TypePrimitive&) = delete;
+  class TypeForgePrimitive final : public SoftReferenceCountedNone<IType> {
+    TypeForgePrimitive(const TypeForgePrimitive&) = delete;
+    TypeForgePrimitive& operator=(const TypeForgePrimitive&) = delete;
   private:
     static const size_t trivials = size_t(1 << int(ValueFlagsShift::UBound));
-    static TypePrimitive trivial[trivials];
+    static TypeForgePrimitive trivial[trivials];
     Atomic<ValueFlags> flags;
-    TypePrimitive()
+    TypeForgePrimitive()
       : flags(ValueFlags::None) {
-      // Private construction used for TypePrimitive::trivial
+      // Private construction used for TypeForgePrimitive::trivial
     }
   public:
     virtual bool isPrimitive() const override {
@@ -91,19 +91,19 @@ namespace {
     }
     static const IType* forge(ValueFlags flags) {
       auto index = size_t(flags);
-      if (index < TypePrimitive::trivials) {
-        auto& entry = TypePrimitive::trivial[index];
+      if (index < TypeForgePrimitive::trivials) {
+        auto& entry = TypeForgePrimitive::trivial[index];
         (void)entry.flags.exchange(flags);
         return &entry;
       }
       return nullptr;
     }
   };
-  TypePrimitive TypePrimitive::trivial[] = {};
+  TypeForgePrimitive TypeForgePrimitive::trivial[] = {};
 
-  class TypeComplex final : public SoftReferenceCountedAllocator<IType> { // WIBBLE rename
-    TypeComplex(const TypeComplex&) = delete;
-    TypeComplex& operator=(const TypeComplex&) = delete;
+  class TypeForgeComplex final : public SoftReferenceCountedAllocator<IType> {
+    TypeForgeComplex(const TypeForgeComplex&) = delete;
+    TypeForgeComplex& operator=(const TypeForgeComplex&) = delete;
   public:
     struct Detail {
       ValueFlags flags;
@@ -145,11 +145,11 @@ namespace {
   private:
     Detail detail;
   public:
-    TypeComplex(IAllocator& allocator, ValueFlags flags, const TypeShapeSet& shapeset)
+    TypeForgeComplex(IAllocator& allocator, ValueFlags flags, const TypeShapeSet& shapeset)
       : SoftReferenceCountedAllocator(allocator),
         detail(flags, shapeset) {
     }
-    TypeComplex(IAllocator& allocator, TypeComplex::Detail&& detail) noexcept
+    TypeForgeComplex(IAllocator& allocator, TypeForgeComplex::Detail&& detail) noexcept
       : SoftReferenceCountedAllocator(allocator),
         detail(std::move(detail)) {
     }
@@ -180,38 +180,8 @@ namespace {
     size_t cacheHash() const {
       return this->detail.cacheHash();
     }
-    static bool cacheEquals(const TypeComplex& lhs, const TypeComplex& rhs) {
+    static bool cacheEquals(const TypeForgeComplex& lhs, const TypeForgeComplex& rhs) {
       return Detail::cacheEquals(lhs.detail, rhs.detail);
-    }
-  };
-
-  class TypeVanillaFunction final : public SoftReferenceCountedAllocator<IType> {
-    TypeVanillaFunction(const TypeVanillaFunction&) = delete;
-    TypeVanillaFunction& operator=(const TypeVanillaFunction&) = delete;
-  private:
-    IType::Shape shape;
-  public:
-    TypeVanillaFunction(IAllocator& allocator, IBasket&, const IFunctionSignature& signature)
-      : SoftReferenceCountedAllocator(allocator) {
-      this->shape.callable = &signature;
-    }
-    virtual void softVisit(ICollectable::IVisitor&) const override {
-      // Nothing to do
-    }
-    virtual bool isPrimitive() const override {
-      return false;
-    }
-    virtual ValueFlags getPrimitiveFlags() const override {
-      return ValueFlags::None;
-    }
-    virtual size_t getShapeCount() const override {
-      return 1;
-    }
-    virtual const Shape* getShape(size_t index) const {
-      return (index == 0) ? &this->shape : nullptr;
-    }
-    virtual void print(Printer& printer) const override {
-      (void)Type::print(printer, *this->shape.callable);
     }
   };
 
@@ -711,7 +681,7 @@ namespace {
     TypeForgeCacheSet<TypeForgeIteratorSignature> cacheIteratorSignature;
     TypeForgeCacheSet<TypeForgePointerSignature> cachePointerSignature;
     TypeForgeCacheSet<TypeForgeTaggableSignature> cacheTaggableSignature;
-    TypeForgeCacheMap<TypeComplex::Detail, TypeComplex> cacheComplex;
+    TypeForgeCacheMap<TypeForgeComplex::Detail, TypeForgeComplex> cacheComplex;
     std::set<const ICollectable*> owned;
   public:
     TypeForgeDefault(IAllocator& allocator, IBasket& basket)
@@ -751,6 +721,21 @@ namespace {
       }
       return this->forgeShape(std::move(shape));
     }
+    virtual TypeShape forgeFunctionShape(const IFunctionSignature& signature) override {
+      TypeForgeShape shape;
+      shape.callable = &signature;
+      {
+        // Taggable
+        auto builder = this->createTaggableBuilder();
+        Print::Options options{};
+        options.names = false;
+        StringBuilder sb{ options };
+        Type::print(sb, signature);
+        builder->setDescription(sb.build(this->allocator), 1);
+        shape.taggable = &builder->build();
+      }
+      return this->forgeShape(std::move(shape));
+    }
     virtual TypeShape forgeStringShape() override {
       TypeForgeShape shape;
       {
@@ -780,7 +765,7 @@ namespace {
       return this->forgeShape(std::move(shape));
     }
     virtual Type forgePrimitiveType(ValueFlags flags) override {
-      auto primitive  = TypePrimitive::forge(flags);
+      auto primitive  = TypeForgePrimitive::forge(flags);
       assert(primitive != nullptr);
       return primitive;
     }
@@ -791,31 +776,31 @@ namespace {
         }
         return this->forgePrimitiveType(flags);
       }
-      TypeComplex::Detail detail{ flags, shapeset };
+      TypeForgeComplex::Detail detail{ flags, shapeset };
       return this->forgeComplex(std::move(detail));
     }
     virtual Type forgeUnionType(const Type& lhs, const Type& rhs) override {
-      assert(lhs->isPrimitive()); // TODO
-      assert(rhs->isPrimitive()); // TODO
+      assert(lhs->isPrimitive()); // WIBBLE
+      assert(rhs->isPrimitive()); // WIBBLE
       return this->forgePrimitiveType(lhs->getPrimitiveFlags() | rhs->getPrimitiveFlags());
     }
     virtual Type forgeNullableType(const Type& type, bool nullable) override {
       auto before = type->getPrimitiveFlags();
       if (nullable) {
         if (!Bits::hasAnySet(before, ValueFlags::Null)) {
-          assert(type->isPrimitive()); // TODO
+          assert(type->isPrimitive()); // WIBBLE
           return this->forgePrimitiveType(Bits::set(before, ValueFlags::Null));
         }
       } else {
         if (Bits::hasAnySet(before, ValueFlags::Null)) {
-          assert(type->isPrimitive()); // TODO
+          assert(type->isPrimitive()); // WIBBLE
           return this->forgePrimitiveType(Bits::clear(before, ValueFlags::Null));
         }
       }
       return type;
     }
     virtual Type forgeVoidableType(const Type& type, bool voidable) override {
-      assert(type->isPrimitive()); // TODO
+      assert(type->isPrimitive()); // WIBBLE
       auto before = type->getPrimitiveFlags();
       if (voidable) {
         if (!Bits::hasAnySet(before, ValueFlags::Void)) {
@@ -850,16 +835,15 @@ namespace {
       }
       return builder->build();
     }
-    virtual Type forgeFunctionType(const IFunctionSignature& signature) override { // WIBBLE remove
-      // TODO cache this type properly
-      return this->createOwned<TypeVanillaFunction>(this->allocator, *this->basket, signature);
+    virtual Type forgeFunctionType(const IFunctionSignature& signature) override {
+      return this->forgeShapeType(this->forgeFunctionShape(signature));
     }
     virtual Type forgeShapeType(const TypeShape& shape) override {
       assert(shape.validate());
       assert(shape->taggable != nullptr);
       TypeShapeSet shapeset;
       shapeset.add(shape);
-      TypeComplex::Detail detail{ ValueFlags::None, shapeset };
+      TypeForgeComplex::Detail detail{ ValueFlags::None, shapeset };
       return this->forgeComplex(std::move(detail));
     }
     virtual Assignability isTypeAssignable(const Type& dst, const Type& src) override {
@@ -892,9 +876,10 @@ namespace {
     TypeShape forgeShape(TypeForgeShape&& shape) {
       return TypeShape(this->cacheShape.fetch(std::move(shape)));
     }
-    Type forgeComplex(TypeComplex::Detail&& detail) {
-      auto factory = [this](TypeComplex::Detail&& detail) {
-        return this->createOwned<TypeComplex>(this->allocator, std::move(detail));
+    Type forgeComplex(TypeForgeComplex::Detail&& detail) {
+      auto factory = [this](TypeForgeComplex::Detail&& detail) {
+        // WIBBLE unroll this lambda and 'owned' update
+        return this->createOwned<TypeForgeComplex>(this->allocator, std::move(detail));
       };
       return Type(&this->cacheComplex.fetch(std::move(detail), factory));
     }
@@ -1107,17 +1092,17 @@ namespace {
 }
 
 // Common types
-const Type Type::None{ TypePrimitive::forge(ValueFlags::None) };
-const Type Type::Void{ TypePrimitive::forge(ValueFlags::Void) };
-const Type Type::Null{ TypePrimitive::forge(ValueFlags::Null) };
-const Type Type::Bool{ TypePrimitive::forge(ValueFlags::Bool) };
-const Type Type::Int{ TypePrimitive::forge(ValueFlags::Int) };
-const Type Type::Float{ TypePrimitive::forge(ValueFlags::Float) };
-const Type Type::String{ TypePrimitive::forge(ValueFlags::String) };
-const Type Type::Arithmetic{ TypePrimitive::forge(ValueFlags::Arithmetic) };
-const Type Type::Object{ TypePrimitive::forge(ValueFlags::Object) };
-const Type Type::Any{ TypePrimitive::forge(ValueFlags::Any) };
-const Type Type::AnyQ{ TypePrimitive::forge(ValueFlags::AnyQ) };
+const Type Type::None{ TypeForgePrimitive::forge(ValueFlags::None) };
+const Type Type::Void{ TypeForgePrimitive::forge(ValueFlags::Void) };
+const Type Type::Null{ TypeForgePrimitive::forge(ValueFlags::Null) };
+const Type Type::Bool{ TypeForgePrimitive::forge(ValueFlags::Bool) };
+const Type Type::Int{ TypeForgePrimitive::forge(ValueFlags::Int) };
+const Type Type::Float{ TypeForgePrimitive::forge(ValueFlags::Float) };
+const Type Type::String{ TypeForgePrimitive::forge(ValueFlags::String) };
+const Type Type::Arithmetic{ TypeForgePrimitive::forge(ValueFlags::Arithmetic) };
+const Type Type::Object{ TypeForgePrimitive::forge(ValueFlags::Object) };
+const Type Type::Any{ TypeForgePrimitive::forge(ValueFlags::Any) };
+const Type Type::AnyQ{ TypeForgePrimitive::forge(ValueFlags::AnyQ) };
 
 void egg::ovum::Type::print(Printer& printer) const {
   auto* p = this->ptr;

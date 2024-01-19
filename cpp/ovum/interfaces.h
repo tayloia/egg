@@ -407,6 +407,7 @@ namespace egg::ovum {
   public:
     // Interface
     virtual TypeShape forgeArrayShape(const Type& element) = 0;
+    virtual TypeShape forgeFunctionShape(const IFunctionSignature& signature) = 0;
     virtual TypeShape forgeStringShape() = 0;
     virtual Type forgePrimitiveType(ValueFlags flags) = 0;
     virtual Type forgeComplexType(ValueFlags flags, const TypeShapeSet& shapes) = 0;
