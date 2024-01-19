@@ -87,7 +87,7 @@ namespace {
       return nullptr;
     }
     virtual void print(Printer& printer) const override {
-      Type::print(printer, this->flags.get());
+      (void)Type::print(printer, this->flags.get());
     }
     static const IType* forge(ValueFlags flags) {
       auto index = size_t(flags);
@@ -118,6 +118,16 @@ namespace {
       }
       bool validate() const {
         return !this->shapes.empty() && Bits::hasNoneSet(this->flags, ValueFlags::Object);
+      }
+      void print(Printer& printer) const {
+        int complexPrecedence = -1;
+        for (const auto& shape : this->shapes) {
+          complexPrecedence = Type::print(printer, *shape);
+        }
+        if (this->shapes.size() > 1) {
+          complexPrecedence = 2;
+        }
+        (void)Type::print(printer, this->flags, complexPrecedence);
       }
       size_t cacheHash() const {
         Hash hash;
@@ -162,7 +172,7 @@ namespace {
       return (index < this->detail.shapes.size()) ? this->detail.shapes[index] : nullptr;
     }
     virtual void print(Printer& printer) const override {
-      printer << "int[]"; // WIBBLE
+      this->detail.print(printer);
     }
     const Detail* cacheKey() const {
       return &this->detail;
@@ -201,7 +211,7 @@ namespace {
       return (index == 0) ? &this->shape : nullptr;
     }
     virtual void print(Printer& printer) const override {
-      Type::print(printer, *this->shape.callable);
+      (void)Type::print(printer, *this->shape.callable);
     }
   };
 
@@ -446,15 +456,69 @@ namespace {
     }
   };
 
+  class TypeForgePointerSignature : public IPointerSignature {
+    TypeForgePointerSignature(const TypeForgePointerSignature&) = delete;
+    TypeForgePointerSignature& operator=(const TypeForgePointerSignature&) = delete;
+  public:
+    Type pointeeType = nullptr;
+    Modifiability modifiability = Modifiability::ReadWriteMutate;
+    TypeForgePointerSignature() {
+    }
+    TypeForgePointerSignature(TypeForgePointerSignature&& rhs) noexcept
+      : pointeeType(std::move(rhs.pointeeType)),
+        modifiability(std::move(rhs.modifiability)) {
+    }
+    virtual Type getPointeeType() const override {
+      return this->pointeeType;
+    }
+    virtual Modifiability getModifiability() const override {
+      return this->modifiability;
+    }
+    size_t cacheHash() const {
+      Hash hash;
+      return hash.add(this->pointeeType).add(this->modifiability);
+    }
+    static bool cacheEquals(const TypeForgePointerSignature& lhs, const TypeForgePointerSignature& rhs) {
+      return (lhs.pointeeType == rhs.pointeeType) && (lhs.modifiability == rhs.modifiability);
+    }
+  };
+
+  class TypeForgeTaggableSignature : public ITaggableSignature {
+    TypeForgeTaggableSignature(const TypeForgeTaggableSignature&) = delete;
+    TypeForgeTaggableSignature& operator=(const TypeForgeTaggableSignature&) = delete;
+  public:
+    String description = {};
+    int precedence = -1;
+    TypeForgeTaggableSignature() {
+    }
+    TypeForgeTaggableSignature(TypeForgeTaggableSignature&& rhs) noexcept
+      : description(std::move(rhs.description)),
+        precedence(std::move(rhs.precedence)) {
+    }
+    virtual int print(Printer& printer) const override {
+      printer << this->description;
+      return this->precedence;
+    }
+    size_t cacheHash() const {
+      Hash hash;
+      return hash.add(this->description.hash()).add(this->precedence);
+    }
+    static bool cacheEquals(const TypeForgeTaggableSignature& lhs, const TypeForgeTaggableSignature& rhs) {
+      return (lhs.description == rhs.description) && (lhs.precedence == rhs.precedence);
+    }
+  };
+
   template<typename T>
   class TypeForgeBaseBuilder : public HardReferenceCounted<T> {
     TypeForgeBaseBuilder(const TypeForgeBaseBuilder&) = delete;
     TypeForgeBaseBuilder& operator=(const TypeForgeBaseBuilder&) = delete;
   protected:
     TypeForgeDefault& forge;
+    bool built;
   public:
     explicit TypeForgeBaseBuilder(TypeForgeDefault& forge)
-      : forge(forge) {
+      : forge(forge),
+        built(false) {
     }
   protected:
     virtual void hardDestroy() const override;
@@ -491,11 +555,9 @@ namespace {
     TypeForgePropertyBuilder& operator=(const TypeForgePropertyBuilder&) = delete;
   private:
     TypeForgePropertySignature signature;
-    bool built;
   public:
     explicit TypeForgePropertyBuilder(TypeForgeDefault& forge)
-      : TypeForgeBaseBuilder(forge),
-        built(false) {
+      : TypeForgeBaseBuilder(forge) {
     }
     virtual void setUnknownProperty(const Type& type, Modifiability modifiability) override {
       assert(!this->built);
@@ -515,11 +577,9 @@ namespace {
     TypeForgeIndexBuilder& operator=(const TypeForgeIndexBuilder&) = delete;
   private:
     TypeForgeIndexSignature signature;
-    bool built;
   public:
     explicit TypeForgeIndexBuilder(TypeForgeDefault& forge)
-      : TypeForgeBaseBuilder(forge),
-        built(false) {
+      : TypeForgeBaseBuilder(forge) {
     }
     virtual void setResultType(const Type& type) override {
       assert(!this->built);
@@ -543,11 +603,9 @@ namespace {
     TypeForgeIteratorBuilder& operator=(const TypeForgeIteratorBuilder&) = delete;
   private:
     TypeForgeIteratorSignature signature;
-    bool built;
   public:
     explicit TypeForgeIteratorBuilder(TypeForgeDefault& forge)
-      : TypeForgeBaseBuilder(forge),
-        built(false) {
+      : TypeForgeBaseBuilder(forge) {
     }
     virtual void setIterationType(const Type& type) override {
       assert(!this->built);
@@ -560,11 +618,41 @@ namespace {
   class TypeForgePointerBuilder : public TypeForgeBaseBuilder<ITypeForgePointerBuilder> {
     TypeForgePointerBuilder(const TypeForgePointerBuilder&) = delete;
     TypeForgePointerBuilder& operator=(const TypeForgePointerBuilder&) = delete;
+  private:
+    TypeForgePointerSignature signature;
   public:
     explicit TypeForgePointerBuilder(TypeForgeDefault& forge)
       : TypeForgeBaseBuilder(forge) {
     }
+    virtual void setPointeeType(const Type& type) override {
+      assert(!this->built);
+      assert(type != nullptr);
+      this->signature.pointeeType = type;
+    }
+    virtual void setModifiability(Modifiability modifiability) override {
+      assert(!this->built);
+      this->signature.modifiability = modifiability;
+    }
     virtual const IPointerSignature& build() override;
+  };
+
+  class TypeForgeTaggableBuilder : public TypeForgeBaseBuilder<ITypeForgeTaggableBuilder> {
+    TypeForgeTaggableBuilder(const TypeForgeTaggableBuilder&) = delete;
+    TypeForgeTaggableBuilder& operator=(const TypeForgeTaggableBuilder&) = delete;
+  private:
+    TypeForgeTaggableSignature signature;
+  public:
+    explicit TypeForgeTaggableBuilder(TypeForgeDefault& forge)
+      : TypeForgeBaseBuilder(forge) {
+    }
+    virtual void setDescription(const String& description, int precedence) override {
+      assert(!this->built);
+      assert(!description.empty());
+      assert(precedence >= 0);
+      this->signature.description = description;
+      this->signature.precedence = precedence;
+    }
+    virtual const ITaggableSignature& build() override;
   };
 
   class TypeForgeComplexBuilder : public TypeForgeBaseBuilder<ITypeForgeComplexBuilder> {
@@ -590,6 +678,8 @@ namespace {
       return this->flags != before;
     }
     virtual bool addShape(const TypeShape& shape) override {
+      assert(shape.validate());
+      assert(shape->taggable != nullptr);
       return this->shapeset.add(shape);
     }
     virtual bool removeShape(const TypeShape& shape) override {
@@ -619,6 +709,8 @@ namespace {
     TypeForgeCacheSet<TypeForgePropertySignature> cachePropertySignature;
     TypeForgeCacheSet<TypeForgeIndexSignature> cacheIndexSignature;
     TypeForgeCacheSet<TypeForgeIteratorSignature> cacheIteratorSignature;
+    TypeForgeCacheSet<TypeForgePointerSignature> cachePointerSignature;
+    TypeForgeCacheSet<TypeForgeTaggableSignature> cacheTaggableSignature;
     TypeForgeCacheMap<TypeComplex::Detail, TypeComplex> cacheComplex;
     std::set<const ICollectable*> owned;
   public:
@@ -632,7 +724,6 @@ namespace {
       }
     }
     virtual TypeShape forgeArrayShape(const Type& element) override {
-      // WIBBLE
       TypeForgeShape shape;
       {
         // Properties
@@ -652,10 +743,15 @@ namespace {
         builder->setIterationType(element);
         shape.iterable = &builder->build();
       }
+      {
+        // Taggable
+        auto builder = this->createTaggableBuilder();
+        builder->setDescription(StringBuilder::concat(this->allocator, element, "[]"), 1); // WIBBLE
+        shape.taggable = &builder->build();
+      }
       return this->forgeShape(std::move(shape));
     }
     virtual TypeShape forgeStringShape() override {
-      // WIBBLE
       TypeForgeShape shape;
       {
         // Properties
@@ -674,6 +770,12 @@ namespace {
         auto builder = this->createIteratorBuilder();
         builder->setIterationType(Type::String);
         shape.iterable = &builder->build();
+      }
+      {
+        // Taggable
+        auto builder = this->createTaggableBuilder();
+        builder->setDescription(StringBuilder::concat(this->allocator, "type.string"), 0);
+        shape.taggable = &builder->build();
       }
       return this->forgeShape(std::move(shape));
     }
@@ -753,6 +855,8 @@ namespace {
       return this->createOwned<TypeVanillaFunction>(this->allocator, *this->basket, signature);
     }
     virtual Type forgeShapeType(const TypeShape& shape) override {
+      assert(shape.validate());
+      assert(shape->taggable != nullptr);
       TypeShapeSet shapeset;
       shapeset.add(shape);
       TypeComplex::Detail detail{ ValueFlags::None, shapeset };
@@ -778,6 +882,9 @@ namespace {
     }
     virtual HardPtr<ITypeForgePointerBuilder> createPointerBuilder() override {
       return this->createBuilder<TypeForgePointerBuilder>();
+    }
+    virtual HardPtr<ITypeForgeTaggableBuilder> createTaggableBuilder() override {
+      return this->createBuilder<TypeForgeTaggableBuilder>();
     }
     virtual HardPtr<ITypeForgeComplexBuilder> createComplexBuilder() override {
       return this->createBuilder<TypeForgeComplexBuilder>();
@@ -805,6 +912,12 @@ namespace {
     }
     const IIteratorSignature& forgeIteratorSignature(TypeForgeIteratorSignature&& signature) {
       return this->cacheIteratorSignature.fetch(std::move(signature));
+    }
+    const IPointerSignature& forgePointerSignature(TypeForgePointerSignature&& signature) {
+      return this->cachePointerSignature.fetch(std::move(signature));
+    }
+    const ITaggableSignature& forgeTaggableSignature(TypeForgeTaggableSignature&& signature) {
+      return this->cacheTaggableSignature.fetch(std::move(signature));
     }
     template<typename T>
     HardPtr<T> createBuilder() {
@@ -931,9 +1044,17 @@ namespace {
   }
 
   const IPointerSignature& TypeForgePointerBuilder::build() {
-    // WIBBLE
-    assert(false);
-    return *static_cast<const IPointerSignature*>(nullptr);
+    assert(!this->built);
+    this->built = true;
+    return this->forge.forgePointerSignature(std::move(this->signature));
+  }
+
+  const ITaggableSignature& TypeForgeTaggableBuilder::build() {
+    assert(!this->built);
+    assert(!this->signature.description.empty());
+    assert(this->signature.precedence >= 0);
+    this->built = true;
+    return this->forge.forgeTaggableSignature(std::move(this->signature));
   }
 
   Type TypeForgeComplexBuilder::build() {
@@ -1007,22 +1128,33 @@ void egg::ovum::Type::print(Printer& printer) const {
   }
 }
 
-int egg::ovum::Type::print(Printer& printer, ValueFlags primitive) {
-  if (primitive == ValueFlags::None) {
-    printer << "<none>";
-    return -1;
+int egg::ovum::Type::print(Printer& printer, ValueFlags primitive, int complexPrecedence) {
+  if (complexPrecedence < 0) {
+    // No preceding complex components
+    if (primitive == ValueFlags::None) {
+      printer << "<none>";
+      return -1;
+    }
+    return valueFlagsWrite(printer.stream, primitive);
   }
-  return valueFlagsWrite(printer.stream, primitive);
+  if (primitive == ValueFlags::None) {
+    return complexPrecedence;
+  }
+  if (primitive == ValueFlags::Null) {
+    printer << '?';
+    return std::max(complexPrecedence, 1);
+  }
+  printer << '|';
+  valueFlagsWrite(printer.stream, primitive);
+  return 2;
 }
 
-int egg::ovum::Type::print(Printer& printer, const IType::Shape& type) {
-  // WIBBLE
-  printer.stream << "<SHAPE:" << &type << ">";
-  return -1;
-}
-
-void egg::ovum::Type::print(Printer& printer, const IType& type) {
-  type.print(printer);
+int egg::ovum::Type::print(Printer& printer, const IType::Shape& shape) {
+  if (shape.taggable != nullptr) {
+    return shape.taggable->print(printer);
+  }
+  printer.stream << "<SHAPE:" << &shape << ">";
+  return 0;
 }
 
 void egg::ovum::Type::print(Printer& printer, const IFunctionSignature& signature) {

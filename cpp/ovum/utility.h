@@ -275,6 +275,11 @@ namespace egg::ovum {
       return static_cast<size_t>(value);
     }
     template<typename T>
+    static std::enable_if_t<std::is_integral_v<T>, size_t> hash(T value) {
+      // Integers are cast to 'size_t'
+      return static_cast<size_t>(value);
+    }
+    template<typename T>
     static std::enable_if_t<std::is_member_function_pointer_v<decltype(&T::hash)>, size_t> hash(const T& value) {
       // Use member T::hash() if available
       return static_cast<size_t>(value.hash());

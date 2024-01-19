@@ -58,8 +58,8 @@ namespace egg::ovum {
   private:
     std::stringstream ss;
   public:
-    explicit StringBuilder()
-      : Printer(ss, Print::Options::DEFAULT) {
+    explicit StringBuilder(const Print::Options& options = Print::Options::DEFAULT)
+      : Printer(ss, options) {
     }
     template<typename T>
     StringBuilder& add(const T& value) {

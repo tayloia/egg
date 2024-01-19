@@ -24,11 +24,13 @@ namespace {
     String makeName(const char* name) {
       return this->allocator.concat(name);
     }
-    template<typename T>
-    String toTypeString(const T& value) {
+    String toTypeString(const IFunctionSignature& value) {
       StringBuilder sb;
       Type::print(sb, value);
       return sb.build(this->allocator);
+    }
+    String toTypeString(const Type& value) {
+      return this->allocator.concat(value);
     }
   };
 }
@@ -196,7 +198,7 @@ TEST(TestType, ForgeComplexArithmetic) {
   ASSERT_TRUE(built->isPrimitive());
   ASSERT_EQ(ValueFlags::Arithmetic, built->getPrimitiveFlags());
   ASSERT_EQ(0u, built->getShapeCount());
-  ASSERT_STRING("float|int", forge.toTypeString(*built));
+  ASSERT_STRING("float|int", forge.toTypeString(built));
 }
 
 TEST(TestType, ForgeComplexIntArray) {
@@ -207,5 +209,5 @@ TEST(TestType, ForgeComplexIntArray) {
   ASSERT_FALSE(built->isPrimitive());
   ASSERT_EQ(ValueFlags::None, built->getPrimitiveFlags());
   ASSERT_EQ(1u, built->getShapeCount());
-  ASSERT_STRING("int[]", forge.toTypeString(*built));
+  ASSERT_STRING("int[]", forge.toTypeString(built));
 }

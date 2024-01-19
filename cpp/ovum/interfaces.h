@@ -322,8 +322,15 @@ namespace egg::ovum {
   public:
     // Interface
     virtual ~IPointerSignature() {}
-    virtual Type getType() const = 0;
+    virtual Type getPointeeType() const = 0;
     virtual Modifiability getModifiability() const = 0;
+  };
+
+  class ITaggableSignature {
+  public:
+    // Interface
+    virtual ~ITaggableSignature() {}
+    virtual int print(Printer& print) const = 0; // returns precedence
   };
 
   class IType : public ICollectable {
@@ -334,6 +341,7 @@ namespace egg::ovum {
       const IIndexSignature* indexable = nullptr;
       const IIteratorSignature* iterable = nullptr;
       const IPointerSignature* pointable = nullptr;
+      const ITaggableSignature* taggable = nullptr;
     };
     // Interface
     virtual bool isPrimitive() const = 0;
@@ -374,7 +382,15 @@ namespace egg::ovum {
 
   class ITypeForgePointerBuilder : public IHardAcquireRelease {
   public:
+    virtual void setPointeeType(const Type& type) = 0;
+    virtual void setModifiability(Modifiability modifiability) = 0;
     virtual const IPointerSignature& build() = 0;
+  };
+
+  class ITypeForgeTaggableBuilder : public IHardAcquireRelease {
+  public:
+    virtual void setDescription(const String& description, int precedence) = 0;
+    virtual const ITaggableSignature& build() = 0;
   };
 
   class ITypeForgeComplexBuilder : public IHardAcquireRelease {
@@ -408,6 +424,7 @@ namespace egg::ovum {
     virtual HardPtr<ITypeForgeIndexBuilder> createIndexBuilder() = 0;
     virtual HardPtr<ITypeForgeIteratorBuilder> createIteratorBuilder() = 0;
     virtual HardPtr<ITypeForgePointerBuilder> createPointerBuilder() = 0;
+    virtual HardPtr<ITypeForgeTaggableBuilder> createTaggableBuilder() = 0;
     virtual HardPtr<ITypeForgeComplexBuilder> createComplexBuilder() = 0;
   };
 }

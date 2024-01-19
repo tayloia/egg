@@ -164,10 +164,9 @@ namespace egg::ovum {
     static const Type Any;
     static const Type AnyQ;
 
-    // Helpers WIBBLE retire
-    static int print(Printer& printer, ValueFlags primitive); // returns precedence
+    // Helpers
+    static int print(Printer& printer, ValueFlags primitive, int complexPrecedence = -1); // returns precedence
     static int print(Printer& printer, const IType::Shape& shape); // returns precedence
-    static void print(Printer& printer, const IType& type);
     static void print(Printer& printer, const IFunctionSignature& signature);
   };
 
