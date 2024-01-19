@@ -204,7 +204,7 @@ TEST(TestType, ForgeComplexArithmetic) {
 TEST(TestType, ForgeComplexIntArray) {
   TestForge forge;
   auto cb = forge->createComplexBuilder();
-  cb->addShape(forge->forgeArrayShape(Type::Int));
+  cb->addShape(forge->forgeArrayShape(Type::Int, Modifiability::All));
   auto built = cb->build();
   ASSERT_FALSE(built->isPrimitive());
   ASSERT_EQ(ValueFlags::None, built->getPrimitiveFlags());
@@ -215,10 +215,33 @@ TEST(TestType, ForgeComplexIntArray) {
 TEST(TestType, ForgeComplexArithmeticArray) {
   TestForge forge;
   auto cb = forge->createComplexBuilder();
-  cb->addShape(forge->forgeArrayShape(Type::Arithmetic));
+  cb->addShape(forge->forgeArrayShape(Type::Arithmetic, Modifiability::All));
   auto built = cb->build();
   ASSERT_FALSE(built->isPrimitive());
   ASSERT_EQ(ValueFlags::None, built->getPrimitiveFlags());
   ASSERT_EQ(1u, built->getShapeCount());
   ASSERT_STRING("(float|int)[]", forge.toTypeString(built));
 }
+
+TEST(TestType, ForgeComplexIntPointer) {
+  TestForge forge;
+  auto cb = forge->createComplexBuilder();
+  cb->addShape(forge->forgePointerShape(Type::Int, Modifiability::ReadWriteMutate));
+  auto built = cb->build();
+  ASSERT_FALSE(built->isPrimitive());
+  ASSERT_EQ(ValueFlags::None, built->getPrimitiveFlags());
+  ASSERT_EQ(1u, built->getShapeCount());
+  ASSERT_STRING("int*", forge.toTypeString(built));
+}
+
+TEST(TestType, ForgeComplexArithmeticPointer) {
+  TestForge forge;
+  auto cb = forge->createComplexBuilder();
+  cb->addShape(forge->forgePointerShape(Type::Arithmetic, Modifiability::ReadWriteMutate));
+  auto built = cb->build();
+  ASSERT_FALSE(built->isPrimitive());
+  ASSERT_EQ(ValueFlags::None, built->getPrimitiveFlags());
+  ASSERT_EQ(1u, built->getShapeCount());
+  ASSERT_STRING("(float|int)*", forge.toTypeString(built));
+}
+

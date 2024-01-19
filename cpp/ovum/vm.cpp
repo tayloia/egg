@@ -954,7 +954,7 @@ namespace {
         assert(node.children.empty());
         return this->deduceVariable(node.literal, node.range);
       case Node::Kind::ExprArray:
-        return this->forge.forgeArrayType(Type::AnyQ);
+        return this->forge.forgeArrayType(Type::AnyQ, Modifiability::All);
       case Node::Kind::ExprObject:
         return Type::Object;
       case Node::Kind::ExprFunctionCall:

@@ -693,18 +693,20 @@ namespace {
         this->destroy(instance);
       }
     }
-    virtual TypeShape forgeArrayShape(const Type& element) override {
+    virtual TypeShape forgeArrayShape(const Type& element, Modifiability modifiability) override {
       TypeForgeShape shape;
       {
         // Properties
         auto builder = this->createPropertyBuilder();
-        builder->addProperty(StringBuilder::concat(this->allocator, "length"), Type::Int, Modifiability::ReadWriteMutate);
+        auto lengthModifiability = Bits::hasAnySet(modifiability, Modifiability::Delete) ? Modifiability::ReadWriteMutate : Modifiability::Read;
+        builder->addProperty(StringBuilder::concat(this->allocator, "length"), Type::Int, lengthModifiability);
         shape.dotable = &builder->build();
       }
       {
         // Indexing
         auto builder = this->createIndexBuilder();
         builder->setResultType(element);
+        builder->setModifiability(modifiability);
         shape.indexable = &builder->build();
       }
       {
@@ -736,6 +738,23 @@ namespace {
       }
       return this->forgeShape(std::move(shape));
     }
+    virtual TypeShape forgePointerShape(const Type& pointee, Modifiability modifiability) override {
+      TypeForgeShape shape;
+      {
+        // Pointer
+        auto builder = this->createPointerBuilder();
+        builder->setPointeeType(pointee);
+        builder->setModifiability(modifiability);
+        shape.pointable = &builder->build();
+      }
+      {
+        // Taggable
+        auto builder = this->createTaggableBuilder();
+        builder->setDescription(this->typeSuffix(pointee, "*"), 1);
+        shape.taggable = &builder->build();
+      }
+      return this->forgeShape(std::move(shape));
+    }
     virtual TypeShape forgeStringShape() override {
       TypeForgeShape shape;
       {
@@ -759,7 +778,7 @@ namespace {
       {
         // Taggable
         auto builder = this->createTaggableBuilder();
-        builder->setDescription(StringBuilder::concat(this->allocator, "type.string"), 0);
+        builder->setDescription(StringBuilder::concat(this->allocator, "string"), 0);
         shape.taggable = &builder->build();
       }
       return this->forgeShape(std::move(shape));
@@ -813,8 +832,8 @@ namespace {
       }
       return type;
     }
-    virtual Type forgeArrayType(const Type& element) override {
-      return this->forgeShapeType(this->forgeArrayShape(element));
+    virtual Type forgeArrayType(const Type& element, Modifiability modifiability) override {
+      return this->forgeShapeType(this->forgeArrayShape(element, modifiability));
     }
     virtual Type forgeIterationType(const Type& type) override {
       // TODO optimize
@@ -837,6 +856,9 @@ namespace {
     }
     virtual Type forgeFunctionType(const IFunctionSignature& signature) override {
       return this->forgeShapeType(this->forgeFunctionShape(signature));
+    }
+    virtual Type forgePointerType(const Type& pointee, Modifiability modifiability) override {
+      return this->forgeShapeType(this->forgePointerShape(pointee, modifiability));
     }
     virtual Type forgeShapeType(const TypeShape& shape) override {
       assert(shape.validate());

@@ -1800,7 +1800,7 @@ egg::ovum::HardObject egg::ovum::ObjectFactory::createBuiltinCollector(IVM& vm) 
 }
 
 egg::ovum::HardObject egg::ovum::ObjectFactory::createVanillaArray(IVM& vm) {
-  auto containerType = vm.getTypeForge().forgeArrayType(Type::AnyQ);
+  auto containerType = vm.getTypeForge().forgeArrayType(Type::AnyQ, Modifiability::All);
   return makeHardObject<VMObjectVanillaArray>(vm, containerType);
 }
 

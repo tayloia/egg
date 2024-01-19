@@ -406,17 +406,19 @@ namespace egg::ovum {
   class ITypeForge : public IHardAcquireRelease {
   public:
     // Interface
-    virtual TypeShape forgeArrayShape(const Type& element) = 0;
+    virtual TypeShape forgeArrayShape(const Type& element, Modifiability modifiability) = 0;
     virtual TypeShape forgeFunctionShape(const IFunctionSignature& signature) = 0;
+    virtual TypeShape forgePointerShape(const Type& pointee, Modifiability modifiability) = 0;
     virtual TypeShape forgeStringShape() = 0;
     virtual Type forgePrimitiveType(ValueFlags flags) = 0;
     virtual Type forgeComplexType(ValueFlags flags, const TypeShapeSet& shapes) = 0;
     virtual Type forgeUnionType(const Type& lhs, const Type& rhs) = 0;
     virtual Type forgeNullableType(const Type& type, bool nullable) = 0;
     virtual Type forgeVoidableType(const Type& type, bool voidable) = 0;
-    virtual Type forgeArrayType(const Type& element) = 0;
-    virtual Type forgeIterationType(const Type& type) = 0;
+    virtual Type forgeArrayType(const Type& element, Modifiability modifiability) = 0;
+    virtual Type forgeIterationType(const Type& container) = 0;
     virtual Type forgeFunctionType(const IFunctionSignature& signature) = 0;
+    virtual Type forgePointerType(const Type& pointee, Modifiability modifiability) = 0;
     virtual Type forgeShapeType(const TypeShape& shape) = 0;
     virtual Assignability isTypeAssignable(const Type& dst, const Type& src) = 0;
     virtual Assignability isFunctionSignatureAssignable(const IFunctionSignature& dst, const IFunctionSignature& src) = 0;
