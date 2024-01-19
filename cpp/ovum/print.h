@@ -30,13 +30,6 @@ namespace egg::ovum {
     static void write(std::ostream& stream, double value, const Options& options);
     static void write(std::ostream& stream, const std::string& value, const Options& options);
     static void write(std::ostream& stream, const String& value, const Options& options);
-    static void write(std::ostream& stream, const ICollectable& value, const Options& options);
-    static void write(std::ostream& stream, const IObject& value, const Options& options);
-    static void write(std::ostream& stream, const IValue& value, const Options& options);
-    static void write(std::ostream& stream, const IType& value, const Options& options);
-    static void write(std::ostream& stream, const Type& value, const Options& options);
-    static void write(std::ostream& stream, const HardObject& value, const Options& options);
-    static void write(std::ostream& stream, const HardValue& value, const Options& options);
     static void write(std::ostream& stream, ValueFlags value, const Options& options);
     static void write(std::ostream& stream, ILogger::Severity value, const Options& options);
     static void write(std::ostream& stream, ILogger::Source value, const Options& options);
@@ -47,18 +40,6 @@ namespace egg::ovum {
     static void write(std::ostream& stream, ValueMutationOp value, const Options& options);
     static void write(std::ostream& stream, TypeUnaryOp value, const Options& options);
     static void write(std::ostream& stream, TypeBinaryOp value, const Options& options);
-    template<typename T>
-    static void write(std::ostream& stream, const HardPtr<T>& value, const Options& options) {
-      Print::write(stream, static_cast<const ICollectable*>(value.get()), options);
-    }
-    template<typename T>
-    static void write(std::ostream& stream, const T* value, const Options& options) {
-      if (value == nullptr) {
-        stream << "null";
-      } else {
-        Print::write(stream, *value, options);
-      }
-    }
 
     // Print string to stream
     static void ascii(std::ostream& stream, const std::string& value, char quote);
@@ -77,20 +58,8 @@ namespace egg::ovum {
     }
     template<typename T>
     Printer& operator<<(const T& value) {
-      Print::write(this->stream, value, this->options);
+      this->write(value);
       return *this;
-    }
-    Printer& operator<<(const char* value) {
-      this->stream << value;
-      return *this;
-    }
-    Printer& operator<<(char value) {
-      this->stream << value;
-      return *this;
-    }
-    template<typename T>
-    void write(const T& value) {
-      Print::write(this->stream, value, this->options);
     }
     int describe(ValueFlags value); // returns precedence
     void describe(const IType& value);
@@ -100,5 +69,39 @@ namespace egg::ovum {
         this->stream.put(this->options.quote);
       }
     }
+  protected:
+    void write(const char* value) {
+      assert(value != nullptr);
+      this->stream << value;
+    }
+    void write(char value) {
+      this->stream << value;
+    }
+    template<typename T>
+    void write(const T& value) {
+      Print::write(this->stream, value, this->options);
+    }
+    template<typename T>
+    void write(const ICollectable& value) {
+      value.print(*this);
+    }
+    template<typename T>
+    void write(T* value) {
+      if (value == nullptr) {
+        this->stream << "null";
+      } else {
+        this->write(*value);
+      }
+    }
+    template<typename T>
+    void write(const HardPtr<T>& value) {
+      this->write(value.get());
+    }
+    void write(const HardValue& value);
+    void write(const HardObject& value);
+    void write(const Type& value);
+    void write(const IValue& value);
+    void write(const IObject& value);
+    void write(const IType& value);
   };
 }

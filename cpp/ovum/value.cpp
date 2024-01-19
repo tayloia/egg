@@ -49,7 +49,7 @@ namespace {
       return FLAGS;
     }
     virtual void print(Printer& printer) const override {
-      printer.write(FLAGS);
+      printer << FLAGS;
     }
     virtual bool validate() const override {
       return true;
@@ -145,7 +145,7 @@ namespace {
       return Type::Bool;
     }
     virtual void print(Printer& printer) const override {
-      printer.write(VALUE);
+      printer << VALUE;
     }
   };
   const ValueBool<false> theFalse;
@@ -220,7 +220,7 @@ namespace {
       return true;
     }
     virtual void print(Printer& printer) const override {
-      printer.write(this->value.get());
+      printer << this->value.get();
     }
     virtual bool set(const IValue& rhs) override {
       Int rvalue;
@@ -352,7 +352,7 @@ namespace {
       return true;
     }
     virtual void print(Printer& printer) const override {
-      printer.write(this->value.get());
+      printer << this->value.get();
     }
     virtual bool set(const IValue& rhs) override {
       Float rvalue;
@@ -485,7 +485,7 @@ namespace {
       return ValueMutable::validate() && this->value.validate();
     }
     virtual void print(Printer& printer) const override {
-      printer.write(this->value);
+      printer << this->value;
     }
     virtual bool set(const IValue& rhs) override {
       return rhs.getString(this->value);
@@ -532,7 +532,7 @@ namespace {
       return ValueMutable::validate() && this->value.validate();
     }
     virtual void print(Printer& printer) const override {
-      printer.write(this->value);
+      printer << this->value;
     }
     virtual bool set(const IValue& rhs) override {
       return rhs.getHardObject(this->value);
@@ -585,7 +585,7 @@ namespace {
       return ValueMutable::validate() && this->inner.validate();
     }
     virtual void print(Printer& printer) const override {
-      printer.write(this->inner);
+      printer << this->inner;
     }
     virtual bool set(const IValue&) override {
       // Flow controls are effectively immutable
@@ -628,7 +628,7 @@ namespace {
       return ValueMutable::validate() && (this->type != nullptr) && this->type->validate();
     }
     virtual void print(Printer& printer) const override {
-      printer.write(this->type);
+      printer << this->type;
     }
     virtual bool set(const IValue&) override {
       // Types are effectively immutable
@@ -758,23 +758,23 @@ namespace {
       EGG_WARNING_SUPPRESS_SWITCH_BEGIN
       switch (this->flags) {
       case ValueFlags::Bool:
-        printer.write(this->ivalue.get() != 0);
+        printer << (this->ivalue.get() != 0);
         break;
       case ValueFlags::Int:
-        printer.write(this->ivalue.get());
+        printer << this->ivalue.get();
         break;
       case ValueFlags::Float:
-        printer.write(this->fvalue.get());
+        printer << this->fvalue.get();
         break;
       case ValueFlags::String:
-        printer.write(String(this->svalue));
+        printer << String(this->svalue);
         break;
       case ValueFlags::Object:
         assert(this->ovalue != nullptr);
         this->ovalue->print(printer);
         break;
       default:
-        printer.write(this->flags);
+        printer << this->flags;
         break;
       }
       EGG_WARNING_SUPPRESS_SWITCH_END

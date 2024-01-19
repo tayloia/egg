@@ -66,15 +66,6 @@ namespace egg::ovum {
       this->write(value);
       return *this;
     }
-    StringBuilder& add(char value) {
-      this->ss.put(value);
-      return *this;
-    }
-    StringBuilder& add(const char* value) {
-      assert(value != nullptr);
-      this->ss << value;
-      return *this;
-    }
     template<typename T, typename... ARGS>
     StringBuilder& add(const T& value, ARGS&&... args) {
       return this->add(value).add(std::forward<ARGS>(args)...);

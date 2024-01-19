@@ -90,37 +90,13 @@ void egg::ovum::Print::write(std::ostream& stream, const String& value, const Op
   Print::write(stream, value.toUTF8(), options);
 }
 
-void egg::ovum::Print::write(std::ostream& stream, const ICollectable& value, const Options& options) {
-  Printer printer{ stream, options };
-  value.print(printer);
-}
-
-void egg::ovum::Print::write(std::ostream& stream, const IObject& value, const Options& options) {
-  Printer printer{ stream, options };
-  value.print(printer);
-}
-
-void egg::ovum::Print::write(std::ostream& stream, const IValue& value, const Options& options) {
-  Printer printer{ stream, options };
-  value.print(printer);
-}
-
-void egg::ovum::Print::write(std::ostream& stream, const IType& value, const Options& options) {
-  Printer printer{ stream, options };
-  value.print(printer);
-}
-
-void egg::ovum::Print::write(std::ostream& stream, const Type& value, const Options& options) {
-  Print::write(stream, value.get(), options);
-}
-
 void egg::ovum::Print::write(std::ostream& stream, ValueFlags value, const Options&) {
   size_t found = 0;
 #define EGG_OVUM_VARIANT_PRINT(name, text) if (Bits::hasAnySet(value, ValueFlags::name)) { if (++found > 1) { stream << '|'; } stream << text; }
   EGG_OVUM_VALUE_FLAGS(EGG_OVUM_VARIANT_PRINT)
 #undef EGG_OVUM_VARIANT_PRINT
   if (found == 0) {
-    stream << '(' << int(value) << ')';
+    stream << "<VALUEFLAGS:" << int(value) << '>';
   }
 }
 
@@ -176,7 +152,7 @@ void egg::ovum::Print::write(std::ostream& stream, ValueUnaryOp value, const Opt
     stream << "!";
     break;
   default:
-    stream << "<UNKNOWN:" << int(value) << ">";
+    stream << "<VALUEUNARYOP:" << int(value) << ">";
     break;
   }
 }
@@ -244,7 +220,7 @@ void egg::ovum::Print::write(std::ostream& stream, ValueBinaryOp value, const Op
     stream << "&&";
     break;
   default:
-    stream << "<UNKNOWN:" << int(value) << ">";
+    stream << "<VALUEBINARYOP:" << int(value) << ">";
     break;
   }
 }
@@ -255,7 +231,7 @@ void egg::ovum::Print::write(std::ostream& stream, ValueTernaryOp value, const O
     stream << "?:";
     break;
   default:
-    stream << "<UNKNOWN:" << int(value) << ">";
+    stream << "<VALUETERNARYOP:" << int(value) << ">";
     break;
   }
 }
@@ -317,7 +293,7 @@ void egg::ovum::Print::write(std::ostream& stream, ValueMutationOp value, const 
     stream << "<NOOP>";
     break;
   default:
-    stream << "<UNKNOWN:" << int(value) << ">";
+    stream << "<VALUEMUTATIONOP:" << int(value) << ">";
     break;
   }
 }
@@ -337,7 +313,7 @@ void egg::ovum::Print::write(std::ostream& stream, TypeUnaryOp value, const Opti
     stream << "?";
     break;
   default:
-    stream << "<UNKNOWN:" << int(value) << ">";
+    stream << "<TYPEUNARYOP:" << int(value) << ">";
     break;
   }
 }
@@ -351,7 +327,7 @@ void egg::ovum::Print::write(std::ostream& stream, TypeBinaryOp value, const Opt
     stream << "|";
     break;
   default:
-    stream << "<UNKNOWN:" << int(value) << ">";
+    stream << "<TYPEBINARYOP:" << int(value) << ">";
     break;
   }
 }
@@ -377,17 +353,9 @@ void egg::ovum::Print::write(std::ostream& stream, ILogger::Severity value, cons
     stream << "<ERROR>";
     break;
   default:
-    stream << "<UNKNOWN:" << int(value) << ">";
+    stream << "<SEVERITY:" << int(value) << ">";
     break;
   }
-}
-
-void egg::ovum::Print::write(std::ostream& stream, const HardObject& value, const Options& options) {
-  Print::write(stream, const_cast<const IObject*>(value.get()), options);
-}
-
-void egg::ovum::Print::write(std::ostream& stream, const HardValue& value, const Options& options) {
-  Print::write(stream, const_cast<const IValue*>(&value.get()), options);
 }
 
 void egg::ovum::Print::ascii(std::ostream& stream, const std::string& value, char quote) {
@@ -407,6 +375,30 @@ void egg::ovum::Print::escape(std::ostream& stream, const std::string& value, ch
       escapeCodepoint(stream, quote, char32_t(codeunit));
     }
   }
+}
+
+void egg::ovum::Printer::write(const HardValue& value) {
+  this->write(value.get());
+}
+
+void egg::ovum::Printer::write(const HardObject& value) {
+  this->write(value.get());
+}
+
+void egg::ovum::Printer::write(const Type& value) {
+  this->write(value.get());
+}
+
+void egg::ovum::Printer::write(const IValue& value) {
+  value.print(*this);
+}
+
+void egg::ovum::Printer::write(const IObject& value) {
+  value.print(*this);
+}
+
+void egg::ovum::Printer::write(const IType& value) {
+  value.print(*this);
 }
 
 int egg::ovum::Printer::describe(ValueFlags value) {

@@ -4,7 +4,7 @@ namespace {
   template<typename T>
   std::string print(T value) {
     std::ostringstream oss;
-    egg::ovum::Print::write(oss, value, egg::ovum::Print::Options::DEFAULT);
+    egg::ovum::Printer{ oss, egg::ovum::Print::Options::DEFAULT } << value;
     return oss.str();
   }
 }

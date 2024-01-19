@@ -13,7 +13,7 @@ namespace {
   std::ostream& printValue(std::ostream& os, const egg::ovum::HardValue& value, char quote) {
     egg::ovum::Print::Options options{};
     options.quote = quote;
-    egg::ovum::Print::write(os, value, options);
+    egg::ovum::Printer{ os, options } << value;
     return os;
   }
 
@@ -30,7 +30,7 @@ namespace {
       printRange(os, node.range);
     }
     os << ' ' << '\'';
-    egg::ovum::Print::write(os, extra, egg::ovum::Print::Options::DEFAULT);
+    egg::ovum::Printer{ os, egg::ovum::Print::Options::DEFAULT } << extra;
     os << '\'';
     for (auto& child : node.children) {
       os << ' ';

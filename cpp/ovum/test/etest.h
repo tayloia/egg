@@ -223,19 +223,19 @@ namespace egg::test {
 template<>
 inline void ::testing::internal::PrintTo(const egg::ovum::Type& value, std::ostream* stream) {
   // Pretty-print the type
-  egg::ovum::Print::write(*stream, value, egg::ovum::Print::Options::DEFAULT);
+  egg::ovum::Printer{ *stream, egg::ovum::Print::Options::DEFAULT } << value;
 }
 
 template<>
 inline void ::testing::internal::PrintTo(const egg::ovum::ValueFlags& value, std::ostream* stream) {
   // Pretty-print the value flags
-  egg::ovum::Print::write(*stream, value, egg::ovum::Print::Options::DEFAULT);
+  egg::ovum::Printer{ *stream, egg::ovum::Print::Options::DEFAULT } << value;
 }
 
 template<>
 inline void ::testing::internal::PrintTo(const egg::ovum::HardValue& value, std::ostream* stream) {
   // Pretty-print the value
-  egg::ovum::Print::write(*stream, value, egg::ovum::Print::Options::DEFAULT);
+  egg::ovum::Printer{ *stream, egg::ovum::Print::Options::DEFAULT } << value;
 }
 
 template<>
