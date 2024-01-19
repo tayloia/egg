@@ -53,8 +53,9 @@ namespace {
     virtual void softVisit(ICollectable::IVisitor&) const override {
       // No soft links
     }
-    virtual void print(Printer& printer) const override {
+    virtual int print(Printer& printer) const override {
       printer << "[builtin assert]";
+      return 0;
     }
     virtual Type vmRuntimeType() override {
       // TODO
@@ -107,8 +108,9 @@ namespace {
     virtual void softVisit(ICollectable::IVisitor&) const override {
       // No soft links
     }
-    virtual void print(Printer& printer) const override {
+    virtual int print(Printer& printer) const override {
       printer << "[builtin print]";
+      return 0;
     }
     virtual Type vmRuntimeType() override {
       // TODO
@@ -166,8 +168,9 @@ namespace {
         property.second.visit(visitor);
       }
     }
-    virtual void print(Printer& printer) const override {
+    virtual int print(Printer& printer) const override {
       printer << "[expando]";
+      return 0;
     }
     virtual Type vmRuntimeType() override {
       // TODO
@@ -235,8 +238,9 @@ namespace {
     virtual void softVisit(ICollectable::IVisitor&) const override {
       // No soft links
     }
-    virtual void print(Printer& printer) const override {
+    virtual int print(Printer& printer) const override {
       printer << "[builtin expando]";
+      return 0;
     }
     virtual Type vmRuntimeType() override {
       // TODO
@@ -282,8 +286,9 @@ namespace {
     virtual void softVisit(ICollectable::IVisitor&) const override {
       // No soft links
     }
-    virtual void print(Printer& printer) const override {
+    virtual int print(Printer& printer) const override {
       printer << "[builtin collector]";
+      return 0;
     }
     virtual Type vmRuntimeType() override {
       // TODO
@@ -341,8 +346,9 @@ namespace {
       assert(this->instance != nullptr);
       visitor.visit(*this->instance);
     }
-    virtual void print(Printer& printer) const override {
+    virtual int print(Printer& printer) const override {
       printer << "[member handler]";
+      return 0;
     }
     virtual Type vmRuntimeType() override {
       // TODO
@@ -518,7 +524,7 @@ namespace {
         element.visit(visitor);
       }
     }
-    virtual void print(Printer& printer) const override {
+    virtual int print(Printer& printer) const override {
       VMObjectVanillaMutex::ReadLock lock{ this->mutex };
       Print::Options options{ printer.options };
       options.quote = '"';
@@ -532,6 +538,7 @@ namespace {
         inner << '[';
       }
       inner << ']';
+      return 0;
     }
     virtual Type vmRuntimeType() override {
       return this->runtimeType;
@@ -666,8 +673,9 @@ namespace {
     VMObjectVanillaArrayIterator(IVM& vm, Container& array, VMObjectVanillaMutex::ReadLock& lock)
       : VMObjectVanillaIterator(vm, array, lock) {
     }
-    virtual void print(Printer& printer) const override {
-      printer.stream << "[vanilla array iterator]";
+    virtual int print(Printer& printer) const override {
+      printer << "[vanilla array iterator]";
+      return 0;
     }
     virtual Type vmRuntimeType() override {
       // TODO
@@ -719,7 +727,7 @@ namespace {
         property.second.visit(visitor);
       }
     }
-    virtual void print(Printer& printer) const override {
+    virtual int print(Printer& printer) const override {
       Print::Options options{ printer.options };
       options.quote = '"';
       Printer quoted{ printer.stream, options };
@@ -733,6 +741,7 @@ namespace {
         printer << '{';
       }
       printer << '}';
+      return 0;
     }
     virtual Type vmRuntimeType() override {
       return Type::Object;
@@ -835,8 +844,9 @@ namespace {
     VMObjectVanillaObjectIterator(IVM& vm, Container& object, VMObjectVanillaMutex::ReadLock& lock)
       : VMObjectVanillaIterator(vm, object, lock) {
     }
-    virtual void print(Printer& printer) const override {
-      printer.stream << "[vanilla object iterator]";
+    virtual int print(Printer& printer) const override {
+      printer << "[vanilla object iterator]";
+      return 0;
     }
     virtual Type vmRuntimeType() override {
       // TODO
@@ -875,8 +885,9 @@ namespace {
     virtual void softVisit(ICollectable::IVisitor&) const override {
       // Nothing to do
     }
-    virtual void print(Printer& printer) const override {
+    virtual int print(Printer& printer) const override {
       printer.describe(*this->ftype);
+      return 0;
     }
     virtual Type vmRuntimeType() override {
       return this->ftype;
@@ -923,8 +934,9 @@ namespace {
     virtual void softVisit(ICollectable::IVisitor&) const override {
       // No soft links
     }
-    virtual void print(Printer& printer) const override {
+    virtual int print(Printer& printer) const override {
       printer << "[string proxy " << this->proxy << "]"; // TODO
+      return 0;
     }
     virtual HardValue vmIterate(IVMExecution& execution) override {
       return this->raiseProxyError(execution, "does not support iteration");
@@ -1377,8 +1389,9 @@ namespace {
     virtual void softVisit(ICollectable::IVisitor&) const override {
       // Nothing to visit
     }
-    virtual void print(Printer& printer) const override {
+    virtual int print(Printer& printer) const override {
       printer << "[manifestation member handler]";
+      return 0;
     }
     virtual Type vmRuntimeType() override {
       // TODO
@@ -1425,8 +1438,9 @@ namespace {
     virtual void softVisit(ICollectable::IVisitor&) const override {
       // No soft links
     }
-    virtual void print(Printer& printer) const override {
+    virtual int print(Printer& printer) const override {
       printer << "[manifestation " << this->getName() <<"]";
+      return 0;
     }
     virtual Type vmRuntimeType() override {
       return this->type;
@@ -1684,11 +1698,12 @@ namespace {
       (void)readonly;
       this->propertyAdd(property, value);
     }
-    virtual void print(Printer& printer) const override {
+    virtual int print(Printer& printer) const override {
       if (this->callstack != nullptr) {
         this->callstack->print(printer);
       }
       printer << this->message;
+      return 0;
     }
     template<typename T>
     void withProperty(const char* property, T value) {

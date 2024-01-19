@@ -211,3 +211,14 @@ TEST(TestType, ForgeComplexIntArray) {
   ASSERT_EQ(1u, built->getShapeCount());
   ASSERT_STRING("int[]", forge.toTypeString(built));
 }
+
+TEST(TestType, ForgeComplexArithmeticArray) {
+  TestForge forge;
+  auto cb = forge->createComplexBuilder();
+  cb->addShape(forge->forgeArrayShape(Type::Arithmetic));
+  auto built = cb->build();
+  ASSERT_FALSE(built->isPrimitive());
+  ASSERT_EQ(ValueFlags::None, built->getPrimitiveFlags());
+  ASSERT_EQ(1u, built->getShapeCount());
+  ASSERT_STRING("(float|int)[]", forge.toTypeString(built));
+}

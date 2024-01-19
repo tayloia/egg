@@ -1491,8 +1491,9 @@ namespace {
     virtual void softVisit(ICollectable::IVisitor&) const override {
       // TODO any soft links?
     }
-    virtual void print(Printer& printer) const override {
+    virtual int print(Printer& printer) const override {
       printer << "[VMRunner]";
+      return 0;
     }
     virtual void addBuiltin(const String& symbol, const HardValue& value) override {
       this->symtable.builtin(symbol, value->getRuntimeType(), value);

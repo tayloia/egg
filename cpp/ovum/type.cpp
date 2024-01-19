@@ -86,8 +86,8 @@ namespace {
     virtual const Shape* getShape(size_t) const {
       return nullptr;
     }
-    virtual void print(Printer& printer) const override {
-      (void)Type::print(printer, this->flags.get());
+    virtual int print(Printer& printer) const override {
+      return Type::print(printer, this->flags.get());
     }
     static const IType* forge(ValueFlags flags) {
       auto index = size_t(flags);
@@ -119,7 +119,7 @@ namespace {
       bool validate() const {
         return !this->shapes.empty() && Bits::hasNoneSet(this->flags, ValueFlags::Object);
       }
-      void print(Printer& printer) const {
+      int print(Printer& printer) const {
         int complexPrecedence = -1;
         for (const auto& shape : this->shapes) {
           complexPrecedence = Type::print(printer, *shape);
@@ -127,7 +127,7 @@ namespace {
         if (this->shapes.size() > 1) {
           complexPrecedence = 2;
         }
-        (void)Type::print(printer, this->flags, complexPrecedence);
+        return Type::print(printer, this->flags, complexPrecedence);
       }
       size_t cacheHash() const {
         Hash hash;
@@ -171,8 +171,8 @@ namespace {
     virtual const Shape* getShape(size_t index) const {
       return (index < this->detail.shapes.size()) ? this->detail.shapes[index] : nullptr;
     }
-    virtual void print(Printer& printer) const override {
-      this->detail.print(printer);
+    virtual int print(Printer& printer) const override {
+      return this->detail.print(printer);
     }
     const Detail* cacheKey() const {
       return &this->detail;
@@ -716,7 +716,7 @@ namespace {
       {
         // Taggable
         auto builder = this->createTaggableBuilder();
-        builder->setDescription(StringBuilder::concat(this->allocator, element, "[]"), 1); // WIBBLE
+        builder->setDescription(this->typeSuffix(element, "[]"), 1);
         shape.taggable = &builder->build();
       }
       return this->forgeShape(std::move(shape));
@@ -991,6 +991,18 @@ namespace {
       }
       return retval;
     }
+    String typeSuffix(const Type& type, const char* suffix) const {
+      assert(type.validate());
+      assert(suffix != nullptr);
+      StringBuilder sb;
+      auto precedence = type.print(sb);
+      if (precedence == 2) {
+        // Wrap 'a|b' in parentheses
+        return StringBuilder::concat(this->allocator, '(', sb.toUTF8(), ')', suffix);
+      }
+      sb << suffix;
+      return sb.build(this->allocator);
+    }
   };
 
   template<typename T>
@@ -1104,13 +1116,13 @@ const Type Type::Object{ TypeForgePrimitive::forge(ValueFlags::Object) };
 const Type Type::Any{ TypeForgePrimitive::forge(ValueFlags::Any) };
 const Type Type::AnyQ{ TypeForgePrimitive::forge(ValueFlags::AnyQ) };
 
-void egg::ovum::Type::print(Printer& printer) const {
+int egg::ovum::Type::print(Printer& printer) const {
   auto* p = this->ptr;
   if (p == nullptr) {
     printer << "<unknown>";
-  } else {
-    p->print(printer);
+    return 0;
   }
+  return p->print(printer);
 }
 
 int egg::ovum::Type::print(Printer& printer, ValueFlags primitive, int complexPrecedence) {

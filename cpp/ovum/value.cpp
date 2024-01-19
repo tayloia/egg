@@ -48,8 +48,9 @@ namespace {
       static_assert(Bits::hasOneSet(FLAGS), "Exactly one primitive flag bit should be set");
       return FLAGS;
     }
-    virtual void print(Printer& printer) const override {
+    virtual int print(Printer& printer) const override {
       printer << FLAGS;
+      return 0;
     }
     virtual bool validate() const override {
       return true;
@@ -144,8 +145,9 @@ namespace {
     virtual Type getRuntimeType() const override {
       return Type::Bool;
     }
-    virtual void print(Printer& printer) const override {
+    virtual int print(Printer& printer) const override {
       printer << VALUE;
+      return 0;
     }
   };
   const ValueBool<false> theFalse;
@@ -219,8 +221,9 @@ namespace {
       result = this->value.get();
       return true;
     }
-    virtual void print(Printer& printer) const override {
+    virtual int print(Printer& printer) const override {
       printer << this->value.get();
+      return 0;
     }
     virtual bool set(const IValue& rhs) override {
       Int rvalue;
@@ -351,8 +354,9 @@ namespace {
       result = this->value.get();
       return true;
     }
-    virtual void print(Printer& printer) const override {
+    virtual int print(Printer& printer) const override {
       printer << this->value.get();
+      return 0;
     }
     virtual bool set(const IValue& rhs) override {
       Float rvalue;
@@ -484,8 +488,9 @@ namespace {
     virtual bool validate() const override {
       return ValueMutable::validate() && this->value.validate();
     }
-    virtual void print(Printer& printer) const override {
+    virtual int print(Printer& printer) const override {
       printer << this->value;
+      return 0;
     }
     virtual bool set(const IValue& rhs) override {
       return rhs.getString(this->value);
@@ -531,8 +536,9 @@ namespace {
     virtual bool validate() const override {
       return ValueMutable::validate() && this->value.validate();
     }
-    virtual void print(Printer& printer) const override {
+    virtual int print(Printer& printer) const override {
       printer << this->value;
+      return 0;
     }
     virtual bool set(const IValue& rhs) override {
       return rhs.getHardObject(this->value);
@@ -584,8 +590,9 @@ namespace {
     virtual bool validate() const override {
       return ValueMutable::validate() && this->inner.validate();
     }
-    virtual void print(Printer& printer) const override {
+    virtual int print(Printer& printer) const override {
       printer << this->inner;
+      return 0;
     }
     virtual bool set(const IValue&) override {
       // Flow controls are effectively immutable
@@ -627,8 +634,9 @@ namespace {
     virtual bool validate() const override {
       return ValueMutable::validate() && (this->type != nullptr) && this->type->validate();
     }
-    virtual void print(Printer& printer) const override {
+    virtual int print(Printer& printer) const override {
       printer << this->type;
+      return 0;
     }
     virtual bool set(const IValue&) override {
       // Types are effectively immutable
@@ -753,7 +761,7 @@ namespace {
       assert(this->validate());
       return this->flags;
     }
-    virtual void print(Printer& printer) const override {
+    virtual int print(Printer& printer) const override {
       assert(this->validate());
       EGG_WARNING_SUPPRESS_SWITCH_BEGIN
       switch (this->flags) {
@@ -778,6 +786,7 @@ namespace {
         break;
       }
       EGG_WARNING_SUPPRESS_SWITCH_END
+      return 0;
     }
     bool validate() const {
       // TODO

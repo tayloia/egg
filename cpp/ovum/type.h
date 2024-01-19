@@ -149,7 +149,7 @@ namespace egg::ovum {
       auto* shape = this->getOnlyShape();
       return (shape != nullptr) ? shape->callable : nullptr;
     }
-    void print(Printer& printer) const;
+    int print(Printer& printer) const;
 
     // Constants
     static const Type None;

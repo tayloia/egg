@@ -226,7 +226,7 @@ namespace egg::ovum {
     virtual IBasket* softGetBasket() const = 0;
     virtual SetBasketResult softSetBasket(IBasket* desired) const = 0;
     virtual void softVisit(IVisitor& visitor) const = 0;
-    virtual void print(Printer& printer) const = 0;
+    virtual int print(Printer& printer) const = 0;
   };
 
   class ICallArguments {
