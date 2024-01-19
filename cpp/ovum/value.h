@@ -14,7 +14,6 @@ namespace egg::ovum {
     virtual Type getRuntimeType() const = 0;
     virtual ValueFlags getPrimitiveFlag() const = 0;
     virtual bool validate() const = 0;
-    virtual void print(Printer& printer) const = 0;
     virtual bool set(const IValue& rhs) = 0;
     virtual HardValue mutate(ValueMutationOp op, const IValue& value) = 0;
   };

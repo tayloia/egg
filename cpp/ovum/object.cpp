@@ -499,20 +499,6 @@ namespace {
         elements(),
         runtimeType(runtimeType) {
     }
-    virtual void hardDestroy() const override {
-      assert(this->basket == nullptr); // WIBBLE WOBBLE
-      this->VMObjectVanillaContainer::hardDestroy();
-    }
-    virtual IObject* hardAcquire() const override {
-      return this->VMObjectVanillaContainer::hardAcquire();
-    }
-    virtual void hardRelease() const override {
-      this->VMObjectVanillaContainer::hardRelease();
-    }
-    virtual ICollectable::SetBasketResult softSetBasket(IBasket* desired) const override {
-      // WIBBLE
-      return this->VMObjectVanillaContainer::softSetBasket(desired);
-    }
     virtual const char* getName() const override {
       return "Vanilla array";
     }
@@ -534,18 +520,18 @@ namespace {
     }
     virtual void print(Printer& printer) const override {
       VMObjectVanillaMutex::ReadLock lock{ this->mutex };
-      Print::Options options = printer.options;
+      Print::Options options{ printer.options };
       options.quote = '"';
+      Printer inner{ printer.stream, options };
       char separator = '[';
       for (const auto& element : this->elements) {
-        printer.stream << separator;
-        Print::write(printer.stream, element.get(), options);
+        inner << separator << element.get();
         separator = ',';
       }
       if (separator == '[') {
-        printer.stream << '[';
+        inner << '[';
       }
-      printer.stream << ']';
+      inner << ']';
     }
     virtual Type vmRuntimeType() override {
       return this->runtimeType;
@@ -734,20 +720,19 @@ namespace {
       }
     }
     virtual void print(Printer& printer) const override {
-      Print::Options options = printer.options;
+      Print::Options options{ printer.options };
       options.quote = '"';
+      Printer quoted{ printer.stream, options };
       char separator = '{';
       for (const auto& key : this->keys) {
-        printer.stream << separator;
-        key->print(printer);
-        printer.stream << ':';
-        Print::write(printer.stream, this->properties.find(key)->second.get(), options);
+        printer << separator << key.get() << ':';
+        quoted << this->properties.find(key)->second.get();
         separator = ',';
       }
       if (separator == '{') {
-        printer.stream << '{';
+        printer << '{';
       }
-      printer.stream << '}';
+      printer << '}';
     }
     virtual Type vmRuntimeType() override {
       return Type::Object;
@@ -1543,7 +1528,7 @@ namespace {
         Print::Options options;
         options.names = false;
         Printer printer{ sb.stream, options };
-        value->getRuntimeType()->print(printer);
+        printer << value->getRuntimeType();
         return this->vm.createHardValueString(sb.build(this->vm.getAllocator()));
       }
       return this->vm.createHardValue("unknown");

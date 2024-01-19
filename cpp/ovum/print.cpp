@@ -428,7 +428,7 @@ void egg::ovum::Printer::describe(const IType& value) {
 
 void egg::ovum::Printer::describe(const IValue& value) {
   // TODO complex types
-  auto quoted = this->options;
+  Print::Options quoted{ this->options };
   if (quoted.quote == '\0') {
     quoted.quote = '\'';
   }
