@@ -38,7 +38,9 @@ namespace egg::ovum {
   enum class ValueUnaryOp {
     Negate,             // -a
     BitwiseNot,         // ~a
-    LogicalNot          // !a
+    LogicalNot,         // !a
+    Dereference,        // *a
+    Address             // &a
   };
   enum class ValueBinaryOp {
     Add,                // a + b
@@ -243,12 +245,19 @@ namespace egg::ovum {
     virtual Type vmRuntimeType() = 0;
     virtual HardValue vmCall(IVMExecution& execution, const ICallArguments& arguments) = 0;
     virtual HardValue vmIterate(IVMExecution& execution) = 0;
-    virtual HardValue vmIndexGet(IVMExecution& execution, const HardValue& index) = 0;
-    virtual HardValue vmIndexSet(IVMExecution& execution, const HardValue& index, const HardValue& value) = 0;
-    virtual HardValue vmIndexMut(IVMExecution& execution, const HardValue& index, ValueMutationOp mutation, const HardValue& value) = 0;
     virtual HardValue vmPropertyGet(IVMExecution& execution, const HardValue& property) = 0;
     virtual HardValue vmPropertySet(IVMExecution& execution, const HardValue& property, const HardValue& value) = 0;
     virtual HardValue vmPropertyMut(IVMExecution& execution, const HardValue& property, ValueMutationOp mutation, const HardValue& value) = 0;
+    virtual HardValue vmPropertyDel(IVMExecution& execution, const HardValue& property) = 0;
+    virtual HardValue vmPropertyRef(IVMExecution& execution, const HardValue& property) = 0;
+    virtual HardValue vmIndexGet(IVMExecution& execution, const HardValue& index) = 0;
+    virtual HardValue vmIndexSet(IVMExecution& execution, const HardValue& index, const HardValue& value) = 0;
+    virtual HardValue vmIndexMut(IVMExecution& execution, const HardValue& index, ValueMutationOp mutation, const HardValue& value) = 0;
+    virtual HardValue vmIndexDel(IVMExecution& execution, const HardValue& index) = 0;
+    virtual HardValue vmIndexRef(IVMExecution& execution, const HardValue& index) = 0;
+    virtual HardValue vmPointeeGet(IVMExecution& execution) = 0;
+    virtual HardValue vmPointeeSet(IVMExecution& execution, const HardValue& value) = 0;
+    virtual HardValue vmPointeeMut(IVMExecution& execution, ValueMutationOp mutation, const HardValue& value) = 0;
   };
 
   class IParameters {
@@ -408,6 +417,7 @@ namespace egg::ovum {
     // Interface
     virtual TypeShape forgeArrayShape(const Type& element, Modifiability modifiability) = 0;
     virtual TypeShape forgeFunctionShape(const IFunctionSignature& signature) = 0;
+    virtual TypeShape forgeIteratorShape(const Type& element) = 0;
     virtual TypeShape forgePointerShape(const Type& pointee, Modifiability modifiability) = 0;
     virtual TypeShape forgeStringShape() = 0;
     virtual Type forgePrimitiveType(ValueFlags flags) = 0;
@@ -417,6 +427,7 @@ namespace egg::ovum {
     virtual Type forgeVoidableType(const Type& type, bool voidable) = 0;
     virtual Type forgeArrayType(const Type& element, Modifiability modifiability) = 0;
     virtual Type forgeIterationType(const Type& container) = 0;
+    virtual Type forgeIteratorType(const Type& element) = 0;
     virtual Type forgeFunctionType(const IFunctionSignature& signature) = 0;
     virtual Type forgePointerType(const Type& pointee, Modifiability modifiability) = 0;
     virtual Type forgeShapeType(const TypeShape& shape) = 0;

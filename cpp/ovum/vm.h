@@ -200,6 +200,7 @@ namespace egg::ovum {
     virtual Node& stmtPropertySet(Node& instance, Node& property, Node& value, const SourceRange& range) = 0;
     virtual Node& stmtPropertyMutate(Node& instance, Node& property, ValueMutationOp op, Node& value, const SourceRange& range) = 0;
     virtual Node& stmtIndexMutate(Node& instance, Node& index, ValueMutationOp op, Node& value, const SourceRange& range) = 0;
+    virtual Node& stmtPointerMutate(Node& instance, ValueMutationOp op, Node& value, const SourceRange& range) = 0;
     virtual Node& stmtThrow(Node& exception, const SourceRange& range) = 0;
     virtual Node& stmtTry(Node& block, const SourceRange& range) = 0;
     virtual Node& stmtCatch(const String& symbol, Node& type, const SourceRange& range) = 0;

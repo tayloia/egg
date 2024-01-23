@@ -52,6 +52,7 @@ public:
     StmtPropertySet,
     StmtPropertyMutate,
     StmtIndexMutate,
+    StmtPointerMutate,
     StmtIf,
     StmtWhile,
     StmtDo,
@@ -489,6 +490,10 @@ namespace {
         case Operation::UnaryValue::ExtractResult::Mismatch:
           return this->raise("Expected expression after of logical-not operator '!' to be a 'bool', but instead got ", describe(arg));
         }
+        break;
+      case ValueUnaryOp::Dereference:
+      case ValueUnaryOp::Address:
+        // WIBBLE
         break;
       }
       return this->panic("Unknown unary operator: ", op);
@@ -976,6 +981,7 @@ namespace {
       case Node::Kind::StmtPropertySet:
       case Node::Kind::StmtPropertyMutate:
       case Node::Kind::StmtIndexMutate:
+      case Node::Kind::StmtPointerMutate:
       case Node::Kind::StmtIf:
       case Node::Kind::StmtWhile:
       case Node::Kind::StmtDo:
@@ -1027,6 +1033,10 @@ namespace {
         return Type::Int;
       case ValueUnaryOp::LogicalNot:
         return Type::Bool;
+      case ValueUnaryOp::Dereference:
+        return Type::AnyQ; // WIBBLE
+      case ValueUnaryOp::Address:
+        return Type::Object; // WIBBLE
       }
       return this->fail(range, "TODO: Cannot deduce type for unary operator");
     }
@@ -1358,6 +1368,13 @@ namespace {
       node.mutationOp = op;
       node.addChild(instance);
       node.addChild(index);
+      node.addChild(value);
+      return node;
+    }
+    virtual Node& stmtPointerMutate(Node& instance, ValueMutationOp op, Node& value, const SourceRange& range) override {
+      auto& node = this->module->createNode(Node::Kind::StmtPointerMutate, range);
+      node.mutationOp = op;
+      node.addChild(instance);
       node.addChild(value);
       return node;
     }
@@ -1787,6 +1804,10 @@ namespace {
       }
       return this->raiseRuntimeError("Type '", *type, "' does not support the property '", name, "'");
     }
+    HardValue pointerMut(const HardValue&, ValueMutationOp, const HardValue&) {
+      // WIBBLE
+      return this->raiseRuntimeError("TODO: Pointer mutation not yet supported");
+    }
   };
 
   class VMDefault : public HardReferenceCountedAllocator<IVM> {
@@ -2198,6 +2219,29 @@ bool VMRunner::stepNode(HardValue& retval) {
       auto& index = top.deque[1];
       auto& value = top.deque.back();
       auto result = object->vmIndexMut(this->execution, index, top.node->mutationOp, value);
+      return this->pop(result.hasFlowControl() ? result : HardValue::Void);
+    }
+    break;
+  case IVMModule::Node::Kind::StmtPointerMutate:
+    assert(top.node->literal->getVoid());
+    assert(top.node->children.size() == 2);
+    assert(top.index <= 2);
+    if (!top.deque.empty()) {
+      // Check the last evaluation
+      auto& latest = top.deque.back();
+      if (latest.hasFlowControl()) {
+        return this->pop(latest);
+      }
+    }
+    if (top.index < 2) {
+      // Evaluate the expressions
+      this->push(*top.node->children[top.index++]);
+    } else {
+      // Perform the current mutation
+      assert(top.deque.size() == 2);
+      auto& pointer = top.deque.front();
+      auto& value = top.deque.back();
+      auto result = this->pointerMut(pointer, top.node->mutationOp, value);
       return this->pop(result.hasFlowControl() ? result : HardValue::Void);
     }
     break;

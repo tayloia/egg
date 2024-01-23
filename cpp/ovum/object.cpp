@@ -31,6 +31,14 @@ namespace {
       auto message = StringBuilder::concat(this->vm.getAllocator(), std::forward<ARGS>(args)...);
       return execution.raiseRuntimeError(message);
     }
+    template<typename... ARGS>
+    HardValue raisePrefixError(IVMExecution& execution, ARGS&&... args) {
+      StringBuilder sb;
+      this->printPrefix(sb);
+      sb.add(std::forward<ARGS>(args)...);
+      return execution.raiseRuntimeError(sb.build(this->vm.getAllocator()));
+    }
+    virtual void printPrefix(Printer& printer) const = 0;
   public:
     explicit VMObjectBase(IVM& vm)
       : SoftReferenceCounted<IObject>(),
@@ -41,11 +49,60 @@ namespace {
     virtual void hardDestroy() const override {
       this->vm.getAllocator().destroy(this);
     }
+    virtual HardValue vmCall(IVMExecution& execution, const ICallArguments&) override {
+      return this->raisePrefixError(execution, " does not support function call semantics");
+    }
+    virtual HardValue vmIterate(IVMExecution& execution) override {
+      return this->raisePrefixError(execution, " does not support iteration");
+    }
+    virtual HardValue vmPropertyGet(IVMExecution& execution, const HardValue&) override {
+      return this->raisePrefixError(execution, " does not support properties");
+    }
+    virtual HardValue vmPropertySet(IVMExecution& execution, const HardValue&, const HardValue&) override {
+      return this->raisePrefixError(execution, " does not support properties");
+    }
+    virtual HardValue vmPropertyMut(IVMExecution& execution, const HardValue&, ValueMutationOp, const HardValue&) override {
+      return this->raisePrefixError(execution, " does not support properties");
+    }
+    virtual HardValue vmPropertyDel(IVMExecution& execution, const HardValue&) override {
+      return this->raisePrefixError(execution, " does not support properties");
+    }
+    virtual HardValue vmPropertyRef(IVMExecution& execution, const HardValue&) override {
+      return this->raisePrefixError(execution, " does not support properties");
+    }
+    virtual HardValue vmIndexGet(IVMExecution& execution, const HardValue&) override {
+      return this->raisePrefixError(execution, " does not support indexing");
+    }
+    virtual HardValue vmIndexSet(IVMExecution& execution, const HardValue&, const HardValue&) override {
+      return this->raisePrefixError(execution, " does not support indexing");
+    }
+    virtual HardValue vmIndexMut(IVMExecution& execution, const HardValue&, ValueMutationOp, const HardValue&) override {
+      return this->raisePrefixError(execution, " does not support indexing");
+    }
+    virtual HardValue vmIndexDel(IVMExecution& execution, const HardValue&) override {
+      return this->raisePrefixError(execution, " does not support indexing");
+    }
+    virtual HardValue vmIndexRef(IVMExecution& execution, const HardValue&) override {
+      return this->raisePrefixError(execution, " does not support indexing");
+    }
+    virtual HardValue vmPointeeGet(IVMExecution& execution) override {
+      return this->raisePrefixError(execution, " does not support pointer semantics");
+    }
+    virtual HardValue vmPointeeSet(IVMExecution& execution, const HardValue&) override {
+      return this->raisePrefixError(execution, " does not support pointer semantics");
+    }
+    virtual HardValue vmPointeeMut(IVMExecution& execution, ValueMutationOp, const HardValue&) override {
+      return this->raisePrefixError(execution, " does not support pointer semantics");
+    }
   };
 
   class VMObjectBuiltinAssert : public VMObjectBase {
     VMObjectBuiltinAssert(const VMObjectBuiltinAssert&) = delete;
     VMObjectBuiltinAssert& operator=(const VMObjectBuiltinAssert&) = delete;
+  protected:
+    virtual void printPrefix(Printer& printer) const override {
+      printer << "Builtin 'assert()'";
+    }
   public:
     explicit VMObjectBuiltinAssert(IVM& vm)
       : VMObjectBase(vm) {
@@ -63,44 +120,27 @@ namespace {
     }
     virtual HardValue vmCall(IVMExecution& execution, const ICallArguments& arguments) override {
       if (arguments.getArgumentCount() != 1) {
-        return this->raiseRuntimeError(execution, "Builtin 'assert()' expects exactly one argument");
+        return this->raisePrefixError(execution, " expects exactly one argument");
       }
       HardValue value;
       Bool success = false;
       if (!arguments.getArgumentByIndex(0, value) || !value->getBool(success)) {
-        return this->raiseRuntimeError(execution, "Builtin 'assert()' expects a 'bool' argument, but instead got ", describe(value.get()));
+        return this->raisePrefixError(execution, " expects a 'bool' argument, but instead got ", describe(value.get()));
       }
       if (!success) {
         return this->raiseRuntimeError(execution, "Assertion failure");
       }
       return HardValue::Void;
     }
-    virtual HardValue vmIterate(IVMExecution& execution) override {
-      return this->raiseRuntimeError(execution, "Builtin 'assert()' does not support iteration");
-    }
-    virtual HardValue vmIndexGet(IVMExecution& execution, const HardValue&) override {
-      return this->raiseRuntimeError(execution, "Builtin 'assert()' does not support indexing");
-    }
-    virtual HardValue vmIndexSet(IVMExecution& execution, const HardValue&, const HardValue&) override {
-      return this->raiseRuntimeError(execution, "Builtin 'assert()' does not support indexing");
-    }
-    virtual HardValue vmIndexMut(IVMExecution& execution, const HardValue&, ValueMutationOp, const HardValue&) override {
-      return this->raiseRuntimeError(execution, "Builtin 'assert()' does not support indexing");
-    }
-    virtual HardValue vmPropertyGet(IVMExecution& execution, const HardValue&) override {
-      return this->raiseRuntimeError(execution, "Builtin 'assert()' does not support properties");
-    }
-    virtual HardValue vmPropertySet(IVMExecution& execution, const HardValue&, const HardValue&) override {
-      return this->raiseRuntimeError(execution, "Builtin 'assert()' does not support properties");
-    }
-    virtual HardValue vmPropertyMut(IVMExecution& execution, const HardValue&, ValueMutationOp, const HardValue&) override {
-      return this->raiseRuntimeError(execution, "Builtin 'assert()' does not support properties");
-    }
   };
 
   class VMObjectBuiltinPrint : public VMObjectBase {
     VMObjectBuiltinPrint(const VMObjectBuiltinPrint&) = delete;
     VMObjectBuiltinPrint& operator=(const VMObjectBuiltinPrint&) = delete;
+  protected:
+    virtual void printPrefix(Printer& printer) const override {
+      printer << "Builtin 'print()'";
+    }
   public:
     explicit VMObjectBuiltinPrint(IVM& vm)
       : VMObjectBase(vm) {
@@ -123,33 +163,12 @@ namespace {
       HardValue value;
       for (size_t i = 0; i < n; ++i) {
         if (!arguments.getArgumentByIndex(i, value, &name) || !name.empty()) {
-          return this->raiseRuntimeError(execution, "Builtin 'print()' expects unnamed arguments");
+          return this->raisePrefixError(execution, " expects unnamed arguments");
         }
         sb.add(value);
       }
       execution.log(ILogger::Source::User, ILogger::Severity::None, sb.build(this->vm.getAllocator()));
       return HardValue::Void;
-    }
-    virtual HardValue vmIterate(IVMExecution& execution) override {
-      return this->raiseRuntimeError(execution, "Builtin 'print()' does not support iteration");
-    }
-    virtual HardValue vmIndexGet(IVMExecution& execution, const HardValue&) override {
-      return this->raiseRuntimeError(execution, "Builtin 'print()' does not support indexing");
-    }
-    virtual HardValue vmIndexSet(IVMExecution& execution, const HardValue&, const HardValue&) override {
-      return this->raiseRuntimeError(execution, "Builtin 'print()' does not support indexing");
-    }
-    virtual HardValue vmIndexMut(IVMExecution& execution, const HardValue&, ValueMutationOp, const HardValue&) override {
-      return this->raiseRuntimeError(execution, "Builtin 'print()' does not support indexing");
-    }
-    virtual HardValue vmPropertyGet(IVMExecution& execution, const HardValue&) override {
-      return this->raiseRuntimeError(execution, "Builtin 'print()' does not support properties");
-    }
-    virtual HardValue vmPropertySet(IVMExecution& execution, const HardValue&, const HardValue&) override {
-      return this->raiseRuntimeError(execution, "Builtin 'print()' does not support properties");
-    }
-    virtual HardValue vmPropertyMut(IVMExecution& execution, const HardValue&, ValueMutationOp, const HardValue&) override {
-      return this->raiseRuntimeError(execution, "Builtin 'print()' does not support properties");
     }
   };
 
@@ -158,6 +177,10 @@ namespace {
     VMObjectExpando& operator=(const VMObjectExpando&) = delete;
   private:
     std::map<SoftKey, SoftValue> properties;
+  protected:
+    virtual void printPrefix(Printer& printer) const override {
+      printer << "Expando object";
+    }
   public:
     explicit VMObjectExpando(IVM& vm)
       : VMObjectBase(vm) {
@@ -175,9 +198,6 @@ namespace {
     virtual Type vmRuntimeType() override {
       // TODO
       return Type::Object;
-    }
-    virtual HardValue vmCall(IVMExecution& execution, const ICallArguments&) override {
-      return this->raiseRuntimeError(execution, "TODO: Expando objects do not yet support function call semantics");
     }
     virtual HardValue vmIterate(IVMExecution& execution) override {
       return this->raiseRuntimeError(execution, "TODO: Expando objects do not yet support iteration");
@@ -231,6 +251,10 @@ namespace {
   class VMObjectBuiltinExpando : public VMObjectBase {
     VMObjectBuiltinExpando(const VMObjectBuiltinExpando&) = delete;
     VMObjectBuiltinExpando& operator=(const VMObjectBuiltinExpando&) = delete;
+  protected:
+    virtual void printPrefix(Printer& printer) const override {
+      printer << "Builtin 'expando()'";
+    }
   public:
     explicit VMObjectBuiltinExpando(IVM& vm)
       : VMObjectBase(vm) {
@@ -253,32 +277,15 @@ namespace {
       auto instance = makeHardObject<VMObjectExpando>(this->vm);
       return execution.createHardValueObject(instance);
     }
-    virtual HardValue vmIterate(IVMExecution& execution) override {
-      return this->raiseRuntimeError(execution, "Builtin 'expando()' does not support iteration");
-    }
-    virtual HardValue vmIndexGet(IVMExecution& execution, const HardValue&) override {
-      return this->raiseRuntimeError(execution, "Builtin 'expando()' does not support indexing");
-    }
-    virtual HardValue vmIndexSet(IVMExecution& execution, const HardValue&, const HardValue&) override {
-      return this->raiseRuntimeError(execution, "Builtin 'expando()' does not support indexing");
-    }
-    virtual HardValue vmIndexMut(IVMExecution& execution, const HardValue&, ValueMutationOp, const HardValue&) override {
-      return this->raiseRuntimeError(execution, "Builtin 'expando()' does not support indexing");
-    }
-    virtual HardValue vmPropertyGet(IVMExecution& execution, const HardValue&) override {
-      return this->raiseRuntimeError(execution, "Builtin 'expando()' does not support properties");
-    }
-    virtual HardValue vmPropertySet(IVMExecution& execution, const HardValue&, const HardValue&) override {
-      return this->raiseRuntimeError(execution, "Builtin 'expando()' does not support properties");
-    }
-    virtual HardValue vmPropertyMut(IVMExecution& execution, const HardValue&, ValueMutationOp, const HardValue&) override {
-      return this->raiseRuntimeError(execution, "Builtin 'expando()' does not support properties");
-    }
   };
 
   class VMObjectBuiltinCollector : public VMObjectBase {
     VMObjectBuiltinCollector(const VMObjectBuiltinCollector&) = delete;
     VMObjectBuiltinCollector& operator=(const VMObjectBuiltinCollector&) = delete;
+  protected:
+    virtual void printPrefix(Printer& printer) const override {
+      printer << "Builtin 'collector()'";
+    }
   public:
     explicit VMObjectBuiltinCollector(IVM& vm)
       : VMObjectBase(vm) {
@@ -301,27 +308,6 @@ namespace {
       auto collected = this->vm.getBasket().collect();
       return execution.createHardValueInt(Int(collected));
     }
-    virtual HardValue vmIterate(IVMExecution& execution) override {
-      return this->raiseRuntimeError(execution, "Builtin 'collector()' does not support iteration");
-    }
-    virtual HardValue vmIndexGet(IVMExecution& execution, const HardValue&) override {
-      return this->raiseRuntimeError(execution, "Builtin 'collector()' does not support indexing");
-    }
-    virtual HardValue vmIndexSet(IVMExecution& execution, const HardValue&, const HardValue&) override {
-      return this->raiseRuntimeError(execution, "Builtin 'collector()' does not support indexing");
-    }
-    virtual HardValue vmIndexMut(IVMExecution& execution, const HardValue&, ValueMutationOp, const HardValue&) override {
-      return this->raiseRuntimeError(execution, "Builtin 'collector()' does not support indexing");
-    }
-    virtual HardValue vmPropertyGet(IVMExecution& execution, const HardValue&) override {
-      return this->raiseRuntimeError(execution, "Builtin 'collector()' does not support properties");
-    }
-    virtual HardValue vmPropertySet(IVMExecution& execution, const HardValue&, const HardValue&) override {
-      return this->raiseRuntimeError(execution, "Builtin 'collector()' does not support properties");
-    }
-    virtual HardValue vmPropertyMut(IVMExecution& execution, const HardValue&, ValueMutationOp, const HardValue&) override {
-      return this->raiseRuntimeError(execution, "Builtin 'collector()' does not support properties");
-    }
   };
 
   template<typename T>
@@ -333,6 +319,10 @@ namespace {
   private:
     T* instance;
     Handler handler;
+  protected:
+    virtual void printPrefix(Printer& printer) const override {
+      printer << "Member handler";
+    }
   public:
     VMObjectMemberHandler(IVM& vm, T& instance, Handler handler)
       : VMObjectBase(vm),
@@ -358,27 +348,6 @@ namespace {
       assert(this->instance != nullptr);
       assert(this->handler != nullptr);
       return (this->instance->*(this->handler))(execution, arguments);
-    }
-    virtual HardValue vmIterate(IVMExecution& execution) override {
-      return this->raiseRuntimeError(execution, "Member handlers do not support iteration");
-    }
-    virtual HardValue vmIndexGet(IVMExecution& execution, const HardValue&) override {
-      return this->raiseRuntimeError(execution, "Member handlers do not support indexing");
-    }
-    virtual HardValue vmIndexSet(IVMExecution& execution, const HardValue&, const HardValue&) override {
-      return this->raiseRuntimeError(execution, "Member handlers do not support indexing");
-    }
-    virtual HardValue vmIndexMut(IVMExecution& execution, const HardValue&, ValueMutationOp, const HardValue&) override {
-      return this->raiseRuntimeError(execution, "Member handlers do not support indexing");
-    }
-    virtual HardValue vmPropertyGet(IVMExecution& execution, const HardValue&) override {
-      return this->raiseRuntimeError(execution, "Member handlers do not support properties");
-    }
-    virtual HardValue vmPropertySet(IVMExecution& execution, const HardValue&, const HardValue&) override {
-      return this->raiseRuntimeError(execution, "Member handlers do not support properties");
-    }
-    virtual HardValue vmPropertyMut(IVMExecution& execution, const HardValue&, ValueMutationOp, const HardValue&) override {
-      return this->raiseRuntimeError(execution, "Member handlers do not support properties");
     }
   };
 
@@ -425,12 +394,6 @@ namespace {
     explicit VMObjectVanillaContainer(IVM& vm)
       : VMObjectBase(vm) {
     }
-  public:
-    virtual const char* getName() const = 0;
-    template<typename... ARGS>
-    HardValue raiseContainerError(IVMExecution& execution, ARGS&&... args) {
-      return this->raiseRuntimeError(execution, this->getName(), " ", std::forward<ARGS>(args)...);
-    }
   };
 
   template<typename CONTAINER, typename STATE>
@@ -457,34 +420,9 @@ namespace {
     }
     virtual HardValue vmCall(IVMExecution& execution, const ICallArguments& arguments) override {
       if (arguments.getArgumentCount() != 0) {
-        return this->raiseIteratorError(execution, "does not support function call arguments");
+        return this->raisePrefixError(execution, " does not support function call arguments");
       }
       return this->container.iteratorNext(execution, this->state);
-    }
-    virtual HardValue vmIterate(IVMExecution& execution) override {
-      return this->raiseIteratorError(execution, "does not yet support re-iteration");
-    }
-    virtual HardValue vmIndexGet(IVMExecution& execution, const HardValue&) override {
-      return this->raiseIteratorError(execution, "does not support indexing");
-    }
-    virtual HardValue vmIndexSet(IVMExecution& execution, const HardValue&, const HardValue&) override {
-      return this->raiseIteratorError(execution, "does not support indexing");
-    }
-    virtual HardValue vmIndexMut(IVMExecution& execution, const HardValue&, ValueMutationOp, const HardValue&) override {
-      return this->raiseIteratorError(execution, "does not support indexing");
-    }
-    virtual HardValue vmPropertyGet(IVMExecution& execution, const HardValue&) override {
-      return this->raiseIteratorError(execution, "does not support properties");
-    }
-    virtual HardValue vmPropertySet(IVMExecution& execution, const HardValue&, const HardValue&) override {
-      return this->raiseIteratorError(execution, "does not support properties");
-    }
-    virtual HardValue vmPropertyMut(IVMExecution& execution, const HardValue&, ValueMutationOp, const HardValue&) override {
-      return this->raiseIteratorError(execution, "does not support properties");
-    }
-    template<typename... ARGS>
-    HardValue raiseIteratorError(IVMExecution& execution, ARGS&&... args) {
-      return this->container.raiseContainerError(execution, "iterator ", std::forward<ARGS>(args)...);
     }
   };
 
@@ -499,19 +437,20 @@ namespace {
   private:
     std::deque<SoftValue> elements;
     Type runtimeType;
+  protected:
+    virtual void printPrefix(Printer& printer) const override {
+      printer << "Vanilla array";
+    }
   public:
     VMObjectVanillaArray(IVM& vm, const Type& runtimeType)
       : VMObjectVanillaContainer(vm),
         elements(),
         runtimeType(runtimeType) {
     }
-    virtual const char* getName() const override {
-      return "Vanilla array";
-    }
     HardValue iteratorNext(IVMExecution& execution, IteratorState& state) {
       VMObjectVanillaMutex::ReadLock lock{ this->mutex };
       if (lock.modifications != state.modifications) {
-        return this->raiseContainerError(execution, "has been modified during iteration");
+        return this->raisePrefixError(execution, " has been modified during iteration");
       }
       if (state.index >= this->elements.size()) {
         return HardValue::Void;
@@ -542,9 +481,6 @@ namespace {
     }
     virtual Type vmRuntimeType() override {
       return this->runtimeType;
-    }
-    virtual HardValue vmCall(IVMExecution& execution, const ICallArguments&) override {
-      return this->raiseContainerError(execution, "does not support call semantics");
     }
     virtual HardValue vmIterate(IVMExecution& execution) override;
     virtual HardValue vmIndexGet(IVMExecution& execution, const HardValue& index) override {
@@ -669,6 +605,10 @@ namespace {
   class VMObjectVanillaArrayIterator : public VMObjectVanillaIterator<VMObjectVanillaArray, VMObjectVanillaArray::IteratorState> {
     VMObjectVanillaArrayIterator(const VMObjectVanillaArrayIterator&) = delete;
     VMObjectVanillaArrayIterator& operator=(const VMObjectVanillaArrayIterator&) = delete;
+  protected:
+    virtual void printPrefix(Printer& printer) const override {
+      printer << "Vanilla array iterator";
+    }
   public:
     VMObjectVanillaArrayIterator(IVM& vm, Container& array, VMObjectVanillaMutex::ReadLock& lock)
       : VMObjectVanillaIterator(vm, array, lock) {
@@ -694,17 +634,18 @@ namespace {
   private:
     std::map<SoftKey, SoftValue> properties;
     std::vector<SoftKey> keys;
+  protected:
+    virtual void printPrefix(Printer& printer) const override {
+      printer << "Vanilla object";
+    }
   public:
     explicit VMObjectVanillaObject(IVM& vm)
       : VMObjectVanillaContainer(vm) {
     }
-    virtual const char* getName() const override {
-      return "Vanilla object";
-    }
     HardValue iteratorNext(IVMExecution& execution, IteratorState& state) {
       VMObjectVanillaMutex::ReadLock lock{ this->mutex };
       if (lock.modifications != state.modifications) {
-        return this->raiseContainerError(execution, "has been modified during iteration");
+        return this->raisePrefixError(execution, " has been modified during iteration");
       }
       if (state.index >= this->keys.size()) {
         return HardValue::Void;
@@ -713,7 +654,7 @@ namespace {
       auto key = this->vm.getSoftKey(softkey);
       auto found = this->properties.find(softkey);
       if (found == this->properties.end()) {
-        return this->raiseContainerError(execution, "is missing property '", key.get(), "' during iteration");
+        return this->raisePrefixError(execution, " is missing property '", key.get(), "' during iteration");
       }
       const auto& softvalue = found->second;
       auto value = this->vm.getSoftValue(softvalue);
@@ -746,10 +687,6 @@ namespace {
     virtual Type vmRuntimeType() override {
       return Type::Object;
     }
-    virtual HardValue vmCall(IVMExecution& execution, const ICallArguments&) override {
-      // TODO
-      return this->raiseContainerError(execution, "does not support call semantics");
-    }
     virtual HardValue vmIterate(IVMExecution& execution) override;
     virtual HardValue vmIndexGet(IVMExecution& execution, const HardValue& index) override {
       return this->propertyGet(execution, index);
@@ -774,7 +711,7 @@ namespace {
       SoftKey key(this->vm, property.get());
       auto pfound = this->properties.find(key);
       if (pfound == this->properties.end()) {
-        return this->raiseContainerError(execution, "does not contain property '", key.get(), "'");
+        return this->raisePrefixError(execution, " does not contain property '", key.get(), "'");
       }
       return execution.getSoftValue(pfound->second);
     }
@@ -785,7 +722,7 @@ namespace {
         this->propertyCreate(pfound, key);
       }
       if (!execution.setSoftValue(pfound->second, value)) {
-        return this->raiseContainerError(execution, "cannot modify property '", key.get(), "'");
+        return this->raisePrefixError(execution, " cannot modify property '", key.get(), "'");
       }
       return HardValue::Void;
     }
@@ -794,7 +731,7 @@ namespace {
       auto pfound = this->properties.find(key);
       if (pfound == this->properties.end()) {
         if (mutation != ValueMutationOp::Assign) {
-          return this->raiseContainerError(execution, "does not contain property '", key.get(), "'");
+          return this->raisePrefixError(execution, " does not contain property '", key.get(), "'");
         }
         this->propertyCreate(pfound, key);
       }
@@ -839,7 +776,10 @@ namespace {
   class VMObjectVanillaObjectIterator : public VMObjectVanillaIterator<VMObjectVanillaObject, VMObjectVanillaObject::IteratorState> {
     VMObjectVanillaObjectIterator(const VMObjectVanillaObjectIterator&) = delete;
     VMObjectVanillaObjectIterator& operator=(const VMObjectVanillaObjectIterator&) = delete;
-  private:
+  protected:
+    virtual void printPrefix(Printer& printer) const override {
+      printer << "Vanilla object iterator";
+    }
   public:
     VMObjectVanillaObjectIterator(IVM& vm, Container& object, VMObjectVanillaMutex::ReadLock& lock)
       : VMObjectVanillaIterator(vm, object, lock) {
@@ -857,14 +797,15 @@ namespace {
   class VMObjectVanillaKeyValue : public VMObjectVanillaObject {
     VMObjectVanillaKeyValue(const VMObjectVanillaKeyValue&) = delete;
     VMObjectVanillaKeyValue& operator=(const VMObjectVanillaKeyValue&) = delete;
+  protected:
+    virtual void printPrefix(Printer& printer) const override {
+      printer << "Vanilla key-value pair";
+    }
   public:
     VMObjectVanillaKeyValue(IVM& vm, const HardValue& key, const HardValue& value)
       : VMObjectVanillaObject(vm) {
       this->propertyAdd("key", key);
       this->propertyAdd("value", value);
-    }
-    virtual const char* getName() const override {
-      return "Vanilla key-value pair";
     }
   };
 
@@ -874,6 +815,10 @@ namespace {
   private:
     Type ftype;
     HardPtr<IVMCallHandler> handler;
+  protected:
+    virtual void printPrefix(Printer& printer) const override {
+      printer << "Vanilla function";
+    }
   public:
     VMObjectVanillaFunction(IVM& vm, const Type& ftype, IVMCallHandler& handler)
       : VMObjectBase(vm),
@@ -895,27 +840,6 @@ namespace {
     virtual HardValue vmCall(IVMExecution& execution, const ICallArguments& arguments) override {
       return this->handler->call(execution, arguments);
     }
-    virtual HardValue vmIterate(IVMExecution& execution) override {
-      return this->raiseRuntimeError(execution, "Vanilla function does not support iteration");
-    }
-    virtual HardValue vmIndexGet(IVMExecution& execution, const HardValue&) override {
-      return this->raiseRuntimeError(execution, "Vanilla function does not support indexing");
-    }
-    virtual HardValue vmIndexSet(IVMExecution& execution, const HardValue&, const HardValue&) override {
-      return this->raiseRuntimeError(execution, "Vanilla function does not support indexing");
-    }
-    virtual HardValue vmIndexMut(IVMExecution& execution, const HardValue&, ValueMutationOp, const HardValue&) override {
-      return this->raiseRuntimeError(execution, "Vanilla function does not support indexing");
-    }
-    virtual HardValue vmPropertyGet(IVMExecution& execution, const HardValue&) override {
-      return this->raiseRuntimeError(execution, "Vanilla function does not support properties");
-    }
-    virtual HardValue vmPropertySet(IVMExecution& execution, const HardValue&, const HardValue&) override {
-      return this->raiseRuntimeError(execution, "Vanilla function does not support properties");
-    }
-    virtual HardValue vmPropertyMut(IVMExecution& execution, const HardValue&, ValueMutationOp, const HardValue&) override {
-      return this->raiseRuntimeError(execution, "Vanilla function does not support properties");
-    }
   };
 
   class VMStringProxyBase : public VMObjectBase {
@@ -924,6 +848,9 @@ namespace {
   protected:
     String instance;
     const char* proxy;
+    virtual void printPrefix(Printer& printer) const override {
+      printer << "String property '" << this->proxy << "()'";
+    }
   public:
     VMStringProxyBase(IVM& vm, const String& instance, const char* proxy)
       : VMObjectBase(vm),
@@ -937,32 +864,6 @@ namespace {
     virtual int print(Printer& printer) const override {
       printer << "[string proxy " << this->proxy << "]"; // TODO
       return 0;
-    }
-    virtual HardValue vmIterate(IVMExecution& execution) override {
-      return this->raiseProxyError(execution, "does not support iteration");
-    }
-    virtual HardValue vmIndexGet(IVMExecution& execution, const HardValue&) override {
-      return this->raiseProxyError(execution, "does not support indexing");
-    }
-    virtual HardValue vmIndexSet(IVMExecution& execution, const HardValue&, const HardValue&) override {
-      return this->raiseProxyError(execution, "does not support indexing");
-    }
-    virtual HardValue vmIndexMut(IVMExecution& execution, const HardValue&, ValueMutationOp, const HardValue&) override {
-      return this->raiseProxyError(execution, "does not support indexing");
-    }
-    virtual HardValue vmPropertyGet(IVMExecution& execution, const HardValue&) override {
-      return this->raiseProxyError(execution, "does not support properties");
-    }
-    virtual HardValue vmPropertySet(IVMExecution& execution, const HardValue&, const HardValue&) override {
-      return this->raiseProxyError(execution, "does not support properties");
-    }
-    virtual HardValue vmPropertyMut(IVMExecution& execution, const HardValue&, ValueMutationOp, const HardValue&) override {
-      return this->raiseProxyError(execution, "does not support properties");
-    }
-  protected:
-    template<typename... ARGS>
-    HardValue raiseProxyError(IVMExecution& execution, ARGS&&... args) {
-      return this->raiseRuntimeError(execution, "String property '", this->proxy, "()' ", std::forward<ARGS>(args)...);
     }
   };
 
@@ -980,11 +881,11 @@ namespace {
     virtual HardValue vmCall(IVMExecution& execution, const ICallArguments& arguments) override {
       HardValue argument;
       if ((arguments.getArgumentCount() != 1) || !arguments.getArgumentByIndex(0, argument)) {
-        return this->raiseProxyError(execution, "expects one argument");
+        return this->raisePrefixError(execution, " expects one argument");
       }
       String other;
       if (!argument->getString(other)) {
-        return this->raiseProxyError(execution, "expects its argument to be a 'string', but instead got ", describe(argument.get()));
+        return this->raisePrefixError(execution, " expects its argument to be a 'string', but instead got ", describe(argument.get()));
       }
       return execution.createHardValueInt(this->instance.compareTo(other));
     }
@@ -1004,11 +905,11 @@ namespace {
     virtual HardValue vmCall(IVMExecution& execution, const ICallArguments& arguments) override {
       HardValue argument;
       if ((arguments.getArgumentCount() != 1) || !arguments.getArgumentByIndex(0, argument)) {
-        return this->raiseProxyError(execution, "expects one argument");
+        return this->raisePrefixError(execution, " expects one argument");
       }
       String needle;
       if (!argument->getString(needle)) {
-        return this->raiseProxyError(execution, "expects its argument to be a 'string', but instead got ", describe(argument.get()));
+        return this->raisePrefixError(execution, " expects its argument to be a 'string', but instead got ", describe(argument.get()));
       }
       return execution.createHardValueBool(this->instance.contains(needle));
     }
@@ -1028,11 +929,11 @@ namespace {
     virtual HardValue vmCall(IVMExecution& execution, const ICallArguments& arguments) override {
       HardValue argument;
       if ((arguments.getArgumentCount() != 1) || !arguments.getArgumentByIndex(0, argument)) {
-        return this->raiseProxyError(execution, "expects one argument");
+        return this->raisePrefixError(execution, " expects one argument");
       }
       String needle;
       if (!argument->getString(needle)) {
-        return this->raiseProxyError(execution, "expects its argument to be a 'string', but instead got ", describe(argument.get()));
+        return this->raisePrefixError(execution, " expects its argument to be a 'string', but instead got ", describe(argument.get()));
       }
       return execution.createHardValueBool(this->instance.endsWith(needle));
     }
@@ -1051,7 +952,7 @@ namespace {
     }
     virtual HardValue vmCall(IVMExecution& execution, const ICallArguments& arguments) override {
       if (arguments.getArgumentCount() != 0) {
-        return this->raiseProxyError(execution, "expects no arguments");
+        return this->raisePrefixError(execution, " expects no arguments");
       }
       return execution.createHardValueInt(Int(this->instance.hash()));
     }
@@ -1071,21 +972,21 @@ namespace {
     virtual HardValue vmCall(IVMExecution& execution, const ICallArguments& arguments) override {
       auto count = arguments.getArgumentCount();
       if ((count < 1) || (count > 2)) {
-        return this->raiseProxyError(execution, "expects one or two arguments, but instead got ", count);
+        return this->raisePrefixError(execution, " expects one or two arguments, but instead got ", count);
       }
       HardValue argument;
       String needle;
       if (!arguments.getArgumentByIndex(0, argument) || !argument->getString(needle)) {
-        return this->raiseProxyError(execution, "expects its first argument to be a 'string', but instead got ", describe(argument.get()));
+        return this->raisePrefixError(execution, " expects its first argument to be a 'string', but instead got ", describe(argument.get()));
       }
       Int retval;
       if (arguments.getArgumentByIndex(1, argument)) {
         Int fromIndex;
         if (!argument->getInt(fromIndex)) {
-          return this->raiseProxyError(execution, "expects its optional second argument to be an 'int', but instead got ", describe(argument.get()));
+          return this->raisePrefixError(execution, " expects its optional second argument to be an 'int', but instead got ", describe(argument.get()));
         }
         if (fromIndex < 0) {
-          return this->raiseProxyError(execution, "expects its optional second argument to be a non-negative integer, but instead got ", fromIndex);
+          return this->raisePrefixError(execution, " expects its optional second argument to be a non-negative integer, but instead got ", fromIndex);
         }
         retval = this->instance.indexOfString(needle, size_t(fromIndex));
       } else {
@@ -1137,21 +1038,21 @@ namespace {
     virtual HardValue vmCall(IVMExecution& execution, const ICallArguments& arguments) override {
       auto count = arguments.getArgumentCount();
       if ((count < 1) || (count > 2)) {
-        return this->raiseProxyError(execution, "expects one or two arguments, but instead got ", count);
+        return this->raisePrefixError(execution, " expects one or two arguments, but instead got ", count);
       }
       HardValue argument;
       String needle;
       if (!arguments.getArgumentByIndex(0, argument) || !argument->getString(needle)) {
-        return this->raiseProxyError(execution, "expects its first argument to be a 'string', but instead got ", describe(argument.get()));
+        return this->raisePrefixError(execution, " expects its first argument to be a 'string', but instead got ", describe(argument.get()));
       }
       Int retval;
       if (arguments.getArgumentByIndex(1, argument)) {
         Int fromIndex;
         if (!argument->getInt(fromIndex)) {
-          return this->raiseProxyError(execution, "expects its optional second argument to be an 'int', but instead got ", describe(argument.get()));
+          return this->raisePrefixError(execution, " expects its optional second argument to be an 'int', but instead got ", describe(argument.get()));
         }
         if (fromIndex < 0) {
-          return this->raiseProxyError(execution, "expects its optional second argument to be a non-negative integer, but instead got ", fromIndex);
+          return this->raisePrefixError(execution, " expects its optional second argument to be a non-negative integer, but instead got ", fromIndex);
         }
         retval = this->instance.lastIndexOfString(needle, size_t(fromIndex));
       } else {
@@ -1178,20 +1079,20 @@ namespace {
     virtual HardValue vmCall(IVMExecution& execution, const ICallArguments& arguments) override {
       auto count = arguments.getArgumentCount();
       if ((count < 1) || (count > 2)) {
-        return this->raiseProxyError(execution, "expects one or two arguments, but instead got ", count);
+        return this->raisePrefixError(execution, " expects one or two arguments, but instead got ", count);
       }
       HardValue argument;
       Int target;
       if (!arguments.getArgumentByIndex(0, argument) || !argument->getInt(target)) {
-        return this->raiseProxyError(execution, "expects its first argument to be an 'int', but instead got ", describe(argument.get()));
+        return this->raisePrefixError(execution, " expects its first argument to be an 'int', but instead got ", describe(argument.get()));
       }
       if (target < 0) {
-        return this->raiseProxyError(execution, "expects its first argument to be a non-negative integer, but instead got ", target);
+        return this->raisePrefixError(execution, " expects its first argument to be a non-negative integer, but instead got ", target);
       }
       if (arguments.getArgumentByIndex(1, argument)) {
         String padding;
         if (!argument->getString(padding)) {
-          return this->raiseProxyError(execution, "expects its optional second argument to be a 'string', but instead got ", describe(argument.get()));
+          return this->raisePrefixError(execution, " expects its optional second argument to be a 'string', but instead got ", describe(argument.get()));
         }
         return execution.createHardValueString(this->instance.padLeft(this->vm.getAllocator(), size_t(target), padding));
       }
@@ -1213,20 +1114,20 @@ namespace {
     virtual HardValue vmCall(IVMExecution& execution, const ICallArguments& arguments) override {
       auto count = arguments.getArgumentCount();
       if ((count < 1) || (count > 2)) {
-        return this->raiseProxyError(execution, "expects one or two arguments, but instead got ", count);
+        return this->raisePrefixError(execution, " expects one or two arguments, but instead got ", count);
       }
       HardValue argument;
       Int target;
       if (!arguments.getArgumentByIndex(0, argument) || !argument->getInt(target)) {
-        return this->raiseProxyError(execution, "expects its first argument to be an 'int', but instead got ", describe(argument.get()));
+        return this->raisePrefixError(execution, " expects its first argument to be an 'int', but instead got ", describe(argument.get()));
       }
       if (target < 0) {
-        return this->raiseProxyError(execution, "expects its first argument to be a non-negative integer, but instead got ", target);
+        return this->raisePrefixError(execution, " expects its first argument to be a non-negative integer, but instead got ", target);
       }
       if (arguments.getArgumentByIndex(1, argument)) {
         String padding;
         if (!argument->getString(padding)) {
-          return this->raiseProxyError(execution, "expects its optional second argument to be a 'string', but instead got ", describe(argument.get()));
+          return this->raisePrefixError(execution, " expects its optional second argument to be a 'string', but instead got ", describe(argument.get()));
         }
         return execution.createHardValueString(this->instance.padRight(this->vm.getAllocator(), size_t(target), padding));
       }
@@ -1248,14 +1149,14 @@ namespace {
     virtual HardValue vmCall(IVMExecution& execution, const ICallArguments& arguments) override {
       HardValue argument;
       if ((arguments.getArgumentCount() != 1) || !arguments.getArgumentByIndex(0, argument)) {
-        return this->raiseProxyError(execution, "expects one argument");
+        return this->raisePrefixError(execution, " expects one argument");
       }
       Int count;
       if (!argument->getInt(count)) {
-        return this->raiseProxyError(execution, "expects its argument to be an 'int', but instead got ", describe(argument.get()));
+        return this->raisePrefixError(execution, " expects its argument to be an 'int', but instead got ", describe(argument.get()));
       }
       if (count < 0) {
-        return this->raiseProxyError(execution, "expects its argument to be a non-negative integer, but instead got ", count);
+        return this->raisePrefixError(execution, " expects its argument to be a non-negative integer, but instead got ", count);
       }
       return execution.createHardValueString(this->instance.repeat(this->vm.getAllocator(), size_t(count)));
     }
@@ -1275,21 +1176,21 @@ namespace {
     virtual HardValue vmCall(IVMExecution& execution, const ICallArguments& arguments) override {
       auto count = arguments.getArgumentCount();
       if ((count < 2) || (count > 3)) {
-        return this->raiseProxyError(execution, "expects two or three arguments, but instead got ", count);
+        return this->raisePrefixError(execution, " expects two or three arguments, but instead got ", count);
       }
       HardValue argument;
       String needle;
       if (!arguments.getArgumentByIndex(0, argument) || !argument->getString(needle)) {
-        return this->raiseProxyError(execution, "expects its first argument to be a 'string', but instead got ", describe(argument.get()));
+        return this->raisePrefixError(execution, " expects its first argument to be a 'string', but instead got ", describe(argument.get()));
       }
       String replacement;
       if (!arguments.getArgumentByIndex(1, argument) || !argument->getString(replacement)) {
-        return this->raiseProxyError(execution, "expects its second argument to be a 'string', but instead got ", describe(argument.get()));
+        return this->raisePrefixError(execution, " expects its second argument to be a 'string', but instead got ", describe(argument.get()));
       }
       Int occurrences = std::numeric_limits<Int>::max();
       if (arguments.getArgumentByIndex(2, argument)) {
         if (!argument->getInt(occurrences)) {
-          return this->raiseProxyError(execution, "expects its optional third argument to be an 'int', but instead got ", describe(argument.get()));
+          return this->raisePrefixError(execution, " expects its optional third argument to be an 'int', but instead got ", describe(argument.get()));
         }
       }
       return execution.createHardValueString(this->instance.replace(this->vm.getAllocator(), needle, replacement, occurrences));
@@ -1310,17 +1211,17 @@ namespace {
     virtual HardValue vmCall(IVMExecution& execution, const ICallArguments& arguments) override {
       auto count = arguments.getArgumentCount();
       if ((count < 1) || (count > 2)) {
-        return this->raiseProxyError(execution, "expects one or two arguments, but instead got ", count);
+        return this->raisePrefixError(execution, " expects one or two arguments, but instead got ", count);
       }
       HardValue argument;
       Int begin;
       if (!arguments.getArgumentByIndex(0, argument) || !argument->getInt(begin)) {
-        return this->raiseProxyError(execution, "expects its first argument to be an 'int', but instead got ", describe(argument.get()));
+        return this->raisePrefixError(execution, " expects its first argument to be an 'int', but instead got ", describe(argument.get()));
       }
       Int end = std::numeric_limits<Int>::max();
       if (arguments.getArgumentByIndex(1, argument)) {
         if (!argument->getInt(end)) {
-          return this->raiseProxyError(execution, "expects its optional second argument to be an 'int', but instead got ", describe(argument.get()));
+          return this->raisePrefixError(execution, " expects its optional second argument to be an 'int', but instead got ", describe(argument.get()));
         }
       }
       return execution.createHardValueString(this->instance.slice(this->vm.getAllocator(), begin, end));
@@ -1341,11 +1242,11 @@ namespace {
     virtual HardValue vmCall(IVMExecution& execution, const ICallArguments& arguments) override {
       HardValue argument;
       if ((arguments.getArgumentCount() != 1) || !arguments.getArgumentByIndex(0, argument)) {
-        return this->raiseProxyError(execution, "expects one argument");
+        return this->raisePrefixError(execution, " expects one argument");
       }
       String needle;
       if (!argument->getString(needle)) {
-        return this->raiseProxyError(execution, "expects its argument to be a 'string', but instead got ", describe(argument.get()));
+        return this->raisePrefixError(execution, " expects its argument to be a 'string', but instead got ", describe(argument.get()));
       }
       return execution.createHardValueBool(this->instance.startsWith(needle));
     }
@@ -1364,7 +1265,7 @@ namespace {
     }
     virtual HardValue vmCall(IVMExecution& execution, const ICallArguments& arguments) override {
       if (arguments.getArgumentCount() != 0) {
-        return this->raiseProxyError(execution, "expects no arguments");
+        return this->raisePrefixError(execution, " expects no arguments");
       }
       return execution.createHardValueString(this->instance);
     }
@@ -1379,6 +1280,10 @@ namespace {
   private:
     T& manifestation; // manifestation lifetime is directly controlled by the VM instance
     Handler handler;
+  protected:
+    virtual void printPrefix(Printer& printer) const override {
+      printer << "'" << this->manifestation.getManifestationName() << "' member handler";
+    }
   public:
     VMManifestationMemberHandler(IVM& vm, T& manifestation, Handler handler)
       : VMObjectBase(vm),
@@ -1401,90 +1306,31 @@ namespace {
       assert(this->handler != nullptr);
       return (this->manifestation.*(this->handler))(execution, arguments);
     }
-    virtual HardValue vmIterate(IVMExecution& execution) override {
-      return this->raiseRuntimeError(execution, "Manifestation member handlers do not support iteration");
-    }
-    virtual HardValue vmIndexGet(IVMExecution& execution, const HardValue&) override {
-      return this->raiseRuntimeError(execution, "Manifestation member handlers do not support indexing");
-    }
-    virtual HardValue vmIndexSet(IVMExecution& execution, const HardValue&, const HardValue&) override {
-      return this->raiseRuntimeError(execution, "Manifestation member handlers do not support indexing");
-    }
-    virtual HardValue vmIndexMut(IVMExecution& execution, const HardValue&, ValueMutationOp, const HardValue&) override {
-      return this->raiseRuntimeError(execution, "Manifestation member handlers do not support indexing");
-    }
-    virtual HardValue vmPropertyGet(IVMExecution& execution, const HardValue&) override {
-      return this->raiseRuntimeError(execution, "Manifestation member handlers do not support properties");
-    }
-    virtual HardValue vmPropertySet(IVMExecution& execution, const HardValue&, const HardValue&) override {
-      return this->raiseRuntimeError(execution, "Manifestation member handlers do not support properties");
-    }
-    virtual HardValue vmPropertyMut(IVMExecution& execution, const HardValue&, ValueMutationOp, const HardValue&) override {
-      return this->raiseRuntimeError(execution, "Manifestation member handlers do not support properties");
-    }
   };
 
-  class VMManifestionBase : public SoftReferenceCounted<IObject> {
+  class VMManifestionBase : public VMObjectBase {
     VMManifestionBase(const VMManifestionBase&) = delete;
     VMManifestionBase& operator=(const VMManifestionBase&) = delete;
   protected:
-    IVM& vm; // manifestation lifetime is directly controlled by the VM instance
     Type type;
+    virtual void printPrefix(Printer& printer) const override {
+      printer << "'" << this->getManifestationName() << "'";
+    }
   public:
     explicit VMManifestionBase(IVM& vm)
-      : SoftReferenceCounted<IObject>(),
-        vm(vm) {
+      : VMObjectBase(vm) {
     }
     virtual void softVisit(ICollectable::IVisitor&) const override {
       // No soft links
     }
     virtual int print(Printer& printer) const override {
-      printer << "[manifestation " << this->getName() <<"]";
+      printer << "[manifestation " << this->getManifestationName() <<"]";
       return 0;
     }
     virtual Type vmRuntimeType() override {
       return this->type;
     }
-    virtual HardValue vmCall(IVMExecution& execution, const ICallArguments&) override {
-      return this->raiseManifestationError(execution, "does not support call semantics");
-    }
-    virtual HardValue vmIterate(IVMExecution& execution) override {
-      return this->raiseManifestationError(execution, "does not support iteration");
-    }
-    virtual HardValue vmIndexGet(IVMExecution& execution, const HardValue&) override {
-      return this->raiseManifestationError(execution, "does not support indexing");
-    }
-    virtual HardValue vmIndexSet(IVMExecution& execution, const HardValue&, const HardValue&) override {
-      return this->raiseManifestationError(execution, "does not support indexing");
-    }
-    virtual HardValue vmIndexMut(IVMExecution& execution, const HardValue&, ValueMutationOp, const HardValue&) override {
-      return this->raiseManifestationError(execution, "does not support indexing");
-    }
-    virtual HardValue vmPropertyGet(IVMExecution& execution, const HardValue&) override {
-      return this->raiseManifestationError(execution, "does not support properties");
-    }
-    virtual HardValue vmPropertySet(IVMExecution& execution, const HardValue&, const HardValue&) override {
-      return this->raiseManifestationError(execution, "does not support properties");
-    }
-    virtual HardValue vmPropertyMut(IVMExecution& execution, const HardValue&, ValueMutationOp, const HardValue&) override {
-      return this->raiseManifestationError(execution, "does not support properties");
-    }
-  protected:
-    virtual void hardDestroy() const override {
-      this->vm.getAllocator().destroy(this);
-    }
-    template<typename... ARGS>
-    HardValue raiseRuntimeError(IVMExecution& execution, ARGS&&... args) {
-      // TODO: Non-string exception?
-      auto message = StringBuilder::concat(this->vm.getAllocator(), std::forward<ARGS>(args)...);
-      return execution.raiseRuntimeError(message);
-    }
-    template<typename... ARGS>
-    HardValue raiseManifestationError(IVMExecution& execution, ARGS&&... args) {
-      auto message = StringBuilder::concat(this->vm.getAllocator(), "'", this->getName(), "' ", std::forward<ARGS>(args)...);
-      return execution.raiseRuntimeError(message);
-    }
-    virtual const char* getName() const = 0;
+    virtual const char* getManifestationName() const = 0;
   };
 
   template<typename T>
@@ -1501,20 +1347,20 @@ namespace {
     virtual HardValue vmPropertyGet(IVMExecution& execution, const HardValue& property) override {
       String name;
       if (!property->getString(name)) {
-        return this->raiseRuntimeError(execution, "Expected '", this->getName(), "' property name to be a 'string', but instead got ", describe(property.get()));
+        return this->raiseRuntimeError(execution, "Expected '", this->getManifestationName(), "' property name to be a 'string', but instead got ", describe(property.get()));
       }
       auto found = this->handlers.find(name);
       if (found == this->handlers.end()) {
-        return this->raiseRuntimeError(execution, "Unknown property: '", this->getName(), ".", name, "'");
+        return this->raiseRuntimeError(execution, "Unknown property: '", this->getManifestationName(), ".", name, "'");
       }
       auto instance = makeHardObject<VMManifestationMemberHandler<T>>(this->vm, *static_cast<T*>(this), found->second);
       return this->vm.createHardValueObject(instance);
     }
     virtual HardValue vmPropertySet(IVMExecution& execution, const HardValue&, const HardValue&) override {
-      return this->raiseManifestationError(execution, "does not support property modification");
+      return this->raisePrefixError(execution, " does not support property modification");
     }
     virtual HardValue vmPropertyMut(IVMExecution& execution, const HardValue&, ValueMutationOp, const HardValue&) override {
-      return this->raiseManifestationError(execution, "does not support property modification");
+      return this->raisePrefixError(execution, " does not support property modification");
     }
   protected:
     void addMemberHandler(const char* name, MemberHandler handler) {
@@ -1547,8 +1393,7 @@ namespace {
       }
       return this->vm.createHardValue("unknown");
     }
-  protected:
-    virtual const char* getName() const override {
+    virtual const char* getManifestationName() const override {
       return "type";
     }
   };
@@ -1565,8 +1410,7 @@ namespace {
       // Just discard the values
       return HardValue::Void;
     }
-  protected:
-    virtual const char* getName() const override {
+    virtual const char* getManifestationName() const override {
       return "void";
     }
   };
@@ -1579,8 +1423,7 @@ namespace {
       : VMManifestionBase(vm) {
       this->type = Type::Object; // TODO
     }
-  protected:
-    virtual const char* getName() const override {
+    virtual const char* getManifestationName() const override {
       return "bool";
     }
   };
@@ -1593,8 +1436,7 @@ namespace {
       : VMManifestionBase(vm) {
       this->type = Type::Object; // TODO
     }
-  protected:
-    virtual const char* getName() const override {
+    virtual const char* getManifestationName() const override {
       return "int";
     }
   };
@@ -1607,8 +1449,7 @@ namespace {
       : VMManifestionBase(vm) {
       this->type = Type::Object; // TODO
     }
-  protected:
-    virtual const char* getName() const override {
+    virtual const char* getManifestationName() const override {
       return "float";
     }
   };
@@ -1634,8 +1475,7 @@ namespace {
       }
       return execution.createHardValueString(sb.build(this->vm.getAllocator()));
     }
-  protected:
-    virtual const char* getName() const override {
+    virtual const char* getManifestationName() const override {
       return "string";
     }
   };
@@ -1648,8 +1488,7 @@ namespace {
       : VMManifestionBase(vm) {
       this->type = Type::Object; // TODO
     }
-  protected:
-    virtual const char* getName() const override {
+    virtual const char* getManifestationName() const override {
       return "object";
     }
   };
@@ -1662,8 +1501,7 @@ namespace {
       : VMManifestionBase(vm) {
       this->type = Type::Object; // TODO
     }
-  protected:
-    virtual const char* getName() const override {
+    virtual const char* getManifestationName() const override {
       return "any";
     }
   };
@@ -1684,14 +1522,15 @@ namespace {
   private:
     String message;
     HardPtr<IVMCallStack> callstack;
+  protected:
+    virtual void printPrefix(Printer& printer) const override {
+      printer << "Runtime error";
+    }
   public:
     ObjectBuilderRuntimeError(IVM& vm, const String& message, const HardPtr<IVMCallStack>& callstack)
       : ObjectBuilderInstance(vm),
         message(message),
         callstack(callstack) {
-    }
-    virtual const char* getName() const override {
-      return "Runtime error";
     }
     virtual void withProperty(const HardValue& property, const HardValue& value, bool readonly) override {
       // TODO

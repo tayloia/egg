@@ -738,6 +738,28 @@ namespace {
       }
       return this->forgeShape(std::move(shape));
     }
+    virtual TypeShape forgeIteratorShape(const Type& element) override {
+      TypeForgeShape shape;
+      {
+        // Callable
+        auto builder = this->createFunctionBuilder();
+        builder->setReturnType(this->forgeVoidableType(element, true));
+        shape.callable = &builder->build();
+      }
+      {
+        // Iteration
+        auto builder = this->createIteratorBuilder();
+        builder->setIterationType(element);
+        shape.iterable = &builder->build();
+      }
+      {
+        // Taggable
+        auto builder = this->createTaggableBuilder();
+        builder->setDescription(this->typeSuffix(element, "!"), 1);
+        shape.taggable = &builder->build();
+      }
+      return this->forgeShape(std::move(shape));
+    }
     virtual TypeShape forgePointerShape(const Type& pointee, Modifiability modifiability) override {
       TypeForgeShape shape;
       {
@@ -799,38 +821,16 @@ namespace {
       return this->forgeComplex(std::move(detail));
     }
     virtual Type forgeUnionType(const Type& lhs, const Type& rhs) override {
-      assert(lhs->isPrimitive()); // WIBBLE
-      assert(rhs->isPrimitive()); // WIBBLE
-      return this->forgePrimitiveType(lhs->getPrimitiveFlags() | rhs->getPrimitiveFlags());
+      TypeForgeComplexBuilder builder{ *this };
+      builder.addType(lhs);
+      builder.addType(rhs);
+      return builder.build();
     }
     virtual Type forgeNullableType(const Type& type, bool nullable) override {
-      auto before = type->getPrimitiveFlags();
-      if (nullable) {
-        if (!Bits::hasAnySet(before, ValueFlags::Null)) {
-          assert(type->isPrimitive()); // WIBBLE
-          return this->forgePrimitiveType(Bits::set(before, ValueFlags::Null));
-        }
-      } else {
-        if (Bits::hasAnySet(before, ValueFlags::Null)) {
-          assert(type->isPrimitive()); // WIBBLE
-          return this->forgePrimitiveType(Bits::clear(before, ValueFlags::Null));
-        }
-      }
-      return type;
+      return this->forgeFlags(type, ValueFlags::Null, nullable);
     }
     virtual Type forgeVoidableType(const Type& type, bool voidable) override {
-      assert(type->isPrimitive()); // WIBBLE
-      auto before = type->getPrimitiveFlags();
-      if (voidable) {
-        if (!Bits::hasAnySet(before, ValueFlags::Void)) {
-          return this->forgePrimitiveType(Bits::set(before, ValueFlags::Void));
-        }
-      } else {
-        if (Bits::hasAnySet(before, ValueFlags::Void)) {
-          return this->forgePrimitiveType(Bits::clear(before, ValueFlags::Void));
-        }
-      }
-      return type;
+      return this->forgeFlags(type, ValueFlags::Void, voidable);
     }
     virtual Type forgeArrayType(const Type& element, Modifiability modifiability) override {
       return this->forgeShapeType(this->forgeArrayShape(element, modifiability));
@@ -853,6 +853,9 @@ namespace {
         }
       }
       return builder->build();
+    }
+    virtual Type forgeIteratorType(const Type& element) override {
+      return this->forgeShapeType(this->forgeIteratorShape(element));
     }
     virtual Type forgeFunctionType(const IFunctionSignature& signature) override {
       return this->forgeShapeType(this->forgeFunctionShape(signature));
@@ -900,10 +903,29 @@ namespace {
     }
     Type forgeComplex(TypeForgeComplex::Detail&& detail) {
       auto factory = [this](TypeForgeComplex::Detail&& detail) {
-        // WIBBLE unroll this lambda and 'owned' update
+        // TODO unroll this lambda and 'owned' update
         return this->createOwned<TypeForgeComplex>(this->allocator, std::move(detail));
       };
       return Type(&this->cacheComplex.fetch(std::move(detail), factory));
+    }
+    Type forgeFlags(const Type& type, ValueFlags flags, bool required) {
+      auto before = type->getPrimitiveFlags();
+      if (required) {
+        if (!Bits::hasAllSet(before, flags)) {
+          TypeForgeComplexBuilder builder{ *this };
+          builder.addType(type);
+          builder.addFlags(flags);
+          return builder.build();
+        }
+      } else {
+        if (Bits::hasAnySet(before, flags)) {
+          TypeForgeComplexBuilder builder{ *this };
+          builder.addType(type);
+          builder.removeFlags(flags);
+          return builder.build();
+        }
+      }
+      return type;
     }
     const IFunctionSignatureParameter& forgeFunctionSignatureParameter(TypeForgeFunctionSignatureParameter&& parameter) {
       return this->cacheFunctionSignatureParameter.fetch(std::move(parameter));

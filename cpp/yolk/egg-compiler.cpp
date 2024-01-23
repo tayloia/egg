@@ -533,6 +533,7 @@ ModuleNode* ModuleCompiler::compileStmtMutate(ParserNode& pnode, StmtContext& co
   }
   auto& plhs = *pnode.children.front();
   if (plhs.kind == ParserNode::Kind::ExprVariable) {
+    // 'variable'
     EXPECT(plhs, plhs.children.size() == 0);
     egg::ovum::String symbol;
     EXPECT(plhs, plhs.value->getString(symbol));
@@ -545,6 +546,7 @@ ModuleNode* ModuleCompiler::compileStmtMutate(ParserNode& pnode, StmtContext& co
     return &this->mbuilder.stmtVariableMutate(symbol, pnode.op.valueMutationOp, *rhs, pnode.range);
   }
   if (plhs.kind == ParserNode::Kind::ExprProperty) {
+    // 'instance.property'
     EXPECT(plhs, plhs.children.size() == 2);
     auto* instance = this->compileValueExpr(*plhs.children.front(), context);
     if (instance == nullptr) {
@@ -563,13 +565,14 @@ ModuleNode* ModuleCompiler::compileStmtMutate(ParserNode& pnode, StmtContext& co
     return &this->mbuilder.stmtPropertyMutate(*instance, *property, pnode.op.valueMutationOp, *rhs, pnode.range);
   }
   if (plhs.kind == ParserNode::Kind::ExprIndex) {
+    // 'instance[index]'
     EXPECT(plhs, plhs.children.size() == 2);
     auto* instance = this->compileValueExpr(*plhs.children.front(), context);
     if (instance == nullptr) {
       return nullptr;
     }
-    auto* property = this->compileValueExpr(*plhs.children.back(), context);
-    if (property == nullptr) {
+    auto* index = this->compileValueExpr(*plhs.children.back(), context);
+    if (index == nullptr) {
       return nullptr;
     }
     ModuleNode* rhs;
@@ -578,7 +581,22 @@ ModuleNode* ModuleCompiler::compileStmtMutate(ParserNode& pnode, StmtContext& co
     } else {
       rhs = this->compileValueExpr(*pnode.children.back(), context);
     }
-    return &this->mbuilder.stmtIndexMutate(*instance, *property, pnode.op.valueMutationOp, *rhs, pnode.range);
+    return &this->mbuilder.stmtIndexMutate(*instance, *index, pnode.op.valueMutationOp, *rhs, pnode.range);
+  }
+  if ((plhs.kind == ParserNode::Kind::ExprUnary) && (plhs.op.valueUnaryOp == egg::ovum::ValueUnaryOp::Dereference)) {
+    // '*pointer'
+    EXPECT(plhs, plhs.children.size() == 1);
+    auto* instance = this->compileValueExpr(*plhs.children.front(), context);
+    if (instance == nullptr) {
+      return nullptr;
+    }
+    ModuleNode* rhs;
+    if (nudge) {
+      rhs = this->compileStmtVoid(pnode);
+    } else {
+      rhs = this->compileValueExpr(*pnode.children.back(), context);
+    }
+    return &this->mbuilder.stmtPointerMutate(*instance, pnode.op.valueMutationOp, *rhs, pnode.range);
   }
   return this->expected(plhs, "variable in mutation statement");
 }
@@ -1061,6 +1079,8 @@ ModuleNode* ModuleCompiler::compileValueExprPredicate(ParserNode& pnode, const E
       break;
     case egg::ovum::ValueUnaryOp::Negate:
     case egg::ovum::ValueUnaryOp::BitwiseNot:
+    case egg::ovum::ValueUnaryOp::Dereference:
+    case egg::ovum::ValueUnaryOp::Address:
       break;
     }
     if (op == egg::ovum::ValuePredicateOp::None) {
@@ -1465,6 +1485,10 @@ bool ModuleCompiler::checkValueExprUnary(egg::ovum::ValueUnaryOp op, ModuleNode&
     return this->checkValueExprOperand("expression after bitwise-not operator '~' to be an 'int'", rhs, pnode, egg::ovum::ValueFlags::Int, context);
   case egg::ovum::ValueUnaryOp::LogicalNot: // !a
     return this->checkValueExprOperand("expression after logical-not operator '!' to be an 'int'", rhs, pnode, egg::ovum::ValueFlags::Bool, context);
+  case egg::ovum::ValueUnaryOp::Dereference: // *a
+  case egg::ovum::ValueUnaryOp::Address: // &a
+    // TODO
+    return true;
   }
   return false;
 }
@@ -1548,13 +1572,14 @@ egg::ovum::Type ModuleCompiler::forgeType(ParserNode& pnode) {
       return nullptr;
     }
     switch (pnode.op.typeUnaryOp) {
-    case egg::ovum::TypeUnaryOp::Pointer:
-    case egg::ovum::TypeUnaryOp::Iterator:
     case egg::ovum::TypeUnaryOp::Array:
-      // TODO
-      break;
+      return this->vm.getTypeForge().forgeArrayType(inner, egg::ovum::Modifiability::All);
+    case egg::ovum::TypeUnaryOp::Iterator:
+      return this->vm.getTypeForge().forgeIteratorType(inner);
     case egg::ovum::TypeUnaryOp::Nullable:
       return this->vm.getTypeForge().forgeNullableType(inner, true);
+    case egg::ovum::TypeUnaryOp::Pointer:
+      return this->vm.getTypeForge().forgePointerType(inner, egg::ovum::Modifiability::ReadWriteMutate);
     }
   }
   // TODO

@@ -1339,6 +1339,10 @@ namespace {
           return this->parseValueExpressionUnaryOperator(tokidx, egg::ovum::ValueUnaryOp::Negate);
         case EggTokenizerOperator::Tilde: // "~"
           return this->parseValueExpressionUnaryOperator(tokidx, egg::ovum::ValueUnaryOp::BitwiseNot);
+        case EggTokenizerOperator::Star: // "*"
+          return this->parseValueExpressionUnaryOperator(tokidx, egg::ovum::ValueUnaryOp::Dereference);
+        case EggTokenizerOperator::Ampersand: // "&"
+          return this->parseValueExpressionUnaryOperator(tokidx, egg::ovum::ValueUnaryOp::Address);
         case EggTokenizerOperator::PlusPlus: // "++"
           return context.failed(tokidx, "Increment operator '++' cannot be used in expressions");
         case EggTokenizerOperator::MinusMinus: // "--"
@@ -1350,12 +1354,10 @@ namespace {
         case EggTokenizerOperator::BangEqual: // "!="
         case EggTokenizerOperator::Percent: // "%"
         case EggTokenizerOperator::PercentEqual: // "%="
-        case EggTokenizerOperator::Ampersand: // "&"
         case EggTokenizerOperator::AmpersandAmpersand: // "&&"
         case EggTokenizerOperator::AmpersandAmpersandEqual: // "&&="
         case EggTokenizerOperator::AmpersandEqual: // "&="
         case EggTokenizerOperator::ParenthesisRight: // ")"
-        case EggTokenizerOperator::Star: // "*"
         case EggTokenizerOperator::StarEqual: // "*="
         case EggTokenizerOperator::Plus: // "+"
         case EggTokenizerOperator::PlusEqual: // "+="
