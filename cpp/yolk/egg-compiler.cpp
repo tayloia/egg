@@ -146,6 +146,8 @@ namespace {
     ModuleNode* compileValueExprCallAssert(ParserNode& function, ParserNode& predicate, const ExprContext& context);
     ModuleNode* compileValueExprIndex(ParserNode& bracket, ParserNode& lhs, ParserNode& rhs, const ExprContext& context);
     ModuleNode* compileValueExprProperty(ParserNode& dot, ParserNode& lhs, ParserNode& rhs, const ExprContext& context);
+    ModuleNode* compileValueExprReference(ParserNode& ampersand, ParserNode& pexpr, const ExprContext& context);
+    ModuleNode* compileValueExprDereference(ParserNode& star, ParserNode& pexpr, const ExprContext& context);
     ModuleNode* compileValueExprArray(ParserNode& pnode, const ExprContext& context);
     ModuleNode* compileValueExprArrayElement(ParserNode& pnode, const ExprContext& context);
     ModuleNode* compileValueExprObject(ParserNode& pnode, const ExprContext& context);
@@ -313,16 +315,11 @@ egg::ovum::HardPtr<egg::ovum::IVMModule> ModuleCompiler::compile(ParserNode& roo
     this->expected(root, "module root node");
     return nullptr;
   }
-  for (const auto& child : root.children) {
-    // Make sure we append to the target as it is now
-    auto* target = context.target;
-    assert(target != nullptr);
-    auto* stmt = this->compileStmt(*child, context);
-    if (stmt == nullptr) {
-      return nullptr;
-    }
-    this->mbuilder.appendChild(*target, *stmt);
+  auto block = this->compileStmtBlockInto(root, context, *context.target);
+  if (block == nullptr) {
+    return nullptr;
   }
+  assert(block == context.target);
   context.target = nullptr;
   return this->mbuilder.build();
 }
@@ -372,6 +369,8 @@ ModuleNode* ModuleCompiler::compileStmt(ParserNode& pnode, StmtContext& context)
   case ParserNode::Kind::ExprTernary:
   case ParserNode::Kind::ExprIndex:
   case ParserNode::Kind::ExprProperty:
+  case ParserNode::Kind::ExprReference:
+  case ParserNode::Kind::ExprDereference:
   case ParserNode::Kind::ExprArray:
   case ParserNode::Kind::ExprObject:
   case ParserNode::Kind::ExprGuard:
@@ -404,12 +403,15 @@ ModuleNode* ModuleCompiler::compileStmtInto(ParserNode& pnode, StmtContext& cont
   if (pnode.kind == ParserNode::Kind::StmtBlock) {
     return this->compileStmtBlockInto(pnode, context, parent);
   }
+  auto* before = context.target;
+  context.target = &parent;
   auto child = this->compileStmt(pnode, context);
-  if (child != nullptr) {
-    this->mbuilder.appendChild(parent, *child);
-    return &parent;
+  context.target = before;
+  if (child == nullptr) {
+    return nullptr;
   }
-  return nullptr;
+  this->mbuilder.appendChild(parent, *child);
+  return &parent;
 }
 
 ModuleNode* ModuleCompiler::compileStmtVoid(ParserNode& pnode) {
@@ -421,16 +423,21 @@ ModuleNode* ModuleCompiler::compileStmtBlock(ParserNode& pnode, StmtContext& con
 }
 
 ModuleNode* ModuleCompiler::compileStmtBlockInto(ParserNode& pnode, StmtContext& context, ModuleNode& parent) {
-  auto* block = &parent;
+  auto* before = context.target;
+  context.target = &parent;
   for (const auto& child : pnode.children) {
+    // Make sure we append to the target as it is now
+    auto* target = context.target;
+    assert(target != nullptr);
     auto* stmt = this->compileStmt(*child, context);
     if (stmt == nullptr) {
-      block = nullptr;
-    } else if (block != nullptr) {
-      this->mbuilder.appendChild(*block, *stmt);
+      context.target = before;
+      return nullptr;
     }
+    this->mbuilder.appendChild(*target, *stmt);
   }
-  return block;
+  context.target = before;
+  return &parent;
 }
 
 ModuleNode* ModuleCompiler::compileStmtDeclareVariable(ParserNode& pnode, StmtContext& context) {
@@ -534,7 +541,7 @@ ModuleNode* ModuleCompiler::compileStmtMutate(ParserNode& pnode, StmtContext& co
   auto& plhs = *pnode.children.front();
   if (plhs.kind == ParserNode::Kind::ExprVariable) {
     // 'variable'
-    EXPECT(plhs, plhs.children.size() == 0);
+    EXPECT(plhs, plhs.children.empty());
     egg::ovum::String symbol;
     EXPECT(plhs, plhs.value->getString(symbol));
     ModuleNode* rhs;
@@ -583,7 +590,7 @@ ModuleNode* ModuleCompiler::compileStmtMutate(ParserNode& pnode, StmtContext& co
     }
     return &this->mbuilder.stmtIndexMutate(*instance, *index, pnode.op.valueMutationOp, *rhs, pnode.range);
   }
-  if ((plhs.kind == ParserNode::Kind::ExprUnary) && (plhs.op.valueUnaryOp == egg::ovum::ValueUnaryOp::Dereference)) {
+  if (plhs.kind == ParserNode::Kind::ExprDereference) {
     // '*pointer'
     EXPECT(plhs, plhs.children.size() == 1);
     auto* instance = this->compileValueExpr(*plhs.children.front(), context);
@@ -596,7 +603,7 @@ ModuleNode* ModuleCompiler::compileStmtMutate(ParserNode& pnode, StmtContext& co
     } else {
       rhs = this->compileValueExpr(*pnode.children.back(), context);
     }
-    return &this->mbuilder.stmtPointerMutate(*instance, pnode.op.valueMutationOp, *rhs, pnode.range);
+    return &this->mbuilder.stmtPointeeMutate(*instance, pnode.op.valueMutationOp, *rhs, pnode.range);
   }
   return this->expected(plhs, "variable in mutation statement");
 }
@@ -954,6 +961,14 @@ ModuleNode* ModuleCompiler::compileValueExpr(ParserNode& pnode, const ExprContex
     EXPECT(pnode, pnode.children[0] != nullptr);
     EXPECT(pnode, pnode.children[1] != nullptr);
     return this->compileValueExprProperty(pnode, *pnode.children[0], *pnode.children[1], context);
+  case ParserNode::Kind::ExprReference:
+    EXPECT(pnode, pnode.children.size() == 1);
+    EXPECT(pnode, pnode.children[0] != nullptr);
+    return this->compileValueExprReference(pnode, *pnode.children.front(), context);
+  case ParserNode::Kind::ExprDereference:
+    EXPECT(pnode, pnode.children.size() == 1);
+    EXPECT(pnode, pnode.children[0] != nullptr);
+    return this->compileValueExprDereference(pnode, *pnode.children.front(), context);
   case ParserNode::Kind::ExprArray:
     return this->compileValueExprArray(pnode, context);
   case ParserNode::Kind::ExprObject:
@@ -1017,13 +1032,13 @@ ModuleNode* ModuleCompiler::compileValueExpr(ParserNode& pnode, const ExprContex
 }
 
 ModuleNode* ModuleCompiler::compileValueExprVariable(ParserNode& pnode, const ExprContext& context) {
-  EXPECT(pnode, pnode.children.size() == 0);
+  EXPECT(pnode, pnode.children.empty());
   egg::ovum::String symbol;
   EXPECT(pnode, pnode.value->getString(symbol));
   if (context.findSymbol(symbol) == nullptr) {
     return this->error(pnode, "Unknown identifier: '", symbol, "'");
   }
-  return &this->mbuilder.exprVariable(symbol, pnode.range);
+  return &this->mbuilder.exprVariableGet(symbol, pnode.range);
 }
 
 ModuleNode* ModuleCompiler::compileValueExprUnary(ParserNode& op, ParserNode& rhs, const ExprContext& context) {
@@ -1079,8 +1094,6 @@ ModuleNode* ModuleCompiler::compileValueExprPredicate(ParserNode& pnode, const E
       break;
     case egg::ovum::ValueUnaryOp::Negate:
     case egg::ovum::ValueUnaryOp::BitwiseNot:
-    case egg::ovum::ValueUnaryOp::Dereference:
-    case egg::ovum::ValueUnaryOp::Address:
       break;
     }
     if (op == egg::ovum::ValuePredicateOp::None) {
@@ -1224,6 +1237,52 @@ ModuleNode* ModuleCompiler::compileValueExprProperty(ParserNode& dot, ParserNode
     if (rexpr != nullptr) {
       return this->checkCompilation(this->mbuilder.exprPropertyGet(*lexpr, *rexpr, dot.range), context);
     }
+  }
+  return nullptr;
+}
+
+ModuleNode* ModuleCompiler::compileValueExprReference(ParserNode& ampersand, ParserNode& pexpr, const ExprContext& context) {
+  if (pexpr.kind == ParserNode::Kind::ExprVariable) {
+    // '&variable'
+    EXPECT(pexpr, pexpr.children.empty());
+    egg::ovum::String symbol;
+    EXPECT(pexpr, pexpr.value->getString(symbol));
+    return this->checkCompilation(this->mbuilder.exprVariableRef(symbol, ampersand.range), context);
+  }
+  if (pexpr.kind == ParserNode::Kind::ExprIndex) {
+    // '&instance[index]'
+    EXPECT(pexpr, pexpr.children.size() == 2);
+    auto* instance = this->compileValueExpr(*pexpr.children.front(), context);
+    if (instance == nullptr) {
+      return nullptr;
+    }
+    auto* index = this->compileValueExpr(*pexpr.children.back(), context);
+    if (index == nullptr) {
+      return nullptr;
+    }
+    return this->checkCompilation(this->mbuilder.exprIndexRef(*instance, *index, ampersand.range), context);
+  }
+  if (pexpr.kind == ParserNode::Kind::ExprProperty) {
+    // '&instance.property'
+    EXPECT(pexpr, pexpr.children.size() == 2);
+    auto* instance = this->compileValueExpr(*pexpr.children.front(), context);
+    if (instance == nullptr) {
+      return nullptr;
+    }
+    auto* property = this->compileValueExpr(*pexpr.children.back(), context);
+    if (property == nullptr) {
+      return nullptr;
+    }
+    return this->checkCompilation(this->mbuilder.exprPropertyRef(*instance, *property, ampersand.range), context);
+  }
+  return this->expected(pexpr, "addressable expression");
+}
+
+ModuleNode* ModuleCompiler::compileValueExprDereference(ParserNode& star, ParserNode& pexpr, const ExprContext& context) {
+  // '*expression'
+  auto* mexpr = this->compileValueExpr(pexpr, context);
+  if (mexpr != nullptr) {
+    return this->checkCompilation(this->mbuilder.exprPointeeGet(*mexpr, star.range), context);
   }
   return nullptr;
 }
@@ -1416,7 +1475,7 @@ ModuleNode* ModuleCompiler::compileTypeFunctionSignature(ParserNode& pnode, cons
 }
 
 ModuleNode* ModuleCompiler::compileLiteral(ParserNode& pnode) {
-  EXPECT(pnode, pnode.children.size() == 0);
+  EXPECT(pnode, pnode.children.empty());
   return &this->mbuilder.exprLiteral(pnode.value, pnode.range);
 }
 
@@ -1485,10 +1544,6 @@ bool ModuleCompiler::checkValueExprUnary(egg::ovum::ValueUnaryOp op, ModuleNode&
     return this->checkValueExprOperand("expression after bitwise-not operator '~' to be an 'int'", rhs, pnode, egg::ovum::ValueFlags::Int, context);
   case egg::ovum::ValueUnaryOp::LogicalNot: // !a
     return this->checkValueExprOperand("expression after logical-not operator '!' to be an 'int'", rhs, pnode, egg::ovum::ValueFlags::Bool, context);
-  case egg::ovum::ValueUnaryOp::Dereference: // *a
-  case egg::ovum::ValueUnaryOp::Address: // &a
-    // TODO
-    return true;
   }
   return false;
 }
@@ -1625,6 +1680,10 @@ std::string ModuleCompiler::toString(const ParserNode& pnode) {
     return "binary operator";
   case ParserNode::Kind::ExprTernary:
     return "ternary operator";
+  case ParserNode::Kind::ExprReference:
+    return "reference";
+  case ParserNode::Kind::ExprDereference:
+    return "dereference";
   case ParserNode::Kind::ExprCall:
     return "call expression";
   case ParserNode::Kind::ExprIndex:

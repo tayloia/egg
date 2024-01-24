@@ -36,6 +36,8 @@ namespace egg::yolk {
         ExprCall,
         ExprIndex,
         ExprProperty,
+        ExprReference,
+        ExprDereference,
         ExprArray,
         ExprObject,
         ExprGuard,

@@ -1340,9 +1340,9 @@ namespace {
         case EggTokenizerOperator::Tilde: // "~"
           return this->parseValueExpressionUnaryOperator(tokidx, egg::ovum::ValueUnaryOp::BitwiseNot);
         case EggTokenizerOperator::Star: // "*"
-          return this->parseValueExpressionUnaryOperator(tokidx, egg::ovum::ValueUnaryOp::Dereference);
+          return this->parseValueExpressionPrimaryWrap(tokidx, Node::Kind::ExprDereference);
         case EggTokenizerOperator::Ampersand: // "&"
-          return this->parseValueExpressionUnaryOperator(tokidx, egg::ovum::ValueUnaryOp::Address);
+          return this->parseValueExpressionPrimaryWrap(tokidx, Node::Kind::ExprReference);
         case EggTokenizerOperator::PlusPlus: // "++"
           return context.failed(tokidx, "Increment operator '++' cannot be used in expressions");
         case EggTokenizerOperator::MinusMinus: // "--"
@@ -1402,12 +1402,18 @@ namespace {
       return this->parseValueExpressionPrimary(tokidx);
     }
     Partial parseValueExpressionUnaryOperator(size_t tokidx, egg::ovum::ValueUnaryOp op) {
+      auto rhs = this->parseValueExpressionPrimaryWrap(tokidx, Node::Kind::ExprUnary);
+      if (rhs.succeeded()) {
+        rhs.node->op.valueUnaryOp = op;
+      }
+      return rhs;
+    }
+    Partial parseValueExpressionPrimaryWrap(size_t tokidx, Node::Kind kind) {
       auto rhs = this->parseValueExpressionPrimary(tokidx + 1);
       if (rhs.succeeded()) {
         auto& prefix = this->getAbsolute(tokidx);
-        rhs.wrap(Node::Kind::ExprUnary);
+        rhs.wrap(kind);
         rhs.node->range.begin = { prefix.line, prefix.column };
-        rhs.node->op.valueUnaryOp = op;
       }
       return rhs;
     }

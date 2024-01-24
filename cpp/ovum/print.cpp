@@ -151,12 +151,6 @@ void egg::ovum::Print::write(std::ostream& stream, ValueUnaryOp value, const Opt
   case ValueUnaryOp::LogicalNot:
     stream << "!";
     break;
-  case ValueUnaryOp::Dereference:
-    stream << "*";
-    break;
-  case ValueUnaryOp::Address:
-    stream << "&";
-    break;
   default:
     stream << "<VALUEUNARYOP:" << int(value) << ">";
     break;

@@ -38,9 +38,7 @@ namespace egg::ovum {
   enum class ValueUnaryOp {
     Negate,             // -a
     BitwiseNot,         // ~a
-    LogicalNot,         // !a
-    Dereference,        // *a
-    Address             // &a
+    LogicalNot          // !a
   };
   enum class ValueBinaryOp {
     Add,                // a + b

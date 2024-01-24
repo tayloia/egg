@@ -14,7 +14,7 @@
 #define EXPR_LITERAL(value) mbuilder->exprLiteral(mbuilder->createHardValue(value), {})
 #define EXPR_LITERAL_VOID() mbuilder->exprLiteral(mbuilder->createHardValueVoid(), {})
 #define EXPR_PROP_GET(instance, property) mbuilder->exprPropertyGet(instance, property, {})
-#define EXPR_VAR(symbol) mbuilder->exprVariable(mbuilder->createString(symbol), {})
+#define EXPR_VAR_GET(symbol) mbuilder->exprVariableGet(mbuilder->createString(symbol), {})
 #define TYPE_LITERAL(primitive) mbuilder->typeLiteral(Type::primitive, {})
 #define TYPE_VAR() mbuilder->typeLiteral(Type::Any, {})
 #define TYPE_VARQ() mbuilder->typeLiteral(Type::AnyQ, {})
@@ -30,7 +30,7 @@
 #define STMT_BREAK() mbuilder->stmtBreak({})
 #define STMT_CONTINUE() mbuilder->stmtContinue({})
 #define STMT_CALL(func, ...) mbuilder->glue(mbuilder->exprFunctionCall(func, {}) COMMA(__VA_ARGS__))
-#define STMT_PRINT(...) mbuilder->glue(mbuilder->exprFunctionCall(EXPR_VAR("print"), {}) COMMA(__VA_ARGS__))
+#define STMT_PRINT(...) mbuilder->glue(mbuilder->exprFunctionCall(EXPR_VAR_GET("print"), {}) COMMA(__VA_ARGS__))
 #define STMT_PROP_SET(instance, property, value) mbuilder->stmtPropertySet(instance, property, value, {})
 #define STMT_VAR_DECLARE(symbol, type, ...) mbuilder->glue(mbuilder->stmtVariableDeclare(mbuilder->createString(symbol), type, {}) COMMA(__VA_ARGS__))
 #define STMT_VAR_DEFINE(symbol, type, init, ...) mbuilder->glue(mbuilder->stmtVariableDefine(mbuilder->createString(symbol), type, init, {}) COMMA(__VA_ARGS__))
@@ -45,7 +45,7 @@
   STMT_ROOT( \
     STMT_VAR_DEFINE("x", TYPE_VARQ(), EXPR_LITERAL(lhs), \
       STMT_VAR_MUTATE("x", op, EXPR_LITERAL(rhs)), \
-      STMT_PRINT(EXPR_VAR("x"))))
+      STMT_PRINT(EXPR_VAR_GET("x"))))
 
 namespace {
   using namespace egg::ovum;
@@ -56,7 +56,7 @@ namespace {
     // print("hello world);
     STMT_ROOT(
       mbuilder->glue(
-        mbuilder->exprFunctionCall(mbuilder->exprVariable(mbuilder->createString("print"), {}), {}),
+        mbuilder->exprFunctionCall(mbuilder->exprVariableGet(mbuilder->createString("print"), {}), {}),
         mbuilder->exprLiteral(mbuilder->createHardValue("hello world"), {})
       )
     );
@@ -244,7 +244,7 @@ TEST(TestVM, PrintPrint) {
   auto pbuilder = vm->createProgramBuilder();
   auto mbuilder = pbuilder->createModuleBuilder(pbuilder->createString("test"));
   // print(print);
-  STMT_ROOT(STMT_PRINT(EXPR_VAR("print")));
+  STMT_ROOT(STMT_PRINT(EXPR_VAR_GET("print")));
   buildAndRunSucceeded(vm, *pbuilder, *mbuilder);
   ASSERT_EQ("[builtin print]\n", vm.logger.logged.str());
 }
@@ -254,7 +254,7 @@ TEST(TestVM, PrintUnknown) {
   auto pbuilder = vm->createProgramBuilder();
   auto mbuilder = pbuilder->createModuleBuilder(pbuilder->createString("test"));
   // print(unknown);
-  STMT_ROOT(STMT_PRINT(EXPR_VAR("unknown")));
+  STMT_ROOT(STMT_PRINT(EXPR_VAR_GET("unknown")));
   buildAndRunFailed(vm, *pbuilder, *mbuilder);
   ASSERT_EQ("<ERROR>test: Unknown identifier: 'unknown'\n", vm.logger.logged.str());
 }
@@ -267,7 +267,7 @@ TEST(TestVM, VariableDeclare) {
     // var v;
     STMT_VAR_DECLARE("v", TYPE_VAR(),
       // print(v);
-      STMT_PRINT(EXPR_VAR("v"))
+      STMT_PRINT(EXPR_VAR_GET("v"))
     )
   );
   buildAndRunFailed(vm, *pbuilder, *mbuilder);
@@ -297,7 +297,7 @@ TEST(TestVM, VariableDefine) {
     // var i = 12345;
     STMT_VAR_DEFINE("i", TYPE_VAR(), EXPR_LITERAL(12345),
      // print(i);
-      STMT_PRINT(EXPR_VAR("i"))
+      STMT_PRINT(EXPR_VAR_GET("i"))
     )
   );
   buildAndRunSucceeded(vm, *pbuilder, *mbuilder);
@@ -314,7 +314,7 @@ TEST(TestVM, VariableUndeclare) {
   );
   STMT_ROOT(
     // print(i);
-    STMT_PRINT(EXPR_VAR("i"))
+    STMT_PRINT(EXPR_VAR_GET("i"))
   );
   buildAndRunFailed(vm, *pbuilder, *mbuilder);
   ASSERT_EQ("<ERROR>test: Unknown identifier: 'i'\n", vm.logger.logged.str());
@@ -328,7 +328,7 @@ TEST(TestVM, VariableDefineNull) {
     // var? n = null;
     STMT_VAR_DEFINE("n", TYPE_VARQ(), EXPR_LITERAL(nullptr),
       // print(n);
-      STMT_PRINT(EXPR_VAR("n"))
+      STMT_PRINT(EXPR_VAR_GET("n"))
     )
   );
   buildAndRunSucceeded(vm, *pbuilder, *mbuilder);
@@ -343,7 +343,7 @@ TEST(TestVM, VariableDefineBool) {
     // var b = true;
     STMT_VAR_DEFINE("b", TYPE_VAR(), EXPR_LITERAL(true),
       // print(b);
-      STMT_PRINT(EXPR_VAR("b"))
+      STMT_PRINT(EXPR_VAR_GET("b"))
     )
   );
   buildAndRunSucceeded(vm, *pbuilder, *mbuilder);
@@ -358,7 +358,7 @@ TEST(TestVM, VariableDefineInt) {
     // var i = 12345;
     STMT_VAR_DEFINE("i", TYPE_VAR(), EXPR_LITERAL(12345),
         // print(i);
-      STMT_PRINT(EXPR_VAR("i"))
+      STMT_PRINT(EXPR_VAR_GET("i"))
     )
   );
   buildAndRunSucceeded(vm, *pbuilder, *mbuilder);
@@ -373,7 +373,7 @@ TEST(TestVM, VariableDefineFloat) {
     // var f = 1234.5;
     STMT_VAR_DEFINE("f", TYPE_VAR(), EXPR_LITERAL(1234.5),
         // print(f);
-      STMT_PRINT(EXPR_VAR("f"))
+      STMT_PRINT(EXPR_VAR_GET("f"))
     )
   );
   buildAndRunSucceeded(vm, *pbuilder, *mbuilder);
@@ -388,7 +388,7 @@ TEST(TestVM, VariableDefineString) {
     // var s = "hello world";
     STMT_VAR_DEFINE("s", TYPE_VAR(), EXPR_LITERAL("hello world"),
       // print(s);
-      STMT_PRINT(EXPR_VAR("s"))
+      STMT_PRINT(EXPR_VAR_GET("s"))
     )
   );
   buildAndRunSucceeded(vm, *pbuilder, *mbuilder);
@@ -401,9 +401,9 @@ TEST(TestVM, VariableDefineObject) {
   auto mbuilder = pbuilder->createModuleBuilder(pbuilder->createString("test"));
   STMT_ROOT(
     // var o = print;
-    STMT_VAR_DEFINE("o", TYPE_VAR(), EXPR_VAR("print"),
+    STMT_VAR_DEFINE("o", TYPE_VAR(), EXPR_VAR_GET("print"),
       // print(o);
-      STMT_PRINT(EXPR_VAR("o"))
+      STMT_PRINT(EXPR_VAR_GET("o"))
     )
   );
   buildAndRunSucceeded(vm, *pbuilder, *mbuilder);
@@ -452,7 +452,7 @@ TEST(TestVM, AssertTrue) {
   auto mbuilder = pbuilder->createModuleBuilder(pbuilder->createString("test"));
   // assert(true);
   STMT_ROOT(
-    STMT_CALL(EXPR_VAR("assert"), EXPR_LITERAL(true))
+    STMT_CALL(EXPR_VAR_GET("assert"), EXPR_LITERAL(true))
   );
   buildAndRunSucceeded(vm, *pbuilder, *mbuilder);
   ASSERT_EQ("", vm.logger.logged.str());
@@ -464,7 +464,7 @@ TEST(TestVM, AssertFalse) {
   auto mbuilder = pbuilder->createModuleBuilder(pbuilder->createString("test"));
   // assert(false);
   STMT_ROOT(
-    STMT_CALL(EXPR_VAR("assert"), EXPR_LITERAL(false))
+    STMT_CALL(EXPR_VAR_GET("assert"), EXPR_LITERAL(false))
   );
   buildAndRunFailed(vm, *pbuilder, *mbuilder);
   ASSERT_EQ("<ERROR>test: Assertion failure\n", vm.logger.logged.str());
@@ -476,13 +476,13 @@ TEST(TestVM, ExpandoPair) {
   auto mbuilder = pbuilder->createModuleBuilder(pbuilder->createString("test"));
   STMT_ROOT(
     // var a = expando();
-    STMT_VAR_DEFINE("a", TYPE_VAR(), EXPR_CALL(EXPR_VAR("expando")),
+    STMT_VAR_DEFINE("a", TYPE_VAR(), EXPR_CALL(EXPR_VAR_GET("expando")),
       // var b = expando();
-      STMT_VAR_DEFINE("b", TYPE_VAR(), EXPR_CALL(EXPR_VAR("expando")),
+      STMT_VAR_DEFINE("b", TYPE_VAR(), EXPR_CALL(EXPR_VAR_GET("expando")),
         // a.x = b;
-        STMT_PROP_SET(EXPR_VAR("a"), EXPR_LITERAL("x"), EXPR_VAR("b")),
+        STMT_PROP_SET(EXPR_VAR_GET("a"), EXPR_LITERAL("x"), EXPR_VAR_GET("b")),
         // print(a,b);
-        STMT_PRINT(EXPR_VAR("a"), EXPR_VAR("b"))
+        STMT_PRINT(EXPR_VAR_GET("a"), EXPR_VAR_GET("b"))
       )
     )
   );
@@ -496,15 +496,15 @@ TEST(TestVM, ExpandoCycle) {
   auto mbuilder = pbuilder->createModuleBuilder(pbuilder->createString("test"));
   STMT_ROOT(
     // var a = expando();
-    STMT_VAR_DEFINE("a", TYPE_VAR(), EXPR_CALL(EXPR_VAR("expando")),
+    STMT_VAR_DEFINE("a", TYPE_VAR(), EXPR_CALL(EXPR_VAR_GET("expando")),
       // var b = expando();
-      STMT_VAR_DEFINE("b", TYPE_VAR(), EXPR_CALL(EXPR_VAR("expando")),
+      STMT_VAR_DEFINE("b", TYPE_VAR(), EXPR_CALL(EXPR_VAR_GET("expando")),
         // a.x = b;
-        STMT_PROP_SET(EXPR_VAR("a"), EXPR_LITERAL("x"), EXPR_VAR("b")),
+        STMT_PROP_SET(EXPR_VAR_GET("a"), EXPR_LITERAL("x"), EXPR_VAR_GET("b")),
         // b.x = a;
-        STMT_PROP_SET(EXPR_VAR("b"), EXPR_LITERAL("x"), EXPR_VAR("a")),
+        STMT_PROP_SET(EXPR_VAR_GET("b"), EXPR_LITERAL("x"), EXPR_VAR_GET("a")),
         // print(a,b);
-        STMT_PRINT(EXPR_VAR("a"), EXPR_VAR("b"))
+        STMT_PRINT(EXPR_VAR_GET("a"), EXPR_VAR_GET("b"))
       )
     )
   );
@@ -518,23 +518,23 @@ TEST(TestVM, ExpandoCollector) {
   auto mbuilder = pbuilder->createModuleBuilder(pbuilder->createString("test"));
   STMT_ROOT(
     // var a = expando();
-    STMT_VAR_DEFINE("a", TYPE_VARQ(), EXPR_CALL(EXPR_VAR("expando")),
+    STMT_VAR_DEFINE("a", TYPE_VARQ(), EXPR_CALL(EXPR_VAR_GET("expando")),
       // var b = expando();
-      STMT_VAR_DEFINE("b", TYPE_VARQ(), EXPR_CALL(EXPR_VAR("expando")),
+      STMT_VAR_DEFINE("b", TYPE_VARQ(), EXPR_CALL(EXPR_VAR_GET("expando")),
         // a.x = b;
-        STMT_PROP_SET(EXPR_VAR("a"), EXPR_LITERAL("x"), EXPR_VAR("b")),
+        STMT_PROP_SET(EXPR_VAR_GET("a"), EXPR_LITERAL("x"), EXPR_VAR_GET("b")),
         // b.x = a;
-        STMT_PROP_SET(EXPR_VAR("b"), EXPR_LITERAL("x"), EXPR_VAR("a")),
+        STMT_PROP_SET(EXPR_VAR_GET("b"), EXPR_LITERAL("x"), EXPR_VAR_GET("a")),
         // print(collector()); -- should print '0'
-        STMT_PRINT(EXPR_CALL(EXPR_VAR("collector"))),
+        STMT_PRINT(EXPR_CALL(EXPR_VAR_GET("collector"))),
         // a = null;
         STMT_VAR_SET("a", EXPR_LITERAL(nullptr)),
         // print(collector()); -- should print '0'
-        STMT_PRINT(EXPR_CALL(EXPR_VAR("collector"))),
+        STMT_PRINT(EXPR_CALL(EXPR_VAR_GET("collector"))),
         // b = null;
         STMT_VAR_SET("b", EXPR_LITERAL(nullptr)),
         // print(collector()); -- should print '4'
-        STMT_PRINT(EXPR_CALL(EXPR_VAR("collector")))
+        STMT_PRINT(EXPR_CALL(EXPR_VAR_GET("collector")))
       )
     )
   );
@@ -548,31 +548,31 @@ TEST(TestVM, ExpandoKeys) {
   auto mbuilder = pbuilder->createModuleBuilder(pbuilder->createString("test"));
   STMT_ROOT(
     // var x = expando();
-    STMT_VAR_DEFINE("x", TYPE_VAR(), EXPR_CALL(EXPR_VAR("expando")),
+    STMT_VAR_DEFINE("x", TYPE_VAR(), EXPR_CALL(EXPR_VAR_GET("expando")),
       // x.n = null;
-      STMT_PROP_SET(EXPR_VAR("x"), EXPR_LITERAL("n"), EXPR_LITERAL(nullptr)),
+      STMT_PROP_SET(EXPR_VAR_GET("x"), EXPR_LITERAL("n"), EXPR_LITERAL(nullptr)),
       // x.b = true;
-      STMT_PROP_SET(EXPR_VAR("x"), EXPR_LITERAL("b"), EXPR_LITERAL(true)),
+      STMT_PROP_SET(EXPR_VAR_GET("x"), EXPR_LITERAL("b"), EXPR_LITERAL(true)),
       // x.i = 12345;
-      STMT_PROP_SET(EXPR_VAR("x"), EXPR_LITERAL("i"), EXPR_LITERAL(12345)),
+      STMT_PROP_SET(EXPR_VAR_GET("x"), EXPR_LITERAL("i"), EXPR_LITERAL(12345)),
       // x.f = 1234.5;
-      STMT_PROP_SET(EXPR_VAR("x"), EXPR_LITERAL("f"), EXPR_LITERAL(1234.5)),
+      STMT_PROP_SET(EXPR_VAR_GET("x"), EXPR_LITERAL("f"), EXPR_LITERAL(1234.5)),
       // x.s = "hello world";
-      STMT_PROP_SET(EXPR_VAR("x"), EXPR_LITERAL("s"), EXPR_LITERAL("hello world")),
+      STMT_PROP_SET(EXPR_VAR_GET("x"), EXPR_LITERAL("s"), EXPR_LITERAL("hello world")),
       // x.o = x;
-      STMT_PROP_SET(EXPR_VAR("x"), EXPR_LITERAL("o"), EXPR_VAR("x")),
+      STMT_PROP_SET(EXPR_VAR_GET("x"), EXPR_LITERAL("o"), EXPR_VAR_GET("x")),
       // print(x.b); -- should print 'true'
-      STMT_PRINT(EXPR_PROP_GET(EXPR_VAR("x"), EXPR_LITERAL("b"))),
+      STMT_PRINT(EXPR_PROP_GET(EXPR_VAR_GET("x"), EXPR_LITERAL("b"))),
       // print(x.f); -- should print '1234.5'
-      STMT_PRINT(EXPR_PROP_GET(EXPR_VAR("x"), EXPR_LITERAL("f"))),
+      STMT_PRINT(EXPR_PROP_GET(EXPR_VAR_GET("x"), EXPR_LITERAL("f"))),
       // print(x.i); -- should print '12345'
-      STMT_PRINT(EXPR_PROP_GET(EXPR_VAR("x"), EXPR_LITERAL("i"))),
+      STMT_PRINT(EXPR_PROP_GET(EXPR_VAR_GET("x"), EXPR_LITERAL("i"))),
       // print(x.n); -- should print 'null'
-      STMT_PRINT(EXPR_PROP_GET(EXPR_VAR("x"), EXPR_LITERAL("n"))),
+      STMT_PRINT(EXPR_PROP_GET(EXPR_VAR_GET("x"), EXPR_LITERAL("n"))),
       // print(x.o); -- should print '[expando]'
-      STMT_PRINT(EXPR_PROP_GET(EXPR_VAR("x"), EXPR_LITERAL("o"))),
+      STMT_PRINT(EXPR_PROP_GET(EXPR_VAR_GET("x"), EXPR_LITERAL("o"))),
       // print(x.s); -- should print 'hello world'
-      STMT_PRINT(EXPR_PROP_GET(EXPR_VAR("x"), EXPR_LITERAL("s")))
+      STMT_PRINT(EXPR_PROP_GET(EXPR_VAR_GET("x"), EXPR_LITERAL("s")))
     )
   );
   buildAndRunSucceeded(vm, *pbuilder, *mbuilder);
@@ -1072,11 +1072,11 @@ TEST(TestVM, MutateDecrement) {
     // var i = 12345;
     STMT_VAR_DEFINE("i", TYPE_VAR(), EXPR_LITERAL(12345),
       // print(i);
-      STMT_PRINT(EXPR_VAR("i")),
+      STMT_PRINT(EXPR_VAR_GET("i")),
       // --i;
       STMT_VAR_MUTATE("i", Decrement, EXPR_LITERAL_VOID()),
       // print(i);
-      STMT_PRINT(EXPR_VAR("i"))
+      STMT_PRINT(EXPR_VAR_GET("i"))
     )
   );
   buildAndRunSucceeded(vm, *pbuilder, *mbuilder);
@@ -1091,11 +1091,11 @@ TEST(TestVM, MutateIncrement) {
     // var i = 12345;
     STMT_VAR_DEFINE("i", TYPE_VAR(), EXPR_LITERAL(12345),
       // print(i);
-      STMT_PRINT(EXPR_VAR("i")),
+      STMT_PRINT(EXPR_VAR_GET("i")),
       // ++i;
       STMT_VAR_MUTATE("i", Increment, EXPR_LITERAL_VOID()),
       // print(i);
-      STMT_PRINT(EXPR_VAR("i"))
+      STMT_PRINT(EXPR_VAR_GET("i"))
     )
   );
   buildAndRunSucceeded(vm, *pbuilder, *mbuilder);
@@ -1304,14 +1304,14 @@ TEST(TestVM, If) {
       // var b = 2;
       STMT_VAR_DEFINE("b", TYPE_VAR(), EXPR_LITERAL(2),
         // if (a < b) { a = "X"; }
-        STMT_IF(EXPR_BINARY(LessThan, EXPR_VAR("a"), EXPR_VAR("b")),
+        STMT_IF(EXPR_BINARY(LessThan, EXPR_VAR_GET("a"), EXPR_VAR_GET("b")),
           STMT_BLOCK(
             // a = "X";
             STMT_VAR_SET("a", EXPR_LITERAL("X"))
           )
         ),
         // print(a, b);
-        STMT_PRINT(EXPR_VAR("a"), EXPR_VAR("b"))
+        STMT_PRINT(EXPR_VAR_GET("a"), EXPR_VAR_GET("b"))
       )
     )
   );
@@ -1321,14 +1321,14 @@ TEST(TestVM, If) {
       // var b = 2;
       STMT_VAR_DEFINE("b", TYPE_VAR(), EXPR_LITERAL(2),
         // if (a > b) { a = "X"; }
-        STMT_IF(EXPR_BINARY(GreaterThan, EXPR_VAR("a"), EXPR_VAR("b")),
+        STMT_IF(EXPR_BINARY(GreaterThan, EXPR_VAR_GET("a"), EXPR_VAR_GET("b")),
           STMT_BLOCK(
             // a = "X";
             STMT_VAR_SET("a", EXPR_LITERAL("X"))
           )
         ),
         // print(a, b);
-        STMT_PRINT(EXPR_VAR("a"), EXPR_VAR("b"))
+        STMT_PRINT(EXPR_VAR_GET("a"), EXPR_VAR_GET("b"))
       )
     )
   );
@@ -1346,7 +1346,7 @@ TEST(TestVM, IfElse) {
       // var b = 2;
       STMT_VAR_DEFINE("b", TYPE_VAR(), EXPR_LITERAL(2),
         // if (a < b) { a = "X"; } else { b = "X" }
-        STMT_IF(EXPR_BINARY(LessThan, EXPR_VAR("a"), EXPR_VAR("b")),
+        STMT_IF(EXPR_BINARY(LessThan, EXPR_VAR_GET("a"), EXPR_VAR_GET("b")),
           STMT_BLOCK(
             // a = "X";
             STMT_VAR_SET("a", EXPR_LITERAL("X"))
@@ -1357,7 +1357,7 @@ TEST(TestVM, IfElse) {
           )
         ),
         // print(a, b);
-        STMT_PRINT(EXPR_VAR("a"), EXPR_VAR("b"))
+        STMT_PRINT(EXPR_VAR_GET("a"), EXPR_VAR_GET("b"))
       )
     )
   );
@@ -1367,7 +1367,7 @@ TEST(TestVM, IfElse) {
       // var b = 2;
       STMT_VAR_DEFINE("b", TYPE_VAR(), EXPR_LITERAL(2),
         // if (a > b) { a = "X"; } else { b = "X" }
-        STMT_IF(EXPR_BINARY(GreaterThan, EXPR_VAR("a"), EXPR_VAR("b")),
+        STMT_IF(EXPR_BINARY(GreaterThan, EXPR_VAR_GET("a"), EXPR_VAR_GET("b")),
           STMT_BLOCK(
             // a = "X";
             STMT_VAR_SET("a", EXPR_LITERAL("X"))
@@ -1378,7 +1378,7 @@ TEST(TestVM, IfElse) {
           )
         ),
         // print(a, b);
-        STMT_PRINT(EXPR_VAR("a"), EXPR_VAR("b"))
+        STMT_PRINT(EXPR_VAR_GET("a"), EXPR_VAR_GET("b"))
       )
     )
   );
@@ -1394,10 +1394,10 @@ TEST(TestVM, While) {
     // var i = 1;
     STMT_VAR_DEFINE("i", TYPE_VAR(), EXPR_LITERAL(1),
       // while (i < 10)
-      STMT_WHILE(EXPR_BINARY(LessThan, EXPR_VAR("i"), EXPR_LITERAL(10)),
+      STMT_WHILE(EXPR_BINARY(LessThan, EXPR_VAR_GET("i"), EXPR_LITERAL(10)),
         STMT_BLOCK(
           // print(i);
-          STMT_PRINT(EXPR_VAR("i")),
+          STMT_PRINT(EXPR_VAR_GET("i")),
           // ++i;
           STMT_VAR_MUTATE("i", Increment, EXPR_LITERAL_VOID())
         )
@@ -1419,11 +1419,11 @@ TEST(TestVM, Do) {
       STMT_DO(
         STMT_BLOCK(
           // print(i);
-          STMT_PRINT(EXPR_VAR("i")),
+          STMT_PRINT(EXPR_VAR_GET("i")),
           // ++i;
           STMT_VAR_MUTATE("i", Increment, EXPR_LITERAL_VOID())
         ),
-        EXPR_BINARY(LessThan, EXPR_VAR("i"), EXPR_LITERAL(10))
+        EXPR_BINARY(LessThan, EXPR_VAR_GET("i"), EXPR_LITERAL(10))
       )
     )
   );
@@ -1443,11 +1443,11 @@ TEST(TestVM, For) {
         // i = 1;
         STMT_VAR_SET("i", EXPR_LITERAL(1)),
         // i < 10;
-        EXPR_BINARY(LessThan, EXPR_VAR("i"), EXPR_LITERAL(10)),
+        EXPR_BINARY(LessThan, EXPR_VAR_GET("i"), EXPR_LITERAL(10)),
         // ++i;
         STMT_VAR_MUTATE("i", Increment, EXPR_LITERAL_VOID()),
         // print(i);
-        STMT_PRINT(EXPR_VAR("i"))
+        STMT_PRINT(EXPR_VAR_GET("i"))
       )
     )
   );
@@ -1467,11 +1467,11 @@ TEST(TestVM, SwitchCaseBreak) {
         // i = 1;
         STMT_VAR_SET("i", EXPR_LITERAL(1)),
         // i < 10;
-        EXPR_BINARY(LessThan, EXPR_VAR("i"), EXPR_LITERAL(10)),
+        EXPR_BINARY(LessThan, EXPR_VAR_GET("i"), EXPR_LITERAL(10)),
         // ++i;
         STMT_VAR_MUTATE("i", Increment, EXPR_LITERAL_VOID()),
         // switch (i) without default
-        STMT_SWITCH(EXPR_VAR("i"), 0,
+        STMT_SWITCH(EXPR_VAR_GET("i"), 0,
           STMT_CASE(STMT_BLOCK(STMT_PRINT(EXPR_LITERAL("one")), STMT_BREAK()), EXPR_LITERAL(1)),
           STMT_CASE(STMT_BLOCK(STMT_PRINT(EXPR_LITERAL("two")), STMT_BREAK()), EXPR_LITERAL(2)),
           STMT_CASE(STMT_BLOCK(STMT_PRINT(EXPR_LITERAL("three")), STMT_BREAK()), EXPR_LITERAL(3)),
@@ -1497,11 +1497,11 @@ TEST(TestVM, SwitchCaseContinue) {
         // i = 1;
         STMT_VAR_SET("i", EXPR_LITERAL(1)),
         // i < 10;
-        EXPR_BINARY(LessThan, EXPR_VAR("i"), EXPR_LITERAL(10)),
+        EXPR_BINARY(LessThan, EXPR_VAR_GET("i"), EXPR_LITERAL(10)),
         // ++i;
         STMT_VAR_MUTATE("i", Increment, EXPR_LITERAL_VOID()),
         // switch (i) without default
-        STMT_SWITCH(EXPR_VAR("i"), 0,
+        STMT_SWITCH(EXPR_VAR_GET("i"), 0,
           STMT_CASE(STMT_BLOCK(STMT_PRINT(EXPR_LITERAL("one")), STMT_CONTINUE()), EXPR_LITERAL(1)),
           STMT_CASE(STMT_BLOCK(STMT_PRINT(EXPR_LITERAL("two")), STMT_BREAK()), EXPR_LITERAL(2)),
           STMT_CASE(STMT_BLOCK(STMT_PRINT(EXPR_LITERAL("three")), STMT_CONTINUE()), EXPR_LITERAL(3)),
@@ -1531,11 +1531,11 @@ TEST(TestVM, SwitchDefaultBreak) {
         // i = 1;
         STMT_VAR_SET("i", EXPR_LITERAL(1)),
         // i < 10;
-        EXPR_BINARY(LessThan, EXPR_VAR("i"), EXPR_LITERAL(10)),
+        EXPR_BINARY(LessThan, EXPR_VAR_GET("i"), EXPR_LITERAL(10)),
         // ++i;
         STMT_VAR_MUTATE("i", Increment, EXPR_LITERAL_VOID()),
         // switch (i) with default
-        STMT_SWITCH(EXPR_VAR("i"), 6,
+        STMT_SWITCH(EXPR_VAR_GET("i"), 6,
           STMT_CASE(STMT_BLOCK(STMT_PRINT(EXPR_LITERAL("one")), STMT_BREAK()), EXPR_LITERAL(1)),
           STMT_CASE(STMT_BLOCK(STMT_PRINT(EXPR_LITERAL("two")), STMT_BREAK()), EXPR_LITERAL(2)),
           STMT_CASE(STMT_BLOCK(STMT_PRINT(EXPR_LITERAL("three")), STMT_BREAK()), EXPR_LITERAL(3)),
@@ -1562,11 +1562,11 @@ TEST(TestVM, SwitchDefaultContinue) {
         // i = 1;
         STMT_VAR_SET("i", EXPR_LITERAL(1)),
         // i < 10;
-        EXPR_BINARY(LessThan, EXPR_VAR("i"), EXPR_LITERAL(10)),
+        EXPR_BINARY(LessThan, EXPR_VAR_GET("i"), EXPR_LITERAL(10)),
         // ++i;
         STMT_VAR_MUTATE("i", Increment, EXPR_LITERAL_VOID()),
         // switch (i) with default
-        STMT_SWITCH(EXPR_VAR("i"), 1,
+        STMT_SWITCH(EXPR_VAR_GET("i"), 1,
           STMT_CASE(STMT_BLOCK(STMT_PRINT(EXPR_LITERAL("other")), STMT_CONTINUE())),
           STMT_CASE(STMT_BLOCK(STMT_PRINT(EXPR_LITERAL("one")), STMT_BREAK()), EXPR_LITERAL(1)),
           STMT_CASE(STMT_BLOCK(STMT_PRINT(EXPR_LITERAL("two")), STMT_CONTINUE()), EXPR_LITERAL(2)),
@@ -1602,11 +1602,11 @@ TEST(TestVM, SwitchCaseMultiple) {
         // i = 1;
         STMT_VAR_SET("i", EXPR_LITERAL(1)),
         // i < 10;
-        EXPR_BINARY(LessThan, EXPR_VAR("i"), EXPR_LITERAL(10)),
+        EXPR_BINARY(LessThan, EXPR_VAR_GET("i"), EXPR_LITERAL(10)),
         // ++i;
         STMT_VAR_MUTATE("i", Increment, EXPR_LITERAL_VOID()),
         // switch (i) with default
-        STMT_SWITCH(EXPR_VAR("i"), 2,
+        STMT_SWITCH(EXPR_VAR_GET("i"), 2,
           STMT_CASE(STMT_BLOCK(STMT_PRINT(EXPR_LITERAL("odd")), STMT_BREAK()), EXPR_LITERAL(1), EXPR_LITERAL(3), EXPR_LITERAL(5), EXPR_LITERAL(7), EXPR_LITERAL(9)),
           STMT_CASE(STMT_BLOCK(STMT_PRINT(EXPR_LITERAL("even")), STMT_BREAK()))
         )
@@ -1642,7 +1642,7 @@ TEST(TestVM, TryCatchNoThrow) {
       // catch (var e)
       STMT_CATCH("e", TYPE_VAR(),
         // print("catch:", e);
-        STMT_PRINT(EXPR_LITERAL("catch:"), EXPR_VAR("e"))
+        STMT_PRINT(EXPR_LITERAL("catch:"), EXPR_VAR_GET("e"))
       )
     )
   );
@@ -1668,7 +1668,7 @@ TEST(TestVM, TryCatchThrow) {
       // catch (var e)
       STMT_CATCH("e", TYPE_VAR(),
         // print("catch:", e);
-        STMT_PRINT(EXPR_LITERAL("catch:"), EXPR_VAR("e"))
+        STMT_PRINT(EXPR_LITERAL("catch:"), EXPR_VAR_GET("e"))
       )
     )
   );
@@ -1735,7 +1735,7 @@ TEST(TestVM, TryCatchFinallyNoThrow) {
       // catch (var e)
       STMT_CATCH("e", TYPE_VAR(),
         // print("catch:", e);
-        STMT_PRINT(EXPR_LITERAL("catch:"), EXPR_VAR("e"))
+        STMT_PRINT(EXPR_LITERAL("catch:"), EXPR_VAR_GET("e"))
       ),
       // finally
       STMT_BLOCK(
@@ -1766,7 +1766,7 @@ TEST(TestVM, TryCatchFinallyThrow) {
       // catch (var e)
       STMT_CATCH("e", TYPE_VAR(),
         // print("catch:", e);
-        STMT_PRINT(EXPR_LITERAL("catch:"), EXPR_VAR("e"))
+        STMT_PRINT(EXPR_LITERAL("catch:"), EXPR_VAR_GET("e"))
       ),
       // finally
       STMT_BLOCK(
@@ -1797,7 +1797,7 @@ TEST(TestVM, TryCatchFinallyThrowAnotherCatch) {
       // catch (var e)
       STMT_CATCH("e", TYPE_VAR(),
         // print("catch:", e);
-        STMT_PRINT(EXPR_LITERAL("catch:"), EXPR_VAR("e")),
+        STMT_PRINT(EXPR_LITERAL("catch:"), EXPR_VAR_GET("e")),
         // throw;
         STMT_THROW(EXPR_LITERAL("exception2")),
         // print("after2");
@@ -1833,7 +1833,7 @@ TEST(TestVM, TryCatchFinallyThrowAnotherFinally) {
       // catch (var e)
       STMT_CATCH("e", TYPE_VAR(),
         // print("catch:", e);
-        STMT_PRINT(EXPR_LITERAL("catch:"), EXPR_VAR("e"))
+        STMT_PRINT(EXPR_LITERAL("catch:"), EXPR_VAR_GET("e"))
       ),
       // finally
       STMT_BLOCK(
@@ -1869,7 +1869,7 @@ TEST(TestVM, TryCatchRethrow) {
       // catch (var e)
       STMT_CATCH("e", TYPE_VAR(),
         // print("catch:", e);
-        STMT_PRINT(EXPR_LITERAL("catch:"), EXPR_VAR("e")),
+        STMT_PRINT(EXPR_LITERAL("catch:"), EXPR_VAR_GET("e")),
         // throw;
         STMT_RETHROW(),
         // print("after2");
@@ -1900,7 +1900,7 @@ TEST(TestVM, TryCatchFinallyRethrow) {
       // catch (var e)
       STMT_CATCH("e", TYPE_VAR(),
         // print("catch:", e);
-        STMT_PRINT(EXPR_LITERAL("catch:"), EXPR_VAR("e")),
+        STMT_PRINT(EXPR_LITERAL("catch:"), EXPR_VAR_GET("e")),
         // throw;
         STMT_RETHROW(),
         // print("after2");

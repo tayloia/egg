@@ -167,11 +167,15 @@ namespace egg::ovum {
     virtual Node& exprValueBinaryOp(ValueBinaryOp op, Node& lhs, Node& rhs, const SourceRange& range) = 0;
     virtual Node& exprValueTernaryOp(ValueTernaryOp op, Node& lhs, Node& mid, Node& rhs, const SourceRange& range) = 0;
     virtual Node& exprValuePredicateOp(ValuePredicateOp op, const SourceRange& range) = 0;
-    virtual Node& exprVariable(const String& symbol, const SourceRange& range) = 0;
     virtual Node& exprLiteral(const HardValue& literal, const SourceRange& range) = 0;
-    virtual Node& exprPropertyGet(Node& instance, Node& property, const SourceRange& range) = 0;
     virtual Node& exprFunctionCall(Node& function, const SourceRange& range) = 0;
+    virtual Node& exprVariableGet(const String& symbol, const SourceRange& range) = 0;
+    virtual Node& exprPropertyGet(Node& instance, Node& property, const SourceRange& range) = 0;
     virtual Node& exprIndexGet(Node& instance, Node& index, const SourceRange& range) = 0;
+    virtual Node& exprPointeeGet(Node& pointer, const SourceRange& range) = 0;
+    virtual Node& exprVariableRef(const String& symbol, const SourceRange& range) = 0;
+    virtual Node& exprPropertyRef(Node& instance, Node& property, const SourceRange& range) = 0;
+    virtual Node& exprIndexRef(Node& instance, Node& index, const SourceRange& range) = 0;
     virtual Node& exprArray(const SourceRange& range) = 0;
     virtual Node& exprObject(const SourceRange& range) = 0;
     virtual Node& exprGuard(const String& symbol, Node& value, const SourceRange& range) = 0;
@@ -199,8 +203,8 @@ namespace egg::ovum {
     virtual Node& stmtVariableUndeclare(const String& symbol, const SourceRange& range) = 0;
     virtual Node& stmtPropertySet(Node& instance, Node& property, Node& value, const SourceRange& range) = 0;
     virtual Node& stmtPropertyMutate(Node& instance, Node& property, ValueMutationOp op, Node& value, const SourceRange& range) = 0;
+    virtual Node& stmtPointeeMutate(Node& instance, ValueMutationOp op, Node& value, const SourceRange& range) = 0;
     virtual Node& stmtIndexMutate(Node& instance, Node& index, ValueMutationOp op, Node& value, const SourceRange& range) = 0;
-    virtual Node& stmtPointerMutate(Node& instance, ValueMutationOp op, Node& value, const SourceRange& range) = 0;
     virtual Node& stmtThrow(Node& exception, const SourceRange& range) = 0;
     virtual Node& stmtTry(Node& block, const SourceRange& range) = 0;
     virtual Node& stmtCatch(const String& symbol, Node& type, const SourceRange& range) = 0;

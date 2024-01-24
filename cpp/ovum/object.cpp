@@ -842,6 +842,148 @@ namespace {
     }
   };
 
+  class VMObjectPointerBase : public VMObjectBase {
+    VMObjectPointerBase(const VMObjectPointerBase&) = delete;
+    VMObjectPointerBase& operator=(const VMObjectPointerBase&) = delete;
+  protected:
+    Modifiability modifiability;
+    virtual void printPrefix(Printer& printer) const override {
+      printer << "Pointer";
+    }
+  public:
+    VMObjectPointerBase(IVM& vm, Modifiability modifiability)
+      : VMObjectBase(vm),
+        modifiability(modifiability) {
+    }
+    virtual int print(Printer& printer) const override {
+      // TODO
+      printer << "[pointer]";
+      return 0;
+    }
+    virtual HardValue vmPointeeGet(IVMExecution& execution) override {
+      if (Bits::hasNoneSet(this->modifiability, Modifiability::Read)) {
+        return this->raisePrefixError(execution, "Pointer does not permit reading values");
+      }
+      return this->pointeeGet(execution);
+    }
+    virtual HardValue vmPointeeSet(IVMExecution& execution, const HardValue& value) {
+      if (Bits::hasNoneSet(this->modifiability, Modifiability::Write)) {
+        return this->raiseRuntimeError(execution, "Pointer does not permit assigning values");
+      }
+      return this->pointeeSet(execution, value);
+    }
+    virtual HardValue vmPointeeMut(IVMExecution& execution, ValueMutationOp mutation, const HardValue& value) {
+      if (Bits::hasNoneSet(this->modifiability, Modifiability::Mutate)) {
+        return this->raisePrefixError(execution, "Pointer does not permit modifying values");
+      }
+      return this->pointeeMut(execution, mutation, value);
+    }
+  protected:
+    virtual HardValue pointeeGet(IVMExecution& execution) = 0;
+    virtual HardValue pointeeSet(IVMExecution& execution, const HardValue& value) = 0;
+    virtual HardValue pointeeMut(IVMExecution& execution, ValueMutationOp mutation, const HardValue& value) = 0;
+  };
+
+  class VMObjectPointerToValue : public VMObjectPointerBase {
+    VMObjectPointerToValue(const VMObjectPointerToValue&) = delete;
+    VMObjectPointerToValue& operator=(const VMObjectPointerToValue&) = delete;
+  private:
+    IValue* alias;
+  public:
+    VMObjectPointerToValue(IVM& vm, const HardValue& instance, Modifiability modifiability)
+      : VMObjectPointerBase(vm, modifiability),
+        alias(vm.createSoftAlias(instance.get())) {
+      assert(this->alias != nullptr);
+    }
+    virtual void softVisit(ICollectable::IVisitor& visitor) const override {
+      visitor.visit(*this->alias);
+    }
+    virtual Type vmRuntimeType() override {
+      return this->vm.getTypeForge().forgePointerType(this->alias->getRuntimeType(), this->modifiability);
+    }
+  protected:
+    virtual HardValue pointeeGet(IVMExecution&) override {
+      return HardValue(*this->alias);
+    }
+    virtual HardValue pointeeSet(IVMExecution& execution, const HardValue& value) {
+      if (this->alias->set(value.get())) {
+        return this->raiseRuntimeError(execution, "Cannot assign value via pointer");
+      }
+      return HardValue::Void;
+    }
+    virtual HardValue pointeeMut(IVMExecution&, ValueMutationOp mutation, const HardValue& value) {
+      return this->alias->mutate(mutation, value.get());
+    }
+  };
+
+  class VMObjectPointerToIndex : public VMObjectPointerBase {
+    VMObjectPointerToIndex(const VMObjectPointerToIndex&) = delete;
+    VMObjectPointerToIndex& operator=(const VMObjectPointerToIndex&) = delete;
+  private:
+    SoftObject instance;
+    SoftValue index;
+    Type pointerType;
+  public:
+    VMObjectPointerToIndex(IVM& vm, const HardObject& instance, const HardValue& index, Modifiability modifiability, const Type& pointerType)
+      : VMObjectPointerBase(vm, modifiability),
+        instance(vm, instance),
+        index(vm),
+      pointerType(pointerType) {
+      this->vm.setSoftValue(this->index, index); // cloned
+    }
+    virtual void softVisit(ICollectable::IVisitor& visitor) const override {
+      this->instance.visit(visitor);
+      this->index.visit(visitor);
+    }
+    virtual Type vmRuntimeType() override {
+      return this->pointerType;
+    }
+  protected:
+    virtual HardValue pointeeGet(IVMExecution& execution) override {
+      return this->instance->vmIndexGet(execution, execution.getSoftValue(this->index));
+    }
+    virtual HardValue pointeeSet(IVMExecution& execution, const HardValue& value) {
+      return this->instance->vmIndexSet(execution, execution.getSoftValue(this->index), value);
+    }
+    virtual HardValue pointeeMut(IVMExecution& execution, ValueMutationOp mutation, const HardValue& value) {
+      return this->instance->vmIndexMut(execution, execution.getSoftValue(this->index), mutation, value);
+    }
+  };
+
+  class VMObjectPointerToProperty : public VMObjectPointerBase {
+    VMObjectPointerToProperty(const VMObjectPointerToProperty&) = delete;
+    VMObjectPointerToProperty& operator=(const VMObjectPointerToProperty&) = delete;
+  private:
+    SoftObject instance;
+    SoftValue property;
+    Type pointerType;
+  public:
+    VMObjectPointerToProperty(IVM& vm, const HardObject& instance, const HardValue& property, Modifiability modifiability, const Type& pointerType)
+      : VMObjectPointerBase(vm, modifiability),
+        instance(vm, instance),
+        property(vm),
+        pointerType(pointerType) {
+      this->vm.setSoftValue(this->property, property); // cloned
+    }
+    virtual void softVisit(ICollectable::IVisitor& visitor) const override {
+      this->instance.visit(visitor);
+      this->property.visit(visitor);
+    }
+    virtual Type vmRuntimeType() override {
+      return this->pointerType;
+    }
+  protected:
+    virtual HardValue pointeeGet(IVMExecution& execution) override {
+      return this->instance->vmPropertyGet(execution, execution.getSoftValue(this->property));
+    }
+    virtual HardValue pointeeSet(IVMExecution& execution, const HardValue& value) {
+      return this->instance->vmPropertySet(execution, execution.getSoftValue(this->property), value);
+    }
+    virtual HardValue pointeeMut(IVMExecution& execution, ValueMutationOp mutation, const HardValue& value) {
+      return this->instance->vmPropertyMut(execution, execution.getSoftValue(this->property), mutation, value);
+    }
+  };
+
   class VMStringProxyBase : public VMObjectBase {
     VMStringProxyBase(const VMStringProxyBase&) = delete;
     VMStringProxyBase& operator=(const VMStringProxyBase&) = delete;
@@ -1653,6 +1795,18 @@ egg::ovum::HardObject egg::ovum::ObjectFactory::createVanillaKeyValue(IVM& vm, c
 
 egg::ovum::HardObject egg::ovum::ObjectFactory::createVanillaFunction(IVM& vm, const Type& ftype, IVMCallHandler& handler) {
   return makeHardObject<VMObjectVanillaFunction>(vm, ftype, handler);
+}
+
+egg::ovum::HardObject egg::ovum::ObjectFactory::createPointerToValue(IVM& vm, const HardValue& value, Modifiability modifiability) {
+  return makeHardObject<VMObjectPointerToValue>(vm, value, modifiability);
+}
+
+egg::ovum::HardObject egg::ovum::ObjectFactory::createPointerToIndex(IVM& vm, const HardObject& instance, const HardValue& index, Modifiability modifiability, const Type& pointerType) {
+  return makeHardObject<VMObjectPointerToIndex>(vm, instance, index, modifiability, pointerType);
+}
+
+egg::ovum::HardObject egg::ovum::ObjectFactory::createPointerToProperty(IVM& vm, const HardObject& instance, const HardValue& property, Modifiability modifiability, const Type& pointerType) {
+  return makeHardObject<VMObjectPointerToProperty>(vm, instance, property, modifiability, pointerType);
 }
 
 egg::ovum::HardObject egg::ovum::ObjectFactory::createStringProxyCompareTo(IVM& vm, const String& instance) {

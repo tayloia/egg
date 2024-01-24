@@ -106,6 +106,12 @@ namespace {
       return printNodeExtra(os, "expr-ternary", node.op.valueTernaryOp, node, ranges);
     case Node::Kind::ExprCall:
       return printNodeChildren(os, "expr-call", node, ranges);
+    case Node::Kind::ExprReference:
+      assert(node.children.size() == 1);
+      return printNodeChildren(os, "expr-reference", node, ranges);
+    case Node::Kind::ExprDereference:
+      assert(node.children.size() == 1);
+      return printNodeChildren(os, "expr-dereference", node, ranges);
     case Node::Kind::ExprIndex:
       assert(node.children.size() == 2);
       return printNodeChildren(os, "expr-index", node, ranges);

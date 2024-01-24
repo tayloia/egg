@@ -29,11 +29,15 @@ public:
     ExprBinaryOp,
     ExprTernaryOp,
     ExprPredicateOp,
-    ExprVariable,
     ExprLiteral,
-    ExprPropertyGet,
     ExprFunctionCall,
+    ExprVariableGet,
+    ExprPropertyGet,
     ExprIndexGet,
+    ExprPointeeGet,
+    ExprVariableRef,
+    ExprPropertyRef,
+    ExprIndexRef,
     ExprArray,
     ExprObject,
     ExprGuard,
@@ -491,10 +495,6 @@ namespace {
           return this->raise("Expected expression after of logical-not operator '!' to be a 'bool', but instead got ", describe(arg));
         }
         break;
-      case ValueUnaryOp::Dereference:
-      case ValueUnaryOp::Address:
-        // WIBBLE
-        break;
       }
       return this->panic("Unknown unary operator: ", op);
     }
@@ -933,14 +933,40 @@ namespace {
     }
     Type deduce(Node& node) {
       switch (node.kind) {
-      case Node::Kind::ExprLiteral:
-        return node.literal->getRuntimeType();
       case Node::Kind::TypeLiteral:
         return getHardTypeOrNone(node.literal);
+      case Node::Kind::ExprLiteral:
+        return node.literal->getRuntimeType();
+      case Node::Kind::ExprFunctionCall:
+        assert(node.literal->getVoid());
+        assert(node.children.size() >= 1);
+        return this->deduceFunctionCall(*node.children.front(), node.range);
+      case Node::Kind::ExprVariableGet:
+        assert(node.children.empty());
+        return this->deduceVariableGet(node.literal, node.range);
       case Node::Kind::ExprPropertyGet:
         assert(node.literal->getVoid());
         assert(node.children.size() == 2);
         return this->deducePropertyGet(*node.children.front(), *node.children.back(), node.range);
+      case Node::Kind::ExprIndexGet:
+        assert(node.literal->getVoid());
+        assert(node.children.size() == 2);
+        return this->deduceIndexGet(*node.children.front(), node.range);
+      case Node::Kind::ExprPointeeGet:
+        assert(node.literal->getVoid());
+        assert(node.children.size() == 1);
+        return this->deducePointeeGet(*node.children.front(), node.range);
+      case Node::Kind::ExprVariableRef:
+        assert(node.children.empty());
+        return this->deduceReference(this->deduceVariableGet(node.literal, node.range));
+      case Node::Kind::ExprPropertyRef:
+        assert(node.literal->getVoid());
+        assert(node.children.size() == 2);
+        return this->deduceReference(this->deducePropertyGet(*node.children.front(), *node.children.back(), node.range));
+      case Node::Kind::ExprIndexRef:
+        assert(node.literal->getVoid());
+        assert(node.children.size() == 2);
+        return this->deduceReference(this->deduceIndexGet(*node.children.front(), node.range));
       case Node::Kind::ExprUnaryOp:
         assert(node.literal->getVoid());
         assert(node.children.size() == 1);
@@ -955,21 +981,10 @@ namespace {
         return this->deduceTernaryOp(node.ternaryOp, *node.children[0], *node.children[1], *node.children[2], node.range);
       case Node::Kind::ExprPredicateOp:
         return Type::Bool;
-      case Node::Kind::ExprVariable:
-        assert(node.children.empty());
-        return this->deduceVariable(node.literal, node.range);
       case Node::Kind::ExprArray:
         return this->forge.forgeArrayType(Type::AnyQ, Modifiability::All);
       case Node::Kind::ExprObject:
         return Type::Object;
-      case Node::Kind::ExprFunctionCall:
-        assert(node.literal->getVoid());
-        assert(node.children.size() >= 1);
-        return this->deduceFunctionCall(*node.children.front(), node.range);
-      case Node::Kind::ExprIndexGet:
-      case Node::Kind::ExprGuard:
-      case Node::Kind::ExprNamed:
-        break; // WIBBLE
       case Node::Kind::StmtBlock:
       case Node::Kind::StmtFunctionDefine:
       case Node::Kind::StmtFunctionInvoke:
@@ -998,6 +1013,8 @@ namespace {
       case Node::Kind::StmtReturn:
         return Type::Void;
       case Node::Kind::Root:
+      case Node::Kind::ExprGuard:
+      case Node::Kind::ExprNamed:
       case Node::Kind::TypeInfer:
       case Node::Kind::TypeManifestation:
         // Should not be deduced directly
@@ -1006,7 +1023,7 @@ namespace {
       return this->fail(node.range, "TODO: Cannot deduce type for unexpected module node kind");
     }
   private:
-    Type deduceVariable(const HardValue& literal, const SourceRange& range) {
+    Type deduceVariableGet(const HardValue& literal, const SourceRange& range) {
       String symbol;
       if (!literal->getString(symbol)) {
         return this->fail(range, "Invalid variable literal: ", literal);
@@ -1025,6 +1042,58 @@ namespace {
       }
       return Type::AnyQ;
     }
+    Type deduceIndexGet(Node& instance, const SourceRange& range) {
+      auto itype = this->deduce(instance);
+      if (itype == nullptr) {
+        return nullptr;
+      }
+      Type etype = nullptr;
+      auto count = itype->getShapeCount();
+      for (size_t index = 0; index < count; ++index) {
+        auto* shape = itype->getShape(index);
+        if ((shape != nullptr) && (shape->indexable != nullptr)) {
+          auto type = shape->indexable->getResultType();
+          if (etype == nullptr) {
+            etype = type;
+          } else {
+            etype = this->forge.forgeUnionType(etype, type);
+          }
+        }
+      }
+      if (etype == nullptr) {
+        return this->fail(range, "Values of type '", *itype, "' do not support index operator '[]'");
+      }
+      return etype;
+    }
+    Type deducePointeeGet(Node& instance, const SourceRange& range) {
+      auto itype = this->deduce(instance);
+      if (itype == nullptr) {
+        return nullptr;
+      }
+      Type ptype = nullptr;
+      auto count = itype->getShapeCount();
+      for (size_t index = 0; index < count; ++index) {
+        auto* shape = itype->getShape(index);
+        if ((shape != nullptr) && (shape->pointable != nullptr)) {
+          auto type = shape->pointable->getPointeeType();
+          if (ptype == nullptr) {
+            ptype = type;
+          } else {
+            ptype = this->forge.forgeUnionType(ptype, type);
+          }
+        }
+      }
+      if (ptype == nullptr) {
+        return this->fail(range, "Values of type '", *itype, "' do not support pointer operator '*'");
+      }
+      return ptype;
+    }
+    Type deduceReference(Type pointee) {
+      if (pointee == nullptr) {
+        return nullptr;
+      }
+      return this->forge.forgePointerType(pointee, Modifiability::All);
+    }
     Type deduceUnaryOp(ValueUnaryOp op, Node& rhs, const SourceRange& range) {
       switch (op) {
       case ValueUnaryOp::Negate:
@@ -1033,10 +1102,6 @@ namespace {
         return Type::Int;
       case ValueUnaryOp::LogicalNot:
         return Type::Bool;
-      case ValueUnaryOp::Dereference:
-        return Type::AnyQ; // WIBBLE
-      case ValueUnaryOp::Address:
-        return Type::Object; // WIBBLE
       }
       return this->fail(range, "TODO: Cannot deduce type for unary operator");
     }
@@ -1193,20 +1258,19 @@ namespace {
       node.predicateOp = op;
       return node;
     }
-    virtual Node& exprVariable(const String& symbol, const SourceRange& range) override {
-      auto& node = this->module->createNode(Node::Kind::ExprVariable, range);
-      node.literal = this->createHardValueString(symbol);
-      return node;
-    }
-    virtual Node& exprIndexGet(Node& instance, Node& index, const SourceRange& range) override {
-      auto& node = this->module->createNode(Node::Kind::ExprIndexGet, range);
-      node.addChild(instance);
-      node.addChild(index);
-      return node;
-    }
     virtual Node& exprLiteral(const HardValue& literal, const SourceRange& range) override {
       auto& node = this->module->createNode(Node::Kind::ExprLiteral, range);
       node.literal = literal;
+      return node;
+    }
+    virtual Node& exprFunctionCall(Node& function, const SourceRange& range) override {
+      auto& node = this->module->createNode(Node::Kind::ExprFunctionCall, range);
+      node.addChild(function);
+      return node;
+    }
+    virtual Node& exprVariableGet(const String& symbol, const SourceRange& range) override {
+      auto& node = this->module->createNode(Node::Kind::ExprVariableGet, range);
+      node.literal = this->createHardValueString(symbol);
       return node;
     }
     virtual Node& exprPropertyGet(Node& instance, Node& property, const SourceRange& range) override {
@@ -1215,9 +1279,32 @@ namespace {
       node.addChild(property);
       return node;
     }
-    virtual Node& exprFunctionCall(Node& function, const SourceRange& range) override {
-      auto& node = this->module->createNode(Node::Kind::ExprFunctionCall, range);
-      node.addChild(function);
+    virtual Node& exprIndexGet(Node& instance, Node& index, const SourceRange& range) override {
+      auto& node = this->module->createNode(Node::Kind::ExprIndexGet, range);
+      node.addChild(instance);
+      node.addChild(index);
+      return node;
+    }
+    virtual Node& exprPointeeGet(Node& pointer, const SourceRange& range) override {
+      auto& node = this->module->createNode(Node::Kind::ExprPointeeGet, range);
+      node.addChild(pointer);
+      return node;
+    }
+    virtual Node& exprVariableRef(const String& symbol, const SourceRange& range) override {
+      auto& node = this->module->createNode(Node::Kind::ExprVariableRef, range);
+      node.literal = this->createHardValueString(symbol);
+      return node;
+    }
+    virtual Node& exprPropertyRef(Node& instance, Node& property, const SourceRange& range) override {
+      auto& node = this->module->createNode(Node::Kind::ExprPropertyRef, range);
+      node.addChild(instance);
+      node.addChild(property);
+      return node;
+    }
+    virtual Node& exprIndexRef(Node& instance, Node& index, const SourceRange& range) override {
+      auto& node = this->module->createNode(Node::Kind::ExprIndexRef, range);
+      node.addChild(instance);
+      node.addChild(index);
       return node;
     }
     virtual Node& exprArray(const SourceRange& range) override {
@@ -1371,7 +1458,7 @@ namespace {
       node.addChild(value);
       return node;
     }
-    virtual Node& stmtPointerMutate(Node& instance, ValueMutationOp op, Node& value, const SourceRange& range) override {
+    virtual Node& stmtPointeeMutate(Node& instance, ValueMutationOp op, Node& value, const SourceRange& range) override {
       auto& node = this->module->createNode(Node::Kind::StmtPointerMutate, range);
       node.mutationOp = op;
       node.addChild(instance);
@@ -1764,7 +1851,17 @@ namespace {
       }
       return this->createHardValueString(String::fromUTF32(this->getAllocator(), &cp, 1));
     }
+    HardValue stringIndexRef(const String& string, const HardValue& index) {
+      auto value = this->stringIndexGet(string, index);
+      if (value.hasFlowControl()) {
+        return value;
+      }
+      auto pointer = ObjectFactory::createPointerToValue(this->vm, value, Modifiability::Read);
+      assert(pointer != nullptr);
+      return this->createHardValueObject(pointer);
+    }
     HardValue stringPropertyGet(const String& string, const HardValue& property) {
+      // TODO reference identity (i.e. 's.hash == s.hash' as opposed to 's.hash() == s.hash()'
       String name;
       if (!property->getString(name)) {
         return this->raiseRuntimeError("Expected right-hand side of string operator '.' to be a 'string', but instead got ", describe(property));
@@ -1795,18 +1892,32 @@ namespace {
       }
       return this->createHardValueObject(found->second(this->vm, string));
     }
+    HardValue stringPropertyRef(const String& string, const HardValue& property) {
+      auto value = this->stringPropertyGet(string, property);
+      if (value.hasFlowControl()) {
+        return value;
+      }
+      auto pointer = ObjectFactory::createPointerToValue(this->vm, value, Modifiability::Read);
+      assert(pointer != nullptr);
+      return this->createHardValueObject(pointer);
+    }
     HardValue typePropertyGet(const Type& type, const HardValue& property) {
       // TODO
       assert(type != nullptr);
       String name;
       if (!property->getString(name)) {
-        return this->raiseRuntimeError("Expected right-hand side of type operator '.', but instead got ", describe(property));
+        return this->raiseRuntimeError("Expected right-hand side of type operator '.' to be a property name, but instead got ", describe(property));
       }
       return this->raiseRuntimeError("Type '", *type, "' does not support the property '", name, "'");
     }
-    HardValue pointerMut(const HardValue&, ValueMutationOp, const HardValue&) {
-      // WIBBLE
-      return this->raiseRuntimeError("TODO: Pointer mutation not yet supported");
+    HardValue typePropertyRef(const Type& type, const HardValue& property) {
+      auto value = this->typePropertyGet(type, property);
+      if (value.hasFlowControl()) {
+        return value;
+      }
+      auto pointer = ObjectFactory::createPointerToValue(this->vm, value, Modifiability::Read);
+      assert(pointer != nullptr);
+      return this->createHardValueObject(pointer);
     }
   };
 
@@ -2240,8 +2351,12 @@ bool VMRunner::stepNode(HardValue& retval) {
       // Perform the current mutation
       assert(top.deque.size() == 2);
       auto& pointer = top.deque.front();
+      HardObject object;
+      if (!pointer->getHardObject(object)) {
+        return this->raise("Expected expression after pointer operator '*' to be an object, but instead got ", describe(pointer));
+      }
       auto& value = top.deque.back();
-      auto result = this->pointerMut(pointer, top.node->mutationOp, value);
+      auto result = object->vmPointeeMut(this->execution, top.node->mutationOp, value);
       return this->pop(result.hasFlowControl() ? result : HardValue::Void);
     }
     break;
@@ -2941,7 +3056,12 @@ bool VMRunner::stepNode(HardValue& retval) {
       return this->raise("Invalid predicate values");
     }
     break;
-  case IVMModule::Node::Kind::ExprVariable:
+  case IVMModule::Node::Kind::ExprLiteral:
+    assert(top.node->children.empty());
+    assert(top.index == 0);
+    assert(top.deque.empty());
+    return this->pop(top.node->literal);
+  case IVMModule::Node::Kind::ExprVariableGet:
     assert(top.node->children.empty());
     assert(top.index == 0);
     assert(top.deque.empty());
@@ -2964,11 +3084,83 @@ bool VMRunner::stepNode(HardValue& retval) {
       return this->pop(extant->value);
     }
     break;
-  case IVMModule::Node::Kind::ExprLiteral:
+  case IVMModule::Node::Kind::ExprVariableRef:
     assert(top.node->children.empty());
     assert(top.index == 0);
     assert(top.deque.empty());
-    return this->pop(top.node->literal);
+    {
+      String symbol;
+      if (!top.node->literal->getString(symbol)) {
+        return this->raise("Invalid program node literal for identifier");
+      }
+      auto extant = this->symtable.find(symbol);
+      if (extant == nullptr) {
+        return this->raise("Unknown identifier: '", symbol, "'");
+      }
+      auto modifiability = (extant->kind == VMSymbolTable::Kind::Builtin) ? Modifiability::Read : Modifiability::ReadWriteMutate;
+      auto pointer = ObjectFactory::createPointerToValue(this->vm, extant->value, modifiability);
+      assert(pointer != nullptr);
+      return this->pop(this->createHardValueObject(pointer));
+    }
+    break;
+  case IVMModule::Node::Kind::ExprIndexGet:
+    assert(top.node->literal->getVoid());
+    assert(top.node->children.size() == 2);
+    if (!top.deque.empty()) {
+      // Check the last evaluation
+      auto& latest = top.deque.back();
+      if (latest.hasFlowControl()) {
+        return this->pop(latest);
+      }
+    }
+    if (top.index < 2) {
+      // Assemble the arguments
+      this->push(*top.node->children[top.index++]);
+    } else {
+      // Perform the current fetch
+      assert(top.deque.size() == 2);
+      auto& lhs = top.deque.front();
+      auto& rhs = top.deque.back();
+      HardObject object;
+      if (lhs->getHardObject(object)) {
+        return this->pop(object->vmIndexGet(this->execution, rhs));
+      }
+      String string;
+      if (lhs->getString(string)) {
+        return this->pop(this->stringIndexGet(string, rhs));
+      }
+      return this->raise("Expected left-hand side of index operator '[]' to support indexing, but instead got ", describe(lhs));
+    }
+    break;
+  case IVMModule::Node::Kind::ExprIndexRef:
+    assert(top.node->literal->getVoid());
+    assert(top.node->children.size() == 2);
+    if (!top.deque.empty()) {
+      // Check the last evaluation
+      auto& latest = top.deque.back();
+      if (latest.hasFlowControl()) {
+        return this->pop(latest);
+      }
+    }
+    if (top.index < 2) {
+      // Assemble the arguments
+      this->push(*top.node->children[top.index++]);
+    } else {
+      // Perform the current fetch
+      assert(top.deque.size() == 2);
+      auto& lhs = top.deque.front();
+      auto& rhs = top.deque.back();
+      HardObject object;
+      if (lhs->getHardObject(object)) {
+        return this->pop(object->vmIndexRef(this->execution, rhs));
+      }
+      String string;
+      if (lhs->getString(string)) {
+        return this->pop(this->stringIndexRef(string, rhs));
+      }
+      return this->raise("Expected left-hand side of index operator '[]' to support indexing, but instead got ", describe(lhs));
+    }
+    break;
   case IVMModule::Node::Kind::ExprPropertyGet:
     assert(top.node->literal->getVoid());
     assert(top.node->children.size() == 2);
@@ -3002,7 +3194,7 @@ bool VMRunner::stepNode(HardValue& retval) {
       return this->raise("Expected left-hand side of property operator '.' to support properties, but instead got ", describe(lhs));
     }
     break;
-  case IVMModule::Node::Kind::ExprIndexGet:
+  case IVMModule::Node::Kind::ExprPropertyRef:
     assert(top.node->literal->getVoid());
     assert(top.node->children.size() == 2);
     if (!top.deque.empty()) {
@@ -3016,19 +3208,47 @@ bool VMRunner::stepNode(HardValue& retval) {
       // Assemble the arguments
       this->push(*top.node->children[top.index++]);
     } else {
-      // Perform the current fetch
+      // Perform the property fetch
       assert(top.deque.size() == 2);
       auto& lhs = top.deque.front();
       auto& rhs = top.deque.back();
       HardObject object;
       if (lhs->getHardObject(object)) {
-        return this->pop(object->vmIndexGet(this->execution, rhs));
+        return this->pop(object->vmPropertyRef(this->execution, rhs));
       }
       String string;
       if (lhs->getString(string)) {
-        return this->pop(this->stringIndexGet(string, rhs));
+        return this->pop(this->stringPropertyRef(string, rhs));
       }
-      return this->raise("Expected left-hand side of index operator '[]' to be a 'string', but instead got ", describe(lhs));
+      Type type;
+      if (lhs->getHardType(type)) {
+        return this->pop(this->typePropertyRef(type, rhs));
+      }
+      return this->raise("Expected left-hand side of property operator '.' to support properties, but instead got ", describe(lhs));
+    }
+    break;
+  case IVMModule::Node::Kind::ExprPointeeGet:
+    assert(top.node->literal->getVoid());
+    assert(top.node->children.size() == 1);
+    if (!top.deque.empty()) {
+      // Check the last evaluation
+      auto& latest = top.deque.back();
+      if (latest.hasFlowControl()) {
+        return this->pop(latest);
+      }
+    }
+    if (top.index < 1) {
+      // Assemble the arguments
+      this->push(*top.node->children[top.index++]);
+    } else {
+      // Perform the current fetch
+      assert(top.deque.size() == 1);
+      auto& pointer = top.deque.front();
+      HardObject object;
+      if (pointer->getHardObject(object)) {
+        return this->pop(object->vmPointeeGet(this->execution));
+      }
+      return this->raise("Expected expression after pointer operator '*' to be a pointer, but instead got ", describe(pointer));
     }
     break;
   case IVMModule::Node::Kind::ExprArray:
