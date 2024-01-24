@@ -12,4 +12,4 @@ while (var i = countdown(&counter)) {
   assert(type.of(i) == "int");
   print(i);
 }
-///<RUNTIME><ERROR><RESOURCE>(11,26): Type mismatch for parameter 'p': Expected 'int*', but got 'float*' instead
+///<RUNTIME><ERROR><RESOURCE>(11,26-33): Type mismatch for parameter 'p': Expected 'int*', but instead got a value of type 'float*'

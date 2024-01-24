@@ -380,7 +380,7 @@ namespace {
       auto& allocator = this->vm.getAllocator();
       return ValueFactory::createHardThrow(allocator, inner);
     }
-    virtual HardValue raiseRuntimeError(const String& message) override;
+    virtual HardValue raiseRuntimeError(const String& message, const SourceRange* source) override;
     virtual HardValue initiateTailCall(const IFunctionSignature& signature, const ICallArguments& arguments, const IVMModule::Node& block) override;
     virtual bool assignValue(HardValue& lhs, const Type& ltype, const HardValue& rhs) override {
       // Assign with int-to-float promotion
@@ -460,7 +460,7 @@ namespace {
         if (value->getInner(inner)) {
           String message;
           if (inner->getString(message)) {
-            return this->raiseRuntimeError(message);
+            return this->raiseRuntimeError(message, nullptr);
           }
         }
       }
@@ -910,7 +910,7 @@ namespace {
       EGG_WARNING_SUPPRESS_SWITCH_END
       return false;
     }
-    HardPtr<IObjectBuilder> createRuntimeErrorBuilder(const String& message);
+    HardPtr<IObjectBuilder> createRuntimeErrorBuilder(const String& message, const SourceRange* source = nullptr);
   };
 
   class VMTypeDeducer {
@@ -1559,7 +1559,7 @@ namespace {
         sb << "Missing function signature in '";
         sb.describe(*ftype);
         sb << "'";
-        return execution.raiseRuntimeError(sb.build(this->vm.getAllocator()));
+        return execution.raiseRuntimeError(sb.build(this->vm.getAllocator()), nullptr);
       }
       return execution.initiateTailCall(*signature, arguments, block);
     }
@@ -1620,21 +1620,25 @@ namespace {
       }
       return RunOutcome::Succeeded;
     }
-    HardPtr<IVMCallStack> getCallStack() const {
+    HardPtr<IVMCallStack> getCallStack(const SourceRange* source) const {
       // TODO full stack chain
       assert(!this->stack.empty());
       const auto* top = this->stack.top().node;
       assert(top != nullptr);
       auto callstack{ this->vm.getAllocator().makeHard<VMCallStack>() };
       callstack->resource = top->module.getResource();
-      callstack->range = top->range;
+      if (source != nullptr) {
+        callstack->range = *source;
+      } else {
+        callstack->range = top->range;
+      }
       // TODO callstack->function
       return callstack;
     }
     template<typename... ARGS>
     HardValue raiseRuntimeError(ARGS&&... args) {
       auto message = this->execution.concat(std::forward<ARGS>(args)...);
-      return this->execution.raiseRuntimeError(message);
+      return this->execution.raiseRuntimeError(message, nullptr);
     }
     HardValue initiateTailCall(const IFunctionSignature& signature, const ICallArguments& arguments, const IVMModule::Node& invoke) {
       // We need to set the argument symbols and initiate the execution of the block
@@ -1646,7 +1650,7 @@ namespace {
       for (size_t index = 0; index < signature.getParameterCount(); ++index) {
         // TODO optional/variadic arguments
         HardValue value;
-        if (!arguments.getArgumentByIndex(index, value)) {
+        if (!arguments.getArgumentValueByIndex(index, value)) {
           return this->raiseRuntimeError("Argument count mismatch"); // TODO
         }
         auto& parameter = signature.getParameter(index);
@@ -1654,16 +1658,21 @@ namespace {
         auto ptype = parameter.getType();
         HardValue poly{ *this->vm.createSoftValue() };
         if (!this->execution.assignValue(poly, ptype, value)) {
-          return this->raiseRuntimeError("Type mismatch in argument '", pname, "': expected '", ptype, "' but instead got ", describe(value));
+          auto message = this->execution.concat("Type mismatch for parameter '", pname, "': Expected '", ptype, "', but instead got ", describe(value));
+          SourceRange source;
+          if (arguments.getArgumentSourceByIndex(index, source)) {
+            return this->execution.raiseRuntimeError(message, &source);
+          }
+          return this->execution.raiseRuntimeError(message, nullptr);
         }
         auto* extant = this->symtable.add(VMSymbolTable::Kind::Variable, pname, ptype, poly);
         if (extant != nullptr) {
           switch (extant->kind) {
           case VMSymbolTable::Kind::Unset:
           case VMSymbolTable::Kind::Variable:
-            return this->raiseRuntimeError("Argument symbol already declared: '", pname, "'");
+            return this->raiseRuntimeError("Parameter symbol already declared: '", pname, "'");
           case VMSymbolTable::Kind::Builtin:
-            return this->raiseRuntimeError("Argument symbol already declared as a builtin: '", pname, "'");
+            return this->raiseRuntimeError("Parameter symbol already declared as a builtin: '", pname, "'");
           }
         }
       }
@@ -1794,8 +1803,9 @@ namespace {
       extant->kind = VMSymbolTable::Kind::Variable;
       return HardValue::True;
     }
-    HardValue arrayConstruct(const std::deque<HardValue>& elements) {
+    HardValue arrayConstruct(const std::deque<HardValue>& elements, const std::vector<IVMModule::Node*>& mnodes) {
       // TODO: support '...' inclusion
+      assert(elements.size() == mnodes.size());
       auto array = ObjectFactory::createVanillaArray(this->vm);
       assert(array != nullptr);
       if (!elements.empty()) {
@@ -1804,10 +1814,11 @@ namespace {
         if (!push->getHardObject(pusher)) {
           return this->raiseRuntimeError("Vanilla array does not have 'push()' property");
         }
+        auto mnode = mnodes.cbegin();
         for (const auto& element : elements) {
           // OPTIMIZE
           CallArguments arguments;
-          arguments.addUnnamed(element);
+          arguments.addUnnamed(element, &(*mnode++)->range);
           auto retval = pusher->vmCall(this->execution, arguments);
           if (retval.hasFlowControl()) {
             return retval;
@@ -2929,10 +2940,11 @@ bool VMRunner::stepNode(HardValue& retval) {
         return this->raise("Function calls are not supported by ", describe(head));
       }
       top.deque.pop_front();
+      auto mnode = top.node->children.cbegin();
       CallArguments arguments;
       for (auto& argument : top.deque) {
         // TODO support named arguments
-        arguments.addUnnamed(argument);
+        arguments.addUnnamed(argument, &(*++mnode)->range);
       }
       auto result = function->vmCall(this->execution, arguments);
       if (result->getPrimitiveFlag() == ValueFlags::Continue) {
@@ -3265,7 +3277,7 @@ bool VMRunner::stepNode(HardValue& retval) {
       this->push(*top.node->children[top.index++]);
     } else {
       // Construct the array
-      return this->pop(this->arrayConstruct(top.deque));
+      return this->pop(this->arrayConstruct(top.deque, top.node->children));
     }
     break;
   case IVMModule::Node::Kind::ExprObject:
@@ -3370,13 +3382,13 @@ HardPtr<IVMRunner> VMProgram::createRunner() {
   return this->modules.front()->createRunner(*this);
 }
 
-HardPtr<IObjectBuilder> VMExecution::createRuntimeErrorBuilder(const String& message) {
+HardPtr<IObjectBuilder> VMExecution::createRuntimeErrorBuilder(const String& message, const SourceRange* source) {
   assert(this->runner != nullptr);
-  return ObjectFactory::createRuntimeErrorBuilder(this->vm, message, this->runner->getCallStack());
+  return ObjectFactory::createRuntimeErrorBuilder(this->vm, message, this->runner->getCallStack(source));
 }
 
-HardValue VMExecution::raiseRuntimeError(const String& message) {
-  auto builder = this->createRuntimeErrorBuilder(message);
+HardValue VMExecution::raiseRuntimeError(const String& message, const SourceRange* source) {
+  auto builder = this->createRuntimeErrorBuilder(message, source);
   assert(builder != nullptr);
   return this->raiseException(this->createHardValueObject(builder->build()));
 }

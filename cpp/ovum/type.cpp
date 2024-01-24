@@ -466,7 +466,7 @@ namespace {
         precedence(std::move(rhs.precedence)) {
     }
     virtual int print(Printer& printer) const override {
-      printer << this->description;
+      printer.stream << this->description.toUTF8();
       return this->precedence;
     }
     size_t cacheHash() const {

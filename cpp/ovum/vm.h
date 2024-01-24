@@ -106,7 +106,7 @@ namespace egg::ovum {
   public:
     // Exceptions
     virtual HardValue raiseException(const HardValue& inner) = 0;
-    virtual HardValue raiseRuntimeError(const String& message) = 0;
+    virtual HardValue raiseRuntimeError(const String& message, const SourceRange* source) = 0;
     // Assignment
     virtual bool assignValue(HardValue& lhs, const Type& ltype, const HardValue& rhs) = 0;
     // Function calls

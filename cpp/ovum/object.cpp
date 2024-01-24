@@ -29,14 +29,14 @@ namespace {
     HardValue raiseRuntimeError(IVMExecution& execution, ARGS&&... args) {
       // TODO: Non-string exception?
       auto message = StringBuilder::concat(this->vm.getAllocator(), std::forward<ARGS>(args)...);
-      return execution.raiseRuntimeError(message);
+      return execution.raiseRuntimeError(message, nullptr);
     }
     template<typename... ARGS>
     HardValue raisePrefixError(IVMExecution& execution, ARGS&&... args) {
       StringBuilder sb;
       this->printPrefix(sb);
       sb.add(std::forward<ARGS>(args)...);
-      return execution.raiseRuntimeError(sb.build(this->vm.getAllocator()));
+      return execution.raiseRuntimeError(sb.build(this->vm.getAllocator()), nullptr);
     }
     virtual void printPrefix(Printer& printer) const = 0;
   public:
@@ -124,11 +124,16 @@ namespace {
       }
       HardValue value;
       Bool success = false;
-      if (!arguments.getArgumentByIndex(0, value) || !value->getBool(success)) {
+      if (!arguments.getArgumentValueByIndex(0, value) || !value->getBool(success)) {
         return this->raisePrefixError(execution, " expects a 'bool' argument, but instead got ", describe(value.get()));
       }
       if (!success) {
-        return this->raiseRuntimeError(execution, "Assertion failure");
+        auto message = StringBuilder::concat(this->vm.getAllocator(), "Assertion failure");
+        SourceRange source;
+        if (arguments.getArgumentSourceByIndex(0, source)) {
+          return execution.raiseRuntimeError(message, &source);
+        }
+        return execution.raiseRuntimeError(message, nullptr);
       }
       return HardValue::Void;
     }
@@ -162,7 +167,7 @@ namespace {
       String name;
       HardValue value;
       for (size_t i = 0; i < n; ++i) {
-        if (!arguments.getArgumentByIndex(i, value, &name) || !name.empty()) {
+        if (!arguments.getArgumentValueByIndex(i, value) || arguments.getArgumentNameByIndex(i, name)) {
           return this->raisePrefixError(execution, " expects unnamed arguments");
         }
         sb.add(value);
@@ -272,7 +277,7 @@ namespace {
     }
     virtual HardValue vmCall(IVMExecution& execution, const ICallArguments& arguments) override {
       if (arguments.getArgumentCount() != 0) {
-        return this->raiseRuntimeError(execution, "Builtin 'expando()' expects no arguments");
+        return this->raisePrefixError(execution, " expects no arguments");
       }
       auto instance = makeHardObject<VMObjectExpando>(this->vm);
       return execution.createHardValueObject(instance);
@@ -303,7 +308,7 @@ namespace {
     }
     virtual HardValue vmCall(IVMExecution& execution, const ICallArguments& arguments) override {
       if (arguments.getArgumentCount() != 0) {
-        return this->raiseRuntimeError(execution, "Builtin 'collector()' expects no arguments");
+        return this->raisePrefixError(execution, " expects no arguments");
       }
       auto collected = this->vm.getBasket().collect();
       return execution.createHardValueInt(Int(collected));
@@ -591,7 +596,7 @@ namespace {
     HardValue vmCallPush(IVMExecution& execution, const ICallArguments& arguments) {
       VMObjectVanillaMutex::WriteLock lock{ this->mutex };
       HardValue argument;
-      for (size_t index = 0; arguments.getArgumentByIndex(index, argument); ++index) {
+      for (size_t index = 0; arguments.getArgumentValueByIndex(index, argument); ++index) {
         auto& added = this->elements.emplace_back(this->vm);
         if (!added->set(argument.get())) {
           return this->raiseRuntimeError(execution, "Cannot push value to the end of the array");
@@ -1022,7 +1027,7 @@ namespace {
     }
     virtual HardValue vmCall(IVMExecution& execution, const ICallArguments& arguments) override {
       HardValue argument;
-      if ((arguments.getArgumentCount() != 1) || !arguments.getArgumentByIndex(0, argument)) {
+      if ((arguments.getArgumentCount() != 1) || !arguments.getArgumentValueByIndex(0, argument)) {
         return this->raisePrefixError(execution, " expects one argument");
       }
       String other;
@@ -1046,7 +1051,7 @@ namespace {
     }
     virtual HardValue vmCall(IVMExecution& execution, const ICallArguments& arguments) override {
       HardValue argument;
-      if ((arguments.getArgumentCount() != 1) || !arguments.getArgumentByIndex(0, argument)) {
+      if ((arguments.getArgumentCount() != 1) || !arguments.getArgumentValueByIndex(0, argument)) {
         return this->raisePrefixError(execution, " expects one argument");
       }
       String needle;
@@ -1070,7 +1075,7 @@ namespace {
     }
     virtual HardValue vmCall(IVMExecution& execution, const ICallArguments& arguments) override {
       HardValue argument;
-      if ((arguments.getArgumentCount() != 1) || !arguments.getArgumentByIndex(0, argument)) {
+      if ((arguments.getArgumentCount() != 1) || !arguments.getArgumentValueByIndex(0, argument)) {
         return this->raisePrefixError(execution, " expects one argument");
       }
       String needle;
@@ -1118,11 +1123,11 @@ namespace {
       }
       HardValue argument;
       String needle;
-      if (!arguments.getArgumentByIndex(0, argument) || !argument->getString(needle)) {
+      if (!arguments.getArgumentValueByIndex(0, argument) || !argument->getString(needle)) {
         return this->raisePrefixError(execution, " expects its first argument to be a 'string', but instead got ", describe(argument.get()));
       }
       Int retval;
-      if (arguments.getArgumentByIndex(1, argument)) {
+      if (arguments.getArgumentValueByIndex(1, argument)) {
         Int fromIndex;
         if (!argument->getInt(fromIndex)) {
           return this->raisePrefixError(execution, " expects its optional second argument to be an 'int', but instead got ", describe(argument.get()));
@@ -1156,7 +1161,7 @@ namespace {
       // OPTIMIZE
       StringBuilder sb;
       HardValue argument;
-      for (size_t index = 0; arguments.getArgumentByIndex(index, argument); ++index) {
+      for (size_t index = 0; arguments.getArgumentValueByIndex(index, argument); ++index) {
         if (index > 0) {
           sb.add(this->instance);
         }
@@ -1184,11 +1189,11 @@ namespace {
       }
       HardValue argument;
       String needle;
-      if (!arguments.getArgumentByIndex(0, argument) || !argument->getString(needle)) {
+      if (!arguments.getArgumentValueByIndex(0, argument) || !argument->getString(needle)) {
         return this->raisePrefixError(execution, " expects its first argument to be a 'string', but instead got ", describe(argument.get()));
       }
       Int retval;
-      if (arguments.getArgumentByIndex(1, argument)) {
+      if (arguments.getArgumentValueByIndex(1, argument)) {
         Int fromIndex;
         if (!argument->getInt(fromIndex)) {
           return this->raisePrefixError(execution, " expects its optional second argument to be an 'int', but instead got ", describe(argument.get()));
@@ -1225,13 +1230,13 @@ namespace {
       }
       HardValue argument;
       Int target;
-      if (!arguments.getArgumentByIndex(0, argument) || !argument->getInt(target)) {
+      if (!arguments.getArgumentValueByIndex(0, argument) || !argument->getInt(target)) {
         return this->raisePrefixError(execution, " expects its first argument to be an 'int', but instead got ", describe(argument.get()));
       }
       if (target < 0) {
         return this->raisePrefixError(execution, " expects its first argument to be a non-negative integer, but instead got ", target);
       }
-      if (arguments.getArgumentByIndex(1, argument)) {
+      if (arguments.getArgumentValueByIndex(1, argument)) {
         String padding;
         if (!argument->getString(padding)) {
           return this->raisePrefixError(execution, " expects its optional second argument to be a 'string', but instead got ", describe(argument.get()));
@@ -1260,13 +1265,13 @@ namespace {
       }
       HardValue argument;
       Int target;
-      if (!arguments.getArgumentByIndex(0, argument) || !argument->getInt(target)) {
+      if (!arguments.getArgumentValueByIndex(0, argument) || !argument->getInt(target)) {
         return this->raisePrefixError(execution, " expects its first argument to be an 'int', but instead got ", describe(argument.get()));
       }
       if (target < 0) {
         return this->raisePrefixError(execution, " expects its first argument to be a non-negative integer, but instead got ", target);
       }
-      if (arguments.getArgumentByIndex(1, argument)) {
+      if (arguments.getArgumentValueByIndex(1, argument)) {
         String padding;
         if (!argument->getString(padding)) {
           return this->raisePrefixError(execution, " expects its optional second argument to be a 'string', but instead got ", describe(argument.get()));
@@ -1290,7 +1295,7 @@ namespace {
     }
     virtual HardValue vmCall(IVMExecution& execution, const ICallArguments& arguments) override {
       HardValue argument;
-      if ((arguments.getArgumentCount() != 1) || !arguments.getArgumentByIndex(0, argument)) {
+      if ((arguments.getArgumentCount() != 1) || !arguments.getArgumentValueByIndex(0, argument)) {
         return this->raisePrefixError(execution, " expects one argument");
       }
       Int count;
@@ -1322,15 +1327,15 @@ namespace {
       }
       HardValue argument;
       String needle;
-      if (!arguments.getArgumentByIndex(0, argument) || !argument->getString(needle)) {
+      if (!arguments.getArgumentValueByIndex(0, argument) || !argument->getString(needle)) {
         return this->raisePrefixError(execution, " expects its first argument to be a 'string', but instead got ", describe(argument.get()));
       }
       String replacement;
-      if (!arguments.getArgumentByIndex(1, argument) || !argument->getString(replacement)) {
+      if (!arguments.getArgumentValueByIndex(1, argument) || !argument->getString(replacement)) {
         return this->raisePrefixError(execution, " expects its second argument to be a 'string', but instead got ", describe(argument.get()));
       }
       Int occurrences = std::numeric_limits<Int>::max();
-      if (arguments.getArgumentByIndex(2, argument)) {
+      if (arguments.getArgumentValueByIndex(2, argument)) {
         if (!argument->getInt(occurrences)) {
           return this->raisePrefixError(execution, " expects its optional third argument to be an 'int', but instead got ", describe(argument.get()));
         }
@@ -1357,11 +1362,11 @@ namespace {
       }
       HardValue argument;
       Int begin;
-      if (!arguments.getArgumentByIndex(0, argument) || !argument->getInt(begin)) {
+      if (!arguments.getArgumentValueByIndex(0, argument) || !argument->getInt(begin)) {
         return this->raisePrefixError(execution, " expects its first argument to be an 'int', but instead got ", describe(argument.get()));
       }
       Int end = std::numeric_limits<Int>::max();
-      if (arguments.getArgumentByIndex(1, argument)) {
+      if (arguments.getArgumentValueByIndex(1, argument)) {
         if (!argument->getInt(end)) {
           return this->raisePrefixError(execution, " expects its optional second argument to be an 'int', but instead got ", describe(argument.get()));
         }
@@ -1383,7 +1388,7 @@ namespace {
     }
     virtual HardValue vmCall(IVMExecution& execution, const ICallArguments& arguments) override {
       HardValue argument;
-      if ((arguments.getArgumentCount() != 1) || !arguments.getArgumentByIndex(0, argument)) {
+      if ((arguments.getArgumentCount() != 1) || !arguments.getArgumentValueByIndex(0, argument)) {
         return this->raisePrefixError(execution, " expects one argument");
       }
       String needle;
@@ -1524,7 +1529,7 @@ namespace {
         return this->raiseRuntimeError(execution, "'type.of()' expects exactly one argument");
       }
       HardValue value;
-      if (arguments.getArgumentByIndex(0, value)) {
+      if (arguments.getArgumentValueByIndex(0, value)) {
         // TODO better option allocation
         StringBuilder sb;
         Print::Options options;
@@ -1611,7 +1616,7 @@ namespace {
       size_t count = arguments.getArgumentCount();
       for (size_t index = 0; index < count; ++index) {
         HardValue value;
-        if (arguments.getArgumentByIndex(index, value)) {
+        if (arguments.getArgumentValueByIndex(index, value)) {
           sb.add(value);
         }
       }

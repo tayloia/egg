@@ -7,6 +7,7 @@ namespace egg::ovum {
   template<typename T> class HardPtr;
   enum class ValueFlags;
   struct SourceLocation;
+  struct SourceRange;
   class Printer;
   class String;
   class Type;
@@ -234,7 +235,9 @@ namespace egg::ovum {
     // Interface
     virtual ~ICallArguments() {}
     virtual size_t getArgumentCount() const = 0;
-    virtual bool getArgumentByIndex(size_t index, HardValue& value, String* name = nullptr) const = 0;
+    virtual bool getArgumentValueByIndex(size_t index, HardValue& value) const = 0;
+    virtual bool getArgumentNameByIndex(size_t index, String& value) const = 0;
+    virtual bool getArgumentSourceByIndex(size_t index, SourceRange& value) const = 0;
   };
 
   class IObject : public ICollectable {
