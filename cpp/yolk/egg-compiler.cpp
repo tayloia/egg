@@ -167,6 +167,7 @@ namespace {
     bool checkValueExprTernary(egg::ovum::ValueTernaryOp op, ModuleNode& lhs, ModuleNode& mid, ModuleNode& rhs, ParserNode& pnode, const ExprContext& context);
     egg::ovum::Type literalType(ParserNode& pnode);
     egg::ovum::Type forgeType(ParserNode& pnode);
+    egg::ovum::Type forgeTypeFunctionSignature(ParserNode& pnode);
     egg::ovum::Type deduceType(ModuleNode& mnode, const ExprContext& context) {
       return this->mbuilder.deduce(mnode, context, this);
     }
@@ -1626,20 +1627,65 @@ egg::ovum::Type ModuleCompiler::forgeType(ParserNode& pnode) {
     if (inner == nullptr) {
       return nullptr;
     }
+    auto& forge = this->vm.getTypeForge();
     switch (pnode.op.typeUnaryOp) {
     case egg::ovum::TypeUnaryOp::Array:
-      return this->vm.getTypeForge().forgeArrayType(inner, egg::ovum::Modifiability::All);
+      return forge.forgeArrayType(inner, egg::ovum::Modifiability::All);
     case egg::ovum::TypeUnaryOp::Iterator:
-      return this->vm.getTypeForge().forgeIteratorType(inner);
+      return forge.forgeIteratorType(inner);
     case egg::ovum::TypeUnaryOp::Nullable:
-      return this->vm.getTypeForge().forgeNullableType(inner, true);
+      return forge.forgeNullableType(inner, true);
     case egg::ovum::TypeUnaryOp::Pointer:
-      return this->vm.getTypeForge().forgePointerType(inner, egg::ovum::Modifiability::ReadWriteMutate);
+      return forge.forgePointerType(inner, egg::ovum::Modifiability::ReadWriteMutate);
     }
+  }
+  if (pnode.kind == ParserNode::Kind::TypeFunctionSignature) {
+    return this->forgeTypeFunctionSignature(pnode);
   }
   // TODO
   assert(false);
   return nullptr;
+}
+
+egg::ovum::Type ModuleCompiler::forgeTypeFunctionSignature(ParserNode& pnode) {
+  assert(pnode.kind == ParserNode::Kind::TypeFunctionSignature);
+  assert(pnode.children.size() >= 1);
+  auto& forge = this->vm.getTypeForge();
+  auto fb = forge.createFunctionBuilder();
+  assert(fb != nullptr);
+  egg::ovum::String symbol;
+  if (pnode.value->getString(symbol)) {
+    fb->setFunctionName(symbol);
+  }
+  auto& rnode = *pnode.children.front();
+  auto rtype = this->forgeType(rnode);
+  if (rtype == nullptr) {
+    this->error(pnode, "Expected function return type, but instead got ", ModuleCompiler::toString(rnode));
+    return nullptr;
+  }
+  fb->setReturnType(rtype);
+  for (size_t index = 1; index < pnode.children.size(); ++index) {
+    auto& pchild = *pnode.children[index];
+    assert(pchild.kind == ParserNode::Kind::TypeFunctionSignatureParameter);
+    assert(pchild.children.size() == 1);
+    egg::ovum::String pname;
+    (void)pchild.value->getString(pname);
+    auto ptype = this->forgeType(*pchild.children.front());
+    if (ptype == nullptr) {
+      return nullptr;
+    }
+    switch (pchild.op.parameterOp) {
+    case ParserNode::ParameterOp::Required:
+      fb->addRequiredParameter(ptype, pname);
+      break;
+    case ParserNode::ParameterOp::Optional:
+    default:
+      fb->addOptionalParameter(ptype, pname);
+      break;
+    }
+  }
+  auto& signature = fb->build();
+  return forge.forgeFunctionType(signature);
 }
 
 std::string ModuleCompiler::toString(const ParserNode& pnode) {

@@ -245,3 +245,29 @@ TEST(TestType, ForgeComplexArithmeticPointer) {
   ASSERT_STRING("(float|int)*", forge.toTypeString(built));
 }
 
+TEST(TestType, ForgeFunctionTwice) {
+  TestForge forge;
+  auto fb1 = forge->createFunctionBuilder();
+  fb1->setReturnType(forge->forgeNullableType(Type::Int, true));
+  auto& fs1 = fb1->build();
+  ASSERT_STRING("int?()", forge.toTypeString(fs1));
+  auto fb2 = forge->createFunctionBuilder();
+  fb2->setFunctionName(forge.makeName("fname")); // shouldn't be involved in matching
+  fb2->setReturnType(forge->forgeNullableType(Type::Int, true));
+  auto& fs2 = fb2->build();
+  ASSERT_STRING("int? fname()", forge.toTypeString(fs2));
+  ASSERT_NE(&fs1, &fs2);
+  ASSERT_EQ(Assignability::Always, forge->isFunctionSignatureAssignable(fs1, fs2));
+  ASSERT_EQ(Assignability::Always, forge->isFunctionSignatureAssignable(fs2, fs1));
+  auto shape1 = forge->forgeFunctionShape(fs1);
+  auto shape2 = forge->forgeFunctionShape(fs2);
+  ASSERT_NE(&shape1.get(), &shape2.get());
+  auto type1 = forge->forgeFunctionType(fs1);
+  ASSERT_STRING("int?()", forge.toTypeString(type1));
+  auto type2 = forge->forgeFunctionType(fs2);
+  ASSERT_STRING("int?()", forge.toTypeString(type2));
+  ASSERT_NE(type1.get(), type2.get());
+  ASSERT_NE(type1, type2);
+  ASSERT_EQ(Assignability::Always, forge->isTypeAssignable(type1, type2));
+  ASSERT_EQ(Assignability::Always, forge->isTypeAssignable(type2, type1));
+}

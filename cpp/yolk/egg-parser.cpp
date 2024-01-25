@@ -1029,6 +1029,18 @@ namespace {
             partial.node->op.typeBinaryOp = egg::ovum::TypeBinaryOp::Map;
             partial.tokensAfter = index.tokensAfter + 1;
           }
+        } else if (next.isOperator(EggTokenizerOperator::ParenthesisLeft)) {
+          auto& last = partial.after(1);
+          if (last.isOperator(EggTokenizerOperator::ParenthesisRight)) {
+            // type()
+            partial.wrap(Node::Kind::TypeFunctionSignature);
+            partial.node->range.end = { last.line, last.column + 1 };
+            partial.node->op.typeUnaryOp = egg::ovum::TypeUnaryOp::Array;
+            partial.tokensAfter += 2;
+          } else {
+            // type(...) WIBBLE
+            return context.expected(partial.tokensAfter + 1, "')' WIBBLE");
+          }
         } else {
           break;
         }

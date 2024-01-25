@@ -5,6 +5,55 @@
 namespace {
   using namespace egg::ovum;
 
+  Assignability assignabilityIntersection(Assignability a, Assignability b) {
+    // Never * Never = Never
+    // Never * Sometimes = Never
+    // Never * Always = Never
+    // Sometimes * Never = Never
+    // Sometimes * Sometimes = Sometimes
+    // Sometimes * Always = Sometimes
+    // Always * Never = Never
+    // Always * Sometimes = Sometimes
+    // Always * Always = Always
+    if ((a == Assignability::Never) || (b == Assignability::Never)) {
+      return Assignability::Never;
+    }
+    if ((a == Assignability::Always) && (b == Assignability::Always)) {
+      return Assignability::Always;
+    }
+    return Assignability::Sometimes;
+  }
+
+  Assignability assignabilityUnion(Assignability a, Assignability b) {
+    // Never + Never = Never
+    // Never + Sometimes = Sometimes
+    // Never + Always = Sometimes
+    // Sometimes + Never = Sometimes
+    // Sometimes + Sometimes = Sometimes
+    // Sometimes + Always = Sometimes
+    // Always + Never = Sometimes
+    // Always + Sometimes = Sometimes
+    // Always + Always = Always
+    if (a == b) {
+      return a;
+    }
+    return Assignability::Sometimes;
+  }
+
+  Assignability assignabilityFromModifiability(Modifiability dst, Modifiability src) {
+    auto d = Bits::underlying(dst);
+    auto s = Bits::underlying(src);
+    if ((d & s) == s) {
+      // All source bits are supported by destination
+      return Assignability::Always;
+    }
+    if ((d & s) == 0) {
+      // No source bits are supported by destination
+      return Assignability::Never;
+    }
+    return Assignability::Sometimes;
+  }
+
   class TypeForgeDefault;
 
   template<typename T>
@@ -197,11 +246,16 @@ namespace {
     }
     size_t cacheHash() const {
       Hash hash;
-      hash.add(this->callable).add(this->dotable).add(this->indexable).add(this->iterable).add(this->pointable);
+      hash.add(this->callable).add(this->dotable).add(this->indexable).add(this->iterable).add(this->pointable).add(this->taggable);
       return hash;
     }
     static bool cacheEquals(const TypeForgeShape& lhs, const TypeForgeShape& rhs) {
-      return (lhs.callable == rhs.callable) && (lhs.dotable == rhs.dotable) && (lhs.indexable == rhs.indexable) && (lhs.iterable == rhs.iterable) && (lhs.pointable == rhs.pointable);
+      return (lhs.callable == rhs.callable)
+          && (lhs.dotable == rhs.dotable)
+          && (lhs.indexable == rhs.indexable)
+          && (lhs.iterable == rhs.iterable)
+          && (lhs.pointable == rhs.pointable)
+          && (lhs.taggable == rhs.taggable);
     }
   };
 
@@ -974,12 +1028,130 @@ namespace {
       if (!src->isPrimitive()) {
         fsrc = fsrc | ValueFlags::Object;
       }
-      auto result = this->computeTypeAssignabilityFlags(fdst, fsrc);
-      if (src->isPrimitive()) {
-        return result;
+      auto assignabilityPrimitive = this->computeTypeAssignabilityFlags(fdst, fsrc);
+      if (dst->isPrimitive() || src->isPrimitive()) {
+        return assignabilityPrimitive;
       }
-      // TODO complex assignability
-      return Assignability::Never;
+      auto assignabilityComplex = this->computeTypeAssignabilityComplexComplex(*dst, *src);
+      if (fdst == ValueFlags::None) {
+        assert(assignabilityPrimitive == Assignability::Never);
+        return this->computeTypeAssignabilityComplexComplex(*dst, *src);
+      }
+      return assignabilityUnion(assignabilityPrimitive, assignabilityComplex);
+    }
+    Assignability computeTypeAssignabilityComplexComplex(const IType& dst, const IType& src) {
+      auto hasAlways = false;
+      auto hasNever = false;
+      auto count = dst.getShapeCount();
+      assert(count > 0);
+      for (size_t index = 0; index < count; ++index) {
+        auto* shape = dst.getShape(index);
+        assert(shape != nullptr);
+        switch (this->computeTypeAssignabilityShapeComplex(*shape, src)) {
+        case Assignability::Never:
+          if (hasAlways) {
+            return Assignability::Sometimes;
+          }
+          hasNever = true;
+          break;
+        case Assignability::Sometimes:
+          return Assignability::Sometimes;
+        case Assignability::Always:
+          if (hasNever) {
+            return Assignability::Sometimes;
+          }
+          hasAlways = true;
+          break;
+        }
+      }
+      assert(hasAlways ^ hasNever);
+      return hasAlways ? Assignability::Always : Assignability::Never;
+    }
+    Assignability computeTypeAssignabilityShapeComplex(const IType::Shape& dst, const IType& src) {
+      auto hasAlways = false;
+      auto hasNever = false;
+      auto count = src.getShapeCount();
+      assert(count > 0);
+      for (size_t index = 0; index < count; ++index) {
+        auto* shape = src.getShape(index);
+        assert(shape != nullptr);
+        switch (this->computeTypeAssignabilityShapeShape(dst, *shape)) {
+        case Assignability::Never:
+          if (hasAlways) {
+            return Assignability::Sometimes;
+          }
+          hasNever = true;
+          break;
+        case Assignability::Sometimes:
+          return Assignability::Sometimes;
+        case Assignability::Always:
+          if (hasNever) {
+            return Assignability::Sometimes;
+          }
+          hasAlways = true;
+          break;
+        }
+      }
+      assert(hasAlways ^ hasNever);
+      return hasAlways ? Assignability::Always : Assignability::Never;
+    }
+    Assignability computeTypeAssignabilityShapeShape(const IType::Shape& dst, const IType::Shape& src) {
+      auto always = true;
+      switch (this->computeFunctionSignatureAssignability(dst.callable, src.callable)) {
+      case Assignability::Never:
+        return Assignability::Never;
+      case Assignability::Sometimes:
+        always = false;
+        break;
+      case Assignability::Always:
+        break;
+      }
+      switch (this->computePropertySignatureAssignability(dst.dotable, src.dotable)) {
+      case Assignability::Never:
+        return Assignability::Never;
+      case Assignability::Sometimes:
+        always = false;
+        break;
+      case Assignability::Always:
+        break;
+      }
+      switch (this->computeIndexSignatureAssignability(dst.indexable, src.indexable)) {
+      case Assignability::Never:
+        return Assignability::Never;
+      case Assignability::Sometimes:
+        always = false;
+        break;
+      case Assignability::Always:
+        break;
+      }
+      switch (this->computeIteratorSignatureAssignability(dst.iterable, src.iterable)) {
+      case Assignability::Never:
+        return Assignability::Never;
+      case Assignability::Sometimes:
+        always = false;
+        break;
+      case Assignability::Always:
+        break;
+      }
+      switch (this->computePointerSignatureAssignability(dst.pointable, src.pointable)) {
+      case Assignability::Never:
+        return Assignability::Never;
+      case Assignability::Sometimes:
+        always = false;
+        break;
+      case Assignability::Always:
+        break;
+      }
+      switch (this->computeTaggableSignatureAssignability(dst.taggable, src.taggable)) {
+      case Assignability::Never:
+        return Assignability::Never;
+      case Assignability::Sometimes:
+        always = false;
+        break;
+      case Assignability::Always:
+        break;
+      }
+      return always ? Assignability::Always : Assignability::Sometimes;
     }
     Assignability computeTypeAssignabilityFlags(ValueFlags fdst, ValueFlags fsrc) {
       if (Bits::hasAllSet(fdst, fsrc)) {
@@ -999,10 +1171,16 @@ namespace {
     }
     Assignability computeFunctionSignatureAssignability(const IFunctionSignature* dst, const IFunctionSignature* src) {
       // TODO more compatability checks
-      assert(dst != nullptr);
-      assert(src != nullptr);
       auto retval = Assignability::Always;
       if (dst != src) {
+        if (dst == nullptr) {
+          // Not interested in function signatures
+          return Assignability::Always;
+        }
+        if (src == nullptr) {
+          // Function signature required but not supplied
+          return Assignability::Never;
+        }
         // The return types must be compatible
         switch (this->computeTypeAssignability(dst->getReturnType(), src->getReturnType())) {
         case Assignability::Never:
@@ -1034,6 +1212,78 @@ namespace {
         }
       }
       return retval;
+    }
+    Assignability computePropertySignatureAssignability(const IPropertySignature* dst, const IPropertySignature* src) {
+      // TODO more compatability checks
+      auto retval = Assignability::Always;
+      if (dst != src) {
+        if (dst == nullptr) {
+          // Not interested in property signatures
+          return Assignability::Always;
+        }
+        if (src == nullptr) {
+          // Property signature required but not supplied
+          return Assignability::Never;
+        }
+        // WIBBLE
+        assert(false);
+      }
+      return retval;
+    }
+    Assignability computeIndexSignatureAssignability(const IIndexSignature* dst, const IIndexSignature* src) {
+      // TODO more compatability checks
+      auto retval = Assignability::Always;
+      if (dst != src) {
+        if (dst == nullptr) {
+          // Not interested in index signatures
+          return Assignability::Always;
+        }
+        if (src == nullptr) {
+          // Index signature required but not supplied
+          return Assignability::Never;
+        }
+        // WIBBLE
+        assert(false);
+      }
+      return retval;
+    }
+    Assignability computeIteratorSignatureAssignability(const IIteratorSignature* dst, const IIteratorSignature* src) {
+      // TODO more compatability checks
+      auto retval = Assignability::Always;
+      if (dst != src) {
+        if (dst == nullptr) {
+          // Not interested in iterator signatures
+          return Assignability::Always;
+        }
+        if (src == nullptr) {
+          // Iterator signature required but not supplied
+          return Assignability::Never;
+        }
+        // WIBBLE
+        assert(false);
+      }
+      return retval;
+    }
+    Assignability computePointerSignatureAssignability(const IPointerSignature* dst, const IPointerSignature* src) {
+      // TODO more compatability checks
+      auto retval = Assignability::Always;
+      if (dst != src) {
+        if (dst == nullptr) {
+          // Not interested in pointer signatures
+          return Assignability::Always;
+        }
+        if (src == nullptr) {
+          // Pointer signature required but not supplied
+          return Assignability::Never;
+        }
+        retval = assignabilityFromModifiability(dst->getModifiability(), src->getModifiability());
+        retval = assignabilityIntersection(retval, this->computeTypeAssignability(dst->getPointeeType(), src->getPointeeType()));
+      }
+      return retval;
+    }
+    Assignability computeTaggableSignatureAssignability(const ITaggableSignature*, const ITaggableSignature*) {
+      // TODO more compatability checks
+      return Assignability::Always;
     }
     String typeSuffix(const Type& type, const char* suffix) const {
       assert(type.validate());
