@@ -47,6 +47,7 @@ public:
     TypeManifestation,
     StmtBlock,
     StmtFunctionDefine,
+    StmtFunctionCapture,
     StmtFunctionInvoke,
     StmtVariableDeclare,
     StmtVariableDefine,
@@ -1012,6 +1013,7 @@ namespace {
         return Type::Object;
       case Node::Kind::StmtBlock:
       case Node::Kind::StmtFunctionDefine:
+      case Node::Kind::StmtFunctionCapture:
       case Node::Kind::StmtFunctionInvoke:
       case Node::Kind::StmtVariableDeclare:
       case Node::Kind::StmtVariableDefine:
@@ -1425,6 +1427,11 @@ namespace {
       node.addChild(type);
       return node;
     }
+    virtual Node& stmtFunctionCapture(const String& symbol, const SourceRange& range) override {
+      auto& node = this->module->createNode(Node::Kind::StmtFunctionCapture, range);
+      node.literal = this->createHardValueString(symbol);
+      return node;
+    }
     virtual Node& stmtFunctionInvoke(const SourceRange& range) override {
       auto& node = this->module->createNode(Node::Kind::StmtFunctionInvoke, range);
       return node;
@@ -1563,19 +1570,20 @@ namespace {
     }
   };
 
-  class VMCallHandler : public HardReferenceCounted<IVMCallHandler> {
-    VMCallHandler(const VMCallHandler&) = delete;
-    VMCallHandler& operator=(const VMCallHandler&) = delete;
+  class VMFunction : public HardReferenceCounted<IVMCallHandler> {
+    VMFunction(const VMFunction&) = delete;
+    VMFunction& operator=(const VMFunction&) = delete;
   private:
     IVM& vm;
     Type ftype;
     const IVMModule::Node& block;
   public:
-    VMCallHandler(IVM& vm, const Type& ftype, const IVMModule::Node& block)
+    VMFunction(IVM& vm, const Type& ftype, const IVMModule::Node& block)
       : vm(vm),
         ftype(ftype),
         block(block) {
       assert(this->ftype.validate());
+      assert(this->block.kind == IVMModule::Node::Kind::StmtFunctionInvoke);
     }
     virtual HardValue call(IVMExecution& execution, const ICallArguments& arguments) override {
       auto* signature = ftype.getOnlyFunctionSignature();
@@ -1871,9 +1879,13 @@ namespace {
       }
       return this->createHardValueObject(object);
     }
-    HardValue functionConstruct(const Type& ftype, const IVMModule::Node& block) {
+    HardValue functionConstruct(const Type& ftype, const IVMModule::Node& definition) {
       assert(ftype.validate());
-      auto handler = HardPtr<VMCallHandler>(this->getAllocator().makeRaw<VMCallHandler>(this->vm, ftype, block));
+      size_t block = 1;
+      while ((block < definition.children.size()) && (definition.children[block]->kind == IVMModule::Node::Kind::StmtFunctionCapture)) {
+        block++;
+      }
+      auto handler = HardPtr(this->getAllocator().makeRaw<VMFunction>(this->vm, ftype, *definition.children[block]));
       assert(handler != nullptr);
       auto object = ObjectFactory::createVanillaFunction(this->vm, ftype, *handler);
       assert(object != nullptr);
@@ -2144,14 +2156,24 @@ bool VMRunner::stepNode(HardValue& retval) {
         return true;
       }
       top.deque.clear();
-      auto* block = top.node->children[top.index++];
-      if (!this->symbolSet(top.node->literal, this->functionConstruct(type, *block))) {
+      // Find the statements after the capture symbols
+      while ((top.index < (top.node->children.size() - 1)) && (top.node->children[top.index]->kind == IVMModule::Node::Kind::StmtFunctionCapture)) {
+        top.index++;
+      }
+      assert(top.node->children[top.index]->kind == IVMModule::Node::Kind::StmtFunctionInvoke); // WIBBLE
+      if (!this->symbolSet(top.node->literal, this->functionConstruct(type, *top.node))) {
         return true;
       }
+      // Skip the function invocation block
+      top.index++;
+      // Perform the first statement of the scope of the function name
+      this->push(*top.node->children[top.index++]);
     } else if (!this->stepBlock(retval, 2)) {
       return this->pop(retval);
     }
     break;
+  case IVMModule::Node::Kind::StmtFunctionCapture:
+   return this->raise("Unexpected function symbol capture module node encountered");
   case IVMModule::Node::Kind::StmtFunctionInvoke:
     // Placeholder actually pushed on to the stack by 'VMRunner::initiateTailCall()'
     assert(top.index <= top.node->children.size());

@@ -197,6 +197,7 @@ namespace egg::ovum {
     virtual Node& stmtBreak(const SourceRange& range) = 0;
     virtual Node& stmtContinue(const SourceRange& range) = 0;
     virtual Node& stmtFunctionDefine(const String& symbol, Node& type, const SourceRange& range) = 0;
+    virtual Node& stmtFunctionCapture(const String& symbol, const SourceRange& range) = 0;
     virtual Node& stmtFunctionInvoke(const SourceRange& range) = 0;
     virtual Node& stmtVariableDeclare(const String& symbol, Node& type, const SourceRange& range) = 0;
     virtual Node& stmtVariableDefine(const String& symbol, Node& type, Node& value, const SourceRange& range) = 0;

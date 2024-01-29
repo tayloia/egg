@@ -37,7 +37,7 @@ namespace {
     }
     class ExprContext : public egg::ovum::IVMModuleBuilder::TypeLookup {
     public:
-      struct Entry {
+      struct Symbol {
         enum class Kind {
           Builtin,
           Parameter,
@@ -50,26 +50,39 @@ namespace {
         egg::ovum::SourceRange range;
       };
     protected:
-      std::map<egg::ovum::String, Entry> entries;
+      std::map<egg::ovum::String, Symbol> symbols;
+      std::set<egg::ovum::String>* captures;
       const StmtContext* chain;
-      explicit ExprContext(const StmtContext* parent)
-        : entries(),
+      ExprContext(const StmtContext* parent, std::set<egg::ovum::String>* captures = nullptr)
+        : symbols(),
+          captures(captures),
           chain(parent) {
       }
     public:
       // Symbol table
-      const Entry* findSymbol(const egg::ovum::String& name) const {
+      const Symbol* findSymbol(const egg::ovum::String& name) const {
         // Searches the entire chain from front to back
+        // TODO optimize
+        auto seenCaptures = false;
         for (auto* table = this; table != nullptr; table = table->chain) {
-          auto iterator = table->entries.find(name);
-          if (iterator != table->entries.end()) {
+          seenCaptures = seenCaptures || (table->captures != nullptr);
+          auto iterator = table->symbols.find(name);
+          if (iterator != table->symbols.end()) {
+            // Found it, so now go back and update any capture lists, if necessary
+            if (seenCaptures) {
+              for (auto* again = this; again != table; again = again->chain) {
+                if (again->captures != nullptr) {
+                  again->captures->emplace(name);
+                }
+              }
+            }
             return &iterator->second;
           }
         }
         return nullptr;
       }
-      virtual egg::ovum::Type typeLookup(const egg::ovum::String& symbol) const override {
-        auto* entry = this->findSymbol(symbol);
+      virtual egg::ovum::Type typeLookup(const egg::ovum::String& name) const override {
+        auto* entry = this->findSymbol(name);
         if (entry != nullptr) {
           return entry->type;
         }
@@ -88,8 +101,8 @@ namespace {
       StmtContext() = delete;
       StmtContext(const StmtContext& parent) = delete;
     public:
-      explicit StmtContext(const StmtContext* parent)
-        : ExprContext(parent),
+      explicit StmtContext(const StmtContext* parent, std::set<egg::ovum::String>* captures = nullptr)
+        : ExprContext(parent, captures),
           StmtContextData() {
         if (parent != nullptr) {
           *static_cast<StmtContextData*>(this) = *parent;
@@ -99,18 +112,19 @@ namespace {
         return this->chain == nullptr;
       }
       // Symbol table
-      Entry* addSymbol(Entry::Kind kind, const egg::ovum::String& name, const egg::ovum::Type& type, const egg::ovum::SourceRange& range) {
-        // We should only add builtins to the base of the chain
-        assert((kind != Entry::Kind::Builtin) || (this->chain == nullptr));
+      const Symbol* addSymbol(Symbol::Kind kind, const egg::ovum::String& name, const egg::ovum::Type& type, const egg::ovum::SourceRange& range) {
+        // Return a pointer to the extant symbol else null if added
         assert(!name.empty());
         assert(type != nullptr);
-        auto iterator = this->entries.emplace(name, Entry{ kind, type, range });
+        // We should only add builtins to the base of the chain
+        assert((kind != Symbol::Kind::Builtin) || (this->chain == nullptr));
+        auto iterator = this->symbols.emplace(name, Symbol{ kind, type, range });
         return iterator.second ? nullptr : &iterator.first->second;
       }
       bool removeSymbol(const egg::ovum::String& name) {
         // Only removes from the base of the chain
         assert(!name.empty());
-        auto count = this->entries.erase(name);
+        auto count = this->symbols.erase(name);
         assert(count <= 1);
         return count > 0;
       }
@@ -189,28 +203,28 @@ namespace {
       assert(src != nullptr);
       return this->vm.getTypeForge().isTypeAssignable(dst, src);
     }
-    bool addSymbol(StmtContext& context, ParserNode& pnode, StmtContext::Entry::Kind kind, const egg::ovum::String& symbol, const egg::ovum::Type& type) {
-      auto* extant = context.addSymbol(kind, symbol, type, pnode.range);
+    bool addSymbol(StmtContext& context, ParserNode& pnode, StmtContext::Symbol::Kind kind, const egg::ovum::String& name, const egg::ovum::Type& type) {
+      auto* extant = context.addSymbol(kind, name, type, pnode.range);
       if (extant != nullptr) {
         const char* already = "";
         switch (extant->kind) {
-        case StmtContext::Entry::Kind::Builtin:
+        case StmtContext::Symbol::Kind::Builtin:
           already = " as a builtin";
           break;
-        case StmtContext::Entry::Kind::Function:
+        case StmtContext::Symbol::Kind::Function:
           already = " as a function";
           break;
-        case StmtContext::Entry::Kind::Parameter:
+        case StmtContext::Symbol::Kind::Parameter:
           already = " as a function parameter";
           break;
-        case StmtContext::Entry::Kind::Variable:
+        case StmtContext::Symbol::Kind::Variable:
           already = " as a variable";
           break;
-        case StmtContext::Entry::Kind::Type:
+        case StmtContext::Symbol::Kind::Type:
           already = " as a type";
           break;
         }
-        this->error(pnode, "Identifier '", symbol, "' already used", already);
+        this->error(pnode, "Identifier '", name, "' already used", already);
         return false;
       }
       return true;
@@ -266,7 +280,7 @@ namespace {
         ModuleCompiler compiler(this->pbuilder->getVM(), resource, *mbuilder);
         ModuleCompiler::StmtContext context{ nullptr };
         this->pbuilder->visitBuiltins([&context](const egg::ovum::String& symbol, const egg::ovum::Type& type) {
-          context.addSymbol(ModuleCompiler::StmtContext::Entry::Kind::Builtin, symbol, type, {});
+          context.addSymbol(ModuleCompiler::StmtContext::Symbol::Kind::Builtin, symbol, type, {});
         });
         context.target = &mbuilder->getRoot();
         return compiler.compile(*parsed.root, context);
@@ -453,7 +467,7 @@ ModuleNode* ModuleCompiler::compileStmtDeclareVariable(ParserNode& pnode, StmtCo
     return nullptr;
   }
   assert(type != nullptr);
-  if (!this->addSymbol(context, pnode, StmtContext::Entry::Kind::Variable, symbol, type)) {
+  if (!this->addSymbol(context, pnode, StmtContext::Symbol::Kind::Variable, symbol, type)) {
     return nullptr;
   }
   auto* stmt = &this->mbuilder.stmtVariableDeclare(symbol, *mtype, pnode.range);
@@ -480,7 +494,7 @@ ModuleNode* ModuleCompiler::compileStmtDefineVariable(ParserNode& pnode, StmtCon
     return this->error(*pnode.children.back(), "Cannot initialize '", symbol, "' of type '", ltype, "' with a value of type '", rtype, "'");
   }
   assert(ltype != nullptr);
-  if (!this->addSymbol(context, pnode, StmtContext::Entry::Kind::Variable, symbol, ltype)) {
+  if (!this->addSymbol(context, pnode, StmtContext::Symbol::Kind::Variable, symbol, ltype)) {
     return nullptr;
   }
   auto* stmt = &this->mbuilder.stmtVariableDefine(symbol, *lnode, *rnode, pnode.range);
@@ -504,8 +518,9 @@ ModuleNode* ModuleCompiler::compileStmtDefineFunction(ParserNode& pnode, StmtCon
     return nullptr;
   }
   assert(type != nullptr);
-  auto okay = this->addSymbol(context, phead, StmtContext::Entry::Kind::Function, symbol, type);
-  StmtContext inner{ &context };
+  auto okay = this->addSymbol(context, phead, StmtContext::Symbol::Kind::Function, symbol, type);
+  std::set<egg::ovum::String> captures;
+  StmtContext inner{ &context, &captures };
   inner.canReturn = signature->getReturnType();
   assert(inner.canReturn != nullptr);
   assert(signature != nullptr);
@@ -514,19 +529,24 @@ ModuleNode* ModuleCompiler::compileStmtDefineFunction(ParserNode& pnode, StmtCon
     auto& parameter = signature->getParameter(pindex);
     auto pname = parameter.getName();
     if (!pname.empty()) {
-      okay &= this->addSymbol(inner, pnode, StmtContext::Entry::Kind::Parameter, pname, parameter.getType());
+      okay &= this->addSymbol(inner, pnode, StmtContext::Symbol::Kind::Parameter, pname, parameter.getType());
     }
   }
   if (!okay) {
     return nullptr;
   }
   auto& ptail = *pnode.children.back();
-  auto block = this->compileStmtBlockInto(ptail, inner, this->mbuilder.stmtFunctionInvoke(pnode.range));
+  auto& invoke = this->mbuilder.stmtFunctionInvoke(pnode.range); // WIBBLE convert stmtFunctionInvoke to stmtBlock
+  auto block = this->compileStmtBlockInto(ptail, inner, invoke);
   if (block == nullptr) {
     return nullptr;
   }
+  assert(block == &invoke);
   auto* stmt = &this->mbuilder.stmtFunctionDefine(symbol, *mtype, pnode.range);
-  this->mbuilder.appendChild(*stmt, *block);
+  for (const auto& capture : captures) {
+    this->mbuilder.appendChild(*stmt, this->mbuilder.stmtFunctionCapture(capture, pnode.range));
+  }
+  this->mbuilder.appendChild(*stmt, invoke);
   context.target = stmt;
   return stmt;
 }
@@ -626,7 +646,7 @@ ModuleNode* ModuleCompiler::compileStmtForEach(ParserNode& pnode, StmtContext& c
   inner.canBreak = true;
   inner.canContinue = true;
   assert(type != nullptr);
-  if (!this->addSymbol(inner, pnode, StmtContext::Entry::Kind::Variable, symbol, type)) {
+  if (!this->addSymbol(inner, pnode, StmtContext::Symbol::Kind::Variable, symbol, type)) {
     return nullptr;
   }
   auto* bloc = this->compileStmt(*pnode.children[2], inner);
@@ -713,7 +733,7 @@ ModuleNode* ModuleCompiler::compileStmtIfGuarded(ParserNode& pnode, StmtContext&
   }
   assert(mcond != nullptr);
   StmtContext inner{ &context };
-  if (!this->addSymbol(inner, pguard, StmtContext::Entry::Kind::Variable, symbol, type)) {
+  if (!this->addSymbol(inner, pguard, StmtContext::Symbol::Kind::Variable, symbol, type)) {
     return nullptr;
   }
   auto* truthy = this->compileStmt(*pnode.children[1], inner);
@@ -859,7 +879,7 @@ ModuleNode* ModuleCompiler::compileStmtCatch(ParserNode& pnode, StmtContext& con
       egg::ovum::Type type;
       auto mtype = this->compileTypeExpr(*pchild, context, type);
       if (mtype != nullptr) {
-        if (this->addSymbol(context, *pchild, StmtContext::Entry::Kind::Variable, symbol, type)) {
+        if (this->addSymbol(context, *pchild, StmtContext::Symbol::Kind::Variable, symbol, type)) {
           stmt = &this->mbuilder.stmtCatch(symbol, *mtype, pnode.range);
         }
       }
@@ -902,7 +922,7 @@ ModuleNode* ModuleCompiler::compileStmtWhileGuarded(ParserNode& pnode, StmtConte
   }
   assert(mcond != nullptr);
   StmtContext inner{ &context };
-  if (!this->addSymbol(inner, pguard, StmtContext::Entry::Kind::Variable, symbol, type)) {
+  if (!this->addSymbol(inner, pguard, StmtContext::Symbol::Kind::Variable, symbol, type)) {
     return nullptr;
   }
   auto* block = this->compileStmt(*pnode.children.back(), inner);

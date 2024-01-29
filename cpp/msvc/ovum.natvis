@@ -28,6 +28,12 @@
   <Type Name="egg::internal::ValueHardObject">
     <DisplayString>{value}</DisplayString>
   </Type>
+  <Type Name="egg::internal::ValueVoid">
+    <DisplayString>ValueVoid</DisplayString>
+  </Type>
+  <Type Name="egg::internal::ValueString">
+    <DisplayString>ValueString {*value.ptr.atomic.value()}</DisplayString>
+  </Type>
   <Type Name="egg::internal::ValuePoly">
     <DisplayString Condition="flags==1">ValuePoly:Void</DisplayString>
     <DisplayString Condition="flags!=1">flags={flags} i={ivalue.atomic.value()} f={fvalue.atomic.value()} s={svalue} o={ovalue}</DisplayString>
@@ -37,5 +43,8 @@
   </Type>
   <Type Name="egg::ovum::IValue">
     <DisplayString>{*ptr}</DisplayString>
+  </Type>
+  <Type Name="egg::ovum::IVMModule::Node">
+    <DisplayString>kind={kind} children={children.size()} literal={literal}</DisplayString>
   </Type>
 </AutoVisualizer>
