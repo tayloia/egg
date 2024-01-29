@@ -57,6 +57,9 @@
     <ClInclude Include="..\ovum\value.h" />
     <ClInclude Include="..\ovum\vm.h" />
   </ItemGroup>
+  <ItemGroup>
+    <Natvis Include="ovum.natvis" />
+  </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>15.0</VCProjectVersion>
     <ProjectGuid>{F14E6F85-CA7D-4354-BF37-182DE71D4FBA}</ProjectGuid>

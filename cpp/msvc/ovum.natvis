@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<AutoVisualizer xmlns="http://schemas.microsoft.com/vstudio/debugger/natvis/2010">
+  <Type Name="egg::ovum::HardPtr&lt;*&gt;">
+    <DisplayString>{ptr.atomic.value()}</DisplayString>
+  </Type>
+  <Type Name="egg::ovum::Atomic&lt;*&gt;">
+    <DisplayString>{atomic.value()}</DisplayString>
+  </Type>
+  <Type Name="egg::ovum::String">
+    <DisplayString>{*ptr.atomic.value()}</DisplayString>
+  </Type>
+  <Type Name="egg::ovum::MemoryContiguous">
+    <DisplayString>{&amp;usertag+1,[size]s8} ({usertag.u}/{size})</DisplayString>
+    <StringView>&amp;usertag+1,[size]s8</StringView>
+  </Type>
+  <Type Name="egg::internal::TypeForgePrimitive">
+    <DisplayString>{flags.atomic}</DisplayString>
+  </Type>
+  <Type Name="egg::internal::TypeForgeComplex">
+    <DisplayString>{{flags={detail.flags}, shapes=[{detail.shapes.size()}]}}</DisplayString>
+  </Type>
+  <Type Name="egg::ovum::Type">
+    <DisplayString>{*ptr}</DisplayString>
+  </Type>
+  <Type Name="egg::ovum::HardObject">
+    <DisplayString>HardObject {ptr}</DisplayString>
+  </Type>
+  <Type Name="egg::internal::ValueHardObject">
+    <DisplayString>{value}</DisplayString>
+  </Type>
+  <Type Name="egg::internal::ValuePoly">
+    <DisplayString Condition="flags==1">ValuePoly:Void</DisplayString>
+    <DisplayString Condition="flags!=1">flags={flags} i={ivalue.atomic.value()} f={fvalue.atomic.value()} s={svalue} o={ovalue}</DisplayString>
+  </Type>
+  <Type Name="egg::ovum::HardValue">
+    <DisplayString>{*ptr.ptr.atomic.value()}</DisplayString>
+  </Type>
+  <Type Name="egg::ovum::IValue">
+    <DisplayString>{*ptr}</DisplayString>
+  </Type>
+</AutoVisualizer>
