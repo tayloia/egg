@@ -180,7 +180,7 @@ namespace egg::internal {
       }
       size_t cacheHash() const {
         Hash hash;
-        return hash.add(this->flags).add(this->shapes.begin(), this->shapes.end());
+        return hash.add(this->flags).addFrom(this->shapes.begin(), this->shapes.end());
       }
       static bool cacheEquals(const Detail& lhs, const Detail& rhs) {
         if (lhs.shapes.size() == rhs.shapes.size()) {
@@ -245,9 +245,7 @@ namespace egg::internal {
       : IType::Shape(std::move(rhs)) {
     }
     size_t cacheHash() const {
-      Hash hash;
-      hash.add(this->callable).add(this->dotable).add(this->indexable).add(this->iterable).add(this->pointable).add(this->taggable);
-      return hash;
+      return Hash::combine(this->callable, this->dotable, this->indexable, this->iterable, this->pointable, this->taggable);
     }
     static bool cacheEquals(const TypeForgeShape& lhs, const TypeForgeShape& rhs) {
       return (lhs.callable == rhs.callable)
@@ -292,13 +290,9 @@ namespace egg::internal {
       return this->flags;
     }
     size_t cacheHash() const {
-      // TODO include names?
-      Hash hash;
-      hash.add(this->position).add(this->type).add(this->name).add(this->flags);
-      return hash;
+      return Hash::combine(this->position, this->type, this->name, this->flags);
     }
     static bool cacheEquals(const TypeForgeFunctionSignatureParameter& lhs, const TypeForgeFunctionSignatureParameter& rhs) {
-      // TODO check names?
       return (lhs.position == rhs.position) && (lhs.type == rhs.type) && (lhs.name == rhs.name) && (lhs.flags == rhs.flags);
     }
   };
@@ -337,13 +331,11 @@ namespace egg::internal {
       return nullptr;
     }
     size_t cacheHash() const {
-      // TODO include names?
       Hash hash;
-      hash.add(this->type).add(this->name).add(this->parameters.begin(), this->parameters.end());
+      hash.add(this->type, this->name).addFrom(this->parameters.begin(), this->parameters.end());
       return hash;
     }
     static bool cacheEquals(const TypeForgeFunctionSignature& lhs, const TypeForgeFunctionSignature& rhs) {
-      // TODO check names?
       return (lhs.type == rhs.type) && (lhs.name == rhs.name) && (lhs.parameters == rhs.parameters);
     }
   };
@@ -356,8 +348,7 @@ namespace egg::internal {
       Type type = nullptr;
       Modifiability modifiability = Modifiability::None;
       size_t hash() const {
-        Hash hasher;
-        return hasher.add(this->type.get()).add(this->modifiability);
+        return Hash::combine(this->type.get(), this->modifiability);
       }
       bool operator==(const Entry& rhs) const {
         return (this->type == rhs.type) && (this->modifiability == rhs.modifiability);
@@ -412,7 +403,7 @@ namespace egg::internal {
     size_t cacheHash() const {
       Hash hash;
       for (const auto& entry : this->entries) {
-        hash.add(entry.first).add(entry.second.hash());
+        hash.add(entry.first, entry.second);
       }
       return hash.add(this->unknown);
     }

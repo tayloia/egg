@@ -229,60 +229,74 @@ namespace egg::ovum {
     }
   };
 
-  class Hash {
-    Hash(const Hash&) = delete;
-    Hash& operator=(const Hash&) = delete;
+  template<typename H>
+  class Hasher {
+    Hasher(const Hasher&) = delete;
+    Hasher& operator=(const Hasher&) = delete;
   private:
-    size_t seed;
+    H bits;
   public:
-    explicit Hash(size_t seed = 0)
-      : seed(seed) {
+    explicit Hasher(H seed = 0)
+      : bits(seed) {
     }
-    operator size_t() const {
-      return this->seed;
+    operator H() const {
+      return this->bits;
     }
-    static void combine(uint32_t& dst, uint32_t src) {
+    static void mix(uint32_t& dst, uint32_t src) {
       // See https://www.boost.org/doc/libs/1_83_0/libs/container_hash/doc/html/hash.html#notes
       dst ^= src + 0x9E3779B9 + (dst << 6) + (dst >> 2);
     }
-    static void combine(uint64_t& dst, uint64_t src) {
+    static void mix(uint64_t& dst, uint64_t src) {
       // See https://stackoverflow.com/a/4948967
       dst ^= src + 0x9E3779B97F4A7C15 + (dst << 6) + (dst >> 2);
     }
-    Hash& add(size_t value) {
-      Hash::combine(this->seed, value);
+    Hasher& add(H value) {
+      // Mix a single raw hash value
+      Hasher::mix(this->bits, value);
       return *this;
     }
     template<typename T>
-    Hash& add(const T& value) {
-      return this->add(Hash::hash(value));
+    Hasher& add(const T& value) {
+      // Mix a single hash value from another source
+      return this->add(Hasher::hash(value));
+    }
+    template<typename T, typename... ARGS>
+    Hasher& add(const T& value, ARGS&&... args) {
+      return this->add(value).add(std::forward<ARGS>(args)...);
     }
     template<typename T>
-    Hash& add(T begin, T end) {
+    Hasher& addFrom(T begin, T end) {
+      // Mix a hash values from a collection
       while (begin != end) {
         this->add(*begin++);
       }
       return *this;
     }
+    template<typename... ARGS>
+    static H combine(ARGS&&... args) {
+      Hasher hasher;
+      return hasher.add(std::forward<ARGS>(args)...);
+    }
     template<typename T>
-    static size_t hash(const T* value) {
+    static H hash(const T* value) {
       // Note that pointers are hashed directly (identity)
-      return reinterpret_cast<size_t>(value);
+      return reinterpret_cast<H>(value);
     }
     template<typename T>
-    static std::enable_if_t<std::is_enum_v<T>, size_t> hash(T value) {
+    static std::enable_if_t<std::is_enum_v<T>, H> hash(T value) {
       // Enums are hashed according to numeric value
-      return static_cast<size_t>(value);
+      return static_cast<H>(value);
     }
     template<typename T>
-    static std::enable_if_t<std::is_integral_v<T>, size_t> hash(T value) {
-      // Integers are cast to 'size_t'
-      return static_cast<size_t>(value);
+    static std::enable_if_t<std::is_integral_v<T>, H> hash(T value) {
+      // Integers are cast to the hash type
+      return static_cast<H>(value);
     }
     template<typename T>
-    static std::enable_if_t<std::is_member_function_pointer_v<decltype(&T::hash)>, size_t> hash(const T& value) {
+    static std::enable_if_t<std::is_member_function_pointer_v<decltype(&T::hash)>, H> hash(const T& value) {
       // Use member T::hash() if available
-      return static_cast<size_t>(value.hash());
+      return static_cast<H>(value.hash());
     }
   };
+  using Hash = Hasher<size_t>;
 }
