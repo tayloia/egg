@@ -363,6 +363,30 @@ namespace {
       }
       return nullptr;
     }
+    void print(Printer& printer) const {
+      // TODO debugging only
+      auto frame = 0;
+      for (const auto& level : this->stack) {
+        printer << "=== SYMBOL TABLE FRAME " << frame++ << " (size=" << level.entries.size() << ") ===\n";
+        for (const auto& entry : level.entries) {
+          auto& name = entry.first;
+          auto& value = entry.second;
+          switch (value.kind) {
+          case Kind::Variable:
+            printer << "  VARIABLE ";
+            break;
+          case Kind::Builtin:
+            printer << "   BUILTIN ";
+            break;
+          case Kind::Unset:
+            printer << "     UNSET ";
+            break;
+          }
+          printer << value.type << ' ' << name << " = " << value.value << '\n';
+        }
+      }
+      printer << "=== SYMBOL TABLE END ===";
+    }
   };
 
   // Only instantiated by composition within 'VMRunner' etc.
@@ -437,6 +461,7 @@ namespace {
     virtual HardValue evaluateValuePredicateOp(ValuePredicateOp op, const HardValue& lhs, const HardValue& rhs) override {
       return this->augment(this->predicate(op, lhs, rhs));
     }
+    virtual HardValue debugSymtable() override;
     template<typename... ARGS>
     String concat(ARGS&&... args) {
       return StringBuilder::concat(this->vm.getAllocator(), std::forward<ARGS>(args)...);
@@ -1679,6 +1704,9 @@ namespace {
       this->push(invoke);
       return HardValue::Continue;
     }
+    void printSymtable(Printer& printer) const {
+      this->symtable.print(printer);
+    }
   private:
     bool stepNode(HardValue& retval);
     bool stepBlock(HardValue& retval, size_t first = 0);
@@ -1932,6 +1960,13 @@ namespace {
     }
   };
 
+  HardValue VMExecution::debugSymtable() {
+    // TODO debugging only
+    StringBuilder sb;
+    this->runner->printSymtable(sb);
+    return this->createHardValueString(sb.build(this->vm.getAllocator()));
+  }
+
   class VMDefault : public HardReferenceCountedAllocator<IVM> {
     VMDefault(const VMDefault&) = delete;
     VMDefault& operator=(const VMDefault&) = delete;
@@ -2018,6 +2053,9 @@ namespace {
     }
     virtual HardObject createBuiltinCollector() override {
       return ObjectFactory::createBuiltinCollector(*this);
+    }
+    virtual HardObject createBuiltinSymtable() override {
+      return ObjectFactory::createBuiltinSymtable(*this);
     }
   private:
     virtual void softAcquire(ICollectable*& target, const ICollectable* value) override {

@@ -1,6 +1,6 @@
 #include "ovum/ovum.h"
 
-namespace {
+namespace egg::internal {
   using namespace egg::ovum;
 
   template<typename T, typename... ARGS>
@@ -1156,6 +1156,8 @@ namespace {
     return (lptr == rptr) ? 0 : (lptr < rptr) ? -1 : +1;
   }
 }
+
+using namespace egg::internal;
 
 const egg::ovum::HardValue egg::ovum::HardValue::Void{ theVoid.instance() };
 const egg::ovum::HardValue egg::ovum::HardValue::Null{ theNull.instance() };

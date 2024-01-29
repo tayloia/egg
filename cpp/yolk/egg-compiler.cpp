@@ -1785,6 +1785,7 @@ egg::ovum::HardPtr<egg::ovum::IVMProgram> egg::yolk::EggCompilerFactory::compile
   auto pbuilder = vm.createProgramBuilder();
   pbuilder->addBuiltin(vm.createString("assert"), egg::ovum::Type::Object); // TODO
   pbuilder->addBuiltin(vm.createString("print"), egg::ovum::Type::Object); // TODO
+  pbuilder->addBuiltin(vm.createString("symtable"), egg::ovum::Type::Object); // TODO
   auto compiler = EggCompilerFactory::createFromProgramBuilder(pbuilder);
   auto module = compiler->compile(*parser);
   if (module != nullptr) {

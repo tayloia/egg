@@ -2,7 +2,7 @@
 
 #include <unordered_set>
 
-namespace {
+namespace egg::internal {
   using namespace egg::ovum;
 
   Assignability assignabilityIntersection(Assignability a, Assignability b) {
@@ -1396,6 +1396,8 @@ namespace {
     return 2;
   }
 }
+
+using namespace egg::internal;
 
 // Common types
 const Type Type::None{ TypeForgePrimitive::forge(ValueFlags::None) };

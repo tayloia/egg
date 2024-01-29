@@ -315,6 +315,36 @@ namespace {
     }
   };
 
+  class VMObjectBuiltinSymtable : public VMObjectBase {
+    VMObjectBuiltinSymtable(const VMObjectBuiltinSymtable&) = delete;
+    VMObjectBuiltinSymtable& operator=(const VMObjectBuiltinSymtable&) = delete;
+  protected:
+    virtual void printPrefix(Printer& printer) const override {
+      printer << "Builtin 'symtable()'";
+    }
+  public:
+    explicit VMObjectBuiltinSymtable(IVM& vm)
+      : VMObjectBase(vm) {
+    }
+    virtual void softVisit(ICollectable::IVisitor&) const override {
+      // No soft links
+    }
+    virtual int print(Printer& printer) const override {
+      printer << "[builtin symtable]";
+      return 0;
+    }
+    virtual Type vmRuntimeType() override {
+      // TODO
+      return Type::Object;
+    }
+    virtual HardValue vmCall(IVMExecution& execution, const ICallArguments& arguments) override {
+      if (arguments.getArgumentCount() != 0) {
+        return this->raisePrefixError(execution, " expects no arguments");
+      }
+      return execution.debugSymtable();
+    }
+  };
+
   template<typename T>
   class VMObjectMemberHandler : public VMObjectBase {
     VMObjectMemberHandler(const VMObjectMemberHandler&) = delete;
@@ -1783,6 +1813,10 @@ egg::ovum::HardObject egg::ovum::ObjectFactory::createBuiltinExpando(IVM& vm) {
 
 egg::ovum::HardObject egg::ovum::ObjectFactory::createBuiltinCollector(IVM& vm) {
   return makeHardObject<VMObjectBuiltinCollector>(vm);
+}
+
+egg::ovum::HardObject egg::ovum::ObjectFactory::createBuiltinSymtable(IVM& vm) {
+  return makeHardObject<VMObjectBuiltinSymtable>(vm);
 }
 
 egg::ovum::HardObject egg::ovum::ObjectFactory::createVanillaArray(IVM& vm) {

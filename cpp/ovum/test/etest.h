@@ -122,11 +122,15 @@ namespace egg::test {
     void addBuiltinCollector(egg::ovum::IVMRunner& runner) {
       this->addBuiltin(runner, u8"collector", vm->createBuiltinCollector());
     }
+    void addBuiltinSymtable(egg::ovum::IVMRunner& runner) {
+      this->addBuiltin(runner, u8"symtable", vm->createBuiltinSymtable());
+    }
     void addBuiltins(egg::ovum::IVMRunner& runner) {
       this->addBuiltinAssert(runner);
       this->addBuiltinPrint(runner);
       this->addBuiltinExpando(runner);
       this->addBuiltinCollector(runner);
+      this->addBuiltinSymtable(runner);
     }
     bool run(egg::ovum::IVMRunner& runner) {
       egg::ovum::HardValue retval;

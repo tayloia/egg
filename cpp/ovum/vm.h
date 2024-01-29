@@ -122,6 +122,8 @@ namespace egg::ovum {
     virtual HardValue precheckValueMutationOp(ValueMutationOp op, HardValue& lhs, ValueFlags rhs) = 0;
     virtual HardValue evaluateValueMutationOp(ValueMutationOp op, HardValue& lhs, const HardValue& rhs) = 0;
     virtual HardValue evaluateValuePredicateOp(ValuePredicateOp op, const HardValue& lhs, const HardValue& rhs) = 0;
+    // Debugging TODO remove
+    virtual HardValue debugSymtable() = 0;
   };
 
   class IVMRunner : public IVMCollectable {
@@ -251,6 +253,7 @@ namespace egg::ovum {
     virtual HardObject createBuiltinPrint() = 0;
     virtual HardObject createBuiltinExpando() = 0; // TODO deprecate
     virtual HardObject createBuiltinCollector() = 0; // TODO testing only
+    virtual HardObject createBuiltinSymtable() = 0; // TODO testing only
     // Collectable helpers
     IValue* createSoftValue() {
       return this->softCreateValue();
