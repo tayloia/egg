@@ -274,7 +274,7 @@ namespace {
   public:
     VMModule(IVM& vm, const String& resource)
       : VMUncollectable(vm),
-        resource(resource) {
+      resource(resource) {
       this->root = this->getAllocator().makeRaw<Node>(*this, Node::Kind::Root, SourceRange{}, nullptr);
       this->chain.set(this->root);
     }
@@ -299,11 +299,7 @@ namespace {
   // Only instantiated by composition within 'VMRunner' etc.
   struct VMSymbolTable {
   public:
-    enum class Kind {
-      Unset,
-      Builtin,
-      Variable
-    };
+    using Kind = VMSymbolKind;
     struct Entry {
       Kind kind;
       Type type;
@@ -355,9 +351,9 @@ namespace {
       return this->stack.front().remove(name);
     }
     Entry* find(const String& name) {
-      // Searches the entire chain from front to back
-      for (auto& level : this->stack) {
-        auto* found = level.find(name);
+      // Searches the chain from front to back
+      for (auto& table : this->stack) {
+        auto* found = table.find(name);
         if (found != nullptr) {
           return found;
         }
@@ -367,20 +363,20 @@ namespace {
     void print(Printer& printer) const {
       // TODO debugging only
       auto frame = 0;
-      for (const auto& level : this->stack) {
-        printer << "=== SYMBOL TABLE FRAME " << frame++ << " (size=" << level.entries.size() << ") ===\n";
-        for (const auto& entry : level.entries) {
+      for (const auto& table : this->stack) {
+        printer << "=== SYMBOL TABLE FRAME " << frame++ << " (size=" << table.entries.size() << ") ===\n";
+        for (const auto& entry : table.entries) {
           auto& name = entry.first;
           auto& value = entry.second;
           switch (value.kind) {
-          case Kind::Variable:
-            printer << "  VARIABLE ";
-            break;
           case Kind::Builtin:
             printer << "   BUILTIN ";
             break;
-          case Kind::Unset:
-            printer << "     UNSET ";
+          case Kind::Variable:
+            printer << "  VARIABLE ";
+            break;
+          case Kind::Type:
+            printer << "      TYPE ";
             break;
           }
           printer << value.type << ' ' << name << " = " << value.value << '\n';
@@ -406,7 +402,7 @@ namespace {
       return ValueFactory::createHardThrow(allocator, inner);
     }
     virtual HardValue raiseRuntimeError(const String& message, const SourceRange* source) override;
-    virtual HardValue initiateTailCall(const IFunctionSignature& signature, const ICallArguments& arguments, const IVMModule::Node& block) override;
+    virtual HardValue initiateTailCall(const IFunctionSignature& signature, const ICallArguments& arguments, const IVMModule::Node& definition, const IVMCallCaptures* captures) override;
     virtual bool assignValue(HardValue& lhs, const Type& ltype, const HardValue& rhs) override {
       // Assign with int-to-float promotion
       assert(ltype != nullptr);
@@ -1421,9 +1417,10 @@ namespace {
       auto& node = this->module->createNode(Node::Kind::StmtContinue, range);
       return node;
     }
-    virtual Node& stmtFunctionDefine(const String& symbol, Node& type, const SourceRange& range) override {
+    virtual Node& stmtFunctionDefine(const String& symbol, Node& type, size_t captures, const SourceRange& range) override {
       auto& node = this->module->createNode(Node::Kind::StmtFunctionDefine, range);
       node.literal = this->createHardValueString(symbol);
+      node.defaultIndex = captures + 1; // child index of invoke node
       node.addChild(type);
       return node;
     }
@@ -1576,25 +1573,25 @@ namespace {
   private:
     IVM& vm;
     Type ftype;
-    const IVMModule::Node& block;
+    const IVMModule::Node& definition;
   public:
-    VMFunction(IVM& vm, const Type& ftype, const IVMModule::Node& block)
+    VMFunction(IVM& vm, const Type& ftype, const IVMModule::Node& definition)
       : vm(vm),
         ftype(ftype),
-        block(block) {
+        definition(definition) {
       assert(this->ftype.validate());
-      assert(this->block.kind == IVMModule::Node::Kind::StmtFunctionInvoke);
+      assert(this->definition.kind == IVMModule::Node::Kind::StmtFunctionDefine);
     }
-    virtual HardValue call(IVMExecution& execution, const ICallArguments& arguments) override {
-      auto* signature = ftype.getOnlyFunctionSignature();
+    virtual HardValue call(IVMExecution& execution, const ICallArguments& arguments, const IVMCallCaptures* captures) override {
+      auto* signature = this->ftype.getOnlyFunctionSignature();
       if (signature == nullptr) {
         StringBuilder sb;
         sb << "Missing function signature in '";
-        sb.describe(*ftype);
+        sb.describe(*this->ftype);
         sb << "'";
         return execution.raiseRuntimeError(sb.build(this->vm.getAllocator()), nullptr);
       }
-      return execution.initiateTailCall(*signature, arguments, block);
+      return execution.initiateTailCall(*signature, arguments, this->definition, captures);
     }
     virtual void hardDestroy() const override {
       this->vm.getAllocator().destroy(this);
@@ -1673,13 +1670,32 @@ namespace {
       auto message = this->execution.concat(std::forward<ARGS>(args)...);
       return this->execution.raiseRuntimeError(message, nullptr);
     }
-    HardValue initiateTailCall(const IFunctionSignature& signature, const ICallArguments& arguments, const IVMModule::Node& invoke) {
-      // We need to set the argument symbols and initiate the execution of the block
+    HardValue initiateTailCall(const IFunctionSignature& signature, const ICallArguments& arguments, const IVMModule::Node& definition, const IVMCallCaptures* captures) {
+      // We need to set the argument/capture symbols and initiate the execution of the block
+      assert(definition.kind == IVMModule::Node::Kind::StmtFunctionDefine);
       assert(!this->stack.empty());
       assert(this->stack.top().node->kind == IVMModule::Node::Kind::ExprFunctionCall);
       assert(this->stack.top().scope.empty());
       this->stack.pop();
       this->symtable.push();
+      if (captures != nullptr) {
+        for (size_t index = 0; index < captures->getCaptureCount(); ++index) {
+          auto* capture = captures->getCaptureByIndex(index);
+          assert(capture != nullptr);
+          HardValue alias{ *this->vm.createSoftAlias(capture->value.get()) };
+          auto* extant = this->symtable.add(capture->kind, capture->name, capture->type, alias);
+          if (extant != nullptr) {
+            switch (extant->kind) {
+            case VMSymbolTable::Kind::Builtin:
+              return this->raiseRuntimeError("Captured symbol already declared as a builtin: '", capture->name, "'");
+            case VMSymbolTable::Kind::Variable:
+              return this->raiseRuntimeError("Captured symbol already declared as a variable: '", capture->name, "'");
+            case VMSymbolTable::Kind::Type:
+              return this->raiseRuntimeError("Captured symbol already declared as a type: '", capture->name, "'");
+            }
+          }
+        }
+      }
       for (size_t index = 0; index < signature.getParameterCount(); ++index) {
         // TODO optional/variadic arguments
         HardValue value;
@@ -1701,15 +1717,19 @@ namespace {
         auto* extant = this->symtable.add(VMSymbolTable::Kind::Variable, pname, ptype, poly);
         if (extant != nullptr) {
           switch (extant->kind) {
-          case VMSymbolTable::Kind::Unset:
-          case VMSymbolTable::Kind::Variable:
-            return this->raiseRuntimeError("Parameter symbol already declared: '", pname, "'");
           case VMSymbolTable::Kind::Builtin:
             return this->raiseRuntimeError("Parameter symbol already declared as a builtin: '", pname, "'");
+          case VMSymbolTable::Kind::Variable:
+            return this->raiseRuntimeError("Parameter symbol already declared: '", pname, "'");
+          case VMSymbolTable::Kind::Type:
+            return this->raiseRuntimeError("Parameter symbol already declared as a type: '", pname, "'");
           }
         }
       }
-      this->push(invoke);
+      // Push the invoke node
+      auto* invoke = definition.children[definition.defaultIndex];
+      assert(invoke != nullptr);
+      this->push(*invoke);
       return HardValue::Continue;
     }
     void printSymtable(Printer& printer) const {
@@ -1756,15 +1776,17 @@ namespace {
       }
       assert(!top.scope.empty());
       HardValue poly{ *this->vm.createSoftValue() };
-      auto* extant = this->symtable.add(VMSymbolTable::Kind::Unset, top.scope, type, poly);
+      auto* extant = this->symtable.add(VMSymbolTable::Kind::Variable, top.scope, type, poly);
       if (extant != nullptr) {
         switch (extant->kind) {
-        case VMSymbolTable::Kind::Unset:
+        case VMSymbolTable::Kind::Builtin:
+          this->raise("Variable symbol already declared as a builtin: '", top.scope, "'");
+          return false;
         case VMSymbolTable::Kind::Variable:
           this->raise("Variable symbol already declared: '", top.scope, "'");
           return false;
-        case VMSymbolTable::Kind::Builtin:
-          this->raise("Variable symbol already declared as a builtin: '", top.scope, "'");
+        case VMSymbolTable::Kind::Type:
+          this->raise("Variable symbol already declared as a type: '", top.scope, "'");
           return false;
         }
       }
@@ -1796,13 +1818,9 @@ namespace {
         this->raise("Unknown variable: '", name, "'");
         return false;
       }
-      switch (extant->kind) {
-      case VMSymbolTable::Kind::Builtin:
+      if (extant->kind == VMSymbolTable::Kind::Builtin) {
         this->raise("Cannot re-assign built-in value: '", name, "'");
         return false;
-      case VMSymbolTable::Kind::Unset:
-      case VMSymbolTable::Kind::Variable:
-        break;
       }
       if (!this->execution.assignValue(extant->value, extant->type, value)) {
         this->raise("Type mismatch setting variable '", name, "': expected '", extant->type, "' but instead got ", describe(value));
@@ -1826,12 +1844,8 @@ namespace {
       if (extant == nullptr) {
         return this->raiseRuntimeError("Unknown variable: '", name, "'");
       }
-      switch (extant->kind) {
-      case VMSymbolTable::Kind::Builtin:
+      if (extant->kind == VMSymbolTable::Kind::Builtin) {
         return this->raiseRuntimeError("Cannot re-assign built-in value: '", name, "'");
-      case VMSymbolTable::Kind::Unset:
-      case VMSymbolTable::Kind::Variable:
-        break;
       }
       if (!this->execution.assignValue(extant->value, extant->type, value)) {
         return HardValue::False;
@@ -1880,14 +1894,26 @@ namespace {
       return this->createHardValueObject(object);
     }
     HardValue functionConstruct(const Type& ftype, const IVMModule::Node& definition) {
+      // TODO optimize
       assert(ftype.validate());
-      size_t block = 1;
-      while ((block < definition.children.size()) && (definition.children[block]->kind == IVMModule::Node::Kind::StmtFunctionCapture)) {
-        block++;
-      }
-      auto handler = HardPtr(this->getAllocator().makeRaw<VMFunction>(this->vm, ftype, *definition.children[block]));
+      auto handler = HardPtr(this->getAllocator().makeRaw<VMFunction>(this->vm, ftype, definition));
       assert(handler != nullptr);
-      auto object = ObjectFactory::createVanillaFunction(this->vm, ftype, *handler);
+      std::vector<VMCallCapture> captures;
+      for (size_t index = 1; index < definition.defaultIndex; ++index) {
+        auto* capture = definition.children[index];
+        assert(capture != nullptr);
+        assert(capture->kind == IVMModule::Node::Kind::StmtFunctionCapture);
+        String symbol;
+        if (!capture->literal->getString(symbol)) {
+          return this->raiseRuntimeError("Failed to fetch captured symbol name");
+        }
+        auto* found = this->symtable.find(symbol);
+        if (found == nullptr) {
+          return this->raiseRuntimeError("Cannot find required captured symbol: '", symbol, "'");
+        }
+        captures.emplace_back(found->kind, found->type, symbol, found->value);
+      }
+      auto object = ObjectFactory::createVanillaFunction(this->vm, ftype, *handler, std::move(captures)); // WIBBLE
       assert(object != nullptr);
       return this->createHardValueObject(object);
     }
@@ -2274,11 +2300,7 @@ bool VMRunner::stepNode(HardValue& retval) {
       if (extant == nullptr) {
         return this->raise("Unknown identifier: '", symbol, "'");
       }
-      switch (extant->kind) {
-      case VMSymbolTable::Kind::Unset:
-      case VMSymbolTable::Kind::Variable:
-        break;
-      case VMSymbolTable::Kind::Builtin:
+      if (extant->kind == VMSymbolTable::Kind::Builtin) {
         if (top.node->mutationOp == ValueMutationOp::Assign) {
           return this->raise("Cannot re-assign built-in value: '", symbol, "'");
         }
@@ -2975,7 +2997,11 @@ bool VMRunner::stepNode(HardValue& retval) {
       // Return the value
       assert(top.index == 1);
       assert(top.deque.size() == 1);
-      return this->pop(ValueFactory::createHardReturn(this->getAllocator(), top.deque.back()));
+      auto& result = top.deque.back();
+      if (result.hasFlowControl()) {
+        return this->pop(result);
+      }
+      return this->pop(ValueFactory::createHardReturn(this->getAllocator(), result));
     }
     break;
   case IVMModule::Node::Kind::ExprFunctionCall:
@@ -3146,12 +3172,8 @@ bool VMRunner::stepNode(HardValue& retval) {
       if (extant == nullptr) {
         return this->raise("Unknown identifier: '", symbol, "'");
       }
-      switch (extant->kind) {
-      case VMSymbolTable::Kind::Unset:
+      if (extant->value->getVoid()) {
         return this->raise("Variable uninitialized: '", symbol, "'");
-      case VMSymbolTable::Kind::Builtin:
-      case VMSymbolTable::Kind::Variable:
-        break;
       }
       return this->pop(extant->value);
     }
@@ -3453,9 +3475,9 @@ HardValue VMExecution::raiseRuntimeError(const String& message, const SourceRang
   return this->raiseException(this->createHardValueObject(builder->build()));
 }
 
-HardValue VMExecution::initiateTailCall(const IFunctionSignature& signature, const ICallArguments& arguments, const IVMModule::Node& block) {
+HardValue VMExecution::initiateTailCall(const IFunctionSignature& signature, const ICallArguments& arguments, const IVMModule::Node& definition, const IVMCallCaptures* captures) {
   assert(this->runner != nullptr);
-  return this->runner->initiateTailCall(signature, arguments, block);
+  return this->runner->initiateTailCall(signature, arguments, definition, captures);
 }
 
 egg::ovum::HardPtr<IVM> egg::ovum::VMFactory::createDefault(IAllocator& allocator, ILogger& logger) {

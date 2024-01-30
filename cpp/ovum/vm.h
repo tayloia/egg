@@ -2,6 +2,12 @@ namespace egg::ovum {
   class IVMProgram;
   class IVMRunner;
 
+  enum class VMSymbolKind {
+    Builtin,
+    Variable,
+    Type
+  };
+
   class IVMCommon {
   public:
     // Interface
@@ -82,9 +88,24 @@ namespace egg::ovum {
     virtual IAllocator& getAllocator() const = 0;
   };
 
+  struct VMCallCapture {
+    VMSymbolKind kind;
+    Type type;
+    String name;
+    HardValue value;
+  };
+
+  class IVMCallCaptures {
+  public:
+    // Interface
+    virtual ~IVMCallCaptures() {}
+    virtual size_t getCaptureCount() const = 0;
+    virtual const VMCallCapture* getCaptureByIndex(size_t index) const = 0;
+  };
+
   class IVMCallHandler : public IHardAcquireRelease {
   public:
-    virtual HardValue call(IVMExecution& execution, const ICallArguments& arguments) = 0;
+    virtual HardValue call(IVMExecution& execution, const ICallArguments& arguments, const IVMCallCaptures* captures) = 0;
   };
 
   class IVMCallStack : public IHardAcquireRelease {
@@ -110,7 +131,7 @@ namespace egg::ovum {
     // Assignment
     virtual bool assignValue(HardValue& lhs, const Type& ltype, const HardValue& rhs) = 0;
     // Function calls
-    virtual HardValue initiateTailCall(const IFunctionSignature& signature, const ICallArguments& arguments, const IVMModule::Node& block) = 0;
+    virtual HardValue initiateTailCall(const IFunctionSignature& signature, const ICallArguments& arguments, const IVMModule::Node& definition, const IVMCallCaptures* captures) = 0;
     // Soft values
     virtual HardValue getSoftValue(const SoftValue& soft) = 0;
     virtual bool setSoftValue(SoftValue& lhs, const HardValue& rhs) = 0;
@@ -196,7 +217,7 @@ namespace egg::ovum {
     virtual Node& stmtCase(Node& block, const SourceRange& range) = 0;
     virtual Node& stmtBreak(const SourceRange& range) = 0;
     virtual Node& stmtContinue(const SourceRange& range) = 0;
-    virtual Node& stmtFunctionDefine(const String& symbol, Node& type, const SourceRange& range) = 0;
+    virtual Node& stmtFunctionDefine(const String& symbol, Node& type, size_t captures, const SourceRange& range) = 0;
     virtual Node& stmtFunctionCapture(const String& symbol, const SourceRange& range) = 0;
     virtual Node& stmtFunctionInvoke(const SourceRange& range) = 0;
     virtual Node& stmtVariableDeclare(const String& symbol, Node& type, const SourceRange& range) = 0;

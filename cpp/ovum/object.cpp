@@ -844,21 +844,23 @@ namespace {
     }
   };
 
-  class VMObjectVanillaFunction : public VMObjectBase {
+  class VMObjectVanillaFunction : public VMObjectBase, public IVMCallCaptures {
     VMObjectVanillaFunction(const VMObjectVanillaFunction&) = delete;
     VMObjectVanillaFunction& operator=(const VMObjectVanillaFunction&) = delete;
   private:
     Type ftype;
     HardPtr<IVMCallHandler> handler;
+    std::vector<VMCallCapture> captures;
   protected:
     virtual void printPrefix(Printer& printer) const override {
       printer << "Vanilla function";
     }
   public:
-    VMObjectVanillaFunction(IVM& vm, const Type& ftype, IVMCallHandler& handler)
+    VMObjectVanillaFunction(IVM& vm, const Type& ftype, IVMCallHandler& handler, std::vector<VMCallCapture>&& captures)
       : VMObjectBase(vm),
         ftype(ftype),
-        handler(&handler) {
+        handler(&handler),
+        captures(std::move(captures)) {
       assert(this->ftype != nullptr);
       assert(this->handler != nullptr);
     }
@@ -873,7 +875,16 @@ namespace {
       return this->ftype;
     }
     virtual HardValue vmCall(IVMExecution& execution, const ICallArguments& arguments) override {
-      return this->handler->call(execution, arguments);
+      return this->handler->call(execution, arguments, this);
+    }
+    virtual size_t getCaptureCount() const override {
+      return this->captures.size();
+    }
+    virtual const VMCallCapture* getCaptureByIndex(size_t index) const override {
+      if (index < this->captures.size()) {
+        return &this->captures[index];
+      }
+      return nullptr;
     }
   };
 
@@ -1832,8 +1843,8 @@ egg::ovum::HardObject egg::ovum::ObjectFactory::createVanillaKeyValue(IVM& vm, c
   return makeHardObject<VMObjectVanillaKeyValue>(vm, key, value);
 }
 
-egg::ovum::HardObject egg::ovum::ObjectFactory::createVanillaFunction(IVM& vm, const Type& ftype, IVMCallHandler& handler) {
-  return makeHardObject<VMObjectVanillaFunction>(vm, ftype, handler);
+egg::ovum::HardObject egg::ovum::ObjectFactory::createVanillaFunction(IVM& vm, const Type& ftype, IVMCallHandler& handler, std::vector<VMCallCapture>&& captures) {
+  return makeHardObject<VMObjectVanillaFunction>(vm, ftype, handler, std::move(captures));
 }
 
 egg::ovum::HardObject egg::ovum::ObjectFactory::createPointerToValue(IVM& vm, const HardValue& value, Modifiability modifiability) {

@@ -542,7 +542,9 @@ ModuleNode* ModuleCompiler::compileStmtDefineFunction(ParserNode& pnode, StmtCon
     return nullptr;
   }
   assert(block == &invoke);
-  auto* stmt = &this->mbuilder.stmtFunctionDefine(symbol, *mtype, pnode.range);
+  // WIBBLE Remove any recursive mention of the function itself
+  captures.erase(symbol);
+  auto* stmt = &this->mbuilder.stmtFunctionDefine(symbol, *mtype, captures.size(), pnode.range);
   for (const auto& capture : captures) {
     this->mbuilder.appendChild(*stmt, this->mbuilder.stmtFunctionCapture(capture, pnode.range));
   }

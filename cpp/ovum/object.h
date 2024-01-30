@@ -2,6 +2,7 @@ namespace egg::ovum {
   class IVM;
   class IVMCallHandler;
   class IVMCallStack;
+  struct VMCallCapture;
 
   class HardObject : public HardPtr<IObject> {
   public:
@@ -68,7 +69,7 @@ namespace egg::ovum {
     static HardObject createVanillaArray(IVM& vm);
     static HardObject createVanillaObject(IVM& vm);
     static HardObject createVanillaKeyValue(IVM& vm, const HardValue& key, const HardValue& value);
-    static HardObject createVanillaFunction(IVM& vm, const Type& ftype, IVMCallHandler& handler);
+    static HardObject createVanillaFunction(IVM& vm, const Type& ftype, IVMCallHandler& handler, std::vector<VMCallCapture>&& captures);
     // Pointer factories
     static HardObject createPointerToValue(IVM& vm, const HardValue& value, Modifiability modifiability);
     static HardObject createPointerToIndex(IVM& vm, const HardObject& instance, const HardValue& index, Modifiability modifiability, const Type& pointerType);
