@@ -342,7 +342,6 @@ namespace {
     }
     Entry* add(Kind kind, const String& name, const Type& type, IValue* soft) {
       // Returns any extant entry
-      assert(SoftValue::isPoly(soft));
       assert(!this->stack.empty());
       return this->stack.front().insert(kind, name, type, soft);
     }

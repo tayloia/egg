@@ -132,7 +132,6 @@ namespace egg::ovum {
     bool validate() const;
     // Factory
     static IValue* createPoly(IAllocator& allocator);
-    static bool isPoly(const IValue* value); // WIBBLE remove
   };
 
   class SoftComparator {

@@ -1333,7 +1333,3 @@ bool egg::ovum::SoftValue::validate() const {
 egg::ovum::IValue* egg::ovum::SoftValue::createPoly(IAllocator& allocator) {
   return allocator.makeRaw<ValuePoly>(allocator);
 }
-
-bool egg::ovum::SoftValue::isPoly(const IValue* value) { // WOBBLE
-  return (value != nullptr) && (typeid(*value) == typeid(ValuePoly));
-}
