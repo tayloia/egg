@@ -92,7 +92,7 @@ namespace egg::ovum {
     VMSymbolKind kind;
     Type type;
     String name;
-    HardValue value;
+    IValue* soft;
   };
 
   class IVMCallCaptures {
@@ -129,7 +129,7 @@ namespace egg::ovum {
     virtual HardValue raiseException(const HardValue& inner) = 0;
     virtual HardValue raiseRuntimeError(const String& message, const SourceRange* source) = 0;
     // Assignment
-    virtual bool assignValue(HardValue& lhs, const Type& ltype, const HardValue& rhs) = 0;
+    virtual bool assignValue(IValue& lhs, const Type& ltype, const IValue& rhs) = 0;
     // Function calls
     virtual HardValue initiateTailCall(const IFunctionSignature& signature, const ICallArguments& arguments, const IVMModule::Node& definition, const IVMCallCaptures* captures) = 0;
     // Soft values
@@ -280,8 +280,14 @@ namespace egg::ovum {
     IValue* createSoftValue() {
       return this->softCreateValue();
     }
-    IValue* createSoftAlias(const IValue& value) {
+    IValue* createSoftKey(const IValue& hard) {
+      return this->softCreateKey(hard);
+    }
+    IValue* createSoftAlias(const IValue& value) { // WIBBLE deprecate?
       return this->softCreateAlias(value);
+    }
+    IValue* softenWIBBLE(const IValue& value) {
+      return this->softCreateWIBBLE(value);
     }
     HardValue getSoftKey(const SoftKey& key) {
       auto* hard = this->softHarden(key.ptr);
@@ -312,7 +318,9 @@ namespace egg::ovum {
     }
   private:
     virtual IValue* softCreateValue() = 0;
+    virtual IValue* softCreateKey(const IValue& hard) = 0;
     virtual IValue* softCreateAlias(const IValue& value) = 0;
+    virtual IValue* softCreateWIBBLE(const IValue& value) = 0;
     virtual void softAcquire(ICollectable*& target, const ICollectable* value) = 0;
     virtual IValue* softHarden(const IValue* soft) = 0;
     virtual bool softSetValue(IValue*& soft, const IValue& value) = 0;

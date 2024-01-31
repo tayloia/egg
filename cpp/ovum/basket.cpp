@@ -18,13 +18,17 @@ namespace {
     const std::set<const ICollectable*>& owned;
     std::stack<const ICollectable*> pending;
     std::set<const ICollectable*> unreachable;
-    void collect() {
+    void collect(std::ostream* os) { // WOBBLE
       // TODO thread safety
-      for (auto* collectable : this->owned) {
+      if (os != nullptr) {
+        *os << "%%% COLLECTION STARTED" << std::endl;
+      }
+      for (const auto* collectable : this->owned) {
         assert(collectable->softGetBasket() == &basket);
         if (collectable->softIsRoot()) {
           // Construct a list of roots to start the search from
           this->pending.push(collectable);
+          this->dump(os, collectable, "ROOT");
         } else {
           // Assume all non-roots are unreachable
           this->unreachable.insert(collectable);
@@ -34,7 +38,14 @@ namespace {
         auto* collectable = pending.top();
         this->pending.pop();
         assert(this->unreachable.count(collectable) == 0);
+        this->dump(os, collectable, "REACHED");
         collectable->softVisit(*this);
+      }
+      if (os != nullptr) {
+        for (const auto* collectable : this->unreachable) {
+          this->dump(os, collectable, "COLLECTED");
+        }
+        *os << "%%% COLLECTION FINISHED" << std::endl;
       }
     }
     virtual void visit(const ICollectable& target) override {
@@ -43,6 +54,18 @@ namespace {
       if (this->unreachable.erase(&target) > 0) {
         // It's a node that has just been deemed reachable
         this->pending.push(&target);
+      }
+    }
+  private:
+    void dump(std::ostream* os, const ICollectable* collectable, const char* label) {
+      assert(collectable != nullptr);
+      if (os != nullptr) {
+        Print::Options options{};
+        options.quote = '"';
+        Printer printer{ *os, options };
+        printer.stream << "    [" << collectable << "] " << typeid(*collectable).name() << ' ';
+        collectable->print(printer);
+        printer.stream << ' ' << label << std::endl;
       }
     }
   };
@@ -98,10 +121,10 @@ namespace {
       }
       collectable.hardRelease();
     }
-    virtual size_t collect() override {
+    virtual size_t collect(std::ostream* os) override {
       // TODO thread safety
       BasketCollector collector(*this, this->owned);
-      collector.collect();
+      collector.collect(os);
       for (auto collectable : collector.unreachable) {
         this->drop(*collectable);
       }
@@ -121,9 +144,9 @@ namespace {
       return true;
     }
     virtual void print(Printer& printer) const override {
-      for (const auto* entry : this->owned) {
-        printer.stream << "    [" << entry << "] " << typeid(*entry).name() << " ";
-        entry->print(printer);
+      for (const auto* collectable : this->owned) {
+        printer.stream << "    [" << collectable << "] " << typeid(*collectable).name() << " ";
+        collectable->print(printer);
         printer.stream << std::endl;
       }
     }
@@ -132,7 +155,7 @@ namespace {
 
 bool egg::ovum::IBasket::verify(std::ostream& os, size_t minimum, size_t maximum) {
   Statistics stats;
-  auto collected = this->collect();
+  auto collected = this->collect(&os);
   if (collected > 0) {
     os << "$$$ Collected " << collected << " from basket" << std::endl;
   }
@@ -146,11 +169,13 @@ bool egg::ovum::IBasket::verify(std::ostream& os, size_t minimum, size_t maximum
       // Otherwise use the explicit bounds
       return true;
     }
-    os << "$$$ Basket still owns " << stats.currentBytesAllocated << " bytes in " << stats.currentBlocksOwned << " blocks" << std::endl;
+    os << "$$$ Basket still owns " << stats.currentBlocksOwned << " blocks" << std::endl;
   } else {
     os << "$$$ Unable to determine number of remaining basket blocks" << std::endl;
   }
-  Printer printer(os, Print::Options::DEFAULT);
+  Print::Options options{};
+  options.quote = '"';
+  Printer printer{ os, options };
   this->print(printer);
   return false;
 }

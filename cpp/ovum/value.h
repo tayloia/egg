@@ -86,7 +86,7 @@ namespace egg::ovum {
   public:
     // Construction
     explicit SoftKey(const SoftKey& value);
-    SoftKey(IVM& vm, const IValue& value);
+    SoftKey(IVM& vm, const HardValue& value);
     // Atomic access
     const IValue& get() const {
       auto* p = this->ptr;
@@ -100,6 +100,7 @@ namespace egg::ovum {
     void visit(ICollectable::IVisitor& visitor) const {
       visitor.visit(*this->ptr);
     }
+    SoftKey& soften(IVM& vm);
     // Comparison for containers
     bool operator<(const SoftKey& rhs) const {
       assert(this->validate());
@@ -137,6 +138,7 @@ namespace egg::ovum {
     bool validate() const;
     // Factory
     static IValue* createPoly(IAllocator& allocator);
+    static bool isPoly(const IValue* value); // WIBBLE remove
   };
 
   class ValueFactory {

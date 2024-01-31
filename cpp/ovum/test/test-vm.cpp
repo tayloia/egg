@@ -539,7 +539,7 @@ TEST(TestVM, ExpandoCollector) {
     )
   );
   buildAndRunSucceeded(vm, *pbuilder, *mbuilder);
-  ASSERT_EQ("0\n0\n4\n", vm.logger.logged.str());
+  ASSERT_EQ("0\n0\n6\n", vm.logger.logged.str());
 }
 
 TEST(TestVM, ExpandoKeys) {

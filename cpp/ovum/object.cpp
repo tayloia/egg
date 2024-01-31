@@ -2,6 +2,7 @@
 #include "ovum/operation.h"
 
 #include <deque>
+#include <iostream> // WIBBLE
 
 namespace {
   using namespace egg::ovum;
@@ -150,6 +151,19 @@ namespace {
     explicit VMObjectBuiltinPrint(IVM& vm)
       : VMObjectBase(vm) {
     }
+    virtual VMObjectBuiltinPrint* hardAcquire() const override { // WIBBLE
+      auto count = this->atomic.increment();
+      assert(count > 0);
+      (void)count;
+      return const_cast<VMObjectBuiltinPrint*>(this);
+    }
+    virtual void hardRelease() const override { // WIBBLE
+      auto count = this->atomic.decrement();
+      assert(count >= 0);
+      if (count == 0) {
+        this->hardDestroy();
+      }
+    }
     virtual void softVisit(ICollectable::IVisitor&) const override {
       // No soft links
     }
@@ -208,7 +222,7 @@ namespace {
       return this->raiseRuntimeError(execution, "TODO: Expando objects do not yet support iteration");
     }
     virtual HardValue vmIndexGet(IVMExecution& execution, const HardValue& index) override {
-      SoftKey key(this->vm, index.get());
+      SoftKey key{ this->vm, index };
       auto pfound = this->properties.find(key);
       if (pfound == this->properties.end()) {
         return this->raiseRuntimeError(execution, "TODO: Cannot find index '", key.get(), "' in expando object");
@@ -216,10 +230,10 @@ namespace {
       return execution.getSoftValue(pfound->second);
     }
     virtual HardValue vmIndexSet(IVMExecution& execution, const HardValue& index, const HardValue& value) override {
-      SoftKey key(this->vm, index.get());
+      SoftKey key{ this->vm, index };
       auto pfound = this->properties.find(key);
       if (pfound == this->properties.end()) {
-        pfound = this->properties.emplace_hint(pfound, std::piecewise_construct, std::forward_as_tuple(key), std::forward_as_tuple(this->vm));
+        pfound = this->properties.emplace_hint(pfound, std::piecewise_construct, std::forward_as_tuple(key.soften(this->vm)), std::forward_as_tuple(this->vm));
       }
       if (!execution.setSoftValue(pfound->second, value)) {
         return this->raiseRuntimeError(execution, "TODO: Cannot modify index '", key.get(), "'");
@@ -230,7 +244,7 @@ namespace {
       return this->raiseRuntimeError(execution, "TODO: Expando objects do not yet support index mutation");
     }
     virtual HardValue vmPropertyGet(IVMExecution& execution, const HardValue& property) override {
-      SoftKey pname(this->vm, property.get());
+      SoftKey pname{ this->vm, property };
       auto pfound = this->properties.find(pname);
       if (pfound == this->properties.end()) {
         return this->raiseRuntimeError(execution, "TODO: Cannot find property '", pname.get(), "' in expando object");
@@ -238,10 +252,10 @@ namespace {
       return execution.getSoftValue(pfound->second);
     }
     virtual HardValue vmPropertySet(IVMExecution& execution, const HardValue& property, const HardValue& value) override {
-      SoftKey pname(this->vm, property.get());
+      SoftKey pname{ this->vm, property };
       auto pfound = this->properties.find(pname);
       if (pfound == this->properties.end()) {
-        pfound = this->properties.emplace_hint(pfound, std::piecewise_construct, std::forward_as_tuple(pname), std::forward_as_tuple(this->vm));
+        pfound = this->properties.emplace_hint(pfound, std::piecewise_construct, std::forward_as_tuple(pname.soften(this->vm)), std::forward_as_tuple(this->vm));
       }
       if (!execution.setSoftValue(pfound->second, value)) {
         return this->raiseRuntimeError(execution, "TODO: Cannot modify property '", pname.get(), "'");
@@ -310,7 +324,7 @@ namespace {
       if (arguments.getArgumentCount() != 0) {
         return this->raisePrefixError(execution, " expects no arguments");
       }
-      auto collected = this->vm.getBasket().collect();
+      auto collected = this->vm.getBasket().collect(&std::cout);
       return execution.createHardValueInt(Int(collected));
     }
   };
@@ -743,7 +757,7 @@ namespace {
     }
   private:
     HardValue propertyGet(IVMExecution& execution, const HardValue& property) {
-      SoftKey key(this->vm, property.get());
+      SoftKey key{ this->vm, property };
       auto pfound = this->properties.find(key);
       if (pfound == this->properties.end()) {
         return this->raisePrefixError(execution, " does not contain property '", key.get(), "'");
@@ -751,7 +765,7 @@ namespace {
       return execution.getSoftValue(pfound->second);
     }
     HardValue propertySet(IVMExecution& execution, const HardValue& property, const HardValue& value) {
-      SoftKey key(this->vm, property.get());
+      SoftKey key{ this->vm, property };
       auto pfound = this->properties.find(key);
       if (pfound == this->properties.end()) {
         this->propertyCreate(pfound, key);
@@ -762,7 +776,7 @@ namespace {
       return HardValue::Void;
     }
     HardValue propertyMut(IVMExecution& execution, const HardValue& property, ValueMutationOp mutation, const HardValue& value) {
-      SoftKey key(this->vm, property.get());
+      SoftKey key{ this->vm, property };
       auto pfound = this->properties.find(key);
       if (pfound == this->properties.end()) {
         if (mutation != ValueMutationOp::Assign) {
@@ -773,13 +787,13 @@ namespace {
       return execution.mutateSoftValue(pfound->second, mutation, value);
     }
     void propertyCreate(std::map<SoftKey, SoftValue>::iterator& where, SoftKey& key) {
-      where = this->properties.emplace_hint(where, std::piecewise_construct, std::forward_as_tuple(key), std::forward_as_tuple(this->vm));
+      where = this->properties.emplace_hint(where, std::piecewise_construct, std::forward_as_tuple(key.soften(this->vm)), std::forward_as_tuple(this->vm));
       assert(where != this->properties.end());
       this->keys.emplace_back(key);
     }
   protected:
     HardValue propertyFind(IVMExecution& execution, const HardValue& property) {
-      SoftKey key(this->vm, property.get());
+      SoftKey key{ this->vm, property };
       auto pfound = this->properties.find(key);
       if (pfound == this->properties.end()) {
         return HardValue::Void;
@@ -787,8 +801,8 @@ namespace {
       return execution.getSoftValue(pfound->second);
     }
     void propertyAdd(const HardValue& property, const HardValue& value) {
-      SoftKey key(this->vm, property.get());
-      auto where = this->properties.emplace(std::piecewise_construct, std::forward_as_tuple(key), std::forward_as_tuple(this->vm));
+      SoftKey key{ this->vm, property };
+      auto where = this->properties.emplace(std::piecewise_construct, std::forward_as_tuple(key.soften(this->vm)), std::forward_as_tuple(this->vm));
       assert(where.second);
       auto success = this->vm.setSoftValue(where.first->second, value);
       assert(success);
@@ -864,8 +878,13 @@ namespace {
       assert(this->ftype != nullptr);
       assert(this->handler != nullptr);
     }
-    virtual void softVisit(ICollectable::IVisitor&) const override {
-      // Nothing to do
+    virtual void softVisit(ICollectable::IVisitor& visitor) const override {
+      for (const auto& capture : this->captures) {
+        assert(capture.type != nullptr);
+        capture.type->softVisit(visitor);
+        assert(capture.soft != nullptr);
+        capture.soft->softVisit(visitor);
+      }
     }
     virtual int print(Printer& printer) const override {
       printer.describe(*this->ftype);

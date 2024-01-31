@@ -1240,8 +1240,21 @@ egg::ovum::SoftKey::SoftKey(const SoftKey& value) : ptr(&value.get()) {
   assert(this->validate());
 }
 
-egg::ovum::SoftKey::SoftKey(IVM& vm, const IValue& value) : ptr(vm.createSoftAlias(value)) {
+egg::ovum::SoftKey::SoftKey(IVM&, const HardValue& hard) : ptr(&hard.get()) { // WIBBLE
   assert(this->validate());
+}
+
+/* WIBBLE
+egg::ovum::SoftKey::SoftKey(IVM& vm, const HardValue& value) : ptr(vm.createSoftKey(value.get())) {
+  assert(this->validate());
+}
+*/
+
+egg::ovum::SoftKey& egg::ovum::SoftKey::soften(IVM& vm) {
+  assert(this->validate());
+  this->ptr = vm.softenWIBBLE(*this->ptr);
+  assert(this->validate());
+  return *this;
 }
 
 bool egg::ovum::SoftKey::validate() const {
@@ -1332,4 +1345,8 @@ bool egg::ovum::SoftValue::validate() const {
 
 egg::ovum::IValue* egg::ovum::SoftValue::createPoly(IAllocator& allocator) {
   return allocator.makeRaw<ValuePoly>(allocator);
+}
+
+bool egg::ovum::SoftValue::isPoly(const IValue* value) { // WOBBLE
+  return (value != nullptr) && (typeid(*value) == typeid(ValuePoly));
 }

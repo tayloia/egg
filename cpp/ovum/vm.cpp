@@ -274,13 +274,11 @@ namespace {
   public:
     VMModule(IVM& vm, const String& resource)
       : VMUncollectable(vm),
-      resource(resource) {
+        resource(resource) {
       this->root = this->getAllocator().makeRaw<Node>(*this, Node::Kind::Root, SourceRange{}, nullptr);
       this->chain.set(this->root);
     }
-    virtual HardPtr<IVMRunner> createRunner(IVMProgram& program) override {
-      return HardPtr<VMRunner>(this->getAllocator().makeRaw<VMRunner>(this->vm, program, *this->root));
-    }
+    virtual HardPtr<IVMRunner> createRunner(IVMProgram& program) override;
     const String& getResource() const {
       return this->resource;
     }
@@ -303,14 +301,16 @@ namespace {
     struct Entry {
       Kind kind;
       Type type;
-      HardValue value;
+      IValue* soft;
     };
   private:
     struct Table {
       std::map<String, Entry> entries;
-      Entry* insert(Kind kind, const String& name, const Type& type, const HardValue& value) {
+      Entry* insert(Kind kind, const String& name, const Type& type, IValue* soft) {
         // Returns any extant entry
-        auto iterator = this->entries.emplace(name, Entry{ kind, type, value });
+        assert(soft != nullptr);
+        assert(soft->softGetBasket() != nullptr);
+        auto iterator = this->entries.emplace(name, Entry{ kind, type, soft });
         return iterator.second ? nullptr : &iterator.first->second;
       }
       Entry* find(const String& name) {
@@ -333,17 +333,18 @@ namespace {
       assert(this->stack.size() > 1);
       this->stack.pop_front();
     }
-    void builtin(const String& name, const Type& type, const HardValue& value) {
+    void builtin(const String& name, IValue* soft) {
       // You can only add builtins to the base of the chain
       assert(this->stack.size() == 1);
-      auto extant = this->stack.front().insert(Kind::Builtin, name, type, value);
+      auto extant = this->stack.front().insert(Kind::Builtin, name, soft->getRuntimeType(), soft);
       assert(extant == nullptr);
       (void)extant;
     }
-    Entry* add(Kind kind, const String& name, const Type& type, const HardValue& value) {
+    Entry* add(Kind kind, const String& name, const Type& type, IValue* soft) {
       // Returns any extant entry
+      assert(SoftValue::isPoly(soft));
       assert(!this->stack.empty());
-      return this->stack.front().insert(kind, name, type, value);
+      return this->stack.front().insert(kind, name, type, soft);
     }
     bool remove(const String& name) {
       // Only removes from the head of the chain
@@ -359,6 +360,14 @@ namespace {
         }
       }
       return nullptr;
+    }
+    void softVisit(ICollectable::IVisitor& visitor) const {
+      for (const auto& table : this->stack) {
+        for (const auto& entry : table.entries) {
+          assert(entry.second.soft != nullptr);
+          visitor.visit(*entry.second.soft);
+        }
+      }
     }
     void print(Printer& printer) const {
       // TODO debugging only
@@ -379,7 +388,7 @@ namespace {
             printer << "      TYPE ";
             break;
           }
-          printer << value.type << ' ' << name << " = " << value.value << '\n';
+          printer << value.type << ' ' << name << " = " << value.soft << '\n';
         }
       }
       printer << "=== SYMBOL TABLE END ===";
@@ -403,25 +412,24 @@ namespace {
     }
     virtual HardValue raiseRuntimeError(const String& message, const SourceRange* source) override;
     virtual HardValue initiateTailCall(const IFunctionSignature& signature, const ICallArguments& arguments, const IVMModule::Node& definition, const IVMCallCaptures* captures) override;
-    virtual bool assignValue(HardValue& lhs, const Type& ltype, const HardValue& rhs) override {
+    virtual bool assignValue(IValue& lhs, const Type& ltype, const IValue& rhs) override {
       // Assign with int-to-float promotion
       assert(ltype != nullptr);
-      auto rtype = rhs->getRuntimeType();
+      auto rtype = rhs.getRuntimeType();
       assert(rtype != nullptr);
       if (ltype->isPrimitive()) {
         if (rtype->isPrimitive()) {
           // Assigning a primitive value
-          assert(rtype->getPrimitiveFlags() == rhs->getPrimitiveFlag());
-          return this->assign(lhs, ltype->getPrimitiveFlags(), rhs, rhs->getPrimitiveFlag());
+          assert(rtype->getPrimitiveFlags() == rhs.getPrimitiveFlag());
+          return this->assignPrimitive(lhs, ltype->getPrimitiveFlags(), rhs, rhs.getPrimitiveFlag());
         }
-        return this->assign(lhs, ltype->getPrimitiveFlags(), rhs, ValueFlags::Object);
+        return this->assignPrimitive(lhs, ltype->getPrimitiveFlags(), rhs, ValueFlags::Object);
       }
       switch (this->vm.getTypeForge().isTypeAssignable(ltype, rtype)) {
       case Assignability::Never:
         return false;
       case Assignability::Always:
-        lhs = rhs;
-        return true;
+        return lhs.set(rhs);
       case Assignability::Sometimes:
         break;
       }
@@ -902,7 +910,7 @@ namespace {
       auto error = this->createHardValueObject(ob->build());
       return this->raiseException(error);
     }
-    bool assign(HardValue& lhs, ValueFlags lflags, const HardValue& rhs, ValueFlags rflags, bool promote = true) {
+    bool assignPrimitive(IValue& lhs, ValueFlags lflags, const IValue& rhs, ValueFlags rflags, bool promote = true) {
       // Assign with possible int-to-float promotion
       EGG_WARNING_SUPPRESS_SWITCH_BEGIN
       switch (rflags) {
@@ -912,19 +920,19 @@ namespace {
       case ValueFlags::String:
       case ValueFlags::Object:
         if (Bits::hasAnySet(lflags, rflags)) {
-          return lhs->set(rhs.get());
+          return lhs.set(rhs);
         }
         break;
       case ValueFlags::Int:
         if (Bits::hasAnySet(lflags, ValueFlags::Int)) {
-          return lhs->set(rhs.get());
+          return lhs.set(rhs);
         }
         if (promote && Bits::hasAnySet(lflags, ValueFlags::Float)) {
           Int ivalue;
-          if (rhs->getInt(ivalue)) {
+          if (rhs.getInt(ivalue)) {
             auto fvalue = Arithmetic::promote(ivalue);
             auto hvalue = this->vm.createHardValueFloat(fvalue);
-            return lhs->set(hvalue.get());
+            return lhs.set(hvalue.get());
           }
         }
         break;
@@ -1556,7 +1564,7 @@ namespace {
     }
     virtual HardPtr<IVMModuleBuilder> createModuleBuilder(const String& resource) override {
       assert(this->program != nullptr);
-      return HardPtr<IVMModuleBuilder>(this->getAllocator().makeRaw<VMModuleBuilder>(this->vm, *this->program, resource));
+      return HardPtr(this->getAllocator().makeRaw<VMModuleBuilder>(this->vm, *this->program, resource));
     }
     virtual HardPtr<IVMProgram> build() override {
       HardPtr<VMProgram> built = this->program;
@@ -1607,7 +1615,7 @@ namespace {
       String scope; // Name of variable declared here
       size_t index; // Node-specific state variable
       std::deque<HardValue> deque; // Results of child nodes computation
-      HardValue value;
+      HardValue value; // WIBBLE ownership?
     };
     HardPtr<IVMProgram> program;
     std::stack<NodeStack> stack;
@@ -1622,26 +1630,41 @@ namespace {
       this->symtable.push();
       this->push(root);
     }
-    virtual void softVisit(ICollectable::IVisitor&) const override {
-      // TODO any soft links?
+    virtual void softVisit(ICollectable::IVisitor& visitor) const override {
+      this->symtable.softVisit(visitor);
+    }
+    virtual bool validate() const override {
+      if (VMCollectable::validate() && !this->stack.empty()) {
+        auto& top = this->stack.top();
+        if ((top.node != nullptr) && top.node->literal.validate()) {
+          // The literal in the module node should not be owned
+          return top.node->literal->softGetBasket() == nullptr;
+        }
+      }
+      return false;
     }
     virtual int print(Printer& printer) const override {
       printer << "[VMRunner]";
       return 0;
     }
     virtual void addBuiltin(const String& symbol, const HardValue& value) override {
-      this->symtable.builtin(symbol, value->getRuntimeType(), value);
+      auto soft = this->vm.createSoftValue();
+      assert(soft != nullptr);
+      auto assigned = soft->set(value.get());
+      assert(assigned);
+      (void)assigned; // WIBBLE
+      this->symtable.builtin(symbol, soft);
     }
     virtual RunOutcome run(HardValue& retval, RunFlags flags) override {
       if (flags == RunFlags::Step) {
-        if (this->stepNode(retval)) {
+        if (this->stepNodeChecked(retval)) {
           return RunOutcome::Stepped;
         }
       } else  if (flags != RunFlags::None) {
         retval = this->raiseRuntimeError(this->createString("TODO: Run flags not yet supported in runner"));
         return RunOutcome::Failed;
       } else {
-        while (this->stepNode(retval)) {
+        while (this->stepNodeChecked(retval)) {
           // Step
         }
       }
@@ -1682,8 +1705,9 @@ namespace {
         for (size_t index = 0; index < captures->getCaptureCount(); ++index) {
           auto* capture = captures->getCaptureByIndex(index);
           assert(capture != nullptr);
-          HardValue alias{ *this->vm.createSoftAlias(capture->value.get()) };
-          auto* extant = this->symtable.add(capture->kind, capture->name, capture->type, alias);
+          assert(capture->soft != nullptr);
+          assert(capture->soft->softGetBasket() != nullptr);
+          auto* extant = this->symtable.add(capture->kind, capture->name, capture->type, capture->soft);
           if (extant != nullptr) {
             switch (extant->kind) {
             case VMSymbolTable::Kind::Builtin:
@@ -1706,7 +1730,7 @@ namespace {
         auto pname = parameter.getName();
         auto ptype = parameter.getType();
         HardValue poly{ *this->vm.createSoftValue() };
-        if (!this->execution.assignValue(poly, ptype, value)) {
+        if (!this->execution.assignValue(poly.get(), ptype, value.get())) {
           auto message = this->execution.concat("Type mismatch for parameter '", pname, "': Expected '", ptype, "', but instead got ", describe(value));
           SourceRange source;
           if (arguments.getArgumentSourceByIndex(index, source)) {
@@ -1714,7 +1738,7 @@ namespace {
           }
           return this->execution.raiseRuntimeError(message, nullptr);
         }
-        auto* extant = this->symtable.add(VMSymbolTable::Kind::Variable, pname, ptype, poly);
+        auto* extant = this->symtable.add(VMSymbolTable::Kind::Variable, pname, ptype, &poly.get());
         if (extant != nullptr) {
           switch (extant->kind) {
           case VMSymbolTable::Kind::Builtin:
@@ -1737,6 +1761,7 @@ namespace {
     }
   private:
     bool stepNode(HardValue& retval);
+    bool stepNodeChecked(HardValue& retval);
     bool stepBlock(HardValue& retval, size_t first = 0);
     NodeStack& push(const IVMModule::Node& node, const String& scope = {}, size_t index = 0) {
       return this->stack.emplace(&node, scope, index);
@@ -1776,7 +1801,7 @@ namespace {
       }
       assert(!top.scope.empty());
       HardValue poly{ *this->vm.createSoftValue() };
-      auto* extant = this->symtable.add(VMSymbolTable::Kind::Variable, top.scope, type, poly);
+      auto* extant = this->symtable.add(VMSymbolTable::Kind::Variable, top.scope, type, &poly.get());
       if (extant != nullptr) {
         switch (extant->kind) {
         case VMSymbolTable::Kind::Builtin:
@@ -1799,9 +1824,10 @@ namespace {
         top.scope = {};
       }
     }
-    bool symbolSet(const HardValue& symbol, const HardValue& value) {
+    bool symbolSet(const IVMModule::Node* node, const HardValue& value) {
+      assert(node != nullptr);
       String name;
-      if (!symbol->getString(name)) {
+      if (!node->literal->getString(name)) {
         this->raise("Invalid program node literal for variable identifier");
         return false;
       }
@@ -1822,7 +1848,7 @@ namespace {
         this->raise("Cannot re-assign built-in value: '", name, "'");
         return false;
       }
-      if (!this->execution.assignValue(extant->value, extant->type, value)) {
+      if (!this->execution.assignValue(*extant->soft, extant->type, value.get())) {
         this->raise("Type mismatch setting variable '", name, "': expected '", extant->type, "' but instead got ", describe(value));
         return false;
       }
@@ -1847,7 +1873,7 @@ namespace {
       if (extant->kind == VMSymbolTable::Kind::Builtin) {
         return this->raiseRuntimeError("Cannot re-assign built-in value: '", name, "'");
       }
-      if (!this->execution.assignValue(extant->value, extant->type, value)) {
+      if (!this->execution.assignValue(*extant->soft, extant->type, value.get())) {
         return HardValue::False;
       }
       extant->kind = VMSymbolTable::Kind::Variable;
@@ -1911,7 +1937,7 @@ namespace {
         if (found == nullptr) {
           return this->raiseRuntimeError("Cannot find required captured symbol: '", symbol, "'");
         }
-        captures.emplace_back(found->kind, found->type, symbol, found->value);
+        captures.emplace_back(found->kind, found->type, symbol, found->soft);
       }
       auto object = ObjectFactory::createVanillaFunction(this->vm, ftype, *handler, std::move(captures)); // WIBBLE
       assert(object != nullptr);
@@ -2054,7 +2080,7 @@ namespace {
       return String::fromUTF32(this->allocator, utf32, codepoints);
     }
     virtual HardPtr<IVMProgramBuilder> createProgramBuilder() override {
-      return HardPtr<VMProgramBuilder>(this->getAllocator().makeRaw<VMProgramBuilder>(*this));
+      return HardPtr(this->getAllocator().makeRaw<VMProgramBuilder>(*this));
     }
     virtual HardValue createHardValueVoid() override {
       return HardValue::Void;
@@ -2117,10 +2143,42 @@ namespace {
       assert(taken == created);
       return static_cast<IValue*>(taken);
     }
+    virtual IValue* softCreateKey(const IValue& hard) override { // WIBBLE
+      // TODO: optimize
+      // TODO: thread safety
+      // If we would need to transfer to our basket, clone it instead
+      if (hard.softGetBasket() == this->basket.get()) {
+        return const_cast<IValue*>(&hard);
+      }
+      auto* created = SoftValue::createPoly(this->allocator);
+      assert(created != nullptr);
+      auto* taken = this->basket->take(*created);
+      assert(taken == created);
+      auto assigned = created->set(hard);
+      assert(assigned);
+      (void)assigned;
+      return static_cast<IValue*>(taken);
+    }
     virtual IValue* softCreateAlias(const IValue& value) override {
       // TODO: thread safety
       auto* taken = this->basket->take(value);
       assert(taken == &value);
+      return static_cast<IValue*>(taken);
+    }
+    virtual IValue* softCreateWIBBLE(const IValue& hard) override {
+      // TODO: optimize
+      // TODO: thread safety
+      // If we would need to transfer to our basket, clone it instead
+      if (hard.softGetBasket() == this->basket.get()) {
+        return const_cast<IValue*>(&hard);
+      }
+      auto* created = SoftValue::createPoly(this->allocator);
+      assert(created != nullptr);
+      auto* taken = this->basket->take(*created);
+      assert(taken == created);
+      auto assigned = created->set(hard);
+      assert(assigned);
+      (void)assigned;
       return static_cast<IValue*>(taken);
     }
     virtual bool softSetValue(IValue*& target, const IValue& value) override {
@@ -2147,7 +2205,7 @@ void egg::ovum::IVMModule::Node::hardDestroy() const {
 }
 
 bool VMRunner::stepNode(HardValue& retval) {
-  // Return true iff 'retval' has been set and the block has finished
+  // Return false iff 'retval' has been set and the block has finished
   auto& top = this->stack.top();
   switch (top.node->kind) {
   case IVMModule::Node::Kind::Root:
@@ -2187,7 +2245,7 @@ bool VMRunner::stepNode(HardValue& retval) {
         top.index++;
       }
       assert(top.node->children[top.index]->kind == IVMModule::Node::Kind::StmtFunctionInvoke); // WIBBLE
-      if (!this->symbolSet(top.node->literal, this->functionConstruct(type, *top.node))) {
+      if (!this->symbolSet(top.node, this->functionConstruct(type, *top.node))) {
         return true;
       }
       // Skip the function invocation block
@@ -2263,7 +2321,7 @@ bool VMRunner::stepNode(HardValue& retval) {
     } else {
       if (top.index == 2) {
         assert(top.deque.size() == 1);
-        if (!this->symbolSet(top.node->literal, top.deque.front())) {
+        if (!this->symbolSet(top.node, top.deque.front())) {
           return true;
         }
         top.deque.clear();
@@ -2281,7 +2339,7 @@ bool VMRunner::stepNode(HardValue& retval) {
       this->push(*top.node->children[top.index++]);
     } else {
       assert(top.deque.size() == 1);
-      if (!this->symbolSet(top.node->literal, top.deque.front())) {
+      if (!this->symbolSet(top.node, top.deque.front())) {
         return true;
       }
       return this->pop(HardValue::Void);
@@ -2306,7 +2364,7 @@ bool VMRunner::stepNode(HardValue& retval) {
         }
         return this->raise("Cannot modify built-in value: '", symbol, "'");
       }
-      auto& lhs = extant->value;
+      HardValue lhs{ *extant->soft };
       if (top.index == 0) {
         assert(top.deque.empty());
         // TODO: Get correct rhs static type
@@ -2642,7 +2700,7 @@ bool VMRunner::stepNode(HardValue& retval) {
         }
       }
       // Assign to the control variable
-      if (!this->symbolSet(top.node->literal, value)) {
+      if (!this->symbolSet(top.node, value)) {
         return true;
       }
       // Execute the controlled block
@@ -2969,7 +3027,7 @@ bool VMRunner::stepNode(HardValue& retval) {
         if (!top.value->getInner(inner)) {
           return this->raise("Invalid 'catch' clause expression");
         }
-        if (!this->symbolSet(top.node->literal, inner)) {
+        if (!this->symbolSet(top.node, inner)) {
           return true;
         }
         top.deque.clear();
@@ -3172,10 +3230,11 @@ bool VMRunner::stepNode(HardValue& retval) {
       if (extant == nullptr) {
         return this->raise("Unknown identifier: '", symbol, "'");
       }
-      if (extant->value->getVoid()) {
+      HardValue result{ *extant->soft };
+      if (result->getVoid()) {
         return this->raise("Variable uninitialized: '", symbol, "'");
       }
-      return this->pop(extant->value);
+      return this->pop(result);
     }
     break;
   case IVMModule::Node::Kind::ExprVariableRef:
@@ -3192,7 +3251,8 @@ bool VMRunner::stepNode(HardValue& retval) {
         return this->raise("Unknown identifier: '", symbol, "'");
       }
       auto modifiability = (extant->kind == VMSymbolTable::Kind::Builtin) ? Modifiability::Read : Modifiability::ReadWriteMutate;
-      auto pointer = ObjectFactory::createPointerToValue(this->vm, extant->value, modifiability);
+      HardValue pointee{ *extant->soft };
+      auto pointer = ObjectFactory::createPointerToValue(this->vm, pointee, modifiability);
       assert(pointer != nullptr);
       return this->pop(this->createHardValueObject(pointer));
     }
@@ -3424,11 +3484,20 @@ bool VMRunner::stepNode(HardValue& retval) {
   default:
     return this->raise("Invalid program node kind in program runner");
   }
+  // Keep going
   return true;
 }
 
+bool VMRunner::stepNodeChecked(HardValue& retval) {
+  // Return false iff 'retval' has been set and the block has finished
+  assert(this->validate());
+  auto finished = this->stepNode(retval);
+  assert(this->validate());
+  return finished;
+}
+
 bool VMRunner::stepBlock(HardValue& retval, size_t first) {
-  // Return true iff 'retval' has been set and the block has finished
+  // Return false iff 'retval' has been set and the block has finished
   auto& top = this->stack.top();
   assert(top.index >= first);
   assert(top.index <= top.node->children.size());
@@ -3455,6 +3524,14 @@ bool VMRunner::stepBlock(HardValue& retval, size_t first) {
     return false;
   }
   return true;
+}
+
+HardPtr<IVMRunner> VMModule::createRunner(IVMProgram& program) {
+  auto runner = HardPtr(this->getAllocator().makeRaw<VMRunner>(this->vm, program, *this->root));
+  auto taken = this->vm.getBasket().take(*runner);
+  assert(taken == runner.get());
+  (void)taken;
+  return runner;
 }
 
 HardPtr<IVMRunner> VMProgram::createRunner() {
