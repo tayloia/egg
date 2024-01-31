@@ -100,13 +100,7 @@ namespace egg::ovum {
     void visit(ICollectable::IVisitor& visitor) const {
       visitor.visit(*this->ptr);
     }
-    SoftKey& soften(IVM& vm);
     // Comparison for containers
-    bool operator<(const SoftKey& rhs) const {
-      assert(this->validate());
-      assert(rhs.validate());
-      return SoftKey::compare(*this->ptr, *rhs.ptr) < 0;
-    }
     static int compare(const IValue& lhs, const IValue& rhs);
     // Debugging
     bool validate() const;
@@ -139,6 +133,21 @@ namespace egg::ovum {
     // Factory
     static IValue* createPoly(IAllocator& allocator);
     static bool isPoly(const IValue* value); // WIBBLE remove
+  };
+
+  class SoftComparator {
+  public:
+    // See https://stackoverflow.com/a/31924435
+    using is_transparent = std::true_type;
+    bool operator()(const SoftKey& lhs, const SoftKey& rhs) const {
+      return SoftKey::compare(lhs.get(), rhs.get()) < 0;
+    }
+    bool operator()(const SoftKey& lhs, const HardValue& rhs) const {
+      return SoftKey::compare(lhs.get(), rhs.get()) < 0;
+    }
+    bool operator()(const HardValue& lhs, const SoftKey& rhs) const {
+      return SoftKey::compare(lhs.get(), rhs.get()) < 0;
+    }
   };
 
   class ValueFactory {

@@ -1240,15 +1240,8 @@ egg::ovum::SoftKey::SoftKey(const SoftKey& value) : ptr(&value.get()) {
   assert(this->validate());
 }
 
-egg::ovum::SoftKey::SoftKey(IVM&, const HardValue& hard) : ptr(&hard.get()) { // WIBBLE
+egg::ovum::SoftKey::SoftKey(IVM& vm, const HardValue& value) : ptr(vm.createSoftClone(value.get())) {
   assert(this->validate());
-}
-
-egg::ovum::SoftKey& egg::ovum::SoftKey::soften(IVM& vm) {
-  assert(this->validate());
-  this->ptr = vm.createSoftClone(*this->ptr);
-  assert(this->validate());
-  return *this;
 }
 
 bool egg::ovum::SoftKey::validate() const {
