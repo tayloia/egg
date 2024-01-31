@@ -2,9 +2,16 @@
 
 TEST(TestPoly, CreateSoftValue) {
   egg::test::VM vm;
-  auto* soft = vm->createSoftValue();
-  ASSERT_NE(nullptr, soft);
-  ASSERT_EQ(egg::ovum::ValueFlags::Void, soft->getPrimitiveFlag());
+  auto& soft = vm->createSoftValue();
+  ASSERT_EQ(egg::ovum::ValueFlags::Void, soft.getPrimitiveFlag());
+  // 'soft' is automagically cleaned up by GC
+}
+
+TEST(TestPoly, CreateSoftValueInit) {
+  egg::test::VM vm;
+  auto& soft = vm->createSoftValue(egg::ovum::HardValue::True);
+  ASSERT_NE(&egg::ovum::HardValue::True.get(), &soft);
+  ASSERT_EQ(egg::ovum::ValueFlags::Bool, soft.getPrimitiveFlag());
   // 'soft' is automagically cleaned up by GC
 }
 

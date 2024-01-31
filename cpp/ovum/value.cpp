@@ -1236,11 +1236,13 @@ bool egg::ovum::HardValue::validate() const {
   return p->validate();
 }
 
-egg::ovum::SoftKey::SoftKey(const SoftKey& value) : ptr(&value.get()) {
+egg::ovum::SoftKey::SoftKey(const SoftKey& value)
+  : ptr(&value.get()) {
   assert(this->validate());
 }
 
-egg::ovum::SoftKey::SoftKey(IVM& vm, const HardValue& value) : ptr(vm.createSoftClone(value.get())) {
+egg::ovum::SoftKey::SoftKey(IVM& vm, const HardValue& value)
+  : ptr(&vm.createSoftOwned(value)) {
   assert(this->validate());
 }
 
@@ -1315,7 +1317,13 @@ int egg::ovum::SoftKey::compare(const IValue& lhs, const IValue& rhs) {
   return 0;
 }
 
-egg::ovum::SoftValue::SoftValue(IVM& vm) : ptr(vm.createSoftValue()) {
+egg::ovum::SoftValue::SoftValue(IVM& vm)
+  : ptr(&vm.createSoftValue()) {
+  assert(this->validate());
+}
+
+egg::ovum::SoftValue::SoftValue(IVM& vm, const HardValue& init)
+  : ptr(&vm.createSoftValue(init)) {
   assert(this->validate());
 }
 

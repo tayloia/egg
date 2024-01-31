@@ -115,6 +115,7 @@ namespace egg::ovum {
   public:
     // Construction
     explicit SoftValue(IVM& vm);
+    SoftValue(IVM& vm, const HardValue& init);
     // Atomic access
     IValue& get() const {
       auto p = this->ptr.get();

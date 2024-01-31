@@ -615,7 +615,7 @@ namespace {
       // OPTIMIZE
       auto diff = ivalue - Int(this->elements.size());
       while (diff > 0) {
-        this->elements.emplace_back(this->vm)->set(HardValue::Null.get());
+        this->elements.emplace_back(this->vm, HardValue::Null);
         diff--;
       }
       while (diff < 0) {
@@ -624,14 +624,11 @@ namespace {
       }
       return success;
     }
-    HardValue vmCallPush(IVMExecution& execution, const ICallArguments& arguments) {
+    HardValue vmCallPush(IVMExecution&, const ICallArguments& arguments) {
       VMObjectVanillaMutex::WriteLock lock{ this->mutex };
       HardValue argument;
       for (size_t index = 0; arguments.getArgumentValueByIndex(index, argument); ++index) {
-        auto& added = this->elements.emplace_back(this->vm);
-        if (!added->set(argument.get())) {
-          return this->raiseRuntimeError(execution, "Cannot push value to the end of the array");
-        }
+        this->elements.emplace_back(this->vm, argument);
         lock.modified = true;
       }
       return HardValue::Void;
@@ -942,7 +939,7 @@ namespace {
   public:
     VMObjectPointerToValue(IVM& vm, const HardValue& instance, Modifiability modifiability)
       : VMObjectPointerBase(vm, modifiability),
-        alias(vm.createSoftAlias(instance.get())) {
+        alias(&vm.createSoftAlias(instance)) {
       assert(this->alias != nullptr);
     }
     virtual void softVisit(ICollectable::IVisitor& visitor) const override {

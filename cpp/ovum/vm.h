@@ -277,14 +277,25 @@ namespace egg::ovum {
     virtual HardObject createBuiltinCollector() = 0; // TODO testing only
     virtual HardObject createBuiltinSymtable() = 0; // TODO testing only
     // Collectable helpers
-    IValue* createSoftValue() {
-      return this->softCreateValue();
+    IValue& createSoftValue() {
+      auto* soft = this->softCreateValue(nullptr);
+      assert(soft != nullptr);
+      return *soft;
     }
-    IValue* createSoftAlias(const IValue& value) { // WIBBLE deprecate?
-      return this->softCreateAlias(value);
+    IValue& createSoftValue(const HardValue& init) {
+      auto* soft = this->softCreateValue(&init.get());
+      assert(soft != nullptr);
+      return *soft;
     }
-    IValue* createSoftClone(const IValue& value) {
-      return this->softCreateClone(value);
+    IValue& createSoftAlias(const HardValue& value) {
+      auto* soft = this->softCreateAlias(value.get());
+      assert(soft != nullptr);
+      return *soft;
+    }
+    IValue& createSoftOwned(const HardValue& value) {
+      auto* soft = this->softCreateOwned(value.get());
+      assert(soft != nullptr);
+      return *soft;
     }
     HardValue getSoftKey(const SoftKey& key) {
       auto* hard = this->softHarden(key.ptr);
@@ -314,9 +325,9 @@ namespace egg::ovum {
       return static_cast<T*>(soft);
     }
   private:
-    virtual IValue* softCreateValue() = 0;
+    virtual IValue* softCreateValue(const IValue* init) = 0;
     virtual IValue* softCreateAlias(const IValue& value) = 0;
-    virtual IValue* softCreateClone(const IValue& value) = 0;
+    virtual IValue* softCreateOwned(const IValue& value) = 0;
     virtual void softAcquire(ICollectable*& target, const ICollectable* value) = 0;
     virtual IValue* softHarden(const IValue* soft) = 0;
     virtual bool softSetValue(IValue*& soft, const IValue& value) = 0;

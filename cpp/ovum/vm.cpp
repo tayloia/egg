@@ -1614,7 +1614,7 @@ namespace {
       String scope; // Name of variable declared here
       size_t index; // Node-specific state variable
       std::deque<HardValue> deque; // Results of child nodes computation
-      HardValue value; // WIBBLE ownership?
+      HardValue value; // Used by switch/try etc.
     };
     HardPtr<IVMProgram> program;
     std::stack<NodeStack> stack;
@@ -1647,12 +1647,7 @@ namespace {
       return 0;
     }
     virtual void addBuiltin(const String& symbol, const HardValue& value) override {
-      auto soft = this->vm.createSoftValue();
-      assert(soft != nullptr);
-      auto assigned = soft->set(value.get());
-      assert(assigned);
-      (void)assigned; // WIBBLE
-      this->symtable.builtin(symbol, soft);
+      this->symtable.builtin(symbol, &this->vm.createSoftValue(value));
     }
     virtual RunOutcome run(HardValue& retval, RunFlags flags) override {
       if (flags == RunFlags::Step) {
@@ -1728,8 +1723,8 @@ namespace {
         auto& parameter = signature.getParameter(index);
         auto pname = parameter.getName();
         auto ptype = parameter.getType();
-        HardValue poly{ *this->vm.createSoftValue() };
-        if (!this->execution.assignValue(poly.get(), ptype, value.get())) {
+        auto& poly = this->vm.createSoftValue();
+        if (!this->execution.assignValue(poly, ptype, value.get())) {
           auto message = this->execution.concat("Type mismatch for parameter '", pname, "': Expected '", ptype, "', but instead got ", describe(value));
           SourceRange source;
           if (arguments.getArgumentSourceByIndex(index, source)) {
@@ -1737,7 +1732,7 @@ namespace {
           }
           return this->execution.raiseRuntimeError(message, nullptr);
         }
-        auto* extant = this->symtable.add(VMSymbolTable::Kind::Variable, pname, ptype, &poly.get());
+        auto* extant = this->symtable.add(VMSymbolTable::Kind::Variable, pname, ptype, &poly);
         if (extant != nullptr) {
           switch (extant->kind) {
           case VMSymbolTable::Kind::Builtin:
@@ -1799,8 +1794,8 @@ namespace {
         return true;
       }
       assert(!top.scope.empty());
-      HardValue poly{ *this->vm.createSoftValue() };
-      auto* extant = this->symtable.add(VMSymbolTable::Kind::Variable, top.scope, type, &poly.get());
+      auto& poly = this->vm.createSoftValue();
+      auto* extant = this->symtable.add(VMSymbolTable::Kind::Variable, top.scope, type, &poly);
       if (extant != nullptr) {
         switch (extant->kind) {
         case VMSymbolTable::Kind::Builtin:
@@ -2134,13 +2129,18 @@ namespace {
       // TODO: thread safety
       return const_cast<IValue*>(soft);
     }
-    virtual IValue* softCreateValue() override {
+    virtual IValue* softCreateValue(const IValue* init) override {
       // TODO: thread safety
       auto* created = SoftValue::createPoly(this->allocator);
-      assert(created != nullptr);
-      auto* taken = this->basket->take(*created);
-      assert(taken == created);
-      return static_cast<IValue*>(taken);
+      if (created != nullptr) {
+        auto* taken = this->basket->take(*created);
+        if (taken == created) {
+          if ((init == nullptr) || created->set(*init)) {
+            return created;
+          }
+        }
+      }
+      return nullptr;
     }
     virtual IValue* softCreateAlias(const IValue& value) override {
       // TODO: thread safety
@@ -2148,21 +2148,16 @@ namespace {
       assert(taken == &value);
       return static_cast<IValue*>(taken);
     }
-    virtual IValue* softCreateClone(const IValue& hard) override {
+    virtual IValue* softCreateOwned(const IValue& hard) override {
       // TODO: optimize
       // TODO: thread safety
       // If we would need to transfer to our basket, clone it instead
       if (hard.softGetBasket() == this->basket.get()) {
         return const_cast<IValue*>(&hard);
       }
-      auto* created = SoftValue::createPoly(this->allocator);
-      assert(created != nullptr);
-      auto* taken = this->basket->take(*created);
-      assert(taken == created);
-      auto assigned = created->set(hard);
-      assert(assigned);
-      (void)assigned;
-      return static_cast<IValue*>(taken);
+      auto cloned = this->softCreateValue(&hard);
+      assert((cloned == nullptr) || (cloned->softGetBasket() == this->basket.get()));
+      return cloned;
     }
     virtual bool softSetValue(IValue*& target, const IValue& value) override {
       // TODO: thread safety
