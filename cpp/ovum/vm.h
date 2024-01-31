@@ -280,14 +280,11 @@ namespace egg::ovum {
     IValue* createSoftValue() {
       return this->softCreateValue();
     }
-    IValue* createSoftKey(const IValue& hard) {
-      return this->softCreateKey(hard);
-    }
     IValue* createSoftAlias(const IValue& value) { // WIBBLE deprecate?
       return this->softCreateAlias(value);
     }
-    IValue* softenWIBBLE(const IValue& value) {
-      return this->softCreateWIBBLE(value);
+    IValue* createSoftClone(const IValue& value) {
+      return this->softCreateClone(value);
     }
     HardValue getSoftKey(const SoftKey& key) {
       auto* hard = this->softHarden(key.ptr);
@@ -318,9 +315,8 @@ namespace egg::ovum {
     }
   private:
     virtual IValue* softCreateValue() = 0;
-    virtual IValue* softCreateKey(const IValue& hard) = 0;
     virtual IValue* softCreateAlias(const IValue& value) = 0;
-    virtual IValue* softCreateWIBBLE(const IValue& value) = 0;
+    virtual IValue* softCreateClone(const IValue& value) = 0;
     virtual void softAcquire(ICollectable*& target, const ICollectable* value) = 0;
     virtual IValue* softHarden(const IValue* soft) = 0;
     virtual bool softSetValue(IValue*& soft, const IValue& value) = 0;

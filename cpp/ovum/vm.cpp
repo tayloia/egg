@@ -2143,29 +2143,13 @@ namespace {
       assert(taken == created);
       return static_cast<IValue*>(taken);
     }
-    virtual IValue* softCreateKey(const IValue& hard) override { // WIBBLE
-      // TODO: optimize
-      // TODO: thread safety
-      // If we would need to transfer to our basket, clone it instead
-      if (hard.softGetBasket() == this->basket.get()) {
-        return const_cast<IValue*>(&hard);
-      }
-      auto* created = SoftValue::createPoly(this->allocator);
-      assert(created != nullptr);
-      auto* taken = this->basket->take(*created);
-      assert(taken == created);
-      auto assigned = created->set(hard);
-      assert(assigned);
-      (void)assigned;
-      return static_cast<IValue*>(taken);
-    }
     virtual IValue* softCreateAlias(const IValue& value) override {
       // TODO: thread safety
       auto* taken = this->basket->take(value);
       assert(taken == &value);
       return static_cast<IValue*>(taken);
     }
-    virtual IValue* softCreateWIBBLE(const IValue& hard) override {
+    virtual IValue* softCreateClone(const IValue& hard) override {
       // TODO: optimize
       // TODO: thread safety
       // If we would need to transfer to our basket, clone it instead
