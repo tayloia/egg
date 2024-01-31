@@ -150,19 +150,6 @@ namespace {
     explicit VMObjectBuiltinPrint(IVM& vm)
       : VMObjectBase(vm) {
     }
-    virtual VMObjectBuiltinPrint* hardAcquire() const override { // WIBBLE
-      auto count = this->atomic.increment();
-      assert(count > 0);
-      (void)count;
-      return const_cast<VMObjectBuiltinPrint*>(this);
-    }
-    virtual void hardRelease() const override { // WIBBLE
-      auto count = this->atomic.decrement();
-      assert(count >= 0);
-      if (count == 0) {
-        this->hardDestroy();
-      }
-    }
     virtual void softVisit(ICollectable::IVisitor&) const override {
       // No soft links
     }

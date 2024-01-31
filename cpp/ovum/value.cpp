@@ -1244,12 +1244,6 @@ egg::ovum::SoftKey::SoftKey(IVM&, const HardValue& hard) : ptr(&hard.get()) { //
   assert(this->validate());
 }
 
-/* WIBBLE
-egg::ovum::SoftKey::SoftKey(IVM& vm, const HardValue& value) : ptr(vm.createSoftKey(value.get())) {
-  assert(this->validate());
-}
-*/
-
 egg::ovum::SoftKey& egg::ovum::SoftKey::soften(IVM& vm) {
   assert(this->validate());
   this->ptr = vm.softenWIBBLE(*this->ptr);
