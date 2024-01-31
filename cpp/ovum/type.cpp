@@ -441,8 +441,7 @@ namespace egg::internal {
       return this->modifiability;
     }
     size_t cacheHash() const {
-      Hash hash;
-      return hash.add(this->resultType).add(this->indexType).add(this->modifiability);
+      return Hash::combine(this->resultType, this->indexType, this->modifiability);
     }
     static bool cacheEquals(const TypeForgeIndexSignature& lhs, const TypeForgeIndexSignature& rhs) {
       return (lhs.resultType == rhs.resultType) && (lhs.indexType == rhs.indexType) && (lhs.modifiability == rhs.modifiability);
@@ -463,8 +462,7 @@ namespace egg::internal {
       return this->interationType;
     }
     size_t cacheHash() const {
-      Hash hash;
-      return hash.add(this->interationType);
+      return Hash::combine(this->interationType);
     }
     static bool cacheEquals(const TypeForgeIteratorSignature& lhs, const TypeForgeIteratorSignature& rhs) {
       return lhs.interationType == rhs.interationType;
@@ -490,8 +488,7 @@ namespace egg::internal {
       return this->modifiability;
     }
     size_t cacheHash() const {
-      Hash hash;
-      return hash.add(this->pointeeType).add(this->modifiability);
+      return Hash::combine(this->pointeeType, this->modifiability);
     }
     static bool cacheEquals(const TypeForgePointerSignature& lhs, const TypeForgePointerSignature& rhs) {
       return (lhs.pointeeType == rhs.pointeeType) && (lhs.modifiability == rhs.modifiability);
@@ -515,8 +512,7 @@ namespace egg::internal {
       return this->precedence;
     }
     size_t cacheHash() const {
-      Hash hash;
-      return hash.add(this->description.hash()).add(this->precedence);
+      return Hash::combine(this->description.hash(), this->precedence);
     }
     static bool cacheEquals(const TypeForgeTaggableSignature& lhs, const TypeForgeTaggableSignature& rhs) {
       return (lhs.description == rhs.description) && (lhs.precedence == rhs.precedence);
@@ -1407,7 +1403,7 @@ int egg::ovum::Type::print(Printer& printer) const {
   auto* p = this->ptr;
   if (p == nullptr) {
     printer << "<unknown>";
-    return 0;
+    return -1;
   }
   return p->print(printer);
 }
@@ -1437,12 +1433,22 @@ int egg::ovum::Type::print(Printer& printer, const IType::Shape& shape) {
   if (shape.taggable != nullptr) {
     return shape.taggable->print(printer);
   }
+  // TODO
   printer.stream << "<SHAPE:" << &shape << ">";
-  return 0;
+  return -1;
 }
 
 void egg::ovum::Type::print(Printer& printer, const IFunctionSignature& signature) {
-  signature.getReturnType().print(printer);
+  // Write the return type to a separate buffer in case it has to be wrapped in parentheses
+  StringBuilder sb{ printer.options };
+  auto precedence = signature.getReturnType().print(sb);
+  if (precedence == 2) {
+    // Wrap 'a|b' in parentheses
+    printer << '(' << sb.toUTF8() << ')';
+  } else {
+    // No need to wrap
+    printer << sb.toUTF8();
+  }
   if (printer.options.names) {
     auto name = signature.getName();
     if (!name.empty()) {

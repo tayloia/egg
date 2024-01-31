@@ -1572,12 +1572,10 @@ namespace {
       }
       HardValue value;
       if (arguments.getArgumentValueByIndex(0, value)) {
-        // TODO better option allocation
-        StringBuilder sb;
-        Print::Options options;
+        Print::Options options{};
         options.names = false;
-        Printer printer{ sb.stream, options };
-        printer << value->getRuntimeType();
+        StringBuilder sb{ options };
+        sb << value->getRuntimeType();
         return this->vm.createHardValueString(sb.build(this->vm.getAllocator()));
       }
       return this->vm.createHardValue("unknown");

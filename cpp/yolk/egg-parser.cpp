@@ -1050,6 +1050,17 @@ namespace {
     Partial parseTypeExpressionPrimary(size_t tokidx) {
       Context context(*this, tokidx);
       auto& next = context[0];
+      if (next.isOperator(EggTokenizerOperator::ParenthesisLeft)) {
+        auto partial = this->parseTypeExpression(tokidx + 1);
+        if (!partial.succeeded()) {
+          return partial;
+        }
+        if (!partial.after(0).isOperator(EggTokenizerOperator::ParenthesisRight)) {
+          return context.expected(partial.tokensAfter, "')' after type expression");
+        }
+        partial.tokensAfter++;
+        return partial;
+      }
       if (next.kind == EggTokenizerKind::Keyword) {
         switch (next.value.k) {
         case EggTokenizerKeyword::Any:
