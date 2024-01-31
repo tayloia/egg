@@ -3,7 +3,7 @@
 #include "yolk/egg-tokenizer.h"
 #include "yolk/egg-parser.h"
 
-#include <iostream>
+#include <iostream> // Only needed by PARSE_TODO
 #define PARSE_TODO(tokidx, ...) context.todo(tokidx, __FILE__, __LINE__, __VA_ARGS__)
 
 using namespace egg::yolk;

@@ -2,7 +2,6 @@
 #include "ovum/operation.h"
 
 #include <deque>
-#include <iostream> // WIBBLE
 
 namespace {
   using namespace egg::ovum;
@@ -324,7 +323,7 @@ namespace {
       if (arguments.getArgumentCount() != 0) {
         return this->raisePrefixError(execution, " expects no arguments");
       }
-      auto collected = this->vm.getBasket().collect(&std::cout);
+      auto collected = this->vm.getBasket().collect();
       return execution.createHardValueInt(Int(collected));
     }
   };

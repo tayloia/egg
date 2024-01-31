@@ -205,7 +205,7 @@ namespace egg::ovum {
     // Interface
     virtual ICollectable* take(const ICollectable& collectable) = 0;
     virtual void drop(const ICollectable& collectable) = 0;
-    virtual size_t collect(std::ostream* os) = 0; // WOBBLE
+    virtual size_t collect() = 0;
     virtual size_t purge() = 0;
     virtual bool statistics(Statistics& out) const = 0;
     virtual void print(Printer& printer) const = 0;
