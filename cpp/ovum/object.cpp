@@ -889,6 +889,19 @@ namespace {
     }
   };
 
+  class VMObjectVanillaGenerator : public VMObjectVanillaFunction {
+    VMObjectVanillaGenerator(const VMObjectVanillaGenerator&) = delete;
+    VMObjectVanillaGenerator& operator=(const VMObjectVanillaGenerator&) = delete;
+  protected:
+    virtual void printPrefix(Printer& printer) const override {
+      printer << "Vanilla generator";
+    }
+  public:
+    VMObjectVanillaGenerator(IVM& vm, const Type& ftype, IVMCallHandler& handler, std::vector<VMCallCapture>&& captures)
+      : VMObjectVanillaFunction(vm, ftype, handler, std::move(captures)) {
+    }
+  };
+
   class VMObjectPointerBase : public VMObjectBase {
     VMObjectPointerBase(const VMObjectPointerBase&) = delete;
     VMObjectPointerBase& operator=(const VMObjectPointerBase&) = delete;
@@ -1844,6 +1857,10 @@ egg::ovum::HardObject egg::ovum::ObjectFactory::createVanillaKeyValue(IVM& vm, c
 
 egg::ovum::HardObject egg::ovum::ObjectFactory::createVanillaFunction(IVM& vm, const Type& ftype, IVMCallHandler& handler, std::vector<VMCallCapture>&& captures) {
   return makeHardObject<VMObjectVanillaFunction>(vm, ftype, handler, std::move(captures));
+}
+
+egg::ovum::HardObject egg::ovum::ObjectFactory::createVanillaGenerator(IVM& vm, const Type& ftype, IVMCallHandler& handler, std::vector<VMCallCapture>&& captures) {
+  return makeHardObject<VMObjectVanillaGenerator>(vm, ftype, handler, std::move(captures));
 }
 
 egg::ovum::HardObject egg::ovum::ObjectFactory::createPointerToValue(IVM& vm, const HardValue& value, Modifiability modifiability) {

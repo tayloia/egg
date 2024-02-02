@@ -1959,7 +1959,13 @@ namespace {
         }
         captures.emplace_back(found->kind, found->type, symbol, found->soft);
       }
-      auto object = ObjectFactory::createVanillaFunction(this->vm, ftype, *handler, std::move(captures)); // WIBBLE
+      auto* signature = ftype.getOnlyFunctionSignature();
+      if ((signature != nullptr) && (signature->getGeneratedType() != nullptr)) {
+        auto object = ObjectFactory::createVanillaGenerator(this->vm, ftype, *handler, std::move(captures));
+        assert(object != nullptr);
+        return this->createHardValueObject(object);
+      }
+      auto object = ObjectFactory::createVanillaFunction(this->vm, ftype, *handler, std::move(captures));
       assert(object != nullptr);
       return this->createHardValueObject(object);
     }

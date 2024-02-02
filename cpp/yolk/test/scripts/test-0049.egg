@@ -11,4 +11,4 @@ while (var i = f()) {
   assert(type.of(i) == "int");
   print(i);
 }
-///<RUNTIME><ERROR><RESOURCE>(1,8): Generators are not yet supported
+///<RUNTIME><ERROR><RESOURCE>(3,5-9): 'yield' statements are not yet supported

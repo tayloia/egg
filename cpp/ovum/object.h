@@ -70,6 +70,7 @@ namespace egg::ovum {
     static HardObject createVanillaObject(IVM& vm);
     static HardObject createVanillaKeyValue(IVM& vm, const HardValue& key, const HardValue& value);
     static HardObject createVanillaFunction(IVM& vm, const Type& ftype, IVMCallHandler& handler, std::vector<VMCallCapture>&& captures);
+    static HardObject createVanillaGenerator(IVM& vm, const Type& ftype, IVMCallHandler& handler, std::vector<VMCallCapture>&& captures);
     // Pointer factories
     static HardObject createPointerToValue(IVM& vm, const HardValue& value, Modifiability modifiability);
     static HardObject createPointerToIndex(IVM& vm, const HardObject& instance, const HardValue& index, Modifiability modifiability, const Type& pointerType);
