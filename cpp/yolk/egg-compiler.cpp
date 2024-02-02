@@ -92,9 +92,9 @@ namespace {
     struct StmtContextData {
       bool canBreak : 1 = false;
       bool canContinue : 1 = false;
-      bool canYield : 1 = false;
       bool canRethrow : 1 = false;
       egg::ovum::Type canReturn = nullptr;
+      egg::ovum::Type canYield = nullptr;
       ModuleNode* target = nullptr;
     };
     class StmtContext : public ExprContext, public StmtContextData {
@@ -145,6 +145,7 @@ namespace {
     ModuleNode* compileStmtIfGuarded(ParserNode& pnode, StmtContext& context);
     ModuleNode* compileStmtIfUnguarded(ParserNode& pnode, StmtContext& context);
     ModuleNode* compileStmtReturn(ParserNode& pnode, StmtContext& context);
+    ModuleNode* compileStmtYield(ParserNode& pnode, StmtContext& context);
     ModuleNode* compileStmtTry(ParserNode& pnode, StmtContext& context);
     ModuleNode* compileStmtCatch(ParserNode& pnode, StmtContext& context);
     ModuleNode* compileStmtWhile(ParserNode& pnode, StmtContext& context);
@@ -357,6 +358,9 @@ ModuleNode* ModuleCompiler::compileStmt(ParserNode& pnode, StmtContext& context)
   case ParserNode::Kind::StmtReturn:
     EXPECT(pnode, pnode.children.size() <= 2);
     return this->compileStmtReturn(pnode, context);
+  case ParserNode::Kind::StmtYield:
+    EXPECT(pnode, pnode.children.size() <= 2);
+    return this->compileStmtYield(pnode, context);
   case ParserNode::Kind::StmtTry:
     EXPECT(pnode, pnode.children.size() >= 2);
     return this->compileStmtTry(pnode, context);
@@ -510,13 +514,18 @@ ModuleNode* ModuleCompiler::compileStmtDefineFunction(ParserNode& pnode, StmtCon
   if (mtype == nullptr) {
     return nullptr;
   }
+  assert(signature != nullptr);
   assert(type != nullptr);
   auto okay = this->addSymbol(context, phead, StmtContext::Symbol::Kind::Function, symbol, type);
   std::set<egg::ovum::String> captures;
   StmtContext inner{ &context, &captures };
-  inner.canReturn = signature->getReturnType();
-  assert(inner.canReturn != nullptr);
-  assert(signature != nullptr);
+  inner.canYield = signature->getGeneratedType();
+  if (inner.canYield == nullptr) {
+    inner.canReturn = signature->getReturnType();
+    assert(inner.canReturn != nullptr);
+  } else {
+    inner.canReturn = nullptr;
+  }
   size_t pcount = signature->getParameterCount();
   for (size_t pindex = 0; pindex < pcount; ++pindex) {
     auto& parameter = signature->getParameter(pindex);
@@ -814,6 +823,29 @@ ModuleNode* ModuleCompiler::compileStmtReturn(ParserNode& pnode, StmtContext& co
   return stmt;
 }
 
+ModuleNode* ModuleCompiler::compileStmtYield(ParserNode& pnode, StmtContext& context) {
+  assert(pnode.kind == ParserNode::Kind::StmtYield);
+  assert(pnode.children.size() <= 1);
+  if (context.canYield == nullptr) {
+    return this->error(pnode, "'yield' statements are only valid within generator definitions");
+  }
+  // TODO: yield ... <expr> ;
+  // TODO: yield break ;
+  // TODO: yield continue ;
+  auto& pchild = *pnode.children.back();
+  auto* expr = this->compileValueExpr(pchild, context);
+  if (expr == nullptr) {
+    return nullptr;
+  }
+  auto type = this->deduceType(*expr, context);
+  assert(type != nullptr);
+  auto assignable = this->isAssignable(context.canYield, type);
+  if (assignable == egg::ovum::Assignability::Never) {
+    return this->error(pchild, "Expected 'yield' statement with a value of type '", *context.canYield, "', but instead got a value of type '", *type, "'");
+  }
+  return &this->mbuilder.stmtYield(*expr, pnode.range);
+}
+
 ModuleNode* ModuleCompiler::compileStmtTry(ParserNode& pnode, StmtContext& context) {
   assert(pnode.kind == ParserNode::Kind::StmtTry);
   assert(pnode.children.size() >= 2);
@@ -1033,6 +1065,7 @@ ModuleNode* ModuleCompiler::compileValueExpr(ParserNode& pnode, const ExprContex
   case ParserNode::Kind::StmtForLoop:
   case ParserNode::Kind::StmtIf:
   case ParserNode::Kind::StmtReturn:
+  case ParserNode::Kind::StmtYield:
   case ParserNode::Kind::StmtTry:
   case ParserNode::Kind::StmtCatch:
   case ParserNode::Kind::StmtFinally:
@@ -1451,17 +1484,27 @@ ModuleNode* ModuleCompiler::compileTypeInferVar(ParserNode& pnode, ParserNode& p
 
 ModuleNode* ModuleCompiler::compileTypeFunctionSignature(ParserNode& pnode, const egg::ovum::IFunctionSignature*& signature, egg::ovum::Type& type) {
   assert(pnode.kind == ParserNode::Kind::TypeFunctionSignature);
+  assert((pnode.op.functionOp == ParserNode::FunctionOp::Function) || (pnode.op.functionOp == ParserNode::FunctionOp::Generator));
   egg::ovum::String symbol;
   EXPECT(pnode, pnode.value->getString(symbol));
-  auto rtype = this->forgeType(*pnode.children.front());
-  if (rtype == nullptr) {
-    return this->expected(*pnode.children.front(), "function definition return type");
-  }
   auto& forge = this->mbuilder.getTypeForge();
   auto fb = forge.createFunctionBuilder();
   assert(fb != nullptr);
   fb->setFunctionName(symbol);
-  fb->setReturnType(rtype);
+  auto generator = (pnode.op.functionOp == ParserNode::FunctionOp::Generator);
+  if (generator) {
+    auto gtype = this->forgeType(*pnode.children.front());
+    if (gtype == nullptr) {
+      return this->expected(*pnode.children.front(), "generator definition return type");
+    }
+    fb->setGeneratedType(gtype);
+  } else {
+    auto rtype = this->forgeType(*pnode.children.front());
+    if (rtype == nullptr) {
+      return this->expected(*pnode.children.front(), "function definition return type");
+    }
+    fb->setReturnType(rtype);
+  }
   for (size_t index = 1; index < pnode.children.size(); ++index) {
     auto& pchild = *pnode.children[index];
     assert(pchild.kind == ParserNode::Kind::TypeFunctionSignatureParameter);
@@ -1739,6 +1782,8 @@ std::string ModuleCompiler::toString(const ParserNode& pnode) {
     return "if statement";
   case ParserNode::Kind::StmtReturn:
     return "return statement";
+  case ParserNode::Kind::StmtYield:
+    return "yield statement";
   case ParserNode::Kind::StmtTry:
     return "try statement";
   case ParserNode::Kind::StmtCatch:

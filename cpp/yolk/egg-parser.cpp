@@ -9,6 +9,16 @@
 using namespace egg::yolk;
 
 namespace {
+  const char* describe(IEggParser::Node::FunctionOp flavour) {
+    switch (flavour) {
+    case IEggParser::Node::FunctionOp::Function:
+      break;
+    case IEggParser::Node::FunctionOp::Generator:
+      return "generator";
+    }
+    return "function";
+  }
+
   int precedence(egg::ovum::ValueBinaryOp op) {
     // See egg/www/v1/syntax/syntax.html#binary-operator
     // OPTIMIZE
@@ -47,6 +57,7 @@ namespace {
     }
     return 0;
   }
+
   class EggParserTokens {
     EggParserTokens(const EggParserTokens&) = delete;
     EggParserTokens& operator=(const EggParserTokens&) = delete;
@@ -531,20 +542,22 @@ namespace {
       if (!type.succeeded()) {
         return context.skip();
       }
-      auto& fname = type.after(0);
+      auto flavour = type.after(0).isOperator(EggTokenizerOperator::Ellipsis) ? Node::FunctionOp::Generator: Node::FunctionOp::Function;
+      auto offset = size_t(flavour == Node::FunctionOp::Generator);
+      auto& fname = type.after(offset);
       if (fname.kind != EggTokenizerKind::Identifier) {
         return context.skip();
       }
-      if (!type.after(1).isOperator(EggTokenizerOperator::ParenthesisLeft)) {
+      if (!type.after(++offset).isOperator(EggTokenizerOperator::ParenthesisLeft)) {
         return context.skip();
       }
-      // <type> <identifier> ( <parameters> ) { <block> }
-      auto signature = this->parseTypeFunctionSignature(type, fname, type.tokensAfter + 1);
+      // <type> [...] <identifier> ( <parameters> ) { <block> }
+      auto signature = this->parseTypeFunctionSignature(type, flavour, fname, type.tokensAfter + offset);
       if (!signature.succeeded()) {
         return signature;
       }
       if (!signature.after(0).isOperator(EggTokenizerOperator::CurlyLeft)) {
-        return context.expected(signature.tokensAfter, "'{' after ')' in definition of function '", fname.value.s, "'");
+        return context.expected(signature.tokensAfter, "'{' after ')' in definition of ", describe(flavour), " '", fname.value.s, "'");
       }
       auto block = this->parseStatementBlock(signature.tokensAfter);
       if (!block.succeeded()) {
@@ -733,7 +746,23 @@ namespace {
     Partial parseStatementYield(size_t tokidx) {
       Context context(*this, tokidx);
       assert(context[0].isKeyword(EggTokenizerKeyword::Yield));
-      return PARSE_TODO(tokidx, "statement keyword: ", context[0].toString());
+      if (context[1].isOperator(EggTokenizerOperator::Semicolon)) {
+        // yield ;
+        auto stmt = this->makeNodeString(Node::Kind::StmtYield, context[0]);
+        return context.success(std::move(stmt), tokidx + 2);
+      }
+      // TODO yield ... <expr> ;
+      auto expr = this->parseValueExpression(tokidx + 1);
+      if (expr.succeeded()) {
+        // return <expr> ;
+        if (!expr.after(0).isOperator(EggTokenizerOperator::Semicolon)) {
+          return context.expected(expr.tokensAfter, "';' after 'yield' statement");
+        }
+        auto stmt = this->makeNodeString(Node::Kind::StmtYield, context[0]);
+        stmt->children.emplace_back(std::move(expr.node));
+        return context.success(std::move(stmt), expr.tokensAfter + 1);
+      }
+      return expr;
     }
     Partial parseStatementSimple(size_t tokidx) {
       Context context(*this, tokidx);
@@ -1034,6 +1063,7 @@ namespace {
           if (last.isOperator(EggTokenizerOperator::ParenthesisRight)) {
             // type()
             partial.wrap(Node::Kind::TypeFunctionSignature);
+            partial.node->op.functionOp = Node::FunctionOp::Function;
             partial.node->range.end = { last.line, last.column + 1 };
             partial.node->op.typeUnaryOp = egg::ovum::TypeUnaryOp::Array;
             partial.tokensAfter += 2;
@@ -1109,11 +1139,12 @@ namespace {
       auto node = this->makeNode(kind, context[0]);
       return context.success(std::move(node), context.tokensBefore + 1);
     }
-    Partial parseTypeFunctionSignature(Partial& rtype, const EggTokenizerItem& fname, size_t tokidx) {
+    Partial parseTypeFunctionSignature(Partial& rtype, Node::FunctionOp flavour, const EggTokenizerItem& fname, size_t tokidx) {
       assert(rtype.succeeded());
       Context context(*this, tokidx);
       assert(context[0].isOperator(EggTokenizerOperator::ParenthesisLeft));
       auto signature = this->makeNodeString(Node::Kind::TypeFunctionSignature, fname);
+      signature->op.functionOp = flavour;
       signature->range.begin = rtype.node->range.begin;
       signature->children.emplace_back(std::move(rtype.node));
       if (context[1].isOperator(EggTokenizerOperator::ParenthesisRight)) {
@@ -1123,7 +1154,7 @@ namespace {
       auto nxtidx = tokidx + 1;
       for (;;) {
         // Parse the parameters
-        auto parameter = this->parseTypeFunctionSignatureParameter(nxtidx);
+        auto parameter = this->parseTypeFunctionSignatureParameter(flavour, nxtidx);
         if (!parameter.succeeded()) {
           return parameter;
         }
@@ -1135,12 +1166,12 @@ namespace {
           return context.success(std::move(signature), nxtidx + 1);
         }
         if (!next.isOperator(EggTokenizerOperator::Comma)) {
-          return context.expected(nxtidx, "',' between parameters in definition of function '", fname.value.s, "'");
+          return context.expected(nxtidx, "',' between parameters in definition of ", describe(flavour), " '", fname.value.s, "'");
         }
         nxtidx++;
       }
     }
-    Partial parseTypeFunctionSignatureParameter(size_t tokidx) {
+    Partial parseTypeFunctionSignatureParameter(Node::FunctionOp flavour, size_t tokidx) {
       Context context(*this, tokidx);
       auto type = this->parseTypeExpression(tokidx);
       if (!type.succeeded()) {
@@ -1154,7 +1185,7 @@ namespace {
       if (type.after(1).isOperator(EggTokenizerOperator::Equal)) {
         // <type> <name> = null
         if (!type.after(2).isKeyword(EggTokenizerKeyword::Null)) {
-          return context.expected(type.tokensAfter + 2, "'null' as default value after '=' in function parameter definition");
+          return context.expected(type.tokensAfter + 2, "'null' as default value after '=' in ", describe(flavour), " parameter definition");
         }
         auto optional = this->makeNodeString(Node::Kind::TypeFunctionSignatureParameter, pname);
         optional->op.parameterOp = Node::ParameterOp::Optional;

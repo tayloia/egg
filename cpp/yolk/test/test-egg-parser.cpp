@@ -78,6 +78,9 @@ namespace {
     case Node::Kind::StmtReturn:
       assert(node.children.size() <= 1);
       return printNodeChildren(os, "stmt-return", node, ranges);
+    case Node::Kind::StmtYield:
+      assert(node.children.size() <= 1);
+      return printNodeChildren(os, "stmt-yield", node, ranges);
     case Node::Kind::StmtTry:
       assert(node.children.size() >= 2);
       return printNodeChildren(os, "stmt-try", node, ranges);
@@ -161,7 +164,15 @@ namespace {
     case Node::Kind::TypeBinary:
       return printNodeExtra(os, "type-binary", node.op.typeBinaryOp, node, ranges);
     case Node::Kind::TypeFunctionSignature:
-      return printNodeExtra(os, "type-signature", node.value, node, ranges);
+      switch (node.op.functionOp) {
+      case Node::FunctionOp::Function:
+        return printNodeExtra(os, "type-signature 'function'", node.value, node, ranges);
+      case Node::FunctionOp::Generator:
+        return printNodeExtra(os, "type-signature 'generator'", node.value, node, ranges);
+      default:
+        return printNodeExtra(os, "type-signature <unknown>", node.value, node, ranges);
+      }
+      break;
     case Node::Kind::TypeFunctionSignatureParameter:
       switch (node.op.parameterOp) {
       case Node::ParameterOp::Required:
@@ -514,9 +525,19 @@ TEST(TestEggParser, StatementDefineFunction) {
   std::string actual = outputFromLines({
     "int f(string a, float? b = null) {}"
     });
-  std::string expected = "(stmt-define-function 'f' (type-signature 'f' (type-int) "
+  std::string expected = "(stmt-define-function 'f' (type-signature 'function' 'f' (type-int) "
                          "(type-parameter 'required' 'a' (type-string)) "
                          "(type-parameter 'optional' 'b' (type-unary '?' (type-float)))) (stmt-block))\n";
+  ASSERT_EQ(expected, actual);
+}
+
+TEST(TestEggParser, StatementDefineGenerator) {
+  std::string actual = outputFromLines({
+    "int ...g(string a, float? b = null) {}"
+    });
+  std::string expected = "(stmt-define-function 'g' (type-signature 'generator' 'g' (type-int) "
+    "(type-parameter 'required' 'a' (type-string)) "
+    "(type-parameter 'optional' 'b' (type-unary '?' (type-float)))) (stmt-block))\n";
   ASSERT_EQ(expected, actual);
 }
 

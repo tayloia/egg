@@ -234,6 +234,10 @@ namespace egg::ovum {
     virtual Node& stmtCatch(const String& symbol, Node& type, const SourceRange& range) = 0;
     virtual Node& stmtRethrow(const SourceRange& range) = 0;
     virtual Node& stmtReturn(const SourceRange& range) = 0;
+    virtual Node& stmtYield(Node& value, const SourceRange& range) = 0;
+    virtual Node& stmtYieldAll(Node& value, const SourceRange& range) = 0;
+    virtual Node& stmtYieldBreak(const SourceRange& range) = 0;
+    virtual Node& stmtYieldContinue(const SourceRange& range) = 0;
     // Type operations
     virtual ITypeForge& getTypeForge() const = 0;
     virtual Type deduce(Node& node, const TypeLookup& lookup, Reporter* reporter) = 0;

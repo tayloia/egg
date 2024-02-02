@@ -71,7 +71,11 @@ public:
     StmtTry,
     StmtCatch,
     StmtRethrow,
-    StmtReturn
+    StmtReturn,
+    StmtYield,
+    StmtYieldAll,
+    StmtYieldBreak,
+    StmtYieldContinue
   };
   VMModule& module;
   Kind kind;
@@ -1041,6 +1045,10 @@ namespace {
       case Node::Kind::StmtCatch:
       case Node::Kind::StmtRethrow:
       case Node::Kind::StmtReturn:
+      case Node::Kind::StmtYield:
+      case Node::Kind::StmtYieldAll:
+      case Node::Kind::StmtYieldBreak:
+      case Node::Kind::StmtYieldContinue:
         return Type::Void;
       case Node::Kind::Root:
       case Node::Kind::ExprGuard:
@@ -1523,6 +1531,24 @@ namespace {
     }
     virtual Node& stmtReturn(const SourceRange& range) override {
       auto& node = this->module->createNode(Node::Kind::StmtReturn, range);
+      return node;
+    }
+    virtual Node& stmtYield(Node& value, const SourceRange& range) override {
+      auto& node = this->module->createNode(Node::Kind::StmtYield, range);
+      node.addChild(value);
+      return node;
+    }
+    virtual Node& stmtYieldAll(Node& value, const SourceRange& range) override {
+      auto& node = this->module->createNode(Node::Kind::StmtYieldAll, range);
+      node.addChild(value);
+      return node;
+    }
+    virtual Node& stmtYieldBreak(const SourceRange& range) override {
+      auto& node = this->module->createNode(Node::Kind::StmtYieldBreak, range);
+      return node;
+    }
+    virtual Node& stmtYieldContinue(const SourceRange& range) override {
+      auto& node = this->module->createNode(Node::Kind::StmtYieldContinue, range);
       return node;
     }
     virtual ITypeForge& getTypeForge() const override {
@@ -3040,6 +3066,11 @@ bool VMRunner::stepNode(HardValue& retval) {
       return this->pop(ValueFactory::createHardReturn(this->getAllocator(), result));
     }
     break;
+  case IVMModule::Node::Kind::StmtYield:
+  case IVMModule::Node::Kind::StmtYieldAll:
+  case IVMModule::Node::Kind::StmtYieldBreak:
+  case IVMModule::Node::Kind::StmtYieldContinue:
+    return this->raise("'yield' statements are not yet supported");
   case IVMModule::Node::Kind::ExprFunctionCall:
     assert(top.node->literal->getVoid());
     assert(top.index <= top.node->children.size());
