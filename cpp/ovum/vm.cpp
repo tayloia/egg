@@ -1419,9 +1419,13 @@ namespace {
       node.defaultIndex = defaultIndex;
       return node;
     }
-    virtual Node& stmtCase(Node& block, const SourceRange& range) override {
+    virtual Node& stmtCase(Node& expression, const SourceRange& range) override {
       auto& node = this->module->createNode(Node::Kind::StmtCase, range);
-      node.addChild(block);
+      node.addChild(expression);
+      return node;
+    }
+    virtual Node& stmtDefault(const SourceRange& range) override {
+      auto& node = this->module->createNode(Node::Kind::StmtCase, range);
       return node;
     }
     virtual Node& stmtBreak(const SourceRange& range) override {

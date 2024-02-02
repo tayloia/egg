@@ -1039,23 +1039,57 @@ ModuleNode* ModuleCompiler::compileStmtSwitch(ParserNode& pnode, StmtContext& co
   if (expr == nullptr) {
     return nullptr;
   }
+  std::vector<ModuleNode*> clauses;
   StmtContext inner{ &context };
   inner.canBreak = true;
   inner.canContinue = true;
   inner.target = nullptr;
   size_t defaultIndex = 0;
-  // WIBBLE
-  for (const auto& child : pnode.children.back()->children) {
-    // Make sure we append to the target as it is now
-    auto* target = inner.target;
-    assert(target != nullptr);
-    auto* stmt = this->compileStmt(*child, inner);
-    if (stmt == nullptr) {
-      return nullptr;
+  const auto& pchildren = pnode.children.back()->children;
+  auto count = pchildren.size();
+  for (size_t index = 0; index < count; ++index) {
+    assert(pchildren.at(index) != nullptr);
+    auto& pchild = *pchildren[index];
+    if (pchild.kind == ParserNode::Kind::StmtCase) {
+      // case <value> :
+      EXPECT(pchild, pchild.children.size() == 1);
+      if ((index + 1) >= count) {
+        return this->error(*pchildren[index], "Expected at least one statement within final 'case' clause of 'switch' statement block");
+      }
+      auto* mexpr = this->compileValueExpr(*pchild.children.front(), inner);
+      if (mexpr == nullptr) {
+        return nullptr;
+      }
+      inner.target = &this->mbuilder.stmtCase(*mexpr, pchild.range);
+      clauses.push_back(inner.target);
+    } else if (pchild.kind == ParserNode::Kind::StmtDefault) {
+      // default :
+      EXPECT(pchild, pchild.children.empty());
+      if ((index + 1) >= count) {
+        return this->error(*pchildren[index], "Expected at least one statement within final 'default' clause of 'switch' statement");
+      }
+      inner.target = &this->mbuilder.stmtDefault(pchild.range);
+      clauses.push_back(inner.target);
+    } else {
+      // Any other statement
+      auto* target = inner.target;
+      if (target == nullptr) {
+        return this->error(pchild, "Expected 'case' or 'default' clause to start 'switch' statement block, but instead got ", ModuleCompiler::toString(pchild));
+      }
+      auto* stmt = this->compileStmt(pchild, inner);
+      if (stmt == nullptr) {
+        return nullptr;
+      }
+      this->mbuilder.appendChild(*target, *stmt);
     }
-    this->mbuilder.appendChild(*target, *stmt);
+  }
+  if (clauses.empty()) {
+    return this->error(pnode, "Expected at least one 'case' or 'default' clause within 'switch' statement");
   }
   auto* stmt = &this->mbuilder.stmtSwitch(*expr, defaultIndex, pnode.range);
+  for (auto& clause : clauses) {
+    this->mbuilder.appendChild(*stmt, *clause);
+  }
   return stmt;
 }
 

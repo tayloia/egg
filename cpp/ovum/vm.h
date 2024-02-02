@@ -214,7 +214,8 @@ namespace egg::ovum {
     virtual Node& stmtForEach(const String& symbol, Node& type, Node& iteration, Node& block, const SourceRange& range) = 0;
     virtual Node& stmtForLoop(Node& initial, Node& condition, Node& advance, Node& block, const SourceRange& range) = 0;
     virtual Node& stmtSwitch(Node& expression, size_t defaultIndex, const SourceRange& range) = 0;
-    virtual Node& stmtCase(Node& block, const SourceRange& range) = 0;
+    virtual Node& stmtCase(Node& expression, const SourceRange& range) = 0;
+    virtual Node& stmtDefault(const SourceRange& range) = 0;
     virtual Node& stmtBreak(const SourceRange& range) = 0;
     virtual Node& stmtContinue(const SourceRange& range) = 0;
     virtual Node& stmtFunctionDefine(const String& symbol, Node& type, size_t captures, const SourceRange& range) = 0;
